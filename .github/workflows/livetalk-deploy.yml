@@ -196,6 +196,14 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Fetch secrets from Secrets Manager
+        id: fetch-secrets
+        uses: aws-actions/aws-secretsmanager-get-secrets@v2
+        with:
+          secret-ids: |
+            NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ needs.build.outputs.environment }}
+          parse-json-secrets: true
+
       - name: Deploy ALB and ECS Service Stacks
         env:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
@@ -204,10 +212,12 @@ jobs:
           # CDK が process.env.APP_VERSION を読み、ECS Task の environment に注入する
           # /api/health の version 表示に利用される
           APP_VERSION: ${{ needs.build.outputs.app-version }}
+          SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
         run: |
           npm run cdk --workspace=@nagiyu/infra-livetalk -- deploy \
             NagiyuLiveTalkAlb${STACK_SUFFIX} \
             NagiyuLiveTalkService${STACK_SUFFIX} \
+            --context nextAuthSecret="$SECRET_VALUE" \
             --require-approval never
 
           echo "LiveTalk ALB and ECS Service deployed (environment: $ENVIRONMENT)"

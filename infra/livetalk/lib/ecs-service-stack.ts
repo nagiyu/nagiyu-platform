@@ -45,6 +45,19 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
 
     const { environment, appVersion = '1.0.0' } = props;
 
+    // CDK context から secrets を取得
+    // 未指定の場合はプレースホルダーを使用（deploy ジョブで実際の値に更新される）
+    const nextAuthSecret =
+      scope.node.tryGetContext('nextAuthSecret') || 'PLACEHOLDER_NEXTAUTH_SECRET';
+
+    const authUrl =
+      environment === 'prod' ? 'https://auth.nagiyu.com' : `https://dev-auth.nagiyu.com`;
+
+    const appUrl =
+      environment === 'prod'
+        ? 'https://live-talk.nagiyu.com'
+        : 'https://dev-live-talk.nagiyu.com';
+
     const vpcId = ssm.StringParameter.valueForStringParameter(
       this,
       SSM_PARAMETERS.VPC_ID(environment)
@@ -177,9 +190,18 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
         logGroup,
       }),
       environment: {
-        NODE_ENV: environment === 'prod' ? 'production' : 'development',
+        // admin / niconico-mylist-assistant 等と同じく environment 値をそのまま渡す。
+        // 'development' にすると @nagiyu/nextjs の cookie 名サフィックスと domain スコープが
+        // Auth サービスの発行 cookie とずれるため、'dev' / 'prod' を使う。
+        NODE_ENV: environment,
         PORT: '3000',
         APP_VERSION: appVersion,
+        // NextAuth v5 が JWT 署名・検証に使用する secret。Auth サービスと同じ値が必要。
+        AUTH_SECRET: nextAuthSecret,
+        // Auth サービスの URL（サインインリダイレクト先）
+        NEXT_PUBLIC_AUTH_URL: authUrl,
+        // 自サービスのベース URL（callbackUrl 生成用）
+        APP_URL: appUrl,
       },
       portMappings: [
         {
