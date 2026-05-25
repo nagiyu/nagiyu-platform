@@ -274,10 +274,75 @@ jobs:
             echo "Health check passed."
           fi
 
+  infrastructure-cloudfront:
+    name: Deploy CloudFront Distribution
+    runs-on: ubuntu-latest
+    needs: infrastructure-app
+
+    outputs:
+      environment: ${{ needs.infrastructure-app.outputs.environment }}
+      stack-suffix: ${{ needs.infrastructure-app.outputs.stack-suffix }}
+      custom-domain: ${{ steps.fetch-custom-domain.outputs.custom-domain }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra-livetalk
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy LiveTalk CloudFront Stack
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-app.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.infrastructure-app.outputs.stack-suffix }}
+        # CloudFront の Distribution 作成・更新は 15 分以上かかることがあるため、
+        # GitHub Actions のジョブタイムアウト（既定 360 分）の範囲内で完了する想定。
+        run: |
+          npm run cdk --workspace=@nagiyu/infra-livetalk -- deploy \
+            NagiyuLiveTalkCloudFront${STACK_SUFFIX} \
+            --require-approval never
+
+          echo "LiveTalk CloudFront Distribution deployed (environment: $ENVIRONMENT)"
+
+      - name: Fetch CloudFront custom domain from SSM
+        id: fetch-custom-domain
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-app.outputs.environment }}
+        run: |
+          CUSTOM_DOMAIN=$(aws ssm get-parameter \
+            --name "/nagiyu/livetalk/${ENVIRONMENT}/cloudfront/custom-domain" \
+            --query "Parameter.Value" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$CUSTOM_DOMAIN" ]; then
+            echo "Warning: Could not resolve LiveTalk CloudFront custom domain from SSM."
+          else
+            echo "Custom domain: $CUSTOM_DOMAIN"
+          fi
+
+          echo "custom-domain=$CUSTOM_DOMAIN" >> "$GITHUB_OUTPUT"
+
   summary:
     name: Deployment Summary
     runs-on: ubuntu-latest
-    needs: [build, infrastructure-app]
+    needs: [build, infrastructure-app, infrastructure-cloudfront]
+    if: always()
 
     steps:
       - name: Display deployment summary
@@ -286,6 +351,7 @@ jobs:
           IMAGE_URI: ${{ needs.build.outputs.image-uri }}
           APP_VERSION: ${{ needs.build.outputs.app-version }}
           ALB_DNS: ${{ needs.infrastructure-app.outputs.alb-dns-name }}
+          CUSTOM_DOMAIN: ${{ needs.infrastructure-cloudfront.outputs.custom-domain }}
         run: |
           {
             echo ""
@@ -296,7 +362,8 @@ jobs:
             echo "- **Image (SHA tag)**: \`$IMAGE_URI\`"
             echo "- **Latest tag**: same digest also pushed as \`:latest\`"
             echo "- **ALB DNS**: \`$ALB_DNS\`"
+            echo "- **Custom Domain**: https://$CUSTOM_DOMAIN"
             echo ""
-            echo "Note: Custom domain / HTTPS termination is added in Phase 1d (CloudFront)."
+            echo "Note: Route53 ALIAS は LiveTalk CloudFront スタック内で同時作成される（infra/ui-storybook と同様のパターン）。"
             echo "ALB monthly fixed cost: ~\$22/month."
           } >> $GITHUB_STEP_SUMMARY

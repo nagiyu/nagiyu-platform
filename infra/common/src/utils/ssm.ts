@@ -25,4 +25,10 @@ export const SSM_PARAMETERS = {
   LIVETALK_ALB_TARGET_GROUP_ARN: (env: Environment) =>
     `/nagiyu/livetalk/${env}/alb/target-group-arn`,
   LIVETALK_ECS_SERVICE_NAME: (env: Environment) => `/nagiyu/livetalk/${env}/ecs/service-name`,
+  LIVETALK_CLOUDFRONT_DISTRIBUTION_ID: (env: Environment) =>
+    `/nagiyu/livetalk/${env}/cloudfront/distribution-id`,
+  LIVETALK_CLOUDFRONT_DOMAIN_NAME: (env: Environment) =>
+    `/nagiyu/livetalk/${env}/cloudfront/domain-name`,
+  LIVETALK_CLOUDFRONT_CUSTOM_DOMAIN: (env: Environment) =>
+    `/nagiyu/livetalk/${env}/cloudfront/custom-domain`,
 } as const;
