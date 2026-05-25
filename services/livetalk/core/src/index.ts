@@ -1,1 +1,1 @@
-export {};
+export * from './voicevox/index.js';

@@ -20,7 +20,7 @@
 
 全サービスで共有可能なライブラリパッケージ。
 
-- **対象**: `libs/common/`, `libs/browser/`, `libs/ui/`, `libs/react/`, `libs/nextjs/`, `libs/aws/`, `libs/voicevox-client/`
+- **対象**: `libs/common/`, `libs/browser/`, `libs/ui/`, `libs/react/`, `libs/nextjs/`, `libs/aws/`
 - **責務**: フレームワーク・ブラウザAPI・React・Next.js・AWS SDKに依存した汎用機能の提供
 - **バージョン管理**: 各ライブラリで独立したバージョン管理
 - **パッケージ名**: `@nagiyu/common`, `@nagiyu/browser`, `@nagiyu/ui`, `@nagiyu/react`, `@nagiyu/nextjs`, `@nagiyu/aws`
@@ -52,13 +52,12 @@ services/{service}/batch → libs/common のみ
 
 ```
 libs/
-├── ui/                # Next.js + Material-UI 依存
-├── browser/           # ブラウザAPI依存
-├── react/             # React依存
-├── nextjs/            # Next.js依存（APIルートヘルパー等）
-├── aws/               # AWS SDK 依存
-├── voicevox-client/   # VOICEVOX HTTP API クライアント（@nagiyu/common のみ依存）
-└── common/            # 完全フレームワーク非依存
+├── ui/           # Next.js + Material-UI 依存
+├── browser/      # ブラウザAPI依存
+├── react/        # React依存
+├── nextjs/       # Next.js依存（APIルートヘルパー等）
+├── aws/          # AWS SDK 依存
+└── common/       # 完全フレームワーク非依存
 ```
 
 ### 依存関係ルール
@@ -413,31 +412,6 @@ AWS SDKはpeerDependenciesとして管理。各サービスが必要なバージ
 - **日本語エラーメッセージ**: ユーザーフレンドリーなエラー表現
 - **継承による拡張**: 基底クラス継承でサービス固有の実装を追加
 - **CRUD自動化**: タイムスタンプ管理等の定型処理を抽象化
-
-## libs/voicevox-client/
-
-### 責務
-
-VOICEVOX エンジンの HTTP API（`/audio_query` + `/synthesis`）の薄いクライアント。
-
-リブトーク（LiveTalk）等の音声合成を必要とするサービスが利用する想定で、将来共通サービス化したときに `baseUrl` 差し替えのみで対応できるよう設計してある。
-
-### 含まれるもの
-
-- `IVoiceClient` インターフェース：合成エンジンの抽象（将来 CoeFont 等への差し替えを想定）
-- `VoicevoxClient` クラス：VOICEVOX 実装。`/audio_query` → `/synthesis` の 2 段呼び出し
-- `VOICEVOX_ERROR_MESSAGES`：日本語エラーメッセージ定数
-- `VoicevoxClientOptions`：baseUrl / defaultSpeakerId / timeoutMs / fetch などの構築オプション
-
-### パッケージ名
-
-`@nagiyu/voicevox-client`
-
-### 設計のポイント
-
-- 既定値（baseUrl: `http://localhost:50021`、speakerId: 14 = 冥鳴ひまり、timeout: 30s）でも環境変数 `VOICEVOX_URL` 等で差し替え可能
-- HTTP 取得は `AbortController` でタイムアウト制御し、`AbortError` は `TIMEOUT` メッセージへ変換
-- 外部依存は持たず、`@nagiyu/common` のみに依存（フレームワーク非依存）
 
 ## バージョン管理
 

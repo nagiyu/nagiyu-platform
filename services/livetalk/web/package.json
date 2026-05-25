@@ -22,7 +22,6 @@
     "@nagiyu/common": "*",
     "@nagiyu/livetalk-core": "*",
     "@nagiyu/nextjs": "*",
-    "@nagiyu/ui": "*",
-    "@nagiyu/voicevox-client": "*"
+    "@nagiyu/ui": "*"
   }
 }

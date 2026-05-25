@@ -1,10 +1,10 @@
-import { VoicevoxClient } from '@nagiyu/voicevox-client';
-import type { IVoiceClient } from '@nagiyu/voicevox-client';
+import { VoicevoxClient } from '@nagiyu/livetalk-core';
+import type { IVoiceClient } from '@nagiyu/livetalk-core';
 
 /**
  * VOICEVOX クライアントのシングルトン。
  * ECS Task 内では VOICEVOX サイドカー（同 Task の localhost:50021）に接続される。
- * `VOICEVOX_URL` 環境変数で接続先を上書き可能（将来共通サービス化に備える）。
+ * `VOICEVOX_URL` 環境変数で接続先を上書き可能。
  */
 let cachedClient: IVoiceClient | null = null;
 

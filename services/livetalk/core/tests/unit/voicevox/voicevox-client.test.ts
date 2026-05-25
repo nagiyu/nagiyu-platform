@@ -1,4 +1,4 @@
-import { VoicevoxClient, VOICEVOX_ERROR_MESSAGES } from '../../src/voicevox-client.js';
+import { VoicevoxClient, VOICEVOX_ERROR_MESSAGES } from '../../../src/voicevox/voicevox-client.js';
 
 type MockResponseInit = {
   ok?: boolean;

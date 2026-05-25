@@ -11,7 +11,7 @@ const config: Config = {
   },
   modulePathIgnorePatterns: ['<rootDir>/../../../package.json'],
   coverageDirectory: 'coverage',
-  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', '!src/index.ts'],
+  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', '!src/**/index.ts'],
   coverageThreshold: {
     global: {
       branches: 80,
