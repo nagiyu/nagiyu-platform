@@ -12,12 +12,12 @@ describe('Route53RecordsStack', () => {
     return new Route53RecordsStack(app, 'TestRoute53RecordsStack', { domainName });
   };
 
-  it('CloudFront 向け CNAME を 17 件、Google Search Console / ACM 検証を各 1 件、apex ALIAS と LiveTalk dev ALIAS を各 1 件作成する', () => {
+  it('CloudFront 向け CNAME を 17 件、Google Search Console / ACM 検証を各 1 件、apex ALIAS を 1 件作成する', () => {
     const stack = createStack();
     const template = Template.fromStack(stack);
 
-    // 17 (CloudFront CNAME) + 1 (Google) + 1 (ACM 検証) + 1 (apex ALIAS) + 1 (LiveTalk dev ALIAS) = 21
-    template.resourceCountIs('AWS::Route53::RecordSet', 21);
+    // 17 (CloudFront) + 1 (Google) + 1 (ACM 検証) + 1 (apex ALIAS) = 20
+    template.resourceCountIs('AWS::Route53::RecordSet', 20);
   });
 
   it('全 CNAME レコードに TTL 300 秒を設定する', () => {
@@ -101,30 +101,5 @@ describe('Route53RecordsStack', () => {
         && p.Default === '/nagiyu/shared/route53/hosted-zone-id',
     );
     expect(ssmRefs.length).toBeGreaterThan(0);
-  });
-
-  it('LiveTalk dev は CloudFront ALIAS（CloudFront ホストゾーン ID）で登録する', () => {
-    const stack = createStack();
-    const template = Template.fromStack(stack);
-
-    template.hasResourceProperties('AWS::Route53::RecordSet', {
-      Type: 'A',
-      Name: 'dev-live-talk.nagiyu.com.',
-      AliasTarget: Match.objectLike({
-        HostedZoneId: CLOUDFRONT_HOSTED_ZONE_ID,
-      }),
-    });
-  });
-
-  it('LiveTalk dev ALIAS の DNSName は LiveTalk CloudFront SSM パラメータから取得する', () => {
-    const stack = createStack();
-    const template = Template.fromStack(stack);
-
-    const params = template.findParameters('*');
-    const liveTalkSsmRef = Object.values(params).find(
-      (p) => p.Type === 'AWS::SSM::Parameter::Value<String>'
-        && p.Default === '/nagiyu/livetalk/dev/cloudfront/domain-name',
-    );
-    expect(liveTalkSsmRef).toBeDefined();
   });
 });

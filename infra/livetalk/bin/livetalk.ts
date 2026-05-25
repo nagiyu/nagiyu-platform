@@ -51,25 +51,24 @@ const ecsServiceStack = new LiveTalkEcsServiceStack(
   }
 );
 
+// LiveTalk CloudFront Distribution Stack（Phase 1d）
+// dev / prod ともに登録。Route53 ALIAS レコードは CloudFront stack 内で同時作成する
+// （`infra/ui-storybook` パターン）ため、cross-stack 依存・SSM 順序問題は発生しない。
+// 実際の prod deploy タイミングはブランチ運用（master push）で制御する。
+const cloudFrontStack = new LiveTalkCloudFrontStack(
+  app,
+  `NagiyuLiveTalkCloudFront${envSuffix}`,
+  {
+    env: stackEnv,
+    environment,
+    description: `LiveTalk CloudFront Distribution (${environment})`,
+  }
+);
+
 // SSM 経由の参照のため CDK は自動的にスタック間依存を検出できない。
 // 明示的に依存を宣言して deploy 順を保証する。
 ecsServiceStack.addDependency(albStack);
-
-// LiveTalk CloudFront Distribution Stack（dev のみ、Phase 1d）
-// prod 用 CloudFront は本 Phase ではデプロイしない（後の Phase で対応）。
-// 同様に prod 用 Route53 ALIAS レコードも future Phase で有効化する。
-if (environment === 'dev') {
-  const cloudFrontStack = new LiveTalkCloudFrontStack(
-    app,
-    `NagiyuLiveTalkCloudFront${envSuffix}`,
-    {
-      env: stackEnv,
-      environment,
-      description: `LiveTalk CloudFront Distribution (${environment})`,
-    }
-  );
-  // CloudFront は ALB DNS を SSM から参照する。明示的に依存を宣言。
-  cloudFrontStack.addDependency(albStack);
-}
+// CloudFront は ALB DNS を SSM から参照する。明示的に依存を宣言。
+cloudFrontStack.addDependency(albStack);
 
 app.synth();

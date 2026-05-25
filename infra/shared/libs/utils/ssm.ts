@@ -17,6 +17,4 @@ export const SSM_PARAMETERS = {
   ECS_CLUSTER_ARN: (env: Environment) => `/nagiyu/root/${env}/ecs/cluster-arn`,
   SHARED_ECS_CLUSTER_NAME: (env: Environment) => `/nagiyu/shared/${env}/ecs/cluster-name`,
   SHARED_ECS_CLUSTER_ARN: (env: Environment) => `/nagiyu/shared/${env}/ecs/cluster-arn`,
-  LIVETALK_CLOUDFRONT_DOMAIN_NAME: (env: Environment) =>
-    `/nagiyu/livetalk/${env}/cloudfront/domain-name`,
 } as const;

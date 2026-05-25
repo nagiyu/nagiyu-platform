@@ -105,7 +105,8 @@ jobs:
           npm run synth --workspace=@nagiyu/infra-livetalk -- \
             NagiyuLiveTalkEcrProd \
             NagiyuLiveTalkAlbProd \
-            NagiyuLiveTalkServiceProd
+            NagiyuLiveTalkServiceProd \
+            NagiyuLiveTalkCloudFrontProd
 
   build:
     name: Next.js Build Verification

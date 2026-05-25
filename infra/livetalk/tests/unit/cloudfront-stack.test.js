@@ -140,4 +140,51 @@ describe('LiveTalkCloudFrontStack', () => {
       Tags: Match.arrayWith([{ Key: 'Component', Value: 'livetalk' }]),
     });
   });
+
+  // Route53 ALIAS の Name は `{recordName}.{zoneName}.` の Fn::Join で生成される。
+  // zoneName は SSM トークン参照なので、Join 配列内の先頭要素 `{recordName}.` を検証する。
+  it('dev 環境では dev-live-talk の Route53 ALIAS A レコードを CloudFront 向けに作成する', () => {
+    const template = synth('dev');
+    template.hasResourceProperties('AWS::Route53::RecordSet', {
+      Type: 'A',
+      Name: {
+        'Fn::Join': ['', Match.arrayWith(['dev-live-talk.'])],
+      },
+      AliasTarget: Match.objectLike({
+        DNSName: {
+          'Fn::GetAtt': [Match.stringLikeRegexp('^Distribution'), 'DomainName'],
+        },
+      }),
+    });
+  });
+
+  it('prod 環境では live-talk の Route53 ALIAS A レコードを CloudFront 向けに作成する', () => {
+    const template = synth('prod');
+    template.hasResourceProperties('AWS::Route53::RecordSet', {
+      Type: 'A',
+      Name: {
+        'Fn::Join': ['', Match.arrayWith(['live-talk.'])],
+      },
+      AliasTarget: Match.objectLike({
+        DNSName: {
+          'Fn::GetAtt': [Match.stringLikeRegexp('^Distribution'), 'DomainName'],
+        },
+      }),
+    });
+  });
+
+  it('Route53 hosted zone は SSM パラメータから動的に取得する', () => {
+    const template = synth('dev');
+    const params = template.findParameters('*');
+    const zoneIdRef = Object.values(params).find(
+      (p) => p.Type === 'AWS::SSM::Parameter::Value<String>' &&
+        p.Default === '/nagiyu/shared/route53/hosted-zone-id'
+    );
+    const zoneNameRef = Object.values(params).find(
+      (p) => p.Type === 'AWS::SSM::Parameter::Value<String>' &&
+        p.Default === '/nagiyu/shared/route53/hosted-zone-name'
+    );
+    expect(zoneIdRef).toBeDefined();
+    expect(zoneNameRef).toBeDefined();
+  });
 });

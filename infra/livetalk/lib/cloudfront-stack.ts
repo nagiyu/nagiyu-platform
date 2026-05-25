@@ -2,6 +2,8 @@ import * as cdk from 'aws-cdk-lib';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { Environment, SSM_PARAMETERS } from '@nagiyu/infra-common';
@@ -18,6 +20,9 @@ export interface LiveTalkCloudFrontStackProps extends cdk.StackProps {
  * - カスタムドメイン:
  *     - dev: `dev-live-talk.nagiyu.com`
  *     - prod: `live-talk.nagiyu.com`
+ * - Route53 ALIAS レコードを同一スタック内で作成（`infra/ui-storybook` と同じパターン）。
+ *   `targets.CloudFrontTarget(this.distribution)` を使うため SSM / cross-stack 参照不要。
+ *   shared 側 `route53-records-stack` は XServer 移行 CNAME 専用のまま触らない。
  * - 既存 Portal の `infra/root/cloudfront-stack.ts` のパターン（HTTP オリジン /
  *   CACHING_DISABLED / ALL_VIEWER_EXCEPT_HOST_HEADER / ALLOW_ALL）を踏襲。
  * - 後続 Phase の LLM ストリーミング向けにオリジンタイムアウトを 60s に延長
@@ -57,6 +62,7 @@ export class LiveTalkCloudFrontStack extends cdk.Stack {
 
     const customDomain =
       environment === 'prod' ? 'live-talk.nagiyu.com' : 'dev-live-talk.nagiyu.com';
+    const recordName = environment === 'prod' ? 'live-talk' : 'dev-live-talk';
 
     this.distribution = new cloudfront.Distribution(this, 'Distribution', {
       comment: `LiveTalk Service Distribution (${environment})`,
@@ -82,6 +88,27 @@ export class LiveTalkCloudFrontStack extends cdk.Stack {
           cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
         compress: true,
       },
+    });
+
+    // Route53 hosted zone を SSM 経由で参照し、CloudFront 向け ALIAS A レコードを作成
+    const hostedZoneId = ssm.StringParameter.valueForStringParameter(
+      this,
+      '/nagiyu/shared/route53/hosted-zone-id'
+    );
+    const hostedZoneName = ssm.StringParameter.valueForStringParameter(
+      this,
+      '/nagiyu/shared/route53/hosted-zone-name'
+    );
+    const hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
+      hostedZoneId,
+      zoneName: hostedZoneName,
+    });
+
+    new route53.ARecord(this, 'AliasRecord', {
+      zone: hostedZone,
+      recordName,
+      target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(this.distribution)),
+      comment: `LiveTalk (${environment}) - alias to CloudFront`,
     });
 
     cdk.Tags.of(this).add('Application', 'nagiyu');
