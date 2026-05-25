@@ -87,6 +87,18 @@ describe('LiveTalkEcsServiceStack', () => {
     });
   });
 
+  it('ALB ターゲットは livetalk-web:3000 を明示的に指定する（voicevox に誤マッピングしない）', () => {
+    const template = synth('dev');
+    template.hasResourceProperties('AWS::ECS::Service', {
+      LoadBalancers: Match.arrayWith([
+        Match.objectLike({
+          ContainerName: 'livetalk-web',
+          ContainerPort: 3000,
+        }),
+      ]),
+    });
+  });
+
   it('Task Security Group が ALB SG からの 3000 番受け入れを設定する', () => {
     const template = synth('dev');
     template.hasResourceProperties('AWS::EC2::SecurityGroup', {

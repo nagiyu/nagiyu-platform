@@ -264,7 +264,17 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
       healthCheckGracePeriod: cdk.Duration.seconds(120),
     });
 
-    this.service.attachToApplicationTargetGroup(targetGroup);
+    // ALB ターゲットには明示的に livetalk-web:3000 を指定する。
+    // attachToApplicationTargetGroup() の暗黙的なデフォルトは「最初に addContainer された
+    // コンテナ」を拾うため、複数コンテナ構成では voicevox:50021 が誤ってターゲットになり
+    // ALB health check が voicevox に向かい全タスクが unhealthy で再起動を繰り返す事故が起きた。
+    // 順番依存を排除するため、container/port を明示的に渡す。
+    targetGroup.addTarget(
+      this.service.loadBalancerTarget({
+        containerName: 'livetalk-web',
+        containerPort: 3000,
+      })
+    );
 
     cdk.Tags.of(this).add('Application', 'nagiyu');
     cdk.Tags.of(this).add('Environment', environment);
