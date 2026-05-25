@@ -9,12 +9,12 @@ import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagi
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import { createAlertNotificationPayload } from './lib/web-push-client.js';
 import { runConcurrent } from './lib/concurrent-queue.js';
-import type { AlertRepository, ExchangeRepository } from '@nagiyu/stock-tracker-core';
+import type { ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { evaluateAlert } from '@nagiyu/stock-tracker-core';
 import { isTradingHours } from '@nagiyu/stock-tracker-core';
 import { TradingViewSession } from '@nagiyu/stock-tracker-core';
-import type { Alert, Exchange } from '@nagiyu/stock-tracker-core';
+import type { Alert } from '@nagiyu/stock-tracker-core';
 
 /**
  * Lambda Handlerイベント型

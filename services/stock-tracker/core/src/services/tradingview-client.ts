@@ -175,7 +175,7 @@ export class TradingViewSession {
    * @returns 現在価格（終値）
    * @throws {Error} タイムアウト、接続エラー、データ取得失敗時
    */
-  async getCurrentPrice(
+  public async getCurrentPrice(
     tickerId: string,
     options: GetCurrentPriceOptions = {}
   ): Promise<number> {
@@ -219,9 +219,7 @@ export class TradingViewSession {
             if (errorMessage.includes('rate') || errorMessage.includes('limit')) {
               reject(new Error(TRADINGVIEW_ERROR_MESSAGES.RATE_LIMIT));
             } else {
-              reject(
-                new Error(`${TRADINGVIEW_ERROR_MESSAGES.CONNECTION_ERROR}: ${errorMessage}`)
-              );
+              reject(new Error(`${TRADINGVIEW_ERROR_MESSAGES.CONNECTION_ERROR}: ${errorMessage}`));
             }
           }
         });
@@ -240,7 +238,7 @@ export class TradingViewSession {
    *
    * invocation 末尾で必ず呼ぶこと。
    */
-  async close(): Promise<void> {
+  public async close(): Promise<void> {
     try {
       this.client.end();
     } catch {
