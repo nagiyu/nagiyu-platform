@@ -8,6 +8,7 @@ import * as tradingHoursChecker from '@nagiyu/stock-tracker-core';
 import type { Exchange } from '@nagiyu/stock-tracker-core';
 
 jest.mock('@nagiyu/common', () => ({
+  ...jest.requireActual('@nagiyu/common'),
   logger: {
     info: jest.fn(),
     warn: jest.fn(),

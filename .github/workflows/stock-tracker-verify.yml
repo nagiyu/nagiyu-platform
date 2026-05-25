@@ -34,7 +34,7 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/stock-tracker-web'
-          shared-workspaces: '@nagiyu/common,@nagiyu/aws,@nagiyu/nextjs,@nagiyu/react,@nagiyu/browser,@nagiyu/ui,@nagiyu/stock-tracker-core'
+          shared-workspaces: '@nagiyu/common,@nagiyu/aws,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui,@nagiyu/stock-tracker-core'
 
   build-core:
     name: Core Build Verification
@@ -186,8 +186,8 @@ jobs:
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/nextjs
-          npm run build --workspace @nagiyu/react
           npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/react
           npm run build --workspace @nagiyu/ui
 
       - name: Build core package
@@ -292,8 +292,8 @@ jobs:
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/nextjs
-          npm run build --workspace @nagiyu/react
           npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/react
           npm run build --workspace @nagiyu/ui
 
       - name: Build core package
@@ -372,8 +372,8 @@ jobs:
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/nextjs
-          npm run build --workspace @nagiyu/react
           npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/react
           npm run build --workspace @nagiyu/ui
 
       - name: Build core package
@@ -452,8 +452,8 @@ jobs:
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/nextjs
-          npm run build --workspace @nagiyu/react
           npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/react
           npm run build --workspace @nagiyu/ui
 
       - name: Build core package

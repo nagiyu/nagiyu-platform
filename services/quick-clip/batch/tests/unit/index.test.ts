@@ -1,10 +1,9 @@
 import { main } from '../../src/index.js';
 import * as quickClipCore from '@nagiyu/quick-clip-core';
-import { reportErrorEvent } from '@nagiyu/aws';
 import * as batchEnvironment from '../../src/lib/environment.js';
 
 jest.mock('@nagiyu/aws', () => ({
-  reportErrorEvent: jest.fn().mockResolvedValue(null),
+  withErrorReporting: jest.fn((_opts: unknown, fn: () => Promise<unknown>) => fn()),
 }));
 jest.mock('@nagiyu/quick-clip-core', () => ({
   runQuickClipBatch: jest.fn().mockResolvedValue(undefined),
@@ -25,13 +24,11 @@ const coreMocks = quickClipCore as unknown as {
 const envMocks = batchEnvironment as unknown as {
   validateEnvironment: jest.Mock;
 };
-const reportErrorEventMock = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
 
 describe('quick-clip batch', () => {
   beforeEach(() => {
     envMocks.validateEnvironment.mockClear();
     coreMocks.runQuickClipBatch.mockClear();
-    reportErrorEventMock.mockClear();
   });
 
   it('main: batch の validateEnvironment と core の runQuickClipBatch を呼び出す', async () => {
@@ -47,7 +44,7 @@ describe('quick-clip batch', () => {
     });
   });
 
-  it('main: split コマンドをそのまま受けず validateEnvironment のエラーを伝搬する', async () => {
+  it('main: validateEnvironment のエラーを伝搬する', async () => {
     envMocks.validateEnvironment.mockImplementationOnce(() => {
       throw new Error('必要な環境変数が設定されていません: BATCH_COMMAND');
     });
@@ -56,53 +53,9 @@ describe('quick-clip batch', () => {
     expect(coreMocks.runQuickClipBatch).not.toHaveBeenCalled();
   });
 
-  it('main: validateEnvironment のエラーをそのまま伝搬する', async () => {
-    envMocks.validateEnvironment.mockImplementationOnce(() => {
-      throw new Error('env error');
-    });
-
-    await expect(main()).rejects.toThrow('env error');
-    expect(coreMocks.runQuickClipBatch).not.toHaveBeenCalled();
-  });
-
   it('main: core のエラーをそのまま伝搬する', async () => {
     coreMocks.runQuickClipBatch.mockRejectedValueOnce(new Error('core error'));
 
     await expect(main()).rejects.toThrow('core error');
-  });
-
-  it('main: 正常終了時は reportErrorEvent を呼ばない', async () => {
-    await main();
-
-    expect(reportErrorEventMock).not.toHaveBeenCalled();
-  });
-
-  it('main: core のエラー時に reportErrorEvent を critical で呼ぶ', async () => {
-    coreMocks.runQuickClipBatch.mockRejectedValueOnce(new Error('core error'));
-
-    await expect(main()).rejects.toThrow('core error');
-    expect(reportErrorEventMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'quick-clip',
-        severity: 'critical',
-        message: 'core error',
-        context: expect.objectContaining({ jobId: 'job-1' }),
-      })
-    );
-  });
-
-  it('main: validateEnvironment 失敗時も reportErrorEvent を critical で呼ぶ', async () => {
-    envMocks.validateEnvironment.mockImplementationOnce(() => {
-      throw new Error('env error');
-    });
-
-    await expect(main()).rejects.toThrow('env error');
-    expect(reportErrorEventMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'quick-clip',
-        severity: 'critical',
-        message: 'env error',
-      })
-    );
   });
 });

@@ -19,7 +19,7 @@ import {
 import { getSession } from '../../../lib/auth';
 import type { AlertEntity, CreateAlertInput } from '@nagiyu/stock-tracker-core';
 import type { ErrorResponse } from '@nagiyu/common';
-import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES, toErrorMessage } from '@nagiyu/common';
 
 /**
  * エラーメッセージ定数
@@ -158,7 +158,7 @@ export const GET = withAuth(
         { status: 200 }
       );
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = toErrorMessage(error);
       await reportErrorEvent({
         serviceId: 'stock-tracker',
         severity: 'error',
@@ -307,7 +307,7 @@ export const POST = withAuth(
 
       return NextResponse.json(response, { status: 201 });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = toErrorMessage(error);
       await reportErrorEvent({
         serviceId: 'stock-tracker',
         severity: 'error',

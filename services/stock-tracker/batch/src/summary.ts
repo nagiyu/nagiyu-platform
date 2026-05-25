@@ -3,7 +3,7 @@
  * EventBridge Scheduler から rate(1 hour) で実行される
  */
 
-import { logger } from '@nagiyu/common';
+import { logger, toErrorMessage } from '@nagiyu/common';
 import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
 import {
   DynamoDBDailySummaryRepository,
@@ -244,7 +244,7 @@ async function processExchange(
               });
               historicalData = toHistoricalDataFromChartData(chartDataForAi);
             } catch (error) {
-              const errorMessage = error instanceof Error ? error.message : String(error);
+              const errorMessage = toErrorMessage(error);
               logger.warn(
                 'AI解析用チャートデータの取得に失敗したため、当日データのみでAI解析を継続します',
                 {
@@ -273,7 +273,7 @@ async function processExchange(
           try {
             chartImageBase64 = dependencies.createChartImageBase64Fn(historicalData);
           } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
+            const errorMessage = toErrorMessage(error);
             logger.warn('チャート画像生成に失敗したため、画像なしでAI解析を継続します', {
               exchangeId: exchange.ExchangeID,
               tickerId: ticker.TickerID,
@@ -304,7 +304,7 @@ async function processExchange(
           });
           stats.aiAnalysisGenerated++;
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorMessage = toErrorMessage(error);
           logger.warn('AI解析の生成に失敗したため、エラー情報を保存して処理を継続します', {
             exchangeId: exchange.ExchangeID,
             tickerId: ticker.TickerID,
@@ -329,7 +329,7 @@ async function processExchange(
           stats.aiAnalysisSkipped++;
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = toErrorMessage(error);
         logger.warn('ティッカーの日足データ取得に失敗したため、前回結果を維持します', {
           exchangeId: exchange.ExchangeID,
           tickerId: ticker.TickerID,
@@ -353,7 +353,7 @@ async function processExchange(
       }
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     logger.error('取引所の日次サマリー処理に失敗しました', {
       exchangeId: exchange.ExchangeID,
       error: errorMessage,
@@ -448,7 +448,7 @@ export async function handler(
       }),
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     logger.error('日次サマリー生成バッチでエラーが発生しました', {
       eventId: event.id,
       error: errorMessage,

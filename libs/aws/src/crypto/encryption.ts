@@ -1,6 +1,7 @@
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
-import type { EncryptedData, CryptoConfig } from '../types/crypto.js';
+import type { EncryptedData, CryptoConfig } from './types.js';
+import { toErrorMessage } from '@nagiyu/common';
 
 /**
  * エラーメッセージ定数
@@ -63,8 +64,7 @@ function getSecretsManagerClient(region: string): SecretsManagerClient {
  * @throws {Error} シークレットが取得できない場合
  * @throws {Error} シークレットの形式が不正な場合
  */
-async function getEncryptionKey(config: CryptoConfig): Promise<Buffer> {
-  // キャッシュがあれば返す
+export async function getEncryptionKey(config: CryptoConfig): Promise<Buffer> {
   if (cachedEncryptionKey) {
     return cachedEncryptionKey;
   }
@@ -77,40 +77,29 @@ async function getEncryptionKey(config: CryptoConfig): Promise<Buffer> {
   const client = getSecretsManagerClient(region);
 
   try {
-    const command = new GetSecretValueCommand({
-      SecretId: config.secretName,
-    });
-
+    const command = new GetSecretValueCommand({ SecretId: config.secretName });
     const response = await client.send(command);
 
     if (!response.SecretString) {
       throw new Error(ERROR_MESSAGES.SECRET_NOT_FOUND);
     }
 
-    // シークレットを UTF-8 バイト列として扱い、32バイトの暗号化キーを生成
-    // Secrets Manager が生成した文字列をそのまま UTF-8 バイトに変換
+    // Secrets Manager が生成した文字列を UTF-8 バイト列として扱い、先頭 32 バイトを暗号化キーとする
     const keyBuffer = Buffer.from(response.SecretString, 'utf8');
 
-    // 32バイト未満の場合はエラー
     if (keyBuffer.length < 32) {
       throw new Error(ERROR_MESSAGES.INVALID_SECRET_FORMAT);
     }
 
-    // 32バイトにトリム（32バイトを超える場合は先頭32バイトのみ使用）
-    const trimmedKey = keyBuffer.subarray(0, 32);
-
-    // キャッシュに保存
-    cachedEncryptionKey = trimmedKey;
-
-    return trimmedKey;
+    cachedEncryptionKey = keyBuffer.subarray(0, 32);
+    return cachedEncryptionKey;
   } catch (error) {
     if (error instanceof Error && error.message in ERROR_MESSAGES) {
       throw error;
     }
-    throw new Error(
-      `${ERROR_MESSAGES.SECRET_NOT_FOUND}: ${error instanceof Error ? error.message : String(error)}`,
-      { cause: error }
-    );
+    throw new Error(`${ERROR_MESSAGES.SECRET_NOT_FOUND}: ${toErrorMessage(error)}`, {
+      cause: error,
+    });
   }
 }
 
@@ -139,13 +128,9 @@ export async function encrypt(plaintext: string, config: CryptoConfig): Promise<
     const key = await getEncryptionKey(config);
     const iv = randomBytes(IV_LENGTH);
 
-    const cipher = createCipheriv(ALGORITHM, key, iv, {
-      authTagLength: AUTH_TAG_LENGTH,
-    });
-
+    const cipher = createCipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
     let encrypted = cipher.update(plaintext, 'utf8');
     encrypted = Buffer.concat([encrypted, cipher.final()]);
-
     const authTag = cipher.getAuthTag();
 
     return {
@@ -159,10 +144,9 @@ export async function encrypt(plaintext: string, config: CryptoConfig): Promise<
     if (error instanceof Error && errorMessages.includes(error.message)) {
       throw error;
     }
-    throw new Error(
-      `${ERROR_MESSAGES.ENCRYPTION_FAILED}: ${error instanceof Error ? error.message : String(error)}`,
-      { cause: error }
-    );
+    throw new Error(`${ERROR_MESSAGES.ENCRYPTION_FAILED}: ${toErrorMessage(error)}`, {
+      cause: error,
+    });
   }
 }
 
@@ -187,11 +171,9 @@ export async function decrypt(encryptedData: EncryptedData, config: CryptoConfig
   if (!encryptedData.ciphertext) {
     throw new Error(ERROR_MESSAGES.EMPTY_CIPHERTEXT);
   }
-
   if (!encryptedData.iv) {
     throw new Error(ERROR_MESSAGES.EMPTY_IV);
   }
-
   if (!encryptedData.authTag) {
     throw new Error(ERROR_MESSAGES.EMPTY_AUTH_TAG);
   }
@@ -202,10 +184,7 @@ export async function decrypt(encryptedData: EncryptedData, config: CryptoConfig
     const authTag = Buffer.from(encryptedData.authTag, 'base64');
     const ciphertext = Buffer.from(encryptedData.ciphertext, 'base64');
 
-    const decipher = createDecipheriv(ALGORITHM, key, iv, {
-      authTagLength: AUTH_TAG_LENGTH,
-    });
-
+    const decipher = createDecipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
     decipher.setAuthTag(authTag);
 
     let decrypted = decipher.update(ciphertext);
@@ -213,9 +192,8 @@ export async function decrypt(encryptedData: EncryptedData, config: CryptoConfig
 
     return decrypted.toString('utf8');
   } catch (error) {
-    // 認証タグエラーの場合は専用メッセージ
-    // decipher.final() が投げる認証エラーを検出
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    // 認証タグエラー（decipher.final() が投げる）の場合は専用メッセージに置き換え
+    const errorMessage = toErrorMessage(error);
 
     if (errorMessage.includes('Unsupported state or unable to authenticate data')) {
       throw new Error(ERROR_MESSAGES.AUTHENTICATION_FAILED, { cause: error });
@@ -227,10 +205,9 @@ export async function decrypt(encryptedData: EncryptedData, config: CryptoConfig
       throw error;
     }
 
-    throw new Error(
-      `${ERROR_MESSAGES.DECRYPTION_FAILED}: ${error instanceof Error ? error.message : String(error)}`,
-      { cause: error }
-    );
+    throw new Error(`${ERROR_MESSAGES.DECRYPTION_FAILED}: ${toErrorMessage(error)}`, {
+      cause: error,
+    });
   }
 }
 

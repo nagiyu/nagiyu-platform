@@ -1,7 +1,5 @@
-import { reportErrorEvent } from '@nagiyu/aws';
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { reportErrorEvent, getDynamoDBDocumentClient, getS3Client } from '@nagiyu/aws';
+import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { createReadStream, createWriteStream } from 'node:fs';
@@ -21,6 +19,7 @@ import { createOpenAIClient } from './openai-client.js';
 import { TranscriptionService } from './transcription.service.js';
 import type { TranscriptSegment } from './transcription.service.js';
 import { EmotionHighlightService } from './emotion-highlight.service.js';
+import { toErrorMessage } from '@nagiyu/common';
 
 /** Batch 実行コマンド種別。 */
 export type QuickClipBatchCommand = 'extract';
@@ -76,20 +75,13 @@ const wait = async (ms: number): Promise<void> =>
     setTimeout(resolve, ms);
   });
 
-const createDynamoDBDocumentClient = (region: string): DynamoDBDocumentClient =>
-  DynamoDBDocumentClient.from(new DynamoDBClient({ region }), {
-    marshallOptions: {
-      removeUndefinedValues: true,
-    },
-  });
-
 const downloadSourceVideo = async (
   bucketName: string,
   jobId: string,
   localPath: string,
   awsRegion: string
 ): Promise<void> => {
-  const s3Client = new S3Client({ region: awsRegion });
+  const s3Client = getS3Client(awsRegion);
   const sourceVideoKey = SOURCE_VIDEO_KEY(jobId);
 
   for (let retryCount = 1; retryCount <= DOWNLOAD_RETRY_COUNT; retryCount += 1) {
@@ -124,7 +116,7 @@ const downloadSourceVideo = async (
         continue;
       }
 
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       const downloadError = new Error(
         `${ERROR_MESSAGES.DOWNLOAD_FAILED}: ${message}`
       ) as ErrorWithCause;
@@ -141,7 +133,7 @@ const persistHighlights = async (
   tableName: string,
   awsRegion: string
 ): Promise<void> => {
-  const docClient = createDynamoDBDocumentClient(awsRegion);
+  const docClient = getDynamoDBDocumentClient(awsRegion);
   const repo = new DynamoDBHighlightRepository(docClient, tableName);
   await repo.createMany(
     highlights.map((highlight) => ({
@@ -162,7 +154,7 @@ const generateClips = async (
   awsRegion: string
 ): Promise<void> => {
   console.info(`[generateClips] 開始: jobId=${jobId} count=${highlights.length}`);
-  const s3Client = new S3Client({ region: awsRegion });
+  const s3Client = getS3Client(awsRegion);
 
   await Promise.all(
     highlights.map(async (highlight) => {
@@ -322,7 +314,7 @@ const buildHighlights = async (
         serviceId: 'quick-clip',
         severity: 'warning',
         title: 'QuickClip 感情分析に失敗しスキップしました',
-        message: error instanceof Error ? error.message : String(error),
+        message: toErrorMessage(error),
         context: {
           jobId,
           stage: 'emotionScoring',
@@ -358,7 +350,7 @@ const updateBatchStage = async (
   tableName: string,
   awsRegion: string
 ): Promise<void> => {
-  const docClient = createDynamoDBDocumentClient(awsRegion);
+  const docClient = getDynamoDBDocumentClient(awsRegion);
   const jobRepo = new DynamoDBJobRepository(docClient, tableName);
   const service = new JobService(jobRepo);
   await service.updateBatchStage(jobId, batchStage);
@@ -370,7 +362,7 @@ const updateAnalysisProgress = async (
   tableName: string,
   awsRegion: string
 ): Promise<void> => {
-  const docClient = createDynamoDBDocumentClient(awsRegion);
+  const docClient = getDynamoDBDocumentClient(awsRegion);
   const jobRepo = new DynamoDBJobRepository(docClient, tableName);
   const service = new JobService(jobRepo);
   await service.updateAnalysisProgress(jobId, progress);
@@ -382,7 +374,7 @@ const updateErrorMessage = async (
   tableName: string,
   awsRegion: string
 ): Promise<void> => {
-  const docClient = createDynamoDBDocumentClient(awsRegion);
+  const docClient = getDynamoDBDocumentClient(awsRegion);
   const jobRepo = new DynamoDBJobRepository(docClient, tableName);
   const service = new JobService(jobRepo);
   await service.updateErrorMessage(jobId, errorMessage);
@@ -393,7 +385,7 @@ const getJobExpiresAt = async (
   tableName: string,
   awsRegion: string
 ): Promise<number> => {
-  const docClient = createDynamoDBDocumentClient(awsRegion);
+  const docClient = getDynamoDBDocumentClient(awsRegion);
   const jobRepo = new DynamoDBJobRepository(docClient, tableName);
   const service = new JobService(jobRepo);
   const job = await service.getJob(jobId);
@@ -436,7 +428,7 @@ export const runQuickClipBatch = async (env: QuickClipBatchRunInput): Promise<vo
   try {
     await runExtract(env);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = toErrorMessage(error);
     await updateErrorMessage(env.jobId, message, env.tableName, env.awsRegion);
     await reportErrorEvent({
       serviceId: 'quick-clip',

@@ -19,6 +19,7 @@ import { logger } from '@nagiyu/common';
 const INVALID_ENTITY_DATA_ERROR_NAME = 'InvalidEntityDataError';
 
 jest.mock('@nagiyu/common', () => ({
+  ...jest.requireActual('@nagiyu/common'),
   logger: {
     info: jest.fn(),
     warn: jest.fn(),

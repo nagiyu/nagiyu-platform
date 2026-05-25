@@ -15,7 +15,7 @@ import {
   Switch,
 } from '@mui/material';
 import { Button, ErrorAlert, Select } from '@nagiyu/ui';
-import { urlBase64ToUint8Array } from '@nagiyu/browser';
+import { subscribePush } from '@nagiyu/browser';
 import { formatPrice } from '@nagiyu/common';
 import { calculateTargetPriceFromPercentage } from '../lib/percentage-helper';
 import type { Timeframe } from '../types/stock';
@@ -57,6 +57,18 @@ const FREQUENCY_LABELS: Record<AlertFrequency, string> = {
 // パーセンテージ選択肢の定数配列（-20 ～ +20、5%刻み）
 const PERCENTAGE_OPTIONS = [-20, -15, -10, -5, 0, 5, 10, 15, 20] as const;
 const DEFAULT_CHART_TIMEFRAME: Timeframe = '60';
+
+const fetchVapidPublicKey = async (): Promise<string> => {
+  const response = await fetch('/api/push/vapid-public-key');
+  if (!response.ok) {
+    throw new Error('VAPID公開鍵の取得に失敗しました');
+  }
+  const { publicKey } = (await response.json()) as { publicKey?: string };
+  if (!publicKey) {
+    throw new Error('VAPID公開鍵が空です');
+  }
+  return publicKey;
+};
 
 // プロパティ型定義
 interface AlertSettingsModalProps {
@@ -318,55 +330,20 @@ export default function AlertSettingsModal({
 
   // Web Push通知許可をリクエスト
   const requestNotificationPermission = async (): Promise<PushSubscription | null> => {
-    if (!('Notification' in window)) {
-      setError('このブラウザはWeb Push通知に対応していません');
-      return null;
-    }
-
-    if (!('serviceWorker' in navigator)) {
-      setError('このブラウザはService Workerに対応していません');
-      return null;
-    }
-
     try {
-      // 通知の許可をリクエスト
-      const permission = await Notification.requestPermission();
-
-      if (permission !== 'granted') {
-        setError(ERROR_MESSAGES.NOTIFICATION_PERMISSION_DENIED);
-        return null;
-      }
-
-      // Service Workerを登録
-      const registration = await navigator.serviceWorker.register('/sw.js');
-      await navigator.serviceWorker.ready;
-
-      // VAPID公開鍵を取得
-      const vapidPublicKeyResponse = await fetch('/api/push/vapid-public-key');
-      if (!vapidPublicKeyResponse.ok) {
-        throw new Error('VAPID公開鍵の取得に失敗しました');
-      }
-      const { publicKey } = await vapidPublicKeyResponse.json();
-
-      // Push通知をサブスクライブ
-      const sub = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
-      });
-
-      // サブスクリプション情報をサーバーに送信
-      const subscribeResponse = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const sub = await subscribePush({
+        vapidPublicKey: await fetchVapidPublicKey(),
+        onSubscribed: async (subscription) => {
+          const subscribeResponse = await fetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ subscription }),
+          });
+          if (!subscribeResponse.ok) {
+            throw new Error(ERROR_MESSAGES.SUBSCRIPTION_ERROR);
+          }
         },
-        body: JSON.stringify({ subscription: sub }),
       });
-
-      if (!subscribeResponse.ok) {
-        throw new Error(ERROR_MESSAGES.SUBSCRIPTION_ERROR);
-      }
-
       return sub;
     } catch (err) {
       console.error('Error requesting notification permission:', err);

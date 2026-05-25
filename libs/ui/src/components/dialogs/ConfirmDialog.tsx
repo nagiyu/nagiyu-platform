@@ -7,38 +7,40 @@ import {
   DialogContentText,
   DialogTitle,
 } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import Button from '../Button';
 
-type ConfirmDialogProps = {
+export interface ConfirmDialogProps {
   open: boolean;
   title: string;
   description: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  loading?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
-};
+}
 
-export function ConfirmDialog({
+export default function ConfirmDialog({
   open,
   title,
   description,
   confirmLabel = '削除',
   cancelLabel = 'キャンセル',
+  loading = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
   return (
-    <Dialog open={open} onClose={onCancel}>
+    <Dialog open={open} onClose={onCancel} maxWidth="sm" fullWidth>
       <DialogTitle>{title}</DialogTitle>
       <DialogContent>
         <DialogContentText>{description}</DialogContentText>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onCancel} variant="ghost">
+        <Button onClick={onCancel} variant="ghost" disabled={loading}>
           {cancelLabel}
         </Button>
-        <Button onClick={onConfirm} color="danger" variant="solid">
+        <Button onClick={onConfirm} color="danger" variant="solid" loading={loading}>
           {confirmLabel}
         </Button>
       </DialogActions>

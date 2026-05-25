@@ -10,6 +10,7 @@ const config: Config.InitialOptions = {
   // Map @nagiyu/common to its source for testing
   moduleNameMapper: {
     '^@nagiyu/common$': '<rootDir>/../common/src/index.ts',
+    '^@nagiyu/browser$': '<rootDir>/../browser/src/index.ts',
     // Support .js extensions in imports (ES modules)
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },

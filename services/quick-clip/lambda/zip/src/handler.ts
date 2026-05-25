@@ -1,10 +1,10 @@
-import { reportErrorEvent } from '@nagiyu/aws';
+import { withErrorReporting, getS3Client } from '@nagiyu/aws';
+import { requireEnv } from '@nagiyu/common';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import JSZip from 'jszip';
 
 const ERROR_MESSAGES = {
-  MISSING_ENV: '必要な環境変数が設定されていません',
   INVALID_INPUT: '入力値が不正です',
   CLIP_NOT_FOUND: 'クリップファイルが見つかりません',
 } as const;
@@ -23,19 +23,8 @@ export type ZipGeneratorResult = {
 };
 
 const validateEnvironment = (): { bucketName: string; awsRegion: string } => {
-  const bucketName = process.env.S3_BUCKET?.trim() ?? '';
-  const awsRegion = process.env.AWS_REGION?.trim() ?? '';
-  const missing: string[] = [];
-  if (bucketName.length === 0) {
-    missing.push('S3_BUCKET');
-  }
-  if (awsRegion.length === 0) {
-    missing.push('AWS_REGION');
-  }
-  if (missing.length > 0) {
-    throw new Error(`${ERROR_MESSAGES.MISSING_ENV}: ${missing.join(', ')}`);
-  }
-  return { bucketName, awsRegion };
+  const env = requireEnv(['S3_BUCKET', 'AWS_REGION']);
+  return { bucketName: env.S3_BUCKET, awsRegion: env.AWS_REGION };
 };
 
 const validateEvent = (event: ZipGeneratorEvent): void => {
@@ -120,25 +109,24 @@ const createDownloadUrl = async (
 export const handler = async (event: ZipGeneratorEvent): Promise<ZipGeneratorResult> => {
   validateEvent(event);
   const { bucketName, awsRegion } = validateEnvironment();
-  const s3Client = new S3Client({ region: awsRegion });
-  try {
-    const zipBuffer = await buildZipBuffer(s3Client, bucketName, event);
-    await uploadZip(s3Client, bucketName, event, zipBuffer);
-    const downloadUrl = await createDownloadUrl(s3Client, bucketName, event);
-    return { downloadUrl };
-  } catch (error) {
-    await reportErrorEvent({
+  const s3Client = getS3Client(awsRegion);
+  const result = await withErrorReporting(
+    {
       serviceId: 'quick-clip',
       severity: 'error',
       title: 'QuickClip ZIP 生成に失敗しました',
-      message: error instanceof Error ? error.message : String(error),
       context: {
         jobId: event.jobId,
         highlightIds: event.highlightIds,
         s3Key: ZIP_KEY(event.jobId),
-        errorStack: error instanceof Error ? error.stack : undefined,
       },
-    });
-    throw error;
-  }
+    },
+    async () => {
+      const zipBuffer = await buildZipBuffer(s3Client, bucketName, event);
+      await uploadZip(s3Client, bucketName, event, zipBuffer);
+      const downloadUrl = await createDownloadUrl(s3Client, bucketName, event);
+      return { downloadUrl };
+    }
+  );
+  return result!;
 };

@@ -7,6 +7,7 @@ import {
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
+import { mapConditionalCheckFailed } from '@nagiyu/aws';
 import type { CreateTodoItemInput, TodoItem, UpdateTodoItemInput } from '../../types/index.js';
 import type { TodoRepository } from './todo-repository.interface.js';
 
@@ -91,9 +92,11 @@ export class DynamoDBTodoRepository implements TodoRepository {
         })
       );
     } catch (error) {
-      if (this.isConditionalCheckFailedError(error)) {
-        throw new Error(ERROR_MESSAGES.TODO_ALREADY_EXISTS);
-      }
+      mapConditionalCheckFailed(error, {
+        onExists: () => {
+          throw new Error(ERROR_MESSAGES.TODO_ALREADY_EXISTS);
+        },
+      });
       throw error;
     }
 
@@ -154,9 +157,11 @@ export class DynamoDBTodoRepository implements TodoRepository {
         })
       );
     } catch (error) {
-      if (this.isConditionalCheckFailedError(error)) {
-        throw new Error(ERROR_MESSAGES.TODO_NOT_FOUND);
-      }
+      mapConditionalCheckFailed(error, {
+        onMissing: () => {
+          throw new Error(ERROR_MESSAGES.TODO_NOT_FOUND);
+        },
+      });
       throw error;
     }
 
@@ -184,9 +189,11 @@ export class DynamoDBTodoRepository implements TodoRepository {
         })
       );
     } catch (error) {
-      if (this.isConditionalCheckFailedError(error)) {
-        throw new Error(ERROR_MESSAGES.TODO_NOT_FOUND);
-      }
+      mapConditionalCheckFailed(error, {
+        onMissing: () => {
+          throw new Error(ERROR_MESSAGES.TODO_NOT_FOUND);
+        },
+      });
       throw error;
     }
   }
@@ -296,14 +303,5 @@ export class DynamoDBTodoRepository implements TodoRepository {
       createdAt,
       updatedAt,
     };
-  }
-
-  private isConditionalCheckFailedError(error: unknown): boolean {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'name' in error &&
-      error.name === 'ConditionalCheckFailedException'
-    );
   }
 }

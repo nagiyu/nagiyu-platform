@@ -125,6 +125,7 @@ jest.mock('../../../src/libs/emotion-highlight.service.js', () => ({
 }));
 
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
