@@ -1,0 +1,112 @@
+name: Weekly Blog Article
+
+on:
+  schedule:
+    # 毎週月曜日 11:00 JST (2:00 UTC)
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  create-blog-article-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get current date info
+        id: date_info
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          CREATE_TIME=$(date -u +"%Y-%m-%d %H:%M UTC")
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+          echo "create_time=$CREATE_TIME" >> "$GITHUB_OUTPUT"
+          echo "title=[Blog] 技術ブログ記事追加 ($DATE)" >> "$GITHUB_OUTPUT"
+
+      - name: Calculate next issue date
+        id: next_date
+        run: |
+          NEXT_MONDAY=$(date -d "next monday" +%Y-%m-%d)
+          echo "next_date=$NEXT_MONDAY" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure blog-article label exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create "blog-article" \
+            --description "ブログ記事追加タスク" \
+            --color "0075ca" \
+            2>/dev/null || true
+
+      - name: Check existing open blog-article issue
+        id: duplicate_check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          OPEN_ISSUES_JSON=$(gh issue list \
+            --label "blog-article" \
+            --state open \
+            --limit 1 \
+            --json number,url)
+
+          ISSUE_NUMBER=$(echo "$OPEN_ISSUES_JSON" | jq -r '.[0]? | .number // empty')
+          ISSUE_URL=$(echo "$OPEN_ISSUES_JSON" | jq -r '.[0]? | .url // empty')
+
+          if [ -n "$ISSUE_NUMBER" ]; then
+            echo "should_create=false" >> "$GITHUB_OUTPUT"
+            echo "open_issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
+            echo "open_issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_create=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prepare issue body from template
+        id: issue_body
+        if: steps.duplicate_check.outputs.should_create == 'true'
+        env:
+          NEXT_DATE: ${{ steps.next_date.outputs.next_date }}
+          CREATE_TIME: ${{ steps.date_info.outputs.create_time }}
+        run: |
+          .github/workflows/scripts/prepare-blog-article-issue.sh > "${RUNNER_TEMP}/issue_body.md"
+          echo "body_file=${RUNNER_TEMP}/issue_body.md" >> "$GITHUB_OUTPUT"
+
+      - name: Create weekly blog article issue
+        id: create_issue
+        if: steps.duplicate_check.outputs.should_create == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_TITLE: ${{ steps.date_info.outputs.title }}
+          ISSUE_BODY_FILE: ${{ steps.issue_body.outputs.body_file }}
+        run: |
+          ISSUE_URL=$(gh issue create \
+            --title "$ISSUE_TITLE" \
+            --label "blog-article" \
+            --body-file "$ISSUE_BODY_FILE")
+          ISSUE_NUMBER="${ISSUE_URL##*/}"
+          echo "issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
+          echo "issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Summary (created)
+        if: steps.duplicate_check.outputs.should_create == 'true'
+        run: |
+          echo "✅ 週次ブログ記事 Issue を作成しました" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**タイトル**: ${{ steps.date_info.outputs.title }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Issue**: #${{ steps.create_issue.outputs.issue_number }} (${{ steps.create_issue.outputs.issue_url }})" >> "$GITHUB_STEP_SUMMARY"
+          echo "**次回作成予定**: ${{ steps.next_date.outputs.next_date }}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summary (skipped)
+        if: steps.duplicate_check.outputs.should_create != 'true'
+        run: |
+          echo "⏭️ 既存の blog-article ラベル付きオープン Issue が存在するため、新規作成をスキップしました" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "${{ steps.duplicate_check.outputs.open_issue_number }}" ] && [ -n "${{ steps.duplicate_check.outputs.open_issue_url }}" ]; then
+            echo "**既存Issue**: #${{ steps.duplicate_check.outputs.open_issue_number }} (${{ steps.duplicate_check.outputs.open_issue_url }})" >> "$GITHUB_STEP_SUMMARY"
+          elif [ -n "${{ steps.duplicate_check.outputs.open_issue_number }}" ]; then
+            echo "**既存Issue**: #${{ steps.duplicate_check.outputs.open_issue_number }}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "**既存Issue**: 取得できませんでした" >> "$GITHUB_STEP_SUMMARY"
+          fi

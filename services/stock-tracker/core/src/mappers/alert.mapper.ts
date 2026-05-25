@@ -62,11 +62,8 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
     if (entity.LogicalOperator) {
       item.LogicalOperator = entity.LogicalOperator;
     }
-    if (typeof entity.NotificationTitle === 'string' && entity.NotificationTitle.length > 0) {
-      item.NotificationTitle = entity.NotificationTitle;
-    }
-    if (typeof entity.NotificationBody === 'string' && entity.NotificationBody.length > 0) {
-      item.NotificationBody = entity.NotificationBody;
+    if (typeof entity.CustomMessage === 'string' && entity.CustomMessage.length > 0) {
+      item.CustomMessage = entity.CustomMessage;
     }
     if (entity.Temporary === true) {
       item.Temporary = true;
@@ -106,11 +103,8 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
     if (item.LogicalOperator === 'AND' || item.LogicalOperator === 'OR') {
       entity.LogicalOperator = item.LogicalOperator;
     }
-    if (typeof item.NotificationTitle === 'string' && item.NotificationTitle.length > 0) {
-      entity.NotificationTitle = item.NotificationTitle;
-    }
-    if (typeof item.NotificationBody === 'string' && item.NotificationBody.length > 0) {
-      entity.NotificationBody = item.NotificationBody;
+    if (typeof item.CustomMessage === 'string' && item.CustomMessage.length > 0) {
+      entity.CustomMessage = item.CustomMessage;
     }
     if (item.Temporary === true) {
       entity.Temporary = true;

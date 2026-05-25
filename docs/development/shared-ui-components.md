@@ -44,13 +44,33 @@
 
 ### 既存ラッパー（個別仕様）
 
-以下は本方針より前に存在する個別仕様の共通コンポーネント。引き続き利用するが、汎用的な再設計はスコープ外。
+以下は Phase 1〜4 のアトミックなラッパー対象とは別に、個別仕様で提供される共通コンポーネント。引き続き利用するが、汎用的な再設計はスコープ外。
 
 - `Header` / `Footer` / `AppLayout` / `ServiceLayout`
+- `AppThemeProvider`
 - `ErrorBoundary` / `ErrorAlert`
 - `LoadingState`
-- `PrivacyPolicyDialog` / `TermsOfServiceDialog`
+- `PrivacyPolicyDialog` / `TermsOfServiceDialog` / `ConfirmDialog`
 - `ServiceWorkerRegistration`
+
+#### `ServiceLayout` と `AppThemeProvider` の使い分け
+
+`libs/ui` は 2 系統のレイアウト・プロバイダーを提供する。サービスの性質に応じて選択する。
+
+| プロバイダー       | 用途                                                                        | 含まれる要素                                                                                           |
+| ------------------ | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `ServiceLayout`    | ヘッダ・フッタを含む標準的なサービス（admin / niconico / stock-tracker 等） | `AppLayout`（= `AppRouterCacheProvider + ThemeProvider + CssBaseline`） + `Header` + `main` + `Footer` |
+| `AppThemeProvider` | ヘッダ・フッタを持たない埋め込み系サービス（portal / tools 等）             | `AppRouterCacheProvider + ThemeProvider + CssBaseline` のみ                                            |
+
+- `ServiceLayout` を採用するサービスは、独自の `ThemeRegistry` を作らず `ServiceLayout` をルートレイアウトで直接利用する（過去 Issue #2148 / #2249 の方針）。
+- `ServiceLayout` を採用しないサービスは `AppThemeProvider` を利用し、`AppRouterCacheProvider + ThemeProvider + CssBaseline` の定型を独自実装しない。
+- サービス固有の追加要素（tools の `MigrationDialog` 等）は `AppThemeProvider` の `children` として合成する。
+
+#### Navigation の集約
+
+`Header` は `navigationItems: NavigationItem[]` プロパティを受け取り、デスクトップでは横並びメニュー、モバイルではハンバーガー Drawer に切り替える。サービスは独自 `Navigation` コンポーネントを実装せず、`ServiceLayout` の `headerProps.navigationItems` に項目を渡す。
+
+- **例外**: 動的バッジ等のカスタム要素を必要とするサービス（share-together の招待数バッジ等）は、`NavigationItem` の `label: string` 制約では再現できないため、当面サービスローカルな `Navigation` を維持してよい。`NavigationItem` 側にカスタム要素 slot が追加された段階で統合を再検討する。
 
 ---
 

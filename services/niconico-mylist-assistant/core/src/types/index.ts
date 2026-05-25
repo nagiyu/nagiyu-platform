@@ -306,7 +306,7 @@ export interface BatchStatusResponse {
 }
 
 // ============================================================================
-// 暗号化関連型定義
+// 暗号化関連型定義（@nagiyu/aws へ移管）
 // ============================================================================
 
-export * from './crypto.js';
+export type { EncryptedData, CryptoConfig } from '@nagiyu/aws';

@@ -143,7 +143,7 @@ jobs:
           DYNAMODB_TABLE_NAME: dummy-table
         with:
           workspace: '@nagiyu/niconico-mylist-assistant-web'
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/aws,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/niconico-mylist-assistant-core'
+          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/aws,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/niconico-mylist-assistant-core'
 
   build-batch:
     name: Build Batch Package
@@ -357,6 +357,7 @@ jobs:
         run: |
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/react
           npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
@@ -436,6 +437,7 @@ jobs:
         run: |
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/react
           npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
@@ -515,6 +517,7 @@ jobs:
         run: |
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/react
           npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs

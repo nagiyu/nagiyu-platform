@@ -1,8 +1,9 @@
-import { BatchClient } from '@aws-sdk/client-batch';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { LambdaClient } from '@aws-sdk/client-lambda';
-import { S3Client } from '@aws-sdk/client-s3';
-import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+export {
+  getDynamoDBDocumentClient,
+  getS3Client,
+  getBatchClient,
+  getLambdaClient,
+} from '@nagiyu/aws';
 
 const DEFAULT_REGION = 'us-east-1';
 
@@ -16,53 +17,12 @@ const ERROR_MESSAGES = {
   MISSING_ZIP_GENERATOR_FUNCTION_NAME: '環境変数 ZIP_GENERATOR_FUNCTION_NAME が設定されていません',
 } as const;
 
-let cachedDocClient: DynamoDBDocumentClient | null = null;
-let cachedS3Client: S3Client | null = null;
-let cachedBatchClient: BatchClient | null = null;
-let cachedLambdaClient: LambdaClient | null = null;
-
-const getRegion = (): string => process.env.AWS_REGION || DEFAULT_REGION;
-
 const getRequiredEnv = (value: string | undefined, errorMessage: string): string => {
   const normalized = value?.trim() ?? '';
   if (normalized.length === 0) {
     throw new Error(errorMessage);
   }
   return normalized;
-};
-
-export const getDynamoDBDocumentClient = (): DynamoDBDocumentClient => {
-  if (!cachedDocClient) {
-    const dynamoClient = new DynamoDBClient({ region: getRegion() });
-    cachedDocClient = DynamoDBDocumentClient.from(dynamoClient, {
-      marshallOptions: {
-        removeUndefinedValues: true,
-      },
-    });
-  }
-
-  return cachedDocClient;
-};
-
-export const getS3Client = (): S3Client => {
-  if (!cachedS3Client) {
-    cachedS3Client = new S3Client({ region: getRegion() });
-  }
-  return cachedS3Client;
-};
-
-export const getBatchClient = (): BatchClient => {
-  if (!cachedBatchClient) {
-    cachedBatchClient = new BatchClient({ region: getRegion() });
-  }
-  return cachedBatchClient;
-};
-
-export const getLambdaClient = (): LambdaClient => {
-  if (!cachedLambdaClient) {
-    cachedLambdaClient = new LambdaClient({ region: getRegion() });
-  }
-  return cachedLambdaClient;
 };
 
 export const getTableName = (): string =>
@@ -92,4 +52,4 @@ export const getZipGeneratorFunctionName = (): string =>
     ERROR_MESSAGES.MISSING_ZIP_GENERATOR_FUNCTION_NAME
   );
 
-export const getAwsRegion = (): string => getRegion();
+export const getAwsRegion = (): string => process.env.AWS_REGION || DEFAULT_REGION;

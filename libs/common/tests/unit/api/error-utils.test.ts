@@ -1,5 +1,23 @@
 import { describe, expect, it } from '@jest/globals';
-import { extractErrorMessage } from '../../../src/api/error-utils.js';
+import { extractErrorMessage, toErrorMessage } from '../../../src/api/error-utils.js';
+
+describe('toErrorMessage', () => {
+  it('Error インスタンスのとき message を返す', () => {
+    expect(toErrorMessage(new Error('エラー'))).toBe('エラー');
+  });
+
+  it('文字列のとき そのまま返す', () => {
+    expect(toErrorMessage('文字列エラー')).toBe('文字列エラー');
+  });
+
+  it('null のとき "null" を返す', () => {
+    expect(toErrorMessage(null)).toBe('null');
+  });
+
+  it('オブジェクトのとき String() で変換する', () => {
+    expect(toErrorMessage({ code: 404 })).toBe('[object Object]');
+  });
+});
 
 describe('extractErrorMessage', () => {
   it('errorData が null のときは defaultMessage を返す', () => {

@@ -11,4 +11,6 @@ export * from './clients.js';
 export * from './dynamodb/index.js';
 export * from './s3/index.js';
 export * from './batch/index.js';
+export * from './lambda/index.js';
+export * from './crypto/index.js';
 export * from './error-events/index.js';

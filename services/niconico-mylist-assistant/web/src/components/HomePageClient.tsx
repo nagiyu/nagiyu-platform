@@ -4,9 +4,9 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Container, Typography, Box } from '@mui/material';
 import { Button } from '@nagiyu/ui';
+import { usePushSubscription } from '@nagiyu/react';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import NotificationPermissionDialog from './NotificationPermissionButton';
-import { urlBase64ToUint8Array } from '@nagiyu/browser';
 
 interface HomePageClientProps {
   userName?: string;
@@ -14,27 +14,40 @@ interface HomePageClientProps {
   appUrl: string;
 }
 
+const fetchVapidPublicKey = async (): Promise<string> => {
+  const response = await fetch('/api/push/vapid-public-key');
+  if (!response.ok) {
+    throw new Error('VAPID公開鍵の取得に失敗しました');
+  }
+  const { publicKey } = (await response.json()) as { publicKey?: string };
+  if (!publicKey) {
+    throw new Error('VAPID公開鍵が空です');
+  }
+  return publicKey;
+};
+
+const postSubscription = async (subscription: PushSubscription): Promise<void> => {
+  const response = await fetch('/api/push/subscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ subscription: subscription.toJSON() }),
+  });
+  if (!response.ok) {
+    throw new Error('サブスクリプションの登録に失敗しました');
+  }
+};
+
 export default function HomePageClient({ userName, isAuthenticated, appUrl }: HomePageClientProps) {
   const authUrl = process.env.NEXT_PUBLIC_AUTH_URL;
   const [openNotificationDialog, setOpenNotificationDialog] = useState(false);
-  const [isSubscribed, setIsSubscribed] = useState(false);
   const canUseNotificationApi = typeof window !== 'undefined' && 'Notification' in window;
 
-  const handleOpenNotificationDialog = async () => {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      try {
-        if ('serviceWorker' in navigator) {
-          const registration = await navigator.serviceWorker.ready;
-          const existingSubscription = await registration.pushManager.getSubscription();
-          setIsSubscribed(Boolean(existingSubscription));
-        }
-      } catch (error) {
-        console.error('通知購読状態の確認に失敗しました:', error);
-        setIsSubscribed(false);
-      }
-    } else {
-      setIsSubscribed(false);
-    }
+  const { subscribed, subscribe } = usePushSubscription({
+    getVapidPublicKey: fetchVapidPublicKey,
+    onSubscribed: postSubscription,
+  });
+
+  const handleOpenNotificationDialog = () => {
     setOpenNotificationDialog(true);
   };
 
@@ -44,57 +57,8 @@ export default function HomePageClient({ userName, isAuthenticated, appUrl }: Ho
 
   const handleRequestNotificationPermission = async () => {
     try {
-      if (
-        !('Notification' in window) ||
-        !('serviceWorker' in navigator) ||
-        !('PushManager' in window)
-      ) {
-        throw new Error('この環境ではプッシュ通知を利用できません');
-      }
-
-      const permission = await Notification.requestPermission();
-
-      if (permission !== 'granted') {
-        alert('通知の許可が必要です');
-        return;
-      }
-
-      let registration = await navigator.serviceWorker.getRegistration();
-      if (!registration) {
-        registration = await navigator.serviceWorker.register('/sw.js');
-      }
-      if (!registration.active) {
-        registration = await navigator.serviceWorker.ready;
-      }
-
-      const vapidResponse = await fetch('/api/push/vapid-public-key');
-      if (!vapidResponse.ok) {
-        throw new Error('VAPID公開鍵の取得に失敗しました');
-      }
-      const { publicKey } = await vapidResponse.json();
-
-      const existingSubscription = await registration.pushManager.getSubscription();
-      const subscription =
-        existingSubscription ||
-        (await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
-        }));
-
-      const response = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ subscription: subscription.toJSON() }),
-      });
-
-      if (response.ok) {
-        setIsSubscribed(true);
-        alert('通知が有効になりました！');
-      } else {
-        throw new Error('サブスクリプションの登録に失敗しました');
-      }
+      await subscribe();
+      alert('通知が有効になりました！');
     } catch (error) {
       console.error('Error requesting notification permission:', error);
       const detail = error instanceof Error ? `: ${error.message}` : '';
@@ -138,7 +102,7 @@ export default function HomePageClient({ userName, isAuthenticated, appUrl }: Ho
                 </Button>
                 <NotificationPermissionDialog
                   open={openNotificationDialog}
-                  isSubscribed={isSubscribed}
+                  isSubscribed={subscribed}
                   onClose={handleCloseNotificationDialog}
                   onRequestPermission={handleRequestNotificationPermission}
                 />

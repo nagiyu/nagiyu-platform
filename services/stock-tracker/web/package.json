@@ -1,6 +1,6 @@
 {
   "name": "@nagiyu/stock-tracker-web",
-  "version": "3.0.1",
+  "version": "3.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -38,7 +38,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.11.0",
     "@jest/types": "^30.3.0",
-    "@playwright/test": "^1.59.1",
+    "@playwright/test": "1.60.0",
     "@tailwindcss/postcss": "^4",
     "dotenv": "^17.4.1",
     "eslint-config-next": "^16.2.3",

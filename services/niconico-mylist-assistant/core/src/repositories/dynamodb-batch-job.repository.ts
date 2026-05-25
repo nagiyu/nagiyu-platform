@@ -15,6 +15,7 @@ import {
   EntityAlreadyExistsError,
   EntityNotFoundError,
   DatabaseError,
+  mapConditionalCheckFailed,
   type DynamoDBItem,
 } from '@nagiyu/aws';
 import type { BatchJobRepository } from './batch-job.repository.interface.js';
@@ -24,6 +25,7 @@ import type {
   UpdateBatchJobInput,
 } from '../entities/batch-job.entity.js';
 import { BatchJobMapper } from '../mappers/batch-job.mapper.js';
+import { toErrorMessage } from '@nagiyu/common';
 
 /**
  * DynamoDB BatchJob Repository
@@ -61,7 +63,7 @@ export class DynamoDBBatchJobRepository implements BatchJobRepository {
 
       return this.mapper.toEntity(result.Item as DynamoDBItem);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -90,11 +92,12 @@ export class DynamoDBBatchJobRepository implements BatchJobRepository {
 
       return entity;
     } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityAlreadyExistsError('BatchJob', `${input.jobId}#${input.userId}`);
-      }
-
-      const message = error instanceof Error ? error.message : String(error);
+      mapConditionalCheckFailed(error, {
+        onExists: () => {
+          throw new EntityAlreadyExistsError('BatchJob', `${input.jobId}#${input.userId}`);
+        },
+      });
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -143,15 +146,15 @@ export class DynamoDBBatchJobRepository implements BatchJobRepository {
 
       return this.mapper.toEntity(result.Attributes as DynamoDBItem);
     } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityNotFoundError('BatchJob', `${jobId}#${userId}`);
-      }
-
+      mapConditionalCheckFailed(error, {
+        onMissing: () => {
+          throw new EntityNotFoundError('BatchJob', `${jobId}#${userId}`);
+        },
+      });
       if (error instanceof EntityNotFoundError) {
         throw error;
       }
-
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -170,7 +173,7 @@ export class DynamoDBBatchJobRepository implements BatchJobRepository {
         })
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }

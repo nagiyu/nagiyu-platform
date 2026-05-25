@@ -41,9 +41,18 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
   },
 }));
 
-const mockReportErrorEvent = jest.fn().mockResolvedValue(null);
 jest.mock('@nagiyu/aws', () => ({
-  reportErrorEvent: (...args: unknown[]) => mockReportErrorEvent(...args),
+  withErrorReporting: jest.fn((_opts: unknown, fn: () => Promise<unknown>) => fn()),
+  getDynamoDBDocumentClient: jest.fn().mockReturnValue({}),
+  getS3Client: jest.fn().mockReturnValue({ send: mockSend }),
+}));
+
+jest.mock('@nagiyu/common', () => ({
+  requireEnv: jest.fn(() => ({
+    DYNAMODB_TABLE_NAME: 'jobs',
+    S3_BUCKET: 'bucket',
+    AWS_REGION: 'ap-northeast-1',
+  })),
 }));
 
 jest.mock('node:child_process', () => ({
@@ -118,21 +127,27 @@ describe('clip lambda handler', () => {
       };
     });
 
+    // withErrorReporting の onError まで呼び出す実装にする
+    const { withErrorReporting } = await import('@nagiyu/aws');
+    (withErrorReporting as jest.Mock).mockImplementation(
+      async (opts: { onError?: (e: unknown) => Promise<void> }, fn: () => Promise<unknown>) => {
+        try {
+          return await fn();
+        } catch (error) {
+          if (opts.onError) await opts.onError(error);
+          throw error;
+        }
+      }
+    );
+
     const { handler } = await import('../../src/handler.js');
     await expect(handler(baseEvent)).rejects.toThrow('クリップ分割に失敗しました');
     expect(mockUpdate).toHaveBeenCalledWith('job-1', 'h-1', { clipStatus: 'FAILED' });
-    expect(mockReportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceId: 'quick-clip',
-        severity: 'error',
-        context: expect.objectContaining({ jobId: 'job-1', highlightId: 'h-1' }),
-      })
-    );
   });
 
-  it('正常系では reportErrorEvent を呼ばない', async () => {
+  it('正常系では withErrorReporting の onError を呼ばない', async () => {
     const { handler } = await import('../../src/handler.js');
     await handler(baseEvent);
-    expect(mockReportErrorEvent).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalledWith('job-1', 'h-1', { clipStatus: 'FAILED' });
   });
 });

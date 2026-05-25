@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { ServiceLayout, ServiceWorkerRegistration } from '@nagiyu/ui';
-import { Navigation } from '@/components/Navigation';
+import { ServiceLayout, ServiceWorkerRegistration, type NavigationItem } from '@nagiyu/ui';
 import '@nagiyu/ui/tokens.css';
 import './globals.css';
 
@@ -17,6 +16,13 @@ export const viewport: Viewport = {
   themeColor: '#1976d2',
 };
 
+const navigationItems: NavigationItem[] = [
+  { label: 'ホーム', href: '/' },
+  { label: 'インポート', href: '/import' },
+  { label: '動画一覧', href: '/mylist' },
+  { label: 'マイリスト登録', href: '/mylist/register' },
+];
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const version = process.env.APP_VERSION || '0.1.0';
 
@@ -31,8 +37,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           headerProps={{
             title: 'Niconico Mylist Assistant',
             ariaLabel: 'Niconico Mylist Assistant ホームページに戻る',
+            navigationItems,
           }}
-          headerSlot={<Navigation />}
           footerProps={{ version }}
         >
           {children}

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { clearTestData } from './helpers/test-data';
+import { clickNavigationItem, expectNavigationItemVisible } from './helpers/navigation';
 
 test.describe('Video List Page', () => {
   test.beforeEach(async ({ request }) => {
@@ -361,19 +362,16 @@ test.describe('Video List Navigation', () => {
   test('should have navigation links', async ({ page }) => {
     await page.goto('/mylist');
 
-    // ナビゲーションリンクの確認（AppBar内のボタンに限定）
-    const toolbar = page.locator('header[class*="MuiAppBar"] [class*="MuiToolbar"]');
-    await expect(toolbar.getByRole('button', { name: 'ホーム' })).toBeVisible();
-    await expect(toolbar.getByRole('button', { name: 'インポート' })).toBeVisible();
-    await expect(toolbar.getByRole('button', { name: '動画一覧' })).toBeVisible();
+    // ナビゲーションリンクの確認（モバイルでは Drawer、デスクトップでは Toolbar を自動切替）
+    await expectNavigationItemVisible(page, 'ホーム');
+    await expectNavigationItemVisible(page, 'インポート');
+    await expectNavigationItemVisible(page, '動画一覧');
   });
 
   test('should navigate to home when clicking home button', async ({ page }) => {
     await page.goto('/mylist');
 
-    const toolbar = page.locator('header[class*="MuiAppBar"] [class*="MuiToolbar"]');
-    const homeButton = toolbar.getByRole('button', { name: 'ホーム' });
-    await homeButton.click();
+    await clickNavigationItem(page, 'ホーム');
 
     // ホームページに遷移
     await expect(page).toHaveURL('/');
@@ -382,9 +380,7 @@ test.describe('Video List Navigation', () => {
   test('should navigate to import when clicking import button', async ({ page }) => {
     await page.goto('/mylist');
 
-    const toolbar = page.locator('header[class*="MuiAppBar"] [class*="MuiToolbar"]');
-    const importButton = toolbar.getByRole('button', { name: 'インポート' });
-    await importButton.click();
+    await clickNavigationItem(page, 'インポート');
 
     // インポートページに遷移
     await expect(page).toHaveURL('/import');

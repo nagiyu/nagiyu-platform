@@ -8,6 +8,7 @@
 import {
   getCurrentPrice,
   getChartData,
+  TradingViewSession,
   TRADINGVIEW_ERROR_MESSAGES,
 } from '../../../src/services/tradingview-client';
 
@@ -368,6 +369,168 @@ describe('TradingView Client', () => {
 
         // Assert: 最初のデータのみが返される
         expect(actualPrice).toBe(firstPrice);
+      });
+    });
+  });
+
+  describe('TradingViewSession', () => {
+    describe('正常系: 現在価格の取得', () => {
+      test('getCurrentPrice が既存 client を再利用して価格を取得できる', async () => {
+        // Arrange
+        const expectedPrice = 150.5;
+        mockChart.periods = [{ close: expectedPrice }];
+
+        const session = new TradingViewSession();
+        const pricePromise = session.getCurrentPrice('NSDQ:AAPL');
+
+        if (onUpdateCallback) {
+          onUpdateCallback();
+        }
+
+        // Assert
+        const actualPrice = await pricePromise;
+        expect(actualPrice).toBe(expectedPrice);
+        expect(mockChart.setMarket).toHaveBeenCalledWith('NSDQ:AAPL', {
+          timeframe: '1',
+          session: 'extended',
+        });
+      });
+
+      test('カスタムオプション（timeout, session）を指定できる', async () => {
+        // Arrange
+        mockChart.periods = [{ close: 200.75 }];
+
+        const session = new TradingViewSession();
+        const pricePromise = session.getCurrentPrice('NYSE:TSLA', {
+          timeout: 5000,
+          session: 'regular',
+        });
+
+        if (onUpdateCallback) {
+          onUpdateCallback();
+        }
+
+        const actualPrice = await pricePromise;
+        expect(actualPrice).toBe(200.75);
+        expect(mockChart.setMarket).toHaveBeenCalledWith('NYSE:TSLA', {
+          timeframe: '1',
+          session: 'regular',
+        });
+      });
+
+      test('chart.delete() は呼ばれるが、close() 前は client.end() が呼ばれない', async () => {
+        // Arrange: クライアント共有の核心テスト
+        mockChart.periods = [{ close: 100.0 }];
+
+        const session = new TradingViewSession();
+        const pricePromise = session.getCurrentPrice('NSDQ:NVDA');
+
+        if (onUpdateCallback) {
+          onUpdateCallback();
+        }
+
+        await pricePromise;
+
+        // chart.delete は呼ばれるが client.end はまだ呼ばれない
+        expect(mockChart.delete).toHaveBeenCalledTimes(1);
+        expect(mockClient.end).not.toHaveBeenCalled();
+
+        // close() を呼ぶと client.end が呼ばれる
+        await session.close();
+        expect(mockClient.end).toHaveBeenCalledTimes(1);
+      });
+
+      test('複数回 getCurrentPrice を呼んでも client.end() は close() まで呼ばれない', async () => {
+        // Arrange: 同一 client でチャートを複数回生成するシナリオ
+        mockChart.periods = [{ close: 100.0 }];
+
+        const session = new TradingViewSession();
+
+        // 1回目
+        const pricePromise1 = session.getCurrentPrice('NSDQ:AAPL');
+        if (onUpdateCallback) onUpdateCallback();
+        await pricePromise1;
+
+        // 2回目
+        mockChart.delete.mockClear();
+        const pricePromise2 = session.getCurrentPrice('NYSE:TSLA');
+        if (onUpdateCallback) onUpdateCallback();
+        await pricePromise2;
+
+        expect(mockChart.delete).toHaveBeenCalledTimes(1);
+        expect(mockClient.end).not.toHaveBeenCalled();
+
+        await session.close();
+        expect(mockClient.end).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    describe('異常系: バリデーションエラー', () => {
+      test('無効なティッカーID（コロンなし）でエラーをスローする', async () => {
+        const session = new TradingViewSession();
+        await expect(session.getCurrentPrice('AAPL')).rejects.toThrow(
+          TRADINGVIEW_ERROR_MESSAGES.INVALID_TICKER
+        );
+        expect(mockClient.end).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('異常系: タイムアウト', () => {
+      test('タイムアウト時にエラーをスローし、chart.delete() が呼ばれる', async () => {
+        const session = new TradingViewSession();
+
+        await expect(session.getCurrentPrice('NSDQ:AAPL', { timeout: 100 })).rejects.toThrow(
+          TRADINGVIEW_ERROR_MESSAGES.TIMEOUT
+        );
+
+        expect(mockChart.delete).toHaveBeenCalled();
+        expect(mockClient.end).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('異常系: 接続エラー', () => {
+      test('接続エラー時にエラーをスローし、chart.delete() が呼ばれる', async () => {
+        const session = new TradingViewSession();
+        const pricePromise = session.getCurrentPrice('NSDQ:AAPL');
+
+        if (onErrorCallback) {
+          onErrorCallback(new Error('Connection failed'));
+        }
+
+        await expect(pricePromise).rejects.toThrow(
+          `${TRADINGVIEW_ERROR_MESSAGES.CONNECTION_ERROR}: Connection failed`
+        );
+
+        expect(mockChart.delete).toHaveBeenCalled();
+        expect(mockClient.end).not.toHaveBeenCalled();
+      });
+
+      test('レート制限エラーを正しく分類する', async () => {
+        const session = new TradingViewSession();
+        const pricePromise = session.getCurrentPrice('NYSE:TSLA');
+
+        if (onErrorCallback) {
+          onErrorCallback(new Error('rate limit exceeded'));
+        }
+
+        await expect(pricePromise).rejects.toThrow(TRADINGVIEW_ERROR_MESSAGES.RATE_LIMIT);
+      });
+    });
+
+    describe('close()', () => {
+      test('close() は client.end() を呼ぶ', async () => {
+        const session = new TradingViewSession();
+        await session.close();
+        expect(mockClient.end).toHaveBeenCalledTimes(1);
+      });
+
+      test('client.end() がエラーをスローしても close() は正常に完了する', async () => {
+        mockClient.end.mockImplementation(() => {
+          throw new Error('end error');
+        });
+
+        const session = new TradingViewSession();
+        await expect(session.close()).resolves.toBeUndefined();
       });
     });
   });

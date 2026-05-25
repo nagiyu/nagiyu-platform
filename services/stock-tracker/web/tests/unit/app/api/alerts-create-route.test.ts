@@ -39,8 +39,6 @@ describe('POST /api/alerts', () => {
     mode: 'Buy',
     frequency: 'MINUTE_LEVEL',
     conditions: [{ field: 'price', operator: 'gte', value: 100 }],
-    notificationTitle: '通知タイトル',
-    notificationBody: '通知本文',
     subscription: {
       endpoint: 'https://example.com/endpoint',
       keys: {
@@ -50,19 +48,13 @@ describe('POST /api/alerts', () => {
     },
   };
 
-  it('notificationTitle が空文字の場合は 400 を返す', async () => {
-    const response = await POST(createRequest({ ...validRequestBody, notificationTitle: '   ' }));
+  it('subscription が未指定の場合は 400 を返す', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { subscription: _sub, ...bodyWithoutSubscription } = validRequestBody;
+    const response = await POST(createRequest(bodyWithoutSubscription));
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.message).toBe('通知タイトルは必須です');
-  });
-
-  it('notificationBody が空文字の場合は 400 を返す', async () => {
-    const response = await POST(createRequest({ ...validRequestBody, notificationBody: '' }));
-    const body = await response.json();
-
-    expect(response.status).toBe(400);
-    expect(body.message).toBe('通知本文は必須です');
+    expect(body.message).toBe('Web Push サブスクリプション情報が必要です');
   });
 });

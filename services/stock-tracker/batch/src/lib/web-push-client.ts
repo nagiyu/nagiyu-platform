@@ -14,9 +14,8 @@ export function createAlertNotificationPayload(
   currentPrice: number
 ): NotificationPayload {
   const mode = alert.Mode === 'Buy' ? '買い' : '売り';
-  const defaultTitle = `${mode}アラート: ${alert.TickerID}`;
-  const customTitle = alert.NotificationTitle?.trim();
-  const customBody = alert.NotificationBody?.trim();
+  const title = `${mode}アラート: ${alert.TickerID}`;
+  const customMessage = alert.CustomMessage?.trim();
   const url = `/?exchangeId=${encodeURIComponent(alert.ExchangeID)}&tickerId=${encodeURIComponent(
     alert.TickerID
   )}`;
@@ -58,8 +57,8 @@ export function createAlertNotificationPayload(
   }
 
   return {
-    title: customTitle || defaultTitle,
-    body: customBody || body,
+    title,
+    body: customMessage ? `${body}\n${customMessage}` : body,
     icon: DEFAULT_NOTIFICATION_ICON,
     data: {
       alertId: alert.AlertID,
