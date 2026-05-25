@@ -22,9 +22,12 @@ export async function expectNavigationItemVisible(page: Page, label: string) {
     await expect(drawer.getByText(label, { exact: true })).toBeVisible();
   } else {
     // Header の NavigationMenuItem は MUI Button + href={...} で描画され、
-    // 実体は <a> 要素のため accessibility role は "link"
+    // 実体は <a> 要素のため accessibility role は "link"。
+    // exact: true を付けないと、ロゴリンクの aria-label
+    // "Niconico Mylist Assistant ホームページに戻る" 等への部分一致で
+    // strict mode violation になるため必須。
     const toolbar = page.locator('header[class*="MuiAppBar"] [class*="MuiToolbar"]');
-    await expect(toolbar.getByRole('link', { name: label })).toBeVisible();
+    await expect(toolbar.getByRole('link', { name: label, exact: true })).toBeVisible();
   }
 }
 
@@ -35,6 +38,6 @@ export async function clickNavigationItem(page: Page, label: string) {
     await drawer.getByText(label, { exact: true }).click();
   } else {
     const toolbar = page.locator('header[class*="MuiAppBar"] [class*="MuiToolbar"]');
-    await toolbar.getByRole('link', { name: label }).click();
+    await toolbar.getByRole('link', { name: label, exact: true }).click();
   }
 }
