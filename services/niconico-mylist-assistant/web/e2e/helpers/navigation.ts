@@ -21,8 +21,10 @@ export async function expectNavigationItemVisible(page: Page, label: string) {
     const drawer = page.getByRole('navigation', { name: 'ナビゲーションメニュー' });
     await expect(drawer.getByText(label, { exact: true })).toBeVisible();
   } else {
+    // Header の NavigationMenuItem は MUI Button + href={...} で描画され、
+    // 実体は <a> 要素のため accessibility role は "link"
     const toolbar = page.locator('header[class*="MuiAppBar"] [class*="MuiToolbar"]');
-    await expect(toolbar.getByRole('button', { name: label })).toBeVisible();
+    await expect(toolbar.getByRole('link', { name: label })).toBeVisible();
   }
 }
 
@@ -33,6 +35,6 @@ export async function clickNavigationItem(page: Page, label: string) {
     await drawer.getByText(label, { exact: true }).click();
   } else {
     const toolbar = page.locator('header[class*="MuiAppBar"] [class*="MuiToolbar"]');
-    await toolbar.getByRole('button', { name: label }).click();
+    await toolbar.getByRole('link', { name: label }).click();
   }
 }
