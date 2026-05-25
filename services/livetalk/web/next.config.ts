@@ -11,6 +11,7 @@ const nextConfig: NextConfig = {
     '@nagiyu/common',
     '@nagiyu/nextjs',
     '@nagiyu/livetalk-core',
+    '@nagiyu/voicevox-client',
   ],
 };
 

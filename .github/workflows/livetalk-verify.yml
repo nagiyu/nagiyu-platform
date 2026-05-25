@@ -36,6 +36,9 @@ jobs:
           node-version: '24'
           cache-dependency-path: './package-lock.json'
 
+      - name: Run ESLint on voicevox-client
+        run: npm run lint --workspace=@nagiyu/voicevox-client
+
       - name: Run ESLint on core
         run: npm run lint --workspace=@nagiyu/livetalk-core
 
@@ -55,6 +58,9 @@ jobs:
         with:
           node-version: '24'
           cache-dependency-path: './package-lock.json'
+
+      - name: Check voicevox-client formatting
+        run: npm run format:check --workspace=@nagiyu/voicevox-client
 
       - name: Check core formatting
         run: npm run format:check --workspace=@nagiyu/livetalk-core
@@ -121,7 +127,7 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/livetalk-web'
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/livetalk-core'
+          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/voicevox-client,@nagiyu/livetalk-core'
 
   docker-build:
     name: Docker Build Verification
@@ -174,7 +180,11 @@ jobs:
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/voicevox-client
           npm run build --workspace @nagiyu/livetalk-core
+
+      - name: Run voicevox-client unit tests
+        run: npm run test --workspace @nagiyu/voicevox-client
 
       - name: Run core unit tests
         run: npm run test --workspace @nagiyu/livetalk-core
@@ -204,7 +214,11 @@ jobs:
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/voicevox-client
           npm run build --workspace @nagiyu/livetalk-core
+
+      - name: Run voicevox-client tests with coverage
+        run: npm run test:coverage --workspace @nagiyu/voicevox-client
 
       - name: Run core tests with coverage
         run: npm run test:coverage --workspace @nagiyu/livetalk-core
@@ -236,6 +250,7 @@ jobs:
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/voicevox-client
           npm run build --workspace @nagiyu/livetalk-core
 
       - name: Build web application
@@ -306,6 +321,7 @@ jobs:
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/voicevox-client
           npm run build --workspace @nagiyu/livetalk-core
 
       - name: Build web application
@@ -376,6 +392,7 @@ jobs:
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/voicevox-client
           npm run build --workspace @nagiyu/livetalk-core
 
       - name: Build web application

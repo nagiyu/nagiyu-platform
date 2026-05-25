@@ -69,11 +69,7 @@ export default function CharacterArea({ audioLevel, statusText }: CharacterAreaP
             data-testid="character-mouth"
           />
         </svg>
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ mt: 1, textAlign: 'center' }}
-        >
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
           {statusText ?? '待機中'}
         </Typography>
       </Box>

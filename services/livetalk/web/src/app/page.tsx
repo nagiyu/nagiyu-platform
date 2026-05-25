@@ -119,8 +119,8 @@ async function playAudioWithLipSync(
 ): Promise<void> {
   const AudioContextCtor =
     typeof window !== 'undefined'
-      ? (window.AudioContext ||
-          (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)
+      ? window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
       : undefined;
 
   // Web Audio API が使えない環境では音量解析を諦め、再生のみ行う。
@@ -163,9 +163,12 @@ async function playAudioWithLipSync(
       ctx.close().catch(() => {});
       reject(new Error('Audio playback failed'));
     });
-    audio.play().then(() => {
-      tick();
-    }).catch(reject);
+    audio
+      .play()
+      .then(() => {
+        tick();
+      })
+      .catch(reject);
   });
 }
 

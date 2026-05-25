@@ -51,9 +51,7 @@ export class VoicevoxClient implements IVoiceClient {
     const url = `${this.baseUrl}/audio_query?text=${encodeURIComponent(text)}&speaker=${speaker}`;
     const response = await this.fetchWithTimeout(url, { method: 'POST' });
     if (!response.ok) {
-      throw new Error(
-        `${VOICEVOX_ERROR_MESSAGES.AUDIO_QUERY_FAILED}: HTTP ${response.status}`
-      );
+      throw new Error(`${VOICEVOX_ERROR_MESSAGES.AUDIO_QUERY_FAILED}: HTTP ${response.status}`);
     }
     return response.json();
   }
@@ -66,9 +64,7 @@ export class VoicevoxClient implements IVoiceClient {
       body: JSON.stringify(audioQuery),
     });
     if (!response.ok) {
-      throw new Error(
-        `${VOICEVOX_ERROR_MESSAGES.SYNTHESIS_FAILED}: HTTP ${response.status}`
-      );
+      throw new Error(`${VOICEVOX_ERROR_MESSAGES.SYNTHESIS_FAILED}: HTTP ${response.status}`);
     }
     return response.arrayBuffer();
   }

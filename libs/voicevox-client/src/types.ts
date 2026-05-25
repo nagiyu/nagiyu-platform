@@ -13,11 +13,11 @@ export interface IVoiceClient {
    * テキストから音声を合成する。
    *
    * @param text 合成対象のテキスト（空文字不可）
-   * @param speakerId 話者 ID。VOICEVOX の場合 14 = 冥鳴ひまり
+   * @param speakerId 話者 ID。省略時は実装側の既定話者を使用する（VOICEVOX 既定は 14 = 冥鳴ひまり）
    * @returns 合成された音声バイナリ（VOICEVOX の場合は WAV）
    * @throws テキストが空文字、または HTTP 呼び出しに失敗した場合
    */
-  synthesize(text: string, speakerId: number): Promise<ArrayBuffer>;
+  synthesize(text: string, speakerId?: number): Promise<ArrayBuffer>;
 }
 
 /**
