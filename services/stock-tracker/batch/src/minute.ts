@@ -4,7 +4,7 @@
  * MINUTE_LEVEL のアラート条件をチェックして通知を送信する
  */
 
-import { logger, withRetry } from '@nagiyu/common';
+import { logger, toErrorMessage, withRetry } from '@nagiyu/common';
 import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import { createAlertNotificationPayload } from './lib/web-push-client.js';
@@ -156,7 +156,7 @@ async function processAlert(
 
     return notificationSent;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     logger.error('アラート処理中にエラーが発生しました', {
       alertId: alert.AlertID,
       userId: alert.UserID,
@@ -256,7 +256,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       }),
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     logger.error('1分間隔バッチ処理でエラーが発生しました', {
       eventId: event.id,
       error: errorMessage,

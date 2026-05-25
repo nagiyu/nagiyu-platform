@@ -20,6 +20,7 @@ import {
 } from './errors.js';
 import { conditionalPut, conditionalUpdate, conditionalDelete } from './helpers.js';
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
+import { toErrorMessage } from '@nagiyu/common';
 
 /**
  * DynamoDB Repository 抽象基底クラス
@@ -136,7 +137,7 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
         throw error;
       }
       throw new DatabaseError(
-        `エンティティ取得エラー: ${error instanceof Error ? error.message : String(error)}`,
+        `エンティティ取得エラー: ${toErrorMessage(error)}`,
         error instanceof Error ? error : undefined
       );
     }
@@ -181,7 +182,7 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
         throw new EntityAlreadyExistsError(this.config.entityType, JSON.stringify(entity));
       }
       throw new DatabaseError(
-        `エンティティ作成エラー: ${error instanceof Error ? error.message : String(error)}`,
+        `エンティティ作成エラー: ${toErrorMessage(error)}`,
         error instanceof Error ? error : undefined
       );
     }
@@ -265,7 +266,7 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
         throw error;
       }
       throw new DatabaseError(
-        `エンティティ更新エラー: ${error instanceof Error ? error.message : String(error)}`,
+        `エンティティ更新エラー: ${toErrorMessage(error)}`,
         error instanceof Error ? error : undefined
       );
     }
@@ -298,7 +299,7 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
         throw new EntityNotFoundError(this.config.entityType, JSON.stringify(key));
       }
       throw new DatabaseError(
-        `エンティティ削除エラー: ${error instanceof Error ? error.message : String(error)}`,
+        `エンティティ削除エラー: ${toErrorMessage(error)}`,
         error instanceof Error ? error : undefined
       );
     }

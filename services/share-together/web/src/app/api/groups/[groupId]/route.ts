@@ -9,6 +9,7 @@ import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createGroupRepository, createMembershipRepository } from '@nagiyu/share-together-core';
+import { toErrorMessage } from '@nagiyu/common';
 
 const CORE_ERROR_MESSAGES = {
   GROUP_NOT_FOUND: 'グループが見つかりません',
@@ -113,7 +114,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams): Promis
       return notFoundResponse;
     }
 
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     console.error('グループ更新 API の実行に失敗しました', { groupId, error });
     await reportErrorEvent({
       serviceId: 'share-together',
@@ -147,7 +148,7 @@ export async function DELETE(
       return notFoundResponse;
     }
 
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     console.error('グループ削除 API の実行に失敗しました', { groupId, error });
     await reportErrorEvent({
       serviceId: 'share-together',

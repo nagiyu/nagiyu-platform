@@ -21,6 +21,7 @@ jest.mock('@nagiyu/aws', () => ({
 }));
 
 jest.mock('@nagiyu/common', () => ({
+  ...jest.requireActual('@nagiyu/common'),
   COMMON_ERROR_MESSAGES: {
     UNAUTHORIZED: '認証が必要です',
     FORBIDDEN: 'この操作を実行する権限がありません',

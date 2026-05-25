@@ -7,7 +7,7 @@
  * - 物理削除は DynamoDB TTL に委ねる（TTL_GRACE_DAYS 後を Unix 秒で TTL 設定）
  */
 
-import { logger } from '@nagiyu/common';
+import { logger, toErrorMessage } from '@nagiyu/common';
 import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
 import type {
   AlertRepository,
@@ -143,7 +143,7 @@ async function processCandidate(
     logger.error('一時通知アラートの失効処理でエラーが発生しました', {
       alertId: candidate.AlertID,
       userId: candidate.UserID,
-      error: error instanceof Error ? error.message : String(error),
+      error: toErrorMessage(error),
     });
   }
 }
@@ -189,7 +189,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       }),
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     logger.error('一時通知アラート失効バッチでエラーが発生しました', {
       eventId: event.id,
       error: errorMessage,

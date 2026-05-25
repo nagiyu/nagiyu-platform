@@ -19,6 +19,7 @@ import { createOpenAIClient } from './openai-client.js';
 import { TranscriptionService } from './transcription.service.js';
 import type { TranscriptSegment } from './transcription.service.js';
 import { EmotionHighlightService } from './emotion-highlight.service.js';
+import { toErrorMessage } from '@nagiyu/common';
 
 /** Batch 実行コマンド種別。 */
 export type QuickClipBatchCommand = 'extract';
@@ -115,7 +116,7 @@ const downloadSourceVideo = async (
         continue;
       }
 
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       const downloadError = new Error(
         `${ERROR_MESSAGES.DOWNLOAD_FAILED}: ${message}`
       ) as ErrorWithCause;
@@ -313,7 +314,7 @@ const buildHighlights = async (
         serviceId: 'quick-clip',
         severity: 'warning',
         title: 'QuickClip 感情分析に失敗しスキップしました',
-        message: error instanceof Error ? error.message : String(error),
+        message: toErrorMessage(error),
         context: {
           jobId,
           stage: 'emotionScoring',
@@ -427,7 +428,7 @@ export const runQuickClipBatch = async (env: QuickClipBatchRunInput): Promise<vo
   try {
     await runExtract(env);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = toErrorMessage(error);
     await updateErrorMessage(env.jobId, message, env.tableName, env.awsRegion);
     await reportErrorEvent({
       serviceId: 'quick-clip',

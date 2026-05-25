@@ -3,7 +3,7 @@
  */
 
 import { chromium, Browser, Page } from 'playwright';
-import { withRetry, sleep } from '@nagiyu/common';
+import { sleep, toErrorMessage, withRetry } from '@nagiyu/common';
 import type { RetryOptions } from '@nagiyu/common';
 import {
   DEFAULT_RETRY_CONFIG,
@@ -75,10 +75,10 @@ export async function login(page: Page, email: string, password: string): Promis
       serviceId: 'niconico-mylist-assistant',
       severity: 'error',
       title: 'ニコニコログイン失敗',
-      message: error instanceof Error ? error.message : String(error),
+      message: toErrorMessage(error),
       context: {
         step: 'login',
-        error: error instanceof Error ? error.message : String(error),
+        error: toErrorMessage(error),
       },
     });
     throw new Error(ERROR_MESSAGES.LOGIN_FAILED);
@@ -660,7 +660,7 @@ export async function registerOverlayBannerHandler(page: Page): Promise<void> {
       } catch (error) {
         console.warn(
           'オーバーレイバナーの除去に失敗しました（処理は継続します）:',
-          error instanceof Error ? error.message : String(error)
+          toErrorMessage(error)
         );
       }
     },

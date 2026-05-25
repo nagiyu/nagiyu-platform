@@ -25,6 +25,7 @@ import type {
   UpdateBatchJobInput,
 } from '../entities/batch-job.entity.js';
 import { BatchJobMapper } from '../mappers/batch-job.mapper.js';
+import { toErrorMessage } from '@nagiyu/common';
 
 /**
  * DynamoDB BatchJob Repository
@@ -62,7 +63,7 @@ export class DynamoDBBatchJobRepository implements BatchJobRepository {
 
       return this.mapper.toEntity(result.Item as DynamoDBItem);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -96,7 +97,7 @@ export class DynamoDBBatchJobRepository implements BatchJobRepository {
           throw new EntityAlreadyExistsError('BatchJob', `${input.jobId}#${input.userId}`);
         },
       });
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -153,7 +154,7 @@ export class DynamoDBBatchJobRepository implements BatchJobRepository {
       if (error instanceof EntityNotFoundError) {
         throw error;
       }
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -172,7 +173,7 @@ export class DynamoDBBatchJobRepository implements BatchJobRepository {
         })
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }

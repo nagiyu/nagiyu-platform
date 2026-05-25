@@ -1,4 +1,5 @@
 import { logger } from '../logger/index.js';
+import { toErrorMessage } from '../api/error-utils.js';
 
 export type VapidKeyName = 'publicKey' | 'privateKey';
 
@@ -30,7 +31,7 @@ export function normalizeVapidKey(rawKey: string, keyName: VapidKeyName): string
       });
     } catch (error) {
       logger.warn('VAPID キーのJSON解析に失敗しました。プレーン文字列として処理します', {
-        error: error instanceof Error ? error.message : String(error),
+        error: toErrorMessage(error),
       });
     }
   }

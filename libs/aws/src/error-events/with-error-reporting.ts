@@ -1,4 +1,4 @@
-import type { ErrorSeverity } from '@nagiyu/common';
+import { toErrorMessage, type ErrorSeverity } from '@nagiyu/common';
 import { reportErrorEvent } from './report.js';
 
 export interface WithErrorReportingOptions {
@@ -35,7 +35,7 @@ export async function withErrorReporting<T>(
       const errorContext: Record<string, unknown> = {
         ...opts.context,
         errorName: error instanceof Error ? error.name : typeof error,
-        errorMessage: error instanceof Error ? error.message : String(error),
+        errorMessage: toErrorMessage(error),
         errorStack: error instanceof Error ? error.stack : undefined,
       };
 
@@ -43,7 +43,7 @@ export async function withErrorReporting<T>(
         serviceId: opts.serviceId,
         severity: opts.severity ?? 'error',
         title: opts.title,
-        message: error instanceof Error ? error.message : String(error),
+        message: toErrorMessage(error),
         context: errorContext,
       });
 
