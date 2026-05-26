@@ -31,6 +31,5 @@ export const SSM_PARAMETERS = {
     `/nagiyu/livetalk/${env}/cloudfront/domain-name`,
   LIVETALK_CLOUDFRONT_CUSTOM_DOMAIN: (env: Environment) =>
     `/nagiyu/livetalk/${env}/cloudfront/custom-domain`,
-  LIVETALK_ASSETS_BUCKET_NAME: (env: Environment) =>
-    `/nagiyu/livetalk/${env}/assets/bucket-name`,
+  LIVETALK_ASSETS_BUCKET_NAME: (env: Environment) => `/nagiyu/livetalk/${env}/assets/bucket-name`,
 } as const;
