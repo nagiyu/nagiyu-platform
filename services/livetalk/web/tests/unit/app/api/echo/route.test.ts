@@ -5,8 +5,8 @@ import { POST } from '@/app/api/echo/route';
 import { ECHO_ERROR_MESSAGES, ECHO_MAX_TEXT_LENGTH } from '@/app/api/echo/constants';
 import { getSession } from '@/lib/server/session';
 import { getVoicevoxClient } from '@/lib/server/voicevox';
-import { getMessageRepository } from '@/lib/server/repositories';
-import type { MessageRepository } from '@nagiyu/livetalk-core';
+import { getMessageRepository, getProfileRepository } from '@/lib/server/repositories';
+import type { MessageRepository, ProfileRepository } from '@nagiyu/livetalk-core';
 
 jest.mock('@/lib/server/session', () => ({
   getSession: jest.fn(),
@@ -18,11 +18,13 @@ jest.mock('@/lib/server/voicevox', () => ({
 
 jest.mock('@/lib/server/repositories', () => ({
   getMessageRepository: jest.fn(),
+  getProfileRepository: jest.fn(),
 }));
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
 const mockGetClient = getVoicevoxClient as jest.MockedFunction<typeof getVoicevoxClient>;
 const mockGetRepo = getMessageRepository as jest.MockedFunction<typeof getMessageRepository>;
+const mockGetProfileRepo = getProfileRepository as jest.MockedFunction<typeof getProfileRepository>;
 
 const buildRequest = (body: unknown): Request =>
   new Request('http://localhost/api/echo', {
@@ -43,6 +45,23 @@ const validSession = {
   },
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
+
+const consentedProfile = {
+  UserID: 'g1',
+  LastActiveAt: 0,
+  CreatedAt: 0,
+  UpdatedAt: 0,
+  Consents: {
+    TermsAgreed: { Version: '1.0.0', AgreedAt: 0 },
+    PrivacyAgreed: { Version: '1.0.0', AgreedAt: 0 },
+    AgeVerified: { Value: true, VerifiedAt: 0 },
+  },
+};
+
+const makeProfileRepo = (profile: typeof consentedProfile | null = consentedProfile): ProfileRepository => ({
+  getById: jest.fn(async () => profile),
+  upsert: jest.fn(async () => consentedProfile),
+});
 
 const makeRepo = (overrides: Partial<MessageRepository> = {}): MessageRepository => {
   const create: MessageRepository['create'] = jest.fn(async (input) => ({
@@ -67,6 +86,7 @@ describe('POST /api/echo', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetRepo.mockReturnValue(makeRepo());
+    mockGetProfileRepo.mockReturnValue(makeProfileRepo());
   });
 
   it('未認証時は 401 を返す', async () => {
@@ -87,6 +107,14 @@ describe('POST /api/echo', () => {
   describe('認証済み', () => {
     beforeEach(() => {
       mockGetSession.mockResolvedValue(validSession);
+    });
+
+    it('同意未済の場合は 403 CONSENT_REQUIRED', async () => {
+      mockGetProfileRepo.mockReturnValueOnce(makeProfileRepo(null));
+      const response = await POST(buildRequest({ text: 'こんにちは' }));
+      expect(response.status).toBe(403);
+      const json = await response.json();
+      expect(json.message).toBe(ECHO_ERROR_MESSAGES.CONSENT_REQUIRED);
     });
 
     it('JSON でない body は 400 INVALID_REQUEST', async () => {

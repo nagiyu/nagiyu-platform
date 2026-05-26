@@ -9,6 +9,7 @@ export const ECHO_ERROR_MESSAGES = {
   TEXT_TOO_LONG: 'メッセージが長すぎます（200 文字以内で入力してください）',
   SYNTHESIS_FAILED: '音声合成に失敗しました',
   PERSISTENCE_FAILED: 'メッセージの保存に失敗しました',
+  CONSENT_REQUIRED: '利用規約・プライバシーポリシーへの同意が必要です',
 } as const;
 
 export const ECHO_MAX_TEXT_LENGTH = 200;
