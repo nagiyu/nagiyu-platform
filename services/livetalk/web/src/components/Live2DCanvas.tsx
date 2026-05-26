@@ -97,7 +97,11 @@ export default function Live2DCanvas({ audioLevel, statusText }: Live2DCanvasPro
       container.appendChild(app.view as HTMLCanvasElement);
 
       try {
-        const model = await Live2DModel.from(HIYORI_MODEL_PATH, { autoInteract: false });
+        const model = await Live2DModel.from(HIYORI_MODEL_PATH, {
+          autoInteract: false,
+          // PIXI Application のティッカーを渡してアイドルモーション・呼吸・まばたきを駆動する
+          ticker: app.ticker,
+        });
         if (cancelled) {
           model.destroy();
           return;
