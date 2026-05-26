@@ -17,9 +17,6 @@ export class ProfileMapper implements EntityMapper<ProfileEntity, ProfileKey> {
       SK: sk,
       Type: this.entityType,
       UserID: entity.UserID,
-      GoogleID: entity.GoogleID,
-      DisplayName: entity.DisplayName,
-      Email: entity.Email,
       LastActiveAt: entity.LastActiveAt,
       CreatedAt: entity.CreatedAt,
       UpdatedAt: entity.UpdatedAt,
@@ -29,10 +26,6 @@ export class ProfileMapper implements EntityMapper<ProfileEntity, ProfileKey> {
   public toEntity(item: DynamoDBItem): ProfileEntity {
     return {
       UserID: validateStringField(item.UserID, 'UserID'),
-      GoogleID: validateStringField(item.GoogleID, 'GoogleID'),
-      // DisplayName は Google アカウントによっては空のことがあるため empty 許容。
-      DisplayName: validateStringField(item.DisplayName, 'DisplayName', { allowEmpty: true }),
-      Email: validateStringField(item.Email, 'Email', { allowEmpty: true }),
       LastActiveAt: validateTimestampField(item.LastActiveAt, 'LastActiveAt'),
       CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
       UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),

@@ -34,10 +34,7 @@ export class InMemoryProfileRepository implements ProfileRepository {
     const existing = await this.getById({ userId: input.UserID });
     const merged: ProfileEntity = {
       UserID: input.UserID,
-      GoogleID: input.GoogleID,
-      DisplayName: updates.DisplayName ?? input.DisplayName,
-      Email: updates.Email ?? input.Email,
-      LastActiveAt: updates.LastActiveAt ?? input.LastActiveAt,
+      LastActiveAt: updates.LastActiveAt ?? input.LastActiveAt ?? now,
       CreatedAt: existing?.CreatedAt ?? now,
       UpdatedAt: now,
     };

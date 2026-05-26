@@ -1,21 +1,21 @@
 /**
- * ユーザープロファイル（リブトーク内部で保持する最小情報）。
+ * リブトークが独自に保持するユーザープロファイル。
  *
- * `tasks/livetalk/design.md` 3.1 / 3.2 節 の `User` に対応する。
- * Auth サービスの session から得られる情報を必要に応じてキャッシュする位置づけ。
+ * 表示名 / メール / Google ID 等の認証側情報はここに持たない：
+ *   - Google ID は `UserID` と同値（セッションの `user.googleId` をそのまま使う）ため重複
+ *   - 表示名 / メールは Auth サービスのセッションから都度取得できる
+ *   - PII を LiveTalk 側に複製しないことで漏洩時の影響範囲を縮小する
+ *
+ * よって LiveTalk が単独で必要とする属性のみ保持する：
+ *   - 最初にリブトークを開いた時刻（`CreatedAt`）
+ *   - 最後にリブトークを開いた時刻（`LastActiveAt`、久しぶり挨拶等で参照）
  */
 export interface ProfileEntity {
-  /** ユーザー識別子（Google ID） */
+  /** ユーザー識別子（= Google ID。セッションから供給される） */
   UserID: string;
-  /** Google ID（UserID と同値でも明示的に持つ：将来の認証方式拡張時の保険） */
-  GoogleID: string;
-  /** 表示名（Google プロフィール由来） */
-  DisplayName: string;
-  /** Email（PII：ログ等への露出禁止） */
-  Email: string;
   /** 最終アクセス時刻（Unix ms） */
   LastActiveAt: number;
-  /** 作成 / 更新時刻（Unix ms） */
+  /** リブトーク初回登録時刻 / 更新時刻（Unix ms） */
   CreatedAt: number;
   UpdatedAt: number;
 }
@@ -24,7 +24,18 @@ export interface ProfileKey {
   userId: string;
 }
 
-export type CreateProfileInput = Omit<ProfileEntity, 'CreatedAt' | 'UpdatedAt'>;
-export type UpdateProfileInput = Partial<
-  Pick<ProfileEntity, 'DisplayName' | 'Email' | 'LastActiveAt'>
->;
+/**
+ * 初回登録時の入力。
+ * `LastActiveAt` を省略した場合は呼び出し時刻が採用される。
+ */
+export interface CreateProfileInput {
+  UserID: string;
+  LastActiveAt?: number;
+}
+
+/**
+ * 既存プロファイルへの差分更新。Phase 2a では `LastActiveAt` のみ。
+ */
+export interface UpdateProfileInput {
+  LastActiveAt?: number;
+}

@@ -13,7 +13,7 @@ import type { ProfileRepository } from './profile.repository.interface.js';
  * DynamoDB Profile Repository。
  *
  * upsert は Put 1 回で十分なため、conditional 系は使わずに最新値で上書きする。
- * 既存値の `CreatedAt` を保持したい場合のみ Get → Put の 2 段書きを行う。
+ * 既存値の `CreatedAt` は維持するため Get → Put の 2 段書きとする。
  */
 export class DynamoDBProfileRepository implements ProfileRepository {
   private readonly mapper: ProfileMapper;
@@ -58,10 +58,7 @@ export class DynamoDBProfileRepository implements ProfileRepository {
 
     const merged: ProfileEntity = {
       UserID: input.UserID,
-      GoogleID: input.GoogleID,
-      DisplayName: updates.DisplayName ?? input.DisplayName,
-      Email: updates.Email ?? input.Email,
-      LastActiveAt: updates.LastActiveAt ?? input.LastActiveAt,
+      LastActiveAt: updates.LastActiveAt ?? input.LastActiveAt ?? now,
       CreatedAt: existing?.CreatedAt ?? now,
       UpdatedAt: now,
     };

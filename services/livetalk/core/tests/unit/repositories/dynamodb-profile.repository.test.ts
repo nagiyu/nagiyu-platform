@@ -9,7 +9,7 @@ describe('DynamoDBProfileRepository', () => {
   const tableName = 'nagiyu-livetalk-dev';
   const now = 1_700_000_000_000;
 
-  it('upsert は GetCommand → PutCommand の順に送る（初回は CreatedAt=now）', async () => {
+  it('upsert は GetCommand → PutCommand の順に送り、初回は CreatedAt=now', async () => {
     const sent: unknown[] = [];
     const client = makeClient(async (cmd) => {
       sent.push(cmd);
@@ -18,13 +18,7 @@ describe('DynamoDBProfileRepository', () => {
     });
     const repo = new DynamoDBProfileRepository(client as never, tableName, () => now);
 
-    const result = await repo.upsert({
-      UserID: 'u1',
-      GoogleID: 'g1',
-      DisplayName: 'Taro',
-      Email: 't@example.com',
-      LastActiveAt: now,
-    });
+    const result = await repo.upsert({ UserID: 'u1' });
 
     expect(sent[0]).toBeInstanceOf(GetCommand);
     expect(sent[1]).toBeInstanceOf(PutCommand);
@@ -32,18 +26,20 @@ describe('DynamoDBProfileRepository', () => {
     expect(put.Item?.PK).toBe('USER#u1');
     expect(put.Item?.SK).toBe('PROFILE');
     expect(put.Item?.CreatedAt).toBe(now);
+    expect(put.Item?.LastActiveAt).toBe(now);
+    // PII を持ち込まない
+    expect(put.Item?.DisplayName).toBeUndefined();
+    expect(put.Item?.Email).toBeUndefined();
+    expect(put.Item?.GoogleID).toBeUndefined();
     expect(result.CreatedAt).toBe(now);
   });
 
-  it('既存があれば CreatedAt は既存値を保持する', async () => {
+  it('既存があれば CreatedAt は維持しつつ LastActiveAt と UpdatedAt を反映する', async () => {
     const existing = {
       PK: 'USER#u1',
       SK: 'PROFILE',
       Type: 'Profile',
       UserID: 'u1',
-      GoogleID: 'g1',
-      DisplayName: 'Taro',
-      Email: 't@example.com',
       LastActiveAt: now - 1000,
       CreatedAt: 1_600_000_000_000,
       UpdatedAt: now - 1000,
@@ -54,20 +50,10 @@ describe('DynamoDBProfileRepository', () => {
     });
     const repo = new DynamoDBProfileRepository(client as never, tableName, () => now);
 
-    const result = await repo.upsert(
-      {
-        UserID: 'u1',
-        GoogleID: 'g1',
-        DisplayName: 'Taro',
-        Email: 't@example.com',
-        LastActiveAt: now,
-      },
-      { LastActiveAt: now, DisplayName: 'Updated' }
-    );
+    const result = await repo.upsert({ UserID: 'u1' }, { LastActiveAt: now });
 
     expect(result.CreatedAt).toBe(1_600_000_000_000);
     expect(result.UpdatedAt).toBe(now);
-    expect(result.DisplayName).toBe('Updated');
     expect(result.LastActiveAt).toBe(now);
   });
 
@@ -91,14 +77,6 @@ describe('DynamoDBProfileRepository', () => {
       throw new Error('put failure');
     });
     const repo = new DynamoDBProfileRepository(client as never, tableName, () => now);
-    await expect(
-      repo.upsert({
-        UserID: 'u1',
-        GoogleID: 'g1',
-        DisplayName: 'Taro',
-        Email: 't@example.com',
-        LastActiveAt: now,
-      })
-    ).rejects.toBeInstanceOf(DatabaseError);
+    await expect(repo.upsert({ UserID: 'u1' })).rejects.toBeInstanceOf(DatabaseError);
   });
 });

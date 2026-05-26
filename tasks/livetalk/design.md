@@ -231,11 +231,12 @@ data: {}
 
 ```typescript
 type User = {
+    // userId == セッションの googleId をそのまま使う。
+    // 表示名 / メール / Google ID は Auth サービスのセッションから都度取得するため
+    // ここには保持しない（PII を LiveTalk 側に複製しない方針）。
     userId: string;          // googleId
-    displayName: string;
-    email: string;
-    createdAt: string;       // ISO8601
-    lastActiveAt: string;
+    createdAt: string;       // ISO8601、LiveTalk 初回登録時刻
+    lastActiveAt: string;    // LiveTalk 最終アクセス時刻
 };
 
 type CharacterState = {
