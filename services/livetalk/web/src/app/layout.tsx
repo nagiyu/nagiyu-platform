@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import Script from 'next/script';
 import { ServiceLayout } from '@nagiyu/ui';
 import '@nagiyu/ui/tokens.css';
 
@@ -16,6 +17,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="ja">
+      {/* Cubism Core は pixi-live2d-display が window.Live2DCubismCore を参照するため
+          他のスクリプトより先にロードする必要がある */}
+      <Script src="/assets/cubism-core/live2dcubismcore.min.js" strategy="beforeInteractive" />
       <body>
         <ServiceLayout
           headerProps={{

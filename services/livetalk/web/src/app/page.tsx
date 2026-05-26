@@ -1,22 +1,27 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Box, Container, Stack } from '@mui/material';
-import CharacterArea from '@/components/CharacterArea';
 import ChatInput from '@/components/ChatInput';
 import LicenseFooter from '@/components/LicenseFooter';
 import ResponseDisplay from '@/components/ResponseDisplay';
+import { Live2DCanvasFallback } from '@/components/Live2DCanvas';
+
+// PixiJS は browser API (WebGL, Canvas) を使うため SSR 不可。
+const Live2DCanvas = dynamic(() => import('@/components/Live2DCanvas'), {
+  ssr: false,
+  loading: ({ error }) => (error ? null : <Live2DCanvasFallback statusText="読み込み中…" />),
+});
 
 type ChatPhase = 'idle' | 'loading' | 'playing';
 
 /**
- * Phase 1f のチャット画面。
- * - 上部: プレースホルダーキャラクター + 簡易リップシンク
+ * Phase 1g のチャット画面。
+ * - 上部: 桃瀬ひより（Live2D）+ リップシンク
  * - 中央: 応答テキスト
  * - 下部: 入力欄
- * - 最下部: VOICEVOX ライセンス表記
- *
- * Phase 1g で CharacterArea が Live2D に置き換わる前提。
+ * - 最下部: VOICEVOX / Live2D ライセンス表記
  */
 export default function HomePage() {
   const [phase, setPhase] = useState<ChatPhase>('idle');
@@ -77,7 +82,7 @@ export default function HomePage() {
       }}
     >
       <Box sx={{ flex: '0 1 60%', minHeight: 240, mb: 1 }}>
-        <CharacterArea audioLevel={audioLevel} statusText={statusText} />
+        <Live2DCanvas audioLevel={audioLevel} statusText={statusText} />
       </Box>
       <Stack
         spacing={1}
