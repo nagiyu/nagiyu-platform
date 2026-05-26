@@ -1,8 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
-import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { Environment, SSM_PARAMETERS } from '@nagiyu/infra-common';
+import { Environment, getDynamoDBTableName } from '@nagiyu/infra-common';
 
 export interface LiveTalkDynamoDbStackProps extends cdk.StackProps {
   environment: Environment;
@@ -11,14 +10,19 @@ export interface LiveTalkDynamoDbStackProps extends cdk.StackProps {
 /**
  * LiveTalk DynamoDB Single Table スタック
  *
- * - 命名: `nagiyu-livetalk-{env}`（`tasks/livetalk/design.md` 3.2 節に準拠）
+ * - 命名: 共通ヘルパー `getDynamoDBTableName('livetalk', env)` で決定
  * - PK / SK の 2 キー Single Table 構成。MVP では GSI を作成しない
- *   （`design.md` 3.2 節：「MVP では GSI 不要、Phase 進行で必要になれば追加」）
+ *   （`tasks/livetalk/design.md` 3.2 節：「MVP では GSI 不要、Phase 進行で必要になれば追加」）
  * - Message は TTL（属性名 `TTL`、Unix 秒）で 90 日後に自動削除
  * - Point-in-time Recovery 有効、AWS マネージドキーで at-rest 暗号化
  * - dev は破棄、prod は保持
- * - 他スタック（ECS Service など）から参照しやすいよう、テーブル名 / ARN を
- *   SSM パラメータに出力する
+ * - 他スタック（ECS Service など）からは `getDynamoDBTableName('livetalk', env)` /
+ *   `getDynamoDBTableArn(...)` を使って同じ値を独立に組み立てる。
+ *   CDK のクロススタック参照（`Fn::ImportValue`）を避けることで、CloudFormation
+ *   の export 依存に伴うカスケード再デプロイを発生させない。SSM 経由でも同じ
+ *   結合が生じるため、サービス固有のキーを `infra/common` に追加しない。
+ * - `public readonly table` はテストや CfnOutput 用に保持するが、他スタックへの
+ *   prop パススルー目的では使わない。
  */
 export class LiveTalkDynamoDbStack extends cdk.Stack {
   public readonly table: dynamodb.Table;
@@ -29,7 +33,7 @@ export class LiveTalkDynamoDbStack extends cdk.Stack {
     const { environment } = props;
 
     this.table = new dynamodb.Table(this, 'MainTable', {
-      tableName: `nagiyu-livetalk-${environment}`,
+      tableName: getDynamoDBTableName('livetalk', environment),
       partitionKey: {
         name: 'PK',
         type: dynamodb.AttributeType.STRING,
@@ -50,20 +54,6 @@ export class LiveTalkDynamoDbStack extends cdk.Stack {
     cdk.Tags.of(this).add('Environment', environment);
     cdk.Tags.of(this).add('ManagedBy', 'CDK');
     cdk.Tags.of(this).add('Component', 'livetalk');
-
-    new ssm.StringParameter(this, 'TableNameParam', {
-      parameterName: SSM_PARAMETERS.LIVETALK_DYNAMODB_TABLE_NAME(environment),
-      stringValue: this.table.tableName,
-      description: 'LiveTalk DynamoDB Single Table 名',
-      tier: ssm.ParameterTier.STANDARD,
-    });
-
-    new ssm.StringParameter(this, 'TableArnParam', {
-      parameterName: SSM_PARAMETERS.LIVETALK_DYNAMODB_TABLE_ARN(environment),
-      stringValue: this.table.tableArn,
-      description: 'LiveTalk DynamoDB Single Table ARN',
-      tier: ssm.ParameterTier.STANDARD,
-    });
 
     new cdk.CfnOutput(this, 'TableName', {
       value: this.table.tableName,

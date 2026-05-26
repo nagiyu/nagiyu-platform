@@ -16,10 +16,10 @@ const synth = (environment) => {
 };
 
 describe('LiveTalkDynamoDbStack', () => {
-  it('テーブル名は環境名込みで `nagiyu-livetalk-{env}` になる', () => {
+  it('テーブル名はヘルパー命名規則 `nagiyu-livetalk-dynamodb-{env}` に従う', () => {
     const template = synth('dev');
     template.hasResourceProperties('AWS::DynamoDB::Table', {
-      TableName: 'nagiyu-livetalk-dev',
+      TableName: 'nagiyu-livetalk-dynamodb-dev',
     });
   });
 
@@ -59,10 +59,10 @@ describe('LiveTalkDynamoDbStack', () => {
     expect(table.UpdateReplacePolicy).toBe('Delete');
   });
 
-  it('prod 環境は RETAIN ポリシー', () => {
+  it('prod 環境は RETAIN ポリシーで命名も prod を反映する', () => {
     const template = synth('prod');
     template.hasResourceProperties('AWS::DynamoDB::Table', {
-      TableName: 'nagiyu-livetalk-prod',
+      TableName: 'nagiyu-livetalk-dynamodb-prod',
     });
     const tableResource = template.findResources('AWS::DynamoDB::Table');
     const table = Object.values(tableResource)[0];
@@ -70,27 +70,16 @@ describe('LiveTalkDynamoDbStack', () => {
     expect(table.UpdateReplacePolicy).toBe('Retain');
   });
 
-  it('SSM Parameter にテーブル名と ARN を出力する', () => {
+  it('SSM パラメータは発行しない（サービス固有名を infra/common に増やさない方針）', () => {
     const template = synth('dev');
-    template.hasResourceProperties('AWS::SSM::Parameter', {
-      Name: '/nagiyu/livetalk/dev/dynamodb/table-name',
-    });
-    template.hasResourceProperties('AWS::SSM::Parameter', {
-      Name: '/nagiyu/livetalk/dev/dynamodb/table-arn',
-    });
+    const ssm = template.findResources('AWS::SSM::Parameter');
+    expect(Object.keys(ssm)).toHaveLength(0);
   });
 
   it('Component=livetalk タグを付与する', () => {
     const template = synth('dev');
     template.hasResourceProperties('AWS::DynamoDB::Table', {
       Tags: Match.arrayWith([{ Key: 'Component', Value: 'livetalk' }]),
-    });
-  });
-
-  it('prod 環境の SSM パラメータ名にも prod が反映される', () => {
-    const template = synth('prod');
-    template.hasResourceProperties('AWS::SSM::Parameter', {
-      Name: '/nagiyu/livetalk/prod/dynamodb/table-name',
     });
   });
 });

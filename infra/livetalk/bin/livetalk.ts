@@ -82,9 +82,11 @@ const cloudFrontStack = new LiveTalkCloudFrontStack(
 // SSM 経由の参照のため CDK は自動的にスタック間依存を検出できない。
 // 明示的に依存を宣言して deploy 順を保証する。
 ecsServiceStack.addDependency(albStack);
-// ECS Service は DynamoDB テーブル名 / ARN を SSM から参照する。
-ecsServiceStack.addDependency(dynamoDbStack);
 // CloudFront は ALB DNS を SSM から参照する。明示的に依存を宣言。
 cloudFrontStack.addDependency(albStack);
+// DynamoDB stack は ECS Service stack と直接依存しない：
+// ECS 側は `getDynamoDBTableName('livetalk', env)` で名前 / ARN を決定論的に
+// 組み立てており、SSM もクロススタック参照も介さないため、deploy 順は不問。
+// （IAM ポリシーが指す ARN は実テーブル作成より先に書き出されても問題なし）
 
 app.synth();

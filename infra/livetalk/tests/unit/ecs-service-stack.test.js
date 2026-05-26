@@ -175,14 +175,14 @@ describe('LiveTalkEcsServiceStack', () => {
     }
   });
 
-  it('DYNAMODB_TABLE_NAME を container environment に注入する', () => {
+  it('DYNAMODB_TABLE_NAME はヘルパー命名規則の値をそのまま注入する（SSM 経由ではない）', () => {
     const template = synth('dev');
     template.hasResourceProperties('AWS::ECS::TaskDefinition', {
       ContainerDefinitions: Match.arrayWith([
         Match.objectLike({
           Name: 'livetalk-web',
           Environment: Match.arrayWith([
-            Match.objectLike({ Name: 'DYNAMODB_TABLE_NAME' }),
+            { Name: 'DYNAMODB_TABLE_NAME', Value: 'nagiyu-livetalk-dynamodb-dev' },
           ]),
         }),
       ]),
