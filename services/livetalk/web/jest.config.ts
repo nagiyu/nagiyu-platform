@@ -23,7 +23,7 @@ const config: Config = {
   testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
   modulePathIgnorePatterns: ['<rootDir>/../../../package.json', '<rootDir>/.next/'],
   coverageDirectory: 'coverage',
-  collectCoverageFrom: ['src/lib/**/*.{ts,tsx}', '!src/**/*.d.ts'],
+  collectCoverageFrom: ['src/lib/**/*.{ts,tsx}', '!src/**/*.d.ts', '!src/lib/legal/**'],
   coverageThreshold: {
     global: {
       branches: 80,

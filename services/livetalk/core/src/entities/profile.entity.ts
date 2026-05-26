@@ -1,3 +1,19 @@
+export interface ConsentRecord {
+  Version: string;
+  AgreedAt: number; // Unix ms
+}
+
+export interface AgeVerification {
+  Value: boolean;
+  VerifiedAt: number; // Unix ms
+}
+
+export interface UserConsents {
+  TermsAgreed?: ConsentRecord;
+  PrivacyAgreed?: ConsentRecord;
+  AgeVerified?: AgeVerification;
+}
+
 /**
  * リブトークが独自に保持するユーザープロファイル。
  *
@@ -18,6 +34,7 @@ export interface ProfileEntity {
   /** リブトーク初回登録時刻 / 更新時刻（Unix ms） */
   CreatedAt: number;
   UpdatedAt: number;
+  Consents?: UserConsents;
 }
 
 export interface ProfileKey {
@@ -38,4 +55,5 @@ export interface CreateProfileInput {
  */
 export interface UpdateProfileInput {
   LastActiveAt?: number;
+  Consents?: UserConsents;
 }

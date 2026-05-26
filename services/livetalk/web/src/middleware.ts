@@ -15,6 +15,7 @@ export default auth(
   createAuthMiddleware({
     getSignInBaseUrl: () => process.env.NEXT_PUBLIC_AUTH_URL || process.env.NEXTAUTH_URL,
     requiredPermission: 'livetalk:chat',
+    isPublicPath: (pathname) => pathname.startsWith('/legal/'),
   })
 );
 
