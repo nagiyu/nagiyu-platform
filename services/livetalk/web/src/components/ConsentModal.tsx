@@ -58,7 +58,7 @@ export default function ConsentModal({ open, onConsented }: ConsentModalProps) {
   }, [allChecked, submitting, onConsented]);
 
   return (
-    <Dialog open={open} fullWidth maxWidth="sm" disableEscapeKeyDown>
+    <Dialog open={open} fullWidth maxWidth="sm">
       <DialogTitle sx={{ pb: 1 }}>リブトークへようこそ</DialogTitle>
 
       <DialogContent>
