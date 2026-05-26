@@ -33,4 +33,8 @@ export const SSM_PARAMETERS = {
     `/nagiyu/livetalk/${env}/cloudfront/custom-domain`,
   LIVETALK_ASSETS_BUCKET_NAME: (env: Environment) =>
     `/nagiyu/livetalk/${env}/assets/bucket-name`,
+  LIVETALK_DYNAMODB_TABLE_NAME: (env: Environment) =>
+    `/nagiyu/livetalk/${env}/dynamodb/table-name`,
+  LIVETALK_DYNAMODB_TABLE_ARN: (env: Environment) =>
+    `/nagiyu/livetalk/${env}/dynamodb/table-arn`,
 } as const;

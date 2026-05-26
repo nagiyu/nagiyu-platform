@@ -3,6 +3,7 @@ import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { LiveTalkEcrStack } from '../lib/ecr-stack';
 import { LiveTalkAlbStack } from '../lib/alb-stack';
+import { LiveTalkDynamoDbStack } from '../lib/dynamodb-stack';
 import { LiveTalkEcsServiceStack } from '../lib/ecs-service-stack';
 import { LiveTalkCloudFrontStack } from '../lib/cloudfront-stack';
 
@@ -39,6 +40,19 @@ const albStack = new LiveTalkAlbStack(app, `NagiyuLiveTalkAlb${envSuffix}`, {
   description: `LiveTalk ALB (${environment})`,
 });
 
+// LiveTalk DynamoDB Single Table Stack（Phase 2a で追加）
+// 会話履歴・プロファイル・キャラ状態を 1 テーブルで保持する。
+// テーブル名 / ARN は SSM パラメータ経由で ECS Service Stack から参照される。
+const dynamoDbStack = new LiveTalkDynamoDbStack(
+  app,
+  `NagiyuLiveTalkDynamoDB${envSuffix}`,
+  {
+    env: stackEnv,
+    environment,
+    description: `LiveTalk DynamoDB Single Table (${environment})`,
+  }
+);
+
 // LiveTalk ECS Service Stack（共通 Cluster に Attach、ALB Target Group へ登録）
 const ecsServiceStack = new LiveTalkEcsServiceStack(
   app,
@@ -68,6 +82,8 @@ const cloudFrontStack = new LiveTalkCloudFrontStack(
 // SSM 経由の参照のため CDK は自動的にスタック間依存を検出できない。
 // 明示的に依存を宣言して deploy 順を保証する。
 ecsServiceStack.addDependency(albStack);
+// ECS Service は DynamoDB テーブル名 / ARN を SSM から参照する。
+ecsServiceStack.addDependency(dynamoDbStack);
 // CloudFront は ALB DNS を SSM から参照する。明示的に依存を宣言。
 cloudFrontStack.addDependency(albStack);
 
