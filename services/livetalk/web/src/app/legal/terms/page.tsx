@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { Container, Typography, Box, Link } from '@mui/material';
+import { Container, Typography, Box } from '@mui/material';
+import { Link } from '@nagiyu/ui';
 import { liveTalkTermsSections, LIVETALK_TERMS_VERSION } from '@/lib/legal/terms-data';
 
 export const metadata: Metadata = {
@@ -42,9 +43,7 @@ export default function TermsPage() {
       ))}
 
       <Box sx={{ mt: 4, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-        <Link href="/legal/privacy" variant="body2">
-          プライバシーポリシーを見る
-        </Link>
+        <Link href="/legal/privacy">プライバシーポリシーを見る</Link>
       </Box>
     </Container>
   );

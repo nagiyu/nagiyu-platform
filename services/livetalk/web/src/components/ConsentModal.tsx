@@ -1,19 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Checkbox,
-  FormControlLabel,
-  Typography,
-  Box,
-  Link,
-  CircularProgress,
-} from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Typography, Box } from '@mui/material';
+import { Button, Checkbox, Link } from '@nagiyu/ui';
 
 export interface ConsentModalProps {
   open: boolean;
@@ -93,16 +82,12 @@ export default function ConsentModal({ open, onConsented }: ConsentModalProps) {
         </Box>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={termsChecked}
-                onChange={(e) => setTermsChecked(e.target.checked)}
-                data-testid="terms-checkbox"
-              />
-            }
+          <Checkbox
+            checked={termsChecked}
+            onChange={(e) => setTermsChecked(e.target.checked)}
+            data-testid="terms-checkbox"
             label={
-              <Typography variant="body2">
+              <Typography variant="body2" component="span">
                 <Link href="/legal/terms" target="_blank" rel="noopener noreferrer">
                   利用規約
                 </Link>
@@ -111,16 +96,12 @@ export default function ConsentModal({ open, onConsented }: ConsentModalProps) {
             }
           />
 
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={privacyChecked}
-                onChange={(e) => setPrivacyChecked(e.target.checked)}
-                data-testid="privacy-checkbox"
-              />
-            }
+          <Checkbox
+            checked={privacyChecked}
+            onChange={(e) => setPrivacyChecked(e.target.checked)}
+            data-testid="privacy-checkbox"
             label={
-              <Typography variant="body2">
+              <Typography variant="body2" component="span">
                 <Link href="/legal/privacy" target="_blank" rel="noopener noreferrer">
                   プライバシーポリシー
                 </Link>
@@ -129,15 +110,15 @@ export default function ConsentModal({ open, onConsented }: ConsentModalProps) {
             }
           />
 
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={ageChecked}
-                onChange={(e) => setAgeChecked(e.target.checked)}
-                data-testid="age-checkbox"
-              />
+          <Checkbox
+            checked={ageChecked}
+            onChange={(e) => setAgeChecked(e.target.checked)}
+            data-testid="age-checkbox"
+            label={
+              <Typography variant="body2" component="span">
+                18 歳以上である（自己申告）
+              </Typography>
             }
-            label={<Typography variant="body2">18 歳以上である（自己申告）</Typography>}
           />
         </Box>
 
@@ -156,11 +137,12 @@ export default function ConsentModal({ open, onConsented }: ConsentModalProps) {
 
       <DialogActions sx={{ px: 3, pb: 3 }}>
         <Button
-          variant="contained"
+          variant="solid"
+          color="primary"
           onClick={handleSubmit}
           disabled={!allChecked || submitting}
+          loading={submitting}
           data-testid="consent-submit"
-          startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : undefined}
         >
           {submitting ? '送信中...' : '利用開始'}
         </Button>

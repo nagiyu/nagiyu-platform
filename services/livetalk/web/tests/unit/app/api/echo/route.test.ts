@@ -58,7 +58,9 @@ const consentedProfile = {
   },
 };
 
-const makeProfileRepo = (profile: typeof consentedProfile | null = consentedProfile): ProfileRepository => ({
+const makeProfileRepo = (
+  profile: typeof consentedProfile | null = consentedProfile
+): ProfileRepository => ({
   getById: jest.fn(async () => profile),
   upsert: jest.fn(async () => consentedProfile),
 });

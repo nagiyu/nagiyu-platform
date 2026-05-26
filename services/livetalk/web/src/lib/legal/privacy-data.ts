@@ -28,8 +28,7 @@ export const liveTalkPrivacySections: PolicySection[] = [
     title: '第1条（収集する情報の種類）',
     contents: [
       {
-        mainContent:
-          '本サービスは、以下の情報を収集します。',
+        mainContent: '本サービスは、以下の情報を収集します。',
         subContents: [
           {
             subContent: 'Google アカウント情報',
@@ -79,15 +78,11 @@ export const liveTalkPrivacySections: PolicySection[] = [
     title: '第2条（情報の利用目的）',
     contents: [
       {
-        mainContent:
-          '収集した情報は、以下の目的のために利用します。',
+        mainContent: '収集した情報は、以下の目的のために利用します。',
         subContents: [
           {
             subContent: 'Google アカウント情報の利用目的',
-            subItems: [
-              'ユーザーの認証およびアカウント管理',
-              'ユーザーの識別とデータの紐付け',
-            ],
+            subItems: ['ユーザーの認証およびアカウント管理', 'ユーザーの識別とデータの紐付け'],
           },
           {
             subContent: '会話履歴の利用目的',
@@ -99,9 +94,7 @@ export const liveTalkPrivacySections: PolicySection[] = [
           },
           {
             subContent: '音声合成データの利用目的',
-            subItems: [
-              'AI キャラクターの音声生成（VOICEVOX による処理、外部送信なし）',
-            ],
+            subItems: ['AI キャラクターの音声生成（VOICEVOX による処理、外部送信なし）'],
           },
           {
             subContent: 'AI 記憶データの利用目的',
@@ -124,8 +117,7 @@ export const liveTalkPrivacySections: PolicySection[] = [
     title: '第3条（情報の保管・削除）',
     contents: [
       {
-        mainContent:
-          '収集した情報は、以下の期間保管し、期間経過後に自動的に削除されます。',
+        mainContent: '収集した情報は、以下の期間保管し、期間経過後に自動的に削除されます。',
         subContents: [
           {
             subContent: '各データの保管期間',
@@ -154,7 +146,8 @@ export const liveTalkPrivacySections: PolicySection[] = [
           '本サービスは、AI の応答生成のために以下の外部サービスを利用しており、ユーザーの会話テキストが送信されます。',
         subContents: [
           {
-            subContent: 'OpenAI または Anthropic（どちらを使用するかはシステムの設定により異なります）',
+            subContent:
+              'OpenAI または Anthropic（どちらを使用するかはシステムの設定により異なります）',
             subItems: [
               '送信データ: ユーザーの会話テキスト、AI 記憶データの一部、システムプロンプト',
               '利用目的: AI キャラクターの応答テキスト生成',
@@ -239,8 +232,7 @@ export const liveTalkPrivacySections: PolicySection[] = [
     title: '第7条（Cookie・セッション情報の取り扱い）',
     contents: [
       {
-        mainContent:
-          '本サービスは、以下の目的で Cookie およびセッション情報を使用します。',
+        mainContent: '本サービスは、以下の目的で Cookie およびセッション情報を使用します。',
         subContents: [
           {
             subContent: 'Cookie・セッション情報の利用目的',
@@ -253,8 +245,7 @@ export const liveTalkPrivacySections: PolicySection[] = [
         ],
       },
       {
-        mainContent:
-          '本サービスは、トラッキング目的の Cookie や広告配信 Cookie は使用しません。',
+        mainContent: '本サービスは、トラッキング目的の Cookie や広告配信 Cookie は使用しません。',
       },
       {
         mainContent:
@@ -270,8 +261,7 @@ export const liveTalkPrivacySections: PolicySection[] = [
           '当社は、個人情報の保護に関する法律（個人情報保護法）およびその他関連法令を遵守して個人情報を取り扱います。',
       },
       {
-        mainContent:
-          '個人情報の取り扱いに関する苦情・相談は、以下の窓口にご連絡ください。',
+        mainContent: '個人情報の取り扱いに関する苦情・相談は、以下の窓口にご連絡ください。',
         subContents: [
           {
             subContent: 'お問い合わせ窓口',

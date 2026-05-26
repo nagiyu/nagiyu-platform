@@ -114,53 +114,56 @@ export default function HomePage() {
 
   return (
     <>
-    <ConsentModal
-      open={consentPhase === 'required'}
-      onConsented={() => setConsentPhase('done')}
-    />
-    <Container
-      maxWidth="sm"
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: 'calc(100vh - 128px)',
-        py: 1,
-      }}
-    >
-      <Box sx={{ flex: '0 1 60%', minHeight: 240, mb: 1 }}>
-        <Live2DCanvas
-          audioUrl={audioUrl}
-          statusText={statusText}
-          onPlaybackEnd={handlePlaybackEnd}
-          onPlaybackError={handlePlaybackError}
-        />
-      </Box>
-      <Stack
-        spacing={1}
+      <ConsentModal
+        open={consentPhase === 'required'}
+        onConsented={() => setConsentPhase('done')}
+      />
+      <Container
+        maxWidth="sm"
         sx={{
-          flex: '1 1 auto',
-          width: '100%',
-          maxWidth: '100%',
-          alignItems: 'stretch',
+          display: 'flex',
+          flexDirection: 'column',
+          height: 'calc(100vh - 128px)',
+          py: 1,
         }}
       >
-        <ResponseDisplay text={responseText} userText={userText} />
-        {errorMessage && (
-          <Box
-            sx={{
-              color: 'error.main',
-              fontSize: '0.875rem',
-              textAlign: 'center',
-            }}
-            role="alert"
-          >
-            {errorMessage}
-          </Box>
-        )}
-        <ChatInput onSubmit={handleSubmit} disabled={phase !== 'idle' || consentPhase !== 'done'} />
-      </Stack>
-      <LicenseFooter />
-    </Container>
+        <Box sx={{ flex: '0 1 60%', minHeight: 240, mb: 1 }}>
+          <Live2DCanvas
+            audioUrl={audioUrl}
+            statusText={statusText}
+            onPlaybackEnd={handlePlaybackEnd}
+            onPlaybackError={handlePlaybackError}
+          />
+        </Box>
+        <Stack
+          spacing={1}
+          sx={{
+            flex: '1 1 auto',
+            width: '100%',
+            maxWidth: '100%',
+            alignItems: 'stretch',
+          }}
+        >
+          <ResponseDisplay text={responseText} userText={userText} />
+          {errorMessage && (
+            <Box
+              sx={{
+                color: 'error.main',
+                fontSize: '0.875rem',
+                textAlign: 'center',
+              }}
+              role="alert"
+            >
+              {errorMessage}
+            </Box>
+          )}
+          <ChatInput
+            onSubmit={handleSubmit}
+            disabled={phase !== 'idle' || consentPhase !== 'done'}
+          />
+        </Stack>
+        <LicenseFooter />
+      </Container>
     </>
   );
 }

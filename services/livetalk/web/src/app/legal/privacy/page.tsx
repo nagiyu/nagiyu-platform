@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { Container, Typography, Box, Link } from '@mui/material';
+import { Container, Typography, Box } from '@mui/material';
+import { Link } from '@nagiyu/ui';
 import { liveTalkPrivacySections, LIVETALK_PRIVACY_VERSION } from '@/lib/legal/privacy-data';
 
 export const metadata: Metadata = {
@@ -47,7 +48,12 @@ export default function PrivacyPage() {
               )}
               {content.link && (
                 <Typography variant="body2" sx={{ mt: 1 }}>
-                  <Link href={content.link} target="_blank" rel="noopener noreferrer">
+                  <Link
+                    href={content.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    color="neutral"
+                  >
                     {content.link}
                   </Link>
                 </Typography>
@@ -58,9 +64,7 @@ export default function PrivacyPage() {
       ))}
 
       <Box sx={{ mt: 4, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-        <Link href="/legal/terms" variant="body2">
-          利用規約を見る
-        </Link>
+        <Link href="/legal/terms">利用規約を見る</Link>
       </Box>
     </Container>
   );

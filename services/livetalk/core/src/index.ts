@@ -59,13 +59,6 @@ export {
 export { defaultUlidFactory, type UlidFactory } from './lib/ulid.js';
 
 // Consent
-export {
-  isConsentValid,
-  type ConsentRequirements,
-} from './lib/consent.js';
-export type {
-  ConsentRecord,
-  AgeVerification,
-  UserConsents,
-} from './entities/profile.entity.js';
+export { isConsentValid, type ConsentRequirements } from './lib/consent.js';
+export type { ConsentRecord, AgeVerification, UserConsents } from './entities/profile.entity.js';
 export { LIVETALK_TERMS_VERSION, LIVETALK_PRIVACY_VERSION } from './constants.js';

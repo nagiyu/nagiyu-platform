@@ -108,7 +108,9 @@ describe('GET /api/consent', () => {
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockGetSession.mockResolvedValue(validSession);
     mockGetProfileRepo.mockReturnValue({
-      getById: jest.fn(async () => { throw new Error('db error'); }),
+      getById: jest.fn(async () => {
+        throw new Error('db error');
+      }),
       upsert: jest.fn(async () => consentedProfile),
     });
     const res = await GET(buildGetRequest());
@@ -124,7 +126,9 @@ describe('POST /api/consent', () => {
 
   it('未認証は 401', async () => {
     mockGetSession.mockResolvedValueOnce(null);
-    const res = await POST(buildPostRequest({ termsAgreed: true, privacyAgreed: true, ageVerified: true }));
+    const res = await POST(
+      buildPostRequest({ termsAgreed: true, privacyAgreed: true, ageVerified: true })
+    );
     expect(res.status).toBe(401);
   });
 
@@ -138,13 +142,17 @@ describe('POST /api/consent', () => {
 
   it('型が違う body は 400', async () => {
     mockGetSession.mockResolvedValue(validSession);
-    const res = await POST(buildPostRequest({ termsAgreed: 'yes', privacyAgreed: true, ageVerified: true }));
+    const res = await POST(
+      buildPostRequest({ termsAgreed: 'yes', privacyAgreed: true, ageVerified: true })
+    );
     expect(res.status).toBe(400);
   });
 
   it('termsAgreed が false なら 400 ALL_CONSENTS_REQUIRED', async () => {
     mockGetSession.mockResolvedValue(validSession);
-    const res = await POST(buildPostRequest({ termsAgreed: false, privacyAgreed: true, ageVerified: true }));
+    const res = await POST(
+      buildPostRequest({ termsAgreed: false, privacyAgreed: true, ageVerified: true })
+    );
     expect(res.status).toBe(400);
     const json = await res.json();
     expect(json.message).toBe(CONSENT_ERROR_MESSAGES.ALL_CONSENTS_REQUIRED);
@@ -152,7 +160,9 @@ describe('POST /api/consent', () => {
 
   it('ageVerified が false なら 400 ALL_CONSENTS_REQUIRED', async () => {
     mockGetSession.mockResolvedValue(validSession);
-    const res = await POST(buildPostRequest({ termsAgreed: true, privacyAgreed: true, ageVerified: false }));
+    const res = await POST(
+      buildPostRequest({ termsAgreed: true, privacyAgreed: true, ageVerified: false })
+    );
     expect(res.status).toBe(400);
     const json = await res.json();
     expect(json.message).toBe(CONSENT_ERROR_MESSAGES.ALL_CONSENTS_REQUIRED);
@@ -162,7 +172,9 @@ describe('POST /api/consent', () => {
     mockGetSession.mockResolvedValue(validSession);
     const repo = makeProfileRepo();
     mockGetProfileRepo.mockReturnValue(repo);
-    const res = await POST(buildPostRequest({ termsAgreed: true, privacyAgreed: true, ageVerified: true }));
+    const res = await POST(
+      buildPostRequest({ termsAgreed: true, privacyAgreed: true, ageVerified: true })
+    );
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.consented).toBe(true);
@@ -183,9 +195,13 @@ describe('POST /api/consent', () => {
     mockGetSession.mockResolvedValue(validSession);
     mockGetProfileRepo.mockReturnValue({
       getById: jest.fn(async () => null),
-      upsert: jest.fn(async () => { throw new Error('db error'); }),
+      upsert: jest.fn(async () => {
+        throw new Error('db error');
+      }),
     });
-    const res = await POST(buildPostRequest({ termsAgreed: true, privacyAgreed: true, ageVerified: true }));
+    const res = await POST(
+      buildPostRequest({ termsAgreed: true, privacyAgreed: true, ageVerified: true })
+    );
     expect(res.status).toBe(500);
     const json = await res.json();
     expect(json.message).toBe(CONSENT_ERROR_MESSAGES.SAVE_FAILED);

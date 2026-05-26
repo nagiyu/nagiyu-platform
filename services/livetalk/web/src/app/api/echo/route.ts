@@ -73,10 +73,12 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (session, reques
   const characterId = DEFAULT_CHARACTER_ID;
 
   const profile = await getProfileRepository().getById({ userId });
-  if (!isConsentValid(profile?.Consents, {
-    termsVersion: LIVETALK_TERMS_VERSION,
-    privacyVersion: LIVETALK_PRIVACY_VERSION,
-  })) {
+  if (
+    !isConsentValid(profile?.Consents, {
+      termsVersion: LIVETALK_TERMS_VERSION,
+      privacyVersion: LIVETALK_PRIVACY_VERSION,
+    })
+  ) {
     return NextResponse.json(
       { error: 'CONSENT_REQUIRED', message: ECHO_ERROR_MESSAGES.CONSENT_REQUIRED },
       { status: 403 }
