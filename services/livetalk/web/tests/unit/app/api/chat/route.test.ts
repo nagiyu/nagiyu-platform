@@ -7,7 +7,6 @@ import { getSession } from '@/lib/server/session';
 import { getLLMClient } from '@/lib/server/llm';
 import { getVoicevoxClient } from '@/lib/server/voicevox';
 import { getMessageRepository } from '@/lib/server/repositories';
-import type { ChatEvent } from '@nagiyu/livetalk-core';
 
 jest.mock('@/lib/server/session', () => ({ getSession: jest.fn() }));
 jest.mock('@/lib/server/llm', () => ({ getLLMClient: jest.fn() }));
@@ -44,12 +43,6 @@ const buildRequest = (body: unknown): Request =>
     headers: { 'Content-Type': 'application/json' },
     body: typeof body === 'string' ? body : JSON.stringify(body),
   });
-
-async function* makeGenerator(events: ChatEvent[]): AsyncGenerator<ChatEvent> {
-  for (const event of events) {
-    yield event;
-  }
-}
 
 async function readNDJSONStream(response: Response): Promise<unknown[]> {
   const text = await response.text();
@@ -165,7 +158,6 @@ describe('POST /api/chat', () => {
       jest.spyOn(console, 'error').mockImplementation(() => {});
       mockRunChatUseCase.mockImplementation(async function* () {
         throw new Error('usecase error');
-        // eslint-disable-next-line no-unreachable
         yield { type: 'done' as const };
       });
 

@@ -15,12 +15,12 @@
 export class SentenceBuffer {
   private buffer = '';
 
-  push(delta: string): string[] {
+  public push(delta: string): string[] {
     this.buffer += delta;
     return this.extractSentences();
   }
 
-  flush(): string {
+  public flush(): string {
     const remaining = this.buffer.trim();
     this.buffer = '';
     return remaining;

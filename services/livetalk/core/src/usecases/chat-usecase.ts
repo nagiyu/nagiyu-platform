@@ -118,7 +118,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   // LLM 終了後の残余バッファを処理
   const remaining = sentenceBuffer.flush();
   if (remaining) {
-    const idx = sentenceIndex++;
+    const idx = sentenceIndex;
     pendingSynthesis.push(
       synthesizeSentence(voiceClient, remaining, character.voiceConfig.speakerId, idx)
     );

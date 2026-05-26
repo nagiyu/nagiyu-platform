@@ -1,6 +1,6 @@
 import { runChatUseCase, type ChatEvent } from '../../../src/usecases/chat-usecase.js';
 import { hiyori } from '../../../src/characters/hiyori.js';
-import type { ILLMClient, ChatMessage } from '../../../src/llm-client/types.js';
+import type { ILLMClient } from '../../../src/llm-client/types.js';
 import type { IVoiceClient } from '../../../src/voicevox/types.js';
 import type { MessageRepository } from '../../../src/repositories/message.repository.interface.js';
 import type { MessageEntity } from '../../../src/entities/message.entity.js';
@@ -27,7 +27,7 @@ async function* stringsToStream(chunks: string[]): AsyncIterable<string> {
 
 function makeLLMClient(chunks: string[]): ILLMClient {
   return {
-    chatStream: jest.fn(async function* (_msgs: ChatMessage[]) {
+    chatStream: jest.fn(async function* () {
       yield* stringsToStream(chunks);
     }),
     chatComplete: jest.fn(),
@@ -404,7 +404,7 @@ describe('runChatUseCase', () => {
 
     it('LLM エラーは例外として伝播する', async () => {
       const failingLLM: ILLMClient = {
-        chatStream: jest.fn(async function* () {
+        chatStream: jest.fn(function (): AsyncIterable<string> {
           throw new Error('llm down');
         }),
         chatComplete: jest.fn(),
