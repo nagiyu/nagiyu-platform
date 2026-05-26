@@ -235,4 +235,48 @@ describe('LiveTalkEcsServiceStack', () => {
       Name: '/nagiyu/livetalk/prod/ecs/service-name',
     });
   });
+
+  it('OPENAI_API_KEY env を container に注入する（CDK context 経由、未指定時は PLACEHOLDER）', () => {
+    const template = synth('dev');
+    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Name: 'livetalk-web',
+          Environment: Match.arrayWith([
+            { Name: 'OPENAI_API_KEY', Value: 'PLACEHOLDER_OPENAI_API_KEY' },
+          ]),
+        }),
+      ]),
+    });
+  });
+
+  it('CDK context openAiApiKey が指定されれば OPENAI_API_KEY env に注入される', () => {
+    const app = new cdk.App({
+      context: { openAiApiKey: 'sk-from-context' },
+    });
+    const stack = new LiveTalkEcsServiceStack(app, 'TestLiveTalkServiceDevWithKey', {
+      environment: 'dev',
+      env: STACK_ENV,
+    });
+    const template = Template.fromStack(stack);
+    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Name: 'livetalk-web',
+          Environment: Match.arrayWith([{ Name: 'OPENAI_API_KEY', Value: 'sk-from-context' }]),
+        }),
+      ]),
+    });
+  });
+
+  it('Task Role に Secrets Manager 読取権限の PolicyStatement を持たない（CI-context 方式）', () => {
+    const template = synth('dev');
+    const policies = template.findResources('AWS::IAM::Policy');
+    for (const policy of Object.values(policies)) {
+      const statements = policy.Properties?.PolicyDocument?.Statement ?? [];
+      for (const stmt of statements) {
+        expect(stmt.Sid).not.toBe('LiveTalkLlmApiKeyRead');
+      }
+    }
+  });
 });
