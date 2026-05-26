@@ -269,4 +269,34 @@ describe('LiveTalkCloudFrontStack', () => {
       Description: 'LiveTalk assets S3 bucket name (Live2D models, Cubism Core)',
     });
   });
+
+  it('/assets/* Behavior に AssetsUriRewrite CloudFront Function を VIEWER_REQUEST で関連付ける', () => {
+    const template = synth('dev');
+    // CloudFront Function リソースが作成されることを確認
+    template.hasResourceProperties('AWS::CloudFront::Function', {
+      FunctionConfig: Match.objectLike({
+        Runtime: 'cloudfront-js-1.0',
+      }),
+    });
+    // /assets/* behavior に FunctionAssociation が設定されることを確認
+    template.hasResourceProperties('AWS::CloudFront::Distribution', {
+      DistributionConfig: Match.objectLike({
+        CacheBehaviors: Match.arrayWith([
+          Match.objectLike({
+            PathPattern: '/assets/*',
+            FunctionAssociations: Match.arrayWith([
+              Match.objectLike({
+                EventType: 'viewer-request',
+                FunctionARN: Match.objectLike({
+                  'Fn::GetAtt': Match.arrayWith([
+                    Match.stringLikeRegexp('^AssetsUriRewrite'),
+                  ]),
+                }),
+              }),
+            ]),
+          }),
+        ]),
+      }),
+    });
+  });
 });

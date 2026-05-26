@@ -74,6 +74,22 @@ export class LiveTalkCloudFrontStack extends cdk.Stack {
       environment === 'prod' ? 'live-talk.nagiyu.com' : 'dev-live-talk.nagiyu.com';
     const recordName = environment === 'prod' ? 'live-talk' : 'dev-live-talk';
 
+    // CloudFront behavior のパスパターン /assets/* にマッチしたリクエストは
+    // URI がそのまま S3 キーになるため /assets/ prefix を除去する必要がある。
+    // 例: /assets/cubism-core/foo.js → /cubism-core/foo.js (S3 キー)
+    const assetsUriRewrite = new cloudfront.Function(this, 'AssetsUriRewrite', {
+      comment: '/assets/* リクエストから /assets prefix を除去して S3 キーにマッピング',
+      code: cloudfront.FunctionCode.fromInline(
+        [
+          'function handler(event) {',
+          '  var request = event.request;',
+          "  request.uri = request.uri.replace(/^\\/assets/, '');",
+          '  return request;',
+          '}',
+        ].join('\n')
+      ),
+    });
+
     this.distribution = new cloudfront.Distribution(this, 'Distribution', {
       comment: `LiveTalk Service Distribution (${environment})`,
       domainNames: [customDomain],
@@ -106,6 +122,12 @@ export class LiveTalkCloudFrontStack extends cdk.Stack {
           cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
           cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
           compress: true,
+          functionAssociations: [
+            {
+              function: assetsUriRewrite,
+              eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+            },
+          ],
         },
       },
     });
