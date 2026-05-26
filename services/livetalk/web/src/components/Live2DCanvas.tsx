@@ -124,13 +124,22 @@ export default function Live2DCanvas({
         }
         modelRef.current = model;
 
-        // モデルをキャンバスに合わせてスケール・センタリング
-        const scaleX = w / model.width;
-        const scaleY = h / model.height;
-        const scale = Math.min(scaleX, scaleY) * 0.95;
+        // Live2D モデルの枠 (model.width / model.height) は描画可能領域で、
+        // キャラクター本体は通常その内側に配置される。Hiyori の場合は枠中央より
+        // 下寄りに描かれているため、アンカー Y を 0.45 に設定して胸〜腰のあたりが
+        // アンカー基準点（= canvas 中央）に来るよう調整する。
+        model.anchor.set(0.5, 0.45);
+
+        // canvas に対するスケール。縦方向 90% / 横方向 95% を上限として
+        // どちらか小さい方を採用（アスペクト比に応じて自動調整）。
+        const scaleByHeight = (h * 0.9) / model.height;
+        const scaleByWidth = (w * 0.95) / model.width;
+        const scale = Math.min(scaleByHeight, scaleByWidth);
         model.scale.set(scale);
-        model.x = (w - model.width * scale) / 2;
-        model.y = (h - model.height * scale) / 2;
+
+        // アンカー基準点を canvas 中央に配置
+        model.x = w / 2;
+        model.y = h / 2;
 
         app.stage.addChild(model);
         setModelReady(true);
