@@ -31,11 +31,18 @@ type Live2DModelInstance = import('pixi-live2d-display-lipsyncpatch/cubism4').Li
  * 上半身フォーカスのレイアウト。
  * - anchor Y = 0.3: 顔〜胸が基準点（= canvas 中央）になる
  * - scale: 縦は 95% × 1.5 倍、横は 140% を上限とした小さい方
+ *
+ * 注意: model.width / model.height は PIXI Container の getter で `scale * localBounds`
+ * を返すため、現在の scale 適用後の値になる。リサイズの度にそれを基準に再計算すると
+ * 倍率が暴走するため、layout transform 適用後の原寸固定値である
+ * `internalModel.width / height` を使う。
  */
 function layoutModel(model: Live2DModelInstance, w: number, h: number): void {
+  const modelWidth = model.internalModel.width;
+  const modelHeight = model.internalModel.height;
   model.anchor.set(0.5, 0.3);
-  const scaleByHeight = (h * 0.95 * 1.5) / model.height;
-  const scaleByWidth = (w * 1.4) / model.width;
+  const scaleByHeight = (h * 0.95 * 1.5) / modelHeight;
+  const scaleByWidth = (w * 1.4) / modelWidth;
   const scale = Math.min(scaleByHeight, scaleByWidth);
   model.scale.set(scale);
   model.x = w / 2;
