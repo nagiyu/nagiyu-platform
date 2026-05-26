@@ -25,6 +25,23 @@ function waitForCubismCore(timeout = 10000): Promise<void> {
   });
 }
 
+type Live2DModelInstance = import('pixi-live2d-display-lipsyncpatch/cubism4').Live2DModel;
+
+/**
+ * 上半身フォーカスのレイアウト。
+ * - anchor Y = 0.3: 顔〜胸が基準点（= canvas 中央）になる
+ * - scale: 縦は 95% × 1.5 倍、横は 140% を上限とした小さい方
+ */
+function layoutModel(model: Live2DModelInstance, w: number, h: number): void {
+  model.anchor.set(0.5, 0.3);
+  const scaleByHeight = (h * 0.95 * 1.5) / model.height;
+  const scaleByWidth = (w * 1.4) / model.width;
+  const scale = Math.min(scaleByHeight, scaleByWidth);
+  model.scale.set(scale);
+  model.x = w / 2;
+  model.y = h / 2;
+}
+
 export interface Live2DCanvasProps {
   /** 再生対象の音声 URL。null または undefined のときは再生しない。 */
   audioUrl?: string | null;
@@ -53,9 +70,7 @@ export default function Live2DCanvas({
 }: Live2DCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<import('pixi.js').Application | null>(null);
-  const modelRef = useRef<import('pixi-live2d-display-lipsyncpatch/cubism4').Live2DModel | null>(
-    null
-  );
+  const modelRef = useRef<Live2DModelInstance | null>(null);
   const loadedRef = useRef(false);
   const [modelReady, setModelReady] = useState(false);
 
@@ -124,22 +139,7 @@ export default function Live2DCanvas({
         }
         modelRef.current = model;
 
-        // 上半身フォーカスのレイアウト。
-        // anchor Y を 0.3 にすることで、顔〜胸のあたりが基準点（= canvas 中央）になる。
-        // 結果として頭は画面上部、上半身が中央、足は画面下端より下に位置する。
-        model.anchor.set(0.5, 0.3);
-
-        // canvas に対するスケール。縦は 95% × 1.5 倍を上限（上半身フォーカスのためのズーム）。
-        // 横は 140% まで許容（モデル枠 = キャラ本体ではなく余白を含む。少しはみ出してもキャラは収まる）。
-        const scaleByHeight = (h * 0.95 * 1.5) / model.height;
-        const scaleByWidth = (w * 1.4) / model.width;
-        const scale = Math.min(scaleByHeight, scaleByWidth);
-        model.scale.set(scale);
-
-        // アンカー基準点を canvas 中央に配置
-        model.x = w / 2;
-        model.y = h / 2;
-
+        layoutModel(model, w, h);
         app.stage.addChild(model);
         setModelReady(true);
       } catch (err) {
@@ -147,8 +147,24 @@ export default function Live2DCanvas({
       }
     })();
 
+    // Container サイズ変化（画面回転・レスポンシブレイアウト・メッセージ追加による
+    // flex 再分配など）を観測して PIXI canvas とモデルを再レイアウトする。
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const { width, height } = entry.contentRect;
+      if (width === 0 || height === 0) return;
+
+      appRef.current?.renderer.resize(width, height);
+      if (modelRef.current) {
+        layoutModel(modelRef.current, width, height);
+      }
+    });
+    observer.observe(containerRef.current);
+
     return () => {
       cancelled = true;
+      observer.disconnect();
       modelRef.current?.destroy();
       modelRef.current = null;
       appRef.current?.destroy(true);
@@ -201,6 +217,9 @@ export default function Live2DCanvas({
         justifyContent: 'center',
         backgroundColor: 'background.default',
         position: 'relative',
+        // ResizeObserver の追従が一瞬遅れても canvas が下にはみ出してメッセージ欄に
+        // 重ならないようにするセーフティネット
+        overflow: 'hidden',
       }}
       data-testid="live2d-canvas-container"
     >
