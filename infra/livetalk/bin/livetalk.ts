@@ -42,7 +42,9 @@ const albStack = new LiveTalkAlbStack(app, `NagiyuLiveTalkAlb${envSuffix}`, {
 
 // LiveTalk DynamoDB Single Table Stack（Phase 2a で追加）
 // 会話履歴・プロファイル・キャラ状態を 1 テーブルで保持する。
-// テーブル名 / ARN は SSM パラメータ経由で ECS Service Stack から参照される。
+// テーブル名 / ARN は ECS Service Stack 側でも `getDynamoDBTableName('livetalk', env)`
+// / `getDynamoDBTableArn(...)` を呼んで独立に組み立てる（SSM もクロススタック参照も
+// 介さない方針）。両 stack の deploy 順序や export 依存は発生しない。
 const dynamoDbStack = new LiveTalkDynamoDbStack(
   app,
   `NagiyuLiveTalkDynamoDB${envSuffix}`,
