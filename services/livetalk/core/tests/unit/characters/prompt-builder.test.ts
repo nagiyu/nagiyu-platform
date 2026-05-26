@@ -70,7 +70,10 @@ describe('buildSystemPrompt', () => {
 
 describe('buildChatMessages', () => {
   it('system + history + current user message の順で返す', () => {
-    const history = [makeMsg('user', 'おはよう', 'm1'), makeMsg('assistant', 'おはようです！', 'm2')];
+    const history = [
+      makeMsg('user', 'おはよう', 'm1'),
+      makeMsg('assistant', 'おはようです！', 'm2'),
+    ];
     const messages = buildChatMessages(hiyori, new Date(), history, 'ありがとう');
 
     expect(messages[0].role).toBe('system');

@@ -97,7 +97,12 @@ describe('runChatUseCase', () => {
       const repo = makeRepo();
 
       const events = await collectEvents(
-        runChatUseCase({ ...baseParams, llmClient: llm, voiceClient: voice, messageRepository: repo })
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+        })
       );
 
       const textEvents = events.filter((e) => e.type === 'text');
@@ -113,19 +118,25 @@ describe('runChatUseCase', () => {
       const repo = makeRepo();
 
       const events = await collectEvents(
-        runChatUseCase({ ...baseParams, llmClient: llm, voiceClient: voice, messageRepository: repo })
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+        })
       );
 
       const sentenceEvents = events.filter((e) => e.type === 'sentence');
       expect(sentenceEvents).toHaveLength(2);
       expect(sentenceEvents[0]).toMatchObject({ type: 'sentence', index: 0, text: 'おはよう。' });
-      expect(sentenceEvents[1]).toMatchObject({ type: 'sentence', index: 1, text: '今日もいい天気ですね。' });
+      expect(sentenceEvents[1]).toMatchObject({
+        type: 'sentence',
+        index: 1,
+        text: '今日もいい天気ですね。',
+      });
 
       const doneIdx = events.findIndex((e) => e.type === 'done');
-      const lastSentenceIdx = events.reduce(
-        (acc, e, i) => (e.type === 'sentence' ? i : acc),
-        -1
-      );
+      const lastSentenceIdx = events.reduce((acc, e, i) => (e.type === 'sentence' ? i : acc), -1);
       expect(doneIdx).toBeGreaterThan(lastSentenceIdx);
     });
 
@@ -135,7 +146,12 @@ describe('runChatUseCase', () => {
       const repo = makeRepo();
 
       const events = await collectEvents(
-        runChatUseCase({ ...baseParams, llmClient: llm, voiceClient: voice, messageRepository: repo })
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+        })
       );
 
       const s = events.find((e) => e.type === 'sentence');
@@ -152,7 +168,12 @@ describe('runChatUseCase', () => {
       const repo = makeRepo();
 
       const events = await collectEvents(
-        runChatUseCase({ ...baseParams, llmClient: llm, voiceClient: voice, messageRepository: repo })
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+        })
       );
 
       expect(events[events.length - 1]).toEqual({ type: 'done' });
@@ -164,7 +185,12 @@ describe('runChatUseCase', () => {
       const repo = makeRepo();
 
       const events = await collectEvents(
-        runChatUseCase({ ...baseParams, llmClient: llm, voiceClient: voice, messageRepository: repo })
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+        })
       );
 
       const sentenceEvents = events.filter((e) => e.type === 'sentence');
@@ -178,7 +204,12 @@ describe('runChatUseCase', () => {
       const repo = makeRepo();
 
       const events = await collectEvents(
-        runChatUseCase({ ...baseParams, llmClient: llm, voiceClient: voice, messageRepository: repo })
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+        })
       );
 
       expect(events.filter((e) => e.type === 'sentence')).toHaveLength(0);
@@ -214,7 +245,12 @@ describe('runChatUseCase', () => {
       const repo = makeRepo();
 
       await collectEvents(
-        runChatUseCase({ ...baseParams, llmClient: llm, voiceClient: voice, messageRepository: repo })
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+        })
       );
 
       expect(repo.create).toHaveBeenCalledTimes(2);
@@ -225,13 +261,21 @@ describe('runChatUseCase', () => {
     });
 
     it('直近履歴が LLM のメッセージに渡される（ユーザーメッセージ保存前に取得）', async () => {
-      const history = [makeMessage('user', '昨日の話'), makeMessage('assistant', 'そうでしたね', 'm2')];
+      const history = [
+        makeMessage('user', '昨日の話'),
+        makeMessage('assistant', 'そうでしたね', 'm2'),
+      ];
       const llm = makeLLMClient(['はい。']);
       const voice = makeVoiceClient();
       const repo = makeRepo(history);
 
       await collectEvents(
-        runChatUseCase({ ...baseParams, llmClient: llm, voiceClient: voice, messageRepository: repo })
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+        })
       );
 
       const chatStreamMock = llm.chatStream as jest.Mock;
@@ -268,7 +312,12 @@ describe('runChatUseCase', () => {
       const voice = makeVoiceClient();
 
       await collectEvents(
-        runChatUseCase({ ...baseParams, llmClient: llm, voiceClient: voice, messageRepository: repo })
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+        })
       );
 
       expect(callOrder[0]).toBe('getRecent');
@@ -297,7 +346,12 @@ describe('runChatUseCase', () => {
 
       await expect(
         collectEvents(
-          runChatUseCase({ ...baseParams, llmClient: llm, voiceClient: voice, messageRepository: repo })
+          runChatUseCase({
+            ...baseParams,
+            llmClient: llm,
+            voiceClient: voice,
+            messageRepository: repo,
+          })
         )
       ).resolves.not.toThrow();
     });
@@ -315,7 +369,12 @@ describe('runChatUseCase', () => {
 
       await expect(
         collectEvents(
-          runChatUseCase({ ...baseParams, llmClient: llm, voiceClient: voice, messageRepository: repo })
+          runChatUseCase({
+            ...baseParams,
+            llmClient: llm,
+            voiceClient: voice,
+            messageRepository: repo,
+          })
         )
       ).rejects.toThrow('db down');
     });
