@@ -1,13 +1,8 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
-import { HIYORI_MODEL_PATH, CUBISM_PARAMETER_MOUTH_OPEN_Y } from '@/lib/character-renderer';
-
-// coreModel の型定義がサードパーティ側で object に留まっているため、使用するメソッドのみ宣言する
-type CubismCoreModel = {
-  setParameterValueById(parameterId: string, value: number, weight?: number): void;
-};
+import { HIYORI_MODEL_PATH } from '@/lib/character-renderer';
 
 // beforeInteractive Script のネットワーク遅延を吸収するため、
 // window.Live2DCubismCore が定義されるまで最大 timeout ms だけ待機する。
@@ -31,8 +26,11 @@ function waitForCubismCore(timeout = 10000): Promise<void> {
 }
 
 export interface Live2DCanvasProps {
-  audioLevel: number;
+  /** 再生対象の音声 URL。null または undefined のときは再生しない。 */
+  audioUrl?: string | null;
   statusText?: string;
+  onPlaybackEnd?: () => void;
+  onPlaybackError?: (error: Error) => void;
 }
 
 /**
@@ -43,14 +41,32 @@ export interface Live2DCanvasProps {
  *
  * PixiJS v7 と pixi-live2d-display-lipsyncpatch は browser API を直接使うため
  * SSR 不可。next/dynamic + ssr:false で呼び出し元がラップする。
+ *
+ * audioUrl を受け取ると model.speak() を呼び、ライブラリ内部の AudioContext +
+ * AnalyserNode で再生 + リップシンクをモデルの update サイクル内で同期駆動する。
  */
-export default function Live2DCanvas({ audioLevel, statusText }: Live2DCanvasProps) {
+export default function Live2DCanvas({
+  audioUrl,
+  statusText,
+  onPlaybackEnd,
+  onPlaybackError,
+}: Live2DCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<import('pixi.js').Application | null>(null);
   const modelRef = useRef<import('pixi-live2d-display-lipsyncpatch/cubism4').Live2DModel | null>(
     null
   );
   const loadedRef = useRef(false);
+  const [modelReady, setModelReady] = useState(false);
+
+  // コールバックは ref 経由で参照することで、speak の useEffect が
+  // 親側のコールバック識別子変更で再走するのを避ける
+  const onPlaybackEndRef = useRef(onPlaybackEnd);
+  const onPlaybackErrorRef = useRef(onPlaybackError);
+  useEffect(() => {
+    onPlaybackEndRef.current = onPlaybackEnd;
+    onPlaybackErrorRef.current = onPlaybackError;
+  }, [onPlaybackEnd, onPlaybackError]);
 
   useEffect(() => {
     if (!containerRef.current || loadedRef.current) return;
@@ -117,6 +133,7 @@ export default function Live2DCanvas({ audioLevel, statusText }: Live2DCanvasPro
         model.y = (h - model.height * scale) / 2;
 
         app.stage.addChild(model);
+        setModelReady(true);
       } catch (err) {
         console.error('[Live2DCanvas] モデルのロードに失敗しました', err);
       }
@@ -129,22 +146,41 @@ export default function Live2DCanvas({ audioLevel, statusText }: Live2DCanvasPro
       appRef.current?.destroy(true);
       appRef.current = null;
       loadedRef.current = false;
+      setModelReady(false);
     };
   }, []);
 
-  // audioLevel → ParamMouthOpenY に反映
+  // audioUrl を受け取ったら model.speak() で再生 + リップシンク。
+  // model.speak は内部で AudioContext / AnalyserNode を構築し、
+  // ライブラリの update サイクル内で LipSync パラメータを更新する。
   useEffect(() => {
     const model = modelRef.current;
-    if (!model) return;
-    try {
-      (model.internalModel.coreModel as CubismCoreModel).setParameterValueById(
-        CUBISM_PARAMETER_MOUTH_OPEN_Y,
-        Math.max(0, Math.min(1, audioLevel))
-      );
-    } catch {
-      // Cubism Core が未ロードのタイミングでは無視
-    }
-  }, [audioLevel]);
+    if (!model || !modelReady || !audioUrl) return;
+
+    let cancelled = false;
+    model
+      .speak(audioUrl, {
+        volume: 1.0,
+        crossOrigin: 'anonymous',
+        onFinish: () => {
+          if (!cancelled) onPlaybackEndRef.current?.();
+        },
+        onError: (e) => {
+          if (!cancelled) onPlaybackErrorRef.current?.(e);
+        },
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          const error = err instanceof Error ? err : new Error(String(err));
+          onPlaybackErrorRef.current?.(error);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      model.stopSpeaking();
+    };
+  }, [audioUrl, modelReady]);
 
   return (
     <Box
