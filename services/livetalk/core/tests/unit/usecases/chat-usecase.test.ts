@@ -79,27 +79,35 @@ function makeSafetyEventRepo(
   overrides: Partial<SafetyEventRepository> = {}
 ): SafetyEventRepository {
   return {
-    create: jest.fn(async (input) => ({
-      UserID: input.UserID,
-      EventID: 'safety-event-id',
-      Trigger: input.Trigger,
-      DetectedPattern: input.DetectedPattern,
-      InputText: input.InputText,
-      ResponseText: input.ResponseText,
-      CreatedAt: Date.now(),
-      UpdatedAt: Date.now(),
-    }) as SafetyEventEntity),
+    create: jest.fn(
+      async (input) =>
+        ({
+          UserID: input.UserID,
+          EventID: 'safety-event-id',
+          Trigger: input.Trigger,
+          DetectedPattern: input.DetectedPattern,
+          InputText: input.InputText,
+          ResponseText: input.ResponseText,
+          CreatedAt: Date.now(),
+          UpdatedAt: Date.now(),
+        }) as SafetyEventEntity
+    ),
     getById: jest.fn(async () => null),
     ...overrides,
   };
 }
 
-function makeModerationClient(flagged: boolean, categories: Record<string, boolean> = {}): IModerationClient {
+function makeModerationClient(
+  flagged: boolean,
+  categories: Record<string, boolean> = {}
+): IModerationClient {
   return {
-    check: jest.fn(async (): Promise<ModerationResult> => ({
-      flagged,
-      categories,
-    })),
+    check: jest.fn(
+      async (): Promise<ModerationResult> => ({
+        flagged,
+        categories,
+      })
+    ),
   };
 }
 
@@ -593,7 +601,9 @@ describe('runChatUseCase', () => {
       const voice = makeVoiceClient();
       const repo = makeRepo();
       const safetyRepo = makeSafetyEventRepo({
-        create: jest.fn(async () => { throw new Error('db error'); }),
+        create: jest.fn(async () => {
+          throw new Error('db error');
+        }),
       });
 
       await expect(
@@ -687,7 +697,9 @@ describe('runChatUseCase', () => {
       const voice = makeVoiceClient();
       const repo = makeRepo();
       const failingModeration: IModerationClient = {
-        check: jest.fn(async () => { throw new Error('API 障害'); }),
+        check: jest.fn(async () => {
+          throw new Error('API 障害');
+        }),
       };
 
       const events = await collectEvents(
