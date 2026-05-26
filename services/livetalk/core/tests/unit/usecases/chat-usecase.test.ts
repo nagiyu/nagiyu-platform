@@ -3,7 +3,10 @@ import { hiyori } from '../../../src/characters/hiyori.js';
 import type { ILLMClient } from '../../../src/llm-client/types.js';
 import type { IVoiceClient } from '../../../src/voicevox/types.js';
 import type { MessageRepository } from '../../../src/repositories/message.repository.interface.js';
+import type { SafetyEventRepository } from '../../../src/repositories/safety-event.repository.interface.js';
 import type { MessageEntity } from '../../../src/entities/message.entity.js';
+import type { SafetyEventEntity } from '../../../src/entities/safety-event.entity.js';
+import type { IModerationClient, ModerationResult } from '../../../src/safety/types.js';
 
 // ── ヘルパー ──────────────────────────────────────────────────────────────
 
@@ -72,10 +75,51 @@ async function collectEvents(generator: AsyncGenerator<ChatEvent>): Promise<Chat
   return events;
 }
 
+function makeSafetyEventRepo(
+  overrides: Partial<SafetyEventRepository> = {}
+): SafetyEventRepository {
+  return {
+    create: jest.fn(
+      async (input) =>
+        ({
+          UserID: input.UserID,
+          EventID: 'safety-event-id',
+          Trigger: input.Trigger,
+          DetectedPattern: input.DetectedPattern,
+          InputText: input.InputText,
+          ResponseText: input.ResponseText,
+          CreatedAt: Date.now(),
+          UpdatedAt: Date.now(),
+        }) as SafetyEventEntity
+    ),
+    getById: jest.fn(async () => null),
+    ...overrides,
+  };
+}
+
+function makeModerationClient(
+  flagged: boolean,
+  categories: Record<string, boolean> = {}
+): IModerationClient {
+  return {
+    check: jest.fn(
+      async (): Promise<ModerationResult> => ({
+        flagged,
+        categories,
+      })
+    ),
+  };
+}
+
 // ── テスト本体 ──────────────────────────────────────────────────────────────
 
 describe('runChatUseCase', () => {
-  const baseParams = {
+  const baseParams: {
+    userId: string;
+    characterId: string;
+    userText: string;
+    character: typeof hiyori;
+  } = {
     userId: 'u1',
     characterId: 'hiyori',
     userText: 'こんにちは',
@@ -422,6 +466,275 @@ describe('runChatUseCase', () => {
           })
         )
       ).rejects.toThrow('llm down');
+    });
+  });
+
+  describe('セーフティフロー（キーワード検出）', () => {
+    const safetyText = '死にたい';
+
+    it('危険キーワードを含む入力で LLM が呼ばれない', async () => {
+      const llm = makeLLMClient(['応答テキスト']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          userText: safetyText,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+        })
+      );
+
+      expect((llm.chatStream as jest.Mock).mock.calls).toHaveLength(0);
+    });
+
+    it('safety event が emit される（trigger=input_keyword）', async () => {
+      const llm = makeLLMClient([]);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          userText: safetyText,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+        })
+      );
+
+      const safetyEvent = events.find((e) => e.type === 'safety');
+      expect(safetyEvent).toBeDefined();
+      if (safetyEvent?.type === 'safety') {
+        expect(safetyEvent.trigger).toBe('input_keyword');
+        expect(Array.isArray(safetyEvent.resources)).toBe(true);
+        expect(safetyEvent.resources.length).toBeGreaterThan(0);
+      }
+    });
+
+    it('text events が emit される（介入メッセージ）', async () => {
+      const llm = makeLLMClient([]);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          userText: safetyText,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+        })
+      );
+
+      const textEvents = events.filter((e) => e.type === 'text');
+      expect(textEvents.length).toBeGreaterThan(0);
+    });
+
+    it('done が最後に emit される', async () => {
+      const llm = makeLLMClient([]);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          userText: safetyText,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+        })
+      );
+
+      expect(events[events.length - 1]).toEqual({ type: 'done' });
+    });
+
+    it('SafetyEvent がリポジトリに保存される', async () => {
+      const llm = makeLLMClient([]);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const safetyRepo = makeSafetyEventRepo();
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          userText: safetyText,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          safetyEventRepository: safetyRepo,
+        })
+      );
+
+      expect(safetyRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          UserID: 'u1',
+          Trigger: 'input_keyword',
+          InputText: safetyText,
+        })
+      );
+    });
+
+    it('SafetyEvent リポジトリが未指定でも正常に動作する', async () => {
+      const llm = makeLLMClient([]);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      await expect(
+        collectEvents(
+          runChatUseCase({
+            ...baseParams,
+            userText: safetyText,
+            llmClient: llm,
+            voiceClient: voice,
+            messageRepository: repo,
+            // safetyEventRepository なし
+          })
+        )
+      ).resolves.not.toThrow();
+    });
+
+    it('SafetyEvent 保存エラーは例外を投げない（ログのみ）', async () => {
+      const llm = makeLLMClient([]);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const safetyRepo = makeSafetyEventRepo({
+        create: jest.fn(async () => {
+          throw new Error('db error');
+        }),
+      });
+
+      await expect(
+        collectEvents(
+          runChatUseCase({
+            ...baseParams,
+            userText: safetyText,
+            llmClient: llm,
+            voiceClient: voice,
+            messageRepository: repo,
+            safetyEventRepository: safetyRepo,
+          })
+        )
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe('セーフティフロー（Moderation API）', () => {
+    it('Moderation が flagged のとき safety event が emit される', async () => {
+      const llm = makeLLMClient(['応答テキスト。']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const moderation = makeModerationClient(true, { 'self-harm': true });
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          moderationClient: moderation,
+        })
+      );
+
+      const safetyEvent = events.find((e) => e.type === 'safety');
+      expect(safetyEvent).toBeDefined();
+      if (safetyEvent?.type === 'safety') {
+        expect(safetyEvent.trigger).toBe('output_moderation');
+        expect(typeof safetyEvent.replacementText).toBe('string');
+        expect(safetyEvent.replacementText!.length).toBeGreaterThan(0);
+      }
+    });
+
+    it('Moderation が flagged でないとき safety event は来ない', async () => {
+      const llm = makeLLMClient(['通常の応答。']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const moderation = makeModerationClient(false);
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          moderationClient: moderation,
+        })
+      );
+
+      expect(events.find((e) => e.type === 'safety')).toBeUndefined();
+    });
+
+    it('Moderation flagged 時に SafetyEvent が保存される', async () => {
+      const llm = makeLLMClient(['応答テキスト。']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const moderation = makeModerationClient(true, { 'self-harm': true });
+      const safetyRepo = makeSafetyEventRepo();
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          moderationClient: moderation,
+          safetyEventRepository: safetyRepo,
+        })
+      );
+
+      expect(safetyRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          Trigger: 'output_moderation',
+          UserID: 'u1',
+        })
+      );
+    });
+
+    it('Moderation API エラーは例外を投げず通常応答を続ける（fail-warn）', async () => {
+      const llm = makeLLMClient(['通常の応答。']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const failingModeration: IModerationClient = {
+        check: jest.fn(async () => {
+          throw new Error('API 障害');
+        }),
+      };
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          moderationClient: failingModeration,
+        })
+      );
+
+      // エラーにならず done が来る
+      expect(events[events.length - 1]).toEqual({ type: 'done' });
+      // safety event は来ない
+      expect(events.find((e) => e.type === 'safety')).toBeUndefined();
+    });
+
+    it('Moderation クライアント未指定ならチェックをスキップする', async () => {
+      const llm = makeLLMClient(['応答。']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          // moderationClient なし
+        })
+      );
+
+      expect(events.find((e) => e.type === 'safety')).toBeUndefined();
+      expect(events[events.length - 1]).toEqual({ type: 'done' });
     });
   });
 });

@@ -8,6 +8,8 @@ import LicenseFooter from '@/components/LicenseFooter';
 import ResponseDisplay from '@/components/ResponseDisplay';
 import { Live2DCanvasFallback } from '@/components/Live2DCanvas';
 import ConsentModal from '@/components/ConsentModal';
+import SafetyModal from '@/components/SafetyModal';
+import type { SafetyResource } from '@nagiyu/livetalk-core';
 
 const Live2DCanvas = dynamic(() => import('@/components/Live2DCanvas'), {
   ssr: false,
@@ -20,6 +22,12 @@ type ConsentPhase = 'checking' | 'required' | 'done';
 type ChatStreamEvent =
   | { type: 'text'; delta: string }
   | { type: 'sentence'; index: number; text: string; audio: string }
+  | {
+      type: 'safety';
+      trigger: 'input_keyword' | 'output_moderation';
+      resources: SafetyResource[];
+      replacementText?: string;
+    }
   | { type: 'done' }
   | { type: 'error'; message: string };
 
@@ -46,6 +54,9 @@ export default function HomePage() {
   const [responseText, setResponseText] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const [safetyOpen, setSafetyOpen] = useState(false);
+  const [safetyResources, setSafetyResources] = useState<SafetyResource[]>([]);
 
   const audioUrlRef = useRef<string | null>(null);
   const audioQueueRef = useRef<string[]>([]);
@@ -138,6 +149,12 @@ export default function HomePage() {
             const url = URL.createObjectURL(blob);
             audioQueueRef.current.push(url);
             advanceAudioQueue();
+          } else if (event.type === 'safety') {
+            if (event.trigger === 'output_moderation' && event.replacementText) {
+              setResponseText(event.replacementText);
+            }
+            setSafetyResources(event.resources);
+            setSafetyOpen(true);
           } else if (event.type === 'done') {
             streamDoneRef.current = true;
             advanceAudioQueue();
@@ -208,6 +225,11 @@ export default function HomePage() {
       <ConsentModal
         open={consentPhase === 'required'}
         onConsented={() => setConsentPhase('done')}
+      />
+      <SafetyModal
+        open={safetyOpen}
+        resources={safetyResources}
+        onClose={() => setSafetyOpen(false)}
       />
       <Container
         maxWidth="sm"

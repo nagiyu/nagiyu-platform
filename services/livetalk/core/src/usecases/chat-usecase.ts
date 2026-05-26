@@ -1,21 +1,36 @@
+import { logger } from '@nagiyu/common';
 import type { ILLMClient } from '../llm-client/types.js';
 import type { IVoiceClient } from '../voicevox/types.js';
 import type { MessageRepository } from '../repositories/message.repository.interface.js';
+import type { SafetyEventRepository } from '../repositories/safety-event.repository.interface.js';
 import type { CharacterDefinition } from '../characters/types.js';
 import { buildChatMessages } from '../characters/prompt-builder.js';
 import { SentenceBuffer } from '../lib/sentence-splitter.js';
 import { DEFAULT_CHARACTER_ID } from '../constants.js';
+import { detectSafetyRisk } from '../safety/detector.js';
+import { buildModerationReplacementMessage, buildSafetyMessage } from '../safety/templates.js';
+import { SAFETY_RESOURCES } from '../safety/resources.js';
+import type { IModerationClient, SafetyResource } from '../safety/types.js';
 
 /**
  * /api/chat ストリーミングレスポンスの各イベント型。
  *
  * - text: LLM からの逐次テキスト delta
  * - sentence: 文単位の音声（base64 WAV）。LLM ストリーム完了後に順番通り emit される
+ * - safety: セーフティ介入（キーワード検出 or Moderation フラグ）
+ *   - input_keyword: ユーザー入力にリスクワードを検出 → LLM をバイパスして介入
+ *   - output_moderation: AI 応答が Moderation API にフラグされた → UI で置換を促す
  * - done: ストリーム終了
  */
 export type ChatEvent =
   | { type: 'text'; delta: string }
   | { type: 'sentence'; index: number; text: string; audio: string }
+  | {
+      type: 'safety';
+      trigger: 'input_keyword' | 'output_moderation';
+      resources: SafetyResource[];
+      replacementText?: string;
+    }
   | { type: 'done' };
 
 export interface ChatUseCaseParams {
@@ -26,6 +41,10 @@ export interface ChatUseCaseParams {
   llmClient: ILLMClient;
   voiceClient: IVoiceClient;
   messageRepository: MessageRepository;
+  /** セーフティイベントリポジトリ。未指定時はセーフティログをスキップする */
+  safetyEventRepository?: SafetyEventRepository;
+  /** Moderation クライアント。未指定時は応答後チェックをスキップする */
+  moderationClient?: IModerationClient;
 }
 
 type SynthesisResult = { index: number; text: string; audio: string | null };
@@ -50,25 +69,72 @@ async function synthesizeSentence(
     const audio = arrayBufferToBase64(wav);
     return { index, text, audio };
   } catch (err) {
-    console.error('[chat-usecase] VOICEVOX 合成に失敗しました', err);
+    logger.error('[chat-usecase] VOICEVOX 合成に失敗しました', { err });
     return { index, text, audio: null };
   }
 }
 
 /**
- * チャット応答の orchestration（Phase 2c / Issue #3249）。
+ * 文字列を文単位でストリーム風に yield しながら同時に VOICEVOX 合成を行う。
+ * セーフティ介入テキストを音声付きで送出するために使う。
+ */
+async function* streamSafetyText(
+  text: string,
+  voiceClient: IVoiceClient,
+  speakerId: number
+): AsyncGenerator<ChatEvent> {
+  const buffer = new SentenceBuffer();
+  const pendingSynthesis: Array<Promise<SynthesisResult>> = [];
+  let sentenceIndex = 0;
+
+  // 1 文字ずつ yield してテキストストリーム風に見せる（セーフティ応答は固定文なので全体を送る）
+  for (const char of text) {
+    yield { type: 'text', delta: char };
+    for (const sentence of buffer.push(char)) {
+      const idx = sentenceIndex++;
+      pendingSynthesis.push(synthesizeSentence(voiceClient, sentence, speakerId, idx));
+    }
+  }
+
+  const remaining = buffer.flush();
+  if (remaining) {
+    const idx = sentenceIndex;
+    pendingSynthesis.push(synthesizeSentence(voiceClient, remaining, speakerId, idx));
+  }
+
+  for (const promise of pendingSynthesis) {
+    const result = await promise;
+    if (result.audio !== null) {
+      yield { type: 'sentence', index: result.index, text: result.text, audio: result.audio };
+    }
+  }
+}
+
+/**
+ * チャット応答の orchestration（Phase 2d / Issue #3250 でセーフティフロー追加）。
  *
  * フロー:
- *   1. 直近会話履歴を取得（現在のユーザー発話は保存前なので含まれない）
- *   2. ユーザーメッセージを DynamoDB に保存
- *   3. LLM ストリーミング → text delta を逐次 yield
- *   4. 文区切りごとに VOICEVOX を非同期起動（LLM streaming と並行）
- *   5. LLM 完了後、sentence events を順番通りに yield
- *   6. done を yield
- *   7. アシスタントメッセージを DynamoDB に保存
+ *   1. 直近会話履歴を取得
+ *   2. ユーザーメッセージを保存
+ *   3. キーワード検出 → リスクあり → セーフティフロー（LLM をバイパス）
+ *   4. 通常フロー: LLM ストリーミング → text delta を逐次 yield
+ *   5. 通常フロー: 文区切りごとに VOICEVOX を非同期起動
+ *   6. 通常フロー: LLM 完了後、Moderation API で応答チェック
+ *   7. sentence events を順番通りに yield
+ *   8. done を yield
+ *   9. アシスタントメッセージを保存
  *
- * VOICEVOX エラーは sentence event をスキップして継続（テキストは既に表示済み）。
- * アシスタント保存エラーはログのみ（done 後なので HTTP response には影響しない）。
+ * セーフティフロー（キーワード検出時）:
+ *   - SafetyEvent をログに保存
+ *   - 桃瀬ひより口調の介入メッセージを text/sentence events として送出
+ *   - safety event（リソース一覧）を emit → UI でモーダル表示
+ *   - アシスタントメッセージとして介入テキストを保存
+ *   - done を emit して終了
+ *
+ * Moderation フラグ時（応答後チェック）:
+ *   - SafetyEvent をログに保存
+ *   - safety event（trigger=output_moderation, replacementText あり）を emit
+ *   - UI 側でテキストを置換してモーダル表示
  */
 export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator<ChatEvent> {
   const {
@@ -79,9 +145,11 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     llmClient,
     voiceClient,
     messageRepository,
+    safetyEventRepository,
+    moderationClient,
   } = params;
 
-  // 1. 直近会話履歴取得（現在のユーザー発話を含まない順で取得する）
+  // 1. 直近会話履歴取得
   const { messages: history } = await messageRepository.getRecentByTokenBudget({
     userId,
     characterId,
@@ -95,7 +163,50 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     Text: userText,
   });
 
-  // 3. LLM ストリーミング
+  // 3. キーワード検出
+  const detection = detectSafetyRisk(userText);
+  if (detection) {
+    const safetyMessage = buildSafetyMessage(detection.category, character, Date.now());
+    const detectedPattern = `[${detection.patternDescription}] ${detection.matchedText}`;
+
+    // SafetyEvent ログ
+    if (safetyEventRepository) {
+      try {
+        await safetyEventRepository.create({
+          UserID: userId,
+          Trigger: 'input_keyword',
+          DetectedPattern: detectedPattern,
+          InputText: userText,
+          ResponseText: safetyMessage,
+        });
+      } catch (err) {
+        logger.error('[chat-usecase] SafetyEvent の保存に失敗しました', { err });
+      }
+    }
+
+    // 介入テキストを text/sentence events として送出
+    yield* streamSafetyText(safetyMessage, voiceClient, character.voiceConfig.speakerId);
+
+    // safety event（UI でモーダル表示）
+    yield { type: 'safety', trigger: 'input_keyword', resources: SAFETY_RESOURCES };
+
+    // アシスタントメッセージとして保存
+    try {
+      await messageRepository.create({
+        UserID: userId,
+        CharacterID: characterId,
+        Role: 'assistant',
+        Text: safetyMessage,
+      });
+    } catch (err) {
+      logger.error('[chat-usecase] セーフティ応答メッセージの保存に失敗しました', { err });
+    }
+
+    yield { type: 'done' };
+    return;
+  }
+
+  // 4. LLM ストリーミング（通常フロー）
   const chatMessages = buildChatMessages(character, new Date(), history, userText);
   const sentenceBuffer = new SentenceBuffer();
   let fullResponseText = '';
@@ -106,7 +217,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     yield { type: 'text', delta };
     fullResponseText += delta;
 
-    // 4. 文区切りを検出したら VOICEVOX を非同期起動
+    // 5. 文区切りで VOICEVOX を非同期起動
     for (const sentence of sentenceBuffer.push(delta)) {
       const idx = sentenceIndex++;
       pendingSynthesis.push(
@@ -115,7 +226,6 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     }
   }
 
-  // LLM 終了後の残余バッファを処理
   const remaining = sentenceBuffer.flush();
   if (remaining) {
     const idx = sentenceIndex;
@@ -124,7 +234,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     );
   }
 
-  // 5. sentence events を順番通りに yield
+  // 7. sentence events を順番通りに yield
   for (const promise of pendingSynthesis) {
     const result = await promise;
     if (result.audio !== null) {
@@ -132,10 +242,50 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     }
   }
 
-  // 6. done
+  // 6. Moderation API チェック（fail-warn: エラー時は通常応答を通す）
+  if (moderationClient && fullResponseText.trim()) {
+    try {
+      const modResult = await moderationClient.check(fullResponseText);
+      if (modResult.flagged) {
+        const flaggedCategories = Object.entries(modResult.categories)
+          .filter(([, v]) => v)
+          .map(([k]) => k);
+
+        if (safetyEventRepository) {
+          try {
+            await safetyEventRepository.create({
+              UserID: userId,
+              Trigger: 'output_moderation',
+              DetectedPattern: `Moderation flagged: ${flaggedCategories.join(', ')}`,
+              InputText: userText,
+              ResponseText: fullResponseText,
+              ModerationCategories: JSON.stringify(modResult.categories),
+            });
+          } catch (err) {
+            logger.error('[chat-usecase] Moderation SafetyEvent の保存に失敗しました', { err });
+          }
+        }
+
+        const replacementText = buildModerationReplacementMessage(Date.now());
+        yield {
+          type: 'safety',
+          trigger: 'output_moderation',
+          resources: SAFETY_RESOURCES,
+          replacementText,
+        };
+      }
+    } catch (err) {
+      // fail-warn: Moderation API エラーはログに残して通常応答を継続
+      logger.warn('[chat-usecase] Moderation API チェックに失敗しました（通常応答を継続）', {
+        err,
+      });
+    }
+  }
+
+  // 8. done
   yield { type: 'done' };
 
-  // 7. アシスタントメッセージを保存
+  // 9. アシスタントメッセージを保存
   const assistantText = fullResponseText.trim();
   if (assistantText) {
     try {
@@ -146,7 +296,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
         Text: assistantText,
       });
     } catch (err) {
-      console.error('[chat-usecase] アシスタントメッセージの保存に失敗しました', err);
+      logger.error('[chat-usecase] アシスタントメッセージの保存に失敗しました', { err });
     }
   }
 }
