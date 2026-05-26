@@ -2,6 +2,15 @@ export * from './voicevox/index.js';
 export * from './llm-client/index.js';
 export * from './constants.js';
 
+// Characters
+export * from './characters/index.js';
+
+// Sentence splitter
+export { SentenceBuffer } from './lib/sentence-splitter.js';
+
+// Chat usecase
+export { runChatUseCase, type ChatEvent, type ChatUseCaseParams } from './usecases/chat-usecase.js';
+
 // Entities
 export type { MessageEntity, MessageKey, CreateMessageInput } from './entities/message.entity.js';
 export type {

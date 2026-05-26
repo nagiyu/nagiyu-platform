@@ -9,23 +9,35 @@ import ResponseDisplay from '@/components/ResponseDisplay';
 import { Live2DCanvasFallback } from '@/components/Live2DCanvas';
 import ConsentModal from '@/components/ConsentModal';
 
-// PixiJS は browser API (WebGL, Canvas) を使うため SSR 不可。
 const Live2DCanvas = dynamic(() => import('@/components/Live2DCanvas'), {
   ssr: false,
   loading: ({ error }) => (error ? null : <Live2DCanvasFallback statusText="読み込み中…" />),
 });
 
-type ChatPhase = 'idle' | 'loading' | 'playing';
+type ChatPhase = 'idle' | 'loading' | 'streaming';
 type ConsentPhase = 'checking' | 'required' | 'done';
 
+type ChatStreamEvent =
+  | { type: 'text'; delta: string }
+  | { type: 'sentence'; index: number; text: string; audio: string }
+  | { type: 'done' }
+  | { type: 'error'; message: string };
+
+function base64ToBlob(base64: string, mimeType: string): Blob {
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return new Blob([bytes], { type: mimeType });
+}
+
 /**
- * Phase 1g のチャット画面。
- * - 上部: 桃瀬ひより（Live2D）+ リップシンク
- * - 中央: 応答テキスト
- * - 下部: 入力欄
- * - 最下部: VOICEVOX / Live2D ライセンス表記
+ * Phase 2c のチャット画面。
  *
- * 音声再生 + リップシンクは Live2DCanvas が model.speak() 経由で内部処理する。
+ * - LLM 応答を NDJSON ストリームで受信し、テキストを逐次表示
+ * - 文単位の音声（base64 WAV）を受け取り、キューで順番に再生
+ * - Live2D の lipsync は既存 model.speak() を流用
  */
 export default function HomePage() {
   const [consentPhase, setConsentPhase] = useState<ConsentPhase>('checking');
@@ -35,8 +47,11 @@ export default function HomePage() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Blob URL の revoke 用に現在再生中の URL を保持する
   const audioUrlRef = useRef<string | null>(null);
+  const audioQueueRef = useRef<string[]>([]);
+  const isPlayingRef = useRef(false);
+  const streamDoneRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     fetch('/api/consent')
@@ -50,67 +65,143 @@ export default function HomePage() {
       });
   }, []);
 
-  const releaseAudioUrl = useCallback(() => {
+  const revokeCurrentAudio = useCallback(() => {
     if (audioUrlRef.current) {
       URL.revokeObjectURL(audioUrlRef.current);
       audioUrlRef.current = null;
     }
   }, []);
 
+  const clearAudioQueue = useCallback(() => {
+    for (const url of audioQueueRef.current) {
+      URL.revokeObjectURL(url);
+    }
+    audioQueueRef.current = [];
+    isPlayingRef.current = false;
+    streamDoneRef.current = false;
+  }, []);
+
+  // キューから次の音声を再生、またはストリーム完了済みならアイドルに戻る
+  const advanceAudioQueue = useCallback(() => {
+    if (isPlayingRef.current) return;
+
+    const nextUrl = audioQueueRef.current.shift();
+    if (nextUrl) {
+      isPlayingRef.current = true;
+      audioUrlRef.current = nextUrl;
+      setAudioUrl(nextUrl);
+    } else if (streamDoneRef.current) {
+      setPhase('idle');
+    }
+  }, []);
+
   const handleSubmit = useCallback(
     async (text: string) => {
+      // 前回リクエストをキャンセル
+      abortControllerRef.current?.abort();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       setUserText(text);
-      setResponseText(null);
+      setResponseText('');
       setErrorMessage(null);
       setPhase('loading');
-      releaseAudioUrl();
+      revokeCurrentAudio();
       setAudioUrl(null);
+      clearAudioQueue();
 
       try {
-        const response = await fetch('/api/echo', {
+        const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text }),
+          signal: controller.signal,
         });
 
-        if (!response.ok) {
-          setErrorMessage('音声合成に失敗しました。時間を置いて再度お試しください。');
+        if (!response.ok || !response.body) {
+          setErrorMessage('応答の取得に失敗しました。時間を置いて再度お試しください。');
           setPhase('idle');
           return;
         }
 
-        const audioBuffer = await response.arrayBuffer();
-        const blob = new Blob([audioBuffer], { type: 'audio/wav' });
-        const url = URL.createObjectURL(blob);
+        setPhase('streaming');
 
-        audioUrlRef.current = url;
-        setResponseText(text);
-        setAudioUrl(url);
-        setPhase('playing');
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let lineBuffer = '';
+
+        const handleEvent = (event: ChatStreamEvent) => {
+          if (event.type === 'text') {
+            setResponseText((prev) => (prev ?? '') + event.delta);
+          } else if (event.type === 'sentence' && event.audio) {
+            const blob = base64ToBlob(event.audio, 'audio/wav');
+            const url = URL.createObjectURL(blob);
+            audioQueueRef.current.push(url);
+            advanceAudioQueue();
+          } else if (event.type === 'done') {
+            streamDoneRef.current = true;
+            advanceAudioQueue();
+          } else if (event.type === 'error') {
+            setErrorMessage(event.message ?? '内部エラーが発生しました。');
+            streamDoneRef.current = true;
+            advanceAudioQueue();
+          }
+        };
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          lineBuffer += decoder.decode(value, { stream: true });
+          const lines = lineBuffer.split('\n');
+          lineBuffer = lines.pop() ?? '';
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            try {
+              handleEvent(JSON.parse(trimmed) as ChatStreamEvent);
+            } catch {
+              // malformed line はスキップ
+            }
+          }
+        }
+
+        // ストリーム終端の残余行
+        if (lineBuffer.trim()) {
+          try {
+            handleEvent(JSON.parse(lineBuffer.trim()) as ChatStreamEvent);
+          } catch {
+            // skip
+          }
+        }
       } catch (error) {
-        console.error('[LiveTalk] エコー再生に失敗しました', error);
-        setErrorMessage('音声再生中にエラーが発生しました。');
+        if (error instanceof Error && error.name === 'AbortError') return;
+        console.error('[LiveTalk] チャット応答の取得に失敗しました', error);
+        setErrorMessage('エラーが発生しました。時間を置いて再度お試しください。');
         setPhase('idle');
       }
     },
-    [releaseAudioUrl]
+    [revokeCurrentAudio, clearAudioQueue, advanceAudioQueue]
   );
 
   const handlePlaybackEnd = useCallback(() => {
-    releaseAudioUrl();
+    revokeCurrentAudio();
     setAudioUrl(null);
-    setPhase('idle');
-  }, [releaseAudioUrl]);
+    isPlayingRef.current = false;
+    advanceAudioQueue();
+  }, [revokeCurrentAudio, advanceAudioQueue]);
 
   const handlePlaybackError = useCallback(() => {
     setErrorMessage('音声再生中にエラーが発生しました。');
-    releaseAudioUrl();
+    revokeCurrentAudio();
     setAudioUrl(null);
-    setPhase('idle');
-  }, [releaseAudioUrl]);
+    isPlayingRef.current = false;
+    advanceAudioQueue();
+  }, [revokeCurrentAudio, advanceAudioQueue]);
 
   const statusText =
-    phase === 'loading' ? '考え中…' : phase === 'playing' ? '話している' : '待機中';
+    phase === 'loading' ? '考え中…' : phase === 'streaming' ? '話している' : '待機中';
 
   return (
     <>
