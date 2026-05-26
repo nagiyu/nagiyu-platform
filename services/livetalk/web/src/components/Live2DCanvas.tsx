@@ -9,6 +9,27 @@ type CubismCoreModel = {
   setParameterValueById(parameterId: string, value: number, weight?: number): void;
 };
 
+// beforeInteractive Script のネットワーク遅延を吸収するため、
+// window.Live2DCubismCore が定義されるまで最大 timeout ms だけ待機する。
+function waitForCubismCore(timeout = 10000): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if ((window as { Live2DCubismCore?: unknown }).Live2DCubismCore) {
+      resolve();
+      return;
+    }
+    const start = Date.now();
+    const id = setInterval(() => {
+      if ((window as { Live2DCubismCore?: unknown }).Live2DCubismCore) {
+        clearInterval(id);
+        resolve();
+      } else if (Date.now() - start > timeout) {
+        clearInterval(id);
+        reject(new Error('Cubism Core のロードがタイムアウトしました'));
+      }
+    }, 50);
+  });
+}
+
 export interface Live2DCanvasProps {
   audioLevel: number;
   statusText?: string;
@@ -46,6 +67,15 @@ export default function Live2DCanvas({ audioLevel, statusText }: Live2DCanvasPro
         import('pixi-live2d-display-lipsyncpatch/cubism4'),
       ]);
 
+      if (cancelled || !containerRef.current) return;
+
+      // Cubism Core の読み込みを待機してから PixiJS / Live2D を初期化する
+      try {
+        await waitForCubismCore();
+      } catch (err) {
+        console.error('[Live2DCanvas]', err);
+        return;
+      }
       if (cancelled || !containerRef.current) return;
 
       // PixiJS ログを抑制
