@@ -40,6 +40,20 @@ describe('InMemoryMessageRepository', () => {
     });
   };
 
+  it('ulidFactory / nowMs を省略した場合は既定実装が使われる', async () => {
+    const localStore = new InMemorySingleTableStore();
+    const repo = new InMemoryMessageRepository(localStore);
+    const before = Date.now();
+    const result = await repo.create({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Role: 'user',
+      Text: 'x',
+    });
+    expect(result.CreatedAt).toBeGreaterThanOrEqual(before);
+    expect(result.MessageID).toMatch(/^[0-9A-Z]{26}$/);
+  });
+
   it('create はメッセージを保存し ULID と CreatedAt を付与する', async () => {
     const msg = await createMessage('user', 'hello');
     expect(msg.MessageID).toMatch(/^ULID-/);

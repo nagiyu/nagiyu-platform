@@ -9,6 +9,31 @@ describe('DynamoDBCharacterStateRepository', () => {
   const tableName = 'nagiyu-livetalk-dev';
   const now = 1_700_000_000_000;
 
+  it('nowMs を省略した場合は Date.now が使われる', async () => {
+    const client = makeClient(async (cmd) => {
+      if (cmd instanceof GetCommand) return { Item: undefined };
+      return {};
+    });
+    const repo = new DynamoDBCharacterStateRepository(client as never, tableName);
+    const before = Date.now();
+    const result = await repo.upsert({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      LastInteractionAt: Date.now(),
+    });
+    expect(result.CreatedAt).toBeGreaterThanOrEqual(before);
+  });
+
+  it('Error 以外の例外も DatabaseError でラップする', async () => {
+    const client = makeClient(async () => {
+      throw 'string error';
+    });
+    const repo = new DynamoDBCharacterStateRepository(client as never, tableName, () => now);
+    await expect(repo.getById({ userId: 'u1', characterId: 'hiyori' })).rejects.toBeInstanceOf(
+      DatabaseError
+    );
+  });
+
   it('upsert 初回は CreatedAt=now で PutCommand を送る', async () => {
     const sent: unknown[] = [];
     const client = makeClient(async (cmd) => {
@@ -20,26 +45,26 @@ describe('DynamoDBCharacterStateRepository', () => {
     const result = await repo.upsert({
       UserID: 'u1',
       CharacterID: 'hiyori',
-      AffectionLevel: 0,
       LastInteractionAt: now,
-      Onboarded: false,
     });
     const put = (sent[1] as PutCommand).input;
     expect(put.Item?.PK).toBe('USER#u1');
     expect(put.Item?.SK).toBe('CHAR#hiyori#STATE');
+    expect(put.Item?.LastInteractionAt).toBe(now);
+    // Phase 3 以降のフィールドは書き出さない
+    expect(put.Item?.AffectionLevel).toBeUndefined();
+    expect(put.Item?.Onboarded).toBeUndefined();
     expect(result.CreatedAt).toBe(now);
   });
 
-  it('既存があれば CreatedAt は既存値を保持し、updates の差分を反映する', async () => {
+  it('既存があれば CreatedAt は既存値を保持し、LastInteractionAt 差分を反映する', async () => {
     const existing = {
       PK: 'USER#u1',
       SK: 'CHAR#hiyori#STATE',
       Type: 'CharacterState',
       UserID: 'u1',
       CharacterID: 'hiyori',
-      AffectionLevel: 1,
       LastInteractionAt: now - 5000,
-      Onboarded: false,
       CreatedAt: 1_600_000_000_000,
       UpdatedAt: now - 5000,
     };
@@ -52,14 +77,11 @@ describe('DynamoDBCharacterStateRepository', () => {
       {
         UserID: 'u1',
         CharacterID: 'hiyori',
-        AffectionLevel: 1,
         LastInteractionAt: now,
-        Onboarded: false,
       },
-      { AffectionLevel: 5, Onboarded: true }
+      { LastInteractionAt: now }
     );
-    expect(result.AffectionLevel).toBe(5);
-    expect(result.Onboarded).toBe(true);
+    expect(result.LastInteractionAt).toBe(now);
     expect(result.CreatedAt).toBe(1_600_000_000_000);
     expect(result.UpdatedAt).toBe(now);
   });
@@ -87,13 +109,7 @@ describe('DynamoDBCharacterStateRepository', () => {
     });
     const repo = new DynamoDBCharacterStateRepository(client as never, tableName, () => now);
     await expect(
-      repo.upsert({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        AffectionLevel: 0,
-        LastInteractionAt: now,
-        Onboarded: false,
-      })
+      repo.upsert({ UserID: 'u1', CharacterID: 'hiyori', LastInteractionAt: now })
     ).rejects.toBeInstanceOf(DatabaseError);
   });
 });

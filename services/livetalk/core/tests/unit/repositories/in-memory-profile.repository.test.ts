@@ -13,6 +13,14 @@ describe('InMemoryProfileRepository', () => {
     repo = new InMemoryProfileRepository(store, () => now);
   });
 
+  it('nowMs を省略した場合は Date.now が使われる', async () => {
+    const localStore = new InMemorySingleTableStore();
+    const repo = new InMemoryProfileRepository(localStore);
+    const before = Date.now();
+    const result = await repo.upsert({ UserID: 'u1' });
+    expect(result.CreatedAt).toBeGreaterThanOrEqual(before);
+  });
+
   it('初回 upsert で新規作成され、LastActiveAt 未指定なら現在時刻が入る', async () => {
     const first = await repo.upsert({ UserID: 'u1' });
     expect(first.UserID).toBe('u1');

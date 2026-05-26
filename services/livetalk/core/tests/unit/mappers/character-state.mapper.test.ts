@@ -6,9 +6,7 @@ describe('CharacterStateMapper', () => {
   const baseEntity: CharacterStateEntity = {
     UserID: 'google-12345',
     CharacterID: 'hiyori',
-    AffectionLevel: 0,
     LastInteractionAt: 1_700_000_000_000,
-    Onboarded: false,
     CreatedAt: 1_700_000_000_000,
     UpdatedAt: 1_700_000_000_000,
   };
@@ -28,8 +26,9 @@ describe('CharacterStateMapper', () => {
     expect(mapper.toEntity(item)).toEqual(baseEntity);
   });
 
-  it('AffectionLevel が負値だと検証で弾かれる', () => {
+  it('Phase 3 以降で追加するフィールド（AffectionLevel / Onboarded）は保持しない', () => {
     const item = mapper.toItem(baseEntity);
-    expect(() => mapper.toEntity({ ...item, AffectionLevel: -1 })).toThrow(/AffectionLevel/);
+    expect(item.AffectionLevel).toBeUndefined();
+    expect(item.Onboarded).toBeUndefined();
   });
 });

@@ -1,7 +1,6 @@
 import {
-  validateStringField,
-  validateNumberField,
   validateEnumField,
+  validateStringField,
   validateTimestampField,
   type DynamoDBItem,
   type EntityMapper,
@@ -22,7 +21,7 @@ export class MessageMapper implements EntityMapper<MessageEntity, MessageKey> {
       messageId: entity.MessageID,
     });
 
-    const item: DynamoDBItem = {
+    return {
       PK: pk,
       SK: sk,
       Type: this.entityType,
@@ -34,27 +33,12 @@ export class MessageMapper implements EntityMapper<MessageEntity, MessageKey> {
       CreatedAt: entity.CreatedAt,
       UpdatedAt: entity.UpdatedAt,
     };
-
-    if (entity.AudioS3Key !== undefined) {
-      item.AudioS3Key = entity.AudioS3Key;
-    }
-    if (entity.TokenCount !== undefined) {
-      item.TokenCount = entity.TokenCount;
-    }
-    if (entity.LatencyMs !== undefined) {
-      item.LatencyMs = entity.LatencyMs;
-    }
-    if (entity.MotionUsed !== undefined) {
-      item.MotionUsed = entity.MotionUsed;
-    }
-
-    return item;
   }
 
   public toEntity(item: DynamoDBItem): MessageEntity {
     const role = validateEnumField(item.Role, 'Role', ['user', 'assistant'] as const);
 
-    const entity: MessageEntity = {
+    return {
       UserID: validateStringField(item.UserID, 'UserID'),
       CharacterID: validateStringField(item.CharacterID, 'CharacterID'),
       MessageID: validateStringField(item.MessageID, 'MessageID'),
@@ -64,21 +48,6 @@ export class MessageMapper implements EntityMapper<MessageEntity, MessageKey> {
       CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
       UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
     };
-
-    if (item.AudioS3Key !== undefined) {
-      entity.AudioS3Key = validateStringField(item.AudioS3Key, 'AudioS3Key');
-    }
-    if (item.TokenCount !== undefined) {
-      entity.TokenCount = validateNumberField(item.TokenCount, 'TokenCount');
-    }
-    if (item.LatencyMs !== undefined) {
-      entity.LatencyMs = validateNumberField(item.LatencyMs, 'LatencyMs');
-    }
-    if (item.MotionUsed !== undefined) {
-      entity.MotionUsed = validateStringField(item.MotionUsed, 'MotionUsed');
-    }
-
-    return entity;
   }
 
   public buildKeys(key: MessageKey): { pk: string; sk: string } {

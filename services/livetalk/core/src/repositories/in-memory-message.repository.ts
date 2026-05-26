@@ -1,4 +1,4 @@
-import { EntityAlreadyExistsError, InMemorySingleTableStore, type DynamoDBItem } from '@nagiyu/aws';
+import { InMemorySingleTableStore, type DynamoDBItem } from '@nagiyu/aws';
 import { MESSAGE_TTL_SECONDS } from '../constants.js';
 import type { CreateMessageInput, MessageEntity, MessageKey } from '../entities/message.entity.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
@@ -47,12 +47,9 @@ export class InMemoryMessageRepository implements MessageRepository {
       TTL: Math.floor(now / 1000) + MESSAGE_TTL_SECONDS,
     };
 
-    try {
-      this.store.put(item, { attributeNotExists: true });
-    } catch (error) {
-      if (error instanceof EntityAlreadyExistsError) throw error;
-      throw error;
-    }
+    // 既存（同一 ULID）の場合は store 側が `EntityAlreadyExistsError` を投げる。
+    // 呼び出し側でハンドリングする想定なのでここでは何もせず透過させる。
+    this.store.put(item, { attributeNotExists: true });
     return entity;
   }
 

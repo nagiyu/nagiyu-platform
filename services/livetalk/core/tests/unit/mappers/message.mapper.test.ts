@@ -27,48 +27,26 @@ describe('MessageMapper', () => {
     });
   });
 
-  it('toItem は必須属性 + Type=Message を含む Item を返す', () => {
+  it('toItem は必須属性 + Type=Message のみを含む', () => {
     const item = mapper.toItem(baseEntity);
     expect(item.PK).toBe('USER#google-12345');
     expect(item.SK).toBe('CHAR#hiyori#MSG#01J9Z000000000000000000001');
     expect(item.Type).toBe('Message');
     expect(item.Role).toBe('user');
     expect(item.Text).toBe('こんにちは');
+  });
+
+  it('Phase 2c 以降で追加する meta 系（AudioS3Key / TokenCount / LatencyMs / MotionUsed）は保持しない', () => {
+    const item = mapper.toItem(baseEntity);
     expect(item.AudioS3Key).toBeUndefined();
     expect(item.TokenCount).toBeUndefined();
     expect(item.LatencyMs).toBeUndefined();
     expect(item.MotionUsed).toBeUndefined();
   });
 
-  it('toItem は optional 属性を持つときだけ書き出す', () => {
-    const item = mapper.toItem({
-      ...baseEntity,
-      AudioS3Key: 'audio/abc.wav',
-      TokenCount: 42,
-      LatencyMs: 1234,
-      MotionUsed: 'talking',
-    });
-    expect(item.AudioS3Key).toBe('audio/abc.wav');
-    expect(item.TokenCount).toBe(42);
-    expect(item.LatencyMs).toBe(1234);
-    expect(item.MotionUsed).toBe('talking');
-  });
-
   it('toEntity は item を Entity に戻す（ラウンドトリップ）', () => {
     const item = mapper.toItem(baseEntity);
     expect(mapper.toEntity(item)).toEqual(baseEntity);
-  });
-
-  it('toEntity は optional 属性も再現する', () => {
-    const original: MessageEntity = {
-      ...baseEntity,
-      AudioS3Key: 'audio/abc.wav',
-      TokenCount: 42,
-      LatencyMs: 1234,
-      MotionUsed: 'talking',
-    };
-    const item = mapper.toItem(original);
-    expect(mapper.toEntity(item)).toEqual(original);
   });
 
   it('toEntity は Role が user/assistant 以外の場合エラーを投げる', () => {

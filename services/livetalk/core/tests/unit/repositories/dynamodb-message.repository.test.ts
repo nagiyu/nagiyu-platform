@@ -45,6 +45,30 @@ describe('DynamoDBMessageRepository', () => {
     expect(input.Item?.TTL).toBe(Math.floor(now / 1000) + MESSAGE_TTL_SECONDS);
   });
 
+  it('nowMs / ulidFactory を省略した場合は既定実装（Date.now / ulid）が使われる', async () => {
+    const client = makeClient(async () => ({}));
+    const repo = new DynamoDBMessageRepository(client as never, tableName);
+    const before = Date.now();
+    const entity = await repo.create({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Role: 'user',
+      Text: 'x',
+    });
+    expect(entity.CreatedAt).toBeGreaterThanOrEqual(before);
+    expect(entity.MessageID).toMatch(/^[0-9A-Z]{26}$/);
+  });
+
+  it('Error 以外の例外（文字列等）も DatabaseError でラップする', async () => {
+    const client = makeClient(async () => {
+      throw 'string error';
+    });
+    const repo = new DynamoDBMessageRepository(client as never, tableName, ulidFactory, () => now);
+    await expect(
+      repo.getById({ userId: 'u1', characterId: 'hiyori', messageId: 'm1' })
+    ).rejects.toBeInstanceOf(DatabaseError);
+  });
+
   it('create は明示指定された MessageID を尊重する', async () => {
     const client = makeClient(async () => ({}));
     const repo = new DynamoDBMessageRepository(client as never, tableName, ulidFactory, () => now);

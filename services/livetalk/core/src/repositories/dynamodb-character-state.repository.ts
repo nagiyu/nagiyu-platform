@@ -56,9 +56,7 @@ export class DynamoDBCharacterStateRepository implements CharacterStateRepositor
     const merged: CharacterStateEntity = {
       UserID: input.UserID,
       CharacterID: input.CharacterID,
-      AffectionLevel: updates.AffectionLevel ?? input.AffectionLevel,
       LastInteractionAt: updates.LastInteractionAt ?? input.LastInteractionAt,
-      Onboarded: updates.Onboarded ?? input.Onboarded,
       CreatedAt: existing?.CreatedAt ?? now,
       UpdatedAt: now,
     };

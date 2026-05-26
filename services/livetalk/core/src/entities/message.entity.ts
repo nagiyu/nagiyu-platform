@@ -4,10 +4,13 @@
  * `tasks/livetalk/design.md` 3.1 / 3.2 節に対応：
  *   - 1 メッセージ = 1 item（配列保持禁止）
  *   - 並べ替え用 ID は ULID（時系列順）
- *   - audio S3 key / 各種メタは optional
  *
  * DynamoDB 上の attribute はすべて PascalCase（プラットフォーム共通ルール）で
  * 保存する。エンティティ側もそれに合わせて PascalCase で表現している。
+ *
+ * Phase 2a スコープでは音声 / トークン / レイテンシ / モーション系のメタは
+ * 保持しない（design.md の `meta` 相当）。Phase 2c の LLM 統合 / VOICEVOX
+ * パイプライン構築時に必要なフィールドだけ追加する方針。
  */
 export interface MessageEntity {
   /** ユーザー識別子（Google ID をそのまま使う） */
@@ -20,14 +23,6 @@ export interface MessageEntity {
   Role: 'user' | 'assistant';
   /** メッセージ本文 */
   Text: string;
-  /** 合成音声を保管する S3 key（任意、Phase 2c 以降で利用） */
-  AudioS3Key?: string;
-  /** LLM で消費したトークン数（任意、Phase 2c 以降で利用） */
-  TokenCount?: number;
-  /** 応答時間 ms（任意、Phase 2c 以降で利用） */
-  LatencyMs?: number;
-  /** 採用したモーション名（任意、Phase 2c 以降で利用） */
-  MotionUsed?: string;
   /** 作成 / 更新時刻（Unix ms） */
   CreatedAt: number;
   UpdatedAt: number;

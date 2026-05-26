@@ -1,6 +1,4 @@
 import {
-  validateBooleanField,
-  validateNumberField,
   validateStringField,
   validateTimestampField,
   type DynamoDBItem,
@@ -26,9 +24,7 @@ export class CharacterStateMapper implements EntityMapper<CharacterStateEntity, 
       Type: this.entityType,
       UserID: entity.UserID,
       CharacterID: entity.CharacterID,
-      AffectionLevel: entity.AffectionLevel,
       LastInteractionAt: entity.LastInteractionAt,
-      Onboarded: entity.Onboarded,
       CreatedAt: entity.CreatedAt,
       UpdatedAt: entity.UpdatedAt,
     };
@@ -38,9 +34,7 @@ export class CharacterStateMapper implements EntityMapper<CharacterStateEntity, 
     return {
       UserID: validateStringField(item.UserID, 'UserID'),
       CharacterID: validateStringField(item.CharacterID, 'CharacterID'),
-      AffectionLevel: validateNumberField(item.AffectionLevel, 'AffectionLevel', { min: 0 }),
       LastInteractionAt: validateTimestampField(item.LastInteractionAt, 'LastInteractionAt'),
-      Onboarded: validateBooleanField(item.Onboarded, 'Onboarded'),
       CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
       UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
     };

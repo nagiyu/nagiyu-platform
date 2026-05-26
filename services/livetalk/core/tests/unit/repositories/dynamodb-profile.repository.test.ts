@@ -9,6 +9,25 @@ describe('DynamoDBProfileRepository', () => {
   const tableName = 'nagiyu-livetalk-dev';
   const now = 1_700_000_000_000;
 
+  it('nowMs を省略した場合は Date.now が使われる', async () => {
+    const client = makeClient(async (cmd) => {
+      if (cmd instanceof GetCommand) return { Item: undefined };
+      return {};
+    });
+    const repo = new DynamoDBProfileRepository(client as never, tableName);
+    const before = Date.now();
+    const result = await repo.upsert({ UserID: 'u1' });
+    expect(result.CreatedAt).toBeGreaterThanOrEqual(before);
+  });
+
+  it('Error 以外の例外も DatabaseError でラップする', async () => {
+    const client = makeClient(async () => {
+      throw 'string error';
+    });
+    const repo = new DynamoDBProfileRepository(client as never, tableName, () => now);
+    await expect(repo.getById({ userId: 'u1' })).rejects.toBeInstanceOf(DatabaseError);
+  });
+
   it('upsert は GetCommand → PutCommand の順に送り、初回は CreatedAt=now', async () => {
     const sent: unknown[] = [];
     const client = makeClient(async (cmd) => {
