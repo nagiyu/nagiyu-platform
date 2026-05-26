@@ -230,14 +230,17 @@ export default function HomePage() {
     advanceAudioQueue();
   }, [revokeCurrentAudio, advanceAudioQueue]);
 
-  const handlePlaybackError = useCallback((error: Error) => {
-    console.error('[LiveTalk] 音声再生エラー', error);
-    setErrorMessage('音声再生中にエラーが発生しました。');
-    revokeCurrentAudio();
-    setAudioUrl(null);
-    isPlayingRef.current = false;
-    advanceAudioQueue();
-  }, [revokeCurrentAudio, advanceAudioQueue]);
+  const handlePlaybackError = useCallback(
+    (error: Error) => {
+      console.error('[LiveTalk] 音声再生エラー', error);
+      setErrorMessage('音声再生中にエラーが発生しました。');
+      revokeCurrentAudio();
+      setAudioUrl(null);
+      isPlayingRef.current = false;
+      advanceAudioQueue();
+    },
+    [revokeCurrentAudio, advanceAudioQueue]
+  );
 
   const statusText =
     phase === 'loading' ? '考え中…' : phase === 'streaming' ? '話している' : '待機中';
