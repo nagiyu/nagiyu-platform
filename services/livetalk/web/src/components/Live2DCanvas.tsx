@@ -124,16 +124,15 @@ export default function Live2DCanvas({
         }
         modelRef.current = model;
 
-        // Live2D モデルの枠 (model.width / model.height) は描画可能領域で、
-        // キャラクター本体は通常その内側に配置される。Hiyori の場合は枠中央より
-        // 下寄りに描かれているため、アンカー Y を 0.45 に設定して胸〜腰のあたりが
-        // アンカー基準点（= canvas 中央）に来るよう調整する。
-        model.anchor.set(0.5, 0.45);
+        // 上半身フォーカスのレイアウト。
+        // anchor Y を 0.3 にすることで、顔〜胸のあたりが基準点（= canvas 中央）になる。
+        // 結果として頭は画面上部、上半身が中央、足は画面下端より下に位置する。
+        model.anchor.set(0.5, 0.3);
 
-        // canvas に対するスケール。縦方向 90% / 横方向 95% を上限として
-        // どちらか小さい方を採用（アスペクト比に応じて自動調整）。
-        const scaleByHeight = (h * 0.9) / model.height;
-        const scaleByWidth = (w * 0.95) / model.width;
+        // canvas に対するスケール。縦は 95% × 1.5 倍を上限（上半身フォーカスのためのズーム）。
+        // 横は 140% まで許容（モデル枠 = キャラ本体ではなく余白を含む。少しはみ出してもキャラは収まる）。
+        const scaleByHeight = (h * 0.95 * 1.5) / model.height;
+        const scaleByWidth = (w * 1.4) / model.width;
         const scale = Math.min(scaleByHeight, scaleByWidth);
         model.scale.set(scale);
 
