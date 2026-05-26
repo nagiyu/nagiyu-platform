@@ -4,19 +4,15 @@ import { Box, Paper, Typography } from '@mui/material';
 
 export interface ResponseDisplayProps {
   /**
-   * 表示するエコー応答テキスト。null/空文字なら初期メッセージを表示。
+   * ひよりの応答テキスト。ストリーミング中は逐次更新される。null/空なら待機メッセージを表示。
    */
   text: string | null;
   /**
-   * 直近送信中・処理中のテキスト（ユーザー側の入力反復確認用）。
+   * ユーザーの発話テキスト。
    */
   userText: string | null;
 }
 
-/**
- * エコー応答の表示領域。
- * Phase 2 以降は LLM のストリーミング応答に差し替わるが、本 Phase は静的表示で十分。
- */
 export default function ResponseDisplay({ text, userText }: ResponseDisplayProps) {
   const hasContent = Boolean(text || userText);
 
@@ -30,7 +26,7 @@ export default function ResponseDisplay({ text, userText }: ResponseDisplayProps
       {!hasContent && (
         <Paper variant="outlined" sx={{ p: 2, backgroundColor: 'background.paper' }}>
           <Typography variant="body2" color="text.secondary">
-            メッセージを入力すると、同じ内容を声に出して返します（エコー応答）。
+            メッセージを入力すると、桃瀬ひよりがお話しします。
           </Typography>
         </Paper>
       )}
@@ -45,7 +41,7 @@ export default function ResponseDisplay({ text, userText }: ResponseDisplayProps
       {text && (
         <Paper variant="outlined" sx={{ p: 1.5, backgroundColor: 'background.paper' }}>
           <Typography variant="caption" color="text.secondary">
-            キャラ
+            ひより
           </Typography>
           <Typography variant="body2">{text}</Typography>
         </Paper>
