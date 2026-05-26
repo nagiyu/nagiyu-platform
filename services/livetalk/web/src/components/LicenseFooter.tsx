@@ -1,8 +1,8 @@
 import { Box, Typography } from '@mui/material';
 
 /**
- * VOICEVOX 等のライセンス表記。UI 上で常時表示される必要があるため、
- * チャット画面下部に常駐させる。Phase 1g で Live2D（桃瀬ひより / かにビーム）の表記が追加される。
+ * VOICEVOX・Live2D のライセンス表記。UI 上で常時表示される必要があるため、
+ * チャット画面下部に常駐させる。
  */
 export default function LicenseFooter() {
   return (
@@ -17,7 +17,7 @@ export default function LicenseFooter() {
       data-testid="license-footer"
     >
       <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-        VOICEVOX:冥鳴ひまり
+        VOICEVOX:冥鳴ひまり / Live2D キャラクター: 桃瀬ひより ©2010 Live2D Inc.
       </Typography>
     </Box>
   );
