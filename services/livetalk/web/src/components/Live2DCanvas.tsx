@@ -26,7 +26,9 @@ export interface Live2DCanvasProps {
 export default function Live2DCanvas({ audioLevel, statusText }: Live2DCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<import('pixi.js').Application | null>(null);
-  const modelRef = useRef<import('pixi-live2d-display-lipsyncpatch').Live2DModel | null>(null);
+  const modelRef = useRef<import('pixi-live2d-display-lipsyncpatch/cubism4').Live2DModel | null>(
+    null
+  );
   const loadedRef = useRef(false);
 
   useEffect(() => {
@@ -36,9 +38,12 @@ export default function Live2DCanvas({ audioLevel, statusText }: Live2DCanvasPro
     let cancelled = false;
 
     (async () => {
+      // メイン entry (pixi-live2d-display-lipsyncpatch) は Cubism 2 + 4 両対応で
+      // ブラウザ実行時に Cubism 2 ランタイム (live2d.min.js) を要求する。
+      // 桃瀬ひよりは Cubism 4 モデル (model3.json) なので cubism4 サブモジュールから import する。
       const [{ Application, utils }, { Live2DModel }] = await Promise.all([
         import('pixi.js'),
-        import('pixi-live2d-display-lipsyncpatch'),
+        import('pixi-live2d-display-lipsyncpatch/cubism4'),
       ]);
 
       if (cancelled || !containerRef.current) return;
