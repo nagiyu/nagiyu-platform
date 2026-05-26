@@ -1,4 +1,5 @@
 import { Box, Typography } from '@mui/material';
+import { Link } from '@nagiyu/ui';
 
 /**
  * VOICEVOX・Live2D のライセンス表記。UI 上で常時表示される必要があるため、
@@ -19,6 +20,14 @@ export default function LicenseFooter() {
       <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
         VOICEVOX:冥鳴ひまり / Live2D キャラクター: 桃瀬ひより ©2010 Live2D Inc.
       </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 0.25 }}>
+        <Link href="/legal/terms" color="neutral" style={{ fontSize: '0.65rem' }}>
+          利用規約
+        </Link>
+        <Link href="/legal/privacy" color="neutral" style={{ fontSize: '0.65rem' }}>
+          プライバシーポリシー
+        </Link>
+      </Box>
     </Box>
   );
 }

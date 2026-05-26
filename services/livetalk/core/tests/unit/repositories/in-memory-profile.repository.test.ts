@@ -1,5 +1,6 @@
 import { InMemorySingleTableStore } from '@nagiyu/aws';
 import { InMemoryProfileRepository } from '../../../src/repositories/in-memory-profile.repository.js';
+import type { UserConsents } from '../../../src/entities/profile.entity.js';
 
 describe('InMemoryProfileRepository', () => {
   let store: InMemorySingleTableStore;
@@ -57,5 +58,21 @@ describe('InMemoryProfileRepository', () => {
     expect(Object.keys(result).sort()).toEqual(
       ['CreatedAt', 'LastActiveAt', 'UpdatedAt', 'UserID'].sort()
     );
+  });
+
+  it('初回 upsert で Consents が undefined のまま保存される', async () => {
+    const result = await repo.upsert({ UserID: 'u2' });
+    expect(result.Consents).toBeUndefined();
+  });
+
+  it('upsert で Consents を更新できる', async () => {
+    await repo.upsert({ UserID: 'u3' });
+    const consents: UserConsents = {
+      TermsAgreed: { Version: '1.0.0', AgreedAt: baseNow + 1 },
+      PrivacyAgreed: { Version: '1.0.0', AgreedAt: baseNow + 2 },
+      AgeVerified: { Value: true, VerifiedAt: baseNow + 3 },
+    };
+    const updated = await repo.upsert({ UserID: 'u3' }, { Consents: consents });
+    expect(updated.Consents).toEqual(consents);
   });
 });

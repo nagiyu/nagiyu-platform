@@ -61,6 +61,11 @@ export class DynamoDBProfileRepository implements ProfileRepository {
       LastActiveAt: updates.LastActiveAt ?? input.LastActiveAt ?? now,
       CreatedAt: existing?.CreatedAt ?? now,
       UpdatedAt: now,
+      ...(updates.Consents !== undefined
+        ? { Consents: { ...existing?.Consents, ...updates.Consents } }
+        : existing?.Consents !== undefined
+          ? { Consents: existing.Consents }
+          : {}),
     };
 
     try {

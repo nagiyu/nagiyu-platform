@@ -23,3 +23,10 @@ export const DEFAULT_LLM_CONTEXT_TOKEN_LIMIT = 40_000;
  * 上限到達時に余分な RCU を消費しないよう小さめに設定する。
  */
 export const TOKEN_BUDGETED_QUERY_PAGE_SIZE = 50;
+
+/**
+ * 利用規約・プライバシーポリシーのバージョン。
+ * 改定時にインクリメントし、ユーザーの再同意を促す。
+ */
+export const LIVETALK_TERMS_VERSION = '1.0.0';
+export const LIVETALK_PRIVACY_VERSION = '1.0.0';

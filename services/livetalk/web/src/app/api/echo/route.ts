@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
-import { DEFAULT_CHARACTER_ID } from '@nagiyu/livetalk-core';
+import {
+  DEFAULT_CHARACTER_ID,
+  LIVETALK_TERMS_VERSION,
+  LIVETALK_PRIVACY_VERSION,
+  isConsentValid,
+} from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
 import { getVoicevoxClient } from '@/lib/server/voicevox';
-import { getMessageRepository } from '@/lib/server/repositories';
+import { getMessageRepository, getProfileRepository } from '@/lib/server/repositories';
 import { ECHO_ERROR_MESSAGES, ECHO_MAX_TEXT_LENGTH } from './constants';
 
 interface EchoRequest {
@@ -66,6 +71,20 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (session, reques
 
   const userId = session.user.googleId;
   const characterId = DEFAULT_CHARACTER_ID;
+
+  const profile = await getProfileRepository().getById({ userId });
+  if (
+    !isConsentValid(profile?.Consents, {
+      termsVersion: LIVETALK_TERMS_VERSION,
+      privacyVersion: LIVETALK_PRIVACY_VERSION,
+    })
+  ) {
+    return NextResponse.json(
+      { error: 'CONSENT_REQUIRED', message: ECHO_ERROR_MESSAGES.CONSENT_REQUIRED },
+      { status: 403 }
+    );
+  }
+
   const messageRepository = getMessageRepository();
 
   try {

@@ -1,5 +1,5 @@
 import { ProfileMapper } from '../../../src/mappers/profile.mapper.js';
-import type { ProfileEntity } from '../../../src/entities/profile.entity.js';
+import type { ProfileEntity, UserConsents } from '../../../src/entities/profile.entity.js';
 
 describe('ProfileMapper', () => {
   const mapper = new ProfileMapper();
@@ -30,5 +30,22 @@ describe('ProfileMapper', () => {
     expect(item.DisplayName).toBeUndefined();
     expect(item.Email).toBeUndefined();
     expect(item.GoogleID).toBeUndefined();
+  });
+
+  it('Consents が undefined の場合 item に Consents キーを含まない', () => {
+    const entity: ProfileEntity = { ...baseEntity, Consents: undefined };
+    const item = mapper.toItem(entity);
+    expect(item.Consents).toBeUndefined();
+  });
+
+  it('Consents がある場合 toItem / toEntity でラウンドトリップする', () => {
+    const consents: UserConsents = {
+      TermsAgreed: { Version: '1.0.0', AgreedAt: 1_700_000_000_001 },
+      PrivacyAgreed: { Version: '1.0.0', AgreedAt: 1_700_000_000_002 },
+      AgeVerified: { Value: true, VerifiedAt: 1_700_000_000_003 },
+    };
+    const entity: ProfileEntity = { ...baseEntity, Consents: consents };
+    const item = mapper.toItem(entity);
+    expect(mapper.toEntity(item)).toEqual(entity);
   });
 });
