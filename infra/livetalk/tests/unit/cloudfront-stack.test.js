@@ -187,4 +187,86 @@ describe('LiveTalkCloudFrontStack', () => {
     expect(zoneIdRef).toBeDefined();
     expect(zoneNameRef).toBeDefined();
   });
+
+  // /assets/* Behavior と S3 バケット
+  it('assets S3 バケットを Block Public Access + S3 マネージド暗号化で作成する', () => {
+    const template = synth('dev');
+    template.hasResourceProperties('AWS::S3::Bucket', {
+      BucketName: 'nagiyu-livetalk-assets-dev',
+      PublicAccessBlockConfiguration: {
+        BlockPublicAcls: true,
+        BlockPublicPolicy: true,
+        IgnorePublicAcls: true,
+        RestrictPublicBuckets: true,
+      },
+      BucketEncryption: Match.objectLike({
+        ServerSideEncryptionConfiguration: Match.arrayWith([
+          Match.objectLike({
+            ServerSideEncryptionByDefault: Match.objectLike({
+              SSEAlgorithm: 'AES256',
+            }),
+          }),
+        ]),
+      }),
+    });
+  });
+
+  it('prod 環境では nagiyu-livetalk-assets-prod バケット名を使用する', () => {
+    const template = synth('prod');
+    template.hasResourceProperties('AWS::S3::Bucket', {
+      BucketName: 'nagiyu-livetalk-assets-prod',
+    });
+  });
+
+  it('/assets/* の Additional Behavior で S3 OAC オリジンを使い CACHING_OPTIMIZED を適用する', () => {
+    const template = synth('dev');
+    // CACHING_OPTIMIZED マネージドポリシー ID
+    template.hasResourceProperties('AWS::CloudFront::Distribution', {
+      DistributionConfig: Match.objectLike({
+        CacheBehaviors: Match.arrayWith([
+          Match.objectLike({
+            PathPattern: '/assets/*',
+            CachePolicyId: '658327ea-f89d-4fab-a63d-7e88639e58f6',
+            ViewerProtocolPolicy: 'redirect-to-https',
+            AllowedMethods: ['GET', 'HEAD', 'OPTIONS'],
+            Compress: true,
+          }),
+        ]),
+      }),
+    });
+  });
+
+  it('S3 オリジン用の OriginAccessControl を作成する', () => {
+    const template = synth('dev');
+    template.hasResourceProperties('AWS::CloudFront::OriginAccessControl', {
+      OriginAccessControlConfig: Match.objectLike({
+        OriginAccessControlOriginType: 's3',
+        SigningBehavior: 'always',
+        SigningProtocol: 'sigv4',
+      }),
+    });
+  });
+
+  it('assets バケット名を SSM Parameter に出力する（dev パス）', () => {
+    const template = synth('dev');
+    // Value は CDK Ref トークン（{ Ref: 'AssetsBucket...' }）のため Name のみ検証する。
+    // 既存の cloudfront/distribution-id テストと同じ検証スタイル。
+    template.hasResourceProperties('AWS::SSM::Parameter', {
+      Name: '/nagiyu/livetalk/dev/assets/bucket-name',
+    });
+  });
+
+  it('prod 環境でも assets バケット名を SSM Parameter (prod パス) で出力する', () => {
+    const template = synth('prod');
+    template.hasResourceProperties('AWS::SSM::Parameter', {
+      Name: '/nagiyu/livetalk/prod/assets/bucket-name',
+    });
+  });
+
+  it('assets バケット名を CfnOutput に出力する', () => {
+    const template = synth('dev');
+    template.hasOutput('AssetsBucketName', {
+      Description: 'LiveTalk assets S3 bucket name (Live2D models, Cubism Core)',
+    });
+  });
 });
