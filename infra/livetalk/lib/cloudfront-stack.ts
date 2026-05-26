@@ -4,6 +4,7 @@ import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as targets from 'aws-cdk-lib/aws-route53-targets';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { Environment, SSM_PARAMETERS } from '@nagiyu/infra-common';
@@ -15,35 +16,44 @@ export interface LiveTalkCloudFrontStackProps extends cdk.StackProps {
 /**
  * LiveTalk 専用 CloudFront Distribution スタック
  *
- * - Origin: LiveTalk 専用 ALB（SSM `/nagiyu/livetalk/{env}/alb/dns-name` から取得）
+ * - defaultBehavior: LiveTalk 専用 ALB（SSM `/nagiyu/livetalk/{env}/alb/dns-name` から取得）
+ * - additionalBehavior `/assets/*`: Live2D モデルファイル / Cubism Core を配信する
+ *   private S3 bucket（OAC 経由、CACHING_OPTIMIZED）
  * - 証明書: 共通ワイルドカード ACM（`*.nagiyu.com`、us-east-1）
  * - カスタムドメイン:
  *     - dev: `dev-live-talk.nagiyu.com`
  *     - prod: `live-talk.nagiyu.com`
  * - Route53 ALIAS レコードを同一スタック内で作成（`infra/ui-storybook` と同じパターン）。
- *   `targets.CloudFrontTarget(this.distribution)` を使うため SSM / cross-stack 参照不要。
- *   shared 側 `route53-records-stack` は XServer 移行 CNAME 専用のまま触らない。
- * - 既存 Portal の `infra/root/cloudfront-stack.ts` のパターン（HTTP オリジン /
- *   CACHING_DISABLED / ALL_VIEWER_EXCEPT_HOST_HEADER / ALLOW_ALL）を踏襲。
- * - 後続 Phase の LLM ストリーミング向けにオリジンタイムアウトを 60s に延長
- *   （HttpOrigin の `readTimeout` / `keepaliveTimeout` 上限）。
+ * - 後続 Phase の LLM ストリーミング向けにオリジンタイムアウトを 60s に延長。
  * - 出力:
- *     - CfnOutput: DistributionId / DistributionDomainName / CustomDomainName
+ *     - CfnOutput: DistributionId / DistributionDomainName / CustomDomainName / AssetsBucketName
  *     - SSM Parameter:
  *         - `/nagiyu/livetalk/{env}/cloudfront/distribution-id`
- *         - `/nagiyu/livetalk/{env}/cloudfront/domain-name`（`dxxxx.cloudfront.net`）
- *         - `/nagiyu/livetalk/{env}/cloudfront/custom-domain`（`dev-live-talk.nagiyu.com` 等）
+ *         - `/nagiyu/livetalk/{env}/cloudfront/domain-name`
+ *         - `/nagiyu/livetalk/{env}/cloudfront/custom-domain`
+ *         - `/nagiyu/livetalk/{env}/assets/bucket-name`
  *
  * リージョンは CloudFront 用 ACM の都合で `us-east-1` 固定。
- * Distribution の作成・更新には 15 分以上かかる場合がある（CDK deploy のタイムアウト注意）。
  */
 export class LiveTalkCloudFrontStack extends cdk.Stack {
   public readonly distribution: cloudfront.Distribution;
+  public readonly assetsBucket: s3.Bucket;
 
   constructor(scope: Construct, id: string, props: LiveTalkCloudFrontStackProps) {
     super(scope, id, props);
 
     const { environment } = props;
+
+    // Live2D モデル・Cubism Core 配信用 private S3 バケット。
+    // reports-hosting-stack / storybook-stack と同様に CloudFront スタック内で S3 + OAC を一体管理する。
+    this.assetsBucket = new s3.Bucket(this, 'AssetsBucket', {
+      bucketName: `nagiyu-livetalk-assets-${environment}`,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      versioned: false,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
 
     const certificateArn = ssm.StringParameter.valueForStringParameter(
       this,
@@ -88,6 +98,16 @@ export class LiveTalkCloudFrontStack extends cdk.Stack {
           cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
         compress: true,
       },
+      additionalBehaviors: {
+        '/assets/*': {
+          origin: origins.S3BucketOrigin.withOriginAccessControl(this.assetsBucket),
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+          cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
+          cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+          compress: true,
+        },
+      },
     });
 
     // Route53 hosted zone を SSM 経由で参照し、CloudFront 向け ALIAS A レコードを作成
@@ -131,6 +151,11 @@ export class LiveTalkCloudFrontStack extends cdk.Stack {
       description: 'LiveTalk custom domain name',
     });
 
+    new cdk.CfnOutput(this, 'AssetsBucketName', {
+      value: this.assetsBucket.bucketName,
+      description: 'LiveTalk assets S3 bucket name (Live2D models, Cubism Core)',
+    });
+
     new ssm.StringParameter(this, 'DistributionIdParam', {
       parameterName: SSM_PARAMETERS.LIVETALK_CLOUDFRONT_DISTRIBUTION_ID(environment),
       stringValue: this.distribution.distributionId,
@@ -149,6 +174,13 @@ export class LiveTalkCloudFrontStack extends cdk.Stack {
       parameterName: SSM_PARAMETERS.LIVETALK_CLOUDFRONT_CUSTOM_DOMAIN(environment),
       stringValue: customDomain,
       description: 'LiveTalk custom domain name (mapped via Route53 to this CloudFront)',
+      tier: ssm.ParameterTier.STANDARD,
+    });
+
+    new ssm.StringParameter(this, 'AssetsBucketNameParam', {
+      parameterName: SSM_PARAMETERS.LIVETALK_ASSETS_BUCKET_NAME(environment),
+      stringValue: this.assetsBucket.bucketName,
+      description: 'LiveTalk assets S3 bucket name',
       tier: ssm.ParameterTier.STANDARD,
     });
   }
