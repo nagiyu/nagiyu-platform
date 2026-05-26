@@ -84,6 +84,18 @@ jobs:
 
           echo "LiveTalk ECR repository deployed (environment: $ENVIRONMENT)"
 
+      - name: Deploy LiveTalk Secrets Stack
+        env:
+          ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
+          STACK_SUFFIX: ${{ steps.setup-environment.outputs.stack-suffix }}
+        run: |
+          # 初回デプロイ時に Secrets Manager に PLACEHOLDER で Secret を作る。
+          # 実値は AWS Console から手動で書き換え運用（Phase 2b / Issue #3248）。
+          npm run cdk --workspace=@nagiyu/infra-livetalk -- deploy NagiyuLiveTalkSecrets${STACK_SUFFIX} \
+            --require-approval never
+
+          echo "LiveTalk Secrets deployed (environment: $ENVIRONMENT)"
+
   build:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
@@ -202,6 +214,7 @@ jobs:
         with:
           secret-ids: |
             NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ needs.build.outputs.environment }}
+            OPENAI_API_KEY,/nagiyu/livetalk/${{ needs.build.outputs.environment }}/openai/api-key
           parse-json-secrets: true
 
       - name: Deploy ALB and ECS Service Stacks
@@ -213,11 +226,13 @@ jobs:
           # /api/health の version 表示に利用される
           APP_VERSION: ${{ needs.build.outputs.app-version }}
           SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
+          OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
         run: |
           npm run cdk --workspace=@nagiyu/infra-livetalk -- deploy \
             NagiyuLiveTalkAlb${STACK_SUFFIX} \
             NagiyuLiveTalkService${STACK_SUFFIX} \
             --context nextAuthSecret="$SECRET_VALUE" \
+            --context openAiApiKey="$OPENAI_API_KEY" \
             --require-approval never
 
           echo "LiveTalk ALB and ECS Service deployed (environment: $ENVIRONMENT)"

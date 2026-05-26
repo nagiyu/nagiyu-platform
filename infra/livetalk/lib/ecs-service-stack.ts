@@ -53,6 +53,12 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
     const nextAuthSecret =
       scope.node.tryGetContext('nextAuthSecret') || 'PLACEHOLDER_NEXTAUTH_SECRET';
 
+    // OpenAI API キー（Phase 2b / Issue #3248）。
+    // 既存の AUTH_SECRET と同じく、deploy ワークフローが Secrets Manager から取得して
+    // `--context openAiApiKey=<value>` で渡す方式。Container では `OPENAI_API_KEY` env で参照する。
+    const openAiApiKey =
+      scope.node.tryGetContext('openAiApiKey') || 'PLACEHOLDER_OPENAI_API_KEY';
+
     const authUrl =
       environment === 'prod' ? 'https://auth.nagiyu.com' : `https://dev-auth.nagiyu.com`;
 
@@ -252,6 +258,9 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
         // DynamoDB Single Table 名（Phase 2a で導入）。
         // `@nagiyu/aws` の `getTableName()` がこの環境変数を参照する。
         DYNAMODB_TABLE_NAME: dynamoTableName,
+        // OpenAI API キー（Phase 2b）。deploy ワークフローが Secrets Manager から取得して
+        // CDK context 経由でここに注入する。アプリは process.env.OPENAI_API_KEY で参照する。
+        OPENAI_API_KEY: openAiApiKey,
       },
       portMappings: [
         {

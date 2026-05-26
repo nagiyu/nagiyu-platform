@@ -1,4 +1,5 @@
 export * from './voicevox/index.js';
+export * from './llm-client/index.js';
 export * from './constants.js';
 
 // Entities

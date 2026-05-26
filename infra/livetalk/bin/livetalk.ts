@@ -6,6 +6,7 @@ import { LiveTalkAlbStack } from '../lib/alb-stack';
 import { LiveTalkDynamoDbStack } from '../lib/dynamodb-stack';
 import { LiveTalkEcsServiceStack } from '../lib/ecs-service-stack';
 import { LiveTalkCloudFrontStack } from '../lib/cloudfront-stack';
+import { LiveTalkSecretsStack } from '../lib/secrets-stack';
 
 const app = new cdk.App();
 
@@ -30,6 +31,15 @@ new LiveTalkEcrStack(app, `NagiyuLiveTalkEcr${envSuffix}`, {
   env: stackEnv,
   environment,
   description: `LiveTalk ECR Repository (${environment})`,
+});
+
+// LiveTalk Secrets Stack（Phase 2b / Issue #3248）
+// OpenAI / Anthropic API キーを Secrets Manager で管理。
+// ECS Service Stack の Task Role が読取権限を持つ前提。
+new LiveTalkSecretsStack(app, `NagiyuLiveTalkSecrets${envSuffix}`, {
+  env: stackEnv,
+  environment,
+  description: `LiveTalk Secrets (${environment})`,
 });
 
 // LiveTalk 専用 ALB Stack（共通 VPC + 個別 ALB / Target Group / Listener）
