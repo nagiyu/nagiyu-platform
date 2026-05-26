@@ -175,6 +175,54 @@ describe('LiveTalkEcsServiceStack', () => {
     }
   });
 
+  it('DYNAMODB_TABLE_NAME はヘルパー命名規則の値をそのまま注入する（SSM 経由ではない）', () => {
+    const template = synth('dev');
+    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Name: 'livetalk-web',
+          Environment: Match.arrayWith([
+            { Name: 'DYNAMODB_TABLE_NAME', Value: 'nagiyu-livetalk-dynamodb-dev' },
+          ]),
+        }),
+      ]),
+    });
+  });
+
+  it('Task Role に DynamoDB の Read/Write 権限を付与する', () => {
+    const template = synth('dev');
+    // grantReadWriteData が生成する Allow Statement の Action を見て、
+    // 順序非依存（CDK のバージョン更新で並びが変わっても壊れない）に
+    // Read/Write 両系統の代表アクションを検証する。
+    const policies = template.findResources('AWS::IAM::Policy');
+    const taskRolePolicy = Object.values(policies).find((p) => {
+      const statements = (p.Properties?.PolicyDocument?.Statement ?? []);
+      return statements.some(
+        (stmt) =>
+          stmt.Effect === 'Allow' &&
+          Array.isArray(stmt.Action) &&
+          stmt.Action.includes('dynamodb:PutItem')
+      );
+    });
+    expect(taskRolePolicy).toBeDefined();
+    const allowStatement = taskRolePolicy.Properties.PolicyDocument.Statement.find(
+      (stmt) =>
+        stmt.Effect === 'Allow' &&
+        Array.isArray(stmt.Action) &&
+        stmt.Action.includes('dynamodb:PutItem')
+    );
+    const actions = allowStatement.Action;
+    expect(actions).toEqual(
+      expect.arrayContaining([
+        'dynamodb:GetItem',
+        'dynamodb:Query',
+        'dynamodb:PutItem',
+        'dynamodb:UpdateItem',
+        'dynamodb:DeleteItem',
+      ])
+    );
+  });
+
   it('prod 環境でも正しい命名で生成する', () => {
     const template = synth('prod');
     template.hasResourceProperties('AWS::ECS::Service', {

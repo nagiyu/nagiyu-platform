@@ -1,4 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
@@ -9,6 +10,8 @@ import { Construct } from 'constructs';
 import {
   Environment,
   SSM_PARAMETERS,
+  getDynamoDBTableArn,
+  getDynamoDBTableName,
   getEcrRepositoryName,
 } from '@nagiyu/infra-common';
 
@@ -107,6 +110,19 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
       {
         targetGroupArn,
       }
+    );
+
+    // DynamoDB Single Table はヘルパーで決定論的に名前 / ARN を組み立てる。
+    // CloudFormation の Export/Import によるクロススタック依存を避けるため、
+    // SSM ルックアップやスタック参照は使わず、`getDynamoDBTableName` /
+    // `getDynamoDBTableArn` を DynamoDB stack 側と揃えて呼ぶ。
+    // これにより ECS Service stack は DynamoDB stack の deploy 順序に縛られない。
+    const dynamoTableName = getDynamoDBTableName('livetalk', environment);
+    const dynamoTableArn = getDynamoDBTableArn(this.region, this.account, dynamoTableName);
+    const dynamoTable = dynamodb.Table.fromTableArn(
+      this,
+      'ImportedDynamoTable',
+      dynamoTableArn
     );
 
     this.ecsTaskSecurityGroup = new ec2.SecurityGroup(this, 'EcsTaskSecurityGroup', {
@@ -233,6 +249,9 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
         APP_URL: appUrl,
         // VOICEVOX エンジンの接続先（同 Task 内 localhost）
         VOICEVOX_URL: 'http://localhost:50021',
+        // DynamoDB Single Table 名（Phase 2a で導入）。
+        // `@nagiyu/aws` の `getTableName()` がこの環境変数を参照する。
+        DYNAMODB_TABLE_NAME: dynamoTableName,
       },
       portMappings: [
         {
@@ -263,6 +282,10 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
       },
       healthCheckGracePeriod: cdk.Duration.seconds(120),
     });
+
+    // ECS Task が DynamoDB Single Table を読み書きできるよう IAM 権限を付与する。
+    // PITR や Backup 系の操作は不要、Read/Write のみで十分。
+    dynamoTable.grantReadWriteData(taskRole);
 
     // ALB ターゲットには明示的に livetalk-web:3000 を指定する。
     // attachToApplicationTargetGroup() の暗黙的なデフォルトは「最初に addContainer された

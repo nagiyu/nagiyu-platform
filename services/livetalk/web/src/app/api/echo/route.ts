@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
+import { DEFAULT_CHARACTER_ID } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
 import { getVoicevoxClient } from '@/lib/server/voicevox';
+import { getMessageRepository } from '@/lib/server/repositories';
 import { ECHO_ERROR_MESSAGES, ECHO_MAX_TEXT_LENGTH } from './constants';
 
 interface EchoRequest {
@@ -19,13 +21,18 @@ function isEchoRequest(body: unknown): body is EchoRequest {
 /**
  * POST /api/echo
  *
- * Phase 1f のエコー API。受け取ったテキストをそのまま VOICEVOX に投げ、
- * 合成された WAV を返す。Phase 2 で LLM 統合に置き換わる。
+ * Phase 1f で導入した「テキストをそのまま VOICEVOX に投げて WAV を返す」エコー API。
  *
- * 認可: `livetalk:chat` permission を要求（middleware は /api をスキップするため、
- * route 側で withAuth する）。
+ * Phase 2a の改修：
+ * - リクエスト受信時にユーザー発話を DynamoDB に保存
+ * - 応答返却前にキャラの応答（= 入力と同じテキスト）を DynamoDB に保存
+ * - 認可は変わらず `livetalk:chat` permission を要求
+ *
+ * 永続化に失敗した場合は 5xx を返し、ユーザーに保存できなかったことを伝える
+ * （UI ストリームから外れたまま黙って消えるよりは、見える壊れ方の方が良い）。
+ * LLM 統合（Phase 2c）で `/api/chat` に置き換わるまでの暫定実装。
  */
-export const POST = withAuth(getSession, 'livetalk:chat', async (_session, request: Request) => {
+export const POST = withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
   let body: unknown;
   try {
     body = await request.json();
@@ -57,15 +64,28 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (_session, reque
     );
   }
 
+  const userId = session.user.googleId;
+  const characterId = DEFAULT_CHARACTER_ID;
+  const messageRepository = getMessageRepository();
+
   try {
-    const audioBuffer = await getVoicevoxClient().synthesize(text);
-    return new NextResponse(audioBuffer, {
-      status: 200,
-      headers: {
-        'Content-Type': 'audio/wav',
-        'Cache-Control': 'no-store',
-      },
+    await messageRepository.create({
+      UserID: userId,
+      CharacterID: characterId,
+      Role: 'user',
+      Text: text,
     });
+  } catch (error) {
+    console.error('[POST /api/echo] ユーザーメッセージの保存に失敗しました', error);
+    return NextResponse.json(
+      { error: 'PERSISTENCE_FAILED', message: ECHO_ERROR_MESSAGES.PERSISTENCE_FAILED },
+      { status: 500 }
+    );
+  }
+
+  let audioBuffer: ArrayBuffer;
+  try {
+    audioBuffer = await getVoicevoxClient().synthesize(text);
   } catch (error) {
     console.error('[POST /api/echo] VOICEVOX 合成に失敗しました', error);
     return NextResponse.json(
@@ -73,4 +93,28 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (_session, reque
       { status: 502 }
     );
   }
+
+  try {
+    await messageRepository.create({
+      UserID: userId,
+      CharacterID: characterId,
+      Role: 'assistant',
+      // Phase 2a 時点ではキャラの応答 = ユーザー入力（エコー）。
+      Text: text,
+    });
+  } catch (error) {
+    console.error('[POST /api/echo] キャラ応答メッセージの保存に失敗しました', error);
+    return NextResponse.json(
+      { error: 'PERSISTENCE_FAILED', message: ECHO_ERROR_MESSAGES.PERSISTENCE_FAILED },
+      { status: 500 }
+    );
+  }
+
+  return new NextResponse(audioBuffer, {
+    status: 200,
+    headers: {
+      'Content-Type': 'audio/wav',
+      'Cache-Control': 'no-store',
+    },
+  });
 });

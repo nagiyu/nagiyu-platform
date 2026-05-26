@@ -50,9 +50,7 @@ describe('ssm utilities', () => {
   });
 
   it('should generate LiveTalk ALB parameter names', () => {
-    expect(SSM_PARAMETERS.LIVETALK_ALB_DNS_NAME('dev')).toBe(
-      '/nagiyu/livetalk/dev/alb/dns-name'
-    );
+    expect(SSM_PARAMETERS.LIVETALK_ALB_DNS_NAME('dev')).toBe('/nagiyu/livetalk/dev/alb/dns-name');
     expect(SSM_PARAMETERS.LIVETALK_ALB_ARN('prod')).toBe('/nagiyu/livetalk/prod/alb/arn');
     expect(SSM_PARAMETERS.LIVETALK_ALB_LISTENER_ARN('dev')).toBe(
       '/nagiyu/livetalk/dev/alb/listener-arn'

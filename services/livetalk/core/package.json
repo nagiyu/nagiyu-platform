@@ -15,6 +15,11 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@nagiyu/common": "*"
+    "@aws-sdk/client-dynamodb": "^3.1024.0",
+    "@aws-sdk/lib-dynamodb": "^3.1024.0",
+    "@nagiyu/aws": "*",
+    "@nagiyu/common": "*",
+    "js-tiktoken": "^1.0.21",
+    "ulid": "^3.0.1"
   }
 }

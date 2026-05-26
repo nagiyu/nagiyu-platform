@@ -17,6 +17,7 @@ const config: Config = {
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
     '^@nagiyu/nextjs$': '<rootDir>/../../../libs/nextjs/src/index.ts',
     '^@nagiyu/livetalk-core$': '<rootDir>/../core/src/index.ts',
+    '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
