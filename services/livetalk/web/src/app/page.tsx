@@ -63,6 +63,7 @@ export default function HomePage() {
   const isPlayingRef = useRef(false);
   const streamDoneRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     fetch('/api/consent')
@@ -74,6 +75,23 @@ export default function HomePage() {
         // 取得失敗時はモーダルを表示してユーザーに同意を促す
         setConsentPhase('required');
       });
+  }, []);
+
+  // iOS Safari の AudioContext autoplay 制約対策。
+  // user gesture（handleSubmit）の同期スタックで呼ぶことで suspended 状態を解除し、
+  // その後の model.speak() 内部の AudioContext が音声を出力できる状態にする。
+  const ensureAudioContextUnlocked = useCallback(async () => {
+    if (typeof window === 'undefined') return;
+    const AudioContextClass =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new AudioContextClass();
+    }
+    if (audioCtxRef.current.state === 'suspended') {
+      await audioCtxRef.current.resume();
+    }
   }, []);
 
   const revokeCurrentAudio = useCallback(() => {
@@ -108,6 +126,9 @@ export default function HomePage() {
 
   const handleSubmit = useCallback(
     async (text: string) => {
+      // user gesture のスタック内で AudioContext を resume する（iOS Safari 対策）
+      await ensureAudioContextUnlocked();
+
       // 前回リクエストをキャンセル
       abortControllerRef.current?.abort();
       const controller = new AbortController();
@@ -199,7 +220,7 @@ export default function HomePage() {
         setPhase('idle');
       }
     },
-    [revokeCurrentAudio, clearAudioQueue, advanceAudioQueue]
+    [ensureAudioContextUnlocked, revokeCurrentAudio, clearAudioQueue, advanceAudioQueue]
   );
 
   const handlePlaybackEnd = useCallback(() => {
@@ -209,13 +230,17 @@ export default function HomePage() {
     advanceAudioQueue();
   }, [revokeCurrentAudio, advanceAudioQueue]);
 
-  const handlePlaybackError = useCallback(() => {
-    setErrorMessage('音声再生中にエラーが発生しました。');
-    revokeCurrentAudio();
-    setAudioUrl(null);
-    isPlayingRef.current = false;
-    advanceAudioQueue();
-  }, [revokeCurrentAudio, advanceAudioQueue]);
+  const handlePlaybackError = useCallback(
+    (error: Error) => {
+      console.error('[LiveTalk] 音声再生エラー', error);
+      setErrorMessage('音声再生中にエラーが発生しました。');
+      revokeCurrentAudio();
+      setAudioUrl(null);
+      isPlayingRef.current = false;
+      advanceAudioQueue();
+    },
+    [revokeCurrentAudio, advanceAudioQueue]
+  );
 
   const statusText =
     phase === 'loading' ? '考え中…' : phase === 'streaming' ? '話している' : '待機中';
