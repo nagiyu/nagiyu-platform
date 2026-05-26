@@ -98,4 +98,22 @@ describe('DynamoDBProfileRepository', () => {
     const repo = new DynamoDBProfileRepository(client as never, tableName, () => now);
     await expect(repo.upsert({ UserID: 'u1' })).rejects.toBeInstanceOf(DatabaseError);
   });
+
+  it('upsert に Consents を渡すと PutCommand に Consents が含まれる', async () => {
+    const sent: unknown[] = [];
+    const client = makeClient(async (cmd) => {
+      sent.push(cmd);
+      if (cmd instanceof GetCommand) return { Item: undefined };
+      return {};
+    });
+    const repo = new DynamoDBProfileRepository(client as never, tableName, () => now);
+    const consents = {
+      TermsAgreed: { Version: '1.0.0', AgreedAt: now },
+      PrivacyAgreed: { Version: '1.0.0', AgreedAt: now },
+      AgeVerified: { Value: true, VerifiedAt: now },
+    };
+    await repo.upsert({ UserID: 'u1' }, { Consents: consents });
+    const put = (sent[1] as PutCommand).input;
+    expect(put.Item?.Consents).toEqual(consents);
+  });
 });

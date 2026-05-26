@@ -37,6 +37,11 @@ export class InMemoryProfileRepository implements ProfileRepository {
       LastActiveAt: updates.LastActiveAt ?? input.LastActiveAt ?? now,
       CreatedAt: existing?.CreatedAt ?? now,
       UpdatedAt: now,
+      ...(updates.Consents !== undefined
+        ? { Consents: { ...existing?.Consents, ...updates.Consents } }
+        : existing?.Consents !== undefined
+          ? { Consents: existing.Consents }
+          : {}),
     };
     this.store.put(this.mapper.toItem(merged));
     return merged;
