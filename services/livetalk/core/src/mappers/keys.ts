@@ -28,3 +28,15 @@ export function buildMessageSKPrefix(characterId: string): string {
 export function buildMessageSK(characterId: string, messageId: string): string {
   return `${buildMessageSKPrefix(characterId)}${messageId}`;
 }
+
+/**
+ * SafetyEvent の SK。
+ * `SAFETY#` プレフィックスで他エンティティと論理分離する。
+ */
+export function buildSafetyEventSK(eventId: string): string {
+  return `SAFETY#${eventId}`;
+}
+
+export function buildSafetyEventSKPrefix(): string {
+  return 'SAFETY#';
+}

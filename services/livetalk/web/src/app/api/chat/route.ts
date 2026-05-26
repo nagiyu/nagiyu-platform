@@ -5,6 +5,7 @@ import { getSession } from '@/lib/server/session';
 import { getLLMClient } from '@/lib/server/llm';
 import { getVoicevoxClient } from '@/lib/server/voicevox';
 import { getMessageRepository } from '@/lib/server/repositories';
+import { getModerationClient, getSafetyEventRepository } from '@/lib/server/safety';
 import { CHAT_ERROR_MESSAGES, CHAT_MAX_TEXT_LENGTH } from './constants';
 
 interface ChatRequest {
@@ -86,6 +87,8 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (session, reques
           llmClient: getLLMClient(),
           voiceClient: getVoicevoxClient(),
           messageRepository: getMessageRepository(),
+          safetyEventRepository: getSafetyEventRepository(),
+          moderationClient: getModerationClient(),
         });
 
         for await (const event of eventGenerator) {
