@@ -126,18 +126,21 @@ function makeMemoryRepo(): MemoryRepository {
     get: jest.fn(async () => null),
     listByTier: jest.fn(async () => []),
     listByCategory: jest.fn(async () => []),
-    update: jest.fn(async (input) => ({
-      UserID: input.UserID,
-      CharacterID: input.CharacterID,
-      MemoryID: input.MemoryID,
-      Tier: input.Tier,
-      Category: input.Category,
-      Content: 'x',
-      Confidence: 0.8,
-      ReferencedCount: input.ReferencedCount ?? 0,
-      CreatedAt: 0,
-      UpdatedAt: 0,
-    } as MemoryEntity)),
+    update: jest.fn(
+      async (input) =>
+        ({
+          UserID: input.UserID,
+          CharacterID: input.CharacterID,
+          MemoryID: input.MemoryID,
+          Tier: input.Tier,
+          Category: input.Category,
+          Content: 'x',
+          Confidence: 0.8,
+          ReferencedCount: input.ReferencedCount ?? 0,
+          CreatedAt: 0,
+          UpdatedAt: 0,
+        }) as MemoryEntity
+    ),
     delete: jest.fn(),
     promote: jest.fn(),
     demote: jest.fn(),
@@ -687,7 +690,11 @@ describe('runChatUseCase', () => {
         })
       );
 
-      expect(retriever.retrieve).toHaveBeenCalledWith('u1', 'hiyori', expect.objectContaining({ userInput: 'こんにちは' }));
+      expect(retriever.retrieve).toHaveBeenCalledWith(
+        'u1',
+        'hiyori',
+        expect.objectContaining({ userInput: 'こんにちは' })
+      );
     });
 
     it('memoryRetriever 未指定の場合は retrieve が呼ばれない', async () => {
@@ -733,7 +740,9 @@ describe('runChatUseCase', () => {
 
     it('retrieve 失敗時は memory なしで通常応答を継続する（fail-warn）', async () => {
       const failingRetriever: IMemoryRetriever = {
-        retrieve: jest.fn(async () => { throw new Error('retrieve 失敗'); }),
+        retrieve: jest.fn(async () => {
+          throw new Error('retrieve 失敗');
+        }),
       };
       const llm = makeLLMClient(['ok。']);
       const voice = makeVoiceClient();

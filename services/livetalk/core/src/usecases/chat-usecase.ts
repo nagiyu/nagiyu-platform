@@ -235,7 +235,13 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   }
 
   // 5. LLM ストリーミング（通常フロー）
-  const chatMessages = buildChatMessages(character, new Date(), history, userText, retrievedMemories);
+  const chatMessages = buildChatMessages(
+    character,
+    new Date(),
+    history,
+    userText,
+    retrievedMemories
+  );
   const sentenceBuffer = new SentenceBuffer();
   let fullResponseText = '';
   const pendingSynthesis: Array<Promise<SynthesisResult>> = [];

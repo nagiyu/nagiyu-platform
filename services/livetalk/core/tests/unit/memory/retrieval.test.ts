@@ -27,10 +27,7 @@ function makeMemory(
   };
 }
 
-function makeMemoryRepo(
-  tierA: MemoryEntity[] = [],
-  tierB: MemoryEntity[] = []
-): MemoryRepository {
+function makeMemoryRepo(tierA: MemoryEntity[] = [], tierB: MemoryEntity[] = []): MemoryRepository {
   return {
     listByTier: jest.fn(async (_userId, _charId, tier) => {
       if (tier === 'A') return tierA;
@@ -102,9 +99,24 @@ describe('MemoryRetriever', () => {
   describe('Tier B 取得', () => {
     it('embedding のある Tier B を cosine similarity で上位 N 件返す', async () => {
       const tierB = [
-        makeMemory({ MemoryID: 'b1', Content: 'コーヒー好き', Category: 'food', Embedding: VEC_COFFEE }),
-        makeMemory({ MemoryID: 'b2', Content: 'スポーツ好き', Category: 'hobby', Embedding: VEC_SPORTS }),
-        makeMemory({ MemoryID: 'b3', Content: '音楽好き', Category: 'hobby2', Embedding: VEC_MUSIC }),
+        makeMemory({
+          MemoryID: 'b1',
+          Content: 'コーヒー好き',
+          Category: 'food',
+          Embedding: VEC_COFFEE,
+        }),
+        makeMemory({
+          MemoryID: 'b2',
+          Content: 'スポーツ好き',
+          Category: 'hobby',
+          Embedding: VEC_SPORTS,
+        }),
+        makeMemory({
+          MemoryID: 'b3',
+          Content: '音楽好き',
+          Category: 'hobby2',
+          Embedding: VEC_MUSIC,
+        }),
       ];
       const retriever = new MemoryRetriever(
         makeMemoryRepo([], tierB),
@@ -121,7 +133,12 @@ describe('MemoryRetriever', () => {
     it('embedding が未設定の Memory はスキップされる', async () => {
       const tierB = [
         makeMemory({ MemoryID: 'b1', Content: 'コーヒー好き', Category: 'food' }),
-        makeMemory({ MemoryID: 'b2', Content: 'スポーツ好き', Category: 'hobby', Embedding: VEC_SPORTS }),
+        makeMemory({
+          MemoryID: 'b2',
+          Content: 'スポーツ好き',
+          Category: 'hobby',
+          Embedding: VEC_SPORTS,
+        }),
       ];
       const retriever = new MemoryRetriever(
         makeMemoryRepo([], tierB),
@@ -189,7 +206,12 @@ describe('MemoryRetriever', () => {
 
     it('LastReferencedAt が未設定の Memory は cooldown 除外されない', async () => {
       const tierB = [
-        makeMemory({ MemoryID: 'b1', Content: 'コーヒー好き', Category: 'food', Embedding: VEC_COFFEE }),
+        makeMemory({
+          MemoryID: 'b1',
+          Content: 'コーヒー好き',
+          Category: 'food',
+          Embedding: VEC_COFFEE,
+        }),
       ];
       const retriever = new MemoryRetriever(
         makeMemoryRepo([], tierB),
@@ -205,9 +227,24 @@ describe('MemoryRetriever', () => {
   describe('カテゴリキャップ', () => {
     it('同カテゴリから categoryCapPerConversation 件を超えて返さない', async () => {
       const tierB = [
-        makeMemory({ MemoryID: 'b1', Content: 'コーヒー好き', Category: 'food', Embedding: VEC_COFFEE }),
-        makeMemory({ MemoryID: 'b2', Content: '紅茶も好き', Category: 'food', Embedding: [0.9, 0.1, 0] }),
-        makeMemory({ MemoryID: 'b3', Content: 'スポーツ好き', Category: 'hobby', Embedding: VEC_SPORTS }),
+        makeMemory({
+          MemoryID: 'b1',
+          Content: 'コーヒー好き',
+          Category: 'food',
+          Embedding: VEC_COFFEE,
+        }),
+        makeMemory({
+          MemoryID: 'b2',
+          Content: '紅茶も好き',
+          Category: 'food',
+          Embedding: [0.9, 0.1, 0],
+        }),
+        makeMemory({
+          MemoryID: 'b3',
+          Content: 'スポーツ好き',
+          Category: 'hobby',
+          Embedding: VEC_SPORTS,
+        }),
       ];
       const retriever = new MemoryRetriever(
         makeMemoryRepo([], tierB),
@@ -215,16 +252,34 @@ describe('MemoryRetriever', () => {
         () => FIXED_NOW
       );
 
-      const result = await retriever.retrieve('u1', 'hiyori', { ...defaultOptions, categoryCapPerConversation: 1 });
+      const result = await retriever.retrieve('u1', 'hiyori', {
+        ...defaultOptions,
+        categoryCapPerConversation: 1,
+      });
       const food = result.filter((r) => r.memory.Tier === 'B' && r.memory.Category === 'food');
       expect(food).toHaveLength(1);
     });
 
     it('categoryCapPerConversation=2 なら同カテゴリ 2 件まで返す', async () => {
       const tierB = [
-        makeMemory({ MemoryID: 'b1', Content: 'コーヒー好き', Category: 'food', Embedding: VEC_COFFEE }),
-        makeMemory({ MemoryID: 'b2', Content: '緑茶も好き', Category: 'food', Embedding: [0.9, 0.1, 0] }),
-        makeMemory({ MemoryID: 'b3', Content: '麦茶も', Category: 'food', Embedding: [0.8, 0.2, 0] }),
+        makeMemory({
+          MemoryID: 'b1',
+          Content: 'コーヒー好き',
+          Category: 'food',
+          Embedding: VEC_COFFEE,
+        }),
+        makeMemory({
+          MemoryID: 'b2',
+          Content: '緑茶も好き',
+          Category: 'food',
+          Embedding: [0.9, 0.1, 0],
+        }),
+        makeMemory({
+          MemoryID: 'b3',
+          Content: '麦茶も',
+          Category: 'food',
+          Embedding: [0.8, 0.2, 0],
+        }),
       ];
       const retriever = new MemoryRetriever(
         makeMemoryRepo([], tierB),
@@ -232,7 +287,11 @@ describe('MemoryRetriever', () => {
         () => FIXED_NOW
       );
 
-      const result = await retriever.retrieve('u1', 'hiyori', { ...defaultOptions, categoryCapPerConversation: 2, maxTierB: 10 });
+      const result = await retriever.retrieve('u1', 'hiyori', {
+        ...defaultOptions,
+        categoryCapPerConversation: 2,
+        maxTierB: 10,
+      });
       const food = result.filter((r) => r.memory.Tier === 'B' && r.memory.Category === 'food');
       expect(food).toHaveLength(2);
     });
@@ -244,10 +303,17 @@ describe('MemoryRetriever', () => {
         makeMemory({ MemoryID: 'a1', Content: '名前は田中', Category: 'name', Tier: 'A' }),
       ];
       const tierB = [
-        makeMemory({ MemoryID: 'b1', Content: 'コーヒー好き', Category: 'food', Embedding: VEC_COFFEE }),
+        makeMemory({
+          MemoryID: 'b1',
+          Content: 'コーヒー好き',
+          Category: 'food',
+          Embedding: VEC_COFFEE,
+        }),
       ];
       const failingEmbedding: IEmbeddingClient = {
-        embed: jest.fn(async () => { throw new Error('API 障害'); }),
+        embed: jest.fn(async () => {
+          throw new Error('API 障害');
+        }),
       };
       const retriever = new MemoryRetriever(
         makeMemoryRepo(tierA, tierB),
@@ -267,7 +333,12 @@ describe('MemoryRetriever', () => {
         makeMemory({ MemoryID: 'a1', Content: '名前は田中', Category: 'name', Tier: 'A' }),
       ];
       const tierB = [
-        makeMemory({ MemoryID: 'b1', Content: 'コーヒー好き', Category: 'food', Embedding: VEC_COFFEE }),
+        makeMemory({
+          MemoryID: 'b1',
+          Content: 'コーヒー好き',
+          Category: 'food',
+          Embedding: VEC_COFFEE,
+        }),
       ];
       const retriever = new MemoryRetriever(
         makeMemoryRepo(tierA, tierB),

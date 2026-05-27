@@ -5,7 +5,13 @@ import type {
   ResponseStreamEvent,
 } from 'openai/resources/responses/responses';
 import type { Stream } from 'openai/streaming';
-import type { ChatMessage, ChatOptions, IEmbeddingClient, ILLMClient, PurposeModelMap } from './types.js';
+import type {
+  ChatMessage,
+  ChatOptions,
+  IEmbeddingClient,
+  ILLMClient,
+  PurposeModelMap,
+} from './types.js';
 
 /**
  * OpenAI 実装の用途別既定モデル（GPT-5 系）。

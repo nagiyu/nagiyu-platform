@@ -57,7 +57,9 @@ describe('EmbeddingMemoryRepository', () => {
     it('embedding 生成失敗時は embedding なしで inner.put を呼ぶ（fail-warn）', async () => {
       const inner = makeInner();
       const failingClient: IEmbeddingClient = {
-        embed: jest.fn(async () => { throw new Error('API 障害'); }),
+        embed: jest.fn(async () => {
+          throw new Error('API 障害');
+        }),
       };
       const repo = new EmbeddingMemoryRepository(inner, failingClient);
 
@@ -99,7 +101,9 @@ describe('EmbeddingMemoryRepository', () => {
       const entityWithEmbedding = { ...savedEntity, Embedding: [0.5, 0.5] };
       const inner = makeInner();
       const failingClient: IEmbeddingClient = {
-        embed: jest.fn(async () => { throw new Error('API 障害'); }),
+        embed: jest.fn(async () => {
+          throw new Error('API 障害');
+        }),
       };
       const repo = new EmbeddingMemoryRepository(inner, failingClient);
 
@@ -128,7 +132,13 @@ describe('EmbeddingMemoryRepository', () => {
     it('get は inner に委譲する', async () => {
       const inner = makeInner();
       const repo = new EmbeddingMemoryRepository(inner, makeEmbeddingClient());
-      const key = { userId: 'u1', characterId: 'hiyori', tier: 'B' as const, category: 'food', memoryId: 'mem-001' };
+      const key = {
+        userId: 'u1',
+        characterId: 'hiyori',
+        tier: 'B' as const,
+        category: 'food',
+        memoryId: 'mem-001',
+      };
       await repo.get(key);
       expect(inner.get).toHaveBeenCalledWith(key);
     });
@@ -143,7 +153,14 @@ describe('EmbeddingMemoryRepository', () => {
     it('update は inner に委譲する', async () => {
       const inner = makeInner();
       const repo = new EmbeddingMemoryRepository(inner, makeEmbeddingClient());
-      const input = { UserID: 'u1', CharacterID: 'hiyori', Tier: 'B' as const, Category: 'food', MemoryID: 'mem-001', Content: '更新' };
+      const input = {
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Tier: 'B' as const,
+        Category: 'food',
+        MemoryID: 'mem-001',
+        Content: '更新',
+      };
       await repo.update(input);
       expect(inner.update).toHaveBeenCalledWith(input);
     });
@@ -151,7 +168,13 @@ describe('EmbeddingMemoryRepository', () => {
     it('delete は inner に委譲する', async () => {
       const inner = makeInner();
       const repo = new EmbeddingMemoryRepository(inner, makeEmbeddingClient());
-      const key = { userId: 'u1', characterId: 'hiyori', tier: 'B' as const, category: 'food', memoryId: 'mem-001' };
+      const key = {
+        userId: 'u1',
+        characterId: 'hiyori',
+        tier: 'B' as const,
+        category: 'food',
+        memoryId: 'mem-001',
+      };
       await repo.delete(key);
       expect(inner.delete).toHaveBeenCalledWith(key);
     });

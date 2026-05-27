@@ -42,7 +42,9 @@ export function createLLMClient(options: CreateLLMClientOptions = {}): ILLMClien
   return new OpenAIClient(clientOptions);
 }
 
-export function createEmbeddingClient(options: CreateEmbeddingClientOptions = {}): IEmbeddingClient {
+export function createEmbeddingClient(
+  options: CreateEmbeddingClientOptions = {}
+): IEmbeddingClient {
   const apiKey = resolveApiKey(options);
   const clientOptions: OpenAIEmbeddingClientOptions = { apiKey };
   return new OpenAIEmbeddingClient(clientOptions);

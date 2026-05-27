@@ -16,10 +16,13 @@ import type { MemoryRepository } from './memory.repository.interface.js';
  * 生成に失敗した場合は embedding なしで保存を継続する（fail-warn）。
  */
 export class EmbeddingMemoryRepository implements MemoryRepository {
-  constructor(
-    private readonly inner: MemoryRepository,
-    private readonly embeddingClient: IEmbeddingClient
-  ) {}
+  private readonly inner: MemoryRepository;
+  private readonly embeddingClient: IEmbeddingClient;
+
+  constructor(inner: MemoryRepository, embeddingClient: IEmbeddingClient) {
+    this.inner = inner;
+    this.embeddingClient = embeddingClient;
+  }
 
   public async put(input: CreateMemoryInput): Promise<MemoryEntity> {
     const embedding = await this.generateEmbedding(input.Content);
@@ -68,9 +71,12 @@ export class EmbeddingMemoryRepository implements MemoryRepository {
     try {
       return await this.embeddingClient.embed(text);
     } catch (err) {
-      logger.warn('[EmbeddingMemoryRepository] embedding 生成に失敗しました（embedding なしで保存）', {
-        err,
-      });
+      logger.warn(
+        '[EmbeddingMemoryRepository] embedding 生成に失敗しました（embedding なしで保存）',
+        {
+          err,
+        }
+      );
       return undefined;
     }
   }

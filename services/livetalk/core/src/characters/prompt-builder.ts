@@ -37,9 +37,7 @@ export function buildSystemPrompt(
 
   if (retrievedMemories.length === 0) return base;
 
-  const memoriesSection = retrievedMemories
-    .map((r) => `- ${r.memory.Content}`)
-    .join('\n');
+  const memoriesSection = retrievedMemories.map((r) => `- ${r.memory.Content}`).join('\n');
 
   return `${base}
 

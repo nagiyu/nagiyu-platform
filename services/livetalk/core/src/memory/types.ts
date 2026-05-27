@@ -14,5 +14,9 @@ export interface RetrievedMemory {
 }
 
 export interface IMemoryRetriever {
-  retrieve(userId: string, characterId: string, options: RetrieveOptions): Promise<RetrievedMemory[]>;
+  retrieve(
+    userId: string,
+    characterId: string,
+    options: RetrieveOptions
+  ): Promise<RetrievedMemory[]>;
 }

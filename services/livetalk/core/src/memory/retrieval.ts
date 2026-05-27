@@ -15,11 +15,19 @@ import type { IMemoryRetriever, RetrieveOptions, RetrievedMemory } from './types
  *   6. 降順ソート → 上位 maxTierB 件を返す
  */
 export class MemoryRetriever implements IMemoryRetriever {
+  private readonly memoryRepository: MemoryRepository;
+  private readonly embeddingClient: IEmbeddingClient;
+  private readonly nowMs: () => number;
+
   constructor(
-    private readonly memoryRepository: MemoryRepository,
-    private readonly embeddingClient: IEmbeddingClient,
-    private readonly nowMs: () => number = () => Date.now()
-  ) {}
+    memoryRepository: MemoryRepository,
+    embeddingClient: IEmbeddingClient,
+    nowMs: () => number = () => Date.now()
+  ) {
+    this.memoryRepository = memoryRepository;
+    this.embeddingClient = embeddingClient;
+    this.nowMs = nowMs;
+  }
 
   public async retrieve(
     userId: string,
@@ -53,10 +61,7 @@ export class MemoryRetriever implements IMemoryRetriever {
       if (!memory.Embedding || memory.Embedding.length === 0) continue;
 
       // 4. cooldown 適用
-      if (
-        memory.LastReferencedAt !== undefined &&
-        now - memory.LastReferencedAt < cooldownMs
-      ) {
+      if (memory.LastReferencedAt !== undefined && now - memory.LastReferencedAt < cooldownMs) {
         continue;
       }
 
