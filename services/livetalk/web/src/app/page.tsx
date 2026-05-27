@@ -31,41 +31,43 @@ type ChatStreamEvent =
   | { type: 'done' }
   | { type: 'error'; message: string };
 
-function base64ToBlob(base64: string, mimeType: string): Blob {
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
   const binaryString = atob(base64);
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {
     bytes[i] = binaryString.charCodeAt(i);
   }
-  return new Blob([bytes], { type: mimeType });
+  return bytes.buffer;
 }
 
 /**
- * Phase 2c のチャット画面。
+ * Phase 2c のチャット画面（Phase 2f で Web Audio 再生に切替）。
  *
  * - LLM 応答を NDJSON ストリームで受信し、テキストを逐次表示
- * - 文単位の音声（base64 WAV）を受け取り、キューで順番に再生
- * - Live2D の lipsync は既存 model.speak() を流用
+ * - 文単位の音声（base64 WAV）を AudioBuffer に decode して順番に再生
+ * - iOS Safari 対策として AudioContext を user gesture で resume し、
+ *   Live2DCanvas に AudioBuffer + AudioContext を渡して Web Audio で再生する
+ *   （HTMLAudioElement の autoplay 制約を回避）
  */
 export default function HomePage() {
   const [consentPhase, setConsentPhase] = useState<ConsentPhase>('checking');
   const [phase, setPhase] = useState<ChatPhase>('idle');
   const [userText, setUserText] = useState<string | null>(null);
   const [responseText, setResponseText] = useState<string | null>(null);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [safetyOpen, setSafetyOpen] = useState(false);
   const [safetyResources, setSafetyResources] = useState<SafetyResource[]>([]);
 
-  const audioUrlRef = useRef<string | null>(null);
-  const audioQueueRef = useRef<string[]>([]);
+  const audioQueueRef = useRef<AudioBuffer[]>([]);
   const isPlayingRef = useRef(false);
   const streamDoneRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  // AudioContext は子コンポーネント（Live2DCanvas）に prop で渡すため state で持つ。
+  // 同期アクセス用に ref も併用する（callback 内で最新値を読むため）。
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const silentAudioRef = useRef<HTMLAudioElement | null>(null);
-  const isAudioUnlockedRef = useRef(false);
 
   useEffect(() => {
     fetch('/api/consent')
@@ -79,9 +81,11 @@ export default function HomePage() {
       });
   }, []);
 
-  // iOS Safari の AudioContext autoplay 制約対策。
-  // user gesture（handleSubmit）の同期スタックで呼ぶことで suspended 状態を解除し、
-  // その後の model.speak() 内部の AudioContext が音声を出力できる状態にする。
+  // iOS Safari の Web Audio autoplay 制約対策。
+  // user gesture（handleSubmit）の同期スタックで AudioContext を作成・resume することで、
+  // 以降の AudioBufferSourceNode.start() が transient activation token を消費せず
+  // いつでも再生可能になる。HTMLAudioElement の per-element 制約は別系統で、
+  // この対策では効かないため、再生は Web Audio API のみで完結させる（Live2DCanvas 参照）。
   const ensureAudioContextUnlocked = useCallback(async () => {
     if (typeof window === 'undefined') return;
     const AudioContextClass =
@@ -89,59 +93,17 @@ export default function HomePage() {
       (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioContextClass) return;
     if (!audioCtxRef.current) {
-      audioCtxRef.current = new AudioContextClass();
+      const ctx = new AudioContextClass();
+      audioCtxRef.current = ctx;
+      // 子コンポーネント（Live2DCanvas）に prop で渡すため state も更新
+      setAudioContext(ctx);
     }
     if (audioCtxRef.current.state === 'suspended') {
       await audioCtxRef.current.resume();
     }
   }, []);
 
-  // iOS Safari の HTMLAudioElement.play() autoplay 制約対策（Plan A+）。
-  // user gesture 中に無音 audio の play() を 1 度だけ呼ぶと、同一ページ内の以降の
-  // audio.play() が user gesture 外でも許可される（pixi-live2d-display-lipsyncpatch の
-  // model.speak() 内部 audio がこれで unlock される）。
-  //
-  // 重要: await しない。iOS Safari は 0 サンプル無音 WAV の play() Promise が
-  // resolve しない場合があり、await すると handleSubmit が stall して送信処理が
-  // 進まなくなる。unlock 効果は play() を「呼んだ」時点で発生するので fire-and-forget で OK。
-  const ensureAudioElementUnlocked = useCallback(() => {
-    if (typeof window === 'undefined') return;
-    if (isAudioUnlockedRef.current) return;
-    if (!silentAudioRef.current) {
-      const audio = new Audio();
-      // 1 サンプル分の無音 WAV（PCM, 8kHz, mono, 8bit, 0 サンプル）
-      audio.src =
-        'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
-      audio.preload = 'auto';
-      silentAudioRef.current = audio;
-    }
-    const playPromise = silentAudioRef.current.play();
-    if (playPromise && typeof playPromise.then === 'function') {
-      playPromise
-        .then(() => {
-          silentAudioRef.current?.pause();
-          if (silentAudioRef.current) {
-            silentAudioRef.current.currentTime = 0;
-          }
-          isAudioUnlockedRef.current = true;
-        })
-        .catch(() => {
-          // play 拒否時は次回 user gesture でリトライ。silentAudioRef は維持。
-        });
-    }
-  }, []);
-
-  const revokeCurrentAudio = useCallback(() => {
-    if (audioUrlRef.current) {
-      URL.revokeObjectURL(audioUrlRef.current);
-      audioUrlRef.current = null;
-    }
-  }, []);
-
   const clearAudioQueue = useCallback(() => {
-    for (const url of audioQueueRef.current) {
-      URL.revokeObjectURL(url);
-    }
     audioQueueRef.current = [];
     isPlayingRef.current = false;
     streamDoneRef.current = false;
@@ -151,11 +113,10 @@ export default function HomePage() {
   const advanceAudioQueue = useCallback(() => {
     if (isPlayingRef.current) return;
 
-    const nextUrl = audioQueueRef.current.shift();
-    if (nextUrl) {
+    const nextBuffer = audioQueueRef.current.shift();
+    if (nextBuffer) {
       isPlayingRef.current = true;
-      audioUrlRef.current = nextUrl;
-      setAudioUrl(nextUrl);
+      setAudioBuffer(nextBuffer);
     } else if (streamDoneRef.current) {
       setPhase('idle');
     }
@@ -163,12 +124,9 @@ export default function HomePage() {
 
   const handleSubmit = useCallback(
     async (text: string) => {
-      // user gesture の同期スタック内で HTMLAudioElement の unlock を発火する。
-      // await の前に呼ぶことで iOS Safari の user gesture context を確実に保持する。
-      ensureAudioElementUnlocked();
-      // AudioContext の resume は await が必要だが Edge/Chrome では即時 resolve、
-      // iOS Safari でも安全に完了する。
+      // user gesture の同期スタック内で AudioContext を resume する（iOS Safari 対策）
       await ensureAudioContextUnlocked();
+      const audioCtx = audioCtxRef.current;
 
       // 前回リクエストをキャンセル
       abortControllerRef.current?.abort();
@@ -179,8 +137,7 @@ export default function HomePage() {
       setResponseText('');
       setErrorMessage(null);
       setPhase('loading');
-      revokeCurrentAudio();
-      setAudioUrl(null);
+      setAudioBuffer(null);
       clearAudioQueue();
 
       try {
@@ -203,14 +160,22 @@ export default function HomePage() {
         const decoder = new TextDecoder();
         let lineBuffer = '';
 
-        const handleEvent = (event: ChatStreamEvent) => {
+        const handleEvent = async (event: ChatStreamEvent) => {
           if (event.type === 'text') {
             setResponseText((prev) => (prev ?? '') + event.delta);
           } else if (event.type === 'sentence' && event.audio) {
-            const blob = base64ToBlob(event.audio, 'audio/wav');
-            const url = URL.createObjectURL(blob);
-            audioQueueRef.current.push(url);
-            advanceAudioQueue();
+            if (!audioCtx) {
+              // AudioContext が無いブラウザ（極めて稀）: 音声をスキップしてテキストだけ表示
+              return;
+            }
+            try {
+              const arrayBuffer = base64ToArrayBuffer(event.audio);
+              const decoded = await audioCtx.decodeAudioData(arrayBuffer);
+              audioQueueRef.current.push(decoded);
+              advanceAudioQueue();
+            } catch (err) {
+              console.error('[LiveTalk] 音声 decode に失敗しました', err);
+            }
           } else if (event.type === 'safety') {
             if (event.trigger === 'output_moderation' && event.replacementText) {
               setResponseText(event.replacementText);
@@ -239,7 +204,7 @@ export default function HomePage() {
             const trimmed = line.trim();
             if (!trimmed) continue;
             try {
-              handleEvent(JSON.parse(trimmed) as ChatStreamEvent);
+              await handleEvent(JSON.parse(trimmed) as ChatStreamEvent);
             } catch {
               // malformed line はスキップ
             }
@@ -249,7 +214,7 @@ export default function HomePage() {
         // ストリーム終端の残余行
         if (lineBuffer.trim()) {
           try {
-            handleEvent(JSON.parse(lineBuffer.trim()) as ChatStreamEvent);
+            await handleEvent(JSON.parse(lineBuffer.trim()) as ChatStreamEvent);
           } catch {
             // skip
           }
@@ -261,21 +226,14 @@ export default function HomePage() {
         setPhase('idle');
       }
     },
-    [
-      ensureAudioContextUnlocked,
-      ensureAudioElementUnlocked,
-      revokeCurrentAudio,
-      clearAudioQueue,
-      advanceAudioQueue,
-    ]
+    [ensureAudioContextUnlocked, clearAudioQueue, advanceAudioQueue]
   );
 
   const handlePlaybackEnd = useCallback(() => {
-    revokeCurrentAudio();
-    setAudioUrl(null);
+    setAudioBuffer(null);
     isPlayingRef.current = false;
     advanceAudioQueue();
-  }, [revokeCurrentAudio, advanceAudioQueue]);
+  }, [advanceAudioQueue]);
 
   const handlePlaybackError = useCallback(
     (error: Error) => {
@@ -290,12 +248,11 @@ export default function HomePage() {
         ? String((error as { message: unknown }).message)
         : String(error);
       setErrorMessage(`音声再生中にエラーが発生しました。[${errorName}] ${errorMessageDetail}`);
-      revokeCurrentAudio();
-      setAudioUrl(null);
+      setAudioBuffer(null);
       isPlayingRef.current = false;
       advanceAudioQueue();
     },
-    [revokeCurrentAudio, advanceAudioQueue]
+    [advanceAudioQueue]
   );
 
   const statusText =
@@ -323,7 +280,8 @@ export default function HomePage() {
       >
         <Box sx={{ flex: '0 1 60%', minHeight: 240, mb: 1 }}>
           <Live2DCanvas
-            audioUrl={audioUrl}
+            audioBuffer={audioBuffer}
+            audioContext={audioContext}
             statusText={statusText}
             onPlaybackEnd={handlePlaybackEnd}
             onPlaybackError={handlePlaybackError}

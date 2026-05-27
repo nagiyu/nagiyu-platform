@@ -50,8 +50,19 @@ function layoutModel(model: Live2DModelInstance, w: number, h: number): void {
 }
 
 export interface Live2DCanvasProps {
-  /** 再生対象の音声 URL。null または undefined のときは再生しない。 */
-  audioUrl?: string | null;
+  /**
+   * 再生対象の AudioBuffer。null または undefined のときは再生しない。
+   *
+   * iOS Safari の HTMLAudioElement autoplay 制約（transient activation token を
+   * play() ごとに消費する仕様）を回避するため、HTMLAudio + model.speak() ではなく
+   * Web Audio API の AudioBufferSourceNode を直接使う。
+   */
+  audioBuffer?: AudioBuffer | null;
+  /**
+   * 再生に使う AudioContext。親側で user gesture 中に resume 済みである前提。
+   * audioBuffer が指定されているのに audioContext が null の場合は再生しない。
+   */
+  audioContext?: AudioContext | null;
   statusText?: string;
   onPlaybackEnd?: () => void;
   onPlaybackError?: (error: Error) => void;
@@ -66,11 +77,18 @@ export interface Live2DCanvasProps {
  * PixiJS v7 と pixi-live2d-display-lipsyncpatch は browser API を直接使うため
  * SSR 不可。next/dynamic + ssr:false で呼び出し元がラップする。
  *
- * audioUrl を受け取ると model.speak() を呼び、ライブラリ内部の AudioContext +
- * AnalyserNode で再生 + リップシンクをモデルの update サイクル内で同期駆動する。
+ * audioBuffer + audioContext を受け取ると、Web Audio API（AudioBufferSourceNode +
+ * AnalyserNode）で再生し、AnalyserNode を motionManager.currentAnalyzer に差し込んで
+ * ライブラリの既存リップシンク駆動ループ（ParamMouthOpenY を毎フレーム更新する）を
+ * そのまま活用する。
+ *
+ * iOS Safari の HTMLAudioElement.play() autoplay 制約を回避するために model.speak() は
+ * 使わない。AudioContext を user gesture 中に resume してさえいれば、Web Audio 経由の
+ * playback は transient activation token を消費しないため何回でも再生できる。
  */
 export default function Live2DCanvas({
-  audioUrl,
+  audioBuffer,
+  audioContext,
   statusText,
   onPlaybackEnd,
   onPlaybackError,
@@ -181,37 +199,81 @@ export default function Live2DCanvas({
     };
   }, []);
 
-  // audioUrl を受け取ったら model.speak() で再生 + リップシンク。
-  // model.speak は内部で AudioContext / AnalyserNode を構築し、
-  // ライブラリの update サイクル内で LipSync パラメータを更新する。
+  // audioBuffer + audioContext を受け取ったら Web Audio で再生し、AnalyserNode を
+  // モデルの motionManager に差し込むことで、ライブラリ既存のリップシンク駆動ループ
+  // （毎フレーム ParamMouthOpenY を更新）をそのまま活用する。
   useEffect(() => {
     const model = modelRef.current;
-    if (!model || !modelReady || !audioUrl) return;
+    if (!model || !modelReady || !audioBuffer || !audioContext) return;
 
     let cancelled = false;
-    model
-      .speak(audioUrl, {
-        volume: 1.0,
-        crossOrigin: 'anonymous',
-        onFinish: () => {
-          if (!cancelled) onPlaybackEndRef.current?.();
-        },
-        onError: (e) => {
-          if (!cancelled) onPlaybackErrorRef.current?.(e);
-        },
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          const error = err instanceof Error ? err : new Error(String(err));
-          onPlaybackErrorRef.current?.(error);
-        }
-      });
+    let source: AudioBufferSourceNode | null = null;
+    let analyser: AnalyserNode | null = null;
+
+    // 型情報がない internal API を扱うための narrowing
+    const motionManager = (
+      model.internalModel as unknown as {
+        motionManager: {
+          currentAudio?: { ended: boolean } | undefined;
+          currentAnalyzer?: AnalyserNode | undefined;
+          currentContext?: AudioContext | undefined;
+        };
+      }
+    ).motionManager;
+
+    try {
+      source = audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+
+      analyser = audioContext.createAnalyser();
+      // SoundManager.addAnalyzer と同じ設定（ライブラリの analyze 関数が前提とする値）
+      analyser.fftSize = 256;
+      analyser.minDecibels = -90;
+      analyser.maxDecibels = -10;
+      analyser.smoothingTimeConstant = 0.85;
+
+      source.connect(analyser);
+      analyser.connect(audioContext.destination);
+
+      // ライブラリ内部のリップシンク駆動ループに自前 AnalyserNode を hijack 注入。
+      // updateParameters 内で `if (this.lipSync && motionManager.currentAudio)` を
+      // 通過させるため、currentAudio には truthy なオブジェクトを置く。
+      motionManager.currentAudio = { ended: false };
+      motionManager.currentAnalyzer = analyser;
+      motionManager.currentContext = audioContext;
+
+      source.onended = () => {
+        if (cancelled) return;
+        motionManager.currentAudio = undefined;
+        motionManager.currentAnalyzer = undefined;
+        motionManager.currentContext = undefined;
+        onPlaybackEndRef.current?.();
+      };
+
+      source.start(0);
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      onPlaybackErrorRef.current?.(error);
+    }
 
     return () => {
       cancelled = true;
-      model.stopSpeaking();
+      try {
+        source?.stop();
+      } catch {
+        // 既に停止済み・未開始など。無視。
+      }
+      source?.disconnect();
+      analyser?.disconnect();
+      // 自前で差し込んだ analyser だった場合のみクリア（並走更新で別 useEffect 由来の
+      // analyser に置き換わっていたら触らない）
+      if (motionManager.currentAnalyzer === analyser) {
+        motionManager.currentAudio = undefined;
+        motionManager.currentAnalyzer = undefined;
+        motionManager.currentContext = undefined;
+      }
     };
-  }, [audioUrl, modelReady]);
+  }, [audioBuffer, audioContext, modelReady]);
 
   return (
     <Box
