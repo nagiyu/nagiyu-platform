@@ -97,10 +97,14 @@ export default function HomePage() {
   }, []);
 
   // iOS Safari の HTMLAudioElement.play() autoplay 制約対策（Plan A+）。
-  // user gesture 中に無音 audio の play → pause を 1 度だけ成功させると、
-  // 同一ページ内の以降の audio.play() が user gesture 外でも許可される。
-  // pixi-live2d-display-lipsyncpatch の model.speak() 内部 audio がこれで unlock される。
-  const ensureAudioElementUnlocked = useCallback(async () => {
+  // user gesture 中に無音 audio の play() を 1 度だけ呼ぶと、同一ページ内の以降の
+  // audio.play() が user gesture 外でも許可される（pixi-live2d-display-lipsyncpatch の
+  // model.speak() 内部 audio がこれで unlock される）。
+  //
+  // 重要: await しない。iOS Safari は 0 サンプル無音 WAV の play() Promise が
+  // resolve しない場合があり、await すると handleSubmit が stall して送信処理が
+  // 進まなくなる。unlock 効果は play() を「呼んだ」時点で発生するので fire-and-forget で OK。
+  const ensureAudioElementUnlocked = useCallback(() => {
     if (typeof window === 'undefined') return;
     if (isAudioUnlockedRef.current) return;
     if (!silentAudioRef.current) {
@@ -111,13 +115,19 @@ export default function HomePage() {
       audio.preload = 'auto';
       silentAudioRef.current = audio;
     }
-    try {
-      await silentAudioRef.current.play();
-      silentAudioRef.current.pause();
-      silentAudioRef.current.currentTime = 0;
-      isAudioUnlockedRef.current = true;
-    } catch {
-      // play 拒否時は次回 user gesture でリトライ。silentAudioRef は維持。
+    const playPromise = silentAudioRef.current.play();
+    if (playPromise && typeof playPromise.then === 'function') {
+      playPromise
+        .then(() => {
+          silentAudioRef.current?.pause();
+          if (silentAudioRef.current) {
+            silentAudioRef.current.currentTime = 0;
+          }
+          isAudioUnlockedRef.current = true;
+        })
+        .catch(() => {
+          // play 拒否時は次回 user gesture でリトライ。silentAudioRef は維持。
+        });
     }
   }, []);
 
@@ -153,10 +163,12 @@ export default function HomePage() {
 
   const handleSubmit = useCallback(
     async (text: string) => {
-      // user gesture のスタック内で AudioContext と HTMLAudioElement を unlock する
-      // （iOS Safari の autoplay 制約対策、両方が必要）
+      // user gesture の同期スタック内で HTMLAudioElement の unlock を発火する。
+      // await の前に呼ぶことで iOS Safari の user gesture context を確実に保持する。
+      ensureAudioElementUnlocked();
+      // AudioContext の resume は await が必要だが Edge/Chrome では即時 resolve、
+      // iOS Safari でも安全に完了する。
       await ensureAudioContextUnlocked();
-      await ensureAudioElementUnlocked();
 
       // 前回リクエストをキャンセル
       abortControllerRef.current?.abort();

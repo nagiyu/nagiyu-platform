@@ -269,7 +269,7 @@ describe('handlePlaybackError のデバッグログ', () => {
 });
 
 describe('HTMLAudioElement unlock（Plan A+: iOS Safari autoplay 制約対策）', () => {
-  it('handleSubmit 時に silent audio が play → pause される', async () => {
+  it('handleSubmit 時に silent audio が同期的に play される', async () => {
     setupFetchMocks();
     setupMockAudioContext('running');
     const user = userEvent.setup();
@@ -281,7 +281,8 @@ describe('HTMLAudioElement unlock（Plan A+: iOS Safari autoplay 制約対策）
     await user.click(screen.getByRole('button', { name: '送信' }));
 
     expect(mockSilentAudioPlay).toHaveBeenCalledTimes(1);
-    expect(mockSilentAudioPause).toHaveBeenCalledTimes(1);
+    // play() resolve 後の microtask で pause が呼ばれる
+    await waitFor(() => expect(mockSilentAudioPause).toHaveBeenCalledTimes(1));
   });
 
   it('unlock 成功後の 2 回目以降は silent audio を再生しない（unlock 済みフラグで skip）', async () => {
@@ -295,6 +296,7 @@ describe('HTMLAudioElement unlock（Plan A+: iOS Safari autoplay 制約対策）
     // 1 回目
     await user.type(input, 'テスト1');
     await user.click(screen.getByRole('button', { name: '送信' }));
+    await waitFor(() => expect(mockSilentAudioPause).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(input).toBeEnabled(), { timeout: 5000 });
 
     // 2 回目
@@ -343,6 +345,30 @@ describe('HTMLAudioElement unlock（Plan A+: iOS Safari autoplay 制約対策）
     await user.click(screen.getByRole('button', { name: '送信' }));
 
     expect(mockSilentAudioPlay).toHaveBeenCalledTimes(2);
-    expect(mockSilentAudioPause).toHaveBeenCalledTimes(1); // 2 回目だけ pause
+    await waitFor(() => expect(mockSilentAudioPause).toHaveBeenCalledTimes(1)); // 2 回目だけ pause
+  });
+
+  it('silent audio.play() の Promise が pending のままでも handleSubmit が stall しない', async () => {
+    // iOS Safari で観測された問題のリグレッション防止:
+    // 無音 WAV に対する play() Promise が resolve しない環境でも、
+    // handleSubmit は次の処理（fetch / setPhase）に進む必要がある
+    setupFetchMocks();
+    setupMockAudioContext('running');
+    // play() を永久に pending のままにする
+    mockSilentAudioPlay.mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+
+    render(<HomePage />);
+    const input = await waitForInputEnabled();
+
+    await user.type(input, 'テスト');
+    await user.click(screen.getByRole('button', { name: '送信' }));
+
+    // play() は呼ばれるが await しない → fetch まで到達する
+    expect(mockSilentAudioPlay).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/chat',
+      expect.objectContaining({ method: 'POST' })
+    );
   });
 });
