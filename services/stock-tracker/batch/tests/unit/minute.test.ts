@@ -14,7 +14,7 @@ import * as tradingHoursChecker from '@nagiyu/stock-tracker-core';
 import type { Alert, Exchange } from '@nagiyu/stock-tracker-core';
 
 // TradingViewSession モックインスタンス（beforeEach で再生成）
-let mockSession: { getCurrentPrice: jest.Mock; close: jest.Mock };
+let mockSession: { getCurrentPrice: jest.Mock; close: jest.Mock; getSessionId: jest.Mock };
 
 // モックの設定
 jest.mock('@nagiyu/aws');
@@ -78,6 +78,7 @@ describe('minute batch handler', () => {
     mockSession = {
       getCurrentPrice: jest.fn(),
       close: jest.fn().mockResolvedValue(undefined),
+      getSessionId: jest.fn().mockReturnValue('test-session-id'),
     };
 
     // Mock DynamoDB Document Client
