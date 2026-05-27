@@ -40,3 +40,29 @@ export function buildSafetyEventSK(eventId: string): string {
 export function buildSafetyEventSKPrefix(): string {
   return 'SAFETY#';
 }
+
+/**
+ * 全 Tier のメモリ範囲クエリ用 SK プレフィックス。
+ * `begins_with(SK, prefix)` でキャラ単位の全メモリを抽出する。
+ */
+export function buildMemoryAllTiersSKPrefix(characterId: string): string {
+  return `CHAR#${characterId}#MEM#`;
+}
+
+/**
+ * 特定 Tier のメモリ範囲クエリ用 SK プレフィックス。
+ */
+export function buildMemoryTierSKPrefix(characterId: string, tier: string): string {
+  return `CHAR#${characterId}#MEM#${tier}#`;
+}
+
+/**
+ * 特定 Tier + カテゴリのメモリ範囲クエリ用 SK プレフィックス。
+ */
+export function buildMemoryCategoryInTierSKPrefix(characterId: string, tier: string, category: string): string {
+  return `CHAR#${characterId}#MEM#${tier}#${category}#`;
+}
+
+export function buildMemorySK(characterId: string, tier: string, category: string, memoryId: string): string {
+  return `CHAR#${characterId}#MEM#${tier}#${category}#${memoryId}`;
+}

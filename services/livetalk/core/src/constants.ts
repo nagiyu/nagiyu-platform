@@ -30,3 +30,24 @@ export const TOKEN_BUDGETED_QUERY_PAGE_SIZE = 50;
  */
 export const LIVETALK_TERMS_VERSION = '1.0.0';
 export const LIVETALK_PRIVACY_VERSION = '1.0.0';
+
+/**
+ * Memory Tier C に付与する DynamoDB TTL（秒）。30 日後に自動削除。
+ */
+export const MEMORY_TIER_C_TTL_SECONDS = 30 * 24 * 60 * 60;
+
+/**
+ * Memory Tier D に付与する DynamoDB TTL（秒）。1 日後に自動削除。
+ */
+export const MEMORY_TIER_D_TTL_SECONDS = 1 * 24 * 60 * 60;
+
+/**
+ * 各 Tier の信頼度スコア推奨初期値。
+ * 実際の決定は usecase 層（Phase 3b）に委ねる。Repository はこの値を参照しない。
+ */
+export const MEMORY_DEFAULT_CONFIDENCE = {
+  A: 1.0,
+  B: 0.8,
+  C: 0.5,
+  D: 0.2,
+} as const;
