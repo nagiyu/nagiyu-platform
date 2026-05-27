@@ -64,6 +64,8 @@ export default function HomePage() {
   const streamDoneRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const silentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const isAudioUnlockedRef = useRef(false);
 
   useEffect(() => {
     fetch('/api/consent')
@@ -91,6 +93,31 @@ export default function HomePage() {
     }
     if (audioCtxRef.current.state === 'suspended') {
       await audioCtxRef.current.resume();
+    }
+  }, []);
+
+  // iOS Safari の HTMLAudioElement.play() autoplay 制約対策（Plan A+）。
+  // user gesture 中に無音 audio の play → pause を 1 度だけ成功させると、
+  // 同一ページ内の以降の audio.play() が user gesture 外でも許可される。
+  // pixi-live2d-display-lipsyncpatch の model.speak() 内部 audio がこれで unlock される。
+  const ensureAudioElementUnlocked = useCallback(async () => {
+    if (typeof window === 'undefined') return;
+    if (isAudioUnlockedRef.current) return;
+    if (!silentAudioRef.current) {
+      const audio = new Audio();
+      // 1 サンプル分の無音 WAV（PCM, 8kHz, mono, 8bit, 0 サンプル）
+      audio.src =
+        'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+      audio.preload = 'auto';
+      silentAudioRef.current = audio;
+    }
+    try {
+      await silentAudioRef.current.play();
+      silentAudioRef.current.pause();
+      silentAudioRef.current.currentTime = 0;
+      isAudioUnlockedRef.current = true;
+    } catch {
+      // play 拒否時は次回 user gesture でリトライ。silentAudioRef は維持。
     }
   }, []);
 
@@ -126,8 +153,10 @@ export default function HomePage() {
 
   const handleSubmit = useCallback(
     async (text: string) => {
-      // user gesture のスタック内で AudioContext を resume する（iOS Safari 対策）
+      // user gesture のスタック内で AudioContext と HTMLAudioElement を unlock する
+      // （iOS Safari の autoplay 制約対策、両方が必要）
       await ensureAudioContextUnlocked();
+      await ensureAudioElementUnlocked();
 
       // 前回リクエストをキャンセル
       abortControllerRef.current?.abort();
@@ -220,7 +249,13 @@ export default function HomePage() {
         setPhase('idle');
       }
     },
-    [ensureAudioContextUnlocked, revokeCurrentAudio, clearAudioQueue, advanceAudioQueue]
+    [
+      ensureAudioContextUnlocked,
+      ensureAudioElementUnlocked,
+      revokeCurrentAudio,
+      clearAudioQueue,
+      advanceAudioQueue,
+    ]
   );
 
   const handlePlaybackEnd = useCallback(() => {
