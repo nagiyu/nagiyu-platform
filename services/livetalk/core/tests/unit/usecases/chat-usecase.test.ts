@@ -2,11 +2,14 @@ import { runChatUseCase, type ChatEvent } from '../../../src/usecases/chat-useca
 import { hiyori } from '../../../src/characters/hiyori.js';
 import type { ILLMClient } from '../../../src/llm-client/types.js';
 import type { IVoiceClient } from '../../../src/voicevox/types.js';
+import type { MemoryRepository } from '../../../src/repositories/memory.repository.interface.js';
 import type { MessageRepository } from '../../../src/repositories/message.repository.interface.js';
 import type { SafetyEventRepository } from '../../../src/repositories/safety-event.repository.interface.js';
 import type { MessageEntity } from '../../../src/entities/message.entity.js';
+import type { MemoryEntity } from '../../../src/entities/memory.entity.js';
 import type { SafetyEventEntity } from '../../../src/entities/safety-event.entity.js';
 import type { IModerationClient, ModerationResult } from '../../../src/safety/types.js';
+import type { IMemoryRetriever, RetrievedMemory } from '../../../src/memory/types.js';
 
 // ── ヘルパー ──────────────────────────────────────────────────────────────
 
@@ -109,6 +112,36 @@ function makeModerationClient(
       })
     ),
   };
+}
+
+function makeMemoryRetriever(memories: RetrievedMemory[] = []): IMemoryRetriever {
+  return {
+    retrieve: jest.fn(async () => memories),
+  };
+}
+
+function makeMemoryRepo(): MemoryRepository {
+  return {
+    put: jest.fn(),
+    get: jest.fn(async () => null),
+    listByTier: jest.fn(async () => []),
+    listByCategory: jest.fn(async () => []),
+    update: jest.fn(async (input) => ({
+      UserID: input.UserID,
+      CharacterID: input.CharacterID,
+      MemoryID: input.MemoryID,
+      Tier: input.Tier,
+      Category: input.Category,
+      Content: 'x',
+      Confidence: 0.8,
+      ReferencedCount: input.ReferencedCount ?? 0,
+      CreatedAt: 0,
+      UpdatedAt: 0,
+    } as MemoryEntity)),
+    delete: jest.fn(),
+    promote: jest.fn(),
+    demote: jest.fn(),
+  } as unknown as MemoryRepository;
 }
 
 // ── テスト本体 ──────────────────────────────────────────────────────────────
@@ -615,6 +648,153 @@ describe('runChatUseCase', () => {
             voiceClient: voice,
             messageRepository: repo,
             safetyEventRepository: safetyRepo,
+          })
+        )
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe('Memory retrieval 統合', () => {
+    function makeRetrievedMemory(content: string): RetrievedMemory {
+      const memory: MemoryEntity = {
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        MemoryID: 'mem-001',
+        Tier: 'B',
+        Category: 'food',
+        Content: content,
+        Confidence: 0.8,
+        ReferencedCount: 2,
+        CreatedAt: 0,
+        UpdatedAt: 0,
+      };
+      return { memory, similarity: 0.9 };
+    }
+
+    it('memoryRetriever が指定されると retrieve が呼ばれる', async () => {
+      const llm = makeLLMClient(['ok。']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const retriever = makeMemoryRetriever();
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memoryRetriever: retriever,
+        })
+      );
+
+      expect(retriever.retrieve).toHaveBeenCalledWith('u1', 'hiyori', expect.objectContaining({ userInput: 'こんにちは' }));
+    });
+
+    it('memoryRetriever 未指定の場合は retrieve が呼ばれない', async () => {
+      const llm = makeLLMClient(['ok。']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const retriever = makeMemoryRetriever();
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          // memoryRetriever なし
+        })
+      );
+
+      expect(retriever.retrieve).not.toHaveBeenCalled();
+    });
+
+    it('retrieve 結果が system prompt に注入される（LLM に渡されるメッセージで確認）', async () => {
+      const retrieved = [makeRetrievedMemory('コーヒーが好き')];
+      const llm = makeLLMClient(['ok。']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memoryRetriever: makeMemoryRetriever(retrieved),
+        })
+      );
+
+      const chatStreamMock = llm.chatStream as jest.Mock;
+      const passedMessages = chatStreamMock.mock.calls[0][0];
+      expect(passedMessages[0].content).toContain('あなたが覚えていること');
+      expect(passedMessages[0].content).toContain('- コーヒーが好き');
+    });
+
+    it('retrieve 失敗時は memory なしで通常応答を継続する（fail-warn）', async () => {
+      const failingRetriever: IMemoryRetriever = {
+        retrieve: jest.fn(async () => { throw new Error('retrieve 失敗'); }),
+      };
+      const llm = makeLLMClient(['ok。']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memoryRetriever: failingRetriever,
+        })
+      );
+
+      expect(events[events.length - 1]).toEqual({ type: 'done' });
+    });
+
+    it('retrieve された Memory の referencedCount が更新される（fire-and-forget）', async () => {
+      const retrieved = [makeRetrievedMemory('コーヒーが好き')];
+      const llm = makeLLMClient(['ok。']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const memRepo = makeMemoryRepo();
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memoryRetriever: makeMemoryRetriever(retrieved),
+          memoryRepository: memRepo,
+        })
+      );
+
+      // fire-and-forget のため少し待つ
+      await new Promise((r) => setTimeout(r, 10));
+      expect(memRepo.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          MemoryID: 'mem-001',
+          ReferencedCount: 3,
+        })
+      );
+    });
+
+    it('memoryRepository 未指定の場合は referencedCount 更新がスキップされる', async () => {
+      const retrieved = [makeRetrievedMemory('コーヒーが好き')];
+      const llm = makeLLMClient(['ok。']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      await expect(
+        collectEvents(
+          runChatUseCase({
+            ...baseParams,
+            llmClient: llm,
+            voiceClient: voice,
+            messageRepository: repo,
+            memoryRetriever: makeMemoryRetriever(retrieved),
+            // memoryRepository なし
           })
         )
       ).resolves.not.toThrow();

@@ -1,16 +1,23 @@
 import { logger } from '@nagiyu/common';
 import type { ILLMClient } from '../llm-client/types.js';
 import type { IVoiceClient } from '../voicevox/types.js';
+import type { MemoryRepository } from '../repositories/memory.repository.interface.js';
 import type { MessageRepository } from '../repositories/message.repository.interface.js';
 import type { SafetyEventRepository } from '../repositories/safety-event.repository.interface.js';
 import type { CharacterDefinition } from '../characters/types.js';
 import { buildChatMessages } from '../characters/prompt-builder.js';
 import { SentenceBuffer } from '../lib/sentence-splitter.js';
-import { DEFAULT_CHARACTER_ID } from '../constants.js';
+import {
+  DEFAULT_CHARACTER_ID,
+  MEMORY_CATEGORY_CAP,
+  MEMORY_COOLDOWN_MS,
+  MEMORY_MAX_TIER_B,
+} from '../constants.js';
 import { detectSafetyRisk } from '../safety/detector.js';
 import { buildModerationReplacementMessage, buildSafetyMessage } from '../safety/templates.js';
 import { SAFETY_RESOURCES } from '../safety/resources.js';
 import type { IModerationClient, SafetyResource } from '../safety/types.js';
+import type { IMemoryRetriever, RetrievedMemory } from '../memory/types.js';
 
 /**
  * /api/chat ストリーミングレスポンスの各イベント型。
@@ -45,6 +52,10 @@ export interface ChatUseCaseParams {
   safetyEventRepository?: SafetyEventRepository;
   /** Moderation クライアント。未指定時は応答後チェックをスキップする */
   moderationClient?: IModerationClient;
+  /** Memory retriever。未指定時はメモリ注入をスキップする */
+  memoryRetriever?: IMemoryRetriever;
+  /** memoryRetriever が指定された場合に使う Memory リポジトリ */
+  memoryRepository?: MemoryRepository;
 }
 
 type SynthesisResult = { index: number; text: string; audio: string | null };
@@ -147,6 +158,8 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     messageRepository,
     safetyEventRepository,
     moderationClient,
+    memoryRetriever,
+    memoryRepository,
   } = params;
 
   // 1. 直近会話履歴取得
@@ -206,8 +219,23 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     return;
   }
 
-  // 4. LLM ストリーミング（通常フロー）
-  const chatMessages = buildChatMessages(character, new Date(), history, userText);
+  // 4. Memory retrieve（fail-warn: エラー時は空配列で継続）
+  let retrievedMemories: RetrievedMemory[] = [];
+  if (memoryRetriever) {
+    try {
+      retrievedMemories = await memoryRetriever.retrieve(userId, characterId, {
+        userInput: userText,
+        maxTierB: MEMORY_MAX_TIER_B,
+        cooldownMs: MEMORY_COOLDOWN_MS,
+        categoryCapPerConversation: MEMORY_CATEGORY_CAP,
+      });
+    } catch (err) {
+      logger.warn('[chat-usecase] Memory retrieve に失敗しました（メモリなしで継続）', { err });
+    }
+  }
+
+  // 5. LLM ストリーミング（通常フロー）
+  const chatMessages = buildChatMessages(character, new Date(), history, userText, retrievedMemories);
   const sentenceBuffer = new SentenceBuffer();
   let fullResponseText = '';
   const pendingSynthesis: Array<Promise<SynthesisResult>> = [];
@@ -217,7 +245,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     yield { type: 'text', delta };
     fullResponseText += delta;
 
-    // 5. 文区切りで VOICEVOX を非同期起動
+    // 6. 文区切りで VOICEVOX を非同期起動
     for (const sentence of sentenceBuffer.push(delta)) {
       const idx = sentenceIndex++;
       pendingSynthesis.push(
@@ -242,7 +270,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     }
   }
 
-  // 6. Moderation API チェック（fail-warn: エラー時は通常応答を通す）
+  // 8. Moderation API チェック（fail-warn: エラー時は通常応答を通す）
   if (moderationClient && fullResponseText.trim()) {
     try {
       const modResult = await moderationClient.check(fullResponseText);
@@ -282,10 +310,10 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     }
   }
 
-  // 8. done
+  // 9. done
   yield { type: 'done' };
 
-  // 9. アシスタントメッセージを保存
+  // 10. アシスタントメッセージを保存
   const assistantText = fullResponseText.trim();
   if (assistantText) {
     try {
@@ -298,5 +326,27 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     } catch (err) {
       logger.error('[chat-usecase] アシスタントメッセージの保存に失敗しました', { err });
     }
+  }
+
+  // 11. 参照済み Memory の referencedCount / lastReferencedAt を更新（fire-and-forget）
+  if (memoryRepository && retrievedMemories.length > 0) {
+    const now = Date.now();
+    void Promise.all(
+      retrievedMemories.map((r) =>
+        memoryRepository
+          .update({
+            UserID: r.memory.UserID,
+            CharacterID: r.memory.CharacterID,
+            Tier: r.memory.Tier,
+            Category: r.memory.Category,
+            MemoryID: r.memory.MemoryID,
+            ReferencedCount: r.memory.ReferencedCount + 1,
+            LastReferencedAt: now,
+          })
+          .catch((err) => {
+            logger.warn('[chat-usecase] Memory 参照情報の更新に失敗しました', { err });
+          })
+      )
+    );
   }
 }

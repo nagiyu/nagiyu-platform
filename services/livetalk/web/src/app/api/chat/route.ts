@@ -4,8 +4,9 @@ import { DEFAULT_CHARACTER_ID, hiyori, runChatUseCase } from '@nagiyu/livetalk-c
 import { getSession } from '@/lib/server/session';
 import { getLLMClient } from '@/lib/server/llm';
 import { getVoicevoxClient } from '@/lib/server/voicevox';
-import { getMessageRepository } from '@/lib/server/repositories';
+import { getMemoryRepository, getMessageRepository } from '@/lib/server/repositories';
 import { getModerationClient, getSafetyEventRepository } from '@/lib/server/safety';
+import { getMemoryRetriever } from '@/lib/server/memory-retriever';
 import { CHAT_ERROR_MESSAGES, CHAT_MAX_TEXT_LENGTH } from './constants';
 
 interface ChatRequest {
@@ -89,6 +90,8 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (session, reques
           messageRepository: getMessageRepository(),
           safetyEventRepository: getSafetyEventRepository(),
           moderationClient: getModerationClient(),
+          memoryRetriever: getMemoryRetriever(),
+          memoryRepository: getMemoryRepository(),
         });
 
         for await (const event of eventGenerator) {

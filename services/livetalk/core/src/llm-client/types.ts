@@ -58,3 +58,12 @@ export interface ILLMClient {
  * 用途別モデルマップ。Provider 実装側で既定値を持ち、コンストラクタで上書き可能。
  */
 export type PurposeModelMap = Record<ChatPurpose, string>;
+
+/**
+ * Embedding クライアントの抽象インターフェース。
+ *
+ * テキストを数値ベクトルに変換する。retrieval などの類似度計算に使う。
+ */
+export interface IEmbeddingClient {
+  embed(text: string): Promise<number[]>;
+}

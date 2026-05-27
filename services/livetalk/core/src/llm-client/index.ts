@@ -13,6 +13,7 @@ export type {
   ChatMessage,
   ChatOptions,
   ChatPurpose,
+  IEmbeddingClient,
   ILLMClient,
   PurposeModelMap,
 } from './types.js';
@@ -25,8 +26,17 @@ export {
 } from './openai-client.js';
 
 export {
+  OpenAIEmbeddingClient,
+  OPENAI_EMBEDDING_MODEL,
+  OPENAI_EMBEDDING_ERROR_MESSAGES,
+  type OpenAIEmbeddingClientOptions,
+} from './openai-client.js';
+
+export {
   createLLMClient,
+  createEmbeddingClient,
   FACTORY_ERROR_MESSAGES,
   type CreateLLMClientOptions,
+  type CreateEmbeddingClientOptions,
   type ProviderSecretConfig,
 } from './factory.js';

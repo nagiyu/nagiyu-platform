@@ -1,6 +1,7 @@
 import type { CharacterDefinition } from './types.js';
 import type { MessageEntity } from '../entities/message.entity.js';
 import type { ChatMessage } from '../llm-client/types.js';
+import type { RetrievedMemory } from '../memory/types.js';
 
 export type TimeOfDay = '朝' | '昼' | '夜';
 
@@ -11,13 +12,17 @@ export function getTimeOfDay(date: Date): TimeOfDay {
   return '夜';
 }
 
-export function buildSystemPrompt(character: CharacterDefinition, now: Date): string {
+export function buildSystemPrompt(
+  character: CharacterDefinition,
+  now: Date,
+  retrievedMemories: RetrievedMemory[] = []
+): string {
   const { personality, displayName } = character;
   const timeOfDay = getTimeOfDay(now);
   const likesList = personality.preferences.likes.join('、');
   const dislikesList = personality.preferences.dislikes.join('、');
 
-  return `${personality.basePrompt}
+  const base = `${personality.basePrompt}
 
 名前: ${displayName}
 口調: ${personality.speechStyle}
@@ -29,6 +34,17 @@ export function buildSystemPrompt(character: CharacterDefinition, now: Date): st
 - 質問攻めにしない。まず自分の気持ちや体験を話し、相手が自然に話したくなる流れを作る
 - 返答は短く（1〜3 文程度）、テンポよく続ける
 - セーフティ対応は後続ロジックで処理されるため、ここでは扱わない`.trim();
+
+  if (retrievedMemories.length === 0) return base;
+
+  const memoriesSection = retrievedMemories
+    .map((r) => `- ${r.memory.Content}`)
+    .join('\n');
+
+  return `${base}
+
+あなたが覚えていること：
+${memoriesSection}`;
 }
 
 /**
@@ -43,9 +59,10 @@ export function buildChatMessages(
   character: CharacterDefinition,
   now: Date,
   history: MessageEntity[],
-  userText: string
+  userText: string,
+  retrievedMemories: RetrievedMemory[] = []
 ): ChatMessage[] {
-  const systemPrompt = buildSystemPrompt(character, now);
+  const systemPrompt = buildSystemPrompt(character, now, retrievedMemories);
   const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }];
 
   for (const msg of history) {
