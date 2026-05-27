@@ -11,10 +11,16 @@ import { getMessageRepository } from '@/lib/server/repositories';
 jest.mock('@/lib/server/session', () => ({ getSession: jest.fn() }));
 jest.mock('@/lib/server/llm', () => ({ getLLMClient: jest.fn() }));
 jest.mock('@/lib/server/voicevox', () => ({ getVoicevoxClient: jest.fn() }));
-jest.mock('@/lib/server/repositories', () => ({ getMessageRepository: jest.fn() }));
+jest.mock('@/lib/server/repositories', () => ({
+  getMessageRepository: jest.fn(),
+  getMemoryRepository: jest.fn().mockReturnValue({}),
+}));
 jest.mock('@/lib/server/safety', () => ({
   getSafetyEventRepository: jest.fn().mockReturnValue({}),
   getModerationClient: jest.fn().mockReturnValue({}),
+}));
+jest.mock('@/lib/server/memory-retriever', () => ({
+  getMemoryRetriever: jest.fn().mockReturnValue({}),
 }));
 
 // runChatUseCase をモック化して依存 I/O を切り離す
