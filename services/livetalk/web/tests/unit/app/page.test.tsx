@@ -238,4 +238,23 @@ describe('handlePlaybackError のデバッグログ', () => {
     expect(consoleSpy).toHaveBeenCalledWith('[LiveTalk] 音声再生エラー', expect.any(Error));
     consoleSpy.mockRestore();
   });
+
+  it('onPlaybackError 発火時にエラーの name / message を画面に表示する（iOS 実機デバッグ用）', async () => {
+    setupFetchMocks();
+    setupMockAudioContext('running');
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    render(<HomePage />);
+    await waitForInputEnabled();
+
+    const triggerError = screen.getByTestId('trigger-playback-error');
+    await userEvent.click(triggerError);
+
+    // mock の Live2DCanvas は `new Error('再生エラー')` を渡すので
+    // 画面に "[Error] 再生エラー" が含まれることを検証
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('[Error]');
+    expect(alert.textContent).toContain('再生エラー');
+    consoleSpy.mockRestore();
+  });
 });
