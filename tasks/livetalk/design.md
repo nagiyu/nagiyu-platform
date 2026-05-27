@@ -373,7 +373,7 @@ type SafetyEvent = {
 | Memory (Tier A) | `CHAR#<charId>#MEM#A#<category>#<id>` | なし |
 | Memory (Tier B) | `CHAR#<charId>#MEM#B#<category>#<id>` | なし |
 | Memory (Tier C) | `CHAR#<charId>#MEM#C#<category>#<id>` | 30 日 |
-| Memory (Tier D) | `CHAR#<charId>#MEM#D#<id>` | 1 日 |
+| Memory (Tier D) | `CHAR#<charId>#MEM#D#<category>#<id>` | 1 日 |
 | Message | `CHAR#<charId>#MSG#<ulid>` | 90 日 |
 | Knowledge | `CHAR#<charId>#KNOWLEDGE#<ulid>` | なし |
 | Note | `CHAR#<charId>#NOTE#<ulid>` | なし |

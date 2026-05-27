@@ -15,6 +15,14 @@ export { SentenceBuffer } from './lib/sentence-splitter.js';
 export { runChatUseCase, type ChatEvent, type ChatUseCaseParams } from './usecases/chat-usecase.js';
 
 // Entities
+export type {
+  MemoryEntity,
+  MemoryKey,
+  CreateMemoryInput,
+  UpdateMemoryInput,
+  Tier,
+} from './entities/memory.entity.js';
+export { TIERS } from './entities/memory.entity.js';
 export type { MessageEntity, MessageKey, CreateMessageInput } from './entities/message.entity.js';
 export type {
   SafetyEventEntity,
@@ -35,6 +43,7 @@ export type {
 } from './entities/character-state.entity.js';
 
 // Mappers
+export { MemoryMapper } from './mappers/memory.mapper.js';
 export { MessageMapper } from './mappers/message.mapper.js';
 export { ProfileMapper } from './mappers/profile.mapper.js';
 export { CharacterStateMapper } from './mappers/character-state.mapper.js';
@@ -47,9 +56,14 @@ export {
   buildMessageSKPrefix,
   buildSafetyEventSK,
   buildSafetyEventSKPrefix,
+  buildMemorySK,
+  buildMemoryTierSKPrefix,
+  buildMemoryCategoryInTierSKPrefix,
+  buildMemoryAllTiersSKPrefix,
 } from './mappers/keys.js';
 
 // Repository interfaces
+export type { MemoryRepository } from './repositories/memory.repository.interface.js';
 export type {
   MessageRepository,
   GetRecentByTokenBudgetOptions,
@@ -60,10 +74,12 @@ export type { CharacterStateRepository } from './repositories/character-state.re
 export type { SafetyEventRepository } from './repositories/safety-event.repository.interface.js';
 
 // Repository implementations
+export { DynamoDBMemoryRepository } from './repositories/dynamodb-memory.repository.js';
 export { DynamoDBMessageRepository } from './repositories/dynamodb-message.repository.js';
 export { DynamoDBProfileRepository } from './repositories/dynamodb-profile.repository.js';
 export { DynamoDBCharacterStateRepository } from './repositories/dynamodb-character-state.repository.js';
 export { DynamoDBSafetyEventRepository } from './repositories/dynamodb-safety-event.repository.js';
+export { InMemoryMemoryRepository } from './repositories/in-memory-memory.repository.js';
 export { InMemoryMessageRepository } from './repositories/in-memory-message.repository.js';
 export { InMemoryProfileRepository } from './repositories/in-memory-profile.repository.js';
 export { InMemoryCharacterStateRepository } from './repositories/in-memory-character-state.repository.js';
@@ -84,4 +100,10 @@ export { defaultUlidFactory, type UlidFactory } from './lib/ulid.js';
 // Consent
 export { isConsentValid, type ConsentRequirements } from './lib/consent.js';
 export type { ConsentRecord, AgeVerification, UserConsents } from './entities/profile.entity.js';
-export { LIVETALK_TERMS_VERSION, LIVETALK_PRIVACY_VERSION } from './constants.js';
+export {
+  LIVETALK_TERMS_VERSION,
+  LIVETALK_PRIVACY_VERSION,
+  MEMORY_TIER_C_TTL_SECONDS,
+  MEMORY_TIER_D_TTL_SECONDS,
+  MEMORY_DEFAULT_CONFIDENCE,
+} from './constants.js';

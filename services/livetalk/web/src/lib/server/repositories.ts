@@ -10,20 +10,24 @@
 import { InMemorySingleTableStore, registerDynamoRepositories } from '@nagiyu/aws';
 import type {
   CharacterStateRepository,
+  MemoryRepository,
   MessageRepository,
   ProfileRepository,
 } from '@nagiyu/livetalk-core';
 import {
   DynamoDBCharacterStateRepository,
+  DynamoDBMemoryRepository,
   DynamoDBMessageRepository,
   DynamoDBProfileRepository,
   InMemoryCharacterStateRepository,
+  InMemoryMemoryRepository,
   InMemoryMessageRepository,
   InMemoryProfileRepository,
 } from '@nagiyu/livetalk-core';
 
 const registry = registerDynamoRepositories<
   {
+    memory: MemoryRepository;
     message: MessageRepository;
     profile: ProfileRepository;
     characterState: CharacterStateRepository;
@@ -31,6 +35,11 @@ const registry = registerDynamoRepositories<
   InMemorySingleTableStore
 >(
   {
+    memory: {
+      createInMemoryRepository: (store) => new InMemoryMemoryRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBMemoryRepository(docClient, tableName),
+    },
     message: {
       createInMemoryRepository: (store) => new InMemoryMessageRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
@@ -52,6 +61,10 @@ const registry = registerDynamoRepositories<
     createSharedStore: () => new InMemorySingleTableStore(),
   }
 );
+
+export function getMemoryRepository(): MemoryRepository {
+  return registry.memory.createRepository();
+}
 
 export function getMessageRepository(): MessageRepository {
   return registry.message.createRepository();
