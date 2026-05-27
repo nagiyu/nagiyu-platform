@@ -5,7 +5,13 @@ import type {
   ResponseStreamEvent,
 } from 'openai/resources/responses/responses';
 import type { Stream } from 'openai/streaming';
-import type { ChatMessage, ChatOptions, ILLMClient, PurposeModelMap } from './types.js';
+import type {
+  ChatMessage,
+  ChatOptions,
+  IEmbeddingClient,
+  ILLMClient,
+  PurposeModelMap,
+} from './types.js';
 
 /**
  * OpenAI 実装の用途別既定モデル（GPT-5 系）。
@@ -111,4 +117,52 @@ export class OpenAIClient implements ILLMClient {
 
 function toEasyInputMessage(msg: ChatMessage): EasyInputMessage {
   return { role: msg.role, content: msg.content, type: 'message' };
+}
+
+/** OpenAI embedding API で使用するモデル。軽量・高速・低コスト。 */
+export const OPENAI_EMBEDDING_MODEL = 'text-embedding-3-small';
+
+export const OPENAI_EMBEDDING_ERROR_MESSAGES = {
+  EMPTY_API_KEY: 'OpenAI API キーが指定されていません',
+  EMPTY_TEXT: 'テキストが空です',
+} as const;
+
+export interface OpenAIEmbeddingClientOptions {
+  apiKey?: string;
+  model?: string;
+  client?: OpenAI;
+}
+
+/**
+ * OpenAI Embeddings API を {@link IEmbeddingClient} 形にラップする実装。
+ *
+ * `text-embedding-3-small`（1536 次元）を既定として使用する。
+ */
+export class OpenAIEmbeddingClient implements IEmbeddingClient {
+  private readonly client: OpenAI;
+  private readonly model: string;
+
+  constructor(options: OpenAIEmbeddingClientOptions = {}) {
+    if (options.client) {
+      this.client = options.client;
+    } else {
+      if (!options.apiKey) {
+        throw new Error(OPENAI_EMBEDDING_ERROR_MESSAGES.EMPTY_API_KEY);
+      }
+      this.client = new OpenAI({ apiKey: options.apiKey, maxRetries: 0 });
+    }
+    this.model = options.model ?? OPENAI_EMBEDDING_MODEL;
+  }
+
+  public async embed(text: string): Promise<number[]> {
+    const trimmed = text.trim();
+    if (!trimmed) {
+      throw new Error(OPENAI_EMBEDDING_ERROR_MESSAGES.EMPTY_TEXT);
+    }
+    const response = await this.client.embeddings.create({
+      model: this.model,
+      input: trimmed,
+    });
+    return response.data[0].embedding;
+  }
 }

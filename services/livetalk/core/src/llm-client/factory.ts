@@ -1,5 +1,10 @@
-import { OpenAIClient, type OpenAIClientOptions } from './openai-client.js';
-import type { ILLMClient, PurposeModelMap } from './types.js';
+import {
+  OpenAIClient,
+  OpenAIEmbeddingClient,
+  type OpenAIClientOptions,
+  type OpenAIEmbeddingClientOptions,
+} from './openai-client.js';
+import type { IEmbeddingClient, ILLMClient, PurposeModelMap } from './types.js';
 
 export const FACTORY_ERROR_MESSAGES = {
   MISSING_API_KEY: 'OpenAI API キーが指定されていません',
@@ -14,6 +19,10 @@ export interface ProviderSecretConfig {
 
 export interface CreateLLMClientOptions {
   /** OpenAI 用設定 */
+  openai?: ProviderSecretConfig;
+}
+
+export interface CreateEmbeddingClientOptions {
   openai?: ProviderSecretConfig;
 }
 
@@ -33,7 +42,15 @@ export function createLLMClient(options: CreateLLMClientOptions = {}): ILLMClien
   return new OpenAIClient(clientOptions);
 }
 
-function resolveApiKey(options: CreateLLMClientOptions): string {
+export function createEmbeddingClient(
+  options: CreateEmbeddingClientOptions = {}
+): IEmbeddingClient {
+  const apiKey = resolveApiKey(options);
+  const clientOptions: OpenAIEmbeddingClientOptions = { apiKey };
+  return new OpenAIEmbeddingClient(clientOptions);
+}
+
+function resolveApiKey(options: CreateLLMClientOptions | CreateEmbeddingClientOptions): string {
   if (options.openai?.apiKey) {
     return options.openai.apiKey;
   }

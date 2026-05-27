@@ -2,6 +2,10 @@ export * from './voicevox/index.js';
 export * from './llm-client/index.js';
 export * from './constants.js';
 
+// Memory retrieval
+export { cosineSimilarity, MemoryRetriever } from './memory/index.js';
+export type { IMemoryRetriever, RetrieveOptions, RetrievedMemory } from './memory/index.js';
+
 // Safety
 export * from './safety/index.js';
 
@@ -74,6 +78,7 @@ export type { CharacterStateRepository } from './repositories/character-state.re
 export type { SafetyEventRepository } from './repositories/safety-event.repository.interface.js';
 
 // Repository implementations
+export { EmbeddingMemoryRepository } from './repositories/embedding-memory.repository.js';
 export { DynamoDBMemoryRepository } from './repositories/dynamodb-memory.repository.js';
 export { DynamoDBMessageRepository } from './repositories/dynamodb-message.repository.js';
 export { DynamoDBProfileRepository } from './repositories/dynamodb-profile.repository.js';

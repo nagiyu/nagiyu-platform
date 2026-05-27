@@ -42,6 +42,22 @@ export const MEMORY_TIER_C_TTL_SECONDS = 30 * 24 * 60 * 60;
 export const MEMORY_TIER_D_TTL_SECONDS = 1 * 24 * 60 * 60;
 
 /**
+ * Memory cooldown 判定閾値（ミリ秒）。
+ * 同じ Memory を直近 30 分以内に参照済みの場合は retrieve 対象外にする。
+ */
+export const MEMORY_COOLDOWN_MS = 30 * 60 * 1000;
+
+/**
+ * Tier B retrieve の既定上限件数。
+ */
+export const MEMORY_MAX_TIER_B = 5;
+
+/**
+ * 1 LLM 呼び出し単位で同カテゴリの Tier B Memory を注入できる最大件数。
+ */
+export const MEMORY_CATEGORY_CAP = 1;
+
+/**
  * 各 Tier の信頼度スコア推奨初期値。
  * 実際の決定は usecase 層（Phase 3b）に委ねる。Repository はこの値を参照しない。
  */
