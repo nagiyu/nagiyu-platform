@@ -255,6 +255,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     logger.info('1分間隔バッチ処理が正常に完了しました', {
       eventId: event.id,
       statistics: stats,
+      sessionId: session.getSessionId(),
     });
 
     return {
