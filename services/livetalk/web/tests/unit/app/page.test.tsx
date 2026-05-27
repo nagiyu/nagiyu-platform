@@ -16,7 +16,8 @@ jest.mock('@/components/Live2DCanvas', () => ({
       onPlaybackEnd,
       onPlaybackError,
     }: {
-      audioUrl?: string | null;
+      audioBuffer?: AudioBuffer | null;
+      audioContext?: AudioContext | null;
       statusText?: string;
       onPlaybackEnd?: () => void;
       onPlaybackError?: (error: Error) => void;
@@ -57,29 +58,24 @@ jest.mock('@/components/ResponseDisplay', () => ({
   default: jest.fn(() => null),
 }));
 
-// jsdom は URL.createObjectURL / revokeObjectURL 未実装
-Object.defineProperty(global.URL, 'createObjectURL', {
-  writable: true,
-  value: jest.fn(() => 'blob:mock'),
-});
-Object.defineProperty(global.URL, 'revokeObjectURL', {
-  writable: true,
-  value: jest.fn(),
-});
-
-// jsdom は HTMLMediaElement.play() / pause() がデフォルトで Not implemented
-// 各テストで個別に上書きできるように mock 関数を保持
-const mockSilentAudioPlay = jest.fn().mockResolvedValue(undefined);
-const mockSilentAudioPause = jest.fn();
-HTMLMediaElement.prototype.play = mockSilentAudioPlay;
-HTMLMediaElement.prototype.pause = mockSilentAudioPause;
-
 /** /api/consent が同意済みを返す fetch モックを設定する */
-function setupFetchMocks(chatOk = false) {
+function setupFetchMocks(chatOk = false, sentenceAudio?: string) {
   const encoder = new TextEncoder();
   const chatStream = new ReadableStream({
     start(controller) {
       if (chatOk) {
+        if (sentenceAudio) {
+          controller.enqueue(
+            encoder.encode(
+              JSON.stringify({
+                type: 'sentence',
+                index: 0,
+                text: 'こんにちは',
+                audio: sentenceAudio,
+              }) + '\n'
+            )
+          );
+        }
         controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
       }
       controller.close();
@@ -98,9 +94,10 @@ function setupFetchMocks(chatOk = false) {
 }
 
 /** window.AudioContext をモック AudioContext クラスで上書きし、cleanup を返す */
-function setupMockAudioContext(state: 'suspended' | 'running') {
+function setupMockAudioContext(state: 'suspended' | 'running' = 'suspended') {
   const mockResume = jest.fn().mockResolvedValue(undefined);
-  const instance = { state, resume: mockResume };
+  const mockDecodeAudioData = jest.fn().mockResolvedValue({} as AudioBuffer);
+  const instance = { state, resume: mockResume, decodeAudioData: mockDecodeAudioData };
   const MockAudioContext = jest.fn(() => instance);
 
   Object.defineProperty(window, 'AudioContext', {
@@ -109,7 +106,7 @@ function setupMockAudioContext(state: 'suspended' | 'running') {
     value: MockAudioContext,
   });
 
-  return { MockAudioContext, instance, mockResume };
+  return { MockAudioContext, instance, mockResume, mockDecodeAudioData };
 }
 
 function removeAudioContext() {
@@ -128,8 +125,6 @@ function removeAudioContext() {
 afterEach(() => {
   jest.clearAllMocks();
   removeAudioContext();
-  // play() のデフォルト挙動を resolved に戻す（テストごとに reject に上書きすることがある）
-  mockSilentAudioPlay.mockResolvedValue(undefined);
 });
 
 /** 同意チェック完了を待ち、有効化された入力欄を返す */
@@ -170,7 +165,7 @@ describe('AudioContext unlock（iOS Safari autoplay 制約対策）', () => {
   });
 
   it('2 回目の submit では AudioContext を再生成しない（インスタンスを再利用）', async () => {
-    setupFetchMocks(true); // done イベント付きで phase が idle に戻る
+    setupFetchMocks(true);
     const { MockAudioContext, mockResume } = setupMockAudioContext('suspended');
     const user = userEvent.setup();
 
@@ -180,26 +175,26 @@ describe('AudioContext unlock（iOS Safari autoplay 制約対策）', () => {
     // 1 回目
     await user.type(input, 'テスト1');
     await user.click(screen.getByRole('button', { name: '送信' }));
-
-    // phase が idle に戻るのを待つ（done イベントで advanceAudioQueue → setPhase('idle')）
     await waitFor(() => expect(input).toBeEnabled(), { timeout: 5000 });
 
     // 2 回目
     await user.type(input, 'テスト2');
     await user.click(screen.getByRole('button', { name: '送信' }));
 
-    // コンストラクタは 1 回だけ（インスタンスを再利用）
     expect(MockAudioContext).toHaveBeenCalledTimes(1);
-    // suspended なので 2 回とも resume() が呼ばれる
     expect(mockResume).toHaveBeenCalledTimes(2);
   });
 
   it('window.AudioContext が undefined のとき webkitAudioContext をフォールバックで使う', async () => {
     setupFetchMocks();
     const mockResume = jest.fn().mockResolvedValue(undefined);
-    const MockWebkitAudioContext = jest.fn(() => ({ state: 'suspended', resume: mockResume }));
+    const mockDecodeAudioData = jest.fn().mockResolvedValue({} as AudioBuffer);
+    const MockWebkitAudioContext = jest.fn(() => ({
+      state: 'suspended',
+      resume: mockResume,
+      decodeAudioData: mockDecodeAudioData,
+    }));
 
-    // AudioContext を未定義にして webkit フォールバックを設定
     removeAudioContext();
     Object.defineProperty(window, 'webkitAudioContext', {
       writable: true,
@@ -220,19 +215,58 @@ describe('AudioContext unlock（iOS Safari autoplay 制約対策）', () => {
 
   it('AudioContext が利用不可の環境でもクラッシュしない', async () => {
     setupFetchMocks();
-    removeAudioContext(); // AudioContext も webkitAudioContext も未定義
+    removeAudioContext();
 
     const user = userEvent.setup();
     render(<HomePage />);
     const input = await waitForInputEnabled();
 
     await user.type(input, 'テスト');
-    // エラーが throw されないことを確認
     await expect(user.click(screen.getByRole('button', { name: '送信' }))).resolves.toBeUndefined();
   });
 });
 
-describe('handlePlaybackError のデバッグログ', () => {
+describe('音声 decode と queue 管理', () => {
+  it('sentence event を受け取ったら decodeAudioData が呼ばれる', async () => {
+    // 短い base64 文字列を sentence audio として送る
+    const base64Audio = 'AAAAAA=='; // 任意の base64
+    setupFetchMocks(true, base64Audio);
+    const { mockDecodeAudioData } = setupMockAudioContext('running');
+    const user = userEvent.setup();
+
+    render(<HomePage />);
+    const input = await waitForInputEnabled();
+
+    await user.type(input, 'テスト');
+    await user.click(screen.getByRole('button', { name: '送信' }));
+
+    await waitFor(() => expect(mockDecodeAudioData).toHaveBeenCalledTimes(1));
+  });
+
+  it('decodeAudioData が失敗してもクラッシュしない（テキストは出る）', async () => {
+    const base64Audio = 'AAAAAA==';
+    setupFetchMocks(true, base64Audio);
+    const { mockDecodeAudioData } = setupMockAudioContext('running');
+    mockDecodeAudioData.mockRejectedValueOnce(new Error('decode failure'));
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const user = userEvent.setup();
+
+    render(<HomePage />);
+    const input = await waitForInputEnabled();
+
+    await user.type(input, 'テスト');
+    await expect(user.click(screen.getByRole('button', { name: '送信' }))).resolves.toBeUndefined();
+
+    await waitFor(() => expect(mockDecodeAudioData).toHaveBeenCalledTimes(1));
+    expect(consoleSpy).toHaveBeenCalledWith(
+      '[LiveTalk] 音声 decode に失敗しました',
+      expect.any(Error)
+    );
+    consoleSpy.mockRestore();
+  });
+});
+
+describe('handlePlaybackError のデバッグログ・画面表示', () => {
   it('onPlaybackError 発火時に console.error でエラーを出力する', async () => {
     setupFetchMocks();
     setupMockAudioContext('running');
@@ -259,116 +293,9 @@ describe('handlePlaybackError のデバッグログ', () => {
     const triggerError = screen.getByTestId('trigger-playback-error');
     await userEvent.click(triggerError);
 
-    // mock の Live2DCanvas は `new Error('再生エラー')` を渡すので
-    // 画面に "[Error] 再生エラー" が含まれることを検証
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('[Error]');
     expect(alert.textContent).toContain('再生エラー');
     consoleSpy.mockRestore();
-  });
-});
-
-describe('HTMLAudioElement unlock（Plan A+: iOS Safari autoplay 制約対策）', () => {
-  it('handleSubmit 時に silent audio が同期的に play される', async () => {
-    setupFetchMocks();
-    setupMockAudioContext('running');
-    const user = userEvent.setup();
-
-    render(<HomePage />);
-    const input = await waitForInputEnabled();
-
-    await user.type(input, 'テスト');
-    await user.click(screen.getByRole('button', { name: '送信' }));
-
-    expect(mockSilentAudioPlay).toHaveBeenCalledTimes(1);
-    // play() resolve 後の microtask で pause が呼ばれる
-    await waitFor(() => expect(mockSilentAudioPause).toHaveBeenCalledTimes(1));
-  });
-
-  it('unlock 成功後の 2 回目以降は silent audio を再生しない（unlock 済みフラグで skip）', async () => {
-    setupFetchMocks(true);
-    setupMockAudioContext('running');
-    const user = userEvent.setup();
-
-    render(<HomePage />);
-    const input = await waitForInputEnabled();
-
-    // 1 回目
-    await user.type(input, 'テスト1');
-    await user.click(screen.getByRole('button', { name: '送信' }));
-    await waitFor(() => expect(mockSilentAudioPause).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(input).toBeEnabled(), { timeout: 5000 });
-
-    // 2 回目
-    await user.type(input, 'テスト2');
-    await user.click(screen.getByRole('button', { name: '送信' }));
-
-    // 1 回目で unlock 済みなので 2 回目は呼ばれない
-    expect(mockSilentAudioPlay).toHaveBeenCalledTimes(1);
-    expect(mockSilentAudioPause).toHaveBeenCalledTimes(1);
-  });
-
-  it('silent audio.play() が拒否されても submit はクラッシュしない', async () => {
-    setupFetchMocks();
-    setupMockAudioContext('running');
-    mockSilentAudioPlay.mockRejectedValueOnce(new Error('NotAllowedError'));
-    const user = userEvent.setup();
-
-    render(<HomePage />);
-    const input = await waitForInputEnabled();
-
-    await user.type(input, 'テスト');
-    await expect(user.click(screen.getByRole('button', { name: '送信' }))).resolves.toBeUndefined();
-
-    expect(mockSilentAudioPlay).toHaveBeenCalledTimes(1);
-    expect(mockSilentAudioPause).not.toHaveBeenCalled();
-  });
-
-  it('play() 拒否後の次の submit でも unlock を再試行する', async () => {
-    setupFetchMocks(true);
-    setupMockAudioContext('running');
-    mockSilentAudioPlay
-      .mockRejectedValueOnce(new Error('NotAllowedError'))
-      .mockResolvedValueOnce(undefined);
-    const user = userEvent.setup();
-
-    render(<HomePage />);
-    const input = await waitForInputEnabled();
-
-    // 1 回目（拒否）
-    await user.type(input, 'テスト1');
-    await user.click(screen.getByRole('button', { name: '送信' }));
-    await waitFor(() => expect(input).toBeEnabled(), { timeout: 5000 });
-
-    // 2 回目（成功）
-    await user.type(input, 'テスト2');
-    await user.click(screen.getByRole('button', { name: '送信' }));
-
-    expect(mockSilentAudioPlay).toHaveBeenCalledTimes(2);
-    await waitFor(() => expect(mockSilentAudioPause).toHaveBeenCalledTimes(1)); // 2 回目だけ pause
-  });
-
-  it('silent audio.play() の Promise が pending のままでも handleSubmit が stall しない', async () => {
-    // iOS Safari で観測された問題のリグレッション防止:
-    // 無音 WAV に対する play() Promise が resolve しない環境でも、
-    // handleSubmit は次の処理（fetch / setPhase）に進む必要がある
-    setupFetchMocks();
-    setupMockAudioContext('running');
-    // play() を永久に pending のままにする
-    mockSilentAudioPlay.mockReturnValue(new Promise(() => {}));
-    const user = userEvent.setup();
-
-    render(<HomePage />);
-    const input = await waitForInputEnabled();
-
-    await user.type(input, 'テスト');
-    await user.click(screen.getByRole('button', { name: '送信' }));
-
-    // play() は呼ばれるが await しない → fetch まで到達する
-    expect(mockSilentAudioPlay).toHaveBeenCalledTimes(1);
-    expect(global.fetch).toHaveBeenCalledWith(
-      '/api/chat',
-      expect.objectContaining({ method: 'POST' })
-    );
   });
 });
