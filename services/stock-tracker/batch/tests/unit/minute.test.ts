@@ -886,4 +886,53 @@ describe('minute batch handler', () => {
       expect(body.statistics.skippedTimeBudget).toBe(0);
     });
   });
+
+  describe('container kill 戦略', () => {
+    let exitSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      // process.exit をモックして実際にプロセスが終了しないようにする
+      exitSpy = jest
+        .spyOn(process, 'exit')
+        .mockImplementation((() => undefined) as () => never);
+      process.env.MINUTE_BATCH_CONTAINER_KILL_THRESHOLD = '1';
+    });
+
+    afterEach(() => {
+      exitSpy.mockRestore();
+      delete process.env.MINUTE_BATCH_CONTAINER_KILL_THRESHOLD;
+    });
+
+    it('errors が閾値以上の場合、session.close() 後に process.exit(1) を呼ぶ', async () => {
+      // Arrange: 閾値 1 に対して errors = 1 になるケース（TradingView API タイムアウト）
+      const alert = makeAlert();
+      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockExchangeRepo.getById.mockResolvedValue(mockExchange);
+      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
+      mockSession.getCurrentPrice.mockRejectedValue(new Error('TradingView API タイムアウト'));
+      (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
+
+      // Act
+      await handler(mockEvent);
+
+      // Assert: session.close() が先に呼ばれ、その後 process.exit(1) が呼ばれる
+      expect(mockSession.close).toHaveBeenCalled();
+      expect(exitSpy).toHaveBeenCalledWith(1);
+      const closeOrder = mockSession.close.mock.invocationCallOrder[0];
+      const exitOrder = exitSpy.mock.invocationCallOrder[0];
+      expect(closeOrder).toBeLessThan(exitOrder);
+    });
+
+    it('errors が閾値未満の場合、process.exit を呼ばない', async () => {
+      // Arrange: 閾値 1 に対して errors = 0 になるケース（Enabled=false はエラー扱いしない）
+      const alert = makeAlert({ Enabled: false });
+      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+
+      // Act
+      await handler(mockEvent);
+
+      // Assert
+      expect(exitSpy).not.toHaveBeenCalled();
+    });
+  });
 });

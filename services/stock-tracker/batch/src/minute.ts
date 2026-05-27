@@ -210,6 +210,13 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
   const timeBudgetMs = parseInt(process.env.MINUTE_BATCH_TIME_BUDGET_MS ?? '30000', 10);
   const isBudgetExceeded = (): boolean => Date.now() - startTime > timeBudgetMs;
 
+  // container kill 閾値: invocation 内エラー数がこの値以上になると process.exit(1) で container を廃棄する
+  const containerKillThreshold = parseInt(
+    process.env.MINUTE_BATCH_CONTAINER_KILL_THRESHOLD ?? '2',
+    10
+  );
+  let shouldKillContainer = false;
+
   // invocation スコープで 1 つの TradingView WebSocket 接続を共有する
   const session = new TradingViewSession();
 
@@ -248,6 +255,17 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       logger.warn('時間予算超過のためアラートをスキップしました', {
         skippedCount,
         elapsedMs: Date.now() - startTime,
+      });
+    }
+
+    // broken container 検出: invocation 内エラー数が閾値以上なら container を廃棄する
+    // finally ブロックで session.close() 後に process.exit(1) を呼ぶ
+    if (stats.errors >= containerKillThreshold) {
+      shouldKillContainer = true;
+      logger.warn('連続タイムアウト発生のため container を破棄します', {
+        errors: stats.errors,
+        threshold: containerKillThreshold,
+        sessionId: session.getSessionId(),
       });
     }
 
@@ -290,5 +308,8 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     };
   } finally {
     await session.close();
+    if (shouldKillContainer) {
+      process.exit(1);
+    }
   }
 }
