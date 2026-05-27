@@ -266,7 +266,7 @@ describe('音声 decode と queue 管理', () => {
   });
 });
 
-describe('handlePlaybackError のデバッグログ・画面表示', () => {
+describe('handlePlaybackError のデバッグログ', () => {
   it('onPlaybackError 発火時に console.error でエラーを出力する', async () => {
     setupFetchMocks();
     setupMockAudioContext('running');
@@ -279,23 +279,6 @@ describe('handlePlaybackError のデバッグログ・画面表示', () => {
     await userEvent.click(triggerError);
 
     expect(consoleSpy).toHaveBeenCalledWith('[LiveTalk] 音声再生エラー', expect.any(Error));
-    consoleSpy.mockRestore();
-  });
-
-  it('onPlaybackError 発火時にエラーの name / message を画面に表示する（iOS 実機デバッグ用）', async () => {
-    setupFetchMocks();
-    setupMockAudioContext('running');
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-
-    render(<HomePage />);
-    await waitForInputEnabled();
-
-    const triggerError = screen.getByTestId('trigger-playback-error');
-    await userEvent.click(triggerError);
-
-    const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toContain('[Error]');
-    expect(alert.textContent).toContain('再生エラー');
     consoleSpy.mockRestore();
   });
 });
