@@ -1,7 +1,7 @@
 import { InMemorySingleTableStore } from '@nagiyu/aws';
 import { InMemoryMemoryRepository } from '../../../src/repositories/in-memory-memory.repository.js';
 import { MEMORY_TIER_C_TTL_SECONDS, MEMORY_TIER_D_TTL_SECONDS } from '../../../src/constants.js';
-import type { CreateMemoryInput, MemoryEntity } from '../../../src/entities/memory.entity.js';
+import type { CreateMemoryInput } from '../../../src/entities/memory.entity.js';
 
 const baseInput: CreateMemoryInput = {
   UserID: 'u1',
@@ -59,7 +59,9 @@ describe('InMemoryMemoryRepository', () => {
       );
       const ttl = items[0].TTL as number;
       expect(ttl).toBeGreaterThanOrEqual(before + MEMORY_TIER_C_TTL_SECONDS);
-      expect(ttl).toBeLessThanOrEqual(Math.floor(Date.now() / 1000) + MEMORY_TIER_C_TTL_SECONDS + 5);
+      expect(ttl).toBeLessThanOrEqual(
+        Math.floor(Date.now() / 1000) + MEMORY_TIER_C_TTL_SECONDS + 5
+      );
     });
 
     it('Tier D には 1 日後の TTL を Unix 秒で付与する', async () => {
@@ -246,10 +248,7 @@ describe('InMemoryMemoryRepository', () => {
       const saved = await repo.put({ ...baseInput, Tier: 'B' });
       await repo.demote(saved, 'D');
 
-      const item = store.get(
-        `USER#u1`,
-        `CHAR#hiyori#MEM#D#food#${saved.MemoryID}`
-      );
+      const item = store.get(`USER#u1`, `CHAR#hiyori#MEM#D#food#${saved.MemoryID}`);
       expect(item?.TTL).toBeDefined();
     });
 
@@ -257,10 +256,7 @@ describe('InMemoryMemoryRepository', () => {
       const saved = await repo.put({ ...baseInput, Tier: 'C' });
       const promoted = await repo.promote(saved, 'A');
 
-      const item = store.get(
-        `USER#u1`,
-        `CHAR#hiyori#MEM#A#food#${promoted.MemoryID}`
-      );
+      const item = store.get(`USER#u1`, `CHAR#hiyori#MEM#A#food#${promoted.MemoryID}`);
       expect(item?.TTL).toBeUndefined();
     });
   });

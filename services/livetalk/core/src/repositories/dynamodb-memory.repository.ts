@@ -96,13 +96,21 @@ export class DynamoDBMemoryRepository implements MemoryRepository {
     }
   }
 
-  public async listByTier(userId: string, characterId: string, tier: Tier): Promise<MemoryEntity[]> {
+  public async listByTier(
+    userId: string,
+    characterId: string,
+    tier: Tier
+  ): Promise<MemoryEntity[]> {
     const pk = buildUserPK(userId);
     const prefix = buildMemoryTierSKPrefix(characterId, tier);
     return this.queryByPrefix(pk, prefix);
   }
 
-  public async listByCategory(userId: string, characterId: string, category: string): Promise<MemoryEntity[]> {
+  public async listByCategory(
+    userId: string,
+    characterId: string,
+    category: string
+  ): Promise<MemoryEntity[]> {
     const pk = buildUserPK(userId);
     const prefix = buildMemoryAllTiersSKPrefix(characterId);
     const all = await this.queryByPrefix(pk, prefix);

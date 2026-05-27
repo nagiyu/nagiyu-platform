@@ -65,5 +65,13 @@ export type CreateMemoryInput = Omit<MemoryEntity, 'MemoryID' | 'CreatedAt' | 'U
 /**
  * メモリ更新入力（Content / Confidence / ReferencedCount / LastReferencedAt / Embedding のみ更新可能）。
  */
-export type UpdateMemoryInput = Pick<MemoryEntity, 'UserID' | 'CharacterID' | 'MemoryID' | 'Tier' | 'Category'> &
-  Partial<Pick<MemoryEntity, 'Content' | 'Confidence' | 'ReferencedCount' | 'LastReferencedAt' | 'Embedding'>>;
+export type UpdateMemoryInput = Pick<
+  MemoryEntity,
+  'UserID' | 'CharacterID' | 'MemoryID' | 'Tier' | 'Category'
+> &
+  Partial<
+    Pick<
+      MemoryEntity,
+      'Content' | 'Confidence' | 'ReferencedCount' | 'LastReferencedAt' | 'Embedding'
+    >
+  >;

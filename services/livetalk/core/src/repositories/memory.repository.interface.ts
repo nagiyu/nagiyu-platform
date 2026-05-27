@@ -1,4 +1,10 @@
-import type { CreateMemoryInput, MemoryEntity, MemoryKey, Tier, UpdateMemoryInput } from '../entities/memory.entity.js';
+import type {
+  CreateMemoryInput,
+  MemoryEntity,
+  MemoryKey,
+  Tier,
+  UpdateMemoryInput,
+} from '../entities/memory.entity.js';
 
 export interface MemoryRepository {
   /**

@@ -49,9 +49,16 @@ describe('DynamoDBMemoryRepository', () => {
   describe('put', () => {
     it('PutCommand を送り MemoryID / CreatedAt を付与する', async () => {
       const sent: unknown[] = [];
-      const client = makeClient(async (cmd) => { sent.push(cmd); return {}; });
+      const client = makeClient(async (cmd) => {
+        sent.push(cmd);
+        return {};
+      });
       const repo = new DynamoDBMemoryRepository(
-        client as never, tableName, ulidFactory, () => fixedNow, () => fixedNowSec
+        client as never,
+        tableName,
+        ulidFactory,
+        () => fixedNow,
+        () => fixedNowSec
       );
 
       const entity = await repo.put(baseInput);
@@ -66,9 +73,16 @@ describe('DynamoDBMemoryRepository', () => {
 
     it('Tier B には TTL を付与しない', async () => {
       const sent: unknown[] = [];
-      const client = makeClient(async (cmd) => { sent.push(cmd); return {}; });
+      const client = makeClient(async (cmd) => {
+        sent.push(cmd);
+        return {};
+      });
       const repo = new DynamoDBMemoryRepository(
-        client as never, tableName, ulidFactory, () => fixedNow, () => fixedNowSec
+        client as never,
+        tableName,
+        ulidFactory,
+        () => fixedNow,
+        () => fixedNowSec
       );
       await repo.put({ ...baseInput, Tier: 'B' });
       const input = (sent[0] as PutCommand).input;
@@ -77,9 +91,16 @@ describe('DynamoDBMemoryRepository', () => {
 
     it('Tier C には 30 日後の TTL を付与する', async () => {
       const sent: unknown[] = [];
-      const client = makeClient(async (cmd) => { sent.push(cmd); return {}; });
+      const client = makeClient(async (cmd) => {
+        sent.push(cmd);
+        return {};
+      });
       const repo = new DynamoDBMemoryRepository(
-        client as never, tableName, ulidFactory, () => fixedNow, () => fixedNowSec
+        client as never,
+        tableName,
+        ulidFactory,
+        () => fixedNow,
+        () => fixedNowSec
       );
       await repo.put({ ...baseInput, Tier: 'C' });
       const input = (sent[0] as PutCommand).input;
@@ -88,9 +109,16 @@ describe('DynamoDBMemoryRepository', () => {
 
     it('Tier D には 1 日後の TTL を付与する', async () => {
       const sent: unknown[] = [];
-      const client = makeClient(async (cmd) => { sent.push(cmd); return {}; });
+      const client = makeClient(async (cmd) => {
+        sent.push(cmd);
+        return {};
+      });
       const repo = new DynamoDBMemoryRepository(
-        client as never, tableName, ulidFactory, () => fixedNow, () => fixedNowSec
+        client as never,
+        tableName,
+        ulidFactory,
+        () => fixedNow,
+        () => fixedNowSec
       );
       await repo.put({ ...baseInput, Tier: 'D' });
       const input = (sent[0] as PutCommand).input;
@@ -98,9 +126,15 @@ describe('DynamoDBMemoryRepository', () => {
     });
 
     it('DynamoDB エラーは DatabaseError でラップする', async () => {
-      const client = makeClient(async () => { throw new Error('boom'); });
+      const client = makeClient(async () => {
+        throw new Error('boom');
+      });
       const repo = new DynamoDBMemoryRepository(
-        client as never, tableName, ulidFactory, () => fixedNow, () => fixedNowSec
+        client as never,
+        tableName,
+        ulidFactory,
+        () => fixedNow,
+        () => fixedNowSec
       );
       await expect(repo.put(baseInput)).rejects.toBeInstanceOf(DatabaseError);
     });
@@ -116,12 +150,23 @@ describe('DynamoDBMemoryRepository', () => {
   describe('get', () => {
     it('GetCommand を送り Item があれば Entity を返す', async () => {
       const sent: unknown[] = [];
-      const client = makeClient(async (cmd) => { sent.push(cmd); return { Item: baseItem }; });
+      const client = makeClient(async (cmd) => {
+        sent.push(cmd);
+        return { Item: baseItem };
+      });
       const repo = new DynamoDBMemoryRepository(
-        client as never, tableName, ulidFactory, () => fixedNow, () => fixedNowSec
+        client as never,
+        tableName,
+        ulidFactory,
+        () => fixedNow,
+        () => fixedNowSec
       );
       const result = await repo.get({
-        userId: 'u1', characterId: 'hiyori', tier: 'B', category: 'food', memoryId: 'MEM-001',
+        userId: 'u1',
+        characterId: 'hiyori',
+        tier: 'B',
+        category: 'food',
+        memoryId: 'MEM-001',
       });
       expect(result?.Content).toBe('コーヒーが好き');
       expect(sent[0]).toBeInstanceOf(GetCommand);
@@ -132,21 +177,41 @@ describe('DynamoDBMemoryRepository', () => {
     it('Item がなければ null を返す', async () => {
       const client = makeClient(async () => ({ Item: undefined }));
       const repo = new DynamoDBMemoryRepository(
-        client as never, tableName, ulidFactory, () => fixedNow, () => fixedNowSec
+        client as never,
+        tableName,
+        ulidFactory,
+        () => fixedNow,
+        () => fixedNowSec
       );
       const result = await repo.get({
-        userId: 'u1', characterId: 'hiyori', tier: 'B', category: 'food', memoryId: 'missing',
+        userId: 'u1',
+        characterId: 'hiyori',
+        tier: 'B',
+        category: 'food',
+        memoryId: 'missing',
       });
       expect(result).toBeNull();
     });
 
     it('DynamoDB エラーは DatabaseError でラップする', async () => {
-      const client = makeClient(async () => { throw new Error('network'); });
+      const client = makeClient(async () => {
+        throw new Error('network');
+      });
       const repo = new DynamoDBMemoryRepository(
-        client as never, tableName, ulidFactory, () => fixedNow, () => fixedNowSec
+        client as never,
+        tableName,
+        ulidFactory,
+        () => fixedNow,
+        () => fixedNowSec
       );
       await expect(
-        repo.get({ userId: 'u1', characterId: 'hiyori', tier: 'B', category: 'food', memoryId: 'x' })
+        repo.get({
+          userId: 'u1',
+          characterId: 'hiyori',
+          tier: 'B',
+          category: 'food',
+          memoryId: 'x',
+        })
       ).rejects.toBeInstanceOf(DatabaseError);
     });
   });
@@ -154,9 +219,16 @@ describe('DynamoDBMemoryRepository', () => {
   describe('listByTier', () => {
     it('QueryCommand で begins_with による Tier 絞り込みを行う', async () => {
       const sent: unknown[] = [];
-      const client = makeClient(async (cmd) => { sent.push(cmd); return { Items: [baseItem] }; });
+      const client = makeClient(async (cmd) => {
+        sent.push(cmd);
+        return { Items: [baseItem] };
+      });
       const repo = new DynamoDBMemoryRepository(
-        client as never, tableName, ulidFactory, () => fixedNow, () => fixedNowSec
+        client as never,
+        tableName,
+        ulidFactory,
+        () => fixedNow,
+        () => fixedNowSec
       );
       const result = await repo.listByTier('u1', 'hiyori', 'B');
       expect(result).toHaveLength(1);
@@ -174,7 +246,11 @@ describe('DynamoDBMemoryRepository', () => {
         return { Items: [] };
       });
       const repo = new DynamoDBMemoryRepository(
-        client as never, tableName, ulidFactory, () => fixedNow, () => fixedNowSec
+        client as never,
+        tableName,
+        ulidFactory,
+        () => fixedNow,
+        () => fixedNowSec
       );
       await repo.listByTier('u1', 'hiyori', 'B');
       expect(call).toBe(2);
@@ -193,7 +269,11 @@ describe('DynamoDBMemoryRepository', () => {
       };
       const client = makeClient(async () => ({ Items: [foodItem, hobbyItem] }));
       const repo = new DynamoDBMemoryRepository(
-        client as never, tableName, ulidFactory, () => fixedNow, () => fixedNowSec
+        client as never,
+        tableName,
+        ulidFactory,
+        () => fixedNow,
+        () => fixedNowSec
       );
       const result = await repo.listByCategory('u1', 'hiyori', 'food');
       expect(result).toHaveLength(1);
@@ -205,12 +285,24 @@ describe('DynamoDBMemoryRepository', () => {
     it('UpdateCommand を送り ConditionalCheckFailedException を EntityNotFoundError に変換する', async () => {
       const error = new Error('failed');
       error.name = 'ConditionalCheckFailedException';
-      const client = makeClient(async () => { throw error; });
+      const client = makeClient(async () => {
+        throw error;
+      });
       const repo = new DynamoDBMemoryRepository(
-        client as never, tableName, ulidFactory, () => fixedNow, () => fixedNowSec
+        client as never,
+        tableName,
+        ulidFactory,
+        () => fixedNow,
+        () => fixedNowSec
       );
       await expect(
-        repo.update({ UserID: 'u1', CharacterID: 'hiyori', Tier: 'B', Category: 'food', MemoryID: 'MEM-001' })
+        repo.update({
+          UserID: 'u1',
+          CharacterID: 'hiyori',
+          Tier: 'B',
+          Category: 'food',
+          MemoryID: 'MEM-001',
+        })
       ).rejects.toBeInstanceOf(EntityNotFoundError);
     });
 
@@ -222,11 +314,20 @@ describe('DynamoDBMemoryRepository', () => {
         return { Attributes: updatedItem };
       });
       const repo = new DynamoDBMemoryRepository(
-        client as never, tableName, ulidFactory, () => fixedNow, () => fixedNowSec
+        client as never,
+        tableName,
+        ulidFactory,
+        () => fixedNow,
+        () => fixedNowSec
       );
       const result = await repo.update({
-        UserID: 'u1', CharacterID: 'hiyori', Tier: 'B', Category: 'food', MemoryID: 'MEM-001',
-        Content: '緑茶も好き', Confidence: 0.9,
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Tier: 'B',
+        Category: 'food',
+        MemoryID: 'MEM-001',
+        Content: '緑茶も好き',
+        Confidence: 0.9,
       });
       expect(result.Content).toBe('緑茶も好き');
       expect(sent[0]).toBeInstanceOf(UpdateCommand);
@@ -236,23 +337,48 @@ describe('DynamoDBMemoryRepository', () => {
   describe('delete', () => {
     it('DeleteCommand を送る', async () => {
       const sent: unknown[] = [];
-      const client = makeClient(async (cmd) => { sent.push(cmd); return {}; });
+      const client = makeClient(async (cmd) => {
+        sent.push(cmd);
+        return {};
+      });
       const repo = new DynamoDBMemoryRepository(
-        client as never, tableName, ulidFactory, () => fixedNow, () => fixedNowSec
+        client as never,
+        tableName,
+        ulidFactory,
+        () => fixedNow,
+        () => fixedNowSec
       );
-      await repo.delete({ userId: 'u1', characterId: 'hiyori', tier: 'B', category: 'food', memoryId: 'MEM-001' });
+      await repo.delete({
+        userId: 'u1',
+        characterId: 'hiyori',
+        tier: 'B',
+        category: 'food',
+        memoryId: 'MEM-001',
+      });
       expect(sent[0]).toBeInstanceOf(DeleteCommand);
       const input = (sent[0] as DeleteCommand).input;
       expect(input.Key).toEqual({ PK: 'USER#u1', SK: 'CHAR#hiyori#MEM#B#food#MEM-001' });
     });
 
     it('DynamoDB エラーは DatabaseError でラップする', async () => {
-      const client = makeClient(async () => { throw new Error('boom'); });
+      const client = makeClient(async () => {
+        throw new Error('boom');
+      });
       const repo = new DynamoDBMemoryRepository(
-        client as never, tableName, ulidFactory, () => fixedNow, () => fixedNowSec
+        client as never,
+        tableName,
+        ulidFactory,
+        () => fixedNow,
+        () => fixedNowSec
       );
       await expect(
-        repo.delete({ userId: 'u1', characterId: 'hiyori', tier: 'B', category: 'food', memoryId: 'x' })
+        repo.delete({
+          userId: 'u1',
+          characterId: 'hiyori',
+          tier: 'B',
+          category: 'food',
+          memoryId: 'x',
+        })
       ).rejects.toBeInstanceOf(DatabaseError);
     });
   });
@@ -273,9 +399,16 @@ describe('DynamoDBMemoryRepository', () => {
 
     it('promote は TransactWriteCommand で Put(新SK) + Delete(旧SK) を送る', async () => {
       const sent: unknown[] = [];
-      const client = makeClient(async (cmd) => { sent.push(cmd); return {}; });
+      const client = makeClient(async (cmd) => {
+        sent.push(cmd);
+        return {};
+      });
       const repo = new DynamoDBMemoryRepository(
-        client as never, tableName, ulidFactory, () => fixedNow, () => fixedNowSec
+        client as never,
+        tableName,
+        ulidFactory,
+        () => fixedNow,
+        () => fixedNowSec
       );
       const result = await repo.promote(savedEntity, 'B');
       expect(result.Tier).toBe('B');
@@ -288,9 +421,16 @@ describe('DynamoDBMemoryRepository', () => {
 
     it('demote は TransactWriteCommand で Put(新SK) + Delete(旧SK) を送る', async () => {
       const sent: unknown[] = [];
-      const client = makeClient(async (cmd) => { sent.push(cmd); return {}; });
+      const client = makeClient(async (cmd) => {
+        sent.push(cmd);
+        return {};
+      });
       const repo = new DynamoDBMemoryRepository(
-        client as never, tableName, ulidFactory, () => fixedNow, () => fixedNowSec
+        client as never,
+        tableName,
+        ulidFactory,
+        () => fixedNow,
+        () => fixedNowSec
       );
       const tierAEntity: MemoryEntity = { ...savedEntity, Tier: 'A' };
       const result = await repo.demote(tierAEntity, 'C');
@@ -300,9 +440,16 @@ describe('DynamoDBMemoryRepository', () => {
 
     it('B へ昇格すると TTL なし', async () => {
       const sent: unknown[] = [];
-      const client = makeClient(async (cmd) => { sent.push(cmd); return {}; });
+      const client = makeClient(async (cmd) => {
+        sent.push(cmd);
+        return {};
+      });
       const repo = new DynamoDBMemoryRepository(
-        client as never, tableName, ulidFactory, () => fixedNow, () => fixedNowSec
+        client as never,
+        tableName,
+        ulidFactory,
+        () => fixedNow,
+        () => fixedNowSec
       );
       await repo.promote(savedEntity, 'B');
       const input = (sent[0] as TransactWriteCommand).input;
@@ -311,9 +458,16 @@ describe('DynamoDBMemoryRepository', () => {
 
     it('D へ降格すると TTL あり', async () => {
       const sent: unknown[] = [];
-      const client = makeClient(async (cmd) => { sent.push(cmd); return {}; });
+      const client = makeClient(async (cmd) => {
+        sent.push(cmd);
+        return {};
+      });
       const repo = new DynamoDBMemoryRepository(
-        client as never, tableName, ulidFactory, () => fixedNow, () => fixedNowSec
+        client as never,
+        tableName,
+        ulidFactory,
+        () => fixedNow,
+        () => fixedNowSec
       );
       await repo.demote(savedEntity, 'D');
       const input = (sent[0] as TransactWriteCommand).input;
@@ -321,9 +475,15 @@ describe('DynamoDBMemoryRepository', () => {
     });
 
     it('TransactWrite エラーは DatabaseError でラップする', async () => {
-      const client = makeClient(async () => { throw new Error('transact error'); });
+      const client = makeClient(async () => {
+        throw new Error('transact error');
+      });
       const repo = new DynamoDBMemoryRepository(
-        client as never, tableName, ulidFactory, () => fixedNow, () => fixedNowSec
+        client as never,
+        tableName,
+        ulidFactory,
+        () => fixedNow,
+        () => fixedNowSec
       );
       await expect(repo.promote(savedEntity, 'A')).rejects.toBeInstanceOf(DatabaseError);
     });

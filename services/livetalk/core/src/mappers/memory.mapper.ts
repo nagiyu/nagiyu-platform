@@ -57,7 +57,10 @@ export class MemoryMapper implements EntityMapper<MemoryEntity, MemoryKey> {
       Category: validateStringField(item.Category, 'Category'),
       Content: validateStringField(item.Content, 'Content', { allowEmpty: true }),
       Confidence: validateNumberField(item.Confidence, 'Confidence', { min: 0, max: 1 }),
-      ReferencedCount: validateNumberField(item.ReferencedCount, 'ReferencedCount', { min: 0, integer: true }),
+      ReferencedCount: validateNumberField(item.ReferencedCount, 'ReferencedCount', {
+        min: 0,
+        integer: true,
+      }),
       CreatedAt: validateStringField(item.CreatedAt, 'CreatedAt'),
       UpdatedAt: validateStringField(item.UpdatedAt, 'UpdatedAt'),
     };

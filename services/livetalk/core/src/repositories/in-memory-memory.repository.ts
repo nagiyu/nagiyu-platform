@@ -63,7 +63,11 @@ export class InMemoryMemoryRepository implements MemoryRepository {
     return this.mapper.toEntity(item);
   }
 
-  public async listByTier(userId: string, characterId: string, tier: Tier): Promise<MemoryEntity[]> {
+  public async listByTier(
+    userId: string,
+    characterId: string,
+    tier: Tier
+  ): Promise<MemoryEntity[]> {
     const pk = buildUserPK(userId);
     const prefix = buildMemoryTierSKPrefix(characterId, tier);
     const { items } = this.store.query(
@@ -73,7 +77,11 @@ export class InMemoryMemoryRepository implements MemoryRepository {
     return items.map((item) => this.mapper.toEntity(item));
   }
 
-  public async listByCategory(userId: string, characterId: string, category: string): Promise<MemoryEntity[]> {
+  public async listByCategory(
+    userId: string,
+    characterId: string,
+    category: string
+  ): Promise<MemoryEntity[]> {
     const pk = buildUserPK(userId);
     const allPrefix = buildMemoryAllTiersSKPrefix(characterId);
     const { items } = this.store.query(
