@@ -30,26 +30,23 @@ export class DynamoDBMemoryRepository implements MemoryRepository {
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
   private readonly ulidFactory: UlidFactory;
-  private readonly nowIso: () => string;
-  private readonly nowSec: () => number;
+  private readonly nowMs: () => number;
 
   constructor(
     docClient: DynamoDBDocumentClient,
     tableName: string,
     ulidFactory: UlidFactory = defaultUlidFactory,
-    nowIso: () => string = () => new Date().toISOString(),
-    nowSec: () => number = () => Math.floor(Date.now() / 1000)
+    nowMs: () => number = () => Date.now()
   ) {
     this.docClient = docClient;
     this.tableName = tableName;
     this.ulidFactory = ulidFactory;
-    this.nowIso = nowIso;
-    this.nowSec = nowSec;
+    this.nowMs = nowMs;
     this.mapper = new MemoryMapper();
   }
 
   public async put(input: CreateMemoryInput): Promise<MemoryEntity> {
-    const now = this.nowIso();
+    const now = this.nowMs();
     const memoryId = input.MemoryID ?? this.ulidFactory();
 
     const entity: MemoryEntity = {
@@ -62,7 +59,7 @@ export class DynamoDBMemoryRepository implements MemoryRepository {
     const item: DynamoDBItem = { ...this.mapper.toItem(entity) };
     const ttlSec = this.resolveTtlSec(entity.Tier);
     if (ttlSec !== null) {
-      item.TTL = this.nowSec() + ttlSec;
+      item.TTL = Math.floor(now / 1000) + ttlSec;
     }
 
     try {
@@ -128,7 +125,7 @@ export class DynamoDBMemoryRepository implements MemoryRepository {
 
     const setExpressions: string[] = ['#UpdatedAt = :updatedAt'];
     const names: Record<string, string> = { '#UpdatedAt': 'UpdatedAt' };
-    const values: Record<string, unknown> = { ':updatedAt': this.nowIso() };
+    const values: Record<string, unknown> = { ':updatedAt': this.nowMs() };
 
     if (input.Content !== undefined) {
       setExpressions.push('#Content = :content');
@@ -210,13 +207,13 @@ export class DynamoDBMemoryRepository implements MemoryRepository {
       memoryId: memory.MemoryID,
     });
 
-    const now = this.nowIso();
+    const now = this.nowMs();
     const newEntity: MemoryEntity = { ...memory, Tier: toTier, UpdatedAt: now };
     const newItem: DynamoDBItem = { ...this.mapper.toItem(newEntity) };
 
     const ttlSec = this.resolveTtlSec(toTier);
     if (ttlSec !== null) {
-      newItem.TTL = this.nowSec() + ttlSec;
+      newItem.TTL = Math.floor(now / 1000) + ttlSec;
     }
 
     try {

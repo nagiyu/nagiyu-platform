@@ -14,6 +14,10 @@ import type { CreateMemoryInput, MemoryEntity } from '../../../src/entities/memo
 type SendHandler = (command: unknown) => Promise<unknown>;
 const makeClient = (handler: SendHandler) => ({ send: handler });
 
+const fixedNow = 1_750_000_000_000;
+const tableName = 'nagiyu-livetalk-dev';
+const ulidFactory = () => 'MEM-001';
+
 const baseInput: CreateMemoryInput = {
   UserID: 'u1',
   CharacterID: 'hiyori',
@@ -36,14 +40,9 @@ const baseItem = {
   Content: 'コーヒーが好き',
   Confidence: 0.8,
   ReferencedCount: 0,
-  CreatedAt: '2026-01-01T00:00:00.000Z',
-  UpdatedAt: '2026-01-01T00:00:00.000Z',
+  CreatedAt: fixedNow,
+  UpdatedAt: fixedNow,
 };
-
-const tableName = 'nagiyu-livetalk-dev';
-const fixedNow = '2026-01-01T00:00:00.000Z';
-const fixedNowSec = 1_750_000_000;
-const ulidFactory = () => 'MEM-001';
 
 describe('DynamoDBMemoryRepository', () => {
   describe('put', () => {
@@ -57,8 +56,7 @@ describe('DynamoDBMemoryRepository', () => {
         client as never,
         tableName,
         ulidFactory,
-        () => fixedNow,
-        () => fixedNowSec
+        () => fixedNow
       );
 
       const entity = await repo.put(baseInput);
@@ -81,8 +79,7 @@ describe('DynamoDBMemoryRepository', () => {
         client as never,
         tableName,
         ulidFactory,
-        () => fixedNow,
-        () => fixedNowSec
+        () => fixedNow
       );
       await repo.put({ ...baseInput, Tier: 'B' });
       const input = (sent[0] as PutCommand).input;
@@ -99,12 +96,11 @@ describe('DynamoDBMemoryRepository', () => {
         client as never,
         tableName,
         ulidFactory,
-        () => fixedNow,
-        () => fixedNowSec
+        () => fixedNow
       );
       await repo.put({ ...baseInput, Tier: 'C' });
       const input = (sent[0] as PutCommand).input;
-      expect(input.Item?.TTL).toBe(fixedNowSec + MEMORY_TIER_C_TTL_SECONDS);
+      expect(input.Item?.TTL).toBe(Math.floor(fixedNow / 1000) + MEMORY_TIER_C_TTL_SECONDS);
     });
 
     it('Tier D には 1 日後の TTL を付与する', async () => {
@@ -117,12 +113,11 @@ describe('DynamoDBMemoryRepository', () => {
         client as never,
         tableName,
         ulidFactory,
-        () => fixedNow,
-        () => fixedNowSec
+        () => fixedNow
       );
       await repo.put({ ...baseInput, Tier: 'D' });
       const input = (sent[0] as PutCommand).input;
-      expect(input.Item?.TTL).toBe(fixedNowSec + MEMORY_TIER_D_TTL_SECONDS);
+      expect(input.Item?.TTL).toBe(Math.floor(fixedNow / 1000) + MEMORY_TIER_D_TTL_SECONDS);
     });
 
     it('DynamoDB エラーは DatabaseError でラップする', async () => {
@@ -133,8 +128,7 @@ describe('DynamoDBMemoryRepository', () => {
         client as never,
         tableName,
         ulidFactory,
-        () => fixedNow,
-        () => fixedNowSec
+        () => fixedNow
       );
       await expect(repo.put(baseInput)).rejects.toBeInstanceOf(DatabaseError);
     });
@@ -158,8 +152,7 @@ describe('DynamoDBMemoryRepository', () => {
         client as never,
         tableName,
         ulidFactory,
-        () => fixedNow,
-        () => fixedNowSec
+        () => fixedNow
       );
       const result = await repo.get({
         userId: 'u1',
@@ -180,8 +173,7 @@ describe('DynamoDBMemoryRepository', () => {
         client as never,
         tableName,
         ulidFactory,
-        () => fixedNow,
-        () => fixedNowSec
+        () => fixedNow
       );
       const result = await repo.get({
         userId: 'u1',
@@ -201,8 +193,7 @@ describe('DynamoDBMemoryRepository', () => {
         client as never,
         tableName,
         ulidFactory,
-        () => fixedNow,
-        () => fixedNowSec
+        () => fixedNow
       );
       await expect(
         repo.get({
@@ -227,8 +218,7 @@ describe('DynamoDBMemoryRepository', () => {
         client as never,
         tableName,
         ulidFactory,
-        () => fixedNow,
-        () => fixedNowSec
+        () => fixedNow
       );
       const result = await repo.listByTier('u1', 'hiyori', 'B');
       expect(result).toHaveLength(1);
@@ -249,8 +239,7 @@ describe('DynamoDBMemoryRepository', () => {
         client as never,
         tableName,
         ulidFactory,
-        () => fixedNow,
-        () => fixedNowSec
+        () => fixedNow
       );
       await repo.listByTier('u1', 'hiyori', 'B');
       expect(call).toBe(2);
@@ -272,8 +261,7 @@ describe('DynamoDBMemoryRepository', () => {
         client as never,
         tableName,
         ulidFactory,
-        () => fixedNow,
-        () => fixedNowSec
+        () => fixedNow
       );
       const result = await repo.listByCategory('u1', 'hiyori', 'food');
       expect(result).toHaveLength(1);
@@ -292,8 +280,7 @@ describe('DynamoDBMemoryRepository', () => {
         client as never,
         tableName,
         ulidFactory,
-        () => fixedNow,
-        () => fixedNowSec
+        () => fixedNow
       );
       await expect(
         repo.update({
@@ -317,8 +304,7 @@ describe('DynamoDBMemoryRepository', () => {
         client as never,
         tableName,
         ulidFactory,
-        () => fixedNow,
-        () => fixedNowSec
+        () => fixedNow
       );
       const result = await repo.update({
         UserID: 'u1',
@@ -345,8 +331,7 @@ describe('DynamoDBMemoryRepository', () => {
         client as never,
         tableName,
         ulidFactory,
-        () => fixedNow,
-        () => fixedNowSec
+        () => fixedNow
       );
       await repo.delete({
         userId: 'u1',
@@ -368,8 +353,7 @@ describe('DynamoDBMemoryRepository', () => {
         client as never,
         tableName,
         ulidFactory,
-        () => fixedNow,
-        () => fixedNowSec
+        () => fixedNow
       );
       await expect(
         repo.delete({
@@ -393,8 +377,8 @@ describe('DynamoDBMemoryRepository', () => {
       Content: 'コーヒーが好き',
       Confidence: 0.5,
       ReferencedCount: 1,
-      CreatedAt: '2026-01-01T00:00:00.000Z',
-      UpdatedAt: '2026-01-01T00:00:00.000Z',
+      CreatedAt: fixedNow,
+      UpdatedAt: fixedNow,
     };
 
     it('promote は TransactWriteCommand で Put(新SK) + Delete(旧SK) を送る', async () => {
@@ -407,8 +391,7 @@ describe('DynamoDBMemoryRepository', () => {
         client as never,
         tableName,
         ulidFactory,
-        () => fixedNow,
-        () => fixedNowSec
+        () => fixedNow
       );
       const result = await repo.promote(savedEntity, 'B');
       expect(result.Tier).toBe('B');
@@ -429,8 +412,7 @@ describe('DynamoDBMemoryRepository', () => {
         client as never,
         tableName,
         ulidFactory,
-        () => fixedNow,
-        () => fixedNowSec
+        () => fixedNow
       );
       const tierAEntity: MemoryEntity = { ...savedEntity, Tier: 'A' };
       const result = await repo.demote(tierAEntity, 'C');
@@ -448,8 +430,7 @@ describe('DynamoDBMemoryRepository', () => {
         client as never,
         tableName,
         ulidFactory,
-        () => fixedNow,
-        () => fixedNowSec
+        () => fixedNow
       );
       await repo.promote(savedEntity, 'B');
       const input = (sent[0] as TransactWriteCommand).input;
@@ -466,12 +447,13 @@ describe('DynamoDBMemoryRepository', () => {
         client as never,
         tableName,
         ulidFactory,
-        () => fixedNow,
-        () => fixedNowSec
+        () => fixedNow
       );
       await repo.demote(savedEntity, 'D');
       const input = (sent[0] as TransactWriteCommand).input;
-      expect(input.TransactItems?.[0].Put?.Item?.TTL).toBe(fixedNowSec + MEMORY_TIER_D_TTL_SECONDS);
+      expect(input.TransactItems?.[0].Put?.Item?.TTL).toBe(
+        Math.floor(fixedNow / 1000) + MEMORY_TIER_D_TTL_SECONDS
+      );
     });
 
     it('TransactWrite エラーは DatabaseError でラップする', async () => {
@@ -482,8 +464,7 @@ describe('DynamoDBMemoryRepository', () => {
         client as never,
         tableName,
         ulidFactory,
-        () => fixedNow,
-        () => fixedNowSec
+        () => fixedNow
       );
       await expect(repo.promote(savedEntity, 'A')).rejects.toBeInstanceOf(DatabaseError);
     });

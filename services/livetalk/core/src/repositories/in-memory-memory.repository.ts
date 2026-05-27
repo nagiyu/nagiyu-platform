@@ -20,21 +20,21 @@ export class InMemoryMemoryRepository implements MemoryRepository {
   private readonly mapper: MemoryMapper;
   private readonly store: InMemorySingleTableStore;
   private readonly ulidFactory: UlidFactory;
-  private readonly nowIso: () => string;
+  private readonly nowMs: () => number;
 
   constructor(
     store: InMemorySingleTableStore,
     ulidFactory: UlidFactory = defaultUlidFactory,
-    nowIso: () => string = () => new Date().toISOString()
+    nowMs: () => number = () => Date.now()
   ) {
     this.store = store;
     this.ulidFactory = ulidFactory;
-    this.nowIso = nowIso;
+    this.nowMs = nowMs;
     this.mapper = new MemoryMapper();
   }
 
   public async put(input: CreateMemoryInput): Promise<MemoryEntity> {
-    const now = this.nowIso();
+    const now = this.nowMs();
     const memoryId = input.MemoryID ?? this.ulidFactory();
 
     const entity: MemoryEntity = {
@@ -49,7 +49,7 @@ export class InMemoryMemoryRepository implements MemoryRepository {
 
     const ttlSec = this.resolveTtlSec(entity.Tier);
     if (ttlSec !== null) {
-      item.TTL = Math.floor(Date.now() / 1000) + ttlSec;
+      item.TTL = Math.floor(this.nowMs() / 1000) + ttlSec;
     }
 
     this.store.put(item);
@@ -123,7 +123,7 @@ export class InMemoryMemoryRepository implements MemoryRepository {
       ...(input.ReferencedCount !== undefined && { ReferencedCount: input.ReferencedCount }),
       ...(input.LastReferencedAt !== undefined && { LastReferencedAt: input.LastReferencedAt }),
       ...(input.Embedding !== undefined && { Embedding: input.Embedding }),
-      UpdatedAt: this.nowIso(),
+      UpdatedAt: this.nowMs(),
     };
     this.store.put(this.mapper.toItem(updated));
     return updated;
@@ -152,7 +152,7 @@ export class InMemoryMemoryRepository implements MemoryRepository {
       memoryId: memory.MemoryID,
     });
 
-    const now = this.nowIso();
+    const now = this.nowMs();
     const newEntity: MemoryEntity = { ...memory, Tier: toTier, UpdatedAt: now };
     const newItem: DynamoDBItem = { ...this.mapper.toItem(newEntity) };
 

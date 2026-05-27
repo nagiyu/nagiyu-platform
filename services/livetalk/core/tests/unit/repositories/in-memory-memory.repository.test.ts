@@ -16,7 +16,7 @@ const baseInput: CreateMemoryInput = {
 describe('InMemoryMemoryRepository', () => {
   let store: InMemorySingleTableStore;
   let repo: InMemoryMemoryRepository;
-  const fixedNow = '2026-01-01T00:00:00.000Z';
+  const fixedNow = 1_750_000_000_000;
   let callCount = 0;
 
   beforeEach(() => {
@@ -52,26 +52,21 @@ describe('InMemoryMemoryRepository', () => {
     });
 
     it('Tier C には 30 日後の TTL を Unix 秒で付与する', async () => {
-      const before = Math.floor(Date.now() / 1000);
       await repo.put({ ...baseInput, Tier: 'C' });
       const items = Array.from(
         (store as unknown as { store: Map<string, Record<string, unknown>> }).store.values()
       );
       const ttl = items[0].TTL as number;
-      expect(ttl).toBeGreaterThanOrEqual(before + MEMORY_TIER_C_TTL_SECONDS);
-      expect(ttl).toBeLessThanOrEqual(
-        Math.floor(Date.now() / 1000) + MEMORY_TIER_C_TTL_SECONDS + 5
-      );
+      expect(ttl).toBe(Math.floor(fixedNow / 1000) + MEMORY_TIER_C_TTL_SECONDS);
     });
 
     it('Tier D には 1 日後の TTL を Unix 秒で付与する', async () => {
-      const before = Math.floor(Date.now() / 1000);
       await repo.put({ ...baseInput, Tier: 'D' });
       const items = Array.from(
         (store as unknown as { store: Map<string, Record<string, unknown>> }).store.values()
       );
       const ttl = items[0].TTL as number;
-      expect(ttl).toBeGreaterThanOrEqual(before + MEMORY_TIER_D_TTL_SECONDS);
+      expect(ttl).toBe(Math.floor(fixedNow / 1000) + MEMORY_TIER_D_TTL_SECONDS);
     });
   });
 

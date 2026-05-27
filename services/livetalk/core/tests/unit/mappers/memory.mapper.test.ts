@@ -11,8 +11,8 @@ const baseEntity: MemoryEntity = {
   Content: 'コーヒーが好き',
   Confidence: 0.8,
   ReferencedCount: 3,
-  CreatedAt: '2026-01-01T00:00:00.000Z',
-  UpdatedAt: '2026-01-02T00:00:00.000Z',
+  CreatedAt: 1_750_000_000_000,
+  UpdatedAt: 1_750_086_400_000,
 };
 
 describe('MemoryMapper', () => {
@@ -36,8 +36,8 @@ describe('MemoryMapper', () => {
       expect(item.Content).toBe('コーヒーが好き');
       expect(item.Confidence).toBe(0.8);
       expect(item.ReferencedCount).toBe(3);
-      expect(item.CreatedAt).toBe('2026-01-01T00:00:00.000Z');
-      expect(item.UpdatedAt).toBe('2026-01-02T00:00:00.000Z');
+      expect(item.CreatedAt).toBe(1_750_000_000_000);
+      expect(item.UpdatedAt).toBe(1_750_086_400_000);
     });
 
     it('LastReferencedAt / Embedding が undefined の場合は Item に含めない', () => {
@@ -49,11 +49,11 @@ describe('MemoryMapper', () => {
     it('LastReferencedAt / Embedding が設定されている場合は Item に含める', () => {
       const entity: MemoryEntity = {
         ...baseEntity,
-        LastReferencedAt: '2026-01-03T00:00:00.000Z',
+        LastReferencedAt: 1_750_172_800_000,
         Embedding: [0.1, 0.2, 0.3],
       };
       const item = mapper.toItem(entity);
-      expect(item.LastReferencedAt).toBe('2026-01-03T00:00:00.000Z');
+      expect(item.LastReferencedAt).toBe(1_750_172_800_000);
       expect(item.Embedding).toEqual([0.1, 0.2, 0.3]);
     });
 
@@ -81,8 +81,8 @@ describe('MemoryMapper', () => {
         Content: 'コーヒーが好き',
         Confidence: 0.8,
         ReferencedCount: 3,
-        CreatedAt: '2026-01-01T00:00:00.000Z',
-        UpdatedAt: '2026-01-02T00:00:00.000Z',
+        CreatedAt: 1_750_000_000_000,
+        UpdatedAt: 1_750_086_400_000,
       };
       const entity = mapper.toEntity(item);
       expect(entity.UserID).toBe('user1');
@@ -110,10 +110,10 @@ describe('MemoryMapper', () => {
     it('LastReferencedAt が存在する場合はエンティティに含める', () => {
       const item = {
         ...mapper.toItem(baseEntity),
-        LastReferencedAt: '2026-01-03T00:00:00.000Z',
+        LastReferencedAt: 1_750_172_800_000,
       };
       const entity = mapper.toEntity(item);
-      expect(entity.LastReferencedAt).toBe('2026-01-03T00:00:00.000Z');
+      expect(entity.LastReferencedAt).toBe(1_750_172_800_000);
     });
 
     it('Embedding が存在する場合はエンティティに含める', () => {
@@ -141,7 +141,7 @@ describe('MemoryMapper', () => {
     it('Embedding 付きエンティティも往復変換できる', () => {
       const entity: MemoryEntity = {
         ...baseEntity,
-        LastReferencedAt: '2026-01-03T00:00:00.000Z',
+        LastReferencedAt: 1_750_172_800_000,
         Embedding: [0.5, 0.6],
       };
       const roundTripped = mapper.toEntity(mapper.toItem(entity));

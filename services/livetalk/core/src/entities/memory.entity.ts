@@ -33,14 +33,14 @@ export interface MemoryEntity {
   Confidence: number;
   /** 参照回数 */
   ReferencedCount: number;
-  /** 最終参照日時（ISO8601、未参照の場合は undefined） */
-  LastReferencedAt?: string;
+  /** 最終参照日時（Unix ms、未参照の場合は undefined） */
+  LastReferencedAt?: number;
   /** 埋め込みベクトル（Phase 3b で実値投入、現フェーズでは undefined） */
   Embedding?: number[];
-  /** 作成日時（ISO8601） */
-  CreatedAt: string;
-  /** 更新日時（ISO8601） */
-  UpdatedAt: string;
+  /** 作成日時（Unix ms） */
+  CreatedAt: number;
+  /** 更新日時（Unix ms） */
+  UpdatedAt: number;
 }
 
 /**

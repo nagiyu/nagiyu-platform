@@ -2,6 +2,7 @@ import {
   validateEnumField,
   validateNumberField,
   validateStringField,
+  validateTimestampField,
   type DynamoDBItem,
   type EntityMapper,
 } from '@nagiyu/aws';
@@ -61,12 +62,12 @@ export class MemoryMapper implements EntityMapper<MemoryEntity, MemoryKey> {
         min: 0,
         integer: true,
       }),
-      CreatedAt: validateStringField(item.CreatedAt, 'CreatedAt'),
-      UpdatedAt: validateStringField(item.UpdatedAt, 'UpdatedAt'),
+      CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
+      UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
     };
 
     if (item.LastReferencedAt !== undefined) {
-      entity.LastReferencedAt = validateStringField(item.LastReferencedAt, 'LastReferencedAt');
+      entity.LastReferencedAt = validateTimestampField(item.LastReferencedAt, 'LastReferencedAt');
     }
     if (item.Embedding !== undefined && Array.isArray(item.Embedding)) {
       entity.Embedding = item.Embedding as number[];
