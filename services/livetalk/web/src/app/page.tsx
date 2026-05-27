@@ -238,16 +238,7 @@ export default function HomePage() {
   const handlePlaybackError = useCallback(
     (error: Error) => {
       console.error('[LiveTalk] 音声再生エラー', error);
-      // iOS Safari 実機デバッグ用に画面にエラー詳細を表示する（#3260 対応中の一時措置、
-      // 解決後は元の汎用メッセージに戻す）。error が Error でない値で渡される可能性に
-      // 備え、name / message を defensive に取り出す。
-      const errorName = (error as { name?: unknown })?.name
-        ? String((error as { name: unknown }).name)
-        : 'Unknown';
-      const errorMessageDetail = (error as { message?: unknown })?.message
-        ? String((error as { message: unknown }).message)
-        : String(error);
-      setErrorMessage(`音声再生中にエラーが発生しました。[${errorName}] ${errorMessageDetail}`);
+      setErrorMessage('音声再生中にエラーが発生しました。');
       setAudioBuffer(null);
       isPlayingRef.current = false;
       advanceAudioQueue();
