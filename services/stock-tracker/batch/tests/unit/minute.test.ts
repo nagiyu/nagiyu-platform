@@ -892,9 +892,7 @@ describe('minute batch handler', () => {
 
     beforeEach(() => {
       // process.exit をモックして実際にプロセスが終了しないようにする
-      exitSpy = jest
-        .spyOn(process, 'exit')
-        .mockImplementation((() => undefined) as () => never);
+      exitSpy = jest.spyOn(process, 'exit').mockImplementation((() => undefined) as () => never);
       process.env.MINUTE_BATCH_CONTAINER_KILL_THRESHOLD = '1';
     });
 
