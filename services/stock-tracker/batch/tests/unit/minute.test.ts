@@ -69,10 +69,14 @@ describe('minute batch handler', () => {
   let mockAlertRepo: jest.Mocked<DynamoDBAlertRepository>;
   let mockExchangeRepo: jest.Mocked<ExchangeRepository>;
   let mockEvent: ScheduledEvent;
+  let exitSpy: jest.SpyInstance;
 
   beforeEach(() => {
     // モックのリセット
     jest.clearAllMocks();
+
+    // process.exit をモックして、container kill 発火時にテストプロセスが終了するのを防ぐ
+    exitSpy = jest.spyOn(process, 'exit').mockImplementation((() => undefined) as () => never);
 
     // TradingViewSession モックを再生成
     mockSession = {
@@ -128,6 +132,7 @@ describe('minute batch handler', () => {
   afterEach(() => {
     delete process.env.VAPID_PUBLIC_KEY;
     delete process.env.VAPID_PRIVATE_KEY;
+    exitSpy.mockRestore();
   });
 
   describe('正常系: アラート条件達成時に通知を送信', () => {
@@ -888,16 +893,11 @@ describe('minute batch handler', () => {
   });
 
   describe('container kill 戦略', () => {
-    let exitSpy: jest.SpyInstance;
-
     beforeEach(() => {
-      // process.exit をモックして実際にプロセスが終了しないようにする
-      exitSpy = jest.spyOn(process, 'exit').mockImplementation((() => undefined) as () => never);
       process.env.MINUTE_BATCH_CONTAINER_KILL_THRESHOLD = '1';
     });
 
     afterEach(() => {
-      exitSpy.mockRestore();
       delete process.env.MINUTE_BATCH_CONTAINER_KILL_THRESHOLD;
     });
 
@@ -931,6 +931,23 @@ describe('minute batch handler', () => {
 
       // Assert
       expect(exitSpy).not.toHaveBeenCalled();
+    });
+
+    it('閾値環境変数が未設定の場合、デフォルト 1 で発火する', async () => {
+      // Arrange: 環境変数を未設定（デフォルト値 1 で動作することを検証）
+      delete process.env.MINUTE_BATCH_CONTAINER_KILL_THRESHOLD;
+      const alert = makeAlert();
+      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockExchangeRepo.getById.mockResolvedValue(mockExchange);
+      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
+      mockSession.getCurrentPrice.mockRejectedValue(new Error('TradingView API タイムアウト'));
+      (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
+
+      // Act
+      await handler(mockEvent);
+
+      // Assert: errors=1 でデフォルト閾値 1 に到達 → process.exit(1) 発火
+      expect(exitSpy).toHaveBeenCalledWith(1);
     });
   });
 });
