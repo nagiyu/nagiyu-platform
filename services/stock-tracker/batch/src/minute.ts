@@ -211,8 +211,10 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
   const isBudgetExceeded = (): boolean => Date.now() - startTime > timeBudgetMs;
 
   // container kill 閾値: invocation 内エラー数がこの値以上になると process.exit(1) で container を廃棄する
+  // 観測（PR #3290 デプロイ後）: broken container でも 1 invocation あたり errors は最大 1 のため、閾値 1 で kill する。
+  // 誤検知コストは Lambda cold start のみで運用影響ゼロ。broken container 居座りによる通知欠落の方が深刻。
   const containerKillThreshold = parseInt(
-    process.env.MINUTE_BATCH_CONTAINER_KILL_THRESHOLD ?? '2',
+    process.env.MINUTE_BATCH_CONTAINER_KILL_THRESHOLD ?? '1',
     10
   );
   let shouldKillContainer = false;
