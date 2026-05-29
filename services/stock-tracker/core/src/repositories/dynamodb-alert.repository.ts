@@ -17,11 +17,14 @@ import {
   EntityNotFoundError,
   EntityAlreadyExistsError,
   DatabaseError,
+  mapConditionalCheckFailed,
+  encodeCursor,
+  decodeCursor,
   type PaginationOptions,
   type PaginatedResult,
   type DynamoDBItem,
 } from '@nagiyu/aws';
-import { logger } from '@nagiyu/common';
+import { logger, toErrorMessage } from '@nagiyu/common';
 import type { AlertRepository, GetByUserIdOptions } from './alert.repository.interface.js';
 import type { AlertEntity, CreateAlertInput, UpdateAlertInput } from '../entities/alert.entity.js';
 import type { TemporaryAlertCandidate } from '../entities/temporary-alert-candidate.entity.js';
@@ -69,7 +72,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
 
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -88,9 +91,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
     let result: QueryCommandOutput;
     try {
       const limit = options?.limit || 50;
-      const exclusiveStartKey = options?.cursor
-        ? JSON.parse(Buffer.from(options.cursor, 'base64').toString('utf-8'))
-        : undefined;
+      const exclusiveStartKey = decodeCursor(options?.cursor);
 
       const expressionAttributeNames: Record<string, string> = {
         '#gsi1pk': 'GSI1PK',
@@ -115,7 +116,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
         })
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
 
@@ -131,14 +132,12 @@ export class DynamoDBAlertRepository implements AlertRepository {
         logger.warn('無効なアラートデータをスキップしました', {
           pk: record.PK,
           sk: record.SK,
-          error: error instanceof Error ? error.message : String(error),
+          error: toErrorMessage(error),
         });
       }
     }
 
-    const nextCursor = result.LastEvaluatedKey
-      ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
-      : undefined;
+    const nextCursor = encodeCursor(result.LastEvaluatedKey);
 
     return {
       items,
@@ -157,9 +156,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
     let result: QueryCommandOutput;
     try {
       const limit = options?.limit || 50;
-      const exclusiveStartKey = options?.cursor
-        ? JSON.parse(Buffer.from(options.cursor, 'base64').toString('utf-8'))
-        : undefined;
+      const exclusiveStartKey = decodeCursor(options?.cursor);
 
       result = await this.docClient.send(
         new QueryCommand({
@@ -177,7 +174,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
         })
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
 
@@ -193,14 +190,12 @@ export class DynamoDBAlertRepository implements AlertRepository {
         logger.warn('無効なアラートデータをスキップしました', {
           pk: record.PK,
           sk: record.SK,
-          error: error instanceof Error ? error.message : String(error),
+          error: toErrorMessage(error),
         });
       }
     }
 
-    const nextCursor = result.LastEvaluatedKey
-      ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
-      : undefined;
+    const nextCursor = encodeCursor(result.LastEvaluatedKey);
 
     return {
       items,
@@ -225,9 +220,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
     let result: QueryCommandOutput;
     try {
       const limit = options?.limit || 50;
-      const exclusiveStartKey = options?.cursor
-        ? JSON.parse(Buffer.from(options.cursor, 'base64').toString('utf-8'))
-        : undefined;
+      const exclusiveStartKey = decodeCursor(options?.cursor);
 
       result = await this.docClient.send(
         new QueryCommand({
@@ -259,7 +252,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
         })
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
 
@@ -272,14 +265,12 @@ export class DynamoDBAlertRepository implements AlertRepository {
         logger.warn('無効な一時アラート候補をスキップしました', {
           pk: record.PK,
           sk: record.SK,
-          error: error instanceof Error ? error.message : String(error),
+          error: toErrorMessage(error),
         });
       }
     }
 
-    const nextCursor = result.LastEvaluatedKey
-      ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
-      : undefined;
+    const nextCursor = encodeCursor(result.LastEvaluatedKey);
 
     return {
       items,
@@ -314,11 +305,12 @@ export class DynamoDBAlertRepository implements AlertRepository {
 
       return entity;
     } catch (error) {
-      // 条件付き保存の失敗（既存アイテムが存在）
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityAlreadyExistsError('Alert', `${input.UserID}#(generated)`);
-      }
-      const message = error instanceof Error ? error.message : String(error);
+      mapConditionalCheckFailed(error, {
+        onExists: () => {
+          throw new EntityAlreadyExistsError('Alert', `${input.UserID}#(generated)`);
+        },
+      });
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -394,15 +386,10 @@ export class DynamoDBAlertRepository implements AlertRepository {
         expressionAttributeNames['#subscription'] = 'subscription';
         expressionAttributeValues[':subscription'] = updates.subscription;
       }
-      if (updates.NotificationTitle !== undefined) {
-        updateExpressions.push('#notificationTitle = :notificationTitle');
-        expressionAttributeNames['#notificationTitle'] = 'NotificationTitle';
-        expressionAttributeValues[':notificationTitle'] = updates.NotificationTitle;
-      }
-      if (updates.NotificationBody !== undefined) {
-        updateExpressions.push('#notificationBody = :notificationBody');
-        expressionAttributeNames['#notificationBody'] = 'NotificationBody';
-        expressionAttributeValues[':notificationBody'] = updates.NotificationBody;
+      if (updates.CustomMessage !== undefined) {
+        updateExpressions.push('#customMessage = :customMessage');
+        expressionAttributeNames['#customMessage'] = 'CustomMessage';
+        expressionAttributeValues[':customMessage'] = updates.CustomMessage;
       }
 
       // UpdatedAt を常に更新
@@ -428,15 +415,16 @@ export class DynamoDBAlertRepository implements AlertRepository {
 
       return this.mapper.toEntity(result.Attributes as unknown as DynamoDBItem);
     } catch (error) {
-      // 条件チェック失敗（アイテムが存在しない）
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
-      }
+      mapConditionalCheckFailed(error, {
+        onMissing: () => {
+          throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
+        },
+      });
       // EntityNotFoundError はそのまま投げる
       if (error instanceof EntityNotFoundError) {
         throw error;
       }
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -456,11 +444,12 @@ export class DynamoDBAlertRepository implements AlertRepository {
         })
       );
     } catch (error) {
-      // 条件チェック失敗（アイテムが存在しない）
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
-      }
-      const message = error instanceof Error ? error.message : String(error);
+      mapConditionalCheckFailed(error, {
+        onMissing: () => {
+          throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
+        },
+      });
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -499,10 +488,12 @@ export class DynamoDBAlertRepository implements AlertRepository {
         })
       );
     } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
-      }
-      const message = error instanceof Error ? error.message : String(error);
+      mapConditionalCheckFailed(error, {
+        onMissing: () => {
+          throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
+        },
+      });
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }

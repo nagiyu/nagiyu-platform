@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createUserRepository } from '@nagiyu/auth-core';
-import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES, toErrorMessage } from '@nagiyu/common';
 import { reportErrorEvent } from '@nagiyu/aws';
 import { getSession } from '@/lib/auth/session';
 
@@ -34,7 +34,7 @@ export async function GET() {
 
     return NextResponse.json(user);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     await reportErrorEvent({
       serviceId: 'auth',
       severity: 'error',

@@ -11,6 +11,7 @@
 import {
   generateEventId,
   logger,
+  toErrorMessage,
   type ErrorEvent,
   type ErrorSeverity,
   type ErrorSource,
@@ -71,7 +72,7 @@ export async function reportErrorEvent(input: ReportErrorEventInput): Promise<Er
     return event;
   } catch (error) {
     logger.error(ERROR_MESSAGES.WRITE_FAILED, {
-      error: error instanceof Error ? error.message : String(error),
+      error: toErrorMessage(error),
     });
     return null;
   }

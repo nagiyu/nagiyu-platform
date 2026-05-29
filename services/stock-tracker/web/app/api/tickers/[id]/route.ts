@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES, toErrorMessage } from '@nagiyu/common';
 import { TickerNotFoundError, validateTickerUpdateData } from '@nagiyu/stock-tracker-core';
 import { withAuth, handleApiError } from '@nagiyu/nextjs';
 import { reportErrorEvent } from '@nagiyu/aws';
@@ -123,7 +123,7 @@ export const PUT = withAuth(
         throw error;
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = toErrorMessage(error);
       await reportErrorEvent({
         serviceId: 'stock-tracker',
         severity: 'error',
@@ -176,7 +176,7 @@ export const DELETE = withAuth(
         throw error;
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = toErrorMessage(error);
       await reportErrorEvent({
         serviceId: 'stock-tracker',
         severity: 'error',

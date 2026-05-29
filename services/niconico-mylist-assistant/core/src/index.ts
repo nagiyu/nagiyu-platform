@@ -25,5 +25,5 @@ export * from './db/index.js';
 // ニコニコ動画 API クライアント
 export * from './niconico/index.js';
 
-// 暗号化ユーティリティ
-export * from './utils/crypto.js';
+// 暗号化ユーティリティ（@nagiyu/aws へ移管）
+export { encrypt, decrypt, clearCache, getEncryptionKey } from '@nagiyu/aws';

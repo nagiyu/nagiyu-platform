@@ -1,14 +1,17 @@
 import type { BatchClient } from '@aws-sdk/client-batch';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import type { LambdaClient } from '@aws-sdk/client-lambda';
 import type { S3Client } from '@aws-sdk/client-s3';
 import { clearBatchClientCache, getBatchClient } from './batch/index.js';
 import { clearDynamoDBClientCache, getDynamoDBDocumentClient } from './dynamodb/index.js';
+import { clearLambdaClientCache, getLambdaClient } from './lambda/index.js';
 import { clearS3ClientCache, getS3Client } from './s3/index.js';
 
 export interface AwsClients {
   docClient: DynamoDBDocumentClient;
   s3Client: S3Client;
   batchClient: BatchClient;
+  lambdaClient: LambdaClient;
 }
 
 /**
@@ -22,6 +25,7 @@ export function getAwsClients(region?: string): AwsClients {
     docClient: getDynamoDBDocumentClient(region),
     s3Client: getS3Client(region),
     batchClient: getBatchClient(region),
+    lambdaClient: getLambdaClient(region),
   };
 }
 
@@ -32,4 +36,5 @@ export function clearAwsClientsCache(): void {
   clearDynamoDBClientCache();
   clearS3ClientCache();
   clearBatchClientCache();
+  clearLambdaClientCache();
 }

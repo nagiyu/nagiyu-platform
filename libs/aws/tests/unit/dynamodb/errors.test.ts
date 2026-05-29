@@ -4,6 +4,7 @@ import {
   EntityAlreadyExistsError,
   InvalidEntityDataError,
   DatabaseError,
+  mapConditionalCheckFailed,
 } from '../../../src/dynamodb/errors.js';
 
 describe('errors', () => {
@@ -110,6 +111,83 @@ describe('errors', () => {
       expect(entityExistsError).toBeInstanceOf(RepositoryError);
       expect(invalidDataError).toBeInstanceOf(RepositoryError);
       expect(databaseError).toBeInstanceOf(RepositoryError);
+    });
+  });
+
+  describe('mapConditionalCheckFailed', () => {
+    it('ConditionalCheckFailedException のとき onExists を呼ぶ', () => {
+      const error = Object.assign(new Error('condition failed'), {
+        name: 'ConditionalCheckFailedException',
+      });
+
+      expect(() =>
+        mapConditionalCheckFailed(error, {
+          onExists: () => {
+            throw new EntityAlreadyExistsError('Item', 'id-1');
+          },
+        })
+      ).toThrow(EntityAlreadyExistsError);
+    });
+
+    it('ConditionalCheckFailedException のとき onMissing を呼ぶ', () => {
+      const error = Object.assign(new Error('condition failed'), {
+        name: 'ConditionalCheckFailedException',
+      });
+
+      expect(() =>
+        mapConditionalCheckFailed(error, {
+          onMissing: () => {
+            throw new EntityNotFoundError('Item', 'id-1');
+          },
+        })
+      ).toThrow(EntityNotFoundError);
+    });
+
+    it('onExists と onMissing の両方がある場合は onExists を優先する', () => {
+      const error = Object.assign(new Error('condition failed'), {
+        name: 'ConditionalCheckFailedException',
+      });
+
+      expect(() =>
+        mapConditionalCheckFailed(error, {
+          onExists: () => {
+            throw new EntityAlreadyExistsError('Item', 'id-1');
+          },
+          onMissing: () => {
+            throw new EntityNotFoundError('Item', 'id-1');
+          },
+        })
+      ).toThrow(EntityAlreadyExistsError);
+    });
+
+    it('ConditionalCheckFailedException 以外のエラーは無視する', () => {
+      const error = new Error('network error');
+
+      expect(() =>
+        mapConditionalCheckFailed(error, {
+          onExists: () => {
+            throw new EntityAlreadyExistsError('Item', 'id-1');
+          },
+        })
+      ).not.toThrow();
+    });
+
+    it('Error でない値は無視する', () => {
+      expect(() =>
+        mapConditionalCheckFailed('some string', {
+          onExists: () => {
+            throw new EntityAlreadyExistsError('Item', 'id-1');
+          },
+        })
+      ).not.toThrow();
+    });
+
+    it('コールバックなしでも例外を投げない', () => {
+      const error = Object.assign(new Error('condition failed'), {
+        name: 'ConditionalCheckFailedException',
+      });
+
+      expect(() => mapConditionalCheckFailed(error, {})).not.toThrow();
     });
   });
 });

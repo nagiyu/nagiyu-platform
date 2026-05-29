@@ -2,14 +2,18 @@
  * DynamoDB 共通機能エクスポート
  */
 
-// エラークラス
+// エラークラス・マッピング関数
 export {
   RepositoryError,
   EntityNotFoundError,
   EntityAlreadyExistsError,
   InvalidEntityDataError,
   DatabaseError,
+  mapConditionalCheckFailed,
 } from './errors.js';
+
+// cursor ヘルパー
+export { encodeCursor, decodeCursor } from './cursor.js';
 
 // 型定義
 export type {

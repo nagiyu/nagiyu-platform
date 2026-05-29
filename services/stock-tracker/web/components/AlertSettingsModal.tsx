@@ -15,7 +15,7 @@ import {
   Switch,
 } from '@mui/material';
 import { Button, ErrorAlert, Select } from '@nagiyu/ui';
-import { urlBase64ToUint8Array } from '@nagiyu/browser';
+import { subscribePush } from '@nagiyu/browser';
 import { formatPrice } from '@nagiyu/common';
 import { calculateTargetPriceFromPercentage } from '../lib/percentage-helper';
 import type { Timeframe } from '../types/stock';
@@ -23,8 +23,6 @@ import { TIMEFRAME_LABELS } from '../types/stock';
 import type { AlertResponse, AlertFrequency, AlertMode } from '../types/alert';
 import { computeAlertLines, getChartAlertConditions } from '../lib/chart-overlay-lines';
 import StockChart from './StockChart';
-import NotificationEditDialog from './NotificationEditDialog';
-import NotificationOverwriteConfirmDialog from './NotificationOverwriteConfirmDialog';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -48,8 +46,7 @@ const ERROR_MESSAGES = {
   CALCULATED_MAX_PRICE_OUT_OF_RANGE:
     '計算された最大価格が有効な範囲（0.01～1,000,000）を超えています。別のパーセンテージを選択してください',
   UPDATE_ALERT_ERROR: 'アラートの更新に失敗しました',
-  NOTIFICATION_TITLE_REQUIRED: '通知タイトルは必須です',
-  NOTIFICATION_BODY_REQUIRED: '通知本文は必須です',
+  CUSTOM_MESSAGE_TOO_LONG: 'カスタムメッセージは500文字以内で入力してください',
 } as const;
 
 const FREQUENCY_LABELS: Record<AlertFrequency, string> = {
@@ -60,6 +57,18 @@ const FREQUENCY_LABELS: Record<AlertFrequency, string> = {
 // パーセンテージ選択肢の定数配列（-20 ～ +20、5%刻み）
 const PERCENTAGE_OPTIONS = [-20, -15, -10, -5, 0, 5, 10, 15, 20] as const;
 const DEFAULT_CHART_TIMEFRAME: Timeframe = '60';
+
+const fetchVapidPublicKey = async (): Promise<string> => {
+  const response = await fetch('/api/push/vapid-public-key');
+  if (!response.ok) {
+    throw new Error('VAPID公開鍵の取得に失敗しました');
+  }
+  const { publicKey } = (await response.json()) as { publicKey?: string };
+  if (!publicKey) {
+    throw new Error('VAPID公開鍵が空です');
+  }
+  return publicKey;
+};
 
 // プロパティ型定義
 interface AlertSettingsModalProps {
@@ -94,8 +103,7 @@ interface FormData {
   rangeInputMode?: 'manual' | 'percentage';
   minPercentage?: string; // -20 ～ +20
   maxPercentage?: string; // -20 ～ +20
-  notificationTitle: string;
-  notificationBody: string;
+  customMessage: string;
 }
 
 // アラート作成リクエストボディ型
@@ -115,8 +123,7 @@ interface CreateAlertRequest {
   subscription: PushSubscriptionJSON;
   logicalOperator?: 'AND' | 'OR';
   temporary?: boolean;
-  notificationTitle?: string;
-  notificationBody?: string;
+  customMessage?: string;
 }
 
 // 初期フォームデータ
@@ -136,60 +143,14 @@ const getInitialFormData = (tradeMode: AlertMode): FormData => ({
   rangeInputMode: 'manual',
   minPercentage: '',
   maxPercentage: '',
-  notificationTitle: '',
-  notificationBody: '',
+  customMessage: '',
 });
-
-const getDefaultNotificationText = (
-  tradeMode: AlertMode,
-  tickerId: string,
-  formData: Pick<
-    FormData,
-    'conditionMode' | 'operator' | 'targetPrice' | 'rangeType' | 'minPrice' | 'maxPrice'
-  >
-): { title: string; body: string } => {
-  const modeLabel = tradeMode === 'Buy' ? '買い' : '売り';
-  const title = `${modeLabel}アラート: ${tickerId}`;
-
-  if (formData.conditionMode === 'single') {
-    const targetPrice = Number(formData.targetPrice);
-    if (!Number.isNaN(targetPrice) && targetPrice > 0) {
-      const operatorText = formData.operator === 'gte' ? '以上' : '以下';
-      return {
-        title,
-        body: `現在価格 が目標価格 $${targetPrice.toFixed(2)} ${operatorText}になりました`,
-      };
-    }
-  } else {
-    const minPrice = Number(formData.minPrice);
-    const maxPrice = Number(formData.maxPrice);
-
-    if (!Number.isNaN(minPrice) && !Number.isNaN(maxPrice) && minPrice > 0 && maxPrice > 0) {
-      if (formData.rangeType === 'inside') {
-        return {
-          title,
-          body: `現在価格 が範囲 $${minPrice.toFixed(2)}〜$${maxPrice.toFixed(2)} 内になりました`,
-        };
-      }
-      return {
-        title,
-        body: `現在価格 が範囲外（$${minPrice.toFixed(2)} 以下 または $${maxPrice.toFixed(2)} 以上）になりました`,
-      };
-    }
-  }
-
-  return {
-    title,
-    body: '現在価格 がアラート条件に一致しました',
-  };
-};
 
 interface BuildFormDataParams {
   mode: 'create' | 'edit';
   tradeMode: AlertMode;
   editTarget?: AlertResponse;
   defaultTargetPrice?: number;
-  tickerId: string;
 }
 
 const buildFormData = ({
@@ -197,7 +158,6 @@ const buildFormData = ({
   tradeMode,
   editTarget,
   defaultTargetPrice,
-  tickerId,
 }: BuildFormDataParams): FormData => {
   if (mode === 'edit' && editTarget) {
     const isRangeCondition = editTarget.conditions.length === 2 && !!editTarget.logicalOperator;
@@ -206,7 +166,7 @@ const buildFormData = ({
       const minCond = editTarget.conditions[0];
       const maxCond = editTarget.conditions[1];
       const isRangePercentage = minCond?.isPercentage === true && maxCond?.isPercentage === true;
-      const nextFormData: FormData = {
+      return {
         ...getInitialFormData(tradeMode),
         conditionMode: 'range',
         rangeType: editTarget.logicalOperator === 'OR' ? 'outside' : 'inside',
@@ -215,25 +175,18 @@ const buildFormData = ({
         frequency: editTarget.frequency,
         enabled: editTarget.enabled,
         temporary: editTarget.temporary === true,
-        notificationTitle: editTarget.notificationTitle || '',
-        notificationBody: editTarget.notificationBody || '',
+        customMessage: editTarget.customMessage || '',
         ...(isRangePercentage && {
           rangeInputMode: 'percentage',
           minPercentage: minCond?.percentageValue?.toString() || '',
           maxPercentage: maxCond?.percentageValue?.toString() || '',
         }),
       };
-      const defaultNotificationText = getDefaultNotificationText(tradeMode, tickerId, nextFormData);
-      return {
-        ...nextFormData,
-        notificationTitle: nextFormData.notificationTitle || defaultNotificationText.title,
-        notificationBody: nextFormData.notificationBody || defaultNotificationText.body,
-      };
     }
 
     const singleCond = editTarget.conditions[0];
     const isSinglePercentage = singleCond?.isPercentage === true;
-    const nextFormData: FormData = {
+    return {
       ...getInitialFormData(tradeMode),
       conditionMode: 'single',
       operator: singleCond?.operator === 'gte' ? 'gte' : 'lte',
@@ -241,30 +194,17 @@ const buildFormData = ({
       frequency: editTarget.frequency,
       enabled: editTarget.enabled,
       temporary: editTarget.temporary === true,
-      notificationTitle: editTarget.notificationTitle || '',
-      notificationBody: editTarget.notificationBody || '',
+      customMessage: editTarget.customMessage || '',
       ...(isSinglePercentage && {
         inputMode: 'percentage',
         percentage: singleCond?.percentageValue?.toString() || '',
       }),
     };
-    const defaultNotificationText = getDefaultNotificationText(tradeMode, tickerId, nextFormData);
-    return {
-      ...nextFormData,
-      notificationTitle: nextFormData.notificationTitle || defaultNotificationText.title,
-      notificationBody: nextFormData.notificationBody || defaultNotificationText.body,
-    };
   }
 
-  const nextFormData: FormData = {
+  return {
     ...getInitialFormData(tradeMode),
     targetPrice: defaultTargetPrice ? defaultTargetPrice.toString() : '',
-  };
-  const defaultNotificationText = getDefaultNotificationText(tradeMode, tickerId, nextFormData);
-  return {
-    ...nextFormData,
-    notificationTitle: defaultNotificationText.title,
-    notificationBody: defaultNotificationText.body,
   };
 };
 
@@ -288,7 +228,6 @@ export default function AlertSettingsModal({
     tradeMode,
     editTarget,
     defaultTargetPrice,
-    tickerId,
   });
 
   // フォームデータ（フィールド別 state）
@@ -316,11 +255,8 @@ export default function AlertSettingsModal({
   const [maxPercentage, setMaxPercentage] = useState<FormData['maxPercentage']>(
     initialFormData.maxPercentage
   );
-  const [notificationTitle, setNotificationTitle] = useState<FormData['notificationTitle']>(
-    initialFormData.notificationTitle
-  );
-  const [notificationBody, setNotificationBody] = useState<FormData['notificationBody']>(
-    initialFormData.notificationBody
+  const [customMessage, setCustomMessage] = useState<FormData['customMessage']>(
+    initialFormData.customMessage
   );
 
   const formData: FormData = {
@@ -338,8 +274,7 @@ export default function AlertSettingsModal({
     rangeInputMode,
     minPercentage,
     maxPercentage,
-    notificationTitle,
-    notificationBody,
+    customMessage,
   };
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormData, string>>>({});
 
@@ -348,9 +283,6 @@ export default function AlertSettingsModal({
   const [error, setError] = useState<string>('');
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
   const [timeframe, setTimeframe] = useState<Timeframe>(DEFAULT_CHART_TIMEFRAME);
-  const [notificationEditDialogOpen, setNotificationEditDialogOpen] = useState<boolean>(false);
-  const [overwriteConfirmDialogOpen, setOverwriteConfirmDialogOpen] = useState<boolean>(false);
-  const [pendingNotificationBody, setPendingNotificationBody] = useState<string>('');
 
   const chartAlertLines = useMemo(
     () =>
@@ -382,107 +314,36 @@ export default function AlertSettingsModal({
     setRangeInputMode(nextFormData.rangeInputMode);
     setMinPercentage(nextFormData.minPercentage);
     setMaxPercentage(nextFormData.maxPercentage);
-    setNotificationTitle(nextFormData.notificationTitle);
-    setNotificationBody(nextFormData.notificationBody);
-  };
-
-  const openNotificationOverwriteDialog = (
-    nextFormData: Pick<
-      FormData,
-      'conditionMode' | 'operator' | 'targetPrice' | 'rangeType' | 'minPrice' | 'maxPrice'
-    >
-  ) => {
-    const defaultNotificationText = getDefaultNotificationText(tradeMode, tickerId, nextFormData);
-    setPendingNotificationBody(defaultNotificationText.body);
-    setOverwriteConfirmDialogOpen(true);
-  };
-
-  const updateConditionField = <
-    K extends 'conditionMode' | 'operator' | 'targetPrice' | 'rangeType' | 'minPrice' | 'maxPrice',
-  >(
-    field: K,
-    value: FormData[K]
-  ) => {
-    const nextFormData = {
-      conditionMode,
-      operator,
-      targetPrice,
-      rangeType,
-      minPrice,
-      maxPrice,
-      [field]: value,
-    } as Pick<
-      FormData,
-      'conditionMode' | 'operator' | 'targetPrice' | 'rangeType' | 'minPrice' | 'maxPrice'
-    >;
-    openNotificationOverwriteDialog(nextFormData);
+    setCustomMessage(nextFormData.customMessage);
   };
 
   // モーダルが開いた時にフォームをリセット
   useEffect(() => {
     if (open) {
-      applyFormData(buildFormData({ mode, tradeMode, editTarget, defaultTargetPrice, tickerId }));
+      applyFormData(buildFormData({ mode, tradeMode, editTarget, defaultTargetPrice }));
       setFormErrors({});
       setError('');
       setSubscription(null);
       setTimeframe(DEFAULT_CHART_TIMEFRAME);
-      setNotificationEditDialogOpen(false);
-      setOverwriteConfirmDialogOpen(false);
-      setPendingNotificationBody('');
     }
-  }, [open, mode, tradeMode, editTarget, defaultTargetPrice, tickerId]);
+  }, [open, mode, tradeMode, editTarget, defaultTargetPrice]);
 
   // Web Push通知許可をリクエスト
   const requestNotificationPermission = async (): Promise<PushSubscription | null> => {
-    if (!('Notification' in window)) {
-      setError('このブラウザはWeb Push通知に対応していません');
-      return null;
-    }
-
-    if (!('serviceWorker' in navigator)) {
-      setError('このブラウザはService Workerに対応していません');
-      return null;
-    }
-
     try {
-      // 通知の許可をリクエスト
-      const permission = await Notification.requestPermission();
-
-      if (permission !== 'granted') {
-        setError(ERROR_MESSAGES.NOTIFICATION_PERMISSION_DENIED);
-        return null;
-      }
-
-      // Service Workerを登録
-      const registration = await navigator.serviceWorker.register('/sw.js');
-      await navigator.serviceWorker.ready;
-
-      // VAPID公開鍵を取得
-      const vapidPublicKeyResponse = await fetch('/api/push/vapid-public-key');
-      if (!vapidPublicKeyResponse.ok) {
-        throw new Error('VAPID公開鍵の取得に失敗しました');
-      }
-      const { publicKey } = await vapidPublicKeyResponse.json();
-
-      // Push通知をサブスクライブ
-      const sub = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
-      });
-
-      // サブスクリプション情報をサーバーに送信
-      const subscribeResponse = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const sub = await subscribePush({
+        vapidPublicKey: await fetchVapidPublicKey(),
+        onSubscribed: async (subscription) => {
+          const subscribeResponse = await fetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ subscription }),
+          });
+          if (!subscribeResponse.ok) {
+            throw new Error(ERROR_MESSAGES.SUBSCRIPTION_ERROR);
+          }
         },
-        body: JSON.stringify({ subscription: sub }),
       });
-
-      if (!subscribeResponse.ok) {
-        throw new Error(ERROR_MESSAGES.SUBSCRIPTION_ERROR);
-      }
-
       return sub;
     } catch (err) {
       console.error('Error requesting notification permission:', err);
@@ -597,11 +458,8 @@ export default function AlertSettingsModal({
         }
       }
 
-      if (formData.notificationTitle.trim() === '') {
-        errors.notificationTitle = ERROR_MESSAGES.NOTIFICATION_TITLE_REQUIRED;
-      }
-      if (formData.notificationBody.trim() === '') {
-        errors.notificationBody = ERROR_MESSAGES.NOTIFICATION_BODY_REQUIRED;
+      if (formData.customMessage && formData.customMessage.length > 500) {
+        errors.customMessage = ERROR_MESSAGES.CUSTOM_MESSAGE_TOO_LONG;
       }
       setFormErrors(errors);
       return Object.keys(errors).length === 0;
@@ -738,11 +596,8 @@ export default function AlertSettingsModal({
       }
     }
 
-    if (formData.notificationTitle.trim() === '') {
-      errors.notificationTitle = ERROR_MESSAGES.NOTIFICATION_TITLE_REQUIRED;
-    }
-    if (formData.notificationBody.trim() === '') {
-      errors.notificationBody = ERROR_MESSAGES.NOTIFICATION_BODY_REQUIRED;
+    if (formData.customMessage && formData.customMessage.length > 500) {
+      errors.customMessage = ERROR_MESSAGES.CUSTOM_MESSAGE_TOO_LONG;
     }
 
     setFormErrors(errors);
@@ -757,26 +612,6 @@ export default function AlertSettingsModal({
         return newErrors;
       });
     }
-  };
-
-  const handleNotificationEditSave = (nextTitle: string, nextBody: string) => {
-    setNotificationTitle(nextTitle);
-    setNotificationBody(nextBody);
-    clearFieldError('notificationTitle');
-    clearFieldError('notificationBody');
-    setNotificationEditDialogOpen(false);
-  };
-
-  const handleConfirmNotificationOverwrite = () => {
-    setNotificationBody(pendingNotificationBody);
-    clearFieldError('notificationBody');
-    setOverwriteConfirmDialogOpen(false);
-    setPendingNotificationBody('');
-  };
-
-  const handleCancelNotificationOverwrite = () => {
-    setOverwriteConfirmDialogOpen(false);
-    setPendingNotificationBody('');
   };
 
   const updateTargetPriceFromPercentage = (
@@ -794,7 +629,6 @@ export default function AlertSettingsModal({
       const calculatedPrice = calculateTargetPriceFromPercentage(basePrice, parsedPercentage);
       const nextTargetPrice = calculatedPrice.toString();
       setTargetPrice(nextTargetPrice);
-      updateConditionField('targetPrice', nextTargetPrice);
     } catch (calculationError) {
       console.error('Error calculating target price:', calculationError);
     }
@@ -819,7 +653,6 @@ export default function AlertSettingsModal({
           );
           const nextMinPrice = calculatedMinPrice.toString();
           setMinPrice(nextMinPrice);
-          updateConditionField('minPrice', nextMinPrice);
         } catch (calculationError) {
           console.error('Error calculating min price:', calculationError);
         }
@@ -836,7 +669,6 @@ export default function AlertSettingsModal({
           );
           const nextMaxPrice = calculatedMaxPrice.toString();
           setMaxPrice(nextMaxPrice);
-          updateConditionField('maxPrice', nextMaxPrice);
         } catch (calculationError) {
           console.error('Error calculating max price:', calculationError);
         }
@@ -873,13 +705,13 @@ export default function AlertSettingsModal({
           }>;
           enabled: boolean;
           temporary: boolean;
-          notificationTitle?: string;
-          notificationBody?: string;
+          customMessage?: string;
         } = {
           enabled: formData.enabled,
           temporary: formData.temporary,
-          notificationTitle: formData.notificationTitle.trim(),
-          notificationBody: formData.notificationBody.trim(),
+          ...(formData.customMessage && formData.customMessage.trim().length > 0
+            ? { customMessage: formData.customMessage.trim() }
+            : {}),
         };
 
         if (formData.conditionMode === 'single') {
@@ -1074,8 +906,9 @@ export default function AlertSettingsModal({
           conditions,
           subscription: sub.toJSON(),
           temporary: formData.temporary,
-          notificationTitle: formData.notificationTitle.trim(),
-          notificationBody: formData.notificationBody.trim(),
+          ...(formData.customMessage && formData.customMessage.trim().length > 0
+            ? { customMessage: formData.customMessage.trim() }
+            : {}),
         };
 
         // LogicalOperatorを追加（範囲指定の場合のみ）
@@ -1199,9 +1032,7 @@ export default function AlertSettingsModal({
               label="条件タイプ"
               value={formData.conditionMode}
               onChange={(value) => {
-                const nextConditionMode = value as FormData['conditionMode'];
-                setConditionMode(nextConditionMode);
-                updateConditionField('conditionMode', nextConditionMode);
+                setConditionMode(value as FormData['conditionMode']);
                 clearFieldError('conditionMode');
               }}
               options={[
@@ -1229,9 +1060,7 @@ export default function AlertSettingsModal({
                   label="条件"
                   value={formData.operator}
                   onChange={(value) => {
-                    const nextOperator = value as FormData['operator'];
-                    setOperator(nextOperator);
-                    updateConditionField('operator', nextOperator);
+                    setOperator(value as FormData['operator']);
                     clearFieldError('operator');
                   }}
                   error={!!formErrors.operator}
@@ -1272,9 +1101,7 @@ export default function AlertSettingsModal({
                   type="number"
                   value={formData.targetPrice}
                   onChange={(e) => {
-                    const nextTargetPrice = e.target.value;
-                    setTargetPrice(nextTargetPrice);
-                    updateConditionField('targetPrice', nextTargetPrice);
+                    setTargetPrice(e.target.value);
                     clearFieldError('targetPrice');
                   }}
                   error={!!formErrors.targetPrice}
@@ -1361,9 +1188,7 @@ export default function AlertSettingsModal({
                   label="範囲タイプ"
                   value={formData.rangeType}
                   onChange={(value) => {
-                    const nextRangeType = value as FormData['rangeType'];
-                    setRangeType(nextRangeType);
-                    updateConditionField('rangeType', nextRangeType);
+                    setRangeType(value as FormData['rangeType']);
                     clearFieldError('rangeType');
                   }}
                   helperText={
@@ -1412,9 +1237,7 @@ export default function AlertSettingsModal({
                     type="number"
                     value={formData.minPrice}
                     onChange={(e) => {
-                      const nextMinPrice = e.target.value;
-                      setMinPrice(nextMinPrice);
-                      updateConditionField('minPrice', nextMinPrice);
+                      setMinPrice(e.target.value);
                       clearFieldError('minPrice');
                     }}
                     error={!!formErrors.minPrice}
@@ -1432,9 +1255,7 @@ export default function AlertSettingsModal({
                     type="number"
                     value={formData.maxPrice}
                     onChange={(e) => {
-                      const nextMaxPrice = e.target.value;
-                      setMaxPrice(nextMaxPrice);
-                      updateConditionField('maxPrice', nextMaxPrice);
+                      setMaxPrice(e.target.value);
                       clearFieldError('maxPrice');
                     }}
                     error={!!formErrors.maxPrice}
@@ -1599,28 +1420,21 @@ export default function AlertSettingsModal({
           )}
 
           <Typography variant="subtitle1" sx={{ mt: 1 }}>
-            通知設定（任意）
+            カスタムメッセージ（任意）
           </Typography>
-          <Button variant="outline" onClick={() => setNotificationEditDialogOpen(true)}>
-            通知設定を編集
-          </Button>
-          <TextField
-            fullWidth
-            label="通知タイトル"
-            value={formData.notificationTitle}
-            slotProps={{ input: { readOnly: true } }}
-            error={!!formErrors.notificationTitle}
-            helperText={formErrors.notificationTitle}
-          />
           <TextField
             fullWidth
             multiline
             minRows={2}
-            label="通知本文"
-            value={formData.notificationBody}
-            slotProps={{ input: { readOnly: true } }}
-            error={!!formErrors.notificationBody}
-            helperText={formErrors.notificationBody}
+            label="カスタムメッセージ（通知本文の末尾に追加されます）"
+            value={formData.customMessage}
+            onChange={(e) => {
+              setCustomMessage(e.target.value);
+              clearFieldError('customMessage');
+            }}
+            slotProps={{ htmlInput: { maxLength: 500 } }}
+            error={!!formErrors.customMessage}
+            helperText={formErrors.customMessage || `${(formData.customMessage || '').length}/500`}
           />
 
           {/* Web Push通知の説明 */}
@@ -1640,23 +1454,6 @@ export default function AlertSettingsModal({
           保存
         </Button>
       </DialogActions>
-
-      {notificationEditDialogOpen && (
-        <NotificationEditDialog
-          key={`${formData.notificationTitle}-${formData.notificationBody}`}
-          open={notificationEditDialogOpen}
-          title={formData.notificationTitle}
-          body={formData.notificationBody}
-          onClose={() => setNotificationEditDialogOpen(false)}
-          onSave={handleNotificationEditSave}
-        />
-      )}
-
-      <NotificationOverwriteConfirmDialog
-        open={overwriteConfirmDialogOpen}
-        onConfirm={handleConfirmNotificationOverwrite}
-        onCancel={handleCancelNotificationOverwrite}
-      />
     </Dialog>
   );
 }

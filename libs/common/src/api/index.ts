@@ -29,7 +29,7 @@ export {
   isRetryableError,
   extractErrorInfo,
 } from './error-handler.js';
-export { extractErrorMessage } from './error-utils.js';
+export { extractErrorMessage, toErrorMessage } from './error-utils.js';
 
 // Export API client
 export {

@@ -19,6 +19,7 @@ import { logger } from '@nagiyu/common';
 const INVALID_ENTITY_DATA_ERROR_NAME = 'InvalidEntityDataError';
 
 jest.mock('@nagiyu/common', () => ({
+  ...jest.requireActual('@nagiyu/common'),
   logger: {
     info: jest.fn(),
     warn: jest.fn(),
@@ -729,7 +730,7 @@ describe('DynamoDBAlertRepository', () => {
       expect(mockDocClient.send).toHaveBeenCalledTimes(1);
     });
 
-    it('通知タイトルと通知本文を更新式に含めて更新できる', async () => {
+    it('カスタムメッセージを更新式に含めて更新できる', async () => {
       const mockUpdatedItem = {
         PK: 'USER#user-123',
         SK: 'ALERT#alert-123',
@@ -746,8 +747,7 @@ describe('DynamoDBAlertRepository', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 140.0 }],
-        NotificationTitle: '更新後タイトル',
-        NotificationBody: '更新後本文',
+        CustomMessage: '戦略メモ',
         subscription: {
           endpoint: 'https://example.com/push',
           keys: {
@@ -764,8 +764,7 @@ describe('DynamoDBAlertRepository', () => {
       });
 
       await repository.update('user-123', 'alert-123', {
-        NotificationTitle: '更新後タイトル',
-        NotificationBody: '更新後本文',
+        CustomMessage: '戦略メモ',
       });
 
       const command = mockDocClient.send.mock.calls[0]?.[0] as {
@@ -776,14 +775,9 @@ describe('DynamoDBAlertRepository', () => {
         };
       };
 
-      expect(command.input.UpdateExpression).toContain('#notificationTitle = :notificationTitle');
-      expect(command.input.UpdateExpression).toContain('#notificationBody = :notificationBody');
-      expect(command.input.ExpressionAttributeNames['#notificationTitle']).toBe(
-        'NotificationTitle'
-      );
-      expect(command.input.ExpressionAttributeNames['#notificationBody']).toBe('NotificationBody');
-      expect(command.input.ExpressionAttributeValues[':notificationTitle']).toBe('更新後タイトル');
-      expect(command.input.ExpressionAttributeValues[':notificationBody']).toBe('更新後本文');
+      expect(command.input.UpdateExpression).toContain('#customMessage = :customMessage');
+      expect(command.input.ExpressionAttributeNames['#customMessage']).toBe('CustomMessage');
+      expect(command.input.ExpressionAttributeValues[':customMessage']).toBe('戦略メモ');
     });
 
     it('存在しないアラートを更新しようとするとEntityNotFoundErrorをスローする', async () => {

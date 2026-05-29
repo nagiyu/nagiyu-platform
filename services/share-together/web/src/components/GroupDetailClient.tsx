@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import { Button, TextField } from '@nagiyu/ui';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { ConfirmDialog } from '@nagiyu/ui';
 import { InviteForm } from '@/components/InviteForm';
 
 type Member = {

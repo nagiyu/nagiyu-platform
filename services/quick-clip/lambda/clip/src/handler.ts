@@ -3,15 +3,14 @@ import { createReadStream } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { spawn } from 'node:child_process';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { reportErrorEvent } from '@nagiyu/aws';
+import { withErrorReporting, getDynamoDBDocumentClient, getS3Client } from '@nagiyu/aws';
+import { requireEnv } from '@nagiyu/common';
 import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
 
 const ERROR_MESSAGES = {
-  MISSING_ENV: '必要な環境変数が設定されていません',
   INVALID_INPUT: '入力値が不正です',
   SPLIT_FAILED: 'クリップ分割に失敗しました',
 } as const;
@@ -34,13 +33,6 @@ export type ClipRegenerateResult = {
   clipStatus: 'GENERATED' | 'FAILED';
 };
 
-const createDynamoDBDocumentClient = (region: string): DynamoDBDocumentClient =>
-  DynamoDBDocumentClient.from(new DynamoDBClient({ region }), {
-    marshallOptions: {
-      removeUndefinedValues: true,
-    },
-  });
-
 const validateEvent = (event: ClipRegenerateEvent): void => {
   if (!event.jobId || !event.highlightId) {
     throw new Error(ERROR_MESSAGES.INVALID_INPUT);
@@ -54,23 +46,12 @@ const validateEvent = (event: ClipRegenerateEvent): void => {
 };
 
 const validateEnvironment = (): { tableName: string; bucketName: string; awsRegion: string } => {
-  const tableName = process.env.DYNAMODB_TABLE_NAME?.trim() ?? '';
-  const bucketName = process.env.S3_BUCKET?.trim() ?? '';
-  const awsRegion = process.env.AWS_REGION?.trim() ?? '';
-  const missing: string[] = [];
-  if (tableName.length === 0) {
-    missing.push('DYNAMODB_TABLE_NAME');
-  }
-  if (bucketName.length === 0) {
-    missing.push('S3_BUCKET');
-  }
-  if (awsRegion.length === 0) {
-    missing.push('AWS_REGION');
-  }
-  if (missing.length > 0) {
-    throw new Error(`${ERROR_MESSAGES.MISSING_ENV}: ${missing.join(', ')}`);
-  }
-  return { tableName, bucketName, awsRegion };
+  const env = requireEnv(['DYNAMODB_TABLE_NAME', 'S3_BUCKET', 'AWS_REGION']);
+  return {
+    tableName: env.DYNAMODB_TABLE_NAME,
+    bucketName: env.S3_BUCKET,
+    awsRegion: env.AWS_REGION,
+  };
 };
 
 const createSourceVideoUrl = async (
@@ -160,30 +141,33 @@ export const handler = async (event: ClipRegenerateEvent): Promise<ClipRegenerat
   // Lambda の /tmp は実行環境内で共有され得るため、衝突回避のために一意な作業ディレクトリを使う。
   const requestId = randomUUID();
   const localOutputPath = CLIP_OUTPUT_PATH(event.jobId, event.highlightId, requestId);
-  const s3Client = new S3Client({ region: awsRegion });
-  const docClient = createDynamoDBDocumentClient(awsRegion);
+  const s3Client = getS3Client(awsRegion);
+  const docClient = getDynamoDBDocumentClient(awsRegion);
 
   try {
-    const inputSourceUrl = await createSourceVideoUrl(s3Client, bucketName, event.jobId);
-    await splitClip(inputSourceUrl, localOutputPath, event.startSec, event.endSec);
-    await uploadClip(s3Client, bucketName, event.jobId, event.highlightId, localOutputPath);
-    await updateClipStatus(docClient, tableName, event, 'GENERATED');
-    return { clipStatus: 'GENERATED' };
-  } catch (error) {
-    await updateClipStatus(docClient, tableName, event, 'FAILED');
-    await reportErrorEvent({
-      serviceId: 'quick-clip',
-      severity: 'error',
-      title: 'QuickClip クリップ再生成に失敗しました',
-      message: error instanceof Error ? error.message : String(error),
-      context: {
-        jobId: event.jobId,
-        highlightId: event.highlightId,
-        s3Key: CLIP_OUTPUT_KEY(event.jobId, event.highlightId),
-        errorStack: error instanceof Error ? error.stack : undefined,
+    const result = await withErrorReporting(
+      {
+        serviceId: 'quick-clip',
+        severity: 'error',
+        title: 'QuickClip クリップ再生成に失敗しました',
+        context: {
+          jobId: event.jobId,
+          highlightId: event.highlightId,
+          s3Key: CLIP_OUTPUT_KEY(event.jobId, event.highlightId),
+        },
+        onError: async () => {
+          await updateClipStatus(docClient, tableName, event, 'FAILED');
+        },
       },
-    });
-    throw error;
+      async () => {
+        const inputSourceUrl = await createSourceVideoUrl(s3Client, bucketName, event.jobId);
+        await splitClip(inputSourceUrl, localOutputPath, event.startSec, event.endSec);
+        await uploadClip(s3Client, bucketName, event.jobId, event.highlightId, localOutputPath);
+        await updateClipStatus(docClient, tableName, event, 'GENERATED');
+        return { clipStatus: 'GENERATED' as const };
+      }
+    );
+    return result!;
   } finally {
     await rm(dirname(localOutputPath), { recursive: true, force: true });
   }

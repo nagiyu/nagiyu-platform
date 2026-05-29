@@ -21,6 +21,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@nagiyu/browser": "*",
     "@nagiyu/common": "*"
   },
   "devDependencies": {

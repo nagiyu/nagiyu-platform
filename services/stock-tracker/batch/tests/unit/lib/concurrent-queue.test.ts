@@ -127,4 +127,54 @@ describe('runConcurrent', () => {
       expect((rejected[0] as PromiseRejectedResult).reason).toBe(error);
     });
   });
+
+  describe('正常系: jitter オプション', () => {
+    it('jitterMs: 0 のとき全タスクが実行されて結果が返る', async () => {
+      const tasks = [() => Promise.resolve(1), () => Promise.resolve(2), () => Promise.resolve(3)];
+
+      const { results, skippedCount } = await runConcurrent(tasks, 10, () => false, {
+        jitterMs: 0,
+      });
+
+      expect(skippedCount).toBe(0);
+      expect(results).toHaveLength(3);
+      const values = results
+        .filter((r): r is PromiseFulfilledResult<number> => r.status === 'fulfilled')
+        .map((r) => r.value)
+        .sort();
+      expect(values).toEqual([1, 2, 3]);
+    });
+
+    it('jitterMs > 0 のとき全タスクが実行され、並列度上限が守られる', async () => {
+      const concurrency = 2;
+      let maxConcurrent = 0;
+      let currentConcurrent = 0;
+
+      const tasks = Array.from({ length: 5 }, (_, i) => async () => {
+        currentConcurrent++;
+        maxConcurrent = Math.max(maxConcurrent, currentConcurrent);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        currentConcurrent--;
+        return i;
+      });
+
+      const { results, skippedCount } = await runConcurrent(tasks, concurrency, () => false, {
+        jitterMs: 50,
+      });
+
+      expect(skippedCount).toBe(0);
+      expect(results).toHaveLength(5);
+      expect(maxConcurrent).toBeLessThanOrEqual(concurrency);
+    });
+
+    it('jitterMs > 0 でも rejected タスクの結果が results に含まれる', async () => {
+      const error = new Error('jitter 中のタスク失敗');
+      const tasks = [() => Promise.resolve(1), () => Promise.reject(error)];
+
+      const { results } = await runConcurrent(tasks, 5, () => false, { jitterMs: 30 });
+
+      expect(results).toHaveLength(2);
+      expect(results.some((r) => r.status === 'rejected')).toBe(true);
+    });
+  });
 });

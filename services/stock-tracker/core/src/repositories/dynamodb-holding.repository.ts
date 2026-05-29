@@ -16,6 +16,9 @@ import {
   EntityNotFoundError,
   EntityAlreadyExistsError,
   DatabaseError,
+  mapConditionalCheckFailed,
+  encodeCursor,
+  decodeCursor,
   type PaginationOptions,
   type PaginatedResult,
   type DynamoDBItem,
@@ -27,6 +30,7 @@ import type {
   UpdateHoldingInput,
 } from '../entities/holding.entity.js';
 import { HoldingMapper } from '../mappers/holding.mapper.js';
+import { toErrorMessage } from '@nagiyu/common';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -69,7 +73,7 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
 
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -83,9 +87,7 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
   ): Promise<PaginatedResult<HoldingEntity>> {
     try {
       const limit = options?.limit || 50;
-      const exclusiveStartKey = options?.cursor
-        ? JSON.parse(Buffer.from(options.cursor, 'base64').toString('utf-8'))
-        : undefined;
+      const exclusiveStartKey = decodeCursor(options?.cursor);
 
       const result = await this.docClient.send(
         new QueryCommand({
@@ -108,9 +110,7 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
       const items = (result.Items || []).map((item) =>
         this.mapper.toEntity(item as unknown as DynamoDBItem)
       );
-      const nextCursor = result.LastEvaluatedKey
-        ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
-        : undefined;
+      const nextCursor = encodeCursor(result.LastEvaluatedKey);
 
       return {
         items,
@@ -118,7 +118,7 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
         count: result.Count,
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -147,11 +147,12 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
 
       return entity;
     } catch (error) {
-      // 条件付き保存の失敗（既存アイテムが存在）
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityAlreadyExistsError('Holding', `${input.UserID}#${input.TickerID}`);
-      }
-      const message = error instanceof Error ? error.message : String(error);
+      mapConditionalCheckFailed(error, {
+        onExists: () => {
+          throw new EntityAlreadyExistsError('Holding', `${input.UserID}#${input.TickerID}`);
+        },
+      });
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -217,15 +218,16 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
 
       return this.mapper.toEntity(result.Attributes as unknown as DynamoDBItem);
     } catch (error) {
-      // 条件チェック失敗（アイテムが存在しない）
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityNotFoundError('Holding', `${userId}#${tickerId}`);
-      }
+      mapConditionalCheckFailed(error, {
+        onMissing: () => {
+          throw new EntityNotFoundError('Holding', `${userId}#${tickerId}`);
+        },
+      });
       // EntityNotFoundError はそのまま投げる
       if (error instanceof EntityNotFoundError) {
         throw error;
       }
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -245,11 +247,12 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
         })
       );
     } catch (error) {
-      // 条件チェック失敗（アイテムが存在しない）
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityNotFoundError('Holding', `${userId}#${tickerId}`);
-      }
-      const message = error instanceof Error ? error.message : String(error);
+      mapConditionalCheckFailed(error, {
+        onMissing: () => {
+          throw new EntityNotFoundError('Holding', `${userId}#${tickerId}`);
+        },
+      });
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }

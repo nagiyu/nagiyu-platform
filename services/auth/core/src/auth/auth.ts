@@ -2,6 +2,7 @@ import NextAuth, { type NextAuthConfig } from 'next-auth';
 import Google from 'next-auth/providers/google';
 import { createAuthConfig } from '@nagiyu/nextjs';
 import { reportErrorEvent } from '@nagiyu/aws';
+import { toErrorMessage } from '@nagiyu/common';
 import { createUserRepository } from '../repositories/factory';
 
 // エラーメッセージ定数
@@ -120,7 +121,7 @@ export const authConfig: NextAuthConfig = {
           picture: user.image || undefined,
         });
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = toErrorMessage(error);
         await reportErrorEvent({
           serviceId: 'auth',
           severity: 'error',
