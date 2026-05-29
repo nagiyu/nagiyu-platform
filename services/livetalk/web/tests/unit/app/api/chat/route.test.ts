@@ -22,6 +22,9 @@ jest.mock('@/lib/server/safety', () => ({
 jest.mock('@/lib/server/memory-retriever', () => ({
   getMemoryRetriever: jest.fn().mockReturnValue({}),
 }));
+jest.mock('@/lib/server/embedding', () => ({
+  getEmbeddingClient: jest.fn().mockReturnValue({}),
+}));
 
 // runChatUseCase をモック化して依存 I/O を切り離す
 jest.mock('@nagiyu/livetalk-core', () => ({
