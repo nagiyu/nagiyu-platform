@@ -1,5 +1,6 @@
 export * from './voicevox/index.js';
 export * from './llm-client/index.js';
+export type { SummarizeInput, SummarizeResult, MemoryCandidate } from './llm-client/types.js';
 export * from './constants.js';
 
 // Memory retrieval

@@ -45,6 +45,7 @@ export interface ChatOptions {
  *
  * - `chatStream`: ストリーミング応答。`AsyncIterable<string>` でテキスト delta を逐次返す
  * - `chatComplete`: 一括応答。完成したテキストを返す
+ * - `summarize`: 会話圧縮要約。既存要約と新着メッセージをマージして新要約 + 記憶候補を返す
  *
  * ネットワークエラー・rate limit 等は Error として throw される（Provider のエラーをそのまま伝播）。
  * リトライは呼び出し側の責務。
@@ -52,12 +53,38 @@ export interface ChatOptions {
 export interface ILLMClient {
   chatStream(messages: ChatMessage[], options?: ChatOptions): AsyncIterable<string>;
   chatComplete(messages: ChatMessage[], options?: ChatOptions): Promise<string>;
+  summarize(input: SummarizeInput): Promise<SummarizeResult>;
 }
 
 /**
  * 用途別モデルマップ。Provider 実装側で既定値を持ち、コンストラクタで上書き可能。
  */
 export type PurposeModelMap = Record<ChatPurpose, string>;
+
+/**
+ * `ILLMClient.summarize` の入力。
+ */
+export interface SummarizeInput {
+  existingSummary: string | undefined;
+  newMessages: Array<{ role: 'user' | 'assistant'; text: string }>;
+  characterName: string;
+}
+
+/**
+ * 抽出された新規記憶候補（Tier C として保存される）。
+ */
+export interface MemoryCandidate {
+  category: string;
+  content: string;
+}
+
+/**
+ * `ILLMClient.summarize` の出力。
+ */
+export interface SummarizeResult {
+  mergedSummary: string;
+  newMemoryCandidates: MemoryCandidate[];
+}
 
 /**
  * Embedding クライアントの抽象インターフェース。
