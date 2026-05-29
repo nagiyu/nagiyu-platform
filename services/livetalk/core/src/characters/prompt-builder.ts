@@ -15,7 +15,8 @@ export function getTimeOfDay(date: Date): TimeOfDay {
 export function buildSystemPrompt(
   character: CharacterDefinition,
   now: Date,
-  retrievedMemories: RetrievedMemory[] = []
+  retrievedMemories: RetrievedMemory[] = [],
+  summaryText?: string
 ): string {
   const { personality, displayName } = character;
   const timeOfDay = getTimeOfDay(now);
@@ -35,14 +36,23 @@ export function buildSystemPrompt(
 - 返答は短く（1〜3 文程度）、テンポよく続ける
 - セーフティ対応は後続ロジックで処理されるため、ここでは扱わない`.trim();
 
-  if (retrievedMemories.length === 0) return base;
+  const hasSummary = summaryText && summaryText.trim().length > 0;
+  const hasMemories = retrievedMemories.length > 0;
 
-  const memoriesSection = retrievedMemories.map((r) => `- ${r.memory.Content}`).join('\n');
+  if (!hasSummary && !hasMemories) return base;
 
-  return `${base}
+  const sections: string[] = [base];
 
-あなたが覚えていること：
-${memoriesSection}`;
+  if (hasSummary) {
+    sections.push(`あなたがこれまでに知ったこと：\n${summaryText!.trim()}`);
+  }
+
+  if (hasMemories) {
+    const memoriesSection = retrievedMemories.map((r) => `- ${r.memory.Content}`).join('\n');
+    sections.push(`あなたが覚えていること：\n${memoriesSection}`);
+  }
+
+  return sections.join('\n\n');
 }
 
 /**
@@ -58,9 +68,10 @@ export function buildChatMessages(
   now: Date,
   history: MessageEntity[],
   userText: string,
-  retrievedMemories: RetrievedMemory[] = []
+  retrievedMemories: RetrievedMemory[] = [],
+  summaryText?: string
 ): ChatMessage[] {
-  const systemPrompt = buildSystemPrompt(character, now, retrievedMemories);
+  const systemPrompt = buildSystemPrompt(character, now, retrievedMemories, summaryText);
   const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }];
 
   for (const msg of history) {
