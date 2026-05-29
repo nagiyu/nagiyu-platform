@@ -19,6 +19,12 @@ export { SentenceBuffer } from './lib/sentence-splitter.js';
 // Chat usecase
 export { runChatUseCase, type ChatEvent, type ChatUseCaseParams } from './usecases/chat-usecase.js';
 
+// Compress conversation usecase
+export {
+  compressConversation,
+  type CompressConversationParams,
+} from './usecases/compress-conversation.usecase.js';
+
 // Entities
 export type {
   MemoryEntity,
