@@ -6,7 +6,13 @@ export * from './constants.js';
 // Memory retrieval + confirmation + correction
 export { cosineSimilarity, MemoryRetriever } from './memory/index.js';
 export type { IMemoryRetriever, RetrieveOptions, RetrievedMemory } from './memory/index.js';
-export { detectCorrection, identifyPromotionCandidates, identifyNewLearnings, applyCorrection, executePromotion } from './memory/index.js';
+export {
+  detectCorrection,
+  identifyPromotionCandidates,
+  identifyNewLearnings,
+  applyCorrection,
+  executePromotion,
+} from './memory/index.js';
 export type { CorrectionResult } from './memory/index.js';
 
 // Safety

@@ -113,9 +113,7 @@ describe('applyCorrection', () => {
       const mem = makeMemory('m1', confidence);
       const repo = makeRepo();
       await applyCorrection({ detected: true, targetMemories: [mem] }, repo);
-      expect(repo.delete).toHaveBeenCalledWith(
-        expect.objectContaining({ memoryId: 'm1' })
-      );
+      expect(repo.delete).toHaveBeenCalledWith(expect.objectContaining({ memoryId: 'm1' }));
       expect(repo.update).not.toHaveBeenCalled();
     });
 
@@ -133,19 +131,26 @@ describe('applyCorrection', () => {
     it('update がエラーを投げても他の Memory の処理を続ける（fail-warn）', async () => {
       const mems = [makeMemory('m1', 0.8), makeMemory('m2', 0.8)];
       const repo = makeRepo({
-        update: jest.fn()
+        update: jest
+          .fn()
           .mockRejectedValueOnce(new Error('DB error'))
           .mockResolvedValueOnce(makeMemory('m2', 0.5)),
       });
-      await expect(applyCorrection({ detected: true, targetMemories: mems }, repo)).resolves.not.toThrow();
+      await expect(
+        applyCorrection({ detected: true, targetMemories: mems }, repo)
+      ).resolves.not.toThrow();
     });
 
     it('delete がエラーを投げても fail-warn で継続する', async () => {
       const mem = makeMemory('m1', 0.1); // 確実に削除対象
       const repo = makeRepo({
-        delete: jest.fn(async () => { throw new Error('DB error'); }),
+        delete: jest.fn(async () => {
+          throw new Error('DB error');
+        }),
       });
-      await expect(applyCorrection({ detected: true, targetMemories: [mem] }, repo)).resolves.not.toThrow();
+      await expect(
+        applyCorrection({ detected: true, targetMemories: [mem] }, repo)
+      ).resolves.not.toThrow();
     });
   });
 });
@@ -174,7 +179,8 @@ describe('executePromotion', () => {
   it('promote がエラーを投げても fail-warn で継続する', async () => {
     const mems = [makeMemory('c1', 0.5, 'C'), makeMemory('c2', 0.6, 'C')];
     const repo = makeRepo({
-      promote: jest.fn()
+      promote: jest
+        .fn()
         .mockRejectedValueOnce(new Error('DB error'))
         .mockResolvedValueOnce({ ...mems[1], Tier: 'B' }),
     });

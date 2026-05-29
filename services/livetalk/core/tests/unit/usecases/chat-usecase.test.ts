@@ -952,17 +952,17 @@ describe('runChatUseCase', () => {
     }
 
     it('訂正検出時に memoryRepo.update を呼ぶ（confidence 減算）', async () => {
-      const history = [
-        makeMessage('assistant', 'コーヒーが好きなんだね！', 'a1'),
-      ];
+      const history = [makeMessage('assistant', 'コーヒーが好きなんだね！', 'a1')];
       const memories = [makeRetrieved('m1', 'コーヒーが好き')];
       const retriever = makeMemoryRetriever(memories);
       const memRepo = makeMemoryRepo();
       // LLM: classify → 訂正あり / stream → 通常応答
       const llm: ILLMClient = {
-        chatStream: jest.fn(async function* () { yield '了解！'; }),
-        chatComplete: jest.fn(async () =>
-          '{"detected": true, "targetMemoryIds": ["m1"], "newValue": "お茶が好き"}'
+        chatStream: jest.fn(async function* () {
+          yield '了解！';
+        }),
+        chatComplete: jest.fn(
+          async () => '{"detected": true, "targetMemoryIds": ["m1"], "newValue": "お茶が好き"}'
         ),
         summarize: jest.fn(),
       };
@@ -994,7 +994,9 @@ describe('runChatUseCase', () => {
       const retriever = makeMemoryRetriever(memories);
       const memRepo = makeMemoryRepo();
       const llm: ILLMClient = {
-        chatStream: jest.fn(async function* () { yield '了解！'; }),
+        chatStream: jest.fn(async function* () {
+          yield '了解！';
+        }),
         chatComplete: jest.fn(async () => '{"detected": false}'),
         summarize: jest.fn(),
       };
@@ -1024,8 +1026,12 @@ describe('runChatUseCase', () => {
       const retriever = makeMemoryRetriever(memories);
       const memRepo = makeMemoryRepo();
       const llm: ILLMClient = {
-        chatStream: jest.fn(async function* () { yield '了解！'; }),
-        chatComplete: jest.fn(async () => { throw new Error('API error'); }),
+        chatStream: jest.fn(async function* () {
+          yield '了解！';
+        }),
+        chatComplete: jest.fn(async () => {
+          throw new Error('API error');
+        }),
         summarize: jest.fn(),
       };
       const voice = makeVoiceClient();
@@ -1074,7 +1080,9 @@ describe('runChatUseCase', () => {
     it('embeddingClient がある場合は identifyPromotionCandidates を試みる', async () => {
       const memRepo = makeMemoryRepo();
       const llm: ILLMClient = {
-        chatStream: jest.fn(async function* () { yield '了解！'; }),
+        chatStream: jest.fn(async function* () {
+          yield '了解！';
+        }),
         chatComplete: jest.fn(async () => '{"promotions": []}'),
         summarize: jest.fn(),
       };
@@ -1134,10 +1142,10 @@ describe('runChatUseCase', () => {
       const memRepo = makeMemoryRepo();
       (memRepo.listByTier as jest.Mock).mockResolvedValue([tierCMem]);
       const llm: ILLMClient = {
-        chatStream: jest.fn(async function* () { yield '覚えとくね！'; }),
-        chatComplete: jest.fn(async () =>
-          '{"promotions": [{"memoryId": "c1", "promote": true}]}'
-        ),
+        chatStream: jest.fn(async function* () {
+          yield '覚えとくね！';
+        }),
+        chatComplete: jest.fn(async () => '{"promotions": [{"memoryId": "c1", "promote": true}]}'),
         summarize: jest.fn(),
       };
       const voice = makeVoiceClient();

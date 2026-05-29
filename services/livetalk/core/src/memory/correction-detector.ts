@@ -69,9 +69,7 @@ async function classifyWithLLM(
 ): Promise<LLMCorrectionResponse> {
   if (memories.length === 0) return { detected: false };
 
-  const memoriesText = memories
-    .map((m) => `- ID: ${m.MemoryID}、内容: ${m.Content}`)
-    .join('\n');
+  const memoriesText = memories.map((m) => `- ID: ${m.MemoryID}、内容: ${m.Content}`).join('\n');
 
   const prompt = `以下はキャラクターとユーザーの会話のやり取りです。
 
@@ -98,10 +96,9 @@ ${memoriesText}
 {"detected": false}`;
 
   try {
-    const raw = await llmClient.chatComplete(
-      [{ role: 'user', content: prompt }],
-      { purpose: 'classify' }
-    );
+    const raw = await llmClient.chatComplete([{ role: 'user', content: prompt }], {
+      purpose: 'classify',
+    });
 
     const jsonMatch = raw.match(/\{[\s\S]*?\}/);
     if (!jsonMatch) return { detected: false };
@@ -144,12 +141,7 @@ export async function detectCorrection(
 
   // ステップ 3: LLM 最終判定
   const memories = retrievedMemories.map((r) => r.memory);
-  const llmResult = await classifyWithLLM(
-    userInput,
-    previousAssistantMessage,
-    memories,
-    llmClient
-  );
+  const llmResult = await classifyWithLLM(userInput, previousAssistantMessage, memories, llmClient);
 
   if (!llmResult.detected || !llmResult.targetMemoryIds?.length) return empty;
 

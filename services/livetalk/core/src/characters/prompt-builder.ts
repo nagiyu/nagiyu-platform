@@ -82,7 +82,13 @@ export function buildChatMessages(
   summaryText?: string,
   newLearnings?: MemoryEntity[]
 ): ChatMessage[] {
-  const systemPrompt = buildSystemPrompt(character, now, retrievedMemories, summaryText, newLearnings);
+  const systemPrompt = buildSystemPrompt(
+    character,
+    now,
+    retrievedMemories,
+    summaryText,
+    newLearnings
+  );
   const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }];
 
   for (const msg of history) {

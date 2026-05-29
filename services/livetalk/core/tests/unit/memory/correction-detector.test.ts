@@ -64,24 +64,14 @@ describe('detectCorrection', () => {
   describe('追加情報パターン除外（false positive 抑制）', () => {
     it('「いや、それも好きだよ」は訂正と検出しない', async () => {
       const llm = makeLLMClient('{"detected": true, "targetMemoryIds": ["m1"]}');
-      const result = await detectCorrection(
-        'いや、コーヒーも好きだよ',
-        prevMsg,
-        memories,
-        llm
-      );
+      const result = await detectCorrection('いや、コーヒーも好きだよ', prevMsg, memories, llm);
       expect(result.detected).toBe(false);
       expect(llm.chatComplete).not.toHaveBeenCalled();
     });
 
     it('「違う、どちらも好き」は訂正と検出しない', async () => {
       const llm = makeLLMClient('{"detected": true, "targetMemoryIds": ["m1"]}');
-      const result = await detectCorrection(
-        '違う、どちらも好き！',
-        prevMsg,
-        memories,
-        llm
-      );
+      const result = await detectCorrection('違う、どちらも好き！', prevMsg, memories, llm);
       expect(result.detected).toBe(false);
       expect(llm.chatComplete).not.toHaveBeenCalled();
     });
@@ -101,7 +91,9 @@ describe('detectCorrection', () => {
 
   describe('LLM 最終判定', () => {
     it('LLM が detected: true を返せば訂正を検出する', async () => {
-      const llm = makeLLMClient('{"detected": true, "targetMemoryIds": ["m1"], "newValue": "お茶が好き"}');
+      const llm = makeLLMClient(
+        '{"detected": true, "targetMemoryIds": ["m1"], "newValue": "お茶が好き"}'
+      );
       const result = await detectCorrection('違う、お茶が好きなんだ', prevMsg, memories, llm);
       expect(result.detected).toBe(true);
       expect(result.targetMemories).toHaveLength(1);
@@ -126,7 +118,9 @@ describe('detectCorrection', () => {
     it('LLM がエラーを投げても detected: false で継続する（fail-warn）', async () => {
       const llm = {
         chatStream: jest.fn(),
-        chatComplete: jest.fn(async () => { throw new Error('API error'); }),
+        chatComplete: jest.fn(async () => {
+          throw new Error('API error');
+        }),
         summarize: jest.fn(),
       } as unknown as ILLMClient;
       const result = await detectCorrection('違う！', prevMsg, memories, llm);
@@ -150,9 +144,7 @@ describe('detectCorrection', () => {
         makeRetrieved('m1', 'コーヒーが好き'),
         makeRetrieved('m2', '趣味はゲーム'),
       ];
-      const llm = makeLLMClient(
-        '{"detected": true, "targetMemoryIds": ["m1", "m2"]}'
-      );
+      const llm = makeLLMClient('{"detected": true, "targetMemoryIds": ["m1", "m2"]}');
       const result = await detectCorrection(
         '実は違う、お茶が好きで趣味は読書なんだ',
         prevMsg,
@@ -178,15 +170,13 @@ describe('detectCorrection', () => {
       expect(llm.chatComplete).toHaveBeenCalled();
     });
 
-    it.each([
-      ['そうだよ'],
-      ['うん、コーヒー好き'],
-      ['ありがとう！'],
-      ['もっと教えて'],
-    ])('「%s」はキーワード検出で LLM を呼ばない', async (input) => {
-      const llm = makeLLMClient('');
-      await detectCorrection(input, prevMsg, memories, llm);
-      expect(llm.chatComplete).not.toHaveBeenCalled();
-    });
+    it.each([['そうだよ'], ['うん、コーヒー好き'], ['ありがとう！'], ['もっと教えて']])(
+      '「%s」はキーワード検出で LLM を呼ばない',
+      async (input) => {
+        const llm = makeLLMClient('');
+        await detectCorrection(input, prevMsg, memories, llm);
+        expect(llm.chatComplete).not.toHaveBeenCalled();
+      }
+    );
   });
 });

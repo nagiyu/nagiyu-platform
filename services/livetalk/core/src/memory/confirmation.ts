@@ -25,9 +25,7 @@ async function judgePromotionsWithLLM(
   candidates: MemoryEntity[],
   llmClient: ILLMClient
 ): Promise<MemoryEntity[]> {
-  const memoriesText = candidates
-    .map((m) => `- ID: ${m.MemoryID}、内容: ${m.Content}`)
-    .join('\n');
+  const memoriesText = candidates.map((m) => `- ID: ${m.MemoryID}、内容: ${m.Content}`).join('\n');
 
   const prompt = `以下はユーザーの発話と、過去に一度だけ観測された記憶（Tier C）の候補です。
 
@@ -44,10 +42,9 @@ ${memoriesText}
 {"promotions": [{"memoryId": "...", "promote": true}, {"memoryId": "...", "promote": false}]}`;
 
   try {
-    const raw = await llmClient.chatComplete(
-      [{ role: 'user', content: prompt }],
-      { purpose: 'classify' }
-    );
+    const raw = await llmClient.chatComplete([{ role: 'user', content: prompt }], {
+      purpose: 'classify',
+    });
 
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return [];
@@ -55,9 +52,7 @@ ${memoriesText}
     const parsed = JSON.parse(jsonMatch[0]) as { promotions?: PromotionJudgment[] };
     if (!Array.isArray(parsed.promotions)) return [];
 
-    const promoteIds = new Set(
-      parsed.promotions.filter((p) => p.promote).map((p) => p.memoryId)
-    );
+    const promoteIds = new Set(parsed.promotions.filter((p) => p.promote).map((p) => p.memoryId));
 
     return candidates.filter((m) => promoteIds.has(m.MemoryID));
   } catch (err) {
@@ -76,7 +71,6 @@ ${memoriesText}
  * @param memoryRepository - Memory リポジトリ
  * @param embeddingClient - Embedding クライアント
  * @param llmClient - LLM クライアント（classify 用途）
- * @param nowMs - 現在時刻（ミリ秒、テスト差し替え用）
  */
 export async function identifyPromotionCandidates(
   userId: string,
@@ -84,8 +78,7 @@ export async function identifyPromotionCandidates(
   userInput: string,
   memoryRepository: MemoryRepository,
   embeddingClient: IEmbeddingClient,
-  llmClient: ILLMClient,
-  nowMs: number = Date.now()
+  llmClient: ILLMClient
 ): Promise<MemoryEntity[]> {
   // Tier C 全件取得
   let tierCMemories: MemoryEntity[];
