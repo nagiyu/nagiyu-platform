@@ -78,7 +78,7 @@ export async function compressAllConversations(
     }
   }
 
-  logger.info('[compressAllConversations] 全ユーザー処理完了', result);
+  logger.info('[compressAllConversations] 全ユーザー処理完了', { ...result });
   return result;
 }
 

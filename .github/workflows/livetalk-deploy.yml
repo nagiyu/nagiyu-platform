@@ -79,10 +79,13 @@ jobs:
           ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
           STACK_SUFFIX: ${{ steps.setup-environment.outputs.stack-suffix }}
         run: |
-          npm run cdk --workspace=@nagiyu/infra-livetalk -- deploy NagiyuLiveTalkEcr${STACK_SUFFIX} \
+          # メインの Web ECR と Batch ECR を一括 deploy する（相互依存なし）。
+          npm run cdk --workspace=@nagiyu/infra-livetalk -- deploy \
+            NagiyuLiveTalkEcr${STACK_SUFFIX} \
+            NagiyuLiveTalkBatchEcr${STACK_SUFFIX} \
             --require-approval never
 
-          echo "LiveTalk ECR repository deployed (environment: $ENVIRONMENT)"
+          echo "LiveTalk ECR repositories deployed (environment: $ENVIRONMENT)"
 
       - name: Deploy LiveTalk Secrets Stack
         env:
@@ -175,6 +178,52 @@ jobs:
           docker push "$REPOSITORY_URI:latest"
 
           echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+  build-batch:
+    name: Build and Push Batch Image
+    runs-on: ubuntu-latest
+    needs: infrastructure-ecr
+
+    outputs:
+      environment: ${{ needs.infrastructure-ecr.outputs.environment }}
+      stack-suffix: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Batch Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/livetalk/batch/Dockerfile
+          # Batch ECR リポジトリ名は命名規則から決定論的に組み立てる（SSM 非依存）。
+          image-tag: ${{ steps.login-ecr.outputs.registry }}/nagiyu-livetalk-batch-ecr-${{ needs.infrastructure-ecr.outputs.environment }}:${{ github.sha }}
+
+      - name: Push Batch Docker image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: nagiyu-livetalk-batch-ecr-${{ needs.infrastructure-ecr.outputs.environment }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+          # Also tag as latest（Batch Lambda は :latest を参照する）
+          docker tag "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+
+          echo "Batch image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
   infrastructure-app:
     name: Deploy DynamoDB, ALB and ECS Service Stacks
@@ -302,6 +351,77 @@ jobs:
             echo "Health check passed."
           fi
 
+  infrastructure-batch:
+    name: Deploy Batch Stack (Lambda + EventBridge)
+    runs-on: ubuntu-latest
+    needs: [infrastructure-ecr, build-batch]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra-livetalk
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Fetch secrets from Secrets Manager
+        id: fetch-secrets
+        uses: aws-actions/aws-secretsmanager-get-secrets@v2
+        with:
+          secret-ids: |
+            OPENAI_API_KEY,/nagiyu/livetalk/${{ needs.infrastructure-ecr.outputs.environment }}/openai/api-key
+          parse-json-secrets: true
+
+      - name: Deploy LiveTalk Batch Stack
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+          OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
+        run: |
+          # Batch Lambda は build-batch で push 済みの :latest イメージを参照する。
+          # ECR / イメージが先行しているため、Lambda 作成は失敗しない。
+          npm run cdk --workspace=@nagiyu/infra-livetalk -- deploy \
+            NagiyuLiveTalkBatch${STACK_SUFFIX} \
+            --context openAiApiKey="$OPENAI_API_KEY" \
+            --require-approval never
+
+          echo "LiveTalk Batch stack deployed (environment: $ENVIRONMENT)"
+
+      - name: Update Batch Lambda code with latest image
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
+        run: |
+          # 既存スタックへの再デプロイでは :latest タグが不変のため CloudFormation が
+          # Lambda コードを更新しない。明示的に最新イメージへ更新する。
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
+          IMAGE_URI="$ECR_REGISTRY/nagiyu-livetalk-batch-ecr-$ENVIRONMENT:latest"
+
+          aws lambda update-function-code \
+            --function-name "nagiyu-livetalk-batch-compress-$ENVIRONMENT" \
+            --image-uri "$IMAGE_URI" \
+            --region ${{ env.AWS_REGION }}
+
+          aws lambda wait function-updated \
+            --function-name "nagiyu-livetalk-batch-compress-$ENVIRONMENT" \
+            --region ${{ env.AWS_REGION }}
+
+          echo "Batch Lambda updated with image: $IMAGE_URI"
+
   infrastructure-cloudfront:
     name: Deploy CloudFront Distribution
     runs-on: ubuntu-latest
@@ -369,7 +489,7 @@ jobs:
   summary:
     name: Deployment Summary
     runs-on: ubuntu-latest
-    needs: [build, infrastructure-app, infrastructure-cloudfront]
+    needs: [build, build-batch, infrastructure-app, infrastructure-batch, infrastructure-cloudfront]
     if: always()
 
     steps:
@@ -389,6 +509,7 @@ jobs:
             echo "- **App Version**: $APP_VERSION"
             echo "- **Image (SHA tag)**: \`$IMAGE_URI\`"
             echo "- **Latest tag**: same digest also pushed as \`:latest\`"
+            echo "- **Batch Lambda**: \`nagiyu-livetalk-batch-compress-$ENVIRONMENT\`（EventBridge 日次 JST 03:00）"
             echo "- **ALB DNS**: \`$ALB_DNS\`"
             echo "- **Custom Domain**: https://$CUSTOM_DOMAIN"
             echo ""
