@@ -2,11 +2,13 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { LiveTalkEcrStack } from '../lib/ecr-stack';
+import { LiveTalkBatchEcrStack } from '../lib/batch-ecr-stack';
 import { LiveTalkAlbStack } from '../lib/alb-stack';
 import { LiveTalkDynamoDbStack } from '../lib/dynamodb-stack';
 import { LiveTalkEcsServiceStack } from '../lib/ecs-service-stack';
 import { LiveTalkCloudFrontStack } from '../lib/cloudfront-stack';
 import { LiveTalkSecretsStack } from '../lib/secrets-stack';
+import { LiveTalkBatchStack } from '../lib/batch-stack';
 
 const app = new cdk.App();
 
@@ -31,6 +33,13 @@ new LiveTalkEcrStack(app, `NagiyuLiveTalkEcr${envSuffix}`, {
   env: stackEnv,
   environment,
   description: `LiveTalk ECR Repository (${environment})`,
+});
+
+// LiveTalk Batch ECR Repository Stack（Phase 3c / Issue #3281）
+const batchEcrStack = new LiveTalkBatchEcrStack(app, `NagiyuLiveTalkBatchEcr${envSuffix}`, {
+  env: stackEnv,
+  environment,
+  description: `LiveTalk Batch ECR Repository (${environment})`,
 });
 
 // LiveTalk Secrets Stack（Phase 2b / Issue #3248）
@@ -90,6 +99,23 @@ const cloudFrontStack = new LiveTalkCloudFrontStack(
     description: `LiveTalk CloudFront Distribution (${environment})`,
   }
 );
+
+// LiveTalk Batch Stack（Phase 3c / Issue #3281）
+// EventBridge 日次トリガー + Lambda + DLQ + IAM
+const openAiApiKey =
+  app.node.tryGetContext('openAiApiKey') || 'PLACEHOLDER_OPENAI_API_KEY';
+
+const batchStack = new LiveTalkBatchStack(app, `NagiyuLiveTalkBatch${envSuffix}`, {
+  env: stackEnv,
+  environment,
+  batchEcrRepositoryName: batchEcrStack.repository.repositoryName,
+  openAiApiKey,
+  description: `LiveTalk Batch（圧縮要約 Lambda + EventBridge）(${environment})`,
+});
+
+// Batch stack は Batch ECR stack に依存する（リポジトリ名参照のため）
+batchStack.addDependency(batchEcrStack);
+// Batch stack は DynamoDB stack と同様に決定論的 ARN 参照で deploy 順序不問
 
 // SSM 経由の参照のため CDK は自動的にスタック間依存を検出できない。
 // 明示的に依存を宣言して deploy 順を保証する。
