@@ -37,6 +37,7 @@ function makeLLMClient(chunks: string[]): ILLMClient {
       yield* stringsToStream(chunks);
     }),
     chatComplete: jest.fn(),
+    summarize: jest.fn(async () => ({ mergedSummary: '', newMemoryCandidates: [] })),
   };
 }
 
@@ -66,6 +67,7 @@ function makeRepo(
       totalTokens: 0,
       truncated: false,
     })),
+    listSince: jest.fn(async () => []),
     ...overrides,
   };
 }
@@ -488,6 +490,7 @@ describe('runChatUseCase', () => {
           throw new Error('llm down');
         }),
         chatComplete: jest.fn(),
+        summarize: jest.fn(async () => ({ mergedSummary: '', newMemoryCandidates: [] })),
       };
       const voice = makeVoiceClient();
       const repo = makeRepo();
