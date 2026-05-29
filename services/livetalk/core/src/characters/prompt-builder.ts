@@ -1,5 +1,6 @@
 import type { CharacterDefinition } from './types.js';
 import type { MessageEntity } from '../entities/message.entity.js';
+import type { MemoryEntity } from '../entities/memory.entity.js';
 import type { ChatMessage } from '../llm-client/types.js';
 import type { RetrievedMemory } from '../memory/types.js';
 
@@ -16,7 +17,8 @@ export function buildSystemPrompt(
   character: CharacterDefinition,
   now: Date,
   retrievedMemories: RetrievedMemory[] = [],
-  summaryText?: string
+  summaryText?: string,
+  newLearnings?: MemoryEntity[]
 ): string {
   const { personality, displayName } = character;
   const timeOfDay = getTimeOfDay(now);
@@ -38,8 +40,9 @@ export function buildSystemPrompt(
 
   const hasSummary = summaryText && summaryText.trim().length > 0;
   const hasMemories = retrievedMemories.length > 0;
+  const hasNewLearnings = newLearnings !== undefined && newLearnings.length > 0;
 
-  if (!hasSummary && !hasMemories) return base;
+  if (!hasSummary && !hasMemories && !hasNewLearnings) return base;
 
   const sections: string[] = [base];
 
@@ -50,6 +53,13 @@ export function buildSystemPrompt(
   if (hasMemories) {
     const memoriesSection = retrievedMemories.map((r) => `- ${r.memory.Content}`).join('\n');
     sections.push(`あなたが覚えていること：\n${memoriesSection}`);
+  }
+
+  if (hasNewLearnings) {
+    const learningsSection = newLearnings!.map((m) => `- ${m.Content}`).join('\n');
+    sections.push(
+      `あなたが新しく知ったこと：\n${learningsSection}\n\n新しく知ったことについては、自然な流れで「覚えとくね」と伝えるか、あなたの感想を一言添えてください。ただし、毎回触れる必要はありません。`
+    );
   }
 
   return sections.join('\n\n');
@@ -69,9 +79,10 @@ export function buildChatMessages(
   history: MessageEntity[],
   userText: string,
   retrievedMemories: RetrievedMemory[] = [],
-  summaryText?: string
+  summaryText?: string,
+  newLearnings?: MemoryEntity[]
 ): ChatMessage[] {
-  const systemPrompt = buildSystemPrompt(character, now, retrievedMemories, summaryText);
+  const systemPrompt = buildSystemPrompt(character, now, retrievedMemories, summaryText, newLearnings);
   const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }];
 
   for (const msg of history) {

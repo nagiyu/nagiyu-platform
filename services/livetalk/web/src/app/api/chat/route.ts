@@ -7,6 +7,7 @@ import { getVoicevoxClient } from '@/lib/server/voicevox';
 import { getMemoryRepository, getMessageRepository } from '@/lib/server/repositories';
 import { getModerationClient, getSafetyEventRepository } from '@/lib/server/safety';
 import { getMemoryRetriever } from '@/lib/server/memory-retriever';
+import { getEmbeddingClient } from '@/lib/server/embedding';
 import { CHAT_ERROR_MESSAGES, CHAT_MAX_TEXT_LENGTH } from './constants';
 
 interface ChatRequest {
@@ -92,6 +93,7 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (session, reques
           moderationClient: getModerationClient(),
           memoryRetriever: getMemoryRetriever(),
           memoryRepository: getMemoryRepository(),
+          embeddingClient: getEmbeddingClient(),
         });
 
         for await (const event of eventGenerator) {
