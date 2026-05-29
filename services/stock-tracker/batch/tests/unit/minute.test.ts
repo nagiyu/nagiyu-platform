@@ -14,7 +14,7 @@ import * as tradingHoursChecker from '@nagiyu/stock-tracker-core';
 import type { Alert, Exchange } from '@nagiyu/stock-tracker-core';
 
 // TradingViewSession モックインスタンス（beforeEach で再生成）
-let mockSession: { getCurrentPrice: jest.Mock; close: jest.Mock };
+let mockSession: { getCurrentPrice: jest.Mock; close: jest.Mock; getSessionId: jest.Mock };
 
 // モックの設定
 jest.mock('@nagiyu/aws');
@@ -69,15 +69,20 @@ describe('minute batch handler', () => {
   let mockAlertRepo: jest.Mocked<DynamoDBAlertRepository>;
   let mockExchangeRepo: jest.Mocked<ExchangeRepository>;
   let mockEvent: ScheduledEvent;
+  let exitSpy: jest.SpyInstance;
 
   beforeEach(() => {
     // モックのリセット
     jest.clearAllMocks();
 
+    // process.exit をモックして、container kill 発火時にテストプロセスが終了するのを防ぐ
+    exitSpy = jest.spyOn(process, 'exit').mockImplementation((() => undefined) as () => never);
+
     // TradingViewSession モックを再生成
     mockSession = {
       getCurrentPrice: jest.fn(),
       close: jest.fn().mockResolvedValue(undefined),
+      getSessionId: jest.fn().mockReturnValue('test-session-id'),
     };
 
     // Mock DynamoDB Document Client
@@ -127,6 +132,7 @@ describe('minute batch handler', () => {
   afterEach(() => {
     delete process.env.VAPID_PUBLIC_KEY;
     delete process.env.VAPID_PRIVATE_KEY;
+    exitSpy.mockRestore();
   });
 
   describe('正常系: アラート条件達成時に通知を送信', () => {
@@ -883,6 +889,65 @@ describe('minute batch handler', () => {
       expect(body.statistics.processedAlerts).toBe(6);
       expect(body.statistics.skippedDisabled).toBe(6);
       expect(body.statistics.skippedTimeBudget).toBe(0);
+    });
+  });
+
+  describe('container kill 戦略', () => {
+    beforeEach(() => {
+      process.env.MINUTE_BATCH_CONTAINER_KILL_THRESHOLD = '1';
+    });
+
+    afterEach(() => {
+      delete process.env.MINUTE_BATCH_CONTAINER_KILL_THRESHOLD;
+    });
+
+    it('errors が閾値以上の場合、session.close() 後に process.exit(1) を呼ぶ', async () => {
+      // Arrange: 閾値 1 に対して errors = 1 になるケース（TradingView API タイムアウト）
+      const alert = makeAlert();
+      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockExchangeRepo.getById.mockResolvedValue(mockExchange);
+      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
+      mockSession.getCurrentPrice.mockRejectedValue(new Error('TradingView API タイムアウト'));
+      (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
+
+      // Act
+      await handler(mockEvent);
+
+      // Assert: session.close() が先に呼ばれ、その後 process.exit(1) が呼ばれる
+      expect(mockSession.close).toHaveBeenCalled();
+      expect(exitSpy).toHaveBeenCalledWith(1);
+      const closeOrder = mockSession.close.mock.invocationCallOrder[0];
+      const exitOrder = exitSpy.mock.invocationCallOrder[0];
+      expect(closeOrder).toBeLessThan(exitOrder);
+    });
+
+    it('errors が閾値未満の場合、process.exit を呼ばない', async () => {
+      // Arrange: 閾値 1 に対して errors = 0 になるケース（Enabled=false はエラー扱いしない）
+      const alert = makeAlert({ Enabled: false });
+      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+
+      // Act
+      await handler(mockEvent);
+
+      // Assert
+      expect(exitSpy).not.toHaveBeenCalled();
+    });
+
+    it('閾値環境変数が未設定の場合、デフォルト 1 で発火する', async () => {
+      // Arrange: 環境変数を未設定（デフォルト値 1 で動作することを検証）
+      delete process.env.MINUTE_BATCH_CONTAINER_KILL_THRESHOLD;
+      const alert = makeAlert();
+      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockExchangeRepo.getById.mockResolvedValue(mockExchange);
+      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
+      mockSession.getCurrentPrice.mockRejectedValue(new Error('TradingView API タイムアウト'));
+      (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
+
+      // Act
+      await handler(mockEvent);
+
+      // Assert: errors=1 でデフォルト閾値 1 に到達 → process.exit(1) 発火
+      expect(exitSpy).toHaveBeenCalledWith(1);
     });
   });
 });
