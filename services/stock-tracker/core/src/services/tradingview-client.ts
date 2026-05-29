@@ -11,9 +11,17 @@
  * - リソース管理: chart.delete() と client.end() を必ず実行
  */
 
+import { randomUUID } from 'crypto';
 import * as TradingView from '@mathieuc/tradingview';
 import type { TimeFrame } from '@mathieuc/tradingview';
+import { logger } from '@nagiyu/common';
 import type { ChartDataPoint } from '../types.js';
+
+// Node.js 内部 API の型定義（診断用）
+type NodeProcessInternal = NodeJS.Process & {
+  _getActiveHandles?: () => unknown[];
+  _getActiveRequests?: () => unknown[];
+};
 
 /**
  * TradingView API エラーメッセージ定数
@@ -146,6 +154,155 @@ export async function getCurrentPrice(
       client.end();
     } catch {
       // client.end() のエラーは無視（既に終了済みの可能性）
+    }
+  }
+}
+
+/**
+ * invocation スコープで TradingView WebSocket 接続を共有するセッション
+ *
+ * 1 Lambda invocation 内で 1 つの Client（= 1 WebSocket 接続）を使い回し、
+ * ティッカーごとに Chart を生成する。WebSocket handshake 回数を N から 1 に削減し、
+ * TradingView 側のレート制限によるバースト障害を緩和する。
+ *
+ * - chart.delete() は getCurrentPrice 完了時に個別呼び出し
+ * - client.end() は invocation 末尾に close() で 1 回だけ呼び出す
+ */
+export class TradingViewSession {
+  private readonly client: TradingView.Client;
+  private readonly sessionId: string;
+  private chartSeq: number;
+
+  constructor() {
+    this.client = new TradingView.Client();
+    this.sessionId = randomUUID();
+    this.chartSeq = 0;
+  }
+
+  /** invocation 間でセッションを識別するための ID */
+  public getSessionId(): string {
+    return this.sessionId;
+  }
+
+  /**
+   * 既存 Client の接続を再利用して現在価格を取得する
+   *
+   * @param tickerId - ティッカーID（例: "NSDQ:AAPL"）
+   * @param options - 取得オプション
+   * @returns 現在価格（終値）
+   * @throws {Error} タイムアウト、接続エラー、データ取得失敗時
+   */
+  public async getCurrentPrice(
+    tickerId: string,
+    options: GetCurrentPriceOptions = {}
+  ): Promise<number> {
+    const { timeout = 10000, session = 'extended' } = options;
+
+    if (!tickerId || typeof tickerId !== 'string' || !tickerId.includes(':')) {
+      throw new Error(TRADINGVIEW_ERROR_MESSAGES.INVALID_TICKER);
+    }
+
+    const callAt = Date.now();
+    const seq = ++this.chartSeq;
+    let firstUpdateAt: number | undefined;
+    let firstErrorAt: number | undefined;
+
+    const chart = new this.client.Session.Chart();
+
+    try {
+      return await new Promise<number>((resolve, reject) => {
+        let resolved = false;
+
+        const timeoutId = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            const mem = process.memoryUsage();
+            const proc = process as NodeProcessInternal;
+            logger.warn('TradingView API タイムアウト (共有セッション)', {
+              sessionId: this.sessionId,
+              seq,
+              tickerId,
+              timeoutMs: timeout,
+              elapsedMs: Date.now() - callAt,
+              firstUpdateAt,
+              firstErrorAt,
+              activeHandles: proc._getActiveHandles?.()?.length ?? null,
+              activeRequests: proc._getActiveRequests?.()?.length ?? null,
+              heapUsedMB: Math.round(mem.heapUsed / 1024 / 1024),
+              heapTotalMB: Math.round(mem.heapTotal / 1024 / 1024),
+              rssMB: Math.round(mem.rss / 1024 / 1024),
+            });
+            reject(new Error(TRADINGVIEW_ERROR_MESSAGES.TIMEOUT));
+          }
+        }, timeout);
+
+        chart.setMarket(tickerId, { timeframe: '1', session });
+
+        chart.onUpdate(() => {
+          if (firstUpdateAt === undefined) {
+            firstUpdateAt = Date.now();
+          }
+          if (!resolved && chart.periods && chart.periods.length > 0) {
+            const currentPrice = chart.periods[0]?.close;
+            if (currentPrice !== undefined && currentPrice !== null) {
+              resolved = true;
+              clearTimeout(timeoutId);
+              logger.debug('TradingView 現在価格取得完了', {
+                sessionId: this.sessionId,
+                seq,
+                tickerId,
+                firstUpdateElapsedMs: firstUpdateAt - callAt,
+                totalElapsedMs: Date.now() - callAt,
+              });
+              resolve(currentPrice);
+            }
+          }
+        });
+
+        chart.onError((error: Error) => {
+          if (firstErrorAt === undefined) {
+            firstErrorAt = Date.now();
+          }
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timeoutId);
+            const errorMessage = error.message || '';
+            logger.warn('TradingView API エラー (共有セッション)', {
+              sessionId: this.sessionId,
+              seq,
+              tickerId,
+              elapsedMs: Date.now() - callAt,
+              firstUpdateAt,
+              firstErrorAt,
+              errorMessage,
+            });
+            if (errorMessage.includes('rate') || errorMessage.includes('limit')) {
+              reject(new Error(TRADINGVIEW_ERROR_MESSAGES.RATE_LIMIT));
+            } else {
+              reject(new Error(`${TRADINGVIEW_ERROR_MESSAGES.CONNECTION_ERROR}: ${errorMessage}`));
+            }
+          }
+        });
+      });
+    } finally {
+      try {
+        chart.delete();
+      } catch {
+        // chart.delete() のエラーは無視
+      }
+    }
+  }
+
+  /**
+   * セッション（WebSocket 接続）を閉じる
+   *
+   * invocation 末尾で必ず呼ぶこと。
+   */
+  public async close(): Promise<void> {
+    try {
+      this.client.end();
+    } catch {
+      // client.end() のエラーは無視
     }
   }
 }

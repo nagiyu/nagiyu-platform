@@ -1,16 +1,20 @@
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { spawn } from 'child_process';
 import { createWriteStream, createReadStream, promises as fs } from 'fs';
 import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
 import type { CodecType } from '@nagiyu/codec-converter-core';
-import { reportErrorEvent } from '@nagiyu/aws';
+import {
+  reportErrorEvent,
+  withErrorReporting,
+  getDynamoDBDocumentClient,
+  getS3Client,
+} from '@nagiyu/aws';
+import { requireEnv, toErrorMessage } from '@nagiyu/common';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
-  MISSING_ENV: '必要な環境変数が設定されていません',
   INVALID_JOB_ID: 'ジョブIDが不正です',
   INVALID_OUTPUT_CODEC: '出力コーデックが不正です',
   S3_DOWNLOAD_FAILED: 'S3からのダウンロードに失敗しました',
@@ -68,23 +72,18 @@ const CODEC_PARAMS: Record<
  * 環境変数を検証して取得する
  */
 export function validateEnvironment(): EnvironmentVariables {
-  const required = ['S3_BUCKET', 'DYNAMODB_TABLE', 'AWS_REGION', 'JOB_ID', 'OUTPUT_CODEC'];
-  const missing = required.filter((key) => !process.env[key]);
+  const env = requireEnv(['S3_BUCKET', 'DYNAMODB_TABLE', 'AWS_REGION', 'JOB_ID', 'OUTPUT_CODEC']);
 
-  if (missing.length > 0) {
-    throw new Error(`${ERROR_MESSAGES.MISSING_ENV}: ${missing.join(', ')}`);
-  }
-
-  const outputCodec = process.env.OUTPUT_CODEC as CodecType;
+  const outputCodec = env.OUTPUT_CODEC as CodecType;
   if (!['h264', 'vp9', 'av1'].includes(outputCodec)) {
     throw new Error(ERROR_MESSAGES.INVALID_OUTPUT_CODEC);
   }
 
   return {
-    S3_BUCKET: process.env.S3_BUCKET!,
-    DYNAMODB_TABLE: process.env.DYNAMODB_TABLE!,
-    AWS_REGION: process.env.AWS_REGION!,
-    JOB_ID: process.env.JOB_ID!,
+    S3_BUCKET: env.S3_BUCKET,
+    DYNAMODB_TABLE: env.DYNAMODB_TABLE,
+    AWS_REGION: env.AWS_REGION,
+    JOB_ID: env.JOB_ID,
     OUTPUT_CODEC: outputCodec,
     JOB_DEFINITION_NAME: process.env.JOB_DEFINITION_NAME,
   };
@@ -130,7 +129,7 @@ export async function downloadFromS3(
     const writeStream = createWriteStream(localPath);
     await pipeline(readableStream, writeStream);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = toErrorMessage(error);
     throw new Error(`${ERROR_MESSAGES.S3_DOWNLOAD_FAILED}: ${message}`, { cause: error });
   }
 }
@@ -153,7 +152,7 @@ export async function uploadToS3(
     });
     await s3Client.send(command);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = toErrorMessage(error);
     throw new Error(`${ERROR_MESSAGES.S3_UPLOAD_FAILED}: ${message}`, { cause: error });
   }
 }
@@ -204,7 +203,7 @@ export async function updateJobStatus(
 
     await dynamodbClient.send(command);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = toErrorMessage(error);
     throw new Error(`${ERROR_MESSAGES.DYNAMODB_UPDATE_FAILED}: ${message}`, { cause: error });
   }
 }
@@ -282,7 +281,7 @@ export async function cleanup(paths: string[]): Promise<void> {
       await fs.unlink(path);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = toErrorMessage(error);
         errors.push(`${path}: ${message}`);
       }
     }
@@ -325,7 +324,7 @@ export async function processJob(
     // 一時ファイルをクリーンアップ
     await cleanup([inputPath, outputPath]);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     console.error(`Job ${env.JOB_ID} failed:`, errorMessage);
     await reportErrorEvent({
       serviceId: 'codec-converter',
@@ -404,21 +403,20 @@ export async function main(): Promise<void> {
     },
   });
 
-  const s3Client = new S3Client({ region: env.AWS_REGION });
-  const dynamodbClient = DynamoDBDocumentClient.from(
-    new DynamoDBClient({ region: env.AWS_REGION })
-  );
+  const s3Client = getS3Client(env.AWS_REGION);
+  const dynamodbClient = getDynamoDBDocumentClient(env.AWS_REGION);
 
   await processJob(env, s3Client, dynamodbClient);
   console.log(`Job ${env.JOB_ID} completed successfully`);
 }
 
-// スクリプトとして実行された場合のみmain()を呼び出す
-// テスト環境（NODE_ENV === 'test'）では実行しない
-const isMainModule = process.env.NODE_ENV !== 'test';
-if (isMainModule) {
-  main().catch((error) => {
-    console.error('Fatal error:', error);
-    process.exit(1);
-  });
-}
+withErrorReporting(
+  {
+    serviceId: 'codec-converter',
+    severity: 'critical',
+    title: 'コーデック変換バッチが起動時に失敗しました',
+    exitOnError: true,
+    runIfNotTest: true,
+  },
+  main
+);

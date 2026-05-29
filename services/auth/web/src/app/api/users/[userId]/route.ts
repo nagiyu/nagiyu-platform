@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createUserRepository, UserNotFoundError } from '@nagiyu/auth-core';
 import { getSession } from '@/lib/auth/session';
-import { COMMON_ERROR_MESSAGES, hasPermission } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES, hasPermission, toErrorMessage } from '@nagiyu/common';
 import { reportErrorEvent } from '@nagiyu/aws';
 import { UpdateUserSchema } from '../schemas';
 import { ZodError } from 'zod';
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ user
 
     return NextResponse.json(user);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     await reportErrorEvent({
       serviceId: 'auth',
       severity: 'error',
@@ -135,7 +135,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
       return NextResponse.json({ error: ERROR_MESSAGES.USER_NOT_FOUND }, { status: 404 });
     }
 
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     await reportErrorEvent({
       serviceId: 'auth',
       severity: 'error',
@@ -190,7 +190,7 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'ユーザーが正常に削除されました' });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     await reportErrorEvent({
       serviceId: 'auth',
       severity: 'error',

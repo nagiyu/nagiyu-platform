@@ -1,12 +1,11 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { Box } from '@mui/material';
-import { Header, Footer, type NavigationItem } from '@nagiyu/ui';
+import { AppThemeProvider, Header, Footer, type NavigationItem } from '@nagiyu/ui';
 import HomeIcon from '@mui/icons-material/Home';
 import ArticleIcon from '@mui/icons-material/Article';
 import AppsIcon from '@mui/icons-material/Apps';
 import InfoIcon from '@mui/icons-material/Info';
-import ThemeRegistry from '@/components/ThemeRegistry';
 import '@nagiyu/ui/tokens.css';
 import './globals.css';
 
@@ -92,7 +91,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         )}
       </head>
       <body>
-        <ThemeRegistry>
+        <AppThemeProvider>
           <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
             <Header
               title="nagiyu"
@@ -112,7 +111,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </Box>
             <Footer version={version} contactHref="/about" />
           </Box>
-        </ThemeRegistry>
+        </AppThemeProvider>
       </body>
     </html>
   );

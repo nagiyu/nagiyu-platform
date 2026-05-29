@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { COMMON_ERROR_MESSAGES, hasPermission } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES, hasPermission, toErrorMessage } from '@nagiyu/common';
 import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
 import { createErrorEventReader, type ListErrorEventsQuery } from '@nagiyu/admin-core';
 import { createErrorResponse } from '@nagiyu/nextjs';
@@ -102,7 +102,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       serviceId: 'admin',
       severity: 'error',
       title: 'エラー一覧取得 API の実行に失敗しました',
-      message: error instanceof Error ? error.message : String(error),
+      message: toErrorMessage(error),
       context: {
         endpoint: 'GET /api/errors',
         errorStack: error instanceof Error ? error.stack : undefined,

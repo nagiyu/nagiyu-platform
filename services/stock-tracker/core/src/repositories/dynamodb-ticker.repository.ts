@@ -15,6 +15,9 @@ import {
   AbstractDynamoDBRepository,
   EntityNotFoundError,
   DatabaseError,
+  mapConditionalCheckFailed,
+  encodeCursor,
+  decodeCursor,
   type PaginationOptions,
   type PaginatedResult,
   type DynamoDBItem,
@@ -22,6 +25,7 @@ import {
 import type { TickerRepository } from './ticker.repository.interface.js';
 import type { TickerEntity, UpdateTickerInput } from '../entities/ticker.entity.js';
 import { TickerMapper } from '../mappers/ticker.mapper.js';
+import { toErrorMessage } from '@nagiyu/common';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -79,9 +83,7 @@ export class DynamoDBTickerRepository
   ): Promise<PaginatedResult<TickerEntity>> {
     try {
       const limit = options?.limit || 50;
-      const exclusiveStartKey = options?.cursor
-        ? JSON.parse(Buffer.from(options.cursor, 'base64').toString('utf-8'))
-        : undefined;
+      const exclusiveStartKey = decodeCursor(options?.cursor);
 
       const result = await this.docClient.send(
         new QueryCommand({
@@ -102,9 +104,7 @@ export class DynamoDBTickerRepository
       const items = (result.Items || []).map((item) =>
         this.mapper.toEntity(item as unknown as DynamoDBItem)
       );
-      const nextCursor = result.LastEvaluatedKey
-        ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
-        : undefined;
+      const nextCursor = encodeCursor(result.LastEvaluatedKey);
 
       return {
         items,
@@ -112,7 +112,7 @@ export class DynamoDBTickerRepository
         count: result.Count,
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -160,9 +160,7 @@ export class DynamoDBTickerRepository
       }
 
       const limit = options?.limit || 50;
-      const exclusiveStartKey = options?.cursor
-        ? JSON.parse(Buffer.from(options.cursor, 'base64').toString('utf-8'))
-        : undefined;
+      const exclusiveStartKey = decodeCursor(options?.cursor);
 
       const result = await this.docClient.send(
         new ScanCommand({
@@ -182,9 +180,7 @@ export class DynamoDBTickerRepository
       const items = (result.Items || []).map((item) =>
         this.mapper.toEntity(item as unknown as DynamoDBItem)
       );
-      const nextCursor = result.LastEvaluatedKey
-        ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
-        : undefined;
+      const nextCursor = encodeCursor(result.LastEvaluatedKey);
 
       return {
         items,
@@ -192,7 +188,7 @@ export class DynamoDBTickerRepository
         count: result.Count,
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -249,15 +245,16 @@ export class DynamoDBTickerRepository
 
       return this.mapper.toEntity(result.Attributes as unknown as DynamoDBItem);
     } catch (error) {
-      // 条件チェック失敗（アイテムが存在しない）
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityNotFoundError('Ticker', tickerId);
-      }
+      mapConditionalCheckFailed(error, {
+        onMissing: () => {
+          throw new EntityNotFoundError('Ticker', tickerId);
+        },
+      });
       // EntityNotFoundError はそのまま投げる
       if (error instanceof EntityNotFoundError) {
         throw error;
       }
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }

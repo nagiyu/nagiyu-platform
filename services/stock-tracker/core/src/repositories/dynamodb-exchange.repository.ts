@@ -14,11 +14,13 @@ import {
   AbstractDynamoDBRepository,
   EntityNotFoundError,
   DatabaseError,
+  mapConditionalCheckFailed,
   type DynamoDBItem,
 } from '@nagiyu/aws';
 import type { ExchangeRepository } from './exchange.repository.interface.js';
 import type { ExchangeEntity, UpdateExchangeInput } from '../entities/exchange.entity.js';
 import { ExchangeMapper } from '../mappers/exchange.mapper.js';
+import { toErrorMessage } from '@nagiyu/common';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -99,7 +101,7 @@ export class DynamoDBExchangeRepository
 
       return allItems;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -166,15 +168,16 @@ export class DynamoDBExchangeRepository
 
       return this.mapper.toEntity(result.Attributes as unknown as DynamoDBItem);
     } catch (error) {
-      // 条件チェック失敗（アイテムが存在しない）
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityNotFoundError('Exchange', exchangeId);
-      }
+      mapConditionalCheckFailed(error, {
+        onMissing: () => {
+          throw new EntityNotFoundError('Exchange', exchangeId);
+        },
+      });
       // EntityNotFoundError はそのまま投げる
       if (error instanceof EntityNotFoundError) {
         throw error;
       }
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }

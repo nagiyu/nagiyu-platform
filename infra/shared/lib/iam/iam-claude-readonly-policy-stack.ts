@@ -119,6 +119,14 @@ export class IamClaudeReadonlyPolicyStack extends cdk.Stack {
             'application-autoscaling:Describe*',
             // STS (自分の identity 確認用)
             'sts:GetCallerIdentity',
+            // X-Ray (タイムアウト原因の DNS/TCP/TLS 内訳確認用)
+            'xray:GetTraceSummaries',
+            'xray:BatchGetTraces',
+            'xray:GetServiceGraph',
+            'xray:GetTraceGraph',
+            'xray:GetGroups',
+            'xray:GetGroup',
+            'xray:ListTagsForResource',
           ],
           resources: ['*'],
         }),

@@ -6,6 +6,7 @@ import {
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
+import { mapConditionalCheckFailed } from '@nagiyu/aws';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import type { CreateUserInput, UpdateUserInput, User } from '../../types/index.js';
 import type { UserRepository } from './user-repository.interface.js';
@@ -93,9 +94,11 @@ export class DynamoDBUserRepository implements UserRepository {
         })
       );
     } catch (error) {
-      if (this.isConditionalCheckFailed(error)) {
-        throw new Error(ERROR_MESSAGES.USER_ALREADY_EXISTS);
-      }
+      mapConditionalCheckFailed(error, {
+        onExists: () => {
+          throw new Error(ERROR_MESSAGES.USER_ALREADY_EXISTS);
+        },
+      });
       throw error;
     }
 
@@ -153,9 +156,11 @@ export class DynamoDBUserRepository implements UserRepository {
         })
       );
     } catch (error) {
-      if (this.isConditionalCheckFailed(error)) {
-        throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
-      }
+      mapConditionalCheckFailed(error, {
+        onMissing: () => {
+          throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
+        },
+      });
       throw error;
     }
 
@@ -184,15 +189,6 @@ export class DynamoDBUserRepository implements UserRepository {
 
   private buildEmailGsiPk(email: string): string {
     return `EMAIL#${email}`;
-  }
-
-  private isConditionalCheckFailed(error: unknown): boolean {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'name' in error &&
-      error.name === 'ConditionalCheckFailedException'
-    );
   }
 
   private toUser(item: Record<string, unknown>): User {

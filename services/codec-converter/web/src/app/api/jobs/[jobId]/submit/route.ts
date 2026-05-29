@@ -4,7 +4,7 @@ import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
 import { getAwsClients, reportErrorEvent } from '@nagiyu/aws';
 import { type Job, type JobStatus, selectJobDefinition } from '@nagiyu/codec-converter-core';
-import type { ErrorResponse } from '@nagiyu/common';
+import { toErrorMessage, type ErrorResponse } from '@nagiyu/common';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
 /**
@@ -86,7 +86,7 @@ export async function POST(
         })
       );
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = toErrorMessage(error);
       console.error('Input file not found in S3:', error);
       await reportErrorEvent({
         serviceId: 'codec-converter',
@@ -144,7 +144,7 @@ export async function POST(
       );
     } catch (error: unknown) {
       // Batch ジョブ投入エラーのフォールバック処理
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = toErrorMessage(error);
       if (errorMessage.includes('job definition') || errorMessage.includes('JobDefinition')) {
         console.warn(
           `Failed to submit job with definition ${jobDefinitionName}, falling back to medium:`,
@@ -182,7 +182,7 @@ export async function POST(
       { status: 200 }
     );
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     console.error('Error submitting job:', error);
     await reportErrorEvent({
       serviceId: 'codec-converter',

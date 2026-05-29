@@ -4,17 +4,17 @@
  * MINUTE_LEVEL のアラート条件をチェックして通知を送信する
  */
 
-import { logger, withRetry } from '@nagiyu/common';
+import { logger, toErrorMessage, withRetry } from '@nagiyu/common';
 import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import { createAlertNotificationPayload } from './lib/web-push-client.js';
 import { runConcurrent } from './lib/concurrent-queue.js';
-import type { AlertRepository, ExchangeRepository } from '@nagiyu/stock-tracker-core';
+import type { ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { evaluateAlert } from '@nagiyu/stock-tracker-core';
 import { isTradingHours } from '@nagiyu/stock-tracker-core';
-import { getCurrentPrice } from '@nagiyu/stock-tracker-core';
-import type { Alert, Exchange } from '@nagiyu/stock-tracker-core';
+import { TradingViewSession } from '@nagiyu/stock-tracker-core';
+import type { Alert } from '@nagiyu/stock-tracker-core';
 
 /**
  * Lambda Handlerイベント型
@@ -58,12 +58,14 @@ interface BatchStatistics {
  *
  * @param alert - 処理するアラート
  * @param exchangeRepo - Exchange リポジトリ
+ * @param session - invocation 共有の TradingView セッション
  * @param stats - バッチ統計情報
  * @returns 処理が成功した場合は true、失敗した場合は false
  */
 async function processAlert(
   alert: Alert,
   exchangeRepo: ExchangeRepository,
+  session: TradingViewSession,
   stats: BatchStatistics
 ): Promise<boolean> {
   try {
@@ -100,12 +102,11 @@ async function processAlert(
       return true;
     }
 
-    // 4. TradingView API で現在価格取得
-    // TradingView は呼び出しごとに WebSocket を張り直すため 5s では接続+初回ティック待ちで
-    // 誤タイムアウトが多発する。8s に緩和し、最悪所要時間を ~16.5s（8s + 0.5s + 8s）に抑える。
-    // 時間予算 30s 直前に開始したタスクでも 30 + 16.5 ≒ 46.5s < Lambda timeout 50s に収まる。
+    // 4. TradingView API で現在価格取得（invocation 共有セッションを再利用）
+    // セッション共有により WebSocket handshake を invocation あたり 1 回に削減する。
+    // タイムアウト 8s + リトライ 0.5s + 8s = 最悪 16.5s。
     const currentPrice = await withRetry<number>(
-      () => getCurrentPrice(alert.TickerID, { timeout: 8000 }),
+      () => session.getCurrentPrice(alert.TickerID, { timeout: 8000 }),
       {
         maxRetries: 1,
         initialDelayMs: 500,
@@ -156,7 +157,7 @@ async function processAlert(
 
     return notificationSent;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     logger.error('アラート処理中にエラーが発生しました', {
       alertId: alert.AlertID,
       userId: alert.UserID,
@@ -203,10 +204,23 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
   };
 
   // 並列度・時間予算は環境変数で調整可能
+  // 並列度を 3 に下げることで WS 接続バーストを緩和する（jitter と併用）
   // TIME_BUDGET_MS を 30s に設定し、in-flight タスクの完了（最大 ~16.5s）を含めて 50s 以内に収める
-  const concurrency = parseInt(process.env.MINUTE_BATCH_CONCURRENCY ?? '10', 10);
+  const concurrency = parseInt(process.env.MINUTE_BATCH_CONCURRENCY ?? '3', 10);
   const timeBudgetMs = parseInt(process.env.MINUTE_BATCH_TIME_BUDGET_MS ?? '30000', 10);
   const isBudgetExceeded = (): boolean => Date.now() - startTime > timeBudgetMs;
+
+  // container kill 閾値: invocation 内エラー数がこの値以上になると process.exit(1) で container を廃棄する
+  // 観測（PR #3290 デプロイ後）: broken container でも 1 invocation あたり errors は最大 1 のため、閾値 1 で kill する。
+  // 誤検知コストは Lambda cold start のみで運用影響ゼロ。broken container 居座りによる通知欠落の方が深刻。
+  const containerKillThreshold = parseInt(
+    process.env.MINUTE_BATCH_CONTAINER_KILL_THRESHOLD ?? '1',
+    10
+  );
+  let shouldKillContainer = false;
+
+  // invocation スコープで 1 つの TradingView WebSocket 接続を共有する
+  const session = new TradingViewSession();
 
   try {
     // DynamoDB クライアントとリポジトリの初期化
@@ -227,10 +241,14 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     // 2. 順序をシャッフルして特定アラートが常に後回しになることを防ぐ
     const shuffledAlerts = [...alerts].sort(() => Math.random() - 0.5);
 
-    // 3. 並列度上限・時間予算ガードで各アラートを処理
-    const tasks = shuffledAlerts.map((alert) => () => processAlert(alert, exchangeRepo, stats));
+    // 3. 並列度上限・時間予算ガード・jitter でアラートを処理
+    const tasks = shuffledAlerts.map(
+      (alert) => () => processAlert(alert, exchangeRepo, session, stats)
+    );
 
-    const { results, skippedCount } = await runConcurrent(tasks, concurrency, isBudgetExceeded);
+    const { results, skippedCount } = await runConcurrent(tasks, concurrency, isBudgetExceeded, {
+      jitterMs: 150,
+    });
 
     stats.processedAlerts = results.length;
     stats.skippedTimeBudget = skippedCount;
@@ -242,10 +260,22 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       });
     }
 
+    // broken container 検出: invocation 内エラー数が閾値以上なら container を廃棄する
+    // finally ブロックで session.close() 後に process.exit(1) を呼ぶ
+    if (stats.errors >= containerKillThreshold) {
+      shouldKillContainer = true;
+      logger.warn('連続タイムアウト発生のため container を破棄します', {
+        errors: stats.errors,
+        threshold: containerKillThreshold,
+        sessionId: session.getSessionId(),
+      });
+    }
+
     // 最終統計をログ出力
     logger.info('1分間隔バッチ処理が正常に完了しました', {
       eventId: event.id,
       statistics: stats,
+      sessionId: session.getSessionId(),
     });
 
     return {
@@ -256,7 +286,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       }),
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     logger.error('1分間隔バッチ処理でエラーが発生しました', {
       eventId: event.id,
       error: errorMessage,
@@ -278,5 +308,10 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
         statistics: stats,
       }),
     };
+  } finally {
+    await session.close();
+    if (shouldKillContainer) {
+      process.exit(1);
+    }
   }
 }

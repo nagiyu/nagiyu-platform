@@ -5,6 +5,7 @@ import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createGroupRepository, createMembershipRepository } from '@nagiyu/share-together-core';
+import { toErrorMessage } from '@nagiyu/common';
 
 interface GroupSummary extends Group {
   isOwner: boolean;
@@ -59,7 +60,7 @@ export async function GET(): Promise<NextResponse> {
     };
     return NextResponse.json(response);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     console.error('グループ一覧取得 API の実行に失敗しました', { error });
     await reportErrorEvent({
       serviceId: 'share-together',
@@ -109,7 +110,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     const response: ApiSuccessResponse<Group> = { data: group };
     return NextResponse.json(response, { status: 201 });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     console.error('グループ作成 API の実行に失敗しました', { error });
     await reportErrorEvent({
       serviceId: 'share-together',
