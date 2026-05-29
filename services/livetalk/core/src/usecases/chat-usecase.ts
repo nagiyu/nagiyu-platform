@@ -1,10 +1,12 @@
 import { logger } from '@nagiyu/common';
-import type { ILLMClient } from '../llm-client/types.js';
+import type { IEmbeddingClient, ILLMClient } from '../llm-client/types.js';
 import type { IVoiceClient } from '../voicevox/types.js';
 import type { MemoryRepository } from '../repositories/memory.repository.interface.js';
 import type { MessageRepository } from '../repositories/message.repository.interface.js';
 import type { SafetyEventRepository } from '../repositories/safety-event.repository.interface.js';
 import type { CharacterDefinition } from '../characters/types.js';
+import type { MemoryEntity } from '../entities/memory.entity.js';
+import type { MessageEntity } from '../entities/message.entity.js';
 import { buildChatMessages } from '../characters/prompt-builder.js';
 import { SentenceBuffer } from '../lib/sentence-splitter.js';
 import {
@@ -18,6 +20,9 @@ import { buildModerationReplacementMessage, buildSafetyMessage } from '../safety
 import { SAFETY_RESOURCES } from '../safety/resources.js';
 import type { IModerationClient, SafetyResource } from '../safety/types.js';
 import type { IMemoryRetriever, RetrievedMemory } from '../memory/types.js';
+import { detectCorrection } from '../memory/correction-detector.js';
+import { identifyNewLearnings, identifyPromotionCandidates } from '../memory/confirmation.js';
+import { applyCorrection, executePromotion } from '../memory/promotion.js';
 
 /**
  * /api/chat ストリーミングレスポンスの各イベント型。
@@ -56,9 +61,18 @@ export interface ChatUseCaseParams {
   memoryRetriever?: IMemoryRetriever;
   /** memoryRetriever が指定された場合に使う Memory リポジトリ */
   memoryRepository?: MemoryRepository;
+  /** Tier C 昇格候補検出に使う Embedding クライアント。未指定時は昇格処理をスキップする */
+  embeddingClient?: IEmbeddingClient;
 }
 
 type SynthesisResult = { index: number; text: string; audio: string | null };
+
+function getLastAssistantMessage(history: MessageEntity[]): string | null {
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i].Role === 'assistant') return history[i].Text;
+  }
+  return null;
+}
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -160,6 +174,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     moderationClient,
     memoryRetriever,
     memoryRepository,
+    embeddingClient,
   } = params;
 
   // 1. 直近会話履歴取得
@@ -234,13 +249,53 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     }
   }
 
+  // 4a. 暗黙訂正検出（fail-warn: エラー時はスキップして継続）
+  if (memoryRepository && retrievedMemories.length > 0) {
+    const lastAssistantMessage = getLastAssistantMessage(history);
+    if (lastAssistantMessage) {
+      try {
+        const correction = await detectCorrection(
+          userText,
+          lastAssistantMessage,
+          retrievedMemories,
+          llmClient
+        );
+        if (correction.detected) {
+          await applyCorrection(correction, memoryRepository);
+        }
+      } catch (err) {
+        logger.warn('[chat-usecase] 暗黙訂正検出に失敗しました（スキップして継続）', { err });
+      }
+    }
+  }
+
+  // 4b. Tier C 昇格候補検出（fail-warn: エラー時は空配列で継続）
+  let promotionCandidates: MemoryEntity[] = [];
+  if (memoryRepository && embeddingClient) {
+    try {
+      promotionCandidates = await identifyPromotionCandidates(
+        userId,
+        characterId,
+        userText,
+        memoryRepository,
+        embeddingClient,
+        llmClient
+      );
+    } catch (err) {
+      logger.warn('[chat-usecase] 昇格候補検出に失敗しました（スキップして継続）', { err });
+    }
+  }
+  const newLearnings = identifyNewLearnings(promotionCandidates);
+
   // 5. LLM ストリーミング（通常フロー）
   const chatMessages = buildChatMessages(
     character,
     new Date(),
     history,
     userText,
-    retrievedMemories
+    retrievedMemories,
+    undefined,
+    newLearnings.length > 0 ? newLearnings : undefined
   );
   const sentenceBuffer = new SentenceBuffer();
   let fullResponseText = '';
@@ -334,7 +389,14 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     }
   }
 
-  // 11. 参照済み Memory の referencedCount / lastReferencedAt を更新（fire-and-forget）
+  // 11. Tier C → B 昇格を実行（fire-and-forget）
+  if (memoryRepository && promotionCandidates.length > 0) {
+    void executePromotion(promotionCandidates, memoryRepository).catch((err) => {
+      logger.warn('[chat-usecase] Tier C → B 昇格に失敗しました', { err });
+    });
+  }
+
+  // 12. 参照済み Memory の referencedCount / lastReferencedAt を更新（fire-and-forget）
   if (memoryRepository && retrievedMemories.length > 0) {
     const now = Date.now();
     void Promise.all(

@@ -929,4 +929,265 @@ describe('runChatUseCase', () => {
       expect(events[events.length - 1]).toEqual({ type: 'done' });
     });
   });
+
+  // ── Phase 3d: 暗黙確認・訂正検出 ───────────────────────────────────────────
+
+  describe('暗黙訂正検出（Phase 3d）', () => {
+    function makeRetrieved(id: string, content: string): RetrievedMemory {
+      return {
+        memory: {
+          UserID: 'u1',
+          CharacterID: 'hiyori',
+          MemoryID: id,
+          Tier: 'B',
+          Category: 'food',
+          Content: content,
+          Confidence: 0.8,
+          ReferencedCount: 2,
+          CreatedAt: 0,
+          UpdatedAt: 0,
+        },
+        similarity: 0.9,
+      };
+    }
+
+    it('訂正検出時に memoryRepo.update を呼ぶ（confidence 減算）', async () => {
+      const history = [makeMessage('assistant', 'コーヒーが好きなんだね！', 'a1')];
+      const memories = [makeRetrieved('m1', 'コーヒーが好き')];
+      const retriever = makeMemoryRetriever(memories);
+      const memRepo = makeMemoryRepo();
+      // LLM: classify → 訂正あり / stream → 通常応答
+      const llm: ILLMClient = {
+        chatStream: jest.fn(async function* () {
+          yield '了解！';
+        }),
+        chatComplete: jest.fn(
+          async () => '{"detected": true, "targetMemoryIds": ["m1"], "newValue": "お茶が好き"}'
+        ),
+        summarize: jest.fn(),
+      };
+      const voice = makeVoiceClient();
+      const repo = makeRepo(history);
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          userText: '違う、お茶が好きなんだ',
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memoryRetriever: retriever,
+          memoryRepository: memRepo,
+        })
+      );
+
+      expect(memRepo.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          MemoryID: 'm1',
+          Confidence: expect.any(Number),
+        })
+      );
+    });
+
+    it('直前アシスタントメッセージがない場合は訂正検出をスキップする', async () => {
+      const memories = [makeRetrieved('m1', 'コーヒーが好き')];
+      const retriever = makeMemoryRetriever(memories);
+      const memRepo = makeMemoryRepo();
+      const llm: ILLMClient = {
+        chatStream: jest.fn(async function* () {
+          yield '了解！';
+        }),
+        chatComplete: jest.fn(async () => '{"detected": false}'),
+        summarize: jest.fn(),
+      };
+      const voice = makeVoiceClient();
+      // history にアシスタントメッセージなし
+      const repo = makeRepo([makeMessage('user', '最初のメッセージ')]);
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          userText: '違う！',
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memoryRetriever: retriever,
+          memoryRepository: memRepo,
+        })
+      );
+
+      // chatComplete が classify 用途で呼ばれないことを確認
+      expect(llm.chatComplete).not.toHaveBeenCalled();
+    });
+
+    it('訂正検出がエラーを投げても LLM 応答を継続する（fail-warn）', async () => {
+      const history = [makeMessage('assistant', 'コーヒーが好きなんだね！', 'a1')];
+      const memories = [makeRetrieved('m1', 'コーヒーが好き')];
+      const retriever = makeMemoryRetriever(memories);
+      const memRepo = makeMemoryRepo();
+      const llm: ILLMClient = {
+        chatStream: jest.fn(async function* () {
+          yield '了解！';
+        }),
+        chatComplete: jest.fn(async () => {
+          throw new Error('API error');
+        }),
+        summarize: jest.fn(),
+      };
+      const voice = makeVoiceClient();
+      const repo = makeRepo(history);
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          userText: '違う！',
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memoryRetriever: retriever,
+          memoryRepository: memRepo,
+        })
+      );
+
+      // エラーにならず done が来る
+      expect(events[events.length - 1]).toEqual({ type: 'done' });
+    });
+
+    it('memoryRepository が未指定の場合は訂正検出をスキップする', async () => {
+      const memories = [makeRetrieved('m1', 'コーヒーが好き')];
+      const retriever = makeMemoryRetriever(memories);
+      const llm = makeLLMClient(['了解！']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo([makeMessage('assistant', 'コーヒーが好きなんだね！', 'a1')]);
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          userText: '違う！',
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memoryRetriever: retriever,
+          // memoryRepository なし
+        })
+      );
+
+      expect(events[events.length - 1]).toEqual({ type: 'done' });
+    });
+  });
+
+  describe('Tier C 昇格候補検出（Phase 3d）', () => {
+    it('embeddingClient がある場合は identifyPromotionCandidates を試みる', async () => {
+      const memRepo = makeMemoryRepo();
+      const llm: ILLMClient = {
+        chatStream: jest.fn(async function* () {
+          yield '了解！';
+        }),
+        chatComplete: jest.fn(async () => '{"promotions": []}'),
+        summarize: jest.fn(),
+      };
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const embeddingClient = { embed: jest.fn(async () => [1, 0, 0]) };
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memoryRepository: memRepo,
+          embeddingClient,
+        })
+      );
+
+      expect(memRepo.listByTier).toHaveBeenCalledWith('u1', 'hiyori', 'C');
+    });
+
+    it('embeddingClient が未指定なら昇格候補検出をスキップする', async () => {
+      const memRepo = makeMemoryRepo();
+      const llm = makeLLMClient(['了解！']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memoryRepository: memRepo,
+          // embeddingClient なし
+        })
+      );
+
+      // Tier C 取得は呼ばれない
+      expect(memRepo.listByTier).not.toHaveBeenCalledWith('u1', 'hiyori', 'C');
+    });
+
+    it('昇格候補がある場合 executePromotion が呼ばれる（fire-and-forget）', async () => {
+      const tierCMem: MemoryEntity = {
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        MemoryID: 'c1',
+        Tier: 'C',
+        Category: 'food',
+        Content: 'コーヒーが好き',
+        Confidence: 0.5,
+        ReferencedCount: 1,
+        CreatedAt: 0,
+        UpdatedAt: 0,
+        Embedding: [1, 0, 0],
+      };
+      const memRepo = makeMemoryRepo();
+      (memRepo.listByTier as jest.Mock).mockResolvedValue([tierCMem]);
+      const llm: ILLMClient = {
+        chatStream: jest.fn(async function* () {
+          yield '覚えとくね！';
+        }),
+        chatComplete: jest.fn(async () => '{"promotions": [{"memoryId": "c1", "promote": true}]}'),
+        summarize: jest.fn(),
+      };
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const embeddingClient = { embed: jest.fn(async () => [0.99, 0.01, 0]) };
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memoryRepository: memRepo,
+          embeddingClient,
+        })
+      );
+
+      // promote が呼ばれるまで少し待つ（fire-and-forget）
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(memRepo.promote).toHaveBeenCalledWith(tierCMem, 'B');
+    });
+
+    it('昇格候補検出がエラーを投げても LLM 応答を継続する（fail-warn）', async () => {
+      const memRepo = makeMemoryRepo();
+      (memRepo.listByTier as jest.Mock).mockRejectedValue(new Error('DB error'));
+      const llm = makeLLMClient(['了解！']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const embeddingClient = { embed: jest.fn(async () => [1, 0, 0]) };
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memoryRepository: memRepo,
+          embeddingClient,
+        })
+      );
+
+      expect(events[events.length - 1]).toEqual({ type: 'done' });
+    });
+  });
 });

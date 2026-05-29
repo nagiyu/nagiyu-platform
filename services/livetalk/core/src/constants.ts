@@ -67,3 +67,26 @@ export const MEMORY_DEFAULT_CONFIDENCE = {
   C: 0.5,
   D: 0.2,
 } as const;
+
+/**
+ * 訂正検出時に対象 Memory の Confidence から差し引くペナルティ値（Phase 3d）。
+ * 0.8 → 0.5 → 0.2 と 3 回連続訂正で自動削除閾値に達する設計。
+ */
+export const CORRECTION_CONFIDENCE_PENALTY = 0.3;
+
+/**
+ * Confidence がこの値を下回った Memory は自動削除する閾値（Phase 3d）。
+ */
+export const MEMORY_AUTO_DELETE_THRESHOLD = 0.2;
+
+/**
+ * 「覚えとくね」発話を促すプロンプトに同一 Memory を含める間隔（ミリ秒）。
+ * 同じ記憶について毎ターン「覚えとくね」と言わないための cooldown（Phase 3d）。
+ */
+export const CONFIRMATION_COOLDOWN_MS = 3 * 60 * 60 * 1000; // 3 時間
+
+/**
+ * Tier C 記憶の「再言及」と判定する cosine similarity 下限閾値（Phase 3d）。
+ * 高めに設定することで false positive（無関係な話題での昇格）を抑制する。
+ */
+export const PROMOTION_SIMILARITY_THRESHOLD = 0.7;
