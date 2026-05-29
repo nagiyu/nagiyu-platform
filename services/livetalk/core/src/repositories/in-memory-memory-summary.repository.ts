@@ -11,10 +11,7 @@ export class InMemoryMemorySummaryRepository implements MemorySummaryRepository 
   private readonly store: InMemorySingleTableStore;
   private readonly nowMs: () => number;
 
-  constructor(
-    store: InMemorySingleTableStore,
-    nowMs: () => number = () => Date.now()
-  ) {
+  constructor(store: InMemorySingleTableStore, nowMs: () => number = () => Date.now()) {
     this.store = store;
     this.nowMs = nowMs;
     this.mapper = new MemorySummaryMapper();

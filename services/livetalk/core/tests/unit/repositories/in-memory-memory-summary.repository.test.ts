@@ -41,10 +41,7 @@ describe('InMemoryMemorySummaryRepository', () => {
 
     it('2 回 put したとき CreatedAt が初回の値を維持する', async () => {
       let tick = 1_000;
-      const repo = new InMemoryMemorySummaryRepository(
-        new InMemorySingleTableStore(),
-        () => tick
-      );
+      const repo = new InMemoryMemorySummaryRepository(new InMemorySingleTableStore(), () => tick);
       const first = await repo.put(baseInput);
       tick = 2_000;
       const second = await repo.put({ ...baseInput, SummaryText: '更新済み要約' });

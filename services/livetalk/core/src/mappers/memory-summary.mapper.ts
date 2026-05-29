@@ -4,15 +4,10 @@ import {
   type DynamoDBItem,
   type EntityMapper,
 } from '@nagiyu/aws';
-import type {
-  MemorySummaryEntity,
-  MemorySummaryKey,
-} from '../entities/memory-summary.entity.js';
+import type { MemorySummaryEntity, MemorySummaryKey } from '../entities/memory-summary.entity.js';
 import { buildMemorySummarySK, buildUserPK } from './keys.js';
 
-export class MemorySummaryMapper
-  implements EntityMapper<MemorySummaryEntity, MemorySummaryKey>
-{
+export class MemorySummaryMapper implements EntityMapper<MemorySummaryEntity, MemorySummaryKey> {
   public readonly entityType = 'MemorySummary';
 
   public toItem(entity: MemorySummaryEntity): DynamoDBItem {

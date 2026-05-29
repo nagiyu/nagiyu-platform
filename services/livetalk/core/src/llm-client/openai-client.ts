@@ -129,10 +129,9 @@ ${messagesSection}
   ]
 }`;
 
-    const rawText = await this.chatComplete(
-      [{ role: 'user', content: prompt }],
-      { purpose: 'summarize' }
-    );
+    const rawText = await this.chatComplete([{ role: 'user', content: prompt }], {
+      purpose: 'summarize',
+    });
 
     return parseSummarizeResult(rawText);
   }
@@ -160,21 +159,20 @@ export function parseSummarizeResult(rawText: string): SummarizeResult {
   let json: Record<string, unknown>;
   try {
     // LLM が ```json ... ``` で囲む場合を考慮して、コードブロックを除去する
-    const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    const cleaned = rawText
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/i, '')
+      .trim();
     json = JSON.parse(cleaned) as Record<string, unknown>;
   } catch {
     return { mergedSummary: rawText.trim(), newMemoryCandidates: [] };
   }
 
-  const mergedSummary =
-    typeof json.mergedSummary === 'string' ? json.mergedSummary : '';
+  const mergedSummary = typeof json.mergedSummary === 'string' ? json.mergedSummary : '';
 
   const candidates = Array.isArray(json.newMemoryCandidates) ? json.newMemoryCandidates : [];
   const newMemoryCandidates: MemoryCandidate[] = candidates
-    .filter(
-      (c): c is Record<string, unknown> =>
-        typeof c === 'object' && c !== null
-    )
+    .filter((c): c is Record<string, unknown> => typeof c === 'object' && c !== null)
     .map((c) => ({
       category: typeof c.category === 'string' ? c.category : 'general',
       content: typeof c.content === 'string' ? c.content : '',

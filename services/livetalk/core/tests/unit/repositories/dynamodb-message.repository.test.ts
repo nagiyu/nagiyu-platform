@@ -314,7 +314,12 @@ describe('DynamoDBMessageRepository', () => {
         sent.push(cmd);
         return { Items: [] };
       });
-      const repo = new DynamoDBMessageRepository(client as never, tableName, ulidFactory, () => now);
+      const repo = new DynamoDBMessageRepository(
+        client as never,
+        tableName,
+        ulidFactory,
+        () => now
+      );
       await repo.listSince('u1', 'hiyori', 0);
       expect(sent[0]).toBeInstanceOf(QueryCommand);
       const input = (sent[0] as QueryCommand).input;
@@ -327,7 +332,12 @@ describe('DynamoDBMessageRepository', () => {
         sent.push(cmd);
         return { Items: [] };
       });
-      const repo = new DynamoDBMessageRepository(client as never, tableName, ulidFactory, () => now);
+      const repo = new DynamoDBMessageRepository(
+        client as never,
+        tableName,
+        ulidFactory,
+        () => now
+      );
       await repo.listSince('u1', 'hiyori', now - 1000);
       const input = (sent[0] as QueryCommand).input;
       expect(input.FilterExpression).toContain('CreatedAt');
@@ -340,7 +350,12 @@ describe('DynamoDBMessageRepository', () => {
         sent.push(cmd);
         return { Items: [] };
       });
-      const repo = new DynamoDBMessageRepository(client as never, tableName, ulidFactory, () => now);
+      const repo = new DynamoDBMessageRepository(
+        client as never,
+        tableName,
+        ulidFactory,
+        () => now
+      );
       await repo.listSince('u1', 'hiyori', 0);
       const input = (sent[0] as QueryCommand).input;
       expect(input.FilterExpression).toBeUndefined();
@@ -348,7 +363,12 @@ describe('DynamoDBMessageRepository', () => {
 
     it('アイテムをエンティティに変換して返す', async () => {
       const client = makeClient(async () => ({ Items: [msgItem] }));
-      const repo = new DynamoDBMessageRepository(client as never, tableName, ulidFactory, () => now);
+      const repo = new DynamoDBMessageRepository(
+        client as never,
+        tableName,
+        ulidFactory,
+        () => now
+      );
       const result = await repo.listSince('u1', 'hiyori', 0);
       expect(result).toHaveLength(1);
       expect(result[0].Text).toBe('こんにちは');
@@ -361,7 +381,12 @@ describe('DynamoDBMessageRepository', () => {
         if (call === 1) return { Items: [msgItem], LastEvaluatedKey: { PK: 'marker' } };
         return { Items: [] };
       });
-      const repo = new DynamoDBMessageRepository(client as never, tableName, ulidFactory, () => now);
+      const repo = new DynamoDBMessageRepository(
+        client as never,
+        tableName,
+        ulidFactory,
+        () => now
+      );
       const result = await repo.listSince('u1', 'hiyori', 0);
       expect(call).toBe(2);
       expect(result).toHaveLength(1);
@@ -371,7 +396,12 @@ describe('DynamoDBMessageRepository', () => {
       const client = makeClient(async () => {
         throw new Error('DB エラー');
       });
-      const repo = new DynamoDBMessageRepository(client as never, tableName, ulidFactory, () => now);
+      const repo = new DynamoDBMessageRepository(
+        client as never,
+        tableName,
+        ulidFactory,
+        () => now
+      );
       await expect(repo.listSince('u1', 'hiyori', 0)).rejects.toBeInstanceOf(DatabaseError);
     });
   });

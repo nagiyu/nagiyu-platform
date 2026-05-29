@@ -207,7 +207,9 @@ describe('OpenAIClient', () => {
 
     it('chatComplete を purpose=summarize で呼び出す', async () => {
       const { client, create } = makeMockOpenAI();
-      create.mockResolvedValue({ output_text: '{"mergedSummary":"テスト","newMemoryCandidates":[]}' });
+      create.mockResolvedValue({
+        output_text: '{"mergedSummary":"テスト","newMemoryCandidates":[]}',
+      });
       const livetalk = new OpenAIClient({ client });
       await livetalk.summarize(baseInput);
       expect(create).toHaveBeenCalledWith(
@@ -235,7 +237,8 @@ describe('OpenAIClient', () => {
       create.mockResolvedValue({ output_text: '{"mergedSummary":"","newMemoryCandidates":[]}' });
       const livetalk = new OpenAIClient({ client });
       await livetalk.summarize({ ...baseInput, existingSummary: undefined });
-      const calledMessages = (create.mock.calls[0] as [{ input: Array<{ content: string }> }])[0].input;
+      const calledMessages = (create.mock.calls[0] as [{ input: Array<{ content: string }> }])[0]
+        .input;
       expect(calledMessages[0].content).toContain('既存の要約：なし');
     });
   });

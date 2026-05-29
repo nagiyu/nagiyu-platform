@@ -10,17 +10,26 @@ const fixedNow = 1_750_000_000_000;
 let tick = fixedNow;
 
 const makeLLMClient = (
-  result = { mergedSummary: '新要約', newMemoryCandidates: [] as { category: string; content: string }[] }
+  result = {
+    mergedSummary: '新要約',
+    newMemoryCandidates: [] as { category: string; content: string }[],
+  }
 ): ILLMClient & { summarizeCalls: number } => {
   let summarizeCalls = 0;
   return {
-    async *chatStream() { yield ''; },
-    async chatComplete() { return ''; },
+    async *chatStream() {
+      yield '';
+    },
+    async chatComplete() {
+      return '';
+    },
     async summarize() {
       summarizeCalls++;
       return result;
     },
-    get summarizeCalls() { return summarizeCalls; },
+    get summarizeCalls() {
+      return summarizeCalls;
+    },
   };
 };
 
@@ -59,10 +68,20 @@ describe('compressConversation', () => {
     const llmClient = makeLLMClient();
     const { messageRepo, summaryRepo, memoryRepo } = makeRepos();
     tick = fixedNow;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'こんにちは' });
+    await messageRepo.create({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Role: 'user',
+      Text: 'こんにちは',
+    });
 
     await compressConversation('u1', 'hiyori', {
-      summaryRepo, messageRepo, memoryRepo, llmClient, characterName: 'ひより', now: () => fixedNow,
+      summaryRepo,
+      messageRepo,
+      memoryRepo,
+      llmClient,
+      characterName: 'ひより',
+      now: () => fixedNow,
     });
 
     expect(llmClient.summarizeCalls).toBe(1);
@@ -75,7 +94,12 @@ describe('compressConversation', () => {
     await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'テスト' });
 
     await compressConversation('u1', 'hiyori', {
-      summaryRepo, messageRepo, memoryRepo, llmClient, characterName: 'ひより', now: () => fixedNow,
+      summaryRepo,
+      messageRepo,
+      memoryRepo,
+      llmClient,
+      characterName: 'ひより',
+      now: () => fixedNow,
     });
 
     const updated = await summaryRepo.get('u1', 'hiyori');
@@ -94,7 +118,12 @@ describe('compressConversation', () => {
     await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'テスト' });
 
     await compressConversation('u1', 'hiyori', {
-      summaryRepo, messageRepo, memoryRepo, llmClient, characterName: 'ひより', now: () => fixedNow,
+      summaryRepo,
+      messageRepo,
+      memoryRepo,
+      llmClient,
+      characterName: 'ひより',
+      now: () => fixedNow,
     });
 
     const foodMems = await memoryRepo.listByTier('u1', 'hiyori', 'C');
@@ -107,8 +136,12 @@ describe('compressConversation', () => {
   it('前回圧縮以降のメッセージのみ処理する（listSince が lastCompressedAt を使う）', async () => {
     const capturedMessages: Array<{ role: string; text: string }> = [];
     const spyClient: ILLMClient = {
-      async *chatStream() { yield ''; },
-      async chatComplete() { return ''; },
+      async *chatStream() {
+        yield '';
+      },
+      async chatComplete() {
+        return '';
+      },
       async summarize(input) {
         capturedMessages.push(...input.newMessages);
         return { mergedSummary: '', newMemoryCandidates: [] };
@@ -121,17 +154,28 @@ describe('compressConversation', () => {
     const midPoint = tick;
 
     tick = midPoint + 1;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'assistant', Text: '新しい' });
+    await messageRepo.create({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Role: 'assistant',
+      Text: '新しい',
+    });
 
     // lastCompressedAt = midPoint → midPoint より後のメッセージ（「新しい」）のみ対象
     await summaryRepo.put({
-      UserID: 'u1', CharacterID: 'hiyori',
+      UserID: 'u1',
+      CharacterID: 'hiyori',
       SummaryText: '既存要約',
       LastCompressedAt: midPoint,
     });
 
     await compressConversation('u1', 'hiyori', {
-      summaryRepo, messageRepo, memoryRepo, llmClient: spyClient, characterName: 'ひより', now: () => tick,
+      summaryRepo,
+      messageRepo,
+      memoryRepo,
+      llmClient: spyClient,
+      characterName: 'ひより',
+      now: () => tick,
     });
 
     expect(capturedMessages).toHaveLength(1);
@@ -141,8 +185,12 @@ describe('compressConversation', () => {
   it('既存 summaryText が LLM に渡される', async () => {
     let capturedExisting: string | undefined = 'none';
     const spyClient: ILLMClient = {
-      async *chatStream() { yield ''; },
-      async chatComplete() { return ''; },
+      async *chatStream() {
+        yield '';
+      },
+      async chatComplete() {
+        return '';
+      },
       async summarize(input) {
         capturedExisting = input.existingSummary;
         return { mergedSummary: '', newMemoryCandidates: [] };
@@ -152,7 +200,8 @@ describe('compressConversation', () => {
     const { messageRepo, summaryRepo, memoryRepo } = makeRepos();
     tick = fixedNow;
     await summaryRepo.put({
-      UserID: 'u1', CharacterID: 'hiyori',
+      UserID: 'u1',
+      CharacterID: 'hiyori',
       SummaryText: '既存の要約内容',
       LastCompressedAt: 0,
     });
@@ -160,7 +209,11 @@ describe('compressConversation', () => {
     await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'new' });
 
     await compressConversation('u1', 'hiyori', {
-      summaryRepo, messageRepo, memoryRepo, llmClient: spyClient, characterName: 'ひより',
+      summaryRepo,
+      messageRepo,
+      memoryRepo,
+      llmClient: spyClient,
+      characterName: 'ひより',
     });
 
     expect(capturedExisting).toBe('既存の要約内容');
