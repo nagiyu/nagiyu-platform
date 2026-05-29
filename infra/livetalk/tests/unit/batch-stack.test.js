@@ -10,7 +10,6 @@ const synth = (environment = 'dev', overrides = {}) => {
   const app = new cdk.App();
   const stack = new LiveTalkBatchStack(app, `TestLiveTalkBatch${environment}`, {
     environment,
-    batchEcrRepositoryName: `nagiyu-livetalk-batch-${environment}`,
     openAiApiKey: 'PLACEHOLDER_KEY',
     env: STACK_ENV,
     ...overrides,

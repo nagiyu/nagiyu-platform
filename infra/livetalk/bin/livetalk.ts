@@ -36,7 +36,7 @@ new LiveTalkEcrStack(app, `NagiyuLiveTalkEcr${envSuffix}`, {
 });
 
 // LiveTalk Batch ECR Repository Stack（Phase 3c / Issue #3281）
-const batchEcrStack = new LiveTalkBatchEcrStack(app, `NagiyuLiveTalkBatchEcr${envSuffix}`, {
+new LiveTalkBatchEcrStack(app, `NagiyuLiveTalkBatchEcr${envSuffix}`, {
   env: stackEnv,
   environment,
   description: `LiveTalk Batch ECR Repository (${environment})`,
@@ -92,17 +92,16 @@ const cloudFrontStack = new LiveTalkCloudFrontStack(app, `NagiyuLiveTalkCloudFro
 // EventBridge 日次トリガー + Lambda + DLQ + IAM
 const openAiApiKey = app.node.tryGetContext('openAiApiKey') || 'PLACEHOLDER_OPENAI_API_KEY';
 
-const batchStack = new LiveTalkBatchStack(app, `NagiyuLiveTalkBatch${envSuffix}`, {
+new LiveTalkBatchStack(app, `NagiyuLiveTalkBatch${envSuffix}`, {
   env: stackEnv,
   environment,
-  batchEcrRepositoryName: batchEcrStack.repository.repositoryName,
   openAiApiKey,
   description: `LiveTalk Batch（圧縮要約 Lambda + EventBridge）(${environment})`,
 });
 
-// Batch stack は Batch ECR stack に依存する（リポジトリ名参照のため）
-batchStack.addDependency(batchEcrStack);
-// Batch stack は DynamoDB stack と同様に決定論的 ARN 参照で deploy 順序不問
+// Batch stack は ECR リポジトリ名を `getEcrRepositoryName('livetalk-batch', env)` で
+// 決定論的に組み立てる（DynamoDB stack と同様に SSM もクロススタック参照も介さない）。
+// このため Batch ECR stack との deploy 順依存は発生しない。
 
 // SSM 経由の参照のため CDK は自動的にスタック間依存を検出できない。
 // 明示的に依存を宣言して deploy 順を保証する。

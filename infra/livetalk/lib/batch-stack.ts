@@ -11,13 +11,13 @@ import { Construct } from 'constructs';
 import {
   getDynamoDBTableArn,
   getDynamoDBTableName,
+  getEcrRepositoryName,
   grantErrorEventsWrite,
 } from '@nagiyu/infra-common';
 import type { Environment } from '@nagiyu/infra-common';
 
 export interface LiveTalkBatchStackProps extends cdk.StackProps {
   environment: Environment;
-  batchEcrRepositoryName: string;
   openAiApiKey: string;
 }
 
@@ -36,9 +36,12 @@ export class LiveTalkBatchStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: LiveTalkBatchStackProps) {
     super(scope, id, props);
 
-    const { environment, batchEcrRepositoryName, openAiApiKey } = props;
+    const { environment, openAiApiKey } = props;
 
     // ECR リポジトリの参照
+    // リポジトリ名は命名規則から決定論的に導出する（SSM もクロススタック参照も
+    // 介さないため、Batch ECR stack との deploy 順依存は発生しない）。
+    const batchEcrRepositoryName = getEcrRepositoryName('livetalk-batch', environment);
     const batchRepository = ecr.Repository.fromRepositoryName(
       this,
       'BatchRepository',

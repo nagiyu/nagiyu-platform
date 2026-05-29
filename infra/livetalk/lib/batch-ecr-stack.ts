@@ -1,12 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
-import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import {
-  EcrStackBase,
-  type EcrStackBaseProps,
-  type Environment,
-  SSM_PARAMETERS,
-} from '@nagiyu/infra-common';
+import { EcrStackBase, type EcrStackBaseProps, type Environment } from '@nagiyu/infra-common';
 
 export interface LiveTalkBatchEcrStackProps extends cdk.StackProps {
   environment: string;
@@ -15,8 +9,10 @@ export interface LiveTalkBatchEcrStackProps extends cdk.StackProps {
 /**
  * LiveTalk バッチ用 ECR スタック（Phase 3c / Issue #3281）
  *
- * - 命名規則: `nagiyu-livetalk-batch-ecr-{env}`
- * - SSM Parameter に repository-name / repository-uri を格納
+ * - 命名規則: `nagiyu-livetalk-batch-ecr-{env}`（`getEcrRepositoryName` と一致）
+ * - リポジトリ名は命名規則から決定論的に導出できるため SSM には格納しない。
+ *   参照側（batch-stack）は `getEcrRepositoryName('livetalk-batch', env)` で
+ *   独立に組み立てる（SSM もクロススタック参照も介さない方針）。
  * - Component: livetalk タグを付与
  */
 export class LiveTalkBatchEcrStack extends EcrStackBase {
@@ -33,19 +29,5 @@ export class LiveTalkBatchEcrStack extends EcrStackBase {
     super(scope, id, baseProps);
 
     cdk.Tags.of(this).add('Component', 'livetalk');
-
-    new ssm.StringParameter(this, 'BatchEcrRepositoryNameParam', {
-      parameterName: SSM_PARAMETERS.LIVETALK_BATCH_ECR_REPOSITORY_NAME(ssmEnvironment),
-      stringValue: this.repository.repositoryName,
-      description: 'LiveTalk Batch ECR repository name',
-      tier: ssm.ParameterTier.STANDARD,
-    });
-
-    new ssm.StringParameter(this, 'BatchEcrRepositoryUriParam', {
-      parameterName: SSM_PARAMETERS.LIVETALK_BATCH_ECR_REPOSITORY_URI(ssmEnvironment),
-      stringValue: this.repository.repositoryUri,
-      description: 'LiveTalk Batch ECR repository URI',
-      tier: ssm.ParameterTier.STANDARD,
-    });
   }
 }

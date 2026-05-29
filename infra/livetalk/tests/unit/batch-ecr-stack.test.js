@@ -35,16 +35,9 @@ describe('LiveTalkBatchEcrStack', () => {
     });
   });
 
-  it('SSM パラメータを 2 つ出力する（name / uri）', () => {
+  it('SSM パラメータを作成しない（リポジトリ名は命名規則から導出する）', () => {
     const template = synth('dev');
-    template.resourceCountIs('AWS::SSM::Parameter', 2);
-  });
-
-  it('SSM パラメータ名に batch-ecr が含まれる', () => {
-    const template = synth('dev');
-    template.hasResourceProperties('AWS::SSM::Parameter', {
-      Name: Match.stringLikeRegexp('batch-ecr'),
-    });
+    template.resourceCountIs('AWS::SSM::Parameter', 0);
   });
 
   it('prod でも正しく生成する', () => {
