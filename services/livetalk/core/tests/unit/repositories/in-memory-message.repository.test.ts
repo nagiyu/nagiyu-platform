@@ -216,4 +216,43 @@ describe('InMemoryMessageRepository', () => {
       expect(result.truncated).toBe(true);
     });
   });
+
+  describe('listSince', () => {
+    it('メッセージなしなら空配列', async () => {
+      const result = await repo.listSince('u1', 'hiyori', 0);
+      expect(result).toEqual([]);
+    });
+
+    it('sinceMs=0 なら全件を時系列昇順で返す', async () => {
+      const a = await createMessage('user', 'first');
+      const b = await createMessage('assistant', 'second');
+      const result = await repo.listSince('u1', 'hiyori', 0);
+      expect(result.map((m) => m.MessageID)).toEqual([a.MessageID, b.MessageID]);
+    });
+
+    it('sinceMs 以降のメッセージのみ返す（boundary exclusive）', async () => {
+      const a = await createMessage('user', 'before');
+      const boundary = currentTime;
+      const b = await createMessage('assistant', 'after');
+
+      const result = await repo.listSince('u1', 'hiyori', boundary);
+      expect(result.map((m) => m.MessageID)).toEqual([b.MessageID]);
+      expect(result.find((m) => m.MessageID === a.MessageID)).toBeUndefined();
+    });
+
+    it('全件が sinceMs より古い場合は空配列', async () => {
+      await createMessage('user', 'old');
+      const result = await repo.listSince('u1', 'hiyori', Date.now() + 999_999);
+      expect(result).toEqual([]);
+    });
+
+    it('別キャラのメッセージは混入しない', async () => {
+      await createMessage('user', 'hiyori msg');
+      currentTime += 1;
+      await repo.create({ UserID: 'u1', CharacterID: 'other', Role: 'user', Text: 'other' });
+      const result = await repo.listSince('u1', 'hiyori', 0);
+      expect(result).toHaveLength(1);
+      expect(result[0].Text).toBe('hiyori msg');
+    });
+  });
 });

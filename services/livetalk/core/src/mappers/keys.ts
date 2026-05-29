@@ -75,3 +75,7 @@ export function buildMemorySK(
 ): string {
   return `CHAR#${characterId}#MEM#${tier}#${category}#${memoryId}`;
 }
+
+export function buildMemorySummarySK(characterId: string): string {
+  return `CHAR#${characterId}#MEMORY#SUMMARY`;
+}

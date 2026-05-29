@@ -2,11 +2,13 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { LiveTalkEcrStack } from '../lib/ecr-stack';
+import { LiveTalkBatchEcrStack } from '../lib/batch-ecr-stack';
 import { LiveTalkAlbStack } from '../lib/alb-stack';
 import { LiveTalkDynamoDbStack } from '../lib/dynamodb-stack';
 import { LiveTalkEcsServiceStack } from '../lib/ecs-service-stack';
 import { LiveTalkCloudFrontStack } from '../lib/cloudfront-stack';
 import { LiveTalkSecretsStack } from '../lib/secrets-stack';
+import { LiveTalkBatchStack } from '../lib/batch-stack';
 
 const app = new cdk.App();
 
@@ -33,6 +35,13 @@ new LiveTalkEcrStack(app, `NagiyuLiveTalkEcr${envSuffix}`, {
   description: `LiveTalk ECR Repository (${environment})`,
 });
 
+// LiveTalk Batch ECR Repository Stack（Phase 3c / Issue #3281）
+new LiveTalkBatchEcrStack(app, `NagiyuLiveTalkBatchEcr${envSuffix}`, {
+  env: stackEnv,
+  environment,
+  description: `LiveTalk Batch ECR Repository (${environment})`,
+});
+
 // LiveTalk Secrets Stack（Phase 2b / Issue #3248）
 // OpenAI / Anthropic API キーを Secrets Manager で管理。
 // ECS Service Stack の Task Role が読取権限を持つ前提。
@@ -55,41 +64,44 @@ const albStack = new LiveTalkAlbStack(app, `NagiyuLiveTalkAlb${envSuffix}`, {
 // テーブル名 / ARN は ECS Service Stack 側でも `getDynamoDBTableName('livetalk', env)`
 // / `getDynamoDBTableArn(...)` を呼んで独立に組み立てる（SSM もクロススタック参照も
 // 介さない方針）。両 stack の deploy 順序や export 依存は発生しない。
-const dynamoDbStack = new LiveTalkDynamoDbStack(
-  app,
-  `NagiyuLiveTalkDynamoDB${envSuffix}`,
-  {
-    env: stackEnv,
-    environment,
-    description: `LiveTalk DynamoDB Single Table (${environment})`,
-  }
-);
+const dynamoDbStack = new LiveTalkDynamoDbStack(app, `NagiyuLiveTalkDynamoDB${envSuffix}`, {
+  env: stackEnv,
+  environment,
+  description: `LiveTalk DynamoDB Single Table (${environment})`,
+});
 
 // LiveTalk ECS Service Stack（共通 Cluster に Attach、ALB Target Group へ登録）
-const ecsServiceStack = new LiveTalkEcsServiceStack(
-  app,
-  `NagiyuLiveTalkService${envSuffix}`,
-  {
-    env: stackEnv,
-    environment,
-    appVersion,
-    description: `LiveTalk ECS Service (${environment})`,
-  }
-);
+const ecsServiceStack = new LiveTalkEcsServiceStack(app, `NagiyuLiveTalkService${envSuffix}`, {
+  env: stackEnv,
+  environment,
+  appVersion,
+  description: `LiveTalk ECS Service (${environment})`,
+});
 
 // LiveTalk CloudFront Distribution Stack（Phase 1d）
 // dev / prod ともに登録。Route53 ALIAS レコードは CloudFront stack 内で同時作成する
 // （`infra/ui-storybook` パターン）ため、cross-stack 依存・SSM 順序問題は発生しない。
 // 実際の prod deploy タイミングはブランチ運用（master push）で制御する。
-const cloudFrontStack = new LiveTalkCloudFrontStack(
-  app,
-  `NagiyuLiveTalkCloudFront${envSuffix}`,
-  {
-    env: stackEnv,
-    environment,
-    description: `LiveTalk CloudFront Distribution (${environment})`,
-  }
-);
+const cloudFrontStack = new LiveTalkCloudFrontStack(app, `NagiyuLiveTalkCloudFront${envSuffix}`, {
+  env: stackEnv,
+  environment,
+  description: `LiveTalk CloudFront Distribution (${environment})`,
+});
+
+// LiveTalk Batch Stack（Phase 3c / Issue #3281）
+// EventBridge 日次トリガー + Lambda + DLQ + IAM
+const openAiApiKey = app.node.tryGetContext('openAiApiKey') || 'PLACEHOLDER_OPENAI_API_KEY';
+
+new LiveTalkBatchStack(app, `NagiyuLiveTalkBatch${envSuffix}`, {
+  env: stackEnv,
+  environment,
+  openAiApiKey,
+  description: `LiveTalk Batch（圧縮要約 Lambda + EventBridge）(${environment})`,
+});
+
+// Batch stack は ECR リポジトリ名を `getEcrRepositoryName('livetalk-batch', env)` で
+// 決定論的に組み立てる（DynamoDB stack と同様に SSM もクロススタック参照も介さない）。
+// このため Batch ECR stack との deploy 順依存は発生しない。
 
 // SSM 経由の参照のため CDK は自動的にスタック間依存を検出できない。
 // 明示的に依存を宣言して deploy 順を保証する。

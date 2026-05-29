@@ -42,6 +42,7 @@ export interface RecentMessagesResult {
  * 会話メッセージのリポジトリ。
  *
  * Phase 2a では「保存」と「トークン上限ベースの直近取得」のみを公開する。
+ * Phase 3c で `listSince` を追加（圧縮要約バッチ用）。
  * 単発取得・削除等は今後の Phase で必要になった時点で追加する。
  */
 export interface MessageRepository {
@@ -61,4 +62,11 @@ export interface MessageRepository {
    * 返す配列は時系列昇順（古い順）に並び替えてある。
    */
   getRecentByTokenBudget(options: GetRecentByTokenBudgetOptions): Promise<RecentMessagesResult>;
+
+  /**
+   * 指定日時以降（`sinceMs` 以降、exclusive）のメッセージを時系列昇順で全件返す。
+   * `sinceMs` が 0 の場合は全件を返す。
+   * 圧縮要約バッチが前回圧縮後のメッセージのみを処理するために使用する。
+   */
+  listSince(userId: string, characterId: string, sinceMs: number): Promise<MessageEntity[]>;
 }

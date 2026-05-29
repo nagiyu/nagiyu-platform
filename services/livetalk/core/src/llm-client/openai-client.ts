@@ -10,7 +10,10 @@ import type {
   ChatOptions,
   IEmbeddingClient,
   ILLMClient,
+  MemoryCandidate,
   PurposeModelMap,
+  SummarizeInput,
+  SummarizeResult,
 } from './types.js';
 
 /**
@@ -100,6 +103,39 @@ export class OpenAIClient implements ILLMClient {
     return response.output_text ?? '';
   }
 
+  public async summarize(input: SummarizeInput): Promise<SummarizeResult> {
+    const { existingSummary, newMessages, characterName } = input;
+
+    const existingSection = existingSummary
+      ? `既存の要約：\n${existingSummary}`
+      : '既存の要約：なし';
+
+    const messagesSection = newMessages
+      .map((m) => `${m.role === 'user' ? 'ユーザー' : characterName}: ${m.text}`)
+      .join('\n');
+
+    const prompt = `以下は ${characterName} とユーザーとの会話です。
+
+${existingSection}
+
+新しい会話：
+${messagesSection}
+
+以下の JSON を返してください（余分なテキストなし）：
+{
+  "mergedSummary": "既存と新規をマージした最新要約（日本語）",
+  "newMemoryCandidates": [
+    { "category": "カテゴリ名", "content": "記憶の内容（日本語）" }
+  ]
+}`;
+
+    const rawText = await this.chatComplete([{ role: 'user', content: prompt }], {
+      purpose: 'summarize',
+    });
+
+    return parseSummarizeResult(rawText);
+  }
+
   private assertMessages(messages: ChatMessage[]): void {
     if (messages.length === 0) {
       throw new Error(OPENAI_ERROR_MESSAGES.EMPTY_MESSAGES);
@@ -117,6 +153,33 @@ export class OpenAIClient implements ILLMClient {
 
 function toEasyInputMessage(msg: ChatMessage): EasyInputMessage {
   return { role: msg.role, content: msg.content, type: 'message' };
+}
+
+export function parseSummarizeResult(rawText: string): SummarizeResult {
+  let json: Record<string, unknown>;
+  try {
+    // LLM が ```json ... ``` で囲む場合を考慮して、コードブロックを除去する
+    const cleaned = rawText
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/i, '')
+      .trim();
+    json = JSON.parse(cleaned) as Record<string, unknown>;
+  } catch {
+    return { mergedSummary: rawText.trim(), newMemoryCandidates: [] };
+  }
+
+  const mergedSummary = typeof json.mergedSummary === 'string' ? json.mergedSummary : '';
+
+  const candidates = Array.isArray(json.newMemoryCandidates) ? json.newMemoryCandidates : [];
+  const newMemoryCandidates: MemoryCandidate[] = candidates
+    .filter((c): c is Record<string, unknown> => typeof c === 'object' && c !== null)
+    .map((c) => ({
+      category: typeof c.category === 'string' ? c.category : 'general',
+      content: typeof c.content === 'string' ? c.content : '',
+    }))
+    .filter((c) => c.content.length > 0);
+
+  return { mergedSummary, newMemoryCandidates };
 }
 
 /** OpenAI embedding API で使用するモデル。軽量・高速・低コスト。 */

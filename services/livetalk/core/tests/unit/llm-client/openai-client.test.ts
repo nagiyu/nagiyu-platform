@@ -3,8 +3,9 @@ import {
   OpenAIClient,
   OPENAI_DEFAULT_MODELS,
   OPENAI_ERROR_MESSAGES,
+  parseSummarizeResult,
 } from '../../../src/llm-client/openai-client.js';
-import type { ChatMessage } from '../../../src/llm-client/types.js';
+import type { ChatMessage, SummarizeInput } from '../../../src/llm-client/types.js';
 
 function makeStreamEvents(deltas: Array<string | null>): AsyncIterable<unknown> {
   return {
@@ -192,5 +193,105 @@ describe('OpenAIClient', () => {
 
       await expect(livetalk.chatComplete([])).rejects.toThrow(OPENAI_ERROR_MESSAGES.EMPTY_MESSAGES);
     });
+  });
+
+  describe('summarize', () => {
+    const baseInput: SummarizeInput = {
+      existingSummary: 'コーヒーが好き',
+      newMessages: [
+        { role: 'user', text: 'ケーキも好きだよ' },
+        { role: 'assistant', text: 'そうなんだね！' },
+      ],
+      characterName: 'ひより',
+    };
+
+    it('chatComplete を purpose=summarize で呼び出す', async () => {
+      const { client, create } = makeMockOpenAI();
+      create.mockResolvedValue({
+        output_text: '{"mergedSummary":"テスト","newMemoryCandidates":[]}',
+      });
+      const livetalk = new OpenAIClient({ client });
+      await livetalk.summarize(baseInput);
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({ model: OPENAI_DEFAULT_MODELS.summarize })
+      );
+    });
+
+    it('JSON レスポンスを SummarizeResult に変換する', async () => {
+      const { client, create } = makeMockOpenAI();
+      create.mockResolvedValue({
+        output_text: JSON.stringify({
+          mergedSummary: 'コーヒーとケーキが好き',
+          newMemoryCandidates: [{ category: 'food', content: 'ケーキが好き' }],
+        }),
+      });
+      const livetalk = new OpenAIClient({ client });
+      const result = await livetalk.summarize(baseInput);
+      expect(result.mergedSummary).toBe('コーヒーとケーキが好き');
+      expect(result.newMemoryCandidates).toHaveLength(1);
+      expect(result.newMemoryCandidates[0].category).toBe('food');
+    });
+
+    it('existingSummary が undefined のとき「既存の要約：なし」をプロンプトに含める', async () => {
+      const { client, create } = makeMockOpenAI();
+      create.mockResolvedValue({ output_text: '{"mergedSummary":"","newMemoryCandidates":[]}' });
+      const livetalk = new OpenAIClient({ client });
+      await livetalk.summarize({ ...baseInput, existingSummary: undefined });
+      const calledMessages = (create.mock.calls[0] as [{ input: Array<{ content: string }> }])[0]
+        .input;
+      expect(calledMessages[0].content).toContain('既存の要約：なし');
+    });
+  });
+});
+
+describe('parseSummarizeResult', () => {
+  it('正常な JSON をパースする', () => {
+    const raw = JSON.stringify({
+      mergedSummary: 'まとめ',
+      newMemoryCandidates: [{ category: 'hobby', content: '映画好き' }],
+    });
+    const result = parseSummarizeResult(raw);
+    expect(result.mergedSummary).toBe('まとめ');
+    expect(result.newMemoryCandidates).toHaveLength(1);
+  });
+
+  it('```json コードブロックを除去してパースする', () => {
+    const raw = '```json\n{"mergedSummary":"テスト","newMemoryCandidates":[]}\n```';
+    const result = parseSummarizeResult(raw);
+    expect(result.mergedSummary).toBe('テスト');
+  });
+
+  it('JSON パース失敗時は rawText を mergedSummary に、candidates を空配列にする', () => {
+    const result = parseSummarizeResult('これは JSON ではない');
+    expect(result.mergedSummary).toBe('これは JSON ではない');
+    expect(result.newMemoryCandidates).toEqual([]);
+  });
+
+  it('newMemoryCandidates が配列でない場合は空配列にする', () => {
+    const raw = JSON.stringify({ mergedSummary: 'ok', newMemoryCandidates: 'bad' });
+    const result = parseSummarizeResult(raw);
+    expect(result.newMemoryCandidates).toEqual([]);
+  });
+
+  it('content が空の候補は除外する', () => {
+    const raw = JSON.stringify({
+      mergedSummary: 'ok',
+      newMemoryCandidates: [
+        { category: 'a', content: '' },
+        { category: 'b', content: '有効' },
+      ],
+    });
+    const result = parseSummarizeResult(raw);
+    expect(result.newMemoryCandidates).toHaveLength(1);
+    expect(result.newMemoryCandidates[0].content).toBe('有効');
+  });
+
+  it('category が文字列でない場合は "general" にフォールバックする', () => {
+    const raw = JSON.stringify({
+      mergedSummary: 'ok',
+      newMemoryCandidates: [{ category: 123, content: 'test' }],
+    });
+    const result = parseSummarizeResult(raw);
+    expect(result.newMemoryCandidates[0].category).toBe('general');
   });
 });

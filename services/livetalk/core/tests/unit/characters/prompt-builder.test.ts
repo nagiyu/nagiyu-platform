@@ -160,4 +160,26 @@ describe('buildChatMessages', () => {
     const messages = buildChatMessages(hiyori, new Date(), [], 'こんにちは', []);
     expect(messages[0].content).not.toContain('あなたが覚えていること');
   });
+
+  it('summaryText が渡されると system prompt に圧縮要約セクションが注入される', () => {
+    const messages = buildChatMessages(hiyori, new Date(), [], 'hi', [], 'コーヒーとケーキが好き');
+    expect(messages[0].content).toContain('あなたがこれまでに知ったこと');
+    expect(messages[0].content).toContain('コーヒーとケーキが好き');
+  });
+
+  it('summaryText が空文字の場合は圧縮要約セクションを挿入しない', () => {
+    const messages = buildChatMessages(hiyori, new Date(), [], 'hi', [], '');
+    expect(messages[0].content).not.toContain('あなたがこれまでに知ったこと');
+  });
+
+  it('summaryText と retrievedMemories の両方がある場合、要約が先に来る', () => {
+    const memories = [makeRetrievedMemory('ケーキが好き', 'B')];
+    const messages = buildChatMessages(hiyori, new Date(), [], 'hi', memories, '長期要約テキスト');
+    const content = messages[0].content;
+    const summaryIdx = content.indexOf('あなたがこれまでに知ったこと');
+    const memoriesIdx = content.indexOf('あなたが覚えていること');
+    expect(summaryIdx).toBeGreaterThan(-1);
+    expect(memoriesIdx).toBeGreaterThan(-1);
+    expect(summaryIdx).toBeLessThan(memoriesIdx);
+  });
 });

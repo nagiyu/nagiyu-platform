@@ -1,10 +1,9 @@
 {
-  "name": "@nagiyu/livetalk-core",
+  "name": "@nagiyu/livetalk-batch",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "main": "dist/src/index.js",
-  "types": "dist/src/index.d.ts",
+  "main": "dist/src/handlers/compress-conversations.handler.js",
   "scripts": {
     "build": "tsc",
     "test": "jest",
@@ -19,9 +18,8 @@
     "@aws-sdk/lib-dynamodb": "^3.1024.0",
     "@nagiyu/aws": "*",
     "@nagiyu/common": "*",
-    "js-tiktoken": "^1.0.21",
-    "openai": "^6.33.0",
-    "ulid": "^3.0.1"
+    "@nagiyu/livetalk-core": "*",
+    "openai": "^6.33.0"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",

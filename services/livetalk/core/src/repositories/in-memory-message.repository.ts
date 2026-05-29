@@ -60,6 +60,24 @@ export class InMemoryMessageRepository implements MessageRepository {
     return this.mapper.toEntity(item);
   }
 
+  public async listSince(
+    userId: string,
+    characterId: string,
+    sinceMs: number
+  ): Promise<MessageEntity[]> {
+    const pk = buildUserPK(userId);
+    const prefix = buildMessageSKPrefix(characterId);
+
+    const { items } = this.store.query(
+      { pk, sk: { operator: 'begins_with', value: prefix } },
+      { limit: Number.MAX_SAFE_INTEGER }
+    );
+
+    const filtered = sinceMs > 0 ? items.filter((i) => (i.CreatedAt as number) > sinceMs) : items;
+    const sorted = [...filtered].sort((a, b) => (a.SK < b.SK ? -1 : a.SK > b.SK ? 1 : 0));
+    return sorted.map((i) => this.mapper.toEntity(i));
+  }
+
   public async getRecentByTokenBudget(
     options: GetRecentByTokenBudgetOptions
   ): Promise<RecentMessagesResult> {

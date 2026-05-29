@@ -293,4 +293,116 @@ describe('DynamoDBMessageRepository', () => {
       ).rejects.toBeInstanceOf(DatabaseError);
     });
   });
+
+  describe('listSince', () => {
+    const msgItem = {
+      PK: 'USER#u1',
+      SK: 'CHAR#hiyori#MSG#ULID-FIXED',
+      Type: 'Message',
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      MessageID: 'ULID-FIXED',
+      Role: 'user',
+      Text: 'こんにちは',
+      CreatedAt: now,
+      UpdatedAt: now,
+    };
+
+    it('QueryCommand を ScanIndexForward=true で送信する', async () => {
+      const sent: unknown[] = [];
+      const client = makeClient(async (cmd) => {
+        sent.push(cmd);
+        return { Items: [] };
+      });
+      const repo = new DynamoDBMessageRepository(
+        client as never,
+        tableName,
+        ulidFactory,
+        () => now
+      );
+      await repo.listSince('u1', 'hiyori', 0);
+      expect(sent[0]).toBeInstanceOf(QueryCommand);
+      const input = (sent[0] as QueryCommand).input;
+      expect(input.ScanIndexForward).toBe(true);
+    });
+
+    it('sinceMs > 0 の場合 FilterExpression を付与する', async () => {
+      const sent: unknown[] = [];
+      const client = makeClient(async (cmd) => {
+        sent.push(cmd);
+        return { Items: [] };
+      });
+      const repo = new DynamoDBMessageRepository(
+        client as never,
+        tableName,
+        ulidFactory,
+        () => now
+      );
+      await repo.listSince('u1', 'hiyori', now - 1000);
+      const input = (sent[0] as QueryCommand).input;
+      expect(input.FilterExpression).toContain('CreatedAt');
+      expect(input.ExpressionAttributeValues?.[':sinceMs']).toBe(now - 1000);
+    });
+
+    it('sinceMs=0 の場合 FilterExpression を付与しない', async () => {
+      const sent: unknown[] = [];
+      const client = makeClient(async (cmd) => {
+        sent.push(cmd);
+        return { Items: [] };
+      });
+      const repo = new DynamoDBMessageRepository(
+        client as never,
+        tableName,
+        ulidFactory,
+        () => now
+      );
+      await repo.listSince('u1', 'hiyori', 0);
+      const input = (sent[0] as QueryCommand).input;
+      expect(input.FilterExpression).toBeUndefined();
+    });
+
+    it('アイテムをエンティティに変換して返す', async () => {
+      const client = makeClient(async () => ({ Items: [msgItem] }));
+      const repo = new DynamoDBMessageRepository(
+        client as never,
+        tableName,
+        ulidFactory,
+        () => now
+      );
+      const result = await repo.listSince('u1', 'hiyori', 0);
+      expect(result).toHaveLength(1);
+      expect(result[0].Text).toBe('こんにちは');
+    });
+
+    it('ページネーション: LastEvaluatedKey があれば再クエリする', async () => {
+      let call = 0;
+      const client = makeClient(async () => {
+        call++;
+        if (call === 1) return { Items: [msgItem], LastEvaluatedKey: { PK: 'marker' } };
+        return { Items: [] };
+      });
+      const repo = new DynamoDBMessageRepository(
+        client as never,
+        tableName,
+        ulidFactory,
+        () => now
+      );
+      const result = await repo.listSince('u1', 'hiyori', 0);
+      expect(call).toBe(2);
+      expect(result).toHaveLength(1);
+    });
+
+    it('DynamoDB エラーは DatabaseError でラップ', async () => {
+      const client = makeClient(async () => {
+        throw new Error('DB エラー');
+      });
+      const repo = new DynamoDBMessageRepository(
+        client as never,
+        tableName,
+        ulidFactory,
+        () => now
+      );
+      await expect(repo.listSince('u1', 'hiyori', 0)).rejects.toBeInstanceOf(DatabaseError);
+    });
+  });
 });
