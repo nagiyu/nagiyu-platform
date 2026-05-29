@@ -1,4 +1,4 @@
-export { handler } from './handlers/compress-conversations.handler.js';
+export { handler } from './handlers/compress-conversations.js';
 export { compressAllConversations } from './usecases/compress-conversations.usecase.js';
 export type {
   CompressAllConversationsParams,
