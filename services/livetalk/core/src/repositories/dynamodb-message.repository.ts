@@ -96,6 +96,58 @@ export class DynamoDBMessageRepository implements MessageRepository {
     }
   }
 
+  public async listSince(
+    userId: string,
+    characterId: string,
+    sinceMs: number
+  ): Promise<MessageEntity[]> {
+    const pk = buildUserPK(userId);
+    const skPrefix = buildMessageSKPrefix(characterId);
+    const results: MessageEntity[] = [];
+    let exclusiveStartKey: Record<string, unknown> | undefined;
+
+    for (;;) {
+      let result;
+      try {
+        result = await this.docClient.send(
+          new QueryCommand({
+            TableName: this.tableName,
+            KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
+            FilterExpression: sinceMs > 0 ? 'CreatedAt > :sinceMs' : undefined,
+            ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
+            ExpressionAttributeValues: {
+              ':pk': pk,
+              ':prefix': skPrefix,
+              ...(sinceMs > 0 && { ':sinceMs': sinceMs }),
+            },
+            ScanIndexForward: true,
+            ExclusiveStartKey: exclusiveStartKey,
+          })
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      }
+
+      for (const raw of result.Items ?? []) {
+        try {
+          results.push(this.mapper.toEntity(raw as unknown as DynamoDBItem));
+        } catch (error) {
+          logger.warn('無効なメッセージデータをスキップしました', {
+            pk: (raw as Record<string, unknown>).PK,
+            sk: (raw as Record<string, unknown>).SK,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      if (!result.LastEvaluatedKey) break;
+      exclusiveStartKey = result.LastEvaluatedKey;
+    }
+
+    return results;
+  }
+
   public async getRecentByTokenBudget(
     options: GetRecentByTokenBudgetOptions
   ): Promise<RecentMessagesResult> {
