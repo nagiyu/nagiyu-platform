@@ -83,7 +83,7 @@ export class LiveTalkBatchStack extends cdk.Stack {
       runtime: lambda.Runtime.FROM_IMAGE,
       code: lambda.Code.fromEcrImage(batchRepository, {
         tagOrDigest: 'latest',
-        cmd: ['services/livetalk/batch/dist/src/handlers/compress-conversations.handler.handler'],
+        cmd: ['services/livetalk/batch/dist/src/handlers/compress-conversations.handler'],
       }),
       handler: lambda.Handler.FROM_IMAGE,
       role: executionRole,

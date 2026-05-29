@@ -51,6 +51,8 @@ COPY --from=builder /app/services/livetalk/core/dist ./services/livetalk/core/di
 COPY --from=builder /app/services/livetalk/batch/package*.json ./services/livetalk/batch/
 COPY --from=builder /app/services/livetalk/batch/dist ./services/livetalk/batch/dist
 
-# Lambda ハンドラーを指定
-# CMD は CDK の cmd オプションで上書きされる
-CMD ["services/livetalk/batch/dist/src/handlers/compress-conversations.handler.handler"]
+# Lambda ハンドラーを指定（<モジュールパス>.<エクスポート名>）
+# Lambda ランタイムはハンドラ文字列を最初のドットで分割するため、
+# ファイル名にドットを含めない（compress-conversations.ts → handler export）。
+# CMD は CDK の cmd オプションで上書きされる。
+CMD ["services/livetalk/batch/dist/src/handlers/compress-conversations.handler"]

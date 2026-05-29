@@ -1,4 +1,4 @@
-import type { ScheduledEvent } from '../../../src/handlers/compress-conversations.handler.js';
+import type { ScheduledEvent } from '../../../src/handlers/compress-conversations.js';
 
 jest.mock('@nagiyu/aws', () => ({
   getDynamoDBDocumentClient: jest.fn(() => ({})),
@@ -47,7 +47,7 @@ describe('compress-conversations handler', () => {
       failedUserIds: [],
     });
 
-    const { handler } = await import('../../../src/handlers/compress-conversations.handler.js');
+    const { handler } = await import('../../../src/handlers/compress-conversations.js');
     const response = await handler(makeEvent());
 
     expect(response.statusCode).toBe(200);
@@ -58,7 +58,7 @@ describe('compress-conversations handler', () => {
   it('例外発生時に 500 を返す', async () => {
     mockCompressAll.mockRejectedValue(new Error('DynamoDB 接続エラー'));
 
-    const { handler } = await import('../../../src/handlers/compress-conversations.handler.js');
+    const { handler } = await import('../../../src/handlers/compress-conversations.js');
     const response = await handler(makeEvent());
 
     expect(response.statusCode).toBe(500);
@@ -70,7 +70,7 @@ describe('compress-conversations handler', () => {
     const { reportErrorEvent } = await import('@nagiyu/aws');
     mockCompressAll.mockRejectedValue(new Error('fatal'));
 
-    const { handler } = await import('../../../src/handlers/compress-conversations.handler.js');
+    const { handler } = await import('../../../src/handlers/compress-conversations.js');
     await handler(makeEvent({ id: 'ev-999' }));
 
     expect(reportErrorEvent).toHaveBeenCalledWith(
