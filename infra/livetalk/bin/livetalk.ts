@@ -64,46 +64,33 @@ const albStack = new LiveTalkAlbStack(app, `NagiyuLiveTalkAlb${envSuffix}`, {
 // テーブル名 / ARN は ECS Service Stack 側でも `getDynamoDBTableName('livetalk', env)`
 // / `getDynamoDBTableArn(...)` を呼んで独立に組み立てる（SSM もクロススタック参照も
 // 介さない方針）。両 stack の deploy 順序や export 依存は発生しない。
-const dynamoDbStack = new LiveTalkDynamoDbStack(
-  app,
-  `NagiyuLiveTalkDynamoDB${envSuffix}`,
-  {
-    env: stackEnv,
-    environment,
-    description: `LiveTalk DynamoDB Single Table (${environment})`,
-  }
-);
+const dynamoDbStack = new LiveTalkDynamoDbStack(app, `NagiyuLiveTalkDynamoDB${envSuffix}`, {
+  env: stackEnv,
+  environment,
+  description: `LiveTalk DynamoDB Single Table (${environment})`,
+});
 
 // LiveTalk ECS Service Stack（共通 Cluster に Attach、ALB Target Group へ登録）
-const ecsServiceStack = new LiveTalkEcsServiceStack(
-  app,
-  `NagiyuLiveTalkService${envSuffix}`,
-  {
-    env: stackEnv,
-    environment,
-    appVersion,
-    description: `LiveTalk ECS Service (${environment})`,
-  }
-);
+const ecsServiceStack = new LiveTalkEcsServiceStack(app, `NagiyuLiveTalkService${envSuffix}`, {
+  env: stackEnv,
+  environment,
+  appVersion,
+  description: `LiveTalk ECS Service (${environment})`,
+});
 
 // LiveTalk CloudFront Distribution Stack（Phase 1d）
 // dev / prod ともに登録。Route53 ALIAS レコードは CloudFront stack 内で同時作成する
 // （`infra/ui-storybook` パターン）ため、cross-stack 依存・SSM 順序問題は発生しない。
 // 実際の prod deploy タイミングはブランチ運用（master push）で制御する。
-const cloudFrontStack = new LiveTalkCloudFrontStack(
-  app,
-  `NagiyuLiveTalkCloudFront${envSuffix}`,
-  {
-    env: stackEnv,
-    environment,
-    description: `LiveTalk CloudFront Distribution (${environment})`,
-  }
-);
+const cloudFrontStack = new LiveTalkCloudFrontStack(app, `NagiyuLiveTalkCloudFront${envSuffix}`, {
+  env: stackEnv,
+  environment,
+  description: `LiveTalk CloudFront Distribution (${environment})`,
+});
 
 // LiveTalk Batch Stack（Phase 3c / Issue #3281）
 // EventBridge 日次トリガー + Lambda + DLQ + IAM
-const openAiApiKey =
-  app.node.tryGetContext('openAiApiKey') || 'PLACEHOLDER_OPENAI_API_KEY';
+const openAiApiKey = app.node.tryGetContext('openAiApiKey') || 'PLACEHOLDER_OPENAI_API_KEY';
 
 const batchStack = new LiveTalkBatchStack(app, `NagiyuLiveTalkBatch${envSuffix}`, {
   env: stackEnv,

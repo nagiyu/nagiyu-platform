@@ -8,7 +8,11 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
-import { getDynamoDBTableArn, getDynamoDBTableName, grantErrorEventsWrite } from '@nagiyu/infra-common';
+import {
+  getDynamoDBTableArn,
+  getDynamoDBTableName,
+  grantErrorEventsWrite,
+} from '@nagiyu/infra-common';
 import type { Environment } from '@nagiyu/infra-common';
 
 export interface LiveTalkBatchStackProps extends cdk.StackProps {
@@ -76,9 +80,7 @@ export class LiveTalkBatchStack extends cdk.Stack {
       runtime: lambda.Runtime.FROM_IMAGE,
       code: lambda.Code.fromEcrImage(batchRepository, {
         tagOrDigest: 'latest',
-        cmd: [
-          'services/livetalk/batch/dist/src/handlers/compress-conversations.handler.handler',
-        ],
+        cmd: ['services/livetalk/batch/dist/src/handlers/compress-conversations.handler.handler'],
       }),
       handler: lambda.Handler.FROM_IMAGE,
       role: executionRole,

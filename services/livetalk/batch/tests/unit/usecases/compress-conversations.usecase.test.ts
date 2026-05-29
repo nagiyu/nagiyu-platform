@@ -17,13 +17,19 @@ let tick = fixedNow;
 const makeLLMClient = (): ILLMClient & { summarizeCalls: number } => {
   let summarizeCalls = 0;
   return {
-    async *chatStream() { yield ''; },
-    async chatComplete() { return ''; },
+    async *chatStream() {
+      yield '';
+    },
+    async chatComplete() {
+      return '';
+    },
     async summarize() {
       summarizeCalls++;
       return { mergedSummary: '要約', newMemoryCandidates: [] };
     },
-    get summarizeCalls() { return summarizeCalls; },
+    get summarizeCalls() {
+      return summarizeCalls;
+    },
   };
 };
 
@@ -102,8 +108,12 @@ describe('compressAllConversations', () => {
   it('1 ユーザーが失敗しても他のユーザーを継続処理する', async () => {
     let callCount = 0;
     const errorClient: ILLMClient = {
-      async *chatStream() { yield ''; },
-      async chatComplete() { return ''; },
+      async *chatStream() {
+        yield '';
+      },
+      async chatComplete() {
+        return '';
+      },
       async summarize() {
         callCount++;
         if (callCount === 1) throw new Error('LLM 失敗');
