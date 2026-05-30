@@ -20,8 +20,11 @@ export default function MemoryTierTabs({ value, onChange }: MemoryTierTabsProps)
       <Tabs
         value={value}
         onChange={(_e, next: Tier) => onChange(next)}
-        variant="fullWidth"
         aria-label="記憶の階層タブ"
+        sx={{
+          '& .MuiTab-root': { fontWeight: 500 },
+          '& .Mui-selected': { fontWeight: 700 },
+        }}
       >
         {VISIBLE_TIERS.map((tier) => (
           <Tooltip key={tier} title={TIER_DESCRIPTIONS[tier]} arrow>
