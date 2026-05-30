@@ -87,6 +87,11 @@ export const CONFIRMATION_COOLDOWN_MS = 3 * 60 * 60 * 1000; // 3 時間
 
 /**
  * Tier C 記憶の「再言及」と判定する cosine similarity 下限閾値（Phase 3d）。
- * 高めに設定することで false positive（無関係な話題での昇格）を抑制する。
+ *
+ * 保存ベクトルは記憶の説明文（三人称）、クエリは生の口語発話（一人称）で
+ * 文体が異なるため、明確な再言及でも cosine は 0.6〜0.7 程度に留まる
+ * （dev 検証で「モンハン」再言及が 0.68 を記録し、閾値 0.7 で取りこぼした）。
+ * 類似度は粗いプレフィルタとし、最終的な昇格可否は後段の LLM 判定に委ねるため、
+ * 緩めの 0.5 に設定する（無関係な話題は cosine ≤ 0.4 で十分に分離できる）。
  */
-export const PROMOTION_SIMILARITY_THRESHOLD = 0.7;
+export const PROMOTION_SIMILARITY_THRESHOLD = 0.5;
