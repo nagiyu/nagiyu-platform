@@ -46,8 +46,8 @@ ${memoriesText}
       purpose: 'classify',
     });
 
-    // 診断ログ（Issue #3282 検証用）: LLM 昇格判定の生応答
-    logger.info('[confirmation] LLM 昇格判定の生応答', {
+    // 診断ログ（Issue #3282）: LLM 昇格判定の生応答（LOG_LEVEL=DEBUG 時のみ出力）
+    logger.debug('[confirmation] LLM 昇格判定の生応答', {
       candidateIds: candidates.map((m) => m.MemoryID),
       raw,
     });
@@ -61,8 +61,8 @@ ${memoriesText}
     const promoteIds = new Set(parsed.promotions.filter((p) => p.promote).map((p) => p.memoryId));
     const promoted = candidates.filter((m) => promoteIds.has(m.MemoryID));
 
-    // 診断ログ（Issue #3282 検証用）: 昇格と判定された記憶
-    logger.info('[confirmation] LLM 昇格判定結果', {
+    // 診断ログ（Issue #3282）: 昇格と判定された記憶（LOG_LEVEL=DEBUG 時のみ出力）
+    logger.debug('[confirmation] LLM 昇格判定結果', {
       promotedIds: promoted.map((m) => m.MemoryID),
     });
 
@@ -124,8 +124,8 @@ export async function identifyPromotionCandidates(
     .filter((s) => s.similarity >= PROMOTION_SIMILARITY_THRESHOLD)
     .map((s) => s.memory);
 
-  // 診断ログ（Issue #3282 検証用）: 各 Tier C 記憶の類似度と閾値通過状況
-  logger.info('[confirmation] 昇格候補の類似度スコア', {
+  // 診断ログ（Issue #3282）: 各 Tier C 記憶の類似度と閾値通過状況（LOG_LEVEL=DEBUG 時のみ出力）
+  logger.debug('[confirmation] 昇格候補の類似度スコア', {
     userInput,
     threshold: PROMOTION_SIMILARITY_THRESHOLD,
     tierCCount: tierCMemories.length,
