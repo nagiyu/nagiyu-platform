@@ -1,4 +1,8 @@
-import { TIERS, type Tier } from '@nagiyu/livetalk-core';
+import type { Tier } from '@nagiyu/livetalk-core';
+
+// TIERS を livetalk-core からランタイムインポートすると @nagiyu/aws → node:crypto が
+// クライアントバンドルに混入するため、ここで値を複製して依存を断つ。
+const TIERS: readonly Tier[] = ['A', 'B', 'C', 'D'] as const;
 import type { MemoryPatchInput } from './types';
 
 /**
