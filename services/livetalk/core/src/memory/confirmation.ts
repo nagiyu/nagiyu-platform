@@ -46,6 +46,12 @@ ${memoriesText}
       purpose: 'classify',
     });
 
+    // 診断ログ（Issue #3282 検証用）: LLM 昇格判定の生応答
+    logger.info('[confirmation] LLM 昇格判定の生応答', {
+      candidateIds: candidates.map((m) => m.MemoryID),
+      raw,
+    });
+
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return [];
 
@@ -53,8 +59,14 @@ ${memoriesText}
     if (!Array.isArray(parsed.promotions)) return [];
 
     const promoteIds = new Set(parsed.promotions.filter((p) => p.promote).map((p) => p.memoryId));
+    const promoted = candidates.filter((m) => promoteIds.has(m.MemoryID));
 
-    return candidates.filter((m) => promoteIds.has(m.MemoryID));
+    // 診断ログ（Issue #3282 検証用）: 昇格と判定された記憶
+    logger.info('[confirmation] LLM 昇格判定結果', {
+      promotedIds: promoted.map((m) => m.MemoryID),
+    });
+
+    return promoted;
   } catch (err) {
     logger.warn('[confirmation] LLM 昇格判定に失敗しました', { err });
     return [];
@@ -101,14 +113,31 @@ export async function identifyPromotionCandidates(
   }
 
   // cosine similarity で再言及候補を抽出
-  const candidates: MemoryEntity[] = [];
-  for (const memory of tierCMemories) {
-    if (!memory.Embedding || memory.Embedding.length === 0) continue;
-    const similarity = cosineSimilarity(queryEmbedding, memory.Embedding);
-    if (similarity >= PROMOTION_SIMILARITY_THRESHOLD) {
-      candidates.push(memory);
-    }
-  }
+  const scored = tierCMemories
+    .filter((m) => m.Embedding && m.Embedding.length > 0)
+    .map((m) => ({
+      memory: m,
+      similarity: cosineSimilarity(queryEmbedding, m.Embedding as number[]),
+    }));
+
+  const candidates = scored
+    .filter((s) => s.similarity >= PROMOTION_SIMILARITY_THRESHOLD)
+    .map((s) => s.memory);
+
+  // 診断ログ（Issue #3282 検証用）: 各 Tier C 記憶の類似度と閾値通過状況
+  logger.info('[confirmation] 昇格候補の類似度スコア', {
+    userInput,
+    threshold: PROMOTION_SIMILARITY_THRESHOLD,
+    tierCCount: tierCMemories.length,
+    passedCount: candidates.length,
+    scores: scored
+      .map((s) => ({
+        memoryId: s.memory.MemoryID,
+        content: s.memory.Content.slice(0, 30),
+        similarity: Number(s.similarity.toFixed(4)),
+      }))
+      .sort((a, b) => b.similarity - a.similarity),
+  });
 
   if (candidates.length === 0) return [];
 
