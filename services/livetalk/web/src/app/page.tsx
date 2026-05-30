@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Box, Container, Stack } from '@mui/material';
+import { Link } from '@nagiyu/ui';
 import ChatInput from '@/components/ChatInput';
 import LicenseFooter from '@/components/LicenseFooter';
 import ResponseDisplay from '@/components/ResponseDisplay';
@@ -304,6 +305,9 @@ export default function HomePage() {
             onSubmit={handleSubmit}
             disabled={phase !== 'idle' || consentPhase !== 'done'}
           />
+          <Box sx={{ textAlign: 'center' }}>
+            <Link href="/memory">私が覚えていること</Link>
+          </Box>
         </Stack>
         <LicenseFooter />
       </Container>

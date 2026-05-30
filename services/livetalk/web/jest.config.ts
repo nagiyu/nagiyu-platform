@@ -23,7 +23,13 @@ const config: Config = {
   testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
   modulePathIgnorePatterns: ['<rootDir>/../../../package.json', '<rootDir>/.next/'],
   coverageDirectory: 'coverage',
-  collectCoverageFrom: ['src/lib/**/*.{ts,tsx}', '!src/**/*.d.ts', '!src/lib/legal/**'],
+  collectCoverageFrom: [
+    'src/lib/**/*.{ts,tsx}',
+    '!src/**/*.d.ts',
+    '!src/lib/legal/**',
+    // 型定義のみのモジュール（ランタイムコードなし）はカバレッジ対象外
+    '!src/lib/memory/types.ts',
+  ],
   coverageThreshold: {
     global: {
       branches: 80,
