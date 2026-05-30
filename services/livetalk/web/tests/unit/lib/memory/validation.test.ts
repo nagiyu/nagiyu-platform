@@ -54,12 +54,40 @@ describe('validateMemoryPatch', () => {
     expect(validateMemoryPatch({ category: 5 })).toEqual({ ok: false, error: 'INVALID_CATEGORY' });
   });
 
-  it('category に不正文字があれば INVALID_CATEGORY', () => {
-    expect(validateMemoryPatch({ category: 'Food!' })).toEqual({
+  it('日本語 category を許容する（生成側に合わせる）', () => {
+    expect(validateMemoryPatch({ category: '好み' })).toEqual({
+      ok: true,
+      value: { category: '好み' },
+    });
+    expect(validateMemoryPatch({ category: '趣味・ゲーム' })).toEqual({
+      ok: true,
+      value: { category: '趣味・ゲーム' },
+    });
+  });
+
+  it('content のみの patch が日本語 category 既存データでも通る（編集不可バグの回帰防止）', () => {
+    expect(validateMemoryPatch({ content: '紅茶が好き' })).toEqual({
+      ok: true,
+      value: { content: '紅茶が好き' },
+    });
+  });
+
+  it('category が空文字なら INVALID_CATEGORY', () => {
+    expect(validateMemoryPatch({ category: '   ' })).toEqual({
       ok: false,
       error: 'INVALID_CATEGORY',
     });
-    expect(validateMemoryPatch({ category: '好み' })).toEqual({
+  });
+
+  it('category に SK 区切り文字 # が含まれると INVALID_CATEGORY', () => {
+    expect(validateMemoryPatch({ category: 'a#b' })).toEqual({
+      ok: false,
+      error: 'INVALID_CATEGORY',
+    });
+  });
+
+  it('category に改行・制御文字が含まれると INVALID_CATEGORY', () => {
+    expect(validateMemoryPatch({ category: 'a\nb' })).toEqual({
       ok: false,
       error: 'INVALID_CATEGORY',
     });

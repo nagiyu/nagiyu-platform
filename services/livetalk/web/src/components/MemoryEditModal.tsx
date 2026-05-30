@@ -26,7 +26,7 @@ export interface MemoryEditModalProps {
 }
 
 const ERROR_MESSAGES = {
-  VALIDATION: '入力内容を確認してください（content は必須、category は英小文字・数字のみ）。',
+  VALIDATION: '入力内容を確認してください（内容は必須、カテゴリに「#」は使えません）。',
 } as const;
 
 /**
@@ -83,7 +83,7 @@ export default function MemoryEditModal({
             onChange={(e) => setCategory(e.target.value)}
             fullWidth
             maxLength={MEMORY_CATEGORY_MAX_LENGTH}
-            helperText="英小文字・数字・ハイフン・アンダースコアのみ"
+            helperText="「#」は使えません"
           />
           {error && (
             <Typography color="error" variant="body2" role="alert" data-testid="memory-edit-error">

@@ -8,7 +8,7 @@ export const MEMORY_ERROR_MESSAGES = {
   EMPTY_PATCH: 'content または category を指定してください',
   INVALID_CONTENT: 'content が不正です',
   CONTENT_TOO_LONG: 'content が長すぎます',
-  INVALID_CATEGORY: 'category が不正です（英小文字・数字・ハイフン・アンダースコアのみ）',
+  INVALID_CATEGORY: 'category が不正です（空にできません。「#」は使えません）',
   CATEGORY_TOO_LONG: 'category が長すぎます',
   NOT_FOUND: '指定された記憶が見つかりません',
   FETCH_FAILED: '記憶の取得に失敗しました',

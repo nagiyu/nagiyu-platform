@@ -1,8 +1,4 @@
 import type { Tier } from '@nagiyu/livetalk-core';
-
-// TIERS を livetalk-core からランタイムインポートすると @nagiyu/aws → node:crypto が
-// クライアントバンドルに混入するため、ここで値を複製して依存を断つ。
-const TIERS: readonly Tier[] = ['A', 'B', 'C', 'D'] as const;
 import type { MemoryPatchInput } from './types';
 
 /**
@@ -12,6 +8,10 @@ import type { MemoryPatchInput } from './types';
  * （カバレッジ計測対象は `src/lib/**` のみ）。
  */
 
+// TIERS を livetalk-core からランタイムインポートすると @nagiyu/aws → node:crypto が
+// クライアントバンドルに混入するため、ここで値を複製して依存を断つ。
+const TIERS: readonly Tier[] = ['A', 'B', 'C', 'D'] as const;
+
 /** content の最大文字数。LLM プロンプトに注入されるため過度に長い記憶を弾く。 */
 export const MEMORY_CONTENT_MAX_LENGTH = 500;
 
@@ -19,10 +19,14 @@ export const MEMORY_CONTENT_MAX_LENGTH = 500;
 export const MEMORY_CATEGORY_MAX_LENGTH = 50;
 
 /**
- * category に使える文字（英小文字・数字・ハイフン・アンダースコア）。
- * SK 区切り文字 `#` の混入を防ぐため厳格に制限する。
+ * category に使えない文字。
+ *
+ * 記憶生成側（LLM 抽出）は category を日本語で付与するため、編集側もそれに合わせて
+ * 日本語を許容する。ただし SK（`CHAR#...#MEM#<tier>#<category>#<ulid>`）の区切り文字
+ * `#` が混入すると SK 構造が壊れるため `#` は禁止する。あわせて改行・タブ等の制御文字も禁止する。
  */
-const CATEGORY_PATTERN = /^[a-z0-9_-]+$/;
+// eslint-disable-next-line no-control-regex
+const CATEGORY_FORBIDDEN_PATTERN = /[#\u0000-\u001f]/;
 
 export interface ValidatedMemoryPatch {
   content?: string;
@@ -45,7 +49,7 @@ export type PatchValidationResult =
  *
  * - content / category の少なくとも一方が必要
  * - content は空白のみを許さず、最大長を超えない
- * - category は許可文字のみ・最大長を超えない
+ * - category は空でなく、`#`・制御文字を含まず、最大長を超えない（日本語可）
  */
 export function validateMemoryPatch(body: unknown): PatchValidationResult {
   if (typeof body !== 'object' || body === null) {
@@ -74,10 +78,13 @@ export function validateMemoryPatch(body: unknown): PatchValidationResult {
       return { ok: false, error: 'INVALID_CATEGORY' };
     }
     const trimmed = input.category.trim();
+    if (!trimmed) {
+      return { ok: false, error: 'INVALID_CATEGORY' };
+    }
     if (trimmed.length > MEMORY_CATEGORY_MAX_LENGTH) {
       return { ok: false, error: 'CATEGORY_TOO_LONG' };
     }
-    if (!CATEGORY_PATTERN.test(trimmed)) {
+    if (CATEGORY_FORBIDDEN_PATTERN.test(trimmed)) {
       return { ok: false, error: 'INVALID_CATEGORY' };
     }
     result.category = trimmed;

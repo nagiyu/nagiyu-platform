@@ -32,12 +32,24 @@ describe('MemoryEditModal', () => {
     expect(onSave).toHaveBeenCalledWith('enc-id', { content: '紅茶が好き', category: 'food' });
   });
 
-  it('不正な category はエラー表示し onSave を呼ばない', () => {
+  it('日本語 category でも保存できる（編集不可バグの回帰防止）', () => {
     const onSave = jest.fn();
     render(<MemoryEditModal open memory={memory} onSave={onSave} onClose={jest.fn()} />);
 
     fireEvent.change(screen.getByLabelText('カテゴリ'), {
-      target: { value: '日本語カテゴリ' },
+      target: { value: '好み' },
+    });
+    fireEvent.click(screen.getByTestId('memory-edit-save'));
+
+    expect(onSave).toHaveBeenCalledWith('enc-id', { content: 'コーヒーが好き', category: '好み' });
+  });
+
+  it('# を含む category はエラー表示し onSave を呼ばない', () => {
+    const onSave = jest.fn();
+    render(<MemoryEditModal open memory={memory} onSave={onSave} onClose={jest.fn()} />);
+
+    fireEvent.change(screen.getByLabelText('カテゴリ'), {
+      target: { value: 'a#b' },
     });
     fireEvent.click(screen.getByTestId('memory-edit-save'));
 
