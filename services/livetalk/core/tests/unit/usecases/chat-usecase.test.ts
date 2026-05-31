@@ -37,6 +37,11 @@ function makeLLMClient(chunks: string[]): ILLMClient {
       yield* stringsToStream(chunks);
     }),
     chatComplete: jest.fn(),
+    chatStructured: jest.fn(async () => ({
+      detected: false,
+      targetMemoryIds: null,
+      newValue: null,
+    })) as unknown as ILLMClient['chatStructured'],
     summarize: jest.fn(async () => ({ mergedSummary: '', newMemoryCandidates: [] })),
   };
 }
@@ -490,6 +495,11 @@ describe('runChatUseCase', () => {
           throw new Error('llm down');
         }),
         chatComplete: jest.fn(),
+        chatStructured: jest.fn(async () => ({
+          detected: false,
+          targetMemoryIds: null,
+          newValue: null,
+        })) as unknown as ILLMClient['chatStructured'],
         summarize: jest.fn(async () => ({ mergedSummary: '', newMemoryCandidates: [] })),
       };
       const voice = makeVoiceClient();
@@ -961,9 +971,12 @@ describe('runChatUseCase', () => {
         chatStream: jest.fn(async function* () {
           yield '了解！';
         }),
-        chatComplete: jest.fn(
-          async () => '{"detected": true, "targetMemoryIds": ["m1"], "newValue": "お茶が好き"}'
-        ),
+        chatComplete: jest.fn(),
+        chatStructured: jest.fn(async () => ({
+          detected: true,
+          targetMemoryIds: ['m1'],
+          newValue: 'お茶が好き',
+        })) as unknown as ILLMClient['chatStructured'],
         summarize: jest.fn(),
       };
       const voice = makeVoiceClient();
@@ -997,7 +1010,12 @@ describe('runChatUseCase', () => {
         chatStream: jest.fn(async function* () {
           yield '了解！';
         }),
-        chatComplete: jest.fn(async () => '{"detected": false}'),
+        chatComplete: jest.fn(),
+        chatStructured: jest.fn(async () => ({
+          detected: false,
+          targetMemoryIds: null,
+          newValue: null,
+        })) as unknown as ILLMClient['chatStructured'],
         summarize: jest.fn(),
       };
       const voice = makeVoiceClient();
@@ -1016,8 +1034,8 @@ describe('runChatUseCase', () => {
         })
       );
 
-      // chatComplete が classify 用途で呼ばれないことを確認
-      expect(llm.chatComplete).not.toHaveBeenCalled();
+      // chatStructured が classify 用途で呼ばれないことを確認（訂正検出スキップ）
+      expect(llm.chatStructured).not.toHaveBeenCalled();
     });
 
     it('訂正検出がエラーを投げても LLM 応答を継続する（fail-warn）', async () => {
@@ -1029,7 +1047,8 @@ describe('runChatUseCase', () => {
         chatStream: jest.fn(async function* () {
           yield '了解！';
         }),
-        chatComplete: jest.fn(async () => {
+        chatComplete: jest.fn(),
+        chatStructured: jest.fn(async () => {
           throw new Error('API error');
         }),
         summarize: jest.fn(),
@@ -1083,7 +1102,10 @@ describe('runChatUseCase', () => {
         chatStream: jest.fn(async function* () {
           yield '了解！';
         }),
-        chatComplete: jest.fn(async () => '{"promotions": []}'),
+        chatComplete: jest.fn(),
+        chatStructured: jest.fn(async () => ({
+          promotions: [],
+        })) as unknown as ILLMClient['chatStructured'],
         summarize: jest.fn(),
       };
       const voice = makeVoiceClient();
@@ -1145,7 +1167,10 @@ describe('runChatUseCase', () => {
         chatStream: jest.fn(async function* () {
           yield '覚えとくね！';
         }),
-        chatComplete: jest.fn(async () => '{"promotions": [{"memoryId": "c1", "promote": true}]}'),
+        chatComplete: jest.fn(),
+        chatStructured: jest.fn(async () => ({
+          promotions: [{ memoryId: 'c1', promote: true }],
+        })) as unknown as ILLMClient['chatStructured'],
         summarize: jest.fn(),
       };
       const voice = makeVoiceClient();

@@ -14,11 +14,7 @@ import type { MemoryRepository } from '../repositories/memory.repository.interfa
 import type { MemoryEntity } from '../entities/memory.entity.js';
 import { cosineSimilarity } from './embedding.js';
 import { CONFIRMATION_COOLDOWN_MS, PROMOTION_SIMILARITY_THRESHOLD } from '../constants.js';
-
-interface PromotionJudgment {
-  memoryId: string;
-  promote: boolean;
-}
+import { ConfirmationResponseSchema } from '../llm-client/schemas/confirmation.schema.js';
 
 async function judgePromotionsWithLLM(
   userInput: string,
@@ -38,31 +34,25 @@ ${memoriesText}
 ユーザーの発話が上記の記憶について再確認・強調・肯定している場合のみ昇格（promote: true）としてください。
 単に話題が関連しているだけでは昇格しません。ユーザーが同じ情報を再度明示している場合のみ昇格です。
 
-以下の JSON 形式で返してください（JSON のみ）:
-{"promotions": [{"memoryId": "...", "promote": true}, {"memoryId": "...", "promote": false}]}`;
+promotions 配列（memoryId と promote を含むオブジェクトの配列）を返してください。`;
 
   try {
-    const raw = await llmClient.chatComplete([{ role: 'user', content: prompt }], {
-      purpose: 'classify',
-    });
+    const parsed = await llmClient.chatStructured(
+      [{ role: 'user', content: prompt }],
+      ConfirmationResponseSchema,
+      { purpose: 'classify' }
+    );
 
-    // 診断ログ（Issue #3282）: LLM 昇格判定の生応答（LOG_LEVEL=DEBUG 時のみ出力）
-    logger.debug('[confirmation] LLM 昇格判定の生応答', {
+    // 診断ログ（Issue #3282）: LLM 昇格判定結果（LOG_LEVEL=DEBUG 時のみ出力）
+    logger.debug('[confirmation] LLM 昇格判定結果', {
       candidateIds: candidates.map((m) => m.MemoryID),
-      raw,
+      promotions: parsed.promotions,
     });
-
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return [];
-
-    const parsed = JSON.parse(jsonMatch[0]) as { promotions?: PromotionJudgment[] };
-    if (!Array.isArray(parsed.promotions)) return [];
 
     const promoteIds = new Set(parsed.promotions.filter((p) => p.promote).map((p) => p.memoryId));
     const promoted = candidates.filter((m) => promoteIds.has(m.MemoryID));
 
-    // 診断ログ（Issue #3282）: 昇格と判定された記憶（LOG_LEVEL=DEBUG 時のみ出力）
-    logger.debug('[confirmation] LLM 昇格判定結果', {
+    logger.debug('[confirmation] 昇格と判定された記憶', {
       promotedIds: promoted.map((m) => m.MemoryID),
     });
 

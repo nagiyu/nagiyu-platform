@@ -45,10 +45,11 @@ function makeEmbeddingClient(vec: number[]): IEmbeddingClient {
   return { embed: jest.fn(async () => vec) };
 }
 
-function makeLLMClient(response: string): ILLMClient {
+function makeLLMClient(response: object): ILLMClient {
   return {
     chatStream: jest.fn(),
-    chatComplete: jest.fn(async () => response),
+    chatComplete: jest.fn(),
+    chatStructured: jest.fn(async () => response),
     summarize: jest.fn(),
   } as unknown as ILLMClient;
 }
@@ -68,7 +69,7 @@ describe('identifyPromotionCandidates', () => {
         'コーヒーが好き',
         repo,
         makeEmbeddingClient(VEC_QUERY_COFFEE),
-        makeLLMClient('')
+        makeLLMClient({ promotions: [] })
       );
       expect(result).toHaveLength(0);
     });
@@ -78,7 +79,7 @@ describe('identifyPromotionCandidates', () => {
     it('embedding がない Tier C 記憶はスキップする', async () => {
       const mem = makeMemoryC('c1', 'コーヒーが好き'); // embedding なし
       const repo = makeMemoryRepo([mem]);
-      const llm = makeLLMClient('');
+      const llm = makeLLMClient({ promotions: [] });
       const result = await identifyPromotionCandidates(
         'u1',
         'hiyori',
@@ -88,7 +89,7 @@ describe('identifyPromotionCandidates', () => {
         llm
       );
       expect(result).toHaveLength(0);
-      expect(llm.chatComplete).not.toHaveBeenCalled();
+      expect(llm.chatStructured).not.toHaveBeenCalled();
     });
   });
 
@@ -97,7 +98,7 @@ describe('identifyPromotionCandidates', () => {
       const highSim = makeMemoryC('c1', 'コーヒーが好き', VEC_COFFEE); // coffee に近い
       const lowSim = makeMemoryC('c2', 'スポーツが好き', VEC_SPORTS); // 直交
       const repo = makeMemoryRepo([highSim, lowSim]);
-      const llm = makeLLMClient('{"promotions": [{"memoryId": "c1", "promote": true}]}');
+      const llm = makeLLMClient({ promotions: [{ memoryId: 'c1', promote: true }] });
       await identifyPromotionCandidates(
         'u1',
         'hiyori',
@@ -106,7 +107,7 @@ describe('identifyPromotionCandidates', () => {
         makeEmbeddingClient(VEC_QUERY_COFFEE),
         llm
       );
-      const [, promptArg] = (llm.chatComplete as jest.Mock).mock.calls[0];
+      const [, promptArg] = (llm.chatStructured as jest.Mock).mock.calls[0];
       // LLM に渡したメッセージに c2 が含まれていないことを確認
       expect(JSON.stringify(promptArg ?? '')).not.toContain('c2');
     });
@@ -116,7 +117,7 @@ describe('identifyPromotionCandidates', () => {
     it('LLM が promote: true を返した Memory を返す', async () => {
       const mem = makeMemoryC('c1', 'コーヒーが好き', VEC_COFFEE);
       const repo = makeMemoryRepo([mem]);
-      const llm = makeLLMClient('{"promotions": [{"memoryId": "c1", "promote": true}]}');
+      const llm = makeLLMClient({ promotions: [{ memoryId: 'c1', promote: true }] });
       const result = await identifyPromotionCandidates(
         'u1',
         'hiyori',
@@ -132,7 +133,7 @@ describe('identifyPromotionCandidates', () => {
     it('LLM が promote: false を返した Memory は含まない', async () => {
       const mem = makeMemoryC('c1', 'コーヒーが好き', VEC_COFFEE);
       const repo = makeMemoryRepo([mem]);
-      const llm = makeLLMClient('{"promotions": [{"memoryId": "c1", "promote": false}]}');
+      const llm = makeLLMClient({ promotions: [{ memoryId: 'c1', promote: false }] });
       const result = await identifyPromotionCandidates(
         'u1',
         'hiyori',
@@ -149,26 +150,12 @@ describe('identifyPromotionCandidates', () => {
       const repo = makeMemoryRepo([mem]);
       const llm = {
         chatStream: jest.fn(),
-        chatComplete: jest.fn(async () => {
+        chatComplete: jest.fn(),
+        chatStructured: jest.fn(async () => {
           throw new Error('API error');
         }),
         summarize: jest.fn(),
       } as unknown as ILLMClient;
-      const result = await identifyPromotionCandidates(
-        'u1',
-        'hiyori',
-        'コーヒーの話',
-        repo,
-        makeEmbeddingClient(VEC_QUERY_COFFEE),
-        llm
-      );
-      expect(result).toHaveLength(0);
-    });
-
-    it('LLM が不正 JSON を返しても空配列で継続する', async () => {
-      const mem = makeMemoryC('c1', 'コーヒーが好き', VEC_COFFEE);
-      const repo = makeMemoryRepo([mem]);
-      const llm = makeLLMClient('invalid json');
       const result = await identifyPromotionCandidates(
         'u1',
         'hiyori',
@@ -195,7 +182,7 @@ describe('identifyPromotionCandidates', () => {
         'コーヒー',
         repo,
         makeEmbeddingClient(VEC_QUERY_COFFEE),
-        makeLLMClient('')
+        makeLLMClient({ promotions: [] })
       );
       expect(result).toHaveLength(0);
     });
@@ -214,7 +201,7 @@ describe('identifyPromotionCandidates', () => {
         'コーヒー',
         repo,
         failingEmbed,
-        makeLLMClient('')
+        makeLLMClient({ promotions: [] })
       );
       expect(result).toHaveLength(0);
     });

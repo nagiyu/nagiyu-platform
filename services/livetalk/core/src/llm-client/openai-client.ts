@@ -1,10 +1,12 @@
 import OpenAI from 'openai';
+import { zodTextFormat } from 'openai/helpers/zod';
 import type {
   EasyInputMessage,
   Response,
   ResponseStreamEvent,
 } from 'openai/resources/responses/responses';
 import type { Stream } from 'openai/streaming';
+import { z } from 'zod';
 import type {
   ChatMessage,
   ChatOptions,
@@ -15,6 +17,7 @@ import type {
   SummarizeInput,
   SummarizeResult,
 } from './types.js';
+import { SummarizeResultSchema } from './schemas/summarize.schema.js';
 
 /**
  * OpenAI 実装の用途別既定モデル（GPT-5 系）。
@@ -33,6 +36,7 @@ export const OPENAI_DEFAULT_MODELS: PurposeModelMap = {
 export const OPENAI_ERROR_MESSAGES = {
   EMPTY_MESSAGES: 'メッセージが空です',
   EMPTY_API_KEY: 'OpenAI API キーが指定されていません',
+  REFUSAL: 'LLM が応答を拒否しました（refusal）',
 } as const;
 
 export interface OpenAIClientOptions {
@@ -103,6 +107,28 @@ export class OpenAIClient implements ILLMClient {
     return response.output_text ?? '';
   }
 
+  public async chatStructured<T extends z.ZodType>(
+    messages: ChatMessage[],
+    schema: T,
+    options: ChatOptions = {}
+  ): Promise<z.infer<T>> {
+    this.assertMessages(messages);
+    const response = await this.client.responses.parse({
+      model: this.resolveModel(options),
+      stream: false,
+      input: messages.map(toEasyInputMessage),
+      temperature: options.temperature,
+      max_output_tokens: options.maxTokens,
+      text: { format: zodTextFormat(schema, 'structured_output') },
+    });
+
+    if (response.output_parsed === null || response.output_parsed === undefined) {
+      throw new Error(OPENAI_ERROR_MESSAGES.REFUSAL);
+    }
+
+    return response.output_parsed as z.infer<T>;
+  }
+
   public async summarize(input: SummarizeInput): Promise<SummarizeResult> {
     const { existingSummary, newMessages, characterName } = input;
 
@@ -121,29 +147,20 @@ ${existingSection}
 新しい会話：
 ${messagesSection}
 
-以下の JSON を返してください（余分なテキストなし）：
-{
-  "mergedSummary": "既存と新規をマージした最新要約（日本語）",
-  "newMemoryCandidates": [
-    { "category": "カテゴリ名", "content": "記憶の内容（日本語）" }
-  ],
-  "interestCategories": [
-    { "category": "ユーザーが興味を示したカテゴリ（日本語、例: アニメ・コーヒー）", "weight": 1 }
-  ],
-  "bidirectionalityScore": 0.0
-}
+mergedSummary（既存と新規をマージした最新要約、日本語）、
+newMemoryCandidates（新規記憶候補の配列、category と content を含む）、
+interestCategories（ユーザーが興味を示したカテゴリ配列、category と weight を含む。なければ空配列）、
+bidirectionalityScore（ユーザーが ${characterName} の発話に反応・質問返しをした割合 0.0〜1.0。
+  キャラ発信の話題にユーザーが乗った場合は高く 0.7〜1.0、ユーザーが一方的に話し続けた場合は低く 0.0〜0.3）
+を返してください。`;
 
-bidirectionalityScore の算出方法：
-- ユーザーが ${characterName} の発話に対して反応・深掘り・質問返しをした割合を 0.0〜1.0 で示す
-- キャラ発信の話題にユーザーが乗った場合、キャラへの質問を返した場合は高く（0.7〜1.0）
-- ユーザーが一方的に話し続けた場合や短い返答のみの場合は低く（0.0〜0.3）
-- 会話が存在する場合のみ算出し、新しい会話が空の場合は 0.0 とする`;
+    const raw = await this.chatStructured(
+      [{ role: 'user', content: prompt }],
+      SummarizeResultSchema,
+      { purpose: 'summarize' }
+    );
 
-    const rawText = await this.chatComplete([{ role: 'user', content: prompt }], {
-      purpose: 'summarize',
-    });
-
-    return parseSummarizeResult(rawText);
+    return toSummarizeResult(raw);
   }
 
   private assertMessages(messages: ChatMessage[]): void {
@@ -207,6 +224,40 @@ export function parseSummarizeResult(rawText: string): SummarizeResult {
     mergedSummary,
     newMemoryCandidates,
     interestCategories: interestCategories.length > 0 ? interestCategories : undefined,
+    bidirectionalityScore,
+  };
+}
+
+/**
+ * `SummarizeResultSchema` でデコードされた生データを `SummarizeResult` に変換する。
+ *
+ * Structured Outputs により型は保証済みなので、ここでは意味的バリデーション（content 空除外等）のみ行う。
+ */
+function toSummarizeResult(raw: z.infer<typeof SummarizeResultSchema>): SummarizeResult {
+  const newMemoryCandidates: MemoryCandidate[] = raw.newMemoryCandidates
+    .map((c) => ({
+      category: c.category.length > 0 ? c.category : 'general',
+      content: c.content,
+    }))
+    .filter((c) => c.content.length > 0);
+
+  const interestCategories =
+    raw.interestCategories && raw.interestCategories.length > 0
+      ? raw.interestCategories
+          .filter((c) => c.category.length > 0)
+          .map((c) => ({ category: c.category, weight: c.weight > 0 ? c.weight : 1 }))
+      : undefined;
+
+  const bidirectionalityScore =
+    typeof raw.bidirectionalityScore === 'number'
+      ? Math.min(1, Math.max(0, raw.bidirectionalityScore))
+      : undefined;
+
+  return {
+    mergedSummary: raw.mergedSummary,
+    newMemoryCandidates,
+    interestCategories:
+      interestCategories && interestCategories.length > 0 ? interestCategories : undefined,
     bidirectionalityScore,
   };
 }
