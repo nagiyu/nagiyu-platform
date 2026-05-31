@@ -261,6 +261,9 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
         // OpenAI API キー（Phase 2b）。deploy ワークフローが Secrets Manager から取得して
         // CDK context 経由でここに注入する。アプリは process.env.OPENAI_API_KEY で参照する。
         OPENAI_API_KEY: openAiApiKey,
+        // Phase 4a / #3327: Node.js の new Date() を JST 基準にし、getTimeOfDay() の
+        // 時間帯判定（朝/昼/夜）を正しく動作させる。ISO8601 タイムスタンプは UTC のまま。
+        TZ: 'Asia/Tokyo',
       },
       portMappings: [
         {

@@ -269,6 +269,18 @@ describe('LiveTalkEcsServiceStack', () => {
     });
   });
 
+  it('TZ=Asia/Tokyo env を livetalk-web container に注入する（Phase 4a / #3327）', () => {
+    const template = synth('dev');
+    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Name: 'livetalk-web',
+          Environment: Match.arrayWith([{ Name: 'TZ', Value: 'Asia/Tokyo' }]),
+        }),
+      ]),
+    });
+  });
+
   it('Task Role に Secrets Manager 読取権限の PolicyStatement を持たない（CI-context 方式）', () => {
     const template = synth('dev');
     const policies = template.findResources('AWS::IAM::Policy');
