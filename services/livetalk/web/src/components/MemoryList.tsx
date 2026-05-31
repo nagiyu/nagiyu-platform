@@ -34,12 +34,7 @@ export default function MemoryList({ memories, loading, onDelete, onPin }: Memor
   return (
     <Stack spacing={1.5} data-testid="memory-list">
       {memories.map((memory) => (
-        <MemoryItem
-          key={memory.id}
-          memory={memory}
-          onDelete={onDelete}
-          onPin={onPin}
-        />
+        <MemoryItem key={memory.id} memory={memory} onDelete={onDelete} onPin={onPin} />
       ))}
     </Stack>
   );
