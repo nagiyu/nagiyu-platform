@@ -86,6 +86,22 @@ export const MEMORY_AUTO_DELETE_THRESHOLD = 0.2;
 export const CONFIRMATION_COOLDOWN_MS = 3 * 60 * 60 * 1000; // 3 時間
 
 /**
+ * 親密度: 1 件の C→B 昇格（情報開示）に対する加算量（Phase 3f）。
+ */
+export const AFFECTION_INFO_DISCLOSURE_WEIGHT = 0.5;
+
+/**
+ * 親密度: 新規接触日に対する加算量（Phase 3f）。
+ */
+export const AFFECTION_TIME_CONTINUITY_BONUS = 1.0;
+
+/**
+ * 親密度: 双方向性スコア（0〜1）に乗算する係数（Phase 3f）。
+ * bidirectionalityScore * AFFECTION_BIDIRECTIONALITY_WEIGHT が 1 日分の加算量。
+ */
+export const AFFECTION_BIDIRECTIONALITY_WEIGHT = 1.0;
+
+/**
  * Tier C 記憶の「再言及」と判定する cosine similarity 下限閾値（Phase 3d）。
  *
  * 保存ベクトルは記憶の説明文（三人称）、クエリは生の口語発話（一人称）で

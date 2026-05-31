@@ -72,14 +72,47 @@ describe('InMemoryCharacterStateRepository', () => {
     expect(b?.LastInteractionAt).toBe(baseNow + 1);
   });
 
-  it('AffectionLevel / Onboarded などの Phase 3 以降のフィールドは保持されない', async () => {
+  it('AffectionLevel を指定して upsert すると保存される', async () => {
+    const state = await repo.upsert({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      LastInteractionAt: now,
+      AffectionLevel: 5,
+    });
+    expect(state.AffectionLevel).toBe(5);
+  });
+
+  it('AffectionLevel 未指定の upsert では 0 になる', async () => {
     const state = await repo.upsert({
       UserID: 'u1',
       CharacterID: 'hiyori',
       LastInteractionAt: now,
     });
-    expect(Object.keys(state).sort()).toEqual(
-      ['CharacterID', 'CreatedAt', 'LastInteractionAt', 'UpdatedAt', 'UserID'].sort()
-    );
+    expect(state.AffectionLevel).toBe(0);
+  });
+
+  it('updateAffection で AffectionLevel が加算される', async () => {
+    await repo.upsert({ UserID: 'u1', CharacterID: 'hiyori', LastInteractionAt: now });
+    const result = await repo.updateAffection('u1', 'hiyori', 2);
+    expect(result.AffectionLevel).toBe(2);
+  });
+
+  it('updateAffection を複数回呼ぶと累積される', async () => {
+    await repo.updateAffection('u1', 'hiyori', 1);
+    await repo.updateAffection('u1', 'hiyori', 1.5);
+    const state = await repo.getById({ userId: 'u1', characterId: 'hiyori' });
+    expect(state?.AffectionLevel).toBeCloseTo(2.5);
+  });
+
+  it('updateAffection は負の delta でも下がらない（上昇のみ保証）', async () => {
+    await repo.updateAffection('u1', 'hiyori', 5);
+    await repo.updateAffection('u1', 'hiyori', -3);
+    const state = await repo.getById({ userId: 'u1', characterId: 'hiyori' });
+    expect(state?.AffectionLevel).toBe(5);
+  });
+
+  it('updateAffection は CharacterState 未作成でも動作する', async () => {
+    const result = await repo.updateAffection('new', 'hiyori', 1);
+    expect(result.AffectionLevel).toBe(1);
   });
 });

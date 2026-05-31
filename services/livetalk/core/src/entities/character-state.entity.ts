@@ -13,6 +13,12 @@ export interface CharacterStateEntity {
   CharacterID: string;
   /** 最終インタラクション時刻（Unix ms） */
   LastInteractionAt: number;
+  /**
+   * 親密度レベル（Phase 3f で追加）。
+   * 上昇のみ・降下なし。UI には表示しない（Phase 6+ で口調変調に活用予定）。
+   * 既存アイテムとの後方互換のため optional（未定義は 0 として扱う）。
+   */
+  AffectionLevel?: number;
   CreatedAt: number;
   UpdatedAt: number;
 }
@@ -23,4 +29,6 @@ export interface CharacterStateKey {
 }
 
 export type CreateCharacterStateInput = Omit<CharacterStateEntity, 'CreatedAt' | 'UpdatedAt'>;
-export type UpdateCharacterStateInput = Partial<Pick<CharacterStateEntity, 'LastInteractionAt'>>;
+export type UpdateCharacterStateInput = Partial<
+  Pick<CharacterStateEntity, 'LastInteractionAt' | 'AffectionLevel'>
+>;

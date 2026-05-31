@@ -80,10 +80,20 @@ export interface MemoryCandidate {
 
 /**
  * `ILLMClient.summarize` の出力。
+ *
+ * `interestCategories` と `bidirectionalityScore` は Phase 3f で追加した optional フィールド。
+ * 後方互換のため省略可能。既存実装が返さない場合もある。
  */
 export interface SummarizeResult {
   mergedSummary: string;
   newMemoryCandidates: MemoryCandidate[];
+  /** 会話から抽出した興味カテゴリ一覧（Phase 3f）。未取得時は undefined */
+  interestCategories?: Array<{ category: string; weight: number }>;
+  /**
+   * ユーザーがキャラの発話に反応・問い返した率（0〜1）（Phase 3f）。
+   * 日次バッチで測定する双方向性スコア。未取得時は undefined。
+   */
+  bidirectionalityScore?: number;
 }
 
 /**

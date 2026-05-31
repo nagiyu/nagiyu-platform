@@ -6,10 +6,8 @@ import {
   type CompressConversationParams,
 } from '@nagiyu/livetalk-core';
 
-export interface CompressAllConversationsParams extends Omit<
-  CompressConversationParams,
-  'characterName'
-> {
+export interface CompressAllConversationsParams
+  extends Omit<CompressConversationParams, 'characterName'> {
   docClient: DynamoDBDocumentClient;
   tableName: string;
   characterName?: string;
@@ -40,6 +38,8 @@ export async function compressAllConversations(
     memoryRepo,
     characterName = '桃瀬ひより',
     now,
+    interestRepo,
+    characterStateRepo,
   } = params;
 
   const userIds = await scanAllUserIds(docClient, tableName);
@@ -65,6 +65,8 @@ export async function compressAllConversations(
         llmClient,
         characterName,
         now,
+        interestRepo,
+        characterStateRepo,
       });
       void before;
       result.processedUsers++;

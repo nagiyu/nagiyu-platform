@@ -3,6 +3,19 @@ export * from './llm-client/index.js';
 export type { SummarizeInput, SummarizeResult, MemoryCandidate } from './llm-client/types.js';
 export * from './constants.js';
 
+// Affection
+export type { AffectionFactors } from './affection/index.js';
+export {
+  calculateAffectionDelta,
+  calculateBidirectionalityDelta,
+  updateAffectionLevel,
+  isNewActiveDay,
+} from './affection/index.js';
+
+// Interest category
+export type { ExtractedCategory } from './interest/index.js';
+export { persistInterestCategories } from './interest/index.js';
+
 // Memory retrieval + confirmation + correction
 export { cosineSimilarity, MemoryRetriever } from './memory/index.js';
 export type { IMemoryRetriever, RetrieveOptions, RetrievedMemory } from './memory/index.js';
@@ -65,6 +78,11 @@ export type {
   CreateCharacterStateInput,
   UpdateCharacterStateInput,
 } from './entities/character-state.entity.js';
+export type {
+  InterestCategoryEntity,
+  InterestCategoryKey,
+  CreateInterestCategoryInput,
+} from './entities/interest-category.entity.js';
 
 // Mappers
 export { MemoryMapper } from './mappers/memory.mapper.js';
@@ -72,6 +90,7 @@ export { MemorySummaryMapper } from './mappers/memory-summary.mapper.js';
 export { MessageMapper } from './mappers/message.mapper.js';
 export { ProfileMapper } from './mappers/profile.mapper.js';
 export { CharacterStateMapper } from './mappers/character-state.mapper.js';
+export { InterestCategoryMapper } from './mappers/interest-category.mapper.js';
 export { SafetyEventMapper } from './mappers/safety-event.mapper.js';
 export {
   buildUserPK,
@@ -86,6 +105,8 @@ export {
   buildMemoryCategoryInTierSKPrefix,
   buildMemoryAllTiersSKPrefix,
   buildMemorySummarySK,
+  buildInterestSK,
+  buildInterestSKPrefix,
 } from './mappers/keys.js';
 
 // Repository interfaces
@@ -99,6 +120,7 @@ export type {
 export type { ProfileRepository } from './repositories/profile.repository.interface.js';
 export type { CharacterStateRepository } from './repositories/character-state.repository.interface.js';
 export type { SafetyEventRepository } from './repositories/safety-event.repository.interface.js';
+export type { InterestRepository } from './repositories/interest.repository.interface.js';
 
 // Repository implementations
 export { EmbeddingMemoryRepository } from './repositories/embedding-memory.repository.js';
@@ -114,6 +136,8 @@ export { InMemoryMessageRepository } from './repositories/in-memory-message.repo
 export { InMemoryProfileRepository } from './repositories/in-memory-profile.repository.js';
 export { InMemoryCharacterStateRepository } from './repositories/in-memory-character-state.repository.js';
 export { InMemorySafetyEventRepository } from './repositories/in-memory-safety-event.repository.js';
+export { InMemoryInterestRepository } from './repositories/in-memory-interest.repository.js';
+export { DynamoDBInterestRepository } from './repositories/dynamodb-interest.repository.js';
 
 // Token counter
 export {
@@ -136,4 +160,7 @@ export {
   MEMORY_TIER_C_TTL_SECONDS,
   MEMORY_TIER_D_TTL_SECONDS,
   MEMORY_DEFAULT_CONFIDENCE,
+  AFFECTION_INFO_DISCLOSURE_WEIGHT,
+  AFFECTION_TIME_CONTINUITY_BONUS,
+  AFFECTION_BIDIRECTIONALITY_WEIGHT,
 } from './constants.js';

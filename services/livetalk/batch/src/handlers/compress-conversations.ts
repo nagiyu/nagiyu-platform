@@ -1,6 +1,8 @@
 import { logger, toErrorMessage } from '@nagiyu/common';
 import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
 import {
+  DynamoDBCharacterStateRepository,
+  DynamoDBInterestRepository,
   DynamoDBMemorySummaryRepository,
   DynamoDBMessageRepository,
   DynamoDBMemoryRepository,
@@ -47,6 +49,8 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     const embeddingClient = new OpenAIEmbeddingClient({ apiKey });
     const memoryRepo = new EmbeddingMemoryRepository(innerMemoryRepo, embeddingClient);
     const llmClient = new OpenAIClient({ apiKey });
+    const interestRepo = new DynamoDBInterestRepository(docClient, tableName);
+    const characterStateRepo = new DynamoDBCharacterStateRepository(docClient, tableName);
 
     const result = await compressAllConversations({
       docClient,
@@ -55,6 +59,8 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       messageRepo,
       memoryRepo,
       llmClient,
+      interestRepo,
+      characterStateRepo,
     });
 
     logger.info('[compress-conversations] バッチ完了', {

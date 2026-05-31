@@ -1,9 +1,13 @@
 import { logger } from '@nagiyu/common';
 import { MEMORY_DEFAULT_CONFIDENCE } from '../constants.js';
+import { calculateBidirectionalityDelta } from '../affection/calculator.js';
+import { persistInterestCategories } from '../interest/category-extractor.js';
+import type { ILLMClient } from '../llm-client/types.js';
+import type { CharacterStateRepository } from '../repositories/character-state.repository.interface.js';
+import type { InterestRepository } from '../repositories/interest.repository.interface.js';
+import type { MemoryRepository } from '../repositories/memory.repository.interface.js';
 import type { MemorySummaryRepository } from '../repositories/memory-summary.repository.interface.js';
 import type { MessageRepository } from '../repositories/message.repository.interface.js';
-import type { MemoryRepository } from '../repositories/memory.repository.interface.js';
-import type { ILLMClient } from '../llm-client/types.js';
 
 export interface CompressConversationParams {
   summaryRepo: MemorySummaryRepository;
@@ -12,6 +16,10 @@ export interface CompressConversationParams {
   llmClient: ILLMClient;
   characterName: string;
   now?: () => number;
+  /** 興味カテゴリ抽出・保存（Phase 3f）。未指定時はスキップ */
+  interestRepo?: InterestRepository;
+  /** bidirectionality を親密度に反映（Phase 3f）。未指定時はスキップ */
+  characterStateRepo?: CharacterStateRepository;
 }
 
 /**
@@ -37,6 +45,8 @@ export async function compressConversation(
     llmClient,
     characterName,
     now = () => Date.now(),
+    interestRepo,
+    characterStateRepo,
   } = params;
 
   const summary = await summaryRepo.get(userId, characterId);
@@ -80,9 +90,40 @@ export async function compressConversation(
     });
   }
 
+  // 興味カテゴリ抽出・保存（fail-warn: エラー時はスキップして継続）
+  if (interestRepo && result.interestCategories && result.interestCategories.length > 0) {
+    try {
+      await persistInterestCategories(userId, characterId, result.interestCategories, interestRepo);
+    } catch (err) {
+      logger.warn('[compressConversation] 興味カテゴリの保存に失敗しました', {
+        err,
+        userId,
+        characterId,
+      });
+    }
+  }
+
+  // 双方向性スコアを親密度に反映（fail-warn: エラー時はスキップして継続）
+  if (characterStateRepo && result.bidirectionalityScore !== undefined) {
+    try {
+      const delta = calculateBidirectionalityDelta(result.bidirectionalityScore);
+      if (delta > 0) {
+        await characterStateRepo.updateAffection(userId, characterId, delta);
+      }
+    } catch (err) {
+      logger.warn('[compressConversation] 親密度（双方向性）の更新に失敗しました', {
+        err,
+        userId,
+        characterId,
+      });
+    }
+  }
+
   logger.info('[compressConversation] 圧縮完了', {
     userId,
     characterId,
     candidateCount: result.newMemoryCandidates.length,
+    interestCount: result.interestCategories?.length ?? 0,
+    bidirectionalityScore: result.bidirectionalityScore,
   });
 }

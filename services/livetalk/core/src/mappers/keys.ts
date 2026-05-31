@@ -79,3 +79,11 @@ export function buildMemorySK(
 export function buildMemorySummarySK(characterId: string): string {
   return `CHAR#${characterId}#MEMORY#SUMMARY`;
 }
+
+export function buildInterestSKPrefix(characterId: string): string {
+  return `CHAR#${characterId}#INTEREST#`;
+}
+
+export function buildInterestSK(characterId: string, category: string): string {
+  return `${buildInterestSKPrefix(characterId)}${category}`;
+}

@@ -1,4 +1,5 @@
 import { InMemorySingleTableStore } from '@nagiyu/aws';
+import { updateAffectionLevel } from '../affection/calculator.js';
 import type {
   CharacterStateEntity,
   CharacterStateKey,
@@ -39,10 +40,32 @@ export class InMemoryCharacterStateRepository implements CharacterStateRepositor
       UserID: input.UserID,
       CharacterID: input.CharacterID,
       LastInteractionAt: updates.LastInteractionAt ?? input.LastInteractionAt,
+      AffectionLevel: updates.AffectionLevel ?? input.AffectionLevel ?? existing?.AffectionLevel ?? 0,
       CreatedAt: existing?.CreatedAt ?? now,
       UpdatedAt: now,
     };
     this.store.put(this.mapper.toItem(merged));
     return merged;
+  }
+
+  public async updateAffection(
+    userId: string,
+    characterId: string,
+    delta: number
+  ): Promise<CharacterStateEntity> {
+    const now = this.nowMs();
+    const existing = await this.getById({ userId, characterId });
+    const currentLevel = existing?.AffectionLevel ?? 0;
+    const newLevel = updateAffectionLevel(currentLevel, delta);
+
+    return this.upsert(
+      {
+        UserID: userId,
+        CharacterID: characterId,
+        LastInteractionAt: existing?.LastInteractionAt ?? now,
+        AffectionLevel: newLevel,
+      },
+      { LastInteractionAt: now, AffectionLevel: newLevel }
+    );
   }
 }
