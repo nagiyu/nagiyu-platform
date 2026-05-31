@@ -3,6 +3,7 @@ title: 'AWS CDK で IAM 最小権限を設計する：Grant メソッドと Poli
 description: 'AWS CDK でコンストラクト間の権限を付与する方法を解説。Grant メソッド・addToRolePolicy・PolicyStatement の使い分け、ARN のハードコードを避けるテクニック、ユニットテストによる権限検証まで実運用ベースで整理します。'
 slug: 'cdk-iam-least-privilege'
 publishedAt: '2026-05-21'
+updatedAt: '2026-05-31'
 author: 'なぎゆー'
 tags: ['AWS', 'CDK', 'IAM', 'セキュリティ']
 ---
@@ -280,7 +281,34 @@ it('IAM ポリシーのスナップショット', () => {
 
 初回実行でスナップショットを保存し、以降は差分があった場合にテストが失敗します。PR で IAM が変わったことをレビュー時に気づけます。
 
-## ハマりどころ
+## 実装ノート
+
+この記事で書いた方針は、私が nagiyu-platform のインフラ（`infra/root/ecs-service-stack.ts`）で実際に踏んでいるものです。ECS Fargate のスタックでは、コンテナを ECR から引くための **Task Execution Role** と、アプリ実行時に使う **Task Role** を最初から別々のロールとして定義しています。役割が違う権限を 1 つのロールに混ぜると後で棚卸ししづらくなるので、自分は「pull 用」と「実行時用」を分けるところから始めました。
+
+ECR の pull 権限も `*` ではなく、対象リポジトリの ARN に絞っています。
+
+```typescript
+// 実際の infra/root/ecs-service-stack.ts より（抜粋）
+const ecrRepositoryArn = `arn:aws:ecr:${this.region}:${this.account}:repository/${ecrRepoName}`;
+
+taskExecutionRole.addToPolicy(
+  new iam.PolicyStatement({
+    effect: iam.Effect.ALLOW,
+    actions: [
+      'ecr:BatchCheckLayerAvailability',
+      'ecr:GetDownloadUrlForLayer',
+      'ecr:BatchGetImage',
+    ],
+    resources: [ecrRepositoryArn], // 特定リポジトリのみ
+  })
+);
+```
+
+ただし `ecr:GetAuthorizationToken` だけは AWS の仕様上 Resource を `*` にせざるを得ません。ここは「絞りたいのに絞れない例外」として、コメントを残したうえで別ステートメントに切り出しています。最小権限を徹底すると言っても、こういう AWS 側の制約で `*` が避けられない箇所は確かに存在するので、自分は「なぜ `*` なのか」を必ずコードに書き残すようにしています。
+
+## ハマったポイント
+
+実際に CDK で IAM を書いていて、私が繰り返し引っかかったポイントを挙げます。
 
 ### PassRole は明示的に付ける
 
@@ -329,6 +357,14 @@ bucket.grantRead(role);
 ```
 
 AWS 提供の Managed Policy は便利ですが、サービス全体への権限を与えてしまうものが多く、最小権限に反します。L2 コンストラクトの Grant メソッドに慣れると、Managed Policy を使う場面が自然と減ります。
+
+ちなみに nagiyu-platform の ECS Task Execution Role では、ECR pull のような細かい権限は自前のステートメントで絞りつつ、ベースとなる `AmazonECSTaskExecutionRolePolicy` だけは AWS マネージドポリシーをそのまま使っています。「全部を手書きで最小化する」より、「広すぎる Managed Policy だけ避けて、安全な範囲のマネージドは活用する」という線引きにしているのが自分の運用です。
+
+## 現在の運用
+
+nagiyu-platform では、デプロイ用の IAM ポリシーを Core / Application / Container / Integration の 4 つに分割して運用しています（`docs/infra/shared/iam.md`）。これは最初から 4 分割を狙ったわけではなく、IAM マネージドポリシーの **6144 文字制限**に引っかかったのがきっかけで、権限の責務ごとに切り分けた結果です。実際に運用してみると、ECR/ECS/Batch 系をいじるときは Container ポリシーだけ見ればよい、という形で見通しが良くなりました。
+
+正直に書くと、このデプロイ用ポリシー群はまだ Resource を `*` にしている部分が残っていて、ドキュメント上も「将来的に改善検討」と明記しています。一方で、Claude Code に渡している閲覧専用ユーザーのほうは、`secretsmanager:GetSecretValue` や `kms:Decrypt`、認証ユーザーテーブルへの `dynamodb:Scan` などを**明示的に Deny** して PII の閲覧経路を物理的に塞いでいます。「Allow を絞る」だけでなく「危険な操作を Deny で潰す」二段構えにしているのが、今の自分のやり方です。
 
 ## まとめ
 
