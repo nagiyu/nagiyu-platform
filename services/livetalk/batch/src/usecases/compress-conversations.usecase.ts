@@ -6,8 +6,10 @@ import {
   type CompressConversationParams,
 } from '@nagiyu/livetalk-core';
 
-export interface CompressAllConversationsParams
-  extends Omit<CompressConversationParams, 'characterName'> {
+export interface CompressAllConversationsParams extends Omit<
+  CompressConversationParams,
+  'characterName'
+> {
   docClient: DynamoDBDocumentClient;
   tableName: string;
   characterName?: string;
