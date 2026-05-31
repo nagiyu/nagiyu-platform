@@ -4,6 +4,7 @@ import { calculateAffectionDelta, isNewActiveDay } from '../affection/calculator
 import type { IEmbeddingClient, ILLMClient } from '../llm-client/types.js';
 import type { IVoiceClient } from '../voicevox/types.js';
 import type { CharacterStateRepository } from '../repositories/character-state.repository.interface.js';
+import type { LifecycleRepository } from '../repositories/lifecycle.repository.interface.js';
 import type { MemoryRepository } from '../repositories/memory.repository.interface.js';
 import type { MemorySummaryRepository } from '../repositories/memory-summary.repository.interface.js';
 import type { MessageRepository } from '../repositories/message.repository.interface.js';
@@ -11,7 +12,13 @@ import type { SafetyEventRepository } from '../repositories/safety-event.reposit
 import type { CharacterDefinition } from '../characters/types.js';
 import type { MemoryEntity } from '../entities/memory.entity.js';
 import type { MessageEntity } from '../entities/message.entity.js';
+import type { LifecycleState } from '../entities/lifecycle.entity.js';
 import { buildChatMessages, buildSystemPrompt } from '../characters/prompt-builder.js';
+import { resolveLifecycleState } from '../lifecycle/state-resolver.js';
+import {
+  LIFECYCLE_DEFAULT_BEDTIME,
+  LIFECYCLE_DEFAULT_WAKE_UP_TIME,
+} from '../constants.js';
 import { SentenceBuffer } from '../lib/sentence-splitter.js';
 import { getDefaultTokenCounter } from '../lib/token-counter.js';
 import {
@@ -54,6 +61,7 @@ export type ChatEvent =
       resources: SafetyResource[];
       replacementText?: string;
     }
+  | { type: 'lifecycle'; state: LifecycleState }
   | { type: 'done' };
 
 export interface ChatUseCaseParams {
@@ -78,6 +86,8 @@ export interface ChatUseCaseParams {
   characterStateRepository?: CharacterStateRepository;
   /** MemorySummary リポジトリ。計測のみに使用（プロンプトへの注入はしない）。未指定時は計測をスキップする */
   memorySummaryRepository?: MemorySummaryRepository;
+  /** Lifecycle リポジトリ。未指定時はデフォルト就寝スケジュールで判定する */
+  lifecycleRepository?: LifecycleRepository;
 }
 
 type SynthesisResult = { index: number; text: string; audio: string | null; elapsedMs: number };
@@ -193,17 +203,19 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     embeddingClient,
     characterStateRepository,
     memorySummaryRepository,
+    lifecycleRepository,
   } = params;
 
   const chatStart = performance.now();
   const metrics = createChatMetrics(userId, characterId);
   const timer = createPhaseTimer();
 
-  // 1. 直近会話履歴取得（+ CharacterState + MemorySummary を並行取得）
+  // 1. 直近会話履歴取得（+ CharacterState + MemorySummary + Lifecycle を並行取得）
   const [
     { messages: history, totalTokens: messagesTotalTokens, consumedCapacity: messagesRcu },
     prevCharacterState,
     fetchedSummary,
+    fetchedLifecycle,
   ] = await Promise.all([
     messageRepository.getRecentByTokenBudget({ userId, characterId }),
     characterStateRepository
@@ -218,7 +230,22 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
           return null;
         })
       : Promise.resolve(null),
+    lifecycleRepository
+      ? lifecycleRepository.get({ userId, characterId }).catch((err) => {
+          logger.warn('[chat-usecase] Lifecycle の取得に失敗しました（デフォルト値で継続）', {
+            err,
+          });
+          return null;
+        })
+      : Promise.resolve(null),
   ]);
+
+  // Lifecycle 状態を解決（fail-warn: 取得失敗時はデフォルト値）
+  const lifecycleState = resolveLifecycleState(
+    new Date(),
+    fetchedLifecycle?.Bedtime ?? LIFECYCLE_DEFAULT_BEDTIME,
+    fetchedLifecycle?.WakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME
+  );
 
   // MemorySummary のサイズを計測（単調増加の検知）
   if (fetchedSummary) {
@@ -277,6 +304,9 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     yield { type: 'done' };
     return;
   }
+
+  // 3.5. lifecycle event を emit（UI がモデル目パラメータを即座に反映できるよう通常フロー先頭で送出）
+  yield { type: 'lifecycle', state: lifecycleState };
 
   // 4. Memory retrieve（fail-warn: エラー時は空配列で継続）
   let retrievedMemories: RetrievedMemory[] = [];
@@ -355,7 +385,8 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     userText,
     retrievedMemories,
     undefined,
-    newLearnings.length > 0 ? newLearnings : undefined
+    newLearnings.length > 0 ? newLearnings : undefined,
+    lifecycleState
   );
 
   // プロンプトトークン内訳を計算（best-effort）

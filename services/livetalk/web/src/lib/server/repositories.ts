@@ -11,6 +11,7 @@ import { InMemorySingleTableStore, registerDynamoRepositories } from '@nagiyu/aw
 import type {
   CharacterStateRepository,
   InterestRepository,
+  LifecycleRepository,
   MemoryRepository,
   MessageRepository,
   ProfileRepository,
@@ -18,11 +19,13 @@ import type {
 import {
   DynamoDBCharacterStateRepository,
   DynamoDBInterestRepository,
+  DynamoDBLifecycleRepository,
   DynamoDBMemoryRepository,
   DynamoDBMessageRepository,
   DynamoDBProfileRepository,
   InMemoryCharacterStateRepository,
   InMemoryInterestRepository,
+  InMemoryLifecycleRepository,
   InMemoryMemoryRepository,
   InMemoryMessageRepository,
   InMemoryProfileRepository,
@@ -35,6 +38,7 @@ const registry = registerDynamoRepositories<
     profile: ProfileRepository;
     characterState: CharacterStateRepository;
     interest: InterestRepository;
+    lifecycle: LifecycleRepository;
   },
   InMemorySingleTableStore
 >(
@@ -64,6 +68,11 @@ const registry = registerDynamoRepositories<
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBInterestRepository(docClient, tableName),
     },
+    lifecycle: {
+      createInMemoryRepository: (store) => new InMemoryLifecycleRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBLifecycleRepository(docClient, tableName),
+    },
   },
   {
     keyPrefix: 'livetalk',
@@ -89,6 +98,10 @@ export function getCharacterStateRepository(): CharacterStateRepository {
 
 export function getInterestRepository(): InterestRepository {
   return registry.interest.createRepository();
+}
+
+export function getLifecycleRepository(): LifecycleRepository {
+  return registry.lifecycle.createRepository();
 }
 
 /**

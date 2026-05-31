@@ -10,7 +10,7 @@ import ResponseDisplay from '@/components/ResponseDisplay';
 import { Live2DCanvasFallback } from '@/components/Live2DCanvas';
 import ConsentModal from '@/components/ConsentModal';
 import SafetyModal from '@/components/SafetyModal';
-import type { SafetyResource } from '@nagiyu/livetalk-core';
+import type { LifecycleState, SafetyResource } from '@nagiyu/livetalk-core';
 
 const Live2DCanvas = dynamic(() => import('@/components/Live2DCanvas'), {
   ssr: false,
@@ -29,6 +29,7 @@ type ChatStreamEvent =
       resources: SafetyResource[];
       replacementText?: string;
     }
+  | { type: 'lifecycle'; state: LifecycleState }
   | { type: 'done' }
   | { type: 'error'; message: string };
 
@@ -60,6 +61,7 @@ export default function HomePage() {
 
   const [safetyOpen, setSafetyOpen] = useState(false);
   const [safetyResources, setSafetyResources] = useState<SafetyResource[]>([]);
+  const [lifecycleState, setLifecycleState] = useState<LifecycleState>('awake');
 
   const audioQueueRef = useRef<AudioBuffer[]>([]);
   const isPlayingRef = useRef(false);
@@ -177,6 +179,8 @@ export default function HomePage() {
             } catch (err) {
               console.error('[LiveTalk] 音声 decode に失敗しました', err);
             }
+          } else if (event.type === 'lifecycle') {
+            setLifecycleState(event.state);
           } else if (event.type === 'safety') {
             if (event.trigger === 'output_moderation' && event.replacementText) {
               setResponseText(event.replacementText);
@@ -275,6 +279,7 @@ export default function HomePage() {
             audioBuffer={audioBuffer}
             audioContext={audioContext}
             statusText={statusText}
+            lifecycleState={lifecycleState}
             onPlaybackEnd={handlePlaybackEnd}
             onPlaybackError={handlePlaybackError}
           />

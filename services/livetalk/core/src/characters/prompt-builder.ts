@@ -3,6 +3,7 @@ import type { MessageEntity } from '../entities/message.entity.js';
 import type { MemoryEntity } from '../entities/memory.entity.js';
 import type { ChatMessage } from '../llm-client/types.js';
 import type { RetrievedMemory } from '../memory/types.js';
+import type { LifecycleState } from '../entities/lifecycle.entity.js';
 
 export type TimeOfDay = '朝' | '昼' | '夜';
 
@@ -13,12 +14,25 @@ export function getTimeOfDay(date: Date): TimeOfDay {
   return '夜';
 }
 
+/**
+ * sleeping 状態のキャラクター演出用プロンプト追記。
+ * アイドルモーションが上書きする目パラメータとは独立して、口調・文体を寝ぼけ風に変調する。
+ */
+function buildSleepingPrompt(): string {
+  return `今のあなたは眠っていて、うとうとしながら返事をしています。
+- 語尾が「…」や「むにゃ」になったり、途中で途切れるような言い方をする
+- 返答はとくに短く（1〜2 文）
+- 「ねむい」「うとうと」などのワードが自然に混ざることがある
+- 多少支離滅裂でも OK。寝ぼけキャラとして振る舞う`;
+}
+
 export function buildSystemPrompt(
   character: CharacterDefinition,
   now: Date,
   retrievedMemories: RetrievedMemory[] = [],
   summaryText?: string,
-  newLearnings?: MemoryEntity[]
+  newLearnings?: MemoryEntity[],
+  lifecycleState?: LifecycleState
 ): string {
   const { personality, displayName } = character;
   const timeOfDay = getTimeOfDay(now);
@@ -41,10 +55,15 @@ export function buildSystemPrompt(
   const hasSummary = summaryText && summaryText.trim().length > 0;
   const hasMemories = retrievedMemories.length > 0;
   const hasNewLearnings = newLearnings !== undefined && newLearnings.length > 0;
+  const isSleeping = lifecycleState === 'sleeping';
 
-  if (!hasSummary && !hasMemories && !hasNewLearnings) return base;
+  if (!hasSummary && !hasMemories && !hasNewLearnings && !isSleeping) return base;
 
   const sections: string[] = [base];
+
+  if (isSleeping) {
+    sections.push(buildSleepingPrompt());
+  }
 
   if (hasSummary) {
     sections.push(`あなたがこれまでに知ったこと：\n${summaryText!.trim()}`);
@@ -80,14 +99,16 @@ export function buildChatMessages(
   userText: string,
   retrievedMemories: RetrievedMemory[] = [],
   summaryText?: string,
-  newLearnings?: MemoryEntity[]
+  newLearnings?: MemoryEntity[],
+  lifecycleState?: LifecycleState
 ): ChatMessage[] {
   const systemPrompt = buildSystemPrompt(
     character,
     now,
     retrievedMemories,
     summaryText,
-    newLearnings
+    newLearnings,
+    lifecycleState
   );
   const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }];
 

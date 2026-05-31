@@ -183,3 +183,45 @@ describe('buildChatMessages', () => {
     expect(summaryIdx).toBeLessThan(memoriesIdx);
   });
 });
+
+describe('buildSystemPrompt（lifecycleState）', () => {
+  it('lifecycleState=sleeping のとき寝ぼけプロンプトが挿入される', () => {
+    const prompt = buildSystemPrompt(hiyori, new Date(), [], undefined, undefined, 'sleeping');
+    expect(prompt).toContain('眠っていて');
+    expect(prompt).toContain('うとうとしながら');
+  });
+
+  it('lifecycleState=awake のときは寝ぼけプロンプトが挿入されない', () => {
+    const prompt = buildSystemPrompt(hiyori, new Date(), [], undefined, undefined, 'awake');
+    expect(prompt).not.toContain('眠っていて');
+  });
+
+  it('lifecycleState 未指定（undefined）のときは寝ぼけプロンプトが挿入されない', () => {
+    const prompt = buildSystemPrompt(hiyori, new Date());
+    expect(prompt).not.toContain('眠っていて');
+  });
+
+  it('sleeping でも記憶セクションが共存できる', () => {
+    const memories = [makeRetrievedMemory('コーヒーが好き', 'B')];
+    const prompt = buildSystemPrompt(hiyori, new Date(), memories, undefined, undefined, 'sleeping');
+    expect(prompt).toContain('眠っていて');
+    expect(prompt).toContain('あなたが覚えていること');
+    expect(prompt).toContain('- コーヒーが好き');
+  });
+});
+
+describe('buildChatMessages（lifecycleState）', () => {
+  it('lifecycleState=sleeping が system prompt に反映される', () => {
+    const messages = buildChatMessages(
+      hiyori, new Date(), [], 'hi', [], undefined, undefined, 'sleeping'
+    );
+    expect(messages[0].content).toContain('眠っていて');
+  });
+
+  it('lifecycleState=awake は system prompt に寝ぼけ指示を含まない', () => {
+    const messages = buildChatMessages(
+      hiyori, new Date(), [], 'hi', [], undefined, undefined, 'awake'
+    );
+    expect(messages[0].content).not.toContain('眠っていて');
+  });
+});
