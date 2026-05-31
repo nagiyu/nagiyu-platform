@@ -3,6 +3,8 @@ import { compressConversation } from '../../../src/usecases/compress-conversatio
 import { InMemoryMemorySummaryRepository } from '../../../src/repositories/in-memory-memory-summary.repository.js';
 import { InMemoryMessageRepository } from '../../../src/repositories/in-memory-message.repository.js';
 import { InMemoryMemoryRepository } from '../../../src/repositories/in-memory-memory.repository.js';
+import { InMemoryInterestRepository } from '../../../src/repositories/in-memory-interest.repository.js';
+import { InMemoryCharacterStateRepository } from '../../../src/repositories/in-memory-character-state.repository.js';
 import type { ILLMClient } from '../../../src/llm-client/types.js';
 import type { CompressConversationParams } from '../../../src/usecases/compress-conversation.usecase.js';
 
@@ -10,9 +12,14 @@ const fixedNow = 1_750_000_000_000;
 let tick = fixedNow;
 
 const makeLLMClient = (
-  result = {
+  result: {
+    mergedSummary: string;
+    newMemoryCandidates: { category: string; content: string }[];
+    interestCategories?: { category: string; weight: number }[];
+    bidirectionalityScore?: number;
+  } = {
     mergedSummary: '新要約',
-    newMemoryCandidates: [] as { category: string; content: string }[],
+    newMemoryCandidates: [],
   }
 ): ILLMClient & { summarizeCalls: number } => {
   let summarizeCalls = 0;
@@ -217,5 +224,100 @@ describe('compressConversation', () => {
     });
 
     expect(capturedExisting).toBe('既存の要約内容');
+  });
+
+  it('interestCategories が返ったら InterestRepository に保存する', async () => {
+    const llmClient = makeLLMClient({
+      mergedSummary: '要約',
+      newMemoryCandidates: [],
+      interestCategories: [
+        { category: 'アニメ', weight: 2 },
+        { category: 'コーヒー', weight: 1 },
+      ],
+    });
+    const { messageRepo, summaryRepo, memoryRepo } = makeRepos();
+    const interestRepo = new InMemoryInterestRepository(new InMemorySingleTableStore());
+    tick = fixedNow;
+    await messageRepo.create({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Role: 'user',
+      Text: 'こんにちは',
+    });
+
+    await compressConversation('u1', 'hiyori', {
+      summaryRepo,
+      messageRepo,
+      memoryRepo,
+      llmClient,
+      characterName: 'ひより',
+      now: () => fixedNow,
+      interestRepo,
+    });
+
+    const all = await interestRepo.list('u1', 'hiyori');
+    expect(all).toHaveLength(2);
+    expect(all.map((i) => i.Category).sort()).toEqual(['アニメ', 'コーヒー'].sort());
+  });
+
+  it('bidirectionalityScore が返ったら CharacterState の AffectionLevel を更新する', async () => {
+    const llmClient = makeLLMClient({
+      mergedSummary: '要約',
+      newMemoryCandidates: [],
+      bidirectionalityScore: 1.0,
+    });
+    const { messageRepo, summaryRepo, memoryRepo } = makeRepos();
+    const characterStateRepo = new InMemoryCharacterStateRepository(new InMemorySingleTableStore());
+    tick = fixedNow;
+    await messageRepo.create({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Role: 'user',
+      Text: 'こんにちは',
+    });
+
+    await compressConversation('u1', 'hiyori', {
+      summaryRepo,
+      messageRepo,
+      memoryRepo,
+      llmClient,
+      characterName: 'ひより',
+      now: () => fixedNow,
+      characterStateRepo,
+    });
+
+    const state = await characterStateRepo.getById({ userId: 'u1', characterId: 'hiyori' });
+    expect(state?.AffectionLevel).toBeGreaterThan(0);
+  });
+
+  it('bidirectionalityScore が 0 のときは AffectionLevel を更新しない', async () => {
+    const llmClient = makeLLMClient({
+      mergedSummary: '要約',
+      newMemoryCandidates: [],
+      bidirectionalityScore: 0,
+    });
+    const { messageRepo, summaryRepo, memoryRepo } = makeRepos();
+    const characterStateRepo = new InMemoryCharacterStateRepository(new InMemorySingleTableStore());
+    tick = fixedNow;
+    await messageRepo.create({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Role: 'user',
+      Text: 'こんにちは',
+    });
+
+    await compressConversation('u1', 'hiyori', {
+      summaryRepo,
+      messageRepo,
+      memoryRepo,
+      llmClient,
+      characterName: 'ひより',
+      now: () => fixedNow,
+      characterStateRepo,
+    });
+
+    // delta=0 なので updateAffection は呼ばれず、state は存在しない
+    const state = await characterStateRepo.getById({ userId: 'u1', characterId: 'hiyori' });
+    expect(state).toBeNull();
   });
 });

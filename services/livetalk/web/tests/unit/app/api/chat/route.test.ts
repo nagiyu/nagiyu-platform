@@ -14,6 +14,7 @@ jest.mock('@/lib/server/voicevox', () => ({ getVoicevoxClient: jest.fn() }));
 jest.mock('@/lib/server/repositories', () => ({
   getMessageRepository: jest.fn(),
   getMemoryRepository: jest.fn().mockReturnValue({}),
+  getCharacterStateRepository: jest.fn().mockReturnValue({}),
 }));
 jest.mock('@/lib/server/safety', () => ({
   getSafetyEventRepository: jest.fn().mockReturnValue({}),

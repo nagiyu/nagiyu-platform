@@ -40,6 +40,8 @@ export async function compressAllConversations(
     memoryRepo,
     characterName = '桃瀬ひより',
     now,
+    interestRepo,
+    characterStateRepo,
   } = params;
 
   const userIds = await scanAllUserIds(docClient, tableName);
@@ -65,6 +67,8 @@ export async function compressAllConversations(
         llmClient,
         characterName,
         now,
+        interestRepo,
+        characterStateRepo,
       });
       void before;
       result.processedUsers++;

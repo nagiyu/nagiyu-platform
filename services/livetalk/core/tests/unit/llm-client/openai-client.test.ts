@@ -294,4 +294,87 @@ describe('parseSummarizeResult', () => {
     const result = parseSummarizeResult(raw);
     expect(result.newMemoryCandidates[0].category).toBe('general');
   });
+
+  it('interestCategories をパースする', () => {
+    const raw = JSON.stringify({
+      mergedSummary: 'ok',
+      newMemoryCandidates: [],
+      interestCategories: [
+        { category: 'アニメ', weight: 2 },
+        { category: 'コーヒー', weight: 1 },
+      ],
+    });
+    const result = parseSummarizeResult(raw);
+    expect(result.interestCategories).toHaveLength(2);
+    expect(result.interestCategories?.[0].category).toBe('アニメ');
+    expect(result.interestCategories?.[0].weight).toBe(2);
+  });
+
+  it('interestCategories が空の場合は undefined を返す', () => {
+    const raw = JSON.stringify({
+      mergedSummary: 'ok',
+      newMemoryCandidates: [],
+      interestCategories: [],
+    });
+    const result = parseSummarizeResult(raw);
+    expect(result.interestCategories).toBeUndefined();
+  });
+
+  it('interestCategories がない場合は undefined を返す', () => {
+    const raw = JSON.stringify({ mergedSummary: 'ok', newMemoryCandidates: [] });
+    const result = parseSummarizeResult(raw);
+    expect(result.interestCategories).toBeUndefined();
+  });
+
+  it('interestCategories の category が空文字の要素を除外する', () => {
+    const raw = JSON.stringify({
+      mergedSummary: 'ok',
+      newMemoryCandidates: [],
+      interestCategories: [
+        { category: '', weight: 1 },
+        { category: '有効', weight: 1 },
+      ],
+    });
+    const result = parseSummarizeResult(raw);
+    expect(result.interestCategories).toHaveLength(1);
+    expect(result.interestCategories?.[0].category).toBe('有効');
+  });
+
+  it('bidirectionalityScore をパースして 0〜1 にクランプする', () => {
+    expect(
+      parseSummarizeResult(
+        JSON.stringify({
+          mergedSummary: '',
+          newMemoryCandidates: [],
+          bidirectionalityScore: 0.7,
+        })
+      ).bidirectionalityScore
+    ).toBeCloseTo(0.7);
+
+    expect(
+      parseSummarizeResult(
+        JSON.stringify({
+          mergedSummary: '',
+          newMemoryCandidates: [],
+          bidirectionalityScore: 1.5,
+        })
+      ).bidirectionalityScore
+    ).toBe(1);
+
+    expect(
+      parseSummarizeResult(
+        JSON.stringify({
+          mergedSummary: '',
+          newMemoryCandidates: [],
+          bidirectionalityScore: -0.3,
+        })
+      ).bidirectionalityScore
+    ).toBe(0);
+  });
+
+  it('bidirectionalityScore がない場合は undefined を返す', () => {
+    const raw = JSON.stringify({ mergedSummary: 'ok', newMemoryCandidates: [] });
+    const result = parseSummarizeResult(raw);
+    expect(result.bidirectionalityScore).toBeUndefined();
+  });
 });

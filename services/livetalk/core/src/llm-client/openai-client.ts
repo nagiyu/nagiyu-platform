@@ -126,8 +126,18 @@ ${messagesSection}
   "mergedSummary": "既存と新規をマージした最新要約（日本語）",
   "newMemoryCandidates": [
     { "category": "カテゴリ名", "content": "記憶の内容（日本語）" }
-  ]
-}`;
+  ],
+  "interestCategories": [
+    { "category": "ユーザーが興味を示したカテゴリ（日本語、例: アニメ・コーヒー）", "weight": 1 }
+  ],
+  "bidirectionalityScore": 0.0
+}
+
+bidirectionalityScore の算出方法：
+- ユーザーが ${characterName} の発話に対して反応・深掘り・質問返しをした割合を 0.0〜1.0 で示す
+- キャラ発信の話題にユーザーが乗った場合、キャラへの質問を返した場合は高く（0.7〜1.0）
+- ユーザーが一方的に話し続けた場合や短い返答のみの場合は低く（0.0〜0.3）
+- 会話が存在する場合のみ算出し、新しい会話が空の場合は 0.0 とする`;
 
     const rawText = await this.chatComplete([{ role: 'user', content: prompt }], {
       purpose: 'summarize',
@@ -179,7 +189,26 @@ export function parseSummarizeResult(rawText: string): SummarizeResult {
     }))
     .filter((c) => c.content.length > 0);
 
-  return { mergedSummary, newMemoryCandidates };
+  const rawCategories = Array.isArray(json.interestCategories) ? json.interestCategories : [];
+  const interestCategories = rawCategories
+    .filter((c): c is Record<string, unknown> => typeof c === 'object' && c !== null)
+    .map((c) => ({
+      category: typeof c.category === 'string' ? c.category : '',
+      weight: typeof c.weight === 'number' && c.weight > 0 ? c.weight : 1,
+    }))
+    .filter((c) => c.category.length > 0);
+
+  const bidirectionalityScore =
+    typeof json.bidirectionalityScore === 'number'
+      ? Math.min(1, Math.max(0, json.bidirectionalityScore))
+      : undefined;
+
+  return {
+    mergedSummary,
+    newMemoryCandidates,
+    interestCategories: interestCategories.length > 0 ? interestCategories : undefined,
+    bidirectionalityScore,
+  };
 }
 
 /** OpenAI embedding API で使用するモデル。軽量・高速・低コスト。 */

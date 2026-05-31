@@ -1,5 +1,6 @@
 import { GetCommand, PutCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { updateAffectionLevel } from '../affection/calculator.js';
 import type {
   CharacterStateEntity,
   CharacterStateKey,
@@ -57,6 +58,8 @@ export class DynamoDBCharacterStateRepository implements CharacterStateRepositor
       UserID: input.UserID,
       CharacterID: input.CharacterID,
       LastInteractionAt: updates.LastInteractionAt ?? input.LastInteractionAt,
+      AffectionLevel:
+        updates.AffectionLevel ?? input.AffectionLevel ?? existing?.AffectionLevel ?? 0,
       CreatedAt: existing?.CreatedAt ?? now,
       UpdatedAt: now,
     };
@@ -73,5 +76,26 @@ export class DynamoDBCharacterStateRepository implements CharacterStateRepositor
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
+  }
+
+  public async updateAffection(
+    userId: string,
+    characterId: string,
+    delta: number
+  ): Promise<CharacterStateEntity> {
+    const now = this.nowMs();
+    const existing = await this.getById({ userId, characterId });
+    const currentLevel = existing?.AffectionLevel ?? 0;
+    const newLevel = updateAffectionLevel(currentLevel, delta);
+
+    return this.upsert(
+      {
+        UserID: userId,
+        CharacterID: characterId,
+        LastInteractionAt: existing?.LastInteractionAt ?? now,
+        AffectionLevel: newLevel,
+      },
+      { LastInteractionAt: now, AffectionLevel: newLevel }
+    );
   }
 }

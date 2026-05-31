@@ -51,8 +51,9 @@ describe('DynamoDBCharacterStateRepository', () => {
     expect(put.Item?.PK).toBe('USER#u1');
     expect(put.Item?.SK).toBe('CHAR#hiyori#STATE');
     expect(put.Item?.LastInteractionAt).toBe(now);
-    // Phase 3 以降のフィールドは書き出さない
-    expect(put.Item?.AffectionLevel).toBeUndefined();
+    // AffectionLevel は Phase 3f から保持（省略時は 0）
+    expect(put.Item?.AffectionLevel).toBe(0);
+    // Onboarded など未定義フィールドは書き出さない
     expect(put.Item?.Onboarded).toBeUndefined();
     expect(result.CreatedAt).toBe(now);
   });

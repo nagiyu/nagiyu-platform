@@ -1,6 +1,8 @@
 import { logger } from '@nagiyu/common';
+import { calculateAffectionDelta, isNewActiveDay } from '../affection/calculator.js';
 import type { IEmbeddingClient, ILLMClient } from '../llm-client/types.js';
 import type { IVoiceClient } from '../voicevox/types.js';
+import type { CharacterStateRepository } from '../repositories/character-state.repository.interface.js';
 import type { MemoryRepository } from '../repositories/memory.repository.interface.js';
 import type { MessageRepository } from '../repositories/message.repository.interface.js';
 import type { SafetyEventRepository } from '../repositories/safety-event.repository.interface.js';
@@ -63,6 +65,8 @@ export interface ChatUseCaseParams {
   memoryRepository?: MemoryRepository;
   /** Tier C 昇格候補検出に使う Embedding クライアント。未指定時は昇格処理をスキップする */
   embeddingClient?: IEmbeddingClient;
+  /** CharacterState リポジトリ。未指定時は親密度更新をスキップする */
+  characterStateRepository?: CharacterStateRepository;
 }
 
 type SynthesisResult = { index: number; text: string; audio: string | null };
@@ -175,13 +179,19 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     memoryRetriever,
     memoryRepository,
     embeddingClient,
+    characterStateRepository,
   } = params;
 
-  // 1. 直近会話履歴取得
-  const { messages: history } = await messageRepository.getRecentByTokenBudget({
-    userId,
-    characterId,
-  });
+  // 1. 直近会話履歴取得（+ CharacterState を先取りして prevLastInteractionAt を確保）
+  const [{ messages: history }, prevCharacterState] = await Promise.all([
+    messageRepository.getRecentByTokenBudget({ userId, characterId }),
+    characterStateRepository
+      ? characterStateRepository.getById({ userId, characterId }).catch((err) => {
+          logger.warn('[chat-usecase] CharacterState の取得に失敗しました', { err });
+          return null;
+        })
+      : Promise.resolve(null),
+  ]);
 
   // 2. ユーザーメッセージを保存
   await messageRepository.create({
@@ -396,7 +406,23 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     });
   }
 
-  // 12. 参照済み Memory の referencedCount / lastReferencedAt を更新（fire-and-forget）
+  // 12. 親密度を更新（fire-and-forget、infoDisclosure + timeContinuity の 2 軸）
+  // bidirectionality は日次圧縮バッチで別途反映する
+  if (characterStateRepository) {
+    const now = Date.now();
+    const newActiveDay = isNewActiveDay(prevCharacterState?.LastInteractionAt, now);
+    const delta = calculateAffectionDelta({
+      infoDisclosure: promotionCandidates.length,
+      isNewActiveDay: newActiveDay,
+    });
+    if (delta > 0) {
+      void characterStateRepository.updateAffection(userId, characterId, delta).catch((err) => {
+        logger.warn('[chat-usecase] 親密度の更新に失敗しました', { err });
+      });
+    }
+  }
+
+  // 13. 参照済み Memory の referencedCount / lastReferencedAt を更新（fire-and-forget）
   if (memoryRepository && retrievedMemories.length > 0) {
     const now = Date.now();
     void Promise.all(
