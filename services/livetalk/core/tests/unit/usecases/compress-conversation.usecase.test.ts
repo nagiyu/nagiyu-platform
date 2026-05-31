@@ -238,7 +238,12 @@ describe('compressConversation', () => {
     const { messageRepo, summaryRepo, memoryRepo } = makeRepos();
     const interestRepo = new InMemoryInterestRepository(new InMemorySingleTableStore());
     tick = fixedNow;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'こんにちは' });
+    await messageRepo.create({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Role: 'user',
+      Text: 'こんにちは',
+    });
 
     await compressConversation('u1', 'hiyori', {
       summaryRepo,
@@ -264,7 +269,12 @@ describe('compressConversation', () => {
     const { messageRepo, summaryRepo, memoryRepo } = makeRepos();
     const characterStateRepo = new InMemoryCharacterStateRepository(new InMemorySingleTableStore());
     tick = fixedNow;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'こんにちは' });
+    await messageRepo.create({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Role: 'user',
+      Text: 'こんにちは',
+    });
 
     await compressConversation('u1', 'hiyori', {
       summaryRepo,
@@ -289,7 +299,12 @@ describe('compressConversation', () => {
     const { messageRepo, summaryRepo, memoryRepo } = makeRepos();
     const characterStateRepo = new InMemoryCharacterStateRepository(new InMemorySingleTableStore());
     tick = fixedNow;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'こんにちは' });
+    await messageRepo.create({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Role: 'user',
+      Text: 'こんにちは',
+    });
 
     await compressConversation('u1', 'hiyori', {
       summaryRepo,

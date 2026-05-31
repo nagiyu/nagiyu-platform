@@ -40,7 +40,8 @@ export class InMemoryCharacterStateRepository implements CharacterStateRepositor
       UserID: input.UserID,
       CharacterID: input.CharacterID,
       LastInteractionAt: updates.LastInteractionAt ?? input.LastInteractionAt,
-      AffectionLevel: updates.AffectionLevel ?? input.AffectionLevel ?? existing?.AffectionLevel ?? 0,
+      AffectionLevel:
+        updates.AffectionLevel ?? input.AffectionLevel ?? existing?.AffectionLevel ?? 0,
       CreatedAt: existing?.CreatedAt ?? now,
       UpdatedAt: now,
     };

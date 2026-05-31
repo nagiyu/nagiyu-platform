@@ -32,13 +32,23 @@ describe('InMemoryInterestRepository', () => {
   it('同 PK/SK に再 put しても CreatedAt は変わらない', async () => {
     await repo.put({ UserID: 'u1', CharacterID: 'hiyori', Category: 'アニメ', Weight: 1 });
     now += 5000;
-    const second = await repo.put({ UserID: 'u1', CharacterID: 'hiyori', Category: 'アニメ', Weight: 2 });
+    const second = await repo.put({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Category: 'アニメ',
+      Weight: 2,
+    });
     expect(second.CreatedAt).toBe(baseNow);
     expect(second.UpdatedAt).toBe(baseNow + 5000);
   });
 
   it('update で Weight を変更できる', async () => {
-    const item = await repo.put({ UserID: 'u1', CharacterID: 'hiyori', Category: 'アニメ', Weight: 1 });
+    const item = await repo.put({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Category: 'アニメ',
+      Weight: 1,
+    });
     now += 1000;
     const updated = await repo.update({ ...item, Weight: 10 });
     expect(updated.Weight).toBe(10);

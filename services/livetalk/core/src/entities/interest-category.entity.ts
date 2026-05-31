@@ -23,7 +23,4 @@ export interface InterestCategoryKey {
   category: string;
 }
 
-export type CreateInterestCategoryInput = Omit<
-  InterestCategoryEntity,
-  'CreatedAt' | 'UpdatedAt'
->;
+export type CreateInterestCategoryInput = Omit<InterestCategoryEntity, 'CreatedAt' | 'UpdatedAt'>;

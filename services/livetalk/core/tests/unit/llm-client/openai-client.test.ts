@@ -341,17 +341,35 @@ describe('parseSummarizeResult', () => {
   });
 
   it('bidirectionalityScore をパースして 0〜1 にクランプする', () => {
-    expect(parseSummarizeResult(JSON.stringify({
-      mergedSummary: '', newMemoryCandidates: [], bidirectionalityScore: 0.7,
-    })).bidirectionalityScore).toBeCloseTo(0.7);
+    expect(
+      parseSummarizeResult(
+        JSON.stringify({
+          mergedSummary: '',
+          newMemoryCandidates: [],
+          bidirectionalityScore: 0.7,
+        })
+      ).bidirectionalityScore
+    ).toBeCloseTo(0.7);
 
-    expect(parseSummarizeResult(JSON.stringify({
-      mergedSummary: '', newMemoryCandidates: [], bidirectionalityScore: 1.5,
-    })).bidirectionalityScore).toBe(1);
+    expect(
+      parseSummarizeResult(
+        JSON.stringify({
+          mergedSummary: '',
+          newMemoryCandidates: [],
+          bidirectionalityScore: 1.5,
+        })
+      ).bidirectionalityScore
+    ).toBe(1);
 
-    expect(parseSummarizeResult(JSON.stringify({
-      mergedSummary: '', newMemoryCandidates: [], bidirectionalityScore: -0.3,
-    })).bidirectionalityScore).toBe(0);
+    expect(
+      parseSummarizeResult(
+        JSON.stringify({
+          mergedSummary: '',
+          newMemoryCandidates: [],
+          bidirectionalityScore: -0.3,
+        })
+      ).bidirectionalityScore
+    ).toBe(0);
   });
 
   it('bidirectionalityScore がない場合は undefined を返す', () => {

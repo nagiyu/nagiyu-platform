@@ -11,9 +11,10 @@ import type {
 } from '../entities/interest-category.entity.js';
 import { buildInterestSK, buildUserPK } from './keys.js';
 
-export class InterestCategoryMapper
-  implements EntityMapper<InterestCategoryEntity, InterestCategoryKey>
-{
+export class InterestCategoryMapper implements EntityMapper<
+  InterestCategoryEntity,
+  InterestCategoryKey
+> {
   public readonly entityType = 'InterestCategory';
 
   public toItem(entity: InterestCategoryEntity): DynamoDBItem {

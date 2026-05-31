@@ -12,9 +12,7 @@ import {
 
 describe('calculateAffectionDelta', () => {
   it('infoDisclosure が 0 かつ新規接触日でなければ delta は 0', () => {
-    expect(
-      calculateAffectionDelta({ infoDisclosure: 0, isNewActiveDay: false })
-    ).toBe(0);
+    expect(calculateAffectionDelta({ infoDisclosure: 0, isNewActiveDay: false })).toBe(0);
   });
 
   it('infoDisclosure 1 件で delta = AFFECTION_INFO_DISCLOSURE_WEIGHT', () => {
@@ -76,7 +74,7 @@ describe('updateAffectionLevel', () => {
 
 describe('isNewActiveDay', () => {
   const day1Start = new Date('2024-01-15T00:00:00Z').getTime();
-  const day1End   = new Date('2024-01-15T23:59:59Z').getTime();
+  const day1End = new Date('2024-01-15T23:59:59Z').getTime();
   const day2Start = new Date('2024-01-16T00:00:00Z').getTime();
 
   it('prev が undefined なら初回接触として true', () => {
