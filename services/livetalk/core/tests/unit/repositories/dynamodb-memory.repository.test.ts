@@ -221,7 +221,7 @@ describe('DynamoDBMemoryRepository', () => {
         () => fixedNow
       );
       const result = await repo.listByTier('u1', 'hiyori', 'B');
-      expect(result).toHaveLength(1);
+      expect(result.items).toHaveLength(1);
       expect(sent[0]).toBeInstanceOf(QueryCommand);
       const input = (sent[0] as QueryCommand).input;
       expect(input.ExpressionAttributeValues?.[':pk']).toBe('USER#u1');

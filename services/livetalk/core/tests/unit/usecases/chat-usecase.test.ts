@@ -118,7 +118,7 @@ function makeModerationClient(
 
 function makeMemoryRetriever(memories: RetrievedMemory[] = []): IMemoryRetriever {
   return {
-    retrieve: jest.fn(async () => memories),
+    retrieve: jest.fn(async () => ({ memories })),
   };
 }
 
@@ -126,7 +126,7 @@ function makeMemoryRepo(): MemoryRepository {
   return {
     put: jest.fn(),
     get: jest.fn(async () => null),
-    listByTier: jest.fn(async () => []),
+    listByTier: jest.fn(async () => ({ items: [] })),
     listByCategory: jest.fn(async () => []),
     update: jest.fn(
       async (input) =>
@@ -1140,7 +1140,7 @@ describe('runChatUseCase', () => {
         Embedding: [1, 0, 0],
       };
       const memRepo = makeMemoryRepo();
-      (memRepo.listByTier as jest.Mock).mockResolvedValue([tierCMem]);
+      (memRepo.listByTier as jest.Mock).mockResolvedValue({ items: [tierCMem] });
       const llm: ILLMClient = {
         chatStream: jest.fn(async function* () {
           yield '覚えとくね！';

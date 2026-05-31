@@ -103,8 +103,8 @@ describe('InMemoryMemoryRepository', () => {
       await repo.put({ ...baseInput, Tier: 'B', Category: 'hobby', Content: '読書' });
 
       const result = await repo.listByTier('u1', 'hiyori', 'B');
-      expect(result).toHaveLength(2);
-      expect(result.every((m) => m.Tier === 'B')).toBe(true);
+      expect(result.items).toHaveLength(2);
+      expect(result.items.every((m) => m.Tier === 'B')).toBe(true);
     });
 
     it('別ユーザー / 別キャラのメモリは混入しない', async () => {
@@ -113,7 +113,7 @@ describe('InMemoryMemoryRepository', () => {
       await repo.put({ ...baseInput, CharacterID: 'other', Tier: 'A' });
 
       const result = await repo.listByTier('u1', 'hiyori', 'A');
-      expect(result).toHaveLength(1);
+      expect(result.items).toHaveLength(1);
     });
   });
 

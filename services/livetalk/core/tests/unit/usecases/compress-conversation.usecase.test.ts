@@ -133,7 +133,7 @@ describe('compressConversation', () => {
       now: () => fixedNow,
     });
 
-    const foodMems = await memoryRepo.listByTier('u1', 'hiyori', 'C');
+    const { items: foodMems } = await memoryRepo.listByTier('u1', 'hiyori', 'C');
     expect(foodMems).toHaveLength(2);
     const categories = foodMems.map((m) => m.Category).sort();
     expect(categories).toEqual(['food', 'hobby']);

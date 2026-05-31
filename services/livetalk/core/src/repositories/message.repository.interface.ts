@@ -36,6 +36,8 @@ export interface RecentMessagesResult {
   totalTokens: number;
   /** トークン上限に達して打ち切ったかどうか（true なら更に古いメッセージがある可能性） */
   truncated: boolean;
+  /** DynamoDB 消費 RCU の合計（best-effort、InMemory 実装は undefined）。 */
+  consumedCapacity?: number;
 }
 
 /**

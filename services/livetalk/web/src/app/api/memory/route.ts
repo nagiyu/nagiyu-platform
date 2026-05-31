@@ -35,7 +35,7 @@ export const GET = withAuth(getSession, 'livetalk:chat', async (session, request
     const tiers = parsed.tier ? [parsed.tier] : VISIBLE_TIERS;
     const collected: MemoryEntity[] = [];
     for (const tier of tiers) {
-      const items = await repo.listByTier(userId, characterId, tier);
+      const { items } = await repo.listByTier(userId, characterId, tier);
       collected.push(...items);
     }
 

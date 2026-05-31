@@ -1,4 +1,7 @@
+import { performance } from 'perf_hooks';
 import { logger } from '@nagiyu/common';
+import { getDefaultTokenCounter } from '../lib/token-counter.js';
+import { emitBatchMetricsLog, emitBatchMetricsEMF } from '../observability/metrics.js';
 import { MEMORY_DEFAULT_CONFIDENCE } from '../constants.js';
 import { calculateBidirectionalityDelta } from '../affection/calculator.js';
 import { persistInterestCategories } from '../interest/category-extractor.js';
@@ -49,6 +52,8 @@ export async function compressConversation(
     characterStateRepo,
   } = params;
 
+  const batchStart = performance.now();
+
   const summary = await summaryRepo.get(userId, characterId);
   const lastCompressedAt = summary?.LastCompressedAt ?? 0;
 
@@ -77,6 +82,25 @@ export async function compressConversation(
     SummaryText: result.mergedSummary,
     LastCompressedAt: now(),
   });
+
+  // バッチ計測（best-effort）
+  try {
+    const counter = getDefaultTokenCounter();
+    const summaryTokenCount = counter.countTokens(result.mergedSummary);
+    const batchMetrics = {
+      userId,
+      characterId,
+      timestamp: new Date().toISOString(),
+      messageCount: messages.length,
+      summaryTokenCount,
+      summaryCharCount: result.mergedSummary.length,
+      latencyMs: Math.round(performance.now() - batchStart),
+    };
+    emitBatchMetricsLog(batchMetrics);
+    emitBatchMetricsEMF(batchMetrics);
+  } catch (err) {
+    logger.warn('[compressConversation] バッチ計測の emit に失敗しました', { err });
+  }
 
   for (const candidate of result.newMemoryCandidates) {
     await memoryRepo.put({

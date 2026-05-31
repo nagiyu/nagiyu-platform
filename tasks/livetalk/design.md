@@ -615,3 +615,66 @@ LLM プロンプトは以下3系統で構成される：
 ### 可逆性
 
 編集機能を将来復活させる場合は別途新規 Issue で対応する。その際は三層整合性問題（②③の更新、または注釈で許容）への対処も設計に含めること。
+
+---
+
+## 可観測性（Observability）設計 (#3315)
+
+### 概要
+
+構造化ログ（L1）と CloudWatch EMF メトリクス（L2）を組み合わせ、コンテキストサイズと応答速度を計測する。
+
+### 設計方針
+
+- **Best-effort 計測**: すべての計測コードは try/catch で囲み、例外がチャット応答を止めない
+- **PII 保護**: ログ・メトリクスにはトークン数・レイテンシ・件数のみ記録（会話本文を含めない）
+- **EMF 出力**: `console.log` でトップレベル `_aws` キーを持つ JSON を直接出力（logger ラッパーは EMF 構造を壊すため使わない）
+- **L1 ログ**: `@nagiyu/common` の `logger.info` を使用（構造化ログ）
+
+### 実装ファイル
+
+| ファイル | 役割 |
+|---------|------|
+| `src/observability/timer.ts` | フェーズタイマー（`createPhaseTimer`）。`performance.now()` を使ったサブミリ秒計測 |
+| `src/observability/emf.ts` | EMF JSON ビルダー（`buildEmfPayload`）。`_aws.CloudWatchMetrics` 構造を組み立てる |
+| `src/observability/metrics.ts` | チャット・バッチ用メトリクス管理。`ChatMetrics` / `BatchMetrics` の生成・ログ出力・EMF 出力 |
+| `src/observability/index.ts` | 上記 3 ファイルの re-export |
+
+### EMF メトリクス定義
+
+#### チャット用（Namespace: `LiveTalk/Chat`）
+
+| メトリクス名 | 単位 | 内容 |
+|------------|------|------|
+| `PromptTotalTokens` | Count | プロンプト合計トークン数 |
+| `TierACount` | Count | 取得した Tier A 記憶件数 |
+| `MemorySummaryTokens` | Count | 記憶サマリーのトークン数 |
+| `LLMTimeToFirstToken` | Milliseconds | LLM TTFB（最初のトークン到達まで）|
+| `ChatTotalLatency` | Milliseconds | チャット全体レイテンシ |
+| `RetrieveLatency` | Milliseconds | 記憶取得レイテンシ（取得時のみ出力）|
+
+#### バッチ用（Namespace: `LiveTalk/Batch`）
+
+| メトリクス名 | 単位 | 内容 |
+|------------|------|------|
+| `MemorySummaryTokens` | Count | 圧縮後サマリーのトークン数 |
+| `CompressedMessageCount` | Count | 圧縮対象メッセージ数 |
+| `BatchLatency` | Milliseconds | バッチ処理全体レイテンシ |
+
+### ディメンション
+
+- `Environment`: `process.env.NODE_ENV`（`production` / `development` / `test`）
+- `CharacterId`: キャラクター ID
+
+### DynamoDB 消費 RCU 計測
+
+`ReturnConsumedCapacity: 'TOTAL'` を以下のクエリに追加し、実際の消費 RCU を `ChatMetrics.dynamodb` に記録する。
+
+- `DynamoDBMessageRepository.getRecentByTokenBudget` → `dynamodb.messagesConsumedRcu`
+- `DynamoDBMemoryRepository.queryByPrefix`（`listByTier` 経由）→ `dynamodb.memoryConsumedRcu`
+
+### インターフェース変更
+
+- `MemoryRepository.listByTier` の戻り値を `MemoryEntity[]` から `MemoryListResult`（`{ items: MemoryEntity[]; consumedCapacity?: number }`）に変更
+- `IMemoryRetriever.retrieve` の戻り値を `RetrievedMemory[]` から `RetrieveResult`（`{ memories: RetrievedMemory[]; consumedCapacity?: number }`）に変更
+- `RecentMessagesResult` に `consumedCapacity?: number` を追加

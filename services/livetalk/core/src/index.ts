@@ -18,7 +18,12 @@ export { persistInterestCategories } from './interest/index.js';
 
 // Memory retrieval + confirmation + correction
 export { cosineSimilarity, MemoryRetriever } from './memory/index.js';
-export type { IMemoryRetriever, RetrieveOptions, RetrievedMemory } from './memory/index.js';
+export type {
+  IMemoryRetriever,
+  RetrieveOptions,
+  RetrievedMemory,
+  RetrieveResult,
+} from './memory/index.js';
 export {
   detectCorrection,
   identifyPromotionCandidates,
@@ -36,6 +41,25 @@ export * from './characters/index.js';
 
 // Sentence splitter
 export { SentenceBuffer } from './lib/sentence-splitter.js';
+
+// Observability
+export {
+  createPhaseTimer,
+  buildEmfPayload,
+  createChatMetrics,
+  emitChatMetricsLog,
+  emitChatMetricsEMF,
+  emitBatchMetricsLog,
+  emitBatchMetricsEMF,
+} from './observability/index.js';
+export type {
+  PhaseTimer,
+  EmfUnit,
+  EmfMetricDefinition,
+  EmfPayloadOptions,
+  ChatMetrics,
+  BatchMetrics,
+} from './observability/index.js';
 
 // Chat usecase
 export { runChatUseCase, type ChatEvent, type ChatUseCaseParams } from './usecases/chat-usecase.js';

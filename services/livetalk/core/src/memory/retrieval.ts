@@ -1,7 +1,12 @@
 import type { IEmbeddingClient } from '../llm-client/types.js';
 import type { MemoryRepository } from '../repositories/memory.repository.interface.js';
 import { cosineSimilarity } from './embedding.js';
-import type { IMemoryRetriever, RetrieveOptions, RetrievedMemory } from './types.js';
+import type {
+  IMemoryRetriever,
+  RetrieveOptions,
+  RetrievedMemory,
+  RetrieveResult,
+} from './types.js';
 
 /**
  * embedding ベースの Memory retriever。
@@ -33,11 +38,12 @@ export class MemoryRetriever implements IMemoryRetriever {
     userId: string,
     characterId: string,
     options: RetrieveOptions
-  ): Promise<RetrievedMemory[]> {
+  ): Promise<RetrieveResult> {
     const { userInput, maxTierB, cooldownMs, categoryCapPerConversation } = options;
 
     // 1. Tier A 全件（無条件）
-    const tierAMemories = await this.memoryRepository.listByTier(userId, characterId, 'A');
+    const { items: tierAMemories, consumedCapacity: tierARcu } =
+      await this.memoryRepository.listByTier(userId, characterId, 'A');
     const tierAResults: RetrievedMemory[] = tierAMemories.map((memory) => ({
       memory,
       similarity: 1.0,
@@ -48,11 +54,15 @@ export class MemoryRetriever implements IMemoryRetriever {
     try {
       queryEmbedding = await this.embeddingClient.embed(userInput);
     } catch {
-      return tierAResults;
+      return {
+        memories: tierAResults,
+        consumedCapacity: tierARcu,
+      };
     }
 
     // 3. Tier B 全件取得 + cosine similarity 計算
-    const tierBMemories = await this.memoryRepository.listByTier(userId, characterId, 'B');
+    const { items: tierBMemories, consumedCapacity: tierBRcu } =
+      await this.memoryRepository.listByTier(userId, characterId, 'B');
     const now = this.nowMs();
 
     const tierBCandidates: RetrievedMemory[] = [];
@@ -86,6 +96,10 @@ export class MemoryRetriever implements IMemoryRetriever {
       tierBResults.push(candidate);
     }
 
-    return [...tierAResults, ...tierBResults];
+    const totalRcu = (tierARcu ?? 0) + (tierBRcu ?? 0);
+    return {
+      memories: [...tierAResults, ...tierBResults],
+      consumedCapacity: totalRcu > 0 ? totalRcu : undefined,
+    };
   }
 }
