@@ -256,7 +256,8 @@ function toSummarizeResult(raw: z.infer<typeof SummarizeResultSchema>): Summariz
   return {
     mergedSummary: raw.mergedSummary,
     newMemoryCandidates,
-    interestCategories: interestCategories && interestCategories.length > 0 ? interestCategories : undefined,
+    interestCategories:
+      interestCategories && interestCategories.length > 0 ? interestCategories : undefined,
     bidirectionalityScore,
   };
 }

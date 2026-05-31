@@ -49,9 +49,7 @@ promotions 配列（memoryId と promote を含むオブジェクトの配列）
       promotions: parsed.promotions,
     });
 
-    const promoteIds = new Set(
-      parsed.promotions.filter((p) => p.promote).map((p) => p.memoryId)
-    );
+    const promoteIds = new Set(parsed.promotions.filter((p) => p.promote).map((p) => p.memoryId));
     const promoted = candidates.filter((m) => promoteIds.has(m.MemoryID));
 
     logger.debug('[confirmation] 昇格と判定された記憶', {
