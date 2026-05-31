@@ -37,7 +37,11 @@ function makeLLMClient(chunks: string[]): ILLMClient {
       yield* stringsToStream(chunks);
     }),
     chatComplete: jest.fn(),
-    chatStructured: jest.fn(async () => ({ detected: false, targetMemoryIds: null, newValue: null })),
+    chatStructured: jest.fn(async () => ({
+      detected: false,
+      targetMemoryIds: null,
+      newValue: null,
+    })),
     summarize: jest.fn(async () => ({ mergedSummary: '', newMemoryCandidates: [] })),
   };
 }
@@ -491,7 +495,11 @@ describe('runChatUseCase', () => {
           throw new Error('llm down');
         }),
         chatComplete: jest.fn(),
-        chatStructured: jest.fn(async () => ({ detected: false, targetMemoryIds: null, newValue: null })),
+        chatStructured: jest.fn(async () => ({
+          detected: false,
+          targetMemoryIds: null,
+          newValue: null,
+        })),
         summarize: jest.fn(async () => ({ mergedSummary: '', newMemoryCandidates: [] })),
       };
       const voice = makeVoiceClient();
@@ -1003,7 +1011,11 @@ describe('runChatUseCase', () => {
           yield '了解！';
         }),
         chatComplete: jest.fn(),
-        chatStructured: jest.fn(async () => ({ detected: false, targetMemoryIds: null, newValue: null })),
+        chatStructured: jest.fn(async () => ({
+          detected: false,
+          targetMemoryIds: null,
+          newValue: null,
+        })),
         summarize: jest.fn(),
       };
       const voice = makeVoiceClient();
