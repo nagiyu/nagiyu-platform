@@ -1,7 +1,12 @@
 import type { IEmbeddingClient } from '../llm-client/types.js';
 import type { MemoryRepository } from '../repositories/memory.repository.interface.js';
 import { cosineSimilarity } from './embedding.js';
-import type { IMemoryRetriever, RetrieveOptions, RetrievedMemory, RetrieveResult } from './types.js';
+import type {
+  IMemoryRetriever,
+  RetrieveOptions,
+  RetrievedMemory,
+  RetrieveResult,
+} from './types.js';
 
 /**
  * embedding ベースの Memory retriever。
@@ -37,7 +42,8 @@ export class MemoryRetriever implements IMemoryRetriever {
     const { userInput, maxTierB, cooldownMs, categoryCapPerConversation } = options;
 
     // 1. Tier A 全件（無条件）
-    const { items: tierAMemories, consumedCapacity: tierARcu } = await this.memoryRepository.listByTier(userId, characterId, 'A');
+    const { items: tierAMemories, consumedCapacity: tierARcu } =
+      await this.memoryRepository.listByTier(userId, characterId, 'A');
     const tierAResults: RetrievedMemory[] = tierAMemories.map((memory) => ({
       memory,
       similarity: 1.0,
@@ -55,7 +61,8 @@ export class MemoryRetriever implements IMemoryRetriever {
     }
 
     // 3. Tier B 全件取得 + cosine similarity 計算
-    const { items: tierBMemories, consumedCapacity: tierBRcu } = await this.memoryRepository.listByTier(userId, characterId, 'B');
+    const { items: tierBMemories, consumedCapacity: tierBRcu } =
+      await this.memoryRepository.listByTier(userId, characterId, 'B');
     const now = this.nowMs();
 
     const tierBCandidates: RetrievedMemory[] = [];

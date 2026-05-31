@@ -21,9 +21,5 @@ export interface RetrieveResult {
 }
 
 export interface IMemoryRetriever {
-  retrieve(
-    userId: string,
-    characterId: string,
-    options: RetrieveOptions
-  ): Promise<RetrieveResult>;
+  retrieve(userId: string, characterId: string, options: RetrieveOptions): Promise<RetrieveResult>;
 }

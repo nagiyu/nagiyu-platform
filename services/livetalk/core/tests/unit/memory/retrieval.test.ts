@@ -256,7 +256,9 @@ describe('MemoryRetriever', () => {
         ...defaultOptions,
         categoryCapPerConversation: 1,
       });
-      const food = result.memories.filter((r) => r.memory.Tier === 'B' && r.memory.Category === 'food');
+      const food = result.memories.filter(
+        (r) => r.memory.Tier === 'B' && r.memory.Category === 'food'
+      );
       expect(food).toHaveLength(1);
     });
 
@@ -292,7 +294,9 @@ describe('MemoryRetriever', () => {
         categoryCapPerConversation: 2,
         maxTierB: 10,
       });
-      const food = result.memories.filter((r) => r.memory.Tier === 'B' && r.memory.Category === 'food');
+      const food = result.memories.filter(
+        (r) => r.memory.Tier === 'B' && r.memory.Category === 'food'
+      );
       expect(food).toHaveLength(2);
     });
   });
