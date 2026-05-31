@@ -30,7 +30,7 @@ function makeMemoryC(id: string, content: string, embedding?: number[]): MemoryE
 
 function makeMemoryRepo(tierC: MemoryEntity[]): MemoryRepository {
   return {
-    listByTier: jest.fn(async (_u, _c, tier) => (tier === 'C' ? tierC : [])),
+    listByTier: jest.fn(async (_u, _c, tier) => (tier === 'C' ? { items: tierC } : { items: [] })),
     put: jest.fn(),
     get: jest.fn(),
     listByCategory: jest.fn(),

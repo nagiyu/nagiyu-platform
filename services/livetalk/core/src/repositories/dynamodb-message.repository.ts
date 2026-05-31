@@ -162,6 +162,7 @@ export class DynamoDBMessageRepository implements MessageRepository {
     const collected: MessageEntity[] = [];
     let totalTokens = 0;
     let truncated = false;
+    let totalConsumedCapacity = 0;
     let exclusiveStartKey: Record<string, unknown> | undefined;
 
     while (collected.length < hardLimit) {
@@ -183,6 +184,7 @@ export class DynamoDBMessageRepository implements MessageRepository {
             ScanIndexForward: false,
             Limit: TOKEN_BUDGETED_QUERY_PAGE_SIZE,
             ExclusiveStartKey: exclusiveStartKey,
+            ReturnConsumedCapacity: 'TOTAL',
           })
         );
       } catch (error) {
@@ -190,6 +192,7 @@ export class DynamoDBMessageRepository implements MessageRepository {
         throw new DatabaseError(message, error instanceof Error ? error : undefined);
       }
 
+      totalConsumedCapacity += result.ConsumedCapacity?.CapacityUnits ?? 0;
       const items = result.Items ?? [];
       let pageExhausted = true;
       for (const raw of items) {
@@ -237,6 +240,7 @@ export class DynamoDBMessageRepository implements MessageRepository {
       messages: collected,
       totalTokens,
       truncated,
+      consumedCapacity: totalConsumedCapacity > 0 ? totalConsumedCapacity : undefined,
     };
   }
 }

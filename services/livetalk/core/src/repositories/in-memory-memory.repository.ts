@@ -14,7 +14,7 @@ import {
   buildMemoryTierSKPrefix,
   buildUserPK,
 } from '../mappers/keys.js';
-import type { MemoryRepository } from './memory.repository.interface.js';
+import type { MemoryListResult, MemoryRepository } from './memory.repository.interface.js';
 
 export class InMemoryMemoryRepository implements MemoryRepository {
   private readonly mapper: MemoryMapper;
@@ -67,14 +67,14 @@ export class InMemoryMemoryRepository implements MemoryRepository {
     userId: string,
     characterId: string,
     tier: Tier
-  ): Promise<MemoryEntity[]> {
+  ): Promise<MemoryListResult> {
     const pk = buildUserPK(userId);
     const prefix = buildMemoryTierSKPrefix(characterId, tier);
     const { items } = this.store.query(
       { pk, sk: { operator: 'begins_with', value: prefix } },
       { limit: Number.MAX_SAFE_INTEGER }
     );
-    return items.map((item) => this.mapper.toEntity(item));
+    return { items: items.map((item) => this.mapper.toEntity(item)) };
   }
 
   public async listByCategory(

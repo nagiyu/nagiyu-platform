@@ -6,6 +6,15 @@ import type {
   UpdateMemoryInput,
 } from '../entities/memory.entity.js';
 
+/**
+ * listByTier の戻り値。消費 RCU を best-effort で含む。
+ * InMemory 実装は consumedCapacity を返さない（undefined）。
+ */
+export interface MemoryListResult {
+  items: MemoryEntity[];
+  consumedCapacity?: number;
+}
+
 export interface MemoryRepository {
   /**
    * メモリを保存する。`MemoryID` 未指定時は ULID を自動採番する。
@@ -20,8 +29,9 @@ export interface MemoryRepository {
 
   /**
    * 指定 Tier のメモリを全件取得する。
+   * consumedCapacity は DynamoDB 実装のみ設定する（best-effort）。
    */
-  listByTier(userId: string, characterId: string, tier: Tier): Promise<MemoryEntity[]>;
+  listByTier(userId: string, characterId: string, tier: Tier): Promise<MemoryListResult>;
 
   /**
    * 指定カテゴリのメモリを Tier 横断で全件取得する。

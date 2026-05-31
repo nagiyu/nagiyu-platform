@@ -95,7 +95,7 @@ export async function identifyPromotionCandidates(
   // Tier C 全件取得
   let tierCMemories: MemoryEntity[];
   try {
-    tierCMemories = await memoryRepository.listByTier(userId, characterId, 'C');
+    ({ items: tierCMemories } = await memoryRepository.listByTier(userId, characterId, 'C'));
   } catch (err) {
     logger.warn('[confirmation] Tier C 記憶の取得に失敗しました', { err });
     return [];

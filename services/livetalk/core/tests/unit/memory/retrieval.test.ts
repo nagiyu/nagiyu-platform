@@ -30,9 +30,9 @@ function makeMemory(
 function makeMemoryRepo(tierA: MemoryEntity[] = [], tierB: MemoryEntity[] = []): MemoryRepository {
   return {
     listByTier: jest.fn(async (_userId, _charId, tier) => {
-      if (tier === 'A') return tierA;
-      if (tier === 'B') return tierB;
-      return [];
+      if (tier === 'A') return { items: tierA };
+      if (tier === 'B') return { items: tierB };
+      return { items: [] };
     }),
     put: jest.fn(),
     get: jest.fn(),
@@ -69,7 +69,7 @@ describe('MemoryRetriever', () => {
       );
 
       const result = await retriever.retrieve('u1', 'hiyori', defaultOptions);
-      const tierAResults = result.filter((r) => r.memory.Tier === 'A');
+      const tierAResults = result.memories.filter((r) => r.memory.Tier === 'A');
       expect(tierAResults).toHaveLength(2);
       expect(tierAResults.every((r) => r.similarity === 1.0)).toBe(true);
     });
@@ -92,7 +92,7 @@ describe('MemoryRetriever', () => {
       );
 
       const result = await retriever.retrieve('u1', 'hiyori', defaultOptions);
-      expect(result.filter((r) => r.memory.Tier === 'A')).toHaveLength(1);
+      expect(result.memories.filter((r) => r.memory.Tier === 'A')).toHaveLength(1);
     });
   });
 
@@ -125,7 +125,7 @@ describe('MemoryRetriever', () => {
       );
 
       const result = await retriever.retrieve('u1', 'hiyori', { ...defaultOptions, maxTierB: 2 });
-      const tierBResults = result.filter((r) => r.memory.Tier === 'B');
+      const tierBResults = result.memories.filter((r) => r.memory.Tier === 'B');
       expect(tierBResults).toHaveLength(2);
       expect(tierBResults[0].memory.Content).toBe('コーヒー好き');
     });
@@ -147,7 +147,7 @@ describe('MemoryRetriever', () => {
       );
 
       const result = await retriever.retrieve('u1', 'hiyori', defaultOptions);
-      const tierBResults = result.filter((r) => r.memory.Tier === 'B');
+      const tierBResults = result.memories.filter((r) => r.memory.Tier === 'B');
       expect(tierBResults).toHaveLength(1);
       expect(tierBResults[0].memory.Content).toBe('スポーツ好き');
     });
@@ -178,7 +178,7 @@ describe('MemoryRetriever', () => {
       );
 
       const result = await retriever.retrieve('u1', 'hiyori', defaultOptions);
-      const tierBResults = result.filter((r) => r.memory.Tier === 'B');
+      const tierBResults = result.memories.filter((r) => r.memory.Tier === 'B');
       expect(tierBResults).toHaveLength(1);
       expect(tierBResults[0].memory.Content).toBe('スポーツ好き');
     });
@@ -201,7 +201,7 @@ describe('MemoryRetriever', () => {
       );
 
       const result = await retriever.retrieve('u1', 'hiyori', defaultOptions);
-      expect(result.filter((r) => r.memory.Tier === 'B')).toHaveLength(1);
+      expect(result.memories.filter((r) => r.memory.Tier === 'B')).toHaveLength(1);
     });
 
     it('LastReferencedAt が未設定の Memory は cooldown 除外されない', async () => {
@@ -220,7 +220,7 @@ describe('MemoryRetriever', () => {
       );
 
       const result = await retriever.retrieve('u1', 'hiyori', defaultOptions);
-      expect(result.filter((r) => r.memory.Tier === 'B')).toHaveLength(1);
+      expect(result.memories.filter((r) => r.memory.Tier === 'B')).toHaveLength(1);
     });
   });
 
@@ -256,7 +256,7 @@ describe('MemoryRetriever', () => {
         ...defaultOptions,
         categoryCapPerConversation: 1,
       });
-      const food = result.filter((r) => r.memory.Tier === 'B' && r.memory.Category === 'food');
+      const food = result.memories.filter((r) => r.memory.Tier === 'B' && r.memory.Category === 'food');
       expect(food).toHaveLength(1);
     });
 
@@ -292,7 +292,7 @@ describe('MemoryRetriever', () => {
         categoryCapPerConversation: 2,
         maxTierB: 10,
       });
-      const food = result.filter((r) => r.memory.Tier === 'B' && r.memory.Category === 'food');
+      const food = result.memories.filter((r) => r.memory.Tier === 'B' && r.memory.Category === 'food');
       expect(food).toHaveLength(2);
     });
   });
@@ -322,8 +322,8 @@ describe('MemoryRetriever', () => {
       );
 
       const result = await retriever.retrieve('u1', 'hiyori', defaultOptions);
-      expect(result).toHaveLength(1);
-      expect(result[0].memory.Tier).toBe('A');
+      expect(result.memories).toHaveLength(1);
+      expect(result.memories[0].memory.Tier).toBe('A');
     });
   });
 
@@ -347,8 +347,8 @@ describe('MemoryRetriever', () => {
       );
 
       const result = await retriever.retrieve('u1', 'hiyori', defaultOptions);
-      expect(result.some((r) => r.memory.Tier === 'A')).toBe(true);
-      expect(result.some((r) => r.memory.Tier === 'B')).toBe(true);
+      expect(result.memories.some((r) => r.memory.Tier === 'A')).toBe(true);
+      expect(result.memories.some((r) => r.memory.Tier === 'B')).toBe(true);
     });
   });
 });

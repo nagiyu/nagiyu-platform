@@ -1,16 +1,19 @@
+import { performance } from 'perf_hooks';
 import { logger } from '@nagiyu/common';
 import { calculateAffectionDelta, isNewActiveDay } from '../affection/calculator.js';
 import type { IEmbeddingClient, ILLMClient } from '../llm-client/types.js';
 import type { IVoiceClient } from '../voicevox/types.js';
 import type { CharacterStateRepository } from '../repositories/character-state.repository.interface.js';
 import type { MemoryRepository } from '../repositories/memory.repository.interface.js';
+import type { MemorySummaryRepository } from '../repositories/memory-summary.repository.interface.js';
 import type { MessageRepository } from '../repositories/message.repository.interface.js';
 import type { SafetyEventRepository } from '../repositories/safety-event.repository.interface.js';
 import type { CharacterDefinition } from '../characters/types.js';
 import type { MemoryEntity } from '../entities/memory.entity.js';
 import type { MessageEntity } from '../entities/message.entity.js';
-import { buildChatMessages } from '../characters/prompt-builder.js';
+import { buildChatMessages, buildSystemPrompt } from '../characters/prompt-builder.js';
 import { SentenceBuffer } from '../lib/sentence-splitter.js';
+import { getDefaultTokenCounter } from '../lib/token-counter.js';
 import {
   DEFAULT_CHARACTER_ID,
   MEMORY_CATEGORY_CAP,
@@ -25,6 +28,12 @@ import type { IMemoryRetriever, RetrievedMemory } from '../memory/types.js';
 import { detectCorrection } from '../memory/correction-detector.js';
 import { identifyNewLearnings, identifyPromotionCandidates } from '../memory/confirmation.js';
 import { applyCorrection, executePromotion } from '../memory/promotion.js';
+import { createPhaseTimer } from '../observability/timer.js';
+import {
+  createChatMetrics,
+  emitChatMetricsLog,
+  emitChatMetricsEMF,
+} from '../observability/metrics.js';
 
 /**
  * /api/chat ストリーミングレスポンスの各イベント型。
@@ -67,9 +76,11 @@ export interface ChatUseCaseParams {
   embeddingClient?: IEmbeddingClient;
   /** CharacterState リポジトリ。未指定時は親密度更新をスキップする */
   characterStateRepository?: CharacterStateRepository;
+  /** MemorySummary リポジトリ。計測のみに使用（プロンプトへの注入はしない）。未指定時は計測をスキップする */
+  memorySummaryRepository?: MemorySummaryRepository;
 }
 
-type SynthesisResult = { index: number; text: string; audio: string | null };
+type SynthesisResult = { index: number; text: string; audio: string | null; elapsedMs: number };
 
 function getLastAssistantMessage(history: MessageEntity[]): string | null {
   for (let i = history.length - 1; i >= 0; i--) {
@@ -93,13 +104,14 @@ async function synthesizeSentence(
   speakerId: number,
   index: number
 ): Promise<SynthesisResult> {
+  const start = performance.now();
   try {
     const wav = await voiceClient.synthesize(text, speakerId);
     const audio = arrayBufferToBase64(wav);
-    return { index, text, audio };
+    return { index, text, audio, elapsedMs: Math.round(performance.now() - start) };
   } catch (err) {
     logger.error('[chat-usecase] VOICEVOX 合成に失敗しました', { err });
-    return { index, text, audio: null };
+    return { index, text, audio: null, elapsedMs: Math.round(performance.now() - start) };
   }
 }
 
@@ -180,10 +192,19 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     memoryRepository,
     embeddingClient,
     characterStateRepository,
+    memorySummaryRepository,
   } = params;
 
-  // 1. 直近会話履歴取得（+ CharacterState を先取りして prevLastInteractionAt を確保）
-  const [{ messages: history }, prevCharacterState] = await Promise.all([
+  const chatStart = performance.now();
+  const metrics = createChatMetrics(userId, characterId);
+  const timer = createPhaseTimer();
+
+  // 1. 直近会話履歴取得（+ CharacterState + MemorySummary を並行取得）
+  const [
+    { messages: history, totalTokens: messagesTotalTokens, consumedCapacity: messagesRcu },
+    prevCharacterState,
+    fetchedSummary,
+  ] = await Promise.all([
     messageRepository.getRecentByTokenBudget({ userId, characterId }),
     characterStateRepository
       ? characterStateRepository.getById({ userId, characterId }).catch((err) => {
@@ -191,7 +212,20 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
           return null;
         })
       : Promise.resolve(null),
+    memorySummaryRepository
+      ? memorySummaryRepository.get(userId, characterId).catch((err) => {
+          logger.warn('[chat-usecase] MemorySummary の取得に失敗しました（計測スキップ）', { err });
+          return null;
+        })
+      : Promise.resolve(null),
   ]);
+
+  // MemorySummary のサイズを計測（単調増加の検知）
+  if (fetchedSummary) {
+    metrics.summaryCharCount = fetchedSummary.SummaryText.length;
+    metrics.summaryTokenCount = getDefaultTokenCounter().countTokens(fetchedSummary.SummaryText);
+  }
+  metrics.dynamodb.messagesConsumedRcu = messagesRcu;
 
   // 2. ユーザーメッセージを保存
   await messageRepository.create({
@@ -247,16 +281,28 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   // 4. Memory retrieve（fail-warn: エラー時は空配列で継続）
   let retrievedMemories: RetrievedMemory[] = [];
   if (memoryRetriever) {
+    timer.start('retrieve');
     try {
-      retrievedMemories = await memoryRetriever.retrieve(userId, characterId, {
+      const retrieveResult = await memoryRetriever.retrieve(userId, characterId, {
         userInput: userText,
         maxTierB: MEMORY_MAX_TIER_B,
         cooldownMs: MEMORY_COOLDOWN_MS,
         categoryCapPerConversation: MEMORY_CATEGORY_CAP,
       });
+      timer.end('retrieve');
+      retrievedMemories = retrieveResult.memories;
+      metrics.retrievedTierACount = retrievedMemories.filter((r) => r.memory.Tier === 'A').length;
+      metrics.retrievedTierBCount = retrievedMemories.filter((r) => r.memory.Tier === 'B').length;
+      // Tier A はリトリーバルで全件取得されるため、注入数 = 総件数
+      metrics.tierATotalCount = metrics.retrievedTierACount;
+      if (retrieveResult.consumedCapacity !== undefined) {
+        metrics.dynamodb.memoryConsumedRcu = retrieveResult.consumedCapacity;
+      }
     } catch (err) {
+      timer.end('retrieve');
       logger.warn('[chat-usecase] Memory retrieve に失敗しました（メモリなしで継続）', { err });
     }
+    metrics.latency.retrieve = timer.elapsedMs('retrieve');
   }
 
   // 4a. 暗黙訂正検出（fail-warn: エラー時はスキップして継続）
@@ -282,6 +328,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   // 4b. Tier C 昇格候補検出（fail-warn: エラー時は空配列で継続）
   let promotionCandidates: MemoryEntity[] = [];
   if (memoryRepository && embeddingClient) {
+    timer.start('promotionCheck');
     try {
       promotionCandidates = await identifyPromotionCandidates(
         userId,
@@ -291,9 +338,12 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
         embeddingClient,
         llmClient
       );
+      timer.end('promotionCheck');
     } catch (err) {
+      timer.end('promotionCheck');
       logger.warn('[chat-usecase] 昇格候補検出に失敗しました（スキップして継続）', { err });
     }
+    metrics.latency.promotionCheck = timer.elapsedMs('promotionCheck');
   }
   const newLearnings = identifyNewLearnings(promotionCandidates);
 
@@ -307,12 +357,40 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     undefined,
     newLearnings.length > 0 ? newLearnings : undefined
   );
+
+  // プロンプトトークン内訳を計算（best-effort）
+  try {
+    const counter = getDefaultTokenCounter();
+    const baseSystem = buildSystemPrompt(character, new Date());
+    const memoryTokens =
+      retrievedMemories.reduce((sum, r) => sum + counter.countTokens(r.memory.Content), 0) +
+      newLearnings.reduce((sum, m) => sum + counter.countTokens(m.Content), 0);
+    const messageTokens = messagesTotalTokens + counter.countTokensForMessage(userText);
+    const systemTokens = counter.countTokens(baseSystem);
+    metrics.promptTokens = {
+      system: systemTokens,
+      summary: 0,
+      memory: memoryTokens,
+      messages: messageTokens,
+      total: systemTokens + memoryTokens + messageTokens,
+    };
+  } catch (err) {
+    logger.warn('[chat-usecase] プロンプトトークン計算に失敗しました（スキップ）', { err });
+  }
+
   const sentenceBuffer = new SentenceBuffer();
   let fullResponseText = '';
   const pendingSynthesis: Array<Promise<SynthesisResult>> = [];
   let sentenceIndex = 0;
 
+  const llmStart = performance.now();
+  let llmTtfbCaptured = false;
+
   for await (const delta of llmClient.chatStream(chatMessages)) {
+    if (!llmTtfbCaptured) {
+      metrics.latency.llmTtfb = Math.round(performance.now() - llmStart);
+      llmTtfbCaptured = true;
+    }
     yield { type: 'text', delta };
     fullResponseText += delta;
 
@@ -325,6 +403,8 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     }
   }
 
+  metrics.latency.llmTotal = Math.round(performance.now() - llmStart);
+
   const remaining = sentenceBuffer.flush();
   if (remaining) {
     const idx = sentenceIndex;
@@ -333,13 +413,16 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     );
   }
 
-  // 7. sentence events を順番通りに yield
+  // 7. sentence events を順番通りに yield（VOICEVOX 合計レイテンシを集計）
+  let voicevoxTotalMs = 0;
   for (const promise of pendingSynthesis) {
     const result = await promise;
+    voicevoxTotalMs += result.elapsedMs;
     if (result.audio !== null) {
       yield { type: 'sentence', index: result.index, text: result.text, audio: result.audio };
     }
   }
+  metrics.latency.voicevoxTotal = voicevoxTotalMs > 0 ? voicevoxTotalMs : undefined;
 
   // 8. Moderation API チェック（fail-warn: エラー時は通常応答を通す）
   if (moderationClient && fullResponseText.trim()) {
@@ -382,7 +465,16 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   }
 
   // 9. done
+  metrics.latency.chatTotal = Math.round(performance.now() - chatStart);
   yield { type: 'done' };
+
+  // 計測結果を emit（best-effort: 例外が本処理を止めない）
+  try {
+    emitChatMetricsLog(metrics);
+    emitChatMetricsEMF(metrics);
+  } catch (err) {
+    logger.warn('[chat-usecase] 計測の emit に失敗しました', { err });
+  }
 
   // 10. アシスタントメッセージを保存
   const assistantText = fullResponseText.trim();

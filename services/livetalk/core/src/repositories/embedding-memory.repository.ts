@@ -7,7 +7,7 @@ import type {
   Tier,
   UpdateMemoryInput,
 } from '../entities/memory.entity.js';
-import type { MemoryRepository } from './memory.repository.interface.js';
+import type { MemoryListResult, MemoryRepository } from './memory.repository.interface.js';
 
 /**
  * MemoryRepository の Decorator。
@@ -37,7 +37,7 @@ export class EmbeddingMemoryRepository implements MemoryRepository {
     userId: string,
     characterId: string,
     tier: Tier
-  ): Promise<MemoryEntity[]> {
+  ): Promise<MemoryListResult> {
     return this.inner.listByTier(userId, characterId, tier);
   }
 

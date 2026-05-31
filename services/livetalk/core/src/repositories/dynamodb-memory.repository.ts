@@ -23,7 +23,7 @@ import {
   buildMemoryTierSKPrefix,
   buildUserPK,
 } from '../mappers/keys.js';
-import type { MemoryRepository } from './memory.repository.interface.js';
+import type { MemoryListResult, MemoryRepository } from './memory.repository.interface.js';
 
 export class DynamoDBMemoryRepository implements MemoryRepository {
   private readonly mapper: MemoryMapper;
@@ -97,7 +97,7 @@ export class DynamoDBMemoryRepository implements MemoryRepository {
     userId: string,
     characterId: string,
     tier: Tier
-  ): Promise<MemoryEntity[]> {
+  ): Promise<MemoryListResult> {
     const pk = buildUserPK(userId);
     const prefix = buildMemoryTierSKPrefix(characterId, tier);
     return this.queryByPrefix(pk, prefix);
@@ -110,7 +110,7 @@ export class DynamoDBMemoryRepository implements MemoryRepository {
   ): Promise<MemoryEntity[]> {
     const pk = buildUserPK(userId);
     const prefix = buildMemoryAllTiersSKPrefix(characterId);
-    const all = await this.queryByPrefix(pk, prefix);
+    const { items: all } = await this.queryByPrefix(pk, prefix);
     return all.filter((m) => m.Category === category);
   }
 
@@ -242,8 +242,12 @@ export class DynamoDBMemoryRepository implements MemoryRepository {
     }
   }
 
-  private async queryByPrefix(pk: string, skPrefix: string): Promise<MemoryEntity[]> {
-    const results: MemoryEntity[] = [];
+  private async queryByPrefix(
+    pk: string,
+    skPrefix: string
+  ): Promise<{ items: MemoryEntity[]; consumedCapacity: number }> {
+    const items: MemoryEntity[] = [];
+    let totalConsumedCapacity = 0;
     let exclusiveStartKey: Record<string, unknown> | undefined;
 
     for (;;) {
@@ -256,6 +260,7 @@ export class DynamoDBMemoryRepository implements MemoryRepository {
             ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
             ExpressionAttributeValues: { ':pk': pk, ':prefix': skPrefix },
             ExclusiveStartKey: exclusiveStartKey,
+            ReturnConsumedCapacity: 'TOTAL',
           })
         );
       } catch (error) {
@@ -263,15 +268,17 @@ export class DynamoDBMemoryRepository implements MemoryRepository {
         throw new DatabaseError(message, error instanceof Error ? error : undefined);
       }
 
+      totalConsumedCapacity += result.ConsumedCapacity?.CapacityUnits ?? 0;
+
       for (const raw of result.Items ?? []) {
-        results.push(this.mapper.toEntity(raw as unknown as DynamoDBItem));
+        items.push(this.mapper.toEntity(raw as unknown as DynamoDBItem));
       }
 
       if (!result.LastEvaluatedKey) break;
       exclusiveStartKey = result.LastEvaluatedKey;
     }
 
-    return results;
+    return { items, consumedCapacity: totalConsumedCapacity };
   }
 
   private resolveTtlSec(tier: Tier): number | null {
