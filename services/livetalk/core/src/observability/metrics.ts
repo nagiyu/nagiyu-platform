@@ -91,13 +91,25 @@ export function emitChatMetricsEMF(metrics: ChatMetrics): void {
   ];
 
   if (metrics.latency.llmTtfb !== undefined) {
-    emfMetrics.push({ name: 'LLMTimeToFirstToken', value: metrics.latency.llmTtfb, unit: 'Milliseconds' });
+    emfMetrics.push({
+      name: 'LLMTimeToFirstToken',
+      value: metrics.latency.llmTtfb,
+      unit: 'Milliseconds',
+    });
   }
   if (metrics.latency.chatTotal !== undefined) {
-    emfMetrics.push({ name: 'ChatTotalLatency', value: metrics.latency.chatTotal, unit: 'Milliseconds' });
+    emfMetrics.push({
+      name: 'ChatTotalLatency',
+      value: metrics.latency.chatTotal,
+      unit: 'Milliseconds',
+    });
   }
   if (metrics.latency.retrieve !== undefined) {
-    emfMetrics.push({ name: 'RetrieveLatency', value: metrics.latency.retrieve, unit: 'Milliseconds' });
+    emfMetrics.push({
+      name: 'RetrieveLatency',
+      value: metrics.latency.retrieve,
+      unit: 'Milliseconds',
+    });
   }
 
   const payload = buildEmfPayload({

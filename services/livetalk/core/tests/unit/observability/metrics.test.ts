@@ -1,4 +1,10 @@
-import { createChatMetrics, emitChatMetricsLog, emitChatMetricsEMF, emitBatchMetricsLog, emitBatchMetricsEMF } from '../../../src/observability/metrics.js';
+import {
+  createChatMetrics,
+  emitChatMetricsLog,
+  emitChatMetricsEMF,
+  emitBatchMetricsLog,
+  emitBatchMetricsEMF,
+} from '../../../src/observability/metrics.js';
 
 describe('createChatMetrics', () => {
   it('初期値はすべてゼロ・空のまま返す', () => {
