@@ -294,11 +294,7 @@ const ecrRepositoryArn = `arn:aws:ecr:${this.region}:${this.account}:repository/
 taskExecutionRole.addToPolicy(
   new iam.PolicyStatement({
     effect: iam.Effect.ALLOW,
-    actions: [
-      'ecr:BatchCheckLayerAvailability',
-      'ecr:GetDownloadUrlForLayer',
-      'ecr:BatchGetImage',
-    ],
+    actions: ['ecr:BatchCheckLayerAvailability', 'ecr:GetDownloadUrlForLayer', 'ecr:BatchGetImage'],
     resources: [ecrRepositoryArn], // 特定リポジトリのみ
   })
 );
