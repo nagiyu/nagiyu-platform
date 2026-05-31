@@ -3,7 +3,6 @@ import {
   deleteMemory,
   fetchMemories,
   pinMemory,
-  updateMemory,
 } from '@/lib/memory/api-client';
 
 const mockFetch = jest.fn();
@@ -36,25 +35,6 @@ describe('fetchMemories', () => {
   it('失敗時は LIST_FAILED を投げる', async () => {
     mockFetch.mockResolvedValueOnce(fail());
     await expect(fetchMemories()).rejects.toThrow(MEMORY_API_ERROR_MESSAGES.LIST_FAILED);
-  });
-});
-
-describe('updateMemory', () => {
-  it('PATCH で memory を返す', async () => {
-    mockFetch.mockResolvedValueOnce(okJson({ memory: { id: 'x', content: 'c' } }));
-    const result = await updateMemory('abc', { content: 'c' });
-    expect(mockFetch).toHaveBeenCalledWith(
-      '/api/memory/abc',
-      expect.objectContaining({ method: 'PATCH' })
-    );
-    expect(result).toEqual({ id: 'x', content: 'c' });
-  });
-
-  it('失敗時は UPDATE_FAILED', async () => {
-    mockFetch.mockResolvedValueOnce(fail());
-    await expect(updateMemory('abc', { content: 'c' })).rejects.toThrow(
-      MEMORY_API_ERROR_MESSAGES.UPDATE_FAILED
-    );
   });
 });
 

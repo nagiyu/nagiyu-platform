@@ -6,16 +6,15 @@ import { confidenceToStars, formatLastReferenced } from '@/lib/memory/format';
 
 export interface MemoryItemProps {
   memory: MemoryListItem;
-  onEdit: (memory: MemoryListItem) => void;
   onDelete: (memory: MemoryListItem) => void;
   onPin?: (memory: MemoryListItem) => void;
 }
 
 /**
  * 記憶 1 件の表示カード。content・category・信頼度（星）・最終言及日と
- * 編集 / 削除 / 固定ボタンを持つ。モバイルでもタップしやすい余白を確保する。
+ * 削除 / 固定ボタンを持つ。モバイルでもタップしやすい余白を確保する。
  */
-export default function MemoryItem({ memory, onEdit, onDelete, onPin }: MemoryItemProps) {
+export default function MemoryItem({ memory, onDelete, onPin }: MemoryItemProps) {
   const stars = confidenceToStars(memory.confidence);
 
   return (
@@ -65,14 +64,6 @@ export default function MemoryItem({ memory, onEdit, onDelete, onPin }: MemoryIt
               </IconButton>
             </Tooltip>
           )}
-          <IconButton
-            size="small"
-            aria-label="編集"
-            data-testid="memory-edit"
-            onClick={() => onEdit(memory)}
-          >
-            ✏️
-          </IconButton>
           <IconButton
             size="small"
             aria-label="削除"

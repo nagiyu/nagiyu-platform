@@ -1,8 +1,7 @@
 import type { Tier } from '@nagiyu/livetalk-core';
-import type { MemoryPatchInput } from './types';
 
 /**
- * 記憶編集 UI / API の入力バリデーション。
+ * 記憶 API の入力バリデーション。
  *
  * UI 層・API 層の双方から呼べるよう純粋関数として `lib/` に切り出す
  * （カバレッジ計測対象は `src/lib/**` のみ）。
@@ -11,91 +10,6 @@ import type { MemoryPatchInput } from './types';
 // TIERS を livetalk-core からランタイムインポートすると @nagiyu/aws → node:crypto が
 // クライアントバンドルに混入するため、ここで値を複製して依存を断つ。
 const TIERS: readonly Tier[] = ['A', 'B', 'C', 'D'] as const;
-
-/** content の最大文字数。LLM プロンプトに注入されるため過度に長い記憶を弾く。 */
-export const MEMORY_CONTENT_MAX_LENGTH = 500;
-
-/** category の最大文字数。SK の一部になるため短く保つ。 */
-export const MEMORY_CATEGORY_MAX_LENGTH = 50;
-
-/**
- * category に使えない文字。
- *
- * 記憶生成側（LLM 抽出）は category を日本語で付与するため、編集側もそれに合わせて
- * 日本語を許容する。ただし SK（`CHAR#...#MEM#<tier>#<category>#<ulid>`）の区切り文字
- * `#` が混入すると SK 構造が壊れるため `#` は禁止する。あわせて改行・タブ等の制御文字も禁止する。
- */
-// eslint-disable-next-line no-control-regex
-const CATEGORY_FORBIDDEN_PATTERN = /[#\u0000-\u001f]/;
-
-export interface ValidatedMemoryPatch {
-  content?: string;
-  category?: string;
-}
-
-export type PatchValidationError =
-  | 'EMPTY_PATCH'
-  | 'INVALID_CONTENT'
-  | 'CONTENT_TOO_LONG'
-  | 'INVALID_CATEGORY'
-  | 'CATEGORY_TOO_LONG';
-
-export type PatchValidationResult =
-  | { ok: true; value: ValidatedMemoryPatch }
-  | { ok: false; error: PatchValidationError };
-
-/**
- * 任意の値が PATCH リクエストの形を満たすか検証する。
- *
- * - content / category の少なくとも一方が必要
- * - content は空白のみを許さず、最大長を超えない
- * - category は空でなく、`#`・制御文字を含まず、最大長を超えない（日本語可）
- */
-export function validateMemoryPatch(body: unknown): PatchValidationResult {
-  if (typeof body !== 'object' || body === null) {
-    return { ok: false, error: 'EMPTY_PATCH' };
-  }
-
-  const input = body as MemoryPatchInput;
-  const result: ValidatedMemoryPatch = {};
-
-  if (input.content !== undefined) {
-    if (typeof input.content !== 'string') {
-      return { ok: false, error: 'INVALID_CONTENT' };
-    }
-    const trimmed = input.content.trim();
-    if (!trimmed) {
-      return { ok: false, error: 'INVALID_CONTENT' };
-    }
-    if (trimmed.length > MEMORY_CONTENT_MAX_LENGTH) {
-      return { ok: false, error: 'CONTENT_TOO_LONG' };
-    }
-    result.content = trimmed;
-  }
-
-  if (input.category !== undefined) {
-    if (typeof input.category !== 'string') {
-      return { ok: false, error: 'INVALID_CATEGORY' };
-    }
-    const trimmed = input.category.trim();
-    if (!trimmed) {
-      return { ok: false, error: 'INVALID_CATEGORY' };
-    }
-    if (trimmed.length > MEMORY_CATEGORY_MAX_LENGTH) {
-      return { ok: false, error: 'CATEGORY_TOO_LONG' };
-    }
-    if (CATEGORY_FORBIDDEN_PATTERN.test(trimmed)) {
-      return { ok: false, error: 'INVALID_CATEGORY' };
-    }
-    result.category = trimmed;
-  }
-
-  if (result.content === undefined && result.category === undefined) {
-    return { ok: false, error: 'EMPTY_PATCH' };
-  }
-
-  return { ok: true, value: result };
-}
 
 /**
  * クエリパラメータの tier 文字列を検証する。未指定（null）は許容する。

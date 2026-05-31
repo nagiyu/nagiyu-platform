@@ -16,39 +16,34 @@ const memory: MemoryListItem = {
 
 describe('MemoryItem', () => {
   it('content・category・信頼度を表示する', () => {
-    render(<MemoryItem memory={memory} onEdit={jest.fn()} onDelete={jest.fn()} />);
+    render(<MemoryItem memory={memory} onDelete={jest.fn()} />);
     expect(screen.getByText('コーヒーが好き')).toBeInTheDocument();
     expect(screen.getByTestId('memory-category')).toHaveTextContent('#food');
     expect(screen.getByTestId('memory-confidence')).toHaveAttribute('aria-label', '信頼度 4 / 5');
   });
 
-  it('編集・削除ボタンがコールバックを呼ぶ', () => {
-    const onEdit = jest.fn();
+  it('削除ボタンがコールバックを呼ぶ', () => {
     const onDelete = jest.fn();
-    render(<MemoryItem memory={memory} onEdit={onEdit} onDelete={onDelete} />);
-    fireEvent.click(screen.getByTestId('memory-edit'));
+    render(<MemoryItem memory={memory} onDelete={onDelete} />);
     fireEvent.click(screen.getByTestId('memory-delete'));
-    expect(onEdit).toHaveBeenCalledWith(memory);
     expect(onDelete).toHaveBeenCalledWith(memory);
+  });
+
+  it('編集ボタンが存在しない', () => {
+    render(<MemoryItem memory={memory} onDelete={jest.fn()} />);
+    expect(screen.queryByTestId('memory-edit')).not.toBeInTheDocument();
   });
 
   it('Tier B では onPin 指定時に固定ボタンを表示', () => {
     const onPin = jest.fn();
-    render(<MemoryItem memory={memory} onEdit={jest.fn()} onDelete={jest.fn()} onPin={onPin} />);
+    render(<MemoryItem memory={memory} onDelete={jest.fn()} onPin={onPin} />);
     fireEvent.click(screen.getByTestId('memory-pin'));
     expect(onPin).toHaveBeenCalledWith(memory);
   });
 
   it('Tier A では固定ボタンを表示しない', () => {
     const onPin = jest.fn();
-    render(
-      <MemoryItem
-        memory={{ ...memory, tier: 'A' }}
-        onEdit={jest.fn()}
-        onDelete={jest.fn()}
-        onPin={onPin}
-      />
-    );
+    render(<MemoryItem memory={{ ...memory, tier: 'A' }} onDelete={jest.fn()} onPin={onPin} />);
     expect(screen.queryByTestId('memory-pin')).not.toBeInTheDocument();
   });
 });

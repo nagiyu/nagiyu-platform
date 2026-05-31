@@ -1,13 +1,14 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * SCR-004 記憶編集画面（/memory）の基本フロー。
+ * SCR-004 記憶閲覧・削除画面（/memory）の基本フロー。
  *
  * E2E では SKIP_AUTH_CHECK=true で認可をバイパスして画面描画を検証する。
- * DynamoDB のシードは行わないため、データ依存の編集・削除は単体テスト側で担保し、
- * ここでは「画面が表示される」「Tier タブが切り替わる」「ホームから導線がある」を検証する。
+ * DynamoDB のシードは行わないため、データ依存の削除は単体テスト側で担保し、
+ * ここでは「画面が表示される」「Tier タブが切り替わる」「ガイダンスが表示される」
+ * 「ホームから導線がある」を検証する。
  */
-test.describe('LiveTalk - 記憶編集画面', () => {
+test.describe('LiveTalk - 記憶閲覧・削除画面', () => {
   test('ホームに /memory への導線があり遷移できる', async ({ page }) => {
     await page.goto('/');
     // E2E 環境では DynamoDB が無く /api/consent が「未同意」と判定されるため、
@@ -18,6 +19,16 @@ test.describe('LiveTalk - 記憶編集画面', () => {
     await page.goto('/memory');
     await expect(page).toHaveURL(/\/memory$/);
     await expect(page.getByRole('heading', { name: '私が覚えていること' })).toBeVisible();
+  });
+
+  test('ページ冒頭に訂正方法のガイダンスが表示される', async ({ page }) => {
+    await page.goto('/memory');
+    await expect(page.getByText(/話しかけて訂正してね/)).toBeVisible();
+  });
+
+  test('編集ボタンが存在しない', async ({ page }) => {
+    await page.goto('/memory');
+    await expect(page.getByTestId('memory-edit')).toHaveCount(0);
   });
 
   test('Tier タブが表示され切り替えできる', async ({ page }) => {

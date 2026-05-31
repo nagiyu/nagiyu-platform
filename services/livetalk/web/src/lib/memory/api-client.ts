@@ -1,8 +1,8 @@
 import type { Tier } from '@nagiyu/livetalk-core';
-import type { MemoryListItem, MemoryPatchInput } from './types';
+import type { MemoryListItem } from './types';
 
 /**
- * 記憶編集 UI から `/api/memory` を呼ぶための fetch ラッパ。
+ * 記憶 UI から `/api/memory` を呼ぶための fetch ラッパ。
  *
  * コンポーネントから fetch を直接呼ばず、ここに集約してテスト可能にする
  * （カバレッジ計測対象は `src/lib/**` のみ）。
@@ -10,7 +10,6 @@ import type { MemoryListItem, MemoryPatchInput } from './types';
 
 export const MEMORY_API_ERROR_MESSAGES = {
   LIST_FAILED: '記憶の取得に失敗しました',
-  UPDATE_FAILED: '記憶の更新に失敗しました',
   DELETE_FAILED: '記憶の削除に失敗しました',
   PIN_FAILED: '記憶の固定に失敗しました',
 } as const;
@@ -28,22 +27,6 @@ export async function fetchMemories(tier?: Tier): Promise<MemoryListItem[]> {
   }
   const data = (await res.json()) as { memories?: MemoryListItem[] };
   return data.memories ?? [];
-}
-
-/**
- * 記憶の content / category を編集する。
- */
-export async function updateMemory(id: string, patch: MemoryPatchInput): Promise<MemoryListItem> {
-  const res = await fetch(`/api/memory/${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(patch),
-  });
-  if (!res.ok) {
-    throw new Error(MEMORY_API_ERROR_MESSAGES.UPDATE_FAILED);
-  }
-  const data = (await res.json()) as { memory: MemoryListItem };
-  return data.memory;
 }
 
 /**
