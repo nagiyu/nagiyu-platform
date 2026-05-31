@@ -15,6 +15,7 @@ jest.mock('@/lib/server/repositories', () => ({
   getMessageRepository: jest.fn(),
   getMemoryRepository: jest.fn().mockReturnValue({}),
   getCharacterStateRepository: jest.fn().mockReturnValue({}),
+  getLifecycleRepository: jest.fn().mockReturnValue({}),
 }));
 jest.mock('@/lib/server/safety', () => ({
   getSafetyEventRepository: jest.fn().mockReturnValue({}),

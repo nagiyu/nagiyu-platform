@@ -19,6 +19,7 @@ jest.mock('@/components/Live2DCanvas', () => ({
       audioBuffer?: AudioBuffer | null;
       audioContext?: AudioContext | null;
       statusText?: string;
+      lifecycleState?: string;
       onPlaybackEnd?: () => void;
       onPlaybackError?: (error: Error) => void;
     }) => (
