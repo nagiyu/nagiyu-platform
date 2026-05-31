@@ -17,13 +17,10 @@ describe('resolveLifecycleState', () => {
       [23, 59, 'awake'],
       [0, 0, 'awake'],
       [1, 29, 'awake'],
-    ] as [number, number, string][])(
-      '%i:%s → %s',
-      (hour, minute, expected) => {
-        const result = resolveLifecycleState(makeDate(hour, minute));
-        expect(result).toBe(expected);
-      }
-    );
+    ] as [number, number, string][])('%i:%s → %s', (hour, minute, expected) => {
+      const result = resolveLifecycleState(makeDate(hour, minute));
+      expect(result).toBe(expected);
+    });
   });
 
   describe('深夜 0 時跨ぎ（就寝 23:00 / 起床 07:00）', () => {
@@ -36,13 +33,10 @@ describe('resolveLifecycleState', () => {
       [7, 0, 'awake'],
       [12, 0, 'awake'],
       [22, 59, 'awake'],
-    ] as [number, number, string][])(
-      '%i:%s → %s',
-      (hour, minute, expected) => {
-        const result = resolveLifecycleState(makeDate(hour, minute), '23:00', '07:00');
-        expect(result).toBe(expected);
-      }
-    );
+    ] as [number, number, string][])('%i:%s → %s', (hour, minute, expected) => {
+      const result = resolveLifecycleState(makeDate(hour, minute), '23:00', '07:00');
+      expect(result).toBe(expected);
+    });
   });
 
   describe('昼型（就寝 02:00 / 起床 10:00）', () => {

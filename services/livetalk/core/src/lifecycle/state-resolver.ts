@@ -1,8 +1,5 @@
 import type { LifecycleState } from '../entities/lifecycle.entity.js';
-import {
-  LIFECYCLE_DEFAULT_BEDTIME,
-  LIFECYCLE_DEFAULT_WAKE_UP_TIME,
-} from '../constants.js';
+import { LIFECYCLE_DEFAULT_BEDTIME, LIFECYCLE_DEFAULT_WAKE_UP_TIME } from '../constants.js';
 
 /**
  * "HH:mm" 文字列を 0:00 からの分数に変換する。
@@ -32,10 +29,7 @@ export function resolveLifecycleState(
   const bed = toMinutes(bedtime);
   const wake = toMinutes(wakeUpTime);
 
-  const sleeping =
-    bed < wake
-      ? m >= bed && m < wake
-      : m >= bed || m < wake;
+  const sleeping = bed < wake ? m >= bed && m < wake : m >= bed || m < wake;
 
   return sleeping ? 'sleeping' : 'awake';
 }

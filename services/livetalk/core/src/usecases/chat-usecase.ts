@@ -15,14 +15,12 @@ import type { MessageEntity } from '../entities/message.entity.js';
 import type { LifecycleState } from '../entities/lifecycle.entity.js';
 import { buildChatMessages, buildSystemPrompt } from '../characters/prompt-builder.js';
 import { resolveLifecycleState } from '../lifecycle/state-resolver.js';
-import {
-  LIFECYCLE_DEFAULT_BEDTIME,
-  LIFECYCLE_DEFAULT_WAKE_UP_TIME,
-} from '../constants.js';
 import { SentenceBuffer } from '../lib/sentence-splitter.js';
 import { getDefaultTokenCounter } from '../lib/token-counter.js';
 import {
   DEFAULT_CHARACTER_ID,
+  LIFECYCLE_DEFAULT_BEDTIME,
+  LIFECYCLE_DEFAULT_WAKE_UP_TIME,
   MEMORY_CATEGORY_CAP,
   MEMORY_COOLDOWN_MS,
   MEMORY_MAX_TIER_B,

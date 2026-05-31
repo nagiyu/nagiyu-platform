@@ -32,7 +32,12 @@ describe('InMemoryLifecycleRepository', () => {
   });
 
   it('upsert して get できる', async () => {
-    await repo.upsert({ UserID: 'u1', CharacterID: 'hiyori', Bedtime: '01:30', WakeUpTime: '09:30' });
+    await repo.upsert({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Bedtime: '01:30',
+      WakeUpTime: '09:30',
+    });
     const result = await repo.get({ userId: 'u1', characterId: 'hiyori' });
     expect(result).not.toBeNull();
     expect(result?.Bedtime).toBe('01:30');
@@ -42,7 +47,12 @@ describe('InMemoryLifecycleRepository', () => {
   });
 
   it('再 upsert は CreatedAt を保持しつつ設定値を更新する', async () => {
-    await repo.upsert({ UserID: 'u1', CharacterID: 'hiyori', Bedtime: '01:30', WakeUpTime: '09:30' });
+    await repo.upsert({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Bedtime: '01:30',
+      WakeUpTime: '09:30',
+    });
 
     now += 5000;
     await repo.upsert(
@@ -58,7 +68,12 @@ describe('InMemoryLifecycleRepository', () => {
   });
 
   it('updates で部分更新できる', async () => {
-    await repo.upsert({ UserID: 'u1', CharacterID: 'hiyori', Bedtime: '01:30', WakeUpTime: '09:30' });
+    await repo.upsert({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Bedtime: '01:30',
+      WakeUpTime: '09:30',
+    });
     now += 1000;
     await repo.upsert(
       { UserID: 'u1', CharacterID: 'hiyori', Bedtime: '01:30', WakeUpTime: '09:30' },
@@ -71,8 +86,18 @@ describe('InMemoryLifecycleRepository', () => {
   });
 
   it('異なるユーザーのデータは独立している', async () => {
-    await repo.upsert({ UserID: 'u1', CharacterID: 'hiyori', Bedtime: '01:30', WakeUpTime: '09:30' });
-    await repo.upsert({ UserID: 'u2', CharacterID: 'hiyori', Bedtime: '00:00', WakeUpTime: '08:00' });
+    await repo.upsert({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Bedtime: '01:30',
+      WakeUpTime: '09:30',
+    });
+    await repo.upsert({
+      UserID: 'u2',
+      CharacterID: 'hiyori',
+      Bedtime: '00:00',
+      WakeUpTime: '08:00',
+    });
 
     const r1 = await repo.get({ userId: 'u1', characterId: 'hiyori' });
     const r2 = await repo.get({ userId: 'u2', characterId: 'hiyori' });
