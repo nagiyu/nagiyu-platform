@@ -25,9 +25,7 @@ describe('MemoryList', () => {
   });
 
   it('記憶があれば一覧表示', () => {
-    render(
-      <MemoryList memories={[memory]} loading={false} onDelete={jest.fn()} />
-    );
+    render(<MemoryList memories={[memory]} loading={false} onDelete={jest.fn()} />);
     expect(screen.getByTestId('memory-list')).toBeInTheDocument();
     expect(screen.getByText('コーヒーが好き')).toBeInTheDocument();
   });

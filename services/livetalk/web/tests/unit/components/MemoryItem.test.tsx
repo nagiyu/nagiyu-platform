@@ -43,13 +43,7 @@ describe('MemoryItem', () => {
 
   it('Tier A では固定ボタンを表示しない', () => {
     const onPin = jest.fn();
-    render(
-      <MemoryItem
-        memory={{ ...memory, tier: 'A' }}
-        onDelete={jest.fn()}
-        onPin={onPin}
-      />
-    );
+    render(<MemoryItem memory={{ ...memory, tier: 'A' }} onDelete={jest.fn()} onPin={onPin} />);
     expect(screen.queryByTestId('memory-pin')).not.toBeInTheDocument();
   });
 });
