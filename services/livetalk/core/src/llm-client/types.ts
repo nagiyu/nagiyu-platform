@@ -6,7 +6,10 @@
  *
  * @see tasks/livetalk/design.md §4.4
  * @see Issue #3248
+ * @see Issue #3316 (Structured Outputs 化)
  */
+
+import type { z } from 'zod';
 
 /**
  * チャットメッセージ 1 件。
@@ -53,6 +56,18 @@ export interface ChatOptions {
 export interface ILLMClient {
   chatStream(messages: ChatMessage[], options?: ChatOptions): AsyncIterable<string>;
   chatComplete(messages: ChatMessage[], options?: ChatOptions): Promise<string>;
+  /**
+   * Structured Outputs によるスキーマ保証付き呼び出し。
+   *
+   * Provider が Structured Outputs をネイティブサポートする場合はデコーダレベルで保証し、
+   * そうでない場合は `chatComplete` + JSON.parse にフォールバックしてよい。
+   * refusal が発生した場合は Error を throw する。
+   */
+  chatStructured<T extends z.ZodType>(
+    messages: ChatMessage[],
+    schema: T,
+    options?: ChatOptions
+  ): Promise<z.infer<T>>;
   summarize(input: SummarizeInput): Promise<SummarizeResult>;
 }
 

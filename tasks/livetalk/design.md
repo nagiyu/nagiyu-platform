@@ -677,4 +677,44 @@ LLM プロンプトは以下3系統で構成される：
 
 - `MemoryRepository.listByTier` の戻り値を `MemoryEntity[]` から `MemoryListResult`（`{ items: MemoryEntity[]; consumedCapacity?: number }`）に変更
 - `IMemoryRetriever.retrieve` の戻り値を `RetrievedMemory[]` から `RetrieveResult`（`{ memories: RetrievedMemory[]; consumedCapacity?: number }`）に変更
+
+---
+
+## ADR-008: LLM レスポンスの Structured Outputs 化（Issue #3316）
+
+### 背景
+
+Phase 3d 以降の `summarize`・`classifyWithLLM`・`judgePromotionsWithLLM` は、プロンプトで「JSON のみ返せ」と指示し `JSON.parse` で解析する実装だった。この方式には以下の問題があった：
+
+- **Silent failure**: `JSON.parse` 失敗時に `{ mergedSummary: rawText, newMemoryCandidates: [] }` を返してしまい、記憶抽出が静かに失われる
+- **フォーマット揺れ**: JSON を `\`\`\`json ... \`\`\`` で囲む・改行を混ぜるなど、LLM によって出力が安定しない
+- **型保証の欠如**: パース後も `unknown` キャストで受け取り、型エラーがランタイムまで露呈しない
+
+### 決定事項
+
+OpenAI Responses API の **Structured Outputs** (`responses.parse` + `zodTextFormat`) を採用する。
+
+### 設計方針
+
+1. **`ILLMClient` に `chatStructured<T>` を追加**: Provider 抽象化を維持しつつ Structured Outputs を使えるようにする。`chatStructured` は Zod スキーマを受け取り、デコーダレベルの型保証を提供する。
+2. **Zod スキーマを `src/llm-client/schemas/` に集約**: `summarize.schema.ts` / `correction.schema.ts` / `confirmation.schema.ts` の 3 ファイルで管理する。
+3. **OpenAI strict モード対応**: `nullable()` で optional フィールドを表現する（strict モードでは `optional()` ≒ undefined は使えない）。
+4. **refusal を first-class error 化**: `output_parsed` が null/undefined の場合は専用エラー（`REFUSAL`）で throw する。
+5. **`parseSummarizeResult` は廃止しない**: 後方互換のためエクスポートを維持する（既存テスト・他コードへの影響を最小化）。`summarize` の実装は `chatStructured` + `toSummarizeResult` に切り替え済み。
+6. **chat ストリーミング（`chatStream`）は対象外**: 会話応答はストリーミングで返すため JSON スキーマが適用できない。Structured Outputs の対象は分類・要約・昇格判定のみ。
+7. **Stock Tracker との共通基盤化はしない**: Stock Tracker は OpenAI を直接呼び出すが、LiveTalk は `ILLMClient` 抽象化を通じて使う。前提が異なるため YAGNI。
+
+### 変更ファイル
+
+| ファイル | 変更内容 |
+|---------|---------|
+| `src/llm-client/types.ts` | `chatStructured<T>` メソッドを `ILLMClient` interface に追加 |
+| `src/llm-client/schemas/summarize.schema.ts` | `SummarizeResultSchema`（Zod） |
+| `src/llm-client/schemas/correction.schema.ts` | `CorrectionResponseSchema`（Zod） |
+| `src/llm-client/schemas/confirmation.schema.ts` | `ConfirmationResponseSchema`（Zod） |
+| `src/llm-client/schemas/index.ts` | 上記 3 スキーマの re-export |
+| `src/llm-client/openai-client.ts` | `chatStructured` 実装、`summarize` を Structured Outputs 化、`toSummarizeResult` 追加 |
+| `src/memory/correction-detector.ts` | `classifyWithLLM` を `chatStructured` + `CorrectionResponseSchema` に変更 |
+| `src/memory/confirmation.ts` | `judgePromotionsWithLLM` を `chatStructured` + `ConfirmationResponseSchema` に変更 |
+| `package.json`（livetalk/core） | `zod ^4.3.6` を dependencies に追加 |
 - `RecentMessagesResult` に `consumedCapacity?: number` を追加

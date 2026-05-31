@@ -6,6 +6,7 @@ import {
   parseSummarizeResult,
 } from '../../../src/llm-client/openai-client.js';
 import type { ChatMessage, SummarizeInput } from '../../../src/llm-client/types.js';
+import { z } from 'zod';
 
 function makeStreamEvents(deltas: Array<string | null>): AsyncIterable<unknown> {
   return {
@@ -33,12 +34,14 @@ function makeStreamEvents(deltas: Array<string | null>): AsyncIterable<unknown> 
 function makeMockOpenAI(): {
   client: OpenAI;
   create: jest.Mock;
+  parse: jest.Mock;
 } {
   const create = jest.fn();
+  const parse = jest.fn();
   const client = {
-    responses: { create },
+    responses: { create, parse },
   } as unknown as OpenAI;
-  return { client, create };
+  return { client, create, parse };
 }
 
 const messages: ChatMessage[] = [
@@ -195,6 +198,53 @@ describe('OpenAIClient', () => {
     });
   });
 
+  describe('chatStructured', () => {
+    const testSchema = z.object({ value: z.string(), count: z.number() });
+
+    it('parse の output_parsed を返す', async () => {
+      const { client, parse } = makeMockOpenAI();
+      parse.mockResolvedValue({ output_parsed: { value: 'テスト', count: 3 } });
+
+      const livetalk = new OpenAIClient({ client });
+      const result = await livetalk.chatStructured(messages, testSchema);
+
+      expect(result).toEqual({ value: 'テスト', count: 3 });
+      expect(parse).toHaveBeenCalledWith(
+        expect.objectContaining({ model: OPENAI_DEFAULT_MODELS.conversation })
+      );
+    });
+
+    it('purpose=classify は gpt-5-mini モデルを使用する', async () => {
+      const { client, parse } = makeMockOpenAI();
+      parse.mockResolvedValue({ output_parsed: { value: 'ok', count: 0 } });
+
+      const livetalk = new OpenAIClient({ client });
+      await livetalk.chatStructured(messages, testSchema, { purpose: 'classify' });
+
+      expect(parse.mock.calls[0][0].model).toBe(OPENAI_DEFAULT_MODELS.classify);
+    });
+
+    it('output_parsed が null の場合 REFUSAL エラーを投げる', async () => {
+      const { client, parse } = makeMockOpenAI();
+      parse.mockResolvedValue({ output_parsed: null });
+
+      const livetalk = new OpenAIClient({ client });
+
+      await expect(livetalk.chatStructured(messages, testSchema)).rejects.toThrow(
+        OPENAI_ERROR_MESSAGES.REFUSAL
+      );
+    });
+
+    it('messages が空なら EMPTY_MESSAGES を投げる', async () => {
+      const { client } = makeMockOpenAI();
+      const livetalk = new OpenAIClient({ client });
+
+      await expect(livetalk.chatStructured([], testSchema)).rejects.toThrow(
+        OPENAI_ERROR_MESSAGES.EMPTY_MESSAGES
+      );
+    });
+  });
+
   describe('summarize', () => {
     const baseInput: SummarizeInput = {
       existingSummary: 'コーヒーが好き',
@@ -205,25 +255,32 @@ describe('OpenAIClient', () => {
       characterName: 'ひより',
     };
 
-    it('chatComplete を purpose=summarize で呼び出す', async () => {
-      const { client, create } = makeMockOpenAI();
-      create.mockResolvedValue({
-        output_text: '{"mergedSummary":"テスト","newMemoryCandidates":[]}',
+    it('chatStructured を purpose=summarize で呼び出す', async () => {
+      const { client, parse } = makeMockOpenAI();
+      parse.mockResolvedValue({
+        output_parsed: {
+          mergedSummary: 'テスト',
+          newMemoryCandidates: [],
+          interestCategories: null,
+          bidirectionalityScore: null,
+        },
       });
       const livetalk = new OpenAIClient({ client });
       await livetalk.summarize(baseInput);
-      expect(create).toHaveBeenCalledWith(
+      expect(parse).toHaveBeenCalledWith(
         expect.objectContaining({ model: OPENAI_DEFAULT_MODELS.summarize })
       );
     });
 
-    it('JSON レスポンスを SummarizeResult に変換する', async () => {
-      const { client, create } = makeMockOpenAI();
-      create.mockResolvedValue({
-        output_text: JSON.stringify({
+    it('Structured Outputs レスポンスを SummarizeResult に変換する', async () => {
+      const { client, parse } = makeMockOpenAI();
+      parse.mockResolvedValue({
+        output_parsed: {
           mergedSummary: 'コーヒーとケーキが好き',
           newMemoryCandidates: [{ category: 'food', content: 'ケーキが好き' }],
-        }),
+          interestCategories: null,
+          bidirectionalityScore: null,
+        },
       });
       const livetalk = new OpenAIClient({ client });
       const result = await livetalk.summarize(baseInput);
@@ -233,13 +290,74 @@ describe('OpenAIClient', () => {
     });
 
     it('existingSummary が undefined のとき「既存の要約：なし」をプロンプトに含める', async () => {
-      const { client, create } = makeMockOpenAI();
-      create.mockResolvedValue({ output_text: '{"mergedSummary":"","newMemoryCandidates":[]}' });
+      const { client, parse } = makeMockOpenAI();
+      parse.mockResolvedValue({
+        output_parsed: {
+          mergedSummary: '',
+          newMemoryCandidates: [],
+          interestCategories: null,
+          bidirectionalityScore: null,
+        },
+      });
       const livetalk = new OpenAIClient({ client });
       await livetalk.summarize({ ...baseInput, existingSummary: undefined });
-      const calledMessages = (create.mock.calls[0] as [{ input: Array<{ content: string }> }])[0]
+      const calledMessages = (parse.mock.calls[0] as [{ input: Array<{ content: string }> }])[0]
         .input;
       expect(calledMessages[0].content).toContain('既存の要約：なし');
+    });
+
+    it('interestCategories を正しく変換する', async () => {
+      const { client, parse } = makeMockOpenAI();
+      parse.mockResolvedValue({
+        output_parsed: {
+          mergedSummary: 'ok',
+          newMemoryCandidates: [],
+          interestCategories: [
+            { category: 'アニメ', weight: 2 },
+            { category: 'コーヒー', weight: 1 },
+          ],
+          bidirectionalityScore: 0.7,
+        },
+      });
+      const livetalk = new OpenAIClient({ client });
+      const result = await livetalk.summarize(baseInput);
+      expect(result.interestCategories).toHaveLength(2);
+      expect(result.interestCategories?.[0].category).toBe('アニメ');
+      expect(result.bidirectionalityScore).toBeCloseTo(0.7);
+    });
+
+    it('bidirectionalityScore を 0〜1 にクランプする', async () => {
+      const { client, parse } = makeMockOpenAI();
+      parse.mockResolvedValue({
+        output_parsed: {
+          mergedSummary: 'ok',
+          newMemoryCandidates: [],
+          interestCategories: null,
+          bidirectionalityScore: 1.5,
+        },
+      });
+      const livetalk = new OpenAIClient({ client });
+      const result = await livetalk.summarize(baseInput);
+      expect(result.bidirectionalityScore).toBe(1);
+    });
+
+    it('content が空の候補は除外する', async () => {
+      const { client, parse } = makeMockOpenAI();
+      parse.mockResolvedValue({
+        output_parsed: {
+          mergedSummary: 'ok',
+          newMemoryCandidates: [
+            { category: 'a', content: '' },
+            { category: 'b', content: '有効' },
+          ],
+          interestCategories: null,
+          bidirectionalityScore: null,
+        },
+      });
+      const livetalk = new OpenAIClient({ client });
+      const result = await livetalk.summarize(baseInput);
+      expect(result.newMemoryCandidates).toHaveLength(1);
+      expect(result.newMemoryCandidates[0].content).toBe('有効');
     });
   });
 });

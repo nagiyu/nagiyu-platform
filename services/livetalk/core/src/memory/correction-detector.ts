@@ -15,6 +15,7 @@ import { logger } from '@nagiyu/common';
 import type { ILLMClient } from '../llm-client/types.js';
 import type { MemoryEntity } from '../entities/memory.entity.js';
 import type { RetrievedMemory } from './types.js';
+import { CorrectionResponseSchema } from '../llm-client/schemas/correction.schema.js';
 
 export interface CorrectionResult {
   detected: boolean;
@@ -89,25 +90,22 @@ ${memoriesText}
 - 「違う、本当は〇〇なんだ」のような明確な否定・修正のみ訂正です
 - ユーザーが会話の流れと無関係な訂正をする可能性は低いです
 
-訂正している場合（JSON のみ、説明不要）:
-{"detected": true, "targetMemoryIds": ["memory_id"], "newValue": "訂正後の値（取れる場合のみ）"}
-
-訂正していない場合:
-{"detected": false}`;
+detected（訂正していれば true）、
+targetMemoryIds（訂正対象の memoryId 配列、訂正がなければ空配列）、
+newValue（訂正後の値が取れる場合のみ設定、取れない場合は null）
+を返してください。`;
 
   try {
-    const raw = await llmClient.chatComplete([{ role: 'user', content: prompt }], {
-      purpose: 'classify',
-    });
+    const parsed = await llmClient.chatStructured(
+      [{ role: 'user', content: prompt }],
+      CorrectionResponseSchema,
+      { purpose: 'classify' }
+    );
 
-    const jsonMatch = raw.match(/\{[\s\S]*?\}/);
-    if (!jsonMatch) return { detected: false };
-
-    const parsed = JSON.parse(jsonMatch[0]) as LLMCorrectionResponse;
     return {
-      detected: Boolean(parsed.detected),
+      detected: parsed.detected,
       targetMemoryIds: parsed.detected ? (parsed.targetMemoryIds ?? []) : undefined,
-      newValue: parsed.newValue,
+      newValue: parsed.newValue ?? undefined,
     };
   } catch (err) {
     logger.warn('[correction-detector] LLM 訂正判定に失敗しました', { err });

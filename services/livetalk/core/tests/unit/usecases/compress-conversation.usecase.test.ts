@@ -30,6 +30,9 @@ const makeLLMClient = (
     async chatComplete() {
       return '';
     },
+    async chatStructured() {
+      return {} as never;
+    },
     async summarize() {
       summarizeCalls++;
       return result;
@@ -149,6 +152,9 @@ describe('compressConversation', () => {
       async chatComplete() {
         return '';
       },
+      async chatStructured() {
+        return {} as never;
+      },
       async summarize(input) {
         capturedMessages.push(...input.newMessages);
         return { mergedSummary: '', newMemoryCandidates: [] };
@@ -197,6 +203,9 @@ describe('compressConversation', () => {
       },
       async chatComplete() {
         return '';
+      },
+      async chatStructured() {
+        return {} as never;
       },
       async summarize(input) {
         capturedExisting = input.existingSummary;
