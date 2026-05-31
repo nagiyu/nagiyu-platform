@@ -7,7 +7,6 @@ import MemoryItem from './MemoryItem';
 export interface MemoryListProps {
   memories: MemoryListItem[];
   loading: boolean;
-  onEdit: (memory: MemoryListItem) => void;
   onDelete: (memory: MemoryListItem) => void;
   onPin?: (memory: MemoryListItem) => void;
 }
@@ -15,13 +14,7 @@ export interface MemoryListProps {
 /**
  * 記憶アイテムの一覧表示。ローディング・空状態を内包する。
  */
-export default function MemoryList({
-  memories,
-  loading,
-  onEdit,
-  onDelete,
-  onPin,
-}: MemoryListProps) {
+export default function MemoryList({ memories, loading, onDelete, onPin }: MemoryListProps) {
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }} data-testid="memory-loading">
@@ -44,7 +37,6 @@ export default function MemoryList({
         <MemoryItem
           key={memory.id}
           memory={memory}
-          onEdit={onEdit}
           onDelete={onDelete}
           onPin={onPin}
         />

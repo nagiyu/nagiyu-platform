@@ -1,30 +1,26 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Box, Container, Typography } from '@mui/material';
-import { ConfirmDialog } from '@nagiyu/ui';
+import { Alert, Box, Container, Typography } from '@mui/material';
 import type { Tier } from '@nagiyu/livetalk-core';
 import MemoryTierTabs from '@/components/MemoryTierTabs';
 import MemoryList from '@/components/MemoryList';
-import MemoryEditModal from '@/components/MemoryEditModal';
-import type { MemoryListItem, MemoryPatchInput } from '@/lib/memory/types';
-import { deleteMemory, fetchMemories, pinMemory, updateMemory } from '@/lib/memory/api-client';
+import MemoryDeleteDialog from '@/components/MemoryDeleteDialog';
+import type { MemoryListItem } from '@/lib/memory/types';
+import { deleteMemory, fetchMemories, pinMemory } from '@/lib/memory/api-client';
+import { MEMORY_PAGE_GUIDANCE } from '@/lib/memory/messages';
 
 /**
- * SCR-004 記憶編集画面（`/memory`）。
+ * SCR-004 記憶閲覧・削除画面（`/memory`）。
  *
- * Tier A/B/C 別タブで記憶を一覧表示し、編集・削除・固定を行う。
- * 「私が覚えていること」というキャラ視点の見出しで機械的な印象を和らげる（Issue #3283）。
+ * Tier A/B/C 別タブで記憶を一覧表示し、削除・固定を行う。
+ * 編集機能は Issue #3308 で撤去。内容を変えたい場合はキャラへの会話で訂正する設計。
  */
 export default function MemoryPage() {
   const [tier, setTier] = useState<Tier>('A');
   const [memories, setMemories] = useState<MemoryListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const [editing, setEditing] = useState<MemoryListItem | null>(null);
-  const [editOpen, setEditOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
 
   const [deleting, setDeleting] = useState<MemoryListItem | null>(null);
   const [deletePending, setDeletePending] = useState(false);
@@ -46,29 +42,6 @@ export default function MemoryPage() {
   useEffect(() => {
     load(tier);
   }, [tier, load]);
-
-  const handleEdit = useCallback((memory: MemoryListItem) => {
-    setEditing(memory);
-    setEditOpen(true);
-  }, []);
-
-  const handleSave = useCallback(
-    async (id: string, patch: MemoryPatchInput) => {
-      setSaving(true);
-      setError(null);
-      try {
-        await updateMemory(id, patch);
-        setEditOpen(false);
-        setEditing(null);
-        await load(tier);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : '記憶の更新に失敗しました');
-      } finally {
-        setSaving(false);
-      }
-    },
-    [tier, load]
-  );
 
   const handleDeleteConfirm = useCallback(async () => {
     if (!deleting) return;
@@ -103,9 +76,9 @@ export default function MemoryPage() {
       <Typography variant="h6" component="h1" sx={{ mb: 0.5 }}>
         私が覚えていること
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        間違っていたら直してね。いらない記憶は消してもいいよ。
-      </Typography>
+      <Alert severity="info" icon={false} sx={{ mb: 2, fontSize: '0.875rem', py: 0.5 }}>
+        {MEMORY_PAGE_GUIDANCE}
+      </Alert>
 
       <MemoryTierTabs value={tier} onChange={setTier} />
 
@@ -118,29 +91,13 @@ export default function MemoryPage() {
         <MemoryList
           memories={memories}
           loading={loading}
-          onEdit={handleEdit}
           onDelete={setDeleting}
           onPin={handlePin}
         />
       </Box>
 
-      <MemoryEditModal
-        open={editOpen}
-        memory={editing}
-        submitting={saving}
-        onSave={handleSave}
-        onClose={() => {
-          setEditOpen(false);
-          setEditing(null);
-        }}
-      />
-
-      <ConfirmDialog
-        open={deleting !== null}
-        title="この記憶を削除しますか？"
-        description={deleting ? `「${deleting.content}」を忘れます。元には戻せません。` : ''}
-        confirmLabel="削除"
-        cancelLabel="やめる"
+      <MemoryDeleteDialog
+        memory={deleting}
         loading={deletePending}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleting(null)}
