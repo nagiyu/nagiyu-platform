@@ -41,7 +41,7 @@ function makeLLMClient(chunks: string[]): ILLMClient {
       detected: false,
       targetMemoryIds: null,
       newValue: null,
-    })),
+    })) as unknown as ILLMClient['chatStructured'],
     summarize: jest.fn(async () => ({ mergedSummary: '', newMemoryCandidates: [] })),
   };
 }
@@ -499,7 +499,7 @@ describe('runChatUseCase', () => {
           detected: false,
           targetMemoryIds: null,
           newValue: null,
-        })),
+        })) as unknown as ILLMClient['chatStructured'],
         summarize: jest.fn(async () => ({ mergedSummary: '', newMemoryCandidates: [] })),
       };
       const voice = makeVoiceClient();
@@ -976,7 +976,7 @@ describe('runChatUseCase', () => {
           detected: true,
           targetMemoryIds: ['m1'],
           newValue: 'お茶が好き',
-        })),
+        })) as unknown as ILLMClient['chatStructured'],
         summarize: jest.fn(),
       };
       const voice = makeVoiceClient();
@@ -1015,7 +1015,7 @@ describe('runChatUseCase', () => {
           detected: false,
           targetMemoryIds: null,
           newValue: null,
-        })),
+        })) as unknown as ILLMClient['chatStructured'],
         summarize: jest.fn(),
       };
       const voice = makeVoiceClient();
@@ -1103,7 +1103,9 @@ describe('runChatUseCase', () => {
           yield '了解！';
         }),
         chatComplete: jest.fn(),
-        chatStructured: jest.fn(async () => ({ promotions: [] })),
+        chatStructured: jest.fn(async () => ({
+          promotions: [],
+        })) as unknown as ILLMClient['chatStructured'],
         summarize: jest.fn(),
       };
       const voice = makeVoiceClient();
@@ -1166,7 +1168,9 @@ describe('runChatUseCase', () => {
           yield '覚えとくね！';
         }),
         chatComplete: jest.fn(),
-        chatStructured: jest.fn(async () => ({ promotions: [{ memoryId: 'c1', promote: true }] })),
+        chatStructured: jest.fn(async () => ({
+          promotions: [{ memoryId: 'c1', promote: true }],
+        })) as unknown as ILLMClient['chatStructured'],
         summarize: jest.fn(),
       };
       const voice = makeVoiceClient();
