@@ -67,8 +67,10 @@ describe('GET /api/memory', () => {
   it('tier 未指定なら A/B/C を横断取得しソートして返す', async () => {
     mockGetSession.mockResolvedValue(session);
     const listByTier = jest.fn(async (_u: string, _c: string, tier: string) => {
-      if (tier === 'A') return { items: [makeEntity({ MemoryID: 'a', Tier: 'A', LastReferencedAt: 100 })] };
-      if (tier === 'B') return { items: [makeEntity({ MemoryID: 'b', Tier: 'B', LastReferencedAt: 200 })] };
+      if (tier === 'A')
+        return { items: [makeEntity({ MemoryID: 'a', Tier: 'A', LastReferencedAt: 100 })] };
+      if (tier === 'B')
+        return { items: [makeEntity({ MemoryID: 'b', Tier: 'B', LastReferencedAt: 200 })] };
       return { items: [] };
     });
     mockGetRepo.mockReturnValue(makeRepo({ listByTier }));
