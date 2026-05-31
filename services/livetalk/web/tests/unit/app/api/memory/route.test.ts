@@ -42,7 +42,7 @@ const makeEntity = (over: Partial<MemoryEntity> = {}): MemoryEntity => ({
 
 const makeRepo = (over: Partial<MemoryRepository> = {}): MemoryRepository =>
   ({
-    listByTier: jest.fn(async () => []),
+    listByTier: jest.fn(async () => ({ items: [] })),
     get: jest.fn(),
     put: jest.fn(),
     listByCategory: jest.fn(),
@@ -67,9 +67,9 @@ describe('GET /api/memory', () => {
   it('tier 未指定なら A/B/C を横断取得しソートして返す', async () => {
     mockGetSession.mockResolvedValue(session);
     const listByTier = jest.fn(async (_u: string, _c: string, tier: string) => {
-      if (tier === 'A') return [makeEntity({ MemoryID: 'a', Tier: 'A', LastReferencedAt: 100 })];
-      if (tier === 'B') return [makeEntity({ MemoryID: 'b', Tier: 'B', LastReferencedAt: 200 })];
-      return [];
+      if (tier === 'A') return { items: [makeEntity({ MemoryID: 'a', Tier: 'A', LastReferencedAt: 100 })] };
+      if (tier === 'B') return { items: [makeEntity({ MemoryID: 'b', Tier: 'B', LastReferencedAt: 200 })] };
+      return { items: [] };
     });
     mockGetRepo.mockReturnValue(makeRepo({ listByTier }));
 
@@ -86,7 +86,7 @@ describe('GET /api/memory', () => {
 
   it('tier 指定ならその Tier のみ取得', async () => {
     mockGetSession.mockResolvedValue(session);
-    const listByTier = jest.fn(async () => [makeEntity({ Tier: 'C' })]);
+    const listByTier = jest.fn(async () => ({ items: [makeEntity({ Tier: 'C' })] }));
     mockGetRepo.mockReturnValue(makeRepo({ listByTier }));
 
     const res = await GET(req('http://localhost/api/memory?tier=C'));
