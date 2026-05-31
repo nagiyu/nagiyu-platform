@@ -102,6 +102,18 @@ export const AFFECTION_TIME_CONTINUITY_BONUS = 1.0;
 export const AFFECTION_BIDIRECTIONALITY_WEIGHT = 1.0;
 
 /**
+ * 生活サイクルのデフォルト就寝時刻（"HH:mm" 形式、Asia/Tokyo 基準）。
+ * ユーザーが設定を持たない場合にフォールバックする値（Phase 4b）。
+ */
+export const LIFECYCLE_DEFAULT_BEDTIME = '01:30';
+
+/**
+ * 生活サイクルのデフォルト起床時刻（"HH:mm" 形式、Asia/Tokyo 基準）。
+ * ユーザーが設定を持たない場合にフォールバックする値（Phase 4b）。
+ */
+export const LIFECYCLE_DEFAULT_WAKE_UP_TIME = '09:30';
+
+/**
  * Tier C 記憶の「再言及」と判定する cosine similarity 下限閾値（Phase 3d）。
  *
  * 保存ベクトルは記憶の説明文（三人称）、クエリは生の口語発話（一人称）で

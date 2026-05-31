@@ -26,8 +26,10 @@ describe('lib/server/repositories', () => {
 
     const p1 = mod.getProfileRepository();
     const c1 = mod.getCharacterStateRepository();
+    const l1 = mod.getLifecycleRepository();
     expect(p1).toBeDefined();
     expect(c1).toBeDefined();
+    expect(l1).toBeDefined();
   });
 
   it('InMemory 実装では Message を保存して取得できる（共有 store 検証）', async () => {
@@ -67,6 +69,7 @@ describe('lib/server/repositories', () => {
     expect(() => mod.getMessageRepository()).not.toThrow();
     expect(() => mod.getProfileRepository()).not.toThrow();
     expect(() => mod.getCharacterStateRepository()).not.toThrow();
+    expect(() => mod.getLifecycleRepository()).not.toThrow();
     mod.resetRepositoriesForTesting();
   });
 });

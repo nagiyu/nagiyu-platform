@@ -87,3 +87,7 @@ export function buildInterestSKPrefix(characterId: string): string {
 export function buildInterestSK(characterId: string, category: string): string {
   return `${buildInterestSKPrefix(characterId)}${category}`;
 }
+
+export function buildLifecycleSK(characterId: string): string {
+  return `CHAR#${characterId}#LIFECYCLE`;
+}

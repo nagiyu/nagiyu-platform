@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
+import type { LifecycleState } from '@nagiyu/livetalk-core';
 import { HIYORI_MODEL_PATH } from '@/lib/character-renderer';
 
 // beforeInteractive Script のネットワーク遅延を吸収するため、
@@ -64,6 +65,11 @@ export interface Live2DCanvasProps {
    */
   audioContext?: AudioContext | null;
   statusText?: string;
+  /**
+   * 生活サイクル状態。sleeping 時に目パラメータを半開きに固定する。
+   * idle モーションのまばたきが毎フレーム上書きするため、ticker.add で毎フレーム強制セットする。
+   */
+  lifecycleState?: LifecycleState;
   onPlaybackEnd?: () => void;
   onPlaybackError?: (error: Error) => void;
 }
@@ -90,6 +96,7 @@ export default function Live2DCanvas({
   audioBuffer,
   audioContext,
   statusText,
+  lifecycleState,
   onPlaybackEnd,
   onPlaybackError,
 }: Live2DCanvasProps) {
@@ -107,6 +114,12 @@ export default function Live2DCanvas({
     onPlaybackEndRef.current = onPlaybackEnd;
     onPlaybackErrorRef.current = onPlaybackError;
   }, [onPlaybackEnd, onPlaybackError]);
+
+  // lifecycleState を ref でも保持し、ticker callback 内で最新値を参照できるようにする
+  const lifecycleStateRef = useRef(lifecycleState);
+  useEffect(() => {
+    lifecycleStateRef.current = lifecycleState;
+  }, [lifecycleState]);
 
   useEffect(() => {
     if (!containerRef.current || loadedRef.current) return;
@@ -274,6 +287,43 @@ export default function Live2DCanvas({
       }
     };
   }, [audioBuffer, audioContext, modelReady]);
+
+  // sleeping 状態のとき、idle モーションのまばたきに上書きされないよう
+  // ticker.add で毎フレーム目パラメータを半開き（0.3）に強制セットする。
+  // awake に戻ったら ticker から外して通常のまばたきに委ねる。
+  useEffect(() => {
+    const app = appRef.current;
+    const model = modelRef.current;
+    if (!app || !model || !modelReady) return;
+
+    if (lifecycleState !== 'sleeping') return;
+
+    const EYE_VALUE = 0.3;
+
+    const setCoreParameter = (model: Live2DModelInstance, id: string, value: number) => {
+      try {
+        const coreModel = (
+          model.internalModel as unknown as {
+            coreModel?: { setParameterValueById?: (id: string, v: number) => void };
+          }
+        ).coreModel;
+        coreModel?.setParameterValueById?.(id, value);
+      } catch {
+        // 型情報がない internal API のため best-effort
+      }
+    };
+
+    const tickerFn = () => {
+      if (lifecycleStateRef.current !== 'sleeping') return;
+      setCoreParameter(model, 'ParamEyeLOpen', EYE_VALUE);
+      setCoreParameter(model, 'ParamEyeROpen', EYE_VALUE);
+    };
+
+    app.ticker.add(tickerFn);
+    return () => {
+      app.ticker.remove(tickerFn);
+    };
+  }, [lifecycleState, modelReady]);
 
   return (
     <Box

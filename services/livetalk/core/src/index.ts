@@ -61,6 +61,20 @@ export type {
   BatchMetrics,
 } from './observability/index.js';
 
+// Lifecycle
+export { resolveLifecycleState } from './lifecycle/index.js';
+export type {
+  LifecycleEntity,
+  LifecycleKey,
+  LifecycleState,
+  CreateLifecycleInput,
+  UpdateLifecycleInput,
+} from './entities/lifecycle.entity.js';
+export type { LifecycleRepository } from './repositories/lifecycle.repository.interface.js';
+export { InMemoryLifecycleRepository } from './repositories/in-memory-lifecycle.repository.js';
+export { DynamoDBLifecycleRepository } from './repositories/dynamodb-lifecycle.repository.js';
+export { LifecycleMapper } from './mappers/lifecycle.mapper.js';
+
 // Chat usecase
 export { runChatUseCase, type ChatEvent, type ChatUseCaseParams } from './usecases/chat-usecase.js';
 
@@ -131,6 +145,7 @@ export {
   buildMemorySummarySK,
   buildInterestSK,
   buildInterestSKPrefix,
+  buildLifecycleSK,
 } from './mappers/keys.js';
 
 // Repository interfaces
