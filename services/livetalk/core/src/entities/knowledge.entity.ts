@@ -20,6 +20,7 @@ export interface KnowledgeEntity {
   /** 紐付く興味カテゴリ名 */
   RelatedCategory: string;
   CreatedAt: number;
+  UpdatedAt: number;
   /** 任意 TTL（Unix 秒）。未設定なら永続 */
   Ttl?: number;
 }
@@ -30,4 +31,4 @@ export interface KnowledgeKey {
   knowledgeId: string;
 }
 
-export type CreateKnowledgeInput = Omit<KnowledgeEntity, 'CreatedAt'>;
+export type CreateKnowledgeInput = Omit<KnowledgeEntity, 'CreatedAt' | 'UpdatedAt'>;

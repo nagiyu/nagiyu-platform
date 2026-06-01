@@ -94,9 +94,9 @@ describe('LiveTalkBatchStack', () => {
     expect(vars.OPENAI_API_KEY).toBeUndefined();
   });
 
-  it('EventBridge ルールを 2 つ作成する（日次圧縮 + 週次学習）', () => {
+  it('EventBridge ルールを 3 つ作成する（日次圧縮 + 週次学習 + 毎時勉強）', () => {
     const { template } = synth();
-    template.resourceCountIs('AWS::Events::Rule', 2);
+    template.resourceCountIs('AWS::Events::Rule', 3);
   });
 
   it('圧縮バッチの EventBridge スケジュールは cron(0 18 * * ? *)', () => {
@@ -113,9 +113,9 @@ describe('LiveTalkBatchStack', () => {
     });
   });
 
-  it('SQS DLQ を 2 つ作成する（圧縮 + 学習で分離）', () => {
+  it('SQS DLQ を 3 つ作成する（圧縮 + 学習 + 勉強で分離）', () => {
     const { template } = synth();
-    template.resourceCountIs('AWS::SQS::Queue', 2);
+    template.resourceCountIs('AWS::SQS::Queue', 3);
   });
 
   it('Lambda 実行ロールを作成する', () => {
@@ -131,6 +131,33 @@ describe('LiveTalkBatchStack', () => {
     });
   });
 
+  it('勉強バッチ用 Lambda 関数が存在する', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: Match.stringLikeRegexp('livetalk-batch-study'),
+    });
+  });
+
+  it('勉強バッチ Lambda 環境変数に TZ=Asia/Tokyo と OPENAI_API_KEY が含まれる', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: Match.stringLikeRegexp('livetalk-batch-study'),
+      Environment: {
+        Variables: Match.objectLike({
+          TZ: 'Asia/Tokyo',
+          OPENAI_API_KEY: 'PLACEHOLDER_KEY',
+        }),
+      },
+    });
+  });
+
+  it('勉強バッチの EventBridge スケジュールは毎時（cron(0 * * * ? *)）', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Events::Rule', {
+      ScheduleExpression: 'cron(0 * * * ? *)',
+    });
+  });
+
   it('BatchFunctionArn を Outputs に出力する', () => {
     const { template } = synth();
     template.hasOutput('BatchFunctionArn', Match.anyValue());
@@ -139,6 +166,11 @@ describe('LiveTalkBatchStack', () => {
   it('LearnActivityFunctionArn を Outputs に出力する', () => {
     const { template } = synth();
     template.hasOutput('LearnActivityFunctionArn', Match.anyValue());
+  });
+
+  it('StudyFunctionArn を Outputs に出力する', () => {
+    const { template } = synth();
+    template.hasOutput('StudyFunctionArn', Match.anyValue());
   });
 
   it('prod 環境でも正しく生成する', () => {

@@ -13,6 +13,7 @@ describe('KnowledgeMapper', () => {
     RawComment: 'コメント',
     RelatedCategory: 'テスト',
     CreatedAt: 1_700_000_000_000,
+    UpdatedAt: 1_700_000_000_000,
   };
 
   it('buildKeys は正しい PK/SK を生成する', () => {

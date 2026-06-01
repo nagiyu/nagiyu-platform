@@ -30,6 +30,7 @@ export class KnowledgeMapper implements EntityMapper<KnowledgeEntity, KnowledgeK
       RawComment: entity.RawComment,
       RelatedCategory: entity.RelatedCategory,
       CreatedAt: entity.CreatedAt,
+      UpdatedAt: entity.UpdatedAt,
     };
     if (entity.Ttl !== undefined) {
       item.Ttl = entity.Ttl;
@@ -48,6 +49,7 @@ export class KnowledgeMapper implements EntityMapper<KnowledgeEntity, KnowledgeK
       RawComment: validateStringField(item.RawComment, 'RawComment'),
       RelatedCategory: validateStringField(item.RelatedCategory, 'RelatedCategory'),
       CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
+      UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
     };
     if (item.Ttl !== undefined) {
       entity.Ttl = validateNumberField(item.Ttl, 'Ttl');

@@ -17,7 +17,7 @@ export class InMemoryKnowledgeRepository implements KnowledgeRepository {
 
   public async put(input: CreateKnowledgeInput): Promise<KnowledgeEntity> {
     const now = this.nowMs();
-    const entity: KnowledgeEntity = { ...input, CreatedAt: now };
+    const entity: KnowledgeEntity = { ...input, CreatedAt: now, UpdatedAt: now };
     this.store.put(this.mapper.toItem(entity));
     return entity;
   }

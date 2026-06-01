@@ -155,26 +155,3 @@ export const STUDY_INACTIVE_WINDOW_HOURS = 2;
  * summary がこの文字数未満の場合は保存しない。
  */
 export const STUDY_MIN_SUMMARY_LENGTH = 50;
-
-/**
- * 勉強バッチ: 1 実行あたりに発行する検索クエリの最大数（暴走防止）。
- */
-export const STUDY_MAX_QUERIES_PER_RUN = 3;
-
-/**
- * 勉強バッチ: 前回勉強からの最短間隔（時間）。
- * この時間が経過していない場合は勉強をスキップする。
- */
-export const STUDY_MIN_INTERVAL_HOURS = 6;
-
-/**
- * 勉強バッチ: ユーザーのピーク活動時間帯を避けるウィンドウ（時間）。
- * morningPeak / eveningPeak の前後この時間内はユーザーが活動中とみなしてスキップ。
- */
-export const STUDY_INACTIVE_WINDOW_HOURS = 2;
-
-/**
- * 勉強バッチ: 品質が低い（要約が短すぎる）と判定する文字数閾値。
- * summary がこの文字数未満の場合は保存しない。
- */
-export const STUDY_MIN_SUMMARY_LENGTH = 50;

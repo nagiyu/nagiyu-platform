@@ -24,7 +24,7 @@ export class DynamoDBKnowledgeRepository implements KnowledgeRepository {
 
   public async put(input: CreateKnowledgeInput): Promise<KnowledgeEntity> {
     const now = this.nowMs();
-    const entity: KnowledgeEntity = { ...input, CreatedAt: now };
+    const entity: KnowledgeEntity = { ...input, CreatedAt: now, UpdatedAt: now };
     try {
       await this.docClient.send(
         new PutCommand({ TableName: this.tableName, Item: this.mapper.toItem(entity) })
