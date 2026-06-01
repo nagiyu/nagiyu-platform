@@ -1,6 +1,7 @@
 import type { LifecycleRepository } from '../repositories/lifecycle.repository.interface.js';
 import type { MessageRepository } from '../repositories/message.repository.interface.js';
 import { buildHourlyHistogram, findPeakInRange } from '../lifecycle/histogram.js';
+import { adaptCharacterSchedule } from '../lifecycle/adaptation.js';
 
 const DEFAULT_MORNING_PEAK = '08:00';
 const DEFAULT_EVENING_PEAK = '21:00';
@@ -54,7 +55,7 @@ export async function learnUserActivity(
   const morningPeak = findPeakInRange(histogram, 5, 12) ?? DEFAULT_MORNING_PEAK;
   const eveningPeak = findPeakInRange(histogram, 17, 26) ?? DEFAULT_EVENING_PEAK;
 
-  await lifecycleRepo.updateUserActivityProfile(
+  const lifecycle = await lifecycleRepo.updateUserActivityProfile(
     { userId, characterId },
     {
       morningPeak,
@@ -63,6 +64,13 @@ export async function learnUserActivity(
       lastLearnedAt: nowDate.toISOString(),
     }
   );
+
+  // Phase 4d: 学習結果を元にキャラのスケジュールを緩やかに適応
+  const adapted = adaptCharacterSchedule(
+    { bedtime: lifecycle.Bedtime, wakeUpTime: lifecycle.WakeUpTime },
+    lifecycle.UserActivityProfile
+  );
+  await lifecycleRepo.updateSchedule({ userId, characterId }, adapted);
 
   return 'learned';
 }

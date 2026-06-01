@@ -62,8 +62,17 @@ export type {
 } from './observability/index.js';
 
 // Lifecycle
-export { resolveLifecycleState, buildHourlyHistogram, findPeakInRange } from './lifecycle/index.js';
-export type { HourHistogram } from './lifecycle/index.js';
+export {
+  resolveLifecycleState,
+  buildHourlyHistogram,
+  findPeakInRange,
+  adaptCharacterSchedule,
+  parseTimeToMinutes,
+  formatMinutesToTime,
+  smoothTime,
+  clampTime,
+} from './lifecycle/index.js';
+export type { HourHistogram, AdaptationOptions } from './lifecycle/index.js';
 export type {
   LifecycleEntity,
   LifecycleKey,

@@ -24,4 +24,14 @@ export interface LifecycleRepository {
     key: LifecycleKey,
     profile: UserActivityProfile
   ): Promise<LifecycleEntity>;
+
+  /**
+   * キャラの就寝/起床スケジュールを更新する（Phase 4d 適応バッチが使用）。
+   * 既存の UserActivityProfile は保持する。
+   * 既存 LIFECYCLE アイテムがなければデフォルト値で新規作成する。
+   */
+  updateSchedule(
+    key: LifecycleKey,
+    schedule: { bedtime: string; wakeUpTime: string }
+  ): Promise<LifecycleEntity>;
 }

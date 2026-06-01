@@ -95,4 +95,32 @@ export class DynamoDBLifecycleRepository implements LifecycleRepository {
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
+
+  public async updateSchedule(
+    key: LifecycleKey,
+    schedule: { bedtime: string; wakeUpTime: string }
+  ): Promise<LifecycleEntity> {
+    const now = this.nowMs();
+    const existing = await this.get(key);
+    const entity: LifecycleEntity = {
+      UserID: key.userId,
+      CharacterID: key.characterId,
+      Bedtime: schedule.bedtime,
+      WakeUpTime: schedule.wakeUpTime,
+      ...(existing?.UserActivityProfile !== undefined && {
+        UserActivityProfile: existing.UserActivityProfile,
+      }),
+      CreatedAt: existing?.CreatedAt ?? now,
+      UpdatedAt: now,
+    };
+    try {
+      await this.docClient.send(
+        new PutCommand({ TableName: this.tableName, Item: this.mapper.toItem(entity) })
+      );
+      return entity;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+    }
+  }
 }
