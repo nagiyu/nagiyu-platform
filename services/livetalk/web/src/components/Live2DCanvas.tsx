@@ -288,31 +288,35 @@ export default function Live2DCanvas({
     };
   }, [audioBuffer, audioContext, modelReady]);
 
-  // sleeping 状態のとき、目を半開き（0.3）に固定する。
+  // sleeping 状態のとき、目を半開き（0.3）にしつつ、たまにゆっくり瞬きさせる。
   //
   // ライブラリの内部モデル更新は毎フレーム以下の順序で走る
   // （pixi-live2d-display-lipsyncpatch / fork 元 pixi-live2d-display）:
   //   1. emit('beforeMotionUpdate')
   //   2. motionManager.update()      … idle モーション再生
   //   3. emit('afterMotionUpdate')   … 割り込み可能なフック
-  //   4. eyeBlink.updateParameters() … 自動まばたきが目を上書き ★
+  //   4. eyeBlink.updateParameters() … 自動まばたきが目を上書き（開き直す）
   //   5. lipSync / expression / breath
   //   6. coreModel 確定・描画
   //
-  // app.ticker.add では PIXI ティッカーと上記フローの実行順がフレームごとに前後し、
-  // 待機中は 4 の自動まばたきに毎フレーム負けて効かず、発話中は 4 より後に走った
-  // フレームだけ反映されてチラついていた（競合状態）。
+  // 4 の eyeBlink は 3 の afterMotionUpdate より後に走るため、afterMotionUpdate で
+  // 目を抑えても直後に開き直されてしまう（順序依存で半目が維持できない）。
+  // そこで eyeBlink を無効化（#3334 で安定実績のある方式）して 3 を最終決定とし、
+  // 瞬き自体は自前で駆動する。
   //
-  // そこで 3 の afterMotionUpdate で目をセットしつつ、直後 4 の上書きを防ぐため
-  // sleeping 中だけ eyeBlink を一時無効化する。これで待機中・発話中とも確定的な
-  // タイミングで毎フレーム書き込まれ、安定して半開きになる。
+  // 自前瞬き: 半開き 0.3 をベースに、ランダムな間隔（3〜6 秒）で 1 回、約 140ms かけて
+  // 0.3 → 0 → 0.3 と閉じて開く三角波を重ねる。eyeBlink を切っているので
+  // afterMotionUpdate の書き込みが確定し、待機中・発話中とも安定して反映される。
   useEffect(() => {
     const model = modelRef.current;
     if (!model || !modelReady) return;
 
     if (lifecycleState !== 'sleeping') return;
 
-    const EYE_VALUE = 0.3;
+    const EYE_MAX = 0.3;
+    const BLINK_DURATION_MS = 140;
+    const BLINK_INTERVAL_MIN_MS = 3000;
+    const BLINK_INTERVAL_RANGE_MS = 3000;
 
     const internalModel = model.internalModel as unknown as {
       coreModel?: { setParameterValueById?: (id: string, value: number) => void };
@@ -321,18 +325,39 @@ export default function Live2DCanvas({
       off?: (event: string, handler: () => void) => void;
     };
 
+    // 三角波で瞬きの開き値（0〜0.3）を計算する。瞬き窓の外は 0.3（半目）。
+    let blinkStart = -Infinity;
+    let nextBlinkAt =
+      performance.now() + BLINK_INTERVAL_MIN_MS + Math.random() * BLINK_INTERVAL_RANGE_MS;
+
+    const computeEyeOpen = (now: number): number => {
+      if (now >= nextBlinkAt && now > blinkStart + BLINK_DURATION_MS) {
+        blinkStart = now;
+        nextBlinkAt = now + BLINK_INTERVAL_MIN_MS + Math.random() * BLINK_INTERVAL_RANGE_MS;
+      }
+      const t = now - blinkStart;
+      if (t >= 0 && t < BLINK_DURATION_MS) {
+        const half = BLINK_DURATION_MS / 2;
+        // 0 → 1 → 0（閉じ具合）。half で最も閉じる
+        const closeRatio = t < half ? t / half : 1 - (t - half) / half;
+        return EYE_MAX * (1 - closeRatio);
+      }
+      return EYE_MAX;
+    };
+
     const applyEyes = () => {
       if (lifecycleStateRef.current !== 'sleeping') return;
       try {
-        internalModel.coreModel?.setParameterValueById?.('ParamEyeLOpen', EYE_VALUE);
-        internalModel.coreModel?.setParameterValueById?.('ParamEyeROpen', EYE_VALUE);
+        const value = computeEyeOpen(performance.now());
+        internalModel.coreModel?.setParameterValueById?.('ParamEyeLOpen', value);
+        internalModel.coreModel?.setParameterValueById?.('ParamEyeROpen', value);
       } catch {
         // 型情報がない internal API のため best-effort
       }
     };
 
     // 自動まばたき（eyeBlink.updateParameters）が afterMotionUpdate 直後に目を
-    // 上書きするため、sleeping 中だけ無効化し、cleanup で元の参照に復元する。
+    // 開き直すため、sleeping 中だけ無効化し、cleanup で元の参照に復元する。
     const savedEyeBlink = internalModel.eyeBlink;
     internalModel.eyeBlink = undefined;
 
