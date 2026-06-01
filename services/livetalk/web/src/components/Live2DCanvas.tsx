@@ -288,40 +288,59 @@ export default function Live2DCanvas({
     };
   }, [audioBuffer, audioContext, modelReady]);
 
-  // sleeping 状態のとき、idle モーションのまばたきに上書きされないよう
-  // ticker.add で毎フレーム目パラメータを半開き（0.3）に強制セットする。
-  // awake に戻ったら ticker から外して通常のまばたきに委ねる。
+  // sleeping 状態のとき、目を半開き（0.3）に固定する。
+  //
+  // ライブラリの内部モデル更新は毎フレーム以下の順序で走る
+  // （pixi-live2d-display-lipsyncpatch / fork 元 pixi-live2d-display）:
+  //   1. emit('beforeMotionUpdate')
+  //   2. motionManager.update()      … idle モーション再生
+  //   3. emit('afterMotionUpdate')   … 割り込み可能なフック
+  //   4. eyeBlink.updateParameters() … 自動まばたきが目を上書き ★
+  //   5. lipSync / expression / breath
+  //   6. coreModel 確定・描画
+  //
+  // app.ticker.add では PIXI ティッカーと上記フローの実行順がフレームごとに前後し、
+  // 待機中は 4 の自動まばたきに毎フレーム負けて効かず、発話中は 4 より後に走った
+  // フレームだけ反映されてチラついていた（競合状態）。
+  //
+  // そこで 3 の afterMotionUpdate で目をセットしつつ、直後 4 の上書きを防ぐため
+  // sleeping 中だけ eyeBlink を一時無効化する。これで待機中・発話中とも確定的な
+  // タイミングで毎フレーム書き込まれ、安定して半開きになる。
   useEffect(() => {
-    const app = appRef.current;
     const model = modelRef.current;
-    if (!app || !model || !modelReady) return;
+    if (!model || !modelReady) return;
 
     if (lifecycleState !== 'sleeping') return;
 
     const EYE_VALUE = 0.3;
 
-    const setCoreParameter = (model: Live2DModelInstance, id: string, value: number) => {
+    const internalModel = model.internalModel as unknown as {
+      coreModel?: { setParameterValueById?: (id: string, value: number) => void };
+      eyeBlink?: unknown;
+      on?: (event: string, handler: () => void) => void;
+      off?: (event: string, handler: () => void) => void;
+    };
+
+    const applyEyes = () => {
+      if (lifecycleStateRef.current !== 'sleeping') return;
       try {
-        const coreModel = (
-          model.internalModel as unknown as {
-            coreModel?: { setParameterValueById?: (id: string, v: number) => void };
-          }
-        ).coreModel;
-        coreModel?.setParameterValueById?.(id, value);
+        internalModel.coreModel?.setParameterValueById?.('ParamEyeLOpen', EYE_VALUE);
+        internalModel.coreModel?.setParameterValueById?.('ParamEyeROpen', EYE_VALUE);
       } catch {
         // 型情報がない internal API のため best-effort
       }
     };
 
-    const tickerFn = () => {
-      if (lifecycleStateRef.current !== 'sleeping') return;
-      setCoreParameter(model, 'ParamEyeLOpen', EYE_VALUE);
-      setCoreParameter(model, 'ParamEyeROpen', EYE_VALUE);
-    };
+    // 自動まばたき（eyeBlink.updateParameters）が afterMotionUpdate 直後に目を
+    // 上書きするため、sleeping 中だけ無効化し、cleanup で元の参照に復元する。
+    const savedEyeBlink = internalModel.eyeBlink;
+    internalModel.eyeBlink = undefined;
 
-    app.ticker.add(tickerFn);
+    internalModel.on?.('afterMotionUpdate', applyEyes);
+
     return () => {
-      app.ticker.remove(tickerFn);
+      internalModel.off?.('afterMotionUpdate', applyEyes);
+      internalModel.eyeBlink = savedEyeBlink;
     };
   }, [lifecycleState, modelReady]);
 

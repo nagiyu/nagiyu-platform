@@ -104,14 +104,21 @@ export const AFFECTION_BIDIRECTIONALITY_WEIGHT = 1.0;
 /**
  * 生活サイクルのデフォルト就寝時刻（"HH:mm" 形式、Asia/Tokyo 基準）。
  * ユーザーが設定を持たない場合にフォールバックする値（Phase 4b）。
+ *
+ * TEMPORARY（#3333 検証用）: sleeping 演出を日中いつでも確認できるよう、
+ * 就寝 06:00 / 起床 05:00（= 終日ほぼ sleeping、awake は 05:00–06:00 のみ）に
+ * 一時拡張している。検証完了後に本来値 '01:30' / '09:30' へ戻すこと。
  */
-export const LIFECYCLE_DEFAULT_BEDTIME = '01:30';
+export const LIFECYCLE_DEFAULT_BEDTIME = '06:00';
 
 /**
  * 生活サイクルのデフォルト起床時刻（"HH:mm" 形式、Asia/Tokyo 基準）。
  * ユーザーが設定を持たない場合にフォールバックする値（Phase 4b）。
+ *
+ * TEMPORARY（#3333 検証用）: 上記 LIFECYCLE_DEFAULT_BEDTIME を参照。
+ * 検証完了後に本来値 '09:30' へ戻すこと。
  */
-export const LIFECYCLE_DEFAULT_WAKE_UP_TIME = '09:30';
+export const LIFECYCLE_DEFAULT_WAKE_UP_TIME = '05:00';
 
 /**
  * Tier C 記憶の「再言及」と判定する cosine similarity 下限閾値（Phase 3d）。
