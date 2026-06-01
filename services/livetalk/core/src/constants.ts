@@ -155,3 +155,14 @@ export const STUDY_INACTIVE_WINDOW_HOURS = 2;
  * summary がこの文字数未満の場合は保存しない。
  */
 export const STUDY_MIN_SUMMARY_LENGTH = 50;
+
+/**
+ * StudyTopic に付与する DynamoDB TTL（秒）。30 日後に自動削除。
+ */
+export const STUDY_TOPIC_TTL_SECONDS = 30 * 24 * 60 * 60;
+
+/**
+ * 知識ゲート経由で登録された StudyTopic の優先度。
+ * 通常の勉強バッチ（Priority=1）より高くして先に処理させる。
+ */
+export const STUDY_TOPIC_GATE_PRIORITY = 10;

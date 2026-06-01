@@ -2,6 +2,8 @@ import type { LifecycleEntity } from '../../../src/entities/lifecycle.entity.js'
 import { shouldStudyNow, studyForUser } from '../../../src/usecases/study.usecase.js';
 import type { KnowledgeRepository } from '../../../src/repositories/knowledge.repository.interface.js';
 import type { InterestRepository } from '../../../src/repositories/interest.repository.interface.js';
+import type { StudyTopicRepository } from '../../../src/repositories/study-topic.repository.interface.js';
+import type { StudyTopicEntity } from '../../../src/entities/study-topic.entity.js';
 import type { IResearchClient } from '../../../src/research/types.js';
 import type { CharacterDefinition } from '../../../src/characters/types.js';
 import { STUDY_MIN_INTERVAL_HOURS, STUDY_MIN_SUMMARY_LENGTH } from '../../../src/constants.js';
@@ -186,6 +188,156 @@ describe('studyForUser', () => {
     });
 
     expect(knowledgeRepo.put).not.toHaveBeenCalled();
+  });
+
+  // ── STUDY_TOPIC 優先処理（Phase 5b）──
+
+  const makeStudyTopicRepo = (
+    topics: StudyTopicEntity[] = []
+  ): jest.Mocked<StudyTopicRepository> => ({
+    put: jest.fn().mockImplementation(async (input) => ({
+      ...input,
+      CreatedAt: Date.now(),
+      UpdatedAt: Date.now(),
+    })),
+    listByStatus: jest.fn().mockResolvedValue(topics),
+    updateStatus: jest.fn().mockImplementation(async (input) => ({
+      ...input,
+      CreatedAt: Date.now(),
+      UpdatedAt: Date.now(),
+    })),
+    findPendingByTopic: jest.fn().mockResolvedValue(null),
+  });
+
+  const makePendingStudyTopic = (overrides: Partial<StudyTopicEntity> = {}): StudyTopicEntity => ({
+    UserID: 'u1',
+    CharacterID: 'hiyori',
+    TopicID: 'tp1',
+    Topic: '最新アニメ',
+    Priority: 10,
+    Status: 'pending',
+    CreatedAt: 1_700_000_000_000,
+    UpdatedAt: 1_700_000_000_000,
+    ...overrides,
+  });
+
+  it('STUDY_TOPIC が pending なら優先的に研究される', async () => {
+    const topic = makePendingStudyTopic({ Topic: '最新アニメ情報' });
+    const studyTopicRepo = makeStudyTopicRepo([topic]);
+    const knowledgeRepo = makeKnowledgeRepo();
+    const interestRepo = makeInterestRepo();
+    interestRepo.list.mockResolvedValue([]); // 興味カテゴリは空
+    const researchClient = makeResearchClient();
+    researchClient.research.mockResolvedValue({
+      topic: '最新アニメ情報',
+      summary: '最新アニメに関する詳細情報です。'.repeat(5),
+      sourceUrls: ['https://example.com'],
+      rawComment: '面白そう！',
+    });
+
+    const result = await studyForUser('u1', 'hiyori', {
+      knowledgeRepo,
+      interestRepo,
+      researchClient,
+      character,
+      lifecycle: makeLifecycle(),
+      now: () => awakeNonPeak,
+      studyTopicRepo,
+    });
+
+    expect(result.outcome).toBe('studied');
+    expect(result.savedCount).toBe(1);
+    expect(knowledgeRepo.put).toHaveBeenCalledWith(
+      expect.objectContaining({ Topic: '最新アニメ情報' })
+    );
+    // Status が done になる
+    expect(studyTopicRepo.updateStatus).toHaveBeenCalledWith(
+      expect.objectContaining({ TopicID: 'tp1', Status: 'done' })
+    );
+  });
+
+  it('STUDY_TOPIC を優先して残り枠で通常カテゴリを処理する', async () => {
+    const topic = makePendingStudyTopic({ Topic: '優先トピック' });
+    const studyTopicRepo = makeStudyTopicRepo([topic]);
+    const knowledgeRepo = makeKnowledgeRepo();
+    const interestRepo = makeInterestRepo(); // コーヒーカテゴリあり
+    const researchClient = makeResearchClient();
+    researchClient.research
+      .mockResolvedValueOnce({
+        topic: '優先トピック',
+        summary: '優先トピックの詳細情報。'.repeat(5),
+        sourceUrls: [],
+        rawComment: '',
+      })
+      .mockResolvedValueOnce({
+        topic: 'コーヒーの効能',
+        summary: 'コーヒーに関する情報。'.repeat(5),
+        sourceUrls: [],
+        rawComment: '',
+      });
+
+    const result = await studyForUser('u1', 'hiyori', {
+      knowledgeRepo,
+      interestRepo,
+      researchClient,
+      character,
+      lifecycle: makeLifecycle(),
+      now: () => awakeNonPeak,
+      studyTopicRepo,
+      maxQueriesPerRun: 3,
+    });
+
+    expect(result.outcome).toBe('studied');
+    expect(result.savedCount).toBe(2);
+  });
+
+  it('STUDY_TOPIC 研究が品質不足の場合は done にするが savedCount は増えない', async () => {
+    const topic = makePendingStudyTopic();
+    const studyTopicRepo = makeStudyTopicRepo([topic]);
+    const knowledgeRepo = makeKnowledgeRepo();
+    const interestRepo = makeInterestRepo();
+    interestRepo.list.mockResolvedValue([]);
+    const researchClient = makeResearchClient();
+    researchClient.research.mockResolvedValue({
+      topic: '最新アニメ',
+      summary: '短い',
+      sourceUrls: [],
+      rawComment: '',
+    });
+
+    await studyForUser('u1', 'hiyori', {
+      knowledgeRepo,
+      interestRepo,
+      researchClient,
+      character,
+      lifecycle: makeLifecycle(),
+      now: () => awakeNonPeak,
+      studyTopicRepo,
+    });
+
+    expect(knowledgeRepo.put).not.toHaveBeenCalled();
+    expect(studyTopicRepo.updateStatus).toHaveBeenCalledWith(
+      expect.objectContaining({ Status: 'done' })
+    );
+  });
+
+  it('studyTopicRepo 未指定でも通常フローが動く（後方互換）', async () => {
+    const knowledgeRepo = makeKnowledgeRepo();
+    const interestRepo = makeInterestRepo();
+    const researchClient = makeResearchClient();
+
+    const result = await studyForUser('u1', 'hiyori', {
+      knowledgeRepo,
+      interestRepo,
+      researchClient,
+      character,
+      lifecycle: makeLifecycle(),
+      now: () => awakeNonPeak,
+      // studyTopicRepo は未指定
+    });
+
+    expect(result.outcome).toBe('studied');
+    expect(knowledgeRepo.put).toHaveBeenCalled();
   });
 
   it('リサーチ失敗でも他カテゴリを継続する（fail-warn）', async () => {

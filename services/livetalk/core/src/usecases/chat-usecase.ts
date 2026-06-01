@@ -9,6 +9,8 @@ import type { MemoryRepository } from '../repositories/memory.repository.interfa
 import type { MemorySummaryRepository } from '../repositories/memory-summary.repository.interface.js';
 import type { MessageRepository } from '../repositories/message.repository.interface.js';
 import type { SafetyEventRepository } from '../repositories/safety-event.repository.interface.js';
+import type { KnowledgeRepository } from '../repositories/knowledge.repository.interface.js';
+import type { StudyTopicRepository } from '../repositories/study-topic.repository.interface.js';
 import type { CharacterDefinition } from '../characters/types.js';
 import type { MemoryEntity } from '../entities/memory.entity.js';
 import type { MessageEntity } from '../entities/message.entity.js';
@@ -24,6 +26,8 @@ import {
   MEMORY_CATEGORY_CAP,
   MEMORY_COOLDOWN_MS,
   MEMORY_MAX_TIER_B,
+  STUDY_TOPIC_TTL_SECONDS,
+  STUDY_TOPIC_GATE_PRIORITY,
 } from '../constants.js';
 import { detectSafetyRisk } from '../safety/detector.js';
 import { buildModerationReplacementMessage, buildSafetyMessage } from '../safety/templates.js';
@@ -39,6 +43,9 @@ import {
   emitChatMetricsLog,
   emitChatMetricsEMF,
 } from '../observability/metrics.js';
+import { evaluateKnowledgeGate } from '../study/knowledge-gate.js';
+import { buildStudyDeferralMessage } from '../study/templates.js';
+import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
 
 /**
  * /api/chat ストリーミングレスポンスの各イベント型。
@@ -86,6 +93,15 @@ export interface ChatUseCaseParams {
   memorySummaryRepository?: MemorySummaryRepository;
   /** Lifecycle リポジトリ。未指定時はデフォルト就寝スケジュールで判定する */
   lifecycleRepository?: LifecycleRepository;
+  /**
+   * 知識ゲート（Phase 5b）。未指定時はゲートをスキップして従来フローで継続する。
+   * 指定時は KNOWLEDGE を検索し、ヒット無し+要勉強なら LLM をバイパスして STUDY_TOPIC を登録する。
+   */
+  knowledgeRepository?: KnowledgeRepository;
+  /** StudyTopic リポジトリ。knowledgeRepository 指定時に study 分岐で使用する */
+  studyTopicRepository?: StudyTopicRepository;
+  /** ULID ファクトリ。テスト時に差し替え可能。未指定時はデフォルト実装 */
+  ulidFactory?: UlidFactory;
 }
 
 type SynthesisResult = { index: number; text: string; audio: string | null; elapsedMs: number };
@@ -202,6 +218,9 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     characterStateRepository,
     memorySummaryRepository,
     lifecycleRepository,
+    knowledgeRepository,
+    studyTopicRepository,
+    ulidFactory = defaultUlidFactory,
   } = params;
 
   const chatStart = performance.now();
@@ -306,6 +325,80 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   // 3.5. lifecycle event を emit（UI がモデル目パラメータを即座に反映できるよう通常フロー先頭で送出）
   yield { type: 'lifecycle', state: lifecycleState };
 
+  // 3.6. 知識ゲート（Phase 5b / Issue #3344）
+  // knowledgeRepository が指定されている場合のみ実行（未指定時は従来フローで継続）
+  let knowledgeContextForPrompt:
+    | import('../entities/knowledge.entity.js').KnowledgeEntity[]
+    | undefined;
+  if (knowledgeRepository) {
+    try {
+      const allKnowledge = await knowledgeRepository.list(userId, characterId);
+      const gateResult = await evaluateKnowledgeGate(
+        userText,
+        character.displayName,
+        allKnowledge,
+        llmClient
+      );
+
+      if (gateResult.kind === 'study') {
+        // STUDY_TOPIC 登録（fail-warn: 登録失敗でも応答は継続）
+        if (studyTopicRepository) {
+          try {
+            const existingTopic = await studyTopicRepository.findPendingByTopic(
+              userId,
+              characterId,
+              gateResult.normalizedTopic
+            );
+            if (!existingTopic) {
+              const ttlUnixSec = Math.floor(Date.now() / 1000) + STUDY_TOPIC_TTL_SECONDS;
+              await studyTopicRepository.put({
+                UserID: userId,
+                CharacterID: characterId,
+                TopicID: ulidFactory(),
+                Topic: gateResult.normalizedTopic,
+                Priority: STUDY_TOPIC_GATE_PRIORITY,
+                Status: 'pending',
+                Ttl: ttlUnixSec,
+              });
+            }
+          } catch (err) {
+            logger.warn('[chat-usecase] StudyTopic の登録に失敗しました（スキップして継続）', {
+              err,
+            });
+          }
+        }
+
+        // LLM をバイパスしてキャラ口調テンプレ応答を送出
+        const studyMessage = buildStudyDeferralMessage(Date.now());
+        yield* streamSafetyText(studyMessage, voiceClient, character.voiceConfig.speakerId);
+
+        // アシスタントメッセージとして保存
+        try {
+          await messageRepository.create({
+            UserID: userId,
+            CharacterID: characterId,
+            Role: 'assistant',
+            Text: studyMessage,
+          });
+        } catch (err) {
+          logger.error('[chat-usecase] 勉強応答メッセージの保存に失敗しました', { err });
+        }
+
+        yield { type: 'done' };
+        return;
+      }
+
+      if (gateResult.kind === 'knowledge_hit') {
+        // 知識を prompt context に注入して通常応答へ
+        knowledgeContextForPrompt = gateResult.knowledge;
+      }
+      // kind === 'normal' は通常フローで継続（何もしない）
+    } catch (err) {
+      // fail-warn: ゲートエラーは通常フローで継続
+      logger.warn('[chat-usecase] 知識ゲートの評価に失敗しました（通常フローで継続）', { err });
+    }
+  }
+
   // 4. Memory retrieve（fail-warn: エラー時は空配列で継続）
   let retrievedMemories: RetrievedMemory[] = [];
   if (memoryRetriever) {
@@ -384,7 +477,8 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     retrievedMemories,
     undefined,
     newLearnings.length > 0 ? newLearnings : undefined,
-    lifecycleState
+    lifecycleState,
+    knowledgeContextForPrompt
   );
 
   // プロンプトトークン内訳を計算（best-effort）

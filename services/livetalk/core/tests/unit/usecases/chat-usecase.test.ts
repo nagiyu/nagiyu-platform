@@ -5,8 +5,11 @@ import type { IVoiceClient } from '../../../src/voicevox/types.js';
 import type { MemoryRepository } from '../../../src/repositories/memory.repository.interface.js';
 import type { MessageRepository } from '../../../src/repositories/message.repository.interface.js';
 import type { SafetyEventRepository } from '../../../src/repositories/safety-event.repository.interface.js';
+import type { KnowledgeRepository } from '../../../src/repositories/knowledge.repository.interface.js';
+import type { StudyTopicRepository } from '../../../src/repositories/study-topic.repository.interface.js';
 import type { MessageEntity } from '../../../src/entities/message.entity.js';
 import type { MemoryEntity } from '../../../src/entities/memory.entity.js';
+import type { KnowledgeEntity } from '../../../src/entities/knowledge.entity.js';
 import type { SafetyEventEntity } from '../../../src/entities/safety-event.entity.js';
 import type { IModerationClient, ModerationResult } from '../../../src/safety/types.js';
 import type { IMemoryRetriever, RetrievedMemory } from '../../../src/memory/types.js';
@@ -1213,6 +1216,276 @@ describe('runChatUseCase', () => {
       );
 
       expect(events[events.length - 1]).toEqual({ type: 'done' });
+    });
+  });
+
+  // ── 知識ゲート（Phase 5b / Issue #3344）────────────────────────────────
+
+  describe('知識ゲート', () => {
+    function makeKnowledge(topic: string, summary: string): KnowledgeEntity {
+      return {
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        KnowledgeID: 'k1',
+        Topic: topic,
+        Summary: summary,
+        SourceUrls: [],
+        RawComment: '',
+        RelatedCategory: 'ゲーム',
+        CreatedAt: 1_700_000_000_000,
+        UpdatedAt: 1_700_000_000_000,
+      };
+    }
+
+    function makeKnowledgeRepo(knowledge: KnowledgeEntity[] = []): KnowledgeRepository {
+      return {
+        put: jest.fn(async (input) => ({ ...input, CreatedAt: Date.now(), UpdatedAt: Date.now() })),
+        list: jest.fn(async () => knowledge),
+        getLatest: jest.fn(async () => knowledge[0] ?? null),
+      };
+    }
+
+    function makeStudyTopicRepo(): StudyTopicRepository {
+      return {
+        put: jest.fn(async (input) => ({ ...input, CreatedAt: Date.now(), UpdatedAt: Date.now() })),
+        listByStatus: jest.fn(async () => []),
+        updateStatus: jest.fn(async (input) => ({
+          ...input,
+          CreatedAt: Date.now(),
+          UpdatedAt: Date.now(),
+        })),
+        findPendingByTopic: jest.fn(async () => null),
+      } as unknown as StudyTopicRepository;
+    }
+
+    it('知識ベースにヒット → 通常 LLM 応答（knowledge_hit）', async () => {
+      const k = makeKnowledge('モンスターハンター', 'カプコンのゲーム');
+      const knowledgeRepo = makeKnowledgeRepo([k]);
+      const llm = makeLLMClient(['モンハン面白いよね！']);
+      // chatStructured は knowledge_hit なので呼ばれない
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          userText: 'モンスターハンター',
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          knowledgeRepository: knowledgeRepo,
+        })
+      );
+
+      const textEvents = events.filter((e) => e.type === 'text');
+      expect(textEvents.length).toBeGreaterThan(0);
+      // chatStructured（分類）は呼ばれない
+      expect(llm.chatStructured).not.toHaveBeenCalled();
+    });
+
+    it('ヒットなし + needsStudy=true → 「勉強しておくね」テンプレ応答でLLMバイパス', async () => {
+      const knowledgeRepo = makeKnowledgeRepo([]);
+      const studyTopicRepo = makeStudyTopicRepo();
+      const llm = makeLLMClient(['応答']);
+      // chatStructured は needsStudy=true を返す
+      (llm.chatStructured as jest.Mock).mockResolvedValue({
+        needsStudy: true,
+        normalizedTopic: '最新アニメ',
+      });
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          userText: '最新アニメ教えて',
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          knowledgeRepository: knowledgeRepo,
+          studyTopicRepository: studyTopicRepo,
+        })
+      );
+
+      // chatStream（通常 LLM）は呼ばれない
+      expect(llm.chatStream).not.toHaveBeenCalled();
+      // テンプレ text が流れる
+      const textEvents = events.filter((e) => e.type === 'text');
+      expect(textEvents.length).toBeGreaterThan(0);
+      // done で終わる
+      expect(events[events.length - 1]).toEqual({ type: 'done' });
+      // STUDY_TOPIC が登録される
+      expect(studyTopicRepo.put).toHaveBeenCalledWith(
+        expect.objectContaining({ Topic: '最新アニメ', Status: 'pending' })
+      );
+    });
+
+    it('ヒットなし + needsStudy=true + 既存 pending → 重複登録しない', async () => {
+      const knowledgeRepo = makeKnowledgeRepo([]);
+      const studyTopicRepo = makeStudyTopicRepo();
+      // 既存 pending を返す
+      (studyTopicRepo.findPendingByTopic as jest.Mock).mockResolvedValue({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        TopicID: 'tp-existing',
+        Topic: '最新アニメ',
+        Priority: 10,
+        Status: 'pending',
+        CreatedAt: Date.now(),
+        UpdatedAt: Date.now(),
+      });
+      const llm = makeLLMClient(['応答']);
+      (llm.chatStructured as jest.Mock).mockResolvedValue({
+        needsStudy: true,
+        normalizedTopic: '最新アニメ',
+      });
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          userText: '最新アニメ教えて',
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          knowledgeRepository: knowledgeRepo,
+          studyTopicRepository: studyTopicRepo,
+        })
+      );
+
+      expect(studyTopicRepo.put).not.toHaveBeenCalled();
+    });
+
+    it('ヒットなし + needsStudy=false → 通常 LLM 応答（normal）', async () => {
+      const knowledgeRepo = makeKnowledgeRepo([]);
+      const llm = makeLLMClient(['もちろん！']);
+      (llm.chatStructured as jest.Mock).mockResolvedValue({
+        needsStudy: false,
+        normalizedTopic: '挨拶',
+      });
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          userText: 'おはよう！',
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          knowledgeRepository: knowledgeRepo,
+        })
+      );
+
+      expect(llm.chatStream).toHaveBeenCalled();
+      const textEvents = events.filter((e) => e.type === 'text');
+      expect(textEvents.length).toBeGreaterThan(0);
+    });
+
+    it('knowledgeRepository 未指定 → ゲートをスキップして通常フロー', async () => {
+      const llm = makeLLMClient(['普通の応答']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          userText: 'こんにちは',
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          // knowledgeRepository は未指定
+        })
+      );
+
+      expect(llm.chatStream).toHaveBeenCalled();
+      expect(events[events.length - 1]).toEqual({ type: 'done' });
+    });
+
+    it('知識ゲートがエラーを投げても通常フローで継続する（fail-warn）', async () => {
+      const knowledgeRepo = makeKnowledgeRepo([]);
+      (knowledgeRepo.list as jest.Mock).mockRejectedValue(new Error('DB error'));
+      const llm = makeLLMClient(['エラーでも応答']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          userText: 'テスト',
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          knowledgeRepository: knowledgeRepo,
+        })
+      );
+
+      // エラーでも通常 LLM 応答が返る
+      expect(llm.chatStream).toHaveBeenCalled();
+      expect(events[events.length - 1]).toEqual({ type: 'done' });
+    });
+
+    it('study 分岐後はアシスタントメッセージが保存される', async () => {
+      const knowledgeRepo = makeKnowledgeRepo([]);
+      const llm = makeLLMClient(['通常応答']);
+      (llm.chatStructured as jest.Mock).mockResolvedValue({
+        needsStudy: true,
+        normalizedTopic: 'テスト',
+      });
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          userText: 'テスト',
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          knowledgeRepository: knowledgeRepo,
+        })
+      );
+
+      const createCalls = (repo.create as jest.Mock).mock.calls;
+      const assistantCall = createCalls.find(
+        (args: unknown[]) => (args[0] as { Role: string }).Role === 'assistant'
+      );
+      expect(assistantCall).toBeDefined();
+      // テンプレ応答文（「知らない」系メッセージ）が保存される
+      const savedText = (assistantCall![0] as { Text: string }).Text;
+      expect(
+        savedText.includes('勉強') || savedText.includes('調べ') || savedText.includes('わからない')
+      ).toBe(true);
+    });
+
+    it('knowledge_hit 時は通常 LLM が知識 context で呼ばれる', async () => {
+      const k = makeKnowledge('モンスターハンター', 'カプコンのゲームシリーズ');
+      const knowledgeRepo = makeKnowledgeRepo([k]);
+      const llm = makeLLMClient(['モンハンの話ね！']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          userText: 'モンスターハンター',
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          knowledgeRepository: knowledgeRepo,
+        })
+      );
+
+      // chatStream（通常 LLM）が呼ばれた
+      expect(llm.chatStream).toHaveBeenCalled();
+      // system prompt に「この前調べたこと」セクションが含まれる
+      const streamArgs = (llm.chatStream as jest.Mock).mock.calls[0][0] as Array<{
+        role: string;
+        content: string;
+      }>;
+      const systemMsg = streamArgs.find((m) => m.role === 'system');
+      expect(systemMsg?.content).toContain('この前調べたこと');
     });
   });
 });

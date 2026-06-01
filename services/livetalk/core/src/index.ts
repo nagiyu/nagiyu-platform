@@ -215,6 +215,28 @@ export { DynamoDBKnowledgeRepository } from './repositories/dynamodb-knowledge.r
 export { KnowledgeMapper } from './mappers/knowledge.mapper.js';
 export { buildKnowledgeSK, buildKnowledgeSKPrefix } from './mappers/keys.js';
 
+// StudyTopic（Phase 5b / #3344）
+export type {
+  StudyTopicEntity,
+  StudyTopicKey,
+  CreateStudyTopicInput,
+  UpdateStudyTopicInput,
+} from './entities/study-topic.entity.js';
+export type { StudyTopicRepository } from './repositories/study-topic.repository.interface.js';
+export { InMemoryStudyTopicRepository } from './repositories/in-memory-study-topic.repository.js';
+export { DynamoDBStudyTopicRepository } from './repositories/dynamodb-study-topic.repository.js';
+export { StudyTopicMapper } from './mappers/study-topic.mapper.js';
+export { buildStudyTopicSK, buildStudyTopicSKPrefix } from './mappers/keys.js';
+
+// 知識ゲート（Phase 5b / #3344）
+export {
+  searchKnowledge,
+  classifyTopic,
+  evaluateKnowledgeGate,
+  type KnowledgeGateResult,
+} from './study/knowledge-gate.js';
+export { buildStudyDeferralMessage } from './study/templates.js';
+
 // Token counter
 export {
   TiktokenCounter,
@@ -244,6 +266,8 @@ export {
   STUDY_MIN_INTERVAL_HOURS,
   STUDY_INACTIVE_WINDOW_HOURS,
   STUDY_MIN_SUMMARY_LENGTH,
+  STUDY_TOPIC_TTL_SECONDS,
+  STUDY_TOPIC_GATE_PRIORITY,
 } from './constants.js';
 
 // Study usecase（Phase 5a）
