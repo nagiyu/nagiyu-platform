@@ -90,6 +90,12 @@ function setupFetchMocks(chatOk = false, sentenceAudio?: string) {
         json: () => Promise.resolve({ consented: true }),
       });
     }
+    if (url === '/api/lifecycle') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ state: 'awake' }),
+      });
+    }
     return Promise.resolve({ ok: chatOk, body: chatStream });
   });
 }
