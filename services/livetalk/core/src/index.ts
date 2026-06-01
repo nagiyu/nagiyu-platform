@@ -101,6 +101,14 @@ export {
   type LearnUserActivityParams,
 } from './usecases/learn-user-activity.usecase.js';
 
+// Research（Phase 5a）
+export type { IResearchClient, ResearchResult } from './research/index.js';
+export {
+  OpenAIResearchClient,
+  RESEARCH_ERROR_MESSAGES,
+  type OpenAIResearchClientOptions,
+} from './research/index.js';
+
 // Entities
 export type {
   MemoryEntity,
@@ -195,6 +203,18 @@ export { InMemorySafetyEventRepository } from './repositories/in-memory-safety-e
 export { InMemoryInterestRepository } from './repositories/in-memory-interest.repository.js';
 export { DynamoDBInterestRepository } from './repositories/dynamodb-interest.repository.js';
 
+// Knowledge（Phase 5a）
+export type {
+  KnowledgeEntity,
+  KnowledgeKey,
+  CreateKnowledgeInput,
+} from './entities/knowledge.entity.js';
+export type { KnowledgeRepository } from './repositories/knowledge.repository.interface.js';
+export { InMemoryKnowledgeRepository } from './repositories/in-memory-knowledge.repository.js';
+export { DynamoDBKnowledgeRepository } from './repositories/dynamodb-knowledge.repository.js';
+export { KnowledgeMapper } from './mappers/knowledge.mapper.js';
+export { buildKnowledgeSK, buildKnowledgeSKPrefix } from './mappers/keys.js';
+
 // Token counter
 export {
   TiktokenCounter,
@@ -220,4 +240,16 @@ export {
   AFFECTION_TIME_CONTINUITY_BONUS,
   AFFECTION_BIDIRECTIONALITY_WEIGHT,
   INTEREST_DEDUP_SIMILARITY_THRESHOLD,
+  STUDY_MAX_QUERIES_PER_RUN,
+  STUDY_MIN_INTERVAL_HOURS,
+  STUDY_INACTIVE_WINDOW_HOURS,
+  STUDY_MIN_SUMMARY_LENGTH,
 } from './constants.js';
+
+// Study usecase（Phase 5a）
+export {
+  studyForUser,
+  shouldStudyNow,
+  type StudyForUserParams,
+  type StudyForUserResult,
+} from './usecases/study.usecase.js';

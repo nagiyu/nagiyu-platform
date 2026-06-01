@@ -413,7 +413,8 @@ jobs:
 
           for FN in \
             "nagiyu-livetalk-batch-compress-$ENVIRONMENT" \
-            "nagiyu-livetalk-batch-learn-user-activity-$ENVIRONMENT"; do
+            "nagiyu-livetalk-batch-learn-user-activity-$ENVIRONMENT" \
+            "nagiyu-livetalk-batch-study-$ENVIRONMENT"; do
 
             aws lambda update-function-code \
               --function-name "$FN" \
@@ -518,6 +519,7 @@ jobs:
             echo "- **Latest tag**: same digest also pushed as \`:latest\`"
             echo "- **Batch Lambda（圧縮）**: \`nagiyu-livetalk-batch-compress-$ENVIRONMENT\`（EventBridge 日次 JST 03:00）"
             echo "- **Batch Lambda（学習）**: \`nagiyu-livetalk-batch-learn-user-activity-$ENVIRONMENT\`（EventBridge 週次 JST 日曜 03:00）"
+            echo "- **Batch Lambda（勉強）**: \`nagiyu-livetalk-batch-study-$ENVIRONMENT\`（EventBridge 毎時）"
             echo "- **ALB DNS**: \`$ALB_DNS\`"
             echo "- **Custom Domain**: https://$CUSTOM_DOMAIN"
             echo ""

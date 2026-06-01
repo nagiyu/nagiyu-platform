@@ -181,6 +181,70 @@ export class LiveTalkBatchStack extends cdk.Stack {
       })
     );
 
+    // ---- 勉強バッチ（Phase 5a / Issue #3343）----
+
+    // 勉強バッチ専用 DLQ
+    const studyDlq = new sqs.Queue(this, 'StudyDlq', {
+      queueName: `nagiyu-livetalk-study-dlq-${environment}`,
+      retentionPeriod: cdk.Duration.days(7),
+    });
+
+    // 勉強バッチ専用 IAM Role（OpenAI 権限が必要）
+    const studyRole = new iam.Role(this, 'StudyExecutionRole', {
+      roleName: `nagiyu-livetalk-study-role-${environment}`,
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
+      ],
+    });
+    dynamoTable.grantReadWriteData(studyRole);
+    studyDlq.grantSendMessages(studyRole);
+    grantErrorEventsWrite(this, studyRole, environment);
+
+    // 勉強バッチ Lambda
+    const studyFunction = new lambda.Function(this, 'StudyFunction', {
+      functionName: `nagiyu-livetalk-batch-study-${environment}`,
+      runtime: lambda.Runtime.FROM_IMAGE,
+      code: lambda.Code.fromEcrImage(batchRepository, {
+        tagOrDigest: 'latest',
+        cmd: ['services/livetalk/batch/dist/src/handlers/study.handler'],
+      }),
+      handler: lambda.Handler.FROM_IMAGE,
+      role: studyRole,
+      memorySize: 512,
+      timeout: cdk.Duration.minutes(15),
+      environment: {
+        NODE_ENV: environment,
+        DYNAMODB_TABLE_NAME: dynamoTableName,
+        OPENAI_API_KEY: openAiApiKey,
+        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
+        TZ: 'Asia/Tokyo',
+      },
+      deadLetterQueue: studyDlq,
+      tracing: lambda.Tracing.ACTIVE,
+      logRetention: logs.RetentionDays.ONE_MONTH,
+    });
+
+    // EventBridge: 毎時 0 分に実行（高頻度、ユーザーごとに判定で間引く）
+    const hourlyStudyRule = new events.Rule(this, 'HourlyStudyRule', {
+      ruleName: `livetalk-batch-study-${environment}`,
+      description: 'LiveTalk 勉強バッチ（毎時 JST）',
+      schedule: events.Schedule.cron({
+        minute: '0',
+        hour: '*',
+        day: '*',
+        month: '*',
+        year: '*',
+      }),
+    });
+    hourlyStudyRule.addTarget(
+      new targets.LambdaFunction(studyFunction, {
+        deadLetterQueue: studyDlq,
+        maxEventAge: cdk.Duration.hours(1),
+        retryAttempts: 1,
+      })
+    );
+
     // タグ
     cdk.Tags.of(this).add('Application', 'nagiyu');
     cdk.Tags.of(this).add('Service', 'livetalk');
@@ -206,6 +270,16 @@ export class LiveTalkBatchStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'LearnActivityDlqUrl', {
       value: learnActivityDlq.queueUrl,
       description: 'LiveTalk Learn User Activity DLQ URL',
+    });
+
+    new cdk.CfnOutput(this, 'StudyFunctionArn', {
+      value: studyFunction.functionArn,
+      description: 'LiveTalk Study Lambda Function ARN',
+    });
+
+    new cdk.CfnOutput(this, 'StudyDlqUrl', {
+      value: studyDlq.queueUrl,
+      description: 'LiveTalk Study DLQ URL',
     });
   }
 }
