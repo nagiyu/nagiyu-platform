@@ -94,7 +94,14 @@ describe('studyForUser', () => {
   const makeInterestRepo = (): jest.Mocked<InterestRepository> => ({
     get: jest.fn(),
     list: jest.fn().mockResolvedValue([
-      { UserID: 'u1', CharacterID: 'hiyori', Category: 'コーヒー', Weight: 10, CreatedAt: 0, UpdatedAt: 0 },
+      {
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Category: 'コーヒー',
+        Weight: 10,
+        CreatedAt: 0,
+        UpdatedAt: 0,
+      },
     ]),
     put: jest.fn(),
     update: jest.fn(),
@@ -184,19 +191,31 @@ describe('studyForUser', () => {
   it('リサーチ失敗でも他カテゴリを継続する（fail-warn）', async () => {
     const interestRepo = makeInterestRepo();
     interestRepo.list.mockResolvedValue([
-      { UserID: 'u1', CharacterID: 'hiyori', Category: 'コーヒー', Weight: 10, CreatedAt: 0, UpdatedAt: 0 },
-      { UserID: 'u1', CharacterID: 'hiyori', Category: 'アニメ', Weight: 5, CreatedAt: 0, UpdatedAt: 0 },
+      {
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Category: 'コーヒー',
+        Weight: 10,
+        CreatedAt: 0,
+        UpdatedAt: 0,
+      },
+      {
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Category: 'アニメ',
+        Weight: 5,
+        CreatedAt: 0,
+        UpdatedAt: 0,
+      },
     ]);
 
     const researchClient = makeResearchClient();
-    researchClient.research
-      .mockRejectedValueOnce(new Error('API エラー'))
-      .mockResolvedValueOnce({
-        topic: 'アニメの話題',
-        summary: 'アニメに関する情報です。'.repeat(5),
-        sourceUrls: [],
-        rawComment: '面白そう！',
-      });
+    researchClient.research.mockRejectedValueOnce(new Error('API エラー')).mockResolvedValueOnce({
+      topic: 'アニメの話題',
+      summary: 'アニメに関する情報です。'.repeat(5),
+      sourceUrls: [],
+      rawComment: '面白そう！',
+    });
 
     const knowledgeRepo = makeKnowledgeRepo();
     const result = await studyForUser('u1', 'hiyori', {

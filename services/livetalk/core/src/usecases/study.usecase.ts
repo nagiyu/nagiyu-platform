@@ -140,7 +140,10 @@ export function shouldStudyNow(
   const profile = lifecycle.UserActivityProfile;
   if (profile) {
     const currentHour = now.getHours();
-    if (isNearPeak(currentHour, profile.morningPeak) || isNearPeak(currentHour, profile.eveningPeak)) {
+    if (
+      isNearPeak(currentHour, profile.morningPeak) ||
+      isNearPeak(currentHour, profile.eveningPeak)
+    ) {
       return { result: false, reason: 'ユーザーのピーク活動時間帯' };
     }
   }

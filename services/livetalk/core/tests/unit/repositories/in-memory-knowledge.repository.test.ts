@@ -13,10 +13,18 @@ describe('InMemoryKnowledgeRepository', () => {
     repo = new InMemoryKnowledgeRepository(store, () => now);
   });
 
-  const makeInput = (overrides: Partial<{
-    UserID: string; CharacterID: string; KnowledgeID: string; Topic: string;
-    Summary: string; SourceUrls: string[]; RawComment: string; RelatedCategory: string;
-  }> = {}) => ({
+  const makeInput = (
+    overrides: Partial<{
+      UserID: string;
+      CharacterID: string;
+      KnowledgeID: string;
+      Topic: string;
+      Summary: string;
+      SourceUrls: string[];
+      RawComment: string;
+      RelatedCategory: string;
+    }> = {}
+  ) => ({
     UserID: 'u1',
     CharacterID: 'hiyori',
     KnowledgeID: 'ulid-001',

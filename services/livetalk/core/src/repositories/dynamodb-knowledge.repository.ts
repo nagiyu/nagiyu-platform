@@ -1,13 +1,6 @@
-import {
-  PutCommand,
-  QueryCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
+import { PutCommand, QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
-import type {
-  CreateKnowledgeInput,
-  KnowledgeEntity,
-} from '../entities/knowledge.entity.js';
+import type { CreateKnowledgeInput, KnowledgeEntity } from '../entities/knowledge.entity.js';
 import { KnowledgeMapper } from '../mappers/knowledge.mapper.js';
 import { buildKnowledgeSKPrefix, buildUserPK } from '../mappers/keys.js';
 import type { KnowledgeRepository } from './knowledge.repository.interface.js';
@@ -43,11 +36,7 @@ export class DynamoDBKnowledgeRepository implements KnowledgeRepository {
     }
   }
 
-  public async list(
-    userId: string,
-    characterId: string,
-    limit = 100
-  ): Promise<KnowledgeEntity[]> {
+  public async list(userId: string, characterId: string, limit = 100): Promise<KnowledgeEntity[]> {
     const pk = buildUserPK(userId);
     const prefix = buildKnowledgeSKPrefix(characterId);
     const results: KnowledgeEntity[] = [];

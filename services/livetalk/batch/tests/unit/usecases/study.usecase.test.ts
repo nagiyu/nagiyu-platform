@@ -1,5 +1,3 @@
-import { ScanCommand } from '@aws-sdk/lib-dynamodb';
-
 jest.mock('@nagiyu/livetalk-core', () => ({
   DEFAULT_CHARACTER_ID: 'hiyori',
   hiyori: {

@@ -1,8 +1,5 @@
 import { InMemorySingleTableStore } from '@nagiyu/aws';
-import type {
-  CreateKnowledgeInput,
-  KnowledgeEntity,
-} from '../entities/knowledge.entity.js';
+import type { CreateKnowledgeInput, KnowledgeEntity } from '../entities/knowledge.entity.js';
 import { KnowledgeMapper } from '../mappers/knowledge.mapper.js';
 import { buildKnowledgeSKPrefix, buildUserPK } from '../mappers/keys.js';
 import type { KnowledgeRepository } from './knowledge.repository.interface.js';
@@ -31,9 +28,7 @@ export class InMemoryKnowledgeRepository implements KnowledgeRepository {
     // store.query に limit を渡さず全件取得し、CreatedAt 降順でソート後に limit を適用する。
     // InMemorySingleTableStore は挿入順で返すため、先に limit を適用すると
     // 最新アイテムが取りこぼされる可能性がある。
-    const result = this.store.query(
-      { pk, sk: { operator: 'begins_with', value: prefix } }
-    );
+    const result = this.store.query({ pk, sk: { operator: 'begins_with', value: prefix } });
     return result.items
       .map((item) => this.mapper.toEntity(item))
       .sort((a, b) => b.CreatedAt - a.CreatedAt)

@@ -1,5 +1,8 @@
 import OpenAI from 'openai';
-import { OpenAIResearchClient, RESEARCH_ERROR_MESSAGES } from '../../../src/research/openai-research-client.js';
+import {
+  OpenAIResearchClient,
+  RESEARCH_ERROR_MESSAGES,
+} from '../../../src/research/openai-research-client.js';
 import type { CharacterDefinition } from '../../../src/characters/types.js';
 
 const character: CharacterDefinition = {
@@ -16,9 +19,7 @@ const character: CharacterDefinition = {
 
 describe('OpenAIResearchClient', () => {
   it('apiKey なしで初期化すると例外', () => {
-    expect(() => new OpenAIResearchClient({})).toThrow(
-      RESEARCH_ERROR_MESSAGES.EMPTY_API_KEY
-    );
+    expect(() => new OpenAIResearchClient({})).toThrow(RESEARCH_ERROR_MESSAGES.EMPTY_API_KEY);
   });
 
   it('client 注入で初期化できる', () => {

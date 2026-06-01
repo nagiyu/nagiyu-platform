@@ -213,10 +213,7 @@ export type { KnowledgeRepository } from './repositories/knowledge.repository.in
 export { InMemoryKnowledgeRepository } from './repositories/in-memory-knowledge.repository.js';
 export { DynamoDBKnowledgeRepository } from './repositories/dynamodb-knowledge.repository.js';
 export { KnowledgeMapper } from './mappers/knowledge.mapper.js';
-export {
-  buildKnowledgeSK,
-  buildKnowledgeSKPrefix,
-} from './mappers/keys.js';
+export { buildKnowledgeSK, buildKnowledgeSKPrefix } from './mappers/keys.js';
 
 // Token counter
 export {

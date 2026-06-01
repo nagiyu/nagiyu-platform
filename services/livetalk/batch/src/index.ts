@@ -14,7 +14,4 @@ export type {
 
 export { handler as studyHandler } from './handlers/study.js';
 export { studyAllUsers } from './usecases/study.usecase.js';
-export type {
-  StudyAllUsersParams,
-  StudyAllUsersResult,
-} from './usecases/study.usecase.js';
+export type { StudyAllUsersParams, StudyAllUsersResult } from './usecases/study.usecase.js';

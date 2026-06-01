@@ -35,9 +35,7 @@ export interface StudyAllUsersResult {
  * 各ユーザーについて shouldStudyNow 判定を行い、該当ユーザーのみ
  * Web リサーチ → 知識ベース保存を実行する（空振りコスト最小化）。
  */
-export async function studyAllUsers(
-  params: StudyAllUsersParams
-): Promise<StudyAllUsersResult> {
+export async function studyAllUsers(params: StudyAllUsersParams): Promise<StudyAllUsersResult> {
   const {
     docClient,
     tableName,

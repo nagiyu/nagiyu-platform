@@ -1,7 +1,4 @@
-import type {
-  CreateKnowledgeInput,
-  KnowledgeEntity,
-} from '../entities/knowledge.entity.js';
+import type { CreateKnowledgeInput, KnowledgeEntity } from '../entities/knowledge.entity.js';
 
 export interface KnowledgeRepository {
   put(input: CreateKnowledgeInput): Promise<KnowledgeEntity>;
