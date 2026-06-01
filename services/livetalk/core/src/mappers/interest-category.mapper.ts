@@ -23,7 +23,7 @@ export class InterestCategoryMapper implements EntityMapper<
       characterId: entity.CharacterID,
       category: entity.Category,
     });
-    return {
+    const item: DynamoDBItem = {
       PK: pk,
       SK: sk,
       Type: this.entityType,
@@ -34,10 +34,14 @@ export class InterestCategoryMapper implements EntityMapper<
       CreatedAt: entity.CreatedAt,
       UpdatedAt: entity.UpdatedAt,
     };
+    if (entity.Embedding !== undefined) {
+      item.Embedding = entity.Embedding;
+    }
+    return item;
   }
 
   public toEntity(item: DynamoDBItem): InterestCategoryEntity {
-    return {
+    const entity: InterestCategoryEntity = {
       UserID: validateStringField(item.UserID, 'UserID'),
       CharacterID: validateStringField(item.CharacterID, 'CharacterID'),
       Category: validateStringField(item.Category, 'Category'),
@@ -45,6 +49,10 @@ export class InterestCategoryMapper implements EntityMapper<
       CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
       UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
     };
+    if (item.Embedding !== undefined && Array.isArray(item.Embedding)) {
+      entity.Embedding = item.Embedding as number[];
+    }
+    return entity;
   }
 
   public buildKeys(key: InterestCategoryKey): { pk: string; sk: string } {

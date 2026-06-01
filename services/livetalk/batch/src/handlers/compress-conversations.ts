@@ -61,6 +61,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       llmClient,
       interestRepo,
       characterStateRepo,
+      embeddingClient,
     });
 
     logger.info('[compress-conversations] バッチ完了', {

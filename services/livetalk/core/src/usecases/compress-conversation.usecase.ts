@@ -5,7 +5,7 @@ import { emitBatchMetricsLog, emitBatchMetricsEMF } from '../observability/metri
 import { MEMORY_DEFAULT_CONFIDENCE } from '../constants.js';
 import { calculateBidirectionalityDelta } from '../affection/calculator.js';
 import { persistInterestCategories } from '../interest/category-extractor.js';
-import type { ILLMClient } from '../llm-client/types.js';
+import type { IEmbeddingClient, ILLMClient } from '../llm-client/types.js';
 import type { CharacterStateRepository } from '../repositories/character-state.repository.interface.js';
 import type { InterestRepository } from '../repositories/interest.repository.interface.js';
 import type { MemoryRepository } from '../repositories/memory.repository.interface.js';
@@ -23,6 +23,11 @@ export interface CompressConversationParams {
   interestRepo?: InterestRepository;
   /** bidirectionality を親密度に反映（Phase 3f）。未指定時はスキップ */
   characterStateRepo?: CharacterStateRepository;
+  /**
+   * 興味カテゴリの embedding ベース dedup（Issue #3325）。
+   * 未指定時は文字列完全一致のみで dedup する。
+   */
+  embeddingClient?: IEmbeddingClient;
 }
 
 /**
@@ -50,6 +55,7 @@ export async function compressConversation(
     now = () => Date.now(),
     interestRepo,
     characterStateRepo,
+    embeddingClient,
   } = params;
 
   const batchStart = performance.now();
@@ -70,10 +76,28 @@ export async function compressConversation(
     messageCount: messages.length,
   });
 
+  // 既存カテゴリ一覧をプロンプトに渡して粒度・dedup 判断を補助する（Issue #3325 / #3326）
+  let existingInterestCategories: string[] | undefined;
+  if (interestRepo) {
+    try {
+      const existing = await interestRepo.list(userId, characterId);
+      if (existing.length > 0) {
+        existingInterestCategories = existing.map((e) => e.Category);
+      }
+    } catch (err) {
+      logger.warn('[compressConversation] 既存興味カテゴリの取得に失敗しました', {
+        err,
+        userId,
+        characterId,
+      });
+    }
+  }
+
   const result = await llmClient.summarize({
     existingSummary: summary?.SummaryText,
     newMessages: messages.map((m) => ({ role: m.Role, text: m.Text })),
     characterName,
+    existingInterestCategories,
   });
 
   await summaryRepo.put({
@@ -115,9 +139,16 @@ export async function compressConversation(
   }
 
   // 興味カテゴリ抽出・保存（fail-warn: エラー時はスキップして継続）
+  // embeddingClient が指定されていれば同義カテゴリの dedup を実施（Issue #3325）
   if (interestRepo && result.interestCategories && result.interestCategories.length > 0) {
     try {
-      await persistInterestCategories(userId, characterId, result.interestCategories, interestRepo);
+      await persistInterestCategories(
+        userId,
+        characterId,
+        result.interestCategories,
+        interestRepo,
+        embeddingClient ? { embeddingClient } : undefined
+      );
     } catch (err) {
       logger.warn('[compressConversation] 興味カテゴリの保存に失敗しました', {
         err,

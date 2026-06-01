@@ -83,6 +83,13 @@ export interface SummarizeInput {
   existingSummary: string | undefined;
   newMessages: Array<{ role: 'user' | 'assistant'; text: string }>;
   characterName: string;
+  /**
+   * 既存の興味カテゴリ名一覧（Issue #3325 / #3326）。
+   *
+   * LLM に粒度ガイドと共に渡すことで、同義カテゴリの再表記揺れ・過剰な細分化を抑制する。
+   * 未指定時は LLM 任せ（旧挙動）。
+   */
+  existingInterestCategories?: string[];
 }
 
 /**

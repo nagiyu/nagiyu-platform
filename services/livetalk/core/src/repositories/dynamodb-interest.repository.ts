@@ -94,29 +94,35 @@ export class DynamoDBInterestRepository implements InterestRepository {
     });
 
     try {
+      const expressions = [
+        'SET #type = :type',
+        'UserID = :userId',
+        'CharacterID = :characterId',
+        'Category = :category',
+        'Weight = :weight',
+        'UpdatedAt = :updatedAt',
+        'CreatedAt = if_not_exists(CreatedAt, :createdAt)',
+      ];
+      const values: Record<string, unknown> = {
+        ':type': this.mapper.entityType,
+        ':userId': input.UserID,
+        ':characterId': input.CharacterID,
+        ':category': input.Category,
+        ':weight': input.Weight,
+        ':updatedAt': now,
+        ':createdAt': now,
+      };
+      if (input.Embedding !== undefined) {
+        expressions.push('Embedding = :embedding');
+        values[':embedding'] = input.Embedding;
+      }
       const result = await this.docClient.send(
         new UpdateCommand({
           TableName: this.tableName,
           Key: { PK: pk, SK: sk },
-          UpdateExpression: [
-            'SET #type = :type',
-            'UserID = :userId',
-            'CharacterID = :characterId',
-            'Category = :category',
-            'Weight = :weight',
-            'UpdatedAt = :updatedAt',
-            'CreatedAt = if_not_exists(CreatedAt, :createdAt)',
-          ].join(', '),
+          UpdateExpression: expressions.join(', '),
           ExpressionAttributeNames: { '#type': 'Type' },
-          ExpressionAttributeValues: {
-            ':type': this.mapper.entityType,
-            ':userId': input.UserID,
-            ':characterId': input.CharacterID,
-            ':category': input.Category,
-            ':weight': input.Weight,
-            ':updatedAt': now,
-            ':createdAt': now,
-          },
+          ExpressionAttributeValues: values,
           ReturnValues: 'ALL_NEW',
         })
       );
@@ -137,12 +143,18 @@ export class DynamoDBInterestRepository implements InterestRepository {
     });
 
     try {
+      const expressions = ['SET Weight = :weight', 'UpdatedAt = :updatedAt'];
+      const values: Record<string, unknown> = { ':weight': entity.Weight, ':updatedAt': now };
+      if (entity.Embedding !== undefined) {
+        expressions.push('Embedding = :embedding');
+        values[':embedding'] = entity.Embedding;
+      }
       const result = await this.docClient.send(
         new UpdateCommand({
           TableName: this.tableName,
           Key: { PK: pk, SK: sk },
-          UpdateExpression: 'SET Weight = :weight, UpdatedAt = :updatedAt',
-          ExpressionAttributeValues: { ':weight': entity.Weight, ':updatedAt': now },
+          UpdateExpression: expressions.join(', '),
+          ExpressionAttributeValues: values,
           ReturnValues: 'ALL_NEW',
         })
       );

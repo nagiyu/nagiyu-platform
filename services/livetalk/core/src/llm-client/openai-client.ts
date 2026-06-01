@@ -130,7 +130,7 @@ export class OpenAIClient implements ILLMClient {
   }
 
   public async summarize(input: SummarizeInput): Promise<SummarizeResult> {
-    const { existingSummary, newMessages, characterName } = input;
+    const { existingSummary, newMessages, characterName, existingInterestCategories } = input;
 
     const existingSection = existingSummary
       ? `既存の要約：\n${existingSummary}`
@@ -140,6 +140,13 @@ export class OpenAIClient implements ILLMClient {
       .map((m) => `${m.role === 'user' ? 'ユーザー' : characterName}: ${m.text}`)
       .join('\n');
 
+    const existingCategoriesSection =
+      existingInterestCategories && existingInterestCategories.length > 0
+        ? `既存の興味カテゴリ一覧（同義のものはこの表記を再利用すること）：\n${existingInterestCategories
+            .map((c) => `- ${c}`)
+            .join('\n')}`
+        : '既存の興味カテゴリ一覧：なし';
+
     const prompt = `以下は ${characterName} とユーザーとの会話です。
 
 ${existingSection}
@@ -147,9 +154,17 @@ ${existingSection}
 新しい会話：
 ${messagesSection}
 
+${existingCategoriesSection}
+
+interestCategories の抽出ルール：
+- 中粒度（趣味・嗜好レベル）で抽出する。良い例：「映画」「コーヒー」「ゲーム」「音楽」「読書」「猫」
+- 包含関係のあるカテゴリは親に集約する。悪い例：「映画スナック」（→「映画」へ）、「コーヒー・紅茶・カモミール」（→「飲み物」へ）、「オトモアイルー」（→「ゲーム」へ）
+- 既存カテゴリ一覧に同義カテゴリがあれば、必ず既存の表記をそのまま再利用する（例：既存に「コーヒー」があるのに新規で「コーヒー・飲み物」を作らない）
+- 1 会話あたり 5 件程度を目安に、ユーザーが明確に関心を示したものだけを抽出する
+
 mergedSummary（既存と新規をマージした最新要約、日本語）、
 newMemoryCandidates（新規記憶候補の配列、category と content を含む）、
-interestCategories（ユーザーが興味を示したカテゴリ配列、category と weight を含む。なければ空配列）、
+interestCategories（上記ルールに従って抽出したカテゴリ配列、category と weight を含む。weight は会話内の言及回数。なければ空配列）、
 bidirectionalityScore（ユーザーが ${characterName} の発話に反応・質問返しをした割合 0.0〜1.0。
   キャラ発信の話題にユーザーが乗った場合は高く 0.7〜1.0、ユーザーが一方的に話し続けた場合は低く 0.0〜0.3）
 を返してください。`;

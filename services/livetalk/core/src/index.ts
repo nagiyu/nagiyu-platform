@@ -13,7 +13,7 @@ export {
 } from './affection/index.js';
 
 // Interest category
-export type { ExtractedCategory } from './interest/index.js';
+export type { ExtractedCategory, InterestDedupOptions } from './interest/index.js';
 export { persistInterestCategories } from './interest/index.js';
 
 // Memory retrieval + confirmation + correction
@@ -219,4 +219,5 @@ export {
   AFFECTION_INFO_DISCLOSURE_WEIGHT,
   AFFECTION_TIME_CONTINUITY_BONUS,
   AFFECTION_BIDIRECTIONALITY_WEIGHT,
+  INTEREST_DEDUP_SIMILARITY_THRESHOLD,
 } from './constants.js';
