@@ -239,8 +239,10 @@ describe('learnUserActivity', () => {
 
       const lc = await lifecycleRepo.get({ userId: 'u1', characterId: 'hiyori' });
       // target wakeUpTime = 09:00 - 1h = 08:00; 09:30 より早くなっているはず
-      const wakeUpMin = lc!.WakeUpTime.split(':').reduce((h, m, i) =>
-        i === 0 ? Number(m) * 60 : Number(m) + h, 0);
+      const wakeUpMin = lc!.WakeUpTime.split(':').reduce(
+        (h, m, i) => (i === 0 ? Number(m) * 60 : Number(m) + h),
+        0
+      );
       expect(wakeUpMin).toBeLessThan(9 * 60 + 30);
     });
 

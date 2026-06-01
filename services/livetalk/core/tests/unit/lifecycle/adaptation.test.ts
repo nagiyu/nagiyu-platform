@@ -1,9 +1,5 @@
 import { adaptCharacterSchedule } from '../../../src/lifecycle/adaptation.js';
-import {
-  parseTimeToMinutes,
-  formatMinutesToTime,
-  smoothTime,
-} from '../../../src/lifecycle/time-utils.js';
+import { parseTimeToMinutes, smoothTime } from '../../../src/lifecycle/time-utils.js';
 
 const DEFAULT_CURRENT = { bedtime: '01:30', wakeUpTime: '09:30' };
 
