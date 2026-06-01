@@ -30,6 +30,33 @@ describe('lib/server/repositories', () => {
     expect(p1).toBeDefined();
     expect(c1).toBeDefined();
     expect(l1).toBeDefined();
+
+    // Phase 5b 配線: 知識ゲートで使う Knowledge / StudyTopic も取得できる
+    const k1 = mod.getKnowledgeRepository();
+    const k2 = mod.getKnowledgeRepository();
+    expect(k1).toBe(k2);
+    const s1 = mod.getStudyTopicRepository();
+    const s2 = mod.getStudyTopicRepository();
+    expect(s1).toBe(s2);
+  });
+
+  it('InMemory 実装では StudyTopic を保存して status 別に取得できる（共有 store 検証）', async () => {
+    process.env.USE_IN_MEMORY_DB = 'true';
+    const mod = await import('@/lib/server/repositories');
+    mod.resetRepositoriesForTesting();
+    const repo = mod.getStudyTopicRepository();
+    await repo.put({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      TopicID: 'tp1',
+      Topic: 'モンスターハンター',
+      Priority: 10,
+      Status: 'pending',
+    });
+    const pending = await repo.listByStatus('u1', 'hiyori', 'pending');
+    expect(pending).toHaveLength(1);
+    expect(pending[0].Topic).toBe('モンスターハンター');
+    mod.resetRepositoriesForTesting();
   });
 
   it('InMemory 実装では Message を保存して取得できる（共有 store 検証）', async () => {
@@ -70,6 +97,8 @@ describe('lib/server/repositories', () => {
     expect(() => mod.getProfileRepository()).not.toThrow();
     expect(() => mod.getCharacterStateRepository()).not.toThrow();
     expect(() => mod.getLifecycleRepository()).not.toThrow();
+    expect(() => mod.getKnowledgeRepository()).not.toThrow();
+    expect(() => mod.getStudyTopicRepository()).not.toThrow();
     mod.resetRepositoriesForTesting();
   });
 });

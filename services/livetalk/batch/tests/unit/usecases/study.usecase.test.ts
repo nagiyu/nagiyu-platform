@@ -92,4 +92,18 @@ describe('studyAllUsers', () => {
     expect(result.failedUsers).toBe(2);
     expect(result.failedUserIds).toEqual(['u1', 'u2']);
   });
+
+  it('studyTopicRepo を studyForUser に受け渡す（Phase 5b 配線）', async () => {
+    mockStudyForUser.mockResolvedValue({ outcome: 'studied', savedCount: 1 });
+    const studyTopicRepo = { listByStatus: jest.fn() };
+
+    const { studyAllUsers } = await import('../../../src/usecases/study.usecase.js');
+    await studyAllUsers(makeParams({ studyTopicRepo: studyTopicRepo as never }));
+
+    expect(mockStudyForUser).toHaveBeenCalledWith(
+      'u1',
+      'hiyori',
+      expect.objectContaining({ studyTopicRepo })
+    );
+  });
 });

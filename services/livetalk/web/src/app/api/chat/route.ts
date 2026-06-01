@@ -6,9 +6,11 @@ import { getLLMClient } from '@/lib/server/llm';
 import { getVoicevoxClient } from '@/lib/server/voicevox';
 import {
   getCharacterStateRepository,
+  getKnowledgeRepository,
   getLifecycleRepository,
   getMemoryRepository,
   getMessageRepository,
+  getStudyTopicRepository,
 } from '@/lib/server/repositories';
 import { getModerationClient, getSafetyEventRepository } from '@/lib/server/safety';
 import { getMemoryRetriever } from '@/lib/server/memory-retriever';
@@ -101,6 +103,8 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (session, reques
           embeddingClient: getEmbeddingClient(),
           characterStateRepository: getCharacterStateRepository(),
           lifecycleRepository: getLifecycleRepository(),
+          knowledgeRepository: getKnowledgeRepository(),
+          studyTopicRepository: getStudyTopicRepository(),
         });
 
         for await (const event of eventGenerator) {
