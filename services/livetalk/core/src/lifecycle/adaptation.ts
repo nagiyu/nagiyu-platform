@@ -47,7 +47,7 @@ export function adaptCharacterSchedule(
   const morningPeakMin = parseTimeToMinutes(userProfile.morningPeak);
   const eveningPeakMin = parseTimeToMinutes(userProfile.eveningPeak);
 
-  const targetWakeUp = ((morningPeakMin - options.offsetHours.wakeUp * 60) % 1440 + 1440) % 1440;
+  const targetWakeUp = (((morningPeakMin - options.offsetHours.wakeUp * 60) % 1440) + 1440) % 1440;
   const targetBedtime = (eveningPeakMin + options.offsetHours.bedtime * 60) % 1440;
 
   // 移動平均で緩やかに shift（clamp は smooth 後に適用）

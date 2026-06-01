@@ -1,7 +1,7 @@
 /** "HH:mm" → 0〜1439 の分数に変換する */
 export function parseTimeToMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(':').map(Number);
-  return ((h * 60 + m) % 1440 + 1440) % 1440;
+  return (((h * 60 + m) % 1440) + 1440) % 1440;
 }
 
 /** 0〜1439 の分数（mod 1440 自動適用）を "HH:mm" に変換する */
@@ -22,7 +22,7 @@ export function smoothTime(currentMinutes: number, targetMinutes: number, alpha:
   let diff = targetMinutes - currentMinutes;
   if (diff > 720) diff -= 1440;
   if (diff < -720) diff += 1440;
-  return ((currentMinutes + alpha * diff) % 1440 + 1440) % 1440;
+  return (((currentMinutes + alpha * diff) % 1440) + 1440) % 1440;
 }
 
 /**

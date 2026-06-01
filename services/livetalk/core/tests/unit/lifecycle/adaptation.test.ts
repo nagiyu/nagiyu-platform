@@ -1,5 +1,9 @@
 import { adaptCharacterSchedule } from '../../../src/lifecycle/adaptation.js';
-import { parseTimeToMinutes, formatMinutesToTime, smoothTime } from '../../../src/lifecycle/time-utils.js';
+import {
+  parseTimeToMinutes,
+  formatMinutesToTime,
+  smoothTime,
+} from '../../../src/lifecycle/time-utils.js';
 
 const DEFAULT_CURRENT = { bedtime: '01:30', wakeUpTime: '09:30' };
 
@@ -23,11 +27,10 @@ describe('adaptCharacterSchedule', () => {
 
   describe('smoothing=0 のとき current のまま変化しない', () => {
     it('現在値を保持する', () => {
-      const result = adaptCharacterSchedule(
-        DEFAULT_CURRENT,
-        makeProfile('09:00', '22:00'),
-        { offsetHours: { wakeUp: 1, bedtime: 1.5 }, smoothing: 0 }
-      );
+      const result = adaptCharacterSchedule(DEFAULT_CURRENT, makeProfile('09:00', '22:00'), {
+        offsetHours: { wakeUp: 1, bedtime: 1.5 },
+        smoothing: 0,
+      });
       expect(result.bedtime).toBe(DEFAULT_CURRENT.bedtime);
       expect(result.wakeUpTime).toBe(DEFAULT_CURRENT.wakeUpTime);
     });
@@ -35,11 +38,10 @@ describe('adaptCharacterSchedule', () => {
 
   describe('smoothing=1 のとき target（クランプ後）に収束する', () => {
     it('通常ユーザー: morningPeak=09:00, eveningPeak=22:00', () => {
-      const result = adaptCharacterSchedule(
-        DEFAULT_CURRENT,
-        makeProfile('09:00', '22:00'),
-        { offsetHours: { wakeUp: 1, bedtime: 1.5 }, smoothing: 1 }
-      );
+      const result = adaptCharacterSchedule(DEFAULT_CURRENT, makeProfile('09:00', '22:00'), {
+        offsetHours: { wakeUp: 1, bedtime: 1.5 },
+        smoothing: 1,
+      });
       // target wakeUpTime = 09:00 - 1h = 08:00（クランプ範囲[05:00,12:00]内）
       expect(result.wakeUpTime).toBe('08:00');
       // target bedtime = 22:00 + 1.5h = 23:30（クランプ範囲[21:00,04:00]内）
@@ -75,42 +77,38 @@ describe('adaptCharacterSchedule', () => {
   describe('クランプ（境界条件）', () => {
     it('極端な早起きユーザー（morningPeak=04:00）: wakeUpTime は 05:00 にクランプ', () => {
       // target = 04:00 - 1h = 03:00 → clamp to 05:00
-      const result = adaptCharacterSchedule(
-        DEFAULT_CURRENT,
-        makeProfile('04:00', '21:00'),
-        { offsetHours: { wakeUp: 1, bedtime: 1.5 }, smoothing: 1 }
-      );
+      const result = adaptCharacterSchedule(DEFAULT_CURRENT, makeProfile('04:00', '21:00'), {
+        offsetHours: { wakeUp: 1, bedtime: 1.5 },
+        smoothing: 1,
+      });
       expect(result.wakeUpTime).toBe('05:00');
     });
 
     it('極端な夜型ユーザー（morningPeak=14:00）: wakeUpTime は 12:00 にクランプ', () => {
       // target = 14:00 - 1h = 13:00 → clamp to 12:00
-      const result = adaptCharacterSchedule(
-        DEFAULT_CURRENT,
-        makeProfile('14:00', '23:00'),
-        { offsetHours: { wakeUp: 1, bedtime: 1.5 }, smoothing: 1 }
-      );
+      const result = adaptCharacterSchedule(DEFAULT_CURRENT, makeProfile('14:00', '23:00'), {
+        offsetHours: { wakeUp: 1, bedtime: 1.5 },
+        smoothing: 1,
+      });
       expect(result.wakeUpTime).toBe('12:00');
     });
 
     it('深夜のみ活動（eveningPeak=02:00）: bedtime は 04:00 にクランプ', () => {
       // target = 02:00 + 1.5h = 03:30 → 03:30 は [21:00,04:00] 範囲内
-      const result = adaptCharacterSchedule(
-        DEFAULT_CURRENT,
-        makeProfile('09:00', '02:00'),
-        { offsetHours: { wakeUp: 1, bedtime: 1.5 }, smoothing: 1 }
-      );
+      const result = adaptCharacterSchedule(DEFAULT_CURRENT, makeProfile('09:00', '02:00'), {
+        offsetHours: { wakeUp: 1, bedtime: 1.5 },
+        smoothing: 1,
+      });
       const bedtimeMin = parseTimeToMinutes(result.bedtime);
       expect(bedtimeMin).toBeLessThanOrEqual(4 * 60);
     });
 
     it('夕方早めに終わるユーザー（eveningPeak=19:00）: bedtime は 21:00 にクランプ', () => {
       // target = 19:00 + 1.5h = 20:30 → [21:00,04:00] 範囲外 → clamp to 21:00
-      const result = adaptCharacterSchedule(
-        DEFAULT_CURRENT,
-        makeProfile('09:00', '19:00'),
-        { offsetHours: { wakeUp: 1, bedtime: 1.5 }, smoothing: 1 }
-      );
+      const result = adaptCharacterSchedule(DEFAULT_CURRENT, makeProfile('09:00', '19:00'), {
+        offsetHours: { wakeUp: 1, bedtime: 1.5 },
+        smoothing: 1,
+      });
       expect(result.bedtime).toBe('21:00');
     });
   });
@@ -133,11 +131,10 @@ describe('adaptCharacterSchedule', () => {
 
   describe('offsetHours のカスタマイズ', () => {
     it('offsetHours を 0 にするとユーザーピークに近づく', () => {
-      const result = adaptCharacterSchedule(
-        DEFAULT_CURRENT,
-        makeProfile('08:00', '22:00'),
-        { offsetHours: { wakeUp: 0, bedtime: 0 }, smoothing: 1 }
-      );
+      const result = adaptCharacterSchedule(DEFAULT_CURRENT, makeProfile('08:00', '22:00'), {
+        offsetHours: { wakeUp: 0, bedtime: 0 },
+        smoothing: 1,
+      });
       expect(result.wakeUpTime).toBe('08:00');
       expect(result.bedtime).toBe('22:00');
     });
