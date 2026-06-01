@@ -25,6 +25,25 @@ describe('LiveTalkBatchStack', () => {
     });
   });
 
+  it('学習バッチ用 Lambda 関数が存在する', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: Match.stringLikeRegexp('livetalk-batch-learn-user-activity'),
+    });
+  });
+
+  it('バッチ Lambda を 2 つ作成する（圧縮 + 学習）', () => {
+    // logRetention は LogRetention 用の provider Lambda を別途生成するため、
+    // AWS::Lambda::Function の総数ではなく FunctionName で個別に検証する。
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: Match.stringLikeRegexp('livetalk-batch-compress'),
+    });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: Match.stringLikeRegexp('livetalk-batch-learn-user-activity'),
+    });
+  });
+
   it('Lambda のタイムアウトは 15 分', () => {
     const { template } = synth();
     template.hasResourceProperties('AWS::Lambda::Function', {
@@ -50,21 +69,53 @@ describe('LiveTalkBatchStack', () => {
     });
   });
 
-  it('EventBridge ルールを 1 つ作成する', () => {
+  it('学習バッチ Lambda 環境変数に TZ=Asia/Tokyo が含まれる', () => {
     const { template } = synth();
-    template.resourceCountIs('AWS::Events::Rule', 1);
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: Match.stringLikeRegexp('livetalk-batch-learn-user-activity'),
+      Environment: {
+        Variables: Match.objectLike({
+          TZ: 'Asia/Tokyo',
+        }),
+      },
+    });
   });
 
-  it('EventBridge スケジュールは cron(0 18 * * ? *)', () => {
+  it('学習バッチ Lambda には OPENAI_API_KEY を含めない', () => {
+    const { stack } = synth();
+    const template = Template.fromStack(stack);
+    const functions = template.findResources('AWS::Lambda::Function', {
+      Properties: {
+        FunctionName: Match.stringLikeRegexp('livetalk-batch-learn-user-activity'),
+      },
+    });
+    const learnFn = Object.values(functions)[0];
+    const vars = learnFn.Properties.Environment.Variables;
+    expect(vars.OPENAI_API_KEY).toBeUndefined();
+  });
+
+  it('EventBridge ルールを 2 つ作成する（日次圧縮 + 週次学習）', () => {
+    const { template } = synth();
+    template.resourceCountIs('AWS::Events::Rule', 2);
+  });
+
+  it('圧縮バッチの EventBridge スケジュールは cron(0 18 * * ? *)', () => {
     const { template } = synth();
     template.hasResourceProperties('AWS::Events::Rule', {
       ScheduleExpression: 'cron(0 18 * * ? *)',
     });
   });
 
-  it('SQS DLQ を 1 つ作成する', () => {
+  it('学習バッチの EventBridge スケジュールは週次（土曜 UTC 18:00）', () => {
     const { template } = synth();
-    template.resourceCountIs('AWS::SQS::Queue', 1);
+    template.hasResourceProperties('AWS::Events::Rule', {
+      ScheduleExpression: 'cron(0 18 ? * SAT *)',
+    });
+  });
+
+  it('SQS DLQ を 2 つ作成する（圧縮 + 学習で分離）', () => {
+    const { template } = synth();
+    template.resourceCountIs('AWS::SQS::Queue', 2);
   });
 
   it('Lambda 実行ロールを作成する', () => {
@@ -83,6 +134,11 @@ describe('LiveTalkBatchStack', () => {
   it('BatchFunctionArn を Outputs に出力する', () => {
     const { template } = synth();
     template.hasOutput('BatchFunctionArn', Match.anyValue());
+  });
+
+  it('LearnActivityFunctionArn を Outputs に出力する', () => {
+    const { template } = synth();
+    template.hasOutput('LearnActivityFunctionArn', Match.anyValue());
   });
 
   it('prod 環境でも正しく生成する', () => {
