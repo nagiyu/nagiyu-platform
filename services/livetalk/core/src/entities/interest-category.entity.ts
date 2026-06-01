@@ -13,6 +13,13 @@ export interface InterestCategoryEntity {
   Category: string;
   /** 累積重み（言及頻度ベース）。バッチ実行ごとに加算される */
   Weight: number;
+  /**
+   * カテゴリ名の embedding（Issue #3325）。
+   *
+   * 新規カテゴリ抽出時の dedup（同義カテゴリ統合）に使用する。
+   * 既存項目には未設定の場合があり（後方互換）、必要に応じてバッチ内で生成・バックフィルする。
+   */
+  Embedding?: number[];
   CreatedAt: number;
   UpdatedAt: number;
 }

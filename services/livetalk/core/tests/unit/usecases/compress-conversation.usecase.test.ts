@@ -235,6 +235,103 @@ describe('compressConversation', () => {
     expect(capturedExisting).toBe('既存の要約内容');
   });
 
+  it('interestRepo がある場合、既存カテゴリ一覧を summarize へ渡す（Issue #3325 / #3326）', async () => {
+    let captured: { existingInterestCategories?: string[] } = {};
+    const spyClient: ILLMClient = {
+      async *chatStream() {
+        yield '';
+      },
+      async chatComplete() {
+        return '';
+      },
+      async chatStructured() {
+        return {} as never;
+      },
+      async summarize(input) {
+        captured = { existingInterestCategories: input.existingInterestCategories };
+        return { mergedSummary: '', newMemoryCandidates: [] };
+      },
+    };
+
+    const { messageRepo, summaryRepo, memoryRepo } = makeRepos();
+    const interestRepo = new InMemoryInterestRepository(new InMemorySingleTableStore());
+    await interestRepo.put({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Category: 'コーヒー',
+      Weight: 1,
+    });
+
+    tick = fixedNow;
+    await messageRepo.create({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Role: 'user',
+      Text: 'こんにちは',
+    });
+
+    await compressConversation('u1', 'hiyori', {
+      summaryRepo,
+      messageRepo,
+      memoryRepo,
+      llmClient: spyClient,
+      characterName: 'ひより',
+      now: () => fixedNow,
+      interestRepo,
+    });
+
+    expect(captured.existingInterestCategories).toEqual(['コーヒー']);
+  });
+
+  it('embeddingClient を渡すと興味カテゴリの同義 dedup が機能する（Issue #3325）', async () => {
+    const llmClient = makeLLMClient({
+      mergedSummary: '要約',
+      newMemoryCandidates: [],
+      interestCategories: [{ category: 'コーヒー・飲み物', weight: 2 }],
+    });
+    const { messageRepo, summaryRepo, memoryRepo } = makeRepos();
+    const interestRepo = new InMemoryInterestRepository(new InMemorySingleTableStore());
+    // 既存「コーヒー」を投入
+    await interestRepo.put({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Category: 'コーヒー',
+      Weight: 1,
+      Embedding: [1, 0, 0],
+    });
+
+    const embeddingClient = {
+      async embed(text: string) {
+        if (text === 'コーヒー・飲み物') return [1, 0, 0];
+        return [0, 1, 0];
+      },
+    };
+
+    tick = fixedNow;
+    await messageRepo.create({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Role: 'user',
+      Text: 'こんにちは',
+    });
+
+    await compressConversation('u1', 'hiyori', {
+      summaryRepo,
+      messageRepo,
+      memoryRepo,
+      llmClient,
+      characterName: 'ひより',
+      now: () => fixedNow,
+      interestRepo,
+      embeddingClient,
+    });
+
+    const all = await interestRepo.list('u1', 'hiyori');
+    expect(all).toHaveLength(1);
+    expect(all[0].Category).toBe('コーヒー');
+    expect(all[0].Weight).toBe(3);
+  });
+
   it('interestCategories が返ったら InterestRepository に保存する', async () => {
     const llmClient = makeLLMClient({
       mergedSummary: '要約',

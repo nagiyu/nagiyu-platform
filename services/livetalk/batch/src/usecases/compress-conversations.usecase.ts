@@ -42,6 +42,7 @@ export async function compressAllConversations(
     now,
     interestRepo,
     characterStateRepo,
+    embeddingClient,
   } = params;
 
   const userIds = await scanAllUserIds(docClient, tableName);
@@ -69,6 +70,7 @@ export async function compressAllConversations(
         now,
         interestRepo,
         characterStateRepo,
+        embeddingClient,
       });
       void before;
       result.processedUsers++;

@@ -123,3 +123,12 @@ export const LIFECYCLE_DEFAULT_WAKE_UP_TIME = '09:30';
  * 緩めの 0.5 に設定する（無関係な話題は cosine ≤ 0.4 で十分に分離できる）。
  */
 export const PROMOTION_SIMILARITY_THRESHOLD = 0.5;
+
+/**
+ * 興味カテゴリの dedup（重複統合）と判定する cosine similarity 下限閾値（Phase 5 着手前の宿題、Issue #3325）。
+ *
+ * 興味カテゴリ名は短い名詞句（「コーヒー」「映画鑑賞」など）で、Memory 本文より文体差が小さいため
+ * 同義であれば cosine 0.85 以上に出る（dev 実データで「コーヒー」と「コーヒー・飲み物」は約 0.9）。
+ * 過剰統合（無関係カテゴリの誤統合）を避けるため Memory 昇格よりは厳しめに設定する。
+ */
+export const INTEREST_DEDUP_SIMILARITY_THRESHOLD = 0.85;
