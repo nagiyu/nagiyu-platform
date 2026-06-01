@@ -4,8 +4,25 @@ import {
   type DynamoDBItem,
   type EntityMapper,
 } from '@nagiyu/aws';
-import type { LifecycleEntity, LifecycleKey } from '../entities/lifecycle.entity.js';
+import type {
+  LifecycleEntity,
+  LifecycleKey,
+  UserActivityProfile,
+} from '../entities/lifecycle.entity.js';
 import { buildLifecycleSK, buildUserPK } from './keys.js';
+
+function toUserActivityProfile(raw: unknown): UserActivityProfile {
+  if (typeof raw !== 'object' || raw === null) {
+    throw new Error('UserActivityProfile が不正です');
+  }
+  const obj = raw as Record<string, unknown>;
+  return {
+    morningPeak: validateStringField(obj['morningPeak'], 'UserActivityProfile.morningPeak'),
+    eveningPeak: validateStringField(obj['eveningPeak'], 'UserActivityProfile.eveningPeak'),
+    sampleSize: typeof obj['sampleSize'] === 'number' ? obj['sampleSize'] : 0,
+    lastLearnedAt: validateStringField(obj['lastLearnedAt'], 'UserActivityProfile.lastLearnedAt'),
+  };
+}
 
 export class LifecycleMapper implements EntityMapper<LifecycleEntity, LifecycleKey> {
   public readonly entityType = 'Lifecycle';
@@ -23,6 +40,9 @@ export class LifecycleMapper implements EntityMapper<LifecycleEntity, LifecycleK
       CharacterID: entity.CharacterID,
       Bedtime: entity.Bedtime,
       WakeUpTime: entity.WakeUpTime,
+      ...(entity.UserActivityProfile !== undefined && {
+        UserActivityProfile: entity.UserActivityProfile,
+      }),
       CreatedAt: entity.CreatedAt,
       UpdatedAt: entity.UpdatedAt,
     };
@@ -34,6 +54,9 @@ export class LifecycleMapper implements EntityMapper<LifecycleEntity, LifecycleK
       CharacterID: validateStringField(item.CharacterID, 'CharacterID'),
       Bedtime: validateStringField(item.Bedtime, 'Bedtime'),
       WakeUpTime: validateStringField(item.WakeUpTime, 'WakeUpTime'),
+      ...(item.UserActivityProfile !== undefined && {
+        UserActivityProfile: toUserActivityProfile(item.UserActivityProfile),
+      }),
       CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
       UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
     };

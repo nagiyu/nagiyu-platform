@@ -5,7 +5,9 @@ import type {
   LifecycleEntity,
   LifecycleKey,
   UpdateLifecycleInput,
+  UserActivityProfile,
 } from '../entities/lifecycle.entity.js';
+import { LIFECYCLE_DEFAULT_BEDTIME, LIFECYCLE_DEFAULT_WAKE_UP_TIME } from '../constants.js';
 import { LifecycleMapper } from '../mappers/lifecycle.mapper.js';
 import type { LifecycleRepository } from './lifecycle.repository.interface.js';
 
@@ -51,6 +53,35 @@ export class DynamoDBLifecycleRepository implements LifecycleRepository {
       CharacterID: input.CharacterID,
       Bedtime: updates.Bedtime ?? input.Bedtime,
       WakeUpTime: updates.WakeUpTime ?? input.WakeUpTime,
+      ...(existing?.UserActivityProfile !== undefined && {
+        UserActivityProfile: existing.UserActivityProfile,
+      }),
+      CreatedAt: existing?.CreatedAt ?? now,
+      UpdatedAt: now,
+    };
+    try {
+      await this.docClient.send(
+        new PutCommand({ TableName: this.tableName, Item: this.mapper.toItem(entity) })
+      );
+      return entity;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+    }
+  }
+
+  public async updateUserActivityProfile(
+    key: LifecycleKey,
+    profile: UserActivityProfile
+  ): Promise<LifecycleEntity> {
+    const now = this.nowMs();
+    const existing = await this.get(key);
+    const entity: LifecycleEntity = {
+      UserID: key.userId,
+      CharacterID: key.characterId,
+      Bedtime: existing?.Bedtime ?? LIFECYCLE_DEFAULT_BEDTIME,
+      WakeUpTime: existing?.WakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME,
+      UserActivityProfile: profile,
       CreatedAt: existing?.CreatedAt ?? now,
       UpdatedAt: now,
     };

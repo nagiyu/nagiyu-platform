@@ -406,21 +406,28 @@ jobs:
           ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
         run: |
           # 既存スタックへの再デプロイでは :latest タグが不変のため CloudFormation が
-          # Lambda コードを更新しない。明示的に最新イメージへ更新する。
+          # Lambda コードを更新しない。全バッチ Lambda に明示的に最新イメージを反映する。
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
           IMAGE_URI="$ECR_REGISTRY/nagiyu-livetalk-batch-ecr-$ENVIRONMENT:latest"
 
-          aws lambda update-function-code \
-            --function-name "nagiyu-livetalk-batch-compress-$ENVIRONMENT" \
-            --image-uri "$IMAGE_URI" \
-            --region ${{ env.AWS_REGION }}
+          for FN in \
+            "nagiyu-livetalk-batch-compress-$ENVIRONMENT" \
+            "nagiyu-livetalk-batch-learn-user-activity-$ENVIRONMENT"; do
 
-          aws lambda wait function-updated \
-            --function-name "nagiyu-livetalk-batch-compress-$ENVIRONMENT" \
-            --region ${{ env.AWS_REGION }}
+            aws lambda update-function-code \
+              --function-name "$FN" \
+              --image-uri "$IMAGE_URI" \
+              --region ${{ env.AWS_REGION }}
 
-          echo "Batch Lambda updated with image: $IMAGE_URI"
+            aws lambda wait function-updated \
+              --function-name "$FN" \
+              --region ${{ env.AWS_REGION }}
+
+            echo "Batch Lambda updated: $FN"
+          done
+
+          echo "All batch Lambdas updated with image: $IMAGE_URI"
 
   infrastructure-cloudfront:
     name: Deploy CloudFront Distribution
@@ -509,7 +516,8 @@ jobs:
             echo "- **App Version**: $APP_VERSION"
             echo "- **Image (SHA tag)**: \`$IMAGE_URI\`"
             echo "- **Latest tag**: same digest also pushed as \`:latest\`"
-            echo "- **Batch Lambda**: \`nagiyu-livetalk-batch-compress-$ENVIRONMENT\`（EventBridge 日次 JST 03:00）"
+            echo "- **Batch Lambda（圧縮）**: \`nagiyu-livetalk-batch-compress-$ENVIRONMENT\`（EventBridge 日次 JST 03:00）"
+            echo "- **Batch Lambda（学習）**: \`nagiyu-livetalk-batch-learn-user-activity-$ENVIRONMENT\`（EventBridge 週次 JST 日曜 03:00）"
             echo "- **ALB DNS**: \`$ALB_DNS\`"
             echo "- **Custom Domain**: https://$CUSTOM_DOMAIN"
             echo ""

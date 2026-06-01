@@ -109,4 +109,69 @@ describe('DynamoDBLifecycleRepository', () => {
       repo.upsert({ UserID: 'u1', CharacterID: 'hiyori', Bedtime: '01:30', WakeUpTime: '09:30' })
     ).rejects.toBeInstanceOf(DatabaseError);
   });
+
+  describe('updateUserActivityProfile', () => {
+    const profile = {
+      morningPeak: '08:00',
+      eveningPeak: '21:00',
+      sampleSize: 10,
+      lastLearnedAt: '2026-06-01T00:00:00.000Z',
+    };
+
+    it('既存なしの場合はデフォルト値で PutCommand を送る', async () => {
+      const sent: unknown[] = [];
+      const client = makeClient(async (cmd) => {
+        sent.push(cmd);
+        if (cmd instanceof GetCommand) return { Item: undefined };
+        return {};
+      });
+      const repo = new DynamoDBLifecycleRepository(client as never, tableName, () => now);
+      const result = await repo.updateUserActivityProfile(
+        { userId: 'u1', characterId: 'hiyori' },
+        profile
+      );
+      expect(result.UserActivityProfile).toEqual(profile);
+      expect(result.CreatedAt).toBe(now);
+      const put = (sent[1] as PutCommand).input;
+      expect(put.Item?.UserActivityProfile).toEqual(profile);
+    });
+
+    it('既存ありの場合は Bedtime/WakeUpTime を保持する', async () => {
+      const existing = {
+        PK: 'USER#u1',
+        SK: 'CHAR#hiyori#LIFECYCLE',
+        Type: 'Lifecycle',
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Bedtime: '02:00',
+        WakeUpTime: '10:00',
+        CreatedAt: 1_600_000_000_000,
+        UpdatedAt: now - 5000,
+      };
+      const client = makeClient(async (cmd) => {
+        if (cmd instanceof GetCommand) return { Item: existing };
+        return {};
+      });
+      const repo = new DynamoDBLifecycleRepository(client as never, tableName, () => now);
+      const result = await repo.updateUserActivityProfile(
+        { userId: 'u1', characterId: 'hiyori' },
+        profile
+      );
+      expect(result.Bedtime).toBe('02:00');
+      expect(result.WakeUpTime).toBe('10:00');
+      expect(result.CreatedAt).toBe(1_600_000_000_000);
+      expect(result.UserActivityProfile).toEqual(profile);
+    });
+
+    it('Put エラーは DatabaseError でラップする', async () => {
+      const client = makeClient(async (cmd) => {
+        if (cmd instanceof GetCommand) return { Item: undefined };
+        throw new Error('put failure');
+      });
+      const repo = new DynamoDBLifecycleRepository(client as never, tableName, () => now);
+      await expect(
+        repo.updateUserActivityProfile({ userId: 'u1', characterId: 'hiyori' }, profile)
+      ).rejects.toBeInstanceOf(DatabaseError);
+    });
+  });
 });
