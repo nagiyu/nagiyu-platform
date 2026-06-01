@@ -44,6 +44,7 @@ import {
   emitChatMetricsEMF,
 } from '../observability/metrics.js';
 import { evaluateKnowledgeGate } from '../study/knowledge-gate.js';
+import type { KnowledgeMatcher } from '../study/knowledge-matcher.js';
 import { buildStudyDeferralMessage } from '../study/templates.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
 
@@ -100,6 +101,11 @@ export interface ChatUseCaseParams {
   knowledgeRepository?: KnowledgeRepository;
   /** StudyTopic リポジトリ。knowledgeRepository 指定時に study 分岐で使用する */
   studyTopicRepository?: StudyTopicRepository;
+  /**
+   * 知識ベース照合のストラテジ。未指定時は文字 N-gram 照合（既定）。
+   * 将来 embedding / LLM ベースの照合へ差し替えるための注入ポイント。
+   */
+  knowledgeMatcher?: KnowledgeMatcher;
   /** ULID ファクトリ。テスト時に差し替え可能。未指定時はデフォルト実装 */
   ulidFactory?: UlidFactory;
 }
@@ -220,6 +226,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     lifecycleRepository,
     knowledgeRepository,
     studyTopicRepository,
+    knowledgeMatcher,
     ulidFactory = defaultUlidFactory,
   } = params;
 
@@ -337,7 +344,8 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
         userText,
         character.displayName,
         allKnowledge,
-        llmClient
+        llmClient,
+        knowledgeMatcher
       );
 
       if (gateResult.kind === 'study') {

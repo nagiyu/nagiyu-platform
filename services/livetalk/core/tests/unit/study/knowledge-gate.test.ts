@@ -115,6 +115,23 @@ describe('classifyTopic', () => {
       expect.objectContaining({ purpose: 'classify' })
     );
   });
+
+  // ── 問題B の回帰: プロンプトがユーザー自身の質問を勉強対象から除外している ──
+  it('system プロンプトがユーザー自身に関する質問を needsStudy=false と明示している', async () => {
+    const llm = makeLLMClient({ needsStudy: false, normalizedTopic: 'x' });
+    await classifyTopic('俺の好きな飲み物って覚えてる？', 'ひより', llm);
+    const calledMessages = (llm.chatStructured as jest.Mock).mock.calls[0][0] as Array<{
+      role: string;
+      content: string;
+    }>;
+    const system = calledMessages.find((m) => m.role === 'system')?.content ?? '';
+    // 「ユーザー自身のこと」「記憶」「false」という方針が含まれていること
+    expect(system).toContain('ユーザー自身');
+    expect(system).toContain('記憶');
+    expect(system).toMatch(/false/);
+    // Web で調べられるかを判断基準にしていること
+    expect(system).toContain('検索');
+  });
 });
 
 // ── evaluateKnowledgeGate ─────────────────────────────────────────────────
@@ -172,5 +189,36 @@ describe('evaluateKnowledgeGate', () => {
     expect(result.kind).toBe('knowledge_hit');
     if (result.kind !== 'knowledge_hit') throw new Error('unexpected');
     expect(result.knowledge.map((k) => k.KnowledgeID)).toEqual(['k2']);
+  });
+
+  // ── 問題A の回帰: 自然文でも既知トピックを取りこぼさず knowledge_hit になる ──
+  it('自然文「最近の飲み物のトレンド知ってる？」が飲み物知識に knowledge_hit する（N-gram）', async () => {
+    const k = makeKnowledge({
+      KnowledgeID: 'drink',
+      Topic: '飲み物の最新情報（2026年春〜初夏）',
+      Summary:
+        '飲み物の最新トレンド情報。新商品やブランドのリニューアル、季節限定フレーバーやコラボなど、最近の飲み物の動きをまとめたよ。',
+    });
+    // 旧 substring 照合では取りこぼし study に流れていたケース
+    const llm = makeLLMClient({ needsStudy: true, normalizedTopic: '飲み物のトレンド' });
+    const result = await evaluateKnowledgeGate(
+      '最近の飲み物のトレンド知ってる？',
+      'ひより',
+      [k],
+      llm
+    );
+    expect(result.kind).toBe('knowledge_hit');
+    // ヒットしたので LLM 分類（study 判定）は呼ばれない
+    expect(llm.chatStructured).not.toHaveBeenCalled();
+  });
+
+  it('matcher を差し替えると照合方法を切り替えられる（注入ポイント）', async () => {
+    const k = makeKnowledge({ Topic: '飲み物', Summary: '飲み物の話' });
+    const llm = makeLLMClient({ needsStudy: false, normalizedTopic: 'x' });
+    // 常に空を返すマッチャ → 必ず分類フローへ
+    const noopMatcher = { findMatches: jest.fn().mockResolvedValue([]) };
+    const result = await evaluateKnowledgeGate('飲み物', 'ひより', [k], llm, noopMatcher);
+    expect(noopMatcher.findMatches).toHaveBeenCalled();
+    expect(result.kind).toBe('normal');
   });
 });

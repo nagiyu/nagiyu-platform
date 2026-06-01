@@ -1,6 +1,7 @@
 import type { ILLMClient } from '../llm-client/types.js';
 import type { KnowledgeEntity } from '../entities/knowledge.entity.js';
 import { KnowledgeGateSchema } from '../llm-client/schemas/knowledge-gate.schema.js';
+import { type KnowledgeMatcher, NgramKnowledgeMatcher } from './knowledge-matcher.js';
 
 /** 知識ゲートのキーワード照合に使う最小スコア（トークン一致数） */
 const KEYWORD_MATCH_MIN_TOKENS = 1;
@@ -62,20 +63,27 @@ export async function classifyTopic(
     {
       role: 'system' as const,
       content: `あなたはAIコンパニオン「${characterName}」のトピック分類器です。
-ユーザーの発言から「${characterName}が勉強して調べる必要があるトピック」かを判定してください。
+ユーザーの発言が「${characterName}が Web で調べて学ぶべき、未知の外部トピックか」を判定してください。
 
-needsStudy=true にするケース:
-- 時事・最新ニュース・直近のイベント
-- ユーザー固有の人物・場所・体験の詳細
-- ニッチな専門知識で${characterName}の嗜好範囲外
+needsStudy=true は、次の【両方】を満たす場合だけにしてください:
+1. 公開された外部情報として Web 検索で答えが見つかる（時事・最新ニュース・直近イベント・実在の作品/製品/サービス/人物・専門知識）
+2. ${characterName}がまだ知らない可能性が高い
 
-needsStudy=false にするケース:
-- 一般常識（歴史・科学・地理の基本）
-- 日常会話・感情表現・雑談・相談
-- キャラへの質問（性格・好き嫌い）
-- 挨拶・依頼・感想
+needsStudy=false にするケース（特に重要）:
+- 【ユーザー自身に関すること】好み・経歴・予定・家族や友人・体験・気持ちなど。「私の〜」「俺の〜」「〜って覚えてる?」のような発言は、記憶で答えるべきで Web では調べられないため【必ず false】
+- 一般常識（歴史・科学・地理の基本など）
+- ${characterName}への質問（性格・好き嫌い）
+- 挨拶・雑談・感情表現・相談・依頼
 
-normalizedTopic: 話題を表す短い名詞句（例: "モンハン新作", "ユーザーの新しい職場"）。
+判断の指針: 「これは検索エンジンで答えが見つくか? それともユーザー本人にしか分からないことか?」を自問してください。ユーザー本人に関することは決して勉強対象にしてはいけません（検索しても答えは出ず、本来は記憶で応答すべきだからです）。
+
+例:
+- 「最近の○○のニュース教えて」→ true（時事・外部情報）
+- 「俺の好きな飲み物って覚えてる?」→ false（ユーザー自身のこと・記憶の領分）
+- 「日本の首都ってどこ?」→ false（一般常識）
+- 「今日はちょっと疲れたな」→ false（雑談・感情）
+
+normalizedTopic: 話題を表す短い名詞句（例: "モンハン新作"）。
 needsStudy=false の場合でも適切な値を返してください。`,
     },
     {
@@ -99,16 +107,19 @@ export type KnowledgeGateResult =
  * 知識ゲートの最終判定（コード側で gating）。
  *
  * フロー:
- *   1. 知識ベースをキーワード照合 → ヒット → knowledge_hit
+ *   1. 知識ベースをキーワード照合（既定は文字 N-gram） → ヒット → knowledge_hit
  *   2. LLM 分類（needsStudy=true → study / false → normal）
+ *
+ * matcher を差し替えることで将来 embedding / LLM ベースの照合に切り替えられる。
  */
 export async function evaluateKnowledgeGate(
   userText: string,
   characterName: string,
   knowledge: KnowledgeEntity[],
-  llmClient: ILLMClient
+  llmClient: ILLMClient,
+  matcher: KnowledgeMatcher = new NgramKnowledgeMatcher()
 ): Promise<KnowledgeGateResult> {
-  const hits = searchKnowledge(userText, knowledge);
+  const hits = await matcher.findMatches(userText, knowledge);
   if (hits.length > 0) {
     return { kind: 'knowledge_hit', knowledge: hits };
   }
