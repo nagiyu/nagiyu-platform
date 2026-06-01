@@ -5,18 +5,21 @@ function makeDate(hour: number, minute = 0): Date {
 }
 
 describe('resolveLifecycleState', () => {
-  describe('デフォルト設定（就寝 01:30 / 起床 09:30）', () => {
+  // TEMPORARY（#3333 検証用）: デフォルトを就寝 06:00 / 起床 05:00（終日ほぼ
+  // sleeping、awake は 05:00–06:00 のみ）に一時拡張中。検証完了後、constants.ts の
+  // 本来値 '01:30' / '09:30' への復帰に合わせて本ブロックも元の期待値へ戻すこと。
+  describe('デフォルト設定（TEMPORARY: 就寝 06:00 / 起床 05:00）', () => {
     it.each([
+      [0, 0, 'sleeping'],
       [1, 30, 'sleeping'],
-      [5, 0, 'sleeping'],
-      [9, 0, 'sleeping'],
-      [9, 29, 'sleeping'],
-      [9, 30, 'awake'],
-      [12, 0, 'awake'],
-      [18, 0, 'awake'],
-      [23, 59, 'awake'],
-      [0, 0, 'awake'],
-      [1, 29, 'awake'],
+      [4, 59, 'sleeping'],
+      [5, 0, 'awake'],
+      [5, 30, 'awake'],
+      [5, 59, 'awake'],
+      [6, 0, 'sleeping'],
+      [9, 30, 'sleeping'],
+      [12, 0, 'sleeping'],
+      [23, 59, 'sleeping'],
     ] as [number, number, string][])('%i:%s → %s', (hour, minute, expected) => {
       const result = resolveLifecycleState(makeDate(hour, minute));
       expect(result).toBe(expected);
