@@ -104,4 +104,67 @@ describe('InMemoryLifecycleRepository', () => {
     expect(r1?.Bedtime).toBe('01:30');
     expect(r2?.Bedtime).toBe('00:00');
   });
+
+  describe('updateUserActivityProfile', () => {
+    const profile = {
+      morningPeak: '08:00',
+      eveningPeak: '21:00',
+      sampleSize: 10,
+      lastLearnedAt: '2026-06-01T00:00:00.000Z',
+    };
+
+    it('既存なしの場合はデフォルト Bedtime/WakeUpTime で新規作成する', async () => {
+      const result = await repo.updateUserActivityProfile(
+        { userId: 'u1', characterId: 'hiyori' },
+        profile
+      );
+      expect(result.UserActivityProfile).toEqual(profile);
+      expect(result.Bedtime).toBeDefined();
+      expect(result.WakeUpTime).toBeDefined();
+
+      const fetched = await repo.get({ userId: 'u1', characterId: 'hiyori' });
+      expect(fetched?.UserActivityProfile).toEqual(profile);
+    });
+
+    it('既存ありの場合は Bedtime/WakeUpTime を保持する', async () => {
+      await repo.upsert({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Bedtime: '02:00',
+        WakeUpTime: '10:00',
+      });
+
+      now += 1000;
+      const result = await repo.updateUserActivityProfile(
+        { userId: 'u1', characterId: 'hiyori' },
+        profile
+      );
+      expect(result.Bedtime).toBe('02:00');
+      expect(result.WakeUpTime).toBe('10:00');
+      expect(result.UserActivityProfile).toEqual(profile);
+    });
+
+    it('二度呼ぶと最新プロファイルで上書きされる', async () => {
+      await repo.updateUserActivityProfile({ userId: 'u1', characterId: 'hiyori' }, profile);
+      const profile2 = { ...profile, sampleSize: 99, morningPeak: '07:00' };
+      now += 1000;
+      await repo.updateUserActivityProfile({ userId: 'u1', characterId: 'hiyori' }, profile2);
+
+      const fetched = await repo.get({ userId: 'u1', characterId: 'hiyori' });
+      expect(fetched?.UserActivityProfile?.sampleSize).toBe(99);
+      expect(fetched?.UserActivityProfile?.morningPeak).toBe('07:00');
+    });
+
+    it('upsert で UserActivityProfile が保持される', async () => {
+      await repo.updateUserActivityProfile({ userId: 'u1', characterId: 'hiyori' }, profile);
+      now += 1000;
+      await repo.upsert(
+        { UserID: 'u1', CharacterID: 'hiyori', Bedtime: '02:00', WakeUpTime: '10:00' },
+        { Bedtime: '02:00' }
+      );
+
+      const fetched = await repo.get({ userId: 'u1', characterId: 'hiyori' });
+      expect(fetched?.UserActivityProfile).toEqual(profile);
+    });
+  });
 });

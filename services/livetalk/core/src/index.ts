@@ -62,13 +62,15 @@ export type {
 } from './observability/index.js';
 
 // Lifecycle
-export { resolveLifecycleState } from './lifecycle/index.js';
+export { resolveLifecycleState, buildHourlyHistogram, findPeakInRange } from './lifecycle/index.js';
+export type { HourHistogram } from './lifecycle/index.js';
 export type {
   LifecycleEntity,
   LifecycleKey,
   LifecycleState,
   CreateLifecycleInput,
   UpdateLifecycleInput,
+  UserActivityProfile,
 } from './entities/lifecycle.entity.js';
 export type { LifecycleRepository } from './repositories/lifecycle.repository.interface.js';
 export { InMemoryLifecycleRepository } from './repositories/in-memory-lifecycle.repository.js';
@@ -83,6 +85,12 @@ export {
   compressConversation,
   type CompressConversationParams,
 } from './usecases/compress-conversation.usecase.js';
+
+// Learn user activity usecase
+export {
+  learnUserActivity,
+  type LearnUserActivityParams,
+} from './usecases/learn-user-activity.usecase.js';
 
 // Entities
 export type {

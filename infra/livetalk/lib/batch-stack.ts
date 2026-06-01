@@ -22,16 +22,16 @@ export interface LiveTalkBatchStackProps extends cdk.StackProps {
 }
 
 /**
- * LiveTalk バッチ処理スタック（Phase 3c / Issue #3281）
+ * LiveTalk バッチ処理スタック（Phase 3c / Issue #3281、Phase 4c / Issue #3329）
  *
- * 日次で全ユーザーの会話を圧縮要約する Lambda を作成する。
- * - EventBridge: JST 03:00（UTC 18:00）に日次実行
- * - Lambda: FROM_IMAGE / 512MB / 15 分タイムアウト
- * - DLQ: 失敗時のデッドレター保持（7 日）
- * - IAM: DynamoDB 読み書き + CloudWatch Logs
+ * 圧縮要約バッチと活動時間学習バッチの 2 Lambda を管理する。
+ * - compress: 日次 JST 03:00（UTC 18:00）
+ * - learn-user-activity: 週次 JST 日曜 03:00（UTC 土曜 18:00）
+ * - DLQ / IAM Role は Lambda ごとに独立（障害切り分け・権限最小化）
  */
 export class LiveTalkBatchStack extends cdk.Stack {
   public readonly batchFunction: lambda.Function;
+  public readonly learnActivityFunction: lambda.Function;
 
   constructor(scope: Construct, id: string, props: LiveTalkBatchStackProps) {
     super(scope, id, props);
@@ -120,6 +120,67 @@ export class LiveTalkBatchStack extends cdk.Stack {
       })
     );
 
+    // ---- ユーザー活動時間学習バッチ（Phase 4c / Issue #3329）----
+
+    // 学習バッチ専用 DLQ（compress バッチと障害切り分けのため独立）
+    const learnActivityDlq = new sqs.Queue(this, 'LearnActivityDlq', {
+      queueName: `nagiyu-livetalk-learn-activity-dlq-${environment}`,
+      retentionPeriod: cdk.Duration.days(7),
+    });
+
+    // 学習バッチ専用 IAM Role（OpenAI 権限不要、DynamoDB read/write のみ）
+    const learnActivityRole = new iam.Role(this, 'LearnActivityExecutionRole', {
+      roleName: `nagiyu-livetalk-learn-activity-role-${environment}`,
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
+      ],
+    });
+    dynamoTable.grantReadWriteData(learnActivityRole);
+    learnActivityDlq.grantSendMessages(learnActivityRole);
+    grantErrorEventsWrite(this, learnActivityRole, environment);
+
+    // 学習バッチ Lambda
+    this.learnActivityFunction = new lambda.Function(this, 'LearnActivityFunction', {
+      functionName: `nagiyu-livetalk-batch-learn-user-activity-${environment}`,
+      runtime: lambda.Runtime.FROM_IMAGE,
+      code: lambda.Code.fromEcrImage(batchRepository, {
+        tagOrDigest: 'latest',
+        cmd: ['services/livetalk/batch/dist/src/handlers/learn-user-activity.handler'],
+      }),
+      handler: lambda.Handler.FROM_IMAGE,
+      role: learnActivityRole,
+      memorySize: 512,
+      timeout: cdk.Duration.minutes(15),
+      environment: {
+        NODE_ENV: environment,
+        DYNAMODB_TABLE_NAME: dynamoTableName,
+        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
+        TZ: 'Asia/Tokyo',
+      },
+      deadLetterQueue: learnActivityDlq,
+      tracing: lambda.Tracing.ACTIVE,
+      logRetention: logs.RetentionDays.ONE_MONTH,
+    });
+
+    // EventBridge: 週次 JST 日曜 03:00（= UTC 土曜 18:00）
+    const weeklyLearnRule = new events.Rule(this, 'WeeklyLearnActivityRule', {
+      ruleName: `livetalk-batch-learn-activity-${environment}`,
+      description: 'LiveTalk ユーザー活動時間学習バッチ（週次 JST 日曜 03:00）',
+      schedule: events.Schedule.cron({
+        minute: '0',
+        hour: '18',
+        weekDay: 'SAT',
+      }),
+    });
+    weeklyLearnRule.addTarget(
+      new targets.LambdaFunction(this.learnActivityFunction, {
+        deadLetterQueue: learnActivityDlq,
+        maxEventAge: cdk.Duration.hours(2),
+        retryAttempts: 1,
+      })
+    );
+
     // タグ
     cdk.Tags.of(this).add('Application', 'nagiyu');
     cdk.Tags.of(this).add('Service', 'livetalk');
@@ -135,6 +196,16 @@ export class LiveTalkBatchStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'BatchDlqUrl', {
       value: dlq.queueUrl,
       description: 'LiveTalk Batch DLQ URL',
+    });
+
+    new cdk.CfnOutput(this, 'LearnActivityFunctionArn', {
+      value: this.learnActivityFunction.functionArn,
+      description: 'LiveTalk Learn User Activity Lambda Function ARN',
+    });
+
+    new cdk.CfnOutput(this, 'LearnActivityDlqUrl', {
+      value: learnActivityDlq.queueUrl,
+      description: 'LiveTalk Learn User Activity DLQ URL',
     });
   }
 }
