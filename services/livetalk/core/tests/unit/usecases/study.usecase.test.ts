@@ -192,10 +192,24 @@ describe('studyForUser', () => {
 
   // ── STUDY_TOPIC 優先処理（Phase 5b）──
 
-  const makeStudyTopicRepo = (topics: StudyTopicEntity[] = []): jest.Mocked<StudyTopicRepository> => ({
-    put: jest.fn().mockImplementation(async (input) => ({ ...input, CreatedAt: Date.now(), UpdatedAt: Date.now() })),
+  const makeStudyTopicRepo = (
+    topics: StudyTopicEntity[] = []
+  ): jest.Mocked<StudyTopicRepository> => ({
+    put: jest
+      .fn()
+      .mockImplementation(async (input) => ({
+        ...input,
+        CreatedAt: Date.now(),
+        UpdatedAt: Date.now(),
+      })),
     listByStatus: jest.fn().mockResolvedValue(topics),
-    updateStatus: jest.fn().mockImplementation(async (input) => ({ ...input, CreatedAt: Date.now(), UpdatedAt: Date.now() })),
+    updateStatus: jest
+      .fn()
+      .mockImplementation(async (input) => ({
+        ...input,
+        CreatedAt: Date.now(),
+        UpdatedAt: Date.now(),
+      })),
     findPendingByTopic: jest.fn().mockResolvedValue(null),
   });
 

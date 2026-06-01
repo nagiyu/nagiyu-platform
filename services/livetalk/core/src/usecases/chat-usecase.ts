@@ -327,7 +327,9 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
 
   // 3.6. 知識ゲート（Phase 5b / Issue #3344）
   // knowledgeRepository が指定されている場合のみ実行（未指定時は従来フローで継続）
-  let knowledgeContextForPrompt: import('../entities/knowledge.entity.js').KnowledgeEntity[] | undefined;
+  let knowledgeContextForPrompt:
+    | import('../entities/knowledge.entity.js').KnowledgeEntity[]
+    | undefined;
   if (knowledgeRepository) {
     try {
       const allKnowledge = await knowledgeRepository.list(userId, characterId);

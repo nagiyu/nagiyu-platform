@@ -90,7 +90,10 @@ describe('DynamoDBStudyTopicRepository', () => {
   describe('listByStatus()', () => {
     it('全件取得（status 未指定）', async () => {
       const mockSend = jest.fn().mockResolvedValue({
-        Items: [makeItemRaw(), makeItemRaw({ SK: 'CHAR#hiyori#STUDY#tp2', TopicID: 'tp2', Status: 'done' })],
+        Items: [
+          makeItemRaw(),
+          makeItemRaw({ SK: 'CHAR#hiyori#STUDY#tp2', TopicID: 'tp2', Status: 'done' }),
+        ],
       });
       const repo = makeRepo(mockSend);
 

@@ -31,5 +31,8 @@ export interface StudyTopicKey {
 }
 
 export type CreateStudyTopicInput = Omit<StudyTopicEntity, 'CreatedAt' | 'UpdatedAt'>;
-export type UpdateStudyTopicInput = Pick<StudyTopicEntity, 'UserID' | 'CharacterID' | 'TopicID' | 'Status' | 'Priority'> &
+export type UpdateStudyTopicInput = Pick<
+  StudyTopicEntity,
+  'UserID' | 'CharacterID' | 'TopicID' | 'Status' | 'Priority'
+> &
   Partial<Pick<StudyTopicEntity, 'Ttl'>>;

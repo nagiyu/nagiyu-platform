@@ -1252,7 +1252,11 @@ describe('runChatUseCase', () => {
       return {
         put: jest.fn(async (input) => ({ ...input, CreatedAt: Date.now(), UpdatedAt: Date.now() })),
         listByStatus: jest.fn(async () => []),
-        updateStatus: jest.fn(async (input) => ({ ...input, CreatedAt: Date.now(), UpdatedAt: Date.now() })),
+        updateStatus: jest.fn(async (input) => ({
+          ...input,
+          CreatedAt: Date.now(),
+          UpdatedAt: Date.now(),
+        })),
         findPendingByTopic: jest.fn(async () => null),
       } as unknown as StudyTopicRepository;
     }

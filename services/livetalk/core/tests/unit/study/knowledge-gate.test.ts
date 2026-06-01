@@ -26,7 +26,9 @@ function makeKnowledge(overrides: Partial<KnowledgeEntity> = {}): KnowledgeEntit
 
 function makeLLMClient(result: { needsStudy: boolean; normalizedTopic: string }): ILLMClient {
   return {
-    chatStream: jest.fn(async function* () { yield ''; }),
+    chatStream: jest.fn(async function* () {
+      yield '';
+    }),
     chatComplete: jest.fn(),
     chatStructured: jest.fn(async () => result) as unknown as ILLMClient['chatStructured'],
     summarize: jest.fn(async () => ({ mergedSummary: '', newMemoryCandidates: [] })),
@@ -66,7 +68,11 @@ describe('searchKnowledge', () => {
   it('複数 knowledge から複数ヒット', () => {
     const k1 = makeKnowledge({ KnowledgeID: 'k1', Topic: 'モンハン', Summary: 'ゲーム' });
     const k2 = makeKnowledge({ KnowledgeID: 'k2', Topic: 'コーヒー', Summary: '飲み物' });
-    const k3 = makeKnowledge({ KnowledgeID: 'k3', Topic: 'モンスターハンター最新', Summary: 'ゲーム情報' });
+    const k3 = makeKnowledge({
+      KnowledgeID: 'k3',
+      Topic: 'モンスターハンター最新',
+      Summary: 'ゲーム情報',
+    });
     const hits = searchKnowledge('モンハン', [k1, k2, k3]);
     expect(hits).toHaveLength(1);
     expect(hits[0].KnowledgeID).toBe('k1');

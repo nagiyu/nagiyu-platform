@@ -12,7 +12,7 @@ const KEYWORD_MATCH_MIN_TOKENS = 1;
 function tokenize(text: string): Set<string> {
   const tokens = text
     .toLowerCase()
-    .split(/[\s、。，．　！？!?「」『』【】・\-_,./]+/)
+    .split(/[\s、。，．\u3000！？!?「」『』【】・\-_,./]+/)
     .filter((t) => t.length >= 2);
   return new Set(tokens);
 }
