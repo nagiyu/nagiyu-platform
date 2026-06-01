@@ -77,3 +77,6 @@ infra/**/*.d.ts
 
 # Yarn (このプロジェクトはnpmを使用)
 yarn.lock
+
+# Claude Code 内部状態（ワークツリー・セッションキャッシュ等）
+.claude/
