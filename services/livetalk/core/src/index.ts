@@ -235,6 +235,12 @@ export {
   evaluateKnowledgeGate,
   type KnowledgeGateResult,
 } from './study/knowledge-gate.js';
+export {
+  type KnowledgeMatcher,
+  NgramKnowledgeMatcher,
+  normalizeForMatch,
+  toBigrams,
+} from './study/knowledge-matcher.js';
 export { buildStudyDeferralMessage } from './study/templates.js';
 
 // Token counter

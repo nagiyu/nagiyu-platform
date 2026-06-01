@@ -166,3 +166,12 @@ export const STUDY_TOPIC_TTL_SECONDS = 30 * 24 * 60 * 60;
  * 通常の勉強バッチ（Priority=1）より高くして先に処理させる。
  */
 export const STUDY_TOPIC_GATE_PRIORITY = 10;
+
+/**
+ * 知識ゲートのキーワード照合（N-gram マッチャ）の最小一致率。
+ * ユーザー発話の文字 2-gram のうち、知識テキストに含まれる割合がこの値以上なら
+ * knowledge_hit とみなす。日本語はスペース分割できないため substring 照合だと
+ * 自然文を取りこぼすので、文字 2-gram の重なり率で再現率を確保する。
+ * 0.5 は dev 実データでの実測に基づく値（既知トピックを拾いつつ無関係語を弾く境界）。
+ */
+export const KNOWLEDGE_MATCH_MIN_RATIO = 0.5;
