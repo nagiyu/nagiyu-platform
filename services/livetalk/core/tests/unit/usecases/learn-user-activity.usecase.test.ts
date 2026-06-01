@@ -180,7 +180,7 @@ describe('learnUserActivity', () => {
     expect(lc?.UserActivityProfile?.eveningPeak).toBe('21:00');
   });
 
-  it('既存 LIFECYCLE の Bedtime/WakeUpTime は保持される', async () => {
+  it('既存 LIFECYCLE の Bedtime/WakeUpTime は適応方向に shift される（Phase 4d）', async () => {
     const store = makeStore();
     const lifecycleRepo = makeLifecycleRepo(store);
 
@@ -192,6 +192,7 @@ describe('learnUserActivity', () => {
       WakeUpTime: '10:00',
     });
 
+    // JST 21 時に集中 → eveningPeak=21:00、morningPeak=デフォルト 08:00
     await makeJstMessages(store, 21, 5);
 
     const nowDate = new Date(JST_21_UTC_MS + 100 * 24 * 3600 * 1000);
@@ -203,8 +204,64 @@ describe('learnUserActivity', () => {
     });
 
     const lc = await lifecycleRepo.get({ userId: 'u1', characterId: 'hiyori' });
-    expect(lc?.Bedtime).toBe('02:00');
-    expect(lc?.WakeUpTime).toBe('10:00');
+    // targetBedtime = 22:30、smoothing=0.3 なので 02:00 → 22:30 方向に shift
+    // current=02:00(120min)、diff の最短路は後方向(-210min) → 00:57 付近
+    expect(lc?.Bedtime).not.toBe('02:00'); // 変化している
+    // UserActivityProfile は保持される
+    expect(lc?.UserActivityProfile).toBeDefined();
+    expect(lc?.UserActivityProfile?.eveningPeak).toBe('21:00');
+  });
+
+  describe('Phase 4d: スケジュール適応', () => {
+    it('learned 後に Bedtime/WakeUpTime が shift される', async () => {
+      const store = makeStore();
+      const lifecycleRepo = makeLifecycleRepo(store);
+
+      // 事前に既存ライフサイクルを作成
+      tick = BASE_NOW_MS;
+      await lifecycleRepo.upsert({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Bedtime: '01:30',
+        WakeUpTime: '09:30',
+      });
+
+      // morningPeak=09:00 に集中するメッセージを作成（JST 9時 = UTC 0時）
+      await makeJstMessages(store, 9, 5);
+
+      const nowDate = new Date(JST_21_UTC_MS + 100 * 24 * 3600 * 1000);
+      await learnUserActivity('u1', 'hiyori', {
+        messageRepo: makeMessageRepo(store),
+        lifecycleRepo,
+        now: () => nowDate,
+        lookbackDays: 200,
+      });
+
+      const lc = await lifecycleRepo.get({ userId: 'u1', characterId: 'hiyori' });
+      // target wakeUpTime = 09:00 - 1h = 08:00; 09:30 より早くなっているはず
+      const wakeUpMin = lc!.WakeUpTime.split(':').reduce((h, m, i) =>
+        i === 0 ? Number(m) * 60 : Number(m) + h, 0);
+      expect(wakeUpMin).toBeLessThan(9 * 60 + 30);
+    });
+
+    it('learned 後に UserActivityProfile が保持される', async () => {
+      const store = makeStore();
+      const lifecycleRepo = makeLifecycleRepo(store);
+
+      await makeJstMessages(store, 21, 5);
+
+      const nowDate = new Date(JST_21_UTC_MS + 100 * 24 * 3600 * 1000);
+      await learnUserActivity('u1', 'hiyori', {
+        messageRepo: makeMessageRepo(store),
+        lifecycleRepo,
+        now: () => nowDate,
+        lookbackDays: 200,
+      });
+
+      const lc = await lifecycleRepo.get({ userId: 'u1', characterId: 'hiyori' });
+      expect(lc?.UserActivityProfile).toBeDefined();
+      expect(lc?.UserActivityProfile?.eveningPeak).toBe('21:00');
+    });
   });
 
   it('lookbackDays 外のメッセージはカウントされない', async () => {

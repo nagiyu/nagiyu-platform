@@ -67,4 +67,25 @@ export class InMemoryLifecycleRepository implements LifecycleRepository {
     this.store.put(this.mapper.toItem(entity));
     return entity;
   }
+
+  public async updateSchedule(
+    key: LifecycleKey,
+    schedule: { bedtime: string; wakeUpTime: string }
+  ): Promise<LifecycleEntity> {
+    const now = this.nowMs();
+    const existing = await this.get(key);
+    const entity: LifecycleEntity = {
+      UserID: key.userId,
+      CharacterID: key.characterId,
+      Bedtime: schedule.bedtime,
+      WakeUpTime: schedule.wakeUpTime,
+      ...(existing?.UserActivityProfile !== undefined && {
+        UserActivityProfile: existing.UserActivityProfile,
+      }),
+      CreatedAt: existing?.CreatedAt ?? now,
+      UpdatedAt: now,
+    };
+    this.store.put(this.mapper.toItem(entity));
+    return entity;
+  }
 }

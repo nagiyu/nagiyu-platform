@@ -167,4 +167,74 @@ describe('InMemoryLifecycleRepository', () => {
       expect(fetched?.UserActivityProfile).toEqual(profile);
     });
   });
+
+  describe('updateSchedule', () => {
+    it('Bedtime と WakeUpTime を更新する', async () => {
+      await repo.upsert({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Bedtime: '01:30',
+        WakeUpTime: '09:30',
+      });
+      now += 1000;
+      const result = await repo.updateSchedule(
+        { userId: 'u1', characterId: 'hiyori' },
+        { bedtime: '23:48', wakeUpTime: '08:54' }
+      );
+
+      expect(result.Bedtime).toBe('23:48');
+      expect(result.WakeUpTime).toBe('08:54');
+
+      const fetched = await repo.get({ userId: 'u1', characterId: 'hiyori' });
+      expect(fetched?.Bedtime).toBe('23:48');
+      expect(fetched?.WakeUpTime).toBe('08:54');
+    });
+
+    it('UserActivityProfile を保持する', async () => {
+      const profile = {
+        morningPeak: '09:00',
+        eveningPeak: '22:00',
+        sampleSize: 5,
+        lastLearnedAt: '2026-06-01T00:00:00.000Z',
+      };
+      await repo.updateUserActivityProfile({ userId: 'u1', characterId: 'hiyori' }, profile);
+      now += 1000;
+      await repo.updateSchedule(
+        { userId: 'u1', characterId: 'hiyori' },
+        { bedtime: '23:00', wakeUpTime: '08:00' }
+      );
+
+      const fetched = await repo.get({ userId: 'u1', characterId: 'hiyori' });
+      expect(fetched?.UserActivityProfile).toEqual(profile);
+    });
+
+    it('既存なしの場合はデフォルト CreatedAt で新規作成する', async () => {
+      const result = await repo.updateSchedule(
+        { userId: 'u1', characterId: 'hiyori' },
+        { bedtime: '23:00', wakeUpTime: '08:00' }
+      );
+
+      expect(result.Bedtime).toBe('23:00');
+      expect(result.WakeUpTime).toBe('08:00');
+      expect(result.CreatedAt).toBe(baseNow);
+    });
+
+    it('CreatedAt は保持され UpdatedAt が更新される', async () => {
+      await repo.upsert({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Bedtime: '01:30',
+        WakeUpTime: '09:30',
+      });
+      now += 5000;
+      await repo.updateSchedule(
+        { userId: 'u1', characterId: 'hiyori' },
+        { bedtime: '23:00', wakeUpTime: '08:00' }
+      );
+
+      const fetched = await repo.get({ userId: 'u1', characterId: 'hiyori' });
+      expect(fetched?.CreatedAt).toBe(baseNow);
+      expect(fetched?.UpdatedAt).toBe(baseNow + 5000);
+    });
+  });
 });
