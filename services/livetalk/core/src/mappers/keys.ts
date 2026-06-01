@@ -91,3 +91,11 @@ export function buildInterestSK(characterId: string, category: string): string {
 export function buildLifecycleSK(characterId: string): string {
   return `CHAR#${characterId}#LIFECYCLE`;
 }
+
+export function buildKnowledgeSKPrefix(characterId: string): string {
+  return `CHAR#${characterId}#KNOWLEDGE#`;
+}
+
+export function buildKnowledgeSK(characterId: string, knowledgeId: string): string {
+  return `${buildKnowledgeSKPrefix(characterId)}${knowledgeId}`;
+}
