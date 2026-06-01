@@ -1,6 +1,5 @@
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBStudyTopicRepository } from '../../../src/repositories/dynamodb-study-topic.repository.js';
-import type { StudyTopicEntity } from '../../../src/entities/study-topic.entity.js';
 
 const TABLE = 'nagiyu-livetalk-test';
 const FIXED_NOW = 1_700_000_000_000;

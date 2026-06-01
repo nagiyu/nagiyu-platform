@@ -13,9 +13,6 @@ import type { KnowledgeEntity } from '../../../src/entities/knowledge.entity.js'
 import type { SafetyEventEntity } from '../../../src/entities/safety-event.entity.js';
 import type { IModerationClient, ModerationResult } from '../../../src/safety/types.js';
 import type { IMemoryRetriever, RetrievedMemory } from '../../../src/memory/types.js';
-import { InMemorySingleTableStore } from '@nagiyu/aws';
-import { InMemoryKnowledgeRepository } from '../../../src/repositories/in-memory-knowledge.repository.js';
-import { InMemoryStudyTopicRepository } from '../../../src/repositories/in-memory-study-topic.repository.js';
 
 // ── ヘルパー ──────────────────────────────────────────────────────────────
 

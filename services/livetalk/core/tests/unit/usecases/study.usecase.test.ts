@@ -195,21 +195,17 @@ describe('studyForUser', () => {
   const makeStudyTopicRepo = (
     topics: StudyTopicEntity[] = []
   ): jest.Mocked<StudyTopicRepository> => ({
-    put: jest
-      .fn()
-      .mockImplementation(async (input) => ({
-        ...input,
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
-      })),
+    put: jest.fn().mockImplementation(async (input) => ({
+      ...input,
+      CreatedAt: Date.now(),
+      UpdatedAt: Date.now(),
+    })),
     listByStatus: jest.fn().mockResolvedValue(topics),
-    updateStatus: jest
-      .fn()
-      .mockImplementation(async (input) => ({
-        ...input,
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
-      })),
+    updateStatus: jest.fn().mockImplementation(async (input) => ({
+      ...input,
+      CreatedAt: Date.now(),
+      UpdatedAt: Date.now(),
+    })),
     findPendingByTopic: jest.fn().mockResolvedValue(null),
   });
 
@@ -309,7 +305,7 @@ describe('studyForUser', () => {
       rawComment: '',
     });
 
-    const result = await studyForUser('u1', 'hiyori', {
+    await studyForUser('u1', 'hiyori', {
       knowledgeRepo,
       interestRepo,
       researchClient,
