@@ -7,6 +7,7 @@ import {
   type InterestRepository,
   type KnowledgeRepository,
   type LifecycleRepository,
+  type StudyTopicRepository,
   type UlidFactory,
 } from '@nagiyu/livetalk-core';
 import type { IResearchClient } from '@nagiyu/livetalk-core';
@@ -17,6 +18,7 @@ export interface StudyAllUsersParams {
   lifecycleRepo: LifecycleRepository;
   interestRepo: InterestRepository;
   knowledgeRepo: KnowledgeRepository;
+  studyTopicRepo?: StudyTopicRepository;
   researchClient: IResearchClient;
   ulidFactory?: UlidFactory;
   now?: () => Date;
@@ -42,6 +44,7 @@ export async function studyAllUsers(params: StudyAllUsersParams): Promise<StudyA
     lifecycleRepo,
     interestRepo,
     knowledgeRepo,
+    studyTopicRepo,
     researchClient,
     ulidFactory,
     now,
@@ -73,6 +76,7 @@ export async function studyAllUsers(params: StudyAllUsersParams): Promise<StudyA
       const outcome = await studyForUser(userId, DEFAULT_CHARACTER_ID, {
         knowledgeRepo,
         interestRepo,
+        studyTopicRepo,
         researchClient,
         character: hiyori,
         lifecycle,

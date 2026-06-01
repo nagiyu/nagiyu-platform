@@ -11,24 +11,30 @@ import { InMemorySingleTableStore, registerDynamoRepositories } from '@nagiyu/aw
 import type {
   CharacterStateRepository,
   InterestRepository,
+  KnowledgeRepository,
   LifecycleRepository,
   MemoryRepository,
   MessageRepository,
   ProfileRepository,
+  StudyTopicRepository,
 } from '@nagiyu/livetalk-core';
 import {
   DynamoDBCharacterStateRepository,
   DynamoDBInterestRepository,
+  DynamoDBKnowledgeRepository,
   DynamoDBLifecycleRepository,
   DynamoDBMemoryRepository,
   DynamoDBMessageRepository,
   DynamoDBProfileRepository,
+  DynamoDBStudyTopicRepository,
   InMemoryCharacterStateRepository,
   InMemoryInterestRepository,
+  InMemoryKnowledgeRepository,
   InMemoryLifecycleRepository,
   InMemoryMemoryRepository,
   InMemoryMessageRepository,
   InMemoryProfileRepository,
+  InMemoryStudyTopicRepository,
 } from '@nagiyu/livetalk-core';
 
 const registry = registerDynamoRepositories<
@@ -39,6 +45,8 @@ const registry = registerDynamoRepositories<
     characterState: CharacterStateRepository;
     interest: InterestRepository;
     lifecycle: LifecycleRepository;
+    knowledge: KnowledgeRepository;
+    studyTopic: StudyTopicRepository;
   },
   InMemorySingleTableStore
 >(
@@ -73,6 +81,16 @@ const registry = registerDynamoRepositories<
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBLifecycleRepository(docClient, tableName),
     },
+    knowledge: {
+      createInMemoryRepository: (store) => new InMemoryKnowledgeRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBKnowledgeRepository(docClient, tableName),
+    },
+    studyTopic: {
+      createInMemoryRepository: (store) => new InMemoryStudyTopicRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBStudyTopicRepository(docClient, tableName),
+    },
   },
   {
     keyPrefix: 'livetalk',
@@ -102,6 +120,14 @@ export function getInterestRepository(): InterestRepository {
 
 export function getLifecycleRepository(): LifecycleRepository {
   return registry.lifecycle.createRepository();
+}
+
+export function getKnowledgeRepository(): KnowledgeRepository {
+  return registry.knowledge.createRepository();
+}
+
+export function getStudyTopicRepository(): StudyTopicRepository {
+  return registry.studyTopic.createRepository();
 }
 
 /**
