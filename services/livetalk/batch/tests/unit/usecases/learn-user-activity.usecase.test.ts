@@ -1,8 +1,5 @@
 import { InMemorySingleTableStore } from '@nagiyu/aws';
-import {
-  InMemoryMessageRepository,
-  InMemoryLifecycleRepository,
-} from '@nagiyu/livetalk-core';
+import { InMemoryMessageRepository, InMemoryLifecycleRepository } from '@nagiyu/livetalk-core';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
   learnAllUserActivities,

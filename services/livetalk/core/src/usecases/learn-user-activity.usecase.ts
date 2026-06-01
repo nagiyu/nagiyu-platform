@@ -54,12 +54,15 @@ export async function learnUserActivity(
   const morningPeak = findPeakInRange(histogram, 5, 12) ?? DEFAULT_MORNING_PEAK;
   const eveningPeak = findPeakInRange(histogram, 17, 26) ?? DEFAULT_EVENING_PEAK;
 
-  await lifecycleRepo.updateUserActivityProfile({ userId, characterId }, {
-    morningPeak,
-    eveningPeak,
-    sampleSize: userMessages.length,
-    lastLearnedAt: nowDate.toISOString(),
-  });
+  await lifecycleRepo.updateUserActivityProfile(
+    { userId, characterId },
+    {
+      morningPeak,
+      eveningPeak,
+      sampleSize: userMessages.length,
+      lastLearnedAt: nowDate.toISOString(),
+    }
+  );
 
   return 'learned';
 }

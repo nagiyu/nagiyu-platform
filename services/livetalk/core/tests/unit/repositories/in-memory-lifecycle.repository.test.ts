@@ -148,10 +148,7 @@ describe('InMemoryLifecycleRepository', () => {
       await repo.updateUserActivityProfile({ userId: 'u1', characterId: 'hiyori' }, profile);
       const profile2 = { ...profile, sampleSize: 99, morningPeak: '07:00' };
       now += 1000;
-      await repo.updateUserActivityProfile(
-        { userId: 'u1', characterId: 'hiyori' },
-        profile2
-      );
+      await repo.updateUserActivityProfile({ userId: 'u1', characterId: 'hiyori' }, profile2);
 
       const fetched = await repo.get({ userId: 'u1', characterId: 'hiyori' });
       expect(fetched?.UserActivityProfile?.sampleSize).toBe(99);

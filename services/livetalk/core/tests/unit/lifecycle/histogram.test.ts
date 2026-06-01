@@ -137,7 +137,7 @@ describe('findPeakInRange', () => {
   it('morning range (5-12) のみ探索する', () => {
     const h = [...zeroHistogram];
     h[3] = 100; // 範囲外
-    h[7] = 5;   // 範囲内
+    h[7] = 5; // 範囲内
     expect(findPeakInRange(h, 5, 12)).toBe('07:00');
   });
 
