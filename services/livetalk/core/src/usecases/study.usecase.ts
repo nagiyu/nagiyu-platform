@@ -9,6 +9,7 @@ import {
 import type { LifecycleEntity } from '../entities/lifecycle.entity.js';
 import type { KnowledgeRepository } from '../repositories/knowledge.repository.interface.js';
 import type { InterestRepository } from '../repositories/interest.repository.interface.js';
+import type { StudyTopicRepository } from '../repositories/study-topic.repository.interface.js';
 import { resolveLifecycleState } from '../lifecycle/state-resolver.js';
 import type { IResearchClient } from '../research/types.js';
 import type { UlidFactory } from '../lib/ulid.js';
@@ -23,6 +24,11 @@ export interface StudyForUserParams {
   ulidFactory?: UlidFactory;
   now?: () => Date;
   maxQueriesPerRun?: number;
+  /**
+   * StudyTopic リポジトリ（Phase 5b）。
+   * 指定された場合、通常の興味カテゴリ処理の前に pending の STUDY_TOPIC を優先処理する。
+   */
+  studyTopicRepo?: StudyTopicRepository;
 }
 
 export interface StudyForUserResult {
@@ -53,6 +59,7 @@ export async function studyForUser(
     ulidFactory = defaultUlidFactory,
     now = () => new Date(),
     maxQueriesPerRun = STUDY_MAX_QUERIES_PER_RUN,
+    studyTopicRepo,
   } = params;
 
   const nowDate = now();
@@ -66,50 +73,117 @@ export async function studyForUser(
     return { outcome: 'skipped', skipReason: shouldStudy.reason };
   }
 
-  // 興味カテゴリを weight 降順で取得
-  const categories = await interestRepo.list(userId, characterId);
-  if (categories.length === 0) {
-    return { outcome: 'skipped', skipReason: '興味カテゴリが未登録' };
-  }
-
-  const sorted = [...categories].sort((a, b) => b.Weight - a.Weight);
-  const targets = sorted.slice(0, maxQueriesPerRun);
-
   let savedCount = 0;
 
-  for (const cat of targets) {
-    const query = buildSearchQuery(cat.Category);
-    try {
-      const result = await researchClient.research(query, character);
+  // STUDY_TOPIC の pending を優先処理（Phase 5b）
+  if (studyTopicRepo) {
+    const pendingTopics = await studyTopicRepo.listByStatus(userId, characterId, 'pending');
+    for (const studyTopic of pendingTopics) {
+      if (savedCount >= maxQueriesPerRun) break;
+      try {
+        await studyTopicRepo.updateStatus({
+          UserID: userId,
+          CharacterID: characterId,
+          TopicID: studyTopic.TopicID,
+          Status: 'in_progress',
+          Priority: studyTopic.Priority,
+        });
 
-      if (result.summary.length < STUDY_MIN_SUMMARY_LENGTH) {
-        logger.warn('[study] 品質が低いため保存をスキップ', {
+        const result = await researchClient.research(studyTopic.Topic, character);
+
+        if (result.summary.length < STUDY_MIN_SUMMARY_LENGTH) {
+          logger.warn('[study] STUDY_TOPIC: 品質が低いため保存をスキップ', {
+            userId,
+            characterId,
+            topic: studyTopic.Topic,
+            summaryLength: result.summary.length,
+          });
+          await studyTopicRepo.updateStatus({
+            UserID: userId,
+            CharacterID: characterId,
+            TopicID: studyTopic.TopicID,
+            Status: 'done',
+            Priority: studyTopic.Priority,
+          });
+          continue;
+        }
+
+        await knowledgeRepo.put({
+          UserID: userId,
+          CharacterID: characterId,
+          KnowledgeID: ulidFactory(),
+          Topic: result.topic,
+          Summary: result.summary,
+          SourceUrls: result.sourceUrls,
+          RawComment: result.rawComment,
+          RelatedCategory: studyTopic.Topic,
+        });
+
+        await studyTopicRepo.updateStatus({
+          UserID: userId,
+          CharacterID: characterId,
+          TopicID: studyTopic.TopicID,
+          Status: 'done',
+          Priority: studyTopic.Priority,
+        });
+        savedCount++;
+      } catch (err) {
+        logger.warn('[study] STUDY_TOPIC リサーチ失敗', {
+          userId,
+          characterId,
+          topic: studyTopic.Topic,
+          err,
+        });
+        // in_progress のまま次回バッチで再試行
+      }
+    }
+  }
+
+  // 通常の興味カテゴリ処理（残り枠がある場合）
+  const remainingQuota = maxQueriesPerRun - savedCount;
+  if (remainingQuota > 0) {
+    const categories = await interestRepo.list(userId, characterId);
+    if (categories.length === 0 && savedCount === 0) {
+      return { outcome: 'skipped', skipReason: '興味カテゴリが未登録' };
+    }
+
+    const sorted = [...categories].sort((a, b) => b.Weight - a.Weight);
+    const targets = sorted.slice(0, remainingQuota);
+
+    for (const cat of targets) {
+      const query = buildSearchQuery(cat.Category);
+      try {
+        const result = await researchClient.research(query, character);
+
+        if (result.summary.length < STUDY_MIN_SUMMARY_LENGTH) {
+          logger.warn('[study] 品質が低いため保存をスキップ', {
+            userId,
+            characterId,
+            category: cat.Category,
+            summaryLength: result.summary.length,
+          });
+          continue;
+        }
+
+        await knowledgeRepo.put({
+          UserID: userId,
+          CharacterID: characterId,
+          KnowledgeID: ulidFactory(),
+          Topic: result.topic,
+          Summary: result.summary,
+          SourceUrls: result.sourceUrls,
+          RawComment: result.rawComment,
+          RelatedCategory: cat.Category,
+        });
+        savedCount++;
+      } catch (err) {
+        logger.warn('[study] リサーチ失敗', {
           userId,
           characterId,
           category: cat.Category,
-          summaryLength: result.summary.length,
+          err,
         });
-        continue;
       }
-
-      await knowledgeRepo.put({
-        UserID: userId,
-        CharacterID: characterId,
-        KnowledgeID: ulidFactory(),
-        Topic: result.topic,
-        Summary: result.summary,
-        SourceUrls: result.sourceUrls,
-        RawComment: result.rawComment,
-        RelatedCategory: cat.Category,
-      });
-      savedCount++;
-    } catch (err) {
-      logger.warn('[study] リサーチ失敗', {
-        userId,
-        characterId,
-        category: cat.Category,
-        err,
-      });
     }
   }
 

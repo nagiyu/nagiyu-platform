@@ -99,3 +99,11 @@ export function buildKnowledgeSKPrefix(characterId: string): string {
 export function buildKnowledgeSK(characterId: string, knowledgeId: string): string {
   return `${buildKnowledgeSKPrefix(characterId)}${knowledgeId}`;
 }
+
+export function buildStudyTopicSKPrefix(characterId: string): string {
+  return `CHAR#${characterId}#STUDY#`;
+}
+
+export function buildStudyTopicSK(characterId: string, topicId: string): string {
+  return `${buildStudyTopicSKPrefix(characterId)}${topicId}`;
+}
