@@ -10,6 +10,7 @@ import ResponseDisplay from '@/components/ResponseDisplay';
 import { Live2DCanvasFallback } from '@/components/Live2DCanvas';
 import ConsentModal from '@/components/ConsentModal';
 import SafetyModal from '@/components/SafetyModal';
+import NotificationToggle from '@/components/NotificationToggle';
 import type { LifecycleState, SafetyResource } from '@nagiyu/livetalk-core';
 
 const Live2DCanvas = dynamic(() => import('@/components/Live2DCanvas'), {
@@ -350,6 +351,7 @@ export default function HomePage() {
             <Link href="/memory">私が覚えていること</Link>
             <Link href="/notes">ノート</Link>
           </Box>
+          <NotificationToggle />
         </Stack>
         <LicenseFooter />
       </Container>
