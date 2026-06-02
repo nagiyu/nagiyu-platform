@@ -11,7 +11,7 @@ import { getSession } from '@/lib/server/session';
 import { getNotificationEventRepository } from '@/lib/server/repositories';
 
 export const GET = withAuth(getSession, 'livetalk:chat', async (session) => {
-  const userId = session.user.id;
+  const userId = session.user.googleId;
   const repo = getNotificationEventRepository();
   const events = await repo.listByUser(userId, 20);
 

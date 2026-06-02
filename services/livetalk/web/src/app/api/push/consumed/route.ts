@@ -42,7 +42,7 @@ export const PATCH = withAuth(
     }
 
     const { notifId } = body as { notifId: string };
-    const userId = session.user.id;
+    const userId = session.user.googleId;
 
     const repo = getNotificationEventRepository();
     await repo.markConsumed({ userId, notifId }, Date.now());

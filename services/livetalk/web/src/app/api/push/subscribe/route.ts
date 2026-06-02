@@ -45,7 +45,7 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (session, reques
   }
 
   const subscriptionId = await createSubscriptionId(subscription.endpoint);
-  const userId = session.user.id;
+  const userId = session.user.googleId;
 
   const repo = getPushSubscriptionRepository();
   await repo.put({
