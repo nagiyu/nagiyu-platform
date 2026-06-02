@@ -214,6 +214,22 @@ describe('Footer', () => {
 
       expect(screen.getByTestId('license-node')).toBeInTheDocument();
     });
+
+    it('licenseTextがある場合はフッターのpaddingが詰められる', () => {
+      const { container } = render(<Footer licenseText="ライセンス" />);
+
+      const footer = container.querySelector('footer');
+      // py: 1.5 → 12px（theme spacing 8px * 1.5）
+      expect(footer).toHaveStyle({ paddingTop: '12px', paddingBottom: '12px' });
+    });
+
+    it('licenseTextが省略された場合はフッターのpaddingが従来どおり', () => {
+      const { container } = render(<Footer />);
+
+      const footer = container.querySelector('footer');
+      // py: 3 → 24px（theme spacing 8px * 3）
+      expect(footer).toHaveStyle({ paddingTop: '24px', paddingBottom: '24px' });
+    });
   });
 
   describe('termsContent / privacyContent props', () => {
