@@ -76,8 +76,6 @@ describe('notify handler', () => {
     const { handler } = await import('../../../src/handlers/notify.js');
     await handler(makeEvent());
 
-    expect(reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ severity: 'error' })
-    );
+    expect(reportErrorEvent).toHaveBeenCalledWith(expect.objectContaining({ severity: 'error' }));
   });
 });

@@ -7,11 +7,14 @@ jest.mock('@nagiyu/common', () => ({
 
 jest.mock('@nagiyu/common/push', () => ({
   sendWebPushNotification: jest.fn(),
-  getVapidConfig: jest.fn(() => ({
-    subject: 'mailto:test@example.com',
-    publicKey: 'pub',
-    privateKey: 'priv',
-  } satisfies VapidConfig)),
+  getVapidConfig: jest.fn(
+    () =>
+      ({
+        subject: 'mailto:test@example.com',
+        publicKey: 'pub',
+        privateKey: 'priv',
+      }) satisfies VapidConfig
+  ),
 }));
 
 jest.mock('@nagiyu/livetalk-core', () => ({
@@ -24,7 +27,8 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   NOTIFICATION_EVENT_TTL_SECONDS: 2592000,
 }));
 
-const mockSendWebPush = jest.requireMock('@nagiyu/common/push').sendWebPushNotification as jest.Mock;
+const mockSendWebPush = jest.requireMock('@nagiyu/common/push')
+  .sendWebPushNotification as jest.Mock;
 const core = jest.requireMock('@nagiyu/livetalk-core');
 const mockDetectCritical = core.detectCriticalKnowledge as jest.Mock;
 const mockShouldNotifyNow = core.shouldNotifyNow as jest.Mock;
@@ -37,7 +41,16 @@ function makeDocClient() {
   };
 }
 
-function makeLifecycleRepo(lifecycle = { UserID: 'u1', CharacterID: 'hiyori', Bedtime: '01:30', WakeUpTime: '09:30', CreatedAt: 0, UpdatedAt: 0 }) {
+function makeLifecycleRepo(
+  lifecycle = {
+    UserID: 'u1',
+    CharacterID: 'hiyori',
+    Bedtime: '01:30',
+    WakeUpTime: '09:30',
+    CreatedAt: 0,
+    UpdatedAt: 0,
+  }
+) {
   return { get: jest.fn().mockResolvedValue(lifecycle) };
 }
 
@@ -53,15 +66,20 @@ function makeMessageRepo() {
 
 function makeKnowledgeRepo() {
   return {
-    list: jest.fn().mockResolvedValue([
-      { KnowledgeID: 'k1', Topic: 'TypeScript' },
-    ]),
+    list: jest.fn().mockResolvedValue([{ KnowledgeID: 'k1', Topic: 'TypeScript' }]),
   };
 }
 
-function makePushSubscriptionRepo(subscriptions = [
-  { SubscriptionID: 'sub_1', Endpoint: 'https://push.example.com/1', P256dhKey: 'p', AuthKey: 'a' },
-]) {
+function makePushSubscriptionRepo(
+  subscriptions = [
+    {
+      SubscriptionID: 'sub_1',
+      Endpoint: 'https://push.example.com/1',
+      P256dhKey: 'p',
+      AuthKey: 'a',
+    },
+  ]
+) {
   return {
     listByUser: jest.fn().mockResolvedValue(subscriptions),
     delete: jest.fn().mockResolvedValue(undefined),
@@ -102,7 +120,12 @@ describe('notifyAllUsers', () => {
 
   it('shouldNotifyNow が通知発火 → notifiedUsers が増える', async () => {
     mockDetectCritical.mockResolvedValue({ isCritical: false });
-    mockShouldNotifyNow.mockReturnValue({ notify: true, kind: 'normal', toneBucket: 'normal', elapsedMs: 86400000 });
+    mockShouldNotifyNow.mockReturnValue({
+      notify: true,
+      kind: 'normal',
+      toneBucket: 'normal',
+      elapsedMs: 86400000,
+    });
     mockSendWebPush.mockResolvedValue(true);
 
     const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
@@ -139,10 +162,17 @@ describe('notifyAllUsers', () => {
   it('サブスクリプションなしのユーザーはスキップ', async () => {
     const pushSubscriptionRepo = makePushSubscriptionRepo([]);
     mockDetectCritical.mockResolvedValue({ isCritical: false });
-    mockShouldNotifyNow.mockReturnValue({ notify: true, kind: 'normal', toneBucket: 'normal', elapsedMs: DAY });
+    mockShouldNotifyNow.mockReturnValue({
+      notify: true,
+      kind: 'normal',
+      toneBucket: 'normal',
+      elapsedMs: DAY,
+    });
 
     const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
-    const result = await notifyAllUsers(makeParams({ pushSubscriptionRepo: pushSubscriptionRepo as never }));
+    const result = await notifyAllUsers(
+      makeParams({ pushSubscriptionRepo: pushSubscriptionRepo as never })
+    );
 
     expect(result.skippedUsers).toBe(1);
     expect(mockSendWebPush).not.toHaveBeenCalled();
@@ -161,19 +191,32 @@ describe('notifyAllUsers', () => {
 
   it('Push 送信が false を返す（無効サブスクリプション）→ サブスクリプションを削除', async () => {
     mockDetectCritical.mockResolvedValue({ isCritical: false });
-    mockShouldNotifyNow.mockReturnValue({ notify: true, kind: 'normal', toneBucket: 'normal', elapsedMs: DAY });
+    mockShouldNotifyNow.mockReturnValue({
+      notify: true,
+      kind: 'normal',
+      toneBucket: 'normal',
+      elapsedMs: DAY,
+    });
     mockSendWebPush.mockResolvedValue(false); // 無効
 
     const pushSubscriptionRepo = makePushSubscriptionRepo();
     const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
     await notifyAllUsers(makeParams({ pushSubscriptionRepo: pushSubscriptionRepo as never }));
 
-    expect(pushSubscriptionRepo.delete).toHaveBeenCalledWith({ userId: 'u1', subscriptionId: 'sub_1' });
+    expect(pushSubscriptionRepo.delete).toHaveBeenCalledWith({
+      userId: 'u1',
+      subscriptionId: 'sub_1',
+    });
   });
 
   it('全送信が false でも notifEvent は保存されない（sentCount=0）', async () => {
     mockDetectCritical.mockResolvedValue({ isCritical: false });
-    mockShouldNotifyNow.mockReturnValue({ notify: true, kind: 'normal', toneBucket: 'normal', elapsedMs: DAY });
+    mockShouldNotifyNow.mockReturnValue({
+      notify: true,
+      kind: 'normal',
+      toneBucket: 'normal',
+      elapsedMs: DAY,
+    });
     mockSendWebPush.mockResolvedValue(false);
 
     const notifEventRepo = makeNotifEventRepo();

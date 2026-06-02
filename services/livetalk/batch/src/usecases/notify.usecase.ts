@@ -150,7 +150,9 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
   // クリティカル候補を取得して LLM 判定
   const recentKnowledge = await knowledgeRepo.list(userId, characterId, 10);
   const escalation = await detectCriticalKnowledge(recentKnowledge, llmClient);
-  const criticalKnowledgeId = escalation.isCritical ? (escalation.knowledgeId ?? undefined) : undefined;
+  const criticalKnowledgeId = escalation.isCritical
+    ? (escalation.knowledgeId ?? undefined)
+    : undefined;
 
   // 発火判定
   const decision = shouldNotifyNow({
