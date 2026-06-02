@@ -25,7 +25,7 @@ export const LIVETALK_PRIVACY_VERSION = '1.0.0';
 
 export const liveTalkPrivacySections: PolicySection[] = [
   {
-    title: '第1条（収集する情報の種類）',
+    title: '収集する情報の種類',
     contents: [
       {
         mainContent: '本サービスは、以下の情報を収集します。',
@@ -75,7 +75,7 @@ export const liveTalkPrivacySections: PolicySection[] = [
     ],
   },
   {
-    title: '第2条（情報の利用目的）',
+    title: '情報の利用目的',
     contents: [
       {
         mainContent: '収集した情報は、以下の目的のために利用します。',
@@ -114,7 +114,7 @@ export const liveTalkPrivacySections: PolicySection[] = [
     ],
   },
   {
-    title: '第3条（情報の保管・削除）',
+    title: '情報の保管・削除',
     contents: [
       {
         mainContent: '収集した情報は、以下の期間保管し、期間経過後に自動的に削除されます。',
@@ -139,7 +139,7 @@ export const liveTalkPrivacySections: PolicySection[] = [
     ],
   },
   {
-    title: '第4条（外部サービスの利用）',
+    title: '外部サービスの利用',
     contents: [
       {
         mainContent:
@@ -168,7 +168,7 @@ export const liveTalkPrivacySections: PolicySection[] = [
     ],
   },
   {
-    title: '第5条（セーフティログの取り扱い）',
+    title: 'セーフティログの取り扱い',
     contents: [
       {
         mainContent:
@@ -200,7 +200,7 @@ export const liveTalkPrivacySections: PolicySection[] = [
     ],
   },
   {
-    title: '第6条（ユーザーの権利）',
+    title: 'ユーザーの権利',
     contents: [
       {
         mainContent:
@@ -229,7 +229,7 @@ export const liveTalkPrivacySections: PolicySection[] = [
     ],
   },
   {
-    title: '第7条（Cookie・セッション情報の取り扱い）',
+    title: 'Cookie・セッション情報の取り扱い',
     contents: [
       {
         mainContent: '本サービスは、以下の目的で Cookie およびセッション情報を使用します。',
@@ -254,7 +254,7 @@ export const liveTalkPrivacySections: PolicySection[] = [
     ],
   },
   {
-    title: '第8条（個人情報保護法への準拠）',
+    title: '個人情報保護法への準拠',
     contents: [
       {
         mainContent:
@@ -281,7 +281,7 @@ export const liveTalkPrivacySections: PolicySection[] = [
     ],
   },
   {
-    title: '第9条（プライバシーポリシーの変更）',
+    title: 'プライバシーポリシーの変更',
     contents: [
       {
         mainContent:

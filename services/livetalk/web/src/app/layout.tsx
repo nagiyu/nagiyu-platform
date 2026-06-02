@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { ServiceLayout, ServiceWorkerRegistration } from '@nagiyu/ui';
 import '@nagiyu/ui/tokens.css';
+import { liveTalkTermsSections, LIVETALK_LICENSE_TEXT } from '@/lib/legal/terms-data';
+import { liveTalkPrivacySections } from '@/lib/legal/privacy-data';
 
 export const metadata: Metadata = {
   title: 'LiveTalk',
@@ -43,7 +45,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             title: 'リブトーク',
             ariaLabel: 'リブトーク ホームに戻る',
           }}
-          footerProps={{ version }}
+          footerProps={{
+            version,
+            termsContent: liveTalkTermsSections,
+            privacyContent: liveTalkPrivacySections,
+            licenseText: LIVETALK_LICENSE_TEXT,
+          }}
         >
           {children}
         </ServiceLayout>

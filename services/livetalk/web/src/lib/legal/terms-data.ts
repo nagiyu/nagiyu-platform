@@ -17,9 +17,12 @@ export interface TermSection {
 
 export const LIVETALK_TERMS_VERSION = '1.0.0';
 
+export const LIVETALK_LICENSE_TEXT =
+  'VOICEVOX:冥鳴ひまり / Live2D キャラクター: 桃瀬ひより ©2010 Live2D Inc.';
+
 export const liveTalkTermsSections: TermSection[] = [
   {
-    title: '第1条（サービス概要と適用）',
+    title: 'サービス概要と適用',
     contents: [
       {
         mainContent:
@@ -36,7 +39,7 @@ export const liveTalkTermsSections: TermSection[] = [
     ],
   },
   {
-    title: '第2条（年齢制限）',
+    title: '年齢制限',
     contents: [
       {
         mainContent:
@@ -53,7 +56,7 @@ export const liveTalkTermsSections: TermSection[] = [
     ],
   },
   {
-    title: '第3条（利用登録・Google アカウント）',
+    title: '利用登録・Google アカウント',
     contents: [
       {
         mainContent:
@@ -76,7 +79,7 @@ export const liveTalkTermsSections: TermSection[] = [
     ],
   },
   {
-    title: '第4条（AI の性質と医療目的でない旨）',
+    title: 'AI の性質と医療目的でない旨',
     contents: [
       {
         mainContent:
@@ -102,7 +105,7 @@ export const liveTalkTermsSections: TermSection[] = [
     ],
   },
   {
-    title: '第5条（危機時の対応とリソース案内）',
+    title: '危機時の対応とリソース案内',
     contents: [
       {
         mainContent:
@@ -130,7 +133,7 @@ export const liveTalkTermsSections: TermSection[] = [
     ],
   },
   {
-    title: '第6条（禁止事項）',
+    title: '禁止事項',
     contents: [
       {
         mainContent: 'ユーザーは、本サービスの利用にあたり、以下の行為を行ってはなりません。',
@@ -154,7 +157,7 @@ export const liveTalkTermsSections: TermSection[] = [
     ],
   },
   {
-    title: '第7条（データ取り扱い）',
+    title: 'データ取り扱い',
     contents: [
       {
         mainContent: '本サービスでは、以下のデータを収集・保存します。',
@@ -180,7 +183,7 @@ export const liveTalkTermsSections: TermSection[] = [
     ],
   },
   {
-    title: '第8条（データ削除請求）',
+    title: 'データ削除請求',
     contents: [
       {
         mainContent:
@@ -201,7 +204,7 @@ export const liveTalkTermsSections: TermSection[] = [
     ],
   },
   {
-    title: '第9条（本サービスの提供停止・変更）',
+    title: '本サービスの提供停止・変更',
     contents: [
       {
         mainContent:
@@ -224,7 +227,7 @@ export const liveTalkTermsSections: TermSection[] = [
     ],
   },
   {
-    title: '第10条（免責事項）',
+    title: '免責事項',
     contents: [
       {
         mainContent:
@@ -248,7 +251,7 @@ export const liveTalkTermsSections: TermSection[] = [
     ],
   },
   {
-    title: '第11条（利用規約の変更）',
+    title: '利用規約の変更',
     contents: [
       {
         mainContent:
@@ -264,7 +267,7 @@ export const liveTalkTermsSections: TermSection[] = [
     ],
   },
   {
-    title: '第12条（準拠法・裁判管轄）',
+    title: '準拠法・裁判管轄',
     contents: [
       {
         mainContent: '本規約の解釈および適用は、日本法に準拠するものとします。',
