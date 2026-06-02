@@ -1,8 +1,4 @@
-import {
-  NOTE_EMPTY_MESSAGE,
-  NOTE_PAGE_GUIDANCE,
-  formatNoteDate,
-} from '@/lib/notes/messages';
+import { NOTE_EMPTY_MESSAGE, NOTE_PAGE_GUIDANCE, formatNoteDate } from '@/lib/notes/messages';
 
 describe('notes messages', () => {
   it('ガイダンス文言が定義されている', () => {

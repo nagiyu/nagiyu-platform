@@ -67,7 +67,9 @@ export async function generateNotesForUser(
     }
   }
 
-  const candidates = knowledgeList.filter((k) => isNoteWorthy(k, notedKnowledgeIds, minSummaryLength));
+  const candidates = knowledgeList.filter((k) =>
+    isNoteWorthy(k, notedKnowledgeIds, minSummaryLength)
+  );
 
   let generatedCount = 0;
   for (const knowledge of candidates) {

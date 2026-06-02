@@ -48,7 +48,10 @@ export default function NoteDetailPage({ params }: NoteDetailPageProps) {
       </Box>
 
       {loading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }} data-testid="note-detail-loading">
+        <Box
+          sx={{ display: 'flex', justifyContent: 'center', py: 4 }}
+          data-testid="note-detail-loading"
+        >
           <CircularProgress />
         </Box>
       )}

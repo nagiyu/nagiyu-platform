@@ -8,7 +8,8 @@
 export const NOTE_PAGE_GUIDANCE = 'ひよりちゃんがあなたのために調べてまとめたノートだよ。';
 
 /** ノートが 1 件も無いときの空状態メッセージ。 */
-export const NOTE_EMPTY_MESSAGE = 'まだノートはないよ。ひよりちゃんがいろいろ調べてくれるのを待っててね。';
+export const NOTE_EMPTY_MESSAGE =
+  'まだノートはないよ。ひよりちゃんがいろいろ調べてくれるのを待っててね。';
 
 /**
  * createdAt（Unix ms）を日本語の日付文字列に整形する。

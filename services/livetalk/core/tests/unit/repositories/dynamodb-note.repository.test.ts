@@ -103,9 +103,7 @@ describe('DynamoDBNoteRepository', () => {
     it('Item が無ければ null を返す', async () => {
       const client = makeClient(async () => ({}));
       const repo = new DynamoDBNoteRepository(client as never, tableName, () => fixedNow);
-      expect(
-        await repo.get({ userId: 'u1', characterId: 'hiyori', noteId: 'missing' })
-      ).toBeNull();
+      expect(await repo.get({ userId: 'u1', characterId: 'hiyori', noteId: 'missing' })).toBeNull();
     });
 
     it('get 失敗時は DatabaseError を投げる', async () => {

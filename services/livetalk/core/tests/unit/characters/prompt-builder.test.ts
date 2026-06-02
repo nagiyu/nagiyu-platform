@@ -262,16 +262,9 @@ describe('buildSystemPrompt（recentNotes / 感想連携）', () => {
 
   it('recentNotes がある場合はノートのタイトルと感想連携の指示が含まれる', () => {
     const now = new Date(2026, 0, 1, 10, 0, 0);
-    const prompt = buildSystemPrompt(
-      hiyori,
-      now,
-      [],
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      [makeNote('コーヒーの効能')]
-    );
+    const prompt = buildSystemPrompt(hiyori, now, [], undefined, undefined, undefined, undefined, [
+      makeNote('コーヒーの効能'),
+    ]);
     expect(prompt).toContain('最近ユーザーに渡したノート');
     expect(prompt).toContain('- コーヒーの効能');
     expect(prompt).toContain('感想');
