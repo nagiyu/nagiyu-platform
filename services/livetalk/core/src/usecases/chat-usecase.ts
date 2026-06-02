@@ -94,7 +94,7 @@ export interface ChatUseCaseParams {
   embeddingClient?: IEmbeddingClient;
   /** CharacterState リポジトリ。未指定時は親密度更新をスキップする */
   characterStateRepository?: CharacterStateRepository;
-  /** MemorySummary リポジトリ。計測のみに使用（プロンプトへの注入はしない）。未指定時は計測をスキップする */
+  /** MemorySummary リポジトリ。prompt 注入 + 計測に使用。未指定時はスキップする */
   memorySummaryRepository?: MemorySummaryRepository;
   /** Lifecycle リポジトリ。未指定時はデフォルト就寝スケジュールで判定する */
   lifecycleRepository?: LifecycleRepository;
@@ -244,14 +244,9 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   const metrics = createChatMetrics(userId, characterId);
   const timer = createPhaseTimer();
 
-  // 1. 直近会話履歴取得（+ CharacterState + MemorySummary + Lifecycle を並行取得）
-  const [
-    { messages: history, totalTokens: messagesTotalTokens, consumedCapacity: messagesRcu },
-    prevCharacterState,
-    fetchedSummary,
-    fetchedLifecycle,
-  ] = await Promise.all([
-    messageRepository.getRecentByTokenBudget({ userId, characterId }),
+  // 1. CharacterState + MemorySummary + Lifecycle を並行取得
+  //    MemorySummary の lastCompressedAt を境界として history を取得するため、先に解決する
+  const [prevCharacterState, fetchedSummary, fetchedLifecycle] = await Promise.all([
     characterStateRepository
       ? characterStateRepository.getById({ userId, characterId }).catch((err) => {
           logger.warn('[chat-usecase] CharacterState の取得に失敗しました', { err });
@@ -260,7 +255,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
       : Promise.resolve(null),
     memorySummaryRepository
       ? memorySummaryRepository.get(userId, characterId).catch((err) => {
-          logger.warn('[chat-usecase] MemorySummary の取得に失敗しました（計測スキップ）', { err });
+          logger.warn('[chat-usecase] MemorySummary の取得に失敗しました（スキップ）', { err });
           return null;
         })
       : Promise.resolve(null),
@@ -274,6 +269,11 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
       : Promise.resolve(null),
   ]);
 
+  // 1b. 会話履歴取得：lastCompressedAt 以降のみ（要約済み分はプロンプトに含めない）
+  //     MemorySummary 不在（初回・未圧縮）の場合は sinceMs=0 で全件取得（fallback）
+  const sinceMs = fetchedSummary?.LastCompressedAt ?? 0;
+  const history = await messageRepository.listSince(userId, characterId, sinceMs);
+
   // Lifecycle 状態を解決（fail-warn: 取得失敗時はデフォルト値）
   const lifecycleState = resolveLifecycleState(
     new Date(),
@@ -286,7 +286,6 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     metrics.summaryCharCount = fetchedSummary.SummaryText.length;
     metrics.summaryTokenCount = getDefaultTokenCounter().countTokens(fetchedSummary.SummaryText);
   }
-  metrics.dynamodb.messagesConsumedRcu = messagesRcu;
 
   // 2. ユーザーメッセージを保存
   await messageRepository.create({
@@ -506,7 +505,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     history,
     userText,
     retrievedMemories,
-    undefined,
+    fetchedSummary?.SummaryText,
     newLearnings.length > 0 ? newLearnings : undefined,
     lifecycleState,
     knowledgeContextForPrompt,
@@ -517,17 +516,20 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   try {
     const counter = getDefaultTokenCounter();
     const baseSystem = buildSystemPrompt(character, new Date());
+    const systemTokens = counter.countTokens(baseSystem);
+    const summaryTokens = metrics.summaryTokenCount;
     const memoryTokens =
       retrievedMemories.reduce((sum, r) => sum + counter.countTokens(r.memory.Content), 0) +
       newLearnings.reduce((sum, m) => sum + counter.countTokens(m.Content), 0);
-    const messageTokens = messagesTotalTokens + counter.countTokensForMessage(userText);
-    const systemTokens = counter.countTokens(baseSystem);
+    const messageTokens =
+      history.reduce((sum, m) => sum + counter.countTokensForMessage(m.Text), 0) +
+      counter.countTokensForMessage(userText);
     metrics.promptTokens = {
       system: systemTokens,
-      summary: 0,
+      summary: summaryTokens,
       memory: memoryTokens,
       messages: messageTokens,
-      total: systemTokens + memoryTokens + messageTokens,
+      total: systemTokens + summaryTokens + memoryTokens + messageTokens,
     };
   } catch (err) {
     logger.warn('[chat-usecase] プロンプトトークン計算に失敗しました（スキップ）', { err });

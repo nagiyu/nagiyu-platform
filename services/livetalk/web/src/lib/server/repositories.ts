@@ -13,6 +13,7 @@ import type {
   InterestRepository,
   KnowledgeRepository,
   LifecycleRepository,
+  MemorySummaryRepository,
   MemoryRepository,
   MessageRepository,
   NoteRepository,
@@ -24,6 +25,7 @@ import {
   DynamoDBInterestRepository,
   DynamoDBKnowledgeRepository,
   DynamoDBLifecycleRepository,
+  DynamoDBMemorySummaryRepository,
   DynamoDBMemoryRepository,
   DynamoDBMessageRepository,
   DynamoDBNoteRepository,
@@ -33,6 +35,7 @@ import {
   InMemoryInterestRepository,
   InMemoryKnowledgeRepository,
   InMemoryLifecycleRepository,
+  InMemoryMemorySummaryRepository,
   InMemoryMemoryRepository,
   InMemoryMessageRepository,
   InMemoryNoteRepository,
@@ -43,6 +46,7 @@ import {
 const registry = registerDynamoRepositories<
   {
     memory: MemoryRepository;
+    memorySummary: MemorySummaryRepository;
     message: MessageRepository;
     profile: ProfileRepository;
     characterState: CharacterStateRepository;
@@ -59,6 +63,11 @@ const registry = registerDynamoRepositories<
       createInMemoryRepository: (store) => new InMemoryMemoryRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBMemoryRepository(docClient, tableName),
+    },
+    memorySummary: {
+      createInMemoryRepository: (store) => new InMemoryMemorySummaryRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBMemorySummaryRepository(docClient, tableName),
     },
     message: {
       createInMemoryRepository: (store) => new InMemoryMessageRepository(store),
@@ -109,6 +118,10 @@ const registry = registerDynamoRepositories<
 
 export function getMemoryRepository(): MemoryRepository {
   return registry.memory.createRepository();
+}
+
+export function getMemorySummaryRepository(): MemorySummaryRepository {
+  return registry.memorySummary.createRepository();
 }
 
 export function getMessageRepository(): MessageRepository {
