@@ -57,6 +57,7 @@ export interface Session {
  *
  * LiveTalk permissions:
  * - livetalk:chat - Access LiveTalk chat UI and API
+ * - livetalk:admin - Access LiveTalk admin features (status page, debug panel)
  */
 export type Permission =
   | 'users:read'
@@ -70,7 +71,8 @@ export type Permission =
   | 'stocks:read-evaluation'
   | 'auth:read'
   | 'auth:write'
-  | 'livetalk:chat';
+  | 'livetalk:chat'
+  | 'livetalk:admin';
 
 /**
  * Valid role IDs defined in ROLES constant

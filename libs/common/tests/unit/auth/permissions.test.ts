@@ -310,12 +310,52 @@ describe('Permission Functions', () => {
         expect(hasPermission(['livetalk-user'], 'livetalk:chat')).toBe(true);
       });
 
+      it('livetalk-admin should have livetalk:chat', () => {
+        expect(hasPermission(['livetalk-admin'], 'livetalk:chat')).toBe(true);
+      });
+
       it('admin should not have livetalk:chat', () => {
         expect(hasPermission(['admin'], 'livetalk:chat')).toBe(false);
       });
 
       it('stock-admin should not have livetalk:chat', () => {
         expect(hasPermission(['stock-admin'], 'livetalk:chat')).toBe(false);
+      });
+    });
+
+    describe('livetalk-admin role', () => {
+      it('should have livetalk:chat permission', () => {
+        expect(hasPermission(['livetalk-admin'], 'livetalk:chat')).toBe(true);
+      });
+
+      it('should have livetalk:admin permission', () => {
+        expect(hasPermission(['livetalk-admin'], 'livetalk:admin')).toBe(true);
+      });
+
+      it('should not have users:read permission', () => {
+        expect(hasPermission(['livetalk-admin'], 'users:read')).toBe(false);
+      });
+
+      it('should not have stocks:read permission', () => {
+        expect(hasPermission(['livetalk-admin'], 'stocks:read')).toBe(false);
+      });
+    });
+
+    describe('livetalk:admin permission', () => {
+      it('livetalk-admin should have livetalk:admin', () => {
+        expect(hasPermission(['livetalk-admin'], 'livetalk:admin')).toBe(true);
+      });
+
+      it('livetalk-user should not have livetalk:admin', () => {
+        expect(hasPermission(['livetalk-user'], 'livetalk:admin')).toBe(false);
+      });
+
+      it('admin should not have livetalk:admin', () => {
+        expect(hasPermission(['admin'], 'livetalk:admin')).toBe(false);
+      });
+
+      it('stock-admin should not have livetalk:admin', () => {
+        expect(hasPermission(['stock-admin'], 'livetalk:admin')).toBe(false);
       });
     });
 

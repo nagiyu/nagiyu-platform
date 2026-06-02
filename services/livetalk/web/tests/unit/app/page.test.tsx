@@ -64,6 +64,13 @@ jest.mock('@/components/NotificationPermission', () => ({
   default: jest.fn(() => null),
 }));
 
+// next-auth/react は ESM のため jest が transform できない。
+// HomePage は useSession で livetalk:admin 判定のみに使うため、未認証扱いでスタブ化する。
+jest.mock('next-auth/react', () => ({
+  useSession: jest.fn(() => ({ data: null, status: 'unauthenticated' })),
+  SessionProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
 // オンボーディング判定がチャットテストに干渉しないようにスタブ化する
 jest.mock('@/lib/pwa/standalone', () => ({
   isStandalone: jest.fn().mockReturnValue(false),

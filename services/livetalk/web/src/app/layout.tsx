@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { ServiceLayout, ServiceWorkerRegistration } from '@nagiyu/ui';
+import SessionProviderWrapper from '@/components/SessionProviderWrapper';
 import '@nagiyu/ui/tokens.css';
 import { liveTalkTermsSections, LIVETALK_LICENSE_TEXT } from '@/lib/legal/terms-data';
 import { liveTalkPrivacySections } from '@/lib/legal/privacy-data';
@@ -52,7 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             licenseText: LIVETALK_LICENSE_TEXT,
           }}
         >
-          {children}
+          <SessionProviderWrapper>{children}</SessionProviderWrapper>
         </ServiceLayout>
       </body>
     </html>
