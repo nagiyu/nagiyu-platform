@@ -358,9 +358,7 @@ describe('通知起点の knowledgeId 受け渡し（Issue #3359 課題Y）', ()
     const input = await waitForInputEnabled();
 
     // first-word 取得を待つ
-    await waitFor(() =>
-      expect(global.fetch).toHaveBeenCalledWith('/api/push/first-word')
-    );
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/push/first-word'));
 
     await user.type(input, 'ありがとう');
     await user.click(screen.getByRole('button', { name: '送信' }));

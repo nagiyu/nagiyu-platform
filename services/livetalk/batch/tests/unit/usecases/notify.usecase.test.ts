@@ -261,9 +261,7 @@ describe('notifyAllUsers', () => {
     const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
     await notifyAllUsers(makeParams({ notifEventRepo: notifEventRepo as never }));
 
-    expect(notifEventRepo.put).toHaveBeenCalledWith(
-      expect.objectContaining({ KnowledgeID: 'k1' })
-    );
+    expect(notifEventRepo.put).toHaveBeenCalledWith(expect.objectContaining({ KnowledgeID: 'k1' }));
   });
 
   it('DynamoDB scan がページネーション → 全ユーザーを収集する', async () => {
