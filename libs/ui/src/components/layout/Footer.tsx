@@ -3,12 +3,8 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Box, Container, Typography, Link } from '@mui/material';
-import PrivacyPolicyDialog, {
-  type PolicySection,
-} from '../dialogs/PrivacyPolicyDialog';
-import TermsOfServiceDialog, {
-  type TermSection,
-} from '../dialogs/TermsOfServiceDialog';
+import PrivacyPolicyDialog, { type PolicySection } from '../dialogs/PrivacyPolicyDialog';
+import TermsOfServiceDialog, { type TermSection } from '../dialogs/TermsOfServiceDialog';
 
 export interface FooterProps {
   /**

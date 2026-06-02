@@ -33,11 +33,7 @@ export interface PrivacyPolicyDialogProps {
 // Re-export types for backward compatibility
 export type { PolicySection, PolicySubContent, PolicyContent };
 
-export default function PrivacyPolicyDialog({
-  open,
-  onClose,
-  sections,
-}: PrivacyPolicyDialogProps) {
+export default function PrivacyPolicyDialog({ open, onClose, sections }: PrivacyPolicyDialogProps) {
   const displaySections = sections ?? privacyPolicySections;
 
   return (

@@ -46,11 +46,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             ariaLabel: 'リブトーク ホームに戻る',
           }}
           footerProps={{
-              version,
-              termsContent: liveTalkTermsSections,
-              privacyContent: liveTalkPrivacySections,
-              licenseText: LIVETALK_LICENSE_TEXT,
-            }}
+            version,
+            termsContent: liveTalkTermsSections,
+            privacyContent: liveTalkPrivacySections,
+            licenseText: LIVETALK_LICENSE_TEXT,
+          }}
         >
           {children}
         </ServiceLayout>
