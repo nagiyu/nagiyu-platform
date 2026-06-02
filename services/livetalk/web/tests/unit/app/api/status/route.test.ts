@@ -71,7 +71,7 @@ const adminSession = {
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
 
-const makeLifecycleRepo = (entity: Parameters<LifecycleRepository['get']>[0] extends infer K ? K : never) =>
+const makeLifecycleRepo = () =>
   ({
     get: jest.fn(async () => ({
       UserID: 'g1',
@@ -111,7 +111,7 @@ const makeMessageRepo = () =>
 const buildGetRequest = () => new Request('http://localhost/api/status', { method: 'GET' });
 
 function setupDefaultMocks() {
-  mockGetLifecycleRepo.mockReturnValue(makeLifecycleRepo({}));
+  mockGetLifecycleRepo.mockReturnValue(makeLifecycleRepo());
   mockGetNotifEventRepo.mockReturnValue(makeNotifEventRepo());
   mockGetKnowledgeRepo.mockReturnValue(makeKnowledgeRepo(3));
   mockGetStudyTopicRepo.mockReturnValue(makeStudyTopicRepo(1));
@@ -202,7 +202,7 @@ describe('GET /api/status', () => {
 
   it('通知履歴は最大 5 件・body は 100 文字で切り詰める', async () => {
     mockGetSession.mockResolvedValueOnce(adminSession);
-    mockGetLifecycleRepo.mockReturnValue(makeLifecycleRepo({}));
+    mockGetLifecycleRepo.mockReturnValue(makeLifecycleRepo());
 
     const longBody = 'a'.repeat(200);
     const events = Array.from({ length: 7 }, (_, i) => ({
