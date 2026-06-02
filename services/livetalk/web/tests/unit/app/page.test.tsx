@@ -59,6 +59,34 @@ jest.mock('@/components/ResponseDisplay', () => ({
   default: jest.fn(() => null),
 }));
 
+jest.mock('@/components/InstallGuide', () => ({
+  __esModule: true,
+  default: jest.fn(() => null),
+}));
+
+jest.mock('@/components/NotificationPermission', () => ({
+  __esModule: true,
+  default: jest.fn(() => null),
+}));
+
+// オンボーディング判定がチャットテストに干渉しないようにスタブ化する
+jest.mock('@/lib/pwa/standalone', () => ({
+  isStandalone: jest.fn().mockReturnValue(false),
+  isPushSupported: jest.fn().mockReturnValue(false),
+  shouldShowInstallGuide: jest.fn().mockReturnValue(false),
+  shouldShowNotificationPermission: jest.fn().mockReturnValue(false),
+  snoozeInstallGuide: jest.fn(),
+  snoozeNotificationPermission: jest.fn(),
+}));
+
+jest.mock('@/lib/pwa/messages', () => ({
+  PWA_MESSAGES: {
+    INSTALL_PROMPT: 'お家を作ってほしいな…',
+    NOTIFICATION_PROMPT: '来てくれてありがとう！',
+    NOTIFICATION_GRANTED: 'やった！',
+  },
+}));
+
 /** /api/consent が同意済みを返す fetch モックを設定する */
 function setupFetchMocks(chatOk = false, sentenceAudio?: string) {
   const encoder = new TextEncoder();
@@ -95,6 +123,9 @@ function setupFetchMocks(chatOk = false, sentenceAudio?: string) {
         ok: true,
         json: () => Promise.resolve({ state: 'awake' }),
       });
+    }
+    if (url === '/api/push/first-word') {
+      return Promise.resolve({ ok: false });
     }
     return Promise.resolve({ ok: chatOk, body: chatStream });
   });

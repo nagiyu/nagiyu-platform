@@ -12,6 +12,15 @@ import ConsentModal from '@/components/ConsentModal';
 import SafetyModal from '@/components/SafetyModal';
 import NotificationToggle from '@/components/NotificationToggle';
 import type { LifecycleState, SafetyResource } from '@nagiyu/livetalk-core';
+import InstallGuide from '@/components/InstallGuide';
+import NotificationPermission from '@/components/NotificationPermission';
+import {
+  isStandalone,
+  isPushSupported,
+  shouldShowInstallGuide,
+  shouldShowNotificationPermission,
+} from '@/lib/pwa/standalone';
+import { PWA_MESSAGES } from '@/lib/pwa/messages';
 
 const Live2DCanvas = dynamic(() => import('@/components/Live2DCanvas'), {
   ssr: false,
@@ -20,6 +29,7 @@ const Live2DCanvas = dynamic(() => import('@/components/Live2DCanvas'), {
 
 type ChatPhase = 'idle' | 'loading' | 'streaming';
 type ConsentPhase = 'checking' | 'required' | 'done';
+type OnboardingPhase = 'install' | 'notification' | null;
 
 type ChatStreamEvent =
   | { type: 'text'; delta: string }
@@ -54,6 +64,8 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
  */
 export default function HomePage() {
   const [consentPhase, setConsentPhase] = useState<ConsentPhase>('checking');
+  const [onboardingPhase, setOnboardingPhase] = useState<OnboardingPhase>(null);
+  const [onboardingText, setOnboardingText] = useState<string | null>(null);
   const [phase, setPhase] = useState<ChatPhase>('idle');
   const [userText, setUserText] = useState<string | null>(null);
   const [responseText, setResponseText] = useState<string | null>(null);
@@ -105,6 +117,24 @@ export default function HomePage() {
       .catch(() => {});
   }, []);
 
+  // 同意完了後にオンボーディング（ホーム画面追加・通知許可）の表示要否を判定する。
+  useEffect(() => {
+    if (consentPhase !== 'done') return;
+    if (!isStandalone() && shouldShowInstallGuide()) {
+      setOnboardingPhase('install');
+      setOnboardingText(PWA_MESSAGES.INSTALL_PROMPT);
+    } else if (
+      isStandalone() &&
+      isPushSupported() &&
+      typeof window !== 'undefined' &&
+      window.Notification.permission !== 'granted' &&
+      shouldShowNotificationPermission()
+    ) {
+      setOnboardingPhase('notification');
+      setOnboardingText(PWA_MESSAGES.NOTIFICATION_PROMPT);
+    }
+  }, [consentPhase]);
+
   // 初回起動時に生活サイクル状態を取得し、初回発話を待たずに Live2D へ反映する。
   // 失敗時は現状維持（'awake'）。演出のための取得なので UI は止めない。
   useEffect(() => {
@@ -142,6 +172,26 @@ export default function HomePage() {
     }
   }, []);
 
+  const handleInstallSkip = useCallback(() => {
+    setOnboardingPhase(null);
+    setOnboardingText(null);
+  }, []);
+
+  const handleNotificationGranted = useCallback(() => {
+    setOnboardingPhase(null);
+    setOnboardingText(PWA_MESSAGES.NOTIFICATION_GRANTED);
+    setTimeout(() => {
+      setOnboardingText((current) =>
+        current === PWA_MESSAGES.NOTIFICATION_GRANTED ? null : current
+      );
+    }, 4000);
+  }, []);
+
+  const handleNotificationSkip = useCallback(() => {
+    setOnboardingPhase(null);
+    setOnboardingText(null);
+  }, []);
+
   const clearAudioQueue = useCallback(() => {
     audioQueueRef.current = [];
     isPlayingRef.current = false;
@@ -175,6 +225,7 @@ export default function HomePage() {
       setUserText(text);
       setResponseText('');
       setFirstWordText(null);
+      setOnboardingText(null);
       setErrorMessage(null);
       setPhase('loading');
       setAudioBuffer(null);
@@ -330,7 +381,10 @@ export default function HomePage() {
             alignItems: 'stretch',
           }}
         >
-          <ResponseDisplay text={firstWordText ?? responseText} userText={userText} />
+          <ResponseDisplay
+            text={onboardingText ?? firstWordText ?? responseText}
+            userText={userText}
+          />
           {errorMessage && (
             <Box
               sx={{
@@ -342,6 +396,13 @@ export default function HomePage() {
             >
               {errorMessage}
             </Box>
+          )}
+          {onboardingPhase === 'install' && <InstallGuide onSkip={handleInstallSkip} />}
+          {onboardingPhase === 'notification' && (
+            <NotificationPermission
+              onGranted={handleNotificationGranted}
+              onSkip={handleNotificationSkip}
+            />
           )}
           <ChatInput
             onSubmit={handleSubmit}
