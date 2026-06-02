@@ -10,6 +10,7 @@ import {
   getLifecycleRepository,
   getMemoryRepository,
   getMessageRepository,
+  getNoteRepository,
   getStudyTopicRepository,
 } from '@/lib/server/repositories';
 import { getModerationClient, getSafetyEventRepository } from '@/lib/server/safety';
@@ -105,6 +106,7 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (session, reques
           lifecycleRepository: getLifecycleRepository(),
           knowledgeRepository: getKnowledgeRepository(),
           studyTopicRepository: getStudyTopicRepository(),
+          noteRepository: getNoteRepository(),
         });
 
         for await (const event of eventGenerator) {

@@ -12,9 +12,12 @@ jest.mock('@nagiyu/livetalk-core', () => ({
     license: { displayText: '', creditName: '' },
   },
   studyForUser: jest.fn(),
+  generateNotesForUser: jest.fn(),
 }));
 
 const mockStudyForUser = jest.requireMock('@nagiyu/livetalk-core').studyForUser as jest.Mock;
+const mockGenerateNotesForUser = jest.requireMock('@nagiyu/livetalk-core')
+  .generateNotesForUser as jest.Mock;
 
 describe('studyAllUsers', () => {
   const mockDocClient = {
@@ -45,6 +48,7 @@ describe('studyAllUsers', () => {
     mockDocClient.send.mockResolvedValue({
       Items: [{ UserID: 'u1' }, { UserID: 'u2' }],
     });
+    mockGenerateNotesForUser.mockResolvedValue({ generatedCount: 0 });
   });
 
   it('全ユーザーをループして studyForUser を呼ぶ', async () => {
@@ -105,5 +109,47 @@ describe('studyAllUsers', () => {
       'hiyori',
       expect.objectContaining({ studyTopicRepo })
     );
+  });
+
+  it('noteRepo 指定時、勉強したユーザーに対しノート生成を行い件数を集計する（Phase 5c）', async () => {
+    mockStudyForUser.mockResolvedValue({ outcome: 'studied', savedCount: 1 });
+    mockGenerateNotesForUser.mockResolvedValue({ generatedCount: 2 });
+    const noteRepo = { put: jest.fn(), list: jest.fn(), get: jest.fn(), listRecent: jest.fn() };
+
+    const { studyAllUsers } = await import('../../../src/usecases/study.usecase.js');
+    const result = await studyAllUsers(makeParams({ noteRepo: noteRepo as never }));
+
+    // u1 / u2 各 2 件 = 4 件
+    expect(result.generatedNotes).toBe(4);
+    expect(mockGenerateNotesForUser).toHaveBeenCalledTimes(2);
+    expect(mockGenerateNotesForUser).toHaveBeenCalledWith(
+      'u1',
+      'hiyori',
+      expect.objectContaining({ noteRepo })
+    );
+  });
+
+  it('スキップしたユーザーにはノート生成を行わない（Phase 5c）', async () => {
+    mockStudyForUser.mockResolvedValue({ outcome: 'skipped', skipReason: 'テスト' });
+    const noteRepo = { put: jest.fn(), list: jest.fn(), get: jest.fn(), listRecent: jest.fn() };
+
+    const { studyAllUsers } = await import('../../../src/usecases/study.usecase.js');
+    const result = await studyAllUsers(makeParams({ noteRepo: noteRepo as never }));
+
+    expect(result.generatedNotes).toBe(0);
+    expect(mockGenerateNotesForUser).not.toHaveBeenCalled();
+  });
+
+  it('ノート生成が失敗してもバッチは継続する（Phase 5c / fail-warn）', async () => {
+    mockStudyForUser.mockResolvedValue({ outcome: 'studied', savedCount: 1 });
+    mockGenerateNotesForUser.mockRejectedValue(new Error('note エラー'));
+    const noteRepo = { put: jest.fn(), list: jest.fn(), get: jest.fn(), listRecent: jest.fn() };
+
+    const { studyAllUsers } = await import('../../../src/usecases/study.usecase.js');
+    const result = await studyAllUsers(makeParams({ noteRepo: noteRepo as never }));
+
+    expect(result.studiedUsers).toBe(2);
+    expect(result.generatedNotes).toBe(0);
+    expect(result.failedUsers).toBe(0);
   });
 });

@@ -2,11 +2,13 @@ import { ScanCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
 import { logger, toErrorMessage } from '@nagiyu/common';
 import {
   DEFAULT_CHARACTER_ID,
+  generateNotesForUser,
   hiyori,
   studyForUser,
   type InterestRepository,
   type KnowledgeRepository,
   type LifecycleRepository,
+  type NoteRepository,
   type StudyTopicRepository,
   type UlidFactory,
 } from '@nagiyu/livetalk-core';
@@ -19,6 +21,11 @@ export interface StudyAllUsersParams {
   interestRepo: InterestRepository;
   knowledgeRepo: KnowledgeRepository;
   studyTopicRepo?: StudyTopicRepository;
+  /**
+   * Note リポジトリ（Phase 5c / #3345）。
+   * 指定された場合、勉強が実行されたユーザーについて KNOWLEDGE → NOTE 昇格を行う。
+   */
+  noteRepo?: NoteRepository;
   researchClient: IResearchClient;
   ulidFactory?: UlidFactory;
   now?: () => Date;
@@ -29,6 +36,8 @@ export interface StudyAllUsersResult {
   skippedUsers: number;
   failedUsers: number;
   failedUserIds: string[];
+  /** 生成されたノートの総数（Phase 5c） */
+  generatedNotes: number;
 }
 
 /**
@@ -45,6 +54,7 @@ export async function studyAllUsers(params: StudyAllUsersParams): Promise<StudyA
     interestRepo,
     knowledgeRepo,
     studyTopicRepo,
+    noteRepo,
     researchClient,
     ulidFactory,
     now,
@@ -59,6 +69,7 @@ export async function studyAllUsers(params: StudyAllUsersParams): Promise<StudyA
     skippedUsers: 0,
     failedUsers: 0,
     failedUserIds: [],
+    generatedNotes: 0,
   };
 
   for (const userId of userIds) {
@@ -88,6 +99,24 @@ export async function studyAllUsers(params: StudyAllUsersParams): Promise<StudyA
         result.skippedUsers++;
       } else {
         result.studiedUsers++;
+
+        // KNOWLEDGE → NOTE 昇格（Phase 5c）。
+        // fail-warn: ノート生成の失敗は勉強バッチ全体を止めない。
+        if (noteRepo) {
+          try {
+            const noteResult = await generateNotesForUser(userId, DEFAULT_CHARACTER_ID, {
+              knowledgeRepo,
+              noteRepo,
+              ulidFactory,
+            });
+            result.generatedNotes += noteResult.generatedCount;
+          } catch (error) {
+            logger.warn('[studyAllUsers] ノート生成失敗（スキップして継続）', {
+              userId,
+              error: toErrorMessage(error),
+            });
+          }
+        }
       }
     } catch (error) {
       logger.error('[studyAllUsers] ユーザー処理失敗', {

@@ -11,6 +11,8 @@ import type { MessageRepository } from '../repositories/message.repository.inter
 import type { SafetyEventRepository } from '../repositories/safety-event.repository.interface.js';
 import type { KnowledgeRepository } from '../repositories/knowledge.repository.interface.js';
 import type { StudyTopicRepository } from '../repositories/study-topic.repository.interface.js';
+import type { NoteRepository } from '../repositories/note.repository.interface.js';
+import type { NoteEntity } from '../entities/note.entity.js';
 import type { CharacterDefinition } from '../characters/types.js';
 import type { MemoryEntity } from '../entities/memory.entity.js';
 import type { MessageEntity } from '../entities/message.entity.js';
@@ -28,6 +30,8 @@ import {
   MEMORY_MAX_TIER_B,
   STUDY_TOPIC_TTL_SECONDS,
   STUDY_TOPIC_GATE_PRIORITY,
+  NOTE_RECENT_DAYS,
+  NOTE_RECENT_LIMIT,
 } from '../constants.js';
 import { detectSafetyRisk } from '../safety/detector.js';
 import { buildModerationReplacementMessage, buildSafetyMessage } from '../safety/templates.js';
@@ -101,6 +105,11 @@ export interface ChatUseCaseParams {
   knowledgeRepository?: KnowledgeRepository;
   /** StudyTopic リポジトリ。knowledgeRepository 指定時に study 分岐で使用する */
   studyTopicRepository?: StudyTopicRepository;
+  /**
+   * Note リポジトリ（Phase 5c / #3345）。未指定時はノートの感想連携をスキップする。
+   * 指定時は直近 NOTE_RECENT_DAYS 日に提示したノートを取得し、prompt context に注入する。
+   */
+  noteRepository?: NoteRepository;
   /**
    * 知識ベース照合のストラテジ。未指定時は文字 N-gram 照合（既定）。
    * 将来 embedding / LLM ベースの照合へ差し替えるための注入ポイント。
@@ -226,6 +235,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     lifecycleRepository,
     knowledgeRepository,
     studyTopicRepository,
+    noteRepository,
     knowledgeMatcher,
     ulidFactory = defaultUlidFactory,
   } = params;
@@ -476,6 +486,19 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   }
   const newLearnings = identifyNewLearnings(promotionCandidates);
 
+  // 4c. 直近に提示したノートを取得（感想連携、Phase 5c / fail-warn: エラー時は空配列で継続）
+  let recentNotes: NoteEntity[] = [];
+  if (noteRepository) {
+    try {
+      recentNotes = await noteRepository.listRecent(userId, characterId, {
+        days: NOTE_RECENT_DAYS,
+        limit: NOTE_RECENT_LIMIT,
+      });
+    } catch (err) {
+      logger.warn('[chat-usecase] 直近ノートの取得に失敗しました（ノートなしで継続）', { err });
+    }
+  }
+
   // 5. LLM ストリーミング（通常フロー）
   const chatMessages = buildChatMessages(
     character,
@@ -486,7 +509,8 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     undefined,
     newLearnings.length > 0 ? newLearnings : undefined,
     lifecycleState,
-    knowledgeContextForPrompt
+    knowledgeContextForPrompt,
+    recentNotes.length > 0 ? recentNotes : undefined
   );
 
   // プロンプトトークン内訳を計算（best-effort）

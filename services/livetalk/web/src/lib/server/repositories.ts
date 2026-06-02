@@ -15,6 +15,7 @@ import type {
   LifecycleRepository,
   MemoryRepository,
   MessageRepository,
+  NoteRepository,
   ProfileRepository,
   StudyTopicRepository,
 } from '@nagiyu/livetalk-core';
@@ -25,6 +26,7 @@ import {
   DynamoDBLifecycleRepository,
   DynamoDBMemoryRepository,
   DynamoDBMessageRepository,
+  DynamoDBNoteRepository,
   DynamoDBProfileRepository,
   DynamoDBStudyTopicRepository,
   InMemoryCharacterStateRepository,
@@ -33,6 +35,7 @@ import {
   InMemoryLifecycleRepository,
   InMemoryMemoryRepository,
   InMemoryMessageRepository,
+  InMemoryNoteRepository,
   InMemoryProfileRepository,
   InMemoryStudyTopicRepository,
 } from '@nagiyu/livetalk-core';
@@ -47,6 +50,7 @@ const registry = registerDynamoRepositories<
     lifecycle: LifecycleRepository;
     knowledge: KnowledgeRepository;
     studyTopic: StudyTopicRepository;
+    note: NoteRepository;
   },
   InMemorySingleTableStore
 >(
@@ -91,6 +95,11 @@ const registry = registerDynamoRepositories<
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBStudyTopicRepository(docClient, tableName),
     },
+    note: {
+      createInMemoryRepository: (store) => new InMemoryNoteRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBNoteRepository(docClient, tableName),
+    },
   },
   {
     keyPrefix: 'livetalk',
@@ -128,6 +137,10 @@ export function getKnowledgeRepository(): KnowledgeRepository {
 
 export function getStudyTopicRepository(): StudyTopicRepository {
   return registry.studyTopic.createRepository();
+}
+
+export function getNoteRepository(): NoteRepository {
+  return registry.note.createRepository();
 }
 
 /**

@@ -246,3 +246,59 @@ describe('buildChatMessages（lifecycleState）', () => {
     expect(messages[0].content).not.toContain('眠っていて');
   });
 });
+
+describe('buildSystemPrompt（recentNotes / 感想連携）', () => {
+  const makeNote = (title: string, id = 'note-1') => ({
+    UserID: 'u1',
+    CharacterID: 'hiyori',
+    NoteID: id,
+    Title: title,
+    Body: '本文',
+    RelatedKnowledgeIds: ['know-1'],
+    RelatedCategory: 'コーヒー',
+    CreatedAt: 1_700_000_000_000,
+    UpdatedAt: 1_700_000_000_000,
+  });
+
+  it('recentNotes がある場合はノートのタイトルと感想連携の指示が含まれる', () => {
+    const now = new Date(2026, 0, 1, 10, 0, 0);
+    const prompt = buildSystemPrompt(hiyori, now, [], undefined, undefined, undefined, undefined, [
+      makeNote('コーヒーの効能'),
+    ]);
+    expect(prompt).toContain('最近ユーザーに渡したノート');
+    expect(prompt).toContain('- コーヒーの効能');
+    expect(prompt).toContain('感想');
+  });
+
+  it('recentNotes が空の場合はノートセクションを含まない', () => {
+    const now = new Date(2026, 0, 1, 10, 0, 0);
+    const prompt = buildSystemPrompt(
+      hiyori,
+      now,
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      []
+    );
+    expect(prompt).not.toContain('最近ユーザーに渡したノート');
+  });
+
+  it('buildChatMessages 経由でも recentNotes が system prompt に反映される', () => {
+    const messages = buildChatMessages(
+      hiyori,
+      new Date(),
+      [],
+      'あのノート良かったよ',
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      [makeNote('コーヒーの効能')]
+    );
+    expect(messages[0].content).toContain('最近ユーザーに渡したノート');
+    expect(messages[0].content).toContain('- コーヒーの効能');
+  });
+});

@@ -7,6 +7,8 @@ import type { MessageRepository } from '../../../src/repositories/message.reposi
 import type { SafetyEventRepository } from '../../../src/repositories/safety-event.repository.interface.js';
 import type { KnowledgeRepository } from '../../../src/repositories/knowledge.repository.interface.js';
 import type { StudyTopicRepository } from '../../../src/repositories/study-topic.repository.interface.js';
+import type { NoteRepository } from '../../../src/repositories/note.repository.interface.js';
+import type { NoteEntity } from '../../../src/entities/note.entity.js';
 import type { MessageEntity } from '../../../src/entities/message.entity.js';
 import type { MemoryEntity } from '../../../src/entities/memory.entity.js';
 import type { KnowledgeEntity } from '../../../src/entities/knowledge.entity.js';
@@ -1486,6 +1488,104 @@ describe('runChatUseCase', () => {
       }>;
       const systemMsg = streamArgs.find((m) => m.role === 'system');
       expect(systemMsg?.content).toContain('この前調べたこと');
+    });
+  });
+
+  describe('ノートの感想連携（Phase 5c）', () => {
+    function makeNoteRepo(notes: NoteEntity[]): NoteRepository {
+      return {
+        put: jest.fn(),
+        list: jest.fn(async () => notes),
+        get: jest.fn(async () => null),
+        listRecent: jest.fn(async () => notes),
+      };
+    }
+
+    const sampleNote: NoteEntity = {
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      NoteID: 'note-1',
+      Title: 'コーヒーの淹れ方',
+      Body: '本文。\n\nコメント。',
+      RelatedKnowledgeIds: ['know-1'],
+      RelatedCategory: 'コーヒー',
+      CreatedAt: 1_700_000_000_000,
+      UpdatedAt: 1_700_000_000_000,
+    };
+
+    it('noteRepository 指定時は直近ノートを system prompt に注入する', async () => {
+      const llm = makeLLMClient(['うん']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const noteRepo = makeNoteRepo([sampleNote]);
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          userText: 'あのノート良かったよ',
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          noteRepository: noteRepo,
+        })
+      );
+
+      expect(noteRepo.listRecent).toHaveBeenCalledWith('u1', 'hiyori', {
+        days: 7,
+        limit: 3,
+      });
+      const streamArgs = (llm.chatStream as jest.Mock).mock.calls[0][0] as Array<{
+        role: string;
+        content: string;
+      }>;
+      const systemMsg = streamArgs.find((m) => m.role === 'system');
+      expect(systemMsg?.content).toContain('最近ユーザーに渡したノート');
+      expect(systemMsg?.content).toContain('コーヒーの淹れ方');
+    });
+
+    it('直近ノートが空なら system prompt にノートセクションを含めない', async () => {
+      const llm = makeLLMClient(['うん']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const noteRepo = makeNoteRepo([]);
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          noteRepository: noteRepo,
+        })
+      );
+
+      const streamArgs = (llm.chatStream as jest.Mock).mock.calls[0][0] as Array<{
+        role: string;
+        content: string;
+      }>;
+      const systemMsg = streamArgs.find((m) => m.role === 'system');
+      expect(systemMsg?.content).not.toContain('最近ユーザーに渡したノート');
+    });
+
+    it('listRecent が失敗してもノートなしで応答を継続する', async () => {
+      const llm = makeLLMClient(['うん']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const noteRepo = makeNoteRepo([]);
+      (noteRepo.listRecent as jest.Mock).mockRejectedValueOnce(new Error('boom'));
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          noteRepository: noteRepo,
+        })
+      );
+
+      expect(events.some((e) => e.type === 'done')).toBe(true);
+      expect(llm.chatStream).toHaveBeenCalled();
     });
   });
 });

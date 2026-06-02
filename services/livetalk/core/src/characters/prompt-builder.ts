@@ -2,6 +2,7 @@ import type { CharacterDefinition } from './types.js';
 import type { MessageEntity } from '../entities/message.entity.js';
 import type { MemoryEntity } from '../entities/memory.entity.js';
 import type { KnowledgeEntity } from '../entities/knowledge.entity.js';
+import type { NoteEntity } from '../entities/note.entity.js';
 import type { ChatMessage } from '../llm-client/types.js';
 import type { RetrievedMemory } from '../memory/types.js';
 import type { LifecycleState } from '../entities/lifecycle.entity.js';
@@ -34,7 +35,8 @@ export function buildSystemPrompt(
   summaryText?: string,
   newLearnings?: MemoryEntity[],
   lifecycleState?: LifecycleState,
-  knowledgeContext?: KnowledgeEntity[]
+  knowledgeContext?: KnowledgeEntity[],
+  recentNotes?: NoteEntity[]
 ): string {
   const { personality, displayName } = character;
   const timeOfDay = getTimeOfDay(now);
@@ -59,8 +61,17 @@ export function buildSystemPrompt(
   const hasNewLearnings = newLearnings !== undefined && newLearnings.length > 0;
   const isSleeping = lifecycleState === 'sleeping';
   const hasKnowledge = knowledgeContext !== undefined && knowledgeContext.length > 0;
+  const hasRecentNotes = recentNotes !== undefined && recentNotes.length > 0;
 
-  if (!hasSummary && !hasMemories && !hasNewLearnings && !isSleeping && !hasKnowledge) return base;
+  if (
+    !hasSummary &&
+    !hasMemories &&
+    !hasNewLearnings &&
+    !isSleeping &&
+    !hasKnowledge &&
+    !hasRecentNotes
+  )
+    return base;
 
   const sections: string[] = [base];
 
@@ -93,6 +104,13 @@ export function buildSystemPrompt(
     );
   }
 
+  if (hasRecentNotes) {
+    const notesSection = recentNotes!.map((n) => `- ${n.Title}`).join('\n');
+    sections.push(
+      `あなたが最近ユーザーに渡したノート：\n${notesSection}\n\nこれらはあなたがユーザーのために調べてまとめてプレゼントしたノートです。ユーザーがノートの感想（「あのノート良かった」「読んだよ」など）を言ったら、どのノートのことか理解して嬉しそうに反応してください。ユーザーが触れていないのに無理に話題にする必要はありません。`
+    );
+  }
+
   return sections.join('\n\n');
 }
 
@@ -113,7 +131,8 @@ export function buildChatMessages(
   summaryText?: string,
   newLearnings?: MemoryEntity[],
   lifecycleState?: LifecycleState,
-  knowledgeContext?: KnowledgeEntity[]
+  knowledgeContext?: KnowledgeEntity[],
+  recentNotes?: NoteEntity[]
 ): ChatMessage[] {
   const systemPrompt = buildSystemPrompt(
     character,
@@ -122,7 +141,8 @@ export function buildChatMessages(
     summaryText,
     newLearnings,
     lifecycleState,
-    knowledgeContext
+    knowledgeContext,
+    recentNotes
   );
   const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }];
 
