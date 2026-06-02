@@ -50,7 +50,10 @@ export default function Footer({
       <Box
         component="footer"
         sx={{
-          py: 3,
+          // licenseText がある場合（リブトーク等）はクレジット行ぶん縦に伸びるため、
+          // 上下 padding を詰めてモバイルでの見切れを抑える。
+          // licenseText 未指定の既存サービスは従来どおり py: 3 を維持する。
+          py: licenseText ? 1.5 : 3,
           px: 2,
           mt: 'auto',
           backgroundColor: (theme) => theme.palette.grey[200],
@@ -101,7 +104,14 @@ export default function Footer({
               variant="caption"
               color="text.secondary"
               align="center"
-              sx={{ display: 'block', mt: 0.5 }}
+              sx={{
+                display: 'block',
+                mt: 0.5,
+                // 長いクレジット表記がモバイル幅で折り返しても収まるよう、
+                // フォントと行間を詰めてコンパクトに表示する。
+                fontSize: '0.7rem',
+                lineHeight: 1.4,
+              }}
             >
               {licenseText}
             </Typography>
