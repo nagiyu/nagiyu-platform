@@ -79,7 +79,8 @@ export const ROLES = {
   'livetalk-admin': {
     id: 'livetalk-admin',
     name: 'LiveTalk 管理者',
-    description: 'LiveTalk の管理者機能（ステータス閲覧等）にアクセス可能。livetalk:chat も含む（middleware 要件）',
+    description:
+      'LiveTalk の管理者機能（ステータス閲覧等）にアクセス可能。livetalk:chat も含む（middleware 要件）',
     permissions: ['livetalk:chat', 'livetalk:admin'],
   },
 } as const satisfies Record<string, RoleDefinition>;
