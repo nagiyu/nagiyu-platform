@@ -174,9 +174,7 @@ describe('PrivacyPolicyDialog', () => {
           { mainContent: 'カスタムプライバシー本文です。' },
           {
             mainContent: 'サブコンテンツ付き本文',
-            subContents: [
-              { subContent: 'サブコンテンツ1', subItems: ['詳細1', '詳細2'] },
-            ],
+            subContents: [{ subContent: 'サブコンテンツ1', subItems: ['詳細1', '詳細2'] }],
           },
         ],
       },
