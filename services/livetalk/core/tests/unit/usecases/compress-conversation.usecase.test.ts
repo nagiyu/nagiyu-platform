@@ -401,11 +401,8 @@ describe('compressConversation', () => {
 
     // tick を進めながら動くリポジトリを用意する
     let currentTick = fixedNow;
-    const store2 = new (await import('@nagiyu/aws').then((m) => m.InMemorySingleTableStore))();
-    const { InMemoryMessageRepository: MsgRepo } = await import(
-      '../../../src/repositories/in-memory-message.repository.js'
-    );
-    const msgRepo2 = new MsgRepo(
+    const store2 = new InMemorySingleTableStore();
+    const msgRepo2 = new InMemoryMessageRepository(
       store2,
       () => `ULID-${currentTick}`,
       () => currentTick
