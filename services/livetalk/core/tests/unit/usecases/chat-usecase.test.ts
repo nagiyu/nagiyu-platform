@@ -1259,7 +1259,9 @@ describe('runChatUseCase', () => {
         put: jest.fn(async (input) => ({ ...input, CreatedAt: Date.now(), UpdatedAt: Date.now() })),
         list: jest.fn(async () => knowledge),
         getLatest: jest.fn(async () => knowledge[0] ?? null),
-        getById: jest.fn(async (_userId, _charId, id) => knowledge.find((k) => k.KnowledgeID === id) ?? null),
+        getById: jest.fn(
+          async (_userId, _charId, id) => knowledge.find((k) => k.KnowledgeID === id) ?? null
+        ),
       };
     }
 

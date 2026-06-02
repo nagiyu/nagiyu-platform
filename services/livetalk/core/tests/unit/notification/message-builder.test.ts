@@ -101,7 +101,10 @@ describe('buildCriticalNotificationMessage', () => {
 
 describe('normalizeKnowledgeTopic（通知テンプレート堅牢化）', () => {
   it('normal・topic 末尾句点が除去される', () => {
-    const msg = buildNotificationMessage({ toneBucket: 'normal', knowledgeTopic: 'コーヒーの新作。' }, 0);
+    const msg = buildNotificationMessage(
+      { toneBucket: 'normal', knowledgeTopic: 'コーヒーの新作。' },
+      0
+    );
     expect(msg.body).not.toMatch(/。について|。のこと/);
     expect(msg.body).toContain('コーヒーの新作');
   });
