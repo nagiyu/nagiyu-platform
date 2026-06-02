@@ -36,7 +36,8 @@ export function buildSystemPrompt(
   newLearnings?: MemoryEntity[],
   lifecycleState?: LifecycleState,
   knowledgeContext?: KnowledgeEntity[],
-  recentNotes?: NoteEntity[]
+  recentNotes?: NoteEntity[],
+  notificationKnowledge?: KnowledgeEntity
 ): string {
   const { personality, displayName } = character;
   const timeOfDay = getTimeOfDay(now);
@@ -62,6 +63,7 @@ export function buildSystemPrompt(
   const isSleeping = lifecycleState === 'sleeping';
   const hasKnowledge = knowledgeContext !== undefined && knowledgeContext.length > 0;
   const hasRecentNotes = recentNotes !== undefined && recentNotes.length > 0;
+  const hasNotificationKnowledge = notificationKnowledge !== undefined;
 
   if (
     !hasSummary &&
@@ -69,7 +71,8 @@ export function buildSystemPrompt(
     !hasNewLearnings &&
     !isSleeping &&
     !hasKnowledge &&
-    !hasRecentNotes
+    !hasRecentNotes &&
+    !hasNotificationKnowledge
   )
     return base;
 
@@ -111,6 +114,14 @@ export function buildSystemPrompt(
     );
   }
 
+  if (hasNotificationKnowledge) {
+    const k = notificationKnowledge!;
+    const detail = `- ${k.Topic}：${k.Summary}${k.RawComment ? `（${k.RawComment}）` : ''}`;
+    sections.push(
+      `あなたが通知でユーザーに話しかけた話題：\n${detail}\n\nユーザーはこの通知を受けて会話を始めました。この話題をあなた自身が始めた会話として自然に展開してください。「うん、${k.Topic}だけどね〜」や「そうそう、調べたらすごく面白くて！」のように、自分が振った話題として続けてください。`
+    );
+  }
+
   return sections.join('\n\n');
 }
 
@@ -132,7 +143,8 @@ export function buildChatMessages(
   newLearnings?: MemoryEntity[],
   lifecycleState?: LifecycleState,
   knowledgeContext?: KnowledgeEntity[],
-  recentNotes?: NoteEntity[]
+  recentNotes?: NoteEntity[],
+  notificationKnowledge?: KnowledgeEntity
 ): ChatMessage[] {
   const systemPrompt = buildSystemPrompt(
     character,
@@ -142,7 +154,8 @@ export function buildChatMessages(
     newLearnings,
     lifecycleState,
     knowledgeContext,
-    recentNotes
+    recentNotes,
+    notificationKnowledge
   );
   const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }];
 

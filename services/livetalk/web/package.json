@@ -24,6 +24,10 @@
     "@nagiyu/livetalk-core": "*",
     "@nagiyu/nextjs": "*",
     "@nagiyu/ui": "*",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "jest-environment-jsdom": "^30.4.1",
     "pixi-live2d-display-lipsyncpatch": "0.5.0-ls-8",
     "pixi.js": "^7.4.3"
   }

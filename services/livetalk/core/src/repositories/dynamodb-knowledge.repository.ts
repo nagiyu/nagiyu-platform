@@ -1,8 +1,13 @@
-import { PutCommand, QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import {
+  GetCommand,
+  PutCommand,
+  QueryCommand,
+  type DynamoDBDocumentClient,
+} from '@aws-sdk/lib-dynamodb';
 import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import type { CreateKnowledgeInput, KnowledgeEntity } from '../entities/knowledge.entity.js';
 import { KnowledgeMapper } from '../mappers/knowledge.mapper.js';
-import { buildKnowledgeSKPrefix, buildUserPK } from '../mappers/keys.js';
+import { buildKnowledgeSK, buildKnowledgeSKPrefix, buildUserPK } from '../mappers/keys.js';
 import type { KnowledgeRepository } from './knowledge.repository.interface.js';
 
 export class DynamoDBKnowledgeRepository implements KnowledgeRepository {
@@ -70,6 +75,27 @@ export class DynamoDBKnowledgeRepository implements KnowledgeRepository {
     }
 
     return results;
+  }
+
+  public async getById(
+    userId: string,
+    characterId: string,
+    knowledgeId: string
+  ): Promise<KnowledgeEntity | null> {
+    const pk = buildUserPK(userId);
+    const sk = buildKnowledgeSK(characterId, knowledgeId);
+
+    try {
+      const result = await this.docClient.send(
+        new GetCommand({ TableName: this.tableName, Key: { PK: pk, SK: sk } })
+      );
+
+      if (!result.Item) return null;
+      return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+    }
   }
 
   public async getLatest(userId: string, characterId: string): Promise<KnowledgeEntity | null> {

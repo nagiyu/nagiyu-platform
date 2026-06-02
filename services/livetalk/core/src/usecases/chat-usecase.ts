@@ -117,6 +117,12 @@ export interface ChatUseCaseParams {
   knowledgeMatcher?: KnowledgeMatcher;
   /** ULID ファクトリ。テスト時に差し替え可能。未指定時はデフォルト実装 */
   ulidFactory?: UlidFactory;
+  /**
+   * 通知起点の会話に対応する KnowledgeID（案B: 保存せず受け渡しのみ）。
+   * 指定時は該当 KNOWLEDGE を context に注入し、キャラが自分で振った話題として展開する。
+   * knowledgeRepository が未指定の場合はスキップする。
+   */
+  notificationKnowledgeId?: string;
 }
 
 type SynthesisResult = { index: number; text: string; audio: string | null; elapsedMs: number };
@@ -238,6 +244,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     noteRepository,
     knowledgeMatcher,
     ulidFactory = defaultUlidFactory,
+    notificationKnowledgeId,
   } = params;
 
   const chatStart = performance.now();
@@ -416,6 +423,31 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     }
   }
 
+  // 3.7. 通知起点 KNOWLEDGE の取得（案B: 保存せず受け渡しのみ）
+  // notificationKnowledgeId が指定されている場合、該当 KNOWLEDGE を取得して別セクションとして注入する。
+  // knowledgeContextForPrompt（知識ゲートのヒット分）と重複する場合はそちらから除外する。
+  let notificationKnowledge: import('../entities/knowledge.entity.js').KnowledgeEntity | null =
+    null;
+  if (notificationKnowledgeId && knowledgeRepository) {
+    try {
+      notificationKnowledge = await knowledgeRepository.getById(
+        userId,
+        characterId,
+        notificationKnowledgeId
+      );
+      // 知識ゲートのヒット分と重複していれば除外（prompt の冗長化を防ぐ）
+      if (notificationKnowledge && knowledgeContextForPrompt) {
+        knowledgeContextForPrompt = knowledgeContextForPrompt.filter(
+          (k) => k.KnowledgeID !== notificationKnowledge!.KnowledgeID
+        );
+      }
+    } catch (err) {
+      logger.warn('[chat-usecase] 通知起点 KNOWLEDGE の取得に失敗しました（スキップして継続）', {
+        err,
+      });
+    }
+  }
+
   // 4. Memory retrieve（fail-warn: エラー時は空配列で継続）
   let retrievedMemories: RetrievedMemory[] = [];
   if (memoryRetriever) {
@@ -509,7 +541,8 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     newLearnings.length > 0 ? newLearnings : undefined,
     lifecycleState,
     knowledgeContextForPrompt,
-    recentNotes.length > 0 ? recentNotes : undefined
+    recentNotes.length > 0 ? recentNotes : undefined,
+    notificationKnowledge ?? undefined
   );
 
   // プロンプトトークン内訳を計算（best-effort）

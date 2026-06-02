@@ -111,4 +111,20 @@ describe('generateNotesForUser', () => {
     });
     expect(result.generatedCount).toBe(0);
   });
+
+  it('Topic 末尾の句点はノートタイトルから除去される', async () => {
+    await putKnowledge({ KnowledgeID: 'know-001', Topic: '飲み物の新作。' });
+    await generateNotesForUser('u1', 'hiyori', { knowledgeRepo, noteRepo, ulidFactory });
+    const notes = await noteRepo.list('u1', 'hiyori');
+    expect(notes[0].Title).toBe('飲み物の新作');
+  });
+
+  it('長い説明文 Topic でも末尾句点が除去される', async () => {
+    const longTopic =
+      '日本の食べ物（特にスイーツ・コンビニ新商品）の最新トレンドを検索しました。メーカーの新作、コラボ商品、新食感菓子など、春〜初夏にかけての動きを中心に調べたよ。';
+    await putKnowledge({ KnowledgeID: 'know-001', Topic: longTopic });
+    await generateNotesForUser('u1', 'hiyori', { knowledgeRepo, noteRepo, ulidFactory });
+    const notes = await noteRepo.list('u1', 'hiyori');
+    expect(notes[0].Title).not.toMatch(/。$/);
+  });
 });

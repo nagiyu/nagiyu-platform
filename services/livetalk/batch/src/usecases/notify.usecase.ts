@@ -187,6 +187,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
     );
     title = msg.title;
     body = msg.body;
+    knowledgeId = latestKnowledge?.KnowledgeID;
   }
 
   const ttl = Math.floor(currentNow.getTime() / 1000) + NOTIFICATION_EVENT_TTL_SECONDS;

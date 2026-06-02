@@ -1259,6 +1259,7 @@ describe('runChatUseCase', () => {
         put: jest.fn(async (input) => ({ ...input, CreatedAt: Date.now(), UpdatedAt: Date.now() })),
         list: jest.fn(async () => knowledge),
         getLatest: jest.fn(async () => knowledge[0] ?? null),
+        getById: jest.fn(async (_userId, _charId, id) => knowledge.find((k) => k.KnowledgeID === id) ?? null),
       };
     }
 
@@ -1743,6 +1744,154 @@ describe('runChatUseCase', () => {
 
       expect(events[events.length - 1]).toEqual({ type: 'done' });
       expect(llm.chatStream).toHaveBeenCalled();
+    });
+  });
+
+  describe('通知起点の KNOWLEDGE context 注入（Issue #3359 課題Y）', () => {
+    function makeKnowledgeRepo(knowledge: KnowledgeEntity[] = []): KnowledgeRepository {
+      return {
+        put: jest.fn(async (input) => ({ ...input, CreatedAt: Date.now(), UpdatedAt: Date.now() })),
+        list: jest.fn(async () => knowledge),
+        getLatest: jest.fn(async () => knowledge[0] ?? null),
+        getById: jest.fn(async (_u, _c, id) => knowledge.find((k) => k.KnowledgeID === id) ?? null),
+      };
+    }
+
+    function makeKnowledgeForNotif(id: string, topic: string): KnowledgeEntity {
+      return {
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        KnowledgeID: id,
+        Topic: topic,
+        Summary: `${topic}の詳細要約。`.repeat(5),
+        SourceUrls: [],
+        RawComment: 'おもしろい！',
+        RelatedCategory: 'test',
+        CreatedAt: 1_700_000_000_000,
+        UpdatedAt: 1_700_000_000_000,
+      };
+    }
+
+    it('notificationKnowledgeId 指定時、該当 KNOWLEDGE が system prompt に注入される', async () => {
+      const k = makeKnowledgeForNotif('notif-k1', 'カフェラテの新作');
+      const knowledgeRepo = makeKnowledgeRepo([k]);
+      const llm = makeLLMClient(['そうそう！']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          knowledgeRepository: knowledgeRepo,
+          notificationKnowledgeId: 'notif-k1',
+        })
+      );
+
+      expect(knowledgeRepo.getById).toHaveBeenCalledWith('u1', 'hiyori', 'notif-k1');
+      const streamArgs = (llm.chatStream as jest.Mock).mock.calls[0][0] as Array<{
+        role: string;
+        content: string;
+      }>;
+      const systemMsg = streamArgs.find((m) => m.role === 'system');
+      expect(systemMsg?.content).toContain('通知でユーザーに話しかけた話題');
+      expect(systemMsg?.content).toContain('カフェラテの新作');
+    });
+
+    it('notificationKnowledgeId が存在しない ID のとき通常フローで継続', async () => {
+      const knowledgeRepo = makeKnowledgeRepo([]);
+      const llm = makeLLMClient(['うん']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          knowledgeRepository: knowledgeRepo,
+          notificationKnowledgeId: 'no-such-id',
+        })
+      );
+
+      expect(events.some((e) => e.type === 'done')).toBe(true);
+      expect(llm.chatStream).toHaveBeenCalled();
+    });
+
+    it('notificationKnowledgeId 未指定のとき通知セクションを含めない', async () => {
+      const llm = makeLLMClient(['うん']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+        })
+      );
+
+      const streamArgs = (llm.chatStream as jest.Mock).mock.calls[0][0] as Array<{
+        role: string;
+        content: string;
+      }>;
+      const systemMsg = streamArgs.find((m) => m.role === 'system');
+      expect(systemMsg?.content).not.toContain('通知でユーザーに話しかけた話題');
+    });
+
+    it('getById が失敗してもスキップして通常応答を継続する', async () => {
+      const knowledgeRepo = makeKnowledgeRepo([]);
+      (knowledgeRepo.getById as jest.Mock).mockRejectedValueOnce(new Error('DB error'));
+      const llm = makeLLMClient(['うん']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          knowledgeRepository: knowledgeRepo,
+          notificationKnowledgeId: 'notif-k1',
+        })
+      );
+
+      expect(events.some((e) => e.type === 'done')).toBe(true);
+    });
+
+    it('knowledge_hit と notificationKnowledgeId が同じ ID のとき重複注入しない', async () => {
+      const k = makeKnowledgeForNotif('k1', 'モンハン');
+      const knowledgeRepo = makeKnowledgeRepo([k]);
+      const llm = makeLLMClient(['モンハン！']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          userText: 'モンハン',
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          knowledgeRepository: knowledgeRepo,
+          notificationKnowledgeId: 'k1',
+        })
+      );
+
+      const streamArgs = (llm.chatStream as jest.Mock).mock.calls[0][0] as Array<{
+        role: string;
+        content: string;
+      }>;
+      const systemMsg = streamArgs.find((m) => m.role === 'system');
+      // 通知セクションが含まれ、知識ゲートセクションでは重複しない
+      expect(systemMsg?.content).toContain('通知でユーザーに話しかけた話題');
+      const knowledgeCount = (systemMsg?.content.match(/この前調べたこと/g) ?? []).length;
+      expect(knowledgeCount).toBeLessThanOrEqual(1);
     });
   });
 });

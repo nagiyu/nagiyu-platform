@@ -110,7 +110,7 @@ function isNoteWorthy(
 }
 
 function buildNoteTitle(knowledge: KnowledgeEntity): string {
-  return knowledge.Topic.trim();
+  return knowledge.Topic.trim().replace(/[。、．,\n\r]+$/, '');
 }
 
 /**

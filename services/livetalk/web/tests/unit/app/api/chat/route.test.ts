@@ -197,5 +197,36 @@ describe('POST /api/chat', () => {
         expect.objectContaining({ userId: 'g1', userText: 'テスト' })
       );
     });
+
+    it('knowledgeId を含むリクエストは notificationKnowledgeId として usecase に渡される', async () => {
+      mockRunChatUseCase.mockImplementation(async function* () {
+        yield { type: 'done' };
+      });
+
+      await POST(buildRequest({ text: 'こんにちは', knowledgeId: 'k-abc' }));
+
+      expect(mockRunChatUseCase).toHaveBeenCalledWith(
+        expect.objectContaining({ notificationKnowledgeId: 'k-abc' })
+      );
+    });
+
+    it('knowledgeId が空文字列のときは notificationKnowledgeId が undefined になる', async () => {
+      mockRunChatUseCase.mockImplementation(async function* () {
+        yield { type: 'done' };
+      });
+
+      await POST(buildRequest({ text: 'こんにちは', knowledgeId: '' }));
+
+      expect(mockRunChatUseCase).toHaveBeenCalledWith(
+        expect.objectContaining({ notificationKnowledgeId: undefined })
+      );
+    });
+
+    it('knowledgeId が数値型のリクエストは 400 INVALID_REQUEST', async () => {
+      const res = await POST(buildRequest({ text: 'hello', knowledgeId: 123 }));
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.message).toBe(CHAT_ERROR_MESSAGES.INVALID_REQUEST);
+    });
   });
 });

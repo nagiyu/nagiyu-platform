@@ -21,13 +21,17 @@ import { CHAT_ERROR_MESSAGES, CHAT_MAX_TEXT_LENGTH } from './constants';
 
 interface ChatRequest {
   text: string;
+  /** 通知起点の会話の場合、元となった KnowledgeID（任意） */
+  knowledgeId?: string;
 }
 
 function isChatRequest(body: unknown): body is ChatRequest {
   return (
     typeof body === 'object' &&
     body !== null &&
-    typeof (body as Partial<ChatRequest>).text === 'string'
+    typeof (body as Partial<ChatRequest>).text === 'string' &&
+    ((body as Partial<ChatRequest>).knowledgeId === undefined ||
+      typeof (body as Partial<ChatRequest>).knowledgeId === 'string')
   );
 }
 
@@ -67,6 +71,7 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (session, reques
   }
 
   const text = body.text.trim();
+  const notificationKnowledgeId = body.knowledgeId?.trim() || undefined;
   if (!text) {
     return NextResponse.json(
       { error: 'EMPTY_TEXT', message: CHAT_ERROR_MESSAGES.EMPTY_TEXT },
@@ -109,6 +114,7 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (session, reques
           knowledgeRepository: getKnowledgeRepository(),
           studyTopicRepository: getStudyTopicRepository(),
           noteRepository: getNoteRepository(),
+          notificationKnowledgeId,
         });
 
         for await (const event of eventGenerator) {

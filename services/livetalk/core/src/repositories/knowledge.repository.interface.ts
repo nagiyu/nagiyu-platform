@@ -5,4 +5,10 @@ export interface KnowledgeRepository {
   list(userId: string, characterId: string, limit?: number): Promise<KnowledgeEntity[]>;
   /** 最新の Knowledge を 1 件返す。なければ null。 */
   getLatest(userId: string, characterId: string): Promise<KnowledgeEntity | null>;
+  /** KnowledgeID を指定して 1 件返す。なければ null。 */
+  getById(
+    userId: string,
+    characterId: string,
+    knowledgeId: string
+  ): Promise<KnowledgeEntity | null>;
 }
