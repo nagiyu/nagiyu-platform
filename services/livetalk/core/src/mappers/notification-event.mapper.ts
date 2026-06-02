@@ -32,6 +32,7 @@ export class NotificationEventMapper implements EntityMapper<
       Title: entity.Title,
       Body: entity.Body,
       CreatedAt: entity.CreatedAt,
+      UpdatedAt: entity.CreatedAt,
       Ttl: entity.Ttl,
     };
     if (entity.KnowledgeID !== undefined) item.KnowledgeID = entity.KnowledgeID;
