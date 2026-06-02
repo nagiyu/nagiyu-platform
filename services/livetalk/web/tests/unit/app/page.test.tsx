@@ -49,11 +49,6 @@ jest.mock('@/components/SafetyModal', () => ({
   default: jest.fn(() => null),
 }));
 
-jest.mock('@/components/LicenseFooter', () => ({
-  __esModule: true,
-  default: jest.fn(() => null),
-}));
-
 jest.mock('@/components/ResponseDisplay', () => ({
   __esModule: true,
   default: jest.fn(() => null),

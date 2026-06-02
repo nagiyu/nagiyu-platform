@@ -166,6 +166,55 @@ describe('PrivacyPolicyDialog', () => {
     });
   });
 
+  describe('sections props（差し替えデータ）', () => {
+    const customSections = [
+      {
+        title: 'カスタムプライバシータイトル',
+        contents: [
+          { mainContent: 'カスタムプライバシー本文です。' },
+          {
+            mainContent: 'サブコンテンツ付き本文',
+            subContents: [
+              { subContent: 'サブコンテンツ1', subItems: ['詳細1', '詳細2'] },
+            ],
+          },
+        ],
+      },
+      {
+        title: '第2条タイトル',
+        contents: [{ mainContent: '第2条の内容です。' }],
+      },
+    ];
+
+    it('sectionsが指定された場合にカスタムデータが表示される', () => {
+      render(<PrivacyPolicyDialog open={true} onClose={mockOnClose} sections={customSections} />);
+
+      expect(screen.getByText('第1条（カスタムプライバシータイトル）')).toBeInTheDocument();
+      expect(screen.getByText('第2条（第2条タイトル）')).toBeInTheDocument();
+      expect(screen.getByText('カスタムプライバシー本文です。')).toBeInTheDocument();
+    });
+
+    it('sectionsが指定された場合はグローバルデータが表示されない', () => {
+      render(<PrivacyPolicyDialog open={true} onClose={mockOnClose} sections={customSections} />);
+
+      expect(screen.queryByText('第1条（広告の配信について）')).not.toBeInTheDocument();
+    });
+
+    it('sectionsのサブコンテンツとサブアイテムが正しく表示される', () => {
+      render(<PrivacyPolicyDialog open={true} onClose={mockOnClose} sections={customSections} />);
+
+      expect(screen.getByText('サブコンテンツ1')).toBeInTheDocument();
+      expect(screen.getByText('詳細1')).toBeInTheDocument();
+      expect(screen.getByText('詳細2')).toBeInTheDocument();
+    });
+
+    it('sectionsが省略された場合はグローバルデータが表示される', () => {
+      render(<PrivacyPolicyDialog open={true} onClose={mockOnClose} />);
+
+      expect(screen.getByText('第1条（広告の配信について）')).toBeInTheDocument();
+    });
+  });
+
   describe('スタイリング', () => {
     it('タイトルがh6 variantで表示される', () => {
       render(<PrivacyPolicyDialog open={true} onClose={mockOnClose} />);

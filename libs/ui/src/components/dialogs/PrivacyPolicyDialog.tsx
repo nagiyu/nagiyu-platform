@@ -24,12 +24,22 @@ export interface PrivacyPolicyDialogProps {
    * Callback fired when the dialog should be closed
    */
   onClose: () => void;
+  /**
+   * 差し替えプライバシーポリシーデータ（省略時はグローバル privacyPolicySections を使用）
+   */
+  sections?: PolicySection[];
 }
 
 // Re-export types for backward compatibility
 export type { PolicySection, PolicySubContent, PolicyContent };
 
-export default function PrivacyPolicyDialog({ open, onClose }: PrivacyPolicyDialogProps) {
+export default function PrivacyPolicyDialog({
+  open,
+  onClose,
+  sections,
+}: PrivacyPolicyDialogProps) {
+  const displaySections = sections ?? privacyPolicySections;
+
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md" scroll="paper">
       <DialogTitle
@@ -52,7 +62,7 @@ export default function PrivacyPolicyDialog({ open, onClose }: PrivacyPolicyDial
         </IconButton>
       </DialogTitle>
       <DialogContent dividers>
-        {privacyPolicySections.map((section, sectionIndex) => (
+        {displaySections.map((section, sectionIndex) => (
           <Box key={sectionIndex} sx={{ mb: 4 }}>
             <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
               第{sectionIndex + 1}条（{section.title}）

@@ -5,7 +5,6 @@ import dynamic from 'next/dynamic';
 import { Box, Container, Stack } from '@mui/material';
 import { Link } from '@nagiyu/ui';
 import ChatInput from '@/components/ChatInput';
-import LicenseFooter from '@/components/LicenseFooter';
 import ResponseDisplay from '@/components/ResponseDisplay';
 import { Live2DCanvasFallback } from '@/components/Live2DCanvas';
 import ConsentModal from '@/components/ConsentModal';
@@ -414,7 +413,6 @@ export default function HomePage() {
           </Box>
           <NotificationToggle />
         </Stack>
-        <LicenseFooter />
       </Container>
     </>
   );

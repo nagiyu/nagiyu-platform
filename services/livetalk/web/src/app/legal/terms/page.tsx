@@ -21,7 +21,7 @@ export default function TermsPage() {
       {liveTalkTermsSections.map((section, sectionIndex) => (
         <Box key={sectionIndex} sx={{ mb: 4 }}>
           <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
-            {section.title}
+            第{sectionIndex + 1}条（{section.title}）
           </Typography>
           {section.contents.map((content, contentIndex) => (
             <Box key={contentIndex} sx={{ mb: 2 }}>
