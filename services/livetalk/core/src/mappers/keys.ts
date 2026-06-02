@@ -115,3 +115,19 @@ export function buildNoteSKPrefix(characterId: string): string {
 export function buildNoteSK(characterId: string, noteId: string): string {
   return `${buildNoteSKPrefix(characterId)}${noteId}`;
 }
+
+export function buildPushSubscriptionSKPrefix(): string {
+  return 'PUSH_SUBSCRIPTION#';
+}
+
+export function buildPushSubscriptionSK(subscriptionId: string): string {
+  return `PUSH_SUBSCRIPTION#${subscriptionId}`;
+}
+
+export function buildNotifSKPrefix(): string {
+  return 'NOTIF#';
+}
+
+export function buildNotifSK(notifId: string): string {
+  return `NOTIF#${notifId}`;
+}

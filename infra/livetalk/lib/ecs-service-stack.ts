@@ -59,6 +59,12 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
     const openAiApiKey =
       scope.node.tryGetContext('openAiApiKey') || 'PLACEHOLDER_OPENAI_API_KEY';
 
+    // VAPID キー（Phase 5d / #3346）。Web Push の subscribe / vapid-public-key route が参照する。
+    const vapidPublicKey =
+      scope.node.tryGetContext('vapidPublicKey') || 'PLACEHOLDER_VAPID_PUBLIC_KEY';
+    const vapidPrivateKey =
+      scope.node.tryGetContext('vapidPrivateKey') || 'PLACEHOLDER_VAPID_PRIVATE_KEY';
+
     const authUrl =
       environment === 'prod' ? 'https://auth.nagiyu.com' : `https://dev-auth.nagiyu.com`;
 
@@ -264,6 +270,9 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
         // Phase 4a / #3327: Node.js の new Date() を JST 基準にし、getTimeOfDay() の
         // 時間帯判定（朝/昼/夜）を正しく動作させる。ISO8601 タイムスタンプは UTC のまま。
         TZ: 'Asia/Tokyo',
+        // VAPID キー（Phase 5d / #3346）。Web Push subscribe / vapid-public-key route が参照する。
+        VAPID_PUBLIC_KEY: vapidPublicKey,
+        VAPID_PRIVATE_KEY: vapidPrivateKey,
       },
       portMappings: [
         {

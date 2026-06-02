@@ -11,6 +11,8 @@ const synth = (environment = 'dev', overrides = {}) => {
   const stack = new LiveTalkBatchStack(app, `TestLiveTalkBatch${environment}`, {
     environment,
     openAiApiKey: 'PLACEHOLDER_KEY',
+    vapidPublicKey: 'PLACEHOLDER_VAPID_PUB',
+    vapidPrivateKey: 'PLACEHOLDER_VAPID_PRIV',
     env: STACK_ENV,
     ...overrides,
   });
@@ -94,9 +96,9 @@ describe('LiveTalkBatchStack', () => {
     expect(vars.OPENAI_API_KEY).toBeUndefined();
   });
 
-  it('EventBridge ルールを 3 つ作成する（日次圧縮 + 週次学習 + 毎時勉強）', () => {
+  it('EventBridge ルールを 4 つ作成する（日次圧縮 + 週次学習 + 毎時勉強 + 毎時通知）', () => {
     const { template } = synth();
-    template.resourceCountIs('AWS::Events::Rule', 3);
+    template.resourceCountIs('AWS::Events::Rule', 4);
   });
 
   it('圧縮バッチの EventBridge スケジュールは cron(0 18 * * ? *)', () => {
@@ -113,9 +115,9 @@ describe('LiveTalkBatchStack', () => {
     });
   });
 
-  it('SQS DLQ を 3 つ作成する（圧縮 + 学習 + 勉強で分離）', () => {
+  it('SQS DLQ を 4 つ作成する（圧縮 + 学習 + 勉強 + 通知で分離）', () => {
     const { template } = synth();
-    template.resourceCountIs('AWS::SQS::Queue', 3);
+    template.resourceCountIs('AWS::SQS::Queue', 4);
   });
 
   it('Lambda 実行ロールを作成する', () => {
@@ -171,6 +173,38 @@ describe('LiveTalkBatchStack', () => {
   it('StudyFunctionArn を Outputs に出力する', () => {
     const { template } = synth();
     template.hasOutput('StudyFunctionArn', Match.anyValue());
+  });
+
+  it('通知バッチ用 Lambda 関数が存在する', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: Match.stringLikeRegexp('livetalk-batch-notify'),
+    });
+  });
+
+  it('通知バッチ Lambda 環境変数に VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY が含まれる', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: Match.stringLikeRegexp('livetalk-batch-notify'),
+      Environment: {
+        Variables: Match.objectLike({
+          VAPID_PUBLIC_KEY: 'PLACEHOLDER_VAPID_PUB',
+          VAPID_PRIVATE_KEY: 'PLACEHOLDER_VAPID_PRIV',
+        }),
+      },
+    });
+  });
+
+  it('通知バッチの EventBridge スケジュールは毎時 30 分（cron(30 * * * ? *)）', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Events::Rule', {
+      ScheduleExpression: 'cron(30 * * * ? *)',
+    });
+  });
+
+  it('NotifyFunctionArn を Outputs に出力する', () => {
+    const { template } = synth();
+    template.hasOutput('NotifyFunctionArn', Match.anyValue());
   });
 
   it('prod 環境でも正しく生成する', () => {

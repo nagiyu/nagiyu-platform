@@ -10,6 +10,7 @@ import ResponseDisplay from '@/components/ResponseDisplay';
 import { Live2DCanvasFallback } from '@/components/Live2DCanvas';
 import ConsentModal from '@/components/ConsentModal';
 import SafetyModal from '@/components/SafetyModal';
+import NotificationToggle from '@/components/NotificationToggle';
 import type { LifecycleState, SafetyResource } from '@nagiyu/livetalk-core';
 
 const Live2DCanvas = dynamic(() => import('@/components/Live2DCanvas'), {
@@ -63,6 +64,9 @@ export default function HomePage() {
   const [safetyResources, setSafetyResources] = useState<SafetyResource[]>([]);
   const [lifecycleState, setLifecycleState] = useState<LifecycleState>('awake');
 
+  // キャラ第一声（未消化の通知から表示）
+  const [firstWordText, setFirstWordText] = useState<string | null>(null);
+
   const audioQueueRef = useRef<AudioBuffer[]>([]);
   const isPlayingRef = useRef(false);
   const streamDoneRef = useRef(false);
@@ -82,6 +86,23 @@ export default function HomePage() {
         // 取得失敗時はモーダルを表示してユーザーに同意を促す
         setConsentPhase('required');
       });
+  }, []);
+
+  // 起動時に未消化の通知があればキャラ第一声として表示する。
+  useEffect(() => {
+    fetch('/api/push/first-word')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { notifId: string; body: string } | null) => {
+        if (!data) return;
+        setFirstWordText(data.body);
+        // 消化済みマーク
+        fetch('/api/push/consumed', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notifId: data.notifId }),
+        }).catch(() => {});
+      })
+      .catch(() => {});
   }, []);
 
   // 初回起動時に生活サイクル状態を取得し、初回発話を待たずに Live2D へ反映する。
@@ -153,6 +174,7 @@ export default function HomePage() {
 
       setUserText(text);
       setResponseText('');
+      setFirstWordText(null);
       setErrorMessage(null);
       setPhase('loading');
       setAudioBuffer(null);
@@ -308,7 +330,7 @@ export default function HomePage() {
             alignItems: 'stretch',
           }}
         >
-          <ResponseDisplay text={responseText} userText={userText} />
+          <ResponseDisplay text={firstWordText ?? responseText} userText={userText} />
           {errorMessage && (
             <Box
               sx={{
@@ -329,6 +351,7 @@ export default function HomePage() {
             <Link href="/memory">私が覚えていること</Link>
             <Link href="/notes">ノート</Link>
           </Box>
+          <NotificationToggle />
         </Stack>
         <LicenseFooter />
       </Container>

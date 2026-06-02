@@ -22,6 +22,7 @@ export interface LiveTalkSecretsStackProps extends cdk.StackProps {
  */
 export class LiveTalkSecretsStack extends cdk.Stack {
   public readonly openAiApiKeySecret: secretsmanager.Secret;
+  public readonly vapidSecret: secretsmanager.Secret;
 
   constructor(scope: Construct, id: string, props: LiveTalkSecretsStackProps) {
     super(scope, id, props);
@@ -32,6 +33,17 @@ export class LiveTalkSecretsStack extends cdk.Stack {
       secretName: openAiSecretName(environment),
       description: `LiveTalk OpenAI API key (${environment})`,
       secretStringValue: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
+    });
+
+    // VAPID キー（Phase 5d / #3346）
+    // 初回は PLACEHOLDER で作成し、実際の値は AWS Console から手動で書き換える。
+    // `web-push generate-vapid-keys` で生成した JSON をそのまま貼り付ける。
+    this.vapidSecret = new secretsmanager.Secret(this, 'VapidSecret', {
+      secretName: vapidSecretName(environment),
+      description: `LiveTalk VAPID key pair for Web Push notifications (${environment})`,
+      secretStringValue: cdk.SecretValue.unsafePlainText(
+        '{"publicKey":"PLACEHOLDER","privateKey":"PLACEHOLDER"}'
+      ),
     });
 
     cdk.Tags.of(this).add('Application', 'nagiyu');
@@ -48,9 +60,23 @@ export class LiveTalkSecretsStack extends cdk.Stack {
       value: this.openAiApiKeySecret.secretName,
       description: 'LiveTalk OpenAI API key Secret Name',
     });
+
+    new cdk.CfnOutput(this, 'VapidSecretArn', {
+      value: this.vapidSecret.secretArn,
+      description: 'LiveTalk VAPID Secret ARN',
+    });
+
+    new cdk.CfnOutput(this, 'VapidSecretName', {
+      value: this.vapidSecret.secretName,
+      description: 'LiveTalk VAPID Secret Name',
+    });
   }
 }
 
 export function openAiSecretName(environment: Environment): string {
   return `/nagiyu/livetalk/${environment}/openai/api-key`;
+}
+
+export function vapidSecretName(environment: Environment): string {
+  return `nagiyu-livetalk-vapid-${environment}`;
 }

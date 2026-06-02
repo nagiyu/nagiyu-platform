@@ -301,3 +301,63 @@ export {
   type StudyForUserParams,
   type StudyForUserResult,
 } from './usecases/study.usecase.js';
+
+// PushSubscription（Phase 5d / #3346）
+export type {
+  PushSubscriptionEntity,
+  PushSubscriptionKey,
+  CreatePushSubscriptionInput,
+} from './entities/push-subscription.entity.js';
+export type { PushSubscriptionRepository } from './repositories/push-subscription.repository.interface.js';
+export { InMemoryPushSubscriptionRepository } from './repositories/in-memory-push-subscription.repository.js';
+export { DynamoDBPushSubscriptionRepository } from './repositories/dynamodb-push-subscription.repository.js';
+export { PushSubscriptionMapper } from './mappers/push-subscription.mapper.js';
+export { buildPushSubscriptionSK, buildPushSubscriptionSKPrefix } from './mappers/keys.js';
+
+// NotificationEvent（Phase 5d / #3346）
+export type {
+  NotificationEventEntity,
+  NotificationEventKey,
+  CreateNotificationEventInput,
+} from './entities/notification-event.entity.js';
+export type { NotificationEventRepository } from './repositories/notification-event.repository.interface.js';
+export { InMemoryNotificationEventRepository } from './repositories/in-memory-notification-event.repository.js';
+export { DynamoDBNotificationEventRepository } from './repositories/dynamodb-notification-event.repository.js';
+export { NotificationEventMapper } from './mappers/notification-event.mapper.js';
+export { buildNotifSK, buildNotifSKPrefix } from './mappers/keys.js';
+
+// Notification logic（Phase 5d / #3346）
+export {
+  shouldNotifyNow,
+  extractSessionStartTimes,
+  computeSessionIntervals,
+  computeBaseIntervalMs,
+  resolveToneBucket,
+  countTodayNotifications,
+  median,
+} from './notification/index.js';
+export type { NotifyDecision, NotifyDecisionInput, ToneBucket } from './notification/index.js';
+export {
+  buildNotificationMessage,
+  buildCriticalNotificationMessage,
+  detectCriticalKnowledge,
+} from './notification/index.js';
+export type {
+  BuildNotificationMessageInput,
+  NotificationMessage,
+  EscalationResult,
+} from './notification/index.js';
+
+// 通知関連定数（Phase 5d / #3346）
+export {
+  NOTIFY_RECENT_SESSION_SAMPLE_N,
+  NOTIFY_SESSION_GAP_MINUTES,
+  NOTIFY_DEFAULT_BASE_HOURS,
+  NOTIFY_BASE_MIN_HOURS,
+  NOTIFY_MAX_INTERVAL_DAYS,
+  NOTIFY_BACKOFF_BASE,
+  NOTIFY_DAILY_NORMAL_CAP,
+  NOTIFY_DAILY_CRITICAL_CAP,
+  NOTIFY_ACTIVE_WINDOW_MINUTES,
+  NOTIFICATION_EVENT_TTL_SECONDS,
+} from './constants.js';

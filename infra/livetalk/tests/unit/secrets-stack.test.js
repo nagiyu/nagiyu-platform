@@ -38,9 +38,21 @@ describe('LiveTalkSecretsStack', () => {
     });
   });
 
-  it('OpenAI 用 Secret のみ作成する（Phase 2b は OpenAI 単独）', () => {
+  it('Secret を 2 つ作成する（OpenAI + VAPID）', () => {
     const template = synth('dev');
-    template.resourceCountIs('AWS::SecretsManager::Secret', 1);
+    template.resourceCountIs('AWS::SecretsManager::Secret', 2);
+  });
+
+  it('VAPID 用シークレットを命名規約どおりに作成する', () => {
+    const template = synth('dev');
+    template.hasResourceProperties('AWS::SecretsManager::Secret', {
+      Name: 'nagiyu-livetalk-vapid-dev',
+    });
+  });
+
+  it('VapidSecretArn を Outputs に出力する', () => {
+    const template = synth('dev');
+    template.hasOutput('VapidSecretArn', Match.anyValue());
   });
 
   it('Outputs に Secret ARN / Name を出力する', () => {

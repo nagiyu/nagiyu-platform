@@ -264,6 +264,7 @@ jobs:
           secret-ids: |
             NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ needs.build.outputs.environment }}
             OPENAI_API_KEY,/nagiyu/livetalk/${{ needs.build.outputs.environment }}/openai/api-key
+            VAPID,nagiyu-livetalk-vapid-${{ needs.build.outputs.environment }}
           parse-json-secrets: true
 
       - name: Deploy DynamoDB, ALB and ECS Service Stacks
@@ -276,6 +277,10 @@ jobs:
           APP_VERSION: ${{ needs.build.outputs.app-version }}
           SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
           OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
+          # VAPID キー（Phase 5d / #3346）。parse-json-secrets: true で JSON の各フィールドが
+          # VAPID_PUBLICKEY / VAPID_PRIVATEKEY という env var に展開される。
+          VAPID_PUBLIC_KEY: ${{ env.VAPID_PUBLICKEY }}
+          VAPID_PRIVATE_KEY: ${{ env.VAPID_PRIVATEKEY }}
         run: |
           # DynamoDB Single Table（Phase 2a で追加）。ECS Service とは
           # deploy 順依存がなく、ALB / Service と同じジョブで一括 deploy する。
@@ -285,6 +290,8 @@ jobs:
             NagiyuLiveTalkService${STACK_SUFFIX} \
             --context nextAuthSecret="$SECRET_VALUE" \
             --context openAiApiKey="$OPENAI_API_KEY" \
+            --context vapidPublicKey="$VAPID_PUBLIC_KEY" \
+            --context vapidPrivateKey="$VAPID_PRIVATE_KEY" \
             --require-approval never
 
           echo "LiveTalk DynamoDB, ALB and ECS Service deployed (environment: $ENVIRONMENT)"
@@ -384,6 +391,7 @@ jobs:
         with:
           secret-ids: |
             OPENAI_API_KEY,/nagiyu/livetalk/${{ needs.infrastructure-ecr.outputs.environment }}/openai/api-key
+            VAPID,nagiyu-livetalk-vapid-${{ needs.infrastructure-ecr.outputs.environment }}
           parse-json-secrets: true
 
       - name: Deploy LiveTalk Batch Stack
@@ -391,12 +399,18 @@ jobs:
           ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
           STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
           OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
+          # VAPID キー（Phase 5d / #3346）。parse-json-secrets: true で JSON の各フィールドが
+          # VAPID_PUBLICKEY / VAPID_PRIVATEKEY という env var に展開される。
+          VAPID_PUBLIC_KEY: ${{ env.VAPID_PUBLICKEY }}
+          VAPID_PRIVATE_KEY: ${{ env.VAPID_PRIVATEKEY }}
         run: |
           # Batch Lambda は build-batch で push 済みの :latest イメージを参照する。
           # ECR / イメージが先行しているため、Lambda 作成は失敗しない。
           npm run cdk --workspace=@nagiyu/infra-livetalk -- deploy \
             NagiyuLiveTalkBatch${STACK_SUFFIX} \
             --context openAiApiKey="$OPENAI_API_KEY" \
+            --context vapidPublicKey="$VAPID_PUBLIC_KEY" \
+            --context vapidPrivateKey="$VAPID_PRIVATE_KEY" \
             --require-approval never
 
           echo "LiveTalk Batch stack deployed (environment: $ENVIRONMENT)"
@@ -414,7 +428,8 @@ jobs:
           for FN in \
             "nagiyu-livetalk-batch-compress-$ENVIRONMENT" \
             "nagiyu-livetalk-batch-learn-user-activity-$ENVIRONMENT" \
-            "nagiyu-livetalk-batch-study-$ENVIRONMENT"; do
+            "nagiyu-livetalk-batch-study-$ENVIRONMENT" \
+            "nagiyu-livetalk-batch-notify-$ENVIRONMENT"; do
 
             aws lambda update-function-code \
               --function-name "$FN" \
@@ -520,6 +535,7 @@ jobs:
             echo "- **Batch Lambda（圧縮）**: \`nagiyu-livetalk-batch-compress-$ENVIRONMENT\`（EventBridge 日次 JST 03:00）"
             echo "- **Batch Lambda（学習）**: \`nagiyu-livetalk-batch-learn-user-activity-$ENVIRONMENT\`（EventBridge 週次 JST 日曜 03:00）"
             echo "- **Batch Lambda（勉強）**: \`nagiyu-livetalk-batch-study-$ENVIRONMENT\`（EventBridge 毎時）"
+            echo "- **Batch Lambda（通知）**: \`nagiyu-livetalk-batch-notify-$ENVIRONMENT\`（EventBridge 毎時:30）"
             echo "- **ALB DNS**: \`$ALB_DNS\`"
             echo "- **Custom Domain**: https://$CUSTOM_DOMAIN"
             echo ""
