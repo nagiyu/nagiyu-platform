@@ -80,4 +80,23 @@ describe('InMemoryKnowledgeRepository', () => {
   it('list は未登録ユーザーに対して空配列を返す', async () => {
     expect(await repo.list('unknown', 'hiyori')).toHaveLength(0);
   });
+
+  describe('getById', () => {
+    it('存在する KnowledgeID で該当エンティティを返す', async () => {
+      await repo.put(makeInput({ KnowledgeID: 'ulid-001' }));
+      const result = await repo.getById('u1', 'hiyori', 'ulid-001');
+      expect(result).not.toBeNull();
+      expect(result!.KnowledgeID).toBe('ulid-001');
+    });
+
+    it('存在しない KnowledgeID で null を返す', async () => {
+      await repo.put(makeInput({ KnowledgeID: 'ulid-001' }));
+      expect(await repo.getById('u1', 'hiyori', 'not-exist')).toBeNull();
+    });
+
+    it('別ユーザーの KnowledgeID には null を返す', async () => {
+      await repo.put(makeInput({ UserID: 'u2', KnowledgeID: 'ulid-001' }));
+      expect(await repo.getById('u1', 'hiyori', 'ulid-001')).toBeNull();
+    });
+  });
 });

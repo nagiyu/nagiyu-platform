@@ -320,3 +320,113 @@ describe('handlePlaybackError のデバッグログ', () => {
     consoleSpy.mockRestore();
   });
 });
+
+describe('通知起点の knowledgeId 受け渡し（Issue #3359 課題Y）', () => {
+  it('first-word に knowledgeId がある場合、次の chat リクエストに含まれる', async () => {
+    const encoder = new TextEncoder();
+    const chatStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
+        controller.close();
+      },
+    });
+
+    global.fetch = jest.fn().mockImplementation((url: string) => {
+      if (url === '/api/consent') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ consented: true }) });
+      }
+      if (url === '/api/lifecycle') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ state: 'awake' }) });
+      }
+      if (url === '/api/push/first-word') {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({ notifId: 'n1', body: 'テスト第一声', knowledgeId: 'k-xyz' }),
+        });
+      }
+      if (url === '/api/push/consumed') {
+        return Promise.resolve({ ok: true });
+      }
+      // /api/chat
+      return Promise.resolve({ ok: true, body: chatStream });
+    });
+
+    setupMockAudioContext('running');
+    const user = userEvent.setup();
+    render(<HomePage />);
+    const input = await waitForInputEnabled();
+
+    // first-word 取得を待つ
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/push/first-word'));
+
+    await user.type(input, 'ありがとう');
+    await user.click(screen.getByRole('button', { name: '送信' }));
+
+    const chatCall = (global.fetch as jest.Mock).mock.calls.find(
+      ([url]: [string]) => url === '/api/chat'
+    );
+    expect(chatCall).toBeDefined();
+    const chatBody = JSON.parse(chatCall[1].body as string);
+    expect(chatBody.knowledgeId).toBe('k-xyz');
+  });
+
+  it('2 回目の送信では knowledgeId を含まない（1 ターン限り）', async () => {
+    const encoder = new TextEncoder();
+    const makeChatStream = () =>
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
+          controller.close();
+        },
+      });
+
+    let chatCallCount = 0;
+    global.fetch = jest.fn().mockImplementation((url: string) => {
+      if (url === '/api/consent') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ consented: true }) });
+      }
+      if (url === '/api/lifecycle') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ state: 'awake' }) });
+      }
+      if (url === '/api/push/first-word') {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({ notifId: 'n1', body: 'テスト第一声', knowledgeId: 'k-xyz' }),
+        });
+      }
+      if (url === '/api/push/consumed') {
+        return Promise.resolve({ ok: true });
+      }
+      chatCallCount++;
+      return Promise.resolve({ ok: true, body: makeChatStream() });
+    });
+
+    setupMockAudioContext('running');
+    const user = userEvent.setup();
+    render(<HomePage />);
+    const input = await waitForInputEnabled();
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/push/first-word'));
+
+    // 1 回目送信
+    await user.type(input, '1回目');
+    await user.click(screen.getByRole('button', { name: '送信' }));
+    await waitFor(() => expect(chatCallCount).toBe(1));
+
+    // 2 回目送信
+    await user.type(input, '2回目');
+    await user.click(screen.getByRole('button', { name: '送信' }));
+    await waitFor(() => expect(chatCallCount).toBe(2));
+
+    const chatCalls = (global.fetch as jest.Mock).mock.calls.filter(
+      ([url]: [string]) => url === '/api/chat'
+    );
+    expect(chatCalls).toHaveLength(2);
+    const firstBody = JSON.parse(chatCalls[0][1].body as string);
+    const secondBody = JSON.parse(chatCalls[1][1].body as string);
+    expect(firstBody.knowledgeId).toBe('k-xyz');
+    expect(secondBody.knowledgeId).toBeUndefined();
+  });
+});

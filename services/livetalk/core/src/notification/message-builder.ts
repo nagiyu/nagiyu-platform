@@ -51,6 +51,11 @@ function pick<T>(arr: T[], seed: number): T {
   return arr[Math.abs(seed) % arr.length];
 }
 
+/** Topic 末尾の句読点・改行を除去して通知テンプレートに安全に埋め込める形に正規化する */
+function normalizeKnowledgeTopic(topic: string): string {
+  return topic.trim().replace(/[。、．,\n\r]+$/, '');
+}
+
 export function buildNotificationMessage(
   input: BuildNotificationMessageInput,
   seed = Date.now()
@@ -63,26 +68,29 @@ export function buildNotificationMessage(
 
   if (toneBucket === 'long') {
     if (knowledgeTopic) {
+      const normalizedTopic = normalizeKnowledgeTopic(knowledgeTopic);
       const template = pick(LONG_WITH_TOPIC, seed);
-      return { title: template.title, body: template.body(knowledgeTopic) };
+      return { title: template.title, body: template.body(normalizedTopic) };
     }
     return pick(LONG_MESSAGES, seed);
   }
 
   // normal
   if (knowledgeTopic) {
+    const normalizedTopic = normalizeKnowledgeTopic(knowledgeTopic);
     const templateDef = pick(NORMAL_MESSAGES_WITH_TOPIC, seed) as unknown as {
       title: string;
       body: (t: string) => string;
     };
-    return { title: templateDef.title, body: templateDef.body(knowledgeTopic) };
+    return { title: templateDef.title, body: templateDef.body(normalizedTopic) };
   }
   return pick(NORMAL_MESSAGES_WITHOUT_TOPIC, seed);
 }
 
 export function buildCriticalNotificationMessage(knowledgeTopic: string): NotificationMessage {
+  const normalizedTopic = normalizeKnowledgeTopic(knowledgeTopic);
   return {
     title: `${CHAR_NAME}より（重要）`,
-    body: `${knowledgeTopic}について大事なことを見つけたよ！確認してみて`,
+    body: `${normalizedTopic}について大事なことを見つけたよ！確認してみて`,
   };
 }

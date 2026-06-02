@@ -83,4 +83,35 @@ describe('buildCriticalNotificationMessage', () => {
     const msg = buildCriticalNotificationMessage('健康診断');
     expect(msg.body).toContain('健康診断');
   });
+
+  it('末尾に句点がある Topic は正規化される', () => {
+    const msg = buildCriticalNotificationMessage('飲み物の新作。');
+    expect(msg.body).toContain('飲み物の新作');
+    expect(msg.body).not.toMatch(/。について/);
+  });
+
+  it('長い説明文 Topic でも文が崩壊しない', () => {
+    const longTopic =
+      '日本の食べ物（特にスイーツ・コンビニ新商品）の最新トレンドを検索しました。メーカーの新作、コラボ商品、新食感菓子など、春〜初夏にかけての動きを中心に調べたよ。';
+    const msg = buildCriticalNotificationMessage(longTopic);
+    // 末尾句点が除去されて「〜調べたよ」で終わる文字列が Topic として埋め込まれる
+    expect(msg.body).not.toMatch(/。について/);
+  });
+});
+
+describe('normalizeKnowledgeTopic（通知テンプレート堅牢化）', () => {
+  it('normal・topic 末尾句点が除去される', () => {
+    const msg = buildNotificationMessage(
+      { toneBucket: 'normal', knowledgeTopic: 'コーヒーの新作。' },
+      0
+    );
+    expect(msg.body).not.toMatch(/。について|。のこと/);
+    expect(msg.body).toContain('コーヒーの新作');
+  });
+
+  it('long・topic 末尾句点が除去される', () => {
+    const msg = buildNotificationMessage({ toneBucket: 'long', knowledgeTopic: 'カフェラテ。' }, 0);
+    expect(msg.body).toContain('カフェラテ');
+    expect(msg.body).not.toMatch(/。のこと/);
+  });
 });

@@ -78,6 +78,8 @@ export default function HomePage() {
 
   // キャラ第一声（未消化の通知から表示）
   const [firstWordText, setFirstWordText] = useState<string | null>(null);
+  // 第一声の元となった KnowledgeID（次の chat 送信時に文脈として渡す）
+  const firstWordKnowledgeIdRef = useRef<string | null>(null);
 
   const audioQueueRef = useRef<AudioBuffer[]>([]);
   const isPlayingRef = useRef(false);
@@ -104,9 +106,10 @@ export default function HomePage() {
   useEffect(() => {
     fetch('/api/push/first-word')
       .then((res) => (res.ok ? res.json() : null))
-      .then((data: { notifId: string; body: string } | null) => {
+      .then((data: { notifId: string; body: string; knowledgeId?: string | null } | null) => {
         if (!data) return;
         setFirstWordText(data.body);
+        firstWordKnowledgeIdRef.current = data.knowledgeId ?? null;
         // 消化済みマーク
         fetch('/api/push/consumed', {
           method: 'PATCH',
@@ -222,6 +225,10 @@ export default function HomePage() {
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
+      // 送信前に第一声 knowledgeId を取り出してクリア（1 ターン限り有効）
+      const notifKnowledgeId = firstWordKnowledgeIdRef.current;
+      firstWordKnowledgeIdRef.current = null;
+
       setUserText(text);
       setResponseText('');
       setFirstWordText(null);
@@ -232,10 +239,13 @@ export default function HomePage() {
       clearAudioQueue();
 
       try {
+        const chatBody: { text: string; knowledgeId?: string } = { text };
+        if (notifKnowledgeId) chatBody.knowledgeId = notifKnowledgeId;
+
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text }),
+          body: JSON.stringify(chatBody),
           signal: controller.signal,
         });
 

@@ -1,7 +1,7 @@
 import { InMemorySingleTableStore } from '@nagiyu/aws';
 import type { CreateKnowledgeInput, KnowledgeEntity } from '../entities/knowledge.entity.js';
 import { KnowledgeMapper } from '../mappers/knowledge.mapper.js';
-import { buildKnowledgeSKPrefix, buildUserPK } from '../mappers/keys.js';
+import { buildKnowledgeSK, buildKnowledgeSKPrefix, buildUserPK } from '../mappers/keys.js';
 import type { KnowledgeRepository } from './knowledge.repository.interface.js';
 
 export class InMemoryKnowledgeRepository implements KnowledgeRepository {
@@ -33,6 +33,18 @@ export class InMemoryKnowledgeRepository implements KnowledgeRepository {
       .map((item) => this.mapper.toEntity(item))
       .sort((a, b) => b.CreatedAt - a.CreatedAt)
       .slice(0, limit);
+  }
+
+  public async getById(
+    userId: string,
+    characterId: string,
+    knowledgeId: string
+  ): Promise<KnowledgeEntity | null> {
+    const pk = buildUserPK(userId);
+    const sk = buildKnowledgeSK(characterId, knowledgeId);
+    const item = this.store.get(pk, sk);
+    if (!item) return null;
+    return this.mapper.toEntity(item);
   }
 
   public async getLatest(userId: string, characterId: string): Promise<KnowledgeEntity | null> {

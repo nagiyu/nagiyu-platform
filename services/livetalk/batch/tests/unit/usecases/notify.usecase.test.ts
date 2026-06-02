@@ -247,6 +247,23 @@ describe('notifyAllUsers', () => {
     expect(result.failedUserIds).toContain('u2');
   });
 
+  it('normal 通知で latestKnowledge の KnowledgeID が notifEvent に保存される', async () => {
+    mockDetectCritical.mockResolvedValue({ isCritical: false });
+    mockShouldNotifyNow.mockReturnValue({
+      notify: true,
+      kind: 'normal',
+      toneBucket: 'normal',
+      elapsedMs: DAY,
+    });
+    mockSendWebPush.mockResolvedValue(true);
+
+    const notifEventRepo = makeNotifEventRepo();
+    const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+    await notifyAllUsers(makeParams({ notifEventRepo: notifEventRepo as never }));
+
+    expect(notifEventRepo.put).toHaveBeenCalledWith(expect.objectContaining({ KnowledgeID: 'k1' }));
+  });
+
   it('DynamoDB scan がページネーション → 全ユーザーを収集する', async () => {
     const docClient = {
       send: jest
