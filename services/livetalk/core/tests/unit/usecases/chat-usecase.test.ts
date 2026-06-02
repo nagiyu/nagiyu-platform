@@ -3,6 +3,7 @@ import { hiyori } from '../../../src/characters/hiyori.js';
 import type { ILLMClient } from '../../../src/llm-client/types.js';
 import type { IVoiceClient } from '../../../src/voicevox/types.js';
 import type { MemoryRepository } from '../../../src/repositories/memory.repository.interface.js';
+import type { MemorySummaryRepository } from '../../../src/repositories/memory-summary.repository.interface.js';
 import type { MessageRepository } from '../../../src/repositories/message.repository.interface.js';
 import type { SafetyEventRepository } from '../../../src/repositories/safety-event.repository.interface.js';
 import type { KnowledgeRepository } from '../../../src/repositories/knowledge.repository.interface.js';
@@ -11,6 +12,7 @@ import type { NoteRepository } from '../../../src/repositories/note.repository.i
 import type { NoteEntity } from '../../../src/entities/note.entity.js';
 import type { MessageEntity } from '../../../src/entities/message.entity.js';
 import type { MemoryEntity } from '../../../src/entities/memory.entity.js';
+import type { MemorySummaryEntity } from '../../../src/entities/memory-summary.entity.js';
 import type { KnowledgeEntity } from '../../../src/entities/knowledge.entity.js';
 import type { SafetyEventEntity } from '../../../src/entities/safety-event.entity.js';
 import type { IModerationClient, ModerationResult } from '../../../src/safety/types.js';
@@ -73,12 +75,25 @@ function makeRepo(
     })),
     getById: jest.fn(async () => null),
     getRecentByTokenBudget: jest.fn(async () => ({
-      messages: history,
+      messages: [],
       totalTokens: 0,
       truncated: false,
     })),
-    listSince: jest.fn(async () => []),
+    listSince: jest.fn(async () => history),
     ...overrides,
+  };
+}
+
+function makeMemorySummaryRepo(
+  summary: MemorySummaryEntity | null = null
+): MemorySummaryRepository {
+  return {
+    get: jest.fn(async () => summary),
+    put: jest.fn(async (input) => ({
+      ...input,
+      CreatedAt: Date.now(),
+      UpdatedAt: Date.now(),
+    })),
   };
 }
 
@@ -380,12 +395,12 @@ describe('runChatUseCase', () => {
       expect(passedMessages[3]).toEqual({ role: 'user', content: 'こんにちは' });
     });
 
-    it('getRecentByTokenBudget はユーザー保存より前に呼ばれる', async () => {
+    it('listSince はユーザー保存より前に呼ばれる', async () => {
       const callOrder: string[] = [];
       const repo = makeRepo([], {
-        getRecentByTokenBudget: jest.fn(async () => {
-          callOrder.push('getRecent');
-          return { messages: [], totalTokens: 0, truncated: false };
+        listSince: jest.fn(async () => {
+          callOrder.push('listSince');
+          return [];
         }),
         create: jest.fn(async (input) => {
           callOrder.push(`create:${input.Role}`);
@@ -412,7 +427,7 @@ describe('runChatUseCase', () => {
         })
       );
 
-      expect(callOrder[0]).toBe('getRecent');
+      expect(callOrder[0]).toBe('listSince');
       expect(callOrder[1]).toBe('create:user');
     });
 
@@ -1585,6 +1600,148 @@ describe('runChatUseCase', () => {
       );
 
       expect(events.some((e) => e.type === 'done')).toBe(true);
+      expect(llm.chatStream).toHaveBeenCalled();
+    });
+  });
+
+  describe('MemorySummary prompt 注入（Issue #3354）', () => {
+    const sampleSummary: MemorySummaryEntity = {
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      SummaryText: 'この人はコーヒーが好きで、犬を飼っている。',
+      LastCompressedAt: 1_700_000_000_000,
+      CreatedAt: 1_700_000_000_000,
+      UpdatedAt: 1_700_000_000_000,
+    };
+
+    it('MemorySummary があるとき summaryText が system prompt に注入される', async () => {
+      const llm = makeLLMClient(['うん']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const summaryRepo = makeMemorySummaryRepo(sampleSummary);
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memorySummaryRepository: summaryRepo,
+        })
+      );
+
+      const streamArgs = (llm.chatStream as jest.Mock).mock.calls[0][0] as Array<{
+        role: string;
+        content: string;
+      }>;
+      const systemMsg = streamArgs.find((m) => m.role === 'system');
+      expect(systemMsg?.content).toContain('あなたがこれまでに知ったこと');
+      expect(systemMsg?.content).toContain('コーヒーが好き');
+    });
+
+    it('MemorySummary があるとき listSince が lastCompressedAt で呼ばれる', async () => {
+      const llm = makeLLMClient(['うん']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const summaryRepo = makeMemorySummaryRepo(sampleSummary);
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memorySummaryRepository: summaryRepo,
+        })
+      );
+
+      expect(repo.listSince).toHaveBeenCalledWith('u1', 'hiyori', sampleSummary.LastCompressedAt);
+    });
+
+    it('MemorySummary がないとき listSince(0) で全件取得する（fallback）', async () => {
+      const llm = makeLLMClient(['うん']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const summaryRepo = makeMemorySummaryRepo(null);
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memorySummaryRepository: summaryRepo,
+        })
+      );
+
+      expect(repo.listSince).toHaveBeenCalledWith('u1', 'hiyori', 0);
+    });
+
+    it('memorySummaryRepository 未指定のとき listSince(0) で全件取得する（fallback）', async () => {
+      const llm = makeLLMClient(['うん']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          // memorySummaryRepository なし
+        })
+      );
+
+      expect(repo.listSince).toHaveBeenCalledWith('u1', 'hiyori', 0);
+    });
+
+    it('MemorySummary があるとき promptTokens.summary が 0 より大きい', async () => {
+      const llm = makeLLMClient(['うん']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const summaryRepo = makeMemorySummaryRepo(sampleSummary);
+
+      // emitChatMetricsLog をスパイして promptTokens を確認
+      const logs: unknown[] = [];
+      jest.spyOn(console, 'log').mockImplementation((...args) => logs.push(args));
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memorySummaryRepository: summaryRepo,
+        })
+      );
+
+      // システムプロンプトにサマリーが含まれていることを確認
+      const streamArgs = (llm.chatStream as jest.Mock).mock.calls[0][0] as Array<{
+        role: string;
+        content: string;
+      }>;
+      const systemMsg = streamArgs.find((m) => m.role === 'system');
+      expect(systemMsg?.content).toContain(sampleSummary.SummaryText);
+    });
+
+    it('MemorySummary 取得エラー時はスキップして通常応答を継続する', async () => {
+      const llm = makeLLMClient(['うん']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const summaryRepo = makeMemorySummaryRepo(null);
+      (summaryRepo.get as jest.Mock).mockRejectedValueOnce(new Error('DB error'));
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memorySummaryRepository: summaryRepo,
+        })
+      );
+
+      expect(events[events.length - 1]).toEqual({ type: 'done' });
       expect(llm.chatStream).toHaveBeenCalled();
     });
   });

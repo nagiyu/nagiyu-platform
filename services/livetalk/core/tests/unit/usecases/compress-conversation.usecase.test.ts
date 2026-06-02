@@ -396,6 +396,65 @@ describe('compressConversation', () => {
     expect(state?.AffectionLevel).toBeGreaterThan(0);
   });
 
+  it('LastCompressedAt は summarize 前のスナップショット時刻になる（off-by-one 修正）', async () => {
+    const { summaryRepo, memoryRepo } = makeRepos();
+
+    // tick を進めながら動くリポジトリを用意する
+    let currentTick = fixedNow;
+    const store2 = new (await import('@nagiyu/aws').then((m) => m.InMemorySingleTableStore))();
+    const { InMemoryMessageRepository: MsgRepo } = await import(
+      '../../../src/repositories/in-memory-message.repository.js'
+    );
+    const msgRepo2 = new MsgRepo(
+      store2,
+      () => `ULID-${currentTick}`,
+      () => currentTick
+    );
+
+    currentTick = fixedNow;
+    await msgRepo2.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'テスト' });
+
+    // summarize 中に tick を大きく進める
+    let paramNowCallCount = 0;
+    const paramNow = () => {
+      paramNowCallCount++;
+      return currentTick;
+    };
+
+    const spyClient: ILLMClient = {
+      async *chatStream() {
+        yield '';
+      },
+      async chatComplete() {
+        return '';
+      },
+      async chatStructured() {
+        return {} as never;
+      },
+      async summarize() {
+        currentTick = fixedNow + 10_000; // summarize 中に時間が大幅に経過
+        return { mergedSummary: '要約', newMemoryCandidates: [] };
+      },
+    };
+
+    await compressConversation('u1', 'hiyori', {
+      summaryRepo,
+      messageRepo: msgRepo2,
+      memoryRepo,
+      llmClient: spyClient,
+      characterName: 'ひより',
+      now: paramNow,
+    });
+
+    const saved = await summaryRepo.get('u1', 'hiyori');
+    // now() は summarize 前（1 回目）に呼ばれるため fixedNow が記録される
+    // 旧コードでは summarize 後に呼ばれるため fixedNow + 10_000 になっていた
+    expect(saved?.LastCompressedAt).toBe(fixedNow);
+    expect(saved?.LastCompressedAt).not.toBe(fixedNow + 10_000);
+    // now() はスナップショット取得で 1 回だけ呼ばれる
+    expect(paramNowCallCount).toBe(1);
+  });
+
   it('bidirectionalityScore が 0 のときは AffectionLevel を更新しない', async () => {
     const llmClient = makeLLMClient({
       mergedSummary: '要約',

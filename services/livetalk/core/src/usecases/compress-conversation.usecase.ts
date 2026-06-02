@@ -70,6 +70,10 @@ export async function compressConversation(
     return;
   }
 
+  // listSince 直後にスナップショットを取ることで、summarize 実行中に届いたメッセージが
+  // 次回 listSince(LastCompressedAt) で確実に拾われるようにする（off-by-one 防止）
+  const compressedUpTo = now();
+
   logger.info('[compressConversation] 圧縮開始', {
     userId,
     characterId,
@@ -104,7 +108,7 @@ export async function compressConversation(
     UserID: userId,
     CharacterID: characterId,
     SummaryText: result.mergedSummary,
-    LastCompressedAt: now(),
+    LastCompressedAt: compressedUpTo,
   });
 
   // バッチ計測（best-effort）
