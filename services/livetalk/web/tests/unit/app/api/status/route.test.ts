@@ -81,32 +81,32 @@ const makeLifecycleRepo = () =>
       CreatedAt: 0,
       UpdatedAt: 0,
     })),
-  } as unknown as LifecycleRepository);
+  }) as unknown as LifecycleRepository;
 
 const makeEmptyLifecycleRepo = () =>
   ({
     get: jest.fn(async () => null),
-  } as unknown as LifecycleRepository);
+  }) as unknown as LifecycleRepository;
 
 const makeNotifEventRepo = () =>
   ({
     listByUser: jest.fn(async () => []),
-  } as unknown as NotificationEventRepository);
+  }) as unknown as NotificationEventRepository;
 
 const makeKnowledgeRepo = (count = 0) =>
   ({
     list: jest.fn(async () => Array(count).fill({ KnowledgeID: 'k1' })),
-  } as unknown as KnowledgeRepository);
+  }) as unknown as KnowledgeRepository;
 
 const makeStudyTopicRepo = (pendingCount = 0) =>
   ({
     listByStatus: jest.fn(async () => Array(pendingCount).fill({ TopicID: 't1' })),
-  } as unknown as StudyTopicRepository);
+  }) as unknown as StudyTopicRepository;
 
 const makeMessageRepo = () =>
   ({
     listSince: jest.fn(async () => []),
-  } as unknown as MessageRepository);
+  }) as unknown as MessageRepository;
 
 const buildGetRequest = () => new Request('http://localhost/api/status', { method: 'GET' });
 

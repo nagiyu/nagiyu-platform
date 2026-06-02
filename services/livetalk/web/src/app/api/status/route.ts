@@ -73,14 +73,15 @@ export const GET = withAuth(getSession, 'livetalk:admin', async (session) => {
   const now = new Date();
 
   try {
-    const [lifecycle, notificationEvents, allMessages, knowledge, studyPending] =
-      await Promise.all([
+    const [lifecycle, notificationEvents, allMessages, knowledge, studyPending] = await Promise.all(
+      [
         getLifecycleRepository().get({ userId, characterId }),
         getNotificationEventRepository().listByUser(userId, 10),
         getMessageRepository().listSince(userId, characterId, 0),
         getKnowledgeRepository().list(userId, characterId),
         getStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
-      ]);
+      ]
+    );
 
     const bedtime = lifecycle?.Bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
     const wakeUpTime = lifecycle?.WakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME;
