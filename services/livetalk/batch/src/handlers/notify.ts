@@ -46,7 +46,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     const knowledgeRepo = new DynamoDBKnowledgeRepository(docClient, tableName);
     const pushSubscriptionRepo = new DynamoDBPushSubscriptionRepository(docClient, tableName);
     const notifEventRepo = new DynamoDBNotificationEventRepository(docClient, tableName);
-    const llmClient = createLLMClient({ apiKey });
+    const llmClient = createLLMClient({ openai: { apiKey } });
 
     const result = await notifyAllUsers({
       docClient,
