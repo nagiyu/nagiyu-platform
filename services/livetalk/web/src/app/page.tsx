@@ -325,8 +325,9 @@ export default function HomePage() {
             onSubmit={handleSubmit}
             disabled={phase !== 'idle' || consentPhase !== 'done'}
           />
-          <Box sx={{ textAlign: 'center' }}>
+          <Box sx={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: 2 }}>
             <Link href="/memory">私が覚えていること</Link>
+            <Link href="/notes">ノート</Link>
           </Box>
         </Stack>
         <LicenseFooter />

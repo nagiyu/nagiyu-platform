@@ -38,6 +38,31 @@ describe('lib/server/repositories', () => {
     const s1 = mod.getStudyTopicRepository();
     const s2 = mod.getStudyTopicRepository();
     expect(s1).toBe(s2);
+
+    // Phase 5c 配線: Note も取得できる
+    const n1 = mod.getNoteRepository();
+    const n2 = mod.getNoteRepository();
+    expect(n1).toBe(n2);
+  });
+
+  it('InMemory 実装では Note を保存して取得できる（共有 store 検証）', async () => {
+    process.env.USE_IN_MEMORY_DB = 'true';
+    const mod = await import('@/lib/server/repositories');
+    mod.resetRepositoriesForTesting();
+    const repo = mod.getNoteRepository();
+    await repo.put({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      NoteID: 'note-1',
+      Title: 'コーヒーの効能',
+      Body: '本文',
+      RelatedKnowledgeIds: ['know-1'],
+      RelatedCategory: 'コーヒー',
+    });
+    const list = await repo.list('u1', 'hiyori');
+    expect(list).toHaveLength(1);
+    expect(list[0].Title).toBe('コーヒーの効能');
+    mod.resetRepositoriesForTesting();
   });
 
   it('InMemory 実装では StudyTopic を保存して status 別に取得できる（共有 store 検証）', async () => {
@@ -99,6 +124,7 @@ describe('lib/server/repositories', () => {
     expect(() => mod.getLifecycleRepository()).not.toThrow();
     expect(() => mod.getKnowledgeRepository()).not.toThrow();
     expect(() => mod.getStudyTopicRepository()).not.toThrow();
+    expect(() => mod.getNoteRepository()).not.toThrow();
     mod.resetRepositoriesForTesting();
   });
 });

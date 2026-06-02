@@ -175,3 +175,31 @@ export const STUDY_TOPIC_GATE_PRIORITY = 10;
  * 0.5 は dev 実データでの実測に基づく値（既知トピックを拾いつつ無関係語を弾く境界）。
  */
 export const KNOWLEDGE_MATCH_MIN_RATIO = 0.5;
+
+/**
+ * ノート生成（Phase 5c / #3345）: KNOWLEDGE をノート化する際の品質ゲート。
+ * Summary がこの文字数未満の KNOWLEDGE はノート化しない（薄い知識の乱発防止）。
+ * 勉強バッチ保存時の STUDY_MIN_SUMMARY_LENGTH（50）より厳しくして「高品質なものだけ」を昇格する。
+ */
+export const NOTE_MIN_SUMMARY_LENGTH = 80;
+
+/**
+ * ノート生成: 1 実行・1 ユーザーあたりに生成するノートの最大数（乱発防止）。
+ */
+export const NOTE_MAX_PER_RUN = 2;
+
+/**
+ * ノート生成: ノート化候補としてスキャンする直近 KNOWLEDGE の最大件数。
+ */
+export const NOTE_KNOWLEDGE_LOOKBACK = 20;
+
+/**
+ * 感想連携: チャットの context に注入する「直近に提示したノート」の対象日数。
+ * この日数内に作成されたノートを LLM に渡し、ユーザーの感想にキャラが反応できるようにする。
+ */
+export const NOTE_RECENT_DAYS = 7;
+
+/**
+ * 感想連携: チャットの context に注入するノートの最大件数（プロンプト肥大の抑制）。
+ */
+export const NOTE_RECENT_LIMIT = 3;

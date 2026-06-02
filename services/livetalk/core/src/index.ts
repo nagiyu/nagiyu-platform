@@ -228,6 +228,19 @@ export { DynamoDBStudyTopicRepository } from './repositories/dynamodb-study-topi
 export { StudyTopicMapper } from './mappers/study-topic.mapper.js';
 export { buildStudyTopicSK, buildStudyTopicSKPrefix } from './mappers/keys.js';
 
+// Note（Phase 5c / #3345）
+export type { NoteEntity, NoteKey, CreateNoteInput } from './entities/note.entity.js';
+export type { NoteRepository } from './repositories/note.repository.interface.js';
+export { InMemoryNoteRepository } from './repositories/in-memory-note.repository.js';
+export { DynamoDBNoteRepository } from './repositories/dynamodb-note.repository.js';
+export { NoteMapper } from './mappers/note.mapper.js';
+export { buildNoteSK, buildNoteSKPrefix } from './mappers/keys.js';
+export {
+  generateNotesForUser,
+  type GenerateNotesParams,
+  type GenerateNotesResult,
+} from './usecases/generate-note.usecase.js';
+
 // 知識ゲート（Phase 5b / #3344）
 export {
   searchKnowledge,
@@ -274,6 +287,11 @@ export {
   STUDY_MIN_SUMMARY_LENGTH,
   STUDY_TOPIC_TTL_SECONDS,
   STUDY_TOPIC_GATE_PRIORITY,
+  NOTE_MIN_SUMMARY_LENGTH,
+  NOTE_MAX_PER_RUN,
+  NOTE_KNOWLEDGE_LOOKBACK,
+  NOTE_RECENT_DAYS,
+  NOTE_RECENT_LIMIT,
 } from './constants.js';
 
 // Study usecase（Phase 5a）

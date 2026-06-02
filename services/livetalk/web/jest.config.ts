@@ -29,6 +29,7 @@ const config: Config = {
     '!src/lib/legal/**',
     // 型定義のみのモジュール（ランタイムコードなし）はカバレッジ対象外
     '!src/lib/memory/types.ts',
+    '!src/lib/notes/types.ts',
   ],
   coverageThreshold: {
     global: {

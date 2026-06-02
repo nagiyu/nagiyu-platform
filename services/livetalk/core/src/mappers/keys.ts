@@ -107,3 +107,11 @@ export function buildStudyTopicSKPrefix(characterId: string): string {
 export function buildStudyTopicSK(characterId: string, topicId: string): string {
   return `${buildStudyTopicSKPrefix(characterId)}${topicId}`;
 }
+
+export function buildNoteSKPrefix(characterId: string): string {
+  return `CHAR#${characterId}#NOTE#`;
+}
+
+export function buildNoteSK(characterId: string, noteId: string): string {
+  return `${buildNoteSKPrefix(characterId)}${noteId}`;
+}
