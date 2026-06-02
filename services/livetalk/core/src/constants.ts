@@ -203,3 +203,58 @@ export const NOTE_RECENT_DAYS = 7;
  * 感想連携: チャットの context に注入するノートの最大件数（プロンプト肥大の抑制）。
  */
 export const NOTE_RECENT_LIMIT = 3;
+
+// ---- プッシュ通知（Phase 5d / #3346）----
+
+/**
+ * 適応的間隔の中央値算出に使う直近セッション数の上限。
+ * サンプルが少ない場合はある分だけで中央値を取る。
+ */
+export const NOTIFY_RECENT_SESSION_SAMPLE_N = 10;
+
+/**
+ * セッション分割の閾値（分）。
+ * 連続メッセージ間の間隔がこれ以上なら新セッション開始とみなす。
+ */
+export const NOTIFY_SESSION_GAP_MINUTES = 60;
+
+/**
+ * 間隔サンプルが 0 個（事実上初回）のときのデフォルト基準間隔（時間）。
+ */
+export const NOTIFY_DEFAULT_BASE_HOURS = 24;
+
+/**
+ * 適応的間隔の下限（時間）。連投防止。
+ */
+export const NOTIFY_BASE_MIN_HOURS = 12;
+
+/**
+ * 適応的間隔の上限（日）。この値を超えたら通知停止。
+ */
+export const NOTIFY_MAX_INTERVAL_DAYS = 14;
+
+/**
+ * 指数バックオフの底。反応なしのたびに基準間隔をこの倍率で拡大する。
+ */
+export const NOTIFY_BACKOFF_BASE = 1.5;
+
+/**
+ * 1日に送る平常通知の上限件数。
+ */
+export const NOTIFY_DAILY_NORMAL_CAP = 1;
+
+/**
+ * 1日に送るクリティカル通知の上限件数。
+ */
+export const NOTIFY_DAILY_CRITICAL_CAP = 1;
+
+/**
+ * 活動時間帯の判定ウィンドウ（分）。
+ * morningPeak / eveningPeak の前後この分以内を「活動時間帯」とみなす。
+ */
+export const NOTIFY_ACTIVE_WINDOW_MINUTES = 90;
+
+/**
+ * NotificationEvent に付与する DynamoDB TTL（秒）。30日後に自動削除。
+ */
+export const NOTIFICATION_EVENT_TTL_SECONDS = 30 * 24 * 60 * 60;

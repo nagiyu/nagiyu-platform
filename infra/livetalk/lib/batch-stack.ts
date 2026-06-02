@@ -19,6 +19,8 @@ import type { Environment } from '@nagiyu/infra-common';
 export interface LiveTalkBatchStackProps extends cdk.StackProps {
   environment: Environment;
   openAiApiKey: string;
+  vapidPublicKey: string;
+  vapidPrivateKey: string;
 }
 
 /**
@@ -36,7 +38,7 @@ export class LiveTalkBatchStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: LiveTalkBatchStackProps) {
     super(scope, id, props);
 
-    const { environment, openAiApiKey } = props;
+    const { environment, openAiApiKey, vapidPublicKey, vapidPrivateKey } = props;
 
     // ECR リポジトリの参照
     // リポジトリ名は命名規則から決定論的に導出する（SSM もクロススタック参照も
@@ -245,6 +247,72 @@ export class LiveTalkBatchStack extends cdk.Stack {
       })
     );
 
+    // ---- 通知バッチ（Phase 5d / Issue #3346）----
+
+    // 通知バッチ専用 DLQ
+    const notifyDlq = new sqs.Queue(this, 'NotifyDlq', {
+      queueName: `nagiyu-livetalk-notify-dlq-${environment}`,
+      retentionPeriod: cdk.Duration.days(7),
+    });
+
+    // 通知バッチ専用 IAM Role（OpenAI + VAPID が必要）
+    const notifyRole = new iam.Role(this, 'NotifyExecutionRole', {
+      roleName: `nagiyu-livetalk-notify-role-${environment}`,
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
+      ],
+    });
+    dynamoTable.grantReadWriteData(notifyRole);
+    notifyDlq.grantSendMessages(notifyRole);
+    grantErrorEventsWrite(this, notifyRole, environment);
+
+    // 通知バッチ Lambda
+    const notifyFunction = new lambda.Function(this, 'NotifyFunction', {
+      functionName: `nagiyu-livetalk-batch-notify-${environment}`,
+      runtime: lambda.Runtime.FROM_IMAGE,
+      code: lambda.Code.fromEcrImage(batchRepository, {
+        tagOrDigest: 'latest',
+        cmd: ['services/livetalk/batch/dist/src/handlers/notify.handler'],
+      }),
+      handler: lambda.Handler.FROM_IMAGE,
+      role: notifyRole,
+      memorySize: 512,
+      timeout: cdk.Duration.minutes(15),
+      environment: {
+        NODE_ENV: environment,
+        DYNAMODB_TABLE_NAME: dynamoTableName,
+        OPENAI_API_KEY: openAiApiKey,
+        VAPID_PUBLIC_KEY: vapidPublicKey,
+        VAPID_PRIVATE_KEY: vapidPrivateKey,
+        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
+        TZ: 'Asia/Tokyo',
+      },
+      deadLetterQueue: notifyDlq,
+      tracing: lambda.Tracing.ACTIVE,
+      logRetention: logs.RetentionDays.ONE_MONTH,
+    });
+
+    // EventBridge: 毎時 30 分に実行（study バッチと被りを避けるため offset）
+    const hourlyNotifyRule = new events.Rule(this, 'HourlyNotifyRule', {
+      ruleName: `livetalk-batch-notify-${environment}`,
+      description: 'LiveTalk 通知バッチ（毎時 JST）',
+      schedule: events.Schedule.cron({
+        minute: '30',
+        hour: '*',
+        day: '*',
+        month: '*',
+        year: '*',
+      }),
+    });
+    hourlyNotifyRule.addTarget(
+      new targets.LambdaFunction(notifyFunction, {
+        deadLetterQueue: notifyDlq,
+        maxEventAge: cdk.Duration.hours(1),
+        retryAttempts: 1,
+      })
+    );
+
     // タグ
     cdk.Tags.of(this).add('Application', 'nagiyu');
     cdk.Tags.of(this).add('Service', 'livetalk');
@@ -280,6 +348,16 @@ export class LiveTalkBatchStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'StudyDlqUrl', {
       value: studyDlq.queueUrl,
       description: 'LiveTalk Study DLQ URL',
+    });
+
+    new cdk.CfnOutput(this, 'NotifyFunctionArn', {
+      value: notifyFunction.functionArn,
+      description: 'LiveTalk Notify Lambda Function ARN',
+    });
+
+    new cdk.CfnOutput(this, 'NotifyDlqUrl', {
+      value: notifyDlq.queueUrl,
+      description: 'LiveTalk Notify DLQ URL',
     });
   }
 }

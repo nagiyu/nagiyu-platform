@@ -15,8 +15,10 @@ import type {
   LifecycleRepository,
   MemoryRepository,
   MessageRepository,
+  NotificationEventRepository,
   NoteRepository,
   ProfileRepository,
+  PushSubscriptionRepository,
   StudyTopicRepository,
 } from '@nagiyu/livetalk-core';
 import {
@@ -26,8 +28,10 @@ import {
   DynamoDBLifecycleRepository,
   DynamoDBMemoryRepository,
   DynamoDBMessageRepository,
+  DynamoDBNotificationEventRepository,
   DynamoDBNoteRepository,
   DynamoDBProfileRepository,
+  DynamoDBPushSubscriptionRepository,
   DynamoDBStudyTopicRepository,
   InMemoryCharacterStateRepository,
   InMemoryInterestRepository,
@@ -35,8 +39,10 @@ import {
   InMemoryLifecycleRepository,
   InMemoryMemoryRepository,
   InMemoryMessageRepository,
+  InMemoryNotificationEventRepository,
   InMemoryNoteRepository,
   InMemoryProfileRepository,
+  InMemoryPushSubscriptionRepository,
   InMemoryStudyTopicRepository,
 } from '@nagiyu/livetalk-core';
 
@@ -51,6 +57,8 @@ const registry = registerDynamoRepositories<
     knowledge: KnowledgeRepository;
     studyTopic: StudyTopicRepository;
     note: NoteRepository;
+    pushSubscription: PushSubscriptionRepository;
+    notificationEvent: NotificationEventRepository;
   },
   InMemorySingleTableStore
 >(
@@ -100,6 +108,16 @@ const registry = registerDynamoRepositories<
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBNoteRepository(docClient, tableName),
     },
+    pushSubscription: {
+      createInMemoryRepository: (store) => new InMemoryPushSubscriptionRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBPushSubscriptionRepository(docClient, tableName),
+    },
+    notificationEvent: {
+      createInMemoryRepository: (store) => new InMemoryNotificationEventRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBNotificationEventRepository(docClient, tableName),
+    },
   },
   {
     keyPrefix: 'livetalk',
@@ -141,6 +159,14 @@ export function getStudyTopicRepository(): StudyTopicRepository {
 
 export function getNoteRepository(): NoteRepository {
   return registry.note.createRepository();
+}
+
+export function getPushSubscriptionRepository(): PushSubscriptionRepository {
+  return registry.pushSubscription.createRepository();
+}
+
+export function getNotificationEventRepository(): NotificationEventRepository {
+  return registry.notificationEvent.createRepository();
 }
 
 /**
