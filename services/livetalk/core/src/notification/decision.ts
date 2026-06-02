@@ -82,10 +82,7 @@ export function extractSessionStartTimes(
  * セッション開始時刻のリストから隣接セッション間隔（ms）の配列を返す。
  * 直近 N セッションのみを使用する。
  */
-export function computeSessionIntervals(
-  sessionStarts: number[],
-  maxSamples: number
-): number[] {
+export function computeSessionIntervals(sessionStarts: number[], maxSamples: number): number[] {
   if (sessionStarts.length < 2) return [];
   const recent = sessionStarts.slice(-maxSamples);
   const intervals: number[] = [];
@@ -100,9 +97,7 @@ export function median(values: number[]): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0
-    ? (sorted[mid - 1] + sorted[mid]) / 2
-    : sorted[mid];
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
 /**

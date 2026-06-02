@@ -238,9 +238,7 @@ describe('shouldNotifyNow', () => {
     it('missedCount 7 以上 → effectiveInterval > 14 日 → inactive_stopped', () => {
       // 24h * 1.5^7 ≈ 17.09 日 > 14 日 → stopped
       // lastInteractionAt=0 なので CreatedAt > 0 の normal イベントはすべて missedCount に加算
-      const events = Array.from({ length: 7 }, (_, i) =>
-        makeNotifEvent('normal', (i + 1) * DAY)
-      );
+      const events = Array.from({ length: 7 }, (_, i) => makeNotifEvent('normal', (i + 1) * DAY));
       const result = shouldNotifyNow({
         ...baseInput(),
         notificationEvents: events,

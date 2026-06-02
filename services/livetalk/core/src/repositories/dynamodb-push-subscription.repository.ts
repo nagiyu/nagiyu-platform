@@ -12,7 +12,11 @@ import type {
   PushSubscriptionKey,
 } from '../entities/push-subscription.entity.js';
 import { PushSubscriptionMapper } from '../mappers/push-subscription.mapper.js';
-import { buildPushSubscriptionSK, buildPushSubscriptionSKPrefix, buildUserPK } from '../mappers/keys.js';
+import {
+  buildPushSubscriptionSK,
+  buildPushSubscriptionSKPrefix,
+  buildUserPK,
+} from '../mappers/keys.js';
 import type { PushSubscriptionRepository } from './push-subscription.repository.interface.js';
 
 export class DynamoDBPushSubscriptionRepository implements PushSubscriptionRepository {

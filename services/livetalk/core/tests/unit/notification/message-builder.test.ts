@@ -19,7 +19,10 @@ describe('buildNotificationMessage', () => {
     });
 
     it('knowledgeTopic がある場合も veryLong テンプレートを使う', () => {
-      const msg = buildNotificationMessage({ toneBucket: 'veryLong', knowledgeTopic: 'TypeScript' }, 0);
+      const msg = buildNotificationMessage(
+        { toneBucket: 'veryLong', knowledgeTopic: 'TypeScript' },
+        0
+      );
       // veryLong は topic なし固定テンプレートを使う
       expect(msg.body).not.toContain('TypeScript');
     });

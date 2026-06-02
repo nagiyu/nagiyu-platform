@@ -13,7 +13,9 @@ function makeRepo(store: InMemorySingleTableStore, nowMs?: () => number) {
 }
 
 let _notifSeq = 0;
-function makeInput(overrides: Partial<CreateNotificationEventInput> = {}): CreateNotificationEventInput {
+function makeInput(
+  overrides: Partial<CreateNotificationEventInput> = {}
+): CreateNotificationEventInput {
   _notifSeq++;
   return {
     UserID: 'u1',
@@ -45,9 +47,7 @@ describe('InMemoryNotificationEventRepository', () => {
     it('critical 種別も保存できる', async () => {
       const store = makeStore();
       const repo = makeRepo(store);
-      const entity = await repo.put(
-        makeInput({ Kind: 'critical', KnowledgeID: 'k1' })
-      );
+      const entity = await repo.put(makeInput({ Kind: 'critical', KnowledgeID: 'k1' }));
       expect(entity.Kind).toBe('critical');
       expect(entity.KnowledgeID).toBe('k1');
     });

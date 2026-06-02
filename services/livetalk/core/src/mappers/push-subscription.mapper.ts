@@ -4,12 +4,16 @@ import {
   type DynamoDBItem,
   type EntityMapper,
 } from '@nagiyu/aws';
-import type { PushSubscriptionEntity, PushSubscriptionKey } from '../entities/push-subscription.entity.js';
+import type {
+  PushSubscriptionEntity,
+  PushSubscriptionKey,
+} from '../entities/push-subscription.entity.js';
 import { buildPushSubscriptionSK, buildUserPK } from './keys.js';
 
-export class PushSubscriptionMapper
-  implements EntityMapper<PushSubscriptionEntity, PushSubscriptionKey>
-{
+export class PushSubscriptionMapper implements EntityMapper<
+  PushSubscriptionEntity,
+  PushSubscriptionKey
+> {
   public readonly entityType = 'PushSubscription';
 
   public toItem(entity: PushSubscriptionEntity): DynamoDBItem {

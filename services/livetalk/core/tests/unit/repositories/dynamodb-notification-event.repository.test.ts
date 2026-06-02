@@ -39,7 +39,11 @@ describe('DynamoDBNotificationEventRepository', () => {
         sent.push(cmd);
         return {};
       });
-      const repo = new DynamoDBNotificationEventRepository(client as never, tableName, () => fixedNow);
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
 
       const entity = await repo.put(baseInput);
       expect(entity.CreatedAt).toBe(fixedNow);
@@ -48,7 +52,11 @@ describe('DynamoDBNotificationEventRepository', () => {
 
     it('critical 種別と KnowledgeID を保存できる', async () => {
       const client = makeClient(async () => ({}));
-      const repo = new DynamoDBNotificationEventRepository(client as never, tableName, () => fixedNow);
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
 
       const entity = await repo.put({ ...baseInput, Kind: 'critical', KnowledgeID: 'k1' });
       expect(entity.Kind).toBe('critical');
@@ -56,14 +64,26 @@ describe('DynamoDBNotificationEventRepository', () => {
     });
 
     it('エラー時は DatabaseError を投げる', async () => {
-      const client = makeClient(async () => { throw new Error('put 失敗'); });
-      const repo = new DynamoDBNotificationEventRepository(client as never, tableName, () => fixedNow);
+      const client = makeClient(async () => {
+        throw new Error('put 失敗');
+      });
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
       await expect(repo.put(baseInput)).rejects.toBeInstanceOf(DatabaseError);
     });
 
     it('非 Error オブジェクトのエラーも DatabaseError に変換する', async () => {
-      const client = makeClient(async () => { throw 'string error'; });
-      const repo = new DynamoDBNotificationEventRepository(client as never, tableName, () => fixedNow);
+      const client = makeClient(async () => {
+        throw 'string error';
+      });
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
       await expect(repo.put(baseInput)).rejects.toBeInstanceOf(DatabaseError);
     });
   });
@@ -75,7 +95,11 @@ describe('DynamoDBNotificationEventRepository', () => {
         sent.push(cmd);
         return { Items: [baseItem] };
       });
-      const repo = new DynamoDBNotificationEventRepository(client as never, tableName, () => fixedNow);
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
 
       const list = await repo.listByUser('u1');
       expect(list).toHaveLength(1);
@@ -86,7 +110,11 @@ describe('DynamoDBNotificationEventRepository', () => {
 
     it('Items が空のときは空配列を返す', async () => {
       const client = makeClient(async () => ({ Items: [] }));
-      const repo = new DynamoDBNotificationEventRepository(client as never, tableName, () => fixedNow);
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
 
       const list = await repo.listByUser('u1');
       expect(list).toEqual([]);
@@ -101,7 +129,11 @@ describe('DynamoDBNotificationEventRepository', () => {
         }
         return { Items: [] };
       });
-      const repo = new DynamoDBNotificationEventRepository(client as never, tableName, () => fixedNow);
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
 
       const list = await repo.listByUser('u1', 100);
       expect(list).toHaveLength(1);
@@ -116,7 +148,11 @@ describe('DynamoDBNotificationEventRepository', () => {
         const item = { ...baseItem, NotifID: `NOTIF-${callCount}` };
         return { Items: [item], LastEvaluatedKey: { PK: 'USER#u1', SK: 'last' } };
       });
-      const repo = new DynamoDBNotificationEventRepository(client as never, tableName, () => fixedNow);
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
 
       // limit=1 → 1件取得後にページネーション終了
       const list = await repo.listByUser('u1', 1);
@@ -125,8 +161,14 @@ describe('DynamoDBNotificationEventRepository', () => {
     });
 
     it('エラー時は DatabaseError を投げる', async () => {
-      const client = makeClient(async () => { throw new Error('query 失敗'); });
-      const repo = new DynamoDBNotificationEventRepository(client as never, tableName, () => fixedNow);
+      const client = makeClient(async () => {
+        throw new Error('query 失敗');
+      });
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
       await expect(repo.listByUser('u1')).rejects.toBeInstanceOf(DatabaseError);
     });
   });
@@ -138,7 +180,11 @@ describe('DynamoDBNotificationEventRepository', () => {
         sent.push(cmd);
         return { Item: baseItem };
       });
-      const repo = new DynamoDBNotificationEventRepository(client as never, tableName, () => fixedNow);
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
 
       const found = await repo.get({ userId: 'u1', notifId: 'NOTIF-001' });
       expect(found?.Body).toBe('テスト本文');
@@ -152,7 +198,11 @@ describe('DynamoDBNotificationEventRepository', () => {
         ConsumedAt: fixedNow + 5000,
       };
       const client = makeClient(async () => ({ Item: itemWithOptionals }));
-      const repo = new DynamoDBNotificationEventRepository(client as never, tableName, () => fixedNow);
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
 
       const found = await repo.get({ userId: 'u1', notifId: 'NOTIF-001' });
       expect(found?.KnowledgeID).toBe('k1');
@@ -161,16 +211,28 @@ describe('DynamoDBNotificationEventRepository', () => {
 
     it('Item がない場合は null を返す', async () => {
       const client = makeClient(async () => ({ Item: undefined }));
-      const repo = new DynamoDBNotificationEventRepository(client as never, tableName, () => fixedNow);
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
 
       const found = await repo.get({ userId: 'u1', notifId: 'NOTIF-MISSING' });
       expect(found).toBeNull();
     });
 
     it('エラー時は DatabaseError を投げる', async () => {
-      const client = makeClient(async () => { throw new Error('get 失敗'); });
-      const repo = new DynamoDBNotificationEventRepository(client as never, tableName, () => fixedNow);
-      await expect(repo.get({ userId: 'u1', notifId: 'NOTIF-001' })).rejects.toBeInstanceOf(DatabaseError);
+      const client = makeClient(async () => {
+        throw new Error('get 失敗');
+      });
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
+      await expect(repo.get({ userId: 'u1', notifId: 'NOTIF-001' })).rejects.toBeInstanceOf(
+        DatabaseError
+      );
     });
   });
 
@@ -181,7 +243,11 @@ describe('DynamoDBNotificationEventRepository', () => {
         sent.push(cmd);
         return {};
       });
-      const repo = new DynamoDBNotificationEventRepository(client as never, tableName, () => fixedNow);
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
 
       await repo.markConsumed({ userId: 'u1', notifId: 'NOTIF-001' }, fixedNow + 5000);
       expect(sent[0]).toBeInstanceOf(UpdateCommand);
@@ -190,8 +256,14 @@ describe('DynamoDBNotificationEventRepository', () => {
     });
 
     it('エラー時は DatabaseError を投げる', async () => {
-      const client = makeClient(async () => { throw new Error('update 失敗'); });
-      const repo = new DynamoDBNotificationEventRepository(client as never, tableName, () => fixedNow);
+      const client = makeClient(async () => {
+        throw new Error('update 失敗');
+      });
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
       await expect(
         repo.markConsumed({ userId: 'u1', notifId: 'NOTIF-001' }, fixedNow)
       ).rejects.toBeInstanceOf(DatabaseError);

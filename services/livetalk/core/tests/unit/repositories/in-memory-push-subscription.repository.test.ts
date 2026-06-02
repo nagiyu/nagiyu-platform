@@ -12,7 +12,9 @@ function makeRepo(store: InMemorySingleTableStore, nowMs?: () => number) {
   return new InMemoryPushSubscriptionRepository(store, nowMs ?? (() => BASE_NOW));
 }
 
-function makeSub(overrides: Partial<CreatePushSubscriptionInput> = {}): CreatePushSubscriptionInput {
+function makeSub(
+  overrides: Partial<CreatePushSubscriptionInput> = {}
+): CreatePushSubscriptionInput {
   return {
     UserID: 'u1',
     SubscriptionID: 'sub_abc123',

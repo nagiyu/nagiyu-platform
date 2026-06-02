@@ -312,10 +312,7 @@ export type { PushSubscriptionRepository } from './repositories/push-subscriptio
 export { InMemoryPushSubscriptionRepository } from './repositories/in-memory-push-subscription.repository.js';
 export { DynamoDBPushSubscriptionRepository } from './repositories/dynamodb-push-subscription.repository.js';
 export { PushSubscriptionMapper } from './mappers/push-subscription.mapper.js';
-export {
-  buildPushSubscriptionSK,
-  buildPushSubscriptionSKPrefix,
-} from './mappers/keys.js';
+export { buildPushSubscriptionSK, buildPushSubscriptionSKPrefix } from './mappers/keys.js';
 
 // NotificationEvent（Phase 5d / #3346）
 export type {
@@ -339,11 +336,7 @@ export {
   countTodayNotifications,
   median,
 } from './notification/index.js';
-export type {
-  NotifyDecision,
-  NotifyDecisionInput,
-  ToneBucket,
-} from './notification/index.js';
+export type { NotifyDecision, NotifyDecisionInput, ToneBucket } from './notification/index.js';
 export {
   buildNotificationMessage,
   buildCriticalNotificationMessage,

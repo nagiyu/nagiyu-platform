@@ -5,12 +5,16 @@ import {
   type DynamoDBItem,
   type EntityMapper,
 } from '@nagiyu/aws';
-import type { NotificationEventEntity, NotificationEventKey } from '../entities/notification-event.entity.js';
+import type {
+  NotificationEventEntity,
+  NotificationEventKey,
+} from '../entities/notification-event.entity.js';
 import { buildNotifSK, buildUserPK } from './keys.js';
 
-export class NotificationEventMapper
-  implements EntityMapper<NotificationEventEntity, NotificationEventKey>
-{
+export class NotificationEventMapper implements EntityMapper<
+  NotificationEventEntity,
+  NotificationEventKey
+> {
   public readonly entityType = 'NotificationEvent';
 
   public toItem(entity: NotificationEventEntity): DynamoDBItem {

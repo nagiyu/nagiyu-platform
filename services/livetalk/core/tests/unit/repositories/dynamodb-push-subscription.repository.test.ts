@@ -38,7 +38,11 @@ describe('DynamoDBPushSubscriptionRepository', () => {
         sent.push(cmd);
         return {};
       });
-      const repo = new DynamoDBPushSubscriptionRepository(client as never, tableName, () => fixedNow);
+      const repo = new DynamoDBPushSubscriptionRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
 
       const entity = await repo.put(baseInput);
       expect(entity.CreatedAt).toBe(fixedNow);
@@ -47,14 +51,26 @@ describe('DynamoDBPushSubscriptionRepository', () => {
     });
 
     it('エラー時は DatabaseError を投げる', async () => {
-      const client = makeClient(async () => { throw new Error('put 失敗'); });
-      const repo = new DynamoDBPushSubscriptionRepository(client as never, tableName, () => fixedNow);
+      const client = makeClient(async () => {
+        throw new Error('put 失敗');
+      });
+      const repo = new DynamoDBPushSubscriptionRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
       await expect(repo.put(baseInput)).rejects.toBeInstanceOf(DatabaseError);
     });
 
     it('非 Error オブジェクトのエラーも DatabaseError に変換する', async () => {
-      const client = makeClient(async () => { throw 'string error'; });
-      const repo = new DynamoDBPushSubscriptionRepository(client as never, tableName, () => fixedNow);
+      const client = makeClient(async () => {
+        throw 'string error';
+      });
+      const repo = new DynamoDBPushSubscriptionRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
       await expect(repo.put(baseInput)).rejects.toBeInstanceOf(DatabaseError);
     });
   });
@@ -66,7 +82,11 @@ describe('DynamoDBPushSubscriptionRepository', () => {
         sent.push(cmd);
         return { Items: [baseItem] };
       });
-      const repo = new DynamoDBPushSubscriptionRepository(client as never, tableName, () => fixedNow);
+      const repo = new DynamoDBPushSubscriptionRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
 
       const list = await repo.listByUser('u1');
       expect(list).toHaveLength(1);
@@ -76,7 +96,11 @@ describe('DynamoDBPushSubscriptionRepository', () => {
 
     it('Items が空のときは空配列を返す', async () => {
       const client = makeClient(async () => ({ Items: [] }));
-      const repo = new DynamoDBPushSubscriptionRepository(client as never, tableName, () => fixedNow);
+      const repo = new DynamoDBPushSubscriptionRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
 
       const list = await repo.listByUser('u1');
       expect(list).toEqual([]);
@@ -91,7 +115,11 @@ describe('DynamoDBPushSubscriptionRepository', () => {
         }
         return { Items: [] };
       });
-      const repo = new DynamoDBPushSubscriptionRepository(client as never, tableName, () => fixedNow);
+      const repo = new DynamoDBPushSubscriptionRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
 
       const list = await repo.listByUser('u1');
       expect(list).toHaveLength(1);
@@ -99,8 +127,14 @@ describe('DynamoDBPushSubscriptionRepository', () => {
     });
 
     it('エラー時は DatabaseError を投げる', async () => {
-      const client = makeClient(async () => { throw new Error('query 失敗'); });
-      const repo = new DynamoDBPushSubscriptionRepository(client as never, tableName, () => fixedNow);
+      const client = makeClient(async () => {
+        throw new Error('query 失敗');
+      });
+      const repo = new DynamoDBPushSubscriptionRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
       await expect(repo.listByUser('u1')).rejects.toBeInstanceOf(DatabaseError);
     });
   });
@@ -112,7 +146,11 @@ describe('DynamoDBPushSubscriptionRepository', () => {
         sent.push(cmd);
         return { Item: baseItem };
       });
-      const repo = new DynamoDBPushSubscriptionRepository(client as never, tableName, () => fixedNow);
+      const repo = new DynamoDBPushSubscriptionRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
 
       const found = await repo.get({ userId: 'u1', subscriptionId: 'sub_abc123' });
       expect(found?.Endpoint).toBe('https://push.example.com/sub1');
@@ -121,16 +159,28 @@ describe('DynamoDBPushSubscriptionRepository', () => {
 
     it('Item がない場合は null を返す', async () => {
       const client = makeClient(async () => ({ Item: undefined }));
-      const repo = new DynamoDBPushSubscriptionRepository(client as never, tableName, () => fixedNow);
+      const repo = new DynamoDBPushSubscriptionRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
 
       const found = await repo.get({ userId: 'u1', subscriptionId: 'sub_missing' });
       expect(found).toBeNull();
     });
 
     it('エラー時は DatabaseError を投げる', async () => {
-      const client = makeClient(async () => { throw new Error('get 失敗'); });
-      const repo = new DynamoDBPushSubscriptionRepository(client as never, tableName, () => fixedNow);
-      await expect(repo.get({ userId: 'u1', subscriptionId: 'sub_abc123' })).rejects.toBeInstanceOf(DatabaseError);
+      const client = makeClient(async () => {
+        throw new Error('get 失敗');
+      });
+      const repo = new DynamoDBPushSubscriptionRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
+      await expect(repo.get({ userId: 'u1', subscriptionId: 'sub_abc123' })).rejects.toBeInstanceOf(
+        DatabaseError
+      );
     });
   });
 
@@ -141,16 +191,28 @@ describe('DynamoDBPushSubscriptionRepository', () => {
         sent.push(cmd);
         return {};
       });
-      const repo = new DynamoDBPushSubscriptionRepository(client as never, tableName, () => fixedNow);
+      const repo = new DynamoDBPushSubscriptionRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
 
       await repo.delete({ userId: 'u1', subscriptionId: 'sub_abc123' });
       expect(sent[0]).toBeInstanceOf(DeleteCommand);
     });
 
     it('エラー時は DatabaseError を投げる', async () => {
-      const client = makeClient(async () => { throw new Error('delete 失敗'); });
-      const repo = new DynamoDBPushSubscriptionRepository(client as never, tableName, () => fixedNow);
-      await expect(repo.delete({ userId: 'u1', subscriptionId: 'sub_abc123' })).rejects.toBeInstanceOf(DatabaseError);
+      const client = makeClient(async () => {
+        throw new Error('delete 失敗');
+      });
+      const repo = new DynamoDBPushSubscriptionRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
+      await expect(
+        repo.delete({ userId: 'u1', subscriptionId: 'sub_abc123' })
+      ).rejects.toBeInstanceOf(DatabaseError);
     });
   });
 
