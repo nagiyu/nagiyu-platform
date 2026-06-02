@@ -20,8 +20,5 @@ export const GET = withAuth(getSession, 'livetalk:chat', async (session) => {
     return new NextResponse(null, { status: 204 });
   }
 
-  return NextResponse.json(
-    { notifId: unconsumed.NotifID, body: unconsumed.Body },
-    { status: 200 }
-  );
+  return NextResponse.json({ notifId: unconsumed.NotifID, body: unconsumed.Body }, { status: 200 });
 });
