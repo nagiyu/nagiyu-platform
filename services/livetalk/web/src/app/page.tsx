@@ -381,7 +381,10 @@ export default function HomePage() {
             alignItems: 'stretch',
           }}
         >
-          <ResponseDisplay text={onboardingText ?? firstWordText ?? responseText} userText={userText} />
+          <ResponseDisplay
+            text={onboardingText ?? firstWordText ?? responseText}
+            userText={userText}
+          />
           {errorMessage && (
             <Box
               sx={{
