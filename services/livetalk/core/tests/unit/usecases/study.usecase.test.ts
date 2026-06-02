@@ -91,6 +91,7 @@ describe('studyForUser', () => {
     put: jest.fn().mockImplementation(async (input) => ({ ...input, CreatedAt: Date.now() })),
     list: jest.fn().mockResolvedValue([]),
     getLatest: jest.fn().mockResolvedValue(null),
+    getById: jest.fn().mockResolvedValue(null),
   });
 
   const makeInterestRepo = (): jest.Mocked<InterestRepository> => ({
