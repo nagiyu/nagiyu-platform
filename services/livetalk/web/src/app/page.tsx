@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { useSession } from 'next-auth/react';
 import { Box, Container, Stack } from '@mui/material';
 import { Link } from '@nagiyu/ui';
+import { hasPermission } from '@nagiyu/common';
 import ChatInput from '@/components/ChatInput';
 import LicenseFooter from '@/components/LicenseFooter';
 import ResponseDisplay from '@/components/ResponseDisplay';
@@ -63,6 +65,13 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
  *   （HTMLAudioElement の autoplay 制約を回避）
  */
 export default function HomePage() {
+  const { data: session } = useSession();
+  const isAdmin =
+    !!session?.user &&
+    'roles' in session.user &&
+    Array.isArray(session.user.roles) &&
+    hasPermission(session.user.roles, 'livetalk:admin');
+
   const [consentPhase, setConsentPhase] = useState<ConsentPhase>('checking');
   const [onboardingPhase, setOnboardingPhase] = useState<OnboardingPhase>(null);
   const [onboardingText, setOnboardingText] = useState<string | null>(null);
@@ -411,6 +420,7 @@ export default function HomePage() {
           <Box sx={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: 2 }}>
             <Link href="/memory">私が覚えていること</Link>
             <Link href="/notes">ノート</Link>
+            {isAdmin && <Link href="/status">ステータス</Link>}
           </Box>
           <NotificationToggle />
         </Stack>

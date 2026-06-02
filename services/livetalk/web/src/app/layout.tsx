@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { ServiceLayout, ServiceWorkerRegistration } from '@nagiyu/ui';
+import SessionProviderWrapper from '@/components/SessionProviderWrapper';
 import '@nagiyu/ui/tokens.css';
 
 export const metadata: Metadata = {
@@ -45,7 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
           footerProps={{ version }}
         >
-          {children}
+          <SessionProviderWrapper>{children}</SessionProviderWrapper>
         </ServiceLayout>
       </body>
     </html>
