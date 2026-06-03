@@ -44,7 +44,8 @@ function isValidBody(body: unknown): body is ClientLogRequest {
     typeof b.message === 'string' &&
     b.message.length > 0 &&
     b.message.length <= CLIENT_LOG_MAX_MESSAGE_LENGTH &&
-    (b.context === undefined || (typeof b.context === 'object' && b.context !== null && !Array.isArray(b.context))) &&
+    (b.context === undefined ||
+      (typeof b.context === 'object' && b.context !== null && !Array.isArray(b.context))) &&
     (b.occurredAt === undefined || typeof b.occurredAt === 'string')
   );
 }

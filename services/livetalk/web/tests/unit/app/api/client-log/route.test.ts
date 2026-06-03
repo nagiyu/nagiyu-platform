@@ -54,7 +54,7 @@ describe('POST /api/client-log', () => {
     mockGetSession.mockResolvedValue(validSession);
     const res = await POST(buildRequest('invalid-json'));
     expect(res.status).toBe(400);
-    const json = await res.json() as Record<string, string>;
+    const json = (await res.json()) as Record<string, string>;
     expect(json.message).toBe(CLIENT_LOG_ERROR_MESSAGES.INVALID_REQUEST);
     expect(mockReportErrorEvent).not.toHaveBeenCalled();
   });
@@ -173,9 +173,7 @@ describe('POST /api/client-log', () => {
       buildRequest({ severity: 'error', title: 'T', message: 'M', occurredAt })
     );
     expect(res.status).toBe(204);
-    expect(mockReportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ occurredAt })
-    );
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(expect.objectContaining({ occurredAt }));
   });
 
   it('reportErrorEvent が失敗（null 返却）しても 204 を返す', async () => {

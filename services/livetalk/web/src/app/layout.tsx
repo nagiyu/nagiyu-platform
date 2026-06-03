@@ -55,7 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         >
           <ClientErrorReporter />
-        <SessionProviderWrapper>{children}</SessionProviderWrapper>
+          <SessionProviderWrapper>{children}</SessionProviderWrapper>
         </ServiceLayout>
       </body>
     </html>
