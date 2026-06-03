@@ -13,6 +13,7 @@ import {
   getDynamoDBTableArn,
   getDynamoDBTableName,
   getEcrRepositoryName,
+  grantErrorEventsWrite,
 } from '@nagiyu/infra-common';
 
 export interface LiveTalkEcsServiceStackProps extends cdk.StackProps {
@@ -273,6 +274,8 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
         // VAPID キー（Phase 5d / #3346）。Web Push subscribe / vapid-public-key route が参照する。
         VAPID_PUBLIC_KEY: vapidPublicKey,
         VAPID_PRIVATE_KEY: vapidPrivateKey,
+        // エラーイベント登録テーブル（Phase 5f / Issue #3369）
+        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
       },
       portMappings: [
         {
@@ -307,6 +310,9 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
     // ECS Task が DynamoDB Single Table を読み書きできるよう IAM 権限を付与する。
     // PITR や Backup 系の操作は不要、Read/Write のみで十分。
     dynamoTable.grantReadWriteData(taskRole);
+
+    // エラーイベント書き込み権限（Phase 5f / Issue #3369）。batch と同じ設定。
+    grantErrorEventsWrite(this, taskRole, environment);
 
     // ALB ターゲットには明示的に livetalk-web:3000 を指定する。
     // attachToApplicationTargetGroup() の暗黙的なデフォルトは「最初に addContainer された
