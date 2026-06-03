@@ -4,7 +4,7 @@
  * Phase 2b 時点では実装は OpenAI のみだが、Provider 切替を前提にした抽象 API を
  * 揃えることで Phase 2c 以降の利用コードが Provider 実装に縛られないようにしておく。
  *
- * @see tasks/livetalk/design.md §4.4
+ * @see docs/services/livetalk/architecture.md §2.14（Structured Outputs / ILLMClient）
  * @see Issue #3248
  * @see Issue #3316 (Structured Outputs 化)
  */

@@ -6,7 +6,7 @@
  * 音声合成クライアントの抽象インターフェース。
  * 将来 VOICEVOX 以外の TTS（CoeFont 等）に差し替えることを想定。
  *
- * @see tasks/livetalk/design.md §4.4
+ * @see docs/services/livetalk/architecture.md §2.3（VOICEVOX パイプライン）
  */
 export interface IVoiceClient {
   /**

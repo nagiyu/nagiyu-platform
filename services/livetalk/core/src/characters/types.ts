@@ -3,7 +3,7 @@
  *
  * 将来の複数キャラ対応に備えて抽象化する。MVP では桃瀬ひより 1 キャラ固定。
  *
- * @see tasks/livetalk/design.md §4.4
+ * @see docs/services/livetalk/architecture.md §2.10（CharacterDefinition 抽象化）
  * @see Issue #3249
  */
 

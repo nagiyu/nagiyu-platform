@@ -8,7 +8,7 @@
  * TTL なし（人間レビュー用途のため永続保持）。
  * PII（InputText）を含むため、将来的に KMS CMK による暗号化を検討すること。
  *
- * @see tasks/livetalk/design.md §3.2 SK パターン一覧
+ * @see docs/services/livetalk/architecture.md §3「データモデル概要」
  */
 
 import type { SafetyTrigger } from '../safety/types.js';

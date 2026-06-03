@@ -30,7 +30,7 @@ export interface SafetyModalProps {
  *   テキスト/音声として送出済み。このモーダルはリソース案内専用。
  * - 閉じるボタンで通常会話に戻れる（リソースを確認した上で）。
  *
- * @see tasks/livetalk/external-design.md SCR-008
+ * @see docs/services/livetalk/external-design.md SCR-008
  */
 export default function SafetyModal({ open, resources, onClose }: SafetyModalProps) {
   const emergencyResource = resources.find((r) => r.phone === '119');

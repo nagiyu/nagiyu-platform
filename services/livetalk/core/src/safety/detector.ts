@@ -10,7 +10,7 @@
  * - 慣用句・比喩表現は除外リストで対処
  *
  * @see Issue #3250
- * @see tasks/livetalk/external-design.md ADR-009
+ * @see docs/services/livetalk/architecture.md §2.9（セーフティ自前実装）
  */
 
 import { KEYWORD_PATTERNS, shouldExclude } from './keywords.js';

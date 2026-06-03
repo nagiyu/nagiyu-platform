@@ -1,7 +1,7 @@
 /**
  * 会話メッセージ 1 件を表すビジネスオブジェクト。
  *
- * `tasks/livetalk/design.md` 3.1 / 3.2 節に対応：
+ * `docs/services/livetalk/architecture.md` §3「データモデル概要」に対応：
  *   - 1 メッセージ = 1 item（配列保持禁止）
  *   - 並べ替え用 ID は ULID（時系列順）
  *

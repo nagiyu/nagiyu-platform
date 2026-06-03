@@ -12,7 +12,7 @@ export interface LiveTalkDynamoDbStackProps extends cdk.StackProps {
  *
  * - 命名: 共通ヘルパー `getDynamoDBTableName('livetalk', env)` で決定
  * - PK / SK の 2 キー Single Table 構成。MVP では GSI を作成しない
- *   （`tasks/livetalk/design.md` 3.2 節：「MVP では GSI 不要、Phase 進行で必要になれば追加」）
+ *   （`docs/services/livetalk/architecture.md` §3「データモデル概要」。MVP では GSI 不要、Phase 進行で必要になれば追加）
  * - Message は TTL（属性名 `TTL`、Unix 秒）で 90 日後に自動削除
  * - Point-in-time Recovery 有効、AWS マネージドキーで at-rest 暗号化
  * - dev は破棄、prod は保持

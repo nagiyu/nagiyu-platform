@@ -21,7 +21,7 @@ const DEFAULT_TIMEOUT_MS = 30000;
  * 将来共通サービス化したときに `baseUrl` だけ差し替えられるようにしてある。
  *
  * @see https://voicevox.github.io/voicevox_engine/api/
- * @see tasks/livetalk/external-design.md ADR-003 / ADR-004
+ * @see docs/services/livetalk/architecture.md §2.3 / §2.4（VOICEVOX パイプライン・2 コンテナ構成）
  */
 export class VoicevoxClient implements IVoiceClient {
   private readonly baseUrl: string;
