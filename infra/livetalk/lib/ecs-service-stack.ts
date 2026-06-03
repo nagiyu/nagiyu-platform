@@ -201,13 +201,13 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
     const imageTag = process.env.IMAGE_TAG || 'latest';
 
     // Phase 1f で VOICEVOX コンテナを同一 Task に追加。
-    // メモリ内訳: VOICEVOX 2GB + Next.js 0.5GB + オーバーヘッド ≈ 3GB
-    // Fargate の CPU/Memory 組み合わせ制約に従い 1 vCPU / 3072 MiB を使用（dev 想定の最小値、
-    // prod でメモリ・CPU 不足が見えた段階で引き上げる）。
+    // メモリ内訳: VOICEVOX 2.5GB + Next.js 0.5GB + オーバーヘッド ≈ 4GB
+    // CPU は 2 vCPU を web と VOICEVOX で配分（Issue #3356: VOICEVOX 合成の直列化解消）。
+    // Fargate の CPU/Memory 組み合わせ制約: cpu=2048 には memory 4096〜16384 が必要。
     this.taskDefinition = new ecs.FargateTaskDefinition(this, 'TaskDefinition', {
       family: `nagiyu-livetalk-task-${environment}`,
-      cpu: 1024,
-      memoryLimitMiB: 3072,
+      cpu: 2048,
+      memoryLimitMiB: 4096,
       executionRole: taskExecutionRole,
       taskRole,
     });
@@ -220,6 +220,9 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
     const voicevoxContainer = this.taskDefinition.addContainer('voicevox', {
       containerName: 'voicevox',
       image: ecs.ContainerImage.fromRegistry('voicevox/voicevox_engine:cpu-latest'),
+      // cpu_num_threads を 2 に設定し、並列合成リクエストを処理できるようにする（Issue #3356）。
+      // 公式イメージの ENTRYPOINT は run バイナリ。command は引数として追記される。
+      command: ['--cpu_num_threads', '2'],
       essential: true,
       logging: ecs.LogDriver.awsLogs({
         streamPrefix: 'ecs',
@@ -298,6 +301,8 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
 
     // VOICEVOX 起動待ちを含む Service の healthCheckGracePeriod を確保する（VOICEVOX の
     // startPeriod 60s に余裕を持たせる）。
+    // dev は Fargate Spot でコスト削減（中断されても Service が自動復旧するため許容）。
+    // prod はユーザー利用中の中断を避けるためオンデマンドを維持（Issue #3356）。
     this.service = new ecs.FargateService(this, 'Service', {
       cluster,
       taskDefinition: this.taskDefinition,
@@ -309,6 +314,12 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
         subnets: vpc.publicSubnets,
       },
       healthCheckGracePeriod: cdk.Duration.seconds(120),
+      capacityProviderStrategies: [
+        {
+          capacityProvider: environment === 'dev' ? 'FARGATE_SPOT' : 'FARGATE',
+          weight: 1,
+        },
+      ],
     });
 
     // ECS Task が DynamoDB Single Table を読み書きできるよう IAM 権限を付与する。
