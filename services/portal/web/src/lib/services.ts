@@ -8,6 +8,7 @@ export const SERVICE_URLS: Record<string, string> = {
   'share-together': 'https://share-together.nagiyu.com',
   auth: 'https://auth.nagiyu.com',
   admin: 'https://admin.nagiyu.com',
+  livetalk: 'https://livetalk.nagiyu.com',
 };
 
 /** サービス slug → サービス表示名のマッピング定数 */
@@ -20,4 +21,5 @@ export const SERVICE_NAMES: Record<string, string> = {
   'share-together': 'Share Together',
   auth: 'Auth',
   admin: 'Admin',
+  livetalk: 'リブトーク',
 };
