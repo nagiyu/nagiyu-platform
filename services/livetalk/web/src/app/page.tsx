@@ -22,6 +22,7 @@ import {
   shouldShowNotificationPermission,
 } from '@/lib/pwa/standalone';
 import { PWA_MESSAGES } from '@/lib/pwa/messages';
+import { reportClientError } from '@/lib/client-logger';
 
 const Live2DCanvas = dynamic(() => import('@/components/Live2DCanvas'), {
   ssr: false,
@@ -93,6 +94,7 @@ export default function HomePage() {
   const isPlayingRef = useRef(false);
   const streamDoneRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const sentenceReceivedRef = useRef(0);
   // AudioContext は子コンポーネント（Live2DCanvas）に prop で渡すため state で持つ。
   // 同期アクセス用に ref も併用する（callback 内で最新値を読むため）。
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
@@ -245,6 +247,7 @@ export default function HomePage() {
       setPhase('loading');
       setAudioBuffer(null);
       clearAudioQueue();
+      sentenceReceivedRef.current = 0;
 
       try {
         const chatBody: { text: string; knowledgeId?: string } = { text };
@@ -260,6 +263,10 @@ export default function HomePage() {
         if (!response.ok || !response.body) {
           setErrorMessage('応答の取得に失敗しました。時間を置いて再度お試しください。');
           setPhase('idle');
+          reportClientError('error', 'チャット fetch 失敗', `HTTP ${response.status}`, {
+            screen: 'chat',
+            audioContextState: audioCtxRef.current?.state,
+          });
           return;
         }
 
@@ -273,6 +280,7 @@ export default function HomePage() {
           if (event.type === 'text') {
             setResponseText((prev) => (prev ?? '') + event.delta);
           } else if (event.type === 'sentence' && event.audio) {
+            sentenceReceivedRef.current++;
             if (!audioCtx) {
               // AudioContext が無いブラウザ（極めて稀）: 音声をスキップしてテキストだけ表示
               return;
@@ -284,6 +292,16 @@ export default function HomePage() {
               advanceAudioQueue();
             } catch (err) {
               console.error('[LiveTalk] 音声 decode に失敗しました', err);
+              reportClientError(
+                'warning',
+                '音声 decode 失敗',
+                err instanceof Error ? err.message : '不明なエラー',
+                {
+                  screen: 'chat',
+                  audioContextState: audioCtxRef.current?.state,
+                  sentenceReceived: sentenceReceivedRef.current,
+                }
+              );
             }
           } else if (event.type === 'lifecycle') {
             setLifecycleState(event.state);
@@ -300,6 +318,17 @@ export default function HomePage() {
             setErrorMessage(event.message ?? '内部エラーが発生しました。');
             streamDoneRef.current = true;
             advanceAudioQueue();
+            reportClientError(
+              'error',
+              'チャット stream エラー',
+              event.message ?? '内部エラーが発生しました',
+              {
+                screen: 'chat',
+                audioContextState: audioCtxRef.current?.state,
+                sentenceReceived: sentenceReceivedRef.current,
+                streamDone: streamDoneRef.current,
+              }
+            );
           }
         };
 
@@ -335,6 +364,17 @@ export default function HomePage() {
         console.error('[LiveTalk] チャット応答の取得に失敗しました', error);
         setErrorMessage('エラーが発生しました。時間を置いて再度お試しください。');
         setPhase('idle');
+        reportClientError(
+          'error',
+          'チャット通信エラー',
+          error instanceof Error ? error.message : '不明なエラー',
+          {
+            screen: 'chat',
+            audioContextState: audioCtxRef.current?.state,
+            sentenceReceived: sentenceReceivedRef.current,
+            stack: error instanceof Error ? error.stack : undefined,
+          }
+        );
       }
     },
     [ensureAudioContextUnlocked, clearAudioQueue, advanceAudioQueue]
@@ -353,6 +393,11 @@ export default function HomePage() {
       setAudioBuffer(null);
       isPlayingRef.current = false;
       advanceAudioQueue();
+      reportClientError('warning', '音声再生エラー', error.message, {
+        screen: 'chat',
+        audioContextState: audioCtxRef.current?.state,
+        sentenceReceived: sentenceReceivedRef.current,
+      });
     },
     [advanceAudioQueue]
   );
