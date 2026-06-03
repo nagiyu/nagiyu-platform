@@ -326,7 +326,7 @@ describe('OpenAIClient', () => {
       expect(result.bidirectionalityScore).toBeCloseTo(0.7);
     });
 
-    it('bidirectionalityScore を 0〜1 にクランプする', async () => {
+    it('bidirectionalityScore を 0、1 にクランプする', async () => {
       const { client, parse } = makeMockOpenAI();
       parse.mockResolvedValue({
         output_parsed: {
@@ -358,6 +358,66 @@ describe('OpenAIClient', () => {
       const result = await livetalk.summarize(baseInput);
       expect(result.newMemoryCandidates).toHaveLength(1);
       expect(result.newMemoryCandidates[0].content).toBe('有効');
+    });
+
+    it('プロンプトに「要約に含めないもの（汚染防止）」セクションが含まれる', async () => {
+      const { client, parse } = makeMockOpenAI();
+      parse.mockResolvedValue({
+        output_parsed: {
+          mergedSummary: 'ok',
+          newMemoryCandidates: [],
+          interestCategories: null,
+          bidirectionalityScore: null,
+        },
+      });
+      const livetalk = new OpenAIClient({ client });
+      await livetalk.summarize(baseInput);
+      const calledMessages = (parse.mock.calls[0] as [{ input: Array<{ content: string }> }])[0]
+        .input;
+      const prompt = calledMessages[0].content;
+      expect(prompt).toContain('要約に含めないもの（汚染防止）');
+      expect(prompt).toContain('キャラの口調・文体・口癖');
+      expect(prompt).toContain('スリーピング演出・時間帯演出に由来する一時的な表現');
+    });
+
+    it('プロンプトに「要約に含めるもの」セクションが含まれる', async () => {
+      const { client, parse } = makeMockOpenAI();
+      parse.mockResolvedValue({
+        output_parsed: {
+          mergedSummary: 'ok',
+          newMemoryCandidates: [],
+          interestCategories: null,
+          bidirectionalityScore: null,
+        },
+      });
+      const livetalk = new OpenAIClient({ client });
+      await livetalk.summarize(baseInput);
+      const calledMessages = (parse.mock.calls[0] as [{ input: Array<{ content: string }> }])[0]
+        .input;
+      const prompt = calledMessages[0].content;
+      expect(prompt).toContain('要約に含めるもの');
+      expect(prompt).toContain('ユーザーの嗜好・興味・話題');
+      expect(prompt).toContain('会話で確定した事実・約束・予定');
+    });
+
+    it('プロンプトに寝ぼけ語の具体例示（むにゃ・うとうと）が含まれる', async () => {
+      const { client, parse } = makeMockOpenAI();
+      parse.mockResolvedValue({
+        output_parsed: {
+          mergedSummary: 'ok',
+          newMemoryCandidates: [],
+          interestCategories: null,
+          bidirectionalityScore: null,
+        },
+      });
+      const livetalk = new OpenAIClient({ client });
+      await livetalk.summarize(baseInput);
+      const calledMessages = (parse.mock.calls[0] as [{ input: Array<{ content: string }> }])[0]
+        .input;
+      const prompt = calledMessages[0].content;
+      // 寝ぼけ制寺語の具体例示が含まれることを確認（Issue #3373 の再発防止）
+      expect(prompt).toContain('むにゃ');
+      expect(prompt).toContain('うとうと');
     });
   });
 });
@@ -458,7 +518,7 @@ describe('parseSummarizeResult', () => {
     expect(result.interestCategories?.[0].category).toBe('有効');
   });
 
-  it('bidirectionalityScore をパースして 0〜1 にクランプする', () => {
+  it('bidirectionalityScore をパースして 0、1 にクランプする', () => {
     expect(
       parseSummarizeResult(
         JSON.stringify({
