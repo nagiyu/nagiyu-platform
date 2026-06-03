@@ -17,14 +17,14 @@ const synth = (environment, props = {}) => {
 };
 
 describe('LiveTalkEcsServiceStack', () => {
-  it('Task Definition family を環境名込みで作成する（VOICEVOX 同居のため Memory 3072）', () => {
+  it('Task Definition family を環境名込みで作成する（VOICEVOX 同居のため 2vCPU/4096MiB）', () => {
     const template = synth('dev');
     template.hasResourceProperties('AWS::ECS::TaskDefinition', {
       Family: 'nagiyu-livetalk-task-dev',
       RequiresCompatibilities: ['FARGATE'],
       NetworkMode: 'awsvpc',
-      Cpu: '1024',
-      Memory: '3072',
+      Cpu: '2048',
+      Memory: '4096',
     });
   });
 
@@ -82,8 +82,23 @@ describe('LiveTalkEcsServiceStack', () => {
     template.hasResourceProperties('AWS::ECS::Service', {
       ServiceName: 'nagiyu-livetalk-service-dev',
       DesiredCount: 1,
-      LaunchType: 'FARGATE',
       HealthCheckGracePeriodSeconds: 120,
+    });
+  });
+
+  it('dev は Fargate Spot を使用し、prod はオンデマンド FARGATE を使用する', () => {
+    const devTemplate = synth('dev');
+    devTemplate.hasResourceProperties('AWS::ECS::Service', {
+      CapacityProviderStrategy: Match.arrayWith([
+        Match.objectLike({ CapacityProvider: 'FARGATE_SPOT' }),
+      ]),
+    });
+
+    const prodTemplate = synth('prod');
+    prodTemplate.hasResourceProperties('AWS::ECS::Service', {
+      CapacityProviderStrategy: Match.arrayWith([
+        Match.objectLike({ CapacityProvider: 'FARGATE' }),
+      ]),
     });
   });
 
