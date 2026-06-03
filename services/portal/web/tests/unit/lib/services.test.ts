@@ -36,8 +36,12 @@ describe('services', () => {
       expect(SERVICE_URLS['admin']).toBe('https://admin.nagiyu.com');
     });
 
-    it('8 サービスすべて定義されている', () => {
-      expect(Object.keys(SERVICE_URLS)).toHaveLength(8);
+    it('livetalk の URL が正しい', () => {
+      expect(SERVICE_URLS['livetalk']).toBe('https://livetalk.nagiyu.com');
+    });
+
+    it('9 サービスすべて定義されている', () => {
+      expect(Object.keys(SERVICE_URLS)).toHaveLength(9);
     });
   });
 
@@ -50,8 +54,12 @@ describe('services', () => {
       expect(SERVICE_NAMES['quick-clip']).toBe('Quick Clip');
     });
 
-    it('8 サービスすべて定義されている', () => {
-      expect(Object.keys(SERVICE_NAMES)).toHaveLength(8);
+    it('livetalk の表示名が正しい', () => {
+      expect(SERVICE_NAMES['livetalk']).toBe('リブトーク');
+    });
+
+    it('9 サービスすべて定義されている', () => {
+      expect(Object.keys(SERVICE_NAMES)).toHaveLength(9);
     });
   });
 });
