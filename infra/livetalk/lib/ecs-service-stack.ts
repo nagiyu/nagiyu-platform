@@ -57,8 +57,7 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
     // OpenAI API キー（Phase 2b / Issue #3248）。
     // 既存の AUTH_SECRET と同じく、deploy ワークフローが Secrets Manager から取得して
     // `--context openAiApiKey=<value>` で渡す方式。Container では `OPENAI_API_KEY` env で参照する。
-    const openAiApiKey =
-      scope.node.tryGetContext('openAiApiKey') || 'PLACEHOLDER_OPENAI_API_KEY';
+    const openAiApiKey = scope.node.tryGetContext('openAiApiKey') || 'PLACEHOLDER_OPENAI_API_KEY';
 
     // VAPID キー（Phase 5d / #3346）。Web Push の subscribe / vapid-public-key route が参照する。
     const vapidPublicKey =
@@ -70,9 +69,7 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
       environment === 'prod' ? 'https://auth.nagiyu.com' : `https://dev-auth.nagiyu.com`;
 
     const appUrl =
-      environment === 'prod'
-        ? 'https://live-talk.nagiyu.com'
-        : 'https://dev-live-talk.nagiyu.com';
+      environment === 'prod' ? 'https://live-talk.nagiyu.com' : 'https://dev-live-talk.nagiyu.com';
 
     const vpcId = ssm.StringParameter.valueForStringParameter(
       this,
@@ -87,10 +84,7 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
     const vpc = ec2.Vpc.fromVpcAttributes(this, 'ImportedVpc', {
       vpcId,
       availabilityZones: ['us-east-1a', 'us-east-1b'],
-      publicSubnetIds: [
-        cdk.Fn.select(0, publicSubnetIds),
-        cdk.Fn.select(1, publicSubnetIds),
-      ],
+      publicSubnetIds: [cdk.Fn.select(0, publicSubnetIds), cdk.Fn.select(1, publicSubnetIds)],
     });
 
     const clusterName = ssm.StringParameter.valueForStringParameter(
@@ -132,11 +126,7 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
     // これにより ECS Service stack は DynamoDB stack の deploy 順序に縛られない。
     const dynamoTableName = getDynamoDBTableName('livetalk', environment);
     const dynamoTableArn = getDynamoDBTableArn(this.region, this.account, dynamoTableName);
-    const dynamoTable = dynamodb.Table.fromTableArn(
-      this,
-      'ImportedDynamoTable',
-      dynamoTableArn
-    );
+    const dynamoTable = dynamodb.Table.fromTableArn(this, 'ImportedDynamoTable', dynamoTableArn);
 
     this.ecsTaskSecurityGroup = new ec2.SecurityGroup(this, 'EcsTaskSecurityGroup', {
       vpc,
@@ -161,9 +151,7 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
       assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
       description: 'ECS Task Execution Role for LiveTalk',
       managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName(
-          'service-role/AmazonECSTaskExecutionRolePolicy'
-        ),
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonECSTaskExecutionRolePolicy'),
       ],
     });
 
@@ -220,9 +208,13 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
     const voicevoxContainer = this.taskDefinition.addContainer('voicevox', {
       containerName: 'voicevox',
       image: ecs.ContainerImage.fromRegistry('voicevox/voicevox_engine:cpu-latest'),
-      // cpu_num_threads を 2 に設定し、並列合成リクエストを処理できるようにする（Issue #3356）。
-      // 公式イメージの ENTRYPOINT は run バイナリ。command は引数として追記される。
-      command: ['--cpu_num_threads', '2'],
+      // VV_CPU_NUM_THREADS で並列合成リクエストを処理できるようにする（Issue #3356）。
+      // 当初は command で --cpu_num_threads を渡したが Docker CMD 上書きの影響で
+      // コンテナが exit 2 で起動失敗したため、公式が明示的にサポートする
+      // 環境変数経由（VV_CPU_NUM_THREADS）に切り替えている。
+      environment: {
+        VV_CPU_NUM_THREADS: '2',
+      },
       essential: true,
       logging: ecs.LogDriver.awsLogs({
         streamPrefix: 'ecs',
