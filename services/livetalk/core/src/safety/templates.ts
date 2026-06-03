@@ -5,7 +5,7 @@
  * 無機質なホットライン番号の貼り付けにならないよう、感情表現を含める。
  *
  * @see Issue #3250 実装上の注意点
- * @see tasks/livetalk/external-design.md SCR-008
+ * @see docs/services/livetalk/external-design.md SCR-008
  */
 
 import type { CharacterDefinition } from '../characters/types.js';

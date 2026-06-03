@@ -6,7 +6,7 @@
  * - カテゴリ別に分類し、活用形・表記揺れに対応した正規表現を使用
  * - 慣用句・比喩表現（「死ぬほど美味しい」等）は除外リストでハンドリング
  *
- * @see tasks/livetalk/external-design.md ADR-009
+ * @see docs/services/livetalk/architecture.md §2.9（セーフティ自前実装）
  * @see Issue #3250
  */
 

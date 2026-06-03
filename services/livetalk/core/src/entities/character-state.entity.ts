@@ -1,7 +1,7 @@
 /**
  * ユーザー × キャラの状態。
  *
- * `tasks/livetalk/design.md` 3.1 / 3.2 節の `CharacterState` に対応。
+ * `docs/services/livetalk/architecture.md` §3「データモデル概要」の CharacterState に対応。
  *
  * Phase 2a スコープでは Repository 抽象とキー設計の確立のみが目的。
  * 親密度（`AffectionLevel`）/ オンボーディングフラグ（`Onboarded`）は

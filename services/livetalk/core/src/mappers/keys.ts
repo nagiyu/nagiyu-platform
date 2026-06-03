@@ -1,7 +1,7 @@
 /**
  * Single Table 設計の PK / SK を組み立てるための共通ヘルパー。
  *
- * 設計は `tasks/livetalk/design.md` 3.2 節「SK パターン一覧」に準拠する。
+ * 設計は `docs/services/livetalk/architecture.md` §3「データモデル概要」の SK パターンに準拠する。
  * PK は全エンティティで `USER#<googleId>` に統一する。
  */
 
