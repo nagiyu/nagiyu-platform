@@ -131,9 +131,8 @@ describe('emitChatMetricsEMF', () => {
     const output = logSpy.mock.calls[0][0] as string;
     // NODE_ENV または 'unknown' のいずれかが Environment ディメンションに入る
     const parsed = JSON.parse(output) as Record<string, unknown>;
-    const dimensions = (
-      parsed['_aws'] as { CloudWatchMetrics: Array<{ Dimensions: string[][] }> }
-    ).CloudWatchMetrics[0].Dimensions;
+    const dimensions = (parsed['_aws'] as { CloudWatchMetrics: Array<{ Dimensions: string[][] }> })
+      .CloudWatchMetrics[0].Dimensions;
     expect(dimensions.flat()).toContain('Environment');
     logSpy.mockRestore();
     if (originalLivetalkEnv !== undefined) {
