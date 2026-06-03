@@ -20,7 +20,7 @@ const config: Config = {
     '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
-  testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
+  testPathIgnorePatterns: ['/node_modules/', '/tests/e2e/'],
   modulePathIgnorePatterns: ['<rootDir>/../../../package.json', '<rootDir>/.next/'],
   coverageDirectory: 'coverage',
   collectCoverageFrom: [
