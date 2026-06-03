@@ -93,6 +93,7 @@ export class LiveTalkBatchStack extends cdk.Stack {
       timeout: cdk.Duration.minutes(15),
       environment: {
         NODE_ENV: environment,
+        LIVETALK_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTableName,
         OPENAI_API_KEY: openAiApiKey,
         ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
@@ -156,6 +157,7 @@ export class LiveTalkBatchStack extends cdk.Stack {
       timeout: cdk.Duration.minutes(15),
       environment: {
         NODE_ENV: environment,
+        LIVETALK_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTableName,
         ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
         TZ: 'Asia/Tokyo',
@@ -217,6 +219,7 @@ export class LiveTalkBatchStack extends cdk.Stack {
       timeout: cdk.Duration.minutes(15),
       environment: {
         NODE_ENV: environment,
+        LIVETALK_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTableName,
         OPENAI_API_KEY: openAiApiKey,
         ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
@@ -281,6 +284,7 @@ export class LiveTalkBatchStack extends cdk.Stack {
       timeout: cdk.Duration.minutes(15),
       environment: {
         NODE_ENV: environment,
+        LIVETALK_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTableName,
         OPENAI_API_KEY: openAiApiKey,
         VAPID_PUBLIC_KEY: vapidPublicKey,

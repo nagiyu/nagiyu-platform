@@ -105,6 +105,40 @@ describe('emitChatMetricsEMF', () => {
     expect(parsed._aws.CloudWatchMetrics[0].Namespace).toBe('LiveTalk/Chat');
     logSpy.mockRestore();
   });
+
+  it('LIVETALK_ENV が設定されている場合は Environment ディメンションにその値が使われる', () => {
+    const originalEnv = process.env.LIVETALK_ENV;
+    process.env.LIVETALK_ENV = 'dev';
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const metrics = createChatMetrics('u1', 'hiyori');
+    emitChatMetricsEMF(metrics);
+    const output = logSpy.mock.calls[0][0] as string;
+    expect(output).toContain('"dev"');
+    logSpy.mockRestore();
+    if (originalEnv === undefined) {
+      delete process.env.LIVETALK_ENV;
+    } else {
+      process.env.LIVETALK_ENV = originalEnv;
+    }
+  });
+
+  it('LIVETALK_ENV が未設定の場合は NODE_ENV にフォールバックする', () => {
+    const originalLivetalkEnv = process.env.LIVETALK_ENV;
+    delete process.env.LIVETALK_ENV;
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const metrics = createChatMetrics('u1', 'hiyori');
+    emitChatMetricsEMF(metrics);
+    const output = logSpy.mock.calls[0][0] as string;
+    // NODE_ENV または 'unknown' のいずれかが Environment ディメンションに入る
+    const parsed = JSON.parse(output) as Record<string, unknown>;
+    const dimensions = (parsed['_aws'] as { CloudWatchMetrics: Array<{ Dimensions: string[][] }> })
+      .CloudWatchMetrics[0].Dimensions;
+    expect(dimensions.flat()).toContain('Environment');
+    logSpy.mockRestore();
+    if (originalLivetalkEnv !== undefined) {
+      process.env.LIVETALK_ENV = originalLivetalkEnv;
+    }
+  });
 });
 
 describe('emitBatchMetricsLog', () => {
@@ -165,5 +199,28 @@ describe('emitBatchMetricsEMF', () => {
     expect(parsed['CompressedMessageCount']).toBe(7);
     expect(parsed['BatchLatency']).toBe(3000);
     logSpy.mockRestore();
+  });
+
+  it('LIVETALK_ENV が設定されている場合は Environment ディメンションにその値が使われる（Batch）', () => {
+    const originalEnv = process.env.LIVETALK_ENV;
+    process.env.LIVETALK_ENV = 'dev';
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const batchMetrics = {
+      userId: 'u1',
+      characterId: 'hiyori',
+      timestamp: new Date().toISOString(),
+      messageCount: 5,
+      summaryTokenCount: 300,
+      summaryCharCount: 600,
+    };
+    emitBatchMetricsEMF(batchMetrics);
+    const output = logSpy.mock.calls[0][0] as string;
+    expect(output).toContain('"dev"');
+    logSpy.mockRestore();
+    if (originalEnv === undefined) {
+      delete process.env.LIVETALK_ENV;
+    } else {
+      process.env.LIVETALK_ENV = originalEnv;
+    }
   });
 });

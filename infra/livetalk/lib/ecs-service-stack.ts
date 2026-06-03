@@ -252,6 +252,10 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
         // 'development' にすると @nagiyu/nextjs の cookie 名サフィックスと domain スコープが
         // Auth サービスの発行 cookie とずれるため、'dev' / 'prod' を使う。
         NODE_ENV: environment,
+        // LIVETALK_ENV: EMF メトリクスの Environment ディメンション専用（Issue #3320）。
+        // Next.js は next start で NODE_ENV を 'production' に強制上書きするため、
+        // メトリクス用の環境識別子として別変数を用意する。
+        LIVETALK_ENV: environment,
         PORT: '3000',
         APP_VERSION: appVersion,
         // NextAuth v5 が JWT 署名・検証に使用する secret。Auth サービスと同じ値が必要。
