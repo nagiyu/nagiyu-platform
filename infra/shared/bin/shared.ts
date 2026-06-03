@@ -14,6 +14,7 @@ import { IamUsersStack } from '../lib/iam/iam-users-stack';
 import { DockerBuildLockStack } from '../lib/docker-build-lock-stack';
 import { ErrorEventsTableStack } from '../lib/error-events-table-stack';
 import { ReportsHostingStack } from '../lib/reports-hosting-stack';
+import { EcsSharedClusterStack } from '../lib/ecs-cluster-stack';
 
 const app = new cdk.App();
 
@@ -108,6 +109,17 @@ new IamUsersStack(app, 'NagiyuSharedIamUsers', {
   env: stackEnv,
   description: 'Shared IAM Users for GitHub Actions, Local Development and Claude Code on the web',
 });
+
+// プラットフォーム共通 ECS Cluster（Portal 専用 nagiyu-root-cluster-{env} とは別物）
+new EcsSharedClusterStack(
+  app,
+  `NagiyuSharedEcsCluster${env.charAt(0).toUpperCase() + env.slice(1)}`,
+  {
+    environment: env as 'dev' | 'prod',
+    env: stackEnv,
+    description: `Platform Shared ECS Cluster - ${env} environment`,
+  }
+);
 
 new DockerBuildLockStack(app, 'NagiyuDockerBuildLock', {
   env: stackEnv,

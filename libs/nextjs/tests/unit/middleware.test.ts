@@ -36,6 +36,10 @@ function createRequest(url: string, auth?: unknown): MockRequest {
   };
 }
 
+function createSession(roles: string[]): { user: { roles: string[] } } {
+  return { user: { roles } };
+}
+
 describe('createAuthMiddleware', () => {
   beforeEach(() => {
     delete process.env.SKIP_AUTH_CHECK;
@@ -98,6 +102,94 @@ describe('createAuthMiddleware', () => {
     expect(response).toEqual({
       type: 'redirect',
       url: 'https://example.com/signin?callbackUrl=%2Fprivate',
+    });
+  });
+
+  describe('requiredPermission', () => {
+    it('指定 permission を保持する role があれば通過する', () => {
+      const middleware = createAuthMiddleware({
+        requiredPermission: 'livetalk:chat',
+      });
+
+      const response = middleware(
+        createRequest('https://example.com/chat', createSession(['livetalk-user']))
+      );
+
+      expect(response).toEqual({ type: 'next' });
+    });
+
+    it('認証済みでも permission がなければ 403 を返す', () => {
+      const middleware = createAuthMiddleware({
+        requiredPermission: 'livetalk:chat',
+      });
+
+      const response = middleware(
+        createRequest('https://example.com/chat', createSession(['stock-viewer']))
+      );
+
+      expect(response).toEqual({
+        type: 'json',
+        status: 403,
+        body: { error: 'FORBIDDEN', message: 'この操作を実行する権限がありません' },
+      });
+    });
+
+    it('roles が空配列でも 403 を返す', () => {
+      const middleware = createAuthMiddleware({
+        requiredPermission: 'livetalk:chat',
+      });
+
+      const response = middleware(createRequest('https://example.com/chat', createSession([])));
+
+      expect(response).toEqual({
+        type: 'json',
+        status: 403,
+        body: { error: 'FORBIDDEN', message: 'この操作を実行する権限がありません' },
+      });
+    });
+
+    it('onForbidden を指定すればその戻り値を返す', () => {
+      process.env.APP_URL = 'https://app.example.com';
+      const middleware = createAuthMiddleware({
+        requiredPermission: 'livetalk:chat',
+        onForbidden: () =>
+          ({ type: 'redirect', url: 'https://auth.example.com/signin' }) as unknown as never,
+      });
+
+      const response = middleware(
+        createRequest('https://example.com/chat', createSession(['stock-viewer']))
+      );
+
+      expect(response).toEqual({
+        type: 'redirect',
+        url: 'https://auth.example.com/signin',
+      });
+    });
+
+    it('未認証の場合は permission チェックを経由せずサインインへリダイレクトする', () => {
+      process.env.APP_URL = 'https://app.example.com';
+      const middleware = createAuthMiddleware({
+        requiredPermission: 'livetalk:chat',
+        getSignInBaseUrl: () => 'https://auth.example.com',
+      });
+
+      const response = middleware(createRequest('https://example.com/chat'));
+
+      expect(response).toEqual({
+        type: 'redirect',
+        url: 'https://auth.example.com/signin?callbackUrl=https%3A%2F%2Fapp.example.com%2Fchat',
+      });
+    });
+
+    it('publicPaths は permission チェックなしで通過する', () => {
+      const middleware = createAuthMiddleware({
+        publicPaths: ['/'],
+        requiredPermission: 'livetalk:chat',
+      });
+
+      const response = middleware(createRequest('https://example.com/'));
+
+      expect(response).toEqual({ type: 'next' });
     });
   });
 });
