@@ -377,7 +377,7 @@ describe('OpenAIClient', () => {
       const prompt = calledMessages[0].content;
       expect(prompt).toContain('要約に含めないもの（汚染防止）');
       expect(prompt).toContain('キャラの口調・文体・口癖');
-      expect(prompt).toContain('スリーピング演出・時間帯演出に由来する一時的な表現');
+      expect(prompt).toContain('寝ぼけ演出・時間帯演出に由来する一時的な表現');
     });
 
     it('プロンプトに「要約に含めるもの」セクションが含まれる', async () => {
