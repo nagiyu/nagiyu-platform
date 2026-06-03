@@ -220,9 +220,13 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
     const voicevoxContainer = this.taskDefinition.addContainer('voicevox', {
       containerName: 'voicevox',
       image: ecs.ContainerImage.fromRegistry('voicevox/voicevox_engine:cpu-latest'),
-      // cpu_num_threads を 2 に設定し、並列合成リクエストを処理できるようにする（Issue #3356）。
-      // 公式イメージの ENTRYPOINT は run バイナリ。command は引数として追記される。
-      command: ['--cpu_num_threads', '2'],
+      // VV_CPU_NUM_THREADS で並列合成リクエストを処理できるようにする（Issue #3356）。
+      // 当初は command で --cpu_num_threads を渡したが Docker CMD 上書きの影響で
+      // コンテナが exit 2 で起動失敗したため、公式が明示的にサポートする
+      // 環境変数経由（VV_CPU_NUM_THREADS）に切り替えている。
+      environment: {
+        VV_CPU_NUM_THREADS: '2',
+      },
       essential: true,
       logging: ecs.LogDriver.awsLogs({
         streamPrefix: 'ecs',
