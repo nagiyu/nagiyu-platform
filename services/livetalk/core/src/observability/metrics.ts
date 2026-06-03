@@ -82,7 +82,7 @@ export function emitChatMetricsLog(metrics: ChatMetrics): void {
 
 /** L2: CloudWatch EMF メトリクスを emit する（Namespace: LiveTalk/Chat）。 */
 export function emitChatMetricsEMF(metrics: ChatMetrics): void {
-  const environment = process.env.NODE_ENV ?? 'unknown';
+  const environment = process.env.LIVETALK_ENV ?? process.env.NODE_ENV ?? 'unknown';
 
   const emfMetrics: EmfMetricDefinition[] = [
     { name: 'PromptTotalTokens', value: metrics.promptTokens.total, unit: 'Count' },
@@ -146,7 +146,7 @@ export function emitBatchMetricsLog(metrics: BatchMetrics): void {
 
 /** L2: バッチ EMF メトリクスを emit する（Namespace: LiveTalk/Batch）。 */
 export function emitBatchMetricsEMF(metrics: BatchMetrics): void {
-  const environment = process.env.NODE_ENV ?? 'unknown';
+  const environment = process.env.LIVETALK_ENV ?? process.env.NODE_ENV ?? 'unknown';
 
   const emfMetrics: EmfMetricDefinition[] = [
     { name: 'MemorySummaryTokens', value: metrics.summaryTokenCount, unit: 'Count' },
