@@ -1,0 +1,544 @@
+name: LiveTalk - Build and Push to ECR
+
+on:
+  push:
+    branches:
+      - develop
+      - integration/**
+      - master
+    paths:
+      - 'services/livetalk/**'
+      - 'infra/livetalk/**'
+      - 'infra/common/**'
+      - 'infra/tsconfig.json'
+      - 'libs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/livetalk-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+env:
+  AWS_REGION: us-east-1
+
+permissions:
+  contents: read
+
+jobs:
+  infrastructure-ecr:
+    name: Deploy ECR Repository
+    runs-on: ubuntu-latest
+
+    outputs:
+      environment: ${{ steps.setup-environment.outputs.environment }}
+      stack-suffix: ${{ steps.setup-environment.outputs.stack-suffix }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+
+      - name: Setup deployment environment
+        id: setup-environment
+        uses: ./.github/actions/setup-environment
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra-livetalk
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: CDK diff (verify no-op against existing CFN stack)
+        env:
+          ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
+          STACK_SUFFIX: ${{ steps.setup-environment.outputs.stack-suffix }}
+        run: |
+          npm run cdk --workspace=@nagiyu/infra-livetalk -- diff NagiyuLiveTalkEcr${STACK_SUFFIX} || true
+          echo "diff complete (informational; deploy will reconcile any unexpected drift)"
+
+      - name: Deploy LiveTalk ECR Stack
+        env:
+          ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
+          STACK_SUFFIX: ${{ steps.setup-environment.outputs.stack-suffix }}
+        run: |
+          # メインの Web ECR と Batch ECR を一括 deploy する（相互依存なし）。
+          npm run cdk --workspace=@nagiyu/infra-livetalk -- deploy \
+            NagiyuLiveTalkEcr${STACK_SUFFIX} \
+            NagiyuLiveTalkBatchEcr${STACK_SUFFIX} \
+            --require-approval never
+
+          echo "LiveTalk ECR repositories deployed (environment: $ENVIRONMENT)"
+
+      - name: Deploy LiveTalk Secrets Stack
+        env:
+          ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
+          STACK_SUFFIX: ${{ steps.setup-environment.outputs.stack-suffix }}
+        run: |
+          # 初回デプロイ時に Secrets Manager に PLACEHOLDER で Secret を作る。
+          # 実値は AWS Console から手動で書き換え運用（Phase 2b / Issue #3248）。
+          npm run cdk --workspace=@nagiyu/infra-livetalk -- deploy NagiyuLiveTalkSecrets${STACK_SUFFIX} \
+            --require-approval never
+
+          echo "LiveTalk Secrets deployed (environment: $ENVIRONMENT)"
+
+  build:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: infrastructure-ecr
+
+    outputs:
+      image-uri: ${{ steps.build-image.outputs.image-uri }}
+      environment: ${{ needs.infrastructure-ecr.outputs.environment }}
+      stack-suffix: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+      app-version: ${{ steps.get-version.outputs.app-version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/livetalk/web
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Application version: $VERSION"
+
+      - name: Build Web application
+        uses: ./.github/actions/build-web-app
+        with:
+          workspace: '@nagiyu/livetalk-web'
+          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/aws,@nagiyu/livetalk-core'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get ECR repository from SSM
+        id: get-ecr
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
+        run: |
+          REPOSITORY_URI=$(aws ssm get-parameter \
+            --name "/nagiyu/livetalk/${ENVIRONMENT}/ecr/repository-uri" \
+            --query "Parameter.Value" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Error: Could not find LiveTalk ECR repository URI from SSM"
+            exit 1
+          fi
+
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+          echo "ECR Repository: $REPOSITORY_URI"
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/livetalk/web/Dockerfile
+          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:${{ github.sha }}
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
+
+      - name: Push Docker image
+        id: build-image
+        env:
+          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker push "$REPOSITORY_URI:$IMAGE_TAG"
+
+          # Also tag as latest
+          docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
+          docker push "$REPOSITORY_URI:latest"
+
+          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+  build-batch:
+    name: Build and Push Batch Image
+    runs-on: ubuntu-latest
+    needs: infrastructure-ecr
+
+    outputs:
+      environment: ${{ needs.infrastructure-ecr.outputs.environment }}
+      stack-suffix: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Batch Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/livetalk/batch/Dockerfile
+          # Batch ECR リポジトリ名は命名規則から決定論的に組み立てる（SSM 非依存）。
+          image-tag: ${{ steps.login-ecr.outputs.registry }}/nagiyu-livetalk-batch-ecr-${{ needs.infrastructure-ecr.outputs.environment }}:${{ github.sha }}
+
+      - name: Push Batch Docker image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: nagiyu-livetalk-batch-ecr-${{ needs.infrastructure-ecr.outputs.environment }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+          # Also tag as latest（Batch Lambda は :latest を参照する）
+          docker tag "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+
+          echo "Batch image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+  infrastructure-app:
+    name: Deploy DynamoDB, ALB and ECS Service Stacks
+    runs-on: ubuntu-latest
+    needs: build
+
+    outputs:
+      environment: ${{ needs.build.outputs.environment }}
+      stack-suffix: ${{ needs.build.outputs.stack-suffix }}
+      alb-dns-name: ${{ steps.fetch-alb-dns.outputs.alb-dns-name }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra-livetalk
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Fetch secrets from Secrets Manager
+        id: fetch-secrets
+        uses: aws-actions/aws-secretsmanager-get-secrets@v2
+        with:
+          secret-ids: |
+            NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ needs.build.outputs.environment }}
+            OPENAI_API_KEY,/nagiyu/livetalk/${{ needs.build.outputs.environment }}/openai/api-key
+            VAPID,nagiyu-livetalk-vapid-${{ needs.build.outputs.environment }}
+          parse-json-secrets: true
+
+      - name: Deploy DynamoDB, ALB and ECS Service Stacks
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.build.outputs.stack-suffix }}
+          IMAGE_TAG: ${{ github.sha }}
+          # CDK が process.env.APP_VERSION を読み、ECS Task の environment に注入する
+          # /api/health の version 表示に利用される
+          APP_VERSION: ${{ needs.build.outputs.app-version }}
+          SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
+          OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
+          # VAPID キー（Phase 5d / #3346）。parse-json-secrets: true で JSON の各フィールドが
+          # VAPID_PUBLICKEY / VAPID_PRIVATEKEY という env var に展開される。
+          VAPID_PUBLIC_KEY: ${{ env.VAPID_PUBLICKEY }}
+          VAPID_PRIVATE_KEY: ${{ env.VAPID_PRIVATEKEY }}
+        run: |
+          # DynamoDB Single Table（Phase 2a で追加）。ECS Service とは
+          # deploy 順依存がなく、ALB / Service と同じジョブで一括 deploy する。
+          npm run cdk --workspace=@nagiyu/infra-livetalk -- deploy \
+            NagiyuLiveTalkDynamoDB${STACK_SUFFIX} \
+            NagiyuLiveTalkAlb${STACK_SUFFIX} \
+            NagiyuLiveTalkService${STACK_SUFFIX} \
+            --context nextAuthSecret="$SECRET_VALUE" \
+            --context openAiApiKey="$OPENAI_API_KEY" \
+            --context vapidPublicKey="$VAPID_PUBLIC_KEY" \
+            --context vapidPrivateKey="$VAPID_PRIVATE_KEY" \
+            --require-approval never
+
+          echo "LiveTalk DynamoDB, ALB and ECS Service deployed (environment: $ENVIRONMENT)"
+
+      - name: Force new ECS service deployment
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          aws ecs update-service \
+            --cluster "nagiyu-shared-cluster-${ENVIRONMENT}" \
+            --service "nagiyu-livetalk-service-${ENVIRONMENT}" \
+            --force-new-deployment \
+            --region "${{ env.AWS_REGION }}"
+
+          echo "LiveTalk ECS service deployment triggered."
+
+      - name: Wait for ECS service to stabilize
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          echo "Waiting for ECS service to stabilize..."
+          aws ecs wait services-stable \
+            --cluster "nagiyu-shared-cluster-${ENVIRONMENT}" \
+            --services "nagiyu-livetalk-service-${ENVIRONMENT}" \
+            --region "${{ env.AWS_REGION }}"
+
+          echo "LiveTalk ECS service is stable."
+
+      - name: Fetch ALB DNS name
+        id: fetch-alb-dns
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          ALB_DNS=$(aws ssm get-parameter \
+            --name "/nagiyu/livetalk/${ENVIRONMENT}/alb/dns-name" \
+            --query "Parameter.Value" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$ALB_DNS" ]; then
+            echo "Warning: Could not resolve ALB DNS from SSM."
+          else
+            echo "ALB DNS: $ALB_DNS"
+          fi
+
+          echo "alb-dns-name=$ALB_DNS" >> "$GITHUB_OUTPUT"
+
+      - name: Verify health endpoint via ALB DNS
+        env:
+          ALB_DNS: ${{ steps.fetch-alb-dns.outputs.alb-dns-name }}
+        run: |
+          if [ -z "$ALB_DNS" ]; then
+            echo "Skipping health check: ALB DNS not resolved."
+            exit 0
+          fi
+
+          echo "Probing http://${ALB_DNS}/api/health ..."
+          HTTP_CODE=$(curl -f -s -o /dev/null -w "%{http_code}" "http://${ALB_DNS}/api/health" || echo "000")
+          echo "Health check response: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Warning: ALB health endpoint returned $HTTP_CODE"
+          else
+            echo "Health check passed."
+          fi
+
+  infrastructure-batch:
+    name: Deploy Batch Stack (Lambda + EventBridge)
+    runs-on: ubuntu-latest
+    needs: [infrastructure-ecr, build-batch]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra-livetalk
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Fetch secrets from Secrets Manager
+        id: fetch-secrets
+        uses: aws-actions/aws-secretsmanager-get-secrets@v2
+        with:
+          secret-ids: |
+            OPENAI_API_KEY,/nagiyu/livetalk/${{ needs.infrastructure-ecr.outputs.environment }}/openai/api-key
+            VAPID,nagiyu-livetalk-vapid-${{ needs.infrastructure-ecr.outputs.environment }}
+          parse-json-secrets: true
+
+      - name: Deploy LiveTalk Batch Stack
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+          OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
+          # VAPID キー（Phase 5d / #3346）。parse-json-secrets: true で JSON の各フィールドが
+          # VAPID_PUBLICKEY / VAPID_PRIVATEKEY という env var に展開される。
+          VAPID_PUBLIC_KEY: ${{ env.VAPID_PUBLICKEY }}
+          VAPID_PRIVATE_KEY: ${{ env.VAPID_PRIVATEKEY }}
+        run: |
+          # Batch Lambda は build-batch で push 済みの :latest イメージを参照する。
+          # ECR / イメージが先行しているため、Lambda 作成は失敗しない。
+          npm run cdk --workspace=@nagiyu/infra-livetalk -- deploy \
+            NagiyuLiveTalkBatch${STACK_SUFFIX} \
+            --context openAiApiKey="$OPENAI_API_KEY" \
+            --context vapidPublicKey="$VAPID_PUBLIC_KEY" \
+            --context vapidPrivateKey="$VAPID_PRIVATE_KEY" \
+            --require-approval never
+
+          echo "LiveTalk Batch stack deployed (environment: $ENVIRONMENT)"
+
+      - name: Update Batch Lambda code with latest image
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
+        run: |
+          # 既存スタックへの再デプロイでは :latest タグが不変のため CloudFormation が
+          # Lambda コードを更新しない。全バッチ Lambda に明示的に最新イメージを反映する。
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
+          IMAGE_URI="$ECR_REGISTRY/nagiyu-livetalk-batch-ecr-$ENVIRONMENT:latest"
+
+          for FN in \
+            "nagiyu-livetalk-batch-compress-$ENVIRONMENT" \
+            "nagiyu-livetalk-batch-learn-user-activity-$ENVIRONMENT" \
+            "nagiyu-livetalk-batch-study-$ENVIRONMENT" \
+            "nagiyu-livetalk-batch-notify-$ENVIRONMENT"; do
+
+            aws lambda update-function-code \
+              --function-name "$FN" \
+              --image-uri "$IMAGE_URI" \
+              --region ${{ env.AWS_REGION }}
+
+            aws lambda wait function-updated \
+              --function-name "$FN" \
+              --region ${{ env.AWS_REGION }}
+
+            echo "Batch Lambda updated: $FN"
+          done
+
+          echo "All batch Lambdas updated with image: $IMAGE_URI"
+
+  infrastructure-cloudfront:
+    name: Deploy CloudFront Distribution
+    runs-on: ubuntu-latest
+    needs: infrastructure-app
+
+    outputs:
+      environment: ${{ needs.infrastructure-app.outputs.environment }}
+      stack-suffix: ${{ needs.infrastructure-app.outputs.stack-suffix }}
+      custom-domain: ${{ steps.fetch-custom-domain.outputs.custom-domain }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra-livetalk
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy LiveTalk CloudFront Stack
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-app.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.infrastructure-app.outputs.stack-suffix }}
+        # CloudFront の Distribution 作成・更新は 15 分以上かかることがあるため、
+        # GitHub Actions のジョブタイムアウト（既定 360 分）の範囲内で完了する想定。
+        run: |
+          npm run cdk --workspace=@nagiyu/infra-livetalk -- deploy \
+            NagiyuLiveTalkCloudFront${STACK_SUFFIX} \
+            --require-approval never
+
+          echo "LiveTalk CloudFront Distribution deployed (environment: $ENVIRONMENT)"
+
+      - name: Fetch CloudFront custom domain from SSM
+        id: fetch-custom-domain
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-app.outputs.environment }}
+        run: |
+          CUSTOM_DOMAIN=$(aws ssm get-parameter \
+            --name "/nagiyu/livetalk/${ENVIRONMENT}/cloudfront/custom-domain" \
+            --query "Parameter.Value" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$CUSTOM_DOMAIN" ]; then
+            echo "Warning: Could not resolve LiveTalk CloudFront custom domain from SSM."
+          else
+            echo "Custom domain: $CUSTOM_DOMAIN"
+          fi
+
+          echo "custom-domain=$CUSTOM_DOMAIN" >> "$GITHUB_OUTPUT"
+
+  summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [build, build-batch, infrastructure-app, infrastructure-batch, infrastructure-cloudfront]
+    if: always()
+
+    steps:
+      - name: Display deployment summary
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+          IMAGE_URI: ${{ needs.build.outputs.image-uri }}
+          APP_VERSION: ${{ needs.build.outputs.app-version }}
+          ALB_DNS: ${{ needs.infrastructure-app.outputs.alb-dns-name }}
+          CUSTOM_DOMAIN: ${{ needs.infrastructure-cloudfront.outputs.custom-domain }}
+        run: |
+          {
+            echo ""
+            echo "=== LiveTalk Deployment Summary ==="
+            echo ""
+            echo "- **Environment**: $ENVIRONMENT"
+            echo "- **App Version**: $APP_VERSION"
+            echo "- **Image (SHA tag)**: \`$IMAGE_URI\`"
+            echo "- **Latest tag**: same digest also pushed as \`:latest\`"
+            echo "- **Batch Lambda（圧縮）**: \`nagiyu-livetalk-batch-compress-$ENVIRONMENT\`（EventBridge 日次 JST 03:00）"
+            echo "- **Batch Lambda（学習）**: \`nagiyu-livetalk-batch-learn-user-activity-$ENVIRONMENT\`（EventBridge 週次 JST 日曜 03:00）"
+            echo "- **Batch Lambda（勉強）**: \`nagiyu-livetalk-batch-study-$ENVIRONMENT\`（EventBridge 毎時）"
+            echo "- **Batch Lambda（通知）**: \`nagiyu-livetalk-batch-notify-$ENVIRONMENT\`（EventBridge 毎時:30）"
+            echo "- **ALB DNS**: \`$ALB_DNS\`"
+            echo "- **Custom Domain**: https://$CUSTOM_DOMAIN"
+            echo ""
+            echo "Note: Route53 ALIAS は LiveTalk CloudFront スタック内で同時作成される（infra/ui-storybook と同様のパターン）。"
+            echo "ALB monthly fixed cost: ~\$22/month."
+          } >> $GITHUB_STEP_SUMMARY

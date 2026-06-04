@@ -1,0 +1,9 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "moduleResolution": "NodeNext",
+    "rootDir": ".",
+    "outDir": "cdk.out"
+  },
+  "exclude": ["node_modules", "cdk.out"]
+}

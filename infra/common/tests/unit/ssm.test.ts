@@ -30,4 +30,45 @@ describe('ssm utilities', () => {
     expect(SSM_PARAMETERS.ECS_CLUSTER_NAME('dev')).toBe('/nagiyu/root/dev/ecs/cluster-name');
     expect(SSM_PARAMETERS.ECS_CLUSTER_ARN('prod')).toBe('/nagiyu/root/prod/ecs/cluster-arn');
   });
+
+  it('should generate LiveTalk ECR parameter names', () => {
+    expect(SSM_PARAMETERS.LIVETALK_ECR_REPOSITORY_NAME('dev')).toBe(
+      '/nagiyu/livetalk/dev/ecr/repository-name'
+    );
+    expect(SSM_PARAMETERS.LIVETALK_ECR_REPOSITORY_URI('prod')).toBe(
+      '/nagiyu/livetalk/prod/ecr/repository-uri'
+    );
+  });
+
+  it('should generate shared ECS parameter names', () => {
+    expect(SSM_PARAMETERS.SHARED_ECS_CLUSTER_NAME('dev')).toBe(
+      '/nagiyu/shared/dev/ecs/cluster-name'
+    );
+    expect(SSM_PARAMETERS.SHARED_ECS_CLUSTER_ARN('prod')).toBe(
+      '/nagiyu/shared/prod/ecs/cluster-arn'
+    );
+  });
+
+  it('should generate LiveTalk ALB parameter names', () => {
+    expect(SSM_PARAMETERS.LIVETALK_ALB_DNS_NAME('dev')).toBe('/nagiyu/livetalk/dev/alb/dns-name');
+    expect(SSM_PARAMETERS.LIVETALK_ALB_ARN('prod')).toBe('/nagiyu/livetalk/prod/alb/arn');
+    expect(SSM_PARAMETERS.LIVETALK_ALB_LISTENER_ARN('dev')).toBe(
+      '/nagiyu/livetalk/dev/alb/listener-arn'
+    );
+    expect(SSM_PARAMETERS.LIVETALK_ALB_SECURITY_GROUP_ID('prod')).toBe(
+      '/nagiyu/livetalk/prod/alb/security-group-id'
+    );
+    expect(SSM_PARAMETERS.LIVETALK_ALB_TARGET_GROUP_ARN('dev')).toBe(
+      '/nagiyu/livetalk/dev/alb/target-group-arn'
+    );
+  });
+
+  it('should generate LiveTalk ECS Service parameter name', () => {
+    expect(SSM_PARAMETERS.LIVETALK_ECS_SERVICE_NAME('dev')).toBe(
+      '/nagiyu/livetalk/dev/ecs/service-name'
+    );
+    expect(SSM_PARAMETERS.LIVETALK_ECS_SERVICE_NAME('prod')).toBe(
+      '/nagiyu/livetalk/prod/ecs/service-name'
+    );
+  });
 });
