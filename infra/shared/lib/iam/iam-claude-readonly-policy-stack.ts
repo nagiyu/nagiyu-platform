@@ -127,6 +127,10 @@ export class IamClaudeReadonlyPolicyStack extends cdk.Stack {
             'xray:GetGroups',
             'xray:GetGroup',
             'xray:ListTagsForResource',
+            // Cost Explorer (コスト閲覧。Get/Describe/List のみ)
+            'ce:Get*',
+            'ce:Describe*',
+            'ce:List*',
           ],
           resources: ['*'],
         }),
