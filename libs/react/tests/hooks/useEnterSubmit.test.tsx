@@ -340,11 +340,11 @@ describe('useEnterSubmit', () => {
   describe('ジェネリック型の動作', () => {
     it('HTMLTextAreaElement 型でもハンドラが正しく動作する', () => {
       const onSubmit = jest.fn();
-      const { result } = renderHook(() =>
-        useEnterSubmit<HTMLTextAreaElement>(onSubmit)
-      );
+      const { result } = renderHook(() => useEnterSubmit<HTMLTextAreaElement>(onSubmit));
 
-      const event = createKeyboardEvent({ key: 'Enter' }) as unknown as React.KeyboardEvent<HTMLTextAreaElement>;
+      const event = createKeyboardEvent({
+        key: 'Enter',
+      }) as unknown as React.KeyboardEvent<HTMLTextAreaElement>;
       result.current(event);
 
       expect(onSubmit).toHaveBeenCalledTimes(1);

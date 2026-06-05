@@ -59,7 +59,7 @@ export interface UseEnterSubmitOptions {
  */
 export function useEnterSubmit<T extends HTMLElement = HTMLInputElement>(
   onSubmit: () => void,
-  options?: UseEnterSubmitOptions,
+  options?: UseEnterSubmitOptions
 ): (event: React.KeyboardEvent<T>) => void {
   const disabled = options?.disabled ?? false;
   const preventDefault = options?.preventDefault ?? true;
@@ -95,6 +95,6 @@ export function useEnterSubmit<T extends HTMLElement = HTMLInputElement>(
 
       onSubmit();
     },
-    [onSubmit, disabled, preventDefault],
+    [onSubmit, disabled, preventDefault]
   );
 }
