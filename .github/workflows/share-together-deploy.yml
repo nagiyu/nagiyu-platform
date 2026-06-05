@@ -101,7 +101,7 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/share-together-web'
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/aws,@nagiyu/share-together-core'
+          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/aws,@nagiyu/share-together-core'
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
