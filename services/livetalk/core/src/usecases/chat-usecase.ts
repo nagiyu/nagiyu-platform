@@ -2,7 +2,7 @@ import { performance } from 'perf_hooks';
 import { logger } from '@nagiyu/common';
 import { calculateAffectionDelta, isNewActiveDay } from '../affection/calculator.js';
 import type { IEmbeddingClient, ILLMClient } from '../llm-client/types.js';
-import type { IVoiceClient } from '../voicevox/types.js';
+import type { IVoiceClient, VoiceConfig } from '../voice/types.js';
 import type { CharacterStateRepository } from '../repositories/character-state.repository.interface.js';
 import type { LifecycleRepository } from '../repositories/lifecycle.repository.interface.js';
 import type { MemoryRepository } from '../repositories/memory.repository.interface.js';
@@ -146,28 +146,28 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 async function synthesizeSentence(
   voiceClient: IVoiceClient,
   text: string,
-  speakerId: number,
+  voice: VoiceConfig,
   index: number
 ): Promise<SynthesisResult> {
   const start = performance.now();
   try {
-    const wav = await voiceClient.synthesize(text, speakerId);
+    const wav = await voiceClient.synthesize(text, voice);
     const audio = arrayBufferToBase64(wav);
     return { index, text, audio, elapsedMs: Math.round(performance.now() - start) };
   } catch (err) {
-    logger.error('[chat-usecase] VOICEVOX 合成に失敗しました', { err });
+    logger.error('[chat-usecase] 音声合成に失敗しました', { err });
     return { index, text, audio: null, elapsedMs: Math.round(performance.now() - start) };
   }
 }
 
 /**
- * 文字列を文単位でストリーム風に yield しながら同時に VOICEVOX 合成を行う。
+ * 文字列を文単位でストリーム風に yield しながら同時に TTS 合成を行う。
  * セーフティ介入テキストを音声付きで送出するために使う。
  */
 async function* streamSafetyText(
   text: string,
   voiceClient: IVoiceClient,
-  speakerId: number
+  voice: VoiceConfig
 ): AsyncGenerator<ChatEvent> {
   const buffer = new SentenceBuffer();
   const pendingSynthesis: Array<Promise<SynthesisResult>> = [];
@@ -178,14 +178,14 @@ async function* streamSafetyText(
     yield { type: 'text', delta: char };
     for (const sentence of buffer.push(char)) {
       const idx = sentenceIndex++;
-      pendingSynthesis.push(synthesizeSentence(voiceClient, sentence, speakerId, idx));
+      pendingSynthesis.push(synthesizeSentence(voiceClient, sentence, voice, idx));
     }
   }
 
   const remaining = buffer.flush();
   if (remaining) {
     const idx = sentenceIndex;
-    pendingSynthesis.push(synthesizeSentence(voiceClient, remaining, speakerId, idx));
+    pendingSynthesis.push(synthesizeSentence(voiceClient, remaining, voice, idx));
   }
 
   for (const promise of pendingSynthesis) {
@@ -324,7 +324,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     }
 
     // 介入テキストを text/sentence events として送出
-    yield* streamSafetyText(safetyMessage, voiceClient, character.voiceConfig.speakerId);
+    yield* streamSafetyText(safetyMessage, voiceClient, character.voiceConfig);
 
     // safety event（UI でモーダル表示）
     yield { type: 'safety', trigger: 'input_keyword', resources: SAFETY_RESOURCES };
@@ -394,7 +394,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
 
         // LLM をバイパスしてキャラ口調テンプレ応答を送出
         const studyMessage = buildStudyDeferralMessage(Date.now());
-        yield* streamSafetyText(studyMessage, voiceClient, character.voiceConfig.speakerId);
+        yield* streamSafetyText(studyMessage, voiceClient, character.voiceConfig);
 
         // アシスタントメッセージとして保存
         try {
@@ -584,11 +584,11 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     yield { type: 'text', delta };
     fullResponseText += delta;
 
-    // 6. 文区切りで VOICEVOX を非同期起動
+    // 6. 文区切りで TTS を非同期起動
     for (const sentence of sentenceBuffer.push(delta)) {
       const idx = sentenceIndex++;
       pendingSynthesis.push(
-        synthesizeSentence(voiceClient, sentence, character.voiceConfig.speakerId, idx)
+        synthesizeSentence(voiceClient, sentence, character.voiceConfig, idx)
       );
     }
   }
@@ -599,20 +599,20 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   if (remaining) {
     const idx = sentenceIndex;
     pendingSynthesis.push(
-      synthesizeSentence(voiceClient, remaining, character.voiceConfig.speakerId, idx)
+      synthesizeSentence(voiceClient, remaining, character.voiceConfig, idx)
     );
   }
 
-  // 7. sentence events を順番通りに yield（VOICEVOX 合計レイテンシを集計）
-  let voicevoxTotalMs = 0;
+  // 7. sentence events を順番通りに yield（TTS 合計レイテンシを集計）
+  let ttsTotalMs = 0;
   for (const promise of pendingSynthesis) {
     const result = await promise;
-    voicevoxTotalMs += result.elapsedMs;
+    ttsTotalMs += result.elapsedMs;
     if (result.audio !== null) {
       yield { type: 'sentence', index: result.index, text: result.text, audio: result.audio };
     }
   }
-  metrics.latency.voicevoxTotal = voicevoxTotalMs > 0 ? voicevoxTotalMs : undefined;
+  metrics.latency.ttsTotal = ttsTotalMs > 0 ? ttsTotalMs : undefined;
 
   // 8. Moderation API チェック（fail-warn: エラー時は通常応答を通す）
   if (moderationClient && fullResponseText.trim()) {

@@ -1,7 +1,7 @@
 import { runChatUseCase, type ChatEvent } from '../../../src/usecases/chat-usecase.js';
 import { hiyori } from '../../../src/characters/hiyori.js';
 import type { ILLMClient } from '../../../src/llm-client/types.js';
-import type { IVoiceClient } from '../../../src/voicevox/types.js';
+import type { IVoiceClient } from '../../../src/voice/types.js';
 import type { MemoryRepository } from '../../../src/repositories/memory.repository.interface.js';
 import type { MemorySummaryRepository } from '../../../src/repositories/memory-summary.repository.interface.js';
 import type { MessageRepository } from '../../../src/repositories/message.repository.interface.js';

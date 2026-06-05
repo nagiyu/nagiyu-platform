@@ -8,7 +8,7 @@ jest.mock('@nagiyu/livetalk-core', () => ({
       speechStyle: '優しい口調',
       preferences: { likes: [], dislikes: [] },
     },
-    voiceConfig: { speakerId: 14 },
+    voiceConfig: { provider: 'voicevox' as const, speakerId: 14 },
     license: { displayText: '', creditName: '' },
   },
   studyForUser: jest.fn(),

@@ -84,7 +84,7 @@ describe('VoicevoxClient', () => {
     expect(calls[0].startsWith('http://example.com/audio_query')).toBe(true);
   });
 
-  it('speakerId を引数で上書きできる', async () => {
+  it('VoiceConfig で speakerId を指定できる', async () => {
     const calls: string[] = [];
     const fetchMock: typeof fetch = async (input) => {
       const url = typeof input === 'string' ? input : (input as URL).toString();
@@ -96,10 +96,28 @@ describe('VoicevoxClient', () => {
     };
 
     const client = new VoicevoxClient({ fetch: fetchMock });
-    await client.synthesize('テスト', 3);
+    await client.synthesize('テスト', { provider: 'voicevox', speakerId: 3 });
 
     expect(calls[0]).toContain('speaker=3');
     expect(calls[1]).toContain('speaker=3');
+  });
+
+  it('voice 省略時は既定話者（14）を使用する', async () => {
+    const calls: string[] = [];
+    const fetchMock: typeof fetch = async (input) => {
+      const url = typeof input === 'string' ? input : (input as URL).toString();
+      calls.push(url);
+      if (url.includes('/audio_query')) {
+        return mockResponse({ jsonBody: sampleQuery });
+      }
+      return mockResponse({ arrayBufferBody: sampleAudio });
+    };
+
+    const client = new VoicevoxClient({ fetch: fetchMock });
+    await client.synthesize('テスト');
+
+    expect(calls[0]).toContain('speaker=14');
+    expect(calls[1]).toContain('speaker=14');
   });
 
   it('空文字は EMPTY_TEXT で reject される', async () => {

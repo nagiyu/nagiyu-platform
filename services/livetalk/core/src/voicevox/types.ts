@@ -1,24 +1,7 @@
 /**
- * VOICEVOX クライアント周辺の型定義。
+ * VOICEVOX クライアント固有の型定義。
+ * プロバイダ非依存の IVoiceClient / VoiceConfig は voice/types.ts で定義する。
  */
-
-/**
- * 音声合成クライアントの抽象インターフェース。
- * 将来 VOICEVOX 以外の TTS（CoeFont 等）に差し替えることを想定。
- *
- * @see docs/services/livetalk/architecture.md §2.3（VOICEVOX パイプライン）
- */
-export interface IVoiceClient {
-  /**
-   * テキストから音声を合成する。
-   *
-   * @param text 合成対象のテキスト（空文字不可）
-   * @param speakerId 話者 ID。省略時は実装側の既定話者を使用する（VOICEVOX 既定は 14 = 冥鳴ひまり）
-   * @returns 合成された音声バイナリ（VOICEVOX の場合は WAV）
-   * @throws テキストが空文字、または HTTP 呼び出しに失敗した場合
-   */
-  synthesize(text: string, speakerId?: number): Promise<ArrayBuffer>;
-}
 
 /**
  * VoicevoxClient の構築オプション。

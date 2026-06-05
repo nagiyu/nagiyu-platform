@@ -5,12 +5,12 @@ import { POST } from '@/app/api/chat/route';
 import { CHAT_ERROR_MESSAGES, CHAT_MAX_TEXT_LENGTH } from '@/app/api/chat/constants';
 import { getSession } from '@/lib/server/session';
 import { getLLMClient } from '@/lib/server/llm';
-import { getVoicevoxClient } from '@/lib/server/voicevox';
+import { getVoiceClient } from '@/lib/server/voice';
 import { getMessageRepository } from '@/lib/server/repositories';
 
 jest.mock('@/lib/server/session', () => ({ getSession: jest.fn() }));
 jest.mock('@/lib/server/llm', () => ({ getLLMClient: jest.fn() }));
-jest.mock('@/lib/server/voicevox', () => ({ getVoicevoxClient: jest.fn() }));
+jest.mock('@/lib/server/voice', () => ({ getVoiceClient: jest.fn() }));
 jest.mock('@/lib/server/repositories', () => ({
   getMessageRepository: jest.fn(),
   getMemoryRepository: jest.fn().mockReturnValue({}),
@@ -79,7 +79,7 @@ describe('POST /api/chat', () => {
       yield { type: 'done' };
     });
     (getLLMClient as jest.Mock).mockReturnValue({});
-    (getVoicevoxClient as jest.Mock).mockReturnValue({});
+    (getVoiceClient as jest.Mock).mockReturnValue({});
     (getMessageRepository as jest.Mock).mockReturnValue({});
   });
 

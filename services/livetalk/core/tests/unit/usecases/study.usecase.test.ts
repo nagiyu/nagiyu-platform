@@ -26,7 +26,7 @@ const character: CharacterDefinition = {
     speechStyle: '優しい口調',
     preferences: { likes: ['コーヒー'], dislikes: [] },
   },
-  voiceConfig: { speakerId: 14 },
+  voiceConfig: { provider: 'voicevox' as const, speakerId: 14 },
   license: { displayText: '', creditName: '' },
 };
 
