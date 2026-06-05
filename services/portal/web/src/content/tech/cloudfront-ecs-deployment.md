@@ -3,7 +3,7 @@ title: 'CloudFront+ECSでNext.jsをデプロイする構成解説'
 description: 'CloudFront + ECS FargateでNext.jsをデプロイするAWS構成を解説。ECSサービス設定・ALB構成・CloudFrontディストリビューション・キャッシュ設定・GitHub ActionsでのCI/CDまで詳しく説明します。'
 slug: 'cloudfront-ecs-deployment'
 publishedAt: '2026-04-10'
-updatedAt: '2026-05-01'
+updatedAt: '2026-05-31'
 author: 'なぎゆー'
 tags: ['AWS', 'CloudFront', 'ECS', 'Next.js']
 ---
@@ -315,6 +315,27 @@ jobs:
 1. **スケジュールスケーリング**: 夜間・休日はタスク数を削減
 2. **Spot タスク**: ECS Fargate Spot を使って最大 70% コスト削減
 3. **適切なキャッシュ設定**: CloudFront のキャッシュを最大限活用してオリジンへのリクエストを削減
+
+## 実装ノート
+
+ここまでは一般的な構成例ですが、nagiyu-platform で私が実際に組んでいる Portal の本番構成は、記事中のサンプルといくつか違う判断をしています（`infra/root/ecs-service-stack.ts` / `infra/root/cloudfront-stack.ts`）。
+
+- **タスクサイズは最小寄り**: 本文の例では `cpu: 512 / memory: 1024`、`desiredCount: 2` にしていますが、自分の実構成は `cpu: 256 / memoryLimitMiB: 512`、`desiredCount: 1` です。Portal はまだトラフィックが軽いので、まず最小で立ち上げてから必要なら増やす方針にしています。
+- **サブネットは Public + assignPublicIp**: 記事の ECS サービス例は Private Subnet + `assignPublicIp: DISABLED` でしたが、私の実構成は Public Subnet に置いて `assignPublicIp: true` にしています。NAT Gateway の固定費を避けたかったのが理由で、ここは「教科書的なベストプラクティス（Private 配置）」と「個人プラットフォームのコスト感」を天秤にかけて、後者を選んだ箇所です。
+- **ロールは Execution / Task を分離**: タスク実行ロール（ECR pull・ログ出力）とタスクロール（アプリ実行時）を別々に定義し、ECR の pull 権限は対象リポジトリの ARN に絞っています。
+- **CloudFront は CACHING_DISABLED の素通し**: ルートドメインの Distribution は `PRICE_CLASS_100`・`HTTP2_AND_3` で、デフォルトビヘイビアを `CachingDisabled` + `ALL_VIEWER_EXCEPT_HOST_HEADER` にして ALB へ流しています。
+
+## ハマったポイント
+
+一番手こずったのは **コンテナのヘルスチェック**でした。タスク定義にコンテナレベルのヘルスチェック（`curl -f http://localhost:3000/...`）を入れたところ、アプリは ALB のヘルスチェックには正常応答しているのに、コンテナ内の `curl localhost` だけが失敗してタスクが unhealthy 扱いになる、という現象に当たりました。原因を切り分けきれなかったので、自分は最終的にコンテナ内ヘルスチェックを**無効化し、ALB のターゲットグループ側ヘルスチェックに一本化**しています（コードにも「localhost 経由が失敗する理由は要調査」と TODO を残しています）。
+
+あわせて `healthCheckGracePeriod` を 60 秒に設定して、Next.js コンテナの起動直後にヘルスチェックで叩き落とされないようにしています。記事のサンプルのようにコンテナ・ALB の二重ヘルスチェックが理想ではあるものの、「動く構成を優先して片方に寄せる」という現実的な落とし所にした、というのが正直なところです。
+
+## 現在の運用
+
+nagiyu-platform では、同じ Portal を **dev と prod で別の実行基盤**に載せています。prod はこの記事の ECS Fargate 構成（`nagiyu-root-cluster-prod`、`FARGATE` + `FARGATE_SPOT` のキャパシティプロバイダを関連付け、Container Insights 有効）ですが、dev はコストを抑えるために Lambda Function URL + CloudFront に切り替えています。同じ Docker イメージ / 同じ Next.js を、環境によって ECS と Lambda に振り分けているわけです。
+
+「prod は常時稼働で安定、dev は使った分だけ課金」という棲み分けは、個人で複数サービスを運用していると効いてきます。Spot タスクを使えるよう `FARGATE_SPOT` も関連付け済みなので、コストが気になってきたら prod 側の一部を Spot に寄せる、というのが自分の次の一手です。
 
 ## まとめ
 
