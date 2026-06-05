@@ -6,6 +6,7 @@ publishedAt: '2026-03-17'
 updatedAt: '2026-06-05'
 author: 'なぎゆー'
 tags: ['AWS', 'DynamoDB', 'NoSQL', '設計']
+categories: ['aws']
 ---
 
 ## はじめに

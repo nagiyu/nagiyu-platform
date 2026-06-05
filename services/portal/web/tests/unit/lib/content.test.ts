@@ -10,6 +10,10 @@ import {
   getTagBySlug,
   tagToSlug,
   isLinkableTag,
+  getAllTechCategoryMetas,
+  getTechCategory,
+  getArticlesByCategory,
+  getTechCategoriesForArticle,
 } from '@/lib/content';
 
 // ESM-only パッケージ（remark/rehype/unified）は Jest の CommonJS 環境では読み込めないためモック化する
@@ -210,6 +214,64 @@ describe('content', () => {
 
     it('存在しないスラッグは null', () => {
       expect(getTagBySlug('nonexistent-slug')).toBeNull();
+    });
+  });
+
+  describe('getAllTechCategoryMetas', () => {
+    it('実在するハブのメタデータを TECH_CATEGORY_SLUGS の順で返す', () => {
+      const metas = getAllTechCategoryMetas();
+      // フィクスチャには aws / nextjs のみ存在し、dev-stack は存在しない
+      expect(metas.map((m) => m.slug)).toEqual(['aws', 'nextjs']);
+      expect(metas[0].title).toBe('AWS インフラ運用ノート');
+      expect(typeof metas[0].description).toBe('string');
+    });
+  });
+
+  describe('getTechCategory', () => {
+    it('ハブの解説本文（HTML 変換済み）を取得できる', async () => {
+      const category = await getTechCategory('aws');
+      expect(category.slug).toBe('aws');
+      expect(category.title).toBe('AWS インフラ運用ノート');
+      expect(typeof category.content).toBe('string');
+    });
+
+    it('存在しないハブ slug でエラーが発生する', async () => {
+      await expect(getTechCategory('nonexistent')).rejects.toThrow();
+    });
+  });
+
+  describe('getArticlesByCategory', () => {
+    it('指定カテゴリに所属する記事を publishedAt 降順で返す', () => {
+      const articles = getArticlesByCategory('aws');
+      // test-article-1 (aws), test-article-2 (aws, nextjs) が該当
+      expect(articles.map((a) => a.slug)).toEqual(['test-article-1', 'test-article-2']);
+    });
+
+    it('単一カテゴリにのみ所属する記事を抽出する', () => {
+      const articles = getArticlesByCategory('nextjs');
+      expect(articles.map((a) => a.slug)).toEqual(['test-article-2']);
+    });
+
+    it('該当記事がないカテゴリでは空配列', () => {
+      expect(getArticlesByCategory('dev-stack')).toEqual([]);
+    });
+  });
+
+  describe('getTechCategoriesForArticle', () => {
+    it('記事の categories から実在するハブのメタを返す', () => {
+      const metas = getTechCategoriesForArticle(['aws', 'nextjs']);
+      expect(metas.map((m) => m.slug)).toEqual(['aws', 'nextjs']);
+    });
+
+    it('実在しないハブ slug は除外する', () => {
+      const metas = getTechCategoriesForArticle(['aws', 'dev-stack']);
+      // dev-stack はフィクスチャに存在しないため除外される
+      expect(metas.map((m) => m.slug)).toEqual(['aws']);
+    });
+
+    it('categories が未指定なら空配列', () => {
+      expect(getTechCategoriesForArticle(undefined)).toEqual([]);
+      expect(getTechCategoriesForArticle([])).toEqual([]);
     });
   });
 });

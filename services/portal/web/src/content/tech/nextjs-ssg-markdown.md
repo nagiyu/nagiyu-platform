@@ -6,6 +6,7 @@ publishedAt: '2026-04-10'
 updatedAt: '2026-05-01'
 author: 'なぎゆー'
 tags: ['Next.js', 'Markdown', 'SSG']
+categories: ['nextjs']
 ---
 
 ## はじめに

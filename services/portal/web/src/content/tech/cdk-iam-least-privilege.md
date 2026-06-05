@@ -6,6 +6,7 @@ publishedAt: '2026-05-21'
 updatedAt: '2026-05-31'
 author: 'なぎゆー'
 tags: ['AWS', 'CDK', 'IAM', 'セキュリティ']
+categories: ['aws']
 ---
 
 ## はじめに

@@ -6,6 +6,7 @@ publishedAt: '2026-04-03'
 updatedAt: '2026-05-31'
 author: 'なぎゆー'
 tags: ['AWS', 'Lambda', 'パフォーマンス']
+categories: ['aws']
 ---
 
 ## はじめに

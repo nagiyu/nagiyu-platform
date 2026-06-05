@@ -6,6 +6,7 @@ publishedAt: '2026-03-20'
 updatedAt: '2026-05-01'
 author: 'なぎゆー'
 tags: ['TypeScript', 'monorepo', 'npm workspaces']
+categories: ['dev-stack']
 ---
 
 ## はじめに

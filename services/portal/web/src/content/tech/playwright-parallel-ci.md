@@ -6,6 +6,7 @@ publishedAt: '2026-04-08'
 updatedAt: '2026-05-01'
 author: 'なぎゆー'
 tags: ['Playwright', 'GitHub Actions', 'テスト']
+categories: ['dev-stack']
 ---
 
 ## はじめに

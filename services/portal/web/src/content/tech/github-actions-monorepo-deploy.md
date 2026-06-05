@@ -6,6 +6,7 @@ publishedAt: '2026-04-02'
 updatedAt: '2026-05-01'
 author: 'なぎゆー'
 tags: ['GitHub Actions', 'CI/CD', 'monorepo']
+categories: ['dev-stack']
 ---
 
 ## はじめに

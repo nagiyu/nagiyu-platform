@@ -6,6 +6,7 @@ publishedAt: '2026-03-30'
 updatedAt: '2026-05-01'
 author: 'なぎゆー'
 tags: ['TypeScript', '型設計', 'union types']
+categories: ['dev-stack']
 ---
 
 ## はじめに

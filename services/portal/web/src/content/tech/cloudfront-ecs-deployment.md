@@ -6,6 +6,7 @@ publishedAt: '2026-04-10'
 updatedAt: '2026-05-31'
 author: 'なぎゆー'
 tags: ['AWS', 'CloudFront', 'ECS', 'Next.js']
+categories: ['aws']
 ---
 
 ## はじめに
