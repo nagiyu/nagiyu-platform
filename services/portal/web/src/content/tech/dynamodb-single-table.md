@@ -3,7 +3,7 @@ title: 'DynamoDB single-table design 入門：パーティションキーと GSI
 description: 'DynamoDB の single-table design（単一テーブル設計）の基本を、複数エンティティをひとつのテーブルに格納する具体的な設計例で解説。パーティションキー・ソートキー・GSI の使い分け、アクセスパターンからの逆算手順まで整理します。'
 slug: 'dynamodb-single-table'
 publishedAt: '2026-03-17'
-updatedAt: '2026-05-01'
+updatedAt: '2026-06-05'
 author: 'なぎゆー'
 tags: ['AWS', 'DynamoDB', 'NoSQL', '設計']
 ---
@@ -146,13 +146,25 @@ await client.send(
 
 個人開発・スタートアップは原則オンデマンドで OK。「月額 20 ドル超えてくる」段階で初めてプロビジョンドへの移行を検討します。
 
-## ハマりどころ
+## 実装ノート
 
-- **PK の Hot Partition**: 全アイテムが `PK=GLOBAL` だとスループットが頭打ちになる。一意な PK 分散を意識する。
-- **SK のソート順**: 文字列比較なので `ORDER#1`, `ORDER#10`, `ORDER#2` の順になる。日付 ISO や zero-padded 数値を使う。
-- **巨大アイテム**: 1 アイテム 400 KB 上限。画像のような大きなデータは S3 に置いて Key だけ DynamoDB に持つ。
-- **属性名の衝突**: 単一テーブルに複数エンティティを入れると、`name` のような汎用属性が型違いで混在しがち。アプリ側で型ガードを徹底する。
-- **`Scan` は緊急時のみ**: 全件読み出しは I/O が大きく高コスト。本番運用では Query / GetItem のみで完結させる。
+ここまでは一般論ですが、nagiyu-platform では実際に全サービスを single-table で通しています。たとえば Quick Clip の `nagiyu-quick-clip-jobs` テーブルは PK/SK の 2 キーだけで、GSI は貼らず TTL（`expiresAt`）で一時データを自動失効させるだけのシンプルな構成にしました。一方で Stock Tracker の `nagiyu-stock-tracker-main` テーブルは要件が複雑で、私は GSI を 4 本貼っています。UserIndex（ユーザーごと）、AlertIndex（バッチ処理用に頻度ごとのアラート一覧）、ExchangeTickerIndex（取引所ごとのティッカー）、ExchangeSummaryIndex（取引所ごとの日次サマリー）で、いずれも `projectionType: ALL`。「ベーステーブルは ID 中心、GSI はアクセスパターンごとの二次キー」という前述の整理を、そのまま GSI 名に落とし込んだ形です。
+
+リポジトリ層は `AbstractDynamoDBRepository` を共通基底に置き、サブクラスは `buildKeys`（PK/SK 生成）・`mapToEntity`・`mapToItem` だけ実装すればよいようにしています。新規作成は `attribute_not_exists` 条件付きの Put で「既存があれば失敗」を保証し、`CreatedAt`/`UpdatedAt` は基底クラスが自動で打ちます。エラーメッセージをすべて日本語で定数化してあるのも、弊プラットフォームの方針です。
+
+## 現在の運用
+
+開発・テスト時にローカルで DynamoDB を立てるのは面倒なので、nagiyu-platform では `USE_IN_MEMORY_DB` という環境変数で InMemory 実装と DynamoDB 実装を切り替えられるようにしています。`createRepositoryFactory` がフラグを見て、`true` なら InMemory リポジトリ、そうでなければ実 DynamoDB リポジトリを返す仕組みです。生成したリポジトリはシングルトンで保持し、Next.js の dev モードでモジュールが二重ロードされても同じインスタンスを掴めるよう、`instanceKey` で `globalThis` に逃がしてあります。これに気づくまで、自分は「dev だと InMemory のデータが API ルートごとに分裂する」という現象に悩まされました。課金は両テーブルともオンデマンド（`PAY_PER_REQUEST`）で、個人開発の読みにくいトラフィックには今のところこれが一番ラクだと感じています。
+
+## ハマったポイント
+
+single-table を運用してきて、自分が実際に踏んだ・警戒している落とし穴を残しておきます。
+
+- **PK の Hot Partition**: 全アイテムを `PK=GLOBAL` のように一点に寄せるとスループットが頭打ちになる。私は PK に必ずエンティティ ID を含めて分散させています。
+- **SK のソート順**: 文字列比較なので `ORDER#1`, `ORDER#10`, `ORDER#2` の順に並ぶ。日付は ISO 形式、数値はゼロ埋めで SK に入れて事故を防ぐ。
+- **巨大アイテム**: 1 アイテム 400 KB 上限。動画や画像のような大きなデータは S3 に置き、DynamoDB には Key だけ持たせる（Quick Clip はまさにこの形）。
+- **属性名の衝突**: 単一テーブルに複数エンティティを混ぜると、`name` のような汎用属性が型違いで混在しがち。だからこそ前述の `mapToEntity` に型ガードを一箇所へ寄せています。
+- **`Scan` は緊急時のみ**: 全件読み出しは I/O が大きく高コスト。本番では Query / GetItem だけで完結する設計を崩さないようにしています。
 
 ## まとめ
 
