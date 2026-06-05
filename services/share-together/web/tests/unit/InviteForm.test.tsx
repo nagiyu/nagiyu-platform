@@ -138,4 +138,37 @@ describe('InviteForm', () => {
     expect(screen.getByRole('button', { name: '招待を送信' })).toBeDisabled();
     expect(global.fetch).not.toHaveBeenCalled();
   });
+
+  it('有効なメールアドレスを入力してエンターキーを押すと API を呼び出して完了メッセージを表示する', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: {} }),
+    } as Response);
+    render(<InviteForm groupId="group-1" isOwner={true} memberCount={1} />);
+
+    const input = screen.getByRole('textbox', { name: 'メールアドレス' });
+    fireEvent.change(input, { target: { value: 'enter@example.com' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/groups/group-1/members', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: 'enter@example.com' }),
+      });
+    });
+    expect(screen.getByText('招待を送信しました。')).toBeInTheDocument();
+  });
+
+  it('メールアドレスが空のときはエンターキーを押しても API を呼び出さない', () => {
+    global.fetch = jest.fn();
+    render(<InviteForm groupId="group-1" isOwner={true} memberCount={1} />);
+
+    const input = screen.getByRole('textbox', { name: 'メールアドレス' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
 });
