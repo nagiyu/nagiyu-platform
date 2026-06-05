@@ -587,9 +587,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     // 6. 文区切りで TTS を非同期起動
     for (const sentence of sentenceBuffer.push(delta)) {
       const idx = sentenceIndex++;
-      pendingSynthesis.push(
-        synthesizeSentence(voiceClient, sentence, character.voiceConfig, idx)
-      );
+      pendingSynthesis.push(synthesizeSentence(voiceClient, sentence, character.voiceConfig, idx));
     }
   }
 
@@ -598,9 +596,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   const remaining = sentenceBuffer.flush();
   if (remaining) {
     const idx = sentenceIndex;
-    pendingSynthesis.push(
-      synthesizeSentence(voiceClient, remaining, character.voiceConfig, idx)
-    );
+    pendingSynthesis.push(synthesizeSentence(voiceClient, remaining, character.voiceConfig, idx));
   }
 
   // 7. sentence events を順番通りに yield（TTS 合計レイテンシを集計）
