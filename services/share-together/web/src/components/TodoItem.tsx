@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Box, ListItem, Typography } from '@mui/material';
 import { Button, Checkbox, TextField } from '@nagiyu/ui';
+import { useEnterSubmit } from '@nagiyu/react';
 import type { TodoItem as TodoItemType } from '@/types';
 
 type TodoItemProps = {
@@ -36,6 +37,14 @@ export function TodoItem({ todo, onToggleComplete, onDelete, onUpdate }: TodoIte
     setIsEditing(false);
   };
 
+  // タイトル編集入力でエンターキーを押したときに保存を実行するハンドラ
+  // TextField の onKeyDown は HTMLInputElement | HTMLTextAreaElement 型を受け取るため型引数を明示する
+  // 編集中でないときも hook はトップレベルで呼ぶが、ハンドラは編集中の TextField にのみ渡す
+  const handleEditEnterDown = useEnterSubmit<HTMLInputElement | HTMLTextAreaElement>(
+    handleEditSave,
+    { disabled: isEditingTitleEmpty }
+  );
+
   return (
     <ListItem disablePadding>
       <Box
@@ -53,6 +62,7 @@ export function TodoItem({ todo, onToggleComplete, onDelete, onUpdate }: TodoIte
             onChange={(event) => setEditingTitle(event.target.value)}
             size="sm"
             fullWidth
+            onKeyDown={handleEditEnterDown}
           />
         ) : (
           <Typography

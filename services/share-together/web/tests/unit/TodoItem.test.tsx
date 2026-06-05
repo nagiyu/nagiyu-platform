@@ -102,4 +102,48 @@ describe('TodoItem', () => {
 
     expect(onUpdate).toHaveBeenCalledWith('todo-5', '更新後タイトル');
   });
+
+  it('編集モードでタイトルを変更してエンターキーを押すと onUpdate が trim 済みタイトルで呼ばれる', () => {
+    const onUpdate = jest.fn();
+
+    render(
+      <TodoItem
+        todo={{
+          todoId: 'todo-6',
+          title: '元タイトル',
+          isCompleted: false,
+        }}
+        onUpdate={onUpdate}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '編集' }));
+    const input = screen.getByRole('textbox', { name: 'タイトルを編集' });
+    fireEvent.change(input, { target: { value: '  エンターで更新  ' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onUpdate).toHaveBeenCalledWith('todo-6', 'エンターで更新');
+  });
+
+  it('編集モードでタイトルを空にしてエンターキーを押しても onUpdate を呼ばない', () => {
+    const onUpdate = jest.fn();
+
+    render(
+      <TodoItem
+        todo={{
+          todoId: 'todo-7',
+          title: '元タイトル',
+          isCompleted: false,
+        }}
+        onUpdate={onUpdate}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '編集' }));
+    const input = screen.getByRole('textbox', { name: 'タイトルを編集' });
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
 });

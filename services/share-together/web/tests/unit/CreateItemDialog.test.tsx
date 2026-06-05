@@ -80,4 +80,45 @@ describe('CreateItemDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'キャンセル' }));
     expect(onClose).toHaveBeenCalled();
   });
+
+  it('名前を入力してエンターキーを押すと onCreate が trim 済みの名前で呼ばれ onClose も呼ばれる', () => {
+    const onCreate = jest.fn();
+    const onClose = jest.fn();
+
+    render(
+      <CreateItemDialog
+        open={true}
+        title="リストを作成"
+        label="リスト名"
+        onClose={onClose}
+        onCreate={onCreate}
+      />
+    );
+
+    const input = screen.getByRole('textbox', { name: 'リスト名' });
+    fireEvent.change(input, { target: { value: '  新しいリスト  ' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onCreate).toHaveBeenCalledWith('新しいリスト');
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('名前が空のときはエンターキーを押しても onCreate を呼ばない', () => {
+    const onCreate = jest.fn();
+
+    render(
+      <CreateItemDialog
+        open={true}
+        title="リストを作成"
+        label="リスト名"
+        onClose={jest.fn()}
+        onCreate={onCreate}
+      />
+    );
+
+    const input = screen.getByRole('textbox', { name: 'リスト名' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onCreate).not.toHaveBeenCalled();
+  });
 });
