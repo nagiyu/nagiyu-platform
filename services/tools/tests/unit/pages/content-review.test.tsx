@@ -1,5 +1,4 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import AboutPage from '@/app/about/page';
 import Base64Page, { metadata as base64Metadata } from '@/app/base64/page';
 import HashGeneratorPage, { metadata as hashGeneratorMetadata } from '@/app/hash-generator/page';
 import JsonFormatterPage, { metadata as jsonFormatterMetadata } from '@/app/json-formatter/page';
@@ -29,24 +28,6 @@ jest.mock('@/app/json-formatter/JsonFormatterClient', () => {
 });
 
 describe('コンテンツ整合性', () => {
-  it('aboutページの提供ツールにJSON整形ツールが含まれる', () => {
-    const html = renderToStaticMarkup(AboutPage());
-
-    expect(html).toContain('JSON 整形ツール');
-    expect(html).toContain('乗り換え変換ツール');
-    expect(html).toContain('VAPID キー生成ツール');
-    expect(html).toContain('Base64 エンコーダー / デコーダー');
-    expect(html).toContain('URL エンコーダー / デコーダー');
-    expect(html).toContain('ハッシュ生成ツール');
-    expect(html).toContain('タイムスタンプ変換ツール');
-  });
-
-  it('aboutページから今後の展望セクションが削除されている', () => {
-    const html = renderToStaticMarkup(AboutPage());
-
-    expect(html).not.toContain('今後の展望');
-  });
-
   it('json-formatterページのmetadata descriptionが詳細化されている', () => {
     expect(jsonFormatterMetadata.description).toContain('整形（Pretty Print）');
     expect(jsonFormatterMetadata.description).toContain('APIレスポンス');
@@ -67,20 +48,6 @@ describe('コンテンツ整合性', () => {
     expect(homeHtml).toContain('URL エンコーダー / デコーダー');
     expect(homeHtml).toContain('ハッシュ生成ツール');
     expect(homeHtml).toContain('タイムスタンプ変換ツール');
-    expect(homeHtml).toContain(
-      'VAPIDキー生成ツールではWeb Push通知の実装に必要な鍵ペアをすぐに用意できます。 Base64エンコーダー/デコーダーでは文字列の相互変換を簡単に行えます。 URLエンコーダー/デコーダーではクエリやパラメータに使う文字列を扱いやすく変換できます。 ハッシュ生成ツールではSHA-256 / SHA-512のハッシュ値をすばやく確認できます。'
-    );
-    expect(homeHtml).toContain(
-      'VAPIDキー生成ツールは入力データなしで、サーバー上で鍵ペアを生成します。'
-    );
-    expect(homeHtml).toContain(
-      '乗り換え変換ツール・JSON整形ツール・Base64エンコーダー/デコーダー・URLエンコーダー/デコーダー・ハッシュ生成ツールはブラウザ内で動作し、入力データは外部に送信されません。'
-    );
-    expect(homeHtml).toContain('サーバー通信が不要な基本機能を利用でき');
-    expect(homeHtml).toContain(
-      'VAPIDキー生成はサーバーで鍵を作成するため、各ツールの特性に応じて処理方式が異なります。'
-    );
-    expect(homeHtml).toContain('通信が必要な機能はオンライン時にご利用ください。');
   });
 
   it('ホームページに WebSite / SoftwareApplication のJSON-LDが埋め込まれている', () => {

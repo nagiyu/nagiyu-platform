@@ -1,9 +1,7 @@
 import type { Metadata, Viewport } from 'next';
-import Script from 'next/script';
 import { Box } from '@mui/material';
 import { AppThemeProvider, Header, Footer, type NavigationItem } from '@nagiyu/ui';
 import HomeIcon from '@mui/icons-material/Home';
-import InfoIcon from '@mui/icons-material/Info';
 import MigrationDialog from '@/components/dialogs/MigrationDialog';
 import '@nagiyu/ui/tokens.css';
 import './globals.css';
@@ -62,7 +60,6 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const version = process.env.APP_VERSION || '1.0.0';
-  const isProduction = process.env.NODE_ENV === 'production';
 
   const navigationItems: NavigationItem[] = [
     {
@@ -70,25 +67,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       href: '/',
       icon: <HomeIcon />,
     },
-    {
-      label: 'About',
-      href: '/about',
-      icon: <InfoIcon />,
-    },
   ];
 
   return (
     <html lang="ja">
-      <head>
-        {isProduction && (
-          <Script
-            async
-            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6784165593921713"
-            crossOrigin="anonymous"
-            strategy="afterInteractive"
-          />
-        )}
-      </head>
       <body>
         <AppThemeProvider>
           <MigrationDialog />
@@ -109,7 +91,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             >
               {children}
             </Box>
-            <Footer version={version} contactHref="/contact" />
+            <Footer version={version} />
           </Box>
         </AppThemeProvider>
       </body>
