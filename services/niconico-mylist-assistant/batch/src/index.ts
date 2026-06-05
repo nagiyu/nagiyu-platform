@@ -13,6 +13,7 @@ import {
   createBatchCompletionPayload,
   createTwoFactorAuthRequiredPayload,
 } from './lib/web-push-client.js';
+import { determineBatchJobStatus } from './lib/job-status.js';
 import { formatLocalDateTime, getTimestamp, sleep, toErrorMessage } from '@nagiyu/common';
 import {
   DEFAULT_MYLIST_NAME_PREFIX,
@@ -304,11 +305,17 @@ async function main() {
 
     console.log('================');
 
-    // ジョブステータスを SUCCEEDED に更新
+    // 登録結果からジョブの最終ステータスを確定する（DB 書き込み前に決定）
+    const finalStatus = determineBatchJobStatus(
+      result.successVideoIds.length,
+      result.failedVideoIds.length
+    );
+
+    // ジョブステータスを確定ステータスで更新
     if (params.jobId) {
       try {
         await updateBatchJob(params.jobId, params.userId, {
-          status: 'SUCCEEDED',
+          status: finalStatus,
           result: {
             registeredCount: result.successVideoIds.length,
             failedCount: result.failedVideoIds.length,
@@ -317,7 +324,7 @@ async function main() {
           },
           completedAt: Date.now(),
         });
-        console.log('ジョブステータスを SUCCEEDED に更新しました');
+        console.log(`ジョブステータスを ${finalStatus} に更新しました`);
 
         // Web Push 通知を送信
         if (pushSubscription) {
@@ -347,8 +354,8 @@ async function main() {
           console.log('Push サブスクリプション情報がないため、通知をスキップします');
         }
       } catch (error) {
-        console.error('ジョブステータス更新に失敗しました (SUCCEEDED):', error);
-        // 更新失敗してもジョブ自体は成功
+        console.error(`ジョブステータス更新に失敗しました (${finalStatus}):`, error);
+        // 更新失敗してもジョブ自体は続行
       }
     }
 
@@ -359,9 +366,8 @@ async function main() {
     console.log(`完了時刻: ${getTimestamp()}`);
     console.log('========================================');
 
-    // 一部失敗があってもバッチジョブ自体は成功とみなす
-    // （全失敗の場合のみエラー終了）
-    if (result.successVideoIds.length === 0 && result.failedVideoIds.length > 0) {
+    // DB に FAILED を書いた後、全件失敗の場合は異常終了する
+    if (finalStatus === 'FAILED') {
       console.error('全ての動画の登録に失敗しました');
       await reportErrorEvent({
         serviceId: 'niconico-mylist-assistant',
