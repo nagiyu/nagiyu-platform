@@ -12,6 +12,24 @@ import {
   TRADINGVIEW_ERROR_MESSAGES,
 } from '../../../src/services/tradingview-client';
 
+// logger のモック
+jest.mock('@nagiyu/common', () => ({
+  logger: {
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
+}));
+
+// モック済み logger への参照
+const mockLogger = jest.requireMock('@nagiyu/common').logger as {
+  debug: jest.Mock;
+  info: jest.Mock;
+  warn: jest.Mock;
+  error: jest.Mock;
+};
+
 /**
  * TradingView ライブラリのモック
  *
@@ -58,6 +76,7 @@ describe('TradingView Client', () => {
     // モックオブジェクトの初期化
     onUpdateCallback = null;
     onErrorCallback = null;
+    jest.clearAllMocks();
 
     mockChart = {
       setMarket: jest.fn(),
@@ -531,6 +550,125 @@ describe('TradingView Client', () => {
 
         const session = new TradingViewSession();
         await expect(session.close()).resolves.toBeUndefined();
+      });
+    });
+
+    describe('getSessionId()', () => {
+      test('UUID 形式の文字列を返す', () => {
+        const session = new TradingViewSession();
+        const id = session.getSessionId();
+        expect(typeof id).toBe('string');
+        expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+      });
+
+      test('セッションごとに異なる ID が生成される', () => {
+        const session1 = new TradingViewSession();
+        const session2 = new TradingViewSession();
+        expect(session1.getSessionId()).not.toBe(session2.getSessionId());
+      });
+    });
+
+    describe('ログ計装', () => {
+      test('タイムアウト時に logger.warn が sessionId / seq / firstUpdateAt を含む詳細ログを出力する', async () => {
+        const session = new TradingViewSession();
+
+        await expect(session.getCurrentPrice('NSDQ:AAPL', { timeout: 50 })).rejects.toThrow(
+          TRADINGVIEW_ERROR_MESSAGES.TIMEOUT
+        );
+
+        expect(mockLogger.warn).toHaveBeenCalledWith(
+          'TradingView API タイムアウト (共有セッション)',
+          expect.objectContaining({
+            sessionId: session.getSessionId(),
+            seq: 1,
+            tickerId: 'NSDQ:AAPL',
+            timeoutMs: 50,
+            firstUpdateAt: undefined,
+          })
+        );
+      });
+
+      test('タイムアウト前に onUpdate が呼ばれた場合、firstUpdateAt がタイムスタンプとして記録される', async () => {
+        const session = new TradingViewSession();
+
+        const pricePromise = session.getCurrentPrice('NSDQ:AAPL', { timeout: 50 });
+
+        // onUpdate を発火させるが close を解決しない（periods が空）
+        mockChart.periods = [];
+        if (onUpdateCallback) {
+          onUpdateCallback();
+        }
+
+        await expect(pricePromise).rejects.toThrow(TRADINGVIEW_ERROR_MESSAGES.TIMEOUT);
+
+        expect(mockLogger.warn).toHaveBeenCalledWith(
+          'TradingView API タイムアウト (共有セッション)',
+          expect.objectContaining({
+            firstUpdateAt: expect.any(Number),
+          })
+        );
+      });
+
+      test('正常取得時に logger.debug が呼ばれる', async () => {
+        mockChart.periods = [{ close: 150.5 }];
+        const session = new TradingViewSession();
+
+        const pricePromise = session.getCurrentPrice('NSDQ:AAPL');
+        if (onUpdateCallback) {
+          onUpdateCallback();
+        }
+        await pricePromise;
+
+        expect(mockLogger.debug).toHaveBeenCalledWith(
+          'TradingView 現在価格取得完了',
+          expect.objectContaining({
+            sessionId: session.getSessionId(),
+            seq: 1,
+            tickerId: 'NSDQ:AAPL',
+          })
+        );
+      });
+
+      test('接続エラー時に logger.warn が sessionId / errorMessage を含む詳細ログを出力する', async () => {
+        const session = new TradingViewSession();
+
+        const pricePromise = session.getCurrentPrice('NSDQ:AAPL');
+        if (onErrorCallback) {
+          onErrorCallback(new Error('Connection failed'));
+        }
+
+        await expect(pricePromise).rejects.toThrow(
+          `${TRADINGVIEW_ERROR_MESSAGES.CONNECTION_ERROR}: Connection failed`
+        );
+
+        expect(mockLogger.warn).toHaveBeenCalledWith(
+          'TradingView API エラー (共有セッション)',
+          expect.objectContaining({
+            sessionId: session.getSessionId(),
+            seq: 1,
+            tickerId: 'NSDQ:AAPL',
+            errorMessage: 'Connection failed',
+          })
+        );
+      });
+
+      test('seq は呼び出しごとにインクリメントされる', async () => {
+        mockChart.periods = [{ close: 100.0 }];
+        const session = new TradingViewSession();
+
+        const p1 = session.getCurrentPrice('NSDQ:AAPL');
+        if (onUpdateCallback) onUpdateCallback();
+        await p1;
+
+        const p2 = session.getCurrentPrice('NYSE:TSLA');
+        if (onUpdateCallback) onUpdateCallback();
+        await p2;
+
+        const debugCalls = mockLogger.debug.mock.calls;
+        const seqs = debugCalls
+          .filter((c: unknown[]) => c[0] === 'TradingView 現在価格取得完了')
+          .map((c: unknown[]) => (c[1] as { seq: number }).seq);
+        expect(seqs).toEqual([1, 2]);
       });
     });
   });

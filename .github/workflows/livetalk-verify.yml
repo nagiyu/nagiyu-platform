@@ -1,0 +1,533 @@
+name: LiveTalk - Verification
+
+env:
+  SERVICE_ID: livetalk
+  SERVICE_DISPLAY_NAME: LiveTalk
+
+on:
+  pull_request:
+    branches:
+      - integration/**
+      - develop
+    paths:
+      - 'services/livetalk/**'
+      - 'infra/livetalk/**'
+      - 'infra/common/**'
+      - 'libs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/livetalk-verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Run ESLint on core
+        run: npm run lint --workspace=@nagiyu/livetalk-core
+
+      - name: Run ESLint on web
+        run: npm run lint --workspace=@nagiyu/livetalk-web
+
+      - name: Run ESLint on batch
+        run: npm run lint --workspace=@nagiyu/livetalk-batch
+
+  format-check:
+    name: Format Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Check core formatting
+        run: npm run format:check --workspace=@nagiyu/livetalk-core
+
+      - name: Check web formatting
+        run: npm run format:check --workspace=@nagiyu/livetalk-web
+
+      - name: Check batch formatting
+        run: npm run format:check --workspace=@nagiyu/livetalk-batch
+
+  synth-infra:
+    name: Synthesize Infrastructure
+    runs-on: ubuntu-latest
+    needs: [lint, format-check]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra-livetalk
+
+      - name: Run infra-livetalk unit tests
+        run: npm run test --workspace=@nagiyu/infra-livetalk
+
+      - name: Synthesize CDK stacks (dev)
+        env:
+          ENVIRONMENT: dev
+          CDK_DEFAULT_ACCOUNT: '000000000000'
+        run: |
+          npm run synth --workspace=@nagiyu/infra-livetalk -- \
+            NagiyuLiveTalkEcrDev \
+            NagiyuLiveTalkBatchEcrDev \
+            NagiyuLiveTalkAlbDev \
+            NagiyuLiveTalkServiceDev \
+            NagiyuLiveTalkBatchDev \
+            NagiyuLiveTalkCloudFrontDev
+
+      - name: Synthesize CDK stacks (prod)
+        env:
+          ENVIRONMENT: prod
+          CDK_DEFAULT_ACCOUNT: '000000000000'
+        run: |
+          npm run synth --workspace=@nagiyu/infra-livetalk -- \
+            NagiyuLiveTalkEcrProd \
+            NagiyuLiveTalkBatchEcrProd \
+            NagiyuLiveTalkAlbProd \
+            NagiyuLiveTalkServiceProd \
+            NagiyuLiveTalkBatchProd \
+            NagiyuLiveTalkCloudFrontProd
+
+  build:
+    name: Next.js Build Verification
+    runs-on: ubuntu-latest
+    needs: [lint, format-check]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Next.js application
+        uses: ./.github/actions/build-web-app
+        with:
+          workspace: '@nagiyu/livetalk-web'
+          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/aws,@nagiyu/livetalk-core'
+
+  docker-build:
+    name: Docker Build Verification
+    runs-on: ubuntu-latest
+    needs: [build]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/livetalk/web
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Build Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/livetalk/web/Dockerfile
+          image-tag: livetalk-verify-test
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
+
+      - name: Build Batch Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/livetalk/batch/Dockerfile
+          image-tag: livetalk-batch-verify-test
+
+  unit-test:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+    needs: [build]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/aws
+          npm run build --workspace @nagiyu/livetalk-core
+
+      - name: Run core unit tests
+        run: npm run test --workspace @nagiyu/livetalk-core
+
+      - name: Run web unit tests
+        run: npm run test --workspace @nagiyu/livetalk-web
+
+      - name: Run batch unit tests
+        run: npm run test --workspace @nagiyu/livetalk-batch
+
+  coverage:
+    name: Test Coverage Check
+    runs-on: ubuntu-latest
+    needs: [unit-test]
+    if: github.base_ref == 'develop'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/aws
+          npm run build --workspace @nagiyu/livetalk-core
+
+      - name: Run core tests with coverage
+        run: npm run test:coverage --workspace @nagiyu/livetalk-core
+
+      - name: Run web tests with coverage
+        run: npm run test:coverage --workspace @nagiyu/livetalk-web
+
+  e2e-test-chromium-mobile:
+    name: Run E2E Tests (chromium-mobile)
+    runs-on: ubuntu-latest
+    needs: [unit-test]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/aws
+          npm run build --workspace @nagiyu/livetalk-core
+
+      - name: Build web application
+        run: npm run build --workspace @nagiyu/livetalk-web
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: ./services/livetalk/web
+
+      - name: Run Playwright tests (chromium-mobile)
+        env:
+          CI: true
+        run: npm run test:e2e --workspace @nagiyu/livetalk-web -- --project=chromium-mobile
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ env.SERVICE_ID }}-playwright-report-chromium-mobile
+          path: services/livetalk/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ env.SERVICE_ID }}-test-results-chromium-mobile
+          path: services/livetalk/web/test-results/
+          retention-days: 30
+
+      - name: Configure AWS credentials for report upload
+        if: always()
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Upload Playwright HTML report to reports.nagiyu.com
+        if: always()
+        run: |
+          aws s3 sync services/livetalk/web/playwright-report/ \
+            "s3://nagiyu-e2e-reports/livetalk/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-mobile/" \
+            --delete --no-progress
+
+  e2e-test-chromium-desktop:
+    name: Run E2E Tests (chromium-desktop)
+    runs-on: ubuntu-latest
+    needs: [unit-test]
+    if: github.base_ref == 'develop'
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/aws
+          npm run build --workspace @nagiyu/livetalk-core
+
+      - name: Build web application
+        run: npm run build --workspace @nagiyu/livetalk-web
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: ./services/livetalk/web
+
+      - name: Run Playwright tests (chromium-desktop)
+        env:
+          CI: true
+        run: npm run test:e2e --workspace @nagiyu/livetalk-web -- --project=chromium-desktop
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ env.SERVICE_ID }}-playwright-report-chromium-desktop
+          path: services/livetalk/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ env.SERVICE_ID }}-test-results-chromium-desktop
+          path: services/livetalk/web/test-results/
+          retention-days: 30
+
+      - name: Configure AWS credentials for report upload
+        if: always()
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Upload Playwright HTML report to reports.nagiyu.com
+        if: always()
+        run: |
+          aws s3 sync services/livetalk/web/playwright-report/ \
+            "s3://nagiyu-e2e-reports/livetalk/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-desktop/" \
+            --delete --no-progress
+
+  e2e-test-webkit-mobile:
+    name: Run E2E Tests (webkit-mobile)
+    runs-on: ubuntu-latest
+    needs: [unit-test]
+    if: github.base_ref == 'develop'
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/aws
+          npm run build --workspace @nagiyu/livetalk-core
+
+      - name: Build web application
+        run: npm run build --workspace @nagiyu/livetalk-web
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps webkit
+        working-directory: ./services/livetalk/web
+
+      - name: Run Playwright tests (webkit-mobile)
+        env:
+          CI: true
+        run: npm run test:e2e --workspace @nagiyu/livetalk-web -- --project=webkit-mobile
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ env.SERVICE_ID }}-playwright-report-webkit-mobile
+          path: services/livetalk/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ env.SERVICE_ID }}-test-results-webkit-mobile
+          path: services/livetalk/web/test-results/
+          retention-days: 30
+
+      - name: Configure AWS credentials for report upload
+        if: always()
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Upload Playwright HTML report to reports.nagiyu.com
+        if: always()
+        run: |
+          aws s3 sync services/livetalk/web/playwright-report/ \
+            "s3://nagiyu-e2e-reports/livetalk/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/webkit-mobile/" \
+            --delete --no-progress
+
+  report:
+    name: Report Results to PR
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      [
+        lint,
+        format-check,
+        synth-infra,
+        build,
+        docker-build,
+        unit-test,
+        coverage,
+        e2e-test-chromium-mobile,
+        e2e-test-chromium-desktop,
+        e2e-test-webkit-mobile,
+      ]
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Create PR Comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const results = {
+              'Lint': '${{ needs.lint.result }}',
+              'Format Check': '${{ needs.format-check.result }}',
+              'Synthesize Infrastructure': '${{ needs.synth-infra.result }}',
+              'Next.js Build': '${{ needs.build.result }}',
+              'Docker Build': '${{ needs.docker-build.result }}',
+              'Unit Tests': '${{ needs.unit-test.result }}',
+              'Coverage Check': '${{ needs.coverage.result }}',
+              'E2E Tests (chromium-mobile)': '${{ needs.e2e-test-chromium-mobile.result }}',
+              'E2E Tests (chromium-desktop)': '${{ needs.e2e-test-chromium-desktop.result }}',
+              'E2E Tests (webkit-mobile)': '${{ needs.e2e-test-webkit-mobile.result }}'
+            };
+
+            const statusEmoji = {
+              'success': '✅',
+              'failure': '❌',
+              'cancelled': '⚠️',
+              'skipped': '⏭️'
+            };
+
+            const reportBaseUrl = `https://reports.nagiyu.com/livetalk/pr-${context.issue.number}/${context.runId}`;
+            const reportProjects = {
+              'E2E Tests (chromium-mobile)': 'chromium-mobile',
+              'E2E Tests (chromium-desktop)': 'chromium-desktop',
+              'E2E Tests (webkit-mobile)': 'webkit-mobile',
+            };
+
+            const allSuccess = Object.values(results).every(r => r === 'success' || r === 'skipped');
+            const isFull = '${{ github.base_ref }}' === 'develop';
+            const header = allSuccess
+              ? (isFull ? '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Full Verification Passed' : '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Fast Verification Passed')
+              : (isFull ? '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Full Verification Failed' : '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Fast Verification Failed');
+
+            let body = `${header}\n\n`;
+            body += isFull
+              ? '**LiveTalk - Full Verification**\n\n'
+              : '**LiveTalk - Fast Verification**\n\n';
+            body += '| Job | Status | Report |\n';
+            body += '|-----|--------|--------|\n';
+
+            for (const [job, result] of Object.entries(results)) {
+              const emoji = statusEmoji[result] || '❓';
+              const project = reportProjects[job];
+              const reportLink = (project && (result === 'success' || result === 'failure'))
+                ? `[📊 View](${reportBaseUrl}/${project}/)`
+                : '-';
+              body += `| ${job} | ${emoji} ${result} | ${reportLink} |\n`;
+            }
+
+            body += `\n_E2E HTML reports are retained for 3 days. Re-run CI to regenerate._\n`;
+            body += `\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });

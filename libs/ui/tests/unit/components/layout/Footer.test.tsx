@@ -196,6 +196,77 @@ describe('Footer', () => {
     });
   });
 
+  describe('licenseText props', () => {
+    it('licenseTextが指定された場合に表示される', () => {
+      render(<Footer licenseText="VOICEVOX:冥鳴ひまり / Live2D Inc." />);
+
+      expect(screen.getByText('VOICEVOX:冥鳴ひまり / Live2D Inc.')).toBeInTheDocument();
+    });
+
+    it('licenseTextが省略された場合は表示されない', () => {
+      render(<Footer />);
+
+      expect(screen.queryByText(/VOICEVOX/)).not.toBeInTheDocument();
+    });
+
+    it('licenseTextがReactNodeでも表示される', () => {
+      render(<Footer licenseText={<span data-testid="license-node">ライセンス情報</span>} />);
+
+      expect(screen.getByTestId('license-node')).toBeInTheDocument();
+    });
+
+    it('licenseTextがある場合はフッターのpaddingが詰められる', () => {
+      const { container } = render(<Footer licenseText="ライセンス" />);
+
+      const footer = container.querySelector('footer');
+      // py: 1.5 → 12px（theme spacing 8px * 1.5）
+      expect(footer).toHaveStyle({ paddingTop: '12px', paddingBottom: '12px' });
+    });
+
+    it('licenseTextが省略された場合はフッターのpaddingが従来どおり', () => {
+      const { container } = render(<Footer />);
+
+      const footer = container.querySelector('footer');
+      // py: 3 → 24px（theme spacing 8px * 3）
+      expect(footer).toHaveStyle({ paddingTop: '24px', paddingBottom: '24px' });
+    });
+  });
+
+  describe('termsContent / privacyContent props', () => {
+    const customTerms = [
+      {
+        title: 'カスタム規約',
+        contents: [{ mainContent: 'カスタム利用規約の内容です。' }],
+      },
+    ];
+    const customPrivacy = [
+      {
+        title: 'カスタムプライバシー',
+        contents: [{ mainContent: 'カスタムプライバシーポリシーの内容です。' }],
+      },
+    ];
+
+    it('termsContentが指定された場合、利用規約ダイアログにカスタムデータが表示される', async () => {
+      const user = userEvent.setup();
+      render(<Footer termsContent={customTerms} />);
+
+      await user.click(screen.getByText('利用規約'));
+
+      expect(screen.getByText('第1条（カスタム規約）')).toBeInTheDocument();
+      expect(screen.getByText('カスタム利用規約の内容です。')).toBeInTheDocument();
+    });
+
+    it('privacyContentが指定された場合、プライバシーポリシーダイアログにカスタムデータが表示される', async () => {
+      const user = userEvent.setup();
+      render(<Footer privacyContent={customPrivacy} />);
+
+      await user.click(screen.getByText('プライバシーポリシー'));
+
+      expect(screen.getByText('第1条（カスタムプライバシー）')).toBeInTheDocument();
+      expect(screen.getByText('カスタムプライバシーポリシーの内容です。')).toBeInTheDocument();
+    });
+  });
+
   describe('バージョン表示', () => {
     it('バージョン番号が"v"プレフィックス付きで表示される', () => {
       render(<Footer version="1.2.3" />);

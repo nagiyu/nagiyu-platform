@@ -23,12 +23,22 @@ export interface TermsOfServiceDialogProps {
    * Callback fired when the dialog should be closed
    */
   onClose: () => void;
+  /**
+   * 差し替え利用規約データ（省略時はグローバル termSections を使用）
+   */
+  sections?: TermSection[];
 }
 
 // Re-export types for backward compatibility
 export type { TermSection, TermContent };
 
-export default function TermsOfServiceDialog({ open, onClose }: TermsOfServiceDialogProps) {
+export default function TermsOfServiceDialog({
+  open,
+  onClose,
+  sections,
+}: TermsOfServiceDialogProps) {
+  const displaySections = sections ?? termSections;
+
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md" scroll="paper">
       <DialogTitle
@@ -51,7 +61,7 @@ export default function TermsOfServiceDialog({ open, onClose }: TermsOfServiceDi
         </IconButton>
       </DialogTitle>
       <DialogContent dividers>
-        {termSections.map((section, sectionIndex) => (
+        {displaySections.map((section, sectionIndex) => (
           <Box key={sectionIndex} sx={{ mb: 4 }}>
             <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
               第{sectionIndex + 1}条（{section.title}）

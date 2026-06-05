@@ -121,6 +121,15 @@ infra/
 
 詳細は [VPC 詳細ドキュメント](./shared/vpc.md) を参照。
 
+#### ECS Cluster（共通）
+
+- 新規 ECS サービス全般の受け皿となるプラットフォーム共通の ECS Cluster
+- 環境ごとに独立した Cluster (dev/prod)
+- 既存 Portal 専用 Cluster とは別物（Portal は root ドメイン専用として独立運用）
+- ALB はサービスごとに個別管理（共通 Cluster に相乗りするが、ALB は共有しない）
+
+詳細は [ECS Cluster 詳細ドキュメント](./shared/ecs-cluster.md) を参照。
+
 #### ACM (AWS Certificate Manager)
 
 - **ワイルドカード証明書**: `*.example.com` と `example.com` をカバー
@@ -145,9 +154,19 @@ infra/
 
 詳細は [ルートドメインアーキテクチャ](./root/architecture.md) を参照。
 
-#### その他のアプリケーション (将来実装予定)
+#### ECS Fargate ベースのサービス
 
-各アプリケーション専用のリソース。
+共通 Cluster に乗せる ECS Fargate サービスの場合、各サービスが管理するリソースは以下の通り。
+
+- **ALB**: サービス専用。タイムアウト・TLS・ログ設定はサービスの要件に合わせて調整する
+- **Target Group / Listener Rule**: ALB に紐付くサービス固有リソース
+- **ECS Service / Task Definition**: サービスのコンテナ定義とスケーリング設定
+- **CloudFront ディストリビューション**: サービスのサブドメインから ALB へ中継する CDN
+- **Route53 レコード**: サービスのサブドメインを CloudFront に向ける
+
+共通 Cluster と共通 VPC は SSM Parameter Store 経由で参照する。スタック間の直接依存は持たない。
+
+#### Lambda ベースのサービス
 
 - **Lambda 関数**: サーバーレスアプリケーションロジック
 - **DynamoDB テーブル**: NoSQL データベース
@@ -156,7 +175,6 @@ infra/
 - **CloudFront ディストリビューション**: カスタムドメインでの配信
   - オリジン: S3, API Gateway, ALB, Lambda Function URL
   - ACM 証明書を使用した HTTPS 配信
-  - 外部 DNS サービスから CNAME で参照
 
 ---
 
