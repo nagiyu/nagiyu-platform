@@ -6,6 +6,7 @@ import { Chip, Link } from '@nagiyu/ui';
 import type { NoteListItem } from '@/lib/notes/types';
 import { fetchNote } from '@/lib/notes/api-client';
 import { formatNoteDate } from '@/lib/notes/messages';
+import NoteMarkdown from '@/components/NoteMarkdown';
 
 interface NoteDetailPageProps {
   params: Promise<{ id: string }>;
@@ -75,9 +76,7 @@ export default function NoteDetailPage({ params }: NoteDetailPageProps) {
               {formatNoteDate(note.createdAt)}
             </Typography>
           </Stack>
-          <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.8 }}>
-            {note.body}
-          </Typography>
+          <NoteMarkdown content={note.body ?? ''} />
         </Box>
       )}
     </Container>
