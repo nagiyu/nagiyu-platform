@@ -22,6 +22,7 @@ import {
 } from '@mui/material';
 import { Button, ErrorAlert, Select, TextField } from '@nagiyu/ui';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { useEnterSubmit } from '@nagiyu/react';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -273,6 +274,22 @@ export default function TickersPage() {
     }
   };
 
+  // エンターキーで作成を確定するハンドラ（新規作成モーダル用）
+  const handleCreateEnterDown = useEnterSubmit<HTMLInputElement | HTMLTextAreaElement>(
+    handleCreate,
+    {
+      disabled: !formData.symbol || !formData.name || !formData.exchangeId,
+    }
+  );
+
+  // エンターキーで更新を確定するハンドラ（編集モーダル用）
+  const handleUpdateEnterDown = useEnterSubmit<HTMLInputElement | HTMLTextAreaElement>(
+    handleUpdate,
+    {
+      disabled: !formData.name,
+    }
+  );
+
   // ティッカー削除
   const handleDelete = async () => {
     setError('');
@@ -409,6 +426,7 @@ export default function TickersPage() {
               label="シンボル"
               value={formData.symbol}
               onChange={(e) => handleInputChange('symbol', e.target.value.toUpperCase())}
+              onKeyDown={handleCreateEnterDown}
               fullWidth
               required
               helperText="例: AAPL, NVDA（英大文字と数字のみ）"
@@ -417,6 +435,7 @@ export default function TickersPage() {
               label="銘柄名"
               value={formData.name}
               onChange={(e) => handleInputChange('name', e.target.value)}
+              onKeyDown={handleCreateEnterDown}
               fullWidth
               required
               helperText="例: Apple Inc., NVIDIA Corporation"
@@ -473,6 +492,7 @@ export default function TickersPage() {
               label="銘柄名"
               value={formData.name}
               onChange={(e) => handleInputChange('name', e.target.value)}
+              onKeyDown={handleUpdateEnterDown}
               fullWidth
               required
             />
