@@ -6,6 +6,7 @@ publishedAt: '2026-03-15'
 updatedAt: '2026-05-01'
 author: 'なぎゆー'
 tags: ['TypeScript', 'Repository', '型設計']
+categories: ['dev-stack']
 ---
 
 ## はじめに

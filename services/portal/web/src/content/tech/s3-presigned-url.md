@@ -6,6 +6,7 @@ publishedAt: '2026-04-18'
 updatedAt: '2026-05-01'
 author: 'なぎゆー'
 tags: ['AWS', 'S3', 'セキュリティ']
+categories: ['aws']
 relatedServices: ['quick-clip', 'codec-converter']
 ---
 

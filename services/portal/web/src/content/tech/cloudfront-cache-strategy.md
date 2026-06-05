@@ -6,6 +6,7 @@ publishedAt: '2026-04-22'
 updatedAt: '2026-05-31'
 author: 'なぎゆー'
 tags: ['AWS', 'CloudFront', 'キャッシュ', 'パフォーマンス']
+categories: ['aws']
 ---
 
 ## はじめに

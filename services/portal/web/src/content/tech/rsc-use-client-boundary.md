@@ -6,6 +6,7 @@ publishedAt: '2026-04-20'
 updatedAt: '2026-05-01'
 author: 'なぎゆー'
 tags: ['Next.js', 'React', 'Server Components', 'App Router']
+categories: ['nextjs']
 ---
 
 ## はじめに

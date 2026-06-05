@@ -6,6 +6,7 @@ publishedAt: '2026-04-25'
 updatedAt: '2026-05-31'
 author: 'なぎゆー'
 tags: ['AWS', 'ECS', 'Lambda', 'アーキテクチャ']
+categories: ['aws']
 ---
 
 ## はじめに

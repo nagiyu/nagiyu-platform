@@ -6,6 +6,7 @@ publishedAt: '2026-04-28'
 updatedAt: '2026-05-01'
 author: 'なぎゆー'
 tags: ['Next.js', 'SSG', 'App Router']
+categories: ['nextjs']
 ---
 
 ## はじめに

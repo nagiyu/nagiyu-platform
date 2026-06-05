@@ -6,6 +6,7 @@ publishedAt: '2026-04-12'
 updatedAt: '2026-05-01'
 author: 'なぎゆー'
 tags: ['AWS', 'ECR', 'コスト最適化']
+categories: ['aws']
 ---
 
 ## はじめに

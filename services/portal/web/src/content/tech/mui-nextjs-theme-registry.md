@@ -6,6 +6,7 @@ publishedAt: '2026-04-15'
 updatedAt: '2026-05-01'
 author: 'なぎゆー'
 tags: ['Next.js', 'MUI', 'App Router', 'Emotion']
+categories: ['nextjs']
 ---
 
 ## はじめに

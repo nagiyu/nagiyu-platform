@@ -6,6 +6,7 @@ publishedAt: '2026-04-05'
 updatedAt: '2026-05-01'
 author: 'なぎゆー'
 tags: ['Docker', 'Next.js', 'CI/CD']
+categories: ['nextjs', 'aws']
 ---
 
 ## はじめに
