@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Container, Typography, Grid, Box } from '@mui/material';
+import { Container, Typography, Grid } from '@mui/material';
 import TrainIcon from '@mui/icons-material/Train';
 import DataObjectIcon from '@mui/icons-material/DataObject';
 import KeyIcon from '@mui/icons-material/Key';
@@ -100,81 +100,14 @@ export default function HomePage() {
           Tools - 便利なツール集
         </Typography>
 
-        {/* サイトの概要説明 */}
-        <Box sx={{ mb: 6, mt: 3 }}>
-          <Typography variant="body1" align="center" sx={{ fontSize: '1.1rem', mb: 2 }}>
-            Toolsは、日常作業で頻繁に発生する「整形」「変換」「検証」を素早く行うための無料ツール集です。
-            乗り換え変換ツールでは経路情報を読みやすく整理し、JSON整形ツールではデータの整形・圧縮・検証を行えます。{' '}
-            VAPIDキー生成ツールではWeb Push通知の実装に必要な鍵ペアをすぐに用意できます。{' '}
-            Base64エンコーダー/デコーダーでは文字列の相互変換を簡単に行えます。
-            URLエンコーダー/デコーダーではクエリやパラメータに使う文字列を扱いやすく変換できます。
-            ハッシュ生成ツールではSHA-256 / SHA-512のハッシュ値をすばやく確認できます。
-          </Typography>
-          <Typography variant="body1" align="center" sx={{ fontSize: '1.1rem', mb: 2 }}>
-            乗り換え変換ツール・JSON整形ツール・Base64エンコーダー/デコーダー・URLエンコーダー/デコーダー・ハッシュ生成ツールはブラウザ内で動作し、入力データは外部に送信されません。
-            VAPIDキー生成ツールは入力データなしで、サーバー上で鍵ペアを生成します。
-          </Typography>
-          <Typography variant="body1" align="center" sx={{ fontSize: '1.1rem', mb: 2 }}>
-            PWA（Progressive Web App）としてホーム画面に追加すれば、アプリのようにすぐ起動できます。
-            通信が不安定な環境でも、サーバー通信が不要な基本機能を利用でき、外出先での作業にも適しています。
-          </Typography>
-        </Box>
-
         {/* 提供ツール */}
-        <Box sx={{ mb: 6 }}>
-          <Typography variant="h5" component="h2" gutterBottom align="center" sx={{ mb: 3 }}>
-            提供ツール
-          </Typography>
-          <Grid container spacing={3}>
-            {tools.map((tool) => (
-              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={tool.id}>
-                <ToolCard {...tool} />
-              </Grid>
-            ))}
-          </Grid>
-        </Box>
-
-        {/* サイトの特徴 */}
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h5" component="h2" gutterBottom align="center" sx={{ mb: 3 }}>
-            特徴
-          </Typography>
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
-              gap: 3,
-            }}
-          >
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="h6" component="h3" gutterBottom sx={{ fontWeight: 600 }}>
-                🔒 プライバシー保護
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                乗り換え変換・JSON整形はブラウザ内で処理され、入力データはサーバー送信されません。
-                VAPIDキー生成はサーバーで鍵を作成するため、各ツールの特性に応じて処理方式が異なります。
-              </Typography>
-            </Box>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="h6" component="h3" gutterBottom sx={{ fontWeight: 600 }}>
-                📱 オフライン対応
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                PWAとしてインストールすることで、オフライン環境でもサーバー通信不要の機能を利用できます。
-                通信が必要な機能はオンライン時にご利用ください。
-              </Typography>
-            </Box>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="h6" component="h3" gutterBottom sx={{ fontWeight: 600 }}>
-                💯 完全無料
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                すべての機能を無料で利用できます。アカウント登録も不要です。
-                ブラウザでアクセスするだけで、すぐに使い始められます。
-              </Typography>
-            </Box>
-          </Box>
-        </Box>
+        <Grid container spacing={3} sx={{ mt: 2 }}>
+          {tools.map((tool) => (
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={tool.id}>
+              <ToolCard {...tool} />
+            </Grid>
+          ))}
+        </Grid>
       </Container>
     </>
   );
