@@ -15,7 +15,7 @@ import NotificationToggle from '@/components/NotificationToggle';
 import type { LifecycleState, SafetyResource } from '@nagiyu/livetalk-core';
 import InstallGuide from '@/components/InstallGuide';
 import NotificationPermission from '@/components/NotificationPermission';
-import CharacterSelector from '@/components/CharacterSelector';
+import CharacterSelectButton from '@/components/CharacterSelectButton';
 import { useCharacter } from '@/lib/characters/CharacterContext';
 import {
   isStandalone,
@@ -431,6 +431,9 @@ export default function HomePage() {
           py: 1,
         }}
       >
+        <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 0.5 }}>
+          <CharacterSelectButton disabled={phase !== 'idle'} />
+        </Box>
         <Box sx={{ flex: '0 1 60%', minHeight: 240, mb: 1 }}>
           <Live2DCanvas
             characterId={characterId}
@@ -441,9 +444,6 @@ export default function HomePage() {
             onPlaybackEnd={handlePlaybackEnd}
             onPlaybackError={handlePlaybackError}
           />
-        </Box>
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.5 }}>
-          <CharacterSelector disabled={phase !== 'idle'} />
         </Box>
         <Stack
           spacing={1}

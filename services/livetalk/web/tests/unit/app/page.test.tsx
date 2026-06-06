@@ -99,8 +99,8 @@ jest.mock('@/lib/characters/CharacterContext', () => ({
   CharacterProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
-// CharacterSelector: DOM 描画のみで動作確認に不要
-jest.mock('@/components/CharacterSelector', () => ({
+// CharacterSelectButton: DOM 描画のみで動作確認に不要
+jest.mock('@/components/CharacterSelectButton', () => ({
   __esModule: true,
   default: jest.fn(() => null),
 }));

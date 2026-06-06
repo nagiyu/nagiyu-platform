@@ -5,6 +5,7 @@ import {
   CHARACTER_PROFILE_ERROR_MESSAGES,
   DEFAULT_CLIENT_CHARACTER_ID,
   getCharacterClientProfile,
+  getCharacterDescription,
   getCharacterDisplay,
   getCharacterLicenseText,
   getCharacterRenderProfile,
@@ -128,6 +129,36 @@ describe('クライアントプロファイルレジストリ', () => {
     it('日本語を含む', () => {
       expect(CHARACTER_PROFILE_ERROR_MESSAGES.UNKNOWN_PROFILE).toMatch(/[ぁ-ん]/);
     });
+  });
+});
+
+describe('getCharacterDescription', () => {
+  it('引数なしで既定キャラクター（hiyori）の説明を返す', () => {
+    const desc = getCharacterDescription();
+    expect(typeof desc).toBe('string');
+    expect(desc.length).toBeGreaterThan(0);
+  });
+
+  it('DEFAULT_CLIENT_CHARACTER_ID を明示的に渡しても同じ説明を返す', () => {
+    expect(getCharacterDescription(DEFAULT_CLIENT_CHARACTER_ID)).toBe(getCharacterDescription());
+  });
+
+  it('プロファイルに description フィールドが存在し文字列である', () => {
+    const profile = getCharacterClientProfile(DEFAULT_CLIENT_CHARACTER_ID);
+    expect(typeof profile.description).toBe('string');
+    expect(profile.description.length).toBeGreaterThan(0);
+  });
+
+  it('未登録の id を指定すると日本語定数メッセージでスローする', () => {
+    expect(() => getCharacterDescription('unknown')).toThrow(
+      CHARACTER_PROFILE_ERROR_MESSAGES.UNKNOWN_PROFILE
+    );
+  });
+
+  it('"toString" などプロトタイプ継承プロパティ名を渡すとスローする', () => {
+    expect(() => getCharacterDescription('toString')).toThrow(
+      CHARACTER_PROFILE_ERROR_MESSAGES.UNKNOWN_PROFILE
+    );
   });
 });
 

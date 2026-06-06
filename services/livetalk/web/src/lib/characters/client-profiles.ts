@@ -39,6 +39,8 @@ const PROFILES: Record<string, CharacterClientProfile> = {
       },
     },
     licenseText: LIVETALK_LICENSE_TEXT,
+    description:
+      '友達になることを目標にした、優しく親しみやすい女の子。スイーツや猫、ほのぼのした時間が大好き。',
   },
 };
 
@@ -95,4 +97,13 @@ export function getRegisteredProfileIds(): string[] {
  */
 export function getCharacterLicenseText(id?: string): string {
   return getCharacterClientProfile(id).licenseText;
+}
+
+/**
+ * 指定 id に対応するユーザー向け特徴・性格説明を返す。
+ * id を省略した場合は DEFAULT_CLIENT_CHARACTER_ID を使用する。
+ * 未登録の id を指定した場合はエラーをスローする。
+ */
+export function getCharacterDescription(id?: string): string {
+  return getCharacterClientProfile(id).description;
 }

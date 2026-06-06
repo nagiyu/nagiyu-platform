@@ -37,4 +37,9 @@ export interface CharacterClientProfile {
    * Live2D Free Material License / VOICEVOX クレジットの常時表示要件を満たす。
    */
   licenseText: string;
+  /**
+   * ユーザー向けの短い特徴・性格説明（1〜2 文）。
+   * キャラ選択モーダルでの説明表示に使用する。
+   */
+  description: string;
 }
