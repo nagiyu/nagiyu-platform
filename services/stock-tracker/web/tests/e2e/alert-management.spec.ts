@@ -537,6 +537,23 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
         alertDialog.getByLabel('カスタムメッセージ（通知本文の末尾に追加されます）')
       ).toHaveValue('戦略メモ');
     });
+
+    test('目標価格入力欄でエンターキーを押すと保存処理が実行される', async ({ page }) => {
+      // PUT リクエストが呼ばれたことを確認するためのカウンタ
+      let updateCallCount = 0;
+      await setupAlertsEditPage(page, editableAlert, () => {
+        updateCallCount += 1;
+      });
+
+      const alertDialog = page.getByRole('dialog').first();
+      // 目標価格を入力してエンターキーで保存する（保存ボタンはクリックしない）
+      const targetPriceInput = alertDialog.getByLabel('目標価格');
+      await targetPriceInput.fill('190');
+      await targetPriceInput.press('Enter');
+
+      // PUT リクエストが 1 回呼ばれ、保存処理が実行されたことを確認する
+      expect(updateCallCount).toBe(1);
+    });
   });
 
   test.describe('Web Push通知許可', () => {
