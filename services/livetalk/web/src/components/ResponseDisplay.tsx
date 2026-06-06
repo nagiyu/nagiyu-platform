@@ -1,10 +1,11 @@
 'use client';
 
 import { Box, Paper, Typography } from '@mui/material';
+import { getCharacterDisplay } from '@/lib/characters/client-profiles';
 
 export interface ResponseDisplayProps {
   /**
-   * ひよりの応答テキスト。ストリーミング中は逐次更新される。null/空なら待機メッセージを表示。
+   * キャラクターの応答テキスト。ストリーミング中は逐次更新される。null/空なら待機メッセージを表示。
    */
   text: string | null;
   /**
@@ -15,6 +16,7 @@ export interface ResponseDisplayProps {
 
 export default function ResponseDisplay({ text, userText }: ResponseDisplayProps) {
   const hasContent = Boolean(text || userText);
+  const { displayName, shortName } = getCharacterDisplay();
 
   return (
     <Box
@@ -26,7 +28,7 @@ export default function ResponseDisplay({ text, userText }: ResponseDisplayProps
       {!hasContent && (
         <Paper variant="outlined" sx={{ p: 2, backgroundColor: 'background.paper' }}>
           <Typography variant="body2" color="text.secondary">
-            メッセージを入力すると、桃瀬ひよりがお話しします。
+            {`メッセージを入力すると、${displayName}がお話しします。`}
           </Typography>
         </Paper>
       )}
@@ -41,7 +43,7 @@ export default function ResponseDisplay({ text, userText }: ResponseDisplayProps
       {text && (
         <Paper variant="outlined" sx={{ p: 1.5, backgroundColor: 'background.paper' }}>
           <Typography variant="caption" color="text.secondary">
-            ひより
+            {shortName}
           </Typography>
           <Typography variant="body2">{text}</Typography>
         </Paper>
