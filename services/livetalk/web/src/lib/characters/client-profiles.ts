@@ -39,8 +39,7 @@ const PROFILES: Record<string, CharacterClientProfile> = {
       },
     },
     licenseText: LIVETALK_LICENSE_TEXT,
-    description:
-      '友達になることを目標にした、優しく親しみやすい女の子。スイーツや猫、ほのぼのした時間が大好き。',
+    description: '甘いものと猫が大好きな癒し系。のんびりおしゃべりして、ほっと一息つける女の子。',
   },
 };
 
