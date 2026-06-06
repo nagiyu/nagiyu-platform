@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Dialog, DialogActions, DialogContent, DialogTitle, Box } from '@mui/material';
 import { Button, TextField } from '@nagiyu/ui';
+import { useEnterSubmit } from '@nagiyu/react';
 
 type CreateItemDialogProps = {
   open: boolean;
@@ -22,6 +23,12 @@ export function CreateItemDialog({ open, title, label, onClose, onCreate }: Crea
     onClose();
   };
 
+  // 名前入力でエンターキーを押したときに作成を実行するハンドラ
+  // TextField の onKeyDown は HTMLInputElement | HTMLTextAreaElement 型を受け取るため型引数を明示する
+  const handleNameEnterDown = useEnterSubmit<HTMLInputElement | HTMLTextAreaElement>(handleCreate, {
+    disabled: !name.trim(),
+  });
+
   const handleClose = () => {
     setName('');
     onClose();
@@ -39,6 +46,7 @@ export function CreateItemDialog({ open, title, label, onClose, onCreate }: Crea
             value={name}
             onChange={(e) => setName(e.target.value)}
             size="sm"
+            onKeyDown={handleNameEnterDown}
           />
         </Box>
       </DialogContent>

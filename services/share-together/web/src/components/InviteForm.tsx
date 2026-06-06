@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Box, Stack, Typography } from '@mui/material';
 import { Button, TextField } from '@nagiyu/ui';
+import { useEnterSubmit } from '@nagiyu/react';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
 type InviteFormProps = {
@@ -56,6 +57,14 @@ export function InviteForm({ groupId, isOwner, memberCount }: InviteFormProps) {
     }
   };
 
+  // メールアドレス入力でエンターキーを押したときに送信を実行するハンドラ
+  // TextField の onKeyDown は HTMLInputElement | HTMLTextAreaElement 型を受け取るため型引数を明示する
+  // isSubmitting 中も無効化し、二重送信を防止する
+  const handleEmailEnterDown = useEnterSubmit<HTMLInputElement | HTMLTextAreaElement>(
+    handleSubmit,
+    { disabled: !isOwner || isMemberLimitReached || isSubmitting }
+  );
+
   return (
     <>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -93,6 +102,7 @@ export function InviteForm({ groupId, isOwner, memberCount }: InviteFormProps) {
               setErrorMessage(null);
             }}
             disabled={!isOwner || isMemberLimitReached}
+            onKeyDown={handleEmailEnterDown}
           />
           <Button
             type="button"

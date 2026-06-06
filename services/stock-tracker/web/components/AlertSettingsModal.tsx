@@ -17,6 +17,7 @@ import {
 import { Button, ErrorAlert, Select } from '@nagiyu/ui';
 import { subscribePush } from '@nagiyu/browser';
 import { formatPrice } from '@nagiyu/common';
+import { useEnterSubmit } from '@nagiyu/react';
 import { calculateTargetPriceFromPercentage } from '../lib/percentage-helper';
 import type { Timeframe } from '../types/stock';
 import { TIMEFRAME_LABELS } from '../types/stock';
@@ -950,6 +951,12 @@ export default function AlertSettingsModal({
     }
   };
 
+  // 価格入力欄でエンターキーを押したときに保存処理を実行するハンドラ
+  // MUI の TextField は onKeyDown の型が React.KeyboardEvent<HTMLDivElement> のため HTMLDivElement を指定する
+  const handlePriceEnterDown = useEnterSubmit<HTMLDivElement>(handleSubmit, {
+    disabled: submitting,
+  });
+
   const handleTimeframeChange = (value: string) => {
     setTimeframe(value as Timeframe);
   };
@@ -1104,6 +1111,7 @@ export default function AlertSettingsModal({
                     setTargetPrice(e.target.value);
                     clearFieldError('targetPrice');
                   }}
+                  onKeyDown={handlePriceEnterDown}
                   error={!!formErrors.targetPrice}
                   helperText={formErrors.targetPrice}
                   slotProps={{ htmlInput: { step: '0.01', min: '0.01', max: '1000000' } }}
@@ -1240,6 +1248,7 @@ export default function AlertSettingsModal({
                       setMinPrice(e.target.value);
                       clearFieldError('minPrice');
                     }}
+                    onKeyDown={handlePriceEnterDown}
                     error={!!formErrors.minPrice}
                     helperText={
                       formErrors.minPrice ||
@@ -1258,6 +1267,7 @@ export default function AlertSettingsModal({
                       setMaxPrice(e.target.value);
                       clearFieldError('maxPrice');
                     }}
+                    onKeyDown={handlePriceEnterDown}
                     error={!!formErrors.maxPrice}
                     helperText={
                       formErrors.maxPrice ||

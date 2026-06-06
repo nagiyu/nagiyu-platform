@@ -8,3 +8,5 @@ export { useAPIRequest } from './useAPIRequest';
 export type { UseAPIRequestOptions, UseAPIRequestReturn } from './useAPIRequest';
 export { usePushSubscription } from './usePushSubscription';
 export type { UsePushSubscriptionOptions, UsePushSubscriptionReturn } from './usePushSubscription';
+export { useEnterSubmit } from './useEnterSubmit';
+export type { UseEnterSubmitOptions } from './useEnterSubmit';
