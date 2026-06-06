@@ -27,7 +27,7 @@ export default function CharacterSelectButton({ disabled }: CharacterSelectButto
     <>
       <Button
         variant="outline"
-        color="neutral"
+        color="primary"
         size="sm"
         onClick={() => setModalOpen(true)}
         disabled={disabled}
