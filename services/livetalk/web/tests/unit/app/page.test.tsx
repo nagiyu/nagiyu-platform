@@ -89,6 +89,22 @@ jest.mock('@/lib/pwa/messages', () => ({
   },
 }));
 
+// CharacterContext: useCharacter を hiyori 固定でスタブ化する。
+// setCharacterId は実装不要（page.tsx では読み取りのみ）。
+jest.mock('@/lib/characters/CharacterContext', () => ({
+  useCharacter: jest.fn(() => ({
+    characterId: 'hiyori',
+    setCharacterId: jest.fn(),
+  })),
+  CharacterProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
+// CharacterSelector: DOM 描画のみで動作確認に不要
+jest.mock('@/components/CharacterSelector', () => ({
+  __esModule: true,
+  default: jest.fn(() => null),
+}));
+
 /** /api/consent が同意済みを返す fetch モックを設定する */
 function setupFetchMocks(chatOk = false, sentenceAudio?: string) {
   const encoder = new TextEncoder();
@@ -430,5 +446,46 @@ describe('通知起点の knowledgeId 受け渡し（Issue #3359 課題Y）', ()
     const secondBody = JSON.parse(chatCalls[1][1].body as string);
     expect(firstBody.knowledgeId).toBe('k-xyz');
     expect(secondBody.knowledgeId).toBeUndefined();
+  });
+});
+
+describe('characterId の chat リクエストへの反映', () => {
+  it('handleSubmit 時の fetch body に characterId が含まれる', async () => {
+    const encoder = new TextEncoder();
+    const chatStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
+        controller.close();
+      },
+    });
+
+    global.fetch = jest.fn().mockImplementation((url: string) => {
+      if (url === '/api/consent') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ consented: true }) });
+      }
+      if (url === '/api/lifecycle') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ state: 'awake' }) });
+      }
+      if (url === '/api/push/first-word') {
+        return Promise.resolve({ ok: false });
+      }
+      return Promise.resolve({ ok: true, body: chatStream });
+    });
+
+    setupMockAudioContext('running');
+    const user = userEvent.setup();
+    render(<HomePage />);
+    const input = await waitForInputEnabled();
+
+    await user.type(input, 'こんにちは');
+    await user.click(screen.getByRole('button', { name: '送信' }));
+
+    const chatCall = (global.fetch as jest.Mock).mock.calls.find(
+      ([url]: [string]) => url === '/api/chat'
+    );
+    expect(chatCall).toBeDefined();
+    const chatBody = JSON.parse(chatCall[1].body as string);
+    // useCharacter モックが 'hiyori' を返すため、body に characterId: 'hiyori' が含まれる
+    expect(chatBody.characterId).toBe('hiyori');
   });
 });

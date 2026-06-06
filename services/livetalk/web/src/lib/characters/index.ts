@@ -9,4 +9,5 @@ export {
   getCharacterClientProfile,
   hasCharacterProfile,
   getRegisteredProfileIds,
+  getCharacterLicenseText,
 } from './client-profiles';

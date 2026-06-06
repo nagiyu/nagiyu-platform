@@ -32,4 +32,9 @@ export interface CharacterDisplay {
 export interface CharacterClientProfile {
   display: CharacterDisplay;
   render: CharacterRenderProfile;
+  /**
+   * フッターに常時表示するライセンス・クレジット文字列。
+   * Live2D Free Material License / VOICEVOX クレジットの常時表示要件を満たす。
+   */
+  licenseText: string;
 }

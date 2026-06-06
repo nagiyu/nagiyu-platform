@@ -1,4 +1,5 @@
 import type { CharacterClientProfile, CharacterDisplay, CharacterRenderProfile } from './types';
+import { LIVETALK_LICENSE_TEXT } from '../legal/terms-data';
 
 export type { CharacterClientProfile, CharacterDisplay, CharacterRenderProfile } from './types';
 
@@ -37,6 +38,7 @@ const PROFILES: Record<string, CharacterClientProfile> = {
         eyeROpen: 'ParamEyeROpen',
       },
     },
+    licenseText: LIVETALK_LICENSE_TEXT,
   },
 };
 
@@ -84,4 +86,13 @@ export function getCharacterDisplay(id?: string): CharacterDisplay {
  */
 export function getRegisteredProfileIds(): string[] {
   return Object.keys(PROFILES);
+}
+
+/**
+ * 指定 id に対応するライセンス・クレジット文字列を返す。
+ * id を省略した場合は DEFAULT_CLIENT_CHARACTER_ID を使用する。
+ * 未登録の id を指定した場合はエラーをスローする。
+ */
+export function getCharacterLicenseText(id?: string): string {
+  return getCharacterClientProfile(id).licenseText;
 }
