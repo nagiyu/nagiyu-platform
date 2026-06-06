@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import { Button, ErrorAlert, Select } from '@nagiyu/ui';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { useEnterSubmit } from '@nagiyu/react';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -381,6 +382,16 @@ export default function ExchangesPage() {
     }
   };
 
+  // エンターキー確定ハンドラ（登録モーダル用）
+  const handleCreateEnterDown = useEnterSubmit<HTMLDivElement>(handleCreate, {
+    disabled: submitting,
+  });
+
+  // エンターキー確定ハンドラ（編集モーダル用）
+  const handleUpdateEnterDown = useEnterSubmit<HTMLDivElement>(handleUpdate, {
+    disabled: submitting,
+  });
+
   return (
     <Container maxWidth="xl" sx={{ py: 3 }}>
       {/* エラーメッセージ表示 */}
@@ -505,6 +516,7 @@ export default function ExchangesPage() {
                 value={formData.exchangeId}
                 onChange={handleInputChange('exchangeId')}
                 disabled={submitting}
+                onKeyDown={handleCreateEnterDown}
               />
               <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ システム内部で使用する識別子（例: NASDAQ, NYSE, TSE）
@@ -521,6 +533,7 @@ export default function ExchangesPage() {
                 value={formData.name}
                 onChange={handleInputChange('name')}
                 disabled={submitting}
+                onKeyDown={handleCreateEnterDown}
               />
             </Box>
 
@@ -534,6 +547,7 @@ export default function ExchangesPage() {
                 value={formData.key}
                 onChange={handleInputChange('key')}
                 disabled={submitting}
+                onKeyDown={handleCreateEnterDown}
               />
               <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ TradingView API で使用する取引所コード（例: NSDQ, NYSE, TSE）
@@ -656,6 +670,7 @@ export default function ExchangesPage() {
                 value={formData.name}
                 onChange={handleInputChange('name')}
                 disabled={submitting}
+                onKeyDown={handleUpdateEnterDown}
               />
             </Box>
 
