@@ -111,5 +111,19 @@ describe('キャラクターレジストリ', () => {
     it('空文字列は false を返す', () => {
       expect(hasCharacter('')).toBe(false);
     });
+
+    it('Object.prototype のプロパティ名（toString 等）は false を返す', () => {
+      // ブラケットアクセス由来の継承プロパティ取りこぼしを防ぐ
+      expect(hasCharacter('toString')).toBe(false);
+      expect(hasCharacter('constructor')).toBe(false);
+    });
+  });
+
+  describe('プロトタイプ継承プロパティの扱い', () => {
+    it('getCharacterEntry に "toString" を渡すとスローする', () => {
+      expect(() => getCharacterEntry('toString')).toThrow(
+        CHARACTER_REGISTRY_ERROR_MESSAGES.UNKNOWN_CHARACTER
+      );
+    });
   });
 });

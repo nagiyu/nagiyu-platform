@@ -48,11 +48,10 @@ const REGISTRY: Record<string, CharacterEntry> = {
  */
 export function getCharacterEntry(characterId?: string): CharacterEntry {
   const id = characterId ?? DEFAULT_CHARACTER_ID;
-  const entry = REGISTRY[id];
-  if (!entry) {
+  if (!hasCharacter(id)) {
     throw new Error(CHARACTER_REGISTRY_ERROR_MESSAGES.UNKNOWN_CHARACTER);
   }
-  return entry;
+  return REGISTRY[id];
 }
 
 /**
@@ -76,5 +75,5 @@ export function getCharacterRenderProfile(characterId?: string): CharacterRender
  * route の入力バリデーション等で使用する。
  */
 export function hasCharacter(characterId: string): boolean {
-  return characterId in REGISTRY;
+  return Object.prototype.hasOwnProperty.call(REGISTRY, characterId);
 }
