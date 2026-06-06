@@ -1,6 +1,6 @@
 ---
 title: 'Codec Converter - 使い方ガイド'
-description: 'Codec Converter の使い方を詳しく解説します。動画・音声ファイルのアップロードからコーデック選択・品質設定・ダウンロードまでの全操作手順を説明します。'
+description: 'Codec Converter の使い方を詳しく解説します。MP4 動画ファイルのアップロードからコーデック選択・品質設定・ダウンロードまでの全操作手順を説明します。'
 service: 'codec-converter'
 type: 'guide'
 updatedAt: '2026-04-10'
@@ -8,7 +8,7 @@ updatedAt: '2026-04-10'
 
 ## Codec Converter の使い方ガイド
 
-このページでは、Codec Converter を使って動画・音声ファイルを変換する手順を解説します。
+このページでは、Codec Converter を使って MP4 動画ファイルを変換する手順を解説します。
 
 ## 事前準備
 
