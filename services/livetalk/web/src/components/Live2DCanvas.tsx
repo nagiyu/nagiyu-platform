@@ -357,8 +357,14 @@ export default function Live2DCanvas({
       if (lifecycleStateRef.current !== 'sleeping') return;
       try {
         const value = computeEyeOpen(performance.now());
-        internalModel.coreModel?.setParameterValueById?.(renderProfile.cubismParams.eyeLOpen, value);
-        internalModel.coreModel?.setParameterValueById?.(renderProfile.cubismParams.eyeROpen, value);
+        internalModel.coreModel?.setParameterValueById?.(
+          renderProfile.cubismParams.eyeLOpen,
+          value
+        );
+        internalModel.coreModel?.setParameterValueById?.(
+          renderProfile.cubismParams.eyeROpen,
+          value
+        );
       } catch {
         // 型情報がない internal API のため best-effort
       }

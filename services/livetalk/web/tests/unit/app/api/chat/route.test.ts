@@ -239,7 +239,10 @@ describe('POST /api/chat', () => {
 
       // runChatUseCase に characterId と character が渡されていることを確認する
       expect(mockRunChatUseCase).toHaveBeenCalledWith(
-        expect.objectContaining({ characterId: 'hiyori', character: expect.objectContaining({ id: 'hiyori' }) })
+        expect.objectContaining({
+          characterId: 'hiyori',
+          character: expect.objectContaining({ id: 'hiyori' }),
+        })
       );
     });
 
