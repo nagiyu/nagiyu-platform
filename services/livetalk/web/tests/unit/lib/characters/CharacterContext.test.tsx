@@ -2,9 +2,13 @@
  * CharacterContext のユニットテスト。
  */
 import React from 'react';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { CharacterProvider, useCharacter, CHARACTER_CONTEXT_ERROR_MESSAGES } from '@/lib/characters/CharacterContext';
+import {
+  CharacterProvider,
+  useCharacter,
+  CHARACTER_CONTEXT_ERROR_MESSAGES,
+} from '@/lib/characters/CharacterContext';
 import { DEFAULT_CLIENT_CHARACTER_ID } from '@/lib/characters/client-profiles';
 
 /** useCharacter の結果を描画するテスト用コンポーネント */

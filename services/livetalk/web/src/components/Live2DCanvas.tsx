@@ -386,6 +386,8 @@ export default function Live2DCanvas({
     };
     // characterId が変更されてもモデルロード effect（依存 [characterId]）が旧モデルを
     // 破棄してから新モデルを作り直すため、この effect は lifecycleState・modelReady のみ依存で十分。
+    // applyEyes は renderProfile（characterId 由来）を参照するが、上記理由で再適用不要。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lifecycleState, modelReady]);
 
   return (

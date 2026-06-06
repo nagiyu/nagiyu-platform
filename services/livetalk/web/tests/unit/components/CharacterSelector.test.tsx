@@ -3,7 +3,6 @@
  */
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import CharacterSelector from '@/components/CharacterSelector';
 import { CharacterProvider } from '@/lib/characters/CharacterContext';
 import { getRegisteredProfileIds, getCharacterDisplay } from '@/lib/characters/client-profiles';
@@ -21,39 +20,32 @@ describe('CharacterSelector', () => {
   describe('登録済みキャラクターの表示', () => {
     it('現在の characterId が Select の value として選択されている', () => {
       renderWithProvider();
-      // MUI Select のデフォルト表示を確認（hiyori が表示名で表示される）
-      const profileIds = getRegisteredProfileIds();
-      const firstId = profileIds[0];
+      const firstId = getRegisteredProfileIds()[0];
       const display = getCharacterDisplay(firstId);
       expect(screen.getByText(display.displayName)).toBeInTheDocument();
+      expect(screen.getByRole('combobox')).toHaveValue(firstId);
     });
 
     it('aria-label が付いている（アクセシビリティ）', () => {
       renderWithProvider();
-      // inputProps の aria-label は native input に付く
-      const input = screen.getByRole('combobox');
-      expect(input).toBeInTheDocument();
+      expect(screen.getByRole('combobox')).toHaveAttribute('aria-label', 'キャラクター選択');
     });
   });
 
   describe('disabled prop', () => {
-    it('disabled=true のとき Select に aria-disabled が付く', () => {
+    it('disabled=true のとき Select が無効化される', () => {
       renderWithProvider(true);
-      // MUI Select は disabled のとき aria-disabled="true" を付与する
-      const selectButton = screen.getByRole('combobox');
-      expect(selectButton).toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByRole('combobox')).toBeDisabled();
     });
 
-    it('disabled=false のとき Select に aria-disabled が付かない', () => {
+    it('disabled=false のとき Select は有効', () => {
       renderWithProvider(false);
-      const selectButton = screen.getByRole('combobox');
-      expect(selectButton).not.toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByRole('combobox')).not.toBeDisabled();
     });
 
-    it('disabled 未指定のとき Select に aria-disabled が付かない', () => {
+    it('disabled 未指定のとき Select は有効', () => {
       renderWithProvider();
-      const selectButton = screen.getByRole('combobox');
-      expect(selectButton).not.toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByRole('combobox')).not.toBeDisabled();
     });
   });
 
