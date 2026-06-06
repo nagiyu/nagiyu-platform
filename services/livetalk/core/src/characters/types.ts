@@ -6,10 +6,7 @@
  * @see docs/services/livetalk/architecture.md §2.10（CharacterDefinition 抽象化）
  * @see Issue #3249
  */
-
-export interface VoiceDefinition {
-  speakerId: number;
-}
+import type { VoiceConfig } from '../voice/types.js';
 
 export interface PersonalityDefinition {
   /** 基本の system prompt 本文 */
@@ -27,7 +24,8 @@ export interface CharacterDefinition {
   id: string;
   displayName: string;
   personality: PersonalityDefinition;
-  voiceConfig: VoiceDefinition;
+  /** キャラが使用する音声設定。プロバイダ非依存の VoiceConfig を参照する。 */
+  voiceConfig: VoiceConfig;
   license: {
     displayText: string;
     creditName: string;

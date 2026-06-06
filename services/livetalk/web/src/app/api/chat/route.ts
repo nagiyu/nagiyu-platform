@@ -3,7 +3,7 @@ import { withAuth } from '@nagiyu/nextjs';
 import { DEFAULT_CHARACTER_ID, hiyori, runChatUseCase } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
 import { getLLMClient } from '@/lib/server/llm';
-import { getVoicevoxClient } from '@/lib/server/voicevox';
+import { getVoiceClient } from '@/lib/server/voice';
 import {
   getCharacterStateRepository,
   getKnowledgeRepository,
@@ -101,7 +101,7 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (session, reques
           userText: text,
           character: hiyori,
           llmClient: getLLMClient(),
-          voiceClient: getVoicevoxClient(),
+          voiceClient: getVoiceClient(),
           messageRepository: getMessageRepository(),
           safetyEventRepository: getSafetyEventRepository(),
           moderationClient: getModerationClient(),

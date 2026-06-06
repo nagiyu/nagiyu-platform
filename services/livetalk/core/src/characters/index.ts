@@ -1,4 +1,4 @@
-export type { CharacterDefinition, PersonalityDefinition, VoiceDefinition } from './types.js';
+export type { CharacterDefinition, PersonalityDefinition } from './types.js';
 export { hiyori } from './hiyori.js';
 export {
   buildSystemPrompt,

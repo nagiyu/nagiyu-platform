@@ -37,7 +37,8 @@ export interface ChatMetrics {
     promotionCheck?: number;
     llmTtfb?: number;
     llmTotal?: number;
-    voicevoxTotal?: number;
+    /** TTS（音声合成）の合計レイテンシ（プロバイダ非依存の名称）。 */
+    ttsTotal?: number;
     chatTotal?: number;
   };
 

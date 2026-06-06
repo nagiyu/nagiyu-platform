@@ -1,4 +1,5 @@
-import type { IVoiceClient, VoicevoxClientOptions } from './types.js';
+import type { IVoiceClient, VoiceConfig } from '../voice/types.js';
+import type { VoicevoxClientOptions } from './types.js';
 
 /**
  * クライアント周りのエラーメッセージ（日本語、定数化）。
@@ -36,13 +37,15 @@ export class VoicevoxClient implements IVoiceClient {
     this.fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
   }
 
-  public async synthesize(text: string, speakerId?: number): Promise<ArrayBuffer> {
+  public async synthesize(text: string, voice?: VoiceConfig): Promise<ArrayBuffer> {
     const trimmed = text.trim();
     if (!trimmed) {
       throw new Error(VOICEVOX_ERROR_MESSAGES.EMPTY_TEXT);
     }
 
-    const speaker = speakerId ?? this.defaultSpeakerId;
+    // voice が省略された場合、または provider が voicevox でない場合は既定話者を使用する
+    const speaker =
+      voice && voice.provider === 'voicevox' ? voice.speakerId : this.defaultSpeakerId;
     const audioQuery = await this.callAudioQuery(trimmed, speaker);
     return this.callSynthesis(audioQuery, speaker);
   }
