@@ -228,5 +228,49 @@ describe('POST /api/chat', () => {
       const json = await res.json();
       expect(json.message).toBe(CHAT_ERROR_MESSAGES.INVALID_REQUEST);
     });
+
+    it('characterId を省略した場合は DEFAULT_CHARACTER_ID で動作する', async () => {
+      mockRunChatUseCase.mockImplementation(async function* () {
+        yield { type: 'done' };
+      });
+
+      const res = await POST(buildRequest({ text: 'こんにちは' }));
+      expect(res.status).toBe(200);
+
+      // runChatUseCase に characterId と character が渡されていることを確認する
+      expect(mockRunChatUseCase).toHaveBeenCalledWith(
+        expect.objectContaining({
+          characterId: 'hiyori',
+          character: expect.objectContaining({ id: 'hiyori' }),
+        })
+      );
+    });
+
+    it('characterId に登録済みの "hiyori" を指定した場合は正常に動作する', async () => {
+      mockRunChatUseCase.mockImplementation(async function* () {
+        yield { type: 'done' };
+      });
+
+      const res = await POST(buildRequest({ text: 'こんにちは', characterId: 'hiyori' }));
+      expect(res.status).toBe(200);
+
+      expect(mockRunChatUseCase).toHaveBeenCalledWith(
+        expect.objectContaining({ characterId: 'hiyori' })
+      );
+    });
+
+    it('未登録の characterId を指定した場合は 400 INVALID_REQUEST を返す', async () => {
+      const res = await POST(buildRequest({ text: 'こんにちは', characterId: 'unknown' }));
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.message).toBe(CHAT_ERROR_MESSAGES.INVALID_REQUEST);
+    });
+
+    it('characterId が数値型のリクエストは 400 INVALID_REQUEST', async () => {
+      const res = await POST(buildRequest({ text: 'hello', characterId: 123 }));
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.message).toBe(CHAT_ERROR_MESSAGES.INVALID_REQUEST);
+    });
   });
 });
