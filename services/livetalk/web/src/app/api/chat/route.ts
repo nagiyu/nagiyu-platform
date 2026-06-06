@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
 import { DEFAULT_CHARACTER_ID, runChatUseCase } from '@nagiyu/livetalk-core';
-import { getCharacterDefinition, hasCharacter } from '@/lib/characters';
+import { getCharacterDefinition, hasCharacter } from '@/lib/characters/registry';
 import { getSession } from '@/lib/server/session';
 import { getLLMClient } from '@/lib/server/llm';
 import { getVoicevoxClient } from '@/lib/server/voicevox';

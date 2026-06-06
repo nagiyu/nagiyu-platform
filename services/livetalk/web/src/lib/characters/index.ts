@@ -1,9 +1,9 @@
+// このバレルは client-safe なモジュールのみを再エクスポートする。
+// 定義の結合（core 依存）が必要な server コードは `./registry` を直接 import すること。
 export type { CharacterRenderProfile } from './types';
-export type { CharacterEntry } from './registry';
 export {
-  CHARACTER_REGISTRY_ERROR_MESSAGES,
-  getCharacterEntry,
-  getCharacterDefinition,
+  DEFAULT_RENDER_CHARACTER_ID,
+  CHARACTER_RENDER_ERROR_MESSAGES,
   getCharacterRenderProfile,
-  hasCharacter,
-} from './registry';
+  hasRenderProfile,
+} from './render-profiles';

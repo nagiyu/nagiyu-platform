@@ -5,9 +5,10 @@ import {
   CHARACTER_REGISTRY_ERROR_MESSAGES,
   getCharacterEntry,
   getCharacterDefinition,
-  getCharacterRenderProfile,
+  getRegisteredCharacterIds,
   hasCharacter,
 } from '@/lib/characters/registry';
+import { DEFAULT_RENDER_CHARACTER_ID, hasRenderProfile } from '@/lib/characters/render-profiles';
 import { DEFAULT_CHARACTER_ID } from '@nagiyu/livetalk-core';
 
 describe('キャラクターレジストリ', () => {
@@ -16,6 +17,9 @@ describe('キャラクターレジストリ', () => {
       const entry = getCharacterEntry();
       expect(entry.definition.id).toBe('hiyori');
       expect(entry.definition.displayName).toBe('桃瀬ひより');
+      expect(entry.render.modelPath).toBe(
+        '/assets/characters/hiyori/runtime/hiyori_free_t08.model3.json'
+      );
     });
 
     it('DEFAULT_CHARACTER_ID を明示的に渡しても hiyori を返す', () => {
@@ -23,10 +27,10 @@ describe('キャラクターレジストリ', () => {
       expect(entry.definition.id).toBe(DEFAULT_CHARACTER_ID);
     });
 
-    it('"hiyori" を指定すると hiyori の CharacterEntry を返す', () => {
+    it('"hiyori" を指定すると定義と描画設定の両方を返す', () => {
       const entry = getCharacterEntry('hiyori');
       expect(entry.definition.id).toBe('hiyori');
-      expect(entry.render.modelPath).toBeDefined();
+      expect(entry.render.cubismParams.mouthOpenY).toBe('ParamMouthOpenY');
     });
 
     it('未登録の characterId を指定すると日本語定数メッセージで Error をスローする', () => {
@@ -37,6 +41,12 @@ describe('キャラクターレジストリ', () => {
 
     it('エラーメッセージ定数は日本語を含む', () => {
       expect(CHARACTER_REGISTRY_ERROR_MESSAGES.UNKNOWN_CHARACTER).toMatch(/[ぁ-ん]/);
+    });
+
+    it('"toString" などプロトタイプ継承プロパティ名を渡すとスローする', () => {
+      expect(() => getCharacterEntry('toString')).toThrow(
+        CHARACTER_REGISTRY_ERROR_MESSAGES.UNKNOWN_CHARACTER
+      );
     });
   });
 
@@ -62,43 +72,6 @@ describe('キャラクターレジストリ', () => {
     });
   });
 
-  describe('getCharacterRenderProfile', () => {
-    it('引数なしで hiyori の CharacterRenderProfile を返す', () => {
-      const renderProfile = getCharacterRenderProfile();
-      expect(renderProfile.modelPath).toBe(
-        '/assets/characters/hiyori/runtime/hiyori_free_t08.model3.json'
-      );
-    });
-
-    it('modelPath が正しいパスを返す', () => {
-      const renderProfile = getCharacterRenderProfile('hiyori');
-      expect(renderProfile.modelPath).toBe(
-        '/assets/characters/hiyori/runtime/hiyori_free_t08.model3.json'
-      );
-    });
-
-    it('cubismParams.mouthOpenY が正しいパラメータ ID を返す', () => {
-      const renderProfile = getCharacterRenderProfile('hiyori');
-      expect(renderProfile.cubismParams.mouthOpenY).toBe('ParamMouthOpenY');
-    });
-
-    it('cubismParams.eyeLOpen が正しいパラメータ ID を返す', () => {
-      const renderProfile = getCharacterRenderProfile('hiyori');
-      expect(renderProfile.cubismParams.eyeLOpen).toBe('ParamEyeLOpen');
-    });
-
-    it('cubismParams.eyeROpen が正しいパラメータ ID を返す', () => {
-      const renderProfile = getCharacterRenderProfile('hiyori');
-      expect(renderProfile.cubismParams.eyeROpen).toBe('ParamEyeROpen');
-    });
-
-    it('未登録の id を指定するとスローする', () => {
-      expect(() => getCharacterRenderProfile('unknown')).toThrow(
-        CHARACTER_REGISTRY_ERROR_MESSAGES.UNKNOWN_CHARACTER
-      );
-    });
-  });
-
   describe('hasCharacter', () => {
     it('"hiyori" は登録済みなので true を返す', () => {
       expect(hasCharacter('hiyori')).toBe(true);
@@ -119,11 +92,17 @@ describe('キャラクターレジストリ', () => {
     });
   });
 
-  describe('プロトタイプ継承プロパティの扱い', () => {
-    it('getCharacterEntry に "toString" を渡すとスローする', () => {
-      expect(() => getCharacterEntry('toString')).toThrow(
-        CHARACTER_REGISTRY_ERROR_MESSAGES.UNKNOWN_CHARACTER
-      );
+  describe('core 定義と描画設定の同期', () => {
+    it('描画用の既定 ID は core の DEFAULT_CHARACTER_ID と一致する', () => {
+      // render-profiles.ts は core バレルを import できないため定数を複製している。
+      // 値がずれていないことをここで担保する。
+      expect(DEFAULT_RENDER_CHARACTER_ID).toBe(DEFAULT_CHARACTER_ID);
+    });
+
+    it('登録済みの全キャラクター定義に対応する描画設定が存在する', () => {
+      for (const id of getRegisteredCharacterIds()) {
+        expect(hasRenderProfile(id)).toBe(true);
+      }
     });
   });
 });

@@ -1,6 +1,10 @@
 import { hiyori, DEFAULT_CHARACTER_ID } from '@nagiyu/livetalk-core';
 import type { CharacterDefinition } from '@nagiyu/livetalk-core';
-import type { CharacterRenderProfile } from './types';
+import {
+  getCharacterRenderProfile,
+  hasRenderProfile,
+  type CharacterRenderProfile,
+} from './render-profiles';
 
 /**
  * キャラクターレジストリのエラーメッセージ定数。
@@ -18,28 +22,25 @@ export interface CharacterEntry {
 }
 
 /**
- * hiyori の描画設定（既存の値を移植）。
+ * キャラクター定義の静的レジストリ（id をキーに core の CharacterDefinition を保持）。
+ *
+ * このモジュールは core のバレルを import するため server 専用コードを引き込む。
+ * `'use client'` のコンポーネントから直接 import しないこと
+ * （描画設定だけ必要な場合は `./render-profiles` を使う）。
  */
-const hiyoriRenderProfile: CharacterRenderProfile = {
-  modelPath: '/assets/characters/hiyori/runtime/hiyori_free_t08.model3.json',
-  cubismParams: {
-    mouthOpenY: 'ParamMouthOpenY',
-    eyeLOpen: 'ParamEyeLOpen',
-    eyeROpen: 'ParamEyeROpen',
-  },
+const DEFINITIONS: Record<string, CharacterDefinition> = {
+  [hiyori.id]: hiyori,
 };
 
 /**
- * 静的キャラクターレジストリ。
- * id をキーに CharacterEntry を保持する。
- * 将来のキャラ追加時はここにエントリを追加する。
+ * 指定 characterId がレジストリに登録されているか判定する。
+ * 定義と描画設定の両方が揃っている場合のみ true。
  */
-const REGISTRY: Record<string, CharacterEntry> = {
-  [hiyori.id]: {
-    definition: hiyori,
-    render: hiyoriRenderProfile,
-  },
-};
+export function hasCharacter(characterId: string): boolean {
+  return (
+    Object.prototype.hasOwnProperty.call(DEFINITIONS, characterId) && hasRenderProfile(characterId)
+  );
+}
 
 /**
  * 指定 characterId に対応する CharacterEntry を返す。
@@ -51,7 +52,10 @@ export function getCharacterEntry(characterId?: string): CharacterEntry {
   if (!hasCharacter(id)) {
     throw new Error(CHARACTER_REGISTRY_ERROR_MESSAGES.UNKNOWN_CHARACTER);
   }
-  return REGISTRY[id];
+  return {
+    definition: DEFINITIONS[id],
+    render: getCharacterRenderProfile(id),
+  };
 }
 
 /**
@@ -63,17 +67,11 @@ export function getCharacterDefinition(characterId?: string): CharacterDefinitio
 }
 
 /**
- * 指定 characterId に対応する CharacterRenderProfile を返す。
- * characterId を省略した場合は DEFAULT_CHARACTER_ID を使用する。
+ * 登録済みのキャラクター定義 ID の一覧を返す（テスト・同期検証用）。
  */
-export function getCharacterRenderProfile(characterId?: string): CharacterRenderProfile {
-  return getCharacterEntry(characterId).render;
+export function getRegisteredCharacterIds(): string[] {
+  return Object.keys(DEFINITIONS);
 }
 
-/**
- * 指定 characterId がレジストリに登録されているか判定する。
- * route の入力バリデーション等で使用する。
- */
-export function hasCharacter(characterId: string): boolean {
-  return Object.prototype.hasOwnProperty.call(REGISTRY, characterId);
-}
+// 描画設定を server 側からも参照できるよう再エクスポートする。
+export { getCharacterRenderProfile, type CharacterRenderProfile } from './render-profiles';

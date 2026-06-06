@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import type { LifecycleState } from '@nagiyu/livetalk-core';
-import { getCharacterRenderProfile } from '@/lib/characters';
+import { getCharacterRenderProfile } from '@/lib/characters/render-profiles';
 
 // beforeInteractive Script のネットワーク遅延を吸収するため、
 // window.Live2DCubismCore が定義されるまで最大 timeout ms だけ待機する。
@@ -217,6 +217,8 @@ export default function Live2DCanvas({
       loadedRef.current = false;
       setModelReady(false);
     };
+    // characterId は単一キャラ運用前提でマウント時に一度だけ解決する（変更時の再ロードは未対応）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // audioBuffer + audioContext を受け取ったら Web Audio で再生し、AnalyserNode を
@@ -381,6 +383,8 @@ export default function Live2DCanvas({
       internalModel.off?.('afterMotionUpdate', applyEyes);
       internalModel.eyeBlink = savedEyeBlink;
     };
+    // characterId は単一キャラ運用前提で固定参照とする（変更時の再適用は未対応）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lifecycleState, modelReady]);
 
   return (
