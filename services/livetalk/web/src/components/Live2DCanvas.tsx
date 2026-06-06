@@ -53,7 +53,7 @@ function layoutModel(model: Live2DModelInstance, w: number, h: number): void {
 export interface Live2DCanvasProps {
   /**
    * 表示するキャラクターの ID。省略時はレジストリの DEFAULT_CHARACTER_ID を使用する。
-   * 現在は単一キャラ運用のため、characterId 変更時の再ロードには対応していない。
+   * characterId が変更されると旧モデルを破棄し、新モデルをロードする。
    */
   characterId?: string;
   /**
@@ -217,9 +217,10 @@ export default function Live2DCanvas({
       loadedRef.current = false;
       setModelReady(false);
     };
-    // characterId は単一キャラ運用前提でマウント時に一度だけ解決する（変更時の再ロードは未対応）
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // characterId が変更されると cleanup（旧モデル破棄）→ 再実行（新モデルロード）でリロードされる。
+    // loadedRef ガードは cleanup で false にリセットされるため、React StrictMode の
+    // 二重実行対策として温存する。
+  }, [characterId]);
 
   // audioBuffer + audioContext を受け取ったら Web Audio で再生し、AnalyserNode を
   // モデルの motionManager に差し込むことで、ライブラリ既存のリップシンク駆動ループ
@@ -383,8 +384,8 @@ export default function Live2DCanvas({
       internalModel.off?.('afterMotionUpdate', applyEyes);
       internalModel.eyeBlink = savedEyeBlink;
     };
-    // characterId は単一キャラ運用前提で固定参照とする（変更時の再適用は未対応）
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // characterId が変更されてもモデルロード effect（依存 [characterId]）が旧モデルを
+    // 破棄してから新モデルを作り直すため、この effect は lifecycleState・modelReady のみ依存で十分。
   }, [lifecycleState, modelReady]);
 
   return (

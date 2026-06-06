@@ -6,10 +6,12 @@ import {
   DEFAULT_CLIENT_CHARACTER_ID,
   getCharacterClientProfile,
   getCharacterDisplay,
+  getCharacterLicenseText,
   getCharacterRenderProfile,
   getRegisteredProfileIds,
   hasCharacterProfile,
 } from '@/lib/characters/client-profiles';
+import { LIVETALK_LICENSE_TEXT } from '@/lib/legal/terms-data';
 
 describe('クライアントプロファイルレジストリ', () => {
   describe('getCharacterRenderProfile', () => {
@@ -126,5 +128,30 @@ describe('クライアントプロファイルレジストリ', () => {
     it('日本語を含む', () => {
       expect(CHARACTER_PROFILE_ERROR_MESSAGES.UNKNOWN_PROFILE).toMatch(/[ぁ-ん]/);
     });
+  });
+});
+
+describe('getCharacterLicenseText', () => {
+  it('引数なしで既定キャラクター（hiyori）の権利テキストを返す', () => {
+    const text = getCharacterLicenseText();
+    expect(text).toBe(LIVETALK_LICENSE_TEXT);
+  });
+
+  it('hiyori の権利テキストは VOICEVOX クレジットと Live2D クレジットを含む', () => {
+    const text = getCharacterLicenseText(DEFAULT_CLIENT_CHARACTER_ID);
+    expect(text).toContain('VOICEVOX');
+    expect(text).toContain('Live2D');
+  });
+
+  it('未登録の id を指定すると日本語定数メッセージでスローする', () => {
+    expect(() => getCharacterLicenseText('unknown')).toThrow(
+      CHARACTER_PROFILE_ERROR_MESSAGES.UNKNOWN_PROFILE
+    );
+  });
+
+  it('プロファイルに licenseText フィールドが存在する', () => {
+    const profile = getCharacterClientProfile(DEFAULT_CLIENT_CHARACTER_ID);
+    expect(typeof profile.licenseText).toBe('string');
+    expect(profile.licenseText.length).toBeGreaterThan(0);
   });
 });
