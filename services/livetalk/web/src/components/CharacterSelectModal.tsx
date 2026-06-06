@@ -17,6 +17,8 @@ import { useCharacter } from '@/lib/characters/CharacterContext';
 import {
   getCharacterDescription,
   getCharacterDisplay,
+  getCharacterModel,
+  getCharacterVoice,
   getRegisteredProfileIds,
 } from '@/lib/characters/client-profiles';
 
@@ -72,6 +74,8 @@ export default function CharacterSelectModal({ open, onClose }: CharacterSelectM
           {profileIds.map((id) => {
             const display = getCharacterDisplay(id);
             const description = getCharacterDescription(id);
+            const model = getCharacterModel(id);
+            const voice = getCharacterVoice(id);
             return (
               <FormControlLabel
                 key={id}
@@ -83,6 +87,16 @@ export default function CharacterSelectModal({ open, onClose }: CharacterSelectM
                     <Typography variant="body2" color="text.secondary">
                       {description}
                     </Typography>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: 'block', mt: 0.5 }}
+                    >
+                      {`モデル：${model.engine}「${model.name}」`}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                      {`音声：${voice.engine}「${voice.name}」`}
+                    </Typography>
                   </Box>
                 }
               />
@@ -92,7 +106,7 @@ export default function CharacterSelectModal({ open, onClose }: CharacterSelectM
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 3 }}>
-        <Button variant="outline" color="neutral" onClick={handleCancel}>
+        <Button variant="solid" color="neutral" onClick={handleCancel}>
           キャンセル
         </Button>
         <Button variant="solid" color="primary" onClick={handleDecide}>
