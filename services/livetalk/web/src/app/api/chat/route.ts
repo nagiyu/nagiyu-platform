@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
-import { DEFAULT_CHARACTER_ID, hiyori, runChatUseCase } from '@nagiyu/livetalk-core';
+import { DEFAULT_CHARACTER_ID, runChatUseCase } from '@nagiyu/livetalk-core';
+import { getCharacterDefinition, hasCharacter } from '@/lib/characters';
 import { getSession } from '@/lib/server/session';
 import { getLLMClient } from '@/lib/server/llm';
 import { getVoicevoxClient } from '@/lib/server/voicevox';
@@ -23,6 +24,8 @@ interface ChatRequest {
   text: string;
   /** 通知起点の会話の場合、元となった KnowledgeID（任意） */
   knowledgeId?: string;
+  /** キャラクター ID（省略時は DEFAULT_CHARACTER_ID を使用） */
+  characterId?: string;
 }
 
 function isChatRequest(body: unknown): body is ChatRequest {
@@ -31,7 +34,9 @@ function isChatRequest(body: unknown): body is ChatRequest {
     body !== null &&
     typeof (body as Partial<ChatRequest>).text === 'string' &&
     ((body as Partial<ChatRequest>).knowledgeId === undefined ||
-      typeof (body as Partial<ChatRequest>).knowledgeId === 'string')
+      typeof (body as Partial<ChatRequest>).knowledgeId === 'string') &&
+    ((body as Partial<ChatRequest>).characterId === undefined ||
+      typeof (body as Partial<ChatRequest>).characterId === 'string')
   );
 }
 
@@ -72,6 +77,15 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (session, reques
 
   const text = body.text.trim();
   const notificationKnowledgeId = body.knowledgeId?.trim() || undefined;
+  const characterId = body.characterId ?? DEFAULT_CHARACTER_ID;
+
+  if (!hasCharacter(characterId)) {
+    return NextResponse.json(
+      { error: 'INVALID_REQUEST', message: CHAT_ERROR_MESSAGES.INVALID_REQUEST },
+      { status: 400 }
+    );
+  }
+
   if (!text) {
     return NextResponse.json(
       { error: 'EMPTY_TEXT', message: CHAT_ERROR_MESSAGES.EMPTY_TEXT },
@@ -97,9 +111,9 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (session, reques
       try {
         const eventGenerator = runChatUseCase({
           userId,
-          characterId: DEFAULT_CHARACTER_ID,
+          characterId,
           userText: text,
-          character: hiyori,
+          character: getCharacterDefinition(characterId),
           llmClient: getLLMClient(),
           voiceClient: getVoicevoxClient(),
           messageRepository: getMessageRepository(),

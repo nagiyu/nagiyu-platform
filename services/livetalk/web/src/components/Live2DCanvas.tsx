@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import type { LifecycleState } from '@nagiyu/livetalk-core';
-import { HIYORI_MODEL_PATH } from '@/lib/character-renderer';
+import { getCharacterRenderProfile } from '@/lib/characters';
 
 // beforeInteractive Script のネットワーク遅延を吸収するため、
 // window.Live2DCubismCore が定義されるまで最大 timeout ms だけ待機する。
@@ -52,6 +52,11 @@ function layoutModel(model: Live2DModelInstance, w: number, h: number): void {
 
 export interface Live2DCanvasProps {
   /**
+   * 表示するキャラクターの ID。省略時はレジストリの DEFAULT_CHARACTER_ID を使用する。
+   * 現在は単一キャラ運用のため、characterId 変更時の再ロードには対応していない。
+   */
+  characterId?: string;
+  /**
    * 再生対象の AudioBuffer。null または undefined のときは再生しない。
    *
    * iOS Safari の HTMLAudioElement autoplay 制約（transient activation token を
@@ -93,6 +98,7 @@ export interface Live2DCanvasProps {
  * playback は transient activation token を消費しないため何回でも再生できる。
  */
 export default function Live2DCanvas({
+  characterId,
   audioBuffer,
   audioContext,
   statusText,
@@ -166,7 +172,8 @@ export default function Live2DCanvas({
       container.appendChild(app.view as HTMLCanvasElement);
 
       try {
-        const model = await Live2DModel.from(HIYORI_MODEL_PATH, {
+        const renderProfile = getCharacterRenderProfile(characterId);
+        const model = await Live2DModel.from(renderProfile.modelPath, {
           autoInteract: false,
           // PIXI Application のティッカーを渡してアイドルモーション・呼吸・まばたきを駆動する
           ticker: app.ticker,
@@ -345,12 +352,13 @@ export default function Live2DCanvas({
       return EYE_MAX;
     };
 
+    const renderProfile = getCharacterRenderProfile(characterId);
     const applyEyes = () => {
       if (lifecycleStateRef.current !== 'sleeping') return;
       try {
         const value = computeEyeOpen(performance.now());
-        internalModel.coreModel?.setParameterValueById?.('ParamEyeLOpen', value);
-        internalModel.coreModel?.setParameterValueById?.('ParamEyeROpen', value);
+        internalModel.coreModel?.setParameterValueById?.(renderProfile.cubismParams.eyeLOpen, value);
+        internalModel.coreModel?.setParameterValueById?.(renderProfile.cubismParams.eyeROpen, value);
       } catch {
         // 型情報がない internal API のため best-effort
       }
