@@ -2,9 +2,9 @@ import { hiyori, DEFAULT_CHARACTER_ID } from '@nagiyu/livetalk-core';
 import type { CharacterDefinition } from '@nagiyu/livetalk-core';
 import {
   getCharacterRenderProfile,
-  hasRenderProfile,
+  hasCharacterProfile,
   type CharacterRenderProfile,
-} from './render-profiles';
+} from './client-profiles';
 
 /**
  * キャラクターレジストリのエラーメッセージ定数。
@@ -26,7 +26,7 @@ export interface CharacterEntry {
  *
  * このモジュールは core のバレルを import するため server 専用コードを引き込む。
  * `'use client'` のコンポーネントから直接 import しないこと
- * （描画設定だけ必要な場合は `./render-profiles` を使う）。
+ * （クライアント側の情報が必要な場合は `./client-profiles` を使う）。
  */
 const DEFINITIONS: Record<string, CharacterDefinition> = {
   [hiyori.id]: hiyori,
@@ -38,7 +38,8 @@ const DEFINITIONS: Record<string, CharacterDefinition> = {
  */
 export function hasCharacter(characterId: string): boolean {
   return (
-    Object.prototype.hasOwnProperty.call(DEFINITIONS, characterId) && hasRenderProfile(characterId)
+    Object.prototype.hasOwnProperty.call(DEFINITIONS, characterId) &&
+    hasCharacterProfile(characterId)
   );
 }
 
@@ -73,5 +74,15 @@ export function getRegisteredCharacterIds(): string[] {
   return Object.keys(DEFINITIONS);
 }
 
-// 描画設定を server 側からも参照できるよう再エクスポートする。
-export { getCharacterRenderProfile, type CharacterRenderProfile } from './render-profiles';
+// クライアントプロファイルを server 側からも参照できるよう再エクスポートする。
+export {
+  getCharacterRenderProfile,
+  getCharacterDisplay,
+  getCharacterClientProfile,
+  hasCharacterProfile,
+  DEFAULT_CLIENT_CHARACTER_ID,
+  CHARACTER_PROFILE_ERROR_MESSAGES,
+  type CharacterRenderProfile,
+  type CharacterClientProfile,
+  type CharacterDisplay,
+} from './client-profiles';
