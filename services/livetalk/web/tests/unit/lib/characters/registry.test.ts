@@ -8,7 +8,11 @@ import {
   getRegisteredCharacterIds,
   hasCharacter,
 } from '@/lib/characters/registry';
-import { DEFAULT_RENDER_CHARACTER_ID, hasRenderProfile } from '@/lib/characters/render-profiles';
+import {
+  DEFAULT_CLIENT_CHARACTER_ID,
+  getCharacterDisplay,
+  hasCharacterProfile,
+} from '@/lib/characters/client-profiles';
 import { DEFAULT_CHARACTER_ID } from '@nagiyu/livetalk-core';
 
 describe('キャラクターレジストリ', () => {
@@ -92,16 +96,24 @@ describe('キャラクターレジストリ', () => {
     });
   });
 
-  describe('core 定義と描画設定の同期', () => {
-    it('描画用の既定 ID は core の DEFAULT_CHARACTER_ID と一致する', () => {
-      // render-profiles.ts は core バレルを import できないため定数を複製している。
+  describe('core 定義とクライアントプロファイルの同期', () => {
+    it('クライアント側の既定 ID は core の DEFAULT_CHARACTER_ID と一致する', () => {
+      // client-profiles.ts は core バレルを import できないため定数を複製している。
       // 値がずれていないことをここで担保する。
-      expect(DEFAULT_RENDER_CHARACTER_ID).toBe(DEFAULT_CHARACTER_ID);
+      expect(DEFAULT_CLIENT_CHARACTER_ID).toBe(DEFAULT_CHARACTER_ID);
     });
 
-    it('登録済みの全キャラクター定義に対応する描画設定が存在する', () => {
+    it('登録済みの全キャラクター定義に対応するクライアントプロファイルが存在する', () => {
       for (const id of getRegisteredCharacterIds()) {
-        expect(hasRenderProfile(id)).toBe(true);
+        expect(hasCharacterProfile(id)).toBe(true);
+      }
+    });
+
+    it('登録済みの全キャラクターについて、client の displayName が core の定義と一致する', () => {
+      for (const id of getRegisteredCharacterIds()) {
+        const clientDisplay = getCharacterDisplay(id);
+        const coreDefinition = getCharacterDefinition(id);
+        expect(clientDisplay.displayName).toBe(coreDefinition.displayName);
       }
     });
   });

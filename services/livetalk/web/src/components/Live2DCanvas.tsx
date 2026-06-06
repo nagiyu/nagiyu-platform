@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import type { LifecycleState } from '@nagiyu/livetalk-core';
-import { getCharacterRenderProfile } from '@/lib/characters/render-profiles';
+import { getCharacterRenderProfile } from '@/lib/characters/client-profiles';
 
 // beforeInteractive Script のネットワーク遅延を吸収するため、
 // window.Live2DCubismCore が定義されるまで最大 timeout ms だけ待機する。

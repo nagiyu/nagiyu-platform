@@ -14,3 +14,22 @@ export interface CharacterRenderProfile {
     eyeROpen: string;
   };
 }
+
+/**
+ * UI で使用するキャラクターの表示名情報（web 専用）。
+ */
+export interface CharacterDisplay {
+  /** 正式名称（core の CharacterDefinition.displayName と一致させる） */
+  displayName: string;
+  /** UI 用の短縮名（web 専用。core には対応フィールドなし） */
+  shortName: string;
+}
+
+/**
+ * クライアント側で必要なキャラクター情報をまとめたプロファイル。
+ * core 非依存なのでクライアントバンドルに含めても server コードを引き込まない。
+ */
+export interface CharacterClientProfile {
+  display: CharacterDisplay;
+  render: CharacterRenderProfile;
+}
