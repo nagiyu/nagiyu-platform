@@ -3,7 +3,7 @@ title: 'Material-UI v7 と Next.js App Router の SSR を両立する ThemeRegis
 description: 'MUI（Material-UI）v7 と Next.js App Router の Server Components で SSR とスタイル一貫性を両立する ThemeRegistry の実装方法を解説。Emotion キャッシュ・ハイドレーション・テーマ切替まで網羅します。'
 slug: 'mui-nextjs-theme-registry'
 publishedAt: '2026-04-15'
-updatedAt: '2026-05-01'
+updatedAt: '2026-06-06'
 author: 'なぎゆー'
 tags: ['Next.js', 'MUI', 'App Router', 'Emotion']
 categories: ['nextjs']
@@ -185,13 +185,24 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
 
 データ取得を Server で済ませ、props として Client Component に渡すパターンが基本形です。
 
-## ハマりどころ
+## 実装ノート
 
-- **`'use client'` を忘れる**: `useServerInsertedHTML` が undefined と言われる。
-- **`cache.compat = true` を忘れる**: 古い Emotion との互換性が壊れる場合がある。
-- **`prepend: false`**: スタイル順序が逆になり、独自 CSS が MUI に上書きされる。
-- **複数の Emotion インスタンス**: 依存ライブラリが別バージョンの Emotion を持ち込むと、別キャッシュで二重スタイルになる。`npm ls @emotion/react` で重複していないか確認。
-- **`<CssBaseline />` 配置忘れ**: ブラウザのデフォルト CSS が残り、フォント・余白が崩れる。
+ここまで手書きの `ThemeRegistry` を解説してきましたが、正直に書くと、nagiyu-platform 本体では私はこの自前キャッシュを使っていません。実際に採用しているのは MUI 公式の `AppRouterCacheProvider`（`@mui/material-nextjs/v16-appRouter`）で、Emotion キャッシュと `useServerInsertedHTML` 相当の処理はライブラリ側に任せています。理由はシンプルで、自前で `cache.insert` をラップして `flush()` を回す保守コストを、私が背負い続けたくなかったからです。MUI も v9 系まで上がり、公式実装が安定したので、車輪の再発明をやめました。
+
+さらに私は、このプロバイダを各サービスにコピペするのではなく、`@nagiyu/ui` の `AppThemeProvider` という 1 つの Client Component に集約しています。中身は `AppRouterCacheProvider` → `ThemeProvider` → `CssBaseline` → `children` というだけの薄いラッパーで、Portal の `layout.tsx` からは `<AppThemeProvider>` を呼ぶだけ。テーマ実装が複数サービスで散らからないよう、共通ライブラリに寄せたのが自分の設計判断です。
+
+## ハマったポイント
+
+記事のサンプルコードと違って公式プロバイダに寄せた今でも、私が実際に踏んだ地雷はテーマ定義側に残りました。
+
+- **palette に CSS 変数を入れて壊した**: 最初は `tokens.css` の `var(--...)` をそのまま palette に流し込もうとしたのですが、MUI 内部の `alpha()` / `decomposeColor()` は `var()` を色として解釈できず、ホバー時の半透明色などで例外が出ました。結局 `theme.ts` の palette には `#1565c0` のような具体的な色値を直書きし、角丸・影・トランジションなどの非カラー値だけ `var(--radius-md)` のように CSS 変数を参照する、という割り切りに落ち着いています。
+- **`'use client'` の置き場所**: `AppThemeProvider` 自体は `'use client'` ですが、その子に Server Component を素直に渡せることを最初は半信半疑で確かめました。
+- **`textTransform` の上書き忘れ**: 日本語ボタンが大文字化されないよう、自分のテーマでは `button.textTransform: 'none'` を必ず入れています。これを忘れると英語ラベルだけ妙に大文字になります。
+- **複数の Emotion インスタンス**: 依存ライブラリが別バージョンの Emotion を持ち込むと別キャッシュで二重スタイルになるため、`npm ls @emotion/react` で重複していないかは今でも確認します。
+
+## 現在の運用
+
+現状 nagiyu-platform では、テーマはライト 1 種類で固定運用しています。本記事ではダークモード切替の例も載せましたが、これは「やろうと思えばできる」という解説であって、Portal 本番にトグルはまだ入れていません。私の優先順位として、まずは複数サービスで見た目を揃えること（共通 `AppThemeProvider` + `tokens.css`）を先に固め、ダークモードは後回しにした、というのが正直なところです。逆に言えば、テーマ実装を 1 箇所に集約してあるおかげで、ダークモード対応が必要になっても触る場所は `@nagiyu/ui` 配下だけで済む見込みです。
 
 ## まとめ
 
