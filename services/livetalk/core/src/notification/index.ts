@@ -3,6 +3,8 @@ export {
   extractSessionStartTimes,
   computeSessionIntervals,
   computeBaseIntervalMs,
+  computeIntensityFactor,
+  computeDailyNormalCap,
   resolveToneBucket,
   countTodayNotifications,
   median,

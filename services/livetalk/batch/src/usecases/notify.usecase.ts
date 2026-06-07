@@ -199,14 +199,22 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
     body = msg.body;
     knowledgeId = decision.knowledgeId;
   } else {
-    const latestKnowledge = recentKnowledge[0];
+    // 直近で使用済みの KnowledgeID を避けてネタを選ぶ（同じ話題の連発を抑制）
+    const usedKnowledgeIds = new Set(
+      notifEvents
+        .map((e: { KnowledgeID?: string }) => e.KnowledgeID)
+        .filter((id: string | undefined): id is string => id !== undefined)
+    );
+    const freshKnowledge =
+      recentKnowledge.find((k: { KnowledgeID: string }) => !usedKnowledgeIds.has(k.KnowledgeID)) ??
+      recentKnowledge[0];
     const msg = buildNotificationMessage(
-      { toneBucket: decision.toneBucket, knowledgeTopic: latestKnowledge?.Topic },
+      { toneBucket: decision.toneBucket, knowledgeTopic: freshKnowledge?.Topic },
       currentNow.getTime()
     );
     title = msg.title;
     body = msg.body;
-    knowledgeId = latestKnowledge?.KnowledgeID;
+    knowledgeId = freshKnowledge?.KnowledgeID;
   }
 
   const ttl = Math.floor(currentNow.getTime() / 1000) + NOTIFICATION_EVENT_TTL_SECONDS;

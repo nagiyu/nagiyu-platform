@@ -280,6 +280,133 @@ describe('notifyAllUsers', () => {
     expect(notifEventRepo.put).toHaveBeenCalledWith(expect.objectContaining({ KnowledgeID: 'k1' }));
   });
 
+  describe('Phase 2: ネタ使い回し抑制', () => {
+    it('直近通知で使用済みの KnowledgeID を避けて未使用の Knowledge が選ばれる', async () => {
+      // k1 は使用済み、k2 は未使用 → k2 が選ばれること
+      const knowledgeRepo = {
+        list: jest.fn().mockResolvedValue([
+          { KnowledgeID: 'k1', Topic: 'TypeScript' },
+          { KnowledgeID: 'k2', Topic: 'React' },
+        ]),
+      };
+      // 直近 60 件の通知イベントに k1 が含まれる
+      const notifEventRepo = {
+        listByUser: jest
+          .fn()
+          .mockResolvedValue([{ KnowledgeID: 'k1', Kind: 'normal', CreatedAt: Date.now() - DAY }]),
+        put: jest.fn().mockResolvedValue({}),
+      };
+
+      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockShouldNotifyNow.mockReturnValue({
+        notify: true,
+        kind: 'normal',
+        toneBucket: 'normal',
+        elapsedMs: DAY,
+      });
+      mockSendWebPush.mockResolvedValue(true);
+
+      const buildNotificationMessage = core.buildNotificationMessage as jest.Mock;
+
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      await notifyAllUsers(
+        makeParams({
+          knowledgeRepo: knowledgeRepo as never,
+          notifEventRepo: notifEventRepo as never,
+        })
+      );
+
+      // buildNotificationMessage の呼び出し引数を確認（k2 の Topic が渡されること）
+      expect(buildNotificationMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ knowledgeTopic: 'React' }),
+        expect.any(Number)
+      );
+      // 保存される KnowledgeID も k2
+      expect(notifEventRepo.put).toHaveBeenCalledWith(
+        expect.objectContaining({ KnowledgeID: 'k2' })
+      );
+    });
+
+    it('全 Knowledge が使用済みの場合は先頭（recentKnowledge[0]）にフォールバックする', async () => {
+      // k1, k2 どちらも使用済み → k1（先頭）にフォールバック
+      const knowledgeRepo = {
+        list: jest.fn().mockResolvedValue([
+          { KnowledgeID: 'k1', Topic: 'TypeScript' },
+          { KnowledgeID: 'k2', Topic: 'React' },
+        ]),
+      };
+      const notifEventRepo = {
+        listByUser: jest.fn().mockResolvedValue([
+          { KnowledgeID: 'k1', Kind: 'normal', CreatedAt: Date.now() - DAY },
+          { KnowledgeID: 'k2', Kind: 'normal', CreatedAt: Date.now() - 2 * DAY },
+        ]),
+        put: jest.fn().mockResolvedValue({}),
+      };
+
+      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockShouldNotifyNow.mockReturnValue({
+        notify: true,
+        kind: 'normal',
+        toneBucket: 'normal',
+        elapsedMs: DAY,
+      });
+      mockSendWebPush.mockResolvedValue(true);
+
+      const buildNotificationMessage = core.buildNotificationMessage as jest.Mock;
+
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      await notifyAllUsers(
+        makeParams({
+          knowledgeRepo: knowledgeRepo as never,
+          notifEventRepo: notifEventRepo as never,
+        })
+      );
+
+      // フォールバック → k1（先頭）の Topic が渡される
+      expect(buildNotificationMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ knowledgeTopic: 'TypeScript' }),
+        expect.any(Number)
+      );
+      expect(notifEventRepo.put).toHaveBeenCalledWith(
+        expect.objectContaining({ KnowledgeID: 'k1' })
+      );
+    });
+
+    it('クリティカル通知の content 選択はネタ抑制に影響されない', async () => {
+      // critical は知識が決まっているので recentKnowledge の先頭をそのまま使う
+      const knowledgeRepo = {
+        list: jest.fn().mockResolvedValue([
+          { KnowledgeID: 'k1', Topic: 'TypeScript' },
+          { KnowledgeID: 'k2', Topic: 'React' },
+        ]),
+      };
+      // k1 は使用済みだが critical は影響を受けない
+      const notifEventRepo = {
+        listByUser: jest
+          .fn()
+          .mockResolvedValue([{ KnowledgeID: 'k1', Kind: 'normal', CreatedAt: Date.now() - DAY }]),
+        put: jest.fn().mockResolvedValue({}),
+      };
+
+      mockDetectCritical.mockResolvedValue({ isCritical: true, knowledgeId: 'k1' });
+      mockShouldNotifyNow.mockReturnValue({ notify: true, kind: 'critical', knowledgeId: 'k1' });
+      mockSendWebPush.mockResolvedValue(true);
+
+      const buildCriticalNotificationMessage = core.buildCriticalNotificationMessage as jest.Mock;
+
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      await notifyAllUsers(
+        makeParams({
+          knowledgeRepo: knowledgeRepo as never,
+          notifEventRepo: notifEventRepo as never,
+        })
+      );
+
+      // critical は buildCriticalNotificationMessage が呼ばれる
+      expect(buildCriticalNotificationMessage).toHaveBeenCalledWith('TypeScript');
+    });
+  });
+
   it('DynamoDB scan がページネーション → 全ユーザーを収集する', async () => {
     const docClient = {
       send: jest
