@@ -145,21 +145,34 @@ export function countTodayNotifications(
  * 平常通知の発火判定（純粋関数）。
  *
  * 判定順序:
- *   1. 停止チェック（effectiveInterval > 14日）
- *   2. 1日上限チェック
- *   3. 睡眠帯チェック
- *   4. 活動時間帯チェック
- *   5. 適応的間隔チェック
+ *   1. 睡眠帯チェック（クリティカル・平常問わず先頭で判定）
+ *   2. クリティカル判定（睡眠帯以外の時間帯・間隔ゲートをバイパス）
+ *   3. 停止チェック（effectiveInterval > 14日）
+ *   4. 1日上限チェック
+ *   5. 活動時間帯チェック
+ *   6. 適応的間隔チェック
+ *
+ * クリティカルは睡眠帯を尊重する（深夜に叩き起こさない）。
+ * 睡眠中は起床後の次回バッチで再評価され、遅延配信される。
  */
 export function shouldNotifyNow(input: NotifyDecisionInput): NotifyDecision {
   const { userMessages, lifecycle, notificationEvents, criticalKnowledgeId, now } = input;
 
-  // --- クリティカル判定（時間帯・間隔ゲートをバイパス）---
+  // 1. 睡眠帯チェック（クリティカル・平常問わず最優先）
+  const bedtime = lifecycle.Bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
+  const wakeUpTime = lifecycle.WakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME;
+  const lifecycleState = resolveLifecycleState(now, bedtime, wakeUpTime);
+  if (lifecycleState === 'sleeping') {
+    return { notify: false, reason: 'sleeping' };
+  }
+
+  // 2. クリティカル判定（睡眠帯以外は時間帯・間隔ゲートをバイパス）
   if (criticalKnowledgeId) {
     const todayCritical = countTodayNotifications(notificationEvents, 'critical', now);
     if (todayCritical < NOTIFY_DAILY_CRITICAL_CAP) {
       return { notify: true, kind: 'critical', knowledgeId: criticalKnowledgeId };
     }
+    // cap 到達時は平常判定へフォールスルー
   }
 
   // --- 平常通知判定 ---
@@ -184,26 +197,18 @@ export function shouldNotifyNow(input: NotifyDecisionInput): NotifyDecision {
   const effectiveIntervalMs = baseIntervalMs * Math.pow(NOTIFY_BACKOFF_BASE, missedCount);
   const maxMs = NOTIFY_MAX_INTERVAL_DAYS * 24 * 60 * 60 * 1000;
 
-  // 1. 停止チェック
+  // 3. 停止チェック
   if (effectiveIntervalMs > maxMs) {
     return { notify: false, reason: 'inactive_stopped' };
   }
 
-  // 2. 1日上限チェック
+  // 4. 1日上限チェック
   const todayNormal = countTodayNotifications(notificationEvents, 'normal', now);
   if (todayNormal >= NOTIFY_DAILY_NORMAL_CAP) {
     return { notify: false, reason: 'daily_cap' };
   }
 
-  // 3. 睡眠帯チェック
-  const bedtime = lifecycle.Bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
-  const wakeUpTime = lifecycle.WakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME;
-  const lifecycleState = resolveLifecycleState(now, bedtime, wakeUpTime);
-  if (lifecycleState === 'sleeping') {
-    return { notify: false, reason: 'sleeping' };
-  }
-
-  // 4. 活動時間帯チェック
+  // 5. 活動時間帯チェック
   const activityProfile = lifecycle.UserActivityProfile;
   if (activityProfile) {
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
@@ -218,7 +223,7 @@ export function shouldNotifyNow(input: NotifyDecisionInput): NotifyDecision {
   }
   // UserActivityProfile 未学習なら時間帯ゲートをスキップ（活動時間が不明）
 
-  // 5. 適応的間隔チェック
+  // 6. 適応的間隔チェック
   const elapsedMs = now.getTime() - referenceTime;
   if (elapsedMs < effectiveIntervalMs) {
     return { notify: false, reason: 'not_due' };

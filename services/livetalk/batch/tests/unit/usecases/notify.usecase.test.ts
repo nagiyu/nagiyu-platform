@@ -25,6 +25,8 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   shouldNotifyNow: jest.fn(),
   defaultUlidFactory: jest.fn(() => 'ULID-0001'),
   NOTIFICATION_EVENT_TTL_SECONDS: 2592000,
+  DynamoDBInterestRepository: jest.fn(),
+  OpenAIEmbeddingClient: jest.fn(),
 }));
 
 const mockSendWebPush = jest.requireMock('@nagiyu/common/push')
@@ -97,6 +99,18 @@ function makeLlmClient() {
   return {};
 }
 
+function makeInterestRepo() {
+  return {
+    list: jest.fn().mockResolvedValue([]),
+  };
+}
+
+function makeEmbeddingClient() {
+  return {
+    embed: jest.fn().mockResolvedValue([0, 0, 0]),
+  };
+}
+
 function makeParams(overrides = {}) {
   return {
     docClient: makeDocClient() as never,
@@ -106,7 +120,9 @@ function makeParams(overrides = {}) {
     knowledgeRepo: makeKnowledgeRepo() as never,
     pushSubscriptionRepo: makePushSubscriptionRepo() as never,
     notifEventRepo: makeNotifEventRepo() as never,
+    interestRepo: makeInterestRepo() as never,
     llmClient: makeLlmClient() as never,
+    embeddingClient: makeEmbeddingClient() as never,
     ...overrides,
   };
 }

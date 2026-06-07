@@ -12,6 +12,8 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   DynamoDBKnowledgeRepository: jest.fn(),
   DynamoDBNotificationEventRepository: jest.fn(),
   DynamoDBPushSubscriptionRepository: jest.fn(),
+  DynamoDBInterestRepository: jest.fn(),
+  OpenAIEmbeddingClient: jest.fn(() => ({ embed: jest.fn() })),
   createLLMClient: jest.fn(() => ({})),
   defaultUlidFactory: jest.fn(),
 }));
