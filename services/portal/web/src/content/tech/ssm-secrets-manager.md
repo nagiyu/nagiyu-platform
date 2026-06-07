@@ -1,193 +1,173 @@
 ---
-title: 'SSM Parameter Store と Secrets Manager の使い分け：CDK で設定値と機密情報を管理する'
-description: 'AWS の設定値・機密情報の保管先として SSM Parameter Store と Secrets Manager のどちらを選ぶべきかを整理。料金・ローテーション・暗号化・参照方法の違いを踏まえ、CDK での定義と Lambda からの取得まで実運用ベースで解説します。'
+title: 'SSM Parameter Store と Secrets Manager の使い分け：クロススタック参照と機密管理の実装'
+description: 'AWS の SSM Parameter Store と Secrets Manager を、モノレポ × マルチサービス構成の実装に即して使い分ける指針を整理。Parameter Store はスタック間のリソース参照（CfnOutput / ImportValue の代替）、Secrets Manager は API キーや鍵ペアの機密管理という役割分担を、CDK のコードとともに解説します。'
 slug: 'ssm-secrets-manager'
 publishedAt: '2026-05-25'
 updatedAt: '2026-05-25'
 author: 'なぎゆー'
 tags: ['AWS', 'SSM', 'Secrets Manager', 'CDK']
 categories: ['aws']
+relatedServices: ['stock-tracker', 'livetalk']
 ---
 
 ## はじめに
 
-AWS で「設定値」や「機密情報」をコードの外に追い出そうとすると、まず候補に挙がるのが次の 2 つです。
+AWS で「値をコードの外に出す」手段として、SSM Parameter Store と Secrets Manager はよく並べて語られます。どちらも「キーと値を保管して実行時に取り出す」点は共通していますが、本プラットフォームでは両者を**明確に役割分担**して使っています。
 
-- **SSM Parameter Store**（`aws-cdk-lib/aws-ssm`、Systems Manager の一機能）
-- **Secrets Manager**（`aws-cdk-lib/aws-secretsmanager`）
+- **SSM Parameter Store** … スタックが生成した**非機密のリソース識別子**を、別のスタックへ受け渡す
+- **Secrets Manager** … API キーや鍵ペアといった、**外部由来の機密値**を実行ロールへ安全に渡す
 
-どちらも「キーと値を安全に保管し、実行時に取得する」という役割は共通しています。そのため最初は「どっちでもいいのでは？」と感じがちですが、料金・ローテーション・サイズ上限などの違いを踏まえると、用途ごとに自然と選択が分かれます。
+「機密かどうか」で選んでいる、と言ってもいいのですが、本質は **「スタックが生成する識別子か／外部から持ち込む秘密か」** という区別です。本記事では、この使い分けが実装でどう現れているかを CDK のコードとともに整理します。
 
-本記事では両者の違いを整理したうえで、AWS CDK での定義と Lambda からの取得までを実運用ベースでまとめます。
+## 結論：何をどちらに入れているか
 
-## まず結論：何をどちらに入れるか
+| 保管対象                                                                 | 保管先          | 性質                             |
+| ------------------------------------------------------------------------ | --------------- | -------------------------------- |
+| VPC ID・サブネット ID・ALB ARN・ECS クラスタ名・ECR URI・Distribution ID | Parameter Store | スタックが生成するリソース識別子 |
+| OpenAI API キー・VAPID キーペア・dev 用 IAM 認証情報                     | Secrets Manager | 外部から持ち込む機密値           |
 
-迷ったときの基本方針はシンプルです。
+Parameter Store には機密でない識別子しか入れていないため、SecureString も使っていません。逆に Secrets Manager には、コードにも CloudFormation テンプレートにも残したくない値だけを入れています。
 
-| 保管したいもの                         | 推奨                            | 理由                                  |
-| -------------------------------------- | ------------------------------- | ------------------------------------- |
-| 環境名・エンドポイント URL・機能フラグ | Parameter Store                 | 機密性が低く、無料枠で十分            |
-| 外部 API のトークン・固定の認証情報    | Parameter Store（SecureString） | ローテーション不要なら割安            |
-| RDS / DB のパスワード                  | Secrets Manager                 | 自動ローテーションと RDS 連携が効く   |
-| 定期的に更新したいクレデンシャル全般   | Secrets Manager                 | Lambda によるローテーション機構を内蔵 |
+## Parameter Store：スタック間参照を疎結合にする
 
-ざっくり言えば「**機密でない設定値・ローテーション不要な秘密は Parameter Store、ローテーションしたい秘密は Secrets Manager**」です。以降でこの判断の根拠を見ていきます。
+### なぜ ImportValue ではなく SSM なのか
 
-## 料金とサイズの違い
+モノレポでマルチサービスを CDK 管理していると、「VPC スタックが作った VPC ID を、各サービスの ALB スタックから参照したい」という**クロススタック参照**が頻発します。
 
-最初に効いてくるのが料金です。
+素朴な手段は CloudFormation の Export と `Fn.importValue` です。実際、初期は次のように Export 名を定数化して使っていました。
 
-- **Parameter Store の Standard パラメータは無料**（10,000 件まで、1 件あたり 4KB まで）。API のスループットを上げる Advanced は有料で 8KB まで。
-- **Secrets Manager はシークレット 1 件あたり月額課金**（保管料）＋ **API コール課金**。1 件あたり 64KB まで保管できます。
+```typescript
+import * as cdk from 'aws-cdk-lib';
+import { EXPORTS } from '../shared/libs/utils/exports';
 
-環境名やフラグのような小さな設定値を何十個も持つなら、Parameter Store の無料枠が圧倒的に有利です。逆に「数件のクレデンシャルをローテーションしたい」のであれば、Secrets Manager の月額は機能の対価として十分見合います。
+// CloudFormation の Export を参照
+const vpcId = cdk.Fn.importValue(EXPORTS.VPC_ID('dev')); // → 'nagiyu-dev-vpc-id'
+```
 
-## 暗号化（SecureString）
+ただし `Fn.importValue` には厄介な性質があります。**Export された値が他スタックから参照されている間、その Export を変更・削除できません**。VPC スタックを更新したいだけなのに、参照しているスタックが依存ロックになって `cdk deploy` が止まる、という事態が起きます。スタック同士が硬く結合してしまうのです。
 
-「Parameter Store は平文、Secrets Manager は暗号化」と誤解されがちですが、Parameter Store にも **SecureString** 型があり、KMS で暗号化できます。
+そこで本プラットフォームでは、共通リソースのクロススタック参照を **SSM Parameter Store 経由**に切り替えています。アーキテクチャ方針としても「共通 Cluster と共通 VPC は SSM Parameter Store 経由で参照する。**スタック間の直接依存は持たない**」と定めています。SSM 経由なら、生成側と消費側はパラメータ名という文字列でしか繋がらず、デプロイ順序や更新の自由度が大きく上がります。
 
-つまり「暗号化したいかどうか」だけでは選べません。判断軸は暗号化の有無ではなく、**ローテーションの要否**だと考えると整理しやすくなります。
+### パラメータ名は定数で一元管理する
 
-## CDK での定義
+参照キーが文字列になる以上、typo が一番怖いところです。そこでパラメータ名は定数オブジェクトに集約しています。
 
-### Parameter Store
+```typescript
+export const SSM_PARAMETERS = {
+  VPC_ID: (env: Environment) => `/nagiyu/shared/${env}/vpc/id`,
+  PUBLIC_SUBNET_IDS: (env: Environment) => `/nagiyu/shared/${env}/vpc/public-subnet-ids`,
+  ALB_ARN: (env: Environment) => `/nagiyu/root/${env}/alb/arn`,
+  ECS_CLUSTER_NAME: (env: Environment) => `/nagiyu/root/${env}/ecs/cluster-name`,
+  // ...
+} as const;
+```
 
-通常の設定値は `StringParameter` で定義します。
+命名は `/nagiyu/{scope}/{env}/{resource}` の階層構造に統一しています。scope（`shared` / `root` / 各サービス）と env（`dev` / `prod`）が必ず入るので、パラメータを一覧したときに「どのスタックが・どの環境向けに」出力したものかが一目で分かります。
+
+### 生成側：StringParameter で書き出す
+
+リソースを作ったスタックが、その識別子を SSM に書き出します。
 
 ```typescript
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 
-const apiEndpoint = new ssm.StringParameter(this, 'ApiEndpoint', {
-  parameterName: '/myapp/prod/api-endpoint',
-  stringValue: 'https://api.example.com',
-  description: 'バックエンド API のエンドポイント',
-  tier: ssm.ParameterTier.STANDARD,
+new ssm.StringParameter(this, 'ClusterNameParam', {
+  parameterName: SSM_PARAMETERS.ECS_CLUSTER_NAME(environment),
+  stringValue: cluster.clusterName,
 });
 ```
 
-注意点として、CDK の `StringParameter` で **SecureString を直接「新規作成」することはできません**（CloudFormation が SecureString の値をテンプレートに平文で持てないため）。SecureString は事前に CLI 等で作成しておき、CDK からは参照する、という運用になります。
+### 消費側：valueForStringParameter で読み込む
+
+参照する側は `valueForStringParameter` で同じキーを読みます。
 
 ```typescript
-// 既存の SecureString パラメータを参照する
-const dbPassword = ssm.StringParameter.fromSecureStringParameterAttributes(this, 'DbPassword', {
-  parameterName: '/myapp/prod/db-password',
-});
+const vpcId = ssm.StringParameter.valueForStringParameter(this, SSM_PARAMETERS.VPC_ID(environment));
+
+const vpc = ec2.Vpc.fromLookup(this, 'ExistingVpc', { vpcId });
 ```
 
-事前作成は CLI で行います。
+これだけで、VPC スタックと ALB スタックの間に CloudFormation 上の依存関係を作らずに、値を受け渡せます。`SSM_PARAMETERS` という同じ定数を両側で使うので、書き出すキーと読むキーがズレることもありません。
 
-```bash
-aws ssm put-parameter \
-  --name "/myapp/prod/db-password" \
-  --value "S3cr3t!" \
-  --type SecureString
-```
+## Secrets Manager：機密値を実行ロールへ渡す
 
-### Secrets Manager
+一方、API キーや鍵ペアのように「コードにもテンプレートにも残したくない値」は Secrets Manager に入れます。Parameter Store のリソース識別子とは性質がまったく違い、こちらは**外部から持ち込む秘密**です。
 
-Secrets Manager は CDK 側で**値を自動生成**できるのが強みです。パスワードをコードにもテンプレートにも残さずに済みます。
+### PLACEHOLDER で作り、実値は手動で入れる
+
+ポイントは、**CDK では値を持たせない**ことです。初回は `PLACEHOLDER` でシークレットの「箱」だけを作り、実際の値は AWS Console から後で上書きします。
 
 ```typescript
+import * as cdk from 'aws-cdk-lib';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 
-const dbSecret = new secretsmanager.Secret(this, 'DbSecret', {
-  secretName: 'myapp/prod/db-credentials',
-  generateSecretString: {
-    secretStringTemplate: JSON.stringify({ username: 'admin' }),
-    generateStringKey: 'password',
-    excludePunctuation: true,
-    passwordLength: 32,
+// 初回は PLACEHOLDER で作成し、実値は Console から上書きする
+this.openAiApiKeySecret = new secretsmanager.Secret(this, 'OpenAiApiKeySecret', {
+  secretName: `nagiyu-stock-tracker-openai-api-key-${environment}`,
+  description: 'OpenAI API key for stock analysis batch processing',
+  secretObjectValue: {
+    apiKey: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
   },
 });
 ```
 
-`secretStringTemplate` に固定部分（ユーザー名）を書き、`generateStringKey` で指定したキー（ここでは `password`）の値だけを AWS 側でランダム生成します。生成されたパスワードは誰の目にも触れずに DB 側へ渡せます。
-
-## 命名規則を揃える
-
-どちらを使うにせよ、`/{app}/{env}/{key}` のような階層的な命名に揃えておくと、環境ごとの一括取得や IAM のパス指定が効きます。
+VAPID キーペアも同じ作りです。
 
 ```typescript
-const prefix = `/myapp/${props.environment}`;
-new ssm.StringParameter(this, 'Region', {
-  parameterName: `${prefix}/region`,
-  stringValue: 'ap-northeast-1',
+this.vapidSecret = new secretsmanager.Secret(this, 'VapidSecret', {
+  secretName: `nagiyu-stock-tracker-vapid-${environment}`,
+  description: 'VAPID key pair for Web Push notifications',
+  secretObjectValue: {
+    publicKey: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
+    privateKey: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
+  },
 });
 ```
 
-IAM ポリシーでも、パスのプレフィックスでまとめて権限を絞れます。
+### generateSecretString を使わない理由
+
+Secrets Manager には `generateSecretString` でランダム値を自動生成する機能があります。便利な機能ですが、ここでは使っていません。**保管したい値が「自分で決められる秘密」ではないから**です。
+
+- VAPID キーは `web-push generate-vapid-keys` で生成したペアを貼り付ける
+- OpenAI API キーは OpenAI 側で払い出された文字列をそのまま入れる
+
+どちらも「ランダムに生成してよい値」ではなく、外部で確定した値を持ち込むだけなので、箱だけ CDK で用意して中身は手で入れる、という運用が一番素直です。
+
+### ローテーションは使っていない
+
+Secrets Manager の目玉機能である自動ローテーションも、現状は使っていません。ローテーションが効くのは RDS の認証情報のように「AWS 側で更新できる秘密」ですが、本プラットフォームのデータストアは DynamoDB が中心で、ローテーション対象になる DB クレデンシャルが存在しないためです。「Secrets Manager を使う ＝ ローテーションする」ではない、という点は実装方針として割り切っています。
+
+### アクセスは実行ロールに ARN 限定で付与する
+
+シークレットの読み取りは、まず IAM で「どのロールがどのシークレットを読めるか」を絞ります。バッチ Lambda の実行ロールには、対象シークレットの ARN だけを指定して `GetSecretValue` を付与します。
 
 ```typescript
 new iam.PolicyStatement({
-  actions: ['ssm:GetParameter', 'ssm:GetParametersByPath'],
-  resources: [`arn:aws:ssm:*:*:parameter/myapp/${props.environment}/*`],
+  sid: 'SecretsManagerVapidAccess',
+  effect: iam.Effect.ALLOW,
+  actions: ['secretsmanager:GetSecretValue'],
+  resources: [props.vapidSecret.secretArn], // ワイルドカードではなく ARN 限定
 });
 ```
 
-## Lambda から取得する
+このポリシーは ManagedPolicy として定義し、**バッチ Lambda の実行ロールと、ローカル開発用 IAM ユーザーの両方にアタッチ**しています。開発者が手元で動かすときも本番 Lambda とまったく同じ権限になるため、「ローカルでは動いたのに本番で権限不足」というデプロイ後の事故を防げます。
 
-### 権限付与は grant で
+## 設計上のポイント
 
-CDK のコンストラクトには `grantRead` が用意されているので、ARN を手書きせずに権限を付与できます。
+**SSM 採用の主目的は「疎結合」**
 
-```typescript
-dbSecret.grantRead(myLambda);
-apiEndpoint.grantRead(myLambda);
-```
+Parameter Store を「安い設定置き場」として捉えると本質を外します。少なくともこのプラットフォームでの主目的は、クロススタック参照から CloudFormation の依存ロックを外し、スタックを独立して更新・削除できるようにすることです。
 
-`grantRead` を使うと、対象リソースの ARN・KMS の Decrypt 権限まで CDK が自動で組み立ててくれます。リソースを CDK 内で定義しているなら、この方法がもっとも安全です。
+**Parameter Store に機密は置かない**
 
-### コード側の取得
+SSM に入れているのは VPC ID や ARN といった非機密の識別子だけなので、SecureString も使っていません。機密は Secrets Manager 側に寄せる、と役割をはっきり分けることで、「どこに何があるか」が迷子になりません。
 
-Secrets Manager は SDK で取得します。重要なのは「**毎回 API を叩かない**」ことです。Lambda の実行コンテキスト（ハンドラ外）でキャッシュし、コールド/ウォームの再利用に乗せます。
+**機密はコードに焼き込まず、箱だけ作る**
 
-```typescript
-import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
-
-const client = new SecretsManagerClient({});
-let cached: { username: string; password: string } | undefined;
-
-async function getDbCredentials() {
-  if (cached) return cached;
-  const res = await client.send(
-    new GetSecretValueCommand({ SecretId: 'myapp/prod/db-credentials' })
-  );
-  cached = JSON.parse(res.SecretString ?? '{}');
-  return cached!;
-}
-```
-
-ハンドラの外で `client` とキャッシュを宣言しておくと、ウォームスタート時は API コールを丸ごとスキップできます。Secrets Manager は API コール課金があるため、この一手間がコストにも直結します。
-
-なお、AWS Parameters and Secrets Lambda Extension を使えば、ローカルキャッシュ付きの HTTP エンドポイント経由で取得でき、自前キャッシュを書かずに済みます。シンプルに保ちたい場合の選択肢です。
-
-## ローテーション：Secrets Manager の本領
-
-Secrets Manager を選ぶ最大の理由がローテーションです。RDS と組み合わせる場合、CDK の `addRotationSchedule` でローテーション用 Lambda まで含めて構築できます。
-
-```typescript
-dbSecret.addRotationSchedule('Rotation', {
-  hostedRotation: secretsmanager.HostedRotation.mysqlSingleUser({
-    functionName: 'myapp-db-rotation',
-  }),
-  automaticallyAfter: cdk.Duration.days(30),
-});
-```
-
-これで 30 日ごとにパスワードが自動更新され、新しい値が同じシークレット ARN から取得できます。アプリ側は ARN を見続けるだけでよく、更新タイミングを意識する必要がありません。Parameter Store にはこの仕組みがないため、ローテーション要件があるなら Secrets Manager 一択です。
-
-## ハマったポイント
-
-**SecureString を CDK で作ろうとして失敗する**
-
-前述の通り、SecureString の新規作成は CDK ではできません。「`StringParameter` に `type: SecureString` を渡せばいい」と思い込んでハマりがちです。SecureString は CLI で事前作成 → CDK で参照、という分担を最初から決めておくのが安全です。
-
-**シークレットの値を取りすぎてコストが膨らむ**
-
-Secrets Manager は API コール課金です。ハンドラ内で毎回 `GetSecretValue` を呼ぶ実装にすると、高頻度の Lambda ではコールド/ウォーム問わず課金が積み上がります。キャッシュは「あれば良い」ではなく必須と考えたほうがよいです。
+Secrets Manager 側は `PLACEHOLDER` で箱を作り、実値は Console から入れる運用です。CDK のコードにもテンプレートにも秘密が残らないので、リポジトリや CloudFormation のドリフト履歴から漏れる心配がありません。
 
 ## まとめ
 
-Parameter Store と Secrets Manager は競合ではなく役割分担です。**機密でない設定値とローテーション不要の秘密は Parameter Store の無料枠で十分**、**ローテーションしたいクレデンシャルは Secrets Manager** という線引きで、ほとんどのケースは判断できます。
+SSM Parameter Store と Secrets Manager は競合ではなく、保管する値の性質で役割分担しています。**スタックが生成する非機密の識別子は Parameter Store でスタック間に疎結合に渡し、外部から持ち込む機密値は Secrets Manager に箱だけ作って実値は手で入れる**——この線引きが、本プラットフォームでの基本方針です。
 
-CDK では `grantRead` で権限を、Secrets Manager では `generateSecretString` で値の自動生成を活用すれば、機密情報をコードにもテンプレートにも残さずに運用できます。最後に、取得側のキャッシュだけは忘れずに入れておきましょう。
+「Parameter Store ＝ 安い設定置き場」「Secrets Manager ＝ 自動生成とローテーション」という一般的なイメージとは少し違う使い方ですが、依存ロックの回避と機密の非焼き込みという、運用で本当に効く観点から選ぶと、自然とこの形に落ち着きます。
