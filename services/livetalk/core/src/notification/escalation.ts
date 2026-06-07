@@ -178,7 +178,9 @@ function isUrgent(eventDate: string | null, now: Date): boolean {
  * - 候補が複数あっても最初の 1 件のみ返す（頻度キャップはバッチ側で担保）
  * - LLM/embedding 呼び出し失敗は best-effort（例外を握りつぶして次の候補へ）
  */
-export async function detectCriticalKnowledge(input: DetectCriticalInput): Promise<EscalationResult> {
+export async function detectCriticalKnowledge(
+  input: DetectCriticalInput
+): Promise<EscalationResult> {
   const { knowledgeList, interestCategories, llmClient, embeddingClient, now } = input;
 
   const total = totalWeight(interestCategories);

@@ -105,9 +105,7 @@ describe('detectCriticalKnowledge - AND ゲート', () => {
   });
 
   it('強関心あり AND 時限性なし（eventDate=null）→ 非 critical', async () => {
-    const result = await detectCriticalKnowledge(
-      makeInput({ llmClient: makeLlmClient(null) })
-    );
+    const result = await detectCriticalKnowledge(makeInput({ llmClient: makeLlmClient(null) }));
     expect(result.isCritical).toBe(false);
     expect(result.knowledgeId).toBeNull();
   });
@@ -117,7 +115,10 @@ describe('detectCriticalKnowledge - AND ゲート', () => {
     const llmClient = makeLlmClient(NEAR_FUTURE_DATE);
     const result = await detectCriticalKnowledge(
       makeInput({
-        interestCategories: [makeInterestCategory('ゲーム', 0.1), makeInterestCategory('映画', 0.9)],
+        interestCategories: [
+          makeInterestCategory('ゲーム', 0.1),
+          makeInterestCategory('映画', 0.9),
+        ],
         llmClient,
       })
     );
@@ -191,9 +192,7 @@ describe('detectCriticalKnowledge - RelatedCategory 解決', () => {
   });
 
   it('interestCategories が空 → 解決不可 → 非 critical', async () => {
-    const result = await detectCriticalKnowledge(
-      makeInput({ interestCategories: [] })
-    );
+    const result = await detectCriticalKnowledge(makeInput({ interestCategories: [] }));
     expect(result.isCritical).toBe(false);
   });
 
@@ -214,7 +213,9 @@ describe('detectCriticalKnowledge - RelatedCategory 解決', () => {
 
     expect(result.isCritical).toBe(true);
     // カテゴリ側の embed は呼ばれないはず（entity.Embedding を使用）
-    expect((embeddingClient.embed as jest.Mock).mock.calls.map((c) => c[0])).not.toContain('ゲーム');
+    expect((embeddingClient.embed as jest.Mock).mock.calls.map((c) => c[0])).not.toContain(
+      'ゲーム'
+    );
   });
 });
 
@@ -281,9 +282,7 @@ describe('detectCriticalKnowledge - eventDate ホライズン', () => {
   });
 
   it('eventDate=null → isUrgent=false → 非 critical', async () => {
-    const result = await detectCriticalKnowledge(
-      makeInput({ llmClient: makeLlmClient(null) })
-    );
+    const result = await detectCriticalKnowledge(makeInput({ llmClient: makeLlmClient(null) }));
     expect(result.isCritical).toBe(false);
   });
 
@@ -310,9 +309,7 @@ describe('detectCriticalKnowledge - eventDate ホライズン', () => {
 
   it('今日と同じ日付 → isUrgent=true（当日含む）→ critical', async () => {
     const todayStr = '2026-06-07'; // NOW と同じ
-    const result = await detectCriticalKnowledge(
-      makeInput({ llmClient: makeLlmClient(todayStr) })
-    );
+    const result = await detectCriticalKnowledge(makeInput({ llmClient: makeLlmClient(todayStr) }));
     expect(result.isCritical).toBe(true);
   });
 });
