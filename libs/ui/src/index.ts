@@ -17,7 +17,7 @@ export type { SelectProps, SelectSize, SelectOption } from './components/Select'
 export { default as Header } from './components/layout/Header';
 export type { HeaderProps, NavigationItem } from './components/layout/Header';
 export { default as Footer } from './components/layout/Footer';
-export type { FooterProps } from './components/layout/Footer';
+export type { FooterProps, FooterLinkItem, FooterLinkGroup } from './components/layout/Footer';
 export { default as AppLayout } from './components/layout/AppLayout';
 export type { AppLayoutProps } from './components/layout/AppLayout';
 export { default as ServiceLayout } from './components/layout/ServiceLayout';

@@ -3,9 +3,10 @@ title: 'Next.js generateStaticParams 完全ガイド：SSG の動的ルートを
 description: 'Next.js App Router の generateStaticParams を使って動的ルートを SSG ビルド時に展開する方法を解説。複数階層の動的ルート・dynamicParams・部分的 SSG（ISR）・型安全な実装まで網羅します。'
 slug: 'nextjs-generate-static-params'
 publishedAt: '2026-04-28'
-updatedAt: '2026-05-01'
+updatedAt: '2026-06-06'
 author: 'なぎゆー'
 tags: ['Next.js', 'SSG', 'App Router']
+categories: ['nextjs']
 ---
 
 ## はじめに
@@ -157,12 +158,31 @@ export async function generateStaticParams() {
 }
 ```
 
-## ハマりどころ
+## 実装ノート
 
-- **build 時にだけ存在する環境変数を読み忘れる**: `process.env.DATABASE_URL` などをビルドコンテナに渡し忘れて `generateStaticParams` が空配列を返す。next build のログで「Generating static pages (0/0)」になっていたら要注意。
-- **`null` / `undefined` を返す**: 戻り値はオブジェクト配列でないとビルドエラーになる。`articles?.map(...)` のような optional chaining で空配列を保証する。
-- **slug に「/」を含めてしまう**: 多階層ルート（`[...slug]`）でない限り、slug 文字列にスラッシュは入れない。
+nagiyu-platform の Portal では、`generateStaticParams` を理屈どおりにそのまま使っています。記事ページ（`app/tech/[slug]/page.tsx`）の実装は、私が書いている本体もこれだけです。
+
+```typescript
+export async function generateStaticParams() {
+  const articles = getAllArticles();
+  return articles.map((article) => ({ slug: article.slug }));
+}
+```
+
+ポイントは `getAllArticles()` を **非同期にしていない**ことです。一覧生成では本文 HTML への変換まではせず、各 Markdown のフロントマターだけを `gray-matter` で読み取って返すので同期関数で十分でした。本文の重い変換（remark → rehype）は、実際に記事を開いたときの `getArticle()` 側に分けています。「パス列挙は軽く、本文変換は記事単位で」という役割分担を自分の中の原則にしています。
+
+同じパターンを Portal の別ルートでも使い回していて、カテゴリ別ハブ（`/tech/category/[category]`）は `TECH_CATEGORY_SLUGS`（`['aws', 'nextjs', 'dev-stack']`）をそのまま `map` し、タグページ（`/tech/tags/[tag]`）は「2 本以上の記事が付いたタグ」だけに絞って静的化しています。
+
+## ハマったポイント
+
+- **slug の文字種で routing が壊れた**: これは私が実際に一番ハマった点です。タグページの slug を素のタグ名から作っていた頃、「Next.js」のように `.` を含むものや、スペース入りのタグ（URL 上で `%20` になる）が prerender-manifest と照合されず 404 になりました。対策として `tagToSlug()` でスペース・スラッシュをハイフンに潰し、さらに `isLinkableTag()` で非 ASCII を含む slug はそもそもページ化対象から外しています。`generateStaticParams` が返す slug は「URL にそのまま乗せて安全な文字」に正規化しておけ、というのが教訓です。
+- **`dynamicParams` の既定値**: カテゴリ・タグページでは `export const dynamicParams = false;` を明示し、列挙しなかった slug は 404 にしています。コンテンツが固定なら未生成パスをオンデマンド生成させる理由がないからです。
+- **build 時にだけ存在する環境変数を読み忘れる**: `generateStaticParams` が空配列を返す典型例。next build のログで「Generating static pages (0/0)」になっていたら要注意。
 - **Production build と dev で出力が異なる**: dev は常に動的レンダリング。SSG 確認は `next build && next start` で行う。
+
+## 現在の運用
+
+正直に書くと、本記事で紹介した ISR（`revalidate`）や「人気記事だけ事前生成」のような部分 SSG を、私は Portal では使っていません。記事もカテゴリもタグも件数が知れているので、**全ページをビルド時に完全 SSG** してしまう方が、運用も配信もシンプルだと判断しました。CDN から静的配信するだけで済み、リクエスト時のレンダリングを考えなくてよいのが今のところ一番のメリットです。記事が桁違いに増えてビルド時間が問題になったら、そのとき初めて `revalidate` を検討すればいい、というスタンスです。
 
 ## まとめ
 

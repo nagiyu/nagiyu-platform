@@ -3,6 +3,7 @@ import {
   getAllArticles,
   getAllServiceSlugs,
   getAllTags,
+  getAllTechCategoryMetas,
   isLinkableTag,
   tagToSlug,
 } from '@/lib/content';
@@ -48,5 +49,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.5,
     }));
 
-  return [...staticEntries, ...serviceEntries, ...articleEntries, ...tagEntries];
+  const categoryEntries: MetadataRoute.Sitemap = getAllTechCategoryMetas().map((category) => ({
+    url: `${SITE_URL}/tech/category/${category.slug}`,
+    lastModified: now,
+    changeFrequency: 'weekly' as const,
+    priority: 0.7,
+  }));
+
+  return [
+    ...staticEntries,
+    ...serviceEntries,
+    ...articleEntries,
+    ...tagEntries,
+    ...categoryEntries,
+  ];
 }

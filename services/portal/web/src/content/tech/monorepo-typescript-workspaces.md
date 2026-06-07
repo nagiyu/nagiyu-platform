@@ -3,9 +3,10 @@ title: 'monorepo + npm workspaces で TypeScript パッケージを共有する'
 description: 'モノレポ構成で TypeScript の型・関数・コンポーネントを複数アプリ間で共有する実装方法を解説。npm workspaces の設定・パッケージ間参照・ビルド順序・デプロイ時の依存解決まで実運用ベースで整理します。'
 slug: 'monorepo-typescript-workspaces'
 publishedAt: '2026-03-20'
-updatedAt: '2026-05-01'
+updatedAt: '2026-06-06'
 author: 'なぎゆー'
 tags: ['TypeScript', 'monorepo', 'npm workspaces']
+categories: ['dev-stack']
 ---
 
 ## はじめに
@@ -144,7 +145,7 @@ GitHub Actions で安全に動かすには、ライブラリ → アプリの順
 
 ```dockerfile
 # stage 1: monorepo 全体をビルド
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /repo
 COPY package.json package-lock.json ./
 COPY libs/ ./libs/
@@ -154,7 +155,7 @@ RUN npm run build --workspace=@nagiyu/common --workspace=@nagiyu/ui
 RUN npm run build --workspace=@nagiyu/portal-web
 
 # stage 2: standalone のみ取り出し
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 COPY --from=builder /repo/services/portal/web/.next/standalone ./
 COPY --from=builder /repo/services/portal/web/.next/static ./.next/static
@@ -164,13 +165,28 @@ CMD ["node", "server.js"]
 
 Next.js standalone は依存ライブラリを `node_modules` ごとパッケージしてくれるので、最終イメージは数十 MB に収まります。
 
-## ハマりどころ
+## 実装ノート
+
+記事のサンプルでは `workspaces` を `["libs/*", "services/*/web", "services/*/api"]` と簡単に書きましたが、nagiyu-platform のルート `package.json` では実際にはもっと多く、`services/tools`・`services/*/core`・`services/*/web`・`services/*/web-*`・`services/*/batch`・`services/*/batch-*`・`services/*/lambda/*`・`services/*/api`・`libs/*`・`infra`・`infra/*` を並べています。Web だけでなく batch・lambda・CDK インフラ（`infra`）まで 1 つの依存ツリーに入れているので、`npm ci` 一発で全サービス分が揃うのは個人で多サービスを抱える私にとってかなり効いています。
+
+ライブラリ間の依存方向は `ui → browser → common` の一方向に保ち、循環参照を禁止しています。各 libs は `*` バージョンで参照させてシンボリックリンク解決させていますが、Next.js 側では `tsconfig` の `paths` で `src/` を直接指すのではなく、`next.config.ts` の `transpilePackages` に `@nagiyu/ui`・`@nagiyu/browser`・`@nagiyu/common`・`@nagiyu/nextjs` を列挙して取り込む方式に落ち着きました。Portal の `tsconfig` の `paths` は `@/*` のアプリ内エイリアスだけに留めています。
+
+## ハマったポイント
+
+実際にこのモノレポを回すなかで自分が踏んだポイントを残しておきます。
 
 - **package-lock.json は必ずルート 1 個**: 各サブディレクトリに lock ファイルを作らない。重複が出たら片方を削除。
-- **`workspace:*` プロトコルは npm 未対応**: pnpm / yarn では使えるが npm ではエラー。`*` か実バージョンを書く。
-- **TypeScript の Project References**: `tsc --build` で順序を指定する別仕組み。workspaces と併用できるが学習コストが上がる。最初は不要。
-- **package-lock.json の noisy diff**: `optionalDependencies` の `dev` フィールドが OS 依存で揺れる。CI で `npm ci` を使い、ローカル `npm install` の差分は警戒する。
-- **共通パッケージのバージョン整合**: 例えば `react` を libs と app で別バージョン入れると Hooks エラー。ルートで一括管理するか、`peerDependencies` を活用する。
+- **`workspace:*` プロトコルは npm 未対応**: pnpm / yarn では使えるが npm ではエラー。私は `*` を使っています。
+- **ビルド順序を仕組みで担保する**: Portal の `build` スクリプトは `npm run build --workspace=@nagiyu/nextjs && next build --webpack` で、アプリ本体の前に共有の `@nagiyu/nextjs` を必ずビルドさせています。これを忘れると型定義が古いまま参照されて事故ります。
+- **TypeScript の Project References**: `tsc --build` で順序を指定する別仕組み。workspaces と併用できるが学習コストが上がる。私は最初は入れませんでした。
+- **package-lock.json の noisy diff**: `optionalDependencies` の OS 依存フィールドが揺れる。CI では `npm ci` を使い、ローカル `npm install` の差分は警戒する。
+- **共通パッケージのバージョン整合**: `react` などを libs と app で別バージョン入れると Hooks エラー。ルートの `dependencies` で `react` / `next` / MUI を一括管理しています。
+
+## 現在の運用
+
+私は今このモノレポで Portal を含む複数サービスを並行運用していますが、共通の悩みである「依存バージョンの揺れ」をルートの `overrides` でまとめて吸収しています。`fast-xml-parser` や `axios`（`>=1.15.0`）などをルートで固定しておくと、各サービスが個別に古い推移的依存を抱える事故が減りました。実行環境も `engines` で Node `>=24` / npm `>=10` に固定し、全サービスで前提を揃えています。
+
+ビルド順序も実地で固めました。前述のとおり Portal の `build` は `@nagiyu/nextjs` を先にビルドしますし、CI 側でも shared workspaces をカンマ区切りで先に回す composite action を用意して、ライブラリ → アプリの順序を仕組みとして担保しています。手元でもこの前提を守る限り、複数サービスを 1 リポジトリで独立してデプロイできています。
 
 ## まとめ
 

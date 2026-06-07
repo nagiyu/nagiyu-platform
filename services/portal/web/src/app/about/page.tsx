@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import { Container, Typography, Box } from '@mui/material';
 import { Link } from '@nagiyu/ui';
-import { AUTHOR } from '@/lib/author';
+import AboutProfile from '@/components/AboutProfile';
+import AboutTimeline from '@/components/AboutTimeline';
+import AboutPolicy from '@/components/AboutPolicy';
 
 export const metadata: Metadata = {
   title: 'nagiyu について',
@@ -19,77 +21,32 @@ export default function AboutPage() {
         nagiyu について
       </Typography>
 
+      {/* サイトの目的 */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
           サイトの目的
         </Typography>
         <Typography variant="body1" sx={{ mb: 2 }}>
-          nagiyu は、個人開発者が提供する各種 Web サービスのポータルサイトです。 Tools・Quick
+          nagiyu は、私が個人で開発・運用する各種 Web サービスのポータルサイトです。 Tools・Quick
           Clip・Codec Converter・Stock Tracker
           をはじめとする便利なサービスのドキュメント・使い方ガイド・技術記事を掲載しています。
         </Typography>
         <Typography variant="body1" sx={{ mb: 2 }}>
-          各サービスのドキュメントはサービスの機能追加・変更に合わせて随時更新しています。
-          技術記事ではサービス開発で得た知見・アーキテクチャ解説を公開しています。
+          私が各サービスを設計・実装する過程で得たノウハウを、一次情報として記録・公開することもこのサイトの目的の一つです。
+          記事はすべて自分の実装・運用経験に基づいており、検証していない内容は掲載しません。
         </Typography>
       </Box>
 
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
-          開発者プロフィール
-        </Typography>
-        <Typography variant="body1" sx={{ mb: 2 }}>
-          {AUTHOR.name}（個人開発者）
-        </Typography>
-        <Typography variant="body1" sx={{ mb: 2 }}>
-          モノレポ構成のプラットフォーム「nagiyu-platform」として複数の Web
-          サービスを開発・運用しています。
-          AWS（ECS・Lambda・CloudFront・Batch）を活用したサーバーレスアーキテクチャを採用し、
-          Next.js・TypeScript を中心としたモダンな技術スタックで構築しています。
-          技術記事は実装した内容を一次情報として執筆しており、すべて自身の運用経験に基づいています。
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          GitHub:{' '}
-          <Link
-            href="https://github.com/nagiyu/nagiyu-platform"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            nagiyu/nagiyu-platform
-          </Link>
-        </Typography>
-      </Box>
+      {/* 運営者プロフィール（コンポーネント） */}
+      <AboutProfile />
 
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
-          運営方針
-        </Typography>
-        <Typography variant="body1" sx={{ mb: 2 }}>
-          nagiyu-platform
-          は個人開発のサイドプロジェクトとして長期的な運用を前提に設計しており、サービス・コンテンツともに継続的に更新します。
-          各サービスは無料で公開し、運営費用は AdSense による広告収益で賄うことを目指しています。
-        </Typography>
-        <Box component="ul" sx={{ pl: 3 }}>
-          <Box component="li" sx={{ mb: 1 }}>
-            <Typography variant="body1">
-              <strong>サービスドキュメント</strong> - 機能追加・変更の都度、概要・使い方ガイド・FAQ
-              を更新します
-            </Typography>
-          </Box>
-          <Box component="li" sx={{ mb: 1 }}>
-            <Typography variant="body1">
-              <strong>技術記事</strong> -
-              開発・運用で得た知見をテーマ別に公開します。記事一覧は計画的に拡充していきます
-            </Typography>
-          </Box>
-          <Box component="li" sx={{ mb: 1 }}>
-            <Typography variant="body1">
-              <strong>無料提供</strong> - すべてのサービスは原則無料で利用できます
-            </Typography>
-          </Box>
-        </Box>
-      </Box>
+      {/* 運営期間・歴史（コンポーネント） */}
+      <AboutTimeline />
 
+      {/* 運営方針（コンポーネント） */}
+      <AboutPolicy />
+
+      {/* 提供サービス */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
           提供サービス
@@ -148,6 +105,7 @@ export default function AboutPage() {
         </Box>
       </Box>
 
+      {/* 技術スタック */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
           技術スタック
@@ -165,7 +123,7 @@ export default function AboutPage() {
           </Box>
           <Box component="li" sx={{ mb: 1 }}>
             <Typography variant="body1">
-              <strong>Material-UI (MUI) v7</strong> - Google Material Design に準拠した UI
+              <strong>Material-UI (MUI) v9</strong> - Google Material Design に準拠した UI
             </Typography>
           </Box>
           <Box component="li" sx={{ mb: 1 }}>
@@ -183,6 +141,7 @@ export default function AboutPage() {
         </Box>
       </Box>
 
+      {/* 編集ポリシー */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
           編集ポリシー
@@ -215,6 +174,7 @@ export default function AboutPage() {
         </Box>
       </Box>
 
+      {/* お問い合わせ */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
           お問い合わせ
@@ -235,6 +195,7 @@ export default function AboutPage() {
         </Typography>
       </Box>
 
+      {/* プライバシーとセキュリティ */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
           プライバシーとセキュリティ

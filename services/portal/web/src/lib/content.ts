@@ -6,17 +6,33 @@ import remarkGfm from 'remark-gfm';
 import remarkRehype from 'remark-rehype';
 import rehypeStringify from 'rehype-stringify';
 import DOMPurify from 'isomorphic-dompurify';
-import type { ServiceDocument, ServiceDocumentMeta, Article, ArticleMeta } from '@/types/content';
+import type {
+  ServiceDocument,
+  ServiceDocumentMeta,
+  Article,
+  ArticleMeta,
+  TechCategory,
+  TechCategoryMeta,
+} from '@/types/content';
+import type { FaqPair } from '@/lib/jsonLd';
 
 const ERROR_MESSAGES = {
   SERVICE_DOCUMENT_NOT_FOUND: 'サービスドキュメントが見つかりません',
   ARTICLE_NOT_FOUND: '技術記事が見つかりません',
+  TECH_CATEGORY_NOT_FOUND: 'カテゴリ別ハブが見つかりません',
   INVALID_FRONTMATTER: 'フロントマターの形式が正しくありません',
 } as const;
 
 const CONTENT_DIR = path.join(process.cwd(), 'src', 'content');
 const SERVICES_DIR = path.join(CONTENT_DIR, 'services');
 const TECH_DIR = path.join(CONTENT_DIR, 'tech');
+const TECH_CATEGORY_DIR = path.join(CONTENT_DIR, 'tech-category');
+
+/**
+ * カテゴリ別ハブの slug 一覧（表示順を兼ねる）。
+ * `/tech/category/{slug}` の静的生成・並び順の正とする。
+ */
+export const TECH_CATEGORY_SLUGS = ['aws', 'nextjs', 'dev-stack'] as const;
 
 const TYPE_TO_FILENAME: Record<'overview' | 'guide' | 'faq', string> = {
   overview: 'index.md',
@@ -65,6 +81,21 @@ export async function getServiceDocument(
 }
 
 /**
+ * サービスの FAQ ページから Q&A ペアを抽出して返す
+ * @param slug - サービス slug（例: 'tools', 'quick-clip'）
+ * @returns Q&A ペアの配列（FAQ ファイルが存在しない場合は空配列）
+ */
+export function getServiceFaqPairs(slug: string): FaqPair[] {
+  const filePath = path.join(SERVICES_DIR, slug, 'faq.md');
+  if (!fs.existsSync(filePath)) {
+    return [];
+  }
+  const fileContents = fs.readFileSync(filePath, 'utf8');
+  const { content } = matter(fileContents);
+  return extractFaqPairs(content);
+}
+
+/**
  * 全サービス slug を返す（generateStaticParams 用）
  */
 export function getAllServiceSlugs(): string[] {
@@ -98,6 +129,17 @@ export async function getArticle(slug: string): Promise<Article> {
     slug,
     content: htmlContent,
   };
+}
+
+/**
+ * 特集記事（フロントマターに `featured: true` が設定された記事）を publishedAt 降順で返す。
+ * 該当記事がゼロ件の場合は例外を投げず空配列を返す。
+ * @param limit - 返す最大件数（既定 3）
+ */
+export function getFeaturedArticles(limit = 3): ArticleMeta[] {
+  return getAllArticles()
+    .filter((article) => article.featured === true)
+    .slice(0, limit);
 }
 
 /**
@@ -208,4 +250,159 @@ export function getTagBySlug(slug: string): string | null {
  */
 export function getArticlesByTag(tag: string): ArticleMeta[] {
   return getAllArticles().filter((article) => article.tags.includes(tag));
+}
+
+/**
+ * 全カテゴリ別ハブのメタデータを TECH_CATEGORY_SLUGS の順で返す。
+ * Markdown ファイルが存在しない slug は黙って除外する。
+ */
+export function getAllTechCategoryMetas(): TechCategoryMeta[] {
+  return TECH_CATEGORY_SLUGS.map((slug): TechCategoryMeta | null => {
+    const filePath = path.join(TECH_CATEGORY_DIR, `${slug}.md`);
+    if (!fs.existsSync(filePath)) {
+      return null;
+    }
+    const fileContents = fs.readFileSync(filePath, 'utf8');
+    const { data } = matter(fileContents);
+    const meta = data as Omit<TechCategoryMeta, 'slug'>;
+    return { ...meta, slug };
+  }).filter((meta): meta is TechCategoryMeta => meta !== null);
+}
+
+/**
+ * カテゴリ別ハブの解説本文（HTML 変換済み）を取得する
+ * @param slug - ハブ slug（aws / nextjs / dev-stack）
+ */
+export async function getTechCategory(slug: string): Promise<TechCategory> {
+  const filePath = path.join(TECH_CATEGORY_DIR, `${slug}.md`);
+
+  if (!fs.existsSync(filePath)) {
+    throw new Error(ERROR_MESSAGES.TECH_CATEGORY_NOT_FOUND);
+  }
+
+  const fileContents = fs.readFileSync(filePath, 'utf8');
+  const { data, content } = matter(fileContents);
+  const meta = data as Omit<TechCategoryMeta, 'slug'>;
+  const htmlContent = await markdownToHtml(content);
+
+  return {
+    ...meta,
+    slug,
+    content: htmlContent,
+  };
+}
+
+/**
+ * 指定カテゴリ別ハブに所属する記事を publishedAt 降順で返す。
+ * 記事側フロントマターの `categories` に slug を含むものを抽出する。
+ */
+export function getArticlesByCategory(slug: string): ArticleMeta[] {
+  return getAllArticles().filter((article) => article.categories?.includes(slug));
+}
+
+/**
+ * 記事が所属するカテゴリ別ハブのメタデータを返す（記事 → ハブの戻りリンク用）。
+ * 実在するハブのみを TECH_CATEGORY_SLUGS の順で返す。
+ * @param categories - 記事フロントマターの categories（未設定なら空配列）
+ */
+export function getTechCategoriesForArticle(categories: string[] | undefined): TechCategoryMeta[] {
+  if (!categories || categories.length === 0) {
+    return [];
+  }
+  const categorySet = new Set(categories);
+  return getAllTechCategoryMetas().filter((meta) => categorySet.has(meta.slug));
+}
+
+/**
+ * サイト全体の統計情報を返す（ヒーローセクション用）
+ */
+export function getSiteStats(): {
+  articleCount: number;
+  serviceCount: number;
+  categoryCount: number;
+} {
+  const articleCount = getAllArticles().length;
+  const serviceCount = getAllServiceSlugs().length;
+  const categoryCount = getAllTechCategoryMetas().length;
+  return { articleCount, serviceCount, categoryCount };
+}
+
+/**
+ * FAQ Markdown の本文から Q&A ペアを抽出する。
+ *
+ * 抽出ルール:
+ * - `### Q.` で始まる見出し行を質問として扱う
+ * - 見出し直後の段落で `**A.**` で始まるテキストを回答として扱う
+ * - `**A.**` プレフィックス自体は回答テキストから除去する
+ *
+ * @param markdownContent - frontmatter を除いた Markdown 本文
+ * @returns Q&A ペアの配列
+ */
+export function extractFaqPairs(markdownContent: string): FaqPair[] {
+  const lines = markdownContent.split('\n');
+  const pairs: FaqPair[] = [];
+
+  let currentQuestion: string | null = null;
+  let collectingAnswer = false;
+  let answerLines: string[] = [];
+
+  const flush = () => {
+    if (currentQuestion !== null && answerLines.length > 0) {
+      const rawAnswer = answerLines.join(' ').trim();
+      // `**A.**` プレフィックスを除去してプレーンテキスト化
+      const answer = rawAnswer
+        .replace(/^\*\*A\.\*\*\s*/, '')
+        .replace(/\*\*/g, '')
+        .trim();
+      if (answer.length > 0) {
+        pairs.push({ question: currentQuestion, answer });
+      }
+    }
+    currentQuestion = null;
+    collectingAnswer = false;
+    answerLines = [];
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // `### Q.` で始まる見出しを検出
+    const questionMatch = trimmed.match(/^###\s+Q\.\s+(.+)$/);
+    if (questionMatch) {
+      flush();
+      currentQuestion = questionMatch[1].trim();
+      collectingAnswer = false;
+      answerLines = [];
+      continue;
+    }
+
+    if (currentQuestion !== null) {
+      if (trimmed.startsWith('**A.**')) {
+        // 回答段落の開始
+        collectingAnswer = true;
+        answerLines = [trimmed];
+        continue;
+      }
+
+      if (collectingAnswer) {
+        if (trimmed === '' || trimmed.startsWith('#') || trimmed === '---') {
+          // 空行・別見出し・区切り線で回答終了
+          if (trimmed.startsWith('#') || trimmed === '---') {
+            flush();
+            continue;
+          }
+          // 空行はそのまま回答を確定して次の見出しを待つ
+          flush();
+          continue;
+        }
+        // 複数行の回答を結合
+        answerLines.push(trimmed);
+      }
+    }
+  }
+
+  // 末尾に達した時点で未確定の Q&A を確定
+  flush();
+
+  return pairs;
 }

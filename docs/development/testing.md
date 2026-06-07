@@ -510,6 +510,50 @@ test('通知許可がリクエストされる', async ({ page, context }) => {
 2. **`test.skip()` で明示的にスキップ**: スキップ理由をメッセージで明記
 3. **代替テストを検討**: 可能であれば別のアプローチでテストを追加
 
+## 内部リンクチェック（Portal）
+
+Portal では Markdown コンテンツや JSX ページコンポーネント内の内部リンク切れを静的解析で検出するスクリプトを常設している。
+
+### 実行方法
+
+```bash
+# Portal ディレクトリで実行
+npm run check:internal-links --workspace @nagiyu/portal-web
+# または services/portal/web 配下で直接実行
+cd services/portal/web
+npm run check:internal-links
+```
+
+### スクリプトの動作
+
+`services/portal/web/scripts/check-internal-links.mjs` が以下を実施する:
+
+1. `src/content/` 配下の全 Markdown / MDX ファイルを走査
+2. `src/app/` 配下の全 TSX ファイルを走査
+3. 各ファイルから静的な内部リンクを抽出（Markdown 形式・JSX `href` 属性）
+4. 以下のルール対応で実在確認:
+   - `/tech/{slug}` → `src/content/tech/{slug}.md`
+   - `/tech/tags/{tagSlug}` → タグ付き記事 1 件以上
+   - `/tech/category/{slug}` → `src/content/tech-category/{slug}.md` + 該当記事 1 件以上
+   - `/services/{slug}` → `src/content/services/{slug}/index.md`
+   - `/services/{slug}/{doc}` → `src/content/services/{slug}/{doc}.md`
+   - 静的ページ（`/`, `/about`, `/privacy`, `/terms` 等）→ `src/app/.../page.tsx`
+5. リンク切れがあれば終了コード 1 で一覧を出力、なければ 0 で終了
+
+### ビジネスロジックとテスト
+
+チェックロジックは `src/lib/linkChecker.ts` に切り出してあり、`tests/unit/lib/linkChecker.test.ts` で単体テストを実施（カバレッジ 99%+）。
+
+### CI 組み込み
+
+スクリプトの実行時間は 30 秒以内（実測 < 100ms）のため、`portal-verify.yml` の `unit-test` ジョブの後続ジョブとして `check-internal-links` ステップを追加している。integration ブランチへの PR 時にも実行される。
+
+### 注意事項
+
+- **外部リンク（https://）は対象外**（メンテコスト回避）
+- **動的テンプレートリテラル**（`href={\`/tech/${slug}\`}` 等）は解析対象外（実行時生成のため）
+- 新しいルーティングパターンを追加した場合は `src/lib/linkChecker.ts` の `validateHref` 関数を更新すること
+
 ## 参考
 
 - [rules.md](./rules.md): コーディング規約・べからず集
