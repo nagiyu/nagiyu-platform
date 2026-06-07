@@ -14,6 +14,10 @@ import {
   getTechCategory,
   getArticlesByCategory,
   getTechCategoriesForArticle,
+  getFeaturedArticles,
+  getSiteStats,
+  extractFaqPairs,
+  getServiceFaqPairs,
 } from '@/lib/content';
 
 // ESM-only パッケージ（remark/rehype/unified）は Jest の CommonJS 環境では読み込めないためモック化する
@@ -243,8 +247,12 @@ describe('content', () => {
   describe('getArticlesByCategory', () => {
     it('指定カテゴリに所属する記事を publishedAt 降順で返す', () => {
       const articles = getArticlesByCategory('aws');
-      // test-article-1 (aws), test-article-2 (aws, nextjs) が該当
-      expect(articles.map((a) => a.slug)).toEqual(['test-article-1', 'test-article-2']);
+      // test-article-featured (aws, featured: true), test-article-1 (aws), test-article-2 (aws, nextjs) が該当
+      expect(articles.map((a) => a.slug)).toEqual([
+        'test-article-featured',
+        'test-article-1',
+        'test-article-2',
+      ]);
     });
 
     it('単一カテゴリにのみ所属する記事を抽出する', () => {
@@ -272,6 +280,200 @@ describe('content', () => {
     it('categories が未指定なら空配列', () => {
       expect(getTechCategoriesForArticle(undefined)).toEqual([]);
       expect(getTechCategoriesForArticle([])).toEqual([]);
+    });
+  });
+
+  describe('getFeaturedArticles', () => {
+    it('featured: true の記事のみを返す', () => {
+      const articles = getFeaturedArticles();
+      expect(articles.every((a) => a.featured === true)).toBe(true);
+    });
+
+    it('フィクスチャ内の特集記事（test-article-featured）が含まれる', () => {
+      const articles = getFeaturedArticles();
+      expect(articles.find((a) => a.slug === 'test-article-featured')).toBeDefined();
+    });
+
+    it('featured: true を持たない記事は含まれない', () => {
+      const articles = getFeaturedArticles();
+      // test-article-1, 2, 3 は featured を持たないため除外される
+      expect(articles.find((a) => a.slug === 'test-article-1')).toBeUndefined();
+      expect(articles.find((a) => a.slug === 'test-article-2')).toBeUndefined();
+      expect(articles.find((a) => a.slug === 'test-article-3')).toBeUndefined();
+    });
+
+    it('limit 引数で件数を制限できる', () => {
+      const articles = getFeaturedArticles(1);
+      expect(articles.length).toBeLessThanOrEqual(1);
+    });
+
+    it('特集記事がゼロ件でも例外を投げず空配列を返す', () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      jest.spyOn(require('fs'), 'existsSync').mockReturnValueOnce(false);
+      const articles = getFeaturedArticles();
+      expect(Array.isArray(articles)).toBe(true);
+    });
+  });
+
+  describe('getSiteStats', () => {
+    it('articleCount / serviceCount / categoryCount を返す', () => {
+      const stats = getSiteStats();
+      expect(typeof stats.articleCount).toBe('number');
+      expect(typeof stats.serviceCount).toBe('number');
+      expect(typeof stats.categoryCount).toBe('number');
+    });
+
+    it('articleCount はフィクスチャの記事数と一致する', () => {
+      const stats = getSiteStats();
+      const articles = getAllArticles();
+      expect(stats.articleCount).toBe(articles.length);
+    });
+
+    it('categoryCount はフィクスチャ内の実在するカテゴリ数と一致する', () => {
+      const stats = getSiteStats();
+      const categories = getAllTechCategoryMetas();
+      expect(stats.categoryCount).toBe(categories.length);
+    });
+  });
+
+  describe('extractFaqPairs', () => {
+    it('### Q. 見出しと **A.** 回答を抽出する', () => {
+      const markdown = `
+## よくある質問
+
+### Q. テスト質問1
+
+**A.** テスト回答1
+
+### Q. テスト質問2
+
+**A.** テスト回答2
+`;
+      const pairs = extractFaqPairs(markdown);
+      expect(pairs).toHaveLength(2);
+      expect(pairs[0].question).toBe('テスト質問1');
+      expect(pairs[0].answer).toBe('テスト回答1');
+      expect(pairs[1].question).toBe('テスト質問2');
+      expect(pairs[1].answer).toBe('テスト回答2');
+    });
+
+    it('**A.** プレフィックスを回答から除去する', () => {
+      const markdown = `
+### Q. 質問
+
+**A.** これは回答です。
+`;
+      const pairs = extractFaqPairs(markdown);
+      expect(pairs[0].answer).toBe('これは回答です。');
+      expect(pairs[0].answer).not.toContain('**A.**');
+    });
+
+    it('マークダウンの太字記法（**）を除去する', () => {
+      const markdown = `
+### Q. 質問
+
+**A.** **強調テキスト**を含む回答です。
+`;
+      const pairs = extractFaqPairs(markdown);
+      expect(pairs[0].answer).not.toContain('**');
+      expect(pairs[0].answer).toBe('強調テキストを含む回答です。');
+    });
+
+    it('Q&A ペアがない場合は空配列を返す', () => {
+      const markdown = `
+## よくある質問
+
+ここには Q&A がありません。
+`;
+      const pairs = extractFaqPairs(markdown);
+      expect(pairs).toEqual([]);
+    });
+
+    it('空文字列では空配列を返す', () => {
+      const pairs = extractFaqPairs('');
+      expect(pairs).toEqual([]);
+    });
+
+    it('回答が空の場合はペアに含めない', () => {
+      const markdown = `
+### Q. 質問のみで回答なし
+`;
+      const pairs = extractFaqPairs(markdown);
+      expect(pairs).toEqual([]);
+    });
+
+    it('複数行の回答をスペース区切りで結合する', () => {
+      const markdown = `
+### Q. 複数行の質問
+
+**A.** 1行目の回答
+2行目の回答
+
+`;
+      const pairs = extractFaqPairs(markdown);
+      expect(pairs).toHaveLength(1);
+      expect(pairs[0].answer).toContain('1行目の回答');
+      expect(pairs[0].answer).toContain('2行目の回答');
+    });
+
+    it('見出し行（#）が現れたら回答を確定して次の質問に移る', () => {
+      const markdown = `
+### Q. 質問1
+
+**A.** 回答1
+
+## セクション見出し
+
+### Q. 質問2
+
+**A.** 回答2
+`;
+      const pairs = extractFaqPairs(markdown);
+      expect(pairs).toHaveLength(2);
+      expect(pairs[0].question).toBe('質問1');
+      expect(pairs[1].question).toBe('質問2');
+    });
+
+    it('回答直後（空行なし）に見出し行が来ても回答を確定する', () => {
+      const markdown = `### Q. 質問1
+**A.** 回答1
+## 別セクション
+### Q. 質問2
+**A.** 回答2`;
+      const pairs = extractFaqPairs(markdown);
+      expect(pairs).toHaveLength(2);
+      expect(pairs[0].answer).toBe('回答1');
+    });
+
+    it('区切り線（---）が現れたら回答を確定する', () => {
+      const markdown = `
+### Q. 質問1
+
+**A.** 回答1
+
+---
+
+### Q. 質問2
+
+**A.** 回答2
+`;
+      const pairs = extractFaqPairs(markdown);
+      expect(pairs).toHaveLength(2);
+      expect(pairs[0].answer).toBe('回答1');
+    });
+  });
+
+  describe('getServiceFaqPairs', () => {
+    it('tools フィクスチャから Q&A ペアを抽出できる', () => {
+      const pairs = getServiceFaqPairs('tools');
+      expect(pairs.length).toBeGreaterThan(0);
+      expect(pairs[0].question).toBeTruthy();
+      expect(pairs[0].answer).toBeTruthy();
+    });
+
+    it('存在しない slug では空配列を返す', () => {
+      const pairs = getServiceFaqPairs('nonexistent-service');
+      expect(pairs).toEqual([]);
     });
   });
 });

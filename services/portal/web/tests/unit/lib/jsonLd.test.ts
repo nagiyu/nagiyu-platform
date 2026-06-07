@@ -3,8 +3,10 @@ import {
   buildOrganizationJsonLd,
   buildBlogPostingJsonLd,
   buildBreadcrumbJsonLd,
+  buildFAQPageJsonLd,
   jsonLdScript,
 } from '@/lib/jsonLd';
+import type { FaqPair } from '@/lib/jsonLd';
 import type { ArticleMeta } from '@/types/content';
 
 describe('jsonLd', () => {
@@ -70,6 +72,39 @@ describe('jsonLd', () => {
       expect(data.itemListElement[0].position).toBe(1);
       expect(data.itemListElement[0].name).toBe('ホーム');
       expect(data.itemListElement[1].position).toBe(2);
+    });
+  });
+
+  describe('buildFAQPageJsonLd', () => {
+    it('FAQPage 型の JSON-LD を返す', () => {
+      const pairs: FaqPair[] = [
+        { question: '質問1', answer: '回答1' },
+        { question: '質問2', answer: '回答2' },
+      ];
+      const data = buildFAQPageJsonLd(pairs);
+      expect(data['@type']).toBe('FAQPage');
+      expect(data['@context']).toBe('https://schema.org');
+      expect(data.mainEntity).toHaveLength(2);
+    });
+
+    it('mainEntity の各要素が Question 型を持つ', () => {
+      const pairs: FaqPair[] = [{ question: 'テスト質問', answer: 'テスト回答' }];
+      const data = buildFAQPageJsonLd(pairs);
+      expect(data.mainEntity[0]['@type']).toBe('Question');
+      expect(data.mainEntity[0].name).toBe('テスト質問');
+    });
+
+    it('acceptedAnswer が Answer 型と回答テキストを持つ', () => {
+      const pairs: FaqPair[] = [{ question: 'テスト質問', answer: 'テスト回答' }];
+      const data = buildFAQPageJsonLd(pairs);
+      expect(data.mainEntity[0].acceptedAnswer['@type']).toBe('Answer');
+      expect(data.mainEntity[0].acceptedAnswer.text).toBe('テスト回答');
+    });
+
+    it('空配列を渡すと mainEntity が空配列になる', () => {
+      const data = buildFAQPageJsonLd([]);
+      expect(data['@type']).toBe('FAQPage');
+      expect(data.mainEntity).toEqual([]);
     });
   });
 

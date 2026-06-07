@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Container, Typography } from '@mui/material';
-import { getAllServiceSlugs, getServiceDocument } from '@/lib/content';
+import { getAllServiceSlugs, getServiceDocument, getServiceFaqPairs } from '@/lib/content';
 import { SERVICE_NAMES } from '@/lib/services';
 import MarkdownContent from '@/components/MarkdownContent';
 import ServiceDocumentNav from '@/components/ServiceDocumentNav';
-import { buildBreadcrumbJsonLd, jsonLdScript } from '@/lib/jsonLd';
+import { buildBreadcrumbJsonLd, buildFAQPageJsonLd, jsonLdScript } from '@/lib/jsonLd';
 
 type Params = {
   params: Promise<{ slug: string }>;
@@ -51,12 +51,21 @@ export default async function ServiceFaqPage({ params }: Params) {
     { name: 'FAQ', url: `https://nagiyu.com/services/${slug}/faq` },
   ]);
 
+  const faqPairs = getServiceFaqPairs(slug);
+  const faqPage = buildFAQPageJsonLd(faqPairs);
+
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumb) }}
       />
+      {faqPairs.length > 0 && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(faqPage) }}
+        />
+      )}
       <Typography variant="h4" component="h1" gutterBottom>
         {doc.title}
       </Typography>
