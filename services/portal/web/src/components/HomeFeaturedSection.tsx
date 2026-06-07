@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Box, Typography, Grid, Card, CardContent, CardActions, Chip as MuiChip } from '@mui/material';
+import { Box, Typography, Grid, Card, CardContent, CardActions } from '@mui/material';
 import { Button, Chip } from '@nagiyu/ui';
 import type { ArticleMeta } from '@/types/content';
 
@@ -40,12 +40,11 @@ export default function HomeFeaturedSection({ articles }: HomeFeaturedSectionPro
             >
               <CardContent sx={{ flexGrow: 1 }}>
                 {/* 特集バッジ */}
-                <MuiChip
-                  label="特集"
-                  size="small"
-                  color="primary"
-                  sx={{ mb: 1.5, fontSize: '0.7rem', height: 22 }}
-                />
+                <Box sx={{ mb: 1.5 }}>
+                  <Chip variant="solid" color="primary" size="sm">
+                    特集
+                  </Chip>
+                </Box>
 
                 {/* タイトル */}
                 <Typography
@@ -69,7 +68,11 @@ export default function HomeFeaturedSection({ articles }: HomeFeaturedSectionPro
                 </Typography>
 
                 {/* 公開日 */}
-                <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mb: 1 }}>
+                <Typography
+                  variant="caption"
+                  color="text.disabled"
+                  sx={{ display: 'block', mb: 1 }}
+                >
                   {article.publishedAt}
                 </Typography>
 

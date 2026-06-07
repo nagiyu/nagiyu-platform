@@ -300,7 +300,11 @@ export function getTechCategoriesForArticle(categories: string[] | undefined): T
 /**
  * サイト全体の統計情報を返す（ヒーローセクション用）
  */
-export function getSiteStats(): { articleCount: number; serviceCount: number; categoryCount: number } {
+export function getSiteStats(): {
+  articleCount: number;
+  serviceCount: number;
+  categoryCount: number;
+} {
   const articleCount = getAllArticles().length;
   const serviceCount = getAllServiceSlugs().length;
   const categoryCount = getAllTechCategoryMetas().length;

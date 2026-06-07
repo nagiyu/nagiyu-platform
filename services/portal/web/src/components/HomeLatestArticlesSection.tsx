@@ -38,7 +38,11 @@ export default function HomeLatestArticlesSection({ articles }: HomeLatestArticl
                   {article.description}
                 </Typography>
                 {/* 公開日 */}
-                <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mb: 1 }}>
+                <Typography
+                  variant="caption"
+                  color="text.disabled"
+                  sx={{ display: 'block', mb: 1 }}
+                >
                   {article.publishedAt}
                 </Typography>
                 {/* タグ */}

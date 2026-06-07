@@ -62,7 +62,9 @@ export default function HomeHeroSection({
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={{ xs: 2, sm: 0 }}
-        divider={<Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />}
+        divider={
+          <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />
+        }
         justifyContent="center"
         alignItems="center"
         sx={{ mb: 4 }}
