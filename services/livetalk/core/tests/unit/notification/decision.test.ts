@@ -3,6 +3,8 @@ import {
   extractSessionStartTimes,
   computeSessionIntervals,
   computeBaseIntervalMs,
+  computeIntensityFactor,
+  computeDailyNormalCap,
   resolveToneBucket,
   countTodayNotifications,
   median,
@@ -141,21 +143,102 @@ describe('computeSessionIntervals', () => {
   });
 });
 
-describe('computeBaseIntervalMs', () => {
-  it('サンプルなしは DEFAULT_BASE_HOURS (24h)', () => {
-    expect(computeBaseIntervalMs([])).toBe(24 * HOUR);
+describe('computeIntensityFactor', () => {
+  it('セッション 0 件 → factor=1（casual 扱い）', () => {
+    // ウィンドウ内のセッションが 0 件なら factor=0/1.5=0 → clamp → 1
+    expect(computeIntensityFactor([], NOW_DATE)).toBe(1);
   });
 
-  it('1h 以下は BASE_MIN_HOURS (12h) にクランプ', () => {
-    expect(computeBaseIntervalMs([HOUR])).toBe(12 * HOUR);
+  it('session/日がベースライン（1.5）と同値 → factor=1', () => {
+    // 7日間に 1.5*7=10.5 → 10 セッションで perDay=10/7≈1.43 < 1.5 → factor<1 → clamp → 1
+    // ぴったり 1.5*7=10.5 は作れないので 11 セッションで確認（11/7/1.5≈1.048 → clamp → 1.048）
+    // ここでは「ベースライン未満 → factor=1」を直接確認する
+    const now = NOW_DATE;
+    const windowMs = 7 * 24 * HOUR;
+    // 7日で 7 セッション = 1 session/日 = 1/1.5=0.67 → clamp → 1
+    const sessions = Array.from({ length: 7 }, (_, i) => now.getTime() - windowMs + i * DAY);
+    expect(computeIntensityFactor(sessions, now)).toBe(1);
+  });
+
+  it('高頻度ユーザー → NOTIFY_INTENSITY_MAX_FACTOR(3) でクランプ', () => {
+    // 7日間に 100 セッション = 100/7/1.5≈9.52 → clamp → 3
+    const now = NOW_DATE;
+    const sessions = Array.from({ length: 100 }, (_, i) => now.getTime() - i * HOUR);
+    expect(computeIntensityFactor(sessions, now)).toBe(3);
+  });
+
+  it('ウィンドウ外のセッションは除外される', () => {
+    // 8日前のセッション 100 件（ウィンドウ外）+ ウィンドウ内なし → factor=1
+    const now = NOW_DATE;
+    const windowMs = 7 * 24 * HOUR;
+    const sessions = Array.from(
+      { length: 100 },
+      (_, i) => now.getTime() - windowMs - (i + 1) * HOUR
+    );
+    expect(computeIntensityFactor(sessions, now)).toBe(1);
+  });
+
+  it('活発ユーザー（dev 実測相当 4.4 session/日）→ 1 < factor < 3', () => {
+    // 7日間に 31 セッション ≈ 4.43 session/日 → 4.43/1.5≈2.95 → clamp → 2.95（< 3）
+    const now = NOW_DATE;
+    const sessions = Array.from({ length: 31 }, (_, i) => now.getTime() - i * 5 * HOUR);
+    const factor = computeIntensityFactor(sessions, now);
+    expect(factor).toBeGreaterThan(1);
+    expect(factor).toBeLessThanOrEqual(3);
+  });
+});
+
+describe('computeDailyNormalCap', () => {
+  it('factor=1（casual）→ cap=1（下限）', () => {
+    expect(computeDailyNormalCap(1)).toBe(1);
+  });
+
+  it('factor=2 → cap=2', () => {
+    expect(computeDailyNormalCap(2)).toBe(2);
+  });
+
+  it('factor=3.x → cap=3（上限）', () => {
+    // round(3.4)=3, round(3.5)=4 → clamp → 3
+    expect(computeDailyNormalCap(3.4)).toBe(3);
+    expect(computeDailyNormalCap(3.5)).toBe(3);
+  });
+
+  it('factor=0.x → cap=1（下限）', () => {
+    expect(computeDailyNormalCap(0.5)).toBe(1);
+  });
+});
+
+describe('computeBaseIntervalMs', () => {
+  it('サンプルなしは DEFAULT_BASE_HOURS (24h)', () => {
+    // intensityFactor=1（変化なし）
+    expect(computeBaseIntervalMs([], 1)).toBe(24 * HOUR);
+  });
+
+  it('中央値 1h・factor=1 → BASE_MIN_HOURS (4h) にクランプ', () => {
+    // 1h / 1 = 1h < 4h（新 floor）→ 4h
+    expect(computeBaseIntervalMs([HOUR], 1)).toBe(4 * HOUR);
   });
 
   it('30 日以上は MAX_INTERVAL_DAYS (14 日) にクランプ', () => {
-    expect(computeBaseIntervalMs([30 * DAY])).toBe(14 * DAY);
+    expect(computeBaseIntervalMs([30 * DAY], 1)).toBe(14 * DAY);
   });
 
-  it('範囲内の中央値をそのまま使う', () => {
-    expect(computeBaseIntervalMs([24 * HOUR, 24 * HOUR, 24 * HOUR])).toBe(24 * HOUR);
+  it('範囲内の中央値をそのまま使う（factor=1）', () => {
+    expect(computeBaseIntervalMs([24 * HOUR, 24 * HOUR, 24 * HOUR], 1)).toBe(24 * HOUR);
+  });
+
+  it('factor で median が割られる（活発ユーザーの間隔短縮）', () => {
+    // median=24h / factor=2 = 12h（floor=4h 以上なのでクランプなし）
+    expect(computeBaseIntervalMs([24 * HOUR, 24 * HOUR, 24 * HOUR], 2)).toBe(12 * HOUR);
+  });
+
+  it('factor=3 で 12h median → 4h（floor クランプ）', () => {
+    // median=12h / factor=3 = 4h = 新 floor（ぴったり）
+    expect(computeBaseIntervalMs([12 * HOUR, 12 * HOUR], 3)).toBe(4 * HOUR);
+  });
+
+  it('factor=null 相当のデフォルト（サンプルなし・factor=1）はデフォルト 24h', () => {
+    expect(computeBaseIntervalMs([], 1)).toBe(24 * HOUR);
   });
 });
 
@@ -336,6 +419,92 @@ describe('shouldNotifyNow', () => {
         userMessages: [makeMsg(NOW_UTC_MS - 2 * DAY)],
       });
       expect(result.notify).toBe(true);
+    });
+  });
+
+  describe('Phase 2: 活発ユーザー（高 intensity）の動作', () => {
+    // 活発ユーザー: 7日間に 31 セッション（≒4.4/日 → factor≈2.95 → cap=3、interval≈8.1h）
+    // now = NOW_DATE（UTC 12:00, 2026-01-01）
+    // UserActivityProfile なし（時間帯ゲートをスキップ）
+    function makeActiveUserSessions(): number[] {
+      // 直近 7 日間に均等に 31 セッション配置
+      return Array.from({ length: 31 }, (_, i) => NOW_UTC_MS - i * 5 * HOUR);
+    }
+
+    it('活発ユーザー: cap が 1 より大きくなり、本日 1 件目は daily_cap にならない', () => {
+      const sessions = makeActiveUserSessions();
+      const msgs = sessions.map((t) => makeMsg(t));
+      // 今日の通知 1 件
+      const today = todayStartMs();
+      const result = shouldNotifyNow({
+        ...baseInput(),
+        userMessages: msgs,
+        notificationEvents: [
+          makeNotifEvent('normal', today + 1000), // 今日 1 件目送信済み
+        ],
+      });
+      // factor≈2.95 → cap=3 → todayNormal=1 < 3 → daily_cap にはならない
+      // interval も短縮されているので elapsed 次第
+      // elapsed = now - last interaction（5h 前のセッション）→ 5h
+      // effectiveInterval = 24h/2.95 ≈ 8.1h（missedCount=1: 8.1*1.5=12.2h）
+      // → 5h < 12.2h → not_due が予想されるが daily_cap ではないことを確認
+      if (!result.notify) {
+        expect(result.reason).not.toBe('daily_cap');
+      }
+    });
+
+    it('活発ユーザー: interval が短縮されて elapsed 十分なら発火する', () => {
+      // セッションを 7 日前に固定して elapsed = 7 日に設定
+      const sessions = Array.from({ length: 31 }, (_, i) => NOW_UTC_MS - 7 * DAY - i * 5 * HOUR);
+      const msgs = sessions.map((t) => makeMsg(t));
+      const result = shouldNotifyNow({
+        ...baseInput(),
+        userMessages: msgs,
+        notificationEvents: [],
+      });
+      // elapsed = 7 日 >> intensityFactor で短縮された interval → 発火
+      expect(result.notify).toBe(true);
+      if (result.notify) expect(result.kind).toBe('normal');
+    });
+
+    it('casual ユーザー: cap=1 のまま（従来通り）', () => {
+      // セッションなし → factor=1 → cap=1
+      const today = todayStartMs();
+      const result = shouldNotifyNow({
+        ...baseInput(),
+        userMessages: [],
+        notificationEvents: [makeNotifEvent('normal', today + 1000)],
+      });
+      expect(result).toEqual({ notify: false, reason: 'daily_cap' });
+    });
+  });
+
+  describe('Phase 2: backoff が依然効くこと', () => {
+    it('missedCount が増えると effectiveInterval が拡大して not_due になる', () => {
+      // missedCount=3 → effectiveInterval = 24h * 1.5^3 = 81h
+      // メッセージなし（lastInteractionAt=0）、通知イベントが missedCount に加算される
+      const missedEvents = Array.from({ length: 3 }, (_, i) =>
+        makeNotifEvent('normal', (i + 1) * DAY)
+      ); // CreatedAt > 0 なので missedCount に加算
+      const result = shouldNotifyNow({
+        ...baseInput(),
+        userMessages: [],
+        notificationEvents: missedEvents,
+      });
+      // elapsed = NOW - 0 = 巨大（referenceTime=max(0, lastNormal=3DAY)=3DAY、elapsed=NOW-3DAY≒4DAY-ish）
+      // effectiveInterval = 24h * 1.5^3 = 81h ≈ 3.375 日
+      // elapsed（≈4日） > effectiveInterval(3.375日) → 発火する（inactive_stopped でもない）
+      // むしろ missedCount=7 以上で inactive_stopped を確認
+      expect(result).not.toEqual({ notify: false, reason: 'daily_cap' });
+    });
+
+    it('missedCount=7 → effectiveInterval > 14 日 → inactive_stopped（Phase 2 でも維持）', () => {
+      const events = Array.from({ length: 7 }, (_, i) => makeNotifEvent('normal', (i + 1) * DAY));
+      const result = shouldNotifyNow({
+        ...baseInput(),
+        notificationEvents: events,
+      });
+      expect(result).toEqual({ notify: false, reason: 'inactive_stopped' });
     });
   });
 

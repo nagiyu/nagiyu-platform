@@ -11,7 +11,11 @@ import {
   NOTIFY_BASE_MIN_HOURS,
   NOTIFY_DAILY_CRITICAL_CAP,
   NOTIFY_DAILY_NORMAL_CAP,
+  NOTIFY_DAILY_NORMAL_CAP_MAX,
   NOTIFY_DEFAULT_BASE_HOURS,
+  NOTIFY_INTENSITY_BASELINE_SESSIONS_PER_DAY,
+  NOTIFY_INTENSITY_MAX_FACTOR,
+  NOTIFY_INTENSITY_WINDOW_DAYS,
   NOTIFY_MAX_INTERVAL_DAYS,
   NOTIFY_RECENT_SESSION_SAMPLE_N,
   NOTIFY_SESSION_GAP_MINUTES,
@@ -101,11 +105,29 @@ export function median(values: number[]): number | null {
 }
 
 /**
+ * 会話の活発さを表す強度係数を算出する（純粋関数）。
+ *
+ * NOTIFY_INTENSITY_WINDOW_DAYS 内のセッション数を日数で割り session/日 を求め、
+ * NOTIFY_INTENSITY_BASELINE_SESSIONS_PER_DAY を基準として正規化する。
+ * 結果は [1, NOTIFY_INTENSITY_MAX_FACTOR] にクランプする。
+ * casual ユーザー（session/日 < baseline）は factor=1 となり従来通りの挙動を維持する。
+ */
+export function computeIntensityFactor(sessionStarts: number[], now: Date): number {
+  const windowMs = NOTIFY_INTENSITY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  const since = now.getTime() - windowMs;
+  const sessionsInWindow = sessionStarts.filter((t) => t >= since).length;
+  const perDay = sessionsInWindow / NOTIFY_INTENSITY_WINDOW_DAYS;
+  const factor = perDay / NOTIFY_INTENSITY_BASELINE_SESSIONS_PER_DAY;
+  return Math.max(1, Math.min(NOTIFY_INTENSITY_MAX_FACTOR, factor));
+}
+
+/**
  * 基準間隔（ms）を算出する。
  * - サンプルが 0 なら DEFAULT_BASE_HOURS
- * - [BASE_MIN_HOURS, MAX_INTERVAL_DAYS] にクランプ
+ * - 中央値を intensityFactor で割ることで活発ユーザーの間隔を短縮
+ * - [NOTIFY_BASE_MIN_HOURS, NOTIFY_MAX_INTERVAL_DAYS] にクランプ
  */
-export function computeBaseIntervalMs(sessionIntervals: number[]): number {
+export function computeBaseIntervalMs(sessionIntervals: number[], intensityFactor: number): number {
   const minMs = NOTIFY_BASE_MIN_HOURS * 60 * 60 * 1000;
   const maxMs = NOTIFY_MAX_INTERVAL_DAYS * 24 * 60 * 60 * 1000;
   const defaultMs = NOTIFY_DEFAULT_BASE_HOURS * 60 * 60 * 1000;
@@ -113,7 +135,21 @@ export function computeBaseIntervalMs(sessionIntervals: number[]): number {
   const med = median(sessionIntervals);
   if (med === null) return defaultMs;
 
-  return Math.max(minMs, Math.min(maxMs, med));
+  return Math.max(minMs, Math.min(maxMs, med / intensityFactor));
+}
+
+/**
+ * 1 日あたりの平常通知上限（動的 cap）を算出する（純粋関数）。
+ *
+ * intensityFactor を丸めた値を使い、
+ * [NOTIFY_DAILY_NORMAL_CAP, NOTIFY_DAILY_NORMAL_CAP_MAX] にクランプする。
+ * casual（factor=1）→ cap=1、活発（factor≥3）→ cap=3。
+ */
+export function computeDailyNormalCap(intensityFactor: number): number {
+  return Math.max(
+    NOTIFY_DAILY_NORMAL_CAP,
+    Math.min(NOTIFY_DAILY_NORMAL_CAP_MAX, Math.round(intensityFactor))
+  );
 }
 
 /** 現在の elapsed に対するトーンバケットを返す。 */
@@ -180,7 +216,10 @@ export function shouldNotifyNow(input: NotifyDecisionInput): NotifyDecision {
   const sessionGapMs = NOTIFY_SESSION_GAP_MINUTES * 60 * 1000;
   const sessionStarts = extractSessionStartTimes(userMessages, sessionGapMs);
   const intervals = computeSessionIntervals(sessionStarts, NOTIFY_RECENT_SESSION_SAMPLE_N);
-  const baseIntervalMs = computeBaseIntervalMs(intervals);
+
+  // 強度係数を算出して interval・cap 両方に反映（活発ユーザーほど短間隔・高 cap）
+  const intensityFactor = computeIntensityFactor(sessionStarts, now);
+  const baseIntervalMs = computeBaseIntervalMs(intervals, intensityFactor);
 
   // 直近の平常通知と最終会話時刻の後ろ側を基準時刻とする
   const lastNormalEvent = notificationEvents.find((e) => e.Kind === 'normal');
@@ -202,9 +241,10 @@ export function shouldNotifyNow(input: NotifyDecisionInput): NotifyDecision {
     return { notify: false, reason: 'inactive_stopped' };
   }
 
-  // 4. 1日上限チェック
+  // 4. 1日上限チェック（活発ユーザーは cap が引き上がる）
+  const dailyCap = computeDailyNormalCap(intensityFactor);
   const todayNormal = countTodayNotifications(notificationEvents, 'normal', now);
-  if (todayNormal >= NOTIFY_DAILY_NORMAL_CAP) {
+  if (todayNormal >= dailyCap) {
     return { notify: false, reason: 'daily_cap' };
   }
 
