@@ -109,7 +109,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             >
               {children}
             </Box>
-            <Footer version={version} contactHref="/about" />
+            <Footer version={version} contactHref="/contact" />
           </Box>
         </AppThemeProvider>
       </body>
