@@ -1,7 +1,13 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { Box } from '@mui/material';
-import { AppThemeProvider, Header, Footer, type NavigationItem } from '@nagiyu/ui';
+import {
+  AppThemeProvider,
+  Header,
+  Footer,
+  type NavigationItem,
+  type FooterLinkGroup,
+} from '@nagiyu/ui';
 import HomeIcon from '@mui/icons-material/Home';
 import ArticleIcon from '@mui/icons-material/Article';
 import AppsIcon from '@mui/icons-material/Apps';
@@ -55,6 +61,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const version = process.env.APP_VERSION || '1.0.0';
   const isProduction = process.env.NODE_ENV === 'production';
 
+  /** git 初コミットの年。著作権表記の開始年として使用する。 */
+  const copyrightStartYear = 2026;
+  const currentYear = new Date().getFullYear();
+  const copyrightYearRange =
+    currentYear > copyrightStartYear
+      ? `${copyrightStartYear}–${currentYear}`
+      : String(copyrightStartYear);
+  const copyright = `© ${copyrightYearRange} nagiyu`;
+
   const navigationItems: NavigationItem[] = [
     {
       label: 'ホーム',
@@ -75,6 +90,40 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       label: 'About',
       href: '/about',
       icon: <InfoIcon />,
+    },
+  ];
+
+  /** フッターナビゲーションリンクグループ */
+  const footerLinks: FooterLinkGroup[] = [
+    {
+      title: 'メインコンテンツ',
+      items: [
+        { label: 'ホーム', href: '/' },
+        { label: 'サービス一覧', href: '/services' },
+        { label: '技術記事', href: '/tech' },
+      ],
+    },
+    {
+      title: 'カテゴリ',
+      items: [
+        { label: 'AWS', href: '/tech/category/aws' },
+        { label: 'Next.js', href: '/tech/category/nextjs' },
+        { label: '開発スタック', href: '/tech/category/dev-stack' },
+      ],
+    },
+    {
+      title: 'サイト情報',
+      items: [
+        { label: 'About', href: '/about' },
+        { label: 'お問い合わせ', href: '/contact' },
+      ],
+    },
+    {
+      title: '法的情報',
+      items: [
+        { label: 'プライバシーポリシー', href: '/privacy' },
+        { label: '利用規約', href: '/terms' },
+      ],
     },
   ];
 
@@ -109,7 +158,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             >
               {children}
             </Box>
-            <Footer version={version} contactHref="/contact" />
+            <Footer
+              version={version}
+              contactHref="/contact"
+              links={footerLinks}
+              copyright={copyright}
+            />
           </Box>
         </AppThemeProvider>
       </body>
