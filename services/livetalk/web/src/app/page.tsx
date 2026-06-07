@@ -15,6 +15,8 @@ import NotificationToggle from '@/components/NotificationToggle';
 import type { LifecycleState, SafetyResource } from '@nagiyu/livetalk-core';
 import InstallGuide from '@/components/InstallGuide';
 import NotificationPermission from '@/components/NotificationPermission';
+import CharacterSelectButton from '@/components/CharacterSelectButton';
+import { useCharacter } from '@/lib/characters/CharacterContext';
 import {
   isStandalone,
   isPushSupported,
@@ -65,6 +67,7 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
  *   （HTMLAudioElement の autoplay 制約を回避）
  */
 export default function HomePage() {
+  const { characterId } = useCharacter();
   const { data: session } = useSession();
   const isAdmin =
     !!session?.user &&
@@ -250,7 +253,10 @@ export default function HomePage() {
       sentenceReceivedRef.current = 0;
 
       try {
-        const chatBody: { text: string; knowledgeId?: string } = { text };
+        const chatBody: { text: string; characterId?: string; knowledgeId?: string } = {
+          text,
+          characterId,
+        };
         if (notifKnowledgeId) chatBody.knowledgeId = notifKnowledgeId;
 
         const response = await fetch('/api/chat', {
@@ -377,7 +383,7 @@ export default function HomePage() {
         );
       }
     },
-    [ensureAudioContextUnlocked, clearAudioQueue, advanceAudioQueue]
+    [ensureAudioContextUnlocked, clearAudioQueue, advanceAudioQueue, characterId]
   );
 
   const handlePlaybackEnd = useCallback(() => {
@@ -425,8 +431,12 @@ export default function HomePage() {
           py: 1,
         }}
       >
+        <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 0.5 }}>
+          <CharacterSelectButton disabled={phase !== 'idle'} />
+        </Box>
         <Box sx={{ flex: '0 1 60%', minHeight: 240, mb: 1 }}>
           <Live2DCanvas
+            characterId={characterId}
             audioBuffer={audioBuffer}
             audioContext={audioContext}
             statusText={statusText}

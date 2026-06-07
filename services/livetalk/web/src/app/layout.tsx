@@ -3,8 +3,10 @@ import Script from 'next/script';
 import { ServiceLayout, ServiceWorkerRegistration } from '@nagiyu/ui';
 import SessionProviderWrapper from '@/components/SessionProviderWrapper';
 import ClientErrorReporter from '@/components/ClientErrorReporter';
+import CharacterLicenseText from '@/components/CharacterLicenseText';
+import { CharacterProvider } from '@/lib/characters/CharacterContext';
 import '@nagiyu/ui/tokens.css';
-import { liveTalkTermsSections, LIVETALK_LICENSE_TEXT } from '@/lib/legal/terms-data';
+import { liveTalkTermsSections } from '@/lib/legal/terms-data';
 import { liveTalkPrivacySections } from '@/lib/legal/privacy-data';
 
 export const metadata: Metadata = {
@@ -42,21 +44,30 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           subscribeEndpoint="/api/push/subscribe"
           vapidPublicKeyEndpoint="/api/push/vapid-public-key"
         />
-        <ServiceLayout
-          headerProps={{
-            title: 'リブトーク',
-            ariaLabel: 'リブトーク ホームに戻る',
-          }}
-          footerProps={{
-            version,
-            termsContent: liveTalkTermsSections,
-            privacyContent: liveTalkPrivacySections,
-            licenseText: LIVETALK_LICENSE_TEXT,
-          }}
-        >
-          <ClientErrorReporter />
-          <SessionProviderWrapper>{children}</SessionProviderWrapper>
-        </ServiceLayout>
+        {/*
+          CharacterProvider で ServiceLayout 全体をラップする。
+          フッターは ServiceLayout 内部でレンダリングされるため、
+          CharacterLicenseText（client component）がここで生成されても
+          レンダリング位置（Provider 配下）で context が正しく解決される。
+          layout.tsx は server component のまま維持する。
+        */}
+        <CharacterProvider>
+          <ServiceLayout
+            headerProps={{
+              title: 'リブトーク',
+              ariaLabel: 'リブトーク ホームに戻る',
+            }}
+            footerProps={{
+              version,
+              termsContent: liveTalkTermsSections,
+              privacyContent: liveTalkPrivacySections,
+              licenseText: <CharacterLicenseText />,
+            }}
+          >
+            <ClientErrorReporter />
+            <SessionProviderWrapper>{children}</SessionProviderWrapper>
+          </ServiceLayout>
+        </CharacterProvider>
       </body>
     </html>
   );

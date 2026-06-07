@@ -1,6 +1,17 @@
-import type { CharacterClientProfile, CharacterDisplay, CharacterRenderProfile } from './types';
+import type {
+  CharacterAttribute,
+  CharacterClientProfile,
+  CharacterDisplay,
+  CharacterRenderProfile,
+} from './types';
+import { LIVETALK_LICENSE_TEXT } from '../legal/terms-data';
 
-export type { CharacterClientProfile, CharacterDisplay, CharacterRenderProfile } from './types';
+export type {
+  CharacterAttribute,
+  CharacterClientProfile,
+  CharacterDisplay,
+  CharacterRenderProfile,
+} from './types';
 
 /**
  * クライアント側の既定キャラクター ID。
@@ -37,6 +48,10 @@ const PROFILES: Record<string, CharacterClientProfile> = {
         eyeROpen: 'ParamEyeROpen',
       },
     },
+    licenseText: LIVETALK_LICENSE_TEXT,
+    description: '甘いものと猫が大好きな癒し系。のんびりおしゃべりして、ほっと一息つける女の子。',
+    model: { engine: 'Live2D', name: '桃瀬ひより' },
+    voice: { engine: 'VOICEVOX', name: '冥鳴ひまり' },
   },
 };
 
@@ -84,4 +99,40 @@ export function getCharacterDisplay(id?: string): CharacterDisplay {
  */
 export function getRegisteredProfileIds(): string[] {
   return Object.keys(PROFILES);
+}
+
+/**
+ * 指定 id に対応するライセンス・クレジット文字列を返す。
+ * id を省略した場合は DEFAULT_CLIENT_CHARACTER_ID を使用する。
+ * 未登録の id を指定した場合はエラーをスローする。
+ */
+export function getCharacterLicenseText(id?: string): string {
+  return getCharacterClientProfile(id).licenseText;
+}
+
+/**
+ * 指定 id に対応するユーザー向け特徴・性格説明を返す。
+ * id を省略した場合は DEFAULT_CLIENT_CHARACTER_ID を使用する。
+ * 未登録の id を指定した場合はエラーをスローする。
+ */
+export function getCharacterDescription(id?: string): string {
+  return getCharacterClientProfile(id).description;
+}
+
+/**
+ * 指定 id に対応する見た目モデルの技術属性を返す。
+ * id を省略した場合は DEFAULT_CLIENT_CHARACTER_ID を使用する。
+ * 未登録の id を指定した場合はエラーをスローする。
+ */
+export function getCharacterModel(id?: string): CharacterAttribute {
+  return getCharacterClientProfile(id).model;
+}
+
+/**
+ * 指定 id に対応する音声の技術属性を返す。
+ * id を省略した場合は DEFAULT_CLIENT_CHARACTER_ID を使用する。
+ * 未登録の id を指定した場合はエラーをスローする。
+ */
+export function getCharacterVoice(id?: string): CharacterAttribute {
+  return getCharacterClientProfile(id).voice;
 }
