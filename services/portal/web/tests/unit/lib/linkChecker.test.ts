@@ -205,8 +205,13 @@ describe('linkChecker', () => {
       expect(serviceDocExists('tools', 'index', FIXTURE_CONTENT_DIR)).toBe(true);
     });
 
+    it('存在するサービスドキュメント（faq）に対して true を返す', () => {
+      // fixtures/content/services/tools/faq.md が存在する
+      expect(serviceDocExists('tools', 'faq', FIXTURE_CONTENT_DIR)).toBe(true);
+    });
+
     it('存在しないサービスドキュメントに対して false を返す', () => {
-      expect(serviceDocExists('tools', 'faq', FIXTURE_CONTENT_DIR)).toBe(false);
+      expect(serviceDocExists('tools', 'nonexistent-doc', FIXTURE_CONTENT_DIR)).toBe(false);
     });
 
     it('存在しないサービス自体に対して false を返す', () => {
@@ -304,10 +309,16 @@ describe('linkChecker', () => {
       expect(result.valid).toBe(true);
     });
 
-    it('存在しない /services/{slug}/{doc} は invalid を返す', () => {
+    it('存在する /services/{slug}/{doc}（faq）は valid を返す', () => {
+      // fixtures/content/services/tools/faq.md に対応する /services/tools/faq
       const result = validateHref('/services/tools/faq', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
+      expect(result.valid).toBe(true);
+    });
+
+    it('存在しない /services/{slug}/{doc} は invalid を返す', () => {
+      const result = validateHref('/services/tools/nonexistent-doc', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
       expect(result.valid).toBe(false);
-      expect(result.reason).toContain('faq');
+      expect(result.reason).toContain('nonexistent-doc');
     });
 
     it('/services の一覧ページは valid を返す', () => {

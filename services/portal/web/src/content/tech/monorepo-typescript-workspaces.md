@@ -145,7 +145,7 @@ GitHub Actions で安全に動かすには、ライブラリ → アプリの順
 
 ```dockerfile
 # stage 1: monorepo 全体をビルド
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /repo
 COPY package.json package-lock.json ./
 COPY libs/ ./libs/
@@ -155,7 +155,7 @@ RUN npm run build --workspace=@nagiyu/common --workspace=@nagiyu/ui
 RUN npm run build --workspace=@nagiyu/portal-web
 
 # stage 2: standalone のみ取り出し
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 COPY --from=builder /repo/services/portal/web/.next/standalone ./
 COPY --from=builder /repo/services/portal/web/.next/static ./.next/static

@@ -71,8 +71,8 @@ describe('about', () => {
       });
     });
 
-    it('最初のイベントが 2026 年 5 月を起点とする', () => {
-      expect(TIMELINE_EVENTS[0].period).toContain('2026年5月');
+    it('最初のイベントが 2026 年初頭を起点とする', () => {
+      expect(TIMELINE_EVENTS[0].period).toContain('2026年');
     });
 
     it('初コミット（nagiyu-platform 開発開始）が含まれる', () => {

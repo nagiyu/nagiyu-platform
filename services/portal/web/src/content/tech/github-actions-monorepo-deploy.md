@@ -112,7 +112,7 @@ jobs:
 ```yaml
 - uses: actions/setup-node@v4
   with:
-    node-version: '20'
+    node-version: '24'
     cache: 'npm'
     cache-dependency-path: package-lock.json
 
@@ -144,9 +144,9 @@ jobs:
 
 複数サービスで同じロジックが要るので、`.github/actions/setup-environment/action.yml` のように Composite Action 化して再利用するとさらに整理できます。
 
-## OIDC で AWS 認証
+## OIDC で AWS 認証（推奨構成 / 移行検討中）
 
-長期 IAM キーを GitHub Secrets に貼るのではなく、OIDC で短期 AssumeRole するのが推奨です。
+長期 IAM キーを GitHub Secrets に貼るのではなく、OIDC で短期 AssumeRole するのが推奨されている手法です。なお nagiyu-platform 自体は現時点で `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` を Secrets に置く長期キー運用のままであり、OIDC は移行候補として検証段階にあります。将来移行する想定で、参考として構成を紹介します。
 
 ```yaml
 permissions:

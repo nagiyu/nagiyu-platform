@@ -52,28 +52,29 @@ export type TimelineEvent = {
 /**
  * プラットフォームの主要マイルストーン
  *
- * 起点: git log --reverse --pretty=format:"%ai" | head -1 の結果
- *        → 2026-05-04 11:36:00 +0900
- * ※ リポジトリ上の初コミットを起点とし、それ以前の事実は記載しない
+ * git log --reverse --pretty=format:"%ai" | head -1 の結果
+ *   → 2026-05-04 11:36:00 +0900（リポジトリ初コミット）
+ * ※ 技術記事の執筆はリポジトリ作成前から行われており、
+ *    publishedAt が 2026年3月〜4月の記事はリポジトリ公開前の執筆分を含む
  */
 export const TIMELINE_EVENTS: TimelineEvent[] = [
   {
-    period: '2026年5月',
-    title: 'nagiyu-platform の開発開始',
+    period: '2026年初頭〜',
+    title: '技術記事の執筆を開始',
     description:
-      'AWS・Next.js を中心としたモノレポ構成のプラットフォーム「nagiyu-platform」を立ち上げ。Tools・Quick Clip・Codec Converter・Stock Tracker などを一元管理する基盤を構築した。',
+      'AWS・TypeScript・Next.js などの実装経験をもとに技術記事の執筆を開始。モノレポ構成・EventBridge・DynamoDB 単一テーブル設計など、実際に手を動かして得た知見を記録し始めた。',
   },
   {
-    period: '2026年5月〜',
-    title: '各種サービスの公開',
+    period: '2026年5月',
+    title: 'nagiyu-platform リポジトリを作成、各サービスとポータルを公開',
     description:
-      'Tools（ブラウザ完結型ユーティリティ集）・Quick Clip（動画クリップ生成）・Codec Converter（動画コーデック変換）・Stock Tracker（株価追跡）・niconico-mylist-assistant・Share Together・Auth・Admin・リブトーク（livetalk）の計 9 サービスを順次公開。いずれも私自身が設計・実装・運用を担当している。',
+      'AWS・Next.js を中心としたモノレポ構成のプラットフォーム「nagiyu-platform」を立ち上げ。Tools（ブラウザ完結型ユーティリティ集）・Quick Clip（動画クリップ生成）・Codec Converter（動画コーデック変換）・Stock Tracker（株価追跡）・niconico-mylist-assistant・Share Together・Auth・Admin・リブトーク（livetalk）の計 9 サービスを公開。いずれも私自身が設計・実装・運用を担当している。',
   },
   {
     period: '2026年6月〜',
-    title: '技術記事の拡充と AdSense 対応',
+    title: 'AdSense 申請に向けてコンテンツを拡充',
     description:
-      '実装経験をもとにした技術記事を 20 本以上執筆。AWS アーキテクチャ・Next.js・TypeScript などをテーマに、一次情報に基づく解説を公開している。',
+      '実装経験をもとにした技術記事を 20 本以上公開。AWS アーキテクチャ・Next.js・TypeScript などをテーマに、一次情報に基づく解説を継続して公開している。',
   },
 ] as const;
 

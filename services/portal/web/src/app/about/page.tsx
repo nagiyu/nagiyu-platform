@@ -123,7 +123,7 @@ export default function AboutPage() {
           </Box>
           <Box component="li" sx={{ mb: 1 }}>
             <Typography variant="body1">
-              <strong>Material-UI (MUI) v7</strong> - Google Material Design に準拠した UI
+              <strong>Material-UI (MUI) v9</strong> - Google Material Design に準拠した UI
             </Typography>
           </Box>
           <Box component="li" sx={{ mb: 1 }}>
