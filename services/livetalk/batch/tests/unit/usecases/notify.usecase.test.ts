@@ -25,6 +25,7 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   shouldNotifyNow: jest.fn(),
   defaultUlidFactory: jest.fn(() => 'ULID-0001'),
   NOTIFICATION_EVENT_TTL_SECONDS: 2592000,
+  NOTIFY_INTENSITY_WINDOW_DAYS: 7,
   DynamoDBInterestRepository: jest.fn(),
   OpenAIEmbeddingClient: jest.fn(),
 }));
@@ -56,13 +57,9 @@ function makeLifecycleRepo(
   return { get: jest.fn().mockResolvedValue(lifecycle) };
 }
 
-function makeMessageRepo() {
+function makeMessageRepo(messages = [{ Role: 'user', CreatedAt: 1000 }]) {
   return {
-    getRecentByTokenBudget: jest.fn().mockResolvedValue({
-      messages: [{ Role: 'user', CreatedAt: 1000 }],
-      totalTokens: 5,
-      truncated: false,
-    }),
+    listSince: jest.fn().mockResolvedValue(messages),
   };
 }
 
@@ -426,6 +423,107 @@ describe('notifyAllUsers', () => {
     const result = await notifyAllUsers(makeParams({ docClient: docClient as never }));
 
     expect(result.skippedUsers + result.failedUsers + result.notifiedUsers).toBe(2);
+  });
+
+  describe('Phase 2 チューニング: 強度サンプリング時刻範囲ベース切り替え', () => {
+    it('listSince が sinceMs ≒ now - 7日 で呼ばれること', async () => {
+      // now を固定して sinceMs の計算を検証する
+      const fixedNow = new Date('2026-06-07T10:00:00.000Z');
+      const expectedWindowMs = 7 * 24 * 60 * 60 * 1000;
+      const expectedSinceMs = fixedNow.getTime() - expectedWindowMs;
+
+      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockShouldNotifyNow.mockReturnValue({ notify: false, reason: 'not_due' });
+
+      const messageRepo = makeMessageRepo();
+
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      await notifyAllUsers(
+        makeParams({
+          messageRepo: messageRepo as never,
+          now: () => fixedNow,
+        })
+      );
+
+      // listSince が userId・characterId・期待する sinceMs で呼ばれていること
+      expect(messageRepo.listSince).toHaveBeenCalledWith('u1', 'hiyori', expectedSinceMs);
+    });
+
+    it('活発ユーザー: listSince が直近7日分の全 user メッセージを返すと shouldNotifyNow に渡される', async () => {
+      // 直近7日間に複数セッション分のメッセージを用意（intensity が高くなる状態）
+      const fixedNow = new Date('2026-06-07T10:00:00.000Z');
+      const baseMs = fixedNow.getTime();
+      // 7日間に15セッション相当のメッセージ（1日2セッション超 → baseline=1超で intensity>1）
+      const activeMessages = Array.from({ length: 15 }, (_, i) => ({
+        Role: 'user',
+        CreatedAt: baseMs - i * 10 * 60 * 60 * 1000, // 10時間おきに1件
+      }));
+
+      const messageRepo = makeMessageRepo(activeMessages);
+
+      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      // shouldNotifyNow に渡される userMessages を検証する
+      let capturedUserMessages: unknown[] = [];
+      mockShouldNotifyNow.mockImplementation(
+        (input: { userMessages: unknown[]; [key: string]: unknown }) => {
+          capturedUserMessages = input.userMessages;
+          return { notify: false, reason: 'not_due' };
+        }
+      );
+
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      await notifyAllUsers(
+        makeParams({
+          messageRepo: messageRepo as never,
+          now: () => fixedNow,
+        })
+      );
+
+      // shouldNotifyNow に渡された userMessages が全 user メッセージであること
+      expect(capturedUserMessages).toHaveLength(15);
+      // listSince が呼ばれてトークン予算ではなく時刻範囲で取得されていること
+      expect(messageRepo.listSince).toHaveBeenCalledTimes(1);
+    });
+
+    it('長期不在ユーザー: listSince が空配列を返してもクラッシュせずスキップされる', async () => {
+      // 直近7日にメッセージなし（長期不在ユーザー）
+      const messageRepo = makeMessageRepo([]);
+
+      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      // userMessages が空の場合、shouldNotifyNow は not_due か inactive_stopped を返す想定
+      mockShouldNotifyNow.mockReturnValue({ notify: false, reason: 'not_due' });
+
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      let error: unknown;
+      let result: { skippedUsers: number } | undefined;
+      try {
+        result = await notifyAllUsers(makeParams({ messageRepo: messageRepo as never }));
+      } catch (e) {
+        error = e;
+      }
+
+      // 例外なく完了すること
+      expect(error).toBeUndefined();
+      // スキップ扱いになること
+      expect(result?.skippedUsers).toBe(1);
+      // shouldNotifyNow に空配列が渡されること（クラッシュしない）
+      expect(mockShouldNotifyNow).toHaveBeenCalledWith(
+        expect.objectContaining({ userMessages: [] })
+      );
+    });
+
+    it('長期不在ユーザー: listSince が空でも failedUsers に計上されない', async () => {
+      const messageRepo = makeMessageRepo([]);
+
+      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockShouldNotifyNow.mockReturnValue({ notify: false, reason: 'inactive_stopped' });
+
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      const result = await notifyAllUsers(makeParams({ messageRepo: messageRepo as never }));
+
+      expect(result.failedUsers).toBe(0);
+      expect(result.skippedUsers).toBe(1);
+    });
   });
 });
 

@@ -18,6 +18,7 @@ import {
   type UlidFactory,
   defaultUlidFactory,
   NOTIFICATION_EVENT_TTL_SECONDS,
+  NOTIFY_INTENSITY_WINDOW_DAYS,
 } from '@nagiyu/livetalk-core';
 
 export interface NotifyAllUsersParams {
@@ -148,13 +149,13 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
   const subscriptions = await pushSubscriptionRepo.listByUser(userId);
   if (subscriptions.length === 0) return false;
 
-  // 直近 200 件のメッセージを取得（セッション計算用。トークン上限は大きめに設定して件数優先）
-  const recentMessages = await messageRepo.getRecentByTokenBudget({
-    userId,
-    characterId,
-    hardLimit: 200,
-  });
-  const userMessages = recentMessages.messages.filter((m) => m.Role === 'user');
+  // 直近 NOTIFY_INTENSITY_WINDOW_DAYS 日のメッセージを時刻範囲で取得（強度サンプリング用）
+  // トークン予算ベースの取得では活発ユーザーで直近数日分しか取れず intensity が過小評価されるため、
+  // 時刻範囲ベースに切り替えて窓内の全メッセージを正確に取得する。
+  const intensityWindowMs = NOTIFY_INTENSITY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  const sinceMs = currentNow.getTime() - intensityWindowMs;
+  const recentMessages = await messageRepo.listSince(userId, characterId, sinceMs);
+  const userMessages = recentMessages.filter((m) => m.Role === 'user');
 
   // 通知履歴を取得（直近 60 件）
   const notifEvents = await notifEventRepo.listByUser(userId, 60);
