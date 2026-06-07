@@ -88,18 +88,14 @@ describe('jsonLd', () => {
     });
 
     it('mainEntity の各要素が Question 型を持つ', () => {
-      const pairs: FaqPair[] = [
-        { question: 'テスト質問', answer: 'テスト回答' },
-      ];
+      const pairs: FaqPair[] = [{ question: 'テスト質問', answer: 'テスト回答' }];
       const data = buildFAQPageJsonLd(pairs);
       expect(data.mainEntity[0]['@type']).toBe('Question');
       expect(data.mainEntity[0].name).toBe('テスト質問');
     });
 
     it('acceptedAnswer が Answer 型と回答テキストを持つ', () => {
-      const pairs: FaqPair[] = [
-        { question: 'テスト質問', answer: 'テスト回答' },
-      ];
+      const pairs: FaqPair[] = [{ question: 'テスト質問', answer: 'テスト回答' }];
       const data = buildFAQPageJsonLd(pairs);
       expect(data.mainEntity[0].acceptedAnswer['@type']).toBe('Answer');
       expect(data.mainEntity[0].acceptedAnswer.text).toBe('テスト回答');
