@@ -316,7 +316,11 @@ describe('linkChecker', () => {
     });
 
     it('存在しない /services/{slug}/{doc} は invalid を返す', () => {
-      const result = validateHref('/services/tools/nonexistent-doc', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
+      const result = validateHref(
+        '/services/tools/nonexistent-doc',
+        FIXTURE_CONTENT_DIR,
+        REAL_SRC_DIR
+      );
       expect(result.valid).toBe(false);
       expect(result.reason).toContain('nonexistent-doc');
     });
