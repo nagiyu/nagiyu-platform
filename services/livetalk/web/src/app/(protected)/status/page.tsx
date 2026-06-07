@@ -21,6 +21,7 @@ import {
   extractSessionStartTimes,
   computeSessionIntervals,
   computeBaseIntervalMs,
+  computeIntensityFactor,
   type MessageEntity,
   type NotificationEventEntity,
 } from '@nagiyu/livetalk-core';
@@ -41,12 +42,15 @@ function formatJst(ms: number): string {
 
 function computeNextEarliestAt(
   userMessages: Pick<MessageEntity, 'CreatedAt'>[],
-  notificationEvents: NotificationEventEntity[]
+  notificationEvents: NotificationEventEntity[],
+  now: Date
 ): number {
   const sessionGapMs = NOTIFY_SESSION_GAP_MINUTES * 60 * 1000;
   const sessionStarts = extractSessionStartTimes(userMessages, sessionGapMs);
   const intervals = computeSessionIntervals(sessionStarts, NOTIFY_RECENT_SESSION_SAMPLE_N);
-  const baseIntervalMs = computeBaseIntervalMs(intervals);
+  // 強度係数を反映（decision.ts と同じロジックでミラーする）
+  const intensityFactor = computeIntensityFactor(sessionStarts, now);
+  const baseIntervalMs = computeBaseIntervalMs(intervals, intensityFactor);
 
   const lastNormalAt = notificationEvents.find((e) => e.Kind === 'normal')?.CreatedAt ?? 0;
   const lastInteractionAt =
@@ -111,7 +115,7 @@ export default async function StatusPage() {
 
   let nextEarliestAt: number | undefined;
   if (!notifyDecision.notify && notifyDecision.reason === 'not_due') {
-    nextEarliestAt = computeNextEarliestAt(userMessages, notificationEvents);
+    nextEarliestAt = computeNextEarliestAt(userMessages, notificationEvents, now);
   }
 
   const recentNotifications = notificationEvents.slice(0, 5);
