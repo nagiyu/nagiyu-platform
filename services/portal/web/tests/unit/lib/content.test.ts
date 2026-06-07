@@ -14,6 +14,8 @@ import {
   getTechCategory,
   getArticlesByCategory,
   getTechCategoriesForArticle,
+  extractFaqPairs,
+  getServiceFaqPairs,
 } from '@/lib/content';
 
 // ESM-only パッケージ（remark/rehype/unified）は Jest の CommonJS 環境では読み込めないためモック化する
@@ -272,6 +274,147 @@ describe('content', () => {
     it('categories が未指定なら空配列', () => {
       expect(getTechCategoriesForArticle(undefined)).toEqual([]);
       expect(getTechCategoriesForArticle([])).toEqual([]);
+    });
+  });
+
+  describe('extractFaqPairs', () => {
+    it('### Q. 見出しと **A.** 回答を抽出する', () => {
+      const markdown = `
+## よくある質問
+
+### Q. テスト質問1
+
+**A.** テスト回答1
+
+### Q. テスト質問2
+
+**A.** テスト回答2
+`;
+      const pairs = extractFaqPairs(markdown);
+      expect(pairs).toHaveLength(2);
+      expect(pairs[0].question).toBe('テスト質問1');
+      expect(pairs[0].answer).toBe('テスト回答1');
+      expect(pairs[1].question).toBe('テスト質問2');
+      expect(pairs[1].answer).toBe('テスト回答2');
+    });
+
+    it('**A.** プレフィックスを回答から除去する', () => {
+      const markdown = `
+### Q. 質問
+
+**A.** これは回答です。
+`;
+      const pairs = extractFaqPairs(markdown);
+      expect(pairs[0].answer).toBe('これは回答です。');
+      expect(pairs[0].answer).not.toContain('**A.**');
+    });
+
+    it('マークダウンの太字記法（**）を除去する', () => {
+      const markdown = `
+### Q. 質問
+
+**A.** **強調テキスト**を含む回答です。
+`;
+      const pairs = extractFaqPairs(markdown);
+      expect(pairs[0].answer).not.toContain('**');
+      expect(pairs[0].answer).toBe('強調テキストを含む回答です。');
+    });
+
+    it('Q&A ペアがない場合は空配列を返す', () => {
+      const markdown = `
+## よくある質問
+
+ここには Q&A がありません。
+`;
+      const pairs = extractFaqPairs(markdown);
+      expect(pairs).toEqual([]);
+    });
+
+    it('空文字列では空配列を返す', () => {
+      const pairs = extractFaqPairs('');
+      expect(pairs).toEqual([]);
+    });
+
+    it('回答が空の場合はペアに含めない', () => {
+      const markdown = `
+### Q. 質問のみで回答なし
+`;
+      const pairs = extractFaqPairs(markdown);
+      expect(pairs).toEqual([]);
+    });
+
+    it('複数行の回答をスペース区切りで結合する', () => {
+      const markdown = `
+### Q. 複数行の質問
+
+**A.** 1行目の回答
+2行目の回答
+
+`;
+      const pairs = extractFaqPairs(markdown);
+      expect(pairs).toHaveLength(1);
+      expect(pairs[0].answer).toContain('1行目の回答');
+      expect(pairs[0].answer).toContain('2行目の回答');
+    });
+
+    it('見出し行（#）が現れたら回答を確定して次の質問に移る', () => {
+      const markdown = `
+### Q. 質問1
+
+**A.** 回答1
+
+## セクション見出し
+
+### Q. 質問2
+
+**A.** 回答2
+`;
+      const pairs = extractFaqPairs(markdown);
+      expect(pairs).toHaveLength(2);
+      expect(pairs[0].question).toBe('質問1');
+      expect(pairs[1].question).toBe('質問2');
+    });
+
+    it('回答直後（空行なし）に見出し行が来ても回答を確定する', () => {
+      const markdown = `### Q. 質問1
+**A.** 回答1
+## 別セクション
+### Q. 質問2
+**A.** 回答2`;
+      const pairs = extractFaqPairs(markdown);
+      expect(pairs).toHaveLength(2);
+      expect(pairs[0].answer).toBe('回答1');
+    });
+
+    it('区切り線（---）が現れたら回答を確定する', () => {
+      const markdown = `
+### Q. 質問1
+
+**A.** 回答1
+
+---
+
+### Q. 質問2
+
+**A.** 回答2
+`;
+      const pairs = extractFaqPairs(markdown);
+      expect(pairs).toHaveLength(2);
+      expect(pairs[0].answer).toBe('回答1');
+    });
+  });
+
+  describe('getServiceFaqPairs', () => {
+    it('tools フィクスチャから Q&A ペアを抽出できる', () => {
+      const pairs = getServiceFaqPairs('tools');
+      expect(pairs.length).toBeGreaterThan(0);
+      expect(pairs[0].question).toBeTruthy();
+      expect(pairs[0].answer).toBeTruthy();
+    });
+
+    it('存在しない slug では空配列を返す', () => {
+      const pairs = getServiceFaqPairs('nonexistent-service');
+      expect(pairs).toEqual([]);
     });
   });
 });
