@@ -26,6 +26,17 @@ export interface CharacterDisplay {
 }
 
 /**
+ * キャラクターの技術属性（モデル・音声など）。
+ * 「どのエンジンで、誰／何なのか」を一目で示すための表示用情報。
+ */
+export interface CharacterAttribute {
+  /** 採用技術・エンジン名（例: 'Live2D', 'VOICEVOX'） */
+  engine: string;
+  /** 具体名（モデル名・話者名など） */
+  name: string;
+}
+
+/**
  * クライアント側で必要なキャラクター情報をまとめたプロファイル。
  * core 非依存なのでクライアントバンドルに含めても server コードを引き込まない。
  */
@@ -42,4 +53,13 @@ export interface CharacterClientProfile {
    * キャラ選択モーダルでの説明表示に使用する。
    */
   description: string;
+  /**
+   * 見た目モデルの技術属性（例: Live2D の「桃瀬ひより」）。
+   * キャラが増えても誰の何のモデルかを一目で分かるようにする。
+   */
+  model: CharacterAttribute;
+  /**
+   * 音声の技術属性（例: VOICEVOX の「冥鳴ひまり」）。
+   */
+  voice: CharacterAttribute;
 }

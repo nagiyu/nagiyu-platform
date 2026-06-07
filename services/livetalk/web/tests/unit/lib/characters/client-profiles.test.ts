@@ -8,7 +8,9 @@ import {
   getCharacterDescription,
   getCharacterDisplay,
   getCharacterLicenseText,
+  getCharacterModel,
   getCharacterRenderProfile,
+  getCharacterVoice,
   getRegisteredProfileIds,
   hasCharacterProfile,
 } from '@/lib/characters/client-profiles';
@@ -157,6 +159,37 @@ describe('getCharacterDescription', () => {
 
   it('"toString" などプロトタイプ継承プロパティ名を渡すとスローする', () => {
     expect(() => getCharacterDescription('toString')).toThrow(
+      CHARACTER_PROFILE_ERROR_MESSAGES.UNKNOWN_PROFILE
+    );
+  });
+});
+
+describe('getCharacterModel / getCharacterVoice', () => {
+  it('hiyori のモデル属性は Live2D の「桃瀬ひより」である', () => {
+    const model = getCharacterModel();
+    expect(model.engine).toBe('Live2D');
+    expect(model.name).toBe('桃瀬ひより');
+  });
+
+  it('hiyori の音声属性は VOICEVOX の「冥鳴ひまり」である', () => {
+    const voice = getCharacterVoice();
+    expect(voice.engine).toBe('VOICEVOX');
+    expect(voice.name).toBe('冥鳴ひまり');
+  });
+
+  it('プロファイルに model / voice フィールドが存在する', () => {
+    const profile = getCharacterClientProfile(DEFAULT_CLIENT_CHARACTER_ID);
+    expect(profile.model.engine.length).toBeGreaterThan(0);
+    expect(profile.model.name.length).toBeGreaterThan(0);
+    expect(profile.voice.engine.length).toBeGreaterThan(0);
+    expect(profile.voice.name.length).toBeGreaterThan(0);
+  });
+
+  it('未登録の id を指定すると日本語定数メッセージでスローする', () => {
+    expect(() => getCharacterModel('unknown')).toThrow(
+      CHARACTER_PROFILE_ERROR_MESSAGES.UNKNOWN_PROFILE
+    );
+    expect(() => getCharacterVoice('unknown')).toThrow(
       CHARACTER_PROFILE_ERROR_MESSAGES.UNKNOWN_PROFILE
     );
   });

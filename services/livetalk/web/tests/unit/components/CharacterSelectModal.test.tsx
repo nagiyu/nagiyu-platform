@@ -4,6 +4,8 @@ import CharacterSelectModal from '@/components/CharacterSelectModal';
 import {
   getCharacterDescription,
   getCharacterDisplay,
+  getCharacterModel,
+  getCharacterVoice,
   getRegisteredProfileIds,
 } from '@/lib/characters/client-profiles';
 
@@ -39,6 +41,16 @@ describe('CharacterSelectModal', () => {
       for (const id of ids) {
         const desc = getCharacterDescription(id);
         expect(screen.getByText(desc)).toBeInTheDocument();
+      }
+    });
+
+    it('open=true のとき各キャラクターのモデル・音声属性が表示される', () => {
+      render(<CharacterSelectModal open={true} onClose={jest.fn()} />);
+      for (const id of getRegisteredProfileIds()) {
+        const model = getCharacterModel(id);
+        const voice = getCharacterVoice(id);
+        expect(screen.getByText(`モデル：${model.engine}「${model.name}」`)).toBeInTheDocument();
+        expect(screen.getByText(`音声：${voice.engine}「${voice.name}」`)).toBeInTheDocument();
       }
     });
 
