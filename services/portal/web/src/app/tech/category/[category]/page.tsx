@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
         url,
         title: category.title,
         description: category.description,
-        images: ['/og-default.png'],
+        images: [{ url: '/og-default.png', width: 1200, height: 630, alt: category.title }],
       },
     };
   } catch {

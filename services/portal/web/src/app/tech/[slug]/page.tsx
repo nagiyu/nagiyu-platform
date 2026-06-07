@@ -60,7 +60,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
           : new Date(article.publishedAt).toISOString(),
         authors: [AUTHOR.url],
         tags: article.tags,
-        images: ['/og-default.png'],
+        images: [{ url: '/og-default.png', width: 1200, height: 630, alt: article.title }],
       },
       twitter: {
         card: 'summary_large_image',
