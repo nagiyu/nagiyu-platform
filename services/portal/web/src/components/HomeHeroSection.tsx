@@ -65,9 +65,7 @@ export default function HomeHeroSection({
         divider={
           <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />
         }
-        justifyContent="center"
-        alignItems="center"
-        sx={{ mb: 4 }}
+        sx={{ mb: 4, justifyContent: 'center', alignItems: 'center' }}
       >
         <Box sx={{ px: 3, textAlign: 'center' }}>
           <Typography variant="h4" component="span" sx={{ fontWeight: 700, color: 'primary.main' }}>
@@ -96,8 +94,8 @@ export default function HomeHeroSection({
       </Stack>
 
       {/* CTA ボタン */}
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="center">
-        <Button asChild variant="default">
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'center' }}>
+        <Button asChild variant="solid">
           <Link href="/tech">技術記事を読む</Link>
         </Button>
         <Button asChild variant="outline">
