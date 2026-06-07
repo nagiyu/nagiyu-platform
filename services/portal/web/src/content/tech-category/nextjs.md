@@ -1,6 +1,6 @@
 ---
 title: 'Next.js × Portal 実装ノート'
-description: 'この Portal サイトそのものを題材に、Next.js App Router・SSG・Metadata API・RSC 境界・MUI v7 統合・Docker マルチステージビルドの実装をまとめたハブページです。フレームワークの機能を実プロダクトでどう使い分けているかを横断的に紹介します。'
+description: 'この Portal サイトそのものを題材に、Next.js App Router・SSG・Metadata API・RSC 境界・MUI v9 統合・Docker マルチステージビルドの実装をまとめたハブページです。フレームワークの機能を実プロダクトでどう使い分けているかを横断的に紹介します。'
 slug: 'nextjs'
 ---
 
@@ -14,7 +14,7 @@ slug: 'nextjs'
 
 Portal の本文描画は、`src/lib/content.ts` を Repository 層に見立てて Markdown を読み込み、remark / rehype で HTML 化したうえで DOMPurify でサニタイズする流れにしています。記事ページ・タグページ・このカテゴリ別ハブはいずれも `generateStaticParams` で URL を列挙し、ビルド時に静的化しています。`dynamicParams = false` を設定して、想定外の URL は 404 に倒すようにしているのも意図的な選択です。
 
-UI は `libs/ui` に切り出した共通コンポーネント（Chip / Link / Button など）を軸に、MUI v7 を App Router のテーマレジストリ経由で統合しています。私が一番こだわったのは Server / Client コンポーネントの境界で、データ取得とメタデータ生成はサーバー側に寄せ、インタラクションが必要な最小範囲だけを Client Component に切り出しています。各ページの `<title>` / OGP / canonical は Metadata API（`generateMetadata`）で個別に出し分け、構造化データ（BlogPosting / BreadcrumbList）も `lib/jsonLd.ts` のヘルパーで一元的に組み立てています。
+UI は `libs/ui` に切り出した共通コンポーネント（Chip / Link / Button など）を軸に、MUI v9 を App Router のテーマレジストリ経由で統合しています。私が一番こだわったのは Server / Client コンポーネントの境界で、データ取得とメタデータ生成はサーバー側に寄せ、インタラクションが必要な最小範囲だけを Client Component に切り出しています。各ページの `<title>` / OGP / canonical は Metadata API（`generateMetadata`）で個別に出し分け、構造化データ（BlogPosting / BreadcrumbList）も `lib/jsonLd.ts` のヘルパーで一元的に組み立てています。
 
 ## 振り返って
 

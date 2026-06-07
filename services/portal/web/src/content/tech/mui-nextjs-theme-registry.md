@@ -1,6 +1,6 @@
 ---
-title: 'Material-UI v7 と Next.js App Router の SSR を両立する ThemeRegistry 実装'
-description: 'MUI（Material-UI）v7 と Next.js App Router の Server Components で SSR とスタイル一貫性を両立する ThemeRegistry の実装方法を解説。Emotion キャッシュ・ハイドレーション・テーマ切替まで網羅します。'
+title: 'Material-UI v9 と Next.js App Router の SSR を両立する ThemeRegistry 実装'
+description: 'MUI（Material-UI）v9 と Next.js App Router の Server Components で SSR とスタイル一貫性を両立する ThemeRegistry の実装方法を解説。Emotion キャッシュ・ハイドレーション・テーマ切替まで網羅します。'
 slug: 'mui-nextjs-theme-registry'
 publishedAt: '2026-04-15'
 updatedAt: '2026-06-06'
@@ -11,7 +11,7 @@ categories: ['nextjs']
 
 ## はじめに
 
-Material-UI（MUI）を Next.js App Router で使うと、Server Components の SSR と Emotion のスタイル管理が衝突しやすく、初期描画でスタイルなし HTML が一瞬見える「FOUC（Flash of Unstyled Content）」が発生しがちです。本記事では、nagiyu ポータルでも採用している `ThemeRegistry` パターンを解説します。
+Material-UI（MUI）を Next.js App Router で使うと、Server Components の SSR と Emotion のスタイル管理が衝突しやすく、初期描画でスタイルなし HTML が一瞬見える「FOUC（Flash of Unstyled Content）」が発生しがちです。本記事では `ThemeRegistry` パターンを解説します。nagiyu-platform 自体では後述する MUI の公式プロバイダ構成を採用していますが、その背景理解として `ThemeRegistry` パターンの仕組みは押さえておく価値があります。
 
 ## 何が問題か
 
@@ -206,4 +206,4 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
 
 ## まとめ
 
-`ThemeRegistry` パターンは、MUI v7 と Next.js 16 App Router の SSR 互換を最小コストで実現する定番手法です。Emotion キャッシュをカスタムしてスタイルを `useServerInsertedHTML` で吐き出すこと、Server Components / Client Components の境界を意識することで、ハイドレーション崩れや FOUC のない安定した描画が得られます。
+`ThemeRegistry` パターンは、MUI v9 と Next.js App Router の SSR 互換を最小コストで実現する定番手法です。Emotion キャッシュをカスタムしてスタイルを `useServerInsertedHTML` で吐き出すこと、Server Components / Client Components の境界を意識することで、ハイドレーション崩れや FOUC のない安定した描画が得られます。

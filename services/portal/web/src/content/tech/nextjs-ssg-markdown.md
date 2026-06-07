@@ -75,7 +75,10 @@ export interface TechArticleFrontmatter {
   description: string;
   slug: string;
   publishedAt: string;
+  updatedAt?: string;
   tags: string[];
+  categories?: string[];
+  author?: string;
 }
 
 export interface TechArticle {
@@ -153,7 +156,7 @@ export function getAllServiceSlugs(): { service: string; type: string }[] {
 
 ## generateStaticParams の実装
 
-Next.js 13 以降の App Router では `generateStaticParams` を使ってビルド時に静的パスを生成します。
+Next.js 13 以降の App Router では `generateStaticParams` を使ってビルド時に静的パスを生成します。Next.js 15 以降では `params` が非同期になり、`Promise<{ ... }>` 型として受け取る必要があります。
 
 ```typescript
 // src/app/services/[service]/[type]/page.tsx
@@ -162,7 +165,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 
 interface Props {
-  params: { service: string; type: string };
+  params: Promise<{ service: string; type: string }>;
 }
 
 export async function generateStaticParams() {
@@ -170,7 +173,8 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const doc = await getServiceDoc(params.service, params.type);
+  const { service, type } = await params;
+  const doc = await getServiceDoc(service, type);
   if (!doc) return {};
 
   return {
@@ -184,7 +188,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ServiceDocPage({ params }: Props) {
-  const doc = await getServiceDoc(params.service, params.type);
+  const { service, type } = await params;
+  const doc = await getServiceDoc(service, type);
   if (!doc) notFound();
 
   // htmlContent は markdownToHtml() 内で DOMPurify.sanitize() 済み

@@ -86,14 +86,14 @@ rule.addTarget(
 
 Stock Tracker では 6 つの EventBridge Rule を 1 つの CDK Stack（`EventBridgeStack`）にまとめています。
 
-| ルール名                      | スケジュール      | 処理内容                         |
-| ----------------------------- | ----------------- | -------------------------------- |
-| BatchMinuteRule               | `rate(1 minute)`  | MINUTE_LEVEL アラート処理        |
-| BatchHourlyRule               | `rate(1 hour)`    | HOURLY_LEVEL アラート処理        |
-| BatchSummaryRule              | `rate(1 hour)`    | 日次サマリー生成                 |
-| BatchTemporaryAlertExpiryRule | `rate(1 hour)`    | 一時通知アラートの期限切れ無効化 |
-| BatchEvaluationRule           | `rate(1 hour)`    | 予測精度の採点                   |
-| BatchDailyRule                | `cron(0 0 * * *)` | データクリーンアップ（UTC 0:00） |
+| ルール名                      | スケジュール        | 処理内容                         |
+| ----------------------------- | ------------------- | -------------------------------- |
+| BatchMinuteRule               | `rate(1 minute)`    | MINUTE_LEVEL アラート処理        |
+| BatchHourlyRule               | `rate(1 hour)`      | HOURLY_LEVEL アラート処理        |
+| BatchSummaryRule              | `rate(1 hour)`      | 日次サマリー生成                 |
+| BatchTemporaryAlertExpiryRule | `rate(1 hour)`      | 一時通知アラートの期限切れ無効化 |
+| BatchEvaluationRule           | `rate(1 hour)`      | 予測精度の採点                   |
+| BatchDailyRule                | `cron(0 0 * * ? *)` | データクリーンアップ（UTC 0:00） |
 
 設計のポイントは「**1 Lambda 1 Rule**」です。`batchHourlyFunction` などはそれぞれ独立した Lambda として定義してあり、Rule も 1 対 1 で対応しています。1 つの Rule に複数の target を bundle するよりも、障害切り分けやログの追跡がずっと楽になります。
 
