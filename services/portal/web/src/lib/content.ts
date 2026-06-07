@@ -14,6 +14,7 @@ import type {
   TechCategory,
   TechCategoryMeta,
 } from '@/types/content';
+import type { FaqPair } from '@/lib/jsonLd';
 
 const ERROR_MESSAGES = {
   SERVICE_DOCUMENT_NOT_FOUND: 'サービスドキュメントが見つかりません',
@@ -77,6 +78,21 @@ export async function getServiceDocument(
     content: htmlContent,
     slug,
   };
+}
+
+/**
+ * サービスの FAQ ページから Q&A ペアを抽出して返す
+ * @param slug - サービス slug（例: 'tools', 'quick-clip'）
+ * @returns Q&A ペアの配列（FAQ ファイルが存在しない場合は空配列）
+ */
+export function getServiceFaqPairs(slug: string): FaqPair[] {
+  const filePath = path.join(SERVICES_DIR, slug, 'faq.md');
+  if (!fs.existsSync(filePath)) {
+    return [];
+  }
+  const fileContents = fs.readFileSync(filePath, 'utf8');
+  const { content } = matter(fileContents);
+  return extractFaqPairs(content);
 }
 
 /**
@@ -309,4 +325,84 @@ export function getSiteStats(): {
   const serviceCount = getAllServiceSlugs().length;
   const categoryCount = getAllTechCategoryMetas().length;
   return { articleCount, serviceCount, categoryCount };
+}
+
+/**
+ * FAQ Markdown の本文から Q&A ペアを抽出する。
+ *
+ * 抽出ルール:
+ * - `### Q.` で始まる見出し行を質問として扱う
+ * - 見出し直後の段落で `**A.**` で始まるテキストを回答として扱う
+ * - `**A.**` プレフィックス自体は回答テキストから除去する
+ *
+ * @param markdownContent - frontmatter を除いた Markdown 本文
+ * @returns Q&A ペアの配列
+ */
+export function extractFaqPairs(markdownContent: string): FaqPair[] {
+  const lines = markdownContent.split('\n');
+  const pairs: FaqPair[] = [];
+
+  let currentQuestion: string | null = null;
+  let collectingAnswer = false;
+  let answerLines: string[] = [];
+
+  const flush = () => {
+    if (currentQuestion !== null && answerLines.length > 0) {
+      const rawAnswer = answerLines.join(' ').trim();
+      // `**A.**` プレフィックスを除去してプレーンテキスト化
+      const answer = rawAnswer
+        .replace(/^\*\*A\.\*\*\s*/, '')
+        .replace(/\*\*/g, '')
+        .trim();
+      if (answer.length > 0) {
+        pairs.push({ question: currentQuestion, answer });
+      }
+    }
+    currentQuestion = null;
+    collectingAnswer = false;
+    answerLines = [];
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // `### Q.` で始まる見出しを検出
+    const questionMatch = trimmed.match(/^###\s+Q\.\s+(.+)$/);
+    if (questionMatch) {
+      flush();
+      currentQuestion = questionMatch[1].trim();
+      collectingAnswer = false;
+      answerLines = [];
+      continue;
+    }
+
+    if (currentQuestion !== null) {
+      if (trimmed.startsWith('**A.**')) {
+        // 回答段落の開始
+        collectingAnswer = true;
+        answerLines = [trimmed];
+        continue;
+      }
+
+      if (collectingAnswer) {
+        if (trimmed === '' || trimmed.startsWith('#') || trimmed === '---') {
+          // 空行・別見出し・区切り線で回答終了
+          if (trimmed.startsWith('#') || trimmed === '---') {
+            flush();
+            continue;
+          }
+          // 空行はそのまま回答を確定して次の見出しを待つ
+          flush();
+          continue;
+        }
+        // 複数行の回答を結合
+        answerLines.push(trimmed);
+      }
+    }
+  }
+
+  // 末尾に達した時点で未確定の Q&A を確定
+  flush();
+
+  return pairs;
 }
