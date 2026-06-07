@@ -1,11 +1,13 @@
 import { logger, toErrorMessage } from '@nagiyu/common';
 import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
 import {
+  DynamoDBInterestRepository,
   DynamoDBKnowledgeRepository,
   DynamoDBLifecycleRepository,
   DynamoDBMessageRepository,
   DynamoDBNotificationEventRepository,
   DynamoDBPushSubscriptionRepository,
+  OpenAIEmbeddingClient,
   createLLMClient,
   defaultUlidFactory,
 } from '@nagiyu/livetalk-core';
@@ -46,7 +48,9 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     const knowledgeRepo = new DynamoDBKnowledgeRepository(docClient, tableName);
     const pushSubscriptionRepo = new DynamoDBPushSubscriptionRepository(docClient, tableName);
     const notifEventRepo = new DynamoDBNotificationEventRepository(docClient, tableName);
+    const interestRepo = new DynamoDBInterestRepository(docClient, tableName);
     const llmClient = createLLMClient({ openai: { apiKey } });
+    const embeddingClient = new OpenAIEmbeddingClient({ apiKey });
 
     const result = await notifyAllUsers({
       docClient,
@@ -56,7 +60,9 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       knowledgeRepo,
       pushSubscriptionRepo,
       notifEventRepo,
+      interestRepo,
       llmClient,
+      embeddingClient,
       ulidFactory: defaultUlidFactory,
     });
 

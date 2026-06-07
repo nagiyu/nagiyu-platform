@@ -232,6 +232,25 @@ describe('shouldNotifyNow', () => {
       expect(result.notify).toBe(true);
       if (result.notify) expect(result.kind).toBe('normal');
     });
+
+    it('睡眠帯中は criticalKnowledgeId があっても sleeping を返す', () => {
+      // SLEEPING_LIFECYCLE: UTC 12:00 は睡眠帯（11:00–13:00）
+      const result = shouldNotifyNow({
+        ...baseInput(),
+        lifecycle: SLEEPING_LIFECYCLE,
+        criticalKnowledgeId: 'k1',
+      });
+      expect(result).toEqual({ notify: false, reason: 'sleeping' });
+    });
+
+    it('睡眠帯中は criticalKnowledgeId がなくても sleeping を返す', () => {
+      const result = shouldNotifyNow({
+        ...baseInput(),
+        lifecycle: SLEEPING_LIFECYCLE,
+        userMessages: [makeMsg(NOW_UTC_MS - 2 * DAY)],
+      });
+      expect(result).toEqual({ notify: false, reason: 'sleeping' });
+    });
   });
 
   describe('inactive_stopped', () => {

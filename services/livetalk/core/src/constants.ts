@@ -258,3 +258,20 @@ export const NOTIFY_ACTIVE_WINDOW_MINUTES = 90;
  * NotificationEvent に付与する DynamoDB TTL（秒）。30日後に自動削除。
  */
 export const NOTIFICATION_EVENT_TTL_SECONDS = 30 * 24 * 60 * 60;
+
+/**
+ * クリティカル通知の対象とする興味カテゴリの最小シェア（全 Weight 合計に占める割合）。
+ *
+ * dev 実データの Weight 分布（飲み物38%/スイーツ18%/ゲーム15%/映画14%/…）を根拠に暫定設定。
+ * この値を下回る弱興味カテゴリの Knowledge はクリティカル判定から除外される。
+ * 実運用データを踏まえてチューニングすること。
+ */
+export const NOTIFY_CRITICAL_INTEREST_SHARE_THRESHOLD = 0.15;
+
+/**
+ * クリティカル判定の「時限性あり」とみなすイベント日程の最大日数（今日から何日以内か）。
+ *
+ * LLM が抽出した eventDate が今日から NOTIFY_CRITICAL_EVENT_HORIZON_DAYS 日以内の未来である場合のみ
+ * isUrgent=true とみなす。14 日を超える将来イベントや過去日は時限性なしとして除外する。
+ */
+export const NOTIFY_CRITICAL_EVENT_HORIZON_DAYS = 14;

@@ -7,7 +7,9 @@ import {
   buildNotificationMessage,
   detectCriticalKnowledge,
   shouldNotifyNow,
+  type IEmbeddingClient,
   type ILLMClient,
+  type InterestRepository,
   type KnowledgeRepository,
   type LifecycleRepository,
   type MessageRepository,
@@ -26,7 +28,9 @@ export interface NotifyAllUsersParams {
   knowledgeRepo: KnowledgeRepository;
   pushSubscriptionRepo: PushSubscriptionRepository;
   notifEventRepo: NotificationEventRepository;
+  interestRepo: InterestRepository;
   llmClient: ILLMClient;
+  embeddingClient: IEmbeddingClient;
   ulidFactory?: UlidFactory;
   now?: () => Date;
 }
@@ -47,7 +51,9 @@ export async function notifyAllUsers(params: NotifyAllUsersParams): Promise<Noti
     knowledgeRepo,
     pushSubscriptionRepo,
     notifEventRepo,
+    interestRepo,
     llmClient,
+    embeddingClient,
     ulidFactory = defaultUlidFactory,
     now = () => new Date(),
   } = params;
@@ -73,7 +79,9 @@ export async function notifyAllUsers(params: NotifyAllUsersParams): Promise<Noti
         knowledgeRepo,
         pushSubscriptionRepo,
         notifEventRepo,
+        interestRepo,
         llmClient,
+        embeddingClient,
         ulidFactory,
         vapidConfig,
         now,
@@ -105,7 +113,9 @@ interface ProcessUserParams {
   knowledgeRepo: KnowledgeRepository;
   pushSubscriptionRepo: PushSubscriptionRepository;
   notifEventRepo: NotificationEventRepository;
+  interestRepo: InterestRepository;
   llmClient: ILLMClient;
+  embeddingClient: IEmbeddingClient;
   ulidFactory: UlidFactory;
   vapidConfig: ReturnType<typeof getVapidConfig>;
   now: () => Date;
@@ -119,7 +129,9 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
     knowledgeRepo,
     pushSubscriptionRepo,
     notifEventRepo,
+    interestRepo,
     llmClient,
+    embeddingClient,
     ulidFactory,
     vapidConfig,
     now,
@@ -149,7 +161,14 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
 
   // クリティカル候補を取得して LLM 判定
   const recentKnowledge = await knowledgeRepo.list(userId, characterId, 10);
-  const escalation = await detectCriticalKnowledge(recentKnowledge, llmClient);
+  const interestCategories = await interestRepo.list(userId, characterId);
+  const escalation = await detectCriticalKnowledge({
+    knowledgeList: recentKnowledge,
+    interestCategories,
+    llmClient,
+    embeddingClient,
+    now: currentNow,
+  });
   const criticalKnowledgeId = escalation.isCritical
     ? (escalation.knowledgeId ?? undefined)
     : undefined;
