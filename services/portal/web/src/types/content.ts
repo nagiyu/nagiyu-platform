@@ -24,6 +24,7 @@ export type ArticleMeta = {
   tags: string[];
   categories?: string[]; // 任意。所属するカテゴリ別ハブの slug 配列（複数所属可）
   relatedServices?: string[]; // 任意。サービス slug の配列（相互リンク用）
+  featured?: boolean; // 任意。トップページ特集記事として表示する場合 true
 };
 
 /** 技術記事（フロントマター + 本文） */

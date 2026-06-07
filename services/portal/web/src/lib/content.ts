@@ -116,6 +116,17 @@ export async function getArticle(slug: string): Promise<Article> {
 }
 
 /**
+ * 特集記事（フロントマターに `featured: true` が設定された記事）を publishedAt 降順で返す。
+ * 該当記事がゼロ件の場合は例外を投げず空配列を返す。
+ * @param limit - 返す最大件数（既定 3）
+ */
+export function getFeaturedArticles(limit = 3): ArticleMeta[] {
+  return getAllArticles()
+    .filter((article) => article.featured === true)
+    .slice(0, limit);
+}
+
+/**
  * 全技術記事のメタデータ一覧を返す（publishedAt 降順）
  */
 export function getAllArticles(): ArticleMeta[] {
@@ -284,4 +295,14 @@ export function getTechCategoriesForArticle(categories: string[] | undefined): T
   }
   const categorySet = new Set(categories);
   return getAllTechCategoryMetas().filter((meta) => categorySet.has(meta.slug));
+}
+
+/**
+ * サイト全体の統計情報を返す（ヒーローセクション用）
+ */
+export function getSiteStats(): { articleCount: number; serviceCount: number; categoryCount: number } {
+  const articleCount = getAllArticles().length;
+  const serviceCount = getAllServiceSlugs().length;
+  const categoryCount = getAllTechCategoryMetas().length;
+  return { articleCount, serviceCount, categoryCount };
 }

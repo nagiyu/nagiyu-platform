@@ -14,6 +14,8 @@ import {
   getTechCategory,
   getArticlesByCategory,
   getTechCategoriesForArticle,
+  getFeaturedArticles,
+  getSiteStats,
 } from '@/lib/content';
 
 // ESM-only パッケージ（remark/rehype/unified）は Jest の CommonJS 環境では読み込めないためモック化する
@@ -243,8 +245,12 @@ describe('content', () => {
   describe('getArticlesByCategory', () => {
     it('指定カテゴリに所属する記事を publishedAt 降順で返す', () => {
       const articles = getArticlesByCategory('aws');
-      // test-article-1 (aws), test-article-2 (aws, nextjs) が該当
-      expect(articles.map((a) => a.slug)).toEqual(['test-article-1', 'test-article-2']);
+      // test-article-featured (aws, featured: true), test-article-1 (aws), test-article-2 (aws, nextjs) が該当
+      expect(articles.map((a) => a.slug)).toEqual([
+        'test-article-featured',
+        'test-article-1',
+        'test-article-2',
+      ]);
     });
 
     it('単一カテゴリにのみ所属する記事を抽出する', () => {
@@ -272,6 +278,59 @@ describe('content', () => {
     it('categories が未指定なら空配列', () => {
       expect(getTechCategoriesForArticle(undefined)).toEqual([]);
       expect(getTechCategoriesForArticle([])).toEqual([]);
+    });
+  });
+
+  describe('getFeaturedArticles', () => {
+    it('featured: true の記事のみを返す', () => {
+      const articles = getFeaturedArticles();
+      expect(articles.every((a) => a.featured === true)).toBe(true);
+    });
+
+    it('フィクスチャ内の特集記事（test-article-featured）が含まれる', () => {
+      const articles = getFeaturedArticles();
+      expect(articles.find((a) => a.slug === 'test-article-featured')).toBeDefined();
+    });
+
+    it('featured: true を持たない記事は含まれない', () => {
+      const articles = getFeaturedArticles();
+      // test-article-1, 2, 3 は featured を持たないため除外される
+      expect(articles.find((a) => a.slug === 'test-article-1')).toBeUndefined();
+      expect(articles.find((a) => a.slug === 'test-article-2')).toBeUndefined();
+      expect(articles.find((a) => a.slug === 'test-article-3')).toBeUndefined();
+    });
+
+    it('limit 引数で件数を制限できる', () => {
+      const articles = getFeaturedArticles(1);
+      expect(articles.length).toBeLessThanOrEqual(1);
+    });
+
+    it('特集記事がゼロ件でも例外を投げず空配列を返す', () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      jest.spyOn(require('fs'), 'existsSync').mockReturnValueOnce(false);
+      const articles = getFeaturedArticles();
+      expect(Array.isArray(articles)).toBe(true);
+    });
+  });
+
+  describe('getSiteStats', () => {
+    it('articleCount / serviceCount / categoryCount を返す', () => {
+      const stats = getSiteStats();
+      expect(typeof stats.articleCount).toBe('number');
+      expect(typeof stats.serviceCount).toBe('number');
+      expect(typeof stats.categoryCount).toBe('number');
+    });
+
+    it('articleCount はフィクスチャの記事数と一致する', () => {
+      const stats = getSiteStats();
+      const articles = getAllArticles();
+      expect(stats.articleCount).toBe(articles.length);
+    });
+
+    it('categoryCount はフィクスチャ内の実在するカテゴリ数と一致する', () => {
+      const stats = getSiteStats();
+      const categories = getAllTechCategoryMetas();
+      expect(stats.categoryCount).toBe(categories.length);
     });
   });
 });
