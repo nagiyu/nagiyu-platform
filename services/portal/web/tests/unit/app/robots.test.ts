@@ -23,7 +23,8 @@ describe('robots', () => {
       const result = robots();
       const rules = Array.isArray(result.rules) ? result.rules : [result.rules];
       const globalRule = rules.find(
-        (rule) => rule.userAgent === '*' || (Array.isArray(rule.userAgent) && rule.userAgent.includes('*'))
+        (rule) =>
+          rule.userAgent === '*' || (Array.isArray(rule.userAgent) && rule.userAgent.includes('*'))
       );
       expect(globalRule).toBeDefined();
     });
@@ -46,7 +47,8 @@ describe('robots', () => {
       const result = robots();
       const rules = Array.isArray(result.rules) ? result.rules : [result.rules];
       const globalRule = rules.find(
-        (rule) => rule.userAgent === '*' || (Array.isArray(rule.userAgent) && rule.userAgent.includes('*'))
+        (rule) =>
+          rule.userAgent === '*' || (Array.isArray(rule.userAgent) && rule.userAgent.includes('*'))
       );
       expect(globalRule).toBeDefined();
       if (!globalRule) return;
