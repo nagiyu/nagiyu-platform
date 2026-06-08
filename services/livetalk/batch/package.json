@@ -14,12 +14,12 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.1024.0",
-    "@aws-sdk/lib-dynamodb": "^3.1024.0",
+    "@aws-sdk/client-dynamodb": "^3.1063.0",
+    "@aws-sdk/lib-dynamodb": "^3.1063.0",
     "@nagiyu/aws": "*",
     "@nagiyu/common": "*",
     "@nagiyu/livetalk-core": "*",
-    "openai": "^6.33.0"
+    "openai": "^6.42.0"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
