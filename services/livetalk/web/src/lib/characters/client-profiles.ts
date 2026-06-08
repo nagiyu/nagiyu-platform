@@ -41,6 +41,7 @@ const PROFILES: Record<string, CharacterClientProfile> = {
       shortName: 'ひより',
     },
     render: {
+      renderer: 'live2d',
       modelPath: '/assets/characters/hiyori/runtime/hiyori_free_t08.model3.json',
       cubismParams: {
         mouthOpenY: 'ParamMouthOpenY',

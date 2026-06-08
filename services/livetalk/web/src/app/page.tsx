@@ -1,14 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import dynamic from 'next/dynamic';
 import { useSession } from 'next-auth/react';
 import { Box, Container, Stack } from '@mui/material';
 import { Link } from '@nagiyu/ui';
 import { hasPermission } from '@nagiyu/common';
 import ChatInput from '@/components/ChatInput';
 import ResponseDisplay from '@/components/ResponseDisplay';
-import { Live2DCanvasFallback } from '@/components/Live2DCanvas';
+import CharacterCanvas from '@/components/CharacterCanvas';
 import ConsentModal from '@/components/ConsentModal';
 import SafetyModal from '@/components/SafetyModal';
 import NotificationToggle from '@/components/NotificationToggle';
@@ -25,11 +24,6 @@ import {
 } from '@/lib/pwa/standalone';
 import { PWA_MESSAGES } from '@/lib/pwa/messages';
 import { reportClientError } from '@/lib/client-logger';
-
-const Live2DCanvas = dynamic(() => import('@/components/Live2DCanvas'), {
-  ssr: false,
-  loading: ({ error }) => (error ? null : <Live2DCanvasFallback statusText="読み込み中…" />),
-});
 
 type ChatPhase = 'idle' | 'loading' | 'streaming';
 type ConsentPhase = 'checking' | 'required' | 'done';
@@ -63,7 +57,7 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
  * - LLM 応答を NDJSON ストリームで受信し、テキストを逐次表示
  * - 文単位の音声（base64 WAV）を AudioBuffer に decode して順番に再生
  * - iOS Safari 対策として AudioContext を user gesture で resume し、
- *   Live2DCanvas に AudioBuffer + AudioContext を渡して Web Audio で再生する
+ *   CharacterCanvas に AudioBuffer + AudioContext を渡して Web Audio で再生する
  *   （HTMLAudioElement の autoplay 制約を回避）
  */
 export default function HomePage() {
@@ -98,7 +92,7 @@ export default function HomePage() {
   const streamDoneRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const sentenceReceivedRef = useRef(0);
-  // AudioContext は子コンポーネント（Live2DCanvas）に prop で渡すため state で持つ。
+  // AudioContext は子コンポーネント（CharacterCanvas）に prop で渡すため state で持つ。
   // 同期アクセス用に ref も併用する（callback 内で最新値を読むため）。
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -170,7 +164,7 @@ export default function HomePage() {
   // user gesture（handleSubmit）の同期スタックで AudioContext を作成・resume することで、
   // 以降の AudioBufferSourceNode.start() が transient activation token を消費せず
   // いつでも再生可能になる。HTMLAudioElement の per-element 制約は別系統で、
-  // この対策では効かないため、再生は Web Audio API のみで完結させる（Live2DCanvas 参照）。
+  // この対策では効かないため、再生は Web Audio API のみで完結させる（CharacterCanvas 参照）。
   const ensureAudioContextUnlocked = useCallback(async () => {
     if (typeof window === 'undefined') return;
     const AudioContextClass =
@@ -180,7 +174,7 @@ export default function HomePage() {
     if (!audioCtxRef.current) {
       const ctx = new AudioContextClass();
       audioCtxRef.current = ctx;
-      // 子コンポーネント（Live2DCanvas）に prop で渡すため state も更新
+      // 子コンポーネント（CharacterCanvas）に prop で渡すため state も更新
       setAudioContext(ctx);
     }
     if (audioCtxRef.current.state === 'suspended') {
@@ -435,7 +429,7 @@ export default function HomePage() {
           <CharacterSelectButton disabled={phase !== 'idle'} />
         </Box>
         <Box sx={{ flex: '0 1 60%', minHeight: 240, mb: 1 }}>
-          <Live2DCanvas
+          <CharacterCanvas
             characterId={characterId}
             audioBuffer={audioBuffer}
             audioContext={audioContext}

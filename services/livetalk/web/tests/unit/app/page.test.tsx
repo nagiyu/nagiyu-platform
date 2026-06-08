@@ -8,14 +8,15 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import HomePage from '@/app/page';
 
-// Live2DCanvas の dynamic import をモック（pixi.js / WebGL 依存を排除）
-jest.mock('@/components/Live2DCanvas', () => ({
+// CharacterCanvas をモック（Live2DCanvas の pixi.js / WebGL 依存、PlaceholderCanvas の Web Audio 依存を排除）
+jest.mock('@/components/CharacterCanvas', () => ({
   __esModule: true,
   default: jest.fn(
     ({
       onPlaybackEnd,
       onPlaybackError,
     }: {
+      characterId?: string;
       audioBuffer?: AudioBuffer | null;
       audioContext?: AudioContext | null;
       statusText?: string;
@@ -23,7 +24,7 @@ jest.mock('@/components/Live2DCanvas', () => ({
       onPlaybackEnd?: () => void;
       onPlaybackError?: (error: Error) => void;
     }) => (
-      <div data-testid="live2d-canvas">
+      <div data-testid="character-canvas">
         <button data-testid="trigger-playback-end" onClick={onPlaybackEnd}>
           end
         </button>
@@ -36,7 +37,6 @@ jest.mock('@/components/Live2DCanvas', () => ({
       </div>
     )
   ),
-  Live2DCanvasFallback: jest.fn(() => <div data-testid="live2d-fallback" />),
 }));
 
 jest.mock('@/components/ConsentModal', () => ({
