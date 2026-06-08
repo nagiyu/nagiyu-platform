@@ -33,6 +33,8 @@ import {
   getStudyTopicRepository,
   getMessageRepository,
 } from '@/lib/server/repositories';
+import { hasCharacter } from '@/lib/characters/registry';
+import StatusCharacterSwitcher from '@/components/StatusCharacterSwitcher';
 
 const JST = 'Asia/Tokyo';
 
@@ -73,15 +75,20 @@ const REASON_LABELS: Record<string, string> = {
   no_content: 'コンテンツなし',
 };
 
-export default async function StatusPage() {
+interface StatusPageProps {
+  searchParams: Promise<{ characterId?: string }>;
+}
+
+export default async function StatusPage({ searchParams }: StatusPageProps) {
   const session = await getSession();
 
   if (!session || !hasPermission(session.user.roles, 'livetalk:admin')) {
     redirect('/');
   }
 
+  const { characterId: queriedId } = await searchParams;
+  const characterId = queriedId && hasCharacter(queriedId) ? queriedId : DEFAULT_CHARACTER_ID;
   const userId = session.user.googleId;
-  const characterId = DEFAULT_CHARACTER_ID;
   const now = new Date();
 
   const [lifecycle, notificationEvents, allMessages, knowledge, studyPending] = await Promise.all([
@@ -125,6 +132,9 @@ export default async function StatusPage() {
       <Typography variant="h6" component="h1" sx={{ mb: 2 }}>
         ステータス（デバッグ）
       </Typography>
+
+      {/* キャラクター切替 */}
+      <StatusCharacterSwitcher currentCharacterId={characterId} />
 
       {/* ライフサイクル */}
       <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 'bold' }}>

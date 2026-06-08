@@ -108,7 +108,12 @@ const makeMessageRepo = () =>
     listSince: jest.fn(async () => []),
   }) as unknown as MessageRepository;
 
-const buildGetRequest = () => new Request('http://localhost/api/status', { method: 'GET' });
+const buildGetRequest = (characterId?: string) => {
+  const url = characterId
+    ? `http://localhost/api/status?characterId=${encodeURIComponent(characterId)}`
+    : 'http://localhost/api/status';
+  return new Request(url, { method: 'GET' });
+};
 
 function setupDefaultMocks() {
   mockGetLifecycleRepo.mockReturnValue(makeLifecycleRepo());
@@ -264,5 +269,49 @@ describe('GET /api/status', () => {
     const json = await res.json();
     expect(json.error).toBe('FETCH_FAILED');
     consoleSpy.mockRestore();
+  });
+
+  it('characterId クエリで指定したキャラの characterId でリポジトリを呼び出す', async () => {
+    mockGetSession.mockResolvedValueOnce(adminSession);
+    const mockGet = jest.fn(async () => ({
+      UserID: 'g1',
+      CharacterID: 'ageha',
+      Bedtime: '01:30',
+      WakeUpTime: '09:30',
+      CreatedAt: 0,
+      UpdatedAt: 0,
+    }));
+    mockGetLifecycleRepo.mockReturnValue({ get: mockGet } as unknown as LifecycleRepository);
+    mockGetNotifEventRepo.mockReturnValue(makeNotifEventRepo());
+    mockGetKnowledgeRepo.mockReturnValue(makeKnowledgeRepo());
+    mockGetStudyTopicRepo.mockReturnValue(makeStudyTopicRepo());
+    mockGetMessageRepo.mockReturnValue(makeMessageRepo());
+
+    const res = await GET(buildGetRequest('ageha'));
+    expect(res.status).toBe(200);
+    // lifecycle.get が 'ageha' で呼ばれていることを確認
+    expect(mockGet).toHaveBeenCalledWith(expect.objectContaining({ characterId: 'ageha' }));
+  });
+
+  it('不正な characterId は DEFAULT_CHARACTER_ID にフォールバックする', async () => {
+    mockGetSession.mockResolvedValueOnce(adminSession);
+    const mockGet = jest.fn(async () => ({
+      UserID: 'g1',
+      CharacterID: 'hiyori',
+      Bedtime: '01:30',
+      WakeUpTime: '09:30',
+      CreatedAt: 0,
+      UpdatedAt: 0,
+    }));
+    mockGetLifecycleRepo.mockReturnValue({ get: mockGet } as unknown as LifecycleRepository);
+    mockGetNotifEventRepo.mockReturnValue(makeNotifEventRepo());
+    mockGetKnowledgeRepo.mockReturnValue(makeKnowledgeRepo());
+    mockGetStudyTopicRepo.mockReturnValue(makeStudyTopicRepo());
+    mockGetMessageRepo.mockReturnValue(makeMessageRepo());
+
+    const res = await GET(buildGetRequest('no-such-character'));
+    expect(res.status).toBe(200);
+    // 不正 ID は既定 characterId（hiyori）にフォールバック
+    expect(mockGet).toHaveBeenCalledWith(expect.objectContaining({ characterId: 'hiyori' }));
   });
 });

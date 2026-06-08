@@ -136,7 +136,7 @@ function setupFetchMocks(chatOk = false, sentenceAudio?: string) {
         json: () => Promise.resolve({ consented: true }),
       });
     }
-    if (url === '/api/lifecycle') {
+    if (url.startsWith('/api/lifecycle')) {
       return Promise.resolve({
         ok: true,
         json: () => Promise.resolve({ state: 'awake' }),
@@ -353,7 +353,7 @@ describe('通知起点の knowledgeId 受け渡し（Issue #3359 課題Y）', ()
       if (url === '/api/consent') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ consented: true }) });
       }
-      if (url === '/api/lifecycle') {
+      if (url.startsWith('/api/lifecycle')) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ state: 'awake' }) });
       }
       if (url === '/api/push/first-word') {
@@ -404,7 +404,7 @@ describe('通知起点の knowledgeId 受け渡し（Issue #3359 課題Y）', ()
       if (url === '/api/consent') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ consented: true }) });
       }
-      if (url === '/api/lifecycle') {
+      if (url.startsWith('/api/lifecycle')) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ state: 'awake' }) });
       }
       if (url === '/api/push/first-word') {
@@ -463,7 +463,7 @@ describe('characterId の chat リクエストへの反映', () => {
       if (url === '/api/consent') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ consented: true }) });
       }
-      if (url === '/api/lifecycle') {
+      if (url.startsWith('/api/lifecycle')) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ state: 'awake' }) });
       }
       if (url === '/api/push/first-word') {

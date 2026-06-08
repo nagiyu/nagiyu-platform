@@ -145,10 +145,10 @@ export default function HomePage() {
     }
   }, [consentPhase]);
 
-  // 初回起動時に生活サイクル状態を取得し、初回発話を待たずに Live2D へ反映する。
+  // 起動時・キャラ切替時に生活サイクル状態を取得し、初回発話を待たずに Live2D へ反映する。
   // 失敗時は現状維持（'awake'）。演出のための取得なので UI は止めない。
   useEffect(() => {
-    fetch('/api/lifecycle')
+    fetch(`/api/lifecycle?characterId=${encodeURIComponent(characterId)}`)
       .then((res) => res.json())
       .then((data: { state: LifecycleState }) => {
         if (data.state === 'awake' || data.state === 'sleeping') {
@@ -158,7 +158,7 @@ export default function HomePage() {
       .catch(() => {
         // 取得失敗時は初期値 'awake' のまま
       });
-  }, []);
+  }, [characterId]);
 
   // iOS Safari の Web Audio autoplay 制約対策。
   // user gesture（handleSubmit）の同期スタックで AudioContext を作成・resume することで、
