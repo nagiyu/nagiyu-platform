@@ -3,6 +3,8 @@ export {
   extractSessionStartTimes,
   computeSessionIntervals,
   computeBaseIntervalMs,
+  computeIntensityFactor,
+  computeDailyNormalCap,
   resolveToneBucket,
   countTodayNotifications,
   median,
@@ -13,4 +15,4 @@ export { buildNotificationMessage, buildCriticalNotificationMessage } from './me
 export type { BuildNotificationMessageInput, NotificationMessage } from './message-builder.js';
 
 export { detectCriticalKnowledge } from './escalation.js';
-export type { EscalationResult } from './escalation.js';
+export type { EscalationResult, DetectCriticalInput } from './escalation.js';

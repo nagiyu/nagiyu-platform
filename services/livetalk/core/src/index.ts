@@ -334,6 +334,8 @@ export {
   extractSessionStartTimes,
   computeSessionIntervals,
   computeBaseIntervalMs,
+  computeIntensityFactor,
+  computeDailyNormalCap,
   resolveToneBucket,
   countTodayNotifications,
   median,
@@ -348,6 +350,7 @@ export type {
   BuildNotificationMessageInput,
   NotificationMessage,
   EscalationResult,
+  DetectCriticalInput,
 } from './notification/index.js';
 
 // 通知関連定数（Phase 5d / #3346）
@@ -362,4 +365,7 @@ export {
   NOTIFY_DAILY_CRITICAL_CAP,
   NOTIFY_ACTIVE_WINDOW_MINUTES,
   NOTIFICATION_EVENT_TTL_SECONDS,
+  NOTIFY_CRITICAL_INTEREST_SHARE_THRESHOLD,
+  NOTIFY_CRITICAL_EVENT_HORIZON_DAYS,
+  NOTIFY_INTENSITY_WINDOW_DAYS,
 } from './constants.js';

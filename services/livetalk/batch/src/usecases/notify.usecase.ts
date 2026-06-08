@@ -7,7 +7,9 @@ import {
   buildNotificationMessage,
   detectCriticalKnowledge,
   shouldNotifyNow,
+  type IEmbeddingClient,
   type ILLMClient,
+  type InterestRepository,
   type KnowledgeRepository,
   type LifecycleRepository,
   type MessageRepository,
@@ -16,6 +18,7 @@ import {
   type UlidFactory,
   defaultUlidFactory,
   NOTIFICATION_EVENT_TTL_SECONDS,
+  NOTIFY_INTENSITY_WINDOW_DAYS,
 } from '@nagiyu/livetalk-core';
 
 export interface NotifyAllUsersParams {
@@ -26,7 +29,9 @@ export interface NotifyAllUsersParams {
   knowledgeRepo: KnowledgeRepository;
   pushSubscriptionRepo: PushSubscriptionRepository;
   notifEventRepo: NotificationEventRepository;
+  interestRepo: InterestRepository;
   llmClient: ILLMClient;
+  embeddingClient: IEmbeddingClient;
   ulidFactory?: UlidFactory;
   now?: () => Date;
 }
@@ -47,7 +52,9 @@ export async function notifyAllUsers(params: NotifyAllUsersParams): Promise<Noti
     knowledgeRepo,
     pushSubscriptionRepo,
     notifEventRepo,
+    interestRepo,
     llmClient,
+    embeddingClient,
     ulidFactory = defaultUlidFactory,
     now = () => new Date(),
   } = params;
@@ -73,7 +80,9 @@ export async function notifyAllUsers(params: NotifyAllUsersParams): Promise<Noti
         knowledgeRepo,
         pushSubscriptionRepo,
         notifEventRepo,
+        interestRepo,
         llmClient,
+        embeddingClient,
         ulidFactory,
         vapidConfig,
         now,
@@ -105,7 +114,9 @@ interface ProcessUserParams {
   knowledgeRepo: KnowledgeRepository;
   pushSubscriptionRepo: PushSubscriptionRepository;
   notifEventRepo: NotificationEventRepository;
+  interestRepo: InterestRepository;
   llmClient: ILLMClient;
+  embeddingClient: IEmbeddingClient;
   ulidFactory: UlidFactory;
   vapidConfig: ReturnType<typeof getVapidConfig>;
   now: () => Date;
@@ -119,7 +130,9 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
     knowledgeRepo,
     pushSubscriptionRepo,
     notifEventRepo,
+    interestRepo,
     llmClient,
+    embeddingClient,
     ulidFactory,
     vapidConfig,
     now,
@@ -136,20 +149,27 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
   const subscriptions = await pushSubscriptionRepo.listByUser(userId);
   if (subscriptions.length === 0) return false;
 
-  // 直近 200 件のメッセージを取得（セッション計算用。トークン上限は大きめに設定して件数優先）
-  const recentMessages = await messageRepo.getRecentByTokenBudget({
-    userId,
-    characterId,
-    hardLimit: 200,
-  });
-  const userMessages = recentMessages.messages.filter((m) => m.Role === 'user');
+  // 直近 NOTIFY_INTENSITY_WINDOW_DAYS 日のメッセージを時刻範囲で取得（強度サンプリング用）
+  // トークン予算ベースの取得では活発ユーザーで直近数日分しか取れず intensity が過小評価されるため、
+  // 時刻範囲ベースに切り替えて窓内の全メッセージを正確に取得する。
+  const intensityWindowMs = NOTIFY_INTENSITY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  const sinceMs = currentNow.getTime() - intensityWindowMs;
+  const recentMessages = await messageRepo.listSince(userId, characterId, sinceMs);
+  const userMessages = recentMessages.filter((m) => m.Role === 'user');
 
   // 通知履歴を取得（直近 60 件）
   const notifEvents = await notifEventRepo.listByUser(userId, 60);
 
   // クリティカル候補を取得して LLM 判定
   const recentKnowledge = await knowledgeRepo.list(userId, characterId, 10);
-  const escalation = await detectCriticalKnowledge(recentKnowledge, llmClient);
+  const interestCategories = await interestRepo.list(userId, characterId);
+  const escalation = await detectCriticalKnowledge({
+    knowledgeList: recentKnowledge,
+    interestCategories,
+    llmClient,
+    embeddingClient,
+    now: currentNow,
+  });
   const criticalKnowledgeId = escalation.isCritical
     ? (escalation.knowledgeId ?? undefined)
     : undefined;
@@ -180,14 +200,22 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
     body = msg.body;
     knowledgeId = decision.knowledgeId;
   } else {
-    const latestKnowledge = recentKnowledge[0];
+    // 直近で使用済みの KnowledgeID を避けてネタを選ぶ（同じ話題の連発を抑制）
+    const usedKnowledgeIds = new Set(
+      notifEvents
+        .map((e: { KnowledgeID?: string }) => e.KnowledgeID)
+        .filter((id: string | undefined): id is string => id !== undefined)
+    );
+    const freshKnowledge =
+      recentKnowledge.find((k: { KnowledgeID: string }) => !usedKnowledgeIds.has(k.KnowledgeID)) ??
+      recentKnowledge[0];
     const msg = buildNotificationMessage(
-      { toneBucket: decision.toneBucket, knowledgeTopic: latestKnowledge?.Topic },
+      { toneBucket: decision.toneBucket, knowledgeTopic: freshKnowledge?.Topic },
       currentNow.getTime()
     );
     title = msg.title;
     body = msg.body;
-    knowledgeId = latestKnowledge?.KnowledgeID;
+    knowledgeId = freshKnowledge?.KnowledgeID;
   }
 
   const ttl = Math.floor(currentNow.getTime() / 1000) + NOTIFICATION_EVENT_TTL_SECONDS;

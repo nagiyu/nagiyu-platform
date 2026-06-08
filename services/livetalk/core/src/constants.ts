@@ -224,9 +224,12 @@ export const NOTIFY_SESSION_GAP_MINUTES = 60;
 export const NOTIFY_DEFAULT_BASE_HOURS = 24;
 
 /**
- * 適応的間隔の下限（時間）。連投防止。
+ * 適応的間隔の下限（時間）。
+ * 活動的ユーザーの間隔下限。casual はセッション中央値≒24h のため
+ * この floor は事実上効かない。連投防止は動的 cap と backoff で担保。
+ * Phase 2 で 12 → 4 に引き下げ（活発ユーザー向け）。
  */
-export const NOTIFY_BASE_MIN_HOURS = 12;
+export const NOTIFY_BASE_MIN_HOURS = 4;
 
 /**
  * 適応的間隔の上限（日）。この値を超えたら通知停止。
@@ -239,9 +242,38 @@ export const NOTIFY_MAX_INTERVAL_DAYS = 14;
 export const NOTIFY_BACKOFF_BASE = 1.5;
 
 /**
- * 1日に送る平常通知の上限件数。
+ * 1日に送る平常通知の上限件数（動的 cap の下限）。
+ * casual ユーザー（intensityFactor=1）はこの値が使われる。
  */
 export const NOTIFY_DAILY_NORMAL_CAP = 1;
+
+/**
+ * 動的 1 日上限（平常通知）の上限値。
+ * 活発ユーザーでも 1 日 3 件を超えて送らない。
+ * intensityFactor が 3 を超えても cap はこの値で打ち止め。
+ */
+export const NOTIFY_DAILY_NORMAL_CAP_MAX = 3;
+
+/**
+ * 強度信号の算出に使う直近期間（日）。
+ * この期間内のセッション数から session/日 を計算する。
+ */
+export const NOTIFY_INTENSITY_WINDOW_DAYS = 7;
+
+/**
+ * intensityFactor=1（頻度を上げない境界）となる session/日 の閾値。
+ * これ未満のユーザーは factor=1 に固定され、従来通り cap=1・interval は縮まらない。
+ * dev 実測で活発ユーザー≒4.4 session/日 を踏まえた暫定値。
+ * 実運用データを踏まえてチューニングすること。
+ */
+export const NOTIFY_INTENSITY_BASELINE_SESSIONS_PER_DAY = 1.5;
+
+/**
+ * intensityFactor の上限。
+ * 超活発なユーザーでも interval の短縮・cap の増加を 3 倍までに抑える。
+ * cap は clamp(round(factor), 1, NOTIFY_DAILY_NORMAL_CAP_MAX) なので最大 3。
+ */
+export const NOTIFY_INTENSITY_MAX_FACTOR = 3;
 
 /**
  * 1日に送るクリティカル通知の上限件数。
@@ -258,3 +290,20 @@ export const NOTIFY_ACTIVE_WINDOW_MINUTES = 90;
  * NotificationEvent に付与する DynamoDB TTL（秒）。30日後に自動削除。
  */
 export const NOTIFICATION_EVENT_TTL_SECONDS = 30 * 24 * 60 * 60;
+
+/**
+ * クリティカル通知の対象とする興味カテゴリの最小シェア（全 Weight 合計に占める割合）。
+ *
+ * dev 実データの Weight 分布（飲み物38%/スイーツ18%/ゲーム15%/映画14%/…）を根拠に暫定設定。
+ * この値を下回る弱興味カテゴリの Knowledge はクリティカル判定から除外される。
+ * 実運用データを踏まえてチューニングすること。
+ */
+export const NOTIFY_CRITICAL_INTEREST_SHARE_THRESHOLD = 0.15;
+
+/**
+ * クリティカル判定の「時限性あり」とみなすイベント日程の最大日数（今日から何日以内か）。
+ *
+ * LLM が抽出した eventDate が今日から NOTIFY_CRITICAL_EVENT_HORIZON_DAYS 日以内の未来である場合のみ
+ * isUrgent=true とみなす。14 日を超える将来イベントや過去日は時限性なしとして除外する。
+ */
+export const NOTIFY_CRITICAL_EVENT_HORIZON_DAYS = 14;
