@@ -63,7 +63,7 @@ export default function ConsentModal({ open, onConsented }: ConsentModalProps) {
 
       <DialogContent>
         <Typography variant="body2" sx={{ mb: 3 }}>
-          AI キャラクター「桃瀬ひより」との会話サービスを始める前に、以下をご確認ください。
+          AI キャラクターとの会話サービスを始める前に、以下をご確認ください。
         </Typography>
 
         <Box
