@@ -21,9 +21,13 @@ describe('キャラクターレジストリ', () => {
       const entry = getCharacterEntry();
       expect(entry.definition.id).toBe('hiyori');
       expect(entry.definition.displayName).toBe('桃瀬ひより');
-      expect(entry.render.modelPath).toBe(
-        '/assets/characters/hiyori/runtime/hiyori_free_t08.model3.json'
-      );
+      // hiyori は live2d renderer であるため、renderer で narrowing してから参照する
+      expect(entry.render.renderer).toBe('live2d');
+      if (entry.render.renderer === 'live2d') {
+        expect(entry.render.modelPath).toBe(
+          '/assets/characters/hiyori/runtime/hiyori_free_t08.model3.json'
+        );
+      }
     });
 
     it('DEFAULT_CHARACTER_ID を明示的に渡しても hiyori を返す', () => {
@@ -34,7 +38,11 @@ describe('キャラクターレジストリ', () => {
     it('"hiyori" を指定すると定義と描画設定の両方を返す', () => {
       const entry = getCharacterEntry('hiyori');
       expect(entry.definition.id).toBe('hiyori');
-      expect(entry.render.cubismParams.mouthOpenY).toBe('ParamMouthOpenY');
+      // renderer で narrowing してから cubismParams を参照する
+      expect(entry.render.renderer).toBe('live2d');
+      if (entry.render.renderer === 'live2d') {
+        expect(entry.render.cubismParams.mouthOpenY).toBe('ParamMouthOpenY');
+      }
     });
 
     it('未登録の characterId を指定すると日本語定数メッセージで Error をスローする', () => {

@@ -173,6 +173,11 @@ export default function Live2DCanvas({
 
       try {
         const renderProfile = getCharacterRenderProfile(characterId);
+        // Live2DCanvas は live2d キャラにのみマウントされる前提だが、型の健全性のためにガードする
+        if (renderProfile.renderer !== 'live2d') {
+          console.warn('[Live2DCanvas] renderer が live2d ではないため描画をスキップします');
+          return;
+        }
         const model = await Live2DModel.from(renderProfile.modelPath, {
           autoInteract: false,
           // PIXI Application のティッカーを渡してアイドルモーション・呼吸・まばたきを駆動する
@@ -356,6 +361,8 @@ export default function Live2DCanvas({
     };
 
     const renderProfile = getCharacterRenderProfile(characterId);
+    // Live2DCanvas は live2d キャラにのみマウントされる前提だが、型の健全性のためにガードする
+    if (renderProfile.renderer !== 'live2d') return;
     const applyEyes = () => {
       if (lifecycleStateRef.current !== 'sleeping') return;
       try {

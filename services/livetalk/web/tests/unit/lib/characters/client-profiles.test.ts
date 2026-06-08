@@ -20,16 +20,24 @@ describe('クライアントプロファイルレジストリ', () => {
   describe('getCharacterRenderProfile', () => {
     it('引数なしで既定キャラクターの描画設定を返す', () => {
       const profile = getCharacterRenderProfile();
-      expect(profile.modelPath).toBe(
-        '/assets/characters/hiyori/runtime/hiyori_free_t08.model3.json'
-      );
+      // hiyori は live2d renderer であるため、renderer で narrowing してから参照する
+      expect(profile.renderer).toBe('live2d');
+      if (profile.renderer === 'live2d') {
+        expect(profile.modelPath).toBe(
+          '/assets/characters/hiyori/runtime/hiyori_free_t08.model3.json'
+        );
+      }
     });
 
     it('cubismParams が Cubism 標準のパラメータ ID を返す', () => {
       const profile = getCharacterRenderProfile(DEFAULT_CLIENT_CHARACTER_ID);
-      expect(profile.cubismParams.mouthOpenY).toBe('ParamMouthOpenY');
-      expect(profile.cubismParams.eyeLOpen).toBe('ParamEyeLOpen');
-      expect(profile.cubismParams.eyeROpen).toBe('ParamEyeROpen');
+      // renderer で narrowing してから cubismParams を参照する
+      expect(profile.renderer).toBe('live2d');
+      if (profile.renderer === 'live2d') {
+        expect(profile.cubismParams.mouthOpenY).toBe('ParamMouthOpenY');
+        expect(profile.cubismParams.eyeLOpen).toBe('ParamEyeLOpen');
+        expect(profile.cubismParams.eyeROpen).toBe('ParamEyeROpen');
+      }
     });
 
     it('未登録の id を指定すると日本語定数メッセージでスローする', () => {
@@ -76,16 +84,24 @@ describe('クライアントプロファイルレジストリ', () => {
       const profile = getCharacterClientProfile();
       expect(profile.display.displayName).toBe('桃瀬ひより');
       expect(profile.display.shortName).toBe('ひより');
-      expect(profile.render.modelPath).toBe(
-        '/assets/characters/hiyori/runtime/hiyori_free_t08.model3.json'
-      );
+      // renderer で narrowing してから live2d 固有フィールドを参照する
+      expect(profile.render.renderer).toBe('live2d');
+      if (profile.render.renderer === 'live2d') {
+        expect(profile.render.modelPath).toBe(
+          '/assets/characters/hiyori/runtime/hiyori_free_t08.model3.json'
+        );
+      }
     });
 
     it('display と render の両方が揃っている', () => {
       const profile = getCharacterClientProfile(DEFAULT_CLIENT_CHARACTER_ID);
       expect(profile.display).toBeDefined();
       expect(profile.render).toBeDefined();
-      expect(profile.render.cubismParams).toBeDefined();
+      // renderer で narrowing してから cubismParams を参照する
+      expect(profile.render.renderer).toBe('live2d');
+      if (profile.render.renderer === 'live2d') {
+        expect(profile.render.cubismParams).toBeDefined();
+      }
     });
 
     it('未登録の id を指定すると日本語定数メッセージでスローする', () => {
