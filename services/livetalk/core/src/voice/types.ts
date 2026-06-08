@@ -4,14 +4,25 @@
 
 /**
  * キャラが用いる音声の選択情報。プロバイダごとに必要項目が異なるため discriminated union とし、
- * 各 IVoiceClient 実装は自分の provider のみ解釈する。将来 openai 等の variant を追加する。
+ * 各 IVoiceClient 実装は自分の provider のみ解釈する。
  */
-export type VoiceConfig = {
-  provider: 'voicevox';
-  /** VOICEVOX の話者 ID（例: 14 = 冥鳴ひまり） */
-  speakerId: number;
-};
-// 将来: | { provider: 'openai'; voice: string; instructions?: string; model?: string }
+export type VoiceConfig =
+  | {
+      /** VOICEVOX プロバイダを使用する */
+      provider: 'voicevox';
+      /** VOICEVOX の話者 ID（例: 14 = 冥鳴ひまり） */
+      speakerId: number;
+    }
+  | {
+      /** OpenAI TTS プロバイダを使用する */
+      provider: 'openai';
+      /** OpenAI TTS の voice 名（例: 'nova', 'shimmer', 'coral', 'alloy'） */
+      voice: string;
+      /** voice の話し方を自然言語で指示する（gpt-4o-mini-tts のみ有効、任意） */
+      instructions?: string;
+      /** 使用モデル。省略時はクライアント実装側の既定（gpt-4o-mini-tts） */
+      model?: string;
+    };
 
 /**
  * 音声合成（TTS）クライアントの抽象インターフェース。

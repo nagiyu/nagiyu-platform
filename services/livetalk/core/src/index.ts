@@ -1,6 +1,7 @@
 // TTS プロバイダ非依存ポート（IVoiceClient / VoiceConfig）
 export * from './voice/index.js';
 export * from './voicevox/index.js';
+export * from './openai-voice/index.js';
 export * from './llm-client/index.js';
 export type { SummarizeInput, SummarizeResult, MemoryCandidate } from './llm-client/types.js';
 export * from './constants.js';
