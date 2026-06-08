@@ -78,8 +78,4 @@ infra/**/*.d.ts
 # Yarn (このプロジェクトはnpmを使用)
 yarn.lock
 
-# Claude Code 内部状態（ワークツリー・セッションキャッシュ等）
-# ただし共有するエージェント定義（.claude/agents/）とスキル（.claude/skills/）は追跡する
-.claude/*
-!.claude/agents/
-!.claude/skills/
+# Claude Code 関連の ignore は .claude/.gitignore に集約
