@@ -77,5 +77,3 @@ infra/**/*.d.ts
 
 # Yarn (このプロジェクトはnpmを使用)
 yarn.lock
-
-# Claude Code 関連の ignore は .claude/.gitignore に集約
