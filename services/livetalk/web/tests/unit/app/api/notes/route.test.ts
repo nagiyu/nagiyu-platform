@@ -75,6 +75,27 @@ describe('GET /api/notes', () => {
     expect(decodeNoteId(json.notes[0].id, 'g1')?.noteId).toBe('new');
   });
 
+  it('characterId クエリを指定するとそのキャラのノートを取得する', async () => {
+    mockGetSession.mockResolvedValue(session);
+    const list = jest.fn(async () => [makeEntity({ CharacterID: 'ageha' })]);
+    mockGetRepo.mockReturnValue(makeRepo({ list }));
+
+    const req2 = () =>
+      new Request('http://localhost/api/notes?characterId=ageha', { method: 'GET' });
+    const res = await GET(req2());
+    expect(res.status).toBe(200);
+    expect(list).toHaveBeenCalledWith('g1', 'ageha');
+  });
+
+  it('不正な characterId は 400', async () => {
+    mockGetSession.mockResolvedValue(session);
+    mockGetRepo.mockReturnValue(makeRepo());
+    const req2 = () =>
+      new Request('http://localhost/api/notes?characterId=unknown', { method: 'GET' });
+    const res = await GET(req2());
+    expect(res.status).toBe(400);
+  });
+
   it('DB エラーは 500', async () => {
     const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockGetSession.mockResolvedValue(session);

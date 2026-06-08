@@ -27,6 +27,22 @@ describe('fetchMemories', () => {
     expect(mockFetch).toHaveBeenCalledWith('/api/memory', expect.any(Object));
   });
 
+  it('characterId を指定するとクエリに付与される', async () => {
+    mockFetch.mockResolvedValueOnce(okJson({ memories: [{ id: 'y' }] }));
+    const result = await fetchMemories(undefined, 'ageha');
+    expect(mockFetch).toHaveBeenCalledWith('/api/memory?characterId=ageha', expect.any(Object));
+    expect(result).toEqual([{ id: 'y' }]);
+  });
+
+  it('tier と characterId の両方を指定するとクエリに付与される', async () => {
+    mockFetch.mockResolvedValueOnce(okJson({ memories: [{ id: 'z' }] }));
+    await fetchMemories('A', 'ageha');
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/memory?tier=A&characterId=ageha',
+      expect.any(Object)
+    );
+  });
+
   it('memories 欠落時は空配列', async () => {
     mockFetch.mockResolvedValueOnce(okJson({}));
     expect(await fetchMemories()).toEqual([]);
@@ -48,6 +64,15 @@ describe('deleteMemory', () => {
     );
   });
 
+  it('characterId を指定するとクエリに付与される', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true });
+    await deleteMemory('abc', 'ageha');
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/memory/abc?characterId=ageha',
+      expect.objectContaining({ method: 'DELETE' })
+    );
+  });
+
   it('失敗時は DELETE_FAILED', async () => {
     mockFetch.mockResolvedValueOnce(fail());
     await expect(deleteMemory('abc')).rejects.toThrow(MEMORY_API_ERROR_MESSAGES.DELETE_FAILED);
@@ -63,6 +88,15 @@ describe('pinMemory', () => {
       expect.objectContaining({ method: 'POST' })
     );
     expect(result).toEqual({ id: 'x', tier: 'A' });
+  });
+
+  it('characterId を指定するとクエリに付与される', async () => {
+    mockFetch.mockResolvedValueOnce(okJson({ memory: { id: 'x', tier: 'A' } }));
+    await pinMemory('abc', 'ageha');
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/memory/abc/pin?characterId=ageha',
+      expect.objectContaining({ method: 'POST' })
+    );
   });
 
   it('失敗時は PIN_FAILED', async () => {

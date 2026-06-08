@@ -14,9 +14,13 @@ export const NOTE_API_ERROR_MESSAGES = {
 
 /**
  * ノート一覧を取得する（本文なし）。
+ * characterId を渡すと選択中キャラのノートに絞り込む（省略時は API 側既定）。
  */
-export async function fetchNotes(): Promise<NoteListItem[]> {
-  const res = await fetch('/api/notes', {
+export async function fetchNotes(characterId?: string): Promise<NoteListItem[]> {
+  const params = new URLSearchParams();
+  if (characterId) params.set('characterId', characterId);
+  const query = params.size > 0 ? `?${params.toString()}` : '';
+  const res = await fetch(`/api/notes${query}`, {
     headers: { Accept: 'application/json' },
   });
   if (!res.ok) {
