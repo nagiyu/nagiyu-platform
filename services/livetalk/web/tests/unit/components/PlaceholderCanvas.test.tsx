@@ -15,10 +15,15 @@ jest.mock('@/lib/characters/client-profiles', () => ({
 }));
 
 describe('PlaceholderCanvas', () => {
-  describe('シルエットと名前ラベルの描画', () => {
-    it('シルエット SVG が描画される', () => {
+  describe('アバター円と名前ラベルの描画', () => {
+    it('アバター円が描画される', () => {
       render(<PlaceholderCanvas characterId="hiyori" />);
-      expect(screen.getByTestId('placeholder-silhouette')).toBeInTheDocument();
+      expect(screen.getByTestId('placeholder-avatar')).toBeInTheDocument();
+    });
+
+    it('アバター円の中に shortName（呼び名）が表示される', () => {
+      render(<PlaceholderCanvas characterId="hiyori" />);
+      expect(screen.getByTestId('placeholder-short-name')).toHaveTextContent('ひより');
     });
 
     it('displayName が名前ラベルとして表示される', () => {
@@ -26,14 +31,20 @@ describe('PlaceholderCanvas', () => {
       expect(screen.getByTestId('placeholder-name-label')).toHaveTextContent('桃瀬ひより');
     });
 
-    it('characterId を指定した場合、対応するキャラ名が表示される', () => {
+    it('characterId を指定した場合、対応するキャラ名・呼び名が表示される', () => {
       render(<PlaceholderCanvas characterId="test-char" />);
       expect(screen.getByTestId('placeholder-name-label')).toHaveTextContent('テストキャラ');
+      expect(screen.getByTestId('placeholder-short-name')).toHaveTextContent('テスト');
     });
 
-    it('口パク用の楕円要素が描画される', () => {
+    it('口パク要素（placeholder-mouth）が描画されない', () => {
       render(<PlaceholderCanvas characterId="hiyori" />);
-      expect(screen.getByTestId('placeholder-mouth')).toBeInTheDocument();
+      expect(screen.queryByTestId('placeholder-mouth')).toBeNull();
+    });
+
+    it('シルエット SVG（placeholder-silhouette）が描画されない', () => {
+      render(<PlaceholderCanvas characterId="hiyori" />);
+      expect(screen.queryByTestId('placeholder-silhouette')).toBeNull();
     });
   });
 
@@ -76,9 +87,9 @@ describe('PlaceholderCanvas', () => {
       }).not.toThrow();
     });
 
-    it('audioBuffer / audioContext 未指定でもシルエットが表示される', () => {
+    it('audioBuffer / audioContext 未指定でもアバター円が表示される', () => {
       render(<PlaceholderCanvas />);
-      expect(screen.getByTestId('placeholder-silhouette')).toBeInTheDocument();
+      expect(screen.getByTestId('placeholder-avatar')).toBeInTheDocument();
     });
   });
 
@@ -109,13 +120,23 @@ describe('PlaceholderCanvas', () => {
       // displayName が空文字列になるため名前ラベルは非表示
       expect(screen.queryByTestId('placeholder-name-label')).toBeNull();
     });
+
+    it('名前が取得できない場合でもアバター円は表示される', () => {
+      const { getCharacterDisplay } = jest.requireMock('@/lib/characters/client-profiles');
+      (getCharacterDisplay as jest.Mock).mockImplementationOnce(() => {
+        throw new Error('未登録');
+      });
+
+      render(<PlaceholderCanvas characterId="unknown-id" />);
+      expect(screen.getByTestId('placeholder-avatar')).toBeInTheDocument();
+    });
   });
 
   describe('アクセシビリティ', () => {
-    it('SVG に aria-label が設定されている', () => {
+    it('アバター円に role="img" と aria-label が設定されている', () => {
       render(<PlaceholderCanvas characterId="hiyori" />);
-      const svg = screen.getByRole('img');
-      expect(svg).toHaveAttribute('aria-label', '桃瀬ひよりのプレースホルダー');
+      const avatar = screen.getByRole('img');
+      expect(avatar).toHaveAttribute('aria-label', '桃瀬ひよりのプレースホルダー');
     });
 
     it('displayName が空の場合でも aria-label が存在する', () => {
@@ -125,9 +146,9 @@ describe('PlaceholderCanvas', () => {
       });
 
       render(<PlaceholderCanvas characterId="unknown-id" />);
-      const svg = screen.getByRole('img');
+      const avatar = screen.getByRole('img');
       // displayName が空のとき aria-label は "のプレースホルダー" になる
-      expect(svg).toHaveAttribute('aria-label');
+      expect(avatar).toHaveAttribute('aria-label');
     });
   });
 });

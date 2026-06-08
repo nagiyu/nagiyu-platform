@@ -40,9 +40,12 @@ export interface PlaceholderCanvasProps {
 /**
  * Live2D モデル未用意のキャラ向けプレースホルダー描画コンポーネント。
  *
- * 上半身のシルエット SVG と名前ラベルを表示し、音声に連動した口パクを駆動する。
+ * 丸いアバター円（キャラの呼び名 shortName 入り）と名前ラベルを表示し、
+ * 音声に連動してアバターが「ふわっと拡大＋発光」する。
+ * 口パク・人型シルエットは使用しない。
+ *
  * 音声再生は Web Audio API（AudioBufferSourceNode + AnalyserNode）で行い、
- * requestAnimationFrame ループで音量レベルを算出してシルエットの口を開閉する。
+ * requestAnimationFrame ループで音量レベルを算出してアバターの scale と glow を駆動する。
  *
  * iOS Safari 対策として HTMLAudio は使わず Web Audio のみ。
  * AudioContext は親が resume 済みの前提（Live2DCanvas と同じ）。
@@ -57,12 +60,8 @@ export default function PlaceholderCanvas({
   onPlaybackEnd,
   onPlaybackError,
 }: PlaceholderCanvasProps) {
-  // 音量レベル（0〜1）を駆動する ref（requestAnimationFrame ループで更新）
-  const mouthOpenRef = useRef(0);
-  // SVG の口要素を直接操作するための ref
-  const mouthRef = useRef<SVGEllipseElement | null>(null);
-  // シルエット全体のスケール用コンテナの ref
-  const silhouetteRef = useRef<SVGGElement | null>(null);
+  // アバター円の DOM 要素を直接操作するための ref（scale / glow 適用）
+  const avatarRef = useRef<HTMLDivElement | null>(null);
   // rAF のキャンセル用 ID
   const rafIdRef = useRef<number | null>(null);
 
@@ -76,7 +75,7 @@ export default function PlaceholderCanvas({
   }, [onPlaybackEnd, onPlaybackError]);
 
   // audioBuffer + audioContext を受け取ったら Web Audio で再生し、
-  // AnalyserNode から音量レベルを算出して口パクを駆動する
+  // AnalyserNode から音量レベルを算出してアバターの拡大・発光を駆動する
   useEffect(() => {
     if (!audioBuffer || !audioContext) return;
 
@@ -98,7 +97,7 @@ export default function PlaceholderCanvas({
       source.connect(analyser);
       analyser.connect(audioContext.destination);
 
-      // requestAnimationFrame ループで音量レベルを算出して口パクを駆動する
+      // requestAnimationFrame ループで音量レベルを算出してアバターの拡大・発光を駆動する
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
       const animate = () => {
         if (cancelled || !analyser) return;
@@ -111,39 +110,31 @@ export default function PlaceholderCanvas({
           sum += dataArray[i];
         }
         const avg = sum / dataArray.length / 255;
-        mouthOpenRef.current = avg;
 
-        // SVG の口楕円の rx / ry を更新して口パクを表現する
-        // 口の高さ: 最小 2px 〜 最大 18px（CharacterArea の mouthHeight 相当）
-        const mouthHeight = 2 + avg * 18;
-        // シルエット全体のスケール: 1.0 〜 1.04（CharacterArea の scale 相当）
-        const scale = 1 + avg * 0.04;
+        // アバター円の scale: 1.0（idle）〜 1.06（最大音量）
+        const scale = 1 + avg * 0.06;
+        // 発光（box-shadow の blur / spread を音量で強める）
+        const glowOpacity = 0.3 + avg * 0.7;
+        const glowBlur = 8 + avg * 24;
+        const glowSpread = 2 + avg * 8;
 
-        if (mouthRef.current) {
-          mouthRef.current.setAttribute('ry', String(mouthHeight / 2));
-          // cy を mouthHeight に応じてわずかに調整（口の中心を固定）
-          mouthRef.current.setAttribute('cy', String(155 + (mouthHeight - 2) / 2));
-        }
-        if (silhouetteRef.current) {
-          silhouetteRef.current.setAttribute('transform', `scale(${scale})`);
+        if (avatarRef.current) {
+          avatarRef.current.style.transform = `scale(${scale})`;
+          avatarRef.current.style.boxShadow = `0 0 ${glowBlur}px ${glowSpread}px rgba(99, 102, 241, ${glowOpacity})`;
         }
       };
       animate();
 
       source.onended = () => {
         if (cancelled) return;
-        // rAF を止めて口を閉じる
+        // rAF を止めてアバターを idle 状態に戻す
         if (rafIdRef.current !== null) {
           cancelAnimationFrame(rafIdRef.current);
           rafIdRef.current = null;
         }
-        mouthOpenRef.current = 0;
-        if (mouthRef.current) {
-          mouthRef.current.setAttribute('ry', '1');
-          mouthRef.current.setAttribute('cy', '156');
-        }
-        if (silhouetteRef.current) {
-          silhouetteRef.current.setAttribute('transform', 'scale(1)');
+        if (avatarRef.current) {
+          avatarRef.current.style.transform = 'scale(1)';
+          avatarRef.current.style.boxShadow = '0 0 8px 2px rgba(99, 102, 241, 0.15)';
         }
         onPlaybackEndRef.current?.();
       };
@@ -170,10 +161,13 @@ export default function PlaceholderCanvas({
     };
   }, [audioBuffer, audioContext]);
 
-  // 名前ラベルを取得する（取得失敗時はフォールバック）
+  // 名前ラベルと呼び名を取得する（取得失敗時はフォールバック）
   let displayName = '';
+  let shortName = '';
   try {
-    displayName = getCharacterDisplay(characterId).displayName;
+    const display = getCharacterDisplay(characterId);
+    displayName = display.displayName;
+    shortName = display.shortName;
   } catch {
     // 未登録 ID などの場合は空文字列のまま表示する
   }
@@ -193,56 +187,50 @@ export default function PlaceholderCanvas({
       }}
       data-testid="placeholder-canvas-container"
     >
-      {/* シルエット + 名前ラベル */}
+      {/* アバター円 + 名前ラベル */}
       <Box
         sx={{
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: 1,
+          gap: 2,
         }}
       >
-        {/* 上半身のシルエット SVG */}
-        <svg
-          width="180"
-          height="220"
-          viewBox="0 0 180 220"
+        {/* 丸いアバター円（キャラの呼び名を中央に表示） */}
+        <Box
+          ref={avatarRef}
           role="img"
           aria-label={`${displayName}のプレースホルダー`}
-          data-testid="placeholder-silhouette"
+          data-testid="placeholder-avatar"
+          sx={{
+            width: 140,
+            height: 140,
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #a5b4fc 0%, #818cf8 50%, #6366f1 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 0 8px 2px rgba(99, 102, 241, 0.15)',
+            // 音量に応じて transition でなめらかに変化させる（rAF で直接更新するため transition はオフ）
+            transition: 'none',
+            userSelect: 'none',
+          }}
         >
-          {/*
-           * シルエットは単色塗り（暗いグレー）で「仮の見た目」であることを示す。
-           * transform の原点が SVG の左上隅になるため、シルエット中心付近を scale 原点にする。
-           */}
-          <g
-            ref={silhouetteRef}
-            style={{ transformOrigin: '90px 110px', transition: 'transform 60ms linear' }}
+          <Typography
+            variant="h5"
+            sx={{
+              color: '#ffffff',
+              fontWeight: 'bold',
+              letterSpacing: '0.05em',
+              textShadow: '0 1px 4px rgba(0, 0, 0, 0.25)',
+              lineHeight: 1,
+            }}
+            data-testid="placeholder-short-name"
           >
-            {/* 胴体（上半身） */}
-            <rect x="55" y="155" width="70" height="65" rx="8" fill="#4a4a4a" />
-            {/* 首 */}
-            <rect x="78" y="135" width="24" height="25" rx="4" fill="#4a4a4a" />
-            {/* 頭部 */}
-            <ellipse cx="90" cy="100" rx="42" ry="46" fill="#4a4a4a" />
-            {/* 髪（シンプルな上部のシルエット） */}
-            <ellipse cx="90" cy="68" rx="44" ry="20" fill="#333333" />
-            {/* 左肩 */}
-            <ellipse cx="42" cy="170" rx="22" ry="14" fill="#4a4a4a" />
-            {/* 右肩 */}
-            <ellipse cx="138" cy="170" rx="22" ry="14" fill="#4a4a4a" />
-            {/* 口（音声に連動して開閉する） */}
-            <ellipse
-              ref={mouthRef}
-              cx="90"
-              cy="156"
-              rx="10"
-              ry="1"
-              fill="#2a2a2a"
-              data-testid="placeholder-mouth"
-            />
-          </g>
-        </svg>
+            {shortName}
+          </Typography>
+        </Box>
+
         {/* 名前ラベル */}
         {displayName && (
           <Typography
