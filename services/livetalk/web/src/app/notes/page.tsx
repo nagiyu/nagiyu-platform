@@ -7,14 +7,17 @@ import NoteList from '@/components/NoteList';
 import type { NoteListItem } from '@/lib/notes/types';
 import { fetchNotes } from '@/lib/notes/api-client';
 import { NOTE_PAGE_GUIDANCE } from '@/lib/notes/messages';
+import { useCharacter } from '@/lib/characters/CharacterContext';
 
 /**
  * ノート一覧画面（`/notes`）。
  *
  * 勉強バッチが生成したノートを「プレゼント」として一覧表示する。
  * 一覧 + 詳細閲覧のみ（編集機能なし、記憶 UI と同じ割り切り）。
+ * 選択中のキャラクターに応じたノートを表示する（キャラ切替時に再取得）。
  */
 export default function NotesPage() {
+  const { characterId } = useCharacter();
   const [notes, setNotes] = useState<NoteListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +26,7 @@ export default function NotesPage() {
     setLoading(true);
     setError(null);
     try {
-      const items = await fetchNotes();
+      const items = await fetchNotes(characterId);
       setNotes(items);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'ノートの取得に失敗しました');
@@ -31,11 +34,11 @@ export default function NotesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [characterId]);
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, characterId]);
 
   return (
     <Container maxWidth="sm" sx={{ py: 2 }}>

@@ -451,6 +451,7 @@ export default function HomePage() {
           <ResponseDisplay
             text={onboardingText ?? firstWordText ?? responseText}
             userText={userText}
+            characterId={characterId}
           />
           {errorMessage && (
             <Box
