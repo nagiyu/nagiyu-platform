@@ -41,6 +41,7 @@ import {
   getMessageRepository,
 } from '@/lib/server/repositories';
 import { STATUS_ERROR_MESSAGES } from './constants';
+import { hasCharacter } from '@/lib/characters/registry';
 
 /**
  * reason が 'not_due' のときに「インターバル条件が解除される最早時刻」を算出する。
@@ -71,9 +72,11 @@ function computeNextEarliestAt(
   return referenceTime + baseIntervalMs * Math.pow(NOTIFY_BACKOFF_BASE, missedCount);
 }
 
-export const GET = withAuth(getSession, 'livetalk:admin', async (session) => {
+export const GET = withAuth(getSession, 'livetalk:admin', async (session, request: Request) => {
   const userId = session.user.googleId;
-  const characterId = DEFAULT_CHARACTER_ID;
+  const url = new URL(request.url);
+  const queriedId = url.searchParams.get('characterId');
+  const characterId = queriedId && hasCharacter(queriedId) ? queriedId : DEFAULT_CHARACTER_ID;
   const now = new Date();
 
   try {
