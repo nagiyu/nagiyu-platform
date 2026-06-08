@@ -1,6 +1,6 @@
 {
   "name": "@nagiyu/stock-tracker-web",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -18,9 +18,9 @@
     "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.1024.0",
-    "@aws-sdk/client-lambda": "^3.1024.0",
-    "@aws-sdk/lib-dynamodb": "^3.1024.0",
+    "@aws-sdk/client-dynamodb": "^3.1063.0",
+    "@aws-sdk/client-lambda": "^3.1063.0",
+    "@aws-sdk/lib-dynamodb": "^3.1063.0",
     "@nagiyu/aws": "*",
     "@nagiyu/browser": "*",
     "@nagiyu/common": "*",
@@ -28,7 +28,7 @@
     "@nagiyu/react": "*",
     "@nagiyu/stock-tracker-core": "*",
     "@nagiyu/ui": "*",
-    "echarts": "^6.0.0",
+    "echarts": "^6.1.0",
     "echarts-for-react": "^3.0.5",
     "next-auth": "^5.0.0-beta.31",
     "react-markdown": "^10.1.0",

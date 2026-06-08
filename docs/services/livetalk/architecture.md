@@ -1,0 +1,383 @@
+# リブトーク（LiveTalk）アーキテクチャ設計書（設計決定記録）
+
+> 内部設計フェーズの永続化ドキュメント。「なぜその設計を選んだか」を記録する。
+> 型定義・API スキーマ・コンポーネント設計などコードを読めばわかる実装詳細は記載しない（`services/livetalk/` のソースを参照）。
+
+## 1. システム概要
+
+Live2D アバター（桃瀬ひより）と AI（OpenAI LLM + VOICEVOX TTS）を組み合わせたコンパニオン PWA。「キャラが同じ時間軸で生活している」体験を中核に、会話・記憶・生活サイクル・能動通知を提供する。
+
+- フロント / バックエンド: Next.js（Lambda Web Adapter）を ECS Fargate で稼働
+- 音声合成: VOICEVOX を同一 ECS Task のサイドカーコンテナとして同居
+- データ: DynamoDB Single Table（1 メッセージ 1 item）
+- バッチ: EventBridge Scheduler + Lambda（圧縮要約 / 勉強 / 通知 / 活動時間学習）
+- 配信: CloudFront → サービス専用 ALB → ECS Service
+- リージョン: **us-east-1 固定**（CloudFront 連携の制約による）
+
+全体構成・SK パターン・モジュール構成の詳細は `services/livetalk/` / `infra/livetalk/` のコードを参照。
+
+---
+
+## 2. 重要なアーキテクチャ決定
+
+### 2.1 Live2D はクライアント側でリアルタイム描画する（ADR-001）
+
+**背景・問題**
+
+サーバー側で Live2D を描画して動画として返す案を初期に検討したが、コスト・レイテンシ・帯域の観点で実用性が低い。同領域の既存サービス（Open-LLM-VTuber、Neuro-sama 等）はすべてクライアント描画を採用している。
+
+**決定**
+
+`pixi-live2d-display-lipsyncpatch`（MIT）を使い、ブラウザの WebGL でリアルタイム描画する。サーバーは「テキスト + 音声 + モーション指示」だけを返す。
+
+**根拠・トレードオフ**
+
+- ✅ 1 応答あたりの追加レイテンシがほぼゼロ / サーバー GPU 不要 / 帯域はモーション JSON 数 KB のみ
+- ✅ 既存 OSS（Open-LLM-VTuber）を参考にできる
+- ⚠️ iOS Safari の WebGL は注意点があるが、Live2D は 2D メッシュなので 3D ほど重くない
+
+### 2.2 DynamoDB Single Table 設計、会話は 1 メッセージ 1 item（ADR-002）
+
+**背景・問題**
+
+「ユーザーごとに 1 レコードで会話を配列保持」が最初の検討案だったが、DynamoDB のアンチパターンであり、400KB 上限・書き込みコスト・並行競合・TTL 非対応の観点で破綻する。
+
+**決定**
+
+PK = `USER#<googleId>`、SK = `CHAR#<charId>#MSG#<ulid>` 等で、メッセージは個別 item として保存する。Single Table 設計の標準パターンに従う。
+
+**根拠・トレードオフ**
+
+- ✅ メッセージ数に上限がなくなる / TTL で古いメッセージを自動削除可能（Message は 90 日）
+- ✅ 「直近 N 件取得」が効率的（Query + Limit）/ 圧縮要約は別 item（`MEMORY#SUMMARY`）として独立管理
+- ⚠️ 全件読み出しは複数 item の Get が必要だが、本サービスでは不要
+
+### 2.3 VOICEVOX はセルフホスト、文単位で逐次パイプライン化（ADR-003）
+
+**背景・問題**
+
+VOICEVOX はストリーミング合成に対応していない。長文を一括生成すると最初の音声まで数秒〜十数秒待たされる。
+
+**決定**
+
+LLM の応答ストリームを文区切り（。！？）で分割し、文単位で VOICEVOX に投げる。生成された音声を逐次クライアントへ送信して順次再生する。
+
+**根拠・トレードオフ**
+
+- ✅ 最初の音声まで短時間 / CPU で十分（GPU 不要）/ ECS Fargate 1 タスクで安価に運用可能
+- ⚠️ 文単位なのでアクセント・抑揚が文同士で繋がらない（許容）
+- ⚠️ VOICEVOX の synthesis が CPU 律速で直列化しやすく、長い応答では合成待ちがレイテンシ要因になる（運用課題として継続観測）
+
+### 2.4 ECS Fargate 1 Task に Next.js + VOICEVOX の 2 コンテナ同居（ADR-004）
+
+**背景・問題**
+
+VOICEVOX を独立サービスとして立てるか、Next.js と一緒に動かすか。
+
+**決定**
+
+MVP〜Phase 5 完了までは「1 ECS Task に 2 コンテナ」構成。Next.js から `localhost:50021` で VOICEVOX を叩く。VOICEVOX クライアントは環境変数 `VOICEVOX_URL` で接続先を差し替え可能とし、将来の共通サービス化に備える。
+
+**根拠・トレードオフ**
+
+- ✅ 単一デプロイ単位で扱える / ローカル・dev・prod の動作差を最小化 / コスト効率がよい
+- ⚠️ スケール時に Next.js と VOICEVOX が一緒にスケール（許容、将来分離可）
+
+### 2.5 親密度は上昇のみ、降下しない（ADR-005）
+
+**背景・問題**
+
+Replika が無起動期間で親密度を下げて炎上した教訓を踏まえる。一方で、関係性の表現として上昇は必要。
+
+**決定**
+
+親密度は上昇のみ。長期無起動でも下げない。代わりに「久しぶり！」演出と通知文面の温度感調整で時間経過を表現する。
+
+**根拠・トレードオフ**
+
+- ✅ ダークパターン回避、ユーザーが気持ちよく戻ってこれる / Replika との差別化として明確
+- ⚠️ 親密度の意味が「累積接触量」になる（恣意的だが許容）
+
+### 2.6 睡眠状態は応答ゲートではなくスタイル変調（ADR-006）
+
+**背景・問題**
+
+キャラに「就寝中は応答しない」設計だと、夜型ユーザーが使えなくなる。デスクトップメイト的な「常に応答可能」が本サービスの魅力に合う。
+
+**決定**
+
+寝てる時間帯でも応答する。ただし応答スタイルが寝ぼけ口調 + 半目になる。「起きてる / 寝てる」の 2 状態でフレーバーだけを変える。
+
+**根拠・トレードオフ**
+
+- ✅ 夜型ユーザーをカバー / 「寝起きの会話」自体が親密度の演出になる
+- ⚠️ LLM のスタイル維持が技術的に難しい（few-shot で誘導）
+
+### 2.7 メモリは階層化 + 信頼度スコア、編集機能は撤去（ADR-007）
+
+**背景・問題**
+
+Ani / Replika で問題化した「誤情報の永続化」「些細な情報を毎回参照」を構造的に解決したい。当初は記憶編集 UI を MVP から提供する方針だった。
+
+**決定（当初）**
+
+メモリを Tier A/B/C/D に階層化し、信頼度スコアと cooldown を持たせる。LLM への注入は関連度フィルタを通したものに限定する。
+
+**決定の修正（編集機能撤去、Issue #3308）**
+
+Phase 3e（#3283）で記憶編集 UI（閲覧 / 編集 / 削除 / ピン留め）を実装し dev で検証したところ、**「記憶を編集・削除してもLLMが古い情報を言い続ける」三層整合性問題**が判明した。
+
+LLM プロンプトは 3 系統で構成される：
+
+| 層 | データ | TTL |
+|---|---|---|
+| ① MemoryEntity | DynamoDB の個別記憶アイテム | Tier 別 |
+| ② MemorySummary | 日次バッチが生成する会話圧縮要約 | なし |
+| ③ Messages | 直近の会話履歴 | 90 日 |
+
+編集 UI は ① しか更新しないため、② ③ に古い情報が残存し、LLM 応答に旧情報が出続けた。
+
+これを受けて **編集機能を撤去**した：
+
+- 撤去: `PATCH /api/memory/:id`、編集 UI / ボタン
+- 維持: 一覧閲覧、削除（`DELETE /api/memory/:id`）、ピン留め
+- 追加: 削除確認ダイアログに「即時反映されない」注釈、記憶ページに「訂正は会話で」ガイダンス
+
+**根拠・トレードオフ**
+
+- ✅ 編集を廃止すれば三層整合性問題は構造的に発生しない（情報が前向きにのみ流れる）
+- ✅ 「友達 / コンパニオン」関係において「キャラを書き換える機械」は世界観と相性が悪い → 会話による訂正（Phase 3d #3282）が正規ルート
+- ⚠️ 将来編集機能を復活させる場合は、② ③ の更新（または注釈での許容）を設計に含めること
+
+### 2.8 認可は既存プラットフォーム RBAC に乗る（ADR-008）
+
+**背景・問題**
+
+新規 permission を作るか、独自の認可機構を作るか。
+
+**決定**
+
+既存 `libs/common/src/auth/` の RBAC に新 permission `livetalk:chat` を追加する。`livetalk-user` role を作り、必要なアカウントに付与する。運用者向けには `livetalk:admin` 権限（ステータスページ等のデバッグ機能用）を併設する。
+
+**根拠・トレードオフ**
+
+- ✅ 既存基盤の恩恵を最大限受ける / 他サービスとの統合運用が容易 / role 付与で「自分のみ」も「公開」も制御可能
+- ⚠️ プラットフォームの認可方針に縛られる（許容）
+
+### 2.9 セーフティは自前実装する（LLM 任せにしない）（ADR-009）
+
+**背景・問題**
+
+OpenAI / Anthropic の安全機構は不十分。Character.AI / OpenAI の訴訟事例（Adam Raine 事件等）で開発者責任が確立されている。
+
+**決定**
+
+入力時にキーワード辞書で危険発言を検出 → LLM をバイパスして強制テンプレ応答に切替。応答後も OpenAI Moderation API で二段チェック。日本のリソース（いのちの電話、よりそいホットライン、TELL Lifeline）を案内する。検出ログを別領域に保管する。
+
+**根拠・トレードオフ**
+
+- ✅ 法的責任の最小化 / Character.AI のような事故を構造的に回避
+- ⚠️ false positive で会話が中断されることがある（許容、安全側に倒す）/ キーワード辞書のメンテが必要
+
+### 2.10 モデルは桃瀬ひより + 音声は冥鳴ひまりで MVP、後で差し替え可能（ADR-010）
+
+**背景・問題**
+
+オリジナルキャラ・声を作るには時間とコスト。すぐ動くものを作りたい。
+
+**決定**
+
+- Live2D: 桃瀬ひより（Live2D 公式サンプル）
+- 音声: VOICEVOX 冥鳴ひまり（speaker=14、ライセンス緩い）
+- `CharacterDefinition` で抽象化し、将来差し替え可能とする（抽象化の構造・client/server 境界は 2.15 を参照）
+
+**根拠・トレードオフ**
+
+- ✅ MVP がすぐ動く / 法的リスク最小（公式サンプル + 緩いライセンス TTS）
+- ⚠️ キャラ性と声が完全一致しない（許容、本格公開時に差し替え）
+- ⚠️ 年商 1,000 万円超 or 中・大規模事業者になる前に Live2D 別途契約が必要
+
+### 2.11 通知は指数バックオフ + 時間帯制限 + クリティカル escalation（ADR-011）
+
+**背景・問題**
+
+Push 通知の頻度バランスが難しい。少なすぎると忘れられ、多すぎると鬱陶しい。
+
+**決定**
+
+- 平常通知: 過去 N 回のやり取りの中央値間隔から算出、超過後は倍々で間隔拡大
+- 時間帯: 朝・夕方（ユーザー活動時間から学習）
+- クリティカル escalation: 新作・期間限定情報は時間帯外でも配信
+- 上限: 1 日 2 件まで（平常 1 件 + クリティカル 1 件）
+
+**根拠・トレードオフ**
+
+- ✅ ユーザーの生活リズムに自然に適応 / 「追わない」スタンスが他コンパニオンとの差別化に
+- ⚠️ N 件のサンプルが溜まるまでは固定間隔（許容）
+
+### 2.12 「知らない → 勉強しておく」は強制ゲート化（ADR-012）
+
+**背景・問題**
+
+LLM は学習済み知識でホイホイ即答する。プロンプトで「知らないと答えろ」と書いても守らない。
+
+**決定**
+
+知識ベース検索を行い、ヒット無しのトピックは**コード側で強制的に**「勉強しておくね」テンプレに切り替える。LLM の良心に頼らず gating する。該当トピックは STUDY_TOPIC キューに積み、次回の勉強バッチで優先処理する。
+
+**根拠・トレードオフ**
+
+- ✅ 「同じ時間軸で生きてる」感の演出が確定する / プロンプトインジェクション耐性も高い
+- ⚠️ 一般常識まで「勉強する」と返してしまうリスクがあるので、分類精度に注意
+
+### 2.13 可観測性は構造化ログ + EMF メトリクス（ADR / Issue #3315）
+
+**背景・問題**
+
+AI に渡すコンテキストは会話の蓄積で増えていく。コンテキストサイズと応答速度を計測できる形にしておく必要がある。アプリ内に計測画面（L3）は作らず、CloudWatch で観測する。
+
+**決定**
+
+構造化ログ（L1）と CloudWatch EMF メトリクス（L2）を組み合わせる。
+
+- Best-effort 計測: 計測コードは try/catch で囲み、例外がチャット応答を止めない
+- PII 保護: トークン数・レイテンシ・件数のみ記録（会話本文を含めない）
+- EMF: `console.log` でトップレベル `_aws` キーを持つ JSON を直接出力
+- Namespace: `LiveTalk/Chat`（PromptTotalTokens / LLMTimeToFirstToken / ChatTotalLatency 等）、`LiveTalk/Batch`（MemorySummaryTokens / CompressedMessageCount / BatchLatency）
+- ディメンション: `Environment` / `CharacterId`
+- DynamoDB 消費 RCU も `ReturnConsumedCapacity: 'TOTAL'` で計測
+
+実装は `services/livetalk/core/src/observability/` を参照。
+
+### 2.14 LLM レスポンスの Structured Outputs 化（ADR / Issue #3316）
+
+**背景・問題**
+
+要約・分類・昇格判定で「JSON のみ返せ」とプロンプト指示し `JSON.parse` する実装は、silent failure（パース失敗時に記憶抽出が静かに失われる）・フォーマット揺れ・型保証の欠如という問題があった。
+
+**決定**
+
+OpenAI Responses API の **Structured Outputs**（`responses.parse` + `zodTextFormat`）を採用する。
+
+- `ILLMClient` に `chatStructured<T>` を追加（Provider 抽象化を維持）
+- Zod スキーマを `src/llm-client/schemas/` に集約（summarize / correction / confirmation）
+- strict モード対応: optional は `nullable()` で表現
+- refusal を専用エラーとして throw
+- **chat ストリーミング（`chatStream`）は対象外**（会話応答はストリーミングで返すため JSON スキーマが適用できない）。Structured Outputs の対象は分類・要約・昇格判定のみ
+
+**根拠・トレードオフ**
+
+- ✅ silent failure の解消 / デコーダレベルの型保証 / フォーマット揺れの排除
+- ⚠️ 会話応答のストリーミングとは両立しない（構造化応答化は将来検討 → roadmap / Discussion Issue）
+
+### 2.15 キャラクター部品はロジックと描画・表示を分離し id で結合する（ADR / Issue #3413）
+
+**背景・問題**
+
+ADR-010 でキャラクターのロジック（性格・声・ライセンス等）は抽象化したが、名称や Live2D モデルの参照が UI に焼き付いており、複数キャラ対応の障害になっていた。また、描画・表示を担う UI 側は、サーバ専用依存（AWS SDK 等）を含むロジック層をそのまま取り込めない（クライアント向けビルドが壊れる）という制約がある。
+
+**決定**
+
+キャラクター部品を「ロジック（誰か）」と「描画・表示（どう見せるか）」に責務分離し、キャラクター ID をキーに結合する。
+
+- ロジックは ADR-010 の `CharacterDefinition`（フレームワーク非依存）に集約する。
+- 描画・表示用の情報（表示名・短縮名・Live2D モデルや描画パラメータ）は、ロジック層に依存しない形で UI 側に持つ。
+- 両者はキャラクター ID をキーにした静的なレジストリで結合し、UI・API はキャラクター ID から解決する（既定キャラクターへのフォールバックを持つ）。
+- ロジック層と UI 側に重複して持つ情報（表示名・既定キャラクター ID）は、テストで一致を担保する。短縮名は UI 専用とする。
+
+**根拠・トレードオフ**
+
+- ✅ 名称・モデル参照の焼き付きを除去 / 複数キャラ追加時の変更箇所を局所化 / 描画・表示側がサーバ専用依存を巻き込まない構造を保証
+- ⚠️ 一部情報（表示名・既定キャラクター ID）を二重に持つ（テストで同期を担保）
+- ⚠️ Live2D 以外のレンダラ抽象化・キャラクターのデータベース管理・ユーザー作成キャラ（UGC）は対象外（将来 → roadmap）
+
+実装は `services/livetalk/web/src/lib/characters/` を参照。
+
+---
+
+## 3. データモデル概要
+
+DynamoDB Single Table（`nagiyu-livetalk-dynamodb-{env}`）。
+
+- PK = `USER#<googleId>`
+- SK 階層パターン（例）:
+    - `PROFILE`
+    - `CHAR#<charId>#STATE` / `#LIFECYCLE` / `#AFFECTION` / `#MEMORY#SUMMARY`
+    - `CHAR#<charId>#MSG#<ulid>`（Message、TTL 90 日）
+    - `CHAR#<charId>#MEM#<tier>#<category>#<id>`（Memory、Tier C/D は TTL あり）
+    - `CHAR#<charId>#KNOWLEDGE#<ulid>` / `#NOTE#<ulid>` / `#STUDY#<ulid>` / `#INTEREST#...`
+    - `NOTIF#<ulid>`（NotificationEvent）/ `PUSH_SUBSCRIPTION#<id>`
+
+詳細な SK 定義・属性は実装（`services/livetalk/core/src/mappers/keys.ts`、`entities/`）を参照。概念モデルは [external-design.md](./external-design.md) を参照。
+
+---
+
+## 4. インフラ構成
+
+### 4.1 ECS Cluster / ALB 戦略
+
+**ECS Cluster はプラットフォーム共通、ALB はサービスごとに個別** とする。
+
+- 既存 `nagiyu-root-cluster-{env}` は Portal（root ドメイン）専用のため流用しない
+- ECS Cluster は共有（`nagiyu-shared-cluster-{env}`）— Cluster 自体は無料、共有の副作用なし
+- ALB は個別（`nagiyu-livetalk-alb-{env}`）— アイドルタイムアウト・TLS をサービス単位でチューニングできる方が望ましい。特に LiveTalk の LLM ストリーミングは長めのアイドルタイムアウトが必要。既存 Portal も個別 ALB のためパターン一貫
+- Target Group / Listener Rule / Task Definition / Service も個別
+
+配置: `infra/shared/lib/ecs-cluster-stack.ts`（共通 Cluster）、`infra/livetalk/`（ALB / Service / CloudFront / DynamoDB / Batch 等）。
+
+### 4.2 利用する AWS サービス
+
+| AWS サービス | 用途 |
+|---|---|
+| ECS Fargate | Next.js + VOICEVOX の 2 コンテナ Task |
+| Application Load Balancer | サービス専用 ALB（LLM ストリーミング用に長めの timeout） |
+| CloudFront | エッジ配信、ALB をオリジンとする（OriginReadTimeout 延長） |
+| DynamoDB | Single Table、PITR、Message は TTL 90 日 |
+| Lambda + EventBridge Scheduler | バッチ（圧縮要約 / 勉強 / 通知 / 活動時間学習）、各 Lambda 独立 + DLQ |
+| ECR | Next.js / VOICEVOX / batch のイメージ |
+| Secrets Manager | OpenAI API キー等 |
+| S3 | モデル / 音声 / 静的ファイル |
+| Web Push（既存基盤） | プッシュ通知配信 |
+
+リージョンは us-east-1 固定（`infra/bin/nagiyu-platform.ts`）。AZ は us-east-1a + us-east-1b。
+
+### 4.3 バッチ構成
+
+各バッチは独立 Lambda（障害切り分け・権限最小化のため DLQ / IAM Role も個別）：
+
+| バッチ | スケジュール | 役割 |
+|---|---|---|
+| compress-conversations | 日次 JST 03:00 | 会話圧縮要約の生成・更新 |
+| learn-user-activity | 週次 JST 日曜 03:00 | ユーザー活動時間ヒストグラムの学習 |
+| study | 毎時 | 勉強実施判定 → Web リサーチ → 知識化 |
+| notify | 毎時 30 分 | 通知判定 → 配信 |
+
+時刻判定のため Web Task / 関連 Lambda には `TZ=Asia/Tokyo` を設定。
+
+---
+
+## 5. 技術スタック
+
+| カテゴリ | 技術 | 選定理由 |
+|---|---|---|
+| Live2D 描画 | pixi-live2d-display-lipsyncpatch（MIT） | クライアント描画、リップシンク対応、OSS 実績 |
+| TTS | VOICEVOX（セルフホスト） | 無料、日本語品質、ライセンス緩い、CPU で動く |
+| LLM | OpenAI GPT-4o / GPT-4o-mini | 会話は 4o、要約・分類は mini で用途別振り分け |
+| Web 検索 | OpenAI Web Search（`responses` + `web_search` tool） | Stock Tracker に実績、検索→要約→構造化が 1 API、抽象化で将来差し替え可 |
+| 構造化出力 | Structured Outputs（zodTextFormat） | 型保証、silent failure 解消 |
+| embedding | OpenAI text-embedding-3-small | 記憶 retrieval の類似検索 |
+| フロント / API | Next.js + Lambda Web Adapter | プラットフォーム標準、ECS Fargate で稼働 |
+| データ | DynamoDB Single Table | プラットフォーム標準、TTL / PITR |
+
+プラットフォーム共通の技術選定（認証 NextAuth、CDK、Material-UI 等）は各共通ドキュメントを参照。
+
+---
+
+## 6. 関連ドキュメント
+
+- [requirements.md](./requirements.md): 要件定義
+- [external-design.md](./external-design.md): 画面設計・概念データモデル
+- [roadmap.md](./roadmap.md): Phase 6+ 将来拡張ロードマップ
+- [README.md](./README.md): サービス概要・ドキュメント一覧
+- プラットフォーム認証: [../../development/authentication.md](../../development/authentication.md)
+- 共通ライブラリ: [../../development/shared-libraries.md](../../development/shared-libraries.md)

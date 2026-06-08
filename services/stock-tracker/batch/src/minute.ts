@@ -210,6 +210,15 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
   const timeBudgetMs = parseInt(process.env.MINUTE_BATCH_TIME_BUDGET_MS ?? '30000', 10);
   const isBudgetExceeded = (): boolean => Date.now() - startTime > timeBudgetMs;
 
+  // container kill 閾値: invocation 内エラー数がこの値以上になると process.exit(1) で container を廃棄する
+  // 観測（PR #3290 デプロイ後）: broken container でも 1 invocation あたり errors は最大 1 のため、閾値 1 で kill する。
+  // 誤検知コストは Lambda cold start のみで運用影響ゼロ。broken container 居座りによる通知欠落の方が深刻。
+  const containerKillThreshold = parseInt(
+    process.env.MINUTE_BATCH_CONTAINER_KILL_THRESHOLD ?? '1',
+    10
+  );
+  let shouldKillContainer = false;
+
   // invocation スコープで 1 つの TradingView WebSocket 接続を共有する
   const session = new TradingViewSession();
 
@@ -251,10 +260,22 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       });
     }
 
+    // broken container 検出: invocation 内エラー数が閾値以上なら container を廃棄する
+    // finally ブロックで session.close() 後に process.exit(1) を呼ぶ
+    if (stats.errors >= containerKillThreshold) {
+      shouldKillContainer = true;
+      logger.warn('連続タイムアウト発生のため container を破棄します', {
+        errors: stats.errors,
+        threshold: containerKillThreshold,
+        sessionId: session.getSessionId(),
+      });
+    }
+
     // 最終統計をログ出力
     logger.info('1分間隔バッチ処理が正常に完了しました', {
       eventId: event.id,
       statistics: stats,
+      sessionId: session.getSessionId(),
     });
 
     return {
@@ -289,5 +310,8 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     };
   } finally {
     await session.close();
+    if (shouldKillContainer) {
+      process.exit(1);
+    }
   }
 }

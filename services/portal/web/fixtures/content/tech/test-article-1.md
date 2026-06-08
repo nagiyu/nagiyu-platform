@@ -6,6 +6,7 @@ publishedAt: '2026-04-10'
 updatedAt: '2026-04-15'
 author: 'なぎゆー'
 tags: ['AWS', 'Test']
+categories: ['aws']
 ---
 
 # Test Article 1

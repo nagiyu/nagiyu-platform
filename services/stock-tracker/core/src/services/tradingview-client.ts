@@ -11,9 +11,17 @@
  * - リソース管理: chart.delete() と client.end() を必ず実行
  */
 
+import { randomUUID } from 'crypto';
 import * as TradingView from '@mathieuc/tradingview';
 import type { TimeFrame } from '@mathieuc/tradingview';
+import { logger } from '@nagiyu/common';
 import type { ChartDataPoint } from '../types.js';
+
+// Node.js 内部 API の型定義（診断用）
+type NodeProcessInternal = NodeJS.Process & {
+  _getActiveHandles?: () => unknown[];
+  _getActiveRequests?: () => unknown[];
+};
 
 /**
  * TradingView API エラーメッセージ定数
@@ -162,9 +170,18 @@ export async function getCurrentPrice(
  */
 export class TradingViewSession {
   private readonly client: TradingView.Client;
+  private readonly sessionId: string;
+  private chartSeq: number;
 
   constructor() {
     this.client = new TradingView.Client();
+    this.sessionId = randomUUID();
+    this.chartSeq = 0;
+  }
+
+  /** invocation 間でセッションを識別するための ID */
+  public getSessionId(): string {
+    return this.sessionId;
   }
 
   /**
@@ -185,6 +202,11 @@ export class TradingViewSession {
       throw new Error(TRADINGVIEW_ERROR_MESSAGES.INVALID_TICKER);
     }
 
+    const callAt = Date.now();
+    const seq = ++this.chartSeq;
+    let firstUpdateAt: number | undefined;
+    let firstErrorAt: number | undefined;
+
     const chart = new this.client.Session.Chart();
 
     try {
@@ -194,6 +216,22 @@ export class TradingViewSession {
         const timeoutId = setTimeout(() => {
           if (!resolved) {
             resolved = true;
+            const mem = process.memoryUsage();
+            const proc = process as NodeProcessInternal;
+            logger.warn('TradingView API タイムアウト (共有セッション)', {
+              sessionId: this.sessionId,
+              seq,
+              tickerId,
+              timeoutMs: timeout,
+              elapsedMs: Date.now() - callAt,
+              firstUpdateAt,
+              firstErrorAt,
+              activeHandles: proc._getActiveHandles?.()?.length ?? null,
+              activeRequests: proc._getActiveRequests?.()?.length ?? null,
+              heapUsedMB: Math.round(mem.heapUsed / 1024 / 1024),
+              heapTotalMB: Math.round(mem.heapTotal / 1024 / 1024),
+              rssMB: Math.round(mem.rss / 1024 / 1024),
+            });
             reject(new Error(TRADINGVIEW_ERROR_MESSAGES.TIMEOUT));
           }
         }, timeout);
@@ -201,21 +239,43 @@ export class TradingViewSession {
         chart.setMarket(tickerId, { timeframe: '1', session });
 
         chart.onUpdate(() => {
+          if (firstUpdateAt === undefined) {
+            firstUpdateAt = Date.now();
+          }
           if (!resolved && chart.periods && chart.periods.length > 0) {
             const currentPrice = chart.periods[0]?.close;
             if (currentPrice !== undefined && currentPrice !== null) {
               resolved = true;
               clearTimeout(timeoutId);
+              logger.debug('TradingView 現在価格取得完了', {
+                sessionId: this.sessionId,
+                seq,
+                tickerId,
+                firstUpdateElapsedMs: firstUpdateAt - callAt,
+                totalElapsedMs: Date.now() - callAt,
+              });
               resolve(currentPrice);
             }
           }
         });
 
         chart.onError((error: Error) => {
+          if (firstErrorAt === undefined) {
+            firstErrorAt = Date.now();
+          }
           if (!resolved) {
             resolved = true;
             clearTimeout(timeoutId);
             const errorMessage = error.message || '';
+            logger.warn('TradingView API エラー (共有セッション)', {
+              sessionId: this.sessionId,
+              seq,
+              tickerId,
+              elapsedMs: Date.now() - callAt,
+              firstUpdateAt,
+              firstErrorAt,
+              errorMessage,
+            });
             if (errorMessage.includes('rate') || errorMessage.includes('limit')) {
               reject(new Error(TRADINGVIEW_ERROR_MESSAGES.RATE_LIMIT));
             } else {

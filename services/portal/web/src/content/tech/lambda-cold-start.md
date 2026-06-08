@@ -3,9 +3,10 @@ title: 'Lambda コールドスタート対策：Provisioned Concurrency と Snap
 description: 'AWS Lambda のコールドスタートを抑える 2 大手法、Provisioned Concurrency と SnapStart の仕組み・コスト・対応ランタイムを比較。実運用で「どちらをどう使うか」を判断するための整理。'
 slug: 'lambda-cold-start'
 publishedAt: '2026-04-03'
-updatedAt: '2026-05-01'
+updatedAt: '2026-05-31'
 author: 'なぎゆー'
 tags: ['AWS', 'Lambda', 'パフォーマンス']
+categories: ['aws']
 ---
 
 ## はじめに
@@ -148,13 +149,29 @@ fields @timestamp, @initDuration, @duration
 
 `@initDuration` がコールドスタート時のみ記録されます。p95 が 500ms を超えるなら対策の検討対象、1s を超えるなら緊急、という目安です。
 
-## ハマりどころ
+## 実装ノート
+
+nagiyu-platform の Portal は、この記事でいう「Node.js × コールドスタート」に正面から向き合う必要があったサービスです。`infra/root/portal-lambda-stack.ts` を見ると、dev 環境の Portal は Lambda（`memorySize: 1024`、`timeout: 30` 秒、Function URL 有効）として動いています。
+
+ここで私が下した判断は、本文の早見表どおりです。Portal は Node.js で書かれているため SnapStart は使えず、選択肢は「Provisioned Concurrency を入れる」か「そもそも ECS Fargate に逃がす」かの二択になります。自分は **dev は素の Lambda のまま、prod は ECS Fargate に切り替える**という形で割り切りました。dev は自分のテストアクセスが中心でコールドスタートが多少出ても困らない一方、prod はユーザーが触る常時稼働なので、コールドスタートという問題自体を Fargate で消してしまうほうが素直だと考えたためです。
+
+`memorySize` を 1024 にしているのも理由があって、Lambda はメモリ割当に比例して CPU も増えるため、init 処理（`[3]`）を速くするには控えめなメモリより少し盛ったほうが結果的にコールドスタートが縮みます。dev では 1024 で十分という感触です。
+
+## ハマったポイント
 
 - **Provisioned Concurrency が「スピルオーバー」する**: 設定数を超えるリクエストは通常の起動になり、コールドスタートが発生する。Auto Scaling で上限を超えないよう調整。
 - **SnapStart のスナップショット時間**: 初回スナップショット取得時は 5〜10 秒かかる。デプロイのリードタイムが伸びる。
 - **DB 接続プール**: Lambda 実行環境ごとに別プロセスのため、接続プールは小さく（1〜3）。RDS Proxy を間に挟むのが定番。
 - **VPC Lambda の ENI 確保**: VPC 内 Lambda は ENI を共有プールから確保するので、初回起動が遅い。VPC 外で動かせるなら外す。
 - **Provisioned Concurrency の課金見落とし**: リクエストがゼロでも待機料金が発生し続ける。トラフィックが激減した API に設定しっぱなしにしない。
+
+この「課金見落とし」が怖くて、私は dev の Portal Lambda には Provisioned Concurrency を入れていません。dev で待機料金を払い続けるのは本末転倒なので、コールドスタートは許容する、という割り切りです。コスト最適化のための Lambda なのに Provisioned で固定費を生んでしまっては意味がない、という感覚は実運用してみて強くなりました。
+
+## 現在の運用
+
+まとめると、nagiyu-platform の Portal では **コールドスタート対策として個別の手法（Provisioned Concurrency / SnapStart）を採用していません**。代わりに「環境で基盤を分ける」ことで対処しています ── dev は素の Node.js Lambda（Function URL）、prod は ECS Fargate。これは本文の「Node.js を使っている → Provisioned 一択。あるいはそもそも ECS Fargate に切り替えるか」という選択肢のうち、自分は後者を本番採用した実例です。
+
+もし将来 prod を Lambda に戻したくなったら、その時点で Provisioned Concurrency を Auto Scaling と組み合わせて入れる、というのが今描いている次の打ち手です。
 
 ## まとめ
 

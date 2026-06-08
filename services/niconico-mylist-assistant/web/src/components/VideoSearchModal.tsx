@@ -15,6 +15,7 @@ import {
   Typography,
 } from '@mui/material';
 import { Button, ErrorAlert, TextField } from '@nagiyu/ui';
+import { useEnterSubmit } from '@nagiyu/react';
 import { ERROR_MESSAGES, VALIDATION_LIMITS } from '@/lib/constants/errors';
 
 interface VideoSearchModalProps {
@@ -72,6 +73,19 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
     }
   };
 
+  // 検索ボタン・エンターキー共通の disabled 判定
+  const isSearchDisabled =
+    loading ||
+    !keyword.trim() ||
+    keyword.trim().length > VALIDATION_LIMITS.SEARCH_KEYWORD_MAX_LENGTH;
+
+  // 検索キーワード入力でエンターキーを押したときに検索を実行するハンドラ
+  // TextField の onKeyDown は HTMLInputElement | HTMLTextAreaElement 型を受け取るため型引数を明示する
+  const handleKeywordEnterDown = useEnterSubmit<HTMLInputElement | HTMLTextAreaElement>(
+    handleSearch,
+    { disabled: isSearchDisabled }
+  );
+
   const handleAddVideo = async (videoId: string) => {
     setError(null);
     try {
@@ -102,6 +116,7 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
             label="検索キーワード"
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
+            onKeyDown={handleKeywordEnterDown}
             disabled={loading}
             maxLength={VALIDATION_LIMITS.SEARCH_KEYWORD_MAX_LENGTH}
           />
@@ -109,9 +124,7 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
             variant="solid"
             onClick={handleSearch}
             loading={loading}
-            disabled={
-              !keyword.trim() || keyword.trim().length > VALIDATION_LIMITS.SEARCH_KEYWORD_MAX_LENGTH
-            }
+            disabled={isSearchDisabled}
           >
             検索
           </Button>

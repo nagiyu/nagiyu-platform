@@ -17,6 +17,7 @@ const config: Config = {
     '^@nagiyu/browser$': '<rootDir>/../../../libs/browser/src/index.ts',
     '^@nagiyu/nextjs$': '<rootDir>/../../../libs/nextjs/src/index.ts',
     '^@nagiyu/nextjs/(.*)$': '<rootDir>/../../../libs/nextjs/src/$1.ts',
+    '^@nagiyu/react$': '<rootDir>/../../../libs/react/src/index.ts',
     '^@nagiyu/ui$': '<rootDir>/../../../libs/ui/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },

@@ -3,9 +3,10 @@ title: 'TypeScript strict mode で書く型安全な Repository パターン'
 description: 'TypeScript の strict モードで Repository パターンを実装する具体的な方法を解説。エンティティ型の定義・null と undefined の扱い・トランザクション・テスト容易性まで、実プロダクトで効く型設計を整理します。'
 slug: 'typescript-strict-repository'
 publishedAt: '2026-03-15'
-updatedAt: '2026-05-01'
+updatedAt: '2026-06-06'
 author: 'なぎゆー'
 tags: ['TypeScript', 'Repository', '型設計']
+categories: ['dev-stack']
 ---
 
 ## はじめに
@@ -190,12 +191,27 @@ class InMemoryUserRepository implements UserRepository {
 
 DynamoDB を立ち上げずにビジネスロジックの単体テストが書け、CI も高速になります。
 
-## ハマりどころ
+## 実装ノート
 
-- **Date と string の混在**: Repository の境界で完全に変換しないと、後段で `.toISOString` を呼べない／呼んだら例外、が起きる。
-- **`null` と `undefined` の使い分け**: 「明示的に未設定」は `null`、「フィールド自体が存在しない」は `undefined`、と決めて統一する。
+本記事では DynamoDB を例に Repository を組んだが、私が nagiyu-platform の Portal で実際に書いている「リポジトリ層」は DB ではなくファイルシステム（Markdown）を相手にしている。`services/portal/web/src/lib/content.ts` がそれで、`getArticle(slug)` / `getAllArticles()` / `getServiceDocument(slug, type)` のような関数群でコンテンツ読み出しを 1 箇所に閉じ込めている。クラス + interface ではなく関数の集合だが、「データ取得の境界を一枚噛ませてビジネスロジックから読み出し方法を隠す」という Repository の狙いは同じだ。
+
+型の分け方も本記事と地続きで、自分は frontmatter だけの `ArticleMeta` と、本文 HTML まで含む `Article`（= `ArticleMeta & { content }`）を分けている。一覧表示では重い本文を読まずに `ArticleMeta` だけを返し、詳細ページでだけ `Article` を組み立てる、という Entity と公開形の分離に近い使い分けだ。エラーメッセージは `ERROR_MESSAGES` 定数に日本語で集約しており、nagiyu-platform のコーディング規約（エラーメッセージは日本語 + 定数化）にもそのまま乗せている。
+
+## 現在の運用
+
+「見つからない時の扱い」は、本記事で挙げた『見つからない=null / 失敗=throw』の規約を、nagiyu-platform では用途で使い分けている。単体取得の `getArticle` は対象ファイルが無ければ `ARTICLE_NOT_FOUND` を throw する（詳細ページは存在しなければ落ちてよい、という判断だ）。一方でカテゴリ別ハブの一覧を組む `getAllTechCategoryMetas` は、ファイルが無い slug を黙って除外する設計にしている。一覧は「ある分だけ出す」ほうが運用が楽だからだ。
+
+私が運用していて効いているのは、コンテンツが全部 Markdown で DB を立てずに済む軽さで、`getAllArticles()` 一本で一覧・関連記事（`getRelatedArticles`）・タグ集計（`getAllTags`）の元データをまかなえている。逆にサービスが増えてスケールしてきたら、この関数群を本記事のような interface に切り出して差し替え可能にするのが次の一手だと自分では考えている。
+
+## ハマったポイント
+
+自分が strict + Repository で実際に踏んだ、あるいは今も気をつけているポイントを残しておく。
+
+- **Date と string の混在**: Repository の境界で完全に変換しないと、後段で `.toISOString` を呼べない／呼んだら例外、が起きる。私はここを境界の 1 箇所に寄せることで事故を減らした。
+- **`null` と `undefined` の使い分け**: 「明示的に未設定」は `null`、「フィールド自体が存在しない」は `undefined`、と決めて統一する。nagiyu-platform の `getTagBySlug` も「無ければ `null`」に寄せている。
+- **frontmatter の `as` キャスト**: gray-matter が返す `data` は実質 any なので、`lib/content.ts` では `data as ArticleMeta` で受けている。strict を謳いつつここだけは `as` を許しているわけで、自分は「I/O 境界だけは妥協して受け、以降は型に乗せる」という線引きにしている。
 - **トランザクション**: DynamoDB の `TransactWrite` のように複数オペレーションを束ねたいとき、Repository の interface 設計を見直す必要がある（Unit of Work パターン）。
-- **過度な抽象化**: 1 サービスでしか使わないなら、わざわざ Repository インターフェースを切らずに直書きで十分なケースもある。チーム規模・サービス数で判断する。
+- **過度な抽象化**: 1 サービスでしか使わないなら、わざわざ Repository インターフェースを切らずに直書きで十分なケースもある。Portal のコンテンツ層を関数群のままにしているのも、私としてはまさにこの判断だ。
 
 ## まとめ
 

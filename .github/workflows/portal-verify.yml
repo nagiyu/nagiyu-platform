@@ -124,6 +124,9 @@ jobs:
       - name: Run unit tests
         run: npm run test --workspace @nagiyu/portal-web
 
+      - name: 内部リンクチェック
+        run: npm run check:internal-links --workspace @nagiyu/portal-web
+
   coverage:
     name: Test Coverage Check
     runs-on: ubuntu-latest

@@ -3,9 +3,10 @@ title: 'Next.js 16 Metadata API で SEO・OGP・JSON-LD を整える'
 description: 'Next.js 16 App Router の Metadata API を使って、title・description・OGP・Twitter Card・canonical・JSON-LD を体系的に管理する方法を解説。SSG ページと動的ページそれぞれの設定パターンを実装例で紹介します。'
 slug: 'nextjs16-metadata-api'
 publishedAt: '2026-04-30'
-updatedAt: '2026-05-01'
+updatedAt: '2026-06-06'
 author: 'なぎゆー'
 tags: ['Next.js', 'SEO', 'メタデータ']
+categories: ['nextjs']
 ---
 
 ## はじめに
@@ -202,13 +203,22 @@ export default function robots(): MetadataRoute.Robots {
 
 `public/robots.txt` を直接配置するより、コードで管理して動的 URL も生成できる方がメンテナンス性が高いです。
 
-## ハマりどころ
+## 実装ノート
 
-- **`metadataBase` 未設定で OG 画像が壊れる**: 開発環境では相対パスでも動くが、本番で OGP プレビューが画像なしになる。
-- **`generateMetadata` 内で `await params` を忘れる**: `params.slug` が `Promise` のままになり TypeScript エラー。
-- **`title.template` がトップページに勝手に効く**: ルートページで明示的に `title` を指定しないと、`default` がそのまま出る。
-- **JSON-LD のエスケープ漏れ**: `</script>` を含む文字列が JSON 内にあると HTML が壊れる。`<` を `<` 化する。
-- **静的アセットのキャッシュ無効化**: `opengraph-image.tsx` の出力ファイル名がコンテンツハッシュ付きで生成されるため、デプロイ後に古い画像が残ることはほぼないが、CDN 設定で誤って固定パスにしないよう注意。
+この記事は nagiyu ポータルの実装がベースなので、私が実際に書いている設定を具体的に紹介します。ルートレイアウト（`app/layout.tsx`）では `metadataBase: new URL('https://nagiyu.com')` を起点に、`title.template` を `'%s - nagiyu'`、`title.default` を `'nagiyu - サービス一覧・技術ポータル'` として共通の OGP / Twitter Card を一括定義しています。`themeColor` は `metadata` ではなく `export const viewport` 側（`#1976d2`）に分離済みです。
+
+記事ページ側（`app/tech/[slug]/page.tsx`）では `generateMetadata` で記事ごとに `canonical` と `openGraph.type: 'article'` を組み立て、`publishedTime` / `modifiedTime` をフロントマターの `publishedAt` / `updatedAt` から ISO 文字列にして渡しています。`updatedAt` が無い記事は `publishedAt` にフォールバックする実装です。まさに今あなたが見ている「最終更新」表示も、この一人称セクションを追記して `updatedAt` を変えたことで動いています。
+
+## ハマったポイント
+
+- **OG 画像は動的生成していない**: 本記事では `opengraph-image.tsx` での動的生成を紹介しましたが、正直に書くと nagiyu-platform では採用していません。私は全ページ共通の静的画像 `/og-default.png`（1200×630）を `openGraph.images` / `twitter.images` に指定するだけにしています。記事ごとに OG 画像を焼く運用コストより、まず全ページで OGP が確実に出ることを優先した判断です。だからこそ `metadataBase` 未設定で相対パスが壊れる罠は、私にとって実害が大きく、最初に潰しました。
+- **JSON-LD のエスケープは自前ヘルパーに固定**: `BlogPosting` / `BreadcrumbList` を出すとき、`</script>` 混入で HTML が壊れるのを防ぐため、`lib/jsonLd.ts` の `jsonLdScript()` で `<` を `<` に置換してから埋め込んでいます。エスケープを忘れる事故を構造的に防ぎたくて、文字列化を 1 関数に集約しました。
+- **`generateMetadata` 内で `await params` を忘れる**: `params.slug` が `Promise` のままになり TypeScript エラー。Next.js 16 流の Promise 化に毎回少し身構えます。
+- **`title.template` がトップページに勝手に効く**: ルートで明示的に `title` を指定しないと `default` がそのまま出る。
+
+## 現在の運用
+
+`app/sitemap.ts` と `app/robots.ts` を Metadata API のルートハンドラとして実装し、`public/` に静的ファイルを置く方式はやめました。`sitemap.ts` は `getAllArticles()` などからパスを動的に組み立て、記事の `lastModified` には `updatedAt`（無ければ `publishedAt`）を反映しています。コンテンツを 1 本足すだけで sitemap も追従するこの形が、自分には一番メンテしやすいです。なお AdSense のスクリプトは `process.env.NODE_ENV === 'production'` のときだけ `layout.tsx` の `<head>` に注入しており、開発・プレビュー環境では読み込まれないようにしています。
 
 ## まとめ
 

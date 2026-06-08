@@ -1,0 +1,154 @@
+import { NextResponse } from 'next/server';
+import { withAuth } from '@nagiyu/nextjs';
+import { DEFAULT_CHARACTER_ID, runChatUseCase } from '@nagiyu/livetalk-core';
+import { getCharacterDefinition, hasCharacter } from '@/lib/characters/registry';
+import { getSession } from '@/lib/server/session';
+import { getLLMClient } from '@/lib/server/llm';
+import { getVoiceClient } from '@/lib/server/voice';
+import {
+  getCharacterStateRepository,
+  getKnowledgeRepository,
+  getLifecycleRepository,
+  getMemoryRepository,
+  getMemorySummaryRepository,
+  getMessageRepository,
+  getNoteRepository,
+  getStudyTopicRepository,
+} from '@/lib/server/repositories';
+import { getModerationClient, getSafetyEventRepository } from '@/lib/server/safety';
+import { getMemoryRetriever } from '@/lib/server/memory-retriever';
+import { getEmbeddingClient } from '@/lib/server/embedding';
+import { CHAT_ERROR_MESSAGES, CHAT_MAX_TEXT_LENGTH } from './constants';
+
+interface ChatRequest {
+  text: string;
+  /** 通知起点の会話の場合、元となった KnowledgeID（任意） */
+  knowledgeId?: string;
+  /** キャラクター ID（省略時は DEFAULT_CHARACTER_ID を使用） */
+  characterId?: string;
+}
+
+function isChatRequest(body: unknown): body is ChatRequest {
+  return (
+    typeof body === 'object' &&
+    body !== null &&
+    typeof (body as Partial<ChatRequest>).text === 'string' &&
+    ((body as Partial<ChatRequest>).knowledgeId === undefined ||
+      typeof (body as Partial<ChatRequest>).knowledgeId === 'string') &&
+    ((body as Partial<ChatRequest>).characterId === undefined ||
+      typeof (body as Partial<ChatRequest>).characterId === 'string')
+  );
+}
+
+/**
+ * POST /api/chat
+ *
+ * ユーザー発話を受け取り、LLM 応答を NDJSON ストリームで返す（Phase 2c / Issue #3249）。
+ *
+ * レスポンス形式（1 行 1 JSON）:
+ *   {"type":"text","delta":"こん"}
+ *   {"type":"text","delta":"にちは。"}
+ *   {"type":"sentence","index":0,"text":"こんにちは。","audio":"<base64 WAV>"}
+ *   {"type":"done"}
+ *
+ * - text events: LLM ストリーミング中に逐次 emit
+ * - sentence events: 文単位で VOICEVOX 合成完了後に emit（LLM 完了後、順番通り）
+ * - done: ストリーム終了
+ * - VOICEVOX エラー時は当該 sentence event をスキップ（テキストは既に表示済み）
+ * - ストリーム開始後のエラーは error event で通知
+ */
+export const POST = withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: 'INVALID_REQUEST', message: CHAT_ERROR_MESSAGES.INVALID_REQUEST },
+      { status: 400 }
+    );
+  }
+
+  if (!isChatRequest(body)) {
+    return NextResponse.json(
+      { error: 'INVALID_REQUEST', message: CHAT_ERROR_MESSAGES.INVALID_REQUEST },
+      { status: 400 }
+    );
+  }
+
+  const text = body.text.trim();
+  const notificationKnowledgeId = body.knowledgeId?.trim() || undefined;
+  const characterId = body.characterId ?? DEFAULT_CHARACTER_ID;
+
+  if (!hasCharacter(characterId)) {
+    return NextResponse.json(
+      { error: 'INVALID_REQUEST', message: CHAT_ERROR_MESSAGES.INVALID_REQUEST },
+      { status: 400 }
+    );
+  }
+
+  if (!text) {
+    return NextResponse.json(
+      { error: 'EMPTY_TEXT', message: CHAT_ERROR_MESSAGES.EMPTY_TEXT },
+      { status: 400 }
+    );
+  }
+  if (text.length > CHAT_MAX_TEXT_LENGTH) {
+    return NextResponse.json(
+      { error: 'TEXT_TOO_LONG', message: CHAT_ERROR_MESSAGES.TEXT_TOO_LONG },
+      { status: 400 }
+    );
+  }
+
+  const userId = session.user.googleId;
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      const write = (event: object) => {
+        controller.enqueue(encoder.encode(JSON.stringify(event) + '\n'));
+      };
+
+      try {
+        const eventGenerator = runChatUseCase({
+          userId,
+          characterId,
+          userText: text,
+          character: getCharacterDefinition(characterId),
+          llmClient: getLLMClient(),
+          voiceClient: getVoiceClient(),
+          messageRepository: getMessageRepository(),
+          safetyEventRepository: getSafetyEventRepository(),
+          moderationClient: getModerationClient(),
+          memoryRetriever: getMemoryRetriever(),
+          memoryRepository: getMemoryRepository(),
+          embeddingClient: getEmbeddingClient(),
+          characterStateRepository: getCharacterStateRepository(),
+          memorySummaryRepository: getMemorySummaryRepository(),
+          lifecycleRepository: getLifecycleRepository(),
+          knowledgeRepository: getKnowledgeRepository(),
+          studyTopicRepository: getStudyTopicRepository(),
+          noteRepository: getNoteRepository(),
+          notificationKnowledgeId,
+        });
+
+        for await (const event of eventGenerator) {
+          write(event);
+        }
+      } catch (err) {
+        console.error('[POST /api/chat] ストリーミング中にエラーが発生しました', err);
+        write({ type: 'error', message: CHAT_ERROR_MESSAGES.INTERNAL_ERROR });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new NextResponse(stream, {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/x-ndjson',
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+    },
+  });
+});

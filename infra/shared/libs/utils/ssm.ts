@@ -15,4 +15,6 @@ export const SSM_PARAMETERS = {
   ALB_SECURITY_GROUP_ID: (env: Environment) => `/nagiyu/root/${env}/alb/security-group-id`,
   ECS_CLUSTER_NAME: (env: Environment) => `/nagiyu/root/${env}/ecs/cluster-name`,
   ECS_CLUSTER_ARN: (env: Environment) => `/nagiyu/root/${env}/ecs/cluster-arn`,
+  SHARED_ECS_CLUSTER_NAME: (env: Environment) => `/nagiyu/shared/${env}/ecs/cluster-name`,
+  SHARED_ECS_CLUSTER_ARN: (env: Environment) => `/nagiyu/shared/${env}/ecs/cluster-arn`,
 } as const;

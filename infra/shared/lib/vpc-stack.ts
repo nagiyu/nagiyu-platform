@@ -68,24 +68,36 @@ export class VpcStack extends cdk.Stack {
       ],
     });
 
-    // Public Subnet 1b (prod only)
-    let publicSubnet1b: ec2.CfnSubnet | undefined;
-    if (isProd) {
-      publicSubnet1b = new ec2.CfnSubnet(this, 'NagiyuPublicSubnet1b', {
+    // dev: VPC secondary CIDR を追加して 1b Subnet の CIDR 空間を確保
+    // primary CIDR (10.0.0.0/24) の直接変更は VPC 再作成を招くため secondary で拡張する
+    // AWS の制約で 10.0.0.0/15 範囲（10.0.x.x / 10.1.x.x）の secondary 追加は restricted のため、10.2.0.0/24 を使う
+    let devSecondaryCidr: ec2.CfnVPCCidrBlock | undefined;
+    if (!isProd) {
+      devSecondaryCidr = new ec2.CfnVPCCidrBlock(this, 'NagiyuVPCSecondaryCidr', {
         vpcId: this.vpc.ref,
-        cidrBlock: '10.1.0.128/25',
-        availabilityZone: `${this.region}b`,
-        mapPublicIpOnLaunch: true,
-        tags: [
-          {
-            key: 'Name',
-            value: `nagiyu-${props.environment}-public-subnet-1b`,
-          },
-          { key: 'Application', value: 'nagiyu' },
-          { key: 'Environment', value: props.environment },
-          { key: 'Type', value: 'Public' },
-        ],
+        cidrBlock: '10.2.0.0/24',
       });
+    }
+
+    // Public Subnet 1b (dev/prod 共通)
+    const subnet1bCidr = isProd ? '10.1.0.128/25' : '10.2.0.0/24';
+    const publicSubnet1b = new ec2.CfnSubnet(this, 'NagiyuPublicSubnet1b', {
+      vpcId: this.vpc.ref,
+      cidrBlock: subnet1bCidr,
+      availabilityZone: `${this.region}b`,
+      mapPublicIpOnLaunch: true,
+      tags: [
+        {
+          key: 'Name',
+          value: `nagiyu-${props.environment}-public-subnet-1b`,
+        },
+        { key: 'Application', value: 'nagiyu' },
+        { key: 'Environment', value: props.environment },
+        { key: 'Type', value: 'Public' },
+      ],
+    });
+    if (devSecondaryCidr) {
+      publicSubnet1b.addDependency(devSecondaryCidr);
     }
 
     // Route Table for Public Subnets
@@ -120,17 +132,15 @@ export class VpcStack extends cdk.Stack {
       }
     );
 
-    // Associate Route Table with Public Subnet 1b (prod only)
-    if (publicSubnet1b) {
-      new ec2.CfnSubnetRouteTableAssociation(
-        this,
-        'NagiyuPublicSubnet1bRouteTableAssociation',
-        {
-          subnetId: publicSubnet1b.ref,
-          routeTableId: publicRouteTable.ref,
-        }
-      );
-    }
+    // Associate Route Table with Public Subnet 1b
+    new ec2.CfnSubnetRouteTableAssociation(
+      this,
+      'NagiyuPublicSubnet1bRouteTableAssociation',
+      {
+        subnetId: publicSubnet1b.ref,
+        routeTableId: publicRouteTable.ref,
+      }
+    );
 
     // Exports（既存の名前を維持）
     new cdk.CfnOutput(this, 'VpcId', {
@@ -138,9 +148,7 @@ export class VpcStack extends cdk.Stack {
       description: 'VPC ID',
     });
 
-    const subnetIds = isProd && publicSubnet1b
-      ? `${publicSubnet1a.ref},${publicSubnet1b.ref}`
-      : publicSubnet1a.ref;
+    const subnetIds = `${publicSubnet1a.ref},${publicSubnet1b.ref}`;
     new cdk.CfnOutput(this, 'PublicSubnetIds', {
       value: subnetIds,
       description: 'Public subnet IDs (comma-separated)',

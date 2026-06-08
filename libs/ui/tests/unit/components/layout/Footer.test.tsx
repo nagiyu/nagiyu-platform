@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import Footer from '../../../../src/components/layout/Footer';
+import Footer, { type FooterLinkGroup } from '../../../../src/components/layout/Footer';
 
 describe('Footer', () => {
   describe('レンダリング', () => {
@@ -196,6 +196,77 @@ describe('Footer', () => {
     });
   });
 
+  describe('licenseText props', () => {
+    it('licenseTextが指定された場合に表示される', () => {
+      render(<Footer licenseText="VOICEVOX:冥鳴ひまり / Live2D Inc." />);
+
+      expect(screen.getByText('VOICEVOX:冥鳴ひまり / Live2D Inc.')).toBeInTheDocument();
+    });
+
+    it('licenseTextが省略された場合は表示されない', () => {
+      render(<Footer />);
+
+      expect(screen.queryByText(/VOICEVOX/)).not.toBeInTheDocument();
+    });
+
+    it('licenseTextがReactNodeでも表示される', () => {
+      render(<Footer licenseText={<span data-testid="license-node">ライセンス情報</span>} />);
+
+      expect(screen.getByTestId('license-node')).toBeInTheDocument();
+    });
+
+    it('licenseTextがある場合はフッターのpaddingが詰められる', () => {
+      const { container } = render(<Footer licenseText="ライセンス" />);
+
+      const footer = container.querySelector('footer');
+      // py: 1.5 → 12px（theme spacing 8px * 1.5）
+      expect(footer).toHaveStyle({ paddingTop: '12px', paddingBottom: '12px' });
+    });
+
+    it('licenseTextが省略された場合はフッターのpaddingが従来どおり', () => {
+      const { container } = render(<Footer />);
+
+      const footer = container.querySelector('footer');
+      // py: 3 → 24px（theme spacing 8px * 3）
+      expect(footer).toHaveStyle({ paddingTop: '24px', paddingBottom: '24px' });
+    });
+  });
+
+  describe('termsContent / privacyContent props', () => {
+    const customTerms = [
+      {
+        title: 'カスタム規約',
+        contents: [{ mainContent: 'カスタム利用規約の内容です。' }],
+      },
+    ];
+    const customPrivacy = [
+      {
+        title: 'カスタムプライバシー',
+        contents: [{ mainContent: 'カスタムプライバシーポリシーの内容です。' }],
+      },
+    ];
+
+    it('termsContentが指定された場合、利用規約ダイアログにカスタムデータが表示される', async () => {
+      const user = userEvent.setup();
+      render(<Footer termsContent={customTerms} />);
+
+      await user.click(screen.getByText('利用規約'));
+
+      expect(screen.getByText('第1条（カスタム規約）')).toBeInTheDocument();
+      expect(screen.getByText('カスタム利用規約の内容です。')).toBeInTheDocument();
+    });
+
+    it('privacyContentが指定された場合、プライバシーポリシーダイアログにカスタムデータが表示される', async () => {
+      const user = userEvent.setup();
+      render(<Footer privacyContent={customPrivacy} />);
+
+      await user.click(screen.getByText('プライバシーポリシー'));
+
+      expect(screen.getByText('第1条（カスタムプライバシー）')).toBeInTheDocument();
+      expect(screen.getByText('カスタムプライバシーポリシーの内容です。')).toBeInTheDocument();
+    });
+  });
+
   describe('バージョン表示', () => {
     it('バージョン番号が"v"プレフィックス付きで表示される', () => {
       render(<Footer version="1.2.3" />);
@@ -223,7 +294,8 @@ describe('Footer', () => {
     it('バージョン、プライバシーポリシー、利用規約が正しい順序で表示される', () => {
       const { container } = render(<Footer version="1.0.0" />);
 
-      const typography = container.querySelector('.MuiTypography-root');
+      // バージョン行の Typography を特定する（body2 クラスで絞り込む）
+      const typography = container.querySelector('.MuiTypography-body2');
       const text = typography?.textContent;
 
       expect(text).toContain('v1.0.0');
@@ -237,11 +309,108 @@ describe('Footer', () => {
     it('要素間に区切り文字が存在する', () => {
       const { container } = render(<Footer />);
 
-      const typography = container.querySelector('.MuiTypography-root');
+      // バージョン行の Typography を特定する（body2 クラスで絞り込む）
+      const typography = container.querySelector('.MuiTypography-body2');
       const text = typography?.textContent;
 
       // " | " で区切られていることを確認
       expect(text).toMatch(/v1\.0\.0\s*\|\s*プライバシーポリシー\s*\|\s*利用規約/);
+    });
+  });
+
+  describe('links props（ナビゲーションリンクグリッド）', () => {
+    const sampleLinks: FooterLinkGroup[] = [
+      {
+        title: 'メインコンテンツ',
+        items: [
+          { label: 'ホーム', href: '/' },
+          { label: 'サービス一覧', href: '/services' },
+        ],
+      },
+      {
+        title: 'サイト情報',
+        items: [
+          { label: 'About', href: '/about' },
+          { label: 'お問い合わせ', href: '/contact' },
+        ],
+      },
+    ];
+
+    it('links が指定された場合、グループタイトルが表示される', () => {
+      render(<Footer links={sampleLinks} />);
+
+      expect(screen.getByText('メインコンテンツ')).toBeInTheDocument();
+      expect(screen.getByText('サイト情報')).toBeInTheDocument();
+    });
+
+    it('links が指定された場合、各リンクが表示される', () => {
+      render(<Footer links={sampleLinks} />);
+
+      expect(screen.getByText('ホーム')).toBeInTheDocument();
+      expect(screen.getByText('サービス一覧')).toBeInTheDocument();
+      expect(screen.getByText('About')).toBeInTheDocument();
+      expect(screen.getByText('お問い合わせ')).toBeInTheDocument();
+    });
+
+    it('links が指定された場合、各リンクが正しい href を持つ', () => {
+      render(<Footer links={sampleLinks} />);
+
+      const homeLink = screen.getByRole('link', { name: 'ホーム' });
+      expect(homeLink).toHaveAttribute('href', '/');
+
+      const servicesLink = screen.getByRole('link', { name: 'サービス一覧' });
+      expect(servicesLink).toHaveAttribute('href', '/services');
+
+      const aboutLink = screen.getByRole('link', { name: 'About' });
+      expect(aboutLink).toHaveAttribute('href', '/about');
+    });
+
+    it('links が省略された場合、リンクグリッドは表示されない', () => {
+      render(<Footer />);
+
+      // グループタイトルが存在しないことを確認
+      expect(screen.queryByText('メインコンテンツ')).not.toBeInTheDocument();
+    });
+
+    it('title なしのグループも正しく表示される', () => {
+      const linksWithoutTitle: FooterLinkGroup[] = [
+        {
+          items: [{ label: 'タイトルなしリンク', href: '/no-title' }],
+        },
+      ];
+      render(<Footer links={linksWithoutTitle} />);
+
+      expect(screen.getByText('タイトルなしリンク')).toBeInTheDocument();
+    });
+
+    it('空の links 配列の場合、リンクグリッドは表示されない', () => {
+      render(<Footer links={[]} />);
+
+      // グリッドが存在しないことを確認（バージョン行のみ）
+      const footer = document.querySelector('footer');
+      expect(footer).toBeInTheDocument();
+      // バージョン表示は維持される
+      expect(screen.getByText(/v1\.0\.0/)).toBeInTheDocument();
+    });
+  });
+
+  describe('copyright props（著作権表記）', () => {
+    it('copyright が指定された場合に表示される', () => {
+      render(<Footer copyright="© 2026 nagiyu" />);
+
+      expect(screen.getByText('© 2026 nagiyu')).toBeInTheDocument();
+    });
+
+    it('copyright が省略された場合は表示されない', () => {
+      render(<Footer />);
+
+      expect(screen.queryByText(/© \d{4}/)).not.toBeInTheDocument();
+    });
+
+    it('年範囲形式の copyright も表示される', () => {
+      render(<Footer copyright="© 2026–2027 nagiyu" />);
+
+      expect(screen.getByText('© 2026–2027 nagiyu')).toBeInTheDocument();
     });
   });
 });

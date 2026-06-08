@@ -3,9 +3,10 @@ title: 'Next.jsでMarkdownを静的ページに変換する実装方法'
 description: 'Next.jsのSSGとMarkdownファイルを組み合わせた静的サイト生成の実装方法を解説。gray-matterによるフロントマター解析・remark/rehypeによるレンダリング・generateStaticParamsの活用まで詳しく説明します。'
 slug: 'nextjs-ssg-markdown'
 publishedAt: '2026-04-10'
-updatedAt: '2026-05-01'
+updatedAt: '2026-06-06'
 author: 'なぎゆー'
 tags: ['Next.js', 'Markdown', 'SSG']
+categories: ['nextjs']
 ---
 
 ## はじめに
@@ -74,7 +75,10 @@ export interface TechArticleFrontmatter {
   description: string;
   slug: string;
   publishedAt: string;
+  updatedAt?: string;
   tags: string[];
+  categories?: string[];
+  author?: string;
 }
 
 export interface TechArticle {
@@ -152,7 +156,7 @@ export function getAllServiceSlugs(): { service: string; type: string }[] {
 
 ## generateStaticParams の実装
 
-Next.js 13 以降の App Router では `generateStaticParams` を使ってビルド時に静的パスを生成します。
+Next.js 13 以降の App Router では `generateStaticParams` を使ってビルド時に静的パスを生成します。Next.js 15 以降では `params` が非同期になり、`Promise<{ ... }>` 型として受け取る必要があります。
 
 ```typescript
 // src/app/services/[service]/[type]/page.tsx
@@ -161,7 +165,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 
 interface Props {
-  params: { service: string; type: string };
+  params: Promise<{ service: string; type: string }>;
 }
 
 export async function generateStaticParams() {
@@ -169,7 +173,8 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const doc = await getServiceDoc(params.service, params.type);
+  const { service, type } = await params;
+  const doc = await getServiceDoc(service, type);
   if (!doc) return {};
 
   return {
@@ -183,7 +188,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ServiceDocPage({ params }: Props) {
-  const doc = await getServiceDoc(params.service, params.type);
+  const { service, type } = await params;
+  const doc = await getServiceDoc(service, type);
   if (!doc) notFound();
 
   // htmlContent は markdownToHtml() 内で DOMPurify.sanitize() 済み
@@ -245,6 +251,32 @@ export async function getAllTechArticles(): Promise<TechArticle[]> {
 ## ビルド時のパフォーマンス
 
 `generateStaticParams` を使うことで、すべてのページがビルド時に HTML として生成されます。リクエスト時のサーバーサイドレンダリングが不要になるため、CDN からの静的配信で最高のパフォーマンスを発揮します。
+
+## 実装ノート
+
+この記事はまさに今あなたが読んでいる Portal そのものが題材なので、実際の実装を正直に書いておきます。本文では `lib/markdown.ts` と `lib/tech.ts` に分けた例を出しましたが、私の手元の実コードでは読み込み・変換ロジックを `src/lib/content.ts` 1 ファイルに集約しています。サービスドキュメント・技術記事・カテゴリ別ハブを、ほぼ同じ `gray-matter` + `remark` のパイプラインで扱うため、ファイルを分けるより 1 箇所にまとめた方が見通しがよかったからです。
+
+変換パイプラインも記事のサンプルとは少し違います。私が実際に使っているのは次の構成です。
+
+```typescript
+const result = await remark()
+  .use(remarkGfm) // GFM（表・チェックボックス等）
+  .use(remarkRehype)
+  .use(rehypeStringify)
+  .process(markdown);
+return DOMPurify.sanitize(result.toString());
+```
+
+ここで自分が意識的に選んだのが 2 点。1 つは `remark-gfm` を入れて表組みを使えるようにしたこと（技術記事で素材マッピングの表をよく書くので必須でした）。もう 1 つは、本記事冒頭で挙げた `rehype-highlight` を**あえて採用していない**ことです。シンタックスハイライト用の CSS とクラスを抱え込むより、`MarkdownContent` コンポーネント側で MUI の `sx` を使って `code` / `pre` に `grey.100` の背景と角丸を当てるだけにしました。軽量さを優先した判断です。
+
+## ハマったポイント
+
+- **SSR で動く DOMPurify**: 出力 HTML は最終的に `dangerouslySetInnerHTML` で描画するので、私は `markdownToHtml()` の最後で必ず `DOMPurify.sanitize()` を通しています。ただし通常の `dompurify` はブラウザの `window` 前提で、ビルド時（Node）では動きません。`isomorphic-dompurify` に差し替えてようやく SSG ビルドが通りました。
+- **フロントマターは型キャストで素通し**: `matter()` の戻り値を `data as ArticleMeta` とキャストしているだけで、ランタイムの形式検証はしていません。タグ名のスペルミスなどはビルドが教えてくれないので、自分でレビュー時に気をつける運用になっています。
+
+## 現在の運用
+
+今 nagiyu-platform では、この仕組みの上で 20 本以上の技術記事に加えて、各サービスのドキュメント（overview / guide / faq）とカテゴリ別ハップページを、すべて Markdown ファイルとして管理しています。記事を 1 本足したいときは `src/content/tech/` に `.md` を置くだけで、`getAllArticles()` が拾って一覧・`sitemap.xml`・関連記事（タグ一致数でスコアリング）まで自動で繋がるようにしてあります。コンテンツをコードと同じリポジトリで Git 管理できるのが、自分にとってこの構成の一番のメリットです。
 
 ## まとめ
 

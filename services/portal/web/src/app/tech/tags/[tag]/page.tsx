@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       url,
       title: `${tag} の記事一覧`,
       description: `nagiyu の技術記事のうち「${tag}」タグが付いた記事の一覧です。`,
-      images: ['/og-default.png'],
+      images: [{ url: '/og-default.png', width: 1200, height: 630, alt: `${tag} の記事一覧` }],
     },
   };
 }

@@ -66,6 +66,90 @@ test.describe('ティッカー管理', () => {
   });
 
   test.describe('ティッカー作成', () => {
+    test('シンボル入力欄でエンターキーを押すとティッカーを作成できる', async ({
+      page,
+      request,
+    }) => {
+      // テスト用の Exchange を API 経由で作成
+      const exchange = await factory.createExchange();
+
+      // データが反映されるまで待つ
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // ページをリロード
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      // テスト用のユニークなシンボルと名前
+      const testSymbol = `E${Date.now() % 100000}`.substring(0, 10).toUpperCase();
+      const testName = 'Enter Key Test Corporation';
+
+      // 新規作成ボタンをクリック
+      await page.getByRole('button', { name: '新規作成' }).click();
+
+      // モーダルが表示される
+      await expect(page.getByRole('dialog')).toBeVisible();
+
+      const symbolField = page.getByRole('textbox', { name: /シンボル/ });
+      const nameField = page.getByRole('textbox', { name: /銘柄名/ });
+      const exchangeField = page.locator('#create-exchange');
+
+      // シンボルを入力
+      await symbolField.fill(testSymbol);
+
+      // 銘柄名を入力
+      await nameField.fill(testName);
+
+      // 取引所を選択
+      await exchangeField.click();
+
+      const exchangeOption = page.locator(
+        `[role="listbox"] [role="option"]:has-text("${exchange.name}")`
+      );
+      const isExchangeVisible = await exchangeOption.isVisible().catch(() => false);
+
+      if (isExchangeVisible) {
+        await exchangeOption.click();
+      } else {
+        // 作成した取引所が見つからない場合は最初のオプションを選択
+        const exchangeOptions = page.locator('[role="listbox"] [role="option"]');
+        const optionCount = await exchangeOptions.count();
+        if (optionCount > 0) {
+          await exchangeOptions.first().click();
+        } else {
+          console.log('取引所データがないためテストをスキップ');
+          test.skip();
+          return;
+        }
+      }
+
+      // 作成ボタンをクリックせず、シンボル入力欄でエンターキーを押す
+      await symbolField.press('Enter');
+
+      // 成功メッセージが表示される
+      await expect(page.getByText('ティッカーを作成しました')).toBeVisible({ timeout: 10000 });
+
+      // モーダルが閉じる
+      await expect(page.getByRole('dialog')).not.toBeVisible();
+
+      // テーブルに新しいティッカーが表示される
+      const tickerRow = page.getByRole('row').filter({ hasText: testSymbol });
+      await expect(tickerRow).toBeVisible();
+
+      // ティッカーIDを取得してクリーンアップ
+      const tickerIdCell = tickerRow.getByRole('cell').first();
+      const createdTickerId = (await tickerIdCell.textContent()) || '';
+
+      if (createdTickerId) {
+        try {
+          await request.delete(`/api/tickers/${encodeURIComponent(createdTickerId)}`);
+          console.log(`UI作成ティッカーをクリーンアップ（Enter確定テスト）: ${createdTickerId}`);
+        } catch (error) {
+          console.warn(`Warning: Failed to cleanup UI-created ticker ${createdTickerId}:`, error);
+        }
+      }
+    });
+
     test('ティッカーを作成できる', async ({ page, request }) => {
       // テスト用の Exchange を API 経由で作成
       const exchange = await factory.createExchange();

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useEnterSubmit } from '@nagiyu/react';
 import {
   Container,
   Box,
@@ -486,6 +487,16 @@ export default function HoldingsPage() {
     }
   };
 
+  // 登録・更新モーダルの数値入力でエンターキー確定するためのハンドラ。
+  // MUI TextField の onKeyDown は HTMLDivElement のイベントとして型付けられるため、型引数を明示する。
+  // disabled は二重送信防止の submitting のみ（無効入力は handleCreate/handleUpdate 内の validateForm が弾く）。
+  const handleCreateEnterDown = useEnterSubmit<HTMLDivElement>(handleCreate, {
+    disabled: submitting,
+  });
+  const handleUpdateEnterDown = useEnterSubmit<HTMLDivElement>(handleUpdate, {
+    disabled: submitting,
+  });
+
   // 保有株式を削除
   const handleDelete = async () => {
     if (!selectedHolding) {
@@ -782,6 +793,7 @@ export default function HoldingsPage() {
               type="number"
               value={formData.quantity}
               onChange={(e) => handleFormChange('quantity', e.target.value)}
+              onKeyDown={handleCreateEnterDown}
               error={!!formErrors.quantity}
               helperText={formErrors.quantity}
               slotProps={{ htmlInput: { step: '0.0001', min: '0.0001', max: '1000000000' } }}
@@ -795,6 +807,7 @@ export default function HoldingsPage() {
               type="number"
               value={formData.averagePrice}
               onChange={(e) => handleFormChange('averagePrice', e.target.value)}
+              onKeyDown={handleCreateEnterDown}
               error={!!formErrors.averagePrice}
               helperText={formErrors.averagePrice}
               slotProps={{ htmlInput: { step: '0.01', min: '0.01', max: '1000000' } }}
@@ -862,6 +875,7 @@ export default function HoldingsPage() {
               type="number"
               value={formData.quantity}
               onChange={(e) => handleFormChange('quantity', e.target.value)}
+              onKeyDown={handleUpdateEnterDown}
               error={!!formErrors.quantity}
               helperText={formErrors.quantity}
               slotProps={{ htmlInput: { step: '0.0001', min: '0.0001', max: '1000000000' } }}
@@ -875,6 +889,7 @@ export default function HoldingsPage() {
               type="number"
               value={formData.averagePrice}
               onChange={(e) => handleFormChange('averagePrice', e.target.value)}
+              onKeyDown={handleUpdateEnterDown}
               error={!!formErrors.averagePrice}
               helperText={formErrors.averagePrice}
               slotProps={{ htmlInput: { step: '0.01', min: '0.01', max: '1000000' } }}

@@ -145,8 +145,6 @@ content/
 | ---- | --------- | ----------- |
 | `aws-batch-architecture` | AWS Batch で重い処理をサーバーレス化した構成 | Quick Clip / Codec Converter |
 | `nextjs-ssg-markdown` | Next.js で Markdown を静的ページに変換する実装 | Portal 自体 |
-| `vapid-web-push` | Web Push 通知を実装する（VAPID キーの仕組みと使い方） | Stock Tracker / Tools |
-| `video-codec-comparison` | H.264 / VP9 / AV1 のコーデック比較と使い分け | Codec Converter |
 | `cloudfront-ecs-deployment` | CloudFront + ECS で Next.js をデプロイする構成解説 | ルートドメイン共通 |
 
 #### 拡充計画（20 本以上、テーマ別）

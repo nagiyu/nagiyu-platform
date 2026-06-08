@@ -142,6 +142,59 @@ test.describe('取引所管理画面 (E2E-006)', () => {
       await page.request.delete(`/api/exchanges/${encodeURIComponent(testId)}`);
       await page.waitForTimeout(1000);
     });
+
+    test('登録モーダルのテキスト入力でエンターキーを押すと取引所が登録される', async ({ page }) => {
+      // テスト用のユニークなデータを生成（TestDataFactoryのパターンに合わせる）
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).substring(2, 6);
+      const testId = `E2E-${timestamp}-${random}-EX`;
+      const testKey = `E2E${random}`.substring(0, 10).toUpperCase();
+
+      // 新規登録ボタンをクリック
+      await page.locator('button:has-text("新規登録")').click();
+
+      const modal = page.getByRole('dialog', { name: '取引所登録' });
+      await expect(modal).toBeVisible();
+
+      // 基本情報を入力
+      await page.locator('input[placeholder="NASDAQ"]').fill(testId);
+      await page.locator('input[placeholder="NASDAQ Stock Market"]').fill('Test Exchange Enter');
+      await page.locator('input[placeholder="NSDQ"]').fill(testKey);
+
+      // タイムゾーン
+      await modal.locator('#exchange-timezone').selectOption('America/New_York');
+
+      // 取引開始時間 - 時
+      await modal.locator('#exchange-start-hour').selectOption('09');
+
+      // 取引開始時間 - 分
+      await modal.locator('#exchange-start-minute').selectOption('30');
+
+      // 取引終了時間 - 時
+      await modal.locator('#exchange-end-hour').selectOption('16');
+
+      // 取引終了時間 - 分
+      await modal.locator('#exchange-end-minute').selectOption('00');
+
+      // 保存ボタンをクリックせず、取引所ID入力欄でエンターキーを押して登録する
+      await page.locator('input[placeholder="NASDAQ"]').press('Enter');
+
+      // モーダルが閉じるまで待つ
+      await expect(modal).not.toBeVisible({ timeout: 10000 });
+
+      // 成功メッセージが表示される
+      await expect(page.locator('text=取引所を作成しました')).toBeVisible({ timeout: 3000 });
+
+      // テーブルに新しい取引所が表示される
+      await expect(page.locator(`td:has-text("${testId}")`)).toBeVisible();
+      // テスト用の取引所の行で「Test Exchange Enter」が表示されることを確認
+      const createdRow = page.locator(`tr:has-text("${testId}")`);
+      await expect(createdRow.locator('td:has-text("Test Exchange Enter")')).toBeVisible();
+
+      // API経由でクリーンアップ
+      await page.request.delete(`/api/exchanges/${encodeURIComponent(testId)}`);
+      await page.waitForTimeout(1000);
+    });
   });
 
   test.describe('取引所編集', () => {

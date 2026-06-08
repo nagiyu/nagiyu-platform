@@ -1,6 +1,6 @@
 {
   "name": "@nagiyu/niconico-mylist-assistant-web",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -15,9 +15,9 @@
     "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
-    "@aws-sdk/client-batch": "^3.1024.0",
-    "@aws-sdk/client-dynamodb": "^3.1024.0",
-    "@aws-sdk/lib-dynamodb": "^3.1024.0",
+    "@aws-sdk/client-batch": "^3.1063.0",
+    "@aws-sdk/client-dynamodb": "^3.1063.0",
+    "@aws-sdk/lib-dynamodb": "^3.1063.0",
     "@nagiyu/aws": "*",
     "@nagiyu/browser": "*",
     "@nagiyu/common": "*",

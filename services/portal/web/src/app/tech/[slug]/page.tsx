@@ -10,7 +10,12 @@ import {
   Divider,
 } from '@mui/material';
 import { Chip, Link } from '@nagiyu/ui';
-import { getAllArticles, getArticle, getRelatedArticles } from '@/lib/content';
+import {
+  getAllArticles,
+  getArticle,
+  getRelatedArticles,
+  getTechCategoriesForArticle,
+} from '@/lib/content';
 import MarkdownContent from '@/components/MarkdownContent';
 import { buildBlogPostingJsonLd, buildBreadcrumbJsonLd, jsonLdScript } from '@/lib/jsonLd';
 import { AUTHOR } from '@/lib/author';
@@ -55,7 +60,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
           : new Date(article.publishedAt).toISOString(),
         authors: [AUTHOR.url],
         tags: article.tags,
-        images: ['/og-default.png'],
+        images: [{ url: '/og-default.png', width: 1200, height: 630, alt: article.title }],
       },
       twitter: {
         card: 'summary_large_image',
@@ -88,6 +93,7 @@ export default async function TechArticlePage({ params }: Params) {
   const authorName = article.author ?? AUTHOR.name;
   const readingMinutes = estimateReadingMinutes(article.content);
   const relatedArticles = getRelatedArticles(article.slug, article.tags, 3);
+  const categories = getTechCategoriesForArticle(article.categories);
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
@@ -120,6 +126,19 @@ export default async function TechArticlePage({ params }: Params) {
           読了目安: 約 {readingMinutes} 分
         </Typography>
       </Box>
+      {/* 所属カテゴリ別ハブへの戻りリンク（Hub-and-Spoke の双方向クラスター） */}
+      {categories.length > 0 && (
+        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+            関連カテゴリ:
+          </Typography>
+          {categories.map((category) => (
+            <Chip key={category.slug} asChild size="sm" variant="solid" color="primary">
+              <Link href={`/tech/category/${category.slug}`}>{category.title} →</Link>
+            </Chip>
+          ))}
+        </Box>
+      )}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 3 }}>
         {article.tags.map((tag) => (
           <Chip key={tag} size="sm" variant="outline">

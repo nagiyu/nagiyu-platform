@@ -105,3 +105,67 @@ test.describe('Video Search Modal - Existing Video Detection', () => {
     await expect(registeredButton).toBeDisabled();
   });
 });
+
+test.describe('Video Search Modal - Enter Key Search', () => {
+  test('should execute search when Enter key is pressed in keyword input', async ({ page }) => {
+    // /api/videos/search の fetch をモックしてダミーの動画を返す
+    await page.addInitScript(() => {
+      const originalFetch = window.fetch;
+
+      const resolveRequestUrl = (input: URL | RequestInfo): string => {
+        if (typeof input === 'string') return input;
+        if (input instanceof URL) return input.toString();
+        if (input instanceof Request) return input.url;
+        return String(input);
+      };
+
+      window.fetch = async (input, init) => {
+        const requestUrl = resolveRequestUrl(input);
+
+        if (requestUrl.includes('/api/videos/search')) {
+          return new Response(
+            JSON.stringify({
+              videos: [
+                {
+                  videoId: 'sm12345',
+                  title: 'エンターキー検索テスト動画',
+                  description: 'エンターキーで検索が実行されることを確認するテスト',
+                  thumbnailUrl: 'https://example.com/thumb-enter.jpg',
+                  duration: 60,
+                  viewCount: 100,
+                  commentCount: 10,
+                  mylistCount: 5,
+                  uploadedAt: '2024-01-01T00:00:00+09:00',
+                  tags: [],
+                  isRegistered: false,
+                },
+              ],
+              total: 1,
+            }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            }
+          );
+        }
+
+        return originalFetch(input, init);
+      };
+    });
+
+    await page.goto('/import');
+    // 「動画を検索して追加」ボタンをクリックして検索モーダルを開く
+    await page.getByRole('button', { name: '動画を検索して追加' }).click();
+    const keywordInput = page.getByLabel('検索キーワード');
+    await keywordInput.waitFor({ state: 'visible' });
+
+    // キーワードを入力し、ボタンをクリックせずエンターキーで検索を実行する
+    await keywordInput.fill('エンターキー検索');
+    await keywordInput.press('Enter');
+
+    // モックで返した動画タイトルと videoId がダイアログ内に表示されることを確認する
+    const searchDialog = page.getByRole('dialog', { name: '動画検索' });
+    await expect(searchDialog.getByText('エンターキー検索テスト動画')).toBeVisible();
+    await expect(searchDialog.getByText('sm12345')).toBeVisible();
+  });
+});
