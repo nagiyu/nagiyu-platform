@@ -24,7 +24,7 @@
     "@nagiyu/nextjs": "*",
     "@nagiyu/ui": "*",
     "gray-matter": "^4.0.3",
-    "isomorphic-dompurify": "^3.12.0",
+    "isomorphic-dompurify": "^3.16.0",
     "rehype-stringify": "^10.0.1",
     "remark": "^15.0.1",
     "remark-gfm": "^4.0.1",
