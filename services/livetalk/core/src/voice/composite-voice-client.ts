@@ -45,9 +45,7 @@ export class CompositeVoiceClient implements IVoiceClient {
     const provider = voice?.provider ?? this.defaultProvider;
     const client = this.resolveClient(provider);
     if (!client) {
-      throw new Error(
-        `${COMPOSITE_VOICE_ERROR_MESSAGES.UNKNOWN_PROVIDER}: provider=${provider}`
-      );
+      throw new Error(`${COMPOSITE_VOICE_ERROR_MESSAGES.UNKNOWN_PROVIDER}: provider=${provider}`);
     }
     return client.synthesize(text, voice);
   }
@@ -56,9 +54,7 @@ export class CompositeVoiceClient implements IVoiceClient {
    * 指定 provider のクライアントを返す。
    * ファクトリ関数が登録されている場合は初回呼び出し時に生成してキャッシュする。
    */
-  private resolveClient(
-    provider: VoiceConfig['provider']
-  ): IVoiceClient | undefined {
+  private resolveClient(provider: VoiceConfig['provider']): IVoiceClient | undefined {
     // 既に解決済みのクライアントがある場合はそれを返す
     const cached = this.resolvedClients[provider];
     if (cached) {

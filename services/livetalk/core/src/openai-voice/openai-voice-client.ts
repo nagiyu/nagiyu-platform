@@ -48,8 +48,10 @@ export class OpenAIVoiceClient implements IVoiceClient {
 
     // voice が省略された場合、または provider が openai でない場合は既定値を使用する
     const resolvedVoice = voice && voice.provider === 'openai' ? voice.voice : this.defaultVoice;
-    const resolvedModel = voice && voice.provider === 'openai' ? (voice.model ?? this.defaultModel) : this.defaultModel;
-    const resolvedInstructions = voice && voice.provider === 'openai' ? voice.instructions : undefined;
+    const resolvedModel =
+      voice && voice.provider === 'openai' ? (voice.model ?? this.defaultModel) : this.defaultModel;
+    const resolvedInstructions =
+      voice && voice.provider === 'openai' ? voice.instructions : undefined;
 
     try {
       const requestParams: Parameters<typeof this.client.audio.speech.create>[0] = {

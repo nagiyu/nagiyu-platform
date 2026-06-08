@@ -1,8 +1,4 @@
-import {
-  VoicevoxClient,
-  OpenAIVoiceClient,
-  CompositeVoiceClient,
-} from '@nagiyu/livetalk-core';
+import { VoicevoxClient, OpenAIVoiceClient, CompositeVoiceClient } from '@nagiyu/livetalk-core';
 import type { IVoiceClient } from '@nagiyu/livetalk-core';
 
 let cachedClient: IVoiceClient | null = null;

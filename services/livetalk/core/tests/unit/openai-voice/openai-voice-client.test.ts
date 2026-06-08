@@ -35,9 +35,7 @@ describe('OpenAIVoiceClient', () => {
     });
 
     it('apiKey も client も無い場合は EMPTY_API_KEY を投げる', () => {
-      expect(() => new OpenAIVoiceClient({})).toThrow(
-        OPENAI_VOICE_ERROR_MESSAGES.EMPTY_API_KEY
-      );
+      expect(() => new OpenAIVoiceClient({})).toThrow(OPENAI_VOICE_ERROR_MESSAGES.EMPTY_API_KEY);
     });
   });
 
@@ -179,9 +177,7 @@ describe('OpenAIVoiceClient', () => {
 
         await ttsClient.synthesize('テスト');
 
-        expect(create).toHaveBeenCalledWith(
-          expect.objectContaining({ voice: 'alloy' })
-        );
+        expect(create).toHaveBeenCalledWith(expect.objectContaining({ voice: 'alloy' }));
       });
 
       it('既定の defaultModel は gpt-4o-mini-tts', async () => {
@@ -190,9 +186,7 @@ describe('OpenAIVoiceClient', () => {
 
         await ttsClient.synthesize('テスト');
 
-        expect(create).toHaveBeenCalledWith(
-          expect.objectContaining({ model: 'gpt-4o-mini-tts' })
-        );
+        expect(create).toHaveBeenCalledWith(expect.objectContaining({ model: 'gpt-4o-mini-tts' }));
       });
 
       it('response_format は mp3', async () => {
@@ -201,9 +195,7 @@ describe('OpenAIVoiceClient', () => {
 
         await ttsClient.synthesize('テスト');
 
-        expect(create).toHaveBeenCalledWith(
-          expect.objectContaining({ response_format: 'mp3' })
-        );
+        expect(create).toHaveBeenCalledWith(expect.objectContaining({ response_format: 'mp3' }));
       });
 
       it('前後の空白を除去してから合成する', async () => {
@@ -212,9 +204,7 @@ describe('OpenAIVoiceClient', () => {
 
         await ttsClient.synthesize('  テスト  ');
 
-        expect(create).toHaveBeenCalledWith(
-          expect.objectContaining({ input: 'テスト' })
-        );
+        expect(create).toHaveBeenCalledWith(expect.objectContaining({ input: 'テスト' }));
       });
     });
 
