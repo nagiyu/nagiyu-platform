@@ -1,0 +1,6 @@
+# Claude Code 内部状態（ワークツリー・セッションキャッシュ等）は追跡しない。
+# ただし共有するエージェント定義（agents/）・スキル（skills/）と本ファイルは追跡する。
+/*
+!/.gitignore
+!/agents/
+!/skills/
