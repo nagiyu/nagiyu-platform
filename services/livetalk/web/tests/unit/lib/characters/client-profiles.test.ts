@@ -138,6 +138,10 @@ describe('クライアントプロファイルレジストリ', () => {
       expect(getRegisteredProfileIds()).toContain(DEFAULT_CLIENT_CHARACTER_ID);
     });
 
+    it('"ageha" を含む', () => {
+      expect(getRegisteredProfileIds()).toContain('ageha');
+    });
+
     it('配列を返す', () => {
       expect(Array.isArray(getRegisteredProfileIds())).toBe(true);
     });
@@ -147,6 +151,63 @@ describe('クライアントプロファイルレジストリ', () => {
     it('日本語を含む', () => {
       expect(CHARACTER_PROFILE_ERROR_MESSAGES.UNKNOWN_PROFILE).toMatch(/[ぁ-ん]/);
     });
+  });
+});
+
+describe('早瀬アゲハ クライアントプロファイル', () => {
+  it('"ageha" のプロファイルが登録されている', () => {
+    expect(hasCharacterProfile('ageha')).toBe(true);
+  });
+
+  it('getCharacterClientProfile("ageha") でプロファイルを取得できる', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(profile).toBeDefined();
+  });
+
+  it('display.displayName が "早瀬アゲハ" である', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(profile.display.displayName).toBe('早瀬アゲハ');
+  });
+
+  it('display.shortName が "アゲハ" である', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(profile.display.shortName).toBe('アゲハ');
+  });
+
+  it('render.renderer が "placeholder" である（Live2D モデル未用意）', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(profile.render.renderer).toBe('placeholder');
+  });
+
+  it('getCharacterRenderProfile("ageha") も placeholder を返す', () => {
+    const render = getCharacterRenderProfile('ageha');
+    expect(render.renderer).toBe('placeholder');
+  });
+
+  it('licenseText に AI 生成音声の明示が含まれる（OpenAI 利用規約上必須）', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(profile.licenseText).toContain('AI 生成音声');
+  });
+
+  it('description が設定されている', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(typeof profile.description).toBe('string');
+    expect(profile.description.length).toBeGreaterThan(0);
+  });
+
+  it('model.engine が "プレースホルダー" である', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(profile.model.engine).toBe('プレースホルダー');
+  });
+
+  it('voice.engine が "OpenAI TTS" である', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(profile.voice.engine).toBe('OpenAI TTS');
+  });
+
+  it('voice.name が "nova" である', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(profile.voice.name).toBe('nova');
   });
 });
 

@@ -24,6 +24,12 @@ export type {
 export const DEFAULT_CLIENT_CHARACTER_ID = 'hiyori';
 
 /**
+ * 早瀬アゲハ のライセンス・クレジット文字列。
+ * OpenAI TTS を使用するため AI 生成音声であることの明示は OpenAI 利用規約上必須。
+ */
+export const AGEHA_LICENSE_TEXT = '音声：OpenAI TTS による AI 生成音声（人間の音声ではありません）';
+
+/**
  * クライアントプロファイルのエラーメッセージ定数。
  */
 export const CHARACTER_PROFILE_ERROR_MESSAGES = {
@@ -53,6 +59,20 @@ const PROFILES: Record<string, CharacterClientProfile> = {
     description: '甘いものと猫が大好きな癒し系。のんびりおしゃべりして、ほっと一息つける女の子。',
     model: { engine: 'Live2D', name: '桃瀬ひより' },
     voice: { engine: 'VOICEVOX', name: '冥鳴ひまり' },
+  },
+  ageha: {
+    display: {
+      displayName: '早瀬アゲハ',
+      shortName: 'アゲハ',
+    },
+    render: {
+      renderer: 'placeholder',
+    },
+    licenseText: AGEHA_LICENSE_TEXT,
+    description:
+      'テンション高めで背中を押してくれる相棒ギャル。落ち込んでも隣でアゲてくれる、ノリのいい女の子。',
+    model: { engine: 'プレースホルダー', name: '仮アバター（シルエット）' },
+    voice: { engine: 'OpenAI TTS', name: 'nova' },
   },
 };
 

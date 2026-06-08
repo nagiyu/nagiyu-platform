@@ -45,6 +45,14 @@ describe('キャラクターレジストリ', () => {
       }
     });
 
+    it('"ageha" を指定すると定義と描画設定の両方を返す', () => {
+      const entry = getCharacterEntry('ageha');
+      expect(entry.definition.id).toBe('ageha');
+      expect(entry.definition.displayName).toBe('早瀬アゲハ');
+      // ageha は placeholder renderer を使用する
+      expect(entry.render.renderer).toBe('placeholder');
+    });
+
     it('未登録の characterId を指定すると日本語定数メッセージで Error をスローする', () => {
       expect(() => getCharacterEntry('unknown')).toThrow(
         CHARACTER_REGISTRY_ERROR_MESSAGES.UNKNOWN_CHARACTER
@@ -77,6 +85,18 @@ describe('キャラクターレジストリ', () => {
       expect(definition.license).toBeDefined();
     });
 
+    it('"ageha" を指定すると早瀬アゲハの CharacterDefinition を返す', () => {
+      const definition = getCharacterDefinition('ageha');
+      expect(definition.id).toBe('ageha');
+      expect(definition.displayName).toBe('早瀬アゲハ');
+      expect(definition.voiceConfig.provider).toBe('openai');
+      if (definition.voiceConfig.provider === 'openai') {
+        expect(definition.voiceConfig.voice).toBe('nova');
+      }
+      expect(definition.personality).toBeDefined();
+      expect(definition.license).toBeDefined();
+    });
+
     it('未登録の id を指定するとスローする', () => {
       expect(() => getCharacterDefinition('unknown')).toThrow(
         CHARACTER_REGISTRY_ERROR_MESSAGES.UNKNOWN_CHARACTER
@@ -87,6 +107,10 @@ describe('キャラクターレジストリ', () => {
   describe('hasCharacter', () => {
     it('"hiyori" は登録済みなので true を返す', () => {
       expect(hasCharacter('hiyori')).toBe(true);
+    });
+
+    it('"ageha" は登録済みなので true を返す', () => {
+      expect(hasCharacter('ageha')).toBe(true);
     });
 
     it('未登録の id は false を返す', () => {
