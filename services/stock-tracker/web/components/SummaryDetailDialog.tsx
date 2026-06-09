@@ -27,6 +27,7 @@ import StockChart from './StockChart';
 import type { PatternDetail, TickerSummary } from '@/types/stock';
 import type { AlertMode } from '@/types/alert';
 import { ERROR_MESSAGES } from '@/lib/error-messages';
+import { formatPredictedReturn, formatConfidence } from '@/lib/ai-analysis-format';
 
 interface SummaryDetailDialogProps {
   open: boolean;
@@ -414,6 +415,26 @@ export default function SummaryDetailDialog({
                           ]
                         }
                       </Chip>
+                      {typeof summary.aiAnalysisResult.investmentJudgment.predictedReturn === 'number' && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            予測リターン:
+                          </Typography>
+                          <Typography variant="body2" data-testid="predicted-return">
+                            {formatPredictedReturn(summary.aiAnalysisResult.investmentJudgment.predictedReturn)}
+                          </Typography>
+                        </Box>
+                      )}
+                      {typeof summary.aiAnalysisResult.investmentJudgment.confidence === 'number' && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            確信度:
+                          </Typography>
+                          <Typography variant="body2" data-testid="confidence">
+                            {formatConfidence(summary.aiAnalysisResult.investmentJudgment.confidence)}
+                          </Typography>
+                        </Box>
+                      )}
                       <AiAnalysisMarkdown
                         content={summary.aiAnalysisResult.investmentJudgment.reason}
                       />

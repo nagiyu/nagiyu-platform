@@ -25,6 +25,7 @@ const config: Config = {
   collectCoverageFrom: [
     'lib/repository-factory.ts',
     'lib/percentage-helper.ts',
+    'lib/ai-analysis-format.ts',
     'lib/prediction-evaluation/**/*.ts',
     'components/prediction-evaluation/**/*.tsx',
   ],
