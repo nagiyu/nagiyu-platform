@@ -76,7 +76,7 @@ const PROFILES: Record<string, CharacterClientProfile> = {
     description:
       'テンション高めで背中を押してくれる相棒ギャル。落ち込んでも隣でアゲてくれる、ノリのいい女の子。',
     model: { engine: '一枚絵', name: '早瀬アゲハ' },
-    voice: { engine: 'OpenAI TTS', name: 'shimmer' },
+    voice: { engine: 'OpenAI TTS', name: 'nova' },
   },
 };
 

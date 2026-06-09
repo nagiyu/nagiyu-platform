@@ -91,7 +91,7 @@ describe('キャラクターレジストリ', () => {
       expect(definition.displayName).toBe('早瀬アゲハ');
       expect(definition.voiceConfig.provider).toBe('openai');
       if (definition.voiceConfig.provider === 'openai') {
-        expect(definition.voiceConfig.voice).toBe('shimmer');
+        expect(definition.voiceConfig.voice).toBe('nova');
       }
       expect(definition.personality).toBeDefined();
       expect(definition.license).toBeDefined();
