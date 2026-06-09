@@ -16,3 +16,9 @@ export type { BuildNotificationMessageInput, NotificationMessage } from './messa
 
 export { detectCriticalKnowledge } from './escalation.js';
 export type { EscalationResult, DetectCriticalInput } from './escalation.js';
+
+export { selectNotificationsToSend } from './selection.js';
+export type {
+  SelectNotificationsInput,
+  SelectNotificationsResult,
+} from './selection.js';

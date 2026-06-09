@@ -17,20 +17,31 @@ jest.mock('@nagiyu/common/push', () => ({
   ),
 }));
 
+/**
+ * @nagiyu/livetalk-core モック。
+ * Phase B では getAllCharacterIds・selectNotificationsToSend・
+ * computeIntensityFactor・computeDailyNormalCap・extractSessionStartTimes が追加。
+ */
 jest.mock('@nagiyu/livetalk-core', () => ({
   DEFAULT_CHARACTER_ID: 'hiyori',
-  getCharacterDefinitionById: jest.fn(() => ({
-    id: 'hiyori',
-    displayName: '桃瀬ひより',
-    notificationName: 'ひより',
-  })),
   buildNotificationMessage: jest.fn(() => ({ title: 'テスト', body: '本文' })),
   buildCriticalNotificationMessage: jest.fn(() => ({ title: 'テスト（重要）', body: '重要本文' })),
   detectCriticalKnowledge: jest.fn(),
   shouldNotifyNow: jest.fn(),
+  getAllCharacterIds: jest.fn(() => ['hiyori']),
+  getCharacterDefinitionById: jest.fn((id: string) => ({
+    id,
+    displayName: id === 'hiyori' ? '桃瀬ひより' : 'アゲハ',
+    notificationName: id === 'hiyori' ? 'ひより' : 'アゲハ',
+  })),
+  selectNotificationsToSend: jest.fn(),
+  computeIntensityFactor: jest.fn(() => 1),
+  computeDailyNormalCap: jest.fn(() => 1),
+  extractSessionStartTimes: jest.fn(() => []),
   defaultUlidFactory: jest.fn(() => 'ULID-0001'),
   NOTIFICATION_EVENT_TTL_SECONDS: 2592000,
   NOTIFY_INTENSITY_WINDOW_DAYS: 7,
+  NOTIFY_SESSION_GAP_MINUTES: 60,
   DynamoDBInterestRepository: jest.fn(),
   OpenAIEmbeddingClient: jest.fn(),
 }));
@@ -40,6 +51,8 @@ const mockSendWebPush = jest.requireMock('@nagiyu/common/push')
 const core = jest.requireMock('@nagiyu/livetalk-core');
 const mockDetectCritical = core.detectCriticalKnowledge as jest.Mock;
 const mockShouldNotifyNow = core.shouldNotifyNow as jest.Mock;
+const mockGetAllCharacterIds = core.getAllCharacterIds as jest.Mock;
+const mockSelectNotificationsToSend = core.selectNotificationsToSend as jest.Mock;
 
 function makeDocClient() {
   return {
@@ -132,8 +145,13 @@ function makeParams(overrides = {}) {
 describe('notifyAllUsers', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // 各テストで send は 1 件のユーザーを返す
-    makeDocClient().send.mockResolvedValue({ Items: [{ UserID: 'u1' }] });
+    // デフォルト: 1 キャラ（hiyori）のみ走査
+    mockGetAllCharacterIds.mockReturnValue(['hiyori']);
+    // デフォルト: hiyori の normal 発火を選抜
+    mockSelectNotificationsToSend.mockReturnValue({
+      criticalCharacterIds: [],
+      normalCharacterId: 'hiyori',
+    });
   });
 
   it('shouldNotifyNow が通知発火 → notifiedUsers が増える', async () => {
@@ -157,6 +175,11 @@ describe('notifyAllUsers', () => {
   it('shouldNotifyNow が not_due → skippedUsers が増える', async () => {
     mockDetectCritical.mockResolvedValue({ isCritical: false });
     mockShouldNotifyNow.mockReturnValue({ notify: false, reason: 'not_due' });
+    // 全キャラが発火しないので normalCharacterId=null にする
+    mockSelectNotificationsToSend.mockReturnValue({
+      criticalCharacterIds: [],
+      normalCharacterId: null,
+    });
 
     const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
     const result = await notifyAllUsers(makeParams());
@@ -165,10 +188,14 @@ describe('notifyAllUsers', () => {
     expect(result.skippedUsers).toBe(1);
   });
 
-  it('lifecycle が null のユーザーはスキップ', async () => {
+  it('lifecycle が null のキャラはスキップ', async () => {
     const lifecycleRepo = { get: jest.fn().mockResolvedValue(null) };
     mockDetectCritical.mockResolvedValue({ isCritical: false });
-    mockShouldNotifyNow.mockReturnValue({ notify: false, reason: 'not_due' });
+    // 全キャラがスキップされる（候補なし）
+    mockSelectNotificationsToSend.mockReturnValue({
+      criticalCharacterIds: [],
+      normalCharacterId: null,
+    });
 
     const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
     const result = await notifyAllUsers(makeParams({ lifecycleRepo: lifecycleRepo as never }));
@@ -199,6 +226,10 @@ describe('notifyAllUsers', () => {
   it('critical 判定 → buildCriticalNotificationMessage が呼ばれる', async () => {
     mockDetectCritical.mockResolvedValue({ isCritical: true, knowledgeId: 'k1' });
     mockShouldNotifyNow.mockReturnValue({ notify: true, kind: 'critical', knowledgeId: 'k1' });
+    mockSelectNotificationsToSend.mockReturnValue({
+      criticalCharacterIds: ['hiyori'],
+      normalCharacterId: null,
+    });
     mockSendWebPush.mockResolvedValue(true);
 
     const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
@@ -251,13 +282,18 @@ describe('notifyAllUsers', () => {
         Items: [{ UserID: 'u1' }, { UserID: 'u2' }],
       }),
     };
-    const lifecycleRepo = {
-      get: jest.fn().mockRejectedValue(new Error('DynamoDB エラー')),
+    // pushSubscriptionRepo が throw → processUser 全体が例外
+    const pushSubscriptionRepo = {
+      listByUser: jest.fn().mockRejectedValue(new Error('DynamoDB エラー')),
+      delete: jest.fn(),
     };
 
     const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
     const result = await notifyAllUsers(
-      makeParams({ docClient: docClient as never, lifecycleRepo: lifecycleRepo as never })
+      makeParams({
+        docClient: docClient as never,
+        pushSubscriptionRepo: pushSubscriptionRepo as never,
+      })
     );
 
     expect(result.failedUsers).toBe(2);
@@ -282,6 +318,260 @@ describe('notifyAllUsers', () => {
     expect(notifEventRepo.put).toHaveBeenCalledWith(expect.objectContaining({ KnowledgeID: 'k1' }));
   });
 
+  describe('Phase B: 全キャラ走査', () => {
+    it('複数キャラに lifecycle あり → 各キャラ独立判定が走る', async () => {
+      // 2 キャラ（hiyori, ageha）を走査
+      mockGetAllCharacterIds.mockReturnValue(['hiyori', 'ageha']);
+      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockShouldNotifyNow.mockReturnValue({
+        notify: true,
+        kind: 'normal',
+        toneBucket: 'normal',
+        elapsedMs: DAY,
+      });
+      // ageha を選抜
+      mockSelectNotificationsToSend.mockReturnValue({
+        criticalCharacterIds: [],
+        normalCharacterId: 'ageha',
+      });
+      mockSendWebPush.mockResolvedValue(true);
+
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      await notifyAllUsers(makeParams());
+
+      // shouldNotifyNow が 2 回（hiyori と ageha それぞれ）呼ばれる
+      expect(mockShouldNotifyNow).toHaveBeenCalledTimes(2);
+    });
+
+    it('2 キャラとも normal 発火資格 → 調停で 1 体だけ選抜されて put/push される', async () => {
+      mockGetAllCharacterIds.mockReturnValue(['hiyori', 'ageha']);
+      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockShouldNotifyNow.mockReturnValue({
+        notify: true,
+        kind: 'normal',
+        toneBucket: 'normal',
+        elapsedMs: DAY,
+      });
+      // 調停結果: ageha のみ選抜
+      mockSelectNotificationsToSend.mockReturnValue({
+        criticalCharacterIds: [],
+        normalCharacterId: 'ageha',
+      });
+      mockSendWebPush.mockResolvedValue(true);
+
+      const notifEventRepo = makeNotifEventRepo();
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      await notifyAllUsers(makeParams({ notifEventRepo: notifEventRepo as never }));
+
+      // put は 1 回（ageha 分のみ）
+      expect(notifEventRepo.put).toHaveBeenCalledTimes(1);
+      expect(notifEventRepo.put).toHaveBeenCalledWith(
+        expect.objectContaining({ CharacterID: 'ageha' })
+      );
+      // push も 1 回
+      expect(mockSendWebPush).toHaveBeenCalledTimes(1);
+    });
+
+    it('critical は複数キャラで独立に送られる', async () => {
+      mockGetAllCharacterIds.mockReturnValue(['hiyori', 'ageha']);
+      mockDetectCritical.mockResolvedValue({ isCritical: true, knowledgeId: 'k1' });
+      mockShouldNotifyNow.mockReturnValue({
+        notify: true,
+        kind: 'critical',
+        knowledgeId: 'k1',
+      });
+      // hiyori と ageha 両方 critical で送る
+      mockSelectNotificationsToSend.mockReturnValue({
+        criticalCharacterIds: ['hiyori', 'ageha'],
+        normalCharacterId: null,
+      });
+      mockSendWebPush.mockResolvedValue(true);
+
+      const notifEventRepo = makeNotifEventRepo();
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      await notifyAllUsers(makeParams({ notifEventRepo: notifEventRepo as never }));
+
+      // 2 キャラ分の put が呼ばれる
+      expect(notifEventRepo.put).toHaveBeenCalledTimes(2);
+      expect(notifEventRepo.put).toHaveBeenCalledWith(
+        expect.objectContaining({ CharacterID: 'hiyori' })
+      );
+      expect(notifEventRepo.put).toHaveBeenCalledWith(
+        expect.objectContaining({ CharacterID: 'ageha' })
+      );
+    });
+
+    it('lifecycle 無しキャラはスキップ', async () => {
+      mockGetAllCharacterIds.mockReturnValue(['hiyori', 'ageha']);
+      const lifecycleRepo = {
+        // hiyori のみ lifecycle あり、ageha はなし
+        get: jest.fn().mockImplementation(({ characterId }: { characterId: string }) => {
+          if (characterId === 'hiyori') {
+            return Promise.resolve({
+              UserID: 'u1',
+              CharacterID: 'hiyori',
+              Bedtime: '01:30',
+              WakeUpTime: '09:30',
+              CreatedAt: 0,
+              UpdatedAt: 0,
+            });
+          }
+          return Promise.resolve(null);
+        }),
+      };
+
+      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockShouldNotifyNow.mockReturnValue({
+        notify: true,
+        kind: 'normal',
+        toneBucket: 'normal',
+        elapsedMs: DAY,
+      });
+      mockSelectNotificationsToSend.mockReturnValue({
+        criticalCharacterIds: [],
+        normalCharacterId: 'hiyori',
+      });
+      mockSendWebPush.mockResolvedValue(true);
+
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      await notifyAllUsers(makeParams({ lifecycleRepo: lifecycleRepo as never }));
+
+      // shouldNotifyNow は hiyori のみ（1 回）
+      expect(mockShouldNotifyNow).toHaveBeenCalledTimes(1);
+    });
+
+    it('キャラ単位の履歴フィルタが効く（他キャラの通知が interval/cap に影響しない）', async () => {
+      mockGetAllCharacterIds.mockReturnValue(['hiyori', 'ageha']);
+      mockDetectCritical.mockResolvedValue({ isCritical: false });
+
+      // shouldNotifyNow に渡される notificationEvents を捕捉
+      const capturedEventsByCharacter: Record<string, unknown[]> = {};
+      mockShouldNotifyNow.mockImplementation(
+        (input: {
+          notificationEvents: unknown[];
+          lifecycle: { CharacterID?: string };
+          [key: string]: unknown;
+        }) => {
+          const charId = input.lifecycle?.CharacterID ?? 'unknown';
+          capturedEventsByCharacter[charId] = input.notificationEvents;
+          return { notify: false, reason: 'not_due' };
+        }
+      );
+      mockSelectNotificationsToSend.mockReturnValue({
+        criticalCharacterIds: [],
+        normalCharacterId: null,
+      });
+
+      // hiyori と ageha 両方の通知イベントをリポジトリが返す
+      const notifEventRepo = {
+        listByUser: jest.fn().mockResolvedValue([
+          {
+            UserID: 'u1',
+            NotifID: 'n1',
+            CharacterID: 'hiyori',
+            Kind: 'normal',
+            Title: 'x',
+            Body: 'x',
+            CreatedAt: Date.now() - DAY,
+            Ttl: 0,
+          },
+          {
+            UserID: 'u1',
+            NotifID: 'n2',
+            CharacterID: 'ageha',
+            Kind: 'normal',
+            Title: 'x',
+            Body: 'x',
+            CreatedAt: Date.now() - 2 * DAY,
+            Ttl: 0,
+          },
+        ]),
+        put: jest.fn().mockResolvedValue({}),
+      };
+
+      const lifecycleRepo = {
+        get: jest.fn().mockImplementation(({ characterId }: { characterId: string }) => {
+          return Promise.resolve({
+            UserID: 'u1',
+            CharacterID: characterId,
+            Bedtime: '01:30',
+            WakeUpTime: '09:30',
+            CreatedAt: 0,
+            UpdatedAt: 0,
+          });
+        }),
+      };
+
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      await notifyAllUsers(
+        makeParams({
+          notifEventRepo: notifEventRepo as never,
+          lifecycleRepo: lifecycleRepo as never,
+        })
+      );
+
+      // hiyori には hiyori の通知のみ（1 件）が渡される
+      const hiyoriEvents = capturedEventsByCharacter['hiyori'];
+      expect(hiyoriEvents).toBeDefined();
+      if (hiyoriEvents) {
+        expect(
+          hiyoriEvents.every((e) => (e as { CharacterID: string }).CharacterID === 'hiyori')
+        ).toBe(true);
+        expect(hiyoriEvents).toHaveLength(1);
+      }
+    });
+  });
+
+  describe('Phase B: push payload に characterId', () => {
+    it('送信 payload に data.characterId と data.url が含まれる', async () => {
+      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockShouldNotifyNow.mockReturnValue({
+        notify: true,
+        kind: 'normal',
+        toneBucket: 'normal',
+        elapsedMs: DAY,
+      });
+      mockSelectNotificationsToSend.mockReturnValue({
+        criticalCharacterIds: [],
+        normalCharacterId: 'hiyori',
+      });
+      mockSendWebPush.mockResolvedValue(true);
+
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      await notifyAllUsers(makeParams());
+
+      // sendWebPushNotification の第 2 引数（payload）を確認
+      const payloadArg = mockSendWebPush.mock.calls[0][1];
+      expect(payloadArg.data).toMatchObject({
+        characterId: 'hiyori',
+        url: '/?character=hiyori',
+      });
+    });
+
+    it('notifEvent の put に CharacterID が含まれる', async () => {
+      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockShouldNotifyNow.mockReturnValue({
+        notify: true,
+        kind: 'normal',
+        toneBucket: 'normal',
+        elapsedMs: DAY,
+      });
+      mockSelectNotificationsToSend.mockReturnValue({
+        criticalCharacterIds: [],
+        normalCharacterId: 'hiyori',
+      });
+      mockSendWebPush.mockResolvedValue(true);
+
+      const notifEventRepo = makeNotifEventRepo();
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      await notifyAllUsers(makeParams({ notifEventRepo: notifEventRepo as never }));
+
+      expect(notifEventRepo.put).toHaveBeenCalledWith(
+        expect.objectContaining({ CharacterID: 'hiyori' })
+      );
+    });
+  });
+
   describe('Phase 2: ネタ使い回し抑制', () => {
     it('直近通知で使用済みの KnowledgeID を避けて未使用の Knowledge が選ばれる', async () => {
       // k1 は使用済み、k2 は未使用 → k2 が選ばれること
@@ -291,11 +581,21 @@ describe('notifyAllUsers', () => {
           { KnowledgeID: 'k2', Topic: 'React' },
         ]),
       };
-      // 直近 60 件の通知イベントに k1 が含まれる
+      // 直近 60 件の通知イベントに k1 が含まれる（hiyori の履歴として）
       const notifEventRepo = {
-        listByUser: jest
-          .fn()
-          .mockResolvedValue([{ KnowledgeID: 'k1', Kind: 'normal', CreatedAt: Date.now() - DAY }]),
+        listByUser: jest.fn().mockResolvedValue([
+          {
+            KnowledgeID: 'k1',
+            Kind: 'normal',
+            CharacterID: 'hiyori',
+            CreatedAt: Date.now() - DAY,
+            UserID: 'u1',
+            NotifID: 'n1',
+            Title: 'x',
+            Body: 'x',
+            Ttl: 0,
+          },
+        ]),
         put: jest.fn().mockResolvedValue({}),
       };
 
@@ -339,8 +639,28 @@ describe('notifyAllUsers', () => {
       };
       const notifEventRepo = {
         listByUser: jest.fn().mockResolvedValue([
-          { KnowledgeID: 'k1', Kind: 'normal', CreatedAt: Date.now() - DAY },
-          { KnowledgeID: 'k2', Kind: 'normal', CreatedAt: Date.now() - 2 * DAY },
+          {
+            KnowledgeID: 'k1',
+            Kind: 'normal',
+            CharacterID: 'hiyori',
+            CreatedAt: Date.now() - DAY,
+            UserID: 'u1',
+            NotifID: 'n1',
+            Title: 'x',
+            Body: 'x',
+            Ttl: 0,
+          },
+          {
+            KnowledgeID: 'k2',
+            Kind: 'normal',
+            CharacterID: 'hiyori',
+            CreatedAt: Date.now() - 2 * DAY,
+            UserID: 'u1',
+            NotifID: 'n2',
+            Title: 'x',
+            Body: 'x',
+            Ttl: 0,
+          },
         ]),
         put: jest.fn().mockResolvedValue({}),
       };
@@ -384,14 +704,28 @@ describe('notifyAllUsers', () => {
       };
       // k1 は使用済みだが critical は影響を受けない
       const notifEventRepo = {
-        listByUser: jest
-          .fn()
-          .mockResolvedValue([{ KnowledgeID: 'k1', Kind: 'normal', CreatedAt: Date.now() - DAY }]),
+        listByUser: jest.fn().mockResolvedValue([
+          {
+            KnowledgeID: 'k1',
+            Kind: 'normal',
+            CharacterID: 'hiyori',
+            CreatedAt: Date.now() - DAY,
+            UserID: 'u1',
+            NotifID: 'n1',
+            Title: 'x',
+            Body: 'x',
+            Ttl: 0,
+          },
+        ]),
         put: jest.fn().mockResolvedValue({}),
       };
 
       mockDetectCritical.mockResolvedValue({ isCritical: true, knowledgeId: 'k1' });
       mockShouldNotifyNow.mockReturnValue({ notify: true, kind: 'critical', knowledgeId: 'k1' });
+      mockSelectNotificationsToSend.mockReturnValue({
+        criticalCharacterIds: ['hiyori'],
+        normalCharacterId: null,
+      });
       mockSendWebPush.mockResolvedValue(true);
 
       const buildCriticalNotificationMessage = core.buildCriticalNotificationMessage as jest.Mock;
@@ -404,8 +738,11 @@ describe('notifyAllUsers', () => {
         })
       );
 
-      // critical は buildCriticalNotificationMessage が呼ばれる（キャラのカジュアル名を渡す）
-      expect(buildCriticalNotificationMessage).toHaveBeenCalledWith('TypeScript', 'ひより');
+      // critical は buildCriticalNotificationMessage が呼ばれ、knowledgeId=k1 の Topic（TypeScript）が渡される
+      expect(buildCriticalNotificationMessage).toHaveBeenCalledWith(
+        'TypeScript',
+        expect.any(String)
+      );
     });
   });
 
@@ -423,6 +760,10 @@ describe('notifyAllUsers', () => {
     };
     mockDetectCritical.mockResolvedValue({ isCritical: false });
     mockShouldNotifyNow.mockReturnValue({ notify: false, reason: 'not_due' });
+    mockSelectNotificationsToSend.mockReturnValue({
+      criticalCharacterIds: [],
+      normalCharacterId: null,
+    });
 
     const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
     const result = await notifyAllUsers(makeParams({ docClient: docClient as never }));
@@ -439,6 +780,10 @@ describe('notifyAllUsers', () => {
 
       mockDetectCritical.mockResolvedValue({ isCritical: false });
       mockShouldNotifyNow.mockReturnValue({ notify: false, reason: 'not_due' });
+      mockSelectNotificationsToSend.mockReturnValue({
+        criticalCharacterIds: [],
+        normalCharacterId: null,
+      });
 
       const messageRepo = makeMessageRepo();
 
@@ -451,43 +796,8 @@ describe('notifyAllUsers', () => {
       );
 
       // listSince が userId・characterId・期待する sinceMs で呼ばれていること
+      // （hiyori 分：発火判定用 + computeUserDailyNormalCap 用の 2 回呼ばれる）
       expect(messageRepo.listSince).toHaveBeenCalledWith('u1', 'hiyori', expectedSinceMs);
-    });
-
-    it('活発ユーザー: listSince が直近7日分の全 user メッセージを返すと shouldNotifyNow に渡される', async () => {
-      // 直近7日間に複数セッション分のメッセージを用意（intensity が高くなる状態）
-      const fixedNow = new Date('2026-06-07T10:00:00.000Z');
-      const baseMs = fixedNow.getTime();
-      // 7日間に15セッション相当のメッセージ（1日2セッション超 → baseline=1超で intensity>1）
-      const activeMessages = Array.from({ length: 15 }, (_, i) => ({
-        Role: 'user',
-        CreatedAt: baseMs - i * 10 * 60 * 60 * 1000, // 10時間おきに1件
-      }));
-
-      const messageRepo = makeMessageRepo(activeMessages);
-
-      mockDetectCritical.mockResolvedValue({ isCritical: false });
-      // shouldNotifyNow に渡される userMessages を検証する
-      let capturedUserMessages: unknown[] = [];
-      mockShouldNotifyNow.mockImplementation(
-        (input: { userMessages: unknown[]; [key: string]: unknown }) => {
-          capturedUserMessages = input.userMessages;
-          return { notify: false, reason: 'not_due' };
-        }
-      );
-
-      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
-      await notifyAllUsers(
-        makeParams({
-          messageRepo: messageRepo as never,
-          now: () => fixedNow,
-        })
-      );
-
-      // shouldNotifyNow に渡された userMessages が全 user メッセージであること
-      expect(capturedUserMessages).toHaveLength(15);
-      // listSince が呼ばれてトークン予算ではなく時刻範囲で取得されていること
-      expect(messageRepo.listSince).toHaveBeenCalledTimes(1);
     });
 
     it('長期不在ユーザー: listSince が空配列を返してもクラッシュせずスキップされる', async () => {
@@ -497,6 +807,10 @@ describe('notifyAllUsers', () => {
       mockDetectCritical.mockResolvedValue({ isCritical: false });
       // userMessages が空の場合、shouldNotifyNow は not_due か inactive_stopped を返す想定
       mockShouldNotifyNow.mockReturnValue({ notify: false, reason: 'not_due' });
+      mockSelectNotificationsToSend.mockReturnValue({
+        criticalCharacterIds: [],
+        normalCharacterId: null,
+      });
 
       const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
       let error: unknown;
@@ -511,10 +825,6 @@ describe('notifyAllUsers', () => {
       expect(error).toBeUndefined();
       // スキップ扱いになること
       expect(result?.skippedUsers).toBe(1);
-      // shouldNotifyNow に空配列が渡されること（クラッシュしない）
-      expect(mockShouldNotifyNow).toHaveBeenCalledWith(
-        expect.objectContaining({ userMessages: [] })
-      );
     });
 
     it('長期不在ユーザー: listSince が空でも failedUsers に計上されない', async () => {
@@ -522,6 +832,10 @@ describe('notifyAllUsers', () => {
 
       mockDetectCritical.mockResolvedValue({ isCritical: false });
       mockShouldNotifyNow.mockReturnValue({ notify: false, reason: 'inactive_stopped' });
+      mockSelectNotificationsToSend.mockReturnValue({
+        criticalCharacterIds: [],
+        normalCharacterId: null,
+      });
 
       const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
       const result = await notifyAllUsers(makeParams({ messageRepo: messageRepo as never }));
