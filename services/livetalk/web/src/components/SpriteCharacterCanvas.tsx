@@ -44,12 +44,13 @@ export interface SpriteCharacterCanvasProps {
  * renderer:'sprite' キャラクター向けに、5 枚の透過 PNG（ベース・開いた目・閉じた目・
  * 開いた口・閉じた口）を絶対配置で重ね合わせて描画する。
  *
- * 瞬き: ランダム間隔（3000〜6000ms）で約 100ms だけ eyeClosed レイヤーを opacity 1（閉じ）
+ * 瞬き: ランダム間隔（3000〜6000ms）で約 180ms だけ eyeClosed レイヤーを opacity 1（閉じ）
  * にする二値スナップ。パッと閉じてパッと開く。発話有無に関わらず常時駆動。
  *
  * 口パク: audioBuffer + audioContext が揃ったら Web Audio API（AudioBufferSourceNode +
  * AnalyserNode）で再生し、AnalyserNode の全周波数ビン平均を 0〜1 に正規化して、
- * しきい値（ヒステリシス付き）で mouthOpen レイヤーを開閉二値（opacity 0/1）で駆動する。
+ * しきい値（ヒステリシス付き）で mouthOpen / mouthClosed レイヤーを排他で開閉二値
+ * （opacity 0/1）切替する。開いている間は閉じた口を隠し、下から透けないようにする。
  *
  * iOS Safari 対策として HTMLAudio は使わず Web Audio のみ。
  * AudioContext は親が resume 済みの前提（PlaceholderCanvas / Live2DCanvas と同じ）。
@@ -66,8 +67,9 @@ export default function SpriteCharacterCanvas({
 }: SpriteCharacterCanvasProps) {
   // eyeClosed レイヤーの div（opacity を直接操作する）
   const eyeClosedRef = useRef<HTMLDivElement | null>(null);
-  // mouthOpen レイヤーの div（opacity を直接操作する）
+  // mouthOpen / mouthClosed レイヤーの div（opacity を直接操作し、開/閉を排他切替する）
   const mouthOpenRef = useRef<HTMLDivElement | null>(null);
+  const mouthClosedRef = useRef<HTMLDivElement | null>(null);
   // 瞬き用 rAF キャンセル ID
   const blinkRafIdRef = useRef<number | null>(null);
   // 口パク用 rAF キャンセル ID
@@ -86,7 +88,8 @@ export default function SpriteCharacterCanvas({
   // ぬるっとした三角波フェードではなく、パッと閉じてパッと開く二値（0/1）スナップにする。
   useEffect(() => {
     // 瞬きの設定値。BLINK_CLOSED_MS の間だけ目を完全に閉じる（dev 実機で調整可）。
-    const BLINK_CLOSED_MS = 100;
+    // 一瞬すぎて分かりにくかったため、閉じている時間をやや長め（180ms）にする。
+    const BLINK_CLOSED_MS = 180;
     const BLINK_INTERVAL_MIN_MS = 3000;
     const BLINK_INTERVAL_RANGE_MS = 3000;
 
@@ -138,11 +141,12 @@ export default function SpriteCharacterCanvas({
       source.buffer = audioBuffer;
 
       analyser = audioContext.createAnalyser();
-      // fftSize・各種 dB 設定は PlaceholderCanvas / Live2DCanvas と合わせる
+      // fftSize・dB 範囲は PlaceholderCanvas / Live2DCanvas と合わせる。
+      // smoothingTimeConstant は開閉の追従を素早くするため低め（0.5）にする。
       analyser.fftSize = 256;
       analyser.minDecibels = -90;
       analyser.maxDecibels = -10;
-      analyser.smoothingTimeConstant = 0.85;
+      analyser.smoothingTimeConstant = 0.5;
 
       source.connect(analyser);
       analyser.connect(audioContext.destination);
@@ -173,21 +177,28 @@ export default function SpriteCharacterCanvas({
           mouthIsOpen = false;
         }
 
+        // 開/閉を排他で切り替える（開いている間は閉じた口を隠して下から透けないようにする）
         if (mouthOpenRef.current) {
           mouthOpenRef.current.style.opacity = mouthIsOpen ? '1' : '0';
+        }
+        if (mouthClosedRef.current) {
+          mouthClosedRef.current.style.opacity = mouthIsOpen ? '0' : '1';
         }
       };
       animateLipsync();
 
       source.onended = () => {
         if (cancelled) return;
-        // rAF を止めて口を閉じた状態に戻す
+        // rAF を止めて口を閉じた状態に戻す（開いた口を隠し、閉じた口を表示する）
         if (lipsyncRafIdRef.current !== null) {
           cancelAnimationFrame(lipsyncRafIdRef.current);
           lipsyncRafIdRef.current = null;
         }
         if (mouthOpenRef.current) {
           mouthOpenRef.current.style.opacity = '0';
+        }
+        if (mouthClosedRef.current) {
+          mouthClosedRef.current.style.opacity = '1';
         }
         onPlaybackEndRef.current?.();
       };
@@ -285,17 +296,19 @@ export default function SpriteCharacterCanvas({
             />
           </Box>
 
-          {/* 閉じた口: 常時表示（opacity 固定 1）のベース口 */}
-          <Image
-            src={spritePaths.mouthClosed}
-            alt=""
-            fill
-            unoptimized
-            style={{ objectFit: 'contain' }}
-            data-testid="sprite-mouth-closed"
-          />
+          {/* 閉じた口: 待機時に表示。発話で口が開いている間は opacity 0 にして下から透けないようにする */}
+          <Box ref={mouthClosedRef} sx={{ position: 'absolute', inset: 0, opacity: 1 }}>
+            <Image
+              src={spritePaths.mouthClosed}
+              alt=""
+              fill
+              unoptimized
+              style={{ objectFit: 'contain' }}
+              data-testid="sprite-mouth-closed"
+            />
+          </Box>
 
-          {/* 開いた口: 発話時に音量連動で opacity を上げる。div でラップして ref を持たせる */}
+          {/* 開いた口: 発話時に表示。閉じた口と排他で切り替える。div でラップして ref を持たせる */}
           <Box ref={mouthOpenRef} sx={{ position: 'absolute', inset: 0, opacity: 0 }}>
             <Image
               src={spritePaths.mouthOpen}
