@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Box, Container, Typography } from '@mui/material';
 import type { Tier } from '@nagiyu/livetalk-core';
 import MemoryTierTabs from '@/components/MemoryTierTabs';
@@ -8,7 +8,7 @@ import MemoryList from '@/components/MemoryList';
 import MemoryDeleteDialog from '@/components/MemoryDeleteDialog';
 import type { MemoryListItem } from '@/lib/memory/types';
 import { deleteMemory, fetchMemories, pinMemory } from '@/lib/memory/api-client';
-import { MEMORY_PAGE_GUIDANCE } from '@/lib/memory/messages';
+import { getMemoryPageGuidance } from '@/lib/memory/messages';
 import { useCharacter } from '@/lib/characters/CharacterContext';
 
 /**
@@ -28,18 +28,24 @@ export default function MemoryPage() {
   const [deleting, setDeleting] = useState<MemoryListItem | null>(null);
   const [deletePending, setDeletePending] = useState(false);
 
+  // レースコンディション対策: 最新リクエストのみ state を更新する
+  const reqIdRef = useRef(0);
+
   const load = useCallback(
     async (target: Tier) => {
+      const reqId = ++reqIdRef.current;
       setLoading(true);
       setError(null);
       try {
         const items = await fetchMemories(target, characterId);
+        if (reqId !== reqIdRef.current) return; // 古いリクエストは破棄
         setMemories(items);
       } catch (e) {
+        if (reqId !== reqIdRef.current) return; // 古いリクエストは破棄
         setError(e instanceof Error ? e.message : '記憶の取得に失敗しました');
         setMemories([]);
       } finally {
-        setLoading(false);
+        if (reqId === reqIdRef.current) setLoading(false);
       }
     },
     [characterId]
@@ -83,7 +89,7 @@ export default function MemoryPage() {
         私が覚えていること
       </Typography>
       <Alert severity="info" icon={false} sx={{ mb: 2, fontSize: '0.875rem', py: 0.5 }}>
-        {MEMORY_PAGE_GUIDANCE}
+        {getMemoryPageGuidance(characterId)}
       </Alert>
 
       <MemoryTierTabs value={tier} onChange={setTier} />
@@ -107,6 +113,7 @@ export default function MemoryPage() {
         loading={deletePending}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleting(null)}
+        characterId={characterId}
       />
     </Container>
   );
