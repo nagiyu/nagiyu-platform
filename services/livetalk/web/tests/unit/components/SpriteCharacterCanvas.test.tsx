@@ -306,7 +306,7 @@ describe('SpriteCharacterCanvas', () => {
       expect(mockAnalyser.fftSize).toBe(256);
       expect(mockAnalyser.minDecibels).toBe(-90);
       expect(mockAnalyser.maxDecibels).toBe(-10);
-      expect(mockAnalyser.smoothingTimeConstant).toBe(0.85);
+      expect(mockAnalyser.smoothingTimeConstant).toBe(0.5);
     });
 
     it('rAF 一巡で getByteFrequencyData が呼ばれ mouthOpen の opacity が更新される', () => {
@@ -362,19 +362,23 @@ describe('SpriteCharacterCanvas', () => {
         />
       );
 
-      // mouthOpen の Image をラップする div（ref 対象）の inline opacity を確認する
+      // 開いた口 / 閉じた口の Image をラップする div（ref 対象）の inline opacity を確認する
       const mouthOpenWrapper = screen.getByTestId('sprite-mouth-open').parentElement as HTMLElement;
+      const mouthClosedWrapper = screen.getByTestId('sprite-mouth-closed')
+        .parentElement as HTMLElement;
 
-      // 大音量の rAF 一巡で口が開く（opacity 1）
+      // 大音量の rAF 一巡で口が開く（開=1 / 閉=0 の排他）
       flushRaf(0);
       expect(mouthOpenWrapper.style.opacity).toBe('1');
+      expect(mouthClosedWrapper.style.opacity).toBe('0');
 
-      // 無音（閉じる閾値未満）の rAF 一巡で口が閉じる（opacity 0）
+      // 無音（閉じる閾値未満）の rAF 一巡で口が閉じる（開=0 / 閉=1 の排他）
       mockGetByteFrequencyData.mockImplementation((arr: Uint8Array) => {
         arr.fill(0);
       });
       flushRaf(0);
       expect(mouthOpenWrapper.style.opacity).toBe('0');
+      expect(mouthClosedWrapper.style.opacity).toBe('1');
     });
 
     it('onPlaybackError が指定されている場合、例外時に呼ばれる', () => {
