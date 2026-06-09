@@ -153,6 +153,46 @@ describe('POST /api/jobs/[jobId]/download', () => {
     expect(lambdaSend).toHaveBeenCalledTimes(1);
   });
 
+  it('正常系: Lambda 呼び出し payload が { jobId, clips: [{ highlightId, order, startSec, endSec }] } 形式になる', async () => {
+    mockGetByJobId.mockResolvedValue([
+      {
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        status: 'accepted',
+        clipStatus: 'GENERATED',
+      },
+      {
+        highlightId: 'h2',
+        jobId: 'job-1',
+        order: 2,
+        startSec: 30,
+        endSec: 40,
+        status: 'accepted',
+        clipStatus: 'FAILED',
+      },
+    ]);
+
+    await POST(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+
+    expect(lambdaSend).toHaveBeenCalledTimes(1);
+    const invokeCommand = lambdaSend.mock.calls[0][0] as {
+      input: { Payload: Buffer };
+    };
+    const payload = JSON.parse(invokeCommand.input.Payload.toString()) as unknown;
+    expect(payload).toEqual({
+      jobId: 'job-1',
+      clips: [
+        { highlightId: 'h1', order: 1, startSec: 10, endSec: 20 },
+        { highlightId: 'h2', order: 2, startSec: 30, endSec: 40 },
+      ],
+    });
+  });
+
   it('正常系: Lambda 呼び出し前に旧 ZIP を S3 から削除する', async () => {
     mockGetByJobId.mockResolvedValue([
       {
