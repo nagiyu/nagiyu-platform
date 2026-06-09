@@ -44,12 +44,12 @@ export interface SpriteCharacterCanvasProps {
  * renderer:'sprite' キャラクター向けに、5 枚の透過 PNG（ベース・開いた目・閉じた目・
  * 開いた口・閉じた口）を絶対配置で重ね合わせて描画する。
  *
- * 瞬き: ランダム間隔（3000〜6000ms）で約 140ms かけて eyeClosed レイヤーの opacity を
- * 0 → 1 → 0 と変化させる三角波アニメーション。発話有無に関わらず常時駆動。
+ * 瞬き: ランダム間隔（3000〜6000ms）で約 100ms だけ eyeClosed レイヤーを opacity 1（閉じ）
+ * にする二値スナップ。パッと閉じてパッと開く。発話有無に関わらず常時駆動。
  *
  * 口パク: audioBuffer + audioContext が揃ったら Web Audio API（AudioBufferSourceNode +
- * AnalyserNode）で再生し、AnalyserNode の全周波数ビン平均を 0〜1 に正規化して
- * mouthOpen レイヤーの opacity を毎フレーム駆動する。
+ * AnalyserNode）で再生し、AnalyserNode の全周波数ビン平均を 0〜1 に正規化して、
+ * しきい値（ヒステリシス付き）で mouthOpen レイヤーを開閉二値（opacity 0/1）で駆動する。
  *
  * iOS Safari 対策として HTMLAudio は使わず Web Audio のみ。
  * AudioContext は親が resume 済みの前提（PlaceholderCanvas / Live2DCanvas と同じ）。
@@ -83,10 +83,10 @@ export default function SpriteCharacterCanvas({
   }, [onPlaybackEnd, onPlaybackError]);
 
   // 瞬きアニメーション（常時駆動）。
-  // Live2DCanvas の computeEyeOpen と同じ三角波ロジックを使用する。
+  // ぬるっとした三角波フェードではなく、パッと閉じてパッと開く二値（0/1）スナップにする。
   useEffect(() => {
-    // 瞬きの設定値（Live2DCanvas と同じ値）
-    const BLINK_DURATION_MS = 140;
+    // 瞬きの設定値。BLINK_CLOSED_MS の間だけ目を完全に閉じる（dev 実機で調整可）。
+    const BLINK_CLOSED_MS = 100;
     const BLINK_INTERVAL_MIN_MS = 3000;
     const BLINK_INTERVAL_RANGE_MS = 3000;
 
@@ -95,28 +95,23 @@ export default function SpriteCharacterCanvas({
       performance.now() + BLINK_INTERVAL_MIN_MS + Math.random() * BLINK_INTERVAL_RANGE_MS;
 
     /**
-     * 三角波で瞬きの閉じ具合（0〜1）を計算する。
-     * 瞬き窓外は 0（開いた状態）、窓内の half で最も閉じる（1）。
+     * 瞬きの閉じ状態（0=開き / 1=閉じ）を二値で計算する。
+     * nextBlinkAt に達したら瞬きを開始し、BLINK_CLOSED_MS の間だけ 1（閉じ）を返す。
      */
-    const computeCloseRatio = (now: number): number => {
-      if (now >= nextBlinkAt && now > blinkStart + BLINK_DURATION_MS) {
+    const computeClosed = (now: number): number => {
+      if (now >= nextBlinkAt && now > blinkStart + BLINK_CLOSED_MS) {
         blinkStart = now;
         nextBlinkAt = now + BLINK_INTERVAL_MIN_MS + Math.random() * BLINK_INTERVAL_RANGE_MS;
       }
       const t = now - blinkStart;
-      if (t >= 0 && t < BLINK_DURATION_MS) {
-        const half = BLINK_DURATION_MS / 2;
-        // 0 → 1 → 0（閉じ具合）。half で最も閉じる
-        return t < half ? t / half : 1 - (t - half) / half;
-      }
-      return 0;
+      return t >= 0 && t < BLINK_CLOSED_MS ? 1 : 0;
     };
 
     const animate = () => {
       blinkRafIdRef.current = requestAnimationFrame(animate);
-      const closeRatio = computeCloseRatio(performance.now());
+      const closed = computeClosed(performance.now());
       if (eyeClosedRef.current) {
-        eyeClosedRef.current.style.opacity = String(closeRatio);
+        eyeClosedRef.current.style.opacity = String(closed);
       }
     };
     animate();
@@ -152,8 +147,13 @@ export default function SpriteCharacterCanvas({
       source.connect(analyser);
       analyser.connect(audioContext.destination);
 
-      // requestAnimationFrame ループで音量レベルを算出して mouthOpen の opacity を駆動する
+      // requestAnimationFrame ループで音量レベルを算出して mouthOpen を二値（開/閉）で駆動する。
+      // ぬるっとした連続フェードをやめ、しきい値で口をパッと開閉する。
+      // 開く閾値 > 閉じる閾値のヒステリシスで、境界付近のチラつき（パカパカ）を抑える（dev で調整可）。
+      const MOUTH_OPEN_THRESHOLD = 0.1;
+      const MOUTH_CLOSE_THRESHOLD = 0.05;
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      let mouthIsOpen = false;
       const animateLipsync = () => {
         if (cancelled || !analyser) return;
         lipsyncRafIdRef.current = requestAnimationFrame(animateLipsync);
@@ -165,11 +165,16 @@ export default function SpriteCharacterCanvas({
           sum += dataArray[i];
         }
         const avg = sum / dataArray.length / 255;
-        // 視認できるよう増幅し 0〜1 にクランプする
-        const opacity = Math.min(1, avg * 2.2);
+
+        // ヒステリシス付きで開閉状態を更新する
+        if (!mouthIsOpen && avg >= MOUTH_OPEN_THRESHOLD) {
+          mouthIsOpen = true;
+        } else if (mouthIsOpen && avg < MOUTH_CLOSE_THRESHOLD) {
+          mouthIsOpen = false;
+        }
 
         if (mouthOpenRef.current) {
-          mouthOpenRef.current.style.opacity = String(opacity);
+          mouthOpenRef.current.style.opacity = mouthIsOpen ? '1' : '0';
         }
       };
       animateLipsync();
