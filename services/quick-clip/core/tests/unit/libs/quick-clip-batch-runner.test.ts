@@ -469,4 +469,72 @@ describe('runQuickClipBatch', () => {
     );
     expect(failCall).toBeDefined();
   });
+
+  it('transcript 保存: segments が1件以上の場合、transcript.json を S3 に PutObject する', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+    const segments = [{ start: 0.0, end: 3.5, text: 'やばい！' }];
+    mockTranscribe.mockResolvedValue(segments);
+
+    const inputWithKey: QuickClipBatchRunInput = { ...input, openAiApiKey: 'sk-test-key' };
+    await expect(runQuickClipBatch(inputWithKey)).resolves.toBeUndefined();
+
+    // PutObjectCommand がクリップ用と transcript 用で呼ばれていること
+    const transcriptCall = (mockPutObjectCommand.mock.calls as Array<[Record<string, unknown>]>).find(
+      ([args]) => typeof args.Key === 'string' && args.Key === `outputs/job-1/transcript.json`
+    );
+    expect(transcriptCall).toBeDefined();
+    expect(transcriptCall?.[0]).toMatchObject({
+      Bucket: 'bucket',
+      Key: 'outputs/job-1/transcript.json',
+      Body: JSON.stringify(segments),
+      ContentType: 'application/json',
+    });
+  });
+
+  it('transcript 保存: segments が 0 件の場合、transcript.json を S3 に保存しない', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+    mockTranscribe.mockResolvedValue([]);
+
+    const inputWithKey: QuickClipBatchRunInput = { ...input, openAiApiKey: 'sk-test-key' };
+    await expect(runQuickClipBatch(inputWithKey)).resolves.toBeUndefined();
+
+    const transcriptCall = (mockPutObjectCommand.mock.calls as Array<[Record<string, unknown>]>).find(
+      ([args]) => typeof args.Key === 'string' && args.Key === `outputs/job-1/transcript.json`
+    );
+    expect(transcriptCall).toBeUndefined();
+  });
+
+  it('transcript 保存: openAiApiKey が未指定の場合、transcript.json を保存しない', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+
+    await expect(runQuickClipBatch(input)).resolves.toBeUndefined();
+
+    const transcriptCall = (mockPutObjectCommand.mock.calls as Array<[Record<string, unknown>]>).find(
+      ([args]) => typeof args.Key === 'string' && args.Key === `outputs/job-1/transcript.json`
+    );
+    expect(transcriptCall).toBeUndefined();
+  });
+
+  it('transcript 保存: S3 保存が失敗しても抽出処理全体は成功する', async () => {
+    // ダウンロード成功、クリップ S3 PUT 成功、transcript PUT だけ失敗させる
+    // PutObjectCommand は mockPutObjectCommand でモックしており、引数を返す
+    // sendに渡るのはそのモックの戻り値（inputそのもの）なので Key で判定可能
+    mockS3Send.mockImplementation(async (cmd: unknown) => {
+      const command = cmd as Record<string, unknown>;
+      const key = command.Key as string | undefined;
+      if (key !== undefined && key.endsWith('transcript.json')) {
+        throw new Error('S3 保存失敗');
+      }
+      // ダウンロード用（Body付き）またはクリップ PUT 用
+      return { Body: { pipe: jest.fn() } };
+    });
+    const segments = [{ start: 0.0, end: 3.5, text: 'テスト' }];
+    mockTranscribe.mockResolvedValue(segments);
+
+    const inputWithKey: QuickClipBatchRunInput = { ...input, openAiApiKey: 'sk-test-key' };
+    // transcript 保存失敗でも全体は resolve する
+    await expect(runQuickClipBatch(inputWithKey)).resolves.toBeUndefined();
+    // エラーメッセージは記録されない
+    expect(mockUpdateErrorMessage).not.toHaveBeenCalled();
+  });
 });
