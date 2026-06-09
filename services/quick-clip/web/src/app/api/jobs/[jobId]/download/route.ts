@@ -141,7 +141,12 @@ export async function POST(_request: Request, { params }: RouteParams): Promise<
         Payload: Buffer.from(
           JSON.stringify({
             jobId,
-            highlightIds: acceptedHighlights.map((highlight) => highlight.highlightId),
+            clips: acceptedHighlights.map((highlight) => ({
+              highlightId: highlight.highlightId,
+              order: highlight.order,
+              startSec: highlight.startSec,
+              endSec: highlight.endSec,
+            })),
           })
         ),
       })
