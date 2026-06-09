@@ -71,6 +71,15 @@ jest.mock('next-auth/react', () => ({
   SessionProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
+// next/navigation の useSearchParams をモック化する。
+// デフォルトはクエリなし（自前起動）として設定する。
+const mockSearchParamsGet = jest.fn().mockReturnValue(null);
+jest.mock('next/navigation', () => ({
+  useSearchParams: jest.fn(() => ({
+    get: mockSearchParamsGet,
+  })),
+}));
+
 // オンボーディング判定がチャットテストに干渉しないようにスタブ化する
 jest.mock('@/lib/pwa/standalone', () => ({
   isStandalone: jest.fn().mockReturnValue(false),
@@ -90,11 +99,12 @@ jest.mock('@/lib/pwa/messages', () => ({
 }));
 
 // CharacterContext: useCharacter を hiyori 固定でスタブ化する。
-// setCharacterId は実装不要（page.tsx では読み取りのみ）。
+// setCharacterId のスパイを外部から差し替えられるよう、モジュール変数として保持する。
+const mockSetCharacterId = jest.fn();
 jest.mock('@/lib/characters/CharacterContext', () => ({
   useCharacter: jest.fn(() => ({
     characterId: 'hiyori',
-    setCharacterId: jest.fn(),
+    setCharacterId: mockSetCharacterId,
   })),
   CharacterProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
@@ -142,8 +152,16 @@ function setupFetchMocks(chatOk = false, sentenceAudio?: string) {
         json: () => Promise.resolve({ state: 'awake' }),
       });
     }
-    if (url === '/api/push/first-word') {
+    // first-word は characterId クエリ付きで呼ばれる（Phase C 対応）
+    if (url.startsWith('/api/push/first-word')) {
       return Promise.resolve({ ok: false });
+    }
+    // pending は空配列を返す（デフォルト）
+    if (url === '/api/push/pending') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve([]),
+      });
     }
     return Promise.resolve({ ok: chatOk, body: chatStream });
   });
@@ -181,6 +199,8 @@ function removeAudioContext() {
 afterEach(() => {
   jest.clearAllMocks();
   removeAudioContext();
+  // デフォルトのクエリなし状態に戻す
+  mockSearchParamsGet.mockReturnValue(null);
 });
 
 /** 同意チェック完了を待ち、有効化された入力欄を返す */
@@ -339,8 +359,14 @@ describe('handlePlaybackError のデバッグログ', () => {
   });
 });
 
-describe('通知起点の knowledgeId 受け渡し（Issue #3359 課題Y）', () => {
-  it('first-word に knowledgeId がある場合、次の chat リクエストに含まれる', async () => {
+describe('Phase C: push クリック起動（URL ?character=<id> あり）', () => {
+  it('URL に ?character=ageha があるとき setCharacterId(ageha) が呼ばれる', async () => {
+    // searchParams の get('character') が 'ageha' を返すように設定
+    mockSearchParamsGet.mockImplementation((key: string) => {
+      if (key === 'character') return 'ageha';
+      return null;
+    });
+
     const encoder = new TextEncoder();
     const chatStream = new ReadableStream({
       start(controller) {
@@ -356,17 +382,267 @@ describe('通知起点の knowledgeId 受け渡し（Issue #3359 課題Y）', ()
       if (url.startsWith('/api/lifecycle')) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ state: 'awake' }) });
       }
-      if (url === '/api/push/first-word') {
+      if (url.startsWith('/api/push/first-word')) {
+        return Promise.resolve({ ok: false });
+      }
+      if (url === '/api/push/pending') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      }
+      return Promise.resolve({ ok: true, body: chatStream });
+    });
+
+    render(<HomePage />);
+    await waitForInputEnabled();
+
+    // searchParams の 'character' が 'ageha' なので setCharacterId('ageha') が呼ばれる
+    expect(mockSetCharacterId).toHaveBeenCalledWith('ageha');
+  });
+
+  it('URL に ?character=unknown（未登録 ID）があっても setCharacterId は呼ばれない', async () => {
+    mockSearchParamsGet.mockImplementation((key: string) => {
+      if (key === 'character') return 'unknown-character-xyz';
+      return null;
+    });
+
+    setupFetchMocks();
+    render(<HomePage />);
+    await waitForInputEnabled();
+
+    expect(mockSetCharacterId).not.toHaveBeenCalled();
+  });
+});
+
+describe('Phase C: first-word 取得のキャラクター依存化', () => {
+  it('first-word を ?characterId=hiyori 付きで取得する', async () => {
+    const encoder = new TextEncoder();
+    const chatStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
+        controller.close();
+      },
+    });
+
+    global.fetch = jest.fn().mockImplementation((url: string) => {
+      if (url === '/api/consent') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ consented: true }) });
+      }
+      if (url.startsWith('/api/lifecycle')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ state: 'awake' }) });
+      }
+      if (url.startsWith('/api/push/first-word')) {
+        return Promise.resolve({ ok: false });
+      }
+      if (url === '/api/push/pending') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      }
+      return Promise.resolve({ ok: true, body: chatStream });
+    });
+
+    render(<HomePage />);
+    await waitForInputEnabled();
+
+    // first-word が characterId=hiyori クエリ付きで呼ばれることを確認
+    await waitFor(() => {
+      const calls = (global.fetch as jest.Mock).mock.calls.map(([url]: [string]) => url);
+      expect(calls.some((url) => url.includes('/api/push/first-word?characterId=hiyori'))).toBe(
+        true
+      );
+    });
+  });
+
+  it('カレントキャラの未消化通知を第一声として表示し consume する', async () => {
+    const encoder = new TextEncoder();
+    const chatStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
+        controller.close();
+      },
+    });
+
+    global.fetch = jest.fn().mockImplementation((url: string) => {
+      if (url === '/api/consent') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ consented: true }) });
+      }
+      if (url.startsWith('/api/lifecycle')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ state: 'awake' }) });
+      }
+      if (url.startsWith('/api/push/first-word')) {
         return Promise.resolve({
           ok: true,
           json: () =>
-            Promise.resolve({ notifId: 'n1', body: 'テスト第一声', knowledgeId: 'k-xyz' }),
+            Promise.resolve({
+              notifId: 'n1',
+              body: 'ひよりの第一声',
+              knowledgeId: 'k-hiyori',
+              characterId: 'hiyori',
+            }),
         });
       }
       if (url === '/api/push/consumed') {
         return Promise.resolve({ ok: true });
       }
-      // /api/chat
+      if (url === '/api/push/pending') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      }
+      return Promise.resolve({ ok: true, body: chatStream });
+    });
+
+    render(<HomePage />);
+    await waitForInputEnabled();
+
+    // first-word が取得されたら consume も呼ばれる
+    await waitFor(() => {
+      const calls = (global.fetch as jest.Mock).mock.calls.map(([url]: [string]) => url);
+      expect(calls.some((url) => url === '/api/push/consumed')).toBe(true);
+    });
+
+    // PATCH /api/push/consumed が notifId: 'n1' で呼ばれることを確認
+    const consumedCall = (global.fetch as jest.Mock).mock.calls.find(
+      ([url]: [string]) => url === '/api/push/consumed'
+    );
+    expect(consumedCall).toBeDefined();
+    const consumedBody = JSON.parse(consumedCall[1].body as string);
+    expect(consumedBody.notifId).toBe('n1');
+  });
+});
+
+describe('Phase C: 自前起動で他キャラに未消化通知がある場合の提示', () => {
+  it('カレント=hiyori、ageha に未消化通知 → アゲハからの通知ヒントが表示される（consume しない）', async () => {
+    const encoder = new TextEncoder();
+    const chatStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
+        controller.close();
+      },
+    });
+
+    global.fetch = jest.fn().mockImplementation((url: string) => {
+      if (url === '/api/consent') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ consented: true }) });
+      }
+      if (url.startsWith('/api/lifecycle')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ state: 'awake' }) });
+      }
+      if (url.startsWith('/api/push/first-word')) {
+        return Promise.resolve({ ok: false });
+      }
+      if (url === '/api/push/consumed') {
+        return Promise.resolve({ ok: true });
+      }
+      if (url === '/api/push/pending') {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([{ characterId: 'ageha', notifId: 'n2', body: 'アゲハより' }]),
+        });
+      }
+      return Promise.resolve({ ok: true, body: chatStream });
+    });
+
+    render(<HomePage />);
+    await waitForInputEnabled();
+
+    // ageha の未消化通知ヒントが表示される
+    await waitFor(() => {
+      expect(screen.getByTestId('pending-notification-ageha')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('pending-notification-ageha')).toHaveTextContent(
+      'アゲハから連絡が来てるよ'
+    );
+
+    // consume は呼ばれていない（即 consume しない設計）
+    const consumedCalls = (global.fetch as jest.Mock).mock.calls.filter(
+      ([url]: [string]) => url === '/api/push/consumed'
+    );
+    expect(consumedCalls).toHaveLength(0);
+  });
+
+  it('pending が空配列のとき他キャラ通知ヒントは表示されない', async () => {
+    setupFetchMocks();
+    render(<HomePage />);
+    await waitForInputEnabled();
+
+    // 他キャラ通知ヒントは表示されない
+    await waitFor(() => {
+      expect(screen.queryByTestId('pending-notification-ageha')).not.toBeInTheDocument();
+    });
+  });
+
+  it('pending にカレントキャラ(hiyori)自身の通知が含まれても表示されない（カレント除外）', async () => {
+    const encoder = new TextEncoder();
+    const chatStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
+        controller.close();
+      },
+    });
+
+    global.fetch = jest.fn().mockImplementation((url: string) => {
+      if (url === '/api/consent') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ consented: true }) });
+      }
+      if (url.startsWith('/api/lifecycle')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ state: 'awake' }) });
+      }
+      if (url.startsWith('/api/push/first-word')) {
+        return Promise.resolve({ ok: false });
+      }
+      if (url === '/api/push/pending') {
+        // カレント(hiyori)のみ pending にある状態
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([{ characterId: 'hiyori', notifId: 'n1', body: 'ひよりより' }]),
+        });
+      }
+      return Promise.resolve({ ok: true, body: chatStream });
+    });
+
+    render(<HomePage />);
+    await waitForInputEnabled();
+
+    // hiyori はカレントなので pending ヒントは表示されない
+    await waitFor(() => {
+      expect(screen.queryByTestId('pending-notification-hiyori')).not.toBeInTheDocument();
+    });
+  });
+});
+
+describe('Phase C: クロス汚染防止（knowledgeId の chat 送信制御）', () => {
+  it('カレントキャラ(hiyori)の first-word knowledgeId → 次の chat に含まれる', async () => {
+    const encoder = new TextEncoder();
+    const chatStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
+        controller.close();
+      },
+    });
+
+    global.fetch = jest.fn().mockImplementation((url: string) => {
+      if (url === '/api/consent') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ consented: true }) });
+      }
+      if (url.startsWith('/api/lifecycle')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ state: 'awake' }) });
+      }
+      if (url.startsWith('/api/push/first-word')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              notifId: 'n1',
+              body: 'テスト第一声',
+              knowledgeId: 'k-xyz',
+              characterId: 'hiyori', // カレント(hiyori)と一致
+            }),
+        });
+      }
+      if (url === '/api/push/consumed') {
+        return Promise.resolve({ ok: true });
+      }
+      if (url === '/api/push/pending') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      }
       return Promise.resolve({ ok: true, body: chatStream });
     });
 
@@ -376,7 +652,10 @@ describe('通知起点の knowledgeId 受け渡し（Issue #3359 課題Y）', ()
     const input = await waitForInputEnabled();
 
     // first-word 取得を待つ
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/push/first-word'));
+    await waitFor(() => {
+      const calls = (global.fetch as jest.Mock).mock.calls.map(([url]: [string]) => url);
+      expect(calls.some((url) => url.startsWith('/api/push/first-word'))).toBe(true);
+    });
 
     await user.type(input, 'ありがとう');
     await user.click(screen.getByRole('button', { name: '送信' }));
@@ -407,15 +686,23 @@ describe('通知起点の knowledgeId 受け渡し（Issue #3359 課題Y）', ()
       if (url.startsWith('/api/lifecycle')) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ state: 'awake' }) });
       }
-      if (url === '/api/push/first-word') {
+      if (url.startsWith('/api/push/first-word')) {
         return Promise.resolve({
           ok: true,
           json: () =>
-            Promise.resolve({ notifId: 'n1', body: 'テスト第一声', knowledgeId: 'k-xyz' }),
+            Promise.resolve({
+              notifId: 'n1',
+              body: 'テスト第一声',
+              knowledgeId: 'k-xyz',
+              characterId: 'hiyori',
+            }),
         });
       }
       if (url === '/api/push/consumed') {
         return Promise.resolve({ ok: true });
+      }
+      if (url === '/api/push/pending') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
       }
       chatCallCount++;
       return Promise.resolve({ ok: true, body: makeChatStream() });
@@ -426,7 +713,10 @@ describe('通知起点の knowledgeId 受け渡し（Issue #3359 課題Y）', ()
     render(<HomePage />);
     const input = await waitForInputEnabled();
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/push/first-word'));
+    await waitFor(() => {
+      const calls = (global.fetch as jest.Mock).mock.calls.map(([url]: [string]) => url);
+      expect(calls.some((url) => url.startsWith('/api/push/first-word'))).toBe(true);
+    });
 
     // 1 回目送信
     await user.type(input, '1回目');
@@ -466,8 +756,11 @@ describe('characterId の chat リクエストへの反映', () => {
       if (url.startsWith('/api/lifecycle')) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ state: 'awake' }) });
       }
-      if (url === '/api/push/first-word') {
+      if (url.startsWith('/api/push/first-word')) {
         return Promise.resolve({ ok: false });
+      }
+      if (url === '/api/push/pending') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
       }
       return Promise.resolve({ ok: true, body: chatStream });
     });
