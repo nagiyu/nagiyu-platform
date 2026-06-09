@@ -174,19 +174,37 @@ describe('早瀬アゲハ クライアントプロファイル', () => {
     expect(profile.display.shortName).toBe('アゲハ');
   });
 
-  it('render.renderer が "placeholder" である（Live2D モデル未用意）', () => {
+  it('render.renderer が "still" である（一枚絵静止画）', () => {
     const profile = getCharacterClientProfile('ageha');
-    expect(profile.render.renderer).toBe('placeholder');
+    expect(profile.render.renderer).toBe('still');
   });
 
-  it('getCharacterRenderProfile("ageha") も placeholder を返す', () => {
+  it('render.imagePath が "/assets/characters/ageha/still.png" である', () => {
+    const profile = getCharacterClientProfile('ageha');
+    // renderer で narrowing してから imagePath を参照する
+    expect(profile.render.renderer).toBe('still');
+    if (profile.render.renderer === 'still') {
+      expect(profile.render.imagePath).toBe('/assets/characters/ageha/still.png');
+    }
+  });
+
+  it('getCharacterRenderProfile("ageha") も still を返す', () => {
     const render = getCharacterRenderProfile('ageha');
-    expect(render.renderer).toBe('placeholder');
+    expect(render.renderer).toBe('still');
+    if (render.renderer === 'still') {
+      expect(render.imagePath).toBe('/assets/characters/ageha/still.png');
+    }
   });
 
   it('licenseText に AI 生成音声の明示が含まれる（OpenAI 利用規約上必須）', () => {
     const profile = getCharacterClientProfile('ageha');
     expect(profile.licenseText).toContain('AI 生成音声');
+  });
+
+  it('licenseText にイラストが AI 生成である明示が含まれる', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(profile.licenseText).toContain('イラスト');
+    expect(profile.licenseText).toContain('AI 生成');
   });
 
   it('description が設定されている', () => {
@@ -195,9 +213,14 @@ describe('早瀬アゲハ クライアントプロファイル', () => {
     expect(profile.description.length).toBeGreaterThan(0);
   });
 
-  it('model.engine が "プレースホルダー" である', () => {
+  it('model.engine が "一枚絵" である', () => {
     const profile = getCharacterClientProfile('ageha');
-    expect(profile.model.engine).toBe('プレースホルダー');
+    expect(profile.model.engine).toBe('一枚絵');
+  });
+
+  it('model.name が "早瀬アゲハ" である', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(profile.model.name).toBe('早瀬アゲハ');
   });
 
   it('voice.engine が "OpenAI TTS" である', () => {
