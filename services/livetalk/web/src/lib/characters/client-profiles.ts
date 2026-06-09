@@ -66,12 +66,13 @@ const PROFILES: Record<string, CharacterClientProfile> = {
       shortName: 'アゲハ',
     },
     render: {
-      renderer: 'placeholder',
+      renderer: 'still',
+      imagePath: '/assets/characters/ageha/still.png',
     },
     licenseText: AGEHA_LICENSE_TEXT,
     description:
       'テンション高めで背中を押してくれる相棒ギャル。落ち込んでも隣でアゲてくれる、ノリのいい女の子。',
-    model: { engine: 'プレースホルダー', name: '仮アバター（シルエット）' },
+    model: { engine: '一枚絵', name: '早瀬アゲハ' },
     voice: { engine: 'OpenAI TTS', name: 'shimmer' },
   },
 };
