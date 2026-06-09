@@ -24,8 +24,11 @@ import { hasCharacter, getCharacterDefinition } from '@/lib/characters/registry'
 
 /**
  * このエンドポイント固有のエラーメッセージ定数。
+ *
+ * Next.js の Route ファイルは HTTP メソッド等の規定エクスポートしか許可しないため、
+ * この定数は export せずローカルに閉じる（export すると build の型検査で弾かれる）。
  */
-export const TEST_PUSH_ERROR_MESSAGES = {
+const TEST_PUSH_ERROR_MESSAGES = {
   INVALID_REQUEST_BODY: 'リクエストボディが不正です',
   MISSING_CHARACTER_ID: 'characterId が必要です',
   UNKNOWN_CHARACTER: '指定されたキャラクターが見つかりません',
