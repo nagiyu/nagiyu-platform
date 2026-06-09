@@ -160,6 +160,85 @@ describe('GET /api/prediction-evaluation/summary', () => {
       expect(body.bySignal).toHaveLength(3);
     });
 
+    it('レスポンスに baseline（市場ベースレート）が含まれる', async () => {
+      mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
+      mockGetByExchangeAndDateRange.mockResolvedValue([EVALUATED_SUMMARY]);
+
+      const response = await GET(
+        new NextRequest('http://localhost/api/prediction-evaluation/summary?period=30d')
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      // EVALUATED_SUMMARY: ActualReturn=1.64 (>= 0.5) → upRate=100%
+      expect(body.baseline).toBeDefined();
+      expect(body.baseline.upRate).toBe(100);
+      expect(body.baseline.downRate).toBe(0);
+      expect(body.baseline.flatRate).toBe(0);
+    });
+
+    it('採点済みデータが 0 件の場合、baseline は 3 つとも null', async () => {
+      mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
+      mockGetByExchangeAndDateRange.mockResolvedValue([]);
+
+      const response = await GET(
+        new NextRequest('http://localhost/api/prediction-evaluation/summary?period=30d')
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.baseline.upRate).toBeNull();
+      expect(body.baseline.downRate).toBeNull();
+      expect(body.baseline.flatRate).toBeNull();
+    });
+
+    it('kpi に neutralRatio が含まれる', async () => {
+      mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
+      // EVALUATED_SUMMARY は BULLISH シグナル → neutralRatio = 0
+      mockGetByExchangeAndDateRange.mockResolvedValue([EVALUATED_SUMMARY]);
+
+      const response = await GET(
+        new NextRequest('http://localhost/api/prediction-evaluation/summary?period=30d')
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.kpi.neutralRatio).toBe(0);
+    });
+
+    it('judgedCount=0 のとき kpi.neutralRatio は null', async () => {
+      mockGetAllExchanges.mockResolvedValue([]);
+
+      const response = await GET(
+        new NextRequest('http://localhost/api/prediction-evaluation/summary?period=30d')
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.kpi.neutralRatio).toBeNull();
+    });
+
+    it('bySignal の各エントリに baseline と edge が含まれる', async () => {
+      mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
+      mockGetByExchangeAndDateRange.mockResolvedValue([EVALUATED_SUMMARY]);
+
+      const response = await GET(
+        new NextRequest('http://localhost/api/prediction-evaluation/summary?period=30d')
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      for (const entry of body.bySignal) {
+        expect('baseline' in entry).toBe(true);
+        expect('edge' in entry).toBe(true);
+      }
+      // BULLISH エントリ: baseline は upRate(=100), accuracy は 100, edge は 0
+      const bullish = body.bySignal.find((e: { signal: string }) => e.signal === 'BULLISH');
+      expect(bullish.baseline).toBe(100);
+      expect(bullish.accuracy).toBe(100);
+      expect(bullish.edge).toBe(0);
+    });
+
     it('threshold 未指定時はデフォルト 0.5 がレスポンスに含まれる', async () => {
       mockGetAllExchanges.mockResolvedValue([]);
 

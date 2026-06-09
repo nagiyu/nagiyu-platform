@@ -121,6 +121,7 @@ export const GET = withAuth(
         kpi: aggregated.kpi,
         dailyTrend: aggregated.dailyTrend,
         bySignal: aggregated.bySignal,
+        baseline: aggregated.baseline,
       };
 
       return NextResponse.json(response, { status: 200 });
