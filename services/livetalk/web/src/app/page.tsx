@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { Box, Container, Stack } from '@mui/material';
+import { Box, Container, Stack, Typography } from '@mui/material';
 import { Link } from '@nagiyu/ui';
 import { hasPermission } from '@nagiyu/common';
 import ChatInput from '@/components/ChatInput';
@@ -16,6 +17,7 @@ import InstallGuide from '@/components/InstallGuide';
 import NotificationPermission from '@/components/NotificationPermission';
 import CharacterSelectButton from '@/components/CharacterSelectButton';
 import { useCharacter } from '@/lib/characters/CharacterContext';
+import { getCharacterDisplay, hasCharacterProfile } from '@/lib/characters/client-profiles';
 import {
   isStandalone,
   isPushSupported,
@@ -24,6 +26,18 @@ import {
 } from '@/lib/pwa/standalone';
 import { PWA_MESSAGES } from '@/lib/pwa/messages';
 import { reportClientError } from '@/lib/client-logger';
+
+/**
+ * pending API のレスポンス型（キャラクターごとの未消化通知）。
+ */
+interface PendingNotification {
+  /** 通知元キャラクター ID */
+  characterId: string;
+  /** 通知 ID */
+  notifId: string;
+  /** 通知本文 */
+  body: string;
+}
 
 type ChatPhase = 'idle' | 'loading' | 'streaming';
 type ConsentPhase = 'checking' | 'required' | 'done';
@@ -61,7 +75,8 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
  *   （HTMLAudioElement の autoplay 制約を回避）
  */
 export default function HomePage() {
-  const { characterId } = useCharacter();
+  const { characterId, setCharacterId } = useCharacter();
+  const searchParams = useSearchParams();
   const { data: session } = useSession();
   const isAdmin =
     !!session?.user &&
@@ -86,6 +101,10 @@ export default function HomePage() {
   const [firstWordText, setFirstWordText] = useState<string | null>(null);
   // 第一声の元となった KnowledgeID（次の chat 送信時に文脈として渡す）
   const firstWordKnowledgeIdRef = useRef<string | null>(null);
+  // 第一声の通知元キャラクター ID（クロス汚染防止のためカレントと照合する）
+  const firstWordCharacterIdRef = useRef<string | null>(null);
+  // 他キャラクターの未消化通知（自前起動時に提示する）
+  const [pendingNotifications, setPendingNotifications] = useState<PendingNotification[]>([]);
 
   const audioQueueRef = useRef<AudioBuffer[]>([]);
   const isPlayingRef = useRef(false);
@@ -109,22 +128,65 @@ export default function HomePage() {
       });
   }, []);
 
-  // 起動時に未消化の通知があればキャラ第一声として表示する。
+  // push クリック起動時: URL の ?character=<id> を読み、カレントキャラを切替える。
+  // searchParams は Next.js の useSearchParams で取得。
+  // 依存配列に searchParams を含めることで、SPA 遷移でも正しく動作する。
   useEffect(() => {
-    fetch('/api/push/first-word')
+    const characterQuery = searchParams.get('character');
+    if (characterQuery && hasCharacterProfile(characterQuery)) {
+      setCharacterId(characterQuery);
+    }
+    // searchParams の変化のみに依存する（setCharacterId は安定した関数参照）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // カレント characterId の未消化通知を第一声として取得・表示する。
+  // characterId が変わるたびに再取得し、前のキャラの knowledgeId をクリアする。
+  useEffect(() => {
+    // キャラクター切替時は前のキャラの第一声 knowledgeId をクリアする（クロス汚染防止）
+    firstWordKnowledgeIdRef.current = null;
+    firstWordCharacterIdRef.current = null;
+    setFirstWordText(null);
+
+    fetch(`/api/push/first-word?characterId=${encodeURIComponent(characterId)}`)
       .then((res) => (res.ok ? res.json() : null))
-      .then((data: { notifId: string; body: string; knowledgeId?: string | null } | null) => {
-        if (!data) return;
-        setFirstWordText(data.body);
-        firstWordKnowledgeIdRef.current = data.knowledgeId ?? null;
-        // 消化済みマーク
-        fetch('/api/push/consumed', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ notifId: data.notifId }),
-        }).catch(() => {});
+      .then(
+        (
+          data: {
+            notifId: string;
+            body: string;
+            knowledgeId?: string | null;
+            characterId: string;
+          } | null
+        ) => {
+          if (!data) return;
+          setFirstWordText(data.body);
+          firstWordKnowledgeIdRef.current = data.knowledgeId ?? null;
+          // 通知元キャラクター ID を保存（クロス汚染防止のためカレントと照合する）
+          firstWordCharacterIdRef.current = data.characterId;
+          // 消化済みマーク
+          fetch('/api/push/consumed', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notifId: data.notifId }),
+          }).catch(() => {});
+        }
+      )
+      .catch(() => {});
+  }, [characterId]);
+
+  // 自前起動時: カレント以外に未消化通知があれば提示する。
+  // このエフェクトはマウント時（初回起動）にのみ実行する。
+  useEffect(() => {
+    fetch('/api/push/pending')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: PendingNotification[] | null) => {
+        if (!data || data.length === 0) return;
+        setPendingNotifications(data);
       })
       .catch(() => {});
+    // マウント時のみ実行（依存配列は空）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 同意完了後にオンボーディング（ホーム画面追加・通知許可）の表示要否を判定する。
@@ -232,9 +294,14 @@ export default function HomePage() {
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
-      // 送信前に第一声 knowledgeId を取り出してクリア（1 ターン限り有効）
-      const notifKnowledgeId = firstWordKnowledgeIdRef.current;
+      // 送信前に第一声 knowledgeId を取り出してクリア（1 ターン限り有効）。
+      // クロス汚染防止: カレントキャラ == 通知元キャラのときのみ渡す（C3-3）。
+      const firstWordNotifCharId = firstWordCharacterIdRef.current;
+      const rawKnowledgeId = firstWordKnowledgeIdRef.current;
+      const notifKnowledgeId =
+        rawKnowledgeId !== null && firstWordNotifCharId === characterId ? rawKnowledgeId : null;
       firstWordKnowledgeIdRef.current = null;
+      firstWordCharacterIdRef.current = null;
 
       setUserText(text);
       setResponseText('');
@@ -472,6 +539,27 @@ export default function HomePage() {
               onSkip={handleNotificationSkip}
             />
           )}
+          {/* 他キャラクターの未消化通知をヒントとして提示する（consume はしない）。
+              ユーザーがそのキャラに切替えると first-word effect が走り第一声が表示・consume される。 */}
+          {pendingNotifications
+            .filter((n) => n.characterId !== characterId)
+            .map((n) => {
+              const display = hasCharacterProfile(n.characterId)
+                ? getCharacterDisplay(n.characterId)
+                : null;
+              const name = display?.shortName ?? n.characterId;
+              return (
+                <Typography
+                  key={n.characterId}
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ textAlign: 'center', display: 'block' }}
+                  data-testid={`pending-notification-${n.characterId}`}
+                >
+                  {name}から連絡が来てるよ
+                </Typography>
+              );
+            })}
           <ChatInput
             onSubmit={handleSubmit}
             disabled={phase !== 'idle' || consentPhase !== 'done'}
