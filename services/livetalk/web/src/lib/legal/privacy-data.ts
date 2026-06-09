@@ -43,7 +43,7 @@ export const liveTalkPrivacySections: PolicySection[] = [
             subContent: '会話履歴',
             subItems: [
               'ユーザーが入力したテキストメッセージ',
-              'AI キャラクター「桃瀬ひより」からの返答テキスト',
+              'AI キャラクターからの返答テキスト',
               'メッセージの送受信日時',
             ],
           },

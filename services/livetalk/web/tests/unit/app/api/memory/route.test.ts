@@ -97,6 +97,24 @@ describe('GET /api/memory', () => {
     expect(listByTier).toHaveBeenCalledWith('g1', 'hiyori', 'C');
   });
 
+  it('characterId クエリを指定するとそのキャラの記憶を取得する', async () => {
+    mockGetSession.mockResolvedValue(session);
+    const listByTier = jest.fn(async () => ({ items: [] }));
+    mockGetRepo.mockReturnValue(makeRepo({ listByTier }));
+
+    const res = await GET(req('http://localhost/api/memory?characterId=ageha'));
+    expect(res.status).toBe(200);
+    // ageha で呼ばれることを確認（全 Tier 横断のため 3 回）
+    expect(listByTier).toHaveBeenCalledWith('g1', 'ageha', expect.any(String));
+  });
+
+  it('不正な characterId は 400', async () => {
+    mockGetSession.mockResolvedValue(session);
+    mockGetRepo.mockReturnValue(makeRepo());
+    const res = await GET(req('http://localhost/api/memory?characterId=unknown'));
+    expect(res.status).toBe(400);
+  });
+
   it('不正な tier は 400', async () => {
     mockGetSession.mockResolvedValue(session);
     mockGetRepo.mockReturnValue(makeRepo());

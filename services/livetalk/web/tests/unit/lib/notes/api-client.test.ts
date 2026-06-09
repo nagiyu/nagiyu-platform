@@ -16,6 +16,13 @@ describe('fetchNotes', () => {
     expect(result).toEqual([{ id: 'x', title: 't' }]);
   });
 
+  it('characterId を指定するとクエリに付与される', async () => {
+    mockFetch.mockResolvedValueOnce(okJson({ notes: [{ id: 'y', title: 'u' }] }));
+    const result = await fetchNotes('ageha');
+    expect(mockFetch).toHaveBeenCalledWith('/api/notes?characterId=ageha', expect.any(Object));
+    expect(result).toEqual([{ id: 'y', title: 'u' }]);
+  });
+
   it('notes 欠落時は空配列', async () => {
     mockFetch.mockResolvedValueOnce(okJson({}));
     expect(await fetchNotes()).toEqual([]);

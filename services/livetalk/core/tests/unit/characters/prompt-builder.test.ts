@@ -187,18 +187,29 @@ describe('buildChatMessages', () => {
 describe('buildSystemPrompt（lifecycleState）', () => {
   it('lifecycleState=sleeping のとき寝ぼけプロンプトが挿入される', () => {
     const prompt = buildSystemPrompt(hiyori, new Date(), [], undefined, undefined, 'sleeping');
-    expect(prompt).toContain('眠っていて');
-    expect(prompt).toContain('うとうとしながら');
+    // 眠い状態・振る舞いの指示が含まれること（キャラ固有の口癖ワードは含まない）
+    expect(prompt).toContain('眠く');
+    expect(prompt).toContain('うとうと');
+  });
+
+  it('lifecycleState=sleeping のとき「むにゃ」などのキャラ固有ワードが含まれない', () => {
+    const prompt = buildSystemPrompt(hiyori, new Date(), [], undefined, undefined, 'sleeping');
+    expect(prompt).not.toContain('むにゃ');
+  });
+
+  it('lifecycleState=sleeping のとき短い返答の指示が含まれる', () => {
+    const prompt = buildSystemPrompt(hiyori, new Date(), [], undefined, undefined, 'sleeping');
+    expect(prompt).toContain('短く');
   });
 
   it('lifecycleState=awake のときは寝ぼけプロンプトが挿入されない', () => {
     const prompt = buildSystemPrompt(hiyori, new Date(), [], undefined, undefined, 'awake');
-    expect(prompt).not.toContain('眠っていて');
+    expect(prompt).not.toContain('うとうと');
   });
 
   it('lifecycleState 未指定（undefined）のときは寝ぼけプロンプトが挿入されない', () => {
     const prompt = buildSystemPrompt(hiyori, new Date());
-    expect(prompt).not.toContain('眠っていて');
+    expect(prompt).not.toContain('うとうと');
   });
 
   it('sleeping でも記憶セクションが共存できる', () => {
@@ -211,7 +222,7 @@ describe('buildSystemPrompt（lifecycleState）', () => {
       undefined,
       'sleeping'
     );
-    expect(prompt).toContain('眠っていて');
+    expect(prompt).toContain('うとうと');
     expect(prompt).toContain('あなたが覚えていること');
     expect(prompt).toContain('- コーヒーが好き');
   });
@@ -229,7 +240,8 @@ describe('buildChatMessages（lifecycleState）', () => {
       undefined,
       'sleeping'
     );
-    expect(messages[0].content).toContain('眠っていて');
+    // 眠い状態の指示が含まれること
+    expect(messages[0].content).toContain('うとうと');
   });
 
   it('lifecycleState=awake は system prompt に寝ぼけ指示を含まない', () => {
@@ -243,7 +255,7 @@ describe('buildChatMessages（lifecycleState）', () => {
       undefined,
       'awake'
     );
-    expect(messages[0].content).not.toContain('眠っていて');
+    expect(messages[0].content).not.toContain('うとうと');
   });
 });
 

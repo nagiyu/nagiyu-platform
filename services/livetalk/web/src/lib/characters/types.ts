@@ -1,19 +1,33 @@
 /**
- * キャラクターの Live2D 描画設定（web 層専用）。
+ * キャラクターの描画設定（web 層専用）。
  *
  * core の CharacterDefinition はロジック・アイデンティティのみを持ち、
  * ビジュアル設定はこの型に分離する。
+ *
+ * renderer フィールドで描画方式を区別する discriminated union。
+ * - 'live2d': PixiJS + pixi-live2d-display を使った Live2D モデル描画
+ * - 'placeholder': Live2D モデル未用意のキャラ向けプレースホルダー描画（シルエット + 名前ラベル）
  */
-export interface CharacterRenderProfile {
-  /** Live2D model3.json のパス（public 配下の絶対パス） */
-  modelPath: string;
-  /** Cubism パラメータ ID（モデル差し替え時に上書き可能。既定は Cubism 標準 ID） */
-  cubismParams: {
-    mouthOpenY: string;
-    eyeLOpen: string;
-    eyeROpen: string;
-  };
-}
+export type CharacterRenderProfile =
+  | {
+      /** Live2D モデルを使った描画 */
+      renderer: 'live2d';
+      /** Live2D model3.json のパス（public 配下の絶対パス） */
+      modelPath: string;
+      /** Cubism パラメータ ID（モデル差し替え時に上書き可能。既定は Cubism 標準 ID） */
+      cubismParams: {
+        /** 口の開き具合を制御するパラメータ ID */
+        mouthOpenY: string;
+        /** 左目の開き具合を制御するパラメータ ID */
+        eyeLOpen: string;
+        /** 右目の開き具合を制御するパラメータ ID */
+        eyeROpen: string;
+      };
+    }
+  | {
+      /** Live2D モデル未用意のキャラ向けプレースホルダー描画（シルエット + 名前ラベル、音声連動の口パク） */
+      renderer: 'placeholder';
+    };
 
 /**
  * UI で使用するキャラクターの表示名情報（web 専用）。

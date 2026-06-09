@@ -5,6 +5,7 @@ import { getSession } from '@/lib/server/session';
 import { getMemoryRepository } from '@/lib/server/repositories';
 import { parseTierQuery, VISIBLE_TIERS } from '@/lib/memory/validation';
 import { sortMemories, toMemoryListItem } from '@/lib/memory/serializer';
+import { hasCharacter } from '@/lib/characters/registry';
 import { MEMORY_ERROR_MESSAGES } from './constants';
 
 /**
@@ -14,6 +15,7 @@ import { MEMORY_ERROR_MESSAGES } from './constants';
  *
  * Query パラメータ：
  * - `tier`（任意、`A` / `B` / `C` / `D`）。未指定なら UI 表示対象の Tier A/B/C を横断取得。
+ * - `characterId`（任意、未指定なら DEFAULT_CHARACTER_ID）。選択中のキャラクター ID。
  *
  * Tier D は一時的なため UI からは指定されない想定だが、明示指定された場合は返す。
  */
@@ -27,8 +29,15 @@ export const GET = withAuth(getSession, 'livetalk:chat', async (session, request
     );
   }
 
+  const characterId = url.searchParams.get('characterId') || DEFAULT_CHARACTER_ID;
+  if (!hasCharacter(characterId)) {
+    return NextResponse.json(
+      { error: 'INVALID_CHARACTER', message: MEMORY_ERROR_MESSAGES.INVALID_CHARACTER },
+      { status: 400 }
+    );
+  }
+
   const userId = session.user.googleId;
-  const characterId = DEFAULT_CHARACTER_ID;
   const repo = getMemoryRepository();
 
   try {
