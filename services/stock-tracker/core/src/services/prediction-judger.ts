@@ -53,7 +53,11 @@ export function deriveSignalFromReturn(
   predictedReturn: number,
   thresholdPercent: number
 ): InvestmentSignal {
-  if (typeof thresholdPercent !== 'number' || !isFinite(thresholdPercent) || thresholdPercent <= 0) {
+  if (
+    typeof thresholdPercent !== 'number' ||
+    !isFinite(thresholdPercent) ||
+    thresholdPercent <= 0
+  ) {
     throw new Error(PREDICTION_JUDGER_ERROR_MESSAGES.INVALID_THRESHOLD);
   }
 

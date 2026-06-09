@@ -64,14 +64,10 @@ function isAiAnalysisResult(value: unknown): value is AiAnalysisResult {
       (investmentJudgment as Record<string, unknown>).signal as string
     ) &&
     typeof (investmentJudgment as Record<string, unknown>).reason === 'string' &&
-    (
-      (investmentJudgment as Record<string, unknown>).predictedReturn === undefined ||
-      typeof (investmentJudgment as Record<string, unknown>).predictedReturn === 'number'
-    ) &&
-    (
-      (investmentJudgment as Record<string, unknown>).confidence === undefined ||
-      typeof (investmentJudgment as Record<string, unknown>).confidence === 'number'
-    )
+    ((investmentJudgment as Record<string, unknown>).predictedReturn === undefined ||
+      typeof (investmentJudgment as Record<string, unknown>).predictedReturn === 'number') &&
+    ((investmentJudgment as Record<string, unknown>).confidence === undefined ||
+      typeof (investmentJudgment as Record<string, unknown>).confidence === 'number')
   );
 }
 

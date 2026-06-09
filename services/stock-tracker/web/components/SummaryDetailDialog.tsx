@@ -415,23 +415,29 @@ export default function SummaryDetailDialog({
                           ]
                         }
                       </Chip>
-                      {typeof summary.aiAnalysisResult.investmentJudgment.predictedReturn === 'number' && (
+                      {typeof summary.aiAnalysisResult.investmentJudgment.predictedReturn ===
+                        'number' && (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
                           <Typography variant="body2" color="text.secondary">
                             予測リターン:
                           </Typography>
                           <Typography variant="body2" data-testid="predicted-return">
-                            {formatPredictedReturn(summary.aiAnalysisResult.investmentJudgment.predictedReturn)}
+                            {formatPredictedReturn(
+                              summary.aiAnalysisResult.investmentJudgment.predictedReturn
+                            )}
                           </Typography>
                         </Box>
                       )}
-                      {typeof summary.aiAnalysisResult.investmentJudgment.confidence === 'number' && (
+                      {typeof summary.aiAnalysisResult.investmentJudgment.confidence ===
+                        'number' && (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
                           <Typography variant="body2" color="text.secondary">
                             確信度:
                           </Typography>
                           <Typography variant="body2" data-testid="confidence">
-                            {formatConfidence(summary.aiAnalysisResult.investmentJudgment.confidence)}
+                            {formatConfidence(
+                              summary.aiAnalysisResult.investmentJudgment.confidence
+                            )}
                           </Typography>
                         </Box>
                       )}
