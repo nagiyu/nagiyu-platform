@@ -142,7 +142,9 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
   const characterId = DEFAULT_CHARACTER_ID;
   // Phase A では DEFAULT_CHARACTER_ID（hiyori）固定。Phase B で全キャラ走査に拡張する。
   const characterDef = getCharacterDefinitionById(characterId);
-  const characterDisplayName = characterDef?.displayName ?? 'ひより';
+  // notificationName はカジュアル名（例: 'ひより'）。displayName（フルネーム）を使うと
+  // 「桃瀬ひよりより」のような二重表現になるため notificationName を使う。
+  const characterNotificationName = characterDef?.notificationName ?? 'ひより';
   const currentNow = now();
 
   // ライフサイクル未登録のユーザーはスキップ
@@ -201,7 +203,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
     const knowledge = recentKnowledge.find((k) => k.KnowledgeID === decision.knowledgeId);
     const msg = buildCriticalNotificationMessage(
       knowledge?.Topic ?? '大事なこと',
-      characterDisplayName
+      characterNotificationName
     );
     title = msg.title;
     body = msg.body;
@@ -220,7 +222,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
       {
         toneBucket: decision.toneBucket,
         knowledgeTopic: freshKnowledge?.Topic,
-        characterDisplayName,
+        characterDisplayName: characterNotificationName,
       },
       currentNow.getTime()
     );

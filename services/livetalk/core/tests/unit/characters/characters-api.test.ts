@@ -15,13 +15,32 @@ describe('CHARACTER_DEFINITIONS', () => {
     expect(ids).toContain('ageha');
   });
 
-  it('各エントリは id・displayName・personality・voiceConfig・license を持つ', () => {
+  it('各エントリは id・displayName・notificationName・personality・voiceConfig・license を持つ', () => {
     for (const def of CHARACTER_DEFINITIONS) {
       expect(def.id).toBeTruthy();
       expect(def.displayName).toBeTruthy();
+      // notificationName は通知タイトル用のカジュアル名（必須フィールド）
+      expect(def.notificationName).toBeTruthy();
       expect(def.personality).toBeTruthy();
       expect(def.voiceConfig).toBeTruthy();
       expect(def.license).toBeTruthy();
+    }
+  });
+
+  it('hiyori の notificationName が "ひより" である', () => {
+    const hiyoriDef = CHARACTER_DEFINITIONS.find((c) => c.id === 'hiyori');
+    expect(hiyoriDef?.notificationName).toBe('ひより');
+  });
+
+  it('ageha の notificationName が "アゲハ" である', () => {
+    const agehaDef = CHARACTER_DEFINITIONS.find((c) => c.id === 'ageha');
+    expect(agehaDef?.notificationName).toBe('アゲハ');
+  });
+
+  it('全キャラの notificationName が空でない文字列である', () => {
+    for (const def of CHARACTER_DEFINITIONS) {
+      expect(typeof def.notificationName).toBe('string');
+      expect(def.notificationName.length).toBeGreaterThan(0);
     }
   });
 });

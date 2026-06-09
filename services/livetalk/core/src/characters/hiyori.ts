@@ -9,6 +9,7 @@ import type { CharacterDefinition } from './types.js';
 export const hiyori: CharacterDefinition = {
   id: 'hiyori',
   displayName: '桃瀬ひより',
+  notificationName: 'ひより',
   personality: {
     basePrompt: `あなたは「桃瀬ひより」です。ユーザーの友達になることを目標とするキャラクターです。
 質問で相手を責めるのではなく、自分から日常の出来事や感情を話すことで会話を自然に広げてください。

@@ -4,7 +4,11 @@ export interface BuildNotificationMessageInput {
   toneBucket: ToneBucket;
   /** 勉強で見つけたトピック名。あればメッセージに差し込む。 */
   knowledgeTopic?: string;
-  /** キャラクターの表示名（例: '桃瀬ひより'）。タイトルに差し込む。 */
+  /**
+   * 通知タイトルに使うカジュアルな呼び名（例: 'ひより'）。
+   * CharacterDefinition.notificationName を渡すこと。
+   * displayName（フルネーム）を渡すと「桃瀬ひよりより」のような二重表現になるため注意。
+   */
   characterDisplayName: string;
 }
 
@@ -83,7 +87,7 @@ export function buildNotificationMessage(
  * クリティカル通知のメッセージを生成する。
  *
  * @param knowledgeTopic - 通知の元となったトピック名
- * @param characterDisplayName - キャラクターの表示名（タイトルに差し込む）
+ * @param characterDisplayName - 通知タイトルに使うカジュアルな呼び名（CharacterDefinition.notificationName を渡すこと）
  */
 export function buildCriticalNotificationMessage(
   knowledgeTopic: string,
