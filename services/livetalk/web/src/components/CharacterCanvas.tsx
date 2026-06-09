@@ -6,6 +6,7 @@ import type { LifecycleState } from '@nagiyu/livetalk-core';
 import { getCharacterRenderProfile } from '@/lib/characters/client-profiles';
 import PlaceholderCanvas from '@/components/PlaceholderCanvas';
 import StillImageCanvas from '@/components/StillImageCanvas';
+import SpriteCharacterCanvas from '@/components/SpriteCharacterCanvas';
 
 /**
  * CharacterCanvas のプロパティ。
@@ -84,6 +85,7 @@ function Live2DCanvasFallback({ statusText }: { statusText?: string }) {
  * getCharacterRenderProfile で renderer 種別を判定し、
  * - 'live2d': PixiJS + pixi-live2d-display による Live2D 描画（ssr:false 動的 import）
  * - 'still': 完成した一枚絵（静止画）の描画（SSR 可・静的 import）
+ * - 'sprite': 透過 PNG パーツ重ね合わせによる瞬き＋口パク描画（SSR 可・静的 import）
  * - 'placeholder': シルエット + 名前ラベル + 音声連動口パクによるプレースホルダー描画
  *
  * page.tsx はこのコンポーネントに同じ props を渡すだけでよく、
@@ -99,6 +101,11 @@ export default function CharacterCanvas(props: CharacterCanvasProps) {
   if (renderProfile.renderer === 'still') {
     // img + Web Audio のみで SSR 可。PlaceholderCanvas と同様に静的 import を使う。
     return <StillImageCanvas {...props} />;
+  }
+
+  if (renderProfile.renderer === 'sprite') {
+    // 透過 PNG 重ね合わせ + Web Audio のみで SSR 可。静的 import を使う。
+    return <SpriteCharacterCanvas {...props} />;
   }
 
   // 'placeholder': PlaceholderCanvas を描画する

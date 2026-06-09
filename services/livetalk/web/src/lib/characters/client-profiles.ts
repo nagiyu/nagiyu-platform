@@ -69,8 +69,14 @@ const PROFILES: Record<string, CharacterClientProfile> = {
       shortName: 'アゲハ',
     },
     render: {
-      renderer: 'still',
-      imagePath: '/assets/characters/ageha/still.png',
+      renderer: 'sprite',
+      sprite: {
+        base: '/assets/characters/ageha/sprite/base.png',
+        eyeOpen: '/assets/characters/ageha/sprite/eye-open.png',
+        eyeClosed: '/assets/characters/ageha/sprite/eye-closed.png',
+        mouthOpen: '/assets/characters/ageha/sprite/mouth-open.png',
+        mouthClosed: '/assets/characters/ageha/sprite/mouth-closed.png',
+      },
     },
     licenseText: AGEHA_LICENSE_TEXT,
     description:

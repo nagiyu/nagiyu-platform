@@ -174,25 +174,39 @@ describe('早瀬アゲハ クライアントプロファイル', () => {
     expect(profile.display.shortName).toBe('アゲハ');
   });
 
-  it('render.renderer が "still" である（一枚絵静止画）', () => {
+  it('render.renderer が "sprite" である（瞬き＋口パク対応パーツ描画）', () => {
     const profile = getCharacterClientProfile('ageha');
-    expect(profile.render.renderer).toBe('still');
+    expect(profile.render.renderer).toBe('sprite');
   });
 
-  it('render.imagePath が "/assets/characters/ageha/still.png" である', () => {
+  it('render.sprite に 5 枚のパーツパスが含まれる', () => {
     const profile = getCharacterClientProfile('ageha');
-    // renderer で narrowing してから imagePath を参照する
-    expect(profile.render.renderer).toBe('still');
-    if (profile.render.renderer === 'still') {
-      expect(profile.render.imagePath).toBe('/assets/characters/ageha/still.png');
+    // renderer で narrowing してから sprite を参照する
+    expect(profile.render.renderer).toBe('sprite');
+    if (profile.render.renderer === 'sprite') {
+      expect(profile.render.sprite.base).toBe('/assets/characters/ageha/sprite/base.png');
+      expect(profile.render.sprite.eyeOpen).toBe('/assets/characters/ageha/sprite/eye-open.png');
+      expect(profile.render.sprite.eyeClosed).toBe(
+        '/assets/characters/ageha/sprite/eye-closed.png'
+      );
+      expect(profile.render.sprite.mouthOpen).toBe(
+        '/assets/characters/ageha/sprite/mouth-open.png'
+      );
+      expect(profile.render.sprite.mouthClosed).toBe(
+        '/assets/characters/ageha/sprite/mouth-closed.png'
+      );
     }
   });
 
-  it('getCharacterRenderProfile("ageha") も still を返す', () => {
+  it('getCharacterRenderProfile("ageha") も sprite を返す', () => {
     const render = getCharacterRenderProfile('ageha');
-    expect(render.renderer).toBe('still');
-    if (render.renderer === 'still') {
-      expect(render.imagePath).toBe('/assets/characters/ageha/still.png');
+    expect(render.renderer).toBe('sprite');
+    if (render.renderer === 'sprite') {
+      expect(render.sprite.base).toBe('/assets/characters/ageha/sprite/base.png');
+      expect(render.sprite.eyeOpen).toBe('/assets/characters/ageha/sprite/eye-open.png');
+      expect(render.sprite.eyeClosed).toBe('/assets/characters/ageha/sprite/eye-closed.png');
+      expect(render.sprite.mouthOpen).toBe('/assets/characters/ageha/sprite/mouth-open.png');
+      expect(render.sprite.mouthClosed).toBe('/assets/characters/ageha/sprite/mouth-closed.png');
     }
   });
 
