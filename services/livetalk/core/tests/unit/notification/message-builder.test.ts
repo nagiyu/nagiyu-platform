@@ -46,7 +46,11 @@ describe('buildNotificationMessage', () => {
 
     it('knowledgeTopic がある場合も veryLong テンプレートを使う', () => {
       const msg = buildNotificationMessage(
-        { toneBucket: 'veryLong', knowledgeTopic: 'TypeScript', characterDisplayName: HIYORI_NOTIFICATION_NAME },
+        {
+          toneBucket: 'veryLong',
+          knowledgeTopic: 'TypeScript',
+          characterDisplayName: HIYORI_NOTIFICATION_NAME,
+        },
         0
       );
       // veryLong は topic なし固定テンプレートを使う
@@ -75,7 +79,11 @@ describe('buildNotificationMessage', () => {
 
     it('long・topic あり → LONG_BODY_WITH_TOPIC を使う', () => {
       const msg = buildNotificationMessage(
-        { toneBucket: 'long', knowledgeTopic: 'React', characterDisplayName: HIYORI_NOTIFICATION_NAME },
+        {
+          toneBucket: 'long',
+          knowledgeTopic: 'React',
+          characterDisplayName: HIYORI_NOTIFICATION_NAME,
+        },
         0
       );
       expect(msg.body).toContain('React');
@@ -105,7 +113,11 @@ describe('buildNotificationMessage', () => {
 
     it('normal・topic あり → NORMAL_BODY_WITH_TOPIC を使う', () => {
       const msg = buildNotificationMessage(
-        { toneBucket: 'normal', knowledgeTopic: 'Python', characterDisplayName: HIYORI_NOTIFICATION_NAME },
+        {
+          toneBucket: 'normal',
+          knowledgeTopic: 'Python',
+          characterDisplayName: HIYORI_NOTIFICATION_NAME,
+        },
         0
       );
       expect(msg.body).toContain('Python');
@@ -229,7 +241,11 @@ describe('buildCriticalNotificationMessage', () => {
 describe('normalizeKnowledgeTopic（通知テンプレート堅牢化）', () => {
   it('normal・topic 末尾句点が除去される', () => {
     const msg = buildNotificationMessage(
-      { toneBucket: 'normal', knowledgeTopic: 'コーヒーの新作。', characterDisplayName: HIYORI_NOTIFICATION_NAME },
+      {
+        toneBucket: 'normal',
+        knowledgeTopic: 'コーヒーの新作。',
+        characterDisplayName: HIYORI_NOTIFICATION_NAME,
+      },
       0
     );
     expect(msg.body).not.toMatch(/。について|。のこと/);
@@ -238,7 +254,11 @@ describe('normalizeKnowledgeTopic（通知テンプレート堅牢化）', () =>
 
   it('long・topic 末尾句点が除去される', () => {
     const msg = buildNotificationMessage(
-      { toneBucket: 'long', knowledgeTopic: 'カフェラテ。', characterDisplayName: HIYORI_NOTIFICATION_NAME },
+      {
+        toneBucket: 'long',
+        knowledgeTopic: 'カフェラテ。',
+        characterDisplayName: HIYORI_NOTIFICATION_NAME,
+      },
       0
     );
     expect(msg.body).toContain('カフェラテ');
