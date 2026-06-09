@@ -4,10 +4,7 @@ import { useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { Box, Typography } from '@mui/material';
 import type { LifecycleState } from '@nagiyu/livetalk-core';
-import {
-  getCharacterDisplay,
-  getCharacterRenderProfile,
-} from '@/lib/characters/client-profiles';
+import { getCharacterDisplay, getCharacterRenderProfile } from '@/lib/characters/client-profiles';
 
 /**
  * StillImageCanvas のプロパティ。
