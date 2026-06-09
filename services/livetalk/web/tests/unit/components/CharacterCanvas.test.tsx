@@ -35,6 +35,14 @@ jest.mock('@/components/PlaceholderCanvas', () => ({
   )),
 }));
 
+// StillImageCanvas: next/image + Web Audio 依存を排除するためモック化する
+jest.mock('@/components/StillImageCanvas', () => ({
+  __esModule: true,
+  default: jest.fn(({ characterId }: { characterId?: string }) => (
+    <div data-testid="still-image-canvas" data-character-id={characterId ?? ''} />
+  )),
+}));
+
 // getCharacterRenderProfile をモック化して renderer 種別を制御する
 jest.mock('@/lib/characters/client-profiles', () => ({
   ...jest.requireActual('@/lib/characters/client-profiles'),
@@ -79,6 +87,58 @@ describe('CharacterCanvas', () => {
     it('characterId が Live2DCanvas に渡される', () => {
       render(<CharacterCanvas characterId="hiyori" />);
       expect(screen.getByTestId('live2d-canvas')).toHaveAttribute('data-character-id', 'hiyori');
+    });
+  });
+
+  describe('renderer: still のとき', () => {
+    beforeEach(() => {
+      mockGetCharacterRenderProfile.mockReturnValue({
+        renderer: 'still',
+        imagePath: '/assets/characters/ageha/still.png',
+      });
+    });
+
+    it('StillImageCanvas がマウントされる', () => {
+      render(<CharacterCanvas characterId="ageha" />);
+      expect(screen.getByTestId('still-image-canvas')).toBeInTheDocument();
+    });
+
+    it('Live2DCanvas がマウントされない', () => {
+      render(<CharacterCanvas characterId="ageha" />);
+      expect(screen.queryByTestId('live2d-canvas')).toBeNull();
+    });
+
+    it('PlaceholderCanvas がマウントされない', () => {
+      render(<CharacterCanvas characterId="ageha" />);
+      expect(screen.queryByTestId('placeholder-canvas')).toBeNull();
+    });
+
+    it('characterId が StillImageCanvas に渡される', () => {
+      render(<CharacterCanvas characterId="ageha" />);
+      expect(screen.getByTestId('still-image-canvas')).toHaveAttribute(
+        'data-character-id',
+        'ageha'
+      );
+    });
+
+    it('statusText などの props が StillImageCanvas に透過される', () => {
+      const mockPlaybackEnd = jest.fn();
+      const { default: MockStillImageCanvas } = jest.requireMock('@/components/StillImageCanvas');
+
+      render(
+        <CharacterCanvas
+          characterId="ageha"
+          statusText="話している"
+          onPlaybackEnd={mockPlaybackEnd}
+        />
+      );
+      expect(MockStillImageCanvas).toHaveBeenCalled();
+      const [receivedProps] = (MockStillImageCanvas as jest.Mock).mock.calls[0];
+      expect(receivedProps).toMatchObject({
+        characterId: 'ageha',
+        statusText: '話している',
+        onPlaybackEnd: mockPlaybackEnd,
+      });
     });
   });
 
@@ -182,6 +242,16 @@ describe('CharacterCanvas', () => {
 
       render(<CharacterCanvas />);
       expect(screen.getByTestId('placeholder-canvas')).toBeInTheDocument();
+    });
+
+    it('renderer: still の場合 StillImageCanvas がマウントされる', () => {
+      mockGetCharacterRenderProfile.mockReturnValue({
+        renderer: 'still',
+        imagePath: '/assets/characters/ageha/still.png',
+      });
+
+      render(<CharacterCanvas />);
+      expect(screen.getByTestId('still-image-canvas')).toBeInTheDocument();
     });
   });
 });
