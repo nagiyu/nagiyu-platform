@@ -357,7 +357,10 @@ describe('Prediction Aggregator Service', () => {
       ];
 
       const withDefault = aggregateEvaluatedSummaries({ evaluated: summaries });
-      const withExplicit = aggregateEvaluatedSummaries({ evaluated: summaries, thresholdPercent: 0.5 });
+      const withExplicit = aggregateEvaluatedSummaries({
+        evaluated: summaries,
+        thresholdPercent: 0.5,
+      });
 
       expect(withDefault.kpi).toEqual(withExplicit.kpi);
       expect(withDefault.bySignal).toEqual(withExplicit.bySignal);
@@ -374,8 +377,14 @@ describe('Prediction Aggregator Service', () => {
         makeEvaluated({ date: '2026-05-10', signal: 'BULLISH', hit: true, actualReturn: 0.6 }),
       ];
 
-      const resultLow = aggregateEvaluatedSummaries({ evaluated: summaries, thresholdPercent: 0.5 });
-      const resultHigh = aggregateEvaluatedSummaries({ evaluated: summaries, thresholdPercent: 1.0 });
+      const resultLow = aggregateEvaluatedSummaries({
+        evaluated: summaries,
+        thresholdPercent: 0.5,
+      });
+      const resultHigh = aggregateEvaluatedSummaries({
+        evaluated: summaries,
+        thresholdPercent: 1.0,
+      });
 
       expect(resultLow.kpi.totalAccuracy).toBe(100);
       expect(resultHigh.kpi.totalAccuracy).toBe(0);
@@ -391,8 +400,14 @@ describe('Prediction Aggregator Service', () => {
         makeEvaluated({ date: '2026-05-10', signal: 'NEUTRAL', hit: true, actualReturn: 0.4 }),
       ];
 
-      const resultLow = aggregateEvaluatedSummaries({ evaluated: summaries, thresholdPercent: 0.5 });
-      const resultHigh = aggregateEvaluatedSummaries({ evaluated: summaries, thresholdPercent: 0.3 });
+      const resultLow = aggregateEvaluatedSummaries({
+        evaluated: summaries,
+        thresholdPercent: 0.5,
+      });
+      const resultHigh = aggregateEvaluatedSummaries({
+        evaluated: summaries,
+        thresholdPercent: 0.3,
+      });
 
       expect(resultLow.kpi.totalAccuracy).toBe(100);
       expect(resultHigh.kpi.totalAccuracy).toBe(0);

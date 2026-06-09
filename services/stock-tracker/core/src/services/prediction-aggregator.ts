@@ -152,10 +152,7 @@ export function aggregateEvaluatedSummaries(input: AggregateInput): AggregateOut
         directionalAccuracy:
           directionalSubset.length === 0
             ? null
-            : toPercent(
-                countHits(directionalSubset, thresholdPercent),
-                directionalSubset.length
-              ),
+            : toPercent(countHits(directionalSubset, thresholdPercent), directionalSubset.length),
         judgedCount: list.length,
       };
     })

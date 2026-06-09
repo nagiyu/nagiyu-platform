@@ -118,7 +118,9 @@ describe('GET /api/prediction-evaluation/summary', () => {
 
     it('threshold が負の値の場合は 400 を返す', async () => {
       const response = await GET(
-        new NextRequest('http://localhost/api/prediction-evaluation/summary?period=30d&threshold=-0.5')
+        new NextRequest(
+          'http://localhost/api/prediction-evaluation/summary?period=30d&threshold=-0.5'
+        )
       );
       const body = await response.json();
 
@@ -128,7 +130,9 @@ describe('GET /api/prediction-evaluation/summary', () => {
 
     it('threshold が数値に変換できない文字列の場合は 400 を返す', async () => {
       const response = await GET(
-        new NextRequest('http://localhost/api/prediction-evaluation/summary?period=30d&threshold=abc')
+        new NextRequest(
+          'http://localhost/api/prediction-evaluation/summary?period=30d&threshold=abc'
+        )
       );
       const body = await response.json();
 
@@ -172,7 +176,9 @@ describe('GET /api/prediction-evaluation/summary', () => {
       mockGetAllExchanges.mockResolvedValue([]);
 
       const response = await GET(
-        new NextRequest('http://localhost/api/prediction-evaluation/summary?period=30d&threshold=1.0')
+        new NextRequest(
+          'http://localhost/api/prediction-evaluation/summary?period=30d&threshold=1.0'
+        )
       );
       const body = await response.json();
 
