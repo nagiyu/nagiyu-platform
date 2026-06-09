@@ -12,6 +12,7 @@ const tableName = 'nagiyu-livetalk-dev';
 const baseInput: CreateNotificationEventInput = {
   UserID: 'u1',
   NotifID: 'NOTIF-001',
+  CharacterID: 'hiyori',
   Kind: 'normal',
   Title: 'テスト通知',
   Body: 'テスト本文',
@@ -24,10 +25,12 @@ const baseItem = {
   Type: 'NotificationEvent',
   UserID: 'u1',
   NotifID: 'NOTIF-001',
+  CharacterID: 'hiyori',
   Kind: 'normal',
   Title: 'テスト通知',
   Body: 'テスト本文',
   CreatedAt: fixedNow,
+  UpdatedAt: fixedNow,
   Ttl: Math.floor(fixedNow / 1000) + 86400,
 };
 

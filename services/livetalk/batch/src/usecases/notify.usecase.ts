@@ -7,6 +7,7 @@ import {
   buildNotificationMessage,
   detectCriticalKnowledge,
   shouldNotifyNow,
+  getCharacterDefinitionById,
   type IEmbeddingClient,
   type ILLMClient,
   type InterestRepository,
@@ -139,6 +140,9 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
   } = params;
 
   const characterId = DEFAULT_CHARACTER_ID;
+  // Phase A では DEFAULT_CHARACTER_ID（hiyori）固定。Phase B で全キャラ走査に拡張する。
+  const characterDef = getCharacterDefinitionById(characterId);
+  const characterDisplayName = characterDef?.displayName ?? 'ひより';
   const currentNow = now();
 
   // ライフサイクル未登録のユーザーはスキップ
@@ -195,7 +199,10 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
 
   if (decision.kind === 'critical') {
     const knowledge = recentKnowledge.find((k) => k.KnowledgeID === decision.knowledgeId);
-    const msg = buildCriticalNotificationMessage(knowledge?.Topic ?? '大事なこと');
+    const msg = buildCriticalNotificationMessage(
+      knowledge?.Topic ?? '大事なこと',
+      characterDisplayName
+    );
     title = msg.title;
     body = msg.body;
     knowledgeId = decision.knowledgeId;
@@ -210,7 +217,11 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
       recentKnowledge.find((k: { KnowledgeID: string }) => !usedKnowledgeIds.has(k.KnowledgeID)) ??
       recentKnowledge[0];
     const msg = buildNotificationMessage(
-      { toneBucket: decision.toneBucket, knowledgeTopic: freshKnowledge?.Topic },
+      {
+        toneBucket: decision.toneBucket,
+        knowledgeTopic: freshKnowledge?.Topic,
+        characterDisplayName,
+      },
       currentNow.getTime()
     );
     title = msg.title;
@@ -247,10 +258,11 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
 
   if (sentCount === 0) return false;
 
-  // 配信履歴を記録
+  // 配信履歴を記録（Phase A: DEFAULT_CHARACTER_ID 固定。Phase B で全キャラ対応に拡張）
   await notifEventRepo.put({
     UserID: userId,
     NotifID: ulidFactory(),
+    CharacterID: characterId,
     Kind: decision.kind,
     Title: title,
     Body: body,

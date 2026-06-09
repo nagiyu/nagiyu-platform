@@ -9,6 +9,7 @@ import type {
   NotificationEventEntity,
   NotificationEventKey,
 } from '../entities/notification-event.entity.js';
+import { DEFAULT_CHARACTER_ID } from '../constants.js';
 import { buildNotifSK, buildUserPK } from './keys.js';
 
 export class NotificationEventMapper implements EntityMapper<
@@ -28,6 +29,7 @@ export class NotificationEventMapper implements EntityMapper<
       Type: this.entityType,
       UserID: entity.UserID,
       NotifID: entity.NotifID,
+      CharacterID: entity.CharacterID,
       Kind: entity.Kind,
       Title: entity.Title,
       Body: entity.Body,
@@ -41,9 +43,16 @@ export class NotificationEventMapper implements EntityMapper<
   }
 
   public toEntity(item: DynamoDBItem): NotificationEventEntity {
+    // CharacterID が欠落している旧データは DEFAULT_CHARACTER_ID（hiyori）で補う（後方互換）
+    const characterId =
+      item.CharacterID !== undefined
+        ? validateStringField(item.CharacterID, 'CharacterID')
+        : DEFAULT_CHARACTER_ID;
+
     const entity: NotificationEventEntity = {
       UserID: validateStringField(item.UserID, 'UserID'),
       NotifID: validateStringField(item.NotifID, 'NotifID'),
+      CharacterID: characterId,
       Kind: validateStringField(item.Kind, 'Kind') as 'normal' | 'critical',
       Title: validateStringField(item.Title, 'Title'),
       Body: validateStringField(item.Body, 'Body'),
