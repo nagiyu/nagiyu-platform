@@ -29,6 +29,13 @@ const SIGNAL_COLORS: Record<SignalAccuracyEntry['signal'], string> = {
   BEARISH: '#ef5350',
 };
 
+/** エッジ値を符号付きで整形する。null は "—" を返す */
+export const formatEdge = (edge: number | null): string => {
+  if (edge === null) return NA;
+  const sign = edge >= 0 ? '+' : '';
+  return `${sign}${edge.toFixed(1)}pt`;
+};
+
 export const buildSignalChartOption = (data: SignalAccuracyEntry[]): EChartsOption => ({
   tooltip: {
     trigger: 'axis',
@@ -68,6 +75,18 @@ export const buildSignalChartOption = (data: SignalAccuracyEntry[]): EChartsOpti
         },
       },
     },
+    {
+      name: 'ベースライン (%)',
+      type: 'bar',
+      barWidth: '20%',
+      itemStyle: { color: '#bdbdbd', opacity: 0.7 },
+      data: data.map((entry) => ({
+        value: entry.baseline === null ? 0 : entry.baseline,
+      })),
+      label: {
+        show: false,
+      },
+    },
   ],
 });
 
@@ -103,6 +122,8 @@ export default function SignalAccuracyChart({ data }: SignalAccuracyChartProps) 
                   <TableCell>シグナル</TableCell>
                   <TableCell align="right">精度</TableCell>
                   <TableCell align="right">件数</TableCell>
+                  <TableCell align="right">ベースライン</TableCell>
+                  <TableCell align="right">エッジ</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -113,6 +134,10 @@ export default function SignalAccuracyChart({ data }: SignalAccuracyChartProps) 
                       {entry.accuracy === null ? NA : `${entry.accuracy.toFixed(1)}%`}
                     </TableCell>
                     <TableCell align="right">{entry.count.toLocaleString('ja-JP')}</TableCell>
+                    <TableCell align="right">
+                      {entry.baseline === null ? NA : `${entry.baseline.toFixed(1)}%`}
+                    </TableCell>
+                    <TableCell align="right">{formatEdge(entry.edge)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

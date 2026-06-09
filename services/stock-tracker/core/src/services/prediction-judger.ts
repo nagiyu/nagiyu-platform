@@ -52,6 +52,39 @@ export interface JudgeResult {
 }
 
 /**
+ * シグナル・実績リターン・閾値から Hit を返す純粋関数。
+ *
+ * 境界値仕様（design.md §3.4）:
+ * - BULLISH: actualReturn >= threshold（境界値を成功に含める）
+ * - BEARISH: actualReturn <= -threshold（境界値を成功に含める）
+ * - NEUTRAL: -threshold < actualReturn < +threshold（境界値は方向側に分類）
+ *
+ * @param signal - 投資判断シグナル
+ * @param actualReturn - 実績リターン (%)
+ * @param thresholdPercent - Hit 判定閾値 (%)。正の有限数であること
+ * @returns Hit 判定
+ * @throws Error - signal が不正な場合
+ */
+export function classifyHit(
+  signal: InvestmentSignal,
+  actualReturn: number,
+  thresholdPercent: number
+): boolean {
+  switch (signal) {
+    case 'BULLISH':
+      return actualReturn >= thresholdPercent;
+    case 'BEARISH':
+      return actualReturn <= -thresholdPercent;
+    case 'NEUTRAL':
+      return actualReturn > -thresholdPercent && actualReturn < thresholdPercent;
+    default: {
+      const exhaustive: never = signal;
+      throw new Error(`${PREDICTION_JUDGER_ERROR_MESSAGES.INVALID_SIGNAL}: ${String(exhaustive)}`);
+    }
+  }
+}
+
+/**
  * 投資判断シグナルと翌営業日終値リターンから Hit / Miss を判定する。
  *
  * @param input - 判定入力
@@ -79,22 +112,7 @@ export function judgePrediction(input: JudgeInput): JudgeResult {
 
   const actualReturn = ((evaluationClose - baseClose) / baseClose) * 100;
 
-  let hit: boolean;
-  switch (signal) {
-    case 'BULLISH':
-      hit = actualReturn >= thresholdPercent;
-      break;
-    case 'BEARISH':
-      hit = actualReturn <= -thresholdPercent;
-      break;
-    case 'NEUTRAL':
-      hit = actualReturn > -thresholdPercent && actualReturn < thresholdPercent;
-      break;
-    default: {
-      const exhaustive: never = signal;
-      throw new Error(`${PREDICTION_JUDGER_ERROR_MESSAGES.INVALID_SIGNAL}: ${String(exhaustive)}`);
-    }
-  }
+  const hit = classifyHit(signal, actualReturn, thresholdPercent);
 
   return { actualReturn, hit };
 }
