@@ -10,13 +10,15 @@ import {
 } from '@mui/material';
 import { Button } from '@nagiyu/ui';
 import type { MemoryListItem } from '@/lib/memory/types';
-import { MEMORY_DELETE_ANNOTATION } from '@/lib/memory/messages';
+import { getMemoryDeleteAnnotation } from '@/lib/memory/messages';
 
 export interface MemoryDeleteDialogProps {
   memory: MemoryListItem | null;
   loading?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  /** 選択中のキャラクター ID。省略時は既定キャラクターを使用する。 */
+  characterId?: string;
 }
 
 /**
@@ -30,6 +32,7 @@ export default function MemoryDeleteDialog({
   loading = false,
   onConfirm,
   onCancel,
+  characterId,
 }: MemoryDeleteDialogProps) {
   return (
     <Dialog open={memory !== null} onClose={onCancel} maxWidth="sm" fullWidth>
@@ -41,7 +44,7 @@ export default function MemoryDeleteDialog({
           </DialogContentText>
         )}
         <Alert severity="warning" data-testid="delete-annotation">
-          {MEMORY_DELETE_ANNOTATION}
+          {getMemoryDeleteAnnotation(characterId)}
         </Alert>
       </DialogContent>
       <DialogActions>

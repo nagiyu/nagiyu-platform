@@ -1,17 +1,41 @@
-import { MEMORY_DELETE_ANNOTATION, MEMORY_PAGE_GUIDANCE } from '@/lib/memory/messages';
+import { getMemoryDeleteAnnotation, getMemoryPageGuidance } from '@/lib/memory/messages';
 
-describe('MEMORY_DELETE_ANNOTATION', () => {
+describe('getMemoryDeleteAnnotation', () => {
   it('即時反映されないことを説明する文言を含む', () => {
-    expect(MEMORY_DELETE_ANNOTATION).toContain('すぐ反映されない');
+    expect(getMemoryDeleteAnnotation()).toContain('すぐ反映されない');
   });
 
   it('会話による訂正を案内する', () => {
-    expect(MEMORY_DELETE_ANNOTATION).toContain('話しかけて');
+    expect(getMemoryDeleteAnnotation()).toContain('話しかけて');
+  });
+
+  it('characterId 未指定時は既定キャラクター（ひより）の shortName を使う', () => {
+    expect(getMemoryDeleteAnnotation()).toContain('ひより');
+  });
+
+  it('characterId に ageha を指定すると「アゲハ」を含む文言を返す', () => {
+    expect(getMemoryDeleteAnnotation('ageha')).toContain('アゲハ');
+  });
+
+  it('ageha の文言は「ひより」を含まない', () => {
+    expect(getMemoryDeleteAnnotation('ageha')).not.toContain('ひより');
   });
 });
 
-describe('MEMORY_PAGE_GUIDANCE', () => {
+describe('getMemoryPageGuidance', () => {
   it('会話での訂正を案内する', () => {
-    expect(MEMORY_PAGE_GUIDANCE).toContain('話しかけて');
+    expect(getMemoryPageGuidance()).toContain('話しかけて');
+  });
+
+  it('characterId 未指定時は既定キャラクター（ひより）の shortName を使う', () => {
+    expect(getMemoryPageGuidance()).toContain('ひより');
+  });
+
+  it('characterId に ageha を指定すると「アゲハ」を含む文言を返す', () => {
+    expect(getMemoryPageGuidance('ageha')).toContain('アゲハ');
+  });
+
+  it('ageha の文言は「ひより」を含まない', () => {
+    expect(getMemoryPageGuidance('ageha')).not.toContain('ひより');
   });
 });
