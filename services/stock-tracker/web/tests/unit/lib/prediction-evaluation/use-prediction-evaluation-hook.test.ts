@@ -12,6 +12,7 @@ jest.mock('next/navigation', () => ({
 const MOCK_SUMMARY: SummaryResponse = {
   period: '7d',
   evaluatedAt: 1_000_000,
+  threshold: 0.5,
   kpi: { totalAccuracy: 65.0, directionalAccuracy: 63.0, judgedCount: 40 },
   dailyTrend: [{ date: '2026-05-10', directionalAccuracy: 63.0, judgedCount: 10 }],
   bySignal: [
@@ -40,6 +41,56 @@ describe('usePredictionEvaluationSummary', () => {
     expect(result.current.loading).toBe(true);
     expect(result.current.data).toBeNull();
     expect(result.current.error).toBeNull();
+  });
+
+  it('threshold を省略した場合、クエリに threshold=0.5 が含まれる', async () => {
+    mockFetch(200);
+    renderHook(() => usePredictionEvaluationSummary('7d'));
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('threshold=0.5'),
+        expect.any(Object)
+      )
+    );
+  });
+
+  it('threshold を指定した場合、クエリに指定値が含まれる', async () => {
+    mockFetch(200);
+    renderHook(() => usePredictionEvaluationSummary('7d', 1.0));
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('threshold=1'),
+        expect.any(Object)
+      )
+    );
+  });
+
+  it('threshold 変更時に新しい URL でリクエストを送る', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValueOnce({ ...MOCK_SUMMARY, threshold: 0.5 }),
+      } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValueOnce({ ...MOCK_SUMMARY, threshold: 1.0 }),
+      } as unknown as Response);
+
+    const { result, rerender } = renderHook(
+      ({ threshold }) => usePredictionEvaluationSummary('7d', threshold),
+      { initialProps: { threshold: 0.5 } }
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    rerender({ threshold: 1.0 });
+    expect(result.current.loading).toBe(true);
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
   it('200 レスポンスで data が返り loading=false になる', async () => {

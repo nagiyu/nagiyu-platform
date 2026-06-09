@@ -20,8 +20,12 @@ const EVALUATION_PERIODS = ['7d', '30d', '90d', 'all'] as const;
 
 const ERROR_MESSAGES = {
   INVALID_PERIOD: `period は ${EVALUATION_PERIODS.join(' / ')} のいずれかを指定してください`,
+  INVALID_THRESHOLD: 'threshold は正の有限な数値を指定してください',
   INTERNAL_ERROR: '予測精度サマリーの取得に失敗しました',
 } as const;
+
+/** threshold 省略時のデフォルト値 (%) */
+const DEFAULT_THRESHOLD_PERCENT = 0.5;
 
 function isEvaluationPeriod(value: string | null): value is EvaluationPeriod {
   return EVALUATION_PERIODS.includes(value as EvaluationPeriod);
@@ -74,6 +78,23 @@ export const GET = withAuth(
         );
       }
 
+      // threshold パラメータのパース・バリデーション
+      const thresholdRaw = searchParams.get('threshold');
+      let thresholdPercent = DEFAULT_THRESHOLD_PERCENT;
+      if (thresholdRaw !== null) {
+        const parsed = parseFloat(thresholdRaw);
+        if (!isFinite(parsed) || parsed <= 0) {
+          return NextResponse.json(
+            {
+              error: 'VALIDATION_ERROR',
+              message: ERROR_MESSAGES.INVALID_THRESHOLD,
+            },
+            { status: 400 }
+          );
+        }
+        thresholdPercent = parsed;
+      }
+
       const { fromDate, toDate } = resolveDateRange(period);
 
       const exchangeRepository = createExchangeRepository();
@@ -91,11 +112,12 @@ export const GET = withAuth(
 
       const evaluated = allSummaries.filter(isEvaluatedDailySummary);
 
-      const aggregated = aggregateEvaluatedSummaries({ evaluated });
+      const aggregated = aggregateEvaluatedSummaries({ evaluated, thresholdPercent });
 
       const response: SummaryResponse = {
         period,
         evaluatedAt: Date.now(),
+        threshold: aggregated.thresholdPercent,
         kpi: aggregated.kpi,
         dailyTrend: aggregated.dailyTrend,
         bySignal: aggregated.bySignal,

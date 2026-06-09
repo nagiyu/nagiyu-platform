@@ -24,7 +24,8 @@ function resolveErrorMessage(status: number): string {
 }
 
 export function usePredictionEvaluationSummary(
-  period: EvaluationPeriod
+  period: EvaluationPeriod,
+  threshold: number = 0.5
 ): FetchState<SummaryResponse> {
   const [state, setState] = useState<FetchState<SummaryResponse>>({
     data: null,
@@ -36,7 +37,7 @@ export function usePredictionEvaluationSummary(
     const controller = new AbortController();
     setState({ data: null, loading: true, error: null });
 
-    fetch(`/api/prediction-evaluation/summary?period=${period}`, {
+    fetch(`/api/prediction-evaluation/summary?period=${period}&threshold=${threshold}`, {
       signal: controller.signal,
     })
       .then(async (res) => {
@@ -55,7 +56,7 @@ export function usePredictionEvaluationSummary(
     return () => {
       controller.abort();
     };
-  }, [period]);
+  }, [period, threshold]);
 
   return state;
 }

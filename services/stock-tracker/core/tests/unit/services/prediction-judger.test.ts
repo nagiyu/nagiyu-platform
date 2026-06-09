@@ -3,13 +3,123 @@
  *
  * 採点判定ロジックのユニットテスト。シグナル × 境界値の網羅
  * （境界値ちょうど + 内側 + 外側）と入力バリデーションをカバーする。
+ * `classifyHit` の独立テストも含む。
  */
 
 import {
   judgePrediction,
+  classifyHit,
   PREDICTION_JUDGER_ERROR_MESSAGES,
   type JudgeInput,
 } from '../../../src/services/prediction-judger.js';
+
+describe('classifyHit - 純粋 Hit 判定関数', () => {
+  describe('BULLISH（境界値: >= +threshold）', () => {
+    it('actualReturn が threshold ちょうどなら Hit', () => {
+      expect(classifyHit('BULLISH', 0.5, 0.5)).toBe(true);
+    });
+
+    it('actualReturn が threshold より大きければ Hit', () => {
+      expect(classifyHit('BULLISH', 0.51, 0.5)).toBe(true);
+    });
+
+    it('actualReturn が threshold 未満なら Miss', () => {
+      expect(classifyHit('BULLISH', 0.49, 0.5)).toBe(false);
+    });
+
+    it('threshold = 1.0 のとき actualReturn = 1.0 なら Hit', () => {
+      expect(classifyHit('BULLISH', 1.0, 1.0)).toBe(true);
+    });
+
+    it('threshold = 1.0 のとき actualReturn = 0.99 なら Miss', () => {
+      expect(classifyHit('BULLISH', 0.99, 1.0)).toBe(false);
+    });
+
+    it('actualReturn = 0 なら Miss', () => {
+      expect(classifyHit('BULLISH', 0, 0.5)).toBe(false);
+    });
+
+    it('actualReturn が負なら Miss', () => {
+      expect(classifyHit('BULLISH', -0.5, 0.5)).toBe(false);
+    });
+  });
+
+  describe('BEARISH（境界値: <= -threshold）', () => {
+    it('actualReturn が -threshold ちょうどなら Hit', () => {
+      expect(classifyHit('BEARISH', -0.5, 0.5)).toBe(true);
+    });
+
+    it('actualReturn が -threshold より小さければ Hit', () => {
+      expect(classifyHit('BEARISH', -0.51, 0.5)).toBe(true);
+    });
+
+    it('actualReturn が -threshold より大きければ Miss', () => {
+      expect(classifyHit('BEARISH', -0.49, 0.5)).toBe(false);
+    });
+
+    it('threshold = 1.0 のとき actualReturn = -1.0 なら Hit', () => {
+      expect(classifyHit('BEARISH', -1.0, 1.0)).toBe(true);
+    });
+
+    it('threshold = 1.0 のとき actualReturn = -0.99 なら Miss', () => {
+      expect(classifyHit('BEARISH', -0.99, 1.0)).toBe(false);
+    });
+
+    it('actualReturn = 0 なら Miss', () => {
+      expect(classifyHit('BEARISH', 0, 0.5)).toBe(false);
+    });
+
+    it('actualReturn が正なら Miss', () => {
+      expect(classifyHit('BEARISH', 0.5, 0.5)).toBe(false);
+    });
+  });
+
+  describe('NEUTRAL（境界値: -threshold < r < +threshold）', () => {
+    it('actualReturn = 0 なら Hit', () => {
+      expect(classifyHit('NEUTRAL', 0, 0.5)).toBe(true);
+    });
+
+    it('actualReturn が正の境界値の内側なら Hit', () => {
+      expect(classifyHit('NEUTRAL', 0.49, 0.5)).toBe(true);
+    });
+
+    it('actualReturn が負の境界値の内側なら Hit', () => {
+      expect(classifyHit('NEUTRAL', -0.49, 0.5)).toBe(true);
+    });
+
+    it('actualReturn が +threshold ちょうどなら Miss（境界値は方向側）', () => {
+      expect(classifyHit('NEUTRAL', 0.5, 0.5)).toBe(false);
+    });
+
+    it('actualReturn が -threshold ちょうどなら Miss（境界値は方向側）', () => {
+      expect(classifyHit('NEUTRAL', -0.5, 0.5)).toBe(false);
+    });
+
+    it('actualReturn が threshold より大きければ Miss', () => {
+      expect(classifyHit('NEUTRAL', 0.51, 0.5)).toBe(false);
+    });
+
+    it('actualReturn が -threshold より小さければ Miss', () => {
+      expect(classifyHit('NEUTRAL', -0.51, 0.5)).toBe(false);
+    });
+
+    it('threshold = 1.0 のとき actualReturn = 0.5 なら Hit', () => {
+      expect(classifyHit('NEUTRAL', 0.5, 1.0)).toBe(true);
+    });
+
+    it('threshold = 1.0 のとき actualReturn = 1.0 なら Miss', () => {
+      expect(classifyHit('NEUTRAL', 1.0, 1.0)).toBe(false);
+    });
+  });
+
+  describe('不正シグナル', () => {
+    it('未知のシグナル値は INVALID_SIGNAL エラー', () => {
+      expect(() => classifyHit('UNKNOWN' as 'BULLISH', 0, 0.5)).toThrow(
+        PREDICTION_JUDGER_ERROR_MESSAGES.INVALID_SIGNAL
+      );
+    });
+  });
+});
 
 describe('Prediction Judger Service', () => {
   /**

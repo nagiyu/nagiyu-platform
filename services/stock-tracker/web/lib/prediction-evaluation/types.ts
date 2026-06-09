@@ -49,6 +49,8 @@ export interface SummaryResponse {
   period: EvaluationPeriod;
   /** 集計時刻（unix timestamp ms） */
   evaluatedAt: number;
+  /** 集計に使用した Hit 判定閾値 (%) */
+  threshold: number;
   kpi: KpiSummary;
   dailyTrend: DailyTrendPoint[];
   bySignal: SignalAccuracyEntry[];
