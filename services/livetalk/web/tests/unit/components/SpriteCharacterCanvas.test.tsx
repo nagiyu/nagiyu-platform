@@ -347,6 +347,36 @@ describe('SpriteCharacterCanvas', () => {
       expect(onPlaybackEnd).toHaveBeenCalledTimes(1);
     });
 
+    it('音量がしきい値を跨ぐと mouthOpen が開閉する（二値・ヒステリシス）', () => {
+      mockAnalyser.frequencyBinCount = 4;
+      // まず大音量（開く閾値超え）
+      mockGetByteFrequencyData.mockImplementation((arr: Uint8Array) => {
+        arr.fill(200);
+      });
+
+      render(
+        <SpriteCharacterCanvas
+          characterId="ageha"
+          audioBuffer={mockAudioBuffer}
+          audioContext={mockAudioContext}
+        />
+      );
+
+      // mouthOpen の Image をラップする div（ref 対象）の inline opacity を確認する
+      const mouthOpenWrapper = screen.getByTestId('sprite-mouth-open').parentElement as HTMLElement;
+
+      // 大音量の rAF 一巡で口が開く（opacity 1）
+      flushRaf(0);
+      expect(mouthOpenWrapper.style.opacity).toBe('1');
+
+      // 無音（閉じる閾値未満）の rAF 一巡で口が閉じる（opacity 0）
+      mockGetByteFrequencyData.mockImplementation((arr: Uint8Array) => {
+        arr.fill(0);
+      });
+      flushRaf(0);
+      expect(mouthOpenWrapper.style.opacity).toBe('0');
+    });
+
     it('onPlaybackError が指定されている場合、例外時に呼ばれる', () => {
       const onPlaybackError = jest.fn();
       const error = new Error('テスト再生エラー');
