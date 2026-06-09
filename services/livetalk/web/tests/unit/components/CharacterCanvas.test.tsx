@@ -43,6 +43,14 @@ jest.mock('@/components/StillImageCanvas', () => ({
   )),
 }));
 
+// SpriteCharacterCanvas: next/image + Web Audio + rAF 依存を排除するためモック化する
+jest.mock('@/components/SpriteCharacterCanvas', () => ({
+  __esModule: true,
+  default: jest.fn(({ characterId }: { characterId?: string }) => (
+    <div data-testid="sprite-character-canvas" data-character-id={characterId ?? ''} />
+  )),
+}));
+
 // getCharacterRenderProfile をモック化して renderer 種別を制御する
 jest.mock('@/lib/characters/client-profiles', () => ({
   ...jest.requireActual('@/lib/characters/client-profiles'),
@@ -51,6 +59,7 @@ jest.mock('@/lib/characters/client-profiles', () => ({
 
 import { getCharacterRenderProfile } from '@/lib/characters/client-profiles';
 import CharacterCanvas from '@/components/CharacterCanvas';
+import type { SpriteCharacterCanvasProps } from '@/components/SpriteCharacterCanvas';
 
 const mockGetCharacterRenderProfile = getCharacterRenderProfile as jest.MockedFunction<
   typeof getCharacterRenderProfile
@@ -134,6 +143,75 @@ describe('CharacterCanvas', () => {
       );
       expect(MockStillImageCanvas).toHaveBeenCalled();
       const [receivedProps] = (MockStillImageCanvas as jest.Mock).mock.calls[0];
+      expect(receivedProps).toMatchObject({
+        characterId: 'ageha',
+        statusText: '話している',
+        onPlaybackEnd: mockPlaybackEnd,
+      });
+    });
+  });
+
+  describe('renderer: sprite のとき', () => {
+    beforeEach(() => {
+      mockGetCharacterRenderProfile.mockReturnValue({
+        renderer: 'sprite',
+        sprite: {
+          base: '/assets/characters/ageha/sprite/base.png',
+          eyeOpen: '/assets/characters/ageha/sprite/eye-open.png',
+          eyeClosed: '/assets/characters/ageha/sprite/eye-closed.png',
+          mouthOpen: '/assets/characters/ageha/sprite/mouth-open.png',
+          mouthClosed: '/assets/characters/ageha/sprite/mouth-closed.png',
+        },
+      });
+    });
+
+    it('SpriteCharacterCanvas がマウントされる', () => {
+      render(<CharacterCanvas characterId="ageha" />);
+      expect(screen.getByTestId('sprite-character-canvas')).toBeInTheDocument();
+    });
+
+    it('Live2DCanvas がマウントされない', () => {
+      render(<CharacterCanvas characterId="ageha" />);
+      expect(screen.queryByTestId('live2d-canvas')).toBeNull();
+    });
+
+    it('StillImageCanvas がマウントされない', () => {
+      render(<CharacterCanvas characterId="ageha" />);
+      expect(screen.queryByTestId('still-image-canvas')).toBeNull();
+    });
+
+    it('PlaceholderCanvas がマウントされない', () => {
+      render(<CharacterCanvas characterId="ageha" />);
+      expect(screen.queryByTestId('placeholder-canvas')).toBeNull();
+    });
+
+    it('characterId が SpriteCharacterCanvas に渡される', () => {
+      render(<CharacterCanvas characterId="ageha" />);
+      expect(screen.getByTestId('sprite-character-canvas')).toHaveAttribute(
+        'data-character-id',
+        'ageha'
+      );
+    });
+
+    it('statusText などの props が SpriteCharacterCanvas に透過される', () => {
+      const mockPlaybackEnd = jest.fn();
+      const { default: MockSpriteCharacterCanvas } = jest.requireMock(
+        '@/components/SpriteCharacterCanvas'
+      );
+
+      render(
+        <CharacterCanvas
+          characterId="ageha"
+          statusText="話している"
+          onPlaybackEnd={mockPlaybackEnd}
+        />
+      );
+      expect(MockSpriteCharacterCanvas).toHaveBeenCalled();
+      const [receivedProps] = (
+        MockSpriteCharacterCanvas as jest.MockedFunction<
+          (props: SpriteCharacterCanvasProps) => React.ReactElement
+        >
+      ).mock.calls[0];
       expect(receivedProps).toMatchObject({
         characterId: 'ageha',
         statusText: '話している',
@@ -252,6 +330,22 @@ describe('CharacterCanvas', () => {
 
       render(<CharacterCanvas />);
       expect(screen.getByTestId('still-image-canvas')).toBeInTheDocument();
+    });
+
+    it('renderer: sprite の場合 SpriteCharacterCanvas がマウントされる', () => {
+      mockGetCharacterRenderProfile.mockReturnValue({
+        renderer: 'sprite',
+        sprite: {
+          base: '/assets/characters/ageha/sprite/base.png',
+          eyeOpen: '/assets/characters/ageha/sprite/eye-open.png',
+          eyeClosed: '/assets/characters/ageha/sprite/eye-closed.png',
+          mouthOpen: '/assets/characters/ageha/sprite/mouth-open.png',
+          mouthClosed: '/assets/characters/ageha/sprite/mouth-closed.png',
+        },
+      });
+
+      render(<CharacterCanvas />);
+      expect(screen.getByTestId('sprite-character-canvas')).toBeInTheDocument();
     });
   });
 });

@@ -7,7 +7,8 @@
  * renderer フィールドで描画方式を区別する discriminated union。
  * - 'live2d': PixiJS + pixi-live2d-display を使った Live2D モデル描画
  * - 'placeholder': Live2D モデル未用意のキャラ向けプレースホルダー描画（シルエット + 名前ラベル）
- * - 'still': 完成した一枚絵（静止画 1 枚）の描画。アニメーションなし。将来の瞬き＋口パクは別レンダラ。
+ * - 'still': 完成した一枚絵（静止画 1 枚）の描画。アニメーションなし。
+ * - 'sprite': 一枚絵のパーツを重ね合わせて瞬き＋音声連動口パクを行う描画。
  */
 export type CharacterRenderProfile =
   | {
@@ -30,10 +31,27 @@ export type CharacterRenderProfile =
       renderer: 'placeholder';
     }
   | {
-      /** 完成した一枚絵（静止画 1 枚）の描画。アニメーションなし。将来の瞬き＋口パクは別レンダラ。 */
+      /** 完成した一枚絵（静止画 1 枚）の描画。アニメーションなし。 */
       renderer: 'still';
       /** 一枚絵画像のパス（public/CloudFront 配下の絶対パス。例: /assets/characters/ageha/still.png） */
       imagePath: string;
+    }
+  | {
+      /** 一枚絵のパーツを重ね合わせて瞬き＋音声連動口パクを行う描画。 */
+      renderer: 'sprite';
+      /** パーツ画像のパス群（public/CloudFront 配下の絶対パス） */
+      sprite: {
+        /** 目・口を含まないベース画像 */
+        base: string;
+        /** 開いた目 */
+        eyeOpen: string;
+        /** 閉じた目（瞬き時に重ねる） */
+        eyeClosed: string;
+        /** 開いた口（発話時に音量連動で不透明度を上げる） */
+        mouthOpen: string;
+        /** 閉じた口（常時表示のベース口） */
+        mouthClosed: string;
+      };
     };
 
 /**
