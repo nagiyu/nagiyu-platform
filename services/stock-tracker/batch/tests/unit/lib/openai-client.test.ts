@@ -44,6 +44,18 @@ const testInput = {
   ],
 };
 
+/** predictedReturn から signal を導出したレスポンスを生成するヘルパー */
+const mockOutputParsed = (predictedReturn: number, confidence = 0.7) => ({
+  output_parsed: {
+    priceMovementAnalysis: '当日の値動き分析',
+    patternAnalysis: 'パターン分析',
+    supportLevels: [100, 99, 98],
+    resistanceLevels: [110, 111, 112],
+    relatedMarketTrend: '市場動向',
+    investmentJudgment: { predictedReturn, confidence, reason: 'テスト理由' },
+  },
+});
+
 describe('generateAiAnalysis', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -55,16 +67,7 @@ describe('generateAiAnalysis', () => {
   });
 
   it('正常系: AI解析テキストを返す', async () => {
-    mockParse.mockResolvedValue({
-      output_parsed: {
-        priceMovementAnalysis: '当日の値動き分析',
-        patternAnalysis: 'パターン分析',
-        supportLevels: [100, 99, 98],
-        resistanceLevels: [110, 111, 112],
-        relatedMarketTrend: '市場動向',
-        investmentJudgment: { signal: 'NEUTRAL', reason: '様子見' },
-      },
-    });
+    mockParse.mockResolvedValue(mockOutputParsed(0.2));
 
     const result = await generateAiAnalysis('test-api-key', testInput);
 
@@ -145,17 +148,124 @@ describe('generateAiAnalysis', () => {
     );
   });
 
-  it('出来高未設定時は当日データと過去データで "-" を出力する', async () => {
-    mockParse.mockResolvedValue({
-      output_parsed: {
-        priceMovementAnalysis: '出来高未設定の解析テキスト',
-        patternAnalysis: 'パターン分析',
-        supportLevels: [100, 99, 98],
-        resistanceLevels: [110, 111, 112],
-        relatedMarketTrend: '市場動向',
-        investmentJudgment: { signal: 'NEUTRAL', reason: '様子見' },
-      },
+  it('プロンプトに predictedReturn / confidence の指示文が含まれる', async () => {
+    mockParse.mockResolvedValue(mockOutputParsed(0.5));
+
+    await generateAiAnalysis('test-api-key', testInput);
+
+    const promptText = mockParse.mock.calls[0][0].input[0].content[0].text;
+    expect(promptText).toContain('investmentJudgment.predictedReturn');
+    expect(promptText).toContain('investmentJudgment.confidence');
+    expect(promptText).toContain('close-to-close リターン');
+    expect(promptText).toContain('+0.5% 以上なら強気');
+    // signal の直接指示が含まれていないこと
+    expect(promptText).not.toContain('investmentJudgment.signal');
+  });
+
+  describe('predictedReturn から signal が正しく導出される', () => {
+    it('predictedReturn = +1.0 → BULLISH', async () => {
+      mockParse.mockResolvedValue(mockOutputParsed(1.0));
+
+      const result = await generateAiAnalysis('test-api-key', testInput);
+
+      expect(result.investmentJudgment.signal).toBe('BULLISH');
+      expect(result.investmentJudgment.predictedReturn).toBe(1.0);
     });
+
+    it('predictedReturn = +0.5（境界値）→ BULLISH', async () => {
+      mockParse.mockResolvedValue(mockOutputParsed(0.5));
+
+      const result = await generateAiAnalysis('test-api-key', testInput);
+
+      expect(result.investmentJudgment.signal).toBe('BULLISH');
+    });
+
+    it('predictedReturn = +0.2 → NEUTRAL', async () => {
+      mockParse.mockResolvedValue(mockOutputParsed(0.2));
+
+      const result = await generateAiAnalysis('test-api-key', testInput);
+
+      expect(result.investmentJudgment.signal).toBe('NEUTRAL');
+    });
+
+    it('predictedReturn = 0 → NEUTRAL', async () => {
+      mockParse.mockResolvedValue(mockOutputParsed(0));
+
+      const result = await generateAiAnalysis('test-api-key', testInput);
+
+      expect(result.investmentJudgment.signal).toBe('NEUTRAL');
+    });
+
+    it('predictedReturn = -0.2 → NEUTRAL', async () => {
+      mockParse.mockResolvedValue(mockOutputParsed(-0.2));
+
+      const result = await generateAiAnalysis('test-api-key', testInput);
+
+      expect(result.investmentJudgment.signal).toBe('NEUTRAL');
+    });
+
+    it('predictedReturn = -0.5（境界値）→ BEARISH', async () => {
+      mockParse.mockResolvedValue(mockOutputParsed(-0.5));
+
+      const result = await generateAiAnalysis('test-api-key', testInput);
+
+      expect(result.investmentJudgment.signal).toBe('BEARISH');
+    });
+
+    it('predictedReturn = -1.0 → BEARISH', async () => {
+      mockParse.mockResolvedValue(mockOutputParsed(-1.0));
+
+      const result = await generateAiAnalysis('test-api-key', testInput);
+
+      expect(result.investmentJudgment.signal).toBe('BEARISH');
+      expect(result.investmentJudgment.predictedReturn).toBe(-1.0);
+    });
+  });
+
+  describe('confidence のクランプ', () => {
+    it('confidence = 0.72 → そのまま 0.72', async () => {
+      mockParse.mockResolvedValue(mockOutputParsed(0.5, 0.72));
+
+      const result = await generateAiAnalysis('test-api-key', testInput);
+
+      expect(result.investmentJudgment.confidence).toBe(0.72);
+    });
+
+    it('confidence = 1.5 → 1 にクランプ', async () => {
+      mockParse.mockResolvedValue(mockOutputParsed(0.5, 1.5));
+
+      const result = await generateAiAnalysis('test-api-key', testInput);
+
+      expect(result.investmentJudgment.confidence).toBe(1);
+    });
+
+    it('confidence = -0.1 → 0 にクランプ', async () => {
+      mockParse.mockResolvedValue(mockOutputParsed(0.5, -0.1));
+
+      const result = await generateAiAnalysis('test-api-key', testInput);
+
+      expect(result.investmentJudgment.confidence).toBe(0);
+    });
+
+    it('confidence = 0 → そのまま 0', async () => {
+      mockParse.mockResolvedValue(mockOutputParsed(0.5, 0));
+
+      const result = await generateAiAnalysis('test-api-key', testInput);
+
+      expect(result.investmentJudgment.confidence).toBe(0);
+    });
+
+    it('confidence = 1 → そのまま 1', async () => {
+      mockParse.mockResolvedValue(mockOutputParsed(0.5, 1));
+
+      const result = await generateAiAnalysis('test-api-key', testInput);
+
+      expect(result.investmentJudgment.confidence).toBe(1);
+    });
+  });
+
+  it('出来高未設定時は当日データと過去データで "-" を出力する', async () => {
+    mockParse.mockResolvedValue(mockOutputParsed(0));
 
     await generateAiAnalysis('test-api-key', {
       ...testInput,
@@ -178,16 +288,7 @@ describe('generateAiAnalysis', () => {
   });
 
   it('対応形式のチャート画像がある場合は input_image を付与する', async () => {
-    mockParse.mockResolvedValue({
-      output_parsed: {
-        priceMovementAnalysis: '当日の値動き分析',
-        patternAnalysis: 'パターン分析',
-        supportLevels: [100, 99, 98],
-        resistanceLevels: [110, 111, 112],
-        relatedMarketTrend: '市場動向',
-        investmentJudgment: { signal: 'BULLISH', reason: '上昇継続' },
-      },
-    });
+    mockParse.mockResolvedValue(mockOutputParsed(1.0));
 
     await generateAiAnalysis('test-api-key', {
       ...testInput,
@@ -217,16 +318,7 @@ describe('generateAiAnalysis', () => {
   });
 
   it('非対応形式のチャート画像は input_image に含めない', async () => {
-    mockParse.mockResolvedValue({
-      output_parsed: {
-        priceMovementAnalysis: '当日の値動き分析',
-        patternAnalysis: 'パターン分析',
-        supportLevels: [100, 99, 98],
-        resistanceLevels: [110, 111, 112],
-        relatedMarketTrend: '市場動向',
-        investmentJudgment: { signal: 'BEARISH', reason: '下落リスク' },
-      },
-    });
+    mockParse.mockResolvedValue(mockOutputParsed(-1.0));
 
     await generateAiAnalysis('test-api-key', {
       ...testInput,
@@ -262,16 +354,9 @@ describe('generateAiAnalysis', () => {
   });
 
   it('リトライ: 失敗後の再試行で成功する', async () => {
-    mockParse.mockRejectedValueOnce(new Error('temporary error')).mockResolvedValue({
-      output_parsed: {
-        priceMovementAnalysis: '当日の値動き分析',
-        patternAnalysis: 'パターン分析',
-        supportLevels: [100, 99, 98],
-        resistanceLevels: [110, 111, 112],
-        relatedMarketTrend: '市場動向',
-        investmentJudgment: { signal: 'NEUTRAL', reason: '様子見' },
-      },
-    });
+    mockParse
+      .mockRejectedValueOnce(new Error('temporary error'))
+      .mockResolvedValue(mockOutputParsed(0.2));
 
     const promise = generateAiAnalysis('test-api-key', testInput);
     await jest.runAllTimersAsync();
@@ -300,7 +385,7 @@ describe('generateAiAnalysis', () => {
         supportLevels: [100, 99],
         resistanceLevels: [110, 111, 112],
         relatedMarketTrend: '市場動向',
-        investmentJudgment: { signal: 'NEUTRAL', reason: '様子見' },
+        investmentJudgment: { predictedReturn: 0.2, confidence: 0.7, reason: '様子見' },
       },
     });
 

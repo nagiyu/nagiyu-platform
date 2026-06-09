@@ -589,4 +589,146 @@ describe('DailySummaryMapper', () => {
       expect(convertedEntity).toEqual(entity);
     });
   });
+
+  describe('AiAnalysisResult の新フィールド（predictedReturn / confidence）', () => {
+    it('新フィールドあり: predictedReturn と confidence を含む AiAnalysisResult の round-trip', () => {
+      const aiAnalysisResultWithNewFields = {
+        priceMovementAnalysis: '当日の値動き分析',
+        patternAnalysis: 'パターン分析',
+        supportLevels: [100, 99, 98] as [number, number, number],
+        resistanceLevels: [110, 111, 112] as [number, number, number],
+        relatedMarketTrend: '関連市場動向',
+        investmentJudgment: {
+          signal: 'BULLISH' as const,
+          predictedReturn: 1.23,
+          confidence: 0.72,
+          reason: '上昇シグナルが複数点灯',
+        },
+      };
+
+      const entity: DailySummaryEntity = {
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        AiAnalysisResult: aiAnalysisResultWithNewFields,
+        CreatedAt: 1708992000000,
+        UpdatedAt: 1708992000000,
+      };
+
+      const item = mapper.toItem(entity);
+      const convertedEntity = mapper.toEntity(item);
+
+      expect(convertedEntity.AiAnalysisResult).toEqual(aiAnalysisResultWithNewFields);
+      expect(convertedEntity.AiAnalysisResult?.investmentJudgment.predictedReturn).toBe(1.23);
+      expect(convertedEntity.AiAnalysisResult?.investmentJudgment.confidence).toBe(0.72);
+    });
+
+    it('旧レコード（新フィールドなし）の parse が成功する（後方互換）', () => {
+      const legacyAiAnalysisResult = {
+        priceMovementAnalysis: '当日の値動き分析',
+        patternAnalysis: 'パターン分析',
+        supportLevels: [100, 99, 98],
+        resistanceLevels: [110, 111, 112],
+        relatedMarketTrend: '関連市場動向',
+        investmentJudgment: {
+          signal: 'NEUTRAL',
+          reason: '様子見',
+          // predictedReturn / confidence を持たない旧レコード
+        },
+      };
+
+      const item: DynamoDBItem = {
+        PK: 'SUMMARY#NSDQ:AAPL',
+        SK: 'DATE#2026-02-27',
+        Type: 'DailySummary',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        AiAnalysisResult: JSON.stringify(legacyAiAnalysisResult),
+        CreatedAt: 1708992000000,
+        UpdatedAt: 1708992000000,
+      };
+
+      // エラーなしで parse できること
+      expect(() => mapper.toEntity(item)).not.toThrow();
+      const entity = mapper.toEntity(item);
+      expect(entity.AiAnalysisResult?.investmentJudgment.signal).toBe('NEUTRAL');
+      expect(entity.AiAnalysisResult?.investmentJudgment.predictedReturn).toBeUndefined();
+      expect(entity.AiAnalysisResult?.investmentJudgment.confidence).toBeUndefined();
+    });
+
+    it('predictedReturn が数値でない場合は reject される', () => {
+      const invalidAiAnalysisResult = {
+        priceMovementAnalysis: '当日の値動き分析',
+        patternAnalysis: 'パターン分析',
+        supportLevels: [100, 99, 98],
+        resistanceLevels: [110, 111, 112],
+        relatedMarketTrend: '関連市場動向',
+        investmentJudgment: {
+          signal: 'NEUTRAL',
+          predictedReturn: '1.23', // 文字列は不正
+          reason: '様子見',
+        },
+      };
+
+      const item: DynamoDBItem = {
+        PK: 'SUMMARY#NSDQ:AAPL',
+        SK: 'DATE#2026-02-27',
+        Type: 'DailySummary',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        AiAnalysisResult: JSON.stringify(invalidAiAnalysisResult),
+        CreatedAt: 1708992000000,
+        UpdatedAt: 1708992000000,
+      };
+
+      expect(() => mapper.toEntity(item)).toThrow();
+    });
+
+    it('confidence が数値でない場合は reject される', () => {
+      const invalidAiAnalysisResult = {
+        priceMovementAnalysis: '当日の値動き分析',
+        patternAnalysis: 'パターン分析',
+        supportLevels: [100, 99, 98],
+        resistanceLevels: [110, 111, 112],
+        relatedMarketTrend: '関連市場動向',
+        investmentJudgment: {
+          signal: 'NEUTRAL',
+          confidence: 'high', // 文字列は不正
+          reason: '様子見',
+        },
+      };
+
+      const item: DynamoDBItem = {
+        PK: 'SUMMARY#NSDQ:AAPL',
+        SK: 'DATE#2026-02-27',
+        Type: 'DailySummary',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        AiAnalysisResult: JSON.stringify(invalidAiAnalysisResult),
+        CreatedAt: 1708992000000,
+        UpdatedAt: 1708992000000,
+      };
+
+      expect(() => mapper.toEntity(item)).toThrow();
+    });
+  });
 });
