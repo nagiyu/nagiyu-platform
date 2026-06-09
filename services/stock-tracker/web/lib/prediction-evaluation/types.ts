@@ -30,6 +30,8 @@ export interface KpiSummary {
   directionalAccuracy: number | null;
   /** 判定済み件数 */
   judgedCount: number;
+  /** NEUTRAL 予測比率（%）。judgedCount=0 なら null */
+  neutralRatio: number | null;
 }
 
 export interface DailyTrendPoint {
@@ -43,6 +45,17 @@ export interface SignalAccuracyEntry {
   signal: PredictedSignal;
   accuracy: number | null;
   count: number;
+  /**
+   * 市場ベースレート（%）。
+   * BULLISH→上昇率、BEARISH→下落率、NEUTRAL→フラット率。
+   * n=0 なら null。
+   */
+  baseline: number | null;
+  /**
+   * エッジ（精度 − ベースライン、%）。
+   * accuracy と baseline が両方 non-null のとき算出。どちらか null なら null。
+   */
+  edge: number | null;
 }
 
 export interface SummaryResponse {
@@ -54,4 +67,16 @@ export interface SummaryResponse {
   kpi: KpiSummary;
   dailyTrend: DailyTrendPoint[];
   bySignal: SignalAccuracyEntry[];
+  /**
+   * 市場ベースレート（全件を母数）。
+   * n=0 なら 3 つとも null。
+   */
+  baseline: {
+    /** 上昇率（ActualReturn >= +threshold の割合）(%) */
+    upRate: number | null;
+    /** 下落率（ActualReturn <= -threshold の割合）(%) */
+    downRate: number | null;
+    /** フラット率（-threshold < ActualReturn < +threshold の割合）(%) */
+    flatRate: number | null;
+  };
 }

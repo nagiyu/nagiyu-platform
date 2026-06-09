@@ -30,11 +30,36 @@ describe('buildSummaryHeadline', () => {
     totalAccuracy: 64.8,
     directionalAccuracy: 63.5,
     judgedCount: 54,
+    neutralRatio: null,
   };
 
-  it('期間ラベル・方向精度・件数・総合精度を含むテキストを返す', () => {
+  it('期間ラベル・方向精度・件数・総合精度を含むテキストを返す（NEUTRAL 比率 null）', () => {
     expect(buildSummaryHeadline('7d', baseKpi)).toBe(
       '直近 7 日の方向精度: 63.5%（採点 54 件、総合精度 64.8%）'
+    );
+  });
+
+  it('NEUTRAL 比率がある場合は見出しに含む', () => {
+    const kpiWithNeutral: KpiSummary = {
+      totalAccuracy: 64.8,
+      directionalAccuracy: 63.5,
+      judgedCount: 54,
+      neutralRatio: 25.0,
+    };
+    expect(buildSummaryHeadline('7d', kpiWithNeutral)).toBe(
+      '直近 7 日の方向精度: 63.5%（採点 54 件、NEUTRAL 比率 25.0%、総合精度 64.8%）'
+    );
+  });
+
+  it('NEUTRAL 比率が 0 のときも見出しに含む', () => {
+    const kpiWithZeroNeutral: KpiSummary = {
+      totalAccuracy: 64.8,
+      directionalAccuracy: 63.5,
+      judgedCount: 54,
+      neutralRatio: 0,
+    };
+    expect(buildSummaryHeadline('30d', kpiWithZeroNeutral)).toBe(
+      '直近 30 日の方向精度: 63.5%（採点 54 件、NEUTRAL 比率 0.0%、総合精度 64.8%）'
     );
   });
 
@@ -49,6 +74,7 @@ describe('buildSummaryHeadline', () => {
       totalAccuracy: null,
       directionalAccuracy: null,
       judgedCount: 0,
+      neutralRatio: null,
     };
     expect(buildSummaryHeadline('all', emptyKpi)).toBe('全期間: 採点済みの予測がありません');
   });
@@ -58,9 +84,22 @@ describe('buildSummaryHeadline', () => {
       totalAccuracy: null,
       directionalAccuracy: null,
       judgedCount: 3,
+      neutralRatio: null,
     };
     expect(buildSummaryHeadline('7d', partialKpi)).toBe(
       '直近 7 日の方向精度: —（採点 3 件、総合精度 —）'
+    );
+  });
+
+  it('件数が多い場合も千の位区切りで整形する', () => {
+    const bigKpi: KpiSummary = {
+      totalAccuracy: 50.0,
+      directionalAccuracy: 45.0,
+      judgedCount: 1234,
+      neutralRatio: 33.3,
+    };
+    expect(buildSummaryHeadline('90d', bigKpi)).toBe(
+      '直近 90 日の方向精度: 45.0%（採点 1,234 件、NEUTRAL 比率 33.3%、総合精度 50.0%）'
     );
   });
 });

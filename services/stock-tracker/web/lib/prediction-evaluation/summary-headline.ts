@@ -23,9 +23,13 @@ export const buildSummaryHeadline = (period: EvaluationPeriod, kpi: KpiSummary):
   if (kpi.judgedCount === 0) {
     return `${periodLabel}: 採点済みの予測がありません`;
   }
+  const neutralRatioPart =
+    kpi.neutralRatio !== null && kpi.neutralRatio !== undefined
+      ? `、NEUTRAL 比率 ${formatAccuracy(kpi.neutralRatio)}`
+      : '';
   return `${periodLabel}の方向精度: ${formatAccuracy(kpi.directionalAccuracy)}（採点 ${formatJudgedCount(
     kpi.judgedCount
-  )} 件、総合精度 ${formatAccuracy(kpi.totalAccuracy)}）`;
+  )} 件${neutralRatioPart}、総合精度 ${formatAccuracy(kpi.totalAccuracy)}）`;
 };
 
 export const buildLoadingHeadline = (period: EvaluationPeriod): string =>
