@@ -72,7 +72,7 @@ const PROFILES: Record<string, CharacterClientProfile> = {
     description:
       'テンション高めで背中を押してくれる相棒ギャル。落ち込んでも隣でアゲてくれる、ノリのいい女の子。',
     model: { engine: 'プレースホルダー', name: '仮アバター（シルエット）' },
-    voice: { engine: 'OpenAI TTS', name: 'coral' },
+    voice: { engine: 'OpenAI TTS', name: 'shimmer' },
   },
 };
 

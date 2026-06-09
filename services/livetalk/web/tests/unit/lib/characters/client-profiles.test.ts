@@ -205,9 +205,9 @@ describe('早瀬アゲハ クライアントプロファイル', () => {
     expect(profile.voice.engine).toBe('OpenAI TTS');
   });
 
-  it('voice.name が "coral" である', () => {
+  it('voice.name が "shimmer" である', () => {
     const profile = getCharacterClientProfile('ageha');
-    expect(profile.voice.name).toBe('coral');
+    expect(profile.voice.name).toBe('shimmer');
   });
 });
 
