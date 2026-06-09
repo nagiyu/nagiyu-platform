@@ -34,3 +34,13 @@ export type UpdateHighlightInput = {
   status?: HighlightStatus;
   clipStatus?: ClipStatus;
 };
+
+/** Whisper 文字起こしの1セグメント。 */
+export type TranscriptSegment = {
+  /** セグメント開始時刻（秒）。 */
+  start: number;
+  /** セグメント終了時刻（秒）。 */
+  end: number;
+  /** 書き起こしテキスト。 */
+  text: string;
+};

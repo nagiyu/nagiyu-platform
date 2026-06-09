@@ -22,7 +22,7 @@ import {
 import { Button, Chip, ErrorAlert, TextField } from '@nagiyu/ui';
 import ReplayIcon from '@mui/icons-material/Replay';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
-import type { Highlight } from '@/types/quick-clip';
+import type { Highlight, TranscriptSegment } from '@/types/quick-clip';
 import { ColumnVisibilityButton } from '@/components/highlights/ColumnVisibilityButton';
 import { HIGHLIGHT_TABLE_COLUMNS } from '@/constants/highlightTableColumns';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
@@ -65,6 +65,10 @@ type HighlightsPageProps = {
 
 type HighlightsResponse = {
   highlights: Array<Highlight & { clipUrl?: string }>;
+};
+
+type TranscriptResponse = {
+  segments: TranscriptSegment[];
 };
 
 type DownloadResponse = {
@@ -127,6 +131,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
+  const [transcriptSegments, setTranscriptSegments] = useState<TranscriptSegment[]>([]);
   const isFetchingRef = useRef(false);
   const { visibilityMap, toggleColumn } = useColumnVisibility(COLUMN_DEFINITIONS);
 
@@ -216,6 +221,22 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
       }
     };
     void fetchExpiresAt();
+  }, [jobId]);
+
+  useEffect(() => {
+    if (!jobId) return;
+    const fetchTranscript = async () => {
+      try {
+        const res = await fetch(`/api/jobs/${jobId}/transcript`);
+        if (!res.ok) return;
+        const data = (await res.json()) as TranscriptResponse;
+        setTranscriptSegments(data.segments ?? []);
+      } catch (error) {
+        // 文字起こし取得失敗は非致命的
+        console.warn('文字起こしの取得に失敗しました', error);
+      }
+    };
+    void fetchTranscript();
   }, [jobId]);
 
   const selectedHighlight = useMemo(() => {
@@ -512,6 +533,39 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                       {HIGHLIGHT_SOURCE_LABELS[selectedHighlight.source]}
                     </Typography>
                   </Box>
+
+                  {/* 文字起こしセクション */}
+                  {(() => {
+                    const filteredSegments = transcriptSegments.filter(
+                      (seg) =>
+                        seg.start < selectedHighlight.endSec && seg.end > selectedHighlight.startSec
+                    );
+                    if (filteredSegments.length === 0) return null;
+                    return (
+                      <Box>
+                        <Typography variant="body2" sx={{ mb: 0.5 }}>
+                          文字起こし:
+                        </Typography>
+                        <Box
+                          sx={{
+                            p: 1,
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            borderRadius: 1,
+                            bgcolor: 'grey.50',
+                            maxHeight: 160,
+                            overflowY: 'auto',
+                          }}
+                        >
+                          {filteredSegments.map((seg, index) => (
+                            <Typography key={index} variant="body2" sx={{ lineHeight: 1.6 }}>
+                              {seg.text}
+                            </Typography>
+                          ))}
+                        </Box>
+                      </Box>
+                    );
+                  })()}
 
                   {/* 採否ステータス */}
                   <Box>
