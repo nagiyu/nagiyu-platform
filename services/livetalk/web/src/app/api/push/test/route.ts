@@ -74,7 +74,7 @@ export const POST = withAuth(getSession, 'livetalk:admin', async (session, reque
     // キャラクター定義からテスト通知の文面を生成する（テストと明確に分かる内容にする）
     const def = getCharacterDefinition(characterId);
     const title = `${def.notificationName}より`;
-    const body_text = `【テスト送信】${def.displayName}からのテスト通知です`;
+    const bodyText = `【テスト送信】${def.displayName}からのテスト通知です`;
 
     // プッシュサブスクリプションを取得する
     const subscriptions = await getPushSubscriptionRepository().listByUser(userId);
@@ -91,7 +91,7 @@ export const POST = withAuth(getSession, 'livetalk:admin', async (session, reque
     // payload: notify.usecase.ts と同様の形式
     const payload = {
       title,
-      body: body_text,
+      body: bodyText,
       data: { url: `/?character=${characterId}`, characterId },
     };
 
@@ -134,7 +134,7 @@ export const POST = withAuth(getSession, 'livetalk:admin', async (session, reque
         CharacterID: characterId,
         Kind: 'normal',
         Title: title,
-        Body: body_text,
+        Body: bodyText,
         Ttl: ttl,
       });
 
