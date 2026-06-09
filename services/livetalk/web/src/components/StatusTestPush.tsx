@@ -15,7 +15,8 @@
  */
 
 import { useState } from 'react';
-import { Box, Button, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 
 /**
  * テスト通知送信の結果状態。
@@ -122,11 +123,10 @@ export default function StatusTestPush({ characterIds, displayNames }: StatusTes
           <Box key={characterId} sx={{ mb: 1.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
               <Button
-                variant="outlined"
-                size="small"
+                variant="outline"
+                size="sm"
                 disabled={isSending}
                 onClick={() => handleSend(characterId)}
-                sx={{ fontSize: '0.75rem', py: 0.5 }}
               >
                 {isSending ? '送信中…' : `${displayName} にテスト通知`}
               </Button>
