@@ -7,6 +7,7 @@
  * renderer フィールドで描画方式を区別する discriminated union。
  * - 'live2d': PixiJS + pixi-live2d-display を使った Live2D モデル描画
  * - 'placeholder': Live2D モデル未用意のキャラ向けプレースホルダー描画（シルエット + 名前ラベル）
+ * - 'still': 完成した一枚絵（静止画 1 枚）の描画。アニメーションなし。将来の瞬き＋口パクは別レンダラ。
  */
 export type CharacterRenderProfile =
   | {
@@ -27,6 +28,12 @@ export type CharacterRenderProfile =
   | {
       /** Live2D モデル未用意のキャラ向けプレースホルダー描画（シルエット + 名前ラベル、音声連動の口パク） */
       renderer: 'placeholder';
+    }
+  | {
+      /** 完成した一枚絵（静止画 1 枚）の描画。アニメーションなし。将来の瞬き＋口パクは別レンダラ。 */
+      renderer: 'still';
+      /** 一枚絵画像のパス（public/CloudFront 配下の絶対パス。例: /assets/characters/ageha/still.png） */
+      imagePath: string;
     };
 
 /**

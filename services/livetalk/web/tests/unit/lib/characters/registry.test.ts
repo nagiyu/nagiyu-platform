@@ -49,8 +49,8 @@ describe('キャラクターレジストリ', () => {
       const entry = getCharacterEntry('ageha');
       expect(entry.definition.id).toBe('ageha');
       expect(entry.definition.displayName).toBe('早瀬アゲハ');
-      // ageha は placeholder renderer を使用する
-      expect(entry.render.renderer).toBe('placeholder');
+      // ageha は still renderer（一枚絵）を使用する
+      expect(entry.render.renderer).toBe('still');
     });
 
     it('未登録の characterId を指定すると日本語定数メッセージで Error をスローする', () => {
