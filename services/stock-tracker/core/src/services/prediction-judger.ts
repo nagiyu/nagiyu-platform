@@ -25,7 +25,50 @@ export const PREDICTION_JUDGER_ERROR_MESSAGES = {
   INVALID_EVALUATION_CLOSE: '無効な採点終値です。採点終値は正の有限な数値である必要があります',
   INVALID_THRESHOLD: '無効な閾値です。閾値は正の有限な数値である必要があります',
   INVALID_SIGNAL: '無効な投資判断シグナルです',
+  INVALID_PREDICTED_RETURN: '無効な予測リターンです。予測リターンは有限な数値である必要があります',
 } as const;
+
+/**
+ * signal 導出に使う既定閾値 (%)
+ *
+ * 採点側の 0.5% と意味を揃えた共有閾値。
+ * predictedReturn がこの閾値以上なら BULLISH、以下（負）なら BEARISH、その間は NEUTRAL。
+ */
+export const PREDICTION_SIGNAL_THRESHOLD_PERCENT = 0.5;
+
+/**
+ * 予測リターン (%) から投資判断シグナルを決定的に導出する純粋関数。
+ *
+ * 境界値仕様（classifyHit の成功条件と揃える）:
+ * - predictedReturn >= +threshold → 'BULLISH'
+ * - predictedReturn <= -threshold → 'BEARISH'
+ * - それ以外 → 'NEUTRAL'
+ *
+ * @param predictedReturn - 翌営業日終値の当日比予測リターン (%)。有限数であること
+ * @param thresholdPercent - 閾値 (%)。正の有限数であること
+ * @returns 導出されたシグナル
+ * @throws Error - 入力値が不正な場合
+ */
+export function deriveSignalFromReturn(
+  predictedReturn: number,
+  thresholdPercent: number
+): InvestmentSignal {
+  if (typeof thresholdPercent !== 'number' || !isFinite(thresholdPercent) || thresholdPercent <= 0) {
+    throw new Error(PREDICTION_JUDGER_ERROR_MESSAGES.INVALID_THRESHOLD);
+  }
+
+  if (typeof predictedReturn !== 'number' || !isFinite(predictedReturn)) {
+    throw new Error(PREDICTION_JUDGER_ERROR_MESSAGES.INVALID_PREDICTED_RETURN);
+  }
+
+  if (predictedReturn >= thresholdPercent) {
+    return 'BULLISH';
+  }
+  if (predictedReturn <= -thresholdPercent) {
+    return 'BEARISH';
+  }
+  return 'NEUTRAL';
+}
 
 /**
  * `judgePrediction` の入力
