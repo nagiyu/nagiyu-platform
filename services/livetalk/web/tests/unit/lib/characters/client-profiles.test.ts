@@ -201,6 +201,12 @@ describe('早瀬アゲハ クライアントプロファイル', () => {
     expect(profile.licenseText).toContain('AI 生成音声');
   });
 
+  it('licenseText にイラストが AI 生成である明示が含まれる', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(profile.licenseText).toContain('イラスト');
+    expect(profile.licenseText).toContain('AI 生成');
+  });
+
   it('description が設定されている', () => {
     const profile = getCharacterClientProfile('ageha');
     expect(typeof profile.description).toBe('string');
