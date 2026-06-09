@@ -44,8 +44,9 @@ export interface SpriteCharacterCanvasProps {
  * renderer:'sprite' キャラクター向けに、5 枚の透過 PNG（ベース・開いた目・閉じた目・
  * 開いた口・閉じた口）を絶対配置で重ね合わせて描画する。
  *
- * 瞬き: ランダム間隔（3000〜6000ms）で約 180ms だけ eyeClosed レイヤーを opacity 1（閉じ）
- * にする二値スナップ。パッと閉じてパッと開く。発話有無に関わらず常時駆動。
+ * 瞬き: ランダム間隔（3000〜6000ms）で約 180ms だけ目を閉じる二値スナップ。eyeOpen /
+ * eyeClosed レイヤーを排他で切り替える（閉じている間は開いた目を隠して二重表示を防ぐ）。
+ * パッと閉じてパッと開く。発話有無に関わらず常時駆動。
  *
  * 口パク: audioBuffer + audioContext が揃ったら Web Audio API（AudioBufferSourceNode +
  * AnalyserNode）で再生し、AnalyserNode の全周波数ビン平均を 0〜1 に正規化して、
@@ -65,7 +66,8 @@ export default function SpriteCharacterCanvas({
   onPlaybackEnd,
   onPlaybackError,
 }: SpriteCharacterCanvasProps) {
-  // eyeClosed レイヤーの div（opacity を直接操作する）
+  // eyeOpen / eyeClosed レイヤーの div（opacity を直接操作し、開/閉を排他切替する）
+  const eyeOpenRef = useRef<HTMLDivElement | null>(null);
   const eyeClosedRef = useRef<HTMLDivElement | null>(null);
   // mouthOpen / mouthClosed レイヤーの div（opacity を直接操作し、開/閉を排他切替する）
   const mouthOpenRef = useRef<HTMLDivElement | null>(null);
@@ -113,8 +115,12 @@ export default function SpriteCharacterCanvas({
     const animate = () => {
       blinkRafIdRef.current = requestAnimationFrame(animate);
       const closed = computeClosed(performance.now());
+      // 開/閉を排他で切り替える（閉じている間は開いた目を隠して二重に見えないようにする）
       if (eyeClosedRef.current) {
-        eyeClosedRef.current.style.opacity = String(closed);
+        eyeClosedRef.current.style.opacity = closed ? '1' : '0';
+      }
+      if (eyeOpenRef.current) {
+        eyeOpenRef.current.style.opacity = closed ? '0' : '1';
       }
     };
     animate();
@@ -274,17 +280,19 @@ export default function SpriteCharacterCanvas({
             data-testid="sprite-base"
           />
 
-          {/* 開いた目: 常時表示（opacity 固定 1） */}
-          <Image
-            src={spritePaths.eyeOpen}
-            alt=""
-            fill
-            unoptimized
-            style={{ objectFit: 'contain' }}
-            data-testid="sprite-eye-open"
-          />
+          {/* 開いた目: 待機時に表示。瞬きで目を閉じている間は opacity 0 にして二重表示を防ぐ */}
+          <Box ref={eyeOpenRef} sx={{ position: 'absolute', inset: 0, opacity: 1 }}>
+            <Image
+              src={spritePaths.eyeOpen}
+              alt=""
+              fill
+              unoptimized
+              style={{ objectFit: 'contain' }}
+              data-testid="sprite-eye-open"
+            />
+          </Box>
 
-          {/* 閉じた目: 瞬き時に opacity を上げる。div でラップして ref を持たせる */}
+          {/* 閉じた目: 瞬き時に表示。開いた目と排他で切り替える。div でラップして ref を持たせる */}
           <Box ref={eyeClosedRef} sx={{ position: 'absolute', inset: 0, opacity: 0 }}>
             <Image
               src={spritePaths.eyeClosed}

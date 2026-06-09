@@ -408,30 +408,29 @@ describe('SpriteCharacterCanvas', () => {
       expect(requestAnimationFrame).toHaveBeenCalled();
     });
 
-    it('瞬き窓内で eyeClosed の div の opacity が更新される', () => {
-      // performance.now をスパイして瞬き窓内（blinkStart 直後の 50ms）に入れる
-      const mockNow = jest.spyOn(performance, 'now');
-      // 初回呼び出し（nextBlinkAt 設定）は大きな値を返し、2 回目以降でターゲット時刻を返す
-      // まず初期の nextBlinkAt を計算させる
-      let callCount = 0;
-      const BASE_TIME = 0;
-      const NEXT_BLINK = BASE_TIME + 3000; // 最小インターバル
+    it('瞬き窓内では開いた目を隠し閉じた目を表示する（排他）', () => {
+      // Math.random を 0 に固定して nextBlinkAt を決定的（= now + 3000）にする
+      const mockRandom = jest.spyOn(Math, 'random').mockReturnValue(0);
+      // performance.now は可変の currentTime を返す（呼び出し回数に依存しない堅牢な制御）
+      let currentTime = 0;
+      const mockNow = jest.spyOn(performance, 'now').mockImplementation(() => currentTime);
 
-      mockNow.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          // nextBlinkAt の計算時（random * 3000 が加算される想定）
-          return BASE_TIME;
-        }
-        // 瞬き窓内（nextBlinkAt の 50ms 後＝三角波の前半）
-        return NEXT_BLINK + 50;
-      });
-
+      // currentTime=0 でマウント: nextBlinkAt=3000、初回 animate は窓外（開いた目を表示）
       render(<SpriteCharacterCanvas characterId="ageha" />);
-      flushRaf(NEXT_BLINK + 50);
+      const eyeOpenWrapper = screen.getByTestId('sprite-eye-open').parentElement as HTMLElement;
+      const eyeClosedWrapper = screen.getByTestId('sprite-eye-closed').parentElement as HTMLElement;
+
+      expect(eyeOpenWrapper.style.opacity).toBe('1');
+      expect(eyeClosedWrapper.style.opacity).toBe('0');
+
+      // 瞬き窓（nextBlinkAt 到達）へ進めて rAF 一巡 → 排他反転（開=0 / 閉=1）
+      currentTime = 3000;
+      flushRaf(3000);
+      expect(eyeOpenWrapper.style.opacity).toBe('0');
+      expect(eyeClosedWrapper.style.opacity).toBe('1');
 
       mockNow.mockRestore();
-      // クラッシュせずに完了することを確認（opacity の値は乱数に依存するため数値チェックは省略）
+      mockRandom.mockRestore();
     });
   });
 
