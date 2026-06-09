@@ -25,9 +25,12 @@ export const DEFAULT_CLIENT_CHARACTER_ID = 'hiyori';
 
 /**
  * 早瀬アゲハ のライセンス・クレジット文字列。
- * OpenAI TTS を使用するため AI 生成音声であることの明示は OpenAI 利用規約上必須。
+ * 音声は OpenAI TTS を使用するため、AI 生成音声であることの明示が OpenAI 利用規約上必須。
+ * イラストは OpenAI gpt-image による AI 生成。規約上の必須表記ではないが、AI 生成物を
+ * 人間作と誤認させない（OpenAI 利用ポリシー）ため、音声開示と足並みを揃えて明示する。
  */
-export const AGEHA_LICENSE_TEXT = '音声：OpenAI TTS による AI 生成音声（人間の音声ではありません）';
+export const AGEHA_LICENSE_TEXT =
+  'イラスト：OpenAI gpt-image による AI 生成 / 音声：OpenAI TTS による AI 生成音声（人間の音声ではありません）';
 
 /**
  * クライアントプロファイルのエラーメッセージ定数。
