@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Box, Container, Stack, Typography } from '@mui/material';
@@ -73,8 +73,11 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
  * - iOS Safari 対策として AudioContext を user gesture で resume し、
  *   CharacterCanvas に AudioBuffer + AudioContext を渡して Web Audio で再生する
  *   （HTMLAudioElement の autoplay 制約を回避）
+ *
+ * useSearchParams を使うため、ページ本体は Suspense 境界の内側に置く
+ * （App Router の prerender 要件。下部の default export でラップする）。
  */
-export default function HomePage() {
+function HomePageInner() {
   const { characterId, setCharacterId } = useCharacter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
@@ -573,5 +576,18 @@ export default function HomePage() {
         </Stack>
       </Container>
     </>
+  );
+}
+
+/**
+ * ページのエントリポイント。
+ * useSearchParams を含む HomePageInner を Suspense 境界でラップする
+ * （App Router の prerender 要件を満たすため）。
+ */
+export default function HomePage() {
+  return (
+    <Suspense fallback={null}>
+      <HomePageInner />
+    </Suspense>
   );
 }
