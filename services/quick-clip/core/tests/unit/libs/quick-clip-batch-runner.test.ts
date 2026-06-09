@@ -479,7 +479,9 @@ describe('runQuickClipBatch', () => {
     await expect(runQuickClipBatch(inputWithKey)).resolves.toBeUndefined();
 
     // PutObjectCommand がクリップ用と transcript 用で呼ばれていること
-    const transcriptCall = (mockPutObjectCommand.mock.calls as Array<[Record<string, unknown>]>).find(
+    const transcriptCall = (
+      mockPutObjectCommand.mock.calls as Array<[Record<string, unknown>]>
+    ).find(
       ([args]) => typeof args.Key === 'string' && args.Key === `outputs/job-1/transcript.json`
     );
     expect(transcriptCall).toBeDefined();
@@ -498,7 +500,9 @@ describe('runQuickClipBatch', () => {
     const inputWithKey: QuickClipBatchRunInput = { ...input, openAiApiKey: 'sk-test-key' };
     await expect(runQuickClipBatch(inputWithKey)).resolves.toBeUndefined();
 
-    const transcriptCall = (mockPutObjectCommand.mock.calls as Array<[Record<string, unknown>]>).find(
+    const transcriptCall = (
+      mockPutObjectCommand.mock.calls as Array<[Record<string, unknown>]>
+    ).find(
       ([args]) => typeof args.Key === 'string' && args.Key === `outputs/job-1/transcript.json`
     );
     expect(transcriptCall).toBeUndefined();
@@ -509,7 +513,9 @@ describe('runQuickClipBatch', () => {
 
     await expect(runQuickClipBatch(input)).resolves.toBeUndefined();
 
-    const transcriptCall = (mockPutObjectCommand.mock.calls as Array<[Record<string, unknown>]>).find(
+    const transcriptCall = (
+      mockPutObjectCommand.mock.calls as Array<[Record<string, unknown>]>
+    ).find(
       ([args]) => typeof args.Key === 'string' && args.Key === `outputs/job-1/transcript.json`
     );
     expect(transcriptCall).toBeUndefined();

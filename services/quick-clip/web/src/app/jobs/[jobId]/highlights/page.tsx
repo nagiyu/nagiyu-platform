@@ -538,8 +538,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                   {(() => {
                     const filteredSegments = transcriptSegments.filter(
                       (seg) =>
-                        seg.start < selectedHighlight.endSec &&
-                        seg.end > selectedHighlight.startSec
+                        seg.start < selectedHighlight.endSec && seg.end > selectedHighlight.startSec
                     );
                     if (filteredSegments.length === 0) return null;
                     return (

@@ -819,7 +819,11 @@ describe('HighlightsPage', () => {
       if (typeof url === 'string' && url.includes('/transcript')) {
         return { ok: true, json: async () => ({ segments: [] }) };
       }
-      if (typeof url === 'string' && url.includes('/api/jobs/job-1/highlights/h-1') && options?.method === 'PATCH') {
+      if (
+        typeof url === 'string' &&
+        url.includes('/api/jobs/job-1/highlights/h-1') &&
+        options?.method === 'PATCH'
+      ) {
         patchDone = true;
         return {
           ok: true,
@@ -835,7 +839,11 @@ describe('HighlightsPage', () => {
           }),
         };
       }
-      if (typeof url === 'string' && url.includes('/api/jobs/job-1/highlights') && !url.includes('/h-1')) {
+      if (
+        typeof url === 'string' &&
+        url.includes('/api/jobs/job-1/highlights') &&
+        !url.includes('/h-1')
+      ) {
         highlightsFetchCount++;
         if (highlightsFetchCount === 1) {
           return {
@@ -930,7 +938,11 @@ describe('HighlightsPage', () => {
       if (typeof url === 'string' && url.includes('/transcript')) {
         return { ok: true, json: async () => ({ segments: [] }) };
       }
-      if (typeof url === 'string' && url.includes('/api/jobs/job-1/highlights') && !url.includes('/h-')) {
+      if (
+        typeof url === 'string' &&
+        url.includes('/api/jobs/job-1/highlights') &&
+        !url.includes('/h-')
+      ) {
         highlightsFetchCount++;
         if (highlightsFetchCount === 1) {
           return {

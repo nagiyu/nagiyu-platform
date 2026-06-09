@@ -2,7 +2,12 @@ import { DynamoDBJobRepository } from '@nagiyu/quick-clip-core';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { NextResponse } from 'next/server';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
-import { getBucketName, getDynamoDBDocumentClient, getS3Client, getTableName } from '@/lib/server/aws';
+import {
+  getBucketName,
+  getDynamoDBDocumentClient,
+  getS3Client,
+  getTableName,
+} from '@/lib/server/aws';
 import { JobDomainService } from '@/lib/server/domain-services';
 import type { TranscriptSegment } from '@/types/quick-clip';
 
