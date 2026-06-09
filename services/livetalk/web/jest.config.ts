@@ -15,6 +15,7 @@ const config: Config = {
     '^@nagiyu/ui$': '<rootDir>/../../../libs/ui/src/index.ts',
     '^@nagiyu/browser$': '<rootDir>/../../../libs/browser/src/index.ts',
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
+    '^@nagiyu/common/push$': '<rootDir>/../../../libs/common/src/push/index.ts',
     '^@nagiyu/nextjs$': '<rootDir>/../../../libs/nextjs/src/index.ts',
     '^@nagiyu/livetalk-core$': '<rootDir>/../core/src/index.ts',
     '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
