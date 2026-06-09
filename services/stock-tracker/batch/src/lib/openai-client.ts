@@ -3,6 +3,10 @@ import { zodTextFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
 import { withRetry } from '@nagiyu/common';
 import type { AiAnalysisResult } from '@nagiyu/stock-tracker-core';
+import {
+  deriveSignalFromReturn,
+  PREDICTION_SIGNAL_THRESHOLD_PERCENT,
+} from '@nagiyu/stock-tracker-core';
 
 const OPENAI_MODEL = 'gpt-5-mini';
 const MAX_RETRIES = 3;
@@ -52,7 +56,8 @@ const aiAnalysisResultSchema = z.object({
   resistanceLevels: z.array(z.number()).length(3),
   relatedMarketTrend: z.string(),
   investmentJudgment: z.object({
-    signal: z.enum(['BULLISH', 'NEUTRAL', 'BEARISH']),
+    predictedReturn: z.number(),
+    confidence: z.number(),
     reason: z.string(),
   }),
 });
@@ -100,10 +105,21 @@ export async function generateAiAnalysis(
     throw new Error(ERROR_MESSAGES.INVALID_RESPONSE);
   }
 
+  const { predictedReturn, confidence, reason } = response.output_parsed.investmentJudgment;
+  const signal = deriveSignalFromReturn(predictedReturn, PREDICTION_SIGNAL_THRESHOLD_PERCENT);
+  // confidence は [0,1] にクランプ
+  const clampedConfidence = Math.min(1, Math.max(0, confidence));
+
   return {
     ...response.output_parsed,
     supportLevels: toLevelTuple(response.output_parsed.supportLevels),
     resistanceLevels: toLevelTuple(response.output_parsed.resistanceLevels),
+    investmentJudgment: {
+      signal,
+      predictedReturn,
+      confidence: clampedConfidence,
+      reason,
+    },
   };
 }
 
@@ -141,8 +157,10 @@ function createPrompt(input: AiAnalysisInput): string {
     '- supportLevels: サポートレベルの価格を3件（数値）',
     '- resistanceLevels: レジスタンスレベルの価格を3件（数値）',
     '- relatedMarketTrend: 関連する市場・セクター動向（必ずWeb検索を利用して最新情報を取得し、可能であれば決算発表・重要経済指標など直近ニュースも根拠に含める）',
-    '- investmentJudgment.signal: BULLISH / NEUTRAL / BEARISH のいずれか',
-    '- investmentJudgment.reason: 投資判断の理由',
+    '- investmentJudgment.predictedReturn: 翌営業日の終値が当日終値に対して何%変化するかの予測（数値・%）。例: +1.2 は翌営業日終値が当日比 +1.2% の予測。',
+    '- investmentJudgment.confidence: 上記予測リターンに対する確信度（0〜1 の数値、1 が最も確信が高い）。',
+    '- investmentJudgment.reason: 予測リターンと確信度の根拠。',
+    '予測対象は翌営業日の終値（当日終値からの close-to-close リターン、保有期間 1 営業日）。predictedReturn が +0.5% 以上なら強気、−0.5% 以下なら弱気、その間は中立として解釈される。',
     `ティッカーID: ${input.tickerId}`,
     `銘柄名: ${input.name}`,
     `日付: ${input.date}`,
