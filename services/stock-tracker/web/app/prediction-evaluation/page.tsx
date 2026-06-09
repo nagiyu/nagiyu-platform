@@ -6,6 +6,7 @@ import { ErrorAlert, LoadingState } from '@nagiyu/ui';
 import { useSession } from 'next-auth/react';
 import { hasPermission } from '@nagiyu/common';
 import PeriodSelector from '@/components/prediction-evaluation/PeriodSelector';
+import ThresholdSelector from '@/components/prediction-evaluation/ThresholdSelector';
 import DailyTrendChart from '@/components/prediction-evaluation/DailyTrendChart';
 import SignalAccuracyChart from '@/components/prediction-evaluation/SignalAccuracyChart';
 import { usePredictionEvaluationSummary } from '@/lib/prediction-evaluation/use-prediction-evaluation';
@@ -16,14 +17,16 @@ import {
 import type { EvaluationPeriod } from '@/lib/prediction-evaluation/types';
 
 const DEFAULT_PERIOD: EvaluationPeriod = '30d';
+const DEFAULT_THRESHOLD = 0.5;
 
 const UNAUTHORIZED_MESSAGE = '予測精度ダッシュボードを表示する権限がありません。';
 
 function PredictionEvaluationContent() {
   const { data: session, status } = useSession();
   const [period, setPeriod] = useState<EvaluationPeriod>(DEFAULT_PERIOD);
+  const [threshold, setThreshold] = useState<number>(DEFAULT_THRESHOLD);
 
-  const summary = usePredictionEvaluationSummary(period);
+  const summary = usePredictionEvaluationSummary(period, threshold);
 
   if (status === 'loading') {
     return <LoadingState message="セッション情報を確認中..." />;
@@ -63,8 +66,9 @@ function PredictionEvaluationContent() {
         </Typography>
       </Box>
 
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
         <PeriodSelector value={period} onChange={setPeriod} />
+        <ThresholdSelector value={threshold} onChange={setThreshold} />
       </Box>
 
       {summary.error && <ErrorAlert message={summary.error} />}

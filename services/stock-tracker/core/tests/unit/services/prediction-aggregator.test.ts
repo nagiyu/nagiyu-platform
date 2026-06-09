@@ -14,7 +14,23 @@ import type { InvestmentSignal } from '../../../src/ai-analysis-result.js';
 /**
  * テスト用の採点済み DailySummary を生成するヘルパ。
  * 不要な既存フィールドはデフォルト値で埋める。
+ *
+ * `actualReturn` は省略時、signal × hit の組み合わせに応じてデフォルト値を設定する。
+ * threshold=0.5 での classifyHit の結果が `hit` と一致するよう設計している:
+ *   - BULLISH  + hit=true  → 1.0  (>= 0.5 → Hit)
+ *   - BULLISH  + hit=false → 0.0  (< 0.5  → Miss)
+ *   - BEARISH  + hit=true  → -1.0 (<= -0.5 → Hit)
+ *   - BEARISH  + hit=false → 0.0  (> -0.5 → Miss)
+ *   - NEUTRAL  + hit=true  → 0.0  (-0.5 < 0.0 < 0.5 → Hit)
+ *   - NEUTRAL  + hit=false → 1.0  (>= 0.5 → Miss)
  */
+function defaultActualReturn(signal: InvestmentSignal, hit: boolean): number {
+  if (signal === 'BEARISH') return hit ? -1.0 : 0.0;
+  if (signal === 'NEUTRAL') return hit ? 0.0 : 1.0;
+  // BULLISH
+  return hit ? 1.0 : 0.0;
+}
+
 const makeEvaluated = (overrides: {
   tickerId?: string;
   exchangeId?: string;
@@ -32,7 +48,7 @@ const makeEvaluated = (overrides: {
   Close: 100,
   EvaluationDate: '2026-05-12',
   EvaluationClose: 101,
-  ActualReturn: overrides.actualReturn ?? (overrides.hit ? 1.0 : 0.0),
+  ActualReturn: overrides.actualReturn ?? defaultActualReturn(overrides.signal, overrides.hit),
   Hit: overrides.hit,
   EvaluationThresholdPercent: 0.5,
   EvaluatedAt: 1_715_000_000_000,
@@ -318,6 +334,73 @@ describe('Prediction Aggregator Service', () => {
 
       expect(result.kpi.judgedCount).toBe(1);
       expect(result.kpi.totalAccuracy).toBe(100);
+    });
+  });
+
+  describe('aggregateEvaluatedSummaries - thresholdPercent', () => {
+    it('出力に thresholdPercent が含まれる', () => {
+      const result = aggregateEvaluatedSummaries({ evaluated: [] });
+      expect(typeof result.thresholdPercent).toBe('number');
+    });
+
+    it('threshold 省略時は 0.5 が適用される', () => {
+      const result = aggregateEvaluatedSummaries({ evaluated: [] });
+      expect(result.thresholdPercent).toBe(0.5);
+    });
+
+    it('threshold=0.5 指定時と省略時で同じ結果を返す（後方互換）', () => {
+      // ActualReturn=1.0 は threshold=0.5 で BULLISH=Hit
+      const summaries = [
+        makeEvaluated({ date: '2026-05-10', signal: 'BULLISH', hit: true, actualReturn: 1.0 }),
+        makeEvaluated({ date: '2026-05-10', signal: 'BULLISH', hit: false, actualReturn: 0.3 }),
+        makeEvaluated({ date: '2026-05-10', signal: 'BEARISH', hit: true, actualReturn: -0.7 }),
+      ];
+
+      const withDefault = aggregateEvaluatedSummaries({ evaluated: summaries });
+      const withExplicit = aggregateEvaluatedSummaries({ evaluated: summaries, thresholdPercent: 0.5 });
+
+      expect(withDefault.kpi).toEqual(withExplicit.kpi);
+      expect(withDefault.bySignal).toEqual(withExplicit.bySignal);
+      expect(withDefault.dailyTrend).toEqual(withExplicit.dailyTrend);
+      expect(withDefault.thresholdPercent).toBe(0.5);
+      expect(withExplicit.thresholdPercent).toBe(0.5);
+    });
+
+    it('threshold を変えると Hit 集計が変わる', () => {
+      // ActualReturn=0.6 のケース:
+      //   threshold=0.5 なら BULLISH は Hit（0.6 >= 0.5）
+      //   threshold=1.0 なら BULLISH は Miss（0.6 < 1.0）
+      const summaries = [
+        makeEvaluated({ date: '2026-05-10', signal: 'BULLISH', hit: true, actualReturn: 0.6 }),
+      ];
+
+      const resultLow = aggregateEvaluatedSummaries({ evaluated: summaries, thresholdPercent: 0.5 });
+      const resultHigh = aggregateEvaluatedSummaries({ evaluated: summaries, thresholdPercent: 1.0 });
+
+      expect(resultLow.kpi.totalAccuracy).toBe(100);
+      expect(resultHigh.kpi.totalAccuracy).toBe(0);
+      expect(resultLow.thresholdPercent).toBe(0.5);
+      expect(resultHigh.thresholdPercent).toBe(1.0);
+    });
+
+    it('NEUTRAL シグナルでも threshold 変更で Hit/Miss が切り替わる', () => {
+      // ActualReturn=0.4 のケース:
+      //   threshold=0.5 なら NEUTRAL は Hit（-0.5 < 0.4 < 0.5）
+      //   threshold=0.3 なら NEUTRAL は Miss（0.4 >= 0.3）
+      const summaries = [
+        makeEvaluated({ date: '2026-05-10', signal: 'NEUTRAL', hit: true, actualReturn: 0.4 }),
+      ];
+
+      const resultLow = aggregateEvaluatedSummaries({ evaluated: summaries, thresholdPercent: 0.5 });
+      const resultHigh = aggregateEvaluatedSummaries({ evaluated: summaries, thresholdPercent: 0.3 });
+
+      expect(resultLow.kpi.totalAccuracy).toBe(100);
+      expect(resultHigh.kpi.totalAccuracy).toBe(0);
+    });
+
+    it('thresholdPercent を明示指定した値が出力に反映される', () => {
+      const result = aggregateEvaluatedSummaries({ evaluated: [], thresholdPercent: 1.5 });
+      expect(result.thresholdPercent).toBe(1.5);
     });
   });
 

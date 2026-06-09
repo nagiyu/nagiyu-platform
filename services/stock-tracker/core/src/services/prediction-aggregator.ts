@@ -16,6 +16,7 @@
 
 import type { DailySummaryEntity } from '../entities/daily-summary.entity.js';
 import type { AiAnalysisResult, InvestmentSignal } from '../ai-analysis-result.js';
+import { classifyHit } from './prediction-judger.js';
 
 /**
  * 採点済み DailySummary 型（Evaluation* と AiAnalysisResult が埋まっていることを保証）
@@ -37,6 +38,11 @@ export type EvaluatedDailySummary = DailySummaryEntity & {
  */
 export interface AggregateInput {
   evaluated: EvaluatedDailySummary[];
+  /**
+   * Hit 再計算に使う閾値 (%)。省略時は 0.5（後方互換）。
+   * 保存済みの `Hit` フィールドは使用せず、`ActualReturn` から再計算する。
+   */
+  thresholdPercent?: number;
 }
 
 /**
@@ -64,6 +70,8 @@ export interface AggregateOutput {
     /** その日の判定済み件数（NEUTRAL を含む） */
     judgedCount: number;
   }>;
+  /** 集計に使用した閾値 (%) */
+  thresholdPercent: number;
 }
 
 /**
@@ -71,13 +79,21 @@ export interface AggregateOutput {
  */
 const SIGNAL_ORDER: readonly InvestmentSignal[] = ['BULLISH', 'NEUTRAL', 'BEARISH'];
 
+/** Hit 再計算に使うデフォルト閾値 (%) */
+const DEFAULT_THRESHOLD_PERCENT = 0.5;
+
 /**
  * 採点済み DailySummary 配列を集計する。
  *
+ * 保存済みの `Hit` フィールドは使用せず、`ActualReturn` と `thresholdPercent` から
+ * `classifyHit` で Hit を再計算する。`thresholdPercent` 省略時は 0.5（後方互換）。
+ *
  * @param input - 集計入力
- * @returns KPI / bySignal / dailyTrend を含む集計結果
+ * @returns KPI / bySignal / dailyTrend / thresholdPercent を含む集計結果
  */
 export function aggregateEvaluatedSummaries(input: AggregateInput): AggregateOutput {
+  const thresholdPercent = input.thresholdPercent ?? DEFAULT_THRESHOLD_PERCENT;
+
   // 防御的フィルタ：AiAnalysisError ありや AiAnalysisResult 不在を除外
   const evaluated = input.evaluated.filter(
     (summary) => summary.AiAnalysisResult !== undefined && summary.AiAnalysisError === undefined
@@ -86,7 +102,8 @@ export function aggregateEvaluatedSummaries(input: AggregateInput): AggregateOut
   const judgedCount = evaluated.length;
 
   // KPI: totalAccuracy
-  const totalAccuracy = judgedCount === 0 ? null : toPercent(countHits(evaluated), judgedCount);
+  const totalAccuracy =
+    judgedCount === 0 ? null : toPercent(countHits(evaluated, thresholdPercent), judgedCount);
 
   // KPI: directionalAccuracy
   const directional = evaluated.filter(
@@ -95,7 +112,9 @@ export function aggregateEvaluatedSummaries(input: AggregateInput): AggregateOut
       summary.AiAnalysisResult.investmentJudgment.signal === 'BEARISH'
   );
   const directionalAccuracy =
-    directional.length === 0 ? null : toPercent(countHits(directional), directional.length);
+    directional.length === 0
+      ? null
+      : toPercent(countHits(directional, thresholdPercent), directional.length);
 
   // bySignal
   const bySignal = SIGNAL_ORDER.map((signal) => {
@@ -104,7 +123,8 @@ export function aggregateEvaluatedSummaries(input: AggregateInput): AggregateOut
     );
     return {
       signal,
-      accuracy: subset.length === 0 ? null : toPercent(countHits(subset), subset.length),
+      accuracy:
+        subset.length === 0 ? null : toPercent(countHits(subset, thresholdPercent), subset.length),
       count: subset.length,
     };
   });
@@ -132,7 +152,10 @@ export function aggregateEvaluatedSummaries(input: AggregateInput): AggregateOut
         directionalAccuracy:
           directionalSubset.length === 0
             ? null
-            : toPercent(countHits(directionalSubset), directionalSubset.length),
+            : toPercent(
+                countHits(directionalSubset, thresholdPercent),
+                directionalSubset.length
+              ),
         judgedCount: list.length,
       };
     })
@@ -146,11 +169,27 @@ export function aggregateEvaluatedSummaries(input: AggregateInput): AggregateOut
     },
     bySignal,
     dailyTrend,
+    thresholdPercent,
   };
 }
 
-function countHits(summaries: EvaluatedDailySummary[]): number {
-  return summaries.reduce((acc, summary) => acc + (summary.Hit ? 1 : 0), 0);
+/**
+ * `classifyHit` を使って Hit 数を数える。
+ * 保存済みの `Hit` フィールドは参照しない。
+ */
+function countHits(summaries: EvaluatedDailySummary[], thresholdPercent: number): number {
+  return summaries.reduce(
+    (acc, summary) =>
+      acc +
+      (classifyHit(
+        summary.AiAnalysisResult.investmentJudgment.signal,
+        summary.ActualReturn,
+        thresholdPercent
+      )
+        ? 1
+        : 0),
+    0
+  );
 }
 
 /**
