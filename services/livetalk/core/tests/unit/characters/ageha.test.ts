@@ -22,9 +22,9 @@ describe('早瀬アゲハ CharacterDefinition', () => {
       expect(ageha.voiceConfig.provider).toBe('openai');
     });
 
-    it('voice が "nova" である', () => {
+    it('voice が "coral" である', () => {
       if (ageha.voiceConfig.provider === 'openai') {
-        expect(ageha.voiceConfig.voice).toBe('nova');
+        expect(ageha.voiceConfig.voice).toBe('coral');
       } else {
         fail('provider が openai でない');
       }
