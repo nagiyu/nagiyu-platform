@@ -20,6 +20,7 @@ function makeInput(
   return {
     UserID: 'u1',
     NotifID: `NOTIF-${_notifSeq}`,
+    CharacterID: 'hiyori',
     Kind: 'normal',
     Title: 'テスト通知',
     Body: 'テスト本文',

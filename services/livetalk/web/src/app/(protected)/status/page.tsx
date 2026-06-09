@@ -33,8 +33,13 @@ import {
   getStudyTopicRepository,
   getMessageRepository,
 } from '@/lib/server/repositories';
-import { hasCharacter } from '@/lib/characters/registry';
+import {
+  hasCharacter,
+  getRegisteredCharacterIds,
+  getCharacterDisplay,
+} from '@/lib/characters/registry';
 import StatusCharacterSwitcher from '@/components/StatusCharacterSwitcher';
+import StatusTestPush from '@/components/StatusTestPush';
 
 const JST = 'Asia/Tokyo';
 
@@ -126,6 +131,12 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
   }
 
   const recentNotifications = notificationEvents.slice(0, 5);
+
+  // テスト通知送信用: 登録キャラクターの表示名マップを構築する
+  const registeredCharacterIds = getRegisteredCharacterIds();
+  const characterDisplayNames = Object.fromEntries(
+    registeredCharacterIds.map((id) => [id, getCharacterDisplay(id).displayName])
+  );
 
   return (
     <Container maxWidth="sm" sx={{ py: 2 }}>
@@ -239,6 +250,17 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
       </Typography>
       <Typography variant="body2">KNOWLEDGE: {knowledge.length} 件</Typography>
       <Typography variant="body2">STUDY_TOPIC (pending): {studyPending.length} 件</Typography>
+
+      <Divider sx={{ my: 1.5 }} />
+
+      {/* テスト通知送信（admin デバッグ用 — Issue #3491） */}
+      <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 'bold' }}>
+        テスト通知送信
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.75rem' }}>
+        decision ゲートを介さず即時送信します。dev 検証専用。
+      </Typography>
+      <StatusTestPush characterIds={registeredCharacterIds} displayNames={characterDisplayNames} />
     </Container>
   );
 }

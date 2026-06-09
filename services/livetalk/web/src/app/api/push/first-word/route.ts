@@ -1,21 +1,35 @@
 /**
- * GET /api/push/first-word — 未消化の最新通知を返す。
+ * GET /api/push/first-word — 指定キャラクターの未消化の最新通知を返す。
  *
- * 起動時にキャラ第一声として表示する通知本文を返す。
- * 未消化（ConsumedAt 未設定）の最新 NotificationEvent が対象。
- * なければ 204 を返す。
+ * クエリパラメータ:
+ *   - characterId: 取得対象のキャラクター ID。
+ *     指定時: そのキャラクターの未消化最新 NotificationEvent を返す。
+ *     未指定時: キャラクター概念がないため 204 を返す（呼び出し側は必ず characterId を付与する設計）。
+ *
+ * レスポンスに characterId を含めることで、page 側でクロス汚染ガードを行える。
  */
 import { NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/server/session';
 import { getNotificationEventRepository } from '@/lib/server/repositories';
 
-export const GET = withAuth(getSession, 'livetalk:chat', async (session) => {
+export const GET = withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
+  const url = new URL(request.url);
+  const characterId = url.searchParams.get('characterId');
+
+  // characterId 未指定時は 204 を返す（呼び出し側は必ず characterId を付与する設計）
+  if (!characterId) {
+    return new NextResponse(null, { status: 204 });
+  }
+
   const userId = session.user.googleId;
   const repo = getNotificationEventRepository();
   const events = await repo.listByUser(userId, 20);
 
-  const unconsumed = events.find((e) => e.ConsumedAt === undefined);
+  // 指定キャラクターの未消化最新を返す
+  const unconsumed = events.find(
+    (e) => e.CharacterID === characterId && e.ConsumedAt === undefined
+  );
   if (!unconsumed) {
     return new NextResponse(null, { status: 204 });
   }
@@ -25,6 +39,7 @@ export const GET = withAuth(getSession, 'livetalk:chat', async (session) => {
       notifId: unconsumed.NotifID,
       body: unconsumed.Body,
       knowledgeId: unconsumed.KnowledgeID ?? null,
+      characterId: unconsumed.CharacterID,
     },
     { status: 200 }
   );

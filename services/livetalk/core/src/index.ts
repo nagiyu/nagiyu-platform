@@ -346,12 +346,15 @@ export {
   buildNotificationMessage,
   buildCriticalNotificationMessage,
   detectCriticalKnowledge,
+  selectNotificationsToSend,
 } from './notification/index.js';
 export type {
   BuildNotificationMessageInput,
   NotificationMessage,
   EscalationResult,
   DetectCriticalInput,
+  SelectNotificationsInput,
+  SelectNotificationsResult,
 } from './notification/index.js';
 
 // 通知関連定数（Phase 5d / #3346）
