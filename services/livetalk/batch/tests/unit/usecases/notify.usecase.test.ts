@@ -19,6 +19,11 @@ jest.mock('@nagiyu/common/push', () => ({
 
 jest.mock('@nagiyu/livetalk-core', () => ({
   DEFAULT_CHARACTER_ID: 'hiyori',
+  getCharacterDefinitionById: jest.fn(() => ({
+    id: 'hiyori',
+    displayName: '桃瀬ひより',
+    notificationName: 'ひより',
+  })),
   buildNotificationMessage: jest.fn(() => ({ title: 'テスト', body: '本文' })),
   buildCriticalNotificationMessage: jest.fn(() => ({ title: 'テスト（重要）', body: '重要本文' })),
   detectCriticalKnowledge: jest.fn(),
@@ -399,8 +404,8 @@ describe('notifyAllUsers', () => {
         })
       );
 
-      // critical は buildCriticalNotificationMessage が呼ばれる
-      expect(buildCriticalNotificationMessage).toHaveBeenCalledWith('TypeScript');
+      // critical は buildCriticalNotificationMessage が呼ばれる（キャラのカジュアル名を渡す）
+      expect(buildCriticalNotificationMessage).toHaveBeenCalledWith('TypeScript', 'ひより');
     });
   });
 

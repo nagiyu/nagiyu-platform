@@ -55,6 +55,7 @@ function makeNotifEvent(
   return {
     UserID: 'u1',
     NotifID: `notif-${createdAt}`,
+    CharacterID: 'hiyori',
     Kind: kind,
     Title: 'test',
     Body: 'test',
