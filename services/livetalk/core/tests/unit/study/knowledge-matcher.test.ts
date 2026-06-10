@@ -118,10 +118,93 @@ describe('NgramKnowledgeMatcher', () => {
   });
 
   // ── 閾値の差し替え ──
-  it('minRatio を上げると弱い一致を除外できる', async () => {
+  // 旧テスト: 「最近の飲み物のトレンド知ってる？」× drinkKnowledge（RelatedCategory='飲み物'）で
+  // keyphrase recall = 1.0 になるため、minRatio=0.99 でもヒットするようになった。
+  // 新指標の意味に合わせ「完全に無関係な語で 0 hits を確認する」ケースに書き換える。
+  it('minRatio を上げると弱い一致を除外できる（完全無関係語は 0.99 閾値でも弾かれる）', async () => {
     const strict = new NgramKnowledgeMatcher(0.99);
-    const hits = await strict.findMatches('最近の飲み物のトレンド知ってる？', [drinkKnowledge]);
-    // 0.71 程度の一致は 0.99 閾値では弾かれる
+    // 「天気予報」は drinkKnowledge と共通 2-gram を持たないため keyphrase recall/user recall ともに 0
+    const hits = await strict.findMatches('明日の天気予報教えて', [drinkKnowledge]);
+    expect(hits).toHaveLength(0);
+  });
+
+  // ── フィラー付き自然文の新規受け入れケース（dev 実測を模す）──
+  it('「麻辣担の種類について何かわかった？」が RelatedCategory「麻辣担の種類」にヒットする', async () => {
+    const k = makeKnowledge({
+      KnowledgeID: 'malatang',
+      Topic: '麻辣担（マーラー）',
+      RelatedCategory: '麻辣担の種類',
+      Summary: '麻辣担の種類と特徴についての情報。',
+    });
+    const hits = await matcher.findMatches('麻辣担の種類について何かわかった？', [k]);
+    expect(hits.map((h) => h.KnowledgeID)).toContain('malatang');
+  });
+
+  it('「リズム天国の新作について何かわかった？」が RelatedCategory「リズム天国新作」にヒットする', async () => {
+    const k = makeKnowledge({
+      KnowledgeID: 'rhythm',
+      Topic: 'リズム天国 ミラクルスターズ',
+      RelatedCategory: 'リズム天国新作',
+      Summary: 'リズム天国の新作ゲームに関する情報。',
+    });
+    const hits = await matcher.findMatches('リズム天国の新作について何かわかった？', [k]);
+    expect(hits.map((h) => h.KnowledgeID)).toContain('rhythm');
+  });
+
+  // ── keyphrase recall の誤ヒット抑制（ガード条件の確認）──
+  it('RelatedCategory が空文字のとき keyphrase 候補から除外され、Topic のみで評価される', async () => {
+    // RelatedCategory='' のため keyphrase 候補は Topic のみ
+    // Topic「トピック」= 正規化後 4 文字 = 2-gram × 3個 → ガード（>= 3）通過
+    const k = makeKnowledge({ Topic: 'トピック', RelatedCategory: '', Summary: 'サマリー内容' });
+    // 完全一致する発話 → ヒット
+    const hits = await matcher.findMatches('トピック', [k]);
+    expect(hits).toHaveLength(1);
+  });
+
+  it('Topic が 3 文字以下（2-gram 数 < 3）のとき keyphrase recall は計算されない', async () => {
+    // Topic「あいう」= 2-gram × 2個 → ガード除外（短い一般カテゴリ名の暴発対策）
+    // user recall のみで評価されるため、無関係な長文ではヒットしない
+    const k = makeKnowledge({
+      Topic: 'あいう',
+      RelatedCategory: '',
+      Summary: '全く関係ない説明文',
+    });
+    // Topic と部分一致する「あい」を含むが、keyphrase 経路は無効・user recall も低いため非ヒット
+    const hits = await matcher.findMatches('あいまいな今日の天気の話', [k]);
+    expect(hits).toHaveLength(0);
+  });
+
+  // ── 短いカテゴリ名 / 弱い部分一致での誤ヒット抑制（fresh-eyes 指摘の回帰）──
+  it('短い RelatedCategory「飲み物」と 1 gram だけ一致する近接語「編み物」は誤ヒットしない', async () => {
+    // RelatedCategory「飲み物」= 2-gram × 2個 → ガード除外。
+    // 「編み物が趣味」は「み物」のみ共有するが keyphrase 経路は無効、user recall も閾値未満。
+    const hits = await matcher.findMatches('編み物が趣味なんだ', [drinkKnowledge, sweetsKnowledge]);
+    expect(hits).toHaveLength(0);
+  });
+
+  it('keyphrase が 3 個以上の 2-gram を持っても、共有 gram が 1 個だけなら弾く（絶対一致数の下限）', async () => {
+    // RelatedCategory「あいうえ」= 2-gram × 3個（ガード通過）。発話は「あい」1 個のみ共有。
+    // 割合は 1/3 だが、絶対一致数 < 2 のため keyphrase recall は無効化される。
+    const k = makeKnowledge({
+      KnowledgeID: 'partial',
+      Topic: '無関係トピック名',
+      RelatedCategory: 'あいうえ',
+      Summary: '全く異なる内容の説明',
+    });
+    const hits = await matcher.findMatches('あいさつは大事だよね', [k]);
+    expect(hits).toHaveLength(0);
+  });
+
+  it('「ゲーム」のような短い一般カテゴリ名は文脈外の言及で誤ヒットしない', async () => {
+    // RelatedCategory「ゲーム」= 2-gram × 2個 → ガード除外。
+    const k = makeKnowledge({
+      KnowledgeID: 'game',
+      Topic: 'ゲームの最新情報',
+      RelatedCategory: 'ゲーム',
+      Summary: '新作ゲームのトレンド情報。',
+    });
+    // Topic は keyphrase 対象だが「ゲーム」しか共有せず recall は低い。user recall も閾値未満。
+    const hits = await matcher.findMatches('今日はゲームの話じゃなくて天気の話をしたい気分', [k]);
     expect(hits).toHaveLength(0);
   });
 });
