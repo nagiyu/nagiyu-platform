@@ -182,9 +182,19 @@ describe('compressAllConversations', () => {
     const llmClient = makeLLMClient();
     const { summaryRepo, messageRepo, memoryRepo } = makeRepos();
     tick = fixedNow;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'hiyori msg' });
+    await messageRepo.create({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Role: 'user',
+      Text: 'hiyori msg',
+    });
     tick++;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'ageha', Role: 'user', Text: 'ageha msg' });
+    await messageRepo.create({
+      UserID: 'u1',
+      CharacterID: 'ageha',
+      Role: 'user',
+      Text: 'ageha msg',
+    });
 
     const docClient = makeDocClientMock(['u1']);
     const result = await compressAllConversations({
@@ -207,7 +217,12 @@ describe('compressAllConversations', () => {
     const { summaryRepo, messageRepo, memoryRepo } = makeRepos();
     tick = fixedNow;
     // ageha のみメッセージあり
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'ageha', Role: 'user', Text: 'ageha only' });
+    await messageRepo.create({
+      UserID: 'u1',
+      CharacterID: 'ageha',
+      Role: 'user',
+      Text: 'ageha only',
+    });
 
     const docClient = makeDocClientMock(['u1']);
     const result = await compressAllConversations({

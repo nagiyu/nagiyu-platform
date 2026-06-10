@@ -25,7 +25,12 @@ jest.mock('@nagiyu/livetalk-core', () => ({
           speechStyle: '活発な口調',
           preferences: { likes: [], dislikes: [] },
         },
-        voiceConfig: { provider: 'openai-tts' as const, model: 'gpt-4o-mini-tts', voice: 'nova', instructions: '' },
+        voiceConfig: {
+          provider: 'openai-tts' as const,
+          model: 'gpt-4o-mini-tts',
+          voice: 'nova',
+          instructions: '',
+        },
         license: { displayText: '', creditName: '' },
       };
     }
@@ -35,8 +40,10 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   generateNotesForUser: jest.fn(),
 }));
 
-const mockGetAllCharacterIds = jest.requireMock('@nagiyu/livetalk-core').getAllCharacterIds as jest.Mock;
-const mockGetCharacterDefinitionById = jest.requireMock('@nagiyu/livetalk-core').getCharacterDefinitionById as jest.Mock;
+const mockGetAllCharacterIds = jest.requireMock('@nagiyu/livetalk-core')
+  .getAllCharacterIds as jest.Mock;
+const mockGetCharacterDefinitionById = jest.requireMock('@nagiyu/livetalk-core')
+  .getCharacterDefinitionById as jest.Mock;
 const mockStudyForUser = jest.requireMock('@nagiyu/livetalk-core').studyForUser as jest.Mock;
 const mockGenerateNotesForUser = jest.requireMock('@nagiyu/livetalk-core')
   .generateNotesForUser as jest.Mock;
@@ -47,18 +54,20 @@ describe('studyAllUsers', () => {
   };
 
   const makeLifecycleRepo = (overrides: Record<string, object | null> = {}) => ({
-    get: jest.fn().mockImplementation(({ userId, characterId }: { userId: string; characterId: string }) => {
-      const key = `${userId}:${characterId}`;
-      if (key in overrides) return Promise.resolve(overrides[key]);
-      return Promise.resolve({
-        Bedtime: '01:30',
-        WakeUpTime: '09:30',
-        UserID: userId,
-        CharacterID: characterId,
-        CreatedAt: 0,
-        UpdatedAt: 0,
-      });
-    }),
+    get: jest
+      .fn()
+      .mockImplementation(({ userId, characterId }: { userId: string; characterId: string }) => {
+        const key = `${userId}:${characterId}`;
+        if (key in overrides) return Promise.resolve(overrides[key]);
+        return Promise.resolve({
+          Bedtime: '01:30',
+          WakeUpTime: '09:30',
+          UserID: userId,
+          CharacterID: characterId,
+          CreatedAt: 0,
+          UpdatedAt: 0,
+        });
+      }),
   });
 
   const makeParams = (overrides = {}) => ({
@@ -137,7 +146,11 @@ describe('studyAllUsers', () => {
     // hiyori のみ処理（u1, u2 各 1 回 = 2 回）
     expect(mockStudyForUser).toHaveBeenCalledTimes(2);
     expect(mockStudyForUser).toHaveBeenCalledWith('u1', 'hiyori', expect.anything());
-    expect(mockStudyForUser).not.toHaveBeenCalledWith(expect.anything(), 'ageha', expect.anything());
+    expect(mockStudyForUser).not.toHaveBeenCalledWith(
+      expect.anything(),
+      'ageha',
+      expect.anything()
+    );
     expect(result.studiedUsers).toBe(2);
   });
 
@@ -246,17 +259,19 @@ describe('studyAllUsers', () => {
   it('全キャラ lifecycle なし（skipped）より failed が優先される', async () => {
     // u1: hiyori はエラー、ageha は lifecycle なし
     const lifecycleRepo = {
-      get: jest.fn().mockImplementation(({ userId, characterId }: { userId: string; characterId: string }) => {
-        if (userId === 'u1' && characterId === 'ageha') return Promise.resolve(null);
-        return Promise.resolve({
-          Bedtime: '01:30',
-          WakeUpTime: '09:30',
-          UserID: userId,
-          CharacterID: characterId,
-          CreatedAt: 0,
-          UpdatedAt: 0,
-        });
-      }),
+      get: jest
+        .fn()
+        .mockImplementation(({ userId, characterId }: { userId: string; characterId: string }) => {
+          if (userId === 'u1' && characterId === 'ageha') return Promise.resolve(null);
+          return Promise.resolve({
+            Bedtime: '01:30',
+            WakeUpTime: '09:30',
+            UserID: userId,
+            CharacterID: characterId,
+            CreatedAt: 0,
+            UpdatedAt: 0,
+          });
+        }),
     };
     mockStudyForUser
       .mockRejectedValueOnce(new Error('hiyori エラー')) // u1 hiyori
@@ -278,7 +293,11 @@ describe('studyAllUsers', () => {
           id: 'hiyori',
           displayName: '桃瀬ひより',
           notificationName: 'ひより',
-          personality: { basePrompt: '', speechStyle: '', preferences: { likes: [], dislikes: [] } },
+          personality: {
+            basePrompt: '',
+            speechStyle: '',
+            preferences: { likes: [], dislikes: [] },
+          },
           voiceConfig: { provider: 'voicevox' as const, speakerId: 14 },
           license: { displayText: '', creditName: '' },
         };
