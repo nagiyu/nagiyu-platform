@@ -8,9 +8,9 @@
 
 | レイヤ | 配置 | いつ効くか | 置くもの |
 |---|---|---|---|
-| **常時ロード（鉄則）** | `CLAUDE.md` / `AGENTS.md` / `.claude/agents/implementer.md` | 毎ターン（常にコンテキストに載る） | 全作業に効く短い鉄則・ロール定義・MUST NOT |
+| **常時ロード（鉄則）** | `CLAUDE.md` / `AGENTS.md` / `.claude/agents/implementer.md` / `.claude/agents/reviewer.md` | 毎ターン（常にコンテキストに載る） | 全作業に効く短い鉄則・ロール定義・MUST NOT |
 | **Skill（段階的開示）** | `.claude/skills/<name>/` | 関連したときだけ本文がロードされる（`description` のみ常時） | たまに使う手順・道具（スクリプト / テンプレ同梱可） |
-| **サブエージェント** | `.claude/agents/` | spawn 時に別コンテキスト | 物量のある実装を本体の文脈から切り離す（別モデル指定可） |
+| **サブエージェント** | `.claude/agents/` | spawn 時に別コンテキスト | コンテキスト隔離が必要な作業を本体の文脈から切り離す（実装 / fresh-eyes レビュー。別モデル指定可） |
 | **永続ドキュメント** | `docs/` | 必要時に参照 | 「なぜ」（背景・意思決定・設計判断） |
 | **Copilot / Codex 用** | `.github/agents/` / `.github/copilot-instructions.md` / `.specify/` | 別ツール側 | Copilot Agent / spec-kit 用の指示。Claude 運用とは別系統 |
 
@@ -44,6 +44,7 @@
 ### サブエージェントに切り出すもの
 
 - 実装＋テストのように物量があり、本体（オーケストレーター）の文脈を圧迫する作業。別モデル（Sonnet）でコスト最適化する。
+- **コンテキスト隔離そのものが目的の作業**（fresh-eyes レビュー）。オーケストレーターは実装方針・会話履歴を抱えているため、同一文脈でレビューしても先入観を排せない。別コンテキストで走るサブエージェントに diff・成果物だけを渡すことで、白紙視点の検証が成立する（→ [`.claude/agents/reviewer.md`](../../.claude/agents/reviewer.md)）。
 
 ---
 
@@ -72,3 +73,4 @@
 - [`CLAUDE.md`](../../CLAUDE.md) — Claude 運用ハンドブック（常時ロード）
 - [`docs/development/claude-environment.md`](claude-environment.md) — env 固有事情（Skill 化の元ネタ）
 - [`.claude/agents/implementer.md`](../../.claude/agents/implementer.md) — 実装サブエージェント定義
+- [`.claude/agents/reviewer.md`](../../.claude/agents/reviewer.md) — fresh-eyes レビュアー定義
