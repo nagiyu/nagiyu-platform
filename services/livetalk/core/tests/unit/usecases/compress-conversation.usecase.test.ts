@@ -521,12 +521,13 @@ describe('compressConversation', () => {
     await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'テスト' });
 
     // memoryRepo.put が必ず throw するラッパーを作成
+    // （put 失敗後は他メソッドが呼ばれないため、型はアサーションで補う）
     const failingMemoryRepo = {
       ...realMemoryRepo,
       put: async () => {
         throw new Error('memoryRepo.put 失敗');
       },
-    };
+    } as unknown as typeof realMemoryRepo;
 
     // compressConversation は reject するはず
     await expect(
