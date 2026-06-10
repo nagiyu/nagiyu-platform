@@ -18,6 +18,7 @@ import type {
   SummarizeResult,
 } from './types.js';
 import { SummarizeResultSchema } from './schemas/summarize.schema.js';
+import { withLLMRetry } from '../lib/llm-retry.js';
 
 /**
  * OpenAI 実装の用途別既定モデル（GPT-5 系）。
@@ -57,7 +58,9 @@ export interface OpenAIClientOptions {
  * - ストリーミング: `stream: true` で `response.output_text.delta` イベントから text delta を yield
  * - 一括: `response.output_text` をそのまま返す
  *
- * リトライは行わない（呼び出し側の責務）。`new OpenAI` 既定のリトライも `maxRetries: 0` で無効化する。
+ * 非ストリーミング呼び出し（`chatComplete` / `chatStructured`）は `withLLMRetry` で一過性エラー
+ * （rate limit, timeout 等）をリトライする。ストリーミング（`chatStream`）は出力重複防止のため
+ * リトライ対象外とする。SDK 自動リトライは `maxRetries: 0` で無効化し、アプリ側で一元管理する。
  */
 export class OpenAIClient implements ILLMClient {
   private readonly client: OpenAI;
@@ -97,13 +100,15 @@ export class OpenAIClient implements ILLMClient {
 
   public async chatComplete(messages: ChatMessage[], options: ChatOptions = {}): Promise<string> {
     this.assertMessages(messages);
-    const response = (await this.client.responses.create({
-      model: this.resolveModel(options),
-      stream: false,
-      input: messages.map(toEasyInputMessage),
-      temperature: options.temperature,
-      max_output_tokens: options.maxTokens,
-    })) as Response;
+    const response = (await withLLMRetry(() =>
+      this.client.responses.create({
+        model: this.resolveModel(options),
+        stream: false,
+        input: messages.map(toEasyInputMessage),
+        temperature: options.temperature,
+        max_output_tokens: options.maxTokens,
+      })
+    )) as Response;
     return response.output_text ?? '';
   }
 
@@ -113,14 +118,16 @@ export class OpenAIClient implements ILLMClient {
     options: ChatOptions = {}
   ): Promise<z.infer<T>> {
     this.assertMessages(messages);
-    const response = await this.client.responses.parse({
-      model: this.resolveModel(options),
-      stream: false,
-      input: messages.map(toEasyInputMessage),
-      temperature: options.temperature,
-      max_output_tokens: options.maxTokens,
-      text: { format: zodTextFormat(schema, 'structured_output') },
-    });
+    const response = await withLLMRetry(() =>
+      this.client.responses.parse({
+        model: this.resolveModel(options),
+        stream: false,
+        input: messages.map(toEasyInputMessage),
+        temperature: options.temperature,
+        max_output_tokens: options.maxTokens,
+        text: { format: zodTextFormat(schema, 'structured_output') },
+      })
+    );
 
     if (response.output_parsed === null || response.output_parsed === undefined) {
       throw new Error(OPENAI_ERROR_MESSAGES.REFUSAL);
@@ -327,10 +334,12 @@ export class OpenAIEmbeddingClient implements IEmbeddingClient {
     if (!trimmed) {
       throw new Error(OPENAI_EMBEDDING_ERROR_MESSAGES.EMPTY_TEXT);
     }
-    const response = await this.client.embeddings.create({
-      model: this.model,
-      input: trimmed,
-    });
+    const response = await withLLMRetry(() =>
+      this.client.embeddings.create({
+        model: this.model,
+        input: trimmed,
+      })
+    );
     return response.data[0].embedding;
   }
 }

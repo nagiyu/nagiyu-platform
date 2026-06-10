@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import type { IVoiceClient, VoiceConfig } from '../voice/types.js';
 import type { OpenAIVoiceClientOptions } from './types.js';
+import { withLLMRetry } from '../lib/llm-retry.js';
 
 /**
  * OpenAI TTS クライアント周りのエラーメッセージ（日本語、定数化）。
@@ -20,7 +21,9 @@ const DEFAULT_VOICE = 'alloy';
  * - `audio.speech.create` で MP3 バイナリを取得し、ArrayBuffer として返す。
  * - `voice.provider === 'openai'` の場合のみ voice / instructions / model を解釈する。
  *   それ以外（voicevox 等）は既定値で合成する（VoicevoxClient と同じ寛容さ）。
- * - リトライは行わない（呼び出し側の責務）。maxRetries: 0 を設定する。
+ * - `synthesize` は `withLLMRetry` で一過性エラー（rate limit, timeout 等）をリトライする。
+ *   全敗した場合は `SYNTHESIS_FAILED` エラーでラップして throw する。
+ * - SDK 自動リトライは `maxRetries: 0` で無効化し、アプリ側で一元管理する。
  */
 export class OpenAIVoiceClient implements IVoiceClient {
   private readonly client: OpenAI;
@@ -67,7 +70,7 @@ export class OpenAIVoiceClient implements IVoiceClient {
         (requestParams as any).instructions = resolvedInstructions;
       }
 
-      const response = await this.client.audio.speech.create(requestParams);
+      const response = await withLLMRetry(() => this.client.audio.speech.create(requestParams));
       return response.arrayBuffer();
     } catch (error) {
       throw new Error(OPENAI_VOICE_ERROR_MESSAGES.SYNTHESIS_FAILED, { cause: error });
