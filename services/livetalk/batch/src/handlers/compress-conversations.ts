@@ -38,6 +38,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     eventTime: event.time,
   });
 
+  let result;
   try {
     const docClient = getDynamoDBDocumentClient();
     const tableName = getTableName();
@@ -52,7 +53,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     const interestRepo = new DynamoDBInterestRepository(docClient, tableName);
     const characterStateRepo = new DynamoDBCharacterStateRepository(docClient, tableName);
 
-    const result = await compressAllConversations({
+    result = await compressAllConversations({
       docClient,
       tableName,
       summaryRepo,
@@ -63,20 +64,8 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       characterStateRepo,
       embeddingClient,
     });
-
-    logger.info('[compress-conversations] バッチ完了', {
-      eventId: event.id,
-      ...result,
-    });
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        message: '圧縮要約バッチが正常に完了しました',
-        ...result,
-      }),
-    };
   } catch (error) {
+    // 致命的エラー: 報告して rethrow（非同期 Lambda を失敗させ DLQ/リトライに乗せる）
     const errorMessage = toErrorMessage(error);
     logger.error('[compress-conversations] バッチ失敗', {
       eventId: event.id,
@@ -89,13 +78,37 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       message: errorMessage,
       context: { eventId: event.id },
     });
-
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: '圧縮要約バッチでエラーが発生しました',
-        error: errorMessage,
-      }),
-    };
+    throw error;
   }
+
+  logger.info('[compress-conversations] バッチ完了', {
+    eventId: event.id,
+    ...result,
+  });
+
+  if (result.failedUsers > 0) {
+    // 部分失敗: 報告して throw（非同期 Lambda を失敗させ DLQ/リトライに乗せる）
+    const message = `圧縮要約バッチで ${result.failedUsers} 件のユーザー処理が失敗しました`;
+    logger.error('[compress-conversations] 部分失敗', {
+      eventId: event.id,
+      failedUsers: result.failedUsers,
+      failedUserIds: result.failedUserIds,
+    });
+    await reportErrorEvent({
+      serviceId: SERVICE_ID,
+      severity: 'error',
+      title: '圧縮要約バッチ: 部分失敗',
+      message,
+      context: { eventId: event.id, failedUserIds: result.failedUserIds },
+    });
+    throw new Error(message);
+  }
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({
+      message: '圧縮要約バッチが正常に完了しました',
+      ...result,
+    }),
+  };
 }

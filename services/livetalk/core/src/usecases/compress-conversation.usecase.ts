@@ -36,16 +36,23 @@ export interface CompressConversationParams {
  * 処理フロー：
  * 1. MEMORY#SUMMARY の最終圧縮時刻を取得
  * 2. lastCompressedAt 以降のメッセージを listSince で取得
- * 3. メッセージが 0 件なら何もしない（return）
+ * 3. メッセージが 0 件なら 'skipped' を返す
  * 4. LLM で要約 + 新規記憶候補抽出
- * 5. MEMORY#SUMMARY を更新（既存 + 新規をマージした要約）
- * 6. 新規記憶候補を Tier C として保存（embedding・TTL はリポジトリ任せ）
+ * 5. 新規記憶候補を Tier C として保存（embedding・TTL はリポジトリ任せ）
+ * 6. MEMORY#SUMMARY を更新（既存 + 新規をマージした要約・LastCompressedAt を前進）
+ *
+ * 書き込み順序の意図：
+ * memoryRepo.put を summaryRepo.put より先に実行することで冪等性を保証する。
+ * もし memoryRepo.put が途中失敗しても LastCompressedAt は前進しないため、
+ * 次回実行で同じメッセージが再処理されて永久欠落を防ぐ。
+ *
+ * @returns 'compressed' | 'skipped'
  */
 export async function compressConversation(
   userId: string,
   characterId: string,
   params: CompressConversationParams
-): Promise<void> {
+): Promise<'compressed' | 'skipped'> {
   const {
     summaryRepo,
     messageRepo,
@@ -67,7 +74,7 @@ export async function compressConversation(
 
   if (messages.length === 0) {
     logger.info('[compressConversation] スキップ（新着メッセージなし）', { userId, characterId });
-    return;
+    return 'skipped';
   }
 
   // listSince 直後にスナップショットを取ることで、summarize 実行中に届いたメッセージが
@@ -104,6 +111,21 @@ export async function compressConversation(
     existingInterestCategories,
   });
 
+  // 新規記憶候補を先に保存する（冪等性保証）
+  // summaryRepo.put（LastCompressedAt の前進）より前に実行することで、
+  // put が途中失敗しても次回実行で同じメッセージが再処理される（永久欠落防止）
+  for (const candidate of result.newMemoryCandidates) {
+    await memoryRepo.put({
+      UserID: userId,
+      CharacterID: characterId,
+      Tier: 'C',
+      Category: candidate.category,
+      Content: candidate.content,
+      Confidence: MEMORY_DEFAULT_CONFIDENCE.C,
+      ReferencedCount: 0,
+    });
+  }
+
   await summaryRepo.put({
     UserID: userId,
     CharacterID: characterId,
@@ -128,18 +150,6 @@ export async function compressConversation(
     emitBatchMetricsEMF(batchMetrics);
   } catch (err) {
     logger.warn('[compressConversation] バッチ計測の emit に失敗しました', { err });
-  }
-
-  for (const candidate of result.newMemoryCandidates) {
-    await memoryRepo.put({
-      UserID: userId,
-      CharacterID: characterId,
-      Tier: 'C',
-      Category: candidate.category,
-      Content: candidate.content,
-      Confidence: MEMORY_DEFAULT_CONFIDENCE.C,
-      ReferencedCount: 0,
-    });
   }
 
   // 興味カテゴリ抽出・保存（fail-warn: エラー時はスキップして継続）
@@ -185,4 +195,6 @@ export async function compressConversation(
     interestCount: result.interestCategories?.length ?? 0,
     bidirectionalityScore: result.bidirectionalityScore,
   });
+
+  return 'compressed';
 }
