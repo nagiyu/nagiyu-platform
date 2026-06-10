@@ -41,10 +41,16 @@ export interface CompressConversationParams {
  * 5. 新規記憶候補を Tier C として保存（embedding・TTL はリポジトリ任せ）
  * 6. MEMORY#SUMMARY を更新（既存 + 新規をマージした要約・LastCompressedAt を前進）
  *
- * 書き込み順序の意図：
- * memoryRepo.put を summaryRepo.put より先に実行することで冪等性を保証する。
+ * 書き込み順序の意図（at-least-once 保証）：
+ * memoryRepo.put を summaryRepo.put（LastCompressedAt の前進）より先に実行する。
  * もし memoryRepo.put が途中失敗しても LastCompressedAt は前進しないため、
- * 次回実行で同じメッセージが再処理されて永久欠落を防ぐ。
+ * 次回実行（DLQ/リトライ含む）で同じメッセージが再処理され、記憶の永久欠落を防ぐ。
+ *
+ * 注意：保証されるのは「欠落しない（at-least-once）」方向のみ。
+ * summaryRepo.put 失敗後にリトライした場合、同一メッセージが再要約され、
+ * Tier C 記憶が別 ID で重複保存され得る。不可逆な欠落を避けることを優先し、
+ * （回復可能な）重複は許容する設計判断である。完全成功後の再実行は
+ * LastCompressedAt 前進により no-op となり重複しない。
  *
  * @returns 'compressed' | 'skipped'
  */
@@ -111,9 +117,9 @@ export async function compressConversation(
     existingInterestCategories,
   });
 
-  // 新規記憶候補を先に保存する（冪等性保証）
+  // 新規記憶候補を先に保存する（at-least-once 保証）
   // summaryRepo.put（LastCompressedAt の前進）より前に実行することで、
-  // put が途中失敗しても次回実行で同じメッセージが再処理される（永久欠落防止）
+  // put が途中失敗しても LastCompressedAt が進まず、次回実行で再処理される（永久欠落防止）
   for (const candidate of result.newMemoryCandidates) {
     await memoryRepo.put({
       UserID: userId,

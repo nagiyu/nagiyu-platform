@@ -11,9 +11,30 @@ import {
   OpenAIEmbeddingClient,
   defaultUlidFactory,
 } from '@nagiyu/livetalk-core';
-import { compressAllConversations } from '../usecases/compress-conversations.usecase.js';
+import {
+  compressAllConversations,
+  type CompressAllConversationsResult,
+} from '../usecases/compress-conversations.usecase.js';
 
 const SERVICE_ID = 'livetalk';
+
+/**
+ * エラー通知は best-effort。通知自体が失敗しても、後続の throw（Lambda 失敗→DLQ/リトライ）を
+ * 握り潰さないよう warn に留める。
+ */
+async function safeReportErrorEvent(
+  params: Parameters<typeof reportErrorEvent>[0],
+  eventId: string
+): Promise<void> {
+  try {
+    await reportErrorEvent(params);
+  } catch (reportError) {
+    logger.warn('[compress-conversations] エラー通知の送信に失敗しました', {
+      eventId,
+      error: toErrorMessage(reportError),
+    });
+  }
+}
 
 export interface ScheduledEvent {
   version: string;
@@ -38,7 +59,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     eventTime: event.time,
   });
 
-  let result;
+  let result: CompressAllConversationsResult;
   try {
     const docClient = getDynamoDBDocumentClient();
     const tableName = getTableName();
@@ -71,13 +92,16 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       eventId: event.id,
       error: errorMessage,
     });
-    await reportErrorEvent({
-      serviceId: SERVICE_ID,
-      severity: 'error',
-      title: '圧縮要約バッチ: 致命的エラー',
-      message: errorMessage,
-      context: { eventId: event.id },
-    });
+    await safeReportErrorEvent(
+      {
+        serviceId: SERVICE_ID,
+        severity: 'error',
+        title: '圧縮要約バッチ: 致命的エラー',
+        message: errorMessage,
+        context: { eventId: event.id },
+      },
+      event.id
+    );
     throw error;
   }
 
@@ -94,13 +118,16 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       failedUsers: result.failedUsers,
       failedUserIds: result.failedUserIds,
     });
-    await reportErrorEvent({
-      serviceId: SERVICE_ID,
-      severity: 'error',
-      title: '圧縮要約バッチ: 部分失敗',
-      message,
-      context: { eventId: event.id, failedUserIds: result.failedUserIds },
-    });
+    await safeReportErrorEvent(
+      {
+        serviceId: SERVICE_ID,
+        severity: 'error',
+        title: '圧縮要約バッチ: 部分失敗',
+        message,
+        context: { eventId: event.id, failedUserIds: result.failedUserIds },
+      },
+      event.id
+    );
     throw new Error(message);
   }
 

@@ -475,7 +475,7 @@ describe('compressConversation', () => {
     expect(paramNowCallCount).toBe(1);
   });
 
-  it('2 回目実行時は同じメッセージを重複処理しない（冪等性）', async () => {
+  it('完全成功後の再実行は LastCompressedAt 前進により no-op となり記憶を重複させない', async () => {
     const candidates = [{ category: 'food', content: 'ケーキが好き' }];
     const llmClient = makeLLMClient({ mergedSummary: '要約', newMemoryCandidates: candidates });
     const { messageRepo, summaryRepo, memoryRepo } = makeRepos();
