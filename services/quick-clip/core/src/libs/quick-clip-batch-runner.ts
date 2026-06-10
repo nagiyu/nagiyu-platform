@@ -49,6 +49,7 @@ const VIDEO_INPUT_PATH = (jobId: string): string => `/tmp/quick-clip/${jobId}/in
 const SOURCE_VIDEO_KEY = (jobId: string): string => `uploads/${jobId}/input.mp4`;
 const CLIP_OUTPUT_KEY = (jobId: string, highlightId: string): string =>
   `outputs/${jobId}/clips/${highlightId}.mp4`;
+const TRANSCRIPT_OUTPUT_KEY = (jobId: string): string => `outputs/${jobId}/transcript.json`;
 const CLIP_OUTPUT_PATH = (jobId: string, highlightId: string): string =>
   `/tmp/quick-clip/${jobId}/clips/${highlightId}.mp4`;
 const DOWNLOAD_RETRY_INTERVAL_MS = 3000;
@@ -208,6 +209,11 @@ const generateClips = async (
   console.info(`[generateClips] 完了: jobId=${jobId}`);
 };
 
+type BuildHighlightsResult = {
+  highlights: Highlight[];
+  segments: TranscriptSegment[];
+};
+
 const buildHighlights = async (
   jobId: string,
   localPath: string,
@@ -215,7 +221,7 @@ const buildHighlights = async (
   awsRegion: string,
   openAiApiKey?: string,
   emotionFilter?: EmotionFilter
-): Promise<Highlight[]> => {
+): Promise<BuildHighlightsResult> => {
   const { size: videoFileSizeBytes } = await stat(localPath);
   console.info(`[buildHighlights] 開始: jobId=${jobId} videoFileSize=${videoFileSizeBytes}bytes`);
 
@@ -330,7 +336,7 @@ const buildHighlights = async (
       ? aggregationService.aggregate(motionScores, volumeScores, duration, emotionScores)
       : aggregationService.aggregate(motionScores, volumeScores, duration);
   const sortedByStartSec = extracted.slice().sort((a, b) => a.startSec - b.startSec);
-  return sortedByStartSec.map((item, index) => ({
+  const highlights = sortedByStartSec.map((item, index) => ({
     highlightId: randomUUID(),
     jobId,
     order: index + 1,
@@ -339,9 +345,10 @@ const buildHighlights = async (
     source: item.source,
     dominantEmotion: item.dominantEmotion,
     expiresAt: 0, // persistHighlights で上書きされる
-    status: 'unconfirmed',
-    clipStatus: 'PENDING',
+    status: 'unconfirmed' as const,
+    clipStatus: 'PENDING' as const,
   }));
+  return { highlights, segments };
 };
 
 const updateBatchStage = async (
@@ -404,7 +411,7 @@ const runExtract = async (env: QuickClipBatchRunInput): Promise<void> => {
 
   console.info(`[runExtract] analyzing ステージ開始: jobId=${env.jobId}`);
   await updateBatchStage(env.jobId, 'analyzing', env.tableName, env.awsRegion);
-  const highlights = await buildHighlights(
+  const { highlights, segments } = await buildHighlights(
     env.jobId,
     localVideoPath,
     env.tableName,
@@ -422,6 +429,29 @@ const runExtract = async (env: QuickClipBatchRunInput): Promise<void> => {
   const expiresAt = await getJobExpiresAt(env.jobId, env.tableName, env.awsRegion);
   await persistHighlights(env.jobId, highlights, expiresAt, env.tableName, env.awsRegion);
   console.info(`[runExtract] ハイライト保存完了: jobId=${env.jobId} count=${highlights.length}`);
+
+  if (segments.length > 0) {
+    try {
+      const s3Client = getS3Client(env.awsRegion);
+      await s3Client.send(
+        new PutObjectCommand({
+          Bucket: env.bucketName,
+          Key: TRANSCRIPT_OUTPUT_KEY(env.jobId),
+          Body: JSON.stringify(segments),
+          ContentType: 'application/json',
+        })
+      );
+      console.info(
+        `[runExtract] 文字起こし保存完了: jobId=${env.jobId} segments=${segments.length}`
+      );
+    } catch (error) {
+      console.warn('[runExtract] 文字起こしの保存に失敗しました（処理は継続します）:', error);
+    }
+  } else {
+    console.info(
+      `[runExtract] 文字起こしセグメントが0件のため transcript.json を保存しません: jobId=${env.jobId}`
+    );
+  }
 };
 
 export const runQuickClipBatch = async (env: QuickClipBatchRunInput): Promise<void> => {
