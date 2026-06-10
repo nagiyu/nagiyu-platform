@@ -81,7 +81,8 @@ describe('compressAllConversations', () => {
     const docClient = makeDocClientMock(['u1', 'u2']);
     const result = await compressAllConversations(makeParams({ llmClient, docClient }));
     expect(llmClient.summarizeCalls).toBe(0);
-    expect(result.processedUsers).toBe(2);
+    expect(result.processedUsers).toBe(0);
+    expect(result.skippedUsers).toBe(2);
   });
 
   it('hiyori にメッセージのあるユーザー分だけ LLM を呼ぶ', async () => {
@@ -101,7 +102,9 @@ describe('compressAllConversations', () => {
     });
 
     expect(llmClient.summarizeCalls).toBe(1);
-    expect(result.processedUsers).toBe(2);
+    // u1 はメッセージあり（processed）、u2 はメッセージなし（skipped）
+    expect(result.processedUsers).toBe(1);
+    expect(result.skippedUsers).toBe(1);
     expect(result.failedUsers).toBe(0);
   });
 
@@ -162,7 +165,8 @@ describe('compressAllConversations', () => {
       makeParams({ llmClient, docClient: pagedDocClient })
     );
 
-    expect(result.processedUsers).toBe(2);
+    expect(result.processedUsers).toBe(0);
+    expect(result.skippedUsers).toBe(2);
     expect(pageCount).toBe(2);
   });
 
@@ -175,7 +179,8 @@ describe('compressAllConversations', () => {
     } as unknown as DynamoDBDocumentClient;
 
     const result = await compressAllConversations(makeParams({ llmClient, docClient }));
-    expect(result.processedUsers).toBe(1);
+    expect(result.processedUsers).toBe(0);
+    expect(result.skippedUsers).toBe(1);
   });
 
   it('複数キャラ（hiyori と ageha）両方のメッセージで LLM が 2 回呼ばれる', async () => {
@@ -315,5 +320,27 @@ describe('compressAllConversations', () => {
     expect(summarizeCalls).toContain('桃瀬ひより');
     // ageha の displayName が含まれること（'早瀬アゲハ'）
     expect(summarizeCalls.some((name) => name !== '桃瀬ひより' && name !== undefined)).toBe(true);
+  });
+
+  it('メッセージのあるユーザーは processedUsers、ないユーザーは skippedUsers に計上される（混在ケース）', async () => {
+    const llmClient = makeLLMClient();
+    const { summaryRepo, messageRepo, memoryRepo } = makeRepos();
+    tick = fixedNow;
+    // u1 のみメッセージあり（processed）、u2 はメッセージなし（skipped）
+    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'hello' });
+
+    const docClient = makeDocClientMock(['u1', 'u2']);
+    const result = await compressAllConversations({
+      docClient,
+      tableName: 'test',
+      summaryRepo,
+      messageRepo,
+      memoryRepo,
+      llmClient,
+    });
+
+    expect(result.processedUsers).toBe(1);
+    expect(result.skippedUsers).toBe(1);
+    expect(result.failedUsers).toBe(0);
   });
 });

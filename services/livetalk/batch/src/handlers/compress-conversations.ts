@@ -11,9 +11,30 @@ import {
   OpenAIEmbeddingClient,
   defaultUlidFactory,
 } from '@nagiyu/livetalk-core';
-import { compressAllConversations } from '../usecases/compress-conversations.usecase.js';
+import {
+  compressAllConversations,
+  type CompressAllConversationsResult,
+} from '../usecases/compress-conversations.usecase.js';
 
 const SERVICE_ID = 'livetalk';
+
+/**
+ * エラー通知は best-effort。通知自体が失敗しても、後続の throw（Lambda 失敗→DLQ/リトライ）を
+ * 握り潰さないよう warn に留める。
+ */
+async function safeReportErrorEvent(
+  params: Parameters<typeof reportErrorEvent>[0],
+  eventId: string
+): Promise<void> {
+  try {
+    await reportErrorEvent(params);
+  } catch (reportError) {
+    logger.warn('[compress-conversations] エラー通知の送信に失敗しました', {
+      eventId,
+      error: toErrorMessage(reportError),
+    });
+  }
+}
 
 export interface ScheduledEvent {
   version: string;
@@ -38,6 +59,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     eventTime: event.time,
   });
 
+  let result: CompressAllConversationsResult;
   try {
     const docClient = getDynamoDBDocumentClient();
     const tableName = getTableName();
@@ -52,7 +74,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     const interestRepo = new DynamoDBInterestRepository(docClient, tableName);
     const characterStateRepo = new DynamoDBCharacterStateRepository(docClient, tableName);
 
-    const result = await compressAllConversations({
+    result = await compressAllConversations({
       docClient,
       tableName,
       summaryRepo,
@@ -63,39 +85,57 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       characterStateRepo,
       embeddingClient,
     });
-
-    logger.info('[compress-conversations] バッチ完了', {
-      eventId: event.id,
-      ...result,
-    });
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        message: '圧縮要約バッチが正常に完了しました',
-        ...result,
-      }),
-    };
   } catch (error) {
+    // 致命的エラー: 報告して rethrow（非同期 Lambda を失敗させ DLQ/リトライに乗せる）
     const errorMessage = toErrorMessage(error);
     logger.error('[compress-conversations] バッチ失敗', {
       eventId: event.id,
       error: errorMessage,
     });
-    await reportErrorEvent({
-      serviceId: SERVICE_ID,
-      severity: 'error',
-      title: '圧縮要約バッチ: 致命的エラー',
-      message: errorMessage,
-      context: { eventId: event.id },
-    });
-
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: '圧縮要約バッチでエラーが発生しました',
-        error: errorMessage,
-      }),
-    };
+    await safeReportErrorEvent(
+      {
+        serviceId: SERVICE_ID,
+        severity: 'error',
+        title: '圧縮要約バッチ: 致命的エラー',
+        message: errorMessage,
+        context: { eventId: event.id },
+      },
+      event.id
+    );
+    throw error;
   }
+
+  logger.info('[compress-conversations] バッチ完了', {
+    eventId: event.id,
+    ...result,
+  });
+
+  if (result.failedUsers > 0) {
+    // 部分失敗: 報告して throw（非同期 Lambda を失敗させ DLQ/リトライに乗せる）
+    const message = `圧縮要約バッチで ${result.failedUsers} 件のユーザー処理が失敗しました`;
+    logger.error('[compress-conversations] 部分失敗', {
+      eventId: event.id,
+      failedUsers: result.failedUsers,
+      failedUserIds: result.failedUserIds,
+    });
+    await safeReportErrorEvent(
+      {
+        serviceId: SERVICE_ID,
+        severity: 'error',
+        title: '圧縮要約バッチ: 部分失敗',
+        message,
+        context: { eventId: event.id, failedUserIds: result.failedUserIds },
+      },
+      event.id
+    );
+    throw new Error(message);
+  }
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({
+      message: '圧縮要約バッチが正常に完了しました',
+      ...result,
+    }),
+  };
 }

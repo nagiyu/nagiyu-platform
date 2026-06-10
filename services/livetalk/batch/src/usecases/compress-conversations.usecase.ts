@@ -59,6 +59,7 @@ export async function compressAllConversations(
 
   for (const userId of userIds) {
     let hasCharacterError = false;
+    let hasCompressed = false;
 
     try {
       for (const characterId of allCharacterIds) {
@@ -71,7 +72,7 @@ export async function compressAllConversations(
         }
 
         try {
-          await compressConversation(userId, characterId, {
+          const outcome = await compressConversation(userId, characterId, {
             summaryRepo,
             messageRepo,
             memoryRepo,
@@ -82,6 +83,9 @@ export async function compressAllConversations(
             characterStateRepo,
             embeddingClient,
           });
+          if (outcome === 'compressed') {
+            hasCompressed = true;
+          }
         } catch (error) {
           logger.warn('[compressAllConversations] キャラクター処理失敗（他キャラは継続）', {
             userId,
@@ -92,11 +96,14 @@ export async function compressAllConversations(
         }
       }
 
+      // failed 計上が最優先。次に compressed/skipped を判定する。
       if (hasCharacterError) {
         result.failedUsers++;
         result.failedUserIds.push(userId);
-      } else {
+      } else if (hasCompressed) {
         result.processedUsers++;
+      } else {
+        result.skippedUsers++;
       }
     } catch (error) {
       logger.error('[compressAllConversations] ユーザー処理失敗', {
