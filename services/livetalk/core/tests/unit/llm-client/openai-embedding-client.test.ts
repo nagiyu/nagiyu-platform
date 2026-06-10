@@ -5,6 +5,9 @@ import {
   OPENAI_EMBEDDING_ERROR_MESSAGES,
 } from '../../../src/llm-client/openai-client.js';
 
+/** OpenAI エラー生成用ヘルパー */
+const headersLike = { get: () => null } as unknown as Headers;
+
 function makeMockOpenAI(): { client: OpenAI; create: jest.Mock } {
   const create = jest.fn();
   const client = {
@@ -67,6 +70,30 @@ describe('OpenAIEmbeddingClient', () => {
       await cli.embed('  テスト  ');
 
       expect(create.mock.calls[0][0].input).toBe('テスト');
+    });
+
+    describe('リトライ動作', () => {
+      it('429 エラー後に成功すれば embedding を返す（一過性エラーはリトライされる）', async () => {
+        jest.useFakeTimers();
+        try {
+          const { client, create } = makeMockOpenAI();
+          const rateLimitError = new OpenAI.RateLimitError(429, {}, 'rate limit', headersLike);
+          const mockVec = [0.1, 0.2, 0.3];
+          create
+            .mockRejectedValueOnce(rateLimitError)
+            .mockResolvedValue({ data: [{ embedding: mockVec }] });
+
+          const cli = new OpenAIEmbeddingClient({ client });
+          const resultPromise = cli.embed('テスト');
+          await jest.runAllTimersAsync();
+          const result = await resultPromise;
+
+          expect(result).toEqual(mockVec);
+          expect(create).toHaveBeenCalledTimes(2);
+        } finally {
+          jest.useRealTimers();
+        }
+      });
     });
   });
 });

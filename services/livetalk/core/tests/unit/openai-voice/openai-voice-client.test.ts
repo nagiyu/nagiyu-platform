@@ -4,6 +4,9 @@ import {
   OPENAI_VOICE_ERROR_MESSAGES,
 } from '../../../src/openai-voice/openai-voice-client.js';
 
+/** OpenAI エラー生成用ヘルパー */
+const headersLike = { get: () => null } as unknown as Headers;
+
 /**
  * OpenAI TTS クライアント用モックファクトリ。
  * audio.speech.create の呼び出しを記録し、任意の応答を返す。
@@ -236,6 +239,59 @@ describe('OpenAIVoiceClient', () => {
           expect(err).toBeInstanceOf(Error);
           expect((err as Error & { cause?: unknown }).cause).toBe(originalError);
         }
+      });
+
+      describe('リトライ動作', () => {
+        it('429 エラー後に成功すれば ArrayBuffer を返す（一過性エラーはリトライされる）', async () => {
+          jest.useFakeTimers();
+          try {
+            const rateLimitError = new OpenAI.RateLimitError(429, {}, 'rate limit', headersLike);
+            const expected = new ArrayBuffer(16);
+            const create = jest
+              .fn()
+              .mockRejectedValueOnce(rateLimitError)
+              .mockResolvedValue({ arrayBuffer: async () => expected });
+            const client = {
+              audio: { speech: { create } },
+            } as unknown as OpenAI;
+
+            const ttsClient = new OpenAIVoiceClient({ client });
+            const resultPromise = ttsClient.synthesize('テスト');
+            await jest.runAllTimersAsync();
+            const result = await resultPromise;
+
+            expect(result).toBe(expected);
+            expect(create).toHaveBeenCalledTimes(2);
+          } finally {
+            jest.useRealTimers();
+          }
+        });
+
+        it('全リトライ失敗後は SYNTHESIS_FAILED エラーで wrap され cause に元エラーを含む', async () => {
+          jest.useFakeTimers();
+          try {
+            const rateLimitError = new OpenAI.RateLimitError(429, {}, 'rate limit', headersLike);
+            const create = jest.fn().mockRejectedValue(rateLimitError);
+            const client = {
+              audio: { speech: { create } },
+            } as unknown as OpenAI;
+
+            const ttsClient = new OpenAIVoiceClient({ client });
+            const resultPromise = ttsClient.synthesize('テスト');
+            // 先に catch を登録してから timer を進める（unhandled rejection を防ぐ）
+            const caughtPromise = resultPromise.catch((err: unknown) => err);
+            // 全リトライを消化する
+            await jest.runAllTimersAsync();
+
+            const caughtErr = await caughtPromise;
+            expect((caughtErr as Error).message).toBe(OPENAI_VOICE_ERROR_MESSAGES.SYNTHESIS_FAILED);
+            expect((caughtErr as Error & { cause?: unknown }).cause).toBeInstanceOf(
+              OpenAI.RateLimitError
+            );
+          } finally {
+            jest.useRealTimers();
+          }
+        });
       });
     });
   });

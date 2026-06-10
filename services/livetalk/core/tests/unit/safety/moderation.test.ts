@@ -5,6 +5,9 @@ import {
   MODERATION_ERROR_MESSAGES,
 } from '../../../src/safety/moderation.js';
 
+/** OpenAI エラー生成用ヘルパー */
+const headersLike = { get: () => null } as unknown as Headers;
+
 // OpenAI クライアントのモック
 function makeOpenAIClient(flagged: boolean, categories: Record<string, boolean> = {}): OpenAI {
   return {
@@ -83,6 +86,46 @@ describe('OpenAIModerationClient', () => {
       } as unknown as OpenAI;
       const mod = new OpenAIModerationClient({ client: emptyClient });
       await expect(mod.check('テスト')).rejects.toThrow(MODERATION_ERROR_MESSAGES.API_FAILED);
+    });
+
+    describe('リトライ動作', () => {
+      it('429 エラー後に成功すれば ModerationResult を返す（一過性エラーはリトライされる）', async () => {
+        jest.useFakeTimers();
+        try {
+          const rateLimitError = new OpenAI.RateLimitError(429, {}, 'rate limit', headersLike);
+          const createFn = jest
+            .fn()
+            .mockRejectedValueOnce(rateLimitError)
+            .mockResolvedValue({
+              results: [{ flagged: false, categories: {} }],
+            });
+          const client = {
+            moderations: { create: createFn },
+          } as unknown as OpenAI;
+
+          const mod = new OpenAIModerationClient({ client });
+          const resultPromise = mod.check('テスト');
+          await jest.runAllTimersAsync();
+          const result = await resultPromise;
+
+          expect(result.flagged).toBe(false);
+          expect(createFn).toHaveBeenCalledTimes(2);
+        } finally {
+          jest.useRealTimers();
+        }
+      });
+
+      it('401 エラーは即時 throw（恒久的エラーはリトライしない）', async () => {
+        const authError = new OpenAI.AuthenticationError(401, {}, 'unauthorized', headersLike);
+        const createFn = jest.fn().mockRejectedValue(authError);
+        const client = {
+          moderations: { create: createFn },
+        } as unknown as OpenAI;
+
+        const mod = new OpenAIModerationClient({ client });
+        await expect(mod.check('テスト')).rejects.toThrow(authError);
+        expect(createFn).toHaveBeenCalledTimes(1);
+      });
     });
   });
 });

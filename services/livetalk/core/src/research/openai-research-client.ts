@@ -1,12 +1,11 @@
 import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
-import { withRetry } from '@nagiyu/common';
 import type { CharacterDefinition } from '../characters/types.js';
 import type { IResearchClient, ResearchResult } from './types.js';
+import { withLLMRetry, withLLMTimeout } from '../lib/llm-retry.js';
 
 const RESEARCH_MODEL = 'gpt-5-mini';
-const MAX_RETRIES = 3;
 const REQUEST_TIMEOUT_MS = 120_000;
 
 export const RESEARCH_ERROR_MESSAGES = {
@@ -45,30 +44,29 @@ export class OpenAIResearchClient implements IResearchClient {
   }
 
   public async research(query: string, character: CharacterDefinition): Promise<ResearchResult> {
-    const response = await withRetry(
-      async () =>
-        withTimeout(
-          this.client.responses.parse({
-            model: this.model,
-            stream: false,
-            tools: [{ type: 'web_search' }],
-            tool_choice: 'required',
-            text: { format: zodTextFormat(researchResultSchema, 'livetalk_research') },
-            input: [
-              {
-                role: 'user',
-                content: [
-                  {
-                    type: 'input_text',
-                    text: buildPrompt(query, character),
-                  },
-                ],
-              },
-            ],
-          }),
-          REQUEST_TIMEOUT_MS
-        ),
-      { maxRetries: MAX_RETRIES }
+    const response = await withLLMRetry(() =>
+      withLLMTimeout(
+        this.client.responses.parse({
+          model: this.model,
+          stream: false,
+          tools: [{ type: 'web_search' }],
+          tool_choice: 'required',
+          text: { format: zodTextFormat(researchResultSchema, 'livetalk_research') },
+          input: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'input_text',
+                  text: buildPrompt(query, character),
+                },
+              ],
+            },
+          ],
+        }),
+        REQUEST_TIMEOUT_MS,
+        RESEARCH_ERROR_MESSAGES.TIMEOUT
+      )
     );
 
     if (!response.output_parsed) {
@@ -94,23 +92,4 @@ function buildPrompt(query: string, character: CharacterDefinition): string {
     '- sourceUrls: 参照した URL のリスト（空の場合は空配列）',
     `- rawComment: ${character.displayName} として一言コメント（50〜100 文字、上記の口調で）`,
   ].join('\n');
-}
-
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<T>((_, reject) => {
-        timeoutId = setTimeout(() => {
-          reject(new Error(RESEARCH_ERROR_MESSAGES.TIMEOUT));
-        }, timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-  }
 }

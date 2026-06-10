@@ -8,6 +8,9 @@ import {
 import type { ChatMessage, SummarizeInput } from '../../../src/llm-client/types.js';
 import { z } from 'zod';
 
+/** OpenAI エラー生成用ヘルパー */
+const headersLike = { get: () => null } as unknown as Headers;
+
 function makeStreamEvents(deltas: Array<string | null>): AsyncIterable<unknown> {
   return {
     async *[Symbol.asyncIterator]() {
@@ -166,6 +169,18 @@ describe('OpenAIClient', () => {
       const iterator = livetalk.chatStream([])[Symbol.asyncIterator]();
       await expect(iterator.next()).rejects.toThrow(OPENAI_ERROR_MESSAGES.EMPTY_MESSAGES);
     });
+
+    it('429 エラーでもリトライしない（ストリーミングはリトライ対象外）', async () => {
+      const { client, create } = makeMockOpenAI();
+      const rateLimitError = new OpenAI.RateLimitError(429, {}, 'rate limit', headersLike);
+      create.mockRejectedValue(rateLimitError);
+
+      const livetalk = new OpenAIClient({ client });
+      const iterator = livetalk.chatStream(messages)[Symbol.asyncIterator]();
+      await expect(iterator.next()).rejects.toThrow(rateLimitError);
+      // ストリーミングはリトライしないため 1 回だけ呼ばれる
+      expect(create).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('chatComplete', () => {
@@ -195,6 +210,39 @@ describe('OpenAIClient', () => {
       const livetalk = new OpenAIClient({ client });
 
       await expect(livetalk.chatComplete([])).rejects.toThrow(OPENAI_ERROR_MESSAGES.EMPTY_MESSAGES);
+    });
+
+    describe('リトライ動作', () => {
+      it('429 エラー後に成功すれば値を返す（一過性エラーはリトライされる）', async () => {
+        jest.useFakeTimers();
+        try {
+          const { client, create } = makeMockOpenAI();
+          const rateLimitError = new OpenAI.RateLimitError(429, {}, 'rate limit', headersLike);
+          create
+            .mockRejectedValueOnce(rateLimitError)
+            .mockResolvedValue({ output_text: 'リトライ成功' });
+
+          const livetalk = new OpenAIClient({ client });
+          const resultPromise = livetalk.chatComplete(messages);
+          await jest.runAllTimersAsync();
+          const result = await resultPromise;
+
+          expect(result).toBe('リトライ成功');
+          expect(create).toHaveBeenCalledTimes(2);
+        } finally {
+          jest.useRealTimers();
+        }
+      });
+
+      it('400 エラーは即時 throw（恒久的エラーはリトライしない）', async () => {
+        const { client, create } = makeMockOpenAI();
+        const badRequestError = new OpenAI.BadRequestError(400, {}, 'bad request', headersLike);
+        create.mockRejectedValue(badRequestError);
+
+        const livetalk = new OpenAIClient({ client });
+        await expect(livetalk.chatComplete(messages)).rejects.toThrow(badRequestError);
+        expect(create).toHaveBeenCalledTimes(1);
+      });
     });
   });
 
@@ -242,6 +290,29 @@ describe('OpenAIClient', () => {
       await expect(livetalk.chatStructured([], testSchema)).rejects.toThrow(
         OPENAI_ERROR_MESSAGES.EMPTY_MESSAGES
       );
+    });
+
+    describe('リトライ動作', () => {
+      it('429 エラー後に成功すれば output_parsed を返す（一過性エラーはリトライされる）', async () => {
+        jest.useFakeTimers();
+        try {
+          const { client, parse } = makeMockOpenAI();
+          const rateLimitError = new OpenAI.RateLimitError(429, {}, 'rate limit', headersLike);
+          parse
+            .mockRejectedValueOnce(rateLimitError)
+            .mockResolvedValue({ output_parsed: { value: 'リトライ成功', count: 1 } });
+
+          const livetalk = new OpenAIClient({ client });
+          const resultPromise = livetalk.chatStructured(messages, testSchema);
+          await jest.runAllTimersAsync();
+          const result = await resultPromise;
+
+          expect(result).toEqual({ value: 'リトライ成功', count: 1 });
+          expect(parse).toHaveBeenCalledTimes(2);
+        } finally {
+          jest.useRealTimers();
+        }
+      });
     });
   });
 

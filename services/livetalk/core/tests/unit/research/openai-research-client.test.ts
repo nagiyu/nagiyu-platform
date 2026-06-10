@@ -5,6 +5,9 @@ import {
 } from '../../../src/research/openai-research-client.js';
 import type { CharacterDefinition } from '../../../src/characters/types.js';
 
+/** OpenAI エラー生成用ヘルパー */
+const headersLike = { get: () => null } as unknown as Headers;
+
 const character: CharacterDefinition = {
   id: 'hiyori',
   displayName: '桃瀬ひより',
@@ -61,5 +64,45 @@ describe('OpenAIResearchClient', () => {
         tool_choice: 'required',
       })
     );
+  });
+
+  describe('リトライ動作', () => {
+    it('429 エラー後に成功すれば ResearchResult を返す（一過性エラーはリトライされる）', async () => {
+      jest.useFakeTimers();
+      try {
+        const rateLimitError = new OpenAI.RateLimitError(429, {}, 'rate limit', headersLike);
+        const expected = {
+          topic: 'コーヒー',
+          summary: 'コーヒーの説明。'.repeat(10),
+          sourceUrls: ['https://example.com'],
+          rawComment: 'コメント',
+        };
+        const mockParse = jest
+          .fn()
+          .mockRejectedValueOnce(rateLimitError)
+          .mockResolvedValue({ output_parsed: expected });
+        const mockClient = { responses: { parse: mockParse } } as unknown as OpenAI;
+
+        const researchClient = new OpenAIResearchClient({ client: mockClient });
+        const resultPromise = researchClient.research('コーヒー', character);
+        await jest.runAllTimersAsync();
+        const result = await resultPromise;
+
+        expect(result).toEqual(expected);
+        expect(mockParse).toHaveBeenCalledTimes(2);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('恒久的エラー（401）は即時 throw（リトライしない）', async () => {
+      const authError = new OpenAI.AuthenticationError(401, {}, 'unauthorized', headersLike);
+      const mockParse = jest.fn().mockRejectedValue(authError);
+      const mockClient = { responses: { parse: mockParse } } as unknown as OpenAI;
+
+      const researchClient = new OpenAIResearchClient({ client: mockClient });
+      await expect(researchClient.research('テスト', character)).rejects.toThrow(authError);
+      expect(mockParse).toHaveBeenCalledTimes(1);
+    });
   });
 });
