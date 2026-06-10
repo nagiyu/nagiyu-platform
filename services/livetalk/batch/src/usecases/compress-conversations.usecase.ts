@@ -1,19 +1,16 @@
 import { ScanCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { logger, toErrorMessage } from '@nagiyu/common';
 import {
-  DEFAULT_CHARACTER_ID,
+  getAllCharacterIds,
+  getCharacterDefinitionById,
   compressConversation,
   type CompressConversationParams,
 } from '@nagiyu/livetalk-core';
 
-export interface CompressAllConversationsParams extends Omit<
-  CompressConversationParams,
-  'characterName'
-> {
+export type CompressAllConversationsParams = Omit<CompressConversationParams, 'characterName'> & {
   docClient: DynamoDBDocumentClient;
   tableName: string;
-  characterName?: string;
-}
+};
 
 export interface CompressAllConversationsResult {
   processedUsers: number;
@@ -23,10 +20,11 @@ export interface CompressAllConversationsResult {
 }
 
 /**
- * 全アクティブユーザーの会話を圧縮要約する。
+ * 全アクティブユーザーの全キャラクター会話を圧縮要約する。
  *
  * DynamoDB を Scan して Type='Profile' のアイテムを列挙し、
- * 各ユーザーについて DEFAULT_CHARACTER_ID（hiyori）の会話を圧縮する。
+ * 各ユーザーについて全キャラクターの会話を圧縮する。
+ * キャラクターごとに処理し、あるキャラクターで失敗しても他キャラクターの処理を継続する。
  */
 export async function compressAllConversations(
   params: CompressAllConversationsParams
@@ -38,7 +36,6 @@ export async function compressAllConversations(
     summaryRepo,
     messageRepo,
     memoryRepo,
-    characterName = '桃瀬ひより',
     now,
     interestRepo,
     characterStateRepo,
@@ -58,22 +55,49 @@ export async function compressAllConversations(
     failedUserIds: [],
   };
 
+  const allCharacterIds = getAllCharacterIds();
+
   for (const userId of userIds) {
+    let hasCharacterError = false;
+
     try {
-      const before = { ...result };
-      await compressConversation(userId, DEFAULT_CHARACTER_ID, {
-        summaryRepo,
-        messageRepo,
-        memoryRepo,
-        llmClient,
-        characterName,
-        now,
-        interestRepo,
-        characterStateRepo,
-        embeddingClient,
-      });
-      void before;
-      result.processedUsers++;
+      for (const characterId of allCharacterIds) {
+        const characterDef = getCharacterDefinitionById(characterId);
+        if (!characterDef) {
+          logger.warn('[compressAllConversations] キャラクター定義が見つかりません（スキップ）', {
+            characterId,
+          });
+          continue;
+        }
+
+        try {
+          await compressConversation(userId, characterId, {
+            summaryRepo,
+            messageRepo,
+            memoryRepo,
+            llmClient,
+            characterName: characterDef.displayName,
+            now,
+            interestRepo,
+            characterStateRepo,
+            embeddingClient,
+          });
+        } catch (error) {
+          logger.warn('[compressAllConversations] キャラクター処理失敗（他キャラは継続）', {
+            userId,
+            characterId,
+            error: toErrorMessage(error),
+          });
+          hasCharacterError = true;
+        }
+      }
+
+      if (hasCharacterError) {
+        result.failedUsers++;
+        result.failedUserIds.push(userId);
+      } else {
+        result.processedUsers++;
+      }
     } catch (error) {
       logger.error('[compressAllConversations] ユーザー処理失敗', {
         userId,
