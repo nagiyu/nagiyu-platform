@@ -3,7 +3,22 @@
  *
  * 設計は `docs/services/livetalk/architecture.md` §3「データモデル概要」の SK パターンに準拠する。
  * PK は全エンティティで `USER#<googleId>` に統一する。
+ *
+ * GSI1: Profile 列挙用 sparse GSI（#3527）
+ * - GSI1PK='PROFILE' の Profile アイテムのみを索引化する
+ * - GSI1SK は生の UserID（USER# プレフィックスなし）
  */
+
+/** Profile 列挙 GSI のインデックス名 */
+export const PROFILE_GSI_INDEX_NAME = 'GSI1';
+
+/**
+ * GSI1 のパーティションキー値を返す。
+ * Profile アイテムのみに付与する（sparse GSI）。
+ */
+export function buildProfileGSI1PK(): string {
+  return 'PROFILE';
+}
 
 export function buildUserPK(userId: string): string {
   return `USER#${userId}`;

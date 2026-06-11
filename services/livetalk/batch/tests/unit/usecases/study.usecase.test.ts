@@ -49,9 +49,14 @@ const mockGenerateNotesForUser = jest.requireMock('@nagiyu/livetalk-core')
   .generateNotesForUser as jest.Mock;
 
 describe('studyAllUsers', () => {
-  const mockDocClient = {
-    send: jest.fn(),
-  };
+  /**
+   * listAllUserIds を返すスタブ ProfileRepository を作る。
+   */
+  const makeProfileRepo = (userIds: string[]) => ({
+    listAllUserIds: jest.fn().mockResolvedValue(userIds),
+    getById: jest.fn(),
+    upsert: jest.fn(),
+  });
 
   const makeLifecycleRepo = (overrides: Record<string, object | null> = {}) => ({
     get: jest
@@ -71,8 +76,7 @@ describe('studyAllUsers', () => {
   });
 
   const makeParams = (overrides = {}) => ({
-    docClient: mockDocClient as never,
-    tableName: 'test-table',
+    profileRepo: makeProfileRepo(['u1', 'u2']) as never,
     lifecycleRepo: makeLifecycleRepo() as never,
     interestRepo: {} as never,
     knowledgeRepo: {} as never,
@@ -83,9 +87,6 @@ describe('studyAllUsers', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetAllCharacterIds.mockReturnValue(['hiyori', 'ageha']);
-    mockDocClient.send.mockResolvedValue({
-      Items: [{ UserID: 'u1' }, { UserID: 'u2' }],
-    });
     mockGenerateNotesForUser.mockResolvedValue({ generatedCount: 0 });
   });
 

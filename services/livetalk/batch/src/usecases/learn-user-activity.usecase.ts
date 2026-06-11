@@ -1,4 +1,3 @@
-import { ScanCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { logger, toErrorMessage } from '@nagiyu/common';
 import {
   getAllCharacterIds,
@@ -6,11 +5,11 @@ import {
   learnUserActivity,
   type LifecycleRepository,
   type MessageRepository,
+  type ProfileRepository,
 } from '@nagiyu/livetalk-core';
 
 export interface LearnAllUserActivitiesParams {
-  docClient: DynamoDBDocumentClient;
-  tableName: string;
+  profileRepo: ProfileRepository;
   messageRepo: MessageRepository;
   lifecycleRepo: LifecycleRepository;
   /** 学習基準日時（省略時は実行時刻）。テスト用差し替え可。 */
@@ -27,16 +26,16 @@ export interface LearnAllUserActivitiesResult {
 /**
  * 全アクティブユーザーの活動時間を学習する。
  *
- * DynamoDB を Scan して Type='Profile' のアイテムを列挙し、
+ * ProfileRepository（GSI1）でユーザーを列挙し、
  * 各ユーザーについて全キャラクターの発話履歴を学習する。
  * あるキャラクターで失敗しても他キャラクターの処理は継続する。
  */
 export async function learnAllUserActivities(
   params: LearnAllUserActivitiesParams
 ): Promise<LearnAllUserActivitiesResult> {
-  const { docClient, tableName, messageRepo, lifecycleRepo, now } = params;
+  const { profileRepo, messageRepo, lifecycleRepo, now } = params;
 
-  const userIds = await scanAllUserIds(docClient, tableName);
+  const userIds = await profileRepo.listAllUserIds();
 
   logger.info('[learnAllUserActivities] ユーザー一覧取得完了', {
     userCount: userIds.length,
@@ -105,33 +104,4 @@ export async function learnAllUserActivities(
 
   logger.info('[learnAllUserActivities] 全ユーザー処理完了', { ...result });
   return result;
-}
-
-async function scanAllUserIds(
-  docClient: DynamoDBDocumentClient,
-  tableName: string
-): Promise<string[]> {
-  const userIds: string[] = [];
-  let lastEvaluatedKey: Record<string, unknown> | undefined;
-
-  do {
-    const command = new ScanCommand({
-      TableName: tableName,
-      FilterExpression: '#type = :profile',
-      ExpressionAttributeNames: { '#type': 'Type' },
-      ExpressionAttributeValues: { ':profile': 'Profile' },
-      ProjectionExpression: 'UserID',
-      ...(lastEvaluatedKey ? { ExclusiveStartKey: lastEvaluatedKey } : {}),
-    });
-
-    const response = await docClient.send(command);
-    for (const item of response.Items ?? []) {
-      if (typeof item.UserID === 'string' && item.UserID) {
-        userIds.push(item.UserID);
-      }
-    }
-    lastEvaluatedKey = response.LastEvaluatedKey as Record<string, unknown> | undefined;
-  } while (lastEvaluatedKey !== undefined);
-
-  return userIds;
 }

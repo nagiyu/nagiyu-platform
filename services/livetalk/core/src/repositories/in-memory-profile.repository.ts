@@ -5,6 +5,7 @@ import type {
   ProfileKey,
   UpdateProfileInput,
 } from '../entities/profile.entity.js';
+import { buildProfileGSI1PK } from '../mappers/keys.js';
 import { ProfileMapper } from '../mappers/profile.mapper.js';
 import type { ProfileRepository } from './profile.repository.interface.js';
 
@@ -24,6 +25,26 @@ export class InMemoryProfileRepository implements ProfileRepository {
     const item = this.store.get(pk, sk);
     if (!item) return null;
     return this.mapper.toEntity(item);
+  }
+
+  public async listAllUserIds(): Promise<string[]> {
+    const userIds: string[] = [];
+    let cursor: string | undefined;
+
+    do {
+      const result = this.store.queryByAttribute(
+        { attributeName: 'GSI1PK', attributeValue: buildProfileGSI1PK() },
+        cursor ? { cursor } : undefined
+      );
+      for (const item of result.items) {
+        if (typeof item.GSI1SK === 'string' && item.GSI1SK) {
+          userIds.push(item.GSI1SK);
+        }
+      }
+      cursor = result.nextCursor;
+    } while (cursor !== undefined);
+
+    return userIds;
   }
 
   public async upsert(

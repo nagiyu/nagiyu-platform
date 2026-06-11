@@ -1,6 +1,9 @@
 import { InMemorySingleTableStore } from '@nagiyu/aws';
-import { InMemoryMessageRepository, InMemoryLifecycleRepository } from '@nagiyu/livetalk-core';
-import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import {
+  InMemoryMessageRepository,
+  InMemoryLifecycleRepository,
+  InMemoryProfileRepository,
+} from '@nagiyu/livetalk-core';
 import {
   learnAllUserActivities,
   type LearnAllUserActivitiesParams,
@@ -9,32 +12,38 @@ import {
 const fixedNow = 1_750_000_000_000;
 let tick = fixedNow;
 
-const makeRepos = () => {
-  const store = new InMemorySingleTableStore();
+const makeRepos = (sharedStore?: InMemorySingleTableStore) => {
+  const store = sharedStore ?? new InMemorySingleTableStore();
   tick = fixedNow;
   const nowMs = () => tick;
   const ulidFactory = () => `ULID-${tick++}`;
   return {
+    store,
     messageRepo: new InMemoryMessageRepository(store, ulidFactory, nowMs),
     lifecycleRepo: new InMemoryLifecycleRepository(store, nowMs),
-    store,
+    profileRepo: new InMemoryProfileRepository(store, nowMs),
   };
 };
 
-const makeDocClientMock = (userIds: string[]): DynamoDBDocumentClient => {
-  const items = userIds.map((id) => ({ UserID: id }));
-  return {
-    send: async () => ({ Items: items }),
-  } as unknown as DynamoDBDocumentClient;
+/**
+ * 指定した userIds を持つ InMemoryProfileRepository を作る。
+ */
+const makeProfileRepoWithUsers = async (userIds: string[]): Promise<InMemoryProfileRepository> => {
+  const store = new InMemorySingleTableStore();
+  const nowMs = () => fixedNow;
+  const profileRepo = new InMemoryProfileRepository(store, nowMs);
+  for (const id of userIds) {
+    await profileRepo.upsert({ UserID: id });
+  }
+  return profileRepo;
 };
 
 const makeParams = (
   overrides: Partial<LearnAllUserActivitiesParams> = {}
 ): LearnAllUserActivitiesParams => {
-  const { messageRepo, lifecycleRepo } = makeRepos();
+  const { messageRepo, lifecycleRepo, profileRepo } = makeRepos();
   return {
-    docClient: makeDocClientMock([]),
-    tableName: 'test-table',
+    profileRepo,
     messageRepo,
     lifecycleRepo,
     ...overrides,
@@ -50,8 +59,8 @@ describe('learnAllUserActivities', () => {
   });
 
   it('メッセージのないユーザーは全キャラ skipped にカウントされる', async () => {
-    const docClient = makeDocClientMock(['u1', 'u2']);
-    const result = await learnAllUserActivities(makeParams({ docClient }));
+    const profileRepo = await makeProfileRepoWithUsers(['u1', 'u2']);
+    const result = await learnAllUserActivities(makeParams({ profileRepo }));
     expect(result.skippedUsers).toBe(2);
     expect(result.processedUsers).toBe(0);
     expect(result.failedUsers).toBe(0);
@@ -64,6 +73,7 @@ describe('learnAllUserActivities', () => {
     const ulidFactory = () => `ULID-${tick++}`;
     const messageRepo = new InMemoryMessageRepository(store, ulidFactory, nowMs);
     const lifecycleRepo = new InMemoryLifecycleRepository(store, nowMs);
+    const profileRepo = new InMemoryProfileRepository(store, nowMs);
 
     // u1 に user ロールのメッセージを 5 件作成（fixedNow の 10 日前 = 30 日ウィンドウ内）
     const recentBase = fixedNow - 10 * 24 * 3600 * 1000;
@@ -76,12 +86,12 @@ describe('learnAllUserActivities', () => {
         Text: `msg ${i}`,
       });
     }
-    // u2 はメッセージなし
+    // u1, u2 を Profile として登録（u2 はメッセージなし）
+    await profileRepo.upsert({ UserID: 'u1' });
+    await profileRepo.upsert({ UserID: 'u2' });
 
-    const docClient = makeDocClientMock(['u1', 'u2']);
     const result = await learnAllUserActivities({
-      docClient,
-      tableName: 'test',
+      profileRepo,
       messageRepo,
       lifecycleRepo,
       now: () => new Date(fixedNow),
@@ -99,6 +109,7 @@ describe('learnAllUserActivities', () => {
     const ulidFactory = () => `ULID-${tick++}`;
     const messageRepo = new InMemoryMessageRepository(store, ulidFactory, nowMs);
     const lifecycleRepo = new InMemoryLifecycleRepository(store, nowMs);
+    const profileRepo = new InMemoryProfileRepository(store, nowMs);
 
     const recentBase = fixedNow - 10 * 24 * 3600 * 1000;
     for (let i = 0; i < 5; i++) {
@@ -110,11 +121,10 @@ describe('learnAllUserActivities', () => {
         Text: `ageha msg ${i}`,
       });
     }
+    await profileRepo.upsert({ UserID: 'u1' });
 
-    const docClient = makeDocClientMock(['u1']);
     const result = await learnAllUserActivities({
-      docClient,
-      tableName: 'test',
+      profileRepo,
       messageRepo,
       lifecycleRepo,
       now: () => new Date(fixedNow),
@@ -132,6 +142,7 @@ describe('learnAllUserActivities', () => {
     const ulidFactory = () => `ULID-${tick++}`;
     const messageRepo = new InMemoryMessageRepository(store, ulidFactory, nowMs);
     const lifecycleRepo = new InMemoryLifecycleRepository(store, nowMs);
+    const profileRepo = new InMemoryProfileRepository(store, nowMs);
 
     const recentBase = fixedNow - 10 * 24 * 3600 * 1000;
     for (let i = 0; i < 5; i++) {
@@ -152,11 +163,10 @@ describe('learnAllUserActivities', () => {
         Text: `ageha msg ${i}`,
       });
     }
+    await profileRepo.upsert({ UserID: 'u1' });
 
-    const docClient = makeDocClientMock(['u1']);
     const result = await learnAllUserActivities({
-      docClient,
-      tableName: 'test',
+      profileRepo,
       messageRepo,
       lifecycleRepo,
       now: () => new Date(fixedNow),
@@ -180,6 +190,8 @@ describe('learnAllUserActivities', () => {
     tick = fixedNow;
     const ulidFactory = () => `ULID-${tick++}`;
     const failingMessageRepo = new InMemoryMessageRepository(store, ulidFactory, () => tick);
+    const profileStore = new InMemorySingleTableStore();
+    const profileRepo = new InMemoryProfileRepository(profileStore, () => fixedNow);
 
     // u1 に 5 件（fixedNow の 10 日前 = 30 日ウィンドウ内）
     const recentBase = fixedNow - 10 * 24 * 3600 * 1000;
@@ -192,11 +204,11 @@ describe('learnAllUserActivities', () => {
         Text: `msg ${i}`,
       });
     }
+    await profileRepo.upsert({ UserID: 'u1' });
+    await profileRepo.upsert({ UserID: 'u2' });
 
-    const docClient = makeDocClientMock(['u1', 'u2']);
     const result = await learnAllUserActivities({
-      docClient,
-      tableName: 'test',
+      profileRepo,
       messageRepo: failingMessageRepo,
       lifecycleRepo: failingLifecycleRepo as never,
       now: () => new Date(fixedNow),
@@ -206,28 +218,17 @@ describe('learnAllUserActivities', () => {
     expect(result.failedUserIds).toContain('u1');
   });
 
-  it('DynamoDB の Scan がページネーションする場合も全ユーザーを取得する', async () => {
+  it('profileRepo が複数ユーザーを返すとき全ユーザーを取得する（ページネーション相当）', async () => {
+    const profileRepo = await makeProfileRepoWithUsers(['u1', 'u2', 'u3']);
     const { messageRepo, lifecycleRepo } = makeRepos();
-    let callCount = 0;
-    const paginatedDocClient = {
-      send: async () => {
-        callCount++;
-        if (callCount === 1) {
-          return { Items: [{ UserID: 'u1' }], LastEvaluatedKey: { PK: 'USER#u1' } };
-        }
-        return { Items: [{ UserID: 'u2' }] };
-      },
-    } as unknown as DynamoDBDocumentClient;
 
     const result = await learnAllUserActivities({
-      docClient: paginatedDocClient,
-      tableName: 'test',
+      profileRepo,
       messageRepo,
       lifecycleRepo,
     });
 
-    expect(result.skippedUsers).toBe(2);
-    expect(callCount).toBe(2);
+    expect(result.skippedUsers).toBe(3);
   });
 
   it('あるキャラクター処理がエラーでも他キャラは処理され、ユーザーは failed に計上される', async () => {
@@ -246,6 +247,8 @@ describe('learnAllUserActivities', () => {
     tick = fixedNow;
     const ulidFactory = () => `ULID-${tick++}`;
     const messageRepo = new InMemoryMessageRepository(store, ulidFactory, () => tick);
+    const profileStore = new InMemorySingleTableStore();
+    const profileRepo = new InMemoryProfileRepository(profileStore, () => fixedNow);
 
     // u1 の hiyori と ageha に 5 件ずつメッセージを作成
     const recentBase = fixedNow - 10 * 24 * 3600 * 1000;
@@ -260,11 +263,10 @@ describe('learnAllUserActivities', () => {
         });
       }
     }
+    await profileRepo.upsert({ UserID: 'u1' });
 
-    const docClient = makeDocClientMock(['u1']);
     const result = await learnAllUserActivities({
-      docClient,
-      tableName: 'test',
+      profileRepo,
       messageRepo,
       lifecycleRepo: failingLifecycleRepo as never,
       now: () => new Date(fixedNow),
