@@ -159,9 +159,7 @@ describe('compressAllConversations', () => {
     const llmClient = makeLLMClient();
     const profileRepo = await makeProfileRepoWithUsers(['u1', 'u2']);
 
-    const result = await compressAllConversations(
-      makeParams({ llmClient, profileRepo })
-    );
+    const result = await compressAllConversations(makeParams({ llmClient, profileRepo }));
 
     expect(result.processedUsers).toBe(0);
     expect(result.skippedUsers).toBe(2);

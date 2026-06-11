@@ -1,4 +1,9 @@
-import { GetCommand, PutCommand, QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import {
+  GetCommand,
+  PutCommand,
+  QueryCommand,
+  type DynamoDBDocumentClient,
+} from '@aws-sdk/lib-dynamodb';
 import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import type {
   CreateProfileInput,

@@ -486,4 +486,3 @@ async function computeUserDailyNormalCap(params: {
 
   return computeDailyNormalCap(maxFactor);
 }
-

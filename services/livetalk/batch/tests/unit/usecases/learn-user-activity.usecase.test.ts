@@ -179,7 +179,7 @@ describe('learnAllUserActivities', () => {
   });
 
   it('ユーザー処理が失敗しても他のユーザーは処理継続する', async () => {
-    const { lifecycleRepo, messageRepo } = makeRepos();
+    const { lifecycleRepo } = makeRepos();
     const failingLifecycleRepo = {
       ...lifecycleRepo,
       updateUserActivityProfile: jest.fn().mockRejectedValue(new Error('DB エラー')),
