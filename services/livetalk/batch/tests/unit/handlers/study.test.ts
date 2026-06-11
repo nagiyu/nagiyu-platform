@@ -12,6 +12,7 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   DynamoDBKnowledgeRepository: jest.fn(),
   DynamoDBStudyTopicRepository: jest.fn(),
   DynamoDBNoteRepository: jest.fn(),
+  DynamoDBProfileRepository: jest.fn(),
   OpenAIResearchClient: jest.fn(),
   defaultUlidFactory: jest.fn(),
 }));

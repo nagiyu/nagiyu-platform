@@ -23,7 +23,7 @@ describe('LiveTalkDynamoDbStack', () => {
     });
   });
 
-  it('PK / SK の 2 キー Single Table 構成（GSI なし）', () => {
+  it('PK / SK の 2 キー Single Table 構成に GSI1（Profile 列挙用 sparse GSI）を追加する', () => {
     const template = synth('dev');
     template.hasResourceProperties('AWS::DynamoDB::Table', {
       KeySchema: [
@@ -33,12 +33,23 @@ describe('LiveTalkDynamoDbStack', () => {
       AttributeDefinitions: Match.arrayWith([
         { AttributeName: 'PK', AttributeType: 'S' },
         { AttributeName: 'SK', AttributeType: 'S' },
+        { AttributeName: 'GSI1PK', AttributeType: 'S' },
+        { AttributeName: 'GSI1SK', AttributeType: 'S' },
       ]),
     });
-    // MVP では GSI を作成しない
-    const tableResource = template.findResources('AWS::DynamoDB::Table');
-    const table = Object.values(tableResource)[0];
-    expect(table.Properties.GlobalSecondaryIndexes).toBeUndefined();
+    // GSI1: Profile 列挙用 sparse GSI（#3527）
+    template.hasResourceProperties('AWS::DynamoDB::Table', {
+      GlobalSecondaryIndexes: [
+        {
+          IndexName: 'GSI1',
+          KeySchema: [
+            { AttributeName: 'GSI1PK', KeyType: 'HASH' },
+            { AttributeName: 'GSI1SK', KeyType: 'RANGE' },
+          ],
+          Projection: { ProjectionType: 'KEYS_ONLY' },
+        },
+      ],
+    });
   });
 
   it('PAY_PER_REQUEST + PITR + TTL 属性 + AWS_MANAGED 暗号化を設定する', () => {

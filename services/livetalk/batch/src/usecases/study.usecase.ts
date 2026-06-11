@@ -1,4 +1,3 @@
-import { ScanCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { logger, toErrorMessage } from '@nagiyu/common';
 import {
   getAllCharacterIds,
@@ -9,14 +8,14 @@ import {
   type KnowledgeRepository,
   type LifecycleRepository,
   type NoteRepository,
+  type ProfileRepository,
   type StudyTopicRepository,
   type UlidFactory,
 } from '@nagiyu/livetalk-core';
 import type { IResearchClient } from '@nagiyu/livetalk-core';
 
 export interface StudyAllUsersParams {
-  docClient: DynamoDBDocumentClient;
-  tableName: string;
+  profileRepo: ProfileRepository;
   lifecycleRepo: LifecycleRepository;
   interestRepo: InterestRepository;
   knowledgeRepo: KnowledgeRepository;
@@ -43,14 +42,13 @@ export interface StudyAllUsersResult {
 /**
  * 全アクティブユーザーに対して勉強バッチを実行する。
  *
- * 各ユーザーについて全キャラクターを走査し、shouldStudyNow 判定を行い、
- * 該当するキャラクターのみ Web リサーチ → 知識ベース保存を実行する。
+ * ProfileRepository（GSI1）でユーザーを列挙し、各ユーザーについて全キャラクターを走査し、
+ * shouldStudyNow 判定を行い、該当するキャラクターのみ Web リサーチ → 知識ベース保存を実行する。
  * あるキャラクターで失敗しても他キャラクターの処理は継続する。
  */
 export async function studyAllUsers(params: StudyAllUsersParams): Promise<StudyAllUsersResult> {
   const {
-    docClient,
-    tableName,
+    profileRepo,
     lifecycleRepo,
     interestRepo,
     knowledgeRepo,
@@ -61,7 +59,7 @@ export async function studyAllUsers(params: StudyAllUsersParams): Promise<StudyA
     now,
   } = params;
 
-  const userIds = await scanAllUserIds(docClient, tableName);
+  const userIds = await profileRepo.listAllUserIds();
 
   logger.info('[studyAllUsers] ユーザー一覧取得完了', { userCount: userIds.length });
 
@@ -160,33 +158,4 @@ export async function studyAllUsers(params: StudyAllUsersParams): Promise<StudyA
 
   logger.info('[studyAllUsers] 全ユーザー処理完了', { ...result });
   return result;
-}
-
-async function scanAllUserIds(
-  docClient: DynamoDBDocumentClient,
-  tableName: string
-): Promise<string[]> {
-  const userIds: string[] = [];
-  let lastEvaluatedKey: Record<string, unknown> | undefined;
-
-  do {
-    const command = new ScanCommand({
-      TableName: tableName,
-      FilterExpression: '#type = :profile',
-      ExpressionAttributeNames: { '#type': 'Type' },
-      ExpressionAttributeValues: { ':profile': 'Profile' },
-      ProjectionExpression: 'UserID',
-      ...(lastEvaluatedKey ? { ExclusiveStartKey: lastEvaluatedKey } : {}),
-    });
-
-    const response = await docClient.send(command);
-    for (const item of response.Items ?? []) {
-      if (typeof item.UserID === 'string' && item.UserID) {
-        userIds.push(item.UserID);
-      }
-    }
-    lastEvaluatedKey = response.LastEvaluatedKey as Record<string, unknown> | undefined;
-  } while (lastEvaluatedKey !== undefined);
-
-  return userIds;
 }

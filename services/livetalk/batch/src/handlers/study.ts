@@ -5,6 +5,7 @@ import {
   DynamoDBKnowledgeRepository,
   DynamoDBLifecycleRepository,
   DynamoDBNoteRepository,
+  DynamoDBProfileRepository,
   DynamoDBStudyTopicRepository,
   OpenAIResearchClient,
   defaultUlidFactory,
@@ -46,11 +47,11 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     const knowledgeRepo = new DynamoDBKnowledgeRepository(docClient, tableName);
     const studyTopicRepo = new DynamoDBStudyTopicRepository(docClient, tableName);
     const noteRepo = new DynamoDBNoteRepository(docClient, tableName);
+    const profileRepo = new DynamoDBProfileRepository(docClient, tableName);
     const researchClient = new OpenAIResearchClient({ apiKey });
 
     const result = await studyAllUsers({
-      docClient,
-      tableName,
+      profileRepo,
       lifecycleRepo,
       interestRepo,
       knowledgeRepo,
