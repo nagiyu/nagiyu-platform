@@ -97,6 +97,7 @@ export class LiveTalkBatchStack extends cdk.Stack {
         DYNAMODB_TABLE_NAME: dynamoTableName,
         OPENAI_API_KEY: openAiApiKey,
         ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
+        TZ: 'Asia/Tokyo',
       },
       deadLetterQueue: dlq,
       tracing: lambda.Tracing.ACTIVE,
