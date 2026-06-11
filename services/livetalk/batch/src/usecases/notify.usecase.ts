@@ -1,4 +1,3 @@
-import { ScanCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { logger, toErrorMessage } from '@nagiyu/common';
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import {
@@ -21,6 +20,7 @@ import {
   type LifecycleRepository,
   type MessageRepository,
   type NotificationEventRepository,
+  type ProfileRepository,
   type PushSubscriptionRepository,
   type UlidFactory,
   defaultUlidFactory,
@@ -30,8 +30,7 @@ import {
 } from '@nagiyu/livetalk-core';
 
 export interface NotifyAllUsersParams {
-  docClient: DynamoDBDocumentClient;
-  tableName: string;
+  profileRepo: ProfileRepository;
   lifecycleRepo: LifecycleRepository;
   messageRepo: MessageRepository;
   knowledgeRepo: KnowledgeRepository;
@@ -51,10 +50,15 @@ export interface NotifyAllUsersResult {
   failedUserIds: string[];
 }
 
+/**
+ * 全アクティブユーザーへのプッシュ通知を送信する。
+ *
+ * ProfileRepository（GSI1）でユーザーを列挙し、
+ * 各ユーザーについて全キャラクターの通知判定を行う。
+ */
 export async function notifyAllUsers(params: NotifyAllUsersParams): Promise<NotifyAllUsersResult> {
   const {
-    docClient,
-    tableName,
+    profileRepo,
     lifecycleRepo,
     messageRepo,
     knowledgeRepo,
@@ -67,7 +71,7 @@ export async function notifyAllUsers(params: NotifyAllUsersParams): Promise<Noti
     now = () => new Date(),
   } = params;
 
-  const userIds = await scanAllUserIds(docClient, tableName);
+  const userIds = await profileRepo.listAllUserIds();
   logger.info('[notifyAllUsers] ユーザー一覧取得完了', { userCount: userIds.length });
 
   const result: NotifyAllUsersResult = {
@@ -483,31 +487,3 @@ async function computeUserDailyNormalCap(params: {
   return computeDailyNormalCap(maxFactor);
 }
 
-async function scanAllUserIds(
-  docClient: DynamoDBDocumentClient,
-  tableName: string
-): Promise<string[]> {
-  const userIds: string[] = [];
-  let lastEvaluatedKey: Record<string, unknown> | undefined;
-
-  do {
-    const command = new ScanCommand({
-      TableName: tableName,
-      FilterExpression: '#type = :profile',
-      ExpressionAttributeNames: { '#type': 'Type' },
-      ExpressionAttributeValues: { ':profile': 'Profile' },
-      ProjectionExpression: 'UserID',
-      ...(lastEvaluatedKey ? { ExclusiveStartKey: lastEvaluatedKey } : {}),
-    });
-
-    const response = await docClient.send(command);
-    for (const item of response.Items ?? []) {
-      if (typeof item.UserID === 'string' && item.UserID) {
-        userIds.push(item.UserID);
-      }
-    }
-    lastEvaluatedKey = response.LastEvaluatedKey as Record<string, unknown> | undefined;
-  } while (lastEvaluatedKey !== undefined);
-
-  return userIds;
-}

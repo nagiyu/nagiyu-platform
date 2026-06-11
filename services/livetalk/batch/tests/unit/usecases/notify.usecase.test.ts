@@ -46,6 +46,12 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   OpenAIEmbeddingClient: jest.fn(),
 }));
 
+function makeProfileRepo(userIds: string[] = ['u1']) {
+  return {
+    listAllUserIds: jest.fn().mockResolvedValue(userIds),
+  };
+}
+
 const mockSendWebPush = jest.requireMock('@nagiyu/common/push')
   .sendWebPushNotification as jest.Mock;
 const core = jest.requireMock('@nagiyu/livetalk-core');
@@ -53,14 +59,6 @@ const mockDetectCritical = core.detectCriticalKnowledge as jest.Mock;
 const mockShouldNotifyNow = core.shouldNotifyNow as jest.Mock;
 const mockGetAllCharacterIds = core.getAllCharacterIds as jest.Mock;
 const mockSelectNotificationsToSend = core.selectNotificationsToSend as jest.Mock;
-
-function makeDocClient() {
-  return {
-    send: jest.fn().mockResolvedValue({
-      Items: [{ UserID: 'u1' }],
-    }),
-  };
-}
 
 function makeLifecycleRepo(
   lifecycle = {
@@ -128,8 +126,7 @@ function makeEmbeddingClient() {
 
 function makeParams(overrides = {}) {
   return {
-    docClient: makeDocClient() as never,
-    tableName: 'test-table',
+    profileRepo: makeProfileRepo() as never,
     lifecycleRepo: makeLifecycleRepo() as never,
     messageRepo: makeMessageRepo() as never,
     knowledgeRepo: makeKnowledgeRepo() as never,
@@ -277,11 +274,8 @@ describe('notifyAllUsers', () => {
   });
 
   it('ユーザー処理で例外 → failedUsers にカウントしてループ継続', async () => {
-    const docClient = {
-      send: jest.fn().mockResolvedValue({
-        Items: [{ UserID: 'u1' }, { UserID: 'u2' }],
-      }),
-    };
+    // profileRepo が 2 ユーザーを返す
+    const profileRepo = makeProfileRepo(['u1', 'u2']);
     // pushSubscriptionRepo が throw → processUser 全体が例外
     const pushSubscriptionRepo = {
       listByUser: jest.fn().mockRejectedValue(new Error('DynamoDB エラー')),
@@ -291,7 +285,7 @@ describe('notifyAllUsers', () => {
     const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
     const result = await notifyAllUsers(
       makeParams({
-        docClient: docClient as never,
+        profileRepo: profileRepo as never,
         pushSubscriptionRepo: pushSubscriptionRepo as never,
       })
     );
@@ -746,18 +740,9 @@ describe('notifyAllUsers', () => {
     });
   });
 
-  it('DynamoDB scan がページネーション → 全ユーザーを収集する', async () => {
-    const docClient = {
-      send: jest
-        .fn()
-        .mockResolvedValueOnce({
-          Items: [{ UserID: 'u1' }],
-          LastEvaluatedKey: { pk: 'USER#u1' },
-        })
-        .mockResolvedValueOnce({
-          Items: [{ UserID: 'u2' }],
-        }),
-    };
+  it('profileRepo が複数ユーザーを返す → 全ユーザーを処理する', async () => {
+    // profileRepo（GSI1）が u1・u2 の 2 ユーザーを返す
+    const profileRepo = makeProfileRepo(['u1', 'u2']);
     mockDetectCritical.mockResolvedValue({ isCritical: false });
     mockShouldNotifyNow.mockReturnValue({ notify: false, reason: 'not_due' });
     mockSelectNotificationsToSend.mockReturnValue({
@@ -766,7 +751,7 @@ describe('notifyAllUsers', () => {
     });
 
     const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
-    const result = await notifyAllUsers(makeParams({ docClient: docClient as never }));
+    const result = await notifyAllUsers(makeParams({ profileRepo: profileRepo as never }));
 
     expect(result.skippedUsers + result.failedUsers + result.notifiedUsers).toBe(2);
   });

@@ -6,6 +6,7 @@ import {
   DynamoDBLifecycleRepository,
   DynamoDBMessageRepository,
   DynamoDBNotificationEventRepository,
+  DynamoDBProfileRepository,
   DynamoDBPushSubscriptionRepository,
   OpenAIEmbeddingClient,
   createLLMClient,
@@ -43,6 +44,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     const tableName = getTableName();
     const apiKey = process.env.OPENAI_API_KEY ?? '';
 
+    const profileRepo = new DynamoDBProfileRepository(docClient, tableName);
     const lifecycleRepo = new DynamoDBLifecycleRepository(docClient, tableName);
     const messageRepo = new DynamoDBMessageRepository(docClient, tableName);
     const knowledgeRepo = new DynamoDBKnowledgeRepository(docClient, tableName);
@@ -53,8 +55,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     const embeddingClient = new OpenAIEmbeddingClient({ apiKey });
 
     const result = await notifyAllUsers({
-      docClient,
-      tableName,
+      profileRepo,
       lifecycleRepo,
       messageRepo,
       knowledgeRepo,
