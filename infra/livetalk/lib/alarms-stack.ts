@@ -208,7 +208,8 @@ export class LiveTalkAlarmsStack extends cdk.Stack {
     const dynamoTableName = getDynamoDBTableName('livetalk', environment);
     const dynamoThrottledAlarm = new cloudwatch.Alarm(this, 'DynamoDBThrottledAlarm', {
       alarmName: `livetalk-dynamodb-throttled-${environment}`,
-      alarmDescription: 'livetalk DynamoDB テーブルのスロットリングが発生している（5 分で 1 件以上）',
+      alarmDescription:
+        'livetalk DynamoDB テーブルのスロットリングが発生している（5 分で 1 件以上）',
       metric: new cloudwatch.Metric({
         namespace: 'AWS/DynamoDB',
         metricName: 'ThrottledRequests',

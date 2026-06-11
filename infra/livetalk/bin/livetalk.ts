@@ -93,7 +93,8 @@ const cloudFrontStack = new LiveTalkCloudFrontStack(app, `NagiyuLiveTalkCloudFro
 // EventBridge 日次トリガー + Lambda + DLQ + IAM
 const openAiApiKey = app.node.tryGetContext('openAiApiKey') || 'PLACEHOLDER_OPENAI_API_KEY';
 const vapidPublicKey = app.node.tryGetContext('vapidPublicKey') || 'PLACEHOLDER_VAPID_PUBLIC_KEY';
-const vapidPrivateKey = app.node.tryGetContext('vapidPrivateKey') || 'PLACEHOLDER_VAPID_PRIVATE_KEY';
+const vapidPrivateKey =
+  app.node.tryGetContext('vapidPrivateKey') || 'PLACEHOLDER_VAPID_PRIVATE_KEY';
 
 new LiveTalkBatchStack(app, `NagiyuLiveTalkBatch${envSuffix}`, {
   env: stackEnv,
