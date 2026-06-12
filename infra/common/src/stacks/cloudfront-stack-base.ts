@@ -142,40 +142,53 @@ export class CloudFrontStackBase extends cdk.Stack {
       ssm.StringParameter.valueForStringParameter(this, SSM_PARAMETERS.ACM_CERTIFICATE_ARN);
     const certificate = acm.Certificate.fromCertificateArn(this, 'Certificate', certArn);
 
-    // セキュリティヘッダーポリシーの作成
-    if (config.enableSecurityHeaders) {
+    // セキュリティヘッダーポリシーの作成（セキュリティヘッダーまたは noindex のいずれかが有効な場合）
+    if (config.enableSecurityHeaders || config.noindex) {
       this.responseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(
         this,
         'SecurityHeadersPolicy',
         {
           responseHeadersPolicyName: `nagiyu-${serviceName}-security-headers-${environment}`,
           comment: `Security headers for ${serviceName} service (${environment})`,
-          securityHeadersBehavior: {
-            strictTransportSecurity: {
-              accessControlMaxAge: cdk.Duration.seconds(
-                SECURITY_HEADERS.strictTransportSecurity.accessControlMaxAge
-              ),
-              includeSubdomains: SECURITY_HEADERS.strictTransportSecurity.includeSubdomains,
-              preload: SECURITY_HEADERS.strictTransportSecurity.preload,
-              override: SECURITY_HEADERS.strictTransportSecurity.override,
+          ...(config.enableSecurityHeaders && {
+            securityHeadersBehavior: {
+              strictTransportSecurity: {
+                accessControlMaxAge: cdk.Duration.seconds(
+                  SECURITY_HEADERS.strictTransportSecurity.accessControlMaxAge
+                ),
+                includeSubdomains: SECURITY_HEADERS.strictTransportSecurity.includeSubdomains,
+                preload: SECURITY_HEADERS.strictTransportSecurity.preload,
+                override: SECURITY_HEADERS.strictTransportSecurity.override,
+              },
+              contentTypeOptions: {
+                override: SECURITY_HEADERS.contentTypeOptions.override,
+              },
+              frameOptions: {
+                frameOption: cloudfront.HeadersFrameOption.DENY,
+                override: SECURITY_HEADERS.frameOptions.override,
+              },
+              xssProtection: {
+                protection: SECURITY_HEADERS.xssProtection.protection,
+                modeBlock: SECURITY_HEADERS.xssProtection.modeBlock,
+                override: SECURITY_HEADERS.xssProtection.override,
+              },
+              referrerPolicy: {
+                referrerPolicy: cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
+                override: SECURITY_HEADERS.referrerPolicy.override,
+              },
             },
-            contentTypeOptions: {
-              override: SECURITY_HEADERS.contentTypeOptions.override,
+          }),
+          ...(config.noindex && {
+            customHeadersBehavior: {
+              customHeaders: [
+                {
+                  header: 'X-Robots-Tag',
+                  value: 'noindex, nofollow',
+                  override: true,
+                },
+              ],
             },
-            frameOptions: {
-              frameOption: cloudfront.HeadersFrameOption.DENY,
-              override: SECURITY_HEADERS.frameOptions.override,
-            },
-            xssProtection: {
-              protection: SECURITY_HEADERS.xssProtection.protection,
-              modeBlock: SECURITY_HEADERS.xssProtection.modeBlock,
-              override: SECURITY_HEADERS.xssProtection.override,
-            },
-            referrerPolicy: {
-              referrerPolicy: cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
-              override: SECURITY_HEADERS.referrerPolicy.override,
-            },
-          },
+          }),
         }
       );
     }

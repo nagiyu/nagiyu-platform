@@ -185,6 +185,88 @@ describe('CloudFrontStackBase', () => {
       template.resourceCountIs('AWS::CloudFront::ResponseHeadersPolicy', 0);
     });
 
+    it('noindex: true のとき ResponseHeadersPolicy に X-Robots-Tag カスタムヘッダーが含まれる', () => {
+      // Arrange & Act
+      const stack = new CloudFrontStackBase(app, 'TestCloudFrontStack', {
+        serviceName: 'portal',
+        environment: 'dev',
+        functionUrl: 'https://example.lambda-url.ap-northeast-1.on.aws/',
+        certificateArn: 'arn:aws:acm:us-east-1:123456789012:certificate/test',
+        cloudfrontConfig: {
+          noindex: true,
+        },
+      });
+
+      // Assert
+      const template = Template.fromStack(stack);
+      template.resourceCountIs('AWS::CloudFront::ResponseHeadersPolicy', 1);
+      template.hasResourceProperties('AWS::CloudFront::ResponseHeadersPolicy', {
+        ResponseHeadersPolicyConfig: {
+          CustomHeadersConfig: {
+            Items: Match.arrayWith([
+              {
+                Header: 'X-Robots-Tag',
+                Value: 'noindex, nofollow',
+                Override: true,
+              },
+            ]),
+          },
+        },
+      });
+    });
+
+    it('デフォルト（noindex 未指定）では X-Robots-Tag カスタムヘッダーが含まれない', () => {
+      // Arrange & Act
+      const stack = new CloudFrontStackBase(app, 'TestCloudFrontStack', {
+        serviceName: 'tools',
+        environment: 'dev',
+        functionUrl: 'https://example.lambda-url.ap-northeast-1.on.aws/',
+        certificateArn: 'arn:aws:acm:us-east-1:123456789012:certificate/test',
+      });
+
+      // Assert
+      const template = Template.fromStack(stack);
+      const templateJson = JSON.stringify(template.toJSON());
+      expect(templateJson).not.toContain('X-Robots-Tag');
+    });
+
+    it('enableSecurityHeaders: false かつ noindex: true のときポリシーが作成されカスタムヘッダーのみ持つ', () => {
+      // Arrange & Act
+      const stack = new CloudFrontStackBase(app, 'TestCloudFrontStack', {
+        serviceName: 'portal',
+        environment: 'dev',
+        functionUrl: 'https://example.lambda-url.ap-northeast-1.on.aws/',
+        certificateArn: 'arn:aws:acm:us-east-1:123456789012:certificate/test',
+        cloudfrontConfig: {
+          enableSecurityHeaders: false,
+          noindex: true,
+        },
+      });
+
+      // Assert
+      const template = Template.fromStack(stack);
+      // ポリシーが 1 つ作成される
+      template.resourceCountIs('AWS::CloudFront::ResponseHeadersPolicy', 1);
+      // X-Robots-Tag カスタムヘッダーが存在する
+      template.hasResourceProperties('AWS::CloudFront::ResponseHeadersPolicy', {
+        ResponseHeadersPolicyConfig: {
+          CustomHeadersConfig: {
+            Items: Match.arrayWith([
+              {
+                Header: 'X-Robots-Tag',
+                Value: 'noindex, nofollow',
+                Override: true,
+              },
+            ]),
+          },
+        },
+      });
+      // SecurityHeadersConfig が存在しない
+      const templateJson = JSON.stringify(template.toJSON());
+      expect(templateJson).not.toContain('SecurityHeadersConfig');
+      expect(templateJson).not.toContain('StrictTransportSecurity');
+    });
+
     it('should support TLS 1.3', () => {
       // Arrange & Act
       const stack = new CloudFrontStackBase(app, 'TestCloudFrontStack', {

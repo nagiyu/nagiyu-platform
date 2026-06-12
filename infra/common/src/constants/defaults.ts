@@ -43,6 +43,7 @@ export const DEFAULT_CLOUDFRONT_CONFIG: Required<
   enableHttp2: true,
   enableHttp3: true,
   priceClass: 'PriceClass_100',
+  noindex: false,
 };
 
 /**

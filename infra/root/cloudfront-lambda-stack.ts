@@ -28,6 +28,7 @@ export class CloudFrontLambdaStack extends CloudFrontStackBase {
       cloudfrontConfig: {
         domainName,
         enableSecurityHeaders: true,
+        noindex: environment !== 'prod',
       },
     };
 
