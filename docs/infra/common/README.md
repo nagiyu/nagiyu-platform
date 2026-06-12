@@ -405,13 +405,14 @@ const responseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(this, 'Securi
 
 ### CloudFront
 
-| 設定項目              | デフォルト値   | 説明                         |
-| --------------------- | -------------- | ---------------------------- |
-| enableSecurityHeaders | true           | セキュリティヘッダーの有効化 |
-| minimumTlsVersion     | 1.2            | 最小 TLS バージョン          |
-| enableHttp2           | true           | HTTP/2 の有効化              |
-| enableHttp3           | true           | HTTP/3 の有効化              |
-| priceClass            | PriceClass_100 | 価格クラス                   |
+| 設定項目              | デフォルト値   | 説明                                                                                                       |
+| --------------------- | -------------- | ---------------------------------------------------------------------------------------------------------- |
+| enableSecurityHeaders | true           | セキュリティヘッダーの有効化                                                                               |
+| minimumTlsVersion     | 1.2            | 最小 TLS バージョン                                                                                        |
+| enableHttp2           | true           | HTTP/2 の有効化                                                                                            |
+| enableHttp3           | true           | HTTP/3 の有効化                                                                                            |
+| priceClass            | PriceClass_100 | 価格クラス                                                                                                 |
+| noindex               | false          | `X-Robots-Tag: noindex, nofollow` の付与（dev 等の非本番環境を検索エンジンのインデックス対象から外す用途） |
 
 ## セキュリティヘッダー一覧
 
