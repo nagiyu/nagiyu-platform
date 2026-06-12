@@ -33,6 +33,19 @@ export class InMemoryNoteRepository implements NoteRepository {
       .slice(0, limit);
   }
 
+  public async listAll(userId: string, characterId: string): Promise<NoteEntity[]> {
+    const pk = buildUserPK(userId);
+    const prefix = buildNoteSKPrefix(characterId);
+    // limit を指定しないとデフォルト 100 件で打ち切られるため、十分大きな値を渡す
+    const result = this.store.query(
+      { pk, sk: { operator: 'begins_with', value: prefix } },
+      { limit: Number.MAX_SAFE_INTEGER }
+    );
+    return result.items
+      .map((item) => this.mapper.toEntity(item))
+      .sort((a, b) => b.CreatedAt - a.CreatedAt);
+  }
+
   public async get(key: NoteKey): Promise<NoteEntity | null> {
     const pk = buildUserPK(key.userId);
     const sk = buildNoteSK(key.characterId, key.noteId);

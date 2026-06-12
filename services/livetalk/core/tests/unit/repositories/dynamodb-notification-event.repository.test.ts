@@ -176,6 +176,144 @@ describe('DynamoDBNotificationEventRepository', () => {
     });
   });
 
+  describe('listLatestUnconsumedByCharacter', () => {
+    it('characterIds が空の場合は即 [] を返す', async () => {
+      const client = makeClient(async () => ({ Items: [] }));
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
+      const result = await repo.listLatestUnconsumedByCharacter('u1', []);
+      expect(result).toEqual([]);
+    });
+
+    it('キャラごとに最新未消化通知 1 件を返す', async () => {
+      const hiyoriItem = {
+        ...baseItem,
+        NotifID: 'N-HIY',
+        CharacterID: 'hiyori',
+        SK: 'NOTIF#N-HIY',
+      };
+      const agehaItem = { ...baseItem, NotifID: 'N-AGE', CharacterID: 'ageha', SK: 'NOTIF#N-AGE' };
+      const client = makeClient(async () => ({ Items: [hiyoriItem, agehaItem] }));
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
+
+      const result = await repo.listLatestUnconsumedByCharacter('u1', ['hiyori', 'ageha']);
+      expect(result).toHaveLength(2);
+      const charIds = result.map((e) => e.CharacterID);
+      expect(charIds).toContain('hiyori');
+      expect(charIds).toContain('ageha');
+    });
+
+    it('消化済みイベントはスキップする', async () => {
+      const consumedItem = {
+        ...baseItem,
+        NotifID: 'N-CONSUMED',
+        CharacterID: 'hiyori',
+        SK: 'NOTIF#N-CONSUMED',
+        ConsumedAt: fixedNow - 1000,
+      };
+      const client = makeClient(async () => ({ Items: [consumedItem] }));
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
+
+      const result = await repo.listLatestUnconsumedByCharacter('u1', ['hiyori']);
+      expect(result).toHaveLength(0);
+    });
+
+    it('未消化が 1 ページ目より後ろにあっても取りこぼさない（複数ページ連鎖）', async () => {
+      // 1 ページ目: hiyori の消化済み通知 100 件
+      // 2 ページ目: hiyori の未消化通知 1 件
+      let callCount = 0;
+      const client = makeClient(async () => {
+        callCount++;
+        if (callCount === 1) {
+          const consumedItems = Array.from({ length: 100 }, (_, i) => ({
+            ...baseItem,
+            NotifID: `N-CONSUMED-${i}`,
+            CharacterID: 'hiyori',
+            SK: `NOTIF#N-CONSUMED-${i}`,
+            ConsumedAt: fixedNow - (i + 1) * 1000,
+          }));
+          return { Items: consumedItems, LastEvaluatedKey: { PK: 'USER#u1', SK: 'cursor' } };
+        }
+        // 2 ページ目: 未消化が 1 件
+        return {
+          Items: [
+            {
+              ...baseItem,
+              NotifID: 'N-LATE-UNCONSUMED',
+              CharacterID: 'hiyori',
+              SK: 'NOTIF#N-LATE-UNCONSUMED',
+            },
+          ],
+        };
+      });
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
+
+      const result = await repo.listLatestUnconsumedByCharacter('u1', ['hiyori']);
+      // 2 ページ目にある未消化を正しく発見できること
+      expect(result).toHaveLength(1);
+      expect(result[0].NotifID).toBe('N-LATE-UNCONSUMED');
+      expect(callCount).toBe(2);
+    });
+
+    it('全キャラ充足したら早期終了する', async () => {
+      // 1 ページ目で hiyori, ageha 双方の未消化が揃う → 2 ページ目を問い合わせない
+      let callCount = 0;
+      const hiyoriItem = {
+        ...baseItem,
+        NotifID: 'N-HIY',
+        CharacterID: 'hiyori',
+        SK: 'NOTIF#N-HIY',
+      };
+      const agehaItem = { ...baseItem, NotifID: 'N-AGE', CharacterID: 'ageha', SK: 'NOTIF#N-AGE' };
+      const client = makeClient(async () => {
+        callCount++;
+        return {
+          Items: [hiyoriItem, agehaItem],
+          LastEvaluatedKey: { PK: 'USER#u1', SK: 'cursor' },
+        };
+      });
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
+
+      const result = await repo.listLatestUnconsumedByCharacter('u1', ['hiyori', 'ageha']);
+      expect(result).toHaveLength(2);
+      // 全キャラ充足で break → 1 回しか呼ばれない
+      expect(callCount).toBe(1);
+    });
+
+    it('エラー時は DatabaseError を投げる', async () => {
+      const client = makeClient(async () => {
+        throw new Error('query 失敗');
+      });
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
+      await expect(repo.listLatestUnconsumedByCharacter('u1', ['hiyori'])).rejects.toBeInstanceOf(
+        DatabaseError
+      );
+    });
+  });
+
   describe('get', () => {
     it('GetCommand で単一イベントを返す', async () => {
       const sent: unknown[] = [];

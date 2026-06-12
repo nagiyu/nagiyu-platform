@@ -4,10 +4,10 @@
 /**
  * GET /api/push/pending のユニットテスト。
  *
- * Phase C 追加 API:
- *   - 未消化通知をキャラクターごとに集約し、各キャラ最新 1 件を返す
- *   - 未消化なしの場合は空配列を返す
- *   - consume 済みはスキップする
+ * ルートは listLatestUnconsumedByCharacter によりキャラごとの最新未消化通知を集約する。
+ * - 未消化通知をキャラクターごとに集約し、各キャラ最新 1 件を返す
+ * - 未消化なしの場合は空配列を返す
+ * - 100 件を超える履歴があっても未消化通知を取りこぼさない
  */
 import { GET } from '@/app/api/push/pending/route';
 import { getSession } from '@/lib/server/session';
@@ -58,10 +58,15 @@ function makeEvent(overrides: Partial<NotificationEventEntity> = {}): Notificati
   };
 }
 
-/** リポジトリモックのファクトリ */
-function makeRepo(events: NotificationEventEntity[]): NotificationEventRepository {
+/**
+ * リポジトリモックのファクトリ。
+ * ルートは listLatestUnconsumedByCharacter を呼ぶため、
+ * 集約済みの結果（各キャラ最新未消化 1 件）を直接返すモックを使う。
+ */
+function makeRepo(aggregatedResult: NotificationEventEntity[]): NotificationEventRepository {
   return {
-    listByUser: jest.fn(async () => events),
+    listLatestUnconsumedByCharacter: jest.fn(async () => aggregatedResult),
+    listByUser: jest.fn(),
     put: jest.fn(),
     get: jest.fn(),
     markConsumed: jest.fn(),
@@ -92,45 +97,22 @@ describe('GET /api/push/pending', () => {
     expect(json).toEqual([]);
   });
 
-  it('全通知が消化済みの場合は空配列を返す', async () => {
-    mockGetSession.mockResolvedValue(validSession);
-    const consumedEvent = makeEvent({
-      CharacterID: 'hiyori',
-      ConsumedAt: Date.now() - 1000,
-    });
-    mockGetNotificationEventRepo.mockReturnValue(makeRepo([consumedEvent]));
-
-    const res = await GET(buildGetRequest());
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json).toEqual([]);
-  });
-
   it('キャラクターごとに最新未消化通知 1 件を集約して返す', async () => {
     mockGetSession.mockResolvedValue(validSession);
 
-    // hiyori: 2 件の未消化（降順なので n-hiyori-1 が最新）
-    const hiyoriEvent1 = makeEvent({
+    // 集約済み結果（各キャラの最新未消化 1 件）
+    const hiyoriEvent = makeEvent({
       NotifID: 'n-hiyori-1',
       CharacterID: 'hiyori',
       Body: 'ひよりの最新本文',
     });
-    const hiyoriEvent2 = makeEvent({
-      NotifID: 'n-hiyori-2',
-      CharacterID: 'hiyori',
-      Body: 'ひよりの古い本文',
-    });
-    // ageha: 1 件の未消化
     const agehaEvent = makeEvent({
       NotifID: 'n-ageha',
       CharacterID: 'ageha',
       Body: 'アゲハの本文',
     });
 
-    // listByUser は CreatedAt 降順で返す（最新が先頭）
-    mockGetNotificationEventRepo.mockReturnValue(
-      makeRepo([hiyoriEvent1, agehaEvent, hiyoriEvent2])
-    );
+    mockGetNotificationEventRepo.mockReturnValue(makeRepo([hiyoriEvent, agehaEvent]));
 
     const res = await GET(buildGetRequest());
     expect(res.status).toBe(200);
@@ -139,7 +121,7 @@ describe('GET /api/push/pending', () => {
     // 2 キャラ分のエントリが返る
     expect(json).toHaveLength(2);
 
-    // hiyori の最新（n-hiyori-1）が含まれる
+    // hiyori のエントリが含まれる
     const hiyoriResult = json.find(
       (item: { characterId: string }) => item.characterId === 'hiyori'
     );
@@ -153,30 +135,39 @@ describe('GET /api/push/pending', () => {
     expect(agehaResult.notifId).toBe('n-ageha');
   });
 
-  it('消化済みと未消化が混在する場合、未消化のみ集約する', async () => {
+  it('listLatestUnconsumedByCharacter に getAllCharacterIds の結果が渡される', async () => {
+    mockGetSession.mockResolvedValue(validSession);
+    const repo = makeRepo([]);
+    mockGetNotificationEventRepo.mockReturnValue(repo);
+
+    await GET(buildGetRequest());
+
+    // getAllCharacterIds() の戻り値（hiyori, ageha）が渡されること
+    expect(repo.listLatestUnconsumedByCharacter).toHaveBeenCalledWith(
+      'g1',
+      expect.arrayContaining(['hiyori', 'ageha'])
+    );
+  });
+
+  it('100 件を超える履歴があっても未消化通知を取りこぼさない（ページング委譲確認）', async () => {
     mockGetSession.mockResolvedValue(validSession);
 
-    // hiyori: 消化済みが先頭（最新）、未消化が 2 番目
-    const consumedEvent = makeEvent({
-      NotifID: 'n-consumed',
+    // 100 件より後ろにある未消化通知がリポジトリ層で拾われ、集約済み結果として返るシナリオ
+    const lateUnconsumed = makeEvent({
+      NotifID: 'n-late-unconsumed',
       CharacterID: 'hiyori',
-      ConsumedAt: Date.now() - 500,
+      Body: '101 件目の未消化通知',
     });
-    const unconsumedEvent = makeEvent({
-      NotifID: 'n-unconsumed',
-      CharacterID: 'hiyori',
-      Body: '未消化の本文',
-    });
-
-    mockGetNotificationEventRepo.mockReturnValue(makeRepo([consumedEvent, unconsumedEvent]));
+    mockGetNotificationEventRepo.mockReturnValue(makeRepo([lateUnconsumed]));
 
     const res = await GET(buildGetRequest());
     expect(res.status).toBe(200);
     const json = await res.json();
 
-    // 未消化のみが集約される
+    // リポジトリ層でページングを処理した結果が正しく返る
     expect(json).toHaveLength(1);
-    expect(json[0].notifId).toBe('n-unconsumed');
+    expect(json[0].notifId).toBe('n-late-unconsumed');
+    expect(json[0].body).toBe('101 件目の未消化通知');
   });
 
   it('レスポンスの各エントリに characterId, notifId, body が含まれる', async () => {

@@ -1514,6 +1514,7 @@ describe('runChatUseCase', () => {
       return {
         put: jest.fn(),
         list: jest.fn(async () => notes),
+        listAll: jest.fn(async () => notes),
         get: jest.fn(async () => null),
         listRecent: jest.fn(async () => notes),
       };

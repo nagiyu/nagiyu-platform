@@ -81,6 +81,55 @@ export class DynamoDBNotificationEventRepository implements NotificationEventRep
     return results;
   }
 
+  public async listLatestUnconsumedByCharacter(
+    userId: string,
+    characterIds: string[]
+  ): Promise<NotificationEventEntity[]> {
+    if (characterIds.length === 0) return [];
+
+    const pk = buildUserPK(userId);
+    const prefix = buildNotifSKPrefix();
+    const target = new Set(characterIds);
+    const map = new Map<string, NotificationEventEntity>();
+    let exclusiveStartKey: Record<string, unknown> | undefined;
+
+    for (;;) {
+      let result;
+      try {
+        result = await this.docClient.send(
+          new QueryCommand({
+            TableName: this.tableName,
+            KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
+            ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
+            ExpressionAttributeValues: { ':pk': pk, ':prefix': prefix },
+            ScanIndexForward: false,
+            Limit: 100,
+            ExclusiveStartKey: exclusiveStartKey,
+          })
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      }
+
+      for (const raw of result.Items ?? []) {
+        const entity = this.mapper.toEntity(raw as unknown as DynamoDBItem);
+        if (
+          target.has(entity.CharacterID) &&
+          entity.ConsumedAt === undefined &&
+          !map.has(entity.CharacterID)
+        ) {
+          map.set(entity.CharacterID, entity);
+        }
+      }
+
+      if (map.size >= characterIds.length || !result.LastEvaluatedKey) break;
+      exclusiveStartKey = result.LastEvaluatedKey;
+    }
+
+    return Array.from(map.values());
+  }
+
   public async get(key: NotificationEventKey): Promise<NotificationEventEntity | null> {
     const pk = buildUserPK(key.userId);
     const sk = buildNotifSK(key.notifId);
