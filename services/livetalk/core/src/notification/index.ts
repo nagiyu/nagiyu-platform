@@ -11,7 +11,7 @@ export {
 } from './decision.js';
 export type { NotifyDecision, NotifyDecisionInput, ToneBucket } from './decision.js';
 
-export { buildNotificationMessage, buildCriticalNotificationMessage } from './message-builder.js';
+export { buildNotificationMessage, buildCriticalNotificationMessage, buildSuggestedReply } from './message-builder.js';
 export type { BuildNotificationMessageInput, NotificationMessage } from './message-builder.js';
 
 export { detectCriticalKnowledge } from './escalation.js';

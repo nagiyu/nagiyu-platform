@@ -782,3 +782,173 @@ describe('characterId の chat リクエストへの反映', () => {
     expect(chatBody.characterId).toBe('hiyori');
   });
 });
+
+describe('通知タップ起動時のプリフィル（from=push + suggestedReply）', () => {
+  it('from=push かつ first-word が suggestedReply を返すとき ChatInput にプリフィルされる', async () => {
+    // searchParams: from=push, character=hiyori
+    mockSearchParamsGet.mockImplementation((key: string) => {
+      if (key === 'from') return 'push';
+      if (key === 'character') return 'hiyori';
+      return null;
+    });
+
+    const encoder = new TextEncoder();
+    const chatStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
+        controller.close();
+      },
+    });
+
+    global.fetch = jest.fn().mockImplementation((url: string) => {
+      if (url === '/api/consent') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ consented: true }) });
+      }
+      if (url.startsWith('/api/lifecycle')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ state: 'awake' }) });
+      }
+      if (url.startsWith('/api/push/first-word')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              notifId: 'n1',
+              body: 'TypeScriptについて調べたよ',
+              knowledgeId: 'k-ts',
+              characterId: 'hiyori',
+              suggestedReply: 'TypeScriptについて教えて',
+            }),
+        });
+      }
+      if (url === '/api/push/consumed') {
+        return Promise.resolve({ ok: true });
+      }
+      if (url === '/api/push/pending') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      }
+      return Promise.resolve({ ok: true, body: chatStream });
+    });
+
+    render(<HomePage />);
+    const input = await waitForInputEnabled();
+
+    // suggestedReply が入力欄にプリフィルされる
+    await waitFor(() => {
+      expect(input).toHaveValue('TypeScriptについて教えて');
+    });
+  });
+
+  it('from=push なしのとき（自前起動）は suggestedReply があっても入力欄にプリフィルされない', async () => {
+    // searchParams: from なし、character のみ
+    mockSearchParamsGet.mockImplementation((key: string) => {
+      if (key === 'character') return 'hiyori';
+      return null;
+    });
+
+    const encoder = new TextEncoder();
+    const chatStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
+        controller.close();
+      },
+    });
+
+    global.fetch = jest.fn().mockImplementation((url: string) => {
+      if (url === '/api/consent') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ consented: true }) });
+      }
+      if (url.startsWith('/api/lifecycle')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ state: 'awake' }) });
+      }
+      if (url.startsWith('/api/push/first-word')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              notifId: 'n1',
+              body: 'TypeScriptについて調べたよ',
+              knowledgeId: 'k-ts',
+              characterId: 'hiyori',
+              suggestedReply: 'TypeScriptについて教えて',
+            }),
+        });
+      }
+      if (url === '/api/push/consumed') {
+        return Promise.resolve({ ok: true });
+      }
+      if (url === '/api/push/pending') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      }
+      return Promise.resolve({ ok: true, body: chatStream });
+    });
+
+    render(<HomePage />);
+    const input = await waitForInputEnabled();
+
+    // first-word の取得を待つ
+    await waitFor(() => {
+      const calls = (global.fetch as jest.Mock).mock.calls.map(([url]: [string]) => url);
+      expect(calls.some((url) => url.startsWith('/api/push/first-word'))).toBe(true);
+    });
+
+    // from=push なしなので入力欄はプリフィルされない
+    expect(input).toHaveValue('');
+  });
+
+  it('from=push だが suggestedReply が null のとき入力欄はプリフィルされない', async () => {
+    mockSearchParamsGet.mockImplementation((key: string) => {
+      if (key === 'from') return 'push';
+      if (key === 'character') return 'hiyori';
+      return null;
+    });
+
+    const encoder = new TextEncoder();
+    const chatStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
+        controller.close();
+      },
+    });
+
+    global.fetch = jest.fn().mockImplementation((url: string) => {
+      if (url === '/api/consent') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ consented: true }) });
+      }
+      if (url.startsWith('/api/lifecycle')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ state: 'awake' }) });
+      }
+      if (url.startsWith('/api/push/first-word')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              notifId: 'n1',
+              body: 'ちょっと話したいことがあるよ',
+              knowledgeId: null,
+              characterId: 'hiyori',
+              suggestedReply: null,
+            }),
+        });
+      }
+      if (url === '/api/push/consumed') {
+        return Promise.resolve({ ok: true });
+      }
+      if (url === '/api/push/pending') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      }
+      return Promise.resolve({ ok: true, body: chatStream });
+    });
+
+    render(<HomePage />);
+    const input = await waitForInputEnabled();
+
+    // first-word の取得を待つ
+    await waitFor(() => {
+      const calls = (global.fetch as jest.Mock).mock.calls.map(([url]: [string]) => url);
+      expect(calls.some((url) => url.startsWith('/api/push/first-word'))).toBe(true);
+    });
+
+    // suggestedReply が null なので入力欄はプリフィルされない
+    expect(input).toHaveValue('');
+  });
+});

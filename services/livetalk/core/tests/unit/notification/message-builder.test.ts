@@ -1,6 +1,7 @@
 import {
   buildNotificationMessage,
   buildCriticalNotificationMessage,
+  buildSuggestedReply,
 } from '../../../src/notification/message-builder.js';
 
 /**
@@ -263,5 +264,45 @@ describe('normalizeKnowledgeTopic（通知テンプレート堅牢化）', () =>
     );
     expect(msg.body).toContain('カフェラテ');
     expect(msg.body).not.toMatch(/。のこと/);
+  });
+});
+
+describe('buildSuggestedReply', () => {
+  it('topic あり → "〇〇について教えて" を返す', () => {
+    const result = buildSuggestedReply('TypeScript');
+    expect(result).toBe('TypeScriptについて教えて');
+  });
+
+  it('topic あり（別のトピック）→ "〇〇について教えて" を返す', () => {
+    const result = buildSuggestedReply('React');
+    expect(result).toBe('Reactについて教えて');
+  });
+
+  it('topic なし → "話したいことってなに？" を返す', () => {
+    const result = buildSuggestedReply();
+    expect(result).toBe('話したいことってなに？');
+  });
+
+  it('topic が undefined → "話したいことってなに？" を返す', () => {
+    const result = buildSuggestedReply(undefined);
+    expect(result).toBe('話したいことってなに？');
+  });
+
+  it('topic 末尾の句点が正規化されて "〇〇について教えて" を返す', () => {
+    const result = buildSuggestedReply('コーヒーの新作。');
+    expect(result).toBe('コーヒーの新作について教えて');
+    expect(result).not.toMatch(/。について/);
+  });
+
+  it('topic 末尾の読点が正規化されて "〇〇について教えて" を返す', () => {
+    const result = buildSuggestedReply('お菓子の作り方、');
+    expect(result).toBe('お菓子の作り方について教えて');
+    expect(result).not.toMatch(/、について/);
+  });
+
+  it('長いトピック名でも "〇〇について教えて" の形式になる', () => {
+    const longTopic = '日本のスイーツのトレンド';
+    const result = buildSuggestedReply(longTopic);
+    expect(result).toBe(`${longTopic}について教えて`);
   });
 });
