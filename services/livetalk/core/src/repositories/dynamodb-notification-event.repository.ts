@@ -123,7 +123,7 @@ export class DynamoDBNotificationEventRepository implements NotificationEventRep
         }
       }
 
-      if (map.size >= characterIds.length || !result.LastEvaluatedKey) break;
+      if (map.size >= target.size || !result.LastEvaluatedKey) break;
       exclusiveStartKey = result.LastEvaluatedKey;
     }
 

@@ -299,6 +299,60 @@ describe('DynamoDBNotificationEventRepository', () => {
       expect(callCount).toBe(1);
     });
 
+    it('未消化が 0 のキャラが対象に含まれる場合は履歴を走査し尽くし、他キャラは正しく返す', async () => {
+      // 最悪ケース: ageha は未消化が一切無いため早期終了せず、全ページを走査する。
+      // それでも hiyori の最新未消化は取りこぼさず返ること。
+      let callCount = 0;
+      const client = makeClient(async () => {
+        callCount++;
+        if (callCount === 1) {
+          return {
+            Items: [
+              { ...baseItem, NotifID: 'N-HIY', CharacterID: 'hiyori', SK: 'NOTIF#N-HIY' },
+              // ageha は消化済みのみ（未消化なし）
+              {
+                ...baseItem,
+                NotifID: 'N-AGE-C',
+                CharacterID: 'ageha',
+                SK: 'NOTIF#N-AGE-C',
+                ConsumedAt: fixedNow - 1000,
+              },
+            ],
+            LastEvaluatedKey: { PK: 'USER#u1', SK: 'cursor1' },
+          };
+        }
+        if (callCount === 2) {
+          return {
+            Items: [
+              {
+                ...baseItem,
+                NotifID: 'N-AGE-C2',
+                CharacterID: 'ageha',
+                SK: 'NOTIF#N-AGE-C2',
+                ConsumedAt: fixedNow - 2000,
+              },
+            ],
+            LastEvaluatedKey: { PK: 'USER#u1', SK: 'cursor2' },
+          };
+        }
+        // 最終ページ（LastEvaluatedKey なし）
+        return { Items: [] };
+      });
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
+
+      const result = await repo.listLatestUnconsumedByCharacter('u1', ['hiyori', 'ageha']);
+      // ageha は未消化なしで充足しないため、終端まで走査する（早期終了しない）
+      expect(callCount).toBe(3);
+      // hiyori の未消化のみ返る
+      expect(result).toHaveLength(1);
+      expect(result[0].CharacterID).toBe('hiyori');
+      expect(result[0].NotifID).toBe('N-HIY');
+    });
+
     it('エラー時は DatabaseError を投げる', async () => {
       const client = makeClient(async () => {
         throw new Error('query 失敗');

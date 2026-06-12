@@ -30,8 +30,7 @@ export interface PendingNotification {
   body: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const GET = withAuth(getSession, 'livetalk:chat', async (session, _request: Request) => {
+export const GET = withAuth(getSession, 'livetalk:chat', async (session) => {
   const userId = session.user.googleId;
   const repo = getNotificationEventRepository();
   const characterIds = getAllCharacterIds();
