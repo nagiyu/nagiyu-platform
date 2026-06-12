@@ -322,13 +322,10 @@ export const CHAT_RATE_LIMIT_PER_HOUR = 100;
 
 /**
  * in-flight ロックのデフォルト有効期間（ミリ秒）。
- * ストリームタイムアウトと同値に設定する。
+ *
+ * これはクラッシュ/ハング時にロックを解放するための粗いフェイルセーフであり、
+ * 上流の最大ストリーム時間（OpenAI SDK 既定の約 10 分）を上回る値にすることで
+ * 進行中の正常ロックが並行リクエストに奪取されないようにする。
+ * 正常時は finally の releaseLock で即時解放される。
  */
-export const CHAT_LOCK_TTL_MS = 120_000;
-
-/**
- * ストリームのサーバ側タイムアウト（ミリ秒）。
- * ECS セルフホストでは Next.js の maxDuration が効かないため、
- * ストリーム消費ループ全体にデッドラインを設ける。
- */
-export const CHAT_STREAM_TIMEOUT_MS = 120_000;
+export const CHAT_LOCK_TTL_MS = 600_000;

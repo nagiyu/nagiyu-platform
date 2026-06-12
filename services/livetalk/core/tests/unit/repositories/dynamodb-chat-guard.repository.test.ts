@@ -11,7 +11,7 @@
  * - acquireLock: DynamoDB エラーを DatabaseError にラップする
  * - releaseLock: ownerToken 一致時の DeleteCommand
  * - releaseLock: ConditionalCheckFailedException を握りつぶす
- * - releaseLock: DynamoDB エラーを DatabaseError にラップする
+ * - releaseLock: DynamoDB エラー（ConditionalCheck 以外）もフェイルオープンで握りつぶす
  * - computeBucket / computeWindowTtlSec の純粋ロジック
  */
 
@@ -206,11 +206,12 @@ describe('DynamoDBChatGuardRepository - releaseLock()', () => {
     await expect(repo.releaseLock('u1', 'token-abc')).resolves.toBeUndefined();
   });
 
-  it('DynamoDB エラー（ConditionalCheck 以外）を DatabaseError にラップする', async () => {
+  it('DynamoDB エラー（ConditionalCheck 以外）はフェイルオープンで握りつぶす', async () => {
     const client = makeClient(async () => {
       throw new Error('削除エラー');
     });
     const repo = new DynamoDBChatGuardRepository(client as never, tableName, () => fixedNow);
-    await expect(repo.releaseLock('u1', 'token-abc')).rejects.toBeInstanceOf(DatabaseError);
+    // フェイルオープン: エラーを throw せず正常終了する
+    await expect(repo.releaseLock('u1', 'token-abc')).resolves.toBeUndefined();
   });
 });

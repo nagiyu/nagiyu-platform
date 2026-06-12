@@ -7,6 +7,7 @@ import { getSession } from '@/lib/server/session';
 import { getLLMClient } from '@/lib/server/llm';
 import { getVoiceClient } from '@/lib/server/voice';
 import { getMessageRepository, getChatGuardRepository } from '@/lib/server/repositories';
+import { DatabaseError } from '@nagiyu/aws';
 
 jest.mock('@/lib/server/session', () => ({ getSession: jest.fn() }));
 jest.mock('@/lib/server/llm', () => ({ getLLMClient: jest.fn() }));
@@ -283,6 +284,38 @@ describe('POST /api/chat', () => {
       expect(json.message).toBe(CHAT_ERROR_MESSAGES.INVALID_REQUEST);
     });
 
+    // ---- ガード適用順: ロック取得 → レートリミット ----
+
+    it('ロック取得失敗（acquired=false）は 429 CONCURRENT_REQUEST を返す', async () => {
+      const guardMock = makeDefaultGuardMock();
+      guardMock.acquireLock.mockResolvedValue({ acquired: false });
+      mockGetChatGuardRepository.mockReturnValue(guardMock);
+
+      const res = await POST(buildRequest({ text: 'こんにちは' }));
+      expect(res.status).toBe(429);
+      const json = await res.json();
+      expect(json.message).toBe(CHAT_ERROR_MESSAGES.CONCURRENT_REQUEST);
+    });
+
+    it('ロック取得失敗時は incrementRateLimit が呼ばれない（レート枠を消費しない）', async () => {
+      const guardMock = makeDefaultGuardMock();
+      guardMock.acquireLock.mockResolvedValue({ acquired: false });
+      mockGetChatGuardRepository.mockReturnValue(guardMock);
+
+      await POST(buildRequest({ text: 'こんにちは' }));
+      expect(guardMock.incrementRateLimit).not.toHaveBeenCalled();
+      expect(mockRunChatUseCase).not.toHaveBeenCalled();
+    });
+
+    it('ロック取得失敗時はストリームを開始しない', async () => {
+      const guardMock = makeDefaultGuardMock();
+      guardMock.acquireLock.mockResolvedValue({ acquired: false });
+      mockGetChatGuardRepository.mockReturnValue(guardMock);
+
+      await POST(buildRequest({ text: 'こんにちは' }));
+      expect(mockRunChatUseCase).not.toHaveBeenCalled();
+    });
+
     // ---- ガード: レートリミット ----
 
     it('1 分ウィンドウ超過（count > 10）は 429 RATE_LIMIT_EXCEEDED を返す', async () => {
@@ -323,7 +356,8 @@ describe('POST /api/chat', () => {
       expect(res.status).toBe(200);
     });
 
-    it('レートリミット超過時はストリームを開始しない（ロックも取得しない）', async () => {
+    it('レート超過時はロックが解放される', async () => {
+      jest.spyOn(console, 'warn').mockImplementation(() => {});
       const guardMock = makeDefaultGuardMock();
       guardMock.incrementRateLimit
         .mockResolvedValueOnce({ count: 11, window: '1m' })
@@ -331,31 +365,50 @@ describe('POST /api/chat', () => {
       mockGetChatGuardRepository.mockReturnValue(guardMock);
 
       await POST(buildRequest({ text: 'こんにちは' }));
-      expect(guardMock.acquireLock).not.toHaveBeenCalled();
+      expect(guardMock.releaseLock).toHaveBeenCalled();
       expect(mockRunChatUseCase).not.toHaveBeenCalled();
     });
 
-    // ---- ガード: 並行制御 ----
+    // ---- フェイルオープン: DynamoDB 障害 ----
 
-    it('ロック取得失敗（acquired=false）は 429 CONCURRENT_REQUEST を返す', async () => {
+    it('ロック取得が DatabaseError を throw した場合はフェイルオープンで通す', async () => {
+      jest.spyOn(console, 'warn').mockImplementation(() => {});
       const guardMock = makeDefaultGuardMock();
-      guardMock.acquireLock.mockResolvedValue({ acquired: false });
+      guardMock.acquireLock.mockRejectedValue(new DatabaseError('DynamoDB 障害'));
       mockGetChatGuardRepository.mockReturnValue(guardMock);
 
       const res = await POST(buildRequest({ text: 'こんにちは' }));
-      expect(res.status).toBe(429);
-      const json = await res.json();
-      expect(json.message).toBe(CHAT_ERROR_MESSAGES.CONCURRENT_REQUEST);
+      // フェイルオープン: 障害でもリクエストを通す
+      expect(res.status).toBe(200);
+      expect(mockRunChatUseCase).toHaveBeenCalled();
     });
 
-    it('ロック取得失敗時はストリームを開始しない', async () => {
+    it('ロック取得が DatabaseError の場合は releaseLock が呼ばれない', async () => {
+      jest.spyOn(console, 'warn').mockImplementation(() => {});
       const guardMock = makeDefaultGuardMock();
-      guardMock.acquireLock.mockResolvedValue({ acquired: false });
+      guardMock.acquireLock.mockRejectedValue(new DatabaseError('DynamoDB 障害'));
       mockGetChatGuardRepository.mockReturnValue(guardMock);
 
-      await POST(buildRequest({ text: 'こんにちは' }));
-      expect(mockRunChatUseCase).not.toHaveBeenCalled();
+      const res = await POST(buildRequest({ text: 'こんにちは' }));
+      await readNDJSONStream(res);
+
+      // ロックを取得していないため解放は不要
+      expect(guardMock.releaseLock).not.toHaveBeenCalled();
     });
+
+    it('incrementRateLimit が DatabaseError を throw した場合はフェイルオープンで通す', async () => {
+      jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const guardMock = makeDefaultGuardMock();
+      guardMock.incrementRateLimit.mockRejectedValue(new DatabaseError('DynamoDB 障害'));
+      mockGetChatGuardRepository.mockReturnValue(guardMock);
+
+      const res = await POST(buildRequest({ text: 'こんにちは' }));
+      // フェイルオープン: 障害でもリクエストを通す
+      expect(res.status).toBe(200);
+      expect(mockRunChatUseCase).toHaveBeenCalled();
+    });
+
+    // ---- ロック解放 ----
 
     it('ストリーム完了後に releaseLock が呼ばれる（finally で解放）', async () => {
       const guardMock = makeDefaultGuardMock();

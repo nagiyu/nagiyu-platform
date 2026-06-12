@@ -17,7 +17,7 @@ import {
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import { DatabaseError } from '@nagiyu/aws';
-import { buildUserPK } from '../mappers/keys.js';
+import { buildUserPK, buildChatLockSK, buildChatRateLimitSK } from '../mappers/keys.js';
 import type {
   AcquireLockResult,
   ChatGuardRepository,
@@ -48,18 +48,6 @@ export function computeWindowTtlSec(window: RateLimitWindow, nowMs: number): num
   return (Math.floor(nowMs / 3_600_000) + 1) * 3_600 + 7_200;
 }
 
-/**
- * レートリミットアイテムの SK を組み立てる。
- */
-function buildRateLimitSK(window: RateLimitWindow, bucket: string): string {
-  return `RATELIMIT#${window}#${bucket}`;
-}
-
-/**
- * ロックアイテムの SK。固定値。
- */
-const CHATLOCK_SK = 'CHATLOCK';
-
 export class DynamoDBChatGuardRepository implements ChatGuardRepository {
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
@@ -82,7 +70,7 @@ export class DynamoDBChatGuardRepository implements ChatGuardRepository {
   ): Promise<RateLimitResult> {
     const pk = buildUserPK(userId);
     const bucket = computeBucket(window, nowMs);
-    const sk = buildRateLimitSK(window, bucket);
+    const sk = buildChatRateLimitSK(window, bucket);
     const ttlSec = computeWindowTtlSec(window, nowMs);
 
     try {
@@ -119,7 +107,7 @@ export class DynamoDBChatGuardRepository implements ChatGuardRepository {
     nowMs: number
   ): Promise<AcquireLockResult> {
     const pk = buildUserPK(userId);
-    const sk = CHATLOCK_SK;
+    const sk = buildChatLockSK();
     const expiresAt = nowMs + lockTtlMs;
     // DynamoDB TTL は Unix 秒。ロック満了の少し後に自動削除されるよう余裕を持たせる。
     const ttlSec = Math.floor(expiresAt / 1000) + 300;
@@ -157,7 +145,7 @@ export class DynamoDBChatGuardRepository implements ChatGuardRepository {
 
   public async releaseLock(userId: string, ownerToken: string): Promise<void> {
     const pk = buildUserPK(userId);
-    const sk = CHATLOCK_SK;
+    const sk = buildChatLockSK();
 
     try {
       await this.docClient.send(
@@ -176,8 +164,9 @@ export class DynamoDBChatGuardRepository implements ChatGuardRepository {
         // ownerToken 不一致（期限切れ・奪取済み）は安全に握りつぶす。
         return;
       }
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      // DynamoDB 障害時もフェイルオープン方針に合わせて握りつぶす（警告は route 層で行う）。
+      // ロックは TTL（CHAT_LOCK_TTL_MS）で自然失効するため、解放失敗は許容できる。
+      return;
     }
   }
 }

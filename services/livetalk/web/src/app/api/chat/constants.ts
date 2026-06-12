@@ -10,8 +10,6 @@ export const CHAT_ERROR_MESSAGES = {
   RATE_LIMIT_EXCEEDED: 'リクエストが多すぎます。しばらく待ってから再送してください',
   /** 同一ユーザーの並行リクエストが実行中 */
   CONCURRENT_REQUEST: '処理中のリクエストがあります。完了をお待ちください',
-  /** ストリームがタイムアウトした場合の error イベントメッセージ */
-  STREAM_TIMEOUT: '応答がタイムアウトしました',
 } as const;
 
 export const CHAT_MAX_TEXT_LENGTH = 200;

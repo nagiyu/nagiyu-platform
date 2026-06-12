@@ -379,7 +379,6 @@ export {
   CHAT_RATE_LIMIT_PER_MINUTE,
   CHAT_RATE_LIMIT_PER_HOUR,
   CHAT_LOCK_TTL_MS,
-  CHAT_STREAM_TIMEOUT_MS,
 } from './constants.js';
 
 // チャット API 保護ガード（Issue #3528）

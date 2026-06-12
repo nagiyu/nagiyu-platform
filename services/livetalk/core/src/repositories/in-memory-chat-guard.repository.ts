@@ -78,7 +78,9 @@ export class InMemoryChatGuardRepository implements ChatGuardRepository {
     const expiresAt = computeWindowExpiresAtSec(window, nowMs);
 
     const existing = this.rateLimitStore.get(key);
-    // 既存アイテムが TTL 切れの場合は新規扱い
+    // ウィンドウが変わると computeBucket が返すバケット文字列が変わるため、
+    // key 自体が別エントリになり、ここには常に「現在のウィンドウ内」のエントリが来る。
+    // isExpired フラグは防衛的に残しているが、通常は到達しないパス。
     const nowSec = Math.floor(nowMs / 1000);
     const isExpired = existing !== undefined && existing.expiresAt <= nowSec;
 
