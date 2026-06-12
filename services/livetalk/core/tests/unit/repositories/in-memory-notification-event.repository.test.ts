@@ -152,6 +152,97 @@ describe('InMemoryNotificationEventRepository', () => {
     });
   });
 
+  describe('listLatestUnconsumedByCharacter', () => {
+    it('characterIds が空の場合は [] を返す', async () => {
+      const store = makeStore();
+      const repo = makeRepo(store);
+      await repo.put(makeInput({ NotifID: 'NOTIF-X' }));
+
+      const result = await repo.listLatestUnconsumedByCharacter('u1', []);
+      expect(result).toEqual([]);
+    });
+
+    it('キャラごとに最新未消化通知 1 件を返す', async () => {
+      const store = makeStore();
+      let now = BASE_NOW;
+      const repo = makeRepo(store, () => now);
+
+      now = BASE_NOW + 1000;
+      await repo.put(makeInput({ NotifID: 'N-HIY-OLD', CharacterID: 'hiyori' }));
+      now = BASE_NOW + 2000;
+      await repo.put(makeInput({ NotifID: 'N-HIY-NEW', CharacterID: 'hiyori' }));
+      now = BASE_NOW + 3000;
+      await repo.put(makeInput({ NotifID: 'N-AGE', CharacterID: 'ageha' }));
+
+      const result = await repo.listLatestUnconsumedByCharacter('u1', ['hiyori', 'ageha']);
+      expect(result).toHaveLength(2);
+
+      const hiyori = result.find((e) => e.CharacterID === 'hiyori');
+      // 最新（CreatedAt が大きい方）が返ること
+      expect(hiyori?.NotifID).toBe('N-HIY-NEW');
+    });
+
+    it('消化済みイベントはスキップする', async () => {
+      const store = makeStore();
+      const repo = makeRepo(store);
+      const saved = await repo.put(makeInput({ NotifID: 'NOTIF-CONSUME' }));
+      await repo.markConsumed({ userId: 'u1', notifId: saved.NotifID }, BASE_NOW + 1000);
+
+      const result = await repo.listLatestUnconsumedByCharacter('u1', ['hiyori']);
+      expect(result).toHaveLength(0);
+    });
+
+    it('消化済みと未消化が混在する場合、最新未消化を返す', async () => {
+      const store = makeStore();
+      let now = BASE_NOW;
+      const repo = makeRepo(store, () => now);
+
+      // 最新: 消化済み
+      now = BASE_NOW + 2000;
+      const consumed = await repo.put(makeInput({ NotifID: 'N-CONSUMED' }));
+      await repo.markConsumed({ userId: 'u1', notifId: consumed.NotifID }, now + 100);
+
+      // 2 番目: 未消化
+      now = BASE_NOW + 1000;
+      await repo.put(makeInput({ NotifID: 'N-UNCONSUMED' }));
+
+      const result = await repo.listLatestUnconsumedByCharacter('u1', ['hiyori']);
+      expect(result).toHaveLength(1);
+      expect(result[0].NotifID).toBe('N-UNCONSUMED');
+    });
+
+    it('全件走査して未消化を発見する（大量消化済みでも取りこぼさない）', async () => {
+      const store = makeStore();
+      let now = BASE_NOW;
+      const repo = makeRepo(store, () => now);
+
+      // 多数の消化済みを先に（CreatedAt が新しい順）登録
+      for (let i = 100; i >= 1; i--) {
+        now = BASE_NOW + i * 1000;
+        const e = await repo.put(makeInput({ NotifID: `N-CONSUMED-${i}` }));
+        await repo.markConsumed({ userId: 'u1', notifId: e.NotifID }, now + 100);
+      }
+
+      // 最も古い（CreatedAt が最小）の未消化通知
+      now = BASE_NOW;
+      await repo.put(makeInput({ NotifID: 'N-OLDEST-UNCONSUMED' }));
+
+      const result = await repo.listLatestUnconsumedByCharacter('u1', ['hiyori']);
+      expect(result).toHaveLength(1);
+      expect(result[0].NotifID).toBe('N-OLDEST-UNCONSUMED');
+    });
+
+    it('別ユーザーのイベントは混入しない', async () => {
+      const store = makeStore();
+      const repo = makeRepo(store);
+      // u2 のイベントのみ
+      await repo.put(makeInput({ UserID: 'u2', NotifID: 'N-U2' }));
+
+      const result = await repo.listLatestUnconsumedByCharacter('u1', ['hiyori']);
+      expect(result).toHaveLength(0);
+    });
+  });
+
   describe('デフォルト nowMs', () => {
     it('nowMs 省略時は Date.now() が使われる', async () => {
       const store = makeStore();

@@ -1,15 +1,14 @@
-import { ScanCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { logger, toErrorMessage } from '@nagiyu/common';
 import {
   getAllCharacterIds,
   getCharacterDefinitionById,
   compressConversation,
   type CompressConversationParams,
+  type ProfileRepository,
 } from '@nagiyu/livetalk-core';
 
 export type CompressAllConversationsParams = Omit<CompressConversationParams, 'characterName'> & {
-  docClient: DynamoDBDocumentClient;
-  tableName: string;
+  profileRepo: ProfileRepository;
 };
 
 export interface CompressAllConversationsResult {
@@ -22,7 +21,7 @@ export interface CompressAllConversationsResult {
 /**
  * 全アクティブユーザーの全キャラクター会話を圧縮要約する。
  *
- * DynamoDB を Scan して Type='Profile' のアイテムを列挙し、
+ * ProfileRepository（GSI1）でユーザーを列挙し、
  * 各ユーザーについて全キャラクターの会話を圧縮する。
  * キャラクターごとに処理し、あるキャラクターで失敗しても他キャラクターの処理を継続する。
  */
@@ -30,8 +29,7 @@ export async function compressAllConversations(
   params: CompressAllConversationsParams
 ): Promise<CompressAllConversationsResult> {
   const {
-    docClient,
-    tableName,
+    profileRepo,
     llmClient,
     summaryRepo,
     messageRepo,
@@ -42,7 +40,7 @@ export async function compressAllConversations(
     embeddingClient,
   } = params;
 
-  const userIds = await scanAllUserIds(docClient, tableName);
+  const userIds = await profileRepo.listAllUserIds();
 
   logger.info('[compressAllConversations] ユーザー一覧取得完了', {
     userCount: userIds.length,
@@ -117,33 +115,4 @@ export async function compressAllConversations(
 
   logger.info('[compressAllConversations] 全ユーザー処理完了', { ...result });
   return result;
-}
-
-async function scanAllUserIds(
-  docClient: DynamoDBDocumentClient,
-  tableName: string
-): Promise<string[]> {
-  const userIds: string[] = [];
-  let lastEvaluatedKey: Record<string, unknown> | undefined;
-
-  do {
-    const command = new ScanCommand({
-      TableName: tableName,
-      FilterExpression: '#type = :profile',
-      ExpressionAttributeNames: { '#type': 'Type' },
-      ExpressionAttributeValues: { ':profile': 'Profile' },
-      ProjectionExpression: 'UserID',
-      ...(lastEvaluatedKey ? { ExclusiveStartKey: lastEvaluatedKey } : {}),
-    });
-
-    const response = await docClient.send(command);
-    for (const item of response.Items ?? []) {
-      if (typeof item.UserID === 'string' && item.UserID) {
-        userIds.push(item.UserID);
-      }
-    }
-    lastEvaluatedKey = response.LastEvaluatedKey as Record<string, unknown> | undefined;
-  } while (lastEvaluatedKey !== undefined);
-
-  return userIds;
 }

@@ -6,6 +6,7 @@ import {
   DynamoDBMemorySummaryRepository,
   DynamoDBMessageRepository,
   DynamoDBMemoryRepository,
+  DynamoDBProfileRepository,
   EmbeddingMemoryRepository,
   OpenAIClient,
   OpenAIEmbeddingClient,
@@ -73,10 +74,10 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     const llmClient = new OpenAIClient({ apiKey });
     const interestRepo = new DynamoDBInterestRepository(docClient, tableName);
     const characterStateRepo = new DynamoDBCharacterStateRepository(docClient, tableName);
+    const profileRepo = new DynamoDBProfileRepository(docClient, tableName);
 
     result = await compressAllConversations({
-      docClient,
-      tableName,
+      profileRepo,
       summaryRepo,
       messageRepo,
       memoryRepo,

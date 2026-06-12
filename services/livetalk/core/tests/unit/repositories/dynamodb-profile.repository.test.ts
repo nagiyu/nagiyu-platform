@@ -1,4 +1,4 @@
-import { GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { DatabaseError } from '@nagiyu/aws';
 import { DynamoDBProfileRepository } from '../../../src/repositories/dynamodb-profile.repository.js';
 
@@ -115,5 +115,69 @@ describe('DynamoDBProfileRepository', () => {
     await repo.upsert({ UserID: 'u1' }, { Consents: consents });
     const put = (sent[1] as PutCommand).input;
     expect(put.Item?.Consents).toEqual(consents);
+  });
+
+  describe('listAllUserIds', () => {
+    it('GSI1 を QueryCommand で IndexName="GSI1" を指定して送信する', async () => {
+      const sent: unknown[] = [];
+      const client = makeClient(async (cmd) => {
+        sent.push(cmd);
+        return { Items: [{ GSI1PK: 'PROFILE', GSI1SK: 'user-1' }] };
+      });
+      const repo = new DynamoDBProfileRepository(client as never, tableName, () => now);
+
+      const result = await repo.listAllUserIds();
+
+      expect(sent[0]).toBeInstanceOf(QueryCommand);
+      const query = (sent[0] as QueryCommand).input;
+      expect(query.IndexName).toBe('GSI1');
+      expect(result).toEqual(['user-1']);
+    });
+
+    it('複数ページ（LastEvaluatedKey 連鎖）を結合して UserID 配列を返す', async () => {
+      let callCount = 0;
+      const client = makeClient(async () => {
+        callCount++;
+        if (callCount === 1) {
+          return {
+            Items: [{ GSI1PK: 'PROFILE', GSI1SK: 'user-1' }],
+            LastEvaluatedKey: { GSI1PK: 'PROFILE', GSI1SK: 'user-1' },
+          };
+        }
+        return { Items: [{ GSI1PK: 'PROFILE', GSI1SK: 'user-2' }] };
+      });
+      const repo = new DynamoDBProfileRepository(client as never, tableName, () => now);
+
+      const result = await repo.listAllUserIds();
+
+      expect(callCount).toBe(2);
+      expect(result).toEqual(['user-1', 'user-2']);
+    });
+
+    it('Items が空のとき空配列を返す', async () => {
+      const client = makeClient(async () => ({ Items: [] }));
+      const repo = new DynamoDBProfileRepository(client as never, tableName, () => now);
+      expect(await repo.listAllUserIds()).toEqual([]);
+    });
+
+    it('GSI1SK が文字列でない or 空のアイテムを無視する', async () => {
+      const client = makeClient(async () => ({
+        Items: [
+          { GSI1PK: 'PROFILE', GSI1SK: '' },
+          { GSI1PK: 'PROFILE', GSI1SK: 123 },
+          { GSI1PK: 'PROFILE', GSI1SK: 'valid-user' },
+        ],
+      }));
+      const repo = new DynamoDBProfileRepository(client as never, tableName, () => now);
+      expect(await repo.listAllUserIds()).toEqual(['valid-user']);
+    });
+
+    it('エラーは DatabaseError でラップされる', async () => {
+      const client = makeClient(async () => {
+        throw new Error('QueryCommand 失敗');
+      });
+      const repo = new DynamoDBProfileRepository(client as never, tableName, () => now);
+      await expect(repo.listAllUserIds()).rejects.toBeInstanceOf(DatabaseError);
+    });
   });
 });

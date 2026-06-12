@@ -5,7 +5,7 @@ import {
   type EntityMapper,
 } from '@nagiyu/aws';
 import type { ProfileEntity, ProfileKey, UserConsents } from '../entities/profile.entity.js';
-import { buildProfileSK, buildUserPK } from './keys.js';
+import { buildProfileSK, buildUserPK, buildProfileGSI1PK } from './keys.js';
 
 export class ProfileMapper implements EntityMapper<ProfileEntity, ProfileKey> {
   public readonly entityType = 'Profile';
@@ -20,6 +20,10 @@ export class ProfileMapper implements EntityMapper<ProfileEntity, ProfileKey> {
       LastActiveAt: entity.LastActiveAt,
       CreatedAt: entity.CreatedAt,
       UpdatedAt: entity.UpdatedAt,
+      // GSI1: Profile 列挙用 sparse GSI 属性（#3527）
+      // GSI1PK='PROFILE' で Profile アイテムのみを索引化、GSI1SK は生の UserID
+      GSI1PK: buildProfileGSI1PK(),
+      GSI1SK: entity.UserID,
     };
     if (entity.Consents !== undefined) {
       item.Consents = entity.Consents;

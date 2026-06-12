@@ -77,6 +77,42 @@ export class DynamoDBNoteRepository implements NoteRepository {
     return results;
   }
 
+  public async listAll(userId: string, characterId: string): Promise<NoteEntity[]> {
+    const pk = buildUserPK(userId);
+    const prefix = buildNoteSKPrefix(characterId);
+    const results: NoteEntity[] = [];
+    let exclusiveStartKey: Record<string, unknown> | undefined;
+
+    for (;;) {
+      let result;
+      try {
+        result = await this.docClient.send(
+          new QueryCommand({
+            TableName: this.tableName,
+            KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
+            ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
+            ExpressionAttributeValues: { ':pk': pk, ':prefix': prefix },
+            ScanIndexForward: false,
+            Limit: 100,
+            ExclusiveStartKey: exclusiveStartKey,
+          })
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      }
+
+      for (const raw of result.Items ?? []) {
+        results.push(this.mapper.toEntity(raw as unknown as DynamoDBItem));
+      }
+
+      if (!result.LastEvaluatedKey) break;
+      exclusiveStartKey = result.LastEvaluatedKey;
+    }
+
+    return results;
+  }
+
   public async get(key: NoteKey): Promise<NoteEntity | null> {
     const pk = buildUserPK(key.userId);
     const sk = buildNoteSK(key.characterId, key.noteId);

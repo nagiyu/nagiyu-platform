@@ -174,6 +174,9 @@ export {
   buildInterestSK,
   buildInterestSKPrefix,
   buildLifecycleSK,
+  // GSI1: Profile 列挙用 sparse GSI（#3527）
+  PROFILE_GSI_INDEX_NAME,
+  buildProfileGSI1PK,
 } from './mappers/keys.js';
 
 // Repository interfaces

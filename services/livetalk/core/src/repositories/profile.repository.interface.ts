@@ -19,4 +19,10 @@ export interface ProfileRepository {
    * 既存があれば渡された `updates` を適用、無ければ create + updates 反映で新規作成する。
    */
   upsert(input: CreateProfileInput, updates?: UpdateProfileInput): Promise<ProfileEntity>;
+  /**
+   * 全ユーザーの UserID を列挙する。
+   * GSI1（GSI1PK='PROFILE'）を Query して Profile のみを読む（テーブル全体を Scan しない）。
+   * 内部で LastEvaluatedKey をループし全件返す。バッチのユーザー列挙に用いる。
+   */
+  listAllUserIds(): Promise<string[]>;
 }

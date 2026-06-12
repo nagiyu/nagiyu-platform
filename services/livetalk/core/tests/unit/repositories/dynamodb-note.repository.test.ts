@@ -117,6 +117,76 @@ describe('DynamoDBNoteRepository', () => {
     });
   });
 
+  describe('listAll', () => {
+    it('複数ページを結合して全件返す（LastEvaluatedKey の連鎖）', async () => {
+      let callCount = 0;
+      const page1Item = { ...baseItem, NoteID: 'note-001', SK: 'CHAR#hiyori#NOTE#note-001' };
+      const page2Item = {
+        ...baseItem,
+        NoteID: 'note-002',
+        SK: 'CHAR#hiyori#NOTE#note-002',
+        CreatedAt: fixedNow - 1000,
+      };
+      const client = makeClient(async () => {
+        callCount++;
+        if (callCount === 1) {
+          return { Items: [page1Item], LastEvaluatedKey: { PK: 'USER#u1', SK: 'cursor' } };
+        }
+        return { Items: [page2Item] };
+      });
+      const repo = new DynamoDBNoteRepository(client as never, tableName, () => fixedNow);
+
+      const list = await repo.listAll('u1', 'hiyori');
+      expect(list).toHaveLength(2);
+      // 2 ページ分クエリされていること
+      expect(callCount).toBe(2);
+    });
+
+    it('100 件を超えても全件返す（件数制限なし）', async () => {
+      // 1 ページ目に 100 件 + LastEvaluatedKey、2 ページ目に 50 件
+      let callCount = 0;
+      const client = makeClient(async () => {
+        callCount++;
+        if (callCount === 1) {
+          const items = Array.from({ length: 100 }, (_, i) => ({
+            ...baseItem,
+            NoteID: `note-${i}`,
+            SK: `CHAR#hiyori#NOTE#note-${i}`,
+          }));
+          return { Items: items, LastEvaluatedKey: { PK: 'USER#u1', SK: 'cursor' } };
+        }
+        const items = Array.from({ length: 50 }, (_, i) => ({
+          ...baseItem,
+          NoteID: `note-extra-${i}`,
+          SK: `CHAR#hiyori#NOTE#note-extra-${i}`,
+        }));
+        return { Items: items };
+      });
+      const repo = new DynamoDBNoteRepository(client as never, tableName, () => fixedNow);
+
+      const list = await repo.listAll('u1', 'hiyori');
+      // list() と異なり 100 件で打ち切らず全 150 件を返す
+      expect(list).toHaveLength(150);
+      expect(callCount).toBe(2);
+    });
+
+    it('LastEvaluatedKey がなければ 1 ページで終了する', async () => {
+      const client = makeClient(async () => ({ Items: [baseItem] }));
+      const repo = new DynamoDBNoteRepository(client as never, tableName, () => fixedNow);
+
+      const list = await repo.listAll('u1', 'hiyori');
+      expect(list).toHaveLength(1);
+    });
+
+    it('listAll 失敗時は DatabaseError を投げる', async () => {
+      const client = makeClient(async () => {
+        throw new Error('boom');
+      });
+      const repo = new DynamoDBNoteRepository(client as never, tableName, () => fixedNow);
+      await expect(repo.listAll('u1', 'hiyori')).rejects.toBeInstanceOf(DatabaseError);
+    });
+  });
+
   describe('listRecent', () => {
     it('threshold より新しいノートのみ返す', async () => {
       const oldItem = {
