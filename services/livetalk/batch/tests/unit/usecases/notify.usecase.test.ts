@@ -796,7 +796,10 @@ describe('notifyAllUsers', () => {
       const notifEventRepo = makeNotifEventRepo();
       const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
       await notifyAllUsers(
-        makeParams({ notifEventRepo: notifEventRepo as never, knowledgeRepo: knowledgeRepo as never })
+        makeParams({
+          notifEventRepo: notifEventRepo as never,
+          knowledgeRepo: knowledgeRepo as never,
+        })
       );
 
       expect(notifEventRepo.put).toHaveBeenCalledWith(

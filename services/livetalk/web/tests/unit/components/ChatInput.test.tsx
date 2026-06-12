@@ -77,9 +77,7 @@ describe('ChatInput', () => {
     it('prefillText が変化すると入力欄に再反映される', async () => {
       const onSubmit = jest.fn().mockResolvedValue(undefined);
 
-      const { rerender } = render(
-        <ChatInput onSubmit={onSubmit} prefillText="最初のサジェスト" />
-      );
+      const { rerender } = render(<ChatInput onSubmit={onSubmit} prefillText="最初のサジェスト" />);
       const input = screen.getByPlaceholderText('メッセージを入力');
 
       await waitFor(() => expect(input).toHaveValue('最初のサジェスト'));
