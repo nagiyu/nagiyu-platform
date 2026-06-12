@@ -348,6 +348,7 @@ export type { NotifyDecision, NotifyDecisionInput, ToneBucket } from './notifica
 export {
   buildNotificationMessage,
   buildCriticalNotificationMessage,
+  buildSuggestedReply,
   detectCriticalKnowledge,
   selectNotificationsToSend,
 } from './notification/index.js';

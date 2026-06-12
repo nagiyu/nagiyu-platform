@@ -95,6 +95,8 @@ function HomePageInner() {
   const [responseText, setResponseText] = useState<string | null>(null);
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // 通知タップ起動時に入力欄へプリフィルするサジェスト発話
+  const [prefillText, setPrefillText] = useState<string | null>(null);
 
   const [safetyOpen, setSafetyOpen] = useState(false);
   const [safetyResources, setSafetyResources] = useState<SafetyResource[]>([]);
@@ -160,6 +162,7 @@ function HomePageInner() {
             body: string;
             knowledgeId?: string | null;
             characterId: string;
+            suggestedReply?: string | null;
           } | null
         ) => {
           if (!data) return;
@@ -167,6 +170,10 @@ function HomePageInner() {
           firstWordKnowledgeIdRef.current = data.knowledgeId ?? null;
           // 通知元キャラクター ID を保存（クロス汚染防止のためカレントと照合する）
           firstWordCharacterIdRef.current = data.characterId;
+          // 通知タップ起動時（from=push）かつ suggestedReply がある場合は入力欄へプリフィル
+          if (searchParams.get('from') === 'push' && data.suggestedReply) {
+            setPrefillText(data.suggestedReply);
+          }
           // 消化済みマーク
           fetch('/api/push/consumed', {
             method: 'PATCH',
@@ -566,6 +573,7 @@ function HomePageInner() {
           <ChatInput
             onSubmit={handleSubmit}
             disabled={phase !== 'idle' || consentPhase !== 'done'}
+            prefillText={prefillText ?? undefined}
           />
           <Box sx={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: 2 }}>
             <Link href="/memory">私が覚えていること</Link>

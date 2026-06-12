@@ -84,6 +84,20 @@ export function buildNotificationMessage(
 }
 
 /**
+ * 通知タップ起動時に入力欄へプリフィルするユーザー発話を生成する。
+ *
+ * @param knowledgeTopic - 通知の元となったトピック名（省略時は汎用文言を返す）
+ * @returns 入力欄へプリフィルするサジェスト文字列
+ */
+export function buildSuggestedReply(knowledgeTopic?: string): string {
+  if (knowledgeTopic) {
+    const normalizedTopic = normalizeKnowledgeTopic(knowledgeTopic);
+    return `${normalizedTopic}について教えて`;
+  }
+  return '話したいことってなに？';
+}
+
+/**
  * クリティカル通知のメッセージを生成する。
  *
  * @param knowledgeTopic - 通知の元となったトピック名

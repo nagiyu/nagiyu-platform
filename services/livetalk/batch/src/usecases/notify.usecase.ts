@@ -4,6 +4,7 @@ import {
   DEFAULT_CHARACTER_ID,
   buildCriticalNotificationMessage,
   buildNotificationMessage,
+  buildSuggestedReply,
   detectCriticalKnowledge,
   shouldNotifyNow,
   getAllCharacterIds,
@@ -141,6 +142,8 @@ interface NotificationCandidate {
   knowledgeId: string | undefined;
   title: string;
   body: string;
+  /** 通知タップ起動時に入力欄へプリフィルするユーザー発話 */
+  suggestedReply: string;
   /**
    * そのキャラの直近 normal 通知の CreatedAt（未通知は 0）。
    * normal 候補の選抜（公平性ソート）に使用する。
@@ -260,13 +263,13 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
     const candidate = candidateMap.get(characterId);
     if (!candidate) continue;
 
-    const { title, body, knowledgeId, kind } = candidate;
+    const { title, body, knowledgeId, kind, suggestedReply } = candidate;
 
-    // B-2: payload に characterId と URL を含める
+    // B-2: payload に characterId と URL を含める（from=push で通知タップ由来であることをフロントに伝える）
     const payload = {
       title,
       body,
-      data: { url: `/?character=${characterId}`, characterId },
+      data: { url: `/?character=${characterId}&from=push`, characterId },
     };
 
     // 全サブスクリプションに送信（失敗はログのみ、無効は削除）
@@ -296,7 +299,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
 
     if (sentCount === 0) continue;
 
-    // 配信履歴を記録（CharacterID を付与）
+    // 配信履歴を記録（CharacterID・SuggestedReply を付与）
     await notifEventRepo.put({
       UserID: userId,
       NotifID: ulidFactory(),
@@ -305,6 +308,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
       Title: title,
       Body: body,
       KnowledgeID: knowledgeId,
+      SuggestedReply: suggestedReply,
       Ttl: ttl,
     });
 
@@ -405,6 +409,7 @@ async function evaluateCharacter(params: {
   let title: string;
   let body: string;
   let knowledgeId: string | undefined;
+  let suggestedReply: string;
 
   if (decision.kind === 'critical') {
     const knowledge = recentKnowledge.find((k) => k.KnowledgeID === decision.knowledgeId);
@@ -415,6 +420,7 @@ async function evaluateCharacter(params: {
     title = msg.title;
     body = msg.body;
     knowledgeId = decision.knowledgeId;
+    suggestedReply = buildSuggestedReply(knowledge?.Topic);
   } else {
     // 直近で使用済みの KnowledgeID を避けてネタを選ぶ（同じ話題の連発を抑制）
     // このキャラの履歴から使用済み KnowledgeID を収集する
@@ -437,6 +443,7 @@ async function evaluateCharacter(params: {
     title = msg.title;
     body = msg.body;
     knowledgeId = freshKnowledge?.KnowledgeID;
+    suggestedReply = buildSuggestedReply(freshKnowledge?.Topic);
   }
 
   return {
@@ -445,6 +452,7 @@ async function evaluateCharacter(params: {
     knowledgeId,
     title,
     body,
+    suggestedReply,
     lastNormalAt,
   };
 }
