@@ -130,12 +130,7 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (session, reques
 
   let lockResult;
   try {
-    lockResult = await chatGuardRepository.acquireLock(
-      userId,
-      ownerToken,
-      CHAT_LOCK_TTL_MS,
-      nowMs
-    );
+    lockResult = await chatGuardRepository.acquireLock(userId, ownerToken, CHAT_LOCK_TTL_MS, nowMs);
   } catch (lockErr) {
     // DynamoDB 障害: フェイルオープン（ロック無しで続行する）
     console.warn(

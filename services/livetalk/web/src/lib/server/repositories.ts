@@ -7,7 +7,12 @@
  * 各リポジトリはシングルトンとして再利用される。
  */
 
-import { InMemorySingleTableStore, registerDynamoRepositories, getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
+import {
+  InMemorySingleTableStore,
+  registerDynamoRepositories,
+  getDynamoDBDocumentClient,
+  getTableName,
+} from '@nagiyu/aws';
 import type {
   CharacterStateRepository,
   ChatGuardRepository,

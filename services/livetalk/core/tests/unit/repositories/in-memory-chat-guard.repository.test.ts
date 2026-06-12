@@ -46,7 +46,9 @@ describe('computeBucket()', () => {
 
   it('1m: 次の分の開始は新しいバケット', () => {
     const nextMinuteStartMs = (Math.floor(BASE_NOW_MS / 60_000) + 1) * 60_000;
-    expect(computeBucket('1m', nextMinuteStartMs)).toBe(String(Math.floor(BASE_NOW_MS / 60_000) + 1));
+    expect(computeBucket('1m', nextMinuteStartMs)).toBe(
+      String(Math.floor(BASE_NOW_MS / 60_000) + 1)
+    );
   });
 
   it('1h: 時間の境界直前は同じバケット', () => {
@@ -58,7 +60,9 @@ describe('computeBucket()', () => {
 
   it('1h: 次の時間の開始は新しいバケット', () => {
     const nextHourStartMs = (Math.floor(BASE_NOW_MS / 3_600_000) + 1) * 3_600_000;
-    expect(computeBucket('1h', nextHourStartMs)).toBe(String(Math.floor(BASE_NOW_MS / 3_600_000) + 1));
+    expect(computeBucket('1h', nextHourStartMs)).toBe(
+      String(Math.floor(BASE_NOW_MS / 3_600_000) + 1)
+    );
   });
 });
 

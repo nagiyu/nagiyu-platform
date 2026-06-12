@@ -444,12 +444,10 @@ describe('POST /api/chat', () => {
       const guardMock = makeDefaultGuardMock();
       let capturedOwnerToken: string | undefined;
       // acquireLock に渡されたトークンをキャプチャし、返却値もそのトークンにする
-      guardMock.acquireLock.mockImplementation(
-        async (_userId: string, ownerToken: string) => {
-          capturedOwnerToken = ownerToken;
-          return { acquired: true, ownerToken };
-        }
-      );
+      guardMock.acquireLock.mockImplementation(async (_userId: string, ownerToken: string) => {
+        capturedOwnerToken = ownerToken;
+        return { acquired: true, ownerToken };
+      });
       mockGetChatGuardRepository.mockReturnValue(guardMock);
 
       mockRunChatUseCase.mockImplementation(async function* () {

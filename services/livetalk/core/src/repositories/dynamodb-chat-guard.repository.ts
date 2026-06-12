@@ -11,11 +11,7 @@
  * `ExpiresAt < :now` の条件付き UpdateItem で上書き取得できる設計にしている。
  */
 
-import {
-  DeleteCommand,
-  UpdateCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
+import { DeleteCommand, UpdateCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { DatabaseError } from '@nagiyu/aws';
 import { buildUserPK, buildChatLockSK, buildChatRateLimitSK } from '../mappers/keys.js';
 import type {
