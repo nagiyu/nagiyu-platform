@@ -307,3 +307,28 @@ export const NOTIFY_CRITICAL_INTEREST_SHARE_THRESHOLD = 0.15;
  * isUrgent=true とみなす。14 日を超える将来イベントや過去日は時限性なしとして除外する。
  */
 export const NOTIFY_CRITICAL_EVENT_HORIZON_DAYS = 14;
+
+// ---- チャット API 保護ガード（Issue #3528）----
+
+/**
+ * レートリミット: 1 分ウィンドウの上限リクエスト数。
+ */
+export const CHAT_RATE_LIMIT_PER_MINUTE = 10;
+
+/**
+ * レートリミット: 1 時間ウィンドウの上限リクエスト数。
+ */
+export const CHAT_RATE_LIMIT_PER_HOUR = 100;
+
+/**
+ * in-flight ロックのデフォルト有効期間（ミリ秒）。
+ * ストリームタイムアウトと同値に設定する。
+ */
+export const CHAT_LOCK_TTL_MS = 120_000;
+
+/**
+ * ストリームのサーバ側タイムアウト（ミリ秒）。
+ * ECS セルフホストでは Next.js の maxDuration が効かないため、
+ * ストリーム消費ループ全体にデッドラインを設ける。
+ */
+export const CHAT_STREAM_TIMEOUT_MS = 120_000;

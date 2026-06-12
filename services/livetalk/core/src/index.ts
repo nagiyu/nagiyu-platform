@@ -375,4 +375,23 @@ export {
   NOTIFY_CRITICAL_INTEREST_SHARE_THRESHOLD,
   NOTIFY_CRITICAL_EVENT_HORIZON_DAYS,
   NOTIFY_INTENSITY_WINDOW_DAYS,
+  // チャット API 保護ガード（Issue #3528）
+  CHAT_RATE_LIMIT_PER_MINUTE,
+  CHAT_RATE_LIMIT_PER_HOUR,
+  CHAT_LOCK_TTL_MS,
+  CHAT_STREAM_TIMEOUT_MS,
 } from './constants.js';
+
+// チャット API 保護ガード（Issue #3528）
+export type {
+  RateLimitWindow,
+  RateLimitResult,
+  AcquireLockResult,
+  ChatGuardRepository,
+} from './repositories/chat-guard.repository.interface.js';
+export { InMemoryChatGuardRepository } from './repositories/in-memory-chat-guard.repository.js';
+export {
+  DynamoDBChatGuardRepository,
+  computeBucket,
+  computeWindowTtlSec,
+} from './repositories/dynamodb-chat-guard.repository.js';
