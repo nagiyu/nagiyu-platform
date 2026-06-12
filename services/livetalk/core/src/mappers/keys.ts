@@ -146,3 +146,21 @@ export function buildNotifSKPrefix(): string {
 export function buildNotifSK(notifId: string): string {
   return `NOTIF#${notifId}`;
 }
+
+// ---- チャット API 保護ガード（Issue #3528）----
+
+/**
+ * チャットロックアイテムの SK。固定値。
+ * `USER#<userId>` PK 配下の `CHATLOCK` SK に対応する。
+ */
+export function buildChatLockSK(): string {
+  return 'CHATLOCK';
+}
+
+/**
+ * チャットレートリミットアイテムの SK を組み立てる。
+ * `USER#<userId>` PK 配下の `RATELIMIT#<window>#<bucket>` SK に対応する。
+ */
+export function buildChatRateLimitSK(window: string, bucket: string): string {
+  return `RATELIMIT#${window}#${bucket}`;
+}

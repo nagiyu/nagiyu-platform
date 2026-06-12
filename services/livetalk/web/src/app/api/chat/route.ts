@@ -1,12 +1,20 @@
 import { NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
-import { DEFAULT_CHARACTER_ID, runChatUseCase } from '@nagiyu/livetalk-core';
+import {
+  CHAT_LOCK_TTL_MS,
+  CHAT_RATE_LIMIT_PER_HOUR,
+  CHAT_RATE_LIMIT_PER_MINUTE,
+  DEFAULT_CHARACTER_ID,
+  defaultUlidFactory,
+  runChatUseCase,
+} from '@nagiyu/livetalk-core';
 import { getCharacterDefinition, hasCharacter } from '@/lib/characters/registry';
 import { getSession } from '@/lib/server/session';
 import { getLLMClient } from '@/lib/server/llm';
 import { getVoiceClient } from '@/lib/server/voice';
 import {
   getCharacterStateRepository,
+  getChatGuardRepository,
   getKnowledgeRepository,
   getLifecycleRepository,
   getMemoryRepository,
@@ -44,6 +52,17 @@ function isChatRequest(body: unknown): body is ChatRequest {
  * POST /api/chat
  *
  * ユーザー発話を受け取り、LLM 応答を NDJSON ストリームで返す（Phase 2c / Issue #3249）。
+ *
+ * ガード適用順（Issue #3528）:
+ * 1. バリデーション（既存）
+ * 2. in-flight ロック取得（取得失敗時は HTTP 429、DB 障害時はフェイルオープンで通す）
+ * 3. レートリミットチェック（超過時は HTTP 429、DB 障害時はフェイルオープンで通す）
+ * 4. ストリーム開始
+ * 5. finally でロック解放（取得できた場合のみ）
+ *
+ * サーバ側タイムアウトは上流クライアントのタイムアウトに委譲する設計
+ * （route 層に決定論的な上限は持たない）。
+ * 上流タイムアウトによるエラーも catch で INTERNAL_ERROR として emit される。
  *
  * レスポンス形式（1 行 1 JSON）:
  *   {"type":"text","delta":"こん"}
@@ -100,6 +119,88 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (session, reques
   }
 
   const userId = session.user.googleId;
+  const chatGuardRepository = getChatGuardRepository();
+  const nowMs = Date.now();
+
+  // ---- ガード 1: in-flight ロック取得 ----
+  // 同一ユーザーの並行リクエストを 1 本に制限する。
+  // DynamoDB 障害時はフェイルオープン（ロック無しで続行）し、警告ログを残す。
+  const ownerToken = defaultUlidFactory(nowMs);
+  let lockAcquired = false;
+
+  let lockResult;
+  try {
+    lockResult = await chatGuardRepository.acquireLock(userId, ownerToken, CHAT_LOCK_TTL_MS, nowMs);
+  } catch (lockErr) {
+    // DynamoDB 障害: フェイルオープン（ロック無しで続行する）
+    console.warn(
+      '[POST /api/chat] ロック取得に失敗したためバイパスしました。障害時フェイルオープン。',
+      lockErr
+    );
+    lockResult = null;
+  }
+
+  if (lockResult !== null) {
+    if (!lockResult.acquired) {
+      return NextResponse.json(
+        { error: 'CONCURRENT_REQUEST', message: CHAT_ERROR_MESSAGES.CONCURRENT_REQUEST },
+        { status: 429 }
+      );
+    }
+    lockAcquired = true;
+  }
+
+  // ---- ガード 2: レートリミット ----
+  // 1 分・1 時間の 2 ウィンドウをアトミックにインクリメントし、いずれか超過で 429 を返す。
+  // ロック取得後にチェックすることで、並行リクエスト（ロック競合で 429 拒否）が
+  // レートカウンタを消費しないようにする。
+  // DynamoDB 障害時はフェイルオープン（レート超過扱いにせず通す）し、警告ログを残す。
+  let limitPerMinResult;
+  let limitPerHourResult;
+  try {
+    [limitPerMinResult, limitPerHourResult] = await Promise.all([
+      chatGuardRepository.incrementRateLimit(userId, '1m', nowMs),
+      chatGuardRepository.incrementRateLimit(userId, '1h', nowMs),
+    ]);
+  } catch (rateErr) {
+    // DynamoDB 障害: フェイルオープン（レートリミットをバイパスして通す）
+    console.warn(
+      '[POST /api/chat] レートリミットのチェックに失敗したためバイパスしました。障害時フェイルオープン。',
+      rateErr
+    );
+    limitPerMinResult = null;
+    limitPerHourResult = null;
+  }
+
+  if (
+    limitPerMinResult !== null &&
+    limitPerHourResult !== null &&
+    (limitPerMinResult.count > CHAT_RATE_LIMIT_PER_MINUTE ||
+      limitPerHourResult.count > CHAT_RATE_LIMIT_PER_HOUR)
+  ) {
+    // レート超過時はロックを解放してから 429 を返す
+    if (lockAcquired) {
+      try {
+        await chatGuardRepository.releaseLock(userId, ownerToken);
+      } catch (releaseErr) {
+        console.warn('[POST /api/chat] レート超過時のロック解放に失敗しました。', releaseErr);
+      }
+    }
+    return NextResponse.json(
+      { error: 'RATE_LIMIT_EXCEEDED', message: CHAT_ERROR_MESSAGES.RATE_LIMIT_EXCEEDED },
+      {
+        status: 429,
+        headers: {
+          // 1 分窓が超過している場合は次の分までの秒数、それ以外は次の時間までの秒数
+          'Retry-After':
+            limitPerMinResult.count > CHAT_RATE_LIMIT_PER_MINUTE
+              ? String(60 - Math.floor((nowMs % 60_000) / 1000))
+              : String(3600 - Math.floor((nowMs % 3_600_000) / 1000)),
+        },
+      }
+    );
+  }
+
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -138,6 +239,15 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (session, reques
         console.error('[POST /api/chat] ストリーミング中にエラーが発生しました', err);
         write({ type: 'error', message: CHAT_ERROR_MESSAGES.INTERNAL_ERROR });
       } finally {
+        // lockAcquired が true のときだけ解放する（DB 障害でバイパスした場合は呼ばない）
+        if (lockAcquired) {
+          try {
+            await chatGuardRepository.releaseLock(userId, ownerToken);
+          } catch (releaseErr) {
+            // ロック解放失敗は警告のみ（フェイルオープン方針に合わせて握りつぶす）
+            console.warn('[POST /api/chat] ロック解放に失敗しました。', releaseErr);
+          }
+        }
         controller.close();
       }
     },
