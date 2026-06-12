@@ -44,6 +44,12 @@ export interface CloudFrontConfig {
   priceClass?: string;
 
   /**
+   * 検索エンジンにインデックスさせない環境（dev 等）で X-Robots-Tag: noindex, nofollow を付与する
+   * @default false
+   */
+  noindex?: boolean;
+
+  /**
    * カスタム動作の追加設定
    */
   additionalBehaviors?: Record<string, unknown>;

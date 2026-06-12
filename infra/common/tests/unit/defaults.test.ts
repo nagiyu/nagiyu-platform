@@ -31,6 +31,10 @@ describe('defaults', () => {
       expect(DEFAULT_CLOUDFRONT_CONFIG.enableHttp3).toBe(true);
       expect(DEFAULT_CLOUDFRONT_CONFIG.priceClass).toBe('PriceClass_100');
     });
+
+    it('noindex のデフォルト値が false である', () => {
+      expect(DEFAULT_CLOUDFRONT_CONFIG.noindex).toBe(false);
+    });
   });
 
   describe('mergeConfig', () => {
