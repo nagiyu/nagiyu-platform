@@ -1,5 +1,6 @@
 import { runChatUseCase, type ChatEvent } from '../../../src/usecases/chat-usecase.js';
 import { hiyori } from '../../../src/characters/hiyori.js';
+import { MODERATION_REPLACEMENT_MESSAGES } from '../../../src/safety/templates.js';
 import type { ILLMClient } from '../../../src/llm-client/types.js';
 import type { IVoiceClient } from '../../../src/voice/types.js';
 import type { MemoryRepository } from '../../../src/repositories/memory.repository.interface.js';
@@ -1073,7 +1074,7 @@ describe('runChatUseCase', () => {
       // 元返答ではなく置換文が保存されていること
       expect(savedText).not.toBe(originalText.trim());
       // 置換文は MODERATION_REPLACEMENT_MESSAGES のいずれかに一致すること
-      expect(savedText.length).toBeGreaterThan(0);
+      expect(MODERATION_REPLACEMENT_MESSAGES).toContain(savedText);
     });
 
     it('フラグなし（回帰）: 元返答の sentence イベントが emit され、assistant message に元返答が保存される', async () => {
