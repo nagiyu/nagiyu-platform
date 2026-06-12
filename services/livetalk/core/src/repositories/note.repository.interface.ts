@@ -4,6 +4,8 @@ export interface NoteRepository {
   put(input: CreateNoteInput): Promise<NoteEntity>;
   /** キャラ単位のノートを CreatedAt 降順で返す。 */
   list(userId: string, characterId: string, limit?: number): Promise<NoteEntity[]>;
+  /** キャラ単位の全ノートを CreatedAt 降順で返す（固定件数で打ち切らない）。 */
+  listAll(userId: string, characterId: string): Promise<NoteEntity[]>;
   /** 単一ノートを返す。なければ null。 */
   get(key: NoteKey): Promise<NoteEntity | null>;
   /**

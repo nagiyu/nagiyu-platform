@@ -97,4 +97,41 @@ describe('InMemoryNoteRepository', () => {
   it('list は未登録ユーザーに対して空配列を返す', async () => {
     expect(await repo.list('unknown', 'hiyori')).toHaveLength(0);
   });
+
+  describe('listAll', () => {
+    it('全件を CreatedAt 降順で返す（limit による打ち切りなし）', async () => {
+      // 150 件登録
+      for (let i = 0; i < 150; i++) {
+        await repo.put(makeInput({ NoteID: `note-${i}` }));
+        now += 100;
+      }
+      const all = await repo.listAll('u1', 'hiyori');
+      // list(100) とは異なり全 150 件返す
+      expect(all).toHaveLength(150);
+    });
+
+    it('CreatedAt 降順で返す', async () => {
+      await repo.put(makeInput({ NoteID: 'note-old' }));
+      now += 1000;
+      await repo.put(makeInput({ NoteID: 'note-new' }));
+
+      const all = await repo.listAll('u1', 'hiyori');
+      expect(all).toHaveLength(2);
+      expect(all[0].NoteID).toBe('note-new');
+      expect(all[1].NoteID).toBe('note-old');
+    });
+
+    it('別ユーザーのノートは含まない', async () => {
+      await repo.put(makeInput({ UserID: 'u1', NoteID: 'note-u1' }));
+      await repo.put(makeInput({ UserID: 'u2', NoteID: 'note-u2' }));
+
+      const all = await repo.listAll('u1', 'hiyori');
+      expect(all).toHaveLength(1);
+      expect(all[0].NoteID).toBe('note-u1');
+    });
+
+    it('ノートが 0 件の場合は空配列を返す', async () => {
+      expect(await repo.listAll('u1', 'hiyori')).toHaveLength(0);
+    });
+  });
 });

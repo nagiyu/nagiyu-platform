@@ -30,7 +30,7 @@ export const GET = withAuth(getSession, 'livetalk:chat', async (session, request
   const repo = getNoteRepository();
 
   try {
-    const items = await repo.list(userId, characterId);
+    const items = await repo.listAll(userId, characterId);
     const notes = sortNotes(items.map(toNoteListItem));
     return NextResponse.json({ notes });
   } catch (error) {
