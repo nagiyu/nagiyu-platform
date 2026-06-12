@@ -201,8 +201,8 @@ export default function AboutPage() {
           プライバシーとセキュリティ
         </Typography>
         <Typography variant="body1" sx={{ mb: 2 }}>
-          ユーザーのプライバシーを最優先に考えています。 Google Analytics
-          による匿名のアクセス統計と、Google AdSense による広告配信のみ行っています。
+          ユーザーのプライバシーを最優先に考えています。外部サービスの利用は Google AdSense
+          による広告配信のみです。
         </Typography>
         <Typography variant="body2" color="text.secondary">
           詳細は <Link href="/privacy">プライバシーポリシー</Link> をご確認ください。
