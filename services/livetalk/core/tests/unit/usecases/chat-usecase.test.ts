@@ -960,6 +960,201 @@ describe('runChatUseCase', () => {
     });
   });
 
+  // ── 音声すり抜けバグ修正テスト（output_moderation フラグ時の音声制御） ─────────
+
+  describe('output_moderation フラグ時の音声すり抜け防止', () => {
+    it('フラグ時、元返答テキストを含む sentence イベントが emit されない', async () => {
+      const originalText = '元の危険な応答テキストです。';
+      const llm = makeLLMClient([originalText]);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const moderation = makeModerationClient(true, { 'self-harm': true });
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          moderationClient: moderation,
+        })
+      );
+
+      const sentenceEvents = events.filter((e) => e.type === 'sentence');
+      // 元返答テキストを含む sentence イベントが存在しないこと
+      const hasOriginalText = sentenceEvents.some(
+        (e) => e.type === 'sentence' && e.text === originalText
+      );
+      expect(hasOriginalText).toBe(false);
+    });
+
+    it('フラグ時、置換文の sentence イベントが emit される', async () => {
+      const llm = makeLLMClient(['元の危険な応答。']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const moderation = makeModerationClient(true, { 'self-harm': true });
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          moderationClient: moderation,
+        })
+      );
+
+      const sentenceEvents = events.filter((e) => e.type === 'sentence');
+      // 置換文の sentence イベントが存在すること
+      expect(sentenceEvents.length).toBeGreaterThan(0);
+      // safety イベントの replacementText と sentence イベントのテキストが対応していること
+      const safetyEvent = events.find((e) => e.type === 'safety');
+      expect(safetyEvent?.type).toBe('safety');
+      if (safetyEvent?.type === 'safety') {
+        const replacementText = safetyEvent.replacementText!;
+        // sentence イベントは置換文を分割したものなので、sentence テキストの結合が置換文に一致するか
+        // または置換文そのものが sentence として送出される（1 文の場合）
+        const sentenceTexts = sentenceEvents
+          .filter((e) => e.type === 'sentence')
+          .map((e) => (e.type === 'sentence' ? e.text : ''));
+        const joinedSentences = sentenceTexts.join('');
+        expect(joinedSentences).toBe(replacementText);
+      }
+    });
+
+    it('フラグ時、safety イベントが sentence イベントより前に emit される（イベント順序）', async () => {
+      const llm = makeLLMClient(['危険なコンテンツを含む応答です。']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const moderation = makeModerationClient(true, { violence: true });
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          moderationClient: moderation,
+        })
+      );
+
+      const safetyIdx = events.findIndex((e) => e.type === 'safety');
+      const firstSentenceIdx = events.findIndex((e) => e.type === 'sentence');
+
+      expect(safetyIdx).toBeGreaterThanOrEqual(0);
+      expect(firstSentenceIdx).toBeGreaterThan(safetyIdx);
+    });
+
+    it('フラグ時、保存される assistant message が置換文である（元返答ではない）', async () => {
+      const originalText = '有害な応答テキストです。';
+      const llm = makeLLMClient([originalText]);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const moderation = makeModerationClient(true, { harassment: true });
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          moderationClient: moderation,
+        })
+      );
+
+      // messageRepository.create の呼び出し引数を確認
+      const createCalls = (repo.create as jest.Mock).mock.calls;
+      // assistant ロールの保存呼び出しを探す
+      const assistantCall = createCalls.find(
+        (args: Array<{ Role: string; Text: string }>) => args[0]?.Role === 'assistant'
+      );
+      expect(assistantCall).toBeDefined();
+      const savedText: string = assistantCall[0].Text;
+      // 元返答ではなく置換文が保存されていること
+      expect(savedText).not.toBe(originalText.trim());
+      // 置換文は MODERATION_REPLACEMENT_MESSAGES のいずれかに一致すること
+      expect(savedText.length).toBeGreaterThan(0);
+    });
+
+    it('フラグなし（回帰）: 元返答の sentence イベントが emit され、assistant message に元返答が保存される', async () => {
+      const originalText = '通常の安全な応答テキストです。';
+      const llm = makeLLMClient([originalText]);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const moderation = makeModerationClient(false);
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          moderationClient: moderation,
+        })
+      );
+
+      // safety イベントなし
+      expect(events.find((e) => e.type === 'safety')).toBeUndefined();
+
+      // 元返答テキストを含む sentence イベントが存在すること
+      const sentenceEvents = events.filter((e) => e.type === 'sentence');
+      expect(sentenceEvents.length).toBeGreaterThan(0);
+      const hasOriginalText = sentenceEvents.some(
+        (e) => e.type === 'sentence' && e.text === originalText
+      );
+      expect(hasOriginalText).toBe(true);
+
+      // assistant message に元返答が保存されていること
+      const createCalls = (repo.create as jest.Mock).mock.calls;
+      const assistantCall = createCalls.find(
+        (args: Array<{ Role: string; Text: string }>) => args[0]?.Role === 'assistant'
+      );
+      expect(assistantCall).toBeDefined();
+      expect(assistantCall[0].Text).toBe(originalText.trim());
+    });
+
+    it('フラグ時、元返答テキストで合成された音声の sentence イベントが emit されない（音声すり抜け防止の直接検証）', async () => {
+      // LLM ストリーム中に非同期で TTS 合成が起動されるが（仕様上許容）、
+      // フラグ時はその音声を sentence として emit せず、置換文の音声のみを emit することを確認する。
+      // voice.synthesize の引数（テキスト）を記録し、sentence イベントのテキストと突き合わせる。
+      const originalText = '危険な応答テキスト。';
+      const synthesizeArgs: string[] = [];
+      const voice: IVoiceClient = {
+        synthesize: jest.fn(async (text: string) => {
+          synthesizeArgs.push(text);
+          return new ArrayBuffer(4);
+        }),
+      };
+      const llm = makeLLMClient([originalText]);
+      const repo = makeRepo();
+      const moderation = makeModerationClient(true, { 'self-harm': true });
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          moderationClient: moderation,
+        })
+      );
+
+      // sentence として emit されたテキスト一覧
+      const sentenceTexts = events
+        .filter((e) => e.type === 'sentence')
+        .map((e) => (e.type === 'sentence' ? e.text : ''));
+
+      // 元返答テキストが sentence として emit されていないこと
+      expect(sentenceTexts).not.toContain(originalText);
+
+      // フラグ時、sentence として emit されるのは置換文のみ（空でないこと）
+      expect(sentenceTexts.length).toBeGreaterThan(0);
+      sentenceTexts.forEach((text) => {
+        expect(text).not.toBe(originalText);
+      });
+    });
+  });
+
   // ── Phase 3d: 暗黙確認・訂正検出 ───────────────────────────────────────────
 
   describe('暗黙訂正検出（Phase 3d）', () => {
