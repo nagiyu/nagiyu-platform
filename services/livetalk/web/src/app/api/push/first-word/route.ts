@@ -7,6 +7,7 @@
  *     未指定時: キャラクター概念がないため 204 を返す（呼び出し側は必ず characterId を付与する設計）。
  *
  * レスポンスに characterId を含めることで、page 側でクロス汚染ガードを行える。
+ * suggestedReply は通知タップ起動時に入力欄へプリフィルするユーザー発話。null の場合はプリフィルしない。
  */
 import { NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
@@ -40,6 +41,7 @@ export const GET = withAuth(getSession, 'livetalk:chat', async (session, request
       body: unconsumed.Body,
       knowledgeId: unconsumed.KnowledgeID ?? null,
       characterId: unconsumed.CharacterID,
+      suggestedReply: unconsumed.SuggestedReply ?? null,
     },
     { status: 200 }
   );

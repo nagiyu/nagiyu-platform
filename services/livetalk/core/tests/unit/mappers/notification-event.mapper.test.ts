@@ -98,4 +98,38 @@ describe('NotificationEventMapper', () => {
       expect(item.ConsumedAt).toBeUndefined();
     });
   });
+
+  describe('SuggestedReply のラウンドトリップ', () => {
+    it('SuggestedReply あり → toItem / toEntity のラウンドトリップが成立する', () => {
+      const entityWithSuggestedReply = {
+        ...fullEntity,
+        SuggestedReply: 'TypeScriptについて教えて',
+      };
+      const item = mapper.toItem(entityWithSuggestedReply);
+      const restored = mapper.toEntity(item);
+      expect(restored.SuggestedReply).toBe('TypeScriptについて教えて');
+      expect(item.SuggestedReply).toBe('TypeScriptについて教えて');
+    });
+
+    it('SuggestedReply なし（undefined）→ item に含まれない', () => {
+      const item = mapper.toItem(fullEntity);
+      expect(item.SuggestedReply).toBeUndefined();
+    });
+
+    it('SuggestedReply なし → toEntity でも undefined になる', () => {
+      const item = mapper.toItem(fullEntity);
+      const restored = mapper.toEntity(item);
+      expect(restored.SuggestedReply).toBeUndefined();
+    });
+
+    it('汎用サジェスト文（topic なし）でもラウンドトリップが成立する', () => {
+      const entityWithGenericReply = {
+        ...fullEntity,
+        SuggestedReply: '話したいことってなに？',
+      };
+      const item = mapper.toItem(entityWithGenericReply);
+      const restored = mapper.toEntity(item);
+      expect(restored.SuggestedReply).toBe('話したいことってなに？');
+    });
+  });
 });

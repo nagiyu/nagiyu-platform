@@ -26,6 +26,9 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   DEFAULT_CHARACTER_ID: 'hiyori',
   buildNotificationMessage: jest.fn(() => ({ title: 'テスト', body: '本文' })),
   buildCriticalNotificationMessage: jest.fn(() => ({ title: 'テスト（重要）', body: '重要本文' })),
+  buildSuggestedReply: jest.fn((topic?: string) =>
+    topic ? `${topic}について教えて` : '話したいことってなに？'
+  ),
   detectCriticalKnowledge: jest.fn(),
   shouldNotifyNow: jest.fn(),
   getAllCharacterIds: jest.fn(() => ['hiyori']),
@@ -538,7 +541,7 @@ describe('notifyAllUsers', () => {
       const payloadArg = mockSendWebPush.mock.calls[0][1];
       expect(payloadArg.data).toMatchObject({
         characterId: 'hiyori',
-        url: '/?character=hiyori',
+        url: '/?character=hiyori&from=push',
       });
     });
 
@@ -754,6 +757,112 @@ describe('notifyAllUsers', () => {
     const result = await notifyAllUsers(makeParams({ profileRepo: profileRepo as never }));
 
     expect(result.skippedUsers + result.failedUsers + result.notifiedUsers).toBe(2);
+  });
+
+  describe('SuggestedReply の生成と保存', () => {
+    it('normal 通知で SuggestedReply が notifEvent に保存される（topic あり）', async () => {
+      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockShouldNotifyNow.mockReturnValue({
+        notify: true,
+        kind: 'normal',
+        toneBucket: 'normal',
+        elapsedMs: DAY,
+      });
+      mockSendWebPush.mockResolvedValue(true);
+
+      const notifEventRepo = makeNotifEventRepo();
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      await notifyAllUsers(makeParams({ notifEventRepo: notifEventRepo as never }));
+
+      // knowledge の Topic は 'TypeScript'（makeKnowledgeRepo のデフォルト）
+      expect(notifEventRepo.put).toHaveBeenCalledWith(
+        expect.objectContaining({ SuggestedReply: 'TypeScriptについて教えて' })
+      );
+    });
+
+    it('knowledge がない normal 通知で汎用 SuggestedReply が保存される', async () => {
+      const knowledgeRepo = {
+        list: jest.fn().mockResolvedValue([]),
+      };
+      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockShouldNotifyNow.mockReturnValue({
+        notify: true,
+        kind: 'normal',
+        toneBucket: 'normal',
+        elapsedMs: DAY,
+      });
+      mockSendWebPush.mockResolvedValue(true);
+
+      const notifEventRepo = makeNotifEventRepo();
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      await notifyAllUsers(
+        makeParams({
+          notifEventRepo: notifEventRepo as never,
+          knowledgeRepo: knowledgeRepo as never,
+        })
+      );
+
+      expect(notifEventRepo.put).toHaveBeenCalledWith(
+        expect.objectContaining({ SuggestedReply: '話したいことってなに？' })
+      );
+    });
+
+    it('critical 通知で SuggestedReply が notifEvent に保存される', async () => {
+      mockDetectCritical.mockResolvedValue({ isCritical: true, knowledgeId: 'k1' });
+      mockShouldNotifyNow.mockReturnValue({ notify: true, kind: 'critical', knowledgeId: 'k1' });
+      mockSelectNotificationsToSend.mockReturnValue({
+        criticalCharacterIds: ['hiyori'],
+        normalCharacterId: null,
+      });
+      mockSendWebPush.mockResolvedValue(true);
+
+      const notifEventRepo = makeNotifEventRepo();
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      await notifyAllUsers(makeParams({ notifEventRepo: notifEventRepo as never }));
+
+      expect(notifEventRepo.put).toHaveBeenCalledWith(
+        expect.objectContaining({ SuggestedReply: 'TypeScriptについて教えて' })
+      );
+    });
+  });
+
+  describe('push payload の URL に from=push が含まれる', () => {
+    it('normal 通知の payload URL に &from=push が含まれる', async () => {
+      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockShouldNotifyNow.mockReturnValue({
+        notify: true,
+        kind: 'normal',
+        toneBucket: 'normal',
+        elapsedMs: DAY,
+      });
+      mockSelectNotificationsToSend.mockReturnValue({
+        criticalCharacterIds: [],
+        normalCharacterId: 'hiyori',
+      });
+      mockSendWebPush.mockResolvedValue(true);
+
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      await notifyAllUsers(makeParams());
+
+      const payloadArg = mockSendWebPush.mock.calls[0][1];
+      expect(payloadArg.data.url).toBe('/?character=hiyori&from=push');
+    });
+
+    it('critical 通知の payload URL にも &from=push が含まれる', async () => {
+      mockDetectCritical.mockResolvedValue({ isCritical: true, knowledgeId: 'k1' });
+      mockShouldNotifyNow.mockReturnValue({ notify: true, kind: 'critical', knowledgeId: 'k1' });
+      mockSelectNotificationsToSend.mockReturnValue({
+        criticalCharacterIds: ['hiyori'],
+        normalCharacterId: null,
+      });
+      mockSendWebPush.mockResolvedValue(true);
+
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      await notifyAllUsers(makeParams());
+
+      const payloadArg = mockSendWebPush.mock.calls[0][1];
+      expect(payloadArg.data.url).toBe('/?character=hiyori&from=push');
+    });
   });
 
   describe('Phase 2 チューニング: 強度サンプリング時刻範囲ベース切り替え', () => {

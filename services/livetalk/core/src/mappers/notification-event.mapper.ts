@@ -38,6 +38,7 @@ export class NotificationEventMapper implements EntityMapper<
       Ttl: entity.Ttl,
     };
     if (entity.KnowledgeID !== undefined) item.KnowledgeID = entity.KnowledgeID;
+    if (entity.SuggestedReply !== undefined) item.SuggestedReply = entity.SuggestedReply;
     if (entity.ConsumedAt !== undefined) item.ConsumedAt = entity.ConsumedAt;
     return item;
   }
@@ -61,6 +62,9 @@ export class NotificationEventMapper implements EntityMapper<
     };
     if (item.KnowledgeID !== undefined) {
       entity.KnowledgeID = validateStringField(item.KnowledgeID, 'KnowledgeID');
+    }
+    if (item.SuggestedReply !== undefined) {
+      entity.SuggestedReply = validateStringField(item.SuggestedReply, 'SuggestedReply');
     }
     if (item.ConsumedAt !== undefined) {
       entity.ConsumedAt = validateNumberField(item.ConsumedAt, 'ConsumedAt');

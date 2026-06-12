@@ -206,4 +206,48 @@ describe('GET /api/push/first-word', () => {
     expect(json.notifId).toBe('n-ageha');
     expect(json.characterId).toBe('ageha');
   });
+
+  describe('suggestedReply フィールド', () => {
+    it('SuggestedReply がある通知は suggestedReply を返す', async () => {
+      mockGetSession.mockResolvedValue(validSession);
+      const event = makeEvent({
+        CharacterID: 'hiyori',
+        SuggestedReply: 'TypeScriptについて教えて',
+      });
+      mockGetNotificationEventRepo.mockReturnValue(makeRepo([event]));
+
+      const res = await GET(buildGetRequest('hiyori'));
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.suggestedReply).toBe('TypeScriptについて教えて');
+    });
+
+    it('SuggestedReply がない通知は suggestedReply が null を返す', async () => {
+      mockGetSession.mockResolvedValue(validSession);
+      const event = makeEvent({
+        CharacterID: 'hiyori',
+        // SuggestedReply は意図的に省略
+      });
+      mockGetNotificationEventRepo.mockReturnValue(makeRepo([event]));
+
+      const res = await GET(buildGetRequest('hiyori'));
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.suggestedReply).toBeNull();
+    });
+
+    it('汎用 suggestedReply（topic なし）でも正しく返す', async () => {
+      mockGetSession.mockResolvedValue(validSession);
+      const event = makeEvent({
+        CharacterID: 'hiyori',
+        SuggestedReply: '話したいことってなに？',
+      });
+      mockGetNotificationEventRepo.mockReturnValue(makeRepo([event]));
+
+      const res = await GET(buildGetRequest('hiyori'));
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.suggestedReply).toBe('話したいことってなに？');
+    });
+  });
 });

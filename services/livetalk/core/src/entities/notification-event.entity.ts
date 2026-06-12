@@ -29,6 +29,12 @@ export interface NotificationEventEntity {
   /** クリティカル通知の場合、元となった KnowledgeID */
   KnowledgeID?: string;
   /**
+   * 通知タップ起動時に入力欄へプリフィルするユーザー発話。
+   * バッチで生成し、first-word API 経由でフロントへ渡す。
+   * 例: 「TypeScriptについて教えて」
+   */
+  SuggestedReply?: string;
+  /**
    * 第一声消化日時（Unix ms）。
    * 起動時にキャラ第一声として表示したら更新する（重複防止）。
    */
