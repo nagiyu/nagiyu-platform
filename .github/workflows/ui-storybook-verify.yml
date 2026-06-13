@@ -30,7 +30,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Format Check
-        run: npx prettier --check "infra/ui-storybook/**/*.{ts,js,json}"
+        run: npm run format:check --workspace=@nagiyu/infra-ui-storybook
 
       - name: Test
         run: npm run test --workspace=@nagiyu/infra-ui-storybook

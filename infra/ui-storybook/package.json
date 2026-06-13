@@ -7,6 +7,8 @@
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "cdk": "npx cdk",
     "bootstrap": "npx cdk bootstrap",
     "synth": "npx cdk synth",
