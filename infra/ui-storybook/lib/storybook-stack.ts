@@ -64,6 +64,25 @@ export class StorybookStack extends cdk.Stack {
     );
     const certificate = acm.Certificate.fromCertificateArn(this, 'Certificate', certificateArn);
 
+    // 検索エンジンにインデックスさせない（Portal 以外は常に noindex）
+    const noindexHeadersPolicy = new cloudfront.ResponseHeadersPolicy(
+      this,
+      'NoindexHeadersPolicy',
+      {
+        responseHeadersPolicyName: `nagiyu-ui-storybook-noindex-${environment}`,
+        comment: `X-Robots-Tag: noindex, nofollow for ui-storybook (${environment})`,
+        customHeadersBehavior: {
+          customHeaders: [
+            {
+              header: 'X-Robots-Tag',
+              value: 'noindex, nofollow',
+              override: true,
+            },
+          ],
+        },
+      }
+    );
+
     // CloudFront ディストリビューション
     // - S3 オリジン (Origin Access Control 自動構成)
     // - 静的サイト用キャッシュ最適化
@@ -75,6 +94,7 @@ export class StorybookStack extends cdk.Stack {
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
         cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        responseHeadersPolicy: noindexHeadersPolicy,
         compress: true,
       },
       defaultRootObject: 'index.html',

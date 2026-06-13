@@ -90,6 +90,25 @@ export class LiveTalkCloudFrontStack extends cdk.Stack {
       ),
     });
 
+    // 検索エンジンにインデックスさせない（Portal 以外は常に noindex）
+    const noindexHeadersPolicy = new cloudfront.ResponseHeadersPolicy(
+      this,
+      'NoindexHeadersPolicy',
+      {
+        responseHeadersPolicyName: `nagiyu-livetalk-noindex-${environment}`,
+        comment: `X-Robots-Tag: noindex, nofollow for livetalk (${environment})`,
+        customHeadersBehavior: {
+          customHeaders: [
+            {
+              header: 'X-Robots-Tag',
+              value: 'noindex, nofollow',
+              override: true,
+            },
+          ],
+        },
+      }
+    );
+
     this.distribution = new cloudfront.Distribution(this, 'Distribution', {
       comment: `LiveTalk Service Distribution (${environment})`,
       domainNames: [customDomain],
@@ -112,6 +131,7 @@ export class LiveTalkCloudFrontStack extends cdk.Stack {
         cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
         originRequestPolicy:
           cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+        responseHeadersPolicy: noindexHeadersPolicy,
         compress: true,
       },
       additionalBehaviors: {
@@ -121,6 +141,7 @@ export class LiveTalkCloudFrontStack extends cdk.Stack {
           allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
           cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
           cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+          responseHeadersPolicy: noindexHeadersPolicy,
           compress: true,
           functionAssociations: [
             {

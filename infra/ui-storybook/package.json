@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
+    "test": "jest",
     "cdk": "npx cdk",
     "bootstrap": "npx cdk bootstrap",
     "synth": "npx cdk synth",
@@ -19,5 +20,8 @@
     "aws-cdk-lib": "^2.258.0",
     "constructs": "^10.6.0",
     "source-map-support": "^0.5.21"
+  },
+  "devDependencies": {
+    "ts-jest": "^29.4.11"
   }
 }

@@ -21,6 +21,8 @@ export class CloudFrontStack extends CloudFrontStackBase {
           environment === 'prod'
             ? 'share-together.nagiyu.com'
             : 'dev-share-together.nagiyu.com',
+        // 検索エンジンにインデックスさせない（Portal 以外は常に noindex）
+        noindex: true,
       },
     };
 
