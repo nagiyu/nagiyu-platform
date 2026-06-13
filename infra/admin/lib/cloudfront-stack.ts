@@ -24,6 +24,8 @@ export class CloudFrontStack extends CloudFrontStackBase {
         priceClass: environment === 'prod' ? 'PriceClass_All' : 'PriceClass_100',
         // HTTP/3 を有効化（既存設定を維持）
         enableHttp3: true,
+        // 検索エンジンにインデックスさせない（Portal 以外は常に noindex）
+        noindex: true,
       },
     };
 

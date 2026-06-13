@@ -21,6 +21,8 @@ export class CloudFrontStack extends CloudFrontStackBase {
         // Route53/ACM は CloudFrontStackBase が参照する共通パラメータに依存する。
         // そのため quick-clip 側ではドメイン名のみ指定し、証明書/レコードは共有基盤設定に従う。
         domainName: environment === 'prod' ? 'quick-clip.nagiyu.com' : 'dev-quick-clip.nagiyu.com',
+        // 検索エンジンにインデックスさせない（Portal 以外は常に noindex）
+        noindex: true,
       },
     };
 

@@ -20,6 +20,8 @@ export class CloudFrontStack extends CloudFrontStackBase {
       cloudfrontConfig: {
         // セキュリティヘッダーを有効化（新規追加）
         enableSecurityHeaders: true,
+        // 検索エンジンにインデックスさせない（Portal 以外は常に noindex）
+        noindex: true,
       },
     };
 

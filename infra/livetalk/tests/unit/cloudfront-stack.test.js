@@ -299,4 +299,61 @@ describe('LiveTalkCloudFrontStack', () => {
       }),
     });
   });
+
+  it('X-Robots-Tag: noindex, nofollow ヘッダーポリシーが作成されること', () => {
+    const template = synth('dev');
+    template.hasResourceProperties('AWS::CloudFront::ResponseHeadersPolicy', {
+      ResponseHeadersPolicyConfig: Match.objectLike({
+        Name: 'nagiyu-livetalk-noindex-dev',
+        CustomHeadersConfig: {
+          Items: Match.arrayWith([
+            {
+              Header: 'X-Robots-Tag',
+              Value: 'noindex, nofollow',
+              Override: true,
+            },
+          ]),
+        },
+      }),
+    });
+  });
+
+  it('defaultBehavior に X-Robots-Tag ヘッダーポリシーが適用されること', () => {
+    const template = synth('dev');
+    // ResponseHeadersPolicy の論理 ID を含む参照が DefaultCacheBehavior に存在することを確認
+    template.hasResourceProperties('AWS::CloudFront::Distribution', {
+      DistributionConfig: Match.objectLike({
+        DefaultCacheBehavior: Match.objectLike({
+          ResponseHeadersPolicyId: Match.objectLike({
+            Ref: Match.stringLikeRegexp('^NoindexHeadersPolicy'),
+          }),
+        }),
+      }),
+    });
+  });
+
+  it('/assets/* ビヘイビアにも X-Robots-Tag ヘッダーポリシーが適用されること', () => {
+    const template = synth('dev');
+    template.hasResourceProperties('AWS::CloudFront::Distribution', {
+      DistributionConfig: Match.objectLike({
+        CacheBehaviors: Match.arrayWith([
+          Match.objectLike({
+            PathPattern: '/assets/*',
+            ResponseHeadersPolicyId: Match.objectLike({
+              Ref: Match.stringLikeRegexp('^NoindexHeadersPolicy'),
+            }),
+          }),
+        ]),
+      }),
+    });
+  });
+
+  it('prod 環境でも X-Robots-Tag ヘッダーポリシー名に prod が含まれること', () => {
+    const template = synth('prod');
+    template.hasResourceProperties('AWS::CloudFront::ResponseHeadersPolicy', {
+      ResponseHeadersPolicyConfig: Match.objectLike({
+        Name: 'nagiyu-livetalk-noindex-prod',
+      }),
+    });
+  });
 });

@@ -18,9 +18,9 @@ export class CloudFrontStack extends CloudFrontStackBase {
       functionUrl,
       cloudfrontConfig: {
         domainName:
-          environment === 'prod'
-            ? 'share-together.nagiyu.com'
-            : 'dev-share-together.nagiyu.com',
+          environment === 'prod' ? 'share-together.nagiyu.com' : 'dev-share-together.nagiyu.com',
+        // 検索エンジンにインデックスさせない（Portal 以外は常に noindex）
+        noindex: true,
       },
     };
 
