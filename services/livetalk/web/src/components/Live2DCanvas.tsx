@@ -27,6 +27,8 @@ function waitForCubismCore(timeout = 10000): Promise<void> {
 }
 
 type Live2DModelInstance = import('pixi-live2d-display-lipsyncpatch/cubism4').Live2DModel;
+type Cubism4InternalModelType =
+  import('pixi-live2d-display-lipsyncpatch/cubism4').Cubism4InternalModel;
 
 /**
  * 上半身フォーカスのレイアウト。
@@ -238,16 +240,10 @@ export default function Live2DCanvas({
     let source: AudioBufferSourceNode | null = null;
     let analyser: AnalyserNode | null = null;
 
-    // 型情報がない internal API を扱うための narrowing
-    const motionManager = (
-      model.internalModel as unknown as {
-        motionManager: {
-          currentAudio?: { ended: boolean } | undefined;
-          currentAnalyzer?: AnalyserNode | undefined;
-          currentContext?: AudioContext | undefined;
-        };
-      }
-    ).motionManager;
+    // Cubism4 の公開型でアクセスする（ライブラリの MotionManager が
+    // currentAudio / currentAnalyzer / currentContext を型として公開している）
+    const internalModel = model.internalModel as Cubism4InternalModelType;
+    const motionManager = internalModel.motionManager;
 
     try {
       source = audioContext.createBufferSource();
@@ -266,7 +262,10 @@ export default function Live2DCanvas({
       // ライブラリ内部のリップシンク駆動ループに自前 AnalyserNode を hijack 注入。
       // updateParameters 内で `if (this.lipSync && motionManager.currentAudio)` を
       // 通過させるため、currentAudio には truthy なオブジェクトを置く。
-      motionManager.currentAudio = { ended: false };
+      // ライブラリは currentAudio が truthy のときだけリップシンク（ParamMouthOpenY 更新）を
+      // 駆動する。実際の HTMLAudioElement は使わず Web Audio 経由で再生するため、
+      // truthy なダミーを注入する（意図的な hijack）。
+      motionManager.currentAudio = { ended: false } as unknown as HTMLAudioElement;
       motionManager.currentAnalyzer = analyser;
       motionManager.currentContext = audioContext;
 
@@ -333,12 +332,8 @@ export default function Live2DCanvas({
     const BLINK_INTERVAL_MIN_MS = 3000;
     const BLINK_INTERVAL_RANGE_MS = 3000;
 
-    const internalModel = model.internalModel as unknown as {
-      coreModel?: { setParameterValueById?: (id: string, value: number) => void };
-      eyeBlink?: unknown;
-      on?: (event: string, handler: () => void) => void;
-      off?: (event: string, handler: () => void) => void;
-    };
+    // Cubism4 の公開型でアクセスする
+    const internalModel = model.internalModel as Cubism4InternalModelType;
 
     // 三角波で瞬きの開き値（0〜0.3）を計算する。瞬き窓の外は 0.3（半目）。
     let blinkStart = -Infinity;
@@ -385,10 +380,19 @@ export default function Live2DCanvas({
     const savedEyeBlink = internalModel.eyeBlink;
     internalModel.eyeBlink = undefined;
 
-    internalModel.on?.('afterMotionUpdate', applyEyes);
+    // ライブラリの型定義上、InternalModel は utils.EventEmitter（eventemitter3）を
+    // 継承しているが、eventemitter3 が export = 形式のため TypeScript の型解決で
+    // on/off がインスタンスメソッドとして継承されない。
+    // 実際には EventEmitter のメソッドが存在するため、on/off 呼び出しのみ
+    // 最小限のキャストで対処する（ad-hoc な unknown キャストへの退行を避ける）。
+    const emitter = internalModel as unknown as {
+      on: (event: string, fn: () => void) => void;
+      off: (event: string, fn: () => void) => void;
+    };
+    emitter.on('afterMotionUpdate', applyEyes);
 
     return () => {
-      internalModel.off?.('afterMotionUpdate', applyEyes);
+      emitter.off('afterMotionUpdate', applyEyes);
       internalModel.eyeBlink = savedEyeBlink;
     };
     // characterId が変更されてもモデルロード effect（依存 [characterId]）が旧モデルを
