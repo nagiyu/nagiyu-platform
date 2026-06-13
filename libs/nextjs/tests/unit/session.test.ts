@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { createSessionGetter } from '../../src/session';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { createSessionGetter, resolveTestUser } from '../../src/session';
 
 interface MockAuthSession {
   user?: {
@@ -9,6 +9,82 @@ interface MockAuthSession {
   };
   expires?: string;
 }
+
+describe('resolveTestUser', () => {
+  const ENV_KEYS = [
+    'TEST_USER_ID',
+    'TEST_USER_EMAIL',
+    'TEST_USER_NAME',
+    'TEST_USER_IMAGE',
+    'TEST_USER_ROLES',
+  ] as const;
+
+  // テスト後に環境変数を元に戻す
+  const savedEnv: Partial<Record<(typeof ENV_KEYS)[number], string>> = {};
+
+  beforeEach(() => {
+    ENV_KEYS.forEach((key) => {
+      savedEnv[key] = process.env[key];
+      delete process.env[key];
+    });
+  });
+
+  afterEach(() => {
+    ENV_KEYS.forEach((key) => {
+      if (savedEnv[key] !== undefined) {
+        process.env[key] = savedEnv[key];
+      } else {
+        delete process.env[key];
+      }
+    });
+  });
+
+  it('環境変数未設定の場合は既定値を返す', () => {
+    const user = resolveTestUser();
+    expect(user).toEqual({
+      id: 'test-user-id',
+      email: 'test@example.com',
+      name: 'Test User',
+      image: undefined,
+      roles: [],
+    });
+  });
+
+  it('defaultRoles が適用される', () => {
+    const user = resolveTestUser({ defaultRoles: ['admin'] });
+    expect(user.roles).toEqual(['admin']);
+  });
+
+  it('環境変数を設定した場合は上書きされる', () => {
+    process.env.TEST_USER_ID = 'env-user-id';
+    process.env.TEST_USER_EMAIL = 'env@example.com';
+    process.env.TEST_USER_NAME = 'Env User';
+    process.env.TEST_USER_IMAGE = 'https://example.com/avatar.png';
+
+    const user = resolveTestUser();
+    expect(user.id).toBe('env-user-id');
+    expect(user.email).toBe('env@example.com');
+    expect(user.name).toBe('Env User');
+    expect(user.image).toBe('https://example.com/avatar.png');
+  });
+
+  it('TEST_USER_ROLES をカンマ区切りで複数ロールに分割する', () => {
+    process.env.TEST_USER_ROLES = 'admin,viewer,editor';
+    const user = resolveTestUser();
+    expect(user.roles).toEqual(['admin', 'viewer', 'editor']);
+  });
+
+  it('TEST_USER_ROLES が設定されている場合は defaultRoles より優先される', () => {
+    process.env.TEST_USER_ROLES = 'custom-role';
+    const user = resolveTestUser({ defaultRoles: ['admin'] });
+    expect(user.roles).toEqual(['custom-role']);
+  });
+
+  it('TEST_USER_IMAGE が未設定の場合は undefined', () => {
+    const user = resolveTestUser();
+    expect(user.image).toBeUndefined();
+  });
+});
 
 describe('createSessionGetter', () => {
   beforeEach(() => {
