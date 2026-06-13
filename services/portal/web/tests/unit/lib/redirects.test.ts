@@ -129,7 +129,9 @@ describe('buildRedirects', () => {
     const redirects = buildRedirects();
     const redirectMap = new Map(redirects.map((r) => [r.source, r.destination]));
 
-    expect(redirectMap.get('/tech/eventbridge-scheduler')).toBe('/tech/eventbridge-rule-scheduling');
+    expect(redirectMap.get('/tech/eventbridge-scheduler')).toBe(
+      '/tech/eventbridge-rule-scheduling'
+    );
     expect(redirectMap.get('/tech/video-codec-comparison')).toBe('/services/codec-converter');
     expect(redirectMap.get('/tech/zod-runtime-validation')).toBe('/tech/discriminated-union-api');
     expect(redirectMap.get('/tech/aws-ses-transactional-mail')).toBe('/tech/category/aws');

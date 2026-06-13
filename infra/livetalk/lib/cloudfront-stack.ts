@@ -59,11 +59,7 @@ export class LiveTalkCloudFrontStack extends cdk.Stack {
       this,
       SSM_PARAMETERS.ACM_CERTIFICATE_ARN
     );
-    const certificate = acm.Certificate.fromCertificateArn(
-      this,
-      'Certificate',
-      certificateArn
-    );
+    const certificate = acm.Certificate.fromCertificateArn(this, 'Certificate', certificateArn);
 
     const albDnsName = ssm.StringParameter.valueForStringParameter(
       this,
@@ -129,8 +125,7 @@ export class LiveTalkCloudFrontStack extends cdk.Stack {
         allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
         cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
         cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
-        originRequestPolicy:
-          cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+        originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
         responseHeadersPolicy: noindexHeadersPolicy,
         compress: true,
       },
