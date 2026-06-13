@@ -40,8 +40,7 @@ export function publicFileExists(href: string, publicDir: string): boolean {
   // public ディレクトリ起点でパスを解決
   const resolved = path.resolve(publicDir, '.' + cleanHref);
   // パストラバーサル防御: resolved が publicDir の配下であることを確認
-  const isInsidePublic =
-    resolved === publicDir || resolved.startsWith(publicDir + path.sep);
+  const isInsidePublic = resolved === publicDir || resolved.startsWith(publicDir + path.sep);
   if (!isInsidePublic) return false;
   // ファイルとして実在するか確認
   return fs.existsSync(resolved) && fs.statSync(resolved).isFile();

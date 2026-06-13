@@ -411,12 +411,7 @@ describe('linkChecker', () => {
 
       it('publicDir 外を指すパストラバーサルリンクは invalid を返す', () => {
         // /.. で public の一つ上を指すケース
-        const result = validateHref(
-          '/..',
-          FIXTURE_CONTENT_DIR,
-          REAL_SRC_DIR,
-          tmpPublicDir
-        );
+        const result = validateHref('/..', FIXTURE_CONTENT_DIR, REAL_SRC_DIR, tmpPublicDir);
         expect(result.valid).toBe(false);
       });
     });
