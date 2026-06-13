@@ -26,6 +26,8 @@ import {
 } from '@/lib/pwa/standalone';
 import { PWA_MESSAGES } from '@/lib/pwa/messages';
 import { reportClientError } from '@/lib/client-logger';
+import { useAudioContext } from '@/lib/audio/useAudioContext';
+import { useAudioQueue } from '@/lib/audio/useAudioQueue';
 
 /**
  * pending API のレスポンス型（キャラクターごとの未消化通知）。
@@ -93,7 +95,6 @@ function HomePageInner() {
   const [phase, setPhase] = useState<ChatPhase>('idle');
   const [userText, setUserText] = useState<string | null>(null);
   const [responseText, setResponseText] = useState<string | null>(null);
-  const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // 通知タップ起動時に入力欄へプリフィルするサジェスト発話
   const [prefillText, setPrefillText] = useState<string | null>(null);
@@ -111,15 +112,15 @@ function HomePageInner() {
   // 他キャラクターの未消化通知（自前起動時に提示する）
   const [pendingNotifications, setPendingNotifications] = useState<PendingNotification[]>([]);
 
-  const audioQueueRef = useRef<AudioBuffer[]>([]);
-  const isPlayingRef = useRef(false);
-  const streamDoneRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const sentenceReceivedRef = useRef(0);
-  // AudioContext は子コンポーネント（CharacterCanvas）に prop で渡すため state で持つ。
-  // 同期アクセス用に ref も併用する（callback 内で最新値を読むため）。
-  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  // AudioContext 管理 hook（iOS Safari の autoplay 制約対策）
+  const { audioContext, ensureUnlocked, getContext } = useAudioContext();
+
+  // 音声キュー管理 hook（再生待ちバッファ列と再生状態の state machine）
+  const { audioBuffer, enqueue, markStreamDone, reset, handlePlaybackEnd, handlePlaybackError: advanceOnError } =
+    useAudioQueue({ onDrained: () => setPhase('idle') });
 
   useEffect(() => {
     fetch('/api/consent')
@@ -232,28 +233,6 @@ function HomePageInner() {
       });
   }, [characterId]);
 
-  // iOS Safari の Web Audio autoplay 制約対策。
-  // user gesture（handleSubmit）の同期スタックで AudioContext を作成・resume することで、
-  // 以降の AudioBufferSourceNode.start() が transient activation token を消費せず
-  // いつでも再生可能になる。HTMLAudioElement の per-element 制約は別系統で、
-  // この対策では効かないため、再生は Web Audio API のみで完結させる（CharacterCanvas 参照）。
-  const ensureAudioContextUnlocked = useCallback(async () => {
-    if (typeof window === 'undefined') return;
-    const AudioContextClass =
-      window.AudioContext ??
-      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioContextClass) return;
-    if (!audioCtxRef.current) {
-      const ctx = new AudioContextClass();
-      audioCtxRef.current = ctx;
-      // 子コンポーネント（CharacterCanvas）に prop で渡すため state も更新
-      setAudioContext(ctx);
-    }
-    if (audioCtxRef.current.state === 'suspended') {
-      await audioCtxRef.current.resume();
-    }
-  }, []);
-
   const handleInstallSkip = useCallback(() => {
     setOnboardingPhase(null);
     setOnboardingText(null);
@@ -274,30 +253,11 @@ function HomePageInner() {
     setOnboardingText(null);
   }, []);
 
-  const clearAudioQueue = useCallback(() => {
-    audioQueueRef.current = [];
-    isPlayingRef.current = false;
-    streamDoneRef.current = false;
-  }, []);
-
-  // キューから次の音声を再生、またはストリーム完了済みならアイドルに戻る
-  const advanceAudioQueue = useCallback(() => {
-    if (isPlayingRef.current) return;
-
-    const nextBuffer = audioQueueRef.current.shift();
-    if (nextBuffer) {
-      isPlayingRef.current = true;
-      setAudioBuffer(nextBuffer);
-    } else if (streamDoneRef.current) {
-      setPhase('idle');
-    }
-  }, []);
-
   const handleSubmit = useCallback(
     async (text: string) => {
       // user gesture の同期スタック内で AudioContext を resume する（iOS Safari 対策）
-      await ensureAudioContextUnlocked();
-      const audioCtx = audioCtxRef.current;
+      await ensureUnlocked();
+      const audioCtx = getContext();
 
       // 前回リクエストをキャンセル
       abortControllerRef.current?.abort();
@@ -319,8 +279,8 @@ function HomePageInner() {
       setOnboardingText(null);
       setErrorMessage(null);
       setPhase('loading');
-      setAudioBuffer(null);
-      clearAudioQueue();
+      // キューをリセット（setAudioBuffer(null) + clearAudioQueue() 相当）
+      reset();
       sentenceReceivedRef.current = 0;
 
       try {
@@ -342,7 +302,7 @@ function HomePageInner() {
           setPhase('idle');
           reportClientError('error', 'チャット fetch 失敗', `HTTP ${response.status}`, {
             screen: 'chat',
-            audioContextState: audioCtxRef.current?.state,
+            audioContextState: getContext()?.state,
           });
           return;
         }
@@ -365,8 +325,8 @@ function HomePageInner() {
             try {
               const arrayBuffer = base64ToArrayBuffer(event.audio);
               const decoded = await audioCtx.decodeAudioData(arrayBuffer);
-              audioQueueRef.current.push(decoded);
-              advanceAudioQueue();
+              // decode 済みバッファをキューに追加（空きなら即再生開始）
+              enqueue(decoded);
             } catch (err) {
               console.error('[LiveTalk] 音声 decode に失敗しました', err);
               reportClientError(
@@ -375,7 +335,7 @@ function HomePageInner() {
                 err instanceof Error ? err.message : '不明なエラー',
                 {
                   screen: 'chat',
-                  audioContextState: audioCtxRef.current?.state,
+                  audioContextState: getContext()?.state,
                   sentenceReceived: sentenceReceivedRef.current,
                 }
               );
@@ -389,21 +349,22 @@ function HomePageInner() {
             setSafetyResources(event.resources);
             setSafetyOpen(true);
           } else if (event.type === 'done') {
-            streamDoneRef.current = true;
-            advanceAudioQueue();
+            // ストリーム完了をマーク（キューと current が空なら onDrained → setPhase('idle')）
+            markStreamDone();
           } else if (event.type === 'error') {
             setErrorMessage(event.message ?? '内部エラーが発生しました。');
-            streamDoneRef.current = true;
-            advanceAudioQueue();
+            // ストリームエラー時もストリーム完了扱い（advance のみ hook に委譲）
+            markStreamDone();
             reportClientError(
               'error',
               'チャット stream エラー',
               event.message ?? '内部エラーが発生しました',
               {
                 screen: 'chat',
-                audioContextState: audioCtxRef.current?.state,
+                audioContextState: getContext()?.state,
                 sentenceReceived: sentenceReceivedRef.current,
-                streamDone: streamDoneRef.current,
+                // markStreamDone 後なので streamDone は true
+                streamDone: true,
               }
             );
           }
@@ -447,36 +408,29 @@ function HomePageInner() {
           error instanceof Error ? error.message : '不明なエラー',
           {
             screen: 'chat',
-            audioContextState: audioCtxRef.current?.state,
+            audioContextState: getContext()?.state,
             sentenceReceived: sentenceReceivedRef.current,
             stack: error instanceof Error ? error.stack : undefined,
           }
         );
       }
     },
-    [ensureAudioContextUnlocked, clearAudioQueue, advanceAudioQueue, characterId]
+    [ensureUnlocked, getContext, reset, enqueue, markStreamDone, characterId]
   );
-
-  const handlePlaybackEnd = useCallback(() => {
-    setAudioBuffer(null);
-    isPlayingRef.current = false;
-    advanceAudioQueue();
-  }, [advanceAudioQueue]);
 
   const handlePlaybackError = useCallback(
     (error: Error) => {
       console.error('[LiveTalk] 音声再生エラー', error);
       setErrorMessage('音声再生中にエラーが発生しました。');
-      setAudioBuffer(null);
-      isPlayingRef.current = false;
-      advanceAudioQueue();
+      // advance のみ hook に委譲（ログ・setErrorMessage・reportClientError はここで処理）
+      advanceOnError();
       reportClientError('warning', '音声再生エラー', error.message, {
         screen: 'chat',
-        audioContextState: audioCtxRef.current?.state,
+        audioContextState: getContext()?.state,
         sentenceReceived: sentenceReceivedRef.current,
       });
     },
-    [advanceAudioQueue]
+    [advanceOnError, getContext]
   );
 
   const statusText =
