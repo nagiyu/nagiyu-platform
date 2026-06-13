@@ -4,3 +4,4 @@ export {
   RESEARCH_ERROR_MESSAGES,
   type OpenAIResearchClientOptions,
 } from './openai-research-client.js';
+export { buildResearchPrompt } from './research.prompt.js';
