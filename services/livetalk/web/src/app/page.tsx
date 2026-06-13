@@ -1,7 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Box, Container, Stack, Typography } from '@mui/material';
 import { Link } from '@nagiyu/ui';
@@ -12,38 +11,23 @@ import CharacterCanvas from '@/components/CharacterCanvas';
 import ConsentModal from '@/components/ConsentModal';
 import SafetyModal from '@/components/SafetyModal';
 import NotificationToggle from '@/components/NotificationToggle';
-import type { LifecycleState, SafetyResource } from '@nagiyu/livetalk-core';
+import type { SafetyResource } from '@nagiyu/livetalk-core';
 import InstallGuide from '@/components/InstallGuide';
 import NotificationPermission from '@/components/NotificationPermission';
 import CharacterSelectButton from '@/components/CharacterSelectButton';
 import { useCharacter } from '@/lib/characters/CharacterContext';
 import { getCharacterDisplay, hasCharacterProfile } from '@/lib/characters/client-profiles';
-import {
-  isStandalone,
-  isPushSupported,
-  shouldShowInstallGuide,
-  shouldShowNotificationPermission,
-} from '@/lib/pwa/standalone';
-import { PWA_MESSAGES } from '@/lib/pwa/messages';
 import { reportClientError } from '@/lib/client-logger';
 import { useAudioContext } from '@/lib/audio/useAudioContext';
 import { useAudioQueue } from '@/lib/audio/useAudioQueue';
-
-/**
- * pending API のレスポンス型（キャラクターごとの未消化通知）。
- */
-interface PendingNotification {
-  /** 通知元キャラクター ID */
-  characterId: string;
-  /** 通知 ID */
-  notifId: string;
-  /** 通知本文 */
-  body: string;
-}
+import { useConsent } from '@/lib/home/useConsent';
+import { useOnboarding } from '@/lib/home/useOnboarding';
+import { useFirstWord } from '@/lib/home/useFirstWord';
+import { usePendingNotifications } from '@/lib/home/usePendingNotifications';
+import { useLifecycle } from '@/lib/home/useLifecycle';
+import { useCharacterQuerySync } from '@/lib/home/useCharacterQuerySync';
 
 type ChatPhase = 'idle' | 'loading' | 'streaming';
-type ConsentPhase = 'checking' | 'required' | 'done';
-type OnboardingPhase = 'install' | 'notification' | null;
 
 type ChatStreamEvent =
   | { type: 'text'; delta: string }
@@ -54,7 +38,7 @@ type ChatStreamEvent =
       resources: SafetyResource[];
       replacementText?: string;
     }
-  | { type: 'lifecycle'; state: LifecycleState }
+  | { type: 'lifecycle'; state: import('@nagiyu/livetalk-core').LifecycleState }
   | { type: 'done' }
   | { type: 'error'; message: string };
 
@@ -80,8 +64,7 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
  * （App Router の prerender 要件。下部の default export でラップする）。
  */
 function HomePageInner() {
-  const { characterId, setCharacterId } = useCharacter();
-  const searchParams = useSearchParams();
+  const { characterId } = useCharacter();
   const { data: session } = useSession();
   const isAdmin =
     !!session?.user &&
@@ -89,28 +72,13 @@ function HomePageInner() {
     Array.isArray(session.user.roles) &&
     hasPermission(session.user.roles, 'livetalk:admin');
 
-  const [consentPhase, setConsentPhase] = useState<ConsentPhase>('checking');
-  const [onboardingPhase, setOnboardingPhase] = useState<OnboardingPhase>(null);
-  const [onboardingText, setOnboardingText] = useState<string | null>(null);
   const [phase, setPhase] = useState<ChatPhase>('idle');
   const [userText, setUserText] = useState<string | null>(null);
   const [responseText, setResponseText] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  // 通知タップ起動時に入力欄へプリフィルするサジェスト発話
-  const [prefillText, setPrefillText] = useState<string | null>(null);
 
   const [safetyOpen, setSafetyOpen] = useState(false);
   const [safetyResources, setSafetyResources] = useState<SafetyResource[]>([]);
-  const [lifecycleState, setLifecycleState] = useState<LifecycleState>('awake');
-
-  // キャラ第一声（未消化の通知から表示）
-  const [firstWordText, setFirstWordText] = useState<string | null>(null);
-  // 第一声の元となった KnowledgeID（次の chat 送信時に文脈として渡す）
-  const firstWordKnowledgeIdRef = useRef<string | null>(null);
-  // 第一声の通知元キャラクター ID（クロス汚染防止のためカレントと照合する）
-  const firstWordCharacterIdRef = useRef<string | null>(null);
-  // 他キャラクターの未消化通知（自前起動時に提示する）
-  const [pendingNotifications, setPendingNotifications] = useState<PendingNotification[]>([]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const sentenceReceivedRef = useRef(0);
@@ -128,136 +96,31 @@ function HomePageInner() {
     handlePlaybackError: advanceOnError,
   } = useAudioQueue({ onDrained: () => setPhase('idle') });
 
-  useEffect(() => {
-    fetch('/api/consent')
-      .then((res) => res.json())
-      .then((data: { consented: boolean }) => {
-        setConsentPhase(data.consented ? 'done' : 'required');
-      })
-      .catch(() => {
-        // 取得失敗時はモーダルを表示してユーザーに同意を促す
-        setConsentPhase('required');
-      });
-  }, []);
+  // URL クエリパラメータ ?character=<id> をカレントキャラクターに反映する
+  useCharacterQuerySync();
 
-  // push クリック起動時: URL の ?character=<id> を読み、カレントキャラを切替える。
-  // searchParams は Next.js の useSearchParams で取得。
-  // 依存配列に searchParams を含めることで、SPA 遷移でも正しく動作する。
-  useEffect(() => {
-    const characterQuery = searchParams.get('character');
-    if (characterQuery && hasCharacterProfile(characterQuery)) {
-      setCharacterId(characterQuery);
-    }
-    // searchParams の変化のみに依存する（setCharacterId は安定した関数参照）
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  // 同意状態管理 hook
+  const { consentPhase, markConsented } = useConsent();
 
-  // カレント characterId の未消化通知を第一声として取得・表示する。
-  // characterId が変わるたびに再取得し、前のキャラの knowledgeId をクリアする。
-  useEffect(() => {
-    // キャラクター切替時は前のキャラの第一声 knowledgeId をクリアする（クロス汚染防止）
-    firstWordKnowledgeIdRef.current = null;
-    firstWordCharacterIdRef.current = null;
-    setFirstWordText(null);
+  // オンボーディング管理 hook（consentPhase 依存）
+  const {
+    onboardingPhase,
+    onboardingText,
+    clearOnboardingText,
+    handleInstallSkip,
+    handleNotificationGranted,
+    handleNotificationSkip,
+  } = useOnboarding(consentPhase);
 
-    fetch(`/api/push/first-word?characterId=${encodeURIComponent(characterId)}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then(
-        (
-          data: {
-            notifId: string;
-            body: string;
-            knowledgeId?: string | null;
-            characterId: string;
-            suggestedReply?: string | null;
-          } | null
-        ) => {
-          if (!data) return;
-          setFirstWordText(data.body);
-          firstWordKnowledgeIdRef.current = data.knowledgeId ?? null;
-          // 通知元キャラクター ID を保存（クロス汚染防止のためカレントと照合する）
-          firstWordCharacterIdRef.current = data.characterId;
-          // 通知タップ起動時（from=push）かつ suggestedReply がある場合は入力欄へプリフィル
-          if (searchParams.get('from') === 'push' && data.suggestedReply) {
-            setPrefillText(data.suggestedReply);
-          }
-          // 消化済みマーク
-          fetch('/api/push/consumed', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ notifId: data.notifId }),
-          }).catch(() => {});
-        }
-      )
-      .catch(() => {});
-  }, [characterId]);
+  // カレントキャラの第一声（未消化通知）管理 hook
+  const { firstWordText, prefillText, consumeKnowledgeId, clearFirstWordText } =
+    useFirstWord(characterId);
 
-  // 自前起動時: カレント以外に未消化通知があれば提示する。
-  // このエフェクトはマウント時（初回起動）にのみ実行する。
-  useEffect(() => {
-    fetch('/api/push/pending')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: PendingNotification[] | null) => {
-        if (!data || data.length === 0) return;
-        setPendingNotifications(data);
-      })
-      .catch(() => {});
-    // マウント時のみ実行（依存配列は空）
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // 他キャラクターの未消化通知管理 hook
+  const { pendingNotifications } = usePendingNotifications();
 
-  // 同意完了後にオンボーディング（ホーム画面追加・通知許可）の表示要否を判定する。
-  useEffect(() => {
-    if (consentPhase !== 'done') return;
-    if (!isStandalone() && shouldShowInstallGuide()) {
-      setOnboardingPhase('install');
-      setOnboardingText(PWA_MESSAGES.INSTALL_PROMPT);
-    } else if (
-      isStandalone() &&
-      isPushSupported() &&
-      typeof window !== 'undefined' &&
-      window.Notification.permission !== 'granted' &&
-      shouldShowNotificationPermission()
-    ) {
-      setOnboardingPhase('notification');
-      setOnboardingText(PWA_MESSAGES.NOTIFICATION_PROMPT);
-    }
-  }, [consentPhase]);
-
-  // 起動時・キャラ切替時に生活サイクル状態を取得し、初回発話を待たずに Live2D へ反映する。
-  // 失敗時は現状維持（'awake'）。演出のための取得なので UI は止めない。
-  useEffect(() => {
-    fetch(`/api/lifecycle?characterId=${encodeURIComponent(characterId)}`)
-      .then((res) => res.json())
-      .then((data: { state: LifecycleState }) => {
-        if (data.state === 'awake' || data.state === 'sleeping') {
-          setLifecycleState(data.state);
-        }
-      })
-      .catch(() => {
-        // 取得失敗時は初期値 'awake' のまま
-      });
-  }, [characterId]);
-
-  const handleInstallSkip = useCallback(() => {
-    setOnboardingPhase(null);
-    setOnboardingText(null);
-  }, []);
-
-  const handleNotificationGranted = useCallback(() => {
-    setOnboardingPhase(null);
-    setOnboardingText(PWA_MESSAGES.NOTIFICATION_GRANTED);
-    setTimeout(() => {
-      setOnboardingText((current) =>
-        current === PWA_MESSAGES.NOTIFICATION_GRANTED ? null : current
-      );
-    }, 4000);
-  }, []);
-
-  const handleNotificationSkip = useCallback(() => {
-    setOnboardingPhase(null);
-    setOnboardingText(null);
-  }, []);
+  // ライフサイクル状態管理 hook
+  const { lifecycleState, setLifecycleState } = useLifecycle(characterId);
 
   const handleSubmit = useCallback(
     async (text: string) => {
@@ -272,17 +135,12 @@ function HomePageInner() {
 
       // 送信前に第一声 knowledgeId を取り出してクリア（1 ターン限り有効）。
       // クロス汚染防止: カレントキャラ == 通知元キャラのときのみ渡す（C3-3）。
-      const firstWordNotifCharId = firstWordCharacterIdRef.current;
-      const rawKnowledgeId = firstWordKnowledgeIdRef.current;
-      const notifKnowledgeId =
-        rawKnowledgeId !== null && firstWordNotifCharId === characterId ? rawKnowledgeId : null;
-      firstWordKnowledgeIdRef.current = null;
-      firstWordCharacterIdRef.current = null;
+      const notifKnowledgeId = consumeKnowledgeId(characterId);
 
       setUserText(text);
       setResponseText('');
-      setFirstWordText(null);
-      setOnboardingText(null);
+      clearFirstWordText();
+      clearOnboardingText();
       setErrorMessage(null);
       setPhase('loading');
       // キューをリセット（setAudioBuffer(null) + clearAudioQueue() 相当）
@@ -421,7 +279,18 @@ function HomePageInner() {
         );
       }
     },
-    [ensureUnlocked, getContext, reset, enqueue, markStreamDone, characterId]
+    [
+      ensureUnlocked,
+      getContext,
+      reset,
+      enqueue,
+      markStreamDone,
+      characterId,
+      consumeKnowledgeId,
+      clearFirstWordText,
+      clearOnboardingText,
+      setLifecycleState,
+    ]
   );
 
   const handlePlaybackError = useCallback(
@@ -444,10 +313,7 @@ function HomePageInner() {
 
   return (
     <>
-      <ConsentModal
-        open={consentPhase === 'required'}
-        onConsented={() => setConsentPhase('done')}
-      />
+      <ConsentModal open={consentPhase === 'required'} onConsented={markConsented} />
       <SafetyModal
         open={safetyOpen}
         resources={safetyResources}
