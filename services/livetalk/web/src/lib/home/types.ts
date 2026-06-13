@@ -1,6 +1,14 @@
 'use client';
 
 /**
+ * チャットフェーズ。
+ * - idle: 待機中（入力受付可）
+ * - loading: リクエスト送信中（応答待ち）
+ * - streaming: NDJSON ストリーム受信中
+ */
+export type ChatPhase = 'idle' | 'loading' | 'streaming';
+
+/**
  * 同意フェーズ。
  * - checking: /api/consent を確認中
  * - required: 未同意（モーダル表示）
