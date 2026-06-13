@@ -5,6 +5,13 @@ jest.mock('@nagiyu/auth-core', () => ({
 }));
 
 jest.mock('@nagiyu/nextjs/session', () => ({
+  resolveTestUser: jest.fn((options?: { defaultRoles?: string[] }) => ({
+    id: process.env.TEST_USER_ID || 'test-user-id',
+    email: process.env.TEST_USER_EMAIL || 'test@example.com',
+    name: process.env.TEST_USER_NAME || 'Test User',
+    image: process.env.TEST_USER_IMAGE || undefined,
+    roles: process.env.TEST_USER_ROLES?.split(',') || options?.defaultRoles || [],
+  })),
   createSessionGetter: jest.fn(
     (config: {
       auth: () => Promise<unknown>;
