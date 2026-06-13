@@ -70,6 +70,18 @@ describe('getSession', () => {
     expect(session?.user?.roles).toEqual(['admin']);
   });
 
+  it('TEST_USER_ID / TEST_USER_NAME が設定されていれば反映する', async () => {
+    process.env.SKIP_AUTH_CHECK = 'true';
+    process.env.TEST_USER_ID = 'env-user-id';
+    process.env.TEST_USER_NAME = 'Env User';
+
+    const { getSession } = await import('../../../../src/lib/auth/session');
+    const session = await getSession();
+
+    expect(session?.user?.id).toBe('env-user-id');
+    expect(session?.user?.name).toBe('Env User');
+  });
+
   it('SKIP_AUTH_CHECK 未設定で auth が null を返すと null', async () => {
     delete process.env.SKIP_AUTH_CHECK;
     (mockedAuth as jest.Mock).mockResolvedValueOnce(null);
