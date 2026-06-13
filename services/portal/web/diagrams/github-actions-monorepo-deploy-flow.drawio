@@ -1,0 +1,118 @@
+<mxfile host="app.diagrams.net" modified="2026-06-13T00:00:00.000Z" agent="draw.io" version="21.0.0">
+  <diagram name="モノレポ差分デプロイフロー" id="monorepo-deploy-flow">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- タイトル -->
+        <mxCell id="title" value="GitHub Actions モノレポ差分デプロイフロー（nagiyu-platform）" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="50" y="20" width="1000" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- push イベント -->
+        <mxCell id="push" value="git push&#xa;(develop / integration/** / master)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="430" y="80" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- GitHub Actions 起動判定 -->
+        <mxCell id="trigger" value="GitHub Actions トリガー判定&#xa;（各ワークフローの paths フィルタ）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="380" y="200" width="340" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- push → 判定 -->
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="push" target="trigger" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- root-deploy.yml の paths -->
+        <mxCell id="root-paths" value="root-deploy.yml&#xa;paths:&#xa;  services/portal/**&#xa;  libs/**&#xa;  infra/root/**&#xa;  infra/common/**&#xa;  .github/workflows/root-deploy.yml" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontFamily=monospace;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="50" y="310" width="220" height="120" as="geometry" />
+        </mxCell>
+
+        <!-- portal-verify.yml の paths（例示） -->
+        <mxCell id="portal-verify-paths" value="portal-verify.yml&#xa;paths:&#xa;  services/portal/**&#xa;  libs/**&#xa;  package.json&#xa;  package-lock.json" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontFamily=monospace;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="290" y="310" width="200" height="120" as="geometry" />
+        </mxCell>
+
+        <!-- 他サービス（codec-converter など） -->
+        <mxCell id="other-deploy" value="codec-converter-deploy.yml&#xa;livetalk-deploy.yml&#xa;...&#xa;（各サービス独立して判定）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="510" y="310" width="200" height="120" as="geometry" />
+        </mxCell>
+
+        <!-- 変更なし → スキップ -->
+        <mxCell id="skip" value="スキップ&#xa;（該当ファイルに変更なし）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="740" y="330" width="200" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- trigger → 各ワークフロー分岐 -->
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="trigger" target="root-paths" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="trigger" target="portal-verify-paths" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="trigger" target="other-deploy" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="変更なし" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="trigger" target="skip" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- root-deploy.yml のジョブ構成 -->
+        <mxCell id="root-jobs" value="root-deploy.yml のジョブ構成" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="50" y="490" width="660" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ① infrastructure-ecr -->
+        <mxCell id="job1" value="① infrastructure-ecr&#xa;ECR リポジトリのデプロイ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="50" y="570" width="180" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- ② build -->
+        <mxCell id="job2" value="② build&#xa;Docker イメージのビルド&#xa;&amp; ECR プッシュ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="260" y="570" width="180" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- ③ infrastructure-app（環境分岐） -->
+        <mxCell id="job3" value="③ infrastructure-app&#xa;dev: Lambda + CloudFront&#xa;prod: ECS + ALB + CloudFront" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="460" y="560" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- ④ verify -->
+        <mxCell id="job4" value="④ verify&#xa;CloudFront / api/health&#xa;で疎通確認" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="700" y="570" width="180" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- root-paths → root-jobs -->
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="root-paths" target="root-jobs" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <!-- root-jobs → ジョブ並び -->
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="root-jobs" target="job1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="job1" target="job2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="job2" target="job3" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="job3" target="job4" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- 環境分岐の注釈 -->
+        <mxCell id="env-note" value="setup-environment action で分岐&#xa;develop / integration/** → dev&#xa;master → prod" style="text;html=1;strokeColor=#d6b656;fillColor=#fff2cc;align=left;verticalAlign=middle;rounded=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="700" y="460" width="270" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- libs 変更時の波及の注釈 -->
+        <mxCell id="libs-note" value="libs/ 変更時は portal・auth・livetalk 等&#xa;すべての paths に libs/** が含まれるため&#xa;複数ワークフローが並列起動する" style="text;html=1;strokeColor=#82b366;fillColor=#d5e8d4;align=left;verticalAlign=middle;rounded=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="50" y="680" width="400" height="70" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
