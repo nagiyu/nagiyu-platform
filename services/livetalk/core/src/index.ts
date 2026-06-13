@@ -131,6 +131,7 @@ export type {
   SafetyEventEntity,
   SafetyEventKey,
   CreateSafetyEventInput,
+  SafetyEventSummary,
 } from './entities/safety-event.entity.js';
 export type {
   ProfileEntity,
@@ -177,6 +178,9 @@ export {
   // GSI1: Profile 列挙用 sparse GSI（#3527）
   PROFILE_GSI_INDEX_NAME,
   buildProfileGSI1PK,
+  // GSI2: SafetyEvent 横断レビュー用 sparse GSI（ADR-2.22 / #3580）
+  SAFETY_EVENT_GSI_INDEX_NAME,
+  buildSafetyEventGSI2PK,
 } from './mappers/keys.js';
 
 // Repository interfaces
@@ -380,6 +384,8 @@ export {
   CHAT_RATE_LIMIT_PER_MINUTE,
   CHAT_RATE_LIMIT_PER_HOUR,
   CHAT_LOCK_TTL_MS,
+  // セーフティ横断レビュー（ADR-2.22 / Issue #3580）
+  SAFETY_REVIEW_DEFAULT_LIMIT,
 } from './constants.js';
 
 // チャット API 保護ガード（Issue #3528）

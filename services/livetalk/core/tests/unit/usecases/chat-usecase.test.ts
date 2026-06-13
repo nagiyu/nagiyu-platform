@@ -124,6 +124,7 @@ function makeSafetyEventRepo(
         }) as SafetyEventEntity
     ),
     getById: jest.fn(async () => null),
+    listRecent: jest.fn(async () => []),
     ...overrides,
   };
 }
