@@ -78,4 +78,3 @@ export class OpenAIResearchClient implements IResearchClient {
     return response.output_parsed;
   }
 }
-

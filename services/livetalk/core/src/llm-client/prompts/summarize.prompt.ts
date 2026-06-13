@@ -12,9 +12,7 @@ import type { SummarizeInput } from '../types.js';
 export function buildSummarizePrompt(input: SummarizeInput): string {
   const { existingSummary, newMessages, characterName, existingInterestCategories } = input;
 
-  const existingSection = existingSummary
-    ? `既存の要約：\n${existingSummary}`
-    : '既存の要約：なし';
+  const existingSection = existingSummary ? `既存の要約：\n${existingSummary}` : '既存の要約：なし';
 
   const messagesSection = newMessages
     .map((m) => `${m.role === 'user' ? 'ユーザー' : characterName}: ${m.text}`)
