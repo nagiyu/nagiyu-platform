@@ -1,7 +1,12 @@
 /**
  * @jest-environment jsdom
  */
-import { urlBase64ToUint8Array, subscribePush, fetchVapidPublicKey, PUSH_ERROR_MESSAGES } from '../../src/push';
+import {
+  urlBase64ToUint8Array,
+  subscribePush,
+  fetchVapidPublicKey,
+  PUSH_ERROR_MESSAGES,
+} from '../../src/push';
 
 describe('push utilities', () => {
   describe('urlBase64ToUint8Array', () => {
@@ -262,7 +267,9 @@ describe('push utilities', () => {
         json: async () => ({}),
       } as Response);
 
-      await expect(fetchVapidPublicKey()).rejects.toThrow(PUSH_ERROR_MESSAGES.VAPID_KEY_FETCH_FAILED);
+      await expect(fetchVapidPublicKey()).rejects.toThrow(
+        PUSH_ERROR_MESSAGES.VAPID_KEY_FETCH_FAILED
+      );
     });
 
     it('publicKey が空の場合は VAPID_KEY_EMPTY エラーを投げる', async () => {
