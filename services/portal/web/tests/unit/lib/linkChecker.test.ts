@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import {
   extractInternalLinks,
   tagToSlug,
@@ -13,6 +14,7 @@ import {
   checkFile,
   checkAllInternalLinks,
   walkFiles,
+  publicFileExists,
 } from '@/lib/linkChecker';
 
 /** テスト用フィクスチャのコンテンツディレクトリ */
@@ -344,6 +346,110 @@ describe('linkChecker', () => {
       const result = validateHref('/no-such-page', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
       expect(result.valid).toBe(false);
       expect(result.reason).toContain('/no-such-page');
+    });
+
+    describe('public/ 静的ファイルのフォールバック', () => {
+      /** テスト用一時 public ディレクトリ */
+      let tmpPublicDir: string;
+
+      beforeEach(() => {
+        // テストごとに一時ディレクトリを作成
+        tmpPublicDir = fs.mkdtempSync(path.join(os.tmpdir(), 'portal-public-test-'));
+        // ダミー画像ファイルを配置
+        const imagesDir = path.join(tmpPublicDir, 'images', 'tech');
+        fs.mkdirSync(imagesDir, { recursive: true });
+        fs.writeFileSync(path.join(imagesDir, 'dummy.png'), 'dummy');
+      });
+
+      afterEach(() => {
+        // 一時ディレクトリを後始末
+        fs.rmSync(tmpPublicDir, { recursive: true, force: true });
+      });
+
+      it('public/ に実在する画像リンクは valid を返す', () => {
+        const result = validateHref(
+          '/images/tech/dummy.png',
+          FIXTURE_CONTENT_DIR,
+          REAL_SRC_DIR,
+          tmpPublicDir
+        );
+        expect(result.valid).toBe(true);
+        expect(result.reason).toBe('');
+      });
+
+      it('public/ に存在しない画像リンクは invalid を返す', () => {
+        const result = validateHref(
+          '/images/tech/does-not-exist.png',
+          FIXTURE_CONTENT_DIR,
+          REAL_SRC_DIR,
+          tmpPublicDir
+        );
+        expect(result.valid).toBe(false);
+        expect(result.reason).toContain('/images/tech/does-not-exist.png');
+      });
+
+      it('クエリ文字列付き画像リンクは valid を返す', () => {
+        // クエリ除去後に存在するファイルを判定できる
+        const result = validateHref(
+          '/images/tech/dummy.png?v=1',
+          FIXTURE_CONTENT_DIR,
+          REAL_SRC_DIR,
+          tmpPublicDir
+        );
+        expect(result.valid).toBe(true);
+      });
+
+      it('パストラバーサル（../）を含むリンクは invalid を返す', () => {
+        const result = validateHref(
+          '/images/../../etc/passwd',
+          FIXTURE_CONTENT_DIR,
+          REAL_SRC_DIR,
+          tmpPublicDir
+        );
+        expect(result.valid).toBe(false);
+      });
+
+      it('publicDir 外を指すパストラバーサルリンクは invalid を返す', () => {
+        // /.. で public の一つ上を指すケース
+        const result = validateHref('/..', FIXTURE_CONTENT_DIR, REAL_SRC_DIR, tmpPublicDir);
+        expect(result.valid).toBe(false);
+      });
+    });
+  });
+
+  describe('publicFileExists', () => {
+    /** テスト用一時 public ディレクトリ */
+    let tmpPublicDir: string;
+
+    beforeEach(() => {
+      tmpPublicDir = fs.mkdtempSync(path.join(os.tmpdir(), 'portal-public-exists-test-'));
+      const imagesDir = path.join(tmpPublicDir, 'images', 'tech');
+      fs.mkdirSync(imagesDir, { recursive: true });
+      fs.writeFileSync(path.join(imagesDir, 'sample.png'), 'sample');
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpPublicDir, { recursive: true, force: true });
+    });
+
+    it('実在するファイルのパスに対して true を返す', () => {
+      expect(publicFileExists('/images/tech/sample.png', tmpPublicDir)).toBe(true);
+    });
+
+    it('存在しないファイルのパスに対して false を返す', () => {
+      expect(publicFileExists('/images/tech/no-file.png', tmpPublicDir)).toBe(false);
+    });
+
+    it('ディレクトリのパスに対して false を返す（ファイルのみ valid）', () => {
+      expect(publicFileExists('/images/tech', tmpPublicDir)).toBe(false);
+    });
+
+    it('パストラバーサルを含むパスに対して false を返す', () => {
+      expect(publicFileExists('/images/../../etc/passwd', tmpPublicDir)).toBe(false);
+    });
+
+    it('クエリ文字列を除去してファイルの存在を確認する', () => {
+      expect(publicFileExists('/images/tech/sample.png?v=2', tmpPublicDir)).toBe(true);
     });
   });
 

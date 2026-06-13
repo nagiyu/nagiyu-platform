@@ -3,7 +3,7 @@ title: 'GitHub Actions でモノレポの差分デプロイを実装する'
 description: 'モノレポ構成で GitHub Actions を使い、変更があったサービスだけをデプロイするワークフローの実装方法を解説。paths フィルタ・dorny/paths-filter・依存ライブラリ変更時の波及・並列実行までカバーします。'
 slug: 'github-actions-monorepo-deploy'
 publishedAt: '2026-04-02'
-updatedAt: '2026-06-06'
+updatedAt: '2026-06-13'
 author: 'なぎゆー'
 tags: ['GitHub Actions', 'CI/CD', 'monorepo']
 categories: ['dev-stack']
@@ -38,6 +38,10 @@ jobs:
 ```
 
 `services/portal/**` か共有ライブラリ（`libs/common`, `libs/ui`）が変更されたときだけ起動します。サービスごとにこのワークフローを 1 つずつ用意すれば、それぞれが独立に判定されます。
+
+![push から paths フィルタによる差分検出を経て該当サービスのみビルド・デプロイするワークフロー全体の流れ](/images/tech/github-actions-monorepo-deploy-flow.png)
+
+_図1: push → paths フィルタ判定 → 該当サービスのみ root-deploy.yml の 4 ジョブ（ECR / build / infrastructure-app / verify）が起動する差分デプロイフロー_
 
 ## サービスごとに 1 ファイルが基本
 
