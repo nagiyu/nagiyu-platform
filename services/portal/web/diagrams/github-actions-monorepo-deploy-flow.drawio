@@ -1,6 +1,6 @@
-<mxfile host="app.diagrams.net">
+<mxfile host="65bd71144e">
     <diagram name="モノレポ差分デプロイフロー" id="monorepo-deploy-flow">
-        <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="900" background="#ffffff" math="0" shadow="0">
+        <mxGraphModel dx="1276" dy="916" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="900" background="#ffffff" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
@@ -50,7 +50,7 @@
                     <mxGeometry x="260" y="570" width="180" height="70" as="geometry"/>
                 </mxCell>
                 <mxCell id="job3" value="③ infrastructure-app&#xa;dev: Lambda + CloudFront&#xa;prod: ECS + ALB + CloudFront" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" parent="1" vertex="1">
-                    <mxGeometry x="460" y="560" width="220" height="80" as="geometry"/>
+                    <mxGeometry x="460" y="565" width="220" height="80" as="geometry"/>
                 </mxCell>
                 <mxCell id="job4" value="④ verify&#xa;CloudFront / api/health&#xa;で疎通確認" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="700" y="570" width="180" height="70" as="geometry"/>
@@ -71,7 +71,7 @@
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
                 <mxCell id="env-note" value="setup-environment action で分岐&#xa;develop / integration/** → dev&#xa;master → prod" style="text;html=1;strokeColor=#d6b656;fillColor=#fff2cc;align=left;verticalAlign=middle;rounded=1;fontSize=11;" parent="1" vertex="1">
-                    <mxGeometry x="700" y="460" width="270" height="70" as="geometry"/>
+                    <mxGeometry x="740" y="460" width="270" height="70" as="geometry"/>
                 </mxCell>
                 <mxCell id="libs-note" value="libs/ 変更時は portal・auth・livetalk 等&#xa;すべての paths に libs/** が含まれるため&#xa;複数ワークフローが並列起動する" style="text;html=1;strokeColor=#82b366;fillColor=#d5e8d4;align=left;verticalAlign=middle;rounded=1;fontSize=11;" parent="1" vertex="1">
                     <mxGeometry x="50" y="680" width="400" height="70" as="geometry"/>
