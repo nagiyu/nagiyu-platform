@@ -119,8 +119,14 @@ function HomePageInner() {
   const { audioContext, ensureUnlocked, getContext } = useAudioContext();
 
   // 音声キュー管理 hook（再生待ちバッファ列と再生状態の state machine）
-  const { audioBuffer, enqueue, markStreamDone, reset, handlePlaybackEnd, handlePlaybackError: advanceOnError } =
-    useAudioQueue({ onDrained: () => setPhase('idle') });
+  const {
+    audioBuffer,
+    enqueue,
+    markStreamDone,
+    reset,
+    handlePlaybackEnd,
+    handlePlaybackError: advanceOnError,
+  } = useAudioQueue({ onDrained: () => setPhase('idle') });
 
   useEffect(() => {
     fetch('/api/consent')

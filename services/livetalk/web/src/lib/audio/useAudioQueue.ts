@@ -156,8 +156,10 @@ export function useAudioQueue(options: UseAudioQueueOptions): UseAudioQueueResul
     if (state.streamDone && state.current === null && state.queue.length === 0) {
       onDrainedRef.current();
     }
-    // state 変化のみに依存する（onDrainedRef は ref なので依存不要）
-  }, [state.streamDone, state.current, state.queue]);
+    // state 変化ごとに条件判定する（onDrainedRef は ref なので依存不要）。
+    // drain 条件は終端状態でのみ真になり、その後の遷移は RESET（streamDone=false）の
+    // ため、onDrained は 1 回の drain につき 1 回だけ発火する。
+  }, [state]);
 
   const enqueue = useCallback((buffer: AudioBuffer) => {
     dispatch({ type: 'ENQUEUE', buffer });
