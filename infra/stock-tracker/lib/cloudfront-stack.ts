@@ -22,6 +22,8 @@ export class CloudFrontStack extends CloudFrontStackBase {
       serviceName: 'stock-tracker',
       environment: environment as 'dev' | 'prod',
       functionUrl,
+      // 検索エンジンにインデックスさせない（Portal 以外は常に noindex）
+      cloudfrontConfig: { noindex: true },
     };
 
     super(scope, id, baseProps);

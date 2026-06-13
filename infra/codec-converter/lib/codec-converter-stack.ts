@@ -352,6 +352,25 @@ export class CodecConverterStack extends cdk.Stack {
           ? `codec-converter.${baseDomain}`
           : `${envName}-codec-converter.${baseDomain}`;
 
+      // 検索エンジンにインデックスさせない（Portal 以外は常に noindex）
+      const noindexHeadersPolicy = new cloudfront.ResponseHeadersPolicy(
+        this,
+        'NoindexHeadersPolicy',
+        {
+          responseHeadersPolicyName: `nagiyu-codec-converter-noindex-${envName}`,
+          comment: `X-Robots-Tag: noindex, nofollow for codec-converter (${envName})`,
+          customHeadersBehavior: {
+            customHeaders: [
+              {
+                header: 'X-Robots-Tag',
+                value: 'noindex, nofollow',
+                override: true,
+              },
+            ],
+          },
+        }
+      );
+
       // CloudFront Distribution
       const distribution = new cloudfront.Distribution(this, 'Distribution', {
         comment: `Codec Converter distribution for ${envName}`,
@@ -363,6 +382,7 @@ export class CodecConverterStack extends cdk.Stack {
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
           cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
           originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+          responseHeadersPolicy: noindexHeadersPolicy,
           compress: true,
         },
         additionalBehaviors: {
@@ -372,6 +392,7 @@ export class CodecConverterStack extends cdk.Stack {
             allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
             cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
             originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+            responseHeadersPolicy: noindexHeadersPolicy,
             compress: true,
           },
           '/_next/static/*': {
@@ -383,6 +404,7 @@ export class CodecConverterStack extends cdk.Stack {
               maxTtl: cdk.Duration.days(365),
               minTtl: cdk.Duration.days(365),
             }),
+            responseHeadersPolicy: noindexHeadersPolicy,
             compress: true,
           },
           '/favicon.ico': {
@@ -394,6 +416,7 @@ export class CodecConverterStack extends cdk.Stack {
               maxTtl: cdk.Duration.days(1),
               minTtl: cdk.Duration.days(1),
             }),
+            responseHeadersPolicy: noindexHeadersPolicy,
             compress: true,
           },
         },
