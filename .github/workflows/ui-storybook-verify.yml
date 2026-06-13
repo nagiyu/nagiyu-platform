@@ -1,0 +1,39 @@
+name: UI Storybook Infra - Verification
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - integration/**
+    paths:
+      - 'infra/ui-storybook/**'
+      - 'infra/common/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/ui-storybook-verify.yml'
+
+jobs:
+  verify:
+    name: Verify infra/ui-storybook
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Format Check
+        run: npx prettier --check "infra/ui-storybook/**/*.{ts,js,json}"
+
+      - name: Test
+        run: npm run test --workspace=@nagiyu/infra-ui-storybook
+
+      - name: Build
+        run: npm run build --workspace=@nagiyu/infra-ui-storybook
