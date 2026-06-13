@@ -1,0 +1,137 @@
+import * as fs from 'fs';
+import * as path from 'path';
+import { RETIRED_ARTICLE_REDIRECTS, buildRedirects } from '../../../src/lib/redirects';
+
+/**
+ * src/content/tech/ 配下の .md ファイルから slug 一覧を取得するヘルパー
+ */
+function getActualArticleSlugs(): Set<string> {
+  const techDir = path.join(process.cwd(), 'src', 'content', 'tech');
+  const files = fs.readdirSync(techDir).filter((f) => f.endsWith('.md'));
+  return new Set(files.map((f) => f.replace(/\.md$/, '')));
+}
+
+/**
+ * src/content/tech-category/ 配下の .md ファイルから slug 一覧を取得するヘルパー
+ */
+function getActualCategorySlugs(): Set<string> {
+  const categoryDir = path.join(process.cwd(), 'src', 'content', 'tech-category');
+  const files = fs.readdirSync(categoryDir).filter((f) => f.endsWith('.md'));
+  return new Set(files.map((f) => f.replace(/\.md$/, '')));
+}
+
+/**
+ * src/content/services/ 配下のディレクトリ名からサービス slug 一覧を取得するヘルパー
+ */
+function getActualServiceSlugs(): Set<string> {
+  const servicesDir = path.join(process.cwd(), 'src', 'content', 'services');
+  const entries = fs.readdirSync(servicesDir, { withFileTypes: true });
+  return new Set(entries.filter((e) => e.isDirectory()).map((e) => e.name));
+}
+
+describe('RETIRED_ARTICLE_REDIRECTS', () => {
+  describe('source の重複・競合チェック', () => {
+    it('source に現存する記事 slug と重複がないこと', () => {
+      const articleSlugs = getActualArticleSlugs();
+      const conflictingSources = RETIRED_ARTICLE_REDIRECTS.filter(({ source }) => {
+        // source は /tech/{slug} 形式
+        const match = source.match(/^\/tech\/([^/]+)$/);
+        if (!match) return false;
+        return articleSlugs.has(match[1]);
+      });
+
+      expect(conflictingSources).toHaveLength(0);
+    });
+
+    it('source の重複がないこと', () => {
+      const sources = RETIRED_ARTICLE_REDIRECTS.map(({ source }) => source);
+      const uniqueSources = new Set(sources);
+      expect(uniqueSources.size).toBe(sources.length);
+    });
+  });
+
+  describe('destination の実在チェック', () => {
+    it('/tech/{slug} 形式の destination に実在する記事 slug が対応していること', () => {
+      const articleSlugs = getActualArticleSlugs();
+      const techArticleDestinations = RETIRED_ARTICLE_REDIRECTS.filter(({ destination }) =>
+        /^\/tech\/[^/]+$/.test(destination)
+      ).filter(({ destination }) => {
+        // /tech/category/* は除外
+        return !destination.startsWith('/tech/category/');
+      });
+
+      const notFound = techArticleDestinations.filter(({ destination }) => {
+        const slug = destination.replace('/tech/', '');
+        return !articleSlugs.has(slug);
+      });
+
+      expect(notFound).toHaveLength(0);
+    });
+
+    it('/tech/category/{slug} 形式の destination に実在するカテゴリ slug が対応していること', () => {
+      const categorySlugs = getActualCategorySlugs();
+      const categoryDestinations = RETIRED_ARTICLE_REDIRECTS.filter(({ destination }) =>
+        /^\/tech\/category\/[^/]+$/.test(destination)
+      );
+
+      const notFound = categoryDestinations.filter(({ destination }) => {
+        const slug = destination.replace('/tech/category/', '');
+        return !categorySlugs.has(slug);
+      });
+
+      expect(notFound).toHaveLength(0);
+    });
+
+    it('/services/{slug} 形式の destination に実在するサービス slug が対応していること', () => {
+      const serviceSlugs = getActualServiceSlugs();
+      const serviceDestinations = RETIRED_ARTICLE_REDIRECTS.filter(({ destination }) =>
+        /^\/services\/[^/]+$/.test(destination)
+      );
+
+      const notFound = serviceDestinations.filter(({ destination }) => {
+        const slug = destination.replace('/services/', '');
+        return !serviceSlugs.has(slug);
+      });
+
+      expect(notFound).toHaveLength(0);
+    });
+  });
+
+  describe('マッピング件数', () => {
+    it('10 件のリダイレクトが定義されていること', () => {
+      expect(RETIRED_ARTICLE_REDIRECTS).toHaveLength(10);
+    });
+  });
+});
+
+describe('buildRedirects', () => {
+  it('permanent: true の Next.js Redirect 配列を返すこと', () => {
+    const redirects = buildRedirects();
+
+    expect(redirects.length).toBe(RETIRED_ARTICLE_REDIRECTS.length);
+    for (const redirect of redirects) {
+      expect(redirect.permanent).toBe(true);
+      expect(typeof redirect.source).toBe('string');
+      expect(typeof redirect.destination).toBe('string');
+    }
+  });
+
+  it('buildRedirects() の source/destination が RETIRED_ARTICLE_REDIRECTS と一致すること', () => {
+    const redirects = buildRedirects();
+
+    RETIRED_ARTICLE_REDIRECTS.forEach(({ source, destination }, index) => {
+      expect(redirects[index].source).toBe(source);
+      expect(redirects[index].destination).toBe(destination);
+    });
+  });
+
+  it('特定のリダイレクトが含まれること（スモークテスト）', () => {
+    const redirects = buildRedirects();
+    const redirectMap = new Map(redirects.map((r) => [r.source, r.destination]));
+
+    expect(redirectMap.get('/tech/eventbridge-scheduler')).toBe('/tech/eventbridge-rule-scheduling');
+    expect(redirectMap.get('/tech/video-codec-comparison')).toBe('/services/codec-converter');
+    expect(redirectMap.get('/tech/zod-runtime-validation')).toBe('/tech/discriminated-union-api');
+    expect(redirectMap.get('/tech/aws-ses-transactional-mail')).toBe('/tech/category/aws');
+  });
+});
