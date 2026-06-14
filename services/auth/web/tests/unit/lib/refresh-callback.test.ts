@@ -87,6 +87,39 @@ describe('resolveRefreshCallbackUrl', () => {
     });
   });
 
+  describe('オープンリダイレクト対策（ホスト名の途中に nagiyu.com を含む攻撃 URL）', () => {
+    it('https://auth.nagiyu.com.evil.com はフォールバックする', () => {
+      const result = resolveRefreshCallbackUrl('https://auth.nagiyu.com.evil.com/phish', BASE_URL);
+      expect(result).toBe(BASE_URL);
+    });
+
+    it('https://evil.nagiyu.com.attacker.com はフォールバックする', () => {
+      const result = resolveRefreshCallbackUrl(
+        'https://evil.nagiyu.com.attacker.com/steal',
+        BASE_URL
+      );
+      expect(result).toBe(BASE_URL);
+    });
+
+    it('https://x.nagiyu.como（末尾に別 TLD が続く）はフォールバックする', () => {
+      const result = resolveRefreshCallbackUrl('https://x.nagiyu.como/', BASE_URL);
+      expect(result).toBe(BASE_URL);
+    });
+
+    it('nagiyu.com を含む別ドメイン（nagiyu.com.evil.example.com）はフォールバックする', () => {
+      const result = resolveRefreshCallbackUrl('https://nagiyu.com.evil.example.com/', BASE_URL);
+      expect(result).toBe(BASE_URL);
+    });
+  });
+
+  describe('apex ドメイン', () => {
+    it('https://nagiyu.com（本体）は許可する', () => {
+      const url = 'https://nagiyu.com/';
+      const result = resolveRefreshCallbackUrl(url, BASE_URL);
+      expect(result).toBe(url);
+    });
+  });
+
   describe('空 / 未指定のフォールバック', () => {
     it('null のとき baseUrl を返す', () => {
       const result = resolveRefreshCallbackUrl(null, BASE_URL);

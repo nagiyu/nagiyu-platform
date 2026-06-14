@@ -1,10 +1,13 @@
 /**
  * /refresh ページの callbackUrl 解決ロジック
  *
- * auth の redirect コールバック（auth.ts）と同じ許可基準を適用する:
- *   - 同一オリジン（baseUrl で始まる URL）
- *   - *.nagiyu.com 配下の URL
+ * 許可基準:
+ *   - 同一オリジン（baseUrl と同一 origin）
+ *   - nagiyu.com 本体、またはそのサブドメイン（*.nagiyu.com）
  * 許可されない URL は baseUrl（auth のトップ）にフォールバックする。
+ *
+ * 判定は文字列の前方一致ではなく URL パース＋ホスト名一致で行う
+ * （前方一致だと `https://auth.nagiyu.com.evil.com` 等のオープンリダイレクトを許すため）。
  */
 
 // エラーメッセージ定数
@@ -29,13 +32,30 @@ export function resolveRefreshCallbackUrl(
     return baseUrl;
   }
 
-  // 同一オリジン（baseUrl で始まる URL）は許可
-  if (rawCallbackUrl.startsWith(baseUrl)) {
-    return rawCallbackUrl;
+  let parsed: URL;
+  try {
+    parsed = new URL(rawCallbackUrl);
+  } catch {
+    // 相対パスやスキーム不正など、絶対 URL としてパースできないものはフォールバック
+    return baseUrl;
   }
 
-  // *.nagiyu.com 配下の URL は許可
-  if (rawCallbackUrl.match(/^https?:\/\/[^/]*\.nagiyu\.com/)) {
+  // http / https 以外（javascript:, data: 等）はフォールバック
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    return baseUrl;
+  }
+
+  // 同一オリジンは許可
+  try {
+    if (parsed.origin === new URL(baseUrl).origin) {
+      return rawCallbackUrl;
+    }
+  } catch {
+    // baseUrl 自体が不正な場合は下のホスト名判定に委ねる
+  }
+
+  // nagiyu.com 本体、またはそのサブドメイン（ホスト名の完全一致 / 末尾一致）のみ許可
+  if (parsed.hostname === 'nagiyu.com' || parsed.hostname.endsWith('.nagiyu.com')) {
     return rawCallbackUrl;
   }
 
