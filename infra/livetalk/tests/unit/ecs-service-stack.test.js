@@ -238,6 +238,25 @@ describe('LiveTalkEcsServiceStack', () => {
     );
   });
 
+  it('Task Role の DynamoDB grant に GSI（index/*）への Query 権限が含まれる', () => {
+    // status 画面は GSI2（SafetyEvent 横断レビュー）を Query するため、IAM ポリシーの
+    // Resource にテーブル本体に加えて `table/.../index/*` が含まれている必要がある
+    // （ADR-2.22 / #3580）。fromTableArn のままだと index ARN が grant されず AccessDenied。
+    const template = synth('dev');
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: Match.arrayWith(['dynamodb:Query']),
+            Resource: Match.arrayWith([
+              Match.stringLikeRegexp('table/nagiyu-livetalk-dynamodb-dev/index/\\*'),
+            ]),
+          }),
+        ]),
+      },
+    });
+  });
+
   it('prod 環境でも正しい命名で生成する', () => {
     const template = synth('prod');
     template.hasResourceProperties('AWS::ECS::Service', {
