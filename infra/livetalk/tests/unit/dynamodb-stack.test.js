@@ -23,7 +23,7 @@ describe('LiveTalkDynamoDbStack', () => {
     });
   });
 
-  it('PK / SK の 2 キー Single Table 構成に GSI1（Profile 列挙用 sparse GSI）を追加する', () => {
+  it('PK / SK の 2 キー Single Table 構成に GSI1（Profile 列挙用 sparse GSI）と GSI2（SafetyEvent 横断レビュー用 sparse GSI）を追加する', () => {
     const template = synth('dev');
     template.hasResourceProperties('AWS::DynamoDB::Table', {
       KeySchema: [
@@ -35,11 +35,13 @@ describe('LiveTalkDynamoDbStack', () => {
         { AttributeName: 'SK', AttributeType: 'S' },
         { AttributeName: 'GSI1PK', AttributeType: 'S' },
         { AttributeName: 'GSI1SK', AttributeType: 'S' },
+        { AttributeName: 'GSI2PK', AttributeType: 'S' },
+        { AttributeName: 'GSI2SK', AttributeType: 'S' },
       ]),
     });
     // GSI1: Profile 列挙用 sparse GSI（#3527）
     template.hasResourceProperties('AWS::DynamoDB::Table', {
-      GlobalSecondaryIndexes: [
+      GlobalSecondaryIndexes: Match.arrayWith([
         {
           IndexName: 'GSI1',
           KeySchema: [
@@ -48,7 +50,33 @@ describe('LiveTalkDynamoDbStack', () => {
           ],
           Projection: { ProjectionType: 'KEYS_ONLY' },
         },
-      ],
+      ]),
+    });
+  });
+
+  it('GSI2（SafetyEvent 横断レビュー用 sparse GSI）が INCLUDE 射影でメタデータ属性を含む', () => {
+    const template = synth('dev');
+    template.hasResourceProperties('AWS::DynamoDB::Table', {
+      GlobalSecondaryIndexes: Match.arrayWith([
+        {
+          IndexName: 'GSI2',
+          KeySchema: [
+            { AttributeName: 'GSI2PK', KeyType: 'HASH' },
+            { AttributeName: 'GSI2SK', KeyType: 'RANGE' },
+          ],
+          Projection: {
+            ProjectionType: 'INCLUDE',
+            NonKeyAttributes: Match.arrayWith([
+              'UserID',
+              'EventID',
+              'CharacterID',
+              'Trigger',
+              'DetectedPattern',
+              'CreatedAt',
+            ]),
+          },
+        },
+      ]),
     });
   });
 

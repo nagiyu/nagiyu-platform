@@ -321,6 +321,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
       try {
         await safetyEventRepository.create({
           UserID: userId,
+          CharacterID: characterId,
           Trigger: 'input_keyword',
           DetectedPattern: detectedPattern,
           InputText: userText,
@@ -631,6 +632,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
           try {
             await safetyEventRepository.create({
               UserID: userId,
+              CharacterID: characterId,
               Trigger: 'output_moderation',
               DetectedPattern: `Moderation flagged: ${flaggedCategories.join(', ')}`,
               InputText: userText,
