@@ -126,13 +126,11 @@ nagiyu ポータルでは `generateStaticParams` と SSG によって**すべて
 
 ### 3. 責務分離：コンテンツ変換とコンポーネント描画を切り離す
 
-このリポジトリの CLAUDE.md（コーディング規約）には次の項目があります。
+XSS 対策で意外と見落とされがちなのが、「サニタイズをどこで担保するか」という**責務の置き場所**です。`DOMPurify.sanitize()` を呼ぶこと自体は簡単ですが、呼び忘れる経路が 1 つでもあれば穴になります。そこで設けたいルールが、次の一文です。
 
-> **MUST NOT**: `dangerouslySetInnerHTML` を直接使用しない（DOMPurify 経由のみ）
+> `dangerouslySetInnerHTML` に渡す HTML は、必ずサニタイズ済みであること
 
-「DOMPurify 経由のみ」とはどういう意味でしょうか。答えは「`dangerouslySetInnerHTML` に渡す HTML は必ずサニタイズ済みであること」です。
-
-nagiyu ポータルはこれを**境界設計**で実現しています。
+これをコードレビューの口約束ではなく、**コードの構造そのもの**で守れるようにします。nagiyu ポータルでは**境界設計**で実現しています。
 
 ```
 lib/content.ts          ← サニタイズの責務
