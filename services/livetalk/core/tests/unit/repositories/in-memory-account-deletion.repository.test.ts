@@ -87,9 +87,7 @@ function seedSafetyEvent(
     GSI2SK: eventId,
     CreatedAt: FIXED_NOW,
     UpdatedAt: FIXED_NOW,
-    ...(opts?.moderationCategories
-      ? { ModerationCategories: opts.moderationCategories }
-      : {}),
+    ...(opts?.moderationCategories ? { ModerationCategories: opts.moderationCategories } : {}),
   });
 }
 
