@@ -185,8 +185,11 @@ export class DynamoDBAccountDeletionRepository implements AccountDeletionReposit
         if (!unprocessed || unprocessed.length === 0) break;
 
         if (retries >= UNPROCESSED_MAX_RETRIES) {
-          // 最大リトライ後も残った件数は諦めてカウントしない
-          break;
+          // 不可逆な「データ削除」では未削除を残したまま成功扱いにしない。
+          // 残件があれば例外を投げ、呼び出し側で 500 を返して冪等再実行に委ねる。
+          throw new DatabaseError(
+            `${ACCOUNT_DELETION_ERROR_MESSAGES.バッチ削除失敗}: UnprocessedItems が最大リトライ回数（${UNPROCESSED_MAX_RETRIES}）後も残存しました（残 ${unprocessed.length} 件）`
+          );
         }
 
         // 指数バックオフ（50ms, 100ms, 200ms, 400ms）
@@ -212,8 +215,10 @@ export class DynamoDBAccountDeletionRepository implements AccountDeletionReposit
   /**
    * SafetyEvent アイテムを匿名化する。
    *
-   * この呼び出しで ULID を 1 つだけ発行し、全 SafetyEvent に同じ匿名トークンを付与する
-   * （同一ユーザーの検出をグルーピング可能にするため）。
+   * この呼び出しで ULID を 1 つだけ発行し、同一呼び出し内の全 SafetyEvent に同じ匿名トークンを
+   * 付与する（同一ユーザーの検出を可能な範囲でグルーピングするため）。トークンは不可逆なランダム値で、
+   * googleId に紐づかない（ADR-2.21「個人識別子を切り離す」を優先）。部分失敗後の再実行では
+   * 残件に別トークンが振られうる（グルーピングはベストエフォート）。
    *
    * 各アイテムは TransactWriteCommand で原子的に re-key する。
    * - Put: 新 PK（`USER#ANON#<ulid>`）に移動。UserID も匿名トークンに置換する。
@@ -242,8 +247,9 @@ export class DynamoDBAccountDeletionRepository implements AccountDeletionReposit
         UserID: anonToken,
         // GSI2 は維持する（匿名化後も横断 Query に残す）
         GSI2PK: buildSafetyEventGSI2PK(),
-        // GSI2SK は元の EventID を維持する
-        GSI2SK: item['GSI2SK'],
+        // GSI2SK は既存値を維持し、欠落時は EventID（= 定義上の GSI2SK 値）で補完する。
+        // #3580 以前の legacy item で GSI2SK が欠落していても確実に横断索引へ残す。
+        GSI2SK: item['GSI2SK'] ?? (item['EventID'] as string),
         UpdatedAt: now,
         AnonymizedAt: nowIso,
       };

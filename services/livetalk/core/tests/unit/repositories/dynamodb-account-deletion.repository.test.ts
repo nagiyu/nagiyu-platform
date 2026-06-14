@@ -308,6 +308,27 @@ describe('DynamoDBAccountDeletionRepository', () => {
       const putItem = mockSend.mock.calls[1][0].input.TransactItems[0].Put.Item;
       expect(putItem.CharacterID).toBe('hiyori');
     });
+
+    it('GSI2SK 欠落の legacy SafetyEvent でも EventID で GSI2SK を補完する', async () => {
+      const eventId = 'EVT_LEGACY';
+      // #3580 以前に作られ GSI2PK / GSI2SK を持たない legacy item
+      const legacyItem = makeSafetyItem(USER_ID, eventId);
+      delete (legacyItem as Record<string, unknown>).GSI2PK;
+      delete (legacyItem as Record<string, unknown>).GSI2SK;
+
+      const mockSend = jest
+        .fn()
+        .mockResolvedValueOnce({ Items: [legacyItem] })
+        .mockResolvedValueOnce({});
+
+      const repo = makeRepo(mockSend);
+      await repo.deleteAccount(USER_ID);
+
+      const putItem = mockSend.mock.calls[1][0].input.TransactItems[0].Put.Item;
+      // GSI2PK は付与、GSI2SK は EventID で補完され横断索引に確実に残る
+      expect(putItem.GSI2PK).toBe('SAFETY');
+      expect(putItem.GSI2SK).toBe(eventId);
+    });
   });
 
   describe('(d) UnprocessedItems リトライ', () => {
@@ -338,7 +359,7 @@ describe('DynamoDBAccountDeletionRepository', () => {
       expect(result.deletedCount).toBe(1);
     });
 
-    it('最大リトライ（4回）を超えた場合は残りをカウントしない', async () => {
+    it('最大リトライ（4回）を超えても残存する場合は DatabaseError を投げる', async () => {
       const profile = makeProfileItem(USER_ID);
 
       const deleteRequest = {
@@ -353,12 +374,15 @@ describe('DynamoDBAccountDeletionRepository', () => {
         .mockResolvedValue({ UnprocessedItems: { [TABLE]: [deleteRequest] } });
 
       const repo = makeRepo(mockSend);
-      const result = await repo.deleteAccount(USER_ID);
+
+      // 不可逆な削除では未削除を残したまま成功扱いにせず例外を投げる
+      await expect(repo.deleteAccount(USER_ID)).rejects.toMatchObject({
+        name: 'DatabaseError',
+        message: expect.stringContaining(ACCOUNT_DELETION_ERROR_MESSAGES.バッチ削除失敗),
+      });
 
       // Query 1 回 + BatchWrite（1 + 4 リトライ）= 6 回
       expect(mockSend).toHaveBeenCalledTimes(6);
-      // 全て Unprocessed のため deletedCount = 0
-      expect(result.deletedCount).toBe(0);
     });
   });
 

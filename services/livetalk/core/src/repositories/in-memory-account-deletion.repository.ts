@@ -92,8 +92,10 @@ export class InMemoryAccountDeletionRepository implements AccountDeletionReposit
   /**
    * SafetyEvent アイテムを匿名化する。
    *
-   * この呼び出しで ULID を 1 つだけ発行し、全 SafetyEvent に同じ匿名トークンを付与する
-   * （同一ユーザーの検出をグルーピング可能にするため）。
+   * この呼び出しで ULID を 1 つだけ発行し、同一呼び出し内の全 SafetyEvent に同じ匿名トークンを
+   * 付与する（同一ユーザーの検出を可能な範囲でグルーピングするため）。トークンは不可逆なランダム値で、
+   * googleId に紐づかない（ADR-2.21「個人識別子を切り離す」を優先）。部分失敗後の再実行では
+   * 残件に別トークンが振られうる（グルーピングはベストエフォート）。
    *
    * 各アイテムは `store.put(新item)` + `store.delete(旧pk, 旧sk)` で re-key する。
    *
@@ -115,8 +117,9 @@ export class InMemoryAccountDeletionRepository implements AccountDeletionReposit
         UserID: anonToken,
         // GSI2 は維持する（匿名化後も横断 Query に残す）
         GSI2PK: buildSafetyEventGSI2PK(),
-        // GSI2SK は元の EventID を維持する
-        GSI2SK: item['GSI2SK'],
+        // GSI2SK は既存値を維持し、欠落時は EventID（= 定義上の GSI2SK 値）で補完する。
+        // #3580 以前の legacy item で GSI2SK が欠落していても確実に横断索引へ残す。
+        GSI2SK: item['GSI2SK'] ?? (item['EventID'] as string),
         UpdatedAt: now,
         AnonymizedAt: nowIso,
       };
