@@ -401,3 +401,12 @@ export {
   computeBucket,
   computeWindowTtlSec,
 } from './repositories/dynamodb-chat-guard.repository.js';
+
+// アカウント削除（退会・データ削除 / Issue #3579）
+export type { AccountDeletionResult } from './entities/account-deletion.entity.js';
+export type { AccountDeletionRepository } from './repositories/account-deletion.repository.interface.js';
+export {
+  DynamoDBAccountDeletionRepository,
+  ACCOUNT_DELETION_ERROR_MESSAGES,
+} from './repositories/dynamodb-account-deletion.repository.js';
+export { InMemoryAccountDeletionRepository } from './repositories/in-memory-account-deletion.repository.js';

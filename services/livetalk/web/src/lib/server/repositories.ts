@@ -14,6 +14,7 @@ import {
   getTableName,
 } from '@nagiyu/aws';
 import type {
+  AccountDeletionRepository,
   CharacterStateRepository,
   ChatGuardRepository,
   InterestRepository,
@@ -29,6 +30,7 @@ import type {
   StudyTopicRepository,
 } from '@nagiyu/livetalk-core';
 import {
+  DynamoDBAccountDeletionRepository,
   DynamoDBChatGuardRepository,
   DynamoDBCharacterStateRepository,
   DynamoDBInterestRepository,
@@ -42,6 +44,7 @@ import {
   DynamoDBProfileRepository,
   DynamoDBPushSubscriptionRepository,
   DynamoDBStudyTopicRepository,
+  InMemoryAccountDeletionRepository,
   InMemoryChatGuardRepository,
   InMemoryCharacterStateRepository,
   InMemoryInterestRepository,
@@ -59,6 +62,7 @@ import {
 
 const registry = registerDynamoRepositories<
   {
+    accountDeletion: AccountDeletionRepository;
     memory: MemoryRepository;
     memorySummary: MemorySummaryRepository;
     message: MessageRepository;
@@ -75,6 +79,11 @@ const registry = registerDynamoRepositories<
   InMemorySingleTableStore
 >(
   {
+    accountDeletion: {
+      createInMemoryRepository: (store) => new InMemoryAccountDeletionRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBAccountDeletionRepository(docClient, tableName),
+    },
     memory: {
       createInMemoryRepository: (store) => new InMemoryMemoryRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
@@ -141,6 +150,10 @@ const registry = registerDynamoRepositories<
     createSharedStore: () => new InMemorySingleTableStore(),
   }
 );
+
+export function getAccountDeletionRepository(): AccountDeletionRepository {
+  return registry.accountDeletion.createRepository();
+}
 
 export function getMemoryRepository(): MemoryRepository {
   return registry.memory.createRepository();
