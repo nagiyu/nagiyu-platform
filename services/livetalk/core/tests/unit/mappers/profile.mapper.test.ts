@@ -25,6 +25,23 @@ describe('ProfileMapper', () => {
     expect(mapper.toEntity(item)).toEqual(baseEntity);
   });
 
+  it('toItem に GSI1PK="PROFILE" が含まれる（sparse GSI）', () => {
+    const item = mapper.toItem(baseEntity);
+    expect(item.GSI1PK).toBe('PROFILE');
+  });
+
+  it('toItem に GSI1SK=UserID（生の UserID）が含まれる', () => {
+    const item = mapper.toItem(baseEntity);
+    expect(item.GSI1SK).toBe('google-12345');
+  });
+
+  it('toEntity は GSI1PK / GSI1SK を entity に含めない', () => {
+    const item = mapper.toItem(baseEntity);
+    const entity = mapper.toEntity(item);
+    expect(Object.keys(entity)).not.toContain('GSI1PK');
+    expect(Object.keys(entity)).not.toContain('GSI1SK');
+  });
+
   it('Auth 側の情報（DisplayName / Email / GoogleID）は永続化しない', () => {
     const item = mapper.toItem(baseEntity);
     expect(item.DisplayName).toBeUndefined();

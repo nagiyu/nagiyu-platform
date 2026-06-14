@@ -24,6 +24,15 @@ export type {
 export const DEFAULT_CLIENT_CHARACTER_ID = 'hiyori';
 
 /**
+ * 早瀬アゲハ のライセンス・クレジット文字列。
+ * 音声は OpenAI TTS を使用するため、AI 生成音声であることの明示が OpenAI 利用規約上必須。
+ * イラストは OpenAI gpt-image による AI 生成。規約上の必須表記ではないが、AI 生成物を
+ * 人間作と誤認させない（OpenAI 利用ポリシー）ため、音声開示と足並みを揃えて明示する。
+ */
+export const AGEHA_LICENSE_TEXT =
+  'イラスト：OpenAI gpt-image による AI 生成 / 音声：OpenAI TTS による AI 生成音声（人間の音声ではありません）';
+
+/**
  * クライアントプロファイルのエラーメッセージ定数。
  */
 export const CHARACTER_PROFILE_ERROR_MESSAGES = {
@@ -41,6 +50,7 @@ const PROFILES: Record<string, CharacterClientProfile> = {
       shortName: 'ひより',
     },
     render: {
+      renderer: 'live2d',
       modelPath: '/assets/characters/hiyori/runtime/hiyori_free_t08.model3.json',
       cubismParams: {
         mouthOpenY: 'ParamMouthOpenY',
@@ -52,6 +62,27 @@ const PROFILES: Record<string, CharacterClientProfile> = {
     description: '甘いものと猫が大好きな癒し系。のんびりおしゃべりして、ほっと一息つける女の子。',
     model: { engine: 'Live2D', name: '桃瀬ひより' },
     voice: { engine: 'VOICEVOX', name: '冥鳴ひまり' },
+  },
+  ageha: {
+    display: {
+      displayName: '早瀬アゲハ',
+      shortName: 'アゲハ',
+    },
+    render: {
+      renderer: 'sprite',
+      sprite: {
+        base: '/assets/characters/ageha/sprite/base.png',
+        eyeOpen: '/assets/characters/ageha/sprite/eye-open.png',
+        eyeClosed: '/assets/characters/ageha/sprite/eye-closed.png',
+        mouthOpen: '/assets/characters/ageha/sprite/mouth-open.png',
+        mouthClosed: '/assets/characters/ageha/sprite/mouth-closed.png',
+      },
+    },
+    licenseText: AGEHA_LICENSE_TEXT,
+    description:
+      'テンション高めで背中を押してくれる相棒ギャル。落ち込んでも隣でアゲてくれる、ノリのいい女の子。',
+    model: { engine: '一枚絵', name: '早瀬アゲハ' },
+    voice: { engine: 'OpenAI TTS', name: 'nova' },
   },
 };
 

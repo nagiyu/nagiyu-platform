@@ -130,7 +130,7 @@ sudo npx --yes playwright@1.59.1 install --with-deps webkit
 
 **`npm ci` はビルドを走らせない**ため、`dist/` が無いままサービス（Next.js）を起動すると `@nagiyu/ui` 等のモジュール解決に失敗し、`/` が 500 を返す。`next dev` も `next build` 内のサブステップも、これに依存している。
 
-CI（`.github/workflows/portal-verify.yml` 等）では E2E ジョブの直前に下記の順序で明示的にビルドしている：
+CI（`.github/workflows/portal-verify.yml` 等）では E2E ジョブの直前に、そのサービスが必要とする libs のサブセットを依存順にビルドしている（portal の例）：
 
 ```bash
 npm run build --workspace @nagiyu/common
@@ -139,7 +139,18 @@ npm run build --workspace @nagiyu/ui
 npm run build --workspace @nagiyu/nextjs
 ```
 
-依存方向は `ui → browser → common` および `nextjs → browser → common`。**ローカルで `next dev` や E2E を起動する前にも同じ順で実行する**。
+各 lib の内部依存（正確な依存グラフ）:
+
+```
+common   ← 依存なし（基盤）
+aws      ← common
+browser  ← common
+nextjs   ← common      （browser には依存しない）
+react    ← browser, common
+ui       ← browser, common
+```
+
+**ローカルで `next dev` や E2E を起動する前にも同様に依存順でビルドする**。全 libs を依存順でビルドするスクリプトを `build-shared-libs` スキル（[`.claude/skills/build-shared-libs/`](../../.claude/skills/build-shared-libs/SKILL.md)）に同梱しているので、`.claude/skills/build-shared-libs/scripts/build.sh` を使う。
 
 ---
 

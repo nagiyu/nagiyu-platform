@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Box, Typography } from '@mui/material';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import { Button } from '@nagiyu/ui';
-import { subscribePush } from '@nagiyu/browser';
+import { subscribePush, fetchVapidPublicKey } from '@nagiyu/browser';
 import { getCharacterDisplay } from '@/lib/characters/client-profiles';
 
 /**
@@ -25,18 +25,6 @@ export const NOTIFICATION_TOGGLE_MESSAGES = {
   DENIED: 'ブラウザの設定から通知を許可してね',
   ERROR: '通知の設定に失敗しちゃった。あとでもう一度試してね',
 } as const;
-
-const fetchVapidPublicKey = async (): Promise<string> => {
-  const response = await fetch('/api/push/vapid-public-key');
-  if (!response.ok) {
-    throw new Error('VAPID 公開鍵の取得に失敗しました');
-  }
-  const { publicKey } = (await response.json()) as { publicKey?: string };
-  if (!publicKey) {
-    throw new Error('VAPID 公開鍵が空です');
-  }
-  return publicKey;
-};
 
 const postSubscription = async (subscription: PushSubscription): Promise<void> => {
   const response = await fetch('/api/push/subscribe', {

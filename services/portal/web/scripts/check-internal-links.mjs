@@ -23,6 +23,8 @@ const PORTAL_DIR = path.resolve(__dirname, '..');
 const CONTENT_DIR = path.join(PORTAL_DIR, 'src', 'content');
 /** src ディレクトリ */
 const SRC_DIR = path.join(PORTAL_DIR, 'src');
+/** public ディレクトリ（静的ファイルの存在確認に使用） */
+const PUBLIC_DIR = path.join(PORTAL_DIR, 'public');
 
 /**
  * 静的ページの存在パス一覧（app ディレクトリ内に page.tsx があるルート）
@@ -279,6 +281,17 @@ function validateHref(href) {
 
   // 静的ページの確認
   if (staticPageExists(href)) return { valid: true, reason: '' };
+
+  // public/ 配下の静的ファイル（画像等）の確認
+  // クエリ文字列を除去してから判定（アンカーは呼び出し元で除去済み）
+  // 同等のロジックを src/lib/linkChecker.ts にも実装。両者を同期すること。
+  const hrefWithoutQuery = href.split('?')[0];
+  const resolved = path.resolve(PUBLIC_DIR, '.' + hrefWithoutQuery);
+  // パストラバーサル防御: resolved が PUBLIC_DIR の配下であることを確認
+  const isInsidePublic = resolved === PUBLIC_DIR || resolved.startsWith(PUBLIC_DIR + path.sep);
+  if (isInsidePublic && fs.existsSync(resolved) && fs.statSync(resolved).isFile()) {
+    return { valid: true, reason: '' };
+  }
 
   return { valid: false, reason: `対応するページが存在しない (${href})` };
 }

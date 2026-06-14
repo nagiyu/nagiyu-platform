@@ -136,7 +136,7 @@ describe('NotifyButton', () => {
     render(<NotifyButton />);
     await userEvent.click(screen.getByRole('button', { name: '通知を有効にする' }));
 
-    expect(await screen.findByText('VAPID 公開鍵の取得に失敗しました')).toBeInTheDocument();
+    expect(await screen.findByText('VAPID公開鍵の取得に失敗しました')).toBeInTheDocument();
   });
 
   it('VAPID 公開鍵が空の場合はエラーメッセージを表示する', async () => {
@@ -165,7 +165,7 @@ describe('NotifyButton', () => {
     render(<NotifyButton />);
     await userEvent.click(screen.getByRole('button', { name: '通知を有効にする' }));
 
-    expect(await screen.findByText('VAPID 公開鍵が空です')).toBeInTheDocument();
+    expect(await screen.findByText('VAPID公開鍵が空です')).toBeInTheDocument();
   });
 
   it('購読登録 API 失敗時はエラーメッセージを表示する', async () => {

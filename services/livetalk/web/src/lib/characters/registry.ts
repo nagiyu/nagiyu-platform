@@ -1,4 +1,4 @@
-import { hiyori, DEFAULT_CHARACTER_ID } from '@nagiyu/livetalk-core';
+import { hiyori, ageha, DEFAULT_CHARACTER_ID } from '@nagiyu/livetalk-core';
 import type { CharacterDefinition } from '@nagiyu/livetalk-core';
 import {
   getCharacterRenderProfile,
@@ -30,6 +30,7 @@ export interface CharacterEntry {
  */
 const DEFINITIONS: Record<string, CharacterDefinition> = {
   [hiyori.id]: hiyori,
+  [ageha.id]: ageha,
 };
 
 /**

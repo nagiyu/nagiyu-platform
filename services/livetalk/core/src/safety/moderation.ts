@@ -10,6 +10,7 @@
 
 import OpenAI from 'openai';
 import type { IModerationClient, ModerationResult } from './types.js';
+import { withLLMRetry } from '../lib/llm-retry.js';
 
 export const MODERATION_ERROR_MESSAGES = {
   EMPTY_API_KEY: 'OpenAI API キーが指定されていません',
@@ -32,6 +33,7 @@ export interface OpenAIModerationClientOptions {
 /**
  * OpenAI Moderation API を {@link IModerationClient} 形にラップする実装。
  *
+ * `check` メソッドは `withLLMRetry` で一過性エラー（rate limit, timeout 等）をリトライする。
  * API エラー・タイムアウト時は Error を throw する（呼び出し側で fail-warn ハンドリング）。
  */
 export class OpenAIModerationClient implements IModerationClient {
@@ -56,10 +58,12 @@ export class OpenAIModerationClient implements IModerationClient {
       throw new Error(MODERATION_ERROR_MESSAGES.EMPTY_TEXT);
     }
 
-    const response = await this.client.moderations.create({
-      input: trimmed,
-      model: this.model,
-    });
+    const response = await withLLMRetry(() =>
+      this.client.moderations.create({
+        input: trimmed,
+        model: this.model,
+      })
+    );
 
     const result = response.results[0];
     if (!result) {

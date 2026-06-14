@@ -21,6 +21,8 @@ const makeLifecycle = (overrides: Partial<LifecycleEntity> = {}): LifecycleEntit
 const character: CharacterDefinition = {
   id: 'hiyori',
   displayName: '桃瀬ひより',
+  // notificationName は通知タイトル用のカジュアル名（必須フィールド）
+  notificationName: 'ひより',
   personality: {
     basePrompt: '',
     speechStyle: '優しい口調',

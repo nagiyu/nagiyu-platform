@@ -3,6 +3,7 @@ import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagi
 import {
   DynamoDBLifecycleRepository,
   DynamoDBMessageRepository,
+  DynamoDBProfileRepository,
   defaultUlidFactory,
 } from '@nagiyu/livetalk-core';
 import { learnAllUserActivities } from '../usecases/learn-user-activity.usecase.js';
@@ -38,10 +39,10 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
 
     const messageRepo = new DynamoDBMessageRepository(docClient, tableName, defaultUlidFactory);
     const lifecycleRepo = new DynamoDBLifecycleRepository(docClient, tableName);
+    const profileRepo = new DynamoDBProfileRepository(docClient, tableName);
 
     const result = await learnAllUserActivities({
-      docClient,
-      tableName,
+      profileRepo,
       messageRepo,
       lifecycleRepo,
     });

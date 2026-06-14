@@ -9,6 +9,7 @@ jest.mock('@nagiyu/aws', () => ({
 jest.mock('@nagiyu/livetalk-core', () => ({
   DynamoDBMessageRepository: jest.fn(),
   DynamoDBLifecycleRepository: jest.fn(),
+  DynamoDBProfileRepository: jest.fn(),
   defaultUlidFactory: jest.fn(),
 }));
 

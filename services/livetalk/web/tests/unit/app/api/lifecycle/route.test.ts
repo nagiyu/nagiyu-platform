@@ -44,10 +44,16 @@ const makeEntity = (bedtime: string, wakeUpTime: string): LifecycleEntity => ({
 const makeRepo = (entity: LifecycleEntity | null): LifecycleRepository => ({
   get: jest.fn(async () => entity),
   upsert: jest.fn(async () => entity ?? makeEntity('01:30', '09:30')),
+  updateUserActivityProfile: jest.fn(async () => entity ?? makeEntity('01:30', '09:30')),
+  updateSchedule: jest.fn(async () => entity ?? makeEntity('01:30', '09:30')),
 });
 
-const buildGetRequest = (): Request =>
-  new Request('http://localhost/api/lifecycle', { method: 'GET' });
+const buildGetRequest = (characterId?: string): Request => {
+  const url = characterId
+    ? `http://localhost/api/lifecycle?characterId=${encodeURIComponent(characterId)}`
+    : 'http://localhost/api/lifecycle';
+  return new Request(url, { method: 'GET' });
+};
 
 describe('GET /api/lifecycle', () => {
   beforeEach(() => jest.clearAllMocks());
@@ -103,5 +109,52 @@ describe('GET /api/lifecycle', () => {
     const json = await res.json();
     expect(json.state).toBe('awake');
     consoleSpy.mockRestore();
+  });
+
+  it('characterId クエリで指定したキャラの characterId でリポジトリを呼び出す', async () => {
+    mockGetSession.mockResolvedValue(validSession);
+    const mockGet = jest.fn(async () => makeEntity('01:30', '09:30'));
+    mockGetLifecycleRepo.mockReturnValue({
+      get: mockGet,
+      upsert: jest.fn(),
+      updateUserActivityProfile: jest.fn(),
+      updateSchedule: jest.fn(),
+    } as unknown as LifecycleRepository);
+
+    const res = await GET(buildGetRequest('ageha'));
+    expect(res.status).toBe(200);
+    // get が 'ageha' で呼ばれていることを確認
+    expect(mockGet).toHaveBeenCalledWith(expect.objectContaining({ characterId: 'ageha' }));
+  });
+
+  it('不正な characterId は DEFAULT_CHARACTER_ID にフォールバックする', async () => {
+    mockGetSession.mockResolvedValue(validSession);
+    const mockGet = jest.fn(async () => makeEntity('01:30', '09:30'));
+    mockGetLifecycleRepo.mockReturnValue({
+      get: mockGet,
+      upsert: jest.fn(),
+      updateUserActivityProfile: jest.fn(),
+      updateSchedule: jest.fn(),
+    } as unknown as LifecycleRepository);
+
+    const res = await GET(buildGetRequest('unknown-character'));
+    expect(res.status).toBe(200);
+    // 不正 ID は既定 characterId（hiyori）にフォールバックして呼ばれる
+    expect(mockGet).toHaveBeenCalledWith(expect.objectContaining({ characterId: 'hiyori' }));
+  });
+
+  it('characterId クエリ未指定は DEFAULT_CHARACTER_ID を使う', async () => {
+    mockGetSession.mockResolvedValue(validSession);
+    const mockGet = jest.fn(async () => makeEntity('01:30', '09:30'));
+    mockGetLifecycleRepo.mockReturnValue({
+      get: mockGet,
+      upsert: jest.fn(),
+      updateUserActivityProfile: jest.fn(),
+      updateSchedule: jest.fn(),
+    } as unknown as LifecycleRepository);
+
+    const res = await GET(buildGetRequest());
+    expect(res.status).toBe(200);
+    expect(mockGet).toHaveBeenCalledWith(expect.objectContaining({ characterId: 'hiyori' }));
   });
 });

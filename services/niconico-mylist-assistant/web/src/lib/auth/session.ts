@@ -1,5 +1,5 @@
 import { auth } from '../../auth';
-import { createSessionGetter } from '@nagiyu/nextjs/session';
+import { createSessionGetter, resolveTestUser } from '@nagiyu/nextjs/session';
 import type { Session } from 'next-auth';
 
 type NiconicoSession = {
@@ -15,13 +15,13 @@ type NiconicoSession = {
 const getSessionFromAuth = createSessionGetter<Session, NiconicoSession>({
   auth: auth as () => Promise<Session | null>,
   createTestSession: () => {
-    const testUserId = process.env.TEST_USER_ID || 'test-user-id';
+    const u = resolveTestUser({ defaultRoles: [] });
     return {
       user: {
-        userId: testUserId,
-        email: process.env.TEST_USER_EMAIL || 'test@example.com',
-        name: process.env.TEST_USER_NAME || 'Test User',
-        roles: process.env.TEST_USER_ROLES?.split(',') || [],
+        userId: u.id,
+        email: u.email,
+        name: u.name,
+        roles: u.roles,
       },
       expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     };

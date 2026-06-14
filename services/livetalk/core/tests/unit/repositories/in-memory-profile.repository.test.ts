@@ -75,4 +75,28 @@ describe('InMemoryProfileRepository', () => {
     const updated = await repo.upsert({ UserID: 'u3' }, { Consents: consents });
     expect(updated.Consents).toEqual(consents);
   });
+
+  describe('listAllUserIds', () => {
+    it('upsert した複数ユーザーが全件返る', async () => {
+      await repo.upsert({ UserID: 'user-a' });
+      await repo.upsert({ UserID: 'user-b' });
+      await repo.upsert({ UserID: 'user-c' });
+
+      const result = await repo.listAllUserIds();
+
+      expect(result.sort()).toEqual(['user-a', 'user-b', 'user-c']);
+    });
+
+    it('ユーザーが 0 件のとき空配列を返す', async () => {
+      const result = await repo.listAllUserIds();
+      expect(result).toEqual([]);
+    });
+
+    it('upsert したユーザーの UserID（生の ID）が返る（USER# プレフィックスなし）', async () => {
+      await repo.upsert({ UserID: 'google-xyz' });
+      const result = await repo.listAllUserIds();
+      expect(result).toContain('google-xyz');
+      expect(result.some((id) => id.startsWith('USER#'))).toBe(false);
+    });
+  });
 });

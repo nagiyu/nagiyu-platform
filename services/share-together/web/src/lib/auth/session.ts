@@ -1,21 +1,24 @@
 import { NextResponse } from 'next/server';
 import type { Session } from 'next-auth';
-import { createSessionGetter } from '@nagiyu/nextjs/session';
+import { createSessionGetter, resolveTestUser } from '@nagiyu/nextjs/session';
 import { auth } from '../../../auth';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
 const getSessionFromAuth = createSessionGetter({
   auth: auth as () => Promise<Session | null>,
-  createTestSession: () => ({
-    user: {
-      id: process.env.TEST_USER_ID || 'test-user-id',
-      email: process.env.TEST_USER_EMAIL || 'test@example.com',
-      name: process.env.TEST_USER_NAME || 'Test User',
-      image: undefined,
-      roles: [],
-    },
-    expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-  }),
+  createTestSession: () => {
+    const u = resolveTestUser({ defaultRoles: [] });
+    return {
+      user: {
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        image: u.image,
+        roles: u.roles,
+      },
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    };
+  },
 });
 
 export const getSession = getSessionFromAuth;

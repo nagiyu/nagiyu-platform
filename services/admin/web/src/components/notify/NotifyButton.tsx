@@ -4,27 +4,14 @@ import { useState } from 'react';
 import { Alert } from '@mui/material';
 import { Button } from '@nagiyu/ui';
 import { usePushSubscription } from '@nagiyu/react';
+import { fetchVapidPublicKey } from '@nagiyu/browser';
 
 const ERROR_MESSAGES = {
-  VAPID_KEY_FETCH_FAILED: 'VAPID 公開鍵の取得に失敗しました',
-  VAPID_KEY_EMPTY: 'VAPID 公開鍵が空です',
   SUBSCRIPTION_REGISTER_FAILED: '通知購読の登録に失敗しました',
   UNKNOWN: '通知設定中にエラーが発生しました',
 } as const;
 
 const SUCCESS_MESSAGE = '通知を有効化しました';
-
-const fetchVapidPublicKey = async (): Promise<string> => {
-  const response = await fetch('/api/notify/vapid-key');
-  if (!response.ok) {
-    throw new Error(ERROR_MESSAGES.VAPID_KEY_FETCH_FAILED);
-  }
-  const { publicKey } = (await response.json()) as { publicKey?: string };
-  if (!publicKey) {
-    throw new Error(ERROR_MESSAGES.VAPID_KEY_EMPTY);
-  }
-  return publicKey;
-};
 
 const postSubscription = async (subscription: PushSubscription): Promise<void> => {
   const response = await fetch('/api/notify/subscribe', {
@@ -42,7 +29,7 @@ export default function NotifyButton() {
   const [isError, setIsError] = useState(false);
 
   const { loading, subscribe } = usePushSubscription({
-    getVapidPublicKey: fetchVapidPublicKey,
+    getVapidPublicKey: () => fetchVapidPublicKey('/api/notify/vapid-key'),
     swPath: '/sw-push.js',
     onSubscribed: postSubscription,
   });

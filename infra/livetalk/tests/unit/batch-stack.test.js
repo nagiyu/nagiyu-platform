@@ -83,6 +83,18 @@ describe('LiveTalkBatchStack', () => {
     });
   });
 
+  it('圧縮バッチ Lambda 環境変数に TZ=Asia/Tokyo が含まれる', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: Match.stringLikeRegexp('livetalk-batch-compress'),
+      Environment: {
+        Variables: Match.objectLike({
+          TZ: 'Asia/Tokyo',
+        }),
+      },
+    });
+  });
+
   it('学習バッチ Lambda には OPENAI_API_KEY を含めない', () => {
     const { stack } = synth();
     const template = Template.fromStack(stack);
@@ -205,6 +217,24 @@ describe('LiveTalkBatchStack', () => {
   it('NotifyFunctionArn を Outputs に出力する', () => {
     const { template } = synth();
     template.hasOutput('NotifyFunctionArn', Match.anyValue());
+  });
+
+  it('DynamoDB の grant に GSI1（index/*）への Query 権限が含まれる', () => {
+    // batch ロールは GSI1 を Query してユーザーを列挙するため、IAM ポリシーの
+    // Resource にテーブル本体に加えて `table/.../index/*` が含まれている必要がある（#3527）。
+    const { template } = synth();
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: Match.arrayWith(['dynamodb:Query']),
+            Resource: Match.arrayWith([
+              Match.stringLikeRegexp('table/nagiyu-livetalk-dynamodb-dev/index/\\*'),
+            ]),
+          }),
+        ]),
+      },
+    });
   });
 
   it('prod 環境でも正しく生成する', () => {

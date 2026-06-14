@@ -5,6 +5,13 @@ jest.mock('@nagiyu/auth-core', () => ({
 }));
 
 jest.mock('@nagiyu/nextjs/session', () => ({
+  resolveTestUser: jest.fn((options?: { defaultRoles?: string[] }) => ({
+    id: process.env.TEST_USER_ID || 'test-user-id',
+    email: process.env.TEST_USER_EMAIL || 'test@example.com',
+    name: process.env.TEST_USER_NAME || 'Test User',
+    image: process.env.TEST_USER_IMAGE || undefined,
+    roles: process.env.TEST_USER_ROLES?.split(',') || options?.defaultRoles || [],
+  })),
   createSessionGetter: jest.fn(
     (config: {
       auth: () => Promise<unknown>;
@@ -61,6 +68,18 @@ describe('getSession', () => {
 
     expect(session?.user?.email).toBe('test@example.com');
     expect(session?.user?.roles).toEqual(['admin']);
+  });
+
+  it('TEST_USER_ID / TEST_USER_NAME が設定されていれば反映する', async () => {
+    process.env.SKIP_AUTH_CHECK = 'true';
+    process.env.TEST_USER_ID = 'env-user-id';
+    process.env.TEST_USER_NAME = 'Env User';
+
+    const { getSession } = await import('../../../../src/lib/auth/session');
+    const session = await getSession();
+
+    expect(session?.user?.id).toBe('env-user-id');
+    expect(session?.user?.name).toBe('Env User');
   });
 
   it('SKIP_AUTH_CHECK 未設定で auth が null を返すと null', async () => {

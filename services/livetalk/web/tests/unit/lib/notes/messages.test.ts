@@ -1,9 +1,38 @@
-import { NOTE_EMPTY_MESSAGE, NOTE_PAGE_GUIDANCE, formatNoteDate } from '@/lib/notes/messages';
+import { formatNoteDate, getNoteEmptyMessage, getNotePageGuidance } from '@/lib/notes/messages';
 
-describe('notes messages', () => {
-  it('ガイダンス文言が定義されている', () => {
-    expect(NOTE_PAGE_GUIDANCE).toContain('ノート');
-    expect(NOTE_EMPTY_MESSAGE).toContain('ノート');
+describe('getNotePageGuidance', () => {
+  it('ノートに関するガイダンス文言を含む', () => {
+    expect(getNotePageGuidance()).toContain('ノート');
+  });
+
+  it('characterId 未指定時は既定キャラクター（ひより）の shortName を使う', () => {
+    expect(getNotePageGuidance()).toContain('ひより');
+  });
+
+  it('characterId に ageha を指定すると「アゲハ」を含む文言を返す', () => {
+    expect(getNotePageGuidance('ageha')).toContain('アゲハ');
+  });
+
+  it('ageha の文言は「ひより」を含まない', () => {
+    expect(getNotePageGuidance('ageha')).not.toContain('ひより');
+  });
+});
+
+describe('getNoteEmptyMessage', () => {
+  it('ノートに関する空状態メッセージを含む', () => {
+    expect(getNoteEmptyMessage()).toContain('ノート');
+  });
+
+  it('characterId 未指定時は既定キャラクター（ひより）の shortName を使う', () => {
+    expect(getNoteEmptyMessage()).toContain('ひより');
+  });
+
+  it('characterId に ageha を指定すると「アゲハ」を含む文言を返す', () => {
+    expect(getNoteEmptyMessage('ageha')).toContain('アゲハ');
+  });
+
+  it('ageha の文言は「ひより」を含まない', () => {
+    expect(getNoteEmptyMessage('ageha')).not.toContain('ひより');
   });
 });
 

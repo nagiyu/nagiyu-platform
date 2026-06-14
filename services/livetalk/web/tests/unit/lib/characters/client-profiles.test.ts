@@ -20,16 +20,24 @@ describe('クライアントプロファイルレジストリ', () => {
   describe('getCharacterRenderProfile', () => {
     it('引数なしで既定キャラクターの描画設定を返す', () => {
       const profile = getCharacterRenderProfile();
-      expect(profile.modelPath).toBe(
-        '/assets/characters/hiyori/runtime/hiyori_free_t08.model3.json'
-      );
+      // hiyori は live2d renderer であるため、renderer で narrowing してから参照する
+      expect(profile.renderer).toBe('live2d');
+      if (profile.renderer === 'live2d') {
+        expect(profile.modelPath).toBe(
+          '/assets/characters/hiyori/runtime/hiyori_free_t08.model3.json'
+        );
+      }
     });
 
     it('cubismParams が Cubism 標準のパラメータ ID を返す', () => {
       const profile = getCharacterRenderProfile(DEFAULT_CLIENT_CHARACTER_ID);
-      expect(profile.cubismParams.mouthOpenY).toBe('ParamMouthOpenY');
-      expect(profile.cubismParams.eyeLOpen).toBe('ParamEyeLOpen');
-      expect(profile.cubismParams.eyeROpen).toBe('ParamEyeROpen');
+      // renderer で narrowing してから cubismParams を参照する
+      expect(profile.renderer).toBe('live2d');
+      if (profile.renderer === 'live2d') {
+        expect(profile.cubismParams.mouthOpenY).toBe('ParamMouthOpenY');
+        expect(profile.cubismParams.eyeLOpen).toBe('ParamEyeLOpen');
+        expect(profile.cubismParams.eyeROpen).toBe('ParamEyeROpen');
+      }
     });
 
     it('未登録の id を指定すると日本語定数メッセージでスローする', () => {
@@ -76,16 +84,24 @@ describe('クライアントプロファイルレジストリ', () => {
       const profile = getCharacterClientProfile();
       expect(profile.display.displayName).toBe('桃瀬ひより');
       expect(profile.display.shortName).toBe('ひより');
-      expect(profile.render.modelPath).toBe(
-        '/assets/characters/hiyori/runtime/hiyori_free_t08.model3.json'
-      );
+      // renderer で narrowing してから live2d 固有フィールドを参照する
+      expect(profile.render.renderer).toBe('live2d');
+      if (profile.render.renderer === 'live2d') {
+        expect(profile.render.modelPath).toBe(
+          '/assets/characters/hiyori/runtime/hiyori_free_t08.model3.json'
+        );
+      }
     });
 
     it('display と render の両方が揃っている', () => {
       const profile = getCharacterClientProfile(DEFAULT_CLIENT_CHARACTER_ID);
       expect(profile.display).toBeDefined();
       expect(profile.render).toBeDefined();
-      expect(profile.render.cubismParams).toBeDefined();
+      // renderer で narrowing してから cubismParams を参照する
+      expect(profile.render.renderer).toBe('live2d');
+      if (profile.render.renderer === 'live2d') {
+        expect(profile.render.cubismParams).toBeDefined();
+      }
     });
 
     it('未登録の id を指定すると日本語定数メッセージでスローする', () => {
@@ -122,6 +138,10 @@ describe('クライアントプロファイルレジストリ', () => {
       expect(getRegisteredProfileIds()).toContain(DEFAULT_CLIENT_CHARACTER_ID);
     });
 
+    it('"ageha" を含む', () => {
+      expect(getRegisteredProfileIds()).toContain('ageha');
+    });
+
     it('配列を返す', () => {
       expect(Array.isArray(getRegisteredProfileIds())).toBe(true);
     });
@@ -131,6 +151,100 @@ describe('クライアントプロファイルレジストリ', () => {
     it('日本語を含む', () => {
       expect(CHARACTER_PROFILE_ERROR_MESSAGES.UNKNOWN_PROFILE).toMatch(/[ぁ-ん]/);
     });
+  });
+});
+
+describe('早瀬アゲハ クライアントプロファイル', () => {
+  it('"ageha" のプロファイルが登録されている', () => {
+    expect(hasCharacterProfile('ageha')).toBe(true);
+  });
+
+  it('getCharacterClientProfile("ageha") でプロファイルを取得できる', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(profile).toBeDefined();
+  });
+
+  it('display.displayName が "早瀬アゲハ" である', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(profile.display.displayName).toBe('早瀬アゲハ');
+  });
+
+  it('display.shortName が "アゲハ" である', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(profile.display.shortName).toBe('アゲハ');
+  });
+
+  it('render.renderer が "sprite" である（瞬き＋口パク対応パーツ描画）', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(profile.render.renderer).toBe('sprite');
+  });
+
+  it('render.sprite に 5 枚のパーツパスが含まれる', () => {
+    const profile = getCharacterClientProfile('ageha');
+    // renderer で narrowing してから sprite を参照する
+    expect(profile.render.renderer).toBe('sprite');
+    if (profile.render.renderer === 'sprite') {
+      expect(profile.render.sprite.base).toBe('/assets/characters/ageha/sprite/base.png');
+      expect(profile.render.sprite.eyeOpen).toBe('/assets/characters/ageha/sprite/eye-open.png');
+      expect(profile.render.sprite.eyeClosed).toBe(
+        '/assets/characters/ageha/sprite/eye-closed.png'
+      );
+      expect(profile.render.sprite.mouthOpen).toBe(
+        '/assets/characters/ageha/sprite/mouth-open.png'
+      );
+      expect(profile.render.sprite.mouthClosed).toBe(
+        '/assets/characters/ageha/sprite/mouth-closed.png'
+      );
+    }
+  });
+
+  it('getCharacterRenderProfile("ageha") も sprite を返す', () => {
+    const render = getCharacterRenderProfile('ageha');
+    expect(render.renderer).toBe('sprite');
+    if (render.renderer === 'sprite') {
+      expect(render.sprite.base).toBe('/assets/characters/ageha/sprite/base.png');
+      expect(render.sprite.eyeOpen).toBe('/assets/characters/ageha/sprite/eye-open.png');
+      expect(render.sprite.eyeClosed).toBe('/assets/characters/ageha/sprite/eye-closed.png');
+      expect(render.sprite.mouthOpen).toBe('/assets/characters/ageha/sprite/mouth-open.png');
+      expect(render.sprite.mouthClosed).toBe('/assets/characters/ageha/sprite/mouth-closed.png');
+    }
+  });
+
+  it('licenseText に AI 生成音声の明示が含まれる（OpenAI 利用規約上必須）', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(profile.licenseText).toContain('AI 生成音声');
+  });
+
+  it('licenseText にイラストが AI 生成である明示が含まれる', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(profile.licenseText).toContain('イラスト');
+    expect(profile.licenseText).toContain('AI 生成');
+  });
+
+  it('description が設定されている', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(typeof profile.description).toBe('string');
+    expect(profile.description.length).toBeGreaterThan(0);
+  });
+
+  it('model.engine が "一枚絵" である', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(profile.model.engine).toBe('一枚絵');
+  });
+
+  it('model.name が "早瀬アゲハ" である', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(profile.model.name).toBe('早瀬アゲハ');
+  });
+
+  it('voice.engine が "OpenAI TTS" である', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(profile.voice.engine).toBe('OpenAI TTS');
+  });
+
+  it('voice.name が "nova" である', () => {
+    const profile = getCharacterClientProfile('ageha');
+    expect(profile.voice.name).toBe('nova');
   });
 });
 

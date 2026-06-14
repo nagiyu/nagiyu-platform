@@ -17,7 +17,30 @@ export function urlBase64ToUint8Array(base64String: string): Uint8Array {
 export const PUSH_ERROR_MESSAGES = {
   UNSUPPORTED: 'このブラウザはプッシュ通知に対応していません',
   PERMISSION_DENIED: '通知が拒否されました。ブラウザ設定から通知を許可してください',
+  VAPID_KEY_FETCH_FAILED: 'VAPID公開鍵の取得に失敗しました',
+  VAPID_KEY_EMPTY: 'VAPID公開鍵が空です',
 } as const;
+
+/**
+ * VAPID 公開鍵をサーバから取得する。
+ *
+ * @param endpoint - VAPID 公開鍵を返す API エンドポイント（省略時は `/api/push/vapid-public-key`）
+ * @returns VAPID 公開鍵文字列（base64url 形式）
+ * @throws 取得失敗時または空のキーを受け取った時
+ */
+export async function fetchVapidPublicKey(
+  endpoint: string = '/api/push/vapid-public-key'
+): Promise<string> {
+  const response = await fetch(endpoint);
+  if (!response.ok) {
+    throw new Error(PUSH_ERROR_MESSAGES.VAPID_KEY_FETCH_FAILED);
+  }
+  const { publicKey } = (await response.json()) as { publicKey?: string };
+  if (!publicKey) {
+    throw new Error(PUSH_ERROR_MESSAGES.VAPID_KEY_EMPTY);
+  }
+  return publicKey;
+}
 
 export interface SubscribePushOptions {
   /**

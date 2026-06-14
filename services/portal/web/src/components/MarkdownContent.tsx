@@ -20,6 +20,14 @@ const DEFAULT_CONTENT_SX: SxProps<Theme> = {
     overflow: 'auto',
     mb: 2,
   },
+  // 図解画像のはみ出し防止
+  '& img': {
+    maxWidth: '100%',
+    height: 'auto',
+    display: 'block',
+    mt: 2,
+    mb: 2,
+  },
 };
 
 interface MarkdownContentProps {

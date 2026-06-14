@@ -1,17 +1,29 @@
 /**
- * ノートページで使用するユーザー向け文言定数。
+ * ノートページで使用するユーザー向け文言生成関数。
  *
  * lib/ に集約することでカバレッジ計測対象に含めつつ、コンポーネント間で文言を統一する。
+ * characterId を受け取り選択キャラの shortName を使うことで、キャラに追従した文言を返す。
  */
-import { getCharacterDisplay } from '@/lib/characters/client-profiles';
+import { getCharacterDisplay } from '../characters/client-profiles';
 
-const { shortName } = getCharacterDisplay();
+/**
+ * ノート一覧冒頭に表示するガイダンスを返す。
+ * 「これ、あなたのために調べたの」というプレゼント体験の文脈。
+ * @param characterId - 対象キャラクター ID。省略時は既定キャラクターを使用する。
+ */
+export function getNotePageGuidance(characterId?: string): string {
+  const { shortName } = getCharacterDisplay(characterId);
+  return `${shortName}ちゃんがあなたのために調べてまとめたノートだよ。`;
+}
 
-/** ノート一覧冒頭に表示するガイダンス。「これ、あなたのために調べたの」というプレゼント体験の文脈。 */
-export const NOTE_PAGE_GUIDANCE = `${shortName}ちゃんがあなたのために調べてまとめたノートだよ。`;
-
-/** ノートが 1 件も無いときの空状態メッセージ。 */
-export const NOTE_EMPTY_MESSAGE = `まだノートはないよ。${shortName}ちゃんがいろいろ調べてくれるのを待っててね。`;
+/**
+ * ノートが 1 件も無いときの空状態メッセージを返す。
+ * @param characterId - 対象キャラクター ID。省略時は既定キャラクターを使用する。
+ */
+export function getNoteEmptyMessage(characterId?: string): string {
+  const { shortName } = getCharacterDisplay(characterId);
+  return `まだノートはないよ。${shortName}ちゃんがいろいろ調べてくれるのを待っててね。`;
+}
 
 /**
  * createdAt（Unix ms）を日本語の日付文字列に整形する。

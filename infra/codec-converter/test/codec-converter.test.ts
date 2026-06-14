@@ -202,3 +202,38 @@ test('Lambda has Batch permissions', () => {
     },
   });
 });
+
+test('X-Robots-Tag: noindex, nofollow ヘッダーポリシーが作成される', () => {
+  const { stack } = createTestStack();
+  const template = Template.fromStack(stack);
+
+  template.hasResourceProperties('AWS::CloudFront::ResponseHeadersPolicy', {
+    ResponseHeadersPolicyConfig: Match.objectLike({
+      Name: Match.stringLikeRegexp('nagiyu-codec-converter-noindex-.*'),
+      CustomHeadersConfig: {
+        Items: Match.arrayWith([
+          {
+            Header: 'X-Robots-Tag',
+            Value: 'noindex, nofollow',
+            Override: true,
+          },
+        ]),
+      },
+    }),
+  });
+});
+
+test('CloudFront defaultBehavior に X-Robots-Tag ヘッダーポリシーが適用される', () => {
+  const { stack } = createTestStack();
+  const template = Template.fromStack(stack);
+
+  template.hasResourceProperties('AWS::CloudFront::Distribution', {
+    DistributionConfig: Match.objectLike({
+      DefaultCacheBehavior: Match.objectLike({
+        ResponseHeadersPolicyId: Match.objectLike({
+          Ref: Match.stringLikeRegexp('^NoindexHeadersPolicy'),
+        }),
+      }),
+    }),
+  });
+});

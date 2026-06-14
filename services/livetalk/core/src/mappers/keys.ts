@@ -3,7 +3,39 @@
  *
  * 設計は `docs/services/livetalk/architecture.md` §3「データモデル概要」の SK パターンに準拠する。
  * PK は全エンティティで `USER#<googleId>` に統一する。
+ *
+ * GSI1: Profile 列挙用 sparse GSI（#3527）
+ * - GSI1PK='PROFILE' の Profile アイテムのみを索引化する
+ * - GSI1SK は生の UserID（USER# プレフィックスなし）
+ *
+ * GSI2: SafetyEvent のみを sparse 索引化する横断レビュー用 GSI（ADR-2.22 / #3580）
+ * - GSI2PK='SAFETY' の SafetyEvent アイテムのみを索引化する
+ * - GSI2SK は EventID（ULID、時系列ソート可能）をそのまま使用する
+ * - 射影は INCLUDE（メタデータのみ。InputText / ResponseText は PII のため除外）
  */
+
+/** Profile 列挙 GSI のインデックス名 */
+export const PROFILE_GSI_INDEX_NAME = 'GSI1';
+
+/** SafetyEvent 横断レビュー GSI のインデックス名（ADR-2.22 / #3580） */
+export const SAFETY_EVENT_GSI_INDEX_NAME = 'GSI2';
+
+/**
+ * GSI1 のパーティションキー値を返す。
+ * Profile アイテムのみに付与する（sparse GSI）。
+ */
+export function buildProfileGSI1PK(): string {
+  return 'PROFILE';
+}
+
+/**
+ * GSI2 のパーティションキー値を返す。
+ * SafetyEvent アイテムのみに付与する（sparse GSI）。
+ * GSI2SK は EventID（ULID）をそのまま使用するため専用ビルダーは不要。
+ */
+export function buildSafetyEventGSI2PK(): string {
+  return 'SAFETY';
+}
 
 export function buildUserPK(userId: string): string {
   return `USER#${userId}`;
@@ -130,4 +162,22 @@ export function buildNotifSKPrefix(): string {
 
 export function buildNotifSK(notifId: string): string {
   return `NOTIF#${notifId}`;
+}
+
+// ---- チャット API 保護ガード（Issue #3528）----
+
+/**
+ * チャットロックアイテムの SK。固定値。
+ * `USER#<userId>` PK 配下の `CHATLOCK` SK に対応する。
+ */
+export function buildChatLockSK(): string {
+  return 'CHATLOCK';
+}
+
+/**
+ * チャットレートリミットアイテムの SK を組み立てる。
+ * `USER#<userId>` PK 配下の `RATELIMIT#<window>#<bucket>` SK に対応する。
+ */
+export function buildChatRateLimitSK(window: string, bucket: string): string {
+  return `RATELIMIT#${window}#${bucket}`;
 }

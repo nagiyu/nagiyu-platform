@@ -21,9 +21,13 @@ describe('キャラクターレジストリ', () => {
       const entry = getCharacterEntry();
       expect(entry.definition.id).toBe('hiyori');
       expect(entry.definition.displayName).toBe('桃瀬ひより');
-      expect(entry.render.modelPath).toBe(
-        '/assets/characters/hiyori/runtime/hiyori_free_t08.model3.json'
-      );
+      // hiyori は live2d renderer であるため、renderer で narrowing してから参照する
+      expect(entry.render.renderer).toBe('live2d');
+      if (entry.render.renderer === 'live2d') {
+        expect(entry.render.modelPath).toBe(
+          '/assets/characters/hiyori/runtime/hiyori_free_t08.model3.json'
+        );
+      }
     });
 
     it('DEFAULT_CHARACTER_ID を明示的に渡しても hiyori を返す', () => {
@@ -34,7 +38,19 @@ describe('キャラクターレジストリ', () => {
     it('"hiyori" を指定すると定義と描画設定の両方を返す', () => {
       const entry = getCharacterEntry('hiyori');
       expect(entry.definition.id).toBe('hiyori');
-      expect(entry.render.cubismParams.mouthOpenY).toBe('ParamMouthOpenY');
+      // renderer で narrowing してから cubismParams を参照する
+      expect(entry.render.renderer).toBe('live2d');
+      if (entry.render.renderer === 'live2d') {
+        expect(entry.render.cubismParams.mouthOpenY).toBe('ParamMouthOpenY');
+      }
+    });
+
+    it('"ageha" を指定すると定義と描画設定の両方を返す', () => {
+      const entry = getCharacterEntry('ageha');
+      expect(entry.definition.id).toBe('ageha');
+      expect(entry.definition.displayName).toBe('早瀬アゲハ');
+      // ageha は sprite renderer（瞬き＋口パク対応パーツ描画）を使用する
+      expect(entry.render.renderer).toBe('sprite');
     });
 
     it('未登録の characterId を指定すると日本語定数メッセージで Error をスローする', () => {
@@ -69,6 +85,18 @@ describe('キャラクターレジストリ', () => {
       expect(definition.license).toBeDefined();
     });
 
+    it('"ageha" を指定すると早瀬アゲハの CharacterDefinition を返す', () => {
+      const definition = getCharacterDefinition('ageha');
+      expect(definition.id).toBe('ageha');
+      expect(definition.displayName).toBe('早瀬アゲハ');
+      expect(definition.voiceConfig.provider).toBe('openai');
+      if (definition.voiceConfig.provider === 'openai') {
+        expect(definition.voiceConfig.voice).toBe('nova');
+      }
+      expect(definition.personality).toBeDefined();
+      expect(definition.license).toBeDefined();
+    });
+
     it('未登録の id を指定するとスローする', () => {
       expect(() => getCharacterDefinition('unknown')).toThrow(
         CHARACTER_REGISTRY_ERROR_MESSAGES.UNKNOWN_CHARACTER
@@ -79,6 +107,10 @@ describe('キャラクターレジストリ', () => {
   describe('hasCharacter', () => {
     it('"hiyori" は登録済みなので true を返す', () => {
       expect(hasCharacter('hiyori')).toBe(true);
+    });
+
+    it('"ageha" は登録済みなので true を返す', () => {
+      expect(hasCharacter('ageha')).toBe(true);
     });
 
     it('未登録の id は false を返す', () => {

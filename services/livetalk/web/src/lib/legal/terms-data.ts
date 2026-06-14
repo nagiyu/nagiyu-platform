@@ -26,7 +26,7 @@ export const liveTalkTermsSections: TermSection[] = [
     contents: [
       {
         mainContent:
-          'リブトーク（LiveTalk）は、AI キャラクター「桃瀬ひより」と音声・テキストで会話できる PWA（プログレッシブウェブアプリ）サービスです。本利用規約（以下「本規約」）は、当社が提供するリブトークの利用に関する条件を定めるものです。',
+          'リブトーク（LiveTalk）は、AI キャラクターと音声・テキストで会話できる PWA（プログレッシブウェブアプリ）サービスです。本利用規約（以下「本規約」）は、当社が提供するリブトークの利用に関する条件を定めるものです。',
       },
       {
         mainContent:
@@ -83,7 +83,7 @@ export const liveTalkTermsSections: TermSection[] = [
     contents: [
       {
         mainContent:
-          '「桃瀬ひより」は AI によって動作するキャラクターです。ユーザーとの会話は、大規模言語モデル（LLM）を用いて生成されており、実在の人物ではありません。',
+          '本サービスに登場する AI キャラクターは、AI によって動作するキャラクターです。ユーザーとの会話は、大規模言語モデル（LLM）を用いて生成されており、実在の人物ではありません。',
       },
       {
         mainContent:

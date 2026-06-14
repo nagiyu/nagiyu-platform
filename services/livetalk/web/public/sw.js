@@ -9,8 +9,9 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('push', (event) => {
+  // デフォルト文面: payload.title / payload.body が優先されるため汎用表現にする
   let data = {
-    title: 'ひよりより',
+    title: 'お知らせ',
     body: 'お知らせがあるよ',
     icon: '/icon-192x192.png',
     badge: '/icon-192x192.png',

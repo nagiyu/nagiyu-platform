@@ -352,7 +352,10 @@ Phase 1 の UI に出す指標：
 | 総合精度 | 全予測（BULLISH + NEUTRAL + BEARISH）における Hit 率 | 主要指標テキストの括弧内 |
 | 方向精度 | BULLISH + BEARISH のみにおける Hit 率（NEUTRAL を除外） | 主要指標テキスト本体・日次推移グラフ |
 | 判定済み件数 | 採点が完了している予測の件数 | 主要指標テキストの括弧内・日次推移グラフ右軸 |
+| NEUTRAL 比率 | 全判定済み件数に対する NEUTRAL 予測の件数の割合 (%) | 主要指標テキストの括弧内 |
 | シグナル別ヒット率 | BULLISH / NEUTRAL / BEARISH ごとの Hit 率と件数 | シグナル別棒グラフ + 数値テーブル |
+| 市場ベースレート（ベースライン） | 全件を母数とした実績の上昇率・下落率・フラット率 (%)。閾値 t で分類：upRate = ActualReturn >= +t の割合、downRate = ActualReturn <= -t の割合、flatRate = それ以外 | シグナル別数値テーブルの「ベースライン」列（BULLISH→upRate、BEARISH→downRate、NEUTRAL→flatRate） |
+| エッジ（予測力） | シグナル別精度 − 対応するベースライン (%)。正ならばランダムより優れた予測力があることを示す | シグナル別数値テーブルの「エッジ」列（符号付き表示、例: +7.1pt） |
 
 ---
 

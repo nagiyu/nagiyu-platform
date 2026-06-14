@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import MemoryDeleteDialog from '@/components/MemoryDeleteDialog';
 import type { MemoryListItem } from '@/lib/memory/types';
-import { MEMORY_DELETE_ANNOTATION } from '@/lib/memory/messages';
+import { getMemoryDeleteAnnotation } from '@/lib/memory/messages';
 
 const memory: MemoryListItem = {
   id: 'enc-id',
@@ -25,11 +25,25 @@ describe('MemoryDeleteDialog', () => {
     expect(screen.getByText(/コーヒーが好き/)).toBeInTheDocument();
   });
 
-  it('即時反映されない旨の注釈を表示する', () => {
+  it('即時反映されない旨の注釈を表示する（既定キャラクター）', () => {
     render(<MemoryDeleteDialog memory={memory} onConfirm={jest.fn()} onCancel={jest.fn()} />);
     const annotation = screen.getByTestId('delete-annotation');
     expect(annotation).toBeInTheDocument();
-    expect(annotation).toHaveTextContent(MEMORY_DELETE_ANNOTATION);
+    expect(annotation).toHaveTextContent(getMemoryDeleteAnnotation());
+  });
+
+  it('characterId に ageha を指定するとアゲハの注釈を表示する', () => {
+    render(
+      <MemoryDeleteDialog
+        memory={memory}
+        onConfirm={jest.fn()}
+        onCancel={jest.fn()}
+        characterId="ageha"
+      />
+    );
+    const annotation = screen.getByTestId('delete-annotation');
+    expect(annotation).toHaveTextContent(getMemoryDeleteAnnotation('ageha'));
+    expect(annotation.textContent).toContain('アゲハ');
   });
 
   it('削除ボタンクリックで onConfirm を呼ぶ', () => {

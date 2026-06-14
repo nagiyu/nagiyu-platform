@@ -1,0 +1,65 @@
+<mxfile host="65bd71144e">
+    <diagram name="Grant メソッドの仕組み" id="grant-flow">
+        <mxGraphModel dx="1085" dy="779" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" background="#ffffff" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="table.grantReadWriteData(fn) が裏で行うこと" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="20" width="900" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="lambda" value="Lambda 関数&#xa;(ApiHandler)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="120" width="200" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="dynamo" value="DynamoDB テーブル&#xa;(UserTable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="310" width="200" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="grant-call" value="table.grantReadWriteData(fn)&#xa;（CDK コード上の 1 行）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="700" y="130" width="250" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-lambda-grant" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="lambda" target="grant-call" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-dynamo-grant" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="dynamo" target="grant-call" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="400" y="350"/>
+                            <mxPoint x="400" y="160"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="synth-label" value="CDK synth 時に自動生成" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=12;fontStyle=2;" parent="1" vertex="1">
+                    <mxGeometry x="400" y="230" width="300" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="iam-role" value="Lambda 実行ロール&#xa;(ApiHandler/ServiceRole)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="510" y="310" width="200" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-grant-iam" style="edgeStyle=orthogonalEdgeStyle;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="grant-call" target="iam-role" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="825" y="250"/>
+                            <mxPoint x="610" y="250"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="policy-box" value="インライン IAM ポリシー" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="260" y="450" width="700" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-role-policy" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="iam-role" target="policy-box" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="actions" value="許可アクション&#xa;- dynamodb:GetItem&#xa;- dynamodb:PutItem&#xa;- dynamodb:UpdateItem&#xa;- dynamodb:DeleteItem&#xa;- dynamodb:Query&#xa;- dynamodb:Scan&#xa;- dynamodb:BatchGetItem&#xa;- dynamodb:BatchWriteItem" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="260" y="550" width="280" height="190" as="geometry"/>
+                </mxCell>
+                <mxCell id="resource" value="Resource（対象リソース）&#xa;- arn:aws:dynamodb:REGION:ACCOUNT:&#xa;  table/UserTable&#xa;- arn:aws:dynamodb:REGION:ACCOUNT:&#xa;  table/UserTable/index/*&#xa;&#xa;（テーブル ARN と全 GSI に&#xa;  自動的に限定される）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="590" y="550" width="370" height="190" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-policy-actions" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="policy-box" target="actions" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="edge-policy-resource" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="policy-box" target="resource" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

@@ -35,6 +35,38 @@ export class InMemoryNotificationEventRepository implements NotificationEventRep
       .slice(0, limit);
   }
 
+  public async listLatestUnconsumedByCharacter(
+    userId: string,
+    characterIds: string[]
+  ): Promise<NotificationEventEntity[]> {
+    if (characterIds.length === 0) return [];
+
+    const pk = buildUserPK(userId);
+    const prefix = buildNotifSKPrefix();
+    // limit を指定しないとデフォルト 100 件で打ち切られるため、十分大きな値を渡す
+    const result = this.store.query(
+      { pk, sk: { operator: 'begins_with', value: prefix } },
+      { limit: Number.MAX_SAFE_INTEGER }
+    );
+    const sorted = result.items
+      .map((item) => this.mapper.toEntity(item))
+      .sort((a, b) => b.CreatedAt - a.CreatedAt);
+
+    const target = new Set(characterIds);
+    const map = new Map<string, NotificationEventEntity>();
+    for (const entity of sorted) {
+      if (
+        target.has(entity.CharacterID) &&
+        entity.ConsumedAt === undefined &&
+        !map.has(entity.CharacterID)
+      ) {
+        map.set(entity.CharacterID, entity);
+      }
+    }
+
+    return Array.from(map.values());
+  }
+
   public async get(key: NotificationEventKey): Promise<NotificationEventEntity | null> {
     const pk = buildUserPK(key.userId);
     const sk = buildNotifSK(key.notifId);

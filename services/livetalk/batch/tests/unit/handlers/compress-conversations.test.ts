@@ -10,6 +10,7 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   DynamoDBMemorySummaryRepository: jest.fn(),
   DynamoDBMessageRepository: jest.fn(),
   DynamoDBMemoryRepository: jest.fn(),
+  DynamoDBProfileRepository: jest.fn(),
   EmbeddingMemoryRepository: jest.fn(),
   DynamoDBInterestRepository: jest.fn(),
   DynamoDBCharacterStateRepository: jest.fn(),
@@ -57,15 +58,11 @@ describe('compress-conversations handler', () => {
     expect(body.processedUsers).toBe(5);
   });
 
-  it('例外発生時に 500 を返す', async () => {
+  it('例外発生時に throw する', async () => {
     mockCompressAll.mockRejectedValue(new Error('DynamoDB 接続エラー'));
 
     const { handler } = await import('../../../src/handlers/compress-conversations.js');
-    const response = await handler(makeEvent());
-
-    expect(response.statusCode).toBe(500);
-    const body = JSON.parse(response.body);
-    expect(body.error).toContain('DynamoDB 接続エラー');
+    await expect(handler(makeEvent())).rejects.toThrow('DynamoDB 接続エラー');
   });
 
   it('例外発生時に reportErrorEvent を呼ぶ', async () => {
@@ -73,12 +70,34 @@ describe('compress-conversations handler', () => {
     mockCompressAll.mockRejectedValue(new Error('fatal'));
 
     const { handler } = await import('../../../src/handlers/compress-conversations.js');
-    await handler(makeEvent({ id: 'ev-999' }));
+    await expect(handler(makeEvent({ id: 'ev-999' }))).rejects.toThrow();
 
     expect(reportErrorEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         serviceId: 'livetalk',
         severity: 'error',
+        title: '圧縮要約バッチ: 致命的エラー',
+      })
+    );
+  });
+
+  it('部分失敗（failedUsers > 0）時に throw し reportErrorEvent を呼ぶ', async () => {
+    const { reportErrorEvent } = await import('@nagiyu/aws');
+    mockCompressAll.mockResolvedValue({
+      processedUsers: 1,
+      skippedUsers: 0,
+      failedUsers: 1,
+      failedUserIds: ['u1'],
+    });
+
+    const { handler } = await import('../../../src/handlers/compress-conversations.js');
+    await expect(handler(makeEvent())).rejects.toThrow();
+
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'livetalk',
+        severity: 'error',
+        title: '圧縮要約バッチ: 部分失敗',
       })
     );
   });

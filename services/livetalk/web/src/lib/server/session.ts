@@ -1,5 +1,5 @@
 import { auth } from '@/auth';
-import { createSessionGetter } from '@nagiyu/nextjs';
+import { createSessionGetter, resolveTestUser } from '@nagiyu/nextjs';
 import type { Session } from '@nagiyu/common';
 import type { Session as NextAuthSession } from 'next-auth';
 
@@ -12,18 +12,21 @@ import type { Session as NextAuthSession } from 'next-auth';
  */
 const getSessionFromAuth = createSessionGetter({
   auth,
-  createTestSession: () => ({
-    user: {
-      userId: 'test-user-id',
-      googleId: 'test-google-id',
-      email: process.env.TEST_USER_EMAIL || 'test@example.com',
-      name: 'Test User',
-      roles: process.env.TEST_USER_ROLES?.split(',') || ['livetalk-user'],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-  }),
+  createTestSession: () => {
+    const u = resolveTestUser({ defaultRoles: ['livetalk-user'] });
+    return {
+      user: {
+        userId: u.id,
+        googleId: 'test-google-id',
+        email: u.email,
+        name: u.name,
+        roles: u.roles,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    };
+  },
   mapSession: (session: NextAuthSession): Session => ({
     user: {
       userId: session.user.id || '',

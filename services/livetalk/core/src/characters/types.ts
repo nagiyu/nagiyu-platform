@@ -23,6 +23,11 @@ export interface PersonalityDefinition {
 export interface CharacterDefinition {
   id: string;
   displayName: string;
+  /**
+   * 通知タイトル等で使うカジュアルな呼び名（例: 'ひより'）。
+   * displayName はフルネーム（例: '桃瀬ひより'）のため、通知用途では別に持つ。
+   */
+  notificationName: string;
   personality: PersonalityDefinition;
   /** キャラが使用する音声設定。プロバイダ非依存の VoiceConfig を参照する。 */
   voiceConfig: VoiceConfig;

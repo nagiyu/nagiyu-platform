@@ -1,19 +1,15 @@
-import { ScanCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { logger, toErrorMessage } from '@nagiyu/common';
 import {
-  DEFAULT_CHARACTER_ID,
+  getAllCharacterIds,
+  getCharacterDefinitionById,
   compressConversation,
   type CompressConversationParams,
+  type ProfileRepository,
 } from '@nagiyu/livetalk-core';
 
-export interface CompressAllConversationsParams extends Omit<
-  CompressConversationParams,
-  'characterName'
-> {
-  docClient: DynamoDBDocumentClient;
-  tableName: string;
-  characterName?: string;
-}
+export type CompressAllConversationsParams = Omit<CompressConversationParams, 'characterName'> & {
+  profileRepo: ProfileRepository;
+};
 
 export interface CompressAllConversationsResult {
   processedUsers: number;
@@ -23,29 +19,28 @@ export interface CompressAllConversationsResult {
 }
 
 /**
- * 全アクティブユーザーの会話を圧縮要約する。
+ * 全アクティブユーザーの全キャラクター会話を圧縮要約する。
  *
- * DynamoDB を Scan して Type='Profile' のアイテムを列挙し、
- * 各ユーザーについて DEFAULT_CHARACTER_ID（hiyori）の会話を圧縮する。
+ * ProfileRepository（GSI1）でユーザーを列挙し、
+ * 各ユーザーについて全キャラクターの会話を圧縮する。
+ * キャラクターごとに処理し、あるキャラクターで失敗しても他キャラクターの処理を継続する。
  */
 export async function compressAllConversations(
   params: CompressAllConversationsParams
 ): Promise<CompressAllConversationsResult> {
   const {
-    docClient,
-    tableName,
+    profileRepo,
     llmClient,
     summaryRepo,
     messageRepo,
     memoryRepo,
-    characterName = '桃瀬ひより',
     now,
     interestRepo,
     characterStateRepo,
     embeddingClient,
   } = params;
 
-  const userIds = await scanAllUserIds(docClient, tableName);
+  const userIds = await profileRepo.listAllUserIds();
 
   logger.info('[compressAllConversations] ユーザー一覧取得完了', {
     userCount: userIds.length,
@@ -58,22 +53,56 @@ export async function compressAllConversations(
     failedUserIds: [],
   };
 
+  const allCharacterIds = getAllCharacterIds();
+
   for (const userId of userIds) {
+    let hasCharacterError = false;
+    let hasCompressed = false;
+
     try {
-      const before = { ...result };
-      await compressConversation(userId, DEFAULT_CHARACTER_ID, {
-        summaryRepo,
-        messageRepo,
-        memoryRepo,
-        llmClient,
-        characterName,
-        now,
-        interestRepo,
-        characterStateRepo,
-        embeddingClient,
-      });
-      void before;
-      result.processedUsers++;
+      for (const characterId of allCharacterIds) {
+        const characterDef = getCharacterDefinitionById(characterId);
+        if (!characterDef) {
+          logger.warn('[compressAllConversations] キャラクター定義が見つかりません（スキップ）', {
+            characterId,
+          });
+          continue;
+        }
+
+        try {
+          const outcome = await compressConversation(userId, characterId, {
+            summaryRepo,
+            messageRepo,
+            memoryRepo,
+            llmClient,
+            characterName: characterDef.displayName,
+            now,
+            interestRepo,
+            characterStateRepo,
+            embeddingClient,
+          });
+          if (outcome === 'compressed') {
+            hasCompressed = true;
+          }
+        } catch (error) {
+          logger.warn('[compressAllConversations] キャラクター処理失敗（他キャラは継続）', {
+            userId,
+            characterId,
+            error: toErrorMessage(error),
+          });
+          hasCharacterError = true;
+        }
+      }
+
+      // failed 計上が最優先。次に compressed/skipped を判定する。
+      if (hasCharacterError) {
+        result.failedUsers++;
+        result.failedUserIds.push(userId);
+      } else if (hasCompressed) {
+        result.processedUsers++;
+      } else {
+        result.skippedUsers++;
+      }
     } catch (error) {
       logger.error('[compressAllConversations] ユーザー処理失敗', {
         userId,
@@ -86,33 +115,4 @@ export async function compressAllConversations(
 
   logger.info('[compressAllConversations] 全ユーザー処理完了', { ...result });
   return result;
-}
-
-async function scanAllUserIds(
-  docClient: DynamoDBDocumentClient,
-  tableName: string
-): Promise<string[]> {
-  const userIds: string[] = [];
-  let lastEvaluatedKey: Record<string, unknown> | undefined;
-
-  do {
-    const command = new ScanCommand({
-      TableName: tableName,
-      FilterExpression: '#type = :profile',
-      ExpressionAttributeNames: { '#type': 'Type' },
-      ExpressionAttributeValues: { ':profile': 'Profile' },
-      ProjectionExpression: 'UserID',
-      ...(lastEvaluatedKey ? { ExclusiveStartKey: lastEvaluatedKey } : {}),
-    });
-
-    const response = await docClient.send(command);
-    for (const item of response.Items ?? []) {
-      if (typeof item.UserID === 'string' && item.UserID) {
-        userIds.push(item.UserID);
-      }
-    }
-    lastEvaluatedKey = response.LastEvaluatedKey as Record<string, unknown> | undefined;
-  } while (lastEvaluatedKey !== undefined);
-
-  return userIds;
 }

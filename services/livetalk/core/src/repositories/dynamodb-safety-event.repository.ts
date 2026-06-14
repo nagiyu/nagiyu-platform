@@ -1,11 +1,18 @@
-import { GetCommand, PutCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import {
+  GetCommand,
+  PutCommand,
+  QueryCommand,
+  type DynamoDBDocumentClient,
+} from '@aws-sdk/lib-dynamodb';
 import { DatabaseError, EntityAlreadyExistsError, type DynamoDBItem } from '@nagiyu/aws';
 import type {
   CreateSafetyEventInput,
   SafetyEventEntity,
   SafetyEventKey,
+  SafetyEventSummary,
 } from '../entities/safety-event.entity.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
+import { SAFETY_EVENT_GSI_INDEX_NAME, buildSafetyEventGSI2PK } from '../mappers/keys.js';
 import { SafetyEventMapper } from '../mappers/safety-event.mapper.js';
 import type { SafetyEventRepository } from './safety-event.repository.interface.js';
 
@@ -72,6 +79,28 @@ export class DynamoDBSafetyEventRepository implements SafetyEventRepository {
       );
       if (!result.Item) return null;
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+    }
+  }
+
+  public async listRecent(limit: number): Promise<SafetyEventSummary[]> {
+    try {
+      const result = await this.docClient.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          IndexName: SAFETY_EVENT_GSI_INDEX_NAME,
+          KeyConditionExpression: '#gsi2pk = :pk',
+          ExpressionAttributeNames: { '#gsi2pk': 'GSI2PK' },
+          ExpressionAttributeValues: { ':pk': buildSafetyEventGSI2PK() },
+          ScanIndexForward: false, // 降順（最近の検出が先頭）
+          Limit: limit,
+        })
+      );
+      return (result.Items ?? []).map((item) =>
+        this.mapper.toSummary(item as unknown as DynamoDBItem)
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);

@@ -12,11 +12,16 @@ export interface ResponseDisplayProps {
    * ユーザーの発話テキスト。
    */
   userText: string | null;
+  /**
+   * 表示中のキャラクター ID。省略時は既定キャラクターを使用する。
+   * 待機メッセージ・応答ラベルの表示名は、選択中キャラの表示名に追従する。
+   */
+  characterId?: string;
 }
 
-export default function ResponseDisplay({ text, userText }: ResponseDisplayProps) {
+export default function ResponseDisplay({ text, userText, characterId }: ResponseDisplayProps) {
   const hasContent = Boolean(text || userText);
-  const { displayName, shortName } = getCharacterDisplay();
+  const { displayName, shortName } = getCharacterDisplay(characterId);
 
   return (
     <Box

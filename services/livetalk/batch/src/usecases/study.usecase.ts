@@ -1,22 +1,21 @@
-import { ScanCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { logger, toErrorMessage } from '@nagiyu/common';
 import {
-  DEFAULT_CHARACTER_ID,
+  getAllCharacterIds,
+  getCharacterDefinitionById,
   generateNotesForUser,
-  hiyori,
   studyForUser,
   type InterestRepository,
   type KnowledgeRepository,
   type LifecycleRepository,
   type NoteRepository,
+  type ProfileRepository,
   type StudyTopicRepository,
   type UlidFactory,
 } from '@nagiyu/livetalk-core';
 import type { IResearchClient } from '@nagiyu/livetalk-core';
 
 export interface StudyAllUsersParams {
-  docClient: DynamoDBDocumentClient;
-  tableName: string;
+  profileRepo: ProfileRepository;
   lifecycleRepo: LifecycleRepository;
   interestRepo: InterestRepository;
   knowledgeRepo: KnowledgeRepository;
@@ -43,13 +42,13 @@ export interface StudyAllUsersResult {
 /**
  * 全アクティブユーザーに対して勉強バッチを実行する。
  *
- * 各ユーザーについて shouldStudyNow 判定を行い、該当ユーザーのみ
- * Web リサーチ → 知識ベース保存を実行する（空振りコスト最小化）。
+ * ProfileRepository（GSI1）でユーザーを列挙し、各ユーザーについて全キャラクターを走査し、
+ * shouldStudyNow 判定を行い、該当するキャラクターのみ Web リサーチ → 知識ベース保存を実行する。
+ * あるキャラクターで失敗しても他キャラクターの処理は継続する。
  */
 export async function studyAllUsers(params: StudyAllUsersParams): Promise<StudyAllUsersResult> {
   const {
-    docClient,
-    tableName,
+    profileRepo,
     lifecycleRepo,
     interestRepo,
     knowledgeRepo,
@@ -60,7 +59,7 @@ export async function studyAllUsers(params: StudyAllUsersParams): Promise<StudyA
     now,
   } = params;
 
-  const userIds = await scanAllUserIds(docClient, tableName);
+  const userIds = await profileRepo.listAllUserIds();
 
   logger.info('[studyAllUsers] ユーザー一覧取得完了', { userCount: userIds.length });
 
@@ -72,51 +71,80 @@ export async function studyAllUsers(params: StudyAllUsersParams): Promise<StudyA
     generatedNotes: 0,
   };
 
-  for (const userId of userIds) {
-    try {
-      const lifecycle = await lifecycleRepo.get({
-        userId,
-        characterId: DEFAULT_CHARACTER_ID,
-      });
+  const allCharacterIds = getAllCharacterIds();
 
-      if (!lifecycle) {
-        result.skippedUsers++;
-        continue;
+  for (const userId of userIds) {
+    let hasCharacterError = false;
+    let hasStudied = false;
+
+    try {
+      for (const characterId of allCharacterIds) {
+        const characterDef = getCharacterDefinitionById(characterId);
+        if (!characterDef) {
+          logger.warn('[studyAllUsers] キャラクター定義が見つかりません（スキップ）', {
+            characterId,
+          });
+          continue;
+        }
+
+        try {
+          const lifecycle = await lifecycleRepo.get({ userId, characterId });
+          if (!lifecycle) {
+            // lifecycle 未登録のキャラクターはスキップ（計上しない）
+            continue;
+          }
+
+          const outcome = await studyForUser(userId, characterId, {
+            knowledgeRepo,
+            interestRepo,
+            studyTopicRepo,
+            researchClient,
+            character: characterDef,
+            lifecycle,
+            ulidFactory,
+            now,
+          });
+
+          if (outcome.outcome === 'studied') {
+            hasStudied = true;
+
+            // KNOWLEDGE → NOTE 昇格（Phase 5c）。
+            // fail-warn: ノート生成の失敗は勉強バッチ全体を止めない。
+            if (noteRepo) {
+              try {
+                const noteResult = await generateNotesForUser(userId, characterId, {
+                  knowledgeRepo,
+                  noteRepo,
+                  ulidFactory,
+                });
+                result.generatedNotes += noteResult.generatedCount;
+              } catch (error) {
+                logger.warn('[studyAllUsers] ノート生成失敗（スキップして継続）', {
+                  userId,
+                  characterId,
+                  error: toErrorMessage(error),
+                });
+              }
+            }
+          }
+        } catch (error) {
+          logger.warn('[studyAllUsers] キャラクター処理失敗（他キャラは継続）', {
+            userId,
+            characterId,
+            error: toErrorMessage(error),
+          });
+          hasCharacterError = true;
+        }
       }
 
-      const outcome = await studyForUser(userId, DEFAULT_CHARACTER_ID, {
-        knowledgeRepo,
-        interestRepo,
-        studyTopicRepo,
-        researchClient,
-        character: hiyori,
-        lifecycle,
-        ulidFactory,
-        now,
-      });
-
-      if (outcome.outcome === 'skipped') {
-        result.skippedUsers++;
-      } else {
+      // failed 計上が最優先。次に studied/skipped を判定する。
+      if (hasCharacterError) {
+        result.failedUsers++;
+        result.failedUserIds.push(userId);
+      } else if (hasStudied) {
         result.studiedUsers++;
-
-        // KNOWLEDGE → NOTE 昇格（Phase 5c）。
-        // fail-warn: ノート生成の失敗は勉強バッチ全体を止めない。
-        if (noteRepo) {
-          try {
-            const noteResult = await generateNotesForUser(userId, DEFAULT_CHARACTER_ID, {
-              knowledgeRepo,
-              noteRepo,
-              ulidFactory,
-            });
-            result.generatedNotes += noteResult.generatedCount;
-          } catch (error) {
-            logger.warn('[studyAllUsers] ノート生成失敗（スキップして継続）', {
-              userId,
-              error: toErrorMessage(error),
-            });
-          }
-        }
+      } else {
+        result.skippedUsers++;
       }
     } catch (error) {
       logger.error('[studyAllUsers] ユーザー処理失敗', {
@@ -130,33 +158,4 @@ export async function studyAllUsers(params: StudyAllUsersParams): Promise<StudyA
 
   logger.info('[studyAllUsers] 全ユーザー処理完了', { ...result });
   return result;
-}
-
-async function scanAllUserIds(
-  docClient: DynamoDBDocumentClient,
-  tableName: string
-): Promise<string[]> {
-  const userIds: string[] = [];
-  let lastEvaluatedKey: Record<string, unknown> | undefined;
-
-  do {
-    const command = new ScanCommand({
-      TableName: tableName,
-      FilterExpression: '#type = :profile',
-      ExpressionAttributeNames: { '#type': 'Type' },
-      ExpressionAttributeValues: { ':profile': 'Profile' },
-      ProjectionExpression: 'UserID',
-      ...(lastEvaluatedKey ? { ExclusiveStartKey: lastEvaluatedKey } : {}),
-    });
-
-    const response = await docClient.send(command);
-    for (const item of response.Items ?? []) {
-      if (typeof item.UserID === 'string' && item.UserID) {
-        userIds.push(item.UserID);
-      }
-    }
-    lastEvaluatedKey = response.LastEvaluatedKey as Record<string, unknown> | undefined;
-  } while (lastEvaluatedKey !== undefined);
-
-  return userIds;
 }

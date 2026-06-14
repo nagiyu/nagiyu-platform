@@ -7,9 +7,16 @@
  * 各リポジトリはシングルトンとして再利用される。
  */
 
-import { InMemorySingleTableStore, registerDynamoRepositories } from '@nagiyu/aws';
+import {
+  InMemorySingleTableStore,
+  registerDynamoRepositories,
+  getDynamoDBDocumentClient,
+  getTableName,
+} from '@nagiyu/aws';
 import type {
+  AccountDeletionRepository,
   CharacterStateRepository,
+  ChatGuardRepository,
   InterestRepository,
   KnowledgeRepository,
   LifecycleRepository,
@@ -23,6 +30,8 @@ import type {
   StudyTopicRepository,
 } from '@nagiyu/livetalk-core';
 import {
+  DynamoDBAccountDeletionRepository,
+  DynamoDBChatGuardRepository,
   DynamoDBCharacterStateRepository,
   DynamoDBInterestRepository,
   DynamoDBKnowledgeRepository,
@@ -35,6 +44,8 @@ import {
   DynamoDBProfileRepository,
   DynamoDBPushSubscriptionRepository,
   DynamoDBStudyTopicRepository,
+  InMemoryAccountDeletionRepository,
+  InMemoryChatGuardRepository,
   InMemoryCharacterStateRepository,
   InMemoryInterestRepository,
   InMemoryKnowledgeRepository,
@@ -51,6 +62,7 @@ import {
 
 const registry = registerDynamoRepositories<
   {
+    accountDeletion: AccountDeletionRepository;
     memory: MemoryRepository;
     memorySummary: MemorySummaryRepository;
     message: MessageRepository;
@@ -67,6 +79,11 @@ const registry = registerDynamoRepositories<
   InMemorySingleTableStore
 >(
   {
+    accountDeletion: {
+      createInMemoryRepository: (store) => new InMemoryAccountDeletionRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBAccountDeletionRepository(docClient, tableName),
+    },
     memory: {
       createInMemoryRepository: (store) => new InMemoryMemoryRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
@@ -134,6 +151,10 @@ const registry = registerDynamoRepositories<
   }
 );
 
+export function getAccountDeletionRepository(): AccountDeletionRepository {
+  return registry.accountDeletion.createRepository();
+}
+
 export function getMemoryRepository(): MemoryRepository {
   return registry.memory.createRepository();
 }
@@ -187,4 +208,33 @@ export function getNotificationEventRepository(): NotificationEventRepository {
  */
 export function resetRepositoriesForTesting(): void {
   registry.resetAll();
+  chatGuardRepositorySingleton = null;
+}
+
+// ---- ChatGuardRepository のシングルトン管理 ----
+//
+// InMemoryChatGuardRepository は InMemorySingleTableStore を使わず内部 Map で管理するため、
+// registerDynamoRepositories の型パターンには合わない。
+// シンプルなシングルトン変数で管理する。
+
+let chatGuardRepositorySingleton: ChatGuardRepository | null = null;
+
+/**
+ * ChatGuardRepository のシングルトンを返す。
+ * - `USE_IN_MEMORY_DB=true` の場合は InMemory 実装
+ * - それ以外は DynamoDB 実装
+ *   メインテーブルに相乗りするため、docClient / tableName の解決は既存パターン同様。
+ */
+export function getChatGuardRepository(): ChatGuardRepository {
+  if (chatGuardRepositorySingleton) return chatGuardRepositorySingleton;
+
+  if (process.env['USE_IN_MEMORY_DB'] === 'true') {
+    chatGuardRepositorySingleton = new InMemoryChatGuardRepository();
+  } else {
+    // registerDynamoRepositories と同じ方法で docClient / tableName を解決する。
+    const docClient = getDynamoDBDocumentClient();
+    const tableName = getTableName();
+    chatGuardRepositorySingleton = new DynamoDBChatGuardRepository(docClient, tableName);
+  }
+  return chatGuardRepositorySingleton;
 }

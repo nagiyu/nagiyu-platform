@@ -29,6 +29,24 @@ export const ERROR_MESSAGES = {
 } as const;
 
 /**
+ * public/ 配下の静的ファイルとして実在するか確認する。
+ * パストラバーサル攻撃を防ぐため、解決後のパスが publicDir 配下であることを検証する。
+ *
+ * 同等のロジックを scripts/check-internal-links.mjs にも実装。両者を同期すること。
+ */
+export function publicFileExists(href: string, publicDir: string): boolean {
+  // クエリ文字列を除去（アンカーは呼び出し元で除去済みだが念のため除去）
+  const cleanHref = href.split('?')[0].split('#')[0];
+  // public ディレクトリ起点でパスを解決
+  const resolved = path.resolve(publicDir, '.' + cleanHref);
+  // パストラバーサル防御: resolved が publicDir の配下であることを確認
+  const isInsidePublic = resolved === publicDir || resolved.startsWith(publicDir + path.sep);
+  if (!isInsidePublic) return false;
+  // ファイルとして実在するか確認
+  return fs.existsSync(resolved) && fs.statSync(resolved).isFile();
+}
+
+/**
  * 静的ページの存在パス一覧（app ディレクトリ内に page.tsx があるルート）
  */
 const STATIC_ROUTES = new Set(['/', '/about', '/privacy', '/terms', '/tech', '/services']);
@@ -193,12 +211,20 @@ export interface HrefValidationResult {
 
 /**
  * href が有効なルートかどうかを判定する。
+ *
+ * @param href - 検証対象の href
+ * @param contentDir - src/content ディレクトリの絶対パス
+ * @param srcDir - src ディレクトリの絶対パス
+ * @param publicDir - public ディレクトリの絶対パス（省略時は srcDir の兄弟 public を使用）
  */
 export function validateHref(
   href: string,
   contentDir: string,
-  srcDir: string
+  srcDir: string,
+  publicDir?: string
 ): HrefValidationResult {
+  // publicDir が未指定の場合は srcDir の兄弟ディレクトリとして導出
+  const resolvedPublicDir = publicDir ?? path.join(srcDir, '..', 'public');
   // 空文字や外部リンクは対象外
   if (!href || !href.startsWith('/')) {
     return { valid: true, reason: '' };
@@ -251,6 +277,11 @@ export function validateHref(
 
   // 静的ページの確認
   if (staticPageExists(href, srcDir)) return { valid: true, reason: '' };
+
+  // public/ 配下の静的ファイル（画像等）の確認
+  // クエリ文字列を除去してから判定（アンカーは呼び出し元で除去済み）
+  const hrefWithoutQuery = href.split('?')[0];
+  if (publicFileExists(hrefWithoutQuery, resolvedPublicDir)) return { valid: true, reason: '' };
 
   return { valid: false, reason: ERROR_MESSAGES.PAGE_NOT_FOUND(href) };
 }

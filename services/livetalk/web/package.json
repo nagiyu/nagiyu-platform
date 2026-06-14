@@ -1,6 +1,6 @@
 {
   "name": "@nagiyu/livetalk-web",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -27,7 +27,7 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "jest-environment-jsdom": "^30.4.1",
+    "jest-environment-jsdom": "^30.3.0",
     "pixi-live2d-display-lipsyncpatch": "0.5.0-ls-8",
     "pixi.js": "^7.4.3",
     "react-markdown": "^10.1.0",

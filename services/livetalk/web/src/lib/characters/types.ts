@@ -1,19 +1,58 @@
 /**
- * キャラクターの Live2D 描画設定（web 層専用）。
+ * キャラクターの描画設定（web 層専用）。
  *
  * core の CharacterDefinition はロジック・アイデンティティのみを持ち、
  * ビジュアル設定はこの型に分離する。
+ *
+ * renderer フィールドで描画方式を区別する discriminated union。
+ * - 'live2d': PixiJS + pixi-live2d-display を使った Live2D モデル描画
+ * - 'placeholder': Live2D モデル未用意のキャラ向けプレースホルダー描画（シルエット + 名前ラベル）
+ * - 'still': 完成した一枚絵（静止画 1 枚）の描画。アニメーションなし。
+ * - 'sprite': 一枚絵のパーツを重ね合わせて瞬き＋音声連動口パクを行う描画。
  */
-export interface CharacterRenderProfile {
-  /** Live2D model3.json のパス（public 配下の絶対パス） */
-  modelPath: string;
-  /** Cubism パラメータ ID（モデル差し替え時に上書き可能。既定は Cubism 標準 ID） */
-  cubismParams: {
-    mouthOpenY: string;
-    eyeLOpen: string;
-    eyeROpen: string;
-  };
-}
+export type CharacterRenderProfile =
+  | {
+      /** Live2D モデルを使った描画 */
+      renderer: 'live2d';
+      /** Live2D model3.json のパス（public 配下の絶対パス） */
+      modelPath: string;
+      /** Cubism パラメータ ID（モデル差し替え時に上書き可能。既定は Cubism 標準 ID） */
+      cubismParams: {
+        /** 口の開き具合を制御するパラメータ ID */
+        mouthOpenY: string;
+        /** 左目の開き具合を制御するパラメータ ID */
+        eyeLOpen: string;
+        /** 右目の開き具合を制御するパラメータ ID */
+        eyeROpen: string;
+      };
+    }
+  | {
+      /** Live2D モデル未用意のキャラ向けプレースホルダー描画（シルエット + 名前ラベル、音声連動の口パク） */
+      renderer: 'placeholder';
+    }
+  | {
+      /** 完成した一枚絵（静止画 1 枚）の描画。アニメーションなし。 */
+      renderer: 'still';
+      /** 一枚絵画像のパス（public/CloudFront 配下の絶対パス。例: /assets/characters/ageha/still.png） */
+      imagePath: string;
+    }
+  | {
+      /** 一枚絵のパーツを重ね合わせて瞬き＋音声連動口パクを行う描画。 */
+      renderer: 'sprite';
+      /** パーツ画像のパス群（public/CloudFront 配下の絶対パス） */
+      sprite: {
+        /** 目・口を含まないベース画像 */
+        base: string;
+        /** 開いた目 */
+        eyeOpen: string;
+        /** 閉じた目（瞬き時に重ねる） */
+        eyeClosed: string;
+        /** 開いた口（発話時に音量連動で不透明度を上げる） */
+        mouthOpen: string;
+        /** 閉じた口（常時表示のベース口） */
+        mouthClosed: string;
+      };
+    };
 
 /**
  * UI で使用するキャラクターの表示名情報（web 専用）。

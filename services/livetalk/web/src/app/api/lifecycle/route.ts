@@ -8,6 +8,7 @@ import {
 } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
 import { getLifecycleRepository } from '@/lib/server/repositories';
+import { hasCharacter } from '@/lib/characters/registry';
 
 /**
  * GET /api/lifecycle
@@ -18,18 +19,24 @@ import { getLifecycleRepository } from '@/lib/server/repositories';
  * 反映する。チャットストリーム（/api/chat）の lifecycle event とは別系統の
  * 「初期状態取得用」エンドポイント。
  *
+ * クエリパラメータ:
+ * - `characterId`（任意、既定 `DEFAULT_CHARACTER_ID`）
+ *
  * レスポンス: `{ "state": "awake" | "sleeping" }`
  *
  * 演出のための情報なので、取得失敗時も 500 を返さず fail-safe で `awake` を返し、
  * UI を止めない。
  */
-export const GET = withAuth(getSession, 'livetalk:chat', async (session) => {
+export const GET = withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
   const userId = session.user.googleId;
+  const url = new URL(request.url);
+  const queriedId = url.searchParams.get('characterId');
+  const characterId = queriedId && hasCharacter(queriedId) ? queriedId : DEFAULT_CHARACTER_ID;
 
   try {
     const lifecycle = await getLifecycleRepository().get({
       userId,
-      characterId: DEFAULT_CHARACTER_ID,
+      characterId,
     });
     const state = resolveLifecycleState(
       new Date(),

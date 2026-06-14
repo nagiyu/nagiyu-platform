@@ -16,6 +16,7 @@ import {
   NOTIFY_BACKOFF_BASE,
   NOTIFY_RECENT_SESSION_SAMPLE_N,
   NOTIFY_SESSION_GAP_MINUTES,
+  SAFETY_REVIEW_DEFAULT_LIMIT,
   resolveLifecycleState,
   shouldNotifyNow,
   extractSessionStartTimes,
@@ -24,6 +25,7 @@ import {
   computeIntensityFactor,
   type MessageEntity,
   type NotificationEventEntity,
+  type SafetyEventSummary,
 } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
 import {
@@ -33,6 +35,14 @@ import {
   getStudyTopicRepository,
   getMessageRepository,
 } from '@/lib/server/repositories';
+import { getSafetyEventRepository } from '@/lib/server/safety';
+import {
+  hasCharacter,
+  getRegisteredCharacterIds,
+  getCharacterDisplay,
+} from '@/lib/characters/registry';
+import StatusCharacterSwitcher from '@/components/StatusCharacterSwitcher';
+import StatusTestPush from '@/components/StatusTestPush';
 
 const JST = 'Asia/Tokyo';
 
@@ -73,24 +83,37 @@ const REASON_LABELS: Record<string, string> = {
   no_content: 'コンテンツなし',
 };
 
-export default async function StatusPage() {
+/** セーフティ検出の Trigger を日本語ラベルに変換する */
+const SAFETY_TRIGGER_LABELS: Record<string, string> = {
+  input_keyword: 'キーワード検出',
+  output_moderation: 'Moderation',
+};
+
+interface StatusPageProps {
+  searchParams: Promise<{ characterId?: string }>;
+}
+
+export default async function StatusPage({ searchParams }: StatusPageProps) {
   const session = await getSession();
 
   if (!session || !hasPermission(session.user.roles, 'livetalk:admin')) {
     redirect('/');
   }
 
+  const { characterId: queriedId } = await searchParams;
+  const characterId = queriedId && hasCharacter(queriedId) ? queriedId : DEFAULT_CHARACTER_ID;
   const userId = session.user.googleId;
-  const characterId = DEFAULT_CHARACTER_ID;
   const now = new Date();
 
-  const [lifecycle, notificationEvents, allMessages, knowledge, studyPending] = await Promise.all([
-    getLifecycleRepository().get({ userId, characterId }),
-    getNotificationEventRepository().listByUser(userId, 10),
-    getMessageRepository().listSince(userId, characterId, 0),
-    getKnowledgeRepository().list(userId, characterId),
-    getStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
-  ]);
+  const [lifecycle, notificationEvents, allMessages, knowledge, studyPending, recentSafetyEvents] =
+    await Promise.all([
+      getLifecycleRepository().get({ userId, characterId }),
+      getNotificationEventRepository().listByUser(userId, 10),
+      getMessageRepository().listSince(userId, characterId, 0),
+      getKnowledgeRepository().list(userId, characterId),
+      getStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
+      getSafetyEventRepository().listRecent(SAFETY_REVIEW_DEFAULT_LIMIT),
+    ]);
 
   const bedtime = lifecycle?.Bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
   const wakeUpTime = lifecycle?.WakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME;
@@ -120,11 +143,20 @@ export default async function StatusPage() {
 
   const recentNotifications = notificationEvents.slice(0, 5);
 
+  // テスト通知送信用: 登録キャラクターの表示名マップを構築する
+  const registeredCharacterIds = getRegisteredCharacterIds();
+  const characterDisplayNames = Object.fromEntries(
+    registeredCharacterIds.map((id) => [id, getCharacterDisplay(id).displayName])
+  );
+
   return (
     <Container maxWidth="sm" sx={{ py: 2 }}>
       <Typography variant="h6" component="h1" sx={{ mb: 2 }}>
         ステータス（デバッグ）
       </Typography>
+
+      {/* キャラクター切替 */}
+      <StatusCharacterSwitcher currentCharacterId={characterId} />
 
       {/* ライフサイクル */}
       <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 'bold' }}>
@@ -229,6 +261,64 @@ export default async function StatusPage() {
       </Typography>
       <Typography variant="body2">KNOWLEDGE: {knowledge.length} 件</Typography>
       <Typography variant="body2">STUDY_TOPIC (pending): {studyPending.length} 件</Typography>
+
+      <Divider sx={{ my: 1.5 }} />
+
+      {/* テスト通知送信（admin デバッグ用 — Issue #3491） */}
+      <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 'bold' }}>
+        テスト通知送信
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.75rem' }}>
+        decision ゲートを介さず即時送信します。dev 検証専用。
+      </Typography>
+      <StatusTestPush characterIds={registeredCharacterIds} displayNames={characterDisplayNames} />
+
+      <Divider sx={{ my: 1.5 }} />
+
+      {/* セーフティ横断レビュー（ADR-2.22 / Issue #3580） */}
+      <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 'bold' }}>
+        セーフティ横断レビュー（直近 {SAFETY_REVIEW_DEFAULT_LIMIT} 件）
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.75rem' }}>
+        全ユーザー横断で検出時刻の降順に一覧します。InputText / ResponseText は PII のため非表示。
+      </Typography>
+      {recentSafetyEvents.length === 0 ? (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          検出履歴なし
+        </Typography>
+      ) : (
+        <Box sx={{ mb: 1 }}>
+          {recentSafetyEvents.map((e: SafetyEventSummary) => {
+            const characterDisplay = e.CharacterID
+              ? (() => {
+                  try {
+                    return getCharacterDisplay(e.CharacterID).displayName;
+                  } catch {
+                    return e.CharacterID;
+                  }
+                })()
+              : '—';
+
+            return (
+              <Box
+                key={e.EventID}
+                sx={{ mb: 1, pl: 1, borderLeft: '2px solid', borderColor: 'divider' }}
+              >
+                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                  {formatJst(e.CreatedAt)} | {SAFETY_TRIGGER_LABELS[e.Trigger] ?? e.Trigger} |
+                  キャラ: {characterDisplay}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                  {e.DetectedPattern}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                  ユーザー: {e.UserID}
+                </Typography>
+              </Box>
+            );
+          })}
+        </Box>
+      )}
     </Container>
   );
 }

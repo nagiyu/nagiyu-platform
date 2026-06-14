@@ -15,7 +15,7 @@ import {
   Switch,
 } from '@mui/material';
 import { Button, ErrorAlert, Select } from '@nagiyu/ui';
-import { subscribePush } from '@nagiyu/browser';
+import { subscribePush, fetchVapidPublicKey } from '@nagiyu/browser';
 import { formatPrice } from '@nagiyu/common';
 import { useEnterSubmit } from '@nagiyu/react';
 import { calculateTargetPriceFromPercentage } from '../lib/percentage-helper';
@@ -58,18 +58,6 @@ const FREQUENCY_LABELS: Record<AlertFrequency, string> = {
 // パーセンテージ選択肢の定数配列（-20 ～ +20、5%刻み）
 const PERCENTAGE_OPTIONS = [-20, -15, -10, -5, 0, 5, 10, 15, 20] as const;
 const DEFAULT_CHART_TIMEFRAME: Timeframe = '60';
-
-const fetchVapidPublicKey = async (): Promise<string> => {
-  const response = await fetch('/api/push/vapid-public-key');
-  if (!response.ok) {
-    throw new Error('VAPID公開鍵の取得に失敗しました');
-  }
-  const { publicKey } = (await response.json()) as { publicKey?: string };
-  if (!publicKey) {
-    throw new Error('VAPID公開鍵が空です');
-  }
-  return publicKey;
-};
 
 // プロパティ型定義
 interface AlertSettingsModalProps {

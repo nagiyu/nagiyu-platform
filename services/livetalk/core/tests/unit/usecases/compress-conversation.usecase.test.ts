@@ -74,6 +74,29 @@ describe('compressConversation', () => {
     expect(llmClient.summarizeCalls).toBe(0);
   });
 
+  it('メッセージが 0 件のとき "skipped" を返す', async () => {
+    const params = makeParams();
+    const outcome = await compressConversation('u1', 'hiyori', params);
+    expect(outcome).toBe('skipped');
+  });
+
+  it('メッセージがあるとき "compressed" を返す', async () => {
+    const { messageRepo, summaryRepo, memoryRepo } = makeRepos();
+    tick = fixedNow;
+    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'テスト' });
+
+    const outcome = await compressConversation('u1', 'hiyori', {
+      summaryRepo,
+      messageRepo,
+      memoryRepo,
+      llmClient: makeLLMClient(),
+      characterName: 'ひより',
+      now: () => fixedNow,
+    });
+
+    expect(outcome).toBe('compressed');
+  });
+
   it('メッセージがあれば LLM を 1 回呼ぶ', async () => {
     const llmClient = makeLLMClient();
     const { messageRepo, summaryRepo, memoryRepo } = makeRepos();
@@ -450,6 +473,77 @@ describe('compressConversation', () => {
     expect(saved?.LastCompressedAt).not.toBe(fixedNow + 10_000);
     // now() はスナップショット取得で 1 回だけ呼ばれる
     expect(paramNowCallCount).toBe(1);
+  });
+
+  it('完全成功後の再実行は LastCompressedAt 前進により no-op となり記憶を重複させない', async () => {
+    const candidates = [{ category: 'food', content: 'ケーキが好き' }];
+    const llmClient = makeLLMClient({ mergedSummary: '要約', newMemoryCandidates: candidates });
+    const { messageRepo, summaryRepo, memoryRepo } = makeRepos();
+    tick = fixedNow;
+    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'テスト' });
+
+    // 1 回目実行
+    const outcome1 = await compressConversation('u1', 'hiyori', {
+      summaryRepo,
+      messageRepo,
+      memoryRepo,
+      llmClient,
+      characterName: 'ひより',
+      now: () => fixedNow,
+    });
+    expect(outcome1).toBe('compressed');
+
+    const { items: after1st } = await memoryRepo.listByTier('u1', 'hiyori', 'C');
+    expect(after1st).toHaveLength(1);
+
+    // 2 回目実行（同じ user/char）: LastCompressedAt が前進しているのでスキップされる
+    const llmClient2 = makeLLMClient({ mergedSummary: '要約2', newMemoryCandidates: candidates });
+    const outcome2 = await compressConversation('u1', 'hiyori', {
+      summaryRepo,
+      messageRepo,
+      memoryRepo,
+      llmClient: llmClient2,
+      characterName: 'ひより',
+      now: () => fixedNow,
+    });
+    expect(outcome2).toBe('skipped');
+
+    // メモリは重複せず 1 件のまま
+    const { items: after2nd } = await memoryRepo.listByTier('u1', 'hiyori', 'C');
+    expect(after2nd).toHaveLength(1);
+  });
+
+  it('memoryRepo.put が失敗したとき summaryRepo の LastCompressedAt が前進しない（永久欠落防止）', async () => {
+    const candidates = [{ category: 'food', content: 'ケーキが好き' }];
+    const llmClient = makeLLMClient({ mergedSummary: '要約', newMemoryCandidates: candidates });
+    const { messageRepo, summaryRepo, memoryRepo: realMemoryRepo } = makeRepos();
+    tick = fixedNow;
+    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'テスト' });
+
+    // memoryRepo.put が必ず throw するラッパーを作成
+    // （put 失敗後は他メソッドが呼ばれないため、型はアサーションで補う）
+    const failingMemoryRepo = {
+      ...realMemoryRepo,
+      put: async () => {
+        throw new Error('memoryRepo.put 失敗');
+      },
+    } as unknown as typeof realMemoryRepo;
+
+    // compressConversation は reject するはず
+    await expect(
+      compressConversation('u1', 'hiyori', {
+        summaryRepo,
+        messageRepo,
+        memoryRepo: failingMemoryRepo,
+        llmClient,
+        characterName: 'ひより',
+        now: () => fixedNow,
+      })
+    ).rejects.toThrow('memoryRepo.put 失敗');
+
+    // LastCompressedAt が前進していないこと（0 のまま）
+    const summary = await summaryRepo.get('u1', 'hiyori');
+    expect(summary?.LastCompressedAt ?? 0).toBe(0);
   });
 
   it('bidirectionalityScore が 0 のときは AffectionLevel を更新しない', async () => {

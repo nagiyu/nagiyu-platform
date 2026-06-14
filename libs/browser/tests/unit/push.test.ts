@@ -1,7 +1,12 @@
 /**
  * @jest-environment jsdom
  */
-import { urlBase64ToUint8Array, subscribePush, PUSH_ERROR_MESSAGES } from '../../src/push';
+import {
+  urlBase64ToUint8Array,
+  subscribePush,
+  fetchVapidPublicKey,
+  PUSH_ERROR_MESSAGES,
+} from '../../src/push';
 
 describe('push utilities', () => {
   describe('urlBase64ToUint8Array', () => {
@@ -224,6 +229,65 @@ describe('push utilities', () => {
       const getKey = jest.fn().mockResolvedValue(VAPID_KEY);
       await subscribePush({ vapidPublicKey: getKey });
       expect(getKey).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('fetchVapidPublicKey', () => {
+    const originalFetch = global.fetch;
+
+    afterEach(() => {
+      global.fetch = originalFetch;
+    });
+
+    it('正常系: 既定エンドポイントで公開鍵を取得できる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ publicKey: 'test-vapid-key' }),
+      } as Response);
+
+      const key = await fetchVapidPublicKey();
+      expect(key).toBe('test-vapid-key');
+      expect(global.fetch).toHaveBeenCalledWith('/api/push/vapid-public-key');
+    });
+
+    it('カスタムエンドポイントを指定できる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ publicKey: 'custom-key' }),
+      } as Response);
+
+      const key = await fetchVapidPublicKey('/api/notify/vapid-key');
+      expect(key).toBe('custom-key');
+      expect(global.fetch).toHaveBeenCalledWith('/api/notify/vapid-key');
+    });
+
+    it('レスポンスが !ok の場合は VAPID_KEY_FETCH_FAILED エラーを投げる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        json: async () => ({}),
+      } as Response);
+
+      await expect(fetchVapidPublicKey()).rejects.toThrow(
+        PUSH_ERROR_MESSAGES.VAPID_KEY_FETCH_FAILED
+      );
+    });
+
+    it('publicKey が空の場合は VAPID_KEY_EMPTY エラーを投げる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ publicKey: '' }),
+      } as Response);
+
+      await expect(fetchVapidPublicKey()).rejects.toThrow(PUSH_ERROR_MESSAGES.VAPID_KEY_EMPTY);
+    });
+
+    it('publicKey が undefined の場合は VAPID_KEY_EMPTY エラーを投げる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({}),
+      } as Response);
+
+      await expect(fetchVapidPublicKey()).rejects.toThrow(PUSH_ERROR_MESSAGES.VAPID_KEY_EMPTY);
     });
   });
 });

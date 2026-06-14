@@ -9,6 +9,7 @@ import { LiveTalkEcsServiceStack } from '../lib/ecs-service-stack';
 import { LiveTalkCloudFrontStack } from '../lib/cloudfront-stack';
 import { LiveTalkSecretsStack } from '../lib/secrets-stack';
 import { LiveTalkBatchStack } from '../lib/batch-stack';
+import { LiveTalkAlarmsStack } from '../lib/alarms-stack';
 
 const app = new cdk.App();
 
@@ -92,7 +93,8 @@ const cloudFrontStack = new LiveTalkCloudFrontStack(app, `NagiyuLiveTalkCloudFro
 // EventBridge 日次トリガー + Lambda + DLQ + IAM
 const openAiApiKey = app.node.tryGetContext('openAiApiKey') || 'PLACEHOLDER_OPENAI_API_KEY';
 const vapidPublicKey = app.node.tryGetContext('vapidPublicKey') || 'PLACEHOLDER_VAPID_PUBLIC_KEY';
-const vapidPrivateKey = app.node.tryGetContext('vapidPrivateKey') || 'PLACEHOLDER_VAPID_PRIVATE_KEY';
+const vapidPrivateKey =
+  app.node.tryGetContext('vapidPrivateKey') || 'PLACEHOLDER_VAPID_PRIVATE_KEY';
 
 new LiveTalkBatchStack(app, `NagiyuLiveTalkBatch${envSuffix}`, {
   env: stackEnv,
@@ -106,6 +108,15 @@ new LiveTalkBatchStack(app, `NagiyuLiveTalkBatch${envSuffix}`, {
 // Batch stack は ECR リポジトリ名を `getEcrRepositoryName('livetalk-batch', env)` で
 // 決定論的に組み立てる（DynamoDB stack と同様に SSM もクロススタック参照も介さない）。
 // このため Batch ECR stack との deploy 順依存は発生しない。
+
+// LiveTalk CloudWatch アラームスタック（Issue #3526）
+// ALB ARN / Target Group ARN を SSM から読むため、ALB stack の後にデプロイされる必要がある
+const alarmsStack = new LiveTalkAlarmsStack(app, `NagiyuLiveTalkAlarms${envSuffix}`, {
+  env: stackEnv,
+  environment,
+  description: `LiveTalk CloudWatch Alarms (${environment})`,
+});
+alarmsStack.addDependency(albStack);
 
 // SSM 経由の参照のため CDK は自動的にスタック間依存を検出できない。
 // 明示的に依存を宣言して deploy 順を保証する。

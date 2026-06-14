@@ -11,8 +11,11 @@ export interface LiveTalkDynamoDbStackProps extends cdk.StackProps {
  * LiveTalk DynamoDB Single Table スタック
  *
  * - 命名: 共通ヘルパー `getDynamoDBTableName('livetalk', env)` で決定
- * - PK / SK の 2 キー Single Table 構成。MVP では GSI を作成しない
- *   （`docs/services/livetalk/architecture.md` §3「データモデル概要」。MVP では GSI 不要、Phase 進行で必要になれば追加）
+ * - PK / SK の 2 キー Single Table 構成。Profile 列挙のために GSI1 を追加した（#3527）。
+ *   GSI1PK='PROFILE' の sparse GSI で Profile のみ索引化する。
+ *   SafetyEvent 横断レビューのために GSI2 を追加した（ADR-2.22 / #3580）。
+ *   GSI2PK='SAFETY' の sparse GSI で SafetyEvent のみ索引化し、メタデータを INCLUDE 射影する。
+ *   （`docs/services/livetalk/architecture.md` §3「データモデル概要」参照）
  * - Message は TTL（属性名 `TTL`、Unix 秒）で 90 日後に自動削除
  * - Point-in-time Recovery 有効、AWS マネージドキーで at-rest 暗号化
  * - dev は破棄、prod は保持
@@ -45,9 +48,35 @@ export class LiveTalkDynamoDbStack extends cdk.Stack {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       pointInTimeRecovery: true,
       timeToLiveAttribute: 'TTL',
-      removalPolicy:
-        environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
+    });
+
+    // GSI1: Profile のみを sparse 索引化するための GSI（#3527）
+    // GSI1PK='PROFILE' の Profile アイテムのみが対象（sparse GSI）
+    this.table.addGlobalSecondaryIndex({
+      indexName: 'GSI1',
+      partitionKey: { name: 'GSI1PK', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'GSI1SK', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.KEYS_ONLY,
+    });
+
+    // GSI2: SafetyEvent のみを sparse 索引化する横断レビュー用 GSI（ADR-2.22 / #3580）
+    // GSI2PK='SAFETY' の SafetyEvent アイテムのみが対象（sparse GSI）
+    // 射影は一覧表示に必要なメタデータのみ INCLUDE（InputText/ResponseText は PII のため除外）
+    this.table.addGlobalSecondaryIndex({
+      indexName: 'GSI2',
+      partitionKey: { name: 'GSI2PK', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'GSI2SK', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.INCLUDE,
+      nonKeyAttributes: [
+        'UserID',
+        'EventID',
+        'CharacterID',
+        'Trigger',
+        'DetectedPattern',
+        'CreatedAt',
+      ],
     });
 
     cdk.Tags.of(this).add('Application', 'nagiyu');

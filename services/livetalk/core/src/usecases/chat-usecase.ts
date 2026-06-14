@@ -163,19 +163,27 @@ async function synthesizeSentence(
 /**
  * 文字列を文単位でストリーム風に yield しながら同時に TTS 合成を行う。
  * セーフティ介入テキストを音声付きで送出するために使う。
+ *
+ * @param options.emitText - true（デフォルト）のとき text イベントを yield する。
+ *   output_moderation フラグ時は false を指定して text イベントを抑制する（表示は safety
+ *   イベントの replacementText に任せ、ストリーム済みの元テキストへの追記を防ぐ）。
  */
 async function* streamSafetyText(
   text: string,
   voiceClient: IVoiceClient,
-  voice: VoiceConfig
+  voice: VoiceConfig,
+  options?: { emitText?: boolean }
 ): AsyncGenerator<ChatEvent> {
+  const emitText = options?.emitText ?? true;
   const buffer = new SentenceBuffer();
   const pendingSynthesis: Array<Promise<SynthesisResult>> = [];
   let sentenceIndex = 0;
 
   // 1 文字ずつ yield してテキストストリーム風に見せる（セーフティ応答は固定文なので全体を送る）
   for (const char of text) {
-    yield { type: 'text', delta: char };
+    if (emitText) {
+      yield { type: 'text', delta: char };
+    }
     for (const sentence of buffer.push(char)) {
       const idx = sentenceIndex++;
       pendingSynthesis.push(synthesizeSentence(voiceClient, sentence, voice, idx));
@@ -313,6 +321,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
       try {
         await safetyEventRepository.create({
           UserID: userId,
+          CharacterID: characterId,
           Trigger: 'input_keyword',
           DetectedPattern: detectedPattern,
           InputText: userText,
@@ -599,22 +608,22 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     pendingSynthesis.push(synthesizeSentence(voiceClient, remaining, character.voiceConfig, idx));
   }
 
-  // 7. sentence events を順番通りに yield（TTS 合計レイテンシを集計）
-  let ttsTotalMs = 0;
-  for (const promise of pendingSynthesis) {
-    const result = await promise;
-    ttsTotalMs += result.elapsedMs;
-    if (result.audio !== null) {
-      yield { type: 'sentence', index: result.index, text: result.text, audio: result.audio };
-    }
-  }
-  metrics.latency.ttsTotal = ttsTotalMs > 0 ? ttsTotalMs : undefined;
+  // 7. Moderation API チェック（fail-warn: エラー時は通常応答を通す）
+  //
+  // 【修正: 音声 emit より前に判定する】
+  // 旧実装では sentence(音声) emit 後に Moderation 判定していたため、フラグ時も
+  // 元返答の音声がすでに送出済みになるすり抜けバグがあった。
+  // 修正後: LLM 完了・sentenceBuffer flush の直後、かつ pendingSynthesis を await する前に
+  // Moderation を判定し、フラグ有無で sentence 送出経路を切り替える。
+  let moderationFlagged = false;
+  let moderationReplacement: string | undefined;
 
-  // 8. Moderation API チェック（fail-warn: エラー時は通常応答を通す）
   if (moderationClient && fullResponseText.trim()) {
     try {
       const modResult = await moderationClient.check(fullResponseText);
       if (modResult.flagged) {
+        moderationFlagged = true;
+
         const flaggedCategories = Object.entries(modResult.categories)
           .filter(([, v]) => v)
           .map(([k]) => k);
@@ -623,6 +632,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
           try {
             await safetyEventRepository.create({
               UserID: userId,
+              CharacterID: characterId,
               Trigger: 'output_moderation',
               DetectedPattern: `Moderation flagged: ${flaggedCategories.join(', ')}`,
               InputText: userText,
@@ -634,12 +644,13 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
           }
         }
 
-        const replacementText = buildModerationReplacementMessage(Date.now());
+        moderationReplacement = buildModerationReplacementMessage(Date.now());
+        // safety イベント（表示の差し替え + モーダル）を先に送出
         yield {
           type: 'safety',
           trigger: 'output_moderation',
           resources: SAFETY_RESOURCES,
-          replacementText,
+          replacementText: moderationReplacement,
         };
       }
     } catch (err) {
@@ -649,6 +660,30 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
       });
     }
   }
+
+  // 8. sentence events を順番通りに yield（TTS 合計レイテンシを集計）
+  //
+  // フラグなし: pendingSynthesis（元返答）をそのまま emit。
+  // フラグあり: 元返答の pendingSynthesis は emit せず（合成はすでに非同期起動済みだが
+  //   unhandled rejection は synthesizeSentence 内部で catch 済みのため安全）、
+  //   置換文を streamSafetyText で TTS 化して sentence events として送出する。
+  //   text イベントは出さない（表示は safety イベントの replacementText 置換に任せる）。
+  let ttsTotalMs = 0;
+  if (!moderationFlagged) {
+    for (const promise of pendingSynthesis) {
+      const result = await promise;
+      ttsTotalMs += result.elapsedMs;
+      if (result.audio !== null) {
+        yield { type: 'sentence', index: result.index, text: result.text, audio: result.audio };
+      }
+    }
+  } else {
+    // 置換文を音声化して sentence として送出（text イベントは抑制）
+    yield* streamSafetyText(moderationReplacement!, voiceClient, character.voiceConfig, {
+      emitText: false,
+    });
+  }
+  metrics.latency.ttsTotal = ttsTotalMs > 0 ? ttsTotalMs : undefined;
 
   // 9. done
   metrics.latency.chatTotal = Math.round(performance.now() - chatStart);
@@ -663,7 +698,8 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   }
 
   // 10. アシスタントメッセージを保存
-  const assistantText = fullResponseText.trim();
+  // フラグ時は置換文を保存（元の有害テキストを会話履歴に残さない）
+  const assistantText = (moderationFlagged ? moderationReplacement : fullResponseText)?.trim();
   if (assistantText) {
     try {
       await messageRepository.create({

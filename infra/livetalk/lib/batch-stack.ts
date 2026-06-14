@@ -53,7 +53,14 @@ export class LiveTalkBatchStack extends cdk.Stack {
     // DynamoDB テーブル
     const dynamoTableName = getDynamoDBTableName('livetalk', environment);
     const dynamoTableArn = getDynamoDBTableArn(this.region, this.account, dynamoTableName);
-    const dynamoTable = dynamodb.Table.fromTableArn(this, 'DynamoTable', dynamoTableArn);
+    // GSI1（Profile 列挙用）への Query 権限を grant に含めるため、インデックス情報付きで
+    // インポートする。`fromTableArn` だけだと hasIndex=false となり grantReadWriteData が
+    // `table/.../index/*` を付与せず、batch ロールが GSI1 を Query できず AccessDenied に
+    // なる（#3527）。globalIndexes を渡すことで grant にインデックス ARN を含める。
+    const dynamoTable = dynamodb.Table.fromTableAttributes(this, 'DynamoTable', {
+      tableArn: dynamoTableArn,
+      globalIndexes: ['GSI1'],
+    });
 
     // DLQ（失敗時の保持）
     const dlq = new sqs.Queue(this, 'BatchDlq', {
@@ -97,6 +104,7 @@ export class LiveTalkBatchStack extends cdk.Stack {
         DYNAMODB_TABLE_NAME: dynamoTableName,
         OPENAI_API_KEY: openAiApiKey,
         ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
+        TZ: 'Asia/Tokyo',
       },
       deadLetterQueue: dlq,
       tracing: lambda.Tracing.ACTIVE,

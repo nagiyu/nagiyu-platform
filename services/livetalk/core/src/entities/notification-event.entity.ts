@@ -12,6 +12,11 @@ export interface NotificationEventEntity {
   UserID: string;
   /** ULID（時系列ソート可能） */
   NotifID: string;
+  /**
+   * 通知元キャラ。欠落した旧データは DEFAULT_CHARACTER_ID 扱い。
+   * Phase A（#3491）で追加。
+   */
+  CharacterID: string;
   /** 通知種別 */
   Kind: 'normal' | 'critical';
   /**
@@ -23,6 +28,12 @@ export interface NotificationEventEntity {
   Body: string;
   /** クリティカル通知の場合、元となった KnowledgeID */
   KnowledgeID?: string;
+  /**
+   * 通知タップ起動時に入力欄へプリフィルするユーザー発話。
+   * バッチで生成し、first-word API 経由でフロントへ渡す。
+   * 例: 「TypeScriptについて教えて」
+   */
+  SuggestedReply?: string;
   /**
    * 第一声消化日時（Unix ms）。
    * 起動時にキャラ第一声として表示したら更新する（重複防止）。

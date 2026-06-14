@@ -16,6 +16,7 @@
 
 import type { DailySummaryEntity } from '../entities/daily-summary.entity.js';
 import type { AiAnalysisResult, InvestmentSignal } from '../ai-analysis-result.js';
+import { classifyHit } from './prediction-judger.js';
 
 /**
  * 採点済み DailySummary 型（Evaluation* と AiAnalysisResult が埋まっていることを保証）
@@ -37,6 +38,11 @@ export type EvaluatedDailySummary = DailySummaryEntity & {
  */
 export interface AggregateInput {
   evaluated: EvaluatedDailySummary[];
+  /**
+   * Hit 再計算に使う閾値 (%)。省略時は 0.5（後方互換）。
+   * 保存済みの `Hit` フィールドは使用せず、`ActualReturn` から再計算する。
+   */
+  thresholdPercent?: number;
 }
 
 /**
@@ -50,11 +56,25 @@ export interface AggregateOutput {
     directionalAccuracy: number | null;
     /** 判定済み件数 */
     judgedCount: number;
+    /** NEUTRAL 予測比率（%）。judgedCount=0 なら null */
+    neutralRatio: number | null;
   };
   bySignal: Array<{
     signal: InvestmentSignal;
     accuracy: number | null;
     count: number;
+    /**
+     * 市場ベースレート（%）。
+     * BULLISH→上昇率、BEARISH→下落率、NEUTRAL→フラット率。
+     * n=0 なら null。
+     */
+    baseline: number | null;
+    /**
+     * エッジ（精度 − ベースライン、%）。
+     * accuracy と baseline が両方 non-null のとき算出。どちらか null なら null。
+     * 表示用の丸め済み値から計算する。
+     */
+    edge: number | null;
   }>;
   dailyTrend: Array<{
     /** 予測日 (YYYY-MM-DD) */
@@ -64,6 +84,20 @@ export interface AggregateOutput {
     /** その日の判定済み件数（NEUTRAL を含む） */
     judgedCount: number;
   }>;
+  /**
+   * 市場ベースレート（全件を母数）。
+   * n=0 なら 3 つとも null。
+   */
+  baseline: {
+    /** 上昇率（ActualReturn >= +thresholdPercent の割合）(%) */
+    upRate: number | null;
+    /** 下落率（ActualReturn <= -thresholdPercent の割合）(%) */
+    downRate: number | null;
+    /** フラット率（-thresholdPercent < ActualReturn < +thresholdPercent の割合）(%) */
+    flatRate: number | null;
+  };
+  /** 集計に使用した閾値 (%) */
+  thresholdPercent: number;
 }
 
 /**
@@ -71,13 +105,21 @@ export interface AggregateOutput {
  */
 const SIGNAL_ORDER: readonly InvestmentSignal[] = ['BULLISH', 'NEUTRAL', 'BEARISH'];
 
+/** Hit 再計算に使うデフォルト閾値 (%) */
+const DEFAULT_THRESHOLD_PERCENT = 0.5;
+
 /**
  * 採点済み DailySummary 配列を集計する。
  *
+ * 保存済みの `Hit` フィールドは使用せず、`ActualReturn` と `thresholdPercent` から
+ * `classifyHit` で Hit を再計算する。`thresholdPercent` 省略時は 0.5（後方互換）。
+ *
  * @param input - 集計入力
- * @returns KPI / bySignal / dailyTrend を含む集計結果
+ * @returns KPI / bySignal / dailyTrend / thresholdPercent を含む集計結果
  */
 export function aggregateEvaluatedSummaries(input: AggregateInput): AggregateOutput {
+  const thresholdPercent = input.thresholdPercent ?? DEFAULT_THRESHOLD_PERCENT;
+
   // 防御的フィルタ：AiAnalysisError ありや AiAnalysisResult 不在を除外
   const evaluated = input.evaluated.filter(
     (summary) => summary.AiAnalysisResult !== undefined && summary.AiAnalysisError === undefined
@@ -86,7 +128,8 @@ export function aggregateEvaluatedSummaries(input: AggregateInput): AggregateOut
   const judgedCount = evaluated.length;
 
   // KPI: totalAccuracy
-  const totalAccuracy = judgedCount === 0 ? null : toPercent(countHits(evaluated), judgedCount);
+  const totalAccuracy =
+    judgedCount === 0 ? null : toPercent(countHits(evaluated, thresholdPercent), judgedCount);
 
   // KPI: directionalAccuracy
   const directional = evaluated.filter(
@@ -95,17 +138,47 @@ export function aggregateEvaluatedSummaries(input: AggregateInput): AggregateOut
       summary.AiAnalysisResult.investmentJudgment.signal === 'BEARISH'
   );
   const directionalAccuracy =
-    directional.length === 0 ? null : toPercent(countHits(directional), directional.length);
+    directional.length === 0
+      ? null
+      : toPercent(countHits(directional, thresholdPercent), directional.length);
+
+  // KPI: neutralRatio（NEUTRAL 予測件数 / 全判定済み件数）
+  const neutralCount = evaluated.filter(
+    (summary) => summary.AiAnalysisResult.investmentJudgment.signal === 'NEUTRAL'
+  ).length;
+  const neutralRatio = judgedCount === 0 ? null : toPercent(neutralCount, judgedCount);
+
+  // ベースライン：全件を母数とした市場の上昇/下落/フラット率
+  const baseline = computeBaseline(evaluated, thresholdPercent);
 
   // bySignal
   const bySignal = SIGNAL_ORDER.map((signal) => {
     const subset = evaluated.filter(
       (summary) => summary.AiAnalysisResult.investmentJudgment.signal === signal
     );
+    const accuracy =
+      subset.length === 0 ? null : toPercent(countHits(subset, thresholdPercent), subset.length);
+
+    // シグナルに対応する市場ベースレートを対応づける
+    const signalBaseline =
+      signal === 'BULLISH'
+        ? baseline.upRate
+        : signal === 'BEARISH'
+          ? baseline.downRate
+          : baseline.flatRate;
+
+    // エッジ = 丸め済み accuracy − 丸め済み baseline（表示値と一致させるため）
+    const edge =
+      accuracy !== null && signalBaseline !== null
+        ? Math.round((accuracy - signalBaseline) * 10) / 10
+        : null;
+
     return {
       signal,
-      accuracy: subset.length === 0 ? null : toPercent(countHits(subset), subset.length),
+      accuracy,
       count: subset.length,
+      baseline: signalBaseline,
+      edge,
     };
   });
 
@@ -132,7 +205,7 @@ export function aggregateEvaluatedSummaries(input: AggregateInput): AggregateOut
         directionalAccuracy:
           directionalSubset.length === 0
             ? null
-            : toPercent(countHits(directionalSubset), directionalSubset.length),
+            : toPercent(countHits(directionalSubset, thresholdPercent), directionalSubset.length),
         judgedCount: list.length,
       };
     })
@@ -143,14 +216,75 @@ export function aggregateEvaluatedSummaries(input: AggregateInput): AggregateOut
       totalAccuracy,
       directionalAccuracy,
       judgedCount,
+      neutralRatio,
     },
     bySignal,
     dailyTrend,
+    baseline,
+    thresholdPercent,
   };
 }
 
-function countHits(summaries: EvaluatedDailySummary[]): number {
-  return summaries.reduce((acc, summary) => acc + (summary.Hit ? 1 : 0), 0);
+/**
+ * 全採点済みレコードを母数として、市場ベースレート（上昇/下落/フラット率）を算出する。
+ *
+ * 境界値仕様は `classifyHit` に準拠:
+ * - 上昇: ActualReturn >= +thresholdPercent
+ * - 下落: ActualReturn <= -thresholdPercent
+ * - フラット: -thresholdPercent < ActualReturn < +thresholdPercent
+ *
+ * @param summaries - フィルタ済み採点済みサマリー配列
+ * @param thresholdPercent - 判定閾値 (%)
+ * @returns 上昇/下落/フラット率（n=0 なら全て null）
+ */
+function computeBaseline(
+  summaries: EvaluatedDailySummary[],
+  thresholdPercent: number
+): AggregateOutput['baseline'] {
+  const n = summaries.length;
+  if (n === 0) {
+    return { upRate: null, downRate: null, flatRate: null };
+  }
+
+  let upCount = 0;
+  let downCount = 0;
+  let flatCount = 0;
+
+  for (const summary of summaries) {
+    const r = summary.ActualReturn;
+    if (r >= thresholdPercent) {
+      upCount++;
+    } else if (r <= -thresholdPercent) {
+      downCount++;
+    } else {
+      flatCount++;
+    }
+  }
+
+  return {
+    upRate: toPercent(upCount, n),
+    downRate: toPercent(downCount, n),
+    flatRate: toPercent(flatCount, n),
+  };
+}
+
+/**
+ * `classifyHit` を使って Hit 数を数える。
+ * 保存済みの `Hit` フィールドは参照しない。
+ */
+function countHits(summaries: EvaluatedDailySummary[], thresholdPercent: number): number {
+  return summaries.reduce(
+    (acc, summary) =>
+      acc +
+      (classifyHit(
+        summary.AiAnalysisResult.investmentJudgment.signal,
+        summary.ActualReturn,
+        thresholdPercent
+      )
+        ? 1
+        : 0),
+    0
+  );
 }
 
 /**

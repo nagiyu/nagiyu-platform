@@ -18,19 +18,25 @@ import type {
   SummarizeResult,
 } from './types.js';
 import { SummarizeResultSchema } from './schemas/summarize.schema.js';
+import { withLLMRetry } from '../lib/llm-retry.js';
+import { LLM_MODELS } from './models.js';
+import { buildSummarizePrompt } from './prompts/summarize.prompt.js';
 
 /**
  * OpenAI 実装の用途別既定モデル（GPT-5 系）。
+ *
+ * モデル名は {@link LLM_MODELS} から導出し、ここで重複定義しない。
  *
  * - conversation: `gpt-5`（会話の応答品質を優先）
  * - summarize / classify: `gpt-5-mini`（コスト最適化、stock-tracker / quick-clip と同じ選択）
  *
  * @see Issue #3248 "用途別モデル振り分けの仕組み"
+ * @see Issue #3530 "LLM プロンプト・モデル定数の一元化リファクタ"
  */
 export const OPENAI_DEFAULT_MODELS: PurposeModelMap = {
-  conversation: 'gpt-5',
-  summarize: 'gpt-5-mini',
-  classify: 'gpt-5-mini',
+  conversation: LLM_MODELS.conversation,
+  summarize: LLM_MODELS.summarize,
+  classify: LLM_MODELS.classify,
 };
 
 export const OPENAI_ERROR_MESSAGES = {
@@ -57,7 +63,9 @@ export interface OpenAIClientOptions {
  * - ストリーミング: `stream: true` で `response.output_text.delta` イベントから text delta を yield
  * - 一括: `response.output_text` をそのまま返す
  *
- * リトライは行わない（呼び出し側の責務）。`new OpenAI` 既定のリトライも `maxRetries: 0` で無効化する。
+ * 非ストリーミング呼び出し（`chatComplete` / `chatStructured`）は `withLLMRetry` で一過性エラー
+ * （rate limit, timeout 等）をリトライする。ストリーミング（`chatStream`）は出力重複防止のため
+ * リトライ対象外とする。SDK 自動リトライは `maxRetries: 0` で無効化し、アプリ側で一元管理する。
  */
 export class OpenAIClient implements ILLMClient {
   private readonly client: OpenAI;
@@ -97,13 +105,15 @@ export class OpenAIClient implements ILLMClient {
 
   public async chatComplete(messages: ChatMessage[], options: ChatOptions = {}): Promise<string> {
     this.assertMessages(messages);
-    const response = (await this.client.responses.create({
-      model: this.resolveModel(options),
-      stream: false,
-      input: messages.map(toEasyInputMessage),
-      temperature: options.temperature,
-      max_output_tokens: options.maxTokens,
-    })) as Response;
+    const response = (await withLLMRetry(() =>
+      this.client.responses.create({
+        model: this.resolveModel(options),
+        stream: false,
+        input: messages.map(toEasyInputMessage),
+        temperature: options.temperature,
+        max_output_tokens: options.maxTokens,
+      })
+    )) as Response;
     return response.output_text ?? '';
   }
 
@@ -113,14 +123,16 @@ export class OpenAIClient implements ILLMClient {
     options: ChatOptions = {}
   ): Promise<z.infer<T>> {
     this.assertMessages(messages);
-    const response = await this.client.responses.parse({
-      model: this.resolveModel(options),
-      stream: false,
-      input: messages.map(toEasyInputMessage),
-      temperature: options.temperature,
-      max_output_tokens: options.maxTokens,
-      text: { format: zodTextFormat(schema, 'structured_output') },
-    });
+    const response = await withLLMRetry(() =>
+      this.client.responses.parse({
+        model: this.resolveModel(options),
+        stream: false,
+        input: messages.map(toEasyInputMessage),
+        temperature: options.temperature,
+        max_output_tokens: options.maxTokens,
+        text: { format: zodTextFormat(schema, 'structured_output') },
+      })
+    );
 
     if (response.output_parsed === null || response.output_parsed === undefined) {
       throw new Error(OPENAI_ERROR_MESSAGES.REFUSAL);
@@ -130,54 +142,7 @@ export class OpenAIClient implements ILLMClient {
   }
 
   public async summarize(input: SummarizeInput): Promise<SummarizeResult> {
-    const { existingSummary, newMessages, characterName, existingInterestCategories } = input;
-
-    const existingSection = existingSummary
-      ? `既存の要約：\n${existingSummary}`
-      : '既存の要約：なし';
-
-    const messagesSection = newMessages
-      .map((m) => `${m.role === 'user' ? 'ユーザー' : characterName}: ${m.text}`)
-      .join('\n');
-
-    const existingCategoriesSection =
-      existingInterestCategories && existingInterestCategories.length > 0
-        ? `既存の興味カテゴリ一覧（同義のものはこの表記を再利用すること）：\n${existingInterestCategories
-            .map((c) => `- ${c}`)
-            .join('\n')}`
-        : '既存の興味カテゴリ一覧：なし';
-
-    const prompt = `以下は ${characterName} とユーザーとの会話です。
-
-${existingSection}
-
-新しい会話：
-${messagesSection}
-
-${existingCategoriesSection}
-
-要約に含めないもの（汚染防止）：
-- キャラの口調・文体・口癖（例：「むにゃ」「うとうと」「〜だよね〜」等の語尾・修辞）
-- キャラ自身の状態（眠い、寝ぼけている、ご機嫌、等）
-- 寝ぼけ演出・時間帯演出に由来する一時的な表現
-
-要約に含めるもの：
-- ユーザーの嗜好・興味・話題
-- ユーザーとキャラの関係性の変化（親密度、過去のやりとりの文脈）
-- 会話で確定した事実・約束・予定
-
-interestCategories の抽出ルール：
-- 中粒度（趣味・嗜好レベル）で抽出する。良い例：「映画」「コーヒー」「ゲーム」「音楽」「読書」「猫」
-- 包含関係のあるカテゴリは親に集約する。悪い例：「映画スナック」（→「映画」へ）、「コーヒー・紅茶・カモミール」（→「飲み物」へ）、「オトモアイルー」（→「ゲーム」へ）
-- 既存カテゴリ一覧に同義カテゴリがあれば、必ず既存の表記をそのまま再利用する（例：既存に「コーヒー」があるのに新規で「コーヒー・飲み物」を作らない）
-- 1 会話あたり 5 件程度を目安に、ユーザーが明確に関心を示したものだけを抽出する
-
-mergedSummary（既存と新規をマージした最新要約、日本語）、
-newMemoryCandidates（新規記憶候補の配列、category と content を含む）、
-interestCategories（上記ルールに従って抽出したカテゴリ配列、category と weight を含む。weight は会話内の言及回数。なければ空配列）、
-bidirectionalityScore（ユーザーが ${characterName} の発話に反応・質問返しをした割合 0.0〜1.0。
-  キャラ発信の話題にユーザーが乗った場合は高く 0.7〜1.0、ユーザーが一方的に話し続けた場合は低く 0.0〜0.3）
-を返してください。`;
+    const prompt = buildSummarizePrompt(input);
 
     const raw = await this.chatStructured(
       [{ role: 'user', content: prompt }],
@@ -287,8 +252,8 @@ function toSummarizeResult(raw: z.infer<typeof SummarizeResultSchema>): Summariz
   };
 }
 
-/** OpenAI embedding API で使用するモデル。軽量・高速・低コスト。 */
-export const OPENAI_EMBEDDING_MODEL = 'text-embedding-3-small';
+/** OpenAI embedding API で使用するモデル。{@link LLM_MODELS.embedding} から導出する。 */
+export const OPENAI_EMBEDDING_MODEL = LLM_MODELS.embedding;
 
 export const OPENAI_EMBEDDING_ERROR_MESSAGES = {
   EMPTY_API_KEY: 'OpenAI API キーが指定されていません',
@@ -327,10 +292,12 @@ export class OpenAIEmbeddingClient implements IEmbeddingClient {
     if (!trimmed) {
       throw new Error(OPENAI_EMBEDDING_ERROR_MESSAGES.EMPTY_TEXT);
     }
-    const response = await this.client.embeddings.create({
-      model: this.model,
-      input: trimmed,
-    });
+    const response = await withLLMRetry(() =>
+      this.client.embeddings.create({
+        model: this.model,
+        input: trimmed,
+      })
+    );
     return response.data[0].embedding;
   }
 }

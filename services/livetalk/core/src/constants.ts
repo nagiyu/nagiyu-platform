@@ -307,3 +307,33 @@ export const NOTIFY_CRITICAL_INTEREST_SHARE_THRESHOLD = 0.15;
  * isUrgent=true とみなす。14 日を超える将来イベントや過去日は時限性なしとして除外する。
  */
 export const NOTIFY_CRITICAL_EVENT_HORIZON_DAYS = 14;
+
+// ---- セーフティ横断レビュー（ADR-2.22 / Issue #3580）----
+
+/**
+ * admin ステータス画面のセーフティ横断レビューで取得するデフォルト件数。
+ * 最近の検出から降順で最大この件数を一覧表示する。
+ */
+export const SAFETY_REVIEW_DEFAULT_LIMIT = 50;
+
+// ---- チャット API 保護ガード（Issue #3528）----
+
+/**
+ * レートリミット: 1 分ウィンドウの上限リクエスト数。
+ */
+export const CHAT_RATE_LIMIT_PER_MINUTE = 10;
+
+/**
+ * レートリミット: 1 時間ウィンドウの上限リクエスト数。
+ */
+export const CHAT_RATE_LIMIT_PER_HOUR = 100;
+
+/**
+ * in-flight ロックのデフォルト有効期間（ミリ秒）。
+ *
+ * これはクラッシュ/ハング時にロックを解放するための粗いフェイルセーフであり、
+ * 上流の最大ストリーム時間（OpenAI SDK 既定の約 10 分）を上回る値にすることで
+ * 進行中の正常ロックが並行リクエストに奪取されないようにする。
+ * 正常時は finally の releaseLock で即時解放される。
+ */
+export const CHAT_LOCK_TTL_MS = 600_000;

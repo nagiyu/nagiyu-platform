@@ -12,24 +12,28 @@ import type { SummaryResponse } from '../../lib/prediction-evaluation/types';
 const SUMMARY_WITH_DATA: SummaryResponse = {
   period: '30d',
   evaluatedAt: 1_000_000,
-  kpi: { totalAccuracy: 65.0, directionalAccuracy: 63.0, judgedCount: 40 },
+  threshold: 0.5,
+  kpi: { totalAccuracy: 65.0, directionalAccuracy: 63.0, judgedCount: 40, neutralRatio: 25.0 },
   dailyTrend: [{ date: '2026-05-10', directionalAccuracy: 63.0, judgedCount: 10 }],
+  baseline: { upRate: 40.0, downRate: 35.0, flatRate: 25.0 },
   bySignal: [
-    { signal: 'BULLISH', accuracy: 70.0, count: 20 },
-    { signal: 'NEUTRAL', accuracy: 50.0, count: 10 },
-    { signal: 'BEARISH', accuracy: 60.0, count: 10 },
+    { signal: 'BULLISH', accuracy: 70.0, count: 20, baseline: 40.0, edge: 30.0 },
+    { signal: 'NEUTRAL', accuracy: 50.0, count: 10, baseline: 25.0, edge: 25.0 },
+    { signal: 'BEARISH', accuracy: 60.0, count: 10, baseline: 35.0, edge: 25.0 },
   ],
 };
 
 const SUMMARY_EMPTY: SummaryResponse = {
   period: 'all',
   evaluatedAt: 1_000_000,
-  kpi: { totalAccuracy: null, directionalAccuracy: null, judgedCount: 0 },
+  threshold: 0.5,
+  kpi: { totalAccuracy: null, directionalAccuracy: null, judgedCount: 0, neutralRatio: null },
   dailyTrend: [],
+  baseline: { upRate: null, downRate: null, flatRate: null },
   bySignal: [
-    { signal: 'BULLISH', accuracy: null, count: 0 },
-    { signal: 'NEUTRAL', accuracy: null, count: 0 },
-    { signal: 'BEARISH', accuracy: null, count: 0 },
+    { signal: 'BULLISH', accuracy: null, count: 0, baseline: null, edge: null },
+    { signal: 'NEUTRAL', accuracy: null, count: 0, baseline: null, edge: null },
+    { signal: 'BEARISH', accuracy: null, count: 0, baseline: null, edge: null },
   ],
 };
 
