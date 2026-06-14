@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { Box, Container, CircularProgress, Typography } from '@mui/material';
@@ -78,9 +78,13 @@ function RefreshContent() {
  * Phase 4 の 403 画面からバウンスされる想定。
  */
 export default function RefreshPage() {
+  // useSearchParams を使う RefreshContent は Suspense 境界の内側に置く
+  // （App Router の prerender 要件。境界が無いと next build が失敗する）。
   return (
     <SessionProviderWrapper>
-      <RefreshContent />
+      <Suspense fallback={null}>
+        <RefreshContent />
+      </Suspense>
     </SessionProviderWrapper>
   );
 }
