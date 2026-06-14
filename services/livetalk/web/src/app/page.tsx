@@ -10,6 +10,7 @@ import ResponseDisplay from '@/components/ResponseDisplay';
 import CharacterCanvas from '@/components/CharacterCanvas';
 import ConsentModal from '@/components/ConsentModal';
 import SafetyModal from '@/components/SafetyModal';
+import AccountDeletionModal from '@/components/AccountDeletionModal';
 import NotificationToggle from '@/components/NotificationToggle';
 import InstallGuide from '@/components/InstallGuide';
 import NotificationPermission from '@/components/NotificationPermission';
@@ -25,6 +26,7 @@ import { usePendingNotifications } from '@/lib/home/usePendingNotifications';
 import { useLifecycle } from '@/lib/home/useLifecycle';
 import { useCharacterQuerySync } from '@/lib/home/useCharacterQuerySync';
 import { useChatStream } from '@/lib/home/useChatStream';
+import { useAccountDeletion } from '@/lib/account/useAccountDeletion';
 import type { ChatPhase } from '@/lib/home/types';
 
 /**
@@ -71,6 +73,10 @@ function HomePageInner() {
 
   // 同意状態管理 hook
   const { consentPhase, markConsented } = useConsent();
+
+  // 退会・データ削除 hook
+  const { loading: deletionLoading, error: deletionError, requestDeletion } = useAccountDeletion();
+  const [deletionModalOpen, setDeletionModalOpen] = useState(false);
 
   // オンボーディング管理 hook（consentPhase 依存）
   const {
@@ -124,6 +130,13 @@ function HomePageInner() {
     <>
       <ConsentModal open={consentPhase === 'required'} onConsented={markConsented} />
       <SafetyModal open={safetyOpen} resources={safetyResources} onClose={closeSafety} />
+      <AccountDeletionModal
+        open={deletionModalOpen}
+        loading={deletionLoading}
+        error={deletionError}
+        onConfirm={requestDeletion}
+        onCancel={() => setDeletionModalOpen(false)}
+      />
       <Container
         maxWidth="sm"
         sx={{
@@ -210,6 +223,16 @@ function HomePageInner() {
             <Link href="/memory">私が覚えていること</Link>
             <Link href="/notes">ノート</Link>
             {isAdmin && <Link href="/status">ステータス</Link>}
+            {/* 利用規約・プライバシー導線の近くに退会入口を配置する（SCR-011） */}
+            <Link asChild>
+              <button
+                type="button"
+                onClick={() => setDeletionModalOpen(true)}
+                data-testid="open-deletion-modal"
+              >
+                退会・データ削除
+              </button>
+            </Link>
           </Box>
           <NotificationToggle />
         </Stack>
