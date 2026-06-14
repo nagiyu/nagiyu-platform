@@ -267,6 +267,10 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
         NEXT_PUBLIC_AUTH_URL: authUrl,
         // 自サービスのベース URL（callbackUrl 生成用）
         APP_URL: appUrl,
+        // NextAuth v5 が内部ホスト名（ip-10-x-x-x.ec2.internal）へフォールバックしないよう
+        // 公開 URL を明示する。未設定時は ECS コンテナの内部ホスト名が AUTH_URL に使われ、
+        // サインイン・セッション検証のリダイレクトが ERR_NAME_NOT_RESOLVED で失敗する原因となる。
+        AUTH_URL: appUrl,
         // VOICEVOX エンジンの接続先（同 Task 内 localhost）
         VOICEVOX_URL: 'http://localhost:50021',
         // DynamoDB Single Table 名（Phase 2a で導入）。

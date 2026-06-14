@@ -45,3 +45,6 @@ export { privacyPolicySections } from './data/privacyPolicyData';
 export type { PolicySection, PolicyContent, PolicySubContent } from './data/privacyPolicyData';
 export { termSections } from './data/termsOfServiceData';
 export type { TermSection, TermContent } from './data/termsOfServiceData';
+
+// Export utils
+export { buildSignOutUrl } from './utils/auth';
