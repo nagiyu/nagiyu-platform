@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useCallback, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Box, Container, Stack, Typography } from '@mui/material';
 import { Link } from '@nagiyu/ui';
@@ -10,6 +10,7 @@ import ResponseDisplay from '@/components/ResponseDisplay';
 import CharacterCanvas from '@/components/CharacterCanvas';
 import ConsentModal from '@/components/ConsentModal';
 import SafetyModal from '@/components/SafetyModal';
+import AccountDeletionModal from '@/components/AccountDeletionModal';
 import NotificationToggle from '@/components/NotificationToggle';
 import InstallGuide from '@/components/InstallGuide';
 import NotificationPermission from '@/components/NotificationPermission';
@@ -25,6 +26,7 @@ import { usePendingNotifications } from '@/lib/home/usePendingNotifications';
 import { useLifecycle } from '@/lib/home/useLifecycle';
 import { useCharacterQuerySync } from '@/lib/home/useCharacterQuerySync';
 import { useChatStream } from '@/lib/home/useChatStream';
+import { useAccountDeletion } from '@/lib/account/useAccountDeletion';
 import type { ChatPhase } from '@/lib/home/types';
 
 /**
@@ -71,6 +73,21 @@ function HomePageInner() {
 
   // 同意状態管理 hook
   const { consentPhase, markConsented } = useConsent();
+
+  // 退会・データ削除 hook
+  const {
+    loading: deletionLoading,
+    error: deletionError,
+    requestDeletion,
+    clearError: clearDeletionError,
+  } = useAccountDeletion();
+  const [deletionModalOpen, setDeletionModalOpen] = useState(false);
+
+  // 退会モーダルを開く（前回の残留エラーをクリアしてから開く）
+  const openDeletionModal = useCallback(() => {
+    clearDeletionError();
+    setDeletionModalOpen(true);
+  }, [clearDeletionError]);
 
   // オンボーディング管理 hook（consentPhase 依存）
   const {
@@ -124,6 +141,13 @@ function HomePageInner() {
     <>
       <ConsentModal open={consentPhase === 'required'} onConsented={markConsented} />
       <SafetyModal open={safetyOpen} resources={safetyResources} onClose={closeSafety} />
+      <AccountDeletionModal
+        open={deletionModalOpen}
+        loading={deletionLoading}
+        error={deletionError}
+        onConfirm={requestDeletion}
+        onCancel={() => setDeletionModalOpen(false)}
+      />
       <Container
         maxWidth="sm"
         sx={{
@@ -210,6 +234,13 @@ function HomePageInner() {
             <Link href="/memory">私が覚えていること</Link>
             <Link href="/notes">ノート</Link>
             {isAdmin && <Link href="/status">ステータス</Link>}
+            {/* チャット画面フッターの補助リンク群に退会入口を配置する。
+                利用規約・プライバシーポリシー導線は下部の ServiceLayout 共有フッターに表示される（SCR-011）。 */}
+            <Link asChild>
+              <button type="button" onClick={openDeletionModal} data-testid="open-deletion-modal">
+                退会・データ削除
+              </button>
+            </Link>
           </Box>
           <NotificationToggle />
         </Stack>
