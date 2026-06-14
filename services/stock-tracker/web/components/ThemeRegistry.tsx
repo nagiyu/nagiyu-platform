@@ -1,8 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { SessionProvider, useSession, signOut } from 'next-auth/react';
-import { ErrorBoundary, ServiceLayout, type NavigationItem } from '@nagiyu/ui';
+import { SessionProvider, useSession } from 'next-auth/react';
+import { ErrorBoundary, ServiceLayout, buildSignOutUrl, type NavigationItem } from '@nagiyu/ui';
 import { SnackbarProvider } from './SnackbarProvider';
 import { hasPermission } from '@nagiyu/common';
 
@@ -61,7 +61,12 @@ function ThemeRegistryContent({ children, version = '1.0.0' }: ThemeRegistryProp
     : undefined;
 
   // ログアウトハンドラー
-  const handleLogout = () => signOut();
+  // サインアウトは Cookie 発行元の auth サービスに集約する方針のため、
+  // buildSignOutUrl で生成した auth サービスの URL へ遷移させる。
+  const handleLogout = () =>
+    window.location.assign(
+      buildSignOutUrl(process.env.NEXT_PUBLIC_AUTH_URL ?? '', window.location.origin)
+    );
 
   return (
     <ErrorBoundary>
