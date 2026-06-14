@@ -448,8 +448,8 @@ requirements 3.2 はセーフティ検出ログを「別領域・人間レビュ
 **決定**
 
 - **sparse GSI（GSI2）で全 SafetyEvent を横断 Query** する。ADR-2.19（Profile 列挙の sparse GSI）と同じパターンで一貫させる。
-    - `GSI2PK='SAFETY'` を SafetyEvent item にのみ付与（sparse）。`GSI2SK` = 検出時刻ベースの ULID（時系列降順で「最近の検出」を取得）。
-    - 射影は一覧表示に必要なメタデータを `INCLUDE`。実装で確定した属性は `UserID`（匿名化済みユーザー参照）/ `EventID` / `CharacterID`（キャラ）/ `Trigger`（応答種別）/ `DetectedPattern`（検出パターン）/ `CreatedAt`（検出時刻）。**PII（`InputText` / `ResponseText`）は射影しない**（横断レビューはメタデータのみ。フル本文が要る場合だけベーステーブルの `getById` 経由）。なお `CharacterID` は本対応で SafetyEvent に追加した（既存レコードには無いため optional）。
+  - `GSI2PK='SAFETY'` を SafetyEvent item にのみ付与（sparse）。`GSI2SK` = 検出時刻ベースの ULID（時系列降順で「最近の検出」を取得）。
+  - 射影は一覧表示に必要なメタデータを `INCLUDE`。実装で確定した属性は `UserID`（匿名化済みユーザー参照）/ `EventID` / `CharacterID`（キャラ）/ `Trigger`（応答種別）/ `DetectedPattern`（検出パターン）/ `CreatedAt`（検出時刻）。**PII（`InputText` / `ResponseText`）は射影しない**（横断レビューはメタデータのみ。フル本文が要る場合だけベーステーブルの `getById` 経由）。なお `CharacterID` は本対応で SafetyEvent に追加した（既存レコードには無いため optional）。
 - **`livetalk:admin` 権限の管理画面**で時系列一覧を提供する。SCR-009（ステータス画面）の拡張とし、新規ページは増やさない。
 - ユーザーが在籍中は SafetyEvent に googleId を保持し、退会時に匿名化する（ADR-2.21）。GSI2 はどちらの状態でも横断 Query できる。
 
