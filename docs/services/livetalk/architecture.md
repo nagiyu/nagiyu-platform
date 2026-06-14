@@ -440,14 +440,14 @@ requirements 3.2 はセーフティ検出ログを「別領域・人間レビュ
 
 - **sparse GSI（GSI2）で全 SafetyEvent を横断 Query** する。ADR-2.19（Profile 列挙の sparse GSI）と同じパターンで一貫させる。
     - `GSI2PK='SAFETY'` を SafetyEvent item にのみ付与（sparse）。`GSI2SK` = 検出時刻ベースの ULID（時系列降順で「最近の検出」を取得）。
-    - 射影は一覧表示に必要な属性（検出時刻・検出パターン・キャラ・匿名化済みユーザー参照・応答種別）を `INCLUDE`。
+    - 射影は一覧表示に必要なメタデータを `INCLUDE`。実装で確定した属性は `UserID`（匿名化済みユーザー参照）/ `EventID` / `CharacterID`（キャラ）/ `Trigger`（応答種別）/ `DetectedPattern`（検出パターン）/ `CreatedAt`（検出時刻）。**PII（`InputText` / `ResponseText`）は射影しない**（横断レビューはメタデータのみ。フル本文が要る場合だけベーステーブルの `getById` 経由）。なお `CharacterID` は本対応で SafetyEvent に追加した（既存レコードには無いため optional）。
 - **`livetalk:admin` 権限の管理画面**で時系列一覧を提供する。SCR-009（ステータス画面）の拡張とし、新規ページは増やさない。
 - ユーザーが在籍中は SafetyEvent に googleId を保持し、退会時に匿名化する（ADR-2.21）。GSI2 はどちらの状態でも横断 Query できる。
 
 **根拠・トレードオフ**
 
 - ✅ 既存の sparse GSI パターンに揃い、全件 Scan を避けて横断 Query できる / admin 画面は既存の `livetalk:admin` 基盤に乗る
-- ⚠️ GSI 追加は CDK / インフラ変更を伴う（DynamoDB の GSI 増設）。projection 属性の選定は実装時に確定する
+- ⚠️ GSI 追加は CDK / インフラ変更を伴う（DynamoDB の GSI 増設）。**増設しただけでは Query できない**: その GSI を Query する各ロールは、テーブルを `fromTableArn` ではなく `fromTableAttributes` + `globalIndexes` でインポートしないと grant に `table/.../index/*` が含まれず `dynamodb:Query` が `AccessDenied` になる（batch ロール=#3527、web の status 画面ロール=#3580 で 2 度顕在化）。GSI を増やすときは「テーブル定義・各ロールの import/grant・Query 実装」をセットで更新する
 
 ### 2.23 親密度は累積接触量として保持するが、現状は体験へ未反映（ADR / Issue #3532）
 
@@ -488,8 +488,9 @@ DynamoDB Single Table（`nagiyu-livetalk-dynamodb-{env}`）。
   - `GSI1PK='PROFILE'` を Profile item にのみ付与（sparse）/ `GSI1SK` = 生の `UserID` / 射影は `KEYS_ONLY`
   - バッチのユーザー列挙（`ProfileRepository.listAllUserIds`）が全件 Scan を避けてこの GSI を Query する
 - GSI2（SafetyEvent 横断レビュー用 sparse GSI、ADR-2.22）:
-  - `GSI2PK='SAFETY'` を SafetyEvent item にのみ付与（sparse）/ `GSI2SK` = 検出時刻ベースの ULID（時系列降順で最近の検出を取得）/ 射影は一覧表示に必要な属性を `INCLUDE`
+  - `GSI2PK='SAFETY'` を SafetyEvent item にのみ付与（sparse）/ `GSI2SK` = 検出時刻ベースの ULID（`EventID` をそのまま使用。時系列降順で最近の検出を取得）/ 射影は `INCLUDE`（`UserID` / `EventID` / `CharacterID` / `Trigger` / `DetectedPattern` / `CreatedAt`。PII の `InputText` / `ResponseText` は射影しない）
   - `livetalk:admin` の管理画面が全ユーザー横断で SafetyEvent を Query する（全件 Scan を避ける）
+  - ⚠️ GSI を Query するロールは、テーブルを `fromTableAttributes` + `globalIndexes` でインポートして `index/*` を grant する必要がある（`fromTableArn` だと `AccessDenied`。ADR-2.22 の根拠・トレードオフ参照）
 
 **保持・削除ポリシー（ADR-2.21）**: Message は TTL 90 日、Memory Tier C/D は TTL あり、Memory Tier A/B・MemorySummary・Affection は在籍中は無期限。退会時は `PK=USER#<googleId>` 配下を即時ハード削除するが、SafetyEvent のみ匿名化（個人識別子を切り離す）して保持する（暫定保持期限 3 年、法務レビューで確定）。
 
