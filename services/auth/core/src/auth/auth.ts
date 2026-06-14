@@ -2,7 +2,7 @@ import NextAuth, { type NextAuthConfig } from 'next-auth';
 import Google from 'next-auth/providers/google';
 import { createAuthConfig } from '@nagiyu/nextjs';
 import { reportErrorEvent } from '@nagiyu/aws';
-import { toErrorMessage } from '@nagiyu/common';
+import { toErrorMessage, isAllowedNagiyuRedirectUrl } from '@nagiyu/common';
 import { createUserRepository } from '../repositories/factory';
 
 // エラーメッセージ定数
@@ -70,6 +70,11 @@ const sharedAuthConfig = createAuthConfig({
           if (dbUser) {
             token.roles = dbUser.roles ?? [];
             token.userId = dbUser.userId;
+          } else {
+            // ユーザーが DB に存在しない（退会・削除済み等）→ ロールを剥奪する。
+            // DB エラーは getUserByGoogleId が throw し下の catch で旧ロールを維持するため、
+            // ここに来る null は「ユーザー不在」を一意に意味する。
+            token.roles = [];
           }
           token.rolesRefreshedAt = Date.now();
         } catch (error) {
@@ -110,12 +115,9 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     ...sharedCallbacks,
     async redirect({ url, baseUrl }) {
-      // 同じドメインへのリダイレクトを許可
-      if (url.startsWith(baseUrl)) {
-        return url;
-      }
-      // プラットフォーム内のサービス (*.nagiyu.com) へのリダイレクトを許可
-      if (url.match(/^https?:\/\/[^/]*\.nagiyu\.com/)) {
+      // 同一オリジン または *.nagiyu.com のみ許可（オープンリダイレクト対策）。
+      // 判定は @nagiyu/common の共通バリデータに委譲する。
+      if (isAllowedNagiyuRedirectUrl(url, baseUrl)) {
         return url;
       }
       // 外部 URL は拒否して baseUrl にフォールバック

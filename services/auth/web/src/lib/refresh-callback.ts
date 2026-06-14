@@ -10,6 +10,8 @@
  * （前方一致だと `https://auth.nagiyu.com.evil.com` 等のオープンリダイレクトを許すため）。
  */
 
+import { isAllowedNagiyuRedirectUrl } from '@nagiyu/common';
+
 // エラーメッセージ定数
 export const ERROR_MESSAGES = {
   INVALID_CALLBACK_URL:
@@ -32,33 +34,7 @@ export function resolveRefreshCallbackUrl(
     return baseUrl;
   }
 
-  let parsed: URL;
-  try {
-    parsed = new URL(rawCallbackUrl);
-  } catch {
-    // 相対パスやスキーム不正など、絶対 URL としてパースできないものはフォールバック
-    return baseUrl;
-  }
-
-  // http / https 以外（javascript:, data: 等）はフォールバック
-  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-    return baseUrl;
-  }
-
-  // 同一オリジンは許可
-  try {
-    if (parsed.origin === new URL(baseUrl).origin) {
-      return rawCallbackUrl;
-    }
-  } catch {
-    // baseUrl 自体が不正な場合は下のホスト名判定に委ねる
-  }
-
-  // nagiyu.com 本体、またはそのサブドメイン（ホスト名の完全一致 / 末尾一致）のみ許可
-  if (parsed.hostname === 'nagiyu.com' || parsed.hostname.endsWith('.nagiyu.com')) {
-    return rawCallbackUrl;
-  }
-
-  // それ以外は baseUrl にフォールバック
-  return baseUrl;
+  // 許可判定（同一オリジン / *.nagiyu.com、オープンリダイレクト対策）は
+  // @nagiyu/common の共通バリデータに委譲する。
+  return isAllowedNagiyuRedirectUrl(rawCallbackUrl, baseUrl) ? rawCallbackUrl : baseUrl;
 }

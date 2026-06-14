@@ -219,7 +219,7 @@ describe('jwt コールバック - rolesRefreshedAt', () => {
   });
 
   describe('DB ユーザーが見つからない場合', () => {
-    it('dbUser が null でも rolesRefreshedAt だけ更新し例外を投げない', async () => {
+    it('dbUser が null のとき roles を空にする（退会・削除済みユーザーの権限剥奪）', async () => {
       const oldTimestamp = Date.now() - TTL_MS - 1000;
       mockGetUserByGoogleId.mockResolvedValueOnce(null);
 
@@ -236,8 +236,10 @@ describe('jwt コールバック - rolesRefreshedAt', () => {
       };
       const result = await capturedCallbacks.jwt!({ token });
 
-      // 既存 roles は変わらない
-      expect(result.roles).toEqual(['existing-role']);
+      // ユーザーが DB に存在しない（= 退会・削除済み）ため roles を剥奪する。
+      // DB エラーは throw され別の catch で旧 roles 維持となるため、
+      // ここに来る null は「ユーザー不在」を一意に意味する。
+      expect(result.roles).toEqual([]);
       // rolesRefreshedAt は更新される（次回の無駄な再取得を防ぐ）
       expect(result.rolesRefreshedAt as number).toBeGreaterThan(oldTimestamp);
       // 例外なし
@@ -261,15 +263,10 @@ describe('jwt コールバック - rolesRefreshedAt', () => {
         rolesRefreshedAt: oldTimestamp,
       };
 
-      await expect(capturedCallbacks.jwt!({ token })).resolves.not.toThrow();
+      // DB エラー（getUserByGoogleId が throw）時は catch で握りつぶし、
+      // 既存 token（roles 含む）をそのまま返す。null 不在時の roles 剥奪とは区別される。
+      const result = await capturedCallbacks.jwt!({ token });
 
-      const result = await capturedCallbacks.jwt!({
-        token: { ...token },
-        // 2 回目は createUserRepository を再設定する必要があるため、
-        // 上記 resolves で検証済みのため、別途エラーなく返却されたことのみ確認する
-      });
-
-      // googleId がなければ再取得ロジックに入らない（token をそのまま返す）
       expect(result).toMatchObject({ googleId: 'google-err', roles: ['safe-role'] });
     });
 
