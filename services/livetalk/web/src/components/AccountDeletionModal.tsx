@@ -49,8 +49,14 @@ export default function AccountDeletionModal({
   };
 
   return (
-    <Dialog open={open} onClose={handleCancel} maxWidth="sm" fullWidth>
-      <DialogTitle>退会・データ削除</DialogTitle>
+    <Dialog
+      open={open}
+      onClose={handleCancel}
+      maxWidth="sm"
+      fullWidth
+      aria-labelledby="account-deletion-modal-title"
+    >
+      <DialogTitle id="account-deletion-modal-title">退会・データ削除</DialogTitle>
       <DialogContent>
         <DialogContentText sx={{ mb: 2 }}>
           退会すると、以下のデータがすべて削除されます。この操作は取り消せません。
@@ -70,7 +76,6 @@ export default function AccountDeletionModal({
           checked={confirmed}
           onChange={(e) => setConfirmed(e.target.checked)}
           disabled={loading}
-          data-testid="deletion-confirm-checkbox"
           label="削除範囲を理解し、復元できないことに同意します"
         />
         {error && (

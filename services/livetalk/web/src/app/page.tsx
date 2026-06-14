@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useCallback, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Box, Container, Stack, Typography } from '@mui/material';
 import { Link } from '@nagiyu/ui';
@@ -75,8 +75,19 @@ function HomePageInner() {
   const { consentPhase, markConsented } = useConsent();
 
   // 退会・データ削除 hook
-  const { loading: deletionLoading, error: deletionError, requestDeletion } = useAccountDeletion();
+  const {
+    loading: deletionLoading,
+    error: deletionError,
+    requestDeletion,
+    clearError: clearDeletionError,
+  } = useAccountDeletion();
   const [deletionModalOpen, setDeletionModalOpen] = useState(false);
+
+  // 退会モーダルを開く（前回の残留エラーをクリアしてから開く）
+  const openDeletionModal = useCallback(() => {
+    clearDeletionError();
+    setDeletionModalOpen(true);
+  }, [clearDeletionError]);
 
   // オンボーディング管理 hook（consentPhase 依存）
   const {
@@ -223,13 +234,10 @@ function HomePageInner() {
             <Link href="/memory">私が覚えていること</Link>
             <Link href="/notes">ノート</Link>
             {isAdmin && <Link href="/status">ステータス</Link>}
-            {/* 利用規約・プライバシー導線の近くに退会入口を配置する（SCR-011） */}
+            {/* チャット画面フッターの補助リンク群に退会入口を配置する。
+                利用規約・プライバシーポリシー導線は下部の ServiceLayout 共有フッターに表示される（SCR-011）。 */}
             <Link asChild>
-              <button
-                type="button"
-                onClick={() => setDeletionModalOpen(true)}
-                data-testid="open-deletion-modal"
-              >
+              <button type="button" onClick={openDeletionModal} data-testid="open-deletion-modal">
                 退会・データ削除
               </button>
             </Link>

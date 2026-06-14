@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { signOut } from 'next-auth/react';
-import { deleteAccount } from './api-client';
+import { ACCOUNT_API_ERROR_MESSAGES, deleteAccount } from './api-client';
 
 /**
  * useAccountDeletion の戻り値型。
@@ -14,6 +14,8 @@ export interface UseAccountDeletionResult {
   error: string | null;
   /** 退会処理を実行する。成功時は signOut してトップへリダイレクトする。 */
   requestDeletion: () => Promise<void>;
+  /** エラー状態をクリアする（モーダルの開閉時に残留エラーを消すために使う）。 */
+  clearError: () => void;
 }
 
 /**
@@ -34,11 +36,13 @@ export function useAccountDeletion(): UseAccountDeletionResult {
       await deleteAccount();
       await signOut({ redirectTo: '/' });
     } catch (e) {
-      setError(e instanceof Error ? e.message : '退会処理に失敗しました。');
+      setError(e instanceof Error ? e.message : ACCOUNT_API_ERROR_MESSAGES.DELETE_FAILED);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  return { loading, error, requestDeletion };
+  const clearError = useCallback(() => setError(null), []);
+
+  return { loading, error, requestDeletion, clearError };
 }

@@ -142,7 +142,25 @@ describe('useAccountDeletion', () => {
         await result.current.requestDeletion();
       });
 
-      expect(result.current.error).toBe('退会処理に失敗しました。');
+      expect(result.current.error).toBe(ACCOUNT_API_ERROR_MESSAGES.DELETE_FAILED);
+    });
+  });
+
+  describe('clearError', () => {
+    it('セットされた error を null に戻す', async () => {
+      mockDeleteAccount.mockRejectedValue(new Error(ACCOUNT_API_ERROR_MESSAGES.DELETE_FAILED));
+
+      const { result } = renderHook(() => useAccountDeletion());
+
+      await act(async () => {
+        await result.current.requestDeletion();
+      });
+      expect(result.current.error).toBe(ACCOUNT_API_ERROR_MESSAGES.DELETE_FAILED);
+
+      act(() => {
+        result.current.clearError();
+      });
+      expect(result.current.error).toBeNull();
     });
   });
 
