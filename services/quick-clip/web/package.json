@@ -26,6 +26,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1063.0",
     "@nagiyu/aws": "*",
     "@nagiyu/nextjs": "*",
+    "@nagiyu/quick-clip-core": "*",
     "@nagiyu/ui": "*"
   }
 }

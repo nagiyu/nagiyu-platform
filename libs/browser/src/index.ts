@@ -12,5 +12,10 @@ export { readFromClipboard, writeToClipboard } from './clipboard';
 export { getItem, setItem, removeItem } from './localStorage';
 
 // Web Push utilities
-export { urlBase64ToUint8Array, subscribePush, PUSH_ERROR_MESSAGES } from './push';
+export {
+  urlBase64ToUint8Array,
+  subscribePush,
+  fetchVapidPublicKey,
+  PUSH_ERROR_MESSAGES,
+} from './push';
 export type { SubscribePushOptions } from './push';

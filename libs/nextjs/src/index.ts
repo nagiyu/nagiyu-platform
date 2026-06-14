@@ -23,8 +23,12 @@ export type {
 } from './auth-config.js';
 export { createAuthMiddleware } from './middleware.js';
 export type { AuthMiddlewareRequest, CreateAuthMiddlewareOptions } from './middleware.js';
-export { createSessionGetter } from './session.js';
-export type { CreateSessionGetterOptions } from './session.js';
+export { createSessionGetter, resolveTestUser } from './session.js';
+export type {
+  CreateSessionGetterOptions,
+  ResolveTestUserOptions,
+  ResolvedTestUser,
+} from './session.js';
 
 // Repository module - Repository initialization helpers
 export { withRepository, withRepositories } from './repository.js';
