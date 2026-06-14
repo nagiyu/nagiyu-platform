@@ -11,13 +11,19 @@ jest.mock('@/lib/account/api-client', () => ({
   deleteAccount: jest.fn(),
 }));
 
+jest.mock('@/lib/account/navigation', () => ({
+  redirectToTop: jest.fn(),
+}));
+
 // モックの参照を取得するため import する
 import { signOut } from 'next-auth/react';
 import { deleteAccount } from '@/lib/account/api-client';
+import { redirectToTop } from '@/lib/account/navigation';
 
 // signOut はオーバーロードがあるため jest.fn() でキャストする
 const mockSignOut = signOut as jest.Mock;
 const mockDeleteAccount = deleteAccount as jest.MockedFunction<typeof deleteAccount>;
+const mockRedirectToTop = redirectToTop as jest.MockedFunction<typeof redirectToTop>;
 
 afterEach(() => {
   jest.clearAllMocks();
@@ -37,7 +43,7 @@ describe('useAccountDeletion', () => {
   });
 
   describe('requestDeletion 成功', () => {
-    it('成功時は signOut が redirectTo: "/" で呼ばれる', async () => {
+    it('成功時は signOut でセッションを破棄し、ブラウザ側でトップへ遷移する', async () => {
       mockDeleteAccount.mockResolvedValue(undefined);
       mockSignOut.mockResolvedValue(undefined);
 
@@ -47,7 +53,10 @@ describe('useAccountDeletion', () => {
         await result.current.requestDeletion();
       });
 
-      expect(mockSignOut).toHaveBeenCalledWith({ redirectTo: '/' });
+      // サーバ側リダイレクト解決を避けるため redirect: false で呼ぶ
+      expect(mockSignOut).toHaveBeenCalledWith({ redirect: false });
+      // 遷移はブラウザ側（redirectToTop）でトップへ移動する
+      expect(mockRedirectToTop).toHaveBeenCalledTimes(1);
     });
 
     it('成功時は error が null のまま', async () => {
