@@ -250,10 +250,7 @@ function HomePageInner() {
                 type="button"
                 onClick={() =>
                   window.location.assign(
-                    buildSignOutUrl(
-                      process.env.NEXT_PUBLIC_AUTH_URL ?? '',
-                      window.location.origin
-                    )
+                    buildSignOutUrl(process.env.NEXT_PUBLIC_AUTH_URL ?? '', window.location.origin)
                   )
                 }
                 data-testid="sign-out-button"
