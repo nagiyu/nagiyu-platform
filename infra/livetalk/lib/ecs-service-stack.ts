@@ -126,7 +126,15 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
     // これにより ECS Service stack は DynamoDB stack の deploy 順序に縛られない。
     const dynamoTableName = getDynamoDBTableName('livetalk', environment);
     const dynamoTableArn = getDynamoDBTableArn(this.region, this.account, dynamoTableName);
-    const dynamoTable = dynamodb.Table.fromTableArn(this, 'ImportedDynamoTable', dynamoTableArn);
+    // GSI への Query 権限を grant に含めるため、インデックス情報付きでインポートする。
+    // `fromTableArn` だけだと hasIndex=false となり grantReadWriteData が `table/.../index/*`
+    // を付与せず、ECS タスクロールが GSI を Query できず AccessDenied になる。
+    // GSI1=Profile 列挙（#3527）/ GSI2=SafetyEvent 横断レビュー（ADR-2.22 / #3580）。
+    // status 画面の SafetyEvent 横断 Query（GSI2）で顕在化した（batch-stack と同じ対処）。
+    const dynamoTable = dynamodb.Table.fromTableAttributes(this, 'ImportedDynamoTable', {
+      tableArn: dynamoTableArn,
+      globalIndexes: ['GSI1', 'GSI2'],
+    });
 
     this.ecsTaskSecurityGroup = new ec2.SecurityGroup(this, 'EcsTaskSecurityGroup', {
       vpc,

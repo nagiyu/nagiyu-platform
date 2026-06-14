@@ -308,6 +308,14 @@ export const NOTIFY_CRITICAL_INTEREST_SHARE_THRESHOLD = 0.15;
  */
 export const NOTIFY_CRITICAL_EVENT_HORIZON_DAYS = 14;
 
+// ---- セーフティ横断レビュー（ADR-2.22 / Issue #3580）----
+
+/**
+ * admin ステータス画面のセーフティ横断レビューで取得するデフォルト件数。
+ * 最近の検出から降順で最大この件数を一覧表示する。
+ */
+export const SAFETY_REVIEW_DEFAULT_LIMIT = 50;
+
 // ---- チャット API 保護ガード（Issue #3528）----
 
 /**

@@ -7,10 +7,18 @@
  * GSI1: Profile 列挙用 sparse GSI（#3527）
  * - GSI1PK='PROFILE' の Profile アイテムのみを索引化する
  * - GSI1SK は生の UserID（USER# プレフィックスなし）
+ *
+ * GSI2: SafetyEvent のみを sparse 索引化する横断レビュー用 GSI（ADR-2.22 / #3580）
+ * - GSI2PK='SAFETY' の SafetyEvent アイテムのみを索引化する
+ * - GSI2SK は EventID（ULID、時系列ソート可能）をそのまま使用する
+ * - 射影は INCLUDE（メタデータのみ。InputText / ResponseText は PII のため除外）
  */
 
 /** Profile 列挙 GSI のインデックス名 */
 export const PROFILE_GSI_INDEX_NAME = 'GSI1';
+
+/** SafetyEvent 横断レビュー GSI のインデックス名（ADR-2.22 / #3580） */
+export const SAFETY_EVENT_GSI_INDEX_NAME = 'GSI2';
 
 /**
  * GSI1 のパーティションキー値を返す。
@@ -18,6 +26,15 @@ export const PROFILE_GSI_INDEX_NAME = 'GSI1';
  */
 export function buildProfileGSI1PK(): string {
   return 'PROFILE';
+}
+
+/**
+ * GSI2 のパーティションキー値を返す。
+ * SafetyEvent アイテムのみに付与する（sparse GSI）。
+ * GSI2SK は EventID（ULID）をそのまま使用するため専用ビルダーは不要。
+ */
+export function buildSafetyEventGSI2PK(): string {
+  return 'SAFETY';
 }
 
 export function buildUserPK(userId: string): string {
