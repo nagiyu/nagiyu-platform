@@ -34,7 +34,6 @@ const config: Config = {
     '!src/app/**/layout.tsx',
     '!src/app/**/page.tsx',
     '!src/app/api/**', // Exclude API routes from coverage for now
-    '!src/middleware.ts', // ミドルウェアは NextAuth 依存が強く単体テスト困難
     '!src/components/SessionProviderWrapper.tsx', // SessionProvider の薄いラッパー（JSX のみ）
     '!src/lib/navigate.ts', // window.location.assign の薄いラッパー（jsdom でテスト困難）
   ],
