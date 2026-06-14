@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Box, Container, Stack, Typography } from '@mui/material';
-import { Link } from '@nagiyu/ui';
+import { Link, buildSignOutUrl } from '@nagiyu/ui';
 import { hasPermission } from '@nagiyu/common';
 import ChatInput from '@/components/ChatInput';
 import ResponseDisplay from '@/components/ResponseDisplay';
@@ -239,6 +239,26 @@ function HomePageInner() {
             <Link asChild>
               <button type="button" onClick={openDeletionModal} data-testid="open-deletion-modal">
                 退会・データ削除
+              </button>
+            </Link>
+            {/* サインアウト導線。
+                サインアウト処理は Cookie 発行元の auth サービスに集約する方針のため、
+                自サービスの NextAuth signout POST ではなく auth サービスへリダイレクトする。
+                callbackUrl に自サービスの origin を渡し、サインアウト後に戻れるようにする。 */}
+            <Link asChild>
+              <button
+                type="button"
+                onClick={() =>
+                  window.location.assign(
+                    buildSignOutUrl(
+                      process.env.NEXT_PUBLIC_AUTH_URL ?? '',
+                      window.location.origin
+                    )
+                  )
+                }
+                data-testid="sign-out-button"
+              >
+                サインアウト
               </button>
             </Link>
           </Box>

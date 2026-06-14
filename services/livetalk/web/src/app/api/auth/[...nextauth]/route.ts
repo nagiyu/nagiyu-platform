@@ -32,5 +32,10 @@ async function GET(req: NextRequest) {
   return handlers.GET(req);
 }
 
+// サインアウト処理は Cookie 発行元の auth サービスに集約する方針のため、
+// consumer である livetalk はローカルで signout POST を受け付けない。
+// POST を export しないことで /api/auth/signout への直接 POST を無効化し、
+// 内部ホスト名（ip-10-x-x-x.ec2.internal）へのリダイレクトによる
+// ERR_NAME_NOT_RESOLVED を防ぐ。
+// サインアウトは buildSignOutUrl() で生成した auth サービスの URL へ遷移させる。
 export { GET };
-export const POST = handlers.POST;
