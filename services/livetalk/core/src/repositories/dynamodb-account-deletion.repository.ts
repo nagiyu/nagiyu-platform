@@ -19,11 +19,7 @@ import {
 import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import type { AccountDeletionResult } from '../entities/account-deletion.entity.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
-import {
-  buildSafetyEventGSI2PK,
-  buildSafetyEventSKPrefix,
-  buildUserPK,
-} from '../mappers/keys.js';
+import { buildSafetyEventGSI2PK, buildSafetyEventSKPrefix, buildUserPK } from '../mappers/keys.js';
 import type { AccountDeletionRepository } from './account-deletion.repository.interface.js';
 
 /** エラーメッセージ定数 */
@@ -152,12 +148,13 @@ export class DynamoDBAccountDeletionRepository implements AccountDeletionReposit
     // 25 件ごとに分割してバッチ送信する
     for (let i = 0; i < items.length; i += BATCH_WRITE_MAX) {
       const chunk = items.slice(i, i + BATCH_WRITE_MAX);
-      let requestItems: Array<{ DeleteRequest: { Key: { PK: string; SK: string } } }> =
-        chunk.map((item) => ({
+      let requestItems: Array<{ DeleteRequest: { Key: { PK: string; SK: string } } }> = chunk.map(
+        (item) => ({
           DeleteRequest: {
             Key: { PK: String(item['PK']), SK: String(item['SK']) },
           },
-        }));
+        })
+      );
 
       let retries = 0;
       while (requestItems.length > 0) {
@@ -226,10 +223,7 @@ export class DynamoDBAccountDeletionRepository implements AccountDeletionReposit
    *
    * @returns 匿名化件数
    */
-  private async anonymizeSafetyEvents(
-    originalPk: string,
-    items: DynamoDBItem[]
-  ): Promise<number> {
+  private async anonymizeSafetyEvents(originalPk: string, items: DynamoDBItem[]): Promise<number> {
     if (items.length === 0) return 0;
 
     const now = this.nowMs();

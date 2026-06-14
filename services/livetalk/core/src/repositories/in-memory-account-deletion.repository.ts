@@ -16,11 +16,7 @@
 import { InMemorySingleTableStore, type DynamoDBItem } from '@nagiyu/aws';
 import type { AccountDeletionResult } from '../entities/account-deletion.entity.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
-import {
-  buildSafetyEventGSI2PK,
-  buildSafetyEventSKPrefix,
-  buildUserPK,
-} from '../mappers/keys.js';
+import { buildSafetyEventGSI2PK, buildSafetyEventSKPrefix, buildUserPK } from '../mappers/keys.js';
 import type { AccountDeletionRepository } from './account-deletion.repository.interface.js';
 
 export class InMemoryAccountDeletionRepository implements AccountDeletionRepository {
@@ -78,10 +74,7 @@ export class InMemoryAccountDeletionRepository implements AccountDeletionReposit
     let cursor: string | undefined;
 
     do {
-      const result = this.store.query(
-        { pk },
-        cursor ? { cursor } : undefined
-      );
+      const result = this.store.query({ pk }, cursor ? { cursor } : undefined);
       items.push(...result.items);
       cursor = result.nextCursor;
     } while (cursor !== undefined);
