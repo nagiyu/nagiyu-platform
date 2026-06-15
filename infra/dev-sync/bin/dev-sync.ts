@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
-import { DevSyncEcrStack } from '../lib/ecr-stack.js';
-import { DevSyncStack } from '../lib/dev-sync-stack.js';
-import { MANIFEST } from '../lib/manifest.js';
+import { DevSyncEcrStack } from '../lib/ecr-stack';
+import { DevSyncStack } from '../lib/dev-sync-stack';
+import { MANIFEST } from '../lib/manifest';
 
 const app = new cdk.App();
 

@@ -5,7 +5,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as scheduler from 'aws-cdk-lib/aws-scheduler';
 import { Construct } from 'constructs';
-import type { ManifestEntry } from './manifest.js';
+import type { ManifestEntry } from './manifest';
 
 export interface DevSyncStackProps extends cdk.StackProps {
   environment: 'dev' | 'prod';
