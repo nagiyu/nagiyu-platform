@@ -1,0 +1,219 @@
+name: Dev Sync - Build and Deploy
+
+on:
+  push:
+    branches:
+      - develop
+      - 'integration/**'
+    paths:
+      - 'services/dev-sync/**'
+      - 'infra/dev-sync/**'
+      - 'libs/common/**'
+      - 'libs/aws/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/dev-sync-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'デプロイ環境'
+        required: true
+        type: choice
+        options:
+          - dev
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  deploy-ecr:
+    name: Deploy ECR Stack
+    runs-on: ubuntu-latest
+
+    outputs:
+      environment: ${{ steps.setup-environment.outputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup deployment environment
+        id: setup-environment
+        uses: ./.github/actions/setup-environment
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: package-lock.json
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra-dev-sync
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy ECR Stack
+        env:
+          ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
+        run: |
+          echo "ECR スタックをデプロイします (環境: $ENVIRONMENT)..."
+          cd infra/dev-sync && npx cdk deploy NagiyuDevSyncECR${ENVIRONMENT^} \
+            --context env=$ENVIRONMENT \
+            --require-approval never
+
+  build-batch:
+    name: Build and Push Batch Docker Image
+    runs-on: ubuntu-latest
+    needs: deploy-ecr
+
+    outputs:
+      image-uri: ${{ steps.build-image.outputs.image-uri }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get ECR repository from CDK stack
+        id: get-ecr
+        env:
+          ENVIRONMENT: ${{ needs.deploy-ecr.outputs.environment }}
+        run: |
+          STACK_NAME="NagiyuDevSyncECR${ENVIRONMENT^}"
+
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Error: CDK スタック $STACK_NAME から ECR リポジトリ URI を取得できませんでした"
+            exit 1
+          fi
+
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+          echo "ECR リポジトリ (Batch): $REPOSITORY_URI"
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Batch Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/dev-sync/batch/Dockerfile
+          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:${{ github.sha }}
+
+      - name: Push Batch Docker image
+        id: build-image
+        env:
+          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker push "$REPOSITORY_URI:$IMAGE_TAG"
+
+          # CDK 側は tagOrDigest: 'latest' を参照するため latest もタグ付けして push
+          docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
+          docker push "$REPOSITORY_URI:latest"
+
+          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+  deploy-main:
+    name: Deploy Main Stack
+    runs-on: ubuntu-latest
+    needs: [deploy-ecr, build-batch]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: package-lock.json
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra-dev-sync
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy Main Stack
+        env:
+          ENVIRONMENT: ${{ needs.deploy-ecr.outputs.environment }}
+        run: |
+          echo "メインスタックをデプロイします (環境: $ENVIRONMENT)..."
+          cd infra/dev-sync && npx cdk deploy NagiyuDevSync${ENVIRONMENT^} \
+            --context env=$ENVIRONMENT \
+            --require-approval never
+
+      - name: Update Lambda function with latest image
+        env:
+          ENVIRONMENT: ${{ needs.deploy-ecr.outputs.environment }}
+        run: |
+          FUNCTION_NAME="nagiyu-dev-sync-$ENVIRONMENT"
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          IMAGE_URI="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/nagiyu-dev-sync-ecr-$ENVIRONMENT:latest"
+
+          echo "Lambda 関数を最新イメージで更新します: $FUNCTION_NAME"
+          aws lambda update-function-code \
+            --function-name "$FUNCTION_NAME" \
+            --image-uri "$IMAGE_URI" \
+            --region "${{ env.AWS_REGION }}"
+
+      - name: Wait for Lambda update to complete
+        env:
+          ENVIRONMENT: ${{ needs.deploy-ecr.outputs.environment }}
+        run: |
+          FUNCTION_NAME="nagiyu-dev-sync-$ENVIRONMENT"
+          echo "Lambda 更新の完了を待機します..."
+          aws lambda wait function-updated \
+            --function-name "$FUNCTION_NAME" \
+            --region "${{ env.AWS_REGION }}"
+          echo "Lambda 更新が正常に完了しました"
+
+  summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [deploy-ecr, build-batch, deploy-main]
+
+    steps:
+      - name: Display deployment summary
+        env:
+          ENVIRONMENT: ${{ needs.deploy-ecr.outputs.environment }}
+        run: |
+          echo "## Dev Sync デプロイサマリー - $ENVIRONMENT" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### デプロイ状況" >> $GITHUB_STEP_SUMMARY
+          echo "| ジョブ | 結果 |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| ECR スタックデプロイ | ${{ needs.deploy-ecr.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Batch Docker ビルド & プッシュ | ${{ needs.build-batch.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| メインスタックデプロイ | ${{ needs.deploy-main.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Batch Image**: \`${{ needs.build-batch.outputs.image-uri }}\`" >> $GITHUB_STEP_SUMMARY
