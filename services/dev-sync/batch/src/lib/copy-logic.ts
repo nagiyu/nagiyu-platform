@@ -13,7 +13,6 @@
  *    PutItem/DeleteItem は dest にのみ発行する。
  */
 
-import type { DynamoDBItem } from '@nagiyu/aws';
 import type { DynamoTableStore } from './store-adapter.js';
 import type { JobConfig, CopyResult } from './types.js';
 import { ERROR_MESSAGES } from './errors.js';

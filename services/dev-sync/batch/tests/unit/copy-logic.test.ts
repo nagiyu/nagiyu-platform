@@ -46,9 +46,7 @@ describe('assertDestIsDevTable', () => {
   });
 
   it('空文字列はエラーになる', () => {
-    expect(() => assertDestIsDevTable('')).toThrow(
-      'コピー先テーブルが "-dev" で終わっていません'
-    );
+    expect(() => assertDestIsDevTable('')).toThrow('コピー先テーブルが "-dev" で終わっていません');
   });
 });
 

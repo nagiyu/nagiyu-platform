@@ -15,9 +15,13 @@ import type { DynamoTableStore, ScanPage, QueryPage } from './store-adapter.js';
  * InMemorySingleTableStore をラップして DynamoTableStore として使う。
  */
 export class InMemoryStoreAdapter implements DynamoTableStore {
-  constructor(private readonly store: InMemorySingleTableStore) {}
+  private readonly store: InMemorySingleTableStore;
 
-  async scan(options: {
+  constructor(store: InMemorySingleTableStore) {
+    this.store = store;
+  }
+
+  public async scan(options: {
     pkPrefix?: string;
     skPrefix?: string;
     exclusiveStartKey?: string;
@@ -25,9 +29,7 @@ export class InMemoryStoreAdapter implements DynamoTableStore {
     const { pkPrefix, skPrefix, exclusiveStartKey } = options;
 
     // ページネーション: cursor から offset を復元
-    const startIndex = exclusiveStartKey
-      ? this.decodeCursor(exclusiveStartKey)
-      : 0;
+    const startIndex = exclusiveStartKey ? this.decodeCursor(exclusiveStartKey) : 0;
 
     // 全件取得してフィルタ
     const scanResult = this.store.scan({ limit: 10_000 });
@@ -46,14 +48,12 @@ export class InMemoryStoreAdapter implements DynamoTableStore {
     const pageSize = 100;
     const page = items.slice(startIndex, startIndex + pageSize);
     const hasMore = startIndex + pageSize < items.length;
-    const lastEvaluatedKey = hasMore
-      ? this.encodeCursor(startIndex + pageSize)
-      : undefined;
+    const lastEvaluatedKey = hasMore ? this.encodeCursor(startIndex + pageSize) : undefined;
 
     return { items: page, lastEvaluatedKey };
   }
 
-  async queryGsi(options: {
+  public async queryGsi(options: {
     indexName: string;
     pkAttributeName: string;
     pkValue: string;
@@ -63,38 +63,32 @@ export class InMemoryStoreAdapter implements DynamoTableStore {
   }): Promise<QueryPage> {
     const { pkAttributeName, pkValue, skAttributeName, skFrom, exclusiveStartKey } = options;
 
-    const startIndex = exclusiveStartKey
-      ? this.decodeCursor(exclusiveStartKey)
-      : 0;
+    const startIndex = exclusiveStartKey ? this.decodeCursor(exclusiveStartKey) : 0;
 
     // GSI シミュレーション: 指定属性でフィルタ
     const scanResult = this.store.scan({ limit: 10_000 });
-    let items = scanResult.items.filter(
-      (item) => item[pkAttributeName] === pkValue
-    );
+    let items = scanResult.items.filter((item) => item[pkAttributeName] === pkValue);
 
     // SK 下限でフィルタ（ >= skFrom）
     items = items.filter(
-      (item) => typeof item[skAttributeName] === 'string' &&
-        (item[skAttributeName] as string) >= skFrom
+      (item) =>
+        typeof item[skAttributeName] === 'string' && (item[skAttributeName] as string) >= skFrom
     );
 
     // ページネーション
     const pageSize = 100;
     const page = items.slice(startIndex, startIndex + pageSize);
     const hasMore = startIndex + pageSize < items.length;
-    const lastEvaluatedKey = hasMore
-      ? this.encodeCursor(startIndex + pageSize)
-      : undefined;
+    const lastEvaluatedKey = hasMore ? this.encodeCursor(startIndex + pageSize) : undefined;
 
     return { items: page, lastEvaluatedKey };
   }
 
-  async put(item: DynamoDBItem): Promise<void> {
+  public async put(item: DynamoDBItem): Promise<void> {
     this.store.put(item);
   }
 
-  async delete(pk: string, sk: string): Promise<void> {
+  public async delete(pk: string, sk: string): Promise<void> {
     this.store.delete(pk, sk);
   }
 

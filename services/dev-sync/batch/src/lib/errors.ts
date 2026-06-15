@@ -22,7 +22,8 @@ export const ERROR_MESSAGES = {
   GSI_WINDOW_DELETE_NOT_ALLOWED:
     'gsiWindow 戦略では delete="on" は指定できません。gsiWindow は削除を行わない戦略です。',
   /** mirror 戦略で gsi を指定した場合のエラー */
-  MIRROR_GSI_NOT_ALLOWED: 'mirror 戦略では gsi 設定は使用できません。gsi は gsiWindow 戦略専用です。',
+  MIRROR_GSI_NOT_ALLOWED:
+    'mirror 戦略では gsi 設定は使用できません。gsi は gsiWindow 戦略専用です。',
   /** mirror 戦略で scope が未指定の場合のエラー */
   MIRROR_SCOPE_REQUIRED: 'mirror 戦略では scope の指定が必須です。',
 } as const;

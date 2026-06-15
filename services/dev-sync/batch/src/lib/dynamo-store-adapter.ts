@@ -18,9 +18,15 @@ import type { DynamoTableStore, ScanPage, QueryPage } from './store-adapter.js';
  * DynamoDB DocumentClient をラップするストアアダプター
  */
 export class DynamoDocumentClientStoreAdapter implements DynamoTableStore {
-  constructor(private readonly client: DynamoDBDocumentClient, private readonly tableName: string) {}
+  private readonly client: DynamoDBDocumentClient;
+  private readonly tableName: string;
 
-  async scan(options: {
+  constructor(client: DynamoDBDocumentClient, tableName: string) {
+    this.client = client;
+    this.tableName = tableName;
+  }
+
+  public async scan(options: {
     pkPrefix?: string;
     skPrefix?: string;
     exclusiveStartKey?: string;
@@ -49,16 +55,10 @@ export class DynamoDocumentClientStoreAdapter implements DynamoTableStore {
       TableName: this.tableName,
       FilterExpression: filterExpression,
       ExpressionAttributeNames:
-        Object.keys(expressionAttributeNames).length > 0
-          ? expressionAttributeNames
-          : undefined,
+        Object.keys(expressionAttributeNames).length > 0 ? expressionAttributeNames : undefined,
       ExpressionAttributeValues:
-        Object.keys(expressionAttributeValues).length > 0
-          ? expressionAttributeValues
-          : undefined,
-      ExclusiveStartKey: exclusiveStartKey
-        ? this.decodeKey(exclusiveStartKey)
-        : undefined,
+        Object.keys(expressionAttributeValues).length > 0 ? expressionAttributeValues : undefined,
+      ExclusiveStartKey: exclusiveStartKey ? this.decodeKey(exclusiveStartKey) : undefined,
     });
 
     const result = await this.client.send(command);
@@ -71,7 +71,7 @@ export class DynamoDocumentClientStoreAdapter implements DynamoTableStore {
     };
   }
 
-  async queryGsi(options: {
+  public async queryGsi(options: {
     indexName: string;
     pkAttributeName: string;
     pkValue: string;
@@ -94,9 +94,7 @@ export class DynamoDocumentClientStoreAdapter implements DynamoTableStore {
         ':pkValue': pkValue,
         ':skFrom': skFrom,
       },
-      ExclusiveStartKey: exclusiveStartKey
-        ? this.decodeKey(exclusiveStartKey)
-        : undefined,
+      ExclusiveStartKey: exclusiveStartKey ? this.decodeKey(exclusiveStartKey) : undefined,
     });
 
     const result = await this.client.send(command);
@@ -109,7 +107,7 @@ export class DynamoDocumentClientStoreAdapter implements DynamoTableStore {
     };
   }
 
-  async put(item: DynamoDBItem): Promise<void> {
+  public async put(item: DynamoDBItem): Promise<void> {
     const command = new PutCommand({
       TableName: this.tableName,
       Item: item,
@@ -117,7 +115,7 @@ export class DynamoDocumentClientStoreAdapter implements DynamoTableStore {
     await this.client.send(command);
   }
 
-  async delete(pk: string, sk: string): Promise<void> {
+  public async delete(pk: string, sk: string): Promise<void> {
     const command = new DeleteCommand({
       TableName: this.tableName,
       Key: { PK: pk, SK: sk },

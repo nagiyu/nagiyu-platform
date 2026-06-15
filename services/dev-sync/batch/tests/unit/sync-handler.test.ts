@@ -26,7 +26,6 @@ jest.mock('@nagiyu/aws', () => ({
   getDynamoDBDocumentClient: jest.fn().mockReturnValue({}),
 }));
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 let handler: (event: unknown) => Promise<{ statusCode: number; body: string }>;
 
 beforeAll(async () => {
