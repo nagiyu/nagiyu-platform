@@ -37,6 +37,20 @@ export class DevSyncStack extends cdk.Stack {
 
     const { environment, ecrRepositoryName, manifest } = props;
 
+    // ─────────────────────────────────────────
+    // synth 時の安全ガード: dest テーブルが "-dev" で終わることを確認する
+    // 実行時ガード（copy-logic.ts）と合わせた多層防御により、
+    // prod テーブルへの IAM 書込権限が CDK 合成時点で発行されることを防ぐ。
+    // ─────────────────────────────────────────
+    for (const entry of manifest) {
+      if (!entry.destTable.endsWith('-dev')) {
+        throw new Error(
+          `マニフェストのコピー先テーブル "${entry.destTable}" が "-dev" で終わっていません。` +
+            `prod テーブルへの IAM 書込権限発行を防ぐため、synth を中止します。`
+        );
+      }
+    }
+
     // 既存 ECR リポジトリの参照
     const repository = ecr.Repository.fromRepositoryName(
       this,
@@ -60,38 +74,47 @@ export class DevSyncStack extends cdk.Stack {
 
     // マニフェストのエントリごとに IAM ポリシーを付与（最小権限）
     const processedSources = new Set<string>();
-    const processedDests = new Set<string>();
+    // dest テーブルは PutItem 付与済みかどうかをキャッシュ
+    const processedDestsPut = new Set<string>();
+    // dest テーブルは DeleteItem/Scan 付与済みかどうかをキャッシュ（delete=on エントリにのみ付与）
+    const processedDestsDelete = new Set<string>();
 
     for (const entry of manifest) {
-      // source テーブル: read 専用（Scan/Query のみ）
+      // source テーブル: read 専用（Scan/Query/GetItem のみ。PutItem/DeleteItem は付与しない）
       if (!processedSources.has(entry.sourceTable)) {
         processedSources.add(entry.sourceTable);
         const sourceArn = `arn:aws:dynamodb:${region}:${account}:table/${entry.sourceTable}`;
         executionRole.addToPolicy(
           new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
-            actions: ['dynamodb:Scan', 'dynamodb:Query'],
+            actions: ['dynamodb:Scan', 'dynamodb:Query', 'dynamodb:GetItem'],
             resources: [sourceArn, `${sourceArn}/index/*`],
           })
         );
       }
 
-      // dest テーブル: write のみ（Put/Delete。Get は不要）
-      if (!processedDests.has(entry.destTable)) {
-        processedDests.add(entry.destTable);
+      // dest テーブル: PutItem は常時付与
+      if (!processedDestsPut.has(entry.destTable)) {
+        processedDestsPut.add(entry.destTable);
         const destArn = `arn:aws:dynamodb:${region}:${account}:table/${entry.destTable}`;
         executionRole.addToPolicy(
           new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
-            actions: ['dynamodb:PutItem', 'dynamodb:DeleteItem'],
-            resources: [destArn, `${destArn}/index/*`],
+            actions: ['dynamodb:PutItem'],
+            resources: [destArn],
           })
         );
-        // dest テーブルのスキャン（差分削除で dev 側を読む必要があるため）
+      }
+
+      // dest テーブル: DeleteItem/Scan は delete='on' のエントリの dest にのみ付与
+      // （gsiWindow や delete=off のエントリの dest に不要な権限を与えない最小権限設計）
+      if (entry.delete === 'on' && !processedDestsDelete.has(entry.destTable)) {
+        processedDestsDelete.add(entry.destTable);
+        const destArn = `arn:aws:dynamodb:${region}:${account}:table/${entry.destTable}`;
         executionRole.addToPolicy(
           new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
-            actions: ['dynamodb:Scan'],
+            actions: ['dynamodb:DeleteItem', 'dynamodb:Scan'],
             resources: [destArn],
           })
         );

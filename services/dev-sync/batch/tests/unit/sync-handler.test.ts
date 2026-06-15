@@ -77,10 +77,12 @@ describe('sync-handler', () => {
 
   describe('mirror 戦略の正常系', () => {
     it('有効な mirror 設定は 200 を返す', async () => {
+      // mirror 戦略は scope が必須
       const response = await handler({
         sourceTable: 'nagiyu-test-prod',
         destTable: 'nagiyu-test-dev',
         strategy: 'mirror',
+        scope: { pkPrefix: 'USER#' },
         delete: 'off',
       });
 
@@ -93,14 +95,17 @@ describe('sync-handler', () => {
 
   describe('安全ガード', () => {
     it('destTable が -dev で終わらない場合は 500 を返す', async () => {
+      // zod は通過する（destTable の形式はスキーマで検証しない）が、
+      // copy-logic 内の assertDestIsDevTable で abort される
       const response = await handler({
         sourceTable: 'nagiyu-test-prod',
         destTable: 'nagiyu-test-prod', // 危険: prod テーブル
         strategy: 'mirror',
+        scope: { pkPrefix: 'USER#' }, // mirror 戦略では scope 必須
         delete: 'off',
       });
 
-      // zod は通過するが、copy-logic 内の安全ガードで abort される
+      // copy-logic 内の安全ガードで abort → 500 を返す
       expect(response.statusCode).toBe(500);
       expect(JSON.parse(response.body).error).toContain('-dev');
     });

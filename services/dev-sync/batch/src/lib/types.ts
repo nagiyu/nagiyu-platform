@@ -3,6 +3,7 @@
  */
 
 import { z } from 'zod';
+import { ERROR_MESSAGES } from './errors.js';
 
 /**
  * コピー戦略の種別
@@ -79,33 +80,73 @@ export type MirrorScope = z.infer<typeof MirrorScopeSchema>;
  *   }
  * }
  */
-export const JobConfigSchema = z.object({
-  /** コピー元 DynamoDB テーブル名（prod テーブル） */
-  sourceTable: z.string().min(1),
-  /**
-   * コピー先 DynamoDB テーブル名（dev テーブル）
-   * 必ず "-dev" で終わる必要がある（安全ガード）
-   */
-  destTable: z.string().min(1),
-  /** コピー戦略 */
-  strategy: z.enum(['mirror', 'gsiWindow']),
-  /**
-   * mirror 戦略のスコープ設定
-   * strategy="mirror" の場合に使用（省略時は全件スキャン）
-   */
-  scope: MirrorScopeSchema.optional(),
-  /**
-   * 差分削除モード
-   * - "on": prod に存在しない dev item を削除（mirror 戦略向け）
-   * - "off": 削除しない
-   */
-  delete: z.enum(['on', 'off']),
-  /**
-   * GSI ウィンドウ設定
-   * strategy="gsiWindow" の場合に必須
-   */
-  gsi: GsiWindowConfigSchema.optional(),
-});
+export const JobConfigSchema = z
+  .object({
+    /** コピー元 DynamoDB テーブル名（prod テーブル） */
+    sourceTable: z.string().min(1),
+    /**
+     * コピー先 DynamoDB テーブル名（dev テーブル）
+     * 必ず "-dev" で終わる必要がある（安全ガード）
+     */
+    destTable: z.string().min(1),
+    /** コピー戦略 */
+    strategy: z.enum(['mirror', 'gsiWindow']),
+    /**
+     * mirror 戦略のスコープ設定
+     * strategy="mirror" の場合に必須
+     */
+    scope: MirrorScopeSchema.optional(),
+    /**
+     * 差分削除モード
+     * - "on": prod に存在しない dev item を削除（mirror 戦略向け）
+     * - "off": 削除しない
+     */
+    delete: z.enum(['on', 'off']),
+    /**
+     * GSI ウィンドウ設定
+     * strategy="gsiWindow" の場合に必須
+     */
+    gsi: GsiWindowConfigSchema.optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.strategy === 'gsiWindow') {
+      // gsiWindow 戦略: gsi 必須
+      if (!data.gsi) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: ERROR_MESSAGES.GSI_CONFIG_REQUIRED,
+          path: ['gsi'],
+        });
+      }
+      // gsiWindow 戦略: delete=on は禁止
+      if (data.delete === 'on') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: ERROR_MESSAGES.GSI_WINDOW_DELETE_NOT_ALLOWED,
+          path: ['delete'],
+        });
+      }
+    }
+
+    if (data.strategy === 'mirror') {
+      // mirror 戦略: scope 必須
+      if (data.scope === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: ERROR_MESSAGES.MIRROR_SCOPE_REQUIRED,
+          path: ['scope'],
+        });
+      }
+      // mirror 戦略: gsi 禁止
+      if (data.gsi !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: ERROR_MESSAGES.MIRROR_GSI_NOT_ALLOWED,
+          path: ['gsi'],
+        });
+      }
+    }
+  });
 
 export type JobConfig = z.infer<typeof JobConfigSchema>;
 

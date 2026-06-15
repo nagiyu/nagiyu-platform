@@ -30,7 +30,6 @@ export class InMemoryStoreAdapter implements DynamoTableStore {
       : 0;
 
     // 全件取得してフィルタ
-    const allItems = Array.from({ length: this.store.size() }, () => null);
     const scanResult = this.store.scan({ limit: 10_000 });
     let items = scanResult.items;
 

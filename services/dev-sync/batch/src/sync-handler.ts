@@ -12,11 +12,8 @@ import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { JobConfigSchema } from './lib/types.js';
 import { runCopy } from './lib/copy-logic.js';
 import { DynamoDocumentClientStoreAdapter } from './lib/dynamo-store-adapter.js';
+import { ERROR_MESSAGES } from './lib/errors.js';
 import type { JobConfig, CopyResult } from './lib/types.js';
-
-const ERROR_MESSAGES = {
-  INVALID_EVENT_INPUT: 'イベント入力のバリデーションに失敗しました',
-} as const;
 
 /**
  * EventBridge Scheduler からのイベント型

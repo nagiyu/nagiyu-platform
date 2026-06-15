@@ -47,6 +47,7 @@ export async function runMirrorCopy(
   dest: DynamoTableStore,
   config: JobConfig
 ): Promise<CopyResult> {
+  // 多層ガード: runCopy からも呼ばれるが、直接呼び出し時の保護のため意図的に二重チェックする。
   assertDestIsDevTable(config.destTable);
 
   const pkPrefix = config.scope?.pkPrefix;
@@ -71,21 +72,30 @@ export async function runMirrorCopy(
   } while (exclusiveStartKey !== undefined);
 
   // Phase 2: delete=on の場合のみ差分削除（prod に無い dev item を削除）
+  // 2 相化: 先に dest を全件スキャンして削除対象キーを収集し、スキャン完了後にまとめて削除する。
+  // ページネーション中に同一 dest へ delete を発行すると読み飛ばしが起きる可能性があるため分離。
   let deleted = 0;
   if (config.delete === 'on') {
+    // 2-1 フェーズ: dest を全件スキャンして削除対象を収集
+    const toDelete: Array<{ pk: string; sk: string }> = [];
     let destKey: string | undefined;
     do {
       const destPage = await dest.scan({ pkPrefix, skPrefix, exclusiveStartKey: destKey });
       destKey = destPage.lastEvaluatedKey;
 
       for (const item of destPage.items) {
-        const key = buildKey(item.PK, item.SK);
+        const key = buildKey(item.PK as string, item.SK as string);
         if (!prodKeys.has(key)) {
-          await dest.delete(item.PK, item.SK);
-          deleted++;
+          toDelete.push({ pk: item.PK as string, sk: item.SK as string });
         }
       }
     } while (destKey !== undefined);
+
+    // 2-2 フェーズ: 収集した削除対象をまとめて削除
+    for (const { pk, sk } of toDelete) {
+      await dest.delete(pk, sk);
+      deleted++;
+    }
   }
 
   return { upserted, deleted, scanned };
@@ -109,6 +119,7 @@ export async function runGsiWindowCopy(
   config: JobConfig,
   now: Date = new Date()
 ): Promise<CopyResult> {
+  // 多層ガード: runCopy からも呼ばれるが、直接呼び出し時の保護のため意図的に二重チェックする。
   assertDestIsDevTable(config.destTable);
 
   if (!config.gsi) {
@@ -162,6 +173,7 @@ export async function runCopy(
   config: JobConfig,
   now?: Date
 ): Promise<CopyResult> {
+  // 多層ガード: 各戦略関数でも同じガードを実行するが、エントリポイントとして先行チェックする。
   assertDestIsDevTable(config.destTable);
 
   if (config.strategy === 'mirror') {
@@ -173,7 +185,8 @@ export async function runCopy(
 
 /**
  * PK/SK からストア内キー文字列を構築する（内部ユーティリティ）
+ * PK/SK は DynamoDB テーブルの定義上 string 前提のため引数型を string に限定する。
  */
-function buildKey(pk: unknown, sk: unknown): string {
-  return `${String(pk)}#${String(sk)}`;
+function buildKey(pk: string, sk: string): string {
+  return `${pk}#${sk}`;
 }
