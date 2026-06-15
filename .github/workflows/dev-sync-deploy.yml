@@ -32,6 +32,7 @@ jobs:
 
     outputs:
       environment: ${{ steps.setup-environment.outputs.environment }}
+      stack-suffix: ${{ steps.setup-environment.outputs.stack-suffix }}
 
     steps:
       - name: Checkout code
@@ -63,10 +64,12 @@ jobs:
       - name: Deploy ECR Stack
         env:
           ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
+          STACK_SUFFIX: ${{ steps.setup-environment.outputs.stack-suffix }}
         run: |
           echo "ECR スタックをデプロイします (環境: $ENVIRONMENT)..."
-          cd infra/dev-sync && npx cdk deploy NagiyuDevSyncECR${ENVIRONMENT^} \
-            --context env=$ENVIRONMENT \
+          npm run cdk --workspace=@nagiyu/infra-dev-sync -- deploy \
+            NagiyuDevSyncECR${STACK_SUFFIX} \
+            --context env="$ENVIRONMENT" \
             --require-approval never
 
   build-batch:
@@ -91,9 +94,9 @@ jobs:
       - name: Get ECR repository from CDK stack
         id: get-ecr
         env:
-          ENVIRONMENT: ${{ needs.deploy-ecr.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.deploy-ecr.outputs.stack-suffix }}
         run: |
-          STACK_NAME="NagiyuDevSyncECR${ENVIRONMENT^}"
+          STACK_NAME="NagiyuDevSyncECR${STACK_SUFFIX}"
 
           REPOSITORY_URI=$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
@@ -164,10 +167,12 @@ jobs:
       - name: Deploy Main Stack
         env:
           ENVIRONMENT: ${{ needs.deploy-ecr.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.deploy-ecr.outputs.stack-suffix }}
         run: |
           echo "メインスタックをデプロイします (環境: $ENVIRONMENT)..."
-          cd infra/dev-sync && npx cdk deploy NagiyuDevSync${ENVIRONMENT^} \
-            --context env=$ENVIRONMENT \
+          npm run cdk --workspace=@nagiyu/infra-dev-sync -- deploy \
+            NagiyuDevSync${STACK_SUFFIX} \
+            --context env="$ENVIRONMENT" \
             --require-approval never
 
       - name: Update Lambda function with latest image
