@@ -153,14 +153,19 @@ describe('ThemeRegistry ログアウトハンドラー', () => {
   it('ログアウト時に buildSignOutUrl が auth URL と現在の origin を引数に呼ばれる', () => {
     // jsdom では window.location の assign / origin は non-configurable のため
     // Object.defineProperty や jest.spyOn でモックできない。
-    // ここでは ThemeRegistry が buildSignOutUrl を正しい引数（AUTH_URL, window.location.origin）で
+    // ここでは ThemeRegistry が buildSignOutUrl を正しい引数（authUrl, window.location.origin）で
     // 呼び出すことをテストし、ナビゲーション副作用（assign の呼び出し）は検証スコープ外とする。
     // （assign 呼び出し自体は jest-environment-jsdom で "Not implemented: navigation" の
     //   コンソールエラーになるが、テストの合否には影響しない。）
-    process.env.NEXT_PUBLIC_AUTH_URL = 'http://localhost:3001';
+    // authUrl は prop として受け取る（client component での process.env 直接参照はビルド時
+    // インライン化で空文字になるため、サーバーで解決して prop で渡す方式に修正済み）
 
     renderToStaticMarkup(
-      React.createElement(ThemeRegistry, null, React.createElement('div', null, 'child'))
+      React.createElement(
+        ThemeRegistry,
+        { authUrl: 'http://localhost:3001' },
+        React.createElement('div', null, 'child')
+      )
     );
 
     expect(capturedOnLogout).toBeDefined();

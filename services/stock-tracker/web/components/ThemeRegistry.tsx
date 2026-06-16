@@ -9,9 +9,14 @@ import { hasPermission } from '@nagiyu/common';
 interface ThemeRegistryProps {
   children: React.ReactNode;
   version?: string;
+  /** サインアウト URL の生成に使う auth サービスの URL。
+   *  client component 内で process.env.NEXT_PUBLIC_AUTH_URL を参照すると
+   *  ビルド時インライン化により空文字になるため、サーバーコンポーネント（layout.tsx）で
+   *  ランタイム env から解決して prop として受け取る。 */
+  authUrl?: string;
 }
 
-function ThemeRegistryContent({ children, version = '1.0.0' }: ThemeRegistryProps) {
+function ThemeRegistryContent({ children, version = '1.0.0', authUrl = '' }: ThemeRegistryProps) {
   const { data: session } = useSession();
 
   const hasStocksRead =
@@ -63,10 +68,11 @@ function ThemeRegistryContent({ children, version = '1.0.0' }: ThemeRegistryProp
   // ログアウトハンドラー
   // サインアウトは Cookie 発行元の auth サービスに集約する方針のため、
   // buildSignOutUrl で生成した auth サービスの URL へ遷移させる。
+  // authUrl はサーバーコンポーネント（layout.tsx）でランタイム env から解決して prop で受け取る。
+  // client component 内で process.env.NEXT_PUBLIC_AUTH_URL を直接参照すると
+  // ビルド時インライン化により空文字になり、相対 URL 化してサインアウトが失敗するため。
   const handleLogout = () =>
-    window.location.assign(
-      buildSignOutUrl(process.env.NEXT_PUBLIC_AUTH_URL ?? '', window.location.origin)
-    );
+    window.location.assign(buildSignOutUrl(authUrl, window.location.origin));
 
   return (
     <ErrorBoundary>
@@ -87,10 +93,12 @@ function ThemeRegistryContent({ children, version = '1.0.0' }: ThemeRegistryProp
   );
 }
 
-export default function ThemeRegistry({ children, version }: ThemeRegistryProps) {
+export default function ThemeRegistry({ children, version, authUrl }: ThemeRegistryProps) {
   return (
     <SessionProvider>
-      <ThemeRegistryContent version={version}>{children}</ThemeRegistryContent>
+      <ThemeRegistryContent version={version} authUrl={authUrl}>
+        {children}
+      </ThemeRegistryContent>
     </SessionProvider>
   );
 }
