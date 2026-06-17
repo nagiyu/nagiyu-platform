@@ -34,6 +34,8 @@ const config: Config = {
     '!src/app/**/layout.tsx',
     '!src/app/**/page.tsx',
     '!src/app/api/**', // Exclude API routes from coverage for now
+    '!src/components/SessionProviderWrapper.tsx', // SessionProvider の薄いラッパー（JSX のみ）
+    '!src/lib/navigate.ts', // window.location.assign の薄いラッパー（jsdom でテスト困難）
   ],
   // Coverage thresholds (fail if below 80%)
   coverageThreshold: {

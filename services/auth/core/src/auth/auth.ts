@@ -2,7 +2,7 @@ import NextAuth, { type NextAuthConfig } from 'next-auth';
 import Google from 'next-auth/providers/google';
 import { createAuthConfig } from '@nagiyu/nextjs';
 import { reportErrorEvent } from '@nagiyu/aws';
-import { toErrorMessage } from '@nagiyu/common';
+import { toErrorMessage, isAllowedNagiyuRedirectUrl } from '@nagiyu/common';
 import { createUserRepository } from '../repositories/factory';
 
 // エラーメッセージ定数
@@ -13,7 +13,13 @@ const ERROR_MESSAGES = {
     'Google OAuth クライアントシークレットが設定されていません。環境変数 GOOGLE_CLIENT_SECRET を設定してください。',
   MISSING_USER_EMAIL: 'Google OAuth ユーザー情報に email が含まれていません。',
   MISSING_USER_NAME: 'Google OAuth ユーザー情報に name が含まれていません。',
+  ROLES_REFRESH_FAILED: 'jwt コールバック: DB からのロール再取得に失敗しました。',
 } as const;
+
+/**
+ * auth ドメインのセッション読み取り時に最大この間隔で DynamoDB を再取得する（5 分）
+ */
+const ROLES_REFRESH_TTL_MS = 5 * 60 * 1000;
 
 // 環境変数の検証（ビルド時以外のみ）
 // Next.js のビルド時は環境変数が未設定でも許容する
@@ -33,8 +39,9 @@ if (
 // UserRepository は Next.js のビルド時に初期化されないよう、コールバック内で都度取得する。
 // registry 側でシングルトン化されるため複数回呼び出しても同一インスタンスが返る。
 const sharedAuthConfig = createAuthConfig({
-  jwt: async ({ token, user, account }) => {
+  jwt: async ({ token, user, account, trigger }) => {
     if (account && user) {
+      // ログイン時: Google アカウント情報をトークンに焼き込む
       token.googleId = account.providerAccountId;
       token.email = user.email;
       token.name = user.name;
@@ -44,9 +51,45 @@ const sharedAuthConfig = createAuthConfig({
       const dbUser = await userRepository.getUserByGoogleId(account.providerAccountId);
       token.userId = dbUser?.userId;
       token.roles = dbUser?.roles || [];
+      token.rolesRefreshedAt = Date.now();
 
       if (dbUser) {
         await userRepository.updateLastLogin(dbUser.userId);
+      }
+    } else if (token.googleId) {
+      // ログイン以外の呼び出し: TTL ゲートまたは明示的な update トリガーでロールを再取得する
+      // token は Record<string, unknown> と交差するため、カスタムフィールドは型アサーションが必要
+      const rolesRefreshedAt = (token.rolesRefreshedAt as number | undefined) ?? 0;
+      const shouldRefresh =
+        trigger === 'update' || Date.now() - rolesRefreshedAt > ROLES_REFRESH_TTL_MS;
+
+      if (shouldRefresh) {
+        try {
+          const userRepository = createUserRepository();
+          const dbUser = await userRepository.getUserByGoogleId(token.googleId as string);
+          if (dbUser) {
+            token.roles = dbUser.roles ?? [];
+            token.userId = dbUser.userId;
+          } else {
+            // ユーザーが DB に存在しない（退会・削除済み等）→ ロールを剥奪する。
+            // DB エラーは getUserByGoogleId が throw し下の catch で旧ロールを維持するため、
+            // ここに来る null は「ユーザー不在」を一意に意味する。
+            token.roles = [];
+          }
+          token.rolesRefreshedAt = Date.now();
+        } catch (error) {
+          await reportErrorEvent({
+            serviceId: 'auth',
+            severity: 'error',
+            title: 'jwt コールバック: DB からのロール再取得に失敗しました',
+            message: ERROR_MESSAGES.ROLES_REFRESH_FAILED,
+            context: {
+              step: 'rolesRefresh',
+              errorStack: error instanceof Error ? error.stack : undefined,
+            },
+          });
+          // DB エラー時はセッションを壊さず既存トークンをそのまま返す
+        }
       }
     }
     return token;
@@ -72,12 +115,9 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     ...sharedCallbacks,
     async redirect({ url, baseUrl }) {
-      // 同じドメインへのリダイレクトを許可
-      if (url.startsWith(baseUrl)) {
-        return url;
-      }
-      // プラットフォーム内のサービス (*.nagiyu.com) へのリダイレクトを許可
-      if (url.match(/^https?:\/\/[^/]*\.nagiyu\.com/)) {
+      // 同一オリジン または *.nagiyu.com のみ許可（オープンリダイレクト対策）。
+      // 判定は @nagiyu/common の共通バリデータに委譲する。
+      if (isAllowedNagiyuRedirectUrl(url, baseUrl)) {
         return url;
       }
       // 外部 URL は拒否して baseUrl にフォールバック
