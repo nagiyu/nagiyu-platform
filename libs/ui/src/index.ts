@@ -47,4 +47,8 @@ export { termSections } from './data/termsOfServiceData';
 export type { TermSection, TermContent } from './data/termsOfServiceData';
 
 // Export utils
-export { buildSignOutUrl } from './utils/auth';
+export { buildSignOutUrl, buildRefreshUrl } from './utils/auth';
+
+// Export feedback components
+export { default as AccessDeniedView } from './components/feedback/AccessDeniedView';
+export type { AccessDeniedViewProps } from './components/feedback/AccessDeniedView';
