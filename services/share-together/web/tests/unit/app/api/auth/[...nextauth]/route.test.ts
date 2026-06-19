@@ -18,11 +18,16 @@ jest.mock('next-auth', () => ({
   })),
 }));
 
-import { GET, POST } from '@/app/api/auth/[...nextauth]/route';
+import { GET } from '@/app/api/auth/[...nextauth]/route';
 
 describe('/api/auth/[...nextauth] route', () => {
-  it('NextAuth handlers を GET/POST に公開する', () => {
+  it('NextAuth GET handler を公開する', () => {
     expect(GET).toBe(mockGet);
-    expect(POST).toBe(mockPost);
+  });
+
+  it('POST は export しない（auth サービスへのサインアウト集約方針）', async () => {
+    // POST を動的 import で確認し、export されていないことを検証する
+    const routeModule = await import('@/app/api/auth/[...nextauth]/route');
+    expect((routeModule as Record<string, unknown>)['POST']).toBeUndefined();
   });
 });
