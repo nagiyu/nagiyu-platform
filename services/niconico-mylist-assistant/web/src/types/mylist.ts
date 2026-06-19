@@ -14,10 +14,8 @@ export interface MylistRegisterFormData {
   excludeSkip: boolean;
   /** マイリスト名 */
   mylistName: string;
-  /** ニコニコアカウントのメールアドレス */
-  niconicoEmail: string;
-  /** ニコニコアカウントのパスワード */
-  niconicoPassword: string;
+  /** ニコニコ動画の user_session クッキー値 */
+  userSession: string;
 }
 
 /**
@@ -28,8 +26,7 @@ export const DEFAULT_MYLIST_REGISTER_FORM_DATA: MylistRegisterFormData = {
   favoriteOnly: false,
   excludeSkip: true,
   mylistName: '',
-  niconicoEmail: '',
-  niconicoPassword: '',
+  userSession: '',
 };
 
 /**
@@ -40,10 +37,8 @@ export interface MylistRegisterRequest {
   favoriteOnly?: boolean;
   excludeSkip?: boolean;
   mylistName: string;
-  niconicoAccount: {
-    email: string;
-    password: string;
-  };
+  /** ニコニコ動画の user_session クッキー値 */
+  userSession: string;
   pushSubscription?: {
     endpoint: string;
     keys: {

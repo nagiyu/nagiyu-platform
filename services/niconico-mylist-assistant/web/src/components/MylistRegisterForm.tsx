@@ -3,17 +3,12 @@
 import { useState } from 'react';
 import {
   Box,
-  // eslint-disable-next-line no-restricted-imports -- パスワード表示切替の endAdornment（IconButton）を使うため、@nagiyu/ui ではなく MUI の TextField をそのまま利用する
   TextField,
   Typography,
   Card,
   CardContent,
-  InputAdornment,
-  IconButton,
 } from '@mui/material';
 import { Button, Checkbox, ErrorAlert } from '@nagiyu/ui';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import {
   MylistRegisterFormData,
   DEFAULT_MYLIST_REGISTER_FORM_DATA,
@@ -29,7 +24,7 @@ interface MylistRegisterFormProps {
 /**
  * マイリスト登録フォームコンポーネント
  *
- * 登録条件（最大件数、お気に入りのみ等）、ニコニコアカウント情報、
+ * 登録条件（最大件数、お気に入りのみ等）、user_session、
  * マイリスト名を入力し、バッチジョブを投入します。
  */
 export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProps) {
@@ -38,7 +33,6 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,14 +47,8 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
         return;
       }
 
-      if (!formData.niconicoEmail.trim()) {
-        setError('ニコニコアカウントのメールアドレスを入力してください');
-        setLoading(false);
-        return;
-      }
-
-      if (!formData.niconicoPassword.trim()) {
-        setError('ニコニコアカウントのパスワードを入力してください');
+      if (!formData.userSession.trim()) {
+        setError('user_session を入力してください');
         setLoading(false);
         return;
       }
@@ -71,10 +59,7 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
         favoriteOnly: formData.favoriteOnly,
         excludeSkip: formData.excludeSkip,
         mylistName: formData.mylistName,
-        niconicoAccount: {
-          email: formData.niconicoEmail,
-          password: formData.niconicoPassword,
-        },
+        userSession: formData.userSession,
       };
 
       // 既存の Push サブスクリプションをバッチジョブに紐付ける
@@ -127,20 +112,16 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
         onSuccess(data);
       }
 
-      // フォームをリセット（パスワードのみクリア）
+      // フォームをリセット（user_session をクリア）
       setFormData({
         ...formData,
-        niconicoPassword: '',
+        userSession: '',
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'エラーが発生しました');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleTogglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
   };
 
   return (
@@ -227,56 +208,26 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
             helperText="ニコニコ動画に作成されるマイリストの名前"
           />
 
-          {/* ニコニコアカウント */}
+          {/* ニコニコ user_session */}
           <Typography variant="subtitle2" gutterBottom sx={{ mt: 3 }}>
-            ニコニコアカウント
+            ニコニコ動画 セッション
           </Typography>
 
           <TextField
-            label="メールアドレス"
-            type="email"
-            value={formData.niconicoEmail}
+            label="user_session"
+            type="password"
+            value={formData.userSession}
             onChange={(e) =>
               setFormData({
                 ...formData,
-                niconicoEmail: e.target.value,
+                userSession: e.target.value,
               })
             }
             fullWidth
             margin="normal"
             required
-            autoComplete="email"
-          />
-
-          <TextField
-            label="パスワード"
-            type={showPassword ? 'text' : 'password'}
-            value={formData.niconicoPassword}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                niconicoPassword: e.target.value,
-              })
-            }
-            fullWidth
-            margin="normal"
-            required
-            autoComplete="current-password"
-            slotProps={{
-              input: {
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      aria-label="toggle password visibility"
-                      onClick={handleTogglePasswordVisibility}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              },
-            }}
+            autoComplete="off"
+            helperText="シークレット窓でニコニコ動画にログインし、開発者ツールのCookieから user_session の値を取得して貼り付けてください"
           />
 
           {/* 実行ボタン */}

@@ -15,12 +15,12 @@ jest.mock('playwright', () => ({
 }));
 
 import {
-  login,
   executeMylistRegistration,
   registerOverlayBannerHandler,
+  createContextWithSession,
 } from '../../src/playwright-automation';
 import { reportErrorEvent } from '@nagiyu/aws';
-import type { Page } from 'playwright';
+import type { Browser, Page } from 'playwright';
 
 function createMockPage(overrides: Partial<Record<string, jest.Mock>> = {}): Page {
   return {
@@ -34,13 +34,32 @@ function createMockPage(overrides: Partial<Record<string, jest.Mock>> = {}): Pag
     on: jest.fn(),
     addLocatorHandler: jest.fn().mockResolvedValue(undefined),
     evaluate: jest.fn().mockResolvedValue(undefined),
+    keyboard: {
+      press: jest.fn().mockResolvedValue(undefined),
+      type: jest.fn().mockResolvedValue(undefined),
+    },
     ...overrides,
   } as unknown as Page;
+}
+
+function createMockBrowser(overrides: Partial<Record<string, jest.Mock>> = {}): Browser {
+  const mockPage = createMockPage();
+  const mockContext = {
+    addCookies: jest.fn().mockResolvedValue(undefined),
+    newPage: jest.fn().mockResolvedValue(mockPage),
+    close: jest.fn().mockResolvedValue(undefined),
+  };
+  return {
+    newContext: jest.fn().mockResolvedValue(mockContext),
+    close: jest.fn().mockResolvedValue(undefined),
+    ...overrides,
+  } as unknown as Browser;
 }
 
 describe('playwright-automation', () => {
   beforeEach(() => {
     jest.mocked(reportErrorEvent).mockClear();
+    mockChromiumLaunch.mockReset();
   });
 
   describe('registerOverlayBannerHandler', () => {
@@ -120,22 +139,46 @@ describe('playwright-automation', () => {
     });
   });
 
-  describe('login', () => {
-    it('ログイン失敗時に reportErrorEvent を呼ぶ', async () => {
-      const mockPage = createMockPage({
-        goto: jest.fn().mockRejectedValue(new Error('Navigation timeout')),
-      });
+  describe('createContextWithSession', () => {
+    it('user_session クッキーを正しい属性で注入する', async () => {
+      const mockContext = {
+        addCookies: jest.fn().mockResolvedValue(undefined),
+        newPage: jest.fn().mockResolvedValue(createMockPage()),
+        close: jest.fn().mockResolvedValue(undefined),
+      };
+      const mockBrowser = {
+        newContext: jest.fn().mockResolvedValue(mockContext),
+        close: jest.fn().mockResolvedValue(undefined),
+      } as unknown as Browser;
 
-      await expect(login(mockPage, 'test@example.com', 'password')).rejects.toThrow();
+      await createContextWithSession(mockBrowser, 'test_session_value');
 
-      expect(jest.mocked(reportErrorEvent)).toHaveBeenCalledWith(
+      expect(mockBrowser.newContext).toHaveBeenCalledWith({ locale: 'ja-JP' });
+      expect(mockContext.addCookies).toHaveBeenCalledWith([
         expect.objectContaining({
-          serviceId: 'niconico-mylist-assistant',
-          severity: 'error',
-          title: 'ニコニコログイン失敗',
-          context: expect.objectContaining({ step: 'login' }),
-        })
-      );
+          name: 'user_session',
+          value: 'test_session_value',
+          domain: '.nicovideo.jp',
+          path: '/',
+          secure: true,
+          sameSite: 'Lax',
+        }),
+      ]);
+    });
+
+    it('コンテキスト作成後にそのコンテキストを返す', async () => {
+      const mockContext = {
+        addCookies: jest.fn().mockResolvedValue(undefined),
+        newPage: jest.fn().mockResolvedValue(createMockPage()),
+        close: jest.fn().mockResolvedValue(undefined),
+      };
+      const mockBrowser = {
+        newContext: jest.fn().mockResolvedValue(mockContext),
+        close: jest.fn().mockResolvedValue(undefined),
+      } as unknown as Browser;
+
+      const result = await createContextWithSession(mockBrowser, 'session_value');
+      expect(result).toBe(mockContext);
     });
   });
 
@@ -144,8 +187,7 @@ describe('playwright-automation', () => {
       mockChromiumLaunch.mockRejectedValue(new Error('Executable does not exist'));
 
       const result = await executeMylistRegistration(
-        'test@example.com',
-        'password',
+        'user_session_value',
         'test-mylist',
         ['sm1', 'sm2']
       );
@@ -160,6 +202,46 @@ describe('playwright-automation', () => {
           context: expect.objectContaining({ step: 'executeMylistRegistration' }),
         })
       );
+    });
+
+    it('コンテキスト作成失敗時に reportErrorEvent を呼ぶ', async () => {
+      const mockBrowser = createMockBrowser({
+        newContext: jest.fn().mockRejectedValue(new Error('コンテキスト作成失敗')),
+      });
+      mockChromiumLaunch.mockResolvedValue(mockBrowser);
+
+      const result = await executeMylistRegistration(
+        'user_session_value',
+        'test-mylist',
+        ['sm1', 'sm2']
+      );
+
+      expect(result.successVideoIds).toHaveLength(0);
+      expect(result.failedVideoIds).toEqual(['sm1', 'sm2']);
+      expect(jest.mocked(reportErrorEvent)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          serviceId: 'niconico-mylist-assistant',
+          severity: 'error',
+          title: 'Playwright 自動化処理失敗',
+        })
+      );
+    });
+
+    it('ブラウザとコンテキストを正常にクローズする', async () => {
+      const mockContext = {
+        addCookies: jest.fn().mockResolvedValue(undefined),
+        newPage: jest.fn().mockRejectedValue(new Error('ページ作成失敗')),
+        close: jest.fn().mockResolvedValue(undefined),
+      };
+      const mockBrowser = createMockBrowser({
+        newContext: jest.fn().mockResolvedValue(mockContext),
+      });
+      mockChromiumLaunch.mockResolvedValue(mockBrowser);
+
+      await executeMylistRegistration('user_session_value', 'test-mylist', ['sm1']);
+
+      expect(mockContext.close).toHaveBeenCalled();
+      expect(mockBrowser.close).toHaveBeenCalled();
     });
   });
 });

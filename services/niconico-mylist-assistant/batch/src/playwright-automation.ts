@@ -2,7 +2,7 @@
  * Playwright を使用したニコニコ動画マイリスト自動化サービス
  */
 
-import { chromium, Browser, Page } from 'playwright';
+import { chromium, Browser, BrowserContext, Page } from 'playwright';
 import { sleep, toErrorMessage, withRetry } from '@nagiyu/common';
 import type { RetryOptions } from '@nagiyu/common';
 import {
@@ -12,7 +12,7 @@ import {
   TIMEOUTS,
   VIDEO_REGISTRATION_WAIT,
 } from './constants.js';
-import { MylistRegistrationResult, LoginResult } from './types.js';
+import { MylistRegistrationResult } from './types.js';
 import { createS3Client, uploadFile, getS3ObjectUrl, reportErrorEvent } from '@nagiyu/aws';
 import { readFile } from 'fs/promises';
 
@@ -24,167 +24,6 @@ const VIDEO_RETRY_OPTIONS: Pick<
   initialDelayMs: DEFAULT_RETRY_CONFIG.initialDelayMs,
   backoffMultiplier: 1,
 };
-
-/**
- * ニコニコ動画にログインする
- *
- * @param page Playwright Page オブジェクト
- * @param email ニコニコ動画のメールアドレス
- * @param password ニコニコ動画のパスワード
- * @returns ログイン結果（二段階認証が必要かどうか）
- */
-export async function login(page: Page, email: string, password: string): Promise<LoginResult> {
-  console.log('ニコニコ動画にログイン中...');
-
-  try {
-    // ログインページに移動
-    await page.goto(NICONICO_URLS.LOGIN, {
-      timeout: TIMEOUTS.NAVIGATION,
-      waitUntil: 'domcontentloaded', // networkidle は広告等で時間がかかるため domcontentloaded に変更
-    });
-
-    // メールアドレス入力
-    await page.fill('input[name="mail_tel"]', email);
-
-    // パスワード入力
-    await page.fill('input[name="password"]', password);
-
-    // ログインボタンをクリック
-    // アクセシビリティロールベースのセレクタを使用（より堅牢）
-    await page.getByRole('button', { name: 'ログイン' }).click();
-
-    // ログイン完了を待つ（URL遷移を確認）
-    await page.waitForURL('**', { timeout: TIMEOUTS.LOGIN });
-
-    // 二段階認証画面かどうかを確認
-    // URLマッチで判断（https://account.nicovideo.jp/mfa で始まるURL）
-    const currentUrl = page.url();
-    const is2FAPage = currentUrl.includes('account.nicovideo.jp/mfa');
-
-    if (is2FAPage) {
-      console.log('二段階認証画面を検出しました（URLマッチ）');
-      console.log('現在のURL:', currentUrl);
-      return { requires2FA: true };
-    }
-
-    console.log('ログイン成功（二段階認証なし）');
-    return { requires2FA: false };
-  } catch (error) {
-    console.error('ログイン失敗:', error);
-    await reportErrorEvent({
-      serviceId: 'niconico-mylist-assistant',
-      severity: 'error',
-      title: 'ニコニコログイン失敗',
-      message: toErrorMessage(error),
-      context: {
-        step: 'login',
-        error: toErrorMessage(error),
-      },
-    });
-    throw new Error(ERROR_MESSAGES.LOGIN_FAILED);
-  }
-}
-
-/**
- * 二段階認証コードを入力する
- *
- * @param page Playwright Page オブジェクト
- * @param code 二段階認証コード（6桁）
- */
-export async function inputTwoFactorAuthCode(page: Page, code: string): Promise<void> {
-  console.log('二段階認証コードを入力中...');
-
-  try {
-    // 入力前のスクリーンショット
-    await takeScreenshot(page, '2fa-before-input');
-
-    // 入力欄を特定（id="oneTimePw" を使用）
-    const inputField = page.locator('#oneTimePw');
-    await inputField.fill(code);
-
-    console.log('二段階認証コードを入力しました');
-
-    // 入力後のスクリーンショット（入力内容確認用）
-    await takeScreenshot(page, '2fa-after-input');
-
-    // デバッグ情報: 入力欄の状態を確認
-    try {
-      const inputValue = await inputField.inputValue();
-      console.log(`[DEBUG] 入力欄の値: ${inputValue}`);
-      console.log(`[DEBUG] 入力欄の値の長さ: ${inputValue.length}`);
-      console.log(`[DEBUG] 期待されるコード: ${code}`);
-      console.log(`[DEBUG] 期待されるコードの長さ: ${code.length}`);
-    } catch (debugError) {
-      console.error('[DEBUG] 入力欄の値取得に失敗:', debugError);
-    }
-
-    // デバッグ情報: ページ上の全入力欄を出力
-    try {
-      const allInputs = await page.locator('input').all();
-      console.log(`[DEBUG] ページ上の全入力欄数: ${allInputs.length}`);
-      for (let i = 0; i < allInputs.length; i++) {
-        const input = allInputs[i];
-        const id = await input.getAttribute('id');
-        const name = await input.getAttribute('name');
-        const type = await input.getAttribute('type');
-        const value = await input.inputValue().catch(() => '(取得不可)');
-        console.log(
-          `[DEBUG] 入力欄[${i}]: id="${id}", name="${name}", type="${type}", value="${value}"`
-        );
-      }
-    } catch (debugError) {
-      console.error('[DEBUG] 入力欄のデバッグ情報取得に失敗:', debugError);
-    }
-
-    // デバッグ情報: ページ上の全ボタンを出力
-    try {
-      const allButtons = await page.locator('button').all();
-      console.log(`[DEBUG] ページ上の全ボタン数: ${allButtons.length}`);
-      for (let i = 0; i < allButtons.length; i++) {
-        const button = allButtons[i];
-        const text = await button.textContent();
-        const type = await button.getAttribute('type');
-        const disabled = await button.isDisabled();
-        const visible = await button.isVisible();
-        console.log(
-          `[DEBUG] ボタン[${i}]: text="${text}", type="${type}", disabled=${disabled}, visible=${visible}`
-        );
-      }
-    } catch (debugError) {
-      console.error('[DEBUG] ボタンのデバッグ情報取得に失敗:', debugError);
-    }
-
-    // ログインボタンをクリック
-    const loginButton = page.getByRole('button', { name: 'ログイン' });
-    console.log('[DEBUG] ログインボタンをクリックします...');
-
-    // ナビゲーションを待機しながらクリック
-    // 二段階認証ページ (account.nicovideo.jp/mfa) から離脱することを確認
-    // domcontentloaded を待つ（全リソース読み込みを待たない）
-    await Promise.all([
-      page.waitForURL((url) => !url.toString().includes('account.nicovideo.jp/mfa'), {
-        timeout: TIMEOUTS.LOGIN,
-        waitUntil: 'domcontentloaded', // 全リソース読み込みを待たず、DOM構築完了で OK
-      }),
-      loginButton.click(),
-    ]);
-
-    console.log('[DEBUG] MFA ページから正常に離脱しました');
-
-    // ボタンクリック後のスクリーンショット
-    await takeScreenshot(page, '2fa-after-click');
-
-    // デバッグ情報: ボタンクリック後のURL
-    console.log(`[DEBUG] ボタンクリック後のURL: ${page.url()}`);
-
-    console.log('二段階認証完了');
-  } catch (error) {
-    console.error('二段階認証コード入力失敗:', error);
-    // エラー時の追加デバッグ情報
-    console.error(`[DEBUG] エラー時のURL: ${page.url()}`);
-    throw new Error(ERROR_MESSAGES.LOGIN_FAILED);
-  }
-}
 
 /**
  * 既存のマイリストを全て削除する
@@ -362,62 +201,40 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
     // ページがロードされてJavaScriptが実行されるまで待機
     await sleep(3000);
 
-    // マイリスト作成ボタンをクリック
-    // XPathではなくクラスベースのセレクタを使用（より堅牢）
-    // button要素で、MylistSideContainer-actionButton クラスを持つ最初のボタンを選択
-    const createButton = page.locator('button.MylistSideContainer-actionButton').first();
+    // マイリスト作成ボタンをクリック（ニコニコUI刷新後のセレクタ）
+    const createButton = page.locator('button', { hasText: '新規作成' }).first();
     await createButton.waitFor({ state: 'visible', timeout: 30000 });
-    console.log('マイリスト作成ボタンが表示されました');
+    console.log('マイリスト新規作成ボタンが表示されました');
 
     await createButton.click({ timeout: 30000 });
-    console.log('マイリスト作成ボタンをクリックしました');
+    console.log('マイリスト新規作成ボタンをクリックしました');
 
-    // モーダルの表示を待つ - より明示的な待機
-    await sleep(3000);
+    // モーダルの表示を待つ
+    await sleep(2000);
 
     // モーダルコンテナの表示を確認し、参照を保持
-    let modalContainer;
-    try {
-      modalContainer = page.locator('div[role="dialog"], article').first();
-      await modalContainer.waitFor({ state: 'visible', timeout: 30000 });
-      console.log('モーダルコンテナが表示されました');
-    } catch (modalError) {
-      console.error('モーダルコンテナの表示待機でエラー:', modalError);
-      // デバッグ用: ページの全input要素を確認
-      const allInputs = await page.locator('input').all();
-      console.log(`[DEBUG] ページ上の全input要素数: ${allInputs.length}`);
-      for (let i = 0; i < Math.min(allInputs.length, 10); i++) {
-        const input = allInputs[i];
-        const type = await input.getAttribute('type').catch(() => null);
-        const id = await input.getAttribute('id').catch(() => null);
-        const placeholder = await input.getAttribute('placeholder').catch(() => null);
-        const isVisible = await input.isVisible().catch(() => false);
-        console.log(
-          `[DEBUG] Input[${i}]: type="${type}", id="${id}", placeholder="${placeholder}", visible=${isVisible}`
-        );
-      }
-      throw modalError;
-    }
+    const modalContainer = page.locator('.MylistCreateModalContainer');
+    await modalContainer.waitFor({ state: 'visible', timeout: 30000 });
+    console.log('マイリスト作成モーダルが表示されました');
 
-    // マイリスト名を入力
-    // モーダルコンテナ内の入力フィールドを探す（モーダル外の要素を除外）
-    const nameInput = modalContainer
-      .locator('input[type="text"], input:not([type]), textarea')
-      .first();
+    // マイリスト名を入力（React 制御入力なのでキーボード実入力）
+    const nameInput = modalContainer.locator('input[type="text"]').first();
     await nameInput.waitFor({ state: 'visible', timeout: 30000 });
-    console.log('入力フィールドが表示されました');
+    console.log('マイリスト名入力フィールドが表示されました');
 
-    await nameInput.fill(mylistName);
+    await nameInput.click();
+    await page.keyboard.press('Control+A');
+    await page.keyboard.press('Delete');
+    await page.keyboard.type(mylistName, { delay: 20 });
     console.log(`マイリスト名を入力しました: ${mylistName}`);
 
     // 作成ボタンをクリック
-    // モーダルコンテナ内の送信ボタンを探す
-    const submitButton = modalContainer.getByRole('button', { name: '作成' });
+    const submitButton = modalContainer.getByRole('button', { name: '作成', exact: true });
     await submitButton.waitFor({ state: 'visible', timeout: 30000 });
-    console.log('送信ボタンが表示されました');
+    console.log('作成ボタンが表示されました');
 
     // モーダルが完全に表示されるまで待機
-    await sleep(1000);
+    await sleep(500);
 
     // オーバーレイが原因でクリックできない場合は、JavaScriptでクリック
     try {
@@ -438,19 +255,23 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
     await sleep(2000);
 
     // マイリストが作成されたことを確認
-    // モーダルが閉じて、マイリストリストが更新されるまで待機
+    // サイドバーに名前が現れるか確認（必要ならページ再読込）
     try {
-      // マイリストコンテナ内のリストアイテムが少なくとも1つ存在することを確認
-      const mylistItems = page.locator('.MylistSideContainer-mylistList li');
-      await mylistItems.first().waitFor({ state: 'attached', timeout: 10000 });
-      const count = await mylistItems.count();
+      const sidebarItems = page.locator('.MylistSideContainer-mylistList li');
+      await sidebarItems.first().waitFor({ state: 'attached', timeout: 10000 });
+      const count = await sidebarItems.count();
       console.log(`マイリスト作成成功（確認: ${count}件のマイリストが存在）`);
-    } catch (verifyError) {
-      console.warn(
-        'マイリスト作成の確認でエラー（作成自体は成功している可能性あり）:',
-        verifyError
-      );
-      console.log('マイリスト作成成功');
+    } catch {
+      // 確認できなかった場合はページをリロードして再確認
+      console.log('サイドバー確認のためページをリロードします...');
+      await page.goto(NICONICO_URLS.MYLIST, {
+        timeout: TIMEOUTS.NAVIGATION,
+        waitUntil: 'domcontentloaded',
+      });
+      await sleep(2000);
+      const sidebarItems = page.locator('.MylistSideContainer-mylistList li');
+      const count = await sidebarItems.count();
+      console.log(`マイリスト作成確認（リロード後: ${count}件のマイリストが存在）`);
     }
   } catch (error) {
     console.error('マイリスト作成失敗:', error);
@@ -691,53 +512,72 @@ export async function launchBrowser(): Promise<Browser> {
 }
 
 /**
+ * user_session クッキーを注入したブラウザコンテキストを作成する
+ *
+ * ログインも2FAも不要。user_session 単体で読み書きとも成立する。
+ *
+ * @param browser Browser オブジェクト
+ * @param userSession ニコニコ動画の user_session クッキー値
+ * @returns クッキー注入済みの BrowserContext
+ */
+export async function createContextWithSession(
+  browser: Browser,
+  userSession: string
+): Promise<BrowserContext> {
+  console.log('user_session クッキーを注入したコンテキストを作成中...');
+
+  try {
+    const context = await browser.newContext({ locale: 'ja-JP' });
+
+    await context.addCookies([
+      {
+        name: 'user_session',
+        value: userSession,
+        domain: '.nicovideo.jp',
+        path: '/',
+        httpOnly: false,
+        secure: true,
+        sameSite: 'Lax',
+      },
+    ]);
+
+    console.log('user_session クッキーの注入が完了しました');
+    return context;
+  } catch (error) {
+    console.error('クッキー注入失敗:', error);
+    throw new Error(ERROR_MESSAGES.SESSION_COOKIE_INJECTION_FAILED);
+  }
+}
+
+/**
  * マイリスト登録処理のメイン関数
  *
- * @param email ニコニコ動画のメールアドレス
- * @param password ニコニコ動画のパスワード
+ * @param userSession ニコニコ動画の user_session クッキー値
  * @param mylistName マイリスト名
  * @param videoIds 登録する動画IDのリスト
- * @param onWaitFor2FA 二段階認証待ちコールバック（オプション）
  * @returns 登録結果
  */
 export async function executeMylistRegistration(
-  email: string,
-  password: string,
+  userSession: string,
   mylistName: string,
-  videoIds: string[],
-  onWaitFor2FA?: () => Promise<string>
+  videoIds: string[]
 ): Promise<MylistRegistrationResult> {
   let browser: Browser | undefined;
+  let context: BrowserContext | undefined;
   let page: Page | undefined;
 
   try {
     // ブラウザ起動
     browser = await launchBrowser();
-    page = await browser.newPage();
+
+    // user_session クッキーを注入したコンテキストを作成
+    context = await createContextWithSession(browser, userSession);
+
+    // ページを作成
+    page = await context.newPage();
 
     // お知らせオーバーレイバナー自動 dismiss ハンドラを登録
     await registerOverlayBannerHandler(page);
-
-    // ログイン
-    const loginResult = await login(page, email, password);
-    await takeScreenshot(page, 'after-login');
-
-    // 二段階認証が必要な場合
-    if (loginResult.requires2FA) {
-      console.log('二段階認証が必要です');
-
-      if (!onWaitFor2FA) {
-        throw new Error(ERROR_MESSAGES.TWO_FACTOR_AUTH_REQUIRED);
-      }
-
-      // コールバックを呼び出して二段階認証コードを取得
-      const code = await onWaitFor2FA();
-      console.log('二段階認証コードを取得しました');
-
-      // 二段階認証コードを入力
-      await inputTwoFactorAuthCode(page, code);
-      await takeScreenshot(page, 'after-2fa');
-    }
 
     // 既存マイリストを削除
     await deleteAllMylists(page);
@@ -751,10 +591,7 @@ export async function executeMylistRegistration(
     const result = await registerVideosToMylist(page, videoIds, mylistName);
     await takeScreenshot(page, 'after-register-videos');
 
-    return {
-      ...result,
-      required2FA: loginResult.requires2FA,
-    };
+    return result;
   } catch (error) {
     // エラー時のスクリーンショット
     if (page) {
@@ -783,7 +620,11 @@ export async function executeMylistRegistration(
       errorMessage,
     };
   } finally {
-    // ブラウザを閉じる
+    // コンテキストとブラウザを閉じる
+    if (context) {
+      await context.close();
+      console.log('ブラウザコンテキストを閉じました');
+    }
     if (browser) {
       await browser.close();
       console.log('ブラウザを閉じました');
