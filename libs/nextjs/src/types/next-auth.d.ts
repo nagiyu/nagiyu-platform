@@ -28,5 +28,7 @@ declare module 'next-auth/jwt' {
     name?: string;
     picture?: string;
     roles?: string[];
+    /** ロールを最後に DB から取得した epoch ms */
+    rolesRefreshedAt?: number;
   }
 }

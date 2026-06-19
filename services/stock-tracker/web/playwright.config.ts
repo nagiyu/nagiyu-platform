@@ -73,5 +73,10 @@ export default defineConfig({
     url: 'http://localhost:3000',
     reuseExistingServer: !isCI,
     timeout: 2 * 60 * 1000,
+    env: {
+      // 認証ミドルウェアが有効になったことで E2E テスト中に auth へリダイレクトされるのを防ぐ。
+      // .env.test にも記載があるが、webServer プロセスへ確実に渡るよう niconico に倣って明示する。
+      SKIP_AUTH_CHECK: 'true',
+    },
   },
 });
