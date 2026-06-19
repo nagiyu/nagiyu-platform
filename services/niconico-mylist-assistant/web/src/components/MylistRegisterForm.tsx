@@ -1,14 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  Box,
-  TextField,
-  Typography,
-  Card,
-  CardContent,
-} from '@mui/material';
-import { Button, Checkbox, ErrorAlert } from '@nagiyu/ui';
+import { Box, Typography, Card, CardContent } from '@mui/material';
+import { Button, Checkbox, ErrorAlert, TextField } from '@nagiyu/ui';
 import {
   MylistRegisterFormData,
   DEFAULT_MYLIST_REGISTER_FORM_DATA,
@@ -143,7 +137,7 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
           <TextField
             label="登録する最大動画数"
             type="number"
-            value={formData.maxCount}
+            value={String(formData.maxCount)}
             onChange={(e) => {
               const value = e.target.value;
               // 空文字の場合はそのまま許可（入力中）
@@ -164,9 +158,7 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
               }
             }}
             fullWidth
-            margin="normal"
             required
-            slotProps={{ htmlInput: { min: 1, max: 100 } }}
             helperText="1〜100の範囲で指定してください"
           />
 
@@ -203,7 +195,6 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
               })
             }
             fullWidth
-            margin="normal"
             required
             helperText="ニコニコ動画に作成されるマイリストの名前"
           />
@@ -224,7 +215,6 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
               })
             }
             fullWidth
-            margin="normal"
             required
             autoComplete="off"
             helperText="シークレット窓でニコニコ動画にログインし、開発者ツールのCookieから user_session の値を取得して貼り付けてください"

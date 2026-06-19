@@ -17,9 +17,7 @@ describe('constants', () => {
       const messages = Object.values(ERROR_MESSAGES);
 
       messages.forEach((message) => {
-        expect(message).toMatch(
-          /[　-〿぀-ゟ゠-ヿ＀-ﾟ一-龯]/
-        );
+        expect(message).toMatch(/[　-〿぀-ゟ゠-ヿ＀-ﾟ一-龯]/);
       });
     });
 

@@ -7,8 +7,7 @@
  */
 export const ERROR_MESSAGES = {
   // セッション関連
-  SESSION_INVALID:
-    'user_session が無効です。再取得してください',
+  SESSION_INVALID: 'user_session が無効です。再取得してください',
   SESSION_COOKIE_INJECTION_FAILED: 'user_session クッキーの注入に失敗しました',
 
   // マイリスト操作関連

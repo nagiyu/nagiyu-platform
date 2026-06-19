@@ -55,9 +55,7 @@ const LOGIN_HOST = 'account.nicovideo.jp';
  * @param userSession - 検証対象の user_session クッキー値
  * @returns セッション検証結果（'valid' | 'invalid' | 'unknown'）
  */
-export async function validateUserSession(
-  userSession: string
-): Promise<SessionValidationResult> {
+export async function validateUserSession(userSession: string): Promise<SessionValidationResult> {
   try {
     const response = await fetch(SESSION_VALIDATION_URL, {
       method: 'GET',

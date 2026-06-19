@@ -17,10 +17,7 @@ import { executeMylistRegistration } from './playwright-automation.js';
 import { createBatchCompletionPayload } from './lib/web-push-client.js';
 import { determineBatchJobStatus } from './lib/job-status.js';
 import { formatLocalDateTime, getTimestamp, toErrorMessage } from '@nagiyu/common';
-import {
-  DEFAULT_MYLIST_NAME_PREFIX,
-  ERROR_MESSAGES,
-} from './constants.js';
+import { DEFAULT_MYLIST_NAME_PREFIX, ERROR_MESSAGES } from './constants.js';
 import { MylistRegistrationJobParams } from './types.js';
 
 /**
@@ -259,11 +256,7 @@ async function main() {
     console.log('');
 
     // マイリスト登録処理の実行
-    const result = await executeMylistRegistration(
-      userSession,
-      params.mylistName,
-      params.videoIds
-    );
+    const result = await executeMylistRegistration(userSession, params.mylistName, params.videoIds);
 
     console.log('');
     console.log('=== 登録結果 ===');

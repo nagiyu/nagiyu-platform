@@ -186,11 +186,10 @@ describe('playwright-automation', () => {
     it('ブラウザ起動失敗時に reportErrorEvent を呼ぶ', async () => {
       mockChromiumLaunch.mockRejectedValue(new Error('Executable does not exist'));
 
-      const result = await executeMylistRegistration(
-        'user_session_value',
-        'test-mylist',
-        ['sm1', 'sm2']
-      );
+      const result = await executeMylistRegistration('user_session_value', 'test-mylist', [
+        'sm1',
+        'sm2',
+      ]);
 
       expect(result.successVideoIds).toHaveLength(0);
       expect(result.failedVideoIds).toEqual(['sm1', 'sm2']);
@@ -210,11 +209,10 @@ describe('playwright-automation', () => {
       });
       mockChromiumLaunch.mockResolvedValue(mockBrowser);
 
-      const result = await executeMylistRegistration(
-        'user_session_value',
-        'test-mylist',
-        ['sm1', 'sm2']
-      );
+      const result = await executeMylistRegistration('user_session_value', 'test-mylist', [
+        'sm1',
+        'sm2',
+      ]);
 
       expect(result.successVideoIds).toHaveLength(0);
       expect(result.failedVideoIds).toEqual(['sm1', 'sm2']);
