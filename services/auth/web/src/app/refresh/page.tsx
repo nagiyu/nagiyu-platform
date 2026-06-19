@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { Box, Container, CircularProgress, Typography } from '@mui/material';
@@ -14,11 +14,20 @@ import { navigateTo } from '../../lib/navigate';
  * ロールを強制再取得したうえで callbackUrl へリダイレクトする。
  */
 function RefreshContent() {
-  const { update } = useSession();
+  // next-auth v5(beta.31) の update() は、SessionProvider が初期セッション読み込み中
+  // （loading === true）のとき冒頭で即 return し、POST も trigger:'update' も起きない。
+  // そのため sessionStatus が 'loading' でない（読み込み完了後）になってから update を呼ぶ必要がある。
+  const { update, status: sessionStatus } = useSession();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<'refreshing' | 'done' | 'error'>('refreshing');
+  // 二重実行防止: sessionStatus の変化で useEffect が複数回呼ばれても update は一度だけ実行する
+  const hasRefreshed = useRef(false);
 
   useEffect(() => {
+    // セッション読み込み中は next-auth の update() が即 return するため、完了を待つ
+    if (sessionStatus === 'loading' || hasRefreshed.current) return;
+    hasRefreshed.current = true;
+
     const rawCallbackUrl = searchParams.get('callbackUrl');
     const baseUrl = window.location.origin;
     const callbackUrl = resolveRefreshCallbackUrl(rawCallbackUrl, baseUrl);
@@ -36,10 +45,11 @@ function RefreshContent() {
         setStatus('error');
         navigateTo(callbackUrl);
       });
-    // update と searchParams は安定した参照のため依存配列に含めるが、
-    // マウント時に一度だけ実行することが意図された処理。
+    // sessionStatus を依存配列に含めることで loading→非loading の遷移で再実行される。
+    // その時点では SessionProvider の loading フラグが false になり、update() が正しく POST する。
+    // searchParams と update も安定した参照だが、hasRefreshed.current によって二重実行を防いでいる。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [sessionStatus]);
 
   return (
     <Container maxWidth="sm">
