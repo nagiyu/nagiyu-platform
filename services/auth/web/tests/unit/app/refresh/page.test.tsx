@@ -21,8 +21,10 @@ jest.mock('../../../../src/lib/navigate', () => ({
 
 // next-auth/react のモック
 const mockUpdate = jest.fn();
+// テストごとに sessionStatus を差し替えられるよう変数で管理する
+let mockSessionStatus = 'authenticated';
 jest.mock('next-auth/react', () => ({
-  useSession: jest.fn(() => ({ update: mockUpdate })),
+  useSession: jest.fn(() => ({ update: mockUpdate, status: mockSessionStatus })),
   SessionProvider: ({ children }: { children: React.ReactNode }) =>
     React.createElement(React.Fragment, null, children),
 }));
@@ -63,6 +65,8 @@ describe('/refresh ページ', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // 既存テストは 'authenticated' 状態（読み込み完了）を前提にしているため、デフォルトで設定する
+    mockSessionStatus = 'authenticated';
   });
 
   it('マウント時に「アクセス権限を更新しています」テキストを表示する', () => {
@@ -151,6 +155,48 @@ describe('/refresh ページ', () => {
 
     await waitFor(() => {
       expect(callOrder).toEqual(['update', 'navigate']);
+    });
+  });
+
+  /**
+   * 回帰テスト: next-auth v5(beta.31) の loading 中 update() 即 return バグの再発防止
+   *
+   * next-auth の update() は SessionProvider が初期セッション読み込み中（loading === true）のとき
+   * 冒頭で即 return し、POST も trigger:'update' も起きない。
+   * これにより依存配列 [] で deps が固定されると、loading=true のクロージャが焼き込まれて
+   * 以後も update() が空振りし続け、ロールの強制リフレッシュが起きない。
+   * 修正後は sessionStatus が 'loading' の間は update を呼ばず、
+   * 読み込み完了（非 loading）になってから一度だけ呼ぶことを検証する。
+   */
+  it('【回帰】sessionStatus が loading 中は update() も navigateTo も呼ばれない', async () => {
+    // セッション読み込み中を模擬する
+    mockSessionStatus = 'loading';
+    mockUpdate.mockResolvedValue(undefined);
+    mockGet.mockReturnValue(null);
+
+    render(<RefreshPage />);
+
+    // loading 中は処理を開始しないため、update・navigateTo ともに呼ばれないことを確認する
+    // waitFor は使わず、非同期処理が走らないことを即時に検証する
+    await Promise.resolve(); // マイクロタスクを一巡させて非同期副作用を消化する
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockNavigateTo).not.toHaveBeenCalled();
+  });
+
+  it('【回帰】sessionStatus が authenticated になったとき update() が引数つきで一度だけ呼ばれる', async () => {
+    // 読み込み完了状態（デフォルト）で検証する
+    mockSessionStatus = 'authenticated';
+    mockUpdate.mockResolvedValue(undefined);
+    mockGet.mockReturnValue(null);
+
+    render(<RefreshPage />);
+
+    await waitFor(() => {
+      // 一度だけ呼ばれることを確認する（二重実行防止の hasRefreshed.current が効いていること）
+      expect(mockUpdate).toHaveBeenCalledTimes(1);
+      // 引数ありであること（next-auth v5 では引数なしだと POST でなく GET になり
+      // trigger:'update' が発火せずロールが即時反映されないバグの再発を防ぐ）
+      expect(mockUpdate.mock.calls[0][0]).toBeDefined();
     });
   });
 });
