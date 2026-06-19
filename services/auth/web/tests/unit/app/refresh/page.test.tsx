@@ -82,6 +82,10 @@ describe('/refresh ページ', () => {
 
     await waitFor(() => {
       expect(mockUpdate).toHaveBeenCalledTimes(1);
+      // next-auth v5 では引数なしの update() は GET になり、
+      // サーバ側 jwt callback の trigger:'update' が発火せずロールが即時反映されない。
+      // 引数ありであることを検証して、このバグの再発を防ぐ。
+      expect(mockUpdate.mock.calls[0][0]).toBeDefined();
     });
   });
 

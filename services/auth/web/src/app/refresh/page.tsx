@@ -23,7 +23,11 @@ function RefreshContent() {
     const baseUrl = window.location.origin;
     const callbackUrl = resolveRefreshCallbackUrl(rawCallbackUrl, baseUrl);
 
-    update()
+    // next-auth v5 の update() は引数なしだと GET リクエストになり、
+    // サーバ側 jwt callback の trigger:'update' が発火しない。
+    // 引数を渡すことで POST になり、trigger:'update' でロールの強制再取得が起きる。
+    // data の内容はサーバ側では参照しないため、sentinel 値で十分。
+    update({ refreshedAt: Date.now() })
       .then(() => {
         setStatus('done');
         navigateTo(callbackUrl);
