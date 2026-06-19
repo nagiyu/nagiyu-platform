@@ -89,8 +89,19 @@ export default async function DashboardPage() {
       )}
 
       {/* ログアウトボタン */}
+      {/* callbackUrl を付与してサインアウト後に admin へ戻れるようにする。
+          server component のため @nagiyu/ui の barrel import を避け、インライン展開を採用。
+          APP_URL が未設定の場合は callbackUrl を付与しないフォールバック。 */}
       <Button asChild variant="outline" color="primary">
-        <a href={`${process.env.NEXT_PUBLIC_AUTH_URL || ''}/api/auth/signout`}>ログアウト</a>
+        <a
+          href={
+            process.env.APP_URL
+              ? `${process.env.NEXT_PUBLIC_AUTH_URL || ''}/api/auth/signout?callbackUrl=${encodeURIComponent(process.env.APP_URL)}`
+              : `${process.env.NEXT_PUBLIC_AUTH_URL || ''}/api/auth/signout`
+          }
+        >
+          ログアウト
+        </a>
       </Button>
     </Box>
   );
