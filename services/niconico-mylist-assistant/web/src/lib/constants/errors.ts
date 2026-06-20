@@ -41,6 +41,9 @@ export const ERROR_MESSAGES = {
   DATABASE_ERROR: 'データベースへのアクセスに失敗しました',
   USER_SESSION_ENCRYPTION_FAILED: 'user_session の暗号化に失敗しました',
 
+  // リクエストエラー
+  INVALID_REQUEST_BODY: 'リクエストボディが不正な JSON です',
+
   // セッション管理 API エラー
   NICONICO_SESSION_NOT_REGISTERED:
     'ニコニコ動画のセッションが未登録です。セッション管理から user_session を登録してください',

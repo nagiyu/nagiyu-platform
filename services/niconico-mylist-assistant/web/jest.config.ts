@@ -17,6 +17,7 @@ const config: Config = {
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
     '^@nagiyu/nextjs$': '<rootDir>/../../../libs/nextjs/src/index.ts',
     '^@nagiyu/react$': '<rootDir>/../../../libs/react/src/index.ts',
+    '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
     '^@nagiyu/niconico-mylist-assistant-core$': '<rootDir>/../core/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
@@ -27,6 +28,8 @@ const config: Config = {
     'src/components/HomePageClient.tsx',
     'src/components/NiconicoSessionManager.tsx',
     'src/lib/niconico-session/index.ts',
+    'src/app/api/niconico/session/route.ts',
+    'src/app/api/mylist/register/route.ts',
     '!src/**/*.d.ts',
   ],
   coverageThreshold: {

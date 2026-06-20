@@ -131,6 +131,64 @@ describe('getNiconicoSessionStatus', () => {
     expect(result.validity).toBe('unknown');
   });
 
+  it('JSON パース失敗時は hasSession=true, validity=invalid で自己回復する', async () => {
+    const mockRepo = createMockRepo();
+    // 不正な JSON を持つ credential を返す
+    mockRepo.getByUserId.mockResolvedValue({
+      ...SAMPLE_CREDENTIAL,
+      encryptedUserSession: 'this-is-not-valid-json{',
+    });
+    mockCreateRepo.mockReturnValue(
+      mockRepo as ReturnType<typeof createNiconicoCredentialRepository>
+    );
+
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    const result = await getNiconicoSessionStatus('user123', SAMPLE_CRYPTO_CONFIG);
+
+    // 壊れた資格情報でも hasSession=true, validity=invalid で返る
+    expect(result.hasSession).toBe(true);
+    expect(result.validity).toBe('invalid');
+    expect(result.acquiredAt).toBe(SAMPLE_CREDENTIAL.acquiredAt);
+    expect(result.estimatedExpiresAt).toBe(SAMPLE_CREDENTIAL.estimatedExpiresAt);
+
+    // decrypt は呼ばれない（JSON パース段階で失敗）
+    expect(mockDecrypt).not.toHaveBeenCalled();
+
+    // エラーログが出力される（クッキー値は含まない）
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('復号失敗時は hasSession=true, validity=invalid で自己回復する', async () => {
+    const mockRepo = createMockRepo();
+    mockRepo.getByUserId.mockResolvedValue(SAMPLE_CREDENTIAL);
+    mockCreateRepo.mockReturnValue(
+      mockRepo as ReturnType<typeof createNiconicoCredentialRepository>
+    );
+    // decrypt が例外を投げる
+    mockDecrypt.mockRejectedValue(new Error('復号失敗'));
+
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    const result = await getNiconicoSessionStatus('user123', SAMPLE_CRYPTO_CONFIG);
+
+    // 復号失敗でも hasSession=true, validity=invalid で返る
+    expect(result.hasSession).toBe(true);
+    expect(result.validity).toBe('invalid');
+    expect(result.acquiredAt).toBe(SAMPLE_CREDENTIAL.acquiredAt);
+    expect(result.estimatedExpiresAt).toBe(SAMPLE_CREDENTIAL.estimatedExpiresAt);
+
+    // validateUserSession は呼ばれない（復号失敗で先に返る）
+    expect(mockValidateUserSession).not.toHaveBeenCalled();
+
+    // エラーログが出力される
+    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+
+    consoleErrorSpy.mockRestore();
+  });
+
   it('復号時にクッキー値をログ出力しない（decrypt の引数を確認）', async () => {
     const mockRepo = createMockRepo();
     mockRepo.getByUserId.mockResolvedValue(SAMPLE_CREDENTIAL);

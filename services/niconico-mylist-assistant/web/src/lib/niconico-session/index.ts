@@ -12,6 +12,7 @@ import {
   validateUserSession,
 } from '@nagiyu/niconico-mylist-assistant-core';
 import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
+import { ERROR_MESSAGES } from '../constants/errors';
 
 /** セッション有効期間（30 日）*/
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -57,12 +58,40 @@ export async function getNiconicoSessionStatus(
   }
 
   // 保存ブロブを復号して検証
-  const encryptedData = JSON.parse(credential.encryptedUserSession) as {
-    ciphertext: string;
-    iv: string;
-    authTag: string;
-  };
-  const userSession = await decrypt(encryptedData, cryptoConfig);
+  // JSON パース or 復号が失敗した場合でも壊れた資格情報を UI から削除できるよう、
+  // throw せずに validity='invalid' で返す（自己回復パス）
+  let encryptedData: { ciphertext: string; iv: string; authTag: string };
+  try {
+    encryptedData = JSON.parse(credential.encryptedUserSession) as {
+      ciphertext: string;
+      iv: string;
+      authTag: string;
+    };
+  } catch {
+    // JSON パース失敗：クッキー値・復号結果はログ出力しない
+    console.error(ERROR_MESSAGES.NICONICO_SESSION_DECRYPT_FAILED);
+    return {
+      hasSession: true,
+      validity: 'invalid',
+      acquiredAt: credential.acquiredAt,
+      estimatedExpiresAt: credential.estimatedExpiresAt,
+    };
+  }
+
+  let userSession: string;
+  try {
+    userSession = await decrypt(encryptedData, cryptoConfig);
+  } catch {
+    // 復号失敗：クッキー値・復号結果はログ出力しない
+    console.error(ERROR_MESSAGES.NICONICO_SESSION_DECRYPT_FAILED);
+    return {
+      hasSession: true,
+      validity: 'invalid',
+      acquiredAt: credential.acquiredAt,
+      estimatedExpiresAt: credential.estimatedExpiresAt,
+    };
+  }
+
   const validity = await validateUserSession(userSession);
 
   return {

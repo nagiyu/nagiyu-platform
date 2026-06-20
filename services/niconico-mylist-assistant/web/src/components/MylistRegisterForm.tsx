@@ -37,12 +37,13 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
   /**
    * 登録ボタンを無効化する条件
    *
+   * - セッション状態取得前（null）：取得完了まで無効化
    * - セッション未登録（hasSession=false）
    * - セッション無効（validity='invalid'）
    * - valid / unknown は有効化（判定不能でロックアウトしない）
    */
   const isRegisterDisabled =
-    sessionStatus !== null && (!sessionStatus.hasSession || sessionStatus.validity === 'invalid');
+    sessionStatus === null || !sessionStatus.hasSession || sessionStatus.validity === 'invalid';
 
   const handleSessionStatusChange = useCallback((status: NiconicoSessionStatus) => {
     setSessionStatus(status);

@@ -108,24 +108,32 @@ export async function POST(
     );
   }
 
-  // リクエストボディのパース
-  const body = (await request.json()) as { userSession?: unknown };
-
-  if (!body.userSession) {
-    return NextResponse.json(
-      { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.USER_SESSION_REQUIRED },
-      { status: 400 }
-    );
-  }
-
-  if (typeof body.userSession !== 'string') {
-    return NextResponse.json(
-      { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.USER_SESSION_MUST_BE_STRING },
-      { status: 400 }
-    );
-  }
-
   try {
+    // リクエストボディのパース（不正 JSON は 400 で返す）
+    let body: { userSession?: unknown };
+    try {
+      body = (await request.json()) as { userSession?: unknown };
+    } catch {
+      return NextResponse.json(
+        { error: 'INVALID_REQUEST_BODY', message: ERROR_MESSAGES.INVALID_REQUEST_BODY },
+        { status: 400 }
+      );
+    }
+
+    if (!body.userSession) {
+      return NextResponse.json(
+        { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.USER_SESSION_REQUIRED },
+        { status: 400 }
+      );
+    }
+
+    if (typeof body.userSession !== 'string') {
+      return NextResponse.json(
+        { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.USER_SESSION_MUST_BE_STRING },
+        { status: 400 }
+      );
+    }
+
     const cryptoConfig = getCryptoConfig();
     const { acquiredAt, estimatedExpiresAt } = await saveNiconicoSession(
       session.user.userId,
