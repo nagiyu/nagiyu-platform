@@ -40,6 +40,18 @@ export const ERROR_MESSAGES = {
   BATCH_JOB_SUBMISSION_FAILED: 'バッチジョブの投入に失敗しました',
   DATABASE_ERROR: 'データベースへのアクセスに失敗しました',
   USER_SESSION_ENCRYPTION_FAILED: 'user_session の暗号化に失敗しました',
+
+  // セッション管理 API エラー
+  NICONICO_SESSION_NOT_REGISTERED:
+    'ニコニコ動画のセッションが未登録です。セッション管理から user_session を登録してください',
+  NICONICO_SESSION_INVALID:
+    'user_session が無効です。シークレット窓でニコニコ動画にログインし、最新の user_session を取得してください',
+  NICONICO_SESSION_VALIDATION_INDETERMINATE:
+    'セッションの有効性を判定できませんでした。時間をおいて再試行してください',
+  NICONICO_SESSION_DECRYPT_FAILED: '保存済みセッションの復号に失敗しました',
+  NICONICO_SESSION_SAVE_FAILED: 'セッションの保存に失敗しました',
+  NICONICO_SESSION_DELETE_FAILED: 'セッションの削除に失敗しました',
+  NICONICO_SESSION_STATUS_FETCH_FAILED: 'セッション状態の取得に失敗しました',
 } as const;
 
 export const VALIDATION_LIMITS = {

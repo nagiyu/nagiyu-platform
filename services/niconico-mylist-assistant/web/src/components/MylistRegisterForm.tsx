@@ -1,15 +1,17 @@
 'use client';
 
-import { useState } from 'react';
-import { Box, Typography, Card, CardContent } from '@mui/material';
+import { useState, useEffect, useCallback } from 'react';
+import { Box, Typography, Card, CardContent, Alert } from '@mui/material';
 import { Button, Checkbox, ErrorAlert, TextField } from '@nagiyu/ui';
 import {
   MylistRegisterFormData,
   DEFAULT_MYLIST_REGISTER_FORM_DATA,
   MylistRegisterRequest,
   MylistRegisterResponse,
+  NiconicoSessionStatus,
 } from '@/types/mylist';
 import { extractErrorMessage } from '@nagiyu/common';
+import NiconicoSessionManager from './NiconicoSessionManager';
 
 interface MylistRegisterFormProps {
   onSuccess?: (response: MylistRegisterResponse) => void;
@@ -18,8 +20,9 @@ interface MylistRegisterFormProps {
 /**
  * マイリスト登録フォームコンポーネント
  *
- * 登録条件（最大件数、お気に入りのみ等）、user_session、
- * マイリスト名を入力し、バッチジョブを投入します。
+ * 登録条件（最大件数、お気に入りのみ等）、マイリスト名を入力し、バッチジョブを投入します。
+ * Phase 2: user_session 貼り付け欄を撤去。セッション管理は NiconicoSessionManager に委譲。
+ * セッション状態が invalid または未登録の場合、登録ボタンを無効化して更新導線を表示します。
  */
 export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProps) {
   const [formData, setFormData] = useState<MylistRegisterFormData>(
@@ -27,6 +30,29 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // セッション状態（マウント時に取得、管理UIで変化したときに更新）
+  const [sessionStatus, setSessionStatus] = useState<NiconicoSessionStatus | null>(null);
+
+  /**
+   * 登録ボタンを無効化する条件
+   *
+   * - セッション未登録（hasSession=false）
+   * - セッション無効（validity='invalid'）
+   * - valid / unknown は有効化（判定不能でロックアウトしない）
+   */
+  const isRegisterDisabled =
+    sessionStatus !== null && (!sessionStatus.hasSession || sessionStatus.validity === 'invalid');
+
+  const handleSessionStatusChange = useCallback((status: NiconicoSessionStatus) => {
+    setSessionStatus(status);
+  }, []);
+
+  // 初回マウント時にもセッション状態を取得（NiconicoSessionManager 経由で反映される）
+  useEffect(() => {
+    // NiconicoSessionManager の onStatusChange コールバックで状態が更新されるため、
+    // ここでは明示的な fetch は行わない
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,19 +67,12 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
         return;
       }
 
-      if (!formData.userSession.trim()) {
-        setError('user_session を入力してください');
-        setLoading(false);
-        return;
-      }
-
-      // APIリクエストの構築
+      // APIリクエストの構築（user_session はリクエストボディに含めない）
       const requestBody: MylistRegisterRequest = {
         maxCount: formData.maxCount,
         favoriteOnly: formData.favoriteOnly,
         excludeSkip: formData.excludeSkip,
         mylistName: formData.mylistName,
-        userSession: formData.userSession,
       };
 
       // 既存の Push サブスクリプションをバッチジョブに紐付ける
@@ -105,12 +124,6 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
       if (onSuccess) {
         onSuccess(data);
       }
-
-      // フォームをリセット（user_session をクリア）
-      setFormData({
-        ...formData,
-        userSession: '',
-      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'エラーが発生しました');
     } finally {
@@ -119,115 +132,115 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
   };
 
   return (
-    <Card>
-      <CardContent>
-        <Typography variant="h6" gutterBottom>
-          マイリスト登録設定
-        </Typography>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {/* セッション管理コンポーネント */}
+      <NiconicoSessionManager onStatusChange={handleSessionStatusChange} />
 
-        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
-          {/* エラーメッセージ */}
-          {error && <ErrorAlert message={error} />}
-
-          {/* 登録条件 */}
-          <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
-            登録条件
+      {/* マイリスト登録フォーム */}
+      <Card>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            マイリスト登録設定
           </Typography>
 
-          <TextField
-            label="登録する最大動画数"
-            type="number"
-            value={String(formData.maxCount)}
-            onChange={(e) => {
-              const value = e.target.value;
-              // 空文字の場合はそのまま許可（入力中）
-              if (value === '') {
+          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+            {/* エラーメッセージ */}
+            {error && <ErrorAlert message={error} />}
+
+            {/* セッション未登録/無効時の警告 */}
+            {isRegisterDisabled && (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                {sessionStatus?.hasSession
+                  ? 'ニコニコセッションが無効です。上の「セッション管理」から user_session を更新してください。'
+                  : 'ニコニコセッションが未登録です。上の「セッション管理」から user_session を登録してください。'}
+              </Alert>
+            )}
+
+            {/* 登録条件 */}
+            <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+              登録条件
+            </Typography>
+
+            <TextField
+              label="登録する最大動画数"
+              type="number"
+              value={String(formData.maxCount)}
+              onChange={(e) => {
+                const value = e.target.value;
+                // 空文字の場合はそのまま許可（入力中）
+                if (value === '') {
+                  setFormData({
+                    ...formData,
+                    maxCount: 1, // デフォルト値を保持
+                  });
+                  return;
+                }
+                // 数値に変換して範囲内にクランプ
+                const numValue = Number(value);
+                if (!isNaN(numValue)) {
+                  setFormData({
+                    ...formData,
+                    maxCount: Math.max(1, Math.min(100, numValue)),
+                  });
+                }
+              }}
+              fullWidth
+              required
+              helperText="1〜100の範囲で指定してください"
+            />
+
+            <Checkbox
+              label="お気に入りのみを対象にする"
+              checked={formData.favoriteOnly}
+              onChange={(e) =>
                 setFormData({
                   ...formData,
-                  maxCount: 1, // デフォルト値を保持
-                });
-                return;
+                  favoriteOnly: e.target.checked,
+                })
               }
-              // 数値に変換して範囲内にクランプ
-              const numValue = Number(value);
-              if (!isNaN(numValue)) {
+            />
+
+            <Checkbox
+              label="スキップ動画を除外する"
+              checked={formData.excludeSkip}
+              onChange={(e) =>
                 setFormData({
                   ...formData,
-                  maxCount: Math.max(1, Math.min(100, numValue)),
-                });
+                  excludeSkip: e.target.checked,
+                })
               }
-            }}
-            fullWidth
-            required
-            helperText="1〜100の範囲で指定してください"
-          />
+            />
 
-          <Checkbox
-            label="お気に入りのみを対象にする"
-            checked={formData.favoriteOnly}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                favoriteOnly: e.target.checked,
-              })
-            }
-          />
+            {/* マイリスト名 */}
+            <TextField
+              label="マイリスト名"
+              value={formData.mylistName}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  mylistName: e.target.value,
+                })
+              }
+              fullWidth
+              required
+              helperText="ニコニコ動画に作成されるマイリストの名前"
+            />
 
-          <Checkbox
-            label="スキップ動画を除外する"
-            checked={formData.excludeSkip}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                excludeSkip: e.target.checked,
-              })
-            }
-          />
-
-          {/* マイリスト名 */}
-          <TextField
-            label="マイリスト名"
-            value={formData.mylistName}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                mylistName: e.target.value,
-              })
-            }
-            fullWidth
-            required
-            helperText="ニコニコ動画に作成されるマイリストの名前"
-          />
-
-          {/* ニコニコ user_session */}
-          <Typography variant="subtitle2" gutterBottom sx={{ mt: 3 }}>
-            ニコニコ動画 セッション
-          </Typography>
-
-          <TextField
-            label="user_session"
-            type="password"
-            value={formData.userSession}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                userSession: e.target.value,
-              })
-            }
-            fullWidth
-            required
-            autoComplete="off"
-            helperText="シークレット窓でニコニコ動画にログインし、開発者ツールのCookieから user_session の値を取得して貼り付けてください"
-          />
-
-          {/* 実行ボタン */}
-          <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-            <Button type="submit" variant="solid" color="primary" loading={loading}>
-              {loading ? '登録中...' : 'マイリストに登録'}
-            </Button>
+            {/* 実行ボタン */}
+            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                type="submit"
+                variant="solid"
+                color="primary"
+                loading={loading}
+                disabled={isRegisterDisabled}
+              >
+                {loading ? '登録中...' : 'マイリストに登録'}
+              </Button>
+            </Box>
           </Box>
-        </Box>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </Box>
   );
 }

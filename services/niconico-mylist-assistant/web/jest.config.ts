@@ -23,7 +23,12 @@ const config: Config = {
   testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
   modulePathIgnorePatterns: ['<rootDir>/../../../package.json', '<rootDir>/.next/'],
   coverageDirectory: 'coverage',
-  collectCoverageFrom: ['src/components/HomePageClient.tsx', '!src/**/*.d.ts'],
+  collectCoverageFrom: [
+    'src/components/HomePageClient.tsx',
+    'src/components/NiconicoSessionManager.tsx',
+    'src/lib/niconico-session/index.ts',
+    '!src/**/*.d.ts',
+  ],
   coverageThreshold: {
     global: {
       branches: 80,
