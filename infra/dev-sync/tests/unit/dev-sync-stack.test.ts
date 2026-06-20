@@ -5,6 +5,7 @@
 import * as cdk from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { DevSyncStack } from '../../lib/dev-sync-stack';
+import { MANIFEST } from '../../lib/manifest';
 import type { ManifestEntry } from '../../lib/manifest';
 
 describe('DevSyncStack', () => {
@@ -380,6 +381,86 @@ describe('DevSyncStack', () => {
 
       // delete=on では DeleteItem が存在する
       expect(allPoliciesStr).toContain('dynamodb:DeleteItem');
+    });
+  });
+
+  describe('Phase B: 実 MANIFEST（Niconico 楽曲）を使ったアサーション', () => {
+    it('全エントリの destTable が -dev で終わる（不変条件）', () => {
+      for (const entry of MANIFEST) {
+        expect(entry.destTable.endsWith('-dev')).toBe(true);
+      }
+    });
+
+    it('実 MANIFEST でスケジュールがちょうど 1 個作られる', () => {
+      const stack = new DevSyncStack(app, 'TestStackPhaseB', {
+        environment: 'dev',
+        ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
+        manifest: MANIFEST,
+      });
+
+      const template = Template.fromStack(stack);
+      template.resourceCountIs('AWS::Scheduler::Schedule', 1);
+    });
+
+    it('Lambda 実行ロールに source（prod）への read 権限が含まれる', () => {
+      const stack = new DevSyncStack(app, 'TestStackPhaseBRead', {
+        environment: 'dev',
+        ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
+        manifest: MANIFEST,
+      });
+
+      const template = Template.fromStack(stack);
+      // source テーブル ARN に Scan/Query/GetItem が付与されていることを確認
+      // CDK は ARN を Fn::Join で組み立てるため、ポリシー文字列でアクション存在を検証する
+      const policies = template.findResources('AWS::IAM::Policy');
+      const allPoliciesStr = JSON.stringify(policies);
+      // prod テーブル名が登場するポリシー内に read アクションが存在すること
+      expect(allPoliciesStr).toContain('nagiyu-niconico-mylist-assistant-dynamodb-prod');
+      expect(allPoliciesStr).toContain('dynamodb:Scan');
+      expect(allPoliciesStr).toContain('dynamodb:Query');
+      expect(allPoliciesStr).toContain('dynamodb:GetItem');
+    });
+
+    it('Lambda 実行ロールに dest（dev）への PutItem 権限が含まれる', () => {
+      const stack = new DevSyncStack(app, 'TestStackPhaseBPut', {
+        environment: 'dev',
+        ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
+        manifest: MANIFEST,
+      });
+
+      const template = Template.fromStack(stack);
+      // dest テーブル ARN に PutItem が付与されていることを確認
+      const policies = template.findResources('AWS::IAM::Policy');
+      const allPoliciesStr = JSON.stringify(policies);
+      expect(allPoliciesStr).toContain('nagiyu-niconico-mylist-assistant-dynamodb-dev');
+      expect(allPoliciesStr).toContain('dynamodb:PutItem');
+    });
+
+    it('Lambda 実行ロールに dest（dev）への DeleteItem/Scan 権限が含まれる（delete=on）', () => {
+      const stack = new DevSyncStack(app, 'TestStackPhaseBDelete', {
+        environment: 'dev',
+        ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
+        manifest: MANIFEST,
+      });
+
+      const template = Template.fromStack(stack);
+      // delete=on のため dest テーブル ARN に DeleteItem/Scan が付与されていることを確認
+      const policies = template.findResources('AWS::IAM::Policy');
+      const allPoliciesStr = JSON.stringify(policies);
+      expect(allPoliciesStr).toContain('dynamodb:DeleteItem');
+    });
+
+    it('ManifestEntryCount が 1 と出力される', () => {
+      const stack = new DevSyncStack(app, 'TestStackPhaseBCount', {
+        environment: 'dev',
+        ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
+        manifest: MANIFEST,
+      });
+
+      const template = Template.fromStack(stack);
+      template.hasOutput('ManifestEntryCount', {
+        Value: '1',
+      });
     });
   });
 
