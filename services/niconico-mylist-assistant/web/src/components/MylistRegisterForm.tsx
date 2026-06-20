@@ -152,8 +152,8 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
             {isRegisterDisabled && (
               <Alert severity="warning" sx={{ mb: 2 }}>
                 {sessionStatus?.hasSession
-                  ? 'ニコニコセッションが無効です。上の「セッション管理」から user_session を更新してください。'
-                  : 'ニコニコセッションが未登録です。上の「セッション管理」から user_session を登録してください。'}
+                  ? 'ニコニコセッションが無効です。「セッション管理」ボタンから user_session を更新してください。'
+                  : 'ニコニコセッションが未登録です。「セッション管理」ボタンから user_session を登録してください。'}
               </Alert>
             )}
 
