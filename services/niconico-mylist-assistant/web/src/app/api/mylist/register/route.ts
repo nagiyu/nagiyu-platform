@@ -1,26 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
-import {
-  selectRandomVideos,
-  encrypt,
-  createBatchJob,
-} from '@nagiyu/niconico-mylist-assistant-core';
+import { selectRandomVideos, createBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
 import { getBatchClient, reportErrorEvent } from '@nagiyu/aws';
-import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { getEncryptedUserSessionBlob } from '@/lib/niconico-session';
 import { toErrorMessage, type ErrorResponse } from '@nagiyu/common';
 
 /**
  * リクエストボディの型定義
+ *
+ * user_session はボディから受け取らず、サーバー保存済みのものを使用する（Phase 2）。
  */
 interface RegisterMylistRequest {
   maxCount: number;
   favoriteOnly?: boolean;
   excludeSkip?: boolean;
   mylistName: string;
-  /** ニコニコ動画の user_session クッキー値 */
-  userSession: string;
   pushSubscription?: {
     endpoint: string;
     keys: {
@@ -70,8 +66,6 @@ function getEnvVars() {
     BATCH_JOB_DEFINITION: process.env.BATCH_JOB_DEFINITION || '',
     DYNAMODB_TABLE_NAME: process.env.DYNAMODB_TABLE_NAME || '',
     AWS_REGION: process.env.AWS_REGION || 'us-east-1',
-    ENCRYPTION_SECRET_NAME:
-      process.env.ENCRYPTION_SECRET_NAME || process.env.SHARED_SECRET_KEY || '',
     AWS_REGION_FOR_SDK: process.env.AWS_REGION_FOR_SDK || process.env.AWS_REGION || 'us-east-1',
   };
 }
@@ -87,7 +81,7 @@ const SUCCESS_MESSAGES = {
  * POST /api/mylist/register
  * マイリスト登録バッチジョブを投入
  *
- * @see roadmap.md#L551-L563
+ * Phase 2: user_session をリクエストボディから受け取らず、サーバー保存済みのものを使用する。
  */
 export async function POST(
   request: NextRequest
@@ -160,22 +154,13 @@ export async function POST(
       );
     }
 
-    // バリデーション: userSession
-    if (!body.userSession) {
+    // 保存済みニコニコセッションの取得（Phase 2: リクエストボディの userSession は使用しない）
+    const encryptedUserSessionBlob = await getEncryptedUserSessionBlob(session.user.userId);
+    if (!encryptedUserSessionBlob) {
       return NextResponse.json(
         {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.USER_SESSION_REQUIRED,
-        },
-        { status: 400 }
-      );
-    }
-
-    if (typeof body.userSession !== 'string') {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.USER_SESSION_MUST_BE_STRING,
+          error: 'SESSION_NOT_REGISTERED',
+          message: ERROR_MESSAGES.NICONICO_SESSION_NOT_REGISTERED,
         },
         { status: 400 }
       );
@@ -216,52 +201,13 @@ export async function POST(
     }
 
     // AWS Batch ジョブを投入
-    const {
-      BATCH_JOB_QUEUE,
-      BATCH_JOB_DEFINITION,
-      DYNAMODB_TABLE_NAME,
-      AWS_REGION,
-      ENCRYPTION_SECRET_NAME,
-      AWS_REGION_FOR_SDK,
-    } = getEnvVars();
+    const { BATCH_JOB_QUEUE, BATCH_JOB_DEFINITION, DYNAMODB_TABLE_NAME, AWS_REGION } = getEnvVars();
     const batchClient = getBatchClient(AWS_REGION);
 
     const jobName = `niconico-mylist-${session.user.userId}-${Date.now()}`;
     const videoIds = selectedVideos.map((video) => video.videoId);
 
-    // user_session の暗号化
-    // AES-256-GCM で暗号化し、Batch ジョブに安全に渡す
-    const cryptoConfig: CryptoConfig = {
-      secretName: ENCRYPTION_SECRET_NAME,
-      region: AWS_REGION_FOR_SDK,
-    };
-
-    let encryptedUserSessionJson: string;
-    try {
-      const encryptedData = await encrypt(body.userSession, cryptoConfig);
-      encryptedUserSessionJson = JSON.stringify(encryptedData);
-    } catch (error) {
-      console.error('user_session 暗号化エラー:', error);
-      await reportErrorEvent({
-        serviceId: 'niconico-mylist-assistant',
-        severity: 'error',
-        title: 'user_session 暗号化エラー',
-        message: toErrorMessage(error),
-        context: {
-          userId: session.user.userId,
-          error: toErrorMessage(error),
-        },
-      });
-      return NextResponse.json(
-        {
-          error: 'ENCRYPTION_ERROR',
-          message: ERROR_MESSAGES.USER_SESSION_ENCRYPTION_FAILED,
-          details: [toErrorMessage(error)],
-        },
-        { status: 500 }
-      );
-    }
-
+    // 保存済みブロブをそのまま ENCRYPTED_USER_SESSION として渡す（再暗号化不要）
     const submitResult = await batchClient.send(
       new SubmitJobCommand({
         jobName,
@@ -272,10 +218,9 @@ export async function POST(
             { name: 'USER_ID', value: session.user.userId },
             { name: 'VIDEO_IDS', value: JSON.stringify(videoIds) },
             { name: 'MYLIST_NAME', value: body.mylistName },
-            { name: 'ENCRYPTED_USER_SESSION', value: encryptedUserSessionJson },
+            { name: 'ENCRYPTED_USER_SESSION', value: encryptedUserSessionBlob },
             { name: 'DYNAMODB_TABLE_NAME', value: DYNAMODB_TABLE_NAME },
             { name: 'AWS_REGION', value: AWS_REGION },
-            // Note: BATCH_JOB_ID will be added after job submission
           ],
         },
       })

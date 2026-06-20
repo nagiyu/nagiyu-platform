@@ -3,7 +3,7 @@
  *
  * Repository の生成を環境変数によって切り替える Factory パターン実装。
  * `@nagiyu/aws` の `registerDynamoRepositories` を使用し、
- * 3 リポジトリと共有 InMemorySingleTableStore を一括管理する。
+ * 4 リポジトリと共有 InMemorySingleTableStore を一括管理する。
  */
 
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
@@ -11,18 +11,22 @@ import { InMemorySingleTableStore, registerDynamoRepositories } from '@nagiyu/aw
 import type { VideoRepository } from './video.repository.interface.js';
 import type { UserSettingRepository } from './user-setting.repository.interface.js';
 import type { BatchJobRepository } from './batch-job.repository.interface.js';
+import type { NiconicoCredentialRepository } from './niconico-credential.repository.interface.js';
 import { DynamoDBVideoRepository } from './dynamodb-video.repository.js';
 import { DynamoDBUserSettingRepository } from './dynamodb-user-setting.repository.js';
 import { DynamoDBBatchJobRepository } from './dynamodb-batch-job.repository.js';
+import { DynamoDBNiconicoCredentialRepository } from './dynamodb-niconico-credential.repository.js';
 import { InMemoryVideoRepository } from './inmemory-video.repository.js';
 import { InMemoryUserSettingRepository } from './inmemory-user-setting.repository.js';
 import { InMemoryBatchJobRepository } from './inmemory-batch-job.repository.js';
+import { InMemoryNiconicoCredentialRepository } from './inmemory-niconico-credential.repository.js';
 
 const repositoryRegistry = registerDynamoRepositories<
   {
     video: VideoRepository;
     userSetting: UserSettingRepository;
     batchJob: BatchJobRepository;
+    niconicoCredential: NiconicoCredentialRepository;
   },
   InMemorySingleTableStore
 >(
@@ -41,6 +45,11 @@ const repositoryRegistry = registerDynamoRepositories<
       createInMemoryRepository: (store) => new InMemoryBatchJobRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBBatchJobRepository(docClient, tableName),
+    },
+    niconicoCredential: {
+      createInMemoryRepository: (store) => new InMemoryNiconicoCredentialRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBNiconicoCredentialRepository(docClient, tableName),
     },
   },
   {
@@ -84,6 +93,19 @@ export function createBatchJobRepository(
   tableName?: string
 ): BatchJobRepository {
   return repositoryRegistry.batchJob.createRepository(docClient, tableName);
+}
+
+/**
+ * NiconicoCredentialRepository を作成
+ *
+ * InMemory 実装では他のリポジトリと同じ InMemorySingleTableStore を共有する
+ * （Single Table Design 再現）。
+ */
+export function createNiconicoCredentialRepository(
+  docClient?: DynamoDBDocumentClient,
+  tableName?: string
+): NiconicoCredentialRepository {
+  return repositoryRegistry.niconicoCredential.createRepository(docClient, tableName);
 }
 
 /**
