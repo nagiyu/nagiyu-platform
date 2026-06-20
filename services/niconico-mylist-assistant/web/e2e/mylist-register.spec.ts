@@ -1,10 +1,7 @@
 import { test, expect, APIRequestContext } from '@playwright/test';
 
-const TEST_NICONICO_ACCOUNT = {
-  // E2Eテスト用ダミー資格情報（本番では使用しない）
-  email: process.env.TEST_USER_EMAIL ?? 'test@example.com',
-  password: process.env.TEST_NICONICO_PASSWORD ?? 'password-for-e2e',
-} as const;
+// E2Eテスト用ダミー user_session（本番では使用しない）
+const TEST_USER_SESSION = process.env.TEST_NICONICO_USER_SESSION ?? 'user_session_e2e_dummy';
 
 async function clearAllTestData(request: APIRequestContext): Promise<void> {
   const response = await request.delete('/api/test/videos');
@@ -29,7 +26,7 @@ function createRegisterRequestBody(maxCount: number, favoriteOnly?: boolean) {
     favoriteOnly,
     excludeSkip: false,
     mylistName: 'E2Eテスト用マイリスト',
-    niconicoAccount: TEST_NICONICO_ACCOUNT,
+    userSession: TEST_USER_SESSION,
   };
 }
 
