@@ -6,6 +6,8 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
     "cdk": "cdk",
     "bootstrap": "cdk bootstrap",
     "synth": "cdk synth",

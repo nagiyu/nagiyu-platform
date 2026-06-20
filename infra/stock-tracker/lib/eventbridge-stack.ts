@@ -56,10 +56,12 @@ export class EventBridgeStack extends cdk.Stack {
     hourlyRule.addTarget(new targets.LambdaFunction(batchHourlyFunction));
 
     // EventBridge Rule - Summary（1時間間隔、日次サマリー生成）
+    // dev では DailySummary を dev-sync でコピーするため、二重実行を避けるために自動実行を停止する
     const summaryRule = new events.Rule(this, 'BatchSummaryRule', {
       ruleName: `stock-tracker-batch-summary-${environment}`,
       description: 'Trigger Stock Tracker Summary Batch every 1 hour',
       schedule: events.Schedule.rate(cdk.Duration.hours(1)),
+      enabled: environment === 'prod',
     });
     summaryRule.addTarget(new targets.LambdaFunction(batchSummaryFunction));
 
@@ -74,10 +76,12 @@ export class EventBridgeStack extends cdk.Stack {
     );
 
     // EventBridge Rule - Evaluation（1時間間隔、予測精度の採点）
+    // dev では DailySummary を dev-sync でコピーするため、採点の二重実行を避けるために自動実行を停止する
     const evaluationRule = new events.Rule(this, 'BatchEvaluationRule', {
       ruleName: `stock-tracker-batch-evaluation-${environment}`,
       description: 'Trigger Stock Tracker Evaluation Batch every 1 hour',
       schedule: events.Schedule.rate(cdk.Duration.hours(1)),
+      enabled: environment === 'prod',
     });
     evaluationRule.addTarget(new targets.LambdaFunction(batchEvaluationFunction));
 
