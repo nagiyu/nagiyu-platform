@@ -16,6 +16,13 @@ export type {
   UserSettingKey,
 } from './entities/user-setting.entity.js';
 
+export type {
+  NiconicoCredentialEntity,
+  CreateNiconicoCredentialInput,
+  NiconicoCredentialKey,
+} from './entities/niconico-credential.entity.js';
+export { NICONICO_CREDENTIAL_SK } from './entities/niconico-credential.entity.js';
+
 export * from './repositories/index.js';
 export * from './mappers/index.js';
 

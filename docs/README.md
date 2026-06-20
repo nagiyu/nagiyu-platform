@@ -36,6 +36,7 @@
 - [PWA設定ガイド](./development/pwa.md)
 - [データベース設計パターン](./development/database-patterns.md) - DynamoDB Single Table Design と複数テーブル設計のパターン集
 - [データアクセス層](./development/data-access-layer.md) - DynamoDB Repository パターンの設計思想と実装ガイドライン
+- [dev-sync（prod → dev データ同期）](./development/dev-sync.md) - dev メイン運用に向けた prod→dev 同期機構の背景・戦略選定・安全設計
 
 ### AIエージェント
 

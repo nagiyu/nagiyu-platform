@@ -33,14 +33,32 @@ export const ERROR_MESSAGES = {
   MYLIST_REGISTER_MAX_COUNT_INVALID_RANGE: '登録件数は1～100の範囲で指定してください',
   MYLIST_NAME_REQUIRED: 'mylistName は必須です',
   MYLIST_NAME_MUST_BE_STRING: 'mylistName は文字列である必要があります',
-  NICONICO_ACCOUNT_REQUIRED: 'ニコニコアカウント情報は必須です',
-  NICONICO_EMAIL_REQUIRED: 'メールアドレスは必須です',
-  NICONICO_PASSWORD_REQUIRED: 'パスワードは必須です',
+  USER_SESSION_REQUIRED: 'user_session は必須です',
+  USER_SESSION_MUST_BE_STRING: 'user_session は文字列である必要があります',
   NO_VIDEOS_AVAILABLE: '登録可能な動画が見つかりませんでした',
   MYLIST_REGISTER_VIDEO_FETCH_FAILED: '動画情報の取得に失敗しました',
   BATCH_JOB_SUBMISSION_FAILED: 'バッチジョブの投入に失敗しました',
   DATABASE_ERROR: 'データベースへのアクセスに失敗しました',
-  PASSWORD_ENCRYPTION_FAILED: 'パスワードの暗号化に失敗しました',
+  USER_SESSION_ENCRYPTION_FAILED: 'user_session の暗号化に失敗しました',
+
+  // リクエストエラー
+  INVALID_REQUEST_BODY: 'リクエストボディが不正な JSON です',
+
+  // セッション管理 API エラー
+  NICONICO_SESSION_NOT_REGISTERED:
+    'ニコニコ動画のセッションが未登録です。セッション管理から user_session を登録してください',
+  NICONICO_SESSION_INVALID:
+    'user_session が無効です。シークレット窓でニコニコ動画にログインし、最新の user_session を取得してください',
+  NICONICO_SESSION_VALIDATION_INDETERMINATE:
+    'セッションの有効性を判定できませんでした。時間をおいて再試行してください',
+  NICONICO_SESSION_DECRYPT_FAILED: '保存済みセッションの復号に失敗しました',
+  NICONICO_SESSION_SAVE_FAILED: 'セッションの保存に失敗しました',
+  NICONICO_SESSION_DELETE_FAILED: 'セッションの削除に失敗しました',
+  NICONICO_SESSION_STATUS_FETCH_FAILED: 'セッション状態の取得に失敗しました',
+
+  // セッション管理 UI バリデーション
+  USER_SESSION_INPUT_REQUIRED: 'user_session を入力してください',
+  GENERIC_ERROR: 'エラーが発生しました',
 } as const;
 
 export const VALIDATION_LIMITS = {
