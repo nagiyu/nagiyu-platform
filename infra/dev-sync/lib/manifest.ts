@@ -137,4 +137,103 @@ export const MANIFEST: ManifestEntry[] = [
     delete: 'on',
     schedule: 'rate(1 day)',
   },
+
+  // ─────────────────────────────────────────
+  // Phase C: StockTracer（単一テーブル設計: nagiyu-stock-tracker-main-prod）
+  //
+  // 共有マスタ（Exchange / Ticker）は全件 mirror する。
+  // DailySummary は GSI（ExchangeSummaryIndex）を使い取引所単位・直近 14 日分を gsiWindow でコピーする。
+  // USER# プレフィックスのアイテム（Holding / Alert）は対象外（EXCHANGE#/TICKER# と衝突しない）。
+  // ─────────────────────────────────────────
+
+  // Exchange（共有マスタ）: PK=EXCHANGE#{id}。取引所情報は全件 mirror する。
+  // 削除された取引所も dev 側に伝播させるため delete=on。
+  {
+    sourceTable: 'nagiyu-stock-tracker-main-prod',
+    destTable: 'nagiyu-stock-tracker-main-dev',
+    strategy: 'mirror',
+    scope: { pkPrefix: 'EXCHANGE#' },
+    delete: 'on',
+    schedule: 'rate(1 day)',
+  },
+
+  // Ticker（共有マスタ）: PK=TICKER#{id}。銘柄情報は全件 mirror する。
+  // 削除された銘柄も dev 側に伝播させるため delete=on。
+  {
+    sourceTable: 'nagiyu-stock-tracker-main-prod',
+    destTable: 'nagiyu-stock-tracker-main-dev',
+    strategy: 'mirror',
+    scope: { pkPrefix: 'TICKER#' },
+    delete: 'on',
+    schedule: 'rate(1 day)',
+  },
+
+  // DailySummary（取引所別 gsiWindow・直近 14 日増分）
+  // PK=SUMMARY#{ticker} / SK=DATE#{date}。GSI=ExchangeSummaryIndex（GSI4PK=ExchangeID, GSI4SK=DATE#{YYYY-MM-DD}#{ticker}）
+  // 取引所単位でしか GSI の PK を絞り込めないため、取引所を追加した際はこの 4 エントリにも追記が必要。
+  // delete=off: 過去データの削除は行わず増分コピーのみ。
+  {
+    sourceTable: 'nagiyu-stock-tracker-main-prod',
+    destTable: 'nagiyu-stock-tracker-main-dev',
+    strategy: 'gsiWindow',
+    delete: 'off',
+    gsi: {
+      indexName: 'ExchangeSummaryIndex',
+      pkAttributeName: 'GSI4PK',
+      pkValue: 'NYSE',
+      skAttributeName: 'GSI4SK',
+      skPrefix: 'DATE#',
+      dateGranularity: 'date',
+      windowDays: 14,
+    },
+    schedule: 'rate(1 day)',
+  },
+  {
+    sourceTable: 'nagiyu-stock-tracker-main-prod',
+    destTable: 'nagiyu-stock-tracker-main-dev',
+    strategy: 'gsiWindow',
+    delete: 'off',
+    gsi: {
+      indexName: 'ExchangeSummaryIndex',
+      pkAttributeName: 'GSI4PK',
+      pkValue: 'NASDAQ',
+      skAttributeName: 'GSI4SK',
+      skPrefix: 'DATE#',
+      dateGranularity: 'date',
+      windowDays: 14,
+    },
+    schedule: 'rate(1 day)',
+  },
+  {
+    sourceTable: 'nagiyu-stock-tracker-main-prod',
+    destTable: 'nagiyu-stock-tracker-main-dev',
+    strategy: 'gsiWindow',
+    delete: 'off',
+    gsi: {
+      indexName: 'ExchangeSummaryIndex',
+      pkAttributeName: 'GSI4PK',
+      pkValue: 'AMEX',
+      skAttributeName: 'GSI4SK',
+      skPrefix: 'DATE#',
+      dateGranularity: 'date',
+      windowDays: 14,
+    },
+    schedule: 'rate(1 day)',
+  },
+  {
+    sourceTable: 'nagiyu-stock-tracker-main-prod',
+    destTable: 'nagiyu-stock-tracker-main-dev',
+    strategy: 'gsiWindow',
+    delete: 'off',
+    gsi: {
+      indexName: 'ExchangeSummaryIndex',
+      pkAttributeName: 'GSI4PK',
+      pkValue: 'TSE',
+      skAttributeName: 'GSI4SK',
+      skPrefix: 'DATE#',
+      dateGranularity: 'date',
+      windowDays: 14,
+    },
+    schedule: 'rate(1 day)',
+  },
 ];

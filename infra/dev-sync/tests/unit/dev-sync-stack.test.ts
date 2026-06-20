@@ -304,7 +304,7 @@ describe('DevSyncStack', () => {
       }
     });
 
-    it('source テーブル ARN に DeleteItem が付与されていない', () => {
+    it('source テーブル ARN に DeleteItem が付与されていない（単一 source / dest）', () => {
       const stack = new DevSyncStack(app, 'TestStack', {
         environment: 'dev',
         ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
@@ -384,74 +384,70 @@ describe('DevSyncStack', () => {
     });
   });
 
-  describe('Phase B: 実 MANIFEST（Niconico 楽曲）を使ったアサーション', () => {
+  describe('Phase B+C: 実 MANIFEST（Niconico + StockTracer）を使ったアサーション', () => {
     it('全エントリの destTable が -dev で終わる（不変条件）', () => {
       for (const entry of MANIFEST) {
         expect(entry.destTable.endsWith('-dev')).toBe(true);
       }
     });
 
-    it('実 MANIFEST でスケジュールがちょうど 1 個作られる', () => {
-      const stack = new DevSyncStack(app, 'TestStackPhaseB', {
+    it('実 MANIFEST でスケジュールがちょうど 7 個作られる（Niconico 1 + StockTracer 6）', () => {
+      const stack = new DevSyncStack(app, 'TestStackPhaseBC', {
         environment: 'dev',
         ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
         manifest: MANIFEST,
       });
 
       const template = Template.fromStack(stack);
-      template.resourceCountIs('AWS::Scheduler::Schedule', 1);
+      template.resourceCountIs('AWS::Scheduler::Schedule', 7);
     });
 
-    it('Lambda 実行ロールに source（prod）への read 権限が含まれる', () => {
-      const stack = new DevSyncStack(app, 'TestStackPhaseBRead', {
+    it('Lambda 実行ロールに Niconico source（prod）への read 権限が含まれる', () => {
+      const stack = new DevSyncStack(app, 'TestStackPhaseBCRead', {
         environment: 'dev',
         ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
         manifest: MANIFEST,
       });
 
       const template = Template.fromStack(stack);
-      // source テーブル ARN に Scan/Query/GetItem が付与されていることを確認
-      // CDK は ARN を Fn::Join で組み立てるため、ポリシー文字列でアクション存在を検証する
       const policies = template.findResources('AWS::IAM::Policy');
       const allPoliciesStr = JSON.stringify(policies);
-      // prod テーブル名が登場するポリシー内に read アクションが存在すること
+      // Niconico prod テーブル名が登場するポリシー内に read アクションが存在すること
       expect(allPoliciesStr).toContain('nagiyu-niconico-mylist-assistant-dynamodb-prod');
       expect(allPoliciesStr).toContain('dynamodb:Scan');
       expect(allPoliciesStr).toContain('dynamodb:Query');
       expect(allPoliciesStr).toContain('dynamodb:GetItem');
     });
 
-    it('Lambda 実行ロールに dest（dev）への PutItem 権限が含まれる', () => {
-      const stack = new DevSyncStack(app, 'TestStackPhaseBPut', {
+    it('Lambda 実行ロールに Niconico dest（dev）への PutItem 権限が含まれる', () => {
+      const stack = new DevSyncStack(app, 'TestStackPhaseBCPut', {
         environment: 'dev',
         ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
         manifest: MANIFEST,
       });
 
       const template = Template.fromStack(stack);
-      // dest テーブル ARN に PutItem が付与されていることを確認
       const policies = template.findResources('AWS::IAM::Policy');
       const allPoliciesStr = JSON.stringify(policies);
       expect(allPoliciesStr).toContain('nagiyu-niconico-mylist-assistant-dynamodb-dev');
       expect(allPoliciesStr).toContain('dynamodb:PutItem');
     });
 
-    it('Lambda 実行ロールに dest（dev）への DeleteItem/Scan 権限が含まれる（delete=on）', () => {
-      const stack = new DevSyncStack(app, 'TestStackPhaseBDelete', {
+    it('Lambda 実行ロールに dest（dev）への DeleteItem 権限が含まれる（delete=on エントリ存在）', () => {
+      const stack = new DevSyncStack(app, 'TestStackPhaseBCDelete', {
         environment: 'dev',
         ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
         manifest: MANIFEST,
       });
 
       const template = Template.fromStack(stack);
-      // delete=on のため dest テーブル ARN に DeleteItem/Scan が付与されていることを確認
       const policies = template.findResources('AWS::IAM::Policy');
       const allPoliciesStr = JSON.stringify(policies);
       expect(allPoliciesStr).toContain('dynamodb:DeleteItem');
     });
 
-    it('ManifestEntryCount が 1 と出力される', () => {
-      const stack = new DevSyncStack(app, 'TestStackPhaseBCount', {
+    it('ManifestEntryCount が 7 と出力される', () => {
+      const stack = new DevSyncStack(app, 'TestStackPhaseBCCount', {
         environment: 'dev',
         ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
         manifest: MANIFEST,
@@ -459,8 +455,107 @@ describe('DevSyncStack', () => {
 
       const template = Template.fromStack(stack);
       template.hasOutput('ManifestEntryCount', {
-        Value: '1',
+        Value: '7',
       });
+    });
+  });
+
+  describe('Phase C: StockTracer マニフェスト内容のアサーション', () => {
+    it('DailySummary の gsiWindow エントリが NYSE/NASDAQ/AMEX/TSE の 4 取引所分・各 1 件存在する', () => {
+      const exchanges = ['NYSE', 'NASDAQ', 'AMEX', 'TSE'];
+      for (const exchange of exchanges) {
+        const matching = MANIFEST.filter(
+          (entry) =>
+            entry.strategy === 'gsiWindow' &&
+            entry.gsi?.pkValue === exchange
+        );
+        expect(matching).toHaveLength(1);
+      }
+    });
+
+    it('DailySummary の gsiWindow エントリの gsi 設定が正しい', () => {
+      const gsiEntries = MANIFEST.filter(
+        (entry) =>
+          entry.strategy === 'gsiWindow' &&
+          entry.sourceTable === 'nagiyu-stock-tracker-main-prod'
+      );
+      expect(gsiEntries).toHaveLength(4);
+      for (const entry of gsiEntries) {
+        expect(entry.gsi?.indexName).toBe('ExchangeSummaryIndex');
+        expect(entry.gsi?.skPrefix).toBe('DATE#');
+        expect(entry.gsi?.dateGranularity).toBe('date');
+        expect(entry.gsi?.windowDays).toBe(14);
+        expect(entry.delete).toBe('off');
+        expect(entry.destTable).toBe('nagiyu-stock-tracker-main-dev');
+      }
+    });
+
+    it('Exchange mirror エントリが pkPrefix="EXCHANGE#" で 1 件・delete=on で存在する', () => {
+      const matching = MANIFEST.filter(
+        (entry) =>
+          entry.strategy === 'mirror' &&
+          entry.scope?.pkPrefix === 'EXCHANGE#' &&
+          entry.sourceTable === 'nagiyu-stock-tracker-main-prod'
+      );
+      expect(matching).toHaveLength(1);
+      expect(matching[0].delete).toBe('on');
+    });
+
+    it('Ticker mirror エントリが pkPrefix="TICKER#" で 1 件・delete=on で存在する', () => {
+      const matching = MANIFEST.filter(
+        (entry) =>
+          entry.strategy === 'mirror' &&
+          entry.scope?.pkPrefix === 'TICKER#' &&
+          entry.sourceTable === 'nagiyu-stock-tracker-main-prod'
+      );
+      expect(matching).toHaveLength(1);
+      expect(matching[0].delete).toBe('on');
+    });
+
+    it('実 MANIFEST で synth したとき stock-tracker prod テーブルへの read 権限が含まれる', () => {
+      const stack = new DevSyncStack(app, 'TestStackPhaseCRead', {
+        environment: 'dev',
+        ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
+        manifest: MANIFEST,
+      });
+
+      const template = Template.fromStack(stack);
+      const policies = template.findResources('AWS::IAM::Policy');
+      const allPoliciesStr = JSON.stringify(policies);
+      // stock-tracker prod テーブルへの read アクションが付与されていること
+      expect(allPoliciesStr).toContain('nagiyu-stock-tracker-main-prod');
+      expect(allPoliciesStr).toContain('dynamodb:Scan');
+      expect(allPoliciesStr).toContain('dynamodb:Query');
+      expect(allPoliciesStr).toContain('dynamodb:GetItem');
+    });
+
+    it('実 MANIFEST で synth したとき stock-tracker dev テーブルへの PutItem 権限が含まれる', () => {
+      const stack = new DevSyncStack(app, 'TestStackPhaseCPut', {
+        environment: 'dev',
+        ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
+        manifest: MANIFEST,
+      });
+
+      const template = Template.fromStack(stack);
+      const policies = template.findResources('AWS::IAM::Policy');
+      const allPoliciesStr = JSON.stringify(policies);
+      // stock-tracker dev テーブルへの PutItem が付与されていること
+      expect(allPoliciesStr).toContain('nagiyu-stock-tracker-main-dev');
+      expect(allPoliciesStr).toContain('dynamodb:PutItem');
+    });
+
+    it('実 MANIFEST で synth したとき stock-tracker dev テーブルへの DeleteItem 権限が含まれる（Exchange/Ticker は delete=on）', () => {
+      const stack = new DevSyncStack(app, 'TestStackPhaseCDelete', {
+        environment: 'dev',
+        ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
+        manifest: MANIFEST,
+      });
+
+      const template = Template.fromStack(stack);
+      const policies = template.findResources('AWS::IAM::Policy');
+      const allPoliciesStr = JSON.stringify(policies);
+      // Exchange/Ticker の delete=on エントリにより DeleteItem が付与されていること
+      expect(allPoliciesStr).toContain('dynamodb:DeleteItem');
     });
   });
 
