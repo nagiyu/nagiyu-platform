@@ -66,7 +66,7 @@ export class DevSyncStack extends cdk.Stack {
     // ─────────────────────────────────────────
     const executionRole = new iam.Role(this, 'SyncFunctionExecutionRole', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      description: `dev-sync Lambda 実行ロール (${environment})`,
+      description: `Execution role for dev-sync Lambda (${environment})`,
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
       ],
@@ -148,7 +148,7 @@ export class DevSyncStack extends cdk.Stack {
     // ─────────────────────────────────────────
     const schedulerRole = new iam.Role(this, 'SchedulerRole', {
       assumedBy: new iam.ServicePrincipal('scheduler.amazonaws.com'),
-      description: `dev-sync EventBridge Scheduler 実行ロール (${environment})`,
+      description: `Execution role for dev-sync EventBridge Scheduler (${environment})`,
     });
     schedulerRole.addToPolicy(
       new iam.PolicyStatement({
