@@ -5,12 +5,20 @@ import { Box, Card, CardContent, CircularProgress, Grid, Typography } from '@mui
 import { Button, Chip } from '@nagiyu/ui';
 import type { TickerSummary } from '@/types/stock';
 import SummaryDetailDialog from './SummaryDetailDialog';
+import { formatPredictedReturn, formatConfidence } from '@/lib/ai-analysis-format';
 
 const INVESTMENT_SIGNAL_LABELS = {
   BULLISH: '強気',
   NEUTRAL: '中立',
   BEARISH: '弱気',
 } as const;
+
+/** 投資シグナルに対応する Chip カラー */
+const INVESTMENT_SIGNAL_COLORS = {
+  BULLISH: 'success',
+  BEARISH: 'danger',
+  NEUTRAL: 'neutral',
+} as const satisfies Record<keyof typeof INVESTMENT_SIGNAL_LABELS, string>;
 
 interface TickerSummaryCardProps {
   summary: TickerSummary | null;
@@ -31,11 +39,9 @@ export default function TickerSummaryCard({
     () => summary?.aiAnalysisResult?.resistanceLevels ?? [],
     [summary]
   );
-  const investmentJudgment = useMemo(
-    () =>
-      summary?.aiAnalysisResult?.investmentJudgment?.signal
-        ? INVESTMENT_SIGNAL_LABELS[summary.aiAnalysisResult.investmentJudgment.signal]
-        : '未生成',
+  /** signal が存在する場合のみラベルを返す。未生成は null */
+  const investmentSignal = useMemo(
+    () => summary?.aiAnalysisResult?.investmentJudgment?.signal ?? null,
     [summary]
   );
 
@@ -59,7 +65,45 @@ export default function TickerSummaryCard({
         {!loading && !error && summary && (
           <Grid container spacing={1}>
             <Grid size={12}>
-              <Typography variant="body2">投資判断: {investmentJudgment}</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="body2">投資判断:</Typography>
+                {investmentSignal !== null ? (
+                  <Chip
+                    color={INVESTMENT_SIGNAL_COLORS[investmentSignal]}
+                    size="sm"
+                    data-testid="summary-investment-signal"
+                  >
+                    {INVESTMENT_SIGNAL_LABELS[investmentSignal]}
+                  </Chip>
+                ) : (
+                  <Typography variant="body2" data-testid="summary-investment-signal-unset">
+                    未生成
+                  </Typography>
+                )}
+              </Box>
+              {typeof summary.aiAnalysisResult?.investmentJudgment?.predictedReturn ===
+                'number' && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    予測リターン:
+                  </Typography>
+                  <Typography variant="body2" data-testid="summary-predicted-return">
+                    {formatPredictedReturn(
+                      summary.aiAnalysisResult.investmentJudgment.predictedReturn
+                    )}
+                  </Typography>
+                </Box>
+              )}
+              {typeof summary.aiAnalysisResult?.investmentJudgment?.confidence === 'number' && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    確信度:
+                  </Typography>
+                  <Typography variant="body2" data-testid="summary-confidence">
+                    {formatConfidence(summary.aiAnalysisResult.investmentJudgment.confidence)}
+                  </Typography>
+                </Box>
+              )}
             </Grid>
             <Grid size={6}>
               <Typography variant="body2">買いシグナル: {summary.buyPatternCount ?? 0}</Typography>
