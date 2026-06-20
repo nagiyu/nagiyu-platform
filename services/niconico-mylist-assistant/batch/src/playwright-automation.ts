@@ -202,7 +202,9 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
     await sleep(3000);
 
     // マイリスト作成ボタンをクリック（ニコニコUI刷新後のセレクタ）
-    const createButton = page.locator('button', { hasText: '新規作成' }).first();
+    const createButton = page
+      .locator('button.MylistSideContainer-actionButton:has(.AddIcon)')
+      .first();
     await createButton.waitFor({ state: 'visible', timeout: 30000 });
     console.log('マイリスト新規作成ボタンが表示されました');
 
