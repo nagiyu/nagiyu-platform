@@ -108,4 +108,15 @@ export interface ManifestEntry {
  * Phase A: 空配列（機構のみ）
  * Phase B/C: 各サービスのエントリをここに追加する
  */
-export const MANIFEST: ManifestEntry[] = [];
+export const MANIFEST: ManifestEntry[] = [
+  // Phase B: Niconico 楽曲（VideoBasicInfo）の prod→dev ミラー。
+  // PK=VIDEO# で始まるアイテムのみを対象とし、USER# 系（UserVideoSetting/BatchJob）は対象外。
+  {
+    sourceTable: 'nagiyu-niconico-mylist-assistant-dynamodb-prod',
+    destTable: 'nagiyu-niconico-mylist-assistant-dynamodb-dev',
+    strategy: 'mirror',
+    scope: { pkPrefix: 'VIDEO#' },
+    delete: 'on',
+    schedule: 'rate(1 day)',
+  },
+];
