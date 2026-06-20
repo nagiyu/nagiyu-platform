@@ -198,6 +198,159 @@ describe('selectRandomVideos', () => {
     expect(result[0].videoId).toBe('sm1');
   });
 
+  // --- skipExclude の回帰テスト（設定なし動画に関する挙動） ---
+  // バグ修正: USER_SETTING を持たない動画が skipExclude=true のとき誤って除外されていた不具合
+
+  it('【回帰】skipExclude=true のとき設定レコードを持たない動画が候補に残る', async () => {
+    // USER_SETTING は sm1 のみ（isSkip=true）
+    // sm2, sm3 は VIDEO として存在するが USER_SETTING なし（スキップ指定なし）
+    const settings = [
+      {
+        PK: 'USER#user123',
+        SK: 'VIDEO#sm1',
+        entityType: 'USER_SETTING',
+        userId: 'user123',
+        videoId: 'sm1',
+        isFavorite: false,
+        isSkip: true,
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      },
+    ];
+
+    // VIDEO は sm1, sm2, sm3 の3件
+    const videos = [
+      {
+        PK: 'VIDEO#sm1',
+        SK: 'VIDEO#sm1',
+        entityType: 'VIDEO',
+        videoId: 'sm1',
+        title: '動画sm1',
+        thumbnailUrl: 'https://example.com/sm1.jpg',
+        length: '3:00',
+        CreatedAt: 1704067200000,
+      },
+      {
+        PK: 'VIDEO#sm2',
+        SK: 'VIDEO#sm2',
+        entityType: 'VIDEO',
+        videoId: 'sm2',
+        title: '動画sm2',
+        thumbnailUrl: 'https://example.com/sm2.jpg',
+        length: '4:00',
+        CreatedAt: 1704067200000,
+      },
+      {
+        PK: 'VIDEO#sm3',
+        SK: 'VIDEO#sm3',
+        entityType: 'VIDEO',
+        videoId: 'sm3',
+        title: '動画sm3',
+        thumbnailUrl: 'https://example.com/sm3.jpg',
+        length: '5:00',
+        CreatedAt: 1704067200000,
+      },
+    ];
+
+    ddbMock.on(QueryCommand).resolves({ Items: settings });
+    ddbMock.on(ScanCommand).resolves({ Items: videos });
+
+    const result = await selectRandomVideos({
+      userId: 'user123',
+      maxCount: 10,
+      skipExclude: true,
+    });
+
+    // sm2 と sm3（設定なし＝スキップ未指定）が候補に残るべき
+    expect(result).toHaveLength(2);
+    const videoIds = result.map((v) => v.videoId);
+    expect(videoIds).toContain('sm2');
+    expect(videoIds).toContain('sm3');
+    // sm1（isSkip=true）は除外される
+    expect(videoIds).not.toContain('sm1');
+  });
+
+  it('【回帰】favoriteOnly と skipExclude 組み合わせ時、設定なし動画は isFavorite なしのため favoriteOnly=true で除外される', async () => {
+    // sm1: isFavorite=true, isSkip=false（設定あり） → 残る
+    // sm2: isFavorite=true, isSkip=true（設定あり） → skipExclude で除外
+    // sm3: 設定なし → favoriteOnly=true フィルタで除外（isFavorite が undefined のため）
+    const settings = [
+      {
+        PK: 'USER#user123',
+        SK: 'VIDEO#sm1',
+        entityType: 'USER_SETTING',
+        userId: 'user123',
+        videoId: 'sm1',
+        isFavorite: true,
+        isSkip: false,
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      },
+      {
+        PK: 'USER#user123',
+        SK: 'VIDEO#sm2',
+        entityType: 'USER_SETTING',
+        userId: 'user123',
+        videoId: 'sm2',
+        isFavorite: true,
+        isSkip: true,
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      },
+    ];
+
+    const videos = [
+      {
+        PK: 'VIDEO#sm1',
+        SK: 'VIDEO#sm1',
+        entityType: 'VIDEO',
+        videoId: 'sm1',
+        title: '動画sm1',
+        thumbnailUrl: 'https://example.com/sm1.jpg',
+        length: '3:00',
+        CreatedAt: 1704067200000,
+      },
+      {
+        PK: 'VIDEO#sm2',
+        SK: 'VIDEO#sm2',
+        entityType: 'VIDEO',
+        videoId: 'sm2',
+        title: '動画sm2',
+        thumbnailUrl: 'https://example.com/sm2.jpg',
+        length: '4:00',
+        CreatedAt: 1704067200000,
+      },
+      {
+        PK: 'VIDEO#sm3',
+        SK: 'VIDEO#sm3',
+        entityType: 'VIDEO',
+        videoId: 'sm3',
+        title: '動画sm3',
+        thumbnailUrl: 'https://example.com/sm3.jpg',
+        length: '5:00',
+        CreatedAt: 1704067200000,
+      },
+    ];
+
+    ddbMock.on(QueryCommand).resolves({ Items: settings });
+    ddbMock.on(ScanCommand).resolves({ Items: videos });
+
+    const result = await selectRandomVideos({
+      userId: 'user123',
+      maxCount: 10,
+      favoriteOnly: true,
+      skipExclude: true,
+    });
+
+    // sm1 のみ: isFavorite=true かつ isSkip!==true
+    expect(result).toHaveLength(1);
+    expect(result[0].videoId).toBe('sm1');
+    // sm3（設定なし）は favoriteOnly フィルタで除外される（これは正しい挙動）
+    const videoIds = result.map((v) => v.videoId);
+    expect(videoIds).not.toContain('sm2');
+    expect(videoIds).not.toContain('sm3');
+  });
+
   it('maxCount が 1 の場合は 1件返す', async () => {
     const settings = createSettings(150);
     mockQuery(settings);
