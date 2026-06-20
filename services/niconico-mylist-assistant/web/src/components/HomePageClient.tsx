@@ -78,7 +78,7 @@ export default function HomePageClient({
               ようこそ、{userName} さん
             </Typography>
             <Button asChild variant="solid" color="primary">
-              <Link href="/register">マイリスト登録</Link>
+              <Link href="/mylist/register">マイリスト登録</Link>
             </Button>
             <Button asChild variant="outline" color="primary">
               <Link href="/import">動画インポート</Link>
