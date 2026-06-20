@@ -85,7 +85,7 @@ function formatDate(epochMs: number | undefined): string {
  *
  * 常時表示は状態のみのコンパクト表示（1 行）。
  * 「セッション管理」ボタンでダイアログを開き、
- * user_session の設定/更新・削除・取得手順ガイドを提供する。
+ * user_session の設定/更新・削除を行う（取得手順は入力欄の注記で案内）。
  * 登録ページ上の独立コンポーネントとして配置する。
  */
 export default function NiconicoSessionManager({ onStatusChange }: NiconicoSessionManagerProps) {
@@ -155,6 +155,11 @@ export default function NiconicoSessionManager({ onStatusChange }: NiconicoSessi
    */
   const handleCloseDialog = () => {
     setDialogOpen(false);
+    // 閉じる際に一時状態（入力値・成功/エラー）をリセットする
+    setUserSession('');
+    setSaveError(null);
+    setSaveSuccess(false);
+    setDeleteError(null);
   };
 
   /**
