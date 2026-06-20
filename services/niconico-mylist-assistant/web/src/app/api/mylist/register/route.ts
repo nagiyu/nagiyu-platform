@@ -19,10 +19,8 @@ interface RegisterMylistRequest {
   favoriteOnly?: boolean;
   excludeSkip?: boolean;
   mylistName: string;
-  niconicoAccount: {
-    email: string;
-    password: string;
-  };
+  /** ニコニコ動画の user_session クッキー値 */
+  userSession: string;
   pushSubscription?: {
     endpoint: string;
     keys: {
@@ -162,32 +160,22 @@ export async function POST(
       );
     }
 
-    // バリデーション: niconicoAccount
-    if (!body.niconicoAccount) {
+    // バリデーション: userSession
+    if (!body.userSession) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.NICONICO_ACCOUNT_REQUIRED,
+          message: ERROR_MESSAGES.USER_SESSION_REQUIRED,
         },
         { status: 400 }
       );
     }
 
-    if (!body.niconicoAccount.email) {
+    if (typeof body.userSession !== 'string') {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.NICONICO_EMAIL_REQUIRED,
-        },
-        { status: 400 }
-      );
-    }
-
-    if (!body.niconicoAccount.password) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.NICONICO_PASSWORD_REQUIRED,
+          message: ERROR_MESSAGES.USER_SESSION_MUST_BE_STRING,
         },
         { status: 400 }
       );
@@ -241,23 +229,23 @@ export async function POST(
     const jobName = `niconico-mylist-${session.user.userId}-${Date.now()}`;
     const videoIds = selectedVideos.map((video) => video.videoId);
 
-    // パスワードの暗号化
+    // user_session の暗号化
     // AES-256-GCM で暗号化し、Batch ジョブに安全に渡す
     const cryptoConfig: CryptoConfig = {
       secretName: ENCRYPTION_SECRET_NAME,
       region: AWS_REGION_FOR_SDK,
     };
 
-    let encryptedPasswordJson: string;
+    let encryptedUserSessionJson: string;
     try {
-      const encryptedData = await encrypt(body.niconicoAccount.password, cryptoConfig);
-      encryptedPasswordJson = JSON.stringify(encryptedData);
+      const encryptedData = await encrypt(body.userSession, cryptoConfig);
+      encryptedUserSessionJson = JSON.stringify(encryptedData);
     } catch (error) {
-      console.error('パスワード暗号化エラー:', error);
+      console.error('user_session 暗号化エラー:', error);
       await reportErrorEvent({
         serviceId: 'niconico-mylist-assistant',
         severity: 'error',
-        title: 'パスワード暗号化エラー',
+        title: 'user_session 暗号化エラー',
         message: toErrorMessage(error),
         context: {
           userId: session.user.userId,
@@ -267,7 +255,7 @@ export async function POST(
       return NextResponse.json(
         {
           error: 'ENCRYPTION_ERROR',
-          message: ERROR_MESSAGES.PASSWORD_ENCRYPTION_FAILED,
+          message: ERROR_MESSAGES.USER_SESSION_ENCRYPTION_FAILED,
           details: [toErrorMessage(error)],
         },
         { status: 500 }
@@ -284,8 +272,7 @@ export async function POST(
             { name: 'USER_ID', value: session.user.userId },
             { name: 'VIDEO_IDS', value: JSON.stringify(videoIds) },
             { name: 'MYLIST_NAME', value: body.mylistName },
-            { name: 'NICONICO_EMAIL', value: body.niconicoAccount.email },
-            { name: 'ENCRYPTED_PASSWORD', value: encryptedPasswordJson },
+            { name: 'ENCRYPTED_USER_SESSION', value: encryptedUserSessionJson },
             { name: 'DYNAMODB_TABLE_NAME', value: DYNAMODB_TABLE_NAME },
             { name: 'AWS_REGION', value: AWS_REGION },
             // Note: BATCH_JOB_ID will be added after job submission

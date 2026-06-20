@@ -10,10 +10,8 @@ export interface MylistRegistrationJobParams {
   jobId: string;
   /** ユーザーID */
   userId: string;
-  /** ニコニコ動画のメールアドレス */
-  niconicoEmail: string;
-  /** ニコニコ動画のパスワード（暗号化済み） */
-  encryptedPassword: string;
+  /** ニコニコ動画の user_session クッキー値（暗号化済み） */
+  encryptedUserSession: string;
   /** マイリスト名 */
   mylistName: string;
   /** 登録する動画IDのリスト */
@@ -30,14 +28,4 @@ export interface MylistRegistrationResult {
   failedVideoIds: string[];
   /** エラーメッセージ（失敗時） */
   errorMessage?: string;
-  /** 二段階認証が必要だったか */
-  required2FA?: boolean;
-}
-
-/**
- * ログイン結果
- */
-export interface LoginResult {
-  /** 二段階認証が必要か */
-  requires2FA: boolean;
 }
