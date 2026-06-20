@@ -4,6 +4,8 @@
 
 /**
  * マイリスト登録フォームの入力データ
+ *
+ * Phase 2: userSession フィールドを撤去。セッションはサーバー側保存済みのものを使用する。
  */
 export interface MylistRegisterFormData {
   /** 登録する最大動画数（1-100） */
@@ -14,10 +16,6 @@ export interface MylistRegisterFormData {
   excludeSkip: boolean;
   /** マイリスト名 */
   mylistName: string;
-  /** ニコニコアカウントのメールアドレス */
-  niconicoEmail: string;
-  /** ニコニコアカウントのパスワード */
-  niconicoPassword: string;
 }
 
 /**
@@ -28,22 +26,18 @@ export const DEFAULT_MYLIST_REGISTER_FORM_DATA: MylistRegisterFormData = {
   favoriteOnly: false,
   excludeSkip: true,
   mylistName: '',
-  niconicoEmail: '',
-  niconicoPassword: '',
 };
 
 /**
- * マイリスト登録APIリクエスト
+ * マイリスト登録 API リクエスト
+ *
+ * Phase 2: userSession フィールドを撤去。
  */
 export interface MylistRegisterRequest {
   maxCount: number;
   favoriteOnly?: boolean;
   excludeSkip?: boolean;
   mylistName: string;
-  niconicoAccount: {
-    email: string;
-    password: string;
-  };
   pushSubscription?: {
     endpoint: string;
     keys: {
@@ -54,9 +48,23 @@ export interface MylistRegisterRequest {
 }
 
 /**
- * マイリスト登録APIレスポンス
+ * マイリスト登録 API レスポンス
  */
 export interface MylistRegisterResponse {
   jobId: string;
   selectedCount: number;
+}
+
+/**
+ * ニコニコセッション状態
+ */
+export interface NiconicoSessionStatus {
+  /** セッションが保存されているか */
+  hasSession: boolean;
+  /** セッションの有効性（保存セッションがない場合は undefined） */
+  validity: 'valid' | 'invalid' | 'unknown' | undefined;
+  /** セッション取得日時（epoch ms） */
+  acquiredAt: number | undefined;
+  /** セッション推定有効期限（epoch ms） */
+  estimatedExpiresAt: number | undefined;
 }

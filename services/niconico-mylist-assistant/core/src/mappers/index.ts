@@ -5,3 +5,4 @@
 export { VideoMapper } from './video.mapper.js';
 export { UserSettingMapper } from './user-setting.mapper.js';
 export { BatchJobMapper } from './batch-job.mapper.js';
+export { NiconicoCredentialMapper } from './niconico-credential.mapper.js';

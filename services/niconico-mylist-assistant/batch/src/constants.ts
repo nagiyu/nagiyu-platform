@@ -6,12 +6,9 @@
  * エラーメッセージ定数（日本語）
  */
 export const ERROR_MESSAGES = {
-  // ログイン関連
-  LOGIN_FAILED: 'ニコニコ動画へのログインに失敗しました',
-  LOGIN_TIMEOUT: 'ログイン処理がタイムアウトしました',
-  INVALID_CREDENTIALS: 'メールアドレスまたはパスワードが正しくありません',
-  TWO_FACTOR_AUTH_REQUIRED: '二段階認証が必要です',
-  TWO_FACTOR_AUTH_TIMEOUT: '二段階認証コードの入力待機がタイムアウトしました',
+  // セッション関連
+  SESSION_INVALID: 'user_session が無効です。再取得してください',
+  SESSION_COOKIE_INJECTION_FAILED: 'user_session クッキーの注入に失敗しました',
 
   // マイリスト操作関連
   MYLIST_CREATE_FAILED: 'マイリストの作成に失敗しました',
@@ -23,7 +20,7 @@ export const ERROR_MESSAGES = {
   INVALID_PARAMETERS: 'ジョブパラメータが不正です',
 
   // 暗号化関連
-  DECRYPTION_FAILED: 'パスワードの復号化に失敗しました',
+  DECRYPTION_FAILED: 'user_session の復号化に失敗しました',
 
   // その他
   BROWSER_LAUNCH_FAILED: 'ブラウザの起動に失敗しました',

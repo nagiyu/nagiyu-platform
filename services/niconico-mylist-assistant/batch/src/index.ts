@@ -4,23 +4,20 @@
  * ニコニコ動画マイリスト自動登録バッチジョブ
  */
 
-import { decrypt, updateBatchJob, getBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
+import {
+  decrypt,
+  updateBatchJob,
+  getBatchJob,
+  validateUserSession,
+} from '@nagiyu/niconico-mylist-assistant-core';
 import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
 import { reportErrorEvent } from '@nagiyu/aws';
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import { executeMylistRegistration } from './playwright-automation.js';
-import {
-  createBatchCompletionPayload,
-  createTwoFactorAuthRequiredPayload,
-} from './lib/web-push-client.js';
+import { createBatchCompletionPayload } from './lib/web-push-client.js';
 import { determineBatchJobStatus } from './lib/job-status.js';
-import { formatLocalDateTime, getTimestamp, sleep, toErrorMessage } from '@nagiyu/common';
-import {
-  DEFAULT_MYLIST_NAME_PREFIX,
-  ERROR_MESSAGES,
-  TIMEOUTS,
-  TWO_FACTOR_AUTH_POLL_INTERVAL,
-} from './constants.js';
+import { formatLocalDateTime, getTimestamp, toErrorMessage } from '@nagiyu/common';
+import { DEFAULT_MYLIST_NAME_PREFIX, ERROR_MESSAGES } from './constants.js';
 import { MylistRegistrationJobParams } from './types.js';
 
 /**
@@ -56,8 +53,7 @@ function readEnvironmentVariables(): {
  */
 function getJobParameters(): MylistRegistrationJobParams {
   const userId = process.env.USER_ID || '';
-  const niconicoEmail = process.env.NICONICO_EMAIL || '';
-  const encryptedPassword = process.env.ENCRYPTED_PASSWORD || '';
+  const encryptedUserSession = process.env.ENCRYPTED_USER_SESSION || '';
   const mylistName =
     process.env.MYLIST_NAME || `${DEFAULT_MYLIST_NAME_PREFIX} ${formatLocalDateTime()}`;
   const videoIdsJson = process.env.VIDEO_IDS || '[]';
@@ -71,7 +67,7 @@ function getJobParameters(): MylistRegistrationJobParams {
     throw new Error(`${ERROR_MESSAGES.INVALID_PARAMETERS}: VIDEO_IDS`);
   }
 
-  if (!userId || !niconicoEmail || !encryptedPassword || videoIds.length === 0) {
+  if (!userId || !encryptedUserSession || videoIds.length === 0) {
     throw new Error(ERROR_MESSAGES.INVALID_PARAMETERS);
   }
 
@@ -82,7 +78,6 @@ function getJobParameters(): MylistRegistrationJobParams {
   console.log('=== ジョブパラメータ ===');
   console.log(`ジョブID: ${jobId || '(not set)'}`);
   console.log(`ユーザーID: ${userId}`);
-  console.log(`メールアドレス: ${niconicoEmail}`);
   console.log(`マイリスト名: ${mylistName}`);
   console.log(`動画数: ${videoIds.length}`);
   console.log('========================');
@@ -90,22 +85,21 @@ function getJobParameters(): MylistRegistrationJobParams {
   return {
     jobId,
     userId,
-    niconicoEmail,
-    encryptedPassword,
+    encryptedUserSession,
     mylistName,
     videoIds,
   };
 }
 
 /**
- * パスワードを復号化する
+ * user_session を復号化する
  *
- * @param encryptedData - 暗号化されたパスワードデータ（JSON文字列）
+ * @param encryptedData - 暗号化された user_session データ（JSON文字列）
  * @param config - 暗号化設定
- * @returns 復号化されたパスワード
+ * @returns 復号化された user_session 値
  */
-async function decryptPassword(encryptedData: string, config: CryptoConfig): Promise<string> {
-  console.log('パスワードを復号化中...');
+async function decryptUserSession(encryptedData: string, config: CryptoConfig): Promise<string> {
+  console.log('user_session を復号化中...');
 
   try {
     // JSON文字列をパースして EncryptedData オブジェクトを取得
@@ -114,21 +108,21 @@ async function decryptPassword(encryptedData: string, config: CryptoConfig): Pro
       encrypted = JSON.parse(encryptedData);
     } catch (parseError) {
       throw new Error(
-        `暗号化パスワードのJSON形式が不正です: ${parseError instanceof Error ? parseError.message : String(parseError)}`
+        `暗号化 user_session の JSON 形式が不正です: ${parseError instanceof Error ? parseError.message : String(parseError)}`
       );
     }
 
     // core/crypto.ts の decrypt 関数を使用して復号化
-    const password = await decrypt(encrypted, config);
+    const userSession = await decrypt(encrypted, config);
 
-    console.log('パスワードの復号化に成功しました');
-    return password;
+    console.log('user_session の復号化に成功しました');
+    return userSession;
   } catch (error) {
-    console.error('パスワードの復号化に失敗しました:', error);
+    console.error('user_session の復号化に失敗しました:', error);
     await reportErrorEvent({
       serviceId: 'niconico-mylist-assistant',
       severity: 'critical',
-      title: 'パスワード復号化失敗',
+      title: 'user_session 復号化失敗',
       message: toErrorMessage(error),
       context: {
         error: toErrorMessage(error),
@@ -196,104 +190,78 @@ async function main() {
       region: env.awsRegion,
     };
 
-    // パスワードの復号化
-    const password = await decryptPassword(params.encryptedPassword, cryptoConfig);
+    // user_session の復号化
+    const userSession = await decryptUserSession(params.encryptedUserSession, cryptoConfig);
+
+    // user_session の有効性を検証（実行直前）
+    console.log('user_session の有効性を検証中...');
+    const sessionValidationResult = await validateUserSession(userSession);
+
+    if (sessionValidationResult === 'invalid') {
+      // セッションが無効の場合は即失敗
+      const invalidMessage = ERROR_MESSAGES.SESSION_INVALID;
+      console.error(invalidMessage);
+
+      await reportErrorEvent({
+        serviceId: 'niconico-mylist-assistant',
+        severity: 'error',
+        title: 'user_session 無効',
+        message: invalidMessage,
+        context: {
+          jobId: params.jobId,
+          userId: params.userId,
+        },
+      });
+
+      // ジョブステータスを FAILED に更新
+      if (params.jobId) {
+        try {
+          await updateBatchJob(params.jobId, params.userId, {
+            status: 'FAILED',
+            result: {
+              registeredCount: 0,
+              failedCount: 0,
+              totalCount: 0,
+              errorMessage: invalidMessage,
+            },
+            completedAt: Date.now(),
+          });
+        } catch (updateError) {
+          console.error('ジョブステータス更新に失敗しました (FAILED):', updateError);
+        }
+      }
+
+      // Push 通知で失敗を通知
+      if (pushSubscription && params.jobId) {
+        try {
+          const notificationPayload = createBatchCompletionPayload(params.jobId, 0, 0, 0);
+          await sendWebPushNotification(pushSubscription, notificationPayload, getVapidConfig());
+        } catch (notifyError) {
+          console.error('失敗通知の送信中にエラーが発生しました:', notifyError);
+        }
+      }
+
+      process.exit(1);
+    } else if (sessionValidationResult === 'unknown') {
+      // 判定不能の場合はログのみで続行（ニコニコ側の一時障害の可能性）
+      console.warn(
+        'user_session の検証で判定不能 (unknown) でした。ニコニコ側の一時障害の可能性があるため処理を続行します。'
+      );
+    } else {
+      console.log('user_session の検証に成功しました（有効）');
+    }
 
     console.log('');
     console.log('Playwright自動化処理を開始します...');
     console.log('');
 
-    // 二段階認証コード取得コールバック
-    const waitFor2FA = async (): Promise<string> => {
-      console.log('二段階認証が必要です。Web からコード入力を待機しています...');
-
-      // ジョブステータスを WAITING_FOR_2FA に更新
-      if (params?.jobId && params?.userId) {
-        try {
-          await updateBatchJob(params.jobId, params.userId, {
-            status: 'WAITING_FOR_2FA',
-          });
-          console.log('ジョブステータスを WAITING_FOR_2FA に更新しました');
-        } catch (error) {
-          console.error('ジョブステータス更新に失敗しました (WAITING_FOR_2FA):', error);
-          throw error;
-        }
-      }
-
-      // Push 通知を送信（二段階認証が必要であることを通知）
-      if (pushSubscription && params?.jobId) {
-        try {
-          console.log('二段階認証待機通知を送信中...');
-          const notificationPayload = createTwoFactorAuthRequiredPayload(params.jobId);
-          const notificationSent = await sendWebPushNotification(
-            pushSubscription,
-            notificationPayload,
-            getVapidConfig()
-          );
-          if (notificationSent) {
-            console.log('二段階認証待機通知を送信しました');
-          } else {
-            console.warn('二段階認証待機通知の送信に失敗しました');
-          }
-        } catch (error) {
-          console.error('二段階認証待機通知の送信中にエラーが発生しました:', error);
-          // 通知送信の失敗は処理の継続を妨げない
-        }
-      } else {
-        console.log('Push サブスクリプション情報がないため、二段階認証待機通知をスキップします');
-      }
-
-      // DynamoDB をポーリングして二段階認証コードを取得
-      const startTime = Date.now();
-      const timeout = TIMEOUTS.TWO_FACTOR_AUTH_WAIT;
-
-      while (Date.now() - startTime < timeout) {
-        // 定期的にポーリング
-        await sleep(TWO_FACTOR_AUTH_POLL_INTERVAL);
-
-        try {
-          const job = await import('@nagiyu/niconico-mylist-assistant-core').then((m) =>
-            m.getBatchJob(params!.jobId, params!.userId)
-          );
-
-          if (job?.twoFactorAuthCode) {
-            console.log('二段階認証コードを取得しました');
-
-            // コードを取得したら、ステータスを RUNNING に戻す
-            await updateBatchJob(params!.jobId, params!.userId, {
-              status: 'RUNNING',
-              twoFactorAuthCode: undefined, // コードをクリア
-            });
-
-            return job.twoFactorAuthCode;
-          }
-        } catch (error) {
-          console.error('バッチジョブの取得に失敗:', error);
-        }
-
-        console.log('二段階認証コード待機中...');
-      }
-
-      throw new Error(ERROR_MESSAGES.TWO_FACTOR_AUTH_TIMEOUT);
-    };
-
     // マイリスト登録処理の実行
-    const result = await executeMylistRegistration(
-      params.niconicoEmail,
-      password,
-      params.mylistName,
-      params.videoIds,
-      waitFor2FA
-    );
+    const result = await executeMylistRegistration(userSession, params.mylistName, params.videoIds);
 
     console.log('');
     console.log('=== 登録結果 ===');
     console.log(`成功: ${result.successVideoIds.length}件`);
     console.log(`失敗: ${result.failedVideoIds.length}件`);
-
-    if (result.required2FA) {
-      console.log('二段階認証: 必要でした');
-    }
 
     if (result.failedVideoIds.length > 0) {
       console.log('失敗した動画ID:', result.failedVideoIds.join(', '));
