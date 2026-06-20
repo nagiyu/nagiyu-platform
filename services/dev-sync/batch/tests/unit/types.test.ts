@@ -78,6 +78,47 @@ describe('JobConfigSchema バリデーション', () => {
       const result = JobConfigSchema.safeParse(input);
       expect(result.success).toBe(true);
     });
+
+    it('gsiWindow 戦略（skPrefix + dateGranularity=date 付き）を受け付ける', () => {
+      const input = {
+        sourceTable: 'nagiyu-test-prod',
+        destTable: 'nagiyu-test-dev',
+        strategy: 'gsiWindow',
+        delete: 'off',
+        gsi: {
+          indexName: 'GSI4',
+          pkAttributeName: 'GSI4PK',
+          pkValue: 'DAILY_SUMMARY',
+          skAttributeName: 'GSI4SK',
+          windowDays: 14,
+          skPrefix: 'DATE#',
+          dateGranularity: 'date',
+        },
+      };
+
+      const result = JobConfigSchema.safeParse(input);
+      expect(result.success).toBe(true);
+    });
+
+    it('gsiWindow 戦略（dateGranularity=datetime を明示指定）を受け付ける', () => {
+      const input = {
+        sourceTable: 'nagiyu-test-prod',
+        destTable: 'nagiyu-test-dev',
+        strategy: 'gsiWindow',
+        delete: 'off',
+        gsi: {
+          indexName: 'GSI1',
+          pkAttributeName: 'GSI1PK',
+          pkValue: 'ALERT',
+          skAttributeName: 'GSI1SK',
+          windowDays: 7,
+          dateGranularity: 'datetime',
+        },
+      };
+
+      const result = JobConfigSchema.safeParse(input);
+      expect(result.success).toBe(true);
+    });
   });
 
   describe('無効な入力', () => {
@@ -153,6 +194,26 @@ describe('JobConfigSchema バリデーション', () => {
           pkValue: 'ALERT',
           skAttributeName: 'GSI1SK',
           windowDays: 0, // 正の整数のみ許可
+        },
+      };
+
+      const result = JobConfigSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+
+    it('gsi.dateGranularity が不正な値の場合はエラー', () => {
+      const input = {
+        sourceTable: 'nagiyu-test-prod',
+        destTable: 'nagiyu-test-dev',
+        strategy: 'gsiWindow',
+        delete: 'off',
+        gsi: {
+          indexName: 'GSI1',
+          pkAttributeName: 'GSI1PK',
+          pkValue: 'ALERT',
+          skAttributeName: 'GSI1SK',
+          windowDays: 7,
+          dateGranularity: 'monthly', // date / datetime 以外
         },
       };
 

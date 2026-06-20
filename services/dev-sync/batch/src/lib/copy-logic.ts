@@ -125,12 +125,24 @@ export async function runGsiWindowCopy(
     throw new Error(ERROR_MESSAGES.GSI_CONFIG_REQUIRED);
   }
 
-  const { indexName, pkAttributeName, pkValue, skAttributeName, windowDays } = config.gsi;
+  const {
+    indexName,
+    pkAttributeName,
+    pkValue,
+    skAttributeName,
+    windowDays,
+    skPrefix,
+    dateGranularity,
+  } = config.gsi;
 
-  // 直近 N 日の下限日時（ISO 8601）
+  // 直近 N 日の下限日付文字列を構築する
+  // dateGranularity='date' の場合は日付のみ（YYYY-MM-DD）、既定は ISO 8601 日時形式
   const windowFrom = new Date(now);
   windowFrom.setDate(windowFrom.getDate() - windowDays);
-  const skFrom = windowFrom.toISOString();
+  const granularity = dateGranularity ?? 'datetime';
+  const dateStr =
+    granularity === 'date' ? windowFrom.toISOString().slice(0, 10) : windowFrom.toISOString();
+  const skFrom = `${skPrefix ?? ''}${dateStr}`;
 
   let scanned = 0;
   let upserted = 0;

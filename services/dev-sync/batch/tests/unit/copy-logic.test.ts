@@ -336,6 +336,117 @@ describe('gsiWindow 戦略', () => {
       expect(devStore.size()).toBe(0);
     });
   });
+
+  describe('後方互換: skPrefix/dateGranularity 未指定', () => {
+    it('skPrefix・dateGranularity を指定しない場合、skFrom が ISO 8601 日時形式（...T...Z）になる', async () => {
+      // baseGsiConfig は skPrefix・dateGranularity なし（後方互換設定）
+      // NOW=2026-06-15T00:00:00.000Z、windowDays=7 → ウィンドウ下限: 2026-06-08T00:00:00.000Z
+      prodStore.put(makeAlertItem('2026-06-08T00:00:00.000Z')); // ちょうど下限（含む）
+      prodStore.put(makeAlertItem('2026-06-07T23:59:59.999Z')); // 下限より 1 ミリ秒前（除外）
+
+      const result = await runGsiWindowCopy(prodAdapter, devAdapter, baseGsiConfig, NOW);
+
+      expect(devStore.size()).toBe(1);
+      expect(devStore.get('ALERT#2026-06-08T00:00:00.000Z', 'META')).toBeDefined();
+      expect(devStore.get('ALERT#2026-06-07T23:59:59.999Z', 'META')).toBeUndefined();
+      expect(result.upserted).toBe(1);
+    });
+  });
+
+  describe('新形式: skPrefix + dateGranularity=date（DATE# 形式 GSI 対応）', () => {
+    // StockTracer の DailySummary の GSI4SK は `DATE#{YYYY-MM-DD}#{tickerId}` 形式
+    const NOW_DATE = new Date('2026-06-20T00:00:00.000Z');
+    const WINDOW_DAYS = 14;
+    // ウィンドウ下限: 2026-06-20 - 14日 = 2026-06-06
+
+    const dateGsiConfig: JobConfig = {
+      sourceTable: 'nagiyu-test-prod',
+      destTable: 'nagiyu-test-dev',
+      strategy: 'gsiWindow',
+      delete: 'off',
+      gsi: {
+        indexName: 'GSI4',
+        pkAttributeName: 'GSI4PK',
+        pkValue: 'DAILY_SUMMARY',
+        skAttributeName: 'GSI4SK',
+        windowDays: WINDOW_DAYS,
+        skPrefix: 'DATE#',
+        dateGranularity: 'date',
+      },
+    };
+
+    function makeDailySummaryItem(dateStr: string, tickerId: string): DynamoDBItem {
+      const sk = `DATE#${dateStr}#${tickerId}`;
+      return makeItem(`DAILY#${tickerId}`, `DATE#${dateStr}`, {
+        GSI4PK: 'DAILY_SUMMARY',
+        GSI4SK: sk,
+      });
+    }
+
+    it('skFrom が DATE#2026-06-06 形式になり、ウィンドウ内アイテムがコピーされる', async () => {
+      // ウィンドウ内（2026-06-06 以降）
+      prodStore.put(makeDailySummaryItem('2026-06-06', 'AAPL')); // 境界値（含む）
+      prodStore.put(makeDailySummaryItem('2026-06-10', 'GOOGL'));
+      prodStore.put(makeDailySummaryItem('2026-06-19', 'MSFT'));
+      // ウィンドウ外（2026-06-05 以前）
+      prodStore.put(makeDailySummaryItem('2026-06-05', 'XXX'));
+
+      const result = await runGsiWindowCopy(prodAdapter, devAdapter, dateGsiConfig, NOW_DATE);
+
+      expect(result.upserted).toBe(3);
+      expect(devStore.size()).toBe(3);
+      // 境界値: DATE#2026-06-06 は含まれる
+      expect(devStore.get('DAILY#AAPL', 'DATE#2026-06-06')).toBeDefined();
+      expect(devStore.get('DAILY#GOOGL', 'DATE#2026-06-10')).toBeDefined();
+      expect(devStore.get('DAILY#MSFT', 'DATE#2026-06-19')).toBeDefined();
+      // ウィンドウ外は除外される
+      expect(devStore.get('DAILY#XXX', 'DATE#2026-06-05')).toBeUndefined();
+    });
+
+    it('境界値: DATE#2026-06-05#XXX は除外され DATE#2026-06-06#AAPL は含まれる', async () => {
+      prodStore.put(makeDailySummaryItem('2026-06-06', 'AAPL')); // 含まれる
+      prodStore.put(makeDailySummaryItem('2026-06-05', 'XXX')); // 除外される
+
+      const result = await runGsiWindowCopy(prodAdapter, devAdapter, dateGsiConfig, NOW_DATE);
+
+      expect(result.upserted).toBe(1);
+      expect(devStore.get('DAILY#AAPL', 'DATE#2026-06-06')).toBeDefined();
+      expect(devStore.get('DAILY#XXX', 'DATE#2026-06-05')).toBeUndefined();
+    });
+
+    it('skPrefix のみ指定（dateGranularity 省略）した場合、ISO 8601 日時形式にプレフィックスが付く', async () => {
+      // dateGranularity 未指定 → 'datetime' が既定
+      // skFrom = 'PREFIX#2026-06-06T00:00:00.000Z'
+      const config: JobConfig = {
+        ...dateGsiConfig,
+        gsi: {
+          ...dateGsiConfig.gsi!,
+          skPrefix: 'PREFIX#',
+          dateGranularity: undefined,
+        },
+      };
+
+      // PREFIX#2026-06-06T00:00:00.000Z 以上のアイテムが対象
+      prodStore.put(
+        makeItem('ITEM#1', 'META', {
+          GSI4PK: 'DAILY_SUMMARY',
+          GSI4SK: 'PREFIX#2026-06-06T00:00:00.000Z', // 下限ちょうど（含む）
+        })
+      );
+      prodStore.put(
+        makeItem('ITEM#2', 'META', {
+          GSI4PK: 'DAILY_SUMMARY',
+          GSI4SK: 'PREFIX#2026-06-05T23:59:59.999Z', // 下限より前（除外）
+        })
+      );
+
+      const result = await runGsiWindowCopy(prodAdapter, devAdapter, config, NOW_DATE);
+
+      expect(result.upserted).toBe(1);
+      expect(devStore.get('ITEM#1', 'META')).toBeDefined();
+      expect(devStore.get('ITEM#2', 'META')).toBeUndefined();
+    });
+  });
 });
 
 describe('runCopy（汎用エントリポイント）', () => {

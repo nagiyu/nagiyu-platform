@@ -61,10 +61,28 @@ export interface GsiWindowConfig {
   pkAttributeName: string;
   /** GSI パーティションキーの値 */
   pkValue: string;
-  /** GSI ソートキーの属性名（ISO 8601 日時文字列を保持する属性） */
+  /**
+   * GSI ソートキーの属性名
+   *
+   * ソートキーの値形式は skPrefix・dateGranularity の組み合わせで決まる。
+   * 例: ISO 8601 日時文字列（既定）、`DATE#{YYYY-MM-DD}#{tickerId}` 形式（skPrefix='DATE#'・dateGranularity='date'）
+   */
   skAttributeName: string;
   /** 直近何日分をコピーするか */
   windowDays: number;
+  /**
+   * ソートキー下限の先頭に付与する固定プレフィックス（省略時は付与なし）
+   *
+   * 例: `'DATE#'` → ウィンドウ下限が `DATE#2026-06-06` 形式になる
+   */
+  skPrefix?: string;
+  /**
+   * ウィンドウ下限日付の整形粒度（省略時は 'datetime'）
+   *
+   * - `'datetime'`: ISO 8601 日時形式 `YYYY-MM-DDTHH:mm:ss.sssZ`（既定・後方互換）
+   * - `'date'`: 日付のみ `YYYY-MM-DD`
+   */
+  dateGranularity?: 'date' | 'datetime';
 }
 
 /**

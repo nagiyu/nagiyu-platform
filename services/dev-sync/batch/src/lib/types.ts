@@ -31,10 +31,29 @@ export const GsiWindowConfigSchema = z.object({
   pkAttributeName: z.string().min(1),
   /** GSI パーティションキーの値 */
   pkValue: z.string().min(1),
-  /** GSI ソートキーの属性名（日時を表す属性、ISO 8601 文字列） */
+  /**
+   * GSI ソートキーの属性名
+   *
+   * ソートキーの値形式は skPrefix・dateGranularity の組み合わせで決まる。
+   * skPrefix/dateGranularity を省略した場合は既定の ISO 8601 日時文字列形式として扱う。
+   * 例: `DATE#{YYYY-MM-DD}#{tickerId}` 形式の場合は skPrefix='DATE#'・dateGranularity='date' を指定する。
+   */
   skAttributeName: z.string().min(1),
   /** 直近何日分をコピーするか */
   windowDays: z.number().int().positive(),
+  /**
+   * ソートキー下限の先頭に付与する固定プレフィックス（省略時は付与なし）
+   *
+   * 例: `'DATE#'` → ウィンドウ下限が `DATE#2026-06-06` 形式になる
+   */
+  skPrefix: z.string().optional(),
+  /**
+   * ウィンドウ下限日付の整形粒度（省略時は 'datetime'）
+   *
+   * - `'datetime'`: ISO 8601 日時形式 `YYYY-MM-DDTHH:mm:ss.sssZ`（既定・後方互換）
+   * - `'date'`: 日付のみ `YYYY-MM-DD`
+   */
+  dateGranularity: z.enum(['date', 'datetime']).optional(),
 });
 
 export type GsiWindowConfig = z.infer<typeof GsiWindowConfigSchema>;
