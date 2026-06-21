@@ -16,11 +16,12 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import { Button, ErrorAlert, Select } from '@nagiyu/ui';
+import { Button, Chip, ErrorAlert, Select } from '@nagiyu/ui';
 import { useSession } from 'next-auth/react';
 import { hasPermission } from '@nagiyu/common';
 import type { SummariesResponse, TickerSummary } from '@/types/stock';
-import { resolveInvestmentSignalLabel } from './ai-analysis';
+import { resolveInvestmentSignalColor, resolveInvestmentSignalLabel } from './ai-analysis';
+import { formatConfidence, formatPredictedReturn } from '../../lib/ai-analysis-format';
 import SummaryDetailDialog from '../../components/SummaryDetailDialog';
 
 const ERROR_MESSAGES = {
@@ -201,7 +202,7 @@ export default function SummariesPage() {
                   <TableContainer component={Paper} variant="outlined" sx={{ overflowX: 'auto' }}>
                     <Table
                       size="small"
-                      sx={{ minWidth: 760, '& .MuiTableCell-root': { whiteSpace: 'nowrap' } }}
+                      sx={{ minWidth: 940, '& .MuiTableCell-root': { whiteSpace: 'nowrap' } }}
                     >
                       <TableHead>
                         <TableRow>
@@ -209,6 +210,8 @@ export default function SummariesPage() {
                           <TableCell>銘柄名</TableCell>
                           <TableCell align="center">保有可否</TableCell>
                           <TableCell align="right">投資判断</TableCell>
+                          <TableCell align="right">予測リターン</TableCell>
+                          <TableCell align="right">確信度</TableCell>
                           <TableCell align="right">買いシグナル</TableCell>
                           <TableCell align="right">売りシグナル</TableCell>
                           <TableCell align="right">買いアラート数</TableCell>
@@ -230,9 +233,37 @@ export default function SummariesPage() {
                               align="right"
                               data-testid={`investment-judgment-${summary.tickerId}`}
                             >
-                              {summary.aiAnalysisResult?.investmentJudgment?.signal
-                                ? resolveInvestmentSignalLabel(
+                              {summary.aiAnalysisResult?.investmentJudgment?.signal ? (
+                                <Chip
+                                  color={resolveInvestmentSignalColor(
                                     summary.aiAnalysisResult.investmentJudgment.signal
+                                  )}
+                                  size="sm"
+                                >
+                                  {resolveInvestmentSignalLabel(
+                                    summary.aiAnalysisResult.investmentJudgment.signal
+                                  )}
+                                </Chip>
+                              ) : (
+                                UI_DISPLAY_VALUES.NOT_AVAILABLE
+                              )}
+                            </TableCell>
+                            <TableCell
+                              align="right"
+                              data-testid={`predicted-return-${summary.tickerId}`}
+                            >
+                              {typeof summary.aiAnalysisResult?.investmentJudgment
+                                ?.predictedReturn === 'number'
+                                ? formatPredictedReturn(
+                                    summary.aiAnalysisResult.investmentJudgment.predictedReturn
+                                  )
+                                : UI_DISPLAY_VALUES.NOT_AVAILABLE}
+                            </TableCell>
+                            <TableCell align="right" data-testid={`confidence-${summary.tickerId}`}>
+                              {typeof summary.aiAnalysisResult?.investmentJudgment?.confidence ===
+                              'number'
+                                ? formatConfidence(
+                                    summary.aiAnalysisResult.investmentJudgment.confidence
                                   )
                                 : UI_DISPLAY_VALUES.NOT_AVAILABLE}
                             </TableCell>
