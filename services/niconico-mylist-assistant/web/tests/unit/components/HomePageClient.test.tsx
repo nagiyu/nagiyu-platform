@@ -182,6 +182,38 @@ describe('HomePageClient ログインリンク', () => {
   });
 });
 
+describe('HomePageClient ナビゲーションリンク', () => {
+  it('認証済みのとき「マイリスト登録」ボタンが /mylist/register を指す', () => {
+    render(
+      <HomePageClient
+        isAuthenticated={true}
+        userName="テストユーザー"
+        appUrl="https://niconico.nagiyu.com"
+        authUrl="https://auth.nagiyu.com"
+      />
+    );
+
+    // 実ルートは src/app/mylist/register に存在する。
+    // 過去に /register を指しており 404 になっていたため、誤リンクの回帰を防ぐ。
+    const registerLink = screen.getByRole('link', { name: 'マイリスト登録' });
+    expect(registerLink).toHaveAttribute('href', '/mylist/register');
+  });
+
+  it('認証済みのとき「動画インポート」「動画管理」が実ルートを指す', () => {
+    render(
+      <HomePageClient
+        isAuthenticated={true}
+        userName="テストユーザー"
+        appUrl="https://niconico.nagiyu.com"
+        authUrl="https://auth.nagiyu.com"
+      />
+    );
+
+    expect(screen.getByRole('link', { name: '動画インポート' })).toHaveAttribute('href', '/import');
+    expect(screen.getByRole('link', { name: '動画管理' })).toHaveAttribute('href', '/mylist');
+  });
+});
+
 describe('HomePageClient 通知ダイアログ', () => {
   it('通知設定ボタンをクリックするとダイアログが開く', () => {
     render(
