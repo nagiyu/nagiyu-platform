@@ -17,18 +17,13 @@ describe('constants', () => {
       const messages = Object.values(ERROR_MESSAGES);
 
       messages.forEach((message) => {
-        expect(message).toMatch(
-          /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf]/
-        );
+        expect(message).toMatch(/[　-〿぀-ゟ゠-ヿ＀-ﾟ一-龯]/);
       });
     });
 
-    it('ログイン関連のエラーメッセージが定義されている', () => {
-      expect(ERROR_MESSAGES.LOGIN_FAILED).toBeDefined();
-      expect(ERROR_MESSAGES.LOGIN_TIMEOUT).toBeDefined();
-      expect(ERROR_MESSAGES.INVALID_CREDENTIALS).toBeDefined();
-      expect(ERROR_MESSAGES.TWO_FACTOR_AUTH_REQUIRED).toBeDefined();
-      expect(ERROR_MESSAGES.TWO_FACTOR_AUTH_TIMEOUT).toBeDefined();
+    it('セッション関連のエラーメッセージが定義されている', () => {
+      expect(ERROR_MESSAGES.SESSION_INVALID).toBeDefined();
+      expect(ERROR_MESSAGES.SESSION_COOKIE_INJECTION_FAILED).toBeDefined();
     });
 
     it('マイリスト操作関連のエラーメッセージが定義されている', () => {
@@ -53,7 +48,7 @@ describe('constants', () => {
     });
 
     it('エラーメッセージに具体的な内容が含まれる', () => {
-      expect(ERROR_MESSAGES.LOGIN_FAILED).toContain('ログイン');
+      expect(ERROR_MESSAGES.SESSION_INVALID).toContain('user_session');
       expect(ERROR_MESSAGES.MYLIST_CREATE_FAILED).toContain('マイリスト');
       expect(ERROR_MESSAGES.DECRYPTION_FAILED).toContain('復号化');
     });
@@ -66,10 +61,6 @@ describe('constants', () => {
       urls.forEach((url) => {
         expect(url).toMatch(/^https:\/\//);
       });
-    });
-
-    it('ログインURLが正しい', () => {
-      expect(NICONICO_URLS.LOGIN).toBe('https://account.nicovideo.jp/login');
     });
 
     it('マイリストURLが正しい', () => {
@@ -121,10 +112,6 @@ describe('constants', () => {
       });
     });
 
-    it('ログインタイムアウトが30秒である', () => {
-      expect(TIMEOUTS.LOGIN).toBe(30000);
-    });
-
     it('ナビゲーションタイムアウトが30秒である', () => {
       expect(TIMEOUTS.NAVIGATION).toBe(30000);
     });
@@ -133,15 +120,9 @@ describe('constants', () => {
       expect(TIMEOUTS.VIDEO_REGISTRATION).toBe(10000);
     });
 
-    it('二段階認証待機タイムアウトが5分である', () => {
-      expect(TIMEOUTS.TWO_FACTOR_AUTH_WAIT).toBe(300000); // 5分 = 300秒 = 300000ms
-    });
-
     it('タイムアウト値がミリ秒単位で適切である', () => {
       // 最短でも1秒以上であるべき
       expect(TIMEOUTS.VIDEO_REGISTRATION).toBeGreaterThanOrEqual(1000);
-      // 最長でも10分以下であるべき
-      expect(TIMEOUTS.TWO_FACTOR_AUTH_WAIT).toBeLessThanOrEqual(600000);
     });
   });
 
@@ -165,11 +146,6 @@ describe('constants', () => {
       expect(TWO_FACTOR_AUTH_POLL_INTERVAL).toBeGreaterThan(0);
       expect(Number.isInteger(TWO_FACTOR_AUTH_POLL_INTERVAL)).toBe(true);
     });
-
-    it('タイムアウト値より小さい', () => {
-      // ポーリング間隔は二段階認証待機タイムアウトより小さいべきである
-      expect(TWO_FACTOR_AUTH_POLL_INTERVAL).toBeLessThan(TIMEOUTS.TWO_FACTOR_AUTH_WAIT);
-    });
   });
 
   describe('定数の一貫性', () => {
@@ -179,7 +155,7 @@ describe('constants', () => {
     });
 
     it('全ての時間関連定数がミリ秒単位である', () => {
-      // ミリ秒単位であることを確認（秒単位の値は100以上になるはず）
+      // ミリ秒単位であることを確認（秒単位の値は1000以上になるはず）
       expect(VIDEO_REGISTRATION_WAIT).toBeGreaterThanOrEqual(1000);
       expect(TWO_FACTOR_AUTH_POLL_INTERVAL).toBeGreaterThanOrEqual(1000);
       expect(DEFAULT_RETRY_CONFIG.initialDelayMs).toBeGreaterThanOrEqual(1000);
