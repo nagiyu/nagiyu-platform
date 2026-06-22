@@ -66,9 +66,9 @@ export const TIMELINE_EVENTS: TimelineEvent[] = [
   },
   {
     period: '2026年5月',
-    title: 'nagiyu-platform リポジトリを作成、各サービスとポータルを公開',
+    title: 'nagiyu-platform リポジトリを作成',
     description:
-      'AWS・Next.js を中心としたモノレポ構成のプラットフォーム「nagiyu-platform」を立ち上げ。Tools（ブラウザ完結型ユーティリティ集）・Quick Clip（動画クリップ生成）・Codec Converter（動画コーデック変換）・Stock Tracker（株価追跡）・niconico-mylist-assistant・Share Together・Auth・Admin・リブトーク（livetalk）の計 9 サービスを公開。いずれも私自身が設計・実装・運用を担当している。',
+      'AWS・Next.js を中心としたモノレポ構成のプラットフォーム「nagiyu-platform」を立ち上げ、複数の個人開発プロダクトを設計・実装・運用する基盤を整えた。いずれも私自身が設計から運用までを担当しており、ここで実際に手を動かして得た知見が技術記事の一次情報の源泉になっている。',
   },
   {
     period: '2026年6月〜',
@@ -83,9 +83,9 @@ export const TIMELINE_EVENTS: TimelineEvent[] = [
  */
 export const TARGET_READERS: string[] = [
   'AWS × Next.js のフルスタック構成を検討しているエンジニア',
-  '個人開発でサービスを作ってみたい方',
-  'nagiyu-platform のツールやサービスの使い方を知りたい方',
-  'サービス設計・インフラ構成の意思決定過程に興味がある方',
+  '個人開発でプロダクトを設計・運用してみたい方',
+  'クラウドインフラ・アプリケーション設計の意思決定過程に興味がある方',
+  '実装の「なぜそう設計したか」を運用視点で知りたい方',
 ] as const;
 
 /**
