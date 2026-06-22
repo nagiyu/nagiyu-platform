@@ -7,7 +7,6 @@ updatedAt: '2026-06-05'
 author: 'なぎゆー'
 tags: ['AWS', 'AWS Batch', 'サーバーレス']
 categories: ['aws']
-relatedServices: ['quick-clip', 'codec-converter']
 ---
 
 ## はじめに

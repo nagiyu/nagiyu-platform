@@ -20,15 +20,6 @@ function getActualCategorySlugs(): Set<string> {
   return new Set(files.map((f) => f.replace(/\.md$/, '')));
 }
 
-/**
- * src/content/services/ 配下のディレクトリ名からサービス slug 一覧を取得するヘルパー
- */
-function getActualServiceSlugs(): Set<string> {
-  const servicesDir = path.join(process.cwd(), 'src', 'content', 'services');
-  const entries = fs.readdirSync(servicesDir, { withFileTypes: true });
-  return new Set(entries.filter((e) => e.isDirectory()).map((e) => e.name));
-}
-
 describe('RETIRED_ARTICLE_REDIRECTS', () => {
   describe('source の重複・競合チェック', () => {
     it('source に現存する記事 slug と重複がないこと', () => {
@@ -82,24 +73,31 @@ describe('RETIRED_ARTICLE_REDIRECTS', () => {
       expect(notFound).toHaveLength(0);
     });
 
-    it('/services/{slug} 形式の destination に実在するサービス slug が対応していること', () => {
-      const serviceSlugs = getActualServiceSlugs();
-      const serviceDestinations = RETIRED_ARTICLE_REDIRECTS.filter(({ destination }) =>
-        /^\/services\/[^/]+$/.test(destination)
+    it('destination に撤去済みの /services・/tech/tags が含まれないこと', () => {
+      const removed = RETIRED_ARTICLE_REDIRECTS.filter(
+        ({ destination }) =>
+          destination.startsWith('/services') || destination.startsWith('/tech/tags')
       );
+      expect(removed).toHaveLength(0);
+    });
+  });
 
-      const notFound = serviceDestinations.filter(({ destination }) => {
-        const slug = destination.replace('/services/', '');
-        return !serviceSlugs.has(slug);
-      });
+  describe('Phase 1 で撤去したルートのリダイレクト', () => {
+    it('/services と /services/:path* が /tech へ寄せられていること', () => {
+      const map = new Map(RETIRED_ARTICLE_REDIRECTS.map((r) => [r.source, r.destination]));
+      expect(map.get('/services')).toBe('/tech');
+      expect(map.get('/services/:path*')).toBe('/tech');
+    });
 
-      expect(notFound).toHaveLength(0);
+    it('/tech/tags/:tag* が /tech へ寄せられていること', () => {
+      const map = new Map(RETIRED_ARTICLE_REDIRECTS.map((r) => [r.source, r.destination]));
+      expect(map.get('/tech/tags/:tag*')).toBe('/tech');
     });
   });
 
   describe('マッピング件数', () => {
-    it('10 件のリダイレクトが定義されていること', () => {
-      expect(RETIRED_ARTICLE_REDIRECTS).toHaveLength(10);
+    it('13 件のリダイレクトが定義されていること', () => {
+      expect(RETIRED_ARTICLE_REDIRECTS).toHaveLength(13);
     });
   });
 });
@@ -132,7 +130,8 @@ describe('buildRedirects', () => {
     expect(redirectMap.get('/tech/eventbridge-scheduler')).toBe(
       '/tech/eventbridge-rule-scheduling'
     );
-    expect(redirectMap.get('/tech/video-codec-comparison')).toBe('/services/codec-converter');
+    // codec-converter サービスページ撤去に伴い /tech へ貼り替え
+    expect(redirectMap.get('/tech/video-codec-comparison')).toBe('/tech');
     expect(redirectMap.get('/tech/zod-runtime-validation')).toBe('/tech/discriminated-union-api');
     expect(redirectMap.get('/tech/aws-ses-transactional-mail')).toBe('/tech/category/aws');
   });

@@ -13,9 +13,9 @@ import HomeCategorySection from '@/components/HomeCategorySection';
 import HomeLatestArticlesSection from '@/components/HomeLatestArticlesSection';
 
 export const metadata: Metadata = {
-  title: 'nagiyu - AWS・Next.js 技術ポータル',
+  title: 'nagiyu - AWS・Next.js 技術メディア',
   description:
-    'AWS・Next.js を主軸としたフルスタック開発のノウハウと、自作ツール群の使い方ガイドを発信する個人技術ポータルです。設計の意図と実装の詳細を、運用視点で記録しています。',
+    '個人開発者による実運用ベースの技術メディア。AWS・Next.js を主軸としたフルスタック開発で実際に直面した設計判断・実装の詳細・運用知見を記録しています。',
   alternates: {
     canonical: 'https://nagiyu.com',
   },
@@ -41,10 +41,9 @@ export default async function HomePage() {
         dangerouslySetInnerHTML={{ __html: jsonLdScript(buildOrganizationJsonLd()) }}
       />
 
-      {/* 1. ヒーローセクション：サイトの規模・運営者を 8 秒で伝える */}
+      {/* 1. ヒーローセクション：技術メディアであることと規模を数秒で伝える */}
       <HomeHeroSection
         articleCount={stats.articleCount}
-        serviceCount={stats.serviceCount}
         categoryCount={stats.categoryCount}
       />
 

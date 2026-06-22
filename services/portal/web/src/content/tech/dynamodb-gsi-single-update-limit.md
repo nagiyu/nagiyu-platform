@@ -6,7 +6,6 @@ publishedAt: '2026-06-14'
 author: 'なぎゆー'
 tags: ['AWS', 'DynamoDB', 'CloudFormation', 'CDK', '運用']
 categories: ['aws']
-relatedServices: ['livetalk']
 ---
 
 ## はじめに

@@ -7,7 +7,6 @@ updatedAt: '2026-05-25'
 author: 'なぎゆー'
 tags: ['AWS', 'SSM', 'Secrets Manager', 'CDK']
 categories: ['aws']
-relatedServices: ['stock-tracker', 'livetalk']
 ---
 
 ## はじめに
