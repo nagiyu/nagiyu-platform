@@ -8,7 +8,7 @@ import AboutPolicy from '@/components/AboutPolicy';
 export const metadata: Metadata = {
   title: 'nagiyu について',
   description:
-    'nagiyu は個人開発者が提供する Web サービス群のポータルサイトです。Tools・Quick Clip・Codec Converter など多彩なサービスを無料で提供しています。開発者プロフィール・運営方針・編集ポリシー・お問い合わせをご紹介します。',
+    'nagiyu は、AWS・Next.js を中心とした個人開発の実運用経験を一次情報として発信する技術メディアです。運営者プロフィール・運営方針・編集ポリシー・お問い合わせをご紹介します。',
   alternates: {
     canonical: 'https://nagiyu.com/about',
   },
@@ -27,12 +27,12 @@ export default function AboutPage() {
           サイトの目的
         </Typography>
         <Typography variant="body1" sx={{ mb: 2 }}>
-          nagiyu は、私が個人で開発・運用する各種 Web サービスのポータルサイトです。 Tools・Quick
-          Clip・Codec Converter・Stock Tracker
-          をはじめとする便利なサービスのドキュメント・使い方ガイド・技術記事を掲載しています。
+          nagiyu は、AWS・Next.js
+          を中心としたフルスタック開発の実運用経験を、一次情報として記録・公開する個人技術メディアです。
+          クラウドインフラ・アプリケーション設計・運用で実際に直面した課題と、その解決にあたっての判断過程を技術記事として掲載しています。
         </Typography>
         <Typography variant="body1" sx={{ mb: 2 }}>
-          私が各サービスを設計・実装する過程で得たノウハウを、一次情報として記録・公開することもこのサイトの目的の一つです。
+          私が個人開発で設計・実装・運用しているプロダクト群は、こうした記事の一次情報の源泉です。
           記事はすべて自分の実装・運用経験に基づいており、検証していない内容は掲載しません。
         </Typography>
       </Box>
@@ -45,65 +45,6 @@ export default function AboutPage() {
 
       {/* 運営方針（コンポーネント） */}
       <AboutPolicy />
-
-      {/* 提供サービス */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
-          提供サービス
-        </Typography>
-        <Box component="ul" sx={{ pl: 3 }}>
-          <Box component="li" sx={{ mb: 2 }}>
-            <Typography variant="body1" sx={{ fontWeight: 600 }}>
-              Tools
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              乗り換え変換・JSON 整形・VAPID キー生成・Base64・URL
-              エンコード・ハッシュ生成など、日常作業を効率化する無料のブラウザ完結型ツール集。
-            </Typography>
-          </Box>
-          <Box component="li" sx={{ mb: 2 }}>
-            <Typography variant="body1" sx={{ fontWeight: 600 }}>
-              Quick Clip
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              動画のクリップ・ハイライト自動生成サービス。AWS Batch
-              を活用したサーバーレス処理で大容量動画に対応。
-            </Typography>
-          </Box>
-          <Box component="li" sx={{ mb: 2 }}>
-            <Typography variant="body1" sx={{ fontWeight: 600 }}>
-              Codec Converter
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              動画・音声コーデック変換サービス。H.264・VP9・AV1 など各種フォーマットへの変換に対応。
-            </Typography>
-          </Box>
-          <Box component="li" sx={{ mb: 2 }}>
-            <Typography variant="body1" sx={{ fontWeight: 600 }}>
-              Stock Tracker
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              株価追跡・通知サービス。Web Push 通知で設定した価格帯に達したときにリアルタイム通知。
-            </Typography>
-          </Box>
-          <Box component="li" sx={{ mb: 2 }}>
-            <Typography variant="body1" sx={{ fontWeight: 600 }}>
-              niconico-mylist-assistant
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              ニコニコ動画のマイリスト管理を補助するサービス。
-            </Typography>
-          </Box>
-          <Box component="li" sx={{ mb: 2 }}>
-            <Typography variant="body1" sx={{ fontWeight: 600 }}>
-              Share Together
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              共有リストを簡単に作成・管理できるサービス。
-            </Typography>
-          </Box>
-        </Box>
-      </Box>
 
       {/* 技術スタック */}
       <Box sx={{ mb: 4 }}>
@@ -180,8 +121,8 @@ export default function AboutPage() {
           お問い合わせ
         </Typography>
         <Typography variant="body1" sx={{ mb: 2 }}>
-          記事の誤り報告・サービスの不具合報告・改善要望などは、GitHub Issues
-          からご連絡ください。技術的な質問・議論にも対応します。
+          記事の誤り報告・改善要望・技術的な質問などは、GitHub Issues
+          からご連絡ください。記事の内容に関する議論にも対応します。
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Issues:{' '}
