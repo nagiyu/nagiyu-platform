@@ -3,7 +3,7 @@ title: 'ECS Fargate と Lambda の使い分け基準を実運用で整理する'
 description: 'AWS の ECS Fargate と Lambda、どちらでサービスを動かすべきか迷う場面の判断基準を整理。コールドスタート・常時稼働コスト・実行時間・依存ライブラリサイズなど、実運用で効いてくる観点ごとに比較します。'
 slug: 'ecs-fargate-vs-lambda'
 publishedAt: '2026-04-25'
-updatedAt: '2026-05-31'
+updatedAt: '2026-06-22'
 author: 'なぎゆー'
 tags: ['AWS', 'ECS', 'Lambda', 'アーキテクチャ']
 categories: ['aws']

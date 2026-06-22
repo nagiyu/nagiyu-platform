@@ -3,7 +3,7 @@ title: 'TypeScript strict mode で書く型安全な Repository パターン'
 description: 'TypeScript の strict モードで Repository パターンを実装する具体的な方法を解説。エンティティ型の定義・null と undefined の扱い・トランザクション・テスト容易性まで、実プロダクトで効く型設計を整理します。'
 slug: 'typescript-strict-repository'
 publishedAt: '2026-03-15'
-updatedAt: '2026-06-06'
+updatedAt: '2026-06-22'
 author: 'なぎゆー'
 tags: ['TypeScript', 'Repository', '型設計']
 categories: ['dev-stack']

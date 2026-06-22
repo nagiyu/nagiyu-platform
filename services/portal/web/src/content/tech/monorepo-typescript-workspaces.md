@@ -3,7 +3,7 @@ title: 'monorepo + npm workspaces で TypeScript パッケージを共有する'
 description: 'モノレポ構成で TypeScript の型・関数・コンポーネントを複数アプリ間で共有する実装方法を解説。npm workspaces の設定・パッケージ間参照・ビルド順序・デプロイ時の依存解決まで実運用ベースで整理します。'
 slug: 'monorepo-typescript-workspaces'
 publishedAt: '2026-03-20'
-updatedAt: '2026-06-06'
+updatedAt: '2026-06-22'
 author: 'なぎゆー'
 tags: ['TypeScript', 'monorepo', 'npm workspaces']
 categories: ['dev-stack']

@@ -3,7 +3,7 @@ title: 'Lambda コールドスタート対策：Provisioned Concurrency と Snap
 description: 'AWS Lambda のコールドスタートを抑える 2 大手法、Provisioned Concurrency と SnapStart の仕組み・コスト・対応ランタイムを比較。実運用で「どちらをどう使うか」を判断するための整理。'
 slug: 'lambda-cold-start'
 publishedAt: '2026-04-03'
-updatedAt: '2026-05-31'
+updatedAt: '2026-06-22'
 author: 'なぎゆー'
 tags: ['AWS', 'Lambda', 'パフォーマンス']
 categories: ['aws']

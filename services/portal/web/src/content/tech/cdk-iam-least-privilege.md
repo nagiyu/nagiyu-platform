@@ -3,7 +3,7 @@ title: 'AWS CDK で IAM 最小権限を設計する：Grant メソッドと Poli
 description: 'AWS CDK でコンストラクト間の権限を付与する方法を解説。Grant メソッド・addToRolePolicy・PolicyStatement の使い分け、ARN のハードコードを避けるテクニック、ユニットテストによる権限検証まで実運用ベースで整理します。'
 slug: 'cdk-iam-least-privilege'
 publishedAt: '2026-05-21'
-updatedAt: '2026-06-13'
+updatedAt: '2026-06-22'
 author: 'なぎゆー'
 tags: ['AWS', 'CDK', 'IAM', 'セキュリティ']
 categories: ['aws']

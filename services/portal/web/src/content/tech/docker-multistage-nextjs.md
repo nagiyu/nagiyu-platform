@@ -3,7 +3,7 @@ title: 'Docker multi-stage build で Next.js standalone をスリム化する'
 description: 'Next.js の standalone モードと Docker multi-stage build を組み合わせて、本番イメージサイズを最小化する手法を解説。Alpine ベース・依存最小化・ECR への push まで一連の流れを示します。'
 slug: 'docker-multistage-nextjs'
 publishedAt: '2026-04-05'
-updatedAt: '2026-06-06'
+updatedAt: '2026-06-22'
 author: 'なぎゆー'
 tags: ['Docker', 'Next.js', 'CI/CD']
 categories: ['nextjs', 'aws']

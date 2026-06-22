@@ -3,7 +3,7 @@ title: 'Next.js 16 Metadata API で SEO・OGP・JSON-LD を整える'
 description: 'Next.js 16 App Router の Metadata API を使って、title・description・OGP・Twitter Card・canonical・JSON-LD を体系的に管理する方法を解説。SSG ページと動的ページそれぞれの設定パターンを実装例で紹介します。'
 slug: 'nextjs16-metadata-api'
 publishedAt: '2026-04-30'
-updatedAt: '2026-06-06'
+updatedAt: '2026-06-22'
 author: 'なぎゆー'
 tags: ['Next.js', 'SEO', 'メタデータ']
 categories: ['nextjs']

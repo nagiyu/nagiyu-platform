@@ -3,6 +3,7 @@ title: 'zod でランタイムバリデーションと型を一元化する'
 description: 'TypeScript の型は実行時には消える。外部から来る入力を信用しないために、zod でスキーマを単一の真実源にし、ランタイム検証と静的型を一元化する方法を、parse/safeParse の使い分けや API 境界での実践とともに整理します。'
 slug: 'zod-schema-validation'
 publishedAt: '2026-06-20'
+updatedAt: '2026-06-22'
 author: 'なぎゆー'
 tags: ['TypeScript', 'zod', 'バリデーション', '型設計']
 categories: ['dev-stack']

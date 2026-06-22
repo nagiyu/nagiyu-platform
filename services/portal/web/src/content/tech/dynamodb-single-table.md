@@ -3,7 +3,7 @@ title: 'DynamoDB single-table design 入門：パーティションキーと GSI
 description: 'DynamoDB の single-table design（単一テーブル設計）の基本を、複数エンティティをひとつのテーブルに格納する具体的な設計例で解説。パーティションキー・ソートキー・GSI の使い分け、アクセスパターンからの逆算手順まで整理します。'
 slug: 'dynamodb-single-table'
 publishedAt: '2026-03-17'
-updatedAt: '2026-06-05'
+updatedAt: '2026-06-22'
 author: 'なぎゆー'
 tags: ['AWS', 'DynamoDB', 'NoSQL', '設計']
 categories: ['aws']

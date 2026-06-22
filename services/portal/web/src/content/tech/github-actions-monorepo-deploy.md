@@ -3,7 +3,7 @@ title: 'GitHub Actions でモノレポの差分デプロイを実装する'
 description: 'モノレポ構成で GitHub Actions を使い、変更があったサービスだけをデプロイするワークフローの実装方法を解説。paths フィルタ・dorny/paths-filter・依存ライブラリ変更時の波及・並列実行までカバーします。'
 slug: 'github-actions-monorepo-deploy'
 publishedAt: '2026-04-02'
-updatedAt: '2026-06-13'
+updatedAt: '2026-06-22'
 author: 'なぎゆー'
 tags: ['GitHub Actions', 'CI/CD', 'monorepo']
 categories: ['dev-stack']

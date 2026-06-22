@@ -3,7 +3,7 @@ title: 'Next.js generateStaticParams 完全ガイド：SSG の動的ルートを
 description: 'Next.js App Router の generateStaticParams を使って動的ルートを SSG ビルド時に展開する方法を解説。複数階層の動的ルート・dynamicParams・部分的 SSG（ISR）・型安全な実装まで網羅します。'
 slug: 'nextjs-generate-static-params'
 publishedAt: '2026-04-28'
-updatedAt: '2026-06-06'
+updatedAt: '2026-06-22'
 author: 'なぎゆー'
 tags: ['Next.js', 'SSG', 'App Router']
 categories: ['nextjs']

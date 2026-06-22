@@ -3,6 +3,7 @@ title: 'Markdown を DOMPurify で安全にレンダリングする：Next.js SS
 description: 'Next.js SSG で Markdown を HTML 化して dangerouslySetInnerHTML で描画する際の XSS リスクを解説し、DOMPurify（isomorphic-dompurify）によるサニタイズとリポジトリ規約に沿った責務分離設計を紹介します。'
 slug: 'markdown-dompurify-sanitize'
 publishedAt: '2026-06-14'
+updatedAt: '2026-06-22'
 author: 'なぎゆー'
 tags: ['Next.js', 'セキュリティ', 'Markdown']
 categories: ['nextjs']

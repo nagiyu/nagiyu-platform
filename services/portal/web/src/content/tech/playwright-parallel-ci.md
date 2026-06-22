@@ -3,7 +3,7 @@ title: 'Playwright E2E テストを GitHub Actions で並列実行する'
 description: 'Playwright の E2E テストを GitHub Actions のマトリクスとシャーディング機能で並列実行し、CI 時間を短縮する手法を解説。flake 対策・アーティファクト収集・モバイル/デスクトップ複数 viewport 対応まで実運用ベースで紹介します。'
 slug: 'playwright-parallel-ci'
 publishedAt: '2026-04-08'
-updatedAt: '2026-06-06'
+updatedAt: '2026-06-22'
 author: 'なぎゆー'
 tags: ['Playwright', 'GitHub Actions', 'テスト']
 categories: ['dev-stack']

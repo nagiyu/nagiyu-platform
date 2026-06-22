@@ -3,7 +3,7 @@ title: 'Material-UI v9 と Next.js App Router の SSR を両立する ThemeRegis
 description: 'MUI（Material-UI）v9 と Next.js App Router の Server Components で SSR とスタイル一貫性を両立する ThemeRegistry の実装方法を解説。Emotion キャッシュ・ハイドレーション・テーマ切替まで網羅します。'
 slug: 'mui-nextjs-theme-registry'
 publishedAt: '2026-04-15'
-updatedAt: '2026-06-06'
+updatedAt: '2026-06-22'
 author: 'なぎゆー'
 tags: ['Next.js', 'MUI', 'App Router', 'Emotion']
 categories: ['nextjs']
