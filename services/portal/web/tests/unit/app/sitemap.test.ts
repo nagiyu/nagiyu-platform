@@ -50,6 +50,12 @@ describe('sitemap', () => {
       expect(urls).toContain(`${SITE_URL}/about`);
     });
 
+    it('contact ページが含まれる', () => {
+      const entries = sitemap();
+      const urls = entries.map((e) => e.url);
+      expect(urls).toContain(`${SITE_URL}/contact`);
+    });
+
     it('privacy ページが含まれる', () => {
       const entries = sitemap();
       const urls = entries.map((e) => e.url);
