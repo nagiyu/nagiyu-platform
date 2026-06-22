@@ -11,7 +11,7 @@ import {
 export const metadata: Metadata = {
   title: 'お問い合わせ',
   description:
-    'nagiyu へのお問い合わせはGoogle フォームからお気軽にどうぞ。サービスへのご意見・不具合報告・記事の誤り指摘など、幅広くお受けしています。',
+    'nagiyu へのお問い合わせは Google フォームからお気軽にどうぞ。技術記事への誤り指摘・ご質問、サイトの不具合報告など、幅広くお受けしています。',
   alternates: {
     canonical: 'https://nagiyu.com/contact',
   },
@@ -25,7 +25,7 @@ export default function ContactPage() {
       </Typography>
 
       <Typography variant="body1" sx={{ mb: 4, textAlign: 'center', color: 'text.secondary' }}>
-        ご意見・ご感想・不具合報告など、お気軽にお送りください。
+        記事へのご指摘・ご質問、サイトの不具合報告など、お気軽にお送りください。
       </Typography>
 
       {/* メイン手段: Google フォーム */}
