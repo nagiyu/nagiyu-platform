@@ -3,10 +3,10 @@
  *
  * Next.js の MetadataRoute.Sitemap 出力内容を検証する。
  * - 静的エントリーが含まれること
- * - カテゴリ別ハブページが含まれること
+ * - /tech/category/* エントリーが含まれないこと（カテゴリハブは廃止済み）
  * - 技術記事エントリーが含まれること
  * - sitemap.xml の URL 形式が正しいこと
- * - /services・/tech/tags 配下のエントリーを含まないこと
+ * - /services・/tech/tags・/tech/category 配下のエントリーを含まないこと
  */
 
 import sitemap from '@/app/sitemap';
@@ -31,10 +31,6 @@ jest.mock('@/lib/content', () => ({
       tags: ['AWS'],
       categories: ['aws', 'nextjs'],
     },
-  ]),
-  getAllTechCategoryMetas: jest.fn(() => [
-    { slug: 'aws', title: 'AWS インフラ運用ノート', description: 'AWS の解説' },
-    { slug: 'nextjs', title: 'Next.js 実践ガイド', description: 'Next.js の解説' },
   ]),
 }));
 
@@ -79,7 +75,7 @@ describe('sitemap', () => {
     });
   });
 
-  describe('/services・/tech/tags を含まないこと', () => {
+  describe('/services・/tech/tags・/tech/category を含まないこと', () => {
     it('/services 配下のエントリーが一切含まれない', () => {
       const entries = sitemap();
       const urls = entries.map((e) => e.url);
@@ -90,6 +86,12 @@ describe('sitemap', () => {
       const entries = sitemap();
       const urls = entries.map((e) => e.url);
       expect(urls.some((u) => u.includes('/tech/tags'))).toBe(false);
+    });
+
+    it('/tech/category 配下のエントリーが一切含まれない（カテゴリハブは廃止済み）', () => {
+      const entries = sitemap();
+      const urls = entries.map((e) => e.url);
+      expect(urls.some((u) => u.includes('/tech/category'))).toBe(false);
     });
   });
 
@@ -115,22 +117,6 @@ describe('sitemap', () => {
       expect(article2).toBeDefined();
       if (!article2) return;
       expect(article2.lastModified).toEqual(new Date('2026-04-05'));
-    });
-  });
-
-  describe('カテゴリ別ハブエントリー', () => {
-    it('カテゴリ別ハブページ（/tech/category/{slug}）が含まれる', () => {
-      const entries = sitemap();
-      const urls = entries.map((e) => e.url);
-      expect(urls).toContain(`${SITE_URL}/tech/category/aws`);
-      expect(urls).toContain(`${SITE_URL}/tech/category/nextjs`);
-    });
-
-    it('getAllTechCategoryMetas が返すすべてのカテゴリが含まれる', () => {
-      const entries = sitemap();
-      const categoryUrls = entries.map((e) => e.url).filter((u) => u.includes('/tech/category/'));
-      // モックが ['aws', 'nextjs'] を返すため 2 件
-      expect(categoryUrls).toHaveLength(2);
     });
   });
 

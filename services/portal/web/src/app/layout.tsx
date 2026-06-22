@@ -97,14 +97,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       ],
     },
     {
-      title: 'カテゴリ',
-      items: [
-        { label: 'AWS', href: '/tech/category/aws' },
-        { label: 'Next.js', href: '/tech/category/nextjs' },
-        { label: '開発スタック', href: '/tech/category/dev-stack' },
-      ],
-    },
-    {
       title: 'サイト情報',
       items: [
         { label: 'About', href: '/about' },

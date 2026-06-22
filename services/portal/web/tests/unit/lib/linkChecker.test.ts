@@ -4,7 +4,6 @@ import os from 'os';
 import {
   extractInternalLinks,
   techArticleExists,
-  techCategoryExists,
   staticPageExists,
   validateHref,
   checkFile,
@@ -115,36 +114,6 @@ describe('linkChecker', () => {
     });
   });
 
-  describe('techCategoryExists', () => {
-    it('存在するカテゴリで記事がある場合は true を返す', () => {
-      // fixtures に aws.md があり、test-article-1.md の categories: ['aws']
-      expect(techCategoryExists('aws', FIXTURE_CONTENT_DIR)).toBe(true);
-    });
-
-    it('カテゴリファイルが存在しない場合は false を返す', () => {
-      expect(techCategoryExists('nonexistent', FIXTURE_CONTENT_DIR)).toBe(false);
-    });
-
-    it('カテゴリファイルがあり該当記事もある場合は true を返す', () => {
-      // nextjs.md はあり、test-article-2.md の categories: ['aws', 'nextjs']
-      expect(techCategoryExists('nextjs', FIXTURE_CONTENT_DIR)).toBe(true);
-    });
-
-    it('カテゴリファイルはあるが該当記事がない場合は false を返す', () => {
-      // aws.md はあるが、contentDir を架空パスにして tech/ ディレクトリが存在しない状況を再現
-      const noTechDir = '/tmp/no-tech-dir-fixture';
-      // カテゴリファイルのみ存在する最小フィクスチャを利用
-      jest.spyOn(fs, 'existsSync').mockImplementation((p) => {
-        if (String(p).endsWith('aws.md')) return true;
-        if (String(p).includes('tech') && !String(p).includes('tech-category')) return false;
-        return fs.existsSync(p);
-      });
-      const result = techCategoryExists('aws', noTechDir);
-      jest.restoreAllMocks();
-      expect(result).toBe(false);
-    });
-  });
-
   describe('staticPageExists', () => {
     it('STATIC_ROUTES に含まれるパスに対して true を返す', () => {
       expect(staticPageExists('/', REAL_SRC_DIR)).toBe(true);
@@ -166,6 +135,10 @@ describe('linkChecker', () => {
     it('存在しないパスに対して false を返す', () => {
       expect(staticPageExists('/nonexistent-page', REAL_SRC_DIR)).toBe(false);
     });
+
+    it('/tech/category は廃止済みのため false を返す', () => {
+      expect(staticPageExists('/tech/category', REAL_SRC_DIR)).toBe(false);
+    });
   });
 
   describe('validateHref', () => {
@@ -176,11 +149,6 @@ describe('linkChecker', () => {
 
     it('/ で始まらない href は valid を返す（相対パスは対象外）', () => {
       const result = validateHref('relative/path', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
-      expect(result.valid).toBe(true);
-    });
-
-    it('/tech/category キーワードは valid を返す（/tech/{slug} パターン外）', () => {
-      const result = validateHref('/tech/category', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
       expect(result.valid).toBe(true);
     });
 
@@ -195,21 +163,19 @@ describe('linkChecker', () => {
       expect(result.reason).toContain('non-existent');
     });
 
-    it('存在する /tech/category/{slug} は valid を返す', () => {
+    // /tech/category/* は廃止済みルートのため壊れたリンクとして検出されること
+    it('/tech/category/{slug} は廃止済みのため invalid を返す', () => {
       const result = validateHref('/tech/category/aws', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
-      expect(result.valid).toBe(true);
+      expect(result.valid).toBe(false);
+      expect(result.reason).toContain('aws');
     });
 
-    it('存在しない /tech/category/{slug} は invalid を返す', () => {
-      const result = validateHref('/tech/category/no-category', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
+    it('/tech/category/nextjs は廃止済みのため invalid を返す', () => {
+      const result = validateHref('/tech/category/nextjs', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
       expect(result.valid).toBe(false);
-      expect(result.reason).toContain('no-category');
     });
 
     // --- /services・/tech/tags は実在ルートではないため壊れたリンクとして検出されること ---
-    // チェッカーはこれらの専用判定分岐を持たないため、対応コンテンツの有無に関わらず無効と判定する。
-    // 退行防止のため negative assertion を置く。
-
     it('/tech/tags（一覧）は invalid を返す', () => {
       const result = validateHref('/tech/tags', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
       expect(result.valid).toBe(false);
@@ -387,24 +353,26 @@ describe('linkChecker', () => {
       expect(broken).toHaveLength(0);
     });
 
-    it('リンク切れを含むファイルからリンク切れ一覧を返す（/services・/tech/tags も検出）', () => {
+    it('リンク切れを含むファイルからリンク切れ一覧を返す（/services・/tech/tags・/tech/category も検出）', () => {
       // テスト用の一時ファイルをモックで代替する。
       // /about は実在する有効リンク。/tech/non-existent-slug は存在しない記事。
-      // /services/tools・/tech/tags/aws は実在しないルートのため
+      // /services/tools・/tech/tags/aws・/tech/category/aws は実在しないルートのため
       // 壊れたリンクとして検出されること（退行防止）を担保する。
       const mockContent =
         '[存在しない記事](/tech/non-existent-slug)\n[About](/about)\n' +
-        '[無効なサービスリンク](/services/tools)\n[無効なタグリンク](/tech/tags/aws)';
+        '[無効なサービスリンク](/services/tools)\n[無効なタグリンク](/tech/tags/aws)\n' +
+        '[廃止済みカテゴリリンク](/tech/category/aws)';
       jest.spyOn(fs, 'readFileSync').mockReturnValueOnce(mockContent);
 
       const testFile = path.join(FIXTURE_CONTENT_DIR, 'tech', 'test-article-1.md');
       const broken = checkFile(testFile, DEFAULT_OPTIONS);
       jest.restoreAllMocks();
 
-      expect(broken).toHaveLength(3);
+      expect(broken).toHaveLength(4);
       expect(broken.some((b) => b.href === '/tech/non-existent-slug')).toBe(true);
       expect(broken.some((b) => b.href === '/services/tools')).toBe(true);
       expect(broken.some((b) => b.href === '/tech/tags/aws')).toBe(true);
+      expect(broken.some((b) => b.href === '/tech/category/aws')).toBe(true);
       // /about は有効リンクなので壊れたリンクには含まれないこと
       expect(broken.some((b) => b.href === '/about')).toBe(false);
     });

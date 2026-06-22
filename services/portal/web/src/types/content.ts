@@ -15,15 +15,3 @@ export type ArticleMeta = {
 export type Article = ArticleMeta & {
   content: string; // HTML（remark/rehype 変換済み）
 };
-
-/** カテゴリ別ハブ（テーマ深堀りページ）のフロントマター */
-export type TechCategoryMeta = {
-  title: string;
-  description: string;
-  slug: string; // ハブ slug（aws / nextjs / dev-stack）
-};
-
-/** カテゴリ別ハブ（フロントマター + 解説本文） */
-export type TechCategory = TechCategoryMeta & {
-  content: string; // HTML（remark/rehype 変換済み）
-};

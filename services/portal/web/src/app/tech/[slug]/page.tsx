@@ -10,12 +10,7 @@ import {
   Divider,
 } from '@mui/material';
 import { Chip, Link } from '@nagiyu/ui';
-import {
-  getAllArticles,
-  getArticle,
-  getRelatedArticles,
-  getTechCategoriesForArticle,
-} from '@/lib/content';
+import { getAllArticles, getArticle, getRelatedArticles, getCategoryLabel } from '@/lib/content';
 import MarkdownContent from '@/components/MarkdownContent';
 import { buildBlogPostingJsonLd, buildBreadcrumbJsonLd, jsonLdScript } from '@/lib/jsonLd';
 import { AUTHOR } from '@/lib/author';
@@ -93,7 +88,6 @@ export default async function TechArticlePage({ params }: Params) {
   const authorName = article.author ?? AUTHOR.name;
   const readingMinutes = estimateReadingMinutes(article.content);
   const relatedArticles = getRelatedArticles(article.slug, article.tags, 3);
-  const categories = getTechCategoriesForArticle(article.categories);
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
@@ -126,15 +120,15 @@ export default async function TechArticlePage({ params }: Params) {
           読了目安: 約 {readingMinutes} 分
         </Typography>
       </Box>
-      {/* 所属カテゴリ別ハブへの戻りリンク（Hub-and-Spoke の双方向クラスター） */}
-      {categories.length > 0 && (
+      {/* 所属カテゴリのラベル表示（非リンク） */}
+      {article.categories && article.categories.length > 0 && (
         <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
           <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
-            関連カテゴリ:
+            カテゴリ:
           </Typography>
-          {categories.map((category) => (
-            <Chip key={category.slug} asChild size="sm" variant="solid" color="primary">
-              <Link href={`/tech/category/${category.slug}`}>{category.title} →</Link>
+          {article.categories.map((cat) => (
+            <Chip key={cat} size="sm" variant="solid" color="primary">
+              {getCategoryLabel(cat)}
             </Chip>
           ))}
         </Box>
