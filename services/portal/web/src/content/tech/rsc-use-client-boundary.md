@@ -11,7 +11,7 @@ categories: ['nextjs']
 
 ## はじめに
 
-Next.js App Router の最大の特徴である React Server Components（RSC）は、強力な反面 **「`'use client'` をどこに書くか」** で迷いがちです。境界設計を誤るとクライアントバンドルが肥大化したり、Server Components の利点を活かせなかったりします。本記事では、nagiyu ポータルで実装してきた中で見えた実用パターンを整理します。
+Next.js App Router の最大の特徴である React Server Components（RSC）は、強力な反面 **「`'use client'` をどこに書くか」** で迷いがちです。境界設計を誤るとクライアントバンドルが肥大化したり、Server Components の利点を活かせなかったりします。本記事では、個人開発での実運用で実装してきた中で見えた実用パターンを整理します。
 
 ## 大前提：すべては Server Component から始まる
 
@@ -189,7 +189,7 @@ export default function ContactPage() {
 
 ## 実装ノート
 
-「Server をデフォルト、Client は葉だけ」という原則を、私は Portal でかなり徹底できています。実際に `'use client'` が付いているコンポーネントを数えると、サービスドキュメントのタブ切り替え（`ServiceDocumentNav`、中身は MUI の `Tabs`）くらいしかありません。記事ページもカテゴリページもタグページも `page.tsx` は Server Component のままで、`getAllArticles()` / `getArticle()` といったファイル読み込み・Markdown 変換はすべてサーバー側で完結しています。データ取得をサーバーに寄せきれているので、クライアントに送る JS を最小限に保てています。
+「Server をデフォルト、Client は葉だけ」という原則を、私は個人開発で運用しているサービスでかなり徹底できています。実際に `'use client'` が付いているコンポーネントを数えると、サービスドキュメントのタブ切り替え（`ServiceDocumentNav`、中身は MUI の `Tabs`）くらいしかありません。記事ページもカテゴリページもタグページも `page.tsx` は Server Component のままで、`getAllArticles()` / `getArticle()` といったファイル読み込み・Markdown 変換はすべてサーバー側で完結しています。データ取得をサーバーに寄せきれているので、クライアントに送る JS を最小限に保てています。
 
 記事本文を描く `MarkdownContent` も、あえて Client にせず Server Component のままにしています。やっていることは DOMPurify でサニタイズ済みの HTML を `dangerouslySetInnerHTML` で流し込むだけで、状態もイベントも要らないからです。「インタラクションが無いなら Server に置く」を地で行っている部分です。
 
@@ -202,7 +202,7 @@ export default function ContactPage() {
 
 ## 現在の運用
 
-今の nagiyu-platform の Portal は、ページの大半が Server Component で、クライアント側に出ていく対話的な要素は `@nagiyu/ui` の `Button` / `Chip` / `Link` や前述のタブ程度に絞れています。本記事では Server Action を使ったフォームの例も載せましたが、Portal は外部サービスへの導線が中心でフォーム自体がほぼ無いため、まだ Server Action の出番は来ていません。無理に Client 化せず、必要になった葉だけを Client に切り出す——この境界の引き方を、自分は今後も基本方針として続けるつもりです。
+今運用しているサービスは、ページの大半が Server Component で、クライアント側に出ていく対話的な要素は `@nagiyu/ui` の `Button` / `Chip` / `Link` や前述のタブ程度に絞れています。本記事では Server Action を使ったフォームの例も載せましたが、コンテンツ閲覧が中心でフォーム自体がほぼ無いため、まだ Server Action の出番は来ていません。無理に Client 化せず、必要になった葉だけを Client に切り出す——この境界の引き方を、自分は今後も基本方針として続けるつもりです。
 
 ## まとめ
 

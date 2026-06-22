@@ -154,9 +154,9 @@ export async function POST(req: NextRequest) {
 
 ## 実装ノート
 
-nagiyu-platform でも zod は境界の防壁として実際に使っている。特徴的な使い方を 2 つ挙げておく。
+個人開発での実運用でも zod は境界の防壁として実際に使っている。特徴的な使い方を 2 つ挙げておく。
 
-1 つ目は **管理 API の入力検証**。`services/auth/web` のユーザー更新エンドポイントでは、スキーマを別ファイル（`app/api/users/schemas.ts`）に切り出している。
+1 つ目は **管理 API の入力検証**。ある認証サービスのユーザー更新エンドポイントでは、スキーマを別ファイル（`app/api/users/schemas.ts`）に切り出している。
 
 ```typescript
 export const UpdateUserSchema = z
@@ -173,7 +173,7 @@ export const UpdateUserSchema = z
 
 `validRoleIds` は `@nagiyu/common` の `ROLES` から `Object.keys(ROLES)` で動的に生成している。ロール定義を増やすと検証可能な値も自動で追従するので、ここでも「単一の真実源」を守れている。Route 側は `ListUsersQuerySchema.parse(...)` で受けて、`ZodError` を 400 に変換する。エラーメッセージはリポジトリ規約どおり **日本語**でスキーマに直書きし、`z.coerce.number()` でクエリの `limit` を数値化している——本記事で挙げた `coerce` / `.strict()` / 日本語メッセージが、ほぼそのまま実コードになっている。
 
-2 つ目は **LLM の構造化出力の検証**。`services/livetalk/core` や `services/stock-tracker/batch` では、OpenAI に投げたレスポンスを zod スキーマで受けている。LLM の出力は「だいたい JSON」でしかなく型の保証がゼロなので、`z.infer` で得た型と `parse` のランタイム検証が二重の意味で効く。外部 API のうち最も信用できない相手に対して、zod は素直な防御線になる。
+2 つ目は **LLM の構造化出力の検証**。あるリアルタイム通話サービスやある資産・株価管理サービスのバッチでは、OpenAI に投げたレスポンスを zod スキーマで受けている。LLM の出力は「だいたい JSON」でしかなく型の保証がゼロなので、`z.infer` で得た型と `parse` のランタイム検証が二重の意味で効く。外部 API のうち最も信用できない相手に対して、zod は素直な防御線になる。
 
 ## ハマったポイント
 

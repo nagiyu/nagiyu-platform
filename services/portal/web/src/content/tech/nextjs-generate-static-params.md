@@ -11,7 +11,7 @@ categories: ['nextjs']
 
 ## はじめに
 
-Next.js の App Router で動的ルート（`[slug]` のようなパス）を **ビルド時に静的 HTML として書き出す**には `generateStaticParams` を使います。`getStaticPaths` の置き換えに見えますが、実際には型推論や階層構造の扱いが洗練されています。本記事では nagiyu ポータルでの実装をベースに整理します。
+Next.js の App Router で動的ルート（`[slug]` のようなパス）を **ビルド時に静的 HTML として書き出す**には `generateStaticParams` を使います。`getStaticPaths` の置き換えに見えますが、実際には型推論や階層構造の扱いが洗練されています。本記事では個人開発で運用しているサイトでの実装をベースに整理します。
 
 ## 最小例
 
@@ -160,7 +160,7 @@ export async function generateStaticParams() {
 
 ## 実装ノート
 
-nagiyu-platform の Portal では、`generateStaticParams` を理屈どおりにそのまま使っています。記事ページ（`app/tech/[slug]/page.tsx`）の実装は、私が書いている本体もこれだけです。
+個人開発で運用しているサービスでは、`generateStaticParams` を理屈どおりにそのまま使っています。記事ページ（`app/tech/[slug]/page.tsx`）の実装は、私が書いている本体もこれだけです。
 
 ```typescript
 export async function generateStaticParams() {
@@ -171,7 +171,7 @@ export async function generateStaticParams() {
 
 ポイントは `getAllArticles()` を **非同期にしていない**ことです。一覧生成では本文 HTML への変換まではせず、各 Markdown のフロントマターだけを `gray-matter` で読み取って返すので同期関数で十分でした。本文の重い変換（remark → rehype）は、実際に記事を開いたときの `getArticle()` 側に分けています。「パス列挙は軽く、本文変換は記事単位で」という役割分担を自分の中の原則にしています。
 
-同じパターンを Portal の別ルートでも使い回していて、カテゴリ別ハブ（`/tech/category/[category]`）は `TECH_CATEGORY_SLUGS`（`['aws', 'nextjs', 'dev-stack']`）をそのまま `map` し、タグページ（`/tech/tags/[tag]`）は「2 本以上の記事が付いたタグ」だけに絞って静的化しています。
+同じパターンを別ルートでも使い回していて、カテゴリ別ハブ（`/tech/category/[category]`）は `TECH_CATEGORY_SLUGS`（`['aws', 'nextjs', 'dev-stack']`）をそのまま `map` し、タグページ（`/tech/tags/[tag]`）は「2 本以上の記事が付いたタグ」だけに絞って静的化しています。
 
 ## ハマったポイント
 
@@ -182,7 +182,7 @@ export async function generateStaticParams() {
 
 ## 現在の運用
 
-正直に書くと、本記事で紹介した ISR（`revalidate`）や「人気記事だけ事前生成」のような部分 SSG を、私は Portal では使っていません。記事もカテゴリもタグも件数が知れているので、**全ページをビルド時に完全 SSG** してしまう方が、運用も配信もシンプルだと判断しました。CDN から静的配信するだけで済み、リクエスト時のレンダリングを考えなくてよいのが今のところ一番のメリットです。記事が桁違いに増えてビルド時間が問題になったら、そのとき初めて `revalidate` を検討すればいい、というスタンスです。
+正直に書くと、本記事で紹介した ISR（`revalidate`）や「人気記事だけ事前生成」のような部分 SSG を、私は自分の実運用では使っていません。記事もカテゴリもタグも件数が知れているので、**全ページをビルド時に完全 SSG** してしまう方が、運用も配信もシンプルだと判断しました。CDN から静的配信するだけで済み、リクエスト時のレンダリングを考えなくてよいのが今のところ一番のメリットです。記事が桁違いに増えてビルド時間が問題になったら、そのとき初めて `revalidate` を検討すればいい、というスタンスです。
 
 ## まとめ
 

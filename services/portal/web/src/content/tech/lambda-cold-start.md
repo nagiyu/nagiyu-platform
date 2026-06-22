@@ -90,7 +90,7 @@ Node.js を使っている
   → 高優先度関数だけ Provisioned、それ以外は SnapStart
 ```
 
-nagiyu-platform は Node.js 中心なので、現状は Provisioned Concurrency か、そもそも ECS Fargate に切り替えるかの二択です。
+個人開発で運用しているサービスは Node.js 中心なので、現状は Provisioned Concurrency か、そもそも ECS Fargate に切り替えるかの二択です。
 
 ## コールドスタートを最小化するコード上の工夫
 
@@ -151,9 +151,9 @@ fields @timestamp, @initDuration, @duration
 
 ## 実装ノート
 
-nagiyu-platform の Portal は、この記事でいう「Node.js × コールドスタート」に正面から向き合う必要があったサービスです。`infra/root/portal-lambda-stack.ts` を見ると、dev 環境の Portal は Lambda（`memorySize: 1024`、`timeout: 30` 秒、Function URL 有効）として動いています。
+個人開発で運用しているサイトは、この記事でいう「Node.js × コールドスタート」に正面から向き合う必要があったサービスです。`infra/root/portal-lambda-stack.ts` を見ると、dev 環境では Lambda（`memorySize: 1024`、`timeout: 30` 秒、Function URL 有効）として動いています。
 
-ここで私が下した判断は、本文の早見表どおりです。Portal は Node.js で書かれているため SnapStart は使えず、選択肢は「Provisioned Concurrency を入れる」か「そもそも ECS Fargate に逃がす」かの二択になります。自分は **dev は素の Lambda のまま、prod は ECS Fargate に切り替える**という形で割り切りました。dev は自分のテストアクセスが中心でコールドスタートが多少出ても困らない一方、prod はユーザーが触る常時稼働なので、コールドスタートという問題自体を Fargate で消してしまうほうが素直だと考えたためです。
+ここで私が下した判断は、本文の早見表どおりです。サイト本体は Node.js で書かれているため SnapStart は使えず、選択肢は「Provisioned Concurrency を入れる」か「そもそも ECS Fargate に逃がす」かの二択になります。自分は **dev は素の Lambda のまま、prod は ECS Fargate に切り替える**という形で割り切りました。dev は自分のテストアクセスが中心でコールドスタートが多少出ても困らない一方、prod はユーザーが触る常時稼働なので、コールドスタートという問題自体を Fargate で消してしまうほうが素直だと考えたためです。
 
 `memorySize` を 1024 にしているのも理由があって、Lambda はメモリ割当に比例して CPU も増えるため、init 処理（`[3]`）を速くするには控えめなメモリより少し盛ったほうが結果的にコールドスタートが縮みます。dev では 1024 で十分という感触です。
 
@@ -165,11 +165,11 @@ nagiyu-platform の Portal は、この記事でいう「Node.js × コールド
 - **VPC Lambda の ENI 確保**: VPC 内 Lambda は ENI を共有プールから確保するので、初回起動が遅い。VPC 外で動かせるなら外す。
 - **Provisioned Concurrency の課金見落とし**: リクエストがゼロでも待機料金が発生し続ける。トラフィックが激減した API に設定しっぱなしにしない。
 
-この「課金見落とし」が怖くて、私は dev の Portal Lambda には Provisioned Concurrency を入れていません。dev で待機料金を払い続けるのは本末転倒なので、コールドスタートは許容する、という割り切りです。コスト最適化のための Lambda なのに Provisioned で固定費を生んでしまっては意味がない、という感覚は実運用してみて強くなりました。
+この「課金見落とし」が怖くて、私は dev の Lambda には Provisioned Concurrency を入れていません。dev で待機料金を払い続けるのは本末転倒なので、コールドスタートは許容する、という割り切りです。コスト最適化のための Lambda なのに Provisioned で固定費を生んでしまっては意味がない、という感覚は実運用してみて強くなりました。
 
 ## 現在の運用
 
-まとめると、nagiyu-platform の Portal では **コールドスタート対策として個別の手法（Provisioned Concurrency / SnapStart）を採用していません**。代わりに「環境で基盤を分ける」ことで対処しています ── dev は素の Node.js Lambda（Function URL）、prod は ECS Fargate。これは本文の「Node.js を使っている → Provisioned 一択。あるいはそもそも ECS Fargate に切り替えるか」という選択肢のうち、自分は後者を本番採用した実例です。
+まとめると、個人開発で運用しているサイトでは **コールドスタート対策として個別の手法（Provisioned Concurrency / SnapStart）を採用していません**。代わりに「環境で基盤を分ける」ことで対処しています ── dev は素の Node.js Lambda（Function URL）、prod は ECS Fargate。これは本文の「Node.js を使っている → Provisioned 一択。あるいはそもそも ECS Fargate に切り替えるか」という選択肢のうち、自分は後者を本番採用した実例です。
 
 もし将来 prod を Lambda に戻したくなったら、その時点で Provisioned Concurrency を Auto Scaling と組み合わせて入れる、というのが今描いている次の打ち手です。
 

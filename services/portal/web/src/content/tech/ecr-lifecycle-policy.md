@@ -194,13 +194,13 @@ aws ecr get-lifecycle-policy-preview \
 
 ## 実装ノート
 
-この記事では本番 / dev / untagged の 3〜4 ルールを推奨しましたが、nagiyu-platform の実際のポリシーはもっと割り切っています。共通の `EcrStackBase` がすべてのリポジトリに「`Keep last N images`（N はデフォルト 10）」というライフサイクルルールを 1 本だけ貼る作りで、`maxImageCount: 10` を基本にしています。`imageScanOnPush: true`、タグ可変性は `MUTABLE`、削除ポリシーは prod が RETAIN・dev が DESTROY という設定です。SemVer タグや `prod-`/`dev-` プレフィックスでの細かい出し分けはあえてせず、「直近 10 個だけ残す」という単純なルールに寄せたのは、運用ルールを覚えなくて済むことを自分が優先したからです。
+この記事では本番 / dev / untagged の 3〜4 ルールを推奨しましたが、自分の実運用の実際のポリシーはもっと割り切っています。共通の `EcrStackBase` がすべてのリポジトリに「`Keep last N images`（N はデフォルト 10）」というライフサイクルルールを 1 本だけ貼る作りで、`maxImageCount: 10` を基本にしています。`imageScanOnPush: true`、タグ可変性は `MUTABLE`、削除ポリシーは prod が RETAIN・dev が DESTROY という設定です。SemVer タグや `prod-`/`dev-` プレフィックスでの細かい出し分けはあえてせず、「直近 10 個だけ残す」という単純なルールに寄せたのは、運用ルールを覚えなくて済むことを自分が優先したからです。
 
 ## 現在の運用
 
-タグ運用で自分が気に入っているのは Quick Clip の構成です。Web イメージは GitHub Actions のデプロイで commit SHA と `latest` の両方を push し（SHA を追えば「どのコミットが本番にいるか」が一目で分かる）、Batch イメージは同じ `latest` を使わず、あえて `batch-latest` という別タグで運用しています。CDK のジョブ定義側も `:batch-latest` を参照しているので、Web と Batch の「最新」が混線しません。
+タグ運用で自分が気に入っているのは、ある動画クリップ生成サービスの構成です。Web イメージは GitHub Actions のデプロイで commit SHA と `latest` の両方を push し（SHA を追えば「どのコミットが本番にいるか」が一目で分かる）、Batch イメージは同じ `latest` を使わず、あえて `batch-latest` という別タグで運用しています。CDK のジョブ定義側も `:batch-latest` を参照しているので、Web と Batch の「最新」が混線しません。
 
-正直に書くと、本文で勧めた「untagged を最短で消す」専用ルールは nagiyu-platform ではまだ入れていません。今は `maxImageCount` の数制限だけで回しているので、untagged イメージの自動削除は今後の改善余地として残しています。
+正直に書くと、本文で勧めた「untagged を最短で消す」専用ルールは自分の実運用ではまだ入れていません。今は `maxImageCount` の数制限だけで回しているので、untagged イメージの自動削除は今後の改善余地として残しています。
 
 ## ハマったポイント
 

@@ -11,7 +11,7 @@ categories: ['aws']
 
 ## はじめに
 
-nagiyu-platform では、サービスごとに ECS Fargate と Lambda を使い分けています。「コンテナでアプリを動かしたい」というとき AWS には複数の選択肢がありますが、本記事では実装・運用していて効いてくる判断軸を整理します。
+個人開発での実運用では、サービスごとに ECS Fargate と Lambda を使い分けています。「コンテナでアプリを動かしたい」というとき AWS には複数の選択肢がありますが、本記事では実装・運用していて効いてくる判断軸を整理します。
 
 ## 結論からの早見表
 
@@ -41,13 +41,13 @@ AWS Fargate は **最小タスクが常時稼働しているコスト**が発生
 - 1 日に数千〜数万リクエスト → 拮抗
 - 数十万リクエスト以上 → ECS Fargate のほうが安くなることが多い（タスクは固定で水平スケールも段階的）
 
-nagiyu の Tools サービスはアクセスが軽いので Lambda、ポータル本体は常時アクセスがあるので Fargate、と棲み分けています。
+アクセスが軽いツール系サービスは Lambda、ポータル本体は常時アクセスがあるので Fargate、と棲み分けています。
 
 ## 観点 3: 実行時間の上限
 
 Lambda は **最大 15 分**で強制終了します。動画変換・大容量ファイルの加工・大量データの集計など、15 分を超える可能性がある処理は **Fargate タスクや AWS Batch** で動かす必要があります。
 
-nagiyu-platform の Quick Clip / Codec Converter は処理時間が読みにくいので、Lambda ではなく AWS Batch（Fargate ベース）でジョブを実行しています。
+個人開発で運用しているある動画クリップ生成サービスやある動画コーデック変換サービスは処理時間が読みにくいので、Lambda ではなく AWS Batch（Fargate ベース）でジョブを実行しています。
 
 ## 観点 4: パッケージサイズと依存
 
@@ -92,7 +92,7 @@ Next.js のような既存フレームワーク資産を素直に活かしたい
 
 ## 実装ノート
 
-この使い分けは抽象論ではなく、私が nagiyu-platform の Portal そのもので採っている構成です。面白いのは、**同じ Portal を環境ごとに別基盤に載せている**点です。
+この使い分けは抽象論ではなく、私が個人開発で運用しているサイトそのもので採っている構成です。面白いのは、**同じサイトを環境ごとに別基盤に載せている**点です。
 
 - **dev**: `PortalLambdaStack`（`infra/root/portal-lambda-stack.ts`）で Lambda として起動。`memorySize: 1024`、`timeout: 30` 秒、Function URL を有効化して CloudFront のオリジンにしています。dev はアクセスがほぼ自分のテストだけなので、0 リクエスト時に課金されない Lambda が圧倒的に向いています。
 - **prod**: `EcsServiceStack` で ECS Fargate として常時稼働。コールドスタートを避けたいのと、Next.js（standalone）の挙動を Docker のまま揃えたいのが理由です。
@@ -105,7 +105,7 @@ Next.js のような既存フレームワーク資産を素直に活かしたい
 - **Fargate の VPC 内 IP 枯渇**: タスクが起動するたびに ENI（IP）を消費する。サブネットの CIDR を狭く設計しすぎると Auto Scaling 時に枯渇する。
 - **NAT Gateway 経由の通信コスト**: Fargate を Private Subnet に置くと、外部 API 呼び出しが NAT Gateway 経由でデータ転送料金がかかる。VPC Endpoint で逃がせるサービス（S3・DynamoDB など）は逃がす。
 
-NAT Gateway のコストは私も気になったので、nagiyu-platform の prod Fargate タスクは Private ではなく **Public Subnet に置いて `assignPublicIp: true`** にしています。セキュリティ的には Private + NAT が教科書ですが、個人プラットフォームの固定費としては NAT Gateway が地味に重く、自分は「ALB を前段に置く前提で Public 配置」を選びました。ここは万人向けの推奨ではなく、コストとのトレードオフで割り切った判断です。
+NAT Gateway のコストは私も気になったので、自分の実運用の prod Fargate タスクは Private ではなく **Public Subnet に置いて `assignPublicIp: true`** にしています。セキュリティ的には Private + NAT が教科書ですが、個人プラットフォームの固定費としては NAT Gateway が地味に重く、自分は「ALB を前段に置く前提で Public 配置」を選びました。ここは万人向けの推奨ではなく、コストとのトレードオフで割り切った判断です。
 
 ## 現在の運用
 

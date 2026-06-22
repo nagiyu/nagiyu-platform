@@ -11,7 +11,7 @@ categories: ['nextjs']
 
 ## はじめに
 
-Material-UI（MUI）を Next.js App Router で使うと、Server Components の SSR と Emotion のスタイル管理が衝突しやすく、初期描画でスタイルなし HTML が一瞬見える「FOUC（Flash of Unstyled Content）」が発生しがちです。本記事では `ThemeRegistry` パターンを解説します。nagiyu-platform 自体では後述する MUI の公式プロバイダ構成を採用していますが、その背景理解として `ThemeRegistry` パターンの仕組みは押さえておく価値があります。
+Material-UI（MUI）を Next.js App Router で使うと、Server Components の SSR と Emotion のスタイル管理が衝突しやすく、初期描画でスタイルなし HTML が一瞬見える「FOUC（Flash of Unstyled Content）」が発生しがちです。本記事では `ThemeRegistry` パターンを解説します。自分の実運用では後述する MUI の公式プロバイダ構成を採用していますが、その背景理解として `ThemeRegistry` パターンの仕組みは押さえておく価値があります。
 
 ## 何が問題か
 
@@ -187,9 +187,9 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
 
 ## 実装ノート
 
-ここまで手書きの `ThemeRegistry` を解説してきましたが、正直に書くと、nagiyu-platform 本体では私はこの自前キャッシュを使っていません。実際に採用しているのは MUI 公式の `AppRouterCacheProvider`（`@mui/material-nextjs/v16-appRouter`）で、Emotion キャッシュと `useServerInsertedHTML` 相当の処理はライブラリ側に任せています。理由はシンプルで、自前で `cache.insert` をラップして `flush()` を回す保守コストを、私が背負い続けたくなかったからです。MUI も v9 系まで上がり、公式実装が安定したので、車輪の再発明をやめました。
+ここまで手書きの `ThemeRegistry` を解説してきましたが、正直に書くと、自分の実運用では私はこの自前キャッシュを使っていません。実際に採用しているのは MUI 公式の `AppRouterCacheProvider`（`@mui/material-nextjs/v16-appRouter`）で、Emotion キャッシュと `useServerInsertedHTML` 相当の処理はライブラリ側に任せています。理由はシンプルで、自前で `cache.insert` をラップして `flush()` を回す保守コストを、私が背負い続けたくなかったからです。MUI も v9 系まで上がり、公式実装が安定したので、車輪の再発明をやめました。
 
-さらに私は、このプロバイダを各サービスにコピペするのではなく、`@nagiyu/ui` の `AppThemeProvider` という 1 つの Client Component に集約しています。中身は `AppRouterCacheProvider` → `ThemeProvider` → `CssBaseline` → `children` というだけの薄いラッパーで、Portal の `layout.tsx` からは `<AppThemeProvider>` を呼ぶだけ。テーマ実装が複数サービスで散らからないよう、共通ライブラリに寄せたのが自分の設計判断です。
+さらに私は、このプロバイダを各サービスにコピペするのではなく、`@nagiyu/ui` の `AppThemeProvider` という 1 つの Client Component に集約しています。中身は `AppRouterCacheProvider` → `ThemeProvider` → `CssBaseline` → `children` というだけの薄いラッパーで、アプリの `layout.tsx` からは `<AppThemeProvider>` を呼ぶだけ。テーマ実装が複数サービスで散らからないよう、共通ライブラリに寄せたのが自分の設計判断です。
 
 ## ハマったポイント
 
@@ -202,7 +202,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
 
 ## 現在の運用
 
-現状 nagiyu-platform では、テーマはライト 1 種類で固定運用しています。本記事ではダークモード切替の例も載せましたが、これは「やろうと思えばできる」という解説であって、Portal 本番にトグルはまだ入れていません。私の優先順位として、まずは複数サービスで見た目を揃えること（共通 `AppThemeProvider` + `tokens.css`）を先に固め、ダークモードは後回しにした、というのが正直なところです。逆に言えば、テーマ実装を 1 箇所に集約してあるおかげで、ダークモード対応が必要になっても触る場所は `@nagiyu/ui` 配下だけで済む見込みです。
+現状の実運用では、テーマはライト 1 種類で固定運用しています。本記事ではダークモード切替の例も載せましたが、これは「やろうと思えばできる」という解説であって、本番にトグルはまだ入れていません。私の優先順位として、まずは複数サービスで見た目を揃えること（共通 `AppThemeProvider` + `tokens.css`）を先に固め、ダークモードは後回しにした、というのが正直なところです。逆に言えば、テーマ実装を 1 箇所に集約してあるおかげで、ダークモード対応が必要になっても触る場所は `@nagiyu/ui` 配下だけで済む見込みです。
 
 ## まとめ
 
