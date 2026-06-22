@@ -3,7 +3,7 @@ title: 'CloudFront+ECSでNext.jsをデプロイする構成解説'
 description: 'CloudFront + ECS FargateでNext.jsをデプロイするAWS構成を解説。ECSサービス設定・ALB構成・CloudFrontディストリビューション・キャッシュ設定・GitHub ActionsでのCI/CDまで詳しく説明します。'
 slug: 'cloudfront-ecs-deployment'
 publishedAt: '2026-04-10'
-updatedAt: '2026-06-13'
+updatedAt: '2026-06-22'
 author: 'なぎゆー'
 tags: ['AWS', 'CloudFront', 'ECS', 'Next.js']
 categories: ['aws']
@@ -11,7 +11,7 @@ categories: ['aws']
 
 ## はじめに
 
-Next.js アプリケーションを本番環境にデプロイする際、AWS の CloudFront + ECS Fargate という構成は高可用性・スケーラビリティ・コスト効率を両立する優れた選択肢です。本記事では、nagiyu プラットフォームでも採用しているこのアーキテクチャの構成方法を解説します。
+Next.js アプリケーションを本番環境にデプロイする際、AWS の CloudFront + ECS Fargate という構成は高可用性・スケーラビリティ・コスト効率を両立する優れた選択肢です。本記事では、個人開発での実運用でも採用しているこのアーキテクチャの構成方法を解説します。
 
 ## アーキテクチャ概要
 
@@ -29,9 +29,9 @@ ECS Fargate（Next.js コンテナ）
 
 CloudFront を最前段に置くことで、静的アセットのキャッシュによるパフォーマンス向上と、グローバルエッジロケーションによる低レイテンシを実現します。
 
-![Route53・ACM・CloudFront・ALB・ECS Fargate・ECR・CloudWatch Logsから成るnagiyu-platformの本番構成図](/images/tech/cloudfront-ecs-deployment-architecture.png)
+![Route53・ACM・CloudFront・ALB・ECS Fargate・ECR・CloudWatch Logsから成る本番構成図](/images/tech/cloudfront-ecs-deployment-architecture.png)
 
-_図1: nagiyu-platform Portal 本番構成（Route 53 → CloudFront → ALB → ECS Fargate、ECR からイメージ pull）_
+_図1: 本番構成（Route 53 → CloudFront → ALB → ECS Fargate、ECR からイメージ pull）_
 
 ## Next.js の Dockerfile
 
@@ -323,9 +323,9 @@ jobs:
 
 ## 実装ノート
 
-ここまでは一般的な構成例ですが、nagiyu-platform で私が実際に組んでいる Portal の本番構成は、記事中のサンプルといくつか違う判断をしています（`infra/root/ecs-service-stack.ts` / `infra/root/cloudfront-stack.ts`）。
+ここまでは一般的な構成例ですが、私が個人開発で実際に組んでいるサイトの本番構成は、記事中のサンプルといくつか違う判断をしています（`infra/root/ecs-service-stack.ts` / `infra/root/cloudfront-stack.ts`）。
 
-- **タスクサイズは最小寄り**: 本文の例では `cpu: 512 / memory: 1024`、`desiredCount: 2` にしていますが、自分の実構成は `cpu: 256 / memoryLimitMiB: 512`、`desiredCount: 1` です。Portal はまだトラフィックが軽いので、まず最小で立ち上げてから必要なら増やす方針にしています。
+- **タスクサイズは最小寄り**: 本文の例では `cpu: 512 / memory: 1024`、`desiredCount: 2` にしていますが、自分の実構成は `cpu: 256 / memoryLimitMiB: 512`、`desiredCount: 1` です。まだトラフィックが軽いので、まず最小で立ち上げてから必要なら増やす方針にしています。
 - **サブネットは Public + assignPublicIp**: 記事の ECS サービス例は Private Subnet + `assignPublicIp: DISABLED` でしたが、私の実構成は Public Subnet に置いて `assignPublicIp: true` にしています。NAT Gateway の固定費を避けたかったのが理由で、ここは「教科書的なベストプラクティス（Private 配置）」と「個人プラットフォームのコスト感」を天秤にかけて、後者を選んだ箇所です。
 - **ロールは Execution / Task を分離**: タスク実行ロール（ECR pull・ログ出力）とタスクロール（アプリ実行時）を別々に定義し、ECR の pull 権限は対象リポジトリの ARN に絞っています。
 - **CloudFront は CACHING_DISABLED の素通し**: ルートドメインの Distribution は `PRICE_CLASS_100`・`HTTP2_AND_3` で、デフォルトビヘイビアを `CachingDisabled` + `ALL_VIEWER_EXCEPT_HOST_HEADER` にして ALB へ流しています。
@@ -338,7 +338,7 @@ jobs:
 
 ## 現在の運用
 
-nagiyu-platform では、同じ Portal を **dev と prod で別の実行基盤**に載せています。prod はこの記事の ECS Fargate 構成（`nagiyu-root-cluster-prod`、`FARGATE` + `FARGATE_SPOT` のキャパシティプロバイダを関連付け、Container Insights 有効）ですが、dev はコストを抑えるために Lambda Function URL + CloudFront に切り替えています。同じ Docker イメージ / 同じ Next.js を、環境によって ECS と Lambda に振り分けているわけです。
+自分の実運用では、同じサイトを **dev と prod で別の実行基盤**に載せています。prod はこの記事の ECS Fargate 構成（`FARGATE` + `FARGATE_SPOT` のキャパシティプロバイダを関連付け、Container Insights 有効）ですが、dev はコストを抑えるために Lambda Function URL + CloudFront に切り替えています。同じ Docker イメージ / 同じ Next.js を、環境によって ECS と Lambda に振り分けているわけです。
 
 「prod は常時稼働で安定、dev は使った分だけ課金」という棲み分けは、個人で複数サービスを運用していると効いてきます。Spot タスクを使えるよう `FARGATE_SPOT` も関連付け済みなので、コストが気になってきたら prod 側の一部を Spot に寄せる、というのが自分の次の一手です。
 

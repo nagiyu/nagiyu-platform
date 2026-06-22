@@ -1,9 +1,9 @@
 ---
-title: 'EventBridge Rules で定期バッチを CDK で組む：Stock Tracker の 6 ルール構成'
-description: 'AWS CDK（aws-events）を使って EventBridge Rules でバッチ定期実行を組む方法を解説。rate() / cron() の使い分け、LambdaFunction target の指定、EventBridge Scheduler との選択判断まで、Stock Tracker の実装をベースに紹介します。'
+title: 'EventBridge Rules で定期バッチを CDK で組む：資産・株価管理サービスの 6 ルール構成'
+description: 'AWS CDK（aws-events）を使って EventBridge Rules でバッチ定期実行を組む方法を解説。rate() / cron() の使い分け、LambdaFunction target の指定、EventBridge Scheduler との選択判断まで、資産・株価管理サービスの実装をベースに紹介します。'
 slug: 'eventbridge-rule-scheduling'
 publishedAt: '2026-05-27'
-updatedAt: '2026-05-27'
+updatedAt: '2026-06-22'
 author: 'なぎゆー'
 tags: ['AWS', 'EventBridge', 'Lambda', 'CDK']
 categories: ['aws']
@@ -18,7 +18,7 @@ AWS で定期実行を組む手段は、大きく 2 つあります。
 
 Scheduler は後発だけあって機能が豊富です。タイムゾーン指定、One-time（特定時刻 1 回）実行、スケジュール数の大幅緩和（1 アカウントあたり数百万件）、スケジュールごとの DLQ 設定など、使い込むサービスには向いています。
 
-一方、**シンプルな定期バッチに限れば Rules は今も現役**です。本記事では、Stock Tracker の 6 つのバッチルールを AWS CDK（`aws-events` + `aws-events-targets`）で実装した構成を解説します。
+一方、**シンプルな定期バッチに限れば Rules は今も現役**です。本記事では、個人開発で運用している資産・株価管理サービスの 6 つのバッチルールを AWS CDK（`aws-events` + `aws-events-targets`）で実装した構成を解説します。
 
 ## EventBridge Rules の基本
 
@@ -83,7 +83,7 @@ rule.addTarget(
 
 ## 実装ノート
 
-Stock Tracker では 6 つの EventBridge Rule を 1 つの CDK Stack（`EventBridgeStack`）にまとめています。
+この資産・株価管理サービスでは 6 つの EventBridge Rule を 1 つの CDK Stack（`EventBridgeStack`）にまとめています。
 
 | ルール名                      | スケジュール        | 処理内容                         |
 | ----------------------------- | ------------------- | -------------------------------- |
@@ -103,8 +103,8 @@ Scheduler ではなく Rules を選んだのは、スケジュール数と機能
 ```typescript
 [minuteRule, hourlyRule, summaryRule, temporaryAlertExpiryRule, evaluationRule, dailyRule].forEach(
   (rule) => {
-    cdk.Tags.of(rule).add('Application', 'nagiyu');
-    cdk.Tags.of(rule).add('Service', 'stock-tracker');
+    cdk.Tags.of(rule).add('Application', 'my-platform');
+    cdk.Tags.of(rule).add('Service', 'asset-tracker');
     cdk.Tags.of(rule).add('Environment', environment);
   }
 );

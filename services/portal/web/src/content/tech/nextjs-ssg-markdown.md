@@ -3,7 +3,7 @@ title: 'Next.jsでMarkdownを静的ページに変換する実装方法'
 description: 'Next.jsのSSGとMarkdownファイルを組み合わせた静的サイト生成の実装方法を解説。gray-matterによるフロントマター解析・remark/rehypeによるレンダリング・generateStaticParamsの活用まで詳しく説明します。'
 slug: 'nextjs-ssg-markdown'
 publishedAt: '2026-04-10'
-updatedAt: '2026-06-06'
+updatedAt: '2026-06-22'
 author: 'なぎゆー'
 tags: ['Next.js', 'Markdown', 'SSG']
 categories: ['nextjs']
@@ -11,7 +11,7 @@ categories: ['nextjs']
 
 ## はじめに
 
-Next.js の SSG（Static Site Generation）機能と Markdown ファイルを組み合わせることで、コンテンツをファイルとして管理しながら高速な静的サイトを構築できます。本記事では、nagiyu ポータルサイトの実装を参考に、Markdown ベースのコンテンツ管理システムの作り方を解説します。
+Next.js の SSG（Static Site Generation）機能と Markdown ファイルを組み合わせることで、コンテンツをファイルとして管理しながら高速な静的サイトを構築できます。本記事では、個人開発で運用しているサイトの実装を参考に、Markdown ベースのコンテンツ管理システムの作り方を解説します。
 
 ## 必要なパッケージのインストール
 
@@ -254,7 +254,7 @@ export async function getAllTechArticles(): Promise<TechArticle[]> {
 
 ## 実装ノート
 
-この記事はまさに今あなたが読んでいる Portal そのものが題材なので、実際の実装を正直に書いておきます。本文では `lib/markdown.ts` と `lib/tech.ts` に分けた例を出しましたが、私の手元の実コードでは読み込み・変換ロジックを `src/lib/content.ts` 1 ファイルに集約しています。サービスドキュメント・技術記事・カテゴリ別ハブを、ほぼ同じ `gray-matter` + `remark` のパイプラインで扱うため、ファイルを分けるより 1 箇所にまとめた方が見通しがよかったからです。
+この仕組みは個人開発で運用しているサイトでまさに使っているものなので、実際の実装を正直に書いておきます。本文では `lib/markdown.ts` と `lib/tech.ts` に分けた例を出しましたが、私の手元の実コードでは読み込み・変換ロジックを `src/lib/content.ts` 1 ファイルに集約しています。サービスドキュメント・技術記事・カテゴリ別ハブを、ほぼ同じ `gray-matter` + `remark` のパイプラインで扱うため、ファイルを分けるより 1 箇所にまとめた方が見通しがよかったからです。
 
 変換パイプラインも記事のサンプルとは少し違います。私が実際に使っているのは次の構成です。
 
@@ -276,7 +276,7 @@ return DOMPurify.sanitize(result.toString());
 
 ## 現在の運用
 
-今 nagiyu-platform では、この仕組みの上で 20 本以上の技術記事に加えて、各サービスのドキュメント（overview / guide / faq）とカテゴリ別ハップページを、すべて Markdown ファイルとして管理しています。記事を 1 本足したいときは `src/content/tech/` に `.md` を置くだけで、`getAllArticles()` が拾って一覧・`sitemap.xml`・関連記事（タグ一致数でスコアリング）まで自動で繋がるようにしてあります。コンテンツをコードと同じリポジトリで Git 管理できるのが、自分にとってこの構成の一番のメリットです。
+今の自分の実運用では、この仕組みの上で 20 本以上の技術記事に加えて、各種ドキュメント（overview / guide / faq）とカテゴリ別ハブページを、すべて Markdown ファイルとして管理しています。記事を 1 本足したいときは `src/content/tech/` に `.md` を置くだけで、`getAllArticles()` が拾って一覧・`sitemap.xml`・関連記事（タグ一致数でスコアリング）まで自動で繋がるようにしてあります。コンテンツをコードと同じリポジトリで Git 管理できるのが、自分にとってこの構成の一番のメリットです。
 
 ## まとめ
 
