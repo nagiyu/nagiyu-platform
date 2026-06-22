@@ -23,7 +23,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'nagiyu について',
-  description: 'nagiyu は個人開発者が提供する Web サービスのポータルサイトです。',
+  description: 'nagiyu は個人開発者による実運用ベースの技術メディアです。',
   alternates: {
     canonical: 'https://nagiyu.com/about',
   },
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     default: 'nagiyu',
     template: '%s - nagiyu',
   },
-  description: '個人開発の Web サービスポータル',
+  description: '個人開発者による実運用ベースの技術メディア',
   openGraph: {
     type: 'website',
     locale: 'ja_JP',
@@ -205,7 +205,7 @@ export default function robots(): MetadataRoute.Robots {
 
 ## 実装ノート
 
-この記事は個人開発で運用しているサイトの実装がベースなので、私が実際に書いている設定を具体的に紹介します。ルートレイアウト（`app/layout.tsx`）では `metadataBase: new URL('https://nagiyu.com')` を起点に、`title.template` を `'%s - nagiyu'`、`title.default` を `'nagiyu - サービス一覧・技術ポータル'` として共通の OGP / Twitter Card を一括定義しています。`themeColor` は `metadata` ではなく `export const viewport` 側（`#1976d2`）に分離済みです。
+この記事は個人開発で運用しているサイトの実装がベースなので、私が実際に書いている設定を具体的に紹介します。ルートレイアウト（`app/layout.tsx`）では `metadataBase: new URL('https://nagiyu.com')` を起点に、`title.template` を `'%s - nagiyu'`、`title.default` を `'nagiyu - AWS・Next.js 技術メディア'` として共通の OGP / Twitter Card を一括定義しています。`themeColor` は `metadata` ではなく `export const viewport` 側（`#1976d2`）に分離済みです。
 
 記事ページ側（`app/tech/[slug]/page.tsx`）では `generateMetadata` で記事ごとに `canonical` と `openGraph.type: 'article'` を組み立て、`publishedTime` / `modifiedTime` をフロントマターの `publishedAt` / `updatedAt` から ISO 文字列にして渡しています。`updatedAt` が無い記事は `publishedAt` にフォールバックする実装です。まさに今あなたが見ている「最終更新」表示も、この一人称セクションを追記して `updatedAt` を変えたことで動いています。
 
