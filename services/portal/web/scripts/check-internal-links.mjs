@@ -108,31 +108,6 @@ function techArticleExists(slug) {
 }
 
 /**
- * `/tech/category/{slug}` ルートが実在するか確認する。
- * `src/content/tech-category/{slug}.md` が存在し、
- * かつ該当カテゴリの記事が 1 件以上あれば実在と判定。
- * @param {string} slug
- * @returns {boolean}
- */
-function techCategoryExists(slug) {
-  const categoryFile = path.join(CONTENT_DIR, 'tech-category', `${slug}.md`);
-  if (!fs.existsSync(categoryFile)) return false;
-
-  // 該当カテゴリを持つ記事が 1 件以上あるか確認
-  const techDir = path.join(CONTENT_DIR, 'tech');
-  if (!fs.existsSync(techDir)) return false;
-  for (const file of fs.readdirSync(techDir)) {
-    if (!file.endsWith('.md')) continue;
-    const content = fs.readFileSync(path.join(techDir, file), 'utf8');
-    const catMatch = content.match(/^categories:\s*\[([^\]]*)\]/m);
-    if (!catMatch) continue;
-    const cats = catMatch[1].match(/['"]([^'"]+)['"]/g)?.map((c) => c.replace(/['"]/g, '')) ?? [];
-    if (cats.includes(slug)) return true;
-  }
-  return false;
-}
-
-/**
  * 静的ページが実在するか確認する。
  * `src/app/{path}/page.tsx` の存在で判定。
  * @param {string} href
@@ -159,31 +134,16 @@ function validateHref(href) {
     return { valid: true, reason: '' };
   }
 
-  // /tech/{slug} パターン
+  // /tech/{slug} パターン（/tech/category は別パターンで扱わず、記事として判定する）
   const techMatch = href.match(/^\/tech\/([^/?#]+)$/);
   if (techMatch) {
     const slug = techMatch[1];
-    // /tech 自体は静的ページ
-    if (slug === '') return { valid: true, reason: '' };
-    // /tech/category は別パターン。
-    // category 以外の slug（例: tags）は実在記事として判定し、該当記事が無ければ無効になる。
-    if (slug === 'category') return { valid: true, reason: '' };
+    // /tech/category は廃止済みルートのため、記事として判定しそのまま無効とする。
     if (techArticleExists(slug)) return { valid: true, reason: '' };
     return { valid: false, reason: `技術記事 src/content/tech/${slug}.md が存在しない` };
   }
 
-  // /tech/category/{slug} パターン
-  const techCategoryMatch = href.match(/^\/tech\/category\/([^/?#]+)$/);
-  if (techCategoryMatch) {
-    const slug = techCategoryMatch[1];
-    if (techCategoryExists(slug)) return { valid: true, reason: '' };
-    return {
-      valid: false,
-      reason: `カテゴリ src/content/tech-category/${slug}.md が存在しない、または該当記事がない`,
-    };
-  }
-
-  // 上記いずれの分岐にも該当しないパス（例: /services・/tech/tags）は、
+  // 上記いずれの分岐にも該当しないパス（例: /services・/tech/tags・/tech/category/*）は、
   // 静的ページ・public ファイルにも無ければ「対応するページが存在しない」として無効になる。
 
   // /tech のみ（一覧ページ）は静的ページとして判定済み
