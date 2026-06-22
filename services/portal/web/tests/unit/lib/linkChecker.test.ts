@@ -3,12 +3,8 @@ import fs from 'fs';
 import os from 'os';
 import {
   extractInternalLinks,
-  tagToSlug,
   techArticleExists,
-  techTagExists,
   techCategoryExists,
-  serviceExists,
-  serviceDocExists,
   staticPageExists,
   validateHref,
   checkFile,
@@ -109,28 +105,6 @@ describe('linkChecker', () => {
     });
   });
 
-  describe('tagToSlug', () => {
-    it('ASCII タグをそのまま小文字化する', () => {
-      expect(tagToSlug('AWS')).toBe('aws');
-    });
-
-    it('スペースをハイフンに変換する', () => {
-      expect(tagToSlug('AWS Batch')).toBe('aws-batch');
-    });
-
-    it('スラッシュをハイフンに変換する', () => {
-      expect(tagToSlug('Next.js/React')).toBe('next.js-react');
-    });
-
-    it('連続するハイフンを 1 つに集約する', () => {
-      expect(tagToSlug('foo  bar')).toBe('foo-bar');
-    });
-
-    it('先頭・末尾のハイフンを除去する', () => {
-      expect(tagToSlug('-foo-')).toBe('foo');
-    });
-  });
-
   describe('techArticleExists', () => {
     it('存在する tech 記事は true を返す', () => {
       expect(techArticleExists('test-article-1', FIXTURE_CONTENT_DIR)).toBe(true);
@@ -138,26 +112,6 @@ describe('linkChecker', () => {
 
     it('存在しない tech 記事は false を返す', () => {
       expect(techArticleExists('non-existent', FIXTURE_CONTENT_DIR)).toBe(false);
-    });
-  });
-
-  describe('techTagExists', () => {
-    it('存在するタグスラッグに対して true を返す', () => {
-      // test-article-1.md の tags: ['AWS', 'Test'] → aws, test
-      expect(techTagExists('aws', FIXTURE_CONTENT_DIR)).toBe(true);
-    });
-
-    it('存在しないタグスラッグに対して false を返す', () => {
-      expect(techTagExists('nonexistent-tag', FIXTURE_CONTENT_DIR)).toBe(false);
-    });
-
-    it('コンテンツディレクトリが存在しない場合は false を返す', () => {
-      expect(techTagExists('aws', '/nonexistent/path')).toBe(false);
-    });
-
-    it('tags フロントマターがない記事はスキップする', () => {
-      // test-article-3.md に tags があるが nonexistent-tag はないのでfalse
-      expect(techTagExists('nonexistent', FIXTURE_CONTENT_DIR)).toBe(false);
     });
   });
 
@@ -191,36 +145,6 @@ describe('linkChecker', () => {
     });
   });
 
-  describe('serviceExists', () => {
-    it('存在するサービスに対して true を返す', () => {
-      expect(serviceExists('tools', FIXTURE_CONTENT_DIR)).toBe(true);
-    });
-
-    it('存在しないサービスに対して false を返す', () => {
-      expect(serviceExists('nonexistent-service', FIXTURE_CONTENT_DIR)).toBe(false);
-    });
-  });
-
-  describe('serviceDocExists', () => {
-    it('存在するサービスドキュメントに対して true を返す', () => {
-      // fixtures/content/services/tools/index.md が存在する
-      expect(serviceDocExists('tools', 'index', FIXTURE_CONTENT_DIR)).toBe(true);
-    });
-
-    it('存在するサービスドキュメント（faq）に対して true を返す', () => {
-      // fixtures/content/services/tools/faq.md が存在する
-      expect(serviceDocExists('tools', 'faq', FIXTURE_CONTENT_DIR)).toBe(true);
-    });
-
-    it('存在しないサービスドキュメントに対して false を返す', () => {
-      expect(serviceDocExists('tools', 'nonexistent-doc', FIXTURE_CONTENT_DIR)).toBe(false);
-    });
-
-    it('存在しないサービス自体に対して false を返す', () => {
-      expect(serviceDocExists('nonexistent', 'guide', FIXTURE_CONTENT_DIR)).toBe(false);
-    });
-  });
-
   describe('staticPageExists', () => {
     it('STATIC_ROUTES に含まれるパスに対して true を返す', () => {
       expect(staticPageExists('/', REAL_SRC_DIR)).toBe(true);
@@ -228,7 +152,11 @@ describe('linkChecker', () => {
       expect(staticPageExists('/privacy', REAL_SRC_DIR)).toBe(true);
       expect(staticPageExists('/terms', REAL_SRC_DIR)).toBe(true);
       expect(staticPageExists('/tech', REAL_SRC_DIR)).toBe(true);
-      expect(staticPageExists('/services', REAL_SRC_DIR)).toBe(true);
+    });
+
+    it('撤去済みの /services は STATIC_ROUTES から外れ false を返す', () => {
+      // /services は撤去済みのため実在ルートとして扱わない（src/app/services も存在しない）
+      expect(staticPageExists('/services', REAL_SRC_DIR)).toBe(false);
     });
 
     it('app/page.tsx が存在するパスに対して true を返す（about は STATIC_ROUTES 経由）', () => {
@@ -251,11 +179,6 @@ describe('linkChecker', () => {
       expect(result.valid).toBe(true);
     });
 
-    it('/tech/tags キーワードは valid を返す（/tech/{slug} パターン外）', () => {
-      const result = validateHref('/tech/tags', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
-      expect(result.valid).toBe(true);
-    });
-
     it('/tech/category キーワードは valid を返す（/tech/{slug} パターン外）', () => {
       const result = validateHref('/tech/category', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
       expect(result.valid).toBe(true);
@@ -272,17 +195,6 @@ describe('linkChecker', () => {
       expect(result.reason).toContain('non-existent');
     });
 
-    it('存在する /tech/tags/{tagSlug} は valid を返す', () => {
-      const result = validateHref('/tech/tags/aws', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
-      expect(result.valid).toBe(true);
-    });
-
-    it('存在しない /tech/tags/{tagSlug} は invalid を返す', () => {
-      const result = validateHref('/tech/tags/no-such-tag', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
-      expect(result.valid).toBe(false);
-      expect(result.reason).toContain('no-such-tag');
-    });
-
     it('存在する /tech/category/{slug} は valid を返す', () => {
       const result = validateHref('/tech/category/aws', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
       expect(result.valid).toBe(true);
@@ -294,42 +206,38 @@ describe('linkChecker', () => {
       expect(result.reason).toContain('no-category');
     });
 
-    it('存在する /services/{slug} は valid を返す', () => {
-      const result = validateHref('/services/tools', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
-      expect(result.valid).toBe(true);
-    });
+    // --- 撤去済みルート（/services・/tech/tags）は壊れたリンクとして検出されること ---
+    // チェッカーは /services・/tech/tags 専用の実在判定分岐を持たないため、
+    // 対応コンテンツの有無に関わらず常に無効（壊れたリンク）と判定する。退行防止のため negative assertion を置く。
 
-    it('存在しない /services/{slug} は invalid を返す', () => {
-      const result = validateHref('/services/nonexistent', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
+    it('撤去済みの /tech/tags（一覧）は invalid を返す', () => {
+      const result = validateHref('/tech/tags', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
       expect(result.valid).toBe(false);
-      expect(result.reason).toContain('nonexistent');
     });
 
-    it('存在する /services/{slug}/{doc} は valid を返す', () => {
-      // fixtures/content/services/tools/index.md に対応する /services/tools/index
-      const result = validateHref('/services/tools/index', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
-      expect(result.valid).toBe(true);
-    });
-
-    it('存在する /services/{slug}/{doc}（faq）は valid を返す', () => {
-      // fixtures/content/services/tools/faq.md に対応する /services/tools/faq
-      const result = validateHref('/services/tools/faq', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
-      expect(result.valid).toBe(true);
-    });
-
-    it('存在しない /services/{slug}/{doc} は invalid を返す', () => {
-      const result = validateHref(
-        '/services/tools/nonexistent-doc',
-        FIXTURE_CONTENT_DIR,
-        REAL_SRC_DIR
-      );
+    it('撤去済みの /tech/tags/{tagSlug} は invalid を返す', () => {
+      // フィクスチャに aws タグを持つ記事が存在しても、ルート自体が撤去済みのため壊れたリンク。
+      const result = validateHref('/tech/tags/aws', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
       expect(result.valid).toBe(false);
-      expect(result.reason).toContain('nonexistent-doc');
+      expect(result.reason).toContain('/tech/tags/aws');
     });
 
-    it('/services の一覧ページは valid を返す', () => {
+    it('撤去済みの /services（一覧）は invalid を返す', () => {
       const result = validateHref('/services', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
-      expect(result.valid).toBe(true);
+      expect(result.valid).toBe(false);
+      expect(result.reason).toContain('/services');
+    });
+
+    it('撤去済みの /services/{slug} は invalid を返す', () => {
+      const result = validateHref('/services/tools', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
+      expect(result.valid).toBe(false);
+      expect(result.reason).toContain('/services/tools');
+    });
+
+    it('撤去済みの /services/{slug}/{doc} は invalid を返す', () => {
+      const result = validateHref('/services/tools/faq', FIXTURE_CONTENT_DIR, REAL_SRC_DIR);
+      expect(result.valid).toBe(false);
+      expect(result.reason).toContain('/services/tools/faq');
     });
 
     it('/tech の一覧ページは valid を返す', () => {
@@ -479,19 +387,26 @@ describe('linkChecker', () => {
       expect(broken).toHaveLength(0);
     });
 
-    it('リンク切れを含む内容のファイルからリンク切れ一覧を返す', () => {
-      // テスト用の一時ファイルをモックで代替する
+    it('リンク切れを含む内容のファイルからリンク切れ一覧を返す（撤去済みルートも検出）', () => {
+      // テスト用の一時ファイルをモックで代替する。
+      // /about は実在する有効リンク。/tech/non-existent-slug は存在しない記事。
+      // /services/tools・/tech/tags/aws は撤去済みルートのため
+      // 壊れたリンクとして検出されること（退行防止）を担保する。
       const mockContent =
-        '[存在しない記事](/tech/non-existent-slug)\n[About](/about)\n[存在しないサービス](/services/no-service)';
+        '[存在しない記事](/tech/non-existent-slug)\n[About](/about)\n' +
+        '[撤去済みサービス](/services/tools)\n[撤去済みタグ](/tech/tags/aws)';
       jest.spyOn(fs, 'readFileSync').mockReturnValueOnce(mockContent);
 
       const testFile = path.join(FIXTURE_CONTENT_DIR, 'tech', 'test-article-1.md');
       const broken = checkFile(testFile, DEFAULT_OPTIONS);
       jest.restoreAllMocks();
 
-      expect(broken).toHaveLength(2);
+      expect(broken).toHaveLength(3);
       expect(broken.some((b) => b.href === '/tech/non-existent-slug')).toBe(true);
-      expect(broken.some((b) => b.href === '/services/no-service')).toBe(true);
+      expect(broken.some((b) => b.href === '/services/tools')).toBe(true);
+      expect(broken.some((b) => b.href === '/tech/tags/aws')).toBe(true);
+      // /about は有効リンクなので壊れたリンクには含まれないこと
+      expect(broken.some((b) => b.href === '/about')).toBe(false);
     });
 
     it('リンク切れに file・line・href・reason を含む', () => {

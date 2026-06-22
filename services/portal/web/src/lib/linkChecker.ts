@@ -18,13 +18,8 @@ export interface BrokenLink {
  */
 export const ERROR_MESSAGES = {
   TECH_ARTICLE_NOT_FOUND: (slug: string) => `技術記事 src/content/tech/${slug}.md が存在しない`,
-  TECH_TAG_NOT_FOUND: (tagSlug: string) => `タグスラッグ '${tagSlug}' に対応する記事が存在しない`,
   TECH_CATEGORY_NOT_FOUND: (slug: string) =>
     `カテゴリ src/content/tech-category/${slug}.md が存在しない、または該当記事がない`,
-  SERVICE_DOC_NOT_FOUND: (slug: string, doc: string) =>
-    `サービスドキュメント src/content/services/${slug}/${doc}.md が存在しない`,
-  SERVICE_NOT_FOUND: (slug: string) =>
-    `サービス src/content/services/${slug}/index.md が存在しない`,
   PAGE_NOT_FOUND: (href: string) => `対応するページが存在しない (${href})`,
 } as const;
 
@@ -49,7 +44,7 @@ export function publicFileExists(href: string, publicDir: string): boolean {
 /**
  * 静的ページの存在パス一覧（app ディレクトリ内に page.tsx があるルート）
  */
-const STATIC_ROUTES = new Set(['/', '/about', '/privacy', '/terms', '/tech', '/services']);
+const STATIC_ROUTES = new Set(['/', '/about', '/privacy', '/terms', '/tech']);
 
 /**
  * ファイルを再帰的に列挙する
@@ -111,44 +106,11 @@ export function extractInternalLinks(content: string): { href: string; line: num
 }
 
 /**
- * タグ名を URL スラッグに変換する（content.ts の tagToSlug と同じロジック）
- */
-export function tagToSlug(tag: string): string {
-  return tag
-    .toLowerCase()
-    .replace(/[\s/]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-}
-
-/**
  * `/tech/{slug}` ルートが実在するか確認する。
  * `src/content/tech/{slug}.md` の存在で判定。
  */
 export function techArticleExists(slug: string, contentDir: string): boolean {
   return fs.existsSync(path.join(contentDir, 'tech', `${slug}.md`));
-}
-
-/**
- * `/tech/tags/{tagSlug}` ルートが実在するか確認する。
- * タグ slug に合致する記事が 1 件以上あれば存在と判定。
- */
-export function techTagExists(tagSlug: string, contentDir: string): boolean {
-  const techDir = path.join(contentDir, 'tech');
-  if (!fs.existsSync(techDir)) return false;
-  for (const file of fs.readdirSync(techDir)) {
-    if (!file.endsWith('.md')) continue;
-    const content = fs.readFileSync(path.join(techDir, file), 'utf8');
-    // frontmatter の tags 行を簡易パース
-    const tagsMatch = content.match(/^tags:\s*\[([^\]]*)\]/m);
-    if (!tagsMatch) continue;
-    const tagsRaw = tagsMatch[1];
-    const tagNames = tagsRaw.match(/['"]([^'"]+)['"]/g)?.map((t) => t.replace(/['"]/g, '')) ?? [];
-    for (const tagName of tagNames) {
-      if (tagToSlug(tagName) === tagSlug) return true;
-    }
-  }
-  return false;
 }
 
 /**
@@ -172,22 +134,6 @@ export function techCategoryExists(slug: string, contentDir: string): boolean {
     if (cats.includes(slug)) return true;
   }
   return false;
-}
-
-/**
- * `/services/{slug}` ルートが実在するか確認する。
- * `src/content/services/{slug}/index.md` の存在で判定。
- */
-export function serviceExists(slug: string, contentDir: string): boolean {
-  return fs.existsSync(path.join(contentDir, 'services', slug, 'index.md'));
-}
-
-/**
- * `/services/{slug}/{doc}` ルートが実在するか確認する。
- * `src/content/services/{slug}/{doc}.md` の存在で判定。
- */
-export function serviceDocExists(slug: string, doc: string, contentDir: string): boolean {
-  return fs.existsSync(path.join(contentDir, 'services', slug, `${doc}.md`));
 }
 
 /**
@@ -230,21 +176,15 @@ export function validateHref(
     return { valid: true, reason: '' };
   }
 
-  // /tech/{slug} パターン（/tech/tags や /tech/category は別パターン）
+  // /tech/{slug} パターン（/tech/category は別パターン）
   const techMatch = href.match(/^\/tech\/([^/?#]+)$/);
   if (techMatch) {
     const slug = techMatch[1];
-    if (slug === 'tags' || slug === 'category') return { valid: true, reason: '' };
+    // /tech/category は別パターンで判定する。
+    // /tech/tags は撤去済みのため実在ルートとして扱わず、技術記事として判定 → 無効になる。
+    if (slug === 'category') return { valid: true, reason: '' };
     if (techArticleExists(slug, contentDir)) return { valid: true, reason: '' };
     return { valid: false, reason: ERROR_MESSAGES.TECH_ARTICLE_NOT_FOUND(slug) };
-  }
-
-  // /tech/tags/{tagSlug} パターン
-  const techTagMatch = href.match(/^\/tech\/tags\/([^/?#]+)$/);
-  if (techTagMatch) {
-    const tagSlug = techTagMatch[1];
-    if (techTagExists(tagSlug, contentDir)) return { valid: true, reason: '' };
-    return { valid: false, reason: ERROR_MESSAGES.TECH_TAG_NOT_FOUND(tagSlug) };
   }
 
   // /tech/category/{slug} パターン
@@ -255,25 +195,12 @@ export function validateHref(
     return { valid: false, reason: ERROR_MESSAGES.TECH_CATEGORY_NOT_FOUND(slug) };
   }
 
-  // /services/{slug}/{doc} パターン
-  const serviceDocMatch = href.match(/^\/services\/([^/?#]+)\/([^/?#]+)$/);
-  if (serviceDocMatch) {
-    const slug = serviceDocMatch[1];
-    const doc = serviceDocMatch[2];
-    if (serviceDocExists(slug, doc, contentDir)) return { valid: true, reason: '' };
-    return { valid: false, reason: ERROR_MESSAGES.SERVICE_DOC_NOT_FOUND(slug, doc) };
-  }
+  // /tech/tags・/services は撤去済みのため実在ルートとして判定しない。
+  // 専用の分岐を持たないため、静的ページ・public ファイルのいずれにも該当せず
+  // 「対応するページが存在しない」として無効（壊れたリンク）になる。
 
-  // /services/{slug} パターン
-  const serviceMatch = href.match(/^\/services\/([^/?#]+)$/);
-  if (serviceMatch) {
-    const slug = serviceMatch[1];
-    if (serviceExists(slug, contentDir)) return { valid: true, reason: '' };
-    return { valid: false, reason: ERROR_MESSAGES.SERVICE_NOT_FOUND(slug) };
-  }
-
-  // /services または /tech の一覧ページは静的ページとして判定済み
-  if (href === '/services' || href === '/tech') return { valid: true, reason: '' };
+  // /tech の一覧ページは静的ページとして判定済み
+  if (href === '/tech') return { valid: true, reason: '' };
 
   // 静的ページの確認
   if (staticPageExists(href, srcDir)) return { valid: true, reason: '' };
