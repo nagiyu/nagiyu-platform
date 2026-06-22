@@ -54,31 +54,24 @@ async function Page({ params }: { params: Promise<{ slug: string }> }) {
 
 ## 多階層の動的ルート
 
-`/services/[slug]/[type]` のようにディレクトリが入れ子になっている場合、各階層の `page.tsx` が **それぞれ** `generateStaticParams` を持てます。
+`/docs/[category]/[slug]` のようにディレクトリが入れ子になっている場合、各階層の `page.tsx` が **それぞれ** `generateStaticParams` を持てます。
 
 ```typescript
-// app/services/[slug]/page.tsx
+// app/docs/[category]/page.tsx
 export async function generateStaticParams() {
-  return getAllServiceSlugs().map((slug) => ({ slug }));
+  return getAllCategories().map((category) => ({ category }));
 }
 ```
 
-```typescript
-// app/services/[slug]/guide/page.tsx
-export async function generateStaticParams() {
-  return getAllServiceSlugs().map((slug) => ({ slug }));
-}
-```
-
-guide 配下にさらに `[step]` がある場合は、親の slug を引数として受け取って組み合わせ列を返します。
+子階層では、親階層が確定させた `params` を引数で受け取って組み合わせ列を返します。
 
 ```typescript
-// app/services/[slug]/guide/[step]/page.tsx
-type Parent = { slug: string };
+// app/docs/[category]/[slug]/page.tsx
+type Parent = { category: string };
 
 export async function generateStaticParams({ params }: { params: Parent }) {
-  const steps = await getGuideSteps(params.slug);
-  return steps.map((step) => ({ step: step.id }));
+  const docs = await getDocsByCategory(params.category);
+  return docs.map((doc) => ({ slug: doc.slug }));
 }
 ```
 
@@ -169,14 +162,11 @@ export async function generateStaticParams() {
 }
 ```
 
-ポイントは `getAllArticles()` を **非同期にしていない**ことです。一覧生成では本文 HTML への変換まではせず、各 Markdown のフロントマターだけを `gray-matter` で読み取って返すので同期関数で十分でした。本文の重い変換（remark → rehype）は、実際に記事を開いたときの `getArticle()` 側に分けています。「パス列挙は軽く、本文変換は記事単位で」という役割分担を自分の中の原則にしています。
-
-同じパターンを別ルートでも使い回していて、カテゴリ別ハブ（`/tech/category/[category]`）は `TECH_CATEGORY_SLUGS`（`['aws', 'nextjs', 'dev-stack']`）をそのまま `map` し、タグページ（`/tech/tags/[tag]`）は「2 本以上の記事が付いたタグ」だけに絞って静的化しています。
+ポイントは `getAllArticles()` を **非同期にしていない**ことです。一覧生成では本文 HTML への変換まではせず、各 Markdown のフロントマターだけを `gray-matter` で読み取って返すので同期関数で十分でした。本文の重い変換（remark → rehype）は、実際に記事を開いたときの `getArticle()`（こちらは async）側に分けています。「パス列挙は軽く、本文変換は記事単位で」という役割分担を自分の中の原則にしています。動的ルートはこの `/tech/[slug]` 一本なので、`generateStaticParams` もこの 1 箇所だけで済んでいます。
 
 ## ハマったポイント
 
-- **slug の文字種で routing が壊れた**: これは私が実際に一番ハマった点です。タグページの slug を素のタグ名から作っていた頃、「Next.js」のように `.` を含むものや、スペース入りのタグ（URL 上で `%20` になる）が prerender-manifest と照合されず 404 になりました。対策として `tagToSlug()` でスペース・スラッシュをハイフンに潰し、さらに `isLinkableTag()` で非 ASCII を含む slug はそもそもページ化対象から外しています。`generateStaticParams` が返す slug は「URL にそのまま乗せて安全な文字」に正規化しておけ、というのが教訓です。
-- **`dynamicParams` の既定値**: カテゴリ・タグページでは `export const dynamicParams = false;` を明示し、列挙しなかった slug は 404 にしています。コンテンツが固定なら未生成パスをオンデマンド生成させる理由がないからです。
+- **slug は「URL にそのまま乗せて安全な文字」に正規化しておく**: 私の場合、記事 slug は Markdown のファイル名（`aws-batch-architecture` のような ASCII のケバブケース）から取っているのでこの問題は踏んでいません。ただしタグ名や記事タイトルのような自由文字列から slug を作る場合は注意が要ります。「Next.js」のように `.` を含むものやスペース入りの文字列（URL 上で `%20` になる）は、そのまま slug にすると prerender-manifest と照合されず 404 になりがちです。`generateStaticParams` が返す slug は、生成前にスペースやスラッシュをハイフンに潰し、非 ASCII を含むものは弾くなどして、URL に安全な形へ正規化しておくのが鉄則です。
 - **build 時にだけ存在する環境変数を読み忘れる**: `generateStaticParams` が空配列を返す典型例。next build のログで「Generating static pages (0/0)」になっていたら要注意。
 - **Production build と dev で出力が異なる**: dev は常に動的レンダリング。SSG 確認は `next build && next start` で行う。
 

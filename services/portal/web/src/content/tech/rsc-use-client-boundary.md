@@ -189,7 +189,7 @@ export default function ContactPage() {
 
 ## 実装ノート
 
-「Server をデフォルト、Client は葉だけ」という原則を、私は個人開発で運用しているサービスでかなり徹底できています。実際に `'use client'` が付いているコンポーネントを数えると、サービスドキュメントのタブ切り替え（`ServiceDocumentNav`、中身は MUI の `Tabs`）くらいしかありません。記事ページもカテゴリページもタグページも `page.tsx` は Server Component のままで、`getAllArticles()` / `getArticle()` といったファイル読み込み・Markdown 変換はすべてサーバー側で完結しています。データ取得をサーバーに寄せきれているので、クライアントに送る JS を最小限に保てています。
+「Server をデフォルト、Client は葉だけ」という原則を、私は個人開発で運用しているサイトでかなり徹底できています。記事一覧（`/tech`）も記事ページ（`/tech/[slug]`）も `page.tsx` は Server Component のままで、`getAllArticles()` / `getArticle()` といったファイル読み込み・Markdown 変換はすべてサーバー側で完結しています。`'use client'` を付けているのは、共通 UI ライブラリ（`@nagiyu/ui`）のテーマプロバイダ（`AppThemeProvider`）やヘッダーのように、ブラウザ API やインタラクションを前提にした部品だけです。データ取得とレンダリングをサーバーに寄せきれているので、クライアントに送る JS を最小限に保てています。
 
 記事本文を描く `MarkdownContent` も、あえて Client にせず Server Component のままにしています。やっていることは DOMPurify でサニタイズ済みの HTML を `dangerouslySetInnerHTML` で流し込むだけで、状態もイベントも要らないからです。「インタラクションが無いなら Server に置く」を地で行っている部分です。
 
