@@ -78,31 +78,6 @@ export function buildBreadcrumbJsonLd(items: BreadcrumbItem[]) {
   };
 }
 
-/** FAQ の Q&A ペア */
-export type FaqPair = {
-  question: string;
-  answer: string;
-};
-
-/**
- * FAQPage 型の JSON-LD を生成する
- * @param qaPairs - Q&A ペアの配列
- */
-export function buildFAQPageJsonLd(qaPairs: FaqPair[]) {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    mainEntity: qaPairs.map((pair) => ({
-      '@type': 'Question',
-      name: pair.question,
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: pair.answer,
-      },
-    })),
-  };
-}
-
 export function jsonLdScript(data: object): string {
   return JSON.stringify(data).replace(/</g, '\\u003c');
 }

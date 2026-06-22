@@ -7,7 +7,6 @@ updatedAt: '2026-05-27'
 author: 'なぎゆー'
 tags: ['AWS', 'EventBridge', 'Lambda', 'CDK']
 categories: ['aws']
-relatedServices: ['stock-tracker']
 ---
 
 ## はじめに
