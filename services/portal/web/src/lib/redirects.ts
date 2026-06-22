@@ -5,7 +5,7 @@ import type { Redirect } from 'next/dist/lib/load-custom-routes';
  *
  * 旧 URL が検索インデックスに残存するため、301 リダイレクトで現行コンテンツへ集約する。
  * source: リダイレクト元の旧 URL
- * destination: 移転先（実在する記事・カテゴリ・一覧ページ）
+ * destination: 移転先（実在する記事・一覧ページ）
  */
 export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
   source: string;
