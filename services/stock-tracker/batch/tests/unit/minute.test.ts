@@ -16,6 +16,9 @@ import type { Alert, Exchange } from '@nagiyu/stock-tracker-core';
 // TradingViewSession モックインスタンス（beforeEach で再生成）
 let mockSession: { getCurrentPrice: jest.Mock; close: jest.Mock; getSessionId: jest.Mock };
 
+// standalone getCurrentPrice モック（新規 WS リトライ用）
+const mockGetCurrentPrice = jest.fn();
+
 // モックの設定
 jest.mock('@nagiyu/aws');
 jest.mock('../../src/lib/web-push-client.js');
@@ -30,6 +33,7 @@ jest.mock('@nagiyu/stock-tracker-core', () => ({
   evaluateAlert: jest.fn(),
   isTradingHours: jest.fn(),
   TradingViewSession: jest.fn().mockImplementation(() => mockSession),
+  getCurrentPrice: (...args: unknown[]) => mockGetCurrentPrice(...args),
 }));
 
 /** テスト用アラートファクトリ */
@@ -74,6 +78,7 @@ describe('minute batch handler', () => {
   beforeEach(() => {
     // モックのリセット
     jest.clearAllMocks();
+    mockGetCurrentPrice.mockReset();
 
     // process.exit をモックして、container kill 発火時にテストプロセスが終了するのを防ぐ
     exitSpy = jest.spyOn(process, 'exit').mockImplementation((() => undefined) as () => never);
@@ -197,7 +202,7 @@ describe('minute batch handler', () => {
         expect.any(Number)
       );
       expect(mockSession.getCurrentPrice).toHaveBeenCalledWith('NSDQ:AAPL', {
-        timeout: 8000,
+        timeout: 4000,
       });
       expect(alertEvaluator.evaluateAlert).toHaveBeenCalledWith(mockAlert, 205.0);
       expect(sendWebPushNotification).toHaveBeenCalledWith(
@@ -425,7 +430,9 @@ describe('minute batch handler', () => {
       mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
+      // 共有セッション・新規 WS リトライともに失敗
       mockSession.getCurrentPrice.mockRejectedValue(new Error('TradingView API タイムアウト'));
+      mockGetCurrentPrice.mockRejectedValue(new Error('TradingView API タイムアウト（新規 WS）'));
       (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
 
       // Act
@@ -567,12 +574,14 @@ describe('minute batch handler', () => {
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
 
-      // alert-1 (NSDQ:AAPL): 常にエラー（初回 + withRetry リトライも失敗）
+      // alert-1 (NSDQ:AAPL): 共有セッション失敗 → 新規 WS リトライも失敗
       // alert-2 (NYSE:TSLA): 正常処理
       mockSession.getCurrentPrice.mockImplementation(async (tickerId: string) => {
         if (tickerId === 'NSDQ:AAPL') throw new Error('API Error');
         return 145.0;
       });
+      // standalone getCurrentPrice も NSDQ:AAPL で失敗させる
+      mockGetCurrentPrice.mockRejectedValue(new Error('API Error（新規 WS）'));
 
       // alert-2: 正常処理
       (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(true);
@@ -902,12 +911,13 @@ describe('minute batch handler', () => {
     });
 
     it('errors が閾値以上の場合、session.close() 後に process.exit(1) を呼ぶ', async () => {
-      // Arrange: 閾値 1 に対して errors = 1 になるケース（TradingView API タイムアウト）
+      // Arrange: 閾値 1 に対して errors = 1 になるケース（共有セッション + 新規 WS ともにタイムアウト）
       const alert = makeAlert();
       mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       mockSession.getCurrentPrice.mockRejectedValue(new Error('TradingView API タイムアウト'));
+      mockGetCurrentPrice.mockRejectedValue(new Error('TradingView API タイムアウト（新規 WS）'));
       (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
 
       // Act
@@ -941,6 +951,7 @@ describe('minute batch handler', () => {
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       mockSession.getCurrentPrice.mockRejectedValue(new Error('TradingView API タイムアウト'));
+      mockGetCurrentPrice.mockRejectedValue(new Error('TradingView API タイムアウト（新規 WS）'));
       (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
 
       // Act
@@ -948,6 +959,102 @@ describe('minute batch handler', () => {
 
       // Assert: errors=1 でデフォルト閾値 1 に到達 → process.exit(1) 発火
       expect(exitSpy).toHaveBeenCalledWith(1);
+    });
+  });
+
+  describe('新規 WS リトライ（フォールバック）', () => {
+    it('1 回目失敗・新規 WS 成功: 通知処理が走り errors=0・freshSessionRetries=1', async () => {
+      // Arrange
+      const alert = makeAlert();
+      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockExchangeRepo.getById.mockResolvedValue(mockExchange);
+      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
+
+      // 共有セッション失敗 → 新規 WS 成功
+      mockSession.getCurrentPrice.mockRejectedValue(new Error('共有セッション タイムアウト'));
+      mockGetCurrentPrice.mockResolvedValue(205.0);
+
+      (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(true);
+      (sendWebPushNotification as jest.Mock).mockResolvedValue(true);
+      (webPushClient.createAlertNotificationPayload as jest.Mock).mockReturnValue({
+        title: 'テストアラート',
+        body: 'テスト本文',
+      });
+      (getVapidConfig as jest.Mock).mockReturnValue({
+        publicKey: 'test-public-key',
+        privateKey: 'test-private-key',
+        subject: 'mailto:support@nagiyu.com',
+      });
+
+      // Act
+      const response = await handler(mockEvent);
+
+      // Assert
+      expect(response.statusCode).toBe(200);
+      // 新規 WS で回収できたので通知が送信される
+      expect(sendWebPushNotification).toHaveBeenCalled();
+
+      const body = JSON.parse(response.body);
+      // フォールバック成功 → errors は増えない
+      expect(body.statistics.errors).toBe(0);
+      // リトライカウントが記録される
+      expect(body.statistics.freshSessionRetries).toBe(1);
+      // 通知送信まで到達している
+      expect(body.statistics.notificationsSent).toBe(1);
+    });
+
+    it('1 回目・2 回目ともに失敗: errors が増え reportErrorEvent が呼ばれる', async () => {
+      // Arrange
+      const alert = makeAlert();
+      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockExchangeRepo.getById.mockResolvedValue(mockExchange);
+      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
+
+      // 共有セッション失敗 → 新規 WS も失敗
+      mockSession.getCurrentPrice.mockRejectedValue(new Error('共有セッション タイムアウト'));
+      mockGetCurrentPrice.mockRejectedValue(new Error('新規 WS タイムアウト'));
+      (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
+
+      // Act
+      const response = await handler(mockEvent);
+
+      // Assert
+      expect(response.statusCode).toBe(200); // バッチ全体は成功
+      expect(sendWebPushNotification).not.toHaveBeenCalled();
+      expect(awsClients.reportErrorEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          serviceId: 'stock-tracker',
+          severity: 'warning',
+        })
+      );
+
+      const body = JSON.parse(response.body);
+      expect(body.statistics.errors).toBe(1);
+      expect(body.statistics.freshSessionRetries).toBe(1);
+    });
+
+    it('1 回目が成功: standalone getCurrentPrice が呼ばれず freshSessionRetries=0', async () => {
+      // Arrange
+      const alert = makeAlert();
+      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockExchangeRepo.getById.mockResolvedValue(mockExchange);
+      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
+
+      // 共有セッション成功
+      mockSession.getCurrentPrice.mockResolvedValue(205.0);
+      (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(false);
+
+      // Act
+      const response = await handler(mockEvent);
+
+      // Assert
+      expect(response.statusCode).toBe(200);
+      // standalone getCurrentPrice は一切呼ばれない
+      expect(mockGetCurrentPrice).not.toHaveBeenCalled();
+
+      const body = JSON.parse(response.body);
+      expect(body.statistics.freshSessionRetries).toBe(0);
+      expect(body.statistics.errors).toBe(0);
     });
   });
 });
