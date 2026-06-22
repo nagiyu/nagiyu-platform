@@ -149,7 +149,7 @@ await client.send(
 
 ## 実装ノート
 
-ここまでは一般論ですが、自分の実運用では実際に全サービスを single-table で通しています。たとえばある動画クリップ生成サービスのジョブ管理テーブルは PK/SK の 2 キーだけで、GSI は貼らず TTL（`expiresAt`）で一時データを自動失効させるだけのシンプルな構成にしました。一方である資産・株価管理サービスのメインテーブルは要件が複雑で、私は GSI を 4 本貼っています。UserIndex（ユーザーごと）、AlertIndex（バッチ処理用に頻度ごとのアラート一覧）、ExchangeTickerIndex（取引所ごとのティッカー）、ExchangeSummaryIndex（取引所ごとの日次サマリー）で、いずれも `projectionType: ALL`。「ベーステーブルは ID 中心、GSI はアクセスパターンごとの二次キー」という前述の整理を、そのまま GSI 名に落とし込んだ形です。
+ここまでは一般論ですが、自分の実運用では実際に全サービスを single-table で通しています。たとえば動画クリップ生成サービスのジョブ管理テーブルは PK/SK の 2 キーだけで、GSI は貼らず TTL（`expiresAt`）で一時データを自動失効させるだけのシンプルな構成にしました。一方で資産・株価管理サービスのメインテーブルは要件が複雑で、私は GSI を 4 本貼っています。UserIndex（ユーザーごと）、AlertIndex（バッチ処理用に頻度ごとのアラート一覧）、ExchangeTickerIndex（取引所ごとのティッカー）、ExchangeSummaryIndex（取引所ごとの日次サマリー）で、いずれも `projectionType: ALL`。「ベーステーブルは ID 中心、GSI はアクセスパターンごとの二次キー」という前述の整理を、そのまま GSI 名に落とし込んだ形です。
 
 リポジトリ層は `AbstractDynamoDBRepository` を共通基底に置き、サブクラスは `buildKeys`（PK/SK 生成）・`mapToEntity`・`mapToItem` だけ実装すればよいようにしています。新規作成は `attribute_not_exists` 条件付きの Put で「既存があれば失敗」を保証し、`CreatedAt`/`UpdatedAt` は基底クラスが自動で打ちます。エラーメッセージをすべて日本語で定数化してあるのも、自分の実運用の方針です。
 

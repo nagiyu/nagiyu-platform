@@ -198,7 +198,7 @@ aws ecr get-lifecycle-policy-preview \
 
 ## 現在の運用
 
-タグ運用で自分が気に入っているのは、ある動画クリップ生成サービスの構成です。Web イメージは GitHub Actions のデプロイで commit SHA と `latest` の両方を push し（SHA を追えば「どのコミットが本番にいるか」が一目で分かる）、Batch イメージは同じ `latest` を使わず、あえて `batch-latest` という別タグで運用しています。CDK のジョブ定義側も `:batch-latest` を参照しているので、Web と Batch の「最新」が混線しません。
+タグ運用で自分が気に入っているのは、動画クリップ生成サービスの構成です。Web イメージは GitHub Actions のデプロイで commit SHA と `latest` の両方を push し（SHA を追えば「どのコミットが本番にいるか」が一目で分かる）、Batch イメージは同じ `latest` を使わず、あえて `batch-latest` という別タグで運用しています。CDK のジョブ定義側も `:batch-latest` を参照しているので、Web と Batch の「最新」が混線しません。
 
 正直に書くと、本文で勧めた「untagged を最短で消す」専用ルールは自分の実運用ではまだ入れていません。今は `maxImageCount` の数制限だけで回しているので、untagged イメージの自動削除は今後の改善余地として残しています。
 
