@@ -32,20 +32,16 @@ npm install --save-dev @types/mdast
 ```
 src/
 ├── content/
-│   ├── services/
-│   │   └── tools/
-│   │       ├── index.md
-│   │       ├── guide.md
-│   │       └── faq.md
 │   └── tech/
-│       └── aws-batch-architecture.md
+│       ├── aws-batch-architecture.md
+│       └── nextjs-ssg-markdown.md
 ├── lib/
-│   └── markdown.ts   # Markdownファイルの読み込み・変換処理
+│   ├── markdown.ts   # Markdown→HTML 変換処理
+│   └── tech.ts       # 記事ファイルの読み込み
 └── app/
-    └── services/
-        └── [service]/
-            └── [type]/
-                └── page.tsx
+    └── tech/
+        └── [slug]/
+            └── page.tsx
 ```
 
 ## gray-matter によるフロントマター解析
@@ -54,22 +50,6 @@ src/
 
 ```typescript
 // src/types/content.ts
-export type ServiceDocType = 'overview' | 'guide' | 'faq';
-
-export interface ServiceDocFrontmatter {
-  title: string;
-  description: string;
-  service: string;
-  type: ServiceDocType;
-  updatedAt: string;
-}
-
-export interface ServiceDoc {
-  frontmatter: ServiceDocFrontmatter;
-  content: string;
-  htmlContent: string;
-}
-
 export interface TechArticleFrontmatter {
   title: string;
   description: string;
@@ -88,22 +68,18 @@ export interface TechArticle {
 }
 ```
 
-### Markdown ファイルの読み込み処理
+### Markdown を HTML に変換する
+
+まず Markdown 文字列を HTML に変換するユーティリティを用意します。変換結果は `dangerouslySetInnerHTML` で描画するため、最後に DOMPurify でサニタイズしておきます。
 
 ```typescript
 // src/lib/markdown.ts
-import fs from 'fs';
-import path from 'path';
-import matter from 'gray-matter';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import remarkRehype from 'remark-rehype';
 import rehypeStringify from 'rehype-stringify';
 import rehypeHighlight from 'rehype-highlight';
 import DOMPurify from 'isomorphic-dompurify';
-import type { ServiceDoc, TechArticle } from '@/types/content';
-
-const contentDirectory = path.join(process.cwd(), 'src/content');
 
 export async function markdownToHtml(markdown: string): Promise<string> {
   const result = await unified()
@@ -116,42 +92,6 @@ export async function markdownToHtml(markdown: string): Promise<string> {
   // XSS 対策として DOMPurify でサニタイズ
   return DOMPurify.sanitize(result.toString());
 }
-
-export async function getServiceDoc(service: string, type: string): Promise<ServiceDoc | null> {
-  const filePath = path.join(contentDirectory, 'services', service, `${type}.md`);
-
-  if (!fs.existsSync(filePath)) return null;
-
-  const fileContents = fs.readFileSync(filePath, 'utf8');
-  const { data, content } = matter(fileContents);
-  const htmlContent = await markdownToHtml(content);
-
-  return {
-    frontmatter: data as ServiceDoc['frontmatter'],
-    content,
-    htmlContent,
-  };
-}
-
-export function getAllServiceSlugs(): { service: string; type: string }[] {
-  const servicesDir = path.join(contentDirectory, 'services');
-  const services = fs.readdirSync(servicesDir);
-  const slugs: { service: string; type: string }[] = [];
-
-  for (const service of services) {
-    const serviceDir = path.join(servicesDir, service);
-    if (!fs.statSync(serviceDir).isDirectory()) continue;
-
-    const files = fs.readdirSync(serviceDir);
-    for (const file of files) {
-      if (file.endsWith('.md')) {
-        slugs.push({ service, type: file.replace('.md', '') });
-      }
-    }
-  }
-
-  return slugs;
-}
 ```
 
 ## generateStaticParams の実装
@@ -159,45 +99,45 @@ export function getAllServiceSlugs(): { service: string; type: string }[] {
 Next.js 13 以降の App Router では `generateStaticParams` を使ってビルド時に静的パスを生成します。Next.js 15 以降では `params` が非同期になり、`Promise<{ ... }>` 型として受け取る必要があります。
 
 ```typescript
-// src/app/services/[service]/[type]/page.tsx
-import { getAllServiceSlugs, getServiceDoc } from '@/lib/markdown';
+// src/app/tech/[slug]/page.tsx
+import { getAllTechSlugs, getTechArticle } from '@/lib/tech';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 
 interface Props {
-  params: Promise<{ service: string; type: string }>;
+  params: Promise<{ slug: string }>;
 }
 
 export async function generateStaticParams() {
-  return getAllServiceSlugs();
+  return getAllTechSlugs().map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { service, type } = await params;
-  const doc = await getServiceDoc(service, type);
-  if (!doc) return {};
+  const { slug } = await params;
+  const article = await getTechArticle(slug);
+  if (!article) return {};
 
   return {
-    title: doc.frontmatter.title,
-    description: doc.frontmatter.description,
+    title: article.frontmatter.title,
+    description: article.frontmatter.description,
     openGraph: {
-      title: doc.frontmatter.title,
-      description: doc.frontmatter.description,
+      title: article.frontmatter.title,
+      description: article.frontmatter.description,
     },
   };
 }
 
-export default async function ServiceDocPage({ params }: Props) {
-  const { service, type } = await params;
-  const doc = await getServiceDoc(service, type);
-  if (!doc) notFound();
+export default async function TechArticlePage({ params }: Props) {
+  const { slug } = await params;
+  const article = await getTechArticle(slug);
+  if (!article) notFound();
 
   // htmlContent は markdownToHtml() 内で DOMPurify.sanitize() 済み
   return (
     <article>
-      <h1>{doc.frontmatter.title}</h1>
-      <p>最終更新: {doc.frontmatter.updatedAt}</p>
-      <MarkdownContent html={doc.htmlContent} />
+      <h1>{article.frontmatter.title}</h1>
+      <p>最終更新: {article.frontmatter.updatedAt}</p>
+      <MarkdownContent html={article.htmlContent} />
     </article>
   );
 }
@@ -254,7 +194,7 @@ export async function getAllTechArticles(): Promise<TechArticle[]> {
 
 ## 実装ノート
 
-この仕組みは個人開発で運用しているサイトでまさに使っているものなので、実際の実装を正直に書いておきます。本文では `lib/markdown.ts` と `lib/tech.ts` に分けた例を出しましたが、私の手元の実コードでは読み込み・変換ロジックを `src/lib/content.ts` 1 ファイルに集約しています。サービスドキュメント・技術記事・カテゴリ別ハブを、ほぼ同じ `gray-matter` + `remark` のパイプラインで扱うため、ファイルを分けるより 1 箇所にまとめた方が見通しがよかったからです。
+この仕組みは個人開発で運用しているサイトでまさに使っているものなので、実際の実装を正直に書いておきます。本文では `lib/markdown.ts` と `lib/tech.ts` に分けた例を出しましたが、私の手元の実コードでは読み込み・変換ロジックを `src/lib/content.ts` 1 ファイルに集約しています。技術記事の一覧取得・本文変換・関連記事の算出を同じ `gray-matter` + `remark` のパイプラインで扱うため、ファイルを分けるより 1 箇所にまとめた方が見通しがよかったからです。
 
 変換パイプラインも記事のサンプルとは少し違います。私が実際に使っているのは次の構成です。
 
@@ -276,7 +216,7 @@ return DOMPurify.sanitize(result.toString());
 
 ## 現在の運用
 
-今の自分の実運用では、この仕組みの上で 20 本以上の技術記事に加えて、各種ドキュメント（overview / guide / faq）とカテゴリ別ハブページを、すべて Markdown ファイルとして管理しています。記事を 1 本足したいときは `src/content/tech/` に `.md` を置くだけで、`getAllArticles()` が拾って一覧・`sitemap.xml`・関連記事（タグ一致数でスコアリング）まで自動で繋がるようにしてあります。コンテンツをコードと同じリポジトリで Git 管理できるのが、自分にとってこの構成の一番のメリットです。
+今の自分の実運用では、この仕組みの上で 20 本以上の技術記事を、すべて Markdown ファイルとして管理しています。記事を 1 本足したいときは `src/content/tech/` に `.md` を置くだけで、`getAllArticles()` が拾って一覧・`sitemap.xml`・関連記事（タグ一致数でスコアリング）まで自動で繋がるようにしてあります。コンテンツをコードと同じリポジトリで Git 管理できるのが、自分にとってこの構成の一番のメリットです。
 
 ## まとめ
 
