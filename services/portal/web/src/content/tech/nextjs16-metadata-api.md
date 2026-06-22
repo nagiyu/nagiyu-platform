@@ -3,7 +3,7 @@ title: 'Next.js 16 Metadata API で SEO・OGP・JSON-LD を整える'
 description: 'Next.js 16 App Router の Metadata API を使って、title・description・OGP・Twitter Card・canonical・JSON-LD を体系的に管理する方法を解説。SSG ページと動的ページそれぞれの設定パターンを実装例で紹介します。'
 slug: 'nextjs16-metadata-api'
 publishedAt: '2026-04-30'
-updatedAt: '2026-06-06'
+updatedAt: '2026-06-22'
 author: 'なぎゆー'
 tags: ['Next.js', 'SEO', 'メタデータ']
 categories: ['nextjs']
@@ -11,7 +11,7 @@ categories: ['nextjs']
 
 ## はじめに
 
-Next.js 13 で導入された App Router の Metadata API は、SEO や OGP を**ファイル単位の export として宣言的に書ける**のが特徴です。Next.js 16 では完成度が上がり、動的メタデータ・OpenGraph 画像・JSON-LD まで一貫した方法で扱えるようになりました。本記事では nagiyu ポータルでの実装をベースに、実用的な設定パターンを整理します。
+Next.js 13 で導入された App Router の Metadata API は、SEO や OGP を**ファイル単位の export として宣言的に書ける**のが特徴です。Next.js 16 では完成度が上がり、動的メタデータ・OpenGraph 画像・JSON-LD まで一貫した方法で扱えるようになりました。本記事では個人開発で運用しているサイトでの実装をベースに、実用的な設定パターンを整理します。
 
 ## 静的メタデータ：`metadata` を export
 
@@ -23,7 +23,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'nagiyu について',
-  description: 'nagiyu は個人開発者が提供する Web サービスのポータルサイトです。',
+  description: 'nagiyu は個人開発者による実運用ベースの技術メディアです。',
   alternates: {
     canonical: 'https://nagiyu.com/about',
   },
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     default: 'nagiyu',
     template: '%s - nagiyu',
   },
-  description: '個人開発の Web サービスポータル',
+  description: '個人開発者による実運用ベースの技術メディア',
   openGraph: {
     type: 'website',
     locale: 'ja_JP',
@@ -205,13 +205,13 @@ export default function robots(): MetadataRoute.Robots {
 
 ## 実装ノート
 
-この記事は nagiyu ポータルの実装がベースなので、私が実際に書いている設定を具体的に紹介します。ルートレイアウト（`app/layout.tsx`）では `metadataBase: new URL('https://nagiyu.com')` を起点に、`title.template` を `'%s - nagiyu'`、`title.default` を `'nagiyu - サービス一覧・技術ポータル'` として共通の OGP / Twitter Card を一括定義しています。`themeColor` は `metadata` ではなく `export const viewport` 側（`#1976d2`）に分離済みです。
+この記事は個人開発で運用しているサイトの実装がベースなので、私が実際に書いている設定を具体的に紹介します。ルートレイアウト（`app/layout.tsx`）では `metadataBase: new URL('https://nagiyu.com')` を起点に、`title.template` を `'%s - nagiyu'`、`title.default` を `'nagiyu - AWS・Next.js 技術メディア'` として共通の OGP / Twitter Card を一括定義しています。`themeColor` は `metadata` ではなく `export const viewport` 側（`#1976d2`）に分離済みです。
 
 記事ページ側（`app/tech/[slug]/page.tsx`）では `generateMetadata` で記事ごとに `canonical` と `openGraph.type: 'article'` を組み立て、`publishedTime` / `modifiedTime` をフロントマターの `publishedAt` / `updatedAt` から ISO 文字列にして渡しています。`updatedAt` が無い記事は `publishedAt` にフォールバックする実装です。まさに今あなたが見ている「最終更新」表示も、この一人称セクションを追記して `updatedAt` を変えたことで動いています。
 
 ## ハマったポイント
 
-- **OG 画像は動的生成していない**: 本記事では `opengraph-image.tsx` での動的生成を紹介しましたが、正直に書くと nagiyu-platform では採用していません。私は全ページ共通の静的画像 `/og-default.png`（1200×630）を `openGraph.images` / `twitter.images` に指定するだけにしています。記事ごとに OG 画像を焼く運用コストより、まず全ページで OGP が確実に出ることを優先した判断です。だからこそ `metadataBase` 未設定で相対パスが壊れる罠は、私にとって実害が大きく、最初に潰しました。
+- **OG 画像は動的生成していない**: 本記事では `opengraph-image.tsx` での動的生成を紹介しましたが、正直に書くと自分の実運用では採用していません。私は全ページ共通の静的画像 `/og-default.png`（1200×630）を `openGraph.images` / `twitter.images` に指定するだけにしています。記事ごとに OG 画像を焼く運用コストより、まず全ページで OGP が確実に出ることを優先した判断です。だからこそ `metadataBase` 未設定で相対パスが壊れる罠は、私にとって実害が大きく、最初に潰しました。
 - **JSON-LD のエスケープは自前ヘルパーに固定**: `BlogPosting` / `BreadcrumbList` を出すとき、`</script>` 混入で HTML が壊れるのを防ぐため、`lib/jsonLd.ts` の `jsonLdScript()` で `<` を `<` に置換してから埋め込んでいます。エスケープを忘れる事故を構造的に防ぎたくて、文字列化を 1 関数に集約しました。
 - **`generateMetadata` 内で `await params` を忘れる**: `params.slug` が `Promise` のままになり TypeScript エラー。Next.js 16 流の Promise 化に毎回少し身構えます。
 - **`title.template` がトップページに勝手に効く**: ルートで明示的に `title` を指定しないと `default` がそのまま出る。

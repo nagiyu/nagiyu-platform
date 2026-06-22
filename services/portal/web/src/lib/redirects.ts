@@ -1,11 +1,11 @@
 import type { Redirect } from 'next/dist/lib/load-custom-routes';
 
 /**
- * 撤廃記事から新しいコンテンツへの恒久リダイレクトマッピング
+ * 旧 URL から現行コンテンツへの恒久リダイレクトマッピング
  *
- * 旧 URL が 404 で残存しているため、301 リダイレクトで検索インデックスを整備する。
- * source: 旧記事 URL（撤廃済み）
- * destination: 移転先コンテンツ URL（実在する記事・カテゴリ・サービス）
+ * 旧 URL が検索インデックスに残存するため、301 リダイレクトで現行コンテンツへ集約する。
+ * source: リダイレクト元の旧 URL
+ * destination: 移転先（実在する記事・一覧ページ）
  */
 export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
   source: string;
@@ -25,31 +25,48 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
   },
   {
     source: '/tech/aws-ses-transactional-mail',
-    destination: '/tech/category/aws',
+    destination: '/tech',
   },
   {
     source: '/tech/aws-waf-protection',
-    destination: '/tech/category/aws',
+    destination: '/tech',
   },
   {
     source: '/tech/cognito-oauth-implementation',
-    destination: '/tech/category/aws',
+    destination: '/tech',
   },
   {
     source: '/tech/vapid-web-push',
-    destination: '/tech/category/dev-stack',
+    destination: '/tech',
   },
   {
     source: '/tech/web-push-server-implementation',
-    destination: '/tech/category/dev-stack',
+    destination: '/tech',
   },
   {
     source: '/tech/video-codec-comparison',
-    destination: '/services/codec-converter',
+    destination: '/tech',
   },
   {
     source: '/tech/zod-runtime-validation',
     destination: '/tech/discriminated-union-api',
+  },
+  // /services・/tech/tags・/tech/category 配下を技術記事一覧へ集約する。
+  {
+    source: '/services',
+    destination: '/tech',
+  },
+  {
+    source: '/services/:path*',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/tags/:tag*',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/category/:category*',
+    destination: '/tech',
   },
 ] as const;
 

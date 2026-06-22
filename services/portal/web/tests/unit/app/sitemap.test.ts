@@ -3,11 +3,10 @@
  *
  * Next.js の MetadataRoute.Sitemap 出力内容を検証する。
  * - 静的エントリーが含まれること
- * - A2 で追加されたカテゴリ別ハブページが含まれること
- * - サービスドキュメント（overview / guide / faq）が含まれること
+ * - /tech/category/* エントリーが含まれないこと（カテゴリハブは廃止済み）
  * - 技術記事エントリーが含まれること
- * - タグページが含まれること
  * - sitemap.xml の URL 形式が正しいこと
+ * - /services・/tech/tags・/tech/category 配下のエントリーを含まないこと
  */
 
 import sitemap from '@/app/sitemap';
@@ -33,28 +32,6 @@ jest.mock('@/lib/content', () => ({
       categories: ['aws', 'nextjs'],
     },
   ]),
-  getAllServiceSlugs: jest.fn(() => ['tools', 'quick-clip']),
-  getAllTags: jest.fn(() => [
-    { tag: 'AWS', count: 3 },
-    { tag: 'Next.js', count: 2 },
-    { tag: '単一記事タグ', count: 1 }, // count < 2 のためリンク化対象外
-  ]),
-  getAllTechCategoryMetas: jest.fn(() => [
-    { slug: 'aws', title: 'AWS インフラ運用ノート', description: 'AWS の解説' },
-    { slug: 'nextjs', title: 'Next.js 実践ガイド', description: 'Next.js の解説' },
-  ]),
-  isLinkableTag: jest.fn((tag: string) => {
-    // ASCII のみのスラッグに変換できるタグのみ true
-    const slug = tag.toLowerCase().replace(/[\s/]+/g, '-');
-    return /^[a-z0-9.@_-]+$/.test(slug);
-  }),
-  tagToSlug: jest.fn((tag: string) =>
-    tag
-      .toLowerCase()
-      .replace(/[\s/]+/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '')
-  ),
 }));
 
 describe('sitemap', () => {
@@ -73,6 +50,12 @@ describe('sitemap', () => {
       expect(urls).toContain(`${SITE_URL}/about`);
     });
 
+    it('contact ページが含まれる', () => {
+      const entries = sitemap();
+      const urls = entries.map((e) => e.url);
+      expect(urls).toContain(`${SITE_URL}/contact`);
+    });
+
     it('privacy ページが含まれる', () => {
       const entries = sitemap();
       const urls = entries.map((e) => e.url);
@@ -85,39 +68,36 @@ describe('sitemap', () => {
       expect(urls).toContain(`${SITE_URL}/terms`);
     });
 
-    it('services 一覧ページが含まれる', () => {
-      const entries = sitemap();
-      const urls = entries.map((e) => e.url);
-      expect(urls).toContain(`${SITE_URL}/services`);
-    });
-
     it('tech 一覧ページが含まれる', () => {
       const entries = sitemap();
       const urls = entries.map((e) => e.url);
       expect(urls).toContain(`${SITE_URL}/tech`);
     });
+
+    it('services 一覧ページは含まれない', () => {
+      const entries = sitemap();
+      const urls = entries.map((e) => e.url);
+      expect(urls).not.toContain(`${SITE_URL}/services`);
+    });
   });
 
-  describe('サービスドキュメントエントリー', () => {
-    it('各サービスの overview（/services/{slug}）が含まれる', () => {
+  describe('/services・/tech/tags・/tech/category を含まないこと', () => {
+    it('/services 配下のエントリーが一切含まれない', () => {
       const entries = sitemap();
       const urls = entries.map((e) => e.url);
-      expect(urls).toContain(`${SITE_URL}/services/tools`);
-      expect(urls).toContain(`${SITE_URL}/services/quick-clip`);
+      expect(urls.some((u) => u.includes('/services'))).toBe(false);
     });
 
-    it('各サービスの guide ページが含まれる', () => {
+    it('/tech/tags 配下のエントリーが一切含まれない', () => {
       const entries = sitemap();
       const urls = entries.map((e) => e.url);
-      expect(urls).toContain(`${SITE_URL}/services/tools/guide`);
-      expect(urls).toContain(`${SITE_URL}/services/quick-clip/guide`);
+      expect(urls.some((u) => u.includes('/tech/tags'))).toBe(false);
     });
 
-    it('各サービスの faq ページが含まれる', () => {
+    it('/tech/category 配下のエントリーが一切含まれない（カテゴリハブは廃止済み）', () => {
       const entries = sitemap();
       const urls = entries.map((e) => e.url);
-      expect(urls).toContain(`${SITE_URL}/services/tools/faq`);
-      expect(urls).toContain(`${SITE_URL}/services/quick-clip/faq`);
+      expect(urls.some((u) => u.includes('/tech/category'))).toBe(false);
     });
   });
 
@@ -143,45 +123,6 @@ describe('sitemap', () => {
       expect(article2).toBeDefined();
       if (!article2) return;
       expect(article2.lastModified).toEqual(new Date('2026-04-05'));
-    });
-  });
-
-  describe('タグページエントリー', () => {
-    it('count >= 2 かつ isLinkableTag が true のタグページが含まれる', () => {
-      const entries = sitemap();
-      const urls = entries.map((e) => e.url);
-      // AWS（count=3, isLinkable=true）→ 含まれる
-      expect(urls).toContain(`${SITE_URL}/tech/tags/aws`);
-    });
-
-    it('count >= 2 かつ isLinkableTag が true の複数タグページが含まれる', () => {
-      const entries = sitemap();
-      const urls = entries.map((e) => e.url);
-      // Next.js（count=2, isLinkable=true）→ 含まれる
-      expect(urls).toContain(`${SITE_URL}/tech/tags/next.js`);
-    });
-
-    it('count < 2 のタグページは含まれない', () => {
-      const entries = sitemap();
-      const urls = entries.map((e) => e.url);
-      // 単一記事タグ（count=1）→ 含まれない
-      expect(urls.some((u) => u.includes('단일'))).toBe(false);
-    });
-  });
-
-  describe('A2 カテゴリ別ハブエントリー', () => {
-    it('カテゴリ別ハブページ（/tech/category/{slug}）が含まれる', () => {
-      const entries = sitemap();
-      const urls = entries.map((e) => e.url);
-      expect(urls).toContain(`${SITE_URL}/tech/category/aws`);
-      expect(urls).toContain(`${SITE_URL}/tech/category/nextjs`);
-    });
-
-    it('getAllTechCategoryMetas が返すすべてのカテゴリが含まれる', () => {
-      const entries = sitemap();
-      const categoryUrls = entries.map((e) => e.url).filter((u) => u.includes('/tech/category/'));
-      // モックが ['aws', 'nextjs'] を返すため 2 件
-      expect(categoryUrls).toHaveLength(2);
     });
   });
 

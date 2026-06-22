@@ -57,9 +57,8 @@ describe('contact', () => {
       });
     });
 
-    it('サービスへのご意見・ご感想が含まれる', () => {
-      const titles = CONTACT_USE_CASES.map((u) => u.title);
-      expect(titles).toContain('サービスへのご意見・ご感想');
+    it('先頭の用途が記事に関するものである（技術メディアとして記事フィードバックを主とする）', () => {
+      expect(CONTACT_USE_CASES[0].title).toContain('記事');
     });
 
     it('不具合報告に関する用途が含まれる', () => {
