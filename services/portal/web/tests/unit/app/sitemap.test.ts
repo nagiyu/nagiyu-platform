@@ -6,9 +6,7 @@
  * - カテゴリ別ハブページが含まれること
  * - 技術記事エントリーが含まれること
  * - sitemap.xml の URL 形式が正しいこと
- *
- * Phase 1 で自サービスハブ・薄いタグページを撤去したため、
- * サービスドキュメント／タグページのエントリーは存在しない。
+ * - /services・/tech/tags 配下のエントリーを含まないこと
  */
 
 import sitemap from '@/app/sitemap';
@@ -81,7 +79,7 @@ describe('sitemap', () => {
     });
   });
 
-  describe('サービス・タグページエントリーの撤去', () => {
+  describe('/services・/tech/tags を含まないこと', () => {
     it('/services 配下のエントリーが一切含まれない', () => {
       const entries = sitemap();
       const urls = entries.map((e) => e.url);

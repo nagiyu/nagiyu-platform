@@ -73,7 +73,7 @@ describe('RETIRED_ARTICLE_REDIRECTS', () => {
       expect(notFound).toHaveLength(0);
     });
 
-    it('destination に撤去済みの /services・/tech/tags が含まれないこと', () => {
+    it('destination が /services・/tech/tags を指さないこと', () => {
       const removed = RETIRED_ARTICLE_REDIRECTS.filter(
         ({ destination }) =>
           destination.startsWith('/services') || destination.startsWith('/tech/tags')
@@ -82,7 +82,7 @@ describe('RETIRED_ARTICLE_REDIRECTS', () => {
     });
   });
 
-  describe('Phase 1 で撤去したルートのリダイレクト', () => {
+  describe('/services・/tech/tags の /tech への集約リダイレクト', () => {
     it('/services と /services/:path* が /tech へ寄せられていること', () => {
       const map = new Map(RETIRED_ARTICLE_REDIRECTS.map((r) => [r.source, r.destination]));
       expect(map.get('/services')).toBe('/tech');
@@ -130,7 +130,6 @@ describe('buildRedirects', () => {
     expect(redirectMap.get('/tech/eventbridge-scheduler')).toBe(
       '/tech/eventbridge-rule-scheduling'
     );
-    // codec-converter サービスページ撤去に伴い /tech へ貼り替え
     expect(redirectMap.get('/tech/video-codec-comparison')).toBe('/tech');
     expect(redirectMap.get('/tech/zod-runtime-validation')).toBe('/tech/discriminated-union-api');
     expect(redirectMap.get('/tech/aws-ses-transactional-mail')).toBe('/tech/category/aws');

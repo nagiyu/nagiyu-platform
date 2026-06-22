@@ -166,7 +166,7 @@ function validateHref(href) {
     // /tech 自体は静的ページ
     if (slug === '') return { valid: true, reason: '' };
     // /tech/category は別パターン。
-    // /tech/tags は撤去済みのため実在ルートとして扱わず、技術記事として判定 → 無効になる。
+    // category 以外の slug（例: tags）は実在記事として判定し、該当記事が無ければ無効になる。
     if (slug === 'category') return { valid: true, reason: '' };
     if (techArticleExists(slug)) return { valid: true, reason: '' };
     return { valid: false, reason: `技術記事 src/content/tech/${slug}.md が存在しない` };
@@ -183,9 +183,8 @@ function validateHref(href) {
     };
   }
 
-  // /tech/tags・/services は撤去済みのため実在ルートとして判定しない。
-  // 専用の分岐を持たないため、静的ページ・public ファイルのいずれにも該当せず
-  // 「対応するページが存在しない」として無効（壊れたリンク）になる。
+  // 上記いずれの分岐にも該当しないパス（例: /services・/tech/tags）は、
+  // 静的ページ・public ファイルにも無ければ「対応するページが存在しない」として無効になる。
 
   // /tech のみ（一覧ページ）は静的ページとして判定済み
   if (href === '/tech') return { valid: true, reason: '' };

@@ -1,13 +1,11 @@
 import type { Redirect } from 'next/dist/lib/load-custom-routes';
 
 /**
- * 撤廃済みコンテンツから現行コンテンツへの恒久リダイレクトマッピング
+ * 旧 URL から現行コンテンツへの恒久リダイレクトマッピング
  *
- * 旧 URL が 404 で残存しているため、301 リダイレクトで検索インデックスを整備する。
- * 撤廃記事に加え、Phase 1 で撤去した自サービスハブ（/services 配下）と
- * 薄いタグページ（/tech/tags 配下）も技術記事一覧へ寄せる。
- * source: 旧 URL（撤廃済み）
- * destination: 移転先コンテンツ URL（実在する記事・カテゴリ・一覧ページ）
+ * 旧 URL が検索インデックスに残存するため、301 リダイレクトで現行コンテンツへ集約する。
+ * source: リダイレクト元の旧 URL
+ * destination: 移転先（実在する記事・カテゴリ・一覧ページ）
  */
 export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
   source: string;
@@ -46,7 +44,6 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
     destination: '/tech/category/dev-stack',
   },
   {
-    // codec-converter サービスページは Phase 1 で撤去したため /tech へ寄せる
     source: '/tech/video-codec-comparison',
     destination: '/tech',
   },
@@ -54,8 +51,7 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
     source: '/tech/zod-runtime-validation',
     destination: '/tech/discriminated-union-api',
   },
-  // Phase 1 で撤去した自サービスハブ・薄いタグページの恒久リダイレクト。
-  // 旧 URL のインデックスを技術記事一覧へ集約する。
+  // /services・/tech/tags 配下を技術記事一覧へ集約する。
   {
     source: '/services',
     destination: '/tech',
