@@ -11,15 +11,6 @@ function getActualArticleSlugs(): Set<string> {
   return new Set(files.map((f) => f.replace(/\.md$/, '')));
 }
 
-/**
- * src/content/tech-category/ 配下の .md ファイルから slug 一覧を取得するヘルパー
- */
-function getActualCategorySlugs(): Set<string> {
-  const categoryDir = path.join(process.cwd(), 'src', 'content', 'tech-category');
-  const files = fs.readdirSync(categoryDir).filter((f) => f.endsWith('.md'));
-  return new Set(files.map((f) => f.replace(/\.md$/, '')));
-}
-
 describe('RETIRED_ARTICLE_REDIRECTS', () => {
   describe('source の重複・競合チェック', () => {
     it('source に現存する記事 slug と重複がないこと', () => {
@@ -59,18 +50,11 @@ describe('RETIRED_ARTICLE_REDIRECTS', () => {
       expect(notFound).toHaveLength(0);
     });
 
-    it('/tech/category/{slug} 形式の destination に実在するカテゴリ slug が対応していること', () => {
-      const categorySlugs = getActualCategorySlugs();
+    it('destination が /tech/category/* を指さないこと（カテゴリハブは廃止済み）', () => {
       const categoryDestinations = RETIRED_ARTICLE_REDIRECTS.filter(({ destination }) =>
-        /^\/tech\/category\/[^/]+$/.test(destination)
+        destination.startsWith('/tech/category/')
       );
-
-      const notFound = categoryDestinations.filter(({ destination }) => {
-        const slug = destination.replace('/tech/category/', '');
-        return !categorySlugs.has(slug);
-      });
-
-      expect(notFound).toHaveLength(0);
+      expect(categoryDestinations).toHaveLength(0);
     });
 
     it('destination が /services・/tech/tags を指さないこと', () => {
@@ -82,7 +66,7 @@ describe('RETIRED_ARTICLE_REDIRECTS', () => {
     });
   });
 
-  describe('/services・/tech/tags の /tech への集約リダイレクト', () => {
+  describe('/services・/tech/tags・/tech/category の /tech への集約リダイレクト', () => {
     it('/services と /services/:path* が /tech へ寄せられていること', () => {
       const map = new Map(RETIRED_ARTICLE_REDIRECTS.map((r) => [r.source, r.destination]));
       expect(map.get('/services')).toBe('/tech');
@@ -93,11 +77,16 @@ describe('RETIRED_ARTICLE_REDIRECTS', () => {
       const map = new Map(RETIRED_ARTICLE_REDIRECTS.map((r) => [r.source, r.destination]));
       expect(map.get('/tech/tags/:tag*')).toBe('/tech');
     });
+
+    it('/tech/category/:category* が /tech へ寄せられていること', () => {
+      const map = new Map(RETIRED_ARTICLE_REDIRECTS.map((r) => [r.source, r.destination]));
+      expect(map.get('/tech/category/:category*')).toBe('/tech');
+    });
   });
 
   describe('マッピング件数', () => {
-    it('13 件のリダイレクトが定義されていること', () => {
-      expect(RETIRED_ARTICLE_REDIRECTS).toHaveLength(13);
+    it('14 件のリダイレクトが定義されていること', () => {
+      expect(RETIRED_ARTICLE_REDIRECTS).toHaveLength(14);
     });
   });
 });
@@ -132,6 +121,8 @@ describe('buildRedirects', () => {
     );
     expect(redirectMap.get('/tech/video-codec-comparison')).toBe('/tech');
     expect(redirectMap.get('/tech/zod-runtime-validation')).toBe('/tech/discriminated-union-api');
-    expect(redirectMap.get('/tech/aws-ses-transactional-mail')).toBe('/tech/category/aws');
+    // カテゴリハブ廃止後は /tech へ集約
+    expect(redirectMap.get('/tech/aws-ses-transactional-mail')).toBe('/tech');
+    expect(redirectMap.get('/tech/category/:category*')).toBe('/tech');
   });
 });

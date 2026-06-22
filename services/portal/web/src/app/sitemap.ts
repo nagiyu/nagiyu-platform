@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { getAllArticles, getAllTechCategoryMetas } from '@/lib/content';
+import { getAllArticles } from '@/lib/content';
 
 const SITE_URL = 'https://nagiyu.com';
 
@@ -21,12 +21,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }));
 
-  const categoryEntries: MetadataRoute.Sitemap = getAllTechCategoryMetas().map((category) => ({
-    url: `${SITE_URL}/tech/category/${category.slug}`,
-    lastModified: now,
-    changeFrequency: 'weekly' as const,
-    priority: 0.7,
-  }));
-
-  return [...staticEntries, ...articleEntries, ...categoryEntries];
+  return [...staticEntries, ...articleEntries];
 }

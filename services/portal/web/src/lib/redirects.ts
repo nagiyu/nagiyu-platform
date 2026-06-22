@@ -25,23 +25,23 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
   },
   {
     source: '/tech/aws-ses-transactional-mail',
-    destination: '/tech/category/aws',
+    destination: '/tech',
   },
   {
     source: '/tech/aws-waf-protection',
-    destination: '/tech/category/aws',
+    destination: '/tech',
   },
   {
     source: '/tech/cognito-oauth-implementation',
-    destination: '/tech/category/aws',
+    destination: '/tech',
   },
   {
     source: '/tech/vapid-web-push',
-    destination: '/tech/category/dev-stack',
+    destination: '/tech',
   },
   {
     source: '/tech/web-push-server-implementation',
-    destination: '/tech/category/dev-stack',
+    destination: '/tech',
   },
   {
     source: '/tech/video-codec-comparison',
@@ -51,7 +51,7 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
     source: '/tech/zod-runtime-validation',
     destination: '/tech/discriminated-union-api',
   },
-  // /services・/tech/tags 配下を技術記事一覧へ集約する。
+  // /services・/tech/tags・/tech/category 配下を技術記事一覧へ集約する。
   {
     source: '/services',
     destination: '/tech',
@@ -62,6 +62,10 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
   },
   {
     source: '/tech/tags/:tag*',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/category/:category*',
     destination: '/tech',
   },
 ] as const;

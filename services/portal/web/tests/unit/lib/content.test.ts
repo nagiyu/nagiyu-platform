@@ -3,12 +3,9 @@ import {
   getAllArticles,
   getArticle,
   getRelatedArticles,
-  getAllTechCategoryMetas,
-  getTechCategory,
-  getArticlesByCategory,
-  getTechCategoriesForArticle,
   getFeaturedArticles,
-  getSiteStats,
+  getCategoryLabel,
+  CATEGORY_LABEL_MAP,
 } from '@/lib/content';
 
 // ESM-only パッケージ（remark/rehype/unified）は Jest の CommonJS 環境では読み込めないためモック化する
@@ -112,68 +109,6 @@ describe('content', () => {
     });
   });
 
-  describe('getAllTechCategoryMetas', () => {
-    it('実在するハブのメタデータを TECH_CATEGORY_SLUGS の順で返す', () => {
-      const metas = getAllTechCategoryMetas();
-      // フィクスチャには aws / nextjs のみ存在し、dev-stack は存在しない
-      expect(metas.map((m) => m.slug)).toEqual(['aws', 'nextjs']);
-      expect(metas[0].title).toBe('AWS インフラ運用ノート');
-      expect(typeof metas[0].description).toBe('string');
-    });
-  });
-
-  describe('getTechCategory', () => {
-    it('ハブの解説本文（HTML 変換済み）を取得できる', async () => {
-      const category = await getTechCategory('aws');
-      expect(category.slug).toBe('aws');
-      expect(category.title).toBe('AWS インフラ運用ノート');
-      expect(typeof category.content).toBe('string');
-    });
-
-    it('存在しないハブ slug でエラーが発生する', async () => {
-      await expect(getTechCategory('nonexistent')).rejects.toThrow();
-    });
-  });
-
-  describe('getArticlesByCategory', () => {
-    it('指定カテゴリに所属する記事を publishedAt 降順で返す', () => {
-      const articles = getArticlesByCategory('aws');
-      // test-article-featured (aws, featured: true), test-article-1 (aws), test-article-2 (aws, nextjs) が該当
-      expect(articles.map((a) => a.slug)).toEqual([
-        'test-article-featured',
-        'test-article-1',
-        'test-article-2',
-      ]);
-    });
-
-    it('単一カテゴリにのみ所属する記事を抽出する', () => {
-      const articles = getArticlesByCategory('nextjs');
-      expect(articles.map((a) => a.slug)).toEqual(['test-article-2']);
-    });
-
-    it('該当記事がないカテゴリでは空配列', () => {
-      expect(getArticlesByCategory('dev-stack')).toEqual([]);
-    });
-  });
-
-  describe('getTechCategoriesForArticle', () => {
-    it('記事の categories から実在するハブのメタを返す', () => {
-      const metas = getTechCategoriesForArticle(['aws', 'nextjs']);
-      expect(metas.map((m) => m.slug)).toEqual(['aws', 'nextjs']);
-    });
-
-    it('実在しないハブ slug は除外する', () => {
-      const metas = getTechCategoriesForArticle(['aws', 'dev-stack']);
-      // dev-stack はフィクスチャに存在しないため除外される
-      expect(metas.map((m) => m.slug)).toEqual(['aws']);
-    });
-
-    it('categories が未指定なら空配列', () => {
-      expect(getTechCategoriesForArticle(undefined)).toEqual([]);
-      expect(getTechCategoriesForArticle([])).toEqual([]);
-    });
-  });
-
   describe('getFeaturedArticles', () => {
     it('featured: true の記事のみを返す', () => {
       const articles = getFeaturedArticles();
@@ -206,23 +141,27 @@ describe('content', () => {
     });
   });
 
-  describe('getSiteStats', () => {
-    it('articleCount / categoryCount を返す', () => {
-      const stats = getSiteStats();
-      expect(typeof stats.articleCount).toBe('number');
-      expect(typeof stats.categoryCount).toBe('number');
+  describe('getCategoryLabel', () => {
+    it('aws → AWS に変換される', () => {
+      expect(getCategoryLabel('aws')).toBe('AWS');
     });
 
-    it('articleCount はフィクスチャの記事数と一致する', () => {
-      const stats = getSiteStats();
-      const articles = getAllArticles();
-      expect(stats.articleCount).toBe(articles.length);
+    it('nextjs → Next.js に変換される', () => {
+      expect(getCategoryLabel('nextjs')).toBe('Next.js');
     });
 
-    it('categoryCount はフィクスチャ内の実在するカテゴリ数と一致する', () => {
-      const stats = getSiteStats();
-      const categories = getAllTechCategoryMetas();
-      expect(stats.categoryCount).toBe(categories.length);
+    it('dev-stack → 開発スタック に変換される', () => {
+      expect(getCategoryLabel('dev-stack')).toBe('開発スタック');
+    });
+
+    it('未知の slug はそのまま返す', () => {
+      expect(getCategoryLabel('unknown-category')).toBe('unknown-category');
+    });
+
+    it('CATEGORY_LABEL_MAP に定義された slug すべてが正しく変換される', () => {
+      for (const [slug, label] of Object.entries(CATEGORY_LABEL_MAP)) {
+        expect(getCategoryLabel(slug)).toBe(label);
+      }
     });
   });
 });
