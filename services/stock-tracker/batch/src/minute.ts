@@ -4,7 +4,7 @@
  * MINUTE_LEVEL のアラート条件をチェックして通知を送信する
  */
 
-import { logger, toErrorMessage, withRetry } from '@nagiyu/common';
+import { logger, toErrorMessage } from '@nagiyu/common';
 import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import { createAlertNotificationPayload } from './lib/web-push-client.js';
@@ -13,8 +13,17 @@ import type { ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { evaluateAlert } from '@nagiyu/stock-tracker-core';
 import { isTradingHours } from '@nagiyu/stock-tracker-core';
-import { TradingViewSession } from '@nagiyu/stock-tracker-core';
+import { TradingViewSession, getCurrentPrice } from '@nagiyu/stock-tracker-core';
 import type { Alert } from '@nagiyu/stock-tracker-core';
+
+/**
+ * 指定ミリ秒待機する
+ *
+ * @param ms - 待機時間（ミリ秒）
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /**
  * Lambda Handlerイベント型
@@ -51,6 +60,8 @@ interface BatchStatistics {
   conditionsMet: number;
   notificationsSent: number;
   errors: number;
+  /** 共有セッション失敗後に新規 WS で再試行した回数 */
+  freshSessionRetries: number;
 }
 
 /**
@@ -60,13 +71,19 @@ interface BatchStatistics {
  * @param exchangeRepo - Exchange リポジトリ
  * @param session - invocation 共有の TradingView セッション
  * @param stats - バッチ統計情報
+ * @param firstAttemptTimeoutMs - 共有セッションの 1 回目タイムアウト（ms）
+ * @param retryTimeoutMs - 新規 WS リトライのタイムアウト（ms）
+ * @param retryDelayMs - 1 回目失敗後のリトライ前遅延（ms）
  * @returns 処理が成功した場合は true、失敗した場合は false
  */
 async function processAlert(
   alert: Alert,
   exchangeRepo: ExchangeRepository,
   session: TradingViewSession,
-  stats: BatchStatistics
+  stats: BatchStatistics,
+  firstAttemptTimeoutMs: number,
+  retryTimeoutMs: number,
+  retryDelayMs: number
 ): Promise<boolean> {
   try {
     // 1. Enabled = true かチェック
@@ -102,17 +119,26 @@ async function processAlert(
       return true;
     }
 
-    // 4. TradingView API で現在価格取得（invocation 共有セッションを再利用）
-    // セッション共有により WebSocket handshake を invocation あたり 1 回に削減する。
-    // タイムアウト 8s + リトライ 0.5s + 8s = 最悪 16.5s。
-    const currentPrice = await withRetry<number>(
-      () => session.getCurrentPrice(alert.TickerID, { timeout: 8000 }),
-      {
-        maxRetries: 1,
-        initialDelayMs: 500,
-        backoffMultiplier: 2,
-      }
-    );
+    // 4. TradingView API で現在価格取得
+    // 1 回目: 共有セッションを再利用（healthy 時の handshake 削減）
+    // 失敗時: 独立した新規 WS で 1 回だけ再試行（死んだ共有接続を完全にバイパス）
+    let currentPrice: number;
+    try {
+      currentPrice = await session.getCurrentPrice(alert.TickerID, {
+        timeout: firstAttemptTimeoutMs,
+      });
+    } catch (firstError) {
+      stats.freshSessionRetries++;
+      logger.warn('共有セッションでの価格取得に失敗。新規 WS で再試行します', {
+        alertId: alert.AlertID,
+        tickerId: alert.TickerID,
+        sessionId: session.getSessionId(),
+        firstError: toErrorMessage(firstError),
+      });
+      await sleep(retryDelayMs);
+      // 失敗時は外側 catch へ伝播させてエラー扱いとする
+      currentPrice = await getCurrentPrice(alert.TickerID, { timeout: retryTimeoutMs });
+    }
 
     logger.debug('現在価格を取得しました', {
       alertId: alert.AlertID,
@@ -201,13 +227,21 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     conditionsMet: 0,
     notificationsSent: 0,
     errors: 0,
+    freshSessionRetries: 0,
   };
 
-  // 並列度・時間予算は環境変数で調整可能
+  // 並列度・時間予算・タイムアウトは環境変数で調整可能
   // 並列度を 3 に下げることで WS 接続バーストを緩和する（jitter と併用）
-  // TIME_BUDGET_MS を 30s に設定し、in-flight タスクの完了（最大 ~16.5s）を含めて 50s 以内に収める
+  // TIME_BUDGET_MS を 30s に設定し、in-flight タスクの完了（最大 ~12.5s）を含めて 50s 以内に収める
+  // worst case/ticker = FIRST_ATTEMPT_TIMEOUT(4s) + RETRY_DELAY(0.5s) + RETRY_TIMEOUT(8s) = 12.5s
   const concurrency = parseInt(process.env.MINUTE_BATCH_CONCURRENCY ?? '3', 10);
   const timeBudgetMs = parseInt(process.env.MINUTE_BATCH_TIME_BUDGET_MS ?? '30000', 10);
+  const firstAttemptTimeoutMs = parseInt(
+    process.env.MINUTE_BATCH_FIRST_ATTEMPT_TIMEOUT_MS ?? '4000',
+    10
+  );
+  const retryTimeoutMs = parseInt(process.env.MINUTE_BATCH_RETRY_TIMEOUT_MS ?? '8000', 10);
+  const retryDelayMs = parseInt(process.env.MINUTE_BATCH_RETRY_DELAY_MS ?? '500', 10);
   const isBudgetExceeded = (): boolean => Date.now() - startTime > timeBudgetMs;
 
   // container kill 閾値: invocation 内エラー数がこの値以上になると process.exit(1) で container を廃棄する
@@ -243,7 +277,16 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
 
     // 3. 並列度上限・時間予算ガード・jitter でアラートを処理
     const tasks = shuffledAlerts.map(
-      (alert) => () => processAlert(alert, exchangeRepo, session, stats)
+      (alert) => () =>
+        processAlert(
+          alert,
+          exchangeRepo,
+          session,
+          stats,
+          firstAttemptTimeoutMs,
+          retryTimeoutMs,
+          retryDelayMs
+        )
     );
 
     const { results, skippedCount } = await runConcurrent(tasks, concurrency, isBudgetExceeded, {
