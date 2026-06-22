@@ -15,10 +15,7 @@ interface HomeHeroSectionProps {
  * 初訪問者に「個人開発者による実運用ベースの技術メディア」であることを
  * 数秒で伝えることを目的とした、ファーストビュー専用コンポーネント。
  */
-export default function HomeHeroSection({
-  articleCount,
-  categoryCount,
-}: HomeHeroSectionProps) {
+export default function HomeHeroSection({ articleCount, categoryCount }: HomeHeroSectionProps) {
   return (
     <Box
       component="section"
@@ -50,8 +47,8 @@ export default function HomeHeroSection({
         color="text.secondary"
         sx={{ maxWidth: 680, mx: 'auto', mb: 3, lineHeight: 1.8 }}
       >
-        個人開発者による、実運用ベースの技術メディアです。
-        AWS・Next.js を主軸としたフルスタック開発で実際に直面した
+        個人開発者による、実運用ベースの技術メディアです。 AWS・Next.js
+        を主軸としたフルスタック開発で実際に直面した
         設計判断と実装の詳細を、運用視点で記録しています。
       </Typography>
 

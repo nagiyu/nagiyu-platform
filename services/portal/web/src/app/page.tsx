@@ -42,10 +42,7 @@ export default async function HomePage() {
       />
 
       {/* 1. ヒーローセクション：技術メディアであることと規模を数秒で伝える */}
-      <HomeHeroSection
-        articleCount={stats.articleCount}
-        categoryCount={stats.categoryCount}
-      />
+      <HomeHeroSection articleCount={stats.articleCount} categoryCount={stats.categoryCount} />
 
       {/* 2. 特集記事：featured: true の記事（0 件時は非表示） */}
       <HomeFeaturedSection articles={featuredArticles} />
