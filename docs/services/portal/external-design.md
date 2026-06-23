@@ -22,12 +22,12 @@
 
 ```mermaid
 graph LR
-    TOP[/ トップ] -->|記事カードクリック| ARTICLE[/tech/slug 記事詳細]
-    TOP -->|ナビゲーション| TECH[/tech 技術記事一覧]
-    TOP -->|ナビゲーション| ABOUT[/about]
+    TOP["/ トップ"] -->|記事カードクリック| ARTICLE["/tech/slug 記事詳細"]
+    TOP -->|ナビゲーション| TECH["/tech 技術記事一覧"]
+    TOP -->|ナビゲーション| ABOUT["/about"]
     TECH -->|記事クリック| ARTICLE
     ARTICLE -->|関連記事| ARTICLE
-    ABOUT -->|お問い合わせ導線| CONTACT[/contact]
+    ABOUT -->|お問い合わせ導線| CONTACT["/contact"]
 ```
 
 ### 1.3 主要画面の設計
