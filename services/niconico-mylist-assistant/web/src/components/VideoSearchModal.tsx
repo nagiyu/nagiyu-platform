@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { NiconicoVideoInfo } from '@nagiyu/niconico-mylist-assistant-core';
 import {
   Box,
@@ -38,6 +38,18 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
   const [addStatusById, setAddStatusById] = useState<Record<string, AddStatus>>({});
   // 検索が一度でも実行されたかを管理する（未検索と検索済み0件を区別するため）
   const [hasSearched, setHasSearched] = useState(false);
+
+  // ダイアログを開くたびに状態を初期化し、毎回新規検索の状態で表示する
+  // （常時マウントされるため、明示的にリセットしないと前回の検索結果が残る）
+  useEffect(() => {
+    if (open) {
+      setKeyword('');
+      setVideos([]);
+      setError(null);
+      setAddStatusById({});
+      setHasSearched(false);
+    }
+  }, [open]);
 
   const handleSearch = async () => {
     setLoading(true);

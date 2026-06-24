@@ -355,6 +355,60 @@ describe('VideoSearchModal - 連続検索の状態遷移', () => {
   });
 });
 
+describe('VideoSearchModal - 再表示時のリセット', () => {
+  it('0件検索後にダイアログを閉じて再表示すると状態がリセットされる', async () => {
+    mockFetch.mockReturnValueOnce(mockSearchResponse([]));
+
+    const { rerender } = render(<VideoSearchModal open={true} onClose={jest.fn()} />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '胡蝶の如く' } });
+    fireEvent.click(screen.getByText('検索'));
+    await waitFor(() => {
+      expect(screen.getByText('該当する動画が見つかりませんでした')).toBeInTheDocument();
+    });
+
+    // 閉じてから再表示する
+    rerender(<VideoSearchModal open={false} onClose={jest.fn()} />);
+    rerender(<VideoSearchModal open={true} onClose={jest.fn()} />);
+
+    // 入力値・0件メッセージがクリアされ、未検索状態に戻っている
+    expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('');
+    expect(screen.queryByText('該当する動画が見つかりませんでした')).not.toBeInTheDocument();
+    expect(screen.getByText('キーワードを入力して検索してください')).toBeInTheDocument();
+  });
+
+  it('検索結果ありの状態で再表示すると結果カードがクリアされる', async () => {
+    const video = {
+      videoId: 'sm9',
+      title: 'テスト動画',
+      thumbnailUrl: 'https://example.com/thumb.jpg',
+      description: '',
+      duration: 120,
+      viewCount: 100,
+      commentCount: 10,
+      mylistCount: 5,
+      uploadedAt: '2020-01-01T00:00:00+09:00',
+      tags: [],
+      isRegistered: false,
+    };
+    mockFetch.mockReturnValueOnce(mockSearchResponse([video]));
+
+    const { rerender } = render(<VideoSearchModal open={true} onClose={jest.fn()} />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'テスト' } });
+    fireEvent.click(screen.getByText('検索'));
+    await waitFor(() => {
+      expect(screen.getByTestId('video-card')).toBeInTheDocument();
+    });
+
+    rerender(<VideoSearchModal open={false} onClose={jest.fn()} />);
+    rerender(<VideoSearchModal open={true} onClose={jest.fn()} />);
+
+    expect(screen.queryByTestId('video-card')).not.toBeInTheDocument();
+    expect(screen.getByText('キーワードを入力して検索してください')).toBeInTheDocument();
+  });
+});
+
 describe('VideoSearchModal - エラー時', () => {
   it('検索でエラーが返ったとき ErrorAlert が表示される', async () => {
     mockFetch.mockReturnValueOnce(mockSearchErrorResponse('動画検索に失敗しました'));
