@@ -69,12 +69,11 @@ jest.mock('@nagiyu/ui', () => ({
 // @nagiyu/react の useEnterSubmit をスタブ化
 jest.mock('@nagiyu/react', () => ({
   useEnterSubmit: jest.fn(
-    (handler: () => void, options?: { disabled?: boolean }) =>
-      (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !options?.disabled) {
-          handler();
-        }
+    (handler: () => void, options?: { disabled?: boolean }) => (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && !options?.disabled) {
+        handler();
       }
+    }
   ),
 }));
 
@@ -118,7 +117,9 @@ jest.mock('@mui/material', () => {
       void color;
       return <p>{children}</p>;
     },
-    Card: ({ children }: { children: React.ReactNode }) => <div data-testid="video-card">{children}</div>,
+    Card: ({ children }: { children: React.ReactNode }) => (
+      <div data-testid="video-card">{children}</div>
+    ),
     CardContent: ({ children, sx }: { children: React.ReactNode; sx?: object }) => {
       void sx;
       return <div>{children}</div>;
@@ -134,6 +135,8 @@ jest.mock('@mui/material', () => {
       sx?: object;
     }) => {
       void sx;
+      // CardMedia のモック描画。next/image ではなく素の img で十分なため警告を抑止する
+      // eslint-disable-next-line @next/next/no-img-element
       return <img src={image} alt={alt} />;
     },
   };
