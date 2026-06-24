@@ -273,6 +273,88 @@ describe('VideoSearchModal - 検索結果あり', () => {
   });
 });
 
+describe('VideoSearchModal - 連続検索の状態遷移', () => {
+  const sampleVideo = {
+    videoId: 'sm9',
+    title: 'テスト動画',
+    thumbnailUrl: 'https://example.com/thumb.jpg',
+    description: '',
+    duration: 120,
+    viewCount: 100,
+    commentCount: 10,
+    mylistCount: 5,
+    uploadedAt: '2020-01-01T00:00:00+09:00',
+    tags: [],
+    isRegistered: false,
+  };
+
+  async function search(keyword: string) {
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: keyword } });
+    fireEvent.click(screen.getByText('検索'));
+  }
+
+  it('0件のあとに別の0件を検索しても「該当する動画が見つかりませんでした」が出続ける', async () => {
+    mockFetch.mockReturnValueOnce(mockSearchResponse([]));
+    mockFetch.mockReturnValueOnce(mockSearchResponse([]));
+
+    render(<VideoSearchModal open={true} onClose={jest.fn()} />);
+
+    await search('胡蝶の如く');
+    await waitFor(() => {
+      expect(screen.getByText('該当する動画が見つかりませんでした')).toBeInTheDocument();
+    });
+
+    await search('東方の如く');
+    // 2回目の検索が実際に実行されたことを確認
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+    // 2回目の0件検索が確定した後も0件メッセージのまま（未検索文言には戻らない）
+    await waitFor(() => {
+      expect(screen.getByText('該当する動画が見つかりませんでした')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('キーワードを入力して検索してください')).not.toBeInTheDocument();
+  });
+
+  it('結果ありのあとに0件を検索するとリストが消えて0件メッセージになる', async () => {
+    mockFetch.mockReturnValueOnce(mockSearchResponse([sampleVideo]));
+    mockFetch.mockReturnValueOnce(mockSearchResponse([]));
+
+    render(<VideoSearchModal open={true} onClose={jest.fn()} />);
+
+    await search('テスト');
+    await waitFor(() => {
+      expect(screen.getByTestId('video-card')).toBeInTheDocument();
+    });
+
+    await search('胡蝶の如く');
+    await waitFor(() => {
+      expect(screen.getByText('該当する動画が見つかりませんでした')).toBeInTheDocument();
+    });
+    // 前回の結果カードが残っていないこと
+    expect(screen.queryByTestId('video-card')).not.toBeInTheDocument();
+  });
+
+  it('0件のあとに結果ありを検索するとリストが表示される', async () => {
+    mockFetch.mockReturnValueOnce(mockSearchResponse([]));
+    mockFetch.mockReturnValueOnce(mockSearchResponse([sampleVideo]));
+
+    render(<VideoSearchModal open={true} onClose={jest.fn()} />);
+
+    await search('胡蝶の如く');
+    await waitFor(() => {
+      expect(screen.getByText('該当する動画が見つかりませんでした')).toBeInTheDocument();
+    });
+
+    await search('テスト');
+    await waitFor(() => {
+      expect(screen.getByTestId('video-card')).toBeInTheDocument();
+    });
+    // 0件メッセージが消えていること
+    expect(screen.queryByText('該当する動画が見つかりませんでした')).not.toBeInTheDocument();
+  });
+});
+
 describe('VideoSearchModal - エラー時', () => {
   it('検索でエラーが返ったとき ErrorAlert が表示される', async () => {
     mockFetch.mockReturnValueOnce(mockSearchErrorResponse('動画検索に失敗しました'));
