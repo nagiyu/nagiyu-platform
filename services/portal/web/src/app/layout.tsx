@@ -10,19 +10,18 @@ import {
 } from '@nagiyu/ui';
 import HomeIcon from '@mui/icons-material/Home';
 import ArticleIcon from '@mui/icons-material/Article';
-import AppsIcon from '@mui/icons-material/Apps';
 import InfoIcon from '@mui/icons-material/Info';
 import '@nagiyu/ui/tokens.css';
 import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'nagiyu - サービス一覧・技術ポータル',
+    default: 'nagiyu - AWS・Next.js 技術メディア',
     template: '%s - nagiyu',
   },
   description:
-    'nagiyu が提供する Tools・Quick Clip・Codec Converter・Stock Tracker など各種サービスのドキュメント、使い方ガイド、技術記事を掲載しています。',
-  keywords: ['nagiyu', 'ポータル', 'サービス一覧', 'ツール', '技術記事', 'ドキュメント'],
+    '個人開発者による実運用ベースの技術メディア。AWS・Next.js を中心としたフルスタック開発で実際に直面した設計判断・実装の詳細・運用知見を記録しています。',
+  keywords: ['nagiyu', '技術記事', 'AWS', 'Next.js', 'フルスタック', '個人開発', '実運用'],
   authors: [{ name: 'nagiyu' }],
   creator: 'nagiyu',
   publisher: 'nagiyu',
@@ -31,24 +30,24 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'ja_JP',
     url: 'https://nagiyu.com',
-    title: 'nagiyu - サービス一覧・技術ポータル',
+    title: 'nagiyu - AWS・Next.js 技術メディア',
     description:
-      'nagiyu が提供する各種サービスのドキュメント・技術記事を掲載したポータルサイトです。',
+      '個人開発者による実運用ベースの技術メディア。AWS・Next.js を中心とした開発の設計判断と実装の詳細を記録しています。',
     siteName: 'nagiyu',
     images: [
       {
         url: '/og-default.png',
         width: 1200,
         height: 630,
-        alt: 'nagiyu - サービス一覧・技術ポータル',
+        alt: 'nagiyu - AWS・Next.js 技術メディア',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'nagiyu - サービス一覧・技術ポータル',
+    title: 'nagiyu - AWS・Next.js 技術メディア',
     description:
-      'nagiyu が提供する各種サービスのドキュメント・技術記事を掲載したポータルサイトです。',
+      '個人開発者による実運用ベースの技術メディア。AWS・Next.js を中心とした開発の設計判断と実装の詳細を記録しています。',
     images: ['/og-default.png'],
   },
 };
@@ -77,11 +76,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       icon: <HomeIcon />,
     },
     {
-      label: 'サービス',
-      href: '/services',
-      icon: <AppsIcon />,
-    },
-    {
       label: '技術記事',
       href: '/tech',
       icon: <ArticleIcon />,
@@ -99,16 +93,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       title: 'メインコンテンツ',
       items: [
         { label: 'ホーム', href: '/' },
-        { label: 'サービス一覧', href: '/services' },
         { label: '技術記事', href: '/tech' },
-      ],
-    },
-    {
-      title: 'カテゴリ',
-      items: [
-        { label: 'AWS', href: '/tech/category/aws' },
-        { label: 'Next.js', href: '/tech/category/nextjs' },
-        { label: '開発スタック', href: '/tech/category/dev-stack' },
       ],
     },
     {

@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import SummariesPage from '../../../app/summaries/page';
 import {
   resolveAiAnalysisFallbackMessage,
+  resolveInvestmentSignalColor,
   resolveInvestmentSignalLabel,
 } from '../../../app/summaries/ai-analysis';
 import { useSession } from 'next-auth/react';
@@ -62,6 +63,20 @@ describe('SummariesPage', () => {
       expect(resolveInvestmentSignalLabel('BULLISH')).toBe('強気');
       expect(resolveInvestmentSignalLabel('NEUTRAL')).toBe('中立');
       expect(resolveInvestmentSignalLabel('BEARISH')).toBe('弱気');
+    });
+
+    describe('resolveInvestmentSignalColor', () => {
+      it('BULLISH は success を返す', () => {
+        expect(resolveInvestmentSignalColor('BULLISH')).toBe('success');
+      });
+
+      it('NEUTRAL は neutral を返す', () => {
+        expect(resolveInvestmentSignalColor('NEUTRAL')).toBe('neutral');
+      });
+
+      it('BEARISH は danger を返す', () => {
+        expect(resolveInvestmentSignalColor('BEARISH')).toBe('danger');
+      });
     });
 
     it('aiAnalysisError が string の場合は失敗メッセージを表示する', () => {

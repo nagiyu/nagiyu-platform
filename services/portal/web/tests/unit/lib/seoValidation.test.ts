@@ -380,9 +380,9 @@ describe('validateBreadcrumbJsonLd', () => {
     expect(result.errors).toContain(SEO_VALIDATION_ERRORS.BREADCRUMB_ITEM_POSITION_NOT_SEQUENTIAL);
   });
 
-  it('A2 カテゴリハブ用の 3 階層パンくずが正常であることを検証する', () => {
-    // A2 ハブページ（/tech/category/{slug}）の BreadcrumbList パターン
-    const categoryBreadcrumb: JsonLdData = {
+  it('記事詳細用の 3 階層パンくずが正常であることを検証する', () => {
+    // 記事ページ（/tech/{slug}）の BreadcrumbList パターン
+    const articleBreadcrumb: JsonLdData = {
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
       itemListElement: [
@@ -391,12 +391,12 @@ describe('validateBreadcrumbJsonLd', () => {
         {
           '@type': 'ListItem',
           position: 3,
-          name: 'AWS インフラ運用ノート',
-          item: 'https://nagiyu.com/tech/category/aws',
+          name: 'AWS Batch での動画処理アーキテクチャ',
+          item: 'https://nagiyu.com/tech/aws-batch-architecture',
         },
       ],
     };
-    const result = validateBreadcrumbJsonLd(categoryBreadcrumb);
+    const result = validateBreadcrumbJsonLd(articleBreadcrumb);
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
   });
@@ -447,21 +447,21 @@ describe('validateSitemapCoverage', () => {
     expect(result.unexpected).toContain('https://nagiyu.com/old-deleted-page');
   });
 
-  it('A2 カテゴリハブが sitemap に含まれているかを検証できる', () => {
-    // A2 で追加された /tech/category/{slug} が sitemap に含まれる必要がある
-    const categoryUrls = [
-      'https://nagiyu.com/tech/category/aws',
-      'https://nagiyu.com/tech/category/nextjs',
-      'https://nagiyu.com/tech/category/dev-stack',
+  it('現存の静的ページ・記事が sitemap に含まれているかを検証できる', () => {
+    // 単一目的化後の現存ルート（静的ページ＋ /tech/{slug} 記事）が sitemap に含まれる必要がある
+    const expectedUrls = [
+      'https://nagiyu.com/',
+      'https://nagiyu.com/about',
+      'https://nagiyu.com/tech',
+      'https://nagiyu.com/tech/aws-batch-architecture',
     ];
     const entries: SitemapEntry[] = [
       { url: 'https://nagiyu.com/' },
+      { url: 'https://nagiyu.com/about' },
       { url: 'https://nagiyu.com/tech' },
-      { url: 'https://nagiyu.com/tech/category/aws' },
-      { url: 'https://nagiyu.com/tech/category/nextjs' },
-      { url: 'https://nagiyu.com/tech/category/dev-stack' },
+      { url: 'https://nagiyu.com/tech/aws-batch-architecture' },
     ];
-    const result = validateSitemapCoverage(categoryUrls, entries);
+    const result = validateSitemapCoverage(expectedUrls, entries);
     expect(result.missing).toEqual([]);
   });
 

@@ -13,6 +13,8 @@ interface HomePageClientProps {
   userName?: string;
   isAuthenticated: boolean;
   appUrl: string;
+  /** サインイン URL のベース（サーバーコンポーネントでランタイム env を解決して渡す） */
+  authUrl: string;
 }
 
 const postSubscription = async (subscription: PushSubscription): Promise<void> => {
@@ -26,8 +28,12 @@ const postSubscription = async (subscription: PushSubscription): Promise<void> =
   }
 };
 
-export default function HomePageClient({ userName, isAuthenticated, appUrl }: HomePageClientProps) {
-  const authUrl = process.env.NEXT_PUBLIC_AUTH_URL;
+export default function HomePageClient({
+  userName,
+  isAuthenticated,
+  appUrl,
+  authUrl,
+}: HomePageClientProps) {
   const [openNotificationDialog, setOpenNotificationDialog] = useState(false);
   const canUseNotificationApi = typeof window !== 'undefined' && 'Notification' in window;
 
@@ -72,7 +78,7 @@ export default function HomePageClient({ userName, isAuthenticated, appUrl }: Ho
               ようこそ、{userName} さん
             </Typography>
             <Button asChild variant="solid" color="primary">
-              <Link href="/register">マイリスト登録</Link>
+              <Link href="/mylist/register">マイリスト登録</Link>
             </Button>
             <Button asChild variant="outline" color="primary">
               <Link href="/import">動画インポート</Link>

@@ -8,6 +8,6 @@ export const SITE = {
   name: 'nagiyu',
   url: 'https://nagiyu.com',
   description:
-    'nagiyu が提供する Tools・Quick Clip・Codec Converter・Stock Tracker など各種サービスのドキュメント、使い方ガイド、技術記事を掲載しています。',
+    '個人開発者による実運用ベースの技術メディア。AWS・Next.js を中心としたフルスタック開発で実際に直面した設計判断・実装の詳細・運用知見を記録しています。',
   logo: 'https://nagiyu.com/og-default.png',
 } as const;

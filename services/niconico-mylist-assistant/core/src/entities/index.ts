@@ -17,3 +17,10 @@ export type {
   UpdateBatchJobInput,
   BatchJobKey,
 } from './batch-job.entity.js';
+
+export type {
+  NiconicoCredentialEntity,
+  CreateNiconicoCredentialInput,
+  NiconicoCredentialKey,
+} from './niconico-credential.entity.js';
+export { NICONICO_CREDENTIAL_SK } from './niconico-credential.entity.js';

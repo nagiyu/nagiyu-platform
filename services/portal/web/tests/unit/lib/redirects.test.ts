@@ -11,24 +11,6 @@ function getActualArticleSlugs(): Set<string> {
   return new Set(files.map((f) => f.replace(/\.md$/, '')));
 }
 
-/**
- * src/content/tech-category/ 配下の .md ファイルから slug 一覧を取得するヘルパー
- */
-function getActualCategorySlugs(): Set<string> {
-  const categoryDir = path.join(process.cwd(), 'src', 'content', 'tech-category');
-  const files = fs.readdirSync(categoryDir).filter((f) => f.endsWith('.md'));
-  return new Set(files.map((f) => f.replace(/\.md$/, '')));
-}
-
-/**
- * src/content/services/ 配下のディレクトリ名からサービス slug 一覧を取得するヘルパー
- */
-function getActualServiceSlugs(): Set<string> {
-  const servicesDir = path.join(process.cwd(), 'src', 'content', 'services');
-  const entries = fs.readdirSync(servicesDir, { withFileTypes: true });
-  return new Set(entries.filter((e) => e.isDirectory()).map((e) => e.name));
-}
-
 describe('RETIRED_ARTICLE_REDIRECTS', () => {
   describe('source の重複・競合チェック', () => {
     it('source に現存する記事 slug と重複がないこと', () => {
@@ -68,38 +50,43 @@ describe('RETIRED_ARTICLE_REDIRECTS', () => {
       expect(notFound).toHaveLength(0);
     });
 
-    it('/tech/category/{slug} 形式の destination に実在するカテゴリ slug が対応していること', () => {
-      const categorySlugs = getActualCategorySlugs();
+    it('destination が /tech/category/* を指さないこと（カテゴリハブは廃止済み）', () => {
       const categoryDestinations = RETIRED_ARTICLE_REDIRECTS.filter(({ destination }) =>
-        /^\/tech\/category\/[^/]+$/.test(destination)
+        destination.startsWith('/tech/category/')
       );
-
-      const notFound = categoryDestinations.filter(({ destination }) => {
-        const slug = destination.replace('/tech/category/', '');
-        return !categorySlugs.has(slug);
-      });
-
-      expect(notFound).toHaveLength(0);
+      expect(categoryDestinations).toHaveLength(0);
     });
 
-    it('/services/{slug} 形式の destination に実在するサービス slug が対応していること', () => {
-      const serviceSlugs = getActualServiceSlugs();
-      const serviceDestinations = RETIRED_ARTICLE_REDIRECTS.filter(({ destination }) =>
-        /^\/services\/[^/]+$/.test(destination)
+    it('destination が /services・/tech/tags を指さないこと', () => {
+      const removed = RETIRED_ARTICLE_REDIRECTS.filter(
+        ({ destination }) =>
+          destination.startsWith('/services') || destination.startsWith('/tech/tags')
       );
+      expect(removed).toHaveLength(0);
+    });
+  });
 
-      const notFound = serviceDestinations.filter(({ destination }) => {
-        const slug = destination.replace('/services/', '');
-        return !serviceSlugs.has(slug);
-      });
+  describe('/services・/tech/tags・/tech/category の /tech への集約リダイレクト', () => {
+    it('/services と /services/:path* が /tech へ寄せられていること', () => {
+      const map = new Map(RETIRED_ARTICLE_REDIRECTS.map((r) => [r.source, r.destination]));
+      expect(map.get('/services')).toBe('/tech');
+      expect(map.get('/services/:path*')).toBe('/tech');
+    });
 
-      expect(notFound).toHaveLength(0);
+    it('/tech/tags/:tag* が /tech へ寄せられていること', () => {
+      const map = new Map(RETIRED_ARTICLE_REDIRECTS.map((r) => [r.source, r.destination]));
+      expect(map.get('/tech/tags/:tag*')).toBe('/tech');
+    });
+
+    it('/tech/category/:category* が /tech へ寄せられていること', () => {
+      const map = new Map(RETIRED_ARTICLE_REDIRECTS.map((r) => [r.source, r.destination]));
+      expect(map.get('/tech/category/:category*')).toBe('/tech');
     });
   });
 
   describe('マッピング件数', () => {
-    it('10 件のリダイレクトが定義されていること', () => {
-      expect(RETIRED_ARTICLE_REDIRECTS).toHaveLength(10);
+    it('14 件のリダイレクトが定義されていること', () => {
+      expect(RETIRED_ARTICLE_REDIRECTS).toHaveLength(14);
     });
   });
 });
@@ -132,8 +119,10 @@ describe('buildRedirects', () => {
     expect(redirectMap.get('/tech/eventbridge-scheduler')).toBe(
       '/tech/eventbridge-rule-scheduling'
     );
-    expect(redirectMap.get('/tech/video-codec-comparison')).toBe('/services/codec-converter');
+    expect(redirectMap.get('/tech/video-codec-comparison')).toBe('/tech');
     expect(redirectMap.get('/tech/zod-runtime-validation')).toBe('/tech/discriminated-union-api');
-    expect(redirectMap.get('/tech/aws-ses-transactional-mail')).toBe('/tech/category/aws');
+    // カテゴリハブ廃止後は /tech へ集約
+    expect(redirectMap.get('/tech/aws-ses-transactional-mail')).toBe('/tech');
+    expect(redirectMap.get('/tech/category/:category*')).toBe('/tech');
   });
 });
