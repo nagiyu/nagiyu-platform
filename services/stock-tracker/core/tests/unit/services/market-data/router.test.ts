@@ -4,7 +4,10 @@
  * TickerID の取引所プレフィックスに基づいた provider 選択ロジックを検証する。
  */
 
-import { resolveQuoteProvider, US_EXCHANGE_KEYS } from '../../../../src/services/market-data/router';
+import {
+  resolveQuoteProvider,
+  US_EXCHANGE_KEYS,
+} from '../../../../src/services/market-data/router';
 import type { QuoteProvider } from '../../../../src/services/market-data/types';
 
 /**

@@ -32,10 +32,7 @@ export type QuoteProviderMap = {
  * @param providers - 選択肢となる QuoteProvider のマップ
  * @returns 選択された QuoteProvider
  */
-export function resolveQuoteProvider(
-  tickerId: string,
-  providers: QuoteProviderMap
-): QuoteProvider {
+export function resolveQuoteProvider(tickerId: string, providers: QuoteProviderMap): QuoteProvider {
   const exchangeKey = tickerId.split(':')[0] ?? '';
 
   if (US_EXCHANGE_KEYS.has(exchangeKey)) {

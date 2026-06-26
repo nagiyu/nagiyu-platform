@@ -21,5 +21,8 @@ export interface QuoteProvider {
    * @returns 現在価格
    * @throws {Error} 取得失敗時
    */
-  getCurrentPrice(tickerId: string, options?: import('../tradingview-client.js').GetCurrentPriceOptions): Promise<number>;
+  getCurrentPrice(
+    tickerId: string,
+    options?: import('../tradingview-client.js').GetCurrentPriceOptions
+  ): Promise<number>;
 }

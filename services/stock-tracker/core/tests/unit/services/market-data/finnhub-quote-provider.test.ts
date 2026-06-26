@@ -5,7 +5,10 @@
  * 外部 HTTP 通信は一切行わない。
  */
 
-import { FinnhubQuoteProvider, FINNHUB_ERROR_MESSAGES } from '../../../../src/services/market-data/finnhub-quote-provider';
+import {
+  FinnhubQuoteProvider,
+  FINNHUB_ERROR_MESSAGES,
+} from '../../../../src/services/market-data/finnhub-quote-provider';
 
 /**
  * モック fetch レスポンスを生成するヘルパー

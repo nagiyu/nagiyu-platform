@@ -12,7 +12,9 @@ describe('TradingViewQuoteProvider', () => {
   describe('委譲の検証', () => {
     test('DI した価格取得関数にそのまま委譲される', async () => {
       // Arrange
-      const mockGetPrice: jest.MockedFunction<GetCurrentPriceFn> = jest.fn().mockResolvedValue(200.0);
+      const mockGetPrice: jest.MockedFunction<GetCurrentPriceFn> = jest
+        .fn()
+        .mockResolvedValue(200.0);
       const provider = new TradingViewQuoteProvider(mockGetPrice);
 
       // Act
@@ -25,7 +27,9 @@ describe('TradingViewQuoteProvider', () => {
 
     test('tickerId が正しく委譲先に渡される', async () => {
       // Arrange
-      const mockGetPrice: jest.MockedFunction<GetCurrentPriceFn> = jest.fn().mockResolvedValue(3000.0);
+      const mockGetPrice: jest.MockedFunction<GetCurrentPriceFn> = jest
+        .fn()
+        .mockResolvedValue(3000.0);
       const provider = new TradingViewQuoteProvider(mockGetPrice);
 
       // Act
@@ -37,7 +41,9 @@ describe('TradingViewQuoteProvider', () => {
 
     test('options が正しく委譲先に渡される', async () => {
       // Arrange
-      const mockGetPrice: jest.MockedFunction<GetCurrentPriceFn> = jest.fn().mockResolvedValue(150.0);
+      const mockGetPrice: jest.MockedFunction<GetCurrentPriceFn> = jest
+        .fn()
+        .mockResolvedValue(150.0);
       const provider = new TradingViewQuoteProvider(mockGetPrice);
       const options = { timeout: 5000, session: 'regular' as const };
 
@@ -62,7 +68,9 @@ describe('TradingViewQuoteProvider', () => {
 
     test('DI 関数は 1 回だけ呼び出される', async () => {
       // Arrange
-      const mockGetPrice: jest.MockedFunction<GetCurrentPriceFn> = jest.fn().mockResolvedValue(100.0);
+      const mockGetPrice: jest.MockedFunction<GetCurrentPriceFn> = jest
+        .fn()
+        .mockResolvedValue(100.0);
       const provider = new TradingViewQuoteProvider(mockGetPrice);
 
       // Act
@@ -76,7 +84,9 @@ describe('TradingViewQuoteProvider', () => {
   describe('QuoteProvider インターフェース適合', () => {
     test('getCurrentPrice メソッドを持つ', () => {
       // Arrange
-      const mockGetPrice: jest.MockedFunction<GetCurrentPriceFn> = jest.fn().mockResolvedValue(100.0);
+      const mockGetPrice: jest.MockedFunction<GetCurrentPriceFn> = jest
+        .fn()
+        .mockResolvedValue(100.0);
       const provider = new TradingViewQuoteProvider(mockGetPrice);
 
       // Assert
@@ -85,7 +95,9 @@ describe('TradingViewQuoteProvider', () => {
 
     test('options を省略して呼び出せる', async () => {
       // Arrange
-      const mockGetPrice: jest.MockedFunction<GetCurrentPriceFn> = jest.fn().mockResolvedValue(100.0);
+      const mockGetPrice: jest.MockedFunction<GetCurrentPriceFn> = jest
+        .fn()
+        .mockResolvedValue(100.0);
       const provider = new TradingViewQuoteProvider(mockGetPrice);
 
       // Act & Assert（エラーなく完了すること）
