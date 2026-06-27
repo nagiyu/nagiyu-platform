@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { NiconicoVideoInfo } from '@nagiyu/niconico-mylist-assistant-core';
 import {
   Box,
@@ -36,12 +36,28 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addStatusById, setAddStatusById] = useState<Record<string, AddStatus>>({});
+  // 検索が一度でも実行されたかを管理する（未検索と検索済み0件を区別するため）
+  const [hasSearched, setHasSearched] = useState(false);
+
+  // ダイアログを開くたびに状態を初期化し、毎回新規検索の状態で表示する
+  // （常時マウントされるため、明示的にリセットしないと前回の検索結果が残る）
+  useEffect(() => {
+    if (open) {
+      setKeyword('');
+      setVideos([]);
+      setError(null);
+      setAddStatusById({});
+      setHasSearched(false);
+    }
+  }, [open]);
 
   const handleSearch = async () => {
     setLoading(true);
     setError(null);
     setVideos([]);
     setAddStatusById({});
+    // 検索開始時はリセット（結果確定後に true にする）
+    setHasSearched(false);
 
     try {
       const params = new URLSearchParams({ q: keyword.trim() });
@@ -64,6 +80,8 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
 
       setVideos(searchResults);
       setAddStatusById(initialAddStatus);
+      // 検索が正常完了したことを記録する（0件でも検索済みとして扱う）
+      setHasSearched(true);
     } catch (searchError) {
       setError(
         searchError instanceof Error ? searchError.message : ERROR_MESSAGES.VIDEO_SEARCH_FAILED
@@ -139,7 +157,9 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
         <Box sx={{ mt: 2 }}>
           {videos.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
-              キーワードを入力して検索してください
+              {hasSearched
+                ? ERROR_MESSAGES.VIDEO_SEARCH_NO_RESULTS
+                : 'キーワードを入力して検索してください'}
             </Typography>
           ) : (
             <Stack spacing={2}>
