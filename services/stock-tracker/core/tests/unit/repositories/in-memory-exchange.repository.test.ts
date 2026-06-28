@@ -12,6 +12,7 @@ import {
   DatabaseError,
 } from '@nagiyu/aws';
 import type { CreateExchangeInput } from '../../../src/entities/exchange.entity.js';
+import { DEFAULT_PRICE_SOURCE } from '../../../src/entities/exchange.entity.js';
 
 describe('InMemoryExchangeRepository', () => {
   let repository: InMemoryExchangeRepository;
@@ -31,6 +32,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
 
       const result = await repository.create(input);
@@ -49,6 +51,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
 
       await repository.create(input);
@@ -64,6 +67,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
 
       const input2: CreateExchangeInput = {
@@ -73,6 +77,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
 
       const result1 = await repository.create(input1);
@@ -91,6 +96,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
       const result = await repository.create(input);
       const afterCreate = Date.now();
@@ -111,6 +117,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
 
       const created = await repository.create(input);
@@ -133,6 +140,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
 
       await repository.create(input);
@@ -152,6 +160,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
 
       const input2: CreateExchangeInput = {
@@ -161,6 +170,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
 
       await repository.create(input1);
@@ -187,6 +197,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
 
       const input2: CreateExchangeInput = {
@@ -196,6 +207,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
 
       await repository.create(input1);
@@ -218,6 +230,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
 
       const created = await repository.create(input);
@@ -238,6 +251,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
 
       await repository.create(input);
@@ -268,6 +282,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
 
       await repository.create(input);
@@ -283,6 +298,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
 
       await repository.create(input);
@@ -303,6 +319,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
 
       const created = await repository.create(input);
@@ -323,6 +340,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
 
       await repository.create(input);
@@ -344,6 +362,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
 
       await repository.create(input);
@@ -366,6 +385,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
 
       await repository.create(input);
@@ -385,6 +405,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
 
       await repository.create(input);
@@ -404,6 +425,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
 
       const result = await repository.create(input);
@@ -419,6 +441,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
 
       const result = await repository.create(input);
@@ -435,6 +458,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: '',
         Start: '00:00',
         End: '24:00',
+        PriceSource: 'tradingview',
       };
 
       const result = await repository.create(input);
@@ -454,6 +478,7 @@ describe('InMemoryExchangeRepository', () => {
             Timezone: 'America/New_York',
             Start: '04:00',
             End: '20:00',
+            PriceSource: 'tradingview',
           })
         );
       }
@@ -462,6 +487,94 @@ describe('InMemoryExchangeRepository', () => {
       const result = await repository.getAll();
 
       expect(result).toHaveLength(100);
+    });
+  });
+
+  describe('PriceSource の create/update 反映', () => {
+    it('PriceSource が tradingview で作成できる', async () => {
+      const input: CreateExchangeInput = {
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ Stock Market',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '04:00',
+        End: '20:00',
+        PriceSource: 'tradingview',
+      };
+
+      const result = await repository.create(input);
+
+      expect(result.PriceSource).toBe('tradingview');
+    });
+
+    it('PriceSource が finnhub で作成できる', async () => {
+      const input: CreateExchangeInput = {
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ Stock Market',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '04:00',
+        End: '20:00',
+        PriceSource: 'finnhub',
+      };
+
+      const result = await repository.create(input);
+
+      expect(result.PriceSource).toBe('finnhub');
+    });
+
+    it('PriceSource を tradingview から finnhub に更新できる', async () => {
+      const input: CreateExchangeInput = {
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ Stock Market',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '04:00',
+        End: '20:00',
+        PriceSource: 'tradingview',
+      };
+
+      await repository.create(input);
+      const updated = await repository.update('NASDAQ', { PriceSource: 'finnhub' });
+
+      expect(updated.PriceSource).toBe('finnhub');
+    });
+
+    it('PriceSource を finnhub から tradingview に更新できる', async () => {
+      const input: CreateExchangeInput = {
+        ExchangeID: 'TSE',
+        Name: '東京証券取引所',
+        Key: 'TSE',
+        Timezone: 'Asia/Tokyo',
+        Start: '09:00',
+        End: '15:30',
+        PriceSource: 'finnhub',
+      };
+
+      await repository.create(input);
+      const updated = await repository.update('TSE', { PriceSource: 'tradingview' });
+
+      expect(updated.PriceSource).toBe('tradingview');
+    });
+
+    it('PriceSource 更新後も他のフィールドが保持される', async () => {
+      const input: CreateExchangeInput = {
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ Stock Market',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '04:00',
+        End: '20:00',
+        PriceSource: 'tradingview',
+      };
+
+      await repository.create(input);
+      const updated = await repository.update('NASDAQ', { PriceSource: 'finnhub' });
+
+      expect(updated.PriceSource).toBe('finnhub');
+      expect(updated.Name).toBe('NASDAQ Stock Market');
+      expect(updated.Key).toBe('NSDQ');
+      expect(updated.Timezone).toBe('America/New_York');
     });
   });
 
@@ -479,6 +592,7 @@ describe('InMemoryExchangeRepository', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview' as const,
       };
 
       await repository.create(input);

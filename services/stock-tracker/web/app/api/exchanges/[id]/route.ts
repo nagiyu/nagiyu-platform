@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
-import { validateExchange } from '@nagiyu/stock-tracker-core';
+import { validateExchange, PRICE_SOURCES, type PriceSource } from '@nagiyu/stock-tracker-core';
 import { withAuth, handleApiError } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
 import { createExchangeRepository } from '../../../../lib/repository-factory';
@@ -12,6 +12,8 @@ const ERROR_MESSAGES = {
   DELETE_ERROR: '取引所の削除に失敗しました',
   INVALID_REQUEST: COMMON_ERROR_MESSAGES.BAD_REQUEST,
   RELATED_TICKERS_EXIST: '関連するティッカーが存在するため削除できません',
+  INVALID_PRICE_SOURCE:
+    'データソースは "tradingview" または "finnhub" のいずれかを指定してください',
 } as const;
 
 /**
@@ -62,6 +64,7 @@ export const GET = withAuth(
           start: exchange.Start,
           end: exchange.End,
         },
+        priceSource: exchange.PriceSource,
         createdAt: new Date(exchange.CreatedAt).toISOString(),
         updatedAt: new Date(exchange.UpdatedAt).toISOString(),
       });
@@ -112,12 +115,24 @@ export const PUT = withAuth(
       // リクエストボディをパース
       const body = await request.json();
 
+      // priceSource のバリデーション（指定された場合のみ）
+      if (
+        body.priceSource !== undefined &&
+        !(PRICE_SOURCES as readonly string[]).includes(body.priceSource)
+      ) {
+        return NextResponse.json(
+          { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.INVALID_PRICE_SOURCE },
+          { status: 400 }
+        );
+      }
+
       // 更新可能なフィールドのみ抽出
       const updates: {
         Name?: string;
         Timezone?: string;
         Start?: string;
         End?: string;
+        PriceSource?: PriceSource;
       } = {};
 
       if (body.name !== undefined) {
@@ -134,6 +149,10 @@ export const PUT = withAuth(
 
       if (body.tradingHours?.end !== undefined) {
         updates.End = body.tradingHours.end;
+      }
+
+      if (body.priceSource !== undefined) {
+        updates.PriceSource = body.priceSource as PriceSource;
       }
 
       // 更新フィールドが空の場合はエラー
@@ -179,6 +198,7 @@ export const PUT = withAuth(
           start: updatedExchange.Start,
           end: updatedExchange.End,
         },
+        priceSource: updatedExchange.PriceSource,
         updatedAt: new Date(updatedExchange.UpdatedAt).toISOString(),
       });
     } catch (error) {

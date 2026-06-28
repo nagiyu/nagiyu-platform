@@ -77,7 +77,9 @@ export type {
   ExchangeEntity,
   CreateExchangeInput,
   UpdateExchangeInput,
+  PriceSource,
 } from './entities/exchange.entity.js';
+export { PRICE_SOURCES, DEFAULT_PRICE_SOURCE } from './entities/exchange.entity.js';
 export type {
   DailySummaryEntity,
   CreateDailySummaryInput,

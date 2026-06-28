@@ -244,6 +244,44 @@ describe('validateExchange', () => {
       expect(result.valid).toBe(true);
     });
   });
+
+  describe('PriceSource バリデーション', () => {
+    it('PriceSource が tradingview の場合はバリデーションに成功する', () => {
+      const exchange: Exchange = { ...validExchange, PriceSource: 'tradingview' };
+      const result = validateExchange(exchange);
+      expect(result.valid).toBe(true);
+    });
+
+    it('PriceSource が finnhub の場合はバリデーションに成功する', () => {
+      const exchange: Exchange = { ...validExchange, PriceSource: 'finnhub' };
+      const result = validateExchange(exchange);
+      expect(result.valid).toBe(true);
+    });
+
+    it('PriceSource が undefined の場合はバリデーションに成功する（省略可能）', () => {
+      const { PriceSource: _, ...exchangeWithoutPriceSource } = { ...validExchange };
+      const result = validateExchange(exchangeWithoutPriceSource);
+      expect(result.valid).toBe(true);
+    });
+
+    it('PriceSource が不正な値の場合はバリデーションに失敗する', () => {
+      const exchange = { ...validExchange, PriceSource: 'invalid-source' };
+      const result = validateExchange(exchange);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain(
+        'データソースは "tradingview" または "finnhub" のいずれかを指定してください'
+      );
+    });
+
+    it('PriceSource が空文字の場合はバリデーションに失敗する', () => {
+      const exchange = { ...validExchange, PriceSource: '' };
+      const result = validateExchange(exchange);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain(
+        'データソースは "tradingview" または "finnhub" のいずれかを指定してください'
+      );
+    });
+  });
 });
 
 describe('validateTicker', () => {
