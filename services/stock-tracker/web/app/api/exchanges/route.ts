@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES, toErrorMessage } from '@nagiyu/common';
-import { validateExchange, type ExchangeEntity } from '@nagiyu/stock-tracker-core';
+import {
+  validateExchange,
+  type ExchangeEntity,
+  DEFAULT_PRICE_SOURCE,
+  PRICE_SOURCES,
+  type PriceSource,
+} from '@nagiyu/stock-tracker-core';
 import { withAuth, handleApiError } from '@nagiyu/nextjs';
 import { reportErrorEvent } from '@nagiyu/aws';
 import { getSession } from '../../../lib/auth';
@@ -12,6 +18,8 @@ const ERROR_MESSAGES = {
   CREATE_ERROR: '取引所の作成に失敗しました',
   INVALID_REQUEST: COMMON_ERROR_MESSAGES.BAD_REQUEST,
   EXCHANGE_ALREADY_EXISTS: '取引所は既に存在します',
+  INVALID_PRICE_SOURCE:
+    'データソースは "tradingview" または "finnhub" のいずれかを指定してください',
 } as const;
 
 /**
@@ -45,6 +53,7 @@ export const GET = withAuth(getSession, 'stocks:read', async () => {
           start: exchange.Start,
           end: exchange.End,
         },
+        priceSource: exchange.PriceSource,
       })),
     });
   } catch (error) {
@@ -82,7 +91,22 @@ export const POST = withAuth(
       const body = await request.json();
 
       // リクエストボディから Exchange オブジェクトを構築（バリデーション用）
-      const { exchangeId, name, key, timezone, tradingHours } = body;
+      const { exchangeId, name, key, timezone, tradingHours, priceSource } = body;
+
+      // priceSource のバリデーション（指定された場合のみ）
+      if (
+        priceSource !== undefined &&
+        !(PRICE_SOURCES as readonly string[]).includes(priceSource)
+      ) {
+        return NextResponse.json(
+          { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.INVALID_PRICE_SOURCE },
+          { status: 400 }
+        );
+      }
+
+      // 解決済みの PriceSource（未指定時はデフォルト値を使用）
+      const resolvedPriceSource: PriceSource =
+        priceSource !== undefined ? (priceSource as PriceSource) : DEFAULT_PRICE_SOURCE;
 
       // バリデーション用の一時的な Exchange オブジェクトを作成
       const exchangeToValidate = {
@@ -92,6 +116,7 @@ export const POST = withAuth(
         Timezone: timezone,
         Start: tradingHours?.start,
         End: tradingHours?.end,
+        PriceSource: resolvedPriceSource,
         CreatedAt: Date.now(), // バリデーション用の仮値
         UpdatedAt: Date.now(), // バリデーション用の仮値
       };
@@ -120,6 +145,7 @@ export const POST = withAuth(
         Timezone: timezone,
         Start: tradingHours.start,
         End: tradingHours.end,
+        PriceSource: resolvedPriceSource,
       });
 
       // レスポンスを返す (API仕様に従った形式)
@@ -133,6 +159,7 @@ export const POST = withAuth(
             start: newExchange.Start,
             end: newExchange.End,
           },
+          priceSource: newExchange.PriceSource,
           createdAt: new Date(newExchange.CreatedAt).toISOString(),
         },
         { status: 201 }
