@@ -128,7 +128,7 @@ export {
   FINNHUB_ERROR_MESSAGES,
 } from './services/market-data/finnhub-quote-provider.js';
 export type { FinnhubQuoteProviderOptions } from './services/market-data/finnhub-quote-provider.js';
-export { resolveQuoteProvider, US_EXCHANGE_KEYS } from './services/market-data/router.js';
+export { resolveQuoteProvider } from './services/market-data/router.js';
 export type { QuoteProviderMap } from './services/market-data/router.js';
 
 // マッパー（新規エクスポート）

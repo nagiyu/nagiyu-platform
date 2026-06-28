@@ -12,7 +12,12 @@ import type { AlertRepository, ExchangeRepository } from '@nagiyu/stock-tracker-
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { evaluateAlert } from '@nagiyu/stock-tracker-core';
 import { isTradingHours } from '@nagiyu/stock-tracker-core';
-import { getCurrentPrice } from '@nagiyu/stock-tracker-core';
+import {
+  TradingViewQuoteProvider,
+  FinnhubQuoteProvider,
+  resolveQuoteProvider,
+  DEFAULT_PRICE_SOURCE,
+} from '@nagiyu/stock-tracker-core';
 import type { Alert, Exchange } from '@nagiyu/stock-tracker-core';
 
 /**
@@ -52,16 +57,28 @@ interface BatchStatistics {
 }
 
 /**
+ * QuoteProvider マップ
+ *
+ * invocation スコープで共有するプロバイダーインスタンスを保持する
+ */
+interface ProviderMap {
+  tradingView: TradingViewQuoteProvider;
+  finnhub: FinnhubQuoteProvider;
+}
+
+/**
  * 単一のアラートを処理する
  *
  * @param alert - 処理するアラート
  * @param exchangeRepo - Exchange リポジトリ
+ * @param providers - QuoteProvider マップ（tradingView / finnhub）
  * @param stats - バッチ統計情報
  * @returns 処理が成功した場合は true、失敗した場合は false
  */
 async function processAlert(
   alert: Alert,
   exchangeRepo: ExchangeRepository,
+  providers: ProviderMap,
   stats: BatchStatistics
 ): Promise<boolean> {
   try {
@@ -98,8 +115,10 @@ async function processAlert(
       return true;
     }
 
-    // 4. TradingView API で現在価格取得（リトライ付き）
-    const currentPrice = await withRetry<number>(() => getCurrentPrice(alert.TickerID), {
+    // 4. Exchange.PriceSource で解決した provider で現在価格取得（リトライ付き）
+    const priceSource = exchange.PriceSource ?? DEFAULT_PRICE_SOURCE;
+    const provider = resolveQuoteProvider(priceSource, providers);
+    const currentPrice = await withRetry<number>(() => provider.getCurrentPrice(alert.TickerID), {
       maxRetries: 2,
       initialDelayMs: 500,
       backoffMultiplier: 2,
@@ -198,6 +217,12 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
     const exchangeRepo = new DynamoDBExchangeRepository(docClient, tableName);
 
+    // invocation スコープで QuoteProvider を各 1 回生成
+    const providers: ProviderMap = {
+      tradingView: new TradingViewQuoteProvider(),
+      finnhub: new FinnhubQuoteProvider(),
+    };
+
     // 1. GSI2 で HOURLY_LEVEL アラート一覧を取得
     const alertsResult = await alertRepo.getByFrequency('HOURLY_LEVEL');
     const alerts = alertsResult.items;
@@ -209,7 +234,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
 
     // 2. 各アラートに対して処理を実行
     for (const alert of alerts) {
-      await processAlert(alert, exchangeRepo, stats);
+      await processAlert(alert, exchangeRepo, providers, stats);
       stats.processedAlerts++;
     }
 

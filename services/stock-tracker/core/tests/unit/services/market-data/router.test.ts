@@ -1,14 +1,12 @@
 /**
  * resolveQuoteProvider ルーター ユニットテスト
  *
- * TickerID の取引所プレフィックスに基づいた provider 選択ロジックを検証する。
+ * Exchange.PriceSource に基づいた provider 選択ロジックを検証する。
  */
 
-import {
-  resolveQuoteProvider,
-  US_EXCHANGE_KEYS,
-} from '../../../../src/services/market-data/router';
+import { resolveQuoteProvider } from '../../../../src/services/market-data/router';
 import type { QuoteProvider } from '../../../../src/services/market-data/types';
+import type { PriceSource } from '../../../../src/entities/exchange.entity';
 
 /**
  * テスト用モック QuoteProvider を生成するヘルパー
@@ -30,32 +28,13 @@ describe('resolveQuoteProvider', () => {
     tradingViewProvider = createMockProvider('tradingView');
   });
 
-  describe('US 取引所（Finnhub を選択）', () => {
-    test('NASDAQ:AAPL は Finnhub provider を返す', () => {
+  describe("PriceSource = 'finnhub'（Finnhub provider を選択）", () => {
+    test("priceSource が 'finnhub' の場合、Finnhub provider を返す", () => {
+      // Arrange
+      const priceSource: PriceSource = 'finnhub';
+
       // Act
-      const provider = resolveQuoteProvider('NASDAQ:AAPL', {
-        tradingView: tradingViewProvider,
-        finnhub: finnhubProvider,
-      });
-
-      // Assert
-      expect(provider).toBe(finnhubProvider);
-    });
-
-    test('NYSE:PFE は Finnhub provider を返す', () => {
-      // Act
-      const provider = resolveQuoteProvider('NYSE:PFE', {
-        tradingView: tradingViewProvider,
-        finnhub: finnhubProvider,
-      });
-
-      // Assert
-      expect(provider).toBe(finnhubProvider);
-    });
-
-    test('AMEX:xxx は Finnhub provider を返す', () => {
-      // Act
-      const provider = resolveQuoteProvider('AMEX:xxx', {
+      const provider = resolveQuoteProvider(priceSource, {
         tradingView: tradingViewProvider,
         finnhub: finnhubProvider,
       });
@@ -65,21 +44,13 @@ describe('resolveQuoteProvider', () => {
     });
   });
 
-  describe('JP 取引所（TradingView を選択）', () => {
-    test('TSE:6501 は TradingView provider を返す', () => {
-      // Act
-      const provider = resolveQuoteProvider('TSE:6501', {
-        tradingView: tradingViewProvider,
-        finnhub: finnhubProvider,
-      });
+  describe("PriceSource = 'tradingview'（TradingView provider を選択）", () => {
+    test("priceSource が 'tradingview' の場合、TradingView provider を返す", () => {
+      // Arrange
+      const priceSource: PriceSource = 'tradingview';
 
-      // Assert
-      expect(provider).toBe(tradingViewProvider);
-    });
-
-    test('TSE:7203 は TradingView provider を返す', () => {
       // Act
-      const provider = resolveQuoteProvider('TSE:7203', {
+      const provider = resolveQuoteProvider(priceSource, {
         tradingView: tradingViewProvider,
         finnhub: finnhubProvider,
       });
@@ -89,72 +60,53 @@ describe('resolveQuoteProvider', () => {
     });
   });
 
-  describe('未知プレフィックス（安全側デフォルト = TradingView）', () => {
-    test('FOO:1 は TradingView provider を返す（安全側デフォルト）', () => {
+  describe('安全側デフォルト（TradingView）', () => {
+    test("PriceSource が 'tradingview' の場合は Finnhub を呼ばない", () => {
+      // Arrange
+      const priceSource: PriceSource = 'tradingview';
+
       // Act
-      const provider = resolveQuoteProvider('FOO:1', {
+      const provider = resolveQuoteProvider(priceSource, {
+        tradingView: tradingViewProvider,
+        finnhub: finnhubProvider,
+      });
+
+      // Assert: tradingview の場合は TradingView provider を返す（Finnhub ではない）
+      expect(provider).toBe(tradingViewProvider);
+    });
+
+    test("PriceSource が 'finnhub' の場合は TradingView を返さない", () => {
+      // Arrange
+      const priceSource: PriceSource = 'finnhub';
+
+      // Act
+      const provider = resolveQuoteProvider(priceSource, {
         tradingView: tradingViewProvider,
         finnhub: finnhubProvider,
       });
 
       // Assert
-      expect(provider).toBe(tradingViewProvider);
-    });
-
-    test('UNKNOWN:AAPL は TradingView provider を返す（安全側デフォルト）', () => {
-      // Act
-      const provider = resolveQuoteProvider('UNKNOWN:AAPL', {
-        tradingView: tradingViewProvider,
-        finnhub: finnhubProvider,
-      });
-
-      // Assert
-      expect(provider).toBe(tradingViewProvider);
-    });
-
-    test('コロンなしの文字列は TradingView provider を返す（安全側デフォルト）', () => {
-      // Act
-      const provider = resolveQuoteProvider('AAPL', {
-        tradingView: tradingViewProvider,
-        finnhub: finnhubProvider,
-      });
-
-      // Assert
-      expect(provider).toBe(tradingViewProvider);
-    });
-
-    test('空文字列は TradingView provider を返す（安全側デフォルト）', () => {
-      // Act
-      const provider = resolveQuoteProvider('', {
-        tradingView: tradingViewProvider,
-        finnhub: finnhubProvider,
-      });
-
-      // Assert
-      expect(provider).toBe(tradingViewProvider);
-    });
-
-    test('小文字の nasdaq: は TradingView provider を返す（大文字小文字区別）', () => {
-      // Act: 大文字小文字を区別するため小文字は未知プレフィックス扱い
-      const provider = resolveQuoteProvider('nasdaq:AAPL', {
-        tradingView: tradingViewProvider,
-        finnhub: finnhubProvider,
-      });
-
-      // Assert: 安全側デフォルトとして TradingView
-      expect(provider).toBe(tradingViewProvider);
+      expect(provider).not.toBe(tradingViewProvider);
+      expect(provider).toBe(finnhubProvider);
     });
   });
 
-  describe('US_EXCHANGE_KEYS の内容確認', () => {
-    test('NASDAQ, NYSE, AMEX が含まれる', () => {
-      expect(US_EXCHANGE_KEYS.has('NASDAQ')).toBe(true);
-      expect(US_EXCHANGE_KEYS.has('NYSE')).toBe(true);
-      expect(US_EXCHANGE_KEYS.has('AMEX')).toBe(true);
-    });
+  describe('プロバイダーが正しく区別される', () => {
+    test('同じマップから finnhub と tradingview が別 provider を返す', () => {
+      // Arrange
+      const providers = {
+        tradingView: tradingViewProvider,
+        finnhub: finnhubProvider,
+      };
 
-    test('TSE は含まれない', () => {
-      expect(US_EXCHANGE_KEYS.has('TSE')).toBe(false);
+      // Act
+      const providerA = resolveQuoteProvider('finnhub', providers);
+      const providerB = resolveQuoteProvider('tradingview', providers);
+
+      // Assert
+      expect(providerA).toBe(finnhubProvider);
+      expect(providerB).toBe(tradingViewProvider);
+      expect(providerA).not.toBe(providerB);
     });
   });
 });

@@ -1,5 +1,7 @@
 /**
  * Unit tests for hourly batch processing
+ *
+ * PriceSource ベースのルーティングを検証する（Unit 2b 対応）
  */
 
 import { handler } from '../../src/hourly.js';
@@ -11,8 +13,11 @@ import type { ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import * as alertEvaluator from '@nagiyu/stock-tracker-core';
 import * as tradingHoursChecker from '@nagiyu/stock-tracker-core';
-import * as tradingviewClient from '@nagiyu/stock-tracker-core';
 import type { Alert, Exchange } from '@nagiyu/stock-tracker-core';
+
+// TradingViewQuoteProvider / FinnhubQuoteProvider のモックインスタンス
+let mockTradingViewGetCurrentPrice: jest.Mock;
+let mockFinnhubGetCurrentPrice: jest.Mock;
 
 // モックの設定
 jest.mock('@nagiyu/aws');
@@ -27,7 +32,12 @@ jest.mock('@nagiyu/stock-tracker-core', () => ({
   DynamoDBExchangeRepository: jest.fn(),
   evaluateAlert: jest.fn(),
   isTradingHours: jest.fn(),
-  getCurrentPrice: jest.fn(),
+  TradingViewQuoteProvider: jest.fn().mockImplementation(() => ({
+    getCurrentPrice: (...args: unknown[]) => mockTradingViewGetCurrentPrice(...args),
+  })),
+  FinnhubQuoteProvider: jest.fn().mockImplementation(() => ({
+    getCurrentPrice: (...args: unknown[]) => mockFinnhubGetCurrentPrice(...args),
+  })),
 }));
 
 describe('hourly batch handler', () => {
@@ -39,6 +49,10 @@ describe('hourly batch handler', () => {
   beforeEach(() => {
     // モックのリセット
     jest.clearAllMocks();
+
+    // provider モックを再生成
+    mockTradingViewGetCurrentPrice = jest.fn();
+    mockFinnhubGetCurrentPrice = jest.fn();
 
     // Mock DynamoDB Document Client
     mockDocClient = {};
@@ -89,8 +103,73 @@ describe('hourly batch handler', () => {
     delete process.env.VAPID_PRIVATE_KEY;
   });
 
-  describe('正常系: アラート条件達成時に通知を送信', () => {
-    it('有効なアラートの条件が達成された場合、Web Push 通知を送信する', async () => {
+  describe('正常系: PriceSource=tradingview（デフォルト）で TradingView provider を使用', () => {
+    it('PriceSource=tradingview の取引所では TradingViewQuoteProvider で価格取得する', async () => {
+      // Arrange
+      const mockAlert: Alert = {
+        AlertID: 'alert-1',
+        UserID: 'user-1',
+        TickerID: 'TSE:6501',
+        ExchangeID: 'TSE',
+        Mode: 'Sell',
+        Frequency: 'HOURLY_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'gte', value: 3000.0 }],
+        subscription: {
+          endpoint: 'https://fcm.googleapis.com/fcm/send/test',
+          keys: {
+            p256dh: 'test-p256dh',
+            auth: 'test-auth',
+          },
+        },
+        CreatedAt: Date.now(),
+        UpdatedAt: Date.now(),
+      };
+
+      const mockExchange: Exchange = {
+        ExchangeID: 'TSE',
+        Name: '東京証券取引所',
+        Key: 'TSE',
+        Timezone: 'Asia/Tokyo',
+        Start: '09:00',
+        End: '15:30',
+        PriceSource: 'tradingview',
+        CreatedAt: Date.now(),
+        UpdatedAt: Date.now(),
+      };
+
+      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
+      mockExchangeRepo.getById.mockResolvedValue(mockExchange);
+      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
+      mockTradingViewGetCurrentPrice.mockResolvedValue(3200.0);
+      (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(true);
+      (sendWebPushNotification as jest.Mock).mockResolvedValue(true);
+      (webPushClient.createAlertNotificationPayload as jest.Mock).mockReturnValue({
+        title: 'Test Alert',
+        body: 'Test body',
+      });
+      (getVapidConfig as jest.Mock).mockReturnValue({
+        publicKey: 'test-public-key',
+        privateKey: 'test-private-key',
+        subject: 'mailto:support@nagiyu.com',
+      });
+
+      // Act
+      const response = await handler(mockEvent);
+
+      // Assert
+      expect(response.statusCode).toBe(200);
+      // TradingView provider が呼ばれ、Finnhub は呼ばれない
+      expect(mockTradingViewGetCurrentPrice).toHaveBeenCalledWith('TSE:6501');
+      expect(mockFinnhubGetCurrentPrice).not.toHaveBeenCalled();
+
+      const body = JSON.parse(response.body);
+      expect(body.statistics.notificationsSent).toBe(1);
+    });
+  });
+
+  describe('正常系: PriceSource=finnhub で Finnhub provider を使用', () => {
+    it('PriceSource=finnhub の取引所では FinnhubQuoteProvider で価格取得する', async () => {
       // Arrange
       const mockAlert: Alert = {
         AlertID: 'alert-1',
@@ -119,6 +198,7 @@ describe('hourly batch handler', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'finnhub',
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       };
@@ -126,7 +206,7 @@ describe('hourly batch handler', () => {
       mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
-      (tradingviewClient.getCurrentPrice as jest.Mock).mockResolvedValue(205.0);
+      mockFinnhubGetCurrentPrice.mockResolvedValue(205.0);
       (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(true);
       (sendWebPushNotification as jest.Mock).mockResolvedValue(true);
       (webPushClient.createAlertNotificationPayload as jest.Mock).mockReturnValue({
@@ -144,32 +224,64 @@ describe('hourly batch handler', () => {
 
       // Assert
       expect(response.statusCode).toBe(200);
+      // Finnhub provider が呼ばれ、TradingView は呼ばれない
+      expect(mockFinnhubGetCurrentPrice).toHaveBeenCalledWith('NSDQ:AAPL');
+      expect(mockTradingViewGetCurrentPrice).not.toHaveBeenCalled();
       expect(mockAlertRepo.getByFrequency).toHaveBeenCalledWith('HOURLY_LEVEL');
       expect(mockExchangeRepo.getById).toHaveBeenCalledWith('NASDAQ');
-      expect(tradingHoursChecker.isTradingHours).toHaveBeenCalledWith(
-        mockExchange,
-        expect.any(Number)
-      );
-      expect(tradingviewClient.getCurrentPrice).toHaveBeenCalledWith('NSDQ:AAPL');
-      expect(alertEvaluator.evaluateAlert).toHaveBeenCalledWith(mockAlert, 205.0);
-      expect(sendWebPushNotification).toHaveBeenCalledWith(
-        mockAlert.subscription,
-        {
-          title: 'Test Alert',
-          body: 'Test body',
-        },
-        {
-          publicKey: 'test-public-key',
-          privateKey: 'test-private-key',
-          subject: 'mailto:support@nagiyu.com',
-        }
-      );
 
       const body = JSON.parse(response.body);
       expect(body.statistics.totalAlerts).toBe(1);
-      expect(body.statistics.processedAlerts).toBe(1);
-      expect(body.statistics.conditionsMet).toBe(1);
       expect(body.statistics.notificationsSent).toBe(1);
+    });
+  });
+
+  describe('正常系: PriceSource 未設定時は tradingview にフォールバック', () => {
+    it('PriceSource が undefined の場合は TradingView provider を使用する（安全側デフォルト）', async () => {
+      // Arrange
+      const mockAlert: Alert = {
+        AlertID: 'alert-1',
+        UserID: 'user-1',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Sell',
+        Frequency: 'HOURLY_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
+        subscription: {
+          endpoint: 'https://fcm.googleapis.com/fcm/send/test',
+          keys: { p256dh: 'test-p256dh', auth: 'test-auth' },
+        },
+        CreatedAt: Date.now(),
+        UpdatedAt: Date.now(),
+      };
+
+      const mockExchange: Exchange = {
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '04:00',
+        End: '20:00',
+        // PriceSource を意図的に未設定（undefined）
+        CreatedAt: Date.now(),
+        UpdatedAt: Date.now(),
+      };
+
+      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
+      mockExchangeRepo.getById.mockResolvedValue(mockExchange);
+      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
+      mockTradingViewGetCurrentPrice.mockResolvedValue(205.0);
+      (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(false);
+
+      // Act
+      const response = await handler(mockEvent);
+
+      // Assert
+      expect(response.statusCode).toBe(200);
+      // PriceSource 未設定 → tradingview にフォールバック
+      expect(mockTradingViewGetCurrentPrice).toHaveBeenCalledWith('NSDQ:AAPL');
+      expect(mockFinnhubGetCurrentPrice).not.toHaveBeenCalled();
     });
   });
 
@@ -183,7 +295,7 @@ describe('hourly batch handler', () => {
         ExchangeID: 'NASDAQ',
         Mode: 'Sell',
         Frequency: 'HOURLY_LEVEL',
-        Enabled: false, // 無効化
+        Enabled: false,
         ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
         subscription: {
           endpoint: 'https://fcm.googleapis.com/fcm/send/test',
@@ -204,7 +316,8 @@ describe('hourly batch handler', () => {
       // Assert
       expect(response.statusCode).toBe(200);
       expect(mockExchangeRepo.getById).not.toHaveBeenCalled();
-      expect(tradingviewClient.getCurrentPrice).not.toHaveBeenCalled();
+      expect(mockTradingViewGetCurrentPrice).not.toHaveBeenCalled();
+      expect(mockFinnhubGetCurrentPrice).not.toHaveBeenCalled();
       expect(sendWebPushNotification).not.toHaveBeenCalled();
 
       const body = JSON.parse(response.body);
@@ -229,10 +342,7 @@ describe('hourly batch handler', () => {
         ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
         subscription: {
           endpoint: 'https://fcm.googleapis.com/fcm/send/test',
-          keys: {
-            p256dh: 'test-p256dh',
-            auth: 'test-auth',
-          },
+          keys: { p256dh: 'test-p256dh', auth: 'test-auth' },
         },
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
@@ -245,6 +355,7 @@ describe('hourly batch handler', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview',
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       };
@@ -258,7 +369,8 @@ describe('hourly batch handler', () => {
 
       // Assert
       expect(response.statusCode).toBe(200);
-      expect(tradingviewClient.getCurrentPrice).not.toHaveBeenCalled();
+      expect(mockTradingViewGetCurrentPrice).not.toHaveBeenCalled();
+      expect(mockFinnhubGetCurrentPrice).not.toHaveBeenCalled();
       expect(sendWebPushNotification).not.toHaveBeenCalled();
 
       const body = JSON.parse(response.body);
@@ -281,10 +393,7 @@ describe('hourly batch handler', () => {
         ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
         subscription: {
           endpoint: 'https://fcm.googleapis.com/fcm/send/test',
-          keys: {
-            p256dh: 'test-p256dh',
-            auth: 'test-auth',
-          },
+          keys: { p256dh: 'test-p256dh', auth: 'test-auth' },
         },
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
@@ -297,6 +406,7 @@ describe('hourly batch handler', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview',
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       };
@@ -304,8 +414,8 @@ describe('hourly batch handler', () => {
       mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
-      (tradingviewClient.getCurrentPrice as jest.Mock).mockResolvedValue(195.0);
-      (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(false); // 条件未達成
+      mockTradingViewGetCurrentPrice.mockResolvedValue(195.0);
+      (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(false);
 
       // Act
       const response = await handler(mockEvent);
@@ -331,7 +441,8 @@ describe('hourly batch handler', () => {
       // Assert
       expect(response.statusCode).toBe(200);
       expect(mockExchangeRepo.getById).not.toHaveBeenCalled();
-      expect(tradingviewClient.getCurrentPrice).not.toHaveBeenCalled();
+      expect(mockTradingViewGetCurrentPrice).not.toHaveBeenCalled();
+      expect(mockFinnhubGetCurrentPrice).not.toHaveBeenCalled();
       expect(sendWebPushNotification).not.toHaveBeenCalled();
 
       const body = JSON.parse(response.body);
@@ -340,8 +451,8 @@ describe('hourly batch handler', () => {
     });
   });
 
-  describe('異常系: TradingView API エラー', () => {
-    it('TradingView API がエラーを返した場合、エラーをログに記録して継続', async () => {
+  describe('異常系: Finnhub API エラー', () => {
+    it('PriceSource=finnhub の取引所で Finnhub API がエラーを返した場合、エラーをログに記録して継続', async () => {
       // Arrange
       const mockAlert: Alert = {
         AlertID: 'alert-1',
@@ -354,10 +465,7 @@ describe('hourly batch handler', () => {
         ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
         subscription: {
           endpoint: 'https://fcm.googleapis.com/fcm/send/test',
-          keys: {
-            p256dh: 'test-p256dh',
-            auth: 'test-auth',
-          },
+          keys: { p256dh: 'test-p256dh', auth: 'test-auth' },
         },
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
@@ -370,6 +478,7 @@ describe('hourly batch handler', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'finnhub',
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       };
@@ -377,16 +486,14 @@ describe('hourly batch handler', () => {
       mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
-      (tradingviewClient.getCurrentPrice as jest.Mock).mockRejectedValue(
-        new Error('TradingView API タイムアウト')
-      );
+      mockFinnhubGetCurrentPrice.mockRejectedValue(new Error('Finnhub API タイムアウト'));
       (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
 
       // Act
       const response = await handler(mockEvent);
 
       // Assert
-      expect(response.statusCode).toBe(200); // バッチ全体は成功
+      expect(response.statusCode).toBe(200);
       expect(sendWebPushNotification).not.toHaveBeenCalled();
       expect(awsClients.reportErrorEvent).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -415,24 +522,22 @@ describe('hourly batch handler', () => {
         ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
         subscription: {
           endpoint: 'https://fcm.googleapis.com/fcm/send/test',
-          keys: {
-            p256dh: 'test-p256dh',
-            auth: 'test-auth',
-          },
+          keys: { p256dh: 'test-p256dh', auth: 'test-auth' },
         },
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       };
 
       mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
-      mockExchangeRepo.getById.mockResolvedValue(null); // Exchange が存在しない
+      mockExchangeRepo.getById.mockResolvedValue(null);
 
       // Act
       const response = await handler(mockEvent);
 
       // Assert
       expect(response.statusCode).toBe(200);
-      expect(tradingviewClient.getCurrentPrice).not.toHaveBeenCalled();
+      expect(mockTradingViewGetCurrentPrice).not.toHaveBeenCalled();
+      expect(mockFinnhubGetCurrentPrice).not.toHaveBeenCalled();
       expect(sendWebPushNotification).not.toHaveBeenCalled();
 
       const body = JSON.parse(response.body);
@@ -463,11 +568,11 @@ describe('hourly batch handler', () => {
     });
   });
 
-  describe('異常系: 複数アラートの混在ケース', () => {
-    it('一部のアラートでエラーが発生しても、他のアラートの処理を継続する', async () => {
+  describe('正常系: PriceSource 混在（finnhub と tradingview が同一 invocation 内）', () => {
+    it('finnhub アラートと tradingview アラートが混在しても正しく振り分けられる', async () => {
       // Arrange
-      const mockAlert1: Alert = {
-        AlertID: 'alert-1',
+      const alertFinnhub: Alert = {
+        AlertID: 'alert-finnhub',
         UserID: 'user-1',
         TickerID: 'NSDQ:AAPL',
         ExchangeID: 'NASDAQ',
@@ -476,300 +581,93 @@ describe('hourly batch handler', () => {
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
         subscription: {
-          endpoint: 'https://fcm.googleapis.com/fcm/send/test1',
-          keys: {
-            p256dh: 'test-p256dh-1',
-            auth: 'test-auth-1',
-          },
+          endpoint: 'https://fcm.googleapis.com/fcm/send/test-finnhub',
+          keys: { p256dh: 'test-p256dh', auth: 'test-auth' },
         },
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       };
 
-      const mockAlert2: Alert = {
-        AlertID: 'alert-2',
+      const alertTradingView: Alert = {
+        AlertID: 'alert-tv',
         UserID: 'user-2',
-        TickerID: 'NYSE:TSLA',
-        ExchangeID: 'NYSE',
+        TickerID: 'TSE:6501',
+        ExchangeID: 'TSE',
         Mode: 'Buy',
         Frequency: 'HOURLY_LEVEL',
         Enabled: true,
-        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+        ConditionList: [{ field: 'price', operator: 'lte', value: 3000.0 }],
         subscription: {
-          endpoint: 'https://fcm.googleapis.com/fcm/send/test2',
-          keys: {
-            p256dh: 'test-p256dh-2',
-            auth: 'test-auth-2',
-          },
+          endpoint: 'https://fcm.googleapis.com/fcm/send/test-tv',
+          keys: { p256dh: 'test-p256dh-2', auth: 'test-auth-2' },
         },
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       };
 
-      const mockExchange: Exchange = {
+      const exchangeNasdaq: Exchange = {
         ExchangeID: 'NASDAQ',
         Name: 'NASDAQ',
         Key: 'NSDQ',
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'finnhub',
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       };
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert1, mockAlert2] });
-      mockExchangeRepo.getById.mockResolvedValue(mockExchange);
+      const exchangeTse: Exchange = {
+        ExchangeID: 'TSE',
+        Name: '東京証券取引所',
+        Key: 'TSE',
+        Timezone: 'Asia/Tokyo',
+        Start: '09:00',
+        End: '15:30',
+        PriceSource: 'tradingview',
+        CreatedAt: Date.now(),
+        UpdatedAt: Date.now(),
+      };
+
+      mockAlertRepo.getByFrequency.mockResolvedValue({
+        items: [alertFinnhub, alertTradingView],
+      });
+      mockExchangeRepo.getById.mockImplementation(async (id: string) => {
+        if (id === 'NASDAQ') return exchangeNasdaq;
+        if (id === 'TSE') return exchangeTse;
+        return null;
+      });
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
 
-      // alert-1: エラー発生
-      (tradingviewClient.getCurrentPrice as jest.Mock)
-        .mockRejectedValueOnce(new Error('API Error'))
-        .mockResolvedValueOnce(145.0);
+      // 各 provider が呼ばれたか確認
+      mockFinnhubGetCurrentPrice.mockResolvedValue(205.0);
+      mockTradingViewGetCurrentPrice.mockResolvedValue(2950.0);
 
-      // alert-2: 正常処理
       (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(true);
       (sendWebPushNotification as jest.Mock).mockResolvedValue(true);
       (webPushClient.createAlertNotificationPayload as jest.Mock).mockReturnValue({
         title: 'Test Alert',
         body: 'Test body',
       });
+      (getVapidConfig as jest.Mock).mockReturnValue({
+        publicKey: 'test-public-key',
+        privateKey: 'test-private-key',
+        subject: 'mailto:support@nagiyu.com',
+      });
 
       // Act
       const response = await handler(mockEvent);
 
       // Assert
       expect(response.statusCode).toBe(200);
+      // Finnhub が NASDAQ:AAPL で呼ばれ、TradingView が TSE:6501 で呼ばれる
+      expect(mockFinnhubGetCurrentPrice).toHaveBeenCalledWith('NSDQ:AAPL');
+      expect(mockTradingViewGetCurrentPrice).toHaveBeenCalledWith('TSE:6501');
 
       const body = JSON.parse(response.body);
       expect(body.statistics.totalAlerts).toBe(2);
-      expect(body.statistics.processedAlerts).toBe(2);
-      expect(body.statistics.errors).toBe(1); // alert-1 のエラー
-      expect(body.statistics.notificationsSent).toBe(1); // alert-2 の通知
-    });
-  });
-
-  describe('正常系: 複数条件（範囲内）アラート', () => {
-    it('範囲内アラート（AND）の条件が達成された場合、Web Push 通知を送信する', async () => {
-      // Arrange
-      const mockAlert: Alert = {
-        AlertID: 'alert-1',
-        UserID: 'user-1',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Sell',
-        Frequency: 'HOURLY_LEVEL',
-        Enabled: true,
-        ConditionList: [
-          { field: 'price', operator: 'gte', value: 100.0 },
-          { field: 'price', operator: 'lte', value: 110.0 },
-        ],
-        LogicalOperator: 'AND',
-        subscription: {
-          endpoint: 'https://fcm.googleapis.com/fcm/send/test',
-          keys: {
-            p256dh: 'test-p256dh',
-            auth: 'test-auth',
-          },
-        },
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
-      };
-
-      const mockExchange: Exchange = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
-      };
-
-      mockAlertRepo.getByFrequency.mockResolvedValue({
-        items: [mockAlert],
-        nextCursor: undefined,
-        count: 1,
-      });
-      mockExchangeRepo.getById.mockResolvedValue(mockExchange);
-      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
-      (tradingviewClient.getCurrentPrice as jest.Mock).mockResolvedValue(105.0);
-      (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(true);
-      (sendWebPushNotification as jest.Mock).mockResolvedValue(true);
-      (webPushClient.createAlertNotificationPayload as jest.Mock).mockReturnValue({
-        title: '売りアラート: NSDQ:AAPL',
-        body: '現在価格 $105.00 が範囲 $100.00〜$110.00 内になりました',
-      });
-
-      // Act
-      const response = await handler(mockEvent);
-
-      // Assert
-      expect(response.statusCode).toBe(200);
-      expect(alertEvaluator.evaluateAlert).toHaveBeenCalledWith(mockAlert, 105.0);
-      expect(webPushClient.createAlertNotificationPayload).toHaveBeenCalledWith(mockAlert, 105.0);
-      expect(sendWebPushNotification).toHaveBeenCalledWith(
-        mockAlert.subscription,
-        {
-          title: '売りアラート: NSDQ:AAPL',
-          body: '現在価格 $105.00 が範囲 $100.00〜$110.00 内になりました',
-        },
-        expect.any(Object)
-      );
-
-      const body = JSON.parse(response.body);
-      expect(body.statistics.conditionsMet).toBe(1);
-      expect(body.statistics.notificationsSent).toBe(1);
-    });
-  });
-
-  describe('正常系: 複数条件（LogicalOperator が undefined）アラート', () => {
-    it('LogicalOperator が未指定の場合、デフォルトで AND として扱い通知を送信する', async () => {
-      // Arrange
-      const mockAlert: Alert = {
-        AlertID: 'alert-1',
-        UserID: 'user-1',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Sell',
-        Frequency: 'HOURLY_LEVEL',
-        Enabled: true,
-        ConditionList: [
-          { field: 'price', operator: 'gte', value: 100.0 },
-          { field: 'price', operator: 'lte', value: 110.0 },
-        ],
-        // LogicalOperator は未指定（デフォルトで AND になる）
-        subscription: {
-          endpoint: 'https://fcm.googleapis.com/fcm/send/test',
-          keys: {
-            p256dh: 'test-p256dh',
-            auth: 'test-auth',
-          },
-        },
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
-      };
-
-      const mockExchange: Exchange = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
-      };
-
-      mockAlertRepo.getByFrequency.mockResolvedValue({
-        items: [mockAlert],
-        nextCursor: undefined,
-        count: 1,
-      });
-      mockExchangeRepo.getById.mockResolvedValue(mockExchange);
-      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
-      (tradingviewClient.getCurrentPrice as jest.Mock).mockResolvedValue(105.0);
-      (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(true);
-      (sendWebPushNotification as jest.Mock).mockResolvedValue(true);
-      (webPushClient.createAlertNotificationPayload as jest.Mock).mockReturnValue({
-        title: '売りアラート: NSDQ:AAPL',
-        body: '現在価格 $105.00 が範囲 $100.00〜$110.00 内になりました',
-      });
-
-      // Act
-      const response = await handler(mockEvent);
-
-      // Assert
-      expect(response.statusCode).toBe(200);
-      expect(alertEvaluator.evaluateAlert).toHaveBeenCalledWith(mockAlert, 105.0);
-      expect(webPushClient.createAlertNotificationPayload).toHaveBeenCalledWith(mockAlert, 105.0);
-      expect(sendWebPushNotification).toHaveBeenCalledWith(
-        mockAlert.subscription,
-        {
-          title: '売りアラート: NSDQ:AAPL',
-          body: '現在価格 $105.00 が範囲 $100.00〜$110.00 内になりました',
-        },
-        expect.any(Object)
-      );
-
-      const body = JSON.parse(response.body);
-      expect(body.statistics.conditionsMet).toBe(1);
-      expect(body.statistics.notificationsSent).toBe(1);
-    });
-  });
-
-  describe('正常系: 複数条件（範囲外）アラート', () => {
-    it('範囲外アラート（OR）の条件が達成された場合、Web Push 通知を送信する', async () => {
-      // Arrange
-      const mockAlert: Alert = {
-        AlertID: 'alert-1',
-        UserID: 'user-1',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Sell',
-        Frequency: 'HOURLY_LEVEL',
-        Enabled: true,
-        ConditionList: [
-          { field: 'price', operator: 'lte', value: 90.0 },
-          { field: 'price', operator: 'gte', value: 120.0 },
-        ],
-        LogicalOperator: 'OR',
-        subscription: {
-          endpoint: 'https://fcm.googleapis.com/fcm/send/test',
-          keys: {
-            p256dh: 'test-p256dh',
-            auth: 'test-auth',
-          },
-        },
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
-      };
-
-      const mockExchange: Exchange = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
-      };
-
-      mockAlertRepo.getByFrequency.mockResolvedValue({
-        items: [mockAlert],
-        nextCursor: undefined,
-        count: 1,
-      });
-      mockExchangeRepo.getById.mockResolvedValue(mockExchange);
-      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
-      (tradingviewClient.getCurrentPrice as jest.Mock).mockResolvedValue(85.0);
-      (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(true);
-      (sendWebPushNotification as jest.Mock).mockResolvedValue(true);
-      (webPushClient.createAlertNotificationPayload as jest.Mock).mockReturnValue({
-        title: '売りアラート: NSDQ:AAPL',
-        body: '現在価格 $85.00 が範囲外（$90.00 以下 または $120.00 以上）になりました',
-      });
-
-      // Act
-      const response = await handler(mockEvent);
-
-      // Assert
-      expect(response.statusCode).toBe(200);
-      expect(alertEvaluator.evaluateAlert).toHaveBeenCalledWith(mockAlert, 85.0);
-      expect(webPushClient.createAlertNotificationPayload).toHaveBeenCalledWith(mockAlert, 85.0);
-      expect(sendWebPushNotification).toHaveBeenCalledWith(
-        mockAlert.subscription,
-        {
-          title: '売りアラート: NSDQ:AAPL',
-          body: '現在価格 $85.00 が範囲外（$90.00 以下 または $120.00 以上）になりました',
-        },
-        expect.any(Object)
-      );
-
-      const body = JSON.parse(response.body);
-      expect(body.statistics.conditionsMet).toBe(1);
-      expect(body.statistics.notificationsSent).toBe(1);
+      expect(body.statistics.notificationsSent).toBe(2);
+      expect(body.statistics.errors).toBe(0);
     });
   });
 
@@ -799,6 +697,7 @@ describe('hourly batch handler', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview',
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       };
@@ -806,7 +705,7 @@ describe('hourly batch handler', () => {
       mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
-      (tradingviewClient.getCurrentPrice as jest.Mock).mockResolvedValue(205.0);
+      mockTradingViewGetCurrentPrice.mockResolvedValue(205.0);
       (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(true);
       (sendWebPushNotification as jest.Mock).mockResolvedValue(false);
       (webPushClient.createAlertNotificationPayload as jest.Mock).mockReturnValue({

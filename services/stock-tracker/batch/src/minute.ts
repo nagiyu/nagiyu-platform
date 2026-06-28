@@ -13,7 +13,12 @@ import type { ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { evaluateAlert } from '@nagiyu/stock-tracker-core';
 import { isTradingHours } from '@nagiyu/stock-tracker-core';
-import { TradingViewSession, getCurrentPrice } from '@nagiyu/stock-tracker-core';
+import {
+  TradingViewSession,
+  getCurrentPrice,
+  FinnhubQuoteProvider,
+  DEFAULT_PRICE_SOURCE,
+} from '@nagiyu/stock-tracker-core';
 import type { Alert } from '@nagiyu/stock-tracker-core';
 
 /**
@@ -70,6 +75,7 @@ interface BatchStatistics {
  * @param alert - 処理するアラート
  * @param exchangeRepo - Exchange リポジトリ
  * @param session - invocation 共有の TradingView セッション
+ * @param finnhubProvider - Finnhub QuoteProvider（PriceSource = 'finnhub' の場合に使用）
  * @param stats - バッチ統計情報
  * @param firstAttemptTimeoutMs - 共有セッションの 1 回目タイムアウト（ms）
  * @param retryTimeoutMs - 新規 WS リトライのタイムアウト（ms）
@@ -80,6 +86,7 @@ async function processAlert(
   alert: Alert,
   exchangeRepo: ExchangeRepository,
   session: TradingViewSession,
+  finnhubProvider: FinnhubQuoteProvider,
   stats: BatchStatistics,
   firstAttemptTimeoutMs: number,
   retryTimeoutMs: number,
@@ -119,25 +126,37 @@ async function processAlert(
       return true;
     }
 
-    // 4. TradingView API で現在価格取得
-    // 1 回目: 共有セッションを再利用（healthy 時の handshake 削減）
-    // 失敗時: 独立した新規 WS で 1 回だけ再試行（死んだ共有接続を完全にバイパス）
+    // 4. Exchange.PriceSource に応じて現在価格取得経路を選択
+    // - finnhub: Finnhub API への単発リクエスト（fresh-WS リトライなし）
+    // - tradingview（デフォルト）: 共有セッション再利用 → 失敗時に fresh-WS 再試行
+    const priceSource = exchange.PriceSource ?? DEFAULT_PRICE_SOURCE;
     let currentPrice: number;
-    try {
-      currentPrice = await session.getCurrentPrice(alert.TickerID, {
+
+    if (priceSource === 'finnhub') {
+      // Finnhub 経路: 単発リクエスト。失敗は外側 catch へ伝播し stats.errors++ となる
+      currentPrice = await finnhubProvider.getCurrentPrice(alert.TickerID, {
         timeout: firstAttemptTimeoutMs,
       });
-    } catch (firstError) {
-      stats.freshSessionRetries++;
-      logger.warn('共有セッションでの価格取得に失敗。新規 WS で再試行します', {
-        alertId: alert.AlertID,
-        tickerId: alert.TickerID,
-        sessionId: session.getSessionId(),
-        firstError: toErrorMessage(firstError),
-      });
-      await sleep(retryDelayMs);
-      // 失敗時は外側 catch へ伝播させてエラー扱いとする
-      currentPrice = await getCurrentPrice(alert.TickerID, { timeout: retryTimeoutMs });
+    } else {
+      // TradingView 経路（共有セッション温存最適化）:
+      // 1 回目: 共有セッションを再利用（healthy 時の handshake 削減）
+      // 失敗時: 独立した新規 WS で 1 回だけ再試行（死んだ共有接続を完全にバイパス）
+      try {
+        currentPrice = await session.getCurrentPrice(alert.TickerID, {
+          timeout: firstAttemptTimeoutMs,
+        });
+      } catch (firstError) {
+        stats.freshSessionRetries++;
+        logger.warn('共有セッションでの価格取得に失敗。新規 WS で再試行します', {
+          alertId: alert.AlertID,
+          tickerId: alert.TickerID,
+          sessionId: session.getSessionId(),
+          firstError: toErrorMessage(firstError),
+        });
+        await sleep(retryDelayMs);
+        // 失敗時は外側 catch へ伝播させてエラー扱いとする
+        currentPrice = await getCurrentPrice(alert.TickerID, { timeout: retryTimeoutMs });
+      }
     }
 
     logger.debug('現在価格を取得しました', {
@@ -255,6 +274,8 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
 
   // invocation スコープで 1 つの TradingView WebSocket 接続を共有する
   const session = new TradingViewSession();
+  // Finnhub 経路（PriceSource = 'finnhub'）用のプロバイダーを 1 回生成
+  const finnhubProvider = new FinnhubQuoteProvider();
 
   try {
     // DynamoDB クライアントとリポジトリの初期化
@@ -282,6 +303,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
           alert,
           exchangeRepo,
           session,
+          finnhubProvider,
           stats,
           firstAttemptTimeoutMs,
           retryTimeoutMs,
