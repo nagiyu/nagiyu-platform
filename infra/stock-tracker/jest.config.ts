@@ -9,6 +9,11 @@ const config: Config = {
   moduleNameMapper: {
     '^@nagiyu/infra-common$': '<rootDir>/../common/src/index.ts',
   },
+  // ts-jest の型診断: 未解決モジュール(2307)等のみ抑止し、他の型エラーは検出を維持する
+  // （@nagiyu/infra-common は moduleNameMapper でランタイム解決。未ビルド時の型解決失敗のみ無視）
+  transform: {
+    '^.+\\.tsx?$': ['ts-jest', { diagnostics: { ignoreCodes: [2307, 151002] } }],
+  },
   collectCoverageFrom: ['lib/**/*.ts', '!lib/**/*.d.ts'],
   coverageDirectory: 'coverage',
   coverageThreshold: {

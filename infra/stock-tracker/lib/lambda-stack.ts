@@ -20,6 +20,7 @@ export interface LambdaStackProps extends cdk.StackProps {
   vapidPublicKey: string; // VAPID 公開鍵（デプロイ時に Secrets Manager から取得）
   vapidPrivateKey: string; // VAPID 秘密鍵（デプロイ時に Secrets Manager から取得）
   openAiApiKey: string; // OpenAI API Key（デプロイ時に Secrets Manager から取得）
+  finnhubApiKey: string; // Finnhub API Key（デプロイ時に Secrets Manager から取得）
   nextAuthSecret: string; // NextAuth Secret (Auth サービスから取得)
 }
 
@@ -56,6 +57,7 @@ export class LambdaStack extends cdk.Stack {
       vapidPublicKey,
       vapidPrivateKey,
       openAiApiKey,
+      finnhubApiKey,
       nextAuthSecret,
     } = props;
 
@@ -174,6 +176,7 @@ export class LambdaStack extends cdk.Stack {
         VAPID_PUBLIC_KEY: vapidPublicKey,
         VAPID_PRIVATE_KEY: vapidPrivateKey,
         OPENAI_API_KEY: openAiApiKey,
+        FINNHUB_API_KEY: finnhubApiKey,
         MINUTE_BATCH_CONCURRENCY: '3',
         MINUTE_BATCH_TIME_BUDGET_MS: '30000',
         MINUTE_BATCH_FIRST_ATTEMPT_TIMEOUT_MS: '4000',
@@ -204,6 +207,7 @@ export class LambdaStack extends cdk.Stack {
         VAPID_PUBLIC_KEY: vapidPublicKey,
         VAPID_PRIVATE_KEY: vapidPrivateKey,
         OPENAI_API_KEY: openAiApiKey,
+        FINNHUB_API_KEY: finnhubApiKey,
         ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
       },
       tracing: lambda.Tracing.ACTIVE,

@@ -1,18 +1,12 @@
 /**
  * QuoteProvider ルーター
  *
- * TickerID の取引所プレフィックスに基づいて適切な QuoteProvider を返す。
- * US 銘柄は Finnhub、それ以外（TSE・未知含む）は TradingView を使用する（安全側デフォルト）。
+ * Exchange.PriceSource に基づいて適切な QuoteProvider を返す。
+ * 'finnhub' は Finnhub、それ以外（'tradingview' および未指定）は TradingView を使用する。
  */
 
+import type { PriceSource } from '../../entities/exchange.entity.js';
 import type { QuoteProvider } from './types.js';
-
-/**
- * US 取引所のキーセット
- *
- * これらの取引所に属する銘柄は Finnhub provider を使用する
- */
-export const US_EXCHANGE_KEYS = new Set(['NASDAQ', 'NYSE', 'AMEX']);
 
 /**
  * QuoteProvider 選択用のプロバイダーマップ
@@ -23,19 +17,20 @@ export type QuoteProviderMap = {
 };
 
 /**
- * TickerID に基づいて適切な QuoteProvider を解決する
+ * PriceSource に基づいて適切な QuoteProvider を解決する
  *
- * US 取引所（NASDAQ / NYSE / AMEX）の銘柄は Finnhub を返す。
- * TSE・未知プレフィックスはすべて TradingView を返す（安全側デフォルト）。
+ * 'finnhub' の場合は Finnhub provider を返す。
+ * それ以外（'tradingview' および安全側デフォルト）は TradingView provider を返す。
  *
- * @param tickerId - ティッカーID（例: "NASDAQ:AAPL", "TSE:6501"）
+ * @param priceSource - 取引所の価格取得元（Exchange.PriceSource）
  * @param providers - 選択肢となる QuoteProvider のマップ
  * @returns 選択された QuoteProvider
  */
-export function resolveQuoteProvider(tickerId: string, providers: QuoteProviderMap): QuoteProvider {
-  const exchangeKey = tickerId.split(':')[0] ?? '';
-
-  if (US_EXCHANGE_KEYS.has(exchangeKey)) {
+export function resolveQuoteProvider(
+  priceSource: PriceSource,
+  providers: QuoteProviderMap
+): QuoteProvider {
+  if (priceSource === 'finnhub') {
     return providers.finnhub;
   }
 
