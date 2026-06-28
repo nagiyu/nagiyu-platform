@@ -15,6 +15,7 @@ export const ERROR_MESSAGES = {
   INVALID_VIDEO_ID_FORMAT: '不正な動画 ID 形式が含まれています',
   SEARCH_KEYWORD_REQUIRED: '検索キーワードを入力してください',
   SEARCH_KEYWORD_TOO_LONG: '検索キーワードは 100 文字以内で入力してください',
+  VIDEO_SEARCH_NO_RESULTS: '該当する動画が見つかりませんでした',
   VIDEO_SEARCH_FAILED: '動画検索に失敗しました',
   VIDEO_ADD_FAILED: '動画の追加に失敗しました',
   IS_FAVORITE_MUST_BE_BOOLEAN: 'isFavorite は真偽値である必要があります',
