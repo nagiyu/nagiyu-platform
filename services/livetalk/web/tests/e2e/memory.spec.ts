@@ -9,13 +9,15 @@ import { test, expect } from '@playwright/test';
  * 「ホームから導線がある」を検証する。
  */
 test.describe('LiveTalk - 記憶閲覧・削除画面', () => {
-  test('ホームに /memory への導線があり遷移できる', async ({ page }) => {
+  test('ホームのメニューに /memory への導線があり遷移できる', async ({ page }) => {
     await page.goto('/');
+    // ナビゲーション導線は共通 Header のメニュー（モバイルはハンバーガー Drawer）へ移設された。
     // E2E 環境では DynamoDB が無く /api/consent が「未同意」と判定されるため、
-    // 同意モーダルが常時表示されリンククリックをインターセプトする（実環境では同意後に消える）。
-    // ここでは導線（href）の存在を検証し、遷移後の画面表示は直接遷移で確認する。
-    const link = page.getByRole('link', { name: '私が覚えていること' });
-    await expect(link).toHaveAttribute('href', '/memory');
+    // 同意モーダルが常時表示され、Drawer を開く操作はインターセプトされる（実環境では同意後に消える）。
+    // また Drawer は keepMounted のため閉じていても導線（href）は DOM 上に存在する。
+    // ここでは可視性・aria-hidden に依存せず href の存在を検証し、遷移後の画面表示は直接遷移で確認する。
+    const link = page.locator('a[href="/memory"]', { hasText: '私が覚えていること' });
+    await expect(link.first()).toBeAttached();
     await page.goto('/memory');
     await expect(page).toHaveURL(/\/memory$/);
     await expect(page.getByRole('heading', { name: '私が覚えていること' })).toBeVisible();
