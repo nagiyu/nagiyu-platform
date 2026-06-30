@@ -332,7 +332,7 @@ export default function Header({
               edge="start"
               color="inherit"
               onClick={handleDrawerOpen}
-              sx={{ mr: 2, display: { xs: 'block', md: 'none' } }}
+              sx={{ mr: 2, display: { xs: 'inline-flex', md: 'none' } }}
               aria-label="メニューを開く"
             >
               <MenuIcon />
@@ -358,15 +358,17 @@ export default function Header({
 
           {/* デスクトップ: 横並びメニュー */}
           {navigationItems && navigationItems.length > 0 && (
-            <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' }, ml: 4 }}>
+            <Box sx={{ display: { xs: 'none', md: 'flex' }, ml: 4 }}>
               {navigationItems.map((item) => (
                 <NavigationMenuItem key={item.label} item={item} />
               ))}
             </Box>
           )}
 
-          {/* スペーサー（ナビゲーションがない場合） */}
-          {(!navigationItems || navigationItems.length === 0) && <Box sx={{ flexGrow: 1 }} />}
+          {/* 伸縮スペーサー：ユーザー情報・アクションを常に右端へ寄せる。
+              デスクトップは元々ナビ領域が伸びて右寄せだったが、モバイルはナビが
+              Drawer に隠れて右寄せにならなかった。常設スペーサーで両表示を統一する。 */}
+          <Box sx={{ flexGrow: 1 }} />
 
           {/* ユーザー指定あり: アバターをトリガーにしたアカウントメニュー */}
           {user ? (
