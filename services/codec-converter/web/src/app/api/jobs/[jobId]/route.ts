@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
-import { GetObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { getAwsClients } from '@nagiyu/aws';
+import { getAwsClients, createPresignedDownloadUrl } from '@nagiyu/aws';
 import { type Job } from '@nagiyu/codec-converter-core';
 import type { ErrorResponse } from '@nagiyu/common';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
@@ -67,14 +65,14 @@ export async function GET(
     // ジョブステータスがCOMPLETEDの場合、ダウンロード用Presigned URLを生成
     let downloadUrl: string | undefined;
     if (job.status === 'COMPLETED' && job.outputFile) {
-      const command = new GetObjectCommand({
-        Bucket: S3_BUCKET,
-        Key: job.outputFile,
-      });
-
-      downloadUrl = await getSignedUrl(s3Client, command, {
-        expiresIn: PRESIGNED_URL_EXPIRES_IN,
-      });
+      downloadUrl = await createPresignedDownloadUrl(
+        {
+          bucketName: S3_BUCKET,
+          key: job.outputFile,
+          expiresIn: PRESIGNED_URL_EXPIRES_IN,
+        },
+        s3Client
+      );
     }
 
     // レスポンスを返却
