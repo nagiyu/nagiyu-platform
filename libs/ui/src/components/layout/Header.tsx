@@ -18,6 +18,7 @@ import {
   ListItemIcon,
   ListItemText,
   Collapse,
+  Divider,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
@@ -74,7 +75,7 @@ export interface HeaderProps {
   navigationItems?: NavigationItem[];
 
   /**
-   * ユーザー情報
+   * ユーザー情報。指定するとアバターがアカウントメニューのトリガーになる。
    */
   user?: {
     name: string;
@@ -83,7 +84,9 @@ export interface HeaderProps {
   };
 
   /**
-   * ログアウトハンドラー
+   * ログアウトハンドラー。
+   * user が指定されている場合はアカウントメニュー内の項目として表示される。
+   * user が指定されていない場合は従来どおり単独のボタンとして表示される（後方互換）。
    */
   onLogout?: () => void;
 
@@ -92,6 +95,18 @@ export interface HeaderProps {
    * @default "ログアウト"
    */
   logoutLabel?: string;
+
+  /**
+   * 退会・データ削除ハンドラー。
+   * user が指定されている場合のみアカウントメニュー内に表示される。
+   */
+  onDeleteAccount?: () => void;
+
+  /**
+   * 退会・データ削除ボタンのラベル
+   * @default "退会・データ削除"
+   */
+  deleteAccountLabel?: string;
 }
 
 /**
@@ -196,6 +211,96 @@ function NavigationDrawerItem({ item, onClose }: { item: NavigationItem; onClose
   );
 }
 
+/**
+ * アカウントメニューコンポーネント（user 指定時のアバタートリガー付きメニュー）。
+ *
+ * - onLogout があれば「ログアウト」項目を表示
+ * - onDeleteAccount があれば「退会・データ削除」項目を表示（Divider で区切る）
+ */
+function AccountMenu({
+  user,
+  onLogout,
+  logoutLabel,
+  onDeleteAccount,
+  deleteAccountLabel,
+}: {
+  user: NonNullable<HeaderProps['user']>;
+  onLogout?: () => void;
+  logoutLabel: string;
+  onDeleteAccount?: () => void;
+  deleteAccountLabel: string;
+}) {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const isOpen = Boolean(anchorEl);
+
+  const handleOpen = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget);
+  const handleClose = () => setAnchorEl(null);
+
+  const handleLogout = () => {
+    handleClose();
+    onLogout?.();
+  };
+
+  const handleDeleteAccount = () => {
+    handleClose();
+    onDeleteAccount?.();
+  };
+
+  return (
+    <>
+      <IconButton
+        onClick={handleOpen}
+        sx={{ ml: 2, p: 0.5 }}
+        aria-label="アカウントメニュー"
+        aria-haspopup="true"
+        aria-expanded={isOpen}
+        aria-controls={isOpen ? 'account-menu' : undefined}
+      >
+        <Avatar src={user.avatar} alt={user.name} sx={{ width: 32, height: 32 }}>
+          {user.name && user.name.length > 0 ? user.name[0] : '?'}
+        </Avatar>
+      </IconButton>
+      <Menu
+        id="account-menu"
+        anchorEl={anchorEl}
+        open={isOpen}
+        onClose={handleClose}
+        slotProps={{
+          list: {
+            'aria-label': 'アカウントメニュー',
+          },
+        }}
+      >
+        {/* ユーザー名・メール表示エリア */}
+        <Box sx={{ px: 2, py: 1, pointerEvents: 'none' }}>
+          {/* メニュー内に可視テキストとして名前・メールを表示する。
+              トリガーの IconButton に既に「アカウントメニュー」ラベルがあるため、
+              ここでは aria-label を付けず可視テキストをそのまま読み上げさせる。 */}
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            {user.name}
+          </Typography>
+          {user.email && (
+            <Typography variant="caption" color="text.secondary">
+              {user.email}
+            </Typography>
+          )}
+        </Box>
+        <Divider />
+        {onLogout && (
+          <MenuItem onClick={handleLogout} data-testid="account-menu-logout">
+            {logoutLabel}
+          </MenuItem>
+        )}
+        {onDeleteAccount && (
+          <MenuItem onClick={handleDeleteAccount} data-testid="account-menu-delete-account">
+            {deleteAccountLabel}
+          </MenuItem>
+        )}
+      </Menu>
+    </>
+  );
+}
+
 export default function Header({
   title = 'Nagiyu Platform',
   href = '/',
@@ -204,6 +309,8 @@ export default function Header({
   user,
   onLogout,
   logoutLabel = 'ログアウト',
+  onDeleteAccount,
+  deleteAccountLabel = '退会・データ削除',
 }: HeaderProps) {
   const defaultAriaLabel = `${title} - Navigate to homepage`;
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -225,7 +332,7 @@ export default function Header({
               edge="start"
               color="inherit"
               onClick={handleDrawerOpen}
-              sx={{ mr: 2, display: { xs: 'block', md: 'none' } }}
+              sx={{ mr: 2, display: { xs: 'inline-flex', md: 'none' } }}
               aria-label="メニューを開く"
             >
               <MenuIcon />
@@ -251,37 +358,34 @@ export default function Header({
 
           {/* デスクトップ: 横並びメニュー */}
           {navigationItems && navigationItems.length > 0 && (
-            <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' }, ml: 4 }}>
+            <Box sx={{ display: { xs: 'none', md: 'flex' }, ml: 4 }}>
               {navigationItems.map((item) => (
                 <NavigationMenuItem key={item.label} item={item} />
               ))}
             </Box>
           )}
 
-          {/* スペーサー（ナビゲーションがない場合） */}
-          {(!navigationItems || navigationItems.length === 0) && <Box sx={{ flexGrow: 1 }} />}
+          {/* 伸縮スペーサー：ユーザー情報・アクションを常に右端へ寄せる。
+              デスクトップは元々ナビ領域が伸びて右寄せだったが、モバイルはナビが
+              Drawer に隠れて右寄せにならなかった。常設スペーサーで両表示を統一する。 */}
+          <Box sx={{ flexGrow: 1 }} />
 
-          {/* ユーザー情報 */}
-          {user && (
-            <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
-              <Avatar src={user.avatar} alt={user.name} sx={{ width: 32, height: 32, mr: 1 }}>
-                {user.name && user.name.length > 0 ? user.name[0] : '?'}
-              </Avatar>
-              <Typography
-                variant="body2"
-                sx={{ display: { xs: 'none', sm: 'block' } }}
-                aria-label={`ログイン中: ${user.name}`}
-              >
-                {user.name}
-              </Typography>
-            </Box>
-          )}
-
-          {/* ログアウトボタン */}
-          {onLogout && (
-            <Button color="inherit" onClick={onLogout} sx={{ ml: 2 }} aria-label={logoutLabel}>
-              {logoutLabel}
-            </Button>
+          {/* ユーザー指定あり: アバターをトリガーにしたアカウントメニュー */}
+          {user ? (
+            <AccountMenu
+              user={user}
+              onLogout={onLogout}
+              logoutLabel={logoutLabel}
+              onDeleteAccount={onDeleteAccount}
+              deleteAccountLabel={deleteAccountLabel}
+            />
+          ) : (
+            /* ユーザー指定なし・onLogout のみ: 後方互換のため単独ボタンを表示 */
+            onLogout && (
+              <Button color="inherit" onClick={onLogout} sx={{ ml: 2 }} aria-label={logoutLabel}>
+                {logoutLabel}
+              </Button>
+            )
           )}
         </Toolbar>
       </AppBar>
@@ -293,7 +397,7 @@ export default function Header({
           open={drawerOpen}
           onClose={handleDrawerClose}
           ModalProps={{
-            keepMounted: true, // Better mobile performance
+            keepMounted: true, // モバイルパフォーマンス向上のため
           }}
         >
           <Box
@@ -301,7 +405,7 @@ export default function Header({
             role="navigation"
             aria-label="ナビゲーションメニュー"
             onClick={(e) => {
-              // Prevent closing on nested clicks - check for closest 'a' element
+              // ネストクリックでは閉じない（'a' 要素への最近接クリックのみ閉じる）
               const target = e.target as HTMLElement;
               if (target.closest('a')) {
                 handleDrawerClose();
