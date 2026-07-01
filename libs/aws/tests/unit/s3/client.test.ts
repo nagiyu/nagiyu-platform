@@ -143,15 +143,11 @@ describe('S3 Client', () => {
 
       expect(url).toBe('https://example.com/upload-url');
       expect(mockedGetSignedUrl).toHaveBeenCalledTimes(1);
-      expect(mockedGetSignedUrl).toHaveBeenCalledWith(
-        mockClient,
-        expect.any(PutObjectCommand),
-        { expiresIn: 3600 }
-      );
+      expect(mockedGetSignedUrl).toHaveBeenCalledWith(mockClient, expect.any(PutObjectCommand), {
+        expiresIn: 3600,
+      });
 
-      const MockedPutObjectCommand = PutObjectCommand as jest.MockedClass<
-        typeof PutObjectCommand
-      >;
+      const MockedPutObjectCommand = PutObjectCommand as jest.MockedClass<typeof PutObjectCommand>;
       expect(MockedPutObjectCommand).toHaveBeenCalledWith({
         Bucket: 'test-bucket',
         Key: 'uploads/test-key.mp4',
@@ -173,9 +169,7 @@ describe('S3 Client', () => {
         mockClient
       );
 
-      const MockedPutObjectCommand = PutObjectCommand as jest.MockedClass<
-        typeof PutObjectCommand
-      >;
+      const MockedPutObjectCommand = PutObjectCommand as jest.MockedClass<typeof PutObjectCommand>;
       expect(MockedPutObjectCommand).toHaveBeenCalledWith({
         Bucket: 'test-bucket',
         Key: 'uploads/test-key.mp4',
@@ -215,15 +209,11 @@ describe('S3 Client', () => {
 
       expect(url).toBe('https://example.com/download-url');
       expect(mockedGetSignedUrl).toHaveBeenCalledTimes(1);
-      expect(mockedGetSignedUrl).toHaveBeenCalledWith(
-        mockClient,
-        expect.any(GetObjectCommand),
-        { expiresIn: 86400 }
-      );
+      expect(mockedGetSignedUrl).toHaveBeenCalledWith(mockClient, expect.any(GetObjectCommand), {
+        expiresIn: 86400,
+      });
 
-      const MockedGetObjectCommand = GetObjectCommand as jest.MockedClass<
-        typeof GetObjectCommand
-      >;
+      const MockedGetObjectCommand = GetObjectCommand as jest.MockedClass<typeof GetObjectCommand>;
       expect(MockedGetObjectCommand).toHaveBeenCalledWith({
         Bucket: 'test-bucket',
         Key: 'outputs/test-key.mp4',
