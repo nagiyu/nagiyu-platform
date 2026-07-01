@@ -24,12 +24,7 @@ export default function ResponseDisplay({ text, userText, characterId }: Respons
   const { displayName, shortName } = getCharacterDisplay(characterId);
 
   return (
-    <Box
-      sx={{ width: '100%', mb: 1 }}
-      role="status"
-      aria-live="polite"
-      data-testid="response-display"
-    >
+    <Box sx={{ width: '100%' }} role="status" aria-live="polite" data-testid="response-display">
       {!hasContent && (
         <Paper variant="outlined" sx={{ p: 2, backgroundColor: 'background.paper' }}>
           <Typography variant="body2" color="text.secondary">
