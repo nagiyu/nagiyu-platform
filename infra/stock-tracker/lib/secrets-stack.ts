@@ -15,6 +15,7 @@ export interface SecretsStackProps extends cdk.StackProps {
 export class SecretsStack extends cdk.Stack {
   public readonly vapidSecret: secretsmanager.ISecret;
   public readonly openAiApiKeySecret: secretsmanager.ISecret;
+  public readonly finnhubApiKeySecret: secretsmanager.ISecret;
   public readonly devCredentialsSecret?: secretsmanager.ISecret;
 
   constructor(scope: Construct, id: string, props: SecretsStackProps) {
@@ -41,6 +42,15 @@ export class SecretsStack extends cdk.Stack {
       },
     });
 
+    // Finnhub API キーシークレット（初回は PLACEHOLDER 値）
+    this.finnhubApiKeySecret = new secretsmanager.Secret(this, 'FinnhubApiKeySecret', {
+      secretName: `nagiyu-stock-tracker-finnhub-api-key-${environment}`,
+      description: 'Finnhub API key for US stock quote retrieval (batch processing)',
+      secretObjectValue: {
+        apiKey: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
+      },
+    });
+
     // タグの追加
     cdk.Tags.of(this.vapidSecret).add('Application', 'nagiyu');
     cdk.Tags.of(this.vapidSecret).add('Service', 'stock-tracker');
@@ -48,6 +58,9 @@ export class SecretsStack extends cdk.Stack {
     cdk.Tags.of(this.openAiApiKeySecret).add('Application', 'nagiyu');
     cdk.Tags.of(this.openAiApiKeySecret).add('Service', 'stock-tracker');
     cdk.Tags.of(this.openAiApiKeySecret).add('Environment', environment);
+    cdk.Tags.of(this.finnhubApiKeySecret).add('Application', 'nagiyu');
+    cdk.Tags.of(this.finnhubApiKeySecret).add('Service', 'stock-tracker');
+    cdk.Tags.of(this.finnhubApiKeySecret).add('Environment', environment);
 
     // CloudFormation Outputs
     new cdk.CfnOutput(this, 'VapidSecretArn', {
@@ -68,6 +81,16 @@ export class SecretsStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'OpenAiApiKeySecretName', {
       value: this.openAiApiKeySecret.secretName,
       description: 'OpenAI API Key Secret Name',
+    });
+
+    new cdk.CfnOutput(this, 'FinnhubApiKeySecretArn', {
+      value: this.finnhubApiKeySecret.secretArn,
+      description: 'Finnhub API Key Secret ARN',
+    });
+
+    new cdk.CfnOutput(this, 'FinnhubApiKeySecretName', {
+      value: this.finnhubApiKeySecret.secretName,
+      description: 'Finnhub API Key Secret Name',
     });
 
     // 開発用 IAM 認証情報シークレット（dev 環境のみ）

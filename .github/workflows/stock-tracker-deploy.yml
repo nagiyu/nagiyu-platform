@@ -262,6 +262,7 @@ jobs:
             NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ needs.infrastructure-ecr.outputs.environment }}
             VAPID,nagiyu-stock-tracker-vapid-${{ needs.infrastructure-ecr.outputs.environment }}
             OPENAI_API_KEY,nagiyu-stock-tracker-openai-api-key-${{ needs.infrastructure-ecr.outputs.environment }}
+            FINNHUB_API_KEY,nagiyu-stock-tracker-finnhub-api-key-${{ needs.infrastructure-ecr.outputs.environment }}
           parse-json-secrets: true
 
       - name: Deploy Application Stacks
@@ -273,6 +274,7 @@ jobs:
           VAPID_PUBLIC: ${{ env.VAPID_PUBLICKEY }}
           VAPID_PRIVATE: ${{ env.VAPID_PRIVATEKEY }}
           OPENAI_API_KEY: ${{ env.OPENAI_API_KEY_APIKEY }}
+          FINNHUB_API_KEY: ${{ env.FINNHUB_API_KEY_APIKEY }}
         run: |
           npm run cdk --workspace=@nagiyu/infra-stock-tracker -- deploy \
             --context env="$ENVIRONMENT" \
@@ -280,6 +282,7 @@ jobs:
             --context vapidPublicKey="$VAPID_PUBLIC" \
             --context vapidPrivateKey="$VAPID_PRIVATE" \
             --context openAiApiKey="$OPENAI_API_KEY" \
+            --context finnhubApiKey="$FINNHUB_API_KEY" \
             --require-approval never \
             --all \
             --exclude "NagiyuStockTrackerWebECR${STACK_SUFFIX}" \

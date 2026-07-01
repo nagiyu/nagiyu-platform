@@ -77,7 +77,9 @@ export type {
   ExchangeEntity,
   CreateExchangeInput,
   UpdateExchangeInput,
+  PriceSource,
 } from './entities/exchange.entity.js';
+export { PRICE_SOURCES, DEFAULT_PRICE_SOURCE } from './entities/exchange.entity.js';
 export type {
   DailySummaryEntity,
   CreateDailySummaryInput,
@@ -113,6 +115,21 @@ export * from './services/trading-hours-checker.js';
 export * from './services/tradingview-client.js';
 export * from './services/prediction-judger.js';
 export * from './services/prediction-aggregator.js';
+
+// Market Data（現在価格プロバイダー抽象化）
+export type {
+  QuoteProvider,
+  GetCurrentPriceOptions as QuoteProviderGetCurrentPriceOptions,
+} from './services/market-data/types.js';
+export { TradingViewQuoteProvider } from './services/market-data/tradingview-quote-provider.js';
+export type { GetCurrentPriceFn } from './services/market-data/tradingview-quote-provider.js';
+export {
+  FinnhubQuoteProvider,
+  FINNHUB_ERROR_MESSAGES,
+} from './services/market-data/finnhub-quote-provider.js';
+export type { FinnhubQuoteProviderOptions } from './services/market-data/finnhub-quote-provider.js';
+export { resolveQuoteProvider } from './services/market-data/router.js';
+export type { QuoteProviderMap } from './services/market-data/router.js';
 
 // マッパー（新規エクスポート）
 export { AlertMapper } from './mappers/alert.mapper.js';

@@ -31,6 +31,7 @@ import {
   ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import type { PriceSource } from '@nagiyu/stock-tracker-core';
 
 // API レスポンス型定義
 interface Exchange {
@@ -42,6 +43,7 @@ interface Exchange {
     start: string;
     end: string;
   };
+  priceSource: PriceSource;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -54,6 +56,7 @@ interface ExchangeFormData {
   timezone: string;
   start: string;
   end: string;
+  priceSource: PriceSource;
 }
 
 // エラーメッセージ定数
@@ -73,6 +76,12 @@ const SUCCESS_MESSAGES = {
   UPDATE: '取引所を更新しました',
   DELETE: '取引所を削除しました',
 } as const;
+
+// データソース選択オプション
+const PRICE_SOURCE_OPTIONS = [
+  { value: 'tradingview', label: 'TradingView' },
+  { value: 'finnhub', label: 'Finnhub' },
+] as const;
 
 // タイムゾーンオプション（主要な取引所のタイムゾーン）
 const TIMEZONE_OPTIONS = [
@@ -130,6 +139,7 @@ export default function ExchangesPage() {
     timezone: '',
     start: '',
     end: '',
+    priceSource: 'tradingview',
   });
 
   // 時間選択用の状態（start）
@@ -192,6 +202,7 @@ export default function ExchangesPage() {
       timezone: '',
       start: '',
       end: '',
+      priceSource: 'tradingview',
     });
     setStartHour('09');
     setStartMinute('30');
@@ -212,6 +223,7 @@ export default function ExchangesPage() {
       timezone: exchange.timezone,
       start: exchange.tradingHours.start,
       end: exchange.tradingHours.end,
+      priceSource: exchange.priceSource ?? 'tradingview',
     });
     setStartHour(startTime.hour);
     setStartMinute(startTime.minute);
@@ -262,6 +274,7 @@ export default function ExchangesPage() {
             start: formatTime(startHour, startMinute),
             end: formatTime(endHour, endMinute),
           },
+          priceSource: formData.priceSource,
         }),
       });
 
@@ -312,6 +325,7 @@ export default function ExchangesPage() {
             start: formatTime(startHour, startMinute),
             end: formatTime(endHour, endMinute),
           },
+          priceSource: formData.priceSource,
         }),
       });
 
@@ -437,6 +451,7 @@ export default function ExchangesPage() {
                 <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>APIキー</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>タイムゾーン</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>取引時間</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>データソース</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">
                   操作
                 </TableCell>
@@ -445,7 +460,7 @@ export default function ExchangesPage() {
             <TableBody>
               {exchanges.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 5 }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 5 }}>
                     <Typography variant="body1" color="text.secondary">
                       取引所が登録されていません
                     </Typography>
@@ -470,6 +485,11 @@ export default function ExchangesPage() {
                     </TableCell>
                     <TableCell>
                       {exchange.tradingHours.start}-{exchange.tradingHours.end}
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {exchange.priceSource ?? 'tradingview'}
+                      </Typography>
                     </TableCell>
                     <TableCell align="center">
                       <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
@@ -569,6 +589,28 @@ export default function ExchangesPage() {
               />
               <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ 主要な取引所のタイムゾーン
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                データソース
+              </Typography>
+              <Select
+                fullWidth
+                id="exchange-price-source-create"
+                disabled={submitting}
+                value={formData.priceSource}
+                onChange={(value) =>
+                  setFormData((prev) => ({ ...prev, priceSource: value as PriceSource }))
+                }
+                options={PRICE_SOURCE_OPTIONS.map((opt) => ({
+                  value: opt.value,
+                  label: opt.label,
+                }))}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                ※ Finnhub は米国株（NASDAQ/NYSE/AMEX）のみ対応。東証など他市場は TradingView を選択
               </Typography>
             </Box>
 
@@ -701,6 +743,28 @@ export default function ExchangesPage() {
               />
               <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ 主要な取引所のタイムゾーン
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                データソース
+              </Typography>
+              <Select
+                fullWidth
+                id="exchange-price-source-edit"
+                disabled={submitting}
+                value={formData.priceSource}
+                onChange={(value) =>
+                  setFormData((prev) => ({ ...prev, priceSource: value as PriceSource }))
+                }
+                options={PRICE_SOURCE_OPTIONS.map((opt) => ({
+                  value: opt.value,
+                  label: opt.label,
+                }))}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                ※ Finnhub は米国株（NASDAQ/NYSE/AMEX）のみ対応。東証など他市場は TradingView を選択
               </Typography>
             </Box>
 
