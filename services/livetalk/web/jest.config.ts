@@ -12,6 +12,7 @@ const config: Config = {
   moduleNameMapper: {
     '\\.module\\.css$': 'identity-obj-proxy',
     '^@/(.*)$': '<rootDir>/src/$1',
+    '^@nagiyu/ui/session-provider$': '<rootDir>/../../../libs/ui/src/session-provider.ts',
     '^@nagiyu/ui$': '<rootDir>/../../../libs/ui/src/index.ts',
     '^@nagiyu/browser$': '<rootDir>/../../../libs/browser/src/index.ts',
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
@@ -43,4 +44,18 @@ const config: Config = {
   passWithNoTests: true,
 };
 
-export default createJestConfig(config);
+// next-auth は ESM 配布であり、@nagiyu/ui（SessionProviderWrapper 経由）から
+// import されるため、next/jest のデフォルト transformIgnorePatterns
+// （node_modules 全体を除外）のままだと変換されず失敗する。
+// createJestConfig() の後で上書きして next-auth を transform 対象に含める。
+const ESM_PACKAGES = ['next-auth', '@auth', 'oauth4webapi'].join('|');
+
+const buildConfig = async () => {
+  const baseConfig = await createJestConfig(config)();
+  return {
+    ...baseConfig,
+    transformIgnorePatterns: [`/node_modules/(?!(${ESM_PACKAGES})/)`],
+  };
+};
+
+export default buildConfig;
