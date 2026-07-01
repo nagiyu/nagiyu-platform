@@ -27,6 +27,7 @@ jest.mock('@aws-sdk/s3-request-presigner', () => ({
 jest.mock('@nagiyu/aws', () => ({
   withErrorReporting: jest.fn((_opts: unknown, fn: () => Promise<unknown>) => fn()),
   getS3Client: jest.fn().mockReturnValue({ send: mockSend }),
+  createPresignedDownloadUrl: (...args: unknown[]) => mockGetSignedUrl(...args),
 }));
 
 jest.mock('@nagiyu/common', () => ({

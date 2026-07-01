@@ -3,10 +3,14 @@ import { createReadStream } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { spawn } from 'node:child_process';
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { withErrorReporting, getDynamoDBDocumentClient, getS3Client } from '@nagiyu/aws';
+import {
+  withErrorReporting,
+  getDynamoDBDocumentClient,
+  getS3Client,
+  createPresignedDownloadUrl,
+} from '@nagiyu/aws';
 import { requireEnv } from '@nagiyu/common';
 import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
 
@@ -59,13 +63,13 @@ const createSourceVideoUrl = async (
   bucketName: string,
   jobId: string
 ): Promise<string> =>
-  getSignedUrl(
-    s3Client,
-    new GetObjectCommand({
-      Bucket: bucketName,
-      Key: SOURCE_VIDEO_KEY(jobId),
-    }),
-    { expiresIn: PRESIGNED_URL_EXPIRATION_SECONDS }
+  createPresignedDownloadUrl(
+    {
+      bucketName,
+      key: SOURCE_VIDEO_KEY(jobId),
+      expiresIn: PRESIGNED_URL_EXPIRATION_SECONDS,
+    },
+    s3Client
   );
 
 const splitClip = async (
