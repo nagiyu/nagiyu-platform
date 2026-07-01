@@ -14,8 +14,8 @@
       "import": "./dist/src/components/layout/ServiceLayout.jsx"
     },
     "./session-provider": {
-      "types": "./dist/src/components/providers/SessionProviderWrapper.d.ts",
-      "import": "./dist/src/components/providers/SessionProviderWrapper.jsx"
+      "types": "./dist/src/session-provider.d.ts",
+      "import": "./dist/src/session-provider.js"
     },
     "./tokens": {
       "types": "./dist/src/styles/tokens.d.ts",

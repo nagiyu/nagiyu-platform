@@ -21,8 +21,7 @@ const config: Config = {
     '^@nagiyu/browser$': '<rootDir>/../../../libs/browser/src/index.ts',
     '^@nagiyu/nextjs$': '<rootDir>/../../../libs/nextjs/src/index.ts',
     '^@nagiyu/nextjs/(.*)$': '<rootDir>/../../../libs/nextjs/src/$1.ts',
-    '^@nagiyu/ui/session-provider$':
-      '<rootDir>/../../../libs/ui/src/components/providers/SessionProviderWrapper.tsx',
+    '^@nagiyu/ui/session-provider$': '<rootDir>/../../../libs/ui/src/session-provider.ts',
     '^@nagiyu/ui$': '<rootDir>/../../../libs/ui/src/index.ts',
     // ESM .js extension to .ts mapping for libs/common
     '^(\\.{1,2}/.*)\\.js$': '$1',
