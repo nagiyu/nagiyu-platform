@@ -35,7 +35,7 @@ jest.mock('@/components/SafetyModal', () => ({
 
 jest.mock('@/components/ResponseDisplay', () => ({
   __esModule: true,
-  default: jest.fn(() => null),
+  default: jest.fn(() => <div data-testid="response-display-mock" />),
 }));
 
 jest.mock('@/components/InstallGuide', () => ({
@@ -180,5 +180,16 @@ describe('HomePageClient の基本動作', () => {
     await waitFor(() =>
       expect(screen.getByPlaceholderText('メッセージを入力')).toBeInTheDocument()
     );
+  });
+
+  it('応答表示（スクロール領域）と入力欄（固定領域）が同時にレンダリングされる', async () => {
+    // 列構造の修正後も、応答表示（スクロール領域）と ChatInput（固定領域）が
+    // どちらも欠落せずレンダリングされることを確認する。
+    // jsdom は実レイアウト計算をしないため overflow の検証は行わない。
+    setupMinimalFetchMocks();
+    render(<HomePageClient />);
+
+    await waitFor(() => expect(screen.getByTestId('response-display-mock')).toBeInTheDocument());
+    expect(screen.getByPlaceholderText('メッセージを入力')).toBeInTheDocument();
   });
 });

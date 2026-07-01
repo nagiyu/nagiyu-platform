@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useState } from 'react';
-import { Box, Container, Stack, Typography } from '@mui/material';
+import { Box, Container, Typography } from '@mui/material';
 import ChatInput from '@/components/ChatInput';
 import ResponseDisplay from '@/components/ResponseDisplay';
 import CharacterCanvas from '@/components/CharacterCanvas';
@@ -141,67 +141,85 @@ function HomePageInner() {
             onPlaybackError={handlePlaybackError}
           />
         </Box>
-        <Stack
-          spacing={1}
+        <Box
           sx={{
+            display: 'flex',
+            flexDirection: 'column',
             flex: '1 1 auto',
+            minHeight: 0,
             width: '100%',
             maxWidth: '100%',
-            alignItems: 'stretch',
           }}
         >
-          <ResponseDisplay
-            text={onboardingText ?? firstWordText ?? responseText}
-            userText={userText}
-            characterId={characterId}
-          />
-          {errorMessage && (
-            <Box
-              sx={{
-                color: 'error.main',
-                fontSize: '0.875rem',
-                textAlign: 'center',
-              }}
-              role="alert"
-            >
-              {errorMessage}
-            </Box>
-          )}
-          {onboardingPhase === 'install' && <InstallGuide onSkip={handleInstallSkip} />}
-          {onboardingPhase === 'notification' && (
-            <NotificationPermission
-              onGranted={handleNotificationGranted}
-              onSkip={handleNotificationSkip}
+          {/* スクロール領域：応答・エラー・onboarding・pending 通知はここに収める。
+              minHeight: 0 は flex column 内の子で overflow スクロールを機能させるために必須。
+              長文応答でもこの Box 内でスクロールし、下の固定領域（入力欄・通知トグル）を押し出さない。 */}
+          <Box
+            sx={{
+              flex: '1 1 auto',
+              minHeight: 0,
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1,
+            }}
+          >
+            <ResponseDisplay
+              text={onboardingText ?? firstWordText ?? responseText}
+              userText={userText}
+              characterId={characterId}
             />
-          )}
-          {/* 他キャラクターの未消化通知をヒントとして提示する（consume はしない）。
-              ユーザーがそのキャラに切替えると first-word effect が走り第一声が表示・consume される。 */}
-          {pendingNotifications
-            .filter((n) => n.characterId !== characterId)
-            .map((n) => {
-              const display = hasCharacterProfile(n.characterId)
-                ? getCharacterDisplay(n.characterId)
-                : null;
-              const name = display?.shortName ?? n.characterId;
-              return (
-                <Typography
-                  key={n.characterId}
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ textAlign: 'center', display: 'block' }}
-                  data-testid={`pending-notification-${n.characterId}`}
-                >
-                  {name}から連絡が来てるよ
-                </Typography>
-              );
-            })}
-          <ChatInput
-            onSubmit={handleSubmit}
-            disabled={phase !== 'idle' || consentPhase !== 'done'}
-            prefillText={prefillText ?? undefined}
-          />
-          <NotificationToggle />
-        </Stack>
+            {errorMessage && (
+              <Box
+                sx={{
+                  color: 'error.main',
+                  fontSize: '0.875rem',
+                  textAlign: 'center',
+                }}
+                role="alert"
+              >
+                {errorMessage}
+              </Box>
+            )}
+            {onboardingPhase === 'install' && <InstallGuide onSkip={handleInstallSkip} />}
+            {onboardingPhase === 'notification' && (
+              <NotificationPermission
+                onGranted={handleNotificationGranted}
+                onSkip={handleNotificationSkip}
+              />
+            )}
+            {/* 他キャラクターの未消化通知をヒントとして提示する（consume はしない）。
+                ユーザーがそのキャラに切替えると first-word effect が走り第一声が表示・consume される。 */}
+            {pendingNotifications
+              .filter((n) => n.characterId !== characterId)
+              .map((n) => {
+                const display = hasCharacterProfile(n.characterId)
+                  ? getCharacterDisplay(n.characterId)
+                  : null;
+                const name = display?.shortName ?? n.characterId;
+                return (
+                  <Typography
+                    key={n.characterId}
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ textAlign: 'center', display: 'block' }}
+                    data-testid={`pending-notification-${n.characterId}`}
+                  >
+                    {name}から連絡が来てるよ
+                  </Typography>
+                );
+              })}
+          </Box>
+          {/* 固定領域：入力欄・通知トグルは常に下端に表示する（長文応答でスクロールしても位置が変わらない）。 */}
+          <Box sx={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: 1, pt: 1 }}>
+            <ChatInput
+              onSubmit={handleSubmit}
+              disabled={phase !== 'idle' || consentPhase !== 'done'}
+              prefillText={prefillText ?? undefined}
+            />
+            <NotificationToggle />
+          </Box>
+        </Box>
       </Container>
     </>
   );
