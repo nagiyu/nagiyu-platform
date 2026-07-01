@@ -33,8 +33,8 @@ export { default as ConfirmDialog } from './components/dialogs/ConfirmDialog';
 export type { ConfirmDialogProps } from './components/dialogs/ConfirmDialog';
 export { default as AppThemeProvider } from './components/providers/AppThemeProvider';
 export type { AppThemeProviderProps } from './components/providers/AppThemeProvider';
-export { default as SessionProviderWrapper } from './components/providers/SessionProviderWrapper';
-export type { SessionProviderWrapperProps } from './components/providers/SessionProviderWrapper';
+// SessionProviderWrapper は next-auth（ESM）依存を barrel に混ぜないため、
+// サブパス export（@nagiyu/ui/session-provider）で個別に提供する。
 export { ErrorBoundary, useErrorHandler } from './components/error/ErrorBoundary';
 export type { ErrorBoundaryProps } from './components/error/ErrorBoundary';
 export { default as ErrorAlert } from './components/error/ErrorAlert';

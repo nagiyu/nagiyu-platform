@@ -13,6 +13,10 @@
       "types": "./dist/src/components/layout/ServiceLayout.d.ts",
       "import": "./dist/src/components/layout/ServiceLayout.jsx"
     },
+    "./session-provider": {
+      "types": "./dist/src/components/providers/SessionProviderWrapper.d.ts",
+      "import": "./dist/src/components/providers/SessionProviderWrapper.jsx"
+    },
     "./tokens": {
       "types": "./dist/src/styles/tokens.d.ts",
       "import": "./dist/src/styles/tokens.js"

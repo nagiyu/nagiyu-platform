@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { Box, Container, CircularProgress, Typography } from '@mui/material';
-import { SessionProviderWrapper } from '@nagiyu/ui';
+import { SessionProviderWrapper } from '@nagiyu/ui/session-provider';
 import { resolveRefreshCallbackUrl } from '../../lib/refresh-callback';
 import { navigateTo } from '../../lib/navigate';
 
