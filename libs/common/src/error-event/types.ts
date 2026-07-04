@@ -16,8 +16,9 @@ export type ErrorSeverity = 'info' | 'warning' | 'error' | 'critical';
  * - `cloudwatch-alarm`: CloudWatch Alarm 由来（SNS 経由で取り込まれる）
  * - `application`: アプリケーション層からの直接レポート（将来拡張）
  * - `manual`: 運用者による手動投入（将来拡張）
+ * - `batch-event`: AWS のイベント由来（EventBridge 経由の Batch Job State Change 等、プロセスの生死に依存しない検知）
  */
-export type ErrorSource = 'cloudwatch-alarm' | 'application' | 'manual';
+export type ErrorSource = 'cloudwatch-alarm' | 'application' | 'manual' | 'batch-event';
 
 /**
  * 永続化される 1 件のエラーイベント

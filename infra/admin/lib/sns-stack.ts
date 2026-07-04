@@ -1,4 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import { Construct } from 'constructs';
@@ -38,6 +39,22 @@ export class SNSStack extends Construct {
       topicName: `nagiyu-admin-alarms-${environment}`,
       displayName: `Admin Alarms (${environment})`,
     });
+
+    // 各サービスの EventBridge ルール（例: Batch Job State Change）が集約トピックへ
+    // publish できるようにするための許可。同一アカウントに限定する。
+    this.alarmTopic.addToResourcePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.ServicePrincipal('events.amazonaws.com')],
+        actions: ['sns:Publish'],
+        resources: [this.alarmTopic.topicArn],
+        conditions: {
+          StringEquals: {
+            'aws:SourceAccount': cdk.Stack.of(this).account,
+          },
+        },
+      })
+    );
 
     // 自己監視: 新システム自身の障害用
     // HTTPS subscription で /api/notify/sns に流し、新システムを介さず

@@ -108,6 +108,82 @@ describe('buildErrorEventFromSns', () => {
     const event = buildErrorEventFromSns(record);
     expect(event!.occurredAt).toBe('2026-05-06T01:00:00.000Z');
   });
+
+  describe('AWS Batch Job State Change イベント', () => {
+    const buildBatchEventMessage = (
+      overrides: Partial<{
+        status: string;
+        jobName: string;
+        statusReason: string;
+        time: string;
+      }> = {}
+    ) => ({
+      version: '0',
+      'detail-type': 'Batch Job State Change',
+      source: 'aws.batch',
+      time: overrides.time ?? '2026-07-03T13:19:38Z',
+      region: 'us-east-1',
+      detail: {
+        jobArn: 'arn:aws:batch:us-east-1:111122223333:job/xxx',
+        jobName: overrides.jobName ?? 'quick-clip-extract-4f8920ea-7486-49a6-911e-e16706ecf605',
+        jobId: '73a81949-daa3-413f-bca8-78c6b61e193c',
+        jobQueue: 'arn:aws:batch:us-east-1:111122223333:job-queue/nagiyu-quick-clip-dev',
+        status: overrides.status ?? 'FAILED',
+        statusReason: overrides.statusReason ?? 'Job attempt duration exceeded timeout',
+        jobDefinition: 'arn:aws:batch:...:job-definition/nagiyu-quick-clip-dev-small:10',
+      },
+    });
+
+    it('status=FAILED の Batch イベントを ErrorEvent に変換する', () => {
+      const record = buildSnsRecord(buildBatchEventMessage());
+
+      const event = buildErrorEventFromSns(record);
+
+      expect(event).not.toBeNull();
+      expect(event!.serviceId).toBe('quick-clip');
+      expect(event!.severity).toBe('error');
+      expect(event!.source).toBe('batch-event');
+      expect(event!.title).toBe(
+        'AWS Batch ジョブ失敗: quick-clip-extract-4f8920ea-7486-49a6-911e-e16706ecf605'
+      );
+      expect(event!.message).toBe('Job attempt duration exceeded timeout');
+      expect(event!.context).toBe(record.Sns.Message);
+      expect(event!.eventId).toBeTruthy();
+      expect(event!.occurredAt).toBe('2026-07-03T13:19:38.000Z');
+    });
+
+    it('status=SUCCEEDED の Batch イベントは null を返す', () => {
+      const record = buildSnsRecord(buildBatchEventMessage({ status: 'SUCCEEDED' }));
+      expect(buildErrorEventFromSns(record)).toBeNull();
+    });
+
+    it('status=RUNNING の Batch イベントは null を返す', () => {
+      const record = buildSnsRecord(buildBatchEventMessage({ status: 'RUNNING' }));
+      expect(buildErrorEventFromSns(record)).toBeNull();
+    });
+
+    it('time が無いときは Sns.Timestamp を occurredAt に使う', () => {
+      const message = buildBatchEventMessage();
+      delete (message as { time?: string }).time;
+      const record = buildSnsRecord(message);
+
+      const event = buildErrorEventFromSns(record);
+
+      expect(event!.occurredAt).toBe('2026-05-06T01:00:00.000Z');
+    });
+
+    it('jobName が無いときは serviceId が unknown になり例外を投げない', () => {
+      const message = buildBatchEventMessage();
+      delete (message.detail as { jobName?: string }).jobName;
+      const record = buildSnsRecord(message);
+
+      const event = buildErrorEventFromSns(record);
+
+      expect(event).not.toBeNull();
+      expect(event!.serviceId).toBe('unknown');
+      expect(event!.title).toBe('AWS Batch ジョブ失敗');
+    });
+  });
 });
 
 describe('handler', () => {
@@ -198,6 +274,51 @@ describe('handler', () => {
     await expect(
       handler({ Records: [buildSnsRecord({ NewStateValue: 'ALARM' })] })
     ).rejects.toThrow('ERROR_EVENTS_TABLE_NAME が設定されていません');
+  });
+
+  it('Batch ジョブ失敗イベント 1 件 → processed=1', async () => {
+    const event: AlarmIngestEvent = {
+      Records: [
+        buildSnsRecord({
+          'detail-type': 'Batch Job State Change',
+          source: 'aws.batch',
+          time: '2026-07-03T13:19:38Z',
+          detail: {
+            jobName: 'quick-clip-extract-4f8920ea-7486-49a6-911e-e16706ecf605',
+            status: 'FAILED',
+            statusReason: 'Job attempt duration exceeded timeout',
+          },
+        }),
+      ],
+    };
+
+    const result = await handler(event);
+    expect(result).toEqual({ processed: 1, skipped: 0 });
+  });
+
+  it('Batch イベントと CloudWatch Alarm が混在する場合、両方 processed', async () => {
+    const event: AlarmIngestEvent = {
+      Records: [
+        buildSnsRecord({
+          'detail-type': 'Batch Job State Change',
+          source: 'aws.batch',
+          time: '2026-07-03T13:19:38Z',
+          detail: {
+            jobName: 'quick-clip-extract-4f8920ea',
+            status: 'FAILED',
+            statusReason: 'Job attempt duration exceeded timeout',
+          },
+        }),
+        buildSnsRecord({
+          AlarmName: 'stock-tracker-web-error-rate-prod',
+          NewStateValue: 'ALARM',
+          NewStateReason: 'Threshold',
+        }),
+      ],
+    };
+
+    const result = await handler(event);
+    expect(result).toEqual({ processed: 2, skipped: 0 });
   });
 
   it('aws:sns 以外のイベントソースは skip', async () => {
