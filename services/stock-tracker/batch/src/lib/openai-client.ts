@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
-import { withRetry } from '@nagiyu/common';
+import { withRetry, withTimeout } from '@nagiyu/common';
 import type { AiAnalysisResult } from '@nagiyu/stock-tracker-core';
 import {
   deriveSignalFromReturn,
@@ -96,7 +96,8 @@ export async function generateAiAnalysis(
             },
           ],
         }),
-        REQUEST_TIMEOUT_MS
+        REQUEST_TIMEOUT_MS,
+        ERROR_MESSAGES.TIMEOUT
       ),
     { maxRetries: MAX_RETRIES }
   );
@@ -198,23 +199,4 @@ function toLevelTuple(levels: number[]): [number, number, number] {
   }
 
   return [levels[0], levels[1], levels[2]];
-}
-
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<T>((_, reject) => {
-        timeoutId = setTimeout(() => {
-          reject(new Error(ERROR_MESSAGES.TIMEOUT));
-        }, timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-  }
 }

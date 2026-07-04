@@ -3,7 +3,7 @@ import { stat, unlink } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import type OpenAI from 'openai';
-import { withRetry } from '@nagiyu/common';
+import { withRetry, withTimeout } from '@nagiyu/common';
 
 export type TranscriptSegment = {
   start: number;
@@ -23,25 +23,6 @@ const CHUNK_DURATION_SEC = Math.floor(CHUNK_TARGET_SIZE_BYTES / MP3_BYTES_PER_SE
 
 const MAX_RETRIES = 3;
 const REQUEST_TIMEOUT_MS = 600_000;
-
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<T>((_, reject) => {
-        timeoutId = setTimeout(() => {
-          reject(new Error(ERROR_MESSAGES.TIMEOUT));
-        }, timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-  }
-}
 
 const NO_SPEECH_PROB_THRESHOLD = 0.6; // Whisper 公式の無音声判定値
 const AVG_LOGPROB_THRESHOLD = -1.0; // モデルの不確かさ閾値
@@ -176,7 +157,8 @@ export class TranscriptionService {
       if (size <= MAX_FILE_SIZE_BYTES) {
         console.info(`[TranscriptionService] 単一ファイルで文字起こし: size=${size}bytes`);
         return await withRetry(
-          async () => withTimeout(this.transcribeFile(audioFilePath), REQUEST_TIMEOUT_MS),
+          async () =>
+            withTimeout(this.transcribeFile(audioFilePath), REQUEST_TIMEOUT_MS, ERROR_MESSAGES.TIMEOUT),
           { maxRetries: MAX_RETRIES }
         );
       }
@@ -199,7 +181,8 @@ export class TranscriptionService {
           );
           try {
             const segments = await withRetry(
-              async () => withTimeout(this.transcribeFile(chunkPath), REQUEST_TIMEOUT_MS),
+              async () =>
+                withTimeout(this.transcribeFile(chunkPath), REQUEST_TIMEOUT_MS, ERROR_MESSAGES.TIMEOUT),
               { maxRetries: MAX_RETRIES }
             );
             console.info(
