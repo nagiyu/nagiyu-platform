@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PutCommand } from '@aws-sdk/lib-dynamodb';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuidv4 } from 'uuid';
 import {
   validateFile,
@@ -10,7 +8,7 @@ import {
   type CodecType,
 } from '@nagiyu/codec-converter-core';
 import { toErrorMessage, type ErrorResponse } from '@nagiyu/common';
-import { getAwsClients, reportErrorEvent } from '@nagiyu/aws';
+import { getAwsClients, reportErrorEvent, createPresignedUploadUrl } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
 // Presigned URLの有効期限（1時間 = 3600秒）
@@ -129,15 +127,15 @@ export async function POST(
     );
 
     // S3 Presigned URLの生成
-    const command = new PutObjectCommand({
-      Bucket: S3_BUCKET,
-      Key: inputFileKey,
-      ContentType: contentType,
-    });
-
-    const uploadUrl = await getSignedUrl(s3Client, command, {
-      expiresIn: PRESIGNED_URL_EXPIRES_IN,
-    });
+    const uploadUrl = await createPresignedUploadUrl(
+      {
+        bucketName: S3_BUCKET,
+        key: inputFileKey,
+        contentType,
+        expiresIn: PRESIGNED_URL_EXPIRES_IN,
+      },
+      s3Client
+    );
 
     // レスポンスを返却
     return NextResponse.json(

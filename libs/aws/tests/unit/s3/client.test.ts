@@ -3,17 +3,23 @@
  */
 
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { S3Client } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import {
   clearS3ClientCache,
   createS3Client,
   getS3Client,
   uploadFile,
   getS3ObjectUrl,
+  createPresignedUploadUrl,
+  createPresignedDownloadUrl,
 } from '../../../src/s3/client.js';
 
 // S3Client のモック
 jest.mock('@aws-sdk/client-s3');
+
+// getSignedUrl のモック
+jest.mock('@aws-sdk/s3-request-presigner');
 
 describe('S3 Client', () => {
   beforeEach(() => {
@@ -116,6 +122,116 @@ describe('S3 Client', () => {
       const second = getS3Client('ap-northeast-1');
 
       expect(first).not.toBe(second);
+    });
+  });
+
+  describe('createPresignedUploadUrl', () => {
+    it('指定した client で PutObjectCommand の Presigned URL を生成する', async () => {
+      const mockedGetSignedUrl = getSignedUrl as jest.MockedFunction<typeof getSignedUrl>;
+      mockedGetSignedUrl.mockResolvedValue('https://example.com/upload-url');
+      const mockClient = {} as unknown as S3Client;
+
+      const url = await createPresignedUploadUrl(
+        {
+          bucketName: 'test-bucket',
+          key: 'uploads/test-key.mp4',
+          contentType: 'video/mp4',
+          expiresIn: 3600,
+        },
+        mockClient
+      );
+
+      expect(url).toBe('https://example.com/upload-url');
+      expect(mockedGetSignedUrl).toHaveBeenCalledTimes(1);
+      expect(mockedGetSignedUrl).toHaveBeenCalledWith(mockClient, expect.any(PutObjectCommand), {
+        expiresIn: 3600,
+      });
+
+      const MockedPutObjectCommand = PutObjectCommand as jest.MockedClass<typeof PutObjectCommand>;
+      expect(MockedPutObjectCommand).toHaveBeenCalledWith({
+        Bucket: 'test-bucket',
+        Key: 'uploads/test-key.mp4',
+        ContentType: 'video/mp4',
+      });
+    });
+
+    it('contentType を省略できる', async () => {
+      const mockedGetSignedUrl = getSignedUrl as jest.MockedFunction<typeof getSignedUrl>;
+      mockedGetSignedUrl.mockResolvedValue('https://example.com/upload-url');
+      const mockClient = {} as unknown as S3Client;
+
+      await createPresignedUploadUrl(
+        {
+          bucketName: 'test-bucket',
+          key: 'uploads/test-key.mp4',
+          expiresIn: 60,
+        },
+        mockClient
+      );
+
+      const MockedPutObjectCommand = PutObjectCommand as jest.MockedClass<typeof PutObjectCommand>;
+      expect(MockedPutObjectCommand).toHaveBeenCalledWith({
+        Bucket: 'test-bucket',
+        Key: 'uploads/test-key.mp4',
+        ContentType: undefined,
+      });
+    });
+
+    it('client 省略時は getS3Client() を使用する', async () => {
+      const mockedGetSignedUrl = getSignedUrl as jest.MockedFunction<typeof getSignedUrl>;
+      mockedGetSignedUrl.mockResolvedValue('https://example.com/upload-url');
+
+      await createPresignedUploadUrl({
+        bucketName: 'test-bucket',
+        key: 'uploads/test-key.mp4',
+        expiresIn: 3600,
+      });
+
+      const clientArg = mockedGetSignedUrl.mock.calls[0][0];
+      expect(clientArg).toBeInstanceOf(S3Client);
+    });
+  });
+
+  describe('createPresignedDownloadUrl', () => {
+    it('指定した client で GetObjectCommand の Presigned URL を生成する', async () => {
+      const mockedGetSignedUrl = getSignedUrl as jest.MockedFunction<typeof getSignedUrl>;
+      mockedGetSignedUrl.mockResolvedValue('https://example.com/download-url');
+      const mockClient = {} as unknown as S3Client;
+
+      const url = await createPresignedDownloadUrl(
+        {
+          bucketName: 'test-bucket',
+          key: 'outputs/test-key.mp4',
+          expiresIn: 86400,
+        },
+        mockClient
+      );
+
+      expect(url).toBe('https://example.com/download-url');
+      expect(mockedGetSignedUrl).toHaveBeenCalledTimes(1);
+      expect(mockedGetSignedUrl).toHaveBeenCalledWith(mockClient, expect.any(GetObjectCommand), {
+        expiresIn: 86400,
+      });
+
+      const MockedGetObjectCommand = GetObjectCommand as jest.MockedClass<typeof GetObjectCommand>;
+      expect(MockedGetObjectCommand).toHaveBeenCalledWith({
+        Bucket: 'test-bucket',
+        Key: 'outputs/test-key.mp4',
+      });
+    });
+
+    it('client 省略時は getS3Client() を使用する', async () => {
+      const mockedGetSignedUrl = getSignedUrl as jest.MockedFunction<typeof getSignedUrl>;
+      mockedGetSignedUrl.mockResolvedValue('https://example.com/download-url');
+
+      await createPresignedDownloadUrl({
+        bucketName: 'test-bucket',
+        key: 'outputs/test-key.mp4',
+        expiresIn: 300,
+      });
+
+      const clientArg = mockedGetSignedUrl.mock.calls[0][0];
+      expect(clientArg).toBeInstanceOf(S3Client);
     });
   });
 

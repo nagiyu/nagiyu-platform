@@ -1,7 +1,6 @@
-import { withErrorReporting, getS3Client } from '@nagiyu/aws';
+import { withErrorReporting, getS3Client, createPresignedDownloadUrl } from '@nagiyu/aws';
 import { requireEnv } from '@nagiyu/common';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import JSZip from 'jszip';
 
 const ERROR_MESSAGES = {
@@ -188,13 +187,13 @@ const createDownloadUrl = async (
   bucketName: string,
   event: ZipGeneratorEvent
 ): Promise<string> =>
-  getSignedUrl(
-    s3Client,
-    new GetObjectCommand({
-      Bucket: bucketName,
-      Key: ZIP_KEY(event.jobId),
-    }),
-    { expiresIn: 300 }
+  createPresignedDownloadUrl(
+    {
+      bucketName,
+      key: ZIP_KEY(event.jobId),
+      expiresIn: 300,
+    },
+    s3Client
   );
 
 export const handler = async (event: ZipGeneratorEvent): Promise<ZipGeneratorResult> => {
