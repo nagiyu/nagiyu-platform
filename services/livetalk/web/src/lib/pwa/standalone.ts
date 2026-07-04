@@ -1,3 +1,5 @@
+import { getItem, setItem } from '@nagiyu/browser';
+
 const INSTALL_SNOOZE_KEY = 'livetalk-install-snoozed-at';
 const NOTIFICATION_SNOOZE_KEY = 'livetalk-notification-snoozed-at';
 export const ONBOARDING_COOLDOWN_MS = 3 * 24 * 60 * 60 * 1000; // 3日
@@ -32,9 +34,12 @@ export function isPushSupported(): boolean {
 
 function readSnoozedAt(key: string): number | null {
   if (typeof window === 'undefined') return null;
-  const raw = localStorage.getItem(key);
-  if (!raw) return null;
-  const ts = parseInt(raw, 10);
+  // @nagiyu/browser の getItem は値を JSON.parse 試行するため、
+  // 数値文字列（例 "123"）は number として返る場合がある。
+  // parseInt に渡す前に String() で文字列化し、従来と同じ解釈結果にする。
+  const raw = getItem<string>(key);
+  if (raw === null) return null;
+  const ts = parseInt(String(raw), 10);
   return isNaN(ts) ? null : ts;
 }
 
@@ -47,7 +52,7 @@ export function shouldShowInstallGuide(now: number = Date.now()): boolean {
 
 export function snoozeInstallGuide(now: number = Date.now()): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(INSTALL_SNOOZE_KEY, String(now));
+  setItem(INSTALL_SNOOZE_KEY, String(now));
 }
 
 export function shouldShowNotificationPermission(now: number = Date.now()): boolean {
@@ -59,5 +64,5 @@ export function shouldShowNotificationPermission(now: number = Date.now()): bool
 
 export function snoozeNotificationPermission(now: number = Date.now()): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(NOTIFICATION_SNOOZE_KEY, String(now));
+  setItem(NOTIFICATION_SNOOZE_KEY, String(now));
 }
