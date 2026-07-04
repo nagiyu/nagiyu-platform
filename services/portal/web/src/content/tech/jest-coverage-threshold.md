@@ -153,19 +153,19 @@ export default createJestConfig(config);
 
 ## 実装ノート
 
-自分のモノレポでは、しきい値を **全パッケージ一律 80%（branches / functions / lines / statements）** で統一している。パッケージごとに数字を変えると「ここは 70% でいい」という例外交渉が始まり、なし崩しに緩む。数字を触る余地をなくすのが運用上いちばん効いた。
+自分のモノレポでは、しきい値を **全パッケージ一律 80%（branches / functions / lines / statements）** で統一しています。パッケージごとに数字を変えると「ここは 70% でいい」という例外交渉が始まり、なし崩しに緩みます。数字を触る余地をなくすのが運用上いちばん効きました。
 
-`collectCoverageFrom` は共通方針を決めていて、ライブラリ側は `!src/**/index.ts` で barrel を必ず除外している。再エクスポートしかない `index.ts` はテスト不能なのに分母を押し下げるだけなので、これを外すかどうかでしきい値の体感が大きく変わる。Web サービスでは分母を `src/lib/**` に寄せ、UI は Jest のしきい値ではなく Playwright の E2E とコンポーネントテスト側で担保する、という二段構えにしている。ユニットのしきい値であらゆる UI を 80% まで詰めるのは費用対効果が悪い、というのが実感だ。
+`collectCoverageFrom` は共通方針を決めていて、ライブラリ側は `!src/**/index.ts` で barrel を必ず除外しています。再エクスポートしかない `index.ts` はテスト不能なのに分母を押し下げるだけなので、これを外すかどうかでしきい値の体感が大きく変わります。Web サービスでは分母を `src/lib/**` に寄せ、UI は Jest のしきい値ではなく Playwright の E2E とコンポーネントテスト側で担保する、という二段構えにしています。ユニットのしきい値であらゆる UI を 80% まで詰めるのは費用対効果が悪い、というのが実感です。
 
 ## ハマったポイント
 
-しきい値運用を回すなかで、自分が実際に手を焼いたところを残しておく。
+しきい値運用を回すなかで、自分が実際に手を焼いたところを残しておきます。
 
-- **remark / rehype 系が ESM-only で transform されない**: Portal のブログは Markdown を remark/rehype で HTML 化しているが、これらは ESM 専用パッケージで、`next/jest` のデフォルトの `transformIgnorePatterns` に弾かれて `SyntaxError: Cannot use import statement outside a module` になった。`createJestConfig()` を await した後で `transformIgnorePatterns: ['/node_modules/(?!(remark|rehype|unified|micromark.*|mdast-util.*|...)/)']` と上書きし、対象パッケージだけ変換に含める必要がある。ここは一度ハマると原因が見えづらい。
-- **`index.ts` を除外し忘れて全体が数 % 下がる**: barrel ファイルが分母に入ると、実装は 85% あるのにプロジェクト全体では 78% で落ちる、という不可解な失敗になった。`collectCoverageFrom` の除外漏れを最初に疑う。
-- **`branches` だけ落ちる**: statements / lines / functions は 80% を超えているのに branches だけ 79%、というのが一番多い。原因はたいてい `??` や `if (!x) throw` の異常系未テスト。カバレッジレポートの HTML を開き、黄色（分岐の片側未実行）をつぶすと直る。
-- **v8 と ts-jest で端数がズレる**: CI を分けていると、片方は 80.0% で緑、もう片方が 79.95% で赤、という僅差事故が起きる。しきい値ぎりぎりを常態にせず、数 % のマージンを持って書くのが結局は楽だった。
-- **`--coverage` の付け忘れ**: ローカルで `jest` だけ叩いて「通った」と思い込むと、しきい値チェックはスキップされている。CI とローカルでコマンドを揃えておかないと、CI で初めて落ちる。
+- **remark / rehype 系が ESM-only で transform されない**: Portal のブログは Markdown を remark/rehype で HTML 化していますが、これらは ESM 専用パッケージで、`next/jest` のデフォルトの `transformIgnorePatterns` に弾かれて `SyntaxError: Cannot use import statement outside a module` になりました。`createJestConfig()` を await した後で `transformIgnorePatterns: ['/node_modules/(?!(remark|rehype|unified|micromark.*|mdast-util.*|...)/)']` と上書きし、対象パッケージだけ変換に含める必要があります。ここは一度ハマると原因が見えづらいです。
+- **`index.ts` を除外し忘れて全体が数 % 下がる**: barrel ファイルが分母に入ると、実装は 85% あるのにプロジェクト全体では 78% で落ちる、という不可解な失敗になりました。`collectCoverageFrom` の除外漏れを最初に疑います。
+- **`branches` だけ落ちる**: statements / lines / functions は 80% を超えているのに branches だけ 79%、というのが一番多いです。原因はたいてい `??` や `if (!x) throw` の異常系未テストです。カバレッジレポートの HTML を開き、黄色（分岐の片側未実行）をつぶすと直ります。
+- **v8 と ts-jest で端数がズレる**: CI を分けていると、片方は 80.0% で緑、もう片方が 79.95% で赤、という僅差事故が起きます。しきい値ぎりぎりを常態にせず、数 % のマージンを持って書くのが結局は楽でした。
+- **`--coverage` の付け忘れ**: ローカルで `jest` だけ叩いて「通った」と思い込むと、しきい値チェックはスキップされています。CI とローカルでコマンドを揃えておかないと、CI で初めて落ちます。
 
 ## まとめ
 
