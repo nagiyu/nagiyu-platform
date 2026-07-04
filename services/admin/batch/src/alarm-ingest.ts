@@ -133,6 +133,8 @@ function buildErrorEventFromBatchEvent(
     return null;
   }
 
+  // jobName は `{service}-{component}-...`（例: `quick-clip-extract-...`）の命名規約に従うため、
+  // AlarmName 用の serviceId 推定（先頭 2 セグメント連結）をそのまま流用できる。
   const serviceId = inferServiceIdFromAlarmName(detail.jobName ?? '');
   const occurredAt = payload.time
     ? new Date(payload.time).toISOString()
@@ -142,7 +144,9 @@ function buildErrorEventFromBatchEvent(
     eventId: generateEventId(),
     serviceId,
     source: 'batch-event',
-    severity: 'error',
+    // アプリ内エラー報告経路（entrypoint の withErrorReporting）と重大度を揃える。
+    // Batch ジョブの失敗＝解析結果が失われる致命的事象のため critical とする。
+    severity: 'critical',
     title: detail.jobName ? `AWS Batch ジョブ失敗: ${detail.jobName}` : 'AWS Batch ジョブ失敗',
     message: detail.statusReason ?? '',
     context: record.Sns.Message,

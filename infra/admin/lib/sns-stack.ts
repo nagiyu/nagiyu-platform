@@ -40,10 +40,30 @@ export class SNSStack extends Construct {
       displayName: `Admin Alarms (${environment})`,
     });
 
+    // カスタム resource policy を1つでも付けると SNS のデフォルトポリシー
+    // （所有アカウントに publish 等を許可）が置換されるため、既存の同一アカウント
+    // publish を明示的に併記して回帰を防ぐ。これが無いと各サービスの CloudWatch Alarm
+    // → SNS（デフォルトポリシー依存）が publish 拒否でサイレント停止する。
+    this.alarmTopic.addToResourcePolicy(
+      new iam.PolicyStatement({
+        sid: 'AllowSameAccountPublish',
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.AnyPrincipal()],
+        actions: ['sns:Publish'],
+        resources: [this.alarmTopic.topicArn],
+        conditions: {
+          StringEquals: {
+            'aws:SourceOwner': cdk.Stack.of(this).account,
+          },
+        },
+      })
+    );
+
     // 各サービスの EventBridge ルール（例: Batch Job State Change）が集約トピックへ
     // publish できるようにするための許可。同一アカウントに限定する。
     this.alarmTopic.addToResourcePolicy(
       new iam.PolicyStatement({
+        sid: 'AllowEventBridgePublish',
         effect: iam.Effect.ALLOW,
         principals: [new iam.ServicePrincipal('events.amazonaws.com')],
         actions: ['sns:Publish'],

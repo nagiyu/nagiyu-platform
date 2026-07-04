@@ -141,7 +141,7 @@ describe('buildErrorEventFromSns', () => {
 
       expect(event).not.toBeNull();
       expect(event!.serviceId).toBe('quick-clip');
-      expect(event!.severity).toBe('error');
+      expect(event!.severity).toBe('critical');
       expect(event!.source).toBe('batch-event');
       expect(event!.title).toBe(
         'AWS Batch ジョブ失敗: quick-clip-extract-4f8920ea-7486-49a6-911e-e16706ecf605'
