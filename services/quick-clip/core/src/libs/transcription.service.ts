@@ -158,7 +158,11 @@ export class TranscriptionService {
         console.info(`[TranscriptionService] 単一ファイルで文字起こし: size=${size}bytes`);
         return await withRetry(
           async () =>
-            withTimeout(this.transcribeFile(audioFilePath), REQUEST_TIMEOUT_MS, ERROR_MESSAGES.TIMEOUT),
+            withTimeout(
+              this.transcribeFile(audioFilePath),
+              REQUEST_TIMEOUT_MS,
+              ERROR_MESSAGES.TIMEOUT
+            ),
           { maxRetries: MAX_RETRIES }
         );
       }
@@ -182,7 +186,11 @@ export class TranscriptionService {
           try {
             const segments = await withRetry(
               async () =>
-                withTimeout(this.transcribeFile(chunkPath), REQUEST_TIMEOUT_MS, ERROR_MESSAGES.TIMEOUT),
+                withTimeout(
+                  this.transcribeFile(chunkPath),
+                  REQUEST_TIMEOUT_MS,
+                  ERROR_MESSAGES.TIMEOUT
+                ),
               { maxRetries: MAX_RETRIES }
             );
             console.info(
