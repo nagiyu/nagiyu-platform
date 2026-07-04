@@ -78,6 +78,7 @@ const VALID_SOURCES: ReadonlySet<ErrorSource> = new Set([
   'cloudwatch-alarm',
   'application',
   'manual',
+  'batch-event',
 ]);
 
 function isErrorSeverity(value: unknown): value is ErrorSeverity {

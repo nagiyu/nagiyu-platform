@@ -53,6 +53,28 @@ type CloudWatchAlarmPayload = {
   AlarmArn?: string;
 };
 
+/**
+ * AWS Batch Job State Change イベント（EventBridge → SNS 経由）の detail 部分
+ */
+type BatchJobStateChangeDetail = {
+  jobArn?: string;
+  jobName?: string;
+  jobId?: string;
+  status?: string;
+  statusReason?: string;
+  jobQueue?: string;
+};
+
+/**
+ * EventBridge から SNS 経由で届く汎用イベント本文（Batch Job State Change を含む）
+ */
+type EventBridgeEventPayload = {
+  'detail-type'?: string;
+  source?: string;
+  time?: string;
+  detail?: BatchJobStateChangeDetail;
+};
+
 function getWriter() {
   const tableName = process.env.ERROR_EVENTS_TABLE_NAME;
   if (!tableName) {
@@ -94,6 +116,45 @@ export function inferSeverityFromAlarm(): ErrorSeverity {
 }
 
 /**
+ * AWS Batch Job State Change イベント（EventBridge 経由）を ErrorEvent に変換する。
+ *
+ * プロセスの生死に依存しない検知経路（EventBridge → SNS）のため、タイムアウトによる
+ * SIGKILL のようにアプリ内 try/catch が走らないケースも拾える「安全網」として機能する。
+ * serviceId は jobName から汎用的に導出し、特定サービス固有の分岐は持たない。
+ * FAILED 以外（SUCCEEDED 等）は集約対象外として null を返す。
+ */
+function buildErrorEventFromBatchEvent(
+  record: SnsRecord,
+  payload: EventBridgeEventPayload
+): ErrorEvent | null {
+  const detail = payload.detail ?? {};
+
+  if (detail.status !== 'FAILED') {
+    return null;
+  }
+
+  // jobName は `{service}-{component}-...`（例: `quick-clip-extract-...`）の命名規約に従うため、
+  // AlarmName 用の serviceId 推定（先頭 2 セグメント連結）をそのまま流用できる。
+  const serviceId = inferServiceIdFromAlarmName(detail.jobName ?? '');
+  const occurredAt = payload.time
+    ? new Date(payload.time).toISOString()
+    : new Date(record.Sns.Timestamp).toISOString();
+
+  return {
+    eventId: generateEventId(),
+    serviceId,
+    source: 'batch-event',
+    // アプリ内エラー報告経路（entrypoint の withErrorReporting）と重大度を揃える。
+    // Batch ジョブの失敗＝解析結果が失われる致命的事象のため critical とする。
+    severity: 'critical',
+    title: detail.jobName ? `AWS Batch ジョブ失敗: ${detail.jobName}` : 'AWS Batch ジョブ失敗',
+    message: detail.statusReason ?? '',
+    context: record.Sns.Message,
+    occurredAt,
+  };
+}
+
+/**
  * ALARM 遷移の SNS Notification を ErrorEvent に変換する。
  * 対象外（OK 通知 / 解析不能）の場合は null を返す。
  */
@@ -102,11 +163,16 @@ export function buildErrorEventFromSns(record: SnsRecord): ErrorEvent | null {
     return null;
   }
 
-  let payload: CloudWatchAlarmPayload;
+  let payload: CloudWatchAlarmPayload & EventBridgeEventPayload;
   try {
-    payload = JSON.parse(record.Sns.Message) as CloudWatchAlarmPayload;
+    payload = JSON.parse(record.Sns.Message) as CloudWatchAlarmPayload & EventBridgeEventPayload;
   } catch {
     return null;
+  }
+
+  // AWS Batch Job State Change（EventBridge 経由）は専用ロジックに分岐する
+  if (payload['detail-type'] === 'Batch Job State Change' && payload.source === 'aws.batch') {
+    return buildErrorEventFromBatchEvent(record, payload);
   }
 
   // OK / INSUFFICIENT_DATA は Phase 1 では永続化しない

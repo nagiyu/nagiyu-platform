@@ -8,6 +8,7 @@ import { EcrStack } from '../lib/ecr-stack';
 import { LambdaStack } from '../lib/lambda-stack';
 import { CloudFrontStack } from '../lib/cloudfront-stack';
 import { SecretsStack } from '../lib/secrets-stack';
+import { MonitoringStack } from '../lib/monitoring-stack';
 import type { QuickClipEnvironment } from '../lib/environment';
 import { getBatchJobQueueArn } from '@nagiyu/infra-common';
 
@@ -74,6 +75,14 @@ const batchJobQueueArn = getBatchJobQueueArn(
   stackEnv.account!,
   `nagiyu-quick-clip-${typedEnv}`
 );
+
+const monitoringStack = new MonitoringStack(app, `NagiyuQuickClipMonitoring${envSuffix}`, {
+  environment: typedEnv,
+  batchJobQueueArn,
+  env: stackEnv,
+  description: `QuickClip 監視（Batch ジョブ失敗の Admin 集約） - ${env} environment`,
+});
+monitoringStack.addDependency(batchStack);
 
 const lambdaStack = new LambdaStack(app, `NagiyuQuickClipLambda${envSuffix}`, {
   environment: typedEnv,
