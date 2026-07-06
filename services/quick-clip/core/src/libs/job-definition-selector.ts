@@ -37,7 +37,9 @@ const sizeTier = (fileSize: number): JobDefinitionSize => {
   return 'xlarge';
 };
 
-// 尺軸: CPU/処理時間要件を規定する。durationSec 未指定時は昇格させない(従来互換)
+// 尺軸: CPU 総量・処理時間要件を規定する。durationSec 未指定時は昇格させない(従来互換)。
+// なお large/xlarge の vCPU は同一(8)のため、xlarge への昇格は主に timeout 延長
+// (処理時間の確保)を意味する。90分未満は底上げ済みの small(4 vCPU/2h)で完走できる想定。
 const durationTier = (durationSec: number | undefined): JobDefinitionSize => {
   if (durationSec === undefined) {
     return 'small';
