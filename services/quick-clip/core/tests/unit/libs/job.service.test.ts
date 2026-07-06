@@ -58,6 +58,64 @@ describe('JobService', () => {
     ).rejects.toThrow('ファイルサイズは0より大きい必要があります');
   });
 
+  it('durationSecを指定してジョブを作成するとリポジトリに保存される', async () => {
+    const repository = createJobRepositoryMock();
+    const service = new JobService(repository);
+
+    repository.create.mockImplementation(async (job) => job);
+
+    const result = await service.createJob({
+      originalFileName: 'movie.mp4',
+      fileSize: 1024,
+      durationSec: 7200,
+    });
+
+    const createdJob = repository.create.mock.calls[0][0] as Job;
+    expect(createdJob.durationSec).toBe(7200);
+    expect(result.durationSec).toBe(7200);
+  });
+
+  it('durationSec未指定の場合はジョブにdurationSecが含まれない', async () => {
+    const repository = createJobRepositoryMock();
+    const service = new JobService(repository);
+
+    repository.create.mockImplementation(async (job) => job);
+
+    await service.createJob({
+      originalFileName: 'movie.mp4',
+      fileSize: 1024,
+    });
+
+    const createdJob = repository.create.mock.calls[0][0] as Job;
+    expect(createdJob.durationSec).toBeUndefined();
+  });
+
+  it('durationSecが0以下の場合はエラー', async () => {
+    const repository = createJobRepositoryMock();
+    const service = new JobService(repository);
+
+    await expect(
+      service.createJob({
+        originalFileName: 'movie.mp4',
+        fileSize: 1024,
+        durationSec: 0,
+      })
+    ).rejects.toThrow('動画の再生時間は0より大きい数値で指定してください');
+  });
+
+  it('durationSecがNaNの場合はエラー', async () => {
+    const repository = createJobRepositoryMock();
+    const service = new JobService(repository);
+
+    await expect(
+      service.createJob({
+        originalFileName: 'movie.mp4',
+        fileSize: 1024,
+        durationSec: Number.NaN,
+      })
+    ).rejects.toThrow('動画の再生時間は0より大きい数値で指定してください');
+  });
+
   it('ジョブIDが空の場合は getJob でエラー', async () => {
     const repository = createJobRepositoryMock();
     const service = new JobService(repository);

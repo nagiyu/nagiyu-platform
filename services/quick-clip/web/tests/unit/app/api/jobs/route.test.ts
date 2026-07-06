@@ -320,4 +320,97 @@ describe('POST /api/jobs', () => {
       message: 'リクエストが不正です',
     });
   });
+
+  it('正常系: durationSec指定時に尺軸でジョブ定義が昇格する', async () => {
+    const request = createRequest({
+      fileName: 'movie.mp4',
+      fileSize: 1024,
+      contentType: 'video/mp4',
+      durationSec: 7200,
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(201);
+    expect(batchSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          jobDefinition: 'nagiyu-quick-clip-dev-large',
+        }),
+      })
+    );
+  });
+
+  it('異常系: durationSecが数値以外の場合は400を返す', async () => {
+    const request = createRequest({
+      fileName: 'movie.mp4',
+      fileSize: 1024,
+      contentType: 'video/mp4',
+      durationSec: '7200',
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      error: 'INVALID_REQUEST',
+      message: 'リクエストが不正です',
+    });
+  });
+
+  it('異常系: durationSecが0以下の場合は400を返す', async () => {
+    const request = createRequest({
+      fileName: 'movie.mp4',
+      fileSize: 1024,
+      contentType: 'video/mp4',
+      durationSec: 0,
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      error: 'INVALID_DURATION',
+      message: '動画の再生時間が不正です',
+    });
+    expect(batchSend).not.toHaveBeenCalled();
+  });
+
+  it('異常系: durationSecが上限(86400秒)超過の場合は400を返す', async () => {
+    const request = createRequest({
+      fileName: 'movie.mp4',
+      fileSize: 1024,
+      contentType: 'video/mp4',
+      durationSec: 24 * 60 * 60 + 1,
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      error: 'INVALID_DURATION',
+      message: '動画の再生時間が不正です',
+    });
+  });
+
+  it('異常系: durationSecがNaNの場合は400を返す', async () => {
+    const request = createRequest({
+      fileName: 'movie.mp4',
+      fileSize: 1024,
+      contentType: 'video/mp4',
+      durationSec: Number.NaN,
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      error: 'INVALID_DURATION',
+      message: '動画の再生時間が不正です',
+    });
+  });
 });

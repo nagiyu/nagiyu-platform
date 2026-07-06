@@ -136,7 +136,7 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
       new SubmitJobCommand({
         jobName: `quick-clip-extract-${job.jobId}`.slice(0, 128),
         jobQueue: getBatchJobQueueArn(),
-        jobDefinition: `${getBatchJobDefinitionPrefix()}-${selectJobDefinition(job.fileSize)}`,
+        jobDefinition: `${getBatchJobDefinitionPrefix()}-${selectJobDefinition(job.fileSize, job.durationSec)}`,
         containerOverrides: {
           environment: [
             { name: 'BATCH_COMMAND', value: 'extract' },
