@@ -50,7 +50,28 @@ describe('DynamoDBJobRepository', () => {
       expiresAt: 1086400,
     });
     expect(sentCommand.input.Item).not.toHaveProperty('status');
+    expect(sentCommand.input.Item).not.toHaveProperty('durationSec');
     expect(result).toEqual(job);
+  });
+
+  it('create はdurationSecが指定されている場合はテーブルに保存する', async () => {
+    mockSend.mockResolvedValue({});
+
+    const job = {
+      jobId: 'job-1',
+      originalFileName: 'movie.mp4',
+      fileSize: 1024,
+      durationSec: 7200,
+      createdAt: 1000000,
+      expiresAt: 1086400,
+    };
+
+    await repository.create(job);
+
+    const sentCommand = mockSend.mock.calls[0]?.[0] as PutCommand;
+    expect(sentCommand.input.Item).toMatchObject({
+      durationSec: 7200,
+    });
   });
 
   it('getById はジョブを取得して Job エンティティに変換する', async () => {
@@ -82,6 +103,45 @@ describe('DynamoDBJobRepository', () => {
       createdAt: 1000000,
       expiresAt: 1086400,
     });
+  });
+
+  it('getById はdurationSecフィールドを含むジョブを返す', async () => {
+    mockSend.mockResolvedValue({
+      Item: {
+        PK: 'JOB#job-3',
+        SK: 'JOB#job-3',
+        Type: 'JOB',
+        jobId: 'job-3',
+        originalFileName: 'movie.mp4',
+        fileSize: 1024,
+        durationSec: 7200,
+        createdAt: 1000000,
+        expiresAt: 1086400,
+      },
+    });
+
+    const result = await repository.getById('job-3');
+
+    expect(result?.durationSec).toBe(7200);
+  });
+
+  it('getById はdurationSec未指定の場合はdurationSecを含まない', async () => {
+    mockSend.mockResolvedValue({
+      Item: {
+        PK: 'JOB#job-4',
+        SK: 'JOB#job-4',
+        Type: 'JOB',
+        jobId: 'job-4',
+        originalFileName: 'movie.mp4',
+        fileSize: 1024,
+        createdAt: 1000000,
+        expiresAt: 1086400,
+      },
+    });
+
+    const result = await repository.getById('job-4');
+
+    expect(result?.durationSec).toBeUndefined();
   });
 
   it('getById はアイテムが存在しない場合 null を返す', async () => {

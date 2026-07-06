@@ -4,6 +4,7 @@ export const DOMAIN_ERROR_MESSAGES = {
   JOB_UPDATED_FETCH_FAILED: 'ジョブの更新後の取得に失敗しました',
   FILE_NAME_REQUIRED: 'ファイル名は必須です',
   FILE_SIZE_INVALID: 'ファイルサイズは0より大きい必要があります',
+  DURATION_INVALID: '動画の再生時間は0より大きい数値で指定してください',
   ERROR_MESSAGE_REQUIRED: 'FAILEDステータスではエラーメッセージが必須です',
   HIGHLIGHT_ID_REQUIRED: '見どころIDは必須です',
   UPDATE_FIELDS_REQUIRED: '更新内容が指定されていません',
