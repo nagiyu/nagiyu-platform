@@ -48,6 +48,7 @@
 
 - `Header` / `Footer` / `AppLayout` / `ServiceLayout`
 - `AppThemeProvider`
+- `SessionProviderWrapper`（`next-auth` の `SessionProvider` ラッパー。barrel ではなく subpath `@nagiyu/ui/session-provider` で提供 → 後述）
 - `ErrorBoundary` / `ErrorAlert`
 - `LoadingState`
 - `PrivacyPolicyDialog` / `TermsOfServiceDialog` / `ConfirmDialog`
@@ -65,6 +66,14 @@
 - `ServiceLayout` を採用するサービスは、独自の `ThemeRegistry` を作らず `ServiceLayout` をルートレイアウトで直接利用する（過去 Issue #2148 / #2249 の方針）。
 - `ServiceLayout` を採用しないサービスは `AppThemeProvider` を利用し、`AppRouterCacheProvider + ThemeProvider + CssBaseline` の定型を独自実装しない。
 - サービス固有の追加要素（tools の `MigrationDialog` 等）は `AppThemeProvider` の `children` として合成する。
+
+#### `SessionProviderWrapper` は subpath export で提供する
+
+`next-auth`（ESM 配布）に依存する `SessionProviderWrapper` は、`@nagiyu/ui` の barrel（`src/index.ts`）からではなく、専用 subpath `@nagiyu/ui/session-provider` から named export で提供する。実際に next-auth を使うサービス（現状 `auth-web` / `livetalk-web`）だけがここから import する。
+
+- **なぜ barrel に載せないか**: barrel から re-export すると、`Button` など無関係なコンポーネントを import しただけで `@nagiyu/ui` の**全利用サービス**（現状 9 サービス）が `next-auth` を推移的に読み込む（barrel は先頭から評価されるため）。結果、各サービスの Jest が ESM の `next-auth` を変換対象に含める設定（`transformIgnorePatterns`）を持たないと `Cannot use import statement outside a module` で落ち、`next build` にも不要なコストが乗る。subpath に隔離することで、この負担を実利用サービスだけに閉じ込める。
+- **依存の持たせ方**: `next-auth` は `@nagiyu/ui` の `peerDependency`（実利用サービスが供給）とする。利用サービス側の `jest.config.ts` は `transformIgnorePatterns` で `next-auth` 系を変換対象に含める（`services/portal/web` の既存パターンと同型）。
+- **一般則**: 重量級・ESM-only の依存を持つ共通コンポーネントは、barrel に混ぜず subpath export で提供する（Issue #3603 で導入）。
 
 #### Navigation の集約
 
