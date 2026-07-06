@@ -1,6 +1,6 @@
-import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { createPresignedDownloadUrl } from '@nagiyu/aws';
 import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
 import { NextResponse } from 'next/server';
 import { InvokeCommand } from '@aws-sdk/client-lambda';
@@ -50,13 +50,13 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
       throw error;
     }
 
-    const downloadUrl = await getSignedUrl(
-      s3Client,
-      new GetObjectCommand({
-        Bucket: bucketName,
-        Key: ZIP_KEY(jobId),
-      }),
-      { expiresIn: ZIP_PRESIGNED_URL_EXPIRES_IN }
+    const downloadUrl = await createPresignedDownloadUrl(
+      {
+        bucketName,
+        key: ZIP_KEY(jobId),
+        expiresIn: ZIP_PRESIGNED_URL_EXPIRES_IN,
+      },
+      s3Client
     );
 
     return NextResponse.json({

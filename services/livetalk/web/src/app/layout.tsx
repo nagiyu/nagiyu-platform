@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { ServiceLayout, ServiceWorkerRegistration } from '@nagiyu/ui';
-import SessionProviderWrapper from '@/components/SessionProviderWrapper';
+import { SessionProviderWrapper } from '@nagiyu/ui/session-provider';
 import ClientErrorReporter from '@/components/ClientErrorReporter';
 import CharacterLicenseText from '@/components/CharacterLicenseText';
 import LiveTalkHeader from '@/components/LiveTalkHeader';

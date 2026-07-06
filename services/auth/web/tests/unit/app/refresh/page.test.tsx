@@ -35,10 +35,10 @@ jest.mock('next/navigation', () => ({
   useSearchParams: jest.fn(() => ({ get: mockGet })),
 }));
 
-// SessionProviderWrapper のモック（実体の SessionProvider 依存を回避）
-jest.mock('../../../../src/components/SessionProviderWrapper', () => ({
+// @nagiyu/ui/session-provider の SessionProviderWrapper のモック（実体の SessionProvider 依存を回避）
+jest.mock('@nagiyu/ui/session-provider', () => ({
   __esModule: true,
-  default: ({ children }: { children: React.ReactNode }) =>
+  SessionProviderWrapper: ({ children }: { children: React.ReactNode }) =>
     React.createElement(React.Fragment, null, children),
 }));
 

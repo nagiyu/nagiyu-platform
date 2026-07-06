@@ -1,13 +1,10 @@
 import { DynamoDBJobRepository, selectJobDefinition } from '@nagiyu/quick-clip-core';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import type { EmotionFilter } from '@nagiyu/quick-clip-core';
-import {
-  CreateMultipartUploadCommand,
-  PutObjectCommand,
-  UploadPartCommand,
-} from '@aws-sdk/client-s3';
+import { CreateMultipartUploadCommand, UploadPartCommand } from '@aws-sdk/client-s3';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { createPresignedUploadUrl } from '@nagiyu/aws';
 import { NextResponse } from 'next/server';
 import {
   getAwsRegion,
@@ -164,14 +161,14 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
-    const uploadUrl = await getSignedUrl(
-      getS3Client(),
-      new PutObjectCommand({
-        Bucket: bucketName,
-        Key: uploadKey,
-        ContentType: 'video/mp4',
-      }),
-      { expiresIn: UPLOAD_URL_EXPIRES_IN }
+    const uploadUrl = await createPresignedUploadUrl(
+      {
+        bucketName,
+        key: uploadKey,
+        contentType: 'video/mp4',
+        expiresIn: UPLOAD_URL_EXPIRES_IN,
+      },
+      getS3Client()
     );
 
     const submitResponse = await getBatchClient().send(
