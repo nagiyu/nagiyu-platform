@@ -1,41 +1,32 @@
-import type { MemoryEntity } from '@nagiyu/livetalk-core';
-import { encodeMemoryId } from './memory-id';
-import type { MemoryListItem } from './types';
+import type { SelfFactEntity } from '@nagiyu/livetalk-core';
+import { encodeSelfFactId } from './memory-id';
+import type { SelfFactListItem } from './types';
 
 /**
- * MemoryEntity を UI / API レスポンス用の DTO に変換する。
+ * SelfFactEntity を UI / API レスポンス用の DTO に変換する。
  *
  * PascalCase の DynamoDB エンティティを camelCase の DTO に落とし、
  * `id` には base64url エンコードした完全 SK を埋める。
+ * `subject` は所属 Topic の主題（呼び出し側が Topic ヘッダから渡す）。
  */
-export function toMemoryListItem(entity: MemoryEntity): MemoryListItem {
+export function toSelfFactListItem(entity: SelfFactEntity, subject: string): SelfFactListItem {
   return {
-    id: encodeMemoryId({
+    id: encodeSelfFactId({
       userId: entity.UserID,
       characterId: entity.CharacterID,
-      tier: entity.Tier,
-      category: entity.Category,
-      memoryId: entity.MemoryID,
+      topicId: entity.TopicID,
+      factId: entity.FactID,
     }),
-    tier: entity.Tier,
-    category: entity.Category,
-    content: entity.Content,
-    confidence: entity.Confidence,
-    referencedCount: entity.ReferencedCount,
-    lastReferencedAt: entity.LastReferencedAt,
+    topicId: entity.TopicID,
+    subject,
+    text: entity.Text,
     createdAt: entity.CreatedAt,
-    updatedAt: entity.UpdatedAt,
   };
 }
 
 /**
- * 一覧を最終参照日時の新しい順（未参照は末尾）→ 作成日時の新しい順で安定ソートする。
+ * 一覧を作成日時の新しい順（降順）で安定ソートする。
  */
-export function sortMemories(items: MemoryListItem[]): MemoryListItem[] {
-  return [...items].sort((a, b) => {
-    const aRef = a.lastReferencedAt ?? -1;
-    const bRef = b.lastReferencedAt ?? -1;
-    if (aRef !== bRef) return bRef - aRef;
-    return b.createdAt - a.createdAt;
-  });
+export function sortSelfFacts(items: SelfFactListItem[]): SelfFactListItem[] {
+  return [...items].sort((a, b) => b.createdAt - a.createdAt);
 }

@@ -1,11 +1,12 @@
-import { buildMemorySK, type MemoryKey, type Tier, TIERS } from '@nagiyu/livetalk-core';
+import { buildSelfFactSK, type SelfFactKey } from '@nagiyu/livetalk-core';
 
 /**
- * Memory の完全 SK を URL 安全な ID（base64url）にエンコード／デコードするユーティリティ。
+ * SELF fact の完全 SK を URL 安全な ID（base64url）にエンコード／デコードするユーティリティ
+ * （リブトーク知識再設計 P2 / #3698）。
  *
- * DynamoDB の SK は `CHAR#<characterId>#MEM#<tier>#<category>#<memoryId>` で、`#` や
- * 可変長の category を含むため API パスにそのまま乗せられない。Issue #3283 の方針どおり
- * 完全 SK を base64url でエンコードして `:id` として扱い、サーバ側で `MemoryKey` に復元する。
+ * DynamoDB の SK は `CHAR#<characterId>#TOPIC#<topicId>#SELF#<factId>` で、`#` や
+ * 可変長のセグメントを含むため API パスにそのまま乗せられない。完全 SK を base64url で
+ * エンコードして `:id` として扱い、サーバ側で `SelfFactKey` に復元する。
  */
 
 const SK_PREFIX = 'CHAR#';
@@ -33,21 +34,21 @@ function fromBase64Url(input: string): string {
 }
 
 /**
- * MemoryKey から API パス用の ID（base64url）を生成する。
+ * SelfFactKey から API パス用の ID（base64url）を生成する。
  */
-export function encodeMemoryId(key: MemoryKey): string {
-  const sk = buildMemorySK(key.characterId, key.tier, key.category, key.memoryId);
+export function encodeSelfFactId(key: SelfFactKey): string {
+  const sk = buildSelfFactSK(key.characterId, key.topicId, key.factId);
   return toBase64Url(sk);
 }
 
 /**
- * API パス用の ID を MemoryKey に復元する。
+ * API パス用の ID を SelfFactKey に復元する。
  *
  * @param id base64url エンコードされた完全 SK
  * @param userId 認可済みセッションの userId（PK 側はクライアント入力を信用しない）
- * @returns 復元した MemoryKey。不正な形式なら null
+ * @returns 復元した SelfFactKey。不正な形式なら null
  */
-export function decodeMemoryId(id: string, userId: string): MemoryKey | null {
+export function decodeSelfFactId(id: string, userId: string): SelfFactKey | null {
   let sk: string;
   try {
     sk = fromBase64Url(id);
@@ -57,21 +58,20 @@ export function decodeMemoryId(id: string, userId: string): MemoryKey | null {
 
   if (!sk.startsWith(SK_PREFIX)) return null;
 
-  // `CHAR#<characterId>#MEM#<tier>#<category>#<memoryId>`
-  // characterId / category / memoryId に `#` は含まれない前提で分割する。
+  // `CHAR#<characterId>#TOPIC#<topicId>#SELF#<factId>`
+  // characterId / topicId / factId に `#` は含まれない前提で分割する。
   const parts = sk.split('#');
   if (parts.length !== 6) return null;
 
-  const [, characterId, mem, tier, category, memoryId] = parts;
-  if (mem !== 'MEM') return null;
-  if (!characterId || !category || !memoryId) return null;
-  if (!TIERS.includes(tier as Tier)) return null;
+  const [, characterId, topic, topicId, self, factId] = parts;
+  if (topic !== 'TOPIC') return null;
+  if (self !== 'SELF') return null;
+  if (!characterId || !topicId || !factId) return null;
 
   return {
     userId,
     characterId,
-    tier: tier as Tier,
-    category,
-    memoryId,
+    topicId,
+    factId,
   };
 }

@@ -27,8 +27,8 @@ jest.mock('@/lib/server/safety', () => ({
   getSafetyEventRepository: jest.fn().mockReturnValue({}),
   getModerationClient: jest.fn().mockReturnValue({}),
 }));
-jest.mock('@/lib/server/memory-retriever', () => ({
-  getMemoryRetriever: jest.fn().mockReturnValue({}),
+jest.mock('@/lib/server/topic-retriever', () => ({
+  getTopicRetriever: jest.fn().mockReturnValue({}),
 }));
 jest.mock('@/lib/server/embedding', () => ({
   getEmbeddingClient: jest.fn().mockReturnValue({}),
@@ -268,6 +268,22 @@ describe('POST /api/chat', () => {
       expect(mockRunChatUseCase).toHaveBeenCalledWith(
         expect.objectContaining({ characterId: 'hiyori' })
       );
+    });
+
+    it('runChatUseCase に topicRetriever が渡され memoryRetriever は渡されない（P2 想起切替）', async () => {
+      mockRunChatUseCase.mockImplementation(async function* () {
+        yield { type: 'done' };
+      });
+
+      await POST(buildRequest({ text: 'こんにちは' }));
+
+      const callArgs = mockRunChatUseCase.mock.calls[0][0];
+      expect(callArgs.topicRetriever).toBeDefined();
+      expect(callArgs.memoryRetriever).toBeUndefined();
+      // promotion・履歴境界・metrics のため memoryRepository/embeddingClient/memorySummaryRepository は維持
+      expect(callArgs.memoryRepository).toBeDefined();
+      expect(callArgs.embeddingClient).toBeDefined();
+      expect(callArgs.memorySummaryRepository).toBeDefined();
     });
 
     it('未登録の characterId を指定した場合は 400 INVALID_REQUEST を返す', async () => {

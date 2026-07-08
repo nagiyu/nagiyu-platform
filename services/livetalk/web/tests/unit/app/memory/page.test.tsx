@@ -1,15 +1,14 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import MemoryPage from '@/app/memory/page';
-import { fetchMemories, deleteMemory, pinMemory } from '@/lib/memory/api-client';
+import { fetchSelfFacts, deleteSelfFact } from '@/lib/memory/api-client';
 import { useCharacter } from '@/lib/characters/CharacterContext';
 import MemoryList from '@/components/MemoryList';
 
 // api-client をモック
 jest.mock('@/lib/memory/api-client', () => ({
-  fetchMemories: jest.fn(),
-  deleteMemory: jest.fn(),
-  pinMemory: jest.fn(),
+  fetchSelfFacts: jest.fn(),
+  deleteSelfFact: jest.fn(),
 }));
 
 // useCharacter をモック（省略時は hiyori を返す）
@@ -20,19 +19,10 @@ jest.mock('@/lib/characters/CharacterContext', () => ({
   })),
 }));
 
-// MemoryTierTabs・MemoryList・MemoryDeleteDialog は DOM 描画確認に不要なためモック
-jest.mock('@/components/MemoryTierTabs', () => ({
-  __esModule: true,
-  default: jest.fn(({ onChange }: { value: string; onChange: (v: string) => void }) => (
-    <button data-testid="tier-tab-b" onClick={() => onChange('B')}>
-      B
-    </button>
-  )),
-}));
-
+// MemoryList・MemoryDeleteDialog は DOM 描画確認に不要なためモック
 jest.mock('@/components/MemoryList', () => ({
   __esModule: true,
-  default: jest.fn(({ loading }: { memories: unknown[]; loading: boolean }) => (
+  default: jest.fn(({ loading }: { items: unknown[]; loading: boolean }) => (
     <div data-testid="memory-list">{loading ? 'loading' : 'loaded'}</div>
   )),
 }));
@@ -48,17 +38,15 @@ jest.mock('@/lib/memory/messages', () => ({
   getMemoryDeleteAnnotation: jest.fn(() => 'テスト注釈'),
 }));
 
-const mockFetchMemories = fetchMemories as jest.MockedFunction<typeof fetchMemories>;
-const mockDeleteMemory = deleteMemory as jest.MockedFunction<typeof deleteMemory>;
-const mockPinMemory = pinMemory as jest.MockedFunction<typeof pinMemory>;
+const mockFetchSelfFacts = fetchSelfFacts as jest.MockedFunction<typeof fetchSelfFacts>;
+const mockDeleteSelfFact = deleteSelfFact as jest.MockedFunction<typeof deleteSelfFact>;
 const mockUseCharacter = useCharacter as jest.MockedFunction<typeof useCharacter>;
 const mockMemoryList = jest.mocked(MemoryList);
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockFetchMemories.mockResolvedValue([]);
-  mockDeleteMemory.mockResolvedValue(undefined);
-  mockPinMemory.mockResolvedValue({ id: 'x', tier: 'A' } as never);
+  mockFetchSelfFacts.mockResolvedValue([]);
+  mockDeleteSelfFact.mockResolvedValue(undefined);
   mockUseCharacter.mockReturnValue({ characterId: 'hiyori', setCharacterId: jest.fn() });
   // デフォルトのモック実装（loaded/loading 表示）に戻す
   mockMemoryList.mockImplementation(({ loading }) => (
@@ -67,27 +55,27 @@ beforeEach(() => {
 });
 
 describe('MemoryPage（characterId 連携）', () => {
-  it('マウント時に useCharacter の characterId を fetchMemories に渡す', async () => {
+  it('マウント時に useCharacter の characterId を fetchSelfFacts に渡す', async () => {
     mockUseCharacter.mockReturnValue({ characterId: 'hiyori', setCharacterId: jest.fn() });
     render(<MemoryPage />);
 
     await waitFor(() => {
-      expect(mockFetchMemories).toHaveBeenCalledWith('A', 'hiyori');
+      expect(mockFetchSelfFacts).toHaveBeenCalledWith('hiyori');
     });
   });
 
-  it('useCharacter が ageha を返す場合、fetchMemories に ageha を渡す', async () => {
+  it('useCharacter が ageha を返す場合、fetchSelfFacts に ageha を渡す', async () => {
     mockUseCharacter.mockReturnValue({ characterId: 'ageha', setCharacterId: jest.fn() });
     render(<MemoryPage />);
 
     await waitFor(() => {
-      expect(mockFetchMemories).toHaveBeenCalledWith('A', 'ageha');
+      expect(mockFetchSelfFacts).toHaveBeenCalledWith('ageha');
     });
   });
 
   it('ローディング中に "loading" が表示される', () => {
     // resolve しないことでローディング状態を維持
-    mockFetchMemories.mockReturnValue(new Promise(() => {}));
+    mockFetchSelfFacts.mockReturnValue(new Promise(() => {}));
     render(<MemoryPage />);
     expect(screen.getByTestId('memory-list')).toHaveTextContent('loading');
   });
@@ -99,15 +87,22 @@ describe('MemoryPage（characterId 連携）', () => {
     });
   });
 
-  it('fetchMemories が失敗するとエラーメッセージが表示される', async () => {
-    mockFetchMemories.mockRejectedValueOnce(new Error('記憶の取得に失敗しました'));
+  it('fetchSelfFacts が失敗するとエラーメッセージが表示される', async () => {
+    mockFetchSelfFacts.mockRejectedValueOnce(new Error('覚えていることの取得に失敗しました'));
     render(<MemoryPage />);
 
     await waitFor(() => {
       // MuiAlert と エラー Typography の両方が role=alert を持つため、AllByRole で検索する
       const alerts = screen.getAllByRole('alert');
-      const errorAlert = alerts.find((el) => el.textContent === '記憶の取得に失敗しました');
+      const errorAlert = alerts.find((el) => el.textContent === '覚えていることの取得に失敗しました');
       expect(errorAlert).toBeTruthy();
+    });
+  });
+
+  it('Tier タブが存在しない', async () => {
+    render(<MemoryPage />);
+    await waitFor(() => {
+      expect(screen.queryByTestId(/tier-tab/)).not.toBeInTheDocument();
     });
   });
 });
@@ -123,29 +118,26 @@ describe('MemoryPage レースコンディション対策', () => {
     // MemoryList をメモリ内容を確認できる実装に差し替える
     mockMemoryList.mockImplementation(
       ({
-        memories,
+        items,
         loading,
       }: {
-        memories: Array<{ id: string; content: string }>;
+        items: Array<{ id: string; text: string }>;
         loading: boolean;
       }) => (
         <div data-testid="memory-list">
-          {loading ? 'loading' : memories.map((m) => <span key={m.id}>{m.content}</span>)}
+          {loading ? 'loading' : items.map((m) => <span key={m.id}>{m.text}</span>)}
         </div>
       )
     );
 
     // 1回目（hiyori）は遅延、2回目（ageha）は即時解決
-    mockFetchMemories.mockReturnValueOnce(hiyoriPromise).mockResolvedValueOnce([
+    mockFetchSelfFacts.mockReturnValueOnce(hiyoriPromise).mockResolvedValueOnce([
       {
-        id: 'mem-ageha-1',
-        tier: 'A',
-        category: 'test',
-        content: 'アゲハの記憶',
-        confidence: 0.9,
-        referencedCount: 0,
+        id: 'fact-ageha-1',
+        topicId: 't1',
+        subject: 'テスト',
+        text: 'アゲハの記憶',
         createdAt: 1,
-        updatedAt: 1,
       },
     ]);
 
