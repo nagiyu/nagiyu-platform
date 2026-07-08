@@ -77,6 +77,7 @@ const nextAuthSecret = app.node.tryGetContext('nextAuthSecret') || 'PLACEHOLDER'
 const vapidPublicKey = app.node.tryGetContext('vapidPublicKey') || 'PLACEHOLDER';
 const vapidPrivateKey = app.node.tryGetContext('vapidPrivateKey') || 'PLACEHOLDER';
 const openAiApiKey = app.node.tryGetContext('openAiApiKey') || 'PLACEHOLDER';
+const finnhubApiKey = app.node.tryGetContext('finnhubApiKey') || 'PLACEHOLDER';
 
 const lambdaStack = new LambdaStack(app, `NagiyuStockTrackerLambda${envSuffix}`, {
   environment: env,
@@ -88,6 +89,7 @@ const lambdaStack = new LambdaStack(app, `NagiyuStockTrackerLambda${envSuffix}`,
   vapidPublicKey,
   vapidPrivateKey,
   openAiApiKey,
+  finnhubApiKey,
   nextAuthSecret,
   env: stackEnv,
   description: `Stock Tracker Lambda Functions - ${env} environment`,

@@ -1,8 +1,7 @@
 import { DynamoDBHighlightRepository, DynamoDBJobRepository } from '@nagiyu/quick-clip-core';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { NextResponse } from 'next/server';
-import { GetObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { createPresignedDownloadUrl } from '@nagiyu/aws';
 import {
   getBucketName,
   getDynamoDBDocumentClient,
@@ -52,13 +51,13 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
     const results = await Promise.all(
       highlights.map(async (highlight) => {
         if (highlight.clipStatus === 'GENERATED') {
-          const clipUrl = await getSignedUrl(
-            getS3Client(),
-            new GetObjectCommand({
-              Bucket: bucketName,
-              Key: buildClipKey(jobId, highlight.highlightId),
-            }),
-            { expiresIn: CLIP_URL_EXPIRES_IN }
+          const clipUrl = await createPresignedDownloadUrl(
+            {
+              bucketName,
+              key: buildClipKey(jobId, highlight.highlightId),
+              expiresIn: CLIP_URL_EXPIRES_IN,
+            },
+            getS3Client()
           );
           return { ...highlight, clipUrl };
         }

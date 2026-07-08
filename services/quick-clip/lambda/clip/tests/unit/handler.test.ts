@@ -45,6 +45,7 @@ jest.mock('@nagiyu/aws', () => ({
   withErrorReporting: jest.fn((_opts: unknown, fn: () => Promise<unknown>) => fn()),
   getDynamoDBDocumentClient: jest.fn().mockReturnValue({}),
   getS3Client: jest.fn().mockReturnValue({ send: mockSend }),
+  createPresignedDownloadUrl: (...args: unknown[]) => mockGetSignedUrl(...args),
 }));
 
 jest.mock('@nagiyu/common', () => ({

@@ -69,4 +69,25 @@ describe('searchVideos', () => {
 
     await expect(searchVideos('test')).rejects.toThrow('動画検索に失敗しました: 500');
   });
+
+  it('should return empty array when search endpoint returns 404 (no results)', async () => {
+    // ニコニコは検索結果が0件のとき HTTP 404 を返すため、throw せず空配列を返すこと
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+    } as Response);
+
+    const result = await searchVideos('検索結果なしキーワード');
+    expect(result).toEqual([]);
+  });
+
+  it('should throw NiconicoAPIError (not treat as empty) when 404 is not from search endpoint', async () => {
+    // 500 など 404 以外の HTTP エラーは従来どおり NiconicoAPIError を throw すること
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+    } as Response);
+
+    await expect(searchVideos('test')).rejects.toBeInstanceOf(NiconicoAPIError);
+  });
 });

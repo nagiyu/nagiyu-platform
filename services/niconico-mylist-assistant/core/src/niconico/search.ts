@@ -20,6 +20,10 @@ export async function searchVideos(keyword: string): Promise<NiconicoVideoInfo[]
 
   const response = await fetch(`${NICONICO_SEARCH_URL_BASE}${encodeURIComponent(trimmedKeyword)}`);
   if (!response.ok) {
+    // ニコニコは検索結果が0件のとき HTTP 404 を返す仕様のため、404 は正常系として空配列を返す
+    if (response.status === 404) {
+      return [];
+    }
     throw new NiconicoAPIError(
       `${NICONICO_ERROR_MESSAGES.SEARCH_HTTP_ERROR}: ${response.status}`,
       'SEARCH_HTTP_ERROR'

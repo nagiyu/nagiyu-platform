@@ -1,5 +1,8 @@
 /**
  * Unit tests for minute batch processing
+ *
+ * PriceSource ベースのルーティングを検証する（Unit 2b 対応）。
+ * TradingView 経路（共有セッション最適化）と Finnhub 経路の両方を検証する。
  */
 
 import { handler } from '../../src/minute.js';
@@ -19,6 +22,9 @@ let mockSession: { getCurrentPrice: jest.Mock; close: jest.Mock; getSessionId: j
 // standalone getCurrentPrice モック（新規 WS リトライ用）
 const mockGetCurrentPrice = jest.fn();
 
+// FinnhubQuoteProvider モック（beforeEach で再生成）
+let mockFinnhubGetCurrentPrice: jest.Mock;
+
 // モックの設定
 jest.mock('@nagiyu/aws');
 jest.mock('../../src/lib/web-push-client.js');
@@ -34,6 +40,9 @@ jest.mock('@nagiyu/stock-tracker-core', () => ({
   isTradingHours: jest.fn(),
   TradingViewSession: jest.fn().mockImplementation(() => mockSession),
   getCurrentPrice: (...args: unknown[]) => mockGetCurrentPrice(...args),
+  FinnhubQuoteProvider: jest.fn().mockImplementation(() => ({
+    getCurrentPrice: (...args: unknown[]) => mockFinnhubGetCurrentPrice(...args),
+  })),
 }));
 
 /** テスト用アラートファクトリ */
@@ -57,6 +66,7 @@ function makeAlert(overrides: Partial<Alert> = {}): Alert {
   };
 }
 
+/** tradingview 用デフォルト取引所（PriceSource=tradingview） */
 const mockExchange: Exchange = {
   ExchangeID: 'NASDAQ',
   Name: 'NASDAQ',
@@ -64,6 +74,7 @@ const mockExchange: Exchange = {
   Timezone: 'America/New_York',
   Start: '04:00',
   End: '20:00',
+  PriceSource: 'tradingview',
   CreatedAt: Date.now(),
   UpdatedAt: Date.now(),
 };
@@ -79,6 +90,7 @@ describe('minute batch handler', () => {
     // モックのリセット
     jest.clearAllMocks();
     mockGetCurrentPrice.mockReset();
+    mockFinnhubGetCurrentPrice = jest.fn();
 
     // process.exit をモックして、container kill 発火時にテストプロセスが終了するのを防ぐ
     exitSpy = jest.spyOn(process, 'exit').mockImplementation((() => undefined) as () => never);
@@ -1054,6 +1066,151 @@ describe('minute batch handler', () => {
 
       const body = JSON.parse(response.body);
       expect(body.statistics.freshSessionRetries).toBe(0);
+      expect(body.statistics.errors).toBe(0);
+    });
+  });
+
+  describe('Finnhub 経路（PriceSource = finnhub）', () => {
+    const finnhubExchange: Exchange = {
+      ExchangeID: 'NASDAQ',
+      Name: 'NASDAQ',
+      Key: 'NSDQ',
+      Timezone: 'America/New_York',
+      Start: '04:00',
+      End: '20:00',
+      PriceSource: 'finnhub',
+      CreatedAt: Date.now(),
+      UpdatedAt: Date.now(),
+    };
+
+    it('PriceSource=finnhub の場合、FinnhubQuoteProvider が呼ばれ共有セッションは使わない', async () => {
+      // Arrange
+      const alert = makeAlert();
+      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockExchangeRepo.getById.mockResolvedValue(finnhubExchange);
+      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
+
+      mockFinnhubGetCurrentPrice.mockResolvedValue(205.0);
+      (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(false);
+
+      // Act
+      const response = await handler(mockEvent);
+
+      // Assert
+      expect(response.statusCode).toBe(200);
+      // Finnhub provider が呼ばれ、共有セッションは使わない
+      expect(mockFinnhubGetCurrentPrice).toHaveBeenCalledWith('NSDQ:AAPL', {
+        timeout: 4000,
+      });
+      expect(mockSession.getCurrentPrice).not.toHaveBeenCalled();
+      expect(mockGetCurrentPrice).not.toHaveBeenCalled();
+
+      const body = JSON.parse(response.body);
+      expect(body.statistics.errors).toBe(0);
+      // Finnhub 経路には fresh-WS リトライがないため freshSessionRetries=0
+      expect(body.statistics.freshSessionRetries).toBe(0);
+    });
+
+    it('PriceSource=finnhub で Finnhub API が成功: 通知が送信される', async () => {
+      // Arrange
+      const alert = makeAlert();
+      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockExchangeRepo.getById.mockResolvedValue(finnhubExchange);
+      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
+
+      mockFinnhubGetCurrentPrice.mockResolvedValue(205.0);
+      (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(true);
+      (sendWebPushNotification as jest.Mock).mockResolvedValue(true);
+      (webPushClient.createAlertNotificationPayload as jest.Mock).mockReturnValue({
+        title: 'Test Alert',
+        body: 'Test body',
+      });
+      (getVapidConfig as jest.Mock).mockReturnValue({
+        publicKey: 'test-public-key',
+        privateKey: 'test-private-key',
+        subject: 'mailto:support@nagiyu.com',
+      });
+
+      // Act
+      const response = await handler(mockEvent);
+
+      // Assert
+      expect(response.statusCode).toBe(200);
+      expect(sendWebPushNotification).toHaveBeenCalled();
+
+      const body = JSON.parse(response.body);
+      expect(body.statistics.notificationsSent).toBe(1);
+      expect(body.statistics.errors).toBe(0);
+    });
+
+    it('PriceSource=finnhub で Finnhub API が失敗: errors が増え container kill 閾値に到達する', async () => {
+      // Arrange: MINUTE_BATCH_CONTAINER_KILL_THRESHOLD=1 でエラーが発生すると process.exit(1)
+      process.env.MINUTE_BATCH_CONTAINER_KILL_THRESHOLD = '1';
+      const alert = makeAlert();
+      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockExchangeRepo.getById.mockResolvedValue(finnhubExchange);
+      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
+
+      // Finnhub エラー（fresh-WS リトライなしで直接 catch に流れる）
+      mockFinnhubGetCurrentPrice.mockRejectedValue(new Error('Finnhub API タイムアウト'));
+      (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
+
+      // Act
+      await handler(mockEvent);
+
+      // Assert: Finnhub エラーも stats.errors に計上され、閾値に到達 → container kill
+      expect(exitSpy).toHaveBeenCalledWith(1);
+      // fresh-WS リトライは発生しない（Finnhub 経路は単発）
+      expect(mockGetCurrentPrice).not.toHaveBeenCalled();
+
+      delete process.env.MINUTE_BATCH_CONTAINER_KILL_THRESHOLD;
+    });
+
+    it('PriceSource=finnhub で Finnhub API が失敗: standalone getCurrentPrice は呼ばれない', async () => {
+      // Arrange
+      const alert = makeAlert();
+      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockExchangeRepo.getById.mockResolvedValue(finnhubExchange);
+      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
+
+      mockFinnhubGetCurrentPrice.mockRejectedValue(new Error('Finnhub API エラー'));
+      (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
+
+      // Act
+      const response = await handler(mockEvent);
+
+      // Assert
+      expect(response.statusCode).toBe(200);
+      // Finnhub 経路では fresh-WS リトライ（standalone getCurrentPrice）は呼ばれない
+      expect(mockGetCurrentPrice).not.toHaveBeenCalled();
+      expect(mockSession.getCurrentPrice).not.toHaveBeenCalled();
+
+      const body = JSON.parse(response.body);
+      expect(body.statistics.errors).toBe(1);
+      expect(body.statistics.freshSessionRetries).toBe(0);
+    });
+
+    it('PriceSource=tradingview のアラートは引き続き共有セッション経路を使う', async () => {
+      // Arrange: PriceSource=tradingview の取引所
+      const alert = makeAlert();
+      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockExchangeRepo.getById.mockResolvedValue(mockExchange); // PriceSource='tradingview'
+      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
+
+      mockSession.getCurrentPrice.mockResolvedValue(205.0);
+      (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(false);
+
+      // Act
+      const response = await handler(mockEvent);
+
+      // Assert: TradingView 共有セッション経路を使い、Finnhub は呼ばれない
+      expect(mockSession.getCurrentPrice).toHaveBeenCalledWith('NSDQ:AAPL', {
+        timeout: 4000,
+      });
+      expect(mockFinnhubGetCurrentPrice).not.toHaveBeenCalled();
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
       expect(body.statistics.errors).toBe(0);
     });
   });

@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import Home from '@/app/page';
+import { getVideoDurationSec } from '@/lib/get-video-duration';
 
 const mockPush = jest.fn();
 
@@ -8,6 +9,10 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({
     push: mockPush,
   }),
+}));
+
+jest.mock('@/lib/get-video-duration', () => ({
+  getVideoDurationSec: jest.fn(),
 }));
 
 type MockXHR = {
@@ -35,6 +40,7 @@ describe('Home', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    (getVideoDurationSec as jest.Mock).mockResolvedValue(undefined);
 
     mockXHR = {
       open: jest.fn(),
@@ -106,6 +112,54 @@ describe('Home', () => {
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledWith('/jobs/job-1');
     });
+  });
+
+  it('動画の尺が取得できた場合はdurationSecをリクエストボディに含める', async () => {
+    (getVideoDurationSec as jest.Mock).mockResolvedValue(123.45);
+    const mockFetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        jobId: 'job-1',
+        uploadUrl: 'https://example.com/upload',
+      }),
+    });
+    global.fetch = mockFetch as jest.Mock;
+
+    render(<Home />);
+
+    selectFile();
+    fireEvent.click(screen.getByRole('button', { name: 'アップロードして処理開始' }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalled();
+    });
+
+    const requestInit = mockFetch.mock.calls[0]?.[1] as { body: string };
+    expect(JSON.parse(requestInit.body)).toEqual(expect.objectContaining({ durationSec: 123.45 }));
+  });
+
+  it('動画の尺が取得できなかった場合はdurationSecをリクエストボディに含めない', async () => {
+    (getVideoDurationSec as jest.Mock).mockResolvedValue(undefined);
+    const mockFetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        jobId: 'job-1',
+        uploadUrl: 'https://example.com/upload',
+      }),
+    });
+    global.fetch = mockFetch as jest.Mock;
+
+    render(<Home />);
+
+    selectFile();
+    fireEvent.click(screen.getByRole('button', { name: 'アップロードして処理開始' }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalled();
+    });
+
+    const requestInit = mockFetch.mock.calls[0]?.[1] as { body: string };
+    expect(JSON.parse(requestInit.body)).not.toHaveProperty('durationSec');
   });
 
   it('動画アップロードが失敗した場合はエラーを表示して遷移しない', async () => {

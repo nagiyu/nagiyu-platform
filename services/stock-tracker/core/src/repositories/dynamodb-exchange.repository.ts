@@ -66,6 +66,7 @@ export class DynamoDBExchangeRepository
       Timezone: entity.Timezone,
       Start: entity.Start,
       End: entity.End,
+      PriceSource: entity.PriceSource,
     };
   }
 
@@ -143,6 +144,11 @@ export class DynamoDBExchangeRepository
         updateExpressions.push('#end = :end');
         expressionAttributeNames['#end'] = 'End';
         expressionAttributeValues[':end'] = updates.End;
+      }
+      if (updates.PriceSource !== undefined) {
+        updateExpressions.push('#priceSource = :priceSource');
+        expressionAttributeNames['#priceSource'] = 'PriceSource';
+        expressionAttributeValues[':priceSource'] = updates.PriceSource;
       }
 
       // UpdatedAt を常に更新

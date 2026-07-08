@@ -98,6 +98,10 @@ export class BatchStack extends cdk.Stack {
     const batchImage = `${this.account}.dkr.ecr.${this.region}.amazonaws.com/${batchRepositoryName}:batch-latest`;
     const jobDefinitionPrefix = `nagiyu-quick-clip-${props.environment}`;
 
+    // small ジョブ定義は当初 1 vCPU だったが、小サイズ×長尺(低ビットレート)動画では
+    // FFmpeg 並列数(最大10)に対して CPU が不足しタイムアウトしていたため、4 vCPU に底上げする。
+    // Fargate では 4 vCPU の最小メモリ要件が 8GB のため MEMORY も合わせて引き上げる。
+    // timeout も 1h→2h に延長し、CPU 増強後も余裕を持って完走できるようにする。
     const smallJobDefinition = new batch.CfnJobDefinition(this, 'SmallJobDefinition', {
       jobDefinitionName: `${jobDefinitionPrefix}-small`,
       type: 'container',
@@ -105,8 +109,8 @@ export class BatchStack extends cdk.Stack {
       containerProperties: {
         image: batchImage,
         resourceRequirements: [
-          { type: 'VCPU', value: '1' },
-          { type: 'MEMORY', value: '4096' },
+          { type: 'VCPU', value: '4' },
+          { type: 'MEMORY', value: '8192' },
         ],
         executionRoleArn: executionRole.roleArn,
         jobRoleArn: jobRole.roleArn,
@@ -144,7 +148,7 @@ export class BatchStack extends cdk.Stack {
           },
         ],
       },
-      timeout: { attemptDurationSeconds: 3600 },
+      timeout: { attemptDurationSeconds: 2 * 3600 },
       retryStrategy: { attempts: 1 },
     });
 

@@ -4,7 +4,13 @@
  * AWS S3 へのファイルアップロード機能を提供
  */
 
-import { S3Client, PutObjectCommand, PutObjectCommandInput } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  PutObjectCommandInput,
+  GetObjectCommand,
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 const DEFAULT_REGION = 'us-east-1';
 const cachedClients = new Map<string, S3Client>();
@@ -90,6 +96,66 @@ export async function uploadFile(
   const response = await client.send(command);
 
   return response.ETag;
+}
+
+/**
+ * Presigned URL 生成の共通オプション
+ */
+export interface PresignedUrlOptions {
+  bucketName: string;
+  key: string;
+  /** URL の有効期限（秒） */
+  expiresIn: number;
+}
+
+/**
+ * アップロード用 Presigned URL 生成のオプション
+ */
+export interface PresignedUploadUrlOptions extends PresignedUrlOptions {
+  contentType?: string;
+}
+
+/**
+ * アップロード用 Presigned URL（PUT）を生成する。
+ *
+ * @param options - バケット名・キー・有効期限・Content-Type
+ * @param client - S3 クライアント（省略時は getS3Client() を使用）
+ * @returns アップロード用 Presigned URL
+ */
+export async function createPresignedUploadUrl(
+  options: PresignedUploadUrlOptions,
+  client: S3Client = getS3Client()
+): Promise<string> {
+  const { bucketName, key, contentType, expiresIn } = options;
+
+  const command = new PutObjectCommand({
+    Bucket: bucketName,
+    Key: key,
+    ContentType: contentType,
+  });
+
+  return getSignedUrl(client, command, { expiresIn });
+}
+
+/**
+ * ダウンロード用 Presigned URL（GET）を生成する。
+ *
+ * @param options - バケット名・キー・有効期限
+ * @param client - S3 クライアント（省略時は getS3Client() を使用）
+ * @returns ダウンロード用 Presigned URL
+ */
+export async function createPresignedDownloadUrl(
+  options: PresignedUrlOptions,
+  client: S3Client = getS3Client()
+): Promise<string> {
+  const { bucketName, key, expiresIn } = options;
+
+  const command = new GetObjectCommand({
+    Bucket: bucketName,
+    Key: key,
+  });
+
+  return getSignedUrl(client, command, { expiresIn });
 }
 
 /**

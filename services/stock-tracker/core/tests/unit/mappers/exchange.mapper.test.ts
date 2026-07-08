@@ -6,6 +6,7 @@
 
 import { ExchangeMapper } from '../../../src/mappers/exchange.mapper.js';
 import type { ExchangeEntity } from '../../../src/entities/exchange.entity.js';
+import { DEFAULT_PRICE_SOURCE } from '../../../src/entities/exchange.entity.js';
 import type { DynamoDBItem } from '@nagiyu/aws';
 
 describe('ExchangeMapper', () => {
@@ -24,6 +25,7 @@ describe('ExchangeMapper', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview',
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -40,9 +42,28 @@ describe('ExchangeMapper', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview',
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       });
+    });
+
+    it('PriceSource が finnhub の場合も正しく変換する', () => {
+      const entity: ExchangeEntity = {
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ Stock Market',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '04:00',
+        End: '20:00',
+        PriceSource: 'finnhub',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const item = mapper.toItem(entity);
+
+      expect(item.PriceSource).toBe('finnhub');
     });
 
     it('異なる取引所IDで異なるPKを生成する', () => {
@@ -53,6 +74,7 @@ describe('ExchangeMapper', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview',
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -80,6 +102,7 @@ describe('ExchangeMapper', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview',
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -112,6 +135,7 @@ describe('ExchangeMapper', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview',
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -125,6 +149,7 @@ describe('ExchangeMapper', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview',
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       });
@@ -141,6 +166,7 @@ describe('ExchangeMapper', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview',
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -163,11 +189,77 @@ describe('ExchangeMapper', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview',
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
 
       expect(() => mapper.toEntity(item)).toThrow();
+    });
+
+    it('PriceSource 属性が存在しない既存レコードは DEFAULT_PRICE_SOURCE にフォールバックする', () => {
+      // 後方互換: PriceSource が未設定の古いレコード
+      const item: DynamoDBItem = {
+        PK: 'EXCHANGE#TSE',
+        SK: 'METADATA',
+        Type: 'Exchange',
+        ExchangeID: 'TSE',
+        Name: '東京証券取引所',
+        Key: 'TSE',
+        Timezone: 'Asia/Tokyo',
+        Start: '09:00',
+        End: '15:30',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+        // PriceSource は意図的に省略
+      };
+
+      const entity = mapper.toEntity(item);
+
+      expect(entity.PriceSource).toBe(DEFAULT_PRICE_SOURCE);
+      expect(entity.PriceSource).toBe('tradingview');
+    });
+
+    it('PriceSource が無効な値の場合は DEFAULT_PRICE_SOURCE にフォールバックする', () => {
+      const item: DynamoDBItem = {
+        PK: 'EXCHANGE#NASDAQ',
+        SK: 'METADATA',
+        Type: 'Exchange',
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ Stock Market',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '04:00',
+        End: '20:00',
+        PriceSource: 'invalid-source', // 無効な値
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const entity = mapper.toEntity(item);
+
+      expect(entity.PriceSource).toBe(DEFAULT_PRICE_SOURCE);
+    });
+
+    it('PriceSource が finnhub の場合は finnhub を返す', () => {
+      const item: DynamoDBItem = {
+        PK: 'EXCHANGE#NASDAQ',
+        SK: 'METADATA',
+        Type: 'Exchange',
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ Stock Market',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '04:00',
+        End: '20:00',
+        PriceSource: 'finnhub',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const entity = mapper.toEntity(item);
+
+      expect(entity.PriceSource).toBe('finnhub');
     });
   });
 
@@ -191,7 +283,7 @@ describe('ExchangeMapper', () => {
   });
 
   describe('変換の往復', () => {
-    it('Entity -> Item -> Entity の変換で元のエンティティに戻る', () => {
+    it('Entity -> Item -> Entity の変換で元のエンティティに戻る (tradingview)', () => {
       const original: ExchangeEntity = {
         ExchangeID: 'NASDAQ',
         Name: 'NASDAQ Stock Market',
@@ -199,6 +291,26 @@ describe('ExchangeMapper', () => {
         Timezone: 'America/New_York',
         Start: '04:00',
         End: '20:00',
+        PriceSource: 'tradingview',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const item = mapper.toItem(original);
+      const result = mapper.toEntity(item);
+
+      expect(result).toEqual(original);
+    });
+
+    it('Entity -> Item -> Entity の変換で元のエンティティに戻る (finnhub)', () => {
+      const original: ExchangeEntity = {
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ Stock Market',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '04:00',
+        End: '20:00',
+        PriceSource: 'finnhub',
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };

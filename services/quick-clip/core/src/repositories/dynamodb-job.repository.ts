@@ -16,6 +16,7 @@ type JobItem = {
   batchStage?: string;
   originalFileName: string;
   fileSize: number;
+  durationSec?: number;
   createdAt: number;
   expiresAt: number;
   errorMessage?: string;
@@ -138,6 +139,7 @@ export class DynamoDBJobRepository implements JobRepository {
       ...(item.batchStage ? { batchStage: item.batchStage as BatchStage } : {}),
       originalFileName: item.originalFileName,
       fileSize: item.fileSize,
+      ...(item.durationSec !== undefined ? { durationSec: item.durationSec } : {}),
       createdAt: item.createdAt,
       expiresAt: item.expiresAt,
       ...(item.errorMessage ? { errorMessage: item.errorMessage } : {}),
@@ -154,6 +156,7 @@ export class DynamoDBJobRepository implements JobRepository {
       ...(job.batchStage ? { batchStage: job.batchStage } : {}),
       originalFileName: job.originalFileName,
       fileSize: job.fileSize,
+      ...(job.durationSec !== undefined ? { durationSec: job.durationSec } : {}),
       createdAt: job.createdAt,
       expiresAt: job.expiresAt,
       ...(job.errorMessage ? { errorMessage: job.errorMessage } : {}),

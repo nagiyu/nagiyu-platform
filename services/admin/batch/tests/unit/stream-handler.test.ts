@@ -67,6 +67,12 @@ describe('unmarshallErrorEvent', () => {
     const newImage = marshall({ ...sampleEvent, source: 'invalid-source' });
     expect(unmarshallErrorEvent(newImage as Record<string, unknown>)).toBeNull();
   });
+
+  it('source が batch-event でも ErrorEvent に変換する', () => {
+    const newImage = marshall({ ...sampleEvent, source: 'batch-event' });
+    const result = unmarshallErrorEvent(newImage as Record<string, unknown>);
+    expect(result?.source).toBe('batch-event');
+  });
 });
 
 describe('buildPushPayload', () => {

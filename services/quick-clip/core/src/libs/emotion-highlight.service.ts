@@ -1,6 +1,6 @@
 import { zodTextFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
-import { withRetry } from '@nagiyu/common';
+import { withRetry, withTimeout } from '@nagiyu/common';
 import type OpenAI from 'openai';
 import type {
   EmotionFilter,
@@ -30,25 +30,6 @@ const emotionScoresSchema = z.object({
     })
   ),
 });
-
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<T>((_, reject) => {
-        timeoutId = setTimeout(() => {
-          reject(new Error(ERROR_MESSAGES.TIMEOUT));
-        }, timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-  }
-}
 
 function chunkArray<T>(array: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -167,7 +148,8 @@ export class EmotionHighlightService {
                   },
                 ],
               }),
-              REQUEST_TIMEOUT_MS
+              REQUEST_TIMEOUT_MS,
+              ERROR_MESSAGES.TIMEOUT
             ),
           {
             maxRetries: MAX_RETRIES,
