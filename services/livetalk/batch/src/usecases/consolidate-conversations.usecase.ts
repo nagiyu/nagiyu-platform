@@ -87,14 +87,11 @@ export async function consolidateAllConversations(
             hasConsolidated = true;
           }
         } catch (error) {
-          logger.warn(
-            '[consolidateAllConversations] キャラクター処理失敗（他キャラは継続）',
-            {
-              userId,
-              characterId,
-              error: toErrorMessage(error),
-            }
-          );
+          logger.warn('[consolidateAllConversations] キャラクター処理失敗（他キャラは継続）', {
+            userId,
+            characterId,
+            error: toErrorMessage(error),
+          });
           hasCharacterError = true;
         }
       }
