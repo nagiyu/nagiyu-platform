@@ -20,12 +20,19 @@ export class JobService {
     if (!Number.isFinite(input.fileSize) || input.fileSize <= 0) {
       throw new Error(DOMAIN_ERROR_MESSAGES.FILE_SIZE_INVALID);
     }
+    if (
+      input.durationSec !== undefined &&
+      (!Number.isFinite(input.durationSec) || input.durationSec <= 0)
+    ) {
+      throw new Error(DOMAIN_ERROR_MESSAGES.DURATION_INVALID);
+    }
 
     const createdAt = Math.floor(Date.now() / 1000);
     const job: Job = {
       jobId: randomUUID(),
       originalFileName,
       fileSize: input.fileSize,
+      ...(input.durationSec !== undefined ? { durationSec: input.durationSec } : {}),
       createdAt,
       expiresAt: createdAt + JOB_TTL_SECONDS,
     };

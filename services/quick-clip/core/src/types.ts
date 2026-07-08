@@ -25,6 +25,8 @@ export type Job = {
   batchStage?: BatchStage;
   originalFileName: string;
   fileSize: number;
+  // 動画の再生時間(秒)。Job Definition 選択の尺軸に使用する。取得できなかった場合は未設定
+  durationSec?: number;
   createdAt: number;
   expiresAt: number;
   errorMessage?: string;
@@ -47,6 +49,7 @@ export type Highlight = {
 export type CreateJobInput = {
   originalFileName: string;
   fileSize: number;
+  durationSec?: number;
 };
 
 export type UpdateHighlightInput = {

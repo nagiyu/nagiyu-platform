@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Alert, Box, Container, LinearProgress, Paper, Typography } from '@mui/material';
 import { Button, ErrorAlert } from '@nagiyu/ui';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import { getVideoDurationSec } from '@/lib/get-video-duration';
 
 const ERROR_MESSAGES = {
   SELECT_FILE: '動画ファイルを選択してください',
@@ -119,6 +120,8 @@ export default function Home() {
     setErrorMessage(null);
 
     try {
+      const durationSec = await getVideoDurationSec(file);
+
       const response = await fetch('/api/jobs', {
         method: 'POST',
         headers: {
@@ -128,6 +131,7 @@ export default function Home() {
           fileName: file.name,
           fileSize: file.size,
           contentType: file.type,
+          ...(durationSec !== undefined ? { durationSec } : {}),
         }),
       });
 

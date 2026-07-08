@@ -99,6 +99,36 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
     expect(mockUpdateBatchJobId).toHaveBeenCalledWith('job-1', 'batch-job-1');
   });
 
+  it('正常系: 小サイズ×長尺のジョブは尺軸でジョブ定義が昇格する', async () => {
+    mockGetById.mockResolvedValueOnce({
+      jobId: 'job-1',
+      originalFileName: 'movie.mp4',
+      fileSize: 1024,
+      durationSec: 12000,
+      createdAt: 1,
+      expiresAt: 2,
+    });
+
+    const response = await POST(
+      createRequest({
+        uploadId: 'upload-1',
+        parts: [{ PartNumber: 1, ETag: '"etag-1"' }],
+      }),
+      {
+        params: Promise.resolve({ jobId: 'job-1' }),
+      }
+    );
+
+    expect(response.status).toBe(200);
+    expect(batchSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          jobDefinition: 'nagiyu-quick-clip-dev-xlarge',
+        }),
+      })
+    );
+  });
+
   it('正常系: 大容量ファイルではxlargeジョブ定義でBatch投入する', async () => {
     mockGetById.mockResolvedValueOnce({
       jobId: 'job-1',

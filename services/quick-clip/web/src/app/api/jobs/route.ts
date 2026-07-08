@@ -23,6 +23,7 @@ const ERROR_MESSAGES = {
   INVALID_REQUEST: COMMON_ERROR_MESSAGES.BAD_REQUEST,
   INVALID_FILE_TYPE: 'MP4 形式の動画ファイルのみアップロードできます',
   INVALID_FILE_SIZE: 'ファイルサイズが不正です',
+  INVALID_DURATION: '動画の再生時間が不正です',
   MULTIPART_UPLOAD_ID_NOT_FOUND: 'マルチパートアップロード ID の取得に失敗しました',
   INTERNAL_SERVER_ERROR: 'ジョブの作成に失敗しました',
 } as const;
@@ -32,6 +33,7 @@ type CreateJobRequest = {
   fileSize: number;
   contentType?: string;
   emotionFilter?: EmotionFilter;
+  durationSec?: number;
 };
 
 const UPLOAD_URL_EXPIRES_IN = 3600;
@@ -39,6 +41,7 @@ const MULTIPART_UPLOAD_URL_EXPIRES_IN = 24 * 60 * 60;
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024 * 1024;
 const MULTIPART_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
 const MULTIPART_CHUNK_SIZE_BYTES = 50 * 1024 * 1024;
+const MAX_DURATION_SEC = 24 * 60 * 60;
 
 const isCreateJobRequest = (body: unknown): body is CreateJobRequest => {
   if (typeof body !== 'object' || body === null) {
@@ -53,6 +56,9 @@ const isCreateJobRequest = (body: unknown): body is CreateJobRequest => {
     request.emotionFilter !== undefined &&
     !VALID_EMOTION_FILTERS.has(request.emotionFilter as string)
   ) {
+    return false;
+  }
+  if (request.durationSec !== undefined && typeof request.durationSec !== 'number') {
     return false;
   }
   return true;
@@ -99,12 +105,28 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
+    if (
+      body.durationSec !== undefined &&
+      (!Number.isFinite(body.durationSec) ||
+        body.durationSec <= 0 ||
+        body.durationSec > MAX_DURATION_SEC)
+    ) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_DURATION',
+          message: ERROR_MESSAGES.INVALID_DURATION,
+        },
+        { status: 400 }
+      );
+    }
+
     const jobService = new JobDomainService(
       new DynamoDBJobRepository(getDynamoDBDocumentClient(), getTableName())
     );
     const job = await jobService.createJob({
       originalFileName: normalizedFileName,
       fileSize: body.fileSize,
+      ...(body.durationSec !== undefined ? { durationSec: body.durationSec } : {}),
     });
 
     const bucketName = getBucketName();
@@ -175,7 +197,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       new SubmitJobCommand({
         jobName: `quick-clip-extract-${job.jobId}`.slice(0, 128),
         jobQueue: getBatchJobQueueArn(),
-        jobDefinition: `${getBatchJobDefinitionPrefix()}-${selectJobDefinition(body.fileSize)}`,
+        jobDefinition: `${getBatchJobDefinitionPrefix()}-${selectJobDefinition(body.fileSize, body.durationSec)}`,
         containerOverrides: {
           environment: [
             { name: 'BATCH_COMMAND', value: 'extract' },
