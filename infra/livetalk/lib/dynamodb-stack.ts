@@ -15,6 +15,9 @@ export interface LiveTalkDynamoDbStackProps extends cdk.StackProps {
  *   GSI1PK='PROFILE' の sparse GSI で Profile のみ索引化する。
  *   SafetyEvent 横断レビューのために GSI2 を追加した（ADR-2.22 / #3580）。
  *   GSI2PK='SAFETY' の sparse GSI で SafetyEvent のみ索引化し、メタデータを INCLUDE 射影する。
+ *   Topic 中心モデル（リブトーク知識再設計 P1 / #3697、shadow build）のために GSI3 を追加した。
+ *   GSI-TOPIC: Topic ヘッダ(META) のみを sparse 索引化する。想起の座標列挙と acquire の
+ *   care 降順取得を賄う（#3697）。
  *   （`docs/services/livetalk/architecture.md` §3「データモデル概要」参照）
  * - Message は TTL（属性名 `TTL`、Unix 秒）で 90 日後に自動削除
  * - Point-in-time Recovery 有効、AWS マネージドキーで at-rest 暗号化
@@ -76,6 +79,30 @@ export class LiveTalkDynamoDbStack extends cdk.Stack {
         'Trigger',
         'DetectedPattern',
         'CreatedAt',
+      ],
+    });
+
+    // GSI3（GSI-TOPIC）: Topic ヘッダ(META) のみを sparse 索引化する。
+    // 想起の座標列挙と acquire の care 降順を賄う（リブトーク知識再設計 P1 / #3697）。
+    // GSI3PK=`<characterId>#TOPICS#<userId>` の META アイテムのみが対象（sparse GSI）
+    // GSI3SK は Care（Number 型。care 降順 Query と全件列挙の両方を賄う）
+    // 射影は TopicEntity を GSI3 だけで復元できるよう、Care（GSI3SK と重複するため除外）
+    // 以外の全属性を INCLUDE する
+    this.table.addGlobalSecondaryIndex({
+      indexName: 'GSI3',
+      partitionKey: { name: 'GSI3PK', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'GSI3SK', type: dynamodb.AttributeType.NUMBER },
+      projectionType: dynamodb.ProjectionType.INCLUDE,
+      nonKeyAttributes: [
+        'UserID',
+        'CharacterID',
+        'TopicID',
+        'Subject',
+        'CanonicalSummary',
+        'Category',
+        'Embedding',
+        'CreatedAt',
+        'UpdatedAt',
       ],
     });
 

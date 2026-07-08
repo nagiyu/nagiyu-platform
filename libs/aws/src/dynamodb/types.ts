@@ -24,8 +24,12 @@ export interface DynamoDBItem extends Record<string, unknown> {
   GSI2SK?: string;
   /** GSI3 パーティションキー (オプション) */
   GSI3PK?: string;
-  /** GSI3 ソートキー (オプション) */
-  GSI3SK?: string;
+  /**
+   * GSI3 ソートキー (オプション)。
+   * サービスによって型が異なる（stock-tracker は string、livetalk の
+   * GSI-TOPIC は care 降順ソート用に number を使用する）ため union にしている。
+   */
+  GSI3SK?: string | number;
   /** 作成日時 (Unix timestamp) */
   CreatedAt: number;
   /** 更新日時 (Unix timestamp) */

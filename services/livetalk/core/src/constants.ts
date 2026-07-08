@@ -337,3 +337,11 @@ export const CHAT_RATE_LIMIT_PER_HOUR = 100;
  * 正常時は finally の releaseLock で即時解放される。
  */
 export const CHAT_LOCK_TTL_MS = 600_000;
+
+// ---- Topic 中心モデル（リブトーク知識再設計 P1 / #3697、shadow build）----
+
+/**
+ * WEBRAW（Web 取得生データ）に付与する DynamoDB TTL（秒）。90 日後に自動削除。
+ * 既存 Message の TTL（`MESSAGE_TTL_SECONDS`）と同じ値。
+ */
+export const WEBRAW_TTL_SECONDS = 90 * 24 * 60 * 60;
