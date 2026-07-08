@@ -688,9 +688,7 @@ describe('consolidate', () => {
       now: () => fixedNow,
     });
 
-    const candidateLines = capturedUserContent
-      .split('\n')
-      .filter((l) => l.includes('topicId:'));
+    const candidateLines = capturedUserContent.split('\n').filter((l) => l.includes('topicId:'));
     expect(candidateLines).toHaveLength(TOPIC_ROUTING_MAX_CANDIDATES);
   });
 });

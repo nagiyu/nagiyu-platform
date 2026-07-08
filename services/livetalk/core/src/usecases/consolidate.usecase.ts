@@ -308,9 +308,7 @@ export async function consolidate(
     // （GSI 反映遅延による spurious な OptimisticLockError を防ぐ）。
     // グループ内で最後に出現したエントリの内容を META に採用する（最新の集約結果を優先）。
     const last = group.entries[group.entries.length - 1];
-    const topicEmbedding = await embeddingClient.embed(
-      `${last.subject}\n${last.canonicalSummary}`
-    );
+    const topicEmbedding = await embeddingClient.embed(`${last.subject}\n${last.canonicalSummary}`);
     const current = await topicRepo.getTopic({
       userId,
       characterId,
@@ -364,9 +362,7 @@ export async function consolidate(
   }
 
   // ---- カーソル前進（ストリーム別・条件付き。空ストリームは据え置き）----
-  const newMsgCursor = messages.length
-    ? Math.max(...messages.map((m) => m.CreatedAt))
-    : msgCursor;
+  const newMsgCursor = messages.length ? Math.max(...messages.map((m) => m.CreatedAt)) : msgCursor;
   const newWebrawCursor = webraws.length
     ? Math.max(...webraws.map((w) => w.CreatedAt))
     : webrawCursor;
