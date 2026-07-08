@@ -410,3 +410,77 @@ export {
   ACCOUNT_DELETION_ERROR_MESSAGES,
 } from './repositories/dynamodb-account-deletion.repository.js';
 export { InMemoryAccountDeletionRepository } from './repositories/in-memory-account-deletion.repository.js';
+
+// Topic 中心モデル（リブトーク知識再設計 P1 / #3697、shadow build）
+// P1 は「影で構築」するのみで、既存の想起・memory 画面には接続しない。
+export type { TopicEntity, TopicKey, CreateTopicInput } from './entities/topic.entity.js';
+export type {
+  SelfFactEntity,
+  SelfFactKey,
+  CreateSelfFactInput,
+} from './entities/self-fact.entity.js';
+export type {
+  WebFactEntity,
+  WebFactKey,
+  CreateWebFactInput,
+  WebFactVolatility,
+} from './entities/web-fact.entity.js';
+export type { WebRawEntity, WebRawKey, CreateWebRawInput } from './entities/webraw.entity.js';
+export type {
+  ConsolidationCursorEntity,
+  ConsolidationCursorKey,
+  PutConsolidationCursorInput,
+} from './entities/consolidation-cursor.entity.js';
+
+export { TopicMapper } from './mappers/topic.mapper.js';
+export { SelfFactMapper } from './mappers/self-fact.mapper.js';
+export { WebFactMapper } from './mappers/web-fact.mapper.js';
+export { WebRawMapper } from './mappers/webraw.mapper.js';
+export { ConsolidationCursorMapper } from './mappers/consolidation-cursor.mapper.js';
+
+export {
+  buildTopicMetaSK,
+  buildTopicBundleSKPrefix,
+  buildSelfFactSK,
+  buildSelfFactSKPrefix,
+  buildWebFactSK,
+  buildWebFactSKPrefix,
+  buildWebRawSK,
+  buildWebRawSKPrefix,
+  buildConsolidationCursorSK,
+  // GSI3（GSI-TOPIC）: Topic ヘッダ(META) 列挙・care 降順取得用 sparse GSI（#3697）
+  TOPIC_GSI_INDEX_NAME,
+  buildTopicGSI3PK,
+} from './mappers/keys.js';
+
+export type { TopicRepository, TopicBundle } from './repositories/topic.repository.interface.js';
+export { DynamoDBTopicRepository } from './repositories/dynamodb-topic.repository.js';
+export { InMemoryTopicRepository } from './repositories/in-memory-topic.repository.js';
+
+export type { WebRawRepository } from './repositories/webraw.repository.interface.js';
+export { DynamoDBWebRawRepository } from './repositories/dynamodb-webraw.repository.js';
+export { InMemoryWebRawRepository } from './repositories/in-memory-webraw.repository.js';
+
+export type { ConsolidationCursorRepository } from './repositories/consolidation-cursor.repository.interface.js';
+export { DynamoDBConsolidationCursorRepository } from './repositories/dynamodb-consolidation-cursor.repository.js';
+export { InMemoryConsolidationCursorRepository } from './repositories/in-memory-consolidation-cursor.repository.js';
+
+export { OptimisticLockError } from './repositories/optimistic-lock.error.js';
+
+export { WEBRAW_TTL_SECONDS } from './constants.js';
+
+// consolidation（集約バッチ）（リブトーク知識再設計 P1 / #3697、shadow build）
+export {
+  TOPIC_ROUTING_SIMILARITY_THRESHOLD,
+  TOPIC_ROUTING_MAX_CANDIDATES,
+  CONSOLIDATION_ROUTING_TEXT_MAX_CHARS,
+  WEBFACT_REVIEW_INTERVAL_MS,
+} from './constants.js';
+export { ConsolidationSchema } from './llm-client/schemas/consolidation.schema.js';
+export type { ConsolidationRaw } from './llm-client/schemas/consolidation.schema.js';
+export {
+  buildConsolidatePrompt,
+  type ConsolidatePromptInput,
+  type ConsolidatePromptCandidateTopic,
+} from './usecases/consolidate.prompt.js';
+export { consolidate, type ConsolidateParams } from './usecases/consolidate.usecase.js';

@@ -108,9 +108,9 @@ describe('LiveTalkBatchStack', () => {
     expect(vars.OPENAI_API_KEY).toBeUndefined();
   });
 
-  it('EventBridge ルールを 4 つ作成する（日次圧縮 + 週次学習 + 毎時勉強 + 毎時通知）', () => {
+  it('EventBridge ルールを 5 つ作成する（日次圧縮 + 週次学習 + 毎時勉強 + 毎時通知 + 毎時集約）', () => {
     const { template } = synth();
-    template.resourceCountIs('AWS::Events::Rule', 4);
+    template.resourceCountIs('AWS::Events::Rule', 5);
   });
 
   it('圧縮バッチの EventBridge スケジュールは cron(0 18 * * ? *)', () => {
@@ -127,9 +127,9 @@ describe('LiveTalkBatchStack', () => {
     });
   });
 
-  it('SQS DLQ を 4 つ作成する（圧縮 + 学習 + 勉強 + 通知で分離）', () => {
+  it('SQS DLQ を 5 つ作成する（圧縮 + 学習 + 勉強 + 通知 + 集約で分離）', () => {
     const { template } = synth();
-    template.resourceCountIs('AWS::SQS::Queue', 4);
+    template.resourceCountIs('AWS::SQS::Queue', 5);
   });
 
   it('Lambda 実行ロールを作成する', () => {
@@ -219,6 +219,43 @@ describe('LiveTalkBatchStack', () => {
     template.hasOutput('NotifyFunctionArn', Match.anyValue());
   });
 
+  it('集約バッチ用 Lambda 関数が存在する', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: Match.stringLikeRegexp('livetalk-batch-consolidate'),
+    });
+  });
+
+  it('集約バッチ Lambda 環境変数に TZ=Asia/Tokyo と OPENAI_API_KEY が含まれる', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: Match.stringLikeRegexp('livetalk-batch-consolidate'),
+      Environment: {
+        Variables: Match.objectLike({
+          TZ: 'Asia/Tokyo',
+          OPENAI_API_KEY: 'PLACEHOLDER_KEY',
+        }),
+      },
+    });
+  });
+
+  it('集約バッチの EventBridge スケジュールは毎時 15 分（cron(15 * * * ? *)）', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Events::Rule', {
+      ScheduleExpression: 'cron(15 * * * ? *)',
+    });
+  });
+
+  it('ConsolidateFunctionArn を Outputs に出力する', () => {
+    const { template } = synth();
+    template.hasOutput('ConsolidateFunctionArn', Match.anyValue());
+  });
+
+  it('ConsolidateDlqUrl を Outputs に出力する', () => {
+    const { template } = synth();
+    template.hasOutput('ConsolidateDlqUrl', Match.anyValue());
+  });
+
   it('DynamoDB の grant に GSI1（index/*）への Query 権限が含まれる', () => {
     // batch ロールは GSI1 を Query してユーザーを列挙するため、IAM ポリシーの
     // Resource にテーブル本体に加えて `table/.../index/*` が含まれている必要がある（#3527）。
@@ -234,6 +271,35 @@ describe('LiveTalkBatchStack', () => {
           }),
         ]),
       },
+    });
+  });
+
+  it('consolidate ロールの DynamoDB grant に GSI3（index/*）への Query 権限が含まれる（ADR-2.22）', () => {
+    // dynamoTable の globalIndexes に GSI3 を追加していないと、consolidate ロールが
+    // GSI3（GSI-TOPIC）を Query する権限（index/*）が IAM ポリシーに付与されない。
+    const { template } = synth();
+    const roles = template.findResources('AWS::IAM::Role', {
+      Properties: {
+        RoleName: Match.stringLikeRegexp('livetalk-consolidate-role'),
+      },
+    });
+    const roleLogicalIds = Object.keys(roles);
+    expect(roleLogicalIds.length).toBeGreaterThan(0);
+
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: Match.arrayWith(['dynamodb:Query']),
+            Resource: Match.arrayWith([
+              Match.stringLikeRegexp('table/nagiyu-livetalk-dynamodb-dev/index/\\*'),
+            ]),
+          }),
+        ]),
+      },
+      Roles: Match.arrayWith([
+        Match.objectLike({ Ref: roleLogicalIds[0] }),
+      ]),
     });
   });
 

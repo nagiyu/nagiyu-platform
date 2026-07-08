@@ -12,3 +12,6 @@ export type { KnowledgeGateRaw } from './knowledge-gate.schema.js';
 
 export { EscalationSchema } from './escalation.schema.js';
 export type { EscalationRaw } from './escalation.schema.js';
+
+export { ConsolidationSchema } from './consolidation.schema.js';
+export type { ConsolidationRaw } from './consolidation.schema.js';

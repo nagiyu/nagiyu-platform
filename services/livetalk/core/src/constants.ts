@@ -337,3 +337,43 @@ export const CHAT_RATE_LIMIT_PER_HOUR = 100;
  * 正常時は finally の releaseLock で即時解放される。
  */
 export const CHAT_LOCK_TTL_MS = 600_000;
+
+// ---- Topic 中心モデル（リブトーク知識再設計 P1 / #3697、shadow build）----
+
+/**
+ * WEBRAW（Web 取得生データ）に付与する DynamoDB TTL（秒）。90 日後に自動削除。
+ * 既存 Message の TTL（`MESSAGE_TTL_SECONDS`）と同じ値。
+ */
+export const WEBRAW_TTL_SECONDS = 90 * 24 * 60 * 60;
+
+// ---- 集約（consolidation）バッチ（リブトーク知識再設計 P1 / #3697）----
+
+/**
+ * Topic 振り分けの近傍候補とみなす cosine similarity 下限閾値。
+ * 粗いプレフィルタであり、最終的な merge（名寄せ）/ 新規作成の判断は LLM に委ねる。
+ */
+export const TOPIC_ROUTING_SIMILARITY_THRESHOLD = 0.4;
+
+/**
+ * Topic 振り分けでプロンプトに渡す候補 Topic の最大件数（プロンプト肥大の抑制）。
+ */
+export const TOPIC_ROUTING_MAX_CANDIDATES = 8;
+
+/**
+ * ルーティング用埋め込み（近傍候補算出）に使うテキストの最大文字数。
+ * 直近の話題ほど関連性が高いため、末尾側を優先して切り詰める。
+ */
+export const CONSOLIDATION_ROUTING_TEXT_MAX_CHARS = 2000;
+
+/**
+ * WEB fact の揮発性区分ごとの再検証間隔（ミリ秒）（P3 の鮮度掃引バッチで使用予定）。
+ * `stable` は再検証不要のため対象外（NextReview は常に undefined）。
+ */
+export const WEBFACT_REVIEW_INTERVAL_MS: Record<'low' | 'medium' | 'high', number> = {
+  /** 低揮発性: 変化が乏しい情報のため月次程度の再検証で十分 */
+  low: 30 * 24 * 60 * 60 * 1000,
+  /** 中揮発性: 週次で再検証 */
+  medium: 7 * 24 * 60 * 60 * 1000,
+  /** 高揮発性: 変化が速い情報のため日次で再検証 */
+  high: 1 * 24 * 60 * 60 * 1000,
+};

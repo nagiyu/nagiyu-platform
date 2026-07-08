@@ -26,9 +26,12 @@ export interface LiveTalkBatchStackProps extends cdk.StackProps {
 /**
  * LiveTalk バッチ処理スタック（Phase 3c / Issue #3281、Phase 4c / Issue #3329）
  *
- * 圧縮要約バッチと活動時間学習バッチの 2 Lambda を管理する。
+ * 圧縮要約・活動時間学習・勉強・通知・集約（consolidation）の各バッチ Lambda を管理する。
  * - compress: 日次 JST 03:00（UTC 18:00）
  * - learn-user-activity: 週次 JST 日曜 03:00（UTC 土曜 18:00）
+ * - study: 毎時 0 分
+ * - notify: 毎時 30 分
+ * - consolidate: 毎時 15 分（リブトーク知識再設計 P1 / Issue #3697、shadow build）
  * - DLQ / IAM Role は Lambda ごとに独立（障害切り分け・権限最小化）
  */
 export class LiveTalkBatchStack extends cdk.Stack {
@@ -53,13 +56,15 @@ export class LiveTalkBatchStack extends cdk.Stack {
     // DynamoDB テーブル
     const dynamoTableName = getDynamoDBTableName('livetalk', environment);
     const dynamoTableArn = getDynamoDBTableArn(this.region, this.account, dynamoTableName);
-    // GSI1（Profile 列挙用）への Query 権限を grant に含めるため、インデックス情報付きで
-    // インポートする。`fromTableArn` だけだと hasIndex=false となり grantReadWriteData が
-    // `table/.../index/*` を付与せず、batch ロールが GSI1 を Query できず AccessDenied に
-    // なる（#3527）。globalIndexes を渡すことで grant にインデックス ARN を含める。
+    // GSI1（Profile 列挙用）・GSI3（Topic ヘッダ列挙用）への Query 権限を grant に含めるため、
+    // インデックス情報付きでインポートする。`fromTableArn` だけだと hasIndex=false となり
+    // grantReadWriteData が `table/.../index/*` を付与せず、batch ロールが GSI を Query できず
+    // AccessDenied になる（#3527）。globalIndexes を渡すことで grant にインデックス ARN を含める。
+    // consolidate ロールが GSI3（GSI-TOPIC）を Query するため、ここに GSI3 を追加している
+    // （ADR-2.22 の教訓：後から grant だけ直しても index/* が付与されないため、必ずここで宣言する）。
     const dynamoTable = dynamodb.Table.fromTableAttributes(this, 'DynamoTable', {
       tableArn: dynamoTableArn,
-      globalIndexes: ['GSI1'],
+      globalIndexes: ['GSI1', 'GSI3'],
     });
 
     // DLQ（失敗時の保持）
@@ -325,6 +330,72 @@ export class LiveTalkBatchStack extends cdk.Stack {
       })
     );
 
+    // ---- 集約（consolidation）バッチ（リブトーク知識再設計 P1 / Issue #3697、shadow build）----
+
+    // 集約バッチ専用 DLQ
+    const consolidateDlq = new sqs.Queue(this, 'ConsolidateDlq', {
+      queueName: `nagiyu-livetalk-consolidate-dlq-${environment}`,
+      retentionPeriod: cdk.Duration.days(7),
+    });
+
+    // 集約バッチ専用 IAM Role（OpenAI 権限が必要。GSI3 Query は dynamoTable の
+    // globalIndexes 宣言（本ファイル冒頭）に含めているため、ここでは grantReadWriteData だけでよい）
+    const consolidateRole = new iam.Role(this, 'ConsolidateExecutionRole', {
+      roleName: `nagiyu-livetalk-consolidate-role-${environment}`,
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
+      ],
+    });
+    dynamoTable.grantReadWriteData(consolidateRole);
+    consolidateDlq.grantSendMessages(consolidateRole);
+    grantErrorEventsWrite(this, consolidateRole, environment);
+
+    // 集約バッチ Lambda
+    const consolidateFunction = new lambda.Function(this, 'ConsolidateFunction', {
+      functionName: `nagiyu-livetalk-batch-consolidate-${environment}`,
+      runtime: lambda.Runtime.FROM_IMAGE,
+      code: lambda.Code.fromEcrImage(batchRepository, {
+        tagOrDigest: 'latest',
+        cmd: ['services/livetalk/batch/dist/src/handlers/consolidate-conversations.handler'],
+      }),
+      handler: lambda.Handler.FROM_IMAGE,
+      role: consolidateRole,
+      memorySize: 512,
+      timeout: cdk.Duration.minutes(15),
+      environment: {
+        NODE_ENV: environment,
+        LIVETALK_ENV: environment,
+        DYNAMODB_TABLE_NAME: dynamoTableName,
+        OPENAI_API_KEY: openAiApiKey,
+        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
+        TZ: 'Asia/Tokyo',
+      },
+      deadLetterQueue: consolidateDlq,
+      tracing: lambda.Tracing.ACTIVE,
+      logRetention: logs.RetentionDays.ONE_MONTH,
+    });
+
+    // EventBridge: 毎時 15 分に実行（study=0分・notify=30分と衝突回避）
+    const hourlyConsolidateRule = new events.Rule(this, 'HourlyConsolidateRule', {
+      ruleName: `livetalk-batch-consolidate-${environment}`,
+      description: 'LiveTalk 集約バッチ（毎時 JST）',
+      schedule: events.Schedule.cron({
+        minute: '15',
+        hour: '*',
+        day: '*',
+        month: '*',
+        year: '*',
+      }),
+    });
+    hourlyConsolidateRule.addTarget(
+      new targets.LambdaFunction(consolidateFunction, {
+        deadLetterQueue: consolidateDlq,
+        maxEventAge: cdk.Duration.hours(1),
+        retryAttempts: 1,
+      })
+    );
+
     // タグ
     cdk.Tags.of(this).add('Application', 'nagiyu');
     cdk.Tags.of(this).add('Service', 'livetalk');
@@ -370,6 +441,16 @@ export class LiveTalkBatchStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'NotifyDlqUrl', {
       value: notifyDlq.queueUrl,
       description: 'LiveTalk Notify DLQ URL',
+    });
+
+    new cdk.CfnOutput(this, 'ConsolidateFunctionArn', {
+      value: consolidateFunction.functionArn,
+      description: 'LiveTalk Consolidate Lambda Function ARN',
+    });
+
+    new cdk.CfnOutput(this, 'ConsolidateDlqUrl', {
+      value: consolidateDlq.queueUrl,
+      description: 'LiveTalk Consolidate DLQ URL',
     });
   }
 }
