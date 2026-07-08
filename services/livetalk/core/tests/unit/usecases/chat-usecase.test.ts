@@ -2281,5 +2281,112 @@ describe('runChatUseCase', () => {
       expect(events[events.length - 1]).toEqual({ type: 'done' });
       expect(llm.chatStream).toHaveBeenCalled();
     });
+
+    // fresh-eyes レビュー由来の修正: topic recall 時は旧 Tier 由来の newLearnings を注入しない
+    it('topicRetriever 指定時、旧 Tier 由来の newLearnings（あなたが新しく知ったこと）は system prompt に注入されない', async () => {
+      const tierCMem: MemoryEntity = {
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        MemoryID: 'c1',
+        Tier: 'C',
+        Category: 'food',
+        Content: 'コーヒーが好き',
+        Confidence: 0.5,
+        ReferencedCount: 1,
+        CreatedAt: 0,
+        UpdatedAt: 0,
+        Embedding: [1, 0, 0],
+      };
+      const memRepo = makeMemoryRepo();
+      (memRepo.listByTier as jest.Mock).mockResolvedValue({ items: [tierCMem] });
+      const llm: ILLMClient = {
+        chatStream: jest.fn(async function* () {
+          yield '了解！';
+        }),
+        chatComplete: jest.fn(),
+        chatStructured: jest.fn(async () => ({
+          promotions: [{ memoryId: 'c1', promote: true }],
+        })) as unknown as ILLMClient['chatStructured'],
+        summarize: jest.fn(),
+      };
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const embeddingClient = { embed: jest.fn(async () => [0.99, 0.01, 0]) };
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memoryRepository: memRepo,
+          embeddingClient,
+          topicRetriever: makeTopicRetriever([]),
+        })
+      );
+
+      const streamArgs = (llm.chatStream as jest.Mock).mock.calls[0][0] as Array<{
+        role: string;
+        content: string;
+      }>;
+      const systemMsg = streamArgs.find((m) => m.role === 'system');
+      expect(systemMsg?.content).not.toContain('あなたが新しく知ったこと');
+      expect(systemMsg?.content).not.toContain('コーヒーが好き');
+
+      // 書込機構（promotionCandidates の計算・executePromotion）は従来どおり維持する
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(memRepo.promote).toHaveBeenCalledWith(tierCMem, 'B');
+    });
+
+    it('topicRetriever 未指定時（従来）は newLearnings が system prompt に注入される', async () => {
+      const tierCMem: MemoryEntity = {
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        MemoryID: 'c1',
+        Tier: 'C',
+        Category: 'food',
+        Content: 'コーヒーが好き',
+        Confidence: 0.5,
+        ReferencedCount: 1,
+        CreatedAt: 0,
+        UpdatedAt: 0,
+        Embedding: [1, 0, 0],
+      };
+      const memRepo = makeMemoryRepo();
+      (memRepo.listByTier as jest.Mock).mockResolvedValue({ items: [tierCMem] });
+      const llm: ILLMClient = {
+        chatStream: jest.fn(async function* () {
+          yield '了解！';
+        }),
+        chatComplete: jest.fn(),
+        chatStructured: jest.fn(async () => ({
+          promotions: [{ memoryId: 'c1', promote: true }],
+        })) as unknown as ILLMClient['chatStructured'],
+        summarize: jest.fn(),
+      };
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const embeddingClient = { embed: jest.fn(async () => [0.99, 0.01, 0]) };
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memoryRepository: memRepo,
+          embeddingClient,
+          // topicRetriever なし（従来挙動）
+        })
+      );
+
+      const streamArgs = (llm.chatStream as jest.Mock).mock.calls[0][0] as Array<{
+        role: string;
+        content: string;
+      }>;
+      const systemMsg = streamArgs.find((m) => m.role === 'system');
+      expect(systemMsg?.content).toContain('あなたが新しく知ったこと');
+      expect(systemMsg?.content).toContain('コーヒーが好き');
+    });
   });
 });

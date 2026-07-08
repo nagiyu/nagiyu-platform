@@ -584,6 +584,9 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   // 5. LLM ストリーミング（通常フロー）
   // useTopicRecall 時は Tier memory / MemorySummary のプロンプト注入を抑制し、
   // Topic 想起（関連度 only）のみを注入する。
+  // newLearnings（旧 Tier 由来）も同様に注入しない（決定的忘却：memory 画面で消せない
+  // 旧 Tier コンテンツをチャットに出さない）。promotionCandidates の計算・executePromotion・
+  // 親密度更新は書込機構として従来どおり維持し、プロンプト注入のみ止める。
   const chatMessages = buildChatMessages(
     character,
     new Date(),
@@ -591,7 +594,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     userText,
     useTopicRecall ? [] : retrievedMemories,
     useTopicRecall ? undefined : fetchedSummary?.SummaryText,
-    newLearnings.length > 0 ? newLearnings : undefined,
+    useTopicRecall ? undefined : newLearnings.length > 0 ? newLearnings : undefined,
     lifecycleState,
     knowledgeContextForPrompt,
     recentNotes.length > 0 ? recentNotes : undefined,
@@ -614,8 +617,10 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
           0
         )
       : retrievedMemories.reduce((sum, r) => sum + counter.countTokens(r.memory.Content), 0);
-    const memoryTokens =
-      retrievalTokens + newLearnings.reduce((sum, m) => sum + counter.countTokens(m.Content), 0);
+    const newLearningsTokens = useTopicRecall
+      ? 0
+      : newLearnings.reduce((sum, m) => sum + counter.countTokens(m.Content), 0);
+    const memoryTokens = retrievalTokens + newLearningsTokens;
     const messageTokens =
       history.reduce((sum, m) => sum + counter.countTokensForMessage(m.Text), 0) +
       counter.countTokensForMessage(userText);

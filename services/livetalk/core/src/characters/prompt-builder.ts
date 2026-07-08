@@ -35,18 +35,24 @@ function buildSleepingPrompt(): string {
  * セクションとして描画する（リブトーク知識再設計 P2 / #3698）。
  *
  * SELF/WEB それぞれ、facet が空なら該当行を出さない。
+ * SELF/WEB が両方 0 件の Topic は「■ subject」見出しごとスキップする（fresh-eyes レビュー指摘）。
+ * 全 Topic がスキップされ描画対象がなくなった場合は空文字を返す（呼び出し側でセクション自体を出さない）。
  */
 function buildTopicsSection(retrievedTopics: RetrievedTopic[]): string {
-  const topicBlocks = retrievedTopics.map((rt) => {
-    const lines: string[] = [`■ ${rt.topic.Subject}`];
-    for (const selfFact of rt.selfFacts) {
-      lines.push(`- （あなたが聞いたこと）${selfFact.Text}`);
-    }
-    for (const webFact of rt.webFacts) {
-      lines.push(`- （あなたが調べたこと）${webFact.Text}`);
-    }
-    return lines.join('\n');
-  });
+  const topicBlocks = retrievedTopics
+    .filter((rt) => rt.selfFacts.length > 0 || rt.webFacts.length > 0)
+    .map((rt) => {
+      const lines: string[] = [`■ ${rt.topic.Subject}`];
+      for (const selfFact of rt.selfFacts) {
+        lines.push(`- （あなたが聞いたこと）${selfFact.Text}`);
+      }
+      for (const webFact of rt.webFacts) {
+        lines.push(`- （あなたが調べたこと）${webFact.Text}`);
+      }
+      return lines.join('\n');
+    });
+
+  if (topicBlocks.length === 0) return '';
 
   return `あなたが覚えていること（今の話題に関連）：\n${topicBlocks.join('\n')}`;
 }
@@ -88,7 +94,11 @@ export function buildSystemPrompt(
   const hasKnowledge = knowledgeContext !== undefined && knowledgeContext.length > 0;
   const hasRecentNotes = recentNotes !== undefined && recentNotes.length > 0;
   const hasNotificationKnowledge = notificationKnowledge !== undefined;
-  const hasTopics = retrievedTopics !== undefined && retrievedTopics.length > 0;
+  // fact を 1 件以上持つ Topic が存在するかで判定する（SELF/WEB 両方 0 件の Topic のみの場合は
+  // セクションを出さないため、単純な length > 0 では不足）。
+  const hasTopics =
+    retrievedTopics !== undefined &&
+    retrievedTopics.some((rt) => rt.selfFacts.length > 0 || rt.webFacts.length > 0);
 
   if (
     !hasSummary &&

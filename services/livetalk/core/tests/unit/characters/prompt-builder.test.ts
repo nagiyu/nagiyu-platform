@@ -496,6 +496,78 @@ describe('buildSystemPrompt（retrievedTopics）', () => {
     expect(prompt).toContain('あなたが覚えていること：');
     expect(prompt).toContain('今の話題に関連');
   });
+
+  // fresh-eyes レビュー由来の修正: SELF/WEB が両方 0 件の Topic は見出しごと出さない
+  it('SELF/WEB が両方 0 件の Topic は見出しごと出ない', () => {
+    const topics = [
+      makeRetrievedTopic('コーヒー', ['朝コーヒーを飲む']),
+      makeRetrievedTopic('空の話題', [], []),
+    ];
+    topics[1].topic.TopicID = 'topic-2';
+    const prompt = buildSystemPrompt(
+      hiyori,
+      new Date(),
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      topics
+    );
+    expect(prompt).toContain('■ コーヒー');
+    expect(prompt).not.toContain('■ 空の話題');
+  });
+
+  it('fact を持つ Topic のみが描画される（fact 0 件の Topic のみ混在時）', () => {
+    const topics = [
+      makeRetrievedTopic('空の話題1', [], []),
+      makeRetrievedTopic('コーヒー', [], ['カフェインは覚醒作用がある']),
+      makeRetrievedTopic('空の話題2', [], []),
+    ];
+    topics[1].topic.TopicID = 'topic-2';
+    topics[2].topic.TopicID = 'topic-3';
+    const prompt = buildSystemPrompt(
+      hiyori,
+      new Date(),
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      topics
+    );
+    expect(prompt).toContain('今の話題に関連');
+    expect(prompt).toContain('■ コーヒー');
+    expect(prompt).not.toContain('■ 空の話題1');
+    expect(prompt).not.toContain('■ 空の話題2');
+  });
+
+  it('全 Topic が fact 0 件ならセクション自体が出ない', () => {
+    const topics = [
+      makeRetrievedTopic('空の話題1', [], []),
+      makeRetrievedTopic('空の話題2', [], []),
+    ];
+    topics[1].topic.TopicID = 'topic-2';
+    const prompt = buildSystemPrompt(
+      hiyori,
+      new Date(),
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      topics
+    );
+    expect(prompt).not.toContain('今の話題に関連');
+    expect(prompt).not.toContain('■ 空の話題1');
+    expect(prompt).not.toContain('■ 空の話題2');
+  });
 });
 
 describe('buildChatMessages（retrievedTopics）', () => {
