@@ -377,3 +377,17 @@ export const WEBFACT_REVIEW_INTERVAL_MS: Record<'low' | 'medium' | 'high', numbe
   /** 高揮発性: 変化が速い情報のため日次で再検証 */
   high: 1 * 24 * 60 * 60 * 1000,
 };
+
+// ---- Topic 想起（関連度 only）（リブトーク知識再設計 P2 / #3698）----
+
+/** 発話埋め込みと Topic 座標の cosine がこの値以上を想起候補とする（要調整・要観測）。 */
+export const TOPIC_RECALL_SIMILARITY_THRESHOLD = 0.4;
+
+/** 想起で注入する Topic の最大件数（閾値通過分の上位 K、要調整・要観測）。 */
+export const TOPIC_RECALL_TOP_K = 5;
+
+/** 1ホップ関連展開: 選抜 Topic の座標近傍とみなす Topic-Topic cosine 下限（direct より厳しめ、要調整・要観測）。 */
+export const TOPIC_RECALL_RELATED_THRESHOLD = 0.8;
+
+/** 1ホップ関連展開で追加する Topic の最大件数（暴発防止、要調整・要観測）。 */
+export const TOPIC_RECALL_RELATED_MAX = 2;
