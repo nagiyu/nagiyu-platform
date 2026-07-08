@@ -468,3 +468,19 @@ export { InMemoryConsolidationCursorRepository } from './repositories/in-memory-
 export { OptimisticLockError } from './repositories/optimistic-lock.error.js';
 
 export { WEBRAW_TTL_SECONDS } from './constants.js';
+
+// consolidation（集約バッチ）（リブトーク知識再設計 P1 / #3697、shadow build）
+export {
+  TOPIC_ROUTING_SIMILARITY_THRESHOLD,
+  TOPIC_ROUTING_MAX_CANDIDATES,
+  CONSOLIDATION_ROUTING_TEXT_MAX_CHARS,
+  WEBFACT_REVIEW_INTERVAL_MS,
+} from './constants.js';
+export { ConsolidationSchema } from './llm-client/schemas/consolidation.schema.js';
+export type { ConsolidationRaw } from './llm-client/schemas/consolidation.schema.js';
+export {
+  buildConsolidatePrompt,
+  type ConsolidatePromptInput,
+  type ConsolidatePromptCandidateTopic,
+} from './usecases/consolidate.prompt.js';
+export { consolidate, type ConsolidateParams } from './usecases/consolidate.usecase.js';
