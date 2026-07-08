@@ -38,11 +38,7 @@ export const GET = withAuth(getSession, 'livetalk:chat', async (session, request
 
     const perTopicItems = await Promise.all(
       topicHeaders.map(async (topic) => {
-        const selfFacts = await topicRepository.listSelfFacts(
-          userId,
-          characterId,
-          topic.TopicID
-        );
+        const selfFacts = await topicRepository.listSelfFacts(userId, characterId, topic.TopicID);
         return selfFacts.map((fact) => toSelfFactListItem(fact, topic.Subject));
       })
     );

@@ -51,9 +51,7 @@ describe('MemoryList', () => {
   });
 
   it('異なる Topic は別グループとして subject 見出しつきで表示する', () => {
-    render(
-      <MemoryList items={[item, itemOtherTopic]} loading={false} onDelete={jest.fn()} />
-    );
+    render(<MemoryList items={[item, itemOtherTopic]} loading={false} onDelete={jest.fn()} />);
     const groups = screen.getAllByTestId('memory-topic-group');
     expect(groups).toHaveLength(2);
     const subjects = screen.getAllByTestId('memory-topic-subject').map((el) => el.textContent);

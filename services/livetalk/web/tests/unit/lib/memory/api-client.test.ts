@@ -1,8 +1,4 @@
-import {
-  MEMORY_API_ERROR_MESSAGES,
-  deleteSelfFact,
-  fetchSelfFacts,
-} from '@/lib/memory/api-client';
+import { MEMORY_API_ERROR_MESSAGES, deleteSelfFact, fetchSelfFacts } from '@/lib/memory/api-client';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch as unknown as typeof fetch;

@@ -94,7 +94,9 @@ describe('MemoryPage（characterId 連携）', () => {
     await waitFor(() => {
       // MuiAlert と エラー Typography の両方が role=alert を持つため、AllByRole で検索する
       const alerts = screen.getAllByRole('alert');
-      const errorAlert = alerts.find((el) => el.textContent === '覚えていることの取得に失敗しました');
+      const errorAlert = alerts.find(
+        (el) => el.textContent === '覚えていることの取得に失敗しました'
+      );
       expect(errorAlert).toBeTruthy();
     });
   });
@@ -117,13 +119,7 @@ describe('MemoryPage レースコンディション対策', () => {
 
     // MemoryList をメモリ内容を確認できる実装に差し替える
     mockMemoryList.mockImplementation(
-      ({
-        items,
-        loading,
-      }: {
-        items: Array<{ id: string; text: string }>;
-        loading: boolean;
-      }) => (
+      ({ items, loading }: { items: Array<{ id: string; text: string }>; loading: boolean }) => (
         <div data-testid="memory-list">
           {loading ? 'loading' : items.map((m) => <span key={m.id}>{m.text}</span>)}
         </div>

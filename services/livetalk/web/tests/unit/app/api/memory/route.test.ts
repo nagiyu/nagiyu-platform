@@ -11,9 +11,7 @@ jest.mock('@/lib/server/session', () => ({ getSession: jest.fn() }));
 jest.mock('@/lib/server/repositories', () => ({ getTopicRepository: jest.fn() }));
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
-const mockGetTopicRepository = getTopicRepository as jest.MockedFunction<
-  typeof getTopicRepository
->;
+const mockGetTopicRepository = getTopicRepository as jest.MockedFunction<typeof getTopicRepository>;
 
 const session = {
   user: {
@@ -86,10 +84,8 @@ describe('GET /api/memory', () => {
       makeTopic({ TopicID: 't2', Subject: '仕事' }),
     ]);
     const listSelfFacts = jest.fn(async (_u: string, _c: string, topicId: string) => {
-      if (topicId === 't1')
-        return [makeFact({ TopicID: 't1', FactID: 'a', CreatedAt: 100 })];
-      if (topicId === 't2')
-        return [makeFact({ TopicID: 't2', FactID: 'b', CreatedAt: 200 })];
+      if (topicId === 't1') return [makeFact({ TopicID: 't1', FactID: 'a', CreatedAt: 100 })];
+      if (topicId === 't2') return [makeFact({ TopicID: 't2', FactID: 'b', CreatedAt: 200 })];
       return [];
     });
     mockGetTopicRepository.mockReturnValue(makeRepo({ listTopicHeaders, listSelfFacts }));

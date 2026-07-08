@@ -20,9 +20,7 @@ jest.mock('@nagiyu/livetalk-core', () => ({
 import { forgetSelfFact } from '@nagiyu/livetalk-core';
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
-const mockGetTopicRepository = getTopicRepository as jest.MockedFunction<
-  typeof getTopicRepository
->;
+const mockGetTopicRepository = getTopicRepository as jest.MockedFunction<typeof getTopicRepository>;
 const mockGetLLMClient = getLLMClient as jest.MockedFunction<typeof getLLMClient>;
 const mockForgetSelfFact = forgetSelfFact as jest.Mock;
 
