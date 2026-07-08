@@ -12,6 +12,7 @@ import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
 import { ConsolidationSchema } from '../llm-client/schemas/consolidation.schema.js';
 import { buildConsolidatePrompt } from './consolidate.prompt.js';
 import type { IEmbeddingClient, ILLMClient } from '../llm-client/types.js';
+import type { ConsolidationRaw } from '../llm-client/schemas/consolidation.schema.js';
 import type { TopicEntity } from '../entities/topic.entity.js';
 import type { WebFactVolatility } from '../entities/web-fact.entity.js';
 import type { TopicRepository } from '../repositories/topic.repository.interface.js';
@@ -48,6 +49,100 @@ function computeNextReview(volatility: WebFactVolatility, readAt: number): numbe
 function truncateRoutingText(text: string): string {
   if (text.length <= CONSOLIDATION_ROUTING_TEXT_MAX_CHARS) return text;
   return text.slice(text.length - CONSOLIDATION_ROUTING_TEXT_MAX_CHARS);
+}
+
+type TopicResult = ConsolidationRaw['topics'][number];
+
+/**
+ * LLM が返した Topic 結果の「解決先」ごとのグループ。
+ * 同一の既存 Topic を指す複数エントリは 1 グループに畳み、META の
+ * 二重 put（＝古い UpdatedAt を掴んだ 2 件目の `OptimisticLockError`）を防ぐ。
+ * 新規（targetTopicId が空、または候補に無い id）エントリは互いに別話題の
+ * 可能性があるため畳まず、1 エントリ＝1 グループのまま扱う。
+ */
+type ResolvedTopicGroup =
+  | { kind: 'existing'; topicId: string; entries: TopicResult[] }
+  | { kind: 'new'; entry: TopicResult };
+
+/**
+ * `result.topics` を解決先（既存 Topic / 新規）でグルーピングする。
+ * 挿入順（LLM が返した順）を維持したまま、同一の既存 TopicID を指す
+ * エントリだけを 1 グループへ畳む。
+ */
+function groupTopicResults(
+  topics: TopicResult[],
+  candidateMap: Map<string, TopicEntity>
+): ResolvedTopicGroup[] {
+  const groups: ResolvedTopicGroup[] = [];
+  const existingGroupIndex = new Map<string, number>();
+
+  for (const topicResult of topics) {
+    const existing =
+      topicResult.targetTopicId !== '' ? candidateMap.get(topicResult.targetTopicId) : undefined;
+
+    if (!existing) {
+      groups.push({ kind: 'new', entry: topicResult });
+      continue;
+    }
+
+    const index = existingGroupIndex.get(existing.TopicID);
+    if (index === undefined) {
+      existingGroupIndex.set(existing.TopicID, groups.length);
+      groups.push({ kind: 'existing', topicId: existing.TopicID, entries: [topicResult] });
+      continue;
+    }
+
+    const group = groups[index];
+    if (group.kind === 'existing') {
+      group.entries.push(topicResult);
+    }
+  }
+
+  return groups;
+}
+
+/**
+ * 1 Topic 分の selfFacts/webFacts をグループ内の全エントリ分連結して追記する。
+ */
+async function appendTopicFacts(
+  topicRepo: TopicRepository,
+  userId: string,
+  characterId: string,
+  topicId: string,
+  entries: TopicResult[],
+  readAt: number
+): Promise<{ selfFactCount: number; webFactCount: number }> {
+  let selfFactCount = 0;
+  let webFactCount = 0;
+
+  for (const entry of entries) {
+    for (const sf of entry.selfFacts) {
+      await topicRepo.putSelfFact({
+        UserID: userId,
+        CharacterID: characterId,
+        TopicID: topicId,
+        Text: sf.text,
+        Provenance: sf.provenance,
+      });
+      selfFactCount++;
+    }
+
+    for (const wf of entry.webFacts) {
+      await topicRepo.putWebFact({
+        UserID: userId,
+        CharacterID: characterId,
+        TopicID: topicId,
+        Text: wf.text,
+        SourceUrls: wf.sourceUrls,
+        Volatility: wf.volatility,
+        ObservedAt: readAt,
+        NextReview: computeNextReview(wf.volatility, readAt),
+      });
+      webFactCount++;
+    }
+  }
+
+  return { selfFactCount, webFactCount };
 }
 
 /**
@@ -164,41 +259,25 @@ export async function consolidate(
   });
 
   // ---- 適用（at-least-once: 例外はそのまま伝播させ、カーソルを前進させない）----
+  // 解決先（既存 Topic / 新規）でグルーピングしてから適用する。同一の既存 targetTopicId を
+  // LLM が複数返しても、META の put は 1 グループにつき 1 回だけになるため、
+  // candidateMap 由来の古い UpdatedAt を 2 回目以降に使ってしまう
+  // OptimisticLockError（＝恒久スタック）を防ぐ（fresh-eyes レビュー指摘）。
   let newTopicCount = 0;
   let updatedTopicCount = 0;
   let selfFactCount = 0;
   let webFactCount = 0;
 
-  for (const topicResult of result.topics) {
-    const topicEmbedding = await embeddingClient.embed(
-      `${topicResult.subject}\n${topicResult.canonicalSummary}`
-    );
+  const groups = groupTopicResults(result.topics, candidateMap);
 
-    const existing =
-      topicResult.targetTopicId !== '' ? candidateMap.get(topicResult.targetTopicId) : undefined;
-
-    let topicId: string;
-    if (existing) {
-      // 既存 Topic への merge（名寄せ）
-      topicId = existing.TopicID;
-      const care = existing.Care + 1;
-      await topicRepo.putTopic(
-        {
-          UserID: userId,
-          CharacterID: characterId,
-          TopicID: topicId,
-          Subject: topicResult.subject,
-          CanonicalSummary: topicResult.canonicalSummary,
-          Category: topicResult.category,
-          Care: care,
-          Embedding: topicEmbedding,
-        },
-        { expectedUpdatedAt: existing.UpdatedAt }
-      );
-      updatedTopicCount++;
-    } else {
+  for (const group of groups) {
+    if (group.kind === 'new') {
       // 新規 Topic（targetTopicId が空文字、または候補に無い id ＝ hallucination 保険）
-      topicId = ulidFactory();
+      const topicResult = group.entry;
+      const topicId = ulidFactory();
+      const topicEmbedding = await embeddingClient.embed(
+        `${topicResult.subject}\n${topicResult.canonicalSummary}`
+      );
       await topicRepo.putTopic({
         UserID: userId,
         CharacterID: characterId,
@@ -210,32 +289,78 @@ export async function consolidate(
         Embedding: topicEmbedding,
       });
       newTopicCount++;
+
+      const counts = await appendTopicFacts(
+        topicRepo,
+        userId,
+        characterId,
+        topicId,
+        [topicResult],
+        readAt
+      );
+      selfFactCount += counts.selfFactCount;
+      webFactCount += counts.webFactCount;
+      continue;
     }
 
-    for (const sf of topicResult.selfFacts) {
-      await topicRepo.putSelfFact({
+    // 既存 Topic への merge（名寄せ）。expectedUpdatedAt は candidateMap（GSI3 の結果整合
+    // クエリ）由来の値ではなく、ベーステーブルから取り直した権威ある現在値を使う
+    // （GSI 反映遅延による spurious な OptimisticLockError を防ぐ）。
+    // グループ内で最後に出現したエントリの内容を META に採用する（最新の集約結果を優先）。
+    const last = group.entries[group.entries.length - 1];
+    const topicEmbedding = await embeddingClient.embed(
+      `${last.subject}\n${last.canonicalSummary}`
+    );
+    const current = await topicRepo.getTopic({
+      userId,
+      characterId,
+      topicId: group.topicId,
+    });
+
+    let topicId: string;
+    if (current) {
+      topicId = current.TopicID;
+      await topicRepo.putTopic(
+        {
+          UserID: userId,
+          CharacterID: characterId,
+          TopicID: topicId,
+          Subject: last.subject,
+          CanonicalSummary: last.canonicalSummary,
+          Category: last.category,
+          Care: current.Care + 1,
+          Embedding: topicEmbedding,
+        },
+        { expectedUpdatedAt: current.UpdatedAt }
+      );
+      updatedTopicCount++;
+    } else {
+      // 防御的フォールバック: candidateMap には存在したが、ベーステーブルからは
+      // 既に消えていた（本来あり得ないが、念のため新規 Topic 作成にフォールバックする）
+      topicId = ulidFactory();
+      await topicRepo.putTopic({
         UserID: userId,
         CharacterID: characterId,
         TopicID: topicId,
-        Text: sf.text,
-        Provenance: sf.provenance,
+        Subject: last.subject,
+        CanonicalSummary: last.canonicalSummary,
+        Category: last.category,
+        Care: 1,
+        Embedding: topicEmbedding,
       });
-      selfFactCount++;
+      newTopicCount++;
     }
 
-    for (const wf of topicResult.webFacts) {
-      await topicRepo.putWebFact({
-        UserID: userId,
-        CharacterID: characterId,
-        TopicID: topicId,
-        Text: wf.text,
-        SourceUrls: wf.sourceUrls,
-        Volatility: wf.volatility,
-        ObservedAt: readAt,
-        NextReview: computeNextReview(wf.volatility, readAt),
-      });
-      webFactCount++;
-    }
+    const counts = await appendTopicFacts(
+      topicRepo,
+      userId,
+      characterId,
+      topicId,
+      group.entries,
+      readAt
+    );
+    selfFactCount += counts.selfFactCount;
+    webFactCount += counts.webFactCount;
   }
 
   // ---- カーソル前進（ストリーム別・条件付き。空ストリームは据え置き）----

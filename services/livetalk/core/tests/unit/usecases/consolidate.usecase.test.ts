@@ -211,6 +211,143 @@ describe('consolidate', () => {
     expect(headers[0].CreatedAt).toBe(existing.CreatedAt);
   });
 
+  it('同一の既存 targetTopicId を LLM が複数返しても OptimisticLockError にならない（dedup）', async () => {
+    const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
+
+    const existing = await topicRepo.putTopic({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      TopicID: 'TOPIC-EXISTING',
+      Subject: 'コーヒー',
+      CanonicalSummary: '以前の要約',
+      Category: '飲み物',
+      Care: 3,
+      Embedding: [1, 0],
+    });
+
+    tick = fixedNow;
+    await messageRepo.create({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Role: 'user',
+      Text: '今日もコーヒーを飲んだ。あと豆も買った',
+    });
+
+    const putTopicSpy = jest.spyOn(topicRepo, 'putTopic');
+
+    // LLM が同一 targetTopicId を持つ 2 エントリを返すケース
+    // （同じ話題を 2 発話に分けて要約してしまった等の LLM の非決定性を想定）
+    const llmClient = makeLLMClient([
+      makeTopicResult({
+        targetTopicId: 'TOPIC-EXISTING',
+        canonicalSummary: '1件目の要約',
+        selfFacts: [makeSelfFact({ text: '1件目の自己事実' })],
+        webFacts: [makeWebFact({ text: '1件目のWeb事実' })],
+      }),
+      makeTopicResult({
+        targetTopicId: 'TOPIC-EXISTING',
+        canonicalSummary: '2件目（最終）の要約',
+        selfFacts: [makeSelfFact({ text: '2件目の自己事実' })],
+        webFacts: [makeWebFact({ text: '2件目のWeb事実' })],
+      }),
+    ]);
+
+    const outcome = await consolidate('u1', 'hiyori', {
+      topicRepo,
+      messageRepo,
+      webRawRepo,
+      cursorRepo,
+      llmClient,
+      embeddingClient: makeEmbeddingClient([1, 0]),
+      characterName: 'ひより',
+      now: () => fixedNow,
+    });
+
+    expect(outcome).toBe('consolidated');
+
+    // putTopic は既存 Topic に対して 1 回だけ呼ばれる（2 回目呼び出しで
+    // candidateMap 由来の古い UpdatedAt を使ってしまうと OptimisticLockError になる）
+    const existingTopicPutCalls = putTopicSpy.mock.calls.filter(
+      (call) => call[0].TopicID === 'TOPIC-EXISTING'
+    );
+    expect(existingTopicPutCalls).toHaveLength(1);
+
+    const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
+    expect(headers).toHaveLength(1);
+    expect(headers[0].TopicID).toBe('TOPIC-EXISTING');
+    // Care は +1 のみ（2 件分を二重加算しない）
+    expect(headers[0].Care).toBe(existing.Care + 1);
+    // グループ内で最後に出現したエントリの要約が採用される
+    expect(headers[0].CanonicalSummary).toBe('2件目（最終）の要約');
+
+    // 両エントリの selfFacts/webFacts が両方追記される（取りこぼしなし）
+    const selfFacts = await topicRepo.listSelfFacts('u1', 'hiyori', 'TOPIC-EXISTING');
+    const webFacts = await topicRepo.listWebFacts('u1', 'hiyori', 'TOPIC-EXISTING');
+    expect(selfFacts.map((f) => f.Text).sort()).toEqual(
+      ['1件目の自己事実', '2件目の自己事実'].sort()
+    );
+    expect(webFacts.map((f) => f.Text).sort()).toEqual(['1件目のWeb事実', '2件目のWeb事実'].sort());
+
+    // カーソルが前進する
+    const cursor = await cursorRepo.get('u1', 'hiyori');
+    expect(cursor?.MsgCursor).toBeGreaterThan(0);
+  });
+
+  it('merge 時の expectedUpdatedAt は candidateMap ではなくベーステーブル（getTopic）の現在値を使う', async () => {
+    const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
+
+    await topicRepo.putTopic({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      TopicID: 'TOPIC-EXISTING',
+      Subject: 'コーヒー',
+      CanonicalSummary: '以前の要約',
+      Category: '飲み物',
+      Care: 3,
+      Embedding: [1, 0],
+    });
+
+    tick = fixedNow;
+    await messageRepo.create({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Role: 'user',
+      Text: '今日もコーヒーを飲んだ',
+    });
+
+    const getTopicSpy = jest.spyOn(topicRepo, 'getTopic');
+    const putTopicSpy = jest.spyOn(topicRepo, 'putTopic');
+
+    const llmClient = makeLLMClient([
+      makeTopicResult({ targetTopicId: 'TOPIC-EXISTING', canonicalSummary: '更新された要約' }),
+    ]);
+
+    const outcome = await consolidate('u1', 'hiyori', {
+      topicRepo,
+      messageRepo,
+      webRawRepo,
+      cursorRepo,
+      llmClient,
+      embeddingClient: makeEmbeddingClient([1, 0]),
+      characterName: 'ひより',
+      now: () => fixedNow,
+    });
+
+    expect(outcome).toBe('consolidated');
+
+    // ベーステーブルから権威ある現在値を取り直している
+    expect(getTopicSpy).toHaveBeenCalledWith({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'TOPIC-EXISTING',
+    });
+
+    // getTopic が返した現在値の UpdatedAt が expectedUpdatedAt として使われている
+    const getTopicResult = await getTopicSpy.mock.results[0].value;
+    const putCall = putTopicSpy.mock.calls.find((call) => call[0].TopicID === 'TOPIC-EXISTING');
+    expect(putCall?.[1]).toEqual({ expectedUpdatedAt: getTopicResult?.UpdatedAt });
+  });
+
   it('候補に無い targetTopicId を LLM が返したら新規扱いになる（hallucination 保険）', async () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
 
