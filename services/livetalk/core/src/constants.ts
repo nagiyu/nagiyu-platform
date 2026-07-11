@@ -378,6 +378,21 @@ export const WEBFACT_REVIEW_INTERVAL_MS: Record<'low' | 'medium' | 'high', numbe
   high: 1 * 24 * 60 * 60 * 1000,
 };
 
+// ---- acquire バッチ（リブトーク知識再設計 P3 / #3699）----
+
+/**
+ * acquire バッチ: 1 実行あたりに発行する Web 取得クエリの最大数（暴走防止）。
+ * 依頼（StudyTopic）・鮮度切れ・care 自発リサーチの合算で消費する。
+ */
+export const ACQUIRE_MAX_QUERIES_PER_RUN = 3;
+
+/**
+ * acquire バッチ: 鮮度掃引（GSI-STALE の窓走査）で 1 回に取得する WEB fact の上限件数。
+ * ページングの 1 ページ分の上限であり、`ACQUIRE_MAX_QUERIES_PER_RUN` と合わせて
+ * 実際に再取得を実行する件数の上限を絞る。
+ */
+export const ACQUIRE_STALE_SWEEP_LIMIT = 10;
+
 // ---- Topic 想起（関連度 only）（リブトーク知識再設計 P2 / #3698）----
 
 /** 発話埋め込みと Topic 座標の cosine がこの値以上を想起候補とする（要調整・要観測）。 */
