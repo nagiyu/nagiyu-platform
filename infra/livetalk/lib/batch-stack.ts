@@ -26,12 +26,13 @@ export interface LiveTalkBatchStackProps extends cdk.StackProps {
 /**
  * LiveTalk バッチ処理スタック（Phase 3c / Issue #3281、Phase 4c / Issue #3329）
  *
- * 圧縮要約・活動時間学習・勉強・通知・集約（consolidation）の各バッチ Lambda を管理する。
+ * 圧縮要約・活動時間学習・勉強・通知・集約（consolidation）・acquire の各バッチ Lambda を管理する。
  * - compress: 日次 JST 03:00（UTC 18:00）
  * - learn-user-activity: 週次 JST 日曜 03:00（UTC 土曜 18:00）
  * - study: 毎時 0 分
  * - notify: 毎時 30 分
  * - consolidate: 毎時 15 分（リブトーク知識再設計 P1 / Issue #3697、shadow build）
+ * - acquire: 毎時 45 分（リブトーク知識再設計 P3 / Issue #3699。Web「取得だけ」バッチ）
  * - DLQ / IAM Role は Lambda ごとに独立（障害切り分け・権限最小化）
  */
 export class LiveTalkBatchStack extends cdk.Stack {
@@ -56,15 +57,17 @@ export class LiveTalkBatchStack extends cdk.Stack {
     // DynamoDB テーブル
     const dynamoTableName = getDynamoDBTableName('livetalk', environment);
     const dynamoTableArn = getDynamoDBTableArn(this.region, this.account, dynamoTableName);
-    // GSI1（Profile 列挙用）・GSI3（Topic ヘッダ列挙用）への Query 権限を grant に含めるため、
-    // インデックス情報付きでインポートする。`fromTableArn` だけだと hasIndex=false となり
-    // grantReadWriteData が `table/.../index/*` を付与せず、batch ロールが GSI を Query できず
-    // AccessDenied になる（#3527）。globalIndexes を渡すことで grant にインデックス ARN を含める。
-    // consolidate ロールが GSI3（GSI-TOPIC）を Query するため、ここに GSI3 を追加している
-    // （ADR-2.22 の教訓：後から grant だけ直しても index/* が付与されないため、必ずここで宣言する）。
+    // GSI1（Profile 列挙用）・GSI3（Topic ヘッダ列挙用）・GSI4（鮮度掃引用）への Query 権限を
+    // grant に含めるため、インデックス情報付きでインポートする。`fromTableArn` だけだと
+    // hasIndex=false となり grantReadWriteData が `table/.../index/*` を付与せず、
+    // batch ロールが GSI を Query できず AccessDenied になる（#3527）。
+    // globalIndexes を渡すことで grant にインデックス ARN を含める。
+    // consolidate ロールが GSI3（GSI-TOPIC）、acquire ロールが GSI3・GSI4（GSI-STALE）を
+    // Query するため、ここに追加している（ADR-2.22 の教訓：後から grant だけ直しても
+    // index/* が付与されないため、必ずここで宣言する）。
     const dynamoTable = dynamodb.Table.fromTableAttributes(this, 'DynamoTable', {
       tableArn: dynamoTableArn,
-      globalIndexes: ['GSI1', 'GSI3'],
+      globalIndexes: ['GSI1', 'GSI3', 'GSI4'],
     });
 
     // DLQ（失敗時の保持）
@@ -396,6 +399,76 @@ export class LiveTalkBatchStack extends cdk.Stack {
       })
     );
 
+    // ---- acquire バッチ（リブトーク知識再設計 P3 / Issue #3699）----
+    //
+    // 既存 study を「取得だけ」に縮小した新バッチ。依頼（StudyTopic）・鮮度切れ
+    // （GSI4/GSI-STALE 窓走査）・care 自発（GSI3 降順）の 3 種を Web 取得し WEBRAW を書く。
+    // Topic への畳み込みは既存 consolidation に委ねる。
+
+    // acquire バッチ専用 DLQ
+    const acquireDlq = new sqs.Queue(this, 'AcquireDlq', {
+      queueName: `nagiyu-livetalk-acquire-dlq-${environment}`,
+      retentionPeriod: cdk.Duration.days(7),
+    });
+
+    // acquire バッチ専用 IAM Role（OpenAI 権限が必要。GSI3/GSI4 Query は dynamoTable の
+    // globalIndexes 宣言（本ファイル冒頭）に含めているため、ここでは grantReadWriteData だけでよい）
+    const acquireRole = new iam.Role(this, 'AcquireExecutionRole', {
+      roleName: `nagiyu-livetalk-acquire-role-${environment}`,
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
+      ],
+    });
+    dynamoTable.grantReadWriteData(acquireRole);
+    acquireDlq.grantSendMessages(acquireRole);
+    grantErrorEventsWrite(this, acquireRole, environment);
+
+    // acquire バッチ Lambda
+    const acquireFunction = new lambda.Function(this, 'AcquireFunction', {
+      functionName: `nagiyu-livetalk-batch-acquire-${environment}`,
+      runtime: lambda.Runtime.FROM_IMAGE,
+      code: lambda.Code.fromEcrImage(batchRepository, {
+        tagOrDigest: 'latest',
+        cmd: ['services/livetalk/batch/dist/src/handlers/acquire.handler'],
+      }),
+      handler: lambda.Handler.FROM_IMAGE,
+      role: acquireRole,
+      memorySize: 512,
+      timeout: cdk.Duration.minutes(15),
+      environment: {
+        NODE_ENV: environment,
+        LIVETALK_ENV: environment,
+        DYNAMODB_TABLE_NAME: dynamoTableName,
+        OPENAI_API_KEY: openAiApiKey,
+        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
+        TZ: 'Asia/Tokyo',
+      },
+      deadLetterQueue: acquireDlq,
+      tracing: lambda.Tracing.ACTIVE,
+      logRetention: logs.RetentionDays.ONE_MONTH,
+    });
+
+    // EventBridge: 毎時 45 分に実行（study=0分・consolidate=15分・notify=30分と衝突回避）
+    const hourlyAcquireRule = new events.Rule(this, 'HourlyAcquireRule', {
+      ruleName: `livetalk-batch-acquire-${environment}`,
+      description: 'LiveTalk acquire バッチ（毎時 JST）',
+      schedule: events.Schedule.cron({
+        minute: '45',
+        hour: '*',
+        day: '*',
+        month: '*',
+        year: '*',
+      }),
+    });
+    hourlyAcquireRule.addTarget(
+      new targets.LambdaFunction(acquireFunction, {
+        deadLetterQueue: acquireDlq,
+        maxEventAge: cdk.Duration.hours(1),
+        retryAttempts: 1,
+      })
+    );
+
     // タグ
     cdk.Tags.of(this).add('Application', 'nagiyu');
     cdk.Tags.of(this).add('Service', 'livetalk');
@@ -451,6 +524,16 @@ export class LiveTalkBatchStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ConsolidateDlqUrl', {
       value: consolidateDlq.queueUrl,
       description: 'LiveTalk Consolidate DLQ URL',
+    });
+
+    new cdk.CfnOutput(this, 'AcquireFunctionArn', {
+      value: acquireFunction.functionArn,
+      description: 'LiveTalk Acquire Lambda Function ARN',
+    });
+
+    new cdk.CfnOutput(this, 'AcquireDlqUrl', {
+      value: acquireDlq.queueUrl,
+      description: 'LiveTalk Acquire DLQ URL',
     });
   }
 }
