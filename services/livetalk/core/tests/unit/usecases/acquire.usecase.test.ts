@@ -425,7 +425,7 @@ describe('acquireForUser', () => {
     expect(result.selfStudied).toBe(0);
   });
 
-  it('依頼のリサーチ失敗は in_progress のまま次回再試行され、他は継続する', async () => {
+  it('依頼のリサーチ失敗は pending へ戻され、次回バッチで再試行できる', async () => {
     await studyTopicRepo.put({
       UserID: 'u1',
       CharacterID: 'hiyori',
@@ -452,8 +452,12 @@ describe('acquireForUser', () => {
     });
 
     expect(result.requestsProcessed).toBe(0);
-    const topics = await studyTopicRepo.listByStatus('u1', 'hiyori', 'in_progress');
-    expect(topics).toHaveLength(1);
+    // in_progress のまま滞留させず pending へ戻す（次回 listByStatus('pending') で再試行）。
+    const stuck = await studyTopicRepo.listByStatus('u1', 'hiyori', 'in_progress');
+    expect(stuck).toHaveLength(0);
+    const pending = await studyTopicRepo.listByStatus('u1', 'hiyori', 'pending');
+    expect(pending).toHaveLength(1);
+    expect(pending[0].TopicID).toBe('req-fail');
   });
 
   it('鮮度切れの再取得が失敗しても他の処理を継続する（fail-warn）', async () => {
@@ -498,9 +502,10 @@ describe('acquireForUser', () => {
     expect(result.staleRefreshed).toBe(0);
     expect(result.staleChanged).toBe(0);
 
-    // NextReview は前方更新されない（再取得自体が失敗したため）
+    // 再取得失敗でも NextReview は前方更新する（poison pill による budget starvation を防ぐ）。
+    // high の再検証間隔（1 日）だけ前進し、掃引窓から外れる。
     const facts = await topicRepo.listWebFacts('u1', 'hiyori', 'topic-1');
-    expect(facts[0].NextReview).toBe(NOW_MS - 1000);
+    expect(facts[0].NextReview).toBe(NOW_MS + 24 * 60 * 60 * 1000);
   });
 
   it('care 自発リサーチの失敗は握って他の Topic を継続する（fail-warn）', async () => {

@@ -195,7 +195,7 @@ export async function acquireForUser(
         budget--;
       } catch (err) {
         logger.warn(
-          '[acquire] 依頼（StudyTopic）のリサーチに失敗しました（in_progress のまま次回再試行）',
+          '[acquire] 依頼（StudyTopic）のリサーチに失敗しました（pending へ戻して次回再試行）',
           {
             userId,
             characterId,
@@ -203,19 +203,35 @@ export async function acquireForUser(
             err: toErrorMessage(err),
           }
         );
-        // in_progress のまま次回バッチで再試行する（既存 study と同じ作法）
+        // 失敗時は pending へ戻す。in_progress のまま残すと listByStatus('pending') に
+        // 二度と拾われず（findPendingByTopic も係属中とみなす）、ユーザーの依頼が
+        // 沈黙のうちに失われるため、確実に次回バッチで再試行できるようにする。
+        try {
+          await studyTopicRepo.updateStatus({
+            UserID: userId,
+            CharacterID: characterId,
+            TopicID: studyTopic.TopicID,
+            Status: 'pending',
+            Priority: studyTopic.Priority,
+          });
+        } catch (revertErr) {
+          logger.warn('[acquire] 依頼（StudyTopic）の pending 復帰に失敗しました', {
+            userId,
+            characterId,
+            topic: studyTopic.Topic,
+            err: toErrorMessage(revertErr),
+          });
+        }
       }
     }
   }
 
   // ---- 2. 鮮度切れ（staleness refresh）----
   if (budget > 0) {
-    const staleFacts = await topicRepo.listStaleWebFacts(
-      userId,
-      characterId,
-      nowMs,
-      ACQUIRE_STALE_SWEEP_LIMIT
-    );
+    // 読み込みは残り budget を超えない範囲に絞る（budget 上限 3 に対し最大 10 件読むと
+    // 大半が無駄読みになるため）。ACQUIRE_STALE_SWEEP_LIMIT は 1 回あたりの上限として維持する。
+    const staleLimit = Math.min(budget, ACQUIRE_STALE_SWEEP_LIMIT);
+    const staleFacts = await topicRepo.listStaleWebFacts(userId, characterId, nowMs, staleLimit);
 
     for (const fact of staleFacts) {
       if (budget <= 0) break;
@@ -264,13 +280,34 @@ export async function acquireForUser(
         staleRefreshed++;
         budget--;
       } catch (err) {
-        logger.warn('[acquire] 鮮度切れ WEB fact の再取得に失敗しました（スキップして継続）', {
-          userId,
-          characterId,
-          topicId: fact.TopicID,
-          factId: fact.FactID,
-          err: toErrorMessage(err),
-        });
+        logger.warn(
+          '[acquire] 鮮度切れ WEB fact の再取得に失敗しました（NextReview を前進させて次回に委ねる）',
+          {
+            userId,
+            characterId,
+            topicId: fact.TopicID,
+            factId: fact.FactID,
+            err: toErrorMessage(err),
+          }
+        );
+        // research が特定 fact で失敗し続けると、NextReview が前進せず毎時「最古」として
+        // 窓の先頭に居座り budget を占有し続ける（poison pill による starvation）。
+        // 失敗時も best-effort で NextReview を前進させ、掃引窓から外す
+        // （stable は上部の continue で除外済みのため、ここは常に low/medium/high）。
+        try {
+          await topicRepo.updateWebFactNextReview(
+            { userId, characterId, topicId: fact.TopicID, factId: fact.FactID },
+            computeNextReview(fact.Volatility, nowMs)
+          );
+        } catch (bumpErr) {
+          logger.warn('[acquire] 鮮度切れ fact の NextReview 前進に失敗しました', {
+            userId,
+            characterId,
+            topicId: fact.TopicID,
+            factId: fact.FactID,
+            err: toErrorMessage(bumpErr),
+          });
+        }
       }
     }
   }
