@@ -7,6 +7,10 @@ import { hiyori } from '../../../src/characters/hiyori.js';
 import type { MessageEntity } from '../../../src/entities/message.entity.js';
 import type { RetrievedMemory } from '../../../src/memory/types.js';
 import type { MemoryEntity } from '../../../src/entities/memory.entity.js';
+import type { RetrievedTopic } from '../../../src/knowledge/retrieval.js';
+import type { TopicEntity } from '../../../src/entities/topic.entity.js';
+import type { SelfFactEntity } from '../../../src/entities/self-fact.entity.js';
+import type { WebFactEntity } from '../../../src/entities/web-fact.entity.js';
 
 const makeMsg = (role: 'user' | 'assistant', text: string, id = 'id1'): MessageEntity => ({
   UserID: 'u1',
@@ -312,5 +316,283 @@ describe('buildSystemPrompt（recentNotes / 感想連携）', () => {
     );
     expect(messages[0].content).toContain('最近ユーザーに渡したノート');
     expect(messages[0].content).toContain('- コーヒーの効能');
+  });
+});
+
+// ── Topic 想起（関連度 only）（リブトーク知識再設計 P2 / #3698）────────────────
+
+function makeTopic(subject: string, id = 'topic-1'): TopicEntity {
+  return {
+    UserID: 'u1',
+    CharacterID: 'hiyori',
+    TopicID: id,
+    Subject: subject,
+    CanonicalSummary: `${subject} の要約`,
+    Category: 'カテゴリ',
+    Care: 1,
+    Embedding: [0.1, 0.2],
+    CreatedAt: 1_700_000_000_000,
+    UpdatedAt: 1_700_000_000_000,
+  };
+}
+
+function makeSelfFact(text: string, topicId = 'topic-1'): SelfFactEntity {
+  return {
+    UserID: 'u1',
+    CharacterID: 'hiyori',
+    TopicID: topicId,
+    FactID: 'fact-1',
+    Text: text,
+    Provenance: '',
+    CreatedAt: 1_700_000_000_000,
+  };
+}
+
+function makeWebFact(text: string, topicId = 'topic-1'): WebFactEntity {
+  return {
+    UserID: 'u1',
+    CharacterID: 'hiyori',
+    TopicID: topicId,
+    FactID: 'wfact-1',
+    Text: text,
+    SourceUrls: [],
+    Volatility: 'stable',
+    ObservedAt: 1_700_000_000_000,
+    CreatedAt: 1_700_000_000_000,
+  };
+}
+
+function makeRetrievedTopic(
+  subject: string,
+  selfFacts: string[] = [],
+  webFacts: string[] = []
+): RetrievedTopic {
+  return {
+    topic: makeTopic(subject),
+    selfFacts: selfFacts.map((t) => makeSelfFact(t)),
+    webFacts: webFacts.map((t) => makeWebFact(t)),
+    similarity: 0.9,
+    via: 'direct',
+  };
+}
+
+describe('buildSystemPrompt（retrievedTopics）', () => {
+  it('retrievedTopics が空の場合はセクションがない', () => {
+    const prompt = buildSystemPrompt(
+      hiyori,
+      new Date(),
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      []
+    );
+    expect(prompt).not.toContain('今の話題に関連');
+  });
+
+  it('retrievedTopics が未指定の場合もセクションがない', () => {
+    const prompt = buildSystemPrompt(hiyori, new Date());
+    expect(prompt).not.toContain('今の話題に関連');
+  });
+
+  it('retrievedTopics がある場合、subject・SELF・WEB がセクションに含まれる', () => {
+    const topics = [
+      makeRetrievedTopic('コーヒー', ['朝コーヒーを飲む'], ['カフェインは覚醒作用がある']),
+    ];
+    const prompt = buildSystemPrompt(
+      hiyori,
+      new Date(),
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      topics
+    );
+    expect(prompt).toContain('今の話題に関連');
+    expect(prompt).toContain('■ コーヒー');
+    expect(prompt).toContain('（あなたが聞いたこと）朝コーヒーを飲む');
+    expect(prompt).toContain('（あなたが調べたこと）カフェインは覚醒作用がある');
+  });
+
+  it('SELF のみの Topic は WEB 行を出さない', () => {
+    const topics = [makeRetrievedTopic('コーヒー', ['朝コーヒーを飲む'], [])];
+    const prompt = buildSystemPrompt(
+      hiyori,
+      new Date(),
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      topics
+    );
+    expect(prompt).toContain('（あなたが聞いたこと）朝コーヒーを飲む');
+    expect(prompt).not.toContain('（あなたが調べたこと）');
+  });
+
+  it('WEB のみの Topic は SELF 行を出さない', () => {
+    const topics = [makeRetrievedTopic('コーヒー', [], ['カフェインは覚醒作用がある'])];
+    const prompt = buildSystemPrompt(
+      hiyori,
+      new Date(),
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      topics
+    );
+    expect(prompt).toContain('（あなたが調べたこと）カフェインは覚醒作用がある');
+    expect(prompt).not.toContain('（あなたが聞いたこと）');
+  });
+
+  it('複数 Topic が列挙される', () => {
+    const topics = [
+      makeRetrievedTopic('コーヒー', ['朝コーヒーを飲む']),
+      makeRetrievedTopic('ゲーム', ['RPGが好き']),
+    ];
+    topics[1].topic.TopicID = 'topic-2';
+    const prompt = buildSystemPrompt(
+      hiyori,
+      new Date(),
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      topics
+    );
+    expect(prompt).toContain('■ コーヒー');
+    expect(prompt).toContain('■ ゲーム');
+  });
+
+  it('memories セクションと共存できる', () => {
+    const memories = [makeRetrievedMemory('ケーキが好き', 'B')];
+    const topics = [makeRetrievedTopic('コーヒー', ['朝コーヒーを飲む'])];
+    const prompt = buildSystemPrompt(
+      hiyori,
+      new Date(),
+      memories,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      topics
+    );
+    expect(prompt).toContain('あなたが覚えていること：');
+    expect(prompt).toContain('今の話題に関連');
+  });
+
+  // fresh-eyes レビュー由来の修正: SELF/WEB が両方 0 件の Topic は見出しごと出さない
+  it('SELF/WEB が両方 0 件の Topic は見出しごと出ない', () => {
+    const topics = [
+      makeRetrievedTopic('コーヒー', ['朝コーヒーを飲む']),
+      makeRetrievedTopic('空の話題', [], []),
+    ];
+    topics[1].topic.TopicID = 'topic-2';
+    const prompt = buildSystemPrompt(
+      hiyori,
+      new Date(),
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      topics
+    );
+    expect(prompt).toContain('■ コーヒー');
+    expect(prompt).not.toContain('■ 空の話題');
+  });
+
+  it('fact を持つ Topic のみが描画される（fact 0 件の Topic のみ混在時）', () => {
+    const topics = [
+      makeRetrievedTopic('空の話題1', [], []),
+      makeRetrievedTopic('コーヒー', [], ['カフェインは覚醒作用がある']),
+      makeRetrievedTopic('空の話題2', [], []),
+    ];
+    topics[1].topic.TopicID = 'topic-2';
+    topics[2].topic.TopicID = 'topic-3';
+    const prompt = buildSystemPrompt(
+      hiyori,
+      new Date(),
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      topics
+    );
+    expect(prompt).toContain('今の話題に関連');
+    expect(prompt).toContain('■ コーヒー');
+    expect(prompt).not.toContain('■ 空の話題1');
+    expect(prompt).not.toContain('■ 空の話題2');
+  });
+
+  it('全 Topic が fact 0 件ならセクション自体が出ない', () => {
+    const topics = [
+      makeRetrievedTopic('空の話題1', [], []),
+      makeRetrievedTopic('空の話題2', [], []),
+    ];
+    topics[1].topic.TopicID = 'topic-2';
+    const prompt = buildSystemPrompt(
+      hiyori,
+      new Date(),
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      topics
+    );
+    expect(prompt).not.toContain('今の話題に関連');
+    expect(prompt).not.toContain('■ 空の話題1');
+    expect(prompt).not.toContain('■ 空の話題2');
+  });
+});
+
+describe('buildChatMessages（retrievedTopics）', () => {
+  it('retrievedTopics が渡されると system prompt に Topic セクションが注入される', () => {
+    const topics = [makeRetrievedTopic('コーヒー', ['朝コーヒーを飲む'])];
+    const messages = buildChatMessages(
+      hiyori,
+      new Date(),
+      [],
+      'おはよう',
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      topics
+    );
+    expect(messages[0].content).toContain('今の話題に関連');
+    expect(messages[0].content).toContain('■ コーヒー');
+  });
+
+  it('retrievedTopics 未指定の場合は Topic セクションがない', () => {
+    const messages = buildChatMessages(hiyori, new Date(), [], 'おはよう');
+    expect(messages[0].content).not.toContain('今の話題に関連');
   });
 });

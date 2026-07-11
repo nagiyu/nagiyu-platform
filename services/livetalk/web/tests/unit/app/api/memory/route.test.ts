@@ -3,15 +3,15 @@
  */
 import { GET } from '@/app/api/memory/route';
 import { getSession } from '@/lib/server/session';
-import { getMemoryRepository } from '@/lib/server/repositories';
-import type { MemoryEntity, MemoryRepository } from '@nagiyu/livetalk-core';
-import { decodeMemoryId } from '@/lib/memory/memory-id';
+import { getTopicRepository } from '@/lib/server/repositories';
+import type { SelfFactEntity, TopicEntity, TopicRepository } from '@nagiyu/livetalk-core';
+import { decodeSelfFactId } from '@/lib/memory/memory-id';
 
 jest.mock('@/lib/server/session', () => ({ getSession: jest.fn() }));
-jest.mock('@/lib/server/repositories', () => ({ getMemoryRepository: jest.fn() }));
+jest.mock('@/lib/server/repositories', () => ({ getTopicRepository: jest.fn() }));
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
-const mockGetRepo = getMemoryRepository as jest.MockedFunction<typeof getMemoryRepository>;
+const mockGetTopicRepository = getTopicRepository as jest.MockedFunction<typeof getTopicRepository>;
 
 const session = {
   user: {
@@ -26,32 +26,45 @@ const session = {
   expires: new Date(Date.now() + 60_000).toISOString(),
 };
 
-const makeEntity = (over: Partial<MemoryEntity> = {}): MemoryEntity => ({
+const makeTopic = (over: Partial<TopicEntity> = {}): TopicEntity => ({
   UserID: 'g1',
   CharacterID: 'hiyori',
-  MemoryID: '01HZ',
-  Tier: 'A',
-  Category: 'name',
-  Content: 'name is taro',
-  Confidence: 1,
-  ReferencedCount: 0,
+  TopicID: 't1',
+  Subject: '好きな食べ物',
+  CanonicalSummary: '',
+  Category: 'preference',
+  Care: 1,
+  Embedding: [],
   CreatedAt: 1,
   UpdatedAt: 1,
   ...over,
 });
 
-const makeRepo = (over: Partial<MemoryRepository> = {}): MemoryRepository =>
+const makeFact = (over: Partial<SelfFactEntity> = {}): SelfFactEntity => ({
+  UserID: 'g1',
+  CharacterID: 'hiyori',
+  TopicID: 't1',
+  FactID: 'f1',
+  Text: 'カレーが好き',
+  Provenance: '',
+  CreatedAt: 1,
+  ...over,
+});
+
+const makeRepo = (over: Partial<TopicRepository> = {}): TopicRepository =>
   ({
-    listByTier: jest.fn(async () => ({ items: [] })),
-    get: jest.fn(),
-    put: jest.fn(),
-    listByCategory: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-    promote: jest.fn(),
-    demote: jest.fn(),
+    listTopicHeaders: jest.fn(async () => []),
+    listSelfFacts: jest.fn(async () => []),
+    putTopic: jest.fn(),
+    getTopic: jest.fn(),
+    getTopicBundle: jest.fn(),
+    listTopicHeadersByCareDesc: jest.fn(),
+    putSelfFact: jest.fn(),
+    deleteSelfFact: jest.fn(),
+    putWebFact: jest.fn(),
+    listWebFacts: jest.fn(),
     ...over,
-  }) as unknown as MemoryRepository;
+  }) as unknown as TopicRepository;
 
 const req = (url = 'http://localhost/api/memory') => new Request(url, { method: 'GET' });
 
@@ -64,70 +77,62 @@ describe('GET /api/memory', () => {
     expect(res.status).toBe(401);
   });
 
-  it('tier 未指定なら A/B/C を横断取得しソートして返す', async () => {
+  it('Topic ヘッダを列挙し各 Topic の SELF fact を集約してソートして返す', async () => {
     mockGetSession.mockResolvedValue(session);
-    const listByTier = jest.fn(async (_u: string, _c: string, tier: string) => {
-      if (tier === 'A')
-        return { items: [makeEntity({ MemoryID: 'a', Tier: 'A', LastReferencedAt: 100 })] };
-      if (tier === 'B')
-        return { items: [makeEntity({ MemoryID: 'b', Tier: 'B', LastReferencedAt: 200 })] };
-      return { items: [] };
+    const listTopicHeaders = jest.fn(async () => [
+      makeTopic({ TopicID: 't1', Subject: '好きな食べ物' }),
+      makeTopic({ TopicID: 't2', Subject: '仕事' }),
+    ]);
+    const listSelfFacts = jest.fn(async (_u: string, _c: string, topicId: string) => {
+      if (topicId === 't1') return [makeFact({ TopicID: 't1', FactID: 'a', CreatedAt: 100 })];
+      if (topicId === 't2') return [makeFact({ TopicID: 't2', FactID: 'b', CreatedAt: 200 })];
+      return [];
     });
-    mockGetRepo.mockReturnValue(makeRepo({ listByTier }));
+    mockGetTopicRepository.mockReturnValue(makeRepo({ listTopicHeaders, listSelfFacts }));
 
     const res = await GET(req());
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.memories).toHaveLength(2);
-    // LastReferencedAt 降順 → b が先頭
-    expect(json.memories[0].tier).toBe('B');
-    expect(listByTier).toHaveBeenCalledTimes(3);
+    expect(json.selfFacts).toHaveLength(2);
+    // createdAt 降順 → b(200) が先頭
+    expect(json.selfFacts[0].topicId).toBe('t2');
+    expect(listSelfFacts).toHaveBeenCalledTimes(2);
     // id は decode 可能
-    expect(decodeMemoryId(json.memories[0].id, 'g1')?.memoryId).toBe('b');
+    expect(decodeSelfFactId(json.selfFacts[0].id, 'g1')?.factId).toBe('b');
   });
 
-  it('tier 指定ならその Tier のみ取得', async () => {
+  it('Topic が 0 件なら空配列', async () => {
     mockGetSession.mockResolvedValue(session);
-    const listByTier = jest.fn(async () => ({ items: [makeEntity({ Tier: 'C' })] }));
-    mockGetRepo.mockReturnValue(makeRepo({ listByTier }));
-
-    const res = await GET(req('http://localhost/api/memory?tier=C'));
+    mockGetTopicRepository.mockReturnValue(makeRepo());
+    const res = await GET(req());
     expect(res.status).toBe(200);
-    expect(listByTier).toHaveBeenCalledTimes(1);
-    expect(listByTier).toHaveBeenCalledWith('g1', 'hiyori', 'C');
+    const json = await res.json();
+    expect(json.selfFacts).toEqual([]);
   });
 
-  it('characterId クエリを指定するとそのキャラの記憶を取得する', async () => {
+  it('characterId クエリを指定するとそのキャラの Topic を取得する', async () => {
     mockGetSession.mockResolvedValue(session);
-    const listByTier = jest.fn(async () => ({ items: [] }));
-    mockGetRepo.mockReturnValue(makeRepo({ listByTier }));
+    const listTopicHeaders = jest.fn(async () => []);
+    mockGetTopicRepository.mockReturnValue(makeRepo({ listTopicHeaders }));
 
     const res = await GET(req('http://localhost/api/memory?characterId=ageha'));
     expect(res.status).toBe(200);
-    // ageha で呼ばれることを確認（全 Tier 横断のため 3 回）
-    expect(listByTier).toHaveBeenCalledWith('g1', 'ageha', expect.any(String));
+    expect(listTopicHeaders).toHaveBeenCalledWith('g1', 'ageha');
   });
 
   it('不正な characterId は 400', async () => {
     mockGetSession.mockResolvedValue(session);
-    mockGetRepo.mockReturnValue(makeRepo());
+    mockGetTopicRepository.mockReturnValue(makeRepo());
     const res = await GET(req('http://localhost/api/memory?characterId=unknown'));
-    expect(res.status).toBe(400);
-  });
-
-  it('不正な tier は 400', async () => {
-    mockGetSession.mockResolvedValue(session);
-    mockGetRepo.mockReturnValue(makeRepo());
-    const res = await GET(req('http://localhost/api/memory?tier=Z'));
     expect(res.status).toBe(400);
   });
 
   it('DB エラーは 500', async () => {
     const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockGetSession.mockResolvedValue(session);
-    mockGetRepo.mockReturnValue(
+    mockGetTopicRepository.mockReturnValue(
       makeRepo({
-        listByTier: jest.fn(async () => {
+        listTopicHeaders: jest.fn(async () => {
           throw new Error('db');
         }),
       })

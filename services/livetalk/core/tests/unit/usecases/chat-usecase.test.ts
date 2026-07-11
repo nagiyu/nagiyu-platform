@@ -18,6 +18,8 @@ import type { KnowledgeEntity } from '../../../src/entities/knowledge.entity.js'
 import type { SafetyEventEntity } from '../../../src/entities/safety-event.entity.js';
 import type { IModerationClient, ModerationResult } from '../../../src/safety/types.js';
 import type { IMemoryRetriever, RetrievedMemory } from '../../../src/memory/types.js';
+import type { ITopicRetriever, RetrievedTopic } from '../../../src/knowledge/retrieval.js';
+import type { TopicEntity } from '../../../src/entities/topic.entity.js';
 
 // ── ヘルパー ──────────────────────────────────────────────────────────────
 
@@ -146,6 +148,42 @@ function makeModerationClient(
 function makeMemoryRetriever(memories: RetrievedMemory[] = []): IMemoryRetriever {
   return {
     retrieve: jest.fn(async () => ({ memories })),
+  };
+}
+
+function makeRetrievedTopic(subject: string, selfFactTexts: string[] = []): RetrievedTopic {
+  const topic: TopicEntity = {
+    UserID: 'u1',
+    CharacterID: 'hiyori',
+    TopicID: 'topic-1',
+    Subject: subject,
+    CanonicalSummary: `${subject} の要約`,
+    Category: 'カテゴリ',
+    Care: 1,
+    Embedding: [0.1, 0.2],
+    CreatedAt: 1_700_000_000_000,
+    UpdatedAt: 1_700_000_000_000,
+  };
+  return {
+    topic,
+    selfFacts: selfFactTexts.map((text, i) => ({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      TopicID: 'topic-1',
+      FactID: `fact-${i}`,
+      Text: text,
+      Provenance: '',
+      CreatedAt: 1_700_000_000_000,
+    })),
+    webFacts: [],
+    similarity: 0.9,
+    via: 'direct',
+  };
+}
+
+function makeTopicRetriever(topics: RetrievedTopic[] = []): ITopicRetriever {
+  return {
+    retrieve: jest.fn(async () => topics),
   };
 }
 
@@ -2092,6 +2130,263 @@ describe('runChatUseCase', () => {
       expect(systemMsg?.content).toContain('通知でユーザーに話しかけた話題');
       const knowledgeCount = (systemMsg?.content.match(/この前調べたこと/g) ?? []).length;
       expect(knowledgeCount).toBeLessThanOrEqual(1);
+    });
+  });
+
+  // ── Topic 想起（関連度 only）（リブトーク知識再設計 P2 / #3698）────────────────
+
+  describe('Topic 想起への切替（topicRetriever）', () => {
+    it('topicRetriever が指定されると retrieve が呼ばれる', async () => {
+      const llm = makeLLMClient(['ok。']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const topicRetriever = makeTopicRetriever();
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          topicRetriever,
+        })
+      );
+
+      expect(topicRetriever.retrieve).toHaveBeenCalledWith(
+        'u1',
+        'hiyori',
+        expect.objectContaining({ userInput: 'こんにちは' })
+      );
+    });
+
+    it('topicRetriever 未指定の場合は retrieve が呼ばれない（従来挙動）', async () => {
+      const llm = makeLLMClient(['ok。']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const topicRetriever = makeTopicRetriever();
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          // topicRetriever なし
+        })
+      );
+
+      expect(topicRetriever.retrieve).not.toHaveBeenCalled();
+    });
+
+    it('retrieve 結果（subject/SELF/WEB）が system prompt に注入される', async () => {
+      const topics = [makeRetrievedTopic('コーヒー', ['朝コーヒーを飲む'])];
+      const llm = makeLLMClient(['ok。']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          topicRetriever: makeTopicRetriever(topics),
+        })
+      );
+
+      const streamArgs = (llm.chatStream as jest.Mock).mock.calls[0][0] as Array<{
+        role: string;
+        content: string;
+      }>;
+      const systemMsg = streamArgs.find((m) => m.role === 'system');
+      expect(systemMsg?.content).toContain('今の話題に関連');
+      expect(systemMsg?.content).toContain('■ コーヒー');
+      expect(systemMsg?.content).toContain('（あなたが聞いたこと）朝コーヒーを飲む');
+    });
+
+    it('topicRetriever 指定時、MemorySummary（summaryText）は system prompt に注入されない', async () => {
+      const sampleSummary: MemorySummaryEntity = {
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        SummaryText: 'この人はコーヒーが好きで、犬を飼っている。',
+        LastCompressedAt: 1_700_000_000_000,
+        CreatedAt: 1_700_000_000_000,
+        UpdatedAt: 1_700_000_000_000,
+      };
+      const llm = makeLLMClient(['ok。']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const summaryRepo = makeMemorySummaryRepo(sampleSummary);
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memorySummaryRepository: summaryRepo,
+          topicRetriever: makeTopicRetriever([]),
+        })
+      );
+
+      const streamArgs = (llm.chatStream as jest.Mock).mock.calls[0][0] as Array<{
+        role: string;
+        content: string;
+      }>;
+      const systemMsg = streamArgs.find((m) => m.role === 'system');
+      expect(systemMsg?.content).not.toContain('あなたがこれまでに知ったこと');
+      expect(systemMsg?.content).not.toContain(sampleSummary.SummaryText);
+    });
+
+    it('topicRetriever 指定時、旧 memoryRetriever は呼ばれない（防御的ガード）', async () => {
+      const llm = makeLLMClient(['ok。']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const memoryRetriever = makeMemoryRetriever();
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memoryRetriever,
+          topicRetriever: makeTopicRetriever(),
+        })
+      );
+
+      expect(memoryRetriever.retrieve).not.toHaveBeenCalled();
+    });
+
+    it('topicRetriever の retrieve 失敗時は想起なしで会話を継続する（fail-warn）', async () => {
+      const failingRetriever: ITopicRetriever = {
+        retrieve: jest.fn(async () => {
+          throw new Error('retrieve 失敗');
+        }),
+      };
+      const llm = makeLLMClient(['ok。']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          topicRetriever: failingRetriever,
+        })
+      );
+
+      expect(events[events.length - 1]).toEqual({ type: 'done' });
+      expect(llm.chatStream).toHaveBeenCalled();
+    });
+
+    // fresh-eyes レビュー由来の修正: topic recall 時は旧 Tier 由来の newLearnings を注入しない
+    it('topicRetriever 指定時、旧 Tier 由来の newLearnings（あなたが新しく知ったこと）は system prompt に注入されない', async () => {
+      const tierCMem: MemoryEntity = {
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        MemoryID: 'c1',
+        Tier: 'C',
+        Category: 'food',
+        Content: 'コーヒーが好き',
+        Confidence: 0.5,
+        ReferencedCount: 1,
+        CreatedAt: 0,
+        UpdatedAt: 0,
+        Embedding: [1, 0, 0],
+      };
+      const memRepo = makeMemoryRepo();
+      (memRepo.listByTier as jest.Mock).mockResolvedValue({ items: [tierCMem] });
+      const llm: ILLMClient = {
+        chatStream: jest.fn(async function* () {
+          yield '了解！';
+        }),
+        chatComplete: jest.fn(),
+        chatStructured: jest.fn(async () => ({
+          promotions: [{ memoryId: 'c1', promote: true }],
+        })) as unknown as ILLMClient['chatStructured'],
+        summarize: jest.fn(),
+      };
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const embeddingClient = { embed: jest.fn(async () => [0.99, 0.01, 0]) };
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memoryRepository: memRepo,
+          embeddingClient,
+          topicRetriever: makeTopicRetriever([]),
+        })
+      );
+
+      const streamArgs = (llm.chatStream as jest.Mock).mock.calls[0][0] as Array<{
+        role: string;
+        content: string;
+      }>;
+      const systemMsg = streamArgs.find((m) => m.role === 'system');
+      expect(systemMsg?.content).not.toContain('あなたが新しく知ったこと');
+      expect(systemMsg?.content).not.toContain('コーヒーが好き');
+
+      // 書込機構（promotionCandidates の計算・executePromotion）は従来どおり維持する
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(memRepo.promote).toHaveBeenCalledWith(tierCMem, 'B');
+    });
+
+    it('topicRetriever 未指定時（従来）は newLearnings が system prompt に注入される', async () => {
+      const tierCMem: MemoryEntity = {
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        MemoryID: 'c1',
+        Tier: 'C',
+        Category: 'food',
+        Content: 'コーヒーが好き',
+        Confidence: 0.5,
+        ReferencedCount: 1,
+        CreatedAt: 0,
+        UpdatedAt: 0,
+        Embedding: [1, 0, 0],
+      };
+      const memRepo = makeMemoryRepo();
+      (memRepo.listByTier as jest.Mock).mockResolvedValue({ items: [tierCMem] });
+      const llm: ILLMClient = {
+        chatStream: jest.fn(async function* () {
+          yield '了解！';
+        }),
+        chatComplete: jest.fn(),
+        chatStructured: jest.fn(async () => ({
+          promotions: [{ memoryId: 'c1', promote: true }],
+        })) as unknown as ILLMClient['chatStructured'],
+        summarize: jest.fn(),
+      };
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const embeddingClient = { embed: jest.fn(async () => [0.99, 0.01, 0]) };
+
+      await collectEvents(
+        runChatUseCase({
+          ...baseParams,
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          memoryRepository: memRepo,
+          embeddingClient,
+          // topicRetriever なし（従来挙動）
+        })
+      );
+
+      const streamArgs = (llm.chatStream as jest.Mock).mock.calls[0][0] as Array<{
+        role: string;
+        content: string;
+      }>;
+      const systemMsg = streamArgs.find((m) => m.role === 'system');
+      expect(systemMsg?.content).toContain('あなたが新しく知ったこと');
+      expect(systemMsg?.content).toContain('コーヒーが好き');
     });
   });
 });

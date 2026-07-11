@@ -24,7 +24,7 @@ import {
   getStudyTopicRepository,
 } from '@/lib/server/repositories';
 import { getModerationClient, getSafetyEventRepository } from '@/lib/server/safety';
-import { getMemoryRetriever } from '@/lib/server/memory-retriever';
+import { getTopicRetriever } from '@/lib/server/topic-retriever';
 import { getEmbeddingClient } from '@/lib/server/embedding';
 import { CHAT_ERROR_MESSAGES, CHAT_MAX_TEXT_LENGTH } from './constants';
 
@@ -220,7 +220,7 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (session, reques
           messageRepository: getMessageRepository(),
           safetyEventRepository: getSafetyEventRepository(),
           moderationClient: getModerationClient(),
-          memoryRetriever: getMemoryRetriever(),
+          topicRetriever: getTopicRetriever(),
           memoryRepository: getMemoryRepository(),
           embeddingClient: getEmbeddingClient(),
           characterStateRepository: getCharacterStateRepository(),

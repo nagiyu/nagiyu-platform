@@ -6,6 +6,7 @@ import type { NoteEntity } from '../entities/note.entity.js';
 import type { ChatMessage } from '../llm-client/types.js';
 import type { RetrievedMemory } from '../memory/types.js';
 import type { LifecycleState } from '../entities/lifecycle.entity.js';
+import type { RetrievedTopic } from '../knowledge/retrieval.js';
 
 export type TimeOfDay = '朝' | '昼' | '夜';
 
@@ -29,6 +30,33 @@ function buildSleepingPrompt(): string {
 - 多少ちぐはぐでも OK。眠くて寝ぼけている状態として振る舞う`;
 }
 
+/**
+ * 想起（関連度 only）で選抜された Topic 群を「あなたが覚えていること（今の話題に関連）」
+ * セクションとして描画する（リブトーク知識再設計 P2 / #3698）。
+ *
+ * SELF/WEB それぞれ、facet が空なら該当行を出さない。
+ * SELF/WEB が両方 0 件の Topic は「■ subject」見出しごとスキップする（fresh-eyes レビュー指摘）。
+ * 全 Topic がスキップされ描画対象がなくなった場合は空文字を返す（呼び出し側でセクション自体を出さない）。
+ */
+function buildTopicsSection(retrievedTopics: RetrievedTopic[]): string {
+  const topicBlocks = retrievedTopics
+    .filter((rt) => rt.selfFacts.length > 0 || rt.webFacts.length > 0)
+    .map((rt) => {
+      const lines: string[] = [`■ ${rt.topic.Subject}`];
+      for (const selfFact of rt.selfFacts) {
+        lines.push(`- （あなたが聞いたこと）${selfFact.Text}`);
+      }
+      for (const webFact of rt.webFacts) {
+        lines.push(`- （あなたが調べたこと）${webFact.Text}`);
+      }
+      return lines.join('\n');
+    });
+
+  if (topicBlocks.length === 0) return '';
+
+  return `あなたが覚えていること（今の話題に関連）：\n${topicBlocks.join('\n')}`;
+}
+
 export function buildSystemPrompt(
   character: CharacterDefinition,
   now: Date,
@@ -38,7 +66,8 @@ export function buildSystemPrompt(
   lifecycleState?: LifecycleState,
   knowledgeContext?: KnowledgeEntity[],
   recentNotes?: NoteEntity[],
-  notificationKnowledge?: KnowledgeEntity
+  notificationKnowledge?: KnowledgeEntity,
+  retrievedTopics?: RetrievedTopic[]
 ): string {
   const { personality, displayName } = character;
   const timeOfDay = getTimeOfDay(now);
@@ -65,6 +94,11 @@ export function buildSystemPrompt(
   const hasKnowledge = knowledgeContext !== undefined && knowledgeContext.length > 0;
   const hasRecentNotes = recentNotes !== undefined && recentNotes.length > 0;
   const hasNotificationKnowledge = notificationKnowledge !== undefined;
+  // fact を 1 件以上持つ Topic が存在するかで判定する（SELF/WEB 両方 0 件の Topic のみの場合は
+  // セクションを出さないため、単純な length > 0 では不足）。
+  const hasTopics =
+    retrievedTopics !== undefined &&
+    retrievedTopics.some((rt) => rt.selfFacts.length > 0 || rt.webFacts.length > 0);
 
   if (
     !hasSummary &&
@@ -73,7 +107,8 @@ export function buildSystemPrompt(
     !isSleeping &&
     !hasKnowledge &&
     !hasRecentNotes &&
-    !hasNotificationKnowledge
+    !hasNotificationKnowledge &&
+    !hasTopics
   )
     return base;
 
@@ -90,6 +125,10 @@ export function buildSystemPrompt(
   if (hasMemories) {
     const memoriesSection = retrievedMemories.map((r) => `- ${r.memory.Content}`).join('\n');
     sections.push(`あなたが覚えていること：\n${memoriesSection}`);
+  }
+
+  if (hasTopics) {
+    sections.push(buildTopicsSection(retrievedTopics!));
   }
 
   if (hasNewLearnings) {
@@ -145,7 +184,8 @@ export function buildChatMessages(
   lifecycleState?: LifecycleState,
   knowledgeContext?: KnowledgeEntity[],
   recentNotes?: NoteEntity[],
-  notificationKnowledge?: KnowledgeEntity
+  notificationKnowledge?: KnowledgeEntity,
+  retrievedTopics?: RetrievedTopic[]
 ): ChatMessage[] {
   const systemPrompt = buildSystemPrompt(
     character,
@@ -156,7 +196,8 @@ export function buildChatMessages(
     lifecycleState,
     knowledgeContext,
     recentNotes,
-    notificationKnowledge
+    notificationKnowledge,
+    retrievedTopics
   );
   const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }];
 

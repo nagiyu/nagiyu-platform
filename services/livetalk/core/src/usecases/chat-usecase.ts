@@ -32,6 +32,10 @@ import {
   STUDY_TOPIC_GATE_PRIORITY,
   NOTE_RECENT_DAYS,
   NOTE_RECENT_LIMIT,
+  TOPIC_RECALL_SIMILARITY_THRESHOLD,
+  TOPIC_RECALL_TOP_K,
+  TOPIC_RECALL_RELATED_THRESHOLD,
+  TOPIC_RECALL_RELATED_MAX,
 } from '../constants.js';
 import { detectSafetyRisk } from '../safety/detector.js';
 import { buildModerationReplacementMessage, buildSafetyMessage } from '../safety/templates.js';
@@ -51,6 +55,7 @@ import { evaluateKnowledgeGate } from '../study/knowledge-gate.js';
 import type { KnowledgeMatcher } from '../study/knowledge-matcher.js';
 import { buildStudyDeferralMessage } from '../study/templates.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
+import type { ITopicRetriever, RetrievedTopic } from '../knowledge/retrieval.js';
 
 /**
  * /api/chat ストリーミングレスポンスの各イベント型。
@@ -123,6 +128,13 @@ export interface ChatUseCaseParams {
    * knowledgeRepository が未指定の場合はスキップする。
    */
   notificationKnowledgeId?: string;
+  /**
+   * Topic retriever（リブトーク知識再設計 P2 / #3698）。
+   * 指定時は関連度 only の Topic 想起に切替え、Tier memory（memoryRetriever）/
+   * MemorySummary のプロンプト注入を抑制する。未指定時は従来挙動（memoryRetriever による
+   * Tier 想起 + MemorySummary 注入）のまま完全に変わらない。
+   */
+  topicRetriever?: ITopicRetriever;
 }
 
 type SynthesisResult = { index: number; text: string; audio: string | null; elapsedMs: number };
@@ -253,11 +265,14 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     knowledgeMatcher,
     ulidFactory = defaultUlidFactory,
     notificationKnowledgeId,
+    topicRetriever,
   } = params;
 
   const chatStart = performance.now();
   const metrics = createChatMetrics(userId, characterId);
   const timer = createPhaseTimer();
+  // topicRetriever 指定時のみ Topic 想起（関連度 only）へ切替。未指定時は従来挙動を完全維持する。
+  const useTopicRecall = !!topicRetriever;
 
   // 1. CharacterState + MemorySummary + Lifecycle を並行取得
   //    MemorySummary の lastCompressedAt を境界として history を取得するため、先に解決する
@@ -458,8 +473,10 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   }
 
   // 4. Memory retrieve（fail-warn: エラー時は空配列で継続）
+  // useTopicRecall 時は Topic 想起に切替えるため、旧 memoryRetriever は使わない
+  // （route は memoryRetriever を渡さない想定だが、防御的にガードする）。
   let retrievedMemories: RetrievedMemory[] = [];
-  if (memoryRetriever) {
+  if (memoryRetriever && !useTopicRecall) {
     timer.start('retrieve');
     try {
       const retrieveResult = await memoryRetriever.retrieve(userId, characterId, {
@@ -482,6 +499,31 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
       logger.warn('[chat-usecase] Memory retrieve に失敗しました（メモリなしで継続）', { err });
     }
     metrics.latency.retrieve = timer.elapsedMs('retrieve');
+  }
+
+  // 4'. Topic retrieve（関連度 only、リブトーク知識再設計 P2 / #3698、fail-warn: エラー時は空配列で継続）
+  let retrievedTopics: RetrievedTopic[] = [];
+  if (useTopicRecall && topicRetriever) {
+    timer.start('retrieve');
+    try {
+      retrievedTopics = await topicRetriever.retrieve(userId, characterId, {
+        userInput: userText,
+        threshold: TOPIC_RECALL_SIMILARITY_THRESHOLD,
+        topK: TOPIC_RECALL_TOP_K,
+        relatedThreshold: TOPIC_RECALL_RELATED_THRESHOLD,
+        relatedMax: TOPIC_RECALL_RELATED_MAX,
+      });
+      timer.end('retrieve');
+    } catch (err) {
+      timer.end('retrieve');
+      logger.warn('[chat-usecase] Topic retrieve に失敗しました（想起なしで継続）', { err });
+    }
+    metrics.latency.retrieve = timer.elapsedMs('retrieve');
+    logger.info('[chat-usecase] topic recall counts', {
+      userId,
+      characterId,
+      retrievedTopicCount: retrievedTopics.length,
+    });
   }
 
   // 4a. 暗黙訂正検出（fail-warn: エラー時はスキップして継続）
@@ -540,18 +582,24 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   }
 
   // 5. LLM ストリーミング（通常フロー）
+  // useTopicRecall 時は Tier memory / MemorySummary のプロンプト注入を抑制し、
+  // Topic 想起（関連度 only）のみを注入する。
+  // newLearnings（旧 Tier 由来）も同様に注入しない（決定的忘却：memory 画面で消せない
+  // 旧 Tier コンテンツをチャットに出さない）。promotionCandidates の計算・executePromotion・
+  // 親密度更新は書込機構として従来どおり維持し、プロンプト注入のみ止める。
   const chatMessages = buildChatMessages(
     character,
     new Date(),
     history,
     userText,
-    retrievedMemories,
-    fetchedSummary?.SummaryText,
-    newLearnings.length > 0 ? newLearnings : undefined,
+    useTopicRecall ? [] : retrievedMemories,
+    useTopicRecall ? undefined : fetchedSummary?.SummaryText,
+    useTopicRecall ? undefined : newLearnings.length > 0 ? newLearnings : undefined,
     lifecycleState,
     knowledgeContextForPrompt,
     recentNotes.length > 0 ? recentNotes : undefined,
-    notificationKnowledge ?? undefined
+    notificationKnowledge ?? undefined,
+    useTopicRecall ? retrievedTopics : undefined
   );
 
   // プロンプトトークン内訳を計算（best-effort）
@@ -559,10 +607,20 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     const counter = getDefaultTokenCounter();
     const baseSystem = buildSystemPrompt(character, new Date());
     const systemTokens = counter.countTokens(baseSystem);
-    const summaryTokens = metrics.summaryTokenCount;
-    const memoryTokens =
-      retrievedMemories.reduce((sum, r) => sum + counter.countTokens(r.memory.Content), 0) +
-      newLearnings.reduce((sum, m) => sum + counter.countTokens(m.Content), 0);
+    const summaryTokens = useTopicRecall ? 0 : metrics.summaryTokenCount;
+    const retrievalTokens = useTopicRecall
+      ? retrievedTopics.reduce(
+          (sum, rt) =>
+            sum +
+            rt.selfFacts.reduce((s, f) => s + counter.countTokens(f.Text), 0) +
+            rt.webFacts.reduce((s, f) => s + counter.countTokens(f.Text), 0),
+          0
+        )
+      : retrievedMemories.reduce((sum, r) => sum + counter.countTokens(r.memory.Content), 0);
+    const newLearningsTokens = useTopicRecall
+      ? 0
+      : newLearnings.reduce((sum, m) => sum + counter.countTokens(m.Content), 0);
+    const memoryTokens = retrievalTokens + newLearningsTokens;
     const messageTokens =
       history.reduce((sum, m) => sum + counter.countTokensForMessage(m.Text), 0) +
       counter.countTokensForMessage(userText);

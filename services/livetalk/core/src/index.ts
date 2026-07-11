@@ -484,3 +484,22 @@ export {
   type ConsolidatePromptCandidateTopic,
 } from './usecases/consolidate.prompt.js';
 export { consolidate, type ConsolidateParams } from './usecases/consolidate.usecase.js';
+
+// Topic 想起（関連度 only）＋決定的忘却（リブトーク知識再設計 P2 / #3698）
+export { TopicRetriever } from './knowledge/index.js';
+export type { ITopicRetriever, RetrievedTopic, TopicRetrieveOptions } from './knowledge/index.js';
+export { forgetSelfFact, type ForgetSelfFactDeps } from './usecases/forget-self-fact.usecase.js';
+export {
+  buildRegenerateSummaryPrompt,
+  type RegenerateSummaryPromptInput,
+} from './usecases/regenerate-summary.prompt.js';
+export {
+  RegenerateSummarySchema,
+  type RegenerateSummaryRaw,
+} from './llm-client/schemas/regenerate-summary.schema.js';
+export {
+  TOPIC_RECALL_SIMILARITY_THRESHOLD,
+  TOPIC_RECALL_TOP_K,
+  TOPIC_RECALL_RELATED_THRESHOLD,
+  TOPIC_RECALL_RELATED_MAX,
+} from './constants.js';

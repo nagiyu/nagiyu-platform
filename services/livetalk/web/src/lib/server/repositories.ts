@@ -28,6 +28,7 @@ import type {
   ProfileRepository,
   PushSubscriptionRepository,
   StudyTopicRepository,
+  TopicRepository,
 } from '@nagiyu/livetalk-core';
 import {
   DynamoDBAccountDeletionRepository,
@@ -44,6 +45,7 @@ import {
   DynamoDBProfileRepository,
   DynamoDBPushSubscriptionRepository,
   DynamoDBStudyTopicRepository,
+  DynamoDBTopicRepository,
   InMemoryAccountDeletionRepository,
   InMemoryChatGuardRepository,
   InMemoryCharacterStateRepository,
@@ -58,6 +60,7 @@ import {
   InMemoryProfileRepository,
   InMemoryPushSubscriptionRepository,
   InMemoryStudyTopicRepository,
+  InMemoryTopicRepository,
 } from '@nagiyu/livetalk-core';
 
 const registry = registerDynamoRepositories<
@@ -75,6 +78,7 @@ const registry = registerDynamoRepositories<
     note: NoteRepository;
     pushSubscription: PushSubscriptionRepository;
     notificationEvent: NotificationEventRepository;
+    topic: TopicRepository;
   },
   InMemorySingleTableStore
 >(
@@ -144,6 +148,11 @@ const registry = registerDynamoRepositories<
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBNotificationEventRepository(docClient, tableName),
     },
+    topic: {
+      createInMemoryRepository: (store) => new InMemoryTopicRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBTopicRepository(docClient, tableName),
+    },
   },
   {
     keyPrefix: 'livetalk',
@@ -201,6 +210,10 @@ export function getPushSubscriptionRepository(): PushSubscriptionRepository {
 
 export function getNotificationEventRepository(): NotificationEventRepository {
   return registry.notificationEvent.createRepository();
+}
+
+export function getTopicRepository(): TopicRepository {
+  return registry.topic.createRepository();
 }
 
 /**
