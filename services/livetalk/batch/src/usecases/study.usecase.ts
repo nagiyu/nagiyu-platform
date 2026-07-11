@@ -9,7 +9,6 @@ import {
   type LifecycleRepository,
   type NoteRepository,
   type ProfileRepository,
-  type StudyTopicRepository,
   type UlidFactory,
 } from '@nagiyu/livetalk-core';
 import type { IResearchClient } from '@nagiyu/livetalk-core';
@@ -19,7 +18,6 @@ export interface StudyAllUsersParams {
   lifecycleRepo: LifecycleRepository;
   interestRepo: InterestRepository;
   knowledgeRepo: KnowledgeRepository;
-  studyTopicRepo?: StudyTopicRepository;
   /**
    * Note リポジトリ（Phase 5c / #3345）。
    * 指定された場合、勉強が実行されたユーザーについて KNOWLEDGE → NOTE 昇格を行う。
@@ -52,7 +50,6 @@ export async function studyAllUsers(params: StudyAllUsersParams): Promise<StudyA
     lifecycleRepo,
     interestRepo,
     knowledgeRepo,
-    studyTopicRepo,
     noteRepo,
     researchClient,
     ulidFactory,
@@ -97,7 +94,6 @@ export async function studyAllUsers(params: StudyAllUsersParams): Promise<StudyA
           const outcome = await studyForUser(userId, characterId, {
             knowledgeRepo,
             interestRepo,
-            studyTopicRepo,
             researchClient,
             character: characterDef,
             lifecycle,
