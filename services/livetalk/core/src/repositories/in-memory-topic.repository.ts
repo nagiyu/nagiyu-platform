@@ -5,7 +5,7 @@ import type {
   SelfFactKey,
 } from '../entities/self-fact.entity.js';
 import type { CreateTopicInput, TopicEntity, TopicKey } from '../entities/topic.entity.js';
-import type { CreateWebFactInput, WebFactEntity } from '../entities/web-fact.entity.js';
+import type { CreateWebFactInput, WebFactEntity, WebFactKey } from '../entities/web-fact.entity.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
 import { SelfFactMapper } from '../mappers/self-fact.mapper.js';
 import { TopicMapper } from '../mappers/topic.mapper.js';
@@ -14,6 +14,7 @@ import {
   buildSelfFactSKPrefix,
   buildTopicBundleSKPrefix,
   buildTopicGSI3PK,
+  buildTopicStaleGSI4PK,
   buildUserPK,
   buildWebFactSKPrefix,
 } from '../mappers/keys.js';
@@ -188,5 +189,45 @@ export class InMemoryTopicRepository implements TopicRepository {
       { limit: Number.MAX_SAFE_INTEGER }
     );
     return items.map((item: DynamoDBItem) => this.webFactMapper.toEntity(item));
+  }
+
+  public async listStaleWebFacts(
+    userId: string,
+    characterId: string,
+    nowMs: number,
+    limit: number
+  ): Promise<WebFactEntity[]> {
+    // GSI4（GSI-STALE）相当を `GSI4PK` 属性の配列フィルタで再現し、
+    // NextReview<=nowMs のフィルタ・昇順ソート・limit の slice で窓走査を再現する
+    // （queryGsi3 と同じ方針）。
+    const gsi4pk = buildTopicStaleGSI4PK(characterId, userId);
+    const results: WebFactEntity[] = [];
+    let cursor: string | undefined;
+
+    do {
+      const result = this.store.queryByAttribute(
+        { attributeName: 'GSI4PK', attributeValue: gsi4pk },
+        { limit: Number.MAX_SAFE_INTEGER, ...(cursor ? { cursor } : {}) }
+      );
+      for (const item of result.items) {
+        results.push(this.webFactMapper.toEntity(item));
+      }
+      cursor = result.nextCursor;
+    } while (cursor !== undefined);
+
+    return results
+      .filter((fact) => fact.NextReview !== undefined && fact.NextReview <= nowMs)
+      .sort((a, b) => (a.NextReview ?? 0) - (b.NextReview ?? 0))
+      .slice(0, limit);
+  }
+
+  public async updateWebFactNextReview(key: WebFactKey, nextReview: number): Promise<void> {
+    const { pk, sk } = this.webFactMapper.buildKeys(key);
+    const item = this.store.get(pk, sk);
+    if (!item) return;
+
+    const entity = this.webFactMapper.toEntity(item);
+    const updated: WebFactEntity = { ...entity, NextReview: nextReview };
+    this.store.put(this.webFactMapper.toItem(updated));
   }
 }

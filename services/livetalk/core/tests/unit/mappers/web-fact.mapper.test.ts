@@ -41,6 +41,18 @@ describe('WebFactMapper', () => {
       const item = mapper.toItem({ ...baseEntity, NextReview: 1_750_500_000_000 });
       expect(item.NextReview).toBe(1_750_500_000_000);
     });
+
+    it('NextReview 未設定時は GSI4PK/GSI4SK を付与しない（sparse GSI）', () => {
+      const item = mapper.toItem(baseEntity);
+      expect('GSI4PK' in item).toBe(false);
+      expect('GSI4SK' in item).toBe(false);
+    });
+
+    it('NextReview 設定時は GSI4PK/GSI4SK を付与する（GSI-STALE）', () => {
+      const item = mapper.toItem({ ...baseEntity, NextReview: 1_750_500_000_000 });
+      expect(item.GSI4PK).toBe('hiyori#STALE#user1');
+      expect(item.GSI4SK).toBe(1_750_500_000_000);
+    });
   });
 
   describe('toEntity', () => {
@@ -52,6 +64,13 @@ describe('WebFactMapper', () => {
 
     it('NextReview を復元する', () => {
       const item = mapper.toItem({ ...baseEntity, NextReview: 1_750_500_000_000 });
+      const entity = mapper.toEntity(item);
+      expect(entity.NextReview).toBe(1_750_500_000_000);
+    });
+
+    it('NextReview が欠落していても GSI4SK から復元できる（GSI4 の Query 結果を想定）', () => {
+      const item = mapper.toItem({ ...baseEntity, NextReview: 1_750_500_000_000 });
+      delete (item as Record<string, unknown>).NextReview;
       const entity = mapper.toEntity(item);
       expect(entity.NextReview).toBe(1_750_500_000_000);
     });

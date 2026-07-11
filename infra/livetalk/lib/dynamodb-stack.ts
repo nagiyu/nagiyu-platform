@@ -18,6 +18,9 @@ export interface LiveTalkDynamoDbStackProps extends cdk.StackProps {
  *   Topic 中心モデル（リブトーク知識再設計 P1 / #3697、shadow build）のために GSI3 を追加した。
  *   GSI-TOPIC: Topic ヘッダ(META) のみを sparse 索引化する。想起の座標列挙と acquire の
  *   care 降順取得を賄う（#3697）。
+ *   acquire バッチの鮮度掃引（リブトーク知識再設計 P3 / #3699）のために GSI4 を追加した。
+ *   GSI-STALE: 揮発性のある WEB fact（NextReview を持つもの）のみを sparse 索引化し、
+ *   `nextReview<=now` の窓走査で鮮度切れ fact を列挙する。
  *   （`docs/services/livetalk/architecture.md` §3「データモデル概要」参照）
  * - Message は TTL（属性名 `TTL`、Unix 秒）で 90 日後に自動削除
  * - Point-in-time Recovery 有効、AWS マネージドキーで at-rest 暗号化
@@ -103,6 +106,30 @@ export class LiveTalkDynamoDbStack extends cdk.Stack {
         'Embedding',
         'CreatedAt',
         'UpdatedAt',
+      ],
+    });
+
+    // GSI4（GSI-STALE）: 揮発性のある WEB fact（NextReview を持つもの）のみを sparse 索引化する。
+    // acquire バッチの鮮度掃引（`nextReview<=now` の窓走査）を賄う（リブトーク知識再設計 P3 / #3699）。
+    // GSI4PK=`<characterId>#STALE#<userId>` の対象アイテムのみが対象（sparse GSI。stable fact は
+    // NextReview を持たないため GSI4PK/GSI4SK を付与せず、この GSI に一切現れない）
+    // GSI4SK は NextReview（Number 型）
+    // 射影は WebFactEntity を GSI4 だけで復元できるよう、NextReview（GSI4SK と重複するため除外）
+    // 以外の全属性を INCLUDE する
+    this.table.addGlobalSecondaryIndex({
+      indexName: 'GSI4',
+      partitionKey: { name: 'GSI4PK', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'GSI4SK', type: dynamodb.AttributeType.NUMBER },
+      projectionType: dynamodb.ProjectionType.INCLUDE,
+      nonKeyAttributes: [
+        'UserID',
+        'CharacterID',
+        'TopicID',
+        'FactID',
+        'Text',
+        'SourceUrls',
+        'Volatility',
+        'ObservedAt',
       ],
     });
 
