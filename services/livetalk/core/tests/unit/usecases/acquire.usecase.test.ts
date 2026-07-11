@@ -312,6 +312,60 @@ describe('acquireForUser', () => {
     expect(webraws[0].Query).toContain('高 care トピック');
   });
 
+  it('直近取得済み（クールダウン中）の care 上位 Topic はスキップし、未取得の下位 Topic を研究する', async () => {
+    // 高 care だが直近取得済み（stable fact で ObservedAt が新しい）→ スキップ対象
+    await topicRepo.putTopic({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      TopicID: 'topic-recent',
+      Subject: '直近取得済みトピック',
+      CanonicalSummary: '',
+      Category: 'テスト',
+      Care: 9,
+      Embedding: [0.1],
+    });
+    await topicRepo.putWebFact({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      TopicID: 'topic-recent',
+      Text: '既知',
+      SourceUrls: [],
+      Volatility: 'stable', // NextReview 無し → 鮮度掃引には出ない
+      ObservedAt: NOW_MS - 1000, // クールダウン（24h）内
+    });
+    // 低 care だが未取得 → 研究対象
+    await topicRepo.putTopic({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      TopicID: 'topic-cold',
+      Subject: '未取得トピック',
+      CanonicalSummary: '',
+      Category: 'テスト',
+      Care: 3,
+      Embedding: [0.1],
+    });
+
+    const researchClient = makeResearchClient();
+    const changeDetector = makeChangeDetector();
+
+    const result = await acquireForUser('u1', 'hiyori', {
+      topicRepo,
+      webRawRepo,
+      studyTopicRepo,
+      researchClient,
+      changeDetector,
+      character,
+      lifecycle: makeLifecycle(),
+      now: () => awakeNonPeak,
+      maxQueriesPerRun: 1,
+    });
+
+    expect(result.selfStudied).toBe(1);
+    const webraws = await webRawRepo.listSince('u1', 'hiyori', 0);
+    expect(webraws).toHaveLength(1);
+    expect(webraws[0].Query).toContain('未取得トピック');
+  });
+
   it('ピーク時は care 自発をスキップするが依頼・鮮度切れは実施する', async () => {
     const lifecycle = makeLifecycle({
       UserActivityProfile: {

@@ -2,6 +2,8 @@ import { logger, toErrorMessage } from '@nagiyu/common';
 import type { CharacterDefinition } from '../characters/types.js';
 import {
   ACQUIRE_MAX_QUERIES_PER_RUN,
+  ACQUIRE_SELF_STUDY_CANDIDATE_LIMIT,
+  ACQUIRE_SELF_STUDY_COOLDOWN_MS,
   ACQUIRE_STALE_SWEEP_LIMIT,
   STUDY_INACTIVE_WINDOW_HOURS,
   WEBFACT_REVIEW_INTERVAL_MS,
@@ -313,11 +315,36 @@ export async function acquireForUser(
   }
 
   // ---- 3. care 自発リサーチ ----
+  // budget より広めに候補を取り、クールダウン中（直近取得済み）の Topic を読み飛ばして
+  // 未研究・古い Topic に budget を割り当てる（冗長な WEB fact の線形増加を防ぐ）。
   if (budget > 0 && !decision.skipSelfStudy) {
-    const headers = await topicRepo.listTopicHeadersByCareDesc(userId, characterId, budget);
+    const headers = await topicRepo.listTopicHeadersByCareDesc(
+      userId,
+      characterId,
+      ACQUIRE_SELF_STUDY_CANDIDATE_LIMIT
+    );
 
     for (const header of headers) {
       if (budget <= 0) break;
+
+      // クールダウン判定: 直近この Topic を取得済み（最新 WEB fact の ObservedAt が
+      // now - ACQUIRE_SELF_STUDY_COOLDOWN_MS 以降）なら自発リサーチをスキップする。
+      // 揮発 fact の鮮度追随は GSI-STALE 経路が別途担うため、ここでは穴埋めに限定する。
+      try {
+        const webFacts = await topicRepo.listWebFacts(userId, characterId, header.TopicID);
+        const latestObservedAt = webFacts.reduce((max, f) => Math.max(max, f.ObservedAt), 0);
+        if (latestObservedAt > 0 && nowMs - latestObservedAt < ACQUIRE_SELF_STUDY_COOLDOWN_MS) {
+          continue;
+        }
+      } catch (err) {
+        // クールダウン判定の読み取り失敗は握って研究続行（取りこぼしより再取得を優先）
+        logger.warn('[acquire] care 自発リサーチのクールダウン判定に失敗しました（続行）', {
+          userId,
+          characterId,
+          topicId: header.TopicID,
+          err: toErrorMessage(err),
+        });
+      }
 
       try {
         const query = `${header.Subject} 最新情報`;
