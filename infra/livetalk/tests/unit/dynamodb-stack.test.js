@@ -163,6 +163,7 @@ describe('LiveTalkDynamoDbStack', () => {
               'SourceUrls',
               'Volatility',
               'ObservedAt',
+              'CreatedAt',
             ]),
           },
         },

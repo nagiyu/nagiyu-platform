@@ -114,8 +114,9 @@ export class LiveTalkDynamoDbStack extends cdk.Stack {
     // GSI4PK=`<characterId>#STALE#<userId>` の対象アイテムのみが対象（sparse GSI。stable fact は
     // NextReview を持たないため GSI4PK/GSI4SK を付与せず、この GSI に一切現れない）
     // GSI4SK は NextReview（Number 型）
-    // 射影は WebFactEntity を GSI4 だけで復元できるよう、NextReview（GSI4SK と重複するため除外）
-    // 以外の全属性を INCLUDE する
+    // 射影は WebFactMapper.toEntity が GSI4 の Query 結果だけで WebFactEntity を復元できるよう、
+    // NextReview（GSI4SK と重複するため除外）以外の必須属性を INCLUDE する。
+    // CreatedAt は toEntity の必須フィールドのため必ず射影する（欠落すると鮮度掃引の復元で失敗する）。
     this.table.addGlobalSecondaryIndex({
       indexName: 'GSI4',
       partitionKey: { name: 'GSI4PK', type: dynamodb.AttributeType.STRING },
@@ -130,6 +131,7 @@ export class LiveTalkDynamoDbStack extends cdk.Stack {
         'SourceUrls',
         'Volatility',
         'ObservedAt',
+        'CreatedAt',
       ],
     });
 
