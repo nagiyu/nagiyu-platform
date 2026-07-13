@@ -243,6 +243,46 @@ describe('InMemorySingleTableStore', () => {
 
         expect(result.items).toHaveLength(0);
       });
+
+      it('挿入順に依らずSKの昇順で返す（実DynamoDBのQueryと同様のソート順）', () => {
+        store.clear();
+        // 意図的に非ソート順（TSLA→AAPL→NVDA）で挿入する
+        const items: DynamoDBItem[] = [
+          {
+            PK: 'USER#999',
+            SK: 'HOLDING#TSLA',
+            Type: 'Holding',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+            TickerID: 'TSLA',
+          },
+          {
+            PK: 'USER#999',
+            SK: 'HOLDING#AAPL',
+            Type: 'Holding',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+            TickerID: 'AAPL',
+          },
+          {
+            PK: 'USER#999',
+            SK: 'HOLDING#NVDA',
+            Type: 'Holding',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+            TickerID: 'NVDA',
+          },
+        ];
+        items.forEach((item) => store.put(item));
+
+        const result = store.query({ pk: 'USER#999' });
+
+        expect(result.items.map((item) => item.SK)).toEqual([
+          'HOLDING#AAPL',
+          'HOLDING#NVDA',
+          'HOLDING#TSLA',
+        ]);
+      });
     });
 
     describe('queryByAttribute', () => {
@@ -298,6 +338,52 @@ describe('InMemorySingleTableStore', () => {
 
         expect(result.items).toHaveLength(1);
         expect(result.items[0].GSI1SK).toBe('USER#123');
+      });
+
+      it('挿入順に依らずGSIのSK属性昇順で返す（実DynamoDBのGSI Queryと同様のソート順）', () => {
+        store.clear();
+        // 意図的に非ソート順（Holding#TSLA→Holding#AAPL→Holding#NVDA）で挿入する
+        const items: DynamoDBItem[] = [
+          {
+            PK: 'USER#001',
+            SK: 'HOLDING#TSLA',
+            Type: 'Holding',
+            GSI1PK: 'USER#001',
+            GSI1SK: 'Holding#TSLA',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+            TickerID: 'TSLA',
+          },
+          {
+            PK: 'USER#001',
+            SK: 'HOLDING#AAPL',
+            Type: 'Holding',
+            GSI1PK: 'USER#001',
+            GSI1SK: 'Holding#AAPL',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+            TickerID: 'AAPL',
+          },
+          {
+            PK: 'USER#001',
+            SK: 'HOLDING#NVDA',
+            Type: 'Holding',
+            GSI1PK: 'USER#001',
+            GSI1SK: 'Holding#NVDA',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+            TickerID: 'NVDA',
+          },
+        ];
+        items.forEach((item) => store.put(item));
+
+        const result = store.queryByAttribute({
+          attributeName: 'GSI1PK',
+          attributeValue: 'USER#001',
+          sk: { attributeName: 'GSI1SK', operator: 'begins_with', value: 'Holding#' },
+        });
+
+        expect(result.items.map((item) => item.TickerID)).toEqual(['AAPL', 'NVDA', 'TSLA']);
       });
     });
 

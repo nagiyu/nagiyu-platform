@@ -116,6 +116,9 @@ export class InMemorySingleTableStore {
       items = this.filterBySortKey(items, sk.operator, sk.value);
     }
 
+    // 実DynamoDBのQueryはソートキー昇順で返すため、挿入順（Map反復順）に依存しないよう安定ソートする
+    items = this.sortBySortKey(items, 'SK');
+
     // カーソルからの開始位置を特定
     let startIndex = 0;
     if (options?.cursor) {
@@ -158,6 +161,9 @@ export class InMemorySingleTableStore {
     if (sk) {
       items = this.filterBySortKey(items, sk.operator, sk.value, sk.attributeName);
     }
+
+    // 実DynamoDBのGSI Queryはソートキー（GSIのSK属性）昇順で返すため、挿入順に依存しないよう安定ソートする
+    items = this.sortBySortKey(items, sk?.attributeName ?? 'SK');
 
     // カーソルからの開始位置を特定
     let startIndex = 0;
@@ -261,6 +267,23 @@ export class InMemorySingleTableStore {
         default:
           return false;
       }
+    });
+  }
+
+  /**
+   * ソートキー属性で昇順（文字列の辞書順）に安定ソートする
+   *
+   * 実DynamoDBのQuery（GSI経由を含む）はソートキー昇順で結果を返すため、
+   * InMemory実装もこれに合わせて挿入順（Map反復順）ではなくソートキー順で返す。
+   *
+   * @param items - ソート対象アイテム
+   * @param skAttribute - ソートキーとして扱う属性名（Queryは'SK'、GSI経由はGSIのSK属性名）
+   */
+  private sortBySortKey(items: DynamoDBItem[], skAttribute: string): DynamoDBItem[] {
+    return [...items].sort((a, b) => {
+      const aKey = String(a[skAttribute] ?? '');
+      const bKey = String(b[skAttribute] ?? '');
+      return aKey < bKey ? -1 : aKey > bKey ? 1 : 0;
     });
   }
 
