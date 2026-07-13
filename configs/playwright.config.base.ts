@@ -1,4 +1,4 @@
-import { defineConfig, devices, type PlaywrightTestConfig } from '@playwright/test';
+import { defineConfig, devices, type PlaywrightTestConfig, type Project } from '@playwright/test';
 
 export interface CreatePlaywrightConfigOptions {
   /** テストディレクトリ（デフォルト './tests/e2e'） */
@@ -63,7 +63,7 @@ export function createPlaywrightConfig(
       navigationTimeout: isCI ? 30 * 1000 : 30 * 1000,
       ...(extraHTTPHeaders ? { extraHTTPHeaders } : {}),
     },
-    projects: [
+    projects: ([
       {
         name: 'chromium-desktop',
         use: {
@@ -78,7 +78,7 @@ export function createPlaywrightConfig(
           ...devices['Pixel 5'],
           viewport: { width: 393, height: 851 },
           deviceScaleFactor: 2.75,
-          serviceWorkers: 'block',
+          serviceWorkers: 'block' as const,
         },
       },
       {
@@ -89,7 +89,7 @@ export function createPlaywrightConfig(
           deviceScaleFactor: 3,
         },
       },
-    ].filter((project) => {
+    ] as Project[]).filter((project) => {
       const projectFilter = process.env.PROJECT;
       if (!projectFilter) return true;
       return project.name === projectFilter;
