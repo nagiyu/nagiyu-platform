@@ -5,6 +5,7 @@ import {
   InMemoryWebRawRepository,
   InMemoryConsolidationCursorRepository,
   InMemoryProfileRepository,
+  InMemoryNoteRepository,
   type ILLMClient,
   type IEmbeddingClient,
 } from '@nagiyu/livetalk-core';
@@ -25,6 +26,18 @@ const makeTopicResult = () => ({
   webFacts: [],
 });
 
+const makeNoteLetter = () => ({
+  skip: true,
+  usedSelfHook: false,
+  headline: '',
+});
+
+/**
+ * consolidate（topics）と generateNotesForUser（NoteLetterSchema）の両方が
+ * `chatStructured` 経由で呼ばれるため、topics 配列の有無で応答を切り替える。
+ * デフォルトはノート生成側を skip=true にして「集約バッチが LLM を計 2 回呼ぶこと」だけを
+ * 素直に検証できるようにする（ノート生成の詳細挙動は generate-note.usecase.test.ts が担う）。
+ */
 const makeLLMClient = (): ILLMClient & { chatStructuredCalls: number } => {
   let chatStructuredCalls = 0;
   return {
@@ -34,9 +47,13 @@ const makeLLMClient = (): ILLMClient & { chatStructuredCalls: number } => {
     async chatComplete() {
       return '';
     },
-    async chatStructured() {
+    async chatStructured(messages) {
       chatStructuredCalls++;
-      return { topics: [makeTopicResult()] } as unknown as never;
+      const isConsolidate = messages.some((m) => m.content.includes('話題（Topic）ごとにまとめ'));
+      if (isConsolidate) {
+        return { topics: [makeTopicResult()] } as unknown as never;
+      }
+      return makeNoteLetter() as unknown as never;
     },
     async summarize() {
       return { mergedSummary: '要約', newMemoryCandidates: [] };
@@ -63,6 +80,7 @@ const makeRepos = (sharedStore?: InMemorySingleTableStore) => {
     webRawRepo: new InMemoryWebRawRepository(store, ulidFactory, nowMs),
     cursorRepo: new InMemoryConsolidationCursorRepository(store, nowMs),
     profileRepo: new InMemoryProfileRepository(store, nowMs),
+    noteRepo: new InMemoryNoteRepository(store, nowMs),
   };
 };
 
@@ -83,13 +101,14 @@ const makeProfileRepoWithUsers = async (userIds: string[]): Promise<InMemoryProf
 const makeParams = (
   overrides: Partial<ConsolidateAllConversationsParams> = {}
 ): ConsolidateAllConversationsParams => {
-  const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo } = makeRepos();
+  const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } = makeRepos();
   return {
     profileRepo,
     topicRepo,
     messageRepo,
     webRawRepo,
     cursorRepo,
+    noteRepo,
     llmClient: makeLLMClient(),
     embeddingClient: makeEmbeddingClient(),
     ...overrides,
@@ -117,7 +136,8 @@ describe('consolidateAllConversations', () => {
   it('hiyori に未集約メッセージのあるユーザー分だけ LLM を呼ぶ', async () => {
     const llmClient = makeLLMClient();
     const store = new InMemorySingleTableStore();
-    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo } = makeRepos(store);
+    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } =
+      makeRepos(store);
     tick = fixedNow;
     await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'hello' });
     await profileRepo.upsert({ UserID: 'u1' });
@@ -129,6 +149,7 @@ describe('consolidateAllConversations', () => {
       messageRepo,
       webRawRepo,
       cursorRepo,
+      noteRepo,
       llmClient,
       embeddingClient: makeEmbeddingClient(),
     });
@@ -159,7 +180,8 @@ describe('consolidateAllConversations', () => {
     };
 
     const store = new InMemorySingleTableStore();
-    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo } = makeRepos(store);
+    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } =
+      makeRepos(store);
     tick = fixedNow;
     await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'hi' });
     tick++;
@@ -173,6 +195,7 @@ describe('consolidateAllConversations', () => {
       messageRepo,
       webRawRepo,
       cursorRepo,
+      noteRepo,
       llmClient: errorClient,
       embeddingClient: makeEmbeddingClient(),
     });
@@ -203,7 +226,8 @@ describe('consolidateAllConversations', () => {
     };
 
     const store = new InMemorySingleTableStore();
-    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo } = makeRepos(store);
+    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } =
+      makeRepos(store);
     tick = fixedNow;
     await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'hi' });
     tick++;
@@ -216,6 +240,7 @@ describe('consolidateAllConversations', () => {
       messageRepo,
       webRawRepo,
       cursorRepo,
+      noteRepo,
       llmClient: partialErrorClient,
       embeddingClient: makeEmbeddingClient(),
     });
@@ -229,7 +254,8 @@ describe('consolidateAllConversations', () => {
   it('複数キャラ（hiyori と ageha）両方に未集約データがある場合 LLM が 2 回呼ばれる', async () => {
     const llmClient = makeLLMClient();
     const store = new InMemorySingleTableStore();
-    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo } = makeRepos(store);
+    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } =
+      makeRepos(store);
     tick = fixedNow;
     await messageRepo.create({
       UserID: 'u1',
@@ -252,6 +278,7 @@ describe('consolidateAllConversations', () => {
       messageRepo,
       webRawRepo,
       cursorRepo,
+      noteRepo,
       llmClient,
       embeddingClient: makeEmbeddingClient(),
     });
@@ -281,7 +308,8 @@ describe('consolidateAllConversations', () => {
     };
 
     const store = new InMemorySingleTableStore();
-    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo } = makeRepos(store);
+    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } =
+      makeRepos(store);
     tick = fixedNow;
     await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'hello' });
     tick++;
@@ -294,6 +322,7 @@ describe('consolidateAllConversations', () => {
       messageRepo,
       webRawRepo,
       cursorRepo,
+      noteRepo,
       llmClient: spyClient,
       embeddingClient: makeEmbeddingClient(),
     });
@@ -305,7 +334,8 @@ describe('consolidateAllConversations', () => {
   it('未集約データのあるユーザーは processedUsers、ないユーザーは skippedUsers に計上される（混在ケース）', async () => {
     const llmClient = makeLLMClient();
     const store = new InMemorySingleTableStore();
-    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo } = makeRepos(store);
+    const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } =
+      makeRepos(store);
     tick = fixedNow;
     await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'hello' });
     await profileRepo.upsert({ UserID: 'u1' });
@@ -317,6 +347,7 @@ describe('consolidateAllConversations', () => {
       messageRepo,
       webRawRepo,
       cursorRepo,
+      noteRepo,
       llmClient,
       embeddingClient: makeEmbeddingClient(),
     });
@@ -324,5 +355,139 @@ describe('consolidateAllConversations', () => {
     expect(result.processedUsers).toBe(1);
     expect(result.skippedUsers).toBe(1);
     expect(result.failedUsers).toBe(0);
+  });
+
+  describe('ノート生成の組込（リブトーク知識・記憶再設計 P4「ノート（ギフト化）」）', () => {
+    /**
+     * care=3・WEB fact ありの Topic を事前に用意する。consolidate の merge で
+     * Care が +1 されて閾値（既定 3）を満たすようにする。
+     */
+    const preseedTopic = async (
+      topicRepo: ReturnType<typeof makeRepos>['topicRepo']
+    ): Promise<void> => {
+      await topicRepo.putTopic({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        TopicID: 'topic-preseed',
+        Subject: 'コーヒー',
+        CanonicalSummary: 'ユーザーはコーヒーが好き',
+        Category: '飲み物',
+        Care: 3,
+        Embedding: [1, 0],
+      });
+      await topicRepo.putWebFact({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        TopicID: 'topic-preseed',
+        Text: 'コーヒーには覚醒作用がある',
+        SourceUrls: ['https://example.com'],
+        Volatility: 'stable',
+        ObservedAt: fixedNow,
+      });
+    };
+
+    /** consolidate は topic-preseed へ merge、ノート生成は指定した letter を返すクライアント */
+    const makeMergeAndLetterClient = (letter: {
+      skip: boolean;
+      usedSelfHook: boolean;
+      headline: string;
+    }): ILLMClient => ({
+      async *chatStream() {
+        yield '';
+      },
+      async chatComplete() {
+        return '';
+      },
+      async chatStructured(messages) {
+        const isConsolidate = messages.some((m) => m.content.includes('話題（Topic）ごとにまとめ'));
+        if (isConsolidate) {
+          return {
+            topics: [{ ...makeTopicResult(), targetTopicId: 'topic-preseed' }],
+          } as unknown as never;
+        }
+        return letter as unknown as never;
+      },
+      async summarize() {
+        return { mergedSummary: '要約', newMemoryCandidates: [] };
+      },
+    });
+
+    it('集約後に care 閾値以上・WEB ありの Topic はノートを生成し generatedNotes に集計する', async () => {
+      const store = new InMemorySingleTableStore();
+      const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } =
+        makeRepos(store);
+      tick = fixedNow;
+      await preseedTopic(topicRepo);
+      await messageRepo.create({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Role: 'user',
+        Text: 'コーヒーについてもっと教えて',
+      });
+      await profileRepo.upsert({ UserID: 'u1' });
+
+      const llmClient = makeMergeAndLetterClient({
+        skip: false,
+        usedSelfHook: false,
+        headline: '気になって調べてみたよ。コーヒーには覚醒作用があるんだって！',
+      });
+
+      const result = await consolidateAllConversations({
+        profileRepo,
+        topicRepo,
+        messageRepo,
+        webRawRepo,
+        cursorRepo,
+        noteRepo,
+        llmClient,
+        embeddingClient: makeEmbeddingClient(),
+      });
+
+      expect(result.generatedNotes).toBe(1);
+      expect(result.processedUsers).toBe(1);
+      const notes = await noteRepo.listAll('u1', 'hiyori');
+      expect(notes).toHaveLength(1);
+      expect(notes[0].TopicID).toBe('topic-preseed');
+    });
+
+    it('ノート生成が失敗しても集約バッチ全体は継続する（fail-warn）', async () => {
+      const store = new InMemorySingleTableStore();
+      const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } =
+        makeRepos(store);
+      tick = fixedNow;
+      await preseedTopic(topicRepo);
+      await messageRepo.create({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Role: 'user',
+        Text: 'コーヒーについてもっと教えて',
+      });
+      await profileRepo.upsert({ UserID: 'u1' });
+
+      jest.spyOn(noteRepo, 'put').mockRejectedValueOnce(new Error('note put failed'));
+
+      const llmClient = makeMergeAndLetterClient({
+        skip: false,
+        usedSelfHook: false,
+        headline: '気になって調べてみたよ。コーヒーには覚醒作用があるんだって！',
+      });
+
+      const result = await consolidateAllConversations({
+        profileRepo,
+        topicRepo,
+        messageRepo,
+        webRawRepo,
+        cursorRepo,
+        noteRepo,
+        llmClient,
+        embeddingClient: makeEmbeddingClient(),
+      });
+
+      // ノート生成は失敗するが、集約自体は成功しているので processedUsers はそのまま。
+      // failedUsers には計上されない（fail-warn）。
+      expect(result.generatedNotes).toBe(0);
+      expect(result.processedUsers).toBe(1);
+      expect(result.failedUsers).toBe(0);
+    });
   });
 });

@@ -6,6 +6,7 @@ import {
   DynamoDBWebRawRepository,
   DynamoDBConsolidationCursorRepository,
   DynamoDBProfileRepository,
+  DynamoDBNoteRepository,
   OpenAIClient,
   OpenAIEmbeddingClient,
   defaultUlidFactory,
@@ -69,6 +70,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     const webRawRepo = new DynamoDBWebRawRepository(docClient, tableName, defaultUlidFactory);
     const cursorRepo = new DynamoDBConsolidationCursorRepository(docClient, tableName);
     const profileRepo = new DynamoDBProfileRepository(docClient, tableName);
+    const noteRepo = new DynamoDBNoteRepository(docClient, tableName);
     const llmClient = new OpenAIClient({ apiKey });
     const embeddingClient = new OpenAIEmbeddingClient({ apiKey });
 
@@ -78,6 +80,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       messageRepo,
       webRawRepo,
       cursorRepo,
+      noteRepo,
       llmClient,
       embeddingClient,
     });
