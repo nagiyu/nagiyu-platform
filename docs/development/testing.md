@@ -38,6 +38,11 @@
 - したがって **等価性は DynamoDB Local を用いた契約テストで担保する**。実装非依存の振る舞い仕様を InMemory と DynamoDB Local の双方で回し、片方でしか通らない差分を検知する。あわせて、本番に載る DynamoDB 実装自体も DynamoDB Local に対して検証する。
 - DynamoDB Local は AWS 純正・実 API 準拠で、CI の service container として動く（実クラウド接続・認証情報・課金は不要）。トランザクション競合例外など一部の挙動は再現しないため、その検証はモックで補う。
 
+#### 契約テストの実行方法
+
+- ローカル: `docker run -p 8000:8000 amazon/dynamodb-local` で DynamoDB Local を起動し、`npm run test:contract --workspace @nagiyu/stock-tracker-core` を実行する。
+- CI: service container として DynamoDB Local を常時起動して実行する（`.github/workflows/stock-tracker-verify.yml` の `contract-test` ジョブ）。
+
 ### dev 結合環境の位置づけ
 
 - dev 結合環境（実 AWS）は V字のテスト階層ではなく **デプロイ先**である。ここでの確認は「実インフラ差分」に限る。
