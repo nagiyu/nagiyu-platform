@@ -30,10 +30,9 @@ const makeEntity = (over: Partial<NoteEntity> = {}): NoteEntity => ({
   UserID: 'g1',
   CharacterID: 'hiyori',
   NoteID: 'note-1',
-  Title: 'コーヒーの効能',
-  Body: '本文',
-  RelatedKnowledgeIds: ['know-1'],
-  RelatedCategory: 'コーヒー',
+  TopicID: 'topic-1',
+  Subject: 'コーヒーの効能',
+  Headline: 'この前の話、気になって調べてみたよ。覚醒効果があるみたい！',
   CreatedAt: 100,
   UpdatedAt: 100,
   ...over,
@@ -46,6 +45,7 @@ const makeRepo = (over: Partial<NoteRepository> = {}): NoteRepository =>
     get: jest.fn(),
     put: jest.fn(),
     listRecent: jest.fn(),
+    updateReaction: jest.fn(),
     ...over,
   }) as unknown as NoteRepository;
 
@@ -72,7 +72,7 @@ describe('GET /api/notes', () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.notes).toHaveLength(2);
-    expect(json.notes[0].body).toBeUndefined();
+    expect(json.notes[0].headline).toBeUndefined();
     expect(decodeNoteId(json.notes[0].id, 'g1')?.noteId).toBe('new');
   });
 
