@@ -17,4 +17,9 @@ export interface NoteRepository {
     characterId: string,
     options: { days: number; limit?: number }
   ): Promise<NoteEntity[]>;
+  /**
+   * ノートに感想（Reaction）を設定し UpdatedAt を bump する（感想連携のデータモデル支援）。
+   * 対象ノートが存在しなければ no-op。
+   */
+  updateReaction(key: NoteKey, reaction: string): Promise<void>;
 }

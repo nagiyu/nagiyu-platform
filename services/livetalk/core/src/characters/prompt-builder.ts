@@ -148,7 +148,7 @@ export function buildSystemPrompt(
   }
 
   if (hasRecentNotes) {
-    const notesSection = recentNotes!.map((n) => `- ${n.Title}`).join('\n');
+    const notesSection = recentNotes!.map((n) => `- ${n.Subject}`).join('\n');
     sections.push(
       `あなたが最近ユーザーに渡したノート：\n${notesSection}\n\nこれらはあなたがユーザーのために調べてまとめてプレゼントしたノートです。ユーザーがノートの感想（「あのノート良かった」「読んだよ」など）を言ったら、どのノートのことか理解して嬉しそうに反応してください。ユーザーが触れていないのに無理に話題にする必要はありません。`
     );

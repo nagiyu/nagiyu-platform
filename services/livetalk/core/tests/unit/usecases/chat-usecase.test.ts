@@ -1752,6 +1752,7 @@ describe('runChatUseCase', () => {
         listAll: jest.fn(async () => notes),
         get: jest.fn(async () => null),
         listRecent: jest.fn(async () => notes),
+        updateReaction: jest.fn(async () => undefined),
       };
     }
 
@@ -1759,10 +1760,9 @@ describe('runChatUseCase', () => {
       UserID: 'u1',
       CharacterID: 'hiyori',
       NoteID: 'note-1',
-      Title: 'コーヒーの淹れ方',
-      Body: '本文。\n\nコメント。',
-      RelatedKnowledgeIds: ['know-1'],
-      RelatedCategory: 'コーヒー',
+      TopicID: 'topic-1',
+      Subject: 'コーヒーの淹れ方',
+      Headline: '本文。\n\nコメント。',
       CreatedAt: 1_700_000_000_000,
       UpdatedAt: 1_700_000_000_000,
     };

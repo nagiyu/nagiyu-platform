@@ -4,7 +4,6 @@ import {
   DynamoDBInterestRepository,
   DynamoDBKnowledgeRepository,
   DynamoDBLifecycleRepository,
-  DynamoDBNoteRepository,
   DynamoDBProfileRepository,
   OpenAIResearchClient,
   defaultUlidFactory,
@@ -44,7 +43,6 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     const lifecycleRepo = new DynamoDBLifecycleRepository(docClient, tableName);
     const interestRepo = new DynamoDBInterestRepository(docClient, tableName);
     const knowledgeRepo = new DynamoDBKnowledgeRepository(docClient, tableName);
-    const noteRepo = new DynamoDBNoteRepository(docClient, tableName);
     const profileRepo = new DynamoDBProfileRepository(docClient, tableName);
     const researchClient = new OpenAIResearchClient({ apiKey });
 
@@ -53,7 +51,6 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       lifecycleRepo,
       interestRepo,
       knowledgeRepo,
-      noteRepo,
       researchClient,
       ulidFactory: defaultUlidFactory,
     });

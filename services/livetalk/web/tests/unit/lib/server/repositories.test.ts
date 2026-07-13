@@ -76,14 +76,13 @@ describe('lib/server/repositories', () => {
       UserID: 'u1',
       CharacterID: 'hiyori',
       NoteID: 'note-1',
-      Title: 'コーヒーの効能',
-      Body: '本文',
-      RelatedKnowledgeIds: ['know-1'],
-      RelatedCategory: 'コーヒー',
+      TopicID: 'topic-1',
+      Subject: 'コーヒーの効能',
+      Headline: 'この前の話、気になって調べてみたよ。覚醒効果があるみたい！',
     });
     const list = await repo.list('u1', 'hiyori');
     expect(list).toHaveLength(1);
-    expect(list[0].Title).toBe('コーヒーの効能');
+    expect(list[0].Subject).toBe('コーヒーの効能');
     mod.resetRepositoriesForTesting();
   });
 

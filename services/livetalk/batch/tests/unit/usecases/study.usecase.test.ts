@@ -37,7 +37,6 @@ jest.mock('@nagiyu/livetalk-core', () => ({
     return undefined;
   }),
   studyForUser: jest.fn(),
-  generateNotesForUser: jest.fn(),
 }));
 
 const mockGetAllCharacterIds = jest.requireMock('@nagiyu/livetalk-core')
@@ -45,8 +44,6 @@ const mockGetAllCharacterIds = jest.requireMock('@nagiyu/livetalk-core')
 const mockGetCharacterDefinitionById = jest.requireMock('@nagiyu/livetalk-core')
   .getCharacterDefinitionById as jest.Mock;
 const mockStudyForUser = jest.requireMock('@nagiyu/livetalk-core').studyForUser as jest.Mock;
-const mockGenerateNotesForUser = jest.requireMock('@nagiyu/livetalk-core')
-  .generateNotesForUser as jest.Mock;
 
 describe('studyAllUsers', () => {
   /**
@@ -87,7 +84,6 @@ describe('studyAllUsers', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetAllCharacterIds.mockReturnValue(['hiyori', 'ageha']);
-    mockGenerateNotesForUser.mockResolvedValue({ generatedCount: 0 });
   });
 
   it('全ユーザー全キャラをループして studyForUser を呼ぶ', async () => {
@@ -194,53 +190,6 @@ describe('studyAllUsers', () => {
         character: expect.objectContaining({ id: 'ageha', displayName: '早瀬アゲハ' }),
       })
     );
-  });
-
-  it('noteRepo 指定時、studied キャラについてノート生成を行い件数を集計する（Phase 5c）', async () => {
-    mockStudyForUser.mockResolvedValue({ outcome: 'studied', savedCount: 1 });
-    mockGenerateNotesForUser.mockResolvedValue({ generatedCount: 2 });
-    const noteRepo = { put: jest.fn(), list: jest.fn(), get: jest.fn(), listRecent: jest.fn() };
-
-    const { studyAllUsers } = await import('../../../src/usecases/study.usecase.js');
-    const result = await studyAllUsers(makeParams({ noteRepo: noteRepo as never }));
-
-    // u1 hiyori, u1 ageha, u2 hiyori, u2 ageha の 4 キャラ × 2 件 = 8 件
-    expect(result.generatedNotes).toBe(8);
-    expect(mockGenerateNotesForUser).toHaveBeenCalledTimes(4);
-    expect(mockGenerateNotesForUser).toHaveBeenCalledWith(
-      'u1',
-      'hiyori',
-      expect.objectContaining({ noteRepo })
-    );
-    expect(mockGenerateNotesForUser).toHaveBeenCalledWith(
-      'u1',
-      'ageha',
-      expect.objectContaining({ noteRepo })
-    );
-  });
-
-  it('スキップしたキャラにはノート生成を行わない（Phase 5c）', async () => {
-    mockStudyForUser.mockResolvedValue({ outcome: 'skipped', skipReason: 'テスト' });
-    const noteRepo = { put: jest.fn(), list: jest.fn(), get: jest.fn(), listRecent: jest.fn() };
-
-    const { studyAllUsers } = await import('../../../src/usecases/study.usecase.js');
-    const result = await studyAllUsers(makeParams({ noteRepo: noteRepo as never }));
-
-    expect(result.generatedNotes).toBe(0);
-    expect(mockGenerateNotesForUser).not.toHaveBeenCalled();
-  });
-
-  it('ノート生成が失敗してもバッチは継続する（Phase 5c / fail-warn）', async () => {
-    mockStudyForUser.mockResolvedValue({ outcome: 'studied', savedCount: 1 });
-    mockGenerateNotesForUser.mockRejectedValue(new Error('note エラー'));
-    const noteRepo = { put: jest.fn(), list: jest.fn(), get: jest.fn(), listRecent: jest.fn() };
-
-    const { studyAllUsers } = await import('../../../src/usecases/study.usecase.js');
-    const result = await studyAllUsers(makeParams({ noteRepo: noteRepo as never }));
-
-    expect(result.studiedUsers).toBe(2);
-    expect(result.generatedNotes).toBe(0);
-    expect(result.failedUsers).toBe(0);
   });
 
   it('全キャラ lifecycle なし（skipped）より failed が優先される', async () => {

@@ -177,11 +177,12 @@ export const STUDY_TOPIC_GATE_PRIORITY = 10;
 export const KNOWLEDGE_MATCH_MIN_RATIO = 0.5;
 
 /**
- * ノート生成（Phase 5c / #3345）: KNOWLEDGE をノート化する際の品質ゲート。
- * Summary がこの文字数未満の KNOWLEDGE はノート化しない（薄い知識の乱発防止）。
- * 勉強バッチ保存時の STUDY_MIN_SUMMARY_LENGTH（50）より厳しくして「高品質なものだけ」を昇格する。
+ * ノート生成（リブトーク知識・記憶再設計 P4「ノート（ギフト化）」）: Topic をノート化する
+ * 際の care 閾値。care は新規 Topic 作成時に 1、consolidation での既存 Topic 更新（名寄せ）時に
+ * +1 されるため、この値は「数回話題に触れた（会話・調べ物が複数回積み上がった）Topic」を
+ * 目安にした値（乱発防止のための品質ゲート）。
  */
-export const NOTE_MIN_SUMMARY_LENGTH = 80;
+export const NOTE_CARE_THRESHOLD = 3;
 
 /**
  * ノート生成: 1 実行・1 ユーザーあたりに生成するノートの最大数（乱発防止）。
@@ -189,9 +190,9 @@ export const NOTE_MIN_SUMMARY_LENGTH = 80;
 export const NOTE_MAX_PER_RUN = 2;
 
 /**
- * ノート生成: ノート化候補としてスキャンする直近 KNOWLEDGE の最大件数。
+ * ノート生成: care 降順でノート化候補としてスキャンする Topic の最大件数。
  */
-export const NOTE_KNOWLEDGE_LOOKBACK = 20;
+export const NOTE_CANDIDATE_LOOKBACK = 20;
 
 /**
  * 感想連携: チャットの context に注入する「直近に提示したノート」の対象日数。
