@@ -94,7 +94,6 @@ describe('toNoteDetail', () => {
           TopicID: 'topic-001',
           FactID: 'fact-1',
           Text: 'fact1',
-          // eslint-disable-next-line no-script-url
           SourceUrls: ['https://example.com/a', 'javascript:alert(1)', 'http://example.org/b'],
           Volatility: 'stable',
           ObservedAt: 1,
