@@ -26,8 +26,10 @@ export interface NotificationEventEntity {
   Title: string;
   /** 通知本文 */
   Body: string;
-  /** クリティカル通知の場合、元となった KnowledgeID */
+  /** クリティカル通知の場合、元となった KnowledgeID（旧モデル。P5 以降は非推奨、後続 PR で削除予定） */
   KnowledgeID?: string;
+  /** クリティカル/通常通知の元となった TopicID（Topic 中心モデル、P5〜） */
+  TopicID?: string;
   /**
    * 通知タップ起動時に入力欄へプリフィルするユーザー発話。
    * バッチで生成し、first-word API 経由でフロントへ渡す。

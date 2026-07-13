@@ -18,8 +18,12 @@ export {
 } from './message-builder.js';
 export type { BuildNotificationMessageInput, NotificationMessage } from './message-builder.js';
 
-export { detectCriticalKnowledge } from './escalation.js';
-export type { EscalationResult, DetectCriticalInput } from './escalation.js';
+export { detectCriticalTopic } from './escalation.js';
+export type {
+  EscalationResult,
+  DetectCriticalInput,
+  DetectCriticalCandidate,
+} from './escalation.js';
 
 export { selectNotificationsToSend } from './selection.js';
 export type { SelectNotificationsInput, SelectNotificationsResult } from './selection.js';

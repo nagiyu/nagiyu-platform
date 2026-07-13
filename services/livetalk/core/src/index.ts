@@ -374,7 +374,7 @@ export {
   buildNotificationMessage,
   buildCriticalNotificationMessage,
   buildSuggestedReply,
-  detectCriticalKnowledge,
+  detectCriticalTopic,
   selectNotificationsToSend,
 } from './notification/index.js';
 export type {
@@ -382,6 +382,7 @@ export type {
   NotificationMessage,
   EscalationResult,
   DetectCriticalInput,
+  DetectCriticalCandidate,
   SelectNotificationsInput,
   SelectNotificationsResult,
 } from './notification/index.js';
@@ -398,7 +399,7 @@ export {
   NOTIFY_DAILY_CRITICAL_CAP,
   NOTIFY_ACTIVE_WINDOW_MINUTES,
   NOTIFICATION_EVENT_TTL_SECONDS,
-  NOTIFY_CRITICAL_INTEREST_SHARE_THRESHOLD,
+  NOTIFY_CRITICAL_CARE_THRESHOLD,
   NOTIFY_CRITICAL_EVENT_HORIZON_DAYS,
   NOTIFY_INTENSITY_WINDOW_DAYS,
   // チャット API 保護ガード（Issue #3528）

@@ -293,13 +293,13 @@ export const NOTIFY_ACTIVE_WINDOW_MINUTES = 90;
 export const NOTIFICATION_EVENT_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 /**
- * クリティカル通知の対象とする興味カテゴリの最小シェア（全 Weight 合計に占める割合）。
+ * critical 通知に必要な Topic.Care の下限（リブトーク知識・記憶再設計 P5）。
  *
- * dev 実データの Weight 分布（飲み物38%/スイーツ18%/ゲーム15%/映画14%/…）を根拠に暫定設定。
- * この値を下回る弱興味カテゴリの Knowledge はクリティカル判定から除外される。
- * 実運用データを踏まえてチューニングすること。
+ * care は新規 Topic 作成時に 1、consolidation での既存 Topic 更新（名寄せ）時に +1 されるため、
+ * 集約バッチ稼働後にしか値が積み上がらない。稼働直後は高 care Topic が存在せず critical 通知が
+ * 発火しない（＝当面静穏）ことを許容する設計判断。要観測・要調整。
  */
-export const NOTIFY_CRITICAL_INTEREST_SHARE_THRESHOLD = 0.15;
+export const NOTIFY_CRITICAL_CARE_THRESHOLD = 3;
 
 /**
  * クリティカル判定の「時限性あり」とみなすイベント日程の最大日数（今日から何日以内か）。

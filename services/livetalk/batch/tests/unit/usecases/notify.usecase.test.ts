@@ -19,8 +19,9 @@ jest.mock('@nagiyu/common/push', () => ({
 
 /**
  * @nagiyu/livetalk-core モック。
- * Phase B では getAllCharacterIds・selectNotificationsToSend・
- * computeIntensityFactor・computeDailyNormalCap・extractSessionStartTimes が追加。
+ * リブトーク知識・記憶再設計 P5（PR1）: notify の依存を KnowledgeRepository/InterestRepository/
+ * IEmbeddingClient から TopicRepository（listTopicHeadersByCareDesc / listWebFacts）へ差し替え、
+ * detectCriticalKnowledge → detectCriticalTopic へリネーム。
  */
 jest.mock('@nagiyu/livetalk-core', () => ({
   DEFAULT_CHARACTER_ID: 'hiyori',
@@ -29,7 +30,7 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   buildSuggestedReply: jest.fn((topic?: string) =>
     topic ? `${topic}について教えて` : '話したいことってなに？'
   ),
-  detectCriticalKnowledge: jest.fn(),
+  detectCriticalTopic: jest.fn(),
   shouldNotifyNow: jest.fn(),
   getAllCharacterIds: jest.fn(() => ['hiyori']),
   getCharacterDefinitionById: jest.fn((id: string) => ({
@@ -43,10 +44,9 @@ jest.mock('@nagiyu/livetalk-core', () => ({
   extractSessionStartTimes: jest.fn(() => []),
   defaultUlidFactory: jest.fn(() => 'ULID-0001'),
   NOTIFICATION_EVENT_TTL_SECONDS: 2592000,
+  NOTIFY_CRITICAL_CARE_THRESHOLD: 3,
   NOTIFY_INTENSITY_WINDOW_DAYS: 7,
   NOTIFY_SESSION_GAP_MINUTES: 60,
-  DynamoDBInterestRepository: jest.fn(),
-  OpenAIEmbeddingClient: jest.fn(),
 }));
 
 function makeProfileRepo(userIds: string[] = ['u1']) {
@@ -58,7 +58,7 @@ function makeProfileRepo(userIds: string[] = ['u1']) {
 const mockSendWebPush = jest.requireMock('@nagiyu/common/push')
   .sendWebPushNotification as jest.Mock;
 const core = jest.requireMock('@nagiyu/livetalk-core');
-const mockDetectCritical = core.detectCriticalKnowledge as jest.Mock;
+const mockDetectCriticalTopic = core.detectCriticalTopic as jest.Mock;
 const mockShouldNotifyNow = core.shouldNotifyNow as jest.Mock;
 const mockGetAllCharacterIds = core.getAllCharacterIds as jest.Mock;
 const mockSelectNotificationsToSend = core.selectNotificationsToSend as jest.Mock;
@@ -82,9 +82,15 @@ function makeMessageRepo(messages = [{ Role: 'user', CreatedAt: 1000 }]) {
   };
 }
 
-function makeKnowledgeRepo() {
+/** デフォルトの Topic ヘッダ（care 降順を模擬した 1 件）。 */
+function makeTopicRepo(
+  topics: Array<{ TopicID: string; Subject: string; Care: number }> = [
+    { TopicID: 't1', Subject: 'TypeScript', Care: 5 },
+  ]
+) {
   return {
-    list: jest.fn().mockResolvedValue([{ KnowledgeID: 'k1', Topic: 'TypeScript' }]),
+    listTopicHeadersByCareDesc: jest.fn().mockResolvedValue(topics),
+    listWebFacts: jest.fn().mockResolvedValue([]),
   };
 }
 
@@ -115,29 +121,15 @@ function makeLlmClient() {
   return {};
 }
 
-function makeInterestRepo() {
-  return {
-    list: jest.fn().mockResolvedValue([]),
-  };
-}
-
-function makeEmbeddingClient() {
-  return {
-    embed: jest.fn().mockResolvedValue([0, 0, 0]),
-  };
-}
-
 function makeParams(overrides = {}) {
   return {
     profileRepo: makeProfileRepo() as never,
     lifecycleRepo: makeLifecycleRepo() as never,
     messageRepo: makeMessageRepo() as never,
-    knowledgeRepo: makeKnowledgeRepo() as never,
+    topicRepo: makeTopicRepo() as never,
     pushSubscriptionRepo: makePushSubscriptionRepo() as never,
     notifEventRepo: makeNotifEventRepo() as never,
-    interestRepo: makeInterestRepo() as never,
     llmClient: makeLlmClient() as never,
-    embeddingClient: makeEmbeddingClient() as never,
     ...overrides,
   };
 }
@@ -155,7 +147,7 @@ describe('notifyAllUsers', () => {
   });
 
   it('shouldNotifyNow が通知発火 → notifiedUsers が増える', async () => {
-    mockDetectCritical.mockResolvedValue({ isCritical: false });
+    mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
     mockShouldNotifyNow.mockReturnValue({
       notify: true,
       kind: 'normal',
@@ -173,7 +165,7 @@ describe('notifyAllUsers', () => {
   });
 
   it('shouldNotifyNow が not_due → skippedUsers が増える', async () => {
-    mockDetectCritical.mockResolvedValue({ isCritical: false });
+    mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
     mockShouldNotifyNow.mockReturnValue({ notify: false, reason: 'not_due' });
     // 全キャラが発火しないので normalCharacterId=null にする
     mockSelectNotificationsToSend.mockReturnValue({
@@ -190,7 +182,7 @@ describe('notifyAllUsers', () => {
 
   it('lifecycle が null のキャラはスキップ', async () => {
     const lifecycleRepo = { get: jest.fn().mockResolvedValue(null) };
-    mockDetectCritical.mockResolvedValue({ isCritical: false });
+    mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
     // 全キャラがスキップされる（候補なし）
     mockSelectNotificationsToSend.mockReturnValue({
       criticalCharacterIds: [],
@@ -206,7 +198,7 @@ describe('notifyAllUsers', () => {
 
   it('サブスクリプションなしのユーザーはスキップ', async () => {
     const pushSubscriptionRepo = makePushSubscriptionRepo([]);
-    mockDetectCritical.mockResolvedValue({ isCritical: false });
+    mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
     mockShouldNotifyNow.mockReturnValue({
       notify: true,
       kind: 'normal',
@@ -224,8 +216,8 @@ describe('notifyAllUsers', () => {
   });
 
   it('critical 判定 → buildCriticalNotificationMessage が呼ばれる', async () => {
-    mockDetectCritical.mockResolvedValue({ isCritical: true, knowledgeId: 'k1' });
-    mockShouldNotifyNow.mockReturnValue({ notify: true, kind: 'critical', knowledgeId: 'k1' });
+    mockDetectCriticalTopic.mockResolvedValue({ isCritical: true, topicId: 't1', factId: 'f1' });
+    mockShouldNotifyNow.mockReturnValue({ notify: true, kind: 'critical', topicId: 't1' });
     mockSelectNotificationsToSend.mockReturnValue({
       criticalCharacterIds: ['hiyori'],
       normalCharacterId: null,
@@ -239,7 +231,7 @@ describe('notifyAllUsers', () => {
   });
 
   it('Push 送信が false を返す（無効サブスクリプション）→ サブスクリプションを削除', async () => {
-    mockDetectCritical.mockResolvedValue({ isCritical: false });
+    mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
     mockShouldNotifyNow.mockReturnValue({
       notify: true,
       kind: 'normal',
@@ -259,7 +251,7 @@ describe('notifyAllUsers', () => {
   });
 
   it('全送信が false でも notifEvent は保存されない（sentCount=0）', async () => {
-    mockDetectCritical.mockResolvedValue({ isCritical: false });
+    mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
     mockShouldNotifyNow.mockReturnValue({
       notify: true,
       kind: 'normal',
@@ -298,8 +290,8 @@ describe('notifyAllUsers', () => {
     expect(result.failedUserIds).toContain('u2');
   });
 
-  it('normal 通知で latestKnowledge の KnowledgeID が notifEvent に保存される', async () => {
-    mockDetectCritical.mockResolvedValue({ isCritical: false });
+  it('normal 通知で Topic の TopicID が notifEvent に保存される', async () => {
+    mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
     mockShouldNotifyNow.mockReturnValue({
       notify: true,
       kind: 'normal',
@@ -312,14 +304,14 @@ describe('notifyAllUsers', () => {
     const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
     await notifyAllUsers(makeParams({ notifEventRepo: notifEventRepo as never }));
 
-    expect(notifEventRepo.put).toHaveBeenCalledWith(expect.objectContaining({ KnowledgeID: 'k1' }));
+    expect(notifEventRepo.put).toHaveBeenCalledWith(expect.objectContaining({ TopicID: 't1' }));
   });
 
   describe('Phase B: 全キャラ走査', () => {
     it('複数キャラに lifecycle あり → 各キャラ独立判定が走る', async () => {
       // 2 キャラ（hiyori, ageha）を走査
       mockGetAllCharacterIds.mockReturnValue(['hiyori', 'ageha']);
-      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
       mockShouldNotifyNow.mockReturnValue({
         notify: true,
         kind: 'normal',
@@ -342,7 +334,7 @@ describe('notifyAllUsers', () => {
 
     it('2 キャラとも normal 発火資格 → 調停で 1 体だけ選抜されて put/push される', async () => {
       mockGetAllCharacterIds.mockReturnValue(['hiyori', 'ageha']);
-      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
       mockShouldNotifyNow.mockReturnValue({
         notify: true,
         kind: 'normal',
@@ -371,11 +363,11 @@ describe('notifyAllUsers', () => {
 
     it('critical は複数キャラで独立に送られる', async () => {
       mockGetAllCharacterIds.mockReturnValue(['hiyori', 'ageha']);
-      mockDetectCritical.mockResolvedValue({ isCritical: true, knowledgeId: 'k1' });
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: true, topicId: 't1', factId: 'f1' });
       mockShouldNotifyNow.mockReturnValue({
         notify: true,
         kind: 'critical',
-        knowledgeId: 'k1',
+        topicId: 't1',
       });
       // hiyori と ageha 両方 critical で送る
       mockSelectNotificationsToSend.mockReturnValue({
@@ -417,7 +409,7 @@ describe('notifyAllUsers', () => {
         }),
       };
 
-      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
       mockShouldNotifyNow.mockReturnValue({
         notify: true,
         kind: 'normal',
@@ -439,7 +431,7 @@ describe('notifyAllUsers', () => {
 
     it('キャラ単位の履歴フィルタが効く（他キャラの通知が interval/cap に影響しない）', async () => {
       mockGetAllCharacterIds.mockReturnValue(['hiyori', 'ageha']);
-      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
 
       // shouldNotifyNow に渡される notificationEvents を捕捉
       const capturedEventsByCharacter: Record<string, unknown[]> = {};
@@ -521,7 +513,7 @@ describe('notifyAllUsers', () => {
 
   describe('Phase B: push payload に characterId', () => {
     it('送信 payload に data.characterId と data.url が含まれる', async () => {
-      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
       mockShouldNotifyNow.mockReturnValue({
         notify: true,
         kind: 'normal',
@@ -546,7 +538,7 @@ describe('notifyAllUsers', () => {
     });
 
     it('notifEvent の put に CharacterID が含まれる', async () => {
-      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
       mockShouldNotifyNow.mockReturnValue({
         notify: true,
         kind: 'normal',
@@ -569,20 +561,18 @@ describe('notifyAllUsers', () => {
     });
   });
 
-  describe('Phase 2: ネタ使い回し抑制', () => {
-    it('直近通知で使用済みの KnowledgeID を避けて未使用の Knowledge が選ばれる', async () => {
-      // k1 は使用済み、k2 は未使用 → k2 が選ばれること
-      const knowledgeRepo = {
-        list: jest.fn().mockResolvedValue([
-          { KnowledgeID: 'k1', Topic: 'TypeScript' },
-          { KnowledgeID: 'k2', Topic: 'React' },
-        ]),
-      };
-      // 直近 60 件の通知イベントに k1 が含まれる（hiyori の履歴として）
+  describe('Phase 2: ネタ使い回し抑制（Topic 版）', () => {
+    it('直近通知で使用済みの TopicID を避けて未使用の Topic が選ばれる', async () => {
+      // t1 は使用済み、t2 は未使用 → t2 が選ばれること
+      const topicRepo = makeTopicRepo([
+        { TopicID: 't1', Subject: 'TypeScript', Care: 5 },
+        { TopicID: 't2', Subject: 'React', Care: 4 },
+      ]);
+      // 直近 60 件の通知イベントに t1 が含まれる（hiyori の履歴として）
       const notifEventRepo = {
         listByUser: jest.fn().mockResolvedValue([
           {
-            KnowledgeID: 'k1',
+            TopicID: 't1',
             Kind: 'normal',
             CharacterID: 'hiyori',
             CreatedAt: Date.now() - DAY,
@@ -596,7 +586,7 @@ describe('notifyAllUsers', () => {
         put: jest.fn().mockResolvedValue({}),
       };
 
-      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
       mockShouldNotifyNow.mockReturnValue({
         notify: true,
         kind: 'normal',
@@ -610,34 +600,30 @@ describe('notifyAllUsers', () => {
       const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
       await notifyAllUsers(
         makeParams({
-          knowledgeRepo: knowledgeRepo as never,
+          topicRepo: topicRepo as never,
           notifEventRepo: notifEventRepo as never,
         })
       );
 
-      // buildNotificationMessage の呼び出し引数を確認（k2 の Topic が渡されること）
+      // buildNotificationMessage の呼び出し引数を確認（t2 の Subject が渡されること）
       expect(buildNotificationMessage).toHaveBeenCalledWith(
         expect.objectContaining({ knowledgeTopic: 'React' }),
         expect.any(Number)
       );
-      // 保存される KnowledgeID も k2
-      expect(notifEventRepo.put).toHaveBeenCalledWith(
-        expect.objectContaining({ KnowledgeID: 'k2' })
-      );
+      // 保存される TopicID も t2
+      expect(notifEventRepo.put).toHaveBeenCalledWith(expect.objectContaining({ TopicID: 't2' }));
     });
 
-    it('全 Knowledge が使用済みの場合は先頭（recentKnowledge[0]）にフォールバックする', async () => {
-      // k1, k2 どちらも使用済み → k1（先頭）にフォールバック
-      const knowledgeRepo = {
-        list: jest.fn().mockResolvedValue([
-          { KnowledgeID: 'k1', Topic: 'TypeScript' },
-          { KnowledgeID: 'k2', Topic: 'React' },
-        ]),
-      };
+    it('全 Topic が使用済みの場合は care 最上位（先頭）にフォールバックする', async () => {
+      // t1, t2 どちらも使用済み → t1（先頭 = care 最上位）にフォールバック
+      const topicRepo = makeTopicRepo([
+        { TopicID: 't1', Subject: 'TypeScript', Care: 5 },
+        { TopicID: 't2', Subject: 'React', Care: 4 },
+      ]);
       const notifEventRepo = {
         listByUser: jest.fn().mockResolvedValue([
           {
-            KnowledgeID: 'k1',
+            TopicID: 't1',
             Kind: 'normal',
             CharacterID: 'hiyori',
             CreatedAt: Date.now() - DAY,
@@ -648,7 +634,7 @@ describe('notifyAllUsers', () => {
             Ttl: 0,
           },
           {
-            KnowledgeID: 'k2',
+            TopicID: 't2',
             Kind: 'normal',
             CharacterID: 'hiyori',
             CreatedAt: Date.now() - 2 * DAY,
@@ -662,7 +648,7 @@ describe('notifyAllUsers', () => {
         put: jest.fn().mockResolvedValue({}),
       };
 
-      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
       mockShouldNotifyNow.mockReturnValue({
         notify: true,
         kind: 'normal',
@@ -676,34 +662,60 @@ describe('notifyAllUsers', () => {
       const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
       await notifyAllUsers(
         makeParams({
-          knowledgeRepo: knowledgeRepo as never,
+          topicRepo: topicRepo as never,
           notifEventRepo: notifEventRepo as never,
         })
       );
 
-      // フォールバック → k1（先頭）の Topic が渡される
+      // フォールバック → t1（care 最上位）の Subject が渡される
       expect(buildNotificationMessage).toHaveBeenCalledWith(
         expect.objectContaining({ knowledgeTopic: 'TypeScript' }),
         expect.any(Number)
       );
+      expect(notifEventRepo.put).toHaveBeenCalledWith(expect.objectContaining({ TopicID: 't1' }));
+    });
+
+    it('Topic が皆無の場合は Topic-less（汎用文言）でフォールバックする', async () => {
+      const topicRepo = makeTopicRepo([]);
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
+      mockShouldNotifyNow.mockReturnValue({
+        notify: true,
+        kind: 'normal',
+        toneBucket: 'normal',
+        elapsedMs: DAY,
+      });
+      mockSendWebPush.mockResolvedValue(true);
+
+      const buildNotificationMessage = core.buildNotificationMessage as jest.Mock;
+      const notifEventRepo = makeNotifEventRepo();
+
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      await notifyAllUsers(
+        makeParams({ topicRepo: topicRepo as never, notifEventRepo: notifEventRepo as never })
+      );
+
+      // Topic 皆無 → knowledgeTopic は undefined（汎用文言に委ねる）
+      expect(buildNotificationMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ knowledgeTopic: undefined }),
+        expect.any(Number)
+      );
+      // TopicID は保存されない
       expect(notifEventRepo.put).toHaveBeenCalledWith(
-        expect.objectContaining({ KnowledgeID: 'k1' })
+        expect.objectContaining({ TopicID: undefined })
       );
     });
 
     it('クリティカル通知の content 選択はネタ抑制に影響されない', async () => {
-      // critical は知識が決まっているので recentKnowledge の先頭をそのまま使う
-      const knowledgeRepo = {
-        list: jest.fn().mockResolvedValue([
-          { KnowledgeID: 'k1', Topic: 'TypeScript' },
-          { KnowledgeID: 'k2', Topic: 'React' },
-        ]),
-      };
-      // k1 は使用済みだが critical は影響を受けない
+      // critical は Topic が決まっているので topics の中から該当 Topic をそのまま使う
+      const topicRepo = makeTopicRepo([
+        { TopicID: 't1', Subject: 'TypeScript', Care: 5 },
+        { TopicID: 't2', Subject: 'React', Care: 4 },
+      ]);
+      // t1 は使用済みだが critical は影響を受けない
       const notifEventRepo = {
         listByUser: jest.fn().mockResolvedValue([
           {
-            KnowledgeID: 'k1',
+            TopicID: 't1',
             Kind: 'normal',
             CharacterID: 'hiyori',
             CreatedAt: Date.now() - DAY,
@@ -717,8 +729,8 @@ describe('notifyAllUsers', () => {
         put: jest.fn().mockResolvedValue({}),
       };
 
-      mockDetectCritical.mockResolvedValue({ isCritical: true, knowledgeId: 'k1' });
-      mockShouldNotifyNow.mockReturnValue({ notify: true, kind: 'critical', knowledgeId: 'k1' });
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: true, topicId: 't1', factId: 'f1' });
+      mockShouldNotifyNow.mockReturnValue({ notify: true, kind: 'critical', topicId: 't1' });
       mockSelectNotificationsToSend.mockReturnValue({
         criticalCharacterIds: ['hiyori'],
         normalCharacterId: null,
@@ -730,12 +742,12 @@ describe('notifyAllUsers', () => {
       const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
       await notifyAllUsers(
         makeParams({
-          knowledgeRepo: knowledgeRepo as never,
+          topicRepo: topicRepo as never,
           notifEventRepo: notifEventRepo as never,
         })
       );
 
-      // critical は buildCriticalNotificationMessage が呼ばれ、knowledgeId=k1 の Topic（TypeScript）が渡される
+      // critical は buildCriticalNotificationMessage が呼ばれ、topicId=t1 の Subject（TypeScript）が渡される
       expect(buildCriticalNotificationMessage).toHaveBeenCalledWith(
         'TypeScript',
         expect.any(String)
@@ -743,10 +755,68 @@ describe('notifyAllUsers', () => {
     });
   });
 
+  describe('critical 候補の絞り込み（care 事前フィルタ）', () => {
+    it('listWebFacts は care 閾値（NOTIFY_CRITICAL_CARE_THRESHOLD=3）以上の Topic にのみ呼ばれる', async () => {
+      const topics = [
+        { TopicID: 't1', Subject: 'High', Care: 5 }, // >= 3 → 対象
+        { TopicID: 't2', Subject: 'Low', Care: 2 }, // < 3 → 対象外
+      ];
+      const topicRepo = makeTopicRepo(topics);
+
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
+      mockShouldNotifyNow.mockReturnValue({ notify: false, reason: 'not_due' });
+      mockSelectNotificationsToSend.mockReturnValue({
+        criticalCharacterIds: [],
+        normalCharacterId: null,
+      });
+
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      await notifyAllUsers(makeParams({ topicRepo: topicRepo as never }));
+
+      // care 閾値以上の t1 のみ listWebFacts が呼ばれる（care 未満の t2 は呼ばれない）
+      expect(topicRepo.listWebFacts).toHaveBeenCalledTimes(1);
+      expect(topicRepo.listWebFacts).toHaveBeenCalledWith('u1', 'hiyori', 't1');
+      expect(topicRepo.listWebFacts).not.toHaveBeenCalledWith('u1', 'hiyori', 't2');
+    });
+
+    it('detectCriticalTopic に渡る candidates は care 上位から CRITICAL_CANDIDATE_TOPIC_LIMIT(3) 件に絞られる', async () => {
+      // 4 件とも care 閾値以上（care 降順で repo から返る想定）
+      const topics = [
+        { TopicID: 't1', Subject: 'A', Care: 10 },
+        { TopicID: 't2', Subject: 'B', Care: 9 },
+        { TopicID: 't3', Subject: 'C', Care: 8 },
+        { TopicID: 't4', Subject: 'D', Care: 7 },
+      ];
+      const topicRepo = makeTopicRepo(topics);
+
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
+      mockShouldNotifyNow.mockReturnValue({ notify: false, reason: 'not_due' });
+      mockSelectNotificationsToSend.mockReturnValue({
+        criticalCharacterIds: [],
+        normalCharacterId: null,
+      });
+
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      await notifyAllUsers(makeParams({ topicRepo: topicRepo as never }));
+
+      expect(mockDetectCriticalTopic).toHaveBeenCalledTimes(1);
+      const passedInput = mockDetectCriticalTopic.mock.calls[0][0] as {
+        candidates: Array<{ topic: { TopicID: string }; webFacts: unknown[] }>;
+      };
+      // 上位 3 件（t4 は絞り落とされる）
+      expect(passedInput.candidates).toHaveLength(3);
+      expect(passedInput.candidates.map((c) => c.topic.TopicID)).toEqual(['t1', 't2', 't3']);
+      // 各候補は topic + webFacts の組で構成される
+      expect(passedInput.candidates[0]).toHaveProperty('webFacts');
+      // t4 分の listWebFacts は呼ばれない
+      expect(topicRepo.listWebFacts).not.toHaveBeenCalledWith('u1', 'hiyori', 't4');
+    });
+  });
+
   it('profileRepo が複数ユーザーを返す → 全ユーザーを処理する', async () => {
     // profileRepo（GSI1）が u1・u2 の 2 ユーザーを返す
     const profileRepo = makeProfileRepo(['u1', 'u2']);
-    mockDetectCritical.mockResolvedValue({ isCritical: false });
+    mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
     mockShouldNotifyNow.mockReturnValue({ notify: false, reason: 'not_due' });
     mockSelectNotificationsToSend.mockReturnValue({
       criticalCharacterIds: [],
@@ -761,7 +831,7 @@ describe('notifyAllUsers', () => {
 
   describe('SuggestedReply の生成と保存', () => {
     it('normal 通知で SuggestedReply が notifEvent に保存される（topic あり）', async () => {
-      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
       mockShouldNotifyNow.mockReturnValue({
         notify: true,
         kind: 'normal',
@@ -774,17 +844,15 @@ describe('notifyAllUsers', () => {
       const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
       await notifyAllUsers(makeParams({ notifEventRepo: notifEventRepo as never }));
 
-      // knowledge の Topic は 'TypeScript'（makeKnowledgeRepo のデフォルト）
+      // Topic の Subject は 'TypeScript'（makeTopicRepo のデフォルト）
       expect(notifEventRepo.put).toHaveBeenCalledWith(
         expect.objectContaining({ SuggestedReply: 'TypeScriptについて教えて' })
       );
     });
 
-    it('knowledge がない normal 通知で汎用 SuggestedReply が保存される', async () => {
-      const knowledgeRepo = {
-        list: jest.fn().mockResolvedValue([]),
-      };
-      mockDetectCritical.mockResolvedValue({ isCritical: false });
+    it('Topic がない normal 通知で汎用 SuggestedReply が保存される', async () => {
+      const topicRepo = makeTopicRepo([]);
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
       mockShouldNotifyNow.mockReturnValue({
         notify: true,
         kind: 'normal',
@@ -798,7 +866,7 @@ describe('notifyAllUsers', () => {
       await notifyAllUsers(
         makeParams({
           notifEventRepo: notifEventRepo as never,
-          knowledgeRepo: knowledgeRepo as never,
+          topicRepo: topicRepo as never,
         })
       );
 
@@ -808,8 +876,8 @@ describe('notifyAllUsers', () => {
     });
 
     it('critical 通知で SuggestedReply が notifEvent に保存される', async () => {
-      mockDetectCritical.mockResolvedValue({ isCritical: true, knowledgeId: 'k1' });
-      mockShouldNotifyNow.mockReturnValue({ notify: true, kind: 'critical', knowledgeId: 'k1' });
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: true, topicId: 't1', factId: 'f1' });
+      mockShouldNotifyNow.mockReturnValue({ notify: true, kind: 'critical', topicId: 't1' });
       mockSelectNotificationsToSend.mockReturnValue({
         criticalCharacterIds: ['hiyori'],
         normalCharacterId: null,
@@ -828,7 +896,7 @@ describe('notifyAllUsers', () => {
 
   describe('push payload の URL に from=push が含まれる', () => {
     it('normal 通知の payload URL に &from=push が含まれる', async () => {
-      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
       mockShouldNotifyNow.mockReturnValue({
         notify: true,
         kind: 'normal',
@@ -849,8 +917,8 @@ describe('notifyAllUsers', () => {
     });
 
     it('critical 通知の payload URL にも &from=push が含まれる', async () => {
-      mockDetectCritical.mockResolvedValue({ isCritical: true, knowledgeId: 'k1' });
-      mockShouldNotifyNow.mockReturnValue({ notify: true, kind: 'critical', knowledgeId: 'k1' });
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: true, topicId: 't1', factId: 'f1' });
+      mockShouldNotifyNow.mockReturnValue({ notify: true, kind: 'critical', topicId: 't1' });
       mockSelectNotificationsToSend.mockReturnValue({
         criticalCharacterIds: ['hiyori'],
         normalCharacterId: null,
@@ -872,7 +940,7 @@ describe('notifyAllUsers', () => {
       const expectedWindowMs = 7 * 24 * 60 * 60 * 1000;
       const expectedSinceMs = fixedNow.getTime() - expectedWindowMs;
 
-      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
       mockShouldNotifyNow.mockReturnValue({ notify: false, reason: 'not_due' });
       mockSelectNotificationsToSend.mockReturnValue({
         criticalCharacterIds: [],
@@ -898,7 +966,7 @@ describe('notifyAllUsers', () => {
       // 直近7日にメッセージなし（長期不在ユーザー）
       const messageRepo = makeMessageRepo([]);
 
-      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
       // userMessages が空の場合、shouldNotifyNow は not_due か inactive_stopped を返す想定
       mockShouldNotifyNow.mockReturnValue({ notify: false, reason: 'not_due' });
       mockSelectNotificationsToSend.mockReturnValue({
@@ -924,7 +992,7 @@ describe('notifyAllUsers', () => {
     it('長期不在ユーザー: listSince が空でも failedUsers に計上されない', async () => {
       const messageRepo = makeMessageRepo([]);
 
-      mockDetectCritical.mockResolvedValue({ isCritical: false });
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
       mockShouldNotifyNow.mockReturnValue({ notify: false, reason: 'inactive_stopped' });
       mockSelectNotificationsToSend.mockReturnValue({
         criticalCharacterIds: [],
