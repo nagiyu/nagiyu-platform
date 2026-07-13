@@ -2,12 +2,10 @@ import { logger, toErrorMessage } from '@nagiyu/common';
 import {
   getAllCharacterIds,
   getCharacterDefinitionById,
-  generateNotesForUser,
   studyForUser,
   type InterestRepository,
   type KnowledgeRepository,
   type LifecycleRepository,
-  type NoteRepository,
   type ProfileRepository,
   type UlidFactory,
 } from '@nagiyu/livetalk-core';
@@ -18,11 +16,6 @@ export interface StudyAllUsersParams {
   lifecycleRepo: LifecycleRepository;
   interestRepo: InterestRepository;
   knowledgeRepo: KnowledgeRepository;
-  /**
-   * Note リポジトリ（Phase 5c / #3345）。
-   * 指定された場合、勉強が実行されたユーザーについて KNOWLEDGE → NOTE 昇格を行う。
-   */
-  noteRepo?: NoteRepository;
   researchClient: IResearchClient;
   ulidFactory?: UlidFactory;
   now?: () => Date;
@@ -33,8 +26,6 @@ export interface StudyAllUsersResult {
   skippedUsers: number;
   failedUsers: number;
   failedUserIds: string[];
-  /** 生成されたノートの総数（Phase 5c） */
-  generatedNotes: number;
 }
 
 /**
@@ -50,7 +41,6 @@ export async function studyAllUsers(params: StudyAllUsersParams): Promise<StudyA
     lifecycleRepo,
     interestRepo,
     knowledgeRepo,
-    noteRepo,
     researchClient,
     ulidFactory,
     now,
@@ -65,7 +55,6 @@ export async function studyAllUsers(params: StudyAllUsersParams): Promise<StudyA
     skippedUsers: 0,
     failedUsers: 0,
     failedUserIds: [],
-    generatedNotes: 0,
   };
 
   const allCharacterIds = getAllCharacterIds();
@@ -103,25 +92,6 @@ export async function studyAllUsers(params: StudyAllUsersParams): Promise<StudyA
 
           if (outcome.outcome === 'studied') {
             hasStudied = true;
-
-            // KNOWLEDGE → NOTE 昇格（Phase 5c）。
-            // fail-warn: ノート生成の失敗は勉強バッチ全体を止めない。
-            if (noteRepo) {
-              try {
-                const noteResult = await generateNotesForUser(userId, characterId, {
-                  knowledgeRepo,
-                  noteRepo,
-                  ulidFactory,
-                });
-                result.generatedNotes += noteResult.generatedCount;
-              } catch (error) {
-                logger.warn('[studyAllUsers] ノート生成失敗（スキップして継続）', {
-                  userId,
-                  characterId,
-                  error: toErrorMessage(error),
-                });
-              }
-            }
           }
         } catch (error) {
           logger.warn('[studyAllUsers] キャラクター処理失敗（他キャラは継続）', {
