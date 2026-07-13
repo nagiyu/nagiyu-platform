@@ -1,5 +1,8 @@
 import { detectCriticalTopic } from '../../../src/notification/escalation.js';
-import type { DetectCriticalInput, DetectCriticalCandidate } from '../../../src/notification/escalation.js';
+import type {
+  DetectCriticalInput,
+  DetectCriticalCandidate,
+} from '../../../src/notification/escalation.js';
 import type { TopicEntity } from '../../../src/entities/topic.entity.js';
 import type { WebFactEntity } from '../../../src/entities/web-fact.entity.js';
 import type { ILLMClient } from '../../../src/llm-client/types.js';
@@ -171,12 +174,16 @@ describe('detectCriticalTopic - care 閾値境界', () => {
 
 describe('detectCriticalTopic - eventDate ホライズン', () => {
   it('近未来（今日 + 5 日）→ isUrgent=true → critical', async () => {
-    const result = await detectCriticalTopic(makeInput({ llmClient: makeLlmClient(NEAR_FUTURE_DATE) }));
+    const result = await detectCriticalTopic(
+      makeInput({ llmClient: makeLlmClient(NEAR_FUTURE_DATE) })
+    );
     expect(result.isCritical).toBe(true);
   });
 
   it('遠未来（今日 + 20 日 → horizon 超過）→ isUrgent=false → 非 critical', async () => {
-    const result = await detectCriticalTopic(makeInput({ llmClient: makeLlmClient(FAR_FUTURE_DATE) }));
+    const result = await detectCriticalTopic(
+      makeInput({ llmClient: makeLlmClient(FAR_FUTURE_DATE) })
+    );
     expect(result.isCritical).toBe(false);
   });
 
@@ -196,7 +203,9 @@ describe('detectCriticalTopic - eventDate ホライズン', () => {
   });
 
   it(`ホライズン境界（今日 + ${NOTIFY_CRITICAL_EVENT_HORIZON_DAYS} 日）→ isUrgent=true → critical`, async () => {
-    const result = await detectCriticalTopic(makeInput({ llmClient: makeLlmClient(HORIZON_BOUNDARY) }));
+    const result = await detectCriticalTopic(
+      makeInput({ llmClient: makeLlmClient(HORIZON_BOUNDARY) })
+    );
     expect(result.isCritical).toBe(true);
   });
 
@@ -229,8 +238,12 @@ describe('detectCriticalTopic - エラーハンドリング', () => {
     };
 
     const candidates = [
-      makeCandidate({ TopicID: 't1', Care: CARE_THRESHOLD }, [makeWebFact({ TopicID: 't1', FactID: 'f1' })]),
-      makeCandidate({ TopicID: 't2', Care: CARE_THRESHOLD }, [makeWebFact({ TopicID: 't2', FactID: 'f2' })]),
+      makeCandidate({ TopicID: 't1', Care: CARE_THRESHOLD }, [
+        makeWebFact({ TopicID: 't1', FactID: 'f1' }),
+      ]),
+      makeCandidate({ TopicID: 't2', Care: CARE_THRESHOLD }, [
+        makeWebFact({ TopicID: 't2', FactID: 'f2' }),
+      ]),
     ];
 
     const result = await detectCriticalTopic(makeInput({ candidates, llmClient }));
@@ -261,8 +274,12 @@ describe('detectCriticalTopic - エラーハンドリング', () => {
 describe('detectCriticalTopic - 複数 Topic', () => {
   it('複数の候補があっても最初の critical を返す', async () => {
     const candidates = [
-      makeCandidate({ TopicID: 't1', Care: CARE_THRESHOLD }, [makeWebFact({ TopicID: 't1', FactID: 'f1' })]),
-      makeCandidate({ TopicID: 't2', Care: CARE_THRESHOLD }, [makeWebFact({ TopicID: 't2', FactID: 'f2' })]),
+      makeCandidate({ TopicID: 't1', Care: CARE_THRESHOLD }, [
+        makeWebFact({ TopicID: 't1', FactID: 'f1' }),
+      ]),
+      makeCandidate({ TopicID: 't2', Care: CARE_THRESHOLD }, [
+        makeWebFact({ TopicID: 't2', FactID: 'f2' }),
+      ]),
     ];
 
     const result = await detectCriticalTopic(
@@ -285,8 +302,12 @@ describe('detectCriticalTopic - 複数 Topic', () => {
     };
 
     const candidates = [
-      makeCandidate({ TopicID: 't1', Care: CARE_THRESHOLD }, [makeWebFact({ TopicID: 't1', FactID: 'f1' })]),
-      makeCandidate({ TopicID: 't2', Care: CARE_THRESHOLD }, [makeWebFact({ TopicID: 't2', FactID: 'f2' })]),
+      makeCandidate({ TopicID: 't1', Care: CARE_THRESHOLD }, [
+        makeWebFact({ TopicID: 't1', FactID: 'f1' }),
+      ]),
+      makeCandidate({ TopicID: 't2', Care: CARE_THRESHOLD }, [
+        makeWebFact({ TopicID: 't2', FactID: 'f2' }),
+      ]),
     ];
 
     const result = await detectCriticalTopic(makeInput({ candidates, llmClient }));
