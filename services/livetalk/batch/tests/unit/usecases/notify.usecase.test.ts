@@ -755,6 +755,64 @@ describe('notifyAllUsers', () => {
     });
   });
 
+  describe('critical 候補の絞り込み（care 事前フィルタ）', () => {
+    it('listWebFacts は care 閾値（NOTIFY_CRITICAL_CARE_THRESHOLD=3）以上の Topic にのみ呼ばれる', async () => {
+      const topics = [
+        { TopicID: 't1', Subject: 'High', Care: 5 }, // >= 3 → 対象
+        { TopicID: 't2', Subject: 'Low', Care: 2 }, // < 3 → 対象外
+      ];
+      const topicRepo = makeTopicRepo(topics);
+
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
+      mockShouldNotifyNow.mockReturnValue({ notify: false, reason: 'not_due' });
+      mockSelectNotificationsToSend.mockReturnValue({
+        criticalCharacterIds: [],
+        normalCharacterId: null,
+      });
+
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      await notifyAllUsers(makeParams({ topicRepo: topicRepo as never }));
+
+      // care 閾値以上の t1 のみ listWebFacts が呼ばれる（care 未満の t2 は呼ばれない）
+      expect(topicRepo.listWebFacts).toHaveBeenCalledTimes(1);
+      expect(topicRepo.listWebFacts).toHaveBeenCalledWith('u1', 'hiyori', 't1');
+      expect(topicRepo.listWebFacts).not.toHaveBeenCalledWith('u1', 'hiyori', 't2');
+    });
+
+    it('detectCriticalTopic に渡る candidates は care 上位から CRITICAL_CANDIDATE_TOPIC_LIMIT(3) 件に絞られる', async () => {
+      // 4 件とも care 閾値以上（care 降順で repo から返る想定）
+      const topics = [
+        { TopicID: 't1', Subject: 'A', Care: 10 },
+        { TopicID: 't2', Subject: 'B', Care: 9 },
+        { TopicID: 't3', Subject: 'C', Care: 8 },
+        { TopicID: 't4', Subject: 'D', Care: 7 },
+      ];
+      const topicRepo = makeTopicRepo(topics);
+
+      mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
+      mockShouldNotifyNow.mockReturnValue({ notify: false, reason: 'not_due' });
+      mockSelectNotificationsToSend.mockReturnValue({
+        criticalCharacterIds: [],
+        normalCharacterId: null,
+      });
+
+      const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+      await notifyAllUsers(makeParams({ topicRepo: topicRepo as never }));
+
+      expect(mockDetectCriticalTopic).toHaveBeenCalledTimes(1);
+      const passedInput = mockDetectCriticalTopic.mock.calls[0][0] as {
+        candidates: Array<{ topic: { TopicID: string }; webFacts: unknown[] }>;
+      };
+      // 上位 3 件（t4 は絞り落とされる）
+      expect(passedInput.candidates).toHaveLength(3);
+      expect(passedInput.candidates.map((c) => c.topic.TopicID)).toEqual(['t1', 't2', 't3']);
+      // 各候補は topic + webFacts の組で構成される
+      expect(passedInput.candidates[0]).toHaveProperty('webFacts');
+      // t4 分の listWebFacts は呼ばれない
+      expect(topicRepo.listWebFacts).not.toHaveBeenCalledWith('u1', 'hiyori', 't4');
+    });
+  });
+
   it('profileRepo が複数ユーザーを返す → 全ユーザーを処理する', async () => {
     // profileRepo（GSI1）が u1・u2 の 2 ユーザーを返す
     const profileRepo = makeProfileRepo(['u1', 'u2']);

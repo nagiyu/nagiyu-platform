@@ -361,8 +361,12 @@ async function evaluateCharacter(params: {
   // care 降順で Topic ヘッダを取得（ネタ源・critical 判定の候補）
   const topics = await topicRepo.listTopicHeadersByCareDesc(userId, characterId, 10);
 
-  // critical 判定用に上位の高 care Topic について WEB fact を取得
-  const criticalCandidateTopics = topics.slice(0, CRITICAL_CANDIDATE_TOPIC_LIMIT);
+  // critical 判定用に「高 care」の Topic のみ上位から WEB fact を取得する。
+  // care 閾値未満は detectCriticalTopic 側でも LLM をスキップするため、
+  // ここで先に絞り込んで無駄な listWebFacts（DynamoDB Query）を避ける。
+  const criticalCandidateTopics = topics
+    .filter((t) => t.Care >= NOTIFY_CRITICAL_CARE_THRESHOLD)
+    .slice(0, CRITICAL_CANDIDATE_TOPIC_LIMIT);
   const criticalCandidates = await Promise.all(
     criticalCandidateTopics.map(async (topic) => ({
       topic,

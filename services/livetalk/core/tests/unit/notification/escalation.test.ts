@@ -355,4 +355,45 @@ describe('detectCriticalTopic - 複数 Topic', () => {
     expect(result.isCritical).toBe(true);
     expect(result.factId).toBe('f-new');
   });
+
+  it('WEB fact が ESCALATION_RECENT_WEB_FACTS_LIMIT(3) 件を超える場合、4 件目以降は評価されない', async () => {
+    const llmClient = makeLlmClient(null);
+
+    // 4 件の WEB fact。最も古い fact（4 件目 = ObservedAt 最小）にのみ緊急日付を仕込むが、
+    // ObservedAt 降順で上位 3 件しか評価対象に入らないため critical にはならないはず
+    const facts = [
+      makeWebFact({ FactID: 'f1', ObservedAt: 4000 }),
+      makeWebFact({ FactID: 'f2', ObservedAt: 3000 }),
+      makeWebFact({ FactID: 'f3', ObservedAt: 2000 }),
+      makeWebFact({ FactID: 'f4-oldest', ObservedAt: 1000 }),
+    ];
+
+    // LLM は基本 eventDate=null を返すが、f4-oldest だけが評価されたら urgent になるよう
+    // 個別に呼び出し引数から判定する
+    const chatStructured = jest.fn().mockImplementation((messages: Array<{ content: string }>) => {
+      const userMessage = messages.find((m) => m.content.includes('内容:'));
+      if (userMessage?.content.includes('f4-oldest 用テキスト')) {
+        return Promise.resolve({ eventDate: NEAR_FUTURE_DATE, reason: '緊急' });
+      }
+      return Promise.resolve({ eventDate: null, reason: '緊急でない' });
+    });
+    llmClient.chatStructured = chatStructured as unknown as ILLMClient['chatStructured'];
+
+    const factsWithMarker = facts.map((f) =>
+      f.FactID === 'f4-oldest' ? { ...f, Text: 'f4-oldest 用テキスト' } : f
+    );
+
+    const result = await detectCriticalTopic(
+      makeInput({
+        candidates: [makeCandidate({ Care: CARE_THRESHOLD }, factsWithMarker)],
+        llmClient,
+      })
+    );
+
+    // 4 件目（最古）は評価対象外のため非 critical
+    expect(result.isCritical).toBe(false);
+    expect(result.factId).toBeNull();
+    // LLM 呼び出しは上位 3 件分のみ（ESCALATION_RECENT_WEB_FACTS_LIMIT）
+    expect(chatStructured).toHaveBeenCalledTimes(3);
+  });
 });
