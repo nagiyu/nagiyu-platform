@@ -40,8 +40,9 @@
 
 #### 契約テストの実行方法
 
-- ローカル: `docker run -p 8000:8000 amazon/dynamodb-local` で DynamoDB Local を起動し、`npm run test:contract --workspace @nagiyu/stock-tracker-core` を実行する。
-- CI: service container として DynamoDB Local を常時起動して実行する（`.github/workflows/stock-tracker-verify.yml` の `contract-test` ジョブ）。
+- 契約テストは通常のユニットテスト（`npm test`）から隔離し、専用スクリプト（例: `test:contract`）で実行する。DynamoDB Local への接続を前提とし、接続できない場合は自己スキップせず失敗させる（決定的に検知するため）。
+- ローカル: DynamoDB Local コンテナ（`docker run -p 8000:8000 amazon/dynamodb-local`）を起動してから、対象ワークスペースの契約テストを実行する。
+- CI: 各サービスの verify ワークフローで DynamoDB Local を service container として起動し、専用ジョブとして実行する。
 
 ### dev 結合環境の位置づけ
 
