@@ -26,3 +26,7 @@ export type {
   ConsolidateAllConversationsParams,
   ConsolidateAllConversationsResult,
 } from './usecases/consolidate-conversations.usecase.js';
+
+export { handler as acquireHandler } from './handlers/acquire.js';
+export { acquireAllUsers } from './usecases/acquire.usecase.js';
+export type { AcquireAllUsersParams, AcquireAllUsersResult } from './usecases/acquire.usecase.js';

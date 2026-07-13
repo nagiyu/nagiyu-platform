@@ -4,7 +4,7 @@ import type {
   SelfFactKey,
 } from '../entities/self-fact.entity.js';
 import type { CreateTopicInput, TopicEntity, TopicKey } from '../entities/topic.entity.js';
-import type { CreateWebFactInput, WebFactEntity } from '../entities/web-fact.entity.js';
+import type { CreateWebFactInput, WebFactEntity, WebFactKey } from '../entities/web-fact.entity.js';
 
 /**
  * `getTopicBundle` の返り値。1 Topic 分（META + SELF 全部 + WEB 全部）を束ねる。
@@ -70,4 +70,23 @@ export interface TopicRepository {
 
   /** Topic 配下の WEB fact を全件返す。 */
   listWebFacts(userId: string, characterId: string, topicId: string): Promise<WebFactEntity[]>;
+
+  /**
+   * 鮮度切れの揮発 WEB fact を GSI4（GSI-STALE）で窓走査し、`nextReview（NextReview）<= nowMs`
+   * のものを期限が古い順（昇順）に最大 `limit` 件返す（acquire 用、リブトーク知識再設計 P3 / #3699）。
+   *
+   * stable fact（NextReview 未設定）は GSI4 に一切現れないため、掃引対象に含まれない。
+   */
+  listStaleWebFacts(
+    userId: string,
+    characterId: string,
+    nowMs: number,
+    limit: number
+  ): Promise<WebFactEntity[]>;
+
+  /**
+   * 既存 WEB fact の `NextReview` を前方更新する（acquire の鮮度掃引用）。
+   * GSI4SK も追随させ、次回掃引の窓から外す。対象が存在しなければ no-op。
+   */
+  updateWebFactNextReview(key: WebFactKey, nextReview: number): Promise<void>;
 }

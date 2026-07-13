@@ -378,6 +378,40 @@ export const WEBFACT_REVIEW_INTERVAL_MS: Record<'low' | 'medium' | 'high', numbe
   high: 1 * 24 * 60 * 60 * 1000,
 };
 
+// ---- acquire バッチ（リブトーク知識再設計 P3 / #3699）----
+
+/**
+ * acquire バッチ: 1 実行あたりに発行する Web 取得クエリの最大数（暴走防止）。
+ * 依頼（StudyTopic）・鮮度切れ・care 自発リサーチの合算で消費する。
+ */
+export const ACQUIRE_MAX_QUERIES_PER_RUN = 3;
+
+/**
+ * acquire バッチ: 鮮度掃引（GSI-STALE の窓走査）で 1 回に取得する WEB fact の上限件数。
+ * ページングの 1 ページ分の上限であり、`ACQUIRE_MAX_QUERIES_PER_RUN` と合わせて
+ * 実際に再取得を実行する件数の上限を絞る。
+ */
+export const ACQUIRE_STALE_SWEEP_LIMIT = 10;
+
+/**
+ * acquire バッチ: care 自発リサーチのトピック単位クールダウン（ミリ秒）。
+ *
+ * care 上位 Topic を毎時・無条件に再取得すると、consolidation が WEB fact を
+ * 重複除去しないため同一話題の冗長な WEB fact が線形増加する（本再設計が止めたい
+ * 「同一話題 ×N」の再来）。直近この期間内に取得済み（最新 WEB fact の ObservedAt が
+ * 新しい）Topic は自発リサーチをスキップし、未研究・古い Topic に集中させる。
+ * 揮発 fact の鮮度追随は別途 GSI-STALE 経路が担うため、ここは「未取得ギャップの穴埋め」
+ * に限定する。既定は 24 時間（要調整・要観測）。
+ */
+export const ACQUIRE_SELF_STUDY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * acquire バッチ: care 自発リサーチの候補として care 降順で読み込む Topic 数の上限。
+ * クールダウン中の Topic を読み飛ばしても `ACQUIRE_MAX_QUERIES_PER_RUN` 分の
+ * 研究対象を確保できるよう、budget より広めに候補を取る。
+ */
+export const ACQUIRE_SELF_STUDY_CANDIDATE_LIMIT = 20;
+
 // ---- Topic 想起（関連度 only）（リブトーク知識再設計 P2 / #3698）----
 
 /** 発話埋め込みと Topic 座標の cosine がこの値以上を想起候補とする（要調整・要観測）。 */

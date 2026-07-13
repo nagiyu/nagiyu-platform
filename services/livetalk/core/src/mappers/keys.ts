@@ -19,6 +19,15 @@
  * - GSI3SK は Care（Number 型）。care 降順 Query と全件列挙の両方を賄う
  * - `#META` は SK の接尾辞のため begins_with では列挙できない。
  *   Topic ヘッダの列挙は必ずこの GSI3 経由で行う。
+ *
+ * GSI4（GSI-STALE）: 揮発性のある WEB fact（NextReview を持つもの）のみを
+ * sparse 索引化する鮮度掃引用 GSI（リブトーク知識再設計 P3 / #3699）
+ * - GSI4PK=`<characterId>#STALE#<userId>` の WEB fact アイテムのみを索引化する
+ *   （`NextReview` が undefined の stable fact には GSI4PK/GSI4SK を付与しない）
+ * - GSI4SK は NextReview（Number 型、Unix ms）。acquire は
+ *   `GSI4SK <= now` の**窓走査**（ページングして期限到来分をまとめて拾う）で
+ *   鮮度切れ fact を列挙する。`begins_with` や現在時刻バケットのみの参照では
+ *   停止・遅延分を取りこぼすため使わない。
  */
 
 /** Profile 列挙 GSI のインデックス名 */
@@ -29,6 +38,9 @@ export const SAFETY_EVENT_GSI_INDEX_NAME = 'GSI2';
 
 /** Topic ヘッダ列挙用 GSI-TOPIC のインデックス名（リブトーク知識再設計 P1 / #3697） */
 export const TOPIC_GSI_INDEX_NAME = 'GSI3';
+
+/** 鮮度掃引用 GSI-STALE のインデックス名（リブトーク知識再設計 P3 / #3699） */
+export const STALE_GSI_INDEX_NAME = 'GSI4';
 
 /**
  * GSI1 のパーティションキー値を返す。
@@ -262,4 +274,12 @@ export function buildConsolidationCursorSK(characterId: string): string {
  */
 export function buildTopicGSI3PK(characterId: string, userId: string): string {
   return `${characterId}#TOPICS#${userId}`;
+}
+
+/**
+ * GSI4（GSI-STALE）のパーティションキー値を返す。
+ * 揮発性のある WEB fact（`NextReview` を持つもの）のみに付与する（sparse GSI）。
+ */
+export function buildTopicStaleGSI4PK(characterId: string, userId: string): string {
+  return `${characterId}#STALE#${userId}`;
 }

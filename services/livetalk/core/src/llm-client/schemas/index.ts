@@ -15,3 +15,6 @@ export type { EscalationRaw } from './escalation.schema.js';
 
 export { ConsolidationSchema } from './consolidation.schema.js';
 export type { ConsolidationRaw } from './consolidation.schema.js';
+
+export { WebFactChangeSchema } from './web-fact-change.schema.js';
+export type { WebFactChangeRaw } from './web-fact-change.schema.js';

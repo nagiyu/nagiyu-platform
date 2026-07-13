@@ -101,6 +101,8 @@ const withFailingPutSelfFact = (repo: TopicRepository): TopicRepository => ({
   deleteSelfFact: repo.deleteSelfFact.bind(repo),
   putWebFact: repo.putWebFact.bind(repo),
   listWebFacts: repo.listWebFacts.bind(repo),
+  listStaleWebFacts: repo.listStaleWebFacts.bind(repo),
+  updateWebFactNextReview: repo.updateWebFactNextReview.bind(repo),
 });
 
 describe('consolidate', () => {

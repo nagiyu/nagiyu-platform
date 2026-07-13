@@ -108,9 +108,9 @@ describe('LiveTalkBatchStack', () => {
     expect(vars.OPENAI_API_KEY).toBeUndefined();
   });
 
-  it('EventBridge ルールを 5 つ作成する（日次圧縮 + 週次学習 + 毎時勉強 + 毎時通知 + 毎時集約）', () => {
+  it('EventBridge ルールを 6 つ作成する（日次圧縮 + 週次学習 + 毎時勉強 + 毎時通知 + 毎時集約 + 毎時acquire）', () => {
     const { template } = synth();
-    template.resourceCountIs('AWS::Events::Rule', 5);
+    template.resourceCountIs('AWS::Events::Rule', 6);
   });
 
   it('圧縮バッチの EventBridge スケジュールは cron(0 18 * * ? *)', () => {
@@ -127,9 +127,9 @@ describe('LiveTalkBatchStack', () => {
     });
   });
 
-  it('SQS DLQ を 5 つ作成する（圧縮 + 学習 + 勉強 + 通知 + 集約で分離）', () => {
+  it('SQS DLQ を 6 つ作成する（圧縮 + 学習 + 勉強 + 通知 + 集約 + acquire で分離）', () => {
     const { template } = synth();
-    template.resourceCountIs('AWS::SQS::Queue', 5);
+    template.resourceCountIs('AWS::SQS::Queue', 6);
   });
 
   it('Lambda 実行ロールを作成する', () => {
@@ -297,9 +297,69 @@ describe('LiveTalkBatchStack', () => {
           }),
         ]),
       },
-      Roles: Match.arrayWith([
-        Match.objectLike({ Ref: roleLogicalIds[0] }),
-      ]),
+      Roles: Match.arrayWith([Match.objectLike({ Ref: roleLogicalIds[0] })]),
+    });
+  });
+
+  it('acquire バッチ用 Lambda 関数が存在する', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: Match.stringLikeRegexp('livetalk-batch-acquire'),
+    });
+  });
+
+  it('acquire バッチ Lambda 環境変数に TZ=Asia/Tokyo と OPENAI_API_KEY が含まれる', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: Match.stringLikeRegexp('livetalk-batch-acquire'),
+      Environment: {
+        Variables: Match.objectLike({
+          TZ: 'Asia/Tokyo',
+          OPENAI_API_KEY: 'PLACEHOLDER_KEY',
+        }),
+      },
+    });
+  });
+
+  it('acquire バッチの EventBridge スケジュールは毎時 45 分（cron(45 * * * ? *)）', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Events::Rule', {
+      ScheduleExpression: 'cron(45 * * * ? *)',
+    });
+  });
+
+  it('AcquireFunctionArn を Outputs に出力する', () => {
+    const { template } = synth();
+    template.hasOutput('AcquireFunctionArn', Match.anyValue());
+  });
+
+  it('AcquireDlqUrl を Outputs に出力する', () => {
+    const { template } = synth();
+    template.hasOutput('AcquireDlqUrl', Match.anyValue());
+  });
+
+  it('acquire ロールの DynamoDB grant に GSI4（index/*）への Query 権限が含まれる（鮮度掃引用）', () => {
+    const { template } = synth();
+    const roles = template.findResources('AWS::IAM::Role', {
+      Properties: {
+        RoleName: Match.stringLikeRegexp('livetalk-acquire-role'),
+      },
+    });
+    const roleLogicalIds = Object.keys(roles);
+    expect(roleLogicalIds.length).toBeGreaterThan(0);
+
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: Match.arrayWith(['dynamodb:Query']),
+            Resource: Match.arrayWith([
+              Match.stringLikeRegexp('table/nagiyu-livetalk-dynamodb-dev/index/\\*'),
+            ]),
+          }),
+        ]),
+      },
+      Roles: Match.arrayWith([Match.objectLike({ Ref: roleLogicalIds[0] })]),
     });
   });
 

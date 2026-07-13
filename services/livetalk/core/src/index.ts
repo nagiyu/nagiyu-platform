@@ -112,6 +112,11 @@ export {
   type OpenAIResearchClientOptions,
 } from './research/index.js';
 
+// WEB fact 変化検知（リブトーク知識再設計 P3 / #3699、acquire バッチ用）
+export { LLMWebFactChangeDetector, type IWebFactChangeDetector } from './research/index.js';
+export { WebFactChangeSchema } from './llm-client/schemas/web-fact-change.schema.js';
+export type { WebFactChangeRaw } from './llm-client/schemas/web-fact-change.schema.js';
+
 // Entities
 export type {
   MemoryEntity,
@@ -312,6 +317,15 @@ export {
   type StudyForUserResult,
 } from './usecases/study.usecase.js';
 
+// acquire usecase（リブトーク知識再設計 P3 / #3699）
+export {
+  acquireForUser,
+  shouldAcquireNow,
+  type AcquireForUserParams,
+  type AcquireForUserResult,
+} from './usecases/acquire.usecase.js';
+export { ACQUIRE_MAX_QUERIES_PER_RUN, ACQUIRE_STALE_SWEEP_LIMIT } from './constants.js';
+
 // PushSubscription（Phase 5d / #3346）
 export type {
   PushSubscriptionEntity,
@@ -451,6 +465,9 @@ export {
   // GSI3（GSI-TOPIC）: Topic ヘッダ(META) 列挙・care 降順取得用 sparse GSI（#3697）
   TOPIC_GSI_INDEX_NAME,
   buildTopicGSI3PK,
+  // GSI4（GSI-STALE）: 揮発 WEB fact の鮮度掃引用 sparse GSI（リブトーク知識再設計 P3 / #3699）
+  STALE_GSI_INDEX_NAME,
+  buildTopicStaleGSI4PK,
 } from './mappers/keys.js';
 
 export type { TopicRepository, TopicBundle } from './repositories/topic.repository.interface.js';

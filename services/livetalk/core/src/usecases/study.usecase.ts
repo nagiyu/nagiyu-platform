@@ -9,7 +9,6 @@ import {
 import type { LifecycleEntity } from '../entities/lifecycle.entity.js';
 import type { KnowledgeRepository } from '../repositories/knowledge.repository.interface.js';
 import type { InterestRepository } from '../repositories/interest.repository.interface.js';
-import type { StudyTopicRepository } from '../repositories/study-topic.repository.interface.js';
 import { resolveLifecycleState } from '../lifecycle/state-resolver.js';
 import type { IResearchClient } from '../research/types.js';
 import type { UlidFactory } from '../lib/ulid.js';
@@ -24,11 +23,6 @@ export interface StudyForUserParams {
   ulidFactory?: UlidFactory;
   now?: () => Date;
   maxQueriesPerRun?: number;
-  /**
-   * StudyTopic リポジトリ（Phase 5b）。
-   * 指定された場合、通常の興味カテゴリ処理の前に pending の STUDY_TOPIC を優先処理する。
-   */
-  studyTopicRepo?: StudyTopicRepository;
 }
 
 export interface StudyForUserResult {
@@ -59,7 +53,6 @@ export async function studyForUser(
     ulidFactory = defaultUlidFactory,
     now = () => new Date(),
     maxQueriesPerRun = STUDY_MAX_QUERIES_PER_RUN,
-    studyTopicRepo,
   } = params;
 
   const nowDate = now();
@@ -75,71 +68,7 @@ export async function studyForUser(
 
   let savedCount = 0;
 
-  // STUDY_TOPIC の pending を優先処理（Phase 5b）
-  if (studyTopicRepo) {
-    const pendingTopics = await studyTopicRepo.listByStatus(userId, characterId, 'pending');
-    for (const studyTopic of pendingTopics) {
-      if (savedCount >= maxQueriesPerRun) break;
-      try {
-        await studyTopicRepo.updateStatus({
-          UserID: userId,
-          CharacterID: characterId,
-          TopicID: studyTopic.TopicID,
-          Status: 'in_progress',
-          Priority: studyTopic.Priority,
-        });
-
-        const result = await researchClient.research(studyTopic.Topic, character);
-
-        if (result.summary.length < STUDY_MIN_SUMMARY_LENGTH) {
-          logger.warn('[study] STUDY_TOPIC: 品質が低いため保存をスキップ', {
-            userId,
-            characterId,
-            topic: studyTopic.Topic,
-            summaryLength: result.summary.length,
-          });
-          await studyTopicRepo.updateStatus({
-            UserID: userId,
-            CharacterID: characterId,
-            TopicID: studyTopic.TopicID,
-            Status: 'done',
-            Priority: studyTopic.Priority,
-          });
-          continue;
-        }
-
-        await knowledgeRepo.put({
-          UserID: userId,
-          CharacterID: characterId,
-          KnowledgeID: ulidFactory(),
-          Topic: result.topic,
-          Summary: result.summary,
-          SourceUrls: result.sourceUrls,
-          RawComment: result.rawComment,
-          RelatedCategory: studyTopic.Topic,
-        });
-
-        await studyTopicRepo.updateStatus({
-          UserID: userId,
-          CharacterID: characterId,
-          TopicID: studyTopic.TopicID,
-          Status: 'done',
-          Priority: studyTopic.Priority,
-        });
-        savedCount++;
-      } catch (err) {
-        logger.warn('[study] STUDY_TOPIC リサーチ失敗', {
-          userId,
-          characterId,
-          topic: studyTopic.Topic,
-          err,
-        });
-        // in_progress のまま次回バッチで再試行
-      }
-    }
-  }
-
-  // 通常の興味カテゴリ処理（残り枠がある場合）
+  // 興味カテゴリ処理（StudyTopic pending の消費は acquire バッチ（P3 / #3699）に移管した）
   const remainingQuota = maxQueriesPerRun - savedCount;
   if (remainingQuota > 0) {
     const categories = await interestRepo.list(userId, characterId);

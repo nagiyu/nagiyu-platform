@@ -6,7 +6,7 @@ import {
   type EntityMapper,
 } from '@nagiyu/aws';
 import type { WebFactEntity, WebFactKey, WebFactVolatility } from '../entities/web-fact.entity.js';
-import { buildUserPK, buildWebFactSK } from './keys.js';
+import { buildUserPK, buildWebFactSK, buildTopicStaleGSI4PK } from './keys.js';
 
 const WEB_FACT_VOLATILITIES: readonly WebFactVolatility[] = [
   'stable',
@@ -48,8 +48,12 @@ export class WebFactMapper implements EntityMapper<WebFactEntity, WebFactKey> {
     };
 
     // NextReview は揮発性のある fact（stable 以外）のみ設定する。未設定なら item に含めない。
+    // GSI4（GSI-STALE）は sparse GSI のため、NextReview があるときだけ GSI4PK/GSI4SK を
+    // 付与する（stable fact は掃引対象外にする＝GSI4 に一切現れないようにする）。
     if (entity.NextReview !== undefined) {
       item.NextReview = entity.NextReview;
+      item.GSI4PK = buildTopicStaleGSI4PK(entity.CharacterID, entity.UserID);
+      item.GSI4SK = entity.NextReview;
     }
 
     return item;
@@ -68,8 +72,11 @@ export class WebFactMapper implements EntityMapper<WebFactEntity, WebFactKey> {
       CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
     };
 
-    if (item.NextReview !== undefined) {
-      entity.NextReview = validateTimestampField(item.NextReview, 'NextReview');
+    // GSI4 の Query 結果には NextReview 自体も INCLUDE 射影で含まれるが、念のため
+    // GSI4SK（同値のはず）からも復元できるようにフォールバックする。
+    const nextReviewSource = item.NextReview ?? item.GSI4SK;
+    if (nextReviewSource !== undefined) {
+      entity.NextReview = validateTimestampField(nextReviewSource, 'NextReview');
     }
 
     return entity;

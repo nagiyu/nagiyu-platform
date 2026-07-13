@@ -3,8 +3,10 @@ import {
   GetCommand,
   PutCommand,
   QueryCommand,
+  UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
+import { logger } from '@nagiyu/common';
 import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import type {
   CreateSelfFactInput,
@@ -12,7 +14,7 @@ import type {
   SelfFactKey,
 } from '../entities/self-fact.entity.js';
 import type { CreateTopicInput, TopicEntity, TopicKey } from '../entities/topic.entity.js';
-import type { CreateWebFactInput, WebFactEntity } from '../entities/web-fact.entity.js';
+import type { CreateWebFactInput, WebFactEntity, WebFactKey } from '../entities/web-fact.entity.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
 import { SelfFactMapper } from '../mappers/self-fact.mapper.js';
 import { TopicMapper } from '../mappers/topic.mapper.js';
@@ -21,8 +23,10 @@ import {
   buildSelfFactSKPrefix,
   buildTopicBundleSKPrefix,
   buildTopicGSI3PK,
+  buildTopicStaleGSI4PK,
   buildUserPK,
   buildWebFactSKPrefix,
+  STALE_GSI_INDEX_NAME,
   TOPIC_GSI_INDEX_NAME,
 } from '../mappers/keys.js';
 import { OptimisticLockError } from './optimistic-lock.error.js';
@@ -286,6 +290,80 @@ export class DynamoDBTopicRepository implements TopicRepository {
     const pk = buildUserPK(userId);
     const prefix = buildWebFactSKPrefix(characterId, topicId);
     return this.queryByPrefix(pk, prefix, this.webFactMapper);
+  }
+
+  public async listStaleWebFacts(
+    userId: string,
+    characterId: string,
+    nowMs: number,
+    limit: number
+  ): Promise<WebFactEntity[]> {
+    const gsi4pk = buildTopicStaleGSI4PK(characterId, userId);
+    const results: WebFactEntity[] = [];
+    let exclusiveStartKey: Record<string, unknown> | undefined;
+
+    for (;;) {
+      let result;
+      try {
+        result = await this.docClient.send(
+          new QueryCommand({
+            TableName: this.tableName,
+            IndexName: STALE_GSI_INDEX_NAME,
+            KeyConditionExpression: '#gsi4pk = :pk AND #gsi4sk <= :now',
+            ExpressionAttributeNames: { '#gsi4pk': 'GSI4PK', '#gsi4sk': 'GSI4SK' },
+            ExpressionAttributeValues: { ':pk': gsi4pk, ':now': nowMs },
+            // 期限が古い順（昇順）で窓走査する。停止分・遅延分を取りこぼさないため、
+            // begins_with や現在バケットのみの参照ではなく `GSI4SK <= now` で幅広く拾う。
+            ScanIndexForward: true,
+            ExclusiveStartKey: exclusiveStartKey,
+          })
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      }
+
+      for (const raw of result.Items ?? []) {
+        results.push(this.webFactMapper.toEntity(raw as unknown as DynamoDBItem));
+        if (results.length >= limit) {
+          return results.slice(0, limit);
+        }
+      }
+
+      if (!result.LastEvaluatedKey) break;
+      exclusiveStartKey = result.LastEvaluatedKey;
+    }
+
+    return results;
+  }
+
+  public async updateWebFactNextReview(key: WebFactKey, nextReview: number): Promise<void> {
+    const { pk, sk } = this.webFactMapper.buildKeys(key);
+    const gsi4pk = buildTopicStaleGSI4PK(key.characterId, key.userId);
+
+    try {
+      await this.docClient.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: { PK: pk, SK: sk },
+          ConditionExpression: 'attribute_exists(PK)',
+          UpdateExpression: 'SET NextReview = :nextReview, GSI4PK = :gsi4pk, GSI4SK = :nextReview',
+          ExpressionAttributeValues: { ':nextReview': nextReview, ':gsi4pk': gsi4pk },
+        })
+      );
+    } catch (error) {
+      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+        logger.warn(
+          '[DynamoDBTopicRepository] updateWebFactNextReview: 対象 WEB fact が存在しません',
+          {
+            key,
+          }
+        );
+        return;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+    }
   }
 
   private async queryByPrefix<T>(

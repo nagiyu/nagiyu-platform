@@ -6,7 +6,6 @@ import {
   DynamoDBLifecycleRepository,
   DynamoDBNoteRepository,
   DynamoDBProfileRepository,
-  DynamoDBStudyTopicRepository,
   OpenAIResearchClient,
   defaultUlidFactory,
 } from '@nagiyu/livetalk-core';
@@ -45,7 +44,6 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     const lifecycleRepo = new DynamoDBLifecycleRepository(docClient, tableName);
     const interestRepo = new DynamoDBInterestRepository(docClient, tableName);
     const knowledgeRepo = new DynamoDBKnowledgeRepository(docClient, tableName);
-    const studyTopicRepo = new DynamoDBStudyTopicRepository(docClient, tableName);
     const noteRepo = new DynamoDBNoteRepository(docClient, tableName);
     const profileRepo = new DynamoDBProfileRepository(docClient, tableName);
     const researchClient = new OpenAIResearchClient({ apiKey });
@@ -55,7 +53,6 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       lifecycleRepo,
       interestRepo,
       knowledgeRepo,
-      studyTopicRepo,
       noteRepo,
       researchClient,
       ulidFactory: defaultUlidFactory,
