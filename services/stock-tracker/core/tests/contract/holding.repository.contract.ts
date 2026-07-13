@@ -3,7 +3,9 @@
  *
  * InMemory実装と実DynamoDB実装（DynamoDB Local）の双方に同一の仕様を通し、
  * 実装間の乖離（GSI射影・ソート順・条件式の挙動など）を機械的に検知する。
- * 1テスト1結末の原則を守り、実行時分岐で結末を変える形骸化テストは書かない。
+ * 各テストは決定的で単一の結末を持ち（実行時分岐で結末を変えない・自己スキップしない）、
+ * 形骸化テストは書かない。CRUDの往復のように一連の手順を検証する場合も、
+ * 分岐のない一本道のフローとして記述する。
  */
 
 import type { HoldingRepository } from '../../src/repositories/holding.repository.interface.js';

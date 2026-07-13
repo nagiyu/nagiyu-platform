@@ -276,6 +276,10 @@ export class InMemorySingleTableStore {
    * 実DynamoDBのQuery（GSI経由を含む）はソートキー昇順で結果を返すため、
    * InMemory実装もこれに合わせて挿入順（Map反復順）ではなくソートキー順で返す。
    *
+   * 近似の範囲: String型ソートキーの辞書順（JSの文字列比較＝UTF-16コードユニット順）で
+   * 近似する。現行のキー体系（ASCII範囲のPK/SK・GSIキー）では実DynamoDBのUTF-8バイト順と
+   * 一致する。BMP外文字（サロゲートペア）やNumber型ソートキーは対象外（本ストアは文字列前提）。
+   *
    * @param items - ソート対象アイテム
    * @param skAttribute - ソートキーとして扱う属性名（Queryは'SK'、GSI経由はGSIのSK属性名）
    */
