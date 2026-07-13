@@ -3,23 +3,20 @@ import { hiyori } from '../../../src/characters/hiyori.js';
 import { MODERATION_REPLACEMENT_MESSAGES } from '../../../src/safety/templates.js';
 import type { ILLMClient } from '../../../src/llm-client/types.js';
 import type { IVoiceClient } from '../../../src/voice/types.js';
-import type { MemoryRepository } from '../../../src/repositories/memory.repository.interface.js';
-import type { MemorySummaryRepository } from '../../../src/repositories/memory-summary.repository.interface.js';
 import type { MessageRepository } from '../../../src/repositories/message.repository.interface.js';
 import type { SafetyEventRepository } from '../../../src/repositories/safety-event.repository.interface.js';
-import type { KnowledgeRepository } from '../../../src/repositories/knowledge.repository.interface.js';
 import type { StudyTopicRepository } from '../../../src/repositories/study-topic.repository.interface.js';
 import type { NoteRepository } from '../../../src/repositories/note.repository.interface.js';
+import type { ConsolidationCursorRepository } from '../../../src/repositories/consolidation-cursor.repository.interface.js';
 import type { NoteEntity } from '../../../src/entities/note.entity.js';
 import type { MessageEntity } from '../../../src/entities/message.entity.js';
-import type { MemoryEntity } from '../../../src/entities/memory.entity.js';
-import type { MemorySummaryEntity } from '../../../src/entities/memory-summary.entity.js';
-import type { KnowledgeEntity } from '../../../src/entities/knowledge.entity.js';
+import type { ConsolidationCursorEntity } from '../../../src/entities/consolidation-cursor.entity.js';
 import type { SafetyEventEntity } from '../../../src/entities/safety-event.entity.js';
 import type { IModerationClient, ModerationResult } from '../../../src/safety/types.js';
-import type { IMemoryRetriever, RetrievedMemory } from '../../../src/memory/types.js';
 import type { ITopicRetriever, RetrievedTopic } from '../../../src/knowledge/retrieval.js';
 import type { TopicEntity } from '../../../src/entities/topic.entity.js';
+import type { CharacterStateRepository } from '../../../src/repositories/character-state.repository.interface.js';
+import type { CharacterStateEntity } from '../../../src/entities/character-state.entity.js';
 
 // ── ヘルパー ──────────────────────────────────────────────────────────────
 
@@ -47,10 +44,10 @@ function makeLLMClient(chunks: string[]): ILLMClient {
       yield* stringsToStream(chunks);
     }),
     chatComplete: jest.fn(),
+    // 既定では知識ゲート（classifyTopic）は needsStudy=false（通常フロー継続）を返す。
     chatStructured: jest.fn(async () => ({
-      detected: false,
-      targetMemoryIds: null,
-      newValue: null,
+      needsStudy: false,
+      normalizedTopic: '',
     })) as unknown as ILLMClient['chatStructured'],
     summarize: jest.fn(async () => ({ mergedSummary: '', newMemoryCandidates: [] })),
   };
@@ -87,16 +84,14 @@ function makeRepo(
   };
 }
 
-function makeMemorySummaryRepo(
-  summary: MemorySummaryEntity | null = null
-): MemorySummaryRepository {
+function makeConsolidationCursorRepo(
+  cursor: ConsolidationCursorEntity | null = null,
+  overrides: Partial<ConsolidationCursorRepository> = {}
+): ConsolidationCursorRepository {
   return {
-    get: jest.fn(async () => summary),
-    put: jest.fn(async (input) => ({
-      ...input,
-      CreatedAt: Date.now(),
-      UpdatedAt: Date.now(),
-    })),
+    get: jest.fn(async () => cursor),
+    put: jest.fn(async (input) => ({ ...input, UpdatedAt: Date.now() })),
+    ...overrides,
   };
 }
 
@@ -145,12 +140,6 @@ function makeModerationClient(
   };
 }
 
-function makeMemoryRetriever(memories: RetrievedMemory[] = []): IMemoryRetriever {
-  return {
-    retrieve: jest.fn(async () => ({ memories })),
-  };
-}
-
 function makeRetrievedTopic(subject: string, selfFactTexts: string[] = []): RetrievedTopic {
   const topic: TopicEntity = {
     UserID: 'u1',
@@ -187,48 +176,24 @@ function makeTopicRetriever(topics: RetrievedTopic[] = []): ITopicRetriever {
   };
 }
 
-function makeMemoryRepo(): MemoryRepository {
+/**
+ * runChatUseCase の必須パラメータ一式を毎回新規に組み立てる。
+ * topicRetriever は P5 で必須パラメータになったため、テストごとに新規モックを持たせて
+ * モック呼び出し履歴が他テストへ漏れないようにする。
+ */
+function makeBaseParams() {
   return {
-    put: jest.fn(),
-    get: jest.fn(async () => null),
-    listByTier: jest.fn(async () => ({ items: [] })),
-    listByCategory: jest.fn(async () => []),
-    update: jest.fn(
-      async (input) =>
-        ({
-          UserID: input.UserID,
-          CharacterID: input.CharacterID,
-          MemoryID: input.MemoryID,
-          Tier: input.Tier,
-          Category: input.Category,
-          Content: 'x',
-          Confidence: 0.8,
-          ReferencedCount: input.ReferencedCount ?? 0,
-          CreatedAt: 0,
-          UpdatedAt: 0,
-        }) as MemoryEntity
-    ),
-    delete: jest.fn(),
-    promote: jest.fn(),
-    demote: jest.fn(),
-  } as unknown as MemoryRepository;
+    userId: 'u1',
+    characterId: 'hiyori',
+    userText: 'こんにちは',
+    character: hiyori,
+    topicRetriever: makeTopicRetriever(),
+  };
 }
 
 // ── テスト本体 ──────────────────────────────────────────────────────────────
 
 describe('runChatUseCase', () => {
-  const baseParams: {
-    userId: string;
-    characterId: string;
-    userText: string;
-    character: typeof hiyori;
-  } = {
-    userId: 'u1',
-    characterId: 'hiyori',
-    userText: 'こんにちは',
-    character: hiyori,
-  };
-
   beforeEach(() => {
     jest.spyOn(console, 'error').mockImplementation(() => {});
   });
@@ -245,7 +210,7 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -266,7 +231,7 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -294,7 +259,7 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -316,7 +281,7 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -333,7 +298,7 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -352,7 +317,7 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -372,7 +337,7 @@ describe('runChatUseCase', () => {
 
       await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           userText: 'テスト',
           llmClient: llm,
           voiceClient: voice,
@@ -393,7 +358,7 @@ describe('runChatUseCase', () => {
 
       await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -418,7 +383,7 @@ describe('runChatUseCase', () => {
 
       await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -460,7 +425,7 @@ describe('runChatUseCase', () => {
 
       await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -494,7 +459,7 @@ describe('runChatUseCase', () => {
       await expect(
         collectEvents(
           runChatUseCase({
-            ...baseParams,
+            ...makeBaseParams(),
             llmClient: llm,
             voiceClient: voice,
             messageRepository: repo,
@@ -517,7 +482,7 @@ describe('runChatUseCase', () => {
       await expect(
         collectEvents(
           runChatUseCase({
-            ...baseParams,
+            ...makeBaseParams(),
             llmClient: llm,
             voiceClient: voice,
             messageRepository: repo,
@@ -537,7 +502,7 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: failingVoice,
           messageRepository: repo,
@@ -556,9 +521,8 @@ describe('runChatUseCase', () => {
         }),
         chatComplete: jest.fn(),
         chatStructured: jest.fn(async () => ({
-          detected: false,
-          targetMemoryIds: null,
-          newValue: null,
+          needsStudy: false,
+          normalizedTopic: '',
         })) as unknown as ILLMClient['chatStructured'],
         summarize: jest.fn(async () => ({ mergedSummary: '', newMemoryCandidates: [] })),
       };
@@ -568,7 +532,7 @@ describe('runChatUseCase', () => {
       await expect(
         collectEvents(
           runChatUseCase({
-            ...baseParams,
+            ...makeBaseParams(),
             llmClient: failingLLM,
             voiceClient: voice,
             messageRepository: repo,
@@ -588,7 +552,7 @@ describe('runChatUseCase', () => {
 
       await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           userText: safetyText,
           llmClient: llm,
           voiceClient: voice,
@@ -606,7 +570,7 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           userText: safetyText,
           llmClient: llm,
           voiceClient: voice,
@@ -630,7 +594,7 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           userText: safetyText,
           llmClient: llm,
           voiceClient: voice,
@@ -649,7 +613,7 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           userText: safetyText,
           llmClient: llm,
           voiceClient: voice,
@@ -668,7 +632,7 @@ describe('runChatUseCase', () => {
 
       await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           userText: safetyText,
           llmClient: llm,
           voiceClient: voice,
@@ -694,7 +658,7 @@ describe('runChatUseCase', () => {
       await expect(
         collectEvents(
           runChatUseCase({
-            ...baseParams,
+            ...makeBaseParams(),
             userText: safetyText,
             llmClient: llm,
             voiceClient: voice,
@@ -718,165 +682,12 @@ describe('runChatUseCase', () => {
       await expect(
         collectEvents(
           runChatUseCase({
-            ...baseParams,
+            ...makeBaseParams(),
             userText: safetyText,
             llmClient: llm,
             voiceClient: voice,
             messageRepository: repo,
             safetyEventRepository: safetyRepo,
-          })
-        )
-      ).resolves.not.toThrow();
-    });
-  });
-
-  describe('Memory retrieval 統合', () => {
-    function makeRetrievedMemory(content: string): RetrievedMemory {
-      const memory: MemoryEntity = {
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        MemoryID: 'mem-001',
-        Tier: 'B',
-        Category: 'food',
-        Content: content,
-        Confidence: 0.8,
-        ReferencedCount: 2,
-        CreatedAt: 0,
-        UpdatedAt: 0,
-      };
-      return { memory, similarity: 0.9 };
-    }
-
-    it('memoryRetriever が指定されると retrieve が呼ばれる', async () => {
-      const llm = makeLLMClient(['ok。']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-      const retriever = makeMemoryRetriever();
-
-      await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          memoryRetriever: retriever,
-        })
-      );
-
-      expect(retriever.retrieve).toHaveBeenCalledWith(
-        'u1',
-        'hiyori',
-        expect.objectContaining({ userInput: 'こんにちは' })
-      );
-    });
-
-    it('memoryRetriever 未指定の場合は retrieve が呼ばれない', async () => {
-      const llm = makeLLMClient(['ok。']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-      const retriever = makeMemoryRetriever();
-
-      await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          // memoryRetriever なし
-        })
-      );
-
-      expect(retriever.retrieve).not.toHaveBeenCalled();
-    });
-
-    it('retrieve 結果が system prompt に注入される（LLM に渡されるメッセージで確認）', async () => {
-      const retrieved = [makeRetrievedMemory('コーヒーが好き')];
-      const llm = makeLLMClient(['ok。']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-
-      await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          memoryRetriever: makeMemoryRetriever(retrieved),
-        })
-      );
-
-      const chatStreamMock = llm.chatStream as jest.Mock;
-      const passedMessages = chatStreamMock.mock.calls[0][0];
-      expect(passedMessages[0].content).toContain('あなたが覚えていること');
-      expect(passedMessages[0].content).toContain('- コーヒーが好き');
-    });
-
-    it('retrieve 失敗時は memory なしで通常応答を継続する（fail-warn）', async () => {
-      const failingRetriever: IMemoryRetriever = {
-        retrieve: jest.fn(async () => {
-          throw new Error('retrieve 失敗');
-        }),
-      };
-      const llm = makeLLMClient(['ok。']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-
-      const events = await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          memoryRetriever: failingRetriever,
-        })
-      );
-
-      expect(events[events.length - 1]).toEqual({ type: 'done' });
-    });
-
-    it('retrieve された Memory の referencedCount が更新される（fire-and-forget）', async () => {
-      const retrieved = [makeRetrievedMemory('コーヒーが好き')];
-      const llm = makeLLMClient(['ok。']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-      const memRepo = makeMemoryRepo();
-
-      await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          memoryRetriever: makeMemoryRetriever(retrieved),
-          memoryRepository: memRepo,
-        })
-      );
-
-      // fire-and-forget のため少し待つ
-      await new Promise((r) => setTimeout(r, 10));
-      expect(memRepo.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          MemoryID: 'mem-001',
-          ReferencedCount: 3,
-        })
-      );
-    });
-
-    it('memoryRepository 未指定の場合は referencedCount 更新がスキップされる', async () => {
-      const retrieved = [makeRetrievedMemory('コーヒーが好き')];
-      const llm = makeLLMClient(['ok。']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-
-      await expect(
-        collectEvents(
-          runChatUseCase({
-            ...baseParams,
-            llmClient: llm,
-            voiceClient: voice,
-            messageRepository: repo,
-            memoryRetriever: makeMemoryRetriever(retrieved),
-            // memoryRepository なし
           })
         )
       ).resolves.not.toThrow();
@@ -892,7 +703,7 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -917,7 +728,7 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -937,7 +748,7 @@ describe('runChatUseCase', () => {
 
       await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -966,7 +777,7 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -987,7 +798,7 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -1012,7 +823,7 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -1036,7 +847,7 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -1070,7 +881,7 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -1094,7 +905,7 @@ describe('runChatUseCase', () => {
 
       await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -1125,7 +936,7 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -1171,7 +982,7 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -1195,311 +1006,9 @@ describe('runChatUseCase', () => {
     });
   });
 
-  // ── Phase 3d: 暗黙確認・訂正検出 ───────────────────────────────────────────
+  // ── 知識ゲート（リブトーク知識・記憶再設計 P5 / #3697、classifyTopic のみで判定） ──
 
-  describe('暗黙訂正検出（Phase 3d）', () => {
-    function makeRetrieved(id: string, content: string): RetrievedMemory {
-      return {
-        memory: {
-          UserID: 'u1',
-          CharacterID: 'hiyori',
-          MemoryID: id,
-          Tier: 'B',
-          Category: 'food',
-          Content: content,
-          Confidence: 0.8,
-          ReferencedCount: 2,
-          CreatedAt: 0,
-          UpdatedAt: 0,
-        },
-        similarity: 0.9,
-      };
-    }
-
-    it('訂正検出時に memoryRepo.update を呼ぶ（confidence 減算）', async () => {
-      const history = [makeMessage('assistant', 'コーヒーが好きなんだね！', 'a1')];
-      const memories = [makeRetrieved('m1', 'コーヒーが好き')];
-      const retriever = makeMemoryRetriever(memories);
-      const memRepo = makeMemoryRepo();
-      // LLM: classify → 訂正あり / stream → 通常応答
-      const llm: ILLMClient = {
-        chatStream: jest.fn(async function* () {
-          yield '了解！';
-        }),
-        chatComplete: jest.fn(),
-        chatStructured: jest.fn(async () => ({
-          detected: true,
-          targetMemoryIds: ['m1'],
-          newValue: 'お茶が好き',
-        })) as unknown as ILLMClient['chatStructured'],
-        summarize: jest.fn(),
-      };
-      const voice = makeVoiceClient();
-      const repo = makeRepo(history);
-
-      await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          userText: '違う、お茶が好きなんだ',
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          memoryRetriever: retriever,
-          memoryRepository: memRepo,
-        })
-      );
-
-      expect(memRepo.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          MemoryID: 'm1',
-          Confidence: expect.any(Number),
-        })
-      );
-    });
-
-    it('直前アシスタントメッセージがない場合は訂正検出をスキップする', async () => {
-      const memories = [makeRetrieved('m1', 'コーヒーが好き')];
-      const retriever = makeMemoryRetriever(memories);
-      const memRepo = makeMemoryRepo();
-      const llm: ILLMClient = {
-        chatStream: jest.fn(async function* () {
-          yield '了解！';
-        }),
-        chatComplete: jest.fn(),
-        chatStructured: jest.fn(async () => ({
-          detected: false,
-          targetMemoryIds: null,
-          newValue: null,
-        })) as unknown as ILLMClient['chatStructured'],
-        summarize: jest.fn(),
-      };
-      const voice = makeVoiceClient();
-      // history にアシスタントメッセージなし
-      const repo = makeRepo([makeMessage('user', '最初のメッセージ')]);
-
-      await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          userText: '違う！',
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          memoryRetriever: retriever,
-          memoryRepository: memRepo,
-        })
-      );
-
-      // chatStructured が classify 用途で呼ばれないことを確認（訂正検出スキップ）
-      expect(llm.chatStructured).not.toHaveBeenCalled();
-    });
-
-    it('訂正検出がエラーを投げても LLM 応答を継続する（fail-warn）', async () => {
-      const history = [makeMessage('assistant', 'コーヒーが好きなんだね！', 'a1')];
-      const memories = [makeRetrieved('m1', 'コーヒーが好き')];
-      const retriever = makeMemoryRetriever(memories);
-      const memRepo = makeMemoryRepo();
-      const llm: ILLMClient = {
-        chatStream: jest.fn(async function* () {
-          yield '了解！';
-        }),
-        chatComplete: jest.fn(),
-        chatStructured: jest.fn(async () => {
-          throw new Error('API error');
-        }),
-        summarize: jest.fn(),
-      };
-      const voice = makeVoiceClient();
-      const repo = makeRepo(history);
-
-      const events = await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          userText: '違う！',
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          memoryRetriever: retriever,
-          memoryRepository: memRepo,
-        })
-      );
-
-      // エラーにならず done が来る
-      expect(events[events.length - 1]).toEqual({ type: 'done' });
-    });
-
-    it('memoryRepository が未指定の場合は訂正検出をスキップする', async () => {
-      const memories = [makeRetrieved('m1', 'コーヒーが好き')];
-      const retriever = makeMemoryRetriever(memories);
-      const llm = makeLLMClient(['了解！']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo([makeMessage('assistant', 'コーヒーが好きなんだね！', 'a1')]);
-
-      const events = await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          userText: '違う！',
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          memoryRetriever: retriever,
-          // memoryRepository なし
-        })
-      );
-
-      expect(events[events.length - 1]).toEqual({ type: 'done' });
-    });
-  });
-
-  describe('Tier C 昇格候補検出（Phase 3d）', () => {
-    it('embeddingClient がある場合は identifyPromotionCandidates を試みる', async () => {
-      const memRepo = makeMemoryRepo();
-      const llm: ILLMClient = {
-        chatStream: jest.fn(async function* () {
-          yield '了解！';
-        }),
-        chatComplete: jest.fn(),
-        chatStructured: jest.fn(async () => ({
-          promotions: [],
-        })) as unknown as ILLMClient['chatStructured'],
-        summarize: jest.fn(),
-      };
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-      const embeddingClient = { embed: jest.fn(async () => [1, 0, 0]) };
-
-      await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          memoryRepository: memRepo,
-          embeddingClient,
-        })
-      );
-
-      expect(memRepo.listByTier).toHaveBeenCalledWith('u1', 'hiyori', 'C');
-    });
-
-    it('embeddingClient が未指定なら昇格候補検出をスキップする', async () => {
-      const memRepo = makeMemoryRepo();
-      const llm = makeLLMClient(['了解！']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-
-      await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          memoryRepository: memRepo,
-          // embeddingClient なし
-        })
-      );
-
-      // Tier C 取得は呼ばれない
-      expect(memRepo.listByTier).not.toHaveBeenCalledWith('u1', 'hiyori', 'C');
-    });
-
-    it('昇格候補がある場合 executePromotion が呼ばれる（fire-and-forget）', async () => {
-      const tierCMem: MemoryEntity = {
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        MemoryID: 'c1',
-        Tier: 'C',
-        Category: 'food',
-        Content: 'コーヒーが好き',
-        Confidence: 0.5,
-        ReferencedCount: 1,
-        CreatedAt: 0,
-        UpdatedAt: 0,
-        Embedding: [1, 0, 0],
-      };
-      const memRepo = makeMemoryRepo();
-      (memRepo.listByTier as jest.Mock).mockResolvedValue({ items: [tierCMem] });
-      const llm: ILLMClient = {
-        chatStream: jest.fn(async function* () {
-          yield '覚えとくね！';
-        }),
-        chatComplete: jest.fn(),
-        chatStructured: jest.fn(async () => ({
-          promotions: [{ memoryId: 'c1', promote: true }],
-        })) as unknown as ILLMClient['chatStructured'],
-        summarize: jest.fn(),
-      };
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-      const embeddingClient = { embed: jest.fn(async () => [0.99, 0.01, 0]) };
-
-      await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          memoryRepository: memRepo,
-          embeddingClient,
-        })
-      );
-
-      // promote が呼ばれるまで少し待つ（fire-and-forget）
-      await new Promise((resolve) => setImmediate(resolve));
-      expect(memRepo.promote).toHaveBeenCalledWith(tierCMem, 'B');
-    });
-
-    it('昇格候補検出がエラーを投げても LLM 応答を継続する（fail-warn）', async () => {
-      const memRepo = makeMemoryRepo();
-      (memRepo.listByTier as jest.Mock).mockRejectedValue(new Error('DB error'));
-      const llm = makeLLMClient(['了解！']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-      const embeddingClient = { embed: jest.fn(async () => [1, 0, 0]) };
-
-      const events = await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          memoryRepository: memRepo,
-          embeddingClient,
-        })
-      );
-
-      expect(events[events.length - 1]).toEqual({ type: 'done' });
-    });
-  });
-
-  // ── 知識ゲート（Phase 5b / Issue #3344）────────────────────────────────
-
-  describe('知識ゲート', () => {
-    function makeKnowledge(topic: string, summary: string): KnowledgeEntity {
-      return {
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        KnowledgeID: 'k1',
-        Topic: topic,
-        Summary: summary,
-        SourceUrls: [],
-        RawComment: '',
-        RelatedCategory: 'ゲーム',
-        CreatedAt: 1_700_000_000_000,
-        UpdatedAt: 1_700_000_000_000,
-      };
-    }
-
-    function makeKnowledgeRepo(knowledge: KnowledgeEntity[] = []): KnowledgeRepository {
-      return {
-        put: jest.fn(async (input) => ({ ...input, CreatedAt: Date.now(), UpdatedAt: Date.now() })),
-        list: jest.fn(async () => knowledge),
-        getLatest: jest.fn(async () => knowledge[0] ?? null),
-        getById: jest.fn(
-          async (_userId, _charId, id) => knowledge.find((k) => k.KnowledgeID === id) ?? null
-        ),
-      };
-    }
-
+  describe('知識ゲート（classifyTopic）', () => {
     function makeStudyTopicRepo(): StudyTopicRepository {
       return {
         put: jest.fn(async (input) => ({ ...input, CreatedAt: Date.now(), UpdatedAt: Date.now() })),
@@ -1513,36 +1022,9 @@ describe('runChatUseCase', () => {
       } as unknown as StudyTopicRepository;
     }
 
-    it('知識ベースにヒット → 通常 LLM 応答（knowledge_hit）', async () => {
-      const k = makeKnowledge('モンスターハンター', 'カプコンのゲーム');
-      const knowledgeRepo = makeKnowledgeRepo([k]);
-      const llm = makeLLMClient(['モンハン面白いよね！']);
-      // chatStructured は knowledge_hit なので呼ばれない
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-
-      const events = await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          userText: 'モンスターハンター',
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          knowledgeRepository: knowledgeRepo,
-        })
-      );
-
-      const textEvents = events.filter((e) => e.type === 'text');
-      expect(textEvents.length).toBeGreaterThan(0);
-      // chatStructured（分類）は呼ばれない
-      expect(llm.chatStructured).not.toHaveBeenCalled();
-    });
-
-    it('ヒットなし + needsStudy=true → 「勉強しておくね」テンプレ応答でLLMバイパス', async () => {
-      const knowledgeRepo = makeKnowledgeRepo([]);
+    it('needsStudy=true → 「勉強しておくね」テンプレ応答で LLM をバイパスする', async () => {
       const studyTopicRepo = makeStudyTopicRepo();
       const llm = makeLLMClient(['応答']);
-      // chatStructured は needsStudy=true を返す
       (llm.chatStructured as jest.Mock).mockResolvedValue({
         needsStudy: true,
         normalizedTopic: '最新アニメ',
@@ -1552,12 +1034,11 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           userText: '最新アニメ教えて',
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
-          knowledgeRepository: knowledgeRepo,
           studyTopicRepository: studyTopicRepo,
         })
       );
@@ -1575,10 +1056,8 @@ describe('runChatUseCase', () => {
       );
     });
 
-    it('ヒットなし + needsStudy=true + 既存 pending → 重複登録しない', async () => {
-      const knowledgeRepo = makeKnowledgeRepo([]);
+    it('needsStudy=true + 既存 pending → 重複登録しない', async () => {
       const studyTopicRepo = makeStudyTopicRepo();
-      // 既存 pending を返す
       (studyTopicRepo.findPendingByTopic as jest.Mock).mockResolvedValue({
         UserID: 'u1',
         CharacterID: 'hiyori',
@@ -1599,12 +1078,11 @@ describe('runChatUseCase', () => {
 
       await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           userText: '最新アニメ教えて',
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
-          knowledgeRepository: knowledgeRepo,
           studyTopicRepository: studyTopicRepo,
         })
       );
@@ -1612,8 +1090,7 @@ describe('runChatUseCase', () => {
       expect(studyTopicRepo.put).not.toHaveBeenCalled();
     });
 
-    it('ヒットなし + needsStudy=false → 通常 LLM 応答（normal）', async () => {
-      const knowledgeRepo = makeKnowledgeRepo([]);
+    it('needsStudy=false → 通常 LLM 応答', async () => {
       const llm = makeLLMClient(['もちろん！']);
       (llm.chatStructured as jest.Mock).mockResolvedValue({
         needsStudy: false,
@@ -1624,12 +1101,11 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           userText: 'おはよう！',
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
-          knowledgeRepository: knowledgeRepo,
         })
       );
 
@@ -1638,41 +1114,43 @@ describe('runChatUseCase', () => {
       expect(textEvents.length).toBeGreaterThan(0);
     });
 
-    it('knowledgeRepository 未指定 → ゲートをスキップして通常フロー', async () => {
-      const llm = makeLLMClient(['普通の応答']);
+    it('studyTopicRepository 未指定でも needsStudy=true ならテンプレ応答で継続する（登録のみスキップ）', async () => {
+      const llm = makeLLMClient(['応答']);
+      (llm.chatStructured as jest.Mock).mockResolvedValue({
+        needsStudy: true,
+        normalizedTopic: 'テスト',
+      });
       const voice = makeVoiceClient();
       const repo = makeRepo();
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
-          userText: 'こんにちは',
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          // knowledgeRepository は未指定
-        })
-      );
-
-      expect(llm.chatStream).toHaveBeenCalled();
-      expect(events[events.length - 1]).toEqual({ type: 'done' });
-    });
-
-    it('知識ゲートがエラーを投げても通常フローで継続する（fail-warn）', async () => {
-      const knowledgeRepo = makeKnowledgeRepo([]);
-      (knowledgeRepo.list as jest.Mock).mockRejectedValue(new Error('DB error'));
-      const llm = makeLLMClient(['エラーでも応答']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-
-      const events = await collectEvents(
-        runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           userText: 'テスト',
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
-          knowledgeRepository: knowledgeRepo,
+          // studyTopicRepository なし
+        })
+      );
+
+      expect(llm.chatStream).not.toHaveBeenCalled();
+      expect(events[events.length - 1]).toEqual({ type: 'done' });
+    });
+
+    it('知識ゲート（classifyTopic）がエラーを投げても通常フローで継続する（fail-warn）', async () => {
+      const llm = makeLLMClient(['エラーでも応答']);
+      (llm.chatStructured as jest.Mock).mockRejectedValue(new Error('LLM error'));
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...makeBaseParams(),
+          userText: 'テスト',
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
         })
       );
 
@@ -1682,7 +1160,6 @@ describe('runChatUseCase', () => {
     });
 
     it('study 分岐後はアシスタントメッセージが保存される', async () => {
-      const knowledgeRepo = makeKnowledgeRepo([]);
       const llm = makeLLMClient(['通常応答']);
       (llm.chatStructured as jest.Mock).mockResolvedValue({
         needsStudy: true,
@@ -1693,12 +1170,11 @@ describe('runChatUseCase', () => {
 
       await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           userText: 'テスト',
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
-          knowledgeRepository: knowledgeRepo,
         })
       );
 
@@ -1712,35 +1188,6 @@ describe('runChatUseCase', () => {
       expect(
         savedText.includes('勉強') || savedText.includes('調べ') || savedText.includes('わからない')
       ).toBe(true);
-    });
-
-    it('knowledge_hit 時は通常 LLM が知識 context で呼ばれる', async () => {
-      const k = makeKnowledge('モンスターハンター', 'カプコンのゲームシリーズ');
-      const knowledgeRepo = makeKnowledgeRepo([k]);
-      const llm = makeLLMClient(['モンハンの話ね！']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-
-      await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          userText: 'モンスターハンター',
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          knowledgeRepository: knowledgeRepo,
-        })
-      );
-
-      // chatStream（通常 LLM）が呼ばれた
-      expect(llm.chatStream).toHaveBeenCalled();
-      // system prompt に「この前調べたこと」セクションが含まれる
-      const streamArgs = (llm.chatStream as jest.Mock).mock.calls[0][0] as Array<{
-        role: string;
-        content: string;
-      }>;
-      const systemMsg = streamArgs.find((m) => m.role === 'system');
-      expect(systemMsg?.content).toContain('この前調べたこと');
     });
   });
 
@@ -1775,7 +1222,7 @@ describe('runChatUseCase', () => {
 
       await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           userText: 'あのノート良かったよ',
           llmClient: llm,
           voiceClient: voice,
@@ -1805,7 +1252,7 @@ describe('runChatUseCase', () => {
 
       await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -1830,7 +1277,7 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -1843,300 +1290,10 @@ describe('runChatUseCase', () => {
     });
   });
 
-  describe('MemorySummary prompt 注入（Issue #3354）', () => {
-    const sampleSummary: MemorySummaryEntity = {
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      SummaryText: 'この人はコーヒーが好きで、犬を飼っている。',
-      LastCompressedAt: 1_700_000_000_000,
-      CreatedAt: 1_700_000_000_000,
-      UpdatedAt: 1_700_000_000_000,
-    };
+  // ── Topic 想起（関連度 only）（リブトーク知識再設計 P2 / #3698、P5 で必須化） ──────
 
-    it('MemorySummary があるとき summaryText が system prompt に注入される', async () => {
-      const llm = makeLLMClient(['うん']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-      const summaryRepo = makeMemorySummaryRepo(sampleSummary);
-
-      await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          memorySummaryRepository: summaryRepo,
-        })
-      );
-
-      const streamArgs = (llm.chatStream as jest.Mock).mock.calls[0][0] as Array<{
-        role: string;
-        content: string;
-      }>;
-      const systemMsg = streamArgs.find((m) => m.role === 'system');
-      expect(systemMsg?.content).toContain('あなたがこれまでに知ったこと');
-      expect(systemMsg?.content).toContain('コーヒーが好き');
-    });
-
-    it('MemorySummary があるとき listSince が lastCompressedAt で呼ばれる', async () => {
-      const llm = makeLLMClient(['うん']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-      const summaryRepo = makeMemorySummaryRepo(sampleSummary);
-
-      await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          memorySummaryRepository: summaryRepo,
-        })
-      );
-
-      expect(repo.listSince).toHaveBeenCalledWith('u1', 'hiyori', sampleSummary.LastCompressedAt);
-    });
-
-    it('MemorySummary がないとき listSince(0) で全件取得する（fallback）', async () => {
-      const llm = makeLLMClient(['うん']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-      const summaryRepo = makeMemorySummaryRepo(null);
-
-      await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          memorySummaryRepository: summaryRepo,
-        })
-      );
-
-      expect(repo.listSince).toHaveBeenCalledWith('u1', 'hiyori', 0);
-    });
-
-    it('memorySummaryRepository 未指定のとき listSince(0) で全件取得する（fallback）', async () => {
-      const llm = makeLLMClient(['うん']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-
-      await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          // memorySummaryRepository なし
-        })
-      );
-
-      expect(repo.listSince).toHaveBeenCalledWith('u1', 'hiyori', 0);
-    });
-
-    it('MemorySummary があるとき promptTokens.summary が 0 より大きい', async () => {
-      const llm = makeLLMClient(['うん']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-      const summaryRepo = makeMemorySummaryRepo(sampleSummary);
-
-      // emitChatMetricsLog をスパイして promptTokens を確認
-      const logs: unknown[] = [];
-      jest.spyOn(console, 'log').mockImplementation((...args) => logs.push(args));
-
-      await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          memorySummaryRepository: summaryRepo,
-        })
-      );
-
-      // システムプロンプトにサマリーが含まれていることを確認
-      const streamArgs = (llm.chatStream as jest.Mock).mock.calls[0][0] as Array<{
-        role: string;
-        content: string;
-      }>;
-      const systemMsg = streamArgs.find((m) => m.role === 'system');
-      expect(systemMsg?.content).toContain(sampleSummary.SummaryText);
-    });
-
-    it('MemorySummary 取得エラー時はスキップして通常応答を継続する', async () => {
-      const llm = makeLLMClient(['うん']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-      const summaryRepo = makeMemorySummaryRepo(null);
-      (summaryRepo.get as jest.Mock).mockRejectedValueOnce(new Error('DB error'));
-
-      const events = await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          memorySummaryRepository: summaryRepo,
-        })
-      );
-
-      expect(events[events.length - 1]).toEqual({ type: 'done' });
-      expect(llm.chatStream).toHaveBeenCalled();
-    });
-  });
-
-  describe('通知起点の KNOWLEDGE context 注入（Issue #3359 課題Y）', () => {
-    function makeKnowledgeRepo(knowledge: KnowledgeEntity[] = []): KnowledgeRepository {
-      return {
-        put: jest.fn(async (input) => ({ ...input, CreatedAt: Date.now(), UpdatedAt: Date.now() })),
-        list: jest.fn(async () => knowledge),
-        getLatest: jest.fn(async () => knowledge[0] ?? null),
-        getById: jest.fn(async (_u, _c, id) => knowledge.find((k) => k.KnowledgeID === id) ?? null),
-      };
-    }
-
-    function makeKnowledgeForNotif(id: string, topic: string): KnowledgeEntity {
-      return {
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        KnowledgeID: id,
-        Topic: topic,
-        Summary: `${topic}の詳細要約。`.repeat(5),
-        SourceUrls: [],
-        RawComment: 'おもしろい！',
-        RelatedCategory: 'test',
-        CreatedAt: 1_700_000_000_000,
-        UpdatedAt: 1_700_000_000_000,
-      };
-    }
-
-    it('notificationKnowledgeId 指定時、該当 KNOWLEDGE が system prompt に注入される', async () => {
-      const k = makeKnowledgeForNotif('notif-k1', 'カフェラテの新作');
-      const knowledgeRepo = makeKnowledgeRepo([k]);
-      const llm = makeLLMClient(['そうそう！']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-
-      await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          knowledgeRepository: knowledgeRepo,
-          notificationKnowledgeId: 'notif-k1',
-        })
-      );
-
-      expect(knowledgeRepo.getById).toHaveBeenCalledWith('u1', 'hiyori', 'notif-k1');
-      const streamArgs = (llm.chatStream as jest.Mock).mock.calls[0][0] as Array<{
-        role: string;
-        content: string;
-      }>;
-      const systemMsg = streamArgs.find((m) => m.role === 'system');
-      expect(systemMsg?.content).toContain('通知でユーザーに話しかけた話題');
-      expect(systemMsg?.content).toContain('カフェラテの新作');
-    });
-
-    it('notificationKnowledgeId が存在しない ID のとき通常フローで継続', async () => {
-      const knowledgeRepo = makeKnowledgeRepo([]);
-      const llm = makeLLMClient(['うん']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-
-      const events = await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          knowledgeRepository: knowledgeRepo,
-          notificationKnowledgeId: 'no-such-id',
-        })
-      );
-
-      expect(events.some((e) => e.type === 'done')).toBe(true);
-      expect(llm.chatStream).toHaveBeenCalled();
-    });
-
-    it('notificationKnowledgeId 未指定のとき通知セクションを含めない', async () => {
-      const llm = makeLLMClient(['うん']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-
-      await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-        })
-      );
-
-      const streamArgs = (llm.chatStream as jest.Mock).mock.calls[0][0] as Array<{
-        role: string;
-        content: string;
-      }>;
-      const systemMsg = streamArgs.find((m) => m.role === 'system');
-      expect(systemMsg?.content).not.toContain('通知でユーザーに話しかけた話題');
-    });
-
-    it('getById が失敗してもスキップして通常応答を継続する', async () => {
-      const knowledgeRepo = makeKnowledgeRepo([]);
-      (knowledgeRepo.getById as jest.Mock).mockRejectedValueOnce(new Error('DB error'));
-      const llm = makeLLMClient(['うん']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-
-      const events = await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          knowledgeRepository: knowledgeRepo,
-          notificationKnowledgeId: 'notif-k1',
-        })
-      );
-
-      expect(events.some((e) => e.type === 'done')).toBe(true);
-    });
-
-    it('knowledge_hit と notificationKnowledgeId が同じ ID のとき重複注入しない', async () => {
-      const k = makeKnowledgeForNotif('k1', 'モンハン');
-      const knowledgeRepo = makeKnowledgeRepo([k]);
-      const llm = makeLLMClient(['モンハン！']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-
-      await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          userText: 'モンハン',
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          knowledgeRepository: knowledgeRepo,
-          notificationKnowledgeId: 'k1',
-        })
-      );
-
-      const streamArgs = (llm.chatStream as jest.Mock).mock.calls[0][0] as Array<{
-        role: string;
-        content: string;
-      }>;
-      const systemMsg = streamArgs.find((m) => m.role === 'system');
-      // 通知セクションが含まれ、知識ゲートセクションでは重複しない
-      expect(systemMsg?.content).toContain('通知でユーザーに話しかけた話題');
-      const knowledgeCount = (systemMsg?.content.match(/この前調べたこと/g) ?? []).length;
-      expect(knowledgeCount).toBeLessThanOrEqual(1);
-    });
-  });
-
-  // ── Topic 想起（関連度 only）（リブトーク知識再設計 P2 / #3698）────────────────
-
-  describe('Topic 想起への切替（topicRetriever）', () => {
-    it('topicRetriever が指定されると retrieve が呼ばれる', async () => {
+  describe('Topic 想起（topicRetriever）', () => {
+    it('retrieve が userInput 付きで呼ばれる', async () => {
       const llm = makeLLMClient(['ok。']);
       const voice = makeVoiceClient();
       const repo = makeRepo();
@@ -2144,7 +1301,7 @@ describe('runChatUseCase', () => {
 
       await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -2159,25 +1316,6 @@ describe('runChatUseCase', () => {
       );
     });
 
-    it('topicRetriever 未指定の場合は retrieve が呼ばれない（従来挙動）', async () => {
-      const llm = makeLLMClient(['ok。']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-      const topicRetriever = makeTopicRetriever();
-
-      await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          // topicRetriever なし
-        })
-      );
-
-      expect(topicRetriever.retrieve).not.toHaveBeenCalled();
-    });
-
     it('retrieve 結果（subject/SELF/WEB）が system prompt に注入される', async () => {
       const topics = [makeRetrievedTopic('コーヒー', ['朝コーヒーを飲む'])];
       const llm = makeLLMClient(['ok。']);
@@ -2186,7 +1324,7 @@ describe('runChatUseCase', () => {
 
       await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -2204,61 +1342,7 @@ describe('runChatUseCase', () => {
       expect(systemMsg?.content).toContain('（あなたが聞いたこと）朝コーヒーを飲む');
     });
 
-    it('topicRetriever 指定時、MemorySummary（summaryText）は system prompt に注入されない', async () => {
-      const sampleSummary: MemorySummaryEntity = {
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        SummaryText: 'この人はコーヒーが好きで、犬を飼っている。',
-        LastCompressedAt: 1_700_000_000_000,
-        CreatedAt: 1_700_000_000_000,
-        UpdatedAt: 1_700_000_000_000,
-      };
-      const llm = makeLLMClient(['ok。']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-      const summaryRepo = makeMemorySummaryRepo(sampleSummary);
-
-      await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          memorySummaryRepository: summaryRepo,
-          topicRetriever: makeTopicRetriever([]),
-        })
-      );
-
-      const streamArgs = (llm.chatStream as jest.Mock).mock.calls[0][0] as Array<{
-        role: string;
-        content: string;
-      }>;
-      const systemMsg = streamArgs.find((m) => m.role === 'system');
-      expect(systemMsg?.content).not.toContain('あなたがこれまでに知ったこと');
-      expect(systemMsg?.content).not.toContain(sampleSummary.SummaryText);
-    });
-
-    it('topicRetriever 指定時、旧 memoryRetriever は呼ばれない（防御的ガード）', async () => {
-      const llm = makeLLMClient(['ok。']);
-      const voice = makeVoiceClient();
-      const repo = makeRepo();
-      const memoryRetriever = makeMemoryRetriever();
-
-      await collectEvents(
-        runChatUseCase({
-          ...baseParams,
-          llmClient: llm,
-          voiceClient: voice,
-          messageRepository: repo,
-          memoryRetriever,
-          topicRetriever: makeTopicRetriever(),
-        })
-      );
-
-      expect(memoryRetriever.retrieve).not.toHaveBeenCalled();
-    });
-
-    it('topicRetriever の retrieve 失敗時は想起なしで会話を継続する（fail-warn）', async () => {
+    it('retrieve 失敗時は想起なしで会話を継続する（fail-warn）', async () => {
       const failingRetriever: ITopicRetriever = {
         retrieve: jest.fn(async () => {
           throw new Error('retrieve 失敗');
@@ -2270,7 +1354,7 @@ describe('runChatUseCase', () => {
 
       const events = await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
@@ -2281,102 +1365,125 @@ describe('runChatUseCase', () => {
       expect(events[events.length - 1]).toEqual({ type: 'done' });
       expect(llm.chatStream).toHaveBeenCalled();
     });
+  });
 
-    // fresh-eyes レビュー由来の修正: topic recall 時は旧 Tier 由来の newLearnings を注入しない
-    it('topicRetriever 指定時、旧 Tier 由来の newLearnings（あなたが新しく知ったこと）は system prompt に注入されない', async () => {
-      const tierCMem: MemoryEntity = {
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        MemoryID: 'c1',
-        Tier: 'C',
-        Category: 'food',
-        Content: 'コーヒーが好き',
-        Confidence: 0.5,
-        ReferencedCount: 1,
-        CreatedAt: 0,
-        UpdatedAt: 0,
-        Embedding: [1, 0, 0],
-      };
-      const memRepo = makeMemoryRepo();
-      (memRepo.listByTier as jest.Mock).mockResolvedValue({ items: [tierCMem] });
-      const llm: ILLMClient = {
-        chatStream: jest.fn(async function* () {
-          yield '了解！';
-        }),
-        chatComplete: jest.fn(),
-        chatStructured: jest.fn(async () => ({
-          promotions: [{ memoryId: 'c1', promote: true }],
-        })) as unknown as ILLMClient['chatStructured'],
-        summarize: jest.fn(),
-      };
+  // ── 会話履歴の境界（集約カーソル）（リブトーク知識・記憶再設計 P5 / #3697） ──────
+
+  describe('会話履歴の境界（consolidationCursorRepository）', () => {
+    it('カーソルがあるとき listSince が MsgCursor で呼ばれる', async () => {
+      const llm = makeLLMClient(['うん']);
       const voice = makeVoiceClient();
       const repo = makeRepo();
-      const embeddingClient = { embed: jest.fn(async () => [0.99, 0.01, 0]) };
+      const cursorRepo = makeConsolidationCursorRepo({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        MsgCursor: 1_700_000_500_000,
+        WebrawCursor: 0,
+        UpdatedAt: 1_700_000_500_000,
+      });
 
       await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
-          memoryRepository: memRepo,
-          embeddingClient,
-          topicRetriever: makeTopicRetriever([]),
+          consolidationCursorRepository: cursorRepo,
         })
       );
 
-      const streamArgs = (llm.chatStream as jest.Mock).mock.calls[0][0] as Array<{
-        role: string;
-        content: string;
-      }>;
-      const systemMsg = streamArgs.find((m) => m.role === 'system');
-      expect(systemMsg?.content).not.toContain('あなたが新しく知ったこと');
-      expect(systemMsg?.content).not.toContain('コーヒーが好き');
-
-      // 書込機構（promotionCandidates の計算・executePromotion）は従来どおり維持する
-      await new Promise((resolve) => setImmediate(resolve));
-      expect(memRepo.promote).toHaveBeenCalledWith(tierCMem, 'B');
+      expect(repo.listSince).toHaveBeenCalledWith('u1', 'hiyori', 1_700_000_500_000);
     });
 
-    it('topicRetriever 未指定時（従来）は newLearnings が system prompt に注入される', async () => {
-      const tierCMem: MemoryEntity = {
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        MemoryID: 'c1',
-        Tier: 'C',
-        Category: 'food',
-        Content: 'コーヒーが好き',
-        Confidence: 0.5,
-        ReferencedCount: 1,
-        CreatedAt: 0,
-        UpdatedAt: 0,
-        Embedding: [1, 0, 0],
-      };
-      const memRepo = makeMemoryRepo();
-      (memRepo.listByTier as jest.Mock).mockResolvedValue({ items: [tierCMem] });
-      const llm: ILLMClient = {
-        chatStream: jest.fn(async function* () {
-          yield '了解！';
-        }),
-        chatComplete: jest.fn(),
-        chatStructured: jest.fn(async () => ({
-          promotions: [{ memoryId: 'c1', promote: true }],
-        })) as unknown as ILLMClient['chatStructured'],
-        summarize: jest.fn(),
-      };
+    it('カーソルが null のとき listSince(0) で全件取得する（fallback）', async () => {
+      const llm = makeLLMClient(['うん']);
       const voice = makeVoiceClient();
       const repo = makeRepo();
-      const embeddingClient = { embed: jest.fn(async () => [0.99, 0.01, 0]) };
+      const cursorRepo = makeConsolidationCursorRepo(null);
 
       await collectEvents(
         runChatUseCase({
-          ...baseParams,
+          ...makeBaseParams(),
           llmClient: llm,
           voiceClient: voice,
           messageRepository: repo,
-          memoryRepository: memRepo,
-          embeddingClient,
-          // topicRetriever なし（従来挙動）
+          consolidationCursorRepository: cursorRepo,
+        })
+      );
+
+      expect(repo.listSince).toHaveBeenCalledWith('u1', 'hiyori', 0);
+    });
+
+    it('consolidationCursorRepository 未指定のとき listSince(0) で全件取得する（fallback）', async () => {
+      const llm = makeLLMClient(['うん']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      await collectEvents(
+        runChatUseCase({
+          ...makeBaseParams(),
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          // consolidationCursorRepository なし
+        })
+      );
+
+      expect(repo.listSince).toHaveBeenCalledWith('u1', 'hiyori', 0);
+    });
+
+    it('カーソル取得エラー時は sinceMs=0 で全件取得を継続する（fail-warn）', async () => {
+      const llm = makeLLMClient(['うん']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const cursorRepo = makeConsolidationCursorRepo(null, {
+        get: jest.fn(async () => {
+          throw new Error('DB error');
+        }),
+      });
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...makeBaseParams(),
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          consolidationCursorRepository: cursorRepo,
+        })
+      );
+
+      expect(repo.listSince).toHaveBeenCalledWith('u1', 'hiyori', 0);
+      expect(events[events.length - 1]).toEqual({ type: 'done' });
+    });
+
+    it('MsgCursor 以降のメッセージのみが history として LLM に渡される', async () => {
+      // listSince はリポジトリ側で境界フィルタする責務を持つため、モックは
+      // 「sinceMs で呼ばれたら境界以降の履歴だけ返す」ことを模して検証する。
+      const oldMessage = makeMessage('user', '集約済みの古い話', 'old-1');
+      const recentMessage = makeMessage('assistant', '未集約の最近の話', 'recent-1');
+      const cursor: ConsolidationCursorEntity = {
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        MsgCursor: 1_700_000_500_000,
+        WebrawCursor: 0,
+        UpdatedAt: 1_700_000_500_000,
+      };
+      const repo = makeRepo([], {
+        listSince: jest.fn(async (_userId, _characterId, sinceMs) =>
+          sinceMs >= cursor.MsgCursor ? [recentMessage] : [oldMessage, recentMessage]
+        ),
+      });
+      const llm = makeLLMClient(['うん']);
+      const voice = makeVoiceClient();
+      const cursorRepo = makeConsolidationCursorRepo(cursor);
+
+      await collectEvents(
+        runChatUseCase({
+          ...makeBaseParams(),
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          consolidationCursorRepository: cursorRepo,
         })
       );
 
@@ -2384,9 +1491,127 @@ describe('runChatUseCase', () => {
         role: string;
         content: string;
       }>;
-      const systemMsg = streamArgs.find((m) => m.role === 'system');
-      expect(systemMsg?.content).toContain('あなたが新しく知ったこと');
-      expect(systemMsg?.content).toContain('コーヒーが好き');
+      const historyContents = streamArgs
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .map((m) => m.content);
+      expect(historyContents).toContain('未集約の最近の話');
+      expect(historyContents).not.toContain('集約済みの古い話');
+    });
+  });
+
+  // ── 親密度更新（Tier 昇格撤去に伴い infoDisclosure は常に 0） ────────────────────
+
+  describe('親密度更新（characterStateRepository）', () => {
+    function makeCharacterStateRepo(
+      prev: CharacterStateEntity | null = null
+    ): CharacterStateRepository {
+      return {
+        getById: jest.fn(async () => prev),
+        upsert: jest.fn(async (input) => ({
+          ...input,
+          AffectionLevel: 0,
+          CreatedAt: 0,
+          UpdatedAt: 0,
+        })) as unknown as CharacterStateRepository['upsert'],
+        updateAffection: jest.fn(async (userId, characterId, delta) => ({
+          UserID: userId,
+          CharacterID: characterId,
+          LastInteractionAt: 0,
+          AffectionLevel: delta,
+          CreatedAt: 0,
+          UpdatedAt: 0,
+        })),
+      };
+    }
+
+    it('初回接触（prevCharacterState なし）は isNewActiveDay=true で updateAffection が呼ばれる', async () => {
+      const llm = makeLLMClient(['うん']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const characterStateRepository = makeCharacterStateRepo(null);
+
+      await collectEvents(
+        runChatUseCase({
+          ...makeBaseParams(),
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          characterStateRepository,
+        })
+      );
+
+      // fire-and-forget のため少し待つ
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(characterStateRepository.updateAffection).toHaveBeenCalledWith('u1', 'hiyori', 1);
+    });
+
+    it('同日中の再接触（isNewActiveDay=false）は Tier 昇格撤去に伴い delta=0 のため updateAffection が呼ばれない', async () => {
+      const llm = makeLLMClient(['うん']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const now = Date.now();
+      const characterStateRepository = makeCharacterStateRepo({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        AffectionLevel: 5,
+        LastInteractionAt: now,
+        CreatedAt: 0,
+        UpdatedAt: 0,
+      });
+
+      await collectEvents(
+        runChatUseCase({
+          ...makeBaseParams(),
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          characterStateRepository,
+        })
+      );
+
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(characterStateRepository.updateAffection).not.toHaveBeenCalled();
+    });
+
+    it('characterStateRepository 未指定なら親密度更新をスキップする', async () => {
+      const llm = makeLLMClient(['うん']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...makeBaseParams(),
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          // characterStateRepository なし
+        })
+      );
+
+      expect(events[events.length - 1]).toEqual({ type: 'done' });
+    });
+
+    it('updateAffection のエラーは例外を投げない（fail-warn）', async () => {
+      const llm = makeLLMClient(['うん']);
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const characterStateRepository = makeCharacterStateRepo(null);
+      (characterStateRepository.updateAffection as jest.Mock).mockRejectedValue(
+        new Error('DB error')
+      );
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...makeBaseParams(),
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          characterStateRepository,
+        })
+      );
+
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(events[events.length - 1]).toEqual({ type: 'done' });
     });
   });
 });
