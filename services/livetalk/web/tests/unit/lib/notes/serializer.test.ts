@@ -85,6 +85,27 @@ describe('toNoteDetail', () => {
     expect(item.sources).toEqual(['https://example.com/a', 'https://example.com/b']);
   });
 
+  it('出典 URL は http(s) スキームのみ許可し javascript: 等を弾く', () => {
+    const bundle = makeBundle({
+      webFacts: [
+        {
+          UserID: 'user-1',
+          CharacterID: 'hiyori',
+          TopicID: 'topic-001',
+          FactID: 'fact-1',
+          Text: 'fact1',
+          // eslint-disable-next-line no-script-url
+          SourceUrls: ['https://example.com/a', 'javascript:alert(1)', 'http://example.org/b'],
+          Volatility: 'stable',
+          ObservedAt: 1,
+          CreatedAt: 1,
+        },
+      ],
+    });
+    const item = toNoteDetail(baseEntity, bundle);
+    expect(item.sources).toEqual(['https://example.com/a', 'http://example.org/b']);
+  });
+
   it('bundle が null（Topic 取得失敗等）でも headline のみ返す（fail-soft）', () => {
     const item = toNoteDetail(baseEntity, null);
     expect(item.headline).toBe(baseEntity.Headline);
