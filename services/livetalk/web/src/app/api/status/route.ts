@@ -8,7 +8,7 @@
  *   - 直近通知履歴（最新 5 件）
  *   - 現時点の通知判定結果（shouldNotifyNow の reason / toneBucket 等）
  *   - インターバル解除予測時刻（reason が not_due の場合のみ）
- *   - KNOWLEDGE 件数 / STUDY_TOPIC pending 件数
+ *   - STUDY_TOPIC pending 件数
  *
  * chat metrics（promptTokens / latencyMs）は DynamoDB 未永続のため本 Issue のスコープ外。
  * CloudWatch Logs Insights で確認する。
@@ -36,7 +36,6 @@ import { getSession } from '@/lib/server/session';
 import {
   getLifecycleRepository,
   getNotificationEventRepository,
-  getKnowledgeRepository,
   getStudyTopicRepository,
   getMessageRepository,
 } from '@/lib/server/repositories';
@@ -80,15 +79,12 @@ export const GET = withAuth(getSession, 'livetalk:admin', async (session, reques
   const now = new Date();
 
   try {
-    const [lifecycle, notificationEvents, allMessages, knowledge, studyPending] = await Promise.all(
-      [
-        getLifecycleRepository().get({ userId, characterId }),
-        getNotificationEventRepository().listByUser(userId, 10),
-        getMessageRepository().listSince(userId, characterId, 0),
-        getKnowledgeRepository().list(userId, characterId),
-        getStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
-      ]
-    );
+    const [lifecycle, notificationEvents, allMessages, studyPending] = await Promise.all([
+      getLifecycleRepository().get({ userId, characterId }),
+      getNotificationEventRepository().listByUser(userId, 10),
+      getMessageRepository().listSince(userId, characterId, 0),
+      getStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
+    ]);
 
     const bedtime = lifecycle?.Bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
     const wakeUpTime = lifecycle?.WakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME;
@@ -136,7 +132,6 @@ export const GET = withAuth(getSession, 'livetalk:admin', async (session, reques
         ...notifyDecision,
         ...(nextEarliestAt !== undefined ? { nextEarliestAt } : {}),
       },
-      knowledgeCount: knowledge.length,
       studyTopicPendingCount: studyPending.length,
     });
   } catch (error) {
