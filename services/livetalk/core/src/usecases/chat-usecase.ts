@@ -594,9 +594,9 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     }
   }
 
-  // 11. 親密度を更新（fire-and-forget、infoDisclosure + timeContinuity の 2 軸）
-  // Tier 昇格機構の撤去に伴い infoDisclosure は常に 0（isNewActiveDay のみで判定）。
-  // bidirectionality は日次圧縮バッチで別途反映する。
+  // 11. 親密度を更新（fire-and-forget）。
+  // Tier 昇格機構の撤去に伴い infoDisclosure は常に 0 となり、親密度は isNewActiveDay
+  // （日次の再訪ボーナス）のみで上昇する。体験活用は別ロードマップ（R1）のスコープ。
   if (characterStateRepository) {
     const now = Date.now();
     const newActiveDay = isNewActiveDay(prevCharacterState?.LastInteractionAt, now);
