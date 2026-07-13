@@ -5,7 +5,7 @@ import {
   buildCriticalNotificationMessage,
   buildNotificationMessage,
   buildSuggestedReply,
-  detectCriticalKnowledge,
+  detectCriticalTopic,
   shouldNotifyNow,
   getAllCharacterIds,
   getCharacterDefinitionById,
@@ -14,32 +14,35 @@ import {
   computeDailyNormalCap,
   extractSessionStartTimes,
   type NotificationEventEntity,
-  type IEmbeddingClient,
   type ILLMClient,
-  type InterestRepository,
-  type KnowledgeRepository,
   type LifecycleRepository,
   type MessageRepository,
   type NotificationEventRepository,
   type ProfileRepository,
   type PushSubscriptionRepository,
+  type TopicEntity,
+  type TopicRepository,
   type UlidFactory,
   defaultUlidFactory,
   NOTIFICATION_EVENT_TTL_SECONDS,
+  NOTIFY_CRITICAL_CARE_THRESHOLD,
   NOTIFY_INTENSITY_WINDOW_DAYS,
   NOTIFY_SESSION_GAP_MINUTES,
 } from '@nagiyu/livetalk-core';
+
+/**
+ * critical 判定用に care 上位から絞り込む Topic 候補数（LLM コスト抑制）。
+ */
+const CRITICAL_CANDIDATE_TOPIC_LIMIT = 3;
 
 export interface NotifyAllUsersParams {
   profileRepo: ProfileRepository;
   lifecycleRepo: LifecycleRepository;
   messageRepo: MessageRepository;
-  knowledgeRepo: KnowledgeRepository;
+  topicRepo: TopicRepository;
   pushSubscriptionRepo: PushSubscriptionRepository;
   notifEventRepo: NotificationEventRepository;
-  interestRepo: InterestRepository;
   llmClient: ILLMClient;
-  embeddingClient: IEmbeddingClient;
   ulidFactory?: UlidFactory;
   now?: () => Date;
 }
@@ -62,12 +65,10 @@ export async function notifyAllUsers(params: NotifyAllUsersParams): Promise<Noti
     profileRepo,
     lifecycleRepo,
     messageRepo,
-    knowledgeRepo,
+    topicRepo,
     pushSubscriptionRepo,
     notifEventRepo,
-    interestRepo,
     llmClient,
-    embeddingClient,
     ulidFactory = defaultUlidFactory,
     now = () => new Date(),
   } = params;
@@ -90,12 +91,10 @@ export async function notifyAllUsers(params: NotifyAllUsersParams): Promise<Noti
         userId,
         lifecycleRepo,
         messageRepo,
-        knowledgeRepo,
+        topicRepo,
         pushSubscriptionRepo,
         notifEventRepo,
-        interestRepo,
         llmClient,
-        embeddingClient,
         ulidFactory,
         vapidConfig,
         now,
@@ -124,12 +123,10 @@ interface ProcessUserParams {
   userId: string;
   lifecycleRepo: LifecycleRepository;
   messageRepo: MessageRepository;
-  knowledgeRepo: KnowledgeRepository;
+  topicRepo: TopicRepository;
   pushSubscriptionRepo: PushSubscriptionRepository;
   notifEventRepo: NotificationEventRepository;
-  interestRepo: InterestRepository;
   llmClient: ILLMClient;
-  embeddingClient: IEmbeddingClient;
   ulidFactory: UlidFactory;
   vapidConfig: ReturnType<typeof getVapidConfig>;
   now: () => Date;
@@ -139,7 +136,7 @@ interface ProcessUserParams {
 interface NotificationCandidate {
   characterId: string;
   kind: 'normal' | 'critical';
-  knowledgeId: string | undefined;
+  topicId: string | undefined;
   title: string;
   body: string;
   /** 通知タップ起動時に入力欄へプリフィルするユーザー発話 */
@@ -156,12 +153,10 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
     userId,
     lifecycleRepo,
     messageRepo,
-    knowledgeRepo,
+    topicRepo,
     pushSubscriptionRepo,
     notifEventRepo,
-    interestRepo,
     llmClient,
-    embeddingClient,
     ulidFactory,
     vapidConfig,
     now,
@@ -180,7 +175,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
   // 全キャラを走査して発火候補を収集する
   const criticalCandidates: { characterId: string }[] = [];
   const normalCandidates: { characterId: string; lastNormalAt: number }[] = [];
-  // characterId → 候補の詳細（文面・knowledgeId）
+  // characterId → 候補の詳細（文面・topicId）
   const candidateMap = new Map<string, NotificationCandidate>();
 
   const allCharacterIds = getAllCharacterIds();
@@ -192,10 +187,8 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
         characterId,
         lifecycleRepo,
         messageRepo,
-        knowledgeRepo,
-        interestRepo,
+        topicRepo,
         llmClient,
-        embeddingClient,
         allUserEvents,
         now: currentNow,
       });
@@ -263,7 +256,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
     const candidate = candidateMap.get(characterId);
     if (!candidate) continue;
 
-    const { title, body, knowledgeId, kind, suggestedReply } = candidate;
+    const { title, body, topicId, kind, suggestedReply } = candidate;
 
     // B-2: payload に characterId と URL を含める（from=push で通知タップ由来であることをフロントに伝える）
     const payload = {
@@ -307,7 +300,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
       Kind: kind,
       Title: title,
       Body: body,
-      KnowledgeID: knowledgeId,
+      TopicID: topicId,
       SuggestedReply: suggestedReply,
       Ttl: ttl,
     });
@@ -327,10 +320,8 @@ async function evaluateCharacter(params: {
   characterId: string;
   lifecycleRepo: LifecycleRepository;
   messageRepo: MessageRepository;
-  knowledgeRepo: KnowledgeRepository;
-  interestRepo: InterestRepository;
+  topicRepo: TopicRepository;
   llmClient: ILLMClient;
-  embeddingClient: IEmbeddingClient;
   /** ユーザー全キャラの通知履歴（characterId フィルタに使用） */
   allUserEvents: NotificationEventEntity[];
   now: Date;
@@ -340,10 +331,8 @@ async function evaluateCharacter(params: {
     characterId,
     lifecycleRepo,
     messageRepo,
-    knowledgeRepo,
-    interestRepo,
+    topicRepo,
     llmClient,
-    embeddingClient,
     allUserEvents,
     now,
   } = params;
@@ -369,26 +358,32 @@ async function evaluateCharacter(params: {
   // 通知履歴をこのキャラ単位でフィルタ（他キャラの通知が interval/cap/missedCount に混入しない）
   const charNotifEvents = allUserEvents.filter((e) => e.CharacterID === characterId);
 
-  // クリティカル候補を取得して LLM 判定
-  const recentKnowledge = await knowledgeRepo.list(userId, characterId, 10);
-  const interestCategories = await interestRepo.list(userId, characterId);
-  const escalation = await detectCriticalKnowledge({
-    knowledgeList: recentKnowledge,
-    interestCategories,
+  // care 降順で Topic ヘッダを取得（ネタ源・critical 判定の候補）
+  const topics = await topicRepo.listTopicHeadersByCareDesc(userId, characterId, 10);
+
+  // critical 判定用に上位の高 care Topic について WEB fact を取得
+  const criticalCandidateTopics = topics.slice(0, CRITICAL_CANDIDATE_TOPIC_LIMIT);
+  const criticalCandidates = await Promise.all(
+    criticalCandidateTopics.map(async (topic) => ({
+      topic,
+      webFacts: await topicRepo.listWebFacts(userId, characterId, topic.TopicID),
+    }))
+  );
+
+  const escalation = await detectCriticalTopic({
+    candidates: criticalCandidates,
+    careThreshold: NOTIFY_CRITICAL_CARE_THRESHOLD,
     llmClient,
-    embeddingClient,
     now,
   });
-  const criticalKnowledgeId = escalation.isCritical
-    ? (escalation.knowledgeId ?? undefined)
-    : undefined;
+  const criticalTopicId = escalation.isCritical ? (escalation.topicId ?? undefined) : undefined;
 
   // 発火判定（このキャラの履歴のみで判定）
   const decision = shouldNotifyNow({
     userMessages,
     lifecycle,
     notificationEvents: charNotifEvents,
-    criticalKnowledgeId,
+    criticalTopicId,
     now,
   });
 
@@ -408,48 +403,49 @@ async function evaluateCharacter(params: {
   // 通知文面生成
   let title: string;
   let body: string;
-  let knowledgeId: string | undefined;
+  let topicId: string | undefined;
   let suggestedReply: string;
 
   if (decision.kind === 'critical') {
-    const knowledge = recentKnowledge.find((k) => k.KnowledgeID === decision.knowledgeId);
+    const topic = topics.find((t) => t.TopicID === decision.topicId);
     const msg = buildCriticalNotificationMessage(
-      knowledge?.Topic ?? '大事なこと',
+      topic?.Subject ?? '大事なこと',
       characterNotificationName
     );
     title = msg.title;
     body = msg.body;
-    knowledgeId = decision.knowledgeId;
-    suggestedReply = buildSuggestedReply(knowledge?.Topic);
+    topicId = decision.topicId;
+    suggestedReply = buildSuggestedReply(topic?.Subject);
   } else {
-    // 直近で使用済みの KnowledgeID を避けてネタを選ぶ（同じ話題の連発を抑制）
-    // このキャラの履歴から使用済み KnowledgeID を収集する
-    const usedKnowledgeIds = new Set(
+    // 直近で使用済みの TopicID を避けてネタを選ぶ（同じ話題の連発を抑制）
+    // このキャラの履歴から使用済み TopicID を収集する
+    const usedTopicIds = new Set(
       charNotifEvents
-        .map((e: { KnowledgeID?: string }) => e.KnowledgeID)
+        .map((e: { TopicID?: string }) => e.TopicID)
         .filter((id: string | undefined): id is string => id !== undefined)
     );
-    const freshKnowledge =
-      recentKnowledge.find((k: { KnowledgeID: string }) => !usedKnowledgeIds.has(k.KnowledgeID)) ??
-      recentKnowledge[0];
+    // 未使用の care 最上位を選ぶ。無ければ care 最上位（無条件）にフォールバック。
+    // Topic が皆無なら freshTopic は undefined のまま（Topic-less フォールバック）。
+    const freshTopic: TopicEntity | undefined =
+      topics.find((t) => !usedTopicIds.has(t.TopicID)) ?? topics[0];
     const msg = buildNotificationMessage(
       {
         toneBucket: decision.toneBucket,
-        knowledgeTopic: freshKnowledge?.Topic,
+        knowledgeTopic: freshTopic?.Subject,
         characterDisplayName: characterNotificationName,
       },
       now.getTime()
     );
     title = msg.title;
     body = msg.body;
-    knowledgeId = freshKnowledge?.KnowledgeID;
-    suggestedReply = buildSuggestedReply(freshKnowledge?.Topic);
+    topicId = freshTopic?.TopicID;
+    suggestedReply = buildSuggestedReply(freshTopic?.Subject);
   }
 
   return {
     characterId,
     kind: decision.kind,
-    knowledgeId,
+    topicId,
     title,
     body,
     suggestedReply,
