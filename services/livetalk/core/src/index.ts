@@ -255,6 +255,13 @@ export {
   type GenerateNotesParams,
   type GenerateNotesResult,
 } from './usecases/generate-note.usecase.js';
+export {
+  buildGenerateNotePrompt,
+  type GenerateNotePromptInput,
+  type GenerateNotePromptSelfFact,
+  type GenerateNotePromptWebFact,
+} from './usecases/generate-note.prompt.js';
+export { NoteLetterSchema, type NoteLetterRaw } from './llm-client/schemas/note-letter.schema.js';
 
 // 知識ゲート（Phase 5b / #3344）
 export {
@@ -302,9 +309,9 @@ export {
   STUDY_MIN_SUMMARY_LENGTH,
   STUDY_TOPIC_TTL_SECONDS,
   STUDY_TOPIC_GATE_PRIORITY,
-  NOTE_MIN_SUMMARY_LENGTH,
+  NOTE_CARE_THRESHOLD,
   NOTE_MAX_PER_RUN,
-  NOTE_KNOWLEDGE_LOOKBACK,
+  NOTE_CANDIDATE_LOOKBACK,
   NOTE_RECENT_DAYS,
   NOTE_RECENT_LIMIT,
 } from './constants.js';

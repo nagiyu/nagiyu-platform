@@ -264,14 +264,13 @@ describe('buildChatMessages（lifecycleState）', () => {
 });
 
 describe('buildSystemPrompt（recentNotes / 感想連携）', () => {
-  const makeNote = (title: string, id = 'note-1') => ({
+  const makeNote = (subject: string, id = 'note-1') => ({
     UserID: 'u1',
     CharacterID: 'hiyori',
     NoteID: id,
-    Title: title,
-    Body: '本文',
-    RelatedKnowledgeIds: ['know-1'],
-    RelatedCategory: 'コーヒー',
+    TopicID: 'topic-1',
+    Subject: subject,
+    Headline: '本文',
     CreatedAt: 1_700_000_000_000,
     UpdatedAt: 1_700_000_000_000,
   });

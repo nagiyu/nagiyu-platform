@@ -2,8 +2,10 @@ import {
   GetCommand,
   PutCommand,
   QueryCommand,
+  UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
+import { logger } from '@nagiyu/common';
 import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import type { CreateNoteInput, NoteEntity, NoteKey } from '../entities/note.entity.js';
 import { NoteMapper } from '../mappers/note.mapper.js';
@@ -137,5 +139,30 @@ export class DynamoDBNoteRepository implements NoteRepository {
     const threshold = this.nowMs() - days * 24 * 60 * 60 * 1000;
     const all = await this.list(userId, characterId, limit);
     return all.filter((note) => note.CreatedAt >= threshold);
+  }
+
+  public async updateReaction(key: NoteKey, reaction: string): Promise<void> {
+    const pk = buildUserPK(key.userId);
+    const sk = buildNoteSK(key.characterId, key.noteId);
+    const now = this.nowMs();
+
+    try {
+      await this.docClient.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: { PK: pk, SK: sk },
+          ConditionExpression: 'attribute_exists(PK)',
+          UpdateExpression: 'SET Reaction = :reaction, UpdatedAt = :updatedAt',
+          ExpressionAttributeValues: { ':reaction': reaction, ':updatedAt': now },
+        })
+      );
+    } catch (error) {
+      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+        logger.warn('[DynamoDBNoteRepository] updateReaction: 対象ノートが存在しません', { key });
+        return;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+    }
   }
 }
