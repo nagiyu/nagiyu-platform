@@ -71,7 +71,7 @@ export class LiveTalkBatchStack extends cdk.Stack {
 
     // ---- ユーザー活動時間学習バッチ（Phase 4c / Issue #3329）----
 
-    // 学習バッチ専用 DLQ（compress バッチと障害切り分けのため独立）
+    // 学習バッチ専用 DLQ（他バッチと障害切り分けのため独立）
     const learnActivityDlq = new sqs.Queue(this, 'LearnActivityDlq', {
       queueName: `nagiyu-livetalk-learn-activity-dlq-${environment}`,
       retentionPeriod: cdk.Duration.days(7),
@@ -178,7 +178,8 @@ export class LiveTalkBatchStack extends cdk.Stack {
       logRetention: logs.RetentionDays.ONE_MONTH,
     });
 
-    // EventBridge: 毎時 30 分に実行（study バッチと被りを避けるため offset）
+    // EventBridge: 毎時 30 分に実行（consolidate=15分・acquire=45分と衝突回避。毎時 0 分は旧
+    // study バッチの撤去により現在空きスロット）
     const hourlyNotifyRule = new events.Rule(this, 'HourlyNotifyRule', {
       ruleName: `livetalk-batch-notify-${environment}`,
       description: 'LiveTalk 通知バッチ（毎時 JST）',
@@ -244,7 +245,7 @@ export class LiveTalkBatchStack extends cdk.Stack {
       logRetention: logs.RetentionDays.ONE_MONTH,
     });
 
-    // EventBridge: 毎時 15 分に実行（study=0分・notify=30分と衝突回避）
+    // EventBridge: 毎時 15 分に実行（notify=30分・acquire=45分と衝突回避）
     const hourlyConsolidateRule = new events.Rule(this, 'HourlyConsolidateRule', {
       ruleName: `livetalk-batch-consolidate-${environment}`,
       description: 'LiveTalk 集約バッチ（毎時 JST）',
@@ -314,7 +315,7 @@ export class LiveTalkBatchStack extends cdk.Stack {
       logRetention: logs.RetentionDays.ONE_MONTH,
     });
 
-    // EventBridge: 毎時 45 分に実行（study=0分・consolidate=15分・notify=30分と衝突回避）
+    // EventBridge: 毎時 45 分に実行（consolidate=15分・notify=30分と衝突回避）
     const hourlyAcquireRule = new events.Rule(this, 'HourlyAcquireRule', {
       ruleName: `livetalk-batch-acquire-${environment}`,
       description: 'LiveTalk acquire バッチ（毎時 JST）',

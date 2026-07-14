@@ -98,26 +98,21 @@ export function emitChatMetricsEMF(metrics: ChatMetrics): void {
   console.log(payload);
 }
 
-/** 圧縮バッチ 1 回分の計測値。 */
+/** 集約（consolidation）バッチ 1 回分の計測値。 */
 export interface BatchMetrics {
   userId: string;
   characterId: string;
   timestamp: string;
   messageCount: number;
-  /** 圧縮後の MemorySummary トークン数（単調増加の検知用） */
-  summaryTokenCount: number;
-  summaryCharCount: number;
   latencyMs?: number;
 }
 
 /** L1: バッチ計測の構造化ログを emit する。 */
 export function emitBatchMetricsLog(metrics: BatchMetrics): void {
-  logger.info('[batch-observability] 圧縮バッチ計測', {
+  logger.info('[batch-observability] 集約バッチ計測', {
     userId: metrics.userId,
     characterId: metrics.characterId,
     messageCount: metrics.messageCount,
-    summaryTokenCount: metrics.summaryTokenCount,
-    summaryCharCount: metrics.summaryCharCount,
     latencyMs: metrics.latencyMs,
   });
 }
@@ -127,7 +122,6 @@ export function emitBatchMetricsEMF(metrics: BatchMetrics): void {
   const environment = process.env.LIVETALK_ENV ?? process.env.NODE_ENV ?? 'unknown';
 
   const emfMetrics: EmfMetricDefinition[] = [
-    { name: 'MemorySummaryTokens', value: metrics.summaryTokenCount, unit: 'Count' },
     { name: 'CompressedMessageCount', value: metrics.messageCount, unit: 'Count' },
   ];
 

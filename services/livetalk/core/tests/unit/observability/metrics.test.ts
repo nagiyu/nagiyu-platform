@@ -139,8 +139,6 @@ describe('emitBatchMetricsLog', () => {
       characterId: 'hiyori',
       timestamp: new Date().toISOString(),
       messageCount: 10,
-      summaryTokenCount: 500,
-      summaryCharCount: 1000,
       latencyMs: 2000,
     };
     expect(() => emitBatchMetricsLog(batchMetrics)).not.toThrow();
@@ -155,8 +153,6 @@ describe('emitBatchMetricsEMF', () => {
       characterId: 'hiyori',
       timestamp: new Date().toISOString(),
       messageCount: 5,
-      summaryTokenCount: 300,
-      summaryCharCount: 600,
       latencyMs: 1000,
     };
 
@@ -170,15 +166,13 @@ describe('emitBatchMetricsEMF', () => {
     logSpy.mockRestore();
   });
 
-  it('MemorySummaryTokens と CompressedMessageCount を含む', () => {
+  it('CompressedMessageCount を含む', () => {
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     const batchMetrics = {
       userId: 'u1',
       characterId: 'hiyori',
       timestamp: new Date().toISOString(),
       messageCount: 7,
-      summaryTokenCount: 400,
-      summaryCharCount: 800,
       latencyMs: 3000,
     };
 
@@ -186,7 +180,6 @@ describe('emitBatchMetricsEMF', () => {
 
     const output = logSpy.mock.calls[0][0] as string;
     const parsed = JSON.parse(output) as Record<string, unknown>;
-    expect(parsed['MemorySummaryTokens']).toBe(400);
     expect(parsed['CompressedMessageCount']).toBe(7);
     expect(parsed['BatchLatency']).toBe(3000);
     logSpy.mockRestore();
@@ -201,8 +194,6 @@ describe('emitBatchMetricsEMF', () => {
       characterId: 'hiyori',
       timestamp: new Date().toISOString(),
       messageCount: 5,
-      summaryTokenCount: 300,
-      summaryCharCount: 600,
     };
     emitBatchMetricsEMF(batchMetrics);
     const output = logSpy.mock.calls[0][0] as string;
