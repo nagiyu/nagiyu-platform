@@ -14,13 +14,11 @@ jest.mock('@/lib/server/llm', () => ({ getLLMClient: jest.fn() }));
 jest.mock('@/lib/server/voice', () => ({ getVoiceClient: jest.fn() }));
 jest.mock('@/lib/server/repositories', () => ({
   getMessageRepository: jest.fn(),
-  getMemoryRepository: jest.fn().mockReturnValue({}),
-  getMemorySummaryRepository: jest.fn().mockReturnValue({}),
   getCharacterStateRepository: jest.fn().mockReturnValue({}),
   getLifecycleRepository: jest.fn().mockReturnValue({}),
-  getKnowledgeRepository: jest.fn().mockReturnValue({}),
   getStudyTopicRepository: jest.fn().mockReturnValue({}),
   getNoteRepository: jest.fn().mockReturnValue({}),
+  getConsolidationCursorRepository: jest.fn().mockReturnValue({}),
   getChatGuardRepository: jest.fn(),
 }));
 jest.mock('@/lib/server/safety', () => ({
@@ -29,9 +27,6 @@ jest.mock('@/lib/server/safety', () => ({
 }));
 jest.mock('@/lib/server/topic-retriever', () => ({
   getTopicRetriever: jest.fn().mockReturnValue({}),
-}));
-jest.mock('@/lib/server/embedding', () => ({
-  getEmbeddingClient: jest.fn().mockReturnValue({}),
 }));
 
 // runChatUseCase をモック化して依存 I/O を切り離す
@@ -209,28 +204,16 @@ describe('POST /api/chat', () => {
       );
     });
 
-    it('knowledgeId を含むリクエストは notificationKnowledgeId として usecase に渡される', async () => {
+    it('knowledgeId を含むリクエストも受理される（サーバ側では無視する。P5 で旧 Knowledge 経路撤去）', async () => {
       mockRunChatUseCase.mockImplementation(async function* () {
         yield { type: 'done' };
       });
 
-      await POST(buildRequest({ text: 'こんにちは', knowledgeId: 'k-abc' }));
+      const res = await POST(buildRequest({ text: 'こんにちは', knowledgeId: 'k-abc' }));
 
-      expect(mockRunChatUseCase).toHaveBeenCalledWith(
-        expect.objectContaining({ notificationKnowledgeId: 'k-abc' })
-      );
-    });
-
-    it('knowledgeId が空文字列のときは notificationKnowledgeId が undefined になる', async () => {
-      mockRunChatUseCase.mockImplementation(async function* () {
-        yield { type: 'done' };
-      });
-
-      await POST(buildRequest({ text: 'こんにちは', knowledgeId: '' }));
-
-      expect(mockRunChatUseCase).toHaveBeenCalledWith(
-        expect.objectContaining({ notificationKnowledgeId: undefined })
-      );
+      expect(res.status).toBe(200);
+      const callArgs = mockRunChatUseCase.mock.calls[0][0];
+      expect(callArgs.notificationKnowledgeId).toBeUndefined();
     });
 
     it('knowledgeId が数値型のリクエストは 400 INVALID_REQUEST', async () => {
@@ -270,7 +253,7 @@ describe('POST /api/chat', () => {
       );
     });
 
-    it('runChatUseCase に topicRetriever が渡され memoryRetriever は渡されない（P2 想起切替）', async () => {
+    it('runChatUseCase に topicRetriever / consolidationCursorRepository が渡され、旧 Memory/Knowledge 系は渡されない（P5 旧経路撤去）', async () => {
       mockRunChatUseCase.mockImplementation(async function* () {
         yield { type: 'done' };
       });
@@ -279,11 +262,14 @@ describe('POST /api/chat', () => {
 
       const callArgs = mockRunChatUseCase.mock.calls[0][0];
       expect(callArgs.topicRetriever).toBeDefined();
+      expect(callArgs.consolidationCursorRepository).toBeDefined();
       expect(callArgs.memoryRetriever).toBeUndefined();
-      // promotion・履歴境界・metrics のため memoryRepository/embeddingClient/memorySummaryRepository は維持
-      expect(callArgs.memoryRepository).toBeDefined();
-      expect(callArgs.embeddingClient).toBeDefined();
-      expect(callArgs.memorySummaryRepository).toBeDefined();
+      expect(callArgs.memoryRepository).toBeUndefined();
+      expect(callArgs.embeddingClient).toBeUndefined();
+      expect(callArgs.memorySummaryRepository).toBeUndefined();
+      expect(callArgs.knowledgeRepository).toBeUndefined();
+      expect(callArgs.knowledgeMatcher).toBeUndefined();
+      expect(callArgs.notificationKnowledgeId).toBeUndefined();
     });
 
     it('未登録の characterId を指定した場合は 400 INVALID_REQUEST を返す', async () => {

@@ -1,21 +1,17 @@
 import { performance } from 'perf_hooks';
 import { logger } from '@nagiyu/common';
 import { calculateAffectionDelta, isNewActiveDay } from '../affection/calculator.js';
-import type { IEmbeddingClient, ILLMClient } from '../llm-client/types.js';
+import type { ILLMClient } from '../llm-client/types.js';
 import type { IVoiceClient, VoiceConfig } from '../voice/types.js';
 import type { CharacterStateRepository } from '../repositories/character-state.repository.interface.js';
 import type { LifecycleRepository } from '../repositories/lifecycle.repository.interface.js';
-import type { MemoryRepository } from '../repositories/memory.repository.interface.js';
-import type { MemorySummaryRepository } from '../repositories/memory-summary.repository.interface.js';
 import type { MessageRepository } from '../repositories/message.repository.interface.js';
 import type { SafetyEventRepository } from '../repositories/safety-event.repository.interface.js';
-import type { KnowledgeRepository } from '../repositories/knowledge.repository.interface.js';
 import type { StudyTopicRepository } from '../repositories/study-topic.repository.interface.js';
 import type { NoteRepository } from '../repositories/note.repository.interface.js';
+import type { ConsolidationCursorRepository } from '../repositories/consolidation-cursor.repository.interface.js';
 import type { NoteEntity } from '../entities/note.entity.js';
 import type { CharacterDefinition } from '../characters/types.js';
-import type { MemoryEntity } from '../entities/memory.entity.js';
-import type { MessageEntity } from '../entities/message.entity.js';
 import type { LifecycleState } from '../entities/lifecycle.entity.js';
 import { buildChatMessages, buildSystemPrompt } from '../characters/prompt-builder.js';
 import { resolveLifecycleState } from '../lifecycle/state-resolver.js';
@@ -25,9 +21,6 @@ import {
   DEFAULT_CHARACTER_ID,
   LIFECYCLE_DEFAULT_BEDTIME,
   LIFECYCLE_DEFAULT_WAKE_UP_TIME,
-  MEMORY_CATEGORY_CAP,
-  MEMORY_COOLDOWN_MS,
-  MEMORY_MAX_TIER_B,
   STUDY_TOPIC_TTL_SECONDS,
   STUDY_TOPIC_GATE_PRIORITY,
   NOTE_RECENT_DAYS,
@@ -41,18 +34,13 @@ import { detectSafetyRisk } from '../safety/detector.js';
 import { buildModerationReplacementMessage, buildSafetyMessage } from '../safety/templates.js';
 import { SAFETY_RESOURCES } from '../safety/resources.js';
 import type { IModerationClient, SafetyResource } from '../safety/types.js';
-import type { IMemoryRetriever, RetrievedMemory } from '../memory/types.js';
-import { detectCorrection } from '../memory/correction-detector.js';
-import { identifyNewLearnings, identifyPromotionCandidates } from '../memory/confirmation.js';
-import { applyCorrection, executePromotion } from '../memory/promotion.js';
 import { createPhaseTimer } from '../observability/timer.js';
 import {
   createChatMetrics,
   emitChatMetricsLog,
   emitChatMetricsEMF,
 } from '../observability/metrics.js';
-import { evaluateKnowledgeGate } from '../study/knowledge-gate.js';
-import type { KnowledgeMatcher } from '../study/knowledge-matcher.js';
+import { classifyTopic } from '../study/knowledge-gate.js';
 import { buildStudyDeferralMessage } from '../study/templates.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
 import type { ITopicRetriever, RetrievedTopic } from '../knowledge/retrieval.js';
@@ -91,60 +79,33 @@ export interface ChatUseCaseParams {
   safetyEventRepository?: SafetyEventRepository;
   /** Moderation クライアント。未指定時は応答後チェックをスキップする */
   moderationClient?: IModerationClient;
-  /** Memory retriever。未指定時はメモリ注入をスキップする */
-  memoryRetriever?: IMemoryRetriever;
-  /** memoryRetriever が指定された場合に使う Memory リポジトリ */
-  memoryRepository?: MemoryRepository;
-  /** Tier C 昇格候補検出に使う Embedding クライアント。未指定時は昇格処理をスキップする */
-  embeddingClient?: IEmbeddingClient;
   /** CharacterState リポジトリ。未指定時は親密度更新をスキップする */
   characterStateRepository?: CharacterStateRepository;
-  /** MemorySummary リポジトリ。prompt 注入 + 計測に使用。未指定時はスキップする */
-  memorySummaryRepository?: MemorySummaryRepository;
   /** Lifecycle リポジトリ。未指定時はデフォルト就寝スケジュールで判定する */
   lifecycleRepository?: LifecycleRepository;
-  /**
-   * 知識ゲート（Phase 5b）。未指定時はゲートをスキップして従来フローで継続する。
-   * 指定時は KNOWLEDGE を検索し、ヒット無し+要勉強なら LLM をバイパスして STUDY_TOPIC を登録する。
-   */
-  knowledgeRepository?: KnowledgeRepository;
-  /** StudyTopic リポジトリ。knowledgeRepository 指定時に study 分岐で使用する */
+  /** StudyTopic リポジトリ。未指定時は知識ゲートの study 分岐で登録をスキップする */
   studyTopicRepository?: StudyTopicRepository;
   /**
    * Note リポジトリ（Phase 5c / #3345）。未指定時はノートの感想連携をスキップする。
    * 指定時は直近 NOTE_RECENT_DAYS 日に提示したノートを取得し、prompt context に注入する。
    */
   noteRepository?: NoteRepository;
-  /**
-   * 知識ベース照合のストラテジ。未指定時は文字 N-gram 照合（既定）。
-   * 将来 embedding / LLM ベースの照合へ差し替えるための注入ポイント。
-   */
-  knowledgeMatcher?: KnowledgeMatcher;
   /** ULID ファクトリ。テスト時に差し替え可能。未指定時はデフォルト実装 */
   ulidFactory?: UlidFactory;
   /**
-   * 通知起点の会話に対応する KnowledgeID（案B: 保存せず受け渡しのみ）。
-   * 指定時は該当 KNOWLEDGE を context に注入し、キャラが自分で振った話題として展開する。
-   * knowledgeRepository が未指定の場合はスキップする。
+   * Topic retriever（リブトーク知識再設計 P2 / #3698）。関連度 only の Topic 想起を行う。
+   * P5 で旧 Tier memory / MemorySummary 経路を撤去したため必須パラメータになった。
    */
-  notificationKnowledgeId?: string;
+  topicRetriever: ITopicRetriever;
   /**
-   * Topic retriever（リブトーク知識再設計 P2 / #3698）。
-   * 指定時は関連度 only の Topic 想起に切替え、Tier memory（memoryRetriever）/
-   * MemorySummary のプロンプト注入を抑制する。未指定時は従来挙動（memoryRetriever による
-   * Tier 想起 + MemorySummary 注入）のまま完全に変わらない。
+   * 集約カーソルリポジトリ（リブトーク知識・記憶再設計 P5 / #3697）。
+   * 会話履歴の取得境界（未集約＝ライブ文脈）を MsgCursor で決める。
+   * 未指定・取得失敗時は sinceMs=0（全件取得）へフォールバックする。
    */
-  topicRetriever?: ITopicRetriever;
+  consolidationCursorRepository?: ConsolidationCursorRepository;
 }
 
 type SynthesisResult = { index: number; text: string; audio: string | null; elapsedMs: number };
-
-function getLastAssistantMessage(history: MessageEntity[]): string | null {
-  for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i].Role === 'assistant') return history[i].Text;
-  }
-  return null;
-}
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -217,18 +178,23 @@ async function* streamSafetyText(
 }
 
 /**
- * チャット応答の orchestration（Phase 2d / Issue #3250 でセーフティフロー追加）。
+ * チャット応答の orchestration（リブトーク知識・記憶再設計 P5 / #3697 で Topic 中心モデルへ簡素化）。
  *
  * フロー:
- *   1. 直近会話履歴を取得
+ *   1. CharacterState + 集約カーソル + Lifecycle を並行取得
+ *   1b. 会話履歴を集約カーソル境界（MsgCursor 以降 = 未集約分）で取得
  *   2. ユーザーメッセージを保存
  *   3. キーワード検出 → リスクあり → セーフティフロー（LLM をバイパス）
- *   4. 通常フロー: LLM ストリーミング → text delta を逐次 yield
- *   5. 通常フロー: 文区切りごとに VOICEVOX を非同期起動
- *   6. 通常フロー: LLM 完了後、Moderation API で応答チェック
- *   7. sentence events を順番通りに yield
- *   8. done を yield
- *   9. アシスタントメッセージを保存
+ *   3.6. 知識ゲート（classifyTopic による study 判定のみ。旧 Knowledge に非依存）
+ *   4. Topic retrieve（関連度 only）
+ *   4c. 直近ノート取得（感想連携）
+ *   5. 通常フロー: LLM ストリーミング → text delta を逐次 yield
+ *   6. 通常フロー: 文区切りごとに VOICEVOX を非同期起動
+ *   7. 通常フロー: LLM 完了後、Moderation API で応答チェック
+ *   8. sentence events を順番通りに yield
+ *   9. done を yield
+ *   10. アシスタントメッセージを保存
+ *   11. 親密度を更新（infoDisclosure は Tier 昇格撤去に伴い常に 0。isNewActiveDay のみ反映）
  *
  * セーフティフロー（キーワード検出時）:
  *   - SafetyEvent をログに保存
@@ -253,39 +219,34 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     messageRepository,
     safetyEventRepository,
     moderationClient,
-    memoryRetriever,
-    memoryRepository,
-    embeddingClient,
     characterStateRepository,
-    memorySummaryRepository,
     lifecycleRepository,
-    knowledgeRepository,
     studyTopicRepository,
     noteRepository,
-    knowledgeMatcher,
     ulidFactory = defaultUlidFactory,
-    notificationKnowledgeId,
     topicRetriever,
+    consolidationCursorRepository,
   } = params;
 
   const chatStart = performance.now();
   const metrics = createChatMetrics(userId, characterId);
   const timer = createPhaseTimer();
-  // topicRetriever 指定時のみ Topic 想起（関連度 only）へ切替。未指定時は従来挙動を完全維持する。
-  const useTopicRecall = !!topicRetriever;
 
-  // 1. CharacterState + MemorySummary + Lifecycle を並行取得
-  //    MemorySummary の lastCompressedAt を境界として history を取得するため、先に解決する
-  const [prevCharacterState, fetchedSummary, fetchedLifecycle] = await Promise.all([
+  // 1. CharacterState + 集約カーソル + Lifecycle を並行取得
+  //    集約カーソル（MsgCursor）を history の取得境界として使うため、先に解決する
+  const [prevCharacterState, cursor, fetchedLifecycle] = await Promise.all([
     characterStateRepository
       ? characterStateRepository.getById({ userId, characterId }).catch((err) => {
           logger.warn('[chat-usecase] CharacterState の取得に失敗しました', { err });
           return null;
         })
       : Promise.resolve(null),
-    memorySummaryRepository
-      ? memorySummaryRepository.get(userId, characterId).catch((err) => {
-          logger.warn('[chat-usecase] MemorySummary の取得に失敗しました（スキップ）', { err });
+    consolidationCursorRepository
+      ? consolidationCursorRepository.get(userId, characterId).catch((err) => {
+          logger.warn(
+            '[chat-usecase] ConsolidationCursor の取得に失敗しました（sinceMs=0 で全件取得）',
+            { err }
+          );
           return null;
         })
       : Promise.resolve(null),
@@ -299,9 +260,9 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
       : Promise.resolve(null),
   ]);
 
-  // 1b. 会話履歴取得：lastCompressedAt 以降のみ（要約済み分はプロンプトに含めない）
-  //     MemorySummary 不在（初回・未圧縮）の場合は sinceMs=0 で全件取得（fallback）
-  const sinceMs = fetchedSummary?.LastCompressedAt ?? 0;
+  // 1b. 会話履歴取得：集約カーソル（MsgCursor）以降のみ（未集約分＝ライブ文脈）
+  //     カーソル不在（未指定・初回未集約・取得失敗）の場合は sinceMs=0 で全件取得（fallback）
+  const sinceMs = cursor?.MsgCursor ?? 0;
   const history = await messageRepository.listSince(userId, characterId, sinceMs);
 
   // Lifecycle 状態を解決（fail-warn: 取得失敗時はデフォルト値）
@@ -310,12 +271,6 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     fetchedLifecycle?.Bedtime ?? LIFECYCLE_DEFAULT_BEDTIME,
     fetchedLifecycle?.WakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME
   );
-
-  // MemorySummary のサイズを計測（単調増加の検知）
-  if (fetchedSummary) {
-    metrics.summaryCharCount = fetchedSummary.SummaryText.length;
-    metrics.summaryTokenCount = getDefaultTokenCounter().countTokens(fetchedSummary.SummaryText);
-  }
 
   // 2. ユーザーメッセージを保存
   await messageRepository.create({
@@ -372,201 +327,86 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   // 3.5. lifecycle event を emit（UI がモデル目パラメータを即座に反映できるよう通常フロー先頭で送出）
   yield { type: 'lifecycle', state: lifecycleState };
 
-  // 3.6. 知識ゲート（Phase 5b / Issue #3344）
-  // knowledgeRepository が指定されている場合のみ実行（未指定時は従来フローで継続）
-  let knowledgeContextForPrompt:
-    | import('../entities/knowledge.entity.js').KnowledgeEntity[]
-    | undefined;
-  if (knowledgeRepository) {
-    try {
-      const allKnowledge = await knowledgeRepository.list(userId, characterId);
-      const gateResult = await evaluateKnowledgeGate(
-        userText,
-        character.displayName,
-        allKnowledge,
-        llmClient,
-        knowledgeMatcher
-      );
+  // 3.6. 知識ゲート（リブトーク知識・記憶再設計 P5 / #3697）
+  // classifyTopic のみで study 判定する（旧 Knowledge ベースの knowledge_hit 経路は撤去済み）。
+  try {
+    const classification = await classifyTopic(userText, character.displayName, llmClient);
 
-      if (gateResult.kind === 'study') {
-        // STUDY_TOPIC 登録（fail-warn: 登録失敗でも応答は継続）
-        if (studyTopicRepository) {
-          try {
-            const existingTopic = await studyTopicRepository.findPendingByTopic(
-              userId,
-              characterId,
-              gateResult.normalizedTopic
-            );
-            if (!existingTopic) {
-              const ttlUnixSec = Math.floor(Date.now() / 1000) + STUDY_TOPIC_TTL_SECONDS;
-              await studyTopicRepository.put({
-                UserID: userId,
-                CharacterID: characterId,
-                TopicID: ulidFactory(),
-                Topic: gateResult.normalizedTopic,
-                Priority: STUDY_TOPIC_GATE_PRIORITY,
-                Status: 'pending',
-                Ttl: ttlUnixSec,
-              });
-            }
-          } catch (err) {
-            logger.warn('[chat-usecase] StudyTopic の登録に失敗しました（スキップして継続）', {
-              err,
+    if (classification.needsStudy) {
+      // STUDY_TOPIC 登録（fail-warn: 登録失敗でも応答は継続）
+      if (studyTopicRepository) {
+        try {
+          const existingTopic = await studyTopicRepository.findPendingByTopic(
+            userId,
+            characterId,
+            classification.normalizedTopic
+          );
+          if (!existingTopic) {
+            const ttlUnixSec = Math.floor(Date.now() / 1000) + STUDY_TOPIC_TTL_SECONDS;
+            await studyTopicRepository.put({
+              UserID: userId,
+              CharacterID: characterId,
+              TopicID: ulidFactory(),
+              Topic: classification.normalizedTopic,
+              Priority: STUDY_TOPIC_GATE_PRIORITY,
+              Status: 'pending',
+              Ttl: ttlUnixSec,
             });
           }
-        }
-
-        // LLM をバイパスしてキャラ口調テンプレ応答を送出
-        const studyMessage = buildStudyDeferralMessage(Date.now());
-        yield* streamSafetyText(studyMessage, voiceClient, character.voiceConfig);
-
-        // アシスタントメッセージとして保存
-        try {
-          await messageRepository.create({
-            UserID: userId,
-            CharacterID: characterId,
-            Role: 'assistant',
-            Text: studyMessage,
-          });
         } catch (err) {
-          logger.error('[chat-usecase] 勉強応答メッセージの保存に失敗しました', { err });
+          logger.warn('[chat-usecase] StudyTopic の登録に失敗しました（スキップして継続）', {
+            err,
+          });
         }
-
-        yield { type: 'done' };
-        return;
       }
 
-      if (gateResult.kind === 'knowledge_hit') {
-        // 知識を prompt context に注入して通常応答へ
-        knowledgeContextForPrompt = gateResult.knowledge;
-      }
-      // kind === 'normal' は通常フローで継続（何もしない）
-    } catch (err) {
-      // fail-warn: ゲートエラーは通常フローで継続
-      logger.warn('[chat-usecase] 知識ゲートの評価に失敗しました（通常フローで継続）', { err });
-    }
-  }
+      // LLM をバイパスしてキャラ口調テンプレ応答を送出
+      const studyMessage = buildStudyDeferralMessage(Date.now());
+      yield* streamSafetyText(studyMessage, voiceClient, character.voiceConfig);
 
-  // 3.7. 通知起点 KNOWLEDGE の取得（案B: 保存せず受け渡しのみ）
-  // notificationKnowledgeId が指定されている場合、該当 KNOWLEDGE を取得して別セクションとして注入する。
-  // knowledgeContextForPrompt（知識ゲートのヒット分）と重複する場合はそちらから除外する。
-  let notificationKnowledge: import('../entities/knowledge.entity.js').KnowledgeEntity | null =
-    null;
-  if (notificationKnowledgeId && knowledgeRepository) {
-    try {
-      notificationKnowledge = await knowledgeRepository.getById(
-        userId,
-        characterId,
-        notificationKnowledgeId
-      );
-      // 知識ゲートのヒット分と重複していれば除外（prompt の冗長化を防ぐ）
-      if (notificationKnowledge && knowledgeContextForPrompt) {
-        knowledgeContextForPrompt = knowledgeContextForPrompt.filter(
-          (k) => k.KnowledgeID !== notificationKnowledge!.KnowledgeID
-        );
-      }
-    } catch (err) {
-      logger.warn('[chat-usecase] 通知起点 KNOWLEDGE の取得に失敗しました（スキップして継続）', {
-        err,
-      });
-    }
-  }
-
-  // 4. Memory retrieve（fail-warn: エラー時は空配列で継続）
-  // useTopicRecall 時は Topic 想起に切替えるため、旧 memoryRetriever は使わない
-  // （route は memoryRetriever を渡さない想定だが、防御的にガードする）。
-  let retrievedMemories: RetrievedMemory[] = [];
-  if (memoryRetriever && !useTopicRecall) {
-    timer.start('retrieve');
-    try {
-      const retrieveResult = await memoryRetriever.retrieve(userId, characterId, {
-        userInput: userText,
-        maxTierB: MEMORY_MAX_TIER_B,
-        cooldownMs: MEMORY_COOLDOWN_MS,
-        categoryCapPerConversation: MEMORY_CATEGORY_CAP,
-      });
-      timer.end('retrieve');
-      retrievedMemories = retrieveResult.memories;
-      metrics.retrievedTierACount = retrievedMemories.filter((r) => r.memory.Tier === 'A').length;
-      metrics.retrievedTierBCount = retrievedMemories.filter((r) => r.memory.Tier === 'B').length;
-      // Tier A はリトリーバルで全件取得されるため、注入数 = 総件数
-      metrics.tierATotalCount = metrics.retrievedTierACount;
-      if (retrieveResult.consumedCapacity !== undefined) {
-        metrics.dynamodb.memoryConsumedRcu = retrieveResult.consumedCapacity;
-      }
-    } catch (err) {
-      timer.end('retrieve');
-      logger.warn('[chat-usecase] Memory retrieve に失敗しました（メモリなしで継続）', { err });
-    }
-    metrics.latency.retrieve = timer.elapsedMs('retrieve');
-  }
-
-  // 4'. Topic retrieve（関連度 only、リブトーク知識再設計 P2 / #3698、fail-warn: エラー時は空配列で継続）
-  let retrievedTopics: RetrievedTopic[] = [];
-  if (useTopicRecall && topicRetriever) {
-    timer.start('retrieve');
-    try {
-      retrievedTopics = await topicRetriever.retrieve(userId, characterId, {
-        userInput: userText,
-        threshold: TOPIC_RECALL_SIMILARITY_THRESHOLD,
-        topK: TOPIC_RECALL_TOP_K,
-        relatedThreshold: TOPIC_RECALL_RELATED_THRESHOLD,
-        relatedMax: TOPIC_RECALL_RELATED_MAX,
-      });
-      timer.end('retrieve');
-    } catch (err) {
-      timer.end('retrieve');
-      logger.warn('[chat-usecase] Topic retrieve に失敗しました（想起なしで継続）', { err });
-    }
-    metrics.latency.retrieve = timer.elapsedMs('retrieve');
-    logger.info('[chat-usecase] topic recall counts', {
-      userId,
-      characterId,
-      retrievedTopicCount: retrievedTopics.length,
-    });
-  }
-
-  // 4a. 暗黙訂正検出（fail-warn: エラー時はスキップして継続）
-  if (memoryRepository && retrievedMemories.length > 0) {
-    const lastAssistantMessage = getLastAssistantMessage(history);
-    if (lastAssistantMessage) {
+      // アシスタントメッセージとして保存
       try {
-        const correction = await detectCorrection(
-          userText,
-          lastAssistantMessage,
-          retrievedMemories,
-          llmClient
-        );
-        if (correction.detected) {
-          await applyCorrection(correction, memoryRepository);
-        }
+        await messageRepository.create({
+          UserID: userId,
+          CharacterID: characterId,
+          Role: 'assistant',
+          Text: studyMessage,
+        });
       } catch (err) {
-        logger.warn('[chat-usecase] 暗黙訂正検出に失敗しました（スキップして継続）', { err });
+        logger.error('[chat-usecase] 勉強応答メッセージの保存に失敗しました', { err });
       }
+
+      yield { type: 'done' };
+      return;
     }
+    // needsStudy === false は通常フローで継続（何もしない）
+  } catch (err) {
+    // fail-warn: ゲートエラーは通常フローで継続
+    logger.warn('[chat-usecase] 知識ゲートの評価に失敗しました（通常フローで継続）', { err });
   }
 
-  // 4b. Tier C 昇格候補検出（fail-warn: エラー時は空配列で継続）
-  let promotionCandidates: MemoryEntity[] = [];
-  if (memoryRepository && embeddingClient) {
-    timer.start('promotionCheck');
-    try {
-      promotionCandidates = await identifyPromotionCandidates(
-        userId,
-        characterId,
-        userText,
-        memoryRepository,
-        embeddingClient,
-        llmClient
-      );
-      timer.end('promotionCheck');
-    } catch (err) {
-      timer.end('promotionCheck');
-      logger.warn('[chat-usecase] 昇格候補検出に失敗しました（スキップして継続）', { err });
-    }
-    metrics.latency.promotionCheck = timer.elapsedMs('promotionCheck');
+  // 4. Topic retrieve（関連度 only、リブトーク知識再設計 P2 / #3698、fail-warn: エラー時は空配列で継続）
+  let retrievedTopics: RetrievedTopic[] = [];
+  timer.start('retrieve');
+  try {
+    retrievedTopics = await topicRetriever.retrieve(userId, characterId, {
+      userInput: userText,
+      threshold: TOPIC_RECALL_SIMILARITY_THRESHOLD,
+      topK: TOPIC_RECALL_TOP_K,
+      relatedThreshold: TOPIC_RECALL_RELATED_THRESHOLD,
+      relatedMax: TOPIC_RECALL_RELATED_MAX,
+    });
+    timer.end('retrieve');
+  } catch (err) {
+    timer.end('retrieve');
+    logger.warn('[chat-usecase] Topic retrieve に失敗しました（想起なしで継続）', { err });
   }
-  const newLearnings = identifyNewLearnings(promotionCandidates);
+  metrics.latency.retrieve = timer.elapsedMs('retrieve');
+  logger.info('[chat-usecase] topic recall counts', {
+    userId,
+    characterId,
+    retrievedTopicCount: retrievedTopics.length,
+  });
 
   // 4c. 直近に提示したノートを取得（感想連携、Phase 5c / fail-warn: エラー時は空配列で継続）
   let recentNotes: NoteEntity[] = [];
@@ -582,24 +422,14 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   }
 
   // 5. LLM ストリーミング（通常フロー）
-  // useTopicRecall 時は Tier memory / MemorySummary のプロンプト注入を抑制し、
-  // Topic 想起（関連度 only）のみを注入する。
-  // newLearnings（旧 Tier 由来）も同様に注入しない（決定的忘却：memory 画面で消せない
-  // 旧 Tier コンテンツをチャットに出さない）。promotionCandidates の計算・executePromotion・
-  // 親密度更新は書込機構として従来どおり維持し、プロンプト注入のみ止める。
   const chatMessages = buildChatMessages(
     character,
     new Date(),
     history,
     userText,
-    useTopicRecall ? [] : retrievedMemories,
-    useTopicRecall ? undefined : fetchedSummary?.SummaryText,
-    useTopicRecall ? undefined : newLearnings.length > 0 ? newLearnings : undefined,
     lifecycleState,
-    knowledgeContextForPrompt,
     recentNotes.length > 0 ? recentNotes : undefined,
-    notificationKnowledge ?? undefined,
-    useTopicRecall ? retrievedTopics : undefined
+    retrievedTopics
   );
 
   // プロンプトトークン内訳を計算（best-effort）
@@ -607,29 +437,22 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     const counter = getDefaultTokenCounter();
     const baseSystem = buildSystemPrompt(character, new Date());
     const systemTokens = counter.countTokens(baseSystem);
-    const summaryTokens = useTopicRecall ? 0 : metrics.summaryTokenCount;
-    const retrievalTokens = useTopicRecall
-      ? retrievedTopics.reduce(
-          (sum, rt) =>
-            sum +
-            rt.selfFacts.reduce((s, f) => s + counter.countTokens(f.Text), 0) +
-            rt.webFacts.reduce((s, f) => s + counter.countTokens(f.Text), 0),
-          0
-        )
-      : retrievedMemories.reduce((sum, r) => sum + counter.countTokens(r.memory.Content), 0);
-    const newLearningsTokens = useTopicRecall
-      ? 0
-      : newLearnings.reduce((sum, m) => sum + counter.countTokens(m.Content), 0);
-    const memoryTokens = retrievalTokens + newLearningsTokens;
+    const retrievalTokens = retrievedTopics.reduce(
+      (sum, rt) =>
+        sum +
+        rt.selfFacts.reduce((s, f) => s + counter.countTokens(f.Text), 0) +
+        rt.webFacts.reduce((s, f) => s + counter.countTokens(f.Text), 0),
+      0
+    );
     const messageTokens =
       history.reduce((sum, m) => sum + counter.countTokensForMessage(m.Text), 0) +
       counter.countTokensForMessage(userText);
     metrics.promptTokens = {
       system: systemTokens,
-      summary: summaryTokens,
-      memory: memoryTokens,
+      summary: 0,
+      memory: retrievalTokens,
       messages: messageTokens,
-      total: systemTokens + summaryTokens + memoryTokens + messageTokens,
+      total: systemTokens + retrievalTokens + messageTokens,
     };
   } catch (err) {
     logger.warn('[chat-usecase] プロンプトトークン計算に失敗しました（スキップ）', { err });
@@ -771,20 +594,14 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     }
   }
 
-  // 11. Tier C → B 昇格を実行（fire-and-forget）
-  if (memoryRepository && promotionCandidates.length > 0) {
-    void executePromotion(promotionCandidates, memoryRepository).catch((err) => {
-      logger.warn('[chat-usecase] Tier C → B 昇格に失敗しました', { err });
-    });
-  }
-
-  // 12. 親密度を更新（fire-and-forget、infoDisclosure + timeContinuity の 2 軸）
-  // bidirectionality は日次圧縮バッチで別途反映する
+  // 11. 親密度を更新（fire-and-forget）。
+  // Tier 昇格機構の撤去に伴い infoDisclosure は常に 0 となり、親密度は isNewActiveDay
+  // （日次の再訪ボーナス）のみで上昇する。体験活用は別ロードマップ（R1）のスコープ。
   if (characterStateRepository) {
     const now = Date.now();
     const newActiveDay = isNewActiveDay(prevCharacterState?.LastInteractionAt, now);
     const delta = calculateAffectionDelta({
-      infoDisclosure: promotionCandidates.length,
+      infoDisclosure: 0,
       isNewActiveDay: newActiveDay,
     });
     if (delta > 0) {
@@ -792,27 +609,5 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
         logger.warn('[chat-usecase] 親密度の更新に失敗しました', { err });
       });
     }
-  }
-
-  // 13. 参照済み Memory の referencedCount / lastReferencedAt を更新（fire-and-forget）
-  if (memoryRepository && retrievedMemories.length > 0) {
-    const now = Date.now();
-    void Promise.all(
-      retrievedMemories.map((r) =>
-        memoryRepository
-          .update({
-            UserID: r.memory.UserID,
-            CharacterID: r.memory.CharacterID,
-            Tier: r.memory.Tier,
-            Category: r.memory.Category,
-            MemoryID: r.memory.MemoryID,
-            ReferencedCount: r.memory.ReferencedCount + 1,
-            LastReferencedAt: now,
-          })
-          .catch((err) => {
-            logger.warn('[chat-usecase] Memory 参照情報の更新に失敗しました', { err });
-          })
-      )
-    );
   }
 }

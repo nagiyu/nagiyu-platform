@@ -5,8 +5,6 @@ import {
 } from '../../../src/characters/prompt-builder.js';
 import { hiyori } from '../../../src/characters/hiyori.js';
 import type { MessageEntity } from '../../../src/entities/message.entity.js';
-import type { RetrievedMemory } from '../../../src/memory/types.js';
-import type { MemoryEntity } from '../../../src/entities/memory.entity.js';
 import type { RetrievedTopic } from '../../../src/knowledge/retrieval.js';
 import type { TopicEntity } from '../../../src/entities/topic.entity.js';
 import type { SelfFactEntity } from '../../../src/entities/self-fact.entity.js';
@@ -74,51 +72,6 @@ describe('buildSystemPrompt', () => {
   });
 });
 
-function makeRetrievedMemory(content: string, tier: 'A' | 'B' = 'B'): RetrievedMemory {
-  const memory: MemoryEntity = {
-    UserID: 'u1',
-    CharacterID: 'hiyori',
-    MemoryID: 'mem-001',
-    Tier: tier,
-    Category: 'food',
-    Content: content,
-    Confidence: 0.8,
-    ReferencedCount: 0,
-    CreatedAt: 1_700_000_000_000,
-    UpdatedAt: 1_700_000_000_000,
-  };
-  return { memory, similarity: tier === 'A' ? 1.0 : 0.9 };
-}
-
-describe('buildSystemPrompt（retrievedMemories）', () => {
-  it('retrievedMemories が空の場合は「あなたが覚えていること」セクションがない', () => {
-    const prompt = buildSystemPrompt(hiyori, new Date(), []);
-    expect(prompt).not.toContain('あなたが覚えていること');
-  });
-
-  it('retrievedMemories が未指定の場合もセクションがない', () => {
-    const prompt = buildSystemPrompt(hiyori, new Date());
-    expect(prompt).not.toContain('あなたが覚えていること');
-  });
-
-  it('retrievedMemories がある場合はセクションが追加される', () => {
-    const memories = [makeRetrievedMemory('コーヒーが好き', 'B')];
-    const prompt = buildSystemPrompt(hiyori, new Date(), memories);
-    expect(prompt).toContain('あなたが覚えていること');
-    expect(prompt).toContain('- コーヒーが好き');
-  });
-
-  it('複数の記憶が列挙される', () => {
-    const memories = [
-      makeRetrievedMemory('名前は田中', 'A'),
-      makeRetrievedMemory('コーヒーが好き', 'B'),
-    ];
-    const prompt = buildSystemPrompt(hiyori, new Date(), memories);
-    expect(prompt).toContain('- 名前は田中');
-    expect(prompt).toContain('- コーヒーが好き');
-  });
-});
-
 describe('buildChatMessages', () => {
   it('system + history + current user message の順で返す', () => {
     const history = [
@@ -152,62 +105,28 @@ describe('buildChatMessages', () => {
     const messages = buildChatMessages(hiyori, new Date(), history, 'reply');
     expect(messages.some((m) => m.content === 'test')).toBe(true);
   });
-
-  it('retrievedMemories が渡されると system prompt に記憶セクションが注入される', () => {
-    const memories = [makeRetrievedMemory('コーヒーが好き', 'B')];
-    const messages = buildChatMessages(hiyori, new Date(), [], 'おはよう', memories);
-    expect(messages[0].content).toContain('あなたが覚えていること');
-    expect(messages[0].content).toContain('- コーヒーが好き');
-  });
-
-  it('retrievedMemories が空の場合は記憶セクションなし', () => {
-    const messages = buildChatMessages(hiyori, new Date(), [], 'こんにちは', []);
-    expect(messages[0].content).not.toContain('あなたが覚えていること');
-  });
-
-  it('summaryText が渡されると system prompt に圧縮要約セクションが注入される', () => {
-    const messages = buildChatMessages(hiyori, new Date(), [], 'hi', [], 'コーヒーとケーキが好き');
-    expect(messages[0].content).toContain('あなたがこれまでに知ったこと');
-    expect(messages[0].content).toContain('コーヒーとケーキが好き');
-  });
-
-  it('summaryText が空文字の場合は圧縮要約セクションを挿入しない', () => {
-    const messages = buildChatMessages(hiyori, new Date(), [], 'hi', [], '');
-    expect(messages[0].content).not.toContain('あなたがこれまでに知ったこと');
-  });
-
-  it('summaryText と retrievedMemories の両方がある場合、要約が先に来る', () => {
-    const memories = [makeRetrievedMemory('ケーキが好き', 'B')];
-    const messages = buildChatMessages(hiyori, new Date(), [], 'hi', memories, '長期要約テキスト');
-    const content = messages[0].content;
-    const summaryIdx = content.indexOf('あなたがこれまでに知ったこと');
-    const memoriesIdx = content.indexOf('あなたが覚えていること');
-    expect(summaryIdx).toBeGreaterThan(-1);
-    expect(memoriesIdx).toBeGreaterThan(-1);
-    expect(summaryIdx).toBeLessThan(memoriesIdx);
-  });
 });
 
 describe('buildSystemPrompt（lifecycleState）', () => {
   it('lifecycleState=sleeping のとき寝ぼけプロンプトが挿入される', () => {
-    const prompt = buildSystemPrompt(hiyori, new Date(), [], undefined, undefined, 'sleeping');
+    const prompt = buildSystemPrompt(hiyori, new Date(), 'sleeping');
     // 眠い状態・振る舞いの指示が含まれること（キャラ固有の口癖ワードは含まない）
     expect(prompt).toContain('眠く');
     expect(prompt).toContain('うとうと');
   });
 
   it('lifecycleState=sleeping のとき「むにゃ」などのキャラ固有ワードが含まれない', () => {
-    const prompt = buildSystemPrompt(hiyori, new Date(), [], undefined, undefined, 'sleeping');
+    const prompt = buildSystemPrompt(hiyori, new Date(), 'sleeping');
     expect(prompt).not.toContain('むにゃ');
   });
 
   it('lifecycleState=sleeping のとき短い返答の指示が含まれる', () => {
-    const prompt = buildSystemPrompt(hiyori, new Date(), [], undefined, undefined, 'sleeping');
+    const prompt = buildSystemPrompt(hiyori, new Date(), 'sleeping');
     expect(prompt).toContain('短く');
   });
 
   it('lifecycleState=awake のときは寝ぼけプロンプトが挿入されない', () => {
-    const prompt = buildSystemPrompt(hiyori, new Date(), [], undefined, undefined, 'awake');
+    const prompt = buildSystemPrompt(hiyori, new Date(), 'awake');
     expect(prompt).not.toContain('うとうと');
   });
 
@@ -215,50 +134,17 @@ describe('buildSystemPrompt（lifecycleState）', () => {
     const prompt = buildSystemPrompt(hiyori, new Date());
     expect(prompt).not.toContain('うとうと');
   });
-
-  it('sleeping でも記憶セクションが共存できる', () => {
-    const memories = [makeRetrievedMemory('コーヒーが好き', 'B')];
-    const prompt = buildSystemPrompt(
-      hiyori,
-      new Date(),
-      memories,
-      undefined,
-      undefined,
-      'sleeping'
-    );
-    expect(prompt).toContain('うとうと');
-    expect(prompt).toContain('あなたが覚えていること');
-    expect(prompt).toContain('- コーヒーが好き');
-  });
 });
 
 describe('buildChatMessages（lifecycleState）', () => {
   it('lifecycleState=sleeping が system prompt に反映される', () => {
-    const messages = buildChatMessages(
-      hiyori,
-      new Date(),
-      [],
-      'hi',
-      [],
-      undefined,
-      undefined,
-      'sleeping'
-    );
+    const messages = buildChatMessages(hiyori, new Date(), [], 'hi', 'sleeping');
     // 眠い状態の指示が含まれること
     expect(messages[0].content).toContain('うとうと');
   });
 
   it('lifecycleState=awake は system prompt に寝ぼけ指示を含まない', () => {
-    const messages = buildChatMessages(
-      hiyori,
-      new Date(),
-      [],
-      'hi',
-      [],
-      undefined,
-      undefined,
-      'awake'
-    );
+    const messages = buildChatMessages(hiyori, new Date(), [], 'hi', 'awake');
     expect(messages[0].content).not.toContain('うとうと');
   });
 });
@@ -277,9 +163,7 @@ describe('buildSystemPrompt（recentNotes / 感想連携）', () => {
 
   it('recentNotes がある場合はノートのタイトルと感想連携の指示が含まれる', () => {
     const now = new Date(2026, 0, 1, 10, 0, 0);
-    const prompt = buildSystemPrompt(hiyori, now, [], undefined, undefined, undefined, undefined, [
-      makeNote('コーヒーの効能'),
-    ]);
+    const prompt = buildSystemPrompt(hiyori, now, undefined, [makeNote('コーヒーの効能')]);
     expect(prompt).toContain('最近ユーザーに渡したノート');
     expect(prompt).toContain('- コーヒーの効能');
     expect(prompt).toContain('感想');
@@ -287,32 +171,14 @@ describe('buildSystemPrompt（recentNotes / 感想連携）', () => {
 
   it('recentNotes が空の場合はノートセクションを含まない', () => {
     const now = new Date(2026, 0, 1, 10, 0, 0);
-    const prompt = buildSystemPrompt(
-      hiyori,
-      now,
-      [],
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      []
-    );
+    const prompt = buildSystemPrompt(hiyori, now, undefined, []);
     expect(prompt).not.toContain('最近ユーザーに渡したノート');
   });
 
   it('buildChatMessages 経由でも recentNotes が system prompt に反映される', () => {
-    const messages = buildChatMessages(
-      hiyori,
-      new Date(),
-      [],
-      'あのノート良かったよ',
-      [],
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      [makeNote('コーヒーの効能')]
-    );
+    const messages = buildChatMessages(hiyori, new Date(), [], 'あのノート良かったよ', undefined, [
+      makeNote('コーヒーの効能'),
+    ]);
     expect(messages[0].content).toContain('最近ユーザーに渡したノート');
     expect(messages[0].content).toContain('- コーヒーの効能');
   });
@@ -377,18 +243,7 @@ function makeRetrievedTopic(
 
 describe('buildSystemPrompt（retrievedTopics）', () => {
   it('retrievedTopics が空の場合はセクションがない', () => {
-    const prompt = buildSystemPrompt(
-      hiyori,
-      new Date(),
-      [],
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      []
-    );
+    const prompt = buildSystemPrompt(hiyori, new Date(), undefined, undefined, []);
     expect(prompt).not.toContain('今の話題に関連');
   });
 
@@ -401,18 +256,7 @@ describe('buildSystemPrompt（retrievedTopics）', () => {
     const topics = [
       makeRetrievedTopic('コーヒー', ['朝コーヒーを飲む'], ['カフェインは覚醒作用がある']),
     ];
-    const prompt = buildSystemPrompt(
-      hiyori,
-      new Date(),
-      [],
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      topics
-    );
+    const prompt = buildSystemPrompt(hiyori, new Date(), undefined, undefined, topics);
     expect(prompt).toContain('今の話題に関連');
     expect(prompt).toContain('■ コーヒー');
     expect(prompt).toContain('（あなたが聞いたこと）朝コーヒーを飲む');
@@ -421,36 +265,14 @@ describe('buildSystemPrompt（retrievedTopics）', () => {
 
   it('SELF のみの Topic は WEB 行を出さない', () => {
     const topics = [makeRetrievedTopic('コーヒー', ['朝コーヒーを飲む'], [])];
-    const prompt = buildSystemPrompt(
-      hiyori,
-      new Date(),
-      [],
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      topics
-    );
+    const prompt = buildSystemPrompt(hiyori, new Date(), undefined, undefined, topics);
     expect(prompt).toContain('（あなたが聞いたこと）朝コーヒーを飲む');
     expect(prompt).not.toContain('（あなたが調べたこと）');
   });
 
   it('WEB のみの Topic は SELF 行を出さない', () => {
     const topics = [makeRetrievedTopic('コーヒー', [], ['カフェインは覚醒作用がある'])];
-    const prompt = buildSystemPrompt(
-      hiyori,
-      new Date(),
-      [],
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      topics
-    );
+    const prompt = buildSystemPrompt(hiyori, new Date(), undefined, undefined, topics);
     expect(prompt).toContain('（あなたが調べたこと）カフェインは覚醒作用がある');
     expect(prompt).not.toContain('（あなたが聞いたこと）');
   });
@@ -461,38 +283,27 @@ describe('buildSystemPrompt（retrievedTopics）', () => {
       makeRetrievedTopic('ゲーム', ['RPGが好き']),
     ];
     topics[1].topic.TopicID = 'topic-2';
-    const prompt = buildSystemPrompt(
-      hiyori,
-      new Date(),
-      [],
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      topics
-    );
+    const prompt = buildSystemPrompt(hiyori, new Date(), undefined, undefined, topics);
     expect(prompt).toContain('■ コーヒー');
     expect(prompt).toContain('■ ゲーム');
   });
 
-  it('memories セクションと共存できる', () => {
-    const memories = [makeRetrievedMemory('ケーキが好き', 'B')];
+  it('recentNotes セクションと共存できる', () => {
+    const notes = [
+      {
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        NoteID: 'note-1',
+        TopicID: 'topic-1',
+        Subject: 'ケーキの話',
+        Headline: '本文',
+        CreatedAt: 1_700_000_000_000,
+        UpdatedAt: 1_700_000_000_000,
+      },
+    ];
     const topics = [makeRetrievedTopic('コーヒー', ['朝コーヒーを飲む'])];
-    const prompt = buildSystemPrompt(
-      hiyori,
-      new Date(),
-      memories,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      topics
-    );
-    expect(prompt).toContain('あなたが覚えていること：');
+    const prompt = buildSystemPrompt(hiyori, new Date(), undefined, notes, topics);
+    expect(prompt).toContain('最近ユーザーに渡したノート');
     expect(prompt).toContain('今の話題に関連');
   });
 
@@ -503,18 +314,7 @@ describe('buildSystemPrompt（retrievedTopics）', () => {
       makeRetrievedTopic('空の話題', [], []),
     ];
     topics[1].topic.TopicID = 'topic-2';
-    const prompt = buildSystemPrompt(
-      hiyori,
-      new Date(),
-      [],
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      topics
-    );
+    const prompt = buildSystemPrompt(hiyori, new Date(), undefined, undefined, topics);
     expect(prompt).toContain('■ コーヒー');
     expect(prompt).not.toContain('■ 空の話題');
   });
@@ -527,18 +327,7 @@ describe('buildSystemPrompt（retrievedTopics）', () => {
     ];
     topics[1].topic.TopicID = 'topic-2';
     topics[2].topic.TopicID = 'topic-3';
-    const prompt = buildSystemPrompt(
-      hiyori,
-      new Date(),
-      [],
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      topics
-    );
+    const prompt = buildSystemPrompt(hiyori, new Date(), undefined, undefined, topics);
     expect(prompt).toContain('今の話題に関連');
     expect(prompt).toContain('■ コーヒー');
     expect(prompt).not.toContain('■ 空の話題1');
@@ -551,18 +340,7 @@ describe('buildSystemPrompt（retrievedTopics）', () => {
       makeRetrievedTopic('空の話題2', [], []),
     ];
     topics[1].topic.TopicID = 'topic-2';
-    const prompt = buildSystemPrompt(
-      hiyori,
-      new Date(),
-      [],
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      topics
-    );
+    const prompt = buildSystemPrompt(hiyori, new Date(), undefined, undefined, topics);
     expect(prompt).not.toContain('今の話題に関連');
     expect(prompt).not.toContain('■ 空の話題1');
     expect(prompt).not.toContain('■ 空の話題2');
@@ -577,11 +355,6 @@ describe('buildChatMessages（retrievedTopics）', () => {
       new Date(),
       [],
       'おはよう',
-      [],
-      undefined,
-      undefined,
-      undefined,
-      undefined,
       undefined,
       undefined,
       topics

@@ -17,6 +17,7 @@ import type {
   AccountDeletionRepository,
   CharacterStateRepository,
   ChatGuardRepository,
+  ConsolidationCursorRepository,
   InterestRepository,
   KnowledgeRepository,
   LifecycleRepository,
@@ -34,6 +35,7 @@ import {
   DynamoDBAccountDeletionRepository,
   DynamoDBChatGuardRepository,
   DynamoDBCharacterStateRepository,
+  DynamoDBConsolidationCursorRepository,
   DynamoDBInterestRepository,
   DynamoDBKnowledgeRepository,
   DynamoDBLifecycleRepository,
@@ -49,6 +51,7 @@ import {
   InMemoryAccountDeletionRepository,
   InMemoryChatGuardRepository,
   InMemoryCharacterStateRepository,
+  InMemoryConsolidationCursorRepository,
   InMemoryInterestRepository,
   InMemoryKnowledgeRepository,
   InMemoryLifecycleRepository,
@@ -79,6 +82,7 @@ const registry = registerDynamoRepositories<
     pushSubscription: PushSubscriptionRepository;
     notificationEvent: NotificationEventRepository;
     topic: TopicRepository;
+    consolidationCursor: ConsolidationCursorRepository;
   },
   InMemorySingleTableStore
 >(
@@ -153,6 +157,11 @@ const registry = registerDynamoRepositories<
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBTopicRepository(docClient, tableName),
     },
+    consolidationCursor: {
+      createInMemoryRepository: (store) => new InMemoryConsolidationCursorRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBConsolidationCursorRepository(docClient, tableName),
+    },
   },
   {
     keyPrefix: 'livetalk',
@@ -214,6 +223,10 @@ export function getNotificationEventRepository(): NotificationEventRepository {
 
 export function getTopicRepository(): TopicRepository {
   return registry.topic.createRepository();
+}
+
+export function getConsolidationCursorRepository(): ConsolidationCursorRepository {
+  return registry.consolidationCursor.createRepository();
 }
 
 /**
