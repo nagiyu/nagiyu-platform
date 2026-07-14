@@ -69,7 +69,7 @@ export class DynamoDBNoteRepository implements NoteRepository {
       }
 
       for (const raw of result.Items ?? []) {
-        results.push(this.mapper.toEntity(raw as unknown as DynamoDBItem));
+        this.pushMappedEntity(results, raw as unknown as DynamoDBItem, userId, characterId);
       }
 
       if (!result.LastEvaluatedKey || results.length >= limit) break;
@@ -105,7 +105,7 @@ export class DynamoDBNoteRepository implements NoteRepository {
       }
 
       for (const raw of result.Items ?? []) {
-        results.push(this.mapper.toEntity(raw as unknown as DynamoDBItem));
+        this.pushMappedEntity(results, raw as unknown as DynamoDBItem, userId, characterId);
       }
 
       if (!result.LastEvaluatedKey) break;
@@ -113,6 +113,29 @@ export class DynamoDBNoteRepository implements NoteRepository {
     }
 
     return results;
+  }
+
+  /**
+   * item を NoteEntity にマップして results に追加する。
+   * 旧設計（Knowledge 昇格方式の Note 等）や破損データで toEntity が失敗した場合は、
+   * その item のみをスキップして警告ログを出し、リスト全体の取得は継続する（fail-warn）。
+   */
+  private pushMappedEntity(
+    results: NoteEntity[],
+    raw: DynamoDBItem,
+    userId: string,
+    characterId: string
+  ): void {
+    try {
+      results.push(this.mapper.toEntity(raw));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const sk = (raw as { SK?: unknown }).SK;
+      logger.warn(
+        '[DynamoDBNoteRepository] ノート item のマップに失敗しました（旧設計/破損の可能性・スキップ）',
+        { userId, characterId, sk, error: message }
+      );
+    }
   }
 
   public async get(key: NoteKey): Promise<NoteEntity | null> {
