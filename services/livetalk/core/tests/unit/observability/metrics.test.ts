@@ -12,11 +12,6 @@ describe('createChatMetrics', () => {
     expect(metrics.userId).toBe('u1');
     expect(metrics.characterId).toBe('hiyori');
     expect(metrics.promptTokens.total).toBe(0);
-    expect(metrics.retrievedTierACount).toBe(0);
-    expect(metrics.retrievedTierBCount).toBe(0);
-    expect(metrics.summaryTokenCount).toBe(0);
-    expect(metrics.summaryCharCount).toBe(0);
-    expect(metrics.tierATotalCount).toBe(0);
     expect(metrics.latency).toEqual({});
     expect(metrics.dynamodb).toEqual({});
   });
@@ -51,8 +46,6 @@ describe('emitChatMetricsEMF', () => {
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     const metrics = createChatMetrics('u1', 'hiyori');
     metrics.promptTokens.total = 500;
-    metrics.tierATotalCount = 3;
-    metrics.summaryTokenCount = 200;
     metrics.latency.llmTtfb = 400;
     metrics.latency.chatTotal = 1500;
     metrics.latency.retrieve = 100;
@@ -63,8 +56,6 @@ describe('emitChatMetricsEMF', () => {
     const output = logSpy.mock.calls[0][0] as string;
     const parsed = JSON.parse(output) as Record<string, unknown>;
     expect(parsed['PromptTotalTokens']).toBe(500);
-    expect(parsed['TierACount']).toBe(3);
-    expect(parsed['MemorySummaryTokens']).toBe(200);
     expect(parsed['LLMTimeToFirstToken']).toBe(400);
     expect(parsed['ChatTotalLatency']).toBe(1500);
     expect(parsed['RetrieveLatency']).toBe(100);

@@ -25,9 +25,6 @@ const makeLLMClient = (
       const value = Array.isArray(responses) ? responses[index] : responses(index);
       return value as unknown as never;
     },
-    async summarize() {
-      return { mergedSummary: '', newMemoryCandidates: [] };
-    },
     get chatStructuredCalls() {
       return chatStructuredCalls;
     },
@@ -258,9 +255,6 @@ describe('generateNotesForUser', () => {
         callCount++;
         if (callCount === 1) throw new Error('LLM 失敗');
         return makeLetter() as unknown as never;
-      },
-      async summarize() {
-        return { mergedSummary: '', newMemoryCandidates: [] };
       },
     };
 
