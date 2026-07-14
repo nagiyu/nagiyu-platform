@@ -1,5 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { createSessionGetter, resolveTestUser } from '../../src/session';
+import { headers } from 'next/headers';
+import {
+  createSessionGetter,
+  resolveTestUser,
+  resolveTestUserRoles,
+  TEST_USER_ROLES_HEADER,
+} from '../../src/session';
+
+jest.mock('next/headers', () => ({
+  headers: jest.fn(),
+}));
+
+const mockedHeaders = headers as jest.MockedFunction<typeof headers>;
+
+/**
+ * `headers()` の戻り値（`Headers` 互換オブジェクト）を模倣する最小限のスタブを作る。
+ */
+function createHeadersStub(value?: string): Awaited<ReturnType<typeof headers>> {
+  return {
+    get: (name: string) => (name === TEST_USER_ROLES_HEADER ? (value ?? null) : null),
+  } as unknown as Awaited<ReturnType<typeof headers>>;
+}
 
 interface MockAuthSession {
   user?: {
@@ -86,9 +107,82 @@ describe('resolveTestUser', () => {
   });
 });
 
+describe('resolveTestUserRoles', () => {
+  const savedRoles = process.env.TEST_USER_ROLES;
+
+  beforeEach(() => {
+    delete process.env.TEST_USER_ROLES;
+    mockedHeaders.mockReset();
+  });
+
+  afterEach(() => {
+    if (savedRoles !== undefined) {
+      process.env.TEST_USER_ROLES = savedRoles;
+    } else {
+      delete process.env.TEST_USER_ROLES;
+    }
+  });
+
+  it('(a) ヘッダにロールが設定されている場合はそのロールを返す', async () => {
+    mockedHeaders.mockResolvedValue(createHeadersStub('stock-viewer,stock-user'));
+    process.env.TEST_USER_ROLES = 'stock-admin'; // ヘッダが優先されることの確認用
+
+    const roles = await resolveTestUserRoles();
+
+    expect(roles).toEqual(['stock-viewer', 'stock-user']);
+  });
+
+  it('(b) ヘッダが未設定の場合は環境変数 TEST_USER_ROLES にフォールバックする', async () => {
+    mockedHeaders.mockResolvedValue(createHeadersStub());
+    process.env.TEST_USER_ROLES = 'stock-admin,stock-user';
+
+    const roles = await resolveTestUserRoles();
+
+    expect(roles).toEqual(['stock-admin', 'stock-user']);
+  });
+
+  it('(c) ヘッダ・環境変数がともに未設定の場合は defaultRoles にフォールバックする', async () => {
+    mockedHeaders.mockResolvedValue(createHeadersStub());
+
+    const roles = await resolveTestUserRoles({ defaultRoles: ['stock-user'] });
+
+    expect(roles).toEqual(['stock-user']);
+  });
+
+  it('ヘッダ・環境変数・defaultRoles がすべて未設定の場合は空配列を返す', async () => {
+    mockedHeaders.mockResolvedValue(createHeadersStub());
+
+    const roles = await resolveTestUserRoles();
+
+    expect(roles).toEqual([]);
+  });
+
+  it('ヘッダの値が空白・カンマのみの場合は環境変数にフォールバックする', async () => {
+    mockedHeaders.mockResolvedValue(createHeadersStub(' , ,'));
+    process.env.TEST_USER_ROLES = 'stock-admin';
+
+    const roles = await resolveTestUserRoles();
+
+    expect(roles).toEqual(['stock-admin']);
+  });
+
+  it('(d) headers() が例外を投げた場合は環境変数にフォールバックする', async () => {
+    mockedHeaders.mockImplementation(() => {
+      throw new Error('リクエストスコープ外での呼び出し');
+    });
+    process.env.TEST_USER_ROLES = 'stock-admin';
+
+    const roles = await resolveTestUserRoles();
+
+    expect(roles).toEqual(['stock-admin']);
+  });
+});
+
 describe('createSessionGetter', () => {
   beforeEach(() => {
     delete process.env.SKIP_AUTH_CHECK;
+    mockedHeaders.mockReset();
+    mockedHeaders.mockResolvedValue(createHeadersStub());
   });
 
   it('SKIP_AUTH_CHECK=true の場合はテストセッションを返す', async () => {
@@ -189,5 +283,42 @@ describe('createSessionGetter', () => {
 
     expect(session).toEqual(testSession);
     expect(auth).not.toHaveBeenCalled();
+  });
+
+  it('ヘッダにロールが設定されている場合は createTestSession に overrides を渡す', async () => {
+    process.env.SKIP_AUTH_CHECK = 'true';
+    mockedHeaders.mockResolvedValue(createHeadersStub('stock-viewer'));
+    const auth = jest.fn<() => Promise<MockAuthSession | null>>();
+    const createTestSession = jest.fn((overrides?: { roles?: string[] }) => ({
+      userId: 'test-user-id',
+      roles: overrides?.roles ?? ['stock-user'],
+    }));
+    const getSession = createSessionGetter<MockAuthSession, { userId: string; roles: string[] }>({
+      auth,
+      createTestSession,
+      mapSession: (session) => ({ userId: session.user.id ?? '', roles: session.user.roles ?? [] }),
+    });
+
+    const session = await getSession();
+
+    expect(createTestSession).toHaveBeenCalledWith({ roles: ['stock-viewer'] });
+    expect(session).toEqual({ userId: 'test-user-id', roles: ['stock-viewer'] });
+  });
+
+  it('ヘッダが未設定の場合は createTestSession を引数なしで呼び出す（後方互換）', async () => {
+    process.env.SKIP_AUTH_CHECK = 'true';
+    mockedHeaders.mockResolvedValue(createHeadersStub());
+    const auth = jest.fn<() => Promise<MockAuthSession | null>>();
+    const createTestSession = jest.fn(() => ({ userId: 'test-user-id' }));
+    const getSession = createSessionGetter<MockAuthSession, { userId: string }>({
+      auth,
+      createTestSession,
+      mapSession: (session) => ({ userId: session.user.id ?? '' }),
+    });
+
+    const session = await getSession();
+
+    expect(createTestSession).toHaveBeenCalledWith();
+    expect(session).toEqual({ userId: 'test-user-id' });
   });
 });

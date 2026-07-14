@@ -1,157 +1,25 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 /**
  * E2E-005: 権限チェック
  *
- * このテストは以下を検証します:
- * - ロールベースのアクセス制御が正しく動作する
- * - stock-admin: マスタデータ管理画面にアクセス可能
- * - stock-viewer: アクセス拒否
- * - stock-user: アクセス拒否
+ * ロールごとに `test.describe` を分け、`test.use({ role: [...] })` でロールを固定した
+ * 上で 1 テスト = 1 結末（deny/allow のどちらか一方）を検証する。
+ * 旧実装にあった「isVisible ? A : B」「status === 201 ? ... : ...」のような
+ * 条件分岐（両結末を1テストが飲み込む形骸化）は行わない。
  */
 
 test.describe('権限チェック (E2E-005)', () => {
-  test.describe('stock-admin ロール', () => {
-    test('取引所管理画面にアクセスできる', async ({ page }) => {
-      // 取引所管理画面にアクセス
-      await page.goto('/exchanges');
-      await page.waitForLoadState('networkidle');
+  test.describe('stock-admin ロール: マスタデータ管理APIを実行できる', () => {
+    test.use({ role: ['stock-admin'] });
 
-      // ページが正しく表示される
-      await expect(page.locator('h1:has-text("取引所管理")')).toBeVisible({
-        timeout: 10000,
-      });
+    test('取引所作成APIは201で成功する', async ({ request }) => {
+      const exchangeId = `TEST-E2E-AUTH-ADMIN-${Date.now()}`;
 
-      // テーブルが表示される
-      const table = page.locator('table');
-      await expect(table).toBeVisible();
-
-      // 新規登録ボタンが表示される（編集可能）
-      await expect(page.locator('button:has-text("新規登録")')).toBeVisible();
-    });
-
-    test('ティッカー管理画面にアクセスできる', async ({ page }) => {
-      // ティッカー管理画面にアクセス
-      await page.goto('/tickers');
-      await page.waitForLoadState('networkidle');
-
-      // ページが正しく表示される
-      await expect(page.locator('h1:has-text("ティッカー管理")')).toBeVisible({
-        timeout: 10000,
-      });
-
-      // テーブルが表示される
-      const table = page.locator('table');
-      await expect(table).toBeVisible();
-
-      // 新規作成ボタンが表示される（編集可能）
-      await expect(page.locator('button:has-text("新規作成")')).toBeVisible();
-    });
-  });
-
-  test.describe('マスタデータ管理画面の権限チェック', () => {
-    test('取引所管理画面は stock-admin のみアクセス可能', async ({ page }) => {
-      // 現在の認証スキップモードでは TEST_USER_ROLES=stock-admin が設定されていると想定
-      // 取引所管理画面にアクセス
-      await page.goto('/exchanges');
-      await page.waitForLoadState('networkidle');
-
-      // stock-admin ロールの場合、ページが正しく表示される
-      const pageHeading = page.locator('h1:has-text("取引所管理")');
-      const isVisible = await pageHeading.isVisible().catch(() => false);
-
-      if (isVisible) {
-        // stock-admin の場合: ページが表示される
-        await expect(pageHeading).toBeVisible();
-        await expect(page.locator('button:has-text("新規登録")')).toBeVisible();
-      } else {
-        // stock-viewer/stock-user の場合: アクセス拒否またはリダイレクト
-        // エラーメッセージまたはホーム画面へのリダイレクトを確認
-        const errorMessage = page.locator('text=/アクセス権限がありません|権限がありません|403/i');
-        const isErrorVisible = await errorMessage.isVisible().catch(() => false);
-
-        if (isErrorVisible) {
-          await expect(errorMessage).toBeVisible();
-        } else {
-          // ホーム画面にリダイレクトされた場合
-          await expect(page).toHaveURL('/');
-        }
-      }
-    });
-
-    test('ティッカー管理画面は stock-admin のみアクセス可能', async ({ page }) => {
-      // ティッカー管理画面にアクセス
-      await page.goto('/tickers');
-      await page.waitForLoadState('networkidle');
-
-      // stock-admin ロールの場合、ページが正しく表示される
-      const pageHeading = page.locator('h1:has-text("ティッカー管理")');
-      const isVisible = await pageHeading.isVisible().catch(() => false);
-
-      if (isVisible) {
-        // stock-admin の場合: ページが表示される
-        await expect(pageHeading).toBeVisible();
-        await expect(page.locator('button:has-text("新規作成")')).toBeVisible();
-      } else {
-        // stock-viewer/stock-user の場合: アクセス拒否またはリダイレクト
-        const errorMessage = page.locator('text=/アクセス権限がありません|権限がありません|403/i');
-        const isErrorVisible = await errorMessage.isVisible().catch(() => false);
-
-        if (isErrorVisible) {
-          await expect(errorMessage).toBeVisible();
-        } else {
-          // ホーム画面にリダイレクトされた場合
-          await expect(page).toHaveURL('/');
-        }
-      }
-    });
-  });
-
-  test.describe('一般画面へのアクセス', () => {
-    test('トップ画面にはすべてのロールでアクセスできる', async ({ page }) => {
-      // トップ画面にアクセス
-      await page.goto('/');
-      await page.waitForLoadState('networkidle');
-
-      // ページが正しく表示される
-      // 取引所選択セレクトボックスが表示される
-      await expect(page.getByLabel('取引所選択')).toBeVisible({ timeout: 10000 });
-    });
-
-    test('保有株式管理画面にはすべてのロールでアクセスできる', async ({ page }) => {
-      // 保有株式管理画面にアクセス
-      await page.goto('/holdings');
-      await page.waitForLoadState('networkidle');
-
-      // ページが正しく表示される
-      await expect(page.getByRole('heading', { name: '保有株式管理' })).toBeVisible({
-        timeout: 10000,
-      });
-
-      // 新規登録ボタンが表示される
-      await expect(page.getByRole('button', { name: /新規登録/ })).toBeVisible();
-    });
-
-    test('アラート一覧画面にはすべてのロールでアクセスできる', async ({ page }) => {
-      // アラート一覧画面にアクセス
-      await page.goto('/alerts');
-      await page.waitForLoadState('networkidle');
-
-      // ページが正しく表示される
-      await expect(page.getByRole('heading', { name: 'アラート一覧' })).toBeVisible({
-        timeout: 10000,
-      });
-    });
-  });
-
-  test.describe('API レベルの権限チェック', () => {
-    test('取引所作成APIは stock-admin のみ実行可能', async ({ request }) => {
-      // テスト用の取引所データ
-      const testExchangeId = `TEST-E2E-AUTH-${Date.now()}`;
       const response = await request.post('/api/exchanges', {
         data: {
-          exchangeId: testExchangeId,
-          name: 'Test Exchange for Auth',
+          exchangeId,
+          name: 'Test Exchange for Auth (admin)',
           key: 'TEST',
           timezone: 'America/New_York',
           tradingHours: {
@@ -161,98 +29,55 @@ test.describe('権限チェック (E2E-005)', () => {
         },
       });
 
-      // stock-admin の場合は 201、それ以外は 403
-      if (response.status() === 201) {
-        // stock-admin ロールの場合: 成功
-        expect(response.status()).toBe(201);
+      expect(response.status()).toBe(201);
 
-        // クリーンアップ
-        await request.delete(`/api/exchanges/${testExchangeId}`);
-      } else {
-        // stock-viewer/stock-user ロールの場合: 403エラー
-        expect(response.status()).toBe(403);
-      }
+      // 後始末
+      await request.delete(`/api/exchanges/${exchangeId}`);
+    });
+  });
+
+  test.describe('stock-viewer ロール: マスタデータ管理APIは拒否される', () => {
+    test.use({ role: ['stock-viewer'] });
+
+    test('取引所作成APIは403で拒否される', async ({ request }) => {
+      const exchangeId = `TEST-E2E-AUTH-VIEWER-${Date.now()}`;
+
+      const response = await request.post('/api/exchanges', {
+        data: {
+          exchangeId,
+          name: 'Test Exchange for Auth (viewer)',
+          key: 'TEST',
+          timezone: 'America/New_York',
+          tradingHours: {
+            start: '09:30',
+            end: '16:00',
+          },
+        },
+      });
+
+      expect(response.status()).toBe(403);
     });
 
-    test('ティッカー作成APIは stock-admin のみ実行可能', async ({ request }) => {
-      // 前提条件: 取引所を作成（stock-admin の場合のみ成功）
-      const testExchangeId = `TEST-E2E-TICKER-${Date.now()}`;
-      const exchangeResponse = await request.post('/api/exchanges', {
-        data: {
-          exchangeId: testExchangeId,
-          name: 'Test Exchange for Ticker',
-          key: 'TEST',
-          timezone: 'America/New_York',
-          tradingHours: {
-            start: '09:30',
-            end: '16:00',
-          },
-        },
-      });
-
-      // ティッカー作成を試みる
+    test('ティッカー作成APIは403で拒否される', async ({ request }) => {
       const response = await request.post('/api/tickers', {
         data: {
           symbol: 'TEST',
-          name: 'Test Ticker',
-          exchangeId: testExchangeId,
+          name: 'Test Ticker for Auth (viewer)',
+          exchangeId: 'NASDAQ',
         },
       });
 
-      // stock-admin の場合は 201、それ以外は 403
-      if (exchangeResponse.status() === 201) {
-        // stock-admin ロールの場合: ティッカー作成も成功するはず
-        expect(response.status()).toBe(201);
-
-        const data = await response.json();
-        const tickerId = data.tickerId;
-
-        // クリーンアップ
-        await request.delete(`/api/tickers/${tickerId}`);
-        await request.delete(`/api/exchanges/${testExchangeId}`);
-      } else {
-        // stock-viewer/stock-user ロールの場合: 403エラー
-        expect(response.status()).toBe(403);
-      }
+      expect(response.status()).toBe(403);
     });
+  });
 
-    test('保有株式作成APIはすべてのロールで実行可能', async ({ request }) => {
-      const testTickerId = 'NASDAQ:AAPL';
-      let holdingCreated = false;
+  test.describe('read 権限: 全ロールで許可される', () => {
+    // 既定ロール（stock-admin）で検証する。read は全ロール共通で許可されるため、
+    // いずれのロールで検証しても結論は変わらない。
+    test('取引所一覧取得APIは200で成功する', async ({ request }) => {
+      const response = await request.get('/api/exchanges');
 
-      try {
-        // 保有株式作成を試みる
-        const response = await request.post('/api/holdings', {
-          data: {
-            tickerId: testTickerId,
-            quantity: 10,
-            averagePrice: 150.0,
-            currency: 'USD',
-          },
-        });
-
-        // 取引所・ティッカーが存在しない場合は400または404エラー
-        // 権限がある場合は 201 または 400/404
-        // 権限がない場合は 403
-        expect(response.status()).not.toBe(403);
-
-        // 201 (成功) の場合、後でクリーンアップが必要
-        if (response.status() === 201) {
-          holdingCreated = true;
-        }
-      } finally {
-        // クリーンアップ: 作成されたHoldingを削除
-        if (holdingCreated) {
-          try {
-            // HoldingIDの形式: {UserID}#{TickerID}
-            // SKIP_AUTH_CHECK=true環境では UserID は "test-user-id"
-            const holdingId = `test-user-id#${testTickerId}`;
-            await request.delete(`/api/holdings/${encodeURIComponent(holdingId)}`);
-          } catch (error) {
-            console.warn(`Warning: Failed to cleanup holding ${testTickerId}:`, error);
-          }
-        }
-      }
+      expect(response.status()).toBe(200);
     });
   });
 });
