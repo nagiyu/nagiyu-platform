@@ -21,22 +21,41 @@ export const ConsolidationSchema = z.object({
       category: z.string(),
       /** 既存要約（候補 Topic のもの）＋新情報をマージ・再生成した正規化要約 */
       canonicalSummary: z.string(),
-      /** ユーザー自身についての新規事実 */
-      selfFacts: z.array(
-        z.object({
-          text: z.string(),
-          /** 出所メモ（誤マージ可逆化用）。根拠となった発話の要旨を短く記す */
-          provenance: z.string(),
-        })
-      ),
-      /** Web リサーチ・勉強バッチ由来の新規外部事実 */
-      webFacts: z.array(
-        z.object({
-          text: z.string(),
-          sourceUrls: z.array(z.string()),
-          volatility: z.enum(['stable', 'low', 'medium', 'high']),
-        })
-      ),
+      /**
+       * ユーザー自身についての新規事実。
+       * 「ユーザー:」発話由来のユーザー自身についての事実のみを含める。
+       * キャラの発話（意見・見解・推し・提案含む）・一般知識・第三者の意見は含めない。
+       */
+      selfFacts: z
+        .array(
+          z.object({
+            text: z
+              .string()
+              .describe(
+                '「ユーザー:」発話に由来する、ユーザー自身についての事実のみを記述する。キャラの発話・意見・見解・推し・提案、一般知識・世間知識、第三者の意見は書かない。'
+              ),
+            /** 出所メモ（誤マージ可逆化用）。根拠となった発話の要旨を短く記す */
+            provenance: z.string(),
+          })
+        )
+        .describe(
+          'ユーザー自身についての新規事実の配列。「ユーザー:」発話由来のものだけを含め、キャラの発話・一般知識・第三者の意見は含めない。'
+        ),
+      /**
+       * Web リサーチ・勉強バッチ由来の新規外部事実。
+       * 「新しい Web 取得生データ」からのみ生成する（会話中の発話からは生成しない）。
+       */
+      webFacts: z
+        .array(
+          z.object({
+            text: z.string(),
+            sourceUrls: z.array(z.string()),
+            volatility: z.enum(['stable', 'low', 'medium', 'high']),
+          })
+        )
+        .describe(
+          'Web 取得生データ由来の外部事実のみの配列。会話中にキャラが述べた一般知識は含めない。Web 取得生データがなければ空配列にする。'
+        ),
     })
   ),
 });
