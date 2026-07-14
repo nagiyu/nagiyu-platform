@@ -71,7 +71,7 @@ test.describe('権限チェック (E2E-005)', () => {
     });
   });
 
-  test.describe('read 権限: 全ロールで許可される', () => {
+  test.describe('read 権限: ロール非依存で許可される', () => {
     // 既定ロール（stock-admin）で検証する。read は全ロール共通で許可されるため、
     // いずれのロールで検証しても結論は変わらない。
     test('取引所一覧取得APIは200で成功する', async ({ request }) => {

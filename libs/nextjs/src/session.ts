@@ -72,27 +72,6 @@ async function readRolesFromHeader(): Promise<string[] | undefined> {
   }
 }
 
-/**
- * テストユーザーのロールを解決する。
- *
- * SKIP_AUTH_CHECK=true のテスト専用経路で使用する。優先順位は以下の通り。
- * 1. リクエストヘッダ `x-test-user-roles`（`,` 区切り）
- * 2. 環境変数 `TEST_USER_ROLES`（`,` 区切り）
- * 3. `options.defaultRoles`
- * 4. 空配列
- *
- * @param options - 解決オプション（既定ロールなど）
- * @returns 解決済みロール一覧
- */
-export async function resolveTestUserRoles(options?: ResolveTestUserOptions): Promise<string[]> {
-  const headerRoles = await readRolesFromHeader();
-  if (headerRoles) {
-    return headerRoles;
-  }
-
-  return process.env.TEST_USER_ROLES?.split(',') || options?.defaultRoles || [];
-}
-
 interface SessionWithOptionalUser {
   user?: unknown;
 }

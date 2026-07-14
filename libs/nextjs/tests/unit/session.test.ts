@@ -1,11 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { headers } from 'next/headers';
-import {
-  createSessionGetter,
-  resolveTestUser,
-  resolveTestUserRoles,
-  TEST_USER_ROLES_HEADER,
-} from '../../src/session';
+import { createSessionGetter, resolveTestUser, TEST_USER_ROLES_HEADER } from '../../src/session';
 
 jest.mock('next/headers', () => ({
   headers: jest.fn(),
@@ -104,77 +99,6 @@ describe('resolveTestUser', () => {
   it('TEST_USER_IMAGE が未設定の場合は undefined', () => {
     const user = resolveTestUser();
     expect(user.image).toBeUndefined();
-  });
-});
-
-describe('resolveTestUserRoles', () => {
-  const savedRoles = process.env.TEST_USER_ROLES;
-
-  beforeEach(() => {
-    delete process.env.TEST_USER_ROLES;
-    mockedHeaders.mockReset();
-  });
-
-  afterEach(() => {
-    if (savedRoles !== undefined) {
-      process.env.TEST_USER_ROLES = savedRoles;
-    } else {
-      delete process.env.TEST_USER_ROLES;
-    }
-  });
-
-  it('(a) ヘッダにロールが設定されている場合はそのロールを返す', async () => {
-    mockedHeaders.mockResolvedValue(createHeadersStub('stock-viewer,stock-user'));
-    process.env.TEST_USER_ROLES = 'stock-admin'; // ヘッダが優先されることの確認用
-
-    const roles = await resolveTestUserRoles();
-
-    expect(roles).toEqual(['stock-viewer', 'stock-user']);
-  });
-
-  it('(b) ヘッダが未設定の場合は環境変数 TEST_USER_ROLES にフォールバックする', async () => {
-    mockedHeaders.mockResolvedValue(createHeadersStub());
-    process.env.TEST_USER_ROLES = 'stock-admin,stock-user';
-
-    const roles = await resolveTestUserRoles();
-
-    expect(roles).toEqual(['stock-admin', 'stock-user']);
-  });
-
-  it('(c) ヘッダ・環境変数がともに未設定の場合は defaultRoles にフォールバックする', async () => {
-    mockedHeaders.mockResolvedValue(createHeadersStub());
-
-    const roles = await resolveTestUserRoles({ defaultRoles: ['stock-user'] });
-
-    expect(roles).toEqual(['stock-user']);
-  });
-
-  it('ヘッダ・環境変数・defaultRoles がすべて未設定の場合は空配列を返す', async () => {
-    mockedHeaders.mockResolvedValue(createHeadersStub());
-
-    const roles = await resolveTestUserRoles();
-
-    expect(roles).toEqual([]);
-  });
-
-  it('ヘッダの値が空白・カンマのみの場合は環境変数にフォールバックする', async () => {
-    mockedHeaders.mockResolvedValue(createHeadersStub(' , ,'));
-    process.env.TEST_USER_ROLES = 'stock-admin';
-
-    const roles = await resolveTestUserRoles();
-
-    expect(roles).toEqual(['stock-admin']);
-  });
-
-  it('(d) headers() が例外を投げた場合は環境変数にフォールバックする', async () => {
-    mockedHeaders.mockImplementation(() => {
-      throw new Error('リクエストスコープ外での呼び出し');
-    });
-    process.env.TEST_USER_ROLES = 'stock-admin';
-
-    const roles = await resolveTestUserRoles();
-
-    expect(roles).toEqual(['stock-admin']);
   });
 });
 
@@ -308,6 +232,42 @@ describe('createSessionGetter', () => {
   it('ヘッダが未設定の場合は createTestSession を引数なしで呼び出す（後方互換）', async () => {
     process.env.SKIP_AUTH_CHECK = 'true';
     mockedHeaders.mockResolvedValue(createHeadersStub());
+    const auth = jest.fn<() => Promise<MockAuthSession | null>>();
+    const createTestSession = jest.fn(() => ({ userId: 'test-user-id' }));
+    const getSession = createSessionGetter<MockAuthSession, { userId: string }>({
+      auth,
+      createTestSession,
+      mapSession: (session) => ({ userId: session.user.id ?? '' }),
+    });
+
+    const session = await getSession();
+
+    expect(createTestSession).toHaveBeenCalledWith();
+    expect(session).toEqual({ userId: 'test-user-id' });
+  });
+
+  it('ヘッダの値が空白・カンマのみの場合は overrides を渡さない（フォールバック）', async () => {
+    process.env.SKIP_AUTH_CHECK = 'true';
+    mockedHeaders.mockResolvedValue(createHeadersStub(' , ,'));
+    const auth = jest.fn<() => Promise<MockAuthSession | null>>();
+    const createTestSession = jest.fn(() => ({ userId: 'test-user-id' }));
+    const getSession = createSessionGetter<MockAuthSession, { userId: string }>({
+      auth,
+      createTestSession,
+      mapSession: (session) => ({ userId: session.user.id ?? '' }),
+    });
+
+    const session = await getSession();
+
+    expect(createTestSession).toHaveBeenCalledWith();
+    expect(session).toEqual({ userId: 'test-user-id' });
+  });
+
+  it('headers() が例外を投げた場合は overrides を渡さない（リクエストスコープ外フォールバック）', async () => {
+    process.env.SKIP_AUTH_CHECK = 'true';
+    mockedHeaders.mockImplementation(() => {
+      throw new Error('リクエストスコープ外での呼び出し');
+    });
     const auth = jest.fn<() => Promise<MockAuthSession | null>>();
     const createTestSession = jest.fn(() => ({ userId: 'test-user-id' }));
     const getSession = createSessionGetter<MockAuthSession, { userId: string }>({
