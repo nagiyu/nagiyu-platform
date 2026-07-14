@@ -42,9 +42,6 @@ function makeDeps(overrides: Partial<UseChatStreamDeps> = {}): UseChatStreamDeps
     markStreamDone: jest.fn() as () => void,
     resetAudioQueue: jest.fn() as () => void,
     advanceOnError: jest.fn() as () => void,
-    consumeKnowledgeId: jest.fn().mockReturnValue(null) as (
-      currentCharacterId: string
-    ) => string | null,
     clearFirstWordText: jest.fn() as () => void,
     clearOnboardingText: jest.fn() as () => void,
     setLifecycleState: jest.fn() as unknown as Dispatch<SetStateAction<LifecycleState>>,
@@ -641,54 +638,6 @@ describe('useChatStream', () => {
       });
 
       expect(deps.markStreamDone).toHaveBeenCalled();
-    });
-  });
-
-  describe('handleSubmit: knowledgeId の伝播', () => {
-    it('consumeKnowledgeId が knowledgeId を返す場合 chatBody に含まれる', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        body: makeNdjsonStream([{ type: 'done' }]),
-        status: 200,
-      });
-      const deps = makeDeps({
-        consumeKnowledgeId: jest.fn().mockReturnValue('k-xyz'),
-      });
-      const { result } = renderHook(() => useChatStream(deps));
-
-      await act(async () => {
-        await result.current.handleSubmit('テスト');
-      });
-
-      const chatCall = (global.fetch as jest.Mock).mock.calls.find(
-        ([url]: [string]) => url === '/api/chat'
-      );
-      expect(chatCall).toBeDefined();
-      const chatBody = JSON.parse(chatCall[1].body as string);
-      expect(chatBody.knowledgeId).toBe('k-xyz');
-    });
-
-    it('consumeKnowledgeId が null を返す場合 chatBody に knowledgeId が含まれない', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        body: makeNdjsonStream([{ type: 'done' }]),
-        status: 200,
-      });
-      const deps = makeDeps({
-        consumeKnowledgeId: jest.fn().mockReturnValue(null),
-      });
-      const { result } = renderHook(() => useChatStream(deps));
-
-      await act(async () => {
-        await result.current.handleSubmit('テスト');
-      });
-
-      const chatCall = (global.fetch as jest.Mock).mock.calls.find(
-        ([url]: [string]) => url === '/api/chat'
-      );
-      expect(chatCall).toBeDefined();
-      const chatBody = JSON.parse(chatCall[1].body as string);
-      expect(chatBody.knowledgeId).toBeUndefined();
     });
   });
 

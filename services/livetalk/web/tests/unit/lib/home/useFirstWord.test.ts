@@ -51,7 +51,6 @@ describe('useFirstWord', () => {
               Promise.resolve({
                 notifId: 'n1',
                 body: 'テスト第一声',
-                knowledgeId: 'k-xyz',
                 characterId: 'hiyori',
               }),
           });
@@ -82,7 +81,6 @@ describe('useFirstWord', () => {
               Promise.resolve({
                 notifId: 'n1',
                 body: '第一声',
-                knowledgeId: null,
                 characterId: 'hiyori',
               }),
           });
@@ -126,7 +124,6 @@ describe('useFirstWord', () => {
                 Promise.resolve({
                   notifId: 'n1',
                   body: 'ひよりの声',
-                  knowledgeId: 'k1',
                   characterId: 'hiyori',
                 }),
             });
@@ -166,7 +163,6 @@ describe('useFirstWord', () => {
               Promise.resolve({
                 notifId: 'n1',
                 body: '第一声',
-                knowledgeId: 'k1',
                 characterId: 'hiyori',
                 suggestedReply: 'TypeScriptについて教えて',
               }),
@@ -192,7 +188,6 @@ describe('useFirstWord', () => {
               Promise.resolve({
                 notifId: 'n1',
                 body: '第一声',
-                knowledgeId: 'k1',
                 characterId: 'hiyori',
                 suggestedReply: '返信テキスト',
               }),
@@ -222,7 +217,6 @@ describe('useFirstWord', () => {
               Promise.resolve({
                 notifId: 'n1',
                 body: '第一声',
-                knowledgeId: 'k1',
                 characterId: 'hiyori',
                 suggestedReply: null,
               }),
@@ -240,139 +234,6 @@ describe('useFirstWord', () => {
     });
   });
 
-  describe('consumeKnowledgeId（クロス汚染防止ガード）', () => {
-    it('カレントキャラ == 通知元キャラのとき knowledgeId を返し ref をクリアする', async () => {
-      global.fetch = jest.fn().mockImplementation((url: string) => {
-        if (url.startsWith('/api/push/first-word')) {
-          return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                notifId: 'n1',
-                body: '第一声',
-                knowledgeId: 'k-hiyori',
-                characterId: 'hiyori',
-              }),
-          });
-        }
-        if (url === '/api/push/consumed') {
-          return Promise.resolve({ ok: true });
-        }
-        return Promise.resolve({ ok: true });
-      });
-
-      const { result } = renderHook(() => useFirstWord('hiyori'));
-      await waitFor(() => expect(result.current.firstWordText).toBe('第一声'));
-
-      let knowledgeId: string | null = null;
-      act(() => {
-        knowledgeId = result.current.consumeKnowledgeId('hiyori');
-      });
-
-      // カレント == 通知元 → knowledgeId が返る
-      expect(knowledgeId).toBe('k-hiyori');
-    });
-
-    it('2 回目の consumeKnowledgeId は null を返す（ref がクリアされている）', async () => {
-      global.fetch = jest.fn().mockImplementation((url: string) => {
-        if (url.startsWith('/api/push/first-word')) {
-          return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                notifId: 'n1',
-                body: '第一声',
-                knowledgeId: 'k-hiyori',
-                characterId: 'hiyori',
-              }),
-          });
-        }
-        if (url === '/api/push/consumed') {
-          return Promise.resolve({ ok: true });
-        }
-        return Promise.resolve({ ok: true });
-      });
-
-      const { result } = renderHook(() => useFirstWord('hiyori'));
-      await waitFor(() => expect(result.current.firstWordText).toBe('第一声'));
-
-      act(() => {
-        result.current.consumeKnowledgeId('hiyori');
-      });
-      let secondKnowledgeId: string | null = null;
-      act(() => {
-        secondKnowledgeId = result.current.consumeKnowledgeId('hiyori');
-      });
-
-      expect(secondKnowledgeId).toBeNull();
-    });
-
-    it('カレントキャラ != 通知元キャラのとき null を返す（クロス汚染防止）', async () => {
-      global.fetch = jest.fn().mockImplementation((url: string) => {
-        if (url.startsWith('/api/push/first-word')) {
-          return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                notifId: 'n1',
-                body: '第一声',
-                knowledgeId: 'k-ageha',
-                // 通知元は ageha だがカレントは hiyori でチェックする
-                characterId: 'ageha',
-              }),
-          });
-        }
-        if (url === '/api/push/consumed') {
-          return Promise.resolve({ ok: true });
-        }
-        return Promise.resolve({ ok: true });
-      });
-
-      const { result } = renderHook(() => useFirstWord('hiyori'));
-      await waitFor(() => expect(result.current.firstWordText).toBe('第一声'));
-
-      let knowledgeId: string | null = null;
-      act(() => {
-        // カレントキャラとして 'hiyori' を渡す（通知元は 'ageha'）
-        knowledgeId = result.current.consumeKnowledgeId('hiyori');
-      });
-
-      // クロス汚染防止 → null
-      expect(knowledgeId).toBeNull();
-    });
-
-    it('knowledgeId が null の first-word でも consumeKnowledgeId は null を返す', async () => {
-      global.fetch = jest.fn().mockImplementation((url: string) => {
-        if (url.startsWith('/api/push/first-word')) {
-          return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                notifId: 'n1',
-                body: '第一声',
-                knowledgeId: null,
-                characterId: 'hiyori',
-              }),
-          });
-        }
-        if (url === '/api/push/consumed') {
-          return Promise.resolve({ ok: true });
-        }
-        return Promise.resolve({ ok: true });
-      });
-
-      const { result } = renderHook(() => useFirstWord('hiyori'));
-      await waitFor(() => expect(result.current.firstWordText).toBe('第一声'));
-
-      let knowledgeId: string | null = null;
-      act(() => {
-        knowledgeId = result.current.consumeKnowledgeId('hiyori');
-      });
-
-      expect(knowledgeId).toBeNull();
-    });
-  });
-
   describe('clearFirstWordText', () => {
     it('clearFirstWordText を呼ぶと firstWordText が null になる', async () => {
       global.fetch = jest.fn().mockImplementation((url: string) => {
@@ -383,7 +244,6 @@ describe('useFirstWord', () => {
               Promise.resolve({
                 notifId: 'n1',
                 body: '第一声',
-                knowledgeId: null,
                 characterId: 'hiyori',
               }),
           });

@@ -51,7 +51,6 @@ function makeEvent(overrides: Partial<NotificationEventEntity> = {}): Notificati
     Kind: 'normal',
     Title: 'ひよりより',
     Body: 'テスト本文',
-    KnowledgeID: undefined,
     ConsumedAt: undefined,
     CreatedAt: Date.now(),
     Ttl: Date.now() + 30 * 24 * 60 * 60 * 1000,
@@ -99,7 +98,6 @@ describe('GET /api/push/first-word', () => {
       NotifID: 'n-hiyori',
       CharacterID: 'hiyori',
       Body: 'ひよりの本文',
-      KnowledgeID: 'k-hiyori',
     });
     const agehaEvent = makeEvent({
       NotifID: 'n-ageha',
@@ -116,7 +114,6 @@ describe('GET /api/push/first-word', () => {
     // hiyori の通知が返る
     expect(json.notifId).toBe('n-hiyori');
     expect(json.body).toBe('ひよりの本文');
-    expect(json.knowledgeId).toBe('k-hiyori');
     // レスポンスに characterId が含まれる（クロス汚染防止のため）
     expect(json.characterId).toBe('hiyori');
   });
@@ -152,20 +149,6 @@ describe('GET /api/push/first-word', () => {
 
     const res = await GET(buildGetRequest('hiyori'));
     expect(res.status).toBe(204);
-  });
-
-  it('knowledgeId がない通知の場合、レスポンスの knowledgeId は null になる', async () => {
-    mockGetSession.mockResolvedValue(validSession);
-    const event = makeEvent({
-      CharacterID: 'hiyori',
-      KnowledgeID: undefined,
-    });
-    mockGetNotificationEventRepo.mockReturnValue(makeRepo([event]));
-
-    const res = await GET(buildGetRequest('hiyori'));
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json.knowledgeId).toBeNull();
   });
 
   it('消化済みと未消化が混在する場合、未消化の最新を返す', async () => {

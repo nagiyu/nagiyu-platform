@@ -31,10 +31,7 @@ describe('lib/server/repositories', () => {
     expect(c1).toBeDefined();
     expect(l1).toBeDefined();
 
-    // Phase 5b 配線: 知識ゲートで使う Knowledge / StudyTopic も取得できる
-    const k1 = mod.getKnowledgeRepository();
-    const k2 = mod.getKnowledgeRepository();
-    expect(k1).toBe(k2);
+    // Phase 5b 配線: StudyTopic も取得できる（Knowledge は P5 で撤去済み）
     const s1 = mod.getStudyTopicRepository();
     const s2 = mod.getStudyTopicRepository();
     expect(s1).toBe(s2);
@@ -49,16 +46,6 @@ describe('lib/server/repositories', () => {
     const t2 = mod.getTopicRepository();
     expect(t1).toBe(t2);
 
-    // 既存の記憶（Tier memory）系リポジトリもシングルトンで取得できる
-    const mem1 = mod.getMemoryRepository();
-    const mem2 = mod.getMemoryRepository();
-    expect(mem1).toBe(mem2);
-    const memSummary1 = mod.getMemorySummaryRepository();
-    const memSummary2 = mod.getMemorySummaryRepository();
-    expect(memSummary1).toBe(memSummary2);
-
-    const interest1 = mod.getInterestRepository();
-    expect(interest1).toBeDefined();
     const push1 = mod.getPushSubscriptionRepository();
     expect(push1).toBeDefined();
     const notif1 = mod.getNotificationEventRepository();
@@ -143,13 +130,9 @@ describe('lib/server/repositories', () => {
     expect(() => mod.getProfileRepository()).not.toThrow();
     expect(() => mod.getCharacterStateRepository()).not.toThrow();
     expect(() => mod.getLifecycleRepository()).not.toThrow();
-    expect(() => mod.getKnowledgeRepository()).not.toThrow();
     expect(() => mod.getStudyTopicRepository()).not.toThrow();
     expect(() => mod.getNoteRepository()).not.toThrow();
     expect(() => mod.getTopicRepository()).not.toThrow();
-    expect(() => mod.getMemoryRepository()).not.toThrow();
-    expect(() => mod.getMemorySummaryRepository()).not.toThrow();
-    expect(() => mod.getInterestRepository()).not.toThrow();
     expect(() => mod.getPushSubscriptionRepository()).not.toThrow();
     expect(() => mod.getNotificationEventRepository()).not.toThrow();
     expect(() => mod.getAccountDeletionRepository()).not.toThrow();
