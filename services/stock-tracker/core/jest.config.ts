@@ -5,7 +5,7 @@ const config: Config = {
   testEnvironment: 'node',
   roots: ['<rootDir>/src', '<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
-  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/tests/e2e/'],
+  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/tests/e2e/', '<rootDir>/tests/contract/'],
   moduleNameMapper: {
     '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',

@@ -38,6 +38,12 @@
 - したがって **等価性は DynamoDB Local を用いた契約テストで担保する**。実装非依存の振る舞い仕様を InMemory と DynamoDB Local の双方で回し、片方でしか通らない差分を検知する。あわせて、本番に載る DynamoDB 実装自体も DynamoDB Local に対して検証する。
 - DynamoDB Local は AWS 純正・実 API 準拠で、CI の service container として動く（実クラウド接続・認証情報・課金は不要）。トランザクション競合例外など一部の挙動は再現しないため、その検証はモックで補う。
 
+#### 契約テストの実行方法
+
+- 契約テストは通常のユニットテスト（`npm test`）から隔離し、専用スクリプト（例: `test:contract`）で実行する。DynamoDB Local への接続を前提とし、接続できない場合は自己スキップせず失敗させる（決定的に検知するため）。
+- ローカル: DynamoDB Local コンテナ（`docker run -p 8000:8000 amazon/dynamodb-local`）を起動してから、対象ワークスペースの契約テストを実行する。
+- CI: 各サービスの verify ワークフローで DynamoDB Local を service container として起動し、専用ジョブとして実行する。
+
 ### dev 結合環境の位置づけ
 
 - dev 結合環境（実 AWS）は V字のテスト階層ではなく **デプロイ先**である。ここでの確認は「実インフラ差分」に限る。
