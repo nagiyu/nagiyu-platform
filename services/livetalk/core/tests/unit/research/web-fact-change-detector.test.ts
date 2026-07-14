@@ -7,7 +7,6 @@ function makeLLMClient(impl: (...args: unknown[]) => Promise<unknown>): ILLMClie
     chatStream: jest.fn(),
     chatComplete: jest.fn(),
     chatStructured: jest.fn(impl),
-    summarize: jest.fn(),
   } as unknown as ILLMClient;
 }
 

@@ -57,8 +57,6 @@ export interface UseChatStreamDeps {
   resetAudioQueue: () => void;
   /** 再生エラー時にキューを advance する関数（useAudioQueue の handlePlaybackError） */
   advanceOnError: () => void;
-  /** knowledgeId を取り出してクリアする関数（クロス汚染防止ガード付き） */
-  consumeKnowledgeId: (currentCharacterId: string) => string | null;
   /** 第一声テキストをクリアする関数 */
   clearFirstWordText: () => void;
   /** オンボーディングテキストをクリアする関数 */
@@ -106,7 +104,6 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
     markStreamDone,
     resetAudioQueue,
     advanceOnError,
-    consumeKnowledgeId,
     clearFirstWordText,
     clearOnboardingText,
     setLifecycleState,
@@ -136,10 +133,6 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
-      // 送信前に第一声 knowledgeId を取り出してクリア（1 ターン限り有効）。
-      // クロス汚染防止: カレントキャラ == 通知元キャラのときのみ渡す（C3-3）。
-      const notifKnowledgeId = consumeKnowledgeId(characterId);
-
       setUserText(text);
       setResponseText('');
       clearFirstWordText();
@@ -151,11 +144,10 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
       sentenceReceivedRef.current = 0;
 
       try {
-        const chatBody: { text: string; characterId?: string; knowledgeId?: string } = {
+        const chatBody: { text: string; characterId?: string } = {
           text,
           characterId,
         };
-        if (notifKnowledgeId) chatBody.knowledgeId = notifKnowledgeId;
 
         const response = await fetch('/api/chat', {
           method: 'POST',
@@ -289,7 +281,6 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
       enqueue,
       markStreamDone,
       characterId,
-      consumeKnowledgeId,
       clearFirstWordText,
       clearOnboardingText,
       setLifecycleState,

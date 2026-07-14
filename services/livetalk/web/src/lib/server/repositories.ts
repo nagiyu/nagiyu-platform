@@ -18,11 +18,7 @@ import type {
   CharacterStateRepository,
   ChatGuardRepository,
   ConsolidationCursorRepository,
-  InterestRepository,
-  KnowledgeRepository,
   LifecycleRepository,
-  MemorySummaryRepository,
-  MemoryRepository,
   MessageRepository,
   NotificationEventRepository,
   NoteRepository,
@@ -36,11 +32,7 @@ import {
   DynamoDBChatGuardRepository,
   DynamoDBCharacterStateRepository,
   DynamoDBConsolidationCursorRepository,
-  DynamoDBInterestRepository,
-  DynamoDBKnowledgeRepository,
   DynamoDBLifecycleRepository,
-  DynamoDBMemorySummaryRepository,
-  DynamoDBMemoryRepository,
   DynamoDBMessageRepository,
   DynamoDBNotificationEventRepository,
   DynamoDBNoteRepository,
@@ -52,11 +44,7 @@ import {
   InMemoryChatGuardRepository,
   InMemoryCharacterStateRepository,
   InMemoryConsolidationCursorRepository,
-  InMemoryInterestRepository,
-  InMemoryKnowledgeRepository,
   InMemoryLifecycleRepository,
-  InMemoryMemorySummaryRepository,
-  InMemoryMemoryRepository,
   InMemoryMessageRepository,
   InMemoryNotificationEventRepository,
   InMemoryNoteRepository,
@@ -69,14 +57,10 @@ import {
 const registry = registerDynamoRepositories<
   {
     accountDeletion: AccountDeletionRepository;
-    memory: MemoryRepository;
-    memorySummary: MemorySummaryRepository;
     message: MessageRepository;
     profile: ProfileRepository;
     characterState: CharacterStateRepository;
-    interest: InterestRepository;
     lifecycle: LifecycleRepository;
-    knowledge: KnowledgeRepository;
     studyTopic: StudyTopicRepository;
     note: NoteRepository;
     pushSubscription: PushSubscriptionRepository;
@@ -91,16 +75,6 @@ const registry = registerDynamoRepositories<
       createInMemoryRepository: (store) => new InMemoryAccountDeletionRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBAccountDeletionRepository(docClient, tableName),
-    },
-    memory: {
-      createInMemoryRepository: (store) => new InMemoryMemoryRepository(store),
-      createDynamoDBRepository: ({ docClient, tableName }) =>
-        new DynamoDBMemoryRepository(docClient, tableName),
-    },
-    memorySummary: {
-      createInMemoryRepository: (store) => new InMemoryMemorySummaryRepository(store),
-      createDynamoDBRepository: ({ docClient, tableName }) =>
-        new DynamoDBMemorySummaryRepository(docClient, tableName),
     },
     message: {
       createInMemoryRepository: (store) => new InMemoryMessageRepository(store),
@@ -117,20 +91,10 @@ const registry = registerDynamoRepositories<
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBCharacterStateRepository(docClient, tableName),
     },
-    interest: {
-      createInMemoryRepository: (store) => new InMemoryInterestRepository(store),
-      createDynamoDBRepository: ({ docClient, tableName }) =>
-        new DynamoDBInterestRepository(docClient, tableName),
-    },
     lifecycle: {
       createInMemoryRepository: (store) => new InMemoryLifecycleRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBLifecycleRepository(docClient, tableName),
-    },
-    knowledge: {
-      createInMemoryRepository: (store) => new InMemoryKnowledgeRepository(store),
-      createDynamoDBRepository: ({ docClient, tableName }) =>
-        new DynamoDBKnowledgeRepository(docClient, tableName),
     },
     studyTopic: {
       createInMemoryRepository: (store) => new InMemoryStudyTopicRepository(store),
@@ -173,14 +137,6 @@ export function getAccountDeletionRepository(): AccountDeletionRepository {
   return registry.accountDeletion.createRepository();
 }
 
-export function getMemoryRepository(): MemoryRepository {
-  return registry.memory.createRepository();
-}
-
-export function getMemorySummaryRepository(): MemorySummaryRepository {
-  return registry.memorySummary.createRepository();
-}
-
 export function getMessageRepository(): MessageRepository {
   return registry.message.createRepository();
 }
@@ -193,16 +149,8 @@ export function getCharacterStateRepository(): CharacterStateRepository {
   return registry.characterState.createRepository();
 }
 
-export function getInterestRepository(): InterestRepository {
-  return registry.interest.createRepository();
-}
-
 export function getLifecycleRepository(): LifecycleRepository {
   return registry.lifecycle.createRepository();
-}
-
-export function getKnowledgeRepository(): KnowledgeRepository {
-  return registry.knowledge.createRepository();
 }
 
 export function getStudyTopicRepository(): StudyTopicRepository {

@@ -76,7 +76,6 @@ function makeLlmClient(eventDate: string | null, reason = '判定理由'): ILLMC
     chatStream: jest.fn() as unknown as ILLMClient['chatStream'],
     chatComplete: jest.fn(),
     chatStructured: jest.fn().mockResolvedValue({ eventDate, reason }),
-    summarize: jest.fn(),
   };
 }
 
@@ -234,7 +233,6 @@ describe('detectCriticalTopic - エラーハンドリング', () => {
         .fn()
         .mockRejectedValueOnce(new Error('LLM タイムアウト'))
         .mockResolvedValueOnce({ eventDate: NEAR_FUTURE_DATE, reason: '成功' }),
-      summarize: jest.fn(),
     };
 
     const candidates = [
@@ -259,7 +257,6 @@ describe('detectCriticalTopic - エラーハンドリング', () => {
       chatStream: jest.fn() as unknown as ILLMClient['chatStream'],
       chatComplete: jest.fn(),
       chatStructured: jest.fn().mockRejectedValue(new Error('全部失敗')),
-      summarize: jest.fn(),
     };
 
     const result = await detectCriticalTopic(makeInput({ llmClient }));
@@ -298,7 +295,6 @@ describe('detectCriticalTopic - 複数 Topic', () => {
         .fn()
         .mockResolvedValueOnce({ eventDate: null, reason: 't1 は時限性なし' })
         .mockResolvedValueOnce({ eventDate: NEAR_FUTURE_DATE, reason: 't2 は時限性あり' }),
-      summarize: jest.fn(),
     };
 
     const candidates = [
@@ -338,7 +334,6 @@ describe('detectCriticalTopic - 複数 Topic', () => {
       chatStream: jest.fn() as unknown as ILLMClient['chatStream'],
       chatComplete: jest.fn(),
       chatStructured: jest.fn().mockResolvedValue({ eventDate: NEAR_FUTURE_DATE, reason: 'ok' }),
-      summarize: jest.fn(),
     };
 
     const olderFact = makeWebFact({ FactID: 'f-old', ObservedAt: 1000 });

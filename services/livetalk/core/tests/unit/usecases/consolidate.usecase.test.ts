@@ -30,9 +30,6 @@ const makeLLMClient = (topics: TopicResult[]): ILLMClient & { chatStructuredCall
       chatStructuredCalls++;
       return { topics } as unknown as never;
     },
-    async summarize() {
-      return { mergedSummary: '', newMemoryCandidates: [] };
-    },
     get chatStructuredCalls() {
       return chatStructuredCalls;
     },
@@ -673,9 +670,6 @@ describe('consolidate', () => {
       async chatStructured(messages) {
         capturedUserContent = messages.find((m) => m.role === 'user')?.content ?? '';
         return { topics: [makeTopicResult()] } as unknown as never;
-      },
-      async summarize() {
-        return { mergedSummary: '', newMemoryCandidates: [] };
       },
     };
 

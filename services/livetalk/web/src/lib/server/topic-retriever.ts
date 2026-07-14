@@ -5,7 +5,7 @@ import { getTopicRepository } from './repositories';
 
 /**
  * Topic retriever（関連度 only の想起、リブトーク知識再設計 P2 / #3698）のシングルトン。
- * `getMemoryRetriever` と同じ流儀でキャッシュする。
+ * モジュールスコープの変数にキャッシュし、`setTopicRetrieverForTesting` でテスト時に差し替える。
  */
 let cachedRetriever: ITopicRetriever | null = null;
 

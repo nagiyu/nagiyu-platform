@@ -20,17 +20,6 @@ export interface ChatMetrics {
     total: number;
   };
 
-  /** retrieval で注入した件数（プロンプト gating が機能しているか確認用） */
-  retrievedTierACount: number;
-  retrievedTierBCount: number;
-
-  /** DynamoDB に保存されている MemorySummary のサイズ（単調増加の検知用） */
-  summaryTokenCount: number;
-  summaryCharCount: number;
-
-  /** Tier A の総件数（リトリーバルで全件取得されるため線形コスト） */
-  tierATotalCount: number;
-
   /** 各フェーズのレイテンシ（ms）。計測できなかった場合は undefined */
   latency: {
     retrieve?: number;
@@ -55,11 +44,6 @@ export function createChatMetrics(userId: string, characterId: string): ChatMetr
     characterId,
     timestamp: new Date().toISOString(),
     promptTokens: { system: 0, summary: 0, memory: 0, messages: 0, total: 0 },
-    retrievedTierACount: 0,
-    retrievedTierBCount: 0,
-    summaryTokenCount: 0,
-    summaryCharCount: 0,
-    tierATotalCount: 0,
     latency: {},
     dynamodb: {},
   };
@@ -71,11 +55,6 @@ export function emitChatMetricsLog(metrics: ChatMetrics): void {
     userId: metrics.userId,
     characterId: metrics.characterId,
     promptTokens: metrics.promptTokens,
-    retrievedTierACount: metrics.retrievedTierACount,
-    retrievedTierBCount: metrics.retrievedTierBCount,
-    summaryTokenCount: metrics.summaryTokenCount,
-    summaryCharCount: metrics.summaryCharCount,
-    tierATotalCount: metrics.tierATotalCount,
     latencyMs: metrics.latency,
     dynamodbRcu: metrics.dynamodb,
   });
@@ -87,8 +66,6 @@ export function emitChatMetricsEMF(metrics: ChatMetrics): void {
 
   const emfMetrics: EmfMetricDefinition[] = [
     { name: 'PromptTotalTokens', value: metrics.promptTokens.total, unit: 'Count' },
-    { name: 'TierACount', value: metrics.tierATotalCount, unit: 'Count' },
-    { name: 'MemorySummaryTokens', value: metrics.summaryTokenCount, unit: 'Count' },
   ];
 
   if (metrics.latency.llmTtfb !== undefined) {
@@ -121,26 +98,21 @@ export function emitChatMetricsEMF(metrics: ChatMetrics): void {
   console.log(payload);
 }
 
-/** 圧縮バッチ 1 回分の計測値。 */
+/** 集約（consolidation）バッチ 1 回分の計測値。 */
 export interface BatchMetrics {
   userId: string;
   characterId: string;
   timestamp: string;
   messageCount: number;
-  /** 圧縮後の MemorySummary トークン数（単調増加の検知用） */
-  summaryTokenCount: number;
-  summaryCharCount: number;
   latencyMs?: number;
 }
 
 /** L1: バッチ計測の構造化ログを emit する。 */
 export function emitBatchMetricsLog(metrics: BatchMetrics): void {
-  logger.info('[batch-observability] 圧縮バッチ計測', {
+  logger.info('[batch-observability] 集約バッチ計測', {
     userId: metrics.userId,
     characterId: metrics.characterId,
     messageCount: metrics.messageCount,
-    summaryTokenCount: metrics.summaryTokenCount,
-    summaryCharCount: metrics.summaryCharCount,
     latencyMs: metrics.latencyMs,
   });
 }
@@ -150,7 +122,6 @@ export function emitBatchMetricsEMF(metrics: BatchMetrics): void {
   const environment = process.env.LIVETALK_ENV ?? process.env.NODE_ENV ?? 'unknown';
 
   const emfMetrics: EmfMetricDefinition[] = [
-    { name: 'MemorySummaryTokens', value: metrics.summaryTokenCount, unit: 'Count' },
     { name: 'CompressedMessageCount', value: metrics.messageCount, unit: 'Count' },
   ];
 

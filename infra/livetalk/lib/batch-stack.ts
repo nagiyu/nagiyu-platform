@@ -26,17 +26,16 @@ export interface LiveTalkBatchStackProps extends cdk.StackProps {
 /**
  * LiveTalk バッチ処理スタック（Phase 3c / Issue #3281、Phase 4c / Issue #3329）
  *
- * 圧縮要約・活動時間学習・勉強・通知・集約（consolidation）・acquire の各バッチ Lambda を管理する。
- * - compress: 日次 JST 03:00（UTC 18:00）
+ * 活動時間学習・通知・集約（consolidation）・acquire の各バッチ Lambda を管理する。
  * - learn-user-activity: 週次 JST 日曜 03:00（UTC 土曜 18:00）
- * - study: 毎時 0 分
  * - notify: 毎時 30 分
  * - consolidate: 毎時 15 分（リブトーク知識再設計 P1 / Issue #3697、shadow build）
  * - acquire: 毎時 45 分（リブトーク知識再設計 P3 / Issue #3699。Web「取得だけ」バッチ）
+ * - 旧 compress（圧縮要約）・study（勉強）バッチはリブトーク知識・記憶再設計 P5 で撤去済み
+ *   （consolidate・acquire が後継）。
  * - DLQ / IAM Role は Lambda ごとに独立（障害切り分け・権限最小化）
  */
 export class LiveTalkBatchStack extends cdk.Stack {
-  public readonly batchFunction: lambda.Function;
   public readonly learnActivityFunction: lambda.Function;
 
   constructor(scope: Construct, id: string, props: LiveTalkBatchStackProps) {
@@ -70,78 +69,9 @@ export class LiveTalkBatchStack extends cdk.Stack {
       globalIndexes: ['GSI1', 'GSI3', 'GSI4'],
     });
 
-    // DLQ（失敗時の保持）
-    const dlq = new sqs.Queue(this, 'BatchDlq', {
-      queueName: `nagiyu-livetalk-batch-dlq-${environment}`,
-      retentionPeriod: cdk.Duration.days(7),
-    });
-
-    // Batch Lambda 実行ロール
-    const executionRole = new iam.Role(this, 'BatchExecutionRole', {
-      roleName: `nagiyu-livetalk-batch-execution-role-${environment}`,
-      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
-      ],
-    });
-
-    // DynamoDB 読み書き権限
-    dynamoTable.grantReadWriteData(executionRole);
-
-    // DLQ 送信権限
-    dlq.grantSendMessages(executionRole);
-
-    // ErrorEvents 書き込み権限
-    grantErrorEventsWrite(this, executionRole, environment);
-
-    // Lambda 関数
-    this.batchFunction = new lambda.Function(this, 'BatchFunction', {
-      functionName: `nagiyu-livetalk-batch-compress-${environment}`,
-      runtime: lambda.Runtime.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(batchRepository, {
-        tagOrDigest: 'latest',
-        cmd: ['services/livetalk/batch/dist/src/handlers/compress-conversations.handler'],
-      }),
-      handler: lambda.Handler.FROM_IMAGE,
-      role: executionRole,
-      memorySize: 512,
-      timeout: cdk.Duration.minutes(15),
-      environment: {
-        NODE_ENV: environment,
-        LIVETALK_ENV: environment,
-        DYNAMODB_TABLE_NAME: dynamoTableName,
-        OPENAI_API_KEY: openAiApiKey,
-        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
-        TZ: 'Asia/Tokyo',
-      },
-      deadLetterQueue: dlq,
-      tracing: lambda.Tracing.ACTIVE,
-      logRetention: logs.RetentionDays.ONE_MONTH,
-    });
-
-    // EventBridge: 毎日 JST 03:00（= UTC 18:00 前日）に実行
-    const dailyRule = new events.Rule(this, 'DailyCompressRule', {
-      ruleName: `livetalk-batch-compress-${environment}`,
-      description: 'LiveTalk 圧縮要約バッチ（日次 JST 03:00）',
-      schedule: events.Schedule.cron({
-        minute: '0',
-        hour: '18',
-        day: '*',
-        month: '*',
-        year: '*',
-      }),
-    });
-    dailyRule.addTarget(
-      new targets.LambdaFunction(this.batchFunction, {
-        deadLetterQueue: dlq,
-        maxEventAge: cdk.Duration.hours(2),
-        retryAttempts: 1,
-      })
-    );
-
     // ---- ユーザー活動時間学習バッチ（Phase 4c / Issue #3329）----
 
-    // 学習バッチ専用 DLQ（compress バッチと障害切り分けのため独立）
+    // 学習バッチ専用 DLQ（他バッチと障害切り分けのため独立）
     const learnActivityDlq = new sqs.Queue(this, 'LearnActivityDlq', {
       queueName: `nagiyu-livetalk-learn-activity-dlq-${environment}`,
       retentionPeriod: cdk.Duration.days(7),
@@ -201,71 +131,6 @@ export class LiveTalkBatchStack extends cdk.Stack {
       })
     );
 
-    // ---- 勉強バッチ（Phase 5a / Issue #3343）----
-
-    // 勉強バッチ専用 DLQ
-    const studyDlq = new sqs.Queue(this, 'StudyDlq', {
-      queueName: `nagiyu-livetalk-study-dlq-${environment}`,
-      retentionPeriod: cdk.Duration.days(7),
-    });
-
-    // 勉強バッチ専用 IAM Role（OpenAI 権限が必要）
-    const studyRole = new iam.Role(this, 'StudyExecutionRole', {
-      roleName: `nagiyu-livetalk-study-role-${environment}`,
-      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
-      ],
-    });
-    dynamoTable.grantReadWriteData(studyRole);
-    studyDlq.grantSendMessages(studyRole);
-    grantErrorEventsWrite(this, studyRole, environment);
-
-    // 勉強バッチ Lambda
-    const studyFunction = new lambda.Function(this, 'StudyFunction', {
-      functionName: `nagiyu-livetalk-batch-study-${environment}`,
-      runtime: lambda.Runtime.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(batchRepository, {
-        tagOrDigest: 'latest',
-        cmd: ['services/livetalk/batch/dist/src/handlers/study.handler'],
-      }),
-      handler: lambda.Handler.FROM_IMAGE,
-      role: studyRole,
-      memorySize: 512,
-      timeout: cdk.Duration.minutes(15),
-      environment: {
-        NODE_ENV: environment,
-        LIVETALK_ENV: environment,
-        DYNAMODB_TABLE_NAME: dynamoTableName,
-        OPENAI_API_KEY: openAiApiKey,
-        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
-        TZ: 'Asia/Tokyo',
-      },
-      deadLetterQueue: studyDlq,
-      tracing: lambda.Tracing.ACTIVE,
-      logRetention: logs.RetentionDays.ONE_MONTH,
-    });
-
-    // EventBridge: 毎時 0 分に実行（高頻度、ユーザーごとに判定で間引く）
-    const hourlyStudyRule = new events.Rule(this, 'HourlyStudyRule', {
-      ruleName: `livetalk-batch-study-${environment}`,
-      description: 'LiveTalk 勉強バッチ（毎時 JST）',
-      schedule: events.Schedule.cron({
-        minute: '0',
-        hour: '*',
-        day: '*',
-        month: '*',
-        year: '*',
-      }),
-    });
-    hourlyStudyRule.addTarget(
-      new targets.LambdaFunction(studyFunction, {
-        deadLetterQueue: studyDlq,
-        maxEventAge: cdk.Duration.hours(1),
-        retryAttempts: 1,
-      })
-    );
-
     // ---- 通知バッチ（Phase 5d / Issue #3346）----
 
     // 通知バッチ専用 DLQ
@@ -313,7 +178,8 @@ export class LiveTalkBatchStack extends cdk.Stack {
       logRetention: logs.RetentionDays.ONE_MONTH,
     });
 
-    // EventBridge: 毎時 30 分に実行（study バッチと被りを避けるため offset）
+    // EventBridge: 毎時 30 分に実行（consolidate=15分・acquire=45分と衝突回避。毎時 0 分は旧
+    // study バッチの撤去により現在空きスロット）
     const hourlyNotifyRule = new events.Rule(this, 'HourlyNotifyRule', {
       ruleName: `livetalk-batch-notify-${environment}`,
       description: 'LiveTalk 通知バッチ（毎時 JST）',
@@ -379,7 +245,7 @@ export class LiveTalkBatchStack extends cdk.Stack {
       logRetention: logs.RetentionDays.ONE_MONTH,
     });
 
-    // EventBridge: 毎時 15 分に実行（study=0分・notify=30分と衝突回避）
+    // EventBridge: 毎時 15 分に実行（notify=30分・acquire=45分と衝突回避）
     const hourlyConsolidateRule = new events.Rule(this, 'HourlyConsolidateRule', {
       ruleName: `livetalk-batch-consolidate-${environment}`,
       description: 'LiveTalk 集約バッチ（毎時 JST）',
@@ -449,7 +315,7 @@ export class LiveTalkBatchStack extends cdk.Stack {
       logRetention: logs.RetentionDays.ONE_MONTH,
     });
 
-    // EventBridge: 毎時 45 分に実行（study=0分・consolidate=15分・notify=30分と衝突回避）
+    // EventBridge: 毎時 45 分に実行（consolidate=15分・notify=30分と衝突回避）
     const hourlyAcquireRule = new events.Rule(this, 'HourlyAcquireRule', {
       ruleName: `livetalk-batch-acquire-${environment}`,
       description: 'LiveTalk acquire バッチ（毎時 JST）',
@@ -476,16 +342,6 @@ export class LiveTalkBatchStack extends cdk.Stack {
     cdk.Tags.of(this).add('Component', 'livetalk-batch');
 
     // CloudFormation Outputs
-    new cdk.CfnOutput(this, 'BatchFunctionArn', {
-      value: this.batchFunction.functionArn,
-      description: 'LiveTalk Batch Lambda Function ARN',
-    });
-
-    new cdk.CfnOutput(this, 'BatchDlqUrl', {
-      value: dlq.queueUrl,
-      description: 'LiveTalk Batch DLQ URL',
-    });
-
     new cdk.CfnOutput(this, 'LearnActivityFunctionArn', {
       value: this.learnActivityFunction.functionArn,
       description: 'LiveTalk Learn User Activity Lambda Function ARN',
@@ -494,16 +350,6 @@ export class LiveTalkBatchStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'LearnActivityDlqUrl', {
       value: learnActivityDlq.queueUrl,
       description: 'LiveTalk Learn User Activity DLQ URL',
-    });
-
-    new cdk.CfnOutput(this, 'StudyFunctionArn', {
-      value: studyFunction.functionArn,
-      description: 'LiveTalk Study Lambda Function ARN',
-    });
-
-    new cdk.CfnOutput(this, 'StudyDlqUrl', {
-      value: studyDlq.queueUrl,
-      description: 'LiveTalk Study DLQ URL',
     });
 
     new cdk.CfnOutput(this, 'NotifyFunctionArn', {

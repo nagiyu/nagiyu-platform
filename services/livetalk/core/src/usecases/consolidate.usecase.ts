@@ -384,8 +384,6 @@ export async function consolidate(
       characterId,
       timestamp: new Date().toISOString(),
       messageCount: messages.length,
-      summaryTokenCount: 0,
-      summaryCharCount: 0,
       latencyMs: Math.round(performance.now() - batchStart),
     };
     emitBatchMetricsLog(batchMetrics);

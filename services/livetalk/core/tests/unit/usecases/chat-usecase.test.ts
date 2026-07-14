@@ -49,7 +49,6 @@ function makeLLMClient(chunks: string[]): ILLMClient {
       needsStudy: false,
       normalizedTopic: '',
     })) as unknown as ILLMClient['chatStructured'],
-    summarize: jest.fn(async () => ({ mergedSummary: '', newMemoryCandidates: [] })),
   };
 }
 
@@ -524,7 +523,6 @@ describe('runChatUseCase', () => {
           needsStudy: false,
           normalizedTopic: '',
         })) as unknown as ILLMClient['chatStructured'],
-        summarize: jest.fn(async () => ({ mergedSummary: '', newMemoryCandidates: [] })),
       };
       const voice = makeVoiceClient();
       const repo = makeRepo();

@@ -20,27 +20,8 @@ const synth = (environment = 'dev', overrides = {}) => {
 };
 
 describe('LiveTalkBatchStack', () => {
-  it('バッチ用 Lambda 関数が存在する', () => {
-    const { template } = synth();
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      FunctionName: Match.stringLikeRegexp('livetalk-batch-compress'),
-    });
-  });
-
   it('学習バッチ用 Lambda 関数が存在する', () => {
     const { template } = synth();
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      FunctionName: Match.stringLikeRegexp('livetalk-batch-learn-user-activity'),
-    });
-  });
-
-  it('バッチ Lambda を 2 つ作成する（圧縮 + 学習）', () => {
-    // logRetention は LogRetention 用の provider Lambda を別途生成するため、
-    // AWS::Lambda::Function の総数ではなく FunctionName で個別に検証する。
-    const { template } = synth();
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      FunctionName: Match.stringLikeRegexp('livetalk-batch-compress'),
-    });
     template.hasResourceProperties('AWS::Lambda::Function', {
       FunctionName: Match.stringLikeRegexp('livetalk-batch-learn-user-activity'),
     });
@@ -83,18 +64,6 @@ describe('LiveTalkBatchStack', () => {
     });
   });
 
-  it('圧縮バッチ Lambda 環境変数に TZ=Asia/Tokyo が含まれる', () => {
-    const { template } = synth();
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      FunctionName: Match.stringLikeRegexp('livetalk-batch-compress'),
-      Environment: {
-        Variables: Match.objectLike({
-          TZ: 'Asia/Tokyo',
-        }),
-      },
-    });
-  });
-
   it('学習バッチ Lambda には OPENAI_API_KEY を含めない', () => {
     const { stack } = synth();
     const template = Template.fromStack(stack);
@@ -108,16 +77,9 @@ describe('LiveTalkBatchStack', () => {
     expect(vars.OPENAI_API_KEY).toBeUndefined();
   });
 
-  it('EventBridge ルールを 6 つ作成する（日次圧縮 + 週次学習 + 毎時勉強 + 毎時通知 + 毎時集約 + 毎時acquire）', () => {
+  it('EventBridge ルールを 4 つ作成する（週次学習 + 毎時通知 + 毎時集約 + 毎時acquire）', () => {
     const { template } = synth();
-    template.resourceCountIs('AWS::Events::Rule', 6);
-  });
-
-  it('圧縮バッチの EventBridge スケジュールは cron(0 18 * * ? *)', () => {
-    const { template } = synth();
-    template.hasResourceProperties('AWS::Events::Rule', {
-      ScheduleExpression: 'cron(0 18 * * ? *)',
-    });
+    template.resourceCountIs('AWS::Events::Rule', 4);
   });
 
   it('学習バッチの EventBridge スケジュールは週次（土曜 UTC 18:00）', () => {
@@ -127,9 +89,9 @@ describe('LiveTalkBatchStack', () => {
     });
   });
 
-  it('SQS DLQ を 6 つ作成する（圧縮 + 学習 + 勉強 + 通知 + 集約 + acquire で分離）', () => {
+  it('SQS DLQ を 4 つ作成する（学習 + 通知 + 集約 + acquire で分離）', () => {
     const { template } = synth();
-    template.resourceCountIs('AWS::SQS::Queue', 6);
+    template.resourceCountIs('AWS::SQS::Queue', 4);
   });
 
   it('Lambda 実行ロールを作成する', () => {
@@ -145,46 +107,9 @@ describe('LiveTalkBatchStack', () => {
     });
   });
 
-  it('勉強バッチ用 Lambda 関数が存在する', () => {
-    const { template } = synth();
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      FunctionName: Match.stringLikeRegexp('livetalk-batch-study'),
-    });
-  });
-
-  it('勉強バッチ Lambda 環境変数に TZ=Asia/Tokyo と OPENAI_API_KEY が含まれる', () => {
-    const { template } = synth();
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      FunctionName: Match.stringLikeRegexp('livetalk-batch-study'),
-      Environment: {
-        Variables: Match.objectLike({
-          TZ: 'Asia/Tokyo',
-          OPENAI_API_KEY: 'PLACEHOLDER_KEY',
-        }),
-      },
-    });
-  });
-
-  it('勉強バッチの EventBridge スケジュールは毎時（cron(0 * * * ? *)）', () => {
-    const { template } = synth();
-    template.hasResourceProperties('AWS::Events::Rule', {
-      ScheduleExpression: 'cron(0 * * * ? *)',
-    });
-  });
-
-  it('BatchFunctionArn を Outputs に出力する', () => {
-    const { template } = synth();
-    template.hasOutput('BatchFunctionArn', Match.anyValue());
-  });
-
   it('LearnActivityFunctionArn を Outputs に出力する', () => {
     const { template } = synth();
     template.hasOutput('LearnActivityFunctionArn', Match.anyValue());
-  });
-
-  it('StudyFunctionArn を Outputs に出力する', () => {
-    const { template } = synth();
-    template.hasOutput('StudyFunctionArn', Match.anyValue());
   });
 
   it('通知バッチ用 Lambda 関数が存在する', () => {

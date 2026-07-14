@@ -12,7 +12,6 @@ function makeLLMClient(canonicalSummary = '再生成された要約'): ILLMClien
     chatStructured: jest.fn(async () => ({
       canonicalSummary,
     })) as unknown as ILLMClient['chatStructured'],
-    summarize: jest.fn(),
   };
 }
 
