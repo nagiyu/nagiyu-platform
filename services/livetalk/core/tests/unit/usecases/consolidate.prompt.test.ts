@@ -20,7 +20,10 @@ describe('buildConsolidatePrompt', () => {
       candidateTopics: [],
       newMessages: [
         { role: 'user', text: '最近せいろ蒸しにハマってるんだ' },
-        { role: 'assistant', text: '野菜は蒸すと甘みが増すよ！仕上げは塩とオリーブオイルがおすすめ' },
+        {
+          role: 'assistant',
+          text: '野菜は蒸すと甘みが増すよ！仕上げは塩とオリーブオイルがおすすめ',
+        },
       ],
       webRaws: [],
     });
@@ -70,9 +73,7 @@ describe('buildConsolidatePrompt', () => {
     });
 
     const systemMessage = messages.find((m) => m.role === 'system');
-    expect(systemMessage?.content).toContain(
-      'Web 取得生データが「なし」の場合、webFacts は'
-    );
+    expect(systemMessage?.content).toContain('Web 取得生データが「なし」の場合、webFacts は');
     expect(systemMessage?.content).toContain('必ず空配列にしてください。');
   });
 
