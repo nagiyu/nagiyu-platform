@@ -432,7 +432,9 @@ jobs:
             "nagiyu-livetalk-batch-compress-$ENVIRONMENT" \
             "nagiyu-livetalk-batch-learn-user-activity-$ENVIRONMENT" \
             "nagiyu-livetalk-batch-study-$ENVIRONMENT" \
-            "nagiyu-livetalk-batch-notify-$ENVIRONMENT"; do
+            "nagiyu-livetalk-batch-notify-$ENVIRONMENT" \
+            "nagiyu-livetalk-batch-consolidate-$ENVIRONMENT" \
+            "nagiyu-livetalk-batch-acquire-$ENVIRONMENT"; do
 
             aws lambda update-function-code \
               --function-name "$FN" \
@@ -539,6 +541,8 @@ jobs:
             echo "- **Batch Lambda（学習）**: \`nagiyu-livetalk-batch-learn-user-activity-$ENVIRONMENT\`（EventBridge 週次 JST 日曜 03:00）"
             echo "- **Batch Lambda（勉強）**: \`nagiyu-livetalk-batch-study-$ENVIRONMENT\`（EventBridge 毎時）"
             echo "- **Batch Lambda（通知）**: \`nagiyu-livetalk-batch-notify-$ENVIRONMENT\`（EventBridge 毎時:30）"
+            echo "- **Batch Lambda（集約）**: \`nagiyu-livetalk-batch-consolidate-$ENVIRONMENT\`（EventBridge 毎時:15）"
+            echo "- **Batch Lambda（取得）**: \`nagiyu-livetalk-batch-acquire-$ENVIRONMENT\`（EventBridge 毎時:45）"
             echo "- **ALB DNS**: \`$ALB_DNS\`"
             echo "- **Custom Domain**: https://$CUSTOM_DOMAIN"
             echo ""
