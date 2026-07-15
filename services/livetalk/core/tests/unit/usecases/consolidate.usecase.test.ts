@@ -76,7 +76,7 @@ const makeTopicResult = (overrides: Partial<TopicResult> = {}): TopicResult => (
   subject: 'コーヒー',
   category: '飲み物',
   canonicalSummary: 'ユーザーはコーヒーが好き',
-  requestText: '',
+  sourceRequestIndices: [],
   selfFacts: [makeSelfFact()],
   webFacts: [makeWebFact()],
   ...overrides,
@@ -690,8 +690,8 @@ describe('consolidate', () => {
     expect(candidateLines).toHaveLength(TOPIC_ROUTING_MAX_CANDIDATES);
   });
 
-  describe('依頼由来 provenance（甲-1）', () => {
-    it('request-origin WebRaw を LLM が該当 Topic に requestText エコーすると Topic に依頼フックが焼かれる', async () => {
+  describe('依頼由来 provenance（甲-1 / index 参照方式）', () => {
+    it('request-origin WebRaw を LLM が sourceRequestIndices:[0] で指すと、Topic に WebRaw の権威ある原文・日時が焼かれる', async () => {
       const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
       tick = fixedNow;
       const requestedAt = fixedNow - 3_600_000;
@@ -706,7 +706,8 @@ describe('consolidate', () => {
         RequestedAt: requestedAt,
       });
 
-      const llmClient = makeLLMClient([makeTopicResult({ requestText: '最新アニメ情報を調べて' })]);
+      // LLM は依頼文をエコーせず、番号（index）だけを返す
+      const llmClient = makeLLMClient([makeTopicResult({ sourceRequestIndices: [0] })]);
 
       const outcome = await consolidate('u1', 'hiyori', {
         topicRepo,
@@ -726,17 +727,22 @@ describe('consolidate', () => {
       expect(headers[0].RequestedAt).toBe(requestedAt);
     });
 
-    it('突合できない requestText（今回バッチに該当する request WebRaw が無い）は捏造とみなし依頼フックを付けない', async () => {
+    it('範囲外 index（requestWebRaws は 1 件しかないのに [5] を指す）は無視して依頼フックを付けない', async () => {
       const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
       tick = fixedNow;
-      await messageRepo.create({
+      await webRawRepo.put({
         UserID: 'u1',
         CharacterID: 'hiyori',
-        Role: 'user',
-        Text: 'コーヒーが好き',
+        Query: '最新アニメ情報',
+        RawText: '今期は〇〇が人気です',
+        SourceUrls: ['https://example.com'],
+        Origin: 'request',
+        RequestText: '最新アニメ情報を調べて',
+        RequestedAt: fixedNow - 3_600_000,
       });
 
-      const llmClient = makeLLMClient([makeTopicResult({ requestText: '捏造された依頼文' })]);
+      // LLM の捏造・取り違えを想定した範囲外 index
+      const llmClient = makeLLMClient([makeTopicResult({ sourceRequestIndices: [5] })]);
 
       const outcome = await consolidate('u1', 'hiyori', {
         topicRepo,
@@ -756,7 +762,37 @@ describe('consolidate', () => {
       expect(headers[0].RequestedAt).toBeUndefined();
     });
 
-    it('既存 Topic への merge で今回依頼なしの場合、既存の依頼フックを引き継ぐ', async () => {
+    it('sourceRequestIndices が空配列なら依頼フックを付けない', async () => {
+      const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
+      tick = fixedNow;
+      await messageRepo.create({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Role: 'user',
+        Text: 'コーヒーが好き',
+      });
+
+      const llmClient = makeLLMClient([makeTopicResult({ sourceRequestIndices: [] })]);
+
+      const outcome = await consolidate('u1', 'hiyori', {
+        topicRepo,
+        messageRepo,
+        webRawRepo,
+        cursorRepo,
+        llmClient,
+        embeddingClient: makeEmbeddingClient(),
+        characterName: 'ひより',
+        now: () => fixedNow,
+      });
+
+      expect(outcome).toBe('consolidated');
+      const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
+      expect(headers).toHaveLength(1);
+      expect(headers[0].RequestText).toBeUndefined();
+      expect(headers[0].RequestedAt).toBeUndefined();
+    });
+
+    it('既存 Topic への merge で今回 indices が空の場合、既存の依頼フックを引き継ぐ', async () => {
       const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
 
       const existing = await topicRepo.putTopic({
@@ -802,44 +838,7 @@ describe('consolidate', () => {
       expect(headers[0].RequestedAt).toBe(existing.RequestedAt);
     });
 
-    it('LLM エコーの requestText が原文と大小・空白違いでも、保存される RequestText は権威ある WebRaw 原文になる（fresh-eyes レビュー軽微#2）', async () => {
-      const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
-      tick = fixedNow;
-      const requestedAt = fixedNow - 3_600_000;
-      await webRawRepo.put({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Query: '新幹線 プレミアム席',
-        RawText: '新幹線のプレミアム席は〇〇です',
-        SourceUrls: ['https://example.com'],
-        Origin: 'request',
-        RequestText: '新幹線のプレミアム席',
-        RequestedAt: requestedAt,
-      });
-
-      // LLM のエコーは大文字小文字・前後空白が原文とずれている想定
-      const llmClient = makeLLMClient([makeTopicResult({ requestText: ' 新幹線のプレミアム席 ' })]);
-
-      const outcome = await consolidate('u1', 'hiyori', {
-        topicRepo,
-        messageRepo,
-        webRawRepo,
-        cursorRepo,
-        llmClient,
-        embeddingClient: makeEmbeddingClient(),
-        characterName: 'ひより',
-        now: () => fixedNow,
-      });
-
-      expect(outcome).toBe('consolidated');
-      const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
-      expect(headers).toHaveLength(1);
-      // 保存されるのは LLM エコー（前後空白付き）ではなく WebRaw の権威ある原文
-      expect(headers[0].RequestText).toBe('新幹線のプレミアム席');
-      expect(headers[0].RequestedAt).toBe(requestedAt);
-    });
-
-    it('既存 Topic への merge で group 先頭エントリが依頼・最終エントリが非依頼でも依頼フックが解決される（fresh-eyes レビュー軽微#7）', async () => {
+    it('既存 Topic への merge で group の複数エントリのうち片方だけ index を持つ場合でも依頼フックが解決される（fresh-eyes レビュー軽微#7 相当）', async () => {
       const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
 
       await topicRepo.putTopic({
@@ -866,20 +865,20 @@ describe('consolidate', () => {
         RequestedAt: requestedAt,
       });
 
-      // group 先頭エントリ（1件目）は依頼を持つが、group 内で採用される最終エントリ
-      // （last、2件目）は依頼なし（requestText: ''）
+      // group 先頭エントリ（1件目）は index を持つが、group 内で採用される最終エントリ
+      // （last、2件目）は index を持たない（sourceRequestIndices: []）
       const llmClient = makeLLMClient([
         makeTopicResult({
           targetTopicId: 'TOPIC-EXISTING',
           canonicalSummary: '1件目の要約',
-          requestText: 'コーヒーの新情報を調べて',
+          sourceRequestIndices: [0],
           selfFacts: [makeSelfFact({ text: '1件目の自己事実' })],
           webFacts: [makeWebFact({ text: '1件目のWeb事実' })],
         }),
         makeTopicResult({
           targetTopicId: 'TOPIC-EXISTING',
           canonicalSummary: '2件目（最終）の要約',
-          requestText: '',
+          sourceRequestIndices: [],
           selfFacts: [makeSelfFact({ text: '2件目の自己事実' })],
           webFacts: [makeWebFact({ text: '2件目のWeb事実' })],
         }),
@@ -899,13 +898,60 @@ describe('consolidate', () => {
       expect(outcome).toBe('consolidated');
       const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
       expect(headers).toHaveLength(1);
-      // META は last（2件目）の要約を採用しつつ、依頼フックは 1 件目から解決される
+      // META は last（2件目）の要約を採用しつつ、依頼フックは 1 件目の index から解決される
       expect(headers[0].CanonicalSummary).toBe('2件目（最終）の要約');
       expect(headers[0].RequestText).toBe('コーヒーの新情報を調べて');
       expect(headers[0].RequestedAt).toBe(requestedAt);
     });
 
-    it('既存 Topic への merge で今回依頼ありの場合、新しい依頼フックで上書きする', async () => {
+    it('複数 index が指定された場合、最新の RequestedAt を持つ依頼が採用される', async () => {
+      const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
+      tick = fixedNow;
+      const olderRequestedAt = fixedNow - 100_000;
+      const newerRequestedAt = fixedNow - 500;
+      await webRawRepo.put({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Query: 'コーヒー 過去の依頼',
+        RawText: '過去の調査結果',
+        SourceUrls: [],
+        Origin: 'request',
+        RequestText: '古い依頼文',
+        RequestedAt: olderRequestedAt,
+      });
+      await webRawRepo.put({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Query: 'コーヒー 最新情報',
+        RawText: '新しい調査結果',
+        SourceUrls: [],
+        Origin: 'request',
+        RequestText: '新しい依頼文',
+        RequestedAt: newerRequestedAt,
+      });
+
+      // 両方の index（0, 1）を指定する
+      const llmClient = makeLLMClient([makeTopicResult({ sourceRequestIndices: [0, 1] })]);
+
+      const outcome = await consolidate('u1', 'hiyori', {
+        topicRepo,
+        messageRepo,
+        webRawRepo,
+        cursorRepo,
+        llmClient,
+        embeddingClient: makeEmbeddingClient(),
+        characterName: 'ひより',
+        now: () => fixedNow,
+      });
+
+      expect(outcome).toBe('consolidated');
+      const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
+      expect(headers).toHaveLength(1);
+      expect(headers[0].RequestText).toBe('新しい依頼文');
+      expect(headers[0].RequestedAt).toBe(newerRequestedAt);
+    });
+
+    it('既存 Topic への merge で今回 index ありの場合、新しい依頼フックで上書きする', async () => {
       const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
 
       await topicRepo.putTopic({
@@ -938,7 +984,7 @@ describe('consolidate', () => {
         makeTopicResult({
           targetTopicId: 'TOPIC-EXISTING',
           canonicalSummary: '更新された要約',
-          requestText: '今度はコーヒーの新情報を調べて',
+          sourceRequestIndices: [0],
         }),
       ]);
 

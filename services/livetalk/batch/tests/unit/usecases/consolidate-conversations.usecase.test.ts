@@ -22,7 +22,7 @@ const makeTopicResult = () => ({
   subject: 'コーヒー',
   category: '飲み物',
   canonicalSummary: 'ユーザーはコーヒーが好き',
-  requestText: '',
+  sourceRequestIndices: [],
   selfFacts: [],
   webFacts: [],
 });

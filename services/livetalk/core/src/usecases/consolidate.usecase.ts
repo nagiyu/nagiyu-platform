@@ -54,82 +54,57 @@ function truncateRoutingText(text: string): string {
 }
 
 /**
- * 依頼文の突合キーを正規化する（甲-1: 依頼由来 provenance）。
- * LLM がエコーした requestText と、今回バッチの request-origin WebRaw を照合するために使う。
+ * 依頼由来 provenance を index 参照方式で紐付けるための、request-origin かつ
+ * 依頼文・依頼日時が揃った WebRaw（甲-1）。
  */
-function normalizeRequestText(text: string): string {
-  return text.trim().toLowerCase();
-}
+type RequestWebRaw = WebRawEntity & { RequestText: string; RequestedAt: number };
 
 /**
- * 突合マップの 1 エントリ。`requestText` は権威ある原文（WebRaw.RequestText、trim なし）。
+ * 今回バッチの request-origin WebRaw のうち、依頼文・依頼日時が揃ったものだけを
+ * 順序付きリストとして抽出する（甲-1: 依頼由来 provenance）。
+ * このリストの添字が、LLM に提示する `[依頼 #N]` の N になる。
  */
-interface RequestMapEntry {
-  requestText: string;
-  requestedAt: number;
-}
-
-/**
- * 今回バッチの request-origin WebRaw から「正規化依頼文 → 権威ある原文・RequestedAt」の
- * 突合マップを作る（甲-1: 依頼由来 provenance）。
- * 日時・原文は必ずコード側（WebRaw.RequestText/RequestedAt、StudyTopic 由来）が持ち、
- * LLM のエコー文字列は突合キーとしてのみ使う（fresh-eyes レビュー軽微#2: 保存する
- * RequestText を LLM エコーでなく権威ある原文にするため）。
- * 同一キーが複数あれば最新の RequestedAt を優先する。
- */
-function buildRequestMap(webraws: WebRawEntity[]): Map<string, RequestMapEntry> {
-  const map = new Map<string, RequestMapEntry>();
-  for (const w of webraws) {
-    if (w.Origin !== 'request' || w.RequestText === undefined || w.RequestedAt === undefined) {
-      continue;
-    }
-    const key = normalizeRequestText(w.RequestText);
-    const existing = map.get(key);
-    if (existing === undefined || w.RequestedAt > existing.requestedAt) {
-      map.set(key, { requestText: w.RequestText, requestedAt: w.RequestedAt });
-    }
-  }
-  return map;
-}
-
-/**
- * LLM がエコーした requestText を今回バッチの `requestMap` と突合し、依頼フックを解決する
- * （甲-1: 依頼由来 provenance）。LLM のエコー文字列は突合キーとして使うだけで、実際に保存
- * するのは map 側の権威ある原文（WebRaw.RequestText）とする（LLM エコーは要約・整形で
- * 原文からずれうるため）。突合できない requestText（今回バッチに該当する request-origin
- * WebRaw が無い）は LLM の捏造とみなし、フック無し（undefined）として無視する。
- */
-function resolveRequestHook(
-  requestText: string,
-  requestMap: Map<string, RequestMapEntry>
-): { RequestText: string; RequestedAt: number } | undefined {
-  const rt = requestText.trim();
-  if (rt === '') return undefined;
-
-  const entry = requestMap.get(normalizeRequestText(rt));
-  if (entry === undefined) return undefined;
-
-  return { RequestText: entry.requestText, RequestedAt: entry.requestedAt };
+function buildRequestWebRaws(webraws: WebRawEntity[]): RequestWebRaw[] {
+  return webraws.filter(
+    (w): w is RequestWebRaw =>
+      w.Origin === 'request' && w.RequestText !== undefined && w.RequestedAt !== undefined
+  );
 }
 
 type TopicResult = ConsolidationRaw['topics'][number];
 
 /**
- * 既存 Topic への merge グループについて、group.entries の中で最初に解決できる
- * （requestMap にヒットする）requestText を使って依頼フックを解決する
- * （fresh-eyes レビュー軽微#7）。従来は group 内で最後に採用されるエントリ
- * （`last`）の requestText だけを見ていたため、依頼フックを持つ発話が別エントリに
- * あると取りこぼしていた。
+ * LLM が返した `sourceRequestIndices`（[依頼 #N] の N の配列）から依頼フックを解決する
+ * （甲-1: 依頼由来 provenance、index 参照方式）。日時・原文は必ずコード側（`requestWebRaws`、
+ * WebRaw.RequestText/RequestedAt 由来）から取り、LLM は番号を返すだけにする（verbatim
+ * エコー＋文字列突合は LLM の整形でずれて不安定だったため廃止）。
+ * 範囲外・非整数の index（LLM の捏造・取り違え）は無視する。複数 index が解決できた場合は
+ * 最新の RequestedAt を採用する。
+ */
+function resolveRequestHookByIndices(
+  indices: number[],
+  requestWebRaws: RequestWebRaw[]
+): { RequestText: string; RequestedAt: number } | undefined {
+  let best: RequestWebRaw | undefined;
+  for (const idx of indices) {
+    if (!Number.isInteger(idx) || idx < 0 || idx >= requestWebRaws.length) continue;
+    const w = requestWebRaws[idx];
+    if (best === undefined || w.RequestedAt > best.RequestedAt) best = w;
+  }
+  return best ? { RequestText: best.RequestText, RequestedAt: best.RequestedAt } : undefined;
+}
+
+/**
+ * 既存 Topic への merge グループについて、group.entries 全体の sourceRequestIndices を
+ * 集めて依頼フックを解決する（fresh-eyes レビュー軽微#7 相当）。group 内のどのエントリが
+ * 依頼由来かに関わらず、最新の依頼を取りこぼさず採用する。
  */
 function resolveGroupRequestHook(
   entries: TopicResult[],
-  requestMap: Map<string, RequestMapEntry>
+  requestWebRaws: RequestWebRaw[]
 ): { RequestText: string; RequestedAt: number } | undefined {
-  for (const entry of entries) {
-    const hook = resolveRequestHook(entry.requestText, requestMap);
-    if (hook) return hook;
-  }
-  return undefined;
+  const allIndices = entries.flatMap((e) => e.sourceRequestIndices);
+  return resolveRequestHookByIndices(allIndices, requestWebRaws);
 }
 
 /**
@@ -317,9 +292,12 @@ export async function consolidate(
   );
 
   // ---- LLM 呼び出し ----
-  // 今回バッチの request-origin WebRaw から突合マップを作る（甲-1: 依頼由来 provenance）。
-  // LLM には依頼文をエコーさせるだけで、権威ある RequestedAt は必ずこのマップ（コード側）から取る。
-  const requestMap = buildRequestMap(webraws);
+  // 今回バッチの request-origin WebRaw から、index 参照方式で使う「採用可能な依頼 WebRaw」の
+  // 順序付きリストを作る（甲-1: 依頼由来 provenance）。この配列の添字が LLM に見せる
+  // `[依頼 #N]` の N になる。LLM には番号だけを返させ、権威ある依頼文・RequestedAt は
+  // 必ずこのリスト（コード側）から取る。
+  const requestWebRaws = buildRequestWebRaws(webraws);
+  const requestIndexByRawId = new Map<string, number>(requestWebRaws.map((w, i) => [w.RawID, i]));
 
   const promptMessages = buildConsolidatePrompt({
     characterName,
@@ -337,6 +315,7 @@ export async function consolidate(
       origin: w.Origin,
       requestText: w.RequestText,
       requestedAtLabel: w.RequestedAt !== undefined ? formatJstMonthDay(w.RequestedAt) : undefined,
+      requestIndex: requestIndexByRawId.get(w.RawID),
     })),
   });
 
@@ -364,7 +343,10 @@ export async function consolidate(
       const topicEmbedding = await embeddingClient.embed(
         `${topicResult.subject}\n${topicResult.canonicalSummary}`
       );
-      const requestHook = resolveRequestHook(topicResult.requestText, requestMap);
+      const requestHook = resolveRequestHookByIndices(
+        topicResult.sourceRequestIndices,
+        requestWebRaws
+      );
       await topicRepo.putTopic({
         UserID: userId,
         CharacterID: characterId,
@@ -402,10 +384,10 @@ export async function consolidate(
       characterId,
       topicId: group.topicId,
     });
-    // group.entries の中で最初に解決できる requestText を使う（fresh-eyes レビュー軽微#7）。
-    // 採用エントリ（last）の requestText だけでは、依頼フックが別エントリにある場合に
-    // 取りこぼす。
-    const requestHook = resolveGroupRequestHook(group.entries, requestMap);
+    // group.entries 全体の sourceRequestIndices から依頼フックを解決する
+    // （fresh-eyes レビュー軽微#7）。採用エントリ（last）の index だけでは、依頼フックが
+    // 別エントリにある場合に取りこぼす。
+    const requestHook = resolveGroupRequestHook(group.entries, requestWebRaws);
 
     let topicId: string;
     if (current) {
