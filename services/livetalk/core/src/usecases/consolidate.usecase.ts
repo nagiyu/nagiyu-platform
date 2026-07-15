@@ -294,7 +294,7 @@ export async function consolidate(
         Subject: topicResult.subject,
         CanonicalSummary: topicResult.canonicalSummary,
         Category: topicResult.category,
-        Care: topicResult.selfFacts.length > 0 ? 1 : 0,
+        Care: countSelfFacts([topicResult]) > 0 ? 1 : 0,
         Embedding: topicEmbedding,
       });
       newTopicCount++;

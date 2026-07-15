@@ -322,6 +322,78 @@ describe('consolidate', () => {
     expect(putCall?.[0].Care).toBe(existing.Care);
   });
 
+  it('既存 Topic への merge で複数エントリのうち一部だけ SELF fact を含む fold は care が +1 される（グループ合算判定）', async () => {
+    const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
+
+    const existing = await topicRepo.putTopic({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      TopicID: 'TOPIC-EXISTING',
+      Subject: 'コーヒー',
+      CanonicalSummary: '以前の要約',
+      Category: '飲み物',
+      Care: 2,
+      Embedding: [1, 0],
+    });
+
+    tick = fixedNow;
+    await messageRepo.create({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Role: 'user',
+      Text: 'コーヒー好きなんだ',
+    });
+    await webRawRepo.put({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      Query: 'コーヒー 効能',
+      RawText: 'コーヒーには覚醒作用がある',
+      SourceUrls: ['https://example.com'],
+    });
+
+    const putTopicSpy = jest.spyOn(topicRepo, 'putTopic');
+
+    // 同一 Topic を指す 2 エントリ（1 グループに畳まれる）。片方は WEB only・もう片方が SELF fact を含む。
+    // countSelfFacts はグループ全エントリの合算なので、合計 > 0 → care +1 となる。
+    const llmClient = makeLLMClient([
+      makeTopicResult({
+        targetTopicId: 'TOPIC-EXISTING',
+        canonicalSummary: '自発リサーチ由来の断片',
+        selfFacts: [],
+      }),
+      makeTopicResult({
+        targetTopicId: 'TOPIC-EXISTING',
+        canonicalSummary: '会話由来を含む更新された要約',
+        selfFacts: [makeSelfFact()],
+        webFacts: [],
+      }),
+    ]);
+
+    const outcome = await consolidate('u1', 'hiyori', {
+      topicRepo,
+      messageRepo,
+      webRawRepo,
+      cursorRepo,
+      llmClient,
+      embeddingClient: makeEmbeddingClient([1, 0]),
+      characterName: 'ひより',
+      now: () => fixedNow,
+    });
+
+    expect(outcome).toBe('consolidated');
+
+    const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
+    expect(headers).toHaveLength(1);
+    expect(headers[0].TopicID).toBe('TOPIC-EXISTING');
+    // グループ合算で SELF fact ありのため care は +1（2 → 3）
+    expect(headers[0].Care).toBe(existing.Care + 1);
+
+    // META の put は 1 グループにつき 1 回（dedup 済み）で、その Care が +1 であること
+    const putCalls = putTopicSpy.mock.calls.filter((call) => call[0].TopicID === 'TOPIC-EXISTING');
+    expect(putCalls).toHaveLength(1);
+    expect(putCalls[0][0].Care).toBe(existing.Care + 1);
+  });
+
   it('同一の既存 targetTopicId を LLM が複数返しても OptimisticLockError にならない（dedup）', async () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
 
