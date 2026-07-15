@@ -1,4 +1,5 @@
 import type { ChatMessage } from '../llm-client/types.js';
+import type { WebRawOrigin } from '../entities/webraw.entity.js';
 
 /**
  * `consolidate` usecase に渡す候補 Topic 1 件分。
@@ -27,7 +28,7 @@ export interface ConsolidatePromptInput {
     rawText: string;
     sourceUrls: string[];
     /** 由来区分（甲-1: 依頼由来 provenance）。request のみ依頼文・依頼日を LLM に提示する */
-    origin: 'request' | 'auto' | 'stale';
+    origin: WebRawOrigin;
     /** 依頼文（origin === 'request' のときのみ） */
     requestText?: string;
     /** 依頼日ラベル（"M月D日" 表記。origin === 'request' のときのみ） */

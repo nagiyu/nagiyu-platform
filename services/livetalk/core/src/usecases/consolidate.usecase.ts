@@ -62,21 +62,31 @@ function normalizeRequestText(text: string): string {
 }
 
 /**
- * 今回バッチの request-origin WebRaw から「正規化依頼文 → 権威ある RequestedAt」の
+ * 突合マップの 1 エントリ。`requestText` は権威ある原文（WebRaw.RequestText、trim なし）。
+ */
+interface RequestMapEntry {
+  requestText: string;
+  requestedAt: number;
+}
+
+/**
+ * 今回バッチの request-origin WebRaw から「正規化依頼文 → 権威ある原文・RequestedAt」の
  * 突合マップを作る（甲-1: 依頼由来 provenance）。
- * 日時は必ずコード側（StudyTopic.CreatedAt 由来）が持ち、LLM には計算させない。
+ * 日時・原文は必ずコード側（WebRaw.RequestText/RequestedAt、StudyTopic 由来）が持ち、
+ * LLM のエコー文字列は突合キーとしてのみ使う（fresh-eyes レビュー軽微#2: 保存する
+ * RequestText を LLM エコーでなく権威ある原文にするため）。
  * 同一キーが複数あれば最新の RequestedAt を優先する。
  */
-function buildRequestMap(webraws: WebRawEntity[]): Map<string, number> {
-  const map = new Map<string, number>();
+function buildRequestMap(webraws: WebRawEntity[]): Map<string, RequestMapEntry> {
+  const map = new Map<string, RequestMapEntry>();
   for (const w of webraws) {
     if (w.Origin !== 'request' || w.RequestText === undefined || w.RequestedAt === undefined) {
       continue;
     }
     const key = normalizeRequestText(w.RequestText);
     const existing = map.get(key);
-    if (existing === undefined || w.RequestedAt > existing) {
-      map.set(key, w.RequestedAt);
+    if (existing === undefined || w.RequestedAt > existing.requestedAt) {
+      map.set(key, { requestText: w.RequestText, requestedAt: w.RequestedAt });
     }
   }
   return map;
@@ -84,23 +94,43 @@ function buildRequestMap(webraws: WebRawEntity[]): Map<string, number> {
 
 /**
  * LLM がエコーした requestText を今回バッチの `requestMap` と突合し、依頼フックを解決する
- * （甲-1: 依頼由来 provenance）。突合できない requestText（今回バッチに該当する request-origin
+ * （甲-1: 依頼由来 provenance）。LLM のエコー文字列は突合キーとして使うだけで、実際に保存
+ * するのは map 側の権威ある原文（WebRaw.RequestText）とする（LLM エコーは要約・整形で
+ * 原文からずれうるため）。突合できない requestText（今回バッチに該当する request-origin
  * WebRaw が無い）は LLM の捏造とみなし、フック無し（undefined）として無視する。
  */
 function resolveRequestHook(
   requestText: string,
-  requestMap: Map<string, number>
+  requestMap: Map<string, RequestMapEntry>
 ): { RequestText: string; RequestedAt: number } | undefined {
   const rt = requestText.trim();
   if (rt === '') return undefined;
 
-  const requestedAt = requestMap.get(normalizeRequestText(rt));
-  if (requestedAt === undefined) return undefined;
+  const entry = requestMap.get(normalizeRequestText(rt));
+  if (entry === undefined) return undefined;
 
-  return { RequestText: rt, RequestedAt: requestedAt };
+  return { RequestText: entry.requestText, RequestedAt: entry.requestedAt };
 }
 
 type TopicResult = ConsolidationRaw['topics'][number];
+
+/**
+ * 既存 Topic への merge グループについて、group.entries の中で最初に解決できる
+ * （requestMap にヒットする）requestText を使って依頼フックを解決する
+ * （fresh-eyes レビュー軽微#7）。従来は group 内で最後に採用されるエントリ
+ * （`last`）の requestText だけを見ていたため、依頼フックを持つ発話が別エントリに
+ * あると取りこぼしていた。
+ */
+function resolveGroupRequestHook(
+  entries: TopicResult[],
+  requestMap: Map<string, RequestMapEntry>
+): { RequestText: string; RequestedAt: number } | undefined {
+  for (const entry of entries) {
+    const hook = resolveRequestHook(entry.requestText, requestMap);
+    if (hook) return hook;
+  }
+  return undefined;
+}
 
 /**
  * LLM が返した Topic 結果の「解決先」ごとのグループ。
@@ -372,7 +402,10 @@ export async function consolidate(
       characterId,
       topicId: group.topicId,
     });
-    const requestHook = resolveRequestHook(last.requestText, requestMap);
+    // group.entries の中で最初に解決できる requestText を使う（fresh-eyes レビュー軽微#7）。
+    // 採用エントリ（last）の requestText だけでは、依頼フックが別エントリにある場合に
+    // 取りこぼす。
+    const requestHook = resolveGroupRequestHook(group.entries, requestMap);
 
     let topicId: string;
     if (current) {

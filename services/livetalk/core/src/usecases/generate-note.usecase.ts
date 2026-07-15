@@ -123,6 +123,16 @@ export async function generateNotesForUser(
       };
       await noteRepo.put(input);
       generatedCount++;
+
+      // 依頼ベースのフックが使われたかを観測できるようにする（甲-1: 依頼由来 provenance）。
+      // PII（headline 本文・依頼文そのもの）は出さず、フラグと ID のみ記録する。
+      logger.info('[generate-note] ノート生成', {
+        userId,
+        characterId,
+        topicId: topic.TopicID,
+        usedSelfHook: result.usedSelfHook,
+        usedRequestHook: result.usedRequestHook,
+      });
     } catch (err) {
       logger.warn('[generate-note] ノート生成に失敗しました（スキップして継続）', {
         userId,

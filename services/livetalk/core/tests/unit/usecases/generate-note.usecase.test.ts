@@ -1,3 +1,4 @@
+import { logger } from '@nagiyu/common';
 import { InMemorySingleTableStore } from '@nagiyu/aws';
 import { InMemoryTopicRepository } from '../../../src/repositories/in-memory-topic.repository.js';
 import { InMemoryNoteRepository } from '../../../src/repositories/in-memory-note.repository.js';
@@ -350,6 +351,35 @@ describe('generateNotesForUser', () => {
     });
 
     expect(capturedUserContent).toContain('ユーザーの依頼（あれば）：\nなし');
+  });
+
+  it('ノート生成時に usedSelfHook/usedRequestHook を観測ログへ出す（fresh-eyes レビュー軽微#3）', async () => {
+    await putTopic({ Care: 3 });
+    await putWebFact('topic-001');
+    const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => {});
+    const llmClient = makeLLMClient([makeLetter({ usedSelfHook: true, usedRequestHook: false })]);
+
+    const result = await generateNotesForUser('u1', 'hiyori', {
+      topicRepo,
+      noteRepo,
+      llmClient,
+      characterName: '桃瀬ひより',
+      ulidFactory,
+    });
+
+    expect(result.generatedCount).toBe(1);
+    expect(infoSpy).toHaveBeenCalledWith(
+      '[generate-note] ノート生成',
+      expect.objectContaining({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-001',
+        usedSelfHook: true,
+        usedRequestHook: false,
+      })
+    );
+
+    infoSpy.mockRestore();
   });
 
   it('candidateLimit で care 降順スキャン件数を絞れる', async () => {

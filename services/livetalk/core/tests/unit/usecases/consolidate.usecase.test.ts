@@ -802,6 +802,111 @@ describe('consolidate', () => {
       expect(headers[0].RequestedAt).toBe(existing.RequestedAt);
     });
 
+    it('LLM エコーの requestText が原文と大小・空白違いでも、保存される RequestText は権威ある WebRaw 原文になる（fresh-eyes レビュー軽微#2）', async () => {
+      const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
+      tick = fixedNow;
+      const requestedAt = fixedNow - 3_600_000;
+      await webRawRepo.put({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Query: '新幹線 プレミアム席',
+        RawText: '新幹線のプレミアム席は〇〇です',
+        SourceUrls: ['https://example.com'],
+        Origin: 'request',
+        RequestText: '新幹線のプレミアム席',
+        RequestedAt: requestedAt,
+      });
+
+      // LLM のエコーは大文字小文字・前後空白が原文とずれている想定
+      const llmClient = makeLLMClient([
+        makeTopicResult({ requestText: ' 新幹線のプレミアム席 ' }),
+      ]);
+
+      const outcome = await consolidate('u1', 'hiyori', {
+        topicRepo,
+        messageRepo,
+        webRawRepo,
+        cursorRepo,
+        llmClient,
+        embeddingClient: makeEmbeddingClient(),
+        characterName: 'ひより',
+        now: () => fixedNow,
+      });
+
+      expect(outcome).toBe('consolidated');
+      const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
+      expect(headers).toHaveLength(1);
+      // 保存されるのは LLM エコー（前後空白付き）ではなく WebRaw の権威ある原文
+      expect(headers[0].RequestText).toBe('新幹線のプレミアム席');
+      expect(headers[0].RequestedAt).toBe(requestedAt);
+    });
+
+    it('既存 Topic への merge で group 先頭エントリが依頼・最終エントリが非依頼でも依頼フックが解決される（fresh-eyes レビュー軽微#7）', async () => {
+      const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
+
+      await topicRepo.putTopic({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        TopicID: 'TOPIC-EXISTING',
+        Subject: 'コーヒー',
+        CanonicalSummary: '以前の要約',
+        Category: '飲み物',
+        Care: 3,
+        Embedding: [1, 0],
+      });
+
+      tick = fixedNow;
+      const requestedAt = fixedNow - 1_000;
+      await webRawRepo.put({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Query: 'コーヒー 最新情報',
+        RawText: '新しい調査結果',
+        SourceUrls: [],
+        Origin: 'request',
+        RequestText: 'コーヒーの新情報を調べて',
+        RequestedAt: requestedAt,
+      });
+
+      // group 先頭エントリ（1件目）は依頼を持つが、group 内で採用される最終エントリ
+      // （last、2件目）は依頼なし（requestText: ''）
+      const llmClient = makeLLMClient([
+        makeTopicResult({
+          targetTopicId: 'TOPIC-EXISTING',
+          canonicalSummary: '1件目の要約',
+          requestText: 'コーヒーの新情報を調べて',
+          selfFacts: [makeSelfFact({ text: '1件目の自己事実' })],
+          webFacts: [makeWebFact({ text: '1件目のWeb事実' })],
+        }),
+        makeTopicResult({
+          targetTopicId: 'TOPIC-EXISTING',
+          canonicalSummary: '2件目（最終）の要約',
+          requestText: '',
+          selfFacts: [makeSelfFact({ text: '2件目の自己事実' })],
+          webFacts: [makeWebFact({ text: '2件目のWeb事実' })],
+        }),
+      ]);
+
+      const outcome = await consolidate('u1', 'hiyori', {
+        topicRepo,
+        messageRepo,
+        webRawRepo,
+        cursorRepo,
+        llmClient,
+        embeddingClient: makeEmbeddingClient([1, 0]),
+        characterName: 'ひより',
+        now: () => fixedNow,
+      });
+
+      expect(outcome).toBe('consolidated');
+      const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
+      expect(headers).toHaveLength(1);
+      // META は last（2件目）の要約を採用しつつ、依頼フックは 1 件目から解決される
+      expect(headers[0].CanonicalSummary).toBe('2件目（最終）の要約');
+      expect(headers[0].RequestText).toBe('コーヒーの新情報を調べて');
+      expect(headers[0].RequestedAt).toBe(requestedAt);
+    });
+
     it('既存 Topic への merge で今回依頼ありの場合、新しい依頼フックで上書きする', async () => {
       const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
 
