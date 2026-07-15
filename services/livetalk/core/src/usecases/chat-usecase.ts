@@ -185,8 +185,10 @@ async function* streamSafetyText(
  *   1b. 会話履歴を集約カーソル境界（MsgCursor 以降 = 未集約分）で取得
  *   2. ユーザーメッセージを保存
  *   3. キーワード検出 → リスクあり → セーフティフロー（LLM をバイパス）
- *   3.6. 知識ゲート（classifyTopic による study 判定のみ。旧 Knowledge に非依存）
- *   4. Topic retrieve（関連度 only）
+ *   3.6. Topic retrieve（関連度 only）。知識ゲートより先に想起し、既知 WEB Topic の
+ *        有無を判定材料にする（回帰修正 / knowledge_hit 経路の Topic モデルでの復活）
+ *   3.7. 知識ゲート（classifyTopic による study 判定。既に WEB fact を持つ関連 Topic が
+ *        想起できているときはスキップし、通常フロー（想起注入）へ進む）
  *   4c. 直近ノート取得（感想連携）
  *   5. 通常フロー: LLM ストリーミング → text delta を逐次 yield
  *   6. 通常フロー: 文区切りごとに VOICEVOX を非同期起動
@@ -327,65 +329,9 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   // 3.5. lifecycle event を emit（UI がモデル目パラメータを即座に反映できるよう通常フロー先頭で送出）
   yield { type: 'lifecycle', state: lifecycleState };
 
-  // 3.6. 知識ゲート（リブトーク知識・記憶再設計 P5 / #3697）
-  // classifyTopic のみで study 判定する（旧 Knowledge ベースの knowledge_hit 経路は撤去済み）。
-  try {
-    const classification = await classifyTopic(userText, character.displayName, llmClient);
-
-    if (classification.needsStudy) {
-      // STUDY_TOPIC 登録（fail-warn: 登録失敗でも応答は継続）
-      if (studyTopicRepository) {
-        try {
-          const existingTopic = await studyTopicRepository.findPendingByTopic(
-            userId,
-            characterId,
-            classification.normalizedTopic
-          );
-          if (!existingTopic) {
-            const ttlUnixSec = Math.floor(Date.now() / 1000) + STUDY_TOPIC_TTL_SECONDS;
-            await studyTopicRepository.put({
-              UserID: userId,
-              CharacterID: characterId,
-              TopicID: ulidFactory(),
-              Topic: classification.normalizedTopic,
-              Priority: STUDY_TOPIC_GATE_PRIORITY,
-              Status: 'pending',
-              Ttl: ttlUnixSec,
-            });
-          }
-        } catch (err) {
-          logger.warn('[chat-usecase] StudyTopic の登録に失敗しました（スキップして継続）', {
-            err,
-          });
-        }
-      }
-
-      // LLM をバイパスしてキャラ口調テンプレ応答を送出
-      const studyMessage = buildStudyDeferralMessage(Date.now());
-      yield* streamSafetyText(studyMessage, voiceClient, character.voiceConfig);
-
-      // アシスタントメッセージとして保存
-      try {
-        await messageRepository.create({
-          UserID: userId,
-          CharacterID: characterId,
-          Role: 'assistant',
-          Text: studyMessage,
-        });
-      } catch (err) {
-        logger.error('[chat-usecase] 勉強応答メッセージの保存に失敗しました', { err });
-      }
-
-      yield { type: 'done' };
-      return;
-    }
-    // needsStudy === false は通常フローで継続（何もしない）
-  } catch (err) {
-    // fail-warn: ゲートエラーは通常フローで継続
-    logger.warn('[chat-usecase] 知識ゲートの評価に失敗しました（通常フローで継続）', { err });
-  }
-
-  // 4. Topic retrieve（関連度 only、リブトーク知識再設計 P2 / #3698、fail-warn: エラー時は空配列で継続）
+  // 3.6. Topic retrieve（関連度 only、リブトーク知識再設計 P2 / #3698、fail-warn: エラー時は空配列で継続）
+  // 知識ゲートより先に実行する（回帰修正）: 既に WEB fact を持つ関連 Topic の有無を
+  // 知識ゲートの判定材料にするため、想起結果が先に必要になる。
   let retrievedTopics: RetrievedTopic[] = [];
   timer.start('retrieve');
   try {
@@ -407,6 +353,78 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     characterId,
     retrievedTopicCount: retrievedTopics.length,
   });
+
+  // 3.7. 知識ゲート（リブトーク知識・記憶再設計 P5 / #3697、回帰修正で Topic 想起の後段に移動）
+  // classifyTopic による study 判定（旧 Knowledge ベースの knowledge_hit 経路は撤去済み）。
+  //
+  // 【回帰修正】既に関連 Topic に WEB fact（調べ済みの知識）があるなら、その話題は
+  // 「既知」とみなして study に倒さず、通常フロー（想起注入で回答）へ進める。
+  // 旧 P5 実装は Topic 想起（旧 step 4）より前に知識ゲートを置いていたため、WEB fact が
+  // 既にあっても needsStudy=true と判定されると study 定型文で return してしまい、
+  // 通知タップ等で「調べ済みの話題」を聞いても一切活用されない回帰があった。
+  // ここで hasKnownWebTopic を判定材料に加え、旧「knowledge_hit」経路を Topic モデルで復活させる。
+  // SELF fact のみの Topic は「既知」に含めない（贈る/答える中身の知識が無いため）。
+  const hasKnownWebTopic = retrievedTopics.some((rt) => rt.webFacts.length > 0);
+
+  if (!hasKnownWebTopic) {
+    try {
+      const classification = await classifyTopic(userText, character.displayName, llmClient);
+
+      if (classification.needsStudy) {
+        // STUDY_TOPIC 登録（fail-warn: 登録失敗でも応答は継続）
+        if (studyTopicRepository) {
+          try {
+            const existingTopic = await studyTopicRepository.findPendingByTopic(
+              userId,
+              characterId,
+              classification.normalizedTopic
+            );
+            if (!existingTopic) {
+              const ttlUnixSec = Math.floor(Date.now() / 1000) + STUDY_TOPIC_TTL_SECONDS;
+              await studyTopicRepository.put({
+                UserID: userId,
+                CharacterID: characterId,
+                TopicID: ulidFactory(),
+                Topic: classification.normalizedTopic,
+                Priority: STUDY_TOPIC_GATE_PRIORITY,
+                Status: 'pending',
+                Ttl: ttlUnixSec,
+              });
+            }
+          } catch (err) {
+            logger.warn('[chat-usecase] StudyTopic の登録に失敗しました（スキップして継続）', {
+              err,
+            });
+          }
+        }
+
+        // LLM をバイパスしてキャラ口調テンプレ応答を送出
+        const studyMessage = buildStudyDeferralMessage(Date.now());
+        yield* streamSafetyText(studyMessage, voiceClient, character.voiceConfig);
+
+        // アシスタントメッセージとして保存
+        try {
+          await messageRepository.create({
+            UserID: userId,
+            CharacterID: characterId,
+            Role: 'assistant',
+            Text: studyMessage,
+          });
+        } catch (err) {
+          logger.error('[chat-usecase] 勉強応答メッセージの保存に失敗しました', { err });
+        }
+
+        yield { type: 'done' };
+        return;
+      }
+      // needsStudy === false は通常フローで継続（何もしない）
+    } catch (err) {
+      // fail-warn: ゲートエラーは通常フローで継続
+      logger.warn('[chat-usecase] 知識ゲートの評価に失敗しました（通常フローで継続）', { err });
+    }
+  }
+  // hasKnownWebTopic === true の場合は知識ゲート（classifyTopic 呼び出しを含む）を丸ごと
+  // スキップして通常フローへ進む（既知話題ではホットパスの classify LLM 呼び出しも省ける）。
 
   // 4c. 直近に提示したノートを取得（感想連携、Phase 5c / fail-warn: エラー時は空配列で継続）
   let recentNotes: NoteEntity[] = [];

@@ -15,6 +15,7 @@ import type { SafetyEventEntity } from '../../../src/entities/safety-event.entit
 import type { IModerationClient, ModerationResult } from '../../../src/safety/types.js';
 import type { ITopicRetriever, RetrievedTopic } from '../../../src/knowledge/retrieval.js';
 import type { TopicEntity } from '../../../src/entities/topic.entity.js';
+import type { WebFactEntity } from '../../../src/entities/web-fact.entity.js';
 import type { CharacterStateRepository } from '../../../src/repositories/character-state.repository.interface.js';
 import type { CharacterStateEntity } from '../../../src/entities/character-state.entity.js';
 
@@ -139,7 +140,16 @@ function makeModerationClient(
   };
 }
 
-function makeRetrievedTopic(subject: string, selfFactTexts: string[] = []): RetrievedTopic {
+/**
+ * 想起結果の Topic を組み立てるテストヘルパー。
+ * webFactTexts はデフォルト未指定（空配列）とし、既存呼び出しの挙動を変えない。
+ * WEB fact ありの Topic を作りたいテストは第 3 引数に文言配列を渡す。
+ */
+function makeRetrievedTopic(
+  subject: string,
+  selfFactTexts: string[] = [],
+  webFactTexts: string[] = []
+): RetrievedTopic {
   const topic: TopicEntity = {
     UserID: 'u1',
     CharacterID: 'hiyori',
@@ -152,6 +162,17 @@ function makeRetrievedTopic(subject: string, selfFactTexts: string[] = []): Retr
     CreatedAt: 1_700_000_000_000,
     UpdatedAt: 1_700_000_000_000,
   };
+  const webFacts: WebFactEntity[] = webFactTexts.map((text, i) => ({
+    UserID: 'u1',
+    CharacterID: 'hiyori',
+    TopicID: 'topic-1',
+    FactID: `web-fact-${i}`,
+    Text: text,
+    SourceUrls: [],
+    Volatility: 'stable',
+    ObservedAt: 1_700_000_000_000,
+    CreatedAt: 1_700_000_000_000,
+  }));
   return {
     topic,
     selfFacts: selfFactTexts.map((text, i) => ({
@@ -163,7 +184,7 @@ function makeRetrievedTopic(subject: string, selfFactTexts: string[] = []): Retr
       Provenance: '',
       CreatedAt: 1_700_000_000_000,
     })),
-    webFacts: [],
+    webFacts,
     similarity: 0.9,
     via: 'direct',
   };
@@ -1186,6 +1207,101 @@ describe('runChatUseCase', () => {
       expect(
         savedText.includes('勉強') || savedText.includes('調べ') || savedText.includes('わからない')
       ).toBe(true);
+    });
+
+    // ── 回帰修正: 既知 WEB Topic が想起できた場合は study に倒さない ──────────
+
+    it('needsStudy=true でも、想起で WEB fact ありの Topic が見つかったら study に倒さず通常 LLM 応答する（回帰修正）', async () => {
+      const studyTopicRepo = makeStudyTopicRepo();
+      const llm = makeLLMClient(['もう知ってるよ！']);
+      (llm.chatStructured as jest.Mock).mockResolvedValue({
+        needsStudy: true,
+        normalizedTopic: 'コーヒー',
+      });
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const topics = [makeRetrievedTopic('コーヒー', [], ['コーヒーは眠気覚ましに良い'])];
+
+      await collectEvents(
+        runChatUseCase({
+          ...makeBaseParams(),
+          userText: 'コーヒーについて教えて',
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          studyTopicRepository: studyTopicRepo,
+          topicRetriever: makeTopicRetriever(topics),
+        })
+      );
+
+      // 通常 LLM 応答（chatStream）が呼ばれる
+      expect(llm.chatStream).toHaveBeenCalled();
+      // StudyTopic は登録されない
+      expect(studyTopicRepo.put).not.toHaveBeenCalled();
+      // 「調べとく」系テンプレ文が保存されない（通常応答が保存される）
+      const createCalls = (repo.create as jest.Mock).mock.calls;
+      const assistantCall = createCalls.find(
+        (args: unknown[]) => (args[0] as { Role: string }).Role === 'assistant'
+      );
+      expect(assistantCall).toBeDefined();
+      const savedText = (assistantCall![0] as { Text: string }).Text;
+      expect(savedText).toBe('もう知ってるよ！');
+    });
+
+    it('needsStudy=true かつ WEB fact ありの Topic があるとき、classifyTopic（chatStructured）が呼ばれない（ホットパス省略）', async () => {
+      const llm = makeLLMClient(['もう知ってるよ！']);
+      (llm.chatStructured as jest.Mock).mockResolvedValue({
+        needsStudy: true,
+        normalizedTopic: 'コーヒー',
+      });
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      const topics = [makeRetrievedTopic('コーヒー', [], ['コーヒーは眠気覚ましに良い'])];
+
+      await collectEvents(
+        runChatUseCase({
+          ...makeBaseParams(),
+          userText: 'コーヒーについて教えて',
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          topicRetriever: makeTopicRetriever(topics),
+        })
+      );
+
+      expect(llm.chatStructured).not.toHaveBeenCalled();
+    });
+
+    it('回帰の対偶: 想起で SELF fact のみ（WEB なし）の Topic しかない場合は、従来どおり study 定型文＋StudyTopic 登録になる', async () => {
+      const studyTopicRepo = makeStudyTopicRepo();
+      const llm = makeLLMClient(['応答']);
+      (llm.chatStructured as jest.Mock).mockResolvedValue({
+        needsStudy: true,
+        normalizedTopic: 'コーヒー',
+      });
+      const voice = makeVoiceClient();
+      const repo = makeRepo();
+      // SELF fact のみ（webFacts=[]）→ 「既知」扱いにならない
+      const topics = [makeRetrievedTopic('コーヒー', ['朝コーヒーを飲む'])];
+
+      const events = await collectEvents(
+        runChatUseCase({
+          ...makeBaseParams(),
+          userText: 'コーヒーについて教えて',
+          llmClient: llm,
+          voiceClient: voice,
+          messageRepository: repo,
+          studyTopicRepository: studyTopicRepo,
+          topicRetriever: makeTopicRetriever(topics),
+        })
+      );
+
+      // 通常 LLM（chatStream）は呼ばれず、study 分岐でテンプレ応答になる
+      expect(llm.chatStream).not.toHaveBeenCalled();
+      expect(studyTopicRepo.put).toHaveBeenCalledWith(
+        expect.objectContaining({ Topic: 'コーヒー', Status: 'pending' })
+      );
+      expect(events[events.length - 1]).toEqual({ type: 'done' });
     });
   });
 
