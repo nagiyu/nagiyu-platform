@@ -1,4 +1,5 @@
 import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { logger } from '@nagiyu/common';
 import { DatabaseError } from '@nagiyu/aws';
 import { DynamoDBNoteRepository } from '../../../src/repositories/dynamodb-note.repository.js';
 import type { CreateNoteInput } from '../../../src/entities/note.entity.js';
@@ -28,6 +29,24 @@ const baseItem = {
   TopicID: 'topic-001',
   Subject: 'コーヒーの効能',
   Headline: 'この前の話、気になって調べてみたよ。覚醒効果があるみたい！',
+  CreatedAt: fixedNow,
+  UpdatedAt: fixedNow,
+};
+
+// 旧設計（Knowledge 昇格方式）の Note item。TopicID/Subject/Headline を持たず、
+// 代わりに Title/Body/RelatedCategory/RelatedKnowledgeIds を持つ（撤去済みフィールド構成）。
+// dev テーブルに残存する破損/旧設計 item の再現に使う。
+const legacyItem = {
+  PK: 'USER#u1',
+  SK: 'CHAR#hiyori#NOTE#legacy-001',
+  Type: 'Note',
+  UserID: 'u1',
+  CharacterID: 'hiyori',
+  NoteID: 'legacy-001',
+  Title: '旧ノートのタイトル',
+  Body: '旧ノートの本文',
+  RelatedCategory: 'category-1',
+  RelatedKnowledgeIds: ['k1', 'k2'],
   CreatedAt: fixedNow,
   UpdatedAt: fixedNow,
 };
@@ -81,6 +100,34 @@ describe('DynamoDBNoteRepository', () => {
       });
       const repo = new DynamoDBNoteRepository(client as never, tableName, () => fixedNow);
       await expect(repo.list('u1', 'hiyori')).rejects.toBeInstanceOf(DatabaseError);
+    });
+
+    it('旧設計（TopicID 無し）の item が混在してもスキップし正常な item のみ返す', async () => {
+      const client = makeClient(async () => ({ Items: [baseItem, legacyItem] }));
+      const repo = new DynamoDBNoteRepository(client as never, tableName, () => fixedNow);
+
+      const list = await repo.list('u1', 'hiyori');
+      expect(list).toHaveLength(1);
+      expect(list[0].NoteID).toBe('note-001');
+    });
+
+    it('旧設計 item のマップ失敗時は logger.warn で警告する', async () => {
+      const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+      const client = makeClient(async () => ({ Items: [baseItem, legacyItem] }));
+      const repo = new DynamoDBNoteRepository(client as never, tableName, () => fixedNow);
+
+      await repo.list('u1', 'hiyori');
+
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('ノート item のマップに失敗しました'),
+        expect.objectContaining({
+          userId: 'u1',
+          characterId: 'hiyori',
+          sk: 'CHAR#hiyori#NOTE#legacy-001',
+        })
+      );
+      warnSpy.mockRestore();
     });
   });
 
@@ -182,6 +229,36 @@ describe('DynamoDBNoteRepository', () => {
       });
       const repo = new DynamoDBNoteRepository(client as never, tableName, () => fixedNow);
       await expect(repo.listAll('u1', 'hiyori')).rejects.toBeInstanceOf(DatabaseError);
+    });
+
+    it('複数ページにまたがっても旧設計 item をスキップし正常な item のみ全件返す', async () => {
+      let callCount = 0;
+      const client = makeClient(async () => {
+        callCount++;
+        if (callCount === 1) {
+          return {
+            Items: [baseItem, legacyItem],
+            LastEvaluatedKey: { PK: 'USER#u1', SK: 'cursor' },
+          };
+        }
+        const page2LegacyItem = {
+          ...legacyItem,
+          SK: 'CHAR#hiyori#NOTE#legacy-002',
+          NoteID: 'legacy-002',
+        };
+        const page2NormalItem = {
+          ...baseItem,
+          SK: 'CHAR#hiyori#NOTE#note-002',
+          NoteID: 'note-002',
+        };
+        return { Items: [page2LegacyItem, page2NormalItem] };
+      });
+      const repo = new DynamoDBNoteRepository(client as never, tableName, () => fixedNow);
+
+      const list = await repo.listAll('u1', 'hiyori');
+      expect(callCount).toBe(2);
+      expect(list).toHaveLength(2);
+      expect(list.map((note) => note.NoteID).sort()).toEqual(['note-001', 'note-002']);
     });
   });
 
