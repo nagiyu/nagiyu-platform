@@ -22,6 +22,7 @@ const makeTopicResult = () => ({
   subject: 'コーヒー',
   category: '飲み物',
   canonicalSummary: 'ユーザーはコーヒーが好き',
+  requestText: '',
   selfFacts: [],
   webFacts: [],
 });
@@ -29,6 +30,7 @@ const makeTopicResult = () => ({
 const makeNoteLetter = () => ({
   skip: true,
   usedSelfHook: false,
+  usedRequestHook: false,
   headline: '',
 });
 
