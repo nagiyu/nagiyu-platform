@@ -109,7 +109,11 @@ describe('computeCareBoosts', () => {
 describe('applyCareBoosts', () => {
   it('Topic の Care に boost を加算して putTopic する', async () => {
     const store = new InMemorySingleTableStore();
-    const topicRepo = new InMemoryTopicRepository(store, () => 'X', () => FIXED_NOW);
+    const topicRepo = new InMemoryTopicRepository(
+      store,
+      () => 'X',
+      () => FIXED_NOW
+    );
     const topic = await topicRepo.putTopic({
       UserID: USER_ID,
       CharacterID: CHARACTER_ID,
@@ -125,7 +129,11 @@ describe('applyCareBoosts', () => {
     const result = await applyCareBoosts(topicRepo, USER_ID, CHARACTER_ID, [topic], boosts);
 
     expect(result).toEqual({ appliedCount: 1, skippedCount: 0 });
-    const updated = await topicRepo.getTopic({ userId: USER_ID, characterId: CHARACTER_ID, topicId: 'T1' });
+    const updated = await topicRepo.getTopic({
+      userId: USER_ID,
+      characterId: CHARACTER_ID,
+      topicId: 'T1',
+    });
     expect(updated?.Care).toBe(4);
   });
 
@@ -139,7 +147,11 @@ describe('applyCareBoosts', () => {
 
   it('OptimisticLockError は warn してスキップし、他への適用は継続する', async () => {
     const store = new InMemorySingleTableStore();
-    const topicRepo = new InMemoryTopicRepository(store, () => 'X', () => FIXED_NOW);
+    const topicRepo = new InMemoryTopicRepository(
+      store,
+      () => 'X',
+      () => FIXED_NOW
+    );
     const topic1 = await topicRepo.putTopic({
       UserID: USER_ID,
       CharacterID: CHARACTER_ID,

@@ -692,7 +692,12 @@ describe('consolidate', () => {
     it('未指定（既定 undefined）では既存の Provenance をそのまま保存する', async () => {
       const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
       tick = fixedNow;
-      await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'テスト' });
+      await messageRepo.create({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Role: 'user',
+        Text: 'テスト',
+      });
 
       const llmClient = makeLLMClient([
         makeTopicResult({ selfFacts: [makeSelfFact({ provenance: '元の出所' })] }),
@@ -716,7 +721,12 @@ describe('consolidate', () => {
     it('指定時、既存 Provenance が非空なら「｜出所: <suffix>」を付与する', async () => {
       const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
       tick = fixedNow;
-      await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'テスト' });
+      await messageRepo.create({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Role: 'user',
+        Text: 'テスト',
+      });
 
       const llmClient = makeLLMClient([
         makeTopicResult({ selfFacts: [makeSelfFact({ provenance: '元の出所' })] }),
@@ -741,7 +751,12 @@ describe('consolidate', () => {
     it('指定時、既存 Provenance が空文字なら suffix のみを Provenance にする', async () => {
       const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
       tick = fixedNow;
-      await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'テスト' });
+      await messageRepo.create({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Role: 'user',
+        Text: 'テスト',
+      });
 
       const llmClient = makeLLMClient([
         makeTopicResult({ selfFacts: [makeSelfFact({ provenance: '' })] }),

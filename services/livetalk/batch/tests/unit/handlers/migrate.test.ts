@@ -68,7 +68,9 @@ describe('migrate handler', () => {
 
   it('例外発生時に throw し reportErrorEvent を呼ぶ', async () => {
     const { reportErrorEvent } = await import('@nagiyu/aws');
-    mockRunMigration.mockRejectedValue(new Error('一回性移行: 本番環境での破壊的操作には confirmEnv="prod" の指定が必要です'));
+    mockRunMigration.mockRejectedValue(
+      new Error('一回性移行: 本番環境での破壊的操作には confirmEnv="prod" の指定が必要です')
+    );
 
     const { handler } = await import('../../../src/handlers/migrate.js');
     await expect(handler(makeEvent({ dryRun: false }))).rejects.toThrow('confirmEnv');

@@ -26,4 +26,8 @@ export {
   type SchemaTarget,
   type DeleteSchemaItemsResult,
 } from './schema-janitor.js';
-export { queryItemsByPrefix, batchDeleteItems, MIGRATION_ERROR_MESSAGES } from './dynamo-helpers.js';
+export {
+  queryItemsByPrefix,
+  batchDeleteItems,
+  MIGRATION_ERROR_MESSAGES,
+} from './dynamo-helpers.js';

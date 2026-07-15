@@ -13,9 +13,9 @@ const noopSleep = () => Promise.resolve();
 describe('queryItemsByPrefix', () => {
   it('Query 失敗時は DatabaseError でラップして throw する', async () => {
     const mockSend = jest.fn().mockRejectedValueOnce(new Error('boom'));
-    await expect(
-      queryItemsByPrefix(makeDocClient(mockSend), TABLE, 'PK', 'SK#')
-    ).rejects.toThrow(DatabaseError);
+    await expect(queryItemsByPrefix(makeDocClient(mockSend), TABLE, 'PK', 'SK#')).rejects.toThrow(
+      DatabaseError
+    );
   });
 });
 

@@ -203,11 +203,23 @@ async function migrateScope(
   report.plannedChunkCount = chunks.length;
 
   if (flags.wipeNewFirst || flags.dryRun) {
-    const newItems = await findSchemaItems(deps.docClient, deps.tableName, userId, characterId, 'new');
+    const newItems = await findSchemaItems(
+      deps.docClient,
+      deps.tableName,
+      userId,
+      characterId,
+      'new'
+    );
     report.newSchemaItemCount = newItems.length;
   }
   if (flags.deleteOldAfter || flags.dryRun) {
-    const oldItems = await findSchemaItems(deps.docClient, deps.tableName, userId, characterId, 'old');
+    const oldItems = await findSchemaItems(
+      deps.docClient,
+      deps.tableName,
+      userId,
+      characterId,
+      'old'
+    );
     report.oldSchemaItemCount = oldItems.length;
   }
 

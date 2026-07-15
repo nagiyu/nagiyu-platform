@@ -7,7 +7,10 @@
  * ここでのみ再利用し、新モデルには保存しない。
  */
 import { logger } from '@nagiyu/common';
-import { MIGRATION_CARE_ASSIGN_SIMILARITY_THRESHOLD, MIGRATION_CARE_SEED_MAX_PER_TOPIC } from '../constants.js';
+import {
+  MIGRATION_CARE_ASSIGN_SIMILARITY_THRESHOLD,
+  MIGRATION_CARE_SEED_MAX_PER_TOPIC,
+} from '../constants.js';
 import { cosineSimilarity } from '../memory/embedding.js';
 import type { TopicEntity } from '../entities/topic.entity.js';
 import { OptimisticLockError } from '../repositories/optimistic-lock.error.js';

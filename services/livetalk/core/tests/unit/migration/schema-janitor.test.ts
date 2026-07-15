@@ -51,9 +51,9 @@ describe('classifySchemaItem', () => {
     });
 
     it('新スキーマの SK は旧スキーマと判定しない', () => {
-      expect(
-        classifySchemaItem(`CHAR#${CHARACTER_ID}#TOPIC#T1#META`, makeItem(''), 'old')
-      ).toBe(false);
+      expect(classifySchemaItem(`CHAR#${CHARACTER_ID}#TOPIC#T1#META`, makeItem(''), 'old')).toBe(
+        false
+      );
       expect(classifySchemaItem(`CHAR#${CHARACTER_ID}#WEBRAW#01ULID`, makeItem(''), 'old')).toBe(
         false
       );
@@ -63,15 +63,15 @@ describe('classifySchemaItem', () => {
 
   describe('新スキーマ（new）', () => {
     it('TOPIC の META/SELF/WEB・WEBRAW・新 Note（TopicID 有り）・CURSOR を新スキーマと判定する', () => {
-      expect(
-        classifySchemaItem(`CHAR#${CHARACTER_ID}#TOPIC#T1#META`, makeItem(''), 'new')
-      ).toBe(true);
-      expect(
-        classifySchemaItem(`CHAR#${CHARACTER_ID}#TOPIC#T1#SELF#F1`, makeItem(''), 'new')
-      ).toBe(true);
-      expect(
-        classifySchemaItem(`CHAR#${CHARACTER_ID}#TOPIC#T1#WEB#F1`, makeItem(''), 'new')
-      ).toBe(true);
+      expect(classifySchemaItem(`CHAR#${CHARACTER_ID}#TOPIC#T1#META`, makeItem(''), 'new')).toBe(
+        true
+      );
+      expect(classifySchemaItem(`CHAR#${CHARACTER_ID}#TOPIC#T1#SELF#F1`, makeItem(''), 'new')).toBe(
+        true
+      );
+      expect(classifySchemaItem(`CHAR#${CHARACTER_ID}#TOPIC#T1#WEB#F1`, makeItem(''), 'new')).toBe(
+        true
+      );
       expect(classifySchemaItem(`CHAR#${CHARACTER_ID}#WEBRAW#01ULID`, makeItem(''), 'new')).toBe(
         true
       );
@@ -88,9 +88,9 @@ describe('classifySchemaItem', () => {
     });
 
     it('旧スキーマの SK は新スキーマと判定しない', () => {
-      expect(
-        classifySchemaItem(`CHAR#${CHARACTER_ID}#KNOWLEDGE#01ULID`, makeItem(''), 'new')
-      ).toBe(false);
+      expect(classifySchemaItem(`CHAR#${CHARACTER_ID}#KNOWLEDGE#01ULID`, makeItem(''), 'new')).toBe(
+        false
+      );
     });
   });
 
@@ -123,7 +123,13 @@ describe('findSchemaItems / deleteSchemaItems', () => {
       ],
     });
 
-    const items = await findSchemaItems(makeDocClient(mockSend), TABLE, USER_ID, CHARACTER_ID, 'old');
+    const items = await findSchemaItems(
+      makeDocClient(mockSend),
+      TABLE,
+      USER_ID,
+      CHARACTER_ID,
+      'old'
+    );
 
     expect(items).toHaveLength(2);
     expect(items.map((i) => i.SK)).toEqual([
@@ -134,7 +140,13 @@ describe('findSchemaItems / deleteSchemaItems', () => {
 
   it('対象 0 件のときは BatchWrite を呼ばず deletedCount=0 を返す', async () => {
     const mockSend = jest.fn().mockResolvedValueOnce({ Items: [] });
-    const result = await deleteSchemaItems(makeDocClient(mockSend), TABLE, USER_ID, CHARACTER_ID, 'old');
+    const result = await deleteSchemaItems(
+      makeDocClient(mockSend),
+      TABLE,
+      USER_ID,
+      CHARACTER_ID,
+      'old'
+    );
     expect(result).toEqual({ deletedCount: 0 });
     expect(mockSend).toHaveBeenCalledTimes(1);
   });
@@ -150,7 +162,13 @@ describe('findSchemaItems / deleteSchemaItems', () => {
       })
       .mockResolvedValueOnce({}); // BatchWriteCommand: UnprocessedItems 無し
 
-    const result = await deleteSchemaItems(makeDocClient(mockSend), TABLE, USER_ID, CHARACTER_ID, 'old');
+    const result = await deleteSchemaItems(
+      makeDocClient(mockSend),
+      TABLE,
+      USER_ID,
+      CHARACTER_ID,
+      'old'
+    );
 
     expect(result).toEqual({ deletedCount: 2 });
     expect(mockSend).toHaveBeenCalledTimes(2);
@@ -158,8 +176,20 @@ describe('findSchemaItems / deleteSchemaItems', () => {
 
   it('wipe 後（対象 0 件）に再実行しても常に deletedCount=0 で冪等', async () => {
     const mockSend = jest.fn().mockResolvedValue({ Items: [] });
-    const first = await deleteSchemaItems(makeDocClient(mockSend), TABLE, USER_ID, CHARACTER_ID, 'new');
-    const second = await deleteSchemaItems(makeDocClient(mockSend), TABLE, USER_ID, CHARACTER_ID, 'new');
+    const first = await deleteSchemaItems(
+      makeDocClient(mockSend),
+      TABLE,
+      USER_ID,
+      CHARACTER_ID,
+      'new'
+    );
+    const second = await deleteSchemaItems(
+      makeDocClient(mockSend),
+      TABLE,
+      USER_ID,
+      CHARACTER_ID,
+      'new'
+    );
     expect(first).toEqual({ deletedCount: 0 });
     expect(second).toEqual({ deletedCount: 0 });
   });

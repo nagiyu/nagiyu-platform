@@ -120,7 +120,11 @@ export async function readLegacyData(
       if (parsed) {
         memories.push(parsed);
       } else {
-        logger.warn('[readLegacyData] 不正な旧 Memory をスキップしました', { userId, characterId, sk });
+        logger.warn('[readLegacyData] 不正な旧 Memory をスキップしました', {
+          userId,
+          characterId,
+          sk,
+        });
       }
       continue;
     }

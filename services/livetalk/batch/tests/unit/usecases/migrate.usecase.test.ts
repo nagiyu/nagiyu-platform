@@ -209,7 +209,11 @@ describe('runMigration', () => {
     seedLegacyInterest(legacyStore, USER_ID, CHARACTER_ID);
 
     const topicStore = new InMemorySingleTableStore();
-    const topicRepo = new InMemoryTopicRepository(topicStore, () => 'T', () => FIXED_NOW);
+    const topicRepo = new InMemoryTopicRepository(
+      topicStore,
+      () => 'T',
+      () => FIXED_NOW
+    );
     const profileStore = new InMemorySingleTableStore();
     const profileRepo = new InMemoryProfileRepository(profileStore, () => FIXED_NOW);
     const llmClient = makeLLMClient();
@@ -261,7 +265,11 @@ describe('runMigration', () => {
     });
 
     // topicRepo は docClient と同一ストアを共有する（本番の単一テーブル共有を模す）。
-    const topicRepo = new InMemoryTopicRepository(legacyStore, () => 'TOPIC-1', () => FIXED_NOW);
+    const topicRepo = new InMemoryTopicRepository(
+      legacyStore,
+      () => 'TOPIC-1',
+      () => FIXED_NOW
+    );
     const profileRepo = new InMemoryProfileRepository(new InMemorySingleTableStore());
     const llmClient = makeLLMClient();
     const docClient = makeFakeDocClient(legacyStore);
@@ -316,7 +324,11 @@ describe('runMigration', () => {
       UpdatedAt: 100,
     });
 
-    const topicRepo = new InMemoryTopicRepository(legacyStore, () => 'TOPIC-1', () => FIXED_NOW);
+    const topicRepo = new InMemoryTopicRepository(
+      legacyStore,
+      () => 'TOPIC-1',
+      () => FIXED_NOW
+    );
     const profileRepo = new InMemoryProfileRepository(new InMemorySingleTableStore());
     const llmClient = makeLLMClient();
     const docClient = makeFakeDocClient(legacyStore);
@@ -375,7 +387,9 @@ describe('runMigration', () => {
     const [report] = result.scopeReports;
     expect(report.wiped).toBe(true);
     expect(report.wipedCount).toBe(1);
-    expect(legacyStore.get(`USER#${USER_ID}`, `CHAR#${CHARACTER_ID}#TOPIC#OLD-TOPIC#META`)).toBeUndefined();
+    expect(
+      legacyStore.get(`USER#${USER_ID}`, `CHAR#${CHARACTER_ID}#TOPIC#OLD-TOPIC#META`)
+    ).toBeUndefined();
     // 旧 Memory は残る
     expect(legacyStore.get(`USER#${USER_ID}`, `CHAR#${CHARACTER_ID}#MEM#B#趣味#01`)).toBeDefined();
   });
@@ -413,7 +427,9 @@ describe('runMigration', () => {
     });
     expect(result2.scopeReports[0].deletedOld).toBe(true);
     expect(result2.scopeReports[0].deletedOldCount).toBe(1);
-    expect(legacyStore.get(`USER#${USER_ID}`, `CHAR#${CHARACTER_ID}#MEM#B#趣味#01`)).toBeUndefined();
+    expect(
+      legacyStore.get(`USER#${USER_ID}`, `CHAR#${CHARACTER_ID}#MEM#B#趣味#01`)
+    ).toBeUndefined();
   });
 
   it('本番環境で破壊的操作かつ confirmEnv 未指定なら実行前に throw する', async () => {
@@ -435,7 +451,7 @@ describe('runMigration', () => {
     ).rejects.toThrow(MIGRATE_ERROR_MESSAGES.本番未確認);
 
     // ガードで中断するため docClient には一切アクセスしない
-    expect((docClient.send as jest.Mock)).not.toHaveBeenCalled();
+    expect(docClient.send as jest.Mock).not.toHaveBeenCalled();
   });
 
   it('本番環境でも confirmEnv="prod" を指定すれば実行できる', async () => {
@@ -552,7 +568,11 @@ describe('runMigration', () => {
     // topicRepo は docClient と同一ストアを共有する（wipeNewFirst が実際に Topic を消して
     // migrate が作り直す、という本番の単一テーブル共有を模す）。
     let ulidSeq = 0;
-    const topicRepo = new InMemoryTopicRepository(legacyStore, () => `TOPIC-${ulidSeq++}`, () => FIXED_NOW);
+    const topicRepo = new InMemoryTopicRepository(
+      legacyStore,
+      () => `TOPIC-${ulidSeq++}`,
+      () => FIXED_NOW
+    );
     const docClient = makeFakeDocClient(legacyStore);
 
     const runOnce = () =>

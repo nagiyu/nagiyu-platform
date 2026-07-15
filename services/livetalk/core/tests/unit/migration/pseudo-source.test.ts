@@ -3,7 +3,10 @@ import {
   buildPseudoWebRaws,
   chunkPseudoSources,
 } from '../../../src/migration/pseudo-source.js';
-import type { LegacyKnowledgeEntity, LegacyMemoryEntity } from '../../../src/migration/legacy-types.js';
+import type {
+  LegacyKnowledgeEntity,
+  LegacyMemoryEntity,
+} from '../../../src/migration/legacy-types.js';
 
 const USER_ID = 'u1';
 const CHARACTER_ID = 'hiyori';
@@ -15,7 +18,13 @@ describe('buildPseudoMessages', () => {
       { Content: 'コーヒーが好き', Category: '趣味', Embedding: [1, 0], ReferencedCount: 3 },
     ];
 
-    const [message] = buildPseudoMessages(memories, USER_ID, CHARACTER_ID, BASE_TIMESTAMP, () => 'ULID-1');
+    const [message] = buildPseudoMessages(
+      memories,
+      USER_ID,
+      CHARACTER_ID,
+      BASE_TIMESTAMP,
+      () => 'ULID-1'
+    );
 
     expect(message).toEqual({
       UserID: USER_ID,
@@ -51,7 +60,13 @@ describe('buildPseudoWebRaws', () => {
       },
     ];
 
-    const [webRaw] = buildPseudoWebRaws(knowledge, USER_ID, CHARACTER_ID, BASE_TIMESTAMP, () => 'ULID-W1');
+    const [webRaw] = buildPseudoWebRaws(
+      knowledge,
+      USER_ID,
+      CHARACTER_ID,
+      BASE_TIMESTAMP,
+      () => 'ULID-W1'
+    );
 
     expect(webRaw).toEqual({
       UserID: USER_ID,
