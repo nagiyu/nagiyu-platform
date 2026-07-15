@@ -70,7 +70,19 @@ export function buildConsolidatePrompt(input: ConsolidatePromptInput): ChatMessa
   targetTopicId に指定して merge（名寄せ）してください。
 - 明確に一致する候補がない場合は、targetTopicId を空文字（""）にして新規 Topic として扱ってください。
 - 1 回の入力に複数の話題が混在する場合は、topics 配列に複数件を返してください。
-- ユーザー自身が述べた事実は selfFacts に、Web リサーチ・勉強内容由来の事実は webFacts に分けてください。
+- 「新しい会話」の発話には話者ラベル（「ユーザー:」「${characterName}:」）が付いています。
+  selfFacts に入れてよいのは「ユーザー:」とラベル付けされた発話に由来する、ユーザー自身についての
+  事実のみです。「${characterName}:」（キャラ自身）の発話は、意見・見解・推し・提案・一般知識を
+  含め、selfFacts に絶対に入れないでください。
+- 一般知識・世間知識（料理のコツや目安などの一般論を含む）、第三者の意見も selfFacts に入れないで
+  ください。
+- webFacts は「新しい Web 取得生データ」からのみ生成してください。会話中に ${characterName} が
+  述べた一般知識を webFacts に入れてはいけません。Web 取得生データが「なし」の場合、webFacts は
+  必ず空配列にしてください。
+- 例：ユーザーが「最近せいろ蒸しにハマっている」と話した場合はユーザー自身の事実なので selfFacts に
+  入れます。一方で ${characterName} が「野菜は蒸すと甘みが増す」「仕上げは塩とオリーブオイルがおすすめ」
+  のように発言した場合、それはキャラの見解・一般知識であり selfFacts にも webFacts にも入れず、
+  どこにも保存しないでください。
 - selfFacts の provenance には、根拠となった発話の要旨を短く記録してください（誤マージが判明した際に
   出所から可逆化できるようにするため）。
 - canonicalSummary には、候補 Topic に付随する既存要約（あれば）と新情報をマージし、重複を排除して
