@@ -50,7 +50,7 @@ type Topic = {
     subject: string;          // 例: "ラーメン"
     canonicalSummary: string; // 導出物・再生成可
     category: string;
-    care: number;             // 注目度（回数ベースの興味強度。情動重み付けはしない）
+    care: number;             // 注目度（回数ベースの興味強度。情動重み付けはしない）。上昇はユーザー起点の fold のみ（→ 4.5）
     embedding: number[];      // 想起用の座標。Topic 本体に同居。更新は consolidation 時のみ
     updatedAt: number;        // 楽観ロック用（delete→要約再生成 と consolidation の競合回避）
 };
@@ -224,6 +224,21 @@ Memory Tier A–D / MemorySummary / cooldown・カテゴリキャップ / Intere
 
 > **撤去の順序（Phase 側で必ず担保）**: 旧想起経路（Tier/Summary）は、新想起（Topic）が dev で機能確認できるまで残す。P1 で Topic を影で構築 → P2 で想起を切替 → その後に旧経路を撤去。中間の「記憶喪失」状態を作らない。
 > **InterestCategory 撤去の波及確認**: `Weight` が親密度計算・通知・セーフティのどこに結合しているかを P5 着手時に洗い、care へ差し替える。care は集約稼働後に埋まるため、通知のコールドスタート（当面は静穏）を許容する。
+
+### 4.5 care 上昇ポリシー（ユーザー起点でのみ上げる）
+
+care は「ユーザーがその話題をどれだけ気にしているか」の信号である。したがって **care を上げてよいのは「ユーザーが会話で触れた fold」だけ**とし、キャラの自発リサーチ（webraw only）を畳んだだけの fold では上げない。
+
+- **判定（SELF fact を代理信号にする）**: consolidation の Topic 更新で、その Topic の fold が生んだ `selfFactCount` を見て分岐する。SELF fact は会話由来、WEB fact は自発リサーチ由来であるため、SELF fact が生まれた fold＝ユーザーが会話で触れた、とみなす。
+    - 新規 Topic: `care = selfFactCount > 0 ? 1 : 0`
+    - 既存 Topic 更新（名寄せ）: `care = selfFactCount > 0 ? current.care + 1 : current.care`
+    - WEB only の fold（自発リサーチ・鮮度切れ再取得）は care を上げない。
+- **なぜ必要か（自己強化ループの遮断）**: この分岐が無いと、ユーザーが一言も足していない話題でもキャラが自発リサーチを畳むだけで care が育ち、`care≥3` の notify/ノート閾値や acquire の自発リサーチ選定（care 降順）に載ってしまう。かつ「高 care→もっと自発リサーチ→もっと care」の自己強化ループになる（dev 実測: キャラ自身のパーソナ Topic が care=3 まで育ち、キャラが自分自身を通知した）。
+- **割り切り**: 「◯◯調べて」だけで SELF fact が出ない一過性の依頼は care に載らない（一過性の依頼は興味とみなさない）。読み取り側（acquire の care 降順選定・notify/note の care 閾値）は変更しない。既存の膨らんだ care 値は遡及修正しない（dev/prod ともにマイグレーションで作り直される前提）。
+- **より厳密な上位版（不採用・要否は都度判断）**: 「fold に会話メッセージが含まれたか」で直接判定する案もあるが、consolidate の入力配線に手が要りスコープが広がる。SELF fact 代理で十分と判断した。
+
+> **将来拡張（レバー2・未実装）: care を「累計回数」から「最近のユーザー興味」へ**
+> 現状 care は累計回数で単調増加し、明示的な減衰を持たない。将来的には care を「最近ユーザーが触れたか」に再定義し、明示的な減衰 cron を持たずに **「最後にユーザーが触れた日時／最近性」で通知・ノート・自発リサーチの候補を並べる**ことで、古い話題が希少な通知枠（平常 1 日 1 件）を占め続けるのを自然に防げる。会話での想起は既に関連度 only で自然に薄れている点も踏まえると、優先度側にも最近性を効かせるのが筋。本対応（レバー1）では実装せず、拡張余地として記録に留める。
 
 ---
 
