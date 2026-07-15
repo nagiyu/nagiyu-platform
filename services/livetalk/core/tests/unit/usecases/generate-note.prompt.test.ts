@@ -56,4 +56,30 @@ describe('buildGenerateNotePrompt', () => {
     expect(user.content).toContain('コーヒーが好き');
     expect(user.content).toContain('覚醒効果がある');
   });
+
+  describe('依頼フック（甲-1）', () => {
+    it('system メッセージに依頼フックの指示（usedSelfHook は false のまま）を含む', () => {
+      const [system] = buildGenerateNotePrompt(baseInput);
+      expect(system.content).toContain('依頼フック');
+      expect(system.content).toContain('usedRequestHook');
+      expect(system.content).toContain('usedSelfHook は');
+      expect(system.content).toContain('false のままにしてください');
+    });
+
+    it('requestText があれば user メッセージの依頼セクションに反映される', () => {
+      const [, user] = buildGenerateNotePrompt({
+        ...baseInput,
+        selfFacts: [],
+        requestText: '最新アニメ情報を調べて',
+        requestedAtLabel: '7月10日',
+      });
+      expect(user.content).toContain('最新アニメ情報を調べて');
+      expect(user.content).toContain('7月10日');
+    });
+
+    it('requestText が無ければ依頼セクションは「なし」になる', () => {
+      const [, user] = buildGenerateNotePrompt(baseInput);
+      expect(user.content).toContain('ユーザーの依頼（あれば）：\nなし');
+    });
+  });
 });

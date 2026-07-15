@@ -34,6 +34,7 @@ const makeLLMClient = (
 const makeLetter = (overrides: Partial<NoteLetterRaw> = {}): NoteLetterRaw => ({
   skip: false,
   usedSelfHook: true,
+  usedRequestHook: false,
   headline: 'この前コーヒーの話をしてたよね、気になって調べてみたよ。覚醒効果があるみたい！',
   ...overrides,
 });
@@ -286,6 +287,69 @@ describe('generateNotesForUser', () => {
     });
 
     expect(result.generatedCount).toBe(0);
+  });
+
+  it('bundle.topic.RequestText/RequestedAt がプロンプトに渡る（甲-1: 依頼由来 provenance）', async () => {
+    await putTopic({
+      Care: 3,
+      RequestText: '最新アニメ情報を調べて',
+      RequestedAt: fixedNow - 3_600_000,
+    });
+    await putWebFact('topic-001');
+
+    let capturedUserContent = '';
+    const llmClient: ILLMClient = {
+      async *chatStream() {
+        yield '';
+      },
+      async chatComplete() {
+        return '';
+      },
+      async chatStructured(messages) {
+        capturedUserContent = messages.find((m) => m.role === 'user')?.content ?? '';
+        return makeLetter() as unknown as never;
+      },
+    };
+
+    const result = await generateNotesForUser('u1', 'hiyori', {
+      topicRepo,
+      noteRepo,
+      llmClient,
+      characterName: '桃瀬ひより',
+      ulidFactory,
+    });
+
+    expect(result.generatedCount).toBe(1);
+    expect(capturedUserContent).toContain('最新アニメ情報を調べて');
+  });
+
+  it('bundle.topic に依頼フックが無ければプロンプトの依頼セクションは「なし」になる', async () => {
+    await putTopic({ Care: 3 });
+    await putWebFact('topic-001');
+
+    let capturedUserContent = '';
+    const llmClient: ILLMClient = {
+      async *chatStream() {
+        yield '';
+      },
+      async chatComplete() {
+        return '';
+      },
+      async chatStructured(messages) {
+        capturedUserContent = messages.find((m) => m.role === 'user')?.content ?? '';
+        return makeLetter() as unknown as never;
+      },
+    };
+
+    await generateNotesForUser('u1', 'hiyori', {
+      topicRepo,
+      noteRepo,
+      llmClient,
+      characterName: '桃瀬ひより',
+      ulidFactory,
+    });
+
+    expect(capturedUserContent).toContain('ユーザーの依頼（あれば）：\nなし');
   });
 
   it('candidateLimit で care 降順スキャン件数を絞れる', async () => {

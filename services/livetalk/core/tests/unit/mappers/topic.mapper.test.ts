@@ -40,6 +40,16 @@ describe('TopicMapper', () => {
       expect(item.GSI3PK).toBe('hiyori#TOPICS#user1');
       expect(item.GSI3SK).toBe(3.5);
     });
+
+    it('RequestText/RequestedAt を GSI3PK/GSI3SK に投影しない（甲-1）', () => {
+      const item = mapper.toItem({
+        ...baseEntity,
+        RequestText: '最新アニメ情報を調べて',
+        RequestedAt: 1_749_000_000_000,
+      });
+      expect(item.GSI3PK).toBe('hiyori#TOPICS#user1');
+      expect(item.GSI3SK).toBe(3.5);
+    });
   });
 
   describe('toEntity', () => {
@@ -78,6 +88,43 @@ describe('TopicMapper', () => {
       const item = mapper.toItem(baseEntity);
       delete (item as Record<string, unknown>).Subject;
       expect(() => mapper.toEntity(item)).toThrow(InvalidEntityDataError);
+    });
+
+    it('RequestText/RequestedAt が設定されていれば往復する（甲-1: 依頼由来 provenance）', () => {
+      const requestEntity: TopicEntity = {
+        ...baseEntity,
+        RequestText: '最新アニメ情報を調べて',
+        RequestedAt: 1_749_000_000_000,
+      };
+      const item = mapper.toItem(requestEntity);
+      const entity = mapper.toEntity(item);
+      expect(entity).toEqual(requestEntity);
+    });
+
+    it('RequestText/RequestedAt 未設定時は item/entity に現れない', () => {
+      const item = mapper.toItem(baseEntity);
+      expect((item as Record<string, unknown>).RequestText).toBeUndefined();
+      expect((item as Record<string, unknown>).RequestedAt).toBeUndefined();
+
+      const entity = mapper.toEntity(item);
+      expect(entity.RequestText).toBeUndefined();
+      expect(entity.RequestedAt).toBeUndefined();
+    });
+
+    it('GSI3 の Query 結果（RequestText/RequestedAt が投影されない）でも Care が復元できる', () => {
+      const requestEntity: TopicEntity = {
+        ...baseEntity,
+        RequestText: '最新アニメ情報を調べて',
+        RequestedAt: 1_749_000_000_000,
+      };
+      const item = mapper.toItem(requestEntity);
+      // GSI3 Query 結果を模して RequestText/RequestedAt を投影しない
+      delete (item as Record<string, unknown>).RequestText;
+      delete (item as Record<string, unknown>).RequestedAt;
+      const entity = mapper.toEntity(item);
+      expect(entity.RequestText).toBeUndefined();
+      expect(entity.RequestedAt).toBeUndefined();
+      expect(entity.Care).toBe(3.5);
     });
   });
 

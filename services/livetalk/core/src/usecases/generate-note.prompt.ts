@@ -30,6 +30,10 @@ export interface GenerateNotePromptInput {
   selfFacts: GenerateNotePromptSelfFact[];
   /** Topic に紐づく WEB fact 一覧（手紙の中身の主役） */
   webFacts: GenerateNotePromptWebFact[];
+  /** Topic の依頼文（甲-1: 依頼由来 provenance）。SELF フックが無い/使えない場合の代替フック候補 */
+  requestText?: string;
+  /** 依頼日ラベル（"M月D日" 表記）。必須ではないが自然に触れてよい */
+  requestedAtLabel?: string;
 }
 
 /**
@@ -40,7 +44,8 @@ export interface GenerateNotePromptInput {
  * （プロンプト前の安価ゲート＝care 閾値・1 Topic 1 ノート・WEB 0 件スキップは usecase 側で行う）。
  */
 export function buildGenerateNotePrompt(input: GenerateNotePromptInput): ChatMessage[] {
-  const { characterName, subject, canonicalSummary, selfFacts, webFacts } = input;
+  const { characterName, subject, canonicalSummary, selfFacts, webFacts, requestText, requestedAtLabel } =
+    input;
 
   const selfSection =
     selfFacts.length > 0
@@ -50,6 +55,11 @@ export function buildGenerateNotePrompt(input: GenerateNotePromptInput): ChatMes
   const webSection =
     webFacts.length > 0
       ? webFacts.map((f) => `- ${f.text}（出典: ${f.sourceUrls.join(', ') || 'なし'}）`).join('\n')
+      : 'なし';
+
+  const requestSection =
+    requestText !== undefined && requestText !== ''
+      ? `依頼文: "${requestText}"（依頼日: ${requestedAtLabel ?? '不明'}）`
       : 'なし';
 
   const systemPrompt = `あなたは ${characterName} です。ユーザーのために調べた内容を「手紙」として贈ります。
@@ -65,6 +75,14 @@ export function buildGenerateNotePrompt(input: GenerateNotePromptInput): ChatMes
 - センシティブな SELF（健康・お金・人間関係・悩み・ネガティブ感情・秘密など）は
   フックに使わないでください。監視されているような印象を与えないためです。
   健全に使える SELF が無ければ自発トーンにしてください。
+- 依頼フック：SELF フックが使えない（SELF が無い・弱い・センシティブ）が「ユーザーの依頼」が
+  ある場合は、「あなたが依頼文の内容を調べてほしいって言ってたから、調べたよ」のような
+  依頼トーンで温かく手紙にしてください。依頼日（あれば）は自然に触れてよいですが必須ではありません。
+  依頼文に無いことを付け足さないでください（捏造禁止は依頼フックにも適用されます）。
+  依頼フックは SELF fact に基づくものではないため、依頼フックを使った場合も usedSelfHook は
+  false のままにしてください（依頼フックを使ったかどうかは usedRequestHook で示してください）。
+- SELF フックも依頼フックも使えない場合は、従来通り自発トーン（「気になって調べてみたの」など）
+  にしてください。
 - WEB の内容を主役に、温かい手紙口調で 2〜4 文にまとめてください。事実の羅列や
   箇条書きにはしないでください。
 - 贈る意味が薄い（WEB の内容が乏しい・浅い等）場合は skip を true にしてください。
@@ -72,6 +90,9 @@ export function buildGenerateNotePrompt(input: GenerateNotePromptInput): ChatMes
 
   const userPrompt = `ユーザーについての事実（SELF）：
 ${selfSection}
+
+ユーザーの依頼（あれば）：
+${requestSection}
 
 Web で調べた内容（WEB）：
 ${webSection}`;

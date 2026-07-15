@@ -39,7 +39,7 @@ export class TopicMapper implements EntityMapper<TopicEntity, TopicKey> {
       topicId: entity.TopicID,
     });
 
-    return {
+    const item: DynamoDBItem = {
       PK: pk,
       SK: sk,
       Type: this.entityType,
@@ -58,6 +58,15 @@ export class TopicMapper implements EntityMapper<TopicEntity, TopicKey> {
       GSI3PK: buildTopicGSI3PK(entity.CharacterID, entity.UserID),
       GSI3SK: entity.Care,
     };
+    // RequestText/RequestedAt は GSI3 に投影しない（依頼フックは generate-note がベーステーブル
+    // 読み（getTopicBundle）で参照するのみで、Topic ヘッダ列挙・care 降順取得には使わないため）。
+    if (entity.RequestText !== undefined) {
+      item.RequestText = entity.RequestText;
+    }
+    if (entity.RequestedAt !== undefined) {
+      item.RequestedAt = entity.RequestedAt;
+    }
+    return item;
   }
 
   public toEntity(item: DynamoDBItem): TopicEntity {
@@ -67,7 +76,7 @@ export class TopicMapper implements EntityMapper<TopicEntity, TopicKey> {
         ? validateNumberField(item.Care, 'Care')
         : validateNumberField(item.GSI3SK, 'GSI3SK');
 
-    return {
+    const entity: TopicEntity = {
       UserID: validateStringField(item.UserID, 'UserID'),
       CharacterID: validateStringField(item.CharacterID, 'CharacterID'),
       TopicID: validateStringField(item.TopicID, 'TopicID'),
@@ -81,6 +90,14 @@ export class TopicMapper implements EntityMapper<TopicEntity, TopicKey> {
       CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
       UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
     };
+    // GSI3 の Query 結果には投影されないため、ベーステーブル読み（getTopicBundle 等）のときのみ present
+    if (item.RequestText !== undefined) {
+      entity.RequestText = validateStringField(item.RequestText, 'RequestText');
+    }
+    if (item.RequestedAt !== undefined) {
+      entity.RequestedAt = validateNumberField(item.RequestedAt, 'RequestedAt');
+    }
+    return entity;
   }
 
   public buildKeys(key: TopicKey): { pk: string; sk: string } {

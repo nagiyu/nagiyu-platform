@@ -1,4 +1,13 @@
 /**
+ * Web 取得生データの由来区分。
+ *
+ * - `request`: ユーザーの依頼（StudyTopic pending）を消費して取得した
+ * - `auto`: care 降順の自発リサーチで取得した
+ * - `stale`: 既存 WEB fact の鮮度切れ（再検証）で取得した
+ */
+export type WebRawOrigin = 'request' | 'auto' | 'stale';
+
+/**
  * Web 取得生データ（consolidation が Topic/WEB fact へ集約する前の元データ）
  * （リブトーク知識再設計 P1 / #3697）。
  *
@@ -17,6 +26,18 @@ export interface WebRawEntity {
   RawText: string;
   /** 参照した URL 一覧 */
   SourceUrls: string[];
+  /** 由来区分（依頼／自発／鮮度切れ）（甲-1: 依頼由来 provenance） */
+  Origin: WebRawOrigin;
+  /**
+   * 依頼文（`Origin === 'request'` のときのみ設定）。
+   * StudyTopic.Topic をそのまま引き継ぐ（甲-1: 依頼由来 provenance）。
+   */
+  RequestText?: string;
+  /**
+   * 依頼日時（Unix ms。`Origin === 'request'` のときのみ設定）。
+   * StudyTopic.CreatedAt をそのまま引き継ぐ（甲-1: 依頼由来 provenance）。
+   */
+  RequestedAt?: number;
   CreatedAt: number;
 }
 

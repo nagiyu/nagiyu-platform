@@ -9,8 +9,10 @@ import {
 import { cosineSimilarity } from '../memory/embedding.js';
 import { emitBatchMetricsLog, emitBatchMetricsEMF } from '../observability/metrics.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
+import { formatJstMonthDay } from '../lib/format-date.js';
 import { ConsolidationSchema } from '../llm-client/schemas/consolidation.schema.js';
 import { buildConsolidatePrompt } from './consolidate.prompt.js';
+import type { WebRawEntity } from '../entities/webraw.entity.js';
 import type { IEmbeddingClient, ILLMClient } from '../llm-client/types.js';
 import type { ConsolidationRaw } from '../llm-client/schemas/consolidation.schema.js';
 import type { TopicEntity } from '../entities/topic.entity.js';
@@ -49,6 +51,53 @@ function computeNextReview(volatility: WebFactVolatility, readAt: number): numbe
 function truncateRoutingText(text: string): string {
   if (text.length <= CONSOLIDATION_ROUTING_TEXT_MAX_CHARS) return text;
   return text.slice(text.length - CONSOLIDATION_ROUTING_TEXT_MAX_CHARS);
+}
+
+/**
+ * 依頼文の突合キーを正規化する（甲-1: 依頼由来 provenance）。
+ * LLM がエコーした requestText と、今回バッチの request-origin WebRaw を照合するために使う。
+ */
+function normalizeRequestText(text: string): string {
+  return text.trim().toLowerCase();
+}
+
+/**
+ * 今回バッチの request-origin WebRaw から「正規化依頼文 → 権威ある RequestedAt」の
+ * 突合マップを作る（甲-1: 依頼由来 provenance）。
+ * 日時は必ずコード側（StudyTopic.CreatedAt 由来）が持ち、LLM には計算させない。
+ * 同一キーが複数あれば最新の RequestedAt を優先する。
+ */
+function buildRequestMap(webraws: WebRawEntity[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const w of webraws) {
+    if (w.Origin !== 'request' || w.RequestText === undefined || w.RequestedAt === undefined) {
+      continue;
+    }
+    const key = normalizeRequestText(w.RequestText);
+    const existing = map.get(key);
+    if (existing === undefined || w.RequestedAt > existing) {
+      map.set(key, w.RequestedAt);
+    }
+  }
+  return map;
+}
+
+/**
+ * LLM がエコーした requestText を今回バッチの `requestMap` と突合し、依頼フックを解決する
+ * （甲-1: 依頼由来 provenance）。突合できない requestText（今回バッチに該当する request-origin
+ * WebRaw が無い）は LLM の捏造とみなし、フック無し（undefined）として無視する。
+ */
+function resolveRequestHook(
+  requestText: string,
+  requestMap: Map<string, number>
+): { RequestText: string; RequestedAt: number } | undefined {
+  const rt = requestText.trim();
+  if (rt === '') return undefined;
+
+  const requestedAt = requestMap.get(normalizeRequestText(rt));
+  if (requestedAt === undefined) return undefined;
+
+  return { RequestText: rt, RequestedAt: requestedAt };
 }
 
 type TopicResult = ConsolidationRaw['topics'][number];
@@ -238,6 +287,10 @@ export async function consolidate(
   );
 
   // ---- LLM 呼び出し ----
+  // 今回バッチの request-origin WebRaw から突合マップを作る（甲-1: 依頼由来 provenance）。
+  // LLM には依頼文をエコーさせるだけで、権威ある RequestedAt は必ずこのマップ（コード側）から取る。
+  const requestMap = buildRequestMap(webraws);
+
   const promptMessages = buildConsolidatePrompt({
     characterName,
     candidateTopics: scored.map((s) => ({
@@ -251,6 +304,9 @@ export async function consolidate(
       query: w.Query,
       rawText: w.RawText,
       sourceUrls: w.SourceUrls,
+      origin: w.Origin,
+      requestText: w.RequestText,
+      requestedAtLabel: w.RequestedAt !== undefined ? formatJstMonthDay(w.RequestedAt) : undefined,
     })),
   });
 
@@ -278,6 +334,7 @@ export async function consolidate(
       const topicEmbedding = await embeddingClient.embed(
         `${topicResult.subject}\n${topicResult.canonicalSummary}`
       );
+      const requestHook = resolveRequestHook(topicResult.requestText, requestMap);
       await topicRepo.putTopic({
         UserID: userId,
         CharacterID: characterId,
@@ -287,6 +344,7 @@ export async function consolidate(
         Category: topicResult.category,
         Care: 1,
         Embedding: topicEmbedding,
+        ...(requestHook ?? {}),
       });
       newTopicCount++;
 
@@ -314,10 +372,18 @@ export async function consolidate(
       characterId,
       topicId: group.topicId,
     });
+    const requestHook = resolveRequestHook(last.requestText, requestMap);
 
     let topicId: string;
     if (current) {
       topicId = current.TopicID;
+      // 今回依頼フックが解決できればそれで上書きし、できなければ既存の依頼フックを引き継ぐ
+      // （既存 Topic の依頼フックを非依頼 consolidation で消さないため）。
+      const inheritedHook =
+        requestHook ??
+        (current.RequestText !== undefined && current.RequestedAt !== undefined
+          ? { RequestText: current.RequestText, RequestedAt: current.RequestedAt }
+          : undefined);
       await topicRepo.putTopic(
         {
           UserID: userId,
@@ -328,6 +394,7 @@ export async function consolidate(
           Category: last.category,
           Care: current.Care + 1,
           Embedding: topicEmbedding,
+          ...(inheritedHook ?? {}),
         },
         { expectedUpdatedAt: current.UpdatedAt }
       );
@@ -345,6 +412,7 @@ export async function consolidate(
         Category: last.category,
         Care: 1,
         Embedding: topicEmbedding,
+        ...(requestHook ?? {}),
       });
       newTopicCount++;
     }

@@ -22,7 +22,17 @@ export interface ConsolidatePromptInput {
   /** 未集約の新規会話メッセージ（時系列順） */
   newMessages: Array<{ role: 'user' | 'assistant'; text: string }>;
   /** 未集約の新規 Web 取得生データ（P1 では通常空） */
-  webRaws: Array<{ query: string; rawText: string; sourceUrls: string[] }>;
+  webRaws: Array<{
+    query: string;
+    rawText: string;
+    sourceUrls: string[];
+    /** 由来区分（甲-1: 依頼由来 provenance）。request のみ依頼文・依頼日を LLM に提示する */
+    origin: 'request' | 'auto' | 'stale';
+    /** 依頼文（origin === 'request' のときのみ） */
+    requestText?: string;
+    /** 依頼日ラベル（"M月D日" 表記。origin === 'request' のときのみ） */
+    requestedAtLabel?: string;
+  }>;
 }
 
 /**
@@ -54,10 +64,13 @@ export function buildConsolidatePrompt(input: ConsolidatePromptInput): ChatMessa
   const webRawSection =
     webRaws.length > 0
       ? webRaws
-          .map(
-            (w) =>
-              `クエリ: ${w.query}\n取得内容: ${w.rawText}\n参照URL: ${w.sourceUrls.join(', ') || 'なし'}`
-          )
+          .map((w) => {
+            const requestPrefix =
+              w.origin === 'request'
+                ? `[依頼] 依頼文: "${w.requestText ?? ''}"（依頼日: ${w.requestedAtLabel ?? '不明'}）\n`
+                : '';
+            return `${requestPrefix}クエリ: ${w.query}\n取得内容: ${w.rawText}\n参照URL: ${w.sourceUrls.join(', ') || 'なし'}`;
+          })
           .join('\n\n')
       : 'なし';
 
@@ -87,6 +100,10 @@ export function buildConsolidatePrompt(input: ConsolidatePromptInput): ChatMessa
   出所から可逆化できるようにするため）。
 - canonicalSummary には、候補 Topic に付随する既存要約（あれば）と新情報をマージし、重複を排除して
   抽象化した最新の要約を書いてください。新規 Topic の場合は新情報のみから要約を作成してください。
+- 「新しい Web 取得生データ」のうち先頭に「[依頼]」と付いたものは、ユーザーが依頼して調べさせた
+  内容です。その「[依頼]」付きデータから webFacts を作った Topic は、requestText にその依頼文
+  （「[依頼]」に続く「依頼文: "..."」の中身）を一字一句そのままコピーしてください。依頼由来でない
+  Topic の requestText は空文字列（""）にしてください。依頼文を憶測で作らないでください。
 - 出力はすべて日本語で書いてください。`;
 
   const userPrompt = `候補 Topic 一覧（埋め込み近傍で絞り込み済み）：

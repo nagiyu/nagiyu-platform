@@ -120,6 +120,7 @@ describe('buildConsolidatePrompt', () => {
           query: 'せいろ蒸し コツ',
           rawText: 'せいろ蒸しは強火で蒸気を立ててから使う',
           sourceUrls: ['https://example.com/steam'],
+          origin: 'auto',
         },
       ],
     });
@@ -128,6 +129,67 @@ describe('buildConsolidatePrompt', () => {
     expect(userMessage?.content).toContain('せいろ蒸し コツ');
     expect(userMessage?.content).toContain('せいろ蒸しは強火で蒸気を立ててから使う');
     expect(userMessage?.content).toContain('https://example.com/steam');
+  });
+
+  it('origin === "request" の webRaws は [依頼] 依頼文・依頼日付きでレンダリングされる（甲-1）', () => {
+    const messages = buildConsolidatePrompt({
+      characterName: '早瀬アゲハ',
+      candidateTopics: [],
+      newMessages: [],
+      webRaws: [
+        {
+          query: '最新アニメ情報',
+          rawText: '今期は〇〇が人気です',
+          sourceUrls: [],
+          origin: 'request',
+          requestText: '最新アニメ情報を調べて',
+          requestedAtLabel: '7月10日',
+        },
+      ],
+    });
+
+    const userMessage = messages.find((m) => m.role === 'user');
+    expect(userMessage?.content).toContain('[依頼]');
+    expect(userMessage?.content).toContain('依頼文: "最新アニメ情報を調べて"');
+    expect(userMessage?.content).toContain('依頼日: 7月10日');
+  });
+
+  it('origin === "auto"/"stale" の webRaws には [依頼] が付かない', () => {
+    const messages = buildConsolidatePrompt({
+      characterName: '早瀬アゲハ',
+      candidateTopics: [],
+      newMessages: [],
+      webRaws: [
+        {
+          query: 'クエリA',
+          rawText: '内容A',
+          sourceUrls: [],
+          origin: 'auto',
+        },
+        {
+          query: 'クエリB',
+          rawText: '内容B',
+          sourceUrls: [],
+          origin: 'stale',
+        },
+      ],
+    });
+
+    const userMessage = messages.find((m) => m.role === 'user');
+    expect(userMessage?.content).not.toContain('[依頼]');
+  });
+
+  it('system メッセージに requestText エコー・捏造禁止の指示が含まれる（甲-1）', () => {
+    const messages = buildConsolidatePrompt({
+      characterName: '早瀬アゲハ',
+      candidateTopics: [],
+      newMessages: [],
+      webRaws: [],
+    });
+
+    const systemMessage = messages.find((m) => m.role === 'system');
+    expect(systemMessage?.content).toContain('requestText にその依頼文');
+    expect(systemMessage?.content).toContain('依頼文を憶測で作らないでください。');
   });
 
   it('newMessages・webRaws が空なら「なし」と表示する', () => {
