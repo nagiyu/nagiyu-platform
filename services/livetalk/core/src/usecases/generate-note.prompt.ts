@@ -44,8 +44,15 @@ export interface GenerateNotePromptInput {
  * （プロンプト前の安価ゲート＝care 閾値・1 Topic 1 ノート・WEB 0 件スキップは usecase 側で行う）。
  */
 export function buildGenerateNotePrompt(input: GenerateNotePromptInput): ChatMessage[] {
-  const { characterName, subject, canonicalSummary, selfFacts, webFacts, requestText, requestedAtLabel } =
-    input;
+  const {
+    characterName,
+    subject,
+    canonicalSummary,
+    selfFacts,
+    webFacts,
+    requestText,
+    requestedAtLabel,
+  } = input;
 
   const selfSection =
     selfFacts.length > 0

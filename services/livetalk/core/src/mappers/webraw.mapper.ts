@@ -51,7 +51,9 @@ export class WebRawMapper implements EntityMapper<WebRawEntity, WebRawKey> {
     // 既存 dev の WebRaw item には Origin が無いため、後方互換として 'auto' にフォールバックする
     // （甲-1 導入前に書かれた item を壊さないため）。
     const origin: WebRawOrigin =
-      item.Origin !== undefined ? (validateStringField(item.Origin, 'Origin') as WebRawOrigin) : 'auto';
+      item.Origin !== undefined
+        ? (validateStringField(item.Origin, 'Origin') as WebRawOrigin)
+        : 'auto';
 
     const entity: WebRawEntity = {
       UserID: validateStringField(item.UserID, 'UserID'),

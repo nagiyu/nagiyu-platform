@@ -818,9 +818,7 @@ describe('consolidate', () => {
       });
 
       // LLM のエコーは大文字小文字・前後空白が原文とずれている想定
-      const llmClient = makeLLMClient([
-        makeTopicResult({ requestText: ' 新幹線のプレミアム席 ' }),
-      ]);
+      const llmClient = makeLLMClient([makeTopicResult({ requestText: ' 新幹線のプレミアム席 ' })]);
 
       const outcome = await consolidate('u1', 'hiyori', {
         topicRepo,
