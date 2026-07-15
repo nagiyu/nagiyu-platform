@@ -31,6 +31,14 @@ export interface ConsolidateParams {
   now?: () => number;
   /** 新規 Topic の ID 採番に使う（テスト差し替え用）。既定は {@link defaultUlidFactory} */
   ulidFactory?: UlidFactory;
+  /**
+   * SELF fact の Provenance に付与する出所サフィックス（任意）。
+   * 指定時のみ、既存 Provenance が空なら `<suffix>` を、非空なら
+   * `<既存 Provenance>｜出所: <suffix>` を Provenance として保存する。
+   * 未指定（既定 undefined）では既存挙動を一切変えない。
+   * 一回性マイグレーション（旧 Memory → Topic）バッチが「旧Memory移行」を渡す用途。
+   */
+  selfFactProvenanceSuffix?: string;
 }
 
 /**
@@ -110,19 +118,25 @@ async function appendTopicFacts(
   characterId: string,
   topicId: string,
   entries: TopicResult[],
-  readAt: number
+  readAt: number,
+  selfFactProvenanceSuffix?: string
 ): Promise<{ selfFactCount: number; webFactCount: number }> {
   let selfFactCount = 0;
   let webFactCount = 0;
 
   for (const entry of entries) {
     for (const sf of entry.selfFacts) {
+      const provenance = selfFactProvenanceSuffix
+        ? sf.provenance
+          ? `${sf.provenance}｜出所: ${selfFactProvenanceSuffix}`
+          : selfFactProvenanceSuffix
+        : sf.provenance;
       await topicRepo.putSelfFact({
         UserID: userId,
         CharacterID: characterId,
         TopicID: topicId,
         Text: sf.text,
-        Provenance: sf.provenance,
+        Provenance: provenance,
       });
       selfFactCount++;
     }
@@ -189,6 +203,7 @@ export async function consolidate(
     characterName,
     now = () => Date.now(),
     ulidFactory = defaultUlidFactory,
+    selfFactProvenanceSuffix,
   } = params;
 
   const batchStart = performance.now();
@@ -296,7 +311,8 @@ export async function consolidate(
         characterId,
         topicId,
         [topicResult],
-        readAt
+        readAt,
+        selfFactProvenanceSuffix
       );
       selfFactCount += counts.selfFactCount;
       webFactCount += counts.webFactCount;
@@ -355,7 +371,8 @@ export async function consolidate(
       characterId,
       topicId,
       group.entries,
-      readAt
+      readAt,
+      selfFactProvenanceSuffix
     );
     selfFactCount += counts.selfFactCount;
     webFactCount += counts.webFactCount;

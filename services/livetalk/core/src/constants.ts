@@ -327,3 +327,33 @@ export const TOPIC_RECALL_RELATED_THRESHOLD = 0.8;
 
 /** 1ホップ関連展開で追加する Topic の最大件数（暴発防止、要調整・要観測）。 */
 export const TOPIC_RECALL_RELATED_MAX = 2;
+
+// ---- 一回性マイグレーション（旧知識資材 → 新 Topic モデル、throwaway）----
+//
+// 手動発火バッチ専用の定数。移行完了・Issue クローズ後は関連コード一式
+// （`migration/` ディレクトリ）ごと削除してよい。
+
+/**
+ * 擬似メッセージ・擬似 webraw の結合ストリームを consolidate() へ流し込む際の
+ * 1 チャンクあたりの件数。実 topicRepo をチャンク間で共有し、後続チャンクが
+ * 前チャンク生成の Topic に merge（名寄せ）できるようにする。
+ */
+export const MIGRATION_CHUNK_SIZE = 20;
+
+/**
+ * care シード: 1 Topic あたりに加算する care の上限（乱発防止）。
+ * 正規化済みシグナル重みの合計を丸めた値をこの上限で cap する。
+ */
+export const MIGRATION_CARE_SEED_MAX_PER_TOPIC = 5;
+
+/**
+ * care シード: シグナル（InterestCategory / Memory）を Topic へ割り当てる際の
+ * cosine similarity 下限閾値。これ未満なら Category 文字列一致にフォールバックする。
+ */
+export const MIGRATION_CARE_ASSIGN_SIMILARITY_THRESHOLD = 0.5;
+
+/**
+ * consolidate() の `selfFactProvenanceSuffix` に渡す固定文言。
+ * 旧 Memory 由来の SELF fact の Provenance に「どこから移行されたか」を残す。
+ */
+export const MIGRATION_SELF_FACT_PROVENANCE_SUFFIX = '旧Memory移行';
