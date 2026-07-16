@@ -157,6 +157,15 @@ function groupTopicResults(
 }
 
 /**
+ * グループ内の全エントリが生む SELF fact の合計件数を数える。
+ * care は「ユーザー起点の fold でだけ上げる」ため、その fold が SELF fact を
+ * 1 件でも生んだか（＝会話由来の情報を含むか）を putTopic 前に判定するのに使う。
+ */
+function countSelfFacts(entries: TopicResult[]): number {
+  return entries.reduce((n, e) => n + e.selfFacts.length, 0);
+}
+
+/**
  * 1 Topic 分の selfFacts/webFacts をグループ内の全エントリ分連結して追記する。
  */
 async function appendTopicFacts(
@@ -355,7 +364,7 @@ export async function consolidate(
         Subject: topicResult.subject,
         CanonicalSummary: topicResult.canonicalSummary,
         Category: topicResult.category,
-        Care: 1,
+        Care: countSelfFacts([topicResult]) > 0 ? 1 : 0,
         Embedding: topicEmbedding,
         ...(requestHook ?? {}),
       });
@@ -389,6 +398,7 @@ export async function consolidate(
     // （fresh-eyes レビュー軽微#7）。採用エントリ（last）の index だけでは、依頼フックが
     // 別エントリにある場合に取りこぼす。
     const requestHook = resolveGroupRequestHook(group.entries, requestWebRaws);
+    const groupSelfFactCount = countSelfFacts(group.entries);
 
     let topicId: string;
     if (current) {
@@ -408,7 +418,7 @@ export async function consolidate(
           Subject: last.subject,
           CanonicalSummary: last.canonicalSummary,
           Category: last.category,
-          Care: current.Care + 1,
+          Care: groupSelfFactCount > 0 ? current.Care + 1 : current.Care,
           Embedding: topicEmbedding,
           ...(inheritedHook ?? {}),
         },
@@ -426,7 +436,7 @@ export async function consolidate(
         Subject: last.subject,
         CanonicalSummary: last.canonicalSummary,
         Category: last.category,
-        Care: 1,
+        Care: groupSelfFactCount > 0 ? 1 : 0,
         Embedding: topicEmbedding,
         ...(requestHook ?? {}),
       });
