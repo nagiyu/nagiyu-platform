@@ -62,7 +62,8 @@ type RequestWebRaw = WebRawEntity & { RequestText: string; RequestedAt: number }
 /**
  * 今回バッチの request-origin WebRaw のうち、依頼文・依頼日時が揃ったものだけを
  * 順序付きリストとして抽出する（甲-1: 依頼由来 provenance）。
- * このリストの添字が、LLM に提示する `[依頼 #N]` の N になる。
+ * `filter` は元の順序を保つため、このリストの添字が LLM に提示する `[依頼 #N]` の N と
+ * 一対一で対応する（プロンプト表示・解決の双方で同じ添字を権威的に使える）。
  */
 function buildRequestWebRaws(webraws: WebRawEntity[]): RequestWebRaw[] {
   return webraws.filter(
