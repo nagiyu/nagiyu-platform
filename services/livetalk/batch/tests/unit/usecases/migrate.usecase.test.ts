@@ -167,6 +167,10 @@ const makeTopicResult = (overrides: Record<string, unknown> = {}) => ({
   canonicalSummary: 'ユーザーはコーヒーが好き',
   selfFacts: [{ text: 'ユーザーはコーヒーが好き', provenance: '' }],
   webFacts: [],
+  // consolidate（#3736 の依頼由来 provenance）が各 Topic 結果の sourceRequestIndices を
+  // 走査するため、モックにも必須フィールドとして空配列を持たせる（移行の擬似 webraw は
+  // request-origin ではないため常に空）。
+  sourceRequestIndices: [],
   ...overrides,
 });
 

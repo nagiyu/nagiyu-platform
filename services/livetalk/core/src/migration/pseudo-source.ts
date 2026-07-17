@@ -60,6 +60,10 @@ export function buildPseudoWebRaws(
       Query: knowledge.Topic,
       RawText: rawText,
       SourceUrls: knowledge.SourceUrls,
+      // 旧 Knowledge は自発リサーチ由来であり、ユーザー依頼（Origin='request'）ではない。
+      // 'auto' にすることで consolidate の依頼由来 provenance フック（Origin==='request' が条件）
+      // を誤って発火させない。
+      Origin: 'auto',
       CreatedAt: createdAt,
     };
   });

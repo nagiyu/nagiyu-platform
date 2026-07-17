@@ -75,6 +75,7 @@ describe('buildPseudoWebRaws', () => {
       Query: 'コーヒー 効能',
       RawText: 'コーヒーには覚醒作用がある\n眠気覚ましに飲んでいる',
       SourceUrls: ['https://example.com'],
+      Origin: 'auto',
       CreatedAt: BASE_TIMESTAMP,
     });
   });

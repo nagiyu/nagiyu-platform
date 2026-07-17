@@ -182,6 +182,9 @@ export async function acquireForUser(
           Query: studyTopic.Topic,
           RawText: result.summary,
           SourceUrls: result.sourceUrls,
+          Origin: 'request',
+          RequestText: studyTopic.Topic,
+          RequestedAt: studyTopic.CreatedAt,
         });
         webRawWritten++;
 
@@ -267,6 +270,7 @@ export async function acquireForUser(
             Query: query,
             RawText: result.summary,
             SourceUrls: result.sourceUrls,
+            Origin: 'stale',
           });
           webRawWritten++;
           staleChanged++;
@@ -356,6 +360,7 @@ export async function acquireForUser(
           Query: query,
           RawText: result.summary,
           SourceUrls: result.sourceUrls,
+          Origin: 'auto',
         });
         webRawWritten++;
         selfStudied++;

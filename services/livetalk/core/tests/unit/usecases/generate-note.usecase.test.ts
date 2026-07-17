@@ -1,3 +1,4 @@
+import { logger } from '@nagiyu/common';
 import { InMemorySingleTableStore } from '@nagiyu/aws';
 import { InMemoryTopicRepository } from '../../../src/repositories/in-memory-topic.repository.js';
 import { InMemoryNoteRepository } from '../../../src/repositories/in-memory-note.repository.js';
@@ -34,6 +35,7 @@ const makeLLMClient = (
 const makeLetter = (overrides: Partial<NoteLetterRaw> = {}): NoteLetterRaw => ({
   skip: false,
   usedSelfHook: true,
+  usedRequestHook: false,
   headline: 'この前コーヒーの話をしてたよね、気になって調べてみたよ。覚醒効果があるみたい！',
   ...overrides,
 });
@@ -286,6 +288,98 @@ describe('generateNotesForUser', () => {
     });
 
     expect(result.generatedCount).toBe(0);
+  });
+
+  it('bundle.topic.RequestText/RequestedAt がプロンプトに渡る（甲-1: 依頼由来 provenance）', async () => {
+    await putTopic({
+      Care: 3,
+      RequestText: '最新アニメ情報を調べて',
+      RequestedAt: fixedNow - 3_600_000,
+    });
+    await putWebFact('topic-001');
+
+    let capturedUserContent = '';
+    const llmClient: ILLMClient = {
+      async *chatStream() {
+        yield '';
+      },
+      async chatComplete() {
+        return '';
+      },
+      async chatStructured(messages) {
+        capturedUserContent = messages.find((m) => m.role === 'user')?.content ?? '';
+        return makeLetter() as unknown as never;
+      },
+    };
+
+    const result = await generateNotesForUser('u1', 'hiyori', {
+      topicRepo,
+      noteRepo,
+      llmClient,
+      characterName: '桃瀬ひより',
+      ulidFactory,
+    });
+
+    expect(result.generatedCount).toBe(1);
+    expect(capturedUserContent).toContain('最新アニメ情報を調べて');
+  });
+
+  it('bundle.topic に依頼フックが無ければプロンプトの依頼セクションは「なし」になる', async () => {
+    await putTopic({ Care: 3 });
+    await putWebFact('topic-001');
+
+    let capturedUserContent = '';
+    const llmClient: ILLMClient = {
+      async *chatStream() {
+        yield '';
+      },
+      async chatComplete() {
+        return '';
+      },
+      async chatStructured(messages) {
+        capturedUserContent = messages.find((m) => m.role === 'user')?.content ?? '';
+        return makeLetter() as unknown as never;
+      },
+    };
+
+    await generateNotesForUser('u1', 'hiyori', {
+      topicRepo,
+      noteRepo,
+      llmClient,
+      characterName: '桃瀬ひより',
+      ulidFactory,
+    });
+
+    expect(capturedUserContent).toContain('ユーザーの依頼（あれば）：\nなし');
+  });
+
+  it('ノート生成時に usedSelfHook/usedRequestHook を観測ログへ出す（fresh-eyes レビュー軽微#3）', async () => {
+    await putTopic({ Care: 3 });
+    await putWebFact('topic-001');
+    const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => {});
+    const llmClient = makeLLMClient([makeLetter({ usedSelfHook: true, usedRequestHook: false })]);
+
+    const result = await generateNotesForUser('u1', 'hiyori', {
+      topicRepo,
+      noteRepo,
+      llmClient,
+      characterName: '桃瀬ひより',
+      ulidFactory,
+    });
+
+    expect(result.generatedCount).toBe(1);
+    expect(infoSpy).toHaveBeenCalledWith(
+      '[generate-note] ノート生成',
+      expect.objectContaining({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-001',
+        usedSelfHook: true,
+        usedRequestHook: false,
+      })
+    );
+
+    infoSpy.mockRestore();
   });
 
   it('candidateLimit で care 降順スキャン件数を絞れる', async () => {

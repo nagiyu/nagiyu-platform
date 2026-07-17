@@ -26,6 +26,7 @@ function makeWebRaw(overrides: Partial<WebRawEntity> = {}): WebRawEntity {
     Query: 'クエリ',
     RawText: 'テキスト',
     SourceUrls: [],
+    Origin: 'auto',
     CreatedAt: 1000,
     ...overrides,
   };

@@ -346,7 +346,12 @@ export type {
   CreateWebFactInput,
   WebFactVolatility,
 } from './entities/web-fact.entity.js';
-export type { WebRawEntity, WebRawKey, CreateWebRawInput } from './entities/webraw.entity.js';
+export type {
+  WebRawEntity,
+  WebRawKey,
+  CreateWebRawInput,
+  WebRawOrigin,
+} from './entities/webraw.entity.js';
 export type {
   ConsolidationCursorEntity,
   ConsolidationCursorKey,
