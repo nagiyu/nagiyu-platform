@@ -6,7 +6,6 @@ import type { ILLMClient } from '../llm-client/types.js';
 import type { NoteRepository } from '../repositories/note.repository.interface.js';
 import type { TopicRepository } from '../repositories/topic.repository.interface.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
-import { formatJstMonthDay } from '../lib/format-date.js';
 import { buildGenerateNotePrompt } from './generate-note.prompt.js';
 
 export interface GenerateNotesParams {
@@ -92,19 +91,12 @@ export async function generateNotesForUser(
       // WEB fact が無ければ贈る中身が無いのでスキップ
       if (bundle.webFacts.length === 0) continue;
 
-      // 依頼フック（甲-1）は bundle.topic（getTopicBundle のベーステーブル読み）から取り出す。
-      // GSI3 経由の topic（候補列挙）には投影されないため、必ずベーステーブル読みの bundle.topic を使う。
       const promptMessages = buildGenerateNotePrompt({
         characterName,
         subject: topic.Subject,
         canonicalSummary: topic.CanonicalSummary,
         selfFacts: bundle.selfFacts.map((f) => ({ text: f.Text, provenance: f.Provenance })),
         webFacts: bundle.webFacts.map((f) => ({ text: f.Text, sourceUrls: f.SourceUrls })),
-        requestText: bundle.topic?.RequestText,
-        requestedAtLabel:
-          bundle.topic?.RequestedAt !== undefined
-            ? formatJstMonthDay(bundle.topic.RequestedAt)
-            : undefined,
       });
 
       const result = await llmClient.chatStructured(promptMessages, NoteLetterSchema, {
@@ -123,16 +115,6 @@ export async function generateNotesForUser(
       };
       await noteRepo.put(input);
       generatedCount++;
-
-      // 依頼ベースのフックが使われたかを観測できるようにする（甲-1: 依頼由来 provenance）。
-      // PII（headline 本文・依頼文そのもの）は出さず、フラグと ID のみ記録する。
-      logger.info('[generate-note] ノート生成', {
-        userId,
-        characterId,
-        topicId: topic.TopicID,
-        usedSelfHook: result.usedSelfHook,
-        usedRequestHook: result.usedRequestHook,
-      });
     } catch (err) {
       logger.warn('[generate-note] ノート生成に失敗しました（スキップして継続）', {
         userId,
