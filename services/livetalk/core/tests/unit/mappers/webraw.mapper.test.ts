@@ -9,6 +9,7 @@ const baseEntity: WebRawEntity = {
   Query: 'コーヒー 効能',
   RawText: 'コーヒーには覚醒効果があります。',
   SourceUrls: ['https://example.com/coffee'],
+  Origin: 'auto',
   CreatedAt: 1_750_000_000_000,
 };
 
@@ -55,6 +56,35 @@ describe('WebRawMapper', () => {
       const item = mapper.toItem(baseEntity);
       delete (item as Record<string, unknown>).Query;
       expect(() => mapper.toEntity(item)).toThrow(InvalidEntityDataError);
+    });
+
+    it('Origin === "request" のとき RequestText/RequestedAt が往復する（甲-1）', () => {
+      const requestEntity: WebRawEntity = {
+        ...baseEntity,
+        Origin: 'request',
+        RequestText: '最新アニメ情報を調べて',
+        RequestedAt: 1_749_000_000_000,
+      };
+      const item = mapper.toItem(requestEntity);
+      const entity = mapper.toEntity(item);
+      expect(entity).toEqual(requestEntity);
+    });
+
+    it('Origin === "auto"/"stale" のとき RequestText/RequestedAt は付与されない', () => {
+      const autoItem = mapper.toItem({ ...baseEntity, Origin: 'auto' });
+      expect((autoItem as Record<string, unknown>).RequestText).toBeUndefined();
+      expect((autoItem as Record<string, unknown>).RequestedAt).toBeUndefined();
+
+      const staleItem = mapper.toItem({ ...baseEntity, Origin: 'stale' });
+      expect(mapper.toEntity(staleItem).RequestText).toBeUndefined();
+      expect(mapper.toEntity(staleItem).RequestedAt).toBeUndefined();
+    });
+
+    it('Origin 属性が無い item は "auto" にフォールバックする（甲-1 導入前の後方互換）', () => {
+      const item = mapper.toItem(baseEntity);
+      delete (item as Record<string, unknown>).Origin;
+      const entity = mapper.toEntity(item);
+      expect(entity.Origin).toBe('auto');
     });
   });
 

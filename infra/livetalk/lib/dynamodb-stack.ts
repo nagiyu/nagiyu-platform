@@ -89,8 +89,12 @@ export class LiveTalkDynamoDbStack extends cdk.Stack {
     // 想起の座標列挙と acquire の care 降順を賄う（リブトーク知識再設計 P1 / #3697）。
     // GSI3PK=`<characterId>#TOPICS#<userId>` の META アイテムのみが対象（sparse GSI）
     // GSI3SK は Care（Number 型。care 降順 Query と全件列挙の両方を賄う）
-    // 射影は TopicEntity を GSI3 だけで復元できるよう、Care（GSI3SK と重複するため除外）
-    // 以外の全属性を INCLUDE する
+    // 射影は Topic ヘッダ列挙・care 降順取得に必要な属性のみを INCLUDE する
+    // （Care は GSI3SK と重複するため除外）。
+    // 依頼フック（RequestText/RequestedAt、甲-1: 依頼由来 provenance）は意図的に含めない。
+    // 依頼フックは generate-note が getTopicBundle（ベーステーブル読み）でのみ参照し、
+    // Topic ヘッダ列挙・care 降順取得（GSI3 経由）では使わないため、GSI3 だけで
+    // TopicEntity を完全復元できるとは限らない（この 2 属性を除いた不変条件になった）。
     this.table.addGlobalSecondaryIndex({
       indexName: 'GSI3',
       partitionKey: { name: 'GSI3PK', type: dynamodb.AttributeType.STRING },

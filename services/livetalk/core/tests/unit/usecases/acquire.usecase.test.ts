@@ -131,7 +131,7 @@ describe('acquireForUser', () => {
   });
 
   it('依頼（StudyTopic pending）を消費し done に遷移する', async () => {
-    await studyTopicRepo.put({
+    const studyTopic = await studyTopicRepo.put({
       UserID: 'u1',
       CharacterID: 'hiyori',
       TopicID: 'req-1',
@@ -165,6 +165,10 @@ describe('acquireForUser', () => {
     const webraws = await webRawRepo.listSince('u1', 'hiyori', 0);
     expect(webraws).toHaveLength(1);
     expect(webraws[0].Query).toBe('最新アニメ情報');
+    // 依頼消費（§1）は Origin='request' + 依頼文・依頼日を StudyTopic から引き継ぐ（甲-1）
+    expect(webraws[0].Origin).toBe('request');
+    expect(webraws[0].RequestText).toBe('最新アニメ情報');
+    expect(webraws[0].RequestedAt).toBe(studyTopic.CreatedAt);
   });
 
   it('鮮度切れ fact が変化ありの場合、WEBRAW を書き NextReview を前方更新する', async () => {
@@ -213,6 +217,9 @@ describe('acquireForUser', () => {
 
     const webraws = await webRawRepo.listSince('u1', 'hiyori', 0);
     expect(webraws).toHaveLength(1);
+    // 鮮度切れ再取得（§2）は Origin='stale' で書く（甲-1）
+    expect(webraws[0].Origin).toBe('stale');
+    expect(webraws[0].RequestText).toBeUndefined();
 
     const updatedFacts = await topicRepo.listWebFacts('u1', 'hiyori', 'topic-1');
     const updated = updatedFacts.find((f) => f.FactID === fact.FactID);
@@ -310,6 +317,9 @@ describe('acquireForUser', () => {
     const webraws = await webRawRepo.listSince('u1', 'hiyori', 0);
     expect(webraws).toHaveLength(1);
     expect(webraws[0].Query).toContain('高 care トピック');
+    // care 自発リサーチ（§3）は Origin='auto' で書く（甲-1）
+    expect(webraws[0].Origin).toBe('auto');
+    expect(webraws[0].RequestText).toBeUndefined();
   });
 
   it('直近取得済み（クールダウン中）の care 上位 Topic はスキップし、未取得の下位 Topic を研究する', async () => {

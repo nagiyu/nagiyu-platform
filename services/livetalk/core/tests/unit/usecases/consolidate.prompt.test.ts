@@ -120,6 +120,7 @@ describe('buildConsolidatePrompt', () => {
           query: 'せいろ蒸し コツ',
           rawText: 'せいろ蒸しは強火で蒸気を立ててから使う',
           sourceUrls: ['https://example.com/steam'],
+          origin: 'auto',
         },
       ],
     });
@@ -128,6 +129,92 @@ describe('buildConsolidatePrompt', () => {
     expect(userMessage?.content).toContain('せいろ蒸し コツ');
     expect(userMessage?.content).toContain('せいろ蒸しは強火で蒸気を立ててから使う');
     expect(userMessage?.content).toContain('https://example.com/steam');
+  });
+
+  it('requestIndex 付きの webRaws は [依頼 #N] 依頼文・依頼日付きでレンダリングされる（甲-1: index 参照方式）', () => {
+    const messages = buildConsolidatePrompt({
+      characterName: '早瀬アゲハ',
+      candidateTopics: [],
+      newMessages: [],
+      webRaws: [
+        {
+          query: '最新アニメ情報',
+          rawText: '今期は〇〇が人気です',
+          sourceUrls: [],
+          origin: 'request',
+          requestText: '最新アニメ情報を調べて',
+          requestedAtLabel: '7月10日',
+          requestIndex: 0,
+        },
+      ],
+    });
+
+    const userMessage = messages.find((m) => m.role === 'user');
+    expect(userMessage?.content).toContain('[依頼 #0]');
+    expect(userMessage?.content).toContain('依頼文: "最新アニメ情報を調べて"');
+    expect(userMessage?.content).toContain('依頼日: 7月10日');
+  });
+
+  it('origin === "request" でも requestIndex が undefined（今回バッチ非採用）なら [依頼 #N] が付かない', () => {
+    const messages = buildConsolidatePrompt({
+      characterName: '早瀬アゲハ',
+      candidateTopics: [],
+      newMessages: [],
+      webRaws: [
+        {
+          query: '最新アニメ情報',
+          rawText: '今期は〇〇が人気です',
+          sourceUrls: [],
+          origin: 'request',
+          requestText: '最新アニメ情報を調べて',
+          requestedAtLabel: '7月10日',
+        },
+      ],
+    });
+
+    const userMessage = messages.find((m) => m.role === 'user');
+    expect(userMessage?.content).not.toContain('[依頼');
+  });
+
+  it('origin === "auto"/"stale" の webRaws には [依頼 #N] が付かない', () => {
+    const messages = buildConsolidatePrompt({
+      characterName: '早瀬アゲハ',
+      candidateTopics: [],
+      newMessages: [],
+      webRaws: [
+        {
+          query: 'クエリA',
+          rawText: '内容A',
+          sourceUrls: [],
+          origin: 'auto',
+        },
+        {
+          query: 'クエリB',
+          rawText: '内容B',
+          sourceUrls: [],
+          origin: 'stale',
+        },
+      ],
+    });
+
+    const userMessage = messages.find((m) => m.role === 'user');
+    expect(userMessage?.content).not.toContain('[依頼');
+  });
+
+  it('system メッセージに sourceRequestIndices を番号で返す指示・捏造禁止の指示が含まれる（甲-1: index 参照方式）', () => {
+    const messages = buildConsolidatePrompt({
+      characterName: '早瀬アゲハ',
+      candidateTopics: [],
+      newMessages: [],
+      webRaws: [],
+    });
+
+    const systemMessage = messages.find((m) => m.role === 'system');
+    expect(systemMessage?.content).toContain('sourceRequestIndices に入れてください');
+    expect(systemMessage?.content).toContain(
+      '番号以外（依頼文そのものの文字列など）は返さないでください。'
+    );
+    expect(systemMessage?.content).toContain('憶測で番号を作らないでください。');
   });
 
   it('newMessages・webRaws が空なら「なし」と表示する', () => {

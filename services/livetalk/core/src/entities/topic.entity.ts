@@ -28,6 +28,14 @@ export interface TopicEntity {
   Care: number;
   /** 埋め込みベクトル（座標）。Topic 本体(META)に同居させる */
   Embedding: number[];
+  /**
+   * 依頼由来の別信号（甲-1: 依頼 provenance）。ユーザーが「〇〇調べて」と依頼した文言を
+   * consolidation が突合できた場合のみ設定する。SELF fact とは独立しており、SELF フックが
+   * 無い/使えない場合の generate-note の依頼フックに使う。
+   */
+  RequestText?: string;
+  /** 依頼日時（Unix ms）。`RequestText` とセットで設定する（甲-1: 依頼 provenance）。 */
+  RequestedAt?: number;
   CreatedAt: number;
   UpdatedAt: number;
 }

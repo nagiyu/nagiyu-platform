@@ -9,8 +9,10 @@ import {
 import { cosineSimilarity } from '../memory/embedding.js';
 import { emitBatchMetricsLog, emitBatchMetricsEMF } from '../observability/metrics.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
+import { formatJstMonthDay } from '../lib/format-date.js';
 import { ConsolidationSchema } from '../llm-client/schemas/consolidation.schema.js';
 import { buildConsolidatePrompt } from './consolidate.prompt.js';
+import type { WebRawEntity } from '../entities/webraw.entity.js';
 import type { IEmbeddingClient, ILLMClient } from '../llm-client/types.js';
 import type { ConsolidationRaw } from '../llm-client/schemas/consolidation.schema.js';
 import type { TopicEntity } from '../entities/topic.entity.js';
@@ -51,7 +53,60 @@ function truncateRoutingText(text: string): string {
   return text.slice(text.length - CONSOLIDATION_ROUTING_TEXT_MAX_CHARS);
 }
 
+/**
+ * 依頼由来 provenance を index 参照方式で紐付けるための、request-origin かつ
+ * 依頼文・依頼日時が揃った WebRaw（甲-1）。
+ */
+type RequestWebRaw = WebRawEntity & { RequestText: string; RequestedAt: number };
+
+/**
+ * 今回バッチの request-origin WebRaw のうち、依頼文・依頼日時が揃ったものだけを
+ * 順序付きリストとして抽出する（甲-1: 依頼由来 provenance）。
+ * `filter` は元の順序を保つため、このリストの添字が LLM に提示する `[依頼 #N]` の N と
+ * 一対一で対応する（プロンプト表示・解決の双方で同じ添字を権威的に使える）。
+ */
+function buildRequestWebRaws(webraws: WebRawEntity[]): RequestWebRaw[] {
+  return webraws.filter(
+    (w): w is RequestWebRaw =>
+      w.Origin === 'request' && w.RequestText !== undefined && w.RequestedAt !== undefined
+  );
+}
+
 type TopicResult = ConsolidationRaw['topics'][number];
+
+/**
+ * LLM が返した `sourceRequestIndices`（[依頼 #N] の N の配列）から依頼フックを解決する
+ * （甲-1: 依頼由来 provenance、index 参照方式）。日時・原文は必ずコード側（`requestWebRaws`、
+ * WebRaw.RequestText/RequestedAt 由来）から取り、LLM は番号を返すだけにする（verbatim
+ * エコー＋文字列突合は LLM の整形でずれて不安定だったため廃止）。
+ * 範囲外・非整数の index（LLM の捏造・取り違え）は無視する。複数 index が解決できた場合は
+ * 最新の RequestedAt を採用する。
+ */
+function resolveRequestHookByIndices(
+  indices: number[],
+  requestWebRaws: RequestWebRaw[]
+): { RequestText: string; RequestedAt: number } | undefined {
+  let best: RequestWebRaw | undefined;
+  for (const idx of indices) {
+    if (!Number.isInteger(idx) || idx < 0 || idx >= requestWebRaws.length) continue;
+    const w = requestWebRaws[idx];
+    if (best === undefined || w.RequestedAt > best.RequestedAt) best = w;
+  }
+  return best ? { RequestText: best.RequestText, RequestedAt: best.RequestedAt } : undefined;
+}
+
+/**
+ * 既存 Topic への merge グループについて、group.entries 全体の sourceRequestIndices を
+ * 集めて依頼フックを解決する（fresh-eyes レビュー軽微#7 相当）。group 内のどのエントリが
+ * 依頼由来かに関わらず、最新の依頼を取りこぼさず採用する。
+ */
+function resolveGroupRequestHook(
+  entries: TopicResult[],
+  requestWebRaws: RequestWebRaw[]
+): { RequestText: string; RequestedAt: number } | undefined {
+  const allIndices = entries.flatMap((e) => e.sourceRequestIndices);
+  return resolveRequestHookByIndices(allIndices, requestWebRaws);
+}
 
 /**
  * LLM が返した Topic 結果の「解決先」ごとのグループ。
@@ -247,6 +302,13 @@ export async function consolidate(
   );
 
   // ---- LLM 呼び出し ----
+  // 今回バッチの request-origin WebRaw から、index 参照方式で使う「採用可能な依頼 WebRaw」の
+  // 順序付きリストを作る（甲-1: 依頼由来 provenance）。この配列の添字が LLM に見せる
+  // `[依頼 #N]` の N になる。LLM には番号だけを返させ、権威ある依頼文・RequestedAt は
+  // 必ずこのリスト（コード側）から取る。
+  const requestWebRaws = buildRequestWebRaws(webraws);
+  const requestIndexByRawId = new Map<string, number>(requestWebRaws.map((w, i) => [w.RawID, i]));
+
   const promptMessages = buildConsolidatePrompt({
     characterName,
     candidateTopics: scored.map((s) => ({
@@ -260,6 +322,10 @@ export async function consolidate(
       query: w.Query,
       rawText: w.RawText,
       sourceUrls: w.SourceUrls,
+      origin: w.Origin,
+      requestText: w.RequestText,
+      requestedAtLabel: w.RequestedAt !== undefined ? formatJstMonthDay(w.RequestedAt) : undefined,
+      requestIndex: requestIndexByRawId.get(w.RawID),
     })),
   });
 
@@ -287,6 +353,10 @@ export async function consolidate(
       const topicEmbedding = await embeddingClient.embed(
         `${topicResult.subject}\n${topicResult.canonicalSummary}`
       );
+      const requestHook = resolveRequestHookByIndices(
+        topicResult.sourceRequestIndices,
+        requestWebRaws
+      );
       await topicRepo.putTopic({
         UserID: userId,
         CharacterID: characterId,
@@ -296,6 +366,7 @@ export async function consolidate(
         Category: topicResult.category,
         Care: countSelfFacts([topicResult]) > 0 ? 1 : 0,
         Embedding: topicEmbedding,
+        ...(requestHook ?? {}),
       });
       newTopicCount++;
 
@@ -323,11 +394,22 @@ export async function consolidate(
       characterId,
       topicId: group.topicId,
     });
+    // group.entries 全体の sourceRequestIndices から依頼フックを解決する
+    // （fresh-eyes レビュー軽微#7）。採用エントリ（last）の index だけでは、依頼フックが
+    // 別エントリにある場合に取りこぼす。
+    const requestHook = resolveGroupRequestHook(group.entries, requestWebRaws);
     const groupSelfFactCount = countSelfFacts(group.entries);
 
     let topicId: string;
     if (current) {
       topicId = current.TopicID;
+      // 今回依頼フックが解決できればそれで上書きし、できなければ既存の依頼フックを引き継ぐ
+      // （既存 Topic の依頼フックを非依頼 consolidation で消さないため）。
+      const inheritedHook =
+        requestHook ??
+        (current.RequestText !== undefined && current.RequestedAt !== undefined
+          ? { RequestText: current.RequestText, RequestedAt: current.RequestedAt }
+          : undefined);
       await topicRepo.putTopic(
         {
           UserID: userId,
@@ -338,6 +420,7 @@ export async function consolidate(
           Category: last.category,
           Care: groupSelfFactCount > 0 ? current.Care + 1 : current.Care,
           Embedding: topicEmbedding,
+          ...(inheritedHook ?? {}),
         },
         { expectedUpdatedAt: current.UpdatedAt }
       );
@@ -355,6 +438,7 @@ export async function consolidate(
         Category: last.category,
         Care: groupSelfFactCount > 0 ? 1 : 0,
         Embedding: topicEmbedding,
+        ...(requestHook ?? {}),
       });
       newTopicCount++;
     }
