@@ -19,3 +19,13 @@ export type {
 export { handler as acquireHandler } from './handlers/acquire.js';
 export { acquireAllUsers } from './usecases/acquire.usecase.js';
 export type { AcquireAllUsersParams, AcquireAllUsersResult } from './usecases/acquire.usecase.js';
+
+// 一回性マイグレーション（旧知識資材 → 新 Topic モデル、手動 invoke 専用、throwaway）
+export { handler as migrateHandler } from './handlers/migrate.js';
+export { runMigration, MIGRATE_ERROR_MESSAGES } from './usecases/migrate.usecase.js';
+export type {
+  MigratePayload,
+  MigrateResult,
+  MigrateScopeReport,
+  RunMigrationParams,
+} from './usecases/migrate.usecase.js';

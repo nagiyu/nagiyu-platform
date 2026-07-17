@@ -1248,4 +1248,94 @@ describe('consolidate', () => {
       expect(headers[0].RequestedAt).toBe(newRequestedAt);
     });
   });
+  describe('selfFactProvenanceSuffix（一回性マイグレーション用の provenance 付与）', () => {
+    it('未指定（既定 undefined）では既存の Provenance をそのまま保存する', async () => {
+      const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
+      tick = fixedNow;
+      await messageRepo.create({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Role: 'user',
+        Text: 'テスト',
+      });
+
+      const llmClient = makeLLMClient([
+        makeTopicResult({ selfFacts: [makeSelfFact({ provenance: '元の出所' })] }),
+      ]);
+      await consolidate('u1', 'hiyori', {
+        topicRepo,
+        messageRepo,
+        webRawRepo,
+        cursorRepo,
+        llmClient,
+        embeddingClient: makeEmbeddingClient(),
+        characterName: 'ひより',
+        now: () => fixedNow,
+      });
+
+      const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
+      const selfFacts = await topicRepo.listSelfFacts('u1', 'hiyori', headers[0].TopicID);
+      expect(selfFacts[0].Provenance).toBe('元の出所');
+    });
+
+    it('指定時、既存 Provenance が非空なら「｜出所: <suffix>」を付与する', async () => {
+      const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
+      tick = fixedNow;
+      await messageRepo.create({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Role: 'user',
+        Text: 'テスト',
+      });
+
+      const llmClient = makeLLMClient([
+        makeTopicResult({ selfFacts: [makeSelfFact({ provenance: '元の出所' })] }),
+      ]);
+      await consolidate('u1', 'hiyori', {
+        topicRepo,
+        messageRepo,
+        webRawRepo,
+        cursorRepo,
+        llmClient,
+        embeddingClient: makeEmbeddingClient(),
+        characterName: 'ひより',
+        now: () => fixedNow,
+        selfFactProvenanceSuffix: '旧Memory移行',
+      });
+
+      const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
+      const selfFacts = await topicRepo.listSelfFacts('u1', 'hiyori', headers[0].TopicID);
+      expect(selfFacts[0].Provenance).toBe('元の出所｜出所: 旧Memory移行');
+    });
+
+    it('指定時、既存 Provenance が空文字なら suffix のみを Provenance にする', async () => {
+      const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
+      tick = fixedNow;
+      await messageRepo.create({
+        UserID: 'u1',
+        CharacterID: 'hiyori',
+        Role: 'user',
+        Text: 'テスト',
+      });
+
+      const llmClient = makeLLMClient([
+        makeTopicResult({ selfFacts: [makeSelfFact({ provenance: '' })] }),
+      ]);
+      await consolidate('u1', 'hiyori', {
+        topicRepo,
+        messageRepo,
+        webRawRepo,
+        cursorRepo,
+        llmClient,
+        embeddingClient: makeEmbeddingClient(),
+        characterName: 'ひより',
+        now: () => fixedNow,
+        selfFactProvenanceSuffix: '旧Memory移行',
+      });
+
+      const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
+      const selfFacts = await topicRepo.listSelfFacts('u1', 'hiyori', headers[0].TopicID);
+      expect(selfFacts[0].Provenance).toBe('旧Memory移行');
+    });
+  });
 });
