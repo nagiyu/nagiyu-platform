@@ -4,33 +4,11 @@ describe('NoteLetterSchema', () => {
   const validPayload = {
     skip: false,
     usedSelfHook: true,
-    usedRequestHook: false,
     headline: '手紙の文面',
   };
 
   it('全フィールドが揃っていれば受理する', () => {
     const result = NoteLetterSchema.safeParse(validPayload);
-    expect(result.success).toBe(true);
-  });
-
-  it('usedRequestHook が欠けていれば拒否する（OpenAI Structured Outputs 制約で必須）', () => {
-    const rest: Record<string, unknown> = { ...validPayload };
-    delete rest.usedRequestHook;
-    const result = NoteLetterSchema.safeParse(rest);
-    expect(result.success).toBe(false);
-  });
-
-  it('usedRequestHook が真偽値以外なら拒否する', () => {
-    const result = NoteLetterSchema.safeParse({ ...validPayload, usedRequestHook: 'true' });
-    expect(result.success).toBe(false);
-  });
-
-  it('usedRequestHook=true（依頼フック使用）を受理する', () => {
-    const result = NoteLetterSchema.safeParse({
-      ...validPayload,
-      usedSelfHook: false,
-      usedRequestHook: true,
-    });
     expect(result.success).toBe(true);
   });
 

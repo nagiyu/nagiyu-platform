@@ -30,7 +30,6 @@ const makeTopicResult = () => ({
 const makeNoteLetter = () => ({
   skip: true,
   usedSelfHook: false,
-  usedRequestHook: false,
   headline: '',
 });
 

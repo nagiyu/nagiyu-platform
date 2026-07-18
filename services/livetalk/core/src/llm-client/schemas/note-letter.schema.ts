@@ -19,16 +19,8 @@ export const NoteLetterSchema = z.object({
   /**
    * 実在かつ健全な SELF fact を根拠に強いフック（「〜だったよね、だから調べたよ」）を
    * 使ったかどうか。根拠が弱い・センシティブ・存在しない場合は false（自発トーン）。
-   * 依頼フックを使った場合もこれは false のままにする（依頼フックは SELF fact に基づかないため）。
    */
   usedSelfHook: z.boolean(),
-  /**
-   * 実在する依頼フック（ユーザーの依頼）を根拠に手紙を書いたら true。
-   * SELF フックが使えない場合の代替フックとして依頼文を使ったかどうかの観測用（甲-1）。
-   */
-  usedRequestHook: z
-    .boolean()
-    .describe('実在する依頼フック（ユーザーの依頼）を根拠に手紙を書いたら true。'),
   /** 合成した手紙文面（2〜4 文・温かい口調・箇条書きにしない） */
   headline: z.string(),
 });
