@@ -17,7 +17,7 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
   },
   {
     source: '/tech/aws-batch-parallelism',
-    destination: '/tech/aws-batch-architecture',
+    destination: '/tech',
   },
   {
     source: '/tech/cloudfront-functions-vs-edge',
