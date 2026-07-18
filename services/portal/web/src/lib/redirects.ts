@@ -57,6 +57,10 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
     destination: '/tech',
   },
   {
+    source: '/tech/cdk-iam-least-privilege',
+    destination: '/tech',
+  },
+  {
     source: '/tech/zod-runtime-validation',
     destination: '/tech/discriminated-union-api',
   },
