@@ -47,6 +47,15 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
     source: '/tech/video-codec-comparison',
     destination: '/tech',
   },
+  // 再整理（#3745）で一次体験が薄いと判断し削除した記事。旧 URL を一覧へ集約する。
+  {
+    source: '/tech/auth-signout-reverse-proxy-redirect',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/aws-batch-architecture',
+    destination: '/tech',
+  },
   {
     source: '/tech/zod-runtime-validation',
     destination: '/tech/discriminated-union-api',
