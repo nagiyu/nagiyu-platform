@@ -65,6 +65,10 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
     destination: '/tech',
   },
   {
+    source: '/tech/cloudfront-ecs-deployment',
+    destination: '/tech',
+  },
+  {
     source: '/tech/zod-runtime-validation',
     destination: '/tech/discriminated-union-api',
   },
