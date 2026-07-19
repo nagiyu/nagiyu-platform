@@ -21,7 +21,7 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
   },
   {
     source: '/tech/cloudfront-functions-vs-edge',
-    destination: '/tech/cloudfront-cache-strategy',
+    destination: '/tech',
   },
   {
     source: '/tech/aws-ses-transactional-mail',
@@ -58,6 +58,10 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
   },
   {
     source: '/tech/cdk-iam-least-privilege',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/cloudfront-cache-strategy',
     destination: '/tech',
   },
   {
