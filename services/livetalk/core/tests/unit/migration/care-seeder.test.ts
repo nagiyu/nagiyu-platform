@@ -53,7 +53,38 @@ describe('computeCareBoosts', () => {
     expect(boosts.size).toBe(0);
   });
 
-  it('cosine が閾値未満なら Category 文字列一致でフォールバックする', () => {
+  it('Category 名がシグナルと一致しなくても embedding 最寄りの Topic に割り当てる（回帰テスト）', () => {
+    // 旧カテゴリ「ラーメン」の embedding が、Subject を言い換えられた新 Topic（Category は
+    // 元カテゴリ名と一致しない）の embedding に最も近い場合でも、embedding 近傍で割り当てられること。
+    const topics = [
+      makeTopic({
+        TopicID: 'T-RAMEN',
+        Embedding: [0.9, 0.1],
+        Category: 'ラーメン嗜好・今夏のトレンドと限定カップ麺の購買意向',
+      }),
+      makeTopic({ TopicID: 'T-OTHER', Embedding: [0, 1], Category: '無関係' }),
+    ];
+    const interests: LegacyInterestCategoryEntity[] = [
+      { Category: 'ラーメン', Weight: 1, Embedding: [1, 0] },
+    ];
+
+    const boosts = computeCareBoosts(topics, interests, []);
+    expect(boosts.get('T-RAMEN')).toBe(1);
+    expect(boosts.has('T-OTHER')).toBe(false);
+  });
+
+  it('最寄り cosine が閾値（0.3）未満なら drop する（Category 一致フォールバックは無い）', () => {
+    const topics = [makeTopic({ TopicID: 'T1', Embedding: [1, 0], Category: '趣味' })];
+    // cosine([1,0], [0.2, 0.98]) ≈ 0.1999（0.3 未満）
+    const interests: LegacyInterestCategoryEntity[] = [
+      { Category: '趣味', Weight: 1, Embedding: [0.2, 0.98] },
+    ];
+
+    const boosts = computeCareBoosts(topics, interests, []);
+    expect(boosts.size).toBe(0);
+  });
+
+  it('次元が異なり cosine=0 になるシグナルは drop する（Category 一致フォールバックは無い）', () => {
     const topics = [
       makeTopic({ TopicID: 'T-COSINE', Embedding: [1, 0], Category: '別カテゴリ' }),
       makeTopic({ TopicID: 'T-CATEGORY', Embedding: [0, 1, 0], Category: '趣味' }),
@@ -64,17 +95,16 @@ describe('computeCareBoosts', () => {
     ];
 
     const boosts = computeCareBoosts(topics, interests, []);
-    expect(boosts.get('T-CATEGORY')).toBe(1);
-    expect(boosts.has('T-COSINE')).toBe(false);
+    expect(boosts.size).toBe(0);
   });
 
-  it('embedding 欠損シグナルは Category 一致のみで割り当てる', () => {
+  it('embedding 欠損シグナルは drop する（Category 一致では割り当てない）', () => {
     const topics = [makeTopic({ TopicID: 'T1', Embedding: [1, 0], Category: '趣味' })];
     const memories: LegacyMemoryEntity[] = [
       { Content: 'x', Category: '趣味', Embedding: [], ReferencedCount: 4 },
     ];
     const boosts = computeCareBoosts(topics, [], memories);
-    expect(boosts.get('T1')).toBe(1);
+    expect(boosts.size).toBe(0);
   });
 
   it('割り当て先が無いシグナルは drop する（例外にならない）', () => {

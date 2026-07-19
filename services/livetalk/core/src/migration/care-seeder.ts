@@ -2,9 +2,11 @@
  * care 引き継ぎ（care seed）ユーティリティ（一回性マイグレーション専用の throwaway コード）。
  *
  * InterestCategory.Weight と Memory.ReferencedCount をそれぞれ独立に正規化し、
- * cosine 近傍（閾値未満なら Category 文字列一致にフォールバック）で対応 Topic に
- * 割り当てて care を加算する。InterestCategory.Embedding / Memory.Embedding は
- * ここでのみ再利用し、新モデルには保存しない。
+ * embedding 近傍（cosine 最寄りの Topic 1 件、閾値未満は drop）のみで対応 Topic に
+ * 割り当てて care を加算する。新 Topic の Subject は LLM により言い換えられており
+ * Category 文字列一致は機能しないため、フォールバックは持たない。
+ * InterestCategory.Embedding / Memory.Embedding はここでのみ再利用し、新モデルには
+ * 保存しない。
  */
 import { logger } from '@nagiyu/common';
 import {
@@ -34,28 +36,27 @@ function normalizeSignals(signals: CareSignal[]): CareSignal[] {
 }
 
 /**
- * シグナルを cosine similarity 最大の Topic に割り当てる。
- * 最大 cosine が閾値未満（または埋め込み欠損）なら Category 文字列一致でフォールバックする。
- * どちらも該当しなければ undefined（drop）を返す。
+ * シグナルを cosine similarity 最大（embedding 最寄り）の Topic に割り当てる。
+ * シグナルの embedding が空、または最大 cosine が閾値未満（＝対応する Topic が
+ * 無いとみなす）の場合は undefined（drop）を返す。Category 文字列一致による
+ * フォールバックは持たない（新 Topic の Subject は言い換えられており機能しないため）。
  */
 function assignSignalToTopic(signal: CareSignal, topics: TopicEntity[]): string | undefined {
-  if (signal.embedding.length > 0) {
-    let best: { topicId: string; score: number } | undefined;
-    for (const topic of topics) {
-      if (topic.Embedding.length === 0) continue;
-      const score = cosineSimilarity(signal.embedding, topic.Embedding);
-      if (!best || score > best.score) {
-        best = { topicId: topic.TopicID, score };
-      }
-    }
-    if (best && best.score >= MIGRATION_CARE_ASSIGN_SIMILARITY_THRESHOLD) {
-      return best.topicId;
+  if (signal.embedding.length === 0) return undefined;
+
+  let best: { topicId: string; score: number } | undefined;
+  for (const topic of topics) {
+    if (topic.Embedding.length === 0) continue;
+    const score = cosineSimilarity(signal.embedding, topic.Embedding);
+    if (!best || score > best.score) {
+      best = { topicId: topic.TopicID, score };
     }
   }
 
-  if (signal.category === '') return undefined;
-  const categoryMatch = topics.find((topic) => topic.Category === signal.category);
-  return categoryMatch?.TopicID;
+  if (best && best.score >= MIGRATION_CARE_ASSIGN_SIMILARITY_THRESHOLD) {
+    return best.topicId;
+  }
+  return undefined;
 }
 
 /**
@@ -84,9 +85,10 @@ export function computeCareBoosts(
     for (const signal of signals) {
       const topicId = assignSignalToTopic(signal, topics);
       if (!topicId) {
-        logger.warn('[care-seeder] care シグナルの割り当て先 Topic が見つかりません（drop）', {
-          category: signal.category,
-        });
+        logger.warn(
+          '[care-seeder] embedding 近傍の Topic が見つからない（未埋め込み、または最大 cosine が閾値未満）ため drop します',
+          { category: signal.category }
+        );
         continue;
       }
       sums.set(topicId, (sums.get(topicId) ?? 0) + signal.weight);
