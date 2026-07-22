@@ -1,0 +1,27 @@
+name: Guard - tasks は develop/master に入れない
+
+# tasks/{feature}/ は開発時の一時ドキュメント。開発完了後に docs/ へ移行して
+# 削除する運用（CLAUDE.md）。掃除忘れで develop/master に混入するのを CI で防ぐ。
+# tasks/templates/（新規 tasks/{feature}/ の雛形）は永続資産のため許可する。
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - master
+
+jobs:
+  no-feature-tasks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: tasks/{feature}/ がマージ結果に含まれていないか検査
+        run: |
+          leaked=$(git ls-files tasks/ | grep -v '^tasks/templates/' || true)
+          if [ -n "$leaked" ]; then
+            echo "::error::tasks/ 配下の作業ドキュメントが develop/master に入ろうとしています。docs/ へ移行し、tasks/{feature}/ を削除してください（tasks/templates/ は許可）。"
+            echo "$leaked"
+            exit 1
+          fi
+          echo "OK: tasks/ に作業ドキュメントなし（templates のみ）"
