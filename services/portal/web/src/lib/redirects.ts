@@ -17,11 +17,11 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
   },
   {
     source: '/tech/aws-batch-parallelism',
-    destination: '/tech/aws-batch-architecture',
+    destination: '/tech',
   },
   {
     source: '/tech/cloudfront-functions-vs-edge',
-    destination: '/tech/cloudfront-cache-strategy',
+    destination: '/tech',
   },
   {
     source: '/tech/aws-ses-transactional-mail',
@@ -47,9 +47,34 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
     source: '/tech/video-codec-comparison',
     destination: '/tech',
   },
+  // 再整理（#3745）で一次体験が薄いと判断し削除した記事。旧 URL を一覧へ集約する。
+  {
+    source: '/tech/auth-signout-reverse-proxy-redirect',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/aws-batch-architecture',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/cdk-iam-least-privilege',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/cloudfront-cache-strategy',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/cloudfront-ecs-deployment',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/discriminated-union-api',
+    destination: '/tech',
+  },
   {
     source: '/tech/zod-runtime-validation',
-    destination: '/tech/discriminated-union-api',
+    destination: '/tech',
   },
   // /services・/tech/tags・/tech/category 配下を技術記事一覧へ集約する。
   {
