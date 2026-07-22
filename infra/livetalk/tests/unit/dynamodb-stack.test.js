@@ -23,7 +23,7 @@ describe('LiveTalkDynamoDbStack', () => {
     });
   });
 
-  it('PK / SK の 2 キー Single Table 構成に GSI1（Profile 列挙用 sparse GSI）と GSI2（SafetyEvent 横断レビュー用 sparse GSI）を追加する', () => {
+  it('PK / SK の 2 キー Single Table 構成に GSI1（Profile 列挙用 sparse GSI）と GSI2（SafetyEvent 横断レビュー用 sparse GSI）と GSI3（GSI-TOPIC）と GSI4（GSI-STALE）を追加する', () => {
     const template = synth('dev');
     template.hasResourceProperties('AWS::DynamoDB::Table', {
       KeySchema: [
@@ -37,6 +37,10 @@ describe('LiveTalkDynamoDbStack', () => {
         { AttributeName: 'GSI1SK', AttributeType: 'S' },
         { AttributeName: 'GSI2PK', AttributeType: 'S' },
         { AttributeName: 'GSI2SK', AttributeType: 'S' },
+        { AttributeName: 'GSI3PK', AttributeType: 'S' },
+        { AttributeName: 'GSI3SK', AttributeType: 'N' },
+        { AttributeName: 'GSI4PK', AttributeType: 'S' },
+        { AttributeName: 'GSI4SK', AttributeType: 'N' },
       ]),
     });
     // GSI1: Profile 列挙用 sparse GSI（#3527）
@@ -107,6 +111,64 @@ describe('LiveTalkDynamoDbStack', () => {
     const table = Object.values(tableResource)[0];
     expect(table.DeletionPolicy).toBe('Retain');
     expect(table.UpdateReplacePolicy).toBe('Retain');
+  });
+
+  it('GSI3（GSI-TOPIC: Topic ヘッダ(META) 列挙・care 降順取得用 sparse GSI）が INCLUDE 射影で属性を含む（#3697）', () => {
+    const template = synth('dev');
+    template.hasResourceProperties('AWS::DynamoDB::Table', {
+      GlobalSecondaryIndexes: Match.arrayWith([
+        {
+          IndexName: 'GSI3',
+          KeySchema: [
+            { AttributeName: 'GSI3PK', KeyType: 'HASH' },
+            { AttributeName: 'GSI3SK', KeyType: 'RANGE' },
+          ],
+          Projection: {
+            ProjectionType: 'INCLUDE',
+            NonKeyAttributes: Match.arrayWith([
+              'UserID',
+              'CharacterID',
+              'TopicID',
+              'Subject',
+              'CanonicalSummary',
+              'Category',
+              'Embedding',
+              'CreatedAt',
+              'UpdatedAt',
+            ]),
+          },
+        },
+      ]),
+    });
+  });
+
+  it('GSI4（GSI-STALE: 揮発 WEB fact の鮮度掃引用 sparse GSI）が INCLUDE 射影で属性を含む（#3699）', () => {
+    const template = synth('dev');
+    template.hasResourceProperties('AWS::DynamoDB::Table', {
+      GlobalSecondaryIndexes: Match.arrayWith([
+        {
+          IndexName: 'GSI4',
+          KeySchema: [
+            { AttributeName: 'GSI4PK', KeyType: 'HASH' },
+            { AttributeName: 'GSI4SK', KeyType: 'RANGE' },
+          ],
+          Projection: {
+            ProjectionType: 'INCLUDE',
+            NonKeyAttributes: Match.arrayWith([
+              'UserID',
+              'CharacterID',
+              'TopicID',
+              'FactID',
+              'Text',
+              'SourceUrls',
+              'Volatility',
+              'ObservedAt',
+              'CreatedAt',
+            ]),
+          },
+        },
+      ]),
+    });
   });
 
   it('SSM パラメータは発行しない（サービス固有名を infra/common に増やさない方針）', () => {

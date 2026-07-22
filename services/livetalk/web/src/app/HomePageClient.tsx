@@ -77,8 +77,7 @@ function HomePageInner() {
   } = useOnboarding(consentPhase);
 
   // カレントキャラの第一声（未消化通知）管理 hook
-  const { firstWordText, prefillText, consumeKnowledgeId, clearFirstWordText } =
-    useFirstWord(characterId);
+  const { firstWordText, prefillText, clearFirstWordText } = useFirstWord(characterId);
 
   // 他キャラクターの未消化通知管理 hook
   const { pendingNotifications } = usePendingNotifications();
@@ -105,7 +104,6 @@ function HomePageInner() {
     markStreamDone,
     resetAudioQueue: reset,
     advanceOnError,
-    consumeKnowledgeId,
     clearFirstWordText,
     clearOnboardingText,
     setLifecycleState,

@@ -1,28 +1,38 @@
-import type { ILLMClient, IEmbeddingClient } from '../llm-client/types.js';
+import type { ILLMClient } from '../llm-client/types.js';
 import { EscalationSchema } from '../llm-client/schemas/escalation.schema.js';
-import type { KnowledgeEntity } from '../entities/knowledge.entity.js';
-import type { InterestCategoryEntity } from '../entities/interest-category.entity.js';
-import { cosineSimilarity } from '../memory/embedding.js';
-import {
-  INTEREST_DEDUP_SIMILARITY_THRESHOLD,
-  NOTIFY_CRITICAL_INTEREST_SHARE_THRESHOLD,
-  NOTIFY_CRITICAL_EVENT_HORIZON_DAYS,
-} from '../constants.js';
+import type { TopicEntity } from '../entities/topic.entity.js';
+import type { WebFactEntity } from '../entities/web-fact.entity.js';
+import { NOTIFY_CRITICAL_EVENT_HORIZON_DAYS } from '../constants.js';
+
+/**
+ * escalation 判定 1 候補分について LLM に渡す WEB fact を絞り込む件数。
+ * ObservedAt 降順で直近この件数のみを判定対象にし、LLM コストを抑える。
+ */
+const ESCALATION_RECENT_WEB_FACTS_LIMIT = 3;
 
 export interface EscalationResult {
   isCritical: boolean;
-  knowledgeId: string | null;
+  topicId: string | null;
+  factId: string | null;
 }
 
 /**
- * detectCriticalKnowledge の入力インターフェース。
+ * detectCriticalTopic の入力候補 1 件（Topic ヘッダ + その配下の WEB fact 全件）。
+ */
+export interface DetectCriticalCandidate {
+  topic: TopicEntity;
+  webFacts: WebFactEntity[];
+}
+
+/**
+ * detectCriticalTopic の入力インターフェース（リブトーク知識・記憶再設計 P5）。
  */
 export interface DetectCriticalInput {
-  knowledgeList: KnowledgeEntity[];
-  /** ユーザーの興味カテゴリ（Weight 付き） */
-  interestCategories: InterestCategoryEntity[];
+  /** care 降順などで並べた Topic 候補（WEB fact 込み）。先頭から順に評価する。 */
+  candidates: DetectCriticalCandidate[];
+  /** この値以上の Topic.Care を「高 care」とみなす閾値。 */
+  careThreshold: number;
   llmClient: ILLMClient;
-  embeddingClient: IEmbeddingClient;
   /** 判定基準時刻（today 計算・LLM プロンプトの今日日付注入に使用） */
   now: Date;
 }
@@ -57,83 +67,13 @@ function parseDateString(dateStr: string): Date | null {
 }
 
 /**
- * Knowledge の RelatedCategory を interestCategories の正規カテゴリに解決する。
- *
- * 解決手順:
- *   1. Category との完全一致
- *   2. embedding 類似度で INTEREST_DEDUP_SIMILARITY_THRESHOLD 以上のカテゴリを探す
- *   3. 解決できなければ null
- *
- * embed 呼び出し結果は embeddingCache にキャッシュして無駄打ちを避ける。
- */
-async function resolveToInterestCategory(
-  relatedCategory: string,
-  interestCategories: InterestCategoryEntity[],
-  embeddingClient: IEmbeddingClient,
-  embeddingCache: Map<string, number[]>
-): Promise<InterestCategoryEntity | null> {
-  if (interestCategories.length === 0) return null;
-
-  // 1. 完全一致
-  const exact = interestCategories.find((c) => c.Category === relatedCategory);
-  if (exact) return exact;
-
-  // 2. embedding 類似度で解決
-  let relatedVec: number[];
-  const cached = embeddingCache.get(relatedCategory);
-  if (cached) {
-    relatedVec = cached;
-  } else {
-    relatedVec = await embeddingClient.embed(relatedCategory);
-    embeddingCache.set(relatedCategory, relatedVec);
-  }
-
-  let bestCategory: InterestCategoryEntity | null = null;
-  let bestSimilarity = -Infinity;
-
-  for (const category of interestCategories) {
-    // カテゴリのベクトルは entity の Embedding があれば使い、無ければ生成
-    let catVec: number[];
-    const catCached = embeddingCache.get(category.Category);
-    if (catCached) {
-      catVec = catCached;
-    } else if (category.Embedding) {
-      catVec = category.Embedding;
-      embeddingCache.set(category.Category, catVec);
-    } else {
-      catVec = await embeddingClient.embed(category.Category);
-      embeddingCache.set(category.Category, catVec);
-    }
-
-    const similarity = cosineSimilarity(relatedVec, catVec);
-    if (similarity > bestSimilarity) {
-      bestSimilarity = similarity;
-      bestCategory = category;
-    }
-  }
-
-  if (bestSimilarity >= INTEREST_DEDUP_SIMILARITY_THRESHOLD) {
-    return bestCategory;
-  }
-
-  return null;
-}
-
-/**
- * 興味カテゴリの全 Weight 合計を計算する。
- */
-function totalWeight(interestCategories: InterestCategoryEntity[]): number {
-  return interestCategories.reduce((sum, c) => sum + c.Weight, 0);
-}
-
-/**
  * LLM に今日の日付を含む厳格なプロンプトで eventDate を抽出させる。
  */
 function buildEscalationPrompt(todayStr: string): string {
   return `あなたは通知の緊急度を判定するアシスタントです。
 今日の日付: ${todayStr}（JST）
 
-以下の知識情報から、「新作リリース・期間限定イベント・締切のある緊急情報」に関する具体的な日付（発売日・開催日・締切・終了日）を YYYY-MM-DD 形式で1つだけ抽出してください。
+以下のトピック情報から、「新作リリース・期間限定イベント・締切のある緊急情報」に関する具体的な日付（発売日・開催日・締切・終了日）を YYYY-MM-DD 形式で1つだけ抽出してください。
 
 抽出ルール:
 - 具体的な将来日付が記載されている場合のみ eventDate を返す
@@ -165,70 +105,58 @@ function isUrgent(eventDate: string | null, now: Date): boolean {
 }
 
 /**
- * KNOWLEDGE リストから時間帯外でも配信すべきクリティカル情報を判定する。
+ * Topic 候補リストから時間帯外でも配信すべきクリティカル情報を判定する
+ * （リブトーク知識・記憶再設計 P5: 通知の critical/ネタ源を Topic.Care + WEB fact へ移行）。
  *
  * 判定ロジック（AND ゲート）:
- *   critical = isStrongInterest AND isUrgent
+ *   critical = isHighCare AND isUrgent
  *
- * - isStrongInterest: RelatedCategory を正規カテゴリに解決し、そのシェアが閾値以上か
+ * - isHighCare: `topic.Care >= careThreshold` か
  * - isUrgent: LLM で抽出した eventDate が今日以降 NOTIFY_CRITICAL_EVENT_HORIZON_DAYS 以内か
  *
- * LLM 呼び出しは isStrongInterest=true の場合のみ行い、コストを節約する。
+ * LLM 呼び出しは isHighCare=true の Topic の WEB fact のみに行い、コストを節約する。
+ * 各 Topic につき ObservedAt 降順で直近 ESCALATION_RECENT_WEB_FACTS_LIMIT 件のみを評価する。
  *
- * - 候補が複数あっても最初の 1 件のみ返す（頻度キャップはバッチ側で担保）
- * - LLM/embedding 呼び出し失敗は best-effort（例外を握りつぶして次の候補へ）
+ * - 候補が複数あっても最初に urgent と判定した 1 件のみ返す（頻度キャップはバッチ側で担保）
+ * - LLM 呼び出し失敗は best-effort（例外を握りつぶして次の候補へ）
  */
-export async function detectCriticalKnowledge(
-  input: DetectCriticalInput
-): Promise<EscalationResult> {
-  const { knowledgeList, interestCategories, llmClient, embeddingClient, now } = input;
+export async function detectCriticalTopic(input: DetectCriticalInput): Promise<EscalationResult> {
+  const { candidates, careThreshold, llmClient, now } = input;
 
-  const total = totalWeight(interestCategories);
-  const embeddingCache = new Map<string, number[]>();
   const todayStr = toJstDateString(now);
 
-  for (const knowledge of knowledgeList) {
-    try {
-      // (a) isStrongInterest: RelatedCategory を正規カテゴリに解決してシェアを計算
-      let strongInterest = false;
+  for (const candidate of candidates) {
+    const { topic, webFacts } = candidate;
 
-      if (total > 0) {
-        const resolvedCategory = await resolveToInterestCategory(
-          knowledge.RelatedCategory,
-          interestCategories,
-          embeddingClient,
-          embeddingCache
+    // isHighCare=false の Topic は LLM を呼ばずスキップ
+    if (topic.Care < careThreshold) continue;
+
+    const recentWebFacts = [...webFacts]
+      .sort((a, b) => b.ObservedAt - a.ObservedAt)
+      .slice(0, ESCALATION_RECENT_WEB_FACTS_LIMIT);
+
+    for (const webFact of recentWebFacts) {
+      try {
+        const result = await llmClient.chatStructured(
+          [
+            { role: 'system', content: buildEscalationPrompt(todayStr) },
+            {
+              role: 'user',
+              content: `トピック: ${topic.Subject}\n内容: ${webFact.Text}`,
+            },
+          ],
+          EscalationSchema,
+          { purpose: 'classify' }
         );
 
-        if (resolvedCategory) {
-          const share = resolvedCategory.Weight / total;
-          strongInterest = share >= NOTIFY_CRITICAL_INTEREST_SHARE_THRESHOLD;
+        if (isUrgent(result.eventDate, now)) {
+          return { isCritical: true, topicId: topic.TopicID, factId: webFact.FactID };
         }
+      } catch {
+        // best-effort: LLM 呼び出し失敗は無視して次の候補へ
       }
-
-      // isStrongInterest=false の場合は LLM を呼ばずスキップ
-      if (!strongInterest) continue;
-
-      // (b) isUrgent: LLM で eventDate を抽出し、ルールゲートで判定
-      const result = await llmClient.chatStructured(
-        [
-          { role: 'system', content: buildEscalationPrompt(todayStr) },
-          {
-            role: 'user',
-            content: `トピック: ${knowledge.Topic}\n要約: ${knowledge.Summary}`,
-          },
-        ],
-        EscalationSchema,
-        { purpose: 'classify' }
-      );
-
-      if (isUrgent(result.eventDate, now)) {
-        return { isCritical: true, knowledgeId: knowledge.KnowledgeID };
-      }
-    } catch {
-      // best-effort: LLM/embedding 失敗は無視して次の候補へ
     }
   }
 
-  return { isCritical: false, knowledgeId: null };
+  return { isCritical: false, topicId: null, factId: null };
 }

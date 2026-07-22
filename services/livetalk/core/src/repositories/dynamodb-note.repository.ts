@@ -2,8 +2,10 @@ import {
   GetCommand,
   PutCommand,
   QueryCommand,
+  UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
+import { logger } from '@nagiyu/common';
 import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import type { CreateNoteInput, NoteEntity, NoteKey } from '../entities/note.entity.js';
 import { NoteMapper } from '../mappers/note.mapper.js';
@@ -67,7 +69,7 @@ export class DynamoDBNoteRepository implements NoteRepository {
       }
 
       for (const raw of result.Items ?? []) {
-        results.push(this.mapper.toEntity(raw as unknown as DynamoDBItem));
+        this.pushMappedEntity(results, raw as unknown as DynamoDBItem, userId, characterId);
       }
 
       if (!result.LastEvaluatedKey || results.length >= limit) break;
@@ -103,7 +105,7 @@ export class DynamoDBNoteRepository implements NoteRepository {
       }
 
       for (const raw of result.Items ?? []) {
-        results.push(this.mapper.toEntity(raw as unknown as DynamoDBItem));
+        this.pushMappedEntity(results, raw as unknown as DynamoDBItem, userId, characterId);
       }
 
       if (!result.LastEvaluatedKey) break;
@@ -111,6 +113,29 @@ export class DynamoDBNoteRepository implements NoteRepository {
     }
 
     return results;
+  }
+
+  /**
+   * item を NoteEntity にマップして results に追加する。
+   * 旧設計（Knowledge 昇格方式の Note 等）や破損データで toEntity が失敗した場合は、
+   * その item のみをスキップして警告ログを出し、リスト全体の取得は継続する（fail-warn）。
+   */
+  private pushMappedEntity(
+    results: NoteEntity[],
+    raw: DynamoDBItem,
+    userId: string,
+    characterId: string
+  ): void {
+    try {
+      results.push(this.mapper.toEntity(raw));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const sk = (raw as { SK?: unknown }).SK;
+      logger.warn(
+        '[DynamoDBNoteRepository] ノート item のマップに失敗しました（旧設計/破損の可能性・スキップ）',
+        { userId, characterId, sk, error: message }
+      );
+    }
   }
 
   public async get(key: NoteKey): Promise<NoteEntity | null> {
@@ -137,5 +162,30 @@ export class DynamoDBNoteRepository implements NoteRepository {
     const threshold = this.nowMs() - days * 24 * 60 * 60 * 1000;
     const all = await this.list(userId, characterId, limit);
     return all.filter((note) => note.CreatedAt >= threshold);
+  }
+
+  public async updateReaction(key: NoteKey, reaction: string): Promise<void> {
+    const pk = buildUserPK(key.userId);
+    const sk = buildNoteSK(key.characterId, key.noteId);
+    const now = this.nowMs();
+
+    try {
+      await this.docClient.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: { PK: pk, SK: sk },
+          ConditionExpression: 'attribute_exists(PK)',
+          UpdateExpression: 'SET Reaction = :reaction, UpdatedAt = :updatedAt',
+          ExpressionAttributeValues: { ':reaction': reaction, ':updatedAt': now },
+        })
+      );
+    } catch (error) {
+      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+        logger.warn('[DynamoDBNoteRepository] updateReaction: 対象ノートが存在しません', { key });
+        return;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+    }
   }
 }

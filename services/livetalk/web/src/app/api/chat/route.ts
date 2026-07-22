@@ -15,22 +15,23 @@ import { getVoiceClient } from '@/lib/server/voice';
 import {
   getCharacterStateRepository,
   getChatGuardRepository,
-  getKnowledgeRepository,
+  getConsolidationCursorRepository,
   getLifecycleRepository,
-  getMemoryRepository,
-  getMemorySummaryRepository,
   getMessageRepository,
   getNoteRepository,
   getStudyTopicRepository,
 } from '@/lib/server/repositories';
 import { getModerationClient, getSafetyEventRepository } from '@/lib/server/safety';
-import { getMemoryRetriever } from '@/lib/server/memory-retriever';
-import { getEmbeddingClient } from '@/lib/server/embedding';
+import { getTopicRetriever } from '@/lib/server/topic-retriever';
 import { CHAT_ERROR_MESSAGES, CHAT_MAX_TEXT_LENGTH } from './constants';
 
 interface ChatRequest {
   text: string;
-  /** 通知起点の会話の場合、元となった KnowledgeID（任意） */
+  /**
+   * 通知起点の会話の場合、元となった KnowledgeID（任意）。
+   * リブトーク知識・記憶再設計 P5 で旧 Knowledge 経路のサーバ処理は撤去済み。
+   * フロントが送っても無視する（後方互換のためフィールド自体は許容する）。
+   */
   knowledgeId?: string;
   /** キャラクター ID（省略時は DEFAULT_CHARACTER_ID を使用） */
   characterId?: string;
@@ -95,7 +96,6 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (session, reques
   }
 
   const text = body.text.trim();
-  const notificationKnowledgeId = body.knowledgeId?.trim() || undefined;
   const characterId = body.characterId ?? DEFAULT_CHARACTER_ID;
 
   if (!hasCharacter(characterId)) {
@@ -220,16 +220,12 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (session, reques
           messageRepository: getMessageRepository(),
           safetyEventRepository: getSafetyEventRepository(),
           moderationClient: getModerationClient(),
-          memoryRetriever: getMemoryRetriever(),
-          memoryRepository: getMemoryRepository(),
-          embeddingClient: getEmbeddingClient(),
+          topicRetriever: getTopicRetriever(),
           characterStateRepository: getCharacterStateRepository(),
-          memorySummaryRepository: getMemorySummaryRepository(),
           lifecycleRepository: getLifecycleRepository(),
-          knowledgeRepository: getKnowledgeRepository(),
           studyTopicRepository: getStudyTopicRepository(),
           noteRepository: getNoteRepository(),
-          notificationKnowledgeId,
+          consolidationCursorRepository: getConsolidationCursorRepository(),
         });
 
         for await (const event of eventGenerator) {

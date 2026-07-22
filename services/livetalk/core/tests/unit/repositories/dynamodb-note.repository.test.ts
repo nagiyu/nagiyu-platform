@@ -1,4 +1,5 @@
-import { GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { logger } from '@nagiyu/common';
 import { DatabaseError } from '@nagiyu/aws';
 import { DynamoDBNoteRepository } from '../../../src/repositories/dynamodb-note.repository.js';
 import type { CreateNoteInput } from '../../../src/entities/note.entity.js';
@@ -13,10 +14,9 @@ const baseInput: CreateNoteInput = {
   UserID: 'u1',
   CharacterID: 'hiyori',
   NoteID: 'note-001',
-  Title: 'コーヒーの効能',
-  Body: '本文。\n\nコメント。',
-  RelatedKnowledgeIds: ['know-001'],
-  RelatedCategory: 'コーヒー',
+  TopicID: 'topic-001',
+  Subject: 'コーヒーの効能',
+  Headline: 'この前の話、気になって調べてみたよ。覚醒効果があるみたい！',
 };
 
 const baseItem = {
@@ -26,10 +26,27 @@ const baseItem = {
   UserID: 'u1',
   CharacterID: 'hiyori',
   NoteID: 'note-001',
-  Title: 'コーヒーの効能',
-  Body: '本文。\n\nコメント。',
-  RelatedKnowledgeIds: ['know-001'],
-  RelatedCategory: 'コーヒー',
+  TopicID: 'topic-001',
+  Subject: 'コーヒーの効能',
+  Headline: 'この前の話、気になって調べてみたよ。覚醒効果があるみたい！',
+  CreatedAt: fixedNow,
+  UpdatedAt: fixedNow,
+};
+
+// 旧設計（Knowledge 昇格方式）の Note item。TopicID/Subject/Headline を持たず、
+// 代わりに Title/Body/RelatedCategory/RelatedKnowledgeIds を持つ（撤去済みフィールド構成）。
+// dev テーブルに残存する破損/旧設計 item の再現に使う。
+const legacyItem = {
+  PK: 'USER#u1',
+  SK: 'CHAR#hiyori#NOTE#legacy-001',
+  Type: 'Note',
+  UserID: 'u1',
+  CharacterID: 'hiyori',
+  NoteID: 'legacy-001',
+  Title: '旧ノートのタイトル',
+  Body: '旧ノートの本文',
+  RelatedCategory: 'category-1',
+  RelatedKnowledgeIds: ['k1', 'k2'],
   CreatedAt: fixedNow,
   UpdatedAt: fixedNow,
 };
@@ -84,6 +101,34 @@ describe('DynamoDBNoteRepository', () => {
       const repo = new DynamoDBNoteRepository(client as never, tableName, () => fixedNow);
       await expect(repo.list('u1', 'hiyori')).rejects.toBeInstanceOf(DatabaseError);
     });
+
+    it('旧設計（TopicID 無し）の item が混在してもスキップし正常な item のみ返す', async () => {
+      const client = makeClient(async () => ({ Items: [baseItem, legacyItem] }));
+      const repo = new DynamoDBNoteRepository(client as never, tableName, () => fixedNow);
+
+      const list = await repo.list('u1', 'hiyori');
+      expect(list).toHaveLength(1);
+      expect(list[0].NoteID).toBe('note-001');
+    });
+
+    it('旧設計 item のマップ失敗時は logger.warn で警告する', async () => {
+      const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+      const client = makeClient(async () => ({ Items: [baseItem, legacyItem] }));
+      const repo = new DynamoDBNoteRepository(client as never, tableName, () => fixedNow);
+
+      await repo.list('u1', 'hiyori');
+
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('ノート item のマップに失敗しました'),
+        expect.objectContaining({
+          userId: 'u1',
+          characterId: 'hiyori',
+          sk: 'CHAR#hiyori#NOTE#legacy-001',
+        })
+      );
+      warnSpy.mockRestore();
+    });
   });
 
   describe('get', () => {
@@ -96,7 +141,7 @@ describe('DynamoDBNoteRepository', () => {
       const repo = new DynamoDBNoteRepository(client as never, tableName, () => fixedNow);
 
       const note = await repo.get({ userId: 'u1', characterId: 'hiyori', noteId: 'note-001' });
-      expect(note?.Title).toBe('コーヒーの効能');
+      expect(note?.Subject).toBe('コーヒーの効能');
       expect(sent[0]).toBeInstanceOf(GetCommand);
     });
 
@@ -185,6 +230,36 @@ describe('DynamoDBNoteRepository', () => {
       const repo = new DynamoDBNoteRepository(client as never, tableName, () => fixedNow);
       await expect(repo.listAll('u1', 'hiyori')).rejects.toBeInstanceOf(DatabaseError);
     });
+
+    it('複数ページにまたがっても旧設計 item をスキップし正常な item のみ全件返す', async () => {
+      let callCount = 0;
+      const client = makeClient(async () => {
+        callCount++;
+        if (callCount === 1) {
+          return {
+            Items: [baseItem, legacyItem],
+            LastEvaluatedKey: { PK: 'USER#u1', SK: 'cursor' },
+          };
+        }
+        const page2LegacyItem = {
+          ...legacyItem,
+          SK: 'CHAR#hiyori#NOTE#legacy-002',
+          NoteID: 'legacy-002',
+        };
+        const page2NormalItem = {
+          ...baseItem,
+          SK: 'CHAR#hiyori#NOTE#note-002',
+          NoteID: 'note-002',
+        };
+        return { Items: [page2LegacyItem, page2NormalItem] };
+      });
+      const repo = new DynamoDBNoteRepository(client as never, tableName, () => fixedNow);
+
+      const list = await repo.listAll('u1', 'hiyori');
+      expect(callCount).toBe(2);
+      expect(list).toHaveLength(2);
+      expect(list.map((note) => note.NoteID).sort()).toEqual(['note-001', 'note-002']);
+    });
   });
 
   describe('listRecent', () => {
@@ -201,6 +276,53 @@ describe('DynamoDBNoteRepository', () => {
       const recent = await repo.listRecent('u1', 'hiyori', { days: 7 });
       expect(recent).toHaveLength(1);
       expect(recent[0].NoteID).toBe('note-001');
+    });
+  });
+
+  describe('updateReaction', () => {
+    it('UpdateCommand で Reaction / UpdatedAt を更新する', async () => {
+      const sent: unknown[] = [];
+      const client = makeClient(async (cmd) => {
+        sent.push(cmd);
+        return {};
+      });
+      const repo = new DynamoDBNoteRepository(client as never, tableName, () => fixedNow);
+
+      await repo.updateReaction(
+        { userId: 'u1', characterId: 'hiyori', noteId: 'note-001' },
+        'すごく良かった！'
+      );
+
+      expect(sent[0]).toBeInstanceOf(UpdateCommand);
+      const input = (sent[0] as UpdateCommand).input;
+      expect(input.Key).toEqual({ PK: 'USER#u1', SK: 'CHAR#hiyori#NOTE#note-001' });
+      expect(input.ExpressionAttributeValues).toEqual({
+        ':reaction': 'すごく良かった！',
+        ':updatedAt': fixedNow,
+      });
+    });
+
+    it('対象が存在しない（ConditionalCheckFailedException）場合は no-op', async () => {
+      const client = makeClient(async () => {
+        const error = new Error('conditional check failed');
+        error.name = 'ConditionalCheckFailedException';
+        throw error;
+      });
+      const repo = new DynamoDBNoteRepository(client as never, tableName, () => fixedNow);
+
+      await expect(
+        repo.updateReaction({ userId: 'u1', characterId: 'hiyori', noteId: 'missing' }, '感想')
+      ).resolves.toBeUndefined();
+    });
+
+    it('updateReaction 失敗時は DatabaseError を投げる', async () => {
+      const client = makeClient(async () => {
+        throw new Error('boom');
+      });
+      const repo = new DynamoDBNoteRepository(client as never, tableName, () => fixedNow);
+      await expect(
+        repo.updateReaction({ userId: 'u1', characterId: 'hiyori', noteId: 'note-001' }, '感想')
+      ).rejects.toBeInstanceOf(DatabaseError);
     });
   });
 });

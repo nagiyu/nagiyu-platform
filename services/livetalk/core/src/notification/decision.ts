@@ -25,7 +25,7 @@ export type ToneBucket = 'normal' | 'long' | 'veryLong';
 
 export type NotifyDecision =
   | { notify: true; kind: 'normal'; toneBucket: ToneBucket; elapsedMs: number }
-  | { notify: true; kind: 'critical'; knowledgeId: string }
+  | { notify: true; kind: 'critical'; topicId: string }
   | {
       notify: false;
       reason:
@@ -43,8 +43,8 @@ export interface NotifyDecisionInput {
   lifecycle: LifecycleEntity;
   /** ユーザーの通知履歴（CreatedAt 降順）。直近のものから判定に使う。 */
   notificationEvents: NotificationEventEntity[];
-  /** クリティカル判定済みの KnowledgeID。空なら通常判定のみ。 */
-  criticalKnowledgeId?: string;
+  /** クリティカル判定済みの TopicID。空なら通常判定のみ。 */
+  criticalTopicId?: string;
   now: Date;
 }
 
@@ -192,7 +192,7 @@ export function countTodayNotifications(
  * 睡眠中は起床後の次回バッチで再評価され、遅延配信される。
  */
 export function shouldNotifyNow(input: NotifyDecisionInput): NotifyDecision {
-  const { userMessages, lifecycle, notificationEvents, criticalKnowledgeId, now } = input;
+  const { userMessages, lifecycle, notificationEvents, criticalTopicId, now } = input;
 
   // 1. 睡眠帯チェック（クリティカル・平常問わず最優先）
   const bedtime = lifecycle.Bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
@@ -203,10 +203,10 @@ export function shouldNotifyNow(input: NotifyDecisionInput): NotifyDecision {
   }
 
   // 2. クリティカル判定（睡眠帯以外は時間帯・間隔ゲートをバイパス）
-  if (criticalKnowledgeId) {
+  if (criticalTopicId) {
     const todayCritical = countTodayNotifications(notificationEvents, 'critical', now);
     if (todayCritical < NOTIFY_DAILY_CRITICAL_CAP) {
-      return { notify: true, kind: 'critical', knowledgeId: criticalKnowledgeId };
+      return { notify: true, kind: 'critical', topicId: criticalTopicId };
     }
     // cap 到達時は平常判定へフォールスルー
   }

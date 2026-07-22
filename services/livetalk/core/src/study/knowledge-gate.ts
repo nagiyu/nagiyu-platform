@@ -1,45 +1,5 @@
 import type { ILLMClient } from '../llm-client/types.js';
-import type { KnowledgeEntity } from '../entities/knowledge.entity.js';
 import { KnowledgeGateSchema } from '../llm-client/schemas/knowledge-gate.schema.js';
-import { type KnowledgeMatcher, NgramKnowledgeMatcher } from './knowledge-matcher.js';
-
-/** 知識ゲートのキーワード照合に使う最小スコア（トークン一致数） */
-const KEYWORD_MATCH_MIN_TOKENS = 1;
-
-/**
- * テキストをスペース・句読点・日本語分かち書き相当でトークン分割する。
- * 外部ライブラリ不要のシンプル実装。
- */
-function tokenize(text: string): Set<string> {
-  const tokens = text
-    .toLowerCase()
-    .split(/[\s、。，．\u3000！？!?「」『』【】・\-_,./]+/)
-    .filter((t) => t.length >= 2);
-  return new Set(tokens);
-}
-
-/**
- * ユーザー入力と Knowledge の Topic/Summary を照合してヒット件数を返す（純粋関数）。
- *
- * ヒット判定: userText のトークンが Topic または Summary の文字列に 1 件以上含まれる。
- */
-export function searchKnowledge(userText: string, knowledge: KnowledgeEntity[]): KnowledgeEntity[] {
-  if (knowledge.length === 0) return [];
-  const userTokens = tokenize(userText);
-  if (userTokens.size === 0) return [];
-
-  return knowledge.filter((k) => {
-    const target = `${k.Topic} ${k.Summary}`.toLowerCase();
-    let matchCount = 0;
-    for (const token of userTokens) {
-      if (target.includes(token)) {
-        matchCount++;
-        if (matchCount >= KEYWORD_MATCH_MIN_TOKENS) return true;
-      }
-    }
-    return false;
-  });
-}
 
 /**
  * ユーザー入力が「勉強が必要なトピック」かを安価な LLM 分類で判定する。
@@ -95,38 +55,4 @@ needsStudy=false の場合でも適切な値を返してください。`,
   return llmClient.chatStructured(messages, KnowledgeGateSchema, {
     purpose: 'classify',
   });
-}
-
-/** 知識ゲートの評価結果 */
-export type KnowledgeGateResult =
-  | { kind: 'knowledge_hit'; knowledge: KnowledgeEntity[] }
-  | { kind: 'study'; normalizedTopic: string }
-  | { kind: 'normal' };
-
-/**
- * 知識ゲートの最終判定（コード側で gating）。
- *
- * フロー:
- *   1. 知識ベースをキーワード照合（既定は文字 N-gram） → ヒット → knowledge_hit
- *   2. LLM 分類（needsStudy=true → study / false → normal）
- *
- * matcher を差し替えることで将来 embedding / LLM ベースの照合に切り替えられる。
- */
-export async function evaluateKnowledgeGate(
-  userText: string,
-  characterName: string,
-  knowledge: KnowledgeEntity[],
-  llmClient: ILLMClient,
-  matcher: KnowledgeMatcher = new NgramKnowledgeMatcher()
-): Promise<KnowledgeGateResult> {
-  const hits = await matcher.findMatches(userText, knowledge);
-  if (hits.length > 0) {
-    return { kind: 'knowledge_hit', knowledge: hits };
-  }
-
-  const classification = await classifyTopic(userText, characterName, llmClient);
-  if (classification.needsStudy) {
-    return { kind: 'study', normalizedTopic: classification.normalizedTopic };
-  }
-  return { kind: 'normal' };
 }

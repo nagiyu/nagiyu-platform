@@ -1,12 +1,12 @@
-import { detectCriticalKnowledge } from '../../../src/notification/escalation.js';
-import type { DetectCriticalInput } from '../../../src/notification/escalation.js';
-import type { KnowledgeEntity } from '../../../src/entities/knowledge.entity.js';
-import type { InterestCategoryEntity } from '../../../src/entities/interest-category.entity.js';
-import type { ILLMClient, IEmbeddingClient } from '../../../src/llm-client/types.js';
-import {
-  NOTIFY_CRITICAL_INTEREST_SHARE_THRESHOLD,
-  NOTIFY_CRITICAL_EVENT_HORIZON_DAYS,
-} from '../../../src/constants.js';
+import { detectCriticalTopic } from '../../../src/notification/escalation.js';
+import type {
+  DetectCriticalInput,
+  DetectCriticalCandidate,
+} from '../../../src/notification/escalation.js';
+import type { TopicEntity } from '../../../src/entities/topic.entity.js';
+import type { WebFactEntity } from '../../../src/entities/web-fact.entity.js';
+import type { ILLMClient } from '../../../src/llm-client/types.js';
+import { NOTIFY_CRITICAL_EVENT_HORIZON_DAYS } from '../../../src/constants.js';
 
 // ---------------------------------------------------------------------------
 // テストフィクスチャ
@@ -30,36 +30,45 @@ const HORIZON_BOUNDARY = '2026-06-21';
 /** ホライズン境界翌日（today + 15 日 → 超過） */
 const OVER_HORIZON = '2026-06-22';
 
-function makeKnowledge(overrides: Partial<KnowledgeEntity> = {}): KnowledgeEntity {
+/** care 閾値（テスト全体で固定） */
+const CARE_THRESHOLD = 3;
+
+function makeTopic(overrides: Partial<TopicEntity> = {}): TopicEntity {
   return {
     UserID: 'u1',
     CharacterID: 'hiyori',
-    KnowledgeID: 'k1',
-    Topic: 'テストトピック',
-    Summary: 'テスト要約',
-    SourceUrls: [],
-    RawComment: 'コメント',
-    RelatedCategory: 'ゲーム',
+    TopicID: 't1',
+    Subject: 'テストトピック',
+    CanonicalSummary: 'テスト要約',
+    Category: 'ゲーム',
+    Care: CARE_THRESHOLD,
+    Embedding: [],
     CreatedAt: 1000,
     UpdatedAt: 1000,
     ...overrides,
   };
 }
 
-function makeInterestCategory(
-  category: string,
-  weight: number,
-  embedding?: number[]
-): InterestCategoryEntity {
+function makeWebFact(overrides: Partial<WebFactEntity> = {}): WebFactEntity {
   return {
     UserID: 'u1',
     CharacterID: 'hiyori',
-    Category: category,
-    Weight: weight,
-    Embedding: embedding,
-    CreatedAt: 0,
-    UpdatedAt: 0,
+    TopicID: 't1',
+    FactID: 'f1',
+    Text: 'テスト内容',
+    SourceUrls: [],
+    Volatility: 'medium',
+    ObservedAt: 1000,
+    CreatedAt: 1000,
+    ...overrides,
   };
+}
+
+function makeCandidate(
+  topicOverrides: Partial<TopicEntity> = {},
+  webFacts: WebFactEntity[] = [makeWebFact()]
+): DetectCriticalCandidate {
+  return { topic: makeTopic(topicOverrides), webFacts };
 }
 
 function makeLlmClient(eventDate: string | null, reason = '判定理由'): ILLMClient {
@@ -67,27 +76,14 @@ function makeLlmClient(eventDate: string | null, reason = '判定理由'): ILLMC
     chatStream: jest.fn() as unknown as ILLMClient['chatStream'],
     chatComplete: jest.fn(),
     chatStructured: jest.fn().mockResolvedValue({ eventDate, reason }),
-    summarize: jest.fn(),
-  };
-}
-
-function makeEmbeddingClient(vectors: Map<string, number[]> = new Map()): IEmbeddingClient {
-  return {
-    embed: jest.fn().mockImplementation((text: string) => {
-      const vec = vectors.get(text);
-      if (vec) return Promise.resolve(vec);
-      // 未登録テキストはゼロベクトル（類似度 0）
-      return Promise.resolve([0, 0, 0]);
-    }),
   };
 }
 
 function makeInput(overrides: Partial<DetectCriticalInput> = {}): DetectCriticalInput {
   return {
-    knowledgeList: [makeKnowledge()],
-    interestCategories: [makeInterestCategory('ゲーム', 1.0)],
+    candidates: [makeCandidate()],
+    careThreshold: CARE_THRESHOLD,
     llmClient: makeLlmClient(NEAR_FUTURE_DATE),
-    embeddingClient: makeEmbeddingClient(),
     now: NOW,
     ...overrides,
   };
@@ -97,28 +93,26 @@ function makeInput(overrides: Partial<DetectCriticalInput> = {}): DetectCritical
 // AND ゲートテスト
 // ---------------------------------------------------------------------------
 
-describe('detectCriticalKnowledge - AND ゲート', () => {
-  it('強関心 AND 時限性 → critical', async () => {
-    const result = await detectCriticalKnowledge(makeInput());
+describe('detectCriticalTopic - AND ゲート', () => {
+  it('高 care AND 時限性 → critical', async () => {
+    const result = await detectCriticalTopic(makeInput());
     expect(result.isCritical).toBe(true);
-    expect(result.knowledgeId).toBe('k1');
+    expect(result.topicId).toBe('t1');
+    expect(result.factId).toBe('f1');
   });
 
-  it('強関心あり AND 時限性なし（eventDate=null）→ 非 critical', async () => {
-    const result = await detectCriticalKnowledge(makeInput({ llmClient: makeLlmClient(null) }));
+  it('高 care あり AND 時限性なし（eventDate=null）→ 非 critical', async () => {
+    const result = await detectCriticalTopic(makeInput({ llmClient: makeLlmClient(null) }));
     expect(result.isCritical).toBe(false);
-    expect(result.knowledgeId).toBeNull();
+    expect(result.topicId).toBeNull();
+    expect(result.factId).toBeNull();
   });
 
-  it('強関心なし（シェア不足）→ LLM を呼ばず非 critical', async () => {
-    // ゲーム=0.1, 合計=1.0 → シェア0.1 < NOTIFY_CRITICAL_INTEREST_SHARE_THRESHOLD(0.15)
+  it('care が閾値未満 → LLM を呼ばず非 critical', async () => {
     const llmClient = makeLlmClient(NEAR_FUTURE_DATE);
-    const result = await detectCriticalKnowledge(
+    const result = await detectCriticalTopic(
       makeInput({
-        interestCategories: [
-          makeInterestCategory('ゲーム', 0.1),
-          makeInterestCategory('映画', 0.9),
-        ],
+        candidates: [makeCandidate({ Care: CARE_THRESHOLD - 1 })],
         llmClient,
       })
     );
@@ -126,10 +120,10 @@ describe('detectCriticalKnowledge - AND ゲート', () => {
     expect(llmClient.chatStructured).not.toHaveBeenCalled();
   });
 
-  it('どちらも無し（関心なし＋ eventDate=null）→ 非 critical', async () => {
-    const result = await detectCriticalKnowledge(
+  it('どちらも無し（care 閾値未満＋ eventDate=null）→ 非 critical', async () => {
+    const result = await detectCriticalTopic(
       makeInput({
-        interestCategories: [makeInterestCategory('映画', 0.9), makeInterestCategory('音楽', 0.1)],
+        candidates: [makeCandidate({ Care: CARE_THRESHOLD - 1 })],
         llmClient: makeLlmClient(null),
       })
     );
@@ -138,120 +132,38 @@ describe('detectCriticalKnowledge - AND ゲート', () => {
 });
 
 // ---------------------------------------------------------------------------
-// RelatedCategory 解決テスト
+// care 閾値境界テスト
 // ---------------------------------------------------------------------------
 
-describe('detectCriticalKnowledge - RelatedCategory 解決', () => {
-  it('完全一致するカテゴリで解決 → critical になる', async () => {
-    const result = await detectCriticalKnowledge(
+describe('detectCriticalTopic - care 閾値境界', () => {
+  it(`care が閾値（${CARE_THRESHOLD}）以上 → isHighCare=true → critical になりうる`, async () => {
+    const result = await detectCriticalTopic(
       makeInput({
-        knowledgeList: [makeKnowledge({ RelatedCategory: 'ゲーム' })],
-        interestCategories: [makeInterestCategory('ゲーム', 1.0)],
+        candidates: [makeCandidate({ Care: CARE_THRESHOLD })],
         llmClient: makeLlmClient(NEAR_FUTURE_DATE),
       })
     );
     expect(result.isCritical).toBe(true);
   });
 
-  it('embedding 類似度が閾値以上 → 解決成功 → critical になる', async () => {
-    // 'テレビゲーム' と 'ゲーム' の embedding が類似（cosine similarity >= 0.85）を模擬
-    // ベクトルを一致させて cosine=1.0 にする
-    const vec = [1, 0, 0];
-    const vectors = new Map<string, number[]>([
-      ['テレビゲーム', vec],
-      ['ゲーム', vec],
-    ]);
-
-    const result = await detectCriticalKnowledge(
+  it('care が閾値未満（閾値-1）→ isHighCare=false → 非 critical', async () => {
+    const result = await detectCriticalTopic(
       makeInput({
-        knowledgeList: [makeKnowledge({ RelatedCategory: 'テレビゲーム' })],
-        interestCategories: [makeInterestCategory('ゲーム', 1.0)],
-        embeddingClient: makeEmbeddingClient(vectors),
-        llmClient: makeLlmClient(NEAR_FUTURE_DATE),
-      })
-    );
-    expect(result.isCritical).toBe(true);
-  });
-
-  it('embedding 類似度が閾値未満 → 解決失敗 → 非 critical', async () => {
-    // 直交ベクトルで cosine=0.0 → 閾値 0.85 を下回る
-    const vectors = new Map<string, number[]>([
-      ['テレビゲーム', [1, 0, 0]],
-      ['ゲーム', [0, 1, 0]],
-    ]);
-
-    const result = await detectCriticalKnowledge(
-      makeInput({
-        knowledgeList: [makeKnowledge({ RelatedCategory: 'テレビゲーム' })],
-        interestCategories: [makeInterestCategory('ゲーム', 1.0)],
-        embeddingClient: makeEmbeddingClient(vectors),
+        candidates: [makeCandidate({ Care: CARE_THRESHOLD - 1 })],
         llmClient: makeLlmClient(NEAR_FUTURE_DATE),
       })
     );
     expect(result.isCritical).toBe(false);
   });
 
-  it('interestCategories が空 → 解決不可 → 非 critical', async () => {
-    const result = await detectCriticalKnowledge(makeInput({ interestCategories: [] }));
-    expect(result.isCritical).toBe(false);
-  });
-
-  it('カテゴリ entity に Embedding がある場合は embed を呼ばず使用する', async () => {
-    const existingEmbedding = [1, 0, 0];
-    const relatedVec = [1, 0, 0]; // cosine=1.0 → 閾値以上
-    const vectors = new Map<string, number[]>([['テレビゲーム', relatedVec]]);
-    const embeddingClient = makeEmbeddingClient(vectors);
-
-    const result = await detectCriticalKnowledge(
+  it('care が閾値を大きく上回る → critical になりうる', async () => {
+    const result = await detectCriticalTopic(
       makeInput({
-        knowledgeList: [makeKnowledge({ RelatedCategory: 'テレビゲーム' })],
-        interestCategories: [makeInterestCategory('ゲーム', 1.0, existingEmbedding)],
-        embeddingClient,
-        llmClient: makeLlmClient(NEAR_FUTURE_DATE),
-      })
-    );
-
-    expect(result.isCritical).toBe(true);
-    // カテゴリ側の embed は呼ばれないはず（entity.Embedding を使用）
-    expect((embeddingClient.embed as jest.Mock).mock.calls.map((c) => c[0])).not.toContain(
-      'ゲーム'
-    );
-  });
-});
-
-// ---------------------------------------------------------------------------
-// シェア閾値境界テスト
-// ---------------------------------------------------------------------------
-
-describe('detectCriticalKnowledge - シェア閾値境界', () => {
-  it(`シェアが閾値（${NOTIFY_CRITICAL_INTEREST_SHARE_THRESHOLD}）以上 → isStrongInterest=true → critical になりうる`, async () => {
-    // ゲーム=0.15, 合計=1.0 → シェア=0.15 = 閾値（境界値、以上なので true）
-    const result = await detectCriticalKnowledge(
-      makeInput({
-        interestCategories: [
-          makeInterestCategory('ゲーム', NOTIFY_CRITICAL_INTEREST_SHARE_THRESHOLD),
-          makeInterestCategory('映画', 1 - NOTIFY_CRITICAL_INTEREST_SHARE_THRESHOLD),
-        ],
+        candidates: [makeCandidate({ Care: CARE_THRESHOLD + 10 })],
         llmClient: makeLlmClient(NEAR_FUTURE_DATE),
       })
     );
     expect(result.isCritical).toBe(true);
-  });
-
-  it('シェアが閾値未満 → isStrongInterest=false → 非 critical', async () => {
-    // シェア = 0.14 < 0.15
-    const gameWeight = 0.14;
-    const otherWeight = 1 - gameWeight;
-    const result = await detectCriticalKnowledge(
-      makeInput({
-        interestCategories: [
-          makeInterestCategory('ゲーム', gameWeight),
-          makeInterestCategory('映画', otherWeight),
-        ],
-        llmClient: makeLlmClient(NEAR_FUTURE_DATE),
-      })
-    );
-    expect(result.isCritical).toBe(false);
   });
 });
 
@@ -259,66 +171,60 @@ describe('detectCriticalKnowledge - シェア閾値境界', () => {
 // eventDate ホライズン判定テスト
 // ---------------------------------------------------------------------------
 
-describe('detectCriticalKnowledge - eventDate ホライズン', () => {
+describe('detectCriticalTopic - eventDate ホライズン', () => {
   it('近未来（今日 + 5 日）→ isUrgent=true → critical', async () => {
-    const result = await detectCriticalKnowledge(
+    const result = await detectCriticalTopic(
       makeInput({ llmClient: makeLlmClient(NEAR_FUTURE_DATE) })
     );
     expect(result.isCritical).toBe(true);
   });
 
   it('遠未来（今日 + 20 日 → horizon 超過）→ isUrgent=false → 非 critical', async () => {
-    const result = await detectCriticalKnowledge(
+    const result = await detectCriticalTopic(
       makeInput({ llmClient: makeLlmClient(FAR_FUTURE_DATE) })
     );
     expect(result.isCritical).toBe(false);
   });
 
   it('過去日 → isUrgent=false → 非 critical', async () => {
-    const result = await detectCriticalKnowledge(
-      makeInput({ llmClient: makeLlmClient(PAST_DATE) })
-    );
+    const result = await detectCriticalTopic(makeInput({ llmClient: makeLlmClient(PAST_DATE) }));
     expect(result.isCritical).toBe(false);
   });
 
   it('eventDate=null → isUrgent=false → 非 critical', async () => {
-    const result = await detectCriticalKnowledge(makeInput({ llmClient: makeLlmClient(null) }));
+    const result = await detectCriticalTopic(makeInput({ llmClient: makeLlmClient(null) }));
     expect(result.isCritical).toBe(false);
   });
 
   it('解析不能な日付文字列 → isUrgent=false → 非 critical', async () => {
-    const result = await detectCriticalKnowledge(
-      makeInput({ llmClient: makeLlmClient('不明な日付') })
-    );
+    const result = await detectCriticalTopic(makeInput({ llmClient: makeLlmClient('不明な日付') }));
     expect(result.isCritical).toBe(false);
   });
 
   it(`ホライズン境界（今日 + ${NOTIFY_CRITICAL_EVENT_HORIZON_DAYS} 日）→ isUrgent=true → critical`, async () => {
-    const result = await detectCriticalKnowledge(
+    const result = await detectCriticalTopic(
       makeInput({ llmClient: makeLlmClient(HORIZON_BOUNDARY) })
     );
     expect(result.isCritical).toBe(true);
   });
 
   it('ホライズン境界翌日（超過）→ isUrgent=false → 非 critical', async () => {
-    const result = await detectCriticalKnowledge(
-      makeInput({ llmClient: makeLlmClient(OVER_HORIZON) })
-    );
+    const result = await detectCriticalTopic(makeInput({ llmClient: makeLlmClient(OVER_HORIZON) }));
     expect(result.isCritical).toBe(false);
   });
 
   it('今日と同じ日付 → isUrgent=true（当日含む）→ critical', async () => {
     const todayStr = '2026-06-07'; // NOW と同じ
-    const result = await detectCriticalKnowledge(makeInput({ llmClient: makeLlmClient(todayStr) }));
+    const result = await detectCriticalTopic(makeInput({ llmClient: makeLlmClient(todayStr) }));
     expect(result.isCritical).toBe(true);
   });
 });
 
 // ---------------------------------------------------------------------------
-// エラーハンドリングテスト
+// エラーハンドリングテスト（best-effort）
 // ---------------------------------------------------------------------------
 
-describe('detectCriticalKnowledge - エラーハンドリング', () => {
+describe('detectCriticalTopic - エラーハンドリング', () => {
   it('LLM が throw しても落ちず次の候補へ進む', async () => {
     const llmClient: ILLMClient = {
       chatStream: jest.fn() as unknown as ILLMClient['chatStream'],
@@ -327,95 +233,58 @@ describe('detectCriticalKnowledge - エラーハンドリング', () => {
         .fn()
         .mockRejectedValueOnce(new Error('LLM タイムアウト'))
         .mockResolvedValueOnce({ eventDate: NEAR_FUTURE_DATE, reason: '成功' }),
-      summarize: jest.fn(),
     };
 
-    const knowledgeList = [
-      makeKnowledge({ KnowledgeID: 'k1', RelatedCategory: 'ゲーム' }),
-      makeKnowledge({ KnowledgeID: 'k2', RelatedCategory: 'ゲーム' }),
+    const candidates = [
+      makeCandidate({ TopicID: 't1', Care: CARE_THRESHOLD }, [
+        makeWebFact({ TopicID: 't1', FactID: 'f1' }),
+      ]),
+      makeCandidate({ TopicID: 't2', Care: CARE_THRESHOLD }, [
+        makeWebFact({ TopicID: 't2', FactID: 'f2' }),
+      ]),
     ];
 
-    const result = await detectCriticalKnowledge(
-      makeInput({
-        knowledgeList,
-        interestCategories: [makeInterestCategory('ゲーム', 1.0)],
-        llmClient,
-      })
-    );
+    const result = await detectCriticalTopic(makeInput({ candidates, llmClient }));
 
-    // k1 は LLM エラーだがスキップ、k2 は成功してクリティカルになる
+    // t1 は LLM エラーだがスキップ、t2 は成功してクリティカルになる
     expect(result.isCritical).toBe(true);
-    expect(result.knowledgeId).toBe('k2');
+    expect(result.topicId).toBe('t2');
+    expect(result.factId).toBe('f2');
   });
 
-  it('embedding が throw しても落ちず次の候補へ進む', async () => {
-    const embeddingClient: IEmbeddingClient = {
-      embed: jest
-        .fn()
-        .mockRejectedValueOnce(new Error('embedding エラー'))
-        .mockResolvedValue([1, 0, 0]),
-    };
-
-    const knowledgeList = [
-      makeKnowledge({ KnowledgeID: 'k1', RelatedCategory: '未知カテゴリ' }),
-      makeKnowledge({ KnowledgeID: 'k2', RelatedCategory: 'ゲーム' }),
-    ];
-
-    const result = await detectCriticalKnowledge(
-      makeInput({
-        knowledgeList,
-        // ゲームカテゴリに embedding なし（embed を呼ぶ）
-        interestCategories: [makeInterestCategory('ゲーム', 1.0)],
-        embeddingClient,
-        llmClient: makeLlmClient(NEAR_FUTURE_DATE),
-      })
-    );
-
-    // k1 は embedding エラーでスキップ、k2（完全一致）は成功する
-    // ※ k2 は '未知カテゴリ' → 'ゲーム' への embed で失敗するが、
-    //    k1 の embed 失敗後はキャッシュがないため k2 でも embed が呼ばれる
-    // 実際の挙動: k1 で embed('未知カテゴリ') が throw → catch して次へ
-    //           k2 の '未知カテゴリ' は k2 自体の RelatedCategory='ゲーム'
-    //           k2 は完全一致 → embed 不要 → critical
-    // 注: k1 は '未知カテゴリ' → ゲームカテゴリへの embed 解決で失敗する
-    //     k2 は 'ゲーム' → 完全一致で embed 不要 → critical
-    expect(result.isCritical).toBe(true);
-  });
-
-  it('全 Knowledge が LLM エラーでも { isCritical: false, knowledgeId: null } を返す', async () => {
+  it('全候補が LLM エラーでも { isCritical: false, topicId: null, factId: null } を返す', async () => {
     const llmClient: ILLMClient = {
       chatStream: jest.fn() as unknown as ILLMClient['chatStream'],
       chatComplete: jest.fn(),
       chatStructured: jest.fn().mockRejectedValue(new Error('全部失敗')),
-      summarize: jest.fn(),
     };
 
-    const result = await detectCriticalKnowledge(makeInput({ llmClient }));
-    expect(result).toEqual({ isCritical: false, knowledgeId: null });
+    const result = await detectCriticalTopic(makeInput({ llmClient }));
+    expect(result).toEqual({ isCritical: false, topicId: null, factId: null });
   });
 });
 
 // ---------------------------------------------------------------------------
-// 複数 Knowledge: 最初の 1 件のみ返すテスト
+// 複数 Topic: 最初の 1 件のみ返すテスト
 // ---------------------------------------------------------------------------
 
-describe('detectCriticalKnowledge - 複数 Knowledge', () => {
+describe('detectCriticalTopic - 複数 Topic', () => {
   it('複数の候補があっても最初の critical を返す', async () => {
-    const knowledgeList = [
-      makeKnowledge({ KnowledgeID: 'k1', RelatedCategory: 'ゲーム' }),
-      makeKnowledge({ KnowledgeID: 'k2', RelatedCategory: 'ゲーム' }),
+    const candidates = [
+      makeCandidate({ TopicID: 't1', Care: CARE_THRESHOLD }, [
+        makeWebFact({ TopicID: 't1', FactID: 'f1' }),
+      ]),
+      makeCandidate({ TopicID: 't2', Care: CARE_THRESHOLD }, [
+        makeWebFact({ TopicID: 't2', FactID: 'f2' }),
+      ]),
     ];
 
-    const result = await detectCriticalKnowledge(
-      makeInput({
-        knowledgeList,
-        interestCategories: [makeInterestCategory('ゲーム', 1.0)],
-        llmClient: makeLlmClient(NEAR_FUTURE_DATE),
-      })
+    const result = await detectCriticalTopic(
+      makeInput({ candidates, llmClient: makeLlmClient(NEAR_FUTURE_DATE) })
     );
 
     expect(result.isCritical).toBe(true);
-    expect(result.knowledgeId).toBe('k1'); // 最初の候補
+    expect(result.topicId).toBe('t1'); // 最初の候補
   });
 
   it('最初の候補が非 critical で次が critical → 次の候補を返す', async () => {
@@ -424,30 +293,102 @@ describe('detectCriticalKnowledge - 複数 Knowledge', () => {
       chatComplete: jest.fn(),
       chatStructured: jest
         .fn()
-        .mockResolvedValueOnce({ eventDate: null, reason: 'k1 は時限性なし' })
-        .mockResolvedValueOnce({ eventDate: NEAR_FUTURE_DATE, reason: 'k2 は時限性あり' }),
-      summarize: jest.fn(),
+        .mockResolvedValueOnce({ eventDate: null, reason: 't1 は時限性なし' })
+        .mockResolvedValueOnce({ eventDate: NEAR_FUTURE_DATE, reason: 't2 は時限性あり' }),
     };
 
-    const knowledgeList = [
-      makeKnowledge({ KnowledgeID: 'k1', RelatedCategory: 'ゲーム' }),
-      makeKnowledge({ KnowledgeID: 'k2', RelatedCategory: 'ゲーム' }),
+    const candidates = [
+      makeCandidate({ TopicID: 't1', Care: CARE_THRESHOLD }, [
+        makeWebFact({ TopicID: 't1', FactID: 'f1' }),
+      ]),
+      makeCandidate({ TopicID: 't2', Care: CARE_THRESHOLD }, [
+        makeWebFact({ TopicID: 't2', FactID: 'f2' }),
+      ]),
     ];
 
-    const result = await detectCriticalKnowledge(
+    const result = await detectCriticalTopic(makeInput({ candidates, llmClient }));
+
+    expect(result.isCritical).toBe(true);
+    expect(result.topicId).toBe('t2');
+  });
+
+  it('candidates が空 → 非 critical', async () => {
+    const result = await detectCriticalTopic(makeInput({ candidates: [] }));
+    expect(result).toEqual({ isCritical: false, topicId: null, factId: null });
+  });
+
+  it('Topic 配下の webFacts が空 → LLM を呼ばず非 critical', async () => {
+    const llmClient = makeLlmClient(NEAR_FUTURE_DATE);
+    const result = await detectCriticalTopic(
       makeInput({
-        knowledgeList,
-        interestCategories: [makeInterestCategory('ゲーム', 1.0)],
+        candidates: [makeCandidate({ Care: CARE_THRESHOLD }, [])],
+        llmClient,
+      })
+    );
+    expect(result.isCritical).toBe(false);
+    expect(llmClient.chatStructured).not.toHaveBeenCalled();
+  });
+
+  it('WEB fact は ObservedAt 降順で最新のものから評価する', async () => {
+    const llmClient: ILLMClient = {
+      chatStream: jest.fn() as unknown as ILLMClient['chatStream'],
+      chatComplete: jest.fn(),
+      chatStructured: jest.fn().mockResolvedValue({ eventDate: NEAR_FUTURE_DATE, reason: 'ok' }),
+    };
+
+    const olderFact = makeWebFact({ FactID: 'f-old', ObservedAt: 1000 });
+    const newerFact = makeWebFact({ FactID: 'f-new', ObservedAt: 5000 });
+
+    const result = await detectCriticalTopic(
+      makeInput({
+        candidates: [makeCandidate({ Care: CARE_THRESHOLD }, [olderFact, newerFact])],
         llmClient,
       })
     );
 
+    // 最初に urgent と判定されるのは ObservedAt 最新の newerFact
     expect(result.isCritical).toBe(true);
-    expect(result.knowledgeId).toBe('k2');
+    expect(result.factId).toBe('f-new');
   });
 
-  it('knowledgeList が空 → 非 critical', async () => {
-    const result = await detectCriticalKnowledge(makeInput({ knowledgeList: [] }));
-    expect(result).toEqual({ isCritical: false, knowledgeId: null });
+  it('WEB fact が ESCALATION_RECENT_WEB_FACTS_LIMIT(3) 件を超える場合、4 件目以降は評価されない', async () => {
+    const llmClient = makeLlmClient(null);
+
+    // 4 件の WEB fact。最も古い fact（4 件目 = ObservedAt 最小）にのみ緊急日付を仕込むが、
+    // ObservedAt 降順で上位 3 件しか評価対象に入らないため critical にはならないはず
+    const facts = [
+      makeWebFact({ FactID: 'f1', ObservedAt: 4000 }),
+      makeWebFact({ FactID: 'f2', ObservedAt: 3000 }),
+      makeWebFact({ FactID: 'f3', ObservedAt: 2000 }),
+      makeWebFact({ FactID: 'f4-oldest', ObservedAt: 1000 }),
+    ];
+
+    // LLM は基本 eventDate=null を返すが、f4-oldest だけが評価されたら urgent になるよう
+    // 個別に呼び出し引数から判定する
+    const chatStructured = jest.fn().mockImplementation((messages: Array<{ content: string }>) => {
+      const userMessage = messages.find((m) => m.content.includes('内容:'));
+      if (userMessage?.content.includes('f4-oldest 用テキスト')) {
+        return Promise.resolve({ eventDate: NEAR_FUTURE_DATE, reason: '緊急' });
+      }
+      return Promise.resolve({ eventDate: null, reason: '緊急でない' });
+    });
+    llmClient.chatStructured = chatStructured as unknown as ILLMClient['chatStructured'];
+
+    const factsWithMarker = facts.map((f) =>
+      f.FactID === 'f4-oldest' ? { ...f, Text: 'f4-oldest 用テキスト' } : f
+    );
+
+    const result = await detectCriticalTopic(
+      makeInput({
+        candidates: [makeCandidate({ Care: CARE_THRESHOLD }, factsWithMarker)],
+        llmClient,
+      })
+    );
+
+    // 4 件目（最古）は評価対象外のため非 critical
+    expect(result.isCritical).toBe(false);
+    expect(result.factId).toBeNull();
+    // LLM 呼び出しは上位 3 件分のみ（ESCALATION_RECENT_WEB_FACTS_LIMIT）
+    expect(chatStructured).toHaveBeenCalledTimes(3);
   });
 });

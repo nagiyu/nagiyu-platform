@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * SCR-004 記憶閲覧・削除画面（/memory）の基本フロー。
+ * SCR-MEM 記憶閲覧・削除画面（/memory）の基本フロー
+ * （リブトーク知識再設計 P2 / #3698、SELF 一覧＋決定的削除への切替）。
  *
  * E2E では SKIP_AUTH_CHECK=true で認可をバイパスして画面描画を検証する。
  * DynamoDB のシードは行わないため、データ依存の削除は単体テスト側で担保し、
- * ここでは「画面が表示される」「Tier タブが切り替わる」「ガイダンスが表示される」
- * 「ホームから導線がある」を検証する。
+ * ここでは「画面が表示される」「ガイダンスが表示される」「ホームから導線がある」を検証する。
  */
 test.describe('LiveTalk - 記憶閲覧・削除画面', () => {
   test('ホームのメニューに /memory への導線があり遷移できる', async ({ page }) => {
@@ -33,18 +33,15 @@ test.describe('LiveTalk - 記憶閲覧・削除画面', () => {
     await expect(page.getByTestId('memory-edit')).toHaveCount(0);
   });
 
-  test('Tier タブが表示され切り替えできる', async ({ page }) => {
+  test('Tier タブが存在しない', async ({ page }) => {
     await page.goto('/memory');
+    await expect(page.getByTestId('tier-tab-A')).toHaveCount(0);
+    await expect(page.getByTestId('tier-tab-B')).toHaveCount(0);
+    await expect(page.getByTestId('tier-tab-C')).toHaveCount(0);
+  });
 
-    await expect(page.getByTestId('tier-tab-A')).toBeVisible();
-    await expect(page.getByTestId('tier-tab-B')).toBeVisible();
-    await expect(page.getByTestId('tier-tab-C')).toBeVisible();
-
-    // Tier D は UI に出さない
-    await expect(page.getByTestId('tier-tab-D')).toHaveCount(0);
-
-    await page.getByTestId('tier-tab-B').click();
-    // 切替後もリスト領域（一覧 or 空状態 or ローディング）が存在する
+  test('一覧領域（一覧 or 空状態）が表示される', async ({ page }) => {
+    await page.goto('/memory');
     await expect(
       page.getByTestId('memory-list').or(page.getByTestId('memory-empty'))
     ).toBeVisible();

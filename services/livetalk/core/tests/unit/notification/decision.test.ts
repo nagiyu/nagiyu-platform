@@ -297,18 +297,18 @@ describe('shouldNotifyNow', () => {
   }
 
   describe('クリティカル通知', () => {
-    it('criticalKnowledgeId あり・本日 critical 0 件 → critical 発火', () => {
+    it('criticalTopicId あり・本日 critical 0 件 → critical 発火', () => {
       const result = shouldNotifyNow({
         ...baseInput(),
-        criticalKnowledgeId: 'k1',
+        criticalTopicId: 't1',
       });
-      expect(result).toEqual({ notify: true, kind: 'critical', knowledgeId: 'k1' });
+      expect(result).toEqual({ notify: true, kind: 'critical', topicId: 't1' });
     });
 
-    it('criticalKnowledgeId あり・本日 critical 1 件（cap 到達）→ 通常判定へフォールスルー', () => {
+    it('criticalTopicId あり・本日 critical 1 件（cap 到達）→ 通常判定へフォールスルー', () => {
       const result = shouldNotifyNow({
         ...baseInput(),
-        criticalKnowledgeId: 'k1',
+        criticalTopicId: 't1',
         notificationEvents: [makeNotifEvent('critical', todayStartMs() + 1000)],
         userMessages: [makeMsg(NOW_UTC_MS - 2 * DAY)],
       });
@@ -317,17 +317,17 @@ describe('shouldNotifyNow', () => {
       if (result.notify) expect(result.kind).toBe('normal');
     });
 
-    it('睡眠帯中は criticalKnowledgeId があっても sleeping を返す', () => {
+    it('睡眠帯中は criticalTopicId があっても sleeping を返す', () => {
       // SLEEPING_LIFECYCLE: UTC 12:00 は睡眠帯（11:00–13:00）
       const result = shouldNotifyNow({
         ...baseInput(),
         lifecycle: SLEEPING_LIFECYCLE,
-        criticalKnowledgeId: 'k1',
+        criticalTopicId: 't1',
       });
       expect(result).toEqual({ notify: false, reason: 'sleeping' });
     });
 
-    it('睡眠帯中は criticalKnowledgeId がなくても sleeping を返す', () => {
+    it('睡眠帯中は criticalTopicId がなくても sleeping を返す', () => {
       const result = shouldNotifyNow({
         ...baseInput(),
         lifecycle: SLEEPING_LIFECYCLE,

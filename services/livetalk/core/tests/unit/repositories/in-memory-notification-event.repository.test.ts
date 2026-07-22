@@ -48,9 +48,8 @@ describe('InMemoryNotificationEventRepository', () => {
     it('critical 種別も保存できる', async () => {
       const store = makeStore();
       const repo = makeRepo(store);
-      const entity = await repo.put(makeInput({ Kind: 'critical', KnowledgeID: 'k1' }));
+      const entity = await repo.put(makeInput({ Kind: 'critical' }));
       expect(entity.Kind).toBe('critical');
-      expect(entity.KnowledgeID).toBe('k1');
     });
   });
 

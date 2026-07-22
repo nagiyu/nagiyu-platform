@@ -20,27 +20,8 @@ const synth = (environment = 'dev', overrides = {}) => {
 };
 
 describe('LiveTalkBatchStack', () => {
-  it('バッチ用 Lambda 関数が存在する', () => {
-    const { template } = synth();
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      FunctionName: Match.stringLikeRegexp('livetalk-batch-compress'),
-    });
-  });
-
   it('学習バッチ用 Lambda 関数が存在する', () => {
     const { template } = synth();
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      FunctionName: Match.stringLikeRegexp('livetalk-batch-learn-user-activity'),
-    });
-  });
-
-  it('バッチ Lambda を 2 つ作成する（圧縮 + 学習）', () => {
-    // logRetention は LogRetention 用の provider Lambda を別途生成するため、
-    // AWS::Lambda::Function の総数ではなく FunctionName で個別に検証する。
-    const { template } = synth();
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      FunctionName: Match.stringLikeRegexp('livetalk-batch-compress'),
-    });
     template.hasResourceProperties('AWS::Lambda::Function', {
       FunctionName: Match.stringLikeRegexp('livetalk-batch-learn-user-activity'),
     });
@@ -83,18 +64,6 @@ describe('LiveTalkBatchStack', () => {
     });
   });
 
-  it('圧縮バッチ Lambda 環境変数に TZ=Asia/Tokyo が含まれる', () => {
-    const { template } = synth();
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      FunctionName: Match.stringLikeRegexp('livetalk-batch-compress'),
-      Environment: {
-        Variables: Match.objectLike({
-          TZ: 'Asia/Tokyo',
-        }),
-      },
-    });
-  });
-
   it('学習バッチ Lambda には OPENAI_API_KEY を含めない', () => {
     const { stack } = synth();
     const template = Template.fromStack(stack);
@@ -108,16 +77,9 @@ describe('LiveTalkBatchStack', () => {
     expect(vars.OPENAI_API_KEY).toBeUndefined();
   });
 
-  it('EventBridge ルールを 4 つ作成する（日次圧縮 + 週次学習 + 毎時勉強 + 毎時通知）', () => {
+  it('EventBridge ルールを 4 つ作成する（週次学習 + 毎時通知 + 毎時集約 + 毎時acquire）', () => {
     const { template } = synth();
     template.resourceCountIs('AWS::Events::Rule', 4);
-  });
-
-  it('圧縮バッチの EventBridge スケジュールは cron(0 18 * * ? *)', () => {
-    const { template } = synth();
-    template.hasResourceProperties('AWS::Events::Rule', {
-      ScheduleExpression: 'cron(0 18 * * ? *)',
-    });
   });
 
   it('学習バッチの EventBridge スケジュールは週次（土曜 UTC 18:00）', () => {
@@ -127,7 +89,7 @@ describe('LiveTalkBatchStack', () => {
     });
   });
 
-  it('SQS DLQ を 4 つ作成する（圧縮 + 学習 + 勉強 + 通知で分離）', () => {
+  it('SQS DLQ を 4 つ作成する（学習 + 通知 + 集約 + acquire で分離）', () => {
     const { template } = synth();
     template.resourceCountIs('AWS::SQS::Queue', 4);
   });
@@ -145,46 +107,9 @@ describe('LiveTalkBatchStack', () => {
     });
   });
 
-  it('勉強バッチ用 Lambda 関数が存在する', () => {
-    const { template } = synth();
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      FunctionName: Match.stringLikeRegexp('livetalk-batch-study'),
-    });
-  });
-
-  it('勉強バッチ Lambda 環境変数に TZ=Asia/Tokyo と OPENAI_API_KEY が含まれる', () => {
-    const { template } = synth();
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      FunctionName: Match.stringLikeRegexp('livetalk-batch-study'),
-      Environment: {
-        Variables: Match.objectLike({
-          TZ: 'Asia/Tokyo',
-          OPENAI_API_KEY: 'PLACEHOLDER_KEY',
-        }),
-      },
-    });
-  });
-
-  it('勉強バッチの EventBridge スケジュールは毎時（cron(0 * * * ? *)）', () => {
-    const { template } = synth();
-    template.hasResourceProperties('AWS::Events::Rule', {
-      ScheduleExpression: 'cron(0 * * * ? *)',
-    });
-  });
-
-  it('BatchFunctionArn を Outputs に出力する', () => {
-    const { template } = synth();
-    template.hasOutput('BatchFunctionArn', Match.anyValue());
-  });
-
   it('LearnActivityFunctionArn を Outputs に出力する', () => {
     const { template } = synth();
     template.hasOutput('LearnActivityFunctionArn', Match.anyValue());
-  });
-
-  it('StudyFunctionArn を Outputs に出力する', () => {
-    const { template } = synth();
-    template.hasOutput('StudyFunctionArn', Match.anyValue());
   });
 
   it('通知バッチ用 Lambda 関数が存在する', () => {
@@ -219,6 +144,43 @@ describe('LiveTalkBatchStack', () => {
     template.hasOutput('NotifyFunctionArn', Match.anyValue());
   });
 
+  it('集約バッチ用 Lambda 関数が存在する', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: Match.stringLikeRegexp('livetalk-batch-consolidate'),
+    });
+  });
+
+  it('集約バッチ Lambda 環境変数に TZ=Asia/Tokyo と OPENAI_API_KEY が含まれる', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: Match.stringLikeRegexp('livetalk-batch-consolidate'),
+      Environment: {
+        Variables: Match.objectLike({
+          TZ: 'Asia/Tokyo',
+          OPENAI_API_KEY: 'PLACEHOLDER_KEY',
+        }),
+      },
+    });
+  });
+
+  it('集約バッチの EventBridge スケジュールは毎時 15 分（cron(15 * * * ? *)）', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Events::Rule', {
+      ScheduleExpression: 'cron(15 * * * ? *)',
+    });
+  });
+
+  it('ConsolidateFunctionArn を Outputs に出力する', () => {
+    const { template } = synth();
+    template.hasOutput('ConsolidateFunctionArn', Match.anyValue());
+  });
+
+  it('ConsolidateDlqUrl を Outputs に出力する', () => {
+    const { template } = synth();
+    template.hasOutput('ConsolidateDlqUrl', Match.anyValue());
+  });
+
   it('DynamoDB の grant に GSI1（index/*）への Query 権限が含まれる', () => {
     // batch ロールは GSI1 を Query してユーザーを列挙するため、IAM ポリシーの
     // Resource にテーブル本体に加えて `table/.../index/*` が含まれている必要がある（#3527）。
@@ -235,6 +197,140 @@ describe('LiveTalkBatchStack', () => {
         ]),
       },
     });
+  });
+
+  it('consolidate ロールの DynamoDB grant に GSI3（index/*）への Query 権限が含まれる（ADR-2.22）', () => {
+    // dynamoTable の globalIndexes に GSI3 を追加していないと、consolidate ロールが
+    // GSI3（GSI-TOPIC）を Query する権限（index/*）が IAM ポリシーに付与されない。
+    const { template } = synth();
+    const roles = template.findResources('AWS::IAM::Role', {
+      Properties: {
+        RoleName: Match.stringLikeRegexp('livetalk-consolidate-role'),
+      },
+    });
+    const roleLogicalIds = Object.keys(roles);
+    expect(roleLogicalIds.length).toBeGreaterThan(0);
+
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: Match.arrayWith(['dynamodb:Query']),
+            Resource: Match.arrayWith([
+              Match.stringLikeRegexp('table/nagiyu-livetalk-dynamodb-dev/index/\\*'),
+            ]),
+          }),
+        ]),
+      },
+      Roles: Match.arrayWith([Match.objectLike({ Ref: roleLogicalIds[0] })]),
+    });
+  });
+
+  it('acquire バッチ用 Lambda 関数が存在する', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: Match.stringLikeRegexp('livetalk-batch-acquire'),
+    });
+  });
+
+  it('acquire バッチ Lambda 環境変数に TZ=Asia/Tokyo と OPENAI_API_KEY が含まれる', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: Match.stringLikeRegexp('livetalk-batch-acquire'),
+      Environment: {
+        Variables: Match.objectLike({
+          TZ: 'Asia/Tokyo',
+          OPENAI_API_KEY: 'PLACEHOLDER_KEY',
+        }),
+      },
+    });
+  });
+
+  it('acquire バッチの EventBridge スケジュールは毎時 45 分（cron(45 * * * ? *)）', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Events::Rule', {
+      ScheduleExpression: 'cron(45 * * * ? *)',
+    });
+  });
+
+  it('AcquireFunctionArn を Outputs に出力する', () => {
+    const { template } = synth();
+    template.hasOutput('AcquireFunctionArn', Match.anyValue());
+  });
+
+  it('AcquireDlqUrl を Outputs に出力する', () => {
+    const { template } = synth();
+    template.hasOutput('AcquireDlqUrl', Match.anyValue());
+  });
+
+  it('acquire ロールの DynamoDB grant に GSI4（index/*）への Query 権限が含まれる（鮮度掃引用）', () => {
+    const { template } = synth();
+    const roles = template.findResources('AWS::IAM::Role', {
+      Properties: {
+        RoleName: Match.stringLikeRegexp('livetalk-acquire-role'),
+      },
+    });
+    const roleLogicalIds = Object.keys(roles);
+    expect(roleLogicalIds.length).toBeGreaterThan(0);
+
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: Match.arrayWith(['dynamodb:Query']),
+            Resource: Match.arrayWith([
+              Match.stringLikeRegexp('table/nagiyu-livetalk-dynamodb-dev/index/\\*'),
+            ]),
+          }),
+        ]),
+      },
+      Roles: Match.arrayWith([Match.objectLike({ Ref: roleLogicalIds[0] })]),
+    });
+  });
+
+  it('一回性マイグレーションバッチ用 Lambda 関数が存在する', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: Match.stringLikeRegexp('livetalk-batch-migrate'),
+    });
+  });
+
+  it('マイグレーションバッチ Lambda 環境変数に TZ=Asia/Tokyo と OPENAI_API_KEY が含まれる', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: Match.stringLikeRegexp('livetalk-batch-migrate'),
+      Environment: {
+        Variables: Match.objectLike({
+          TZ: 'Asia/Tokyo',
+          OPENAI_API_KEY: 'PLACEHOLDER_KEY',
+        }),
+      },
+    });
+  });
+
+  it('マイグレーションバッチ Lambda のタイムアウトは 15 分、メモリは 512MB', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      FunctionName: Match.stringLikeRegexp('livetalk-batch-migrate'),
+      Timeout: 900,
+      MemorySize: 512,
+    });
+  });
+
+  it('MigrateFunctionArn を Outputs に出力する', () => {
+    const { template } = synth();
+    template.hasOutput('MigrateFunctionArn', Match.anyValue());
+  });
+
+  it('マイグレーションバッチは手動 invoke 専用のため EventBridge ルールは 4 つのまま増えない', () => {
+    // 既存 4 バッチ（学習・通知・集約・acquire）分のみ。migrate 用のルールは作らない。
+    const { template } = synth();
+    template.resourceCountIs('AWS::Events::Rule', 4);
+  });
+
+  it('マイグレーションバッチは DLQ を持たないため SQS Queue は 4 つのまま増えない', () => {
+    const { template } = synth();
+    template.resourceCountIs('AWS::SQS::Queue', 4);
   });
 
   it('prod 環境でも正しく生成する', () => {

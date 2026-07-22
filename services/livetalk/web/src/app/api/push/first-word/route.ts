@@ -8,6 +8,9 @@
  *
  * レスポンスに characterId を含めることで、page 側でクロス汚染ガードを行える。
  * suggestedReply は通知タップ起動時に入力欄へプリフィルするユーザー発話。null の場合はプリフィルしない。
+ *
+ * リブトーク知識・記憶再設計 P5 で NotificationEvent.KnowledgeID（旧 Knowledge モデル）は撤去済み。
+ * レスポンスからも knowledgeId フィールドを削除した。
  */
 import { NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
@@ -39,7 +42,6 @@ export const GET = withAuth(getSession, 'livetalk:chat', async (session, request
     {
       notifId: unconsumed.NotifID,
       body: unconsumed.Body,
-      knowledgeId: unconsumed.KnowledgeID ?? null,
       characterId: unconsumed.CharacterID,
       suggestedReply: unconsumed.SuggestedReply ?? null,
     },
