@@ -69,8 +69,12 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
     destination: '/tech',
   },
   {
+    source: '/tech/discriminated-union-api',
+    destination: '/tech',
+  },
+  {
     source: '/tech/zod-runtime-validation',
-    destination: '/tech/discriminated-union-api',
+    destination: '/tech',
   },
   // /services・/tech/tags・/tech/category 配下を技術記事一覧へ集約する。
   {
