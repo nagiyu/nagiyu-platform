@@ -350,9 +350,12 @@ export const MIGRATION_CARE_SEED_MAX_PER_TOPIC = 5;
 
 /**
  * care シード: シグナル（InterestCategory / Memory）を Topic へ割り当てる際の
- * cosine similarity 下限閾値。これ未満なら Category 文字列一致にフォールバックする。
+ * cosine similarity 下限閾値（embedding 最寄り Topic とのスコアがこれ未満なら drop）。
+ * 旧カテゴリ語の埋め込みと、言い換えられた新 Topic（Subject＋要約）の埋め込みの
+ * cosine は、一致していても中程度（〜0.3-0.6）に留まるため、「対応 Topic が存在するか」
+ * を判定する緩めのゲートとして 0.3 とする。要調整・要観測。
  */
-export const MIGRATION_CARE_ASSIGN_SIMILARITY_THRESHOLD = 0.5;
+export const MIGRATION_CARE_ASSIGN_SIMILARITY_THRESHOLD = 0.3;
 
 /**
  * consolidate() の `selfFactProvenanceSuffix` に渡す固定文言。
