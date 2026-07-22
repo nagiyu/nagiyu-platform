@@ -17,7 +17,7 @@ const eslintConfig = defineConfig([
     'build/**',
     'next-env.d.ts',
     // E2E test files:
-    'e2e/**',
+    'tests/e2e/**',
   ]),
   {
     rules: {
