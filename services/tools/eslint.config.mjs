@@ -20,7 +20,7 @@ const eslintConfig = defineConfig([
     'public/sw.js',
     'public/workbox-*.js',
     // E2E test files:
-    'e2e/**',
+    'tests/e2e/**',
   ]),
   {
     rules: {
