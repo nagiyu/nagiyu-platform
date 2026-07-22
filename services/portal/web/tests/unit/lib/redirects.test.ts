@@ -120,7 +120,7 @@ describe('buildRedirects', () => {
       '/tech/eventbridge-rule-scheduling'
     );
     expect(redirectMap.get('/tech/video-codec-comparison')).toBe('/tech');
-    expect(redirectMap.get('/tech/zod-runtime-validation')).toBe('/tech/discriminated-union-api');
+    expect(redirectMap.get('/tech/zod-runtime-validation')).toBe('/tech');
     // カテゴリハブ廃止後は /tech へ集約
     expect(redirectMap.get('/tech/aws-ses-transactional-mail')).toBe('/tech');
     expect(redirectMap.get('/tech/category/:category*')).toBe('/tech');
