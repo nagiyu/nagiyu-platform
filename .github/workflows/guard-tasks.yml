@@ -1,0 +1,63 @@
+name: Guard - tasks は develop/master に入れない
+
+# tasks/{feature}/ は開発時の一時ドキュメント。開発完了後に docs/ へ移行して
+# 削除する運用（CLAUDE.md）。掃除忘れで develop/master に混入するのを CI で防ぐ。
+# tasks/templates/（新規 tasks/{feature}/ の雛形）は永続資産のため許可する。
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - master
+
+env:
+  SERVICE_DISPLAY_NAME: Guard tasks
+
+jobs:
+  no-feature-tasks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: tasks/{feature}/ がマージ結果に含まれていないか検査
+        run: |
+          leaked=$(git ls-files tasks/ | grep -v '^tasks/templates/' || true)
+          if [ -n "$leaked" ]; then
+            echo "::error::tasks/ 配下の作業ドキュメントが develop/master に入ろうとしています。docs/ へ移行し、tasks/{feature}/ を削除してください（tasks/templates/ は許可）。"
+            echo "$leaked"
+            exit 1
+          fi
+          echo "OK: tasks/ に作業ドキュメントなし（templates のみ）"
+
+  report:
+    name: Report Results to PR
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [no-feature-tasks]
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Create PR Comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const results = { 'tasks 混入チェック': '${{ needs.no-feature-tasks.result }}' };
+            const statusEmoji = { 'success': '✅', 'failure': '❌', 'cancelled': '⚠️', 'skipped': '⏭️' };
+            const allSuccess = Object.values(results).every(r => r === 'success');
+            const header = allSuccess
+              ? '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Passed'
+              : '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Failed';
+            let body = `${header}\n\n`;
+            body += '| Job | Status |\n';
+            body += '|-----|--------|\n';
+            for (const [job, result] of Object.entries(results)) {
+              const emoji = statusEmoji[result] || '❓';
+              body += `| ${job} | ${emoji} ${result} |\n`;
+            }
+            if (!allSuccess) {
+              body += '\n> tasks/{feature}/ 配下の作業ドキュメントが develop/master に入ろうとしています。docs/ へ移行し、tasks/{feature}/ を削除してください（tasks/templates/ は許可）。\n';
+            }
+            body += `\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+            github.rest.issues.createComment({ issue_number: context.issue.number, owner: context.repo.owner, repo: context.repo.repo, body: body });
