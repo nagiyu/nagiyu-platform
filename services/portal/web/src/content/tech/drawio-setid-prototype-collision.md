@@ -1,55 +1,51 @@
 ---
-title: 'draw.io が「d.setId is not a function」で開けない：ID と Array.prototype の衝突'
-description: 'draw.io で特定の .drawio ファイルを開いたときに「d.setId is not a function」が出る原因を解説します。mxGraph のデコーダがキャッシュに配列を使っており、セルの id 属性が Array.prototype のメンバ名（push など）と衝突すると、プロトタイプチェーンを経由して関数が返ってしまうのが真因です。再現手順・修正方法・JavaScript での汎用的な対策まで整理します。'
+title: 'draw.io が「d.setId is not a function」で開けない — AI の誤診を抜けて真因（id と Array.prototype の衝突）に辿り着くまで'
+description: 'AI に作らせた図を手元で開こうとしたら d.setId is not a function で開けない。Web 版でも VSCode 拡張でも壊れる。AI は「ブラウザなら」「拡張がおかしい」と環境を疑わせたが全部ハズレで、履歴を捨てて白紙から調べ直させてやっと真因に辿り着いた。犯人はセルの id が push だったこと——Array.prototype とのプロトタイプ衝突だった。'
 slug: 'drawio-setid-prototype-collision'
 publishedAt: '2026-06-13'
-updatedAt: '2026-06-13'
+updatedAt: '2026-07-24'
 author: 'なぎゆー'
-tags: ['JavaScript', 'TypeScript', 'デバッグ', 'draw.io']
+tags: ['JavaScript', 'デバッグ', 'AI', 'draw.io']
 categories: ['dev-stack']
 featured: false
 ---
 
 ## はじめに
 
-draw.io で `.drawio` ファイルを開こうとしたら `d.setId is not a function` というエラーが出て、ファイルが一切開けなくなった。同じディレクトリの他の `.drawio` は正常に開けるのに、特定のファイルだけ再現性よく失敗する。
+これは draw.io のバグ解説というより、**AI に何度も見当違いの原因を掴まされて、最後に「白紙から調べ直させる」ことで抜けた**という、デバッグの回り道の話だ。オチの技術的な真因（セルの `id` が `push` だったせいで壊れる）は最後に書くが、そこに至るまでが長かった。
 
-エラーメッセージに `setId` とあるので mxGraph の何かとは分かる。しかし XML が壊れているわけではなく、id が重複しているわけでもない。ファイルを眺めても一見まったく問題なさそうに見える。
+## 前提：図はこう作っている
 
-本記事では、この問題が起きた原因の切り分け経緯・真因・修正方法・そして「JavaScript で連想配列代わりにオブジェクトを使うリスク」という汎用的な教訓をまとめます。
+うちのリポジトリでは、説明図を全部手で描いているわけではない。**AI に `.drawio` の素体を作らせ、それを手元で開いて `.drawio.svg` に書き出し、記事の Markdown に埋め込む**——という運用にしている。図の「元データ」は AI 産、仕上げと変換は手元、という分担だ。
 
-## 症状
+だから「手元で `.drawio` が開けない」は、単なる不便では済まない。**変換ステップが止まって、記事に図を載せられなくなる**。今回まさにそこで詰まった。
 
-- app.diagrams.net（Web 版）でファイルを開くと `d.setId is not a function` が出て開けない。
-- VS Code の Draw.io Integration 拡張でも同じエラーが出る。
-- つまりクライアントに依存した問題ではなく、**ファイルの内容に起因**する再現性のある失敗。
-- 同じディレクトリの別の `.drawio` ファイルは正常に開ける。
+## 詰まり①：どのクライアントで開いても壊れる
 
-## 切り分けの経緯
+問題の図は、GitHub Actions のモノレポデプロイフローを描いたものだった。クローンは手元にあるので、まず素直に開こうとした。
 
-まず「XML として壊れているのでは」と疑い、テキストエディタで開いて確認した。パーサは通っており、well-formed だった。
+- **Web 版（diagrams.net）で開いた** → `d.setId is not a function` が出て、図が一切表示されない。
+- **VSCode の draw.io 拡張で開いた**（いつも使っている拡張機能をそのまま） → こちらも同じく壊れて表示できない。
 
-次に考えたのは mxCell の `id` 重複、空 `id`、HTML コメント混入あたり。しかし grep をかけても見当たらない。
+この時点で AI に相談すると、返ってくるのは環境を疑う筋だった。「ブラウザ版なら開けるはず」「その VSCode 拡張の調子がおかしいのでは」。もっともらしいので順に潰したが、**どちらも実際に試して駄目**だった。Web 版でも拡張でも同じエラーが同じように出る。ここで少なくとも「自分の環境やクライアント固有の問題」ではなく、**ファイルの中身に原因がある**ことは確定した。にもかかわらず、会話は環境の周りをぐるぐる回り続けた。
 
-「開けるファイル」と「開けないファイル」を diff して構造を比較した。二つのファイルのセル数・属性の種類はほぼ同じ。決定的に違うのは、問題のファイルの**特定セルの `id` 属性の値**だった。開けるファイルの id は `xxxx-1` のような自動採番形式。開けないファイルには `push` という値を持つセルがあった。
+## 詰まり②：同じ文脈で聞き続けても堂々巡り
 
-この時点で「`push` という文字列が何かと衝突しているのでは」と仮説を立て、ソースを掘ることにした。
+環境要因を全部潰しても直らないと分かった頃、AI の側にも手詰まり感が出てきた。ここで気づいたのは、**同じ会話の文脈で問い続ける限り、最初に立てた「環境が怪しい」という筋を引きずってしまう**ということだ。人間なら「一晩寝て仕切り直す」ところを、AI なら履歴ごと捨ててやり直せる。
 
-## 真因：Array.prototype とのプロトタイプ衝突
+そこで、**それまでのやり取りを一切引き継がない、まっさらなコンテキストで一から調べ直させる**ことにした。先入観のない目で、エラーの発生源そのものを追わせる。これが効いた。
 
-draw.io は内部で mxGraph を使っており、XML のデコードには `mxCodec` が使われる。`mxCodec` は「ID → デコード済みオブジェクト」のキャッシュを保持するが、このキャッシュが**プレーンな配列**で初期化されている（`this.objects = []` 相当）。
+## 真因：id が `push` だったこと
 
-XML をデコードする過程で既存オブジェクトを参照するとき、`mxObjectCodec` は `dec.objects[id]` という形でキャッシュを引く。通常の id（`xxxx-1` のような値）でこれを評価すると、配列に存在しない要素として `undefined` が返り、新しいオブジェクトの生成に進む。
+白紙で追い直させて出てきた答えはこうだった。
 
-問題のファイルには `id="push"` のセルがあった。`dec.objects["push"]` を評価すると何が起きるか。配列にそのインデックスは存在しないが、**プロトタイプチェーンを辿って `Array.prototype.push`（関数）**が見つかってしまう。
+draw.io は内部で mxGraph を使い、XML のデコードに `mxCodec` を通す。このデコーダは「id → デコード済みオブジェクト」のキャッシュを持つが、それが**プレーンな配列**で初期化されている（`this.objects = []` 相当）。デコード中に既存オブジェクトを引くとき、`dec.objects[id]` という形でキャッシュを参照する。
 
-結果として、本来 mxCell であるべき `obj` が「`push` 関数」になる。続く `mxCellCodec.beforeDecode` の中で `obj.setId(...)` が呼ばれるが、関数オブジェクトに `setId` メソッドは存在しないため `d.setId is not a function`（`d` = `push` 関数）で落ちる、というのが全容だ。
+問題の図には、`id="push"` のセルがあった。CI フローの図なので、ごく自然に「push」というステップをそのままセルの id にしていた。ところが `dec.objects["push"]` を評価すると、配列にそのキーは無いのに、**プロトタイプチェーンを辿って `Array.prototype.push` という関数が返ってしまう**。
 
-正常に開ける他のファイルは、draw.io が保存時に id を衝突しない値へ自動採番していたため、この問題が起きなかった。
+その結果、本来 mxCell であるべきオブジェクトが「`push` 関数」に化ける。続く処理で `obj.setId(...)` が呼ばれても、関数に `setId` は無いので `d.setId is not a function`（`d` は `push` 関数）で落ちる——というのが全体像だった。他の図が普通に開けていたのは、draw.io が保存時に `xxxx-1` のような衝突しない id を自動採番していたからだ。手で「push」と付けた図だけが地雷を踏んでいた。
 
-## 最小再現
-
-以下のような `.drawio` ファイルで再現する。
+最小再現はこれだけで済む。
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -64,135 +60,10 @@ XML をデコードする過程で既存オブジェクトを参照するとき�
 </mxGraphModel>
 ```
 
-`id="push"` を `id="push-node"` など衝突しない名前に変えるだけで正常に開ける。
+`id="push"` を `push-node` のような名前に変えるだけで、あっさり開けるようになる。実際の修正も、図の中の `push` という id を改名しただけだった。そのセルを `source` / `target` で参照している edge があれば、そちらも一緒に直す。
 
-Node 上で mxGraph のデコーダに通す検証でも確認済み。`id="push"` 版は `obj.setId is not a function` を再現し、改名版は全セルを正常にデコードできた。
+## 持ち帰り
 
-## 修正方法
+技術的な教訓は一行だ。**任意のキーを受け取るハッシュマップに、プレーンなオブジェクトや配列を使うとプロトタイプのメンバ名と衝突する**。`push`・`constructor`・`hasOwnProperty` などがキーに来ると、意図せず関数が返る。用途がハッシュマップなら最初から `Map` を使えばいい（`Map` はプロトタイプを一切参照しないので、キーが何でも衝突しない）。TypeScript で `Record<string, T>` と型を付けても、実行時のプロトタイプ解決は止まらない——型が通ることと壊れないことは別だ。今回の真因は mxGraph 側の実装なので自分では直せなかったが、**自分のコードで同じ轍を踏まない**ための教訓としては十分効く。
 
-### 直接編集する
-
-問題のファイルをテキストエディタで開き、該当セルの `id` を予約名と衝突しない値に変更する。そのセルを `source` / `target` で参照している edge があれば、そちらも追従させる。
-
-```xml
-<!-- 変更前 -->
-<mxCell id="push" ... />
-<mxCell id="edge-1" source="push" target="other" ... />
-
-<!-- 変更後 -->
-<mxCell id="push-node" ... />
-<mxCell id="edge-1" source="push-node" target="other" ... />
-```
-
-### draw.io で一度開いて保存し直す
-
-ただしこの方法では、エラーが出て開けないためファイルを開く前の段階で詰まる。一時的に `id` をテキスト置換してから開き直し、draw.io が自動採番した状態で保存すると以降は問題が起きなくなる。
-
-### 衝突する可能性がある id の例
-
-`push` だけが危険なわけではない。`Array.prototype` のメンバ名全般と、`Object.prototype` のメンバ名全般が衝突候補になる。
-
-| 由来               | 衝突する id の例                                                                                   |
-| ------------------ | -------------------------------------------------------------------------------------------------- |
-| `Array.prototype`  | `push`, `pop`, `shift`, `unshift`, `slice`, `splice`, `map`, `filter`, `find`, `forEach`, `length` |
-| `Object.prototype` | `constructor`, `hasOwnProperty`, `toString`, `valueOf`, `isPrototypeOf`, `__proto__`               |
-
-手書きで id を設定する場合は、これらの名前を避けるか、`xxxx-` のようなプレフィクスを付けておくと安全だ。
-
-## 一般化した教訓：オブジェクトや配列をハッシュマップに使うリスク
-
-この問題は draw.io 固有の話ではなく、JavaScript / TypeScript でよく見る設計パターンの落とし穴だ。
-
-### 問題のパターン
-
-「任意のキーを持つ連想配列が欲しい」とき、プレーンなオブジェクトや配列を使いがちだ。
-
-```typescript
-// オブジェクトを連想配列代わりに使う
-const cache: Record<string, MyObject> = {};
-cache['someKey'] = obj;
-
-// 配列を連想配列代わりに使う（今回の mxCodec のケース）
-const objects: MyObject[] = [];
-objects['someKey'] = obj;
-```
-
-このとき `someKey` が `push`・`constructor`・`hasOwnProperty` などプロトタイプのメンバ名と一致すると、意図しない値（多くの場合、関数）が取得されてしまう。
-
-```typescript
-const m: Record<string, unknown> = {};
-console.log(m['push']); // → function push() { [native code] }
-console.log(m['constructor']); // → function Object() { [native code] }
-console.log(m['hasOwnProperty']); // → function hasOwnProperty() { [native code] }
-
-const a: unknown[] = [];
-console.log(a['push']); // → function push() { [native code] }
-console.log(a['map']); // → function map() { [native code] }
-```
-
-TypeScript で `Record<string, MyObject>` と型を付けていても、これは実行時のプロトタイプ解決を止めてくれない。型チェックは通るのに実行時に壊れる、という見つけにくいバグになる。
-
-これはプロトタイプ汚染（prototype pollution）と地続きのリスクでもある。外部から受け取ったキーが `__proto__` や `constructor` だった場合、オブジェクトのプロトタイプを書き換えられてしまう攻撃が成立する。
-
-### 安全な代替手段
-
-**1. `Map` を使う**
-
-`Map` はキーと値のペアを完全に独立して管理する。プロトタイプを一切参照しないため、キーが何であっても衝突しない。
-
-```typescript
-const cache = new Map<string, MyObject>();
-cache.set('push', obj); // プロトタイプとは無関係
-console.log(cache.get('push')); // → obj（期待通り）
-
-// 存在チェックも安全
-console.log(cache.has('constructor')); // → false（プロトタイプを参照しない）
-```
-
-**2. `Object.create(null)` でプロトタイプなしオブジェクトを作る**
-
-どうしてもオブジェクトリテラルを使いたい場合は、プロトタイプを持たないオブジェクトを作る。
-
-```typescript
-const cache = Object.create(null) as Record<string, MyObject>;
-console.log(cache['push']); // → undefined（プロトタイプがないため）
-console.log(cache['constructor']); // → undefined
-```
-
-ただし `toString` や `hasOwnProperty` も使えなくなるため注意が必要だ。
-
-**3. 存在確認を `hasOwnProperty` で行う**
-
-既存コードを大きく変えられない場合は、プロトタイプのメンバを拾わないよう存在確認を入れる。
-
-```typescript
-const cache: Record<string, MyObject> = {};
-
-function get(key: string): MyObject | undefined {
-  if (Object.prototype.hasOwnProperty.call(cache, key)) {
-    return cache[key];
-  }
-  return undefined;
-}
-```
-
-`cache.hasOwnProperty(key)` でも動くが、プロトタイプ汚染でオブジェクト自体の `hasOwnProperty` が書き換えられているケースに備えるなら `Object.prototype.hasOwnProperty.call(cache, key)` の形が確実だ。
-
-### TypeScript の型は実行時のプロトタイプ解決を守ってくれない
-
-`Record<string, T>` という型は「文字列キーに対して `T` が返る」ことを宣言しているが、プロトタイプを経由した値の取得を型システムは把握していない。型チェックが通っているからといって安心してはいけない。
-
-ハッシュマップ用途には `Map` を使う、というのが一番シンプルで安全な指針だ。
-
-## 実装ノート
-
-今回こちらで直接手を入れられたのは、自分たちが管理している図ファイルの `id` だけだった（バグ自体は draw.io / mxGraph 側の実装に起因するため、外から直すことはできない）。とはいえ教訓は自分のコードにそのまま跳ね返ってくる。動的な文字列をキーにするハッシュマップを書くときは、最初から `Map` を選ぶ——というのを既定の方針にしておくと、同種のバグを未然に防げる。キーが固定（ドメイン定義済みのリテラルユニオン）の場合は、オブジェクトリテラルのままでも問題は起きない。
-
-TypeScript の `noUncheckedIndexedAccess` を有効にすると `cache[key]` の戻り値が `T | undefined` になり、未確認アクセスで型エラーになる。`Record<string, T>` を使いつつも存在確認を強制できるため、有効にしておくと良い（`typescript-strict-repository` の記事でも触れている）。
-
-## まとめ
-
-- draw.io の `d.setId is not a function` は、mxGraph のデコーダが配列をキャッシュに使っており、セルの `id` が `Array.prototype` のメンバ名（`push` など）と衝突すると発生する。
-- 修正は単純で、問題のある `id` を衝突しない名前に変えるだけでよい。
-- 根本的な教訓は「**プレーンなオブジェクトや配列を任意のキーを持つハッシュマップとして使うと、プロトタイプのメンバ名と衝突したときに壊れる**」こと。TypeScript の型はこのリスクを防いでくれない。
-- ハッシュマップ用途には `Map` を使う。動的なキーを受け取るオブジェクトが必要なら `Object.create(null)` か `hasOwnProperty` ガードを加える。
+ただ、今回いちばん身に沁みたのはそっちではない。**AI に詰まらされたとき、同じ文脈で粘るより、履歴を捨てて白紙から調べ直させる方が早い**ことだ。最初に立った仮説（ここでは「環境が怪しい」）は、会話を続けるほど強化されて抜けにくくなる。しかも「ブラウザなら」「拡張がおかしい」のように、**原因を自分の外（環境）に押しつける誤診はとても出やすい**。環境要因を一通り潰しても直らないなら、そこが仕切り直しの合図だ。人間相手なら難しい「先入観のリセット」を、AI なら文脈ごと捨てて安く実行できる——これは AI と組んでデバッグするときの、地味だが効く一手だと思う。
