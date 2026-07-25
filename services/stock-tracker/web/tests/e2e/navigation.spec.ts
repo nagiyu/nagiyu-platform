@@ -21,7 +21,10 @@ test.describe('ナビゲーション (E2E-009)', () => {
       await page.goto('/');
       await page.waitForLoadState('networkidle');
 
-      await page.locator('main').getByRole('link', { name: /保有株式管理/ }).click();
+      await page
+        .locator('main')
+        .getByRole('link', { name: /保有株式管理/ })
+        .click();
 
       await expect(page).toHaveURL('/holdings');
       await expect(page.getByRole('heading', { name: '保有株式管理' })).toBeVisible({
@@ -33,7 +36,10 @@ test.describe('ナビゲーション (E2E-009)', () => {
       await page.goto('/');
       await page.waitForLoadState('networkidle');
 
-      await page.locator('main').getByRole('link', { name: /アラート一覧/ }).click();
+      await page
+        .locator('main')
+        .getByRole('link', { name: /アラート一覧/ })
+        .click();
 
       await expect(page).toHaveURL('/alerts');
       await expect(page.getByRole('heading', { name: 'アラート一覧' })).toBeVisible({
@@ -45,7 +51,10 @@ test.describe('ナビゲーション (E2E-009)', () => {
       await page.goto('/');
       await page.waitForLoadState('networkidle');
 
-      await page.locator('main').getByRole('link', { name: /サマリー/ }).click();
+      await page
+        .locator('main')
+        .getByRole('link', { name: /サマリー/ })
+        .click();
 
       await expect(page).toHaveURL('/summaries');
       await expect(page.getByRole('heading', { name: '日次サマリー' })).toBeVisible({
@@ -65,7 +74,10 @@ test.describe('ナビゲーション (E2E-009)', () => {
       await page.goto('/');
       await page.waitForLoadState('networkidle');
 
-      await page.locator('main').getByRole('link', { name: /取引所管理/ }).click();
+      await page
+        .locator('main')
+        .getByRole('link', { name: /取引所管理/ })
+        .click();
 
       await expect(page).toHaveURL('/exchanges');
       await expect(page.getByRole('heading', { name: '取引所管理' })).toBeVisible({
@@ -77,7 +89,10 @@ test.describe('ナビゲーション (E2E-009)', () => {
       await page.goto('/');
       await page.waitForLoadState('networkidle');
 
-      await page.locator('main').getByRole('link', { name: /ティッカー管理/ }).click();
+      await page
+        .locator('main')
+        .getByRole('link', { name: /ティッカー管理/ })
+        .click();
 
       await expect(page).toHaveURL('/tickers');
       await expect(page.getByRole('heading', { name: 'ティッカー管理' })).toBeVisible({
@@ -104,7 +119,10 @@ test.describe('ナビゲーション (E2E-009)', () => {
       await page.goto('/');
       await page.waitForLoadState('networkidle');
 
-      await page.locator('main').getByRole('link', { name: /アラート一覧/ }).click();
+      await page
+        .locator('main')
+        .getByRole('link', { name: /アラート一覧/ })
+        .click();
       await expect(page).toHaveURL('/alerts');
 
       await page.getByRole('button', { name: '戻る' }).click();
@@ -132,7 +150,10 @@ test.describe('ナビゲーション (E2E-009)', () => {
       await page.goto('/');
       await page.waitForLoadState('networkidle');
 
-      await page.locator('main').getByRole('link', { name: /保有株式管理/ }).click();
+      await page
+        .locator('main')
+        .getByRole('link', { name: /保有株式管理/ })
+        .click();
       await expect(page).toHaveURL('/holdings');
 
       await page.goBack();
@@ -145,7 +166,10 @@ test.describe('ナビゲーション (E2E-009)', () => {
       await page.goto('/');
       await page.waitForLoadState('networkidle');
 
-      await page.locator('main').getByRole('link', { name: /保有株式管理/ }).click();
+      await page
+        .locator('main')
+        .getByRole('link', { name: /保有株式管理/ })
+        .click();
       await expect(page).toHaveURL('/holdings');
 
       await page.goBack();
@@ -161,13 +185,19 @@ test.describe('ナビゲーション (E2E-009)', () => {
       await page.goto('/');
       await page.waitForLoadState('networkidle');
 
-      await page.locator('main').getByRole('link', { name: /保有株式管理/ }).click();
+      await page
+        .locator('main')
+        .getByRole('link', { name: /保有株式管理/ })
+        .click();
       await expect(page).toHaveURL('/holdings');
 
       await page.getByRole('button', { name: '戻る' }).click();
       await expect(page).toHaveURL('/');
 
-      await page.locator('main').getByRole('link', { name: /アラート一覧/ }).click();
+      await page
+        .locator('main')
+        .getByRole('link', { name: /アラート一覧/ })
+        .click();
       await expect(page).toHaveURL('/alerts');
 
       await page.goBack();

@@ -321,9 +321,7 @@ test.describe('ティッカー管理 (E2E-007)', () => {
       await expect(page.getByText('ティッカーを削除しました')).toBeVisible({ timeout: 10000 });
       await expect(page.getByRole('dialog')).not.toBeVisible();
 
-      await expect(
-        page.getByRole('cell', { name: TICKER_SYMBOL, exact: true })
-      ).not.toBeVisible();
+      await expect(page.getByRole('cell', { name: TICKER_SYMBOL, exact: true })).not.toBeVisible();
     });
   });
 
