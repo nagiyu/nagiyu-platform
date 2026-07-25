@@ -20,11 +20,13 @@ test.describe('MigrationDialog', () => {
     // リロードしてMigrationDialogを再初期化
     await page.reload();
 
-    // ダイアログが実際に表示されるまで待つ
+    // ダイアログが実際に表示されることを確認する（本ファイルはダイアログが
+    // 出ること自体が検証対象のため、localStorage を未設定に固定し必ず表示される
+    // 状態を作っている。以前は waitFor().catch(() => {}) で表示されない場合を
+    // 握り潰していたが、それでは「出ても出なくても green」になってしまうため、
+    // 単一の結末として明示的に待つ）
     const dialog = page.getByRole('dialog');
-    await dialog.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {
-      // ダイアログが表示されない場合もあるのでエラーを無視
-    });
+    await dialog.waitFor({ state: 'visible', timeout: 10000 });
   });
 
   test.describe('基本動作', () => {
