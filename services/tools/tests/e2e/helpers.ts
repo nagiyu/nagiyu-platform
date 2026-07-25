@@ -1,4 +1,4 @@
-import { test as base, Page } from '@playwright/test';
+import { test as base, expect, type Locator, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
@@ -61,4 +61,39 @@ export async function suppressMigrationDialog(page: Page): Promise<void> {
   await page.addInitScript((key) => {
     window.localStorage.setItem(key, 'true');
   }, MIGRATION_DIALOG_STORAGE_KEY);
+}
+
+/**
+ * 乗り換え変換の入力欄にテキストを入力し、変換ボタンが操作可能になるまで待つ。
+ *
+ * 変換ボタンは入力が空のとき `disabled` で、React の state が入力を認識して初めて
+ * enabled になる。`page.goto` 直後は hydration が完了しておらず、`fill()` しても
+ * onChange が発火しないことがあり、その場合ボタンは disabled のままになる
+ * （webkit-mobile で実際に 18 件のテストがこの原因で失敗した）。
+ *
+ * 以前は `dismissMigrationDialogIfVisible` に含まれていた `waitForTimeout` が
+ * 偶然 hydration 待ちとして機能していたが、決定的な仕組みではなかった。
+ *
+ * ここでは `expect.toPass()` で「入力 → ボタンが enabled になる」までを冪等に再試行し、
+ * **ボタンが操作可能になるという単一の結末**へ収束させる。結末を分岐させるものではなく、
+ * enabled にならなければタイムアウトで失敗する。
+ *
+ * @param page - Playwright の Page
+ * @param inputField - 入力欄の Locator
+ * @param text - 入力するテキスト
+ * @returns 変換ボタンの Locator
+ */
+export async function fillTransitInput(
+  page: Page,
+  inputField: Locator,
+  text: string
+): Promise<Locator> {
+  const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
+
+  await expect(async () => {
+    await inputField.fill(text);
+    await expect(convertButton).toBeEnabled({ timeout: 2000 });
+  }).toPass({ timeout: 20000 });
+
+  return convertButton;
 }

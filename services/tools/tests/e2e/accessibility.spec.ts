@@ -1,4 +1,4 @@
-import { test, expect, suppressMigrationDialog } from './helpers';
+import { test, expect, suppressMigrationDialog, fillTransitInput } from './helpers';
 /**
  * chromium-mobile プロジェクトは playwright.config.base.ts 側で `serviceWorkers: 'block'` を
  * 設定済みだが、chromium-desktop / webkit-mobile は未設定という非対称がある。
@@ -112,9 +112,7 @@ test.describe('Accessibility Tests - Transit Converter @a11y', () => {
 ■新宿`;
 
     const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
-    await inputField.fill(validInput);
-
-    const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
+    const convertButton = await fillTransitInput(page, inputField, validInput);
     const copyButton = page.getByRole('button', { name: '変換結果をクリップボードにコピーする' });
     await convertButton.click();
 
@@ -134,9 +132,7 @@ test.describe('Accessibility Tests - Transit Converter @a11y', () => {
     makeAxeBuilder,
   }) => {
     const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
-    await inputField.fill('Invalid transit text');
-
-    const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
+    const convertButton = await fillTransitInput(page, inputField, 'Invalid transit text');
     await convertButton.click();
 
     // Wait for error to appear

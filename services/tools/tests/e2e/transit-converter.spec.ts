@@ -1,4 +1,4 @@
-import { test, expect, suppressMigrationDialog } from './helpers';
+import { test, expect, suppressMigrationDialog, fillTransitInput } from './helpers';
 
 /**
  * chromium-mobile プロジェクトは playwright.config.base.ts 側で `serviceWorkers: 'block'` を
@@ -83,10 +83,7 @@ test.describe('Transit Converter - E2E Tests', () => {
       // Material UIでは、label配下にtextareaがあるので、「入力」セクションの下のtextareaを探す
       const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
       await expect(inputField).toBeVisible();
-      await inputField.fill(VALID_TRANSIT_TEXT);
-
-      // 変換ボタンをクリック
-      const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
+      const convertButton = await fillTransitInput(page, inputField, VALID_TRANSIT_TEXT);
       await expect(convertButton).toBeEnabled();
       await convertButton.click();
 
@@ -127,9 +124,11 @@ test.describe('Transit Converter - E2E Tests', () => {
       }
 
       const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
-      await inputField.fill(VALID_TRANSIT_TEXT_WITH_TRANSFER);
-
-      const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
+      const convertButton = await fillTransitInput(
+        page,
+        inputField,
+        VALID_TRANSIT_TEXT_WITH_TRANSFER
+      );
       await convertButton.click();
 
       await expect(page.locator('text=変換が完了しました')).toBeVisible({ timeout: 10000 });
@@ -274,9 +273,11 @@ test.describe('Transit Converter - E2E Tests', () => {
 
       // まず変換を実行して出力を生成
       const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
-      await inputField.fill(VALID_TRANSIT_TEXT_WITH_TRANSFER);
-
-      const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
+      const convertButton = await fillTransitInput(
+        page,
+        inputField,
+        VALID_TRANSIT_TEXT_WITH_TRANSFER
+      );
       await convertButton.click();
 
       await expect(page.locator('text=変換が完了しました')).toBeVisible({ timeout: 10000 });
@@ -362,9 +363,7 @@ test.describe('Transit Converter - E2E Tests', () => {
 
       // 基本機能が動作することを確認
       const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
-      await inputField.fill(VALID_TRANSIT_TEXT);
-
-      const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
+      const convertButton = await fillTransitInput(page, inputField, VALID_TRANSIT_TEXT);
       await convertButton.click();
 
       // 変換が成功することを確認
@@ -375,9 +374,7 @@ test.describe('Transit Converter - E2E Tests', () => {
   test.describe('5. エラーハンドリング', () => {
     test('should show error for invalid input format', async ({ page }) => {
       const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
-      await inputField.fill(INVALID_TRANSIT_TEXT);
-
-      const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
+      const convertButton = await fillTransitInput(page, inputField, INVALID_TRANSIT_TEXT);
       await convertButton.click();
 
       // `lib/parsers/transitParser.ts` の ERROR_MESSAGES.INVALID_FORMAT は、入力に「⇒」が
@@ -401,9 +398,7 @@ test.describe('Transit Converter - E2E Tests', () => {
       const partiallyValidText = '渋谷 ⇒ 新宿\n不正なフォーマット';
 
       const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
-      await inputField.fill(partiallyValidText);
-
-      const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
+      const convertButton = await fillTransitInput(page, inputField, partiallyValidText);
       await convertButton.click();
 
       // `app/transit-converter/page.tsx` の handleConvert は、parseTransitText が null を
@@ -425,9 +420,7 @@ test.describe('Transit Converter - E2E Tests', () => {
 
       // まず入力して変換
       const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
-      await inputField.fill(VALID_TRANSIT_TEXT);
-
-      const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
+      const convertButton = await fillTransitInput(page, inputField, VALID_TRANSIT_TEXT);
       await convertButton.click();
 
       await expect(page.locator('text=変換が完了しました')).toBeVisible({ timeout: 10000 });
