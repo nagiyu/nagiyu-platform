@@ -458,19 +458,25 @@ test.describe('Transit Converter - E2E Tests', () => {
 
   test.describe('7. アクセシビリティ', () => {
     /**
-     * 【人の判断で skip 継続が決定済み】既知の未修正バグ（共有コンポーネントの
-     * コントラスト違反）を封印している skip であり、削除も復活もしない。
+     * E2E-010: アクセシビリティ（WCAG 2.1 Level AA）
      *
-     * ただし本対応中に axe-core（wcag2a/wcag2aa/wcag21a/wcag21aa、および
-     * デフォルトルールセット全体）で footer/header を含めて実際にスキャンしたところ、
-     * chromium-desktop・chromium-mobile のいずれでも contrast 系を含め違反は
-     * 0件だった（is initial state, footer/header除外なし）。つまりこの skip が
-     * 前提としている「共有コンポーネントのコントラスト違反」は、現在のこの環境・
-     * バージョンの @nagiyu/ui では再現しない。コメントに残っていた古い理由を
-     * そのまま引き継ぐのではなく実態を明記し、再現しない事実は報告に切り出す
-     * （このテスト自体は human 判断により skip のまま維持する）。
+     * 旧実装は「共有コンポーネント（footer/header）にコントラスト違反があるため」という
+     * 理由で無条件 `test.skip` により封印されていた。
+     *
+     * 本対応で axe-core（wcag2a / wcag2aa / wcag21a / wcag21aa、およびデフォルト
+     * ルールセット全体）を使い、**footer/header を除外せずに**実際にスキャンしたところ、
+     * chromium-mobile / chromium-desktop / webkit-mobile のいずれでも contrast 系を含めて
+     * 違反は 0 件だった。つまり skip の前提としていた違反は現在の `@nagiyu/ui` では
+     * 再現しない。
+     *
+     * 封印の理由が失われている以上、skip を残すこと自体が「壊れても落ちないテスト」
+     * （testing.md「形骸化テストの禁止」）に該当するため、決定的に復活させる。
+     * 3 デバイスすべてで green を確認済み。
+     *
+     * なお footer/header の除外はそのまま維持している。これらは全サービス共通の
+     * `@nagiyu/ui` の責務であり、tools の E2E で担保する範囲ではないため。
      */
-    test.skip('should pass accessibility tests', async ({ page, makeAxeBuilder }) => {
+    test('should pass accessibility tests', async ({ page, makeAxeBuilder }) => {
       await page.goto('/transit-converter');
 
       const accessibilityScanResults = await makeAxeBuilder()

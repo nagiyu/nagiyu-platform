@@ -25,19 +25,14 @@ import { test, expect, suppressMigrationDialog } from './helpers';
  * - オフライン時にクライアントサイド機能が動作し続けること
  * これらはそもそも実装が存在せず、旧実装でも一度も検証されていなかったため、
  * 実質的な担保の後退はない（形骸化していたテストの体裁を削っただけ）。
+ *
+ * あわせて `'serviceWorker' in navigator` を assert するだけのテストも削除した。
+ * これはブラウザが API を持つことの確認でありアプリのコードを一行も通らないため、
+ * 「壊れても落ちないテスト」に該当する（stock-tracker 側でも同型の
+ * 「Service Workerが登録される」テストを同じ理由で削除している）。
  */
 
 test.describe('PWA - Manifest and Metadata', () => {
-  test('should have Service Worker API available in the browser', async ({ page }) => {
-    await suppressMigrationDialog(page);
-    await page.goto('/');
-
-    // このアプリ自体は SW を登録しないため、ブラウザの Service Worker API が
-    // 存在すること（フィーチャー検出が可能なこと）のみを検証する。
-    const hasServiceWorkerAPI = await page.evaluate(() => 'serviceWorker' in navigator);
-    expect(hasServiceWorkerAPI).toBe(true);
-  });
-
   test('should load manifest.json', async ({ page }) => {
     await suppressMigrationDialog(page);
     await page.goto('/');
