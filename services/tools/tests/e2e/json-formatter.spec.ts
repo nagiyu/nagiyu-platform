@@ -1,4 +1,4 @@
-import { test, expect, dismissMigrationDialogIfVisible } from './helpers';
+import { test, expect, suppressMigrationDialog } from './helpers';
 
 // テストデータ: 有効な JSON
 const VALID_JSON_OBJECT = `{"name":"John","age":30,"city":"Tokyo"}`;
@@ -13,13 +13,13 @@ const EMPTY_INPUT = '';
 
 test.describe('JSON Formatter - E2E Tests', () => {
   test.beforeEach(async ({ page }) => {
+    // MigrationDialog が表示されない状態を確定させてからページへ移動する
+    await suppressMigrationDialog(page);
+
     // 各テスト前にLocalStorageをクリア
     await page.goto('/json-formatter');
     await page.evaluate(() => localStorage.clear());
     await page.reload();
-
-    // MigrationDialogが表示される場合は閉じる
-    await dismissMigrationDialogIfVisible(page);
   });
 
   test.describe('1. ページアクセステスト', () => {
@@ -193,13 +193,14 @@ test.describe('JSON Formatter - E2E Tests', () => {
       const formatButton = page.getByRole('button', { name: 'JSON を整形する' });
       await formatButton.click();
 
-      // エラーメッセージが表示されることを確認
-      await page.waitForTimeout(2000);
-      const errorIndicator = page
-        .locator('[role="alert"]')
-        .or(page.locator('text=/JSON|無効|エラー|失敗/'));
-      const count = await errorIndicator.count();
-      expect(count).toBeGreaterThan(0);
+      // エラーメッセージが表示されることを確認する。
+      // `lib/parsers/jsonParser.ts` の ERROR_MESSAGES.INVALID_JSON は
+      // JSON.parse に失敗した場合に一意に返る文言であり、決定的に assert できる
+      // （以前は `[role="alert"]` と汎用テキスト正規表現を `.or()` で束ね、
+      // 件数が 1 件以上あることしか見ておらず、何が表示されたかを検証していなかった）。
+      await expect(page.getByRole('alert').getByText('JSONとして正しくない形式です。')).toBeVisible(
+        { timeout: 10000 }
+      );
     });
 
     test('should show error for invalid JSON (trailing comma)', async ({ page }) => {
@@ -209,13 +210,9 @@ test.describe('JSON Formatter - E2E Tests', () => {
       const formatButton = page.getByRole('button', { name: 'JSON を整形する' });
       await formatButton.click();
 
-      // エラーメッセージが表示されることを確認
-      await page.waitForTimeout(2000);
-      const errorIndicator = page
-        .locator('[role="alert"]')
-        .or(page.locator('text=/JSON|無効|エラー|失敗/'));
-      const count = await errorIndicator.count();
-      expect(count).toBeGreaterThan(0);
+      await expect(page.getByRole('alert').getByText('JSONとして正しくない形式です。')).toBeVisible(
+        { timeout: 10000 }
+      );
     });
 
     test('should show error for invalid JSON (single quotes)', async ({ page }) => {
@@ -225,13 +222,9 @@ test.describe('JSON Formatter - E2E Tests', () => {
       const minifyButton = page.getByRole('button', { name: 'JSON を圧縮する' });
       await minifyButton.click();
 
-      // エラーメッセージが表示されることを確認
-      await page.waitForTimeout(2000);
-      const errorIndicator = page
-        .locator('[role="alert"]')
-        .or(page.locator('text=/JSON|無効|エラー|失敗/'));
-      const count = await errorIndicator.count();
-      expect(count).toBeGreaterThan(0);
+      await expect(page.getByRole('alert').getByText('JSONとして正しくない形式です。')).toBeVisible(
+        { timeout: 10000 }
+      );
     });
 
     test('should disable format and minify buttons for empty input', async ({ page }) => {
@@ -289,8 +282,15 @@ test.describe('JSON Formatter - E2E Tests', () => {
 
   test.describe('6. クリップボードテスト', () => {
     test('should read JSON from clipboard', async ({ page, context, browserName }) => {
-      // クリップボード機能は Chromium のみサポート
-      test.skip(browserName !== 'chromium', 'Clipboard API is only tested on Chromium');
+      // クリップボード権限の付与（context.grantPermissions(['clipboard-read', 'clipboard-write'])）は
+      // Chromium 系ブラウザしかサポートしておらず、Playwright は非対応ブラウザに対してこの呼び出し自体を
+      // エラーにする。これはブラウザが機能を持たない静的な制約であり、
+      // docs/development/testing.md の「E2Eテストにおけるブラウザ固有の制約」節が許容するパターンに該当する
+      // ため、browserName による静的スキップとして残す。
+      test.skip(
+        browserName !== 'chromium',
+        'clipboard-read/write の grantPermissions は Chromium のみ対応'
+      );
 
       await context.grantPermissions(['clipboard-read', 'clipboard-write']);
       await page.waitForLoadState('networkidle');
@@ -314,8 +314,15 @@ test.describe('JSON Formatter - E2E Tests', () => {
     });
 
     test('should copy formatted JSON to clipboard', async ({ page, context, browserName }) => {
-      // クリップボード機能は Chromium のみサポート
-      test.skip(browserName !== 'chromium', 'Clipboard API is only tested on Chromium');
+      // クリップボード権限の付与（context.grantPermissions(['clipboard-read', 'clipboard-write'])）は
+      // Chromium 系ブラウザしかサポートしておらず、Playwright は非対応ブラウザに対してこの呼び出し自体を
+      // エラーにする。これはブラウザが機能を持たない静的な制約であり、
+      // docs/development/testing.md の「E2Eテストにおけるブラウザ固有の制約」節が許容するパターンに該当する
+      // ため、browserName による静的スキップとして残す。
+      test.skip(
+        browserName !== 'chromium',
+        'clipboard-read/write の grantPermissions は Chromium のみ対応'
+      );
 
       await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 
@@ -347,8 +354,15 @@ test.describe('JSON Formatter - E2E Tests', () => {
     });
 
     test('should copy minified JSON to clipboard', async ({ page, context, browserName }) => {
-      // クリップボード機能は Chromium のみサポート
-      test.skip(browserName !== 'chromium', 'Clipboard API is only tested on Chromium');
+      // クリップボード権限の付与（context.grantPermissions(['clipboard-read', 'clipboard-write'])）は
+      // Chromium 系ブラウザしかサポートしておらず、Playwright は非対応ブラウザに対してこの呼び出し自体を
+      // エラーにする。これはブラウザが機能を持たない静的な制約であり、
+      // docs/development/testing.md の「E2Eテストにおけるブラウザ固有の制約」節が許容するパターンに該当する
+      // ため、browserName による静的スキップとして残す。
+      test.skip(
+        browserName !== 'chromium',
+        'clipboard-read/write の grantPermissions は Chromium のみ対応'
+      );
 
       await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 
