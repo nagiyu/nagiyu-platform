@@ -3,14 +3,8 @@ import { expect, test } from '@playwright/test';
 const REGISTERED_LABEL = '追加済み（登録済）';
 
 test.describe('Video Search API', () => {
-  test('should return 401 when not authenticated', async ({ request }) => {
-    test.skip(
-      process.env.SKIP_AUTH_CHECK === 'true',
-      'SKIP_AUTH_CHECK=true のE2E環境では未認証ケースを再現できないため'
-    );
-    const response = await request.get('/api/videos/search?q=test');
-    expect(response.status()).toBe(401);
-  });
+  // 未認証時の 401 は SKIP_AUTH_CHECK=true の E2E 環境では再現できないため、
+  // tests/unit/app/api/videos/search/route.test.ts のユニットテストで検証する。
 
   test('should return 400 when query is missing', async ({ request }) => {
     const response = await request.get('/api/videos/search');

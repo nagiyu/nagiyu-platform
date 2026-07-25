@@ -1,5 +1,13 @@
 import { test, expect } from '@playwright/test';
-import { clearTestData } from './helpers/test-data';
+import { clearTestData, seedTestVideos } from './helpers/test-data';
+
+/**
+ * `clearTestData`（`DELETE /api/test/videos`）はインメモリDBストア全体を消す
+ * グローバル操作。Playwright はデフォルトでファイル間も並列実行する
+ * （`fullyParallel: true`）ため、このファイル全体を直列化し、他ファイルおよび
+ * 同一ファイル内の他テストとのデータ競合を防ぐ。
+ */
+test.describe.configure({ mode: 'serial' });
 
 /**
  * API レスポンスをマッチングするヘルパー関数
@@ -17,30 +25,9 @@ test.describe('Video Detail Modal', () => {
     await clearTestData(request);
   });
 
-  test.skip('should redirect to home when not authenticated', async ({ page }) => {
-    // このテストはSKIP_AUTH_CHECK=trueの環境では実行できない
-    // E2Eテスト環境では常に認証がバイパスされるため、未認証状態をテストできない
-    // 未認証時のリダイレクト動作は middleware のユニットテストで検証する
-    await page.goto('/mylist');
-
-    // 認証されていない場合はホームにリダイレクト
-    await expect(page).toHaveURL('/');
-  });
-
   test('should open video detail modal when clicking a video card', async ({ page, request }) => {
-    // テストデータをAPI経由で作成
-    const response = await request.post('/api/videos/bulk-import', {
-      data: {
-        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
-      },
-    });
-    const body = await response.json();
-
-    // テストをスキップする条件: 動画が1件も取得できなかった場合
-    test.skip(
-      body.success === 0,
-      'Niconico API rejected all video IDs - no videos available for testing'
-    );
+    // 決定的なシード API でテストデータを作成する（実ニコニコ動画API には依存しない）
+    await seedTestVideos(request, { count: 3, startId: 40000000 });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -59,19 +46,7 @@ test.describe('Video Detail Modal', () => {
   });
 
   test('should display video information in modal', async ({ page, request }) => {
-    // テストデータをAPI経由で作成
-    const response = await request.post('/api/videos/bulk-import', {
-      data: {
-        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
-      },
-    });
-    const body = await response.json();
-
-    // テストをスキップする条件: 動画が1件も取得できなかった場合
-    test.skip(
-      body.success === 0,
-      'Niconico API rejected all video IDs - no videos available for testing'
-    );
+    await seedTestVideos(request, { count: 3, startId: 40000000 });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -99,19 +74,7 @@ test.describe('Video Detail Modal', () => {
   });
 
   test('should toggle favorite in modal', async ({ page, request }) => {
-    // テストデータをAPI経由で作成
-    const response = await request.post('/api/videos/bulk-import', {
-      data: {
-        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
-      },
-    });
-    const body = await response.json();
-
-    // テストをスキップする条件: 動画が1件も取得できなかった場合
-    test.skip(
-      body.success === 0,
-      'Niconico API rejected all video IDs - no videos available for testing'
-    );
+    await seedTestVideos(request, { count: 3, startId: 40000000 });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -139,19 +102,7 @@ test.describe('Video Detail Modal', () => {
   });
 
   test('should toggle skip in modal', async ({ page, request }) => {
-    // テストデータをAPI経由で作成
-    const response = await request.post('/api/videos/bulk-import', {
-      data: {
-        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
-      },
-    });
-    const body = await response.json();
-
-    // テストをスキップする条件: 動画が1件も取得できなかった場合
-    test.skip(
-      body.success === 0,
-      'Niconico API rejected all video IDs - no videos available for testing'
-    );
+    await seedTestVideos(request, { count: 3, startId: 40000000 });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -176,19 +127,7 @@ test.describe('Video Detail Modal', () => {
   });
 
   test('should save memo in modal', async ({ page, request }) => {
-    // テストデータをAPI経由で作成
-    const response = await request.post('/api/videos/bulk-import', {
-      data: {
-        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
-      },
-    });
-    const body = await response.json();
-
-    // テストをスキップする条件: 動画が1件も取得できなかった場合
-    test.skip(
-      body.success === 0,
-      'Niconico API rejected all video IDs - no videos available for testing'
-    );
+    await seedTestVideos(request, { count: 3, startId: 40000000 });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -214,19 +153,7 @@ test.describe('Video Detail Modal', () => {
   });
 
   test('should show delete confirmation when clicking delete button', async ({ page, request }) => {
-    // テストデータをAPI経由で作成
-    const response = await request.post('/api/videos/bulk-import', {
-      data: {
-        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
-      },
-    });
-    const body = await response.json();
-
-    // テストをスキップする条件: 動画が1件も取得できなかった場合
-    test.skip(
-      body.success === 0,
-      'Niconico API rejected all video IDs - no videos available for testing'
-    );
+    await seedTestVideos(request, { count: 3, startId: 40000000 });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -253,19 +180,7 @@ test.describe('Video Detail Modal', () => {
   });
 
   test('should cancel delete when clicking cancel button', async ({ page, request }) => {
-    // テストデータをAPI経由で作成
-    const response = await request.post('/api/videos/bulk-import', {
-      data: {
-        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
-      },
-    });
-    const body = await response.json();
-
-    // テストをスキップする条件: 動画が1件も取得できなかった場合
-    test.skip(
-      body.success === 0,
-      'Niconico API rejected all video IDs - no videos available for testing'
-    );
+    await seedTestVideos(request, { count: 3, startId: 40000000 });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -297,19 +212,7 @@ test.describe('Video Detail Modal', () => {
   });
 
   test('should close modal when clicking close button', async ({ page, request }) => {
-    // テストデータをAPI経由で作成
-    const response = await request.post('/api/videos/bulk-import', {
-      data: {
-        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
-      },
-    });
-    const body = await response.json();
-
-    // テストをスキップする条件: 動画が1件も取得できなかった場合
-    test.skip(
-      body.success === 0,
-      'Niconico API rejected all video IDs - no videos available for testing'
-    );
+    await seedTestVideos(request, { count: 3, startId: 40000000 });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -329,19 +232,7 @@ test.describe('Video Detail Modal', () => {
   });
 
   test('should update video list after settings change in modal', async ({ page, request }) => {
-    // テストデータをAPI経由で作成
-    const response = await request.post('/api/videos/bulk-import', {
-      data: {
-        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
-      },
-    });
-    const body = await response.json();
-
-    // テストをスキップする条件: 動画が1件も取得できなかった場合
-    test.skip(
-      body.success === 0,
-      'Niconico API rejected all video IDs - no videos available for testing'
-    );
+    await seedTestVideos(request, { count: 3, startId: 40000000 });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -378,10 +269,7 @@ test.describe('Video Detail Modal', () => {
 
     // VideoBasicInfo のみ作成し UserSetting は作成しないことで、
     // PUT /settings の create-on-missing 経路を検証できる前提条件をつくる
-    const seedResponse = await request.post('/api/test/videos', {
-      data: { count: 1, startId: 49990000, skipUserSetting: true },
-    });
-    expect(seedResponse.ok()).toBeTruthy();
+    await seedTestVideos(request, { count: 1, startId: 49990000, skipUserSetting: true });
 
     const updateResponse = await request.put(`/api/videos/${videoId}/settings`, {
       data: { isFavorite: true },
