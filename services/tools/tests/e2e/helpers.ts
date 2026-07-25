@@ -64,6 +64,23 @@ export async function suppressMigrationDialog(page: Page): Promise<void> {
 }
 
 /**
+ * ページの hydration 完了を待つ。
+ *
+ * hydration 前の入力欄は SSR 出力そのままの素の HTML 要素なので、`fill()` は DOM の
+ * value だけを書き換えて `onChange` を発火しない。その結果、入力値に応じて enabled に
+ * なるボタン（例: `disabled={!inputText.trim()}`）が disabled のままになり、
+ * 「値は入っているのにボタンが押せない」という分かりにくい失敗になる。
+ * webkit-mobile は chromium より hydration が遅く、この症状が顕在化しやすい（実測）。
+ *
+ * `page.goto` の直後、最初の操作の前に呼ぶこと。
+ *
+ * @param page - Playwright の Page
+ */
+export async function waitForHydration(page: Page): Promise<void> {
+  await page.waitForLoadState('networkidle');
+}
+
+/**
  * 乗り換え変換の入力欄にテキストを入力し、変換ボタンが操作可能になるまで待つ。
  *
  * ## なぜ専用ヘルパが必要か（実測に基づく）

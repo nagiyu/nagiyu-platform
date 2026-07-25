@@ -1,4 +1,4 @@
-import { test, expect, suppressMigrationDialog } from './helpers';
+import { test, expect, suppressMigrationDialog, waitForHydration } from './helpers';
 /**
  * chromium-mobile プロジェクトは playwright.config.base.ts 側で `serviceWorkers: 'block'` を
  * 設定済みだが、chromium-desktop / webkit-mobile は未設定という非対称がある。
@@ -33,6 +33,9 @@ test.describe('JSON Formatter - E2E Tests', () => {
 
     // 各テスト前にLocalStorageをクリア
     await page.goto('/json-formatter');
+    // hydration 前に fill しても onChange が発火せず、整形ボタン等が disabled のままに
+    // なるため、最初の操作の前に読み込み完了を待つ（webkit-mobile で実測）。
+    await waitForHydration(page);
     await page.evaluate(() => localStorage.clear());
     await page.reload();
   });
