@@ -122,6 +122,15 @@ async function grantNotificationPermission(page: Page): Promise<void> {
  * `serviceWorkers: 'block'` 設定やダミー VAPID 鍵の影響を受けずにアラート作成フローを
  * 決定的に成功させる。呼び出しは対象ページへの `page.goto` より前に行うこと
  * （`addInitScript` は以降のナビゲーションにのみ適用されるため）。
+ *
+ * `window.Notification` / `window.PushManager` が存在しない場合は最小限のスタブを追加する。
+ * Playwright 同梱の webkit（Linux ビルド）にはこれら 2 つの DOM グローバルが実測で
+ * 存在しない（`libs/browser/src/push.ts` の `subscribePush()` が
+ * `typeof window.Notification === 'undefined' || !('PushManager' in window)` を
+ * ブラウザ非対応とみなすガードで弾き、`AlertSettingsModal` の保存処理が
+ * アラート作成 API を呼ぶ前に中断していた＝保存ボタンを押してもダイアログが閉じない
+ * 事象の実測された原因）。Chromium は両方とも実装済みのため、既存グローバルがあれば
+ * 上書きしない（`context.grantPermissions` による本物の許可状態を壊さないため）。
  */
 async function mockPushSubscription(page: Page): Promise<void> {
   await page.route('**/api/push/vapid-public-key', async (route) => {
@@ -133,6 +142,23 @@ async function mockPushSubscription(page: Page): Promise<void> {
   });
 
   await page.addInitScript((subscriptionJson: typeof DUMMY_SUBSCRIPTION) => {
+    if (typeof window.Notification === 'undefined') {
+      Object.defineProperty(window, 'Notification', {
+        configurable: true,
+        value: {
+          permission: 'granted',
+          requestPermission: async () => 'granted',
+        },
+      });
+    }
+
+    if (!('PushManager' in window)) {
+      Object.defineProperty(window, 'PushManager', {
+        configurable: true,
+        value: function PushManager() {},
+      });
+    }
+
     const fakeSubscription = {
       endpoint: subscriptionJson.endpoint,
       toJSON: () => subscriptionJson,

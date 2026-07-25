@@ -30,7 +30,22 @@ import { test, expect, resetState, type ResetSeedData } from './fixtures';
  * ファイル間の巻き込みは `playwright.config.base.ts` の `workers: isCI ? 1 : undefined` に
  * 依存しており、CI（workers=1）でのみ安全である。ローカルで実行するときは `--workers=1` を
  * 付けること（付けない場合、本ファイルの resetState が他ファイルのデータを消しうる）。
+ *
+ * ## `serviceWorkers: 'block'` について（webkit-mobile 対応）
+ *
+ * `chromium-mobile` プロジェクトは `serviceWorkers: 'block'` を設定しているため
+ * `page.route('**\/api/chart/**')` のモックが常に有効だが、`webkit-mobile` は未設定だった。
+ * 本アプリは `ServiceWorkerRegistration`（libs/ui）が全ページで実際に `/sw.js` を登録しており、
+ * webkit ではこの登録が成功して SW がページを制御する（`self.clients.claim()`）。Playwright は
+ * 「Service Worker 経由のリクエストは Chromium 以外では `page.route` で捕捉できない」という
+ * 既知の制約があり（https://playwright.dev/docs/service-workers-experimental 参照）、実測でも
+ * webkit-mobile では `/api/chart/**` のモックが素通りし、実際に TradingView へ疎通しようとして
+ * 500 エラーになる（`page.on('request')` にも現れない）ことを確認した。
+ * そのため本ファイルでも `serviceWorkers: 'block'` を設定し、SW を経由させずに
+ * `page.route` を確実に効かせる。
  */
+test.use({ serviceWorkers: 'block' });
+
 test.describe.configure({ mode: 'serial' });
 
 test.afterAll(async ({ playwright }) => {
