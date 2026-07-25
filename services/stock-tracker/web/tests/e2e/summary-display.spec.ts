@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test';
 import { test, expect, resetState } from './fixtures';
 
 /**
@@ -103,6 +104,48 @@ function buildSingleTickerSummaryResponse(): Record<string, unknown> {
       },
     ],
   };
+}
+
+/**
+ * クライアントセッション（`/api/auth/session`）のロールを固定する。
+ *
+ * ## なぜ `role` フィクスチャでは足りないのか
+ *
+ * `./fixtures` の `role` オプションは全リクエストに `x-test-user-roles` ヘッダを付与し、
+ * `@nagiyu/nextjs` の `createSessionGetter` がそれを読んでロールを差し替える。
+ * したがって **API ルートと Server Component には効く**（例: quick-actions.spec.ts は
+ * QuickActions が Server Component から props で権限を受け取るため正しく機能する）。
+ *
+ * しかし `app/summaries/page.tsx` は Client Component で `useSession()` を使い、
+ * NextAuth の `/api/auth/session`（`app/api/auth/[...nextauth]/route.ts`）から
+ * セッションを取得する。この経路は `createSessionGetter` を通らないため、
+ * ヘッダを付けても `.env.test` の `TEST_USER_ROLES`（= stock-admin）が返る。
+ * 実測でも `test.use({ role: ['stock-viewer'] })` 下で roles が `['stock-admin']` に
+ * なることを確認した。
+ *
+ * さらに、この画面の「ボタンが無いこと」の assert はセッション取得前だと無条件に通るため、
+ * 放置すると CI のタイミング次第で結果が変わる（実際に chromium-desktop で失敗した）。
+ *
+ * そこで `/api/auth/session` を固定応答へ差し替え、指定ロールのセッションが確実に
+ * 解決された状態を作る。権限判定ロジック（`hasPermission`）自体はアプリのコードが
+ * そのまま評価するため、「このロールならボタンが出る／出ない」の検証意図は保たれる。
+ */
+async function stubClientSessionRoles(page: Page, roles: string[]): Promise<void> {
+  await page.route('**/api/auth/session', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        user: {
+          userId: 'e2e-test-user',
+          email: 'test-admin@example.com',
+          name: 'E2E Test User',
+          roles,
+        },
+        expires: '2099-12-31T23:59:59.000Z',
+      }),
+    });
+  });
 }
 
 const LONG_TEXTS_FOR_MOBILE_DIALOG_TEST = {
@@ -802,6 +845,13 @@ test.describe('サマリー画面スモークテスト', () => {
   test.describe('サマリー更新ボタン - stock-admin ロール', () => {
     test.use({ role: ['stock-admin'] });
 
+    // クライアントセッションも明示的に固定する。`.env.test` の TEST_USER_ROLES が
+    // 偶然 stock-admin なので従来は素通りしていたが、環境変数の既定値に依存した
+    // 「たまたま通る」状態だった。stubClientSessionRoles の JSDoc も参照。
+    test.beforeEach(async ({ page }) => {
+      await stubClientSessionRoles(page, ['stock-admin']);
+    });
+
     test('サマリー更新ボタンが表示される', async ({ page }) => {
       await page.goto('/summaries');
       await expect(page.getByRole('button', { name: 'サマリー更新' })).toBeVisible();
@@ -874,8 +924,15 @@ test.describe('サマリー画面スモークテスト', () => {
     test.use({ role: ['stock-viewer'] });
 
     test('サマリー更新ボタンが表示されない', async ({ page }) => {
+      await stubClientSessionRoles(page, ['stock-viewer']);
+
       await page.goto('/summaries');
       await expect(page.getByRole('heading', { name: '日次サマリー' })).toBeVisible();
+
+      // セッションが stock-viewer として解決されたうえでボタンが無いことを検証する。
+      // 取引所フィルタは権限に依存せず常に描画されるため、これが見えた時点で
+      // クライアント側の描画は完了している。
+      await expect(page.locator('#exchange-filter')).toBeVisible();
       await expect(page.getByRole('button', { name: 'サマリー更新' })).toHaveCount(0);
     });
   });
