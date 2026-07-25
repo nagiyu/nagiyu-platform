@@ -100,6 +100,10 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
     source: '/tech/eventbridge-rule-scheduling',
     destination: '/tech',
   },
+  {
+    source: '/tech/lambda-cold-start',
+    destination: '/tech',
+  },
   // /services・/tech/tags・/tech/category 配下を技術記事一覧へ集約する。
   {
     source: '/services',
