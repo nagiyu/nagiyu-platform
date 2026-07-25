@@ -22,6 +22,11 @@ import { test, expect, resetState } from './fixtures';
  * ファイル間も並列実行するため、他ファイルの実行と鉢合わせるとデータを巻き込む恐れがある。
  * そのため本ファイルはファイル全体を `test.describe.configure({ mode: 'serial' })` で
  * 直列化し、全テスト終了後に afterAll でストアを空の状態へ戻す。
+ *
+ * ただし `mode: 'serial'` が直列化するのは同一ファイル内だけで、ファイル間の並列は防げない。
+ * ファイル間の巻き込みは `playwright.config.base.ts` の `workers: isCI ? 1 : undefined` に
+ * 依存しており、CI（workers=1）でのみ安全である。ローカルで実行するときは `--workers=1` を
+ * 付けること（付けない場合、本ファイルの resetState が他ファイルのデータを消しうる）。
  */
 test.describe.configure({ mode: 'serial' });
 
@@ -32,6 +37,57 @@ test.afterAll(async ({ playwright }) => {
   await resetState(context);
   await context.dispose();
 });
+
+/**
+ * `/api/chart/{tickerId}` の成功応答ボディ（`@nagiyu/stock-tracker-core` の ChartData 相当）。
+ *
+ * TradingView への実疎通は環境によって 504 になりうるため、チャート描画を検証するテストでは
+ * この固定応答に差し替えて決定的に成功させる。
+ */
+function buildChartResponse(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    tickerId: 'TEST:AAA',
+    symbol: 'AAA',
+    timeframe: '60',
+    data: [
+      { time: 1710000000000, open: 100, high: 110, low: 95, close: 105, volume: 1000000 },
+      { time: 1710003600000, open: 105, high: 112, low: 100, close: 108, volume: 1200000 },
+    ],
+    ...overrides,
+  };
+}
+
+/** ティッカー 1 件のみを含む `/api/summaries` の応答ボディ。 */
+function buildSingleTickerSummaryResponse(): Record<string, unknown> {
+  return {
+    exchanges: [
+      {
+        exchangeId: 'test-exchange-id',
+        exchangeName: 'テスト取引所',
+        date: '2026-03-02',
+        summaries: [
+          {
+            tickerId: 'TEST:AAA',
+            symbol: 'AAA',
+            name: 'AAA株式会社',
+            open: 100,
+            high: 110,
+            low: 95,
+            close: 105,
+            updatedAt: '2026-03-02T00:00:00.000Z',
+            buyPatternCount: 0,
+            sellPatternCount: 0,
+            patternDetails: [],
+            holding: {
+              quantity: 10,
+              averagePrice: 98.5,
+            },
+          },
+        ],
+      },
+    ],
+  };
+}
 
 const LONG_TEXTS_FOR_MOBILE_DIALOG_TEST = {
   priceMovementAnalysis:
@@ -355,84 +411,60 @@ test.describe('サマリー画面スモークテスト', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          exchanges: [
-            {
-              exchangeId: 'test-exchange-id',
-              exchangeName: 'テスト取引所',
-              date: '2026-03-02',
-              summaries: [
-                {
-                  tickerId: 'TEST:AAA',
-                  symbol: 'AAA',
-                  name: 'AAA株式会社',
-                  open: 100,
-                  high: 110,
-                  low: 95,
-                  close: 105,
-                  updatedAt: '2026-03-02T00:00:00.000Z',
-                  buyPatternCount: 0,
-                  sellPatternCount: 0,
-                  patternDetails: [],
-                  holding: {
-                    quantity: 10,
-                    averagePrice: 98.5,
-                  },
-                },
-              ],
-            },
-          ],
-        }),
+        body: JSON.stringify(buildSingleTickerSummaryResponse()),
       });
     });
 
-    // webkit-mobile では TradingView 側タイムアウト時に 504 が返ることがあるため、
-    // ステータスに依存せず /api/chart のレスポンス到達を待ってからUI表示を検証する。
-    const summaryChartResponsePromise = page.waitForResponse(
-      (response) => new URL(response.url()).pathname.startsWith('/api/chart/'),
-      { timeout: 30000 }
-    );
+    // TradingView への実疎通は環境によって 504 になりうるため、`/api/chart/**` を固定応答に
+    // 差し替えてチャート描画を決定的に成功させる（chart-display.spec.ts と同じ方針）。
+    // 旧実装は実疎通のまま「チャートが出るか、エラー表示が出るか」を OR で許容しており、
+    // 描画が壊れても green になる形骸化だった。
+    await page.route('**/api/chart/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(buildChartResponse()),
+      });
+    });
 
     await page.goto('/summaries');
     await page.locator('tbody tr').first().click();
-    await summaryChartResponsePromise;
 
     const summaryDialog = page.getByRole('dialog');
     await expect(summaryDialog.getByText('株価チャート')).toBeVisible();
-    await expect
-      .poll(
-        async () => {
-          const isChartVisible = await summaryDialog.getByLabel('AAA の株価チャート').isVisible();
-          const isChartErrorVisible = await summaryDialog
-            .getByText('チャート読み込みエラー')
-            .isVisible();
-          return isChartVisible || isChartErrorVisible;
-        },
-        { timeout: 10000 }
-      )
-      .toBeTruthy();
+    await expect(summaryDialog.getByLabel('AAA の株価チャート')).toBeVisible({ timeout: 10000 });
 
-    const alertChartResponsePromise = page.waitForResponse(
-      (response) => new URL(response.url()).pathname.startsWith('/api/chart/'),
-      { timeout: 30000 }
-    );
     await summaryDialog.getByRole('button', { name: '買いアラート設定' }).click();
-    await alertChartResponsePromise;
     const alertDialog = page.getByRole('dialog', { name: 'アラート設定 (買いアラート)' });
     await expect(alertDialog.getByText('株価チャート')).toBeVisible();
     await expect(alertDialog.getByLabel('時間枠')).toBeVisible();
-    await expect
-      .poll(
-        async () => {
-          const isChartVisible = await alertDialog.getByLabel('AAA の株価チャート').isVisible();
-          const isChartErrorVisible = await alertDialog
-            .getByText('チャート読み込みエラー')
-            .isVisible();
-          return isChartVisible || isChartErrorVisible;
-        },
-        { timeout: 10000 }
-      )
-      .toBeTruthy();
+    await expect(alertDialog.getByLabel('AAA の株価チャート')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('チャートデータ取得に失敗した場合はチャート読み込みエラーが表示される', async ({ page }) => {
+    await page.route('**/api/summaries', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(buildSingleTickerSummaryResponse()),
+      });
+    });
+
+    // チャート取得のみ 500 に固定し、エラー表示という単一の結末を検証する。
+    await page.route('**/api/chart/**', async (route) => {
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'INTERNAL_SERVER_ERROR', message: 'チャート取得に失敗' }),
+      });
+    });
+
+    await page.goto('/summaries');
+    await page.locator('tbody tr').first().click();
+
+    const summaryDialog = page.getByRole('dialog');
+    await expect(summaryDialog.getByText('チャート読み込みエラー')).toBeVisible({ timeout: 10000 });
+    await expect(summaryDialog.getByLabel('AAA の株価チャート')).toHaveCount(0);
   });
 
   test('詳細ダイアログでAI解析セクションを表示できる', async ({ page }) => {

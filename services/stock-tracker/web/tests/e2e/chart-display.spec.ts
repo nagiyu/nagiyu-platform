@@ -25,6 +25,11 @@ import { test, expect, resetState, type ResetSeedData } from './fixtures';
  * ファイル間も並列実行するため、他ファイルの実行と鉢合わせるとデータを巻き込む恐れがある。
  * そのため本ファイルはファイル全体を `test.describe.configure({ mode: 'serial' })` で
  * 直列化し、全テスト終了後に afterAll でストアを空の状態へ戻す。
+ *
+ * ただし `mode: 'serial'` が直列化するのは同一ファイル内だけで、ファイル間の並列は防げない。
+ * ファイル間の巻き込みは `playwright.config.base.ts` の `workers: isCI ? 1 : undefined` に
+ * 依存しており、CI（workers=1）でのみ安全である。ローカルで実行するときは `--workers=1` を
+ * 付けること（付けない場合、本ファイルの resetState が他ファイルのデータを消しうる）。
  */
 test.describe.configure({ mode: 'serial' });
 

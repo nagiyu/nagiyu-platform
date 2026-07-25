@@ -19,8 +19,12 @@ import { test, expect, resetState, type ResetSeedData } from './fixtures';
  * `resetState` はサービス全体のインメモリストアを消す破壊的操作であり、Playwright は
  * ファイル間も並列実行するため、他ファイルの実行と鉢合わせるとデータを巻き込む恐れがある。
  * そのため本ファイルはファイル全体を `test.describe.configure({ mode: 'serial' })` で
- * 直列化し、同一ファイル内での競合を防ぐ（ファイル間の巻き込み防止は、各ファイルが
- * 自身の seed データのみを検証する設計で担保する）。
+ * 直列化し、同一ファイル内での競合を防ぐ。
+ *
+ * ただし `mode: 'serial'` が直列化するのは同一ファイル内だけで、ファイル間の並列は防げない。
+ * ファイル間の巻き込みは `playwright.config.base.ts` の `workers: isCI ? 1 : undefined` に
+ * 依存しており、CI（workers=1）でのみ安全である。ローカルで実行するときは `--workers=1` を
+ * 付けること（付けない場合、本ファイルの resetState が他ファイルのデータを消しうる）。
  *
  * また、本ファイルの最後の beforeEach が残した seed データ（取引所・ティッカー等）が
  * 後続で実行される他ファイル（resetState を使わず、実行順に依存して蓄積データを前提とする
