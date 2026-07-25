@@ -2,6 +2,21 @@ import { test, expect } from '@playwright/test';
 import { clearTestData, seedTestVideos } from './helpers/test-data';
 
 /**
+ * webkit-mobile 対応: 実 Service Worker（/sw.js）を無効化する。
+ *
+ * 本サービスは libs/ui の ServiceWorkerRegistration を layout.tsx で使っており、
+ * 全ページで /sw.js を登録する。webkit ではこの SW がページを制御して API 応答を
+ * 仲介・キャッシュするため、Playwright の既知制約
+ * 「Service Worker 経由のリクエストは Chromium 以外では page.route で捕捉できない」
+ * により page.route のモックが素通りし、テストが非決定的になる。
+ *
+ * `chromium-mobile` プロジェクトは playwright.config.base.ts 側で
+ * `serviceWorkers: 'block'` を設定済みだが `chromium-desktop` / `webkit-mobile` は
+ * 未設定という非対称があるため、spec 側で一律に打ち消す。
+ */
+test.use({ serviceWorkers: 'block' });
+
+/**
  * `clearTestData`（`DELETE /api/test/videos`）はインメモリDBストア全体を消す
  * グローバル操作。Playwright はデフォルトでファイル間も並列実行する
  * （`fullyParallel: true`）ため、このファイル全体を直列化し、他ファイルおよび
