@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { clearTestData, seedTestVideos } from './helpers/test-data';
+import { clearTestData, seedTestVideos, stubThumbnails } from './helpers/test-data';
 
 /**
  * webkit-mobile 対応: 実 Service Worker（/sw.js）を無効化する。
@@ -35,7 +35,10 @@ const isVideoSettingsApiResponse = (response: Response): boolean => {
 };
 
 test.describe('Video Detail Modal', () => {
-  test.beforeEach(async ({ request }) => {
+  test.beforeEach(async ({ page, request }) => {
+    // seed のサムネイル(https://example.com/*.jpg)は到達不能なため、
+    // img の可視性判定と networkidle 待ちが非決定的になる。事前にスタブする。
+    await stubThumbnails(page);
     // 各テスト前にデータをクリア（API経由）
     await clearTestData(request);
   });

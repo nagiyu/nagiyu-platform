@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { clearTestData, seedTestVideos } from './helpers/test-data';
+import { clearTestData, seedTestVideos, stubThumbnails } from './helpers/test-data';
 import { clickNavigationItem, expectNavigationItemVisible } from './helpers/navigation';
 
 /**
@@ -17,7 +17,10 @@ test.describe.configure({ mode: 'serial' });
 // middleware のユニットテストでは担保できない）。
 
 test.describe('Bulk Import API', () => {
-  test.beforeEach(async ({ request }) => {
+  test.beforeEach(async ({ page, request }) => {
+    // seed のサムネイル(https://example.com/*.jpg)は到達不能なため、
+    // img の可視性判定と networkidle 待ちが非決定的になる。事前にスタブする。
+    await stubThumbnails(page);
     // 各テスト前にデータをクリア（API経由）
     await clearTestData(request);
   });
@@ -122,7 +125,10 @@ test.describe('Bulk Import API with Authentication', () => {
 test.describe('Bulk Import UI', () => {
   test.use({ serviceWorkers: 'block' });
 
-  test.beforeEach(async ({ request }) => {
+  test.beforeEach(async ({ page, request }) => {
+    // seed のサムネイル(https://example.com/*.jpg)は到達不能なため、
+    // img の可視性判定と networkidle 待ちが非決定的になる。事前にスタブする。
+    await stubThumbnails(page);
     // 各テスト前にデータをクリア（API経由）
     await clearTestData(request);
   });
@@ -265,7 +271,10 @@ test.describe('Bulk Import UI', () => {
 });
 
 test.describe('Bulk Import Navigation', () => {
-  test.beforeEach(async ({ request }) => {
+  test.beforeEach(async ({ page, request }) => {
+    // seed のサムネイル(https://example.com/*.jpg)は到達不能なため、
+    // img の可視性判定と networkidle 待ちが非決定的になる。事前にスタブする。
+    await stubThumbnails(page);
     // 各テスト前にデータをクリア（API経由）
     await clearTestData(request);
   });

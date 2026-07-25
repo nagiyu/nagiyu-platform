@@ -1,4 +1,4 @@
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
 
 /**
  * E2E テスト用データヘルパー
@@ -85,4 +85,37 @@ export async function seedTestVideos(
       `seedTestVideos: テストデータのシードに失敗しました (status=${response.status()})`
     );
   }
+}
+
+/**
+ * seed 済み動画のサムネイル画像リクエストをスタブする。
+ *
+ * `POST /api/test/videos` が作る `thumbnailUrl` は `https://example.com/{videoId}.jpg`
+ * という到達不能な URL である。スタブしないと以下の 2 つの非決定性が生じる（実測で確認済み）。
+ *
+ * - `<img>` の読み込みが失敗して高さ 0 になり、`toBeVisible()` が `hidden` で落ちる
+ * - 到達不能なリクエストが解決しないため `waitForLoadState('networkidle')` が
+ *   タイムアウトする
+ *
+ * 1x1 の透過 PNG を返すことで、サムネイルが描画されること自体は本来どおり検証しつつ、
+ * 外部ネットワークに依存しない決定的な状態を作る。
+ *
+ * `page.goto` より前に呼ぶこと。
+ *
+ * @param page - Playwright の Page
+ */
+export async function stubThumbnails(page: Page): Promise<void> {
+  // 1x1 透過 PNG
+  const onePixelPng = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYGD4DwABBAEAX+XvbgAAAABJRU5ErkJggg==',
+    'base64'
+  );
+
+  await page.route('https://example.com/**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'image/png',
+      body: onePixelPng,
+    });
+  });
 }

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { clearTestData, seedTestVideos } from './helpers/test-data';
+import { clearTestData, seedTestVideos, stubThumbnails } from './helpers/test-data';
 import { clickNavigationItem, expectNavigationItemVisible } from './helpers/navigation';
 
 /**
@@ -26,7 +26,10 @@ test.use({ serviceWorkers: 'block' });
 test.describe.configure({ mode: 'serial' });
 
 test.describe('Video List Page', () => {
-  test.beforeEach(async ({ request }) => {
+  test.beforeEach(async ({ page, request }) => {
+    // seed のサムネイル(https://example.com/*.jpg)は到達不能なため、
+    // img の可視性判定と networkidle 待ちが非決定的になる。事前にスタブする。
+    await stubThumbnails(page);
     // 各テスト前にデータをクリア（API経由）
     await clearTestData(request);
   });
@@ -292,7 +295,10 @@ test.describe('Video List Page', () => {
 });
 
 test.describe('Video List Navigation', () => {
-  test.beforeEach(async ({ request }) => {
+  test.beforeEach(async ({ page, request }) => {
+    // seed のサムネイル(https://example.com/*.jpg)は到達不能なため、
+    // img の可視性判定と networkidle 待ちが非決定的になる。事前にスタブする。
+    await stubThumbnails(page);
     // 各テスト前にデータをクリア（API経由）
     await clearTestData(request);
   });
@@ -326,7 +332,10 @@ test.describe('Video List Navigation', () => {
 });
 
 test.describe('Video List URL Synchronization', () => {
-  test.beforeEach(async ({ request }) => {
+  test.beforeEach(async ({ page, request }) => {
+    // seed のサムネイル(https://example.com/*.jpg)は到達不能なため、
+    // img の可視性判定と networkidle 待ちが非決定的になる。事前にスタブする。
+    await stubThumbnails(page);
     // 各テスト前にデータをクリア（API経由）
     await clearTestData(request);
   });
