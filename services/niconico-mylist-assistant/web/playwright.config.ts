@@ -12,7 +12,7 @@ const isCI = !!process.env.CI;
 const webServerCommand = isCI ? 'npm run start' : 'npm run dev';
 
 export default defineConfig({
-  testDir: './e2e',
+  testDir: './tests/e2e',
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,
