@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 
 /**
@@ -15,6 +16,36 @@ import { test, expect } from './fixtures';
  * （設定の非対称そのものの解消は E2E 横断整備の範囲と判断し、本対応では触れない。）
  */
 test.use({ serviceWorkers: 'block' });
+
+/**
+ * クイックアクションのグリッドコンテナの列数を返す。
+ *
+ * `components/QuickActions.tsx` は
+ * `gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' }`
+ * を指定しているため、計算後の `grid-template-columns` はトラック数ぶんの長さ値
+ * （例: "184.5px 184.5px"）になる。空白区切りの個数がそのまま列数になる。
+ *
+ * 旧実装のレスポンシブ 3 テストは見出しとリンクの可視性しか見ておらず、
+ * 「縦並び / 2 列 / 3 列」というテスト名の主張を検証していなかった（グリッドが
+ * 崩れても green になる）。ここで実際の列数を数えて主張どおり検証する。
+ */
+async function getQuickActionColumnCount(page: Page): Promise<number> {
+  const heading = page.getByRole('heading', { name: 'クイックアクション' });
+  await expect(heading).toBeVisible();
+
+  const grid = page
+    .locator('main')
+    .locator('css=[style*="grid"], .MuiBox-root')
+    .filter({
+      has: page.getByRole('link', { name: /保有株式管理/ }),
+    });
+
+  const templateColumns = await grid
+    .last()
+    .evaluate((el) => window.getComputedStyle(el).gridTemplateColumns);
+
+  return templateColumns.trim().split(/\s+/).filter(Boolean).length;
+}
 
 test.describe('クイックアクションエリア', () => {
   test.beforeEach(async ({ page }) => {
@@ -115,50 +146,35 @@ test.describe('クイックアクションエリア - 一般ユーザー権限 (
 
 test.describe('クイックアクションエリア - レスポンシブ対応', () => {
   test('モバイル表示でボタンが縦並びになる', async ({ page }) => {
-    // モバイルサイズに設定
-    await page.setViewportSize({ width: 375, height: 667 });
+    await page.setViewportSize({ width: 375, height: 900 });
     await page.goto('/');
+    await page.waitForLoadState('networkidle');
 
-    // 3秒待つ
-    await page.waitForTimeout(3000);
-
-    // クイックアクションエリアが表示される
-    await expect(page.getByRole('heading', { name: 'クイックアクション' })).toBeVisible();
-
-    // ボタンが表示される
     await expect(page.locator('main').getByRole('link', { name: /保有株式管理/ })).toBeVisible();
     await expect(page.locator('main').getByRole('link', { name: /アラート一覧/ })).toBeVisible();
+
+    expect(await getQuickActionColumnCount(page)).toBe(1);
   });
 
   test('タブレット表示でボタンが2列グリッドになる', async ({ page }) => {
-    // タブレットサイズに設定
-    await page.setViewportSize({ width: 768, height: 1024 });
+    await page.setViewportSize({ width: 768, height: 900 });
     await page.goto('/');
+    await page.waitForLoadState('networkidle');
 
-    // 3秒待つ
-    await page.waitForTimeout(3000);
-
-    // クイックアクションエリアが表示される
-    await expect(page.getByRole('heading', { name: 'クイックアクション' })).toBeVisible();
-
-    // ボタンが表示される
     await expect(page.locator('main').getByRole('link', { name: /保有株式管理/ })).toBeVisible();
     await expect(page.locator('main').getByRole('link', { name: /アラート一覧/ })).toBeVisible();
+
+    expect(await getQuickActionColumnCount(page)).toBe(2);
   });
 
   test('デスクトップ表示でボタンが3列グリッドになる', async ({ page }) => {
-    // デスクトップサイズに設定
-    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/');
+    await page.waitForLoadState('networkidle');
 
-    // 3秒待つ
-    await page.waitForTimeout(3000);
-
-    // クイックアクションエリアが表示される
-    await expect(page.getByRole('heading', { name: 'クイックアクション' })).toBeVisible();
-
-    // ボタンが表示される
     await expect(page.locator('main').getByRole('link', { name: /保有株式管理/ })).toBeVisible();
     await expect(page.locator('main').getByRole('link', { name: /アラート一覧/ })).toBeVisible();
+
+    expect(await getQuickActionColumnCount(page)).toBe(3);
   });
 });

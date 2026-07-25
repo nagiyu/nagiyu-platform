@@ -8,7 +8,6 @@ import type { Page } from '@playwright/test';
  * - Holding からの売りアラート設定（単一条件・範囲指定・パーセンテージ選択）
  * - アラート設定後のボタン状態変化
  * - アラート一覧の絞り込み・一時通知表示・カスタムメッセージ編集
- * - Web Push通知許可の基本動作
  *
  * `resetState` でインメモリリポジトリを都度リセット・seed し、前提となる取引所・
  * ティッカー・保有株式を決定的に用意することで、1 テスト = 1 結末で assert する。
@@ -35,10 +34,15 @@ import type { Page } from '@playwright/test';
  * base64url ではない）で `atob()` が失敗するため、実ブラウザでの `PushManager.subscribe()`
  * は本テスト環境では原理的に成立しない（`window.navigator.serviceWorker.register()` も
  * ブロックされ `undefined` を返す）。
- * UC-002 の主眼は「アラート作成フォームの入力 → API 呼び出し → 画面への状態反映」であり、
- * Web Push 購読そのものの動作は「Web Push通知許可」describe が別途担う。そのため
+ * UC-002 の主眼は「アラート作成フォームの入力 → API 呼び出し → 画面への状態反映」なので、
  * `mockPushSubscription` で VAPID 公開鍵取得 API と `navigator.serviceWorker` を丸ごと
  * モックし、アラート作成フローを決定的に成功させる。
+ *
+ * **Web Push 購読そのものは E2E では担保しない。** 以前は「Web Push通知許可」describe が
+ * あったが、中身は `Notification.permission` の値域チェック（恒真）と「grantPermissions の
+ * 前後で値が変わらない」というブラウザ挙動の確認だけで、アプリのコードを一行も通らず
+ * 「壊れても落ちない」テストだったため削除した（testing.md「形骸化テストの禁止」）。
+ * 購読フローの担保は libs/browser・libs/ui の単体テストの責務とする。
  */
 test.describe.configure({ mode: 'serial' });
 
@@ -982,55 +986,6 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
 
       // PUT リクエストが 1 回呼ばれ、保存処理が実行されたことを確認する
       expect(updateCallCount).toBe(1);
-    });
-  });
-
-  test.describe('Web Push通知許可', () => {
-    test.beforeEach(async ({ page }) => {
-      await page.goto('/');
-      await page.waitForLoadState('networkidle');
-    });
-
-    test('通知許可がリクエストされる', async ({ page, context }) => {
-      // Notification API がサポートされているか確認
-      const hasNotificationApi = await page.evaluate(() => {
-        return typeof Notification !== 'undefined';
-      });
-
-      // Notification API がサポートされていない環境（webkit-mobile等）ではスキップ
-      // testing.md「E2Eテストにおけるブラウザ固有の制約」で明示的に許容されている静的スキップ
-      test.skip(!hasNotificationApi, 'Notification API is not supported in this environment');
-
-      // 通知許可の状態を確認
-      const permissionState = await page.evaluate(() => {
-        return Notification.permission;
-      });
-
-      // テスト環境では初期状態は default, granted, または denied のいずれか
-      expect(['default', 'granted', 'denied']).toContain(permissionState);
-
-      // 通知許可を付与（テスト環境）
-      await context.grantPermissions(['notifications']);
-
-      const newPermissionState = await page.evaluate(() => {
-        return Notification.permission;
-      });
-
-      // ヘッドレス Chromium では `Notification.permission`（静的プロパティ）は
-      // ページ読み込み時点の値のまま固定され、`context.grantPermissions()` を後から
-      // 呼んでも変化しない（実際の許可反映は `Notification.requestPermission()` の
-      // 戻り値にのみ現れる。この非同期 API 自体は Web Push 購読フロー側で別途検証する）。
-      // そのため本テストでは「grantPermissions 前後で値が変わらない」ことを決定的に検証する。
-      expect(newPermissionState).toBe(permissionState);
-    });
-
-    test('Service Workerが登録される', async ({ page }) => {
-      // Service Workerがサポートされているか確認
-      const hasServiceWorker = await page.evaluate(() => {
-        return 'serviceWorker' in navigator;
-      });
-
-      expect(hasServiceWorker).toBe(true);
     });
   });
 });

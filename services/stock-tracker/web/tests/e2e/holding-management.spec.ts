@@ -415,8 +415,7 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
     test('戻るボタンで前の画面に戻れる', async ({ page }) => {
       await page.getByRole('button', { name: '戻る' }).click();
 
-      await page.waitForURL('/');
-      expect(page.url()).toContain('/');
+      await expect(page).toHaveURL('/');
     });
 
     test('レスポンシブデザインが動作する (モバイル)', async ({ page }) => {
@@ -429,9 +428,16 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
       await page.getByRole('button', { name: /新規登録/ }).click();
       await expect(page.getByRole('dialog')).toBeVisible();
 
-      const formFields = page.locator('.MuiDialogContent-root').locator('.MuiBox-root > *');
-      const formFieldsCount = await formFields.count();
-      expect(formFieldsCount).toBeGreaterThan(0);
+      // モバイル幅でフォームが画面外にはみ出していないことを検証する。
+      // 旧実装は `formFieldsCount > 0` を assert していたが、これは要素が1つでもあれば
+      // 通るためレイアウト崩れを検知できず、テスト名の主張を満たしていなかった。
+      const dialogContent = page.locator('.MuiDialogContent-root');
+      const box = await dialogContent.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.width).toBeLessThanOrEqual(375);
+
+      await expect(page.getByLabel('取引所')).toBeVisible();
+      await expect(page.getByLabel('ティッカー')).toBeVisible();
 
       await page.getByRole('button', { name: 'キャンセル' }).click();
     });
