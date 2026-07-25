@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test.describe('クイックアクションエリア', () => {
   test.beforeEach(async ({ page }) => {
@@ -51,34 +51,49 @@ test.describe('クイックアクションエリア', () => {
   });
 });
 
-test.describe('クイックアクションエリア - 管理者権限', () => {
+test.describe('クイックアクションエリア - 管理者権限 (stock-admin ロール)', () => {
+  // stocks:manage-data 権限（stock-admin ロール）を固定し、
+  // 管理者ボタンが表示される結末のみを検証する。
+  test.use({ role: ['stock-admin'] });
+
   test.beforeEach(async ({ page }) => {
-    // stock-admin ロールのユーザーとしてログイン
     await page.goto('/');
 
     // 3秒待つ (TODO: 今後修正したい)
     await page.waitForTimeout(3000);
   });
 
-  test('管理者ボタンが表示される (stock-admin)', async ({ page }) => {
-    // TEST_USER_ROLES=stock-admin の場合のみ表示される
-    // 環境変数によって表示が変わるため、条件付きでチェック
+  test('管理者ボタンが表示される', async ({ page }) => {
     const exchangeButton = page.getByRole('link', { name: /取引所管理/ });
     const tickerButton = page.getByRole('link', { name: /ティッカー管理/ });
 
-    // 環境変数によって表示されるかどうかをチェック
-    const isAdmin = process.env.TEST_USER_ROLES?.includes('stock-admin');
-    if (isAdmin) {
-      await expect(exchangeButton).toBeVisible();
-      await expect(tickerButton).toBeVisible();
+    await expect(exchangeButton).toBeVisible();
+    await expect(tickerButton).toBeVisible();
 
-      // 正しいURLにリンクしている
-      await expect(exchangeButton).toHaveAttribute('href', '/exchanges');
-      await expect(tickerButton).toHaveAttribute('href', '/tickers');
-    } else {
-      await expect(exchangeButton).not.toBeVisible();
-      await expect(tickerButton).not.toBeVisible();
-    }
+    // 正しいURLにリンクしている
+    await expect(exchangeButton).toHaveAttribute('href', '/exchanges');
+    await expect(tickerButton).toHaveAttribute('href', '/tickers');
+  });
+});
+
+test.describe('クイックアクションエリア - 一般ユーザー権限 (stock-viewer ロール)', () => {
+  // stocks:manage-data 権限を持たない stock-viewer ロールを固定し、
+  // 管理者ボタンが表示されない結末のみを検証する。
+  test.use({ role: ['stock-viewer'] });
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+
+    // 3秒待つ (TODO: 今後修正したい)
+    await page.waitForTimeout(3000);
+  });
+
+  test('管理者ボタンが表示されない', async ({ page }) => {
+    const exchangeButton = page.getByRole('link', { name: /取引所管理/ });
+    const tickerButton = page.getByRole('link', { name: /ティッカー管理/ });
+
+    await expect(exchangeButton).not.toBeVisible();
+    await expect(tickerButton).not.toBeVisible();
   });
 });
 
