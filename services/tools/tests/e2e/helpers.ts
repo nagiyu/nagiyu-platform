@@ -66,17 +66,28 @@ export async function suppressMigrationDialog(page: Page): Promise<void> {
 /**
  * 乗り換え変換の入力欄にテキストを入力し、変換ボタンが操作可能になるまで待つ。
  *
- * 変換ボタンは入力が空のとき `disabled` で、React の state が入力を認識して初めて
- * enabled になる。`page.goto` 直後は hydration が完了しておらず、`fill()` しても
- * onChange が発火しないことがあり、その場合ボタンは disabled のままになる
- * （webkit-mobile で実際に 18 件のテストがこの原因で失敗した）。
+ * ## なぜ専用ヘルパが必要か（実測に基づく）
  *
- * 以前は `dismissMigrationDialogIfVisible` に含まれていた `waitForTimeout` が
- * 偶然 hydration 待ちとして機能していたが、決定的な仕組みではなかった。
+ * 変換ボタンは `disabled={!inputText.trim()}` で、React の state が入力を認識して初めて
+ * enabled になる。ところが hydration が完了する前の textarea は SSR 出力そのままの
+ * 素の HTML 要素なので、`fill()` は **DOM の value だけを書き換えて onChange を発火せず**、
+ * React の state は空のままボタンは disabled で固定される。
  *
- * ここでは `expect.toPass()` で「入力 → ボタンが enabled になる」までを冪等に再試行し、
- * **ボタンが操作可能になるという単一の結末**へ収束させる。結末を分岐させるものではなく、
- * enabled にならなければタイムアウトで失敗する。
+ * webkit-mobile で実測した挙動:
+ * - `goto` 直後に `fill()`: `inputValue()` は 186 文字（正しい）だが、ボタンは disabled
+ * - `goto` → `waitForLoadState('networkidle')` → `fill()`: ボタンは enabled
+ *
+ * つまり DOM 上は入力できているため「値は入っているのにボタンが押せない」という
+ * 分かりにくい失敗になる。旧 `dismissMigrationDialogIfVisible` は内部で
+ * `waitForTimeout(1000)` → `waitForLoadState('networkidle')` → `waitForTimeout(500)` を
+ * 実行しており、これが偶然 hydration 待ちとして機能していた。決定的な
+ * `suppressMigrationDialog` に置き換えた際にこの暗黙の待ちが失われ、webkit-mobile で
+ * 18 件が失敗した。
+ *
+ * ここでは hydration の完了を待ってから入力し、さらに `expect.toPass()` で
+ * 「入力 → ボタンが enabled になる」を冪等に再試行して、**ボタンが操作可能になるという
+ * 単一の結末**へ収束させる。結末を分岐させるものではなく、enabled にならなければ
+ * タイムアウトで失敗する。
  *
  * @param page - Playwright の Page
  * @param inputField - 入力欄の Locator
@@ -89,6 +100,10 @@ export async function fillTransitInput(
   text: string
 ): Promise<Locator> {
   const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
+
+  // hydration 前に fill しても onChange が発火しないため、先に読み込み完了を待つ。
+  await page.waitForLoadState('networkidle');
+  await expect(inputField).toBeVisible();
 
   await expect(async () => {
     await inputField.fill(text);

@@ -81,7 +81,9 @@ test.describe('Transit Converter - E2E Tests', () => {
 
       // ページの全textareaを取得し、最初の空のものが入力フィールド
       // Material UIでは、label配下にtextareaがあるので、「入力」セクションの下のtextareaを探す
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder(
+        '乗り換え案内のテキストをここに貼り付けてください...'
+      );
       await expect(inputField).toBeVisible();
       const convertButton = await fillTransitInput(page, inputField, VALID_TRANSIT_TEXT);
       await expect(convertButton).toBeEnabled();
@@ -91,7 +93,7 @@ test.describe('Transit Converter - E2E Tests', () => {
       await expect(page.locator('text=変換が完了しました')).toBeVisible({ timeout: 10000 });
 
       // 出力フィールド - 「出力」セクションの下のtextarea
-      const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
+      const outputField = page.getByPlaceholder('変換された結果がここに表示されます...');
       await expect(outputField).toBeVisible();
 
       // 出力フィールドに値が入っていることを確認
@@ -123,7 +125,9 @@ test.describe('Transit Converter - E2E Tests', () => {
         await context.grantPermissions(['clipboard-read', 'clipboard-write']);
       }
 
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder(
+        '乗り換え案内のテキストをここに貼り付けてください...'
+      );
       const convertButton = await fillTransitInput(
         page,
         inputField,
@@ -133,7 +137,7 @@ test.describe('Transit Converter - E2E Tests', () => {
 
       await expect(page.locator('text=変換が完了しました')).toBeVisible({ timeout: 10000 });
 
-      const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
+      const outputField = page.getByPlaceholder('変換された結果がここに表示されます...');
       const outputValue = await outputField.inputValue();
 
       // 乗り換え情報が含まれていることを確認
@@ -167,7 +171,9 @@ test.describe('Transit Converter - E2E Tests', () => {
         return navigator.clipboard.writeText(text);
       }, VALID_TRANSIT_TEXT);
 
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder(
+        '乗り換え案内のテキストをここに貼り付けてください...'
+      );
       await expect(inputField).toHaveValue('');
 
       const readButton = page.getByRole('button', {
@@ -219,7 +225,9 @@ test.describe('Transit Converter - E2E Tests', () => {
 
       // 入力欄に自動挿入されることを確認（固定 waitForTimeout ではなく、値が入るまで
       // 自動リトライする toHaveValue で待つ）
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder(
+        '乗り換え案内のテキストをここに貼り付けてください...'
+      );
       await expect(inputField).toHaveValue('https://example.com/transit?data=test');
 
       // 通知が表示されることを確認
@@ -238,7 +246,9 @@ test.describe('Transit Converter - E2E Tests', () => {
       await page.goto(`/transit-converter?text=${encodedText}`);
 
       // 入力欄に自動挿入されることを確認
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder(
+        '乗り換え案内のテキストをここに貼り付けてください...'
+      );
       await expect(inputField).toHaveValue(testText);
 
       // 通知が表示されることを確認
@@ -258,7 +268,9 @@ test.describe('Transit Converter - E2E Tests', () => {
         `/transit-converter?url=${encodeURIComponent(testUrl)}&text=${encodeURIComponent(testText)}`
       );
 
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder(
+        '乗り換え案内のテキストをここに貼り付けてください...'
+      );
 
       // URLが優先されることを確認
       await expect(inputField).toHaveValue(testUrl);
@@ -272,7 +284,9 @@ test.describe('Transit Converter - E2E Tests', () => {
       }
 
       // まず変換を実行して出力を生成
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder(
+        '乗り換え案内のテキストをここに貼り付けてください...'
+      );
       const convertButton = await fillTransitInput(
         page,
         inputField,
@@ -283,7 +297,7 @@ test.describe('Transit Converter - E2E Tests', () => {
       await expect(page.locator('text=変換が完了しました')).toBeVisible({ timeout: 10000 });
 
       // 初期状態の出力を取得
-      const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
+      const outputField = page.getByPlaceholder('変換された結果がここに表示されます...');
       const initialOutput = await outputField.inputValue();
       expect(initialOutput).toBeTruthy();
 
@@ -362,7 +376,9 @@ test.describe('Transit Converter - E2E Tests', () => {
       await expect(heading).toBeVisible();
 
       // 基本機能が動作することを確認
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder(
+        '乗り換え案内のテキストをここに貼り付けてください...'
+      );
       const convertButton = await fillTransitInput(page, inputField, VALID_TRANSIT_TEXT);
       await convertButton.click();
 
@@ -373,7 +389,9 @@ test.describe('Transit Converter - E2E Tests', () => {
 
   test.describe('5. エラーハンドリング', () => {
     test('should show error for invalid input format', async ({ page }) => {
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder(
+        '乗り換え案内のテキストをここに貼り付けてください...'
+      );
       const convertButton = await fillTransitInput(page, inputField, INVALID_TRANSIT_TEXT);
       await convertButton.click();
 
@@ -397,7 +415,9 @@ test.describe('Transit Converter - E2E Tests', () => {
       // ⇒は含むが、他のフォーマットが不正なテキスト
       const partiallyValidText = '渋谷 ⇒ 新宿\n不正なフォーマット';
 
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder(
+        '乗り換え案内のテキストをここに貼り付けてください...'
+      );
       const convertButton = await fillTransitInput(page, inputField, partiallyValidText);
       await convertButton.click();
 
@@ -419,14 +439,16 @@ test.describe('Transit Converter - E2E Tests', () => {
       }
 
       // まず入力して変換
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder(
+        '乗り換え案内のテキストをここに貼り付けてください...'
+      );
       const convertButton = await fillTransitInput(page, inputField, VALID_TRANSIT_TEXT);
       await convertButton.click();
 
       await expect(page.locator('text=変換が完了しました')).toBeVisible({ timeout: 10000 });
 
       // 出力が生成されることを確認
-      const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
+      const outputField = page.getByPlaceholder('変換された結果がここに表示されます...');
       const outputBefore = await outputField.inputValue();
       expect(outputBefore).toBeTruthy();
 

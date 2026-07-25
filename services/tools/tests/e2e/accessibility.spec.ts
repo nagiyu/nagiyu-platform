@@ -77,7 +77,7 @@ test.describe('Accessibility Tests - Transit Converter @a11y', () => {
   });
 
   test('should not have accessibility violations after input', async ({ page, makeAxeBuilder }) => {
-    const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+    const inputField = page.getByPlaceholder('乗り換え案内のテキストをここに貼り付けてください...');
     await inputField.fill('渋谷 ⇒ 新宿\n2025年1月15日(月)\n09:00 ⇒ 09:15');
 
     const accessibilityScanResults = await makeAxeBuilder().analyze();
@@ -111,7 +111,7 @@ test.describe('Accessibility Tests - Transit Converter @a11y', () => {
 ↓ 3番線発 → 15番線着
 ■新宿`;
 
-    const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+    const inputField = page.getByPlaceholder('乗り換え案内のテキストをここに貼り付けてください...');
     const convertButton = await fillTransitInput(page, inputField, validInput);
     const copyButton = page.getByRole('button', { name: '変換結果をクリップボードにコピーする' });
     await convertButton.click();
@@ -131,7 +131,7 @@ test.describe('Accessibility Tests - Transit Converter @a11y', () => {
     page,
     makeAxeBuilder,
   }) => {
-    const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+    const inputField = page.getByPlaceholder('乗り換え案内のテキストをここに貼り付けてください...');
     const convertButton = await fillTransitInput(page, inputField, 'Invalid transit text');
     await convertButton.click();
 
