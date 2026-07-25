@@ -1,4 +1,21 @@
+import type { Locator, Page } from '@playwright/test';
 import { test, expect, resetState } from './fixtures';
+
+/**
+ * webkit-mobile 対応: 実 Service Worker（/sw.js）を無効化する。
+ *
+ * 本アプリは libs/ui の ServiceWorkerRegistration が全ページで /sw.js を登録するため、
+ * webkit では SW がページを制御し、API 応答を仲介・キャッシュしてしまう。Playwright は
+ * 「Service Worker 経由のリクエストは Chromium 以外では page.route で捕捉できない」
+ * という既知の制約があるため、モックが素通りしたり、UI が古い応答を表示したりして
+ * テストが非決定的になる（実測で確認済み）。
+ *
+ * `chromium-mobile` プロジェクトは playwright.config.base.ts 側で
+ * `serviceWorkers: 'block'` を設定済みだが、`chromium-desktop` / `webkit-mobile` は
+ * 未設定という非対称があるため、本サービスの spec 側で一律に打ち消す。
+ * （設定の非対称そのものの解消は E2E 横断整備の範囲と判断し、本対応では触れない。）
+ */
+test.use({ serviceWorkers: 'block' });
 
 /**
  * E2E-006: 取引所管理画面のテスト
@@ -37,6 +54,31 @@ test.afterAll(async ({ playwright }) => {
   await resetState(context);
   await context.dispose();
 });
+
+/**
+ * 「新規登録」ボタンを押して登録モーダルを開く。
+ *
+ * `新規登録` ボタンは `disabled={loading}` だが `loading` の初期値が false のため、
+ * SSR 段階から enabled な状態で描画される。そのため `waitForLoadState('networkidle')` や
+ * `toBeEnabled()` では「React が hydrate され onClick が接続されたか」を判定できず、
+ * webkit-mobile では hydration 前のクリックが空振りしてモーダルが開かないことがある
+ * （実測で確認済み）。
+ *
+ * ここでは `expect.toPass()` でクリックを冪等に再試行し、**モーダルが開くという単一の結末**に
+ * 収束させる。結末を分岐させているわけではなく、成功しなければタイムアウトで失敗する。
+ */
+async function openCreateDialog(page: Page): Promise<Locator> {
+  const modal = page.getByRole('dialog', { name: '取引所登録' });
+
+  await expect(async () => {
+    if (!(await modal.isVisible())) {
+      await page.locator('button:has-text("新規登録")').click();
+    }
+    await expect(modal).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 15000 });
+
+  return modal;
+}
 
 const EXCHANGE_ID = 'E2E-EXCH-BASE';
 const EXCHANGE_KEY = 'E2EEXBS';
@@ -87,10 +129,7 @@ test.describe('取引所管理画面 (E2E-006)', () => {
     });
 
     test('新規登録モーダルが開閉できる', async ({ page }) => {
-      await page.locator('button:has-text("新規登録")').click();
-
-      const modal = page.getByRole('dialog', { name: '取引所登録' });
-      await expect(modal).toBeVisible();
+      const modal = await openCreateDialog(page);
       await expect(page.locator('h2:has-text("取引所登録")')).toBeVisible();
 
       await expect(page.locator('input[placeholder="NASDAQ"]')).toBeVisible();
@@ -117,10 +156,7 @@ test.describe('取引所管理画面 (E2E-006)', () => {
       const testId = 'E2E-EXCR-01';
       const testKey = 'E2EEXCR1';
 
-      await page.locator('button:has-text("新規登録")').click();
-
-      const modal = page.getByRole('dialog', { name: '取引所登録' });
-      await expect(modal).toBeVisible();
+      const modal = await openCreateDialog(page);
 
       await page.locator('input[placeholder="NASDAQ"]').fill(testId);
       await page.locator('input[placeholder="NASDAQ Stock Market"]').fill('Test Exchange');
@@ -146,10 +182,7 @@ test.describe('取引所管理画面 (E2E-006)', () => {
       const testId = 'E2E-EXCR-02';
       const testKey = 'E2EEXCR2';
 
-      await page.locator('button:has-text("新規登録")').click();
-
-      const modal = page.getByRole('dialog', { name: '取引所登録' });
-      await expect(modal).toBeVisible();
+      const modal = await openCreateDialog(page);
 
       await page.locator('input[placeholder="NASDAQ"]').fill(testId);
       await page.locator('input[placeholder="NASDAQ Stock Market"]').fill('Test Exchange Enter');
@@ -259,10 +292,7 @@ test.describe('取引所管理画面 (E2E-006)', () => {
     test('必須項目が未入力のまま保存するとエラーメッセージが表示され、モーダルは開いたままになる', async ({
       page,
     }) => {
-      await page.locator('button:has-text("新規登録")').click();
-
-      const modal = page.getByRole('dialog', { name: '取引所登録' });
-      await expect(modal).toBeVisible();
+      const modal = await openCreateDialog(page);
 
       // 空のフォームで保存を試みる（クライアント側バリデーションが無いため、
       // サーバー側バリデーションエラー（400）が返る）
