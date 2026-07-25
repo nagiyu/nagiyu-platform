@@ -1,4 +1,37 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, resetState } from './fixtures';
+
+/**
+ * E2E-004: 日次サマリー閲覧フロー
+ *
+ * このテストは以下を検証します:
+ * - サマリー一覧テーブルの表示（投資判断・シグナル数・アラート数）
+ * - 詳細ダイアログの表示（保有情報・パターン分析・AI解析・チャート）
+ * - サポート/レジスタンスチップからのアラート設定
+ * - サマリーデータが0件の環境・存在する環境それぞれでの一覧・詳細ダイアログ表示
+ * - stock-admin ロールのみが操作できるサマリー更新機能
+ * - モバイル幅・デスクトップ幅それぞれでのナビゲーション
+ *
+ * サマリー一覧・詳細表示系のテストの多くは `/api/summaries` を `page.route` で固定応答に
+ * 差し替えることで、TradingView 連携等の外部要因を排除し決定的に検証している。
+ * 一方、旧実装には `process.env.TEST_USER_ROLES` を直接読んで assert 内容を分岐させるテストや、
+ * 実行時に取得した行数で `test.skip()` するテストが混在していた。これらは
+ * `resetState`（インメモリリポジトリの決定的な空状態化）と `test.use({ role })`
+ * （`./fixtures` のロール固定）に置き換え、1 テスト = 1 結末に統一する。
+ *
+ * `resetState` はサービス全体のインメモリストアを消す破壊的操作であり、Playwright は
+ * ファイル間も並列実行するため、他ファイルの実行と鉢合わせるとデータを巻き込む恐れがある。
+ * そのため本ファイルはファイル全体を `test.describe.configure({ mode: 'serial' })` で
+ * 直列化し、全テスト終了後に afterAll でストアを空の状態へ戻す。
+ */
+test.describe.configure({ mode: 'serial' });
+
+test.afterAll(async ({ playwright }) => {
+  const context = await playwright.request.newContext({
+    baseURL: process.env.BASE_URL || 'http://localhost:3000',
+  });
+  await resetState(context);
+  await context.dispose();
+});
 
 const LONG_TEXTS_FOR_MOBILE_DIALOG_TEST = {
   priceMovementAnalysis:
@@ -11,6 +44,12 @@ const LONG_TEXTS_FOR_MOBILE_DIALOG_TEST = {
 } as const;
 
 test.describe('サマリー画面スモークテスト', () => {
+  test.beforeEach(async ({ request }) => {
+    // /api/summaries は各テスト内で page.route により固定応答へ差し替えるが、
+    // インメモリストア（取引所・ティッカー等）は resetState で毎回空の状態に揃えておく。
+    await resetState(request);
+  });
+
   test('サマリー一覧テーブルに投資判断・シグナル数・アラート数を表示できる', async ({ page }) => {
     await page.route('**/api/summaries', async (route) => {
       await route.fulfill({
@@ -607,12 +646,25 @@ test.describe('サマリー画面スモークテスト', () => {
     expect(overflowInfo.bodyOverflows).toBeFalsy();
   });
 
-  test('更新ボタンでバッチをキックした後に詳細ダイアログでAI解析セクションを表示できる', async ({
-    page,
-  }) => {
-    const isAdmin = process.env.TEST_USER_ROLES?.includes('stock-admin');
-    test.skip(!isAdmin, 'stock-admin 権限がない環境のためスキップ');
+  test('サマリーページの基本要素が表示される', async ({ page }) => {
+    await page.goto('/summaries');
 
+    await expect(page.getByRole('heading', { name: '日次サマリー' })).toBeVisible();
+    await expect(page.getByLabel('取引所')).toBeVisible();
+  });
+
+  test('データ未投入環境ではサマリー行が0件でもページ表示できる', async ({ page }) => {
+    // beforeEach の resetState により取引所・ティッカーは必ず0件のため、
+    // サマリー行も決定的に0件になる（環境依存の実行時カウントに頼らない）。
+    await page.goto('/summaries');
+
+    await expect(page.getByRole('heading', { name: '日次サマリー' })).toBeVisible();
+    await expect(page.locator('tbody tr')).toHaveCount(0);
+  });
+
+  test('行クリックでダイアログ表示できる', async ({ page }) => {
+    // ResetSeedData はサマリーデータ自体を seed できないため、他の詳細ダイアログ系テストと
+    // 同様に /api/summaries を page.route で固定応答に差し替えて1件のサマリー行を用意する。
     await page.route('**/api/summaries', async (route) => {
       await route.fulfill({
         status: 200,
@@ -636,14 +688,6 @@ test.describe('サマリー画面スモークテスト', () => {
                   buyPatternCount: 0,
                   sellPatternCount: 0,
                   patternDetails: [],
-                  aiAnalysisResult: {
-                    priceMovementAnalysis: '更新後の値動き分析です。',
-                    patternAnalysis: '更新後のパターン分析です。',
-                    supportLevels: [200, 199, 198],
-                    resistanceLevels: [210, 211, 212],
-                    relatedMarketTrend: '更新後の市場動向です。',
-                    investmentJudgment: { signal: 'BULLISH', reason: '上昇基調です。' },
-                  },
                   holding: null,
                 },
               ],
@@ -653,84 +697,11 @@ test.describe('サマリー画面スモークテスト', () => {
       });
     });
 
-    await page.route('**/api/summaries/refresh', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ message: 'ok' }),
-      });
-    });
-
-    await page.goto('/summaries');
-    await page.getByRole('button', { name: 'サマリー更新' }).click();
-
-    await page.locator('tbody tr').first().click();
-    const dialog = page.getByRole('dialog');
-    await expect(dialog.getByText('AI 解析')).toBeVisible();
-    await expect(dialog.getByText('当日の値動き分析')).toBeVisible();
-    await expect(dialog.getByText('更新後の値動き分析です。')).toBeVisible();
-    await expect(dialog.getByText('強気')).toBeVisible();
-  });
-
-  test('サマリーページの基本要素が表示される', async ({ page }) => {
-    await page.goto('/summaries');
-
-    await expect(page.getByRole('heading', { name: '日次サマリー' })).toBeVisible();
-    await expect(page.getByLabel('取引所')).toBeVisible();
-  });
-
-  test('ナビゲーションリンクからサマリーページに遷移できる', async ({ page }) => {
-    await page.goto('/');
-
-    const menuButton = page.getByRole('button', { name: 'メニューを開く' });
-    const isMobileMenuVisible = await menuButton.isVisible();
-    if (isMobileMenuVisible) {
-      await menuButton.click();
-    }
-
-    if (isMobileMenuVisible) {
-      const summaryLink = page
-        .getByRole('navigation', { name: 'ナビゲーションメニュー' })
-        .getByRole('link', { name: 'サマリー' });
-      await expect(summaryLink).toBeVisible();
-      await summaryLink.click();
-    } else {
-      const summaryLink = page.getByRole('banner').getByRole('link', { name: 'サマリー' });
-      await expect(summaryLink).toBeVisible();
-      await summaryLink.click();
-    }
-
-    await expect(page).toHaveURL('/summaries');
-    await expect(page.getByRole('heading', { name: '日次サマリー' })).toBeVisible();
-  });
-
-  test('stock-admin の場合にサマリー更新ボタンが表示される', async ({ page }) => {
-    await page.goto('/summaries');
-    const isAdmin = process.env.TEST_USER_ROLES?.includes('stock-admin');
-    if (isAdmin) {
-      await expect(page.getByRole('button', { name: 'サマリー更新' })).toBeVisible();
-    } else {
-      await expect(page.getByRole('button', { name: 'サマリー更新' })).toHaveCount(0);
-    }
-  });
-
-  test('データ未投入環境ではサマリー行が0件でもページ表示できる', async ({ page }) => {
-    await page.goto('/summaries');
-    await expect(page.getByRole('heading', { name: '日次サマリー' })).toBeVisible();
-
-    const rowCount = await page.locator('tbody tr').count();
-    test.skip(rowCount > 0, 'サマリーデータがある環境のためスキップ');
-    await expect(page.locator('tbody tr')).toHaveCount(0);
-  });
-
-  test('行クリックでダイアログ表示できる（サマリーデータ存在時）', async ({ page }) => {
     await page.goto('/summaries');
     await expect(page.getByRole('heading', { name: '日次サマリー' })).toBeVisible();
 
     const firstRow = page.locator('tbody tr').first();
-    const rowCount = await page.locator('tbody tr').count();
-    test.skip(rowCount === 0, 'サマリーデータがない環境のためスキップ');
-
+    await expect(firstRow).toBeVisible();
     await firstRow.click();
 
     const dialog = page.getByRole('dialog');
@@ -738,5 +709,126 @@ test.describe('サマリー画面スモークテスト', () => {
     await dialog.getByRole('button', { name: '閉じる' }).click();
 
     await expect(dialog).not.toBeVisible();
+  });
+
+  test.describe('ナビゲーション - モバイル幅', () => {
+    // ハンバーガーメニューの表示は viewport 幅に基づく CSS メディアクエリ（MUI xs/md
+    // ブレークポイント）で決まり、UA/デバイス種別には依存しない。そのため
+    // `test.use({ viewport })` でモバイル幅を固定し、ハンバーガーメニュー経由の
+    // 遷移という単一の結末を検証する（プロジェクトの実行環境に関わらず決定的）。
+    test.use({ viewport: { width: 393, height: 851 } });
+
+    test('ハンバーガーメニュー経由でサマリーページに遷移できる', async ({ page }) => {
+      await page.goto('/');
+
+      const menuButton = page.getByRole('button', { name: 'メニューを開く' });
+      await expect(menuButton).toBeVisible();
+      await menuButton.click();
+
+      const summaryLink = page
+        .getByRole('navigation', { name: 'ナビゲーションメニュー' })
+        .getByRole('link', { name: 'サマリー' });
+      await expect(summaryLink).toBeVisible();
+      await summaryLink.click();
+
+      await expect(page).toHaveURL('/summaries');
+      await expect(page.getByRole('heading', { name: '日次サマリー' })).toBeVisible();
+    });
+  });
+
+  test.describe('ナビゲーション - デスクトップ幅', () => {
+    test.use({ viewport: { width: 1920, height: 1080 } });
+
+    test('ヘッダーの横並びメニューから直接サマリーページに遷移できる', async ({ page }) => {
+      await page.goto('/');
+
+      const summaryLink = page.getByRole('banner').getByRole('link', { name: 'サマリー' });
+      await expect(summaryLink).toBeVisible();
+      await summaryLink.click();
+
+      await expect(page).toHaveURL('/summaries');
+      await expect(page.getByRole('heading', { name: '日次サマリー' })).toBeVisible();
+    });
+  });
+
+  test.describe('サマリー更新ボタン - stock-admin ロール', () => {
+    test.use({ role: ['stock-admin'] });
+
+    test('サマリー更新ボタンが表示される', async ({ page }) => {
+      await page.goto('/summaries');
+      await expect(page.getByRole('button', { name: 'サマリー更新' })).toBeVisible();
+    });
+
+    test('更新ボタンでバッチをキックした後に詳細ダイアログでAI解析セクションを表示できる', async ({
+      page,
+    }) => {
+      await page.route('**/api/summaries', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            exchanges: [
+              {
+                exchangeId: 'test-exchange-id',
+                exchangeName: 'テスト取引所',
+                date: '2026-03-02',
+                summaries: [
+                  {
+                    tickerId: 'TEST:AAA',
+                    symbol: 'AAA',
+                    name: 'AAA株式会社',
+                    open: 100,
+                    high: 110,
+                    low: 95,
+                    close: 105,
+                    updatedAt: '2026-03-02T00:00:00.000Z',
+                    buyPatternCount: 0,
+                    sellPatternCount: 0,
+                    patternDetails: [],
+                    aiAnalysisResult: {
+                      priceMovementAnalysis: '更新後の値動き分析です。',
+                      patternAnalysis: '更新後のパターン分析です。',
+                      supportLevels: [200, 199, 198],
+                      resistanceLevels: [210, 211, 212],
+                      relatedMarketTrend: '更新後の市場動向です。',
+                      investmentJudgment: { signal: 'BULLISH', reason: '上昇基調です。' },
+                    },
+                    holding: null,
+                  },
+                ],
+              },
+            ],
+          }),
+        });
+      });
+
+      await page.route('**/api/summaries/refresh', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ message: 'ok' }),
+        });
+      });
+
+      await page.goto('/summaries');
+      await page.getByRole('button', { name: 'サマリー更新' }).click();
+
+      await page.locator('tbody tr').first().click();
+      const dialog = page.getByRole('dialog');
+      await expect(dialog.getByText('AI 解析')).toBeVisible();
+      await expect(dialog.getByText('当日の値動き分析')).toBeVisible();
+      await expect(dialog.getByText('更新後の値動き分析です。')).toBeVisible();
+      await expect(dialog.getByText('強気')).toBeVisible();
+    });
+  });
+
+  test.describe('サマリー更新ボタン - stock-viewer ロール', () => {
+    test.use({ role: ['stock-viewer'] });
+
+    test('サマリー更新ボタンが表示されない', async ({ page }) => {
+      await page.goto('/summaries');
+      await expect(page.getByRole('heading', { name: '日次サマリー' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'サマリー更新' })).toHaveCount(0);
+    });
   });
 });
