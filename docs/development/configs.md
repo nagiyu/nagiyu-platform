@@ -100,7 +100,7 @@ cp configs/samples/tsconfig.batch.json services/myservice/batch/tsconfig.json
 | 項目 | サービス | ライブラリ |
 |------|---------|----------|
 | `include` | `**/*.ts`, `**/*.tsx` | `src/**/*`, `tests/**/*` |
-| `exclude` | `node_modules`, `e2e` | `node_modules`, `dist` |
+| `exclude` | `node_modules`, `tests/e2e` | `node_modules`, `dist` |
 | `rootDir` | 指定しない | 指定しない |
 | ビルド出力 | `dist/**/*` | `dist/src/**/*`, `dist/tests/**/*` |
 | エントリーポイント | - | `dist/src/index.js` |
@@ -201,20 +201,57 @@ Jestは各サービス・ライブラリで独自に jest.config.ts を管理。
 
 ## Playwright設定
 
-### 独立管理の方針
+### configs/playwright.config.base.ts
 
-Playwrightは各サービスで独自に playwright.config.ts を管理。
+E2E（Playwright）の設定は、共通 base config の factory `createPlaywrightConfig(options)` に集約する。かつてはサービスごとに独立管理していたが、11 サービスで isCI 分岐・timeout・reporter・projects・webServer がほぼ同一のコピペになり、`PROJECT` env フィルタの有無などの差分も生じていたため、共通化した（サービス固有の差分は options で吸収）。
 
-#### 理由
+#### 含まれる設定（全サービス共通）
 
-- テストシナリオがサービス固有
-- デバイス設定やbaseURLがサービスごとに異なる
-- 共通化のメリットが少ない
+- CI 最適化: `forbidOnly` / `retries` / `workers`（isCI で分岐）
+- タイムアウト: test / expect / action / navigation（isCI で分岐）
+- reporter: html + json + list
+- `use`: baseURL・トレース・スクリーンショット・ビデオ（失敗時のみ）
+- projects: `chromium-desktop` / `chromium-mobile` / `webkit-mobile` の 3 種、および `PROJECT` env によるフィルタ
 
-#### 推奨事項
+#### 各サービスでの使用
 
-- CI最適化設定（workers, retries）は統一
-- トレース・スクリーンショット設定は統一
+サービスの playwright.config.ts で import し、差分のみを options で渡す。
+
+```typescript
+import { createPlaywrightConfig } from '../../../configs/playwright.config.base';
+
+export default createPlaywrightConfig({
+  webServerUrl: 'http://localhost:3000/api/health',
+});
+```
+
+`.env.test` を使うサービスは、サービス固有の `__dirname` が必要なため dotenv 読込を config 側に残す。
+
+```typescript
+import { config } from 'dotenv';
+import { resolve } from 'path';
+import { createPlaywrightConfig } from '../../../configs/playwright.config.base';
+
+config({ path: resolve(__dirname, '.env.test') });
+
+export default createPlaywrightConfig({ /* サービス固有の options */ });
+```
+
+#### カスタマイズポイント（options）
+
+| option | 用途 | デフォルト |
+|--------|------|-----------|
+| `testDir` | テストディレクトリ | `./tests/e2e` |
+| `webServerUrl` | webServer のヘルスチェック URL | `http://localhost:3000` |
+| `webServerEnv` | webServer プロセスへ渡す追加 env | なし |
+| `webServerCwd` | webServer の作業ディレクトリ | なし |
+| `webServerTimeout` | webServer 起動タイムアウト(ms) | `120000` |
+| `workspace` | npm workspace 指定（起動コマンドを `npm run <start\|dev> --workspace=<name>` にする） | なし |
+| `extraHTTPHeaders` | `use.extraHTTPHeaders` への追加ヘッダ | なし |
+
+#### 対象外
+
+- `niconico-mylist-assistant/batch`: ニコニコ実環境への統合テスト用で構造が別物のため、factory は使わず独立管理。
 
 ## カスタマイズが必要な場合
 
