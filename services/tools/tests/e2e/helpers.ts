@@ -6,7 +6,7 @@ import AxeBuilder from '@axe-core/playwright';
  * localStorage キー。
  * services/tools/src/components/dialogs/MigrationDialog.tsx の STORAGE_KEY と一致させること。
  */
-const MIGRATION_DIALOG_STORAGE_KEY = 'tools-migration-dialog-shown';
+export const MIGRATION_DIALOG_STORAGE_KEY = 'tools-migration-dialog-shown';
 
 /**
  * Extended test fixture with accessibility testing support

@@ -1,4 +1,10 @@
-import { test, expect, suppressMigrationDialog, waitForHydration } from './helpers';
+import {
+  test,
+  expect,
+  suppressMigrationDialog,
+  waitForHydration,
+  MIGRATION_DIALOG_STORAGE_KEY,
+} from './helpers';
 /**
  * chromium-mobile プロジェクトは playwright.config.base.ts 側で `serviceWorkers: 'block'` を
  * 設定済みだが、chromium-desktop / webkit-mobile は未設定という非対称がある。
@@ -31,13 +37,23 @@ test.describe('JSON Formatter - E2E Tests', () => {
     // MigrationDialog が表示されない状態を確定させてからページへ移動する
     await suppressMigrationDialog(page);
 
-    // 各テスト前にLocalStorageをクリア
     await page.goto('/json-formatter');
-    // hydration 前に fill しても onChange が発火せず、整形ボタン等が disabled のままに
-    // なるため、最初の操作の前に読み込み完了を待つ（webkit-mobile で実測）。
-    await waitForHydration(page);
-    await page.evaluate(() => localStorage.clear());
+
+    // 各テスト前に LocalStorage をクリアする（表示設定の永続化を初期状態に戻すため）。
+    // ただし MigrationDialog の表示抑止フラグまで消してはいけない。消すとダイアログが
+    // 表示され、モーダルが入力欄を覆ってクリックがタイムアウトする（webkit-mobile で
+    // 実測。suppressMigrationDialog は addInitScript でフラグを立てるが、goto 後の
+    // localStorage.clear() がそれを消してしまっていた）。
+    await page.evaluate((key) => {
+      localStorage.clear();
+      localStorage.setItem(key, 'true');
+    }, MIGRATION_DIALOG_STORAGE_KEY);
+
+    // クリア後の状態でアプリを読み込み直し、hydration 完了まで待つ。
+    // hydration 前に fill しても onChange が発火せず、整形ボタン等が disabled のまま
+    // になるため、最初の操作の前に必ず待つ。
     await page.reload();
+    await waitForHydration(page);
   });
 
   test.describe('1. ページアクセステスト', () => {
@@ -52,10 +68,10 @@ test.describe('JSON Formatter - E2E Tests', () => {
       await expect(page.locator('text=JSON の整形・圧縮・検証ができます')).toBeVisible();
 
       // 主要な要素が存在することを確認
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await expect(inputField).toBeVisible();
 
-      const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
+      const outputField = page.getByPlaceholder('整形・圧縮された結果がここに表示されます...');
       await expect(outputField).toBeVisible();
 
       // ボタンの存在確認
@@ -66,7 +82,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
 
   test.describe('2. 整形機能テスト', () => {
     test('should format valid JSON object', async ({ page }) => {
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await expect(inputField).toBeVisible();
       await inputField.fill(VALID_JSON_OBJECT);
 
@@ -78,7 +94,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
       await expect(page.locator('text=整形が完了しました')).toBeVisible({ timeout: 10000 });
 
       // 出力フィールドに整形された結果が表示されることを確認
-      const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
+      const outputField = page.getByPlaceholder('整形・圧縮された結果がここに表示されます...');
       await expect(outputField).toBeVisible();
 
       const outputValue = await outputField.inputValue();
@@ -94,7 +110,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
     });
 
     test('should format valid JSON array', async ({ page }) => {
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await inputField.fill(VALID_JSON_ARRAY);
 
       const formatButton = page.getByRole('button', { name: 'JSON を整形する' });
@@ -102,7 +118,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
 
       await expect(page.locator('text=整形が完了しました')).toBeVisible({ timeout: 10000 });
 
-      const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
+      const outputField = page.getByPlaceholder('整形・圧縮された結果がここに表示されます...');
       const outputValue = await outputField.inputValue();
 
       // 配列要素が含まれることを確認
@@ -114,7 +130,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
     });
 
     test('should format nested JSON structure', async ({ page }) => {
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await inputField.fill(VALID_JSON_NESTED);
 
       const formatButton = page.getByRole('button', { name: 'JSON を整形する' });
@@ -122,7 +138,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
 
       await expect(page.locator('text=整形が完了しました')).toBeVisible({ timeout: 10000 });
 
-      const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
+      const outputField = page.getByPlaceholder('整形・圧縮された結果がここに表示されます...');
       const outputValue = await outputField.inputValue();
 
       // ネストされた構造が含まれることを確認
@@ -145,7 +161,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
   "city": "Tokyo"
 }`;
 
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await inputField.fill(formattedJson);
 
       const minifyButton = page.getByRole('button', { name: 'JSON を圧縮する' });
@@ -156,7 +172,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
       await expect(page.locator('text=圧縮が完了しました')).toBeVisible({ timeout: 10000 });
 
       // 出力フィールドに圧縮された結果が表示されることを確認
-      const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
+      const outputField = page.getByPlaceholder('整形・圧縮された結果がここに表示されます...');
       const outputValue = await outputField.inputValue();
 
       // 1行に圧縮されていることを確認（改行なし）
@@ -182,7 +198,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
   ]
 }`;
 
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await inputField.fill(formattedNestedJson);
 
       const minifyButton = page.getByRole('button', { name: 'JSON を圧縮する' });
@@ -190,7 +206,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
 
       await expect(page.locator('text=圧縮が完了しました')).toBeVisible({ timeout: 10000 });
 
-      const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
+      const outputField = page.getByPlaceholder('整形・圧縮された結果がここに表示されます...');
       const outputValue = await outputField.inputValue();
 
       // 1行に圧縮されていることを確認
@@ -205,7 +221,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
 
   test.describe('4. エラーハンドリングテスト', () => {
     test('should show error for invalid JSON (missing quotes)', async ({ page }) => {
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await inputField.fill(INVALID_JSON_MISSING_QUOTE);
 
       const formatButton = page.getByRole('button', { name: 'JSON を整形する' });
@@ -222,7 +238,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
     });
 
     test('should show error for invalid JSON (trailing comma)', async ({ page }) => {
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await inputField.fill(INVALID_JSON_TRAILING_COMMA);
 
       const formatButton = page.getByRole('button', { name: 'JSON を整形する' });
@@ -234,7 +250,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
     });
 
     test('should show error for invalid JSON (single quotes)', async ({ page }) => {
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await inputField.fill(INVALID_JSON_SINGLE_QUOTES);
 
       const minifyButton = page.getByRole('button', { name: 'JSON を圧縮する' });
@@ -258,7 +274,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
   test.describe('5. クリアボタンテスト', () => {
     test('should clear both input and output', async ({ page }) => {
       // まず入力して整形
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await inputField.fill(VALID_JSON_OBJECT);
 
       const formatButton = page.getByRole('button', { name: 'JSON を整形する' });
@@ -267,7 +283,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
       await expect(page.locator('text=整形が完了しました')).toBeVisible({ timeout: 10000 });
 
       // 出力が生成されることを確認
-      const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
+      const outputField = page.getByPlaceholder('整形・圧縮された結果がここに表示されます...');
       const outputBefore = await outputField.inputValue();
       expect(outputBefore).toBeTruthy();
 
@@ -290,7 +306,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
     });
 
     test('should enable clear button when input exists', async ({ page }) => {
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await inputField.fill(VALID_JSON_OBJECT);
 
       const clearButton = page.getByRole('button', { name: '入力と出力をクリアする' });
@@ -318,7 +334,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
         return navigator.clipboard.writeText(json);
       }, VALID_JSON_OBJECT);
 
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await expect(inputField).toHaveValue('');
 
       const readButton = page.getByRole('button', { name: /クリップボードから JSON を読み取る/ });
@@ -345,7 +361,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
       await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 
       // JSON を入力して整形
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await inputField.fill(VALID_JSON_OBJECT);
 
       const formatButton = page.getByRole('button', { name: 'JSON を整形する' });
@@ -389,7 +405,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
   "name": "John",
   "age": 30
 }`;
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await inputField.fill(formattedJson);
 
       const minifyButton = page.getByRole('button', { name: 'JSON を圧縮する' });
