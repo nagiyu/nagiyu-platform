@@ -13,7 +13,7 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
 }> = [
   {
     source: '/tech/eventbridge-scheduler',
-    destination: '/tech/eventbridge-rule-scheduling',
+    destination: '/tech',
   },
   {
     source: '/tech/aws-batch-parallelism',
@@ -94,6 +94,10 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
   },
   {
     source: '/tech/ecs-fargate-vs-lambda',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/eventbridge-rule-scheduling',
     destination: '/tech',
   },
   // /services・/tech/tags・/tech/category 配下を技術記事一覧へ集約する。
