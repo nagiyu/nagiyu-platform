@@ -1,4 +1,4 @@
-import { test, expect, dismissMigrationDialogIfVisible } from './helpers';
+import { test, expect, suppressMigrationDialog } from './helpers';
 
 /**
  * Accessibility Tests for Tools App
@@ -9,8 +9,8 @@ import { test, expect, dismissMigrationDialogIfVisible } from './helpers';
 
 test.describe('Accessibility Tests - Homepage @a11y', () => {
   test('should not have accessibility violations on homepage', async ({ page, makeAxeBuilder }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/');
-    await dismissMigrationDialogIfVisible(page);
 
     // Wait for the page to be fully loaded
     await page.waitForLoadState('networkidle');
@@ -22,8 +22,8 @@ test.describe('Accessibility Tests - Homepage @a11y', () => {
   });
 
   test('should have proper heading hierarchy on homepage', async ({ page }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/');
-    await dismissMigrationDialogIfVisible(page);
 
     // Check for h1 tag
     const h1 = page.locator('h1');
@@ -32,8 +32,8 @@ test.describe('Accessibility Tests - Homepage @a11y', () => {
   });
 
   test('should have accessible tool cards', async ({ page }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/');
-    await dismissMigrationDialogIfVisible(page);
 
     // Tool cards should be links with accessible names
     const toolCard = page.getByRole('link', { name: /乗り換え変換ツール/i });
@@ -46,8 +46,8 @@ test.describe('Accessibility Tests - Homepage @a11y', () => {
 
 test.describe('Accessibility Tests - Transit Converter @a11y', () => {
   test.beforeEach(async ({ page }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/transit-converter');
-    await dismissMigrationDialogIfVisible(page);
   });
 
   test('should not have accessibility violations in initial state', async ({
@@ -189,8 +189,8 @@ test.describe('Accessibility Tests - Offline Page @a11y', () => {
 
 test.describe('Accessibility Tests - Common Components @a11y', () => {
   test('should have accessible header navigation', async ({ page }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/');
-    await dismissMigrationDialogIfVisible(page);
 
     // Header should be a landmark
     const header = page.locator('header');
@@ -203,8 +203,8 @@ test.describe('Accessibility Tests - Common Components @a11y', () => {
   });
 
   test('should have accessible footer', async ({ page }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/');
-    await dismissMigrationDialogIfVisible(page);
 
     // Footer should be a landmark
     const footer = page.locator('footer');
@@ -218,8 +218,8 @@ test.describe('Accessibility Tests - Common Components @a11y', () => {
 
 test.describe('Accessibility Tests - WCAG 2.1 Specific Checks @a11y', () => {
   test('should pass WCAG 2.1 Level A checks on homepage', async ({ page, makeAxeBuilder }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/');
-    await dismissMigrationDialogIfVisible(page);
     await page.waitForLoadState('networkidle');
 
     const accessibilityScanResults = await makeAxeBuilder()
@@ -230,8 +230,8 @@ test.describe('Accessibility Tests - WCAG 2.1 Specific Checks @a11y', () => {
   });
 
   test('should pass WCAG 2.1 Level AA checks on homepage', async ({ page, makeAxeBuilder }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/');
-    await dismissMigrationDialogIfVisible(page);
     await page.waitForLoadState('networkidle');
 
     const accessibilityScanResults = await makeAxeBuilder()
@@ -245,8 +245,8 @@ test.describe('Accessibility Tests - WCAG 2.1 Specific Checks @a11y', () => {
     page,
     makeAxeBuilder,
   }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/transit-converter');
-    await dismissMigrationDialogIfVisible(page);
     await page.waitForLoadState('networkidle');
 
     const accessibilityScanResults = await makeAxeBuilder()
@@ -260,8 +260,8 @@ test.describe('Accessibility Tests - WCAG 2.1 Specific Checks @a11y', () => {
     page,
     makeAxeBuilder,
   }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/transit-converter');
-    await dismissMigrationDialogIfVisible(page);
     await page.waitForLoadState('networkidle');
 
     const accessibilityScanResults = await makeAxeBuilder()

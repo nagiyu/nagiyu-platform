@@ -1,4 +1,4 @@
-import { test, expect, dismissMigrationDialogIfVisible } from './helpers';
+import { test, expect, suppressMigrationDialog } from './helpers';
 
 /**
  * E2E tests for Privacy Policy and Terms of Service dialogs
@@ -6,8 +6,8 @@ import { test, expect, dismissMigrationDialogIfVisible } from './helpers';
 
 test.describe('Privacy Policy Dialog', () => {
   test.beforeEach(async ({ page }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/');
-    await dismissMigrationDialogIfVisible(page);
   });
 
   test('フッターのプライバシーポリシーリンクをクリックするとダイアログが開く', async ({ page }) => {
@@ -111,8 +111,8 @@ test.describe('Privacy Policy Dialog', () => {
 
 test.describe('Terms of Service Dialog', () => {
   test.beforeEach(async ({ page }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/');
-    await dismissMigrationDialogIfVisible(page);
   });
 
   test('フッターの利用規約リンクをクリックするとダイアログが開く', async ({ page }) => {
@@ -216,8 +216,8 @@ test.describe('Terms of Service Dialog', () => {
 
 test.describe('Multiple Dialogs Interaction', () => {
   test.beforeEach(async ({ page }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/');
-    await dismissMigrationDialogIfVisible(page);
   });
 
   test('プライバシーポリシーと利用規約のダイアログを交互に開ける', async ({ page }) => {
@@ -261,8 +261,8 @@ test.describe('Multiple Dialogs Interaction', () => {
 
 test.describe('Policy Dialogs Accessibility', () => {
   test.beforeEach(async ({ page }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/');
-    await dismissMigrationDialogIfVisible(page);
   });
 
   test('プライバシーポリシーダイアログのアクセシビリティチェック', async ({
