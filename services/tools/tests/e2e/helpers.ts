@@ -2,15 +2,11 @@ import { test as base, Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * Timeout constants for test stability
+ * MigrationDialog（初回訪問時の移行案内ダイアログ）の表示可否を制御する
+ * localStorage キー。
+ * services/tools/src/components/dialogs/MigrationDialog.tsx の STORAGE_KEY と一致させること。
  */
-export const TIMEOUTS = {
-  DIALOG_APPEARANCE: 1000,
-  DIALOG_DISMISS: 5000,
-  ANIMATION_COMPLETION: 500,
-  SERVICE_WORKER_READY: 2000,
-  PAGE_READY: 1000,
-} as const;
+const MIGRATION_DIALOG_STORAGE_KEY = 'tools-migration-dialog-shown';
 
 /**
  * Extended test fixture with accessibility testing support
@@ -44,48 +40,25 @@ export async function takeTimestampedScreenshot(page: Page, name: string): Promi
 }
 
 /**
- * Helper function to dismiss the migration dialog if it appears
- * This should be called after navigating to a page where the dialog might appear
+ * MigrationDialog が表示されない状態を確定させる。
+ *
+ * MigrationDialog の表示可否は localStorage の `tools-migration-dialog-shown` キー
+ * （MigrationDialog.tsx の STORAGE_KEY）のみで決まる。以前はこの関数が
+ * 「ダイアログが出たら閉じる、出なければ何もしない」という分岐（`waitFor(...).catch(() => false)`
+ * による握り潰し）で対応しており、どちらに転んでもテストが green になる形骸化した実装だった。
+ *
+ * 状態を先に固定してしまえば「ダイアログは絶対に出ない」という単一の結末に倒せるため、
+ * こちらに置き換える。
+ *
+ * `page.addInitScript` はページの新しいドキュメントが生成されるたびに実行されるため、
+ * `page.goto` より前に一度呼び出しておけば、その後の `reload()` や `localStorage.clear()`
+ * を挟んだ再ナビゲーションでも効果が持続する（次のドキュメント読み込み前に再実行され、
+ * MigrationDialog の useEffect が走るより先にフラグが立つ）。
+ *
+ * @param page - Playwright の Page。**`page.goto` を呼び出す前に**呼び出すこと。
  */
-export async function dismissMigrationDialogIfVisible(page: Page): Promise<void> {
-  try {
-    // Wait for the page to be loaded first
-    await page.waitForLoadState('domcontentloaded');
-
-    // Wait a bit for the dialog to appear if it's going to
-    await page.waitForTimeout(TIMEOUTS.DIALOG_APPEARANCE);
-
-    // Try to find and close the dialog
-    const dialog = page.getByRole('dialog');
-
-    // Wait for either the dialog to appear or timeout
-    const dialogAppeared = await dialog
-      .waitFor({
-        state: 'visible',
-        timeout: TIMEOUTS.DIALOG_APPEARANCE,
-      })
-      .then(() => true)
-      .catch(() => false);
-
-    if (dialogAppeared) {
-      // Find the close button
-      const closeButton = page.getByRole('button', { name: /閉じる/i });
-      await closeButton.click();
-
-      // Wait for the dialog to be completely dismissed
-      await dialog.waitFor({ state: 'hidden', timeout: TIMEOUTS.DIALOG_DISMISS });
-
-      // Give it time for any animations and DOM updates
-      await page.waitForTimeout(TIMEOUTS.ANIMATION_COMPLETION);
-    }
-
-    // Always wait for the page content to be ready
-    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-    await page.waitForTimeout(TIMEOUTS.PAGE_READY);
-  } catch (error) {
-    // Dialog not present or already dismissed, continue
-    // Still wait for page to be ready
-    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-    await page.waitForTimeout(TIMEOUTS.PAGE_READY);
-  }
+export async function suppressMigrationDialog(page: Page): Promise<void> {
+  await page.addInitScript((key) => {
+    window.localStorage.setItem(key, 'true');
+  }, MIGRATION_DIALOG_STORAGE_KEY);
 }
