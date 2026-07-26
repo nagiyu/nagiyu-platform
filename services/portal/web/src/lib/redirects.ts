@@ -148,6 +148,11 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
     source: '/tech/zod-schema-validation',
     destination: '/tech',
   },
+  // 記事の主題に合わせて slug を改めたもの。内容が対応する現行記事へ引き継ぐ。
+  {
+    source: '/tech/ssm-secrets-manager',
+    destination: '/tech/cdk-cross-stack-ssm-parameter-store',
+  },
   // /services・/tech/tags・/tech/category 配下を技術記事一覧へ集約する。
   {
     source: '/services',

@@ -1,7 +1,7 @@
 ---
 title: 'スタック同士を依存させたら、一部だけ直したいのに CloudFront が作り直された — CDK の参照を SSM Parameter Store 経由に外した話'
 description: 'AWS CDK でスタックを分割し、CloudFormation の Export / Fn.importValue で値を渡していたら、部分的に直したいだけの変更で CloudFront ディストリビューションが作り直しになった。当時は Route 53 も未導入で、作り直すたび外部の DNS サービスにサブドメインを登録し直す羽目に。スタック間参照を SSM Parameter Store 経由に外して疎結合にした経緯。'
-slug: 'ssm-secrets-manager'
+slug: 'cdk-cross-stack-ssm-parameter-store'
 publishedAt: '2026-05-25'
 updatedAt: '2026-07-25'
 author: 'なぎゆー'
