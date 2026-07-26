@@ -8,7 +8,7 @@ import AboutPolicy from '@/components/AboutPolicy';
 export const metadata: Metadata = {
   title: 'nagiyu について',
   description:
-    'nagiyu は、AWS・Next.js を中心とした個人開発の実運用経験を一次情報として発信する技術メディアです。運営者プロフィール・運営方針・編集ポリシー・お問い合わせをご紹介します。',
+    'nagiyu は、個人で複数の Web サービスを AWS 上で運用する中で得た経験を一次情報として発信する技術メディアです。運営者プロフィール・運営方針・編集ポリシー・お問い合わせをご紹介します。',
   alternates: {
     canonical: 'https://nagiyu.com/about',
   },
@@ -27,9 +27,10 @@ export default function AboutPage() {
           サイトの目的
         </Typography>
         <Typography variant="body1" sx={{ mb: 2 }}>
-          nagiyu は、AWS・Next.js
-          を中心としたフルスタック開発の実運用経験を、一次情報として記録・公開する個人技術メディアです。
-          クラウドインフラ・アプリケーション設計・運用で実際に直面した課題と、その解決にあたっての判断過程を技術記事として掲載しています。
+          nagiyu は、個人で複数の Web サービスを AWS
+          上で開発・運用する中で得た経験を、一次情報として記録・公開する個人技術メディアです。
+          クラウドインフラ・CI
+          とテストの設計・運用で実際に直面した課題と、その解決にあたっての判断過程を技術記事として掲載しています。
         </Typography>
         <Typography variant="body1" sx={{ mb: 2 }}>
           私が個人開発で設計・実装・運用しているプロダクト群は、こうした記事の一次情報の源泉です。
