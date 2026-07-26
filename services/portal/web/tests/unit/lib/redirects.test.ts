@@ -85,8 +85,8 @@ describe('RETIRED_ARTICLE_REDIRECTS', () => {
   });
 
   describe('マッピング件数', () => {
-    it('37 件のリダイレクトが定義されていること', () => {
-      expect(RETIRED_ARTICLE_REDIRECTS).toHaveLength(37);
+    it('38 件のリダイレクトが定義されていること', () => {
+      expect(RETIRED_ARTICLE_REDIRECTS).toHaveLength(38);
     });
   });
 });
