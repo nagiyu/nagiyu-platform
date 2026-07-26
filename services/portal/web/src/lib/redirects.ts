@@ -170,7 +170,7 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
     source: '/tech/category/:category*',
     destination: '/tech',
   },
-] as const;
+];
 
 /**
  * Next.js redirects() 関数に渡す形式に変換する

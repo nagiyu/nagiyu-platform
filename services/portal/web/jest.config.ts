@@ -45,8 +45,8 @@ const config: Config = {
 const ESM_PACKAGES = [
   // remark / rehype は remark-parse のような内部依存も ESM-only のため、
   // パッケージ名を個別列挙せずワイルドカードでまとめて変換対象に含める。
-  'remark.*',
-  'rehype.*',
+  'remark[^/]*',
+  'rehype[^/]*',
   'unified',
   'bail',
   'trough',
