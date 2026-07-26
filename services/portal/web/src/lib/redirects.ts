@@ -124,6 +124,10 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
     source: '/tech/nextjs-ssg-markdown',
     destination: '/tech',
   },
+  {
+    source: '/tech/nextjs16-metadata-api',
+    destination: '/tech',
+  },
   // /services・/tech/tags・/tech/category 配下を技術記事一覧へ集約する。
   {
     source: '/services',
