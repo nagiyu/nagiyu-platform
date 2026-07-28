@@ -66,7 +66,9 @@ describe('emitChatMetricsEMF', () => {
     expect((parsed['_aws'] as { CloudWatchMetrics: unknown[] }).CloudWatchMetrics).toBeDefined();
 
     const metricDefs = (
-      parsed['_aws'] as { CloudWatchMetrics: Array<{ Metrics: Array<{ Name: string; Unit: string }> }> }
+      parsed['_aws'] as {
+        CloudWatchMetrics: Array<{ Metrics: Array<{ Name: string; Unit: string }> }>;
+      }
     ).CloudWatchMetrics[0].Metrics;
     expect(metricDefs).toContainEqual({ Name: 'TTSTotalLatency', Unit: 'Milliseconds' });
     expect(metricDefs).toContainEqual({ Name: 'LLMTotalLatency', Unit: 'Milliseconds' });
