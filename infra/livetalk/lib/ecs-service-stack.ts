@@ -211,7 +211,14 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
     // VOICEVOX エンジン公式 Docker イメージ。
     // - 1 ECS Task 内に web と同居し、web からは localhost:50021 で接続される
     // - 外部公開不要（Service の Security Group 経由でも 50021 は通さない）
-    // - 起動時のモデルロードに 30〜60 秒かかるため startPeriod は 60s
+    // - startPeriod は 60s。当初「起動時のモデルロードに 30〜60 秒かかる」ことを
+    //   理由にしていたが、これは見積もりであって実測ではなかった（Issue #3761）。
+    //   実測（prod タスク）の内訳は「イメージ pull 37.5s + ヘルスチェックの
+    //   ポーリング待ち + web 起動」で合計 81.6s であり、支配項は pull。
+    //   VOICEVOX エンジン自体は既定で全話者モデルをロードしない（遅延ロード）ため
+    //   短時間で HTTP 応答可能になる。実測メモリ 690MB もこれと整合する。
+    //   → 起動短縮に効くのは startPeriod ではなく pull 時間（下記の ECR ミラー化）。
+    //     値そのものの見直しは別途。
     // - 公式イメージは Docker Hub から直接 pull（ECR ミラー化は将来課題）
     const voicevoxContainer = this.taskDefinition.addContainer('voicevox', {
       containerName: 'voicevox',
