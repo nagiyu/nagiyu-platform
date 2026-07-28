@@ -21,10 +21,17 @@ export class EcsSharedClusterStack extends cdk.Stack {
 
     const cfnCluster = new ecs.CfnCluster(this, 'SharedCluster', {
       clusterName,
+      // Container Insights は無効化する（Issue #3761）。
+      // 出力される `ECS/ContainerInsights` はカスタムメトリクス課金の対象で、
+      // 3 クラスタ合計 114 メトリクス・約 $19/月を占めていた。一方でディメンションは
+      // ClusterName / ServiceName / TaskDefinitionFamily のみで、コンテナ単位の内訳は
+      // 元から取得できていない（それは Enhanced Observability の機能）。
+      // サービス単位の CPU / メモリは無料の `AWS/ECS` 名前空間
+      // （CPUUtilization / MemoryUtilization）で引き続き取得できる。
       clusterSettings: [
         {
           name: 'containerInsights',
-          value: 'enabled',
+          value: 'disabled',
         },
       ],
     });
