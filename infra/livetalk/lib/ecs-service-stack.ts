@@ -5,6 +5,7 @@ import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import {
@@ -15,6 +16,16 @@ import {
   getEcrRepositoryName,
   grantErrorEventsWrite,
 } from '@nagiyu/infra-common';
+import { openAiSecretName, vapidSecretName } from './secrets-stack';
+
+/**
+ * Auth サービスの NextAuth 署名用シークレット名を組み立てる。
+ * Auth サービス側のリソースであり LiveTalk 側に命名ヘルパーはないため、
+ * secrets-stack.ts の openAiSecretName / vapidSecretName と同じ形でここに定義する。
+ */
+function authSecretName(environment: Environment): string {
+  return `nagiyu-auth-nextauth-secret-${environment}`;
+}
 
 export interface LiveTalkEcsServiceStackProps extends cdk.StackProps {
   environment: Environment;
@@ -49,21 +60,34 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
 
     const { environment, appVersion = '1.0.0' } = props;
 
-    // CDK context から secrets を取得
-    // 未指定の場合はプレースホルダーを使用（deploy ジョブで実際の値に更新される）
-    const nextAuthSecret =
-      scope.node.tryGetContext('nextAuthSecret') || 'PLACEHOLDER_NEXTAUTH_SECRET';
-
-    // OpenAI API キー（Phase 2b / Issue #3248）。
-    // 既存の AUTH_SECRET と同じく、deploy ワークフローが Secrets Manager から取得して
-    // `--context openAiApiKey=<value>` で渡す方式。Container では `OPENAI_API_KEY` env で参照する。
-    const openAiApiKey = scope.node.tryGetContext('openAiApiKey') || 'PLACEHOLDER_OPENAI_API_KEY';
-
-    // VAPID キー（Phase 5d / #3346）。Web Push の subscribe / vapid-public-key route が参照する。
-    const vapidPublicKey =
-      scope.node.tryGetContext('vapidPublicKey') || 'PLACEHOLDER_VAPID_PUBLIC_KEY';
-    const vapidPrivateKey =
-      scope.node.tryGetContext('vapidPrivateKey') || 'PLACEHOLDER_VAPID_PRIVATE_KEY';
+    // 秘密情報（AUTH_SECRET / OPENAI_API_KEY / VAPID_*）は ECS の `secrets:`
+    // （valueFrom）機能で Secrets Manager から直接注入する。
+    // 以前は CDK context 経由（`--context openAiApiKey=...` 等）で平文を
+    // `environment:` に埋め込んでいたが、この方式だと CloudFormation テンプレートと
+    // タスク定義に秘密情報がそのまま残り、`aws ecs describe-task-definition` で
+    // 読めてしまう上、タスク定義のリビジョンが増えるたびに複製されてしまう。
+    // `secrets:` はタスク定義には ARN 参照のみが残り、実値はタスク起動時に
+    // Task Execution Role が取得してコンテナへ注入する。
+    // シークレット自体は別スタック（secrets-stack.ts / Auth サービス側）で
+    // 作成済みのため、ここでは fromSecretNameV2 でインポートするのみで
+    // 新規に Secret リソースは作らない（作ると既存の値を上書きしてしまう）。
+    const authSecret = secretsmanager.Secret.fromSecretNameV2(
+      this,
+      'AuthSecret',
+      authSecretName(environment)
+    );
+    const openAiApiKeySecret = secretsmanager.Secret.fromSecretNameV2(
+      this,
+      'OpenAiApiKeySecret',
+      openAiSecretName(environment)
+    );
+    // VAPID は 1 つの Secret に `{"publicKey":"...","privateKey":"..."}` という
+    // JSON で publicKey / privateKey の両方を保持している（secrets-stack.ts 参照）。
+    const vapidSecret = secretsmanager.Secret.fromSecretNameV2(
+      this,
+      'VapidSecret',
+      vapidSecretName(environment)
+    );
 
     const authUrl =
       environment === 'prod' ? 'https://auth.nagiyu.com' : `https://dev-auth.nagiyu.com`;
@@ -187,6 +211,13 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
       })
     );
 
+    // `secrets:`（valueFrom）で参照するシークレットの取得は、コンテナを起動する
+    // ECS エージェント自身が行うため Task Role ではなく Task Execution Role に
+    // `secretsmanager:GetSecretValue` を付与する必要がある。
+    authSecret.grantRead(taskExecutionRole);
+    openAiApiKeySecret.grantRead(taskExecutionRole);
+    vapidSecret.grantRead(taskExecutionRole);
+
     const taskRole = new iam.Role(this, 'TaskRole', {
       assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
       description: 'ECS Task Role for LiveTalk',
@@ -261,8 +292,6 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
         LIVETALK_ENV: environment,
         PORT: '3000',
         APP_VERSION: appVersion,
-        // NextAuth v5 が JWT 署名・検証に使用する secret。Auth サービスと同じ値が必要。
-        AUTH_SECRET: nextAuthSecret,
         // Auth サービスの URL（サインインリダイレクト先）
         NEXT_PUBLIC_AUTH_URL: authUrl,
         // 自サービスのベース URL（callbackUrl 生成用）
@@ -276,17 +305,21 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
         // DynamoDB Single Table 名（Phase 2a で導入）。
         // `@nagiyu/aws` の `getTableName()` がこの環境変数を参照する。
         DYNAMODB_TABLE_NAME: dynamoTableName,
-        // OpenAI API キー（Phase 2b）。deploy ワークフローが Secrets Manager から取得して
-        // CDK context 経由でここに注入する。アプリは process.env.OPENAI_API_KEY で参照する。
-        OPENAI_API_KEY: openAiApiKey,
         // Phase 4a / #3327: Node.js の new Date() を JST 基準にし、getTimeOfDay() の
         // 時間帯判定（朝/昼/夜）を正しく動作させる。ISO8601 タイムスタンプは UTC のまま。
         TZ: 'Asia/Tokyo',
-        // VAPID キー（Phase 5d / #3346）。Web Push subscribe / vapid-public-key route が参照する。
-        VAPID_PUBLIC_KEY: vapidPublicKey,
-        VAPID_PRIVATE_KEY: vapidPrivateKey,
         // エラーイベント登録テーブル（Phase 5f / Issue #3369）
         ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
+      },
+      secrets: {
+        // NextAuth v5 が JWT 署名・検証に使用する secret。Auth サービスと同じ値が必要。
+        AUTH_SECRET: ecs.Secret.fromSecretsManager(authSecret),
+        // OpenAI API キー（Phase 2b）。アプリは process.env.OPENAI_API_KEY で参照する。
+        OPENAI_API_KEY: ecs.Secret.fromSecretsManager(openAiApiKeySecret),
+        // VAPID キー（Phase 5d / #3346）。Web Push subscribe / vapid-public-key route が参照する。
+        // JSON の各フィールドをキー指定で個別に取得する。
+        VAPID_PUBLIC_KEY: ecs.Secret.fromSecretsManager(vapidSecret, 'publicKey'),
+        VAPID_PRIVATE_KEY: ecs.Secret.fromSecretsManager(vapidSecret, 'privateKey'),
       },
       portMappings: [
         {
