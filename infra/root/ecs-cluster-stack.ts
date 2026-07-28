@@ -24,10 +24,13 @@ export class EcsClusterStack extends cdk.Stack {
     // Create ECS Cluster (using CfnCluster to avoid automatic VPC creation)
     const cfnCluster = new ecs.CfnCluster(this, 'RootCluster', {
       clusterName: clusterName,
+      // Container Insights は無効化する（Issue #3761）。
+      // 詳細な理由は infra/shared/lib/ecs-cluster-stack.ts のコメントを参照。
+      // サービス単位の CPU / メモリは無料の `AWS/ECS` 名前空間で取得できる。
       clusterSettings: [
         {
           name: 'containerInsights',
-          value: 'enabled',
+          value: 'disabled',
         },
       ],
     });
