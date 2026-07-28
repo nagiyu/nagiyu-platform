@@ -17,10 +17,21 @@ const synth = (environment, props = {}) => {
 };
 
 describe('LiveTalkEcsServiceStack', () => {
-  it('Task Definition family を環境名込みで作成する（VOICEVOX 同居のため 2vCPU/4096MiB）', () => {
+  it('dev の Task Definition は 1vCPU/2048MiB で作成する（Issue #3761）', () => {
     const template = synth('dev');
     template.hasResourceProperties('AWS::ECS::TaskDefinition', {
       Family: 'nagiyu-livetalk-task-dev',
+      RequiresCompatibilities: ['FARGATE'],
+      NetworkMode: 'awsvpc',
+      Cpu: '1024',
+      Memory: '2048',
+    });
+  });
+
+  it('prod の Task Definition は 2vCPU/4096MiB を維持する（VOICEVOX 同居）', () => {
+    const template = synth('prod');
+    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
+      Family: 'nagiyu-livetalk-task-prod',
       RequiresCompatibilities: ['FARGATE'],
       NetworkMode: 'awsvpc',
       Cpu: '2048',

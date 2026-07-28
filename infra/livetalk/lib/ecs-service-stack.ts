@@ -196,14 +196,24 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
 
     const imageTag = process.env.IMAGE_TAG || 'latest';
 
-    // Phase 1f で VOICEVOX コンテナを同一 Task に追加。
-    // メモリ内訳: VOICEVOX 2.5GB + Next.js 0.5GB + オーバーヘッド ≈ 4GB
-    // CPU は 2 vCPU を web と VOICEVOX で配分（Issue #3356: VOICEVOX 合成の直列化解消）。
-    // Fargate の CPU/Memory 組み合わせ制約: cpu=2048 には memory 4096〜16384 が必要。
+    // Phase 1f で VOICEVOX コンテナを同一 Task に追加。web と VOICEVOX が同居する。
+    //
+    // タスクサイズは環境ごとに変える（Issue #3761）。
+    // - prod: 2048/4096 のまま。実測ピークは CPU 877 units・メモリ 690MB だが、
+    //   このピークは「会話 1 回」そのものであり、割当を 1024 に下げると会話中に
+    //   ほぼ使い切る。正式展開に向けて同時会話が増える見込みのため据え置く。
+    //   （縮小の可否は TTS / LLM のレイテンシ計測がたまってから判断する）
+    // - dev: 1024/2048 へ縮小。実測ピークは CPU 289 units（14.1%）・
+    //   メモリ 422MB（10.3%）で、縮小後の割当に対しても十分な余裕がある。
+    //
+    // Fargate の CPU/Memory 組み合わせ制約: cpu=2048 は memory 4096〜16384、
+    // cpu=1024 は memory 2048〜8192 を要求する。メモリだけ単独では下げられない。
+    const isProd = environment === 'prod';
+
     this.taskDefinition = new ecs.FargateTaskDefinition(this, 'TaskDefinition', {
       family: `nagiyu-livetalk-task-${environment}`,
-      cpu: 2048,
-      memoryLimitMiB: 4096,
+      cpu: isProd ? 2048 : 1024,
+      memoryLimitMiB: isProd ? 4096 : 2048,
       executionRole: taskExecutionRole,
       taskRole,
     });
