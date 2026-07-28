@@ -23,16 +23,20 @@ nagiyu プラットフォームでは、開発環境と本番環境それぞれ�
 
 | 項目 | 値 |
 |-----|-----|
-| VPC CIDR | `10.0.0.0/24` |
-| 利用可能 IP 数 | 251 |
-| AZ 構成 | 1 AZ (us-east-1a) |
+| VPC CIDR（primary） | `10.0.0.0/24` |
+| VPC CIDR（secondary） | `10.2.0.0/24` |
+| 利用可能 IP 数 | 502（251 × 2） |
+| AZ 構成 | 2 AZ (us-east-1a, us-east-1b) |
 | リージョン | us-east-1 |
+
+> **secondary CIDR を使う理由**: 1b の Subnet 用に CIDR 空間が必要だが、primary CIDR（`10.0.0.0/24`）を直接広げると VPC の再作成を招く。そのため secondary CIDR で拡張している。`10.2.0.0/24` を選んでいるのは、AWS の制約で `10.0.0.0/15` 範囲（`10.0.x.x` / `10.1.x.x`）の secondary 追加が制限されているため。
 
 #### サブネット構成
 
 | サブネット名 | タイプ | AZ | CIDR | 利用可能 IP |
 |------------|------|-----|------|-----------|
 | nagiyu-dev-public-subnet-1a | Public | us-east-1a | `10.0.0.0/24` | 251 |
+| nagiyu-dev-public-subnet-1b | Public | us-east-1b | `10.2.0.0/24` | 251 |
 
 ### prod 環境
 
@@ -48,7 +52,7 @@ nagiyu プラットフォームでは、開発環境と本番環境それぞれ�
 | サブネット名 | タイプ | AZ | CIDR | 利用可能 IP |
 |------------|------|-----|------|-----------|
 | nagiyu-prod-public-subnet-1a | Public | us-east-1a | `10.1.0.0/25` | 123 |
-| nagiyu-prod-public-subnet-1b | Public | us-east-1b | `10.1.128.0/25` | 123 |
+| nagiyu-prod-public-subnet-1b | Public | us-east-1b | `10.1.0.128/25` | 123 |
 
 ## リソース構成
 
@@ -80,12 +84,12 @@ nagiyu プラットフォームでは、開発環境と本番環境それぞれ�
 - 想定サービス数: 15-20 個
 - サービスあたりの最大タスク数: 10
 - 必要 IP 数: 20 サービス × 10 タスク = 200 IP
-- 確保 IP 数: 251 IP (dev), 246 IP (prod 合計)
+- 確保 IP 数: 502 IP (dev 合計), 246 IP (prod 合計)
 - 余裕率: 約 20%
 
 ### CIDR 選定理由
 - `10.x.x.x` 系列: 一般的でわかりやすい
-- dev = `10.0.x.x`, prod = `10.1.x.x`: 環境が一目で識別可能
+- dev = `10.0.x.x`（+ secondary `10.2.x.x`）, prod = `10.1.x.x`: 環境が一目で識別可能
 - `/24` および `/25`: 必要十分なサイズで無駄がない
 
 ## リージョンと AZ 戦略
@@ -96,10 +100,11 @@ nagiyu プラットフォームでは、開発環境と本番環境それぞれ�
 
 ### AZ 構成
 
-#### dev 環境: 1 AZ
-- コスト最適化を優先
-- 開発環境のため、AZ 障害時のダウンタイムは許容
-- 使用 AZ: us-east-1a
+#### dev 環境: 2 AZ
+- 使用 AZ: us-east-1a, us-east-1b
+- **VPC としては dev も 2 AZ 分の Subnet を用意している**。ALB を必要とするサービス（リブトーク等）が最低 2 AZ の Subnet を要求するため、dev でも 1 AZ には落とせない
+- ただし**利用側は可用性が不要なら 1 AZ だけを選ぶ**（Lambda 系や Portal の dev がこれ）。AZ をいくつ使うかは各サービスの Subnet 選択で決まる
+- Public Subnet のみで NAT Gateway を持たないため、AZ を増やしても固定費は増えない
 
 #### prod 環境: 2 AZ
 - 基本的な冗長性を確保
