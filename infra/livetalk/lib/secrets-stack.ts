@@ -1,7 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
-import type { Environment } from '@nagiyu/infra-common';
+import { SECRET_NAMES, type Environment } from '@nagiyu/infra-common';
 
 export interface LiveTalkSecretsStackProps extends cdk.StackProps {
   environment: Environment;
@@ -13,9 +13,11 @@ export interface LiveTalkSecretsStackProps extends cdk.StackProps {
  * LLM Provider 用の API キーを Secrets Manager で管理する。
  * 初回デプロイ時は PLACEHOLDER で作成し、実際の値は AWS Console から上書き運用する。
  *
- * - シークレット命名: `/nagiyu/livetalk/{env}/openai/api-key`
+ * - シークレット名は @nagiyu/infra-common の SECRET_NAMES に集約している
  * - 値: プレーンテキスト（`SecretString` = API キーそのもの）
- * - アクセス: ECS Task Role に `secretsmanager:GetSecretValue` を付与（ecs-service-stack で実施）
+ * - アクセス: ECS Task **Execution** Role に `secretsmanager:GetSecretValue` を付与
+ *   （ecs-service-stack で実施）。`secrets:`（valueFrom）による注入はタスク起動時に
+ *   Execution Role が取得するため、Task Role ではない
  *
  * Phase 2b 時点では Provider は OpenAI のみ。別 Provider が必要になったら同じ
  * 命名規約（`/nagiyu/livetalk/{env}/{provider}/api-key`）でここに追加する。
@@ -30,7 +32,7 @@ export class LiveTalkSecretsStack extends cdk.Stack {
     const { environment } = props;
 
     this.openAiApiKeySecret = new secretsmanager.Secret(this, 'OpenAiApiKeySecret', {
-      secretName: openAiSecretName(environment),
+      secretName: SECRET_NAMES.LIVETALK_OPENAI_API_KEY(environment),
       description: `LiveTalk OpenAI API key (${environment})`,
       secretStringValue: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
     });
@@ -39,7 +41,7 @@ export class LiveTalkSecretsStack extends cdk.Stack {
     // 初回は PLACEHOLDER で作成し、実際の値は AWS Console から手動で書き換える。
     // `web-push generate-vapid-keys` で生成した JSON をそのまま貼り付ける。
     this.vapidSecret = new secretsmanager.Secret(this, 'VapidSecret', {
-      secretName: vapidSecretName(environment),
+      secretName: SECRET_NAMES.LIVETALK_VAPID(environment),
       description: `LiveTalk VAPID key pair for Web Push notifications (${environment})`,
       secretStringValue: cdk.SecretValue.unsafePlainText(
         '{"publicKey":"PLACEHOLDER","privateKey":"PLACEHOLDER"}'
@@ -71,12 +73,4 @@ export class LiveTalkSecretsStack extends cdk.Stack {
       description: 'LiveTalk VAPID Secret Name',
     });
   }
-}
-
-export function openAiSecretName(environment: Environment): string {
-  return `/nagiyu/livetalk/${environment}/openai/api-key`;
-}
-
-export function vapidSecretName(environment: Environment): string {
-  return `nagiyu-livetalk-vapid-${environment}`;
 }
