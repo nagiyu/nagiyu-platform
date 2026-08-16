@@ -1,4 +1,25 @@
-import { test, expect, dismissMigrationDialogIfVisible } from './helpers';
+import {
+  test,
+  expect,
+  suppressMigrationDialog,
+  waitForHydration,
+  MIGRATION_DIALOG_STORAGE_KEY,
+} from './helpers';
+/**
+ * chromium-mobile プロジェクトは playwright.config.base.ts 側で `serviceWorkers: 'block'` を
+ * 設定済みだが、chromium-desktop / webkit-mobile は未設定という非対称がある。
+ * stock-tracker / niconico-mylist-assistant では実際に Service Worker
+ *（`@nagiyu/ui` の ServiceWorkerRegistration 経由で `/sw.js` を登録）を使っており、
+ * webkit 環境で SW が `page.route` のモックを迂回して非決定性を生むことが実測されている
+ * ため、一律に block している。
+ *
+ * tools サービスは manifest.json で PWA 対応を謳っているが、`layout.tsx` は
+ * ServiceWorkerRegistration を組み込んでおらず `public/sw.js` も存在しないため、
+ * 実際には Service Worker を一切登録しない（後述の pwa.spec.ts のコメント参照）。
+ * したがって本ファイルでの `serviceWorkers: 'block'` は現時点では効果を持たない
+ * （将来 SW 実装が入った際の予防的デフォルト、および他サービスとの記法統一のために付与）。
+ */
+test.use({ serviceWorkers: 'block' });
 
 // テストデータ: 有効な JSON
 const VALID_JSON_OBJECT = `{"name":"John","age":30,"city":"Tokyo"}`;
@@ -13,13 +34,26 @@ const EMPTY_INPUT = '';
 
 test.describe('JSON Formatter - E2E Tests', () => {
   test.beforeEach(async ({ page }) => {
-    // 各テスト前にLocalStorageをクリア
-    await page.goto('/json-formatter');
-    await page.evaluate(() => localStorage.clear());
-    await page.reload();
+    // MigrationDialog が表示されない状態を確定させてからページへ移動する
+    await suppressMigrationDialog(page);
 
-    // MigrationDialogが表示される場合は閉じる
-    await dismissMigrationDialogIfVisible(page);
+    await page.goto('/json-formatter');
+
+    // 各テスト前に LocalStorage をクリアする（表示設定の永続化を初期状態に戻すため）。
+    // ただし MigrationDialog の表示抑止フラグまで消してはいけない。消すとダイアログが
+    // 表示され、モーダルが入力欄を覆ってクリックがタイムアウトする（webkit-mobile で
+    // 実測。suppressMigrationDialog は addInitScript でフラグを立てるが、goto 後の
+    // localStorage.clear() がそれを消してしまっていた）。
+    await page.evaluate((key) => {
+      localStorage.clear();
+      localStorage.setItem(key, 'true');
+    }, MIGRATION_DIALOG_STORAGE_KEY);
+
+    // クリア後の状態でアプリを読み込み直し、hydration 完了まで待つ。
+    // hydration 前に fill しても onChange が発火せず、整形ボタン等が disabled のまま
+    // になるため、最初の操作の前に必ず待つ。
+    await page.reload();
+    await waitForHydration(page);
   });
 
   test.describe('1. ページアクセステスト', () => {
@@ -34,10 +68,10 @@ test.describe('JSON Formatter - E2E Tests', () => {
       await expect(page.locator('text=JSON の整形・圧縮・検証ができます')).toBeVisible();
 
       // 主要な要素が存在することを確認
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await expect(inputField).toBeVisible();
 
-      const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
+      const outputField = page.getByPlaceholder('整形・圧縮された結果がここに表示されます...');
       await expect(outputField).toBeVisible();
 
       // ボタンの存在確認
@@ -48,7 +82,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
 
   test.describe('2. 整形機能テスト', () => {
     test('should format valid JSON object', async ({ page }) => {
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await expect(inputField).toBeVisible();
       await inputField.fill(VALID_JSON_OBJECT);
 
@@ -60,7 +94,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
       await expect(page.locator('text=整形が完了しました')).toBeVisible({ timeout: 10000 });
 
       // 出力フィールドに整形された結果が表示されることを確認
-      const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
+      const outputField = page.getByPlaceholder('整形・圧縮された結果がここに表示されます...');
       await expect(outputField).toBeVisible();
 
       const outputValue = await outputField.inputValue();
@@ -76,7 +110,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
     });
 
     test('should format valid JSON array', async ({ page }) => {
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await inputField.fill(VALID_JSON_ARRAY);
 
       const formatButton = page.getByRole('button', { name: 'JSON を整形する' });
@@ -84,7 +118,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
 
       await expect(page.locator('text=整形が完了しました')).toBeVisible({ timeout: 10000 });
 
-      const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
+      const outputField = page.getByPlaceholder('整形・圧縮された結果がここに表示されます...');
       const outputValue = await outputField.inputValue();
 
       // 配列要素が含まれることを確認
@@ -96,7 +130,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
     });
 
     test('should format nested JSON structure', async ({ page }) => {
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await inputField.fill(VALID_JSON_NESTED);
 
       const formatButton = page.getByRole('button', { name: 'JSON を整形する' });
@@ -104,7 +138,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
 
       await expect(page.locator('text=整形が完了しました')).toBeVisible({ timeout: 10000 });
 
-      const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
+      const outputField = page.getByPlaceholder('整形・圧縮された結果がここに表示されます...');
       const outputValue = await outputField.inputValue();
 
       // ネストされた構造が含まれることを確認
@@ -127,7 +161,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
   "city": "Tokyo"
 }`;
 
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await inputField.fill(formattedJson);
 
       const minifyButton = page.getByRole('button', { name: 'JSON を圧縮する' });
@@ -138,7 +172,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
       await expect(page.locator('text=圧縮が完了しました')).toBeVisible({ timeout: 10000 });
 
       // 出力フィールドに圧縮された結果が表示されることを確認
-      const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
+      const outputField = page.getByPlaceholder('整形・圧縮された結果がここに表示されます...');
       const outputValue = await outputField.inputValue();
 
       // 1行に圧縮されていることを確認（改行なし）
@@ -164,7 +198,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
   ]
 }`;
 
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await inputField.fill(formattedNestedJson);
 
       const minifyButton = page.getByRole('button', { name: 'JSON を圧縮する' });
@@ -172,7 +206,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
 
       await expect(page.locator('text=圧縮が完了しました')).toBeVisible({ timeout: 10000 });
 
-      const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
+      const outputField = page.getByPlaceholder('整形・圧縮された結果がここに表示されます...');
       const outputValue = await outputField.inputValue();
 
       // 1行に圧縮されていることを確認
@@ -187,51 +221,44 @@ test.describe('JSON Formatter - E2E Tests', () => {
 
   test.describe('4. エラーハンドリングテスト', () => {
     test('should show error for invalid JSON (missing quotes)', async ({ page }) => {
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await inputField.fill(INVALID_JSON_MISSING_QUOTE);
 
       const formatButton = page.getByRole('button', { name: 'JSON を整形する' });
       await formatButton.click();
 
-      // エラーメッセージが表示されることを確認
-      await page.waitForTimeout(2000);
-      const errorIndicator = page
-        .locator('[role="alert"]')
-        .or(page.locator('text=/JSON|無効|エラー|失敗/'));
-      const count = await errorIndicator.count();
-      expect(count).toBeGreaterThan(0);
+      // エラーメッセージが表示されることを確認する。
+      // `lib/parsers/jsonParser.ts` の ERROR_MESSAGES.INVALID_JSON は
+      // JSON.parse に失敗した場合に一意に返る文言であり、決定的に assert できる
+      // （以前は `[role="alert"]` と汎用テキスト正規表現を `.or()` で束ね、
+      // 件数が 1 件以上あることしか見ておらず、何が表示されたかを検証していなかった）。
+      await expect(page.getByRole('alert').getByText('JSONとして正しくない形式です。')).toBeVisible(
+        { timeout: 10000 }
+      );
     });
 
     test('should show error for invalid JSON (trailing comma)', async ({ page }) => {
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await inputField.fill(INVALID_JSON_TRAILING_COMMA);
 
       const formatButton = page.getByRole('button', { name: 'JSON を整形する' });
       await formatButton.click();
 
-      // エラーメッセージが表示されることを確認
-      await page.waitForTimeout(2000);
-      const errorIndicator = page
-        .locator('[role="alert"]')
-        .or(page.locator('text=/JSON|無効|エラー|失敗/'));
-      const count = await errorIndicator.count();
-      expect(count).toBeGreaterThan(0);
+      await expect(page.getByRole('alert').getByText('JSONとして正しくない形式です。')).toBeVisible(
+        { timeout: 10000 }
+      );
     });
 
     test('should show error for invalid JSON (single quotes)', async ({ page }) => {
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await inputField.fill(INVALID_JSON_SINGLE_QUOTES);
 
       const minifyButton = page.getByRole('button', { name: 'JSON を圧縮する' });
       await minifyButton.click();
 
-      // エラーメッセージが表示されることを確認
-      await page.waitForTimeout(2000);
-      const errorIndicator = page
-        .locator('[role="alert"]')
-        .or(page.locator('text=/JSON|無効|エラー|失敗/'));
-      const count = await errorIndicator.count();
-      expect(count).toBeGreaterThan(0);
+      await expect(page.getByRole('alert').getByText('JSONとして正しくない形式です。')).toBeVisible(
+        { timeout: 10000 }
+      );
     });
 
     test('should disable format and minify buttons for empty input', async ({ page }) => {
@@ -247,7 +274,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
   test.describe('5. クリアボタンテスト', () => {
     test('should clear both input and output', async ({ page }) => {
       // まず入力して整形
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await inputField.fill(VALID_JSON_OBJECT);
 
       const formatButton = page.getByRole('button', { name: 'JSON を整形する' });
@@ -256,7 +283,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
       await expect(page.locator('text=整形が完了しました')).toBeVisible({ timeout: 10000 });
 
       // 出力が生成されることを確認
-      const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
+      const outputField = page.getByPlaceholder('整形・圧縮された結果がここに表示されます...');
       const outputBefore = await outputField.inputValue();
       expect(outputBefore).toBeTruthy();
 
@@ -279,7 +306,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
     });
 
     test('should enable clear button when input exists', async ({ page }) => {
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await inputField.fill(VALID_JSON_OBJECT);
 
       const clearButton = page.getByRole('button', { name: '入力と出力をクリアする' });
@@ -289,8 +316,15 @@ test.describe('JSON Formatter - E2E Tests', () => {
 
   test.describe('6. クリップボードテスト', () => {
     test('should read JSON from clipboard', async ({ page, context, browserName }) => {
-      // クリップボード機能は Chromium のみサポート
-      test.skip(browserName !== 'chromium', 'Clipboard API is only tested on Chromium');
+      // クリップボード権限の付与（context.grantPermissions(['clipboard-read', 'clipboard-write'])）は
+      // Chromium 系ブラウザしかサポートしておらず、Playwright は非対応ブラウザに対してこの呼び出し自体を
+      // エラーにする。これはブラウザが機能を持たない静的な制約であり、
+      // docs/development/testing.md の「E2Eテストにおけるブラウザ固有の制約」節が許容するパターンに該当する
+      // ため、browserName による静的スキップとして残す。
+      test.skip(
+        browserName !== 'chromium',
+        'clipboard-read/write の grantPermissions は Chromium のみ対応'
+      );
 
       await context.grantPermissions(['clipboard-read', 'clipboard-write']);
       await page.waitForLoadState('networkidle');
@@ -300,7 +334,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
         return navigator.clipboard.writeText(json);
       }, VALID_JSON_OBJECT);
 
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await expect(inputField).toHaveValue('');
 
       const readButton = page.getByRole('button', { name: /クリップボードから JSON を読み取る/ });
@@ -314,13 +348,20 @@ test.describe('JSON Formatter - E2E Tests', () => {
     });
 
     test('should copy formatted JSON to clipboard', async ({ page, context, browserName }) => {
-      // クリップボード機能は Chromium のみサポート
-      test.skip(browserName !== 'chromium', 'Clipboard API is only tested on Chromium');
+      // クリップボード権限の付与（context.grantPermissions(['clipboard-read', 'clipboard-write'])）は
+      // Chromium 系ブラウザしかサポートしておらず、Playwright は非対応ブラウザに対してこの呼び出し自体を
+      // エラーにする。これはブラウザが機能を持たない静的な制約であり、
+      // docs/development/testing.md の「E2Eテストにおけるブラウザ固有の制約」節が許容するパターンに該当する
+      // ため、browserName による静的スキップとして残す。
+      test.skip(
+        browserName !== 'chromium',
+        'clipboard-read/write の grantPermissions は Chromium のみ対応'
+      );
 
       await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 
       // JSON を入力して整形
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await inputField.fill(VALID_JSON_OBJECT);
 
       const formatButton = page.getByRole('button', { name: 'JSON を整形する' });
@@ -347,8 +388,15 @@ test.describe('JSON Formatter - E2E Tests', () => {
     });
 
     test('should copy minified JSON to clipboard', async ({ page, context, browserName }) => {
-      // クリップボード機能は Chromium のみサポート
-      test.skip(browserName !== 'chromium', 'Clipboard API is only tested on Chromium');
+      // クリップボード権限の付与（context.grantPermissions(['clipboard-read', 'clipboard-write'])）は
+      // Chromium 系ブラウザしかサポートしておらず、Playwright は非対応ブラウザに対してこの呼び出し自体を
+      // エラーにする。これはブラウザが機能を持たない静的な制約であり、
+      // docs/development/testing.md の「E2Eテストにおけるブラウザ固有の制約」節が許容するパターンに該当する
+      // ため、browserName による静的スキップとして残す。
+      test.skip(
+        browserName !== 'chromium',
+        'clipboard-read/write の grantPermissions は Chromium のみ対応'
+      );
 
       await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 
@@ -357,7 +405,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
   "name": "John",
   "age": 30
 }`;
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder('JSON を入力してください...');
       await inputField.fill(formattedJson);
 
       const minifyButton = page.getByRole('button', { name: 'JSON を圧縮する' });

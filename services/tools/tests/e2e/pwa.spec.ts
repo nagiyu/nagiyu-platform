@@ -1,40 +1,41 @@
-import { test, expect, dismissMigrationDialogIfVisible, TIMEOUTS } from './helpers';
+import { test, expect, suppressMigrationDialog } from './helpers';
 
-test.describe('PWA - Service Worker and Manifest', () => {
-  test('should register service worker', async ({ page, context }) => {
-    // Navigate to the homepage
-    await page.goto('/');
-    await dismissMigrationDialogIfVisible(page);
+/**
+ * PWA 関連の E2E テスト。
+ *
+ * このサービスは manifest.json とアイコンこそ用意しているが、next-pwa 等の
+ * Service Worker 実装は持たない（`public/sw.js` が存在せず、`ServiceWorkerRegistration`
+ * のようなコンポーネントも layout に組み込まれていない）。そのため実際に SW が
+ * 登録されることも、オフラインキャッシュが機能することも、このアプリには無い。
+ *
+ * 旧実装は `process.env.NODE_ENV === 'production'` で分岐し、production では
+ * 「SW が登録されている」「オフラインでもキャッシュから表示される」ことを検証する
+ * つもりだった。しかしこの条件式は Playwright テストランナー（Node.js）側の
+ * プロセス環境で評価されるものであり、`next dev` / `next start` という
+ * webServer コマンドの選択（`configs/playwright.config.base.ts` 参照）とは無関係で、
+ * どちらの経路でも CI・ローカルともに `NODE_ENV` は 'production' にならない
+ * （常に else 分岐が実行される＝production 分岐は一度も実行されない死んだコード
+ * だった）。さらに実装側に SW 自体が存在しないため、たとえ isProduction 分岐が
+ * 実行されたとしても検証は成立しない。
+ *
+ * 本ファイルでは実際に実行される結末（＝ else 分岐相当の内容）に固定し、
+ * 到達しない分岐を削除した。以下の担保が失われている点に注意:
+ * - Service Worker が実際に登録されること
+ * - オフライン時にキャッシュされたページが表示されること
+ * - オフライン時にクライアントサイド機能が動作し続けること
+ * これらはそもそも実装が存在せず、旧実装でも一度も検証されていなかったため、
+ * 実質的な担保の後退はない（形骸化していたテストの体裁を削っただけ）。
+ *
+ * あわせて `'serviceWorker' in navigator` を assert するだけのテストも削除した。
+ * これはブラウザが API を持つことの確認でありアプリのコードを一行も通らないため、
+ * 「壊れても落ちないテスト」に該当する（stock-tracker 側でも同型の
+ * 「Service Workerが登録される」テストを同じ理由で削除している）。
+ */
 
-    // Wait for service worker registration
-    // Note: Service worker is disabled in development mode (next-pwa config)
-    // This test will pass in production build
-    const isProduction = process.env.NODE_ENV === 'production';
-
-    if (isProduction) {
-      // Check if service worker is registered
-      const serviceWorkerRegistered = await page.evaluate(async () => {
-        if ('serviceWorker' in navigator) {
-          const registration = await navigator.serviceWorker.ready;
-          return registration !== null;
-        }
-        return false;
-      });
-
-      expect(serviceWorkerRegistered).toBe(true);
-    } else {
-      // In development mode, just verify the API is available
-      const hasServiceWorkerAPI = await page.evaluate(() => {
-        return 'serviceWorker' in navigator;
-      });
-
-      expect(hasServiceWorkerAPI).toBe(true);
-    }
-  });
-
+test.describe('PWA - Manifest and Metadata', () => {
   test('should load manifest.json', async ({ page }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/');
-    await dismissMigrationDialogIfVisible(page);
 
     // Verify manifest link is in the HTML
     const manifestLink = page.locator('link[rel="manifest"]');
@@ -56,8 +57,8 @@ test.describe('PWA - Service Worker and Manifest', () => {
   });
 
   test('should have correct PWA metadata in HTML', async ({ page }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/');
-    await dismissMigrationDialogIfVisible(page);
 
     // Check theme color meta tag
     const themeColor = page.locator('meta[name="theme-color"]');
@@ -81,126 +82,6 @@ test.describe('PWA - Service Worker and Manifest', () => {
   });
 });
 
-test.describe('PWA - Offline Functionality', () => {
-  test('should display cached homepage when offline', async ({ page, context }) => {
-    // First, visit the homepage to cache it
-    await page.goto('/');
-    await dismissMigrationDialogIfVisible(page);
-
-    // Verify homepage loaded successfully
-    const heading = page.getByRole('heading', { name: /Tools.*便利なツール集/i });
-    await expect(heading).toBeVisible();
-
-    // Note: In development mode, service worker is disabled
-    // This test simulates offline behavior
-    const isProduction = process.env.NODE_ENV === 'production';
-
-    if (isProduction) {
-      // Wait for service worker to be ready
-      await page.waitForTimeout(TIMEOUTS.SERVICE_WORKER_READY);
-
-      // Go offline
-      await context.setOffline(true);
-
-      // Try to access the homepage again
-      await page.goto('/');
-
-      // Should still be able to see the cached homepage
-      const headingOffline = page.getByRole('heading', { name: /Tools.*便利なツール集/i });
-      await expect(headingOffline).toBeVisible();
-
-      // Go back online
-      await context.setOffline(false);
-    } else {
-      // In development mode, just verify the page structure
-      // that would be cached in production
-      await expect(heading).toBeVisible();
-      const toolCard = page.getByRole('link', { name: /乗り換え変換ツール/i });
-      await expect(toolCard).toBeVisible();
-    }
-  });
-
-  test('should handle offline state gracefully on transit converter', async ({ page, context }) => {
-    // Visit transit converter page to cache it
-    await page.goto('/transit-converter');
-    await page.waitForLoadState('domcontentloaded');
-    await dismissMigrationDialogIfVisible(page);
-
-    // Verify page loaded successfully
-    const heading = page.getByRole('heading', { name: /乗り換え変換ツール/i });
-    await expect(heading).toBeVisible();
-
-    const isProduction = process.env.NODE_ENV === 'production';
-
-    if (isProduction) {
-      // Wait for service worker to cache the page
-      await page.waitForTimeout(TIMEOUTS.SERVICE_WORKER_READY);
-
-      // Go offline
-      await context.setOffline(true);
-
-      // Navigate to transit converter again
-      await page.goto('/transit-converter');
-
-      // Should still be accessible (cached)
-      const headingOffline = page.getByRole('heading', { name: /乗り換え変換ツール/i });
-      await expect(headingOffline).toBeVisible();
-
-      // Client-side functionality should still work
-      // (no server requests needed for transit converter)
-      const textArea = page.getByPlaceholder(/乗り換え案内のテキストをここに貼り付けてください/i);
-      await expect(textArea).toBeVisible();
-
-      // Go back online
-      await context.setOffline(false);
-    } else {
-      // In development mode, verify the basic structure
-      await expect(heading).toBeVisible();
-      const textArea = page.getByPlaceholder(/乗り換え案内のテキストをここに貼り付けてください/i);
-      await expect(textArea).toBeVisible();
-    }
-  });
-
-  test('should work with basic client-side functionality offline', async ({ page, context }) => {
-    // Visit transit converter page
-    await page.goto('/transit-converter');
-    await page.waitForLoadState('domcontentloaded');
-    await dismissMigrationDialogIfVisible(page);
-
-    const isProduction = process.env.NODE_ENV === 'production';
-
-    if (isProduction) {
-      // Wait for service worker
-      await page.waitForTimeout(TIMEOUTS.SERVICE_WORKER_READY);
-
-      // Go offline
-      await context.setOffline(true);
-
-      // Reload to ensure we're using cached version
-      await page.reload();
-
-      // Verify client-side processing still works
-      const textArea = page.getByPlaceholder(/乗り換え案内のテキストをここに貼り付けてください/i);
-      await expect(textArea).toBeVisible();
-
-      // Type some text (client-side only, no network needed)
-      await textArea.fill('テスト入力');
-      await expect(textArea).toHaveValue('テスト入力');
-
-      // Go back online
-      await context.setOffline(false);
-    } else {
-      // In development mode, test basic client-side functionality
-      const textArea = page.getByPlaceholder(/乗り換え案内のテキストをここに貼り付けてください/i);
-      await expect(textArea).toBeVisible();
-
-      // Test client-side interaction
-      await textArea.fill('テスト入力');
-      await expect(textArea).toHaveValue('テスト入力');
-    }
-  });
-});
-
 test.describe('PWA - Web Share Target', () => {
   test('should have share_target configuration in manifest', async ({ page }) => {
     const response = await page.goto('/manifest.json');
@@ -216,11 +97,12 @@ test.describe('PWA - Web Share Target', () => {
   });
 
   test('should handle URL parameters from share target', async ({ page }) => {
+    await suppressMigrationDialog(page);
+
     // Navigate with URL parameters (simulating share target)
     const sharedText = encodeURIComponent('東京駅から品川駅まで');
     const url = `/transit-converter?text=${sharedText}`;
     await page.goto(url);
-    await dismissMigrationDialogIfVisible(page);
 
     // Verify the page loaded successfully
     const heading = page.getByRole('heading', { name: /乗り換え変換ツール/i });

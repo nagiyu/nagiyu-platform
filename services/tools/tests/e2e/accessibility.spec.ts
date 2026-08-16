@@ -1,4 +1,19 @@
-import { test, expect, dismissMigrationDialogIfVisible } from './helpers';
+import { test, expect, suppressMigrationDialog, fillTransitInput } from './helpers';
+/**
+ * chromium-mobile プロジェクトは playwright.config.base.ts 側で `serviceWorkers: 'block'` を
+ * 設定済みだが、chromium-desktop / webkit-mobile は未設定という非対称がある。
+ * stock-tracker / niconico-mylist-assistant では実際に Service Worker
+ *（`@nagiyu/ui` の ServiceWorkerRegistration 経由で `/sw.js` を登録）を使っており、
+ * webkit 環境で SW が `page.route` のモックを迂回して非決定性を生むことが実測されている
+ * ため、一律に block している。
+ *
+ * tools サービスは manifest.json で PWA 対応を謳っているが、`layout.tsx` は
+ * ServiceWorkerRegistration を組み込んでおらず `public/sw.js` も存在しないため、
+ * 実際には Service Worker を一切登録しない（後述の pwa.spec.ts のコメント参照）。
+ * したがって本ファイルでの `serviceWorkers: 'block'` は現時点では効果を持たない
+ * （将来 SW 実装が入った際の予防的デフォルト、および他サービスとの記法統一のために付与）。
+ */
+test.use({ serviceWorkers: 'block' });
 
 /**
  * Accessibility Tests for Tools App
@@ -9,8 +24,8 @@ import { test, expect, dismissMigrationDialogIfVisible } from './helpers';
 
 test.describe('Accessibility Tests - Homepage @a11y', () => {
   test('should not have accessibility violations on homepage', async ({ page, makeAxeBuilder }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/');
-    await dismissMigrationDialogIfVisible(page);
 
     // Wait for the page to be fully loaded
     await page.waitForLoadState('networkidle');
@@ -22,8 +37,8 @@ test.describe('Accessibility Tests - Homepage @a11y', () => {
   });
 
   test('should have proper heading hierarchy on homepage', async ({ page }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/');
-    await dismissMigrationDialogIfVisible(page);
 
     // Check for h1 tag
     const h1 = page.locator('h1');
@@ -32,8 +47,8 @@ test.describe('Accessibility Tests - Homepage @a11y', () => {
   });
 
   test('should have accessible tool cards', async ({ page }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/');
-    await dismissMigrationDialogIfVisible(page);
 
     // Tool cards should be links with accessible names
     const toolCard = page.getByRole('link', { name: /乗り換え変換ツール/i });
@@ -46,8 +61,8 @@ test.describe('Accessibility Tests - Homepage @a11y', () => {
 
 test.describe('Accessibility Tests - Transit Converter @a11y', () => {
   test.beforeEach(async ({ page }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/transit-converter');
-    await dismissMigrationDialogIfVisible(page);
   });
 
   test('should not have accessibility violations in initial state', async ({
@@ -62,7 +77,7 @@ test.describe('Accessibility Tests - Transit Converter @a11y', () => {
   });
 
   test('should not have accessibility violations after input', async ({ page, makeAxeBuilder }) => {
-    const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+    const inputField = page.getByPlaceholder('乗り換え案内のテキストをここに貼り付けてください...');
     await inputField.fill('渋谷 ⇒ 新宿\n2025年1月15日(月)\n09:00 ⇒ 09:15');
 
     const accessibilityScanResults = await makeAxeBuilder().analyze();
@@ -96,10 +111,8 @@ test.describe('Accessibility Tests - Transit Converter @a11y', () => {
 ↓ 3番線発 → 15番線着
 ■新宿`;
 
-    const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
-    await inputField.fill(validInput);
-
-    const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
+    const inputField = page.getByPlaceholder('乗り換え案内のテキストをここに貼り付けてください...');
+    const convertButton = await fillTransitInput(page, inputField, validInput);
     const copyButton = page.getByRole('button', { name: '変換結果をクリップボードにコピーする' });
     await convertButton.click();
 
@@ -118,10 +131,8 @@ test.describe('Accessibility Tests - Transit Converter @a11y', () => {
     page,
     makeAxeBuilder,
   }) => {
-    const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
-    await inputField.fill('Invalid transit text');
-
-    const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
+    const inputField = page.getByPlaceholder('乗り換え案内のテキストをここに貼り付けてください...');
+    const convertButton = await fillTransitInput(page, inputField, 'Invalid transit text');
     await convertButton.click();
 
     // Wait for error to appear
@@ -189,8 +200,8 @@ test.describe('Accessibility Tests - Offline Page @a11y', () => {
 
 test.describe('Accessibility Tests - Common Components @a11y', () => {
   test('should have accessible header navigation', async ({ page }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/');
-    await dismissMigrationDialogIfVisible(page);
 
     // Header should be a landmark
     const header = page.locator('header');
@@ -203,8 +214,8 @@ test.describe('Accessibility Tests - Common Components @a11y', () => {
   });
 
   test('should have accessible footer', async ({ page }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/');
-    await dismissMigrationDialogIfVisible(page);
 
     // Footer should be a landmark
     const footer = page.locator('footer');
@@ -218,8 +229,8 @@ test.describe('Accessibility Tests - Common Components @a11y', () => {
 
 test.describe('Accessibility Tests - WCAG 2.1 Specific Checks @a11y', () => {
   test('should pass WCAG 2.1 Level A checks on homepage', async ({ page, makeAxeBuilder }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/');
-    await dismissMigrationDialogIfVisible(page);
     await page.waitForLoadState('networkidle');
 
     const accessibilityScanResults = await makeAxeBuilder()
@@ -230,8 +241,8 @@ test.describe('Accessibility Tests - WCAG 2.1 Specific Checks @a11y', () => {
   });
 
   test('should pass WCAG 2.1 Level AA checks on homepage', async ({ page, makeAxeBuilder }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/');
-    await dismissMigrationDialogIfVisible(page);
     await page.waitForLoadState('networkidle');
 
     const accessibilityScanResults = await makeAxeBuilder()
@@ -245,8 +256,8 @@ test.describe('Accessibility Tests - WCAG 2.1 Specific Checks @a11y', () => {
     page,
     makeAxeBuilder,
   }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/transit-converter');
-    await dismissMigrationDialogIfVisible(page);
     await page.waitForLoadState('networkidle');
 
     const accessibilityScanResults = await makeAxeBuilder()
@@ -260,8 +271,8 @@ test.describe('Accessibility Tests - WCAG 2.1 Specific Checks @a11y', () => {
     page,
     makeAxeBuilder,
   }) => {
+    await suppressMigrationDialog(page);
     await page.goto('/transit-converter');
-    await dismissMigrationDialogIfVisible(page);
     await page.waitForLoadState('networkidle');
 
     const accessibilityScanResults = await makeAxeBuilder()

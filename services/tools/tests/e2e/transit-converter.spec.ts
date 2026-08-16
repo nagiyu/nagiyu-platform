@@ -1,5 +1,20 @@
-import { test, expect, dismissMigrationDialogIfVisible } from './helpers';
-import { Page } from '@playwright/test';
+import { test, expect, suppressMigrationDialog, fillTransitInput } from './helpers';
+
+/**
+ * chromium-mobile プロジェクトは playwright.config.base.ts 側で `serviceWorkers: 'block'` を
+ * 設定済みだが、chromium-desktop / webkit-mobile は未設定という非対称がある。
+ * stock-tracker / niconico-mylist-assistant では実際に Service Worker
+ *（`@nagiyu/ui` の ServiceWorkerRegistration 経由で `/sw.js` を登録）を使っており、
+ * webkit 環境で SW が `page.route` のモックを迂回して非決定性を生むことが実測されている
+ * ため、一律に block している。
+ *
+ * tools サービスは manifest.json で PWA 対応を謳っているが、`layout.tsx` は
+ * ServiceWorkerRegistration を組み込んでおらず `public/sw.js` も存在しないため、
+ * 実際には Service Worker を一切登録しない（pwa.spec.ts のコメント参照）。
+ * したがって本ファイルでの `serviceWorkers: 'block'` は現時点では効果を持たない
+ * （将来 SW 実装が入った際の予防的デフォルト、および他サービスとの記法統一のために付与）。
+ */
+test.use({ serviceWorkers: 'block' });
 
 // テストデータ: 実際の乗り換え案内フォーマット
 const VALID_TRANSIT_TEXT = `渋谷 ⇒ 新宿
@@ -42,17 +57,15 @@ const VALID_TRANSIT_TEXT_WITH_TRANSFER = `東京 ⇒ 横浜
 const INVALID_TRANSIT_TEXT = `これは乗り換え案内ではありません
 ただのテキストです`;
 
-const EMPTY_INPUT = '';
-
 test.describe('Transit Converter - E2E Tests', () => {
   test.beforeEach(async ({ page }) => {
+    // MigrationDialog が表示されない状態を確定させてからページへ移動する
+    await suppressMigrationDialog(page);
+
     // 各テスト前にLocalStorageをクリア
     await page.goto('/transit-converter');
     await page.evaluate(() => localStorage.clear());
     await page.reload();
-
-    // MigrationDialogが表示される場合は閉じる
-    await dismissMigrationDialogIfVisible(page);
   });
 
   test.describe('1. 基本フロー（入力→変換→コピー）', () => {
@@ -68,12 +81,11 @@ test.describe('Transit Converter - E2E Tests', () => {
 
       // ページの全textareaを取得し、最初の空のものが入力フィールド
       // Material UIでは、label配下にtextareaがあるので、「入力」セクションの下のtextareaを探す
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder(
+        '乗り換え案内のテキストをここに貼り付けてください...'
+      );
       await expect(inputField).toBeVisible();
-      await inputField.fill(VALID_TRANSIT_TEXT);
-
-      // 変換ボタンをクリック
-      const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
+      const convertButton = await fillTransitInput(page, inputField, VALID_TRANSIT_TEXT);
       await expect(convertButton).toBeEnabled();
       await convertButton.click();
 
@@ -81,7 +93,7 @@ test.describe('Transit Converter - E2E Tests', () => {
       await expect(page.locator('text=変換が完了しました')).toBeVisible({ timeout: 10000 });
 
       // 出力フィールド - 「出力」セクションの下のtextarea
-      const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
+      const outputField = page.getByPlaceholder('変換された結果がここに表示されます...');
       await expect(outputField).toBeVisible();
 
       // 出力フィールドに値が入っていることを確認
@@ -113,15 +125,19 @@ test.describe('Transit Converter - E2E Tests', () => {
         await context.grantPermissions(['clipboard-read', 'clipboard-write']);
       }
 
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
-      await inputField.fill(VALID_TRANSIT_TEXT_WITH_TRANSFER);
-
-      const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
+      const inputField = page.getByPlaceholder(
+        '乗り換え案内のテキストをここに貼り付けてください...'
+      );
+      const convertButton = await fillTransitInput(
+        page,
+        inputField,
+        VALID_TRANSIT_TEXT_WITH_TRANSFER
+      );
       await convertButton.click();
 
       await expect(page.locator('text=変換が完了しました')).toBeVisible({ timeout: 10000 });
 
-      const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
+      const outputField = page.getByPlaceholder('変換された結果がここに表示されます...');
       const outputValue = await outputField.inputValue();
 
       // 乗り換え情報が含まれていることを確認
@@ -133,9 +149,21 @@ test.describe('Transit Converter - E2E Tests', () => {
   });
 
   test.describe('2. クリップボード読み取り機能', () => {
-    // TODO: These tests are failing in CI environment due to clipboard API limitations
-    // The clipboard functionality works correctly in the application but is difficult to test in headless mode
-    test.skip('should read text from clipboard', async ({ page, context }) => {
+    /**
+     * 以前は「CI環境のクリップボード制約」を理由に無条件 test.skip されていたが、
+     * 実際の原因はロケータのバグだった: `getByRole('button', { name: /クリップボードから読み取り/ })`
+     * は、ボタンの アクセシブルネーム（aria-label="クリップボードから乗り換え案内テキストを読み取る"）
+     * ではなく可視テキスト（「クリップボードから読み取り」）にマッチさせようとしていたが、
+     * 可視テキストは aria-label に上書きされるため一致せず、要素が見つからずタイムアウトしていた。
+     * aria-label をそのまま指定するよう修正したところ、json-formatter.spec.ts と同じ手法
+     * （Chromium のみ context.grantPermissions を使う）で決定的に動作することを確認できたため復活させる。
+     */
+    test('should read text from clipboard', async ({ page, context, browserName }) => {
+      test.skip(
+        browserName !== 'chromium',
+        'clipboard-read/write の grantPermissions は Chromium のみ対応'
+      );
+
       await context.grantPermissions(['clipboard-read', 'clipboard-write']);
       await page.waitForLoadState('networkidle');
 
@@ -143,23 +171,45 @@ test.describe('Transit Converter - E2E Tests', () => {
         return navigator.clipboard.writeText(text);
       }, VALID_TRANSIT_TEXT);
 
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
+      const inputField = page.getByPlaceholder(
+        '乗り換え案内のテキストをここに貼り付けてください...'
+      );
       await expect(inputField).toHaveValue('');
 
-      const readButton = page.getByRole('button', { name: /クリップボードから読み取り/ });
+      const readButton = page.getByRole('button', {
+        name: 'クリップボードから乗り換え案内テキストを読み取る',
+      });
       await readButton.click();
 
       await expect(inputField).toHaveValue(VALID_TRANSIT_TEXT, { timeout: 15000 });
     });
 
-    test.skip('should handle clipboard permission error gracefully', async ({ page }) => {
+    /**
+     * grantPermissions を呼ばない場合、Chromium では navigator.clipboard.readText() が
+     * 権限エラーで失敗し、`@nagiyu/browser` の readFromClipboard が固定文言
+     * 「クリップボードの読み取りに失敗しました。手動で貼り付けてください。」に正規化して
+     * 例外を投げることを実測で確認した。この文言を Snackbar で assert することで、
+     * 「権限エラー時にアプリがクラッシュせず適切なエラー表示をする」ことを決定的に検証できる。
+     */
+    test('should handle clipboard permission error gracefully', async ({ page, browserName }) => {
+      test.skip(
+        browserName !== 'chromium',
+        'clipboard 権限拒否時の挙動は Chromium でのみ決定的に再現する'
+      );
+
       await page.waitForLoadState('networkidle');
 
-      const readButton = page.getByRole('button', { name: /クリップボードから読み取り/ });
+      const readButton = page.getByRole('button', {
+        name: 'クリップボードから乗り換え案内テキストを読み取る',
+      });
       await expect(readButton).toBeVisible();
       await readButton.click();
 
-      await page.waitForTimeout(2000);
+      await expect(
+        page.locator('text=クリップボードの読み取りに失敗しました。手動で貼り付けてください。')
+      ).toBeVisible({ timeout: 10000 });
+
+      // エラー後もページが機能し続けることを確認
       const heading = page.locator('h1, h4').filter({ hasText: /乗り換え変換/ });
       await expect(heading).toBeVisible();
 
@@ -173,11 +223,12 @@ test.describe('Transit Converter - E2E Tests', () => {
       const encodedUrl = encodeURIComponent('https://example.com/transit?data=test');
       await page.goto(`/transit-converter?url=${encodedUrl}`);
 
-      // 入力欄に自動挿入されることを確認
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
-      await page.waitForTimeout(1000); // useEffect実行を待つ
-      const inputValue = await inputField.inputValue();
-      expect(inputValue).toBe('https://example.com/transit?data=test');
+      // 入力欄に自動挿入されることを確認（固定 waitForTimeout ではなく、値が入るまで
+      // 自動リトライする toHaveValue で待つ）
+      const inputField = page.getByPlaceholder(
+        '乗り換え案内のテキストをここに貼り付けてください...'
+      );
+      await expect(inputField).toHaveValue('https://example.com/transit?data=test');
 
       // 通知が表示されることを確認
       await expect(page.locator('text=共有されたデータを読み込みました')).toBeVisible({
@@ -185,9 +236,8 @@ test.describe('Transit Converter - E2E Tests', () => {
       });
 
       // URLパラメータがクリーンアップされることを確認
-      await page.waitForTimeout(500);
+      await expect.poll(() => page.url()).not.toContain('?url=');
       expect(page.url()).toContain('/transit-converter');
-      expect(page.url()).not.toContain('?url=');
     });
 
     test('should auto-fill from ?text parameter', async ({ page }) => {
@@ -196,10 +246,10 @@ test.describe('Transit Converter - E2E Tests', () => {
       await page.goto(`/transit-converter?text=${encodedText}`);
 
       // 入力欄に自動挿入されることを確認
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
-      await page.waitForTimeout(1000);
-      const inputValue = await inputField.inputValue();
-      expect(inputValue).toBe(testText);
+      const inputField = page.getByPlaceholder(
+        '乗り換え案内のテキストをここに貼り付けてください...'
+      );
+      await expect(inputField).toHaveValue(testText);
 
       // 通知が表示されることを確認
       await expect(page.locator('text=共有されたデータを読み込みました')).toBeVisible({
@@ -207,9 +257,8 @@ test.describe('Transit Converter - E2E Tests', () => {
       });
 
       // URLパラメータがクリーンアップされることを確認
-      await page.waitForTimeout(500);
+      await expect.poll(() => page.url()).not.toContain('?text=');
       expect(page.url()).toContain('/transit-converter');
-      expect(page.url()).not.toContain('?text=');
     });
 
     test('should prioritize ?url over ?text', async ({ page }) => {
@@ -219,12 +268,12 @@ test.describe('Transit Converter - E2E Tests', () => {
         `/transit-converter?url=${encodeURIComponent(testUrl)}&text=${encodeURIComponent(testText)}`
       );
 
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
-      await page.waitForTimeout(1000);
-      const inputValue = await inputField.inputValue();
+      const inputField = page.getByPlaceholder(
+        '乗り換え案内のテキストをここに貼り付けてください...'
+      );
 
       // URLが優先されることを確認
-      expect(inputValue).toBe(testUrl);
+      await expect(inputField).toHaveValue(testUrl);
     });
   });
 
@@ -235,38 +284,36 @@ test.describe('Transit Converter - E2E Tests', () => {
       }
 
       // まず変換を実行して出力を生成
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
-      await inputField.fill(VALID_TRANSIT_TEXT_WITH_TRANSFER);
-
-      const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
+      const inputField = page.getByPlaceholder(
+        '乗り換え案内のテキストをここに貼り付けてください...'
+      );
+      const convertButton = await fillTransitInput(
+        page,
+        inputField,
+        VALID_TRANSIT_TEXT_WITH_TRANSFER
+      );
       await convertButton.click();
 
       await expect(page.locator('text=変換が完了しました')).toBeVisible({ timeout: 10000 });
 
       // 初期状態の出力を取得
-      const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
+      const outputField = page.getByPlaceholder('変換された結果がここに表示されます...');
       const initialOutput = await outputField.inputValue();
       expect(initialOutput).toBeTruthy();
 
-      // チェックボックスを見つけて操作
       // 表示設定セクションを開く
       const settingsButton = page.getByRole('button', { name: /表示設定/ });
       await settingsButton.click();
-      await page.waitForTimeout(500);
 
-      // 設定を変更 (例: 距離を表示)
-      const checkboxes = await page.locator('input[type="checkbox"]').all();
-      if (checkboxes.length > 0) {
-        // 最初のチェックボックスの状態を切り替え
-        const firstCheckbox = checkboxes[0];
-        const isChecked = await firstCheckbox.isChecked();
-        await firstCheckbox.click();
-        await page.waitForTimeout(500);
-
-        // 状態が変わったことを確認
-        const newState = await firstCheckbox.isChecked();
-        expect(newState).toBe(!isChecked);
-      }
+      // 「日付を表示」チェックボックスの状態を切り替える。
+      // DisplaySettingsSection.tsx は常に11個のチェックボックスを固定でレンダリングするため
+      // （`input[type="checkbox"]` の有無を実行時に判定する必要はない）、
+      // 名前付きロケータで一意に指定できる。
+      const dateCheckbox = page.getByRole('checkbox', { name: '日付を表示' });
+      await expect(dateCheckbox).toBeVisible();
+      const wasChecked = await dateCheckbox.isChecked();
+      await dateCheckbox.click();
+      await expect(dateCheckbox).toBeChecked({ checked: !wasChecked });
 
       // ページをリロード
       await page.reload();
@@ -279,6 +326,13 @@ test.describe('Transit Converter - E2E Tests', () => {
       });
 
       expect(storedSettings).toBeTruthy();
+      expect(storedSettings.showDate).toBe(!wasChecked);
+
+      // リロード後もUI上のチェック状態が復元されていることを確認
+      const settingsButtonAfterReload = page.getByRole('button', { name: /表示設定/ });
+      await settingsButtonAfterReload.click();
+      const dateCheckboxAfterReload = page.getByRole('checkbox', { name: '日付を表示' });
+      await expect(dateCheckboxAfterReload).toBeChecked({ checked: !wasChecked });
     });
 
     test('should work in private mode (localStorage unavailable)', async ({ page }) => {
@@ -307,18 +361,25 @@ test.describe('Transit Converter - E2E Tests', () => {
 
       await page.goto('/transit-converter');
 
-      // LocalStorageエラーによりMigrationDialogが表示されるので閉じる
-      await dismissMigrationDialogIfVisible(page);
+      // localStorage.getItem が例外を投げるため、MigrationDialog の useEffect は
+      // catch 節で setOpen(true) を呼び、ダイアログは必ず表示される
+      // （安全側に倒す実装。src/components/dialogs/MigrationDialog.tsx 参照）。
+      // このシナリオでは suppressMigrationDialog も同じ localStorage 経由のため無効であり、
+      // 「必ず表示される」という単一の結末を明示的に待って閉じる。
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toBeVisible({ timeout: 10000 });
+      await page.getByRole('button', { name: '閉じる' }).click();
+      await expect(dialog).not.toBeVisible();
 
       // ページが正常にロードされることを確認（エラーが発生しない）
       const heading = page.locator('h1, h4').filter({ hasText: /乗り換え変換/ });
       await expect(heading).toBeVisible();
 
       // 基本機能が動作することを確認
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
-      await inputField.fill(VALID_TRANSIT_TEXT);
-
-      const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
+      const inputField = page.getByPlaceholder(
+        '乗り換え案内のテキストをここに貼り付けてください...'
+      );
+      const convertButton = await fillTransitInput(page, inputField, VALID_TRANSIT_TEXT);
       await convertButton.click();
 
       // 変換が成功することを確認
@@ -328,20 +389,19 @@ test.describe('Transit Converter - E2E Tests', () => {
 
   test.describe('5. エラーハンドリング', () => {
     test('should show error for invalid input format', async ({ page }) => {
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
-      await inputField.fill(INVALID_TRANSIT_TEXT);
-
-      const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
+      const inputField = page.getByPlaceholder(
+        '乗り換え案内のテキストをここに貼り付けてください...'
+      );
+      const convertButton = await fillTransitInput(page, inputField, INVALID_TRANSIT_TEXT);
       await convertButton.click();
 
-      // エラーメッセージが表示されることを確認
-      await page.waitForTimeout(2000);
-      // Snackbarまたはエラーテキストが表示されることを確認
-      const errorIndicator = page
-        .locator('[role="alert"]')
-        .or(page.locator('text=/解析できませんでした|正しく解析/'));
-      const count = await errorIndicator.count();
-      expect(count).toBeGreaterThan(0);
+      // `lib/parsers/transitParser.ts` の ERROR_MESSAGES.INVALID_FORMAT は、入力に「⇒」が
+      // 含まれない場合に一意に返る文言であり、決定的に assert できる
+      // （以前は `[role="alert"]` と汎用テキスト正規表現を `.or()` で束ね、件数が1件以上あることしか
+      // 見ておらず、何が表示されたかを検証していなかった）。
+      await expect(
+        page.getByRole('alert').getByText('乗り換え案内のテキストを正しく解析できませんでした。')
+      ).toBeVisible({ timeout: 10000 });
     });
 
     test('should show error for empty input', async ({ page }) => {
@@ -355,19 +415,20 @@ test.describe('Transit Converter - E2E Tests', () => {
       // ⇒は含むが、他のフォーマットが不正なテキスト
       const partiallyValidText = '渋谷 ⇒ 新宿\n不正なフォーマット';
 
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
-      await inputField.fill(partiallyValidText);
-
-      const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
+      const inputField = page.getByPlaceholder(
+        '乗り換え案内のテキストをここに貼り付けてください...'
+      );
+      const convertButton = await fillTransitInput(page, inputField, partiallyValidText);
       await convertButton.click();
 
-      // エラーメッセージが表示されることを確認
-      await page.waitForTimeout(2000);
-      const errorIndicator = page
-        .locator('[role="alert"]')
-        .or(page.locator('text=/解析できませんでした|正しく解析/'));
-      const count = await errorIndicator.count();
-      expect(count).toBeGreaterThan(0);
+      // `app/transit-converter/page.tsx` の handleConvert は、parseTransitText が null を
+      // 返した場合に固定文言「テキストを解析できませんでした。乗り換え案内のテキストを確認してください。」
+      // を表示する。この文言を決定的に assert する。
+      await expect(
+        page
+          .getByRole('alert')
+          .getByText('テキストを解析できませんでした。乗り換え案内のテキストを確認してください。')
+      ).toBeVisible({ timeout: 10000 });
     });
   });
 
@@ -378,16 +439,16 @@ test.describe('Transit Converter - E2E Tests', () => {
       }
 
       // まず入力して変換
-      const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
-      await inputField.fill(VALID_TRANSIT_TEXT);
-
-      const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
+      const inputField = page.getByPlaceholder(
+        '乗り換え案内のテキストをここに貼り付けてください...'
+      );
+      const convertButton = await fillTransitInput(page, inputField, VALID_TRANSIT_TEXT);
       await convertButton.click();
 
       await expect(page.locator('text=変換が完了しました')).toBeVisible({ timeout: 10000 });
 
       // 出力が生成されることを確認
-      const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
+      const outputField = page.getByPlaceholder('変換された結果がここに表示されます...');
       const outputBefore = await outputField.inputValue();
       expect(outputBefore).toBeTruthy();
 
@@ -411,9 +472,26 @@ test.describe('Transit Converter - E2E Tests', () => {
   });
 
   test.describe('7. アクセシビリティ', () => {
-    // TODO: Accessibility test has color contrast violations in shared components (footer/header)
-    // These are out of scope for this PR which focuses on transit converter functionality
-    test.skip('should pass accessibility tests', async ({ page, makeAxeBuilder }) => {
+    /**
+     * E2E-010: アクセシビリティ（WCAG 2.1 Level AA）
+     *
+     * 旧実装は「共有コンポーネント（footer/header）にコントラスト違反があるため」という
+     * 理由で無条件 `test.skip` により封印されていた。
+     *
+     * 本対応で axe-core（wcag2a / wcag2aa / wcag21a / wcag21aa、およびデフォルト
+     * ルールセット全体）を使い、**footer/header を除外せずに**実際にスキャンしたところ、
+     * chromium-mobile / chromium-desktop / webkit-mobile のいずれでも contrast 系を含めて
+     * 違反は 0 件だった。つまり skip の前提としていた違反は現在の `@nagiyu/ui` では
+     * 再現しない。
+     *
+     * 封印の理由が失われている以上、skip を残すこと自体が「壊れても落ちないテスト」
+     * （testing.md「形骸化テストの禁止」）に該当するため、決定的に復活させる。
+     * 3 デバイスすべてで green を確認済み。
+     *
+     * なお footer/header の除外はそのまま維持している。これらは全サービス共通の
+     * `@nagiyu/ui` の責務であり、tools の E2E で担保する範囲ではないため。
+     */
+    test('should pass accessibility tests', async ({ page, makeAxeBuilder }) => {
       await page.goto('/transit-converter');
 
       const accessibilityScanResults = await makeAxeBuilder()

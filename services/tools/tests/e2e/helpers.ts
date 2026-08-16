@@ -1,16 +1,12 @@
-import { test as base, Page } from '@playwright/test';
+import { test as base, expect, type Locator, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * Timeout constants for test stability
+ * MigrationDialog（初回訪問時の移行案内ダイアログ）の表示可否を制御する
+ * localStorage キー。
+ * services/tools/src/components/dialogs/MigrationDialog.tsx の STORAGE_KEY と一致させること。
  */
-export const TIMEOUTS = {
-  DIALOG_APPEARANCE: 1000,
-  DIALOG_DISMISS: 5000,
-  ANIMATION_COMPLETION: 500,
-  SERVICE_WORKER_READY: 2000,
-  PAGE_READY: 1000,
-} as const;
+export const MIGRATION_DIALOG_STORAGE_KEY = 'tools-migration-dialog-shown';
 
 /**
  * Extended test fixture with accessibility testing support
@@ -44,48 +40,92 @@ export async function takeTimestampedScreenshot(page: Page, name: string): Promi
 }
 
 /**
- * Helper function to dismiss the migration dialog if it appears
- * This should be called after navigating to a page where the dialog might appear
+ * MigrationDialog が表示されない状態を確定させる。
+ *
+ * MigrationDialog の表示可否は localStorage の `tools-migration-dialog-shown` キー
+ * （MigrationDialog.tsx の STORAGE_KEY）のみで決まる。以前はこの関数が
+ * 「ダイアログが出たら閉じる、出なければ何もしない」という分岐（`waitFor(...).catch(() => false)`
+ * による握り潰し）で対応しており、どちらに転んでもテストが green になる形骸化した実装だった。
+ *
+ * 状態を先に固定してしまえば「ダイアログは絶対に出ない」という単一の結末に倒せるため、
+ * こちらに置き換える。
+ *
+ * `page.addInitScript` はページの新しいドキュメントが生成されるたびに実行されるため、
+ * `page.goto` より前に一度呼び出しておけば、その後の `reload()` や `localStorage.clear()`
+ * を挟んだ再ナビゲーションでも効果が持続する（次のドキュメント読み込み前に再実行され、
+ * MigrationDialog の useEffect が走るより先にフラグが立つ）。
+ *
+ * @param page - Playwright の Page。**`page.goto` を呼び出す前に**呼び出すこと。
  */
-export async function dismissMigrationDialogIfVisible(page: Page): Promise<void> {
-  try {
-    // Wait for the page to be loaded first
-    await page.waitForLoadState('domcontentloaded');
+export async function suppressMigrationDialog(page: Page): Promise<void> {
+  await page.addInitScript((key) => {
+    window.localStorage.setItem(key, 'true');
+  }, MIGRATION_DIALOG_STORAGE_KEY);
+}
 
-    // Wait a bit for the dialog to appear if it's going to
-    await page.waitForTimeout(TIMEOUTS.DIALOG_APPEARANCE);
+/**
+ * ページの hydration 完了を待つ。
+ *
+ * hydration 前の入力欄は SSR 出力そのままの素の HTML 要素なので、`fill()` は DOM の
+ * value だけを書き換えて `onChange` を発火しない。その結果、入力値に応じて enabled に
+ * なるボタン（例: `disabled={!inputText.trim()}`）が disabled のままになり、
+ * 「値は入っているのにボタンが押せない」という分かりにくい失敗になる。
+ * webkit-mobile は chromium より hydration が遅く、この症状が顕在化しやすい（実測）。
+ *
+ * `page.goto` の直後、最初の操作の前に呼ぶこと。
+ *
+ * @param page - Playwright の Page
+ */
+export async function waitForHydration(page: Page): Promise<void> {
+  await page.waitForLoadState('networkidle');
+}
 
-    // Try to find and close the dialog
-    const dialog = page.getByRole('dialog');
+/**
+ * 乗り換え変換の入力欄にテキストを入力し、変換ボタンが操作可能になるまで待つ。
+ *
+ * ## なぜ専用ヘルパが必要か（実測に基づく）
+ *
+ * 変換ボタンは `disabled={!inputText.trim()}` で、React の state が入力を認識して初めて
+ * enabled になる。ところが hydration が完了する前の textarea は SSR 出力そのままの
+ * 素の HTML 要素なので、`fill()` は **DOM の value だけを書き換えて onChange を発火せず**、
+ * React の state は空のままボタンは disabled で固定される。
+ *
+ * webkit-mobile で実測した挙動:
+ * - `goto` 直後に `fill()`: `inputValue()` は 186 文字（正しい）だが、ボタンは disabled
+ * - `goto` → `waitForLoadState('networkidle')` → `fill()`: ボタンは enabled
+ *
+ * つまり DOM 上は入力できているため「値は入っているのにボタンが押せない」という
+ * 分かりにくい失敗になる。旧 `dismissMigrationDialogIfVisible` は内部で
+ * `waitForTimeout(1000)` → `waitForLoadState('networkidle')` → `waitForTimeout(500)` を
+ * 実行しており、これが偶然 hydration 待ちとして機能していた。決定的な
+ * `suppressMigrationDialog` に置き換えた際にこの暗黙の待ちが失われ、webkit-mobile で
+ * 18 件が失敗した。
+ *
+ * ここでは hydration の完了を待ってから入力し、さらに `expect.toPass()` で
+ * 「入力 → ボタンが enabled になる」を冪等に再試行して、**ボタンが操作可能になるという
+ * 単一の結末**へ収束させる。結末を分岐させるものではなく、enabled にならなければ
+ * タイムアウトで失敗する。
+ *
+ * @param page - Playwright の Page
+ * @param inputField - 入力欄の Locator
+ * @param text - 入力するテキスト
+ * @returns 変換ボタンの Locator
+ */
+export async function fillTransitInput(
+  page: Page,
+  inputField: Locator,
+  text: string
+): Promise<Locator> {
+  const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
 
-    // Wait for either the dialog to appear or timeout
-    const dialogAppeared = await dialog
-      .waitFor({
-        state: 'visible',
-        timeout: TIMEOUTS.DIALOG_APPEARANCE,
-      })
-      .then(() => true)
-      .catch(() => false);
+  // hydration 前に fill しても onChange が発火しないため、先に読み込み完了を待つ。
+  await page.waitForLoadState('networkidle');
+  await expect(inputField).toBeVisible();
 
-    if (dialogAppeared) {
-      // Find the close button
-      const closeButton = page.getByRole('button', { name: /閉じる/i });
-      await closeButton.click();
+  await expect(async () => {
+    await inputField.fill(text);
+    await expect(convertButton).toBeEnabled({ timeout: 2000 });
+  }).toPass({ timeout: 20000 });
 
-      // Wait for the dialog to be completely dismissed
-      await dialog.waitFor({ state: 'hidden', timeout: TIMEOUTS.DIALOG_DISMISS });
-
-      // Give it time for any animations and DOM updates
-      await page.waitForTimeout(TIMEOUTS.ANIMATION_COMPLETION);
-    }
-
-    // Always wait for the page content to be ready
-    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-    await page.waitForTimeout(TIMEOUTS.PAGE_READY);
-  } catch (error) {
-    // Dialog not present or already dismissed, continue
-    // Still wait for page to be ready
-    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-    await page.waitForTimeout(TIMEOUTS.PAGE_READY);
-  }
+  return convertButton;
 }
