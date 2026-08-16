@@ -11,16 +11,18 @@ test.describe('Portal App - Basic Functionality', () => {
     await expect(page.locator('body')).toBeVisible();
   });
 
-  test('should have responsive layout on mobile', async ({ page, isMobile }) => {
+  test('モバイル幅で横スクロールが発生しない', async ({ page }) => {
+    // 旧実装は `if (isMobile) { expect(viewport.width).toBeLessThan(768) }` だった。
+    // これは Playwright の config が設定した viewport を assert し直しているだけの
+    // トートロジーで、desktop プロジェクトでは何も検証しなかった（1テスト=1結末に反する）。
+    // ここでは viewport を明示的に固定し、コンテンツが画面幅を超えないことを検証する。
+    const mobileWidth = 375;
+    await page.setViewportSize({ width: mobileWidth, height: 667 });
     await page.goto('/');
 
-    // Verify the page loads successfully
     await expect(page.locator('body')).toBeVisible();
 
-    if (isMobile) {
-      // Check if viewport is mobile-sized
-      const viewport = page.viewportSize();
-      expect(viewport?.width).toBeLessThan(768);
-    }
+    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    expect(scrollWidth).toBeLessThanOrEqual(mobileWidth);
   });
 });
