@@ -1,5 +1,6 @@
 import { Box, Card, CardContent, Typography } from '@mui/material';
 import { Button, Chip } from '@nagiyu/ui';
+import { hasPermission } from '@nagiyu/common';
 import { getSession } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
 import DashboardRoleCards from '@/components/dashboard/DashboardRoleCards';
@@ -59,7 +60,10 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
 
-      <DashboardRoleCards roles={user.roles} />
+      <DashboardRoleCards
+        canManageNotifications={hasPermission(user.roles, 'notifications:write')}
+        canReadErrors={hasPermission(user.roles, 'errors:read')}
+      />
 
       {/* ログアウトボタン */}
       {/* callbackUrl を付与してサインアウト後に admin へ戻れるようにする。

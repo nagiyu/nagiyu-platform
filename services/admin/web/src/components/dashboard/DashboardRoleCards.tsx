@@ -1,23 +1,28 @@
 import { Card, CardContent, Typography } from '@mui/material';
 import { Button } from '@nagiyu/ui';
-import { hasPermission } from '@nagiyu/common';
 import Link from 'next/link';
 import NotifyButton from '@/components/notify/NotifyButton';
 
 interface DashboardRoleCardsProps {
-  roles: string[];
+  canManageNotifications: boolean;
+  canReadErrors: boolean;
 }
 
 /**
  * ダッシュボードのロール条件付きカード（通知設定・エラー履歴）。
  *
- * `page.tsx`（Server Component）から抽出したロール分岐を、このコンポーネントに閉じる。
- * `hasPermission` の呼び出しはここに限定し、page.tsx 側からは import しない。
+ * 権限判定は page.tsx（Server Component）側に寄せ、このコンポーネントは
+ * その判定結果（boolean）だけを props で受け取って表示を出し分ける。
+ * docs/development/testing.md の「権限判定をサーバー側へ寄せ、結果を props で渡す」
+ * 推奨に沿った設計であり、hasPermission はこのコンポーネントからは呼ばない。
  */
-export default function DashboardRoleCards({ roles }: DashboardRoleCardsProps) {
+export default function DashboardRoleCards({
+  canManageNotifications,
+  canReadErrors,
+}: DashboardRoleCardsProps) {
   return (
     <>
-      {hasPermission(roles, 'notifications:write') && (
+      {canManageNotifications && (
         <Card sx={{ mb: 3 }}>
           <CardContent>
             <Typography variant="h6" gutterBottom>
@@ -28,7 +33,7 @@ export default function DashboardRoleCards({ roles }: DashboardRoleCardsProps) {
         </Card>
       )}
 
-      {hasPermission(roles, 'errors:read') && (
+      {canReadErrors && (
         <Card sx={{ mb: 3 }}>
           <CardContent>
             <Typography variant="h6" gutterBottom>
