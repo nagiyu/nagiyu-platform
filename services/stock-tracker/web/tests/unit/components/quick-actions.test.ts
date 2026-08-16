@@ -13,12 +13,6 @@ describe('QuickActions', () => {
     const exchangeButton = screen.getByRole('link', { name: /取引所管理/ });
     const tickerButton = screen.getByRole('link', { name: /ティッカー管理/ });
 
-    expect(holdingsButton).toBeTruthy();
-    expect(alertsButton).toBeTruthy();
-    expect(summariesButton).toBeTruthy();
-    expect(exchangeButton).toBeTruthy();
-    expect(tickerButton).toBeTruthy();
-
     expect(holdingsButton.getAttribute('href')).toBe('/holdings');
     expect(alertsButton.getAttribute('href')).toBe('/alerts');
     expect(summariesButton.getAttribute('href')).toBe('/summaries');

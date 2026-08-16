@@ -123,6 +123,33 @@ test.describe('クイックアクションエリア - 管理者権限 (stock-adm
   });
 });
 
+test.describe('クイックアクションエリア - 一般ユーザー権限 (stock-viewer ロール)', () => {
+  // stocks:manage-data 権限を持たない stock-viewer ロールを固定し、
+  // 管理者ボタンが表示されない結末のみを検証する。
+  test.use({ role: ['stock-viewer'] });
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+
+    // 3秒待つ (TODO: 今後修正したい)
+    await page.waitForTimeout(3000);
+  });
+
+  test('管理者ボタンが表示されない', async ({ page }) => {
+    // docs/development/testing.md の指摘どおり、「表示されないこと」の否定 assert は
+    // 対象の状態が確定する前だと無条件に通ってしまう。管理者ボタンを assert する前に、
+    // 必ず表示されるはずの共通ボタンが表示されたことを先に待ち、画面の描画が
+    // 完了している状態を確定させてから否定を検証する。
+    await expect(page.locator('main').getByRole('link', { name: /保有株式管理/ })).toBeVisible();
+
+    const exchangeButton = page.getByRole('link', { name: /取引所管理/ });
+    const tickerButton = page.getByRole('link', { name: /ティッカー管理/ });
+
+    await expect(exchangeButton).not.toBeVisible();
+    await expect(tickerButton).not.toBeVisible();
+  });
+});
+
 test.describe('クイックアクションエリア - レスポンシブ対応', () => {
   test('モバイル表示でボタンが縦並びになる', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 900 });
