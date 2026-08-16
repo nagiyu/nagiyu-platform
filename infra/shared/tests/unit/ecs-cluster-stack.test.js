@@ -17,7 +17,7 @@ describe('EcsSharedClusterStack', () => {
     });
   });
 
-  it('Container Insights を有効化する', () => {
+  it('Container Insights を無効化する（カスタムメトリクス課金の削減。Issue #3761）', () => {
     const app = new cdk.App();
     const stack = new EcsSharedClusterStack(app, 'TestEcsSharedCluster', {
       environment: 'dev',
@@ -25,7 +25,7 @@ describe('EcsSharedClusterStack', () => {
 
     const template = Template.fromStack(stack);
     template.hasResourceProperties('AWS::ECS::Cluster', {
-      ClusterSettings: [{ Name: 'containerInsights', Value: 'enabled' }],
+      ClusterSettings: [{ Name: 'containerInsights', Value: 'disabled' }],
     });
   });
 

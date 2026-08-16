@@ -32,6 +32,7 @@ export {
   getBatchJobDefinitionArn,
 } from './utils/arn';
 export { SSM_PARAMETERS } from './utils/ssm';
+export { SECRET_NAMES } from './utils/secrets';
 
 // Default configurations
 export {

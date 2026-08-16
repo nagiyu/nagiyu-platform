@@ -257,16 +257,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Fetch secrets from Secrets Manager
-        id: fetch-secrets
-        uses: aws-actions/aws-secretsmanager-get-secrets@v2
-        with:
-          secret-ids: |
-            NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ needs.build.outputs.environment }}
-            OPENAI_API_KEY,/nagiyu/livetalk/${{ needs.build.outputs.environment }}/openai/api-key
-            VAPID,nagiyu-livetalk-vapid-${{ needs.build.outputs.environment }}
-          parse-json-secrets: true
-
       - name: Deploy DynamoDB, ALB and ECS Service Stacks
         env:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
@@ -275,26 +265,19 @@ jobs:
           # CDK が process.env.APP_VERSION を読み、ECS Task の environment に注入する
           # /api/health の version 表示に利用される
           APP_VERSION: ${{ needs.build.outputs.app-version }}
-          SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
-          OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
-          # VAPID キー（Phase 5d / #3346）。parse-json-secrets: true で JSON の各フィールドが
-          # VAPID_PUBLICKEY / VAPID_PRIVATEKEY という env var に展開される。
-          VAPID_PUBLIC_KEY: ${{ env.VAPID_PUBLICKEY }}
-          VAPID_PRIVATE_KEY: ${{ env.VAPID_PRIVATEKEY }}
         run: |
           # DynamoDB Single Table（Phase 2a で追加）。ECS Service とは
           # deploy 順依存がなく、ALB / Service と同じジョブで一括 deploy する。
           # CloudWatch アラーム（Issue #3526）は ALB の SSM パラメータを読むため
           # ALB と同じジョブで deploy する（CDK が addDependency で ALB 先行を保証）。
+          # AUTH_SECRET / OPENAI_API_KEY / VAPID_* は ECS Task Definition の
+          # `secrets:`（valueFrom）機能で Secrets Manager から直接注入されるため、
+          # ここで --context 経由で渡す必要はない（Issue #3761）。
           npm run cdk --workspace=@nagiyu/infra-livetalk -- deploy \
             NagiyuLiveTalkDynamoDB${STACK_SUFFIX} \
             NagiyuLiveTalkAlb${STACK_SUFFIX} \
             NagiyuLiveTalkService${STACK_SUFFIX} \
             NagiyuLiveTalkAlarms${STACK_SUFFIX} \
-            --context nextAuthSecret="$SECRET_VALUE" \
-            --context openAiApiKey="$OPENAI_API_KEY" \
-            --context vapidPublicKey="$VAPID_PUBLIC_KEY" \
-            --context vapidPrivateKey="$VAPID_PRIVATE_KEY" \
             --require-approval never
 
           echo "LiveTalk DynamoDB, ALB, ECS Service and Alarms deployed (environment: $ENVIRONMENT)"
