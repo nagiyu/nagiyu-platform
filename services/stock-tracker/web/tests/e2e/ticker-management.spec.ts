@@ -1,5 +1,20 @@
-import { test, expect } from '@playwright/test';
-import { TestDataFactory, CreatedTicker } from './utils/test-data-factory';
+import { test, expect, resetState, type ResetSeedData } from './fixtures';
+
+/**
+ * webkit-mobile 対応: 実 Service Worker（/sw.js）を無効化する。
+ *
+ * 本アプリは libs/ui の ServiceWorkerRegistration が全ページで /sw.js を登録するため、
+ * webkit では SW がページを制御し、API 応答を仲介・キャッシュしてしまう。Playwright は
+ * 「Service Worker 経由のリクエストは Chromium 以外では page.route で捕捉できない」
+ * という既知の制約があるため、モックが素通りしたり、UI が古い応答を表示したりして
+ * テストが非決定的になる（実測で確認済み）。
+ *
+ * `chromium-mobile` プロジェクトは playwright.config.base.ts 側で
+ * `serviceWorkers: 'block'` を設定済みだが、`chromium-desktop` / `webkit-mobile` は
+ * 未設定という非対称があるため、本サービスの spec 側で一律に打ち消す。
+ * （設定の非対称そのものの解消は E2E 横断整備の範囲と判断し、本対応では触れない。）
+ */
+test.use({ serviceWorkers: 'block' });
 
 /**
  * E2E-007: ティッカー管理フロー
@@ -8,171 +23,148 @@ import { TestDataFactory, CreatedTicker } from './utils/test-data-factory';
  * - ティッカーのCRUD操作（作成、編集、削除）
  * - ティッカーIDの自動生成（{Exchange.Key}:{Symbol} 形式）
  * - 取引所フィルタ機能
- * - 権限チェック（stock-admin のみアクセス可能）
+ * - 権限チェック（書き込み系操作は stock-admin のみ許可）
  * - バリデーションエラーの表示
+ *
+ * `resetState` でインメモリリポジトリを都度リセット・seed し、前提となる取引所を
+ * 決定的に用意することで、1 テスト = 1 結末で assert する。旧実装にあった
+ * 「権限エラーが表示されていたら test.skip()」「取引所のオプションが見つからなければ
+ * 最初のオプションを選択、それも無ければ skip」という自己スキップ・フォールバック
+ * 分岐は行わない。
+ *
+ * `resetState` はサービス全体のインメモリストアを消す破壊的操作であり、Playwright は
+ * ファイル間も並列実行するため、他ファイルの実行と鉢合わせるとデータを巻き込む恐れがある。
+ * そのため本ファイルはファイル全体を `test.describe.configure({ mode: 'serial' })` で
+ * 直列化し、同一ファイル内での競合を防ぐ。
+ *
+ * ただし `mode: 'serial'` が直列化するのは同一ファイル内だけで、ファイル間の並列は防げない。
+ * ファイル間の巻き込みは `playwright.config.base.ts` の `workers: isCI ? 1 : undefined` に
+ * 依存しており、CI（workers=1）でのみ安全である。ローカルで実行するときは `--workers=1` を
+ * 付けること（付けない場合、本ファイルの resetState が他ファイルのデータを消しうる）。
+ *
+ * また、本ファイルの最後の beforeEach が残した seed データ（取引所・ティッカー等）が
+ * 後続で実行される他ファイル（resetState を使わず、実行順に依存して蓄積データを前提とする
+ * テスト）を汚染しないよう、全テスト終了後に afterAll でストアを空の状態へ戻す。
  */
+test.describe.configure({ mode: 'serial' });
 
-test.describe('ティッカー管理', () => {
-  let factory: TestDataFactory;
-
-  test.beforeEach(async ({ page, request }) => {
-    // TestDataFactory を初期化
-    factory = new TestDataFactory(request);
-
-    // ティッカー管理画面にアクセス
-    await page.goto('/tickers');
-
-    // ページが読み込まれるまで待つ
-    await page.waitForLoadState('networkidle');
-
-    // エラーメッセージがある場合は待つ（権限エラーなど）
-    const errorAlert = page.locator('[role="alert"]').filter({ hasText: 'エラー' }).first();
-    const isErrorVisible = await errorAlert.isVisible().catch(() => false);
-
-    if (isErrorVisible) {
-      const errorText = await errorAlert.textContent();
-      console.log('権限エラーが表示されました:', errorText);
-      // 権限エラーの場合はテストをスキップ
-      if (errorText?.includes('アクセスが拒否') || errorText?.includes('権限がありません')) {
-        test.skip();
-      }
-    }
+test.afterAll(async ({ playwright }) => {
+  const context = await playwright.request.newContext({
+    baseURL: process.env.BASE_URL || 'http://localhost:3000',
   });
+  await resetState(context);
+  await context.dispose();
+});
 
-  test.afterEach(async () => {
-    // TestDataFactory でクリーンアップ
-    await factory.cleanup();
-  });
+const EXCHANGE_ID = 'E2E-TICKER-EX';
+const EXCHANGE_KEY = 'E2ETICK';
+const EXCHANGE_NAME = 'E2E Ticker Test Exchange';
 
-  test('ティッカー管理画面が正しく表示される', async ({ page }) => {
-    // ページタイトルが表示される
-    await expect(page.getByRole('heading', { name: 'ティッカー管理' })).toBeVisible();
+const TICKER_SYMBOL = 'TICKTK';
+const TICKER_ID = `${EXCHANGE_KEY}:${TICKER_SYMBOL}`;
+const TICKER_NAME = 'E2E Ticker Test Ticker';
 
-    // 新規作成ボタンが表示される
-    await expect(page.getByRole('button', { name: '新規作成' })).toBeVisible();
+const SECOND_EXCHANGE_ID = 'E2E-TICKER-EX2';
+const SECOND_EXCHANGE_KEY = 'E2ETICK2';
+const SECOND_EXCHANGE_NAME = 'E2E Ticker Second Exchange';
 
-    // 取引所フィルタが表示される
-    await expect(page.getByLabel('取引所でフィルタ')).toBeVisible();
+const SECOND_TICKER_SYMBOL = 'OTHERTK';
+const SECOND_TICKER_ID = `${SECOND_EXCHANGE_KEY}:${SECOND_TICKER_SYMBOL}`;
 
-    // テーブルが表示される
-    await expect(page.getByRole('table')).toBeVisible();
+/** メイン取引所の Exchange エンティティ */
+function mainExchangeEntity() {
+  return {
+    ExchangeID: EXCHANGE_ID,
+    Name: EXCHANGE_NAME,
+    Key: EXCHANGE_KEY,
+    Timezone: 'America/New_York',
+    Start: '09:30',
+    End: '16:00',
+    PriceSource: 'tradingview',
+  };
+}
 
-    // テーブルヘッダーが正しく表示される
-    await expect(page.getByRole('columnheader', { name: 'ティッカーID' })).toBeVisible();
-    await expect(page.getByRole('columnheader', { name: 'シンボル' })).toBeVisible();
-    await expect(page.getByRole('columnheader', { name: '銘柄名' })).toBeVisible();
-    await expect(page.getByRole('columnheader', { name: '取引所' })).toBeVisible();
-    await expect(page.getByRole('columnheader', { name: '操作' })).toBeVisible();
+/** 前提となる取引所（メイン）の seed データ */
+function exchangeSeed(): ResetSeedData {
+  return {
+    exchanges: [mainExchangeEntity()],
+  };
+}
+
+/** メイン取引所に紐づくティッカーの seed データ */
+function tickerEntity() {
+  return {
+    TickerID: TICKER_ID,
+    Symbol: TICKER_SYMBOL,
+    Name: TICKER_NAME,
+    ExchangeID: EXCHANGE_ID,
+  };
+}
+
+test.describe('ティッカー管理 (E2E-007)', () => {
+  test.describe('画面表示', () => {
+    test.beforeEach(async ({ page, request }) => {
+      await resetState(request, exchangeSeed());
+      await page.goto('/tickers');
+      await page.waitForLoadState('networkidle');
+    });
+
+    test('ティッカー管理画面が正しく表示される', async ({ page }) => {
+      await expect(page.getByRole('heading', { name: 'ティッカー管理' })).toBeVisible();
+      await expect(page.getByRole('button', { name: '新規作成' })).toBeVisible();
+      await expect(page.getByLabel('取引所でフィルタ')).toBeVisible();
+      await expect(page.getByRole('table')).toBeVisible();
+
+      await expect(page.getByRole('columnheader', { name: 'ティッカーID' })).toBeVisible();
+      await expect(page.getByRole('columnheader', { name: 'シンボル' })).toBeVisible();
+      await expect(page.getByRole('columnheader', { name: '銘柄名' })).toBeVisible();
+      await expect(page.getByRole('columnheader', { name: '取引所' })).toBeVisible();
+      await expect(page.getByRole('columnheader', { name: '操作' })).toBeVisible();
+    });
   });
 
   test.describe('ティッカー作成', () => {
-    test('シンボル入力欄でエンターキーを押すとティッカーを作成できる', async ({
-      page,
-      request,
-    }) => {
-      // テスト用の Exchange を API 経由で作成
-      const exchange = await factory.createExchange();
-
-      // データが反映されるまで待つ
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // ページをリロード
-      await page.reload();
+    test.beforeEach(async ({ page, request }) => {
+      await resetState(request, exchangeSeed());
+      await page.goto('/tickers');
       await page.waitForLoadState('networkidle');
+    });
 
-      // テスト用のユニークなシンボルと名前
-      const testSymbol = `E${Date.now() % 100000}`.substring(0, 10).toUpperCase();
+    test('シンボル入力欄でエンターキーを押すとティッカーを作成できる', async ({ page }) => {
+      const testSymbol = 'ENTERTK';
       const testName = 'Enter Key Test Corporation';
 
-      // 新規作成ボタンをクリック
       await page.getByRole('button', { name: '新規作成' }).click();
-
-      // モーダルが表示される
       await expect(page.getByRole('dialog')).toBeVisible();
 
       const symbolField = page.getByRole('textbox', { name: /シンボル/ });
       const nameField = page.getByRole('textbox', { name: /銘柄名/ });
       const exchangeField = page.locator('#create-exchange');
 
-      // シンボルを入力
       await symbolField.fill(testSymbol);
-
-      // 銘柄名を入力
       await nameField.fill(testName);
+      // 前提の取引所は resetState で確実に seed済みのため、選択は決定的に成功する
+      await exchangeField.selectOption({ label: EXCHANGE_NAME });
 
-      // 取引所を選択
-      await exchangeField.click();
-
-      const exchangeOption = page.locator(
-        `[role="listbox"] [role="option"]:has-text("${exchange.name}")`
-      );
-      const isExchangeVisible = await exchangeOption.isVisible().catch(() => false);
-
-      if (isExchangeVisible) {
-        await exchangeOption.click();
-      } else {
-        // 作成した取引所が見つからない場合は最初のオプションを選択
-        const exchangeOptions = page.locator('[role="listbox"] [role="option"]');
-        const optionCount = await exchangeOptions.count();
-        if (optionCount > 0) {
-          await exchangeOptions.first().click();
-        } else {
-          console.log('取引所データがないためテストをスキップ');
-          test.skip();
-          return;
-        }
-      }
-
-      // 作成ボタンをクリックせず、シンボル入力欄でエンターキーを押す
+      // 作成ボタンをクリックせず、シンボル入力欄でエンターキーを押して確定する
       await symbolField.press('Enter');
 
-      // 成功メッセージが表示される
       await expect(page.getByText('ティッカーを作成しました')).toBeVisible({ timeout: 10000 });
-
-      // モーダルが閉じる
       await expect(page.getByRole('dialog')).not.toBeVisible();
 
-      // テーブルに新しいティッカーが表示される
       const tickerRow = page.getByRole('row').filter({ hasText: testSymbol });
       await expect(tickerRow).toBeVisible();
-
-      // ティッカーIDを取得してクリーンアップ
-      const tickerIdCell = tickerRow.getByRole('cell').first();
-      const createdTickerId = (await tickerIdCell.textContent()) || '';
-
-      if (createdTickerId) {
-        try {
-          await request.delete(`/api/tickers/${encodeURIComponent(createdTickerId)}`);
-          console.log(`UI作成ティッカーをクリーンアップ（Enter確定テスト）: ${createdTickerId}`);
-        } catch (error) {
-          console.warn(`Warning: Failed to cleanup UI-created ticker ${createdTickerId}:`, error);
-        }
-      }
     });
 
-    test('ティッカーを作成できる', async ({ page, request }) => {
-      // テスト用の Exchange を API 経由で作成
-      const exchange = await factory.createExchange();
-
-      // データが反映されるまで待つ
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // ページをリロード
-      await page.reload();
-      await page.waitForLoadState('networkidle');
-
-      // テスト用のユニークなシンボルと名前
-      const testSymbol = `T${Date.now() % 100000}`.substring(0, 10).toUpperCase();
+    test('ティッカーを作成できる', async ({ page }) => {
+      const testSymbol = 'CREATETK';
       const testName = 'Test Ticker Corporation';
 
-      // 新規作成ボタンをクリック
       await page.getByRole('button', { name: '新規作成' }).click();
 
-      // モーダルが表示される
       await expect(page.getByRole('dialog')).toBeVisible();
       await expect(page.getByRole('heading', { name: 'ティッカー新規作成' })).toBeVisible();
 
-      // フォームフィールドが表示される
       const symbolField = page.getByRole('textbox', { name: /シンボル/ });
       const nameField = page.getByRole('textbox', { name: /銘柄名/ });
       const exchangeField = page.locator('#create-exchange');
@@ -180,290 +172,250 @@ test.describe('ティッカー管理', () => {
       await expect(symbolField).toBeVisible();
       await expect(nameField).toBeVisible();
       await expect(exchangeField).toBeVisible();
-
-      // ティッカーID自動生成の説明が表示される
       await expect(page.getByText(/ティッカーIDは自動生成されます/)).toBeVisible();
 
-      // シンボルを入力（自動的に大文字に変換される）
       await symbolField.fill(testSymbol);
-
-      // 銘柄名を入力
       await nameField.fill(testName);
+      await exchangeField.selectOption({ label: EXCHANGE_NAME });
 
-      // 取引所を選択
-      await exchangeField.click();
-
-      // 作成した取引所のオプションを選択
-      const exchangeOption = page.locator(
-        `[role="listbox"] [role="option"]:has-text("${exchange.name}")`
-      );
-      const isExchangeVisible = await exchangeOption.isVisible().catch(() => false);
-
-      if (isExchangeVisible) {
-        await exchangeOption.click();
-      } else {
-        // 作成した取引所が見つからない場合は最初のオプションを選択
-        const exchangeOptions = page.locator('[role="listbox"] [role="option"]');
-        const optionCount = await exchangeOptions.count();
-        if (optionCount > 0) {
-          await exchangeOptions.first().click();
-        } else {
-          console.log('取引所データがないためテストをスキップ');
-          test.skip();
-          return;
-        }
-      }
-
-      // 作成ボタンが有効になる
       const createButton = page.getByRole('button', { name: '作成' });
       await expect(createButton).toBeEnabled();
-
-      // 作成ボタンをクリック
       await createButton.click();
 
-      // 成功メッセージが表示される
       await expect(page.getByText('ティッカーを作成しました')).toBeVisible({ timeout: 10000 });
-
-      // モーダルが閉じる
       await expect(page.getByRole('dialog')).not.toBeVisible();
 
-      // テーブルに新しいティッカーが表示される
       const tickerRow = page.getByRole('row').filter({ hasText: testSymbol });
       await expect(tickerRow).toBeVisible();
-
-      // 行内でシンボルと名前が表示されていることを確認
       await expect(tickerRow.getByRole('cell', { name: testSymbol, exact: true })).toBeVisible();
       await expect(tickerRow.getByRole('cell', { name: testName })).toBeVisible();
 
-      // ティッカーIDを取得（{Exchange.Key}:{Symbol} 形式を確認）
-      const tickerIdCell = tickerRow.getByRole('cell').first();
-      const createdTickerId = (await tickerIdCell.textContent()) || '';
-      console.log('作成されたティッカーID:', createdTickerId);
-
-      // ティッカーIDが正しい形式であることを確認（Exchange.Key:Symbol）
-      expect(createdTickerId).toMatch(/^[A-Z0-9]+:[A-Z0-9]+$/);
-      expect(createdTickerId).toContain(testSymbol);
-
-      // UI経由で作成したTickerをAPI経由でクリーンアップ
-      // TestDataFactoryでは追跡されていないため、手動で削除する
-      if (createdTickerId) {
-        try {
-          await request.delete(`/api/tickers/${encodeURIComponent(createdTickerId)}`);
-          console.log(`UI作成ティッカーをクリーンアップ: ${createdTickerId}`);
-        } catch (error) {
-          console.warn(`Warning: Failed to cleanup UI-created ticker ${createdTickerId}:`, error);
-        }
-      }
+      // ティッカーIDが {取引所キー}:{シンボル} 形式で自動生成されていることを確認
+      const expectedTickerId = `${EXCHANGE_KEY}:${testSymbol}`;
+      await expect(tickerRow.getByRole('cell').first()).toHaveText(expectedTickerId);
     });
   });
 
   test.describe('ティッカー編集', () => {
-    let testTicker: CreatedTicker;
-    const updatedName = 'Updated Ticker Corporation';
-
-    test.beforeEach(async () => {
-      // テスト用の Ticker を API 経由で作成
-      testTicker = await factory.createTicker();
-
-      // データが反映されるまで待つ
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+    test.beforeEach(async ({ page, request }) => {
+      await resetState(request, { ...exchangeSeed(), tickers: [tickerEntity()] });
+      await page.goto('/tickers');
+      await page.waitForLoadState('networkidle');
     });
 
     test('ティッカーを編集できる', async ({ page }) => {
-      // ページをリロード
-      await page.reload();
-      await page.waitForLoadState('networkidle');
+      const updatedName = 'Updated Ticker Corporation';
 
-      // 作成されたティッカーを検索
-      const tickerRow = page.locator(`tr:has-text("${testTicker.symbol}")`);
+      const tickerRow = page.locator(`tr:has-text("${TICKER_SYMBOL}")`);
       await expect(tickerRow).toBeVisible({ timeout: 10000 });
 
-      // 編集ボタンをクリック
       await tickerRow.getByRole('button', { name: /編集/ }).click();
 
-      // 編集モーダルが表示される
       await expect(page.getByRole('dialog')).toBeVisible();
       await expect(page.getByRole('heading', { name: 'ティッカー編集' })).toBeVisible();
 
       // ティッカーIDは変更不可（disabled）
-      const tickerIdField = page.getByRole('textbox', { name: /ティッカーID/ });
-      await expect(tickerIdField).toBeDisabled();
+      await expect(page.getByRole('textbox', { name: /ティッカーID/ })).toBeDisabled();
 
       // シンボルは変更不可（disabled）
-      const symbolField = page.getByRole('textbox', { name: /シンボル/ });
-      await expect(symbolField).toBeDisabled();
+      await expect(page.getByRole('textbox', { name: /シンボル/ })).toBeDisabled();
 
       // 取引所は変更不可（disabled）
-      const exchangeField = page.locator('#edit-exchange');
-      await expect(exchangeField).toBeDisabled();
+      await expect(page.locator('#edit-exchange')).toBeDisabled();
 
       // 銘柄名のみ編集可能
       const nameField = page.getByRole('textbox', { name: /銘柄名/ });
       await expect(nameField).toBeEnabled();
-
-      // 銘柄名を変更
       await nameField.clear();
       await nameField.fill(updatedName);
 
-      // 更新ボタンをクリック
       await page.getByRole('button', { name: '更新' }).click();
 
-      // 成功メッセージが表示される
       await expect(page.getByText('ティッカーを更新しました')).toBeVisible({ timeout: 10000 });
-
-      // モーダルが閉じる
       await expect(page.getByRole('dialog')).not.toBeVisible();
 
-      // テーブルに更新された銘柄名が表示される（該当行内で確認）
-      const updatedTickerRow = page.getByRole('row').filter({ hasText: testTicker.symbol });
+      const updatedTickerRow = page.getByRole('row').filter({ hasText: TICKER_SYMBOL });
       await expect(updatedTickerRow.getByRole('cell', { name: updatedName })).toBeVisible();
     });
   });
 
-  test('取引所フィルタが正しく動作する', async ({ page }) => {
-    const exchangeFilter = page.locator('#exchange-filter');
-    const options = exchangeFilter.locator('option');
-    const optionCount = await options.count();
+  test.describe('取引所フィルタ', () => {
+    test.beforeEach(async ({ page, request }) => {
+      await resetState(request, {
+        exchanges: [
+          mainExchangeEntity(),
+          {
+            ExchangeID: SECOND_EXCHANGE_ID,
+            Name: SECOND_EXCHANGE_NAME,
+            Key: SECOND_EXCHANGE_KEY,
+            Timezone: 'Asia/Tokyo',
+            Start: '09:00',
+            End: '15:00',
+            PriceSource: 'tradingview',
+          },
+        ],
+        tickers: [
+          tickerEntity(),
+          {
+            TickerID: SECOND_TICKER_ID,
+            Symbol: SECOND_TICKER_SYMBOL,
+            Name: 'Other Exchange Ticker',
+            ExchangeID: SECOND_EXCHANGE_ID,
+          },
+        ],
+      });
+      await page.goto('/tickers');
+      await page.waitForLoadState('networkidle');
+    });
 
-    if (optionCount > 1) {
-      // 「すべて」以外のオプションがある場合、最初の取引所を選択
-      const firstExchangeValue = (await options.nth(1).getAttribute('value')) ?? '';
-      await exchangeFilter.selectOption(firstExchangeValue);
+    test('取引所を選択すると該当取引所のティッカーのみ表示される', async ({ page }) => {
+      const exchangeFilter = page.locator('#exchange-filter');
+      await expect(exchangeFilter).toBeEnabled();
 
-      // ページが更新されるまで待つ
+      // フィルタ前は両方の取引所のティッカーが表示されている
+      await expect(page.getByRole('row').filter({ hasText: TICKER_SYMBOL })).toBeVisible();
+      await expect(page.getByRole('row').filter({ hasText: SECOND_TICKER_SYMBOL })).toBeVisible();
+
+      await exchangeFilter.selectOption(EXCHANGE_ID);
       await page.waitForLoadState('networkidle');
 
-      // テーブルに表示されるティッカーが選択した取引所のもののみであることを確認
-      const rows = page.locator('table tbody tr');
-      const rowCount = await rows.count();
+      await expect(page.getByRole('row').filter({ hasText: TICKER_SYMBOL })).toBeVisible();
+      await expect(
+        page.getByRole('row').filter({ hasText: SECOND_TICKER_SYMBOL })
+      ).not.toBeVisible();
 
-      if (rowCount > 0) {
-        await expect(page.getByText('ティッカーが登録されていません')).not.toBeVisible();
-      }
-
-      // フィルタをクリア（「すべて」を選択）
+      // フィルタをクリア（「すべて」を選択）すると両方のティッカーが再び表示される
       await exchangeFilter.selectOption('');
-
       await page.waitForLoadState('networkidle');
-    }
+
+      await expect(page.getByRole('row').filter({ hasText: SECOND_TICKER_SYMBOL })).toBeVisible();
+    });
   });
 
-  test('バリデーションエラーが正しく表示される', async ({ page }) => {
-    // 新規作成ボタンをクリック
-    await page.getByRole('button', { name: '新規作成' }).click();
+  test.describe('バリデーション', () => {
+    test.beforeEach(async ({ page, request }) => {
+      await resetState(request, exchangeSeed());
+      await page.goto('/tickers');
+      await page.waitForLoadState('networkidle');
+    });
 
-    // モーダルが表示される
-    await expect(page.getByRole('dialog')).toBeVisible();
+    test('バリデーションエラーが正しく表示される', async ({ page }) => {
+      await page.getByRole('button', { name: '新規作成' }).click();
+      await expect(page.getByRole('dialog')).toBeVisible();
 
-    // 作成ボタンは初期状態で無効
-    const createButton = page.getByRole('button', { name: '作成' });
-    await expect(createButton).toBeDisabled();
+      // 作成ボタンは初期状態で無効
+      const createButton = page.getByRole('button', { name: '作成' });
+      await expect(createButton).toBeDisabled();
 
-    // シンボルのみ入力
-    await page.getByRole('textbox', { name: /シンボル/ }).fill('TEST');
+      // シンボルのみ入力
+      await page.getByRole('textbox', { name: /シンボル/ }).fill('TEST');
 
-    // 作成ボタンはまだ無効（銘柄名と取引所が未入力）
-    await expect(createButton).toBeDisabled();
+      // 作成ボタンはまだ無効（銘柄名と取引所が未入力）
+      await expect(createButton).toBeDisabled();
 
-    // キャンセルしてモーダルを閉じる
-    await page.getByRole('button', { name: 'キャンセル' }).click();
-    await expect(page.getByRole('dialog')).not.toBeVisible();
+      await page.getByRole('button', { name: 'キャンセル' }).click();
+      await expect(page.getByRole('dialog')).not.toBeVisible();
+    });
   });
 
   test.describe('ティッカー削除', () => {
-    let testTicker: CreatedTicker;
-
-    test.beforeEach(async () => {
-      // テスト用の Ticker を API 経由で作成
-      testTicker = await factory.createTicker();
-
-      // データが反映されるまで待つ
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+    test.beforeEach(async ({ page, request }) => {
+      await resetState(request, { ...exchangeSeed(), tickers: [tickerEntity()] });
+      await page.goto('/tickers');
+      await page.waitForLoadState('networkidle');
     });
 
     test('ティッカーを削除できる', async ({ page }) => {
-      // ページをリロード
-      await page.reload();
-      await page.waitForLoadState('networkidle');
-
-      // 作成されたティッカーを検索
-      const tickerRow = page.locator(`tr:has-text("${testTicker.symbol}")`);
+      const tickerRow = page.locator(`tr:has-text("${TICKER_SYMBOL}")`);
       await expect(tickerRow).toBeVisible({ timeout: 10000 });
 
-      // 削除ボタンをクリック
       await tickerRow.getByRole('button', { name: /削除/ }).click();
 
-      // 削除確認ダイアログが表示される
       await expect(page.getByRole('dialog')).toBeVisible();
       await expect(page.getByRole('heading', { name: 'ティッカー削除' })).toBeVisible();
-
-      // 確認メッセージが表示される
       await expect(page.getByText('本当にこのティッカーを削除しますか？')).toBeVisible();
-
-      // 警告メッセージが表示される
       await expect(page.getByText('この操作は取り消せません')).toBeVisible();
 
-      // 削除ボタンをクリック
       await page.getByRole('button', { name: '削除', exact: true }).click();
 
-      // 成功メッセージが表示される
       await expect(page.getByText('ティッカーを削除しました')).toBeVisible({ timeout: 10000 });
-
-      // ダイアログが閉じる
       await expect(page.getByRole('dialog')).not.toBeVisible();
 
-      // テーブルから削除されたティッカーが消える（セル内で検索）
-      await expect(
-        page.getByRole('cell', { name: testTicker.symbol, exact: true })
-      ).not.toBeVisible();
+      await expect(page.getByRole('cell', { name: TICKER_SYMBOL, exact: true })).not.toBeVisible();
     });
   });
 
   test.describe('権限チェック', () => {
-    test('stock-viewer ロールではアクセスが拒否される', async ({ page }) => {
-      // Note: このテストは認証実装後に有効化
-      // 現在は SKIP_AUTH_CHECK=true のため、実装されていない
-      test.skip(process.env.SKIP_AUTH_CHECK === 'true', '認証スキップモードのためテストをスキップ');
+    test.describe('stock-viewer ロール', () => {
+      test.use({ role: ['stock-viewer'] });
 
-      // stock-viewer ロールでアクセス
-      // （実装は認証システムの実装後に追加）
-      await page.goto('/tickers');
+      test.beforeEach(async ({ page, request }) => {
+        await resetState(request, exchangeSeed());
+        await page.goto('/tickers');
+        await page.waitForLoadState('networkidle');
+      });
 
-      // 403エラーまたはアクセス拒否メッセージが表示される
-      await expect(page.getByText(/アクセスが拒否されました|権限がありません/)).toBeVisible();
+      test('stock-viewer ロールでは新規作成が拒否される', async ({ page }) => {
+        // stock-viewer は stocks:read のみ保持するため画面閲覧自体はできるが、
+        // 新規作成（POST /api/tickers、要 stocks:manage-data）は拒否される
+        await expect(page.getByRole('heading', { name: 'ティッカー管理' })).toBeVisible();
+
+        await page.getByRole('button', { name: '新規作成' }).click();
+        await expect(page.getByRole('dialog')).toBeVisible();
+
+        await page.getByRole('textbox', { name: /シンボル/ }).fill('DENYTK');
+        await page.getByRole('textbox', { name: /銘柄名/ }).fill('Denied Ticker');
+        await page.locator('#create-exchange').selectOption({ label: EXCHANGE_NAME });
+
+        await page.getByRole('button', { name: '作成' }).click();
+
+        await expect(page.getByText('アクセスが拒否されました')).toBeVisible({ timeout: 10000 });
+        // 作成に失敗しているため、モーダルは開いたままとなる
+        await expect(page.getByRole('dialog')).toBeVisible();
+      });
     });
 
-    test('stock-admin ロールではアクセスが許可される', async ({ page }) => {
-      // Note: このテストは認証実装後に有効化
-      test.skip(process.env.SKIP_AUTH_CHECK === 'true', '認証スキップモードのためテストをスキップ');
+    test.describe('stock-admin ロール', () => {
+      test.use({ role: ['stock-admin'] });
 
-      // stock-admin ロールでアクセス
-      // （実装は認証システムの実装後に追加）
-      await page.goto('/tickers');
+      test.beforeEach(async ({ page, request }) => {
+        await resetState(request, exchangeSeed());
+        await page.goto('/tickers');
+        await page.waitForLoadState('networkidle');
+      });
 
-      // ページが正常に表示される
-      await expect(page.getByRole('heading', { name: 'ティッカー管理' })).toBeVisible();
+      test('stock-admin ロールでは新規作成が許可される', async ({ page }) => {
+        await expect(page.getByRole('heading', { name: 'ティッカー管理' })).toBeVisible();
+        await expect(page.getByRole('button', { name: '新規作成' })).toBeVisible();
 
-      // CRUD操作ボタンが表示される
-      await expect(page.getByRole('button', { name: '新規作成' })).toBeVisible();
+        await page.getByRole('button', { name: '新規作成' }).click();
+        await expect(page.getByRole('dialog')).toBeVisible();
+
+        await page.getByRole('textbox', { name: /シンボル/ }).fill('ALLOWTK');
+        await page.getByRole('textbox', { name: /銘柄名/ }).fill('Allowed Ticker');
+        await page.locator('#create-exchange').selectOption({ label: EXCHANGE_NAME });
+
+        await page.getByRole('button', { name: '作成' }).click();
+
+        await expect(page.getByText('ティッカーを作成しました')).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole('dialog')).not.toBeVisible();
+      });
     });
   });
 
   test.describe('モバイル対応', () => {
-    test('モバイル画面で正しくレイアウトされる', async ({ page }) => {
-      // モバイルビューポートで表示される
-      await page.setViewportSize({ width: 393, height: 851 });
+    test.beforeEach(async ({ page, request }) => {
+      await resetState(request, exchangeSeed());
+      await page.goto('/tickers');
+      await page.waitForLoadState('networkidle');
+    });
 
-      // ページが読み込まれるまで待つ
+    test('モバイル画面で正しくレイアウトされる', async ({ page }) => {
+      await page.setViewportSize({ width: 393, height: 851 });
       await page.waitForLoadState('networkidle');
 
-      // ヘッダーが正しく表示される
       await expect(page.getByRole('heading', { name: 'ティッカー管理' })).toBeVisible();
-
-      // ボタンが正しく表示される
       await expect(page.getByRole('button', { name: '新規作成' })).toBeVisible();
-
-      // テーブルがスクロール可能
       await expect(page.getByRole('table')).toBeVisible();
     });
   });

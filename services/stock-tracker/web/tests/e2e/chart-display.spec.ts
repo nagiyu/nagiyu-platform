@@ -1,94 +1,130 @@
-import { test, expect, type Page, type Response } from '@playwright/test';
-import { TestDataFactory } from './utils/test-data-factory';
-
-const CHART_RENDER_TIMEOUT_MS = 15000;
+import { test, expect, resetState, type ResetSeedData } from './fixtures';
 
 /**
- * チャート API レスポンスを待ってから、チャートまたはエラー/データなし表示を確認する。
- *
- * ドロップダウン変更後は React の再レンダリング → useEffect → fetch の順で
- * 非同期に進むため、networkidle だけでは fetch 開始前に解決してしまう場合がある。
- * waitForResponse で実際の API レスポンスを捕捉し、その後にポーリングで
- * DOM への反映を待つことで安定させる。
- *
- * @param responsePromise - ドロップダウン操作 **前** に
- *   `page.waitForResponse(r => r.url().includes('/api/chart/'), ...)` で
- *   取得した Promise を渡す。
- */
-async function waitForChartOrError(page: Page, responsePromise: Promise<Response>): Promise<void> {
-  // チャート API 呼び出しの完了を待つ（TradingView タイムアウト 10s + マージン）
-  await responsePromise;
-
-  // API レスポンス後のレンダリング反映を短時間ポーリングで確認
-  // WebKit モバイル環境では外部データソース到達性により描画反映が遅延/未反映になるため、
-  // ここはベストエフォート待機とし、レスポンス受信自体を主な完了条件にする。
-  await expect
-    .poll(
-      async () => {
-        const isChartVisible = await page
-          .locator('canvas')
-          .isVisible()
-          .catch(() => false);
-        const isErrorVisible = await page
-          .locator('[role="alert"]')
-          .isVisible()
-          .catch(() => false);
-        const isNoDataVisible = await page
-          .getByText('チャートデータがありません')
-          .isVisible()
-          .catch(() => false);
-        return isChartVisible || isErrorVisible || isNoDataVisible;
-      },
-      { timeout: CHART_RENDER_TIMEOUT_MS }
-    )
-    .toBeTruthy()
-    .catch(() => undefined);
-}
-
-/**
- * E2E-001: チャート表示フロー
+ * E2E-001: チャート表示フロー / E2E-008: チャート自動更新
  *
  * このテストは以下を検証します:
- * - 取引所・ティッカー選択→チャート表示
- * - 時間枠切り替えのテスト
- * - チャートが正しく表示される
- * - ズーム・パン操作が正常に動作する
- * - エラー時にエラーメッセージが表示される
+ * - 取引所・ティッカー選択 → チャート表示
+ * - 時間枠・表示本数切り替え
+ * - チャート表示エリアのレスポンシブ対応
+ * - API エラー時にエラーメッセージが表示される
+ * - 自動更新を有効にすると一定間隔でチャートデータが再取得される
+ *
+ * チャートデータは TradingView API（外部サービス）由来であり、E2E 実行環境からは
+ * 疎通できない（このリポジトリのテスト環境では接続自体が失敗する）。旧実装は実際に
+ * TradingView へ到達させたうえで「チャートまたはエラーのいずれかが表示される」ことだけを
+ * assert しており、外部サービスの可用性に応じてどちらに転んでも成功する形骸化テストだった。
+ * 本ファイルでは `/api/chart/**` を `page.route` で固定応答に差し替えることで TradingView への
+ * 依存を断ち切り、「チャートが表示される」テストと「API エラー時にエラーメッセージが
+ * 表示される」テストを別々の決定的なテストとして分離する。
+ *
+ * 取引所・ティッカーは `resetState` でインメモリリポジトリに決定的に seed する
+ * （他ファイルと同様のパターン）。
+ *
+ * `resetState` はサービス全体のインメモリストアを消す破壊的操作であり、Playwright は
+ * ファイル間も並列実行するため、他ファイルの実行と鉢合わせるとデータを巻き込む恐れがある。
+ * そのため本ファイルはファイル全体を `test.describe.configure({ mode: 'serial' })` で
+ * 直列化し、全テスト終了後に afterAll でストアを空の状態へ戻す。
+ *
+ * ただし `mode: 'serial'` が直列化するのは同一ファイル内だけで、ファイル間の並列は防げない。
+ * ファイル間の巻き込みは `playwright.config.base.ts` の `workers: isCI ? 1 : undefined` に
+ * 依存しており、CI（workers=1）でのみ安全である。ローカルで実行するときは `--workers=1` を
+ * 付けること（付けない場合、本ファイルの resetState が他ファイルのデータを消しうる）。
+ *
+ * ## `serviceWorkers: 'block'` について（webkit-mobile 対応）
+ *
+ * `chromium-mobile` プロジェクトは `serviceWorkers: 'block'` を設定しているため
+ * `page.route('**\/api/chart/**')` のモックが常に有効だが、`webkit-mobile` は未設定だった。
+ * 本アプリは `ServiceWorkerRegistration`（libs/ui）が全ページで実際に `/sw.js` を登録しており、
+ * webkit ではこの登録が成功して SW がページを制御する（`self.clients.claim()`）。Playwright は
+ * 「Service Worker 経由のリクエストは Chromium 以外では `page.route` で捕捉できない」という
+ * 既知の制約があり（https://playwright.dev/docs/service-workers-experimental 参照）、実測でも
+ * webkit-mobile では `/api/chart/**` のモックが素通りし、実際に TradingView へ疎通しようとして
+ * 500 エラーになる（`page.on('request')` にも現れない）ことを確認した。
+ * そのため本ファイルでも `serviceWorkers: 'block'` を設定し、SW を経由させずに
+ * `page.route` を確実に効かせる。
  */
+test.use({ serviceWorkers: 'block' });
+
+test.describe.configure({ mode: 'serial' });
+
+test.afterAll(async ({ playwright }) => {
+  const context = await playwright.request.newContext({
+    baseURL: process.env.BASE_URL || 'http://localhost:3000',
+  });
+  await resetState(context);
+  await context.dispose();
+});
+
+const EXCHANGE_ID = 'E2E-CHART-EX';
+const EXCHANGE_KEY = 'E2ECHART';
+const EXCHANGE_NAME = 'E2E Chart Test Exchange';
+
+const TICKER_SYMBOL = 'CHARTTK';
+const TICKER_ID = `${EXCHANGE_KEY}:${TICKER_SYMBOL}`;
+const TICKER_NAME = 'E2E Chart Test Ticker';
+
+// `components/StockChart.tsx` が参照する `lib/constants.ts` の AUTO_REFRESH_INTERVAL_MS と
+// 同じ値（10秒）。実装側の定数を変更した場合は本テストの値も追従させること。
+const AUTO_REFRESH_INTERVAL_MS = 10_000;
+
+/** 前提となる取引所・ティッカーの seed データ */
+function baseSeed(): ResetSeedData {
+  return {
+    exchanges: [
+      {
+        ExchangeID: EXCHANGE_ID,
+        Name: EXCHANGE_NAME,
+        Key: EXCHANGE_KEY,
+        Timezone: 'America/New_York',
+        Start: '09:30',
+        End: '16:00',
+        PriceSource: 'tradingview',
+      },
+    ],
+    tickers: [
+      {
+        TickerID: TICKER_ID,
+        Symbol: TICKER_SYMBOL,
+        Name: TICKER_NAME,
+        ExchangeID: EXCHANGE_ID,
+      },
+    ],
+  };
+}
+
+/** `/api/chart/{tickerId}` の成功応答ボディ（`@nagiyu/stock-tracker-core` の ChartData 相当） */
+function buildChartResponse(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    tickerId: TICKER_ID,
+    symbol: TICKER_SYMBOL,
+    timeframe: '60',
+    data: [
+      { time: 1710000000000, open: 100, high: 110, low: 95, close: 105, volume: 1000000 },
+      { time: 1710003600000, open: 105, high: 112, low: 100, close: 108, volume: 1200000 },
+    ],
+    ...overrides,
+  };
+}
 
 test.describe('チャート表示機能', () => {
-  let factory: TestDataFactory;
-
   test.beforeEach(async ({ page, request }) => {
-    // TestDataFactory を初期化
-    factory = new TestDataFactory(request);
+    await resetState(request, baseSeed());
 
-    // チャート描画テストには実在する取引所とティッカーを使用する
-    // 架空のティッカーでは TradingView API がデータを返さずチャートが描画されないため
-    // TradingView の取引所キーは NASDAQ（NSDQ ではない）
-    const exchange = await factory.createExchange({
-      key: 'NASDAQ',
-      name: 'NASDAQ Stock Market',
-    });
-    await factory.createTicker({
-      symbol: 'NVDA',
-      name: 'NVIDIA Corporation',
-      exchangeId: exchange.exchangeId,
+    // TradingView API への実疎通を避け、チャートデータ取得を決定的に成功させる
+    await page.route('**/api/chart/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(buildChartResponse()),
+      });
     });
 
     await page.goto('/');
-
-    // ページ読み込み完了を待つ
     await page.waitForLoadState('networkidle');
   });
 
-  test.afterEach(async () => {
-    // TestDataFactory でクリーンアップ
-    await factory.cleanup();
-  });
-
   test('初期状態ではチャートが表示されない', async ({ page }) => {
-    // 初期状態: チャート表示エリアに「取引所とティッカーを選択してください」が表示される
     await expect(page.getByText('取引所とティッカーを選択してください')).toBeVisible();
   });
 
@@ -97,18 +133,11 @@ test.describe('チャート表示機能', () => {
     await expect(autoRefreshButton).toBeVisible();
     await expect(autoRefreshButton).toHaveAttribute('aria-pressed', 'false');
 
-    // 取引所を選択（テストデータで作成した NASDAQ）
-    const testExchange = factory.exchanges[0];
-    expect(testExchange).toBeDefined();
-    await page.locator('#exchange-select').selectOption(testExchange.exchangeId);
+    await page.locator('#exchange-select').selectOption(EXCHANGE_ID);
 
-    // ティッカーが有効になるのを待ち、テストデータで作成したティッカーを選択
     const tickerSelect = page.locator('#ticker-select');
     await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
-    await page.waitForLoadState('networkidle');
-    const testTicker = factory.tickers[0];
-    expect(testTicker).toBeDefined();
-    await tickerSelect.selectOption(testTicker.tickerId);
+    await tickerSelect.selectOption(TICKER_ID);
 
     // 自動更新を有効化
     await autoRefreshButton.click();
@@ -124,180 +153,152 @@ test.describe('チャート表示機能', () => {
   });
 
   test('取引所・ティッカー選択後にチャートが表示される', async ({ page }) => {
-    const testExchange = factory.exchanges[0];
-    const testTicker = factory.tickers[0];
+    await page.locator('#exchange-select').selectOption(EXCHANGE_ID);
 
-    // 取引所を選択
-    await page.locator('#exchange-select').selectOption(testExchange.exchangeId);
-
-    // ティッカーが有効になるのを待つ
     const tickerSelect = page.locator('#ticker-select');
     await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
-    await page.waitForLoadState('networkidle');
+    await tickerSelect.selectOption(TICKER_ID);
 
-    // ティッカーを選択
-    await tickerSelect.selectOption(testTicker.tickerId);
-
-    // チャート表示を待つ（チャートが表示されるか、エラーが表示されるまで）
-    await Promise.race([
-      page.locator('canvas').waitFor({ state: 'visible', timeout: 10000 }),
-      page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 10000 }),
-    ]).catch(() => {
-      // タイムアウトした場合も続行（APIエラーの可能性）
+    await expect(page.getByRole('img', { name: /の株価チャート/ })).toBeVisible({
+      timeout: 10000,
     });
-
-    // チャートまたはエラーメッセージが表示されることを確認
-    const chartDisplayed = await page
-      .locator('canvas')
-      .isVisible()
-      .catch(() => false);
-    const errorDisplayed = await page
-      .locator('[role="alert"]')
-      .isVisible()
-      .catch(() => false);
-
-    // チャートまたはエラーのいずれかが表示される
-    expect(chartDisplayed || errorDisplayed).toBeTruthy();
-
-    if (chartDisplayed) {
-      // チャートが表示されている場合、canvas要素が存在することを確認
-      const canvas = page.locator('canvas');
-      await expect(canvas).toBeVisible();
-    }
+    await expect(page.locator('canvas').first()).toBeVisible();
   });
 
   test('時間枠切り替えが正常に動作する', async ({ page }) => {
-    // 作成したテストデータを取得
-    const testExchanges = factory.exchanges;
-    const testTickers = factory.tickers;
-
-    expect(testExchanges.length).toBeGreaterThan(0);
-    expect(testTickers.length).toBeGreaterThan(0);
-
-    const testExchange = testExchanges[0];
-    const testTicker = testTickers[0];
-
-    // 取引所とティッカーを選択
-    await page.locator('#exchange-select').selectOption(testExchange.exchangeId);
+    await page.locator('#exchange-select').selectOption(EXCHANGE_ID);
 
     const tickerSelect = page.locator('#ticker-select');
     await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
-    await page.waitForLoadState('networkidle');
+    await tickerSelect.selectOption(TICKER_ID);
 
-    // ティッカー選択で初回チャート API が発火するので、選択前にレスポンス待機をセットアップ
-    const initialChartResponse = page.waitForResponse((r) => r.url().includes('/api/chart/'), {
-      timeout: 30000,
+    await expect(page.getByRole('img', { name: /の株価チャート/ })).toBeVisible({
+      timeout: 10000,
     });
 
-    await tickerSelect.selectOption(testTicker.tickerId);
-
-    // 初回チャート API レスポンスの完了を待ち、チャートまたはエラーの表示を確認
-    await waitForChartOrError(page, initialChartResponse);
-
-    // 時間枠を変更（'1' → '5'）
-    const chartResponse = page.waitForResponse((r) => r.url().includes('/api/chart/'), {
-      timeout: 30000,
-    });
+    // 時間枠を変更（'1' → '5'）してもチャートが表示され続けることを確認する
     await page.locator('#timeframe-select').selectOption('5');
-
-    // チャート API レスポンス完了を待ち、レンダリングを確認する
-    await waitForChartOrError(page, chartResponse);
+    await expect(page.getByRole('img', { name: /の株価チャート/ })).toBeVisible({
+      timeout: 10000,
+    });
   });
 
   test('表示本数切り替えが正常に動作する', async ({ page }) => {
-    // 作成したテストデータを取得
-    const testExchanges = factory.exchanges;
-    const testTickers = factory.tickers;
-
-    expect(testExchanges.length).toBeGreaterThan(0);
-    expect(testTickers.length).toBeGreaterThan(0);
-
-    const testExchange = testExchanges[0];
-    const testTicker = testTickers[0];
-
-    // 取引所とティッカーを選択
-    await page.locator('#exchange-select').selectOption(testExchange.exchangeId);
+    await page.locator('#exchange-select').selectOption(EXCHANGE_ID);
 
     const tickerSelect = page.locator('#ticker-select');
     await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
-    await page.waitForLoadState('networkidle');
+    await tickerSelect.selectOption(TICKER_ID);
 
-    // ティッカー選択で初回チャート API が発火するので、選択前にレスポンス待機をセットアップ
-    const initialChartResponse = page.waitForResponse((r) => r.url().includes('/api/chart/'), {
-      timeout: 30000,
+    await expect(page.getByRole('img', { name: /の株価チャート/ })).toBeVisible({
+      timeout: 10000,
     });
 
-    await tickerSelect.selectOption(testTicker.tickerId);
-
-    await waitForChartOrError(page, initialChartResponse);
-
-    // 表示本数を変更（'100' → '10'）
     const barCountSelect = page.locator('#barcount-select');
     await expect(barCountSelect).toBeVisible();
     await expect(barCountSelect).toHaveValue('100');
 
-    const chartResponse = page.waitForResponse((r) => r.url().includes('/api/chart/'), {
-      timeout: 30000,
-    });
+    // 表示本数を変更（'100' → '10'）してもチャートが表示され続けることを確認する
     await barCountSelect.selectOption('10');
-
-    await waitForChartOrError(page, chartResponse);
+    await expect(page.getByRole('img', { name: /の株価チャート/ })).toBeVisible({
+      timeout: 10000,
+    });
   });
 
   test('チャート表示エリアがレスポンシブである', async ({ page }) => {
-    const testExchange = factory.exchanges[0];
-    const testTicker = factory.tickers[0];
-
-    // 取引所とティッカーを選択
-    await page.locator('#exchange-select').selectOption(testExchange.exchangeId);
+    await page.locator('#exchange-select').selectOption(EXCHANGE_ID);
 
     const tickerSelect = page.locator('#ticker-select');
     await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
-    await page.waitForLoadState('networkidle');
+    await tickerSelect.selectOption(TICKER_ID);
 
-    await tickerSelect.selectOption(testTicker.tickerId);
+    const chartArea = page.getByRole('img', { name: /の株価チャート/ });
+    await expect(chartArea).toBeVisible({ timeout: 10000 });
 
-    // チャート表示を待つ
-    await Promise.race([
-      page.locator('canvas').waitFor({ state: 'visible', timeout: 10000 }),
-      page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 10000 }),
-    ]).catch(() => {});
-
-    // チャートエリアが表示されていることを確認
-    const chartArea = page.locator('canvas').first();
-    if (await chartArea.isVisible()) {
-      // チャートエリアのサイズを取得
-      const box = await chartArea.boundingBox();
-
-      // チャートエリアが適切なサイズで表示されていることを確認
-      expect(box).toBeTruthy();
-      if (box) {
-        expect(box.height).toBeGreaterThan(300); // 最小高さ
-        expect(box.width).toBeGreaterThan(200); // 最小幅
-      }
-    }
+    const box = await chartArea.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.height).toBeGreaterThan(300);
+    expect(box!.width).toBeGreaterThan(200);
   });
 
   test('エラー時にエラーメッセージが表示される', async ({ page }) => {
-    // 無効なティッカーを直接APIエンドポイントでテストすることはできないため、
-    // UIレベルでのエラーハンドリングを確認
+    // このテストだけ describe 既定の成功モックを上書きし、決定的にエラー応答を返す
+    // （Playwright はパターンが重複する route ハンドラを後着順に評価するため、
+    // ここで登録したハンドラが beforeEach の成功モックより優先される）
+    await page.route('**/api/chart/**', async (route) => {
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: 'INTERNAL_ERROR',
+          message: 'チャートデータの取得に失敗しました',
+        }),
+      });
+    });
 
-    // 取引所・ティッカー選択後、チャートAPIがエラーを返した場合の確認
-    // Note: 実際のエラー発生をテストするには、モックAPIが必要
-    // Phase 1では、エラー表示のUIコンポーネントが存在することを確認
+    await page.locator('#exchange-select').selectOption(EXCHANGE_ID);
 
-    // エラーメッセージ用のAlertコンポーネントが適切に配置されていることを確認
-    // （エラーが発生した場合に表示される）
-    const errorAlert = page.locator('[role="alert"]');
-    const initialAlertCount = await errorAlert.count();
+    const tickerSelect = page.locator('#ticker-select');
+    await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
+    await tickerSelect.selectOption(TICKER_ID);
 
-    // CI環境ではAPIエラーが発生する可能性があるため、
-    // アラート数は0以上であることを確認
-    expect(initialAlertCount).toBeGreaterThanOrEqual(0);
+    await expect(page.getByText('チャート読み込みエラー')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('チャートデータの取得に失敗しました')).toBeVisible();
+  });
+});
+
+test.describe('チャート自動更新 (E2E-008)', () => {
+  test.beforeEach(async ({ request }) => {
+    await resetState(request, baseSeed());
+  });
+
+  test('自動更新を有効にすると一定間隔でチャートデータが再取得される', async ({ page }) => {
+    let fetchCount = 0;
+    await page.route('**/api/chart/**', async (route) => {
+      fetchCount += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(buildChartResponse()),
+      });
+    });
+
+    // 仮想クロックを使い、実時間 (AUTO_REFRESH_INTERVAL_MS = 10秒) を待たずに
+    // 自動更新タイマーを決定的に発火させる
+    await page.clock.install();
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    await page.locator('#exchange-select').selectOption(EXCHANGE_ID);
+    const tickerSelect = page.locator('#ticker-select');
+    await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
+    await tickerSelect.selectOption(TICKER_ID);
+
+    await expect(page.getByRole('img', { name: /の株価チャート/ })).toBeVisible({
+      timeout: 10000,
+    });
+    // 初回選択時点のフェッチ回数を基準値として記録する（開発サーバーの
+    // React StrictMode により初回 effect が二重発火し 1 ではなく 2 になることがあるため、
+    // 固定値ではなく「自動更新の前後での差分」で決定的に検証する）
+    const fetchCountBeforeAutoRefresh = fetchCount;
+    expect(fetchCountBeforeAutoRefresh).toBeGreaterThanOrEqual(1);
+
+    const autoRefreshButton = page.getByRole('button', { name: '自動更新' });
+    await autoRefreshButton.click();
+    await expect(autoRefreshButton).toHaveAttribute('aria-pressed', 'true');
+
+    // 自動更新の間隔分だけ仮想クロックを進める
+    await page.clock.fastForward(AUTO_REFRESH_INTERVAL_MS);
+
+    await expect.poll(() => fetchCount).toBeGreaterThan(fetchCountBeforeAutoRefresh);
   });
 });
 
 test.describe('チャート表示のアクセシビリティ', () => {
+  test.beforeEach(async ({ request }) => {
+    await resetState(request);
+  });
+
   test('時間枠セレクタがキーボード操作可能である', async ({ page }) => {
     await page.goto('/');
 

@@ -1,10 +1,20 @@
-import { test, expect } from '@playwright/test';
-import {
-  TestDataFactory,
-  CreatedTicker,
-  CreatedHolding,
-  CreatedAlert,
-} from './utils/test-data-factory';
+import { test, expect, resetState, type ResetSeedData } from './fixtures';
+
+/**
+ * webkit-mobile 対応: 実 Service Worker（/sw.js）を無効化する。
+ *
+ * 本アプリは libs/ui の ServiceWorkerRegistration が全ページで /sw.js を登録するため、
+ * webkit では SW がページを制御し、API 応答を仲介・キャッシュしてしまう。Playwright は
+ * 「Service Worker 経由のリクエストは Chromium 以外では page.route で捕捉できない」
+ * という既知の制約があるため、モックが素通りしたり、UI が古い応答を表示したりして
+ * テストが非決定的になる（実測で確認済み）。
+ *
+ * `chromium-mobile` プロジェクトは playwright.config.base.ts 側で
+ * `serviceWorkers: 'block'` を設定済みだが、`chromium-desktop` / `webkit-mobile` は
+ * 未設定という非対称があるため、本サービスの spec 側で一律に打ち消す。
+ * （設定の非対称そのものの解消は E2E 横断整備の範囲と判断し、本対応では触れない。）
+ */
+test.use({ serviceWorkers: 'block' });
 
 /**
  * E2E-003: Holding 管理フロー
@@ -12,360 +22,252 @@ import {
  * このテストは以下を検証します:
  * - 保有株式の登録（CRUD操作の Create）
  * - 保有株式の更新（CRUD操作の Update）
- * - 保有株式の削除（CRUD操作の Delete）
+ * - 保有株式の削除（CRUD操作の Delete、売りアラートの連動削除を含む）
  * - バリデーションエラーの表示
  * - レスポンシブ対応
+ *
+ * `resetState` でインメモリリポジトリを都度リセット・seed することで、前提となる
+ * 取引所・ティッカー・保有株式・アラートを決定的に用意し、1 テスト = 1 結末で assert する。
+ * 旧実装にあった「エラーが表示されたらキャンセルして続行」「モーダルが閉じていなければ
+ * バリデーションエラーを探し、それも無ければタイミング問題としてログ出力」のような
+ * 全結末を飲み込む条件分岐・console.log によるデバッグ出力は行わない。
+ *
+ * `resetState` はサービス全体のインメモリストアを消す破壊的操作であり、Playwright は
+ * ファイル間も並列実行するため、他ファイルの実行と鉢合わせるとデータを巻き込む恐れがある。
+ * そのため本ファイルはファイル全体を `test.describe.configure({ mode: 'serial' })` で
+ * 直列化し、同一ファイル内での競合を防ぐ。
+ *
+ * ただし `mode: 'serial'` が直列化するのは同一ファイル内だけで、ファイル間の並列は防げない。
+ * ファイル間の巻き込みは `playwright.config.base.ts` の `workers: isCI ? 1 : undefined` に
+ * 依存しており、CI（workers=1）でのみ安全である。ローカルで実行するときは `--workers=1` を
+ * 付けること（付けない場合、本ファイルの resetState が他ファイルのデータを消しうる）。
+ *
+ * また、本ファイルの最後の beforeEach が残した seed データ（取引所・ティッカー等）が
+ * 後続で実行される他ファイル（resetState を使わず、実行順に依存して蓄積データを前提とする
+ * テスト）を汚染しないよう、全テスト終了後に afterAll でストアを空の状態へ戻す。
  */
+test.describe.configure({ mode: 'serial' });
+
+test.afterAll(async ({ playwright }) => {
+  const context = await playwright.request.newContext({
+    baseURL: process.env.BASE_URL || 'http://localhost:3000',
+  });
+  await resetState(context);
+  await context.dispose();
+});
+
+// SKIP_AUTH_CHECK=true 環境で使用される固定のユーザーID（lib/auth.ts の getSession() 参照）
+const TEST_USER_ID = 'test-user-id';
+
+const EXCHANGE_ID = 'E2E-HOLD-EX';
+const EXCHANGE_KEY = 'E2EHOLD';
+const EXCHANGE_NAME = 'E2E Holding Test Exchange';
+
+const TICKER_SYMBOL = 'HOLDTK';
+const TICKER_ID = `${EXCHANGE_KEY}:${TICKER_SYMBOL}`;
+const TICKER_NAME = 'E2E Holding Test Ticker';
+
+// Web Push サブスクリプションのダミー値（このテストでは実際の通知は発生しないため固定値でよい）
+const DUMMY_SUBSCRIPTION = {
+  endpoint: 'https://fcm.googleapis.com/fcm/send/e2e-holding-test-subscription',
+  keys: {
+    p256dh:
+      'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM',
+    auth: 'tBHItJI5svbpez7KI4CCXg',
+  },
+} as const;
+
+/** 前提となる取引所・ティッカーの seed データ（本ファイル全テスト共通） */
+function baseSeed(): ResetSeedData {
+  return {
+    exchanges: [
+      {
+        ExchangeID: EXCHANGE_ID,
+        Name: EXCHANGE_NAME,
+        Key: EXCHANGE_KEY,
+        Timezone: 'America/New_York',
+        Start: '09:30',
+        End: '16:00',
+        PriceSource: 'tradingview',
+      },
+    ],
+    tickers: [
+      {
+        TickerID: TICKER_ID,
+        Symbol: TICKER_SYMBOL,
+        Name: TICKER_NAME,
+        ExchangeID: EXCHANGE_ID,
+      },
+    ],
+  };
+}
+
+/** 保有株式 seed データ */
+function holdingSeed(overrides: { quantity?: number; averagePrice?: number } = {}) {
+  return {
+    UserID: TEST_USER_ID,
+    TickerID: TICKER_ID,
+    ExchangeID: EXCHANGE_ID,
+    Quantity: overrides.quantity ?? 50,
+    AveragePrice: overrides.averagePrice ?? 120,
+    Currency: 'USD',
+  };
+}
+
+/** 売りアラート seed データ */
+function sellAlertSeed(value: number) {
+  return {
+    UserID: TEST_USER_ID,
+    TickerID: TICKER_ID,
+    ExchangeID: EXCHANGE_ID,
+    Mode: 'Sell' as const,
+    Frequency: 'MINUTE_LEVEL' as const,
+    Enabled: true,
+    ConditionList: [{ field: 'price' as const, operator: 'gte' as const, value }],
+    subscription: DUMMY_SUBSCRIPTION,
+  };
+}
+
+/** 買いアラート seed データ */
+function buyAlertSeed(value: number) {
+  return {
+    UserID: TEST_USER_ID,
+    TickerID: TICKER_ID,
+    ExchangeID: EXCHANGE_ID,
+    Mode: 'Buy' as const,
+    Frequency: 'MINUTE_LEVEL' as const,
+    Enabled: true,
+    ConditionList: [{ field: 'price' as const, operator: 'lte' as const, value }],
+    subscription: DUMMY_SUBSCRIPTION,
+  };
+}
 
 test.describe('Holding 管理フロー (E2E-003)', () => {
-  let factory: TestDataFactory;
-  let testTicker: CreatedTicker;
+  test.describe('画面表示・登録', () => {
+    test.beforeEach(async ({ page, request }) => {
+      await resetState(request, baseSeed());
+      await page.goto('/holdings');
+      await page.waitForLoadState('networkidle');
+    });
 
-  test.beforeEach(async ({ page, request }) => {
-    // TestDataFactory を初期化
-    factory = new TestDataFactory(request);
+    test('保有株式管理画面が正しく表示される', async ({ page }) => {
+      await expect(page.getByRole('heading', { name: '保有株式管理' })).toBeVisible();
+      await expect(page.getByRole('button', { name: /新規登録/ })).toBeVisible();
+      await expect(page.getByRole('heading', { name: '保有株式一覧' })).toBeVisible();
 
-    // テスト用データを作成（取引所とティッカー）
-    testTicker = await factory.createTicker();
+      await expect(page.getByRole('columnheader', { name: '取引所' })).toBeVisible();
+      await expect(page.getByRole('columnheader', { name: 'ティッカー' })).toBeVisible();
+      await expect(page.getByRole('columnheader', { name: '保有数' })).toBeVisible();
+      await expect(page.getByRole('columnheader', { name: '平均取得価格' })).toBeVisible();
+      await expect(page.getByRole('columnheader', { name: '通貨' })).toBeVisible();
+      await expect(page.getByRole('columnheader', { name: 'アラート' })).toBeVisible();
+      await expect(page.getByRole('columnheader', { name: '操作' })).toBeVisible();
+    });
 
-    // Holding管理画面にアクセス
-    await page.goto('/holdings');
+    test('新規登録モーダルが正しく動作する', async ({ page }) => {
+      await page.getByRole('button', { name: /新規登録/ }).click();
 
-    // ページロードを待つ
-    await page.waitForLoadState('networkidle');
-  });
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await expect(page.getByRole('heading', { name: '保有株式の登録' })).toBeVisible();
 
-  test.afterEach(async () => {
-    // TestDataFactory でクリーンアップ
-    await factory.cleanup();
-  });
+      await expect(page.getByLabel('取引所')).toBeVisible();
+      await expect(page.getByLabel('ティッカー')).toBeVisible();
+      await expect(page.getByLabel('保有数')).toBeVisible();
+      await expect(page.getByLabel('平均取得価格')).toBeVisible();
+      await expect(page.getByLabel('通貨')).toBeVisible();
 
-  test('保有株式管理画面が正しく表示される', async ({ page }) => {
-    // タイトルが表示される
-    await expect(page.getByRole('heading', { name: '保有株式管理' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'キャンセル' })).toBeVisible();
+      await expect(page.getByRole('button', { name: '保存' })).toBeVisible();
 
-    // 新規登録ボタンが表示される
-    await expect(page.getByRole('button', { name: /新規登録/ })).toBeVisible();
-
-    // 保有株式一覧タイトルが表示される
-    await expect(page.getByRole('heading', { name: '保有株式一覧' })).toBeVisible();
-
-    // テーブルヘッダーが表示される
-    await expect(page.getByRole('columnheader', { name: '取引所' })).toBeVisible();
-    await expect(page.getByRole('columnheader', { name: 'ティッカー' })).toBeVisible();
-    await expect(page.getByRole('columnheader', { name: '保有数' })).toBeVisible();
-    await expect(page.getByRole('columnheader', { name: '平均取得価格' })).toBeVisible();
-    await expect(page.getByRole('columnheader', { name: '通貨' })).toBeVisible();
-    await expect(page.getByRole('columnheader', { name: 'アラート' })).toBeVisible();
-    await expect(page.getByRole('columnheader', { name: '操作' })).toBeVisible();
-  });
-
-  test('新規登録モーダルが正しく動作する', async ({ page }) => {
-    // 新規登録ボタンをクリック
-    await page.getByRole('button', { name: /新規登録/ }).click();
-
-    // モーダルが表示される
-    await expect(page.getByRole('dialog')).toBeVisible();
-    await expect(page.getByRole('heading', { name: '保有株式の登録' })).toBeVisible();
-
-    // フォームフィールドが表示される
-    await expect(page.getByLabel('取引所')).toBeVisible();
-    await expect(page.getByLabel('ティッカー')).toBeVisible();
-    await expect(page.getByLabel('保有数')).toBeVisible();
-    await expect(page.getByLabel('平均取得価格')).toBeVisible();
-    await expect(page.getByLabel('通貨')).toBeVisible();
-
-    // キャンセルボタンと保存ボタンが表示される
-    await expect(page.getByRole('button', { name: 'キャンセル' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '保存' })).toBeVisible();
-
-    // キャンセルボタンをクリックしてモーダルを閉じる
-    await page.getByRole('button', { name: 'キャンセル' }).click();
-    await expect(page.getByRole('dialog')).not.toBeVisible();
-  });
-
-  test('保有株式の登録ができる', async ({ page, request }) => {
-    // 新規登録ボタンをクリック
-    await page.getByRole('button', { name: /新規登録/ }).click();
-
-    // モーダルが表示されるまで待つ
-    await expect(page.getByRole('dialog')).toBeVisible();
-
-    // 取引所を選択 - テスト用の取引所を明示的に選択
-    const exchangeSelect = page.locator('#create-exchange');
-    await exchangeSelect.selectOption({ label: testTicker.exchange.name });
-
-    // ティッカーがロードされるまで待つ
-    await page.waitForTimeout(1000);
-
-    // ティッカーを選択 - テスト用のティッカーを明示的に選択（tickerId で特定）
-    const tickerSelect = page.locator('#create-ticker');
-    await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
-    await tickerSelect.selectOption(testTicker.tickerId);
-
-    // クリーンアップ用にtickerIdを保存
-    const tickerId = testTicker.tickerId;
-
-    // 保有数を入力
-    await page.locator('#create-quantity').fill('100');
-
-    // 平均取得価格を入力
-    await page.locator('#create-average-price').fill('150.50');
-
-    // 通貨はデフォルトのUSDのまま
-
-    // 保存ボタンをクリック
-    await page.getByRole('button', { name: '保存' }).click();
-
-    // モーダルの処理が完了するまで待つ（5秒）
-    await page.waitForTimeout(5000);
-
-    // エラーメッセージが表示されているか確認
-    const errorAlert = page.locator('[role="dialog"] [role="alert"]');
-    const hasError = await errorAlert.isVisible().catch(() => false);
-
-    if (hasError) {
-      // エラーが発生した場合（例: 重複登録）
-      const errorMessage = await errorAlert.textContent();
-      console.log('Registration error:', errorMessage);
-
-      // エラーが表示されたらキャンセルしてテストを続行
-      console.log('Skipping test due to error state');
       await page.getByRole('button', { name: 'キャンセル' }).click();
-      await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 });
-    } else {
-      // モーダルが閉じているかを確認
-      const modalClosed = await page
-        .getByRole('dialog')
-        .isHidden()
-        .catch(() => false);
+      await expect(page.getByRole('dialog')).not.toBeVisible();
+    });
 
-      if (modalClosed) {
-        // 正常に登録された場合
-        // ネットワークが落ち着くまで待つ
-        await page.waitForLoadState('networkidle');
+    test('保有株式の登録ができる', async ({ page }) => {
+      await page.getByRole('button', { name: /新規登録/ }).click();
+      await expect(page.getByRole('dialog')).toBeVisible();
 
-        // 成功メッセージまたはテーブルにデータが表示されることを確認
-        const successMessage = page.getByText('保有株式を登録しました');
-        const hasSuccessMessage = await successMessage.isVisible().catch(() => false);
+      // 前提の取引所・ティッカーは resetState で確実に seed済みのため、選択は決定的に成功する
+      await page.locator('#create-exchange').selectOption({ label: EXCHANGE_NAME });
 
-        if (hasSuccessMessage) {
-          await expect(successMessage).toBeVisible();
-        } else {
-          // 成功メッセージが消えていても、テーブルにデータがあれば成功
-          const table = page.getByRole('table');
-          await expect(table).toBeVisible();
-          // 削除ボタンが少なくとも1つ存在することを確認
-          const deleteButtons = page.getByRole('button', { name: '削除' });
-          await expect(deleteButtons.first()).toBeVisible();
-        }
+      const tickerSelect = page.locator('#create-ticker');
+      await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
+      await tickerSelect.selectOption(TICKER_ID);
 
-        // UI経由で作成したHoldingをクリーンアップするために、APIで削除
-        // HoldingIDの形式: {UserID}#{TickerID}
-        // SKIP_AUTH_CHECK=true環境では UserID は "test-user-id"
-        if (tickerId) {
-          const holdingId = `test-user-id#${tickerId}`;
-          try {
-            await request.delete(`/api/holdings/${encodeURIComponent(holdingId)}`);
-            console.log(`Cleaned up UI-created holding: ${holdingId}`);
-          } catch (error) {
-            console.warn(`Warning: Failed to delete UI-created holding ${holdingId}:`, error);
-          }
-        }
-      } else {
-        // モーダルが開いたままの場合、エラーメッセージを探す
-        const dialogContent = await page.locator('[role="dialog"]').textContent();
-        console.log('Modal still visible. Content:', dialogContent);
+      await page.locator('#create-quantity').fill('100');
+      await page.locator('#create-average-price').fill('150.50');
+      // 通貨はデフォルトの USD のまま
 
-        // フォームバリデーションエラーが表示されているか確認
-        const hasValidationError =
-          dialogContent?.includes('必須') || dialogContent?.includes('エラー');
+      await page.getByRole('button', { name: '保存' }).click();
 
-        if (hasValidationError) {
-          console.log('Validation error detected, closing modal');
-        } else {
-          console.log('Modal did not close, but no clear error - may be a timing issue');
-        }
+      await expect(page.getByText('保有株式を登録しました')).toBeVisible({ timeout: 10000 });
+      await expect(page.getByRole('dialog')).not.toBeVisible();
 
-        // キャンセルしてテストを続行
-        await page.getByRole('button', { name: 'キャンセル' }).click();
-        await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 });
-      }
-    }
-  });
+      const row = page.getByRole('row').filter({ hasText: TICKER_SYMBOL });
+      await expect(row).toBeVisible();
+      await expect(row.getByRole('button', { name: '削除' })).toBeVisible();
+    });
 
-  test('数値入力欄でエンターキーを押すと登録処理が実行される', async ({ page, request }) => {
-    // 新規登録ボタンをクリック
-    await page.getByRole('button', { name: /新規登録/ }).click();
+    test('数値入力欄でエンターキーを押すと登録処理が実行される', async ({ page }) => {
+      await page.getByRole('button', { name: /新規登録/ }).click();
+      await expect(page.getByRole('dialog')).toBeVisible();
 
-    // モーダルが表示されるまで待つ
-    await expect(page.getByRole('dialog')).toBeVisible();
+      await page.locator('#create-exchange').selectOption({ label: EXCHANGE_NAME });
 
-    // 取引所を選択 - テスト用の取引所を明示的に選択
-    const exchangeSelect = page.locator('#create-exchange');
-    await exchangeSelect.selectOption({ label: testTicker.exchange.name });
+      const tickerSelect = page.locator('#create-ticker');
+      await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
+      await tickerSelect.selectOption(TICKER_ID);
 
-    // ティッカーがロードされるまで待つ
-    await page.waitForTimeout(1000);
+      await page.locator('#create-quantity').fill('100');
+      await page.locator('#create-average-price').fill('150.50');
 
-    // ティッカーを選択 - テスト用のティッカーを明示的に選択（tickerId で特定）
-    const tickerSelect = page.locator('#create-ticker');
-    await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
-    await tickerSelect.selectOption(testTicker.tickerId);
+      // 登録ボタンをクリックせず、数値入力欄（平均取得価格）でエンターキーを押す
+      await page.locator('#create-average-price').press('Enter');
 
-    // クリーンアップ用に tickerId を保存
-    const tickerId = testTicker.tickerId;
+      await expect(page.getByText('保有株式を登録しました')).toBeVisible({ timeout: 10000 });
+      await expect(page.getByRole('dialog')).not.toBeVisible();
 
-    // 保有数を入力
-    await page.locator('#create-quantity').fill('100');
+      const row = page.getByRole('row').filter({ hasText: TICKER_SYMBOL });
+      await expect(row).toBeVisible();
+    });
 
-    // 平均取得価格を入力
-    await page.locator('#create-average-price').fill('150.50');
+    test('バリデーションエラーが正しく表示される', async ({ page }) => {
+      await page.getByRole('button', { name: /新規登録/ }).click();
+      await expect(page.getByRole('dialog')).toBeVisible();
 
-    // 通貨はデフォルトの USD のまま
+      // 何も入力せずに保存ボタンをクリック
+      await page.getByRole('button', { name: '保存' }).click();
 
-    // 登録ボタンをクリックせず、数値入力欄（平均取得価格）でエンターキーを押す
-    await page.locator('#create-average-price').press('Enter');
+      // エラーメッセージが表示される（複数フィールドで同じメッセージが表示される可能性があるため、.first()を使用）
+      await expect(page.getByText('この項目は必須です').first()).toBeVisible();
 
-    // モーダルの処理が完了するまで待つ（5秒）
-    await page.waitForTimeout(5000);
+      // 不正な数値を入力
+      await page.locator('#create-quantity').fill('-1');
+      await page.locator('#create-average-price').fill('0');
 
-    // エラーメッセージが表示されているか確認
-    const errorAlert = page.locator('[role="dialog"] [role="alert"]');
-    const hasError = await errorAlert.isVisible().catch(() => false);
+      await page.getByRole('button', { name: '保存' }).click();
 
-    if (hasError) {
-      // エラーが発生した場合（例: 重複登録）
-      const errorMessage = await errorAlert.textContent();
-      console.log('Registration error (Enter key test):', errorMessage);
-
-      // エラーが表示されたらキャンセルしてテストを続行
-      console.log('Skipping test due to error state');
-      await page.getByRole('button', { name: 'キャンセル' }).click();
-      await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 });
-    } else {
-      // モーダルが閉じているかを確認
-      const modalClosed = await page
-        .getByRole('dialog')
-        .isHidden()
-        .catch(() => false);
-
-      if (modalClosed) {
-        // 正常に登録された場合
-        // ネットワークが落ち着くまで待つ
-        await page.waitForLoadState('networkidle');
-
-        // 成功メッセージまたはテーブルにデータが表示されることを確認
-        const successMessage = page.getByText('保有株式を登録しました');
-        const hasSuccessMessage = await successMessage.isVisible().catch(() => false);
-
-        if (hasSuccessMessage) {
-          await expect(successMessage).toBeVisible();
-        } else {
-          // 成功メッセージが消えていても、テーブルにデータがあれば成功
-          const table = page.getByRole('table');
-          await expect(table).toBeVisible();
-          // 削除ボタンが少なくとも1つ存在することを確認
-          const deleteButtons = page.getByRole('button', { name: '削除' });
-          await expect(deleteButtons.first()).toBeVisible();
-        }
-
-        // UI 経由で作成した Holding をクリーンアップするために、API で削除
-        // HoldingID の形式: {UserID}#{TickerID}
-        // SKIP_AUTH_CHECK=true 環境では UserID は "test-user-id"
-        if (tickerId) {
-          const holdingId = `test-user-id#${tickerId}`;
-          try {
-            await request.delete(`/api/holdings/${encodeURIComponent(holdingId)}`);
-            console.log(`Cleaned up UI-created holding (Enter key test): ${holdingId}`);
-          } catch (error) {
-            console.warn(`Warning: Failed to delete UI-created holding ${holdingId}:`, error);
-          }
-        }
-      } else {
-        // モーダルが開いたままの場合、エラーメッセージを探す
-        const dialogContent = await page.locator('[role="dialog"]').textContent();
-        console.log('Modal still visible (Enter key test). Content:', dialogContent);
-
-        // フォームバリデーションエラーが表示されているか確認
-        const hasValidationError =
-          dialogContent?.includes('必須') || dialogContent?.includes('エラー');
-
-        if (hasValidationError) {
-          console.log('Validation error detected, closing modal');
-        } else {
-          console.log('Modal did not close, but no clear error - may be a timing issue');
-        }
-
-        // キャンセルしてテストを続行
-        await page.getByRole('button', { name: 'キャンセル' }).click();
-        await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 });
-      }
-    }
-  });
-
-  test('バリデーションエラーが正しく表示される', async ({ page }) => {
-    // 新規登録ボタンをクリック
-    await page.getByRole('button', { name: /新規登録/ }).click();
-
-    // モーダルが表示されるまで待つ
-    await expect(page.getByRole('dialog')).toBeVisible();
-
-    // 何も入力せずに保存ボタンをクリック
-    await page.getByRole('button', { name: '保存' }).click();
-
-    // エラーメッセージが表示される（複数フィールドで同じメッセージが表示される可能性があるため、.first()を使用）
-    await expect(page.getByText('この項目は必須です').first()).toBeVisible();
-
-    // 不正な数値を入力
-    await page.locator('#create-quantity').fill('-1');
-    await page.locator('#create-average-price').fill('0');
-
-    // 保存ボタンをクリック
-    await page.getByRole('button', { name: '保存' }).click();
-
-    // バリデーションエラーメッセージが表示される
-    await expect(page.getByText(/保有数は0\.0001以上/)).toBeVisible();
-    await expect(page.getByText(/平均取得価格は0\.01以上/)).toBeVisible();
+      await expect(page.getByText(/保有数は0\.0001以上/)).toBeVisible();
+      await expect(page.getByText(/平均取得価格は0\.01以上/)).toBeVisible();
+    });
   });
 
   test.describe('保有株式の編集', () => {
-    let factory: TestDataFactory;
-    let testHolding: CreatedHolding;
-
-    test.beforeEach(async ({ request }) => {
-      // TestDataFactory でテストデータを作成
-      factory = new TestDataFactory(request);
-      testHolding = await factory.createHolding({
-        quantity: 100,
-        averagePrice: 150.0,
-        currency: 'USD',
+    test.beforeEach(async ({ page, request }) => {
+      await resetState(request, {
+        ...baseSeed(),
+        holdings: [holdingSeed({ quantity: 100, averagePrice: 150.0 })],
       });
-
-      // データが反映されるまで待つ
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-    });
-
-    test.afterEach(async () => {
-      // TestDataFactory でクリーンアップ
-      await factory.cleanup();
+      await page.goto('/holdings');
+      await page.waitForLoadState('networkidle');
     });
 
     test('保有株式の編集ができる', async ({ page }) => {
-      // ページをリロードして新しいデータを表示
-      await page.reload();
-      await page.waitForLoadState('networkidle');
+      await expect(page.getByText(TICKER_SYMBOL, { exact: true })).toBeVisible({ timeout: 10000 });
 
-      // 編集ボタンを探す（作成したティッカーのシンボルがあるか確認）
-      await expect(page.getByText(testHolding.ticker.symbol, { exact: true })).toBeVisible({
-        timeout: 10000,
-      });
-
-      // 該当行の編集ボタンをクリック
-      const targetRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
+      const targetRow = page.locator(`tr:has-text("${TICKER_SYMBOL}")`);
       await targetRow.getByRole('button', { name: '編集' }).click();
 
-      // 編集モーダルが表示される
       await expect(page.getByRole('dialog')).toBeVisible();
       await expect(page.getByRole('heading', { name: '保有株式の編集' })).toBeVisible();
 
@@ -373,156 +275,171 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
       await expect(page.getByLabel('取引所')).toBeDisabled();
       await expect(page.getByLabel('ティッカー')).toBeDisabled();
 
-      // 保有数を変更
       const quantityInput = page.locator('#edit-quantity');
       await quantityInput.clear();
       await quantityInput.fill('200');
 
-      // 平均取得価格を変更
       const averagePriceInput = page.locator('#edit-average-price');
       await averagePriceInput.clear();
       await averagePriceInput.fill('155.75');
 
-      // 保存ボタンをクリック
       await page.getByRole('button', { name: '保存' }).click();
 
-      // モーダルが閉じることを待つ
       await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 10000 });
-
-      // 成功メッセージが表示されることを確認
       await expect(page.getByText('保有株式を更新しました')).toBeVisible({ timeout: 5000 });
 
-      // 更新された値が表示されることを確認
-      const updatedRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
+      const updatedRow = page.getByRole('row').filter({ hasText: TICKER_SYMBOL });
       await expect(updatedRow.getByText('200')).toBeVisible();
       await expect(updatedRow.getByText('155.75 USD')).toBeVisible();
     });
   });
 
-  test('保有株式の削除ができる', async ({ page }) => {
-    // 保有株式が存在する場合のみテスト実行
-    const deleteButtons = page.getByRole('button', { name: '削除' });
-    const deleteButtonCount = await deleteButtons.count();
+  test.describe('保有株式の削除', () => {
+    test.beforeEach(async ({ page, request }) => {
+      await resetState(request, {
+        ...baseSeed(),
+        holdings: [holdingSeed()],
+      });
+      await page.goto('/holdings');
+      await page.waitForLoadState('networkidle');
+    });
 
-    if (deleteButtonCount > 0) {
-      // 削除前の行数を記録
-      const rows = page.getByRole('row');
-      const initialRowCount = await rows.count();
+    test('保有株式の削除ができる', async ({ page }) => {
+      const row = page.getByRole('row').filter({ hasText: TICKER_SYMBOL });
+      await expect(row).toBeVisible();
 
-      // 最初の削除ボタンをクリック
-      await deleteButtons.first().click();
+      await row.getByRole('button', { name: '削除' }).click();
 
-      // 削除確認ダイアログが表示される
       await expect(page.getByRole('dialog')).toBeVisible();
       await expect(page.getByRole('heading', { name: '保有株式の削除' })).toBeVisible();
-
-      // 確認メッセージが表示される
       await expect(page.getByText(/以下の保有株式を削除してもよろしいですか/)).toBeVisible();
 
-      // 削除ボタンをクリック
       await page.getByRole('button', { name: '削除' }).last().click();
 
-      // 成功メッセージが表示される
       await expect(page.getByText('保有株式を削除しました')).toBeVisible({ timeout: 5000 });
-
-      // ダイアログが閉じる
       await expect(page.getByRole('dialog')).not.toBeVisible();
 
-      // 行数が1つ減っている（ヘッダー分を考慮）
-      await page.waitForTimeout(500);
-      const finalRowCount = await rows.count();
-      expect(finalRowCount).toBeLessThanOrEqual(initialRowCount);
-    }
+      await expect(page.getByRole('row').filter({ hasText: TICKER_SYMBOL })).not.toBeVisible();
+    });
   });
 
-  test('保有株式削除ダイアログで売りアラートが表示され、削除時に売りアラートも削除される', async ({
-    page,
-    request,
-  }) => {
-    const testHolding = await factory.createHolding({
-      tickerId: testTicker.tickerId,
-      quantity: 50,
-      averagePrice: 120,
-      currency: 'USD',
-    });
-    const sellAlert: CreatedAlert = await factory.createAlert({
-      tickerId: testHolding.tickerId,
-      mode: 'Sell',
-      conditions: [{ field: 'price', operator: 'gte', value: 180 }],
-    });
-    const buyAlert: CreatedAlert = await factory.createAlert({
-      tickerId: testHolding.tickerId,
-      mode: 'Buy',
-      conditions: [{ field: 'price', operator: 'lte', value: 90 }],
+  test.describe('保有株式の削除（売りアラートあり）', () => {
+    test.beforeEach(async ({ page, request }) => {
+      await resetState(request, {
+        ...baseSeed(),
+        holdings: [holdingSeed()],
+        alerts: [sellAlertSeed(180), buyAlertSeed(90)],
+      });
+      await page.goto('/holdings');
+      await page.waitForLoadState('networkidle');
     });
 
-    await page.reload();
-    await page.waitForLoadState('networkidle');
+    test('保有株式削除ダイアログで売りアラートが表示され、削除時に売りアラートも削除される', async ({
+      page,
+      request,
+    }) => {
+      const alertsBeforeResponse = await request.get('/api/alerts');
+      expect(alertsBeforeResponse.ok()).toBeTruthy();
+      const alertsBefore = (await alertsBeforeResponse.json()).alerts as Array<{
+        alertId: string;
+        mode: string;
+      }>;
+      const sellAlert = alertsBefore.find((alert) => alert.mode === 'Sell');
+      const buyAlert = alertsBefore.find((alert) => alert.mode === 'Buy');
+      expect(sellAlert).toBeDefined();
+      expect(buyAlert).toBeDefined();
 
-    const targetRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
-    await targetRow.getByRole('button', { name: '削除' }).click();
+      const row = page.getByRole('row').filter({ hasText: TICKER_SYMBOL });
+      await row.getByRole('button', { name: '削除' }).click();
 
-    await expect(page.getByRole('dialog')).toBeVisible();
-    await expect(page.getByText('以下の売りアラートも合わせて削除されます。')).toBeVisible();
-    await expect(page.getByText(`${testHolding.ticker.symbol}（価格 180 以上）`)).toBeVisible();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await expect(page.getByText('以下の売りアラートも合わせて削除されます。')).toBeVisible();
+      await expect(page.getByText(`${TICKER_SYMBOL}（価格 180 以上）`)).toBeVisible();
 
-    await page.getByRole('button', { name: '削除' }).last().click();
-    await expect(page.getByText('保有株式を削除しました')).toBeVisible({ timeout: 5000 });
+      await page.getByRole('button', { name: '削除' }).last().click();
+      await expect(page.getByText('保有株式を削除しました')).toBeVisible({ timeout: 5000 });
 
-    const alertsResponse = await request.get('/api/alerts');
-    expect(alertsResponse.ok()).toBeTruthy();
-    const alertsBody = await alertsResponse.json();
-    const remainingAlertIds = (alertsBody.alerts || []).map(
-      (alert: { alertId: string }) => alert.alertId
-    );
+      const alertsAfterResponse = await request.get('/api/alerts');
+      expect(alertsAfterResponse.ok()).toBeTruthy();
+      const alertsAfter = (await alertsAfterResponse.json()).alerts as Array<{ alertId: string }>;
+      const remainingAlertIds = alertsAfter.map((alert) => alert.alertId);
 
-    expect(remainingAlertIds).not.toContain(sellAlert.alertId);
-    expect(remainingAlertIds).toContain(buyAlert.alertId);
+      expect(remainingAlertIds).not.toContain(sellAlert!.alertId);
+      expect(remainingAlertIds).toContain(buyAlert!.alertId);
+    });
   });
 
-  test('アラート設定ボタンが表示される', async ({ page }) => {
-    // 保有株式が存在する場合のみテスト実行
-    const alertButtons = page.getByRole('button', { name: /売りアラート|アラート設定済/ });
-    const alertButtonCount = await alertButtons.count();
+  test.describe('アラート設定ボタン', () => {
+    test.describe('アラートが未設定の場合', () => {
+      test.beforeEach(async ({ page, request }) => {
+        await resetState(request, {
+          ...baseSeed(),
+          holdings: [holdingSeed()],
+        });
+        await page.goto('/holdings');
+        await page.waitForLoadState('networkidle');
+      });
 
-    if (alertButtonCount > 0) {
-      // アラートボタンが表示される
-      await expect(alertButtons.first()).toBeVisible();
-    }
+      test('売りアラートボタンが表示される', async ({ page }) => {
+        const row = page.getByRole('row').filter({ hasText: TICKER_SYMBOL });
+        await expect(row.getByRole('button', { name: '売りアラート' })).toBeVisible();
+        await expect(row.getByRole('button', { name: 'アラート設定済' })).not.toBeVisible();
+      });
+    });
+
+    test.describe('売りアラートが設定済みの場合', () => {
+      test.beforeEach(async ({ page, request }) => {
+        await resetState(request, {
+          ...baseSeed(),
+          holdings: [holdingSeed()],
+          alerts: [sellAlertSeed(180)],
+        });
+        await page.goto('/holdings');
+        await page.waitForLoadState('networkidle');
+      });
+
+      test('アラート設定済ボタンが表示される', async ({ page }) => {
+        const row = page.getByRole('row').filter({ hasText: TICKER_SYMBOL });
+        await expect(row.getByRole('button', { name: 'アラート設定済' })).toBeVisible();
+      });
+    });
   });
 
-  test('戻るボタンで前の画面に戻れる', async ({ page }) => {
-    // 戻るボタンをクリック
-    await page.getByRole('button', { name: '戻る' }).click();
+  test.describe('画面遷移・レスポンシブ', () => {
+    test.beforeEach(async ({ page, request }) => {
+      await resetState(request, baseSeed());
+      await page.goto('/holdings');
+      await page.waitForLoadState('networkidle');
+    });
 
-    // トップ画面に遷移する
-    await page.waitForURL('/');
-    expect(page.url()).toContain('/');
-  });
+    test('戻るボタンで前の画面に戻れる', async ({ page }) => {
+      await page.getByRole('button', { name: '戻る' }).click();
 
-  test('レスポンシブデザインが動作する (モバイル)', async ({ page }) => {
-    // モバイルビューポートに変更
-    await page.setViewportSize({ width: 375, height: 667 });
+      await expect(page).toHaveURL('/');
+    });
 
-    // 画面が表示される
-    await expect(page.getByRole('heading', { name: '保有株式管理' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /新規登録/ })).toBeVisible();
+    test('レスポンシブデザインが動作する (モバイル)', async ({ page }) => {
+      await page.setViewportSize({ width: 375, height: 667 });
 
-    // テーブルが表示される
-    await expect(page.getByRole('table')).toBeVisible();
+      await expect(page.getByRole('heading', { name: '保有株式管理' })).toBeVisible();
+      await expect(page.getByRole('button', { name: /新規登録/ })).toBeVisible();
+      await expect(page.getByRole('table')).toBeVisible();
 
-    // 新規登録ボタンをクリック
-    await page.getByRole('button', { name: /新規登録/ }).click();
+      await page.getByRole('button', { name: /新規登録/ }).click();
+      await expect(page.getByRole('dialog')).toBeVisible();
 
-    // モーダルが表示される
-    await expect(page.getByRole('dialog')).toBeVisible();
+      // モバイル幅でフォームが画面外にはみ出していないことを検証する。
+      // 旧実装は `formFieldsCount > 0` を assert していたが、これは要素が1つでもあれば
+      // 通るためレイアウト崩れを検知できず、テスト名の主張を満たしていなかった。
+      const dialogContent = page.locator('.MuiDialogContent-root');
+      const box = await dialogContent.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.width).toBeLessThanOrEqual(375);
 
-    // フォームフィールドが縦に並ぶ
-    const formFields = page.locator('.MuiDialogContent-root').locator('.MuiBox-root > *');
-    const formFieldsCount = await formFields.count();
-    expect(formFieldsCount).toBeGreaterThan(0);
+      await expect(page.getByLabel('取引所')).toBeVisible();
+      await expect(page.getByLabel('ティッカー')).toBeVisible();
 
-    // モーダルを閉じる
-    await page.getByRole('button', { name: 'キャンセル' }).click();
+      await page.getByRole('button', { name: 'キャンセル' }).click();
+    });
   });
 });
