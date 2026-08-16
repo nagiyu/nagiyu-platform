@@ -89,6 +89,22 @@ export function emitChatMetricsEMF(metrics: ChatMetrics): void {
       unit: 'Milliseconds',
     });
   }
+  // TTS と LLM の合計レイテンシは、TTS が LLM の裏に隠れているか、はみ出しているかを
+  // 判定するために必ずセットで出す。
+  if (metrics.latency.ttsTotal !== undefined) {
+    emfMetrics.push({
+      name: 'TTSTotalLatency',
+      value: metrics.latency.ttsTotal,
+      unit: 'Milliseconds',
+    });
+  }
+  if (metrics.latency.llmTotal !== undefined) {
+    emfMetrics.push({
+      name: 'LLMTotalLatency',
+      value: metrics.latency.llmTotal,
+      unit: 'Milliseconds',
+    });
+  }
 
   const payload = buildEmfPayload({
     namespace: 'LiveTalk/Chat',

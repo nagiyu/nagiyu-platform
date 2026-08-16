@@ -49,6 +49,8 @@ describe('emitChatMetricsEMF', () => {
     metrics.latency.llmTtfb = 400;
     metrics.latency.chatTotal = 1500;
     metrics.latency.retrieve = 100;
+    metrics.latency.ttsTotal = 600;
+    metrics.latency.llmTotal = 900;
 
     emitChatMetricsEMF(metrics);
 
@@ -59,7 +61,18 @@ describe('emitChatMetricsEMF', () => {
     expect(parsed['LLMTimeToFirstToken']).toBe(400);
     expect(parsed['ChatTotalLatency']).toBe(1500);
     expect(parsed['RetrieveLatency']).toBe(100);
+    expect(parsed['TTSTotalLatency']).toBe(600);
+    expect(parsed['LLMTotalLatency']).toBe(900);
     expect((parsed['_aws'] as { CloudWatchMetrics: unknown[] }).CloudWatchMetrics).toBeDefined();
+
+    const metricDefs = (
+      parsed['_aws'] as {
+        CloudWatchMetrics: Array<{ Metrics: Array<{ Name: string; Unit: string }> }>;
+      }
+    ).CloudWatchMetrics[0].Metrics;
+    expect(metricDefs).toContainEqual({ Name: 'TTSTotalLatency', Unit: 'Milliseconds' });
+    expect(metricDefs).toContainEqual({ Name: 'LLMTotalLatency', Unit: 'Milliseconds' });
+
     logSpy.mockRestore();
   });
 
@@ -73,6 +86,23 @@ describe('emitChatMetricsEMF', () => {
     expect(output).not.toContain('LLMTimeToFirstToken');
     expect(output).not.toContain('ChatTotalLatency');
     expect(output).not.toContain('RetrieveLatency');
+    expect(output).not.toContain('TTSTotalLatency');
+    expect(output).not.toContain('LLMTotalLatency');
+    logSpy.mockRestore();
+  });
+
+  it('ttsTotal / llmTotal のみ値がある場合、それぞれ正しい値・単位で出力される', () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const metrics = createChatMetrics('u1', 'hiyori');
+    metrics.latency.ttsTotal = 250;
+    metrics.latency.llmTotal = 750;
+
+    emitChatMetricsEMF(metrics);
+
+    const output = logSpy.mock.calls[0][0] as string;
+    const parsed = JSON.parse(output) as Record<string, unknown>;
+    expect(parsed['TTSTotalLatency']).toBe(250);
+    expect(parsed['LLMTotalLatency']).toBe(750);
     logSpy.mockRestore();
   });
 
