@@ -1,10 +1,8 @@
 import { Box, Card, CardContent, Typography } from '@mui/material';
 import { Button, Chip } from '@nagiyu/ui';
-import { hasPermission } from '@nagiyu/common';
 import { getSession } from '@/lib/auth/session';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import NotifyButton from '@/components/notify/NotifyButton';
+import DashboardRoleCards from '@/components/dashboard/DashboardRoleCards';
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -61,32 +59,7 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
 
-      {hasPermission(user.roles, 'notifications:write') && (
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              通知設定
-            </Typography>
-            <NotifyButton />
-          </CardContent>
-        </Card>
-      )}
-
-      {hasPermission(user.roles, 'errors:read') && (
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              エラー履歴
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              プラットフォーム上で発生したエラー通知の履歴を確認できます
-            </Typography>
-            <Button asChild variant="solid">
-              <Link href="/errors">エラー履歴を表示</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      <DashboardRoleCards roles={user.roles} />
 
       {/* ログアウトボタン */}
       {/* callbackUrl を付与してサインアウト後に admin へ戻れるようにする。
