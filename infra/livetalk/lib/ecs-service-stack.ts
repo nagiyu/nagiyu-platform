@@ -10,22 +10,13 @@ import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import {
   Environment,
+  SECRET_NAMES,
   SSM_PARAMETERS,
   getDynamoDBTableArn,
   getDynamoDBTableName,
   getEcrRepositoryName,
   grantErrorEventsWrite,
 } from '@nagiyu/infra-common';
-import { openAiSecretName, vapidSecretName } from './secrets-stack';
-
-/**
- * Auth サービスの NextAuth 署名用シークレット名を組み立てる。
- * Auth サービス側のリソースであり LiveTalk 側に命名ヘルパーはないため、
- * secrets-stack.ts の openAiSecretName / vapidSecretName と同じ形でここに定義する。
- */
-function authSecretName(environment: Environment): string {
-  return `nagiyu-auth-nextauth-secret-${environment}`;
-}
 
 export interface LiveTalkEcsServiceStackProps extends cdk.StackProps {
   environment: Environment;
@@ -74,19 +65,19 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
     const authSecret = secretsmanager.Secret.fromSecretNameV2(
       this,
       'AuthSecret',
-      authSecretName(environment)
+      SECRET_NAMES.AUTH_NEXTAUTH(environment)
     );
     const openAiApiKeySecret = secretsmanager.Secret.fromSecretNameV2(
       this,
       'OpenAiApiKeySecret',
-      openAiSecretName(environment)
+      SECRET_NAMES.LIVETALK_OPENAI_API_KEY(environment)
     );
     // VAPID は 1 つの Secret に `{"publicKey":"...","privateKey":"..."}` という
     // JSON で publicKey / privateKey の両方を保持している（secrets-stack.ts 参照）。
     const vapidSecret = secretsmanager.Secret.fromSecretNameV2(
       this,
       'VapidSecret',
-      vapidSecretName(environment)
+      SECRET_NAMES.LIVETALK_VAPID(environment)
     );
 
     const authUrl =

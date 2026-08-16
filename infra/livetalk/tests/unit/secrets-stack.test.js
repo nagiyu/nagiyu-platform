@@ -2,7 +2,8 @@ const cdk = require('aws-cdk-lib');
 const { Template, Match } = require('aws-cdk-lib/assertions');
 
 require('ts-node/register/transpile-only');
-const { LiveTalkSecretsStack, openAiSecretName } = require('../../lib/secrets-stack');
+const { LiveTalkSecretsStack } = require('../../lib/secrets-stack');
+const { SECRET_NAMES } = require('@nagiyu/infra-common');
 
 const STACK_ENV = { account: '000000000000', region: 'us-east-1' };
 
@@ -62,9 +63,11 @@ describe('LiveTalkSecretsStack', () => {
   });
 });
 
-describe('openAiSecretName', () => {
-  it('OpenAI のシークレット名を組み立てる', () => {
-    expect(openAiSecretName('dev')).toBe('/nagiyu/livetalk/dev/openai/api-key');
-    expect(openAiSecretName('prod')).toBe('/nagiyu/livetalk/prod/openai/api-key');
+describe('シークレット名', () => {
+  it('共通レジストリ SECRET_NAMES の値をそのまま使う', () => {
+    // 名前の期待値そのものは infra/common 側のテストで固定している。
+    // ここでは「スタックが独自にリテラルを持たず、レジストリを参照している」ことを守る。
+    expect(SECRET_NAMES.LIVETALK_OPENAI_API_KEY('dev')).toBe('/nagiyu/livetalk/dev/openai/api-key');
+    expect(SECRET_NAMES.LIVETALK_VAPID('dev')).toBe('nagiyu-livetalk-vapid-dev');
   });
 });

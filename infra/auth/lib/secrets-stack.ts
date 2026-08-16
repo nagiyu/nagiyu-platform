@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
+import { SECRET_NAMES, type Environment } from '@nagiyu/infra-common';
 
 export interface SecretsStackProps extends cdk.StackProps {
   environment: string;
@@ -14,13 +15,16 @@ export class SecretsStack extends cdk.Stack {
     super(scope, id, props);
 
     const { environment } = props;
+    // props.environment は string 型のため、共通レジストリに渡す際に Environment へ寄せる
+    // （infra/root/alb-stack.ts と同じ扱い）。
+    const secretEnvironment = environment as Environment;
 
     // Google OAuth credentials
     this.googleOAuthSecret = new secretsmanager.Secret(
       this,
       'GoogleOAuthSecret',
       {
-        secretName: `nagiyu-auth-google-oauth-${environment}`,
+        secretName: SECRET_NAMES.AUTH_GOOGLE_OAUTH(secretEnvironment),
         description: 'Google OAuth credentials for Auth service',
         secretObjectValue: {
           clientId: cdk.SecretValue.unsafePlainText('PLACEHOLDER_CLIENT_ID'),
@@ -33,7 +37,7 @@ export class SecretsStack extends cdk.Stack {
 
     // NextAuth.js secret
     this.nextAuthSecret = new secretsmanager.Secret(this, 'NextAuthSecret', {
-      secretName: `nagiyu-auth-nextauth-secret-${environment}`,
+      secretName: SECRET_NAMES.AUTH_NEXTAUTH(secretEnvironment),
       description: 'NextAuth.js secret key for JWT signing',
       generateSecretString: {
         passwordLength: 32,
