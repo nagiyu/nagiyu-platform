@@ -152,6 +152,14 @@ ui       ← browser, common
 
 **ローカルで `next dev` や E2E を起動する前にも同様に依存順でビルドする**。全 libs を依存順でビルドするスクリプトを `build-shared-libs` スキル（[`.claude/skills/build-shared-libs/`](../../.claude/skills/build-shared-libs/SKILL.md)）に同梱しているので、`.claude/skills/build-shared-libs/scripts/build.sh` を使う。
 
+### libs だけでは足りない：サービスの core も必要
+
+`libs/*` に加えて、**そのサービスの core パッケージもビルドが必要**。これも `"main"` が `dist/` を指しており、`npm ci` では作られない。
+
+見落としやすいのは、**libs のビルドだけ済ませると起動自体は成功してしまう**点。失敗は起動時ではなく、core を参照する API を叩いた瞬間に 500 として初めて現れる。E2E では「ブラウザを使わない API テストだけが通り、画面を伴うテストが軒並み落ちる」という紛らわしい形になる。
+
+E2E を回す前は、libs 一式に加えて対象サービスの core もビルドしておくこと。
+
 ---
 
 ## やってはいけないこと
