@@ -1,21 +1,37 @@
 import { test, expect } from '@playwright/test';
-import { clearTestData } from './helpers/test-data';
+import { clearTestData, seedTestVideos, stubThumbnails } from './helpers/test-data';
 import { clickNavigationItem, expectNavigationItemVisible } from './helpers/navigation';
 
+/**
+ * webkit-mobile 対応: 実 Service Worker（/sw.js）を無効化する。
+ *
+ * 本サービスは libs/ui の ServiceWorkerRegistration を layout.tsx で使っており、
+ * 全ページで /sw.js を登録する。webkit ではこの SW がページを制御して API 応答を
+ * 仲介・キャッシュするため、Playwright の既知制約
+ * 「Service Worker 経由のリクエストは Chromium 以外では page.route で捕捉できない」
+ * により page.route のモックが素通りし、テストが非決定的になる。
+ *
+ * `chromium-mobile` プロジェクトは playwright.config.base.ts 側で
+ * `serviceWorkers: 'block'` を設定済みだが `chromium-desktop` / `webkit-mobile` は
+ * 未設定という非対称があるため、spec 側で一律に打ち消す。
+ */
+test.use({ serviceWorkers: 'block' });
+
+/**
+ * `clearTestData`（`DELETE /api/test/videos`）はインメモリDBストア全体を消す
+ * グローバル操作。Playwright はデフォルトでファイル間も並列実行する
+ * （`fullyParallel: true`）ため、このファイル全体を直列化し、他ファイルおよび
+ * 同一ファイル内の他テストとのデータ競合を防ぐ。
+ */
+test.describe.configure({ mode: 'serial' });
+
 test.describe('Video List Page', () => {
-  test.beforeEach(async ({ request }) => {
+  test.beforeEach(async ({ page, request }) => {
+    // seed のサムネイル(https://example.com/*.jpg)は到達不能なため、
+    // img の可視性判定と networkidle 待ちが非決定的になる。事前にスタブする。
+    await stubThumbnails(page);
     // 各テスト前にデータをクリア（API経由）
     await clearTestData(request);
-  });
-
-  test.skip('should redirect to home when not authenticated', async ({ page }) => {
-    // このテストはSKIP_AUTH_CHECK=trueの環境では実行できない
-    // E2Eテスト環境では常に認証がバイパスされるため、未認証状態をテストできない
-    // 未認証時のリダイレクト動作は middleware のユニットテストで検証する
-    await page.goto('/mylist');
-
-    // 認証されていない場合はホームにリダイレクト
-    await expect(page).toHaveURL('/');
   });
 
   test('should display video list page when authenticated', async ({ page }) => {
@@ -61,13 +77,8 @@ test.describe('Video List Page', () => {
     page,
     request,
   }) => {
-    const startId = 60000000 + Math.floor(Date.now() % 100000);
-    await request.post('/api/test/videos', {
-      data: {
-        count: 3,
-        startId,
-      },
-    });
+    const startId = 40000000;
+    await seedTestVideos(request, { count: 3, startId });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -86,13 +97,7 @@ test.describe('Video List Page', () => {
   });
 
   test('should display empty state when search result is empty', async ({ page, request }) => {
-    const startId = 61000000 + Math.floor(Date.now() % 100000);
-    await request.post('/api/test/videos', {
-      data: {
-        count: 3,
-        startId,
-      },
-    });
+    await seedTestVideos(request, { count: 3, startId: 40000000 });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -109,19 +114,8 @@ test.describe('Video List Page', () => {
   });
 
   test('should display video cards when videos exist', async ({ page, request }) => {
-    // テストデータをAPI経由で作成
-    const response = await request.post('/api/videos/bulk-import', {
-      data: {
-        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
-      },
-    });
-    const body = await response.json();
-
-    // テストをスキップする条件: 動画が1件も取得できなかった場合
-    test.skip(
-      body.success === 0,
-      'Niconico API rejected all video IDs - no videos available for testing'
-    );
+    // 決定的なシード API でテストデータを作成する（実ニコニコ動画API には依存しない）
+    await seedTestVideos(request, { count: 5, startId: 40000000 });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -138,19 +132,7 @@ test.describe('Video List Page', () => {
   });
 
   test('should toggle favorite on video card', async ({ page, request }) => {
-    // テストデータをAPI経由で作成
-    const response = await request.post('/api/videos/bulk-import', {
-      data: {
-        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
-      },
-    });
-    const body = await response.json();
-
-    // テストをスキップする条件: 動画が1件も取得できなかった場合
-    test.skip(
-      body.success === 0,
-      'Niconico API rejected all video IDs - no videos available for testing'
-    );
+    await seedTestVideos(request, { count: 3, startId: 40000000 });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -177,19 +159,7 @@ test.describe('Video List Page', () => {
   });
 
   test('should toggle skip on video card', async ({ page, request }) => {
-    // テストデータをAPI経由で作成
-    const response = await request.post('/api/videos/bulk-import', {
-      data: {
-        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
-      },
-    });
-    const body = await response.json();
-
-    // テストをスキップする条件: 動画が1件も取得できなかった場合
-    test.skip(
-      body.success === 0,
-      'Niconico API rejected all video IDs - no videos available for testing'
-    );
+    await seedTestVideos(request, { count: 3, startId: 40000000 });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -218,11 +188,8 @@ test.describe('Video List Page', () => {
   test('should filter videos by favorite', async ({ page, request }) => {
     // セットアップは UI クリックではなく test seed API でお気に入り 2 件を直接作成する。
     // クリックで作ると VideoList の再フェッチ・再レンダリングと次のクリックが
-    // 競合してフレークになる（実 niconico API もフレーク要因）。
-    const seedResponse = await request.post('/api/test/videos', {
-      data: { count: 5, startId: 40000000, favoriteCount: 2 },
-    });
-    expect(seedResponse.ok()).toBeTruthy();
+    // 競合してフレークになる。
+    await seedTestVideos(request, { count: 5, startId: 40000000, favoriteCount: 2 });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -240,19 +207,7 @@ test.describe('Video List Page', () => {
   });
 
   test('should filter videos by skip', async ({ page, request }) => {
-    // テストデータをAPI経由で作成
-    const response = await request.post('/api/videos/bulk-import', {
-      data: {
-        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
-      },
-    });
-    const body = await response.json();
-
-    // テストをスキップする条件: 動画が1件も取得できなかった場合
-    test.skip(
-      body.success === 0,
-      'Niconico API rejected all video IDs - no videos available for testing'
-    );
+    await seedTestVideos(request, { count: 5, startId: 40000000 });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -265,19 +220,8 @@ test.describe('Video List Page', () => {
   });
 
   test('should display pagination when many videos', async ({ page, request }) => {
-    // 30個の動画をインポート（ページネーション表示に必要）
-    // より新しいIDを使用してAPI拒否を減らす
-    const videoIds = Array.from({ length: 30 }, (_, i) => `sm${40000000 + i}`);
-    const response = await request.post('/api/videos/bulk-import', {
-      data: { videoIds },
-    });
-    const body = await response.json();
-
-    // インポートが成功した動画の数を確認
-    test.skip(
-      body.success < 20,
-      `Niconico API rejected too many videos (only ${body.success} imported)`
-    );
+    // 30個の動画をシード（ページネーション表示に必要）
+    await seedTestVideos(request, { count: 30, startId: 40000000 });
 
     await page.goto('/mylist');
 
@@ -289,17 +233,7 @@ test.describe('Video List Page', () => {
   });
 
   test('should navigate to next page', async ({ page, request }) => {
-    // 30個の動画をインポート（ページネーション表示に必要）
-    const videoIds = Array.from({ length: 30 }, (_, i) => `sm${40000000 + i}`);
-    const response = await request.post('/api/videos/bulk-import', {
-      data: { videoIds },
-    });
-    const body = await response.json();
-
-    test.skip(
-      body.success < 20,
-      `Niconico API rejected too many videos (only ${body.success} imported)`
-    );
+    await seedTestVideos(request, { count: 30, startId: 40000000 });
 
     await page.goto('/mylist');
 
@@ -312,17 +246,7 @@ test.describe('Video List Page', () => {
   });
 
   test('should navigate to last page', async ({ page, request }) => {
-    // 30個の動画をインポート（ページネーション表示に必要）
-    const videoIds = Array.from({ length: 30 }, (_, i) => `sm${40000000 + i}`);
-    const response = await request.post('/api/videos/bulk-import', {
-      data: { videoIds },
-    });
-    const body = await response.json();
-
-    test.skip(
-      body.success < 20,
-      `Niconico API rejected too many videos (only ${body.success} imported)`
-    );
+    await seedTestVideos(request, { count: 30, startId: 40000000 });
 
     await page.goto('/mylist');
 
@@ -334,8 +258,15 @@ test.describe('Video List Page', () => {
     await page.waitForResponse((response) => response.url().includes('/api/videos'));
   });
 
-  test.skip('should display loading state', async ({ page }) => {
-    // TODO: Implement authentication setup and slow network simulation
+  test('should display loading state', async ({ page }) => {
+    // 動画一覧 API のレスポンスを意図的に遅延させ、ローディング表示を決定的に観測する
+    await page.route(
+      (url) => url.pathname === '/api/videos',
+      async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await route.continue();
+      }
+    );
 
     await page.goto('/mylist');
 
@@ -343,8 +274,18 @@ test.describe('Video List Page', () => {
     await expect(page.getByRole('progressbar')).toBeVisible();
   });
 
-  test.skip('should display error message on API failure', async ({ page }) => {
-    // TODO: Implement authentication setup and mock API failure
+  test('should display error message on API failure', async ({ page }) => {
+    // 動画一覧 API を 500 で失敗させ、エラー表示を決定的に検証する
+    await page.route(
+      (url) => url.pathname === '/api/videos',
+      async (route) => {
+        await route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: 'Internal Server Error' }),
+        });
+      }
+    );
 
     await page.goto('/mylist');
 
@@ -354,7 +295,10 @@ test.describe('Video List Page', () => {
 });
 
 test.describe('Video List Navigation', () => {
-  test.beforeEach(async ({ request }) => {
+  test.beforeEach(async ({ page, request }) => {
+    // seed のサムネイル(https://example.com/*.jpg)は到達不能なため、
+    // img の可視性判定と networkidle 待ちが非決定的になる。事前にスタブする。
+    await stubThumbnails(page);
     // 各テスト前にデータをクリア（API経由）
     await clearTestData(request);
   });
@@ -388,37 +332,31 @@ test.describe('Video List Navigation', () => {
 });
 
 test.describe('Video List URL Synchronization', () => {
-  test.beforeEach(async ({ request }) => {
+  test.beforeEach(async ({ page, request }) => {
+    // seed のサムネイル(https://example.com/*.jpg)は到達不能なため、
+    // img の可視性判定と networkidle 待ちが非決定的になる。事前にスタブする。
+    await stubThumbnails(page);
     // 各テスト前にデータをクリア（API経由）
     await clearTestData(request);
   });
 
-  test.skip('should initialize filters from URL parameters', async ({ page }) => {
-    // このテストはSKIP_AUTH_CHECK=trueの環境では実行できない
-    // E2Eテスト環境では常に認証がバイパスされるため、未認証状態でのリダイレクト動作をテストできない
-    // 未認証時のリダイレクト動作は middleware のユニットテストで検証する
-    // URLパラメータ付きでアクセス
-    await page.goto('/mylist?favorite=true&skip=false&offset=20');
+  test('should initialize filters from URL parameters', async ({ page, request }) => {
+    // お気に入り25件を含む30件をシードし、favorite=true & offset=20 の URL で
+    // フィルターSelectの値とページネーション（offset）の両方が初期化されることを検証する
+    await seedTestVideos(request, { count: 30, startId: 40000000, favoriteCount: 25 });
 
-    // URLパラメータが反映されることを期待（認証なしでもURLは処理される）
-    // 認証されていない場合はホームにリダイレクトされるが、この動作は正常
-    await expect(page).toHaveURL('/');
+    await page.goto('/mylist?favorite=true&offset=20');
+    await page.waitForLoadState('networkidle');
+
+    // フィルターSelectの値がURLパラメータから初期化されている
+    await expect(page.locator('#favorite-filter')).toHaveValue('true');
+
+    // お気に入り25件のうち21-25件目（5件）を表示している = offset が初期化されている
+    await expect(page.getByText('25 件中 21 - 25 件を表示')).toBeVisible();
   });
 
   test('should update URL when changing favorite filter', async ({ page, request }) => {
-    // テストデータをAPI経由で作成
-    const response = await request.post('/api/videos/bulk-import', {
-      data: {
-        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
-      },
-    });
-    const body = await response.json();
-
-    // テストをスキップする条件: 動画が1件も取得できなかった場合
-    test.skip(
-      body.success === 0,
-      'Niconico API rejected all video IDs - no videos available for testing'
-    );
+    await seedTestVideos(request, { count: 5, startId: 40000000 });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -431,19 +369,7 @@ test.describe('Video List URL Synchronization', () => {
   });
 
   test('should update URL when changing skip filter', async ({ page, request }) => {
-    // テストデータをAPI経由で作成
-    const response = await request.post('/api/videos/bulk-import', {
-      data: {
-        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
-      },
-    });
-    const body = await response.json();
-
-    // テストをスキップする条件: 動画が1件も取得できなかった場合
-    test.skip(
-      body.success === 0,
-      'Niconico API rejected all video IDs - no videos available for testing'
-    );
+    await seedTestVideos(request, { count: 5, startId: 40000000 });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -469,19 +395,7 @@ test.describe('Video List URL Synchronization', () => {
   });
 
   test('should update URL when changing both filters', async ({ page, request }) => {
-    // テストデータをAPI経由で作成
-    const response = await request.post('/api/videos/bulk-import', {
-      data: {
-        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
-      },
-    });
-    const body = await response.json();
-
-    // テストをスキップする条件: 動画が1件も取得できなかった場合
-    test.skip(
-      body.success === 0,
-      'Niconico API rejected all video IDs - no videos available for testing'
-    );
+    await seedTestVideos(request, { count: 5, startId: 40000000 });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -500,18 +414,7 @@ test.describe('Video List URL Synchronization', () => {
   });
 
   test('should update URL when changing page', async ({ page, request }) => {
-    // 30個の動画をインポート（ページネーション表示に必要）
-    const videoIds = Array.from({ length: 30 }, (_, i) => `sm${40000000 + i}`);
-    const response = await request.post('/api/videos/bulk-import', {
-      data: { videoIds },
-    });
-    const body = await response.json();
-
-    // テストをスキップする条件: 動画が20件未満の場合
-    test.skip(
-      body.success < 20,
-      `Insufficient videos for pagination test (only ${body.success} imported)`
-    );
+    await seedTestVideos(request, { count: 30, startId: 40000000 });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -525,18 +428,7 @@ test.describe('Video List URL Synchronization', () => {
   });
 
   test('should maintain filters when navigating pages', async ({ page, request }) => {
-    // 30個の動画をインポート
-    const videoIds = Array.from({ length: 30 }, (_, i) => `sm${40000000 + i}`);
-    const response = await request.post('/api/videos/bulk-import', {
-      data: { videoIds },
-    });
-    const body = await response.json();
-
-    // テストをスキップする条件: 動画が20件未満の場合
-    test.skip(
-      body.success < 20,
-      `Insufficient videos for pagination test (only ${body.success} imported)`
-    );
+    await seedTestVideos(request, { count: 30, startId: 40000000, favoriteCount: 30 });
 
     await page.goto('/mylist?favorite=true');
 
@@ -552,18 +444,7 @@ test.describe('Video List URL Synchronization', () => {
   });
 
   test('should reset page when changing filters', async ({ page, request }) => {
-    // 30個の動画をインポート
-    const videoIds = Array.from({ length: 30 }, (_, i) => `sm${40000000 + i}`);
-    const response = await request.post('/api/videos/bulk-import', {
-      data: { videoIds },
-    });
-    const body = await response.json();
-
-    // テストをスキップする条件: 動画が20件未満の場合
-    test.skip(
-      body.success < 20,
-      `Insufficient videos for pagination test (only ${body.success} imported)`
-    );
+    await seedTestVideos(request, { count: 30, startId: 40000000 });
 
     // 2ページ目に移動
     await page.goto('/mylist?offset=20');
@@ -587,19 +468,7 @@ test.describe('Video List URL Synchronization', () => {
   });
 
   test('should maintain state on browser back', async ({ page, request }) => {
-    // テストデータをAPI経由で作成
-    const response = await request.post('/api/videos/bulk-import', {
-      data: {
-        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
-      },
-    });
-    const body = await response.json();
-
-    // テストをスキップする条件: 動画が1件も取得できなかった場合
-    test.skip(
-      body.success === 0,
-      'Niconico API rejected all video IDs - no videos available for testing'
-    );
+    await seedTestVideos(request, { count: 5, startId: 40000000 });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -618,19 +487,7 @@ test.describe('Video List URL Synchronization', () => {
   });
 
   test('should maintain state on browser forward', async ({ page, request }) => {
-    // テストデータをAPI経由で作成
-    const response = await request.post('/api/videos/bulk-import', {
-      data: {
-        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
-      },
-    });
-    const body = await response.json();
-
-    // テストをスキップする条件: 動画が1件も取得できなかった場合
-    test.skip(
-      body.success === 0,
-      'Niconico API rejected all video IDs - no videos available for testing'
-    );
+    await seedTestVideos(request, { count: 5, startId: 40000000 });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -650,13 +507,8 @@ test.describe('Video List URL Synchronization', () => {
   });
 
   test('should restore search state on browser back and forward', async ({ page, request }) => {
-    const startId = 62000000 + Math.floor(Date.now() % 100000);
-    await request.post('/api/test/videos', {
-      data: {
-        count: 3,
-        startId,
-      },
-    });
+    const startId = 40000000;
+    await seedTestVideos(request, { count: 3, startId });
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
@@ -681,14 +533,8 @@ test.describe('Video List URL Synchronization', () => {
   });
 
   test('should apply search and favorite filters as AND condition', async ({ page, request }) => {
-    const startId = 63000000 + Math.floor(Date.now() % 100000);
-    await request.post('/api/test/videos', {
-      data: {
-        count: 3,
-        startId,
-        favoriteCount: 1,
-      },
-    });
+    const startId = 40000000;
+    await seedTestVideos(request, { count: 3, startId, favoriteCount: 1 });
 
     await page.goto(`/mylist?favorite=true&search=${startId + 1}`);
     await expect(page.getByText('動画が見つかりませんでした')).toBeVisible();
@@ -700,30 +546,7 @@ test.describe('Video List URL Synchronization', () => {
   });
 
   test('should handle direct URL access with filters', async ({ page, request }) => {
-    // テストデータをAPI経由で作成
-    const response = await request.post('/api/videos/bulk-import', {
-      data: {
-        videoIds: [
-          'sm40000000',
-          'sm40000001',
-          'sm40000002',
-          'sm40000003',
-          'sm40000004',
-          'sm40000005',
-          'sm40000006',
-          'sm40000007',
-          'sm40000008',
-          'sm40000009',
-        ],
-      },
-    });
-    const body = await response.json();
-
-    // テストをスキップする条件: 動画が1件も取得できなかった場合
-    test.skip(
-      body.success === 0,
-      'Niconico API rejected all video IDs - no videos available for testing'
-    );
+    await seedTestVideos(request, { count: 10, startId: 40000000 });
 
     // フィルター付きURLに直接アクセス
     await page.goto('/mylist?favorite=true&skip=false');
