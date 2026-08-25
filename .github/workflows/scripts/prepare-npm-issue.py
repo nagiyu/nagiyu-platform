@@ -31,6 +31,9 @@ ERROR_MESSAGES = {
 
 TEMPLATE_PATH = '.github/workflows/templates/weekly-npm-body.md'
 
+# チェックの実行自体に失敗した項目の件数セルに入れる表記
+FAILED_CELL = '取得失敗'
+
 
 def decode_json_env(name: str, default: dict) -> dict:
     """環境変数からBase64エンコードされたJSONを取得してデコードする。"""
@@ -75,16 +78,37 @@ def build_detection_targets_section(critical_packages: list, high_packages: list
     return '\n## 検出対象\n\n' + '\n'.join(lines) + '\n'
 
 
-def build_outdated_summary(count: int, major_count: int) -> str:
+def build_outdated_summary(count: int, major_count: int, failed: bool) -> str:
+    if failed:
+        return FAILED_CELL
     if count == 0:
         return '0'
     return f'{count}（うち major 更新 {major_count}）'
 
 
-def build_policy_line(critical: int, high: int) -> str:
+def count_cell(value: int, failed: bool) -> str:
+    """取得に失敗したチェックの件数セルは 0 と区別できる表記にする。"""
+    return FAILED_CELL if failed else str(value)
+
+
+def build_policy_line(critical: int, high: int, failed_sources: list) -> str:
+    """対応方針の行を組み立てる。
+
+    チェックが失敗しているときに「✅ 検出されていません」と出すと、取得失敗が
+    健全な状態と区別できなくなる（サイレント失敗）ため、失敗を明示する。
+    """
+    lines = []
+    if failed_sources:
+        lines.append(
+            '⚠️ 一部のチェックが実行に失敗しています（'
+            + ', '.join(failed_sources)
+            + '）。件数は不完全です。CI ログを確認してください。'
+        )
     if critical > 0 or high > 0:
-        return '⚠️ Critical / High の脆弱性が検出されています。対応を推奨します。'
-    return '✅ Critical / High の脆弱性は検出されていません。'
+        lines.append('⚠️ Critical / High の脆弱性が検出されています。対応を推奨します。')
+    elif not failed_sources:
+        lines.append('✅ Critical / High の脆弱性は検出されていません。')
+    return '\n'.join(lines)
 
 
 def main():
@@ -92,6 +116,14 @@ def main():
     outdated = decode_json_env('OUTDATED', {})
     duplicates = decode_json_env('DUPLICATES', {})
     inconsistency = decode_json_env('INCONSISTENCY', {})
+
+    audit_failed = bool(audit.get('error', False))
+    outdated_failed = bool(outdated.get('error', False))
+    failed_sources = []
+    if audit_failed:
+        failed_sources.append('npm audit')
+    if outdated_failed:
+        failed_sources.append('npm outdated')
 
     critical = audit.get('critical', 0)
     high = audit.get('high', 0)
@@ -123,18 +155,21 @@ def main():
     result = template
     result = result.replace('{{CREATE_TIME}}', create_time)
     result = result.replace('{{NEXT_DATE}}', next_date)
-    result = result.replace('{{CRITICAL}}', str(critical))
-    result = result.replace('{{HIGH}}', str(high))
-    result = result.replace('{{MODERATE}}', str(moderate))
-    result = result.replace('{{LOW}}', str(low))
-    result = result.replace('{{OUTDATED_SUMMARY}}', build_outdated_summary(outdated_count, major_count))
+    result = result.replace('{{CRITICAL}}', count_cell(critical, audit_failed))
+    result = result.replace('{{HIGH}}', count_cell(high, audit_failed))
+    result = result.replace('{{MODERATE}}', count_cell(moderate, audit_failed))
+    result = result.replace('{{LOW}}', count_cell(low, audit_failed))
+    result = result.replace(
+        '{{OUTDATED_SUMMARY}}',
+        build_outdated_summary(outdated_count, major_count, outdated_failed),
+    )
     result = result.replace('{{INCONSISTENCY_COUNT}}', str(inconsistency_count))
     result = result.replace('{{DUPLICATES_COUNT}}', str(duplicates_count))
     result = result.replace(
         '{{DETECTION_TARGETS_SECTION}}',
         build_detection_targets_section(critical_packages, high_packages, major_packages),
     )
-    result = result.replace('{{POLICY_LINE}}', build_policy_line(critical, high))
+    result = result.replace('{{POLICY_LINE}}', build_policy_line(critical, high, failed_sources))
 
     # 末尾の改行なしで出力（workflow側でbase64エンコードするため）
     print(result, end='')

@@ -28,12 +28,15 @@ if [ -z "$OUTDATED_JSON_FILE" ]; then
   npm outdated --json > "$OUTDATED_JSON_FILE" 2>/dev/null || true
 fi
 
+# npm outdated --json は更新可能なパッケージが無くても `{}` を出力する。
+# つまり出力が空なのはコマンド自体が失敗した場合であり、「0 件」とは区別する
+# （取得失敗を 0 件として報告すると、本文が「問題なし」に見えてしまうため）。
 if [ ! -s "$OUTDATED_JSON_FILE" ]; then
-  echo '{"count":0,"majorCount":0,"majorPackages":[]}'
+  echo '{"error":true,"count":0,"majorCount":0,"majorPackages":[]}'
   exit 0
 fi
 
-jq -c '
+if ! RESULT=$(jq -c '
   # npm outdated --json はオブジェクト（値がオブジェクトまたは配列）で返るのが
   # 通常だが、念のため配列トップレベルも扱う。
   def flat:
@@ -65,4 +68,10 @@ jq -c '
       | unique
     ) as $majorNames
   | {count: ($names | length), majorCount: ($majorNames | length), majorPackages: $majorNames}
-' "$OUTDATED_JSON_FILE"
+' "$OUTDATED_JSON_FILE" 2>/dev/null); then
+  # 出力が JSON として解釈できない場合も取得失敗として扱う。
+  echo '{"error":true,"count":0,"majorCount":0,"majorPackages":[]}'
+  exit 0
+fi
+
+echo "$RESULT"
