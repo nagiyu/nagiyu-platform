@@ -11,7 +11,7 @@
  *
  * @see Issue #3248 "用途別モデル振り分けの仕組み"
  * @see Issue #3530 "LLM プロンプト・モデル定数の一元化リファクタ"
- * @see Issue #3778 "OpenAI モデルアップグレード（gpt-5 / gpt-5-mini 廃止対応）"
+ * @see Issue #3779 "GPT-5.6 系へのモデル移行"
  */
 export const LLM_MODELS = {
   /**
