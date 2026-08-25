@@ -9,7 +9,7 @@ import type {
 } from './highlight-extractor.service.js';
 import type { TranscriptSegment } from './transcription.service.js';
 
-const OPENAI_MODEL = 'gpt-5-mini';
+const OPENAI_MODEL = 'gpt-5.6-luna';
 const MAX_RETRIES = 3;
 const REQUEST_TIMEOUT_MS = 600_000;
 const SEGMENTS_PER_CHUNK = 50;

@@ -83,7 +83,7 @@ describe('generateAiAnalysis', () => {
     expect(mockParse).toHaveBeenCalledTimes(1);
     expect(mockParse).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: 'gpt-5-mini',
+        model: 'gpt-5.6-luna',
         tools: [{ type: 'web_search' }],
         tool_choice: 'required',
         input: [

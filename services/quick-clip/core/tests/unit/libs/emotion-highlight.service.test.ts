@@ -180,7 +180,7 @@ describe('EmotionHighlightService', () => {
 
     expect(mockParse).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: 'gpt-5-mini',
+        model: 'gpt-5.6-luna',
         stream: false,
         input: [
           {
