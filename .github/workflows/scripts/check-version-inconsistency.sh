@@ -1,67 +1,29 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "## バージョン不整合検出"
-echo ""
+# バージョン不整合を単一行JSONで出力する。
+# 「再実行で得られる情報は載せない」方針により、不整合の詳細（使用箇所ごとの
+# バージョン一覧）ではなく件数のみを出力する（詳細は作業時に各 package.json を
+# 確認すれば得られる）。
+#
+# 出力契約:
+#   {"count":N}
+#   - count: 複数バージョンが混在しているパッケージの数
+#            （dependencies + devDependencies、ルート含む全 package.json 対象）
 
 TEMP_DIR=$(mktemp -d)
+trap 'rm -rf "$TEMP_DIR"' EXIT
 
-# 全package.jsonから依存関係を抽出
 find . -name "package.json" -not -path "*/node_modules/*" -not -path "*/.next/*" | while read -r pkg; do
-  DIR=$(dirname "$pkg")
-
-  # 全依存関係を抽出
-  jq -r '(.dependencies // {}) + (.devDependencies // {}) | to_entries[] | "\(.key)|\(.value)|'"$DIR"'"' "$pkg" >> "$TEMP_DIR/all-deps.txt" 2>/dev/null || true
+  jq -r '(.dependencies // {}) + (.devDependencies // {}) | to_entries[] | "\(.key)|\(.value)"' "$pkg" >> "$TEMP_DIR/all-deps.txt" 2>/dev/null || true
 done
 
 if [ -f "$TEMP_DIR/all-deps.txt" ] && [ -s "$TEMP_DIR/all-deps.txt" ]; then
-  # 一時ファイルに出力を保存
-  TEMP_OUTPUT="$TEMP_DIR/output.txt"
-  > "$TEMP_OUTPUT"
-  
-  # パッケージごとにバージョンをグループ化
-  cut -d'|' -f1 "$TEMP_DIR/all-deps.txt" | sort -u | while read -r pkg; do
-    # パッケージ名をエスケープしてgrepで使用
-    ESCAPED_PKG=$(printf '%s\n' "$pkg" | sed 's/[]\/$*.^[]/\\&/g')
-    VERSIONS=$(grep "^${ESCAPED_PKG}|" "$TEMP_DIR/all-deps.txt" | cut -d'|' -f2 | sort -u)
-    VERSION_COUNT=$(echo "$VERSIONS" | wc -l)
-
-    # 2つ以上のバージョンがある場合のみ表示
-    if [ "$VERSION_COUNT" -gt 1 ]; then
-      if [ ! -s "$TEMP_OUTPUT" ]; then
-        {
-          echo "以下のパッケージで異なるバージョンが使用されています。"
-          echo "バージョンを統一することを推奨します。"
-          echo ""
-          echo "| パッケージ | バージョン | 使用箇所 |"
-          echo "|----------|----------|---------|"
-        } >> "$TEMP_OUTPUT"
-      fi
-      
-      echo "| **$pkg** | | |" >> "$TEMP_OUTPUT"
-      grep "^${ESCAPED_PKG}|" "$TEMP_DIR/all-deps.txt" | while IFS='|' read -r name ver loc; do
-        echo "| | \`$ver\` | \`$loc\` |" >> "$TEMP_OUTPUT"
-      done
-    fi
-  done
-  
-  # 出力内容を表示
-  if [ -s "$TEMP_OUTPUT" ]; then
-    cat "$TEMP_OUTPUT"
-    echo ""
-    echo "**推奨アクション**: バージョンを統一する場合は以下のコマンドを使用してください（ルートから実行）。"
-    echo ""
-    echo '```bash'
-    echo "# 特定パッケージのバージョンを統一"
-    echo "# 例: @testing-library/react を 16.3.1 に統一"
-    echo "npm install --workspace @nagiyu/auth-web @testing-library/react@16.3.1"
-    echo "npm install --workspace @nagiyu/admin @testing-library/react@16.3.1"
-    echo '```'
-  else
-    echo "✅ バージョン不整合は検出されませんでした。"
-  fi
+  # 「パッケージ名|バージョン」のペアを重複排除したうえで、パッケージ名が
+  # 2回以上出現するもの（= 複数バージョンが混在するもの）を数える
+  COUNT=$(sort -u "$TEMP_DIR/all-deps.txt" | cut -d'|' -f1 | sort | uniq -d | wc -l | tr -d ' ')
 else
-  echo "✅ バージョン不整合は検出されませんでした。"
+  COUNT=0
 fi
 
-rm -rf "$TEMP_DIR"
+printf '{"count":%d}\n' "$COUNT"

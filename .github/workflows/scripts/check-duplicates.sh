@@ -1,72 +1,29 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "## 重複パッケージ検出"
-echo ""
+# 重複 devDependencies を単一行JSONで出力する。
+# 「再実行で得られる情報は載せない」方針により、詳細な使用箇所ではなく
+# 件数のみを出力する（詳細は作業時に各 package.json を確認すれば得られる）。
+#
+# 出力契約:
+#   {"count":N}
+#   - count: ルート以外の package.json で 3箇所以上使用されている
+#            devDependencies パッケージの数
 
-# 全package.jsonから依存関係を抽出
 TEMP_DIR=$(mktemp -d)
+trap 'rm -rf "$TEMP_DIR"' EXIT
 
 find . -name "package.json" -not -path "*/node_modules/*" -not -path "*/.next/*" | while read -r pkg; do
   DIR=$(dirname "$pkg")
-
-  # devDependencies を抽出
-  jq -r '.devDependencies // {} | to_entries[] | "\(.key)|\(.value)|'"$DIR"'"' "$pkg" >> "$TEMP_DIR/dev-deps.txt" 2>/dev/null || true
-
-  # dependencies を抽出
-  jq -r '.dependencies // {} | to_entries[] | "\(.key)|\(.value)|'"$DIR"'"' "$pkg" >> "$TEMP_DIR/deps.txt" 2>/dev/null || true
+  jq -r '.devDependencies // {} | keys[] | "\(.)|'"$DIR"'"' "$pkg" >> "$TEMP_DIR/dev-deps.txt" 2>/dev/null || true
 done
 
-# devDependencies の重複をカウント
-echo "### devDependencies の重複（ルート統合推奨）"
-echo ""
-
 if [ -f "$TEMP_DIR/dev-deps.txt" ] && [ -s "$TEMP_DIR/dev-deps.txt" ]; then
-  # 一時ファイルに出力を保存
-  TEMP_OUTPUT="$TEMP_DIR/output.txt"
-  > "$TEMP_OUTPUT"
-  
-  # ルートのpackage.jsonを除外してカウント（DIR が "." の行を除外）
-  grep -v "|\.$" "$TEMP_DIR/dev-deps.txt" | cut -d'|' -f1 | sort | uniq -c | sort -rn | while read -r count pkg; do
-    if [ "$count" -ge 3 ]; then
-      if [ ! -s "$TEMP_OUTPUT" ]; then
-        {
-          echo "以下のdevDependenciesは3箇所以上のワークスペースで使用されています。"
-          echo "ルートのpackage.jsonに移行することで管理が簡素化されます。"
-          echo ""
-        } >> "$TEMP_OUTPUT"
-      fi
-      
-      echo "- **$pkg**: ${count}箇所で使用" >> "$TEMP_OUTPUT"
-      
-      # 各使用箇所を表示（ルートを除外）
-      # パッケージ名をエスケープしてgrepで使用
-      ESCAPED_PKG=$(printf '%s\n' "$pkg" | sed 's/[]\/$*.^[]/\\&/g')
-      grep "^${ESCAPED_PKG}|" "$TEMP_DIR/dev-deps.txt" | grep -v "|\.$" | while IFS='|' read -r name version location; do
-        echo "  - \`${version}\` in \`${location}\`" >> "$TEMP_OUTPUT"
-      done
-      echo "" >> "$TEMP_OUTPUT"
-    fi
-  done
-  
-  # 出力内容を表示
-  if [ -s "$TEMP_OUTPUT" ]; then
-    cat "$TEMP_OUTPUT"
-    echo ""
-    echo "**推奨アクション**: 重複パッケージをルートに統合する場合は以下のコマンドを使用してください。"
-    echo ""
-    echo '```bash'
-    echo "# ルートのpackage.jsonに追加"
-    echo "npm install --save-dev {PACKAGE_NAME}@{VERSION}"
-    echo ""
-    echo "# 各ワークスペースから削除（ルートから実行）"
-    echo "npm uninstall --workspace {WORKSPACE_NAME} {PACKAGE_NAME}"
-    echo '```'
-  else
-    echo "✅ 3箇所以上で重複しているdevDependenciesは検出されませんでした。"
-  fi
+  # ルートの package.json（location が "."）を除外し、3箇所以上で使用されている
+  # パッケージ名の数を数える
+  COUNT=$(grep -v '|\.$' "$TEMP_DIR/dev-deps.txt" | cut -d'|' -f1 | sort | uniq -c | awk '$1 >= 3' | wc -l | tr -d ' ')
 else
-  echo "✅ 3箇所以上で重複しているdevDependenciesは検出されませんでした。"
+  COUNT=0
 fi
 
-rm -rf "$TEMP_DIR"
+printf '{"count":%d}\n' "$COUNT"
