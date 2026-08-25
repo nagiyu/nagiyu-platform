@@ -25,6 +25,10 @@ storybook-static/
 # Production
 *.tsbuildinfo
 
+# Python (.github/workflows/scripts 配下のスクリプト実行時に生成される)
+__pycache__/
+*.pyc
+
 # Environment variables
 .env
 .env*.local
