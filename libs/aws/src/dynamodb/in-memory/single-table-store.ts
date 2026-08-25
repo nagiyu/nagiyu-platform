@@ -17,6 +17,26 @@ export interface QueryCondition {
 }
 
 /**
+ * GSI の射影（Projection）指定。
+ *
+ * 実DynamoDBのGSI射影を近似するために使う。未指定時（`queryByAttribute` の
+ * `condition.projection` を渡さない場合）は従来どおり `ALL` 相当（フルアイテムを返す）。
+ * これにより既存の呼び出し元（全GSIが ALL 射影の stock-tracker 等）は無変更で挙動が変わらない。
+ */
+export interface AttributeProjection {
+  /** 射影タイプ。ALL=全属性、KEYS_ONLY=キーのみ、INCLUDE=キー+指定した非キー属性 */
+  type: 'ALL' | 'KEYS_ONLY' | 'INCLUDE';
+  /**
+   * このGSI自身のキー属性名（パーティションキー・ソートキー）。
+   * 実DynamoDBはGSIのキー属性を、sk条件の指定有無に関わらず常に射影へ含めるため、
+   * ここで明示する（例: GSI3 なら ['GSI3PK', 'GSI3SK']）。
+   */
+  keyAttributeNames: string[];
+  /** type: 'INCLUDE' のときの非キー属性名一覧 */
+  nonKeyAttributes?: string[];
+}
+
+/**
  * 属性によるクエリ条件
  */
 export interface AttributeQueryCondition {
@@ -33,6 +53,10 @@ export interface AttributeQueryCondition {
     /** 値 */
     value: string | [string, string];
   };
+  /**
+   * このGSIクエリの射影（オプション）。未指定時は `ALL` 相当（フルアイテムを返す＝従来の挙動）。
+   */
+  projection?: AttributeProjection;
 }
 
 /**
@@ -178,7 +202,9 @@ export class InMemorySingleTableStore {
     const nextCursor = hasMore ? this.encodeCursor({ index: startIndex + limit }) : undefined;
 
     return {
-      items: paginatedItems,
+      // 射影は最終ページに対してのみ適用する（フィルタ・ソート・ページネーションは
+      // フルアイテムに対して行い、実DynamoDBのQueryと同様に射影は結果の見え方だけを絞る）
+      items: paginatedItems.map((item) => this.applyProjection(item, condition.projection)),
       nextCursor,
       count: items.length,
     };
@@ -232,6 +258,40 @@ export class InMemorySingleTableStore {
    */
   private buildKey(pk: string, sk: string): string {
     return `${pk}#${sk}`;
+  }
+
+  /**
+   * GSI の射影（Projection）をアイテムへ適用する。
+   *
+   * 実DynamoDBの射影仕様に合わせる:
+   *   - ベーステーブルのキー（PK/SK）は射影タイプに関わらず常に含まれる
+   *   - そのGSI自身のキー属性（projection.keyAttributeNames）も常に含まれる
+   *   - KEYS_ONLY は上記キーのみ、INCLUDE は上記キー＋nonKeyAttributes、ALL は全属性
+   * 元のアイテムは変更せず、絞り込んだコピーを返す。
+   *
+   * @param item - 射影前のフルアイテム
+   * @param projection - 射影指定（未指定時はALL相当＝そのまま返す）
+   */
+  private applyProjection(item: DynamoDBItem, projection?: AttributeProjection): DynamoDBItem {
+    if (!projection || projection.type === 'ALL') {
+      return item;
+    }
+
+    const keepAttributes = new Set<string>(['PK', 'SK', ...projection.keyAttributeNames]);
+    if (projection.type === 'INCLUDE') {
+      for (const attributeName of projection.nonKeyAttributes ?? []) {
+        keepAttributes.add(attributeName);
+      }
+    }
+
+    const projected: Record<string, unknown> = {};
+    for (const attributeName of keepAttributes) {
+      if (attributeName in item) {
+        projected[attributeName] = item[attributeName];
+      }
+    }
+
+    return projected as DynamoDBItem;
   }
 
   /**
