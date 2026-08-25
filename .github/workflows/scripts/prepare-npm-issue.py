@@ -2,59 +2,176 @@
 """
 週次npm管理レポート Issue の本文を生成するスクリプト
 
+各チェックスクリプト（check-npm-audit.sh / check-npm-outdated.sh /
+check-duplicates.sh / check-version-inconsistency.sh）は「再実行で得られる
+情報は載せない」方針のもと、markdown ではなく単一行JSON（事実のみ）を出力する。
+本スクリプトはそれらをBase64デコード・JSONパースしたうえでテンプレートに
+埋め込み、本文レイアウトを一元管理する。
+
 環境変数:
-  OUTDATED - npm outdated のチェック結果（Base64エンコード済み）
-  AUDIT - npm audit のチェック結果（Base64エンコード済み）
-  DUPLICATES - 重複パッケージのチェック結果（Base64エンコード済み）
-  INCONSISTENCY - バージョン不整合のチェック結果（Base64エンコード済み）
+  OUTDATED - check-npm-outdated.sh の出力（Base64エンコード済みJSON）
+  AUDIT - check-npm-audit.sh の出力（Base64エンコード済みJSON）
+  DUPLICATES - check-duplicates.sh の出力（Base64エンコード済みJSON）
+  INCONSISTENCY - check-version-inconsistency.sh の出力（Base64エンコード済みJSON）
   NEXT_DATE - 次回チェック予定日
   CREATE_TIME - 作成日時
 """
 
+import base64
+import json
 import os
 import sys
-import base64
-from datetime import datetime
+from datetime import datetime, timezone
+
+ERROR_MESSAGES = {
+    'DECODE_FAILED': 'Base64のデコードに失敗しました（{name}）: {error}',
+    'JSON_PARSE_FAILED': 'JSONの解析に失敗しました（{name}）: {error}',
+    'TEMPLATE_NOT_FOUND': 'テンプレートファイルが見つかりません: {path}',
+}
+
+TEMPLATE_PATH = '.github/workflows/templates/weekly-npm-body.md'
+
+# チェックの実行自体に失敗した項目の件数セルに入れる表記
+FAILED_CELL = '取得失敗'
+
+
+def decode_json_env(name: str, default: dict) -> dict:
+    """環境変数からBase64エンコードされたJSONを取得してデコードする。"""
+    encoded = os.environ.get(name, '')
+    if not encoded:
+        return default
+
+    try:
+        raw = base64.b64decode(encoded).decode('utf-8').strip()
+    except Exception as e:
+        print(ERROR_MESSAGES['DECODE_FAILED'].format(name=name, error=e), file=sys.stderr)
+        sys.exit(1)
+
+    if not raw:
+        return default
+
+    try:
+        return json.loads(raw)
+    except Exception as e:
+        print(ERROR_MESSAGES['JSON_PARSE_FAILED'].format(name=name, error=e), file=sys.stderr)
+        sys.exit(1)
+
+
+def format_package_list(packages: list) -> str:
+    return ', '.join(f'`{p}`' for p in packages)
+
+
+def build_detection_targets_section(critical_packages: list, high_packages: list, major_packages: list) -> str:
+    """検出対象セクションを組み立てる。該当が0件の行は省略し、
+    3種すべて0件ならセクションごと省略（空文字を返す）する。"""
+    lines = []
+    if critical_packages:
+        lines.append(f'- **Critical**: {format_package_list(critical_packages)}')
+    if high_packages:
+        lines.append(f'- **High**: {format_package_list(high_packages)}')
+    if major_packages:
+        lines.append(f'- **major 更新あり**: {format_package_list(major_packages)}')
+
+    if not lines:
+        return ''
+
+    return '\n## 検出対象\n\n' + '\n'.join(lines) + '\n'
+
+
+def build_outdated_summary(count: int, major_count: int, failed: bool) -> str:
+    if failed:
+        return FAILED_CELL
+    if count == 0:
+        return '0'
+    return f'{count}（うち major 更新 {major_count}）'
+
+
+def count_cell(value: int, failed: bool) -> str:
+    """取得に失敗したチェックの件数セルは 0 と区別できる表記にする。"""
+    return FAILED_CELL if failed else str(value)
+
+
+def build_policy_line(critical: int, high: int, failed_sources: list) -> str:
+    """対応方針の行を組み立てる。
+
+    チェックが失敗しているときに「✅ 検出されていません」と出すと、取得失敗が
+    健全な状態と区別できなくなる（サイレント失敗）ため、失敗を明示する。
+    """
+    lines = []
+    if failed_sources:
+        lines.append(
+            '⚠️ 一部のチェックが実行に失敗しています（'
+            + ', '.join(failed_sources)
+            + '）。件数は不完全です。CI ログを確認してください。'
+        )
+    if critical > 0 or high > 0:
+        lines.append('⚠️ Critical / High の脆弱性が検出されています。対応を推奨します。')
+    elif not failed_sources:
+        lines.append('✅ Critical / High の脆弱性は検出されていません。')
+    return '\n'.join(lines)
 
 
 def main():
-    # 環境変数から値を取得してBase64デコード
-    audit_encoded = os.environ.get('AUDIT', '')
-    outdated_encoded = os.environ.get('OUTDATED', '')
-    duplicates_encoded = os.environ.get('DUPLICATES', '')
-    inconsistency_encoded = os.environ.get('INCONSISTENCY', '')
+    audit = decode_json_env('AUDIT', {})
+    outdated = decode_json_env('OUTDATED', {})
+    duplicates = decode_json_env('DUPLICATES', {})
+    inconsistency = decode_json_env('INCONSISTENCY', {})
 
-    # Base64デコード
-    try:
-        audit = base64.b64decode(audit_encoded).decode('utf-8') if audit_encoded else ''
-        outdated = base64.b64decode(outdated_encoded).decode('utf-8') if outdated_encoded else ''
-        duplicates = base64.b64decode(duplicates_encoded).decode('utf-8') if duplicates_encoded else ''
-        inconsistency = base64.b64decode(inconsistency_encoded).decode('utf-8') if inconsistency_encoded else ''
-    except Exception as e:
-        print(f"Error decoding Base64: {e}", file=sys.stderr)
-        sys.exit(1)
+    audit_failed = bool(audit.get('error', False))
+    outdated_failed = bool(outdated.get('error', False))
+    failed_sources = []
+    if audit_failed:
+        failed_sources.append('npm audit')
+    if outdated_failed:
+        failed_sources.append('npm outdated')
+
+    critical = audit.get('critical', 0)
+    high = audit.get('high', 0)
+    moderate = audit.get('moderate', 0)
+    low = audit.get('low', 0)
+    critical_packages = audit.get('criticalPackages', [])
+    high_packages = audit.get('highPackages', [])
+
+    outdated_count = outdated.get('count', 0)
+    major_count = outdated.get('majorCount', 0)
+    major_packages = outdated.get('majorPackages', [])
+
+    duplicates_count = duplicates.get('count', 0)
+    inconsistency_count = inconsistency.get('count', 0)
 
     next_date = os.environ.get('NEXT_DATE', '未定')
-    create_time = os.environ.get('CREATE_TIME', datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC'))
+    create_time = os.environ.get(
+        'CREATE_TIME',
+        datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC'),
+    )
 
-    # テンプレートを読み込み
-    template_path = '.github/workflows/templates/weekly-npm-body.md'
     try:
-        with open(template_path, 'r', encoding='utf-8') as f:
+        with open(TEMPLATE_PATH, 'r', encoding='utf-8') as f:
             template = f.read()
     except FileNotFoundError:
-        print(f"Error: Template file not found: {template_path}", file=sys.stderr)
+        print(ERROR_MESSAGES['TEMPLATE_NOT_FOUND'].format(path=TEMPLATE_PATH), file=sys.stderr)
         sys.exit(1)
 
-    # プレースホルダーを置換
-    result = template.replace('{{AUDIT}}', audit)
-    result = result.replace('{{OUTDATED}}', outdated)
-    result = result.replace('{{DUPLICATES}}', duplicates)
-    result = result.replace('{{INCONSISTENCY}}', inconsistency)
-    result = result.replace('{{NEXT_DATE}}', next_date)
+    result = template
     result = result.replace('{{CREATE_TIME}}', create_time)
+    result = result.replace('{{NEXT_DATE}}', next_date)
+    result = result.replace('{{CRITICAL}}', count_cell(critical, audit_failed))
+    result = result.replace('{{HIGH}}', count_cell(high, audit_failed))
+    result = result.replace('{{MODERATE}}', count_cell(moderate, audit_failed))
+    result = result.replace('{{LOW}}', count_cell(low, audit_failed))
+    result = result.replace(
+        '{{OUTDATED_SUMMARY}}',
+        build_outdated_summary(outdated_count, major_count, outdated_failed),
+    )
+    result = result.replace('{{INCONSISTENCY_COUNT}}', str(inconsistency_count))
+    result = result.replace('{{DUPLICATES_COUNT}}', str(duplicates_count))
+    result = result.replace(
+        '{{DETECTION_TARGETS_SECTION}}',
+        build_detection_targets_section(critical_packages, high_packages, major_packages),
+    )
+    result = result.replace('{{POLICY_LINE}}', build_policy_line(critical, high, failed_sources))
 
-    # 出力（末尾の改行なし）
+    # 末尾の改行なしで出力（workflow側でbase64エンコードするため）
     print(result, end='')
 
 
