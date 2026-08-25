@@ -11,16 +11,16 @@
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { InMemorySingleTableStore } from '@nagiyu/aws';
-import { clearTable } from '@nagiyu/aws/testing';
+import {
+  clearTable,
+  createLocalDocClient,
+  createLocalRawClient,
+  deleteTable,
+} from '@nagiyu/aws/testing';
 import { InMemoryTopicRepository } from '../../src/repositories/in-memory-topic.repository.js';
 import { DynamoDBTopicRepository } from '../../src/repositories/dynamodb-topic.repository.js';
 import { defineTopicRepositoryContract } from './topic.repository.contract.js';
-import {
-  createLocalDocClient,
-  createLocalRawClient,
-  createTable,
-  deleteTable,
-} from './helpers/dynamodb-local.js';
+import { createTable } from './helpers/dynamodb-local.js';
 
 // --- InMemory 実装 ---
 

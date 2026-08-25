@@ -493,6 +493,12 @@ AWS Secrets Manager からキーを取得して AES-256-GCM 暗号化・復号�
 - `getEncryptionKey(config)`: Secrets Manager から 32 バイトのキーを取得する（キャッシュ付き）。
 - `clearCache()`: テスト用のキャッシュリセット。
 
+### テスト専用コードの分離（`@nagiyu/aws/testing`）
+
+DynamoDB Local を使った契約テスト（各サービスの `tests/contract/`）向けのヘルパー（クライアント生成・テーブル作成/削除・射影シミュレーション付きの GSI クエリ等）は、メインエントリー（`@nagiyu/aws`）ではなくサブパス export `@nagiyu/aws/testing` として切り出している。
+
+テスト専用コードを本番バンドルのメインエントリに混ぜたくないための設計判断であり、`@nagiyu/common/push` や `@nagiyu/nextjs/middleware` と同じ「サブパス export でモジュールを分離する」前例に倣っている。本番コードから `@nagiyu/aws/testing` を import することはない想定。
+
 `CryptoConfig` は `{ secretName: string; region?: string }` 形式。`region` 未指定時は `ap-northeast-1` を使用する。
 
 ### Lambda / Batch エントリポイントの共通化（`withErrorReporting`）

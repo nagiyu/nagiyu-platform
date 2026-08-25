@@ -11,18 +11,18 @@
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { InMemorySingleTableStore } from '@nagiyu/aws';
-import { clearTable } from '@nagiyu/aws/testing';
+import {
+  clearTable,
+  createLocalDocClient,
+  createLocalRawClient,
+  deleteTable,
+} from '@nagiyu/aws/testing';
 import { InMemoryProfileRepository } from '../../src/repositories/in-memory-profile.repository.js';
 import { DynamoDBProfileRepository } from '../../src/repositories/dynamodb-profile.repository.js';
 import { InMemorySafetyEventRepository } from '../../src/repositories/in-memory-safety-event.repository.js';
 import { DynamoDBSafetyEventRepository } from '../../src/repositories/dynamodb-safety-event.repository.js';
 import { defineProfileRepositoryContract } from './profile.repository.contract.js';
-import {
-  createLocalDocClient,
-  createLocalRawClient,
-  createTable,
-  deleteTable,
-} from './helpers/dynamodb-local.js';
+import { createTable } from './helpers/dynamodb-local.js';
 
 // --- InMemory 実装 ---
 

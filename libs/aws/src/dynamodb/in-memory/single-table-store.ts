@@ -202,7 +202,7 @@ export class InMemorySingleTableStore {
     const nextCursor = hasMore ? this.encodeCursor({ index: startIndex + limit }) : undefined;
 
     return {
-      // 射影は最終ページに対してのみ適用する（フィルタ・ソート・ページネーションは
+      // 射影は返却するページのアイテムに対してのみ適用する（フィルタ・ソート・ページネーションは
       // フルアイテムに対して行い、実DynamoDBのQueryと同様に射影は結果の見え方だけを絞る）
       items: paginatedItems.map((item) => this.applyProjection(item, condition.projection)),
       nextCursor,

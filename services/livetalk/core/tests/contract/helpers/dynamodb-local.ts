@@ -2,18 +2,14 @@
  * DynamoDB Local ヘルパー
  *
  * 契約テスト（tests/contract/）専用のヘルパー。
- * クライアント生成・テーブル作成/削除等の汎用部分は `@nagiyu/aws/testing` に委譲し、
- * ここには livetalk 固有のテーブルスキーマ定義（`LOCAL_TABLE_SCHEMA`）のみを置く。
+ * クライアント生成・テーブル削除・テーブルクリア等、テーブルスキーマに依存しない汎用部分は
+ * `@nagiyu/aws/testing` から呼び出し側が直接 import する（意味のない再エクスポートはしない）。
+ * ここには livetalk 固有のテーブルスキーマ定義（`LOCAL_TABLE_SCHEMA`）と、
+ * それを束縛した `createTable`（意味のある抽象）だけを置く。
  */
 
 import type { DynamoDBClient, CreateTableCommandInput } from '@aws-sdk/client-dynamodb';
-import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import {
-  createLocalDocClient as createLocalDocClientBase,
-  createLocalRawClient as createLocalRawClientBase,
-  createTable as createTableBase,
-  deleteTable as deleteTableBase,
-} from '@nagiyu/aws/testing';
+import { createTable as createTableBase } from '@nagiyu/aws/testing';
 
 /**
  * infra/livetalk/lib/dynamodb-stack.ts の本番テーブル定義と一致させたスキーマ。
@@ -121,37 +117,14 @@ export const LOCAL_TABLE_SCHEMA: CreateTableCommandInput = {
 };
 
 /**
- * DynamoDB Local 用の DocumentClient を生成する。
- * エンドポイントは環境変数 `DYNAMODB_ENDPOINT`（未設定時は http://localhost:8000）を使用する。
- */
-export function createLocalDocClient(): DynamoDBDocumentClient {
-  return createLocalDocClientBase();
-}
-
-/**
- * DynamoDB Local 用の低レベルクライアント（テーブル作成・削除用）を生成する。
- */
-export function createLocalRawClient(): DynamoDBClient {
-  return createLocalRawClientBase();
-}
-
-/**
  * DynamoDB Local にテーブルを作成する（LOCAL_TABLE_SCHEMA を使用）。
  * 作成後、テーブルが ACTIVE になるまで軽くポーリングする。
+ * サービス固有のスキーマ（LOCAL_TABLE_SCHEMA）を束縛している点が
+ * `@nagiyu/aws/testing` の汎用 `createTable` との違い（このヘルパーを置く理由）。
  *
  * @param client - 低レベル DynamoDB クライアント
  * @param tableName - 作成するテーブル名
  */
 export async function createTable(client: DynamoDBClient, tableName: string): Promise<void> {
   await createTableBase(client, LOCAL_TABLE_SCHEMA, tableName);
-}
-
-/**
- * DynamoDB Local のテーブルを削除する。既に存在しない場合は何もしない。
- *
- * @param client - 低レベル DynamoDB クライアント
- * @param tableName - 削除するテーブル名
- */
-export async function deleteTable(client: DynamoDBClient, tableName: string): Promise<void> {
-  await deleteTableBase(client, tableName);
 }
