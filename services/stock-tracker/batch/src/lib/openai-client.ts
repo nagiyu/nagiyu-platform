@@ -8,7 +8,7 @@ import {
   PREDICTION_SIGNAL_THRESHOLD_PERCENT,
 } from '@nagiyu/stock-tracker-core';
 
-const OPENAI_MODEL = 'gpt-5-mini';
+const OPENAI_MODEL = 'gpt-5.6-luna';
 const MAX_RETRIES = 3;
 const REQUEST_TIMEOUT_MS = 120_000;
 const SUPPORTED_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);

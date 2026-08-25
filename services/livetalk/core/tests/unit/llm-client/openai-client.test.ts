@@ -102,7 +102,7 @@ describe('OpenAIClient', () => {
       expect(chunks).toEqual(['a', 'b']);
     });
 
-    it('purpose=summarize は gpt-5-mini モデルにフォールバックする', async () => {
+    it('purpose=summarize は gpt-5.6-luna モデルにフォールバックする', async () => {
       const { client, create } = makeMockOpenAI();
       create.mockResolvedValue(makeStreamEvents([]));
 
@@ -261,7 +261,7 @@ describe('OpenAIClient', () => {
       );
     });
 
-    it('purpose=classify は gpt-5-mini モデルを使用する', async () => {
+    it('purpose=classify は gpt-5.6-luna モデルを使用する', async () => {
       const { client, parse } = makeMockOpenAI();
       parse.mockResolvedValue({ output_parsed: { value: 'ok', count: 0 } });
 
