@@ -6,8 +6,10 @@
  * サービス固有のテーブルスキーマ（`LOCAL_TABLE_SCHEMA` 等）は各サービスの
  * `tests/contract/helpers/` に残し、ここには置かない。
  *
- * メインエントリー（`@nagiyu/aws`）からは export しない。
- * テスト専用コードを本番バンドルに混ぜないよう、サブパス `@nagiyu/aws/testing` からのみ import する。
+ * 契約テストからは `@nagiyu/aws/testing` という specifier で import するが、これは
+ * package.json の `exports` には載せていない（各サービスの `jest.contract.config.ts` の
+ * `moduleNameMapper` だけが解決する）。メインエントリー（`@nagiyu/aws`）からも export しない。
+ * 詳細は ./index.ts のコメントを参照。
  */
 
 import {
