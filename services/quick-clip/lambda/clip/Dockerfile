@@ -30,10 +30,6 @@ COPY --from=builder /app/libs/aws/package*.json ./libs/aws/
 COPY --from=builder /app/libs/aws/dist ./libs/aws/dist
 COPY --from=builder /app/services/quick-clip/core/package*.json ./services/quick-clip/core/
 COPY --from=builder /app/services/quick-clip/core/dist ./services/quick-clip/core/dist
-# openai@7 は optional peerDependencies の影響で root に hoist されずワークスペース直下に
-# 配置されるため、root の node_modules だけでは実行時に解決できない。明示的にコピーする。
-# clip は core のバレル経由で openai を静的に読み込む（未使用でも ESM の re-export で必ずロードされる）。
-COPY --from=builder /app/services/quick-clip/core/node_modules ./services/quick-clip/core/node_modules
 COPY --from=builder /app/services/quick-clip/lambda/clip/package*.json ./services/quick-clip/lambda/clip/
 COPY --from=builder /app/services/quick-clip/lambda/clip/dist ./services/quick-clip/lambda/clip/dist
 
