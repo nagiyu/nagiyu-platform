@@ -117,41 +117,74 @@ export function defineTopicRepositoryContract(
         const headers = await repository.listTopicHeaders('u1', 'hiyori');
         expect(headers).toEqual([]);
       });
+
+      it('RequestText/RequestedAt は getTopic（ベーステーブル読み）では取得できるが、listTopicHeaders（GSI3 の射影）には含まれない', async () => {
+        // GSI3 の nonKeyAttributes は RequestText/RequestedAt を意図的に含めていない
+        // （TopicMapper・infra/livetalk/lib/dynamodb-stack.ts のコメント参照）。
+        // Topic ヘッダ列挙はベーステーブルではなく GSI3 経由で行われるため、
+        // 依頼フック（RequestText/RequestedAt）はこの経路では取得できない、という契約を検証する。
+        const input = buildTopicInput({
+          TopicID: 'TOPIC-REQUEST',
+          RequestText: '〇〇について調べて',
+          RequestedAt: 1_700_000_050_000,
+        });
+        await repository.putTopic(input);
+
+        const fetched = await repository.getTopic({
+          userId: input.UserID,
+          characterId: input.CharacterID,
+          topicId: input.TopicID,
+        });
+        expect(fetched?.RequestText).toBe(input.RequestText);
+        expect(fetched?.RequestedAt).toBe(input.RequestedAt);
+
+        const headers = await repository.listTopicHeaders('u1', 'hiyori');
+        const header = headers.find((h) => h.TopicID === 'TOPIC-REQUEST');
+
+        expect(header).toBeDefined();
+        expect(header?.RequestText).toBeUndefined();
+        expect(header?.RequestedAt).toBeUndefined();
+      });
     });
 
     describe('listTopicHeadersByCareDesc（GSI3）', () => {
-      it('Care 降順で返し、limit で件数を絞る', async () => {
-        await repository.putTopic(buildTopicInput({ TopicID: 'TOPIC-LOW', Care: 1 }));
-        await repository.putTopic(buildTopicInput({ TopicID: 'TOPIC-HIGH', Care: 9 }));
-        await repository.putTopic(buildTopicInput({ TopicID: 'TOPIC-MID', Care: 5 }));
+      it('Care 降順で返し、limit で件数を絞る（数値順と辞書順で結果が変わる値で検証する）', async () => {
+        // GSI3SK（Care）は NUMBER 型で、実DynamoDBは数値順にソートする。
+        // 一方 InMemorySingleTableStore の内部ソートは String() 比較（辞書順）のため、
+        // 桁数の異なる値（2 / 9 / 10）を混ぜることで両者の結果が食い違うようにしている
+        // （数値降順: 10, 9, 2 / 辞書降順: "9", "2", "10"）。
+        // 同じ桁数の値だけだと数値順=辞書順になり、退行を検知できない形骸化テストになる。
+        await repository.putTopic(buildTopicInput({ TopicID: 'TOPIC-LOW', Care: 2 }));
+        await repository.putTopic(buildTopicInput({ TopicID: 'TOPIC-HIGH', Care: 10 }));
+        await repository.putTopic(buildTopicInput({ TopicID: 'TOPIC-MID', Care: 9 }));
 
         const result = await repository.listTopicHeadersByCareDesc('u1', 'hiyori', 2);
 
+        // 数値降順なら TOPIC-HIGH(10), TOPIC-MID(9) が上位2件。
+        // 辞書順（"9" > "2" > "10"）だと TOPIC-MID, TOPIC-LOW になり、この期待値とは一致しない。
         expect(result.map((t) => t.TopicID)).toEqual(['TOPIC-HIGH', 'TOPIC-MID']);
-        expect(result.map((t) => t.Care)).toEqual([9, 5]);
+        expect(result.map((t) => t.Care)).toEqual([10, 9]);
       });
     });
 
     describe('listStaleWebFacts（GSI4）', () => {
-      const nowMs = 1_700_000_100_000;
+      // GSI4SK（NextReview）は NUMBER 型で、実DynamoDBは数値順にソートする。
+      // InMemorySingleTableStore の内部ソートは String() 比較（辞書順）のため、
+      // このブロックの NextReview 値はすべて桁数を意図的に不揃いにし、
+      // 数値順と辞書順で結果が食い違うように選んでいる
+      // （同じ桁数の値だけだと数値順=辞書順になり、退行を検知できない形骸化テストになる）。
+      const nowMs = 1_000_000;
 
       it('NextReview<=nowMs のものだけを昇順・limit件で返し、stable/未来分は除外する', async () => {
+        // 数値昇順: 2, 20, 100。辞書昇順だと "100" < "2" < "20" になり順序が入れ替わる。
         await repository.putWebFact(
-          buildWebFactInput({
-            FactID: 'FACT-PAST-2',
-            Volatility: 'high',
-            NextReview: nowMs - 2_000,
-          })
+          buildWebFactInput({ FactID: 'FACT-100', Volatility: 'high', NextReview: 100 })
         );
         await repository.putWebFact(
-          buildWebFactInput({
-            FactID: 'FACT-PAST-1',
-            Volatility: 'high',
-            NextReview: nowMs - 5_000,
-          })
+          buildWebFactInput({ FactID: 'FACT-2', Volatility: 'high', NextReview: 2 })
         );
         await repository.putWebFact(
-          buildWebFactInput({ FactID: 'FACT-NOW', Volatility: 'medium', NextReview: nowMs })
+          buildWebFactInput({ FactID: 'FACT-20', Volatility: 'medium', NextReview: 20 })
         );
         // 未来（まだ再検証不要）は対象外
         await repository.putWebFact(
@@ -168,25 +201,30 @@ export function defineTopicRepositoryContract(
 
         const result = await repository.listStaleWebFacts('u1', 'hiyori', nowMs, 10);
 
-        // 期限が古い順（昇順）：PAST-1(-5000) → PAST-2(-2000) → NOW(0)
-        expect(result.map((f) => f.FactID)).toEqual(['FACT-PAST-1', 'FACT-PAST-2', 'FACT-NOW']);
+        // 数値昇順（期限が古い順）：FACT-2(2) → FACT-20(20) → FACT-100(100)。
+        // 辞書昇順だと FACT-100, FACT-2, FACT-20 になり、この期待値とは一致しない。
+        expect(result.map((f) => f.FactID)).toEqual(['FACT-2', 'FACT-20', 'FACT-100']);
       });
 
-      it('limit で件数を絞る（古い順の先頭からlimit件）', async () => {
-        for (let i = 1; i <= 5; i += 1) {
+      it('limit で件数を絞る（古い順の先頭からlimit件、数値順と辞書順で結果が変わる値で検証する）', async () => {
+        // 数値昇順: 7, 8, 9, 10, 11。
+        // 辞書昇順だと "10" < "11" < "7" < "8" < "9" になり、limit=2 の結果が全く別物になる。
+        const nextReviews = [7, 8, 9, 10, 11];
+        for (const value of nextReviews) {
           await repository.putWebFact(
             buildWebFactInput({
-              FactID: `FACT-${i}`,
+              FactID: `FACT-${value}`,
               Volatility: 'high',
-              NextReview: nowMs - i * 1_000,
+              NextReview: value,
             })
           );
         }
 
         const result = await repository.listStaleWebFacts('u1', 'hiyori', nowMs, 2);
 
-        // NextReview が古い順: FACT-5(-5000) → FACT-4(-4000)
-        expect(result.map((f) => f.FactID)).toEqual(['FACT-5', 'FACT-4']);
+        // 数値順なら先頭2件は FACT-7(7), FACT-8(8)。
+        // 辞書順だと FACT-10("10"), FACT-11("11") になり、この期待値とは一致しない。
+        expect(result.map((f) => f.FactID)).toEqual(['FACT-7', 'FACT-8']);
       });
 
       it('GSI4 の射影だけで WebFactEntity を完全に復元できる', async () => {
