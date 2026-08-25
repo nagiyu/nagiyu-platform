@@ -1,26 +1,27 @@
 /**
  * テーブルスキーマ ドリフトガード
  *
- * infra/stock-tracker/lib/dynamodb-stack.ts（本番CDKスタック）を synth し、
+ * infra/livetalk/lib/dynamodb-stack.ts（本番CDKスタック）を synth し、
  * 契約テストが使用する LOCAL_TABLE_SCHEMA（helpers/dynamodb-local.ts）と
- * KeySchema・AttributeDefinitions・GlobalSecondaryIndexes・BillingMode が一致することを検証する。
- * CDK側の定義が変更されローカルスキーマと乖離した場合、このテストが落ちて検知する。
+ * KeySchema・AttributeDefinitions・GlobalSecondaryIndexes（射影タイプ・NonKeyAttributes を含む）・
+ * BillingMode が一致することを検証する。
  *
- * 正規化（属性名順・IndexName順ソート等）は `@nagiyu/aws/testing` の
- * `toComparableTableSchema` に委譲する（複数サービスで再利用するための共通関数）。
+ * livetalk は GSI の射影を KEYS_ONLY / INCLUDE に絞っており（PII 除外・冗長属性除外のため）、
+ * ここが本番定義とローカルスキーマの乖離の温床になりやすい。よって射影タイプと
+ * NonKeyAttributes まで突き合わせる（stock-tracker の ALL 射影より厳密に検証する）。
  */
 
 import * as cdk from 'aws-cdk-lib';
 import { Template } from 'aws-cdk-lib/assertions';
 import { toComparableTableSchema, type TableSchemaLike } from '@nagiyu/aws/testing';
-import { DynamoDBStack } from '../../../../../infra/stock-tracker/lib/dynamodb-stack';
+import { LiveTalkDynamoDbStack } from '../../../../../infra/livetalk/lib/dynamodb-stack';
 import { LOCAL_TABLE_SCHEMA } from './helpers/dynamodb-local.js';
 
 const STACK_ENV = { account: '000000000000', region: 'us-east-1' };
 
 function synth(): Template {
   const app = new cdk.App();
-  const stack = new DynamoDBStack(app, 'TestStockTrackerDynamoDBSchemaDrift', {
+  const stack = new LiveTalkDynamoDbStack(app, 'TestLiveTalkDynamoDBSchemaDrift', {
     environment: 'dev',
     env: STACK_ENV,
   });
@@ -50,13 +51,13 @@ describe('DynamoDB テーブルスキーマ ドリフトガード', () => {
     expect(actual.KeySchema).toEqual(expected.KeySchema);
   });
 
-  it('AttributeDefinitionsがLOCAL_TABLE_SCHEMAと一致する（順序を問わない）', () => {
+  it('AttributeDefinitions（属性型を含む）がLOCAL_TABLE_SCHEMAと一致する（順序を問わない）', () => {
     const { actual, expected } = getComparable();
 
     expect(actual.AttributeDefinitions).toEqual(expected.AttributeDefinitions);
   });
 
-  it('GlobalSecondaryIndexes（名前・キー・射影）がLOCAL_TABLE_SCHEMAと一致する（順序を問わない）', () => {
+  it('GlobalSecondaryIndexes（名前・キー・射影タイプ・NonKeyAttributes）がLOCAL_TABLE_SCHEMAと一致する（順序を問わない）', () => {
     const { actual, expected } = getComparable();
 
     expect(actual.GlobalSecondaryIndexes).toEqual(expected.GlobalSecondaryIndexes);

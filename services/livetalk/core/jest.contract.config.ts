@@ -17,6 +17,10 @@ const config: Config = {
     '^@nagiyu/aws/testing$': '<rootDir>/../../../libs/aws/src/testing/index.ts',
     '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
+    // livetalk の CDK スタック（infra/livetalk/lib/dynamodb-stack.ts）が
+    // `@nagiyu/infra-common` に依存しているため、ドリフトガードの synth に必要
+    // （stock-tracker のスタックは infra-common に依存していないため対応するマッピングが無い）。
+    '^@nagiyu/infra-common$': '<rootDir>/../../../infra/common/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1', // Remove .js extension for ts-jest
   },
   // ts-jest の型診断: 未解決モジュール(2307)等のみ抑止し、他の型エラーは検出を維持する

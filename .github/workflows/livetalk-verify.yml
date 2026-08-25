@@ -202,6 +202,53 @@ jobs:
       - name: Run batch unit tests
         run: npm run test --workspace @nagiyu/livetalk-batch
 
+  contract-test:
+    name: Run Contract Tests (DynamoDB Local)
+    runs-on: ubuntu-latest
+    needs: [build]
+
+    services:
+      dynamodb-local:
+        image: amazon/dynamodb-local
+        ports:
+          - 8000:8000
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/aws
+
+      - name: Build infra-common package
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: Build core package
+        run: npm run build --workspace @nagiyu/livetalk-core
+
+      - name: Wait for DynamoDB Local
+        run: |
+          for i in $(seq 1 30); do
+            curl -s http://localhost:8000 >/dev/null 2>&1 && break
+            sleep 1
+          done
+
+      - name: Run contract tests
+        env:
+          DYNAMODB_ENDPOINT: http://localhost:8000
+          AWS_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+        run: npm run test:contract --workspace @nagiyu/livetalk-core
+
   coverage:
     name: Test Coverage Check
     runs-on: ubuntu-latest
@@ -457,6 +504,7 @@ jobs:
         build,
         docker-build,
         unit-test,
+        contract-test,
         coverage,
         e2e-test-chromium-mobile,
         e2e-test-chromium-desktop,
@@ -480,6 +528,7 @@ jobs:
               'Next.js Build': '${{ needs.build.result }}',
               'Docker Build': '${{ needs.docker-build.result }}',
               'Unit Tests': '${{ needs.unit-test.result }}',
+              'Contract Tests (DynamoDB Local)': '${{ needs.contract-test.result }}',
               'Coverage Check': '${{ needs.coverage.result }}',
               'E2E Tests (chromium-mobile)': '${{ needs.e2e-test-chromium-mobile.result }}',
               'E2E Tests (chromium-desktop)': '${{ needs.e2e-test-chromium-desktop.result }}',
