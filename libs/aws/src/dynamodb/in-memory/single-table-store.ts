@@ -54,6 +54,19 @@ export interface AttributeQueryCondition {
     value: string | [string, string];
   };
   /**
+   * `sk` 条件を指定しない場合に、結果をソートするための GSI 自身のソートキー属性名（例: `'GSI3SK'`）。
+   *
+   * 実DynamoDBのGSI Queryは、KeyConditionExpressionにソートキー条件を含めるかどうかに関わらず、
+   * 常にそのGSI自身のソートキー昇順で結果を返す。InMemory実装は本来この属性でソートすべきだが、
+   * `sk` を指定しない呼び出し（パーティションキーのみのQuery）では、どの属性がGSIのソートキーかを
+   * 判別できないため、このフィールドで明示する。
+   *
+   * - `sk` を指定した場合はそちらの `attributeName` が優先され、このフィールドは無視される。
+   * - 両方省略した場合は、従来どおりベーステーブルの `'SK'` 属性でソートする
+   *   （既存呼び出し元の挙動を変えないための後方互換）。
+   */
+  gsiSortKeyAttributeName?: string;
+  /**
    * このGSIクエリの射影（オプション）。未指定時は `ALL` 相当（フルアイテムを返す＝従来の挙動）。
    */
   projection?: AttributeProjection;
@@ -173,7 +186,7 @@ export class InMemorySingleTableStore {
     condition: AttributeQueryCondition,
     options?: PaginationOptions
   ): PaginatedResult<DynamoDBItem> {
-    const { attributeName, attributeValue, sk } = condition;
+    const { attributeName, attributeValue, sk, gsiSortKeyAttributeName } = condition;
     const limit = options?.limit || 100;
 
     // 全アイテムをフィルタリング
@@ -186,8 +199,10 @@ export class InMemorySingleTableStore {
       items = this.filterBySortKey(items, sk.operator, sk.value, sk.attributeName);
     }
 
-    // 実DynamoDBのGSI Queryはソートキー（GSIのSK属性）昇順で返すため、挿入順に依存しないよう安定ソートする
-    items = this.sortBySortKey(items, sk?.attributeName ?? 'SK');
+    // 実DynamoDBのGSI Queryはソートキー（GSIのSK属性）昇順で返すため、挿入順に依存しないよう安定ソートする。
+    // sk条件があればそのattributeNameを、無ければ呼び出し元が明示したGSIソートキー属性
+    // （gsiSortKeyAttributeName）を、それも無ければ従来どおりベーステーブルの'SK'を使う。
+    items = this.sortBySortKey(items, sk?.attributeName ?? gsiSortKeyAttributeName ?? 'SK');
 
     // カーソルからの開始位置を特定
     let startIndex = 0;

@@ -44,11 +44,14 @@ export interface DailySummaryRepository {
   getByTickerAndDate(tickerId: string, date: string): Promise<DailySummaryEntity | null>;
 
   /**
-   * 取引所IDでサマリーを取得
+   * 取引所IDでサマリーを取得（GSI4使用）
+   *
+   * 返却順序は GSI4SK（`DATE#{Date}#{TickerID}`）昇順、すなわち Date 昇順・同日内は TickerID 昇順を
+   * 契約とする（date省略時に最新日付へ絞り込んだ後も、この順序を維持したまま返す）。
    *
    * @param exchangeId - 取引所ID
    * @param date - 対象日 (YYYY-MM-DD)。省略時は取引所内でデータが存在する最も新しい日付の全サマリーを取得
-   * @returns 指定日（または取引所内の最も新しい日付）のサマリー配列
+   * @returns 指定日（または取引所内の最も新しい日付）のサマリー配列（GSI4SK昇順）
    */
   getByExchange(exchangeId: string, date?: string): Promise<DailySummaryEntity[]>;
 

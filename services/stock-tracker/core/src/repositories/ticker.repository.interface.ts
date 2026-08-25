@@ -26,11 +26,13 @@ export interface TickerRepository {
   getById(tickerId: string): Promise<TickerEntity | null>;
 
   /**
-   * 取引所ごとのティッカー一覧を取得
+   * 取引所ごとのティッカー一覧を取得（GSI3使用）
+   *
+   * 返却順序は GSI3SK（`TICKER#{TickerID}`）昇順、すなわち TickerID の昇順を契約とする。
    *
    * @param exchangeId - 取引所ID
    * @param options - ページネーションオプション
-   * @returns ページネーション結果
+   * @returns ページネーション結果（GSI3SK昇順）
    */
   getByExchange(
     exchangeId: string,

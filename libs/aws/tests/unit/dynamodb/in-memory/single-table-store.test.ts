@@ -385,6 +385,138 @@ describe('InMemorySingleTableStore', () => {
 
         expect(result.items.map((item) => item.TickerID)).toEqual(['AAPL', 'NVDA', 'TSLA']);
       });
+
+      it('sk条件を指定しない場合、gsiSortKeyAttributeNameで指定したGSIソートキー属性の昇順で返す', () => {
+        store.clear();
+        // 意図的に非ソート順（TSLA→AAPL→NVDA）で挿入する。GSI3SKが実際のソート対象になることを
+        // 検証するため、ベーステーブルのSKはあえて逆順（Z→Y→X）にしておく
+        // （もしSKにフォールバックしていたらAAPL/NVDA/TSLAの順にはならない）。
+        const items: DynamoDBItem[] = [
+          {
+            PK: 'EXCHANGE#NASDAQ',
+            SK: 'Z',
+            Type: 'Ticker',
+            GSI3PK: 'NASDAQ',
+            GSI3SK: 'TICKER#TSLA',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+            TickerID: 'TSLA',
+          },
+          {
+            PK: 'EXCHANGE#NASDAQ',
+            SK: 'Y',
+            Type: 'Ticker',
+            GSI3PK: 'NASDAQ',
+            GSI3SK: 'TICKER#AAPL',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+            TickerID: 'AAPL',
+          },
+          {
+            PK: 'EXCHANGE#NASDAQ',
+            SK: 'X',
+            Type: 'Ticker',
+            GSI3PK: 'NASDAQ',
+            GSI3SK: 'TICKER#NVDA',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+            TickerID: 'NVDA',
+          },
+        ];
+        items.forEach((item) => store.put(item));
+
+        const result = store.queryByAttribute({
+          attributeName: 'GSI3PK',
+          attributeValue: 'NASDAQ',
+          gsiSortKeyAttributeName: 'GSI3SK',
+        });
+
+        expect(result.items.map((item) => item.TickerID)).toEqual(['AAPL', 'NVDA', 'TSLA']);
+      });
+
+      it('skもgsiSortKeyAttributeNameも指定しない場合、従来どおりベーステーブルのSK属性昇順で返す（後方互換）', () => {
+        store.clear();
+        // GSI3SK昇順ならTSLA→AAPL→NVDAのままだが、SK（A→B→C）昇順ならAAPL→NVDA→TSLAになる
+        const items: DynamoDBItem[] = [
+          {
+            PK: 'EXCHANGE#NASDAQ',
+            SK: 'C',
+            Type: 'Ticker',
+            GSI3PK: 'NASDAQ',
+            GSI3SK: 'TICKER#TSLA',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+            TickerID: 'TSLA',
+          },
+          {
+            PK: 'EXCHANGE#NASDAQ',
+            SK: 'A',
+            Type: 'Ticker',
+            GSI3PK: 'NASDAQ',
+            GSI3SK: 'TICKER#AAPL',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+            TickerID: 'AAPL',
+          },
+          {
+            PK: 'EXCHANGE#NASDAQ',
+            SK: 'B',
+            Type: 'Ticker',
+            GSI3PK: 'NASDAQ',
+            GSI3SK: 'TICKER#NVDA',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+            TickerID: 'NVDA',
+          },
+        ];
+        items.forEach((item) => store.put(item));
+
+        const result = store.queryByAttribute({
+          attributeName: 'GSI3PK',
+          attributeValue: 'NASDAQ',
+        });
+
+        expect(result.items.map((item) => item.TickerID)).toEqual(['AAPL', 'NVDA', 'TSLA']);
+      });
+
+      it('sk条件を指定した場合、gsiSortKeyAttributeNameを渡していてもsk.attributeName側が優先される', () => {
+        store.clear();
+        const items: DynamoDBItem[] = [
+          {
+            PK: 'EXCHANGE#NASDAQ',
+            SK: 'HOLDING#TSLA',
+            Type: 'Ticker',
+            GSI3PK: 'NASDAQ',
+            GSI3SK: 'TICKER#TSLA',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+            TickerID: 'TSLA',
+          },
+          {
+            PK: 'EXCHANGE#NASDAQ',
+            SK: 'HOLDING#AAPL',
+            Type: 'Ticker',
+            GSI3PK: 'NASDAQ',
+            GSI3SK: 'TICKER#AAPL',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+            TickerID: 'AAPL',
+          },
+        ];
+        items.forEach((item) => store.put(item));
+
+        // gsiSortKeyAttributeNameには存在しない属性名を渡し、sk側が優先されることを
+        // 明確に検知できるようにする（もしgsiSortKeyAttributeName側が優先されたら
+        // ソート結果が変わってしまうか、少なくともsk条件のソートとは無関係になるはず）
+        const result = store.queryByAttribute({
+          attributeName: 'GSI3PK',
+          attributeValue: 'NASDAQ',
+          sk: { attributeName: 'GSI3SK', operator: 'begins_with', value: 'TICKER#' },
+          gsiSortKeyAttributeName: 'DOES_NOT_EXIST',
+        });
+
+        expect(result.items.map((item) => item.TickerID)).toEqual(['AAPL', 'TSLA']);
+      });
     });
 
     describe('queryByAttribute の射影（projection）', () => {

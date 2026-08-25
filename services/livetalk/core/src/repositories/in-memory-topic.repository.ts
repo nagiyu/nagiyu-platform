@@ -132,7 +132,13 @@ export class InMemoryTopicRepository implements TopicRepository {
 
     do {
       const result = this.store.queryByAttribute(
-        { attributeName: 'GSI3PK', attributeValue: gsi3pk, projection: TOPIC_GSI_PROJECTION },
+        {
+          attributeName: 'GSI3PK',
+          attributeValue: gsi3pk,
+          projection: TOPIC_GSI_PROJECTION,
+          // sk条件を指定しないため、実DynamoDBのGSI3 Queryと同様にGSI3SK（Care）昇順で返すよう明示する
+          gsiSortKeyAttributeName: 'GSI3SK',
+        },
         { limit: Number.MAX_SAFE_INTEGER, ...(cursor ? { cursor } : {}) }
       );
       for (const item of result.items) {
@@ -208,7 +214,15 @@ export class InMemoryTopicRepository implements TopicRepository {
 
     do {
       const result = this.store.queryByAttribute(
-        { attributeName: 'GSI4PK', attributeValue: gsi4pk, projection: STALE_GSI_PROJECTION },
+        {
+          attributeName: 'GSI4PK',
+          attributeValue: gsi4pk,
+          projection: STALE_GSI_PROJECTION,
+          // sk条件を指定しないため、実DynamoDBのGSI4 Queryと同様にGSI4SK（NextReview）昇順で
+          // 返すよう明示する（最終的な数値昇順ソートはこの後のJS側.sort()が担うため、
+          // ここでのString比較ソートはあくまで実DynamoDBに近い挙動へ揃えるための処置）
+          gsiSortKeyAttributeName: 'GSI4SK',
+        },
         { limit: Number.MAX_SAFE_INTEGER, ...(cursor ? { cursor } : {}) }
       );
       for (const item of result.items) {

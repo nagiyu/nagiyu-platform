@@ -59,6 +59,9 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
     const result = this.store.queryByAttribute({
       attributeName: 'GSI4PK',
       attributeValue: exchangeId,
+      // date省略時（sk条件なし）でも、実DynamoDBのGSI4 Queryと同様にGSI4SK昇順で返すよう明示する。
+      // date指定時はsk条件のattributeNameが優先されるため、このフィールドは無視される。
+      gsiSortKeyAttributeName: 'GSI4SK',
       ...(date
         ? {
             sk: {

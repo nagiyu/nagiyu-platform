@@ -67,6 +67,9 @@ export class InMemorySafetyEventRepository implements SafetyEventRepository {
           attributeName: 'GSI2PK',
           attributeValue: buildSafetyEventGSI2PK(),
           projection: SAFETY_EVENT_GSI_PROJECTION,
+          // sk条件を指定しないため、実DynamoDBのGSI2 Queryと同様にGSI2SK昇順で返すよう明示する
+          // （この後のJS側.sort()で降順に並べ替えるため、最終的な結果には影響しない）
+          gsiSortKeyAttributeName: 'GSI2SK',
         },
         cursor ? { cursor } : undefined
       );

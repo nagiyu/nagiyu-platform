@@ -66,6 +66,8 @@ export class InMemoryTickerRepository implements TickerRepository {
       {
         attributeName: 'GSI3PK',
         attributeValue: exchangeId,
+        // sk条件を指定しないため、実DynamoDBのGSI3 Queryと同様にGSI3SK昇順で返すよう明示する
+        gsiSortKeyAttributeName: 'GSI3SK',
       },
       options
     );
