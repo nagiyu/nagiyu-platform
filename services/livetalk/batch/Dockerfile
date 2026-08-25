@@ -53,6 +53,9 @@ COPY --from=builder /app/services/livetalk/core/node_modules ./services/livetalk
 # Batch パッケージ
 COPY --from=builder /app/services/livetalk/batch/package*.json ./services/livetalk/batch/
 COPY --from=builder /app/services/livetalk/batch/dist ./services/livetalk/batch/dist
+# batch のソースは openai を直接 import せず core 経由で使うため実行時は core 側で解決されるが、
+# package.json に直接依存として宣言されている以上、直接 import が増えたときに
+# 実行時まで気づけない形で壊れるのを避けるため防御的にコピーする。
 COPY --from=builder /app/services/livetalk/batch/node_modules ./services/livetalk/batch/node_modules
 
 # Lambda ハンドラーを指定（<モジュールパス>.<エクスポート名>）
