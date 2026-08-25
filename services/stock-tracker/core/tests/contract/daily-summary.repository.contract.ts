@@ -41,6 +41,16 @@ function buildDailySummaryInput(
   };
 }
 
+/** `baseDate`（YYYY-MM-DD）から`days`日後の日付をYYYY-MM-DD形式で返す（UTC基準） */
+function addDays(baseDate: string, days: number): string {
+  const [year, month, day] = baseDate.split('-').map(Number);
+  const shifted = new Date(Date.UTC(year, month - 1, day) + days * 24 * 60 * 60 * 1000);
+  const yyyy = shifted.getUTCFullYear();
+  const mm = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(shifted.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 /**
  * DailySummaryRepository の契約テストスイートを定義する。
  *
@@ -245,6 +255,57 @@ export function defineDailySummaryRepositoryContract(
 
       expect(result).toHaveLength(1);
       expect(result[0].ExchangeID).toBe('EX-A');
+    });
+
+    it('getByExchangeはdate省略時、100件超のサマリーがあってもページ境界をまたいで正しい最新日を算出する（打ち切りの回帰防止）', async () => {
+      // GSI4SK（DATE#{Date}#{TickerID}）昇順で先頭からstore既定limit（100件）だけを見ると
+      // 最古側しか拾えず、最新日の算出が誤る。130件（>100）投入し、全件を集約したうえで
+      // 最新日だけに絞り込めているかを検証する。
+      const total = 130;
+      const baseDate = '2024-01-01';
+      for (let i = 0; i < total; i += 1) {
+        await repository.upsert(
+          buildDailySummaryInput({
+            TickerID: `T${String(i).padStart(4, '0')}`,
+            ExchangeID: 'EX-BULK',
+            Date: addDays(baseDate, i),
+          })
+        );
+      }
+
+      const result = await repository.getByExchange('EX-BULK');
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        TickerID: `T${String(total - 1).padStart(4, '0')}`,
+        Date: addDays(baseDate, total - 1),
+      });
+    });
+
+    it('getByExchangeAndDateRangeは100件超の範囲でもページ境界をまたいで全件を取りこぼさない（打ち切りの回帰防止）', async () => {
+      // 150件投入し、その中間120件（先頭・末尾の一部は範囲外）をfrom/toで指定する。
+      // store既定limit（100件）で打ち切られると120件に届かない・末尾（toDate側）が欠落する。
+      const total = 150;
+      const baseDate = '2024-01-01';
+      for (let i = 0; i < total; i += 1) {
+        await repository.upsert(
+          buildDailySummaryInput({
+            TickerID: `T${String(i).padStart(4, '0')}`,
+            ExchangeID: 'EX-RANGE',
+            Date: addDays(baseDate, i),
+          })
+        );
+      }
+
+      const fromDate = addDays(baseDate, 10);
+      const toDate = addDays(baseDate, 129);
+
+      const result = await repository.getByExchangeAndDateRange('EX-RANGE', fromDate, toDate);
+
+      expect(result).toHaveLength(120);
+      expect(result[0].Date).toBe(fromDate);
+      expect(result[result.length - 1].Date).toBe(toDate);
+      expect(new Set(result.map((item) => item.Date)).size).toBe(120);
     });
   });
 }

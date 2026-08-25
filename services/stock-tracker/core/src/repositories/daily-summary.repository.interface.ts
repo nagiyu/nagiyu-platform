@@ -61,10 +61,13 @@ export interface DailySummaryRepository {
    * 採点バッチ / 集計 API 用。既存 `getByExchange` は単一日付 / 最新日に特化しているため
    * 期間範囲対応を新設する。範囲は両端含む（inclusive）。
    *
+   * 返却順序は GSI4SK（`DATE#{Date}#{TickerID}`）昇順、すなわち Date 昇順・同日内は TickerID
+   * 昇順を契約とする（兄弟メソッドの `getByExchange` と同じ順序）。
+   *
    * @param exchangeId - 取引所ID
    * @param fromDate - 開始日 (YYYY-MM-DD、含む)
    * @param toDate - 終了日 (YYYY-MM-DD、含む)
-   * @returns 期間内の全サマリー配列
+   * @returns 期間内の全サマリー配列（GSI4SK昇順）
    */
   getByExchangeAndDateRange(
     exchangeId: string,

@@ -46,7 +46,12 @@ function buildExchangeInput(overrides: Partial<CreateExchangeInput> = {}): Creat
 }
 
 function sortByExchangeId<T extends { ExchangeID: string }>(items: T[]): T[] {
-  return [...items].sort((a, b) => a.ExchangeID.localeCompare(b.ExchangeID));
+  // localeCompareはロケール依存で、異なる文字列に対して0（等価）を返しうるため使わない
+  // （例: ロケールによっては大文字小文字や記号の違いを同一視することがある）。
+  // ソート順の安定性・決定性を保つため、素のコードユニット比較にする。
+  return [...items].sort((a, b) =>
+    a.ExchangeID < b.ExchangeID ? -1 : a.ExchangeID > b.ExchangeID ? 1 : 0
+  );
 }
 
 /**
@@ -121,6 +126,22 @@ export function defineExchangeRepositoryContract(
 
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual(exchange);
+    });
+
+    it('getAll は100件超のExchangeがあってもページ境界をまたいで全件を取りこぼさない（打ち切りの回帰防止）', async () => {
+      const total = 130;
+      const created: Awaited<ReturnType<ExchangeRepository['create']>>[] = [];
+      for (let i = 0; i < total; i += 1) {
+        created.push(
+          await repository.create(
+            buildExchangeInput({ ExchangeID: `EX${String(i).padStart(4, '0')}` })
+          )
+        );
+      }
+
+      const result = await repository.getAll();
+
+      expect(sortByExchangeId(result)).toEqual(sortByExchangeId(created));
     });
 
     it('同じExchangeIDでcreateを重複させるとEntityAlreadyExistsErrorをスローする', async () => {

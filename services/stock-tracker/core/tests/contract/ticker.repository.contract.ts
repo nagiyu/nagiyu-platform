@@ -44,7 +44,12 @@ function buildTickerInput(overrides: Partial<CreateTickerInput> = {}): CreateTic
 }
 
 function sortByTickerId<T extends { TickerID: string }>(items: T[]): T[] {
-  return [...items].sort((a, b) => a.TickerID.localeCompare(b.TickerID));
+  // localeCompareはロケール依存で、異なる文字列に対して0（等価）を返しうるため使わない
+  // （例: ロケールによっては大文字小文字や記号の違いを同一視することがある）。
+  // ソート順の安定性・決定性を保つため、素のコードユニット比較にする。
+  return [...items].sort((a, b) =>
+    a.TickerID < b.TickerID ? -1 : a.TickerID > b.TickerID ? 1 : 0
+  );
 }
 
 /**

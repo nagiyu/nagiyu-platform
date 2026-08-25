@@ -8,6 +8,7 @@ import {
   EntityAlreadyExistsError,
   EntityNotFoundError,
   InMemorySingleTableStore,
+  type AttributeQueryCondition,
 } from '@nagiyu/aws';
 import type {
   DailySummaryEvaluationFields,
@@ -19,6 +20,11 @@ import type {
   CreateDailySummaryInput,
 } from '../entities/daily-summary.entity.js';
 import { DailySummaryMapper } from '../mappers/daily-summary.mapper.js';
+
+// store既定のqueryByAttribute limit（100件）で打ち切られると、GSI4SK昇順の先頭ページ
+// （＝最古側）だけが返り「最新日」の算出などが壊れるため、in-memory-ticker.repository.ts の
+// getAllと同じ流儀でcursorループにより全件集約する（ページサイズ自体は任意）。
+const FULL_SCAN_PAGE_SIZE = 100;
 
 /**
  * InMemory Daily Summary Repository
@@ -56,7 +62,7 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
    * 取引所IDでサマリーを取得
    */
   public async getByExchange(exchangeId: string, date?: string): Promise<DailySummaryEntity[]> {
-    const result = this.store.queryByAttribute({
+    const summaries = this.queryAllByGsi4({
       attributeName: 'GSI4PK',
       attributeValue: exchangeId,
       // date省略時（sk条件なし）でも、実DynamoDBのGSI4 Queryと同様にGSI4SK昇順で返すよう明示する。
@@ -73,7 +79,6 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
         : {}),
     });
 
-    const summaries = result.items.map((item) => this.mapper.toEntity(item));
     if (date || summaries.length === 0) {
       return summaries;
     }
@@ -93,7 +98,7 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
     fromDate: string,
     toDate: string
   ): Promise<DailySummaryEntity[]> {
-    const result = this.store.queryByAttribute({
+    return this.queryAllByGsi4({
       attributeName: 'GSI4PK',
       attributeValue: exchangeId,
       sk: {
@@ -102,8 +107,27 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
         value: [`DATE#${fromDate}`, `DATE#${toDate}#~`],
       },
     });
+  }
 
-    return result.items.map((item) => this.mapper.toEntity(item));
+  /**
+   * GSI4条件に一致する全アイテムをcursorループで集約し、Entityへ変換して返す。
+   * store既定limit（100件）による打ち切りを避けるため、getByExchange /
+   * getByExchangeAndDateRangeはこのヘルパーを経由する。
+   */
+  private queryAllByGsi4(condition: AttributeQueryCondition): DailySummaryEntity[] {
+    const items: DailySummaryEntity[] = [];
+    let cursor: string | undefined;
+
+    do {
+      const page = this.store.queryByAttribute(condition, {
+        limit: FULL_SCAN_PAGE_SIZE,
+        cursor,
+      });
+      items.push(...page.items.map((item) => this.mapper.toEntity(item)));
+      cursor = page.nextCursor;
+    } while (cursor);
+
+    return items;
   }
 
   /**

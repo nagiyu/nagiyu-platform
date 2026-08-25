@@ -346,22 +346,36 @@ export class InMemorySingleTableStore {
   }
 
   /**
-   * ソートキー属性で昇順（文字列の辞書順）に安定ソートする
+   * ソートキー属性で昇順に安定ソートする（String型は辞書順、Number型は数値順）
    *
    * 実DynamoDBのQuery（GSI経由を含む）はソートキー昇順で結果を返すため、
    * InMemory実装もこれに合わせて挿入順（Map反復順）ではなくソートキー順で返す。
    *
-   * 近似の範囲: String型ソートキーの辞書順（JSの文字列比較＝UTF-16コードユニット順）で
-   * 近似する。現行のキー体系（ASCII範囲のPK/SK・GSIキー）では実DynamoDBのUTF-8バイト順と
-   * 一致する。BMP外文字（サロゲートペア）やNumber型ソートキーは対象外（本ストアは文字列前提）。
+   * 型ごとの扱い:
+   * - 両辺が number のときは数値比較する。実DynamoDBのNumber型ソートキー
+   *   （例: livetalkのGSI3SK=Care、GSI4SK=NextReview）は数値順に並ぶため、これに合わせる。
+   * - それ以外（両辺が string、型混在、片方以上がundefined）は文字列化した辞書順
+   *   （JSの文字列比較＝UTF-16コードユニット順）で比較する。現行のString型キー体系
+   *   （ASCII範囲のPK/SK・GSIキー）では実DynamoDBのUTF-8バイト順と一致する。
+   *   BMP外文字（サロゲートペア）は対象外。
+   * - 型混在（string と number が同じ属性に混じる）は、実DynamoDBでは同一GSIの
+   *   ソートキーが単一型である前提のため本来起こり得ず、本ストアも対応しない
+   *   （辞書順比較にフォールバックするのみで、正しい順序は保証しない）。
    *
    * @param items - ソート対象アイテム
    * @param skAttribute - ソートキーとして扱う属性名（Queryは'SK'、GSI経由はGSIのSK属性名）
    */
   private sortBySortKey(items: DynamoDBItem[], skAttribute: string): DynamoDBItem[] {
     return [...items].sort((a, b) => {
-      const aKey = String(a[skAttribute] ?? '');
-      const bKey = String(b[skAttribute] ?? '');
+      const aValue = a[skAttribute];
+      const bValue = b[skAttribute];
+
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return aValue - bValue;
+      }
+
+      const aKey = String(aValue ?? '');
+      const bKey = String(bValue ?? '');
       return aKey < bKey ? -1 : aKey > bKey ? 1 : 0;
     });
   }

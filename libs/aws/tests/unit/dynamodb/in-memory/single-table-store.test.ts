@@ -505,9 +505,12 @@ describe('InMemorySingleTableStore', () => {
         ];
         items.forEach((item) => store.put(item));
 
-        // gsiSortKeyAttributeNameには存在しない属性名を渡し、sk側が優先されることを
-        // 明確に検知できるようにする（もしgsiSortKeyAttributeName側が優先されたら
-        // ソート結果が変わってしまうか、少なくともsk条件のソートとは無関係になるはず）
+        // gsiSortKeyAttributeNameには存在しない属性名（DOES_NOT_EXIST）を渡す。
+        // sk側が優先されるなら結果はGSI3SK昇順（AAPL, TSLA）になる。
+        // 優先順位が逆転してgsiSortKeyAttributeName側が使われた場合、全アイテムの
+        // DOES_NOT_EXIST属性はundefinedで揃うためソートキーが全て空文字列(String(undefined ?? ''))
+        // になり、安定ソートにより挿入順（TSLA, AAPL）がそのまま残る。
+        // よってこの2パターンは値が異なり、優先順位の逆転を確実に検知できる。
         const result = store.queryByAttribute({
           attributeName: 'GSI3PK',
           attributeValue: 'NASDAQ',
@@ -516,6 +519,66 @@ describe('InMemorySingleTableStore', () => {
         });
 
         expect(result.items.map((item) => item.TickerID)).toEqual(['AAPL', 'TSLA']);
+      });
+
+      it('ソートキーがNumber型の場合は数値の昇順でソートする（桁数不揃いの値で辞書順との違いを検証する）', () => {
+        store.clear();
+        // 数値昇順なら 2, 9, 10, 100。文字列辞書順だと "10" < "100" < "2" < "9" になり、
+        // この期待値とは一致しない（livetalkのGSI3SK=Care、GSI4SK=NextReviewを想定した値）。
+        const careValues = [10, 100, 2, 9];
+        const items: DynamoDBItem[] = careValues.map((care, index) => ({
+          PK: 'USER#u1',
+          SK: `TOPIC#t${index}#META`,
+          Type: 'Topic',
+          GSI3PK: 'hiyori#TOPICS#u1',
+          GSI3SK: care,
+          CreatedAt: Date.now(),
+          UpdatedAt: Date.now(),
+        }));
+        items.forEach((item) => store.put(item));
+
+        const result = store.queryByAttribute({
+          attributeName: 'GSI3PK',
+          attributeValue: 'hiyori#TOPICS#u1',
+          gsiSortKeyAttributeName: 'GSI3SK',
+        });
+
+        expect(result.items.map((item) => item.GSI3SK)).toEqual([2, 9, 10, 100]);
+      });
+
+      it('ソートキーの型が混在する場合は文字列化した辞書順にフォールバックする（同一GSI内は単一型の前提のため、混在時の正しい順序は保証しない）', () => {
+        store.clear();
+        const items: DynamoDBItem[] = [
+          {
+            PK: 'USER#u1',
+            SK: 'A',
+            Type: 'Mixed',
+            GSI3PK: 'group',
+            GSI3SK: 10,
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+          },
+          {
+            PK: 'USER#u1',
+            SK: 'B',
+            Type: 'Mixed',
+            GSI3PK: 'group',
+            GSI3SK: '2',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+          },
+        ];
+        items.forEach((item) => store.put(item));
+
+        const result = store.queryByAttribute({
+          attributeName: 'GSI3PK',
+          attributeValue: 'group',
+          gsiSortKeyAttributeName: 'GSI3SK',
+        });
+
+        // 数値10と文字列'2'は型が混在するため数値同士の比較にはならず、
+        // String(10)='10' と '2' の辞書順比較（'10' < '2'）にフォールバックする
+        expect(result.items.map((item) => item.SK)).toEqual(['A', 'B']);
       });
     });
 

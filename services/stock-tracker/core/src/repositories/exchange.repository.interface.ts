@@ -27,7 +27,10 @@ export interface ExchangeRepository {
   /**
    * 全取引所を取得
    *
-   * @returns 取引所の配列
+   * 実装はScan（DynamoDB実装）またはそれに準じる走査（InMemory実装）を用いるため、
+   * 返却順序は保証しない。呼び出し側は順序に依存しないこと。
+   *
+   * @returns 取引所の配列（順序不定）
    */
   getAll(): Promise<ExchangeEntity[]>;
 

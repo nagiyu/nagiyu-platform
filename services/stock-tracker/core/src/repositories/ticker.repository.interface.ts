@@ -42,8 +42,12 @@ export interface TickerRepository {
   /**
    * 全ティッカー取得
    *
+   * 実装はScan（DynamoDB実装）またはそれに準じる走査（InMemory実装）を用いるため、
+   * 返却順序は保証しない（`getByExchange` のGSI3SK昇順とは異なる）。呼び出し側は
+   * 順序に依存しないこと。
+   *
    * @param options - ページネーションオプション
-   * @returns ページネーション結果
+   * @returns ページネーション結果（順序不定）
    */
   getAll(options?: PaginationOptions): Promise<PaginatedResult<TickerEntity>>;
 
