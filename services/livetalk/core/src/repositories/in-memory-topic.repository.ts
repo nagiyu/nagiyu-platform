@@ -17,6 +17,8 @@ import {
   buildTopicStaleGSI4PK,
   buildUserPK,
   buildWebFactSKPrefix,
+  STALE_GSI_PROJECTION,
+  TOPIC_GSI_PROJECTION,
 } from '../mappers/keys.js';
 import { OptimisticLockError } from './optimistic-lock.error.js';
 import type { TopicBundle, TopicRepository } from './topic.repository.interface.js';
@@ -130,7 +132,7 @@ export class InMemoryTopicRepository implements TopicRepository {
 
     do {
       const result = this.store.queryByAttribute(
-        { attributeName: 'GSI3PK', attributeValue: gsi3pk },
+        { attributeName: 'GSI3PK', attributeValue: gsi3pk, projection: TOPIC_GSI_PROJECTION },
         { limit: Number.MAX_SAFE_INTEGER, ...(cursor ? { cursor } : {}) }
       );
       for (const item of result.items) {
@@ -206,7 +208,7 @@ export class InMemoryTopicRepository implements TopicRepository {
 
     do {
       const result = this.store.queryByAttribute(
-        { attributeName: 'GSI4PK', attributeValue: gsi4pk },
+        { attributeName: 'GSI4PK', attributeValue: gsi4pk, projection: STALE_GSI_PROJECTION },
         { limit: Number.MAX_SAFE_INTEGER, ...(cursor ? { cursor } : {}) }
       );
       for (const item of result.items) {

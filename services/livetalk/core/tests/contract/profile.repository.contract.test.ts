@@ -1,8 +1,8 @@
 /**
- * HoldingRepository 契約テスト（実行エントリポイント）
+ * ProfileRepository 契約テスト（実行エントリポイント）
  *
  * InMemory実装と実DynamoDB実装（DynamoDB Local）の双方に対して
- * holding.repository.contract.ts の共有スペックを実行する。
+ * profile.repository.contract.ts の共有スペックを実行する。
  *
  * DynamoDB Local（DYNAMODB_ENDPOINT、未設定時は http://localhost:8000）への接続を前提とし、
  * 接続できない環境では自己スキップせずテストを失敗させる（決定的に検知するため）。
@@ -17,25 +17,38 @@ import {
   createLocalRawClient,
   deleteTable,
 } from '@nagiyu/aws/testing';
-import { InMemoryHoldingRepository } from '../../src/repositories/in-memory-holding.repository.js';
-import { DynamoDBHoldingRepository } from '../../src/repositories/dynamodb-holding.repository.js';
-import { defineHoldingRepositoryContract } from './holding.repository.contract.js';
+import { InMemoryProfileRepository } from '../../src/repositories/in-memory-profile.repository.js';
+import { DynamoDBProfileRepository } from '../../src/repositories/dynamodb-profile.repository.js';
+import { InMemorySafetyEventRepository } from '../../src/repositories/in-memory-safety-event.repository.js';
+import { DynamoDBSafetyEventRepository } from '../../src/repositories/dynamodb-safety-event.repository.js';
+import { defineProfileRepositoryContract } from './profile.repository.contract.js';
 import { createTable } from './helpers/dynamodb-local.js';
 
 // --- InMemory 実装 ---
 
 let inMemoryStore = new InMemorySingleTableStore();
 
-defineHoldingRepositoryContract('InMemory', {
-  makeRepository: async () => new InMemoryHoldingRepository(inMemoryStore),
+defineProfileRepositoryContract('InMemory', {
+  makeRepository: async () => new InMemoryProfileRepository(inMemoryStore),
   reset: async () => {
     inMemoryStore = new InMemorySingleTableStore();
+  },
+  putNonProfileItem: async (userId: string) => {
+    const safetyEventRepo = new InMemorySafetyEventRepository(inMemoryStore);
+    await safetyEventRepo.create({
+      UserID: userId,
+      CharacterID: 'hiyori',
+      Trigger: 'input_keyword',
+      DetectedPattern: 'contract-test',
+      InputText: 'x',
+      ResponseText: 'y',
+    });
   },
 });
 
 // --- DynamoDB Local 実装 ---
 
-const dynamoDbLocalTableName = `contract-holding-${process.pid}-${Date.now()}`;
+const dynamoDbLocalTableName = `contract-profile-${process.pid}-${Date.now()}`;
 let dynamoDbLocalRawClient: DynamoDBClient | undefined;
 let dynamoDbLocalDocClient: DynamoDBDocumentClient | undefined;
 let dynamoDbLocalTableReady: Promise<void> | undefined;
@@ -49,10 +62,10 @@ function ensureDynamoDbLocalTable(): Promise<void> {
   return dynamoDbLocalTableReady;
 }
 
-defineHoldingRepositoryContract('DynamoDB Local', {
+defineProfileRepositoryContract('DynamoDB Local', {
   makeRepository: async () => {
     await ensureDynamoDbLocalTable();
-    return new DynamoDBHoldingRepository(
+    return new DynamoDBProfileRepository(
       dynamoDbLocalDocClient as DynamoDBDocumentClient,
       dynamoDbLocalTableName
     );
@@ -64,5 +77,20 @@ defineHoldingRepositoryContract('DynamoDB Local', {
   teardown: async () => {
     await ensureDynamoDbLocalTable();
     await deleteTable(dynamoDbLocalRawClient as DynamoDBClient, dynamoDbLocalTableName);
+  },
+  putNonProfileItem: async (userId: string) => {
+    await ensureDynamoDbLocalTable();
+    const safetyEventRepo = new DynamoDBSafetyEventRepository(
+      dynamoDbLocalDocClient as DynamoDBDocumentClient,
+      dynamoDbLocalTableName
+    );
+    await safetyEventRepo.create({
+      UserID: userId,
+      CharacterID: 'hiyori',
+      Trigger: 'input_keyword',
+      DetectedPattern: 'contract-test',
+      InputText: 'x',
+      ResponseText: 'y',
+    });
   },
 });

@@ -5,7 +5,7 @@ import type {
   ProfileKey,
   UpdateProfileInput,
 } from '../entities/profile.entity.js';
-import { buildProfileGSI1PK } from '../mappers/keys.js';
+import { buildProfileGSI1PK, PROFILE_GSI_PROJECTION } from '../mappers/keys.js';
 import { ProfileMapper } from '../mappers/profile.mapper.js';
 import type { ProfileRepository } from './profile.repository.interface.js';
 
@@ -33,7 +33,11 @@ export class InMemoryProfileRepository implements ProfileRepository {
 
     do {
       const result = this.store.queryByAttribute(
-        { attributeName: 'GSI1PK', attributeValue: buildProfileGSI1PK() },
+        {
+          attributeName: 'GSI1PK',
+          attributeValue: buildProfileGSI1PK(),
+          projection: PROFILE_GSI_PROJECTION,
+        },
         cursor ? { cursor } : undefined
       );
       for (const item of result.items) {

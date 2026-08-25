@@ -1,8 +1,8 @@
 /**
- * HoldingRepository 契約テスト（実行エントリポイント）
+ * TopicRepository 契約テスト（実行エントリポイント）
  *
  * InMemory実装と実DynamoDB実装（DynamoDB Local）の双方に対して
- * holding.repository.contract.ts の共有スペックを実行する。
+ * topic.repository.contract.ts の共有スペックを実行する。
  *
  * DynamoDB Local（DYNAMODB_ENDPOINT、未設定時は http://localhost:8000）への接続を前提とし、
  * 接続できない環境では自己スキップせずテストを失敗させる（決定的に検知するため）。
@@ -17,17 +17,17 @@ import {
   createLocalRawClient,
   deleteTable,
 } from '@nagiyu/aws/testing';
-import { InMemoryHoldingRepository } from '../../src/repositories/in-memory-holding.repository.js';
-import { DynamoDBHoldingRepository } from '../../src/repositories/dynamodb-holding.repository.js';
-import { defineHoldingRepositoryContract } from './holding.repository.contract.js';
+import { InMemoryTopicRepository } from '../../src/repositories/in-memory-topic.repository.js';
+import { DynamoDBTopicRepository } from '../../src/repositories/dynamodb-topic.repository.js';
+import { defineTopicRepositoryContract } from './topic.repository.contract.js';
 import { createTable } from './helpers/dynamodb-local.js';
 
 // --- InMemory 実装 ---
 
 let inMemoryStore = new InMemorySingleTableStore();
 
-defineHoldingRepositoryContract('InMemory', {
-  makeRepository: async () => new InMemoryHoldingRepository(inMemoryStore),
+defineTopicRepositoryContract('InMemory', {
+  makeRepository: async () => new InMemoryTopicRepository(inMemoryStore),
   reset: async () => {
     inMemoryStore = new InMemorySingleTableStore();
   },
@@ -35,7 +35,7 @@ defineHoldingRepositoryContract('InMemory', {
 
 // --- DynamoDB Local 実装 ---
 
-const dynamoDbLocalTableName = `contract-holding-${process.pid}-${Date.now()}`;
+const dynamoDbLocalTableName = `contract-topic-${process.pid}-${Date.now()}`;
 let dynamoDbLocalRawClient: DynamoDBClient | undefined;
 let dynamoDbLocalDocClient: DynamoDBDocumentClient | undefined;
 let dynamoDbLocalTableReady: Promise<void> | undefined;
@@ -49,10 +49,10 @@ function ensureDynamoDbLocalTable(): Promise<void> {
   return dynamoDbLocalTableReady;
 }
 
-defineHoldingRepositoryContract('DynamoDB Local', {
+defineTopicRepositoryContract('DynamoDB Local', {
   makeRepository: async () => {
     await ensureDynamoDbLocalTable();
-    return new DynamoDBHoldingRepository(
+    return new DynamoDBTopicRepository(
       dynamoDbLocalDocClient as DynamoDBDocumentClient,
       dynamoDbLocalTableName
     );

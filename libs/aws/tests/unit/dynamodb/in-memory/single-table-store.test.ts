@@ -387,6 +387,110 @@ describe('InMemorySingleTableStore', () => {
       });
     });
 
+    describe('queryByAttribute の射影（projection）', () => {
+      beforeEach(() => {
+        store.clear();
+        const item: DynamoDBItem = {
+          PK: 'USER#1',
+          SK: 'TOPIC#t1#META',
+          Type: 'Topic',
+          GSI3PK: 'char#TOPICS#u1',
+          GSI3SK: 5,
+          CreatedAt: 1,
+          UpdatedAt: 2,
+          Subject: '件名',
+          RequestText: '依頼テキスト',
+          RequestedAt: 99,
+        };
+        store.put(item);
+      });
+
+      it('projection未指定時はフルアイテムを返す（従来どおりのALL相当。既存呼び出し元の後方互換）', () => {
+        const result = store.queryByAttribute({
+          attributeName: 'GSI3PK',
+          attributeValue: 'char#TOPICS#u1',
+        });
+
+        expect(result.items[0]).toEqual(
+          expect.objectContaining({ Subject: '件名', RequestText: '依頼テキスト', RequestedAt: 99 })
+        );
+      });
+
+      it("type:'ALL' を明示してもフルアイテムを返す", () => {
+        const result = store.queryByAttribute({
+          attributeName: 'GSI3PK',
+          attributeValue: 'char#TOPICS#u1',
+          projection: { type: 'ALL', keyAttributeNames: ['GSI3PK', 'GSI3SK'] },
+        });
+
+        expect(result.items[0].RequestText).toBe('依頼テキスト');
+        expect(result.items[0].RequestedAt).toBe(99);
+      });
+
+      it("type:'KEYS_ONLY' はベーステーブルキー（PK/SK）とGSIキー属性のみを返す", () => {
+        const result = store.queryByAttribute({
+          attributeName: 'GSI3PK',
+          attributeValue: 'char#TOPICS#u1',
+          projection: { type: 'KEYS_ONLY', keyAttributeNames: ['GSI3PK', 'GSI3SK'] },
+        });
+
+        expect(result.items[0]).toEqual({
+          PK: 'USER#1',
+          SK: 'TOPIC#t1#META',
+          GSI3PK: 'char#TOPICS#u1',
+          GSI3SK: 5,
+        });
+      });
+
+      it("type:'INCLUDE' はベーステーブルキー＋GSIキー＋指定した非キー属性のみを返す（未指定の属性は含まれない）", () => {
+        const result = store.queryByAttribute({
+          attributeName: 'GSI3PK',
+          attributeValue: 'char#TOPICS#u1',
+          projection: {
+            type: 'INCLUDE',
+            keyAttributeNames: ['GSI3PK', 'GSI3SK'],
+            nonKeyAttributes: ['Subject', 'CreatedAt'],
+          },
+        });
+
+        expect(result.items[0]).toEqual({
+          PK: 'USER#1',
+          SK: 'TOPIC#t1#META',
+          GSI3PK: 'char#TOPICS#u1',
+          GSI3SK: 5,
+          Subject: '件名',
+          CreatedAt: 1,
+        });
+        expect((result.items[0] as Record<string, unknown>).RequestText).toBeUndefined();
+        expect((result.items[0] as Record<string, unknown>).RequestedAt).toBeUndefined();
+        expect((result.items[0] as Record<string, unknown>).UpdatedAt).toBeUndefined();
+      });
+
+      it('sk条件を渡さないGSIクエリでも、keyAttributeNamesで指定したGSIのソートキー属性は射影に含まれる', () => {
+        // InMemoryTopicRepository.queryGsi3 相当：sk条件を渡さずPK一致のみでクエリする場合でも、
+        // 実DynamoDBはGSIのソートキー属性を常に射影に含めるため、落としてはいけない。
+        const result = store.queryByAttribute({
+          attributeName: 'GSI3PK',
+          attributeValue: 'char#TOPICS#u1',
+          projection: { type: 'KEYS_ONLY', keyAttributeNames: ['GSI3PK', 'GSI3SK'] },
+        });
+
+        expect(result.items[0].GSI3SK).toBe(5);
+      });
+
+      it('射影はストア内の元アイテムを変更せず、絞り込んだコピーを返す', () => {
+        store.queryByAttribute({
+          attributeName: 'GSI3PK',
+          attributeValue: 'char#TOPICS#u1',
+          projection: { type: 'KEYS_ONLY', keyAttributeNames: ['GSI3PK', 'GSI3SK'] },
+        });
+
+        const stored = store.get('USER#1', 'TOPIC#t1#META');
+        expect(stored?.Subject).toBe('件名');
+        expect(stored?.RequestText).toBe('依頼テキスト');
+      });
+    });
+
     describe('scan', () => {
       it('全アイテムを取得できる', () => {
         const result = store.scan();

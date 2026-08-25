@@ -6,7 +6,7 @@ import type {
   SafetyEventSummary,
 } from '../entities/safety-event.entity.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
-import { buildSafetyEventGSI2PK } from '../mappers/keys.js';
+import { buildSafetyEventGSI2PK, SAFETY_EVENT_GSI_PROJECTION } from '../mappers/keys.js';
 import { SafetyEventMapper } from '../mappers/safety-event.mapper.js';
 import type { SafetyEventRepository } from './safety-event.repository.interface.js';
 
@@ -38,7 +38,13 @@ export class InMemorySafetyEventRepository implements SafetyEventRepository {
       UpdatedAt: now,
     };
 
-    this.store.put(this.mapper.toItem(entity));
+    // 実DynamoDB実装（dynamodb-safety-event.repository.ts）は
+    // ConditionExpression: 'attribute_not_exists(PK)' で重複作成を防ぎ、
+    // ConditionalCheckFailedException を EntityAlreadyExistsError に変換して投げる。
+    // InMemory側もキー重複時に同じ name のエラーを投げるよう、
+    // attributeNotExists 条件付きで put する（stock-tracker の
+    // InMemoryHoldingRepository.create と同じ流儀：ストアが投げるエラーをそのまま伝播する）。
+    this.store.put(this.mapper.toItem(entity), { attributeNotExists: true });
     return entity;
   }
 
@@ -57,7 +63,11 @@ export class InMemorySafetyEventRepository implements SafetyEventRepository {
     let cursor: string | undefined;
     do {
       const result = this.store.queryByAttribute(
-        { attributeName: 'GSI2PK', attributeValue: buildSafetyEventGSI2PK() },
+        {
+          attributeName: 'GSI2PK',
+          attributeValue: buildSafetyEventGSI2PK(),
+          projection: SAFETY_EVENT_GSI_PROJECTION,
+        },
         cursor ? { cursor } : undefined
       );
       items.push(...result.items);

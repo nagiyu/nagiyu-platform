@@ -30,6 +30,8 @@
  *   停止・遅延分を取りこぼすため使わない。
  */
 
+import type { AttributeProjection } from '@nagiyu/aws';
+
 /** Profile 列挙 GSI のインデックス名 */
 export const PROFILE_GSI_INDEX_NAME = 'GSI1';
 
@@ -41,6 +43,63 @@ export const TOPIC_GSI_INDEX_NAME = 'GSI3';
 
 /** 鮮度掃引用 GSI-STALE のインデックス名（リブトーク知識再設計 P3 / #3699） */
 export const STALE_GSI_INDEX_NAME = 'GSI4';
+
+/**
+ * 各GSIの射影定義（`infra/livetalk/lib/dynamodb-stack.ts` の本番CDKスタック定義と一致させる）。
+ *
+ * InMemory実装（`in-memory-*.repository.ts`）が `InMemorySingleTableStore.queryByAttribute` に
+ * 渡す射影指定として使う（実DynamoDBのGSI射影欠落をInMemory側でも再現するため）。
+ * `tests/contract/table-schema-drift.test.ts` で CDK synth 結果と突き合わせ、
+ * ここが本番定義と乖離した場合に検知する（CDK ↔ LOCAL_TABLE_SCHEMA ↔ この射影定数、の
+ * 二重管理を1本のドリフトガードで守るための単一ソース）。
+ */
+
+/** GSI1（Profile列挙）の射影。KEYS_ONLY。 */
+export const PROFILE_GSI_PROJECTION: AttributeProjection = {
+  type: 'KEYS_ONLY',
+  keyAttributeNames: ['GSI1PK', 'GSI1SK'],
+};
+
+/** GSI2（SafetyEvent横断レビュー）の射影。INCLUDE（PIIであるInputText/ResponseTextは除外）。 */
+export const SAFETY_EVENT_GSI_PROJECTION: AttributeProjection = {
+  type: 'INCLUDE',
+  keyAttributeNames: ['GSI2PK', 'GSI2SK'],
+  nonKeyAttributes: ['UserID', 'EventID', 'CharacterID', 'Trigger', 'DetectedPattern', 'CreatedAt'],
+};
+
+/** GSI3（GSI-TOPIC、Topicヘッダ列挙）の射影。INCLUDE（RequestText/RequestedAtは意図的に除外）。 */
+export const TOPIC_GSI_PROJECTION: AttributeProjection = {
+  type: 'INCLUDE',
+  keyAttributeNames: ['GSI3PK', 'GSI3SK'],
+  nonKeyAttributes: [
+    'UserID',
+    'CharacterID',
+    'TopicID',
+    'Subject',
+    'CanonicalSummary',
+    'Category',
+    'Embedding',
+    'CreatedAt',
+    'UpdatedAt',
+  ],
+};
+
+/** GSI4（GSI-STALE、鮮度掃引）の射影。INCLUDE。 */
+export const STALE_GSI_PROJECTION: AttributeProjection = {
+  type: 'INCLUDE',
+  keyAttributeNames: ['GSI4PK', 'GSI4SK'],
+  nonKeyAttributes: [
+    'UserID',
+    'CharacterID',
+    'TopicID',
+    'FactID',
+    'Text',
+    'SourceUrls',
+    'Volatility',
+    'ObservedAt',
+    'CreatedAt',
+  ],
+};
 
 /**
  * GSI1 のパーティションキー値を返す。
