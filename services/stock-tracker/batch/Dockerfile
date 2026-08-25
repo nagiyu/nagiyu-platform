@@ -50,6 +50,9 @@ COPY --from=builder /app/services/stock-tracker/core/dist ./services/stock-track
 # Batch パッケージ
 COPY --from=builder /app/services/stock-tracker/batch/package*.json ./services/stock-tracker/batch/
 COPY --from=builder /app/services/stock-tracker/batch/dist ./services/stock-tracker/batch/dist
+# openai@7 は optional peerDependencies の影響で root に hoist されずワークスペース直下に
+# 配置されるため、root の node_modules だけでは実行時に解決できない。明示的にコピーする。
+COPY --from=builder /app/services/stock-tracker/batch/node_modules ./services/stock-tracker/batch/node_modules
 
 # Lambda ハンドラーを指定
 # CMD は CDK の cmd オプションで上書きされる (例: services/stock-tracker/batch/dist/src/minute.handler)

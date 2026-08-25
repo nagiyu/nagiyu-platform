@@ -30,6 +30,9 @@ COPY --from=builder /app/libs/aws/package*.json ./libs/aws/
 COPY --from=builder /app/libs/aws/dist ./libs/aws/dist
 COPY --from=builder /app/services/quick-clip/core/package*.json ./services/quick-clip/core/
 COPY --from=builder /app/services/quick-clip/core/dist ./services/quick-clip/core/dist
+# openai@7 は optional peerDependencies の影響で root に hoist されずワークスペース直下に
+# 配置されるため、root の node_modules だけでは実行時に解決できない。明示的にコピーする。
+COPY --from=builder /app/services/quick-clip/core/node_modules ./services/quick-clip/core/node_modules
 COPY --from=builder /app/services/quick-clip/batch/package*.json ./services/quick-clip/batch/
 COPY --from=builder /app/services/quick-clip/batch/dist ./services/quick-clip/batch/dist
 

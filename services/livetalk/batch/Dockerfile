@@ -46,10 +46,14 @@ COPY --from=builder /app/libs/aws/dist ./libs/aws/dist
 # Core パッケージ
 COPY --from=builder /app/services/livetalk/core/package*.json ./services/livetalk/core/
 COPY --from=builder /app/services/livetalk/core/dist ./services/livetalk/core/dist
+# openai@7 は optional peerDependencies の影響で root に hoist されずワークスペース直下に
+# 配置されるため、root の node_modules だけでは実行時に解決できない。明示的にコピーする。
+COPY --from=builder /app/services/livetalk/core/node_modules ./services/livetalk/core/node_modules
 
 # Batch パッケージ
 COPY --from=builder /app/services/livetalk/batch/package*.json ./services/livetalk/batch/
 COPY --from=builder /app/services/livetalk/batch/dist ./services/livetalk/batch/dist
+COPY --from=builder /app/services/livetalk/batch/node_modules ./services/livetalk/batch/node_modules
 
 # Lambda ハンドラーを指定（<モジュールパス>.<エクスポート名>）
 # Lambda ランタイムはハンドラ文字列を最初のドットで分割するため、
