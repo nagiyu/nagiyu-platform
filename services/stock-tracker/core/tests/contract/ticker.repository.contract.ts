@@ -137,6 +137,23 @@ export function defineTickerRepositoryContract(
       expect(collected).toEqual(['A', 'B', 'C', 'D', 'E']);
     });
 
+    it('getByExchangeはoptions未指定時、既定で50件に制限される（実DynamoDB実装の既定limit=50との乖離防止）', async () => {
+      // 実DynamoDB実装（dynamodb-ticker.repository.ts）は options?.limit || 50 のため、
+      // limit未指定時は50件で打ち切られnextCursorが付く。130件（>100かつ>50）投入し、
+      // 両実装ともstore既定の100件ではなく50件で揃うことを検証する。
+      const total = 130;
+      for (let i = 0; i < total; i += 1) {
+        await repository.create(
+          buildTickerInput({ TickerID: `T${String(i).padStart(4, '0')}`, ExchangeID: 'NASDAQ' })
+        );
+      }
+
+      const result = await repository.getByExchange('NASDAQ');
+
+      expect(result.items).toHaveLength(50);
+      expect(result.nextCursor).toBeDefined();
+    });
+
     it('getAll（オプション未指定）は登録済みの全Tickerを集合として返す（順序は保証しないためソートして比較する）', async () => {
       // 意図的に非ソート順（TSLA→AAPL→NVDA）で作成する
       const created = [
@@ -171,6 +188,23 @@ export function defineTickerRepositoryContract(
 
       expect(collected).toHaveLength(created.length);
       expect(sortByTickerId(collected)).toEqual(sortByTickerId(created));
+    });
+
+    it('getAll は100件超のTickerがあってもページ境界をまたいで全件を取りこぼさない（打ち切りの回帰防止、順序は保証しない）', async () => {
+      const total = 130;
+      const created = [];
+      for (let i = 0; i < total; i += 1) {
+        created.push(
+          await repository.create(
+            buildTickerInput({ TickerID: `T${String(i).padStart(4, '0')}`, ExchangeID: 'NASDAQ' })
+          )
+        );
+      }
+
+      const result = await repository.getAll();
+
+      expect(result.items).toHaveLength(total);
+      expect(sortByTickerId(result.items)).toEqual(sortByTickerId(created));
     });
 
     it('getAll はTicker以外のアイテム（Exchange等）を含めない', async () => {

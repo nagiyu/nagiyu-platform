@@ -7,8 +7,11 @@
  * 形骸化テストは書かない。
  *
  * getByExchange / getByExchangeAndDateRange は GSI4（ExchangeSummaryIndex）に対する
- * 正攻法のQuery（begins_with / between）のため、順序（GSI4SK=DATE#{Date}#{TickerID}昇順）を
- * assert する。
+ * 正攻法のQueryのため、順序（GSI4SK=DATE#{Date}#{TickerID}昇順）をassertする。
+ * ただしQuery条件はケースにより異なる: getByExchangeはdate指定時はbegins_with、
+ * getByExchangeAndDateRangeはbetweenを使うが、getByExchangeのdate省略時は
+ * ソートキー条件を伴わないPKのみのQuery（GSI4パーティション全件）＋
+ * クライアント側での最新日フィルタである（begins_with/betweenのいずれでもない）。
  */
 
 import type { DailySummaryRepository } from '../../src/repositories/daily-summary.repository.interface.js';

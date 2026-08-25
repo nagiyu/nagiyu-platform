@@ -26,13 +26,15 @@ export interface TickerRepository {
   getById(tickerId: string): Promise<TickerEntity | null>;
 
   /**
-   * 取引所ごとのティッカー一覧を取得（GSI3使用）
+   * 取引所ごとのティッカー一覧を取得
    *
-   * 返却順序は GSI3SK（`TICKER#{TickerID}`）昇順、すなわち TickerID の昇順を契約とする。
+   * 返却順序は TickerID の昇順を契約とする。
+   * limit省略時は既定件数で打ち切られる（後続はページネーションで辿る前提。
+   * 全件が必要な場合は呼び出し側でcursorを使って走査すること）。
    *
    * @param exchangeId - 取引所ID
    * @param options - ページネーションオプション
-   * @returns ページネーション結果（GSI3SK昇順）
+   * @returns ページネーション結果（TickerID昇順）
    */
   getByExchange(
     exchangeId: string,
@@ -42,9 +44,12 @@ export interface TickerRepository {
   /**
    * 全ティッカー取得
    *
-   * 実装はScan（DynamoDB実装）またはそれに準じる走査（InMemory実装）を用いるため、
-   * 返却順序は保証しない（`getByExchange` のGSI3SK昇順とは異なる）。呼び出し側は
+   * 返却順序は保証しない（`getByExchange` のTickerID昇順とは異なる）。呼び出し側は
    * 順序に依存しないこと。
+   *
+   * `options` を省略した場合（`limit`/`cursor` とも未指定）は全件を1回の呼び出しで返し、
+   * `nextCursor` は必ず `undefined` になる。`limit` を指定した場合は通常のページネーション
+   * （残りがあれば `nextCursor` を返す）になる。
    *
    * @param options - ページネーションオプション
    * @returns ページネーション結果（順序不定）

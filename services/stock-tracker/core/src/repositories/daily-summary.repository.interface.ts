@@ -44,30 +44,30 @@ export interface DailySummaryRepository {
   getByTickerAndDate(tickerId: string, date: string): Promise<DailySummaryEntity | null>;
 
   /**
-   * 取引所IDでサマリーを取得（GSI4使用）
+   * 取引所IDでサマリーを取得
    *
-   * 返却順序は GSI4SK（`DATE#{Date}#{TickerID}`）昇順、すなわち Date 昇順・同日内は TickerID 昇順を
-   * 契約とする（date省略時に最新日付へ絞り込んだ後も、この順序を維持したまま返す）。
+   * 返却順序は Date 昇順・同日内は TickerID 昇順を契約とする（date省略時に最新日付へ
+   * 絞り込んだ後も、この順序を維持したまま返す）。
    *
    * @param exchangeId - 取引所ID
    * @param date - 対象日 (YYYY-MM-DD)。省略時は取引所内でデータが存在する最も新しい日付の全サマリーを取得
-   * @returns 指定日（または取引所内の最も新しい日付）のサマリー配列（GSI4SK昇順）
+   * @returns 指定日（または取引所内の最も新しい日付）のサマリー配列（Date昇順・同日内はTickerID昇順）
    */
   getByExchange(exchangeId: string, date?: string): Promise<DailySummaryEntity[]>;
 
   /**
-   * 取引所IDと日付範囲でサマリーを取得（GSI4 Query）
+   * 取引所IDと日付範囲でサマリーを取得
    *
    * 採点バッチ / 集計 API 用。既存 `getByExchange` は単一日付 / 最新日に特化しているため
    * 期間範囲対応を新設する。範囲は両端含む（inclusive）。
    *
-   * 返却順序は GSI4SK（`DATE#{Date}#{TickerID}`）昇順、すなわち Date 昇順・同日内は TickerID
-   * 昇順を契約とする（兄弟メソッドの `getByExchange` と同じ順序）。
+   * 返却順序は Date 昇順・同日内は TickerID 昇順を契約とする（兄弟メソッドの
+   * `getByExchange` と同じ順序）。
    *
    * @param exchangeId - 取引所ID
    * @param fromDate - 開始日 (YYYY-MM-DD、含む)
    * @param toDate - 終了日 (YYYY-MM-DD、含む)
-   * @returns 期間内の全サマリー配列（GSI4SK昇順）
+   * @returns 期間内の全サマリー配列（Date昇順・同日内はTickerID昇順）
    */
   getByExchangeAndDateRange(
     exchangeId: string,

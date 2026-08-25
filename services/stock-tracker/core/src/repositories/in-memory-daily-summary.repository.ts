@@ -24,7 +24,7 @@ import { DailySummaryMapper } from '../mappers/daily-summary.mapper.js';
 // store既定のqueryByAttribute limit（100件）で打ち切られると、GSI4SK昇順の先頭ページ
 // （＝最古側）だけが返り「最新日」の算出などが壊れるため、in-memory-ticker.repository.ts の
 // getAllと同じ流儀でcursorループにより全件集約する（ページサイズ自体は任意）。
-const FULL_SCAN_PAGE_SIZE = 100;
+const GSI4_FULL_AGGREGATION_PAGE_SIZE = 100;
 
 /**
  * InMemory Daily Summary Repository
@@ -60,6 +60,11 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
 
   /**
    * 取引所IDでサマリーを取得
+   *
+   * GSI4（ExchangeSummaryIndex）をqueryByAttributeでシミュレートする。GSI4SK
+   * （`DATE#{Date}#{TickerID}`）昇順ソートで、インタフェース契約のDate昇順・
+   * 同日内TickerID昇順を実現する。store既定limit（100件）による打ち切りを避けるため、
+   * queryAllByGsi4のcursorループで全件を集約してから最新日を判定する（date省略時）。
    */
   public async getByExchange(exchangeId: string, date?: string): Promise<DailySummaryEntity[]> {
     const summaries = this.queryAllByGsi4({
@@ -92,6 +97,10 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
 
   /**
    * 取引所IDと日付範囲でサマリーを取得（GSI4 をシミュレート、両端含む）
+   *
+   * `DATE#{toDate}#~` のセンチネル（dynamodb-daily-summary.repository.tsと同じ方式）は、
+   * TickerIDに `~`（0x7E）より大きいコードポイントの文字が含まれる場合、`toDate` 分の
+   * その項目を取りこぼす前提がある。現行のTickerID体系（`NSDQ:AAPL` 形式）では起きない。
    */
   public async getByExchangeAndDateRange(
     exchangeId: string,
@@ -120,7 +129,7 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
 
     do {
       const page = this.store.queryByAttribute(condition, {
-        limit: FULL_SCAN_PAGE_SIZE,
+        limit: GSI4_FULL_AGGREGATION_PAGE_SIZE,
         cursor,
       });
       items.push(...page.items.map((item) => this.mapper.toEntity(item)));

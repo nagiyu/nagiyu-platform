@@ -59,6 +59,10 @@ export class InMemoryExchangeRepository implements ExchangeRepository {
 
   /**
    * 全取引所を取得
+   *
+   * `Type`属性の一致でScanを近似する（GSIを介さない）ため、返却順序は保証しない。
+   * store既定のqueryByAttribute limit（100件）による打ち切りを避けるため、
+   * cursorループで全件集約する（in-memory-ticker.repository.tsのgetAllと同じ流儀）。
    */
   public async getAll(): Promise<ExchangeEntity[]> {
     const items: ExchangeEntity[] = [];

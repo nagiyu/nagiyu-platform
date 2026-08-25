@@ -64,6 +64,14 @@ export interface AttributeQueryCondition {
    * - `sk` を指定した場合はそちらの `attributeName` が優先され、このフィールドは無視される。
    * - 両方省略した場合は、従来どおりベーステーブルの `'SK'` 属性でソートする
    *   （既存呼び出し元の挙動を変えないための後方互換）。
+   *
+   * `projection.keyAttributeNames`（GSIのPK/SK両方を並べた配列）とは意図的に別フィールドにしている。
+   * 理由は2点: (1) 射影（`projection`）はあくても無くてもよい任意指定であり、ソート順の正しさが
+   * 「射影を宣言したかどうか」に左右されるべきではない（射影なしでもソートは常に正しくしたい）。
+   * (2) `keyAttributeNames` は配列であり、どちらの要素がPKでどちらがSKかは並び順に依存した
+   * 前提でしか判断できない（構造的に保証されない）。矛盾する値（`gsiSortKeyAttributeName`と
+   * `projection.keyAttributeNames`の内容が食い違う等）を渡しても、このストアは検知しない
+   * （呼び出し側の責務として正しい値を渡す前提）。
    */
   gsiSortKeyAttributeName?: string;
   /**
