@@ -18,15 +18,15 @@ import { withLLMRetry } from '../lib/llm-retry.js';
 import { LLM_MODELS } from './models.js';
 
 /**
- * OpenAI 実装の用途別既定モデル（GPT-5 系）。
+ * OpenAI 実装の用途別既定モデル（GPT-5.6 系）。
  *
  * モデル名は {@link LLM_MODELS} から導出し、ここで重複定義しない。
  *
- * - conversation: `gpt-5`（会話の応答品質を優先）
- * - summarize / classify: `gpt-5-mini`（コスト最適化、stock-tracker / quick-clip と同じ選択）
+ * - conversation / summarize / classify: `gpt-5.6-luna`（`gpt-5` / `gpt-5-mini` の廃止に伴い統一）
  *
  * @see Issue #3248 "用途別モデル振り分けの仕組み"
  * @see Issue #3530 "LLM プロンプト・モデル定数の一元化リファクタ"
+ * @see Issue #3778 "OpenAI モデルアップグレード（gpt-5 / gpt-5-mini 廃止対応）"
  */
 export const OPENAI_DEFAULT_MODELS: PurposeModelMap = {
   conversation: LLM_MODELS.conversation,
