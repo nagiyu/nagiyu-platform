@@ -630,7 +630,7 @@ DynamoDB Single Table（`nagiyu-livetalk-dynamodb-{env}`）。
 | -------------- | ---------------------------------------------------- | ---------------------------------------------------------------------- |
 | Live2D 描画    | pixi-live2d-display-lipsyncpatch（MIT）              | クライアント描画、リップシンク対応、OSS 実績                           |
 | TTS            | VOICEVOX（セルフホスト）                             | 無料、日本語品質、ライセンス緩い、CPU で動く                           |
-| LLM            | OpenAI GPT-4o / GPT-4o-mini                          | 会話は 4o、要約・分類は mini で用途別振り分け                          |
+| LLM            | OpenAI gpt-5.6-luna                                  | 会話・要約・分類・リサーチを単一モデルに統一（用途別振り分けを廃止）    |
 | Web 検索       | OpenAI Web Search（`responses` + `web_search` tool） | Stock Tracker に実績、検索→要約→構造化が 1 API、抽象化で将来差し替え可 |
 | 構造化出力     | Structured Outputs（zodTextFormat）                  | 型保証、silent failure 解消                                            |
 | embedding      | OpenAI text-embedding-3-small                        | 記憶 retrieval の類似検索                                              |
