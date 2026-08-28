@@ -4,6 +4,7 @@ import {
   OpenAIResearchClient,
   RESEARCH_ERROR_MESSAGES,
 } from '../../../src/research/openai-research-client.js';
+import { LLM_REASONING_EFFORT } from '../../../src/llm-client/models.js';
 import type { CharacterDefinition } from '../../../src/characters/types.js';
 
 /** OpenAI エラー生成用ヘルパー */
@@ -97,7 +98,27 @@ describe('OpenAIResearchClient', () => {
       expect.objectContaining({
         tools: [{ type: 'web_search' }],
         tool_choice: 'required',
+        reasoning: { effort: LLM_REASONING_EFFORT.research },
       })
+    );
+    expect(LLM_REASONING_EFFORT.research).toBe('low');
+  });
+
+  it('effort 上書き指定が SDK 呼び出しに反映される', async () => {
+    const expected = {
+      topic: 'コーヒー',
+      summary: 'コーヒーの説明。'.repeat(10),
+      sourceUrls: ['https://example.com'],
+      rawComment: 'コメント',
+    };
+    const mockParse = jest.fn().mockResolvedValue({ output_parsed: expected });
+    const mockClient = { responses: { parse: mockParse } } as unknown as OpenAI;
+
+    const researchClient = new OpenAIResearchClient({ client: mockClient, effort: 'high' });
+    await researchClient.research('コーヒー', character);
+
+    expect(mockParse).toHaveBeenCalledWith(
+      expect.objectContaining({ reasoning: { effort: 'high' } })
     );
   });
 
@@ -127,6 +148,7 @@ describe('OpenAIResearchClient', () => {
       expect.objectContaining({
         service: 'livetalk',
         purpose: 'research',
+        reasoningEffort: LLM_REASONING_EFFORT.research,
         inputTokens: 200,
         outputTokens: 80,
         totalTokens: 280,

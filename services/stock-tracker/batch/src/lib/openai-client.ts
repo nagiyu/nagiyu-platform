@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
+import type { ReasoningEffort } from 'openai/resources/shared';
 import { z } from 'zod';
 import {
   withRetry,
@@ -15,6 +16,16 @@ import {
 } from '@nagiyu/stock-tracker-core';
 
 const OPENAI_MODEL = 'gpt-5.6-luna';
+/**
+ * stock-analysis 用の reasoning.effort。
+ *
+ * web_search による市場動向の統合と投資判断（predictedReturn 等）を伴うため、`none` は
+ * 品質劣化のリスクが高く危険。dev 実測（16 件、reasoning/出力比 39.1%、reasoning 中央値 596）
+ * を踏まえ `low` にとどめる。
+ *
+ * @see Issue #3780 "reasoning.effort の用途別チューニング"（Step 2: 実測にもとづく effort 設定）
+ */
+const OPENAI_REASONING_EFFORT = 'low' satisfies ReasoningEffort;
 const MAX_RETRIES = 3;
 const REQUEST_TIMEOUT_MS = 120_000;
 const LLM_USAGE_SERVICE = 'stock-tracker';
@@ -86,6 +97,7 @@ export async function generateAiAnalysis(
         client.responses.parse({
           model: OPENAI_MODEL,
           stream: false,
+          reasoning: { effort: OPENAI_REASONING_EFFORT },
           tools: [{ type: 'web_search' }],
           tool_choice: 'required',
           text: {
@@ -114,6 +126,7 @@ export async function generateAiAnalysis(
     service: LLM_USAGE_SERVICE,
     purpose: LLM_USAGE_PURPOSE,
     model: OPENAI_MODEL,
+    reasoningEffort: OPENAI_REASONING_EFFORT,
     outcome: resolveOpenAIResponsesOutcome(response.status),
     ...extractOpenAIResponsesUsage(response.usage),
   });

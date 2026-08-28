@@ -21,6 +21,7 @@ export type {
 export {
   OpenAIClient,
   OPENAI_DEFAULT_MODELS,
+  OPENAI_DEFAULT_REASONING_EFFORT,
   OPENAI_ERROR_MESSAGES,
   type OpenAIClientOptions,
 } from './openai-client.js';
@@ -41,4 +42,4 @@ export {
   type ProviderSecretConfig,
 } from './factory.js';
 
-export { LLM_MODELS } from './models.js';
+export { LLM_MODELS, LLM_REASONING_EFFORT } from './models.js';

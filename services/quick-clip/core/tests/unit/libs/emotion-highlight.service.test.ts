@@ -183,6 +183,7 @@ describe('EmotionHighlightService', () => {
       expect.objectContaining({
         model: 'gpt-5.6-luna',
         stream: false,
+        reasoning: { effort: 'none' },
         input: [
           {
             role: 'user',
@@ -220,6 +221,7 @@ describe('EmotionHighlightService', () => {
         service: 'quick-clip',
         purpose: 'emotion-scoring',
         model: 'gpt-5.6-luna',
+        reasoningEffort: 'none',
         inputTokens: 300,
         outputTokens: 120,
         totalTokens: 420,
