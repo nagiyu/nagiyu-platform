@@ -8,6 +8,7 @@ import {
   resolveOpenAIResponsesOutcome,
 } from '@nagiyu/common';
 import type OpenAI from 'openai';
+import type { ReasoningEffort } from 'openai/resources/shared';
 import type {
   EmotionFilter,
   EmotionHighlightScore,
@@ -16,6 +17,16 @@ import type {
 import type { TranscriptSegment } from './transcription.service.js';
 
 const OPENAI_MODEL = 'gpt-5.6-luna';
+/**
+ * emotion-scoring 用の reasoning.effort。
+ *
+ * 純粋な構造化スコアリングタスクであり、dev 実測（56 件、reasoning/出力比 14.9%）でも
+ * reasoning トークンの絶対中央値（306）が対象用途中で最大だった。`none` に倒し
+ * reasoning コストを削る。
+ *
+ * @see Issue #3780 "reasoning.effort の用途別チューニング"（Step 2: 実測にもとづく effort 設定）
+ */
+const OPENAI_REASONING_EFFORT: ReasoningEffort = 'none';
 const MAX_RETRIES = 3;
 const REQUEST_TIMEOUT_MS = 600_000;
 const SEGMENTS_PER_CHUNK = 50;
@@ -141,6 +152,7 @@ export class EmotionHighlightService {
               this.client.responses.parse({
                 model: OPENAI_MODEL,
                 stream: false,
+                reasoning: { effort: OPENAI_REASONING_EFFORT },
                 text: {
                   format: zodTextFormat(emotionScoresSchema, 'emotion_scores'),
                 },
@@ -186,6 +198,7 @@ export class EmotionHighlightService {
           service: LLM_USAGE_SERVICE,
           purpose: LLM_USAGE_PURPOSE,
           model: OPENAI_MODEL,
+          reasoningEffort: OPENAI_REASONING_EFFORT ?? undefined,
           outcome: resolveOpenAIResponsesOutcome(response.status),
           ...extractOpenAIResponsesUsage(response.usage),
         });

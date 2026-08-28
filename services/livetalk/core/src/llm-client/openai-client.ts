@@ -5,6 +5,7 @@ import type {
   Response,
   ResponseStreamEvent,
 } from 'openai/resources/responses/responses';
+import type { ReasoningEffort } from 'openai/resources/shared';
 import type { Stream } from 'openai/streaming';
 import { z } from 'zod';
 import {
@@ -22,7 +23,7 @@ import type {
   PurposeModelMap,
 } from './types.js';
 import { withLLMRetry } from '../lib/llm-retry.js';
-import { LLM_MODELS } from './models.js';
+import { LLM_MODELS, LLM_REASONING_EFFORT } from './models.js';
 
 /** usage ログの service 識別子 */
 const LLM_USAGE_SERVICE = 'livetalk';
@@ -44,6 +45,23 @@ export const OPENAI_DEFAULT_MODELS: PurposeModelMap = {
   classify: LLM_MODELS.classify,
 };
 
+/** 用途別 reasoning.effort マップ。`Partial` 上書き（{@link OpenAIClientOptions.effort}）用の全量型。 */
+type PurposeReasoningEffortMap = Record<ChatPurpose, ReasoningEffort>;
+
+/**
+ * OpenAI 実装の用途別既定 reasoning.effort。
+ *
+ * 値は {@link LLM_REASONING_EFFORT} から導出し、ここで重複定義しない。`ReasoningEffort` 型との
+ * 突き合わせ（openai の型に依存する箇所）はこのファイルに閉じる。
+ *
+ * @see Issue #3780 "reasoning.effort の用途別チューニング"（Step 2: 実測にもとづく effort 設定）
+ */
+export const OPENAI_DEFAULT_REASONING_EFFORT: PurposeReasoningEffortMap = {
+  conversation: LLM_REASONING_EFFORT.conversation,
+  summarize: LLM_REASONING_EFFORT.summarize,
+  classify: LLM_REASONING_EFFORT.classify,
+};
+
 export const OPENAI_ERROR_MESSAGES = {
   EMPTY_MESSAGES: 'メッセージが空です',
   EMPTY_API_KEY: 'OpenAI API キーが指定されていません',
@@ -55,6 +73,11 @@ export interface OpenAIClientOptions {
   apiKey?: string;
   /** 用途別モデルの上書き。指定が無いキーは {@link OPENAI_DEFAULT_MODELS} を使用 */
   models?: Partial<PurposeModelMap>;
+  /**
+   * 用途別 reasoning.effort の上書き。指定が無いキーは {@link OPENAI_DEFAULT_REASONING_EFFORT}
+   * を使用（テスト・将来のチューニング用途で `models` と対称に上書き可能にしている）
+   */
+  effort?: Partial<PurposeReasoningEffortMap>;
   /** テスト・差し替え用に既存の OpenAI クライアントを注入できる */
   client?: OpenAI;
 }
@@ -75,6 +98,7 @@ export interface OpenAIClientOptions {
 export class OpenAIClient implements ILLMClient {
   private readonly client: OpenAI;
   private readonly models: PurposeModelMap;
+  private readonly effort: PurposeReasoningEffortMap;
 
   constructor(options: OpenAIClientOptions = {}) {
     if (options.client) {
@@ -86,6 +110,7 @@ export class OpenAIClient implements ILLMClient {
       this.client = new OpenAI({ apiKey: options.apiKey, maxRetries: 0 });
     }
     this.models = { ...OPENAI_DEFAULT_MODELS, ...options.models };
+    this.effort = { ...OPENAI_DEFAULT_REASONING_EFFORT, ...options.effort };
   }
 
   public async *chatStream(
@@ -93,12 +118,13 @@ export class OpenAIClient implements ILLMClient {
     options: ChatOptions = {}
   ): AsyncIterable<string> {
     this.assertMessages(messages);
-    const { model, purpose } = this.resolveTarget(options);
+    const { model, purpose, effort } = this.resolveTarget(options);
     const stream = (await this.client.responses.create({
       model,
       stream: true,
       input: messages.map(toEasyInputMessage),
       max_output_tokens: options.maxTokens,
+      reasoning: { effort },
     })) as Stream<ResponseStreamEvent>;
 
     // usage はストリーミングでは response.completed / response.incomplete / response.failed
@@ -110,13 +136,13 @@ export class OpenAIClient implements ILLMClient {
         if (event.type === 'response.output_text.delta' && event.delta.length > 0) {
           yield event.delta;
         } else if (event.type === 'response.completed') {
-          this.logUsage(event.response.usage, model, purpose, 'completed');
+          this.logUsage(event.response.usage, model, purpose, effort, 'completed');
           usageLogged = true;
         } else if (event.type === 'response.incomplete') {
-          this.logUsage(event.response.usage, model, purpose, 'incomplete');
+          this.logUsage(event.response.usage, model, purpose, effort, 'incomplete');
           usageLogged = true;
         } else if (event.type === 'response.failed') {
-          this.logUsage(event.response.usage, model, purpose, 'failed');
+          this.logUsage(event.response.usage, model, purpose, effort, 'failed');
           usageLogged = true;
         }
       }
@@ -127,23 +153,30 @@ export class OpenAIClient implements ILLMClient {
       // 1 行記録する（正常終了時は usageLogged が true になっているため二重には出さない）。
       // async generator の finally は消費側の break / return でも実行される。
       if (!usageLogged) {
-        this.logUsage(undefined, model, purpose, 'aborted');
+        this.logUsage(undefined, model, purpose, effort, 'aborted');
       }
     }
   }
 
   public async chatComplete(messages: ChatMessage[], options: ChatOptions = {}): Promise<string> {
     this.assertMessages(messages);
-    const { model, purpose } = this.resolveTarget(options);
+    const { model, purpose, effort } = this.resolveTarget(options);
     const response = (await withLLMRetry(() =>
       this.client.responses.create({
         model,
         stream: false,
         input: messages.map(toEasyInputMessage),
         max_output_tokens: options.maxTokens,
+        reasoning: { effort },
       })
     )) as Response;
-    this.logUsage(response.usage, model, purpose, resolveOpenAIResponsesOutcome(response.status));
+    this.logUsage(
+      response.usage,
+      model,
+      purpose,
+      effort,
+      resolveOpenAIResponsesOutcome(response.status)
+    );
     return response.output_text ?? '';
   }
 
@@ -153,17 +186,24 @@ export class OpenAIClient implements ILLMClient {
     options: ChatOptions = {}
   ): Promise<z.infer<T>> {
     this.assertMessages(messages);
-    const { model, purpose } = this.resolveTarget(options);
+    const { model, purpose, effort } = this.resolveTarget(options);
     const response = await withLLMRetry(() =>
       this.client.responses.parse({
         model,
         stream: false,
         input: messages.map(toEasyInputMessage),
         max_output_tokens: options.maxTokens,
+        reasoning: { effort },
         text: { format: zodTextFormat(schema, 'structured_output') },
       })
     );
-    this.logUsage(response.usage, model, purpose, resolveOpenAIResponsesOutcome(response.status));
+    this.logUsage(
+      response.usage,
+      model,
+      purpose,
+      effort,
+      resolveOpenAIResponsesOutcome(response.status)
+    );
 
     if (response.output_parsed === null || response.output_parsed === undefined) {
       throw new Error(OPENAI_ERROR_MESSAGES.REFUSAL);
@@ -179,15 +219,21 @@ export class OpenAIClient implements ILLMClient {
   }
 
   /**
-   * 呼び出しに使うモデルと用途を解決する。
+   * 呼び出しに使うモデル・用途・reasoning.effort を解決する。
    *
    * `options.model` が明示指定された場合でも purpose は記録できるよう、
-   * モデル解決と purpose 解決を 1 箇所にまとめている。
+   * モデル解決と purpose 解決を 1 箇所にまとめている。effort は用途固定
+   * （`ChatOptions` に上書き口を設けず、{@link OpenAIClientOptions.effort} でのみ上書き可能）。
    */
-  private resolveTarget(options: ChatOptions): { model: string; purpose: ChatPurpose } {
+  private resolveTarget(options: ChatOptions): {
+    model: string;
+    purpose: ChatPurpose;
+    effort: ReasoningEffort;
+  } {
     const purpose = options.purpose ?? 'conversation';
     const model = options.model ?? this.models[purpose];
-    return { model, purpose };
+    const effort = this.effort[purpose];
+    return { model, purpose, effort };
   }
 
   /** usage ログを出力する。usage が取得できない場合も呼び出し側を壊さない。 */
@@ -195,12 +241,14 @@ export class OpenAIClient implements ILLMClient {
     usage: unknown,
     model: string,
     purpose: ChatPurpose,
+    effort: ReasoningEffort,
     outcome: LLMUsageOutcome | undefined
   ): void {
     logLLMUsage({
       service: LLM_USAGE_SERVICE,
       purpose,
       model,
+      reasoningEffort: effort ?? undefined,
       outcome,
       ...extractOpenAIResponsesUsage(usage),
     });

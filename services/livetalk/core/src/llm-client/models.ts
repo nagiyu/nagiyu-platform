@@ -28,3 +28,38 @@ export const LLM_MODELS = {
   /** テキスト埋め込み（1536 次元）。軽量・高速・低コスト */
   embedding: 'text-embedding-3-small',
 } as const;
+
+/**
+ * LLM 用途別 reasoning.effort 定数（一元管理）。
+ *
+ * dev 環境での実測（251 呼び出し、Issue #3780 Step 2）にもとづき、用途ごとに reasoning の
+ * かけ方を変える。openai SDK の `ReasoningEffort` 型（`'none' | 'minimal' | 'low' | 'medium' |
+ * 'high' | 'xhigh' | 'max' | null`）と突き合わせる作業は openai を import している client 側
+ * （openai-client.ts 等）で行い、このファイルには openai の型依存を持ち込まない
+ * （`libs/common` 同様、このファイルは openai SDK を import しない方針）。
+ *
+ * @see Issue #3780 "reasoning.effort の用途別チューニング"（Step 2: 実測にもとづく effort 設定）
+ */
+export const LLM_REASONING_EFFORT = {
+  /**
+   * 会話応答。reasoning は実際に発生している（reasoning/出力比 40.5%、reasoning 中央値 36
+   * トークン）ため `none` にはせず `low` から刻む。ストリーミングの初回トークン遅延にも
+   * effort が効くため、様子を見ながら下げる余地を残す。
+   */
+  conversation: 'low',
+  /**
+   * 会話圧縮要約。純粋な圧縮タスクだが reasoning 中央値 197 トークンとやや大きめのため、
+   * 安全側に倒し `none` ではなく `low` とする。
+   */
+  summarize: 'low',
+  /**
+   * 分類。構造化抽出であり、実測 123 件中 26 件はモデル自身が reasoning 0 と判断している
+   * （reasoning/出力比 49.2% だが出力自体が小さい構造化タスク）。`none` に倒す。
+   */
+  classify: 'none',
+  /**
+   * Web リサーチ。web_search 結果の統合を伴い reasoning 中央値 580 トークンと最大級のため、
+   * `none` は品質劣化のリスクが高く危険。`low` にとどめる。
+   */
+  research: 'low',
+} as const;

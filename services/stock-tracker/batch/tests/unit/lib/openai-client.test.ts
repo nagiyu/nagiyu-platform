@@ -85,6 +85,7 @@ describe('generateAiAnalysis', () => {
     expect(mockParse).toHaveBeenCalledWith(
       expect.objectContaining({
         model: 'gpt-5.6-luna',
+        reasoning: { effort: 'low' },
         tools: [{ type: 'web_search' }],
         tool_choice: 'required',
         input: [
@@ -170,6 +171,7 @@ describe('generateAiAnalysis', () => {
         service: 'stock-tracker',
         purpose: 'stock-analysis',
         model: 'gpt-5.6-luna',
+        reasoningEffort: 'low',
         inputTokens: 500,
         cachedInputTokens: 50,
         outputTokens: 200,
