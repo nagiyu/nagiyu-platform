@@ -1,6 +1,11 @@
 import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
+import {
+  extractOpenAIResponsesUsage,
+  logLLMUsage,
+  resolveOpenAIResponsesOutcome,
+} from '@nagiyu/common';
 import type { CharacterDefinition } from '../characters/types.js';
 import type { IResearchClient, ResearchResult } from './types.js';
 import { withLLMRetry, withLLMTimeout } from '../lib/llm-retry.js';
@@ -9,6 +14,8 @@ import { buildResearchPrompt } from './research.prompt.js';
 
 const RESEARCH_MODEL = LLM_MODELS.research;
 const REQUEST_TIMEOUT_MS = 120_000;
+const LLM_USAGE_SERVICE = 'livetalk';
+const LLM_USAGE_PURPOSE = 'research';
 
 export const RESEARCH_ERROR_MESSAGES = {
   EMPTY_API_KEY: 'OpenAI API キーが指定されていません',
@@ -70,6 +77,14 @@ export class OpenAIResearchClient implements IResearchClient {
         RESEARCH_ERROR_MESSAGES.TIMEOUT
       )
     );
+
+    logLLMUsage({
+      service: LLM_USAGE_SERVICE,
+      purpose: LLM_USAGE_PURPOSE,
+      model: this.model,
+      outcome: resolveOpenAIResponsesOutcome(response.status),
+      ...extractOpenAIResponsesUsage(response.usage),
+    });
 
     if (!response.output_parsed) {
       throw new Error(RESEARCH_ERROR_MESSAGES.INVALID_RESPONSE);

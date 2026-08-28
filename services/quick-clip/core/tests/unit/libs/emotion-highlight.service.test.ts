@@ -1,3 +1,4 @@
+import { logger } from '@nagiyu/common';
 import { EmotionHighlightService } from '../../../src/libs/emotion-highlight.service.js';
 import type { TranscriptSegment } from '../../../src/libs/transcription.service.js';
 
@@ -195,6 +196,59 @@ describe('EmotionHighlightService', () => {
         ],
       })
     );
+  });
+
+  it('service=quick-clip / purpose=emotion-scoring で usage ログをチャンクごとに出力する', async () => {
+    const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
+    const usage = {
+      input_tokens: 300,
+      input_tokens_details: { cached_tokens: 0 },
+      output_tokens: 120,
+      output_tokens_details: { reasoning_tokens: 0 },
+      total_tokens: 420,
+    };
+    mockParse.mockResolvedValue({ output_parsed: { items: mockOutputItems }, usage });
+
+    const service = new EmotionHighlightService(mockClient);
+    const promise = service.getScores(testSegments, 'any');
+    await jest.runAllTimersAsync();
+    await promise;
+
+    expect(infoSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        service: 'quick-clip',
+        purpose: 'emotion-scoring',
+        model: 'gpt-5.6-luna',
+        inputTokens: 300,
+        outputTokens: 120,
+        totalTokens: 420,
+      })
+    );
+
+    infoSpy.mockRestore();
+  });
+
+  it('複数チャンクの場合は usage ログもチャンク数分出力される', async () => {
+    const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
+    const usage = {
+      input_tokens: 100,
+      output_tokens: 40,
+      output_tokens_details: { reasoning_tokens: 0 },
+      total_tokens: 140,
+    };
+    mockParse
+      .mockResolvedValueOnce({ output_parsed: { items: [] }, usage })
+      .mockResolvedValueOnce({ output_parsed: { items: [] }, usage });
+
+    const service = new EmotionHighlightService(mockClient);
+    const promise = service.getScores(makeSegments(51), 'any');
+    await jest.runAllTimersAsync();
+    await promise;
+
+    expect(infoSpy).toHaveBeenCalledTimes(2);
+
+    infoSpy.mockRestore();
   });
 
   it('チャンク境界: 50件のセグメントでは mockParse が1回だけ呼ばれる', async () => {

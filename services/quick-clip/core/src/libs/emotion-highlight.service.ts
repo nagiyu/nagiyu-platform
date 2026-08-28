@@ -1,6 +1,12 @@
 import { zodTextFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
-import { withRetry, withTimeout } from '@nagiyu/common';
+import {
+  withRetry,
+  withTimeout,
+  extractOpenAIResponsesUsage,
+  logLLMUsage,
+  resolveOpenAIResponsesOutcome,
+} from '@nagiyu/common';
 import type OpenAI from 'openai';
 import type {
   EmotionFilter,
@@ -14,6 +20,8 @@ const MAX_RETRIES = 3;
 const REQUEST_TIMEOUT_MS = 600_000;
 const SEGMENTS_PER_CHUNK = 50;
 const EMOTION_SCORING_CONCURRENCY = 3;
+const LLM_USAGE_SERVICE = 'quick-clip';
+const LLM_USAGE_PURPOSE = 'emotion-scoring';
 
 const ERROR_MESSAGES = {
   TIMEOUT: 'OpenAI APIの呼び出しがタイムアウトしました',
@@ -174,6 +182,13 @@ export class EmotionHighlightService {
         console.info(
           `[EmotionHighlightService] チャンク${chunkIndex + 1}/${chunks.length} API 呼び出し完了`
         );
+        logLLMUsage({
+          service: LLM_USAGE_SERVICE,
+          purpose: LLM_USAGE_PURPOSE,
+          model: OPENAI_MODEL,
+          outcome: resolveOpenAIResponsesOutcome(response.status),
+          ...extractOpenAIResponsesUsage(response.usage),
+        });
         if (onProgress && chunks.length > 1) {
           await onProgress(chunkIndex + 1, chunks.length);
         }

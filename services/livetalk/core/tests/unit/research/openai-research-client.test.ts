@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { logger } from '@nagiyu/common';
 import {
   OpenAIResearchClient,
   RESEARCH_ERROR_MESSAGES,
@@ -44,6 +45,40 @@ describe('OpenAIResearchClient', () => {
     );
   });
 
+  it('output_parsed が null で INVALID_RESPONSE を throw する場合でも、throw より前に usage ログは出ている', async () => {
+    const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
+    const usage = {
+      input_tokens: 300,
+      input_tokens_details: { cached_tokens: 0 },
+      output_tokens: 0,
+      output_tokens_details: { reasoning_tokens: 0 },
+      total_tokens: 300,
+    };
+    const mockParse = jest.fn().mockResolvedValue({ output_parsed: null, usage });
+    const mockClient = {
+      responses: { parse: mockParse },
+    } as unknown as OpenAI;
+
+    const researchClient = new OpenAIResearchClient({ client: mockClient });
+    await expect(researchClient.research('テスト', character)).rejects.toThrow(
+      RESEARCH_ERROR_MESSAGES.INVALID_RESPONSE
+    );
+
+    // throw する前に usage ログが出ていることを固定する
+    // （誰かが logLLMUsage を throw の後ろへ動かしてもこのテストで検知できる）
+    expect(infoSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        service: 'livetalk',
+        purpose: 'research',
+        inputTokens: 300,
+        totalTokens: 300,
+      })
+    );
+
+    infoSpy.mockRestore();
+  });
+
   it('正常ケースで ResearchResult が返る', async () => {
     const expected = {
       topic: 'コーヒー',
@@ -64,6 +99,41 @@ describe('OpenAIResearchClient', () => {
         tool_choice: 'required',
       })
     );
+  });
+
+  it('service=livetalk / purpose=research で usage ログを出力する', async () => {
+    const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
+    const expected = {
+      topic: 'コーヒー',
+      summary: 'コーヒーの説明。'.repeat(10),
+      sourceUrls: ['https://example.com'],
+      rawComment: 'コメント',
+    };
+    const usage = {
+      input_tokens: 200,
+      input_tokens_details: { cached_tokens: 0 },
+      output_tokens: 80,
+      output_tokens_details: { reasoning_tokens: 0 },
+      total_tokens: 280,
+    };
+    const mockParse = jest.fn().mockResolvedValue({ output_parsed: expected, usage });
+    const mockClient = { responses: { parse: mockParse } } as unknown as OpenAI;
+
+    const researchClient = new OpenAIResearchClient({ client: mockClient });
+    await researchClient.research('コーヒー', character);
+
+    expect(infoSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        service: 'livetalk',
+        purpose: 'research',
+        inputTokens: 200,
+        outputTokens: 80,
+        totalTokens: 280,
+      })
+    );
+
+    infoSpy.mockRestore();
   });
 
   describe('リトライ動作', () => {

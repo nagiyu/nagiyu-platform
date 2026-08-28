@@ -1,7 +1,13 @@
 import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
-import { withRetry, withTimeout } from '@nagiyu/common';
+import {
+  withRetry,
+  withTimeout,
+  extractOpenAIResponsesUsage,
+  logLLMUsage,
+  resolveOpenAIResponsesOutcome,
+} from '@nagiyu/common';
 import type { AiAnalysisResult } from '@nagiyu/stock-tracker-core';
 import {
   deriveSignalFromReturn,
@@ -11,6 +17,8 @@ import {
 const OPENAI_MODEL = 'gpt-5.6-luna';
 const MAX_RETRIES = 3;
 const REQUEST_TIMEOUT_MS = 120_000;
+const LLM_USAGE_SERVICE = 'stock-tracker';
+const LLM_USAGE_PURPOSE = 'stock-analysis';
 const SUPPORTED_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
 const ERROR_MESSAGES = {
   INVALID_RESPONSE: 'AI解析の応答が不正です',
@@ -101,6 +109,14 @@ export async function generateAiAnalysis(
       ),
     { maxRetries: MAX_RETRIES }
   );
+
+  logLLMUsage({
+    service: LLM_USAGE_SERVICE,
+    purpose: LLM_USAGE_PURPOSE,
+    model: OPENAI_MODEL,
+    outcome: resolveOpenAIResponsesOutcome(response.status),
+    ...extractOpenAIResponsesUsage(response.usage),
+  });
 
   if (!response.output_parsed) {
     throw new Error(ERROR_MESSAGES.INVALID_RESPONSE);
