@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { logger } from '@nagiyu/common';
 import { generateAiAnalysis } from '../../../src/lib/openai-client.js';
 
 const mockParse = jest.fn();
@@ -146,6 +147,38 @@ describe('generateAiAnalysis', () => {
         }),
       })
     );
+  });
+
+  it('service=stock-tracker / purpose=stock-analysis で usage ログを出力する', async () => {
+    const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
+    mockParse.mockResolvedValue({
+      ...mockOutputParsed(0.2),
+      usage: {
+        input_tokens: 500,
+        input_tokens_details: { cached_tokens: 50 },
+        output_tokens: 200,
+        output_tokens_details: { reasoning_tokens: 10 },
+        total_tokens: 700,
+      },
+    });
+
+    await generateAiAnalysis('test-api-key', testInput);
+
+    expect(infoSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        service: 'stock-tracker',
+        purpose: 'stock-analysis',
+        model: 'gpt-5.6-luna',
+        inputTokens: 500,
+        cachedInputTokens: 50,
+        outputTokens: 200,
+        reasoningTokens: 10,
+        totalTokens: 700,
+      })
+    );
+
+    infoSpy.mockRestore();
   });
 
   it('プロンプトに predictedReturn / confidence の指示文が含まれる', async () => {

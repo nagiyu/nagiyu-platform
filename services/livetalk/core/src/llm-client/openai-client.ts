@@ -7,15 +7,20 @@ import type {
 } from 'openai/resources/responses/responses';
 import type { Stream } from 'openai/streaming';
 import { z } from 'zod';
+import { extractLLMTokenUsage, logLLMUsage } from '@nagiyu/common';
 import type {
   ChatMessage,
   ChatOptions,
+  ChatPurpose,
   IEmbeddingClient,
   ILLMClient,
   PurposeModelMap,
 } from './types.js';
 import { withLLMRetry } from '../lib/llm-retry.js';
 import { LLM_MODELS } from './models.js';
+
+/** usage ログの service 識別子 */
+const LLM_USAGE_SERVICE = 'livetalk';
 
 /**
  * OpenAI 実装の用途別既定モデル（GPT-5.6 系）。
@@ -83,32 +88,37 @@ export class OpenAIClient implements ILLMClient {
     options: ChatOptions = {}
   ): AsyncIterable<string> {
     this.assertMessages(messages);
+    const { model, purpose } = this.resolveTarget(options);
     const stream = (await this.client.responses.create({
-      model: this.resolveModel(options),
+      model,
       stream: true,
       input: messages.map(toEasyInputMessage),
-      temperature: options.temperature,
       max_output_tokens: options.maxTokens,
     })) as Stream<ResponseStreamEvent>;
 
+    // usage はストリーミングでは response.completed イベントにしか含まれない。
+    // 消費側がループを途中で break するとこのイベントに到達せず、usage ログは出ない。
     for await (const event of stream) {
       if (event.type === 'response.output_text.delta' && event.delta.length > 0) {
         yield event.delta;
+      } else if (event.type === 'response.completed') {
+        this.logUsage(event.response.usage, model, purpose);
       }
     }
   }
 
   public async chatComplete(messages: ChatMessage[], options: ChatOptions = {}): Promise<string> {
     this.assertMessages(messages);
+    const { model, purpose } = this.resolveTarget(options);
     const response = (await withLLMRetry(() =>
       this.client.responses.create({
-        model: this.resolveModel(options),
+        model,
         stream: false,
         input: messages.map(toEasyInputMessage),
-        temperature: options.temperature,
         max_output_tokens: options.maxTokens,
       })
     )) as Response;
+    this.logUsage(response.usage, model, purpose);
     return response.output_text ?? '';
   }
 
@@ -118,16 +128,17 @@ export class OpenAIClient implements ILLMClient {
     options: ChatOptions = {}
   ): Promise<z.infer<T>> {
     this.assertMessages(messages);
+    const { model, purpose } = this.resolveTarget(options);
     const response = await withLLMRetry(() =>
       this.client.responses.parse({
-        model: this.resolveModel(options),
+        model,
         stream: false,
         input: messages.map(toEasyInputMessage),
-        temperature: options.temperature,
         max_output_tokens: options.maxTokens,
         text: { format: zodTextFormat(schema, 'structured_output') },
       })
     );
+    this.logUsage(response.usage, model, purpose);
 
     if (response.output_parsed === null || response.output_parsed === undefined) {
       throw new Error(OPENAI_ERROR_MESSAGES.REFUSAL);
@@ -142,12 +153,26 @@ export class OpenAIClient implements ILLMClient {
     }
   }
 
-  private resolveModel(options: ChatOptions): string {
-    if (options.model) {
-      return options.model;
-    }
+  /**
+   * 呼び出しに使うモデルと用途を解決する。
+   *
+   * `options.model` が明示指定された場合でも purpose は記録できるよう、
+   * モデル解決と purpose 解決を 1 箇所にまとめている。
+   */
+  private resolveTarget(options: ChatOptions): { model: string; purpose: ChatPurpose } {
     const purpose = options.purpose ?? 'conversation';
-    return this.models[purpose];
+    const model = options.model ?? this.models[purpose];
+    return { model, purpose };
+  }
+
+  /** usage ログを出力する。usage が取得できない場合も呼び出し側を壊さない。 */
+  private logUsage(usage: unknown, model: string, purpose: ChatPurpose): void {
+    logLLMUsage({
+      service: LLM_USAGE_SERVICE,
+      purpose,
+      model,
+      ...extractLLMTokenUsage(usage),
+    });
   }
 }
 

@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { logger } from '@nagiyu/common';
 import {
   OpenAIClient,
   OPENAI_DEFAULT_MODELS,
@@ -10,7 +11,18 @@ import { z } from 'zod';
 /** OpenAI エラー生成用ヘルパー */
 const headersLike = { get: () => null } as unknown as Headers;
 
-function makeStreamEvents(deltas: Array<string | null>): AsyncIterable<unknown> {
+const SAMPLE_USAGE = {
+  input_tokens: 100,
+  input_tokens_details: { cached_tokens: 10 },
+  output_tokens: 50,
+  output_tokens_details: { reasoning_tokens: 5 },
+  total_tokens: 150,
+};
+
+function makeStreamEvents(
+  deltas: Array<string | null>,
+  options: { withCompleted?: boolean } = {}
+): AsyncIterable<unknown> {
   return {
     async *[Symbol.asyncIterator]() {
       for (const delta of deltas) {
@@ -28,6 +40,13 @@ function makeStreamEvents(deltas: Array<string | null>): AsyncIterable<unknown> 
             sequence_number: 1,
           };
         }
+      }
+      if (options.withCompleted) {
+        yield {
+          type: 'response.completed',
+          sequence_number: 99,
+          response: { usage: SAMPLE_USAGE },
+        };
       }
     },
   };
@@ -144,20 +163,18 @@ describe('OpenAIClient', () => {
       expect(create.mock.calls[0][0].model).toBe('gpt-explicit');
     });
 
-    it('temperature / maxTokens を SDK の max_output_tokens に受け渡す', async () => {
+    it('maxTokens を SDK の max_output_tokens に受け渡す', async () => {
       const { client, create } = makeMockOpenAI();
       create.mockResolvedValue(makeStreamEvents([]));
 
       const livetalk = new OpenAIClient({ client });
       for await (const chunk of livetalk.chatStream(messages, {
-        temperature: 0.3,
         maxTokens: 256,
       })) {
         void chunk;
       }
 
       const args = create.mock.calls[0][0];
-      expect(args.temperature).toBe(0.3);
       expect(args.max_output_tokens).toBe(256);
     });
 
@@ -179,6 +196,49 @@ describe('OpenAIClient', () => {
       await expect(iterator.next()).rejects.toThrow(rateLimitError);
       // ストリーミングはリトライしないため 1 回だけ呼ばれる
       expect(create).toHaveBeenCalledTimes(1);
+    });
+
+    it('response.completed イベントから usage ログを出力する', async () => {
+      const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
+      const { client, create } = makeMockOpenAI();
+      create.mockResolvedValue(makeStreamEvents(['こん', 'にちは'], { withCompleted: true }));
+
+      const livetalk = new OpenAIClient({ client });
+      for await (const chunk of livetalk.chatStream(messages)) {
+        void chunk;
+      }
+
+      expect(infoSpy).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          service: 'livetalk',
+          purpose: 'conversation',
+          model: OPENAI_DEFAULT_MODELS.conversation,
+          inputTokens: 100,
+          cachedInputTokens: 10,
+          outputTokens: 50,
+          reasoningTokens: 5,
+          totalTokens: 150,
+        })
+      );
+
+      infoSpy.mockRestore();
+    });
+
+    it('response.completed に到達する前に消費側が break すると usage ログは出力されない', async () => {
+      const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
+      const { client, create } = makeMockOpenAI();
+      create.mockResolvedValue(makeStreamEvents(['こん', 'にちは'], { withCompleted: true }));
+
+      const livetalk = new OpenAIClient({ client });
+      for await (const chunk of livetalk.chatStream(messages)) {
+        void chunk;
+        break;
+      }
+
+      expect(infoSpy).not.toHaveBeenCalled();
+
+      infoSpy.mockRestore();
     });
   });
 
@@ -209,6 +269,47 @@ describe('OpenAIClient', () => {
       const livetalk = new OpenAIClient({ client });
 
       await expect(livetalk.chatComplete([])).rejects.toThrow(OPENAI_ERROR_MESSAGES.EMPTY_MESSAGES);
+    });
+
+    it('response.usage から usage ログを出力する', async () => {
+      const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
+      const { client, create } = makeMockOpenAI();
+      create.mockResolvedValue({ output_text: 'こんにちは！', usage: SAMPLE_USAGE });
+
+      const livetalk = new OpenAIClient({ client });
+      await livetalk.chatComplete(messages, { purpose: 'classify' });
+
+      expect(infoSpy).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          service: 'livetalk',
+          purpose: 'classify',
+          model: OPENAI_DEFAULT_MODELS.classify,
+          inputTokens: 100,
+          cachedInputTokens: 10,
+          outputTokens: 50,
+          reasoningTokens: 5,
+          totalTokens: 150,
+        })
+      );
+
+      infoSpy.mockRestore();
+    });
+
+    it('options.model 明示指定時も purpose を記録する', async () => {
+      const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
+      const { client, create } = makeMockOpenAI();
+      create.mockResolvedValue({ output_text: 'ok', usage: SAMPLE_USAGE });
+
+      const livetalk = new OpenAIClient({ client });
+      await livetalk.chatComplete(messages, { model: 'gpt-explicit', purpose: 'summarize' });
+
+      expect(infoSpy).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ model: 'gpt-explicit', purpose: 'summarize' })
+      );
+
+      infoSpy.mockRestore();
     });
 
     describe('リトライ動作', () => {
@@ -289,6 +390,31 @@ describe('OpenAIClient', () => {
       await expect(livetalk.chatStructured([], testSchema)).rejects.toThrow(
         OPENAI_ERROR_MESSAGES.EMPTY_MESSAGES
       );
+    });
+
+    it('response.usage から usage ログを出力する', async () => {
+      const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
+      const { client, parse } = makeMockOpenAI();
+      parse.mockResolvedValue({ output_parsed: { value: 'ok', count: 0 }, usage: SAMPLE_USAGE });
+
+      const livetalk = new OpenAIClient({ client });
+      await livetalk.chatStructured(messages, testSchema);
+
+      expect(infoSpy).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          service: 'livetalk',
+          purpose: 'conversation',
+          model: OPENAI_DEFAULT_MODELS.conversation,
+          inputTokens: 100,
+          cachedInputTokens: 10,
+          outputTokens: 50,
+          reasoningTokens: 5,
+          totalTokens: 150,
+        })
+      );
+
+      infoSpy.mockRestore();
     });
 
     describe('リトライ動作', () => {
