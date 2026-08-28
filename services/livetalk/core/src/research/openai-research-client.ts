@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
-import { extractLLMTokenUsage, logLLMUsage } from '@nagiyu/common';
+import { extractOpenAIResponsesUsage, logLLMUsage, resolveOpenAIResponsesOutcome } from '@nagiyu/common';
 import type { CharacterDefinition } from '../characters/types.js';
 import type { IResearchClient, ResearchResult } from './types.js';
 import { withLLMRetry, withLLMTimeout } from '../lib/llm-retry.js';
@@ -78,7 +78,8 @@ export class OpenAIResearchClient implements IResearchClient {
       service: LLM_USAGE_SERVICE,
       purpose: LLM_USAGE_PURPOSE,
       model: this.model,
-      ...extractLLMTokenUsage(response.usage),
+      outcome: resolveOpenAIResponsesOutcome(response.status),
+      ...extractOpenAIResponsesUsage(response.usage),
     });
 
     if (!response.output_parsed) {

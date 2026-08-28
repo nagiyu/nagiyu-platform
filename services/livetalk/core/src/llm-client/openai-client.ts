@@ -7,7 +7,12 @@ import type {
 } from 'openai/resources/responses/responses';
 import type { Stream } from 'openai/streaming';
 import { z } from 'zod';
-import { extractLLMTokenUsage, logLLMUsage } from '@nagiyu/common';
+import {
+  extractOpenAIResponsesUsage,
+  logLLMUsage,
+  resolveOpenAIResponsesOutcome,
+} from '@nagiyu/common';
+import type { LLMUsageOutcome } from '@nagiyu/common';
 import type {
   ChatMessage,
   ChatOptions,
@@ -96,13 +101,33 @@ export class OpenAIClient implements ILLMClient {
       max_output_tokens: options.maxTokens,
     })) as Stream<ResponseStreamEvent>;
 
-    // usage はストリーミングでは response.completed イベントにしか含まれない。
-    // 消費側がループを途中で break するとこのイベントに到達せず、usage ログは出ない。
-    for await (const event of stream) {
-      if (event.type === 'response.output_text.delta' && event.delta.length > 0) {
-        yield event.delta;
-      } else if (event.type === 'response.completed') {
-        this.logUsage(event.response.usage, model, purpose);
+    // usage はストリーミングでは response.completed / response.incomplete / response.failed
+    // イベントにしか含まれない。特に response.incomplete（max_output_tokens 到達等）は
+    // 最もトークンを消費しているケースなので、completed だけでなく 3 イベントとも拾う。
+    let usageLogged = false;
+    try {
+      for await (const event of stream) {
+        if (event.type === 'response.output_text.delta' && event.delta.length > 0) {
+          yield event.delta;
+        } else if (event.type === 'response.completed') {
+          this.logUsage(event.response.usage, model, purpose, 'completed');
+          usageLogged = true;
+        } else if (event.type === 'response.incomplete') {
+          this.logUsage(event.response.usage, model, purpose, 'incomplete');
+          usageLogged = true;
+        } else if (event.type === 'response.failed') {
+          this.logUsage(event.response.usage, model, purpose, 'failed');
+          usageLogged = true;
+        }
+      }
+    } finally {
+      // 消費側が break / return でループを途中離脱すると、上記いずれの終了イベントにも
+      // 到達せず usage ログが一度も出ない。真の usage を後から取得する手段は無いため、
+      // 「usage 未取得のまま終了した」ことだけを 1 行記録する（正常終了時は usageLogged が
+      // true になっているため二重には出さない）。async generator の finally は
+      // 消費側の break / return でも実行される。
+      if (!usageLogged) {
+        this.logUsage(undefined, model, purpose, 'aborted');
       }
     }
   }
@@ -118,7 +143,7 @@ export class OpenAIClient implements ILLMClient {
         max_output_tokens: options.maxTokens,
       })
     )) as Response;
-    this.logUsage(response.usage, model, purpose);
+    this.logUsage(response.usage, model, purpose, resolveOpenAIResponsesOutcome(response.status));
     return response.output_text ?? '';
   }
 
@@ -138,7 +163,7 @@ export class OpenAIClient implements ILLMClient {
         text: { format: zodTextFormat(schema, 'structured_output') },
       })
     );
-    this.logUsage(response.usage, model, purpose);
+    this.logUsage(response.usage, model, purpose, resolveOpenAIResponsesOutcome(response.status));
 
     if (response.output_parsed === null || response.output_parsed === undefined) {
       throw new Error(OPENAI_ERROR_MESSAGES.REFUSAL);
@@ -166,12 +191,18 @@ export class OpenAIClient implements ILLMClient {
   }
 
   /** usage ログを出力する。usage が取得できない場合も呼び出し側を壊さない。 */
-  private logUsage(usage: unknown, model: string, purpose: ChatPurpose): void {
+  private logUsage(
+    usage: unknown,
+    model: string,
+    purpose: ChatPurpose,
+    outcome: LLMUsageOutcome | undefined
+  ): void {
     logLLMUsage({
       service: LLM_USAGE_SERVICE,
       purpose,
       model,
-      ...extractLLMTokenUsage(usage),
+      outcome,
+      ...extractOpenAIResponsesUsage(usage),
     });
   }
 }

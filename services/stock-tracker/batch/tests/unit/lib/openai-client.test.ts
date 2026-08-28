@@ -426,4 +426,36 @@ describe('generateAiAnalysis', () => {
       'AI解析の応答が不正です'
     );
   });
+
+  it('異常系: output_parsed が空で INVALID_RESPONSE を throw する場合でも、throw より前に usage ログは出ている', async () => {
+    const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
+    mockParse.mockResolvedValue({
+      output_parsed: null,
+      usage: {
+        input_tokens: 400,
+        input_tokens_details: { cached_tokens: 0 },
+        output_tokens: 0,
+        output_tokens_details: { reasoning_tokens: 0 },
+        total_tokens: 400,
+      },
+    });
+
+    await expect(generateAiAnalysis('test-api-key', testInput)).rejects.toThrow(
+      'AI解析の応答が不正です'
+    );
+
+    // throw する前に usage ログが出ていることを固定する
+    // （誰かが logLLMUsage を throw の後ろへ動かしてもこのテストで検知できる）
+    expect(infoSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        service: 'stock-tracker',
+        purpose: 'stock-analysis',
+        inputTokens: 400,
+        totalTokens: 400,
+      })
+    );
+
+    infoSpy.mockRestore();
+  });
 });

@@ -1,7 +1,13 @@
 import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
-import { withRetry, withTimeout, extractLLMTokenUsage, logLLMUsage } from '@nagiyu/common';
+import {
+  withRetry,
+  withTimeout,
+  extractOpenAIResponsesUsage,
+  logLLMUsage,
+  resolveOpenAIResponsesOutcome,
+} from '@nagiyu/common';
 import type { AiAnalysisResult } from '@nagiyu/stock-tracker-core';
 import {
   deriveSignalFromReturn,
@@ -108,7 +114,8 @@ export async function generateAiAnalysis(
     service: LLM_USAGE_SERVICE,
     purpose: LLM_USAGE_PURPOSE,
     model: OPENAI_MODEL,
-    ...extractLLMTokenUsage(response.usage),
+    outcome: resolveOpenAIResponsesOutcome(response.status),
+    ...extractOpenAIResponsesUsage(response.usage),
   });
 
   if (!response.output_parsed) {

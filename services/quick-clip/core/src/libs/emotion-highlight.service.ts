@@ -1,6 +1,12 @@
 import { zodTextFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
-import { withRetry, withTimeout, extractLLMTokenUsage, logLLMUsage } from '@nagiyu/common';
+import {
+  withRetry,
+  withTimeout,
+  extractOpenAIResponsesUsage,
+  logLLMUsage,
+  resolveOpenAIResponsesOutcome,
+} from '@nagiyu/common';
 import type OpenAI from 'openai';
 import type {
   EmotionFilter,
@@ -180,7 +186,8 @@ export class EmotionHighlightService {
           service: LLM_USAGE_SERVICE,
           purpose: LLM_USAGE_PURPOSE,
           model: OPENAI_MODEL,
-          ...extractLLMTokenUsage(response.usage),
+          outcome: resolveOpenAIResponsesOutcome(response.status),
+          ...extractOpenAIResponsesUsage(response.usage),
         });
         if (onProgress && chunks.length > 1) {
           await onProgress(chunkIndex + 1, chunks.length);
