@@ -1,7 +1,11 @@
 import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
-import { extractOpenAIResponsesUsage, logLLMUsage, resolveOpenAIResponsesOutcome } from '@nagiyu/common';
+import {
+  extractOpenAIResponsesUsage,
+  logLLMUsage,
+  resolveOpenAIResponsesOutcome,
+} from '@nagiyu/common';
 import type { CharacterDefinition } from '../characters/types.js';
 import type { IResearchClient, ResearchResult } from './types.js';
 import { withLLMRetry, withLLMTimeout } from '../lib/llm-retry.js';
