@@ -121,11 +121,11 @@ export class OpenAIClient implements ILLMClient {
         }
       }
     } finally {
-      // 消費側が break / return でループを途中離脱すると、上記いずれの終了イベントにも
-      // 到達せず usage ログが一度も出ない。真の usage を後から取得する手段は無いため、
-      // 「usage 未取得のまま終了した」ことだけを 1 行記録する（正常終了時は usageLogged が
-      // true になっているため二重には出さない）。async generator の finally は
-      // 消費側の break / return でも実行される。
+      // 消費側が break / return でループを途中離脱した場合や、ストリーム途中でエラーが
+      // throw された場合は、上記いずれの終了イベントにも到達せず usage ログが一度も出ない。
+      // 真の usage を後から取得する手段は無いため、「usage 未取得のまま終了した」ことだけを
+      // 1 行記録する（正常終了時は usageLogged が true になっているため二重には出さない）。
+      // async generator の finally は消費側の break / return でも実行される。
       if (!usageLogged) {
         this.logUsage(undefined, model, purpose, 'aborted');
       }
