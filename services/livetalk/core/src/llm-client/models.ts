@@ -30,13 +30,17 @@ export const LLM_MODELS = {
 } as const;
 
 /**
- * LLM 用途別 reasoning.effort 定数（一元管理）。
+ * LLM 用途別 reasoning.effort 定数（livetalk 内の一元管理）。
  *
  * dev 環境での実測（251 呼び出し、Issue #3780 Step 2）にもとづき、用途ごとに reasoning の
- * かけ方を変える。openai SDK の `ReasoningEffort` 型（`'none' | 'minimal' | 'low' | 'medium' |
- * 'high' | 'xhigh' | 'max' | null`）と突き合わせる作業は openai を import している client 側
- * （openai-client.ts 等）で行い、このファイルには openai の型依存を持ち込まない
+ * かけ方を変える。値は openai を import している client 側（openai-client.ts 等）で
+ * `ReasoningEffort` 型と突き合わせる。このファイル自体には openai の型依存を持ち込まない
  * （`libs/common` 同様、このファイルは openai SDK を import しない方針）。
+ *
+ * 一元管理しているのはあくまで livetalk の 4 用途（conversation / summarize / classify /
+ * research）のみ。emotion-scoring（quick-clip）・stock-analysis（stock-tracker）の effort は
+ * 各サービス内に個別の `OPENAI_REASONING_EFFORT` 定数として置かれている（各サービスの
+ * `OPENAI_MODEL` 定数と同じパターン）。
  *
  * @see Issue #3780 "reasoning.effort の用途別チューニング"（Step 2: 実測にもとづく effort 設定）
  */

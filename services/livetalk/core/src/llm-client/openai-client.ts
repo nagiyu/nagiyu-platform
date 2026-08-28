@@ -75,7 +75,9 @@ export interface OpenAIClientOptions {
   models?: Partial<PurposeModelMap>;
   /**
    * 用途別 reasoning.effort の上書き。指定が無いキーは {@link OPENAI_DEFAULT_REASONING_EFFORT}
-   * を使用（テスト・将来のチューニング用途で `models` と対称に上書き可能にしている）
+   * を使用（テスト・将来のチューニング用途向け）。`models` と異なり `createLLMClient`
+   * （factory.ts）には上書き口を通していないため、本番経路では上書きできない。
+   * `OpenAIClient` を直接生成する場合のみ指定できる。
    */
   effort?: Partial<PurposeReasoningEffortMap>;
   /** テスト・差し替え用に既存の OpenAI クライアントを注入できる */

@@ -159,7 +159,7 @@ describe('logLLMUsage', () => {
     warnSpy.mockRestore();
   });
 
-  it('reasoningEffort 未指定時は undefined のまま渡す（この Step では effort を変更しない）', () => {
+  it('reasoningEffort 未指定時は undefined のまま渡す', () => {
     const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
     const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
 

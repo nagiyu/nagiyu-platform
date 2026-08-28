@@ -25,7 +25,7 @@ const OPENAI_MODEL = 'gpt-5.6-luna';
  *
  * @see Issue #3780 "reasoning.effort の用途別チューニング"（Step 2: 実測にもとづく effort 設定）
  */
-const OPENAI_REASONING_EFFORT: ReasoningEffort = 'low';
+const OPENAI_REASONING_EFFORT = 'low' satisfies ReasoningEffort;
 const MAX_RETRIES = 3;
 const REQUEST_TIMEOUT_MS = 120_000;
 const LLM_USAGE_SERVICE = 'stock-tracker';
@@ -126,7 +126,7 @@ export async function generateAiAnalysis(
     service: LLM_USAGE_SERVICE,
     purpose: LLM_USAGE_PURPOSE,
     model: OPENAI_MODEL,
-    reasoningEffort: OPENAI_REASONING_EFFORT ?? undefined,
+    reasoningEffort: OPENAI_REASONING_EFFORT,
     outcome: resolveOpenAIResponsesOutcome(response.status),
     ...extractOpenAIResponsesUsage(response.usage),
   });

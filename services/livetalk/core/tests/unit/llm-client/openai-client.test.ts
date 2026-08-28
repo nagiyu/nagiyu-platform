@@ -181,6 +181,19 @@ describe('OpenAIClient', () => {
       expect(OPENAI_DEFAULT_REASONING_EFFORT.classify).toBe('none');
     });
 
+    it('purpose=summarize の reasoning.effort は low になる', async () => {
+      const { client, create } = makeMockOpenAI();
+      create.mockResolvedValue(makeStreamEvents([]));
+
+      const livetalk = new OpenAIClient({ client });
+      for await (const chunk of livetalk.chatStream(messages, { purpose: 'summarize' })) {
+        void chunk;
+      }
+
+      expect(create.mock.calls[0][0].reasoning).toEqual({ effort: 'low' });
+      expect(OPENAI_DEFAULT_REASONING_EFFORT.summarize).toBe('low');
+    });
+
     it('effort 上書き指定が反映される', async () => {
       const { client, create } = makeMockOpenAI();
       create.mockResolvedValue(makeStreamEvents([]));
