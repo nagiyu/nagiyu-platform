@@ -71,7 +71,10 @@ export class DynamoDBExchangeRepository
   }
 
   /**
-   * 全取引所を取得
+   * 全取引所を取得（Scan with filter）
+   *
+   * ScanはGSIを介さず全件を走査するため、返却順序を保証しない。LastEvaluatedKeyループで
+   * 全件を集約して返す。
    */
   public async getAll(): Promise<ExchangeEntity[]> {
     try {
