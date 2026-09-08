@@ -23,6 +23,11 @@ const ERROR_MESSAGES = {
   NO_UPDATES_SPECIFIED: '更新するフィールドが指定されていません',
 } as const;
 
+// 実DynamoDB実装（dynamodb-alert.repository.ts）はgetByUserId/getByFrequency/
+// getTemporaryCandidatesByFrequencyのlimit未指定時に50件を既定とするため、
+// InMemory実装もこれに合わせる（store既定の100件のままだと乖離する）。
+const DEFAULT_PAGE_LIMIT = 50;
+
 /**
  * InMemory Alert Repository
  *
@@ -71,7 +76,10 @@ export class InMemoryAlertRepository implements AlertRepository {
           value: 'Alert#',
         },
       },
-      options
+      {
+        ...options,
+        limit: options?.limit ?? DEFAULT_PAGE_LIMIT,
+      }
     );
 
     const filteredRawItems = result.items.filter(
@@ -97,8 +105,13 @@ export class InMemoryAlertRepository implements AlertRepository {
       {
         attributeName: 'GSI2PK',
         attributeValue: `ALERT#${frequency}`,
+        // sk条件を指定しないため、実DynamoDBのGSI2 Queryと同様にGSI2SK昇順で返すよう明示する
+        gsiSortKeyAttributeName: 'GSI2SK',
       },
-      options
+      {
+        ...options,
+        limit: options?.limit ?? DEFAULT_PAGE_LIMIT,
+      }
     );
 
     const items = result.items.map((item) => this.mapper.toEntity(item));
@@ -204,8 +217,13 @@ export class InMemoryAlertRepository implements AlertRepository {
       {
         attributeName: 'GSI2PK',
         attributeValue: `ALERT#${frequency}`,
+        // sk条件を指定しないため、実DynamoDBのGSI2 Queryと同様にGSI2SK昇順で返すよう明示する
+        gsiSortKeyAttributeName: 'GSI2SK',
       },
-      options
+      {
+        ...options,
+        limit: options?.limit ?? DEFAULT_PAGE_LIMIT,
+      }
     );
 
     const items: TemporaryAlertCandidate[] = [];
