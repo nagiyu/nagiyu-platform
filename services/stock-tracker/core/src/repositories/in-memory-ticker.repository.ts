@@ -25,6 +25,9 @@ const ERROR_MESSAGES = {
   NO_UPDATES_SPECIFIED: '更新するフィールドが指定されていません',
 } as const;
 const FULL_SCAN_PAGE_SIZE = 100;
+// 実DynamoDB実装（dynamodb-ticker.repository.ts）はgetByExchangeのlimit未指定時に50件を既定と
+// するため、InMemory実装もこれに合わせる（store既定の100件のままだと乖離する）。
+const DEFAULT_GET_BY_EXCHANGE_LIMIT = 50;
 
 /**
  * InMemory Ticker Repository
@@ -57,6 +60,11 @@ export class InMemoryTickerRepository implements TickerRepository {
 
   /**
    * 取引所ごとのティッカー一覧を取得
+   *
+   * GSI3（ExchangeTickerIndex）をqueryByAttributeでシミュレートする。GSI3SK（`TICKER#{TickerID}`）
+   * 昇順ソートで、インタフェース契約のTickerID昇順を実現する。実DynamoDB実装
+   * （dynamodb-ticker.repository.ts）はlimit未指定時に50件を既定とするため、それに揃える
+   * （store既定の100件のままだと乖離する）。
    */
   public async getByExchange(
     exchangeId: string,
@@ -66,8 +74,13 @@ export class InMemoryTickerRepository implements TickerRepository {
       {
         attributeName: 'GSI3PK',
         attributeValue: exchangeId,
+        // sk条件を指定しないため、実DynamoDBのGSI3 Queryと同様にGSI3SK昇順で返すよう明示する
+        gsiSortKeyAttributeName: 'GSI3SK',
       },
-      options
+      {
+        ...options,
+        limit: options?.limit ?? DEFAULT_GET_BY_EXCHANGE_LIMIT,
+      }
     );
 
     const items = result.items.map((item) => this.mapper.toEntity(item));
@@ -81,6 +94,10 @@ export class InMemoryTickerRepository implements TickerRepository {
 
   /**
    * 全ティッカー取得
+   *
+   * `Type`属性の一致でScanを近似する（GSIを介さない）ため、返却順序は保証しない。
+   * options未指定時は、実DynamoDB実装（Scan+LastEvaluatedKeyループ）に合わせて
+   * cursorループで全件集約し、nextCursorはundefinedを返す。
    */
   public async getAll(options?: PaginationOptions): Promise<PaginatedResult<TickerEntity>> {
     const usePagination = options?.limit !== undefined || options?.cursor !== undefined;

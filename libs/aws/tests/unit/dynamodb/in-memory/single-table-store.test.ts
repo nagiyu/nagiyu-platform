@@ -385,6 +385,208 @@ describe('InMemorySingleTableStore', () => {
 
         expect(result.items.map((item) => item.TickerID)).toEqual(['AAPL', 'NVDA', 'TSLA']);
       });
+
+      it('sk条件を指定しない場合、gsiSortKeyAttributeNameで指定したGSIソートキー属性の昇順で返す', () => {
+        store.clear();
+        // 意図的に非ソート順（TSLA→AAPL→NVDA）で挿入する。GSI3SKが実際のソート対象になることを
+        // 検証するため、ベーステーブルのSKはあえて逆順（Z→Y→X）にしておく
+        // （もしSKにフォールバックしていたらAAPL/NVDA/TSLAの順にはならない）。
+        const items: DynamoDBItem[] = [
+          {
+            PK: 'EXCHANGE#NASDAQ',
+            SK: 'Z',
+            Type: 'Ticker',
+            GSI3PK: 'NASDAQ',
+            GSI3SK: 'TICKER#TSLA',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+            TickerID: 'TSLA',
+          },
+          {
+            PK: 'EXCHANGE#NASDAQ',
+            SK: 'Y',
+            Type: 'Ticker',
+            GSI3PK: 'NASDAQ',
+            GSI3SK: 'TICKER#AAPL',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+            TickerID: 'AAPL',
+          },
+          {
+            PK: 'EXCHANGE#NASDAQ',
+            SK: 'X',
+            Type: 'Ticker',
+            GSI3PK: 'NASDAQ',
+            GSI3SK: 'TICKER#NVDA',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+            TickerID: 'NVDA',
+          },
+        ];
+        items.forEach((item) => store.put(item));
+
+        const result = store.queryByAttribute({
+          attributeName: 'GSI3PK',
+          attributeValue: 'NASDAQ',
+          gsiSortKeyAttributeName: 'GSI3SK',
+        });
+
+        expect(result.items.map((item) => item.TickerID)).toEqual(['AAPL', 'NVDA', 'TSLA']);
+      });
+
+      it('skもgsiSortKeyAttributeNameも指定しない場合、従来どおりベーステーブルのSK属性昇順で返す（後方互換）', () => {
+        store.clear();
+        // GSI3SK昇順ならTSLA→AAPL→NVDAのままだが、SK（A→B→C）昇順ならAAPL→NVDA→TSLAになる
+        const items: DynamoDBItem[] = [
+          {
+            PK: 'EXCHANGE#NASDAQ',
+            SK: 'C',
+            Type: 'Ticker',
+            GSI3PK: 'NASDAQ',
+            GSI3SK: 'TICKER#TSLA',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+            TickerID: 'TSLA',
+          },
+          {
+            PK: 'EXCHANGE#NASDAQ',
+            SK: 'A',
+            Type: 'Ticker',
+            GSI3PK: 'NASDAQ',
+            GSI3SK: 'TICKER#AAPL',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+            TickerID: 'AAPL',
+          },
+          {
+            PK: 'EXCHANGE#NASDAQ',
+            SK: 'B',
+            Type: 'Ticker',
+            GSI3PK: 'NASDAQ',
+            GSI3SK: 'TICKER#NVDA',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+            TickerID: 'NVDA',
+          },
+        ];
+        items.forEach((item) => store.put(item));
+
+        const result = store.queryByAttribute({
+          attributeName: 'GSI3PK',
+          attributeValue: 'NASDAQ',
+        });
+
+        expect(result.items.map((item) => item.TickerID)).toEqual(['AAPL', 'NVDA', 'TSLA']);
+      });
+
+      it('sk条件を指定した場合、gsiSortKeyAttributeNameを渡していてもsk.attributeName側が優先される', () => {
+        store.clear();
+        const items: DynamoDBItem[] = [
+          {
+            PK: 'EXCHANGE#NASDAQ',
+            SK: 'HOLDING#TSLA',
+            Type: 'Ticker',
+            GSI3PK: 'NASDAQ',
+            GSI3SK: 'TICKER#TSLA',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+            TickerID: 'TSLA',
+          },
+          {
+            PK: 'EXCHANGE#NASDAQ',
+            SK: 'HOLDING#AAPL',
+            Type: 'Ticker',
+            GSI3PK: 'NASDAQ',
+            GSI3SK: 'TICKER#AAPL',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+            TickerID: 'AAPL',
+          },
+        ];
+        items.forEach((item) => store.put(item));
+
+        // gsiSortKeyAttributeNameには存在しない属性名（DOES_NOT_EXIST）を渡す。
+        // sk側が優先されるなら結果はGSI3SK昇順（AAPL, TSLA）になる。
+        // 優先順位が逆転してgsiSortKeyAttributeName側が使われた場合、全アイテムの
+        // DOES_NOT_EXIST属性はundefinedで揃うためソートキーが全て空文字列(String(undefined ?? ''))
+        // になり、安定ソートにより挿入順（TSLA, AAPL）がそのまま残る。
+        // よってこの2パターンは値が異なり、優先順位の逆転を確実に検知できる。
+        const result = store.queryByAttribute({
+          attributeName: 'GSI3PK',
+          attributeValue: 'NASDAQ',
+          sk: { attributeName: 'GSI3SK', operator: 'begins_with', value: 'TICKER#' },
+          gsiSortKeyAttributeName: 'DOES_NOT_EXIST',
+        });
+
+        expect(result.items.map((item) => item.TickerID)).toEqual(['AAPL', 'TSLA']);
+      });
+
+      it('ソートキーがNumber型の場合は数値の昇順でソートする（桁数不揃いの値で辞書順との違いを検証する）', () => {
+        store.clear();
+        // 数値昇順なら 2, 9, 10, 100。文字列辞書順だと "10" < "100" < "2" < "9" になり、
+        // この期待値とは一致しない（livetalkのGSI3SK=Care、GSI4SK=NextReviewを想定した値）。
+        const careValues = [10, 100, 2, 9];
+        const items: DynamoDBItem[] = careValues.map((care, index) => ({
+          PK: 'USER#u1',
+          SK: `TOPIC#t${index}#META`,
+          Type: 'Topic',
+          GSI3PK: 'hiyori#TOPICS#u1',
+          GSI3SK: care,
+          CreatedAt: Date.now(),
+          UpdatedAt: Date.now(),
+        }));
+        items.forEach((item) => store.put(item));
+
+        const result = store.queryByAttribute({
+          attributeName: 'GSI3PK',
+          attributeValue: 'hiyori#TOPICS#u1',
+          gsiSortKeyAttributeName: 'GSI3SK',
+        });
+
+        expect(result.items.map((item) => item.GSI3SK)).toEqual([2, 9, 10, 100]);
+      });
+
+      it('[実装現状の記録・仕様ではない] ソートキーの型が混在する場合は文字列化した辞書順にフォールバックする（同一GSI内は単一型の前提のため、混在時の正しい順序は保証しない）', () => {
+        store.clear();
+        const items: DynamoDBItem[] = [
+          {
+            PK: 'USER#u1',
+            SK: 'A',
+            Type: 'Mixed',
+            GSI3PK: 'group',
+            GSI3SK: 10,
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+          },
+          {
+            PK: 'USER#u1',
+            SK: 'B',
+            Type: 'Mixed',
+            GSI3PK: 'group',
+            GSI3SK: '2',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+          },
+        ];
+        items.forEach((item) => store.put(item));
+
+        const result = store.queryByAttribute({
+          attributeName: 'GSI3PK',
+          attributeValue: 'group',
+          gsiSortKeyAttributeName: 'GSI3SK',
+        });
+
+        // このテストはJSDoc（sortBySortKey）が明示的に「型混在時の正しい順序は保証しない」
+        // としている領域の、現在の実装の挙動をそのまま固定しているだけであり、仕様として
+        // 保証された順序ではない。実DynamoDBでは同一GSI内のソートキーは単一型が前提のため、
+        // 型混在は本来発生し得ないケースを扱っている。将来この挙動を意図的に変更・改善した
+        // 場合、このテストが落ちるのは想定内であり、退行の兆候ではない
+        // （そのときは期待値を新しい実装に合わせて更新すればよい）。
+        //
+        // 数値10と文字列'2'は型が混在するため数値同士の比較にはならず、
+        // String(10)='10' と '2' の辞書順比較（'10' < '2'）にフォールバックする
+        expect(result.items.map((item) => item.SK)).toEqual(['A', 'B']);
+      });
     });
 
     describe('queryByAttribute の射影（projection）', () => {

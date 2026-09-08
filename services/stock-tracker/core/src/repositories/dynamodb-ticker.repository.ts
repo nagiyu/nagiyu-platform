@@ -75,7 +75,11 @@ export class DynamoDBTickerRepository
   }
 
   /**
-   * 取引所ごとのティッカー一覧を取得（GSI3使用）
+   * 取引所ごとのティッカー一覧を取得（GSI3=ExchangeTickerIndexを使用）
+   *
+   * GSI3SK（`TICKER#{TickerID}`）昇順のQueryで、インタフェース契約のTickerID昇順を実現する。
+   * limit未指定時は50件を既定とする（呼び出し側が全件を必要とする場合は、
+   * nextCursorを使って明示的にページネーションすること）。
    */
   public async getByExchange(
     exchangeId: string,
@@ -119,6 +123,9 @@ export class DynamoDBTickerRepository
 
   /**
    * 全ティッカー取得（Scan with filter）
+   *
+   * ScanはGSIを介さず全件を走査するため、返却順序を保証しない。options未指定時は
+   * LastEvaluatedKeyループで全件集約し、nextCursorはundefinedを返す。
    */
   public async getAll(options?: PaginationOptions): Promise<PaginatedResult<TickerEntity>> {
     try {

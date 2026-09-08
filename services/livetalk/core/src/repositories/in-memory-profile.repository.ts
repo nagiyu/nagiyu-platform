@@ -37,6 +37,9 @@ export class InMemoryProfileRepository implements ProfileRepository {
           attributeName: 'GSI1PK',
           attributeValue: buildProfileGSI1PK(),
           projection: PROFILE_GSI_PROJECTION,
+          // sk条件を指定しないため、実DynamoDBのGSI1 Queryと同様にGSI1SK昇順で返すよう明示する
+          // （listAllUserIdsは順序を約束しないため呼び出し側の挙動には影響しない）
+          gsiSortKeyAttributeName: 'GSI1SK',
         },
         cursor ? { cursor } : undefined
       );

@@ -28,9 +28,13 @@ export interface TickerRepository {
   /**
    * 取引所ごとのティッカー一覧を取得
    *
+   * 返却順序は TickerID の昇順を契約とする。
+   * limit省略時は既定件数で打ち切られる（後続はページネーションで辿る前提。
+   * 全件が必要な場合は呼び出し側でcursorを使って走査すること）。
+   *
    * @param exchangeId - 取引所ID
    * @param options - ページネーションオプション
-   * @returns ページネーション結果
+   * @returns ページネーション結果（TickerID昇順）
    */
   getByExchange(
     exchangeId: string,
@@ -40,8 +44,15 @@ export interface TickerRepository {
   /**
    * 全ティッカー取得
    *
+   * 返却順序は保証しない（`getByExchange` のTickerID昇順とは異なる）。呼び出し側は
+   * 順序に依存しないこと。
+   *
+   * `options` を省略した場合（`limit`/`cursor` とも未指定）は全件を1回の呼び出しで返し、
+   * `nextCursor` は必ず `undefined` になる。`limit` を指定した場合は通常のページネーション
+   * （残りがあれば `nextCursor` を返す）になる。
+   *
    * @param options - ページネーションオプション
-   * @returns ページネーション結果
+   * @returns ページネーション結果（順序不定）
    */
   getAll(options?: PaginationOptions): Promise<PaginatedResult<TickerEntity>>;
 
