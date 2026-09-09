@@ -173,7 +173,13 @@ export class InMemorySingleTableStore {
 
     // ページネーション
     const paginatedItems = items.slice(startIndex, startIndex + limit);
-    const hasMore = startIndex + limit < items.length;
+    // 実DynamoDBは「Limit件返した時点」でLastEvaluatedKeyを返す（そのちょうど直後に
+    // 残り0件だったとしても、である。Query/Scanは内部的に「Limitに達したから止めた」だけで
+    // 後続の有無を判定していないため）。よって「limitちょうど返せたか」をhasMoreの基準にし、
+    // 残り件数（startIndex + limit < items.length）では判定しない。
+    // これにより「ちょうどlimit件で終わる」ケースでも実DynamoDBと同じくnextCursorが付き、
+    // 呼び出し側は次のQueryで空ページを受け取ってから走査完了を知る（実DynamoDBと同じ挙動）。
+    const hasMore = paginatedItems.length > 0 && paginatedItems.length === limit;
     const nextCursor = hasMore ? this.encodeCursor({ index: startIndex + limit }) : undefined;
 
     return {
@@ -221,7 +227,9 @@ export class InMemorySingleTableStore {
 
     // ページネーション
     const paginatedItems = items.slice(startIndex, startIndex + limit);
-    const hasMore = startIndex + limit < items.length;
+    // 実DynamoDBは「Limit件返した時点」でLastEvaluatedKeyを返す（残り0件でも）。
+    // query()と同じ理由で「limitちょうど返せたか」をhasMoreの基準にする（詳細はquery()参照）。
+    const hasMore = paginatedItems.length > 0 && paginatedItems.length === limit;
     const nextCursor = hasMore ? this.encodeCursor({ index: startIndex + limit }) : undefined;
 
     return {
@@ -252,7 +260,9 @@ export class InMemorySingleTableStore {
 
     // ページネーション
     const paginatedItems = items.slice(startIndex, startIndex + limit);
-    const hasMore = startIndex + limit < items.length;
+    // 実DynamoDBは「Limit件返した時点」でLastEvaluatedKeyを返す（残り0件でも）。
+    // query()と同じ理由で「limitちょうど返せたか」をhasMoreの基準にする（詳細はquery()参照）。
+    const hasMore = paginatedItems.length > 0 && paginatedItems.length === limit;
     const nextCursor = hasMore ? this.encodeCursor({ index: startIndex + limit }) : undefined;
 
     return {

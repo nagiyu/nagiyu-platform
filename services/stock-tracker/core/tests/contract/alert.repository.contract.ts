@@ -2,15 +2,25 @@
  * AlertRepository 契約テスト（実装非依存の振る舞い仕様）
  *
  * InMemory実装と実DynamoDB実装（DynamoDB Local）の双方に同一の仕様を通し、
- * 実装間の乖離（GSI2射影・ソート順・FilterExpressionの挙動など）を機械的に検知する。
- * 各テストは決定的で単一の結末を持ち（実行時分岐で結末を変えない・自己スキップしない）、
- * 形骸化テストは書かない。
+ * 実装間の乖離（既定ページサイズ・ソート順・nextCursorの境界・FilterExpressionの挙動など）を
+ * 機械的に検知する。各テストは決定的で単一の結末を持ち（実行時分岐で結末を変えない・
+ * 自己スキップしない）、形骸化テストは書かない。
  *
  * getByFrequency / getTemporaryCandidatesByFrequency は GSI2（AlertIndex）に対する
  * 正攻法のQueryのため、順序（GSI2SK=`${UserID}#${AlertID}`昇順）をassertする。
  *
  * getByFrequency にはTTLフィルタの契約を書かない（実装のKeyConditionExpressionは
  * `#gsi2pk = :pk` のみでFilterExpressionが無いため。getByUserIdとは異なる）。
+ *
+ * `PaginatedResult.count` は契約対象外（#3802で別途検討）。型定義上は「総件数」だが、
+ * getByFrequency等ではInMemoryが総件数・DynamoDBがページ件数を返すなど実装間で
+ * セマンティクスが食い違っている。共有型の意味を決め直す話のため、この契約テストの
+ * 範囲では揃えず・assertもしない（検証し忘れではなく意図的な対象外）。
+ *
+ * 末尾の TemporaryAlertCandidate 射影テストは例外的に「乖離検知テスト」ではない
+ * （ProjectionExpressionとAlertMapper.toTemporaryCandidateが読む属性が現状ちょうど
+ * 一致しているため両実装とも通る。将来属性が増えたときの退行ガード。詳細はテスト
+ * 直前のコメント参照）。
  */
 
 import type { AlertRepository } from '../../src/repositories/alert.repository.interface.js';
@@ -45,7 +55,7 @@ function buildAlertInput(overrides: Partial<CreateAlertInput> = {}): CreateAlert
   };
 }
 
-/** ゼロ埋めした3桁連番のUserIDを返す（GSI2SKの昇順を文字列比較で確定させるため） */
+/** ゼロ埋めした4桁連番のUserIDを返す（GSI2SKの昇順を文字列比較で確定させるため） */
 function paddedUserId(index: number): string {
   return `U${String(index).padStart(4, '0')}`;
 }
@@ -168,22 +178,47 @@ export function defineAlertRepositoryContract(
       expect(result.items.every((item) => item.Frequency === 'MINUTE_LEVEL')).toBe(true);
     });
 
-    it('getByFrequencyは挿入順ではなくソートキー（GSI2SK=UserID#AlertID）の昇順で返す', async () => {
-      // 意図的に非ソート順（U0002→U0000→U0001）で作成する。UserIDをゼロ埋めで一意にすることで、
-      // GSI2SK（`${UserID}#${AlertID}`。AlertIDはUUIDのため制御不可）の大小関係をUserID側で
-      // 確定させる（UserIDのprefixが異なる限り、後続のAlertIDの値は比較結果に影響しない）。
-      const userIds = [paddedUserId(2), paddedUserId(0), paddedUserId(1)];
-      for (const userId of userIds) {
-        await repository.create(buildAlertInput({ UserID: userId, Frequency: 'MINUTE_LEVEL' }));
+    it('getByFrequencyは挿入順ではなくソートキー（GSI2SK=UserID#AlertID）のUserID昇順で返す', async () => {
+      // 意図的に降順（U0009→…→U0000）に作成する。件数を10件にしているのは、件数が
+      // 少ないと退行時（ソートキー未指定でベーステーブルのSK=ALERT#{AlertID}、
+      // すなわちランダムなUUID順にフォールバックする状態）でも偶然ソート済みの結果が
+      // 返り、spurious passになり得るため（3件では1/6の確率で偶然通ってしまうことを
+      // 実測済み）。10件では偶然一致する確率は1/10!であり、退行時は事実上確実に失敗する。
+      // UserIDをゼロ埋めで一意にすることで、GSI2SK（`${UserID}#${AlertID}`。AlertIDは
+      // UUIDのため制御不可）の大小関係をUserID側で確定させる（UserIDのprefixが異なる限り、
+      // 後続のAlertIDの値は比較結果に影響しない）。
+      const total = 10;
+      for (let i = total - 1; i >= 0; i -= 1) {
+        await repository.create(
+          buildAlertInput({ UserID: paddedUserId(i), Frequency: 'MINUTE_LEVEL' })
+        );
       }
 
       const result = await repository.getByFrequency('MINUTE_LEVEL');
 
-      expect(result.items.map((item) => item.UserID)).toEqual([
-        paddedUserId(0),
-        paddedUserId(1),
-        paddedUserId(2),
-      ]);
+      const expected = Array.from({ length: total }, (_, i) => paddedUserId(i));
+      expect(result.items.map((item) => item.UserID)).toEqual(expected);
+    });
+
+    it('getByFrequencyは同一UserID内ではAlertIDの昇順で返す（GSI2SKの第2段階の順序契約）', async () => {
+      // AlertIDはUUID（create()内でrandomUUIDにより生成）のため値を指定できない。
+      // そのため「作成した5件のAlertIDを独立にソートした配列」をexpectedとして先に計算し、
+      // 実際のクエリ結果の順序と突き合わせる（result.items自体をソートして自分自身と
+      // 比較するような自己言及的な検証にはしない）。
+      const userId = 'user-same-partition';
+      const created = [];
+      for (let i = 0; i < 5; i += 1) {
+        created.push(
+          await repository.create(buildAlertInput({ UserID: userId, Frequency: 'MINUTE_LEVEL' }))
+        );
+      }
+
+      const result = await repository.getByFrequency('MINUTE_LEVEL');
+
+      const expectedAlertIdOrder = created
+        .map((alert) => alert.AlertID)
+        .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+      expect(result.items.map((item) => item.AlertID)).toEqual(expectedAlertIdOrder);
     });
 
     it('getByFrequencyはoptions未指定時、既定で50件に制限される（実DynamoDB実装の既定limit=50との乖離防止）', async () => {
@@ -323,36 +358,55 @@ export function defineAlertRepositoryContract(
       expect(collected).toEqual(expected);
     });
 
-    it(
-      'TemporaryAlertCandidateはGSI2の射影だけで復元できる（将来の退行ガード。' +
-        'ProjectionExpressionとAlertMapper.toTemporaryCandidateが読む属性が現在ちょうど一致しているため、' +
-        'InMemoryがフルアイテムを返しても現状は両実装とも通る。これは乖離を検知するテストではなく、' +
-        '将来TemporaryAlertCandidateに属性を追加してProjectionExpressionの更新を忘れた日に、' +
-        '実DynamoDB側だけが検証エラーで落ちるようにするためのガードである）',
-      async () => {
-        const alert = await repository.create(
-          buildAlertInput({
-            UserID: 'user-projection',
-            Frequency: 'MINUTE_LEVEL',
-            Temporary: true,
-            TemporaryExpireDate: '2024-01-02',
-          })
+    // 【将来の退行ガード、乖離検知テストではない】
+    // ProjectionExpression（dynamodb-alert.repository.ts）とAlertMapper.toTemporaryCandidate
+    // が読む属性が現在ちょうど一致しているため、InMemoryがフルアイテムを返しても現状は
+    // 両実装とも通る（＝今日この時点では実装間の乖離を検知できていない）。
+    // これは将来TemporaryAlertCandidateに属性を追加してProjectionExpressionの更新を
+    // 忘れた日に、実DynamoDB側だけが検証エラーで落ちるようにするためのガードである。
+    it('TemporaryAlertCandidateはGSI2の射影だけで復元できる', async () => {
+      const alert = await repository.create(
+        buildAlertInput({
+          UserID: 'user-projection',
+          Frequency: 'MINUTE_LEVEL',
+          Temporary: true,
+          TemporaryExpireDate: '2024-01-02',
+        })
+      );
+
+      const result = await repository.getTemporaryCandidatesByFrequency('MINUTE_LEVEL');
+
+      expect(result.items).toEqual([
+        {
+          AlertID: alert.AlertID,
+          UserID: alert.UserID,
+          ExchangeID: alert.ExchangeID,
+          Frequency: alert.Frequency,
+          Enabled: alert.Enabled,
+          Temporary: true,
+          TemporaryExpireDate: alert.TemporaryExpireDate,
+        },
+      ]);
+    });
+
+    it('getByFrequencyはちょうど既定件数（50件）で終わる場合もnextCursorを返す（実DynamoDBのLastEvaluatedKey境界に合わせる）', async () => {
+      // 実DynamoDBは「Limit件返した時点」でLastEvaluatedKeyを返す。その直後に残り0件で
+      // あっても（＝ちょうどlimit件で終わる場合）である。既定limit=50件ちょうどのフィクスチャ
+      // （残り0件）で両実装のnextCursorが一致することを固定する。130件フィクスチャ（既定50件
+      // 制限のテスト）は残り80件が明確にあるため、この「残り0件」の境界は別途検証しないと
+      // 検知できない（do...whileの走査テストも、この境界が崩れて早期にnextCursorがundefinedに
+      // なる分には1周少なく回るだけで空ページを許容してしまい検知できない）。
+      const total = 50;
+      for (let i = 0; i < total; i += 1) {
+        await repository.create(
+          buildAlertInput({ UserID: paddedUserId(i), Frequency: 'MINUTE_LEVEL' })
         );
-
-        const result = await repository.getTemporaryCandidatesByFrequency('MINUTE_LEVEL');
-
-        expect(result.items).toEqual([
-          {
-            AlertID: alert.AlertID,
-            UserID: alert.UserID,
-            ExchangeID: alert.ExchangeID,
-            Frequency: alert.Frequency,
-            Enabled: alert.Enabled,
-            Temporary: true,
-            TemporaryExpireDate: alert.TemporaryExpireDate,
-          },
-        ]);
       }
-    );
+
+      const result = await repository.getByFrequency('MINUTE_LEVEL');
+
+      expect(result.items).toHaveLength(50);
+      expect(result.nextCursor).toBeDefined();
+    });
   });
 }

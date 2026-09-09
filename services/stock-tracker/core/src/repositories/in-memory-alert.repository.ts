@@ -26,6 +26,14 @@ const ERROR_MESSAGES = {
 // 実DynamoDB実装（dynamodb-alert.repository.ts）はgetByUserId/getByFrequency/
 // getTemporaryCandidatesByFrequencyのlimit未指定時に50件を既定とするため、
 // InMemory実装もこれに合わせる（store既定の100件のままだと乖離する）。
+//
+// 既定値へのフォールバックは実DynamoDB側が`options?.limit || 50`（Falsyフォールバック）、
+// こちらは`options?.limit ?? DEFAULT_PAGE_LIMIT`（Nullishフォールバック）であり、
+// limit: 0 が渡された場合にのみ挙動が分かれる（||は50にフォールバックし、??は0を維持する）。
+// 意図的に揃えていない: (1) limit: 0 は呼び出し元（parsePagination は1-100に制限、
+// batch呼び出しも0を渡さない）から到達不能で実害が無い、(2) InMemory実装は本ファイル内の
+// 他メソッドやin-memory-ticker.repository.ts（DEFAULT_GET_BY_EXCHANGE_LIMIT）と同じ
+// `??`の流儀に統一しており、ここだけ`||`にすると一貫性が崩れるため。
 const DEFAULT_PAGE_LIMIT = 50;
 
 /**

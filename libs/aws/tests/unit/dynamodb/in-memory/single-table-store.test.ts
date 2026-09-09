@@ -779,6 +779,97 @@ describe('InMemorySingleTableStore', () => {
       expect(result.items).toHaveLength(3);
       expect(result.nextCursor).toBeDefined();
     });
+
+    describe('nextCursor の境界（実DynamoDBのLastEvaluatedKey挙動に合わせる）', () => {
+      // 実DynamoDBはLimitに達した時点でLastEvaluatedKeyを返す。その直後に残り0件であっても
+      // （＝ちょうどlimit件で終わる場合）である。よってInMemory実装も「limitちょうど返せたか」を
+      // hasMoreの基準にし、「残り件数があるか」では判定しない（詳細は実装側のコメント参照）。
+
+      it('queryはちょうどlimit件で終わる場合もnextCursorを返す', () => {
+        const result = store.query({ pk: 'USER#123' }, { limit: 10 });
+
+        expect(result.items).toHaveLength(10);
+        expect(result.nextCursor).toBeDefined();
+      });
+
+      it('queryはlimit未満で終わる場合nextCursorがundefined', () => {
+        const result = store.query({ pk: 'USER#123' }, { limit: 20 });
+
+        expect(result.items).toHaveLength(10);
+        expect(result.nextCursor).toBeUndefined();
+      });
+
+      it('queryはlimitを使い切った次のページで0件・nextCursorがundefinedになり走査完了を検知できる', () => {
+        const firstPage = store.query({ pk: 'USER#123' }, { limit: 10 });
+        expect(firstPage.nextCursor).toBeDefined();
+
+        const secondPage = store.query(
+          { pk: 'USER#123' },
+          { limit: 10, cursor: firstPage.nextCursor }
+        );
+
+        expect(secondPage.items).toHaveLength(0);
+        expect(secondPage.nextCursor).toBeUndefined();
+      });
+
+      it('queryByAttributeはちょうどlimit件で終わる場合もnextCursorを返す', () => {
+        store.clear();
+        for (let i = 0; i < 10; i++) {
+          store.put({
+            PK: `USER#${i}`,
+            SK: 'PROFILE',
+            Type: 'User',
+            GSI1PK: 'ACTIVE',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+          });
+        }
+
+        const result = store.queryByAttribute(
+          { attributeName: 'GSI1PK', attributeValue: 'ACTIVE' },
+          { limit: 10 }
+        );
+
+        expect(result.items).toHaveLength(10);
+        expect(result.nextCursor).toBeDefined();
+      });
+
+      it('queryByAttributeはlimit未満で終わる場合nextCursorがundefined', () => {
+        store.clear();
+        for (let i = 0; i < 10; i++) {
+          store.put({
+            PK: `USER#${i}`,
+            SK: 'PROFILE',
+            Type: 'User',
+            GSI1PK: 'ACTIVE',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+          });
+        }
+
+        const result = store.queryByAttribute(
+          { attributeName: 'GSI1PK', attributeValue: 'ACTIVE' },
+          { limit: 20 }
+        );
+
+        expect(result.items).toHaveLength(10);
+        expect(result.nextCursor).toBeUndefined();
+      });
+
+      it('scanはちょうどlimit件で終わる場合もnextCursorを返す', () => {
+        const result = store.scan({ limit: 10 });
+
+        expect(result.items).toHaveLength(10);
+        expect(result.nextCursor).toBeDefined();
+      });
+
+      it('scanはlimit未満で終わる場合nextCursorがundefined', () => {
+        const result = store.scan({ limit: 20 });
+
+        expect(result.items).toHaveLength(10);
+        expect(result.nextCursor).toBeUndefined();
+      });
+    });
   });
 
   describe('ユーティリティ', () => {
