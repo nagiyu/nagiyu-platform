@@ -49,7 +49,7 @@ export interface TickerRepository {
    *
    * `options` を省略した場合（`limit`/`cursor` とも未指定）は全件を1回の呼び出しで返し、
    * `nextCursor` は必ず `undefined` になる。`limit` を指定した場合は通常のページネーション
-   * （残りがあれば `nextCursor` を返す）になる。
+   * （1ページの件数がlimitちょうどなら、残り0件でも`nextCursor`を返す）になる。
    *
    * @param options - ページネーションオプション
    * @returns ページネーション結果（順序不定）

@@ -173,10 +173,12 @@ export class InMemorySingleTableStore {
 
     // ページネーション
     const paginatedItems = items.slice(startIndex, startIndex + limit);
-    // 実DynamoDBは「Limit件返した時点」でLastEvaluatedKeyを返す（そのちょうど直後に
-    // 残り0件だったとしても、である。Query/Scanは内部的に「Limitに達したから止めた」だけで
-    // 後続の有無を判定していないため）。よって「limitちょうど返せたか」をhasMoreの基準にし、
-    // 残り件数（startIndex + limit < items.length）では判定しない。
+    // 実DynamoDBは「Limit件評価した時点」でLastEvaluatedKeyを返す（返却件数ではない。
+    // FilterExpression併用時はFilter後に残り0件でも、Limit件評価してさえいればLEKが付く）。
+    // このquery()自体はFilterExpression相当を持たないため評価件数=返却件数（paginatedItems）
+    // だが、呼び出し側（例: 一時アラート候補取得のTemporary/TTLフィルタ）がこの結果に対して
+    // 事後フィルタを重ねるケースを想定し、「limitちょうど評価できたか」をhasMoreの基準にする
+    // （残り件数=startIndex + limit < items.lengthでは判定しない）。
     // これにより「ちょうどlimit件で終わる」ケースでも実DynamoDBと同じくnextCursorが付き、
     // 呼び出し側は次のQueryで空ページを受け取ってから走査完了を知る（実DynamoDBと同じ挙動）。
     const hasMore = paginatedItems.length > 0 && paginatedItems.length === limit;
@@ -227,8 +229,8 @@ export class InMemorySingleTableStore {
 
     // ページネーション
     const paginatedItems = items.slice(startIndex, startIndex + limit);
-    // 実DynamoDBは「Limit件返した時点」でLastEvaluatedKeyを返す（残り0件でも）。
-    // query()と同じ理由で「limitちょうど返せたか」をhasMoreの基準にする（詳細はquery()参照）。
+    // 実DynamoDBは「Limit件評価した時点」でLastEvaluatedKeyを返す（残り0件でも）。
+    // query()と同じ理由で「limitちょうど評価できたか」をhasMoreの基準にする（詳細はquery()参照）。
     const hasMore = paginatedItems.length > 0 && paginatedItems.length === limit;
     const nextCursor = hasMore ? this.encodeCursor({ index: startIndex + limit }) : undefined;
 
@@ -260,8 +262,8 @@ export class InMemorySingleTableStore {
 
     // ページネーション
     const paginatedItems = items.slice(startIndex, startIndex + limit);
-    // 実DynamoDBは「Limit件返した時点」でLastEvaluatedKeyを返す（残り0件でも）。
-    // query()と同じ理由で「limitちょうど返せたか」をhasMoreの基準にする（詳細はquery()参照）。
+    // 実DynamoDBは「Limit件評価した時点」でLastEvaluatedKeyを返す（残り0件でも）。
+    // query()と同じ理由で「limitちょうど評価できたか」をhasMoreの基準にする（詳細はquery()参照）。
     const hasMore = paginatedItems.length > 0 && paginatedItems.length === limit;
     const nextCursor = hasMore ? this.encodeCursor({ index: startIndex + limit }) : undefined;
 

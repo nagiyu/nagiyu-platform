@@ -27,13 +27,11 @@ const ERROR_MESSAGES = {
 // getTemporaryCandidatesByFrequencyのlimit未指定時に50件を既定とするため、
 // InMemory実装もこれに合わせる（store既定の100件のままだと乖離する）。
 //
-// 既定値へのフォールバックは実DynamoDB側が`options?.limit || 50`（Falsyフォールバック）、
-// こちらは`options?.limit ?? DEFAULT_PAGE_LIMIT`（Nullishフォールバック）であり、
-// limit: 0 が渡された場合にのみ挙動が分かれる（||は50にフォールバックし、??は0を維持する）。
-// 意図的に揃えていない: (1) limit: 0 は呼び出し元（parsePagination は1-100に制限、
-// batch呼び出しも0を渡さない）から到達不能で実害が無い、(2) InMemory実装は本ファイル内の
-// 他メソッドやin-memory-ticker.repository.ts（DEFAULT_GET_BY_EXCHANGE_LIMIT）と同じ
-// `??`の流儀に統一しており、ここだけ`||`にすると一貫性が崩れるため。
+// 実DynamoDB実装と同じFalsyフォールバック（`options?.limit || DEFAULT_PAGE_LIMIT`）にする。
+// Nullishフォールバック（`??`）にすると、limit: 0 がstore（queryByAttribute等）まで
+// 素通りし、そちらの`options?.limit || 100`で100件にフォールバックしてしまう
+// （この契約テストが潰そうとしている「store既定100件との乖離」がlimit: 0の経路にだけ
+// 温存される）ため、ここは`||`で揃える。
 const DEFAULT_PAGE_LIMIT = 50;
 
 /**
@@ -86,7 +84,7 @@ export class InMemoryAlertRepository implements AlertRepository {
       },
       {
         ...options,
-        limit: options?.limit ?? DEFAULT_PAGE_LIMIT,
+        limit: options?.limit || DEFAULT_PAGE_LIMIT,
       }
     );
 
@@ -118,7 +116,7 @@ export class InMemoryAlertRepository implements AlertRepository {
       },
       {
         ...options,
-        limit: options?.limit ?? DEFAULT_PAGE_LIMIT,
+        limit: options?.limit || DEFAULT_PAGE_LIMIT,
       }
     );
 
@@ -230,7 +228,7 @@ export class InMemoryAlertRepository implements AlertRepository {
       },
       {
         ...options,
-        limit: options?.limit ?? DEFAULT_PAGE_LIMIT,
+        limit: options?.limit || DEFAULT_PAGE_LIMIT,
       }
     );
 

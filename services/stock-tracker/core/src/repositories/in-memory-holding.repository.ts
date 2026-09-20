@@ -28,11 +28,9 @@ const ERROR_MESSAGES = {
 // 実DynamoDB実装（dynamodb-holding.repository.ts）はgetByUserIdのlimit未指定時に
 // 50件を既定とするため、InMemory実装もこれに合わせる（store既定の100件のままだと乖離する）。
 //
-// 実DynamoDB側は`options?.limit || 50`（Falsyフォールバック）、こちらは
-// `options?.limit ?? DEFAULT_GET_BY_USER_ID_LIMIT`（Nullishフォールバック）であり、
-// limit: 0 が渡された場合にのみ挙動が分かれる。意図的に揃えていない理由は
-// in-memory-alert.repository.ts の DEFAULT_PAGE_LIMIT コメントと同じ
-// （limit: 0 は呼び出し元から到達不能、かつticker/alertと同じ`??`の流儀に揃えるため）。
+// 実DynamoDB実装と同じFalsyフォールバック（`options?.limit || DEFAULT_GET_BY_USER_ID_LIMIT`）
+// にする。Nullishフォールバック（`??`）にすると、limit: 0 がstoreの
+// `options?.limit || 100`まで素通りして100件にフォールバックしてしまうため。
 const DEFAULT_GET_BY_USER_ID_LIMIT = 50;
 
 /**
@@ -83,7 +81,7 @@ export class InMemoryHoldingRepository implements HoldingRepository {
       },
       {
         ...options,
-        limit: options?.limit ?? DEFAULT_GET_BY_USER_ID_LIMIT,
+        limit: options?.limit || DEFAULT_GET_BY_USER_ID_LIMIT,
       }
     );
 

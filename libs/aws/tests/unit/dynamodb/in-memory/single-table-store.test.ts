@@ -834,6 +834,34 @@ describe('InMemorySingleTableStore', () => {
         expect(result.nextCursor).toBeDefined();
       });
 
+      it('queryByAttributeはlimitを使い切った次のページで0件・nextCursorがundefinedになり走査完了を検知できる', () => {
+        store.clear();
+        for (let i = 0; i < 10; i++) {
+          store.put({
+            PK: `USER#${i}`,
+            SK: 'PROFILE',
+            Type: 'User',
+            GSI1PK: 'ACTIVE',
+            CreatedAt: Date.now(),
+            UpdatedAt: Date.now(),
+          });
+        }
+
+        const firstPage = store.queryByAttribute(
+          { attributeName: 'GSI1PK', attributeValue: 'ACTIVE' },
+          { limit: 10 }
+        );
+        expect(firstPage.nextCursor).toBeDefined();
+
+        const secondPage = store.queryByAttribute(
+          { attributeName: 'GSI1PK', attributeValue: 'ACTIVE' },
+          { limit: 10, cursor: firstPage.nextCursor }
+        );
+
+        expect(secondPage.items).toHaveLength(0);
+        expect(secondPage.nextCursor).toBeUndefined();
+      });
+
       it('queryByAttributeはlimit未満で終わる場合nextCursorがundefined', () => {
         store.clear();
         for (let i = 0; i < 10; i++) {
@@ -861,6 +889,16 @@ describe('InMemorySingleTableStore', () => {
 
         expect(result.items).toHaveLength(10);
         expect(result.nextCursor).toBeDefined();
+      });
+
+      it('scanはlimitを使い切った次のページで0件・nextCursorがundefinedになり走査完了を検知できる', () => {
+        const firstPage = store.scan({ limit: 10 });
+        expect(firstPage.nextCursor).toBeDefined();
+
+        const secondPage = store.scan({ limit: 10, cursor: firstPage.nextCursor });
+
+        expect(secondPage.items).toHaveLength(0);
+        expect(secondPage.nextCursor).toBeUndefined();
       });
 
       it('scanはlimit未満で終わる場合nextCursorがundefined', () => {

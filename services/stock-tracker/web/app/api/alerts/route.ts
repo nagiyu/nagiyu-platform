@@ -129,7 +129,17 @@ export const GET = withAuth(
       const userId = session.user.userId;
 
       // アラート一覧取得（無効化済みアラートも UI に表示するため除外しない）
-      const result = await alertRepo.getByUserId(userId, parsePagination(request));
+      // parsePagination() の lastKey は JSON.parse 済みのオブジェクトであり、
+      // リポジトリの options.cursor（Base64の不透明トークン文字列）とは型が異なるため、
+      // そのまま渡すとcursorが常にundefinedになっていた。holdings/route.tsと同じく、
+      // クエリパラメータのlastKeyを生の文字列のままcursorへ渡す（limitのバリデーションは
+      // parsePagination()のものを引き続き使う）。
+      const { limit } = parsePagination(request);
+      const lastKeyParam = new URL(request.url).searchParams.get('lastKey');
+      const result = await alertRepo.getByUserId(userId, {
+        limit,
+        cursor: lastKeyParam || undefined,
+      });
 
       // TickerリポジトリでSymbolとNameを取得
       // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化

@@ -27,6 +27,10 @@ const ERROR_MESSAGES = {
 const FULL_SCAN_PAGE_SIZE = 100;
 // 実DynamoDB実装（dynamodb-ticker.repository.ts）はgetByExchangeのlimit未指定時に50件を既定と
 // するため、InMemory実装もこれに合わせる（store既定の100件のままだと乖離する）。
+//
+// 実DynamoDB実装と同じFalsyフォールバック（`options?.limit || DEFAULT_GET_BY_EXCHANGE_LIMIT`）
+// にする。Nullishフォールバック（`??`）にすると、limit: 0 がstoreの
+// `options?.limit || 100`まで素通りして100件にフォールバックしてしまうため。
 const DEFAULT_GET_BY_EXCHANGE_LIMIT = 50;
 
 /**
@@ -79,7 +83,7 @@ export class InMemoryTickerRepository implements TickerRepository {
       },
       {
         ...options,
-        limit: options?.limit ?? DEFAULT_GET_BY_EXCHANGE_LIMIT,
+        limit: options?.limit || DEFAULT_GET_BY_EXCHANGE_LIMIT,
       }
     );
 
