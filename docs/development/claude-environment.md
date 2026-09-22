@@ -162,6 +162,29 @@ E2E を回す前は、libs 一式に加えて対象サービスの core もビ�
 
 ---
 
+## DynamoDB Local（契約テスト）
+
+契約テストは DynamoDB Local を前提とするが、**この環境では Docker デーモンが動いていない**。CLI 自体は存在するので `which docker` はヒットするが、`docker run` は daemon への接続に失敗する。したがって一般的な案内どおりのコンテナ起動はできない。CI は service container で起動するため、制約を受けるのは手元で回す場合だけである。
+
+代替として **AWS 純正の Java 版を直接起動する**。Java はベースイメージに同梱済みなので追加の導入は要らない。
+
+```bash
+# 展開先はセッションのスクラッチパッド配下にする（リポジトリ配下に置くと差分に混ざる）
+mkdir -p <scratchpad>/ddb && cd <scratchpad>/ddb
+curl -sSL https://d1ni2b6xgvw0s0.cloudfront.net/v2.x/dynamodb_local_latest.tar.gz | tar xz
+# 契約テストの実行中ずっと起動したままにする必要があるため、バックグラウンドで起動する
+java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -inMemory -port 8000 > ddb.log 2>&1 &
+```
+
+起動後は、対象ワークスペースの契約テスト用スクリプト（`test:contract`）をそのまま実行できる。
+
+- **配布 URL のパスは `v2.x` だが、配られるのは 3.x 系である**。`v3.x` というパスは存在せず 403 を返すので、バージョンに合わせてパスを直さないこと。
+- `-inMemory` で起動する。ファイルを残さないため、セッションをまたいだ状態の持ち越しを考えなくてよい。
+- **ポートを 8000 にするのは、契約テスト側のヘルパーの既定がそこを向いているため**。別のポートで起動したい場合は `DYNAMODB_ENDPOINT` で上書きできる。
+- **`-sharedDb` を付けない場合、DynamoDB Local はアクセスキー ID とリージョンの組ごとに別の DB を持つ**（シークレットキーは影響しない）。契約テスト側が固定のダミー認証情報を使う前提なので通常は問題にならないが、手元から別の認証情報やリージョンで覗くとテーブルが存在しないように見える。
+
+---
+
 ## やってはいけないこと
 
 - **素の `npx playwright install` を叩く**: PATH 都合で global 1.56.1 が動き、プロジェクト要求版が入らないまま「DL 済み」と返す
@@ -169,6 +192,7 @@ E2E を回す前は、libs 一式に加えて対象サービスの core もビ�
 - **`.claude/settings.json` の SessionStart hook で `npm ci` や libs build を毎回回す**: モノレポ全体に対して一律前処理になり他サービス作業のコスト増、`package-lock.json` 変動と相性悪い
 - **WebKit を Setup Script に常駐させる**: 出番は限定的でストレージと初回起動コストが釣り合わない
 - **`PLAYWRIGHT_BROWSERS_PATH` を変更する**: ベースイメージ前提で設定されているのでそのまま尊重する
+- **DynamoDB Local を `docker run` で起動しようとする**: CLI はあるが daemon が動いていないので接続に失敗する。純正 Java 版を直接起動する
 
 ---
 
