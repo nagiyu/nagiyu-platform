@@ -6,6 +6,11 @@
  * 各テストは決定的で単一の結末を持ち（実行時分岐で結末を変えない・自己スキップしない）、
  * 形骸化テストは書かない。CRUDの往復のように一連の手順を検証する場合も、
  * 分岐のない一本道のフローとして記述する。
+ *
+ * `PaginatedResult.count` は契約対象外（#3802で別途検討）。型定義上は「総件数」だが、
+ * getByUserIdではInMemoryが総件数・DynamoDBがページ件数を返すなど実装間で
+ * セマンティクスが食い違っている。共有型の意味を決め直す話のため、この契約テストの
+ * 範囲では揃えず・assertもしない（検証し忘れではなく意図的な対象外）。
  */
 
 import type { HoldingRepository } from '../../src/repositories/holding.repository.interface.js';
@@ -114,6 +119,44 @@ export function defineHoldingRepositoryContract(
       } while (cursor);
 
       expect(collected).toEqual(['A', 'B', 'C', 'D', 'E']);
+    });
+
+    it('getByUserIdはoptions未指定時、既定で50件に制限される（実DynamoDB実装の既定limit=50との乖離防止）', async () => {
+      // 実DynamoDB実装（dynamodb-holding.repository.ts）は options?.limit || 50 のため、
+      // limit未指定時は50件で打ち切られnextCursorが付く。130件（>100かつ>50）投入し、
+      // 両実装ともstore既定の100件ではなく50件で揃うことを検証する。
+      const userId = 'user-bulk';
+      const total = 130;
+      for (let i = 0; i < total; i += 1) {
+        await repository.create(
+          buildHoldingInput({ UserID: userId, TickerID: `T${String(i).padStart(4, '0')}` })
+        );
+      }
+
+      const result = await repository.getByUserId(userId);
+
+      expect(result.items).toHaveLength(50);
+      expect(result.nextCursor).toBeDefined();
+    });
+
+    it('getByUserIdはちょうど既定件数（50件）で終わる場合もnextCursorを返す（実DynamoDBのLastEvaluatedKey境界に合わせる）', async () => {
+      // 実DynamoDBは「Limit件返した時点」でLastEvaluatedKeyを返す。その直後に残り0件で
+      // あっても（＝ちょうどlimit件で終わる場合）である。既定limit=50件ちょうどのフィクスチャ
+      // （残り0件）で両実装のnextCursorが一致することを固定する。130件フィクスチャ（既定50件
+      // 制限のテスト）は残り80件が明確にあるため、この「残り0件」の境界は別途検証しないと
+      // 検知できない。
+      const userId = 'user-exact-limit';
+      const total = 50;
+      for (let i = 0; i < total; i += 1) {
+        await repository.create(
+          buildHoldingInput({ UserID: userId, TickerID: `T${String(i).padStart(4, '0')}` })
+        );
+      }
+
+      const result = await repository.getByUserId(userId);
+
+      expect(result.items).toHaveLength(50);
+      expect(result.nextCursor).toBeDefined();
     });
 
     it('同じUserID/TickerIDでcreateを重複させるとEntityAlreadyExistsErrorをスローする', async () => {

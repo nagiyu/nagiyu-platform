@@ -38,6 +38,9 @@ export interface AlertRepository {
    * @param userId - ユーザーID
    * 論理削除待ち（TTL 属性が設定済み）のアラートは常に結果から除外される。
    *
+   * limit省略時は既定50件で打ち切られる（後続はページネーションで辿る前提。
+   * 全件が必要な場合は呼び出し側でcursorを使って走査すること）。
+   *
    * @param options - ページネーションオプション
    * @returns ページネーション結果
    */
@@ -46,9 +49,13 @@ export interface AlertRepository {
   /**
    * 頻度ごとのアラート一覧を取得（バッチ処理用）
    *
+   * 返却順序は UserID の昇順（同一 UserID 内は AlertID の昇順）を契約とする。
+   * limit省略時は既定50件で打ち切られる（後続はページネーションで辿る前提。
+   * 全件が必要な場合は呼び出し側でcursorを使って走査すること）。
+   *
    * @param frequency - 通知頻度
    * @param options - ページネーションオプション
-   * @returns ページネーション結果
+   * @returns ページネーション結果（UserID昇順、同一UserID内はAlertID昇順）
    */
   getByFrequency(
     frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL',
@@ -63,9 +70,13 @@ export interface AlertRepository {
    * 既に `markTemporaryAsExpired` 済み（TTL あり）は除外する。
    * Enabled=false でもユーザー手動無効化された一時アラートはバッチで回収するため候補に含める。
    *
+   * 返却順序は UserID の昇順（同一 UserID 内は AlertID の昇順）を契約とする。
+   * limit省略時は既定50件で打ち切られる（後続はページネーションで辿る前提。
+   * 全件が必要な場合は呼び出し側でcursorを使って走査すること）。
+   *
    * @param frequency - 通知頻度
    * @param options - ページネーションオプション
-   * @returns 失効判定対象の候補
+   * @returns 失効判定対象の候補（UserID昇順、同一UserID内はAlertID昇順）
    */
   getTemporaryCandidatesByFrequency(
     frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL',

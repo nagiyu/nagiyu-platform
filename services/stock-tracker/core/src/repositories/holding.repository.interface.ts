@@ -29,6 +29,9 @@ export interface HoldingRepository {
   /**
    * ユーザーの保有株式一覧を取得
    *
+   * limit省略時は既定50件で打ち切られる（後続はページネーションで辿る前提。
+   * 全件が必要な場合は呼び出し側でcursorを使って走査すること）。
+   *
    * @param userId - ユーザーID
    * @param options - ページネーションオプション
    * @returns ページネーション結果

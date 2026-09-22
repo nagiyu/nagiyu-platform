@@ -147,7 +147,11 @@ export class DynamoDBAlertRepository implements AlertRepository {
   }
 
   /**
-   * 頻度ごとのアラート一覧を取得（GSI2使用、バッチ処理用）
+   * 頻度ごとのアラート一覧を取得（GSI2=AlertIndexを使用、バッチ処理用）
+   *
+   * GSI2SK（`${UserID}#${AlertID}`）昇順のQueryで、インタフェース契約のUserID昇順・
+   * 同一UserID内はAlertID昇順を実現する。limit未指定時は50件を既定とする
+   * （呼び出し側が全件を必要とする場合は、nextCursorを使って明示的にページネーションすること）。
    */
   public async getByFrequency(
     frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL',
@@ -205,13 +209,19 @@ export class DynamoDBAlertRepository implements AlertRepository {
   }
 
   /**
-   * 一時アラート失効バッチ用の軽量取得（GSI2使用）。
+   * 一時アラート失効バッチ用の軽量取得（GSI2=AlertIndexを使用）。
    *
+   * - GSI2SK（`${UserID}#${AlertID}`）昇順のQueryで、インタフェース契約のUserID昇順・
+   *   同一UserID内はAlertID昇順を実現する
    * - ProjectionExpression で失効判定に必要な属性のみ取得し、subscription は読み込まない
    * - FilterExpression で `Temporary = true AND TTL 未設定` のアラートのみに絞る
    *   （`markTemporaryAsExpired` 済みのものを再処理しない。Enabled=false でも
    *   ユーザー手動無効化された一時アラートはバッチで回収して TTL を付与する）
+   * - FilterExpression 併用時、Limit は「フィルタ後の返却件数」ではなく
+   *   「評価したアイテム件数」に適用される（DynamoDBの仕様）。そのため1ページの
+   *   返却件数がlimitを下回ることがあるが、nextCursorによる継続走査で全件を辿れる
    * - mapper.toTemporaryCandidate でアイテム単位検証し、失敗時は警告ログでスキップ
+   * - limit未指定時は50件を既定とする
    */
   public async getTemporaryCandidatesByFrequency(
     frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL',
