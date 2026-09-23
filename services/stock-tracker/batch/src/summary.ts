@@ -146,8 +146,8 @@ async function processExchange(
 ): Promise<void> {
   try {
     const now = dependencies.nowFn();
-    const tickerResult = await dependencies.tickerRepository.getByExchange(exchange.ExchangeID);
-    const tickers = tickerResult.items;
+    // 全件、内部でページを辿り切る（Issue #3788: 51件目以降の打ち切り防止）
+    const tickers = await dependencies.tickerRepository.getByExchange(exchange.ExchangeID);
     stats.totalTickers += tickers.length;
     const summaryDate = getLastTradingDate(exchange, now);
     const patternAnalyzer = new PatternAnalyzer();
