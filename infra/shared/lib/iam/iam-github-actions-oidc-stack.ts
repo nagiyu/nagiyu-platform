@@ -82,8 +82,8 @@ const GITHUB_ACTIONS_ROLE_DEFINITIONS: GitHubActionsRoleDefinition[] = [
  *   もしくは環境ごとに定義を絞り込む形を想定）。
  *
  * 既存の `IamUsersStack`（長期アクセスキー方式）には手を入れず、
- * 本スタックは並行稼働する形で追加する。移行完了後に旧ユーザーを
- * 廃止するかどうかは別 Issue で判断する。
+ * 本スタックは並行稼働する形で追加する。旧ユーザーは全ワークフローの
+ * 移行と本番での稼働確認が済んだ後に廃止する。
  */
 export class IamGitHubActionsOidcStack extends cdk.Stack {
   public readonly oidcProvider: iam.IOidcProvider;
