@@ -223,9 +223,8 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       finnhub: new FinnhubQuoteProvider(),
     };
 
-    // 1. GSI2 で HOURLY_LEVEL アラート一覧を取得
-    const alertsResult = await alertRepo.getByFrequency('HOURLY_LEVEL');
-    const alerts = alertsResult.items;
+    // 1. GSI2 で HOURLY_LEVEL アラート一覧を取得（全件、内部でページを辿り切る）
+    const alerts = await alertRepo.getByFrequency('HOURLY_LEVEL');
     stats.totalAlerts = alerts.length;
 
     logger.info('HOURLY_LEVEL アラートを取得しました', {

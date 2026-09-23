@@ -147,65 +147,57 @@ export class DynamoDBAlertRepository implements AlertRepository {
   }
 
   /**
-   * 頻度ごとのアラート一覧を取得（GSI2=AlertIndexを使用、バッチ処理用）
+   * 頻度ごとのアラート一覧を取得（GSI2=AlertIndexを使用、バッチ処理用）。
    *
    * GSI2SK（`${UserID}#${AlertID}`）昇順のQueryで、インタフェース契約のUserID昇順・
-   * 同一UserID内はAlertID昇順を実現する。limit未指定時は50件を既定とする
-   * （呼び出し側が全件を必要とする場合は、nextCursorを使って明示的にページネーションすること）。
+   * 同一UserID内はAlertID昇順を実現する。LastEvaluatedKeyがなくなるまでQueryを
+   * ループして全件を集約する契約のため、Limitは指定しない（DynamoDBの1MBページ単位）。
    */
-  public async getByFrequency(
-    frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL',
-    options?: PaginationOptions
-  ): Promise<PaginatedResult<AlertEntity>> {
-    let result: QueryCommandOutput;
-    try {
-      const limit = options?.limit || 50;
-      const exclusiveStartKey = decodeCursor(options?.cursor);
+  public async getByFrequency(frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL'): Promise<AlertEntity[]> {
+    const items: AlertEntity[] = [];
+    let exclusiveStartKey: QueryCommandOutput['LastEvaluatedKey'];
 
-      result = await this.docClient.send(
-        new QueryCommand({
-          TableName: this.tableName,
-          IndexName: 'AlertIndex',
-          KeyConditionExpression: '#gsi2pk = :pk',
-          ExpressionAttributeNames: {
-            '#gsi2pk': 'GSI2PK',
-          },
-          ExpressionAttributeValues: {
-            ':pk': `ALERT#${frequency}`,
-          },
-          Limit: limit,
-          ExclusiveStartKey: exclusiveStartKey,
-        })
-      );
+    try {
+      do {
+        const result: QueryCommandOutput = await this.docClient.send(
+          new QueryCommand({
+            TableName: this.tableName,
+            IndexName: 'AlertIndex',
+            KeyConditionExpression: '#gsi2pk = :pk',
+            ExpressionAttributeNames: {
+              '#gsi2pk': 'GSI2PK',
+            },
+            ExpressionAttributeValues: {
+              ':pk': `ALERT#${frequency}`,
+            },
+            ExclusiveStartKey: exclusiveStartKey,
+          })
+        );
+
+        // mapper.toEntity は同期的なデータ検証であり、ここから投げられるエラーは
+        // 全て個別アイテムの検証失敗。バッチ呼び出し全体を壊さないよう、
+        // エラー種別の判定に依存せず常にスキップ＆警告ログとする。
+        for (const item of result.Items || []) {
+          try {
+            items.push(this.mapper.toEntity(item as unknown as DynamoDBItem));
+          } catch (error) {
+            const record = item as Record<string, unknown>;
+            logger.warn('無効なアラートデータをスキップしました', {
+              pk: record.PK,
+              sk: record.SK,
+              error: toErrorMessage(error),
+            });
+          }
+        }
+
+        exclusiveStartKey = result.LastEvaluatedKey;
+      } while (exclusiveStartKey);
     } catch (error) {
       const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
 
-    // mapper.toEntity は同期的なデータ検証であり、ここから投げられるエラーは
-    // 全て個別アイテムの検証失敗。バッチ呼び出し全体を壊さないよう、
-    // エラー種別の判定に依存せず常にスキップ＆警告ログとする。
-    const items: AlertEntity[] = [];
-    for (const item of result.Items || []) {
-      try {
-        items.push(this.mapper.toEntity(item as unknown as DynamoDBItem));
-      } catch (error) {
-        const record = item as Record<string, unknown>;
-        logger.warn('無効なアラートデータをスキップしました', {
-          pk: record.PK,
-          sk: record.SK,
-          error: toErrorMessage(error),
-        });
-      }
-    }
-
-    const nextCursor = encodeCursor(result.LastEvaluatedKey);
-
-    return {
-      items,
-      nextCursor,
-      count: result.Count,
-    };
+    return items;
   }
 
   /**
