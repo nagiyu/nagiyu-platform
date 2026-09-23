@@ -138,7 +138,7 @@ describe('hourly batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       mockTradingViewGetCurrentPrice.mockResolvedValue(3200.0);
@@ -203,7 +203,7 @@ describe('hourly batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       mockFinnhubGetCurrentPrice.mockResolvedValue(205.0);
@@ -268,7 +268,7 @@ describe('hourly batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       mockTradingViewGetCurrentPrice.mockResolvedValue(205.0);
@@ -308,7 +308,7 @@ describe('hourly batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
 
       // Act
       const response = await handler(mockEvent);
@@ -360,7 +360,7 @@ describe('hourly batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(false);
 
@@ -411,7 +411,7 @@ describe('hourly batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       mockTradingViewGetCurrentPrice.mockResolvedValue(195.0);
@@ -433,7 +433,7 @@ describe('hourly batch handler', () => {
   describe('正常系: 空のアラートリスト', () => {
     it('アラートが0件の場合、正常に完了する', async () => {
       // Arrange
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([]);
 
       // Act
       const response = await handler(mockEvent);
@@ -483,7 +483,7 @@ describe('hourly batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       mockFinnhubGetCurrentPrice.mockRejectedValue(new Error('Finnhub API タイムアウト'));
@@ -528,7 +528,7 @@ describe('hourly batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
       mockExchangeRepo.getById.mockResolvedValue(null);
 
       // Act
@@ -629,9 +629,7 @@ describe('hourly batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({
-        items: [alertFinnhub, alertTradingView],
-      });
+      mockAlertRepo.getByFrequency.mockResolvedValue([alertFinnhub, alertTradingView]);
       mockExchangeRepo.getById.mockImplementation(async (id: string) => {
         if (id === 'NASDAQ') return exchangeNasdaq;
         if (id === 'TSE') return exchangeTse;
@@ -702,7 +700,7 @@ describe('hourly batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       mockTradingViewGetCurrentPrice.mockResolvedValue(205.0);
@@ -725,6 +723,38 @@ describe('hourly batch handler', () => {
       expect(body.statistics.conditionsMet).toBe(1);
       expect(body.statistics.notificationsSent).toBe(0);
       expect(body.statistics.errors).toBe(1);
+    });
+  });
+
+  describe('正常系: 51件以上のアラート（Issue #3801: getByFrequencyの既定50件打ち切り防止）', () => {
+    it('51件のアラートがすべて処理対象になり、totalAlertsに全件数が入る', async () => {
+      const total = 51;
+      const alerts: Alert[] = Array.from({ length: total }, (_, i) => ({
+        AlertID: `alert-${i}`,
+        UserID: `user-${i}`,
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Sell',
+        Frequency: 'HOURLY_LEVEL',
+        Enabled: false,
+        ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
+        subscription: {
+          endpoint: 'https://fcm.googleapis.com/fcm/send/test',
+          keys: { p256dh: 'test-p256dh', auth: 'test-auth' },
+        },
+        CreatedAt: Date.now(),
+        UpdatedAt: Date.now(),
+      }));
+
+      mockAlertRepo.getByFrequency.mockResolvedValue(alerts);
+
+      const response = await handler(mockEvent);
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.statistics.totalAlerts).toBe(total);
+      expect(body.statistics.processedAlerts).toBe(total);
+      expect(body.statistics.skippedDisabled).toBe(total);
     });
   });
 });

@@ -12,9 +12,15 @@
  * getByFrequency にはTTLフィルタの契約を書かない（実装のKeyConditionExpressionは
  * `#gsi2pk = :pk` のみでFilterExpressionが無いため。getByUserIdとは異なる）。
  *
+ * getByFrequency は「全件を返す」契約（#3801でページネーション付き口を廃止）。
+ * 実DynamoDB実装はページ境界が1MB単位のため、フィクスチャの件数ではページ分割は
+ * 起きない（複数ページ走査はDynamoDB実装の単体テストでLastEvaluatedKeyループを担保する）。
+ * この契約テストでは境界（50件ちょうど・51件・130件）で全件・順序どおり返ることのみを
+ * 検証する。
+ *
  * `PaginatedResult.count` は契約対象外（#3802で別途検討）。型定義上は「総件数」だが、
- * getByFrequency等ではInMemoryが総件数・DynamoDBがページ件数を返すなど実装間で
- * セマンティクスが食い違っている。共有型の意味を決め直す話のため、この契約テストの
+ * getTemporaryCandidatesByFrequency等ではInMemoryが総件数・DynamoDBがページ件数を返すなど
+ * 実装間でセマンティクスが食い違っている。共有型の意味を決め直す話のため、この契約テストの
  * 範囲では揃えず・assertもしない（検証し忘れではなく意図的な対象外）。
  *
  * 末尾の TemporaryAlertCandidate 射影テストは例外的に「乖離検知テスト」ではない
@@ -174,8 +180,8 @@ export function defineAlertRepositoryContract(
 
       const result = await repository.getByFrequency('MINUTE_LEVEL');
 
-      expect(result.items).toHaveLength(2);
-      expect(result.items.every((item) => item.Frequency === 'MINUTE_LEVEL')).toBe(true);
+      expect(result).toHaveLength(2);
+      expect(result.every((item) => item.Frequency === 'MINUTE_LEVEL')).toBe(true);
     });
 
     it('getByFrequencyは挿入順ではなくソートキー（GSI2SK=UserID#AlertID）のUserID昇順で返す', async () => {
@@ -197,7 +203,7 @@ export function defineAlertRepositoryContract(
       const result = await repository.getByFrequency('MINUTE_LEVEL');
 
       const expected = Array.from({ length: total }, (_, i) => paddedUserId(i));
-      expect(result.items.map((item) => item.UserID)).toEqual(expected);
+      expect(result.map((item) => item.UserID)).toEqual(expected);
     });
 
     it('getByFrequencyは同一UserID内ではAlertIDの昇順で返す（GSI2SKの第2段階の順序契約）', async () => {
@@ -218,11 +224,11 @@ export function defineAlertRepositoryContract(
       const expectedAlertIdOrder = created
         .map((alert) => alert.AlertID)
         .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-      expect(result.items.map((item) => item.AlertID)).toEqual(expectedAlertIdOrder);
+      expect(result.map((item) => item.AlertID)).toEqual(expectedAlertIdOrder);
     });
 
-    it('getByFrequencyはoptions未指定時、既定で50件に制限される（実DynamoDB実装の既定limit=50との乖離防止）', async () => {
-      const total = 130;
+    it('getByFrequencyはちょうど50件（旧既定limitの境界）でも打ち切られず全件返る', async () => {
+      const total = 50;
       for (let i = 0; i < total; i += 1) {
         await repository.create(
           buildAlertInput({ UserID: paddedUserId(i), Frequency: 'MINUTE_LEVEL' })
@@ -231,11 +237,27 @@ export function defineAlertRepositoryContract(
 
       const result = await repository.getByFrequency('MINUTE_LEVEL');
 
-      expect(result.items).toHaveLength(50);
-      expect(result.nextCursor).toBeDefined();
+      expect(result).toHaveLength(total);
+      const expected = Array.from({ length: total }, (_, i) => paddedUserId(i));
+      expect(result.map((item) => item.UserID)).toEqual(expected);
     });
 
-    it('getByFrequencyはlimit+cursorのページネーションで重複・欠落なく全件をソートキー昇順に走査できる（100件超のフィクスチャ）', async () => {
+    it('getByFrequencyは51件（旧既定limitの境界+1）でも打ち切られず全件返る（Issue #3801の主眼）', async () => {
+      const total = 51;
+      for (let i = 0; i < total; i += 1) {
+        await repository.create(
+          buildAlertInput({ UserID: paddedUserId(i), Frequency: 'MINUTE_LEVEL' })
+        );
+      }
+
+      const result = await repository.getByFrequency('MINUTE_LEVEL');
+
+      expect(result).toHaveLength(total);
+      const expected = Array.from({ length: total }, (_, i) => paddedUserId(i));
+      expect(result.map((item) => item.UserID)).toEqual(expected);
+    });
+
+    it('getByFrequencyは100件超（130件）でも打ち切られず、ソートキー昇順のまま全件返る', async () => {
       // GSI2SK（UserID#AlertID）昇順の契約が挿入順に依存しないことを確認するため、
       // 降順（U0129→…→U0000）に挿入する。
       const total = 130;
@@ -245,17 +267,10 @@ export function defineAlertRepositoryContract(
         );
       }
 
-      const collected: string[] = [];
-      let cursor: string | undefined;
-
-      do {
-        const page = await repository.getByFrequency('MINUTE_LEVEL', { limit: 25, cursor });
-        collected.push(...page.items.map((item) => item.UserID));
-        cursor = page.nextCursor;
-      } while (cursor);
+      const result = await repository.getByFrequency('MINUTE_LEVEL');
 
       const expected = Array.from({ length: total }, (_, i) => paddedUserId(i));
-      expect(collected).toEqual(expected);
+      expect(result.map((item) => item.UserID)).toEqual(expected);
     });
 
     it('getTemporaryCandidatesByFrequencyはTemporary=falseのアラートを候補に含めない', async () => {
@@ -387,26 +402,6 @@ export function defineAlertRepositoryContract(
           TemporaryExpireDate: alert.TemporaryExpireDate,
         },
       ]);
-    });
-
-    it('getByFrequencyはちょうど既定件数（50件）で終わる場合もnextCursorを返す（実DynamoDBのLastEvaluatedKey境界に合わせる）', async () => {
-      // 実DynamoDBは「Limit件返した時点」でLastEvaluatedKeyを返す。その直後に残り0件で
-      // あっても（＝ちょうどlimit件で終わる場合）である。既定limit=50件ちょうどのフィクスチャ
-      // （残り0件）で両実装のnextCursorが一致することを固定する。130件フィクスチャ（既定50件
-      // 制限のテスト）は残り80件が明確にあるため、この「残り0件」の境界は別途検証しないと
-      // 検知できない（do...whileの走査テストも、この境界が崩れて早期にnextCursorがundefinedに
-      // なる分には1周少なく回るだけで空ページを許容してしまい検知できない）。
-      const total = 50;
-      for (let i = 0; i < total; i += 1) {
-        await repository.create(
-          buildAlertInput({ UserID: paddedUserId(i), Frequency: 'MINUTE_LEVEL' })
-        );
-      }
-
-      const result = await repository.getByFrequency('MINUTE_LEVEL');
-
-      expect(result.items).toHaveLength(50);
-      expect(result.nextCursor).toBeDefined();
     });
   });
 }

@@ -47,20 +47,17 @@ export interface AlertRepository {
   getByUserId(userId: string, options?: GetByUserIdOptions): Promise<PaginatedResult<AlertEntity>>;
 
   /**
-   * 頻度ごとのアラート一覧を取得（バッチ処理用）
+   * 頻度ごとのアラート一覧を取得（バッチ処理用）。
+   *
+   * 全件を返す契約（内部でページを辿り切る）。呼び出し側はページネーションを
+   * 意識する必要がなく、cursorループも不要。
    *
    * 返却順序は UserID の昇順（同一 UserID 内は AlertID の昇順）を契約とする。
-   * limit省略時は既定50件で打ち切られる（後続はページネーションで辿る前提。
-   * 全件が必要な場合は呼び出し側でcursorを使って走査すること）。
    *
    * @param frequency - 通知頻度
-   * @param options - ページネーションオプション
-   * @returns ページネーション結果（UserID昇順、同一UserID内はAlertID昇順）
+   * @returns 指定頻度の全アラート（UserID昇順、同一UserID内はAlertID昇順）
    */
-  getByFrequency(
-    frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL',
-    options?: PaginationOptions
-  ): Promise<PaginatedResult<AlertEntity>>;
+  getByFrequency(frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL'): Promise<AlertEntity[]>;
 
   /**
    * 一時アラート失効バッチ用の軽量取得。
