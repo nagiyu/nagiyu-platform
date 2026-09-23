@@ -113,10 +113,31 @@ export class LiveTalkDynamoDbStack extends cdk.Stack {
       ],
     });
 
-    // GSI4（GSI-STALE）は v8.4.0 の本番リリースでは意図的に定義しない（後続の hotfix で追加する）。
-    // DynamoDB は 1 回のテーブル更新で GSI を 1 つしか作成できず、本番テーブルには GSI3 と
-    // GSI4 がどちらも未作成のため、同時に定義すると CloudFormation の更新が失敗する。
-    // そのため本リリースで GSI3 のみを作成し、GSI4 は次のデプロイで追加する 2 段階で反映する。
+    // GSI4（GSI-STALE）: 揮発性のある WEB fact（NextReview を持つもの）のみを sparse 索引化する。
+    // acquire バッチの鮮度掃引（`nextReview<=now` の窓走査）を賄う（リブトーク知識再設計 P3 / #3699）。
+    // GSI4PK=`<characterId>#STALE#<userId>` の対象アイテムのみが対象（sparse GSI。stable fact は
+    // NextReview を持たないため GSI4PK/GSI4SK を付与せず、この GSI に一切現れない）
+    // GSI4SK は NextReview（Number 型）
+    // 射影は WebFactMapper.toEntity が GSI4 の Query 結果だけで WebFactEntity を復元できるよう、
+    // NextReview（GSI4SK と重複するため除外）以外の必須属性を INCLUDE する。
+    // CreatedAt は toEntity の必須フィールドのため必ず射影する（欠落すると鮮度掃引の復元で失敗する）。
+    this.table.addGlobalSecondaryIndex({
+      indexName: 'GSI4',
+      partitionKey: { name: 'GSI4PK', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'GSI4SK', type: dynamodb.AttributeType.NUMBER },
+      projectionType: dynamodb.ProjectionType.INCLUDE,
+      nonKeyAttributes: [
+        'UserID',
+        'CharacterID',
+        'TopicID',
+        'FactID',
+        'Text',
+        'SourceUrls',
+        'Volatility',
+        'ObservedAt',
+        'CreatedAt',
+      ],
+    });
 
     cdk.Tags.of(this).add('Application', 'nagiyu');
     cdk.Tags.of(this).add('Environment', environment);
