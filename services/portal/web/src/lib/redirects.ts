@@ -13,15 +13,15 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
 }> = [
   {
     source: '/tech/eventbridge-scheduler',
-    destination: '/tech/eventbridge-rule-scheduling',
+    destination: '/tech',
   },
   {
     source: '/tech/aws-batch-parallelism',
-    destination: '/tech/aws-batch-architecture',
+    destination: '/tech',
   },
   {
     source: '/tech/cloudfront-functions-vs-edge',
-    destination: '/tech/cloudfront-cache-strategy',
+    destination: '/tech',
   },
   {
     source: '/tech/aws-ses-transactional-mail',
@@ -47,9 +47,111 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
     source: '/tech/video-codec-comparison',
     destination: '/tech',
   },
+  // 再整理（#3745）で一次体験が薄いと判断し削除した記事。旧 URL を一覧へ集約する。
+  {
+    source: '/tech/auth-signout-reverse-proxy-redirect',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/aws-batch-architecture',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/cdk-iam-least-privilege',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/cloudfront-cache-strategy',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/cloudfront-ecs-deployment',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/discriminated-union-api',
+    destination: '/tech',
+  },
   {
     source: '/tech/zod-runtime-validation',
-    destination: '/tech/discriminated-union-api',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/docker-multistage-nextjs',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/dynamodb-gsi-single-update-limit',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/dynamodb-single-table',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/ecr-lifecycle-policy',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/ecs-fargate-vs-lambda',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/eventbridge-rule-scheduling',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/lambda-cold-start',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/markdown-dompurify-sanitize',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/monorepo-typescript-workspaces',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/mui-nextjs-theme-registry',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/nextjs-generate-static-params',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/nextjs-ssg-markdown',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/nextjs16-metadata-api',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/playwright-parallel-ci',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/rsc-use-client-boundary',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/s3-presigned-url',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/typescript-strict-repository',
+    destination: '/tech',
+  },
+  {
+    source: '/tech/zod-schema-validation',
+    destination: '/tech',
+  },
+  // 記事の主題に合わせて slug を改めたもの。内容が対応する現行記事へ引き継ぐ。
+  {
+    source: '/tech/ssm-secrets-manager',
+    destination: '/tech/cdk-cross-stack-ssm-parameter-store',
   },
   // /services・/tech/tags・/tech/category 配下を技術記事一覧へ集約する。
   {
@@ -68,7 +170,7 @@ export const RETIRED_ARTICLE_REDIRECTS: ReadonlyArray<{
     source: '/tech/category/:category*',
     destination: '/tech',
   },
-] as const;
+];
 
 /**
  * Next.js redirects() 関数に渡す形式に変換する

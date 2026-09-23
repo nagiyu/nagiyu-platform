@@ -33,7 +33,9 @@ export default function ServiceWorkerRegistration({
           return;
         }
 
-        if (Notification.permission !== 'granted') {
+        // iOS Safari / WebKit には `Notification` が存在しないため、ガードなしに参照すると
+        // ReferenceError になる（Web Push 購読は行えないので、この場合は何もせず終了する）。
+        if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
           return;
         }
 

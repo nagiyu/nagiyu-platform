@@ -7,7 +7,7 @@ import { getAllArticles, getCategoryLabel } from '@/lib/content';
 export const metadata: Metadata = {
   title: '技術記事',
   description:
-    'nagiyu の技術記事一覧です。AWS Batch・Next.js SSG・Web Push・動画コーデック・CloudFront + ECS など、サービス開発で得た技術知見を公開しています。',
+    'nagiyu の技術記事一覧です。AWS の運用コストと監視・CI とテストの設計・AI と組んだ開発など、個人でサービスを回す中で実際に踏んだ経験を公開しています。',
   alternates: {
     canonical: 'https://nagiyu.com/tech',
   },

@@ -17,10 +17,21 @@ const synth = (environment, props = {}) => {
 };
 
 describe('LiveTalkEcsServiceStack', () => {
-  it('Task Definition family を環境名込みで作成する（VOICEVOX 同居のため 2vCPU/4096MiB）', () => {
+  it('dev の Task Definition は 1vCPU/2048MiB で作成する（Issue #3761）', () => {
     const template = synth('dev');
     template.hasResourceProperties('AWS::ECS::TaskDefinition', {
       Family: 'nagiyu-livetalk-task-dev',
+      RequiresCompatibilities: ['FARGATE'],
+      NetworkMode: 'awsvpc',
+      Cpu: '1024',
+      Memory: '2048',
+    });
+  });
+
+  it('prod の Task Definition は 2vCPU/4096MiB を維持する（VOICEVOX 同居）', () => {
+    const template = synth('prod');
+    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
+      Family: 'nagiyu-livetalk-task-prod',
       RequiresCompatibilities: ['FARGATE'],
       NetworkMode: 'awsvpc',
       Cpu: '2048',
@@ -270,39 +281,6 @@ describe('LiveTalkEcsServiceStack', () => {
     });
   });
 
-  it('OPENAI_API_KEY env を container に注入する（CDK context 経由、未指定時は PLACEHOLDER）', () => {
-    const template = synth('dev');
-    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
-      ContainerDefinitions: Match.arrayWith([
-        Match.objectLike({
-          Name: 'livetalk-web',
-          Environment: Match.arrayWith([
-            { Name: 'OPENAI_API_KEY', Value: 'PLACEHOLDER_OPENAI_API_KEY' },
-          ]),
-        }),
-      ]),
-    });
-  });
-
-  it('CDK context openAiApiKey が指定されれば OPENAI_API_KEY env に注入される', () => {
-    const app = new cdk.App({
-      context: { openAiApiKey: 'sk-from-context' },
-    });
-    const stack = new LiveTalkEcsServiceStack(app, 'TestLiveTalkServiceDevWithKey', {
-      environment: 'dev',
-      env: STACK_ENV,
-    });
-    const template = Template.fromStack(stack);
-    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
-      ContainerDefinitions: Match.arrayWith([
-        Match.objectLike({
-          Name: 'livetalk-web',
-          Environment: Match.arrayWith([{ Name: 'OPENAI_API_KEY', Value: 'sk-from-context' }]),
-        }),
-      ]),
-    });
-  });
-
   it('TZ=Asia/Tokyo env を livetalk-web container に注入する（Phase 4a / #3327）', () => {
     const template = synth('dev');
     template.hasResourceProperties('AWS::ECS::TaskDefinition', {
@@ -315,13 +293,88 @@ describe('LiveTalkEcsServiceStack', () => {
     });
   });
 
-  it('Task Role に Secrets Manager 読取権限の PolicyStatement を持たない（CI-context 方式）', () => {
+  // Issue #3761: AUTH_SECRET / OPENAI_API_KEY / VAPID_* は CDK context 経由の平文
+  // environment ではなく、ECS の secrets:（valueFrom）で Secrets Manager から
+  // 直接注入する方式に変更した。タスク定義に秘密情報が平文で残らないことを検証する。
+  it('AUTH_SECRET / OPENAI_API_KEY / VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY を Secrets（valueFrom）で注入する', () => {
+    const template = synth('dev');
+    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Name: 'livetalk-web',
+          Secrets: Match.arrayWith([
+            Match.objectLike({ Name: 'AUTH_SECRET', ValueFrom: Match.anyValue() }),
+            Match.objectLike({ Name: 'OPENAI_API_KEY', ValueFrom: Match.anyValue() }),
+            Match.objectLike({
+              Name: 'VAPID_PUBLIC_KEY',
+              ValueFrom: Match.objectLike({
+                'Fn::Join': Match.arrayWith([Match.arrayWith([Match.stringLikeRegexp(':publicKey::$')])]),
+              }),
+            }),
+            Match.objectLike({
+              Name: 'VAPID_PRIVATE_KEY',
+              ValueFrom: Match.objectLike({
+                'Fn::Join': Match.arrayWith([
+                  Match.arrayWith([Match.stringLikeRegexp(':privateKey::$')]),
+                ]),
+              }),
+            }),
+          ]),
+        }),
+      ]),
+    });
+  });
+
+  it('AUTH_SECRET / OPENAI_API_KEY / VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY は平文の Environment に含まれない（退行防止）', () => {
+    const template = synth('dev');
+    const taskDefs = template.findResources('AWS::ECS::TaskDefinition');
+    const secretEnvNames = ['AUTH_SECRET', 'OPENAI_API_KEY', 'VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY'];
+    for (const taskDef of Object.values(taskDefs)) {
+      const webContainer = taskDef.Properties.ContainerDefinitions.find(
+        (c) => c.Name === 'livetalk-web'
+      );
+      const envNames = (webContainer.Environment ?? []).map((e) => e.Name);
+      for (const secretName of secretEnvNames) {
+        expect(envNames).not.toContain(secretName);
+      }
+    }
+  });
+
+  it('Task Execution Role に secretsmanager:GetSecretValue 権限を付与する（secrets: での取得は Execution Role が行う）', () => {
     const template = synth('dev');
     const policies = template.findResources('AWS::IAM::Policy');
-    for (const policy of Object.values(policies)) {
+    const executionRolePolicies = Object.values(policies).filter((p) =>
+      (p.Properties?.Roles ?? []).some(
+        (role) => JSON.stringify(role).includes('TaskExecutionRole')
+      )
+    );
+    expect(executionRolePolicies.length).toBeGreaterThan(0);
+
+    const hasSecretsRead = executionRolePolicies.some((policy) => {
+      const statements = policy.Properties?.PolicyDocument?.Statement ?? [];
+      return statements.some(
+        (stmt) =>
+          stmt.Effect === 'Allow' &&
+          (Array.isArray(stmt.Action)
+            ? stmt.Action.includes('secretsmanager:GetSecretValue')
+            : stmt.Action === 'secretsmanager:GetSecretValue')
+      );
+    });
+    expect(hasSecretsRead).toBe(true);
+  });
+
+  it('Task Role には secretsmanager:GetSecretValue 権限を付与しない（取得は Task Execution Role の責務）', () => {
+    const template = synth('dev');
+    const policies = template.findResources('AWS::IAM::Policy');
+    const taskRolePolicies = Object.values(policies).filter((p) =>
+      (p.Properties?.Roles ?? []).some((role) => JSON.stringify(role).includes('"Ref":"TaskRole'))
+    );
+
+    for (const policy of taskRolePolicies) {
       const statements = policy.Properties?.PolicyDocument?.Statement ?? [];
       for (const stmt of statements) {
-        expect(stmt.Sid).not.toBe('LiveTalkLlmApiKeyRead');
+        const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
+        expect(actions).not.toContain('secretsmanager:GetSecretValue');
       }
     }
   });

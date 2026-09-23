@@ -24,8 +24,12 @@ export interface DynamoDBItem extends Record<string, unknown> {
   GSI2SK?: string;
   /** GSI3 パーティションキー (オプション) */
   GSI3PK?: string;
-  /** GSI3 ソートキー (オプション) */
-  GSI3SK?: string;
+  /**
+   * GSI3 ソートキー (オプション)。
+   * サービスによって型が異なる（stock-tracker は string、livetalk の
+   * GSI-TOPIC は care 降順ソート用に number を使用する）ため union にしている。
+   */
+  GSI3SK?: string | number;
   /** 作成日時 (Unix timestamp) */
   CreatedAt: number;
   /** 更新日時 (Unix timestamp) */
@@ -48,7 +52,16 @@ export interface PaginationOptions {
 export interface PaginatedResult<T> {
   /** データの配列 */
   items: T[];
-  /** 次のページがある場合のカーソル */
+  /**
+   * 次ページ用のカーソル（不透明トークン）。
+   *
+   * 「次ページに実際にデータが残っているか」ではなく、実DynamoDBのLastEvaluatedKeyと
+   * 同じセマンティクス（「limitを使い切ったために走査を打ち切ったか」）で付与される。
+   * そのため、limitちょうどで走査が終わった場合は残り0件でも定義され、その次のページは
+   * 0件・`nextCursor`未定義になる。呼び出し側は「`nextCursor`が無い＝全件取得済み」
+   * （もしくは「1ページの件数がlimit未満＝最終ページ」）と判断すればよく、
+   * 「`nextCursor`が有る＝次ページに必ず1件以上ある」という前提には依存しないこと。
+   */
   nextCursor?: string;
   /** 総件数（取得可能な場合） */
   count?: number;

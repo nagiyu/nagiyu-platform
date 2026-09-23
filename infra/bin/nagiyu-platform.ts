@@ -27,7 +27,12 @@ const ecrStack = new EcrStack(app, `NagiyuPortalEcr${envSuffix}`, {
 
 if (environment === 'dev') {
   // Dev 環境: Lambda + Function URL + CloudFront
-  // Dev VPC はシングル AZ のため ALB 使用不可
+  //
+  // 当初の理由は「Dev VPC がシングル AZ で ALB を使えない」だったが、リブトーク
+  // 導入時に Dev VPC へ 1b Subnet が追加され 2 AZ 構成になったため、この制約は
+  // 既に解消している（→ docs/infra/shared/vpc.md）。
+  // 現在 Dev を Lambda のままにしているのは、アクセスの少ない Dev で常時稼働の
+  // コストを持たないためであり、AZ 制約の回避ではない。
   const lambdaStack = new PortalLambdaStack(app, `NagiyuPortalLambda${envSuffix}`, {
     env: { account, region },
     environment,

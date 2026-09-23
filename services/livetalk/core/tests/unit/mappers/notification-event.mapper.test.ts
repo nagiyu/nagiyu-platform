@@ -76,21 +76,14 @@ describe('NotificationEventMapper', () => {
   });
 
   describe('オプショナルフィールド', () => {
-    it('KnowledgeID と ConsumedAt のラウンドトリップが成立する', () => {
+    it('ConsumedAt のラウンドトリップが成立する', () => {
       const entityWithOptionals = {
         ...fullEntity,
-        KnowledgeID: 'KNOWLEDGE-001',
         ConsumedAt: fixedNow + 5000,
       };
       const item = mapper.toItem(entityWithOptionals);
       const restored = mapper.toEntity(item);
-      expect(restored.KnowledgeID).toBe('KNOWLEDGE-001');
       expect(restored.ConsumedAt).toBe(fixedNow + 5000);
-    });
-
-    it('KnowledgeID が undefined の場合は item に含まれない', () => {
-      const item = mapper.toItem(fullEntity);
-      expect(item.KnowledgeID).toBeUndefined();
     });
 
     it('ConsumedAt が undefined の場合は item に含まれない', () => {

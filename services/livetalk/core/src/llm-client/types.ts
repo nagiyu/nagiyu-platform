@@ -48,7 +48,6 @@ export interface ChatOptions {
  *
  * - `chatStream`: ストリーミング応答。`AsyncIterable<string>` でテキスト delta を逐次返す
  * - `chatComplete`: 一括応答。完成したテキストを返す
- * - `summarize`: 会話圧縮要約。既存要約と新着メッセージをマージして新要約 + 記憶候補を返す
  *
  * ネットワークエラー・rate limit 等は Error として throw される（Provider のエラーをそのまま伝播）。
  * リトライは呼び出し側の責務。
@@ -68,55 +67,12 @@ export interface ILLMClient {
     schema: T,
     options?: ChatOptions
   ): Promise<z.infer<T>>;
-  summarize(input: SummarizeInput): Promise<SummarizeResult>;
 }
 
 /**
  * 用途別モデルマップ。Provider 実装側で既定値を持ち、コンストラクタで上書き可能。
  */
 export type PurposeModelMap = Record<ChatPurpose, string>;
-
-/**
- * `ILLMClient.summarize` の入力。
- */
-export interface SummarizeInput {
-  existingSummary: string | undefined;
-  newMessages: Array<{ role: 'user' | 'assistant'; text: string }>;
-  characterName: string;
-  /**
-   * 既存の興味カテゴリ名一覧（Issue #3325 / #3326）。
-   *
-   * LLM に粒度ガイドと共に渡すことで、同義カテゴリの再表記揺れ・過剰な細分化を抑制する。
-   * 未指定時は LLM 任せ（旧挙動）。
-   */
-  existingInterestCategories?: string[];
-}
-
-/**
- * 抽出された新規記憶候補（Tier C として保存される）。
- */
-export interface MemoryCandidate {
-  category: string;
-  content: string;
-}
-
-/**
- * `ILLMClient.summarize` の出力。
- *
- * `interestCategories` と `bidirectionalityScore` は Phase 3f で追加した optional フィールド。
- * 後方互換のため省略可能。既存実装が返さない場合もある。
- */
-export interface SummarizeResult {
-  mergedSummary: string;
-  newMemoryCandidates: MemoryCandidate[];
-  /** 会話から抽出した興味カテゴリ一覧（Phase 3f）。未取得時は undefined */
-  interestCategories?: Array<{ category: string; weight: number }>;
-  /**
-   * ユーザーがキャラの発話に反応・問い返した率（0〜1）（Phase 3f）。
-   * 日次バッチで測定する双方向性スコア。未取得時は undefined。
-   */
-  bidirectionalityScore?: number;
-}
 
 /**
  * Embedding クライアントの抽象インターフェース。

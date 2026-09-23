@@ -3,7 +3,6 @@ export * from './voice/index.js';
 export * from './voicevox/index.js';
 export * from './openai-voice/index.js';
 export * from './llm-client/index.js';
-export type { SummarizeInput, SummarizeResult, MemoryCandidate } from './llm-client/types.js';
 export * from './constants.js';
 
 // Affection
@@ -15,26 +14,8 @@ export {
   isNewActiveDay,
 } from './affection/index.js';
 
-// Interest category
-export type { ExtractedCategory, InterestDedupOptions } from './interest/index.js';
-export { persistInterestCategories } from './interest/index.js';
-
-// Memory retrieval + confirmation + correction
-export { cosineSimilarity, MemoryRetriever } from './memory/index.js';
-export type {
-  IMemoryRetriever,
-  RetrieveOptions,
-  RetrievedMemory,
-  RetrieveResult,
-} from './memory/index.js';
-export {
-  detectCorrection,
-  identifyPromotionCandidates,
-  identifyNewLearnings,
-  applyCorrection,
-  executePromotion,
-} from './memory/index.js';
-export type { CorrectionResult } from './memory/index.js';
+// Memory embedding（cosine similarity。consolidate・Topic 想起が使用）
+export { cosineSimilarity } from './memory/index.js';
 
 // Safety
 export * from './safety/index.js';
@@ -92,12 +73,6 @@ export { LifecycleMapper } from './mappers/lifecycle.mapper.js';
 // Chat usecase
 export { runChatUseCase, type ChatEvent, type ChatUseCaseParams } from './usecases/chat-usecase.js';
 
-// Compress conversation usecase
-export {
-  compressConversation,
-  type CompressConversationParams,
-} from './usecases/compress-conversation.usecase.js';
-
 // Learn user activity usecase
 export {
   learnUserActivity,
@@ -112,21 +87,13 @@ export {
   type OpenAIResearchClientOptions,
 } from './research/index.js';
 
+// WEB fact 変化検知（リブトーク知識再設計 P3 / #3699、acquire バッチ用）
+export { LLMWebFactChangeDetector, type IWebFactChangeDetector } from './research/index.js';
+export { WebFactChangeSchema } from './llm-client/schemas/web-fact-change.schema.js';
+export type { WebFactChangeRaw } from './llm-client/schemas/web-fact-change.schema.js';
+
 // Entities
-export type {
-  MemoryEntity,
-  MemoryKey,
-  CreateMemoryInput,
-  UpdateMemoryInput,
-  Tier,
-} from './entities/memory.entity.js';
-export { TIERS } from './entities/memory.entity.js';
 export type { MessageEntity, MessageKey, CreateMessageInput } from './entities/message.entity.js';
-export type {
-  MemorySummaryEntity,
-  MemorySummaryKey,
-  CreateMemorySummaryInput,
-} from './entities/memory-summary.entity.js';
 export type {
   SafetyEventEntity,
   SafetyEventKey,
@@ -145,19 +112,11 @@ export type {
   CreateCharacterStateInput,
   UpdateCharacterStateInput,
 } from './entities/character-state.entity.js';
-export type {
-  InterestCategoryEntity,
-  InterestCategoryKey,
-  CreateInterestCategoryInput,
-} from './entities/interest-category.entity.js';
 
 // Mappers
-export { MemoryMapper } from './mappers/memory.mapper.js';
-export { MemorySummaryMapper } from './mappers/memory-summary.mapper.js';
 export { MessageMapper } from './mappers/message.mapper.js';
 export { ProfileMapper } from './mappers/profile.mapper.js';
 export { CharacterStateMapper } from './mappers/character-state.mapper.js';
-export { InterestCategoryMapper } from './mappers/interest-category.mapper.js';
 export { SafetyEventMapper } from './mappers/safety-event.mapper.js';
 export {
   buildUserPK,
@@ -167,13 +126,6 @@ export {
   buildMessageSKPrefix,
   buildSafetyEventSK,
   buildSafetyEventSKPrefix,
-  buildMemorySK,
-  buildMemoryTierSKPrefix,
-  buildMemoryCategoryInTierSKPrefix,
-  buildMemoryAllTiersSKPrefix,
-  buildMemorySummarySK,
-  buildInterestSK,
-  buildInterestSKPrefix,
   buildLifecycleSK,
   // GSI1: Profile 列挙用 sparse GSI（#3527）
   PROFILE_GSI_INDEX_NAME,
@@ -184,8 +136,6 @@ export {
 } from './mappers/keys.js';
 
 // Repository interfaces
-export type { MemoryRepository } from './repositories/memory.repository.interface.js';
-export type { MemorySummaryRepository } from './repositories/memory-summary.repository.interface.js';
 export type {
   MessageRepository,
   GetRecentByTokenBudgetOptions,
@@ -194,36 +144,16 @@ export type {
 export type { ProfileRepository } from './repositories/profile.repository.interface.js';
 export type { CharacterStateRepository } from './repositories/character-state.repository.interface.js';
 export type { SafetyEventRepository } from './repositories/safety-event.repository.interface.js';
-export type { InterestRepository } from './repositories/interest.repository.interface.js';
 
 // Repository implementations
-export { EmbeddingMemoryRepository } from './repositories/embedding-memory.repository.js';
-export { DynamoDBMemoryRepository } from './repositories/dynamodb-memory.repository.js';
-export { DynamoDBMemorySummaryRepository } from './repositories/dynamodb-memory-summary.repository.js';
 export { DynamoDBMessageRepository } from './repositories/dynamodb-message.repository.js';
 export { DynamoDBProfileRepository } from './repositories/dynamodb-profile.repository.js';
 export { DynamoDBCharacterStateRepository } from './repositories/dynamodb-character-state.repository.js';
 export { DynamoDBSafetyEventRepository } from './repositories/dynamodb-safety-event.repository.js';
-export { InMemoryMemoryRepository } from './repositories/in-memory-memory.repository.js';
-export { InMemoryMemorySummaryRepository } from './repositories/in-memory-memory-summary.repository.js';
 export { InMemoryMessageRepository } from './repositories/in-memory-message.repository.js';
 export { InMemoryProfileRepository } from './repositories/in-memory-profile.repository.js';
 export { InMemoryCharacterStateRepository } from './repositories/in-memory-character-state.repository.js';
 export { InMemorySafetyEventRepository } from './repositories/in-memory-safety-event.repository.js';
-export { InMemoryInterestRepository } from './repositories/in-memory-interest.repository.js';
-export { DynamoDBInterestRepository } from './repositories/dynamodb-interest.repository.js';
-
-// Knowledge（Phase 5a）
-export type {
-  KnowledgeEntity,
-  KnowledgeKey,
-  CreateKnowledgeInput,
-} from './entities/knowledge.entity.js';
-export type { KnowledgeRepository } from './repositories/knowledge.repository.interface.js';
-export { InMemoryKnowledgeRepository } from './repositories/in-memory-knowledge.repository.js';
-export { DynamoDBKnowledgeRepository } from './repositories/dynamodb-knowledge.repository.js';
-export { KnowledgeMapper } from './mappers/knowledge.mapper.js';
-export { buildKnowledgeSK, buildKnowledgeSKPrefix } from './mappers/keys.js';
 
 // StudyTopic（Phase 5b / #3344）
 export type {
@@ -250,20 +180,16 @@ export {
   type GenerateNotesParams,
   type GenerateNotesResult,
 } from './usecases/generate-note.usecase.js';
+export {
+  buildGenerateNotePrompt,
+  type GenerateNotePromptInput,
+  type GenerateNotePromptSelfFact,
+  type GenerateNotePromptWebFact,
+} from './usecases/generate-note.prompt.js';
+export { NoteLetterSchema, type NoteLetterRaw } from './llm-client/schemas/note-letter.schema.js';
 
-// 知識ゲート（Phase 5b / #3344）
-export {
-  searchKnowledge,
-  classifyTopic,
-  evaluateKnowledgeGate,
-  type KnowledgeGateResult,
-} from './study/knowledge-gate.js';
-export {
-  type KnowledgeMatcher,
-  NgramKnowledgeMatcher,
-  normalizeForMatch,
-  toBigrams,
-} from './study/knowledge-matcher.js';
+// 知識ゲート（Phase 5b / #3344。P5 で searchKnowledge/evaluateKnowledgeGate/KnowledgeMatcher は撤去、classifyTopic のみ残置）
+export { classifyTopic } from './study/knowledge-gate.js';
 export { buildStudyDeferralMessage } from './study/templates.js';
 
 // Token counter
@@ -284,33 +210,27 @@ export type { ConsentRecord, AgeVerification, UserConsents } from './entities/pr
 export {
   LIVETALK_TERMS_VERSION,
   LIVETALK_PRIVACY_VERSION,
-  MEMORY_TIER_C_TTL_SECONDS,
-  MEMORY_TIER_D_TTL_SECONDS,
-  MEMORY_DEFAULT_CONFIDENCE,
   AFFECTION_INFO_DISCLOSURE_WEIGHT,
   AFFECTION_TIME_CONTINUITY_BONUS,
   AFFECTION_BIDIRECTIONALITY_WEIGHT,
-  INTEREST_DEDUP_SIMILARITY_THRESHOLD,
-  STUDY_MAX_QUERIES_PER_RUN,
-  STUDY_MIN_INTERVAL_HOURS,
   STUDY_INACTIVE_WINDOW_HOURS,
-  STUDY_MIN_SUMMARY_LENGTH,
   STUDY_TOPIC_TTL_SECONDS,
   STUDY_TOPIC_GATE_PRIORITY,
-  NOTE_MIN_SUMMARY_LENGTH,
+  NOTE_CARE_THRESHOLD,
   NOTE_MAX_PER_RUN,
-  NOTE_KNOWLEDGE_LOOKBACK,
+  NOTE_CANDIDATE_LOOKBACK,
   NOTE_RECENT_DAYS,
   NOTE_RECENT_LIMIT,
 } from './constants.js';
 
-// Study usecase（Phase 5a）
+// acquire usecase（リブトーク知識再設計 P3 / #3699）
 export {
-  studyForUser,
-  shouldStudyNow,
-  type StudyForUserParams,
-  type StudyForUserResult,
-} from './usecases/study.usecase.js';
+  acquireForUser,
+  shouldAcquireNow,
+  type AcquireForUserParams,
+  type AcquireForUserResult,
+} from './usecases/acquire.usecase.js';
+export { ACQUIRE_MAX_QUERIES_PER_RUN, ACQUIRE_STALE_SWEEP_LIMIT } from './constants.js';
 
 // PushSubscription（Phase 5d / #3346）
 export type {
@@ -353,7 +273,7 @@ export {
   buildNotificationMessage,
   buildCriticalNotificationMessage,
   buildSuggestedReply,
-  detectCriticalKnowledge,
+  detectCriticalTopic,
   selectNotificationsToSend,
 } from './notification/index.js';
 export type {
@@ -361,6 +281,7 @@ export type {
   NotificationMessage,
   EscalationResult,
   DetectCriticalInput,
+  DetectCriticalCandidate,
   SelectNotificationsInput,
   SelectNotificationsResult,
 } from './notification/index.js';
@@ -377,7 +298,7 @@ export {
   NOTIFY_DAILY_CRITICAL_CAP,
   NOTIFY_ACTIVE_WINDOW_MINUTES,
   NOTIFICATION_EVENT_TTL_SECONDS,
-  NOTIFY_CRITICAL_INTEREST_SHARE_THRESHOLD,
+  NOTIFY_CRITICAL_CARE_THRESHOLD,
   NOTIFY_CRITICAL_EVENT_HORIZON_DAYS,
   NOTIFY_INTENSITY_WINDOW_DAYS,
   // チャット API 保護ガード（Issue #3528）
@@ -410,3 +331,141 @@ export {
   ACCOUNT_DELETION_ERROR_MESSAGES,
 } from './repositories/dynamodb-account-deletion.repository.js';
 export { InMemoryAccountDeletionRepository } from './repositories/in-memory-account-deletion.repository.js';
+
+// Topic 中心モデル（リブトーク知識再設計 P1 / #3697、shadow build）
+// P1 は「影で構築」するのみで、既存の想起・memory 画面には接続しない。
+export type { TopicEntity, TopicKey, CreateTopicInput } from './entities/topic.entity.js';
+export type {
+  SelfFactEntity,
+  SelfFactKey,
+  CreateSelfFactInput,
+} from './entities/self-fact.entity.js';
+export type {
+  WebFactEntity,
+  WebFactKey,
+  CreateWebFactInput,
+  WebFactVolatility,
+} from './entities/web-fact.entity.js';
+export type {
+  WebRawEntity,
+  WebRawKey,
+  CreateWebRawInput,
+  WebRawOrigin,
+} from './entities/webraw.entity.js';
+export type {
+  ConsolidationCursorEntity,
+  ConsolidationCursorKey,
+  PutConsolidationCursorInput,
+} from './entities/consolidation-cursor.entity.js';
+
+export { TopicMapper } from './mappers/topic.mapper.js';
+export { SelfFactMapper } from './mappers/self-fact.mapper.js';
+export { WebFactMapper } from './mappers/web-fact.mapper.js';
+export { WebRawMapper } from './mappers/webraw.mapper.js';
+export { ConsolidationCursorMapper } from './mappers/consolidation-cursor.mapper.js';
+
+export {
+  buildTopicMetaSK,
+  buildTopicBundleSKPrefix,
+  buildSelfFactSK,
+  buildSelfFactSKPrefix,
+  buildWebFactSK,
+  buildWebFactSKPrefix,
+  buildWebRawSK,
+  buildWebRawSKPrefix,
+  buildConsolidationCursorSK,
+  // GSI3（GSI-TOPIC）: Topic ヘッダ(META) 列挙・care 降順取得用 sparse GSI（#3697）
+  TOPIC_GSI_INDEX_NAME,
+  buildTopicGSI3PK,
+  // GSI4（GSI-STALE）: 揮発 WEB fact の鮮度掃引用 sparse GSI（リブトーク知識再設計 P3 / #3699）
+  STALE_GSI_INDEX_NAME,
+  buildTopicStaleGSI4PK,
+} from './mappers/keys.js';
+
+export type { TopicRepository, TopicBundle } from './repositories/topic.repository.interface.js';
+export { DynamoDBTopicRepository } from './repositories/dynamodb-topic.repository.js';
+export { InMemoryTopicRepository } from './repositories/in-memory-topic.repository.js';
+
+export type { WebRawRepository } from './repositories/webraw.repository.interface.js';
+export { DynamoDBWebRawRepository } from './repositories/dynamodb-webraw.repository.js';
+export { InMemoryWebRawRepository } from './repositories/in-memory-webraw.repository.js';
+
+export type { ConsolidationCursorRepository } from './repositories/consolidation-cursor.repository.interface.js';
+export { DynamoDBConsolidationCursorRepository } from './repositories/dynamodb-consolidation-cursor.repository.js';
+export { InMemoryConsolidationCursorRepository } from './repositories/in-memory-consolidation-cursor.repository.js';
+
+export { OptimisticLockError } from './repositories/optimistic-lock.error.js';
+
+export { WEBRAW_TTL_SECONDS } from './constants.js';
+
+// consolidation（集約バッチ）（リブトーク知識再設計 P1 / #3697、shadow build）
+export {
+  TOPIC_ROUTING_SIMILARITY_THRESHOLD,
+  TOPIC_ROUTING_MAX_CANDIDATES,
+  CONSOLIDATION_ROUTING_TEXT_MAX_CHARS,
+  WEBFACT_REVIEW_INTERVAL_MS,
+} from './constants.js';
+export { ConsolidationSchema } from './llm-client/schemas/consolidation.schema.js';
+export type { ConsolidationRaw } from './llm-client/schemas/consolidation.schema.js';
+export {
+  buildConsolidatePrompt,
+  type ConsolidatePromptInput,
+  type ConsolidatePromptCandidateTopic,
+} from './usecases/consolidate.prompt.js';
+export { consolidate, type ConsolidateParams } from './usecases/consolidate.usecase.js';
+
+// Topic 想起（関連度 only）＋決定的忘却（リブトーク知識再設計 P2 / #3698）
+export { TopicRetriever } from './knowledge/index.js';
+export type { ITopicRetriever, RetrievedTopic, TopicRetrieveOptions } from './knowledge/index.js';
+export { forgetSelfFact, type ForgetSelfFactDeps } from './usecases/forget-self-fact.usecase.js';
+export {
+  buildRegenerateSummaryPrompt,
+  type RegenerateSummaryPromptInput,
+} from './usecases/regenerate-summary.prompt.js';
+export {
+  RegenerateSummarySchema,
+  type RegenerateSummaryRaw,
+} from './llm-client/schemas/regenerate-summary.schema.js';
+export {
+  TOPIC_RECALL_SIMILARITY_THRESHOLD,
+  TOPIC_RECALL_TOP_K,
+  TOPIC_RECALL_RELATED_THRESHOLD,
+  TOPIC_RECALL_RELATED_MAX,
+} from './constants.js';
+
+// ---- 一回性マイグレーション（旧知識資材 → 新 Topic モデル、throwaway）----
+// 移行完了・Issue クローズ後は `migration/` ディレクトリごと削除してよい。
+export {
+  MIGRATION_CHUNK_SIZE,
+  MIGRATION_CARE_SEED_MAX_PER_TOPIC,
+  MIGRATION_CARE_ASSIGN_SIMILARITY_THRESHOLD,
+  MIGRATION_SELF_FACT_PROVENANCE_SUFFIX,
+} from './constants.js';
+export type {
+  LegacyMemoryEntity,
+  LegacyKnowledgeEntity,
+  LegacyInterestCategoryEntity,
+  LegacyReadResult,
+} from './migration/index.js';
+export {
+  readLegacyData,
+  buildPseudoMessages,
+  buildPseudoWebRaws,
+  chunkPseudoSources,
+  createChunkRepos,
+  computeCareBoosts,
+  applyCareBoosts,
+  classifySchemaItem,
+  findSchemaItems,
+  deleteSchemaItems,
+  queryItemsByPrefix,
+  batchDeleteItems,
+  MIGRATION_ERROR_MESSAGES,
+} from './migration/index.js';
+export type {
+  PseudoSourceChunk,
+  ChunkRepos,
+  ApplyCareBoostsResult,
+  SchemaTarget,
+  DeleteSchemaItemsResult,
+} from './migration/index.js';

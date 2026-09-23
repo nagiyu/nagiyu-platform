@@ -1,5 +1,4 @@
-import type { Tier } from '@nagiyu/livetalk-core';
-import type { MemoryListItem } from './types';
+import type { SelfFactListItem } from './types';
 
 /**
  * 記憶 UI から `/api/memory` を呼ぶための fetch ラッパ。
@@ -9,18 +8,16 @@ import type { MemoryListItem } from './types';
  */
 
 export const MEMORY_API_ERROR_MESSAGES = {
-  LIST_FAILED: '記憶の取得に失敗しました',
-  DELETE_FAILED: '記憶の削除に失敗しました',
-  PIN_FAILED: '記憶の固定に失敗しました',
+  LIST_FAILED: '覚えていることの取得に失敗しました',
+  DELETE_FAILED: '覚えていることの削除に失敗しました',
 } as const;
 
 /**
- * 指定 Tier の記憶一覧を取得する。tier 未指定なら全 Tier（API 側既定）。
+ * SELF fact（私について覚えていること）の一覧を取得する。
  * characterId を渡すと選択中キャラの記憶に絞り込む（省略時は API 側既定）。
  */
-export async function fetchMemories(tier?: Tier, characterId?: string): Promise<MemoryListItem[]> {
+export async function fetchSelfFacts(characterId?: string): Promise<SelfFactListItem[]> {
   const params = new URLSearchParams();
-  if (tier) params.set('tier', tier);
   if (characterId) params.set('characterId', characterId);
   const query = params.size > 0 ? `?${params.toString()}` : '';
   const res = await fetch(`/api/memory${query}`, {
@@ -29,15 +26,15 @@ export async function fetchMemories(tier?: Tier, characterId?: string): Promise<
   if (!res.ok) {
     throw new Error(MEMORY_API_ERROR_MESSAGES.LIST_FAILED);
   }
-  const data = (await res.json()) as { memories?: MemoryListItem[] };
-  return data.memories ?? [];
+  const data = (await res.json()) as { selfFacts?: SelfFactListItem[] };
+  return data.selfFacts ?? [];
 }
 
 /**
- * 記憶を物理削除する。
+ * SELF fact を決定的に削除する（忘却）。
  * characterId を渡すと選択中キャラの記憶に絞り込む（省略時は API 側既定）。
  */
-export async function deleteMemory(id: string, characterId?: string): Promise<void> {
+export async function deleteSelfFact(id: string, characterId?: string): Promise<void> {
   const params = new URLSearchParams();
   if (characterId) params.set('characterId', characterId);
   const query = params.size > 0 ? `?${params.toString()}` : '';
@@ -47,22 +44,4 @@ export async function deleteMemory(id: string, characterId?: string): Promise<vo
   if (!res.ok) {
     throw new Error(MEMORY_API_ERROR_MESSAGES.DELETE_FAILED);
   }
-}
-
-/**
- * 記憶を Tier A に昇格固定（ピン留め）する。
- * characterId を渡すと選択中キャラの記憶に絞り込む（省略時は API 側既定）。
- */
-export async function pinMemory(id: string, characterId?: string): Promise<MemoryListItem> {
-  const params = new URLSearchParams();
-  if (characterId) params.set('characterId', characterId);
-  const query = params.size > 0 ? `?${params.toString()}` : '';
-  const res = await fetch(`/api/memory/${encodeURIComponent(id)}/pin${query}`, {
-    method: 'POST',
-  });
-  if (!res.ok) {
-    throw new Error(MEMORY_API_ERROR_MESSAGES.PIN_FAILED);
-  }
-  const data = (await res.json()) as { memory: MemoryListItem };
-  return data.memory;
 }

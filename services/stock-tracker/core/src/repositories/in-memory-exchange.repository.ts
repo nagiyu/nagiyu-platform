@@ -23,6 +23,11 @@ const ERROR_MESSAGES = {
   NO_UPDATES_SPECIFIED: '更新するフィールドが指定されていません',
 } as const;
 
+// store既定のqueryByAttribute limit（100件）で打ち切られると全取引所を取得できなくなるため、
+// in-memory-ticker.repository.ts の getAllと同じ流儀でcursorループにより全件集約する
+// （ページサイズ自体は任意）。
+const FULL_SCAN_PAGE_SIZE = 100;
+
 /**
  * InMemory Exchange Repository
  *
@@ -54,14 +59,29 @@ export class InMemoryExchangeRepository implements ExchangeRepository {
 
   /**
    * 全取引所を取得
+   *
+   * `Type`属性の一致でScanを近似する（GSIを介さない）ため、返却順序は保証しない。
+   * store既定のqueryByAttribute limit（100件）による打ち切りを避けるため、
+   * cursorループで全件集約する（in-memory-ticker.repository.tsのgetAllと同じ流儀）。
    */
   public async getAll(): Promise<ExchangeEntity[]> {
-    const result = this.store.queryByAttribute({
-      attributeName: 'Type',
-      attributeValue: 'Exchange',
-    });
+    const items: ExchangeEntity[] = [];
+    let cursor: string | undefined;
 
-    const items = result.items.map((item) => this.mapper.toEntity(item));
+    do {
+      const page = this.store.queryByAttribute(
+        {
+          attributeName: 'Type',
+          attributeValue: 'Exchange',
+        },
+        {
+          limit: FULL_SCAN_PAGE_SIZE,
+          cursor,
+        }
+      );
+      items.push(...page.items.map((item) => this.mapper.toEntity(item)));
+      cursor = page.nextCursor;
+    } while (cursor);
 
     return items;
   }

@@ -12,15 +12,10 @@ import type {
   ChatOptions,
   IEmbeddingClient,
   ILLMClient,
-  MemoryCandidate,
   PurposeModelMap,
-  SummarizeInput,
-  SummarizeResult,
 } from './types.js';
-import { SummarizeResultSchema } from './schemas/summarize.schema.js';
 import { withLLMRetry } from '../lib/llm-retry.js';
 import { LLM_MODELS } from './models.js';
-import { buildSummarizePrompt } from './prompts/summarize.prompt.js';
 
 /**
  * OpenAI 実装の用途別既定モデル（GPT-5 系）。
@@ -141,18 +136,6 @@ export class OpenAIClient implements ILLMClient {
     return response.output_parsed as z.infer<T>;
   }
 
-  public async summarize(input: SummarizeInput): Promise<SummarizeResult> {
-    const prompt = buildSummarizePrompt(input);
-
-    const raw = await this.chatStructured(
-      [{ role: 'user', content: prompt }],
-      SummarizeResultSchema,
-      { purpose: 'summarize' }
-    );
-
-    return toSummarizeResult(raw);
-  }
-
   private assertMessages(messages: ChatMessage[]): void {
     if (messages.length === 0) {
       throw new Error(OPENAI_ERROR_MESSAGES.EMPTY_MESSAGES);
@@ -170,86 +153,6 @@ export class OpenAIClient implements ILLMClient {
 
 function toEasyInputMessage(msg: ChatMessage): EasyInputMessage {
   return { role: msg.role, content: msg.content, type: 'message' };
-}
-
-export function parseSummarizeResult(rawText: string): SummarizeResult {
-  let json: Record<string, unknown>;
-  try {
-    // LLM が ```json ... ``` で囲む場合を考慮して、コードブロックを除去する
-    const cleaned = rawText
-      .replace(/^```(?:json)?\s*/i, '')
-      .replace(/\s*```$/i, '')
-      .trim();
-    json = JSON.parse(cleaned) as Record<string, unknown>;
-  } catch {
-    return { mergedSummary: rawText.trim(), newMemoryCandidates: [] };
-  }
-
-  const mergedSummary = typeof json.mergedSummary === 'string' ? json.mergedSummary : '';
-
-  const candidates = Array.isArray(json.newMemoryCandidates) ? json.newMemoryCandidates : [];
-  const newMemoryCandidates: MemoryCandidate[] = candidates
-    .filter((c): c is Record<string, unknown> => typeof c === 'object' && c !== null)
-    .map((c) => ({
-      category: typeof c.category === 'string' ? c.category : 'general',
-      content: typeof c.content === 'string' ? c.content : '',
-    }))
-    .filter((c) => c.content.length > 0);
-
-  const rawCategories = Array.isArray(json.interestCategories) ? json.interestCategories : [];
-  const interestCategories = rawCategories
-    .filter((c): c is Record<string, unknown> => typeof c === 'object' && c !== null)
-    .map((c) => ({
-      category: typeof c.category === 'string' ? c.category : '',
-      weight: typeof c.weight === 'number' && c.weight > 0 ? c.weight : 1,
-    }))
-    .filter((c) => c.category.length > 0);
-
-  const bidirectionalityScore =
-    typeof json.bidirectionalityScore === 'number'
-      ? Math.min(1, Math.max(0, json.bidirectionalityScore))
-      : undefined;
-
-  return {
-    mergedSummary,
-    newMemoryCandidates,
-    interestCategories: interestCategories.length > 0 ? interestCategories : undefined,
-    bidirectionalityScore,
-  };
-}
-
-/**
- * `SummarizeResultSchema` でデコードされた生データを `SummarizeResult` に変換する。
- *
- * Structured Outputs により型は保証済みなので、ここでは意味的バリデーション（content 空除外等）のみ行う。
- */
-function toSummarizeResult(raw: z.infer<typeof SummarizeResultSchema>): SummarizeResult {
-  const newMemoryCandidates: MemoryCandidate[] = raw.newMemoryCandidates
-    .map((c) => ({
-      category: c.category.length > 0 ? c.category : 'general',
-      content: c.content,
-    }))
-    .filter((c) => c.content.length > 0);
-
-  const interestCategories =
-    raw.interestCategories && raw.interestCategories.length > 0
-      ? raw.interestCategories
-          .filter((c) => c.category.length > 0)
-          .map((c) => ({ category: c.category, weight: c.weight > 0 ? c.weight : 1 }))
-      : undefined;
-
-  const bidirectionalityScore =
-    typeof raw.bidirectionalityScore === 'number'
-      ? Math.min(1, Math.max(0, raw.bidirectionalityScore))
-      : undefined;
-
-  return {
-    mergedSummary: raw.mergedSummary,
-    newMemoryCandidates,
-    interestCategories:
-      interestCategories && interestCategories.length > 0 ? interestCategories : undefined,
-    bidirectionalityScore,
-  };
 }
 
 /** OpenAI embedding API で使用するモデル。{@link LLM_MODELS.embedding} から導出する。 */

@@ -6,14 +6,12 @@ import { getSession } from '@/lib/server/session';
 import {
   getLifecycleRepository,
   getNotificationEventRepository,
-  getKnowledgeRepository,
   getStudyTopicRepository,
   getMessageRepository,
 } from '@/lib/server/repositories';
 import type {
   LifecycleRepository,
   NotificationEventRepository,
-  KnowledgeRepository,
   StudyTopicRepository,
   MessageRepository,
 } from '@nagiyu/livetalk-core';
@@ -25,7 +23,6 @@ jest.mock('@/lib/server/session', () => ({
 jest.mock('@/lib/server/repositories', () => ({
   getLifecycleRepository: jest.fn(),
   getNotificationEventRepository: jest.fn(),
-  getKnowledgeRepository: jest.fn(),
   getStudyTopicRepository: jest.fn(),
   getMessageRepository: jest.fn(),
 }));
@@ -36,9 +33,6 @@ const mockGetLifecycleRepo = getLifecycleRepository as jest.MockedFunction<
 >;
 const mockGetNotifEventRepo = getNotificationEventRepository as jest.MockedFunction<
   typeof getNotificationEventRepository
->;
-const mockGetKnowledgeRepo = getKnowledgeRepository as jest.MockedFunction<
-  typeof getKnowledgeRepository
 >;
 const mockGetStudyTopicRepo = getStudyTopicRepository as jest.MockedFunction<
   typeof getStudyTopicRepository
@@ -93,11 +87,6 @@ const makeNotifEventRepo = () =>
     listByUser: jest.fn(async () => []),
   }) as unknown as NotificationEventRepository;
 
-const makeKnowledgeRepo = (count = 0) =>
-  ({
-    list: jest.fn(async () => Array(count).fill({ KnowledgeID: 'k1' })),
-  }) as unknown as KnowledgeRepository;
-
 const makeStudyTopicRepo = (pendingCount = 0) =>
   ({
     listByStatus: jest.fn(async () => Array(pendingCount).fill({ TopicID: 't1' })),
@@ -118,7 +107,6 @@ const buildGetRequest = (characterId?: string) => {
 function setupDefaultMocks() {
   mockGetLifecycleRepo.mockReturnValue(makeLifecycleRepo());
   mockGetNotifEventRepo.mockReturnValue(makeNotifEventRepo());
-  mockGetKnowledgeRepo.mockReturnValue(makeKnowledgeRepo(3));
   mockGetStudyTopicRepo.mockReturnValue(makeStudyTopicRepo(1));
   mockGetMessageRepo.mockReturnValue(makeMessageRepo());
 }
@@ -151,7 +139,6 @@ describe('GET /api/status', () => {
     expect(json).toHaveProperty('lifecycle');
     expect(json).toHaveProperty('recentNotifications');
     expect(json).toHaveProperty('notifyDecision');
-    expect(json).toHaveProperty('knowledgeCount');
     expect(json).toHaveProperty('studyTopicPendingCount');
   });
 
@@ -159,7 +146,6 @@ describe('GET /api/status', () => {
     mockGetSession.mockResolvedValueOnce(adminSession);
     mockGetLifecycleRepo.mockReturnValue(makeEmptyLifecycleRepo());
     mockGetNotifEventRepo.mockReturnValue(makeNotifEventRepo());
-    mockGetKnowledgeRepo.mockReturnValue(makeKnowledgeRepo());
     mockGetStudyTopicRepo.mockReturnValue(makeStudyTopicRepo());
     mockGetMessageRepo.mockReturnValue(makeMessageRepo());
 
@@ -192,7 +178,6 @@ describe('GET /api/status', () => {
       })),
     } as unknown as LifecycleRepository);
     mockGetNotifEventRepo.mockReturnValue(makeNotifEventRepo());
-    mockGetKnowledgeRepo.mockReturnValue(makeKnowledgeRepo(5));
     mockGetStudyTopicRepo.mockReturnValue(makeStudyTopicRepo(2));
     mockGetMessageRepo.mockReturnValue(makeMessageRepo());
 
@@ -201,7 +186,6 @@ describe('GET /api/status', () => {
 
     const json = await res.json();
     expect(json.lifecycle.userActivityProfile).toEqual(profile);
-    expect(json.knowledgeCount).toBe(5);
     expect(json.studyTopicPendingCount).toBe(2);
   });
 
@@ -222,7 +206,6 @@ describe('GET /api/status', () => {
     mockGetNotifEventRepo.mockReturnValue({
       listByUser: jest.fn(async () => events),
     } as unknown as NotificationEventRepository);
-    mockGetKnowledgeRepo.mockReturnValue(makeKnowledgeRepo());
     mockGetStudyTopicRepo.mockReturnValue(makeStudyTopicRepo());
     mockGetMessageRepo.mockReturnValue(makeMessageRepo());
 
@@ -259,7 +242,6 @@ describe('GET /api/status', () => {
       }),
     } as unknown as LifecycleRepository);
     mockGetNotifEventRepo.mockReturnValue(makeNotifEventRepo());
-    mockGetKnowledgeRepo.mockReturnValue(makeKnowledgeRepo());
     mockGetStudyTopicRepo.mockReturnValue(makeStudyTopicRepo());
     mockGetMessageRepo.mockReturnValue(makeMessageRepo());
 
@@ -283,7 +265,6 @@ describe('GET /api/status', () => {
     }));
     mockGetLifecycleRepo.mockReturnValue({ get: mockGet } as unknown as LifecycleRepository);
     mockGetNotifEventRepo.mockReturnValue(makeNotifEventRepo());
-    mockGetKnowledgeRepo.mockReturnValue(makeKnowledgeRepo());
     mockGetStudyTopicRepo.mockReturnValue(makeStudyTopicRepo());
     mockGetMessageRepo.mockReturnValue(makeMessageRepo());
 
@@ -305,7 +286,6 @@ describe('GET /api/status', () => {
     }));
     mockGetLifecycleRepo.mockReturnValue({ get: mockGet } as unknown as LifecycleRepository);
     mockGetNotifEventRepo.mockReturnValue(makeNotifEventRepo());
-    mockGetKnowledgeRepo.mockReturnValue(makeKnowledgeRepo());
     mockGetStudyTopicRepo.mockReturnValue(makeStudyTopicRepo());
     mockGetMessageRepo.mockReturnValue(makeMessageRepo());
 

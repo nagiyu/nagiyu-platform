@@ -18,19 +18,17 @@ describe('InMemoryNoteRepository', () => {
       UserID: string;
       CharacterID: string;
       NoteID: string;
-      Title: string;
-      Body: string;
-      RelatedKnowledgeIds: string[];
-      RelatedCategory: string;
+      TopicID: string;
+      Subject: string;
+      Headline: string;
     }> = {}
   ) => ({
     UserID: 'u1',
     CharacterID: 'hiyori',
     NoteID: 'note-001',
-    Title: 'コーヒーの効能',
-    Body: 'コーヒーには覚醒効果があります。\n\n面白いよね！',
-    RelatedKnowledgeIds: ['know-001'],
-    RelatedCategory: 'コーヒー',
+    TopicID: 'topic-001',
+    Subject: 'コーヒーの効能',
+    Headline: 'この前の話、気になって調べてみたよ。覚醒効果があるみたい！',
     ...overrides,
   });
 
@@ -65,7 +63,7 @@ describe('InMemoryNoteRepository', () => {
   it('get は単一ノートを返す', async () => {
     await repo.put(makeInput({ NoteID: 'note-001' }));
     const note = await repo.get({ userId: 'u1', characterId: 'hiyori', noteId: 'note-001' });
-    expect(note?.Title).toBe('コーヒーの効能');
+    expect(note?.Subject).toBe('コーヒーの効能');
   });
 
   it('get は存在しないノートに対して null を返す', async () => {
@@ -132,6 +130,29 @@ describe('InMemoryNoteRepository', () => {
 
     it('ノートが 0 件の場合は空配列を返す', async () => {
       expect(await repo.listAll('u1', 'hiyori')).toHaveLength(0);
+    });
+  });
+
+  describe('updateReaction', () => {
+    it('Reaction を設定し UpdatedAt を bump する', async () => {
+      await repo.put(makeInput({ NoteID: 'note-001' }));
+      now += 1000;
+      await repo.updateReaction(
+        { userId: 'u1', characterId: 'hiyori', noteId: 'note-001' },
+        'すごく良かった！'
+      );
+
+      const note = await repo.get({ userId: 'u1', characterId: 'hiyori', noteId: 'note-001' });
+      expect(note?.Reaction).toBe('すごく良かった！');
+      expect(note?.UpdatedAt).toBe(baseNow + 1000);
+      // CreatedAt は不変
+      expect(note?.CreatedAt).toBe(baseNow);
+    });
+
+    it('対象が存在しない場合は no-op', async () => {
+      await expect(
+        repo.updateReaction({ userId: 'u1', characterId: 'hiyori', noteId: 'missing' }, '感想')
+      ).resolves.toBeUndefined();
     });
   });
 });

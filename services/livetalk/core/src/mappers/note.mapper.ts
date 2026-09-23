@@ -1,5 +1,4 @@
 import {
-  validateNumberField,
   validateStringField,
   validateTimestampField,
   type DynamoDBItem,
@@ -24,15 +23,14 @@ export class NoteMapper implements EntityMapper<NoteEntity, NoteKey> {
       UserID: entity.UserID,
       CharacterID: entity.CharacterID,
       NoteID: entity.NoteID,
-      Title: entity.Title,
-      Body: entity.Body,
-      RelatedKnowledgeIds: entity.RelatedKnowledgeIds,
-      RelatedCategory: entity.RelatedCategory,
+      TopicID: entity.TopicID,
+      Subject: entity.Subject,
+      Headline: entity.Headline,
       CreatedAt: entity.CreatedAt,
       UpdatedAt: entity.UpdatedAt,
     };
-    if (entity.ReadAt !== undefined) {
-      item.ReadAt = entity.ReadAt;
+    if (entity.Reaction !== undefined) {
+      item.Reaction = entity.Reaction;
     }
     return item;
   }
@@ -42,17 +40,14 @@ export class NoteMapper implements EntityMapper<NoteEntity, NoteKey> {
       UserID: validateStringField(item.UserID, 'UserID'),
       CharacterID: validateStringField(item.CharacterID, 'CharacterID'),
       NoteID: validateStringField(item.NoteID, 'NoteID'),
-      Title: validateStringField(item.Title, 'Title'),
-      Body: validateStringField(item.Body, 'Body'),
-      RelatedKnowledgeIds: Array.isArray(item.RelatedKnowledgeIds)
-        ? (item.RelatedKnowledgeIds as string[])
-        : [],
-      RelatedCategory: validateStringField(item.RelatedCategory, 'RelatedCategory'),
+      TopicID: validateStringField(item.TopicID, 'TopicID'),
+      Subject: validateStringField(item.Subject, 'Subject'),
+      Headline: validateStringField(item.Headline, 'Headline'),
       CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
       UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
     };
-    if (item.ReadAt !== undefined) {
-      entity.ReadAt = validateNumberField(item.ReadAt, 'ReadAt');
+    if (item.Reaction !== undefined) {
+      entity.Reaction = validateStringField(item.Reaction, 'Reaction');
     }
     return entity;
   }

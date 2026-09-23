@@ -10,7 +10,7 @@ Live2D アバター（桃瀬ひより）と AI（OpenAI LLM + VOICEVOX TTS）を
 - フロント / バックエンド: Next.js（Lambda Web Adapter）を ECS Fargate で稼働
 - 音声合成: VOICEVOX を同一 ECS Task のサイドカーコンテナとして同居
 - データ: DynamoDB Single Table（1 メッセージ 1 item）
-- バッチ: EventBridge Scheduler + Lambda（圧縮要約 / 勉強 / 通知 / 活動時間学習）
+- バッチ: EventBridge Scheduler + Lambda（Topic 集約 / Web 取得 / 通知 / 活動時間学習）
 - 配信: CloudFront → サービス専用 ALB → ECS Service
 - リージョン: **us-east-1 固定**（CloudFront 連携の制約による）
 
@@ -68,6 +68,11 @@ LLM の応答ストリームを文区切り（。！？）で分割し、文単�
 - ⚠️ 文単位なのでアクセント・抑揚が文同士で繋がらない（許容）
 - ⚠️ VOICEVOX の synthesis が CPU 律速で直列化しやすく、長い応答では合成待ちがレイテンシ要因になる（運用課題として継続観測）
 
+> **注記（実測との差異）**: 上記のうち 2 点について、実測が当初の前提と食い違っていた（Issue #3761 のコスト調査で判明）。決定当時の記述は履歴として残し、以下を追記する。
+>
+> - **「起動時のモデルロードに 30〜60 秒かかる」は見積もりであって実測ではなかった。** prod タスクのライフサイクル実測では、起動 81.6 秒の内訳は **イメージ pull 37.5 秒 + ヘルスチェックのポーリング待ち + web 起動**で、支配項は pull である。VOICEVOX エンジンは既定で全話者モデルをロードせず（`--load_all_models` はオプトイン、話者ごとの遅延ロード）、実測メモリのピークが 690MB に収まっていることもこれと整合する。したがって**起動時間の短縮に効くのは `startPeriod` の調整ではなく pull 時間の短縮**（公式イメージの ECR ミラー化・不要話者モデルの削減）である。この誤った前提は「VOICEVOX は常駐コンテナでなければならない」という判断の根拠として使われていたため、実行基盤を再検討する際はこの実測値を出発点にする。
+> - **「CPU 律速で直列化しやすい」には、現時点で計測根拠がない。** `ChatMetrics.latency.ttsTotal` は `chat-usecase.ts` で計測されていたが CloudWatch（EMF）へ出力されておらず、合成待ちが実際にユーザーの体感遅延になっているかを判定できない状態だった。加えて実装上、音声は LLM 完走と Moderation 判定の後に emit されるため、**TTS 合計が LLM 合計を下回る限り合成時間はユーザーから見えない**。Issue #3761 で `TTSTotalLatency` / `LLMTotalLatency` を EMF に追加したので、今後はこの 2 値の大小で判定する。ECS タスクの CPU 割当を縮小できるかの判断もこの計測に依存する。
+
 ### 2.4 ECS Fargate 1 Task に Next.js + VOICEVOX の 2 コンテナ同居（ADR-004）
 
 **背景・問題**
@@ -114,6 +119,8 @@ Replika が無起動期間で親密度を下げて炎上した教訓を踏まえ
 - ⚠️ LLM のスタイル維持が技術的に難しい（few-shot で誘導）
 
 ### 2.7 メモリは階層化 + 信頼度スコア、編集機能は撤去（ADR-007）
+
+> **本 ADR の階層化・信頼度・cooldown は #3696 で撤廃**。知識・記憶は Topic 中心モデル（ADR-2.24）へ置換した。ただし「編集を提供せず訂正は前向き（会話・削除）に流す」という整合方針は 2.24 の決定的忘却に引き継がれている。
 
 **背景・問題**
 
@@ -199,6 +206,8 @@ OpenAI / Anthropic の安全機構は不十分。Character.AI / OpenAI の訴訟
 
 ### 2.11 通知は指数バックオフ + 時間帯制限 + クリティカル escalation（ADR-011）
 
+> **通知のクリティカル判定とネタ源は #3696 で Topic.care ＋ WEB fact へ移行**。旧 InterestCategory.Weight を escalation 信号に使う設計は撤廃した（ADR-2.24）。頻度制御・時間帯制限の枠組み自体は本 ADR のまま。
+
 **背景・問題**
 
 Push 通知の頻度バランスが難しい。少なすぎると忘れられ、多すぎると鬱陶しい。
@@ -216,6 +225,8 @@ Push 通知の頻度バランスが難しい。少なすぎると忘れられ、
 - ⚠️ N 件のサンプルが溜まるまでは固定間隔（許容）
 
 ### 2.12 「知らない → 勉強しておく」は強制ゲート化（ADR-012）
+
+> **#3696 で知識ゲートの位置を見直し**。ゲートは想起の後段に置き、既に WEB fact を持つ既知 Topic は会話でそのまま回答して勉強予約に倒さない。真に未知（関連 Topic なし）の話題のみ acquire に予約する。専用の STUDY_TOPIC キューは廃止し、care と鮮度で取得対象を選ぶ（ADR-2.24）。LLM の良心に頼らずコード側で gating する本 ADR の骨子は維持する。
 
 **背景・問題**
 
@@ -294,6 +305,8 @@ ADR-010 でキャラクターのロジック（性格・声・ライセンス等
 実装は `services/livetalk/web/src/lib/characters/` を参照。
 
 ### 2.16 通知はキャラクター単位の能動アクションにする（ADR / Issue #3491）
+
+> **発火判定の「知識」根拠は #3696 で Topic.care ＋ WEB fact に置き換わった**（ADR-2.24）。キャラクター単位・ユーザー総量上限・クロス汚染防止という本 ADR の枠組みはそのまま。
 
 **背景・問題**
 
@@ -476,6 +489,56 @@ ADR-005 は「親密度は上昇のみ」を決めたが、**値がどの体験�
 - ✅ 死蔵状態をドキュメントに固定することで、活用時の設計起点が明確になる
 - ⚠️ 値が体験に効かないまま蓄積し続ける（活用着手まで「上昇のみ」の意味は演出に現れない）
 
+### 2.24 知識・記憶を Topic 中心モデルに再設計する（ADR / Issue #3696）
+
+**背景・問題**
+
+ADR-007 で作った「Memory Tier A–D ＋信頼度＋cooldown ＋関連度フィルタ」と、勉強成果を貯める Knowledge / 興味を表す InterestCategory / 勉強候補の StudyTopic は、運用してみると差別化価値（「同じ時間軸で生きているキャラ」）を不安定にしていた。
+
+- **線形増加・非集約**: 勉強成果が生のまま永続追記され、同一話題が繰り返し再調査・重複保存される（dev 実測で同一トピックが十数件に膨張）。
+- **非リンク・非抽象化**: 同じ話題について「ユーザーが話したこと（記憶）」と「キャラが調べたこと（知識）」が別サイロに分断され、繋がらない・抽象化されない。
+- **陳腐化の粒度を扱えない**: 揮発情報（在庫・価格・順位）と安定情報（作品の事実等）を区別せず一律間隔で再調査し、陳腐な再要約を量産する。
+- **忘却・想起の機構が過剰**: Tier ＋信頼度 ＋cooldown は、目的（誤情報の忘却 / 些細情報の連呼防止）に対して複雑すぎ、かつ「削除しても LLM が言い続ける」問題（ADR-007）を根本解決していない。
+
+**決定**
+
+知識・記憶の単位を **Topic（話題）** に置き直す。Topic は 1 レコードではなく、Topic ヘッダと、その配下の **SELF fact（会話由来・削除単位）**・**WEB fact（勉強由来・鮮度単位）** を束ねた集約体とする。これにより「話したこと」と「調べたこと」が同一話題で自動的にリンクする。
+
+- **集約（consolidation）**: 未集約の元データ（会話ログ・Web 取得生）を毎時バッチで Topic に畳む。書き込みは元データへの append のみで、畳み込みはバッチに寄せ、会話ホットパスで集約 LLM を呼ばない。
+- **想起は関連度 only**: 会話時は発話の埋め込み類似度で関連 Topic のみを文脈に注入する。Tier・cooldown・嗜好の常時注入を廃止し、関係ない話題が湧く “コーヒー病” を構造で回避する。素性（名前・制約）以外のコアプロフィール常時注入はせず、care も想起の下駄にしない。
+- **忘却は決定的削除 ＋ 即時要約再生成**: SELF fact を物理削除し、その場で当該 Topic の要約を作り直す。LLM の「言うな」抑制に依存しない（ADR-007 の前向き整合の延長）。畳み済みの生ログが復活しないことは、前進のみのカーソルが担保する。
+- **鮮度追随は揮発 WEB fact 単位**: 揮発性の高い WEB fact だけを期限到来時に再取得し、変化があったときのみ更新する。安定 fact は再確認しない。
+- **ノートは Topic からのギフト生成**: 「なぜ調べたか（SELF フック）＋調べた内容（WEB）」を合成した共有ログを、キャラの proactive なギフトとして記録する。ユーザーが会話で依頼した調べ物の結果は会話で返し、ノートには倒さない。
+- **優先度は care に一元化**: 自発リサーチの選定と能動通知の閾値を、Topic の注目度 `care`（回数ベースの興味強度・情動重み付けなし）で駆動する。
+- **旧資産の撤去**: Memory Tier / MemorySummary / InterestCategory / 旧 Knowledge・Note / 知識蓄積用途の StudyTopic を廃止する。通知の escalation 信号も InterestCategory.Weight から care へ差し替える。撤去は「新想起が dev で機能確認できてから旧経路を外す」順序で行い、中間の記憶喪失状態を作らない。
+
+**根拠・トレードオフ**
+
+- ✅ 集約により勉強成果が無限に溜まらず、同一話題で SELF/WEB が融合した応答（「二郎系好きだったよね、新店できたよ」）ができる。揮発情報だけ賢く追随し、安定情報の無駄な再調査をやめられる。
+- ✅ 忘却が構造的に確実になり（削除＝即再生成）、想起も関連度 only で「湧いてくる」副作用を断てる。
+- ⚠️ **Topic ルーティング / マージ品質が律速**。近い素材を 1 つの Topic に畳みきれず割れる（過分割）リスクがあるため、生断片の provenance を保持して誤マージを可逆化し、条件付き書込・人手削除を最優先の是正手段とする。
+- ⚠️ **旧データは一回性マイグレーションで畳み直す**（クリーンスタートではない）。破壊的 one-shot 処理のため多重起動を避ける運用が要る（後述「既知の制約」）。
+- ⚠️ care はユーザー起点でのみ上げる（下記）。この分岐が無いと自己強化ループに陥る。
+- ⚠️ グラフ DB・ベクトル DB は導入しない。関連は事前計算せず、想起時に埋め込み近傍でその場算出する。
+
+**care 上昇ポリシー（ユーザー起点でのみ上げる・レバー1）**
+
+care は「ユーザーがその話題をどれだけ気にしているか」の信号であるべきなので、**care を上げてよいのはユーザーが会話で触れた fold だけ**とし、キャラの自発リサーチ（Web 取得のみ）を畳んだ fold では上げない。集約時にその fold が生んだ SELF fact の有無を代理信号にして分岐する（SELF fact＝ユーザーが会話で触れた）。
+
+この分岐が無いと、ユーザーが一言も足していない話題でもキャラが自発リサーチを畳むだけで care が育ち、「高 care → もっと自発リサーチ → もっと care」の自己強化ループになる（dev 実測: キャラ自身のパーソナ Topic が育ち、キャラが自分自身を通知した）。一過性の「◯◯調べて」だけで SELF fact が出ない依頼は興味とみなさず care に載せない、という割り切りを取る。
+
+**既知の制約（静観・後回しの判断）**
+
+以下は本再設計で「実害が積み上がるまで静観」と判断した事項。判断がセッションの継ぎ目をまたぐため永続化する。
+
+- **所見C: ルーティング / マージ品質（過分割）**: consolidation の埋め込み近傍 ＋ LLM のマージ判断が近似重複を吸収しきれず、近い話題が複数 Topic に割れることがある（dev 実測。冗長な旧データほど顕在化し care も分散する）。移行固有ではなく consolidation 本体の性質。prod は旧データが小さく影響は軽い見込みで、現状は静観。将来はルーティング/マージ閾値の改善、または近似 Topic の merge/dedup パスで対処する。
+- **所見D: 想起が汎用発話に弱い**: 現状の想起は「今の 1 発話だけ」を埋め込み、care を使わない（関連度 only）。そのため「いいゲームないかな」のような汎用発話は具体名の Topic と類似度が閾値に届かず想起されない（語が一致する「ラーメン食べたい」等は想起される）。前者は要件（発話＋直近文脈を埋め込む）との実装乖離＝直せるギャップ、care 不使用は “コーヒー病” 回避のための意図的な選択。将来は「想起クエリに直近数ターンを含める」／「類似度がニアミス帯のときだけ care で後押しする」で改善余地があるが、過剰想起の再来に注意し現状は静観。
+- **移行運用（一回性 Lambda）**: 旧データの移行は throwaway の one-shot Lambda で行う。旧興味の重みを新 Topic の care へ載せる際はカテゴリ名の文字列一致では拾えない（移行後に Subject が LLM で言い換わるため）ので、埋め込み近傍でマッチする。dev は旧データが多く全キャラ一括だと Lambda の実行時間上限に達しうるため**キャラ単位で実行**する。多重起動ガードが無いので、**非同期に 1 回だけ発火し、ログで完走を確認**する運用でカバーする（同期呼び出しはブラウザが待てず失敗表示になるが本体は裏で完走するため、それを見て再発火すると wipe と migrate が交錯して壊れる）。prod は小規模で問題にならない。
+
+**将来拡張（レバー2・未実装）: care を「累計回数」から「最近のユーザー興味」へ**
+
+現状 care は累計回数で単調増加し、明示的な減衰を持たない。将来的には care を「最近ユーザーが触れたか（最近性）」に再定義し、明示的な減衰 cron を持たずに通知・ノート・自発リサーチの候補を並べることで、古い話題が希少な通知枠を占め続けるのを自然に防げる。会話での想起は既に関連度 only で自然に薄れているため、優先度側にも最近性を効かせるのが筋。本対応（レバー1）では実装せず、拡張余地として記録に留める。
+
 ---
 
 ## 3. データモデル概要
@@ -485,10 +548,15 @@ DynamoDB Single Table（`nagiyu-livetalk-dynamodb-{env}`）。
 - PK = `USER#<googleId>`
 - SK 階層パターン（例）:
   - `PROFILE`
-  - `CHAR#<charId>#STATE` / `#LIFECYCLE` / `#AFFECTION` / `#MEMORY#SUMMARY`
-  - `CHAR#<charId>#MSG#<ulid>`（Message、TTL 90 日）
-  - `CHAR#<charId>#MEM#<tier>#<category>#<id>`（Memory、Tier C/D は TTL あり）
-  - `CHAR#<charId>#KNOWLEDGE#<ulid>` / `#NOTE#<ulid>` / `#STUDY#<ulid>` / `#INTEREST#...`
+  - `CHAR#<charId>#STATE` / `#LIFECYCLE` / `#AFFECTION`
+  - `CHAR#<charId>#MSG#<ulid>`（Message、TTL 90 日。集約の元データを兼ねる）
+  - 知識・記憶は Topic 中心（ADR-2.24）。1 Topic は「ヘッダ ＋ SELF fact ×N ＋ WEB fact ×N」を SK プレフィックスで束ねた集約体で、`begins_with(TOPIC#<topicId>#)` で一括取得する:
+      - Topic ヘッダ `CHAR#<charId>#TOPIC#<topicId>#META`（subject・要約・category・care・想起用の embedding を同居。恒久・集約でのみ更新）
+      - SELF fact `CHAR#<charId>#TOPIC#<topicId>#SELF#<ulid>`（会話由来・ユーザー削除単位）
+      - WEB fact `CHAR#<charId>#TOPIC#<topicId>#WEB#<ulid>`（勉強由来・鮮度単位。揮発 fact のみ再確認期限を持つ）
+  - `CHAR#<charId>#NOTE#<ulid>`（共有ログ Note。Topic を参照するギフト記録、恒久）
+  - `CHAR#<charId>#WEBRAW#<ulid>`（Web 取得生。未集約の元データ、TTL 90 日）
+  - `CHAR#<charId>#CURSOR`（集約カーソル。会話生・Web 取得生のストリーム別に、どこまで畳んだかを条件付きで前進させる状態）
   - `SAFETY#<ulid>`（SafetyEvent、TTL なし＝無期限保持。退会時も削除せず匿名化して残す、ADR-2.21 / 2.22）
   - `NOTIF#<ulid>`（NotificationEvent）/ `PUSH_SUBSCRIPTION#<id>`
   - `RATELIMIT#<window>#<bucket>`（チャットのレート制限カウンタ。window=`1m`/`1h`、`Count` をアトミック加算・TTL で自動掃除、ADR-2.20）
@@ -500,8 +568,12 @@ DynamoDB Single Table（`nagiyu-livetalk-dynamodb-{env}`）。
   - `GSI2PK='SAFETY'` を SafetyEvent item にのみ付与（sparse）/ `GSI2SK` = 検出時刻ベースの ULID（`EventID` をそのまま使用。時系列降順で最近の検出を取得）/ 射影は `INCLUDE`（`UserID` / `EventID` / `CharacterID` / `Trigger` / `DetectedPattern` / `CreatedAt`。PII の `InputText` / `ResponseText` は射影しない）
   - `livetalk:admin` の管理画面が全ユーザー横断で SafetyEvent を Query する（全件 Scan を避ける）
   - ⚠️ GSI を Query するロールは、テーブルを `fromTableAttributes` + `globalIndexes` でインポートして `index/*` を grant する必要がある（`fromTableArn` だと `AccessDenied`。ADR-2.22 の根拠・トレードオフ参照）
+- Topic 中心モデル（ADR-2.24）が追加する sparse GSI（既存 GSI1/GSI2 と衝突しない名前で増設）:
+  - **Topic 列挙用 GSI**: Topic ヘッダのみを索引化する。`#META` が SK の接尾辞のため `begins_with` ではヘッダだけを列挙できないことへの対応。想起用の embedding と care を射影し、想起（全 Topic の座標だけを読んで自前で cosine 計算）と自発リサーチ（care 降順の選定）の双方を、Topic 本体を全読みせずに賄う
+  - **鮮度掃引用 GSI**: 揮発 WEB fact のみを再確認期限で索引化し、期限到来分だけをまとめて走査する（安定 fact は載せない）。現状 1 ユーザー規模のため時間バケットのシャーディングは行わない
+  - ⚠️ 増設した GSI を Query する各ロールにも、GSI2 と同じく `fromTableAttributes` + `globalIndexes` の grant が要る（ADR-2.22 の教訓）
 
-**保持・削除ポリシー（ADR-2.21）**: Message は TTL 90 日、Memory Tier C/D は TTL あり、Memory Tier A/B・MemorySummary・Affection は在籍中は無期限。退会時は `PK=USER#<googleId>` 配下を即時ハード削除するが、SafetyEvent のみ匿名化（個人識別子を切り離す）して保持する（暫定保持期限 3 年、法務レビューで確定）。
+**保持・削除ポリシー（ADR-2.21 / 2.24）**: 元データ（Message・Web 取得生）は TTL 90 日、Topic 配下（ヘッダ・SELF fact・WEB fact）と共有ログ Note は恒久、Affection は在籍中は無期限。退会時は `PK=USER#<googleId>` 配下を即時ハード削除するが、SafetyEvent のみ匿名化（個人識別子を切り離す）して保持する（暫定保持期限 3 年、法務レビューで確定）。SELF fact のユーザー削除は物理削除で、当該 Topic 要約を即時再生成する（決定的忘却、ADR-2.24）。
 
 詳細な SK 定義・属性は実装（`services/livetalk/core/src/mappers/keys.ts`、`entities/`）を参照。概念モデルは [external-design.md](./external-design.md) を参照。
 
@@ -528,7 +600,7 @@ DynamoDB Single Table（`nagiyu-livetalk-dynamodb-{env}`）。
 | Application Load Balancer      | サービス専用 ALB（LLM ストリーミング用に長めの timeout）                  |
 | CloudFront                     | エッジ配信、ALB をオリジンとする（OriginReadTimeout 延長）                |
 | DynamoDB                       | Single Table、PITR、Message は TTL 90 日                                  |
-| Lambda + EventBridge Scheduler | バッチ（圧縮要約 / 勉強 / 通知 / 活動時間学習）、各 Lambda 独立 + DLQ     |
+| Lambda + EventBridge Scheduler | バッチ（Topic 集約 / Web 取得 / 通知 / 活動時間学習）、各 Lambda 独立 + DLQ |
 | ECR                            | Next.js / VOICEVOX / batch のイメージ                                     |
 | Secrets Manager                | OpenAI API キー等                                                         |
 | S3                             | モデル / 音声 / 静的ファイル                                              |
@@ -541,14 +613,14 @@ DynamoDB Single Table（`nagiyu-livetalk-dynamodb-{env}`）。
 
 各バッチは独立 Lambda（障害切り分け・権限最小化のため DLQ / IAM Role も個別）：
 
-| バッチ                 | スケジュール        | 役割                                 |
-| ---------------------- | ------------------- | ------------------------------------ |
-| compress-conversations | 日次 JST 03:00      | 会話圧縮要約の生成・更新             |
-| learn-user-activity    | 週次 JST 日曜 03:00 | ユーザー活動時間ヒストグラムの学習   |
-| study                  | 毎時                | 勉強実施判定 → Web リサーチ → 知識化 |
-| notify                 | 毎時 30 分          | 通知判定 → 配信                      |
+| バッチ                 | スケジュール        | 役割                                                  |
+| ---------------------- | ------------------- | ----------------------------------------------------- |
+| consolidate            | 毎時                | 未集約の元データ（会話・Web 取得生）を Topic に畳む（ADR-2.24。旧 compress を発展） |
+| acquire                | 毎時                | care 上位・依頼・鮮度切れを対象に Web 取得し元データ化（ADR-2.24。旧 study を発展） |
+| learn-user-activity    | 週次 JST 日曜 03:00 | ユーザー活動時間ヒストグラムの学習                    |
+| notify                 | 毎時 30 分          | 通知判定 → 配信（ネタ源は Topic.care ＋ WEB fact）    |
 
-時刻判定のため Web Task / 関連 Lambda には `TZ=Asia/Tokyo` を設定。
+集約（畳み）と取得（Web アクセス）を別バッチに分けるのは、取得の失敗・レイテンシと畳みの整合性（カーソル前進）を独立に扱うため。時刻判定のため Web Task / 関連 Lambda には `TZ=Asia/Tokyo` を設定。
 
 ---
 

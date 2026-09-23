@@ -110,9 +110,9 @@ describe('NotesPage レースコンディション対策', () => {
 
     // NoteList をノート内容を確認できる実装に差し替える
     mockNoteList.mockImplementation(
-      ({ notes, loading }: { notes: Array<{ id: string; title: string }>; loading: boolean }) => (
+      ({ notes, loading }: { notes: Array<{ id: string; subject: string }>; loading: boolean }) => (
         <div data-testid="note-list">
-          {loading ? 'loading' : notes.map((n) => <span key={n.id}>{n.title}</span>)}
+          {loading ? 'loading' : notes.map((n) => <span key={n.id}>{n.subject}</span>)}
         </div>
       )
     );
@@ -120,9 +120,7 @@ describe('NotesPage レースコンディション対策', () => {
     // 1回目（hiyori）は遅延、2回目（ageha）は即時解決
     mockFetchNotes
       .mockReturnValueOnce(hiyoriPromise)
-      .mockResolvedValueOnce([
-        { id: 'note-ageha-1', title: 'アゲハのノート', relatedCategory: 'test', createdAt: 1 },
-      ]);
+      .mockResolvedValueOnce([{ id: 'note-ageha-1', subject: 'アゲハのノート', sharedAt: 1 }]);
 
     // まず hiyori として描画（1回目の fetch が始まる）
     mockUseCharacter.mockReturnValue({ characterId: 'hiyori', setCharacterId: jest.fn() });

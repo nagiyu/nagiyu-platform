@@ -9,11 +9,11 @@ import {
   DialogTitle,
 } from '@mui/material';
 import { Button } from '@nagiyu/ui';
-import type { MemoryListItem } from '@/lib/memory/types';
+import type { SelfFactListItem } from '@/lib/memory/types';
 import { getMemoryDeleteAnnotation } from '@/lib/memory/messages';
 
 export interface MemoryDeleteDialogProps {
-  memory: MemoryListItem | null;
+  item: SelfFactListItem | null;
   loading?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -22,25 +22,25 @@ export interface MemoryDeleteDialogProps {
 }
 
 /**
- * 記憶削除の確認ダイアログ。
+ * 記憶削除の確認ダイアログ（リブトーク知識再設計 P2 / #3698）。
  *
- * MemoryEntity を削除しても三層（MemoryEntity / MemorySummary / Messages）のうち
- * 残り2層には即時反映されないため、注釈（Alert warning）で明示する（Issue #3308）。
+ * 削除は決定的（deleteSelfFact → canonicalSummary 再生成）であり、以降の会話には
+ * 出てこなくなる旨・元に戻せない旨を注釈（Alert warning）で明示する。
  */
 export default function MemoryDeleteDialog({
-  memory,
+  item,
   loading = false,
   onConfirm,
   onCancel,
   characterId,
 }: MemoryDeleteDialogProps) {
   return (
-    <Dialog open={memory !== null} onClose={onCancel} maxWidth="sm" fullWidth>
+    <Dialog open={item !== null} onClose={onCancel} maxWidth="sm" fullWidth>
       <DialogTitle>この記憶を削除しますか？</DialogTitle>
       <DialogContent>
-        {memory && (
+        {item && (
           <DialogContentText sx={{ mb: 1.5 }}>
-            {`「${memory.content}」を忘れます。元には戻せません。`}
+            {`「${item.text}」を忘れます。元には戻せません。`}
           </DialogContentText>
         )}
         <Alert severity="warning" data-testid="delete-annotation">

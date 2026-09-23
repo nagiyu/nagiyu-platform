@@ -1,11 +1,9 @@
 import type { CharacterDefinition } from './types.js';
 import type { MessageEntity } from '../entities/message.entity.js';
-import type { MemoryEntity } from '../entities/memory.entity.js';
-import type { KnowledgeEntity } from '../entities/knowledge.entity.js';
 import type { NoteEntity } from '../entities/note.entity.js';
 import type { ChatMessage } from '../llm-client/types.js';
-import type { RetrievedMemory } from '../memory/types.js';
 import type { LifecycleState } from '../entities/lifecycle.entity.js';
+import type { RetrievedTopic } from '../knowledge/retrieval.js';
 
 export type TimeOfDay = '朝' | '昼' | '夜';
 
@@ -29,16 +27,45 @@ function buildSleepingPrompt(): string {
 - 多少ちぐはぐでも OK。眠くて寝ぼけている状態として振る舞う`;
 }
 
+/**
+ * 想起（関連度 only）で選抜された Topic 群を「あなたが覚えていること（今の話題に関連）」
+ * セクションとして描画する（リブトーク知識再設計 P2 / #3698）。
+ *
+ * SELF/WEB それぞれ、facet が空なら該当行を出さない。
+ * SELF/WEB が両方 0 件の Topic は「■ subject」見出しごとスキップする（fresh-eyes レビュー指摘）。
+ * 全 Topic がスキップされ描画対象がなくなった場合は空文字を返す（呼び出し側でセクション自体を出さない）。
+ */
+function buildTopicsSection(retrievedTopics: RetrievedTopic[]): string {
+  const topicBlocks = retrievedTopics
+    .filter((rt) => rt.selfFacts.length > 0 || rt.webFacts.length > 0)
+    .map((rt) => {
+      const lines: string[] = [`■ ${rt.topic.Subject}`];
+      for (const selfFact of rt.selfFacts) {
+        lines.push(`- （あなたが聞いたこと）${selfFact.Text}`);
+      }
+      for (const webFact of rt.webFacts) {
+        lines.push(`- （あなたが調べたこと）${webFact.Text}`);
+      }
+      return lines.join('\n');
+    });
+
+  if (topicBlocks.length === 0) return '';
+
+  return `あなたが覚えていること（今の話題に関連）：\n${topicBlocks.join('\n')}`;
+}
+
+/**
+ * system prompt を組み立てる（リブトーク知識・記憶再設計 P5 / Topic 中心モデルへ簡素化）。
+ *
+ * 旧 Tier memory / MemorySummary / 旧 Knowledge / 通知起点 KNOWLEDGE のセクション生成は撤去済み。
+ * 想起は Topic（関連度 only）のみを扱う。
+ */
 export function buildSystemPrompt(
   character: CharacterDefinition,
   now: Date,
-  retrievedMemories: RetrievedMemory[] = [],
-  summaryText?: string,
-  newLearnings?: MemoryEntity[],
   lifecycleState?: LifecycleState,
-  knowledgeContext?: KnowledgeEntity[],
   recentNotes?: NoteEntity[],
-  notificationKnowledge?: KnowledgeEntity
+  retrievedTopics?: RetrievedTopic[]
 ): string {
   const { personality, displayName } = character;
   const timeOfDay = getTimeOfDay(now);
@@ -58,24 +85,15 @@ export function buildSystemPrompt(
 - 返答は短く（1〜3 文程度）、テンポよく続ける
 - セーフティ対応は後続ロジックで処理されるため、ここでは扱わない`.trim();
 
-  const hasSummary = summaryText && summaryText.trim().length > 0;
-  const hasMemories = retrievedMemories.length > 0;
-  const hasNewLearnings = newLearnings !== undefined && newLearnings.length > 0;
   const isSleeping = lifecycleState === 'sleeping';
-  const hasKnowledge = knowledgeContext !== undefined && knowledgeContext.length > 0;
   const hasRecentNotes = recentNotes !== undefined && recentNotes.length > 0;
-  const hasNotificationKnowledge = notificationKnowledge !== undefined;
+  // fact を 1 件以上持つ Topic が存在するかで判定する（SELF/WEB 両方 0 件の Topic のみの場合は
+  // セクションを出さないため、単純な length > 0 では不足）。
+  const hasTopics =
+    retrievedTopics !== undefined &&
+    retrievedTopics.some((rt) => rt.selfFacts.length > 0 || rt.webFacts.length > 0);
 
-  if (
-    !hasSummary &&
-    !hasMemories &&
-    !hasNewLearnings &&
-    !isSleeping &&
-    !hasKnowledge &&
-    !hasRecentNotes &&
-    !hasNotificationKnowledge
-  )
-    return base;
+  if (!isSleeping && !hasRecentNotes && !hasTopics) return base;
 
   const sections: string[] = [base];
 
@@ -83,43 +101,14 @@ export function buildSystemPrompt(
     sections.push(buildSleepingPrompt());
   }
 
-  if (hasSummary) {
-    sections.push(`あなたがこれまでに知ったこと：\n${summaryText!.trim()}`);
-  }
-
-  if (hasMemories) {
-    const memoriesSection = retrievedMemories.map((r) => `- ${r.memory.Content}`).join('\n');
-    sections.push(`あなたが覚えていること：\n${memoriesSection}`);
-  }
-
-  if (hasNewLearnings) {
-    const learningsSection = newLearnings!.map((m) => `- ${m.Content}`).join('\n');
-    sections.push(
-      `あなたが新しく知ったこと：\n${learningsSection}\n\n新しく知ったことについては、自然な流れで「覚えとくね」と伝えるか、あなたの感想を一言添えてください。ただし、毎回触れる必要はありません。`
-    );
-  }
-
-  if (hasKnowledge) {
-    const knowledgeSection = knowledgeContext!
-      .map((k) => `- ${k.Topic}：${k.Summary}${k.RawComment ? `（${k.RawComment}）` : ''}`)
-      .join('\n');
-    sections.push(
-      `この前調べたこと：\n${knowledgeSection}\n\n調べた内容について「この前の話なんだけど」「気になって調べちゃったんだよね」など、自然に会話に絡めてください。`
-    );
+  if (hasTopics) {
+    sections.push(buildTopicsSection(retrievedTopics!));
   }
 
   if (hasRecentNotes) {
-    const notesSection = recentNotes!.map((n) => `- ${n.Title}`).join('\n');
+    const notesSection = recentNotes!.map((n) => `- ${n.Subject}`).join('\n');
     sections.push(
       `あなたが最近ユーザーに渡したノート：\n${notesSection}\n\nこれらはあなたがユーザーのために調べてまとめてプレゼントしたノートです。ユーザーがノートの感想（「あのノート良かった」「読んだよ」など）を言ったら、どのノートのことか理解して嬉しそうに反応してください。ユーザーが触れていないのに無理に話題にする必要はありません。`
-    );
-  }
-
-  if (hasNotificationKnowledge) {
-    const k = notificationKnowledge!;
-    const detail = `- ${k.Topic}：${k.Summary}${k.RawComment ? `（${k.RawComment}）` : ''}`;
-    sections.push(
-      `あなたが通知でユーザーに話しかけた話題：\n${detail}\n\nユーザーはこの通知を受けて会話を始めました。この話題をあなた自身が始めた会話として自然に展開してください。「うん、${k.Topic}だけどね〜」や「そうそう、調べたらすごく面白くて！」のように、自分が振った話題として続けてください。`
     );
   }
 
@@ -131,7 +120,7 @@ export function buildSystemPrompt(
  *
  * 構造: [system] + [...history] + [current user message]
  *
- * `history` は getRecentByTokenBudget で取得した時系列昇順のメッセージ群。
+ * `history` は集約カーソル境界（未集約分）で取得した時系列昇順のメッセージ群。
  * 現在のユーザー発話は保存前に呼ぶため history に含まれない前提。
  */
 export function buildChatMessages(
@@ -139,24 +128,16 @@ export function buildChatMessages(
   now: Date,
   history: MessageEntity[],
   userText: string,
-  retrievedMemories: RetrievedMemory[] = [],
-  summaryText?: string,
-  newLearnings?: MemoryEntity[],
   lifecycleState?: LifecycleState,
-  knowledgeContext?: KnowledgeEntity[],
   recentNotes?: NoteEntity[],
-  notificationKnowledge?: KnowledgeEntity
+  retrievedTopics?: RetrievedTopic[]
 ): ChatMessage[] {
   const systemPrompt = buildSystemPrompt(
     character,
     now,
-    retrievedMemories,
-    summaryText,
-    newLearnings,
     lifecycleState,
-    knowledgeContext,
     recentNotes,
-    notificationKnowledge
+    retrievedTopics
   );
   const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }];
 

@@ -6,10 +6,9 @@ const baseEntity: NoteEntity = {
   UserID: 'user1',
   CharacterID: 'hiyori',
   NoteID: 'NOTE-001',
-  Title: 'コーヒーの効能',
-  Body: 'コーヒーには覚醒効果があります。\n\n面白いよね！',
-  RelatedKnowledgeIds: ['KNOW-001', 'KNOW-002'],
-  RelatedCategory: 'コーヒー',
+  TopicID: 'topic-001',
+  Subject: 'コーヒーの効能',
+  Headline: 'この前コーヒーの話をしてたよね、気になって調べてみたよ。覚醒効果があるみたい！',
   CreatedAt: 1_750_000_000_000,
   UpdatedAt: 1_750_086_400_000,
 };
@@ -28,21 +27,21 @@ describe('NoteMapper', () => {
       expect(item.SK).toBe('CHAR#hiyori#NOTE#NOTE-001');
       expect(item.Type).toBe('Note');
       expect(item.NoteID).toBe('NOTE-001');
-      expect(item.Title).toBe('コーヒーの効能');
-      expect(item.RelatedKnowledgeIds).toEqual(['KNOW-001', 'KNOW-002']);
-      expect(item.RelatedCategory).toBe('コーヒー');
+      expect(item.TopicID).toBe('topic-001');
+      expect(item.Subject).toBe('コーヒーの効能');
+      expect(item.Headline).toBe(baseEntity.Headline);
       expect(item.CreatedAt).toBe(1_750_000_000_000);
     });
 
-    it('ReadAt 未設定時は Item に含めない', () => {
+    it('Reaction 未設定時は Item に含めない', () => {
       const item = mapper.toItem(baseEntity);
-      expect(item.ReadAt).toBeUndefined();
-      expect('ReadAt' in item).toBe(false);
+      expect(item.Reaction).toBeUndefined();
+      expect('Reaction' in item).toBe(false);
     });
 
-    it('ReadAt 設定時は Item に含める', () => {
-      const item = mapper.toItem({ ...baseEntity, ReadAt: 1_750_100_000_000 });
-      expect(item.ReadAt).toBe(1_750_100_000_000);
+    it('Reaction 設定時は Item に含める', () => {
+      const item = mapper.toItem({ ...baseEntity, Reaction: 'すごく良かった！' });
+      expect(item.Reaction).toBe('すごく良かった！');
     });
   });
 
@@ -53,22 +52,27 @@ describe('NoteMapper', () => {
       expect(entity).toEqual(baseEntity);
     });
 
-    it('ReadAt を復元する', () => {
-      const item = mapper.toItem({ ...baseEntity, ReadAt: 1_750_100_000_000 });
+    it('Reaction を復元する', () => {
+      const item = mapper.toItem({ ...baseEntity, Reaction: '嬉しい' });
       const entity = mapper.toEntity(item);
-      expect(entity.ReadAt).toBe(1_750_100_000_000);
-    });
-
-    it('RelatedKnowledgeIds が配列でない場合は空配列にする', () => {
-      const item = mapper.toItem(baseEntity);
-      delete (item as Record<string, unknown>).RelatedKnowledgeIds;
-      const entity = mapper.toEntity(item);
-      expect(entity.RelatedKnowledgeIds).toEqual([]);
+      expect(entity.Reaction).toBe('嬉しい');
     });
 
     it('必須フィールド欠落で InvalidEntityDataError を投げる', () => {
       const item = mapper.toItem(baseEntity);
-      delete (item as Record<string, unknown>).Title;
+      delete (item as Record<string, unknown>).Subject;
+      expect(() => mapper.toEntity(item)).toThrow(InvalidEntityDataError);
+    });
+
+    it('TopicID 欠落で InvalidEntityDataError を投げる', () => {
+      const item = mapper.toItem(baseEntity);
+      delete (item as Record<string, unknown>).TopicID;
+      expect(() => mapper.toEntity(item)).toThrow(InvalidEntityDataError);
+    });
+
+    it('Headline 欠落で InvalidEntityDataError を投げる', () => {
+      const item = mapper.toItem(baseEntity);
+      delete (item as Record<string, unknown>).Headline;
       expect(() => mapper.toEntity(item)).toThrow(InvalidEntityDataError);
     });
   });

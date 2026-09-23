@@ -23,6 +23,22 @@ const ERROR_MESSAGES = {
   NO_UPDATES_SPECIFIED: '更新するフィールドが指定されていません',
 } as const;
 
+// 実DynamoDB実装（dynamodb-alert.repository.ts）はgetByUserId/
+// getTemporaryCandidatesByFrequencyのlimit未指定時に50件を既定とするため、
+// InMemory実装もこれに合わせる（store既定の100件のままだと乖離する）。
+// （getByFrequencyは全件返却契約のためこのlimitは使用しない。ページを辿り切る際は
+// FULL_SCAN_PAGE_SIZEを使う）
+//
+// 実DynamoDB実装と同じFalsyフォールバック（`options?.limit || DEFAULT_PAGE_LIMIT`）にする。
+// Nullishフォールバック（`??`）にすると、limit: 0 がstore（queryByAttribute等）まで
+// 素通りし、そちらの`options?.limit || 100`で100件にフォールバックしてしまう
+// （この契約テストが潰そうとしている「store既定100件との乖離」がlimit: 0の経路にだけ
+// 温存される）ため、ここは`||`で揃える。
+const DEFAULT_PAGE_LIMIT = 50;
+// getByFrequency（全件返却）の内部走査ページサイズ。DEFAULT_PAGE_LIMITとは独立した
+// 実装都合の値のため、in-memory-ticker.repository.tsのFULL_SCAN_PAGE_SIZEに揃える。
+const FULL_SCAN_PAGE_SIZE = 100;
+
 /**
  * InMemory Alert Repository
  *
@@ -71,7 +87,10 @@ export class InMemoryAlertRepository implements AlertRepository {
           value: 'Alert#',
         },
       },
-      options
+      {
+        ...options,
+        limit: options?.limit || DEFAULT_PAGE_LIMIT,
+      }
     );
 
     const filteredRawItems = result.items.filter(
@@ -87,27 +106,32 @@ export class InMemoryAlertRepository implements AlertRepository {
   }
 
   /**
-   * 頻度ごとのアラート一覧を取得（バッチ処理用）
+   * 頻度ごとのアラート一覧を取得（バッチ処理用）。
+   *
+   * 全件を返す契約のため、nextCursorがなくなるまでstoreのページを辿り切って集約する。
    */
-  public async getByFrequency(
-    frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL',
-    options?: PaginationOptions
-  ): Promise<PaginatedResult<AlertEntity>> {
-    const result = this.store.queryByAttribute(
-      {
-        attributeName: 'GSI2PK',
-        attributeValue: `ALERT#${frequency}`,
-      },
-      options
-    );
+  public async getByFrequency(frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL'): Promise<AlertEntity[]> {
+    const items: AlertEntity[] = [];
+    let cursor: string | undefined;
 
-    const items = result.items.map((item) => this.mapper.toEntity(item));
+    do {
+      const page = this.store.queryByAttribute(
+        {
+          attributeName: 'GSI2PK',
+          attributeValue: `ALERT#${frequency}`,
+          // sk条件を指定しないため、実DynamoDBのGSI2 Queryと同様にGSI2SK昇順で返すよう明示する
+          gsiSortKeyAttributeName: 'GSI2SK',
+        },
+        {
+          limit: FULL_SCAN_PAGE_SIZE,
+          cursor,
+        }
+      );
+      items.push(...page.items.map((item) => this.mapper.toEntity(item)));
+      cursor = page.nextCursor;
+    } while (cursor);
 
-    return {
-      items,
-      nextCursor: result.nextCursor,
-      count: result.count,
-    };
+    return items;
   }
 
   /**
@@ -204,8 +228,13 @@ export class InMemoryAlertRepository implements AlertRepository {
       {
         attributeName: 'GSI2PK',
         attributeValue: `ALERT#${frequency}`,
+        // sk条件を指定しないため、実DynamoDBのGSI2 Queryと同様にGSI2SK昇順で返すよう明示する
+        gsiSortKeyAttributeName: 'GSI2SK',
       },
-      options
+      {
+        ...options,
+        limit: options?.limit || DEFAULT_PAGE_LIMIT,
+      }
     );
 
     const items: TemporaryAlertCandidate[] = [];

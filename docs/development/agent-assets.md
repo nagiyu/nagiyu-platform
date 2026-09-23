@@ -46,6 +46,8 @@
 - 実装＋テストのように物量があり、本体（オーケストレーター）の文脈を圧迫する作業。別モデル（Sonnet）でコスト最適化する。
 - **コンテキスト隔離そのものが目的の作業**（fresh-eyes レビュー）。オーケストレーターは実装方針・会話履歴を抱えているため、同一文脈でレビューしても先入観を排せない。別コンテキストで走るサブエージェントに diff・成果物だけを渡すことで、白紙視点の検証が成立する（→ [`.claude/agents/reviewer.md`](../../.claude/agents/reviewer.md)）。
 
+**切り出さないもの**: **人の判断が要る作業**はサブエージェントにしない。サブエージェントは走り出すと人が介入できないため、判断そのものを分散したい場合は**セッションを分ける**（→ [`CLAUDE.md`](../../CLAUDE.md) の「なぜセッションを分けるのか」・[`claude-sessions.md`](claude-sessions.md)）。物量が理由ならサブエージェント、判断が理由ならセッション。
+
 ---
 
 ## Skill の基本構造
@@ -72,5 +74,6 @@
 
 - [`CLAUDE.md`](../../CLAUDE.md) — Claude 運用ハンドブック（常時ロード）
 - [`docs/development/claude-environment.md`](claude-environment.md) — env 固有事情（Skill 化の元ネタ）
+- [`docs/development/claude-sessions.md`](claude-sessions.md) — セッション運用の実測と制約（サブエージェントとの使い分け）
 - [`.claude/agents/implementer.md`](../../.claude/agents/implementer.md) — 実装サブエージェント定義
 - [`.claude/agents/reviewer.md`](../../.claude/agents/reviewer.md) — fresh-eyes レビュアー定義

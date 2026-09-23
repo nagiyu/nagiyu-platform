@@ -37,7 +37,7 @@ export class NotificationEventMapper implements EntityMapper<
       UpdatedAt: entity.CreatedAt,
       Ttl: entity.Ttl,
     };
-    if (entity.KnowledgeID !== undefined) item.KnowledgeID = entity.KnowledgeID;
+    if (entity.TopicID !== undefined) item.TopicID = entity.TopicID;
     if (entity.SuggestedReply !== undefined) item.SuggestedReply = entity.SuggestedReply;
     if (entity.ConsumedAt !== undefined) item.ConsumedAt = entity.ConsumedAt;
     return item;
@@ -60,8 +60,8 @@ export class NotificationEventMapper implements EntityMapper<
       CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
       Ttl: validateNumberField(item.Ttl, 'Ttl'),
     };
-    if (item.KnowledgeID !== undefined) {
-      entity.KnowledgeID = validateStringField(item.KnowledgeID, 'KnowledgeID');
+    if (item.TopicID !== undefined) {
+      entity.TopicID = validateStringField(item.TopicID, 'TopicID');
     }
     if (item.SuggestedReply !== undefined) {
       entity.SuggestedReply = validateStringField(item.SuggestedReply, 'SuggestedReply');

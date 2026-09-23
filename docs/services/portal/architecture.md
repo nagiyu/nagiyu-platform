@@ -73,6 +73,9 @@ Dev VPC はシングル AZ（us-east-1a のみ）のため ALB が使用不可�
 - **Dev**: ECR → Lambda（Function URL）→ CloudFront
 - **Prod**: ECR → ECS Cluster + ALB → ECS Service → CloudFront
 
+
+> **注記（前提の変化）**: この決定を下した当時、Dev VPC はシングル AZ だった。その後、リブトーク（ALB 必須）の導入に伴い **Dev VPC にも 1b の Subnet が追加され、現在は 2 AZ 構成**である（→ [`docs/infra/shared/vpc.md`](../../infra/shared/vpc.md)）。つまり「ALB が使えない」という当初の制約は現在は解消している。それでも Dev を Lambda のままにしているのは、制約回避ではなく**アクセスの少ない Dev で常時稼働のコストを持たない**という別の理由による。
+
 **根拠・トレードオフ**
 
 - Dev VPC のシングル AZ 制約を回避するために Lambda Function URL を採用

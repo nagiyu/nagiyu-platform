@@ -15,6 +15,12 @@ export interface LiveTalkDynamoDbStackProps extends cdk.StackProps {
  *   GSI1PK='PROFILE' の sparse GSI で Profile のみ索引化する。
  *   SafetyEvent 横断レビューのために GSI2 を追加した（ADR-2.22 / #3580）。
  *   GSI2PK='SAFETY' の sparse GSI で SafetyEvent のみ索引化し、メタデータを INCLUDE 射影する。
+ *   Topic 中心モデル（リブトーク知識再設計 P1 / #3697、shadow build）のために GSI3 を追加した。
+ *   GSI-TOPIC: Topic ヘッダ(META) のみを sparse 索引化する。想起の座標列挙と acquire の
+ *   care 降順取得を賄う（#3697）。
+ *   acquire バッチの鮮度掃引（リブトーク知識再設計 P3 / #3699）のために GSI4 を追加した。
+ *   GSI-STALE: 揮発性のある WEB fact（NextReview を持つもの）のみを sparse 索引化し、
+ *   `nextReview<=now` の窓走査で鮮度切れ fact を列挙する。
  *   （`docs/services/livetalk/architecture.md` §3「データモデル概要」参照）
  * - Message は TTL（属性名 `TTL`、Unix 秒）で 90 日後に自動削除
  * - Point-in-time Recovery 有効、AWS マネージドキーで at-rest 暗号化
@@ -78,6 +84,39 @@ export class LiveTalkDynamoDbStack extends cdk.Stack {
         'CreatedAt',
       ],
     });
+
+    // GSI3（GSI-TOPIC）: Topic ヘッダ(META) のみを sparse 索引化する。
+    // 想起の座標列挙と acquire の care 降順を賄う（リブトーク知識再設計 P1 / #3697）。
+    // GSI3PK=`<characterId>#TOPICS#<userId>` の META アイテムのみが対象（sparse GSI）
+    // GSI3SK は Care（Number 型。care 降順 Query と全件列挙の両方を賄う）
+    // 射影は Topic ヘッダ列挙・care 降順取得に必要な属性のみを INCLUDE する
+    // （Care は GSI3SK と重複するため除外）。
+    // 依頼フック（RequestText/RequestedAt、甲-1: 依頼由来 provenance）は意図的に含めない。
+    // 依頼フックは generate-note が getTopicBundle（ベーステーブル読み）でのみ参照し、
+    // Topic ヘッダ列挙・care 降順取得（GSI3 経由）では使わないため、GSI3 だけで
+    // TopicEntity を完全復元できるとは限らない（この 2 属性を除いた不変条件になった）。
+    this.table.addGlobalSecondaryIndex({
+      indexName: 'GSI3',
+      partitionKey: { name: 'GSI3PK', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'GSI3SK', type: dynamodb.AttributeType.NUMBER },
+      projectionType: dynamodb.ProjectionType.INCLUDE,
+      nonKeyAttributes: [
+        'UserID',
+        'CharacterID',
+        'TopicID',
+        'Subject',
+        'CanonicalSummary',
+        'Category',
+        'Embedding',
+        'CreatedAt',
+        'UpdatedAt',
+      ],
+    });
+
+    // GSI4（GSI-STALE）は v8.4.0 の本番リリースでは意図的に定義しない（後続の hotfix で追加する）。
+    // DynamoDB は 1 回のテーブル更新で GSI を 1 つしか作成できず、本番テーブルには GSI3 と
+    // GSI4 がどちらも未作成のため、同時に定義すると CloudFormation の更新が失敗する。
+    // そのため本リリースで GSI3 のみを作成し、GSI4 は次のデプロイで追加する 2 段階で反映する。
 
     cdk.Tags.of(this).add('Application', 'nagiyu');
     cdk.Tags.of(this).add('Environment', environment);

@@ -64,4 +64,15 @@ export class InMemoryNoteRepository implements NoteRepository {
     const all = await this.list(userId, characterId, limit);
     return all.filter((note) => note.CreatedAt >= threshold);
   }
+
+  public async updateReaction(key: NoteKey, reaction: string): Promise<void> {
+    const pk = buildUserPK(key.userId);
+    const sk = buildNoteSK(key.characterId, key.noteId);
+    const item = this.store.get(pk, sk);
+    if (!item) return;
+
+    const entity = this.mapper.toEntity(item);
+    const updated: NoteEntity = { ...entity, Reaction: reaction, UpdatedAt: this.nowMs() };
+    this.store.put(this.mapper.toItem(updated));
+  }
 }

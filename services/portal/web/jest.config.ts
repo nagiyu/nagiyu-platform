@@ -43,11 +43,10 @@ const config: Config = {
 // next/jest が設定する transformIgnorePatterns のデフォルトを上書きするために
 // createJestConfig() の後で書き換える
 const ESM_PACKAGES = [
-  'remark',
-  'remark-gfm',
-  'remark-rehype',
-  'rehype',
-  'rehype-stringify',
+  // remark / rehype は remark-parse のような内部依存も ESM-only のため、
+  // パッケージ名を個別列挙せずワイルドカードでまとめて変換対象に含める。
+  'remark[^/]*',
+  'rehype[^/]*',
   'unified',
   'bail',
   'trough',
@@ -73,6 +72,10 @@ const ESM_PACKAGES = [
   'web-namespaces',
   'fault',
   'devlop',
+  'trim-lines',
+  'hastscript',
+  'hast-to-hyperscript',
+  '@ungap/structured-clone',
 ].join('|');
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async.

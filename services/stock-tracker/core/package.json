@@ -14,6 +14,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:contract": "jest --config jest.contract.config.ts",
     "lint": "eslint src/**/*.ts tests/**/*.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
@@ -31,6 +32,8 @@
   },
   "devDependencies": {
     "@types/mathieuc__tradingview": "^3.5.0",
+    "aws-cdk-lib": "^2.258.0",
+    "constructs": "^10.6.0",
     "jest": "^30.3.0"
   }
 }

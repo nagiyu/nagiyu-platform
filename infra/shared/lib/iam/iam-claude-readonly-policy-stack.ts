@@ -16,6 +16,9 @@ import { Construct } from 'constructs';
  *     - KMS: Decrypt / Encrypt / GenerateDataKey 系を Deny
  *       （副作用として SSM SecureString も復号不可になる）
  *     - DynamoDB: nagiyu-auth-users-* テーブルへの読み取りを Deny
+ * - CloudTrail: インシデント発生時に「漏洩した資格情報が何をしたか」を
+ *   即座に調査できるよう、イベント履歴の参照権限（LookupEvents 等）を許可
+ *   （証跡の作成・停止・設定変更系アクションは含めない）
  *
  * 例外:
  * - DynamoDB の Scan / Query / GetItem が KMS 暗号化済みテーブルに対して
@@ -52,6 +55,11 @@ export class IamClaudeReadonlyPolicyStack extends cdk.Stack {
             'logs:StartQuery',
             'logs:StopQuery',
             'logs:TestMetricFilter',
+            // CloudTrail (インシデント調査用。イベント履歴の参照のみ)
+            'cloudtrail:LookupEvents',
+            'cloudtrail:Describe*',
+            'cloudtrail:Get*',
+            'cloudtrail:List*',
             // Lambda
             'lambda:Get*',
             'lambda:List*',

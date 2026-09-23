@@ -89,14 +89,14 @@ test.describe('個人リスト管理', () => {
   });
 
   test('デフォルトリストは削除できない', async ({ page }) => {
+    // 旧実装は「ボタンがあれば disabled、無ければ 0 件」を許容しており、どちらに転んでも
+    // green になる形骸化だった。実装（src/components/ListSidebar.tsx）は
+    // `disabled={list.isDefault === true}` でボタン自体は必ず描画するため、
+    // 「存在して、かつ disabled」という単一の結末に固定する。
     const defaultDeleteButton = page.getByRole('button', { name: 'デフォルトリストを削除' });
-    const count = await defaultDeleteButton.count();
-    if (count > 0) {
-      await expect(defaultDeleteButton).toBeDisabled();
-      return;
-    }
 
-    await expect(defaultDeleteButton).toHaveCount(0);
+    await expect(defaultDeleteButton).toHaveCount(1);
+    await expect(defaultDeleteButton).toBeDisabled();
   });
 
   test('他ユーザーの個人リストにはアクセスできない', async ({ page, request }) => {

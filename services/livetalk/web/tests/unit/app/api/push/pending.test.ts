@@ -50,7 +50,6 @@ function makeEvent(overrides: Partial<NotificationEventEntity> = {}): Notificati
     Kind: 'normal',
     Title: 'ひよりより',
     Body: 'テスト本文',
-    KnowledgeID: undefined,
     ConsumedAt: undefined,
     CreatedAt: Date.now(),
     Ttl: Date.now() + 30 * 24 * 60 * 60 * 1000,

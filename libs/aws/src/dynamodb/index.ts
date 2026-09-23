@@ -62,4 +62,5 @@ export {
   InMemorySingleTableStore,
   type QueryCondition,
   type AttributeQueryCondition,
+  type AttributeProjection,
 } from './in-memory/single-table-store.js';

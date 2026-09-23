@@ -45,7 +45,7 @@ MVP（Phase 0〜5）が完成しており、描画・音声・AI 統合・記憶
 
 - **構成**: ECS Fargate 1 Task に Next.js + VOICEVOX の 2 コンテナ同居
 - **データ**: DynamoDB Single Table（1 メッセージ 1 item、Message は TTL 90 日）
-- **バッチ**: EventBridge Scheduler + Lambda（圧縮要約 / 勉強 / 通知 / 活動時間学習、各独立）
+- **バッチ**: EventBridge Scheduler + Lambda（Topic 集約 / Web 取得 / 通知 / 活動時間学習、各独立）
 - **キャラ**: 桃瀬ひより（Live2D 公式サンプル）+ VOICEVOX 冥鳴ひまり（speaker=14）
 - **LLM**: OpenAI GPT-4o / GPT-4o-mini（用途別振り分け）、要約・分類は Structured Outputs
 - **認可**: 既存 RBAC（`livetalk:chat` / `livetalk:admin`）

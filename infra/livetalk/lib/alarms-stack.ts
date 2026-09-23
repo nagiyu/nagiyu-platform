@@ -38,21 +38,7 @@ export class LiveTalkAlarmsStack extends cdk.Stack {
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     };
 
-    // ---- (A) バッチ Lambda Errors（4本）----
-
-    const compressErrorAlarm = new cloudwatch.Alarm(this, 'CompressErrorsAlarm', {
-      alarmName: `livetalk-batch-compress-errors-${environment}`,
-      alarmDescription: '圧縮要約バッチ Lambda の例外発生（5 分間で 1 件以上）',
-      metric: new cloudwatch.Metric({
-        namespace: 'AWS/Lambda',
-        metricName: 'Errors',
-        dimensionsMap: { FunctionName: `nagiyu-livetalk-batch-compress-${environment}` },
-        statistic: cloudwatch.Stats.SUM,
-        period: cdk.Duration.minutes(5),
-      }),
-      ...commonAlarmProps,
-    });
-    compressErrorAlarm.addAlarmAction(action);
+    // ---- (A) バッチ Lambda Errors（2本）----
 
     const learnActivityErrorAlarm = new cloudwatch.Alarm(this, 'LearnActivityErrorsAlarm', {
       alarmName: `livetalk-batch-learn-activity-errors-${environment}`,
@@ -70,20 +56,6 @@ export class LiveTalkAlarmsStack extends cdk.Stack {
     });
     learnActivityErrorAlarm.addAlarmAction(action);
 
-    const studyErrorAlarm = new cloudwatch.Alarm(this, 'StudyErrorsAlarm', {
-      alarmName: `livetalk-batch-study-errors-${environment}`,
-      alarmDescription: '勉強バッチ Lambda の例外発生（5 分間で 1 件以上）',
-      metric: new cloudwatch.Metric({
-        namespace: 'AWS/Lambda',
-        metricName: 'Errors',
-        dimensionsMap: { FunctionName: `nagiyu-livetalk-batch-study-${environment}` },
-        statistic: cloudwatch.Stats.SUM,
-        period: cdk.Duration.minutes(5),
-      }),
-      ...commonAlarmProps,
-    });
-    studyErrorAlarm.addAlarmAction(action);
-
     const notifyErrorAlarm = new cloudwatch.Alarm(this, 'NotifyErrorsAlarm', {
       alarmName: `livetalk-batch-notify-errors-${environment}`,
       alarmDescription: '通知バッチ Lambda の例外発生（5 分間で 1 件以上）',
@@ -98,21 +70,7 @@ export class LiveTalkAlarmsStack extends cdk.Stack {
     });
     notifyErrorAlarm.addAlarmAction(action);
 
-    // ---- (B) バッチ DLQ 滞留（4本）----
-
-    const compressDlqAlarm = new cloudwatch.Alarm(this, 'CompressDlqAlarm', {
-      alarmName: `livetalk-batch-compress-dlq-${environment}`,
-      alarmDescription: '圧縮要約バッチ DLQ にメッセージが滞留している',
-      metric: new cloudwatch.Metric({
-        namespace: 'AWS/SQS',
-        metricName: 'ApproximateNumberOfMessagesVisible',
-        dimensionsMap: { QueueName: `nagiyu-livetalk-batch-dlq-${environment}` },
-        statistic: cloudwatch.Stats.MAXIMUM,
-        period: cdk.Duration.minutes(5),
-      }),
-      ...commonAlarmProps,
-    });
-    compressDlqAlarm.addAlarmAction(action);
+    // ---- (B) バッチ DLQ 滞留（2本）----
 
     const learnActivityDlqAlarm = new cloudwatch.Alarm(this, 'LearnActivityDlqAlarm', {
       alarmName: `livetalk-batch-learn-activity-dlq-${environment}`,
@@ -127,20 +85,6 @@ export class LiveTalkAlarmsStack extends cdk.Stack {
       ...commonAlarmProps,
     });
     learnActivityDlqAlarm.addAlarmAction(action);
-
-    const studyDlqAlarm = new cloudwatch.Alarm(this, 'StudyDlqAlarm', {
-      alarmName: `livetalk-batch-study-dlq-${environment}`,
-      alarmDescription: '勉強バッチ DLQ にメッセージが滞留している',
-      metric: new cloudwatch.Metric({
-        namespace: 'AWS/SQS',
-        metricName: 'ApproximateNumberOfMessagesVisible',
-        dimensionsMap: { QueueName: `nagiyu-livetalk-study-dlq-${environment}` },
-        statistic: cloudwatch.Stats.MAXIMUM,
-        period: cdk.Duration.minutes(5),
-      }),
-      ...commonAlarmProps,
-    });
-    studyDlqAlarm.addAlarmAction(action);
 
     const notifyDlqAlarm = new cloudwatch.Alarm(this, 'NotifyDlqAlarm', {
       alarmName: `livetalk-batch-notify-dlq-${environment}`,
@@ -223,13 +167,9 @@ export class LiveTalkAlarmsStack extends cdk.Stack {
 
     // タグ付与
     const allAlarms = [
-      compressErrorAlarm,
       learnActivityErrorAlarm,
-      studyErrorAlarm,
       notifyErrorAlarm,
-      compressDlqAlarm,
       learnActivityDlqAlarm,
-      studyDlqAlarm,
       notifyDlqAlarm,
       alb5xxAlarm,
       albUnhealthyAlarm,

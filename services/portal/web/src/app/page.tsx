@@ -7,9 +7,9 @@ import HomeFeaturedSection from '@/components/HomeFeaturedSection';
 import HomeLatestArticlesSection from '@/components/HomeLatestArticlesSection';
 
 export const metadata: Metadata = {
-  title: 'nagiyu - AWS・Next.js 技術メディア',
+  title: 'nagiyu - AWS と個人開発の実運用ノート',
   description:
-    '個人開発者による実運用ベースの技術メディア。AWS・Next.js を主軸としたフルスタック開発で実際に直面した設計判断・実装の詳細・運用知見を記録しています。',
+    '個人で複数の Web サービスを AWS 上で開発・運用する中で、実際に踏んだ失敗と、その場で下した判断を記録している技術メディアです。',
   alternates: {
     canonical: 'https://nagiyu.com',
   },

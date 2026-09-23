@@ -26,10 +26,10 @@ export function getNoteEmptyMessage(characterId?: string): string {
 }
 
 /**
- * createdAt（Unix ms）を日本語の日付文字列に整形する。
+ * sharedAt（贈った瞬間、Unix ms）を日本語の日付文字列に整形する。
  */
-export function formatNoteDate(createdAt: number): string {
-  const date = new Date(createdAt);
+export function formatNoteDate(sharedAt: number): string {
+  const date = new Date(sharedAt);
   const year = date.getFullYear();
   const month = date.getMonth() + 1;
   const day = date.getDate();

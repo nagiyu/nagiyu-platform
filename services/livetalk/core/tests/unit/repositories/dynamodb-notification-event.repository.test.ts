@@ -53,7 +53,7 @@ describe('DynamoDBNotificationEventRepository', () => {
       expect(sent[0]).toBeInstanceOf(PutCommand);
     });
 
-    it('critical 種別と KnowledgeID を保存できる', async () => {
+    it('critical 種別を保存できる', async () => {
       const client = makeClient(async () => ({}));
       const repo = new DynamoDBNotificationEventRepository(
         client as never,
@@ -61,9 +61,8 @@ describe('DynamoDBNotificationEventRepository', () => {
         () => fixedNow
       );
 
-      const entity = await repo.put({ ...baseInput, Kind: 'critical', KnowledgeID: 'k1' });
+      const entity = await repo.put({ ...baseInput, Kind: 'critical' });
       expect(entity.Kind).toBe('critical');
-      expect(entity.KnowledgeID).toBe('k1');
     });
 
     it('エラー時は DatabaseError を投げる', async () => {
@@ -386,10 +385,9 @@ describe('DynamoDBNotificationEventRepository', () => {
       expect(sent[0]).toBeInstanceOf(GetCommand);
     });
 
-    it('KnowledgeID と ConsumedAt がある場合も正しく返す', async () => {
+    it('ConsumedAt がある場合も正しく返す', async () => {
       const itemWithOptionals = {
         ...baseItem,
-        KnowledgeID: 'k1',
         ConsumedAt: fixedNow + 5000,
       };
       const client = makeClient(async () => ({ Item: itemWithOptionals }));
@@ -400,7 +398,6 @@ describe('DynamoDBNotificationEventRepository', () => {
       );
 
       const found = await repo.get({ userId: 'u1', notifId: 'NOTIF-001' });
-      expect(found?.KnowledgeID).toBe('k1');
       expect(found?.ConsumedAt).toBe(fixedNow + 5000);
     });
 

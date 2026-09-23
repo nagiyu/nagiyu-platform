@@ -16,12 +16,12 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'nagiyu - AWS・Next.js 技術メディア',
+    default: 'nagiyu - AWS と個人開発の実運用ノート',
     template: '%s - nagiyu',
   },
   description:
-    '個人開発者による実運用ベースの技術メディア。AWS・Next.js を中心としたフルスタック開発で実際に直面した設計判断・実装の詳細・運用知見を記録しています。',
-  keywords: ['nagiyu', '技術記事', 'AWS', 'Next.js', 'フルスタック', '個人開発', '実運用'],
+    '個人で複数の Web サービスを AWS 上で開発・運用する中で、実際に踏んだ失敗と、その場で下した判断を記録している技術メディアです。',
+  keywords: ['nagiyu', '技術記事', 'AWS', '個人開発', '実運用', 'CI/CD', 'テスト', 'AI 開発'],
   authors: [{ name: 'nagiyu' }],
   creator: 'nagiyu',
   publisher: 'nagiyu',
@@ -30,24 +30,24 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'ja_JP',
     url: 'https://nagiyu.com',
-    title: 'nagiyu - AWS・Next.js 技術メディア',
+    title: 'nagiyu - AWS と個人開発の実運用ノート',
     description:
-      '個人開発者による実運用ベースの技術メディア。AWS・Next.js を中心とした開発の設計判断と実装の詳細を記録しています。',
+      '個人で複数の Web サービスを AWS 上で運用する中で踏んだ失敗と、その場で下した判断の記録。',
     siteName: 'nagiyu',
     images: [
       {
         url: '/og-default.png',
         width: 1200,
         height: 630,
-        alt: 'nagiyu - AWS・Next.js 技術メディア',
+        alt: 'nagiyu - AWS と個人開発の実運用ノート',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'nagiyu - AWS・Next.js 技術メディア',
+    title: 'nagiyu - AWS と個人開発の実運用ノート',
     description:
-      '個人開発者による実運用ベースの技術メディア。AWS・Next.js を中心とした開発の設計判断と実装の詳細を記録しています。',
+      '個人で複数の Web サービスを AWS 上で運用する中で踏んだ失敗と、その場で下した判断の記録。',
     images: ['/og-default.png'],
   },
 };

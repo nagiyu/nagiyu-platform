@@ -31,7 +31,6 @@ import { getSession } from '@/lib/server/session';
 import {
   getLifecycleRepository,
   getNotificationEventRepository,
-  getKnowledgeRepository,
   getStudyTopicRepository,
   getMessageRepository,
 } from '@/lib/server/repositories';
@@ -105,12 +104,11 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
   const userId = session.user.googleId;
   const now = new Date();
 
-  const [lifecycle, notificationEvents, allMessages, knowledge, studyPending, recentSafetyEvents] =
+  const [lifecycle, notificationEvents, allMessages, studyPending, recentSafetyEvents] =
     await Promise.all([
       getLifecycleRepository().get({ userId, characterId }),
       getNotificationEventRepository().listByUser(userId, 10),
       getMessageRepository().listSince(userId, characterId, 0),
-      getKnowledgeRepository().list(userId, characterId),
       getStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
       getSafetyEventRepository().listRecent(SAFETY_REVIEW_DEFAULT_LIMIT),
     ]);
@@ -259,7 +257,6 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
       <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 'bold' }}>
         コンテンツ
       </Typography>
-      <Typography variant="body2">KNOWLEDGE: {knowledge.length} 件</Typography>
       <Typography variant="body2">STUDY_TOPIC (pending): {studyPending.length} 件</Typography>
 
       <Divider sx={{ my: 1.5 }} />

@@ -31,10 +31,7 @@ describe('lib/server/repositories', () => {
     expect(c1).toBeDefined();
     expect(l1).toBeDefined();
 
-    // Phase 5b 配線: 知識ゲートで使う Knowledge / StudyTopic も取得できる
-    const k1 = mod.getKnowledgeRepository();
-    const k2 = mod.getKnowledgeRepository();
-    expect(k1).toBe(k2);
+    // Phase 5b 配線: StudyTopic も取得できる（Knowledge は P5 で撤去済み）
     const s1 = mod.getStudyTopicRepository();
     const s2 = mod.getStudyTopicRepository();
     expect(s1).toBe(s2);
@@ -43,6 +40,18 @@ describe('lib/server/repositories', () => {
     const n1 = mod.getNoteRepository();
     const n2 = mod.getNoteRepository();
     expect(n1).toBe(n2);
+
+    // リブトーク知識再設計 P2 配線: Topic（SELF fact 一覧・忘却で使用）も取得できる
+    const t1 = mod.getTopicRepository();
+    const t2 = mod.getTopicRepository();
+    expect(t1).toBe(t2);
+
+    const push1 = mod.getPushSubscriptionRepository();
+    expect(push1).toBeDefined();
+    const notif1 = mod.getNotificationEventRepository();
+    expect(notif1).toBeDefined();
+    const acctDeletion1 = mod.getAccountDeletionRepository();
+    expect(acctDeletion1).toBeDefined();
   });
 
   it('InMemory 実装では Note を保存して取得できる（共有 store 検証）', async () => {
@@ -54,14 +63,13 @@ describe('lib/server/repositories', () => {
       UserID: 'u1',
       CharacterID: 'hiyori',
       NoteID: 'note-1',
-      Title: 'コーヒーの効能',
-      Body: '本文',
-      RelatedKnowledgeIds: ['know-1'],
-      RelatedCategory: 'コーヒー',
+      TopicID: 'topic-1',
+      Subject: 'コーヒーの効能',
+      Headline: 'この前の話、気になって調べてみたよ。覚醒効果があるみたい！',
     });
     const list = await repo.list('u1', 'hiyori');
     expect(list).toHaveLength(1);
-    expect(list[0].Title).toBe('コーヒーの効能');
+    expect(list[0].Subject).toBe('コーヒーの効能');
     mod.resetRepositoriesForTesting();
   });
 
@@ -122,9 +130,42 @@ describe('lib/server/repositories', () => {
     expect(() => mod.getProfileRepository()).not.toThrow();
     expect(() => mod.getCharacterStateRepository()).not.toThrow();
     expect(() => mod.getLifecycleRepository()).not.toThrow();
-    expect(() => mod.getKnowledgeRepository()).not.toThrow();
     expect(() => mod.getStudyTopicRepository()).not.toThrow();
     expect(() => mod.getNoteRepository()).not.toThrow();
+    expect(() => mod.getTopicRepository()).not.toThrow();
+    expect(() => mod.getPushSubscriptionRepository()).not.toThrow();
+    expect(() => mod.getNotificationEventRepository()).not.toThrow();
+    expect(() => mod.getAccountDeletionRepository()).not.toThrow();
+    mod.resetRepositoriesForTesting();
+  });
+
+  it('InMemory 実装では Topic を保存して SELF fact を列挙できる（共有 store 検証）', async () => {
+    process.env.USE_IN_MEMORY_DB = 'true';
+    const mod = await import('@/lib/server/repositories');
+    mod.resetRepositoriesForTesting();
+    const repo = mod.getTopicRepository();
+    const topic = await repo.putTopic({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      TopicID: 'topic-1',
+      Subject: '好きな食べ物',
+      CanonicalSummary: '',
+      Category: 'preference',
+      Care: 1,
+      Embedding: [],
+    });
+    await repo.putSelfFact({
+      UserID: 'u1',
+      CharacterID: 'hiyori',
+      TopicID: topic.TopicID,
+      Text: 'カレーが好き',
+      Provenance: '',
+    });
+    const headers = await repo.listTopicHeaders('u1', 'hiyori');
+    expect(headers).toHaveLength(1);
+    const facts = await repo.listSelfFacts('u1', 'hiyori', topic.TopicID);
+    expect(facts).toHaveLength(1);
+    expect(facts[0].Text).toBe('カレーが好き');
     mod.resetRepositoriesForTesting();
   });
 });

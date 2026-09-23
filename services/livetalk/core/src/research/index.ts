@@ -5,3 +5,7 @@ export {
   type OpenAIResearchClientOptions,
 } from './openai-research-client.js';
 export { buildResearchPrompt } from './research.prompt.js';
+export {
+  LLMWebFactChangeDetector,
+  type IWebFactChangeDetector,
+} from './web-fact-change-detector.js';

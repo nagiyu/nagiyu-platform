@@ -58,6 +58,34 @@ describe('ServiceWorkerRegistration', () => {
     });
   });
 
+  it('Notification が存在しない環境（iOS Safari 等）でも ReferenceError にならず、Push 購読を行わない', async () => {
+    // WebKit / iOS Safari には Notification が存在しない。ガードなしに
+    // `Notification.permission` を参照すると ReferenceError になり、
+    // 「Service Workerの登録に失敗しました」として常時コンソールエラーが出ていた。
+    // @ts-expect-error テスト目的で Notification 未定義環境を再現する
+    delete globalThis.Notification;
+
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    render(
+      <ServiceWorkerRegistration
+        subscribeEndpoint="/api/push/subscribe"
+        vapidPublicKeyEndpoint="/api/push/vapid-public-key"
+      />
+    );
+
+    // Service Worker の登録自体は行われる
+    await waitFor(() => {
+      expect(mockRegister).toHaveBeenCalledWith('/sw.js');
+    });
+
+    // Notification が無いので Push 購読へは進まず、エラーも記録されない
+    expect(mockGetSubscription).not.toHaveBeenCalled();
+    expect(mockSubscribe).not.toHaveBeenCalled();
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+  });
+
   it('subscribeEndpoint 未指定時は Service Worker 登録のみ行う', async () => {
     render(<ServiceWorkerRegistration />);
 

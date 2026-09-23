@@ -152,6 +152,38 @@ ui       ← browser, common
 
 **ローカルで `next dev` や E2E を起動する前にも同様に依存順でビルドする**。全 libs を依存順でビルドするスクリプトを `build-shared-libs` スキル（[`.claude/skills/build-shared-libs/`](../../.claude/skills/build-shared-libs/SKILL.md)）に同梱しているので、`.claude/skills/build-shared-libs/scripts/build.sh` を使う。
 
+### libs だけでは足りない：サービスの core も必要
+
+`libs/*` に加えて、**そのサービスの core パッケージもビルドが必要**。これも `"main"` が `dist/` を指しており、`npm ci` では作られない。
+
+見落としやすいのは、**libs のビルドだけ済ませると起動自体は成功してしまう**点。失敗は起動時ではなく、core を参照する API を叩いた瞬間に 500 として初めて現れる。E2E では「ブラウザを使わない API テストだけが通り、画面を伴うテストが軒並み落ちる」という紛らわしい形になる。
+
+E2E を回す前は、libs 一式に加えて対象サービスの core もビルドしておくこと。
+
+---
+
+## DynamoDB Local（契約テスト）
+
+契約テストは DynamoDB Local を前提とする。CI は service container（`amazon/dynamodb-local`）で起動しており、手元でも**同じイメージを Docker で起動する**。
+
+この環境には `docker` / `dockerd` / `containerd` がベースイメージに同梱されているが、**daemon は自動では起動しない**。そのため素の状態で `docker run` すると daemon への接続に失敗し、「Docker は使えない」と誤認しやすい。root 権限があるので、daemon を手動で起動すればそのまま使える。
+
+```bash
+# daemon を起動する（セッションごとに必要。自動起動はしない）
+dockerd > /tmp/dockerd.log 2>&1 &
+for i in $(seq 1 20); do docker info >/dev/null 2>&1 && break; sleep 1; done
+
+# CI と同じイメージを起動する（既定コマンドが -inMemory で起動する）
+docker run -d --name ddb -p 8000:8000 amazon/dynamodb-local
+```
+
+起動後は、CI と同じ環境変数（`AWS_REGION=us-east-1` / `AWS_ACCESS_KEY_ID=test` / `AWS_SECRET_ACCESS_KEY=test`）で、対象ワークスペースの契約テスト用スクリプト（`test:contract`）をそのまま実行できる。
+
+- **CI と同じイメージを使うことで、手元と CI の DynamoDB Local のバージョンが揃う**。
+- イメージの既定コマンドが `-inMemory` なので、コンテナを消せば状態は残らない。
+- **ポートを 8000 にするのは、契約テスト側のヘルパーの既定がそこを向いているため**。別のポートで起動したい場合は `DYNAMODB_ENDPOINT` で上書きできる。
+- **`-sharedDb` を付けない場合、DynamoDB Local はアクセスキー ID とリージョンの組ごとに別の DB を持つ**（シークレットキーは影響しない）。契約テスト側が固定のダミー認証情報を使う前提なので通常は問題にならないが、手元から別の認証情報やリージョンで覗くとテーブルが存在しないように見える。
+
 ---
 
 ## やってはいけないこと
@@ -161,6 +193,7 @@ ui       ← browser, common
 - **`.claude/settings.json` の SessionStart hook で `npm ci` や libs build を毎回回す**: モノレポ全体に対して一律前処理になり他サービス作業のコスト増、`package-lock.json` 変動と相性悪い
 - **WebKit を Setup Script に常駐させる**: 出番は限定的でストレージと初回起動コストが釣り合わない
 - **`PLAYWRIGHT_BROWSERS_PATH` を変更する**: ベースイメージ前提で設定されているのでそのまま尊重する
+- **`docker run` の失敗を見て「Docker は使えない」と判断する**: daemon が自動起動していないだけ。`dockerd` を起動してから使う
 
 ---
 

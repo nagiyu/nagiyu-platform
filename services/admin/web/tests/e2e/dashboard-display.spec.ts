@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import { hasPermission } from '../../../../../libs/common/src/auth/permissions';
 
 /**
  * ダッシュボード表示テスト
@@ -66,19 +65,16 @@ test.describe('Dashboard Display', () => {
     expect(href).toContain('/api/auth/signout');
   });
 
-  test('should conditionally display notification settings card by role', async ({ page }) => {
-    const notificationHeading = page.getByRole('heading', { name: '通知設定' });
-    const notifyButton = page.getByRole('button', { name: '通知を有効にする' });
-    const canManageNotifications = hasPermission(testUserRoles, 'notifications:write');
+  test('should display notification settings and error history cards for admin role', async ({
+    page,
+  }) => {
+    // .env.test の TEST_USER_ROLES=admin を前提に、ロールから権限フラグへの配線が
+    // 正しく通っていることを代表例 1 本で確認する（否定側・ロール網羅は単体テストへ移管済み）。
+    await expect(page.getByRole('heading', { name: '通知設定' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '通知を有効にする' })).toBeVisible();
 
-    if (canManageNotifications) {
-      await expect(notificationHeading).toBeVisible();
-      await expect(notifyButton).toBeVisible();
-      return;
-    }
-
-    await expect(notificationHeading).not.toBeVisible();
-    await expect(notifyButton).not.toBeVisible();
+    await expect(page.getByRole('heading', { name: 'エラー履歴' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'エラー履歴を表示' })).toBeVisible();
   });
 
   test('should display header with Admin title', async ({ page }) => {

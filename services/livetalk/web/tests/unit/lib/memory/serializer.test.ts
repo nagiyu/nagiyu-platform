@@ -1,77 +1,54 @@
-import type { MemoryEntity } from '@nagiyu/livetalk-core';
-import { sortMemories, toMemoryListItem } from '@/lib/memory/serializer';
-import { decodeMemoryId } from '@/lib/memory/memory-id';
-import type { MemoryListItem } from '@/lib/memory/types';
+import type { SelfFactEntity } from '@nagiyu/livetalk-core';
+import { sortSelfFacts, toSelfFactListItem } from '@/lib/memory/serializer';
+import { decodeSelfFactId } from '@/lib/memory/memory-id';
+import type { SelfFactListItem } from '@/lib/memory/types';
 
-const entity: MemoryEntity = {
+const entity: SelfFactEntity = {
   UserID: 'user-1',
   CharacterID: 'hiyori',
-  MemoryID: '01HZ',
-  Tier: 'B',
-  Category: 'food',
-  Content: 'コーヒーが好き',
-  Confidence: 0.8,
-  ReferencedCount: 3,
-  LastReferencedAt: 1000,
+  TopicID: 'topic-1',
+  FactID: 'fact-1',
+  Text: 'コーヒーが好き',
+  Provenance: '',
   CreatedAt: 500,
-  UpdatedAt: 600,
 };
 
-describe('toMemoryListItem', () => {
+describe('toSelfFactListItem', () => {
   it('camelCase DTO に変換し、id は decode 可能', () => {
-    const dto = toMemoryListItem(entity);
+    const dto = toSelfFactListItem(entity, '好きな飲み物');
     expect(dto).toMatchObject({
-      tier: 'B',
-      category: 'food',
-      content: 'コーヒーが好き',
-      confidence: 0.8,
-      referencedCount: 3,
-      lastReferencedAt: 1000,
+      topicId: 'topic-1',
+      subject: '好きな飲み物',
+      text: 'コーヒーが好き',
       createdAt: 500,
-      updatedAt: 600,
     });
-    const key = decodeMemoryId(dto.id, 'user-1');
+    const key = decodeSelfFactId(dto.id, 'user-1');
     expect(key).toEqual({
       userId: 'user-1',
       characterId: 'hiyori',
-      tier: 'B',
-      category: 'food',
-      memoryId: '01HZ',
+      topicId: 'topic-1',
+      factId: 'fact-1',
     });
-  });
-
-  it('LastReferencedAt が無ければ undefined', () => {
-    const dto = toMemoryListItem({ ...entity, LastReferencedAt: undefined });
-    expect(dto.lastReferencedAt).toBeUndefined();
   });
 });
 
-describe('sortMemories', () => {
-  const make = (id: string, lastRef: number | undefined, created: number): MemoryListItem => ({
+describe('sortSelfFacts', () => {
+  const make = (id: string, created: number): SelfFactListItem => ({
     id,
-    tier: 'B',
-    category: 'c',
-    content: id,
-    confidence: 0.5,
-    referencedCount: 0,
-    lastReferencedAt: lastRef,
+    topicId: 't',
+    subject: 's',
+    text: id,
     createdAt: created,
-    updatedAt: created,
   });
 
-  it('最終参照の新しい順、未参照は末尾、同点は作成日時降順', () => {
-    const sorted = sortMemories([
-      make('old-ref', 100, 1),
-      make('new-ref', 200, 1),
-      make('no-ref-new', undefined, 50),
-      make('no-ref-old', undefined, 10),
-    ]);
-    expect(sorted.map((m) => m.id)).toEqual(['new-ref', 'old-ref', 'no-ref-new', 'no-ref-old']);
+  it('作成日時の新しい順（降順）に並べる', () => {
+    const sorted = sortSelfFacts([make('old', 1), make('new', 100), make('mid', 50)]);
+    expect(sorted.map((m) => m.id)).toEqual(['new', 'mid', 'old']);
   });
 
   it('元配列を変更しない', () => {
-    const input = [make('a', 1, 1), make('b', 2, 1)];
-    sortMemories(input);
+    const input = [make('a', 1), make('b', 2)];
+    sortSelfFacts(input);
     expect(input.map((m) => m.id)).toEqual(['a', 'b']);
   });
 });

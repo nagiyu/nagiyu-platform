@@ -12,11 +12,6 @@ describe('createChatMetrics', () => {
     expect(metrics.userId).toBe('u1');
     expect(metrics.characterId).toBe('hiyori');
     expect(metrics.promptTokens.total).toBe(0);
-    expect(metrics.retrievedTierACount).toBe(0);
-    expect(metrics.retrievedTierBCount).toBe(0);
-    expect(metrics.summaryTokenCount).toBe(0);
-    expect(metrics.summaryCharCount).toBe(0);
-    expect(metrics.tierATotalCount).toBe(0);
     expect(metrics.latency).toEqual({});
     expect(metrics.dynamodb).toEqual({});
   });
@@ -51,11 +46,11 @@ describe('emitChatMetricsEMF', () => {
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     const metrics = createChatMetrics('u1', 'hiyori');
     metrics.promptTokens.total = 500;
-    metrics.tierATotalCount = 3;
-    metrics.summaryTokenCount = 200;
     metrics.latency.llmTtfb = 400;
     metrics.latency.chatTotal = 1500;
     metrics.latency.retrieve = 100;
+    metrics.latency.ttsTotal = 600;
+    metrics.latency.llmTotal = 900;
 
     emitChatMetricsEMF(metrics);
 
@@ -63,12 +58,21 @@ describe('emitChatMetricsEMF', () => {
     const output = logSpy.mock.calls[0][0] as string;
     const parsed = JSON.parse(output) as Record<string, unknown>;
     expect(parsed['PromptTotalTokens']).toBe(500);
-    expect(parsed['TierACount']).toBe(3);
-    expect(parsed['MemorySummaryTokens']).toBe(200);
     expect(parsed['LLMTimeToFirstToken']).toBe(400);
     expect(parsed['ChatTotalLatency']).toBe(1500);
     expect(parsed['RetrieveLatency']).toBe(100);
+    expect(parsed['TTSTotalLatency']).toBe(600);
+    expect(parsed['LLMTotalLatency']).toBe(900);
     expect((parsed['_aws'] as { CloudWatchMetrics: unknown[] }).CloudWatchMetrics).toBeDefined();
+
+    const metricDefs = (
+      parsed['_aws'] as {
+        CloudWatchMetrics: Array<{ Metrics: Array<{ Name: string; Unit: string }> }>;
+      }
+    ).CloudWatchMetrics[0].Metrics;
+    expect(metricDefs).toContainEqual({ Name: 'TTSTotalLatency', Unit: 'Milliseconds' });
+    expect(metricDefs).toContainEqual({ Name: 'LLMTotalLatency', Unit: 'Milliseconds' });
+
     logSpy.mockRestore();
   });
 
@@ -82,6 +86,23 @@ describe('emitChatMetricsEMF', () => {
     expect(output).not.toContain('LLMTimeToFirstToken');
     expect(output).not.toContain('ChatTotalLatency');
     expect(output).not.toContain('RetrieveLatency');
+    expect(output).not.toContain('TTSTotalLatency');
+    expect(output).not.toContain('LLMTotalLatency');
+    logSpy.mockRestore();
+  });
+
+  it('ttsTotal / llmTotal のみ値がある場合、それぞれ正しい値・単位で出力される', () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const metrics = createChatMetrics('u1', 'hiyori');
+    metrics.latency.ttsTotal = 250;
+    metrics.latency.llmTotal = 750;
+
+    emitChatMetricsEMF(metrics);
+
+    const output = logSpy.mock.calls[0][0] as string;
+    const parsed = JSON.parse(output) as Record<string, unknown>;
+    expect(parsed['TTSTotalLatency']).toBe(250);
+    expect(parsed['LLMTotalLatency']).toBe(750);
     logSpy.mockRestore();
   });
 
@@ -148,8 +169,6 @@ describe('emitBatchMetricsLog', () => {
       characterId: 'hiyori',
       timestamp: new Date().toISOString(),
       messageCount: 10,
-      summaryTokenCount: 500,
-      summaryCharCount: 1000,
       latencyMs: 2000,
     };
     expect(() => emitBatchMetricsLog(batchMetrics)).not.toThrow();
@@ -164,8 +183,6 @@ describe('emitBatchMetricsEMF', () => {
       characterId: 'hiyori',
       timestamp: new Date().toISOString(),
       messageCount: 5,
-      summaryTokenCount: 300,
-      summaryCharCount: 600,
       latencyMs: 1000,
     };
 
@@ -179,15 +196,13 @@ describe('emitBatchMetricsEMF', () => {
     logSpy.mockRestore();
   });
 
-  it('MemorySummaryTokens と CompressedMessageCount を含む', () => {
+  it('CompressedMessageCount を含む', () => {
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     const batchMetrics = {
       userId: 'u1',
       characterId: 'hiyori',
       timestamp: new Date().toISOString(),
       messageCount: 7,
-      summaryTokenCount: 400,
-      summaryCharCount: 800,
       latencyMs: 3000,
     };
 
@@ -195,7 +210,6 @@ describe('emitBatchMetricsEMF', () => {
 
     const output = logSpy.mock.calls[0][0] as string;
     const parsed = JSON.parse(output) as Record<string, unknown>;
-    expect(parsed['MemorySummaryTokens']).toBe(400);
     expect(parsed['CompressedMessageCount']).toBe(7);
     expect(parsed['BatchLatency']).toBe(3000);
     logSpy.mockRestore();
@@ -210,8 +224,6 @@ describe('emitBatchMetricsEMF', () => {
       characterId: 'hiyori',
       timestamp: new Date().toISOString(),
       messageCount: 5,
-      summaryTokenCount: 300,
-      summaryCharCount: 600,
     };
     emitBatchMetricsEMF(batchMetrics);
     const output = logSpy.mock.calls[0][0] as string;

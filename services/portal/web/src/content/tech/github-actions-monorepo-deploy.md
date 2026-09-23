@@ -1,206 +1,74 @@
 ---
-title: 'GitHub Actions でモノレポの差分デプロイを実装する'
-description: 'モノレポ構成で GitHub Actions を使い、変更があったサービスだけをデプロイするワークフローの実装方法を解説。paths フィルタ・dorny/paths-filter・依存ライブラリ変更時の波及・並列実行までカバーします。'
+title: 'CI が自分自身と競合してレート制限に当たる — S3 をセマフォにして同時ビルドを絞った話'
+description: 'モノレポで複数サービスの CI が同時に走ると、それぞれの docker build が Amazon ECR Public（public.ecr.aws）から同じ AWS Lambda Web Adapter を pull して、レート制限（toomanyrequests）に当たる。外から攻撃されたわけでもなく、自分の CI が自分の CI を殴っていた。S3 を共有セマフォにして同時ビルド数を絞り、リトライと組み合わせて解決した話。'
 slug: 'github-actions-monorepo-deploy'
 publishedAt: '2026-04-02'
-updatedAt: '2026-06-22'
+updatedAt: '2026-07-25'
 author: 'なぎゆー'
-tags: ['GitHub Actions', 'CI/CD', 'monorepo']
+tags: ['GitHub Actions', 'CI/CD', 'monorepo', 'Docker', 'ECR', 'S3']
 categories: ['dev-stack']
 featured: true
 ---
 
 ## はじめに
 
-モノレポでは「すべての PR で全サービスをデプロイする」運用は無駄が多すぎます。実装が変わったサービスだけビルド・デプロイすることで、CI 時間と AWS コストを大きく削減できます。本記事では個人開発で運用しているモノレポの差分デプロイ方法を整理します。
+モノレポで複数サービスを回していると、CI が**自分自身と競合する**という妙な現象に当たる。外部から攻撃されたわけでも、無料枠を使い切ったわけでもない。自分の CI が、自分の CI の邪魔をしていた。
 
-## 基本：paths フィルタ
+症状は docker build の失敗で、原因は **Amazon ECR Public（`public.ecr.aws`）のレート制限**（`toomanyrequests`）だった。本記事はその対処として、**S3 を共有セマフォにして同時ビルド数を絞った**話を書く。
 
-GitHub Actions のトリガーには `paths` フィルタがあります。
+## 何が起きていたか
 
-```yaml
-name: Deploy Portal
+前提として、モノレポでは変更のあったサービスだけをデプロイする。ワークフローのトリガーにパス条件を書いておき、`services/<サービス名>/**` や共有ライブラリが変わったときだけ動かす、というよくある構成だ。
 
-on:
-  push:
-    branches: [develop, master]
-    paths:
-      - 'services/portal/**'
-      - 'libs/common/**'
-      - 'libs/ui/**'
+ただ、共有ライブラリを触ると**複数サービスのワークフローが一斉に発火する**。これ自体は正しい挙動で、依存先が壊れていないか確かめられるという意味では安全装置でもある。問題は、その先で起きることだった。
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: echo "Deploy portal"
-```
+各サービスの docker build は、それぞれベースイメージやサイドカー的なコンポーネントを**同じ `public.ecr.aws` から pull する**。自分の場合、コンテナをそのまま AWS Lambda 上で動かすための **AWS Lambda Web Adapter** を、各サービスが共通して取ってくる構成になっていた。つまり、**同時に走ったビルドの数だけ、同じレジストリへ同じイメージの pull が飛ぶ**。
 
-`services/portal/**` か共有ライブラリ（`libs/common`, `libs/ui`）が変更されたときだけ起動します。サービスごとにこのワークフローを 1 つずつ用意すれば、それぞれが独立に判定されます。
+ECR Public には匿名 pull のレート制限がある。数が重なれば当然そこに当たる。こうして、コードは何も壊れていないのに CI だけが赤くなる、という状態が定期的に発生していた。**自分の CI 同士が資源を食い合っていた**わけだ。
 
-![push から paths フィルタによる差分検出を経て該当サービスのみビルド・デプロイするワークフロー全体の流れ](/images/tech/github-actions-monorepo-deploy-flow.png)
+## 対処①：リトライ（ただし単体では足りない）
 
-_図1: push → paths フィルタ判定 → 該当サービスのみ root-deploy.yml の 4 ジョブ（ECR / build / infrastructure-app / verify）が起動する差分デプロイフロー_
+まず思いつくのはリトライだ。レート制限は時間が経てば解けるので、失敗したら少し待って再試行すればいい。
 
-## サービスごとに 1 ファイルが基本
+docker build をラップするシェルスクリプトを挟み、出力に `toomanyrequests` が含まれていたら**最大 5 回・60 秒待ちで再試行**するようにした。レート制限以外のエラー（本当のビルド失敗）で無駄に粘らないよう、**メッセージを見て判定する**のが小さな要点だ。ビルドが壊れているのに 5 分粘られても困る。
 
-```
-.github/workflows/
-├── portal-deploy.yml
-├── tools-deploy.yml
-├── tracker-deploy.yml
-├── converter-deploy.yml
-└── shared-deploy.yml
-```
+ただ、リトライだけでは根本的には弱い。同時に走っているビルドの数が多いままなら、待って再試行してもまた同じ混雑に突っ込む。**混雑そのものを減らさないと、リトライは運任せになる**。
 
-「サービスを増やしたらワークフローを 1 つ足す」というシンプルな対応関係に保つと、後からの追跡が楽です。
+## 対処②：S3 をセマフォにして同時ビルド数を絞る
 
-## 依存ライブラリ変更の波及
+そこで、**同時に走る docker build の数に上限をかける**ことにした。
 
-`libs/common` を変更すると、それを使うすべてのサービスをデプロイし直す必要があります。**各サービスのワークフローの `paths` に共有ライブラリのパスを書く** のがシンプルな解決策です。
+厄介なのは、この制御が**ワークフローをまたぐ**必要があることだ。GitHub Actions の同時実行制御は、基本的にワークフローやジョブの単位で「重複を防ぐ」ためのもので、「別々のワークフローを合計 3 本まで」のような**横断的な数の制限**を素直には表現できない。サービス A のワークフローとサービス B のワークフローは、互いの存在を知らないまま並列に走る。
 
-```yaml
-paths:
-  - 'services/portal/**'
-  - 'libs/common/**'
-  - 'libs/ui/**'
-```
+そこで、**全ワークフローから見える共有の場所**を用意して、そこを数取り場にすることにした。使ったのは S3 だ（ロック専用のバケットを 1 つ用意し、その中のオブジェクト数を「いま走っているビルドの数」として数える）。
 
-`libs/common` を変更した PR では、portal だけでなく他のサービスのワークフローも起動します。これは「無駄に動いているように見える」かもしれませんが、**依存先で本当に壊れていないかを CI で確認できる安全装置** として機能します。
+仕組みはごく単純:
 
-## より細かい差分判定: dorny/paths-filter
+1. ビルド前に、ロック用バケットの中にあるオブジェクトの**数を数える**。
+2. 上限（自分の設定では **3**）未満なら、自分のロックを表すオブジェクトを 1 つ置いて先へ進む。
+3. 上限に達していたら、**30 秒待って数え直す**。空きが出るまでこれを繰り返す。
+4. ビルドが終わったら、自分のロックを消す。
 
-`paths` フィルタはワークフローの起動レベルでしか効かないので、「ワークフロー内で更にジョブを枝分かれさせたい」場合は `dorny/paths-filter` を使います。
+ロックのキーには**ワークフロー名・実行 ID・ジョブ名**を組み合わせて、誰が握っているのかが一目で分かるようにした。障害時にバケットを覗けば「今どのワークフローが枠を持っているか」がそのまま読める。
 
-```yaml
-jobs:
-  detect-changes:
-    runs-on: ubuntu-latest
-    outputs:
-      portal: ${{ steps.filter.outputs.portal }}
-      tools: ${{ steps.filter.outputs.tools }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            portal:
-              - 'services/portal/**'
-              - 'libs/**'
-            tools:
-              - 'services/tools/**'
-              - 'libs/**'
+解放は**成功・失敗にかかわらず必ず走らせる**ことが重要になる。ここを普通の後続ステップにすると、ビルドが失敗した瞬間にロックが置き去りになり、枠が 1 つずつ減って最終的に全部詰まる。失敗しても必ず実行される設定にしておく。
 
-  deploy-portal:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.portal == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "Deploy portal"
+## 結果
 
-  deploy-tools:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.tools == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "Deploy tools"
-```
+セマフォとリトライを組み合わせてから、**このレート制限でのビルド失敗はほぼ起きなくなった**。
 
-1 つのワークフローで複数サービスを判定し、必要なものだけ並列起動するパターン。「全サービスの状態を 1 画面で見たい」運用に向いています。
+効き方が噛み合っているのが良いところで、**セマフォが混雑そのものを抑え、リトライがそれでも漏れた分を拾う**。どちらか片方だけでは、こうはならなかったと思う。上限 3 という数字は厳密に最適化したものではなく、詰まらず・待たされすぎない体感で置いている。
 
-## キャッシュで高速化
+## おまけ：CI 自身の変更でも CI を回す
 
-サービス共通の `node_modules` を毎回入れ直すのは時間の無駄なので、キャッシュします。
+もう一つ、この構成で気に入っている小さな工夫がある。ワークフローの発火条件に、**そのワークフローファイル自身のパスを含めている**ことだ。
 
-```yaml
-- uses: actions/setup-node@v4
-  with:
-    node-version: '24'
-    cache: 'npm'
-    cache-dependency-path: package-lock.json
+これは事故を踏んでから入れたのではなく、最初から見えていたリスクへの予防だった。CI の設定を直したのに何も起動せず、「直したつもり」のまま次のデプロイまで気づかない——という間抜けな状態があり得る。デプロイの手順を変えたなら、その変更自体でデプロイを一度回してみるのが自然だ。
 
-- name: Install dependencies
-  run: npm ci
-```
+## おわりに
 
-`actions/setup-node@v4` の `cache: 'npm'` は `package-lock.json` のハッシュをキーにしてキャッシュを引きます。**モノレポではルートの 1 つの lock を指定する**ことで、全サービスで同じキャッシュが使えます。
+この件で面白かったのは、**負荷の出どころが外部ではなく自分だった**ことだ。モノレポで共有ライブラリを触ると、意図どおり複数のパイプラインが一斉に立ち上がる。その「意図どおり」が、共有の外部リソースから見ると**一斉射撃**になっていた。
 
-## 環境別の振り分け
+並列化は速さのために入れるものだが、**並列の先に共有資源があると、速さは競合に変わる**。そして自分のインフラの外側（ECR Public のようなレジストリ）にある資源は、こちらの都合でスケールしてはくれない。だったら、こちら側で**流量を絞る**しかない。
 
-`develop` ブランチで dev に、`master` ブランチで prod にデプロイ、というパターンは setup-environment アクションを内製化すると CI がきれいになります。
-
-```yaml
-- name: Setup environment
-  id: env
-  run: |
-    if [[ "$GITHUB_REF" == "refs/heads/master" ]]; then
-      echo "environment=prod" >> $GITHUB_OUTPUT
-    else
-      echo "environment=dev" >> $GITHUB_OUTPUT
-    fi
-
-- name: Deploy
-  env:
-    ENV: ${{ steps.env.outputs.environment }}
-  run: ./deploy.sh
-```
-
-複数サービスで同じロジックが要るので、`.github/actions/setup-environment/action.yml` のように Composite Action 化して再利用するとさらに整理できます。
-
-## OIDC で AWS 認証（推奨構成 / 移行検討中）
-
-長期 IAM キーを GitHub Secrets に貼るのではなく、OIDC で短期 AssumeRole するのが推奨されている手法です。なお自分の運用自体は現時点で `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` を Secrets に置く長期キー運用のままであり、OIDC は移行候補として検証段階にあります。将来移行する想定で、参考として構成を紹介します。
-
-```yaml
-permissions:
-  id-token: write
-  contents: read
-
-steps:
-  - uses: aws-actions/configure-aws-credentials@v4
-    with:
-      role-to-assume: arn:aws:iam::123456789:role/GitHubActionsRole
-      aws-region: ap-northeast-1
-```
-
-IAM ロール側で「特定リポジトリ・特定ブランチからのみ AssumeRole 可能」と制限できるので、Secret 漏洩リスクが大幅に下がります。
-
-## 並列ジョブ間の調整
-
-ECS の同一サービスに 2 つのデプロイが同時に走ると競合します。`concurrency` で重複起動を抑制します。
-
-```yaml
-concurrency:
-  group: deploy-portal-${{ github.ref }}
-  cancel-in-progress: false
-```
-
-`cancel-in-progress: false` にすると、走行中のデプロイは完走させて、新しい push は待機します。`true` にすると古いデプロイは即時キャンセルされて新しいほうが優先されます。本番デプロイは `false`、CI 検証だけのジョブは `true` という使い分けが定番です。
-
-## 実装ノート
-
-記事の例では `portal-deploy.yml` のような名前を出しましたが、個人開発で運用しているサービスを実際にデプロイしているのは `root-deploy.yml`（Root Domain）です。トリガーの `paths` には `services/portal/**` だけでなく `libs/**`・`infra/root/**`・`infra/common/**`・ルートの `package.json` / `package-lock.json`、さらに `.github/workflows/root-deploy.yml` 自身まで含めています。私はワークフロー定義の変更でも再デプロイが走るようにしておくのを好んでいて、こうすると「CI を直したのに反映されない」という事故を防げます。
-
-共通処理は composite action に切り出しました。`setup-node`（Node 24 + npm キャッシュ + `npm ci`）、`build-web-app`（shared workspaces をカンマ区切りで先にビルドしてからアプリをビルド）、`build-docker-image`（後述のロック付き docker build）です。同じ手順を各サービスのワークフローへコピペせずに済むので、自分のように複数サービスを抱えていると保守がかなり楽になりました。ECR リポジトリの URI も固定では書かず、`aws cloudformation describe-stacks` の Outputs（`RepositoryUri`）から動的に取得しています。
-
-## ハマったポイント
-
-`paths` フィルタ周りの一般的な落とし穴に加えて、自分が実運用で実際に対処したポイントを残します。
-
-- **`paths-ignore` との混同**: `paths` が指定された変更があるとき発火。`paths-ignore` はそれ以外で発火。両方併用すると挙動が混乱する。
-- **PR と push の切り替え**: PR では `pull_request.paths`、merge 後のデプロイは `push.paths` で発火する。両方書く必要がある。
-- **Public ECR のレート制限**: Lambda Web Adapter など `public.ecr.aws` から pull するイメージがあると `toomanyrequests` に当たることがある。私は `docker-build-with-retry.sh` を挟み、`toomanyrequests` を検知したら最大 5 回・60 秒待ちでリトライするようにしています。
-- **同時 docker build の競合**: GitHub Actions のランナーはワークフロー横断で並列に走るため、複数の build が同時にリソースを食い合います。自分の運用では S3 をセマフォにした自前ロック（同時実行上限 3）で全体の同時ビルド数を絞り、`build-docker-image` の前後で acquire / release（release は `if: always()`）しています。
-- **`dorny/paths-filter` の基準 SHA**: 基準を指定しないと PR のベース差分しか見ない。直接 push では `base: HEAD~1` のような指定が要ることがある。
-
-## 現在の運用
-
-運用しているサービスの `root-deploy.yml` は `infrastructure-ecr → build → infrastructure-app → verify` の 4 ジョブ構成で、環境分岐は `setup-environment` composite action が握っています。`master` への push なら prod、それ以外（`develop` / `integration/**`）は dev、`workflow_dispatch` の入力でも上書き可能で、`Dev` / `Prod` のスタックサフィックスを出力します。デプロイ実体は dev では同じイメージで Lambda を `update-function-code` 更新、prod では ECS を force new deployment して `services-stable` を待つ、という分岐です。最後に `verify` ジョブが CloudFront ドメイン宛に `/api/health` を叩いて疎通を確認します。
-
-正直に書いておくと、AWS 認証は記事で勧めた OIDC ではなく、私はまだ `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` を Secrets に置く長期キー運用のままです。push するイメージタグも SHA は付けず `:latest` 1 本に割り切っています。動いてはいますが、OIDC 化とタグ戦略の見直しは、自分のなかで明確な改善の宿題として残しています。
-
-## まとめ
-
-GitHub Actions の `paths` フィルタを基本に、必要なら `dorny/paths-filter` で細かく分岐する、という二段構えで差分デプロイは綺麗に書けます。共有ライブラリの波及を `paths` に明示することで、依存先の動作確認も自動化できます。CI 時間とコストの両方を削減しつつ、安全性も保てる構成です。
+やったこと自体は「数を数えて、多かったら待つ」だけで、古典的なセマフォそのものだ。特別な仕組みは要らず、全員から見える置き場が一つあれば足りる。CI が自分自身と競合し始めたら、まず**共有資源に何本同時に手を伸ばしているか**を数えてみるといい。

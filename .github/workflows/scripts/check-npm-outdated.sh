@@ -1,109 +1,77 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "## npm outdated チェック"
-echo ""
+# npm outdated の結果を単一行JSONで出力する。
+# 「再実行で得られる情報は載せない」方針により、バージョン比較の詳細ではなく
+# 件数と major 更新パッケージ名のみを出力する（詳細は作業時に `npm outdated` を叩けば得られる）。
+#
+# npm workspaces では依存関係がルートに hoist されるため、ルートの
+# `npm outdated` だけで全ワークスペースの依存を含む。そのためワークスペースを
+# 1つずつ cd して実行するループは行わない。
+#
+# 出力契約:
+#   {"count":N,"majorCount":N,"majorPackages":[...]}
+#   - count: ユニークなパッケージ名の数（npm outdated --json は依存元ごとに
+#            同一パッケージを複数回出力しうるため重複を除いてカウントする）
+#   - majorCount / majorPackages: current と latest の先頭の数値部分（メジャー
+#     バージョン）を比較し、latest の方が大きいパッケージのみを対象とする
+#     （latest が current より小さい降格ケースは対象外）
+#
+# テスト用: 環境変数 NPM_OUTDATED_JSON_FILE に `npm outdated --json` 相当の
+# JSONファイルパスを指定すると、実際に npm outdated を実行せずそのファイルを
+# 入力として集計する（node_modules が無い環境でも集計ロジックを検証できるようにするため）。
 
-# ルートの outdated チェック
-echo "### ルート package.json"
-if npm outdated --json > /tmp/outdated-root.json 2>/dev/null || true; then
-  if [ -s /tmp/outdated-root.json ]; then
-    # JSONの型をチェック（オブジェクトか配列か）
-    JSON_TYPE=$(jq -r 'type' /tmp/outdated-root.json)
+OUTDATED_JSON_FILE="${NPM_OUTDATED_JSON_FILE:-}"
 
-    if [ "$JSON_TYPE" = "object" ]; then
-      # オブジェクトの値が配列またはオブジェクトの場合を処理
-      HAS_DATA=$(jq -r 'to_entries | length' /tmp/outdated-root.json)
-      if [ "$HAS_DATA" -gt 0 ]; then
-        echo "| パッケージ | 現在 | 必要 | 最新 | 場所 |"
-        echo "|----------|------|------|------|------|"
-        jq -r 'to_entries[] |
-          if (.value | type) == "array" then
-            (.key as $pkg | .value[] | "| \($pkg) | \(.current) | \(.wanted) | \(.latest) | \(.location // "root") |")
-          else
-            "| \(.key) | \(.value.current) | \(.value.wanted) | \(.value.latest) | \(.value.location // "root") |"
-          end' /tmp/outdated-root.json
+if [ -z "$OUTDATED_JSON_FILE" ]; then
+  OUTDATED_JSON_FILE=$(mktemp)
+  npm outdated --json > "$OUTDATED_JSON_FILE" 2>/dev/null || true
+fi
+
+# npm outdated --json は更新可能なパッケージが無くても `{}` を出力する。
+# つまり出力が空なのはコマンド自体が失敗した場合であり、「0 件」とは区別する
+# （取得失敗を 0 件として報告すると、本文が「問題なし」に見えてしまうため）。
+if [ ! -s "$OUTDATED_JSON_FILE" ]; then
+  echo '{"error":true,"count":0,"majorCount":0,"majorPackages":[]}'
+  exit 0
+fi
+
+if ! RESULT=$(jq -c '
+  # npm outdated --json はオブジェクト（値がオブジェクトまたは配列）で返るのが
+  # 通常だが、念のため配列トップレベルも扱う。
+  def flat:
+    if type == "object" then
+      to_entries[] |
+      if (.value | type) == "array" then
+        (.key as $k | .value[] | {name: $k, current: (.current // null), latest: (.latest // null)})
       else
-        echo "更新可能なパッケージはありません。"
-      fi
-    elif [ "$JSON_TYPE" = "array" ]; then
-      # 配列形式の場合の処理
-      FILTERED=$(jq 'map(select(.current != null))' /tmp/outdated-root.json)
-      if [ "$FILTERED" != "[]" ]; then
-        echo "| パッケージ | 現在 | 必要 | 最新 | 場所 |"
-        echo "|----------|------|------|------|------|"
-        echo "$FILTERED" | jq -r '.[] | "| \(.name // .package) | \(.current) | \(.wanted) | \(.latest) | \(.location // "root") |"'
-      else
-        echo "更新可能なパッケージはありません。"
-      fi
+        {name: .key, current: (.value.current // null), latest: (.value.latest // null)}
+      end
+    elif type == "array" then
+      .[] | {name: (.name // .package // null), current: (.current // null), latest: (.latest // null)}
     else
-      echo "更新可能なパッケージはありません。"
-    fi
-  else
-    echo "更新可能なパッケージはありません。"
-  fi
-else
-  echo "チェックをスキップしました。"
+      empty
+    end;
+
+  [flat] as $all
+  | ($all | map(.name) | unique) as $names
+  | ($all
+      | map(select(
+          (((.current // "") | test("^[0-9]"))) and (((.latest // "") | test("^[0-9]")))
+        ))
+      | map(select(
+          (((.current | capture("^(?<m>[0-9]+)").m) | tonumber) as $c
+           | ((.latest | capture("^(?<m>[0-9]+)").m) | tonumber) as $l
+           | $l > $c)
+        ))
+      | map(.name)
+      | unique
+    ) as $majorNames
+  | {count: ($names | length), majorCount: ($majorNames | length), majorPackages: $majorNames}
+' "$OUTDATED_JSON_FILE" 2>/dev/null); then
+  # 出力が JSON として解釈できない場合も取得失敗として扱う。
+  echo '{"error":true,"count":0,"majorCount":0,"majorPackages":[]}'
+  exit 0
 fi
 
-echo ""
-echo "### ワークスペース"
-
-# 各ワークスペースの outdated チェック
-# 注: cdを使用しているが、これは読み取り専用の操作であり、
-# ファイルを作成・変更しないため、制約に違反しない
-# npm outdated --workspace はルートの視点のみを返すため、
-# 各ワークスペースの詳細なoutdated情報を得るには cd が必要
-WORKSPACES=$(find services libs infra -name "package.json" -not -path "*/node_modules/*" -not -path "infra/package.json" | sort)
-
-if [ -z "$WORKSPACES" ]; then
-  echo "ワークスペースが見つかりませんでした。"
-else
-  for pkg_path in $WORKSPACES; do
-    workspace_dir=$(dirname "$pkg_path")
-    workspace_name=$(jq -r '.name' "$pkg_path" 2>/dev/null || echo "unknown")
-    
-    echo ""
-    echo "#### $workspace_dir ($workspace_name)"
-
-    cd "$workspace_dir"
-    if npm outdated --json > /tmp/outdated-workspace.json 2>/dev/null || true; then
-      if [ -s /tmp/outdated-workspace.json ]; then
-        # JSONの型をチェック（オブジェクトか配列か）
-        JSON_TYPE=$(jq -r 'type' /tmp/outdated-workspace.json)
-
-        if [ "$JSON_TYPE" = "object" ]; then
-          # オブジェクトの値が配列またはオブジェクトの場合を処理
-          HAS_DATA=$(jq -r 'to_entries | length' /tmp/outdated-workspace.json)
-          if [ "$HAS_DATA" -gt 0 ]; then
-            echo "| パッケージ | 現在 | 必要 | 最新 |"
-            echo "|----------|------|------|------|"
-            jq -r 'to_entries[] |
-              if (.value | type) == "array" then
-                (.key as $pkg | .value[] | "| \($pkg) | \(.current) | \(.wanted) | \(.latest) |")
-              else
-                "| \(.key) | \(.value.current) | \(.value.wanted) | \(.value.latest) |"
-              end' /tmp/outdated-workspace.json
-          else
-            echo "更新可能なパッケージはありません。"
-          fi
-        elif [ "$JSON_TYPE" = "array" ]; then
-          # 配列形式の場合の処理
-          FILTERED=$(jq 'map(select(.current != null))' /tmp/outdated-workspace.json)
-          if [ "$FILTERED" != "[]" ]; then
-            echo "| パッケージ | 現在 | 必要 | 最新 |"
-            echo "|----------|------|------|------|"
-            echo "$FILTERED" | jq -r '.[] | "| \(.name // .package) | \(.current) | \(.wanted) | \(.latest) |"'
-          else
-            echo "更新可能なパッケージはありません。"
-          fi
-        else
-          echo "更新可能なパッケージはありません。"
-        fi
-      else
-        echo "更新可能なパッケージはありません。"
-      fi
-    fi
-    cd - > /dev/null
-  done
-fi
+echo "$RESULT"

@@ -57,30 +57,41 @@ export class InMemoryTickerRepository implements TickerRepository {
 
   /**
    * 取引所ごとのティッカー一覧を取得
+   *
+   * GSI3（ExchangeTickerIndex）をqueryByAttributeでシミュレートする。GSI3SK（`TICKER#{TickerID}`）
+   * 昇順ソートで、インタフェース契約のTickerID昇順を実現する。全件を返す契約のため、
+   * nextCursorがなくなるまでstoreのページを辿り切って集約する。
    */
-  public async getByExchange(
-    exchangeId: string,
-    options?: PaginationOptions
-  ): Promise<PaginatedResult<TickerEntity>> {
-    const result = this.store.queryByAttribute(
-      {
-        attributeName: 'GSI3PK',
-        attributeValue: exchangeId,
-      },
-      options
-    );
+  public async getByExchange(exchangeId: string): Promise<TickerEntity[]> {
+    const items: TickerEntity[] = [];
+    let cursor: string | undefined;
 
-    const items = result.items.map((item) => this.mapper.toEntity(item));
+    do {
+      const page = this.store.queryByAttribute(
+        {
+          attributeName: 'GSI3PK',
+          attributeValue: exchangeId,
+          // sk条件を指定しないため、実DynamoDBのGSI3 Queryと同様にGSI3SK昇順で返すよう明示する
+          gsiSortKeyAttributeName: 'GSI3SK',
+        },
+        {
+          limit: FULL_SCAN_PAGE_SIZE,
+          cursor,
+        }
+      );
+      items.push(...page.items.map((item) => this.mapper.toEntity(item)));
+      cursor = page.nextCursor;
+    } while (cursor);
 
-    return {
-      items,
-      nextCursor: result.nextCursor,
-      count: result.count,
-    };
+    return items;
   }
 
   /**
    * 全ティッカー取得
+   *
+   * `Type`属性の一致でScanを近似する（GSIを介さない）ため、返却順序は保証しない。
+   * options未指定時は、実DynamoDB実装（Scan+LastEvaluatedKeyループ）に合わせて
+   * cursorループで全件集約し、nextCursorはundefinedを返す。
    */
   public async getAll(options?: PaginationOptions): Promise<PaginatedResult<TickerEntity>> {
     const usePagination = options?.limit !== undefined || options?.cursor !== undefined;
