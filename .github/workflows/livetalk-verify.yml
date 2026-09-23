@@ -138,6 +138,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build]
 
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -152,8 +156,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
 
       - name: Build Docker image
@@ -286,6 +289,7 @@ jobs:
     needs: [unit-test]
 
     permissions:
+      id-token: write
       contents: read
 
     steps:
@@ -339,8 +343,7 @@ jobs:
         if: always()
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
 
       - name: Upload Playwright HTML report to reports.nagiyu.com
@@ -357,6 +360,7 @@ jobs:
     if: github.base_ref == 'develop'
 
     permissions:
+      id-token: write
       contents: read
 
     steps:
@@ -410,8 +414,7 @@ jobs:
         if: always()
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
 
       - name: Upload Playwright HTML report to reports.nagiyu.com
@@ -428,6 +431,7 @@ jobs:
     if: github.base_ref == 'develop'
 
     permissions:
+      id-token: write
       contents: read
 
     steps:
@@ -481,8 +485,7 @@ jobs:
         if: always()
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
 
       - name: Upload Playwright HTML report to reports.nagiyu.com
