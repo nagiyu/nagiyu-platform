@@ -179,7 +179,7 @@ docker run -d --name ddb -p 8000:8000 amazon/dynamodb-local
 
 起動後は、CI と同じ環境変数（`AWS_REGION=us-east-1` / `AWS_ACCESS_KEY_ID=test` / `AWS_SECRET_ACCESS_KEY=test`）で、対象ワークスペースの契約テスト用スクリプト（`test:contract`）をそのまま実行できる。
 
-- **CI と同じイメージを使うことで、手元と CI の DynamoDB Local のバージョンが揃う**。以前は Docker が使えないと判断して AWS 純正の Java 版を直接起動していたが、daemon を起動すれば済むと分かったため置き換えた。
+- **CI と同じイメージを使うことで、手元と CI の DynamoDB Local のバージョンが揃う**。
 - イメージの既定コマンドが `-inMemory` なので、コンテナを消せば状態は残らない。
 - **ポートを 8000 にするのは、契約テスト側のヘルパーの既定がそこを向いているため**。別のポートで起動したい場合は `DYNAMODB_ENDPOINT` で上書きできる。
 - **`-sharedDb` を付けない場合、DynamoDB Local はアクセスキー ID とリージョンの組ごとに別の DB を持つ**（シークレットキーは影響しない）。契約テスト側が固定のダミー認証情報を使う前提なので通常は問題にならないが、手元から別の認証情報やリージョンで覗くとテーブルが存在しないように見える。
