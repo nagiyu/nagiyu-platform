@@ -3,6 +3,8 @@ import {
   classifySchemaItem,
   findSchemaItems,
   deleteSchemaItems,
+  findSchemaItemsCreatedAfter,
+  deleteSchemaItemsCreatedAfter,
 } from '../../../src/migration/schema-janitor.js';
 import type { DynamoDBItem } from '@nagiyu/aws';
 
@@ -192,5 +194,114 @@ describe('findSchemaItems / deleteSchemaItems', () => {
     );
     expect(first).toEqual({ deletedCount: 0 });
     expect(second).toEqual({ deletedCount: 0 });
+  });
+});
+
+describe('findSchemaItemsCreatedAfter / deleteSchemaItemsCreatedAfter', () => {
+  it('CreatedAt（Number）が指定時刻以降のアイテムのみを返す', async () => {
+    const mockSend = jest.fn().mockResolvedValueOnce({
+      Items: [
+        makeItem(`CHAR#${CHARACTER_ID}#WEBRAW#01ULID`, { CreatedAt: 1000 }),
+        makeItem(`CHAR#${CHARACTER_ID}#WEBRAW#02ULID`, { CreatedAt: 2000 }),
+        makeItem(`CHAR#${CHARACTER_ID}#WEBRAW#03ULID`, { CreatedAt: 3000 }),
+      ],
+    });
+
+    const items = await findSchemaItemsCreatedAfter(
+      makeDocClient(mockSend),
+      TABLE,
+      USER_ID,
+      CHARACTER_ID,
+      'new',
+      2000
+    );
+
+    expect(items.map((i) => i.SK)).toEqual([
+      `CHAR#${CHARACTER_ID}#WEBRAW#02ULID`,
+      `CHAR#${CHARACTER_ID}#WEBRAW#03ULID`,
+    ]);
+  });
+
+  it('CreatedAt（ISO 8601 文字列）にも対応する', async () => {
+    const mockSend = jest.fn().mockResolvedValueOnce({
+      Items: [
+        makeItem(`CHAR#${CHARACTER_ID}#WEBRAW#01ULID`, { CreatedAt: '2026-09-23T00:00:00Z' }),
+        makeItem(`CHAR#${CHARACTER_ID}#WEBRAW#02ULID`, { CreatedAt: '2026-09-23T14:33:53Z' }),
+      ],
+    });
+
+    const items = await findSchemaItemsCreatedAfter(
+      makeDocClient(mockSend),
+      TABLE,
+      USER_ID,
+      CHARACTER_ID,
+      'new',
+      Date.parse('2026-09-23T14:33:53Z')
+    );
+
+    expect(items.map((i) => i.SK)).toEqual([`CHAR#${CHARACTER_ID}#WEBRAW#02ULID`]);
+  });
+
+  it('CreatedAt を持たない・解析できないアイテムは対象外とする（fail-safe）', async () => {
+    const mockSend = jest.fn().mockResolvedValueOnce({
+      Items: [
+        makeItem(`CHAR#${CHARACTER_ID}#WEBRAW#01ULID`, { CreatedAt: undefined }),
+        makeItem(`CHAR#${CHARACTER_ID}#WEBRAW#02ULID`, { CreatedAt: '不正な日時' }),
+        makeItem(`CHAR#${CHARACTER_ID}#WEBRAW#03ULID`, { CreatedAt: 9999 }),
+      ],
+    });
+
+    const items = await findSchemaItemsCreatedAfter(
+      makeDocClient(mockSend),
+      TABLE,
+      USER_ID,
+      CHARACTER_ID,
+      'new',
+      0
+    );
+
+    expect(items.map((i) => i.SK)).toEqual([`CHAR#${CHARACTER_ID}#WEBRAW#03ULID`]);
+  });
+
+  it('対象外の新スキーマは削除されない（旧スキーマ・保護対象は事前にホワイトリストで除外）', async () => {
+    const mockSend = jest
+      .fn()
+      .mockResolvedValueOnce({
+        Items: [
+          makeItem(`CHAR#${CHARACTER_ID}#WEBRAW#01ULID`, { CreatedAt: 1000 }),
+          makeItem(`CHAR#${CHARACTER_ID}#WEBRAW#02ULID`, { CreatedAt: 5000 }),
+        ],
+      })
+      .mockResolvedValueOnce({}); // BatchWriteCommand
+
+    const result = await deleteSchemaItemsCreatedAfter(
+      makeDocClient(mockSend),
+      TABLE,
+      USER_ID,
+      CHARACTER_ID,
+      'new',
+      5000
+    );
+
+    expect(result).toEqual({ deletedCount: 1 });
+    expect(mockSend).toHaveBeenCalledTimes(2);
+  });
+
+  it('対象 0 件のときは BatchWrite を呼ばず deletedCount=0 を返す', async () => {
+    const mockSend = jest.fn().mockResolvedValueOnce({
+      Items: [makeItem(`CHAR#${CHARACTER_ID}#WEBRAW#01ULID`, { CreatedAt: 1000 })],
+    });
+
+    const result = await deleteSchemaItemsCreatedAfter(
+      makeDocClient(mockSend),
+      TABLE,
+      USER_ID,
+      CHARACTER_ID,
+      'new',
+      999999
+    );
+
+    expect(result).toEqual({ deletedCount: 0 });
+    expect(mockSend).toHaveBeenCalledTimes(1);
   });
 });
