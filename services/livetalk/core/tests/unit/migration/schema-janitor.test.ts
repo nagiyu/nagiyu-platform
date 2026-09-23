@@ -242,6 +242,26 @@ describe('findSchemaItemsCreatedAfter / deleteSchemaItemsCreatedAfter', () => {
     expect(items.map((i) => i.SK)).toEqual([`CHAR#${CHARACTER_ID}#WEBRAW#02ULID`]);
   });
 
+  it('実 CURSOR は CreatedAt が指定時刻以降でも対象外とする', async () => {
+    const mockSend = jest.fn().mockResolvedValueOnce({
+      Items: [
+        makeItem(`CHAR#${CHARACTER_ID}#CURSOR`, { CreatedAt: 5000 }),
+        makeItem(`CHAR#${CHARACTER_ID}#WEBRAW#01ULID`, { CreatedAt: 5000 }),
+      ],
+    });
+
+    const items = await findSchemaItemsCreatedAfter(
+      makeDocClient(mockSend),
+      TABLE,
+      USER_ID,
+      CHARACTER_ID,
+      'new',
+      1000
+    );
+
+    expect(items.map((i) => i.SK)).toEqual([`CHAR#${CHARACTER_ID}#WEBRAW#01ULID`]);
+  });
+
   it('CreatedAt を持たない・解析できないアイテムは対象外とする（fail-safe）', async () => {
     const mockSend = jest.fn().mockResolvedValueOnce({
       Items: [
