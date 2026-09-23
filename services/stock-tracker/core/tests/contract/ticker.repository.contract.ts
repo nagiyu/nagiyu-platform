@@ -10,6 +10,12 @@
  * assert する。一方 getAll は InMemory が queryByAttribute（GSIですらない任意属性一致）、
  * 実装側は ScanCommand であり、実DynamoDBのScanは返却順序を保証しない。そのため getAll の順序は
  * assert せず、集合（件数と含まれる要素）としてのみ検証する（ソートしてから比較する）。
+ *
+ * getByExchange は「全件を返す」契約（#3788でページネーション付き口を廃止）。
+ * 実DynamoDB実装はページ境界が1MB単位のため、フィクスチャの件数ではページ分割は
+ * 起きない（複数ページ走査はDynamoDB実装の単体テストでLastEvaluatedKeyループを担保する）。
+ * この契約テストでは境界（50件ちょうど・51件・130件）で全件・順序どおり返ることのみを
+ * 検証する。
  */
 
 import type { TickerRepository } from '../../src/repositories/ticker.repository.interface.js';
@@ -104,8 +110,8 @@ export function defineTickerRepositoryContract(
 
       const result = await repository.getByExchange('NASDAQ');
 
-      expect(result.items).toHaveLength(2);
-      expect(result.items.every((item) => item.ExchangeID === 'NASDAQ')).toBe(true);
+      expect(result).toHaveLength(2);
+      expect(result.every((item) => item.ExchangeID === 'NASDAQ')).toBe(true);
     });
 
     it('getByExchange は挿入順ではなくソートキー（GSI3SK=TICKER#TickerID）の昇順で返す', async () => {
@@ -116,31 +122,38 @@ export function defineTickerRepositoryContract(
 
       const result = await repository.getByExchange('NASDAQ');
 
-      expect(result.items.map((item) => item.TickerID)).toEqual(['AAPL', 'NVDA', 'TSLA']);
+      expect(result.map((item) => item.TickerID)).toEqual(['AAPL', 'NVDA', 'TSLA']);
     });
 
-    it('getByExchange はlimit+cursorのページネーションで重複・欠落なく全件をソートキー昇順に走査できる', async () => {
-      const tickerIds = ['E', 'C', 'A', 'D', 'B'];
-      for (const tickerId of tickerIds) {
-        await repository.create(buildTickerInput({ TickerID: tickerId, ExchangeID: 'NASDAQ' }));
+    it('getByExchangeはちょうど50件（旧既定limitの境界）でも打ち切られず全件返る', async () => {
+      const total = 50;
+      for (let i = 0; i < total; i += 1) {
+        await repository.create(
+          buildTickerInput({ TickerID: `T${String(i).padStart(4, '0')}`, ExchangeID: 'NASDAQ' })
+        );
       }
 
-      const collected: string[] = [];
-      let cursor: string | undefined;
+      const result = await repository.getByExchange('NASDAQ');
 
-      do {
-        const page = await repository.getByExchange('NASDAQ', { limit: 2, cursor });
-        collected.push(...page.items.map((item) => item.TickerID));
-        cursor = page.nextCursor;
-      } while (cursor);
-
-      expect(collected).toEqual(['A', 'B', 'C', 'D', 'E']);
+      const expected = Array.from({ length: total }, (_, i) => `T${String(i).padStart(4, '0')}`);
+      expect(result.map((item) => item.TickerID)).toEqual(expected);
     });
 
-    it('getByExchangeはoptions未指定時、既定で50件に制限される（実DynamoDB実装の既定limit=50との乖離防止）', async () => {
-      // 実DynamoDB実装（dynamodb-ticker.repository.ts）は options?.limit || 50 のため、
-      // limit未指定時は50件で打ち切られnextCursorが付く。130件（>100かつ>50）投入し、
-      // 両実装ともstore既定の100件ではなく50件で揃うことを検証する。
+    it('getByExchangeは51件（旧既定limitの境界+1）でも打ち切られず全件返る（Issue #3788の主眼）', async () => {
+      const total = 51;
+      for (let i = 0; i < total; i += 1) {
+        await repository.create(
+          buildTickerInput({ TickerID: `T${String(i).padStart(4, '0')}`, ExchangeID: 'NASDAQ' })
+        );
+      }
+
+      const result = await repository.getByExchange('NASDAQ');
+
+      const expected = Array.from({ length: total }, (_, i) => `T${String(i).padStart(4, '0')}`);
+      expect(result.map((item) => item.TickerID)).toEqual(expected);
+    });
+
+    it('getByExchangeは100件超（130件）でも打ち切られず、ソートキー昇順のまま全件返る', async () => {
       const total = 130;
       for (let i = 0; i < total; i += 1) {
         await repository.create(
@@ -150,8 +163,8 @@ export function defineTickerRepositoryContract(
 
       const result = await repository.getByExchange('NASDAQ');
 
-      expect(result.items).toHaveLength(50);
-      expect(result.nextCursor).toBeDefined();
+      const expected = Array.from({ length: total }, (_, i) => `T${String(i).padStart(4, '0')}`);
+      expect(result.map((item) => item.TickerID)).toEqual(expected);
     });
 
     it('getAll（オプション未指定）は登録済みの全Tickerを集合として返す（順序は保証しないためソートして比較する）', async () => {

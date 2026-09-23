@@ -25,13 +25,6 @@ const ERROR_MESSAGES = {
   NO_UPDATES_SPECIFIED: '更新するフィールドが指定されていません',
 } as const;
 const FULL_SCAN_PAGE_SIZE = 100;
-// 実DynamoDB実装（dynamodb-ticker.repository.ts）はgetByExchangeのlimit未指定時に50件を既定と
-// するため、InMemory実装もこれに合わせる（store既定の100件のままだと乖離する）。
-//
-// 実DynamoDB実装と同じFalsyフォールバック（`options?.limit || DEFAULT_GET_BY_EXCHANGE_LIMIT`）
-// にする。Nullishフォールバック（`??`）にすると、limit: 0 がstoreの
-// `options?.limit || 100`まで素通りして100件にフォールバックしてしまうため。
-const DEFAULT_GET_BY_EXCHANGE_LIMIT = 50;
 
 /**
  * InMemory Ticker Repository
@@ -66,34 +59,31 @@ export class InMemoryTickerRepository implements TickerRepository {
    * 取引所ごとのティッカー一覧を取得
    *
    * GSI3（ExchangeTickerIndex）をqueryByAttributeでシミュレートする。GSI3SK（`TICKER#{TickerID}`）
-   * 昇順ソートで、インタフェース契約のTickerID昇順を実現する。実DynamoDB実装
-   * （dynamodb-ticker.repository.ts）はlimit未指定時に50件を既定とするため、それに揃える
-   * （store既定の100件のままだと乖離する）。
+   * 昇順ソートで、インタフェース契約のTickerID昇順を実現する。全件を返す契約のため、
+   * nextCursorがなくなるまでstoreのページを辿り切って集約する。
    */
-  public async getByExchange(
-    exchangeId: string,
-    options?: PaginationOptions
-  ): Promise<PaginatedResult<TickerEntity>> {
-    const result = this.store.queryByAttribute(
-      {
-        attributeName: 'GSI3PK',
-        attributeValue: exchangeId,
-        // sk条件を指定しないため、実DynamoDBのGSI3 Queryと同様にGSI3SK昇順で返すよう明示する
-        gsiSortKeyAttributeName: 'GSI3SK',
-      },
-      {
-        ...options,
-        limit: options?.limit || DEFAULT_GET_BY_EXCHANGE_LIMIT,
-      }
-    );
+  public async getByExchange(exchangeId: string): Promise<TickerEntity[]> {
+    const items: TickerEntity[] = [];
+    let cursor: string | undefined;
 
-    const items = result.items.map((item) => this.mapper.toEntity(item));
+    do {
+      const page = this.store.queryByAttribute(
+        {
+          attributeName: 'GSI3PK',
+          attributeValue: exchangeId,
+          // sk条件を指定しないため、実DynamoDBのGSI3 Queryと同様にGSI3SK昇順で返すよう明示する
+          gsiSortKeyAttributeName: 'GSI3SK',
+        },
+        {
+          limit: FULL_SCAN_PAGE_SIZE,
+          cursor,
+        }
+      );
+      items.push(...page.items.map((item) => this.mapper.toEntity(item)));
+      cursor = page.nextCursor;
+    } while (cursor);
 
-    return {
-      items,
-      nextCursor: result.nextCursor,
-      count: result.count,
-    };
+    return items;
   }
 
   /**
