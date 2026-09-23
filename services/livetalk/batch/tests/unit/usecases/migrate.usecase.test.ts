@@ -565,6 +565,299 @@ describe('runMigration', () => {
     expect(result.failedScopeKeys).toEqual(['u-fail#hiyori']);
   });
 
+  it('chunkStart/chunkEnd で範囲を限定すると、範囲内チャンクのみ consolidate し migrated は false（最終範囲でない）', async () => {
+    const legacyStore = new InMemorySingleTableStore();
+    // MIGRATION_CHUNK_SIZE=20 のため 45 件で 3 チャンク（20/20/5）になる
+    for (let i = 0; i < 45; i++) {
+      seedLegacyMemory(legacyStore, USER_ID, CHARACTER_ID, String(i).padStart(3, '0'));
+    }
+
+    const topicRepo = new InMemoryTopicRepository(
+      legacyStore,
+      () => 'TOPIC-1',
+      () => FIXED_NOW
+    );
+    const llmClient = makeLLMClient();
+
+    const result = await runMigration({
+      payload: makeBasePayload({ dryRun: false, migrate: true, chunkStart: 0, chunkEnd: 1 }),
+      profileRepo: new InMemoryProfileRepository(new InMemorySingleTableStore()),
+      docClient: makeFakeDocClient(legacyStore),
+      tableName: TABLE,
+      topicRepo,
+      llmClient,
+      embeddingClient: makeEmbeddingClient(),
+      env: 'dev',
+      now: () => FIXED_NOW,
+    });
+
+    const [report] = result.scopeReports;
+    expect(report.chunkStart).toBe(0);
+    expect(report.chunkEnd).toBe(1);
+    expect(report.plannedChunkCount).toBe(1);
+    expect(report.consolidatedChunkCount).toBe(1);
+    // 最終チャンク（index 2）まで到達していないため、care 引き継ぎ・CURSOR 前進・migrated は起きない
+    expect(report.migrated).toBe(false);
+    expect(report.cursorAdvanced).toBe(false);
+    expect(report.careAppliedCount).toBe(0);
+    expect(llmClient.chatStructuredCalls).toBe(1);
+    expect(legacyStore.get(`USER#${USER_ID}`, `CHAR#${CHARACTER_ID}#CURSOR`)).toBeUndefined();
+  });
+
+  it('chunkStart/chunkEnd で最終チャンクまで含む範囲を実行すると migrated=true になり care・CURSOR が動く', async () => {
+    const legacyStore = new InMemorySingleTableStore();
+    for (let i = 0; i < 45; i++) {
+      seedLegacyMemory(legacyStore, USER_ID, CHARACTER_ID, String(i).padStart(3, '0'));
+    }
+
+    const topicRepo = new InMemoryTopicRepository(
+      legacyStore,
+      () => 'TOPIC-1',
+      () => FIXED_NOW
+    );
+
+    const result = await runMigration({
+      payload: makeBasePayload({ dryRun: false, migrate: true, chunkStart: 2, chunkEnd: 3 }),
+      profileRepo: new InMemoryProfileRepository(new InMemorySingleTableStore()),
+      docClient: makeFakeDocClient(legacyStore),
+      tableName: TABLE,
+      topicRepo,
+      llmClient: makeLLMClient(),
+      embeddingClient: makeEmbeddingClient(),
+      env: 'dev',
+      now: () => FIXED_NOW,
+    });
+
+    const [report] = result.scopeReports;
+    expect(report.chunkStart).toBe(2);
+    expect(report.chunkEnd).toBe(3);
+    expect(report.consolidatedChunkCount).toBe(1);
+    expect(report.migrated).toBe(true);
+    expect(report.cursorAdvanced).toBe(true);
+    const cursorItem = legacyStore.get(`USER#${USER_ID}`, `CHAR#${CHARACTER_ID}#CURSOR`);
+    expect(cursorItem?.MsgCursor).toBe(FIXED_NOW);
+  });
+
+  it('chunkEnd がそのスコープの全チャンク数を超える場合はクランプされ、処理対象なしでも失敗しない', async () => {
+    const legacyStore = new InMemorySingleTableStore();
+    // 旧資材なし（chunks=0）のスコープに chunkStart/chunkEnd を指定
+    const result = await runMigration({
+      payload: makeBasePayload({ dryRun: false, migrate: true, chunkStart: 5, chunkEnd: 10 }),
+      profileRepo: new InMemoryProfileRepository(new InMemorySingleTableStore()),
+      docClient: makeFakeDocClient(legacyStore),
+      tableName: TABLE,
+      topicRepo: new InMemoryTopicRepository(new InMemorySingleTableStore()),
+      llmClient: makeLLMClient(),
+      embeddingClient: makeEmbeddingClient(),
+      env: 'dev',
+      now: () => FIXED_NOW,
+    });
+
+    const [report] = result.scopeReports;
+    expect(result.failedScopes).toBe(0);
+    expect(report.chunkStart).toBe(0);
+    expect(report.chunkEnd).toBe(0);
+    expect(report.plannedChunkCount).toBe(0);
+    expect(report.consolidatedChunkCount).toBe(0);
+    // 全チャンク数(0)に達しているため最終範囲扱いとなり migrated=true（旧資材ゼロと同じ挙動）
+    expect(report.migrated).toBe(true);
+    expect(report.cursorAdvanced).toBe(false);
+  });
+
+  it.each([
+    ['chunkStart が負数', { chunkStart: -1 }],
+    ['chunkStart が非整数', { chunkStart: 1.5 }],
+    ['chunkEnd が chunkStart 以下', { chunkStart: 5, chunkEnd: 5 }],
+    ['chunkEnd が非整数', { chunkEnd: 1.5 }],
+  ])('不正なチャンク範囲（%s）は fatal に throw する', async (_label, overrides) => {
+    const legacyStore = new InMemorySingleTableStore();
+    const docClient = makeFakeDocClient(legacyStore);
+
+    await expect(
+      runMigration({
+        payload: makeBasePayload({ dryRun: false, migrate: true, ...overrides }),
+        profileRepo: new InMemoryProfileRepository(new InMemorySingleTableStore()),
+        docClient,
+        tableName: TABLE,
+        topicRepo: new InMemoryTopicRepository(new InMemorySingleTableStore()),
+        llmClient: makeLLMClient(),
+        embeddingClient: makeEmbeddingClient(),
+        env: 'dev',
+        now: () => FIXED_NOW,
+      })
+    ).rejects.toThrow(MIGRATE_ERROR_MESSAGES.不正なチャンク範囲);
+
+    // fatal のため、どのスコープも処理されない
+    expect(docClient.send as jest.Mock).not.toHaveBeenCalled();
+  });
+
+  it('wipeNewCreatedAfter は指定時刻以降に作成された新スキーマのみを削除する', async () => {
+    const legacyStore = new InMemorySingleTableStore();
+    legacyStore.put({
+      PK: `USER#${USER_ID}`,
+      SK: `CHAR#${CHARACTER_ID}#TOPIC#OLD#META`,
+      Type: 'Topic',
+      CreatedAt: Date.parse('2026-09-23T10:00:00Z'),
+      UpdatedAt: Date.parse('2026-09-23T10:00:00Z'),
+    });
+    legacyStore.put({
+      PK: `USER#${USER_ID}`,
+      SK: `CHAR#${CHARACTER_ID}#TOPIC#NEW#META`,
+      Type: 'Topic',
+      CreatedAt: Date.parse('2026-09-23T15:00:00Z'),
+      UpdatedAt: Date.parse('2026-09-23T15:00:00Z'),
+    });
+
+    const result = await runMigration({
+      payload: makeBasePayload({
+        dryRun: false,
+        migrate: false,
+        wipeNewCreatedAfter: '2026-09-23T14:33:53Z',
+      }),
+      profileRepo: new InMemoryProfileRepository(new InMemorySingleTableStore()),
+      docClient: makeFakeDocClient(legacyStore),
+      tableName: TABLE,
+      topicRepo: new InMemoryTopicRepository(new InMemorySingleTableStore()),
+      llmClient: makeLLMClient(),
+      embeddingClient: makeEmbeddingClient(),
+      env: 'dev',
+      now: () => FIXED_NOW,
+    });
+
+    const [report] = result.scopeReports;
+    expect(report.wiped).toBe(true);
+    expect(report.wipedCount).toBe(1);
+    expect(report.wipeNewCreatedAfterCount).toBe(1);
+    expect(
+      legacyStore.get(`USER#${USER_ID}`, `CHAR#${CHARACTER_ID}#TOPIC#NEW#META`)
+    ).toBeUndefined();
+    expect(legacyStore.get(`USER#${USER_ID}`, `CHAR#${CHARACTER_ID}#TOPIC#OLD#META`)).toBeDefined();
+  });
+
+  it('dryRun 時は wipeNewCreatedAfterCount に削除予定件数のみ出し、削除は行わない', async () => {
+    const legacyStore = new InMemorySingleTableStore();
+    legacyStore.put({
+      PK: `USER#${USER_ID}`,
+      SK: `CHAR#${CHARACTER_ID}#TOPIC#NEW#META`,
+      Type: 'Topic',
+      CreatedAt: Date.parse('2026-09-23T15:00:00Z'),
+      UpdatedAt: Date.parse('2026-09-23T15:00:00Z'),
+    });
+
+    const result = await runMigration({
+      payload: makeBasePayload({ wipeNewCreatedAfter: '2026-09-23T14:33:53Z' }),
+      profileRepo: new InMemoryProfileRepository(new InMemorySingleTableStore()),
+      docClient: makeFakeDocClient(legacyStore),
+      tableName: TABLE,
+      topicRepo: new InMemoryTopicRepository(new InMemorySingleTableStore()),
+      llmClient: makeLLMClient(),
+      embeddingClient: makeEmbeddingClient(),
+      env: 'dev',
+      now: () => FIXED_NOW,
+    });
+
+    const [report] = result.scopeReports;
+    expect(report.dryRun).toBe(true);
+    expect(report.wiped).toBe(false);
+    expect(report.wipeNewCreatedAfterCount).toBe(1);
+    expect(legacyStore.get(`USER#${USER_ID}`, `CHAR#${CHARACTER_ID}#TOPIC#NEW#META`)).toBeDefined();
+  });
+
+  it('wipeNewCreatedAfter の日時形式が不正なら fatal に throw する', async () => {
+    const legacyStore = new InMemorySingleTableStore();
+    const docClient = makeFakeDocClient(legacyStore);
+
+    await expect(
+      runMigration({
+        payload: makeBasePayload({
+          dryRun: false,
+          migrate: false,
+          wipeNewCreatedAfter: '不正な日時',
+        }),
+        profileRepo: new InMemoryProfileRepository(new InMemorySingleTableStore()),
+        docClient,
+        tableName: TABLE,
+        topicRepo: new InMemoryTopicRepository(new InMemorySingleTableStore()),
+        llmClient: makeLLMClient(),
+        embeddingClient: makeEmbeddingClient(),
+        env: 'dev',
+        now: () => FIXED_NOW,
+      })
+    ).rejects.toThrow(MIGRATE_ERROR_MESSAGES.不正な日時形式);
+    expect(docClient.send as jest.Mock).not.toHaveBeenCalled();
+  });
+
+  it('wipeNewFirst と wipeNewCreatedAfter の同時指定は fatal に throw する', async () => {
+    const legacyStore = new InMemorySingleTableStore();
+    const docClient = makeFakeDocClient(legacyStore);
+
+    await expect(
+      runMigration({
+        payload: makeBasePayload({
+          dryRun: false,
+          migrate: false,
+          wipeNewFirst: true,
+          wipeNewCreatedAfter: '2026-09-23T14:33:53Z',
+        }),
+        profileRepo: new InMemoryProfileRepository(new InMemorySingleTableStore()),
+        docClient,
+        tableName: TABLE,
+        topicRepo: new InMemoryTopicRepository(new InMemorySingleTableStore()),
+        llmClient: makeLLMClient(),
+        embeddingClient: makeEmbeddingClient(),
+        env: 'dev',
+        now: () => FIXED_NOW,
+      })
+    ).rejects.toThrow(MIGRATE_ERROR_MESSAGES.wipeオプション同時指定);
+    expect(docClient.send as jest.Mock).not.toHaveBeenCalled();
+  });
+
+  it('wipeNewCreatedAfter のみ指定でも破壊的操作とみなされ、本番では confirmEnv が必須', async () => {
+    const legacyStore = new InMemorySingleTableStore();
+    const docClient = makeFakeDocClient(legacyStore);
+
+    await expect(
+      runMigration({
+        payload: makeBasePayload({
+          dryRun: false,
+          migrate: false,
+          wipeNewCreatedAfter: '2026-09-23T14:33:53Z',
+        }),
+        profileRepo: new InMemoryProfileRepository(new InMemorySingleTableStore()),
+        docClient,
+        tableName: TABLE,
+        topicRepo: new InMemoryTopicRepository(new InMemorySingleTableStore()),
+        llmClient: makeLLMClient(),
+        embeddingClient: makeEmbeddingClient(),
+        env: 'prod',
+        now: () => FIXED_NOW,
+      })
+    ).rejects.toThrow(MIGRATE_ERROR_MESSAGES.本番未確認);
+    expect(docClient.send as jest.Mock).not.toHaveBeenCalled();
+  });
+
+  it('dryRun レポートに chunkStart/chunkEnd/plannedChunkCount（範囲未指定時は全チャンク数）が含まれる', async () => {
+    const legacyStore = new InMemorySingleTableStore();
+    seedLegacyMemory(legacyStore, USER_ID, CHARACTER_ID, '01');
+
+    const result = await runMigration({
+      payload: makeBasePayload(),
+      profileRepo: new InMemoryProfileRepository(new InMemorySingleTableStore()),
+      docClient: makeFakeDocClient(legacyStore),
+      tableName: TABLE,
+      topicRepo: new InMemoryTopicRepository(new InMemorySingleTableStore()),
+      llmClient: makeLLMClient(),
+      embeddingClient: makeEmbeddingClient(),
+      env: 'dev',
+      now: () => FIXED_NOW,
+    });
+
+    const [report] = result.scopeReports;
+    expect(report.chunkStart).toBe(0);
+    expect(report.chunkEnd).toBe(1);
+    expect(report.plannedChunkCount).toBe(1);
+  });
+
   it('wipeNewFirst+migrate を 2 回連続実行しても同一結果に収束する（冪等性）', async () => {
     const legacyStore = new InMemorySingleTableStore();
     seedLegacyMemory(legacyStore, USER_ID, CHARACTER_ID, '01');
