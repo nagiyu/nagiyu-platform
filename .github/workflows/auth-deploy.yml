@@ -377,7 +377,7 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     needs: [infrastructure, build, deploy, cloudfront-invalidation]
-    environment: ${{ needs.build.outputs.environment }}
+    environment: ${{ needs.infrastructure.outputs.environment }}
 
     steps:
       - name: Configure AWS credentials

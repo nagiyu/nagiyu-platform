@@ -576,7 +576,7 @@ jobs:
     needs: [infrastructure, build, build-batch, deploy, cloudfront-invalidation]
     # TODO: Add post-deploy-e2e to needs when it is implemented
     # needs: [infrastructure, build, build-batch, deploy, cloudfront-invalidation, post-deploy-e2e]
-    environment: ${{ needs.build.outputs.environment }}
+    environment: ${{ needs.infrastructure.outputs.environment }}
 
     steps:
       - name: Configure AWS credentials
