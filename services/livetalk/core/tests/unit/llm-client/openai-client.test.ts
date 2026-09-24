@@ -3,6 +3,7 @@ import { logger } from '@nagiyu/common';
 import {
   OpenAIClient,
   OPENAI_DEFAULT_MODELS,
+  OPENAI_DEFAULT_REASONING_EFFORT,
   OPENAI_ERROR_MESSAGES,
 } from '../../../src/llm-client/openai-client.js';
 import type { ChatMessage } from '../../../src/llm-client/types.js';
@@ -152,6 +153,62 @@ describe('OpenAIClient', () => {
       expect(create.mock.calls[0][0].model).toBe('gpt-x-custom');
     });
 
+    it('purpose 既定の reasoning.effort を SDK 呼び出しに渡す（conversation=low）', async () => {
+      const { client, create } = makeMockOpenAI();
+      create.mockResolvedValue(makeStreamEvents([]));
+
+      const livetalk = new OpenAIClient({ client });
+      for await (const chunk of livetalk.chatStream(messages)) {
+        void chunk;
+      }
+
+      expect(create.mock.calls[0][0].reasoning).toEqual({
+        effort: OPENAI_DEFAULT_REASONING_EFFORT.conversation,
+      });
+      expect(OPENAI_DEFAULT_REASONING_EFFORT.conversation).toBe('low');
+    });
+
+    it('purpose=classify の reasoning.effort は none になる', async () => {
+      const { client, create } = makeMockOpenAI();
+      create.mockResolvedValue(makeStreamEvents([]));
+
+      const livetalk = new OpenAIClient({ client });
+      for await (const chunk of livetalk.chatStream(messages, { purpose: 'classify' })) {
+        void chunk;
+      }
+
+      expect(create.mock.calls[0][0].reasoning).toEqual({ effort: 'none' });
+      expect(OPENAI_DEFAULT_REASONING_EFFORT.classify).toBe('none');
+    });
+
+    it('purpose=summarize の reasoning.effort は low になる', async () => {
+      const { client, create } = makeMockOpenAI();
+      create.mockResolvedValue(makeStreamEvents([]));
+
+      const livetalk = new OpenAIClient({ client });
+      for await (const chunk of livetalk.chatStream(messages, { purpose: 'summarize' })) {
+        void chunk;
+      }
+
+      expect(create.mock.calls[0][0].reasoning).toEqual({ effort: 'low' });
+      expect(OPENAI_DEFAULT_REASONING_EFFORT.summarize).toBe('low');
+    });
+
+    it('effort 上書き指定が反映される', async () => {
+      const { client, create } = makeMockOpenAI();
+      create.mockResolvedValue(makeStreamEvents([]));
+
+      const livetalk = new OpenAIClient({
+        client,
+        effort: { conversation: 'high' },
+      });
+      for await (const chunk of livetalk.chatStream(messages)) {
+        void chunk;
+      }
+
+      expect(create.mock.calls[0][0].reasoning).toEqual({ effort: 'high' });
+    });
+
     it('options.model 明示指定が purpose より優先される', async () => {
       const { client, create } = makeMockOpenAI();
       create.mockResolvedValue(makeStreamEvents([]));
@@ -219,6 +276,7 @@ describe('OpenAIClient', () => {
           service: 'livetalk',
           purpose: 'conversation',
           model: OPENAI_DEFAULT_MODELS.conversation,
+          reasoningEffort: OPENAI_DEFAULT_REASONING_EFFORT.conversation,
           outcome: 'completed',
           inputTokens: 100,
           cachedInputTokens: 10,
@@ -339,6 +397,16 @@ describe('OpenAIClient', () => {
       expect(create.mock.calls[0][0].stream).toBe(false);
     });
 
+    it('purpose 既定の reasoning.effort を SDK 呼び出しに渡す', async () => {
+      const { client, create } = makeMockOpenAI();
+      create.mockResolvedValue({ output_text: 'ok' });
+
+      const livetalk = new OpenAIClient({ client });
+      await livetalk.chatComplete(messages, { purpose: 'classify' });
+
+      expect(create.mock.calls[0][0].reasoning).toEqual({ effort: 'none' });
+    });
+
     it('output_text が undefined なら空文字を返す', async () => {
       const { client, create } = makeMockOpenAI();
       create.mockResolvedValue({});
@@ -390,6 +458,7 @@ describe('OpenAIClient', () => {
           service: 'livetalk',
           purpose: 'classify',
           model: OPENAI_DEFAULT_MODELS.classify,
+          reasoningEffort: OPENAI_DEFAULT_REASONING_EFFORT.classify,
           inputTokens: 100,
           cachedInputTokens: 10,
           outputTokens: 50,
@@ -477,6 +546,16 @@ describe('OpenAIClient', () => {
       expect(parse.mock.calls[0][0].model).toBe(OPENAI_DEFAULT_MODELS.classify);
     });
 
+    it('purpose 既定の reasoning.effort を SDK 呼び出しに渡す', async () => {
+      const { client, parse } = makeMockOpenAI();
+      parse.mockResolvedValue({ output_parsed: { value: 'ok', count: 0 } });
+
+      const livetalk = new OpenAIClient({ client });
+      await livetalk.chatStructured(messages, testSchema, { purpose: 'classify' });
+
+      expect(parse.mock.calls[0][0].reasoning).toEqual({ effort: 'none' });
+    });
+
     it('output_parsed が null の場合 REFUSAL エラーを投げる', async () => {
       const { client, parse } = makeMockOpenAI();
       parse.mockResolvedValue({ output_parsed: null });
@@ -511,6 +590,7 @@ describe('OpenAIClient', () => {
           service: 'livetalk',
           purpose: 'conversation',
           model: OPENAI_DEFAULT_MODELS.conversation,
+          reasoningEffort: OPENAI_DEFAULT_REASONING_EFFORT.conversation,
           inputTokens: 100,
           cachedInputTokens: 10,
           outputTokens: 50,

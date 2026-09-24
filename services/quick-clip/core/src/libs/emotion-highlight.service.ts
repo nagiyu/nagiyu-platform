@@ -8,6 +8,7 @@ import {
   resolveOpenAIResponsesOutcome,
 } from '@nagiyu/common';
 import type OpenAI from 'openai';
+import type { ReasoningEffort } from 'openai/resources/shared';
 import type {
   EmotionFilter,
   EmotionHighlightScore,
@@ -16,6 +17,18 @@ import type {
 import type { TranscriptSegment } from './transcription.service.js';
 
 const OPENAI_MODEL = 'gpt-5.6-luna';
+/**
+ * emotion-scoring 用の reasoning.effort。
+ *
+ * セグメントごとの構造化スコアリングであり、出力はスキーマで縛られた 0.0〜1.0 の数値。
+ * dev 実測（56 件）では reasoning/出力比 14.9% と全用途中で最も低い部類で、モデル自身も
+ * あまり reasoning を使っていない。加えて 1 変換で 56 呼び出しと件数が多く、1 件あたりの
+ * 削減が小さくても合計では効く（reasoning 合計 15,830 トークンは全用途中 2 位）。
+ * これらを踏まえ `none` に倒し reasoning コストを削る。
+ *
+ * @see Issue #3780 "reasoning.effort の用途別チューニング"（Step 2: 実測にもとづく effort 設定）
+ */
+const OPENAI_REASONING_EFFORT = 'none' satisfies ReasoningEffort;
 const MAX_RETRIES = 3;
 const REQUEST_TIMEOUT_MS = 600_000;
 const SEGMENTS_PER_CHUNK = 50;
@@ -141,6 +154,7 @@ export class EmotionHighlightService {
               this.client.responses.parse({
                 model: OPENAI_MODEL,
                 stream: false,
+                reasoning: { effort: OPENAI_REASONING_EFFORT },
                 text: {
                   format: zodTextFormat(emotionScoresSchema, 'emotion_scores'),
                 },
@@ -186,6 +200,7 @@ export class EmotionHighlightService {
           service: LLM_USAGE_SERVICE,
           purpose: LLM_USAGE_PURPOSE,
           model: OPENAI_MODEL,
+          reasoningEffort: OPENAI_REASONING_EFFORT,
           outcome: resolveOpenAIResponsesOutcome(response.status),
           ...extractOpenAIResponsesUsage(response.usage),
         });
