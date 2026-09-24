@@ -70,7 +70,6 @@ description: 本番リリース（develop → master）を手伝う。マイル�
 - **master 向け**: タイトル `Release vX.Y.Z`。バージョン更新の表（旧 → 新・種別・主な理由と Issue 番号）、据え置いたパッケージとその理由、マージ後の手作業を記載する。
 - **develop 向け**: タイトル `Release vX.Y.Z を develop へ反映`。バージョン更新を develop に戻す。
 - `.github/pull_request_template.md` の構造に従う（→ `pr-create` スキル）。
-- master 向け PR では一部サービスの検証ワークフロー（例: LiveTalk）が走らない。変更に該当する場合はローカルでテストを通しておく。
 
 ## 7. マージ後の本番確認
 
