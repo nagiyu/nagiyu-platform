@@ -115,13 +115,34 @@ function findCloseForDate(
   return null;
 }
 
+/**
+ * 日足チャートから、指定日 (取引所タイムゾーン基準) より後にある最初の足を返す
+ *
+ * chartData は新しい順（先頭が最新）に並んでいる前提のため、末尾（最も古い側）から
+ * 走査して dateYmd より後の足のうち最も古いもの（＝直後の取引日）を返す。
+ * 該当する足がなければ null（まだ翌営業日が引けていない）。
+ */
+function findNextBarAfterDate(
+  chartData: Awaited<ReturnType<typeof getChartData>>,
+  exchange: ExchangeEntity,
+  dateYmd: string
+): Awaited<ReturnType<typeof getChartData>>[number] | null {
+  for (let i = chartData.length - 1; i >= 0; i--) {
+    const point = chartData[i];
+    if (formatDateInTimezone(point.time, exchange.Timezone) > dateYmd) {
+      return point;
+    }
+  }
+  return null;
+}
+
 async function evaluateOne(
   candidate: PendingEvaluation,
   dependencies: HandlerDependencies,
   stats: EvaluationStatistics,
   now: number
 ): Promise<void> {
-  const { summary, exchange, evaluationDate } = candidate;
+  const { summary, exchange, lastTradingDate } = candidate;
   const signal = summary.AiAnalysisResult?.investmentJudgment.signal;
   if (!signal) {
     // findPendingEvaluations のフィルタを通っているはずだが、防御的に skip
@@ -133,19 +154,17 @@ async function evaluateOne(
     return;
   }
 
-  let evaluationClose: number | null;
+  let chartData: Awaited<ReturnType<typeof getChartData>>;
   try {
-    const chartData = await dependencies.getChartDataFn(summary.TickerID, 'D', {
+    chartData = await dependencies.getChartDataFn(summary.TickerID, 'D', {
       count: CHART_DATA_COUNT,
       session: 'extended',
     });
-    evaluationClose = findCloseForDate(chartData, exchange, evaluationDate);
   } catch (error) {
     const errorMessage = toErrorMessage(error);
     logger.warn('翌営業日終値の取得に失敗したため当該予測の採点をスキップします', {
       tickerId: summary.TickerID,
       date: summary.Date,
-      evaluationDate,
       reason: errorMessage,
     });
     await reportErrorEvent({
@@ -156,7 +175,6 @@ async function evaluateOne(
       context: {
         tickerId: summary.TickerID,
         date: summary.Date,
-        evaluationDate,
         errorStack: error instanceof Error ? error.stack : undefined,
       },
     });
@@ -164,21 +182,54 @@ async function evaluateOne(
     return;
   }
 
-  if (evaluationClose === null) {
-    logger.info('翌営業日終値がチャートに存在しないため次回 cron で再試行します', {
+  // 祝日マスターを持たないため、評価日は「予測日より後の最初の足」からチャート実データで確定する
+  const nextBar = findNextBarAfterDate(chartData, exchange, summary.Date);
+  if (nextBar === null) {
+    logger.info('予測日より後の足がまだチャートに存在しないため次回 cron で再試行します', {
       tickerId: summary.TickerID,
       date: summary.Date,
-      evaluationDate,
     });
     stats.missingClose++;
     return;
+  }
+
+  const evaluationDate = formatDateInTimezone(nextBar.time, exchange.Timezone);
+  if (evaluationDate > lastTradingDate) {
+    // まだ引けていない（進行中の）足のため次回 cron で再試行する
+    logger.info('評価日の足がまだ引けていないため次回 cron で再試行します', {
+      tickerId: summary.TickerID,
+      date: summary.Date,
+      evaluationDate,
+      lastTradingDate,
+    });
+    stats.missingClose++;
+    return;
+  }
+  const evaluationClose = nextBar.close;
+
+  // 基準終値は同じチャート上の予測日の足を優先する（株式分割等で調整後の値どうしを比較するため）。
+  // 見つからない場合のみ、保存済みの summary.Close にフォールバックする。
+  const chartBaseClose = findCloseForDate(chartData, exchange, summary.Date);
+  let baseClose: number;
+  if (chartBaseClose !== null) {
+    baseClose = chartBaseClose;
+  } else {
+    baseClose = summary.Close;
+    logger.warn(
+      'チャートに予測日の基準終値が見つからないため保存済みの Close にフォールバックします',
+      {
+        tickerId: summary.TickerID,
+        date: summary.Date,
+        evaluationDate,
+      }
+    );
   }
 
   let judgeResult: ReturnType<typeof judgePrediction>;
   try {
     judgeResult = judgePrediction({
       signal,
-      baseClose: summary.Close,
+      baseClose,
       evaluationClose,
       thresholdPercent: EVALUATION_THRESHOLD_PERCENT,
     });

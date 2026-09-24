@@ -4,18 +4,15 @@
  * 取引所ごとに以下を実施する:
  *   1. `getLastTradingDate` でその取引所の直近完了取引日 (L) を求める
  *   2. `getByExchangeAndDateRange` で過去 windowDays 日分の DailySummary を取得（GSI4 Query）
- *   3. メモリ上で「AiAnalysisResult あり & AiAnalysisError なし & EvaluatedAt 未設定」をフィルタ
- *   4. 各 summary の予測日 D に対して翌営業日 (next weekday) を算出し、L 以下なら採点候補とする
+ *   3. メモリ上で「AiAnalysisResult あり & AiAnalysisError なし & EvaluatedAt 未設定 &
+ *      予測日 (summary.Date) が L より前 & リトライ上限内」をフィルタ
  *
- * 採点バッチ本体 (`evaluation.ts`) はここで得た候補を順次採点する。
+ * 祝日マスターを持たないため、翌営業日の確定（評価日の算出）はここでは行わない。
+ * 実際にチャートに翌営業日の足があるかどうかは、チャートの日付を確認できる
+ * 採点バッチ本体 (`evaluation.ts`) 側で判定する（Issue #3830）。
  */
 
-import {
-  countWeekdaysBetween,
-  formatDateInTimezone,
-  getLastTradingDate,
-  getNextWeekday,
-} from '@nagiyu/stock-tracker-core';
+import { countWeekdaysBetween, formatDateInTimezone, getLastTradingDate } from '@nagiyu/stock-tracker-core';
 import type {
   DailySummaryEntity,
   DailySummaryRepository,
@@ -31,8 +28,8 @@ export interface PendingEvaluation {
   summary: DailySummaryEntity;
   /** 採点に使う取引所 */
   exchange: ExchangeEntity;
-  /** 採点に使う翌営業日 (YYYY-MM-DD) */
-  evaluationDate: string;
+  /** 抽出時点でのその取引所の直近完了取引日 (YYYY-MM-DD)。評価日確定の上限として evaluation.ts が使う */
+  lastTradingDate: string;
 }
 
 /**
@@ -61,7 +58,11 @@ function isCandidate(summary: DailySummaryEntity, lastTradingDate: string): bool
   ) {
     return false;
   }
-  // 予測日から N 営業日経過しても採点できなければ卒業（祝日連休等で永久未採点になるのを防ぐ）
+  // 予測日が直近完了取引日以降（＝まだ翌営業日が存在し得ない）は次回 cron で再評価
+  if (summary.Date >= lastTradingDate) {
+    return false;
+  }
+  // 予測日から N 営業日経過しても採点できなければ卒業（祝日連休等で永久未採点になるのを防ぐ安全弁）
   const businessDaysElapsed = countWeekdaysBetween(summary.Date, lastTradingDate);
   return businessDaysElapsed < MAX_EVALUATION_BUSINESS_DAYS;
 }
@@ -92,12 +93,7 @@ export async function findPendingEvaluations(
       if (!isCandidate(summary, lastTradingDate)) {
         continue;
       }
-      const evaluationDate = getNextWeekday(summary.Date);
-      // 翌営業日がまだ閉まっていない場合はスキップ（次回 cron で再評価）
-      if (evaluationDate > lastTradingDate) {
-        continue;
-      }
-      results.push({ summary, exchange, evaluationDate });
+      results.push({ summary, exchange, lastTradingDate });
     }
   }
 

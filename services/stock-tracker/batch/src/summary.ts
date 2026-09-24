@@ -11,6 +11,7 @@ import {
   PatternAnalyzer,
   PATTERN_REGISTRY,
   DynamoDBTickerRepository,
+  formatDateInTimezone,
   getChartData,
   getLastTradingDate,
 } from '@nagiyu/stock-tracker-core';
@@ -62,6 +63,8 @@ interface BatchStatistics {
   summariesSaved: number;
   aiAnalysisGenerated: number;
   aiAnalysisSkipped: number;
+  /** summaryDate に一致する取引日の足が見つからず（休場日 等）サマリー生成をスキップした件数 */
+  skippedNoBarForDate: number;
   errors: number;
 }
 
@@ -77,6 +80,30 @@ interface HandlerDependencies {
 
 const REQUIRED_CHART_DATA_COUNT = 100;
 const AI_ANALYSIS_HISTORY_COUNT = 50;
+
+/**
+ * チャートデータの取得件数に持たせる余裕本数
+ *
+ * バッチ障害等でサマリー生成が翌営業日の取引時間中にずれ込むと、`chartData[0]` が
+ * summaryDate より後の進行中の足になる。これを summaryDate 以前の足に絞り込んだ後も
+ * REQUIRED_CHART_DATA_COUNT / AI_ANALYSIS_HISTORY_COUNT 分の本数を確保できるよう、
+ * 取得時点で余裕を持たせておく。
+ */
+const CHART_DATA_FETCH_MARGIN = 5;
+
+/**
+ * チャートデータのうち、取引所タイムゾーン基準で dateYmd 以前（当日含む）の足だけを返す
+ *
+ * chartData は新しい順（先頭が最新）に並んでいる前提。翌営業日の取引時間中にバッチが
+ * 実行された場合等、先頭が dateYmd より後の進行中の足になっているケースを除外する。
+ */
+function filterChartDataOnOrBefore(
+  chartData: Awaited<ReturnType<typeof getChartData>>,
+  timezone: string,
+  dateYmd: string
+): Awaited<ReturnType<typeof getChartData>> {
+  return chartData.filter((point) => formatDateInTimezone(point.time, timezone) <= dateYmd);
+}
 
 function toHistoricalDataFromChartData(
   chartData: Awaited<ReturnType<typeof getChartData>>
@@ -163,7 +190,7 @@ async function processExchange(
 
         if (needsStaticAnalysis(existingSummary)) {
           const chartData = await dependencies.getChartDataFn(ticker.TickerID, 'D', {
-            count: REQUIRED_CHART_DATA_COUNT,
+            count: REQUIRED_CHART_DATA_COUNT + CHART_DATA_FETCH_MARGIN,
             session: 'extended',
           });
 
@@ -172,12 +199,38 @@ async function processExchange(
               exchangeId: exchange.ExchangeID,
               tickerId: ticker.TickerID,
             });
+            stats.skippedNoBarForDate++;
             continue;
           }
 
-          const latest = chartData[0];
+          // summaryDate より後（翌営業日の進行中の足 等）を除外し、summaryDate 以前の足だけを対象にする
+          const onOrBeforeSummaryDate = filterChartDataOnOrBefore(
+            chartData,
+            exchange.Timezone,
+            summaryDate
+          );
+
+          if (
+            onOrBeforeSummaryDate.length === 0 ||
+            formatDateInTimezone(onOrBeforeSummaryDate[0].time, exchange.Timezone) !== summaryDate
+          ) {
+            // 休場日（祝日等）、またはまだ当日分のデータが反映されていない
+            logger.info(
+              'summaryDate に一致する取引日の足が見つからないためサマリー生成をスキップします',
+              {
+                exchangeId: exchange.ExchangeID,
+                tickerId: ticker.TickerID,
+                summaryDate,
+              }
+            );
+            stats.skippedNoBarForDate++;
+            continue;
+          }
+
+          const latest = onOrBeforeSummaryDate[0];
+          const patternCandles = onOrBeforeSummaryDate.slice(0, REQUIRED_CHART_DATA_COUNT);
           const patternAnalysis =
-            chartData.length < REQUIRED_CHART_DATA_COUNT
+            patternCandles.length < REQUIRED_CHART_DATA_COUNT
               ? {
                   patternResults: Object.fromEntries(
                     PATTERN_REGISTRY.map((pattern) => [
@@ -188,7 +241,7 @@ async function processExchange(
                   buyPatternCount: 0,
                   sellPatternCount: 0,
                 }
-              : patternAnalyzer.analyze(chartData);
+              : patternAnalyzer.analyze(patternCandles);
 
           currentSummaryInput = {
             TickerID: ticker.TickerID,
@@ -205,7 +258,7 @@ async function processExchange(
             AiAnalysisResult: existingSummary?.AiAnalysisResult,
             AiAnalysisError: existingSummary?.AiAnalysisError,
           };
-          historicalDataForAiFromChart = toHistoricalDataFromChartData(chartData);
+          historicalDataForAiFromChart = toHistoricalDataFromChartData(onOrBeforeSummaryDate);
           await dependencies.dailySummaryRepository.upsert(currentSummaryInput);
           stats.summariesSaved++;
         } else if (existingSummary) {
@@ -239,10 +292,15 @@ async function processExchange(
           if (historicalDataForAiFromChart === undefined) {
             try {
               const chartDataForAi = await dependencies.getChartDataFn(ticker.TickerID, 'D', {
-                count: AI_ANALYSIS_HISTORY_COUNT,
+                count: AI_ANALYSIS_HISTORY_COUNT + CHART_DATA_FETCH_MARGIN,
                 session: 'extended',
               });
-              historicalData = toHistoricalDataFromChartData(chartDataForAi);
+              const onOrBeforeSummaryDateForAi = filterChartDataOnOrBefore(
+                chartDataForAi,
+                exchange.Timezone,
+                summaryDate
+              );
+              historicalData = toHistoricalDataFromChartData(onOrBeforeSummaryDateForAi);
             } catch (error) {
               const errorMessage = toErrorMessage(error);
               logger.warn(
@@ -394,6 +452,7 @@ export async function handler(
     summariesSaved: 0,
     aiAnalysisGenerated: 0,
     aiAnalysisSkipped: 0,
+    skippedNoBarForDate: 0,
     errors: 0,
   };
 
