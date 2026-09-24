@@ -726,7 +726,7 @@ aws cloudformation deploy \
 ### デプロイ時に権限エラーが発生する
 
 **エラー例:**
-- `User: arn:aws:iam::xxx:user/nagiyu-github-actions is not authorized to perform: xxx on resource: xxx`（ローカル開発ユーザー等）
+- `User: arn:aws:iam::xxx:user/nagiyu-local-dev is not authorized to perform: xxx on resource: xxx`（ローカル開発ユーザー等）
 - `User: arn:aws:sts::xxx:assumed-role/nagiyu-github-actions-dev/... is not authorized to perform: xxx on resource: xxx`（GitHub Actions OIDC ロール）
 
 **原因:** デプロイポリシーに必要な権限が不足している。
