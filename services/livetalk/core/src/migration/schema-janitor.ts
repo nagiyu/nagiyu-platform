@@ -39,6 +39,10 @@ function isProtectedSK(sk: string): boolean {
   );
 }
 
+function isCursorSK(sk: string): boolean {
+  return /^CHAR#[^#]+#CURSOR$/.test(sk);
+}
+
 function isNoteSK(sk: string): boolean {
   return /^CHAR#[^#]+#NOTE#[^#]+$/.test(sk);
 }
@@ -141,6 +145,10 @@ function parseCreatedAt(value: unknown): number | undefined {
  * 1 ユーザー × 1 キャラ配下から、指定スキーマ種別かつ `CreatedAt` が `createdAfterMs` 以降の
  * アイテムだけを検索する（削除はしない）。`CreatedAt` を持たない・解析できないアイテムは
  * 対象外とする（fail-safe）。
+ *
+ * 実 CURSOR（`CHAR#<c>#CURSOR`）は常に対象外とする。consolidation は CURSOR を書き込むたびに
+ * `CreatedAt` も更新するため、移行と無関係でも「指定時刻以降に作成」扱いになり、削除されると
+ * 次回の定期 consolidation が実メッセージを最初から畳み直して重複 Topic を作ってしまう（#3814）。
  */
 export async function findSchemaItemsCreatedAfter(
   docClient: DynamoDBDocumentClient,
@@ -152,6 +160,7 @@ export async function findSchemaItemsCreatedAfter(
 ): Promise<DynamoDBItem[]> {
   const items = await findSchemaItems(docClient, tableName, userId, characterId, target);
   return items.filter((item) => {
+    if (isCursorSK(String(item['SK'] ?? ''))) return false;
     const createdAt = parseCreatedAt(item['CreatedAt']);
     return createdAt !== undefined && createdAt >= createdAfterMs;
   });
