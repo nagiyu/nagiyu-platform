@@ -59,7 +59,10 @@ export async function handler(event: MigratePayload): Promise<HandlerResponse> {
     characterId: event.characterId,
     dryRun: event.dryRun,
     migrate: event.migrate,
+    chunkStart: event.chunkStart,
+    chunkEnd: event.chunkEnd,
     wipeNewFirst: event.wipeNewFirst,
+    wipeNewCreatedAfter: event.wipeNewCreatedAfter,
     deleteOldAfter: event.deleteOldAfter,
   });
 

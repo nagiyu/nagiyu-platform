@@ -39,6 +39,10 @@ function isProtectedSK(sk: string): boolean {
   );
 }
 
+function isCursorSK(sk: string): boolean {
+  return /^CHAR#[^#]+#CURSOR$/.test(sk);
+}
+
 function isNoteSK(sk: string): boolean {
   return /^CHAR#[^#]+#NOTE#[^#]+$/.test(sk);
 }
@@ -119,6 +123,70 @@ export async function deleteSchemaItems(
 ): Promise<DeleteSchemaItemsResult> {
   const items = await findSchemaItems(docClient, tableName, userId, characterId, target);
   logDeletionPlan('[schema-janitor] 削除予定', userId, characterId, target, items);
+  const deletedCount = await batchDeleteItems(docClient, tableName, items);
+  return { deletedCount };
+}
+
+/**
+ * `CreatedAt` を解析してエポックミリ秒に正規化する。本番データは Number（エポックミリ秒）で
+ * 保存されているが、ISO 8601 文字列にも両対応する。解析できない場合は `undefined`（fail-safe。
+ * 呼び出し側は `undefined` を削除対象外として扱う）。
+ */
+function parseCreatedAt(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  return undefined;
+}
+
+/**
+ * 1 ユーザー × 1 キャラ配下から、指定スキーマ種別かつ `CreatedAt` が `createdAfterMs` 以降の
+ * アイテムだけを検索する（削除はしない）。`CreatedAt` を持たない・解析できないアイテムは
+ * 対象外とする（fail-safe）。
+ *
+ * 実 CURSOR（`CHAR#<c>#CURSOR`）は常に対象外とする。consolidation は CURSOR を書き込むたびに
+ * `CreatedAt` も更新するため、移行と無関係でも「指定時刻以降に作成」扱いになり、削除されると
+ * 次回の定期 consolidation が実メッセージを最初から畳み直して重複 Topic を作ってしまう（#3814）。
+ */
+export async function findSchemaItemsCreatedAfter(
+  docClient: DynamoDBDocumentClient,
+  tableName: string,
+  userId: string,
+  characterId: string,
+  target: SchemaTarget,
+  createdAfterMs: number
+): Promise<DynamoDBItem[]> {
+  const items = await findSchemaItems(docClient, tableName, userId, characterId, target);
+  return items.filter((item) => {
+    if (isCursorSK(String(item['SK'] ?? ''))) return false;
+    const createdAt = parseCreatedAt(item['CreatedAt']);
+    return createdAt !== undefined && createdAt >= createdAfterMs;
+  });
+}
+
+/**
+ * `findSchemaItemsCreatedAfter` の対象を削除する。削除前に対象件数・SK 一覧をログ出力する
+ * （本文 PII は含めない）。
+ */
+export async function deleteSchemaItemsCreatedAfter(
+  docClient: DynamoDBDocumentClient,
+  tableName: string,
+  userId: string,
+  characterId: string,
+  target: SchemaTarget,
+  createdAfterMs: number
+): Promise<DeleteSchemaItemsResult> {
+  const items = await findSchemaItemsCreatedAfter(
+    docClient,
+    tableName,
+    userId,
+    characterId,
+    target,
+    createdAfterMs
+  );
+  logDeletionPlan('[schema-janitor] 削除予定（時刻指定）', userId, characterId, target, items);
   const deletedCount = await batchDeleteItems(docClient, tableName, items);
   return { deletedCount };
 }

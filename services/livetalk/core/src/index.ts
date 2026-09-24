@@ -458,6 +458,8 @@ export {
   classifySchemaItem,
   findSchemaItems,
   deleteSchemaItems,
+  findSchemaItemsCreatedAfter,
+  deleteSchemaItemsCreatedAfter,
   queryItemsByPrefix,
   batchDeleteItems,
   MIGRATION_ERROR_MESSAGES,
