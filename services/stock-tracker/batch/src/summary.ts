@@ -65,6 +65,13 @@ interface BatchStatistics {
   aiAnalysisSkipped: number;
   /** summaryDate に一致する取引日の足が見つからず（休場日 等）サマリー生成をスキップした件数 */
   skippedNoBarForDate: number;
+  /**
+   * 取引所単位で休場日とみなし、残りのティッカー処理をこの回打ち切った回数
+   *
+   * （先頭から連続 EXCHANGE_CLOSED_CONSECUTIVE_MISS_THRESHOLD 件が「summaryDate の足なし」
+   * だった取引所の数）
+   */
+  skippedExchangesAsClosed: number;
   errors: number;
 }
 
@@ -90,6 +97,18 @@ const AI_ANALYSIS_HISTORY_COUNT = 50;
  * 取得時点で余裕を持たせておく。
  */
 const CHART_DATA_FETCH_MARGIN = 5;
+
+/**
+ * 取引所を休場日とみなして残りのティッカー処理を打ち切るまでの連続ミス数
+ *
+ * 休場日には summaryDate のサマリーが1件も作られないため、この判定がないと
+ * 休場日の引け後から翌営業日の引けまでの約24時間、毎時のバッチが全ティッカーの
+ * 日足（チャート取得件数 REQUIRED_CHART_DATA_COUNT + CHART_DATA_FETCH_MARGIN 件）を
+ * 取得し直し続けてしまう。先頭から連続でこの件数だけ「summaryDate の足なし」が続き、
+ * かつそれまでに1件も足ありが見つかっていなければ、その取引所は休場日とみなして
+ * 残りのティッカーの処理をこの回は打ち切る。
+ */
+const EXCHANGE_CLOSED_CONSECUTIVE_MISS_THRESHOLD = 3;
 
 /**
  * チャートデータのうち、取引所タイムゾーン基準で dateYmd 以前（当日含む）の足だけを返す
@@ -178,6 +197,9 @@ async function processExchange(
     stats.totalTickers += tickers.length;
     const summaryDate = getLastTradingDate(exchange, now);
     const patternAnalyzer = new PatternAnalyzer();
+    // 取引所単位の休場日打ち切り判定用（チャートを取得したティッカーのみ数える）
+    let consecutiveNoBarMisses = 0;
+    let barFoundForSummaryDate = false;
 
     for (const ticker of tickers) {
       try {
@@ -214,18 +236,41 @@ async function processExchange(
             formatDateInTimezone(onOrBeforeSummaryDate[0].time, exchange.Timezone) !== summaryDate
           ) {
             // 休場日（祝日等）、またはまだ当日分のデータが反映されていない
+            const latestBarDate =
+              onOrBeforeSummaryDate.length > 0
+                ? formatDateInTimezone(onOrBeforeSummaryDate[0].time, exchange.Timezone)
+                : undefined;
             logger.info(
               'summaryDate に一致する取引日の足が見つからないためサマリー生成をスキップします',
               {
                 exchangeId: exchange.ExchangeID,
                 tickerId: ticker.TickerID,
                 summaryDate,
+                latestBarDate,
               }
             );
             stats.skippedNoBarForDate++;
+
+            if (!barFoundForSummaryDate) {
+              consecutiveNoBarMisses++;
+              if (consecutiveNoBarMisses >= EXCHANGE_CLOSED_CONSECUTIVE_MISS_THRESHOLD) {
+                logger.info(
+                  '先頭から連続して summaryDate の足が見つからないため、取引所を休場日とみなし残りのティッカー処理を打ち切ります',
+                  {
+                    exchangeId: exchange.ExchangeID,
+                    summaryDate,
+                    consecutiveMisses: consecutiveNoBarMisses,
+                  }
+                );
+                stats.skippedExchangesAsClosed++;
+                break;
+              }
+            }
             continue;
           }
 
+          // summaryDate の足が見つかったので、以降このティッカー処理内では休場日打ち切り判定を行わない
+          barFoundForSummaryDate = true;
           const latest = onOrBeforeSummaryDate[0];
           const patternCandles = onOrBeforeSummaryDate.slice(0, REQUIRED_CHART_DATA_COUNT);
           const patternAnalysis =
@@ -452,6 +497,7 @@ export async function handler(
     aiAnalysisGenerated: 0,
     aiAnalysisSkipped: 0,
     skippedNoBarForDate: 0,
+    skippedExchangesAsClosed: 0,
     errors: 0,
   };
 

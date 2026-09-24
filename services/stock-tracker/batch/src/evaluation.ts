@@ -80,7 +80,12 @@ export interface EvaluationStatistics {
   evaluated: number;
   /** 既採点（並列実行による）でスキップした件数 */
   alreadyEvaluatedSkipped: number;
-  /** TradingView 終値が取得できずスキップした件数 */
+  /**
+   * 翌営業日の終値がまだ確定せずスキップした件数
+   *
+   * 「予測日より後の足がまだチャートに存在しない」場合と、「次の足は存在するが
+   * その日付が lastTradingDate より後（＝まだ引けていない）」場合の両方を含む。
+   */
   missingClose: number;
   /** チャートに予測日（基準日）の足が見つからずスキップした件数（休場日コピー足の可能性） */
   missingBaseBar: number;
@@ -164,7 +169,7 @@ async function evaluateOne(
     });
   } catch (error) {
     const errorMessage = toErrorMessage(error);
-    logger.warn('翌営業日終値の取得に失敗したため当該予測の採点をスキップします', {
+    logger.warn('日足チャートの取得に失敗したため当該予測の採点をスキップします', {
       tickerId: summary.TickerID,
       date: summary.Date,
       reason: errorMessage,
@@ -172,7 +177,7 @@ async function evaluateOne(
     await reportErrorEvent({
       serviceId: 'stock-tracker',
       severity: 'warning',
-      title: '採点バッチ: 翌営業日終値取得失敗',
+      title: '採点バッチ: 日足チャート取得失敗',
       message: errorMessage,
       context: {
         tickerId: summary.TickerID,
