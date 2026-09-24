@@ -22,6 +22,10 @@ on:
           - dev
           - prod
 
+permissions:
+  id-token: write
+  contents: read
+
 env:
   AWS_REGION: us-east-1
 
@@ -29,6 +33,7 @@ jobs:
   infrastructure-ecr:
     name: Deploy ECR Repositories
     runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
 
     outputs:
       environment: ${{ steps.setup-environment.outputs.environment }}
@@ -56,8 +61,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Deploy ECR and Secrets Stacks
@@ -78,6 +82,7 @@ jobs:
     name: Build and Push Web Docker Image
     runs-on: ubuntu-latest
     needs: infrastructure-ecr
+    environment: ${{ needs.infrastructure-ecr.outputs.environment }}
 
     outputs:
       image-uri: ${{ steps.build-image.outputs.image-uri }}
@@ -104,8 +109,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Get ECR repository from CDK stack
@@ -158,6 +162,7 @@ jobs:
     name: Build and Push Batch Docker Image
     runs-on: ubuntu-latest
     needs: infrastructure-ecr
+    environment: ${{ needs.infrastructure-ecr.outputs.environment }}
 
     outputs:
       image-uri: ${{ steps.build-image.outputs.image-uri }}
@@ -177,8 +182,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Get ECR repository from CDK stack
@@ -231,6 +235,7 @@ jobs:
     name: Deploy Application Infrastructure
     runs-on: ubuntu-latest
     needs: [infrastructure-ecr, build-web, build-batch]
+    environment: ${{ needs.infrastructure-ecr.outputs.environment }}
 
     steps:
       - name: Checkout code
@@ -250,8 +255,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Fetch secrets from Secrets Manager
@@ -378,6 +382,7 @@ jobs:
     name: Verify Deployment
     runs-on: ubuntu-latest
     needs: [infrastructure-ecr, build-web, build-batch, infrastructure-app]
+    environment: ${{ needs.infrastructure-ecr.outputs.environment }}
 
     steps:
       - name: Checkout code
@@ -392,8 +397,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Verify deployment
