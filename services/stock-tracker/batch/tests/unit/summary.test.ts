@@ -927,6 +927,30 @@ describe('summary batch handler', () => {
       );
     });
 
+    it('最新足が古い（上場廃止等で足が止まっている）銘柄は休場ミスに数えない', async () => {
+      await setupExchangeWithTickers(4);
+      const staleBar = { ...missBar, time: Date.UTC(2026, 0, 30, 14, 30, 0) }; // 4週間前で停止
+      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest
+        .fn()
+        .mockImplementation(async (tickerId: string) => {
+          return tickerId === 'NSDQ:T1' || tickerId === 'NSDQ:T2' ? [staleBar] : [missBar];
+        });
+
+      const response = await handler(mockEvent, {
+        exchangeRepository,
+        tickerRepository,
+        dailySummaryRepository,
+        getChartDataFn,
+        nowFn,
+      });
+
+      // T1・T2 は数えないため、T3・T4 の 2 件では閾値（3）に届かず打ち切らない
+      expect(getChartDataFn).toHaveBeenCalledTimes(4);
+      const body = JSON.parse(response.body);
+      expect(body.statistics.skippedNoBarForDate).toBe(4);
+      expect(body.statistics.skippedExchangesAsClosed).toBe(0);
+    });
+
     it('2件目で足ありが見つかれば、その後3件連続で足なしでも打ち切らない', async () => {
       await setupExchangeWithTickers(4);
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest

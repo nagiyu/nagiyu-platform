@@ -111,6 +111,23 @@ const CHART_DATA_FETCH_MARGIN = 5;
 const EXCHANGE_CLOSED_CONSECUTIVE_MISS_THRESHOLD = 3;
 
 /**
+ * 休場日の打ち切り判定で「休場ミス」とみなす最新足の鮮度（日数）
+ *
+ * 上場廃止・長期売買停止などで足が止まっている銘柄を休場ミスに数えると、その銘柄が
+ * 先頭に並んだ取引所が毎日打ち切られ続けてしまう。最新足が summaryDate からこの日数
+ * 以内にある（＝直前の取引日まで足が出ていた）銘柄だけを休場ミスとして数える。
+ */
+const EXCHANGE_CLOSED_MISS_MAX_STALENESS_DAYS = 7;
+
+/**
+ * fromYmd から toYmd までの暦日差が maxDays 以内かを返す（YYYY-MM-DD 同士の比較）
+ */
+function isWithinDays(fromYmd: string, toYmd: string, maxDays: number): boolean {
+  const diffMs = Date.parse(`${toYmd}T00:00:00Z`) - Date.parse(`${fromYmd}T00:00:00Z`);
+  return diffMs <= maxDays * 24 * 60 * 60 * 1000;
+}
+
+/**
  * チャートデータのうち、取引所タイムゾーン基準で dateYmd 以前（当日含む）の足だけを返す
  *
  * chartData は新しい順（先頭が最新）に並んでいる前提。翌営業日の取引時間中にバッチが
@@ -251,7 +268,11 @@ async function processExchange(
             );
             stats.skippedNoBarForDate++;
 
-            if (!barFoundForSummaryDate) {
+            if (
+              !barFoundForSummaryDate &&
+              latestBarDate !== undefined &&
+              isWithinDays(latestBarDate, summaryDate, EXCHANGE_CLOSED_MISS_MAX_STALENESS_DAYS)
+            ) {
               consecutiveNoBarMisses++;
               if (consecutiveNoBarMisses >= EXCHANGE_CLOSED_CONSECUTIVE_MISS_THRESHOLD) {
                 logger.info(
