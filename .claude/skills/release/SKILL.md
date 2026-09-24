@@ -76,11 +76,6 @@ description: 本番リリース（develop → master）を手伝う。マイル�
 - master への push で走ったデプロイワークフローがすべて success か確認する（`list_workflow_runs` を `branch: master` で見る）。
 - 変更したリソースを AWS CLI で確認する（スタックが UPDATE_COMPLETE、ECS の rollout が COMPLETED、Lambda の更新が Successful など）。
 - 待ちが発生する場合は `run_in_background` のポーリングで待つ。定期チェック（`send_later`）は人に頼まれた場合のみ使う。
-- 手動発火のバッチがある場合:
-    1. Claude が payload を用意し、**人が非同期で 1 回だけ**起動する。
-    2. Claude が CloudWatch Logs で完走（`REPORT` 行・`Status: timeout` の有無）と結果を確認する。
-    3. 破壊的な操作の前後は DynamoDB の対象範囲を控えて突き合わせる（消えてはいけないものが残っているか）。
-    4. dry-run → 本実行の順に進める。
 
 ## 注意点
 
