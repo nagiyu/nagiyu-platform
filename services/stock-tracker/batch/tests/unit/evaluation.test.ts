@@ -103,6 +103,14 @@ describe('evaluation batch handler', () => {
 
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
         {
+          time: Date.UTC(2026, 1, 26, 14, 30, 0), // 2026-02-26 09:30 EST（予測日＝基準日の足）
+          open: 99,
+          high: 101,
+          low: 98,
+          close: 100,
+          volume: 1900,
+        },
+        {
           time: Date.UTC(2026, 1, 27, 14, 30, 0), // 2026-02-27 09:30 EST
           open: 103,
           high: 106,
@@ -126,6 +134,7 @@ describe('evaluation batch handler', () => {
         evaluated: 1,
         alreadyEvaluatedSkipped: 0,
         missingClose: 0,
+        missingBaseBar: 0,
         failed: 0,
       });
 
@@ -147,6 +156,14 @@ describe('evaluation batch handler', () => {
       );
 
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
+        {
+          time: Date.UTC(2026, 1, 26, 14, 30, 0), // 予測日＝基準日の足
+          open: 99,
+          high: 101,
+          low: 98,
+          close: 100,
+          volume: 1900,
+        },
         {
           time: Date.UTC(2026, 1, 27, 14, 30, 0),
           open: 99,
@@ -180,6 +197,14 @@ describe('evaluation batch handler', () => {
 
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
         {
+          time: Date.UTC(2026, 1, 26, 14, 30, 0), // 予測日＝基準日の足
+          open: 99,
+          high: 101,
+          low: 98,
+          close: 100,
+          volume: 1900,
+        },
+        {
           time: Date.UTC(2026, 1, 27, 14, 30, 0),
           open: 100,
           high: 101,
@@ -200,8 +225,10 @@ describe('evaluation batch handler', () => {
       expect(updated?.Hit).toBe(true);
       expect(updated?.ActualReturn).toBeCloseTo(0.2, 5);
     });
+  });
 
-    it('基準日の足がチャートに無い場合は summary.Close にフォールバックする', async () => {
+  describe('基準日の足がチャートに無い場合', () => {
+    it('summary.Close へはフォールバックせず採点をスキップする（休場日コピー足の可能性）', async () => {
       await dailySummaryRepository.upsert(
         summaryInput({
           Close: 100,
@@ -209,7 +236,7 @@ describe('evaluation batch handler', () => {
         })
       );
 
-      const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
+      const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
       // チャートには翌営業日の足しか含まれず、予測日（基準日）の足は含まれない
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
         {
@@ -222,18 +249,22 @@ describe('evaluation batch handler', () => {
         },
       ]);
 
-      await handler(buildEvent(), {
+      const response = await handler(buildEvent(), {
         exchangeRepository,
         dailySummaryRepository,
         getChartDataFn,
         nowFn: () => NOW,
       });
 
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.statistics.missingBaseBar).toBe(1);
+      expect(body.statistics.evaluated).toBe(0);
+
       const updated = await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-26');
-      // フォールバックした summary.Close(100) 基準で (105-100)/100*100 = 5%
-      expect(updated?.ActualReturn).toBeCloseTo(5, 5);
-      expect(warnSpy).toHaveBeenCalledWith(
-        'チャートに予測日の基準終値が見つからないため保存済みの Close にフォールバックします',
+      expect(updated?.EvaluatedAt).toBeUndefined();
+      expect(infoSpy).toHaveBeenCalledWith(
+        '予測日の足がチャートに存在しない（休場日の可能性）ため採点しません',
         expect.objectContaining({ tickerId: 'NSDQ:AAPL', date: '2026-02-26' })
       );
     });
@@ -251,8 +282,16 @@ describe('evaluation batch handler', () => {
         })
       );
 
-      // チャートには祝日の足は存在せず、2026-02-27 の足のみが次の足として現れる
+      // チャートには祝日の足は存在せず、予測日(2026-02-25)と 2026-02-27 の足のみが現れる
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
+        {
+          time: Date.UTC(2026, 1, 25, 14, 30, 0), // 2026-02-25 09:30 EST（予測日＝基準日の足）
+          open: 99,
+          high: 101,
+          low: 98,
+          close: 100,
+          volume: 1900,
+        },
         {
           time: Date.UTC(2026, 1, 27, 14, 30, 0), // 2026-02-27 09:30 EST
           open: 101,
@@ -274,6 +313,7 @@ describe('evaluation batch handler', () => {
       const body = JSON.parse(response.body);
       expect(body.statistics.evaluated).toBe(1);
       expect(body.statistics.missingClose).toBe(0);
+      expect(body.statistics.missingBaseBar).toBe(0);
 
       const updated = await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-25');
       // 祝日 2026-02-26 を飛ばして 2026-02-27 が評価日として確定する
@@ -436,6 +476,14 @@ describe('evaluation batch handler', () => {
         })
         .mockResolvedValueOnce([
           {
+            time: Date.UTC(2026, 1, 26, 14, 30, 0), // 予測日＝基準日の足
+            open: 99,
+            high: 101,
+            low: 98,
+            close: 100,
+            volume: 1900,
+          },
+          {
             time: Date.UTC(2026, 1, 27, 14, 30, 0),
             open: 103,
             high: 106,
@@ -479,6 +527,14 @@ describe('evaluation batch handler', () => {
 
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
         {
+          time: Date.UTC(2026, 1, 26, 14, 30, 0), // 予測日＝基準日の足
+          open: 99,
+          high: 101,
+          low: 98,
+          close: 100,
+          volume: 1900,
+        },
+        {
           time: Date.UTC(2026, 1, 27, 14, 30, 0),
           open: 103,
           high: 106,
@@ -517,6 +573,14 @@ describe('evaluation batch handler', () => {
       await dailySummaryRepository.upsert(summaryInput({ Close: 100 }));
 
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
+        {
+          time: Date.UTC(2026, 1, 26, 14, 30, 0), // 予測日＝基準日の足
+          open: 99,
+          high: 101,
+          low: 98,
+          close: 100,
+          volume: 1900,
+        },
         {
           time: Date.UTC(2026, 1, 27, 14, 30, 0),
           open: 103,
@@ -592,6 +656,14 @@ describe('evaluation batch handler', () => {
       await dailySummaryRepository.upsert(summaryInput({ Close: 0 }));
 
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
+        {
+          time: Date.UTC(2026, 1, 26, 14, 30, 0), // 予測日＝基準日の足（Close 0 のまま）
+          open: 0,
+          high: 0,
+          low: 0,
+          close: 0,
+          volume: 0,
+        },
         {
           time: Date.UTC(2026, 1, 27, 14, 30, 0),
           open: 1,

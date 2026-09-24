@@ -199,7 +199,6 @@ async function processExchange(
               exchangeId: exchange.ExchangeID,
               tickerId: ticker.TickerID,
             });
-            stats.skippedNoBarForDate++;
             continue;
           }
 

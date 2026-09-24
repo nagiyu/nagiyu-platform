@@ -82,6 +82,8 @@ export interface EvaluationStatistics {
   alreadyEvaluatedSkipped: number;
   /** TradingView 終値が取得できずスキップした件数 */
   missingClose: number;
+  /** チャートに予測日（基準日）の足が見つからずスキップした件数（休場日コピー足の可能性） */
+  missingBaseBar: number;
   /** 個別失敗で continue した件数 */
   failed: number;
 }
@@ -207,22 +209,20 @@ async function evaluateOne(
   }
   const evaluationClose = nextBar.close;
 
-  // 基準終値は同じチャート上の予測日の足を優先する（株式分割等で調整後の値どうしを比較するため）。
-  // 見つからない場合のみ、保存済みの summary.Close にフォールバックする。
-  const chartBaseClose = findCloseForDate(chartData, exchange, summary.Date);
-  let baseClose: number;
-  if (chartBaseClose !== null) {
-    baseClose = chartBaseClose;
-  } else {
-    baseClose = summary.Close;
-    logger.warn(
-      'チャートに予測日の基準終値が見つからないため保存済みの Close にフォールバックします',
-      {
-        tickerId: summary.TickerID,
-        date: summary.Date,
-        evaluationDate,
-      }
-    );
+  // 基準終値は同じチャート上の予測日の足を使う（株式分割等で調整後の値どうしを比較するため）。
+  // CHART_DATA_COUNT は 30 日の走査窓を十分カバーできるため、ここで見つからないのは
+  // ほぼ確実に「予測日が休場日だった（既存の休場日コピー足）」ケースであり、
+  // summary.Close へフォールバックすると誤ったレコードまで採点してしまう。
+  // そのため見つからない場合は summary.Close にフォールバックせず、採点自体をスキップする
+  // （リトライ上限 MAX_EVALUATION_BUSINESS_DAYS で卒業する）。
+  const baseClose = findCloseForDate(chartData, exchange, summary.Date);
+  if (baseClose === null) {
+    logger.info('予測日の足がチャートに存在しない（休場日の可能性）ため採点しません', {
+      tickerId: summary.TickerID,
+      date: summary.Date,
+    });
+    stats.missingBaseBar++;
+    return;
   }
 
   let judgeResult: ReturnType<typeof judgePrediction>;
@@ -308,6 +308,7 @@ export async function handler(
     evaluated: 0,
     alreadyEvaluatedSkipped: 0,
     missingClose: 0,
+    missingBaseBar: 0,
     failed: 0,
   };
 

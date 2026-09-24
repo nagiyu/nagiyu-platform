@@ -12,7 +12,11 @@
  * 採点バッチ本体 (`evaluation.ts`) 側で判定する（Issue #3830）。
  */
 
-import { countWeekdaysBetween, formatDateInTimezone, getLastTradingDate } from '@nagiyu/stock-tracker-core';
+import {
+  countWeekdaysBetween,
+  formatDateInTimezone,
+  getLastTradingDate,
+} from '@nagiyu/stock-tracker-core';
 import type {
   DailySummaryEntity,
   DailySummaryRepository,
