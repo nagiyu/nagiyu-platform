@@ -230,54 +230,9 @@ aws acm describe-certificate \
 
 ## GitHub Actions による自動デプロイ
 
-### ワークフロー例
-
-`.github/workflows/deploy-shared-acm.yml`:
-
-```yaml
-name: Deploy Shared ACM
-
-on:
-  push:
-    branches:
-      - develop
-    paths:
-      - 'infra/shared/lib/acm-stack.ts'
-      - 'infra/shared/bin/shared.ts'
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Build CDK
-        working-directory: infra/shared
-        run: npm run build
-
-      - name: Deploy ACM stack
-        working-directory: infra/shared
-        run: npx cdk deploy SharedAcm --require-approval never
-        env:
-          DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
-```
+ACM スタックは共有インフラの一括デプロイ（`shared-deploy.yml`）の一部としてデプロイされる。
+AWS 認証は GitHub OIDC + AssumeRole を使い、長期アクセスキーは使わない。
+ワークフローの詳細は [デプロイ手順](../deploy.md)、認証の設計は [IAM 詳細](./iam.md) を参照。
 
 **注意:** 初回デプロイ後は、DNS 検証レコードを手動で設定する必要があります。
 

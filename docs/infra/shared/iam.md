@@ -167,12 +167,16 @@ Claude Code on the web のリモート環境から AWS リソースを「閲覧�
 **参照方法:**
 - `arn:aws:iam::{account}:policy/nagiyu-claude-readonly-policy`（`managedPolicyName` で固定）
 
-### 2. GitHub Actions ユーザー
+### 2. GitHub Actions ユーザー（長期アクセスキー・移行済み）
+
+**状態:** GitHub Actions の AWS 認証は GitHub OIDC + AssumeRole（後述の「GitHub Actions OIDC ロール」）へ移行済み。
+本ユーザーは本番環境で OIDC の動作確認が完了するまでの切り戻し用に残しており、確認後に #3820 で撤去する。
+**新規のワークフローでこのユーザーのアクセスキーを発行しないこと。**
 
 **CDK スタック名:** `SharedIamUsers`（NagiyuGitHubActionsUser リソース）
 
 **概要:**
-CI/CD パイプライン（GitHub Actions）で使用する IAM ユーザー。
+CI/CD パイプライン（GitHub Actions）で使用していた IAM ユーザー。
 
 **ユーザー名:** `nagiyu-github-actions`
 
@@ -190,16 +194,59 @@ CI/CD パイプライン（GitHub Actions）で使用する IAM ユーザー。
 - ユーザー ARN
 - ユーザー名
 
-**アクセスキー発行手順:**
-1. AWS マネジメントコンソールにログイン
-2. IAM → ユーザー → `nagiyu-github-actions` を選択
-3. 「セキュリティ認証情報」タブ → 「アクセスキーを作成」
-4. アクセスキー ID とシークレットアクセスキーを安全に保存
+### 2.5. GitHub Actions OIDC ロール（現在の方式）
 
-**GitHub Secrets への登録:**
-- `AWS_ACCESS_KEY_ID`: 発行したアクセスキー ID
-- `AWS_SECRET_ACCESS_KEY`: 発行したシークレットアクセスキー
-- `AWS_REGION`: `us-east-1`
+**CDK スタック名:** `NagiyuSharedIamGitHubOidc`
+
+**概要:**
+GitHub Actions から AWS への認証を、長期アクセスキーではなく GitHub OIDC + AssumeRole で行う。
+GitHub OIDC プロバイダ（発行者: `token.actions.githubusercontent.com`）と、ワークフローの実行文脈ごとに
+信頼条件を分けた 3 つのロールを作成する。
+
+**ロール一覧:**
+
+| ロール名 | 信頼条件（OIDC トークンの `sub`） | 想定する利用者 |
+| --- | --- | --- |
+| `nagiyu-github-actions-dev` | `repo:nagiyu/nagiyu-platform:environment:dev` | GitHub Environment `dev` を指定する deploy 系 job |
+| `nagiyu-github-actions-prod` | `repo:nagiyu/nagiyu-platform:environment:prod` | GitHub Environment `prod` を指定する deploy 系 job |
+| `nagiyu-github-actions-pr` | `repo:nagiyu/nagiyu-platform:pull_request` | `pull_request` イベントで動く verify 系 job |
+
+**アタッチされるポリシー:**
+当面は 3 ロールとも、旧 `nagiyu-github-actions` ユーザーと同じ 4 ポリシー（core / application / container / integration）を使う。
+ロールごとの権限の絞り込みは今回のスコープ外。
+
+**なぜロールを 3 つに分けたか:**
+OIDC トークンの `sub` クレームで、ワークフローの実行文脈（GitHub Environment・pull_request）ごとに
+引き受けられるロールを限定するため。たとえば pull_request のワークフローは prod ロールを引き受けられない。
+
+**なぜ prod のデプロイ元ブランチを `master` に限定しているか:**
+`nagiyu-github-actions-prod` の信頼条件は「GitHub Environment が `prod` であること」だけで、ブランチは問わない。
+そのため、GitHub 側で prod Environment の Deployment branches を `master` のみに制限し、
+任意のブランチから `environment: prod` を指定して prod ロールを引き受けられないようにしている。
+
+**なぜロール ARN を Secrets ではなく Environment / リポジトリ変数（Variables）で持つか:**
+ロール ARN 自体は機密情報ではないため Variables で足りる。加えて、後続 Phase（親 Issue #3816）で
+dev / prod を別 AWS アカウントに分割する際、ワークフロー側のコードを変えずに変数の値を差し替えるだけで
+済むようにするため。
+
+**fork からの PR:**
+fork からの pull_request では GitHub が `id-token: write` を付与しないため、PR ロールを引き受けられない
+（意図した制限であり、フォールバック手段は用意しない）。
+
+**ワークフロー側の設定:**
+- deploy 系 job: GitHub Environment（`dev` / `prod`）を指定し、`role-to-assume: ${{ vars.AWS_ROLE_ARN }}` を使う
+- `pull_request` 起動の verify 系 job: Environment は指定せず、`role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}` を使う
+- どちらも `permissions.id-token: write` が必要
+
+**GitHub 側に人が登録する変数（Secrets ではなく Variables）:**
+
+| 登録先 | 変数名 | 値 |
+| --- | --- | --- |
+| Environment `dev` | `AWS_ROLE_ARN` | `nagiyu-github-actions-dev` の ARN |
+| Environment `prod` | `AWS_ROLE_ARN` | `nagiyu-github-actions-prod` の ARN |
+| リポジトリ変数 | `AWS_PR_ROLE_ARN` | `nagiyu-github-actions-pr` の ARN |
+
+あわせて、prod Environment の Deployment branches を `master` のみに制限する（GitHub 側の設定）。
 
 ### 3. ローカル開発ユーザー
 
@@ -295,7 +342,7 @@ aws ssm get-parameter --name <SecureString パラメータ> --with-decryption
 
 **注意:**
 - このユーザーには **デプロイ権限を一切付与しない**（既存 4 ポリシーは添付しない）
-- ローカル開発・CI / CD では使わない（`nagiyu-local-dev` / `nagiyu-github-actions` を利用）
+- ローカル開発・CI / CD では使わない（ローカル開発は `nagiyu-local-dev`、CI/CD は GitHub Actions OIDC ロールを利用）
 - アクセスキーは Claude Code on the web 以外の環境にコピーしない
 
 ---
@@ -584,6 +631,10 @@ aws cloudformation deploy \
 
 ### アクセスキーのローテーション
 
+**注意**: GitHub Actions の認証は OIDC + AssumeRole に移行済みで、アクセスキーを持たない。
+以下は `nagiyu-local-dev` など、引き続きアクセスキーで運用するユーザー向けの手順であり、
+`nagiyu-github-actions` はロールバック用ユーザーのため通常はローテーション対象外。
+
 #### 1. 新しいアクセスキーの発行
 
 ```bash
@@ -674,7 +725,9 @@ aws cloudformation deploy \
 
 ### デプロイ時に権限エラーが発生する
 
-**エラー:** `User: arn:aws:iam::xxx:user/nagiyu-github-actions is not authorized to perform: xxx on resource: xxx`
+**エラー例:**
+- `User: arn:aws:iam::xxx:user/nagiyu-github-actions is not authorized to perform: xxx on resource: xxx`（ローカル開発ユーザー等）
+- `User: arn:aws:sts::xxx:assumed-role/nagiyu-github-actions-dev/... is not authorized to perform: xxx on resource: xxx`（GitHub Actions OIDC ロール）
 
 **原因:** デプロイポリシーに必要な権限が不足している。
 
@@ -693,6 +746,9 @@ aws cloudformation deploy \
 ポリシーは既に4つに分割されています。さらに権限が必要な場合は、新しいポリシーファイルを作成してください。
 
 ### アクセスキーが無効化されている
+
+対象は `nagiyu-local-dev` や `nagiyu-github-actions`（ロールバック用）などアクセスキー方式のユーザーのみ。
+GitHub Actions OIDC ロールはアクセスキーを持たないため対象外。
 
 **原因:** アクセスキーが非アクティブ化されている。
 
