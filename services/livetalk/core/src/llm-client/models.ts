@@ -48,7 +48,11 @@ export const LLM_REASONING_EFFORT = {
   /**
    * 会話応答。reasoning は実際に発生している（reasoning/出力比 40.5%、reasoning 中央値 36
    * トークン）ため `none` にはせず `low` から刻む。ストリーミングの初回トークン遅延にも
-   * effort が効くため、様子を見ながら下げる余地を残す。
+   * effort が効く。
+   *
+   * 設定後の dev 実測（5 件）では `low` でも reasoning が 0 トークンになった。サンプルが
+   * 少なく長い文脈では発生しうるため `low` を維持しているが、`none` へ下げてもこの範囲では
+   * 追加の削減は見込めない。
    */
   conversation: 'low',
   /**
