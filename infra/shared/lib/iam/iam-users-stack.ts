@@ -10,6 +10,12 @@ export interface IamUsersStackProps extends cdk.StackProps {
     integration: iam.IManagedPolicy;
     claudeReadonly: iam.IManagedPolicy;
   };
+  /**
+   * GitHub Actions 用 IAM ユーザー（長期アクセスキー方式）を作成するかどうか。
+   * 未指定の場合は現行どおり作成する（マルチアカウント化対応。dev アカウントでは
+   * OIDC ロールのみを使い、この旧ユーザーは作らない）。
+   */
+  createGitHubActionsUser?: boolean;
 }
 
 /**
@@ -20,7 +26,7 @@ export interface IamUsersStackProps extends cdk.StackProps {
  * アクセスキーは手動発行するため、このスタックでは作成しません。
  */
 export class IamUsersStack extends cdk.Stack {
-  public readonly githubActionsUser: iam.IUser;
+  public readonly githubActionsUser?: iam.IUser;
   public readonly claudeReadonlyUser: iam.IUser;
 
   constructor(scope: Construct, id: string, props: IamUsersStackProps) {
@@ -29,16 +35,29 @@ export class IamUsersStack extends cdk.Stack {
     // ==========================================
     // GitHub Actions User
     // ==========================================
-    this.githubActionsUser = new iam.User(this, 'NagiyuGitHubActionsUser', {
-      userName: 'nagiyu-github-actions',
-      managedPolicies: [
-        props.policies.core,
-        props.policies.application,
-        props.policies.container,
-        props.policies.integration,
-      ],
-    });
+    const createGitHubActionsUser = props.createGitHubActionsUser ?? true;
 
+    if (createGitHubActionsUser) {
+      this.githubActionsUser = new iam.User(this, 'NagiyuGitHubActionsUser', {
+        userName: 'nagiyu-github-actions',
+        managedPolicies: [
+          props.policies.core,
+          props.policies.application,
+          props.policies.container,
+          props.policies.integration,
+        ],
+      });
+
+      new cdk.CfnOutput(this, 'GitHubActionsUserArnExport', {
+        value: this.githubActionsUser.userArn,
+        description: 'GitHub Actions user ARN',
+      });
+
+      new cdk.CfnOutput(this, 'GitHubActionsUserNameExport', {
+        value: this.githubActionsUser.userName,
+        description: 'GitHub Actions user name',
+      });
+    }
 
     // ==========================================
     // Claude Read-Only User
@@ -48,21 +67,9 @@ export class IamUsersStack extends cdk.Stack {
       managedPolicies: [props.policies.claudeReadonly],
     });
 
-
     // ==========================================
     // Exports
     // ==========================================
-    // GitHub Actions User
-    new cdk.CfnOutput(this, 'GitHubActionsUserArnExport', {
-      value: this.githubActionsUser.userArn,
-      description: 'GitHub Actions user ARN',
-    });
-
-    new cdk.CfnOutput(this, 'GitHubActionsUserNameExport', {
-      value: this.githubActionsUser.userName,
-      description: 'GitHub Actions user name',
-    });
-
     // Claude Read-Only User
     new cdk.CfnOutput(this, 'ClaudeReadonlyUserArnExport', {
       value: this.claudeReadonlyUser.userArn,

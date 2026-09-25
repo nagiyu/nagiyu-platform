@@ -21,6 +21,11 @@ export interface IamGitHubActionsOidcStackProps extends cdk.StackProps {
     container: iam.IManagedPolicy;
     integration: iam.IManagedPolicy;
   };
+  /**
+   * 作成するロールを絞り込む場合に指定する（マルチアカウント化対応）。
+   * 未指定の場合は現行どおり 3 ロール全部（DevRole / ProdRole / PrRole）を作成する。
+   */
+  roleIds?: ('DevRole' | 'ProdRole' | 'PrRole')[];
 }
 
 /**
@@ -76,10 +81,9 @@ const GITHUB_ACTIONS_ROLE_DEFINITIONS: GitHubActionsRoleDefinition[] = [
  * - 権限（付与ポリシー）自体は当面すべてのロールで同一（既存の
  *   nagiyu-github-actions IAM ユーザーと同等の 4 ポリシー）とし、
  *   権限の絞り込みは後続対応のスコープとする。
- * - ロール定義を配列でデータ駆動にしているのは、将来 dev/prod を
- *   別 AWS アカウントに分割する際に、アカウントごとのロール差し替えを
- *   容易にするため（このスタック自体をアカウントごとにデプロイする、
- *   もしくは環境ごとに定義を絞り込む形を想定）。
+ * - ロール定義を配列でデータ駆動にしているのは、dev/prod を別 AWS アカウントに
+ *   分割した構成（Issue #3819）で、アカウントごとに作成するロールを `roleIds` props
+ *   で絞り込めるようにするため（例: dev アカウントでは prod ロールを作らない）。
  *
  * 既存の `IamUsersStack`（長期アクセスキー方式）には手を入れず、
  * 本スタックは並行稼働する形で追加する。旧ユーザーは全ワークフローの
@@ -104,7 +108,12 @@ export class IamGitHubActionsOidcStack extends cdk.Stack {
     // ==========================================
     // GitHub Actions Roles（環境・イベントごとに信頼条件を分離）
     // ==========================================
-    for (const definition of GITHUB_ACTIONS_ROLE_DEFINITIONS) {
+    const roleIds = props.roleIds ?? GITHUB_ACTIONS_ROLE_DEFINITIONS.map((definition) => definition.id);
+    const targetDefinitions = GITHUB_ACTIONS_ROLE_DEFINITIONS.filter((definition) =>
+      roleIds.includes(definition.id as 'DevRole' | 'ProdRole' | 'PrRole')
+    );
+
+    for (const definition of targetDefinitions) {
       const role = new iam.Role(this, definition.id, {
         roleName: definition.roleName,
         maxSessionDuration: cdk.Duration.hours(4),
