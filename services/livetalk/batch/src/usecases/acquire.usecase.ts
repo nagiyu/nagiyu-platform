@@ -32,10 +32,15 @@ export interface AcquireAllUsersResult {
   failedUserIds: string[];
   /** 依頼（StudyTopic pending）を処理した総件数 */
   requestsProcessed: number;
-  /** 鮮度切れ WEB fact を再取得した総件数 */
+  /**
+   * 鮮度切れ再取得で実行した research の総回数（トピック単位。変化の有無を問わない）。
+   * 期限切れ WEB fact の件数とは一致しない（fact 件数は `staleFactsReviewed` を参照）。
+   */
   staleRefreshed: number;
-  /** 鮮度切れ再取得のうち変化ありと判定された総件数 */
+  /** 鮮度切れ再取得のうち変化ありと判定された総回数 */
   staleChanged: number;
+  /** 鮮度切れ再取得で NextReview を前方更新した WEB fact の総数 */
+  staleFactsReviewed: number;
   /** care 自発リサーチを行った総件数 */
   selfStudied: number;
   /** WEBRAW を書き込んだ総件数 */
@@ -77,6 +82,7 @@ export async function acquireAllUsers(
     requestsProcessed: 0,
     staleRefreshed: 0,
     staleChanged: 0,
+    staleFactsReviewed: 0,
     selfStudied: 0,
     webRawWritten: 0,
   };
@@ -121,6 +127,7 @@ export async function acquireAllUsers(
             result.requestsProcessed += outcome.requestsProcessed;
             result.staleRefreshed += outcome.staleRefreshed;
             result.staleChanged += outcome.staleChanged;
+            result.staleFactsReviewed += outcome.staleFactsReviewed;
             result.selfStudied += outcome.selfStudied;
             result.webRawWritten += outcome.webRawWritten;
           }
