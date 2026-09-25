@@ -49,6 +49,25 @@ describe('GET /api/alerts', () => {
     expect(options).not.toHaveProperty('enabledOnly');
   });
 
+  it('クエリパラメータのlastKeyをそのままcursorとしてリポジトリへ渡す', async () => {
+    // parsePagination()のlastKeyはJSON.parse済みのオブジェクトでリポジトリのcursor
+    // （Base64の不透明トークン文字列）とは型が異なるため、ルート側は生のクエリ
+    // パラメータ文字列を直接cursorとして渡す（holdings/route.tsと同じ配線）。
+    await GET(new NextRequest('http://localhost/api/alerts?lastKey=abc123'));
+
+    expect(mockGetByUserId).toHaveBeenCalledTimes(1);
+    const [, options] = mockGetByUserId.mock.calls[0];
+    expect(options.cursor).toBe('abc123');
+  });
+
+  it('lastKeyクエリパラメータが無い場合はcursorがundefinedになる', async () => {
+    await GET(new NextRequest('http://localhost/api/alerts'));
+
+    expect(mockGetByUserId).toHaveBeenCalledTimes(1);
+    const [, options] = mockGetByUserId.mock.calls[0];
+    expect(options.cursor).toBeUndefined();
+  });
+
   it('無効化済みアラートもレスポンスに含めて返す', async () => {
     mockGetByUserId.mockResolvedValue({
       items: [

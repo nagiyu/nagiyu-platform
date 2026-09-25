@@ -11,6 +11,7 @@ import { IamContainerPolicyStack } from '../lib/iam/iam-container-policy-stack';
 import { IamIntegrationPolicyStack } from '../lib/iam/iam-integration-policy-stack';
 import { IamClaudeReadonlyPolicyStack } from '../lib/iam/iam-claude-readonly-policy-stack';
 import { IamUsersStack } from '../lib/iam/iam-users-stack';
+import { IamGitHubActionsOidcStack } from '../lib/iam/iam-github-actions-oidc-stack';
 import { DockerBuildLockStack } from '../lib/docker-build-lock-stack';
 import { ErrorEventsTableStack } from '../lib/error-events-table-stack';
 import { ReportsHostingStack } from '../lib/reports-hosting-stack';
@@ -108,6 +109,19 @@ new IamUsersStack(app, 'NagiyuSharedIamUsers', {
   },
   env: stackEnv,
   description: 'Shared IAM Users for GitHub Actions, Local Development and Claude Code on the web',
+});
+
+// GitHub Actions OIDC スタックを作成（ポリシーに依存・環境非依存）
+// 既存の IamUsersStack（長期アクセスキー）とは並行稼働する
+new IamGitHubActionsOidcStack(app, 'NagiyuSharedIamGitHubOidc', {
+  policies: {
+    core: corePolicyStack.policy,
+    application: applicationPolicyStack.policy,
+    container: containerPolicyStack.policy,
+    integration: integrationPolicyStack.policy,
+  },
+  env: stackEnv,
+  description: 'Shared IAM OIDC Provider and GitHub Actions AssumeRole roles',
 });
 
 // プラットフォーム共通 ECS Cluster（Portal 専用 nagiyu-root-cluster-{env} とは別物）

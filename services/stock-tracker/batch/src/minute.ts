@@ -284,9 +284,8 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
     const exchangeRepo = new DynamoDBExchangeRepository(docClient, tableName);
 
-    // 1. GSI2 で MINUTE_LEVEL アラート一覧を取得
-    const alertsResult = await alertRepo.getByFrequency('MINUTE_LEVEL');
-    const alerts = alertsResult.items;
+    // 1. GSI2 で MINUTE_LEVEL アラート一覧を取得（全件、内部でページを辿り切る）
+    const alerts = await alertRepo.getByFrequency('MINUTE_LEVEL');
     stats.totalAlerts = alerts.length;
 
     logger.info('MINUTE_LEVEL アラートを取得しました', {

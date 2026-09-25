@@ -128,37 +128,31 @@ describe('InMemoryTickerRepository', () => {
 
       const nasdaqResult = await repository.getByExchange('NASDAQ');
 
-      expect(nasdaqResult.items).toHaveLength(2);
-      expect(nasdaqResult.items[0].ExchangeID).toBe('NASDAQ');
-      expect(nasdaqResult.items[1].ExchangeID).toBe('NASDAQ');
+      expect(nasdaqResult).toHaveLength(2);
+      expect(nasdaqResult[0].ExchangeID).toBe('NASDAQ');
+      expect(nasdaqResult[1].ExchangeID).toBe('NASDAQ');
     });
 
     it('該当する取引所のティッカーがない場合は空配列を返す', async () => {
       const result = await repository.getByExchange('UNKNOWN');
 
-      expect(result.items).toHaveLength(0);
+      expect(result).toHaveLength(0);
     });
 
-    it('ページネーションオプションが機能する', async () => {
-      // 複数のティッカーを作成
-      for (let i = 0; i < 5; i++) {
+    it('101件以上のティッカーでも内部ページを辿り切って全件返す（Issue #3788: 打ち切り防止）', async () => {
+      const total = 130;
+      for (let i = 0; i < total; i += 1) {
         await repository.create({
-          TickerID: `NSDQ:TEST${i}`,
-          Symbol: `TEST${i}`,
+          TickerID: `NSDQ:T${String(i).padStart(4, '0')}`,
+          Symbol: `T${String(i).padStart(4, '0')}`,
           Name: `Test ${i}`,
           ExchangeID: 'NASDAQ',
         });
       }
 
-      const result1 = await repository.getByExchange('NASDAQ', { limit: 2 });
-      expect(result1.items).toHaveLength(2);
-      expect(result1.nextCursor).toBeDefined();
+      const result = await repository.getByExchange('NASDAQ');
 
-      const result2 = await repository.getByExchange('NASDAQ', {
-        limit: 2,
-        cursor: result1.nextCursor,
-      });
-      expect(result2.items).toHaveLength(2);
+      expect(result).toHaveLength(total);
     });
   });
 

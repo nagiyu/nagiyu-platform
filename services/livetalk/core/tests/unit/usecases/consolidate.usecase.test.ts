@@ -966,8 +966,14 @@ describe('consolidate', () => {
       expect(outcome).toBe('consolidated');
       const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
       expect(headers).toHaveLength(1);
-      expect(headers[0].RequestText).toBe('最新アニメ情報を調べて');
-      expect(headers[0].RequestedAt).toBe(requestedAt);
+      // RequestText/RequestedAt は GSI3 の射影に含まれないため getTopic（ベーステーブル読み）で確認する
+      const topic = await topicRepo.getTopic({
+        userId: headers[0].UserID,
+        characterId: headers[0].CharacterID,
+        topicId: headers[0].TopicID,
+      });
+      expect(topic?.RequestText).toBe('最新アニメ情報を調べて');
+      expect(topic?.RequestedAt).toBe(requestedAt);
     });
 
     it('範囲外 index（requestWebRaws は 1 件しかないのに [5] を指す）は無視して依頼フックを付けない', async () => {
@@ -1077,8 +1083,14 @@ describe('consolidate', () => {
       expect(outcome).toBe('consolidated');
       const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
       expect(headers).toHaveLength(1);
-      expect(headers[0].RequestText).toBe('前回の依頼文');
-      expect(headers[0].RequestedAt).toBe(existing.RequestedAt);
+      // RequestText/RequestedAt は GSI3 の射影に含まれないため getTopic（ベーステーブル読み）で確認する
+      const topic = await topicRepo.getTopic({
+        userId: headers[0].UserID,
+        characterId: headers[0].CharacterID,
+        topicId: headers[0].TopicID,
+      });
+      expect(topic?.RequestText).toBe('前回の依頼文');
+      expect(topic?.RequestedAt).toBe(existing.RequestedAt);
     });
 
     it('既存 Topic への merge で group の複数エントリのうち片方だけ index を持つ場合でも依頼フックが解決される（fresh-eyes レビュー軽微#7 相当）', async () => {
@@ -1143,8 +1155,14 @@ describe('consolidate', () => {
       expect(headers).toHaveLength(1);
       // META は last（2件目）の要約を採用しつつ、依頼フックは 1 件目の index から解決される
       expect(headers[0].CanonicalSummary).toBe('2件目（最終）の要約');
-      expect(headers[0].RequestText).toBe('コーヒーの新情報を調べて');
-      expect(headers[0].RequestedAt).toBe(requestedAt);
+      // RequestText/RequestedAt は GSI3 の射影に含まれないため getTopic（ベーステーブル読み）で確認する
+      const topic = await topicRepo.getTopic({
+        userId: headers[0].UserID,
+        characterId: headers[0].CharacterID,
+        topicId: headers[0].TopicID,
+      });
+      expect(topic?.RequestText).toBe('コーヒーの新情報を調べて');
+      expect(topic?.RequestedAt).toBe(requestedAt);
     });
 
     it('複数 index が指定された場合、最新の RequestedAt を持つ依頼が採用される', async () => {
@@ -1190,8 +1208,14 @@ describe('consolidate', () => {
       expect(outcome).toBe('consolidated');
       const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
       expect(headers).toHaveLength(1);
-      expect(headers[0].RequestText).toBe('新しい依頼文');
-      expect(headers[0].RequestedAt).toBe(newerRequestedAt);
+      // RequestText/RequestedAt は GSI3 の射影に含まれないため getTopic（ベーステーブル読み）で確認する
+      const topic = await topicRepo.getTopic({
+        userId: headers[0].UserID,
+        characterId: headers[0].CharacterID,
+        topicId: headers[0].TopicID,
+      });
+      expect(topic?.RequestText).toBe('新しい依頼文');
+      expect(topic?.RequestedAt).toBe(newerRequestedAt);
     });
 
     it('既存 Topic への merge で今回 index ありの場合、新しい依頼フックで上書きする', async () => {
@@ -1244,8 +1268,14 @@ describe('consolidate', () => {
 
       expect(outcome).toBe('consolidated');
       const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
-      expect(headers[0].RequestText).toBe('今度はコーヒーの新情報を調べて');
-      expect(headers[0].RequestedAt).toBe(newRequestedAt);
+      // RequestText/RequestedAt は GSI3 の射影に含まれないため getTopic（ベーステーブル読み）で確認する
+      const topic = await topicRepo.getTopic({
+        userId: headers[0].UserID,
+        characterId: headers[0].CharacterID,
+        topicId: headers[0].TopicID,
+      });
+      expect(topic?.RequestText).toBe('今度はコーヒーの新情報を調べて');
+      expect(topic?.RequestedAt).toBe(newRequestedAt);
     });
   });
   describe('selfFactProvenanceSuffix（一回性マイグレーション用の provenance 付与）', () => {

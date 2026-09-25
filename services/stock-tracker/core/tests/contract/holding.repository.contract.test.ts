@@ -8,18 +8,19 @@
  * 接続できない環境では自己スキップせずテストを失敗させる（決定的に検知するため）。
  */
 
-import { DynamoDBDocumentClient, ScanCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { InMemorySingleTableStore } from '@nagiyu/aws';
+import {
+  clearTable,
+  createLocalDocClient,
+  createLocalRawClient,
+  deleteTable,
+} from '@nagiyu/aws/testing';
 import { InMemoryHoldingRepository } from '../../src/repositories/in-memory-holding.repository.js';
 import { DynamoDBHoldingRepository } from '../../src/repositories/dynamodb-holding.repository.js';
 import { defineHoldingRepositoryContract } from './holding.repository.contract.js';
-import {
-  createLocalDocClient,
-  createLocalRawClient,
-  createTable,
-  deleteTable,
-} from './helpers/dynamodb-local.js';
+import { createTable } from './helpers/dynamodb-local.js';
 
 // --- InMemory 実装 ---
 
@@ -48,23 +49,6 @@ function ensureDynamoDbLocalTable(): Promise<void> {
   return dynamoDbLocalTableReady;
 }
 
-async function clearDynamoDbLocalTable(): Promise<void> {
-  await ensureDynamoDbLocalTable();
-  const docClient = dynamoDbLocalDocClient as DynamoDBDocumentClient;
-
-  const scanResult = await docClient.send(new ScanCommand({ TableName: dynamoDbLocalTableName }));
-  const items = scanResult.Items ?? [];
-
-  for (const item of items) {
-    await docClient.send(
-      new DeleteCommand({
-        TableName: dynamoDbLocalTableName,
-        Key: { PK: item.PK, SK: item.SK },
-      })
-    );
-  }
-}
-
 defineHoldingRepositoryContract('DynamoDB Local', {
   makeRepository: async () => {
     await ensureDynamoDbLocalTable();
@@ -73,7 +57,10 @@ defineHoldingRepositoryContract('DynamoDB Local', {
       dynamoDbLocalTableName
     );
   },
-  reset: clearDynamoDbLocalTable,
+  reset: async () => {
+    await ensureDynamoDbLocalTable();
+    await clearTable(dynamoDbLocalDocClient as DynamoDBDocumentClient, dynamoDbLocalTableName);
+  },
   teardown: async () => {
     await ensureDynamoDbLocalTable();
     await deleteTable(dynamoDbLocalRawClient as DynamoDBClient, dynamoDbLocalTableName);

@@ -186,7 +186,7 @@ describe('minute batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       mockSession.getCurrentPrice.mockResolvedValue(205.0);
@@ -261,7 +261,7 @@ describe('minute batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
 
       // Act
       const response = await handler(mockEvent);
@@ -314,7 +314,7 @@ describe('minute batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(false);
 
@@ -366,7 +366,7 @@ describe('minute batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       mockSession.getCurrentPrice.mockResolvedValue(195.0);
@@ -388,7 +388,7 @@ describe('minute batch handler', () => {
   describe('正常系: 空のアラートリスト', () => {
     it('アラートが0件の場合、正常に完了する', async () => {
       // Arrange
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([]);
 
       // Act
       const response = await handler(mockEvent);
@@ -439,7 +439,7 @@ describe('minute batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       // 共有セッション・新規 WS リトライともに失敗
@@ -489,7 +489,7 @@ describe('minute batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
       mockExchangeRepo.getById.mockResolvedValue(null); // Exchange が存在しない
 
       // Act
@@ -582,7 +582,7 @@ describe('minute batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert1, mockAlert2] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert1, mockAlert2]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
 
@@ -655,11 +655,7 @@ describe('minute batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({
-        items: [mockAlert],
-        nextCursor: undefined,
-        count: 1,
-      });
+      mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       mockSession.getCurrentPrice.mockResolvedValue(105.0);
@@ -730,11 +726,7 @@ describe('minute batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({
-        items: [mockAlert],
-        nextCursor: undefined,
-        count: 1,
-      });
+      mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       mockSession.getCurrentPrice.mockResolvedValue(105.0);
@@ -805,11 +797,7 @@ describe('minute batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({
-        items: [mockAlert],
-        nextCursor: undefined,
-        count: 1,
-      });
+      mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       mockSession.getCurrentPrice.mockResolvedValue(85.0);
@@ -857,7 +845,7 @@ describe('minute batch handler', () => {
     it('時間予算超過後のアラートは skippedTimeBudget としてカウントされる', async () => {
       const alerts = Array.from({ length: 5 }, (_, i) => makeAlert({ AlertID: `alert-${i}` }));
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: alerts });
+      mockAlertRepo.getByFrequency.mockResolvedValue(alerts);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       mockSession.getCurrentPrice.mockResolvedValue(205.0);
@@ -874,9 +862,10 @@ describe('minute batch handler', () => {
     });
 
     it('時間予算超過があっても statusCode 200 で正常終了する', async () => {
-      mockAlertRepo.getByFrequency.mockResolvedValue({
-        items: [makeAlert(), makeAlert({ AlertID: 'alert-2' })],
-      });
+      mockAlertRepo.getByFrequency.mockResolvedValue([
+        makeAlert(),
+        makeAlert({ AlertID: 'alert-2' }),
+      ]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(false);
 
@@ -900,7 +889,7 @@ describe('minute batch handler', () => {
         makeAlert({ AlertID: `alert-${i}`, Enabled: false })
       );
 
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: alerts });
+      mockAlertRepo.getByFrequency.mockResolvedValue(alerts);
 
       const response = await handler(mockEvent);
 
@@ -910,6 +899,25 @@ describe('minute batch handler', () => {
       expect(body.statistics.processedAlerts).toBe(6);
       expect(body.statistics.skippedDisabled).toBe(6);
       expect(body.statistics.skippedTimeBudget).toBe(0);
+    });
+  });
+
+  describe('正常系: 51件以上のアラート（Issue #3801: getByFrequencyの既定50件打ち切り防止）', () => {
+    it('51件のアラートがすべて処理対象になり、totalAlertsに全件数が入る', async () => {
+      const total = 51;
+      const alerts = Array.from({ length: total }, (_, i) =>
+        makeAlert({ AlertID: `alert-${i}`, Enabled: false })
+      );
+
+      mockAlertRepo.getByFrequency.mockResolvedValue(alerts);
+
+      const response = await handler(mockEvent);
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.statistics.totalAlerts).toBe(total);
+      expect(body.statistics.processedAlerts).toBe(total);
+      expect(body.statistics.skippedDisabled).toBe(total);
     });
   });
 
@@ -925,7 +933,7 @@ describe('minute batch handler', () => {
     it('errors が閾値以上の場合、session.close() 後に process.exit(1) を呼ぶ', async () => {
       // Arrange: 閾値 1 に対して errors = 1 になるケース（共有セッション + 新規 WS ともにタイムアウト）
       const alert = makeAlert();
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([alert]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       mockSession.getCurrentPrice.mockRejectedValue(new Error('TradingView API タイムアウト'));
@@ -946,7 +954,7 @@ describe('minute batch handler', () => {
     it('errors が閾値未満の場合、process.exit を呼ばない', async () => {
       // Arrange: 閾値 1 に対して errors = 0 になるケース（Enabled=false はエラー扱いしない）
       const alert = makeAlert({ Enabled: false });
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([alert]);
 
       // Act
       await handler(mockEvent);
@@ -959,7 +967,7 @@ describe('minute batch handler', () => {
       // Arrange: 環境変数を未設定（デフォルト値 1 で動作することを検証）
       delete process.env.MINUTE_BATCH_CONTAINER_KILL_THRESHOLD;
       const alert = makeAlert();
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([alert]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       mockSession.getCurrentPrice.mockRejectedValue(new Error('TradingView API タイムアウト'));
@@ -978,7 +986,7 @@ describe('minute batch handler', () => {
     it('1 回目失敗・新規 WS 成功: 通知処理が走り errors=0・freshSessionRetries=1', async () => {
       // Arrange
       const alert = makeAlert();
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([alert]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
 
@@ -1018,7 +1026,7 @@ describe('minute batch handler', () => {
     it('1 回目・2 回目ともに失敗: errors が増え reportErrorEvent が呼ばれる', async () => {
       // Arrange
       const alert = makeAlert();
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([alert]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
 
@@ -1048,7 +1056,7 @@ describe('minute batch handler', () => {
     it('1 回目が成功: standalone getCurrentPrice が呼ばれず freshSessionRetries=0', async () => {
       // Arrange
       const alert = makeAlert();
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([alert]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
 
@@ -1086,7 +1094,7 @@ describe('minute batch handler', () => {
     it('PriceSource=finnhub の場合、FinnhubQuoteProvider が呼ばれ共有セッションは使わない', async () => {
       // Arrange
       const alert = makeAlert();
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([alert]);
       mockExchangeRepo.getById.mockResolvedValue(finnhubExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
 
@@ -1114,7 +1122,7 @@ describe('minute batch handler', () => {
     it('PriceSource=finnhub で Finnhub API が成功: 通知が送信される', async () => {
       // Arrange
       const alert = makeAlert();
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([alert]);
       mockExchangeRepo.getById.mockResolvedValue(finnhubExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
 
@@ -1147,7 +1155,7 @@ describe('minute batch handler', () => {
       // Arrange: MINUTE_BATCH_CONTAINER_KILL_THRESHOLD=1 でエラーが発生すると process.exit(1)
       process.env.MINUTE_BATCH_CONTAINER_KILL_THRESHOLD = '1';
       const alert = makeAlert();
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([alert]);
       mockExchangeRepo.getById.mockResolvedValue(finnhubExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
 
@@ -1169,7 +1177,7 @@ describe('minute batch handler', () => {
     it('PriceSource=finnhub で Finnhub API が失敗: standalone getCurrentPrice は呼ばれない', async () => {
       // Arrange
       const alert = makeAlert();
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([alert]);
       mockExchangeRepo.getById.mockResolvedValue(finnhubExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
 
@@ -1193,7 +1201,7 @@ describe('minute batch handler', () => {
     it('PriceSource=tradingview のアラートは引き続き共有セッション経路を使う', async () => {
       // Arrange: PriceSource=tradingview の取引所
       const alert = makeAlert();
-      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [alert] });
+      mockAlertRepo.getByFrequency.mockResolvedValue([alert]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange); // PriceSource='tradingview'
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
 

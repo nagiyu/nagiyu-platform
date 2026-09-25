@@ -400,8 +400,8 @@ describe('DynamoDBAlertRepository', () => {
 
       const result = await repository.getByFrequency('MINUTE_LEVEL');
 
-      expect(result.items).toHaveLength(1);
-      expect(result.items[0]?.AlertID).toBe('alert-1');
+      expect(result).toHaveLength(1);
+      expect(result[0]?.AlertID).toBe('alert-1');
       expect(logger.warn).toHaveBeenCalledWith(
         '無効なアラートデータをスキップしました',
         expect.objectContaining({
@@ -465,8 +465,8 @@ describe('DynamoDBAlertRepository', () => {
 
       const result = await repository.getByFrequency('MINUTE_LEVEL');
 
-      expect(result.items).toHaveLength(1);
-      expect(result.items[0]?.AlertID).toBe('alert-1');
+      expect(result).toHaveLength(1);
+      expect(result[0]?.AlertID).toBe('alert-1');
       expect(logger.warn).toHaveBeenCalledWith(
         '無効なアラートデータをスキップしました',
         expect.objectContaining({
@@ -515,8 +515,8 @@ describe('DynamoDBAlertRepository', () => {
 
       const result = await repository.getByFrequency('MINUTE_LEVEL');
 
-      expect(result.items).toHaveLength(1);
-      expect(result.items[0].Frequency).toBe('MINUTE_LEVEL');
+      expect(result).toHaveLength(1);
+      expect(result[0].Frequency).toBe('MINUTE_LEVEL');
       expect(mockDocClient.send).toHaveBeenCalledTimes(1);
     });
 
@@ -528,7 +528,7 @@ describe('DynamoDBAlertRepository', () => {
 
       const result = await repository.getByFrequency('MINUTE_LEVEL');
 
-      expect(result.items).toHaveLength(0);
+      expect(result).toHaveLength(0);
     });
 
     it('データベースエラー時にDatabaseErrorをスローする', async () => {
@@ -581,8 +581,8 @@ describe('DynamoDBAlertRepository', () => {
 
       const result = await repository.getByFrequency('MINUTE_LEVEL');
 
-      expect(result.items).toHaveLength(1);
-      expect(result.items[0]?.AlertID).toBe('alert-1');
+      expect(result).toHaveLength(1);
+      expect(result[0]?.AlertID).toBe('alert-1');
       expect(logger.warn).toHaveBeenCalledWith(
         '無効なアラートデータをスキップしました',
         expect.objectContaining({
@@ -626,8 +626,8 @@ describe('DynamoDBAlertRepository', () => {
 
       const result = await repository.getByFrequency('MINUTE_LEVEL');
 
-      expect(result.items).toHaveLength(1);
-      expect(result.items[0]?.AlertID).toBe('alert-1');
+      expect(result).toHaveLength(1);
+      expect(result[0]?.AlertID).toBe('alert-1');
       expect(logger.warn).toHaveBeenCalledWith(
         '無効なアラートデータをスキップしました',
         expect.objectContaining({
@@ -677,13 +677,101 @@ describe('DynamoDBAlertRepository', () => {
 
       const result = await repository.getByFrequency('MINUTE_LEVEL');
 
-      expect(result.items).toHaveLength(1);
-      expect(result.items[0]?.AlertID).toBe('alert-1');
+      expect(result).toHaveLength(1);
+      expect(result[0]?.AlertID).toBe('alert-1');
       expect(logger.warn).toHaveBeenCalledWith(
         '無効なアラートデータをスキップしました',
         expect.objectContaining({ sk: 'ALERT#invalid-alert' })
       );
       mapperSpy.mockRestore();
+    });
+
+    it('LastEvaluatedKeyが返る限りQueryをループし、複数ページの全件を集約する（Issue #3801: 51件目以降の打ち切り防止）', async () => {
+      const buildItem = (id: string) => ({
+        PK: `USER#user-123`,
+        SK: `ALERT#${id}`,
+        Type: 'Alert',
+        GSI1PK: 'user-123',
+        GSI1SK: `Alert#${id}`,
+        GSI2PK: 'ALERT#MINUTE_LEVEL',
+        GSI2SK: `user-123#${id}`,
+        AlertID: id,
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: { p256dh: 'p256dh-key', auth: 'auth-secret' },
+        },
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      });
+
+      // 3ページに分けて返す（1ページ目・2ページ目はLastEvaluatedKeyあり、3ページ目でループ終了）
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Items: [buildItem('alert-1'), buildItem('alert-2')],
+          Count: 2,
+          LastEvaluatedKey: { PK: 'USER#user-123', SK: 'ALERT#alert-2' },
+        })
+        .mockResolvedValueOnce({
+          Items: [buildItem('alert-3')],
+          Count: 1,
+          LastEvaluatedKey: { PK: 'USER#user-123', SK: 'ALERT#alert-3' },
+        })
+        .mockResolvedValueOnce({
+          Items: [buildItem('alert-4')],
+          Count: 1,
+        });
+
+      const result = await repository.getByFrequency('MINUTE_LEVEL');
+
+      expect(result.map((item) => item.AlertID)).toEqual([
+        'alert-1',
+        'alert-2',
+        'alert-3',
+        'alert-4',
+      ]);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(3);
+
+      // 2回目・3回目のQueryにはExclusiveStartKeyとして前ページのLastEvaluatedKeyが渡される
+      const secondCall = mockDocClient.send.mock.calls[1][0] as {
+        input: { ExclusiveStartKey?: Record<string, unknown> };
+      };
+      const thirdCall = mockDocClient.send.mock.calls[2][0] as {
+        input: { ExclusiveStartKey?: Record<string, unknown> };
+      };
+      expect(secondCall.input.ExclusiveStartKey).toEqual({
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-2',
+      });
+      expect(thirdCall.input.ExclusiveStartKey).toEqual({
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-3',
+      });
+
+      // Limitは指定しない（DynamoDBの1MBページ単位でよい契約のため）
+      const firstCall = mockDocClient.send.mock.calls[0][0] as {
+        input: { Limit?: number };
+      };
+      expect(firstCall.input.Limit).toBeUndefined();
+    });
+
+    it('2ページ目のQueryでデータベースエラーが発生した場合もDatabaseErrorをスローする', async () => {
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Items: [],
+          Count: 0,
+          LastEvaluatedKey: { PK: 'USER#user-123', SK: 'ALERT#alert-1' },
+        })
+        .mockRejectedValueOnce(new Error('Database connection failed'));
+
+      await expect(repository.getByFrequency('MINUTE_LEVEL')).rejects.toThrow(DatabaseError);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
     });
   });
 

@@ -25,6 +25,14 @@ const ERROR_MESSAGES = {
   NO_UPDATES_SPECIFIED: '更新するフィールドが指定されていません',
 } as const;
 
+// 実DynamoDB実装（dynamodb-holding.repository.ts）はgetByUserIdのlimit未指定時に
+// 50件を既定とするため、InMemory実装もこれに合わせる（store既定の100件のままだと乖離する）。
+//
+// 実DynamoDB実装と同じFalsyフォールバック（`options?.limit || DEFAULT_GET_BY_USER_ID_LIMIT`）
+// にする。Nullishフォールバック（`??`）にすると、limit: 0 がstoreの
+// `options?.limit || 100`まで素通りして100件にフォールバックしてしまうため。
+const DEFAULT_GET_BY_USER_ID_LIMIT = 50;
+
 /**
  * InMemory Holding Repository
  *
@@ -71,7 +79,10 @@ export class InMemoryHoldingRepository implements HoldingRepository {
           value: 'Holding#',
         },
       },
-      options
+      {
+        ...options,
+        limit: options?.limit || DEFAULT_GET_BY_USER_ID_LIMIT,
+      }
     );
 
     const items = result.items.map((item) => this.mapper.toEntity(item));

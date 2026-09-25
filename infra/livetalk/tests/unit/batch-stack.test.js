@@ -328,6 +328,15 @@ describe('LiveTalkBatchStack', () => {
     template.resourceCountIs('AWS::Events::Rule', 4);
   });
 
+  it('マイグレーションバッチ Lambda は非同期 invoke の既定リトライを 0 にする（Issue #3814）', () => {
+    // 手動の非同期 invoke でも Lambda は既定で最大 2 回リトライするため、冪等でない
+    // 移行処理が重複実行されるのを防ぐ目的で明示的に 0 に設定している。
+    const { template } = synth();
+    template.hasResourceProperties('AWS::Lambda::EventInvokeConfig', {
+      MaximumRetryAttempts: 0,
+    });
+  });
+
   it('マイグレーションバッチは DLQ を持たないため SQS Queue は 4 つのまま増えない', () => {
     const { template } = synth();
     template.resourceCountIs('AWS::SQS::Queue', 4);

@@ -17,6 +17,8 @@ import {
   buildTopicStaleGSI4PK,
   buildUserPK,
   buildWebFactSKPrefix,
+  STALE_GSI_PROJECTION,
+  TOPIC_GSI_PROJECTION,
 } from '../mappers/keys.js';
 import { OptimisticLockError } from './optimistic-lock.error.js';
 import type { TopicBundle, TopicRepository } from './topic.repository.interface.js';
@@ -130,7 +132,14 @@ export class InMemoryTopicRepository implements TopicRepository {
 
     do {
       const result = this.store.queryByAttribute(
-        { attributeName: 'GSI3PK', attributeValue: gsi3pk },
+        {
+          attributeName: 'GSI3PK',
+          attributeValue: gsi3pk,
+          projection: TOPIC_GSI_PROJECTION,
+          // sk条件を指定しないため、実DynamoDBのGSI3 Queryと同様にGSI3SK（Care、Number型）昇順で
+          // 返すよう明示する。sortBySortKeyはNumber型ソートキーを数値比較するため、実際に数値順になる。
+          gsiSortKeyAttributeName: 'GSI3SK',
+        },
         { limit: Number.MAX_SAFE_INTEGER, ...(cursor ? { cursor } : {}) }
       );
       for (const item of result.items) {
@@ -206,7 +215,15 @@ export class InMemoryTopicRepository implements TopicRepository {
 
     do {
       const result = this.store.queryByAttribute(
-        { attributeName: 'GSI4PK', attributeValue: gsi4pk },
+        {
+          attributeName: 'GSI4PK',
+          attributeValue: gsi4pk,
+          projection: STALE_GSI_PROJECTION,
+          // sk条件を指定しないため、実DynamoDBのGSI4 Queryと同様にGSI4SK（NextReview、Number型）昇順で
+          // 返すよう明示する。sortBySortKeyはNumber型ソートキーを数値比較するため、実際に数値順になる
+          // （最終的な昇順ソートはこの後のJS側.sort()でも重ねて行うが、結果は同じになる）。
+          gsiSortKeyAttributeName: 'GSI4SK',
+        },
         { limit: Number.MAX_SAFE_INTEGER, ...(cursor ? { cursor } : {}) }
       );
       for (const item of result.items) {

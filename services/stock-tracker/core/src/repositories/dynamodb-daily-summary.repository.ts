@@ -74,7 +74,12 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
   }
 
   /**
-   * 取引所IDでサマリーを取得（GSI4使用）
+   * 取引所IDでサマリーを取得（GSI4=ExchangeSummaryIndexを使用）
+   *
+   * GSI4SK（`DATE#{Date}#{TickerID}`）昇順のQueryで、インタフェース契約のDate昇順・
+   * 同日内TickerID昇順を実現する。date指定時はbegins_with、省略時はパーティション全件
+   * （PKのみ）のQuery＋クライアント側での最新日フィルタ。LastEvaluatedKeyループで
+   * 全件を集約してから最新日を判定するため、ページ境界をまたいでも取りこぼさない。
    */
   public async getByExchange(exchangeId: string, date?: string): Promise<DailySummaryEntity[]> {
     try {
@@ -134,8 +139,13 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
    * 取引所IDと日付範囲でサマリーを取得（GSI4使用、両端含む）
    *
    * GSI4SK は `DATE#{Date}#{TickerID}` 形式のため、`DATE#{toDate}` の prefix だけでは
-   * `toDate` の項目を漏らしてしまう。よって ASCII でほぼ最大の `~` を末尾に付けて
+   * `toDate` の項目を漏らしてしまう。よって ASCII でほぼ最大の `~`（0x7E）を末尾に付けて
    * `DATE#{toDate}#~` まで含める。
+   *
+   * 前提（現行のTickerID体系では成立する）: TickerIDに `~`（0x7E）より大きいコードポイントの
+   * 文字が含まれると、`DATE#{toDate}#{TickerID}` が `DATE#{toDate}#~` より辞書順で大きくなり、
+   * between の上限を超えて `toDate` 分のその項目が漏れる。現行のTickerID体系
+   * （`NSDQ:AAPL` 形式、ASCII印字可能文字の範囲）ではこれは起こらない。
    */
   public async getByExchangeAndDateRange(
     exchangeId: string,

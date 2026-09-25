@@ -17,6 +17,26 @@ export interface QueryCondition {
 }
 
 /**
+ * GSI の射影（Projection）指定。
+ *
+ * 実DynamoDBのGSI射影を近似するために使う。未指定時（`queryByAttribute` の
+ * `condition.projection` を渡さない場合）は従来どおり `ALL` 相当（フルアイテムを返す）。
+ * これにより既存の呼び出し元（全GSIが ALL 射影の stock-tracker 等）は無変更で挙動が変わらない。
+ */
+export interface AttributeProjection {
+  /** 射影タイプ。ALL=全属性、KEYS_ONLY=キーのみ、INCLUDE=キー+指定した非キー属性 */
+  type: 'ALL' | 'KEYS_ONLY' | 'INCLUDE';
+  /**
+   * このGSI自身のキー属性名（パーティションキー・ソートキー）。
+   * 実DynamoDBはGSIのキー属性を、sk条件の指定有無に関わらず常に射影へ含めるため、
+   * ここで明示する（例: GSI3 なら ['GSI3PK', 'GSI3SK']）。
+   */
+  keyAttributeNames: string[];
+  /** type: 'INCLUDE' のときの非キー属性名一覧 */
+  nonKeyAttributes?: string[];
+}
+
+/**
  * 属性によるクエリ条件
  */
 export interface AttributeQueryCondition {
@@ -33,6 +53,31 @@ export interface AttributeQueryCondition {
     /** 値 */
     value: string | [string, string];
   };
+  /**
+   * `sk` 条件を指定しない場合に、結果をソートするための GSI 自身のソートキー属性名（例: `'GSI3SK'`）。
+   *
+   * 実DynamoDBのGSI Queryは、KeyConditionExpressionにソートキー条件を含めるかどうかに関わらず、
+   * 常にそのGSI自身のソートキー昇順で結果を返す。InMemory実装は本来この属性でソートすべきだが、
+   * `sk` を指定しない呼び出し（パーティションキーのみのQuery）では、どの属性がGSIのソートキーかを
+   * 判別できないため、このフィールドで明示する。
+   *
+   * - `sk` を指定した場合はそちらの `attributeName` が優先され、このフィールドは無視される。
+   * - 両方省略した場合は、従来どおりベーステーブルの `'SK'` 属性でソートする
+   *   （既存呼び出し元の挙動を変えないための後方互換）。
+   *
+   * `projection.keyAttributeNames`（GSIのPK/SK両方を並べた配列）とは意図的に別フィールドにしている。
+   * 理由は2点: (1) 射影（`projection`）はあくても無くてもよい任意指定であり、ソート順の正しさが
+   * 「射影を宣言したかどうか」に左右されるべきではない（射影なしでもソートは常に正しくしたい）。
+   * (2) `keyAttributeNames` は配列であり、どちらの要素がPKでどちらがSKかは並び順に依存した
+   * 前提でしか判断できない（構造的に保証されない）。矛盾する値（`gsiSortKeyAttributeName`と
+   * `projection.keyAttributeNames`の内容が食い違う等）を渡しても、このストアは検知しない
+   * （呼び出し側の責務として正しい値を渡す前提）。
+   */
+  gsiSortKeyAttributeName?: string;
+  /**
+   * このGSIクエリの射影（オプション）。未指定時は `ALL` 相当（フルアイテムを返す＝従来の挙動）。
+   */
+  projection?: AttributeProjection;
 }
 
 /**
@@ -128,7 +173,15 @@ export class InMemorySingleTableStore {
 
     // ページネーション
     const paginatedItems = items.slice(startIndex, startIndex + limit);
-    const hasMore = startIndex + limit < items.length;
+    // 実DynamoDBは「Limit件評価した時点」でLastEvaluatedKeyを返す（返却件数ではない。
+    // FilterExpression併用時はFilter後に残り0件でも、Limit件評価してさえいればLEKが付く）。
+    // このquery()自体はFilterExpression相当を持たないため評価件数=返却件数（paginatedItems）
+    // だが、呼び出し側（例: 一時アラート候補取得のTemporary/TTLフィルタ）がこの結果に対して
+    // 事後フィルタを重ねるケースを想定し、「limitちょうど評価できたか」をhasMoreの基準にする
+    // （残り件数=startIndex + limit < items.lengthでは判定しない）。
+    // これにより「ちょうどlimit件で終わる」ケースでも実DynamoDBと同じくnextCursorが付き、
+    // 呼び出し側は次のQueryで空ページを受け取ってから走査完了を知る（実DynamoDBと同じ挙動）。
+    const hasMore = paginatedItems.length > 0 && paginatedItems.length === limit;
     const nextCursor = hasMore ? this.encodeCursor({ index: startIndex + limit }) : undefined;
 
     return {
@@ -149,7 +202,7 @@ export class InMemorySingleTableStore {
     condition: AttributeQueryCondition,
     options?: PaginationOptions
   ): PaginatedResult<DynamoDBItem> {
-    const { attributeName, attributeValue, sk } = condition;
+    const { attributeName, attributeValue, sk, gsiSortKeyAttributeName } = condition;
     const limit = options?.limit || 100;
 
     // 全アイテムをフィルタリング
@@ -162,8 +215,10 @@ export class InMemorySingleTableStore {
       items = this.filterBySortKey(items, sk.operator, sk.value, sk.attributeName);
     }
 
-    // 実DynamoDBのGSI Queryはソートキー（GSIのSK属性）昇順で返すため、挿入順に依存しないよう安定ソートする
-    items = this.sortBySortKey(items, sk?.attributeName ?? 'SK');
+    // 実DynamoDBのGSI Queryはソートキー（GSIのSK属性）昇順で返すため、挿入順に依存しないよう安定ソートする。
+    // sk条件があればそのattributeNameを、無ければ呼び出し元が明示したGSIソートキー属性
+    // （gsiSortKeyAttributeName）を、それも無ければ従来どおりベーステーブルの'SK'を使う。
+    items = this.sortBySortKey(items, sk?.attributeName ?? gsiSortKeyAttributeName ?? 'SK');
 
     // カーソルからの開始位置を特定
     let startIndex = 0;
@@ -174,11 +229,15 @@ export class InMemorySingleTableStore {
 
     // ページネーション
     const paginatedItems = items.slice(startIndex, startIndex + limit);
-    const hasMore = startIndex + limit < items.length;
+    // 実DynamoDBは「Limit件評価した時点」でLastEvaluatedKeyを返す（残り0件でも）。
+    // query()と同じ理由で「limitちょうど評価できたか」をhasMoreの基準にする（詳細はquery()参照）。
+    const hasMore = paginatedItems.length > 0 && paginatedItems.length === limit;
     const nextCursor = hasMore ? this.encodeCursor({ index: startIndex + limit }) : undefined;
 
     return {
-      items: paginatedItems,
+      // 射影は返却するページのアイテムに対してのみ適用する（フィルタ・ソート・ページネーションは
+      // フルアイテムに対して行い、実DynamoDBのQueryと同様に射影は結果の見え方だけを絞る）
+      items: paginatedItems.map((item) => this.applyProjection(item, condition.projection)),
       nextCursor,
       count: items.length,
     };
@@ -203,7 +262,9 @@ export class InMemorySingleTableStore {
 
     // ページネーション
     const paginatedItems = items.slice(startIndex, startIndex + limit);
-    const hasMore = startIndex + limit < items.length;
+    // 実DynamoDBは「Limit件評価した時点」でLastEvaluatedKeyを返す（残り0件でも）。
+    // query()と同じ理由で「limitちょうど評価できたか」をhasMoreの基準にする（詳細はquery()参照）。
+    const hasMore = paginatedItems.length > 0 && paginatedItems.length === limit;
     const nextCursor = hasMore ? this.encodeCursor({ index: startIndex + limit }) : undefined;
 
     return {
@@ -232,6 +293,40 @@ export class InMemorySingleTableStore {
    */
   private buildKey(pk: string, sk: string): string {
     return `${pk}#${sk}`;
+  }
+
+  /**
+   * GSI の射影（Projection）をアイテムへ適用する。
+   *
+   * 実DynamoDBの射影仕様に合わせる:
+   *   - ベーステーブルのキー（PK/SK）は射影タイプに関わらず常に含まれる
+   *   - そのGSI自身のキー属性（projection.keyAttributeNames）も常に含まれる
+   *   - KEYS_ONLY は上記キーのみ、INCLUDE は上記キー＋nonKeyAttributes、ALL は全属性
+   * 元のアイテムは変更せず、絞り込んだコピーを返す。
+   *
+   * @param item - 射影前のフルアイテム
+   * @param projection - 射影指定（未指定時はALL相当＝そのまま返す）
+   */
+  private applyProjection(item: DynamoDBItem, projection?: AttributeProjection): DynamoDBItem {
+    if (!projection || projection.type === 'ALL') {
+      return item;
+    }
+
+    const keepAttributes = new Set<string>(['PK', 'SK', ...projection.keyAttributeNames]);
+    if (projection.type === 'INCLUDE') {
+      for (const attributeName of projection.nonKeyAttributes ?? []) {
+        keepAttributes.add(attributeName);
+      }
+    }
+
+    const projected: Record<string, unknown> = {};
+    for (const attributeName of keepAttributes) {
+      if (attributeName in item) {
+        projected[attributeName] = item[attributeName];
+      }
+    }
+
+    return projected as DynamoDBItem;
   }
 
   /**
@@ -271,22 +366,36 @@ export class InMemorySingleTableStore {
   }
 
   /**
-   * ソートキー属性で昇順（文字列の辞書順）に安定ソートする
+   * ソートキー属性で昇順に安定ソートする（String型は辞書順、Number型は数値順）
    *
    * 実DynamoDBのQuery（GSI経由を含む）はソートキー昇順で結果を返すため、
    * InMemory実装もこれに合わせて挿入順（Map反復順）ではなくソートキー順で返す。
    *
-   * 近似の範囲: String型ソートキーの辞書順（JSの文字列比較＝UTF-16コードユニット順）で
-   * 近似する。現行のキー体系（ASCII範囲のPK/SK・GSIキー）では実DynamoDBのUTF-8バイト順と
-   * 一致する。BMP外文字（サロゲートペア）やNumber型ソートキーは対象外（本ストアは文字列前提）。
+   * 型ごとの扱い:
+   * - 両辺が number のときは数値比較する。実DynamoDBのNumber型ソートキー
+   *   （例: livetalkのGSI3SK=Care、GSI4SK=NextReview）は数値順に並ぶため、これに合わせる。
+   * - それ以外（両辺が string、型混在、片方以上がundefined）は文字列化した辞書順
+   *   （JSの文字列比較＝UTF-16コードユニット順）で比較する。現行のString型キー体系
+   *   （ASCII範囲のPK/SK・GSIキー）では実DynamoDBのUTF-8バイト順と一致する。
+   *   BMP外文字（サロゲートペア）は対象外。
+   * - 型混在（string と number が同じ属性に混じる）は、実DynamoDBでは同一GSIの
+   *   ソートキーが単一型である前提のため本来起こり得ず、本ストアも対応しない
+   *   （辞書順比較にフォールバックするのみで、正しい順序は保証しない）。
    *
    * @param items - ソート対象アイテム
    * @param skAttribute - ソートキーとして扱う属性名（Queryは'SK'、GSI経由はGSIのSK属性名）
    */
   private sortBySortKey(items: DynamoDBItem[], skAttribute: string): DynamoDBItem[] {
     return [...items].sort((a, b) => {
-      const aKey = String(a[skAttribute] ?? '');
-      const bKey = String(b[skAttribute] ?? '');
+      const aValue = a[skAttribute];
+      const bValue = b[skAttribute];
+
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return aValue - bValue;
+      }
+
+      const aKey = String(aValue ?? '');
+      const bKey = String(bValue ?? '');
       return aKey < bKey ? -1 : aKey > bKey ? 1 : 0;
     });
   }

@@ -36,7 +36,9 @@ export interface LiveTalkBatchStackProps extends cdk.StackProps {
  * - 旧 compress（圧縮要約）・study（勉強）バッチはリブトーク知識・記憶再設計 P5 で撤去済み
  *   （consolidate・acquire が後継）。
  * - DLQ / IAM Role は Lambda ごとに独立（障害切り分け・権限最小化）。migrate は
- *   スケジュール起因の非同期リトライが無いため DLQ を持たない。
+ *   DLQ を持たない代わりに、非同期 invoke の既定リトライ（2 回）を明示的に 0 へ設定している
+ *   （Issue #3814）。手動の非同期 invoke でも Lambda はデフォルトで最大 2 回リトライするため、
+ *   移行処理が冪等でないこのバッチでは無指定のままだと重複実行されうる。
  */
 export class LiveTalkBatchStack extends cdk.Stack {
   public readonly learnActivityFunction: lambda.Function;
@@ -342,7 +344,8 @@ export class LiveTalkBatchStack extends cdk.Stack {
     //
     // 旧 Memory/Knowledge/InterestCategory を新 Topic モデルへ変換する throwaway バッチ。
     // 手動発火専用のため EventBridge Rule は付けない（DLQ もスケジュール起因の非同期リトライを
-    // 前提とした仕組みのため、他バッチと異なり付与しない）。
+    // 前提とした仕組みのため、他バッチと異なり付与しない。代わりに Lambda 自体の非同期 invoke
+    // リトライを 0 に設定する。下記 MigrateFunction の retryAttempts を参照）。
 
     // 一回性マイグレーションバッチ専用 IAM Role（OpenAI 権限が必要。GSI3 Query は dynamoTable の
     // globalIndexes 宣言（本ファイル冒頭）に含めているため、ここでは grantReadWriteData だけでよい）
@@ -378,6 +381,10 @@ export class LiveTalkBatchStack extends cdk.Stack {
       },
       tracing: lambda.Tracing.ACTIVE,
       logRetention: logs.RetentionDays.ONE_MONTH,
+      // 非同期 invoke（InvocationType=Event）の既定リトライ回数（2 回）を明示的に 0 にする
+      // （Issue #3814）。移行処理は冪等でないため、1 スコープがタイムアウトした際の自動リトライで
+      // 重複実行されるのを防ぐ。チャンク分割実行（chunkStart/chunkEnd）と組み合わせて使う。
+      retryAttempts: 0,
     });
     // EventBridge Rule は意図的に付けない（手動 invoke 専用）
 
