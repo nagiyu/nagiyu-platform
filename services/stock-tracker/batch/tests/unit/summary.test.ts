@@ -638,6 +638,60 @@ describe('summary batch handler', () => {
     });
   });
 
+  describe('シナリオ4b: 51件以上のティッカーがある取引所でも全銘柄が処理される（Issue #3788）', () => {
+    it('totalTickers が全ティッカー数になり、全ティッカーのサマリーが保存される', async () => {
+      await exchangeRepository.create({
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '09:00',
+        End: '17:00',
+      });
+
+      const total = 51;
+      for (let i = 0; i < total; i += 1) {
+        await tickerRepository.create({
+          TickerID: `NSDQ:T${String(i).padStart(4, '0')}`,
+          Symbol: `T${String(i).padStart(4, '0')}`,
+          Name: `Test ${i}`,
+          ExchangeID: 'NASDAQ',
+        });
+      }
+
+      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
+        {
+          time: Date.UTC(2026, 1, 27),
+          open: 200,
+          high: 220,
+          low: 190,
+          close: 210,
+          volume: 2000,
+        },
+      ]);
+      // 2026-02-27 (金曜日) 23:00 UTC = 18:00 ET (取引終了後)
+      const nowFn = jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0));
+
+      const response = await handler(mockEvent, {
+        exchangeRepository,
+        tickerRepository,
+        dailySummaryRepository,
+        getChartDataFn,
+        nowFn,
+      });
+      const body = JSON.parse(response.body) as {
+        statistics: { totalTickers: number; processedTickers: number };
+      };
+
+      expect(response.statusCode).toBe(200);
+      expect(body.statistics.totalTickers).toBe(total);
+      expect(body.statistics.processedTickers).toBe(total);
+
+      const summaries = await dailySummaryRepository.getByExchange('NASDAQ', '2026-02-27');
+      expect(summaries).toHaveLength(total);
+    });
+  });
+
   describe('チャートデータが空の場合', () => {
     it('チャートデータが0件ならサマリーを保存しない', async () => {
       await exchangeRepository.create({

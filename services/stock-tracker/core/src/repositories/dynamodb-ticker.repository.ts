@@ -10,6 +10,7 @@ import {
   ScanCommand,
   type DynamoDBDocumentClient,
   type ScanCommandInput,
+  type QueryCommandOutput,
 } from '@aws-sdk/lib-dynamodb';
 import {
   AbstractDynamoDBRepository,
@@ -75,50 +76,52 @@ export class DynamoDBTickerRepository
   }
 
   /**
-   * 取引所ごとのティッカー一覧を取得（GSI3使用）
+   * 取引所ごとのティッカー一覧を取得（GSI3=ExchangeTickerIndexを使用）
+   *
+   * GSI3SK（`TICKER#{TickerID}`）昇順のQueryで、インタフェース契約のTickerID昇順を実現する。
+   * LastEvaluatedKeyがなくなるまでQueryをループして全件を集約する契約のため、
+   * Limitは指定しない（DynamoDBの1MBページ単位）。
    */
-  public async getByExchange(
-    exchangeId: string,
-    options?: PaginationOptions
-  ): Promise<PaginatedResult<TickerEntity>> {
+  public async getByExchange(exchangeId: string): Promise<TickerEntity[]> {
+    const items: TickerEntity[] = [];
+    let exclusiveStartKey: QueryCommandOutput['LastEvaluatedKey'];
+
     try {
-      const limit = options?.limit || 50;
-      const exclusiveStartKey = decodeCursor(options?.cursor);
+      do {
+        const result: QueryCommandOutput = await this.docClient.send(
+          new QueryCommand({
+            TableName: this.config.tableName,
+            IndexName: 'ExchangeTickerIndex',
+            KeyConditionExpression: '#gsi3pk = :exchangeId',
+            ExpressionAttributeNames: {
+              '#gsi3pk': 'GSI3PK',
+            },
+            ExpressionAttributeValues: {
+              ':exchangeId': exchangeId,
+            },
+            ExclusiveStartKey: exclusiveStartKey,
+          })
+        );
 
-      const result = await this.docClient.send(
-        new QueryCommand({
-          TableName: this.config.tableName,
-          IndexName: 'ExchangeTickerIndex',
-          KeyConditionExpression: '#gsi3pk = :exchangeId',
-          ExpressionAttributeNames: {
-            '#gsi3pk': 'GSI3PK',
-          },
-          ExpressionAttributeValues: {
-            ':exchangeId': exchangeId,
-          },
-          Limit: limit,
-          ExclusiveStartKey: exclusiveStartKey,
-        })
-      );
+        for (const item of result.Items || []) {
+          items.push(this.mapper.toEntity(item as unknown as DynamoDBItem));
+        }
 
-      const items = (result.Items || []).map((item) =>
-        this.mapper.toEntity(item as unknown as DynamoDBItem)
-      );
-      const nextCursor = encodeCursor(result.LastEvaluatedKey);
-
-      return {
-        items,
-        nextCursor,
-        count: result.Count,
-      };
+        exclusiveStartKey = result.LastEvaluatedKey;
+      } while (exclusiveStartKey);
     } catch (error) {
       const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
+
+    return items;
   }
 
   /**
    * 全ティッカー取得（Scan with filter）
+   *
+   * ScanはGSIを介さず全件を走査するため、返却順序を保証しない。options未指定時は
+   * LastEvaluatedKeyループで全件集約し、nextCursorはundefinedを返す。
    */
   public async getAll(options?: PaginationOptions): Promise<PaginatedResult<TickerEntity>> {
     try {

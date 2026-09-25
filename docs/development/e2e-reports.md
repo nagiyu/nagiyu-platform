@@ -68,15 +68,15 @@ https://reports.nagiyu.com/portal/pr-123/9876543210/chromium-mobile/
 
 ## アップロードフロー
 
-各サービスの `*-verify.yml` の E2E ジョブ末尾で以下を実行:
+各サービスの `*-verify.yml` の E2E ジョブ末尾で以下を実行。AWS 認証は GitHub OIDC + AssumeRole
+（`pull_request` 用ロール）を使う。設計は [IAM 詳細](../infra/shared/iam.md) を参照。
 
 ```yaml
 - name: Configure AWS credentials for report upload
   if: always()
   uses: aws-actions/configure-aws-credentials@v4
   with:
-    aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-    aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
     aws-region: us-east-1
 
 - name: Upload Playwright HTML report to reports.nagiyu.com

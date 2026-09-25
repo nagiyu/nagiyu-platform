@@ -161,9 +161,9 @@ describe('DynamoDBTickerRepository', () => {
 
       const result = await repository.getByExchange('NASDAQ');
 
-      expect(result.items).toHaveLength(2);
-      expect(result.items[0].ExchangeID).toBe('NASDAQ');
-      expect(result.items[1].ExchangeID).toBe('NASDAQ');
+      expect(result).toHaveLength(2);
+      expect(result[0].ExchangeID).toBe('NASDAQ');
+      expect(result[1].ExchangeID).toBe('NASDAQ');
       expect(mockDocClient.send).toHaveBeenCalledTimes(1);
     });
 
@@ -175,7 +175,7 @@ describe('DynamoDBTickerRepository', () => {
 
       const result = await repository.getByExchange('UNKNOWN');
 
-      expect(result.items).toHaveLength(0);
+      expect(result).toHaveLength(0);
     });
 
     it('データベースエラー時にDatabaseErrorをスローする', async () => {
@@ -183,6 +183,84 @@ describe('DynamoDBTickerRepository', () => {
       mockDocClient.send.mockRejectedValueOnce(dbError);
 
       await expect(repository.getByExchange('NASDAQ')).rejects.toThrow(DatabaseError);
+    });
+
+    it('LastEvaluatedKeyが返る限りQueryをループし、複数ページの全件を集約する（Issue #3788: 51件目以降の打ち切り防止）', async () => {
+      const buildItem = (tickerId: string) => ({
+        PK: `TICKER#${tickerId}`,
+        SK: 'METADATA',
+        Type: 'Ticker',
+        GSI3PK: 'NASDAQ',
+        GSI3SK: `TICKER#${tickerId}`,
+        TickerID: tickerId,
+        Symbol: tickerId,
+        Name: tickerId,
+        ExchangeID: 'NASDAQ',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      });
+
+      // 3ページに分けて返す（1ページ目・2ページ目はLastEvaluatedKeyあり、3ページ目でループ終了）
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Items: [buildItem('NSDQ:AAA'), buildItem('NSDQ:BBB')],
+          Count: 2,
+          LastEvaluatedKey: { PK: 'TICKER#NSDQ:BBB', SK: 'METADATA' },
+        })
+        .mockResolvedValueOnce({
+          Items: [buildItem('NSDQ:CCC')],
+          Count: 1,
+          LastEvaluatedKey: { PK: 'TICKER#NSDQ:CCC', SK: 'METADATA' },
+        })
+        .mockResolvedValueOnce({
+          Items: [buildItem('NSDQ:DDD')],
+          Count: 1,
+        });
+
+      const result = await repository.getByExchange('NASDAQ');
+
+      expect(result.map((item) => item.TickerID)).toEqual([
+        'NSDQ:AAA',
+        'NSDQ:BBB',
+        'NSDQ:CCC',
+        'NSDQ:DDD',
+      ]);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(3);
+
+      // 2回目・3回目のQueryにはExclusiveStartKeyとして前ページのLastEvaluatedKeyが渡される
+      const secondCall = mockDocClient.send.mock.calls[1][0] as {
+        input: { ExclusiveStartKey?: Record<string, unknown> };
+      };
+      const thirdCall = mockDocClient.send.mock.calls[2][0] as {
+        input: { ExclusiveStartKey?: Record<string, unknown> };
+      };
+      expect(secondCall.input.ExclusiveStartKey).toEqual({
+        PK: 'TICKER#NSDQ:BBB',
+        SK: 'METADATA',
+      });
+      expect(thirdCall.input.ExclusiveStartKey).toEqual({
+        PK: 'TICKER#NSDQ:CCC',
+        SK: 'METADATA',
+      });
+
+      // Limitは指定しない（DynamoDBの1MBページ単位でよい契約のため）
+      const firstCall = mockDocClient.send.mock.calls[0][0] as {
+        input: { Limit?: number };
+      };
+      expect(firstCall.input.Limit).toBeUndefined();
+    });
+
+    it('2ページ目のQueryでデータベースエラーが発生した場合もDatabaseErrorをスローする', async () => {
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Items: [],
+          Count: 0,
+          LastEvaluatedKey: { PK: 'TICKER#NSDQ:AAA', SK: 'METADATA' },
+        })
+        .mockRejectedValueOnce(new Error('Database connection failed'));
+
+      await expect(repository.getByExchange('NASDAQ')).rejects.toThrow(DatabaseError);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
     });
   });
 

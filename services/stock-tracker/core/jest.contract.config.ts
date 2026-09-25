@@ -14,6 +14,9 @@ const config: Config = {
   testMatch: ['**/*.test.ts'],
   moduleFileExtensions: ['ts', 'js'],
   moduleNameMapper: {
+    // `@nagiyu/aws/testing` は package.json の exports に意図的に載せていないため、
+    // このマッピングが唯一の解決経路になる（詳細は libs/aws/src/testing/index.ts）。
+    '^@nagiyu/aws/testing$': '<rootDir>/../../../libs/aws/src/testing/index.ts',
     '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1', // Remove .js extension for ts-jest

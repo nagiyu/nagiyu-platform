@@ -287,19 +287,42 @@ describe('InMemoryAlertRepository', () => {
       await repository.create(alert3);
 
       const minuteResult = await repository.getByFrequency('MINUTE_LEVEL');
-      expect(minuteResult.items).toHaveLength(2);
-      expect(minuteResult.items[0].Frequency).toBe('MINUTE_LEVEL');
-      expect(minuteResult.items[1].Frequency).toBe('MINUTE_LEVEL');
+      expect(minuteResult).toHaveLength(2);
+      expect(minuteResult[0].Frequency).toBe('MINUTE_LEVEL');
+      expect(minuteResult[1].Frequency).toBe('MINUTE_LEVEL');
 
       const hourlyResult = await repository.getByFrequency('HOURLY_LEVEL');
-      expect(hourlyResult.items).toHaveLength(1);
-      expect(hourlyResult.items[0].Frequency).toBe('HOURLY_LEVEL');
+      expect(hourlyResult).toHaveLength(1);
+      expect(hourlyResult[0].Frequency).toBe('HOURLY_LEVEL');
     });
 
     it('該当する頻度のアラートがない場合は空配列を返す', async () => {
       const result = await repository.getByFrequency('MINUTE_LEVEL');
 
-      expect(result.items).toHaveLength(0);
+      expect(result).toHaveLength(0);
+    });
+
+    it('51件以上のアラートも全件返す（Issue #3801: 既定50件打ち切りの防止）', async () => {
+      const total = 130;
+      for (let i = 0; i < total; i += 1) {
+        await repository.create({
+          UserID: `user-${String(i).padStart(4, '0')}`,
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Mode: 'Buy',
+          Frequency: 'MINUTE_LEVEL',
+          Enabled: true,
+          ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+          subscription: {
+            endpoint: 'https://example.com/push',
+            keys: { p256dh: 'p256dh-key', auth: 'auth-secret' },
+          },
+        });
+      }
+
+      const result = await repository.getByFrequency('MINUTE_LEVEL');
+
+      expect(result).toHaveLength(total);
     });
   });
 

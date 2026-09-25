@@ -2,28 +2,14 @@
  * DynamoDB Local ヘルパー
  *
  * 契約テスト（tests/contract/）専用のヘルパー。
- * DynamoDB Local（http://localhost:8000 等）への接続クライアント生成、
- * テーブルの作成・削除、および本番CDKスタックと一致させるべきテーブルスキーマ定義を提供する。
+ * クライアント生成・テーブル削除・テーブルクリア等、テーブルスキーマに依存しない汎用部分は
+ * `@nagiyu/aws/testing` から呼び出し側が直接 import する（意味のない再エクスポートはしない）。
+ * ここには stock-tracker 固有のテーブルスキーマ定義（`LOCAL_TABLE_SCHEMA`）と、
+ * それを束縛した `createTable`（意味のある抽象）だけを置く。
  */
 
-import {
-  DynamoDBClient,
-  CreateTableCommand,
-  DeleteTableCommand,
-  DescribeTableCommand,
-  type CreateTableCommandInput,
-} from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-
-// エラーメッセージ定数
-const ERROR_MESSAGES = {
-  TABLE_ACTIVE_TIMEOUT: 'DynamoDB Local でのテーブル ACTIVE 化確認がタイムアウトしました',
-} as const;
-
-const DEFAULT_ENDPOINT = 'http://localhost:8000';
-const DEFAULT_REGION = 'us-east-1';
-const TABLE_ACTIVE_POLL_INTERVAL_MS = 250;
-const TABLE_ACTIVE_MAX_ATTEMPTS = 20;
+import type { DynamoDBClient, CreateTableCommandInput } from '@aws-sdk/client-dynamodb';
+import { createTable as createTableBase } from '@nagiyu/aws/testing';
 
 /**
  * infra/stock-tracker/lib/dynamodb-stack.ts の本番テーブル定義と一致させたスキーマ。
@@ -88,80 +74,14 @@ export const LOCAL_TABLE_SCHEMA: CreateTableCommandInput = {
 };
 
 /**
- * DynamoDB Local 用の DocumentClient を生成する。
- * エンドポイントは環境変数 `DYNAMODB_ENDPOINT`（未設定時は http://localhost:8000）を使用する。
- */
-export function createLocalDocClient(): DynamoDBDocumentClient {
-  return DynamoDBDocumentClient.from(createLocalRawClient(), {
-    marshallOptions: { removeUndefinedValues: true },
-  });
-}
-
-/**
- * DynamoDB Local 用の低レベルクライアント（テーブル作成・削除用）を生成する。
- */
-export function createLocalRawClient(): DynamoDBClient {
-  return new DynamoDBClient({
-    endpoint: process.env.DYNAMODB_ENDPOINT ?? DEFAULT_ENDPOINT,
-    region: DEFAULT_REGION,
-    credentials: {
-      accessKeyId: 'test',
-      secretAccessKey: 'test',
-    },
-  });
-}
-
-/**
  * DynamoDB Local にテーブルを作成する（LOCAL_TABLE_SCHEMA を使用）。
  * 作成後、テーブルが ACTIVE になるまで軽くポーリングする。
+ * サービス固有のスキーマ（LOCAL_TABLE_SCHEMA）を束縛している点が
+ * `@nagiyu/aws/testing` の汎用 `createTable` との違い（このヘルパーを置く理由）。
  *
  * @param client - 低レベル DynamoDB クライアント
  * @param tableName - 作成するテーブル名
  */
 export async function createTable(client: DynamoDBClient, tableName: string): Promise<void> {
-  await client.send(new CreateTableCommand({ ...LOCAL_TABLE_SCHEMA, TableName: tableName }));
-  await waitForTableActive(client, tableName);
-}
-
-/**
- * DynamoDB Local のテーブルを削除する。既に存在しない場合は何もしない。
- *
- * @param client - 低レベル DynamoDB クライアント
- * @param tableName - 削除するテーブル名
- */
-export async function deleteTable(client: DynamoDBClient, tableName: string): Promise<void> {
-  try {
-    await client.send(new DeleteTableCommand({ TableName: tableName }));
-  } catch (error) {
-    if (isResourceNotFoundException(error)) {
-      return;
-    }
-    throw error;
-  }
-}
-
-async function waitForTableActive(client: DynamoDBClient, tableName: string): Promise<void> {
-  for (let attempt = 0; attempt < TABLE_ACTIVE_MAX_ATTEMPTS; attempt += 1) {
-    const result = await client.send(new DescribeTableCommand({ TableName: tableName }));
-    if (result.Table?.TableStatus === 'ACTIVE') {
-      return;
-    }
-    await sleep(TABLE_ACTIVE_POLL_INTERVAL_MS);
-  }
-  throw new Error(ERROR_MESSAGES.TABLE_ACTIVE_TIMEOUT);
-}
-
-function isResourceNotFoundException(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'name' in error &&
-    (error as { name: unknown }).name === 'ResourceNotFoundException'
-  );
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
+  await createTableBase(client, LOCAL_TABLE_SCHEMA, tableName);
 }

@@ -249,48 +249,6 @@ gh workflow run tools-deploy.yml
 
 ---
 
-## GitHub Actions による自動デプロイ (レガシー)
-
-### ワークフロー設定例
-
-`.github/workflows/deploy-infra.yml`:
-
-```yaml
-name: Deploy Infrastructure
-
-on:
-  push:
-    branches:
-      - develop
-      - integration/**
-    paths:
-      - 'infra/**'
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Deploy CloudFormation stack
-        run: |
-          aws cloudformation deploy \
-            --template-file infra/<パス>/template.yaml \
-            --stack-name <スタック名> \
-            --capabilities CAPABILITY_NAMED_IAM \
-            --region us-east-1
-```
-
----
-
 ## デプロイ確認
 
 ### スタックの状態確認
@@ -445,26 +403,27 @@ aws cloudformation deploy --template-file <テンプレート> --stack-name <ス
 #### GitHub Actions ワークフローが失敗する
 
 **原因:**
-- IAM 権限が不足している
-- AWS_ACCOUNT_ID シークレットが未設定
+- OIDC ロールに必要な IAM 権限が不足している
+- Environment / リポジトリの `AWS_ROLE_ARN` / `AWS_PR_ROLE_ARN` 変数が未設定
 - CDK Bootstrap が未実行
 
 **対処法:**
 
 ```bash
-# IAM 権限の確認
-aws iam list-attached-user-policies --user-name nagiyu-github-actions
+# IAM 権限の確認（対象ロールは環境に応じて -dev / -prod / -pr を使い分ける）
+aws iam list-attached-role-policies --role-name nagiyu-github-actions-dev
 
-# 必要なシークレットの確認
-# GitHub Settings → Secrets → Actions で以下を確認:
-# - AWS_ACCESS_KEY_ID
-# - AWS_SECRET_ACCESS_KEY
-# - AWS_ACCOUNT_ID
+# 必要な変数の確認
+# GitHub Settings → Secrets and variables → Actions → Variables で以下を確認:
+# - Environment `dev` / `prod` の AWS_ROLE_ARN
+# - リポジトリ変数 AWS_PR_ROLE_ARN
 
 # CDK Bootstrap の手動実行
 cd infra/shared
 npx cdk bootstrap aws://<ACCOUNT_ID>/us-east-1
 ```
+
+GitHub Actions の AWS 認証の設計・登録手順は [IAM 詳細](./shared/iam.md) を参照。
 
 #### CDK Deploy がスタック名を見つけられない
 

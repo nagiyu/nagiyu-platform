@@ -23,6 +23,8 @@ export {
   classifySchemaItem,
   findSchemaItems,
   deleteSchemaItems,
+  findSchemaItemsCreatedAfter,
+  deleteSchemaItemsCreatedAfter,
   type SchemaTarget,
   type DeleteSchemaItemsResult,
 } from './schema-janitor.js';
