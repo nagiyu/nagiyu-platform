@@ -9,79 +9,21 @@ export const SHARED_STACK_PLAN_ERROR_MESSAGES = {
 } as const;
 
 /**
- * `infra/shared` が作りうるスタックの識別キー。
- * `stackId` は実際の CDK スタック ID（`new XxxStack(app, stackId, ...)` の第二引数）と一致させる。
+ * アカウントスコープと env の組み合わせを検証する。
+ * dev アカウントには dev 環境の資材しか置かないため、dev スコープで env=prod はエラーとする。
  */
-export type SharedStackKey =
-  | 'vpc'
-  | 'acm'
-  | 'route53'
-  | 'route53Records'
-  | 'iamCore'
-  | 'iamApplication'
-  | 'iamContainer'
-  | 'iamIntegration'
-  | 'iamClaudeReadonly'
-  | 'iamUsers'
-  | 'iamGitHubOidc'
-  | 'ecsCluster'
-  | 'dockerBuildLock'
-  | 'errorEventsTable'
-  | 'reportsHosting';
-
-export interface SharedStackPlanEntry {
-  readonly key: SharedStackKey;
-  readonly stackId: string;
-}
-
-const capitalize = (value: string): string => value.charAt(0).toUpperCase() + value.slice(1);
-
-/**
- * アカウントスコープ・環境から、作成すべきスタックの一覧（キー・スタック ID）を組み立てる。
- *
- * - `accountScope === 'prod'`: 現行と同じ全スタック（env は 'dev' / 'prod' どちらでもよい）。
- * - `accountScope === 'dev'`: dev アカウントに置く最小構成のみ（env は 'dev' 固定）。
- *   ACM / Route53Records / DockerBuildLock / ReportsHosting は後続対応で dev 版を用意するため、
- *   本 PR では作成しない。
- *
- * スタックの実際の構築（`new XxxStack(...)`）は `bin/shared.ts` が行う。この関数はその一覧を
- * テスト可能な純粋関数として切り出したもの。
- */
-export function buildSharedStackPlan(
-  accountScope: AccountScope,
-  env: Environment
-): SharedStackPlanEntry[] {
+export function assertScopeAllowsEnv(accountScope: AccountScope, env: Environment): void {
   if (accountScope === 'dev' && env !== 'dev') {
     throw new Error(SHARED_STACK_PLAN_ERROR_MESSAGES.DEV_SCOPE_REQUIRES_DEV_ENV);
   }
+}
 
-  const envSuffix = capitalize(env);
-
-  const commonStacks: SharedStackPlanEntry[] = [
-    { key: 'iamCore', stackId: 'NagiyuSharedIamCore' },
-    { key: 'iamApplication', stackId: 'NagiyuSharedIamApplication' },
-    { key: 'iamContainer', stackId: 'NagiyuSharedIamContainer' },
-    { key: 'iamIntegration', stackId: 'NagiyuSharedIamIntegration' },
-    { key: 'iamClaudeReadonly', stackId: 'NagiyuSharedIamClaudeReadonly' },
-    { key: 'iamUsers', stackId: 'NagiyuSharedIamUsers' },
-    { key: 'iamGitHubOidc', stackId: 'NagiyuSharedIamGitHubOidc' },
-    { key: 'route53', stackId: 'NagiyuSharedRoute53' },
-    { key: 'vpc', stackId: `NagiyuSharedVpc${envSuffix}` },
-    { key: 'ecsCluster', stackId: `NagiyuSharedEcsCluster${envSuffix}` },
-    { key: 'errorEventsTable', stackId: `NagiyuErrorEventsTable${envSuffix}` },
-  ];
-
-  if (accountScope === 'dev') {
-    return commonStacks;
-  }
-
-  return [
-    ...commonStacks,
-    { key: 'acm', stackId: 'NagiyuSharedAcm' },
-    { key: 'route53Records', stackId: 'NagiyuSharedRoute53Records' },
-    { key: 'dockerBuildLock', stackId: 'NagiyuDockerBuildLock' },
-    { key: 'reportsHosting', stackId: 'NagiyuE2eReportsHosting' },
-  ];
+/**
+ * prod アカウントにだけ置くスタック（ACM / Route53Records / DockerBuildLock / ReportsHosting）を作るかどうか。
+ * dev アカウント向けの同等資材は後続対応で dev 用に別途用意する。
+ */
+export function includesProdOnlyStacks(accountScope: AccountScope): boolean {
+  return accountScope === 'prod';
 }
 
 /**
@@ -106,7 +48,7 @@ export function getGitHubActionsOidcRoleIds(
 /**
  * Route53 ホストゾーンに使うドメイン名。
  * dev アカウントでは `dev.<domainName>` のサブドメインでゾーンを作り、
- * prod ゾーンから NS 委任される想定（本 PR では URL 自体は変更しない）。
+ * prod ゾーンから NS 委任する。
  */
 export function getRoute53DomainName(accountScope: AccountScope, domainName: string): string {
   return accountScope === 'dev' ? `dev.${domainName}` : domainName;

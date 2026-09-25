@@ -18,8 +18,9 @@ import { ReportsHostingStack } from '../lib/reports-hosting-stack';
 import { EcsSharedClusterStack } from '../lib/ecs-cluster-stack';
 import { resolveAccountScope } from '../lib/account-scope';
 import {
-  buildSharedStackPlan,
+  assertScopeAllowsEnv,
   getGitHubActionsOidcRoleIds,
+  includesProdOnlyStacks,
   getRoute53DomainName,
   shouldCreateGitHubActionsUser,
 } from '../lib/stack-plan';
@@ -41,10 +42,10 @@ const accountScope = resolveAccountScope(
   app.node.tryGetContext('accountScope')
 );
 
-// スコープ・env の組み合わせを検証し、作成対象スタックの一覧（キー）を確定する。
-// prod スコープでは現行と同一の全スタック、dev スコープでは最小構成のみとなる。
-const stackPlan = buildSharedStackPlan(accountScope, env as 'dev' | 'prod');
-const planKeys = new Set(stackPlan.map((entry) => entry.key));
+// dev アカウントには dev 環境の資材しか置かない。
+// prod スコープでは現行と同一の全スタック、dev スコープでは prod 専用スタックを除いた構成となる。
+assertScopeAllowsEnv(accountScope, env as 'dev' | 'prod');
+const prodOnlyStacks = includesProdOnlyStacks(accountScope);
 
 const stackEnv = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
@@ -65,7 +66,7 @@ if (!domainName) {
   throw new Error('DOMAIN_NAME environment variable or domainName context is required');
 }
 
-if (planKeys.has('acm')) {
+if (prodOnlyStacks) {
   new AcmStack(app, 'NagiyuSharedAcm', {
     domainName,
     env: {
@@ -79,7 +80,7 @@ if (planKeys.has('acm')) {
 // Route53 ホストゾーン（環境非依存・グローバル）
 // Phase 1 時点ではホストゾーンを作成するのみで、XServer の NS 切替は実施しない
 // dev アカウントでは dev.<domainName> のサブドメインでゾーンを作成し、
-// prod ゾーンから NS 委任される想定（Issue #3819。本対応では URL 自体は変更しない）
+// prod ゾーンから NS 委任する（Issue #3819）
 new Route53Stack(app, 'NagiyuSharedRoute53', {
   domainName: getRoute53DomainName(accountScope, domainName),
   env: stackEnv,
@@ -88,7 +89,7 @@ new Route53Stack(app, 'NagiyuSharedRoute53', {
 
 // Route53 レコード（Phase 2: NS 切替前に既存レコードを Route53 に複製）
 // XServer 経由の現行 DNS には影響せず、NS 切替後にこのレコードが応答する
-if (planKeys.has('route53Records')) {
+if (prodOnlyStacks) {
   new Route53RecordsStack(app, 'NagiyuSharedRoute53Records', {
     domainName,
     env: stackEnv,
@@ -166,7 +167,7 @@ new EcsSharedClusterStack(
   }
 );
 
-if (planKeys.has('dockerBuildLock')) {
+if (prodOnlyStacks) {
   new DockerBuildLockStack(app, 'NagiyuDockerBuildLock', {
     env: stackEnv,
     description: 'S3 bucket for Docker build lock semaphore',
@@ -187,7 +188,7 @@ new ErrorEventsTableStack(
 
 // E2E HTML レポートのホスティング基盤（環境非依存）
 // 各サービスの Playwright HTML レポートを reports.nagiyu.com で公開する
-if (planKeys.has('reportsHosting')) {
+if (prodOnlyStacks) {
   new ReportsHostingStack(app, 'NagiyuE2eReportsHosting', {
     domainName,
     env: stackEnv,
