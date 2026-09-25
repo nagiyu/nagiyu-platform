@@ -8,7 +8,7 @@
 
 - [初回セットアップ](./setup.md) が完了していること
 - AWS CLI が設定済みであること
-- デプロイ権限を持つ IAM ユーザーの認証情報が設定されていること
+- IAM Identity Center（SSO）のプロファイルが設定済みであること（[AWS アカウント構成とアクセス管理](./aws-accounts.md) を参照）
 
 ---
 
@@ -16,12 +16,11 @@
 
 ### ローカル環境からのデプロイ
 
-#### 1. AWS プロファイルの切り替え（必要な場合）
-
-ローカル開発ユーザーを使用する場合:
+#### 1. SSO ログインとプロファイルの切り替え
 
 ```bash
-export AWS_PROFILE=nagiyu-local-dev
+aws sso login --sso-session nagiyu
+export AWS_PROFILE=nagiyu-prod-admin
 ```
 
 #### 2. スタックのデプロイ
@@ -84,16 +83,6 @@ cd infra/shared/iam/users
 aws cloudformation deploy \
   --template-file github-actions-user.yaml \
   --stack-name nagiyu-shared-github-actions-user \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region us-east-1
-```
-
-ローカル開発ユーザー:
-
-```bash
-aws cloudformation deploy \
-  --template-file local-dev-user.yaml \
-  --stack-name nagiyu-shared-local-dev-user \
   --capabilities CAPABILITY_NAMED_IAM \
   --region us-east-1
 ```
@@ -312,10 +301,9 @@ aws cloudformation wait stack-delete-complete \
 3. nagiyu-shared-deploy-policy-application
 4. nagiyu-shared-deploy-policy-integration
 5. nagiyu-shared-github-actions-user
-6. nagiyu-shared-local-dev-user
 ```
 
-**依存関係:** 4つのdeploy-policy → github-actions-user, local-dev-user
+**依存関係:** 4つのdeploy-policy → github-actions-user
 
 ### 2. 共通インフラ（将来）
 

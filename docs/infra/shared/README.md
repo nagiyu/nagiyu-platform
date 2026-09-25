@@ -28,8 +28,8 @@ nagiyu プラットフォーム全体で共有されるインフラストラク�
 - **Integration Policy**: 統合テスト用
 
 ### IAM Users Stack
-- **GitHub Actions User**: CI/CD 用
-- **Local Dev User**: ローカル開発用
+- **GitHub Actions User**: CI/CD 用（OIDC 移行の切り戻し用。撤去予定）
+- **Claude Readonly User**: Claude Code on the web の閲覧調査用
 
 ## Export されるリソース
 

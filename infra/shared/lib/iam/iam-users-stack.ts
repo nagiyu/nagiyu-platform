@@ -15,12 +15,12 @@ export interface IamUsersStackProps extends cdk.StackProps {
 /**
  * IAM Users Stack
  *
- * GitHub Actions / ローカル開発 / Claude Code on the web 用の IAM ユーザーを管理します。
+ * GitHub Actions / Claude Code on the web 用の IAM ユーザーを管理します。
+ * 人のローカル作業は IAM Identity Center（aws sso login）を使うため、ここでは管理しません。
  * アクセスキーは手動発行するため、このスタックでは作成しません。
  */
 export class IamUsersStack extends cdk.Stack {
   public readonly githubActionsUser: iam.IUser;
-  public readonly localDevUser: iam.IUser;
   public readonly claudeReadonlyUser: iam.IUser;
 
   constructor(scope: Construct, id: string, props: IamUsersStackProps) {
@@ -31,20 +31,6 @@ export class IamUsersStack extends cdk.Stack {
     // ==========================================
     this.githubActionsUser = new iam.User(this, 'NagiyuGitHubActionsUser', {
       userName: 'nagiyu-github-actions',
-      managedPolicies: [
-        props.policies.core,
-        props.policies.application,
-        props.policies.container,
-        props.policies.integration,
-      ],
-    });
-
-
-    // ==========================================
-    // Local Dev User
-    // ==========================================
-    this.localDevUser = new iam.User(this, 'NagiyuLocalDevUser', {
-      userName: 'nagiyu-local-dev',
       managedPolicies: [
         props.policies.core,
         props.policies.application,
@@ -75,17 +61,6 @@ export class IamUsersStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'GitHubActionsUserNameExport', {
       value: this.githubActionsUser.userName,
       description: 'GitHub Actions user name',
-    });
-
-    // Local Dev User
-    new cdk.CfnOutput(this, 'LocalDevUserArnExport', {
-      value: this.localDevUser.userArn,
-      description: 'Local developer user ARN',
-    });
-
-    new cdk.CfnOutput(this, 'LocalDevUserNameExport', {
-      value: this.localDevUser.userName,
-      description: 'Local developer user name',
     });
 
     // Claude Read-Only User
