@@ -9,6 +9,7 @@ import {
   WEBFACT_REVIEW_INTERVAL_MS,
 } from '../constants.js';
 import type { LifecycleEntity } from '../entities/lifecycle.entity.js';
+import type { WebFactEntity } from '../entities/web-fact.entity.js';
 import type { TopicRepository } from '../repositories/topic.repository.interface.js';
 import type { WebRawRepository } from '../repositories/webraw.repository.interface.js';
 import type { StudyTopicRepository } from '../repositories/study-topic.repository.interface.js';
@@ -36,10 +37,21 @@ export interface AcquireForUserResult {
   skipReason?: string;
   /** 依頼（StudyTopic pending）を処理した件数 */
   requestsProcessed: number;
-  /** 鮮度切れ WEB fact を再取得した件数（変化の有無を問わない） */
+  /**
+   * 鮮度切れ再取得で実行した research 回数（トピック単位。変化の有無を問わない）。
+   * 1 トピックに複数の期限切れ WEB fact があっても research は 1 回にまとめるため、
+   * 期限切れ fact の件数とは一致しない（fact 件数は `staleFactsReviewed` を参照）。
+   * トピック欠落（getTopic が null）のフォールバック時のみ fact 単位で 1 回とカウントする。
+   */
   staleRefreshed: number;
-  /** 鮮度切れ再取得のうち、変化ありと判定され WEBRAW を書いた件数 */
+  /** 鮮度切れ再取得のうち、変化ありと判定され WEBRAW を書いた回数 */
   staleChanged: number;
+  /**
+   * 鮮度切れ再取得で NextReview を前方更新した WEB fact の総数。
+   * トピックにまとめて 1 回 research した場合でも、対象となった期限切れ fact 全部
+   * （GSI-STALE の窓で拾った分に限らない、そのトピックの期限切れ fact 全部）を数える。
+   */
+  staleFactsReviewed: number;
   /** care 降順の自発リサーチを行った件数 */
   selfStudied: number;
   /** WEBRAW を書き込んだ総件数 */
@@ -103,6 +115,22 @@ function computeNextReview(volatility: 'low' | 'medium' | 'high', readAt: number
 }
 
 /**
+ * Topic の Subject から「〜最新情報」形式のリサーチクエリを組み立てる。
+ *
+ * Subject の末尾（前後空白を除いた上で）が既に「最新情報」で終わっている場合は
+ * 付け足さない（例: Subject が「〇〇の最新情報」だと「〇〇の最新情報 最新情報」という
+ * 二重付与クエリになってしまうバグの修正）。鮮度切れ再取得・care 自発リサーチの
+ * 両方のクエリ生成で共通して使う。
+ */
+export function buildLatestInfoQuery(subject: string): string {
+  const trimmed = subject.trim();
+  if (trimmed.endsWith('最新情報')) {
+    return trimmed;
+  }
+  return `${trimmed} 最新情報`;
+}
+
+/**
  * 1 ユーザー × 1 キャラの acquire バッチ（Web「取得だけ」）
  * （リブトーク知識再設計 P3 / #3699）。
  *
@@ -112,8 +140,17 @@ function computeNextReview(volatility: 'low' | 'medium' | 'high', readAt: number
  * 処理順は 依頼（StudyTopic pending）→ 鮮度切れ（GSI-STALE 窓走査）→ care 自発リサーチ。
  * `maxQueriesPerRun`（既定 `ACQUIRE_MAX_QUERIES_PER_RUN`）を 3 ソース合算で消費する。
  *
+ * 鮮度切れ再取得は **トピック単位に集約**して research する（#3781）。GSI-STALE を
+ * `ACQUIRE_STALE_SWEEP_LIMIT` 件まで読み、取り出した期限切れ WEB fact を TopicID で束ね、
+ * 窓の並び順（NextReview が古い順）でトピックを処理する。1 トピックに数十〜百件の
+ * fact が付くケースがあり、fact 単位で research すると同一トピックへ同じクエリを
+ * 何度も発行してしまうため、**research はトピックにつき 1 回**（= budget 1 消費）とし、
+ * そのトピックの期限切れ fact 全部（窓で拾えなかった分も `listWebFacts` で取り直して含める）
+ * の `NextReview` をまとめて前方更新する。トピックが既に存在しない場合（`getTopic` が null）
+ * は束ねられないため、従来どおり fact 単位で `fact.Text` をクエリにして処理する。
+ *
  * 鮮度切れ再取得は、変化検知（`changeDetector`）で「変化があった時だけ」WEBRAW を書く
- * （陳腐な再要約を止める）。変化の有無に関わらず `NextReview` は前方更新し、
+ * （陳腐な再要約を止める）。変化の有無に関わらず対象 fact 全部の `NextReview` は前方更新し、
  * 掃引窓（GSI-STALE）から外す（毎時再掃引の無限ループを防ぐ）。
  *
  * 個々の Web 取得失敗は fail-warn（握って継続）。run 全体は落とさない。
@@ -146,6 +183,7 @@ export async function acquireForUser(
       requestsProcessed: 0,
       staleRefreshed: 0,
       staleChanged: 0,
+      staleFactsReviewed: 0,
       selfStudied: 0,
       webRawWritten: 0,
     };
@@ -155,6 +193,7 @@ export async function acquireForUser(
   let requestsProcessed = 0;
   let staleRefreshed = 0;
   let staleChanged = 0;
+  let staleFactsReviewed = 0;
   let selfStudied = 0;
   let webRawWritten = 0;
 
@@ -233,14 +272,21 @@ export async function acquireForUser(
 
   // ---- 2. 鮮度切れ（staleness refresh）----
   if (budget > 0) {
-    // 読み込みは残り budget を超えない範囲に絞る（budget 上限 3 に対し最大 10 件読むと
-    // 大半が無駄読みになるため）。ACQUIRE_STALE_SWEEP_LIMIT は 1 回あたりの上限として維持する。
-    const staleLimit = Math.min(budget, ACQUIRE_STALE_SWEEP_LIMIT);
-    const staleFacts = await topicRepo.listStaleWebFacts(userId, characterId, nowMs, staleLimit);
+    // 読み込みは budget と無関係に ACQUIRE_STALE_SWEEP_LIMIT 件まで読む。1 トピックに
+    // 複数の期限切れ fact が付くため、budget 件しか読まないとトピック単位に集約できない
+    // （budget=3 でも同一トピックの fact が 3 件読めれば research は本来 1 回で済む）。
+    const staleFacts = await topicRepo.listStaleWebFacts(
+      userId,
+      characterId,
+      nowMs,
+      ACQUIRE_STALE_SWEEP_LIMIT
+    );
 
+    // TopicID で束ねる。窓の並び順（NextReview が古い順）における各トピックの初出順を
+    // トピックの処理順とする。
+    const topicIdOrder: string[] = [];
+    const windowFactsByTopicId = new Map<string, WebFactEntity[]>();
     for (const fact of staleFacts) {
-      if (budget <= 0) break;
-
       if (fact.Volatility === 'stable') {
         // stable fact は NextReview を持たないため GSI4 に現れないはずだが、念のため防御的にスキップ
         logger.warn('[acquire] stable fact が鮮度掃引の対象に含まれていました（スキップ）', {
@@ -251,17 +297,142 @@ export async function acquireForUser(
         });
         continue;
       }
+      if (!windowFactsByTopicId.has(fact.TopicID)) {
+        topicIdOrder.push(fact.TopicID);
+        windowFactsByTopicId.set(fact.TopicID, []);
+      }
+      windowFactsByTopicId.get(fact.TopicID)?.push(fact);
+    }
+
+    for (const topicId of topicIdOrder) {
+      if (budget <= 0) break;
+
+      const windowFacts = windowFactsByTopicId.get(topicId);
+      if (!windowFacts || windowFacts.length === 0) continue;
+
+      const topic = await topicRepo.getTopic({ userId, characterId, topicId });
+
+      if (!topic) {
+        // トピック欠落: 束ねられないため従来どおり fact 単位で処理する（フォールバック）。
+        for (const fact of windowFacts) {
+          if (budget <= 0) break;
+
+          try {
+            const query = fact.Text;
+            const result = await researchClient.research(query, character);
+            const changed = await changeDetector.hasChanged(fact.Text, result);
+
+            if (changed) {
+              await webRawRepo.put({
+                UserID: userId,
+                CharacterID: characterId,
+                Query: query,
+                RawText: result.summary,
+                SourceUrls: result.sourceUrls,
+                Origin: 'stale',
+              });
+              webRawWritten++;
+              staleChanged++;
+            }
+
+            // 変化の有無に関わらず NextReview を前方更新し、次回掃引の窓から外す
+            // （毎時再掃引の無限ループを防ぐ）。
+            await topicRepo.updateWebFactNextReview(
+              { userId, characterId, topicId: fact.TopicID, factId: fact.FactID },
+              computeNextReview(fact.Volatility as 'low' | 'medium' | 'high', nowMs)
+            );
+            staleFactsReviewed++;
+
+            staleRefreshed++;
+            budget--;
+          } catch (err) {
+            logger.warn(
+              '[acquire] 鮮度切れ WEB fact の再取得に失敗しました（NextReview を前進させて次回に委ねる）',
+              {
+                userId,
+                characterId,
+                topicId: fact.TopicID,
+                factId: fact.FactID,
+                err: toErrorMessage(err),
+              }
+            );
+            // 失敗しても research を試行した以上は budget を消費する（GSI-STALE は budget と
+            // 無関係に読むため、消費しないと障害時に 1 実行で窓の件数ぶん research が走る）。
+            budget--;
+            // research が特定 fact で失敗し続けると、NextReview が前進せず毎時「最古」として
+            // 窓の先頭に居座り budget を占有し続ける（poison pill による starvation）。
+            // 失敗時も best-effort で NextReview を前進させ、掃引窓から外す
+            // （stable は上部で除外済みのため、ここは常に low/medium/high）。
+            try {
+              await topicRepo.updateWebFactNextReview(
+                { userId, characterId, topicId: fact.TopicID, factId: fact.FactID },
+                computeNextReview(fact.Volatility as 'low' | 'medium' | 'high', nowMs)
+              );
+              staleFactsReviewed++;
+            } catch (bumpErr) {
+              logger.warn('[acquire] 鮮度切れ fact の NextReview 前進に失敗しました', {
+                userId,
+                characterId,
+                topicId: fact.TopicID,
+                factId: fact.FactID,
+                err: toErrorMessage(bumpErr),
+              });
+            }
+          }
+        }
+        continue;
+      }
+
+      // トピックが存在する場合、そのトピックの期限切れ WEB fact 全部（窓で拾った分に
+      // 限らない。GSI-STALE の limit で切り落とされた分も listWebFacts で取り直して含める）
+      // をまとめて 1 回の research で処理する。
+      let targetFacts: WebFactEntity[];
+      try {
+        const webFacts = await topicRepo.listWebFacts(userId, characterId, topicId);
+        targetFacts = webFacts.filter(
+          (f) => f.Volatility !== 'stable' && f.NextReview !== undefined && f.NextReview <= nowMs
+        );
+      } catch (err) {
+        logger.warn(
+          '[acquire] 鮮度切れトピックの WEB fact 一覧取得に失敗しました（このトピックをスキップ）',
+          { userId, characterId, topicId, err: toErrorMessage(err) }
+        );
+        continue;
+      }
+
+      if (targetFacts.length === 0) {
+        // 窓には出たが listWebFacts では既に対象外（他プロセスが先に前進させた等）。
+        continue;
+      }
+
+      const query = buildLatestInfoQuery(topic.Subject);
+      // 変化検知の existingText は対象 fact 全部の Text を改行区切りで連結する
+      // （インターフェース `hasChanged(existingText, fresh)` は変更しない）。
+      const existingText = targetFacts.map((f) => f.Text).join('\n');
+
+      const bumpAllNextReview = async (): Promise<void> => {
+        for (const fact of targetFacts) {
+          try {
+            await topicRepo.updateWebFactNextReview(
+              { userId, characterId, topicId: fact.TopicID, factId: fact.FactID },
+              computeNextReview(fact.Volatility as 'low' | 'medium' | 'high', nowMs)
+            );
+            staleFactsReviewed++;
+          } catch (bumpErr) {
+            logger.warn('[acquire] 鮮度切れ fact の NextReview 前進に失敗しました', {
+              userId,
+              characterId,
+              topicId: fact.TopicID,
+              factId: fact.FactID,
+              err: toErrorMessage(bumpErr),
+            });
+          }
+        }
+      };
 
       try {
-        const topic = await topicRepo.getTopic({
-          userId,
-          characterId,
-          topicId: fact.TopicID,
-        });
-        const query = topic ? `${topic.Subject} 最新情報` : fact.Text;
-
         const result = await researchClient.research(query, character);
-        const changed = await changeDetector.hasChanged(fact.Text, result);
+        const changed = await changeDetector.hasChanged(existingText, result);
 
         if (changed) {
           await webRawRepo.put({
@@ -276,44 +447,29 @@ export async function acquireForUser(
           staleChanged++;
         }
 
-        // 変化の有無に関わらず NextReview を前方更新し、次回掃引の窓から外す
-        // （毎時再掃引の無限ループを防ぐ）。
-        await topicRepo.updateWebFactNextReview(
-          { userId, characterId, topicId: fact.TopicID, factId: fact.FactID },
-          computeNextReview(fact.Volatility, nowMs)
-        );
+        // 変化の有無に関わらず対象 fact 全部の NextReview を前方更新し、次回掃引の窓から
+        // 外す（毎時再掃引の無限ループを防ぐ）。
+        await bumpAllNextReview();
 
         staleRefreshed++;
         budget--;
       } catch (err) {
         logger.warn(
-          '[acquire] 鮮度切れ WEB fact の再取得に失敗しました（NextReview を前進させて次回に委ねる）',
+          '[acquire] 鮮度切れ WEB fact の再取得に失敗しました（対象 fact 全部の NextReview を前進させて次回に委ねる）',
           {
             userId,
             characterId,
-            topicId: fact.TopicID,
-            factId: fact.FactID,
+            topicId,
+            factCount: targetFacts.length,
             err: toErrorMessage(err),
           }
         );
-        // research が特定 fact で失敗し続けると、NextReview が前進せず毎時「最古」として
-        // 窓の先頭に居座り budget を占有し続ける（poison pill による starvation）。
-        // 失敗時も best-effort で NextReview を前進させ、掃引窓から外す
-        // （stable は上部の continue で除外済みのため、ここは常に low/medium/high）。
-        try {
-          await topicRepo.updateWebFactNextReview(
-            { userId, characterId, topicId: fact.TopicID, factId: fact.FactID },
-            computeNextReview(fact.Volatility, nowMs)
-          );
-        } catch (bumpErr) {
-          logger.warn('[acquire] 鮮度切れ fact の NextReview 前進に失敗しました', {
-            userId,
-            characterId,
-            topicId: fact.TopicID,
-            factId: fact.FactID,
-            err: toErrorMessage(bumpErr),
-          });
-        }
+        // 失敗しても research を試行した以上は budget を消費する（GSI-STALE は budget と
+        // 無関係に読むため、消費しないと障害時に 1 実行でトピック数ぶん research が走る）。
+        budget--;
+        // research/検知/書き込みのいずれかで失敗しても、poison pill による budget
+        // starvation を防ぐため対象 fact 全部を best-effort で前進させる。
+        await bumpAllNextReview();
       }
     }
   }
@@ -351,7 +507,7 @@ export async function acquireForUser(
       }
 
       try {
-        const query = `${header.Subject} 最新情報`;
+        const query = buildLatestInfoQuery(header.Subject);
         const result = await researchClient.research(query, character);
 
         await webRawRepo.put({
@@ -382,6 +538,7 @@ export async function acquireForUser(
     requestsProcessed,
     staleRefreshed,
     staleChanged,
+    staleFactsReviewed,
     selfStudied,
     webRawWritten,
   };
