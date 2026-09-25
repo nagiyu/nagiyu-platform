@@ -756,6 +756,50 @@ describe('acquireForUser', () => {
       expect(factB?.NextReview).toBe(NOW_MS + WEBFACT_REVIEW_INTERVAL_MS.medium);
     });
 
+    it('research が失敗し続けても試行回数は budget で頭打ちになる', async () => {
+      for (let i = 0; i < 5; i++) {
+        await topicRepo.putTopic({
+          UserID: 'u1',
+          CharacterID: 'hiyori',
+          TopicID: `topic-${i}`,
+          Subject: `話題${i}`,
+          CanonicalSummary: '',
+          Category: 'テスト',
+          Care: 1,
+          Embedding: [0.1],
+        });
+        await topicRepo.putWebFact({
+          UserID: 'u1',
+          CharacterID: 'hiyori',
+          TopicID: `topic-${i}`,
+          Text: `事実${i}`,
+          SourceUrls: [],
+          Volatility: 'high',
+          ObservedAt: NOW_MS - 100_000,
+          NextReview: NOW_MS - 1000 - i,
+        });
+      }
+
+      const researchClient: IResearchClient = {
+        research: jest.fn().mockRejectedValue(new Error('リサーチ API エラー')),
+      };
+
+      const result = await acquireForUser('u1', 'hiyori', {
+        topicRepo,
+        webRawRepo,
+        studyTopicRepo,
+        researchClient,
+        changeDetector: makeChangeDetector(),
+        character,
+        lifecycle: makeLifecycle(),
+        now: () => awakeNonPeak,
+        maxQueriesPerRun: 3,
+      });
+
+      expect(researchClient.research).toHaveBeenCalledTimes(3);
+      expect(result.staleRefreshed).toBe(0);
+    });
+
     it('Subject が既に「最新情報」で終わる場合はクエリを二重付与しない', async () => {
       await topicRepo.putTopic({
         UserID: 'u1',

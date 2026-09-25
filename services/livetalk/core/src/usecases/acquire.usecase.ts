@@ -356,6 +356,9 @@ export async function acquireForUser(
                 err: toErrorMessage(err),
               }
             );
+            // 失敗しても research を試行した以上は budget を消費する（GSI-STALE は budget と
+            // 無関係に読むため、消費しないと障害時に 1 実行で窓の件数ぶん research が走る）。
+            budget--;
             // research が特定 fact で失敗し続けると、NextReview が前進せず毎時「最古」として
             // 窓の先頭に居座り budget を占有し続ける（poison pill による starvation）。
             // 失敗時も best-effort で NextReview を前進させ、掃引窓から外す
@@ -461,6 +464,9 @@ export async function acquireForUser(
             err: toErrorMessage(err),
           }
         );
+        // 失敗しても research を試行した以上は budget を消費する（GSI-STALE は budget と
+        // 無関係に読むため、消費しないと障害時に 1 実行でトピック数ぶん research が走る）。
+        budget--;
         // research/検知/書き込みのいずれかで失敗しても、poison pill による budget
         // starvation を防ぐため対象 fact 全部を best-effort で前進させる。
         await bumpAllNextReview();
