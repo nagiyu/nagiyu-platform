@@ -108,7 +108,7 @@ new IamUsersStack(app, 'NagiyuSharedIamUsers', {
     claudeReadonly: claudeReadonlyPolicyStack.policy,
   },
   env: stackEnv,
-  description: 'Shared IAM Users for GitHub Actions, Local Development and Claude Code on the web',
+  description: 'Shared IAM Users for GitHub Actions and Claude Code on the web',
 });
 
 // GitHub Actions OIDC スタックを作成（ポリシーに依存・環境非依存）

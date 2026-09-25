@@ -32,7 +32,7 @@ infra/shared/
 │   ├── iam-integration-policy-stack.ts      # デプロイポリシー: Integration
 │   ├── iam-claude-readonly-policy-stack.ts  # Claude 用閲覧専用ポリシー
 │   ├── iam-policies-stack.ts                # 旧（4 ポリシーまとめ。互換用）
-│   └── iam-users-stack.ts                   # IAM ユーザー（3 ユーザー）
+│   └── iam-users-stack.ts                   # IAM ユーザー（GitHub Actions 旧ユーザー・Claude 閲覧専用）
 ├── iam/                         # 旧 CloudFormation テンプレート（バックアップ）
 │   ├── policies/
 │   │   ├── backup/              # YAML ファイルのバックアップ
@@ -248,44 +248,11 @@ fork からの pull_request では GitHub が `id-token: write` を付与しな�
 
 あわせて、prod Environment の Deployment branches を `master` のみに制限する（GitHub 側の設定）。
 
-### 3. ローカル開発ユーザー
+### 3. ローカル開発（IAM Identity Center へ移行済み）
 
-**CDK スタック名:** `SharedIamUsers`（NagiyuLocalDevUser リソース）
-
-**概要:**
-開発者がローカル環境から手動デプロイする際に使用する IAM ユーザー。
-
-**ユーザー名:** `nagiyu-local-dev`
-
-**アタッチされるポリシー:**
-- `nagiyu-deploy-policy-core`
-- `nagiyu-deploy-policy-container`
-- `nagiyu-deploy-policy-application`
-- `nagiyu-deploy-policy-integration`
-
-**タグ:**
-- `Application: nagiyu`
-- `Purpose: Local developer`
-
-**出力値（CfnOutput）:**
-- ユーザー ARN
-- ユーザー名
-
-**アクセスキー発行手順:**
-1. AWS マネジメントコンソールにログイン
-2. IAM → ユーザー → `nagiyu-local-dev` を選択
-3. 「セキュリティ認証情報」タブ → 「アクセスキーを作成」
-4. アクセスキー ID とシークレットアクセスキーを安全に保存
-
-**ローカル環境への設定:**
-```bash
-aws configure --profile nagiyu-local-dev
-```
-
-使用時:
-```bash
-export AWS_PROFILE=nagiyu-local-dev
-```
+人のローカル作業（手動デプロイ・調査）は IAM Identity Center（SSO）の一時認証情報で行う。
+旧ローカル開発ユーザー `nagiyu-local-dev` は長期キーを避けるため削除した。
+方式と設計判断は [AWS アカウント構成とアクセス管理](../aws-accounts.md) を参照。
 
 ### 4. Claude 閲覧専用ユーザー
 
@@ -342,7 +309,7 @@ aws ssm get-parameter --name <SecureString パラメータ> --with-decryption
 
 **注意:**
 - このユーザーには **デプロイ権限を一切付与しない**（既存 4 ポリシーは添付しない）
-- ローカル開発・CI / CD では使わない（ローカル開発は `nagiyu-local-dev`、CI/CD は GitHub Actions OIDC ロールを利用）
+- ローカル開発・CI / CD では使わない（ローカル開発は IAM Identity Center、CI/CD は GitHub Actions OIDC ロールを利用）
 - アクセスキーは Claude Code on the web 以外の環境にコピーしない
 
 ---
@@ -412,9 +379,8 @@ npx cdk diff SharedIamUsers
 npx cdk deploy SharedIamUsers --require-approval never
 ```
 
-このコマンドで3つのユーザーが一度にデプロイされます:
+このコマンドで以下のユーザーが一度にデプロイされます:
 - nagiyu-github-actions
-- nagiyu-local-dev
 - nagiyu-claude-readonly
 
 ### ステップ4: 動作確認
@@ -632,7 +598,7 @@ aws cloudformation deploy \
 ### アクセスキーのローテーション
 
 **注意**: GitHub Actions の認証は OIDC + AssumeRole に移行済みで、アクセスキーを持たない。
-以下は `nagiyu-local-dev` など、引き続きアクセスキーで運用するユーザー向けの手順であり、
+以下は `nagiyu-claude-readonly` など、引き続きアクセスキーで運用するユーザー向けの手順であり、
 `nagiyu-github-actions` はロールバック用ユーザーのため通常はローテーション対象外。
 
 #### 1. 新しいアクセスキーの発行
@@ -726,7 +692,7 @@ aws cloudformation deploy \
 ### デプロイ時に権限エラーが発生する
 
 **エラー例:**
-- `User: arn:aws:iam::xxx:user/nagiyu-local-dev is not authorized to perform: xxx on resource: xxx`（ローカル開発ユーザー等）
+- `User: arn:aws:sts::xxx:assumed-role/AWSReservedSSO_xxx/... is not authorized to perform: xxx on resource: xxx`（IAM Identity Center の許可セット）
 - `User: arn:aws:sts::xxx:assumed-role/nagiyu-github-actions-dev/... is not authorized to perform: xxx on resource: xxx`（GitHub Actions OIDC ロール）
 
 **原因:** デプロイポリシーに必要な権限が不足している。
@@ -747,7 +713,7 @@ aws cloudformation deploy \
 
 ### アクセスキーが無効化されている
 
-対象は `nagiyu-local-dev` や `nagiyu-github-actions`（ロールバック用）などアクセスキー方式のユーザーのみ。
+対象は `nagiyu-claude-readonly` や `nagiyu-github-actions`（ロールバック用）などアクセスキー方式のユーザーのみ。
 GitHub Actions OIDC ロールはアクセスキーを持たないため対象外。
 
 **原因:** アクセスキーが非アクティブ化されている。
@@ -764,6 +730,7 @@ aws iam update-access-key \
 
 ## 関連ドキュメント
 
+- [AWS アカウント構成とアクセス管理](../aws-accounts.md) - Organizations・IAM Identity Center
 - [初回セットアップ](../setup.md) - IAM リソースの初期構築手順
 - [デプロイ手順](../deploy.md) - 日常的なデプロイ操作
 - [アーキテクチャ](../architecture.md) - インフラ全体の設計
