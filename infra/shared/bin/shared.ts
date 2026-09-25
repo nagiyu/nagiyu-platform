@@ -12,6 +12,7 @@ import { IamIntegrationPolicyStack } from '../lib/iam/iam-integration-policy-sta
 import { IamClaudeReadonlyPolicyStack } from '../lib/iam/iam-claude-readonly-policy-stack';
 import { IamUsersStack } from '../lib/iam/iam-users-stack';
 import { IamGitHubActionsOidcStack } from '../lib/iam/iam-github-actions-oidc-stack';
+import { DevSyncSourceReaderStack } from '../lib/iam/dev-sync-source-reader-stack';
 import { DockerBuildLockStack } from '../lib/docker-build-lock-stack';
 import { ErrorEventsTableStack } from '../lib/error-events-table-stack';
 import { ReportsHostingStack } from '../lib/reports-hosting-stack';
@@ -155,6 +156,15 @@ new IamGitHubActionsOidcStack(app, 'NagiyuSharedIamGitHubOidc', {
   env: stackEnv,
   description: 'Shared IAM OIDC Provider and GitHub Actions AssumeRole roles',
 });
+
+// dev-sync（dev アカウントの Lambda）が prod テーブルを読み取る際に
+// AssumeRole する読み取り専用ロール（prod アカウントにのみ作成する）
+if (prodOnlyStacks) {
+  new DevSyncSourceReaderStack(app, 'NagiyuSharedDevSyncSourceReader', {
+    env: stackEnv,
+    description: 'IAM role for dev-sync Lambda (dev account) to read prod DynamoDB tables',
+  });
+}
 
 // プラットフォーム共通 ECS Cluster（Portal 専用 nagiyu-root-cluster-{env} とは別物）
 new EcsSharedClusterStack(
