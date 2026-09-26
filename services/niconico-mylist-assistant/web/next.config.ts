@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       allowedOrigins: [
-        'dev-niconico-mylist-assistant.nagiyu.com',
+        'niconico-mylist-assistant.dev.nagiyu.com',
         'niconico-mylist-assistant.nagiyu.com',
         '*.lambda-url.us-east-1.on.aws',
       ],

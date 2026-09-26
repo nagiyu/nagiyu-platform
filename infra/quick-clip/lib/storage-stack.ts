@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
+import { getServiceUrl } from '@nagiyu/infra-common';
 import type { QuickClipEnvironment } from './environment';
 
 export interface StorageStackProps extends cdk.StackProps {
@@ -13,10 +14,7 @@ export class StorageStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: StorageStackProps) {
     super(scope, id, props);
 
-    const allowedOrigins =
-      props.environment === 'prod'
-        ? ['https://quick-clip.nagiyu.com']
-        : ['https://dev-quick-clip.nagiyu.com'];
+    const allowedOrigins = [getServiceUrl('quick-clip', props.environment)];
 
     this.storageBucket = new s3.Bucket(this, 'StorageBucket', {
       bucketName: `nagiyu-quick-clip-storage-${props.environment}`,

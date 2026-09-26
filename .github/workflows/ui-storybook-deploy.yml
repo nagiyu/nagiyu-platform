@@ -73,6 +73,6 @@ jobs:
           echo "## UI Storybook Deployment" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Environment: dev" >> $GITHUB_STEP_SUMMARY
-          echo "Custom domain: https://dev-storybook.nagiyu.com" >> $GITHUB_STEP_SUMMARY
+          echo "Custom domain: https://storybook.dev.nagiyu.com" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "DNS は Route53 の ALIAS レコードとして本スタック内で自動構成されています。" >> $GITHUB_STEP_SUMMARY
