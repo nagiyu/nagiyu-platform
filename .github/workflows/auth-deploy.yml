@@ -227,14 +227,17 @@ jobs:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
           IMAGE_URI: ${{ needs.build.outputs.image-uri }}
           APP_VERSION: ${{ needs.build.outputs.app-version }}
+        # シークレット値はシェル変数として参照する（${{ }} で埋め込むと、値に含まれる
+        # ` や $ をシェルが解釈してコマンドが壊れるため）。
+        # GOOGLE_OAUTH_* / NEXTAUTH_SECRET は前段の aws-secretsmanager-get-secrets がジョブ環境に設定する。
         run: |
           echo "Deploying full Auth infrastructure to $ENVIRONMENT environment..."
           echo "Using Docker image: $IMAGE_URI"
           npm run deploy --workspace=@nagiyu/infra-auth -- \
             --context env=$ENVIRONMENT \
-            --context googleClientId="${{ env.GOOGLE_OAUTH_CLIENTID }}" \
-            --context googleClientSecret="${{ env.GOOGLE_OAUTH_CLIENTSECRET }}" \
-            --context nextAuthSecret="${{ env.NEXTAUTH_SECRET }}" \
+            --context googleClientId="$GOOGLE_OAUTH_CLIENTID" \
+            --context googleClientSecret="$GOOGLE_OAUTH_CLIENTSECRET" \
+            --context nextAuthSecret="$NEXTAUTH_SECRET" \
             --all \
             --require-approval never
 
