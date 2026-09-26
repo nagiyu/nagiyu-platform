@@ -73,6 +73,10 @@ export class LambdaStack extends LambdaStackBase {
         timeout: 30,
         environment: {
           NODE_ENV: environment,
+          // NAGIYU_ENV: NextAuth の Cookie ドメイン判定用。NODE_ENV は Next.js のビルド時に
+          // 'production' へ静的置換されるため、デプロイ後の dev/prod 判定には使えない
+          // （libs/nextjs/src/auth-config.ts 参照）。
+          NAGIYU_ENV: environment,
           APP_VERSION: appVersion,
           DYNAMODB_TABLE_NAME: `nagiyu-admin-main-${environment}`,
           // 共通エラーイベントテーブル（/errors UI / API で読み取り）
