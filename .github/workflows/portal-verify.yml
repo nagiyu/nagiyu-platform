@@ -217,11 +217,11 @@ jobs:
           role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
 
-      - name: Upload Playwright HTML report to reports.nagiyu.com
+      - name: Upload Playwright HTML report to E2E reports
         if: always()
         run: |
           aws s3 sync services/portal/web/playwright-report/ \
-            "s3://nagiyu-e2e-reports/portal/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-mobile/" \
+            "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/portal/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-mobile/" \
             --delete --no-progress
 
   e2e-test-chromium-desktop:
@@ -286,11 +286,11 @@ jobs:
           role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
 
-      - name: Upload Playwright HTML report to reports.nagiyu.com
+      - name: Upload Playwright HTML report to E2E reports
         if: always()
         run: |
           aws s3 sync services/portal/web/playwright-report/ \
-            "s3://nagiyu-e2e-reports/portal/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-desktop/" \
+            "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/portal/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-desktop/" \
             --delete --no-progress
 
   e2e-test-webkit-mobile:
@@ -355,11 +355,11 @@ jobs:
           role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
 
-      - name: Upload Playwright HTML report to reports.nagiyu.com
+      - name: Upload Playwright HTML report to E2E reports
         if: always()
         run: |
           aws s3 sync services/portal/web/playwright-report/ \
-            "s3://nagiyu-e2e-reports/portal/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/webkit-mobile/" \
+            "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/portal/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/webkit-mobile/" \
             --delete --no-progress
 
   report:
@@ -408,7 +408,7 @@ jobs:
               'skipped': '⏭️'
             };
 
-            const reportBaseUrl = `https://reports.nagiyu.com/portal/pr-${context.issue.number}/${context.runId}`;
+            const reportBaseUrl = `${{ vars.E2E_REPORTS_BASE_URL || 'https://reports.nagiyu.com' }}/portal/pr-${context.issue.number}/${context.runId}`;
             const reportProjects = {
               'E2E Tests (chromium-mobile)': 'chromium-mobile',
               'E2E Tests (chromium-desktop)': 'chromium-desktop',

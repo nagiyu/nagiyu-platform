@@ -20,7 +20,9 @@ import { EcsSharedClusterStack } from '../lib/ecs-cluster-stack';
 import { resolveAccountScope } from '../lib/account-scope';
 import {
   assertScopeAllowsEnv,
+  getDockerBuildLockBucketName,
   getGitHubActionsOidcRoleIds,
+  getReportsBucketName,
   includesProdOnlyStacks,
   getRoute53DomainName,
   shouldCreateGitHubActionsUser,
@@ -60,33 +62,39 @@ new VpcStack(app, `NagiyuSharedVpc${env.charAt(0).toUpperCase() + env.slice(1)}`
   description: `Shared VPC Infrastructure - ${env} environment`,
 });
 
-// ACM スタックを作成（環境非依存）
-// CloudFront 用の証明書は us-east-1 リージョン必須
 const domainName = process.env.DOMAIN_NAME || app.node.tryGetContext('domainName');
 if (!domainName) {
   throw new Error('DOMAIN_NAME environment variable or domainName context is required');
 }
 
-if (prodOnlyStacks) {
-  new AcmStack(app, 'NagiyuSharedAcm', {
-    domainName,
-    env: {
-      account: process.env.CDK_DEFAULT_ACCOUNT,
-      region: 'us-east-1', // CloudFront 用証明書は us-east-1 必須
-    },
-    description: 'Shared ACM Certificate for CloudFront',
-  });
-}
+// dev アカウントでは dev.<domainName> のサブドメインでゾーンを作成し、
+// prod ゾーンから NS 委任する（Issue #3819）
+const scopedDomainName = getRoute53DomainName(accountScope, domainName);
 
 // Route53 ホストゾーン（環境非依存・グローバル）
 // Phase 1 時点ではホストゾーンを作成するのみで、XServer の NS 切替は実施しない
-// dev アカウントでは dev.<domainName> のサブドメインでゾーンを作成し、
-// prod ゾーンから NS 委任する（Issue #3819）
-new Route53Stack(app, 'NagiyuSharedRoute53', {
-  domainName: getRoute53DomainName(accountScope, domainName),
+const route53Stack = new Route53Stack(app, 'NagiyuSharedRoute53', {
+  domainName: scopedDomainName,
   env: stackEnv,
   description: 'Shared Route53 hosted zone for nagiyu.com',
 });
+
+// ACM スタックを作成
+// CloudFront 用の証明書は us-east-1 リージョン必須
+// dev アカウントでは dev.<domainName> + *.dev.<domainName> の証明書を、
+// 同一アカウント内の Route53Stack のホストゾーンで自動 DNS 検証する
+const acmStack = new AcmStack(app, 'NagiyuSharedAcm', {
+  domainName: scopedDomainName,
+  hostedZone: accountScope === 'dev' ? route53Stack.hostedZone : undefined,
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: 'us-east-1', // CloudFront 用証明書は us-east-1 必須
+  },
+  description: 'Shared ACM Certificate for CloudFront',
+});
+if (accountScope === 'dev') {
+  acmStack.addDependency(route53Stack);
+}
 
 // Route53 レコード（Phase 2: NS 切替前に既存レコードを Route53 に複製）
 // XServer 経由の現行 DNS には影響せず、NS 切替後にこのレコードが応答する
@@ -177,12 +185,13 @@ new EcsSharedClusterStack(
   }
 );
 
-if (prodOnlyStacks) {
-  new DockerBuildLockStack(app, 'NagiyuDockerBuildLock', {
-    env: stackEnv,
-    description: 'S3 bucket for Docker build lock semaphore',
-  });
-}
+// Docker ビルドロック用 S3 バケット
+// dev アカウントでは -dev サフィックス付きの別バケットを使う
+new DockerBuildLockStack(app, 'NagiyuDockerBuildLock', {
+  bucketName: getDockerBuildLockBucketName(accountScope),
+  env: stackEnv,
+  description: 'S3 bucket for Docker build lock semaphore',
+});
 
 // プラットフォーム共通のエラーイベント永続化テーブル
 // 各サービスから直接 PutItem され、Admin が読み取る共有リソース
@@ -196,14 +205,20 @@ new ErrorEventsTableStack(
   }
 );
 
-// E2E HTML レポートのホスティング基盤（環境非依存）
-// 各サービスの Playwright HTML レポートを reports.nagiyu.com で公開する
-if (prodOnlyStacks) {
-  new ReportsHostingStack(app, 'NagiyuE2eReportsHosting', {
-    domainName,
-    env: stackEnv,
-    description: 'E2E HTML reports hosting (S3 + CloudFront)',
-  });
+// E2E HTML レポートのホスティング基盤
+// 各サービスの Playwright HTML レポートを公開する
+// dev アカウントでは reports.dev.<domainName> で公開し、-dev サフィックス付きの別バケットを使う
+const reportsHostingStack = new ReportsHostingStack(app, 'NagiyuE2eReportsHosting', {
+  domainName: scopedDomainName,
+  bucketName: getReportsBucketName(accountScope),
+  env: stackEnv,
+  description: 'E2E HTML reports hosting (S3 + CloudFront)',
+});
+if (accountScope === 'dev') {
+  // ACM 証明書・Route53 ホストゾーンの SSM パラメータを読むため、
+  // 両スタックのデプロイ完了を待ってから作成する
+  reportsHostingStack.addDependency(acmStack);
+  reportsHostingStack.addDependency(route53Stack);
 }
 
 app.synth();
