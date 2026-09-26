@@ -75,6 +75,31 @@ export function getLambdaFunctionName(serviceName: string, environment: Environm
 }
 
 /**
+ * ルートドメイン名を生成
+ *
+ * dev のドメインは dev アカウントの Route53 ゾーン `dev.nagiyu.com`（prod ゾーンから
+ * NS 委任済み）で完結させる。prod は従来どおり `nagiyu.com`。
+ *
+ * @param environment - 環境
+ * @returns ルートドメイン名
+ *
+ * @example
+ * ```typescript
+ * getRootDomainName('prod')
+ * // => 'nagiyu.com'
+ *
+ * getRootDomainName('dev')
+ * // => 'dev.nagiyu.com'
+ * ```
+ */
+export function getRootDomainName(environment: Environment): string {
+  if (environment === 'prod') {
+    return 'nagiyu.com';
+  }
+  return `${environment}.nagiyu.com`;
+}
+
+/**
  * CloudFront ドメイン名を生成
  *
  * @param serviceName - サービス名
@@ -87,14 +112,31 @@ export function getLambdaFunctionName(serviceName: string, environment: Environm
  * // => 'tools.nagiyu.com'
  *
  * getCloudFrontDomainName('auth', 'dev')
- * // => 'dev-auth.nagiyu.com'
+ * // => 'auth.dev.nagiyu.com'
  * ```
  */
 export function getCloudFrontDomainName(serviceName: string, environment: Environment): string {
-  if (environment === 'prod') {
-    return `${serviceName}.nagiyu.com`;
-  }
-  return `${environment}-${serviceName}.nagiyu.com`;
+  return `${serviceName}.${getRootDomainName(environment)}`;
+}
+
+/**
+ * サービスの公開 URL（https://）を生成
+ *
+ * @param serviceName - サービス名
+ * @param environment - 環境
+ * @returns サービスの公開 URL
+ *
+ * @example
+ * ```typescript
+ * getServiceUrl('auth', 'prod')
+ * // => 'https://auth.nagiyu.com'
+ *
+ * getServiceUrl('auth', 'dev')
+ * // => 'https://auth.dev.nagiyu.com'
+ * ```
+ */
+export function getServiceUrl(serviceName: string, environment: Environment): string {
+  return `https://${getCloudFrontDomainName(serviceName, environment)}`;
 }
 
 /**

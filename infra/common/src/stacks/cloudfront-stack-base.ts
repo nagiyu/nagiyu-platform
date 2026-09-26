@@ -2,12 +2,14 @@ import * as cdk from 'aws-cdk-lib';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { SSM_PARAMETERS } from '../utils/ssm';
 import { CloudFrontConfig } from '../types/cloudfront-config';
 import { Environment } from '../types/environment';
-import { getCloudFrontDomainName } from '../utils/naming';
+import { getCloudFrontDomainName, getRootDomainName } from '../utils/naming';
 import { DEFAULT_CLOUDFRONT_CONFIG, mergeConfig } from '../constants/defaults';
 import { SECURITY_HEADERS } from '../constants/security-headers';
 
@@ -65,6 +67,7 @@ export interface CloudFrontStackBaseProps extends cdk.StackProps {
  * - セキュリティヘッダーポリシーの作成
  * - ACM 証明書の参照
  * - カスタムドメイン設定
+ * - dev 環境向け Route53 ALIAS レコードの自動作成（dev アカウントの Route53 ゾーンを SSM 経由で参照）
  * - TLS 1.2 以上の強制
  * - HTTP/2 および HTTP/3 サポート
  *
@@ -242,6 +245,43 @@ export class CloudFrontStackBase extends cdk.Stack {
       enableIpv6: true,
       priceClass,
     });
+
+    // dev 環境のみ、dev アカウントの Route53 ゾーン（SSM 経由で参照）へ
+    // CloudFront 向け ALIAS A レコードを作成する。
+    // prod は既存の CNAME 直書き（infra/shared/lib/route53-records-stack.ts）で
+    // 管理されているため、ここではレコードを作成しない。
+    if (environment === 'dev') {
+      const hostedZoneId = ssm.StringParameter.valueForStringParameter(
+        this,
+        SSM_PARAMETERS.ROUTE53_HOSTED_ZONE_ID
+      );
+      const hostedZoneName = ssm.StringParameter.valueForStringParameter(
+        this,
+        SSM_PARAMETERS.ROUTE53_HOSTED_ZONE_NAME
+      );
+      const hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
+        hostedZoneId,
+        zoneName: hostedZoneName,
+      });
+
+      // domainName がゾーンルート（例: dev.nagiyu.com）と一致する場合はゾーン頂点に、
+      // それ以外はゾーンルートからの相対名（例: share-together）でレコードを作成する。
+      const devRootDomain = getRootDomainName('dev');
+      const devZoneSuffix = `.${devRootDomain}`;
+      const relativeRecordName =
+        domainName === devRootDomain
+          ? undefined
+          : domainName.endsWith(devZoneSuffix)
+            ? domainName.slice(0, domainName.length - devZoneSuffix.length)
+            : domainName;
+
+      new route53.ARecord(this, 'AliasRecord', {
+        zone: hostedZone,
+        recordName: relativeRecordName,
+        target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(this.distribution)),
+        comment: `${serviceName} (${environment}) - alias to CloudFront`,
+      });
+    }
 
     // タグの追加
     cdk.Tags.of(this.distribution).add('Application', 'nagiyu');

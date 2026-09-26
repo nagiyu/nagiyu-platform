@@ -13,6 +13,8 @@ export {
   getEcrRepositoryName,
   getLambdaFunctionName,
   getCloudFrontDomainName,
+  getRootDomainName,
+  getServiceUrl,
   getS3BucketName,
   getDynamoDBTableName,
   getIamRoleName,
