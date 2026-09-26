@@ -12,12 +12,12 @@ describe('Route53RecordsStack', () => {
     return new Route53RecordsStack(app, 'TestRoute53RecordsStack', { domainName });
   };
 
-  it('CloudFront 向け CNAME を 17 件、Google Search Console / ACM 検証を各 1 件、apex ALIAS を 1 件作成する', () => {
+  it('CloudFront 向け CNAME を 16 件、Google Search Console / ACM 検証を各 1 件、apex ALIAS を 1 件作成する', () => {
     const stack = createStack();
     const template = Template.fromStack(stack);
 
-    // 17 (CloudFront) + 1 (Google) + 1 (ACM 検証) + 1 (apex ALIAS) = 20
-    template.resourceCountIs('AWS::Route53::RecordSet', 20);
+    // 16 (CloudFront) + 1 (Google) + 1 (ACM 検証) + 1 (apex ALIAS) = 19
+    template.resourceCountIs('AWS::Route53::RecordSet', 19);
   });
 
   it('全 CNAME レコードに TTL 300 秒を設定する', () => {
@@ -28,8 +28,8 @@ describe('Route53RecordsStack', () => {
       Properties: { Type: 'CNAME' },
     });
 
-    // 17 (CloudFront) + 1 (Google) + 1 (ACM 検証) = 19 CNAME
-    expect(Object.keys(cnameRecords).length).toBe(19);
+    // 16 (CloudFront) + 1 (Google) + 1 (ACM 検証) = 18 CNAME
+    expect(Object.keys(cnameRecords).length).toBe(18);
     for (const [, resource] of Object.entries(cnameRecords)) {
       expect(resource.Properties.TTL).toBe('300');
     }
@@ -57,7 +57,6 @@ describe('Route53RecordsStack', () => {
       { name: 'tools.nagiyu.com.', target: 'dxsm9dplwcq8k.cloudfront.net' },
       { name: 'dev-tools.nagiyu.com.', target: 'di5qiqkse31ld.cloudfront.net' },
       { name: 'auth.nagiyu.com.', target: 'd34m95nq713g26.cloudfront.net' },
-      { name: 'dev.nagiyu.com.', target: 'd1p44g973egas4.cloudfront.net' },
     ];
 
     for (const expected of expectations) {
@@ -89,6 +88,16 @@ describe('Route53RecordsStack', () => {
       Name: '_795cd11835618eae1172367526630b7f.nagiyu.com.',
       ResourceRecords: ['_09095adf08f7ad2742324041fb053779.zfyfvmchrl.acm-validations.aws'],
     });
+  });
+
+  it('dev.nagiyu.com の CNAME は含まない（次 PR で NS 委任するため削除済み）', () => {
+    const stack = createStack();
+    const template = Template.fromStack(stack);
+
+    const devCnames = template.findResources('AWS::Route53::RecordSet', {
+      Properties: { Type: 'CNAME', Name: 'dev.nagiyu.com.' },
+    });
+    expect(Object.keys(devCnames).length).toBe(0);
   });
 
   it('ホストゾーン参照は SSM パラメータから動的に解決する', () => {

@@ -18,12 +18,15 @@ const RECORD_TTL = cdk.Duration.seconds(300);
  * Phase 2 で Route53 に複製する CloudFront 向け CNAME 一覧
  * （NS 切替後に Phase 6 で ALIAS に置換予定）
  */
+// `dev`（dev.nagiyu.com の root）は Issue #3819 のマルチアカウント化に伴い、
+// dev アカウントへ NS 委任するサブゾーンとして次 PR で追加する。
+// 既存の `dev` CNAME と同名レコードは共存できず、CloudFormation の
+// 置換順序（新規作成→旧削除）で失敗するため、削除と追加を別 PR に分ける。
 const CLOUDFRONT_CNAMES: ReadonlyArray<{
   recordName: string;
   target: string;
   comment: string;
 }> = [
-  { recordName: 'dev', target: 'd1p44g973egas4.cloudfront.net', comment: 'Root (dev)' },
   { recordName: 'tools', target: 'dxsm9dplwcq8k.cloudfront.net', comment: 'Tools (prod)' },
   { recordName: 'dev-tools', target: 'di5qiqkse31ld.cloudfront.net', comment: 'Tools (dev)' },
   { recordName: 'auth', target: 'd34m95nq713g26.cloudfront.net', comment: 'Auth (prod)' },
