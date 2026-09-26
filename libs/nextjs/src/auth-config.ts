@@ -2,6 +2,18 @@ import type { NextAuthConfig } from 'next-auth';
 
 const AUTH_SESSION_MAX_AGE = 30 * 24 * 60 * 60;
 
+/**
+ * Cookie domain 定数
+ *
+ * - prod（NODE_ENV === 'prod'）: `.nagiyu.com`
+ * - development（ローカル開発、NODE_ENV === 'development'）: 未設定（undefined）
+ * - それ以外（デプロイ済み dev 環境）: `.dev.nagiyu.com`
+ */
+const AUTH_COOKIE_DOMAIN = {
+  PROD: '.nagiyu.com',
+  DEV: '.dev.nagiyu.com',
+} as const;
+
 export type AuthCookieOptions = {
   httpOnly: true;
   sameSite: 'lax';
@@ -33,12 +45,19 @@ export function createAuthSessionConfig(): NonNullable<NextAuthConfig['session']
 export function createAuthCookieOptions(nodeEnv?: string): AuthCookieOptions {
   const resolvedNodeEnv = nodeEnv ?? process.env.NODE_ENV;
   const isDevelopment = resolvedNodeEnv === 'development';
+  const isProduction = resolvedNodeEnv === 'prod';
+
+  const domain = isDevelopment
+    ? undefined
+    : isProduction
+      ? AUTH_COOKIE_DOMAIN.PROD
+      : AUTH_COOKIE_DOMAIN.DEV;
 
   return {
     httpOnly: true,
     sameSite: 'lax',
     path: '/',
-    domain: isDevelopment ? undefined : '.nagiyu.com',
+    domain,
     secure: !isDevelopment,
   };
 }

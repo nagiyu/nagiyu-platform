@@ -45,6 +45,20 @@ describe('auth-config', () => {
     expect(options.secure).toBe(false);
   });
 
+  it('prod環境ではdomainが.nagiyu.comになりsecure=trueになる', () => {
+    const options = createAuthCookieOptions('prod');
+
+    expect(options.domain).toBe('.nagiyu.com');
+    expect(options.secure).toBe(true);
+  });
+
+  it('dev環境（デプロイ済み）ではdomainが.dev.nagiyu.comになりsecure=trueになる', () => {
+    const options = createAuthCookieOptions('dev');
+
+    expect(options.domain).toBe('.dev.nagiyu.com');
+    expect(options.secure).toBe(true);
+  });
+
   it('dev環境ではCookie名に.devサフィックスが付与される', () => {
     const config = createAuthConfig({ nodeEnv: 'dev' });
 
