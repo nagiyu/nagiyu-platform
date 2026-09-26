@@ -8,7 +8,7 @@ const {
 } = require('../../lib/iam/iam-github-actions-oidc-stack');
 
 describe('IamGitHubActionsOidcStack', () => {
-  const createTemplate = () => {
+  const createTemplate = (extraProps = {}) => {
     const app = new cdk.App();
 
     const policies = {
@@ -36,6 +36,7 @@ describe('IamGitHubActionsOidcStack', () => {
 
     const stack = new IamGitHubActionsOidcStack(app, 'TestIamGitHubActionsOidcStack', {
       policies,
+      ...extraProps,
     });
     return Template.fromStack(stack);
   };
@@ -168,5 +169,33 @@ describe('IamGitHubActionsOidcStack', () => {
         expect.stringContaining('PrRoleArnExport'),
       ])
     );
+  });
+
+  it('roleIds を指定すると、そのロールだけを作成する（マルチアカウント化対応）', () => {
+    const template = createTemplate({ roleIds: ['DevRole', 'PrRole'] });
+
+    template.resourceCountIs('AWS::IAM::Role', 2);
+    template.hasResourceProperties('AWS::IAM::Role', {
+      RoleName: 'nagiyu-github-actions-dev',
+    });
+    template.hasResourceProperties('AWS::IAM::Role', {
+      RoleName: 'nagiyu-github-actions-pr',
+    });
+
+    const outputKeys = Object.keys(template.findOutputs('*'));
+    expect(outputKeys).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('DevRoleArnExport'),
+        expect.stringContaining('PrRoleArnExport'),
+      ])
+    );
+    expect(outputKeys).not.toEqual(
+      expect.arrayContaining([expect.stringContaining('ProdRoleArnExport')])
+    );
+  });
+
+  it('roleIds 未指定時は現行どおり 3 ロール全部を作成する', () => {
+    const template = createTemplate({ roleIds: undefined });
+    template.resourceCountIs('AWS::IAM::Role', 3);
   });
 });
