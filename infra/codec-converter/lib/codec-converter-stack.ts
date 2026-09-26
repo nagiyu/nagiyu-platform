@@ -10,9 +10,16 @@ import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as batch from 'aws-cdk-lib/aws-batch';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import { Construct } from 'constructs';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
-import { SSM_PARAMETERS, grantErrorEventsWrite } from '@nagiyu/infra-common';
+import {
+  SSM_PARAMETERS,
+  grantErrorEventsWrite,
+  getCloudFrontDomainName,
+  getServiceUrl,
+} from '@nagiyu/infra-common';
 import { AppRuntimePolicy } from './policies/app-runtime-policy';
 import { LambdaExecutionRole } from './roles/lambda-execution-role';
 import { BatchJobRole } from './roles/batch-job-role';
@@ -31,10 +38,7 @@ export class CodecConverterStack extends cdk.Stack {
     const appVersion = props?.appVersion || '1.0.0';
 
     // CORS allowed origin (configurable per environment)
-    const defaultOrigin =
-      envName === 'prod'
-        ? 'https://codec-converter.nagiyu.com'
-        : 'https://dev-codec-converter.nagiyu.com';
+    const defaultOrigin = getServiceUrl('codec-converter', envName as 'dev' | 'prod');
     const allowedOrigin = this.node.tryGetContext('allowedOrigin') || defaultOrigin;
 
     // S3 Bucket for input/output files
@@ -343,14 +347,7 @@ export class CodecConverterStack extends cdk.Stack {
       );
 
       // Construct domain name based on environment
-      const baseDomain = ssm.StringParameter.valueForStringParameter(
-        this,
-        SSM_PARAMETERS.ACM_DOMAIN_NAME
-      );
-      const domainName =
-        envName === 'prod'
-          ? `codec-converter.${baseDomain}`
-          : `${envName}-codec-converter.${baseDomain}`;
+      const domainName = getCloudFrontDomainName('codec-converter', envName as 'dev' | 'prod');
 
       // 検索エンジンにインデックスさせない（Portal 以外は常に noindex）
       const noindexHeadersPolicy = new cloudfront.ResponseHeadersPolicy(
@@ -421,6 +418,31 @@ export class CodecConverterStack extends cdk.Stack {
           },
         },
       });
+
+      // dev 環境のみ、dev アカウントの Route53 ゾーンへ CloudFront 向け ALIAS A レコードを作成する。
+      // prod は既存の CNAME 直書き（infra/shared/lib/route53-records-stack.ts）で管理されているため、
+      // ここではレコードを作成しない。
+      if (envName === 'dev') {
+        const hostedZoneId = ssm.StringParameter.valueForStringParameter(
+          this,
+          SSM_PARAMETERS.ROUTE53_HOSTED_ZONE_ID
+        );
+        const hostedZoneName = ssm.StringParameter.valueForStringParameter(
+          this,
+          SSM_PARAMETERS.ROUTE53_HOSTED_ZONE_NAME
+        );
+        const hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
+          hostedZoneId,
+          zoneName: hostedZoneName,
+        });
+
+        new route53.ARecord(this, 'AliasRecord', {
+          zone: hostedZone,
+          recordName: 'codec-converter',
+          target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution)),
+          comment: `Codec Converter (${envName}) - alias to CloudFront`,
+        });
+      }
 
       // Outputs
       new cdk.CfnOutput(this, 'StorageBucketName', {
