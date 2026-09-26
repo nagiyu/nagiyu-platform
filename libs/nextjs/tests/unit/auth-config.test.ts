@@ -38,32 +38,64 @@ async function executeSessionCallback(
 }
 
 describe('auth-config', () => {
-  it('development環境ではdomain未設定かつsecure=falseになる', () => {
-    const options = createAuthCookieOptions('development');
+  // NAGIYU_ENV は Next.js のビルド時置換を受けない専用の実行時環境変数。
+  // NODE_ENV==='development' のときは NAGIYU_ENV の値に関わらずローカル開発扱いになる。
+  describe('NODE_ENV=development（ローカル開発）', () => {
+    it('NAGIYU_ENV に関わらず domain 未設定・secure=false になる', () => {
+      expect(createAuthCookieOptions('development').domain).toBeUndefined();
+      expect(createAuthCookieOptions('development').secure).toBe(false);
+      expect(createAuthCookieOptions('development', 'dev').domain).toBeUndefined();
+      expect(createAuthCookieOptions('development', 'prod').secure).toBe(false);
+    });
 
-    expect(options.domain).toBeUndefined();
-    expect(options.secure).toBe(false);
+    it('Cookie 名にサフィックスが付与されない', () => {
+      const config = createAuthConfig({ nodeEnv: 'development', nagiyuEnv: 'dev' });
+
+      expect(config.cookies?.sessionToken?.name).toBe('__Secure-authjs.session-token');
+    });
   });
 
-  it('prod環境ではdomainが.nagiyu.comになりsecure=trueになる', () => {
-    const options = createAuthCookieOptions('prod');
+  describe('NODE_ENV=production（デプロイ後）+ NAGIYU_ENV=prod', () => {
+    it('domainが.nagiyu.comになりsecure=trueになる', () => {
+      const options = createAuthCookieOptions('production', 'prod');
 
-    expect(options.domain).toBe('.nagiyu.com');
-    expect(options.secure).toBe(true);
+      expect(options.domain).toBe('.nagiyu.com');
+      expect(options.secure).toBe(true);
+    });
+
+    it('Cookie 名にサフィックスが付与されない', () => {
+      const config = createAuthConfig({ nodeEnv: 'production', nagiyuEnv: 'prod' });
+
+      expect(config.cookies?.sessionToken?.name).toBe('__Secure-authjs.session-token');
+      expect(config.cookies?.callbackUrl?.name).toBe('__Secure-authjs.callback-url');
+    });
   });
 
-  it('dev環境（デプロイ済み）ではdomainが.dev.nagiyu.comになりsecure=trueになる', () => {
-    const options = createAuthCookieOptions('dev');
+  describe('NODE_ENV=production（デプロイ後）+ NAGIYU_ENV=dev', () => {
+    it('domainが.dev.nagiyu.comになりsecure=trueになる', () => {
+      const options = createAuthCookieOptions('production', 'dev');
 
-    expect(options.domain).toBe('.dev.nagiyu.com');
-    expect(options.secure).toBe(true);
+      expect(options.domain).toBe('.dev.nagiyu.com');
+      expect(options.secure).toBe(true);
+    });
+
+    it('Cookie名に.devサフィックスが付与される', () => {
+      const config = createAuthConfig({ nodeEnv: 'production', nagiyuEnv: 'dev' });
+
+      expect(config.cookies?.sessionToken?.name).toBe('__Secure-authjs.session-token.dev');
+      expect(config.cookies?.callbackUrl?.name).toBe('__Secure-authjs.callback-url.dev');
+    });
   });
 
-  it('dev環境ではCookie名に.devサフィックスが付与される', () => {
-    const config = createAuthConfig({ nodeEnv: 'dev' });
+  describe('NAGIYU_ENV 未設定（安全側のデフォルト）', () => {
+    it('NODE_ENV=production でも prod 扱い（domain=.nagiyu.com、サフィックスなし）になる', () => {
+      const options = createAuthCookieOptions('production', undefined);
+      const config = createAuthConfig({ nodeEnv: 'production' });
 
-    expect(config.cookies?.sessionToken?.name).toBe('__Secure-authjs.session-token.dev');
-    expect(config.cookies?.callbackUrl?.name).toBe('__Secure-authjs.callback-url.dev');
+      expect(options.domain).toBe('.nagiyu.com');
+      expect(options.secure).toBe(true);
+      expect(config.cookies?.sessionToken?.name).toBe('__Secure-authjs.session-token');
+    });
   });
 
   it('includeSubAsUserIdFallback=true の場合は token.sub を user.id にフォールバックする', async () => {
