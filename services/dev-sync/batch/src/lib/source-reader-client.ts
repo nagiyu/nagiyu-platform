@@ -14,13 +14,21 @@
 
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { fromTemporaryCredentials } from '@aws-sdk/credential-providers';
+import { AssumeRoleCommand, STSClient } from '@aws-sdk/client-sts';
 import { ERROR_MESSAGES } from './errors.js';
 
 const DEFAULT_REGION = 'us-east-1';
 
 /** AssumeRole 時のセッション名（CloudTrail 上での識別用） */
 const ASSUME_ROLE_SESSION_NAME = 'nagiyu-dev-sync';
+
+/** AssumeRole で得た一時認証情報（DynamoDBClient の credentials に渡せる形） */
+interface TemporaryCredentials {
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken?: string;
+  expiration?: Date;
+}
 
 /**
  * 環境変数 `SOURCE_READER_ROLE_ARN` から prod 読み取り専用ロールの ARN を取得する。
@@ -39,6 +47,37 @@ export function getSourceReaderRoleArn(): string {
 }
 
 /**
+ * `roleArn` を AssumeRole して一時認証情報を返す認証情報プロバイダを作る。
+ *
+ * SDK は `expiration` を見て期限切れ前に再取得するため、Lambda の実行時間
+ * （最大 15 分）が AssumeRole のセッション時間（既定 1 時間）を超えることはない。
+ */
+export function createAssumeRoleCredentialsProvider(
+  roleArn: string,
+  stsClient: STSClient
+): () => Promise<TemporaryCredentials> {
+  return async (): Promise<TemporaryCredentials> => {
+    const { Credentials } = await stsClient.send(
+      new AssumeRoleCommand({
+        RoleArn: roleArn,
+        RoleSessionName: ASSUME_ROLE_SESSION_NAME,
+      })
+    );
+
+    if (!Credentials?.AccessKeyId || !Credentials.SecretAccessKey) {
+      throw new Error(ERROR_MESSAGES.SOURCE_READER_ASSUME_ROLE_FAILED);
+    }
+
+    return {
+      accessKeyId: Credentials.AccessKeyId,
+      secretAccessKey: Credentials.SecretAccessKey,
+      sessionToken: Credentials.SessionToken,
+      expiration: Credentials.Expiration,
+    };
+  };
+}
+
+/**
  * prod ソーステーブル読み取り専用の DynamoDB Document Client を生成する。
  *
  * `SOURCE_READER_ROLE_ARN` を AssumeRole した一時認証情報を使用するため、
@@ -50,12 +89,10 @@ export function createSourceDynamoDBDocumentClient(region?: string): DynamoDBDoc
 
   const client = new DynamoDBClient({
     region: targetRegion,
-    credentials: fromTemporaryCredentials({
-      params: {
-        RoleArn: roleArn,
-        RoleSessionName: ASSUME_ROLE_SESSION_NAME,
-      },
-    }),
+    credentials: createAssumeRoleCredentialsProvider(
+      roleArn,
+      new STSClient({ region: targetRegion })
+    ),
   });
 
   return DynamoDBDocumentClient.from(client, {

@@ -2,14 +2,16 @@
  * source-reader-client（prod ソーステーブル読み取り用クライアント）の単体テスト
  *
  * AssumeRole・DynamoDB への実際のアクセスは発生しない
- * （`fromTemporaryCredentials` はクライアント生成時点では認証情報を取得しに行かず、
- * 実際に `send()` するまで遅延評価されるため、モック不要で安全に検証できる）。
+ * （認証情報プロバイダはクライアント生成時点では呼ばれず、`send()` まで遅延評価される。
+ * プロバイダ自体の検証では STS クライアントの `send` をモックする）。
  */
 
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { AssumeRoleCommand, STSClient } from '@aws-sdk/client-sts';
 import {
   getSourceReaderRoleArn,
   createSourceDynamoDBDocumentClient,
+  createAssumeRoleCredentialsProvider,
 } from '../../src/lib/source-reader-client.js';
 import { ERROR_MESSAGES } from '../../src/lib/errors.js';
 
@@ -34,17 +36,13 @@ describe('source-reader-client', () => {
     it('SOURCE_READER_ROLE_ARN が未設定の場合はエラーを投げる（同一アカウントへのフォールバックはしない）', () => {
       delete process.env.SOURCE_READER_ROLE_ARN;
 
-      expect(() => getSourceReaderRoleArn()).toThrow(
-        ERROR_MESSAGES.SOURCE_READER_ROLE_ARN_MISSING
-      );
+      expect(() => getSourceReaderRoleArn()).toThrow(ERROR_MESSAGES.SOURCE_READER_ROLE_ARN_MISSING);
     });
 
     it('SOURCE_READER_ROLE_ARN が空文字列の場合もエラーを投げる', () => {
       process.env.SOURCE_READER_ROLE_ARN = '';
 
-      expect(() => getSourceReaderRoleArn()).toThrow(
-        ERROR_MESSAGES.SOURCE_READER_ROLE_ARN_MISSING
-      );
+      expect(() => getSourceReaderRoleArn()).toThrow(ERROR_MESSAGES.SOURCE_READER_ROLE_ARN_MISSING);
     });
 
     it('SOURCE_READER_ROLE_ARN が設定されている場合はその値を返す', () => {
@@ -88,6 +86,47 @@ describe('source-reader-client', () => {
         'arn:aws:iam::166562222746:role/nagiyu-dev-sync-source-reader';
 
       expect(() => createSourceDynamoDBDocumentClient('ap-northeast-1')).not.toThrow();
+    });
+  });
+
+  describe('createAssumeRoleCredentialsProvider', () => {
+    const roleArn = 'arn:aws:iam::166562222746:role/nagiyu-dev-sync-source-reader';
+
+    it('指定ロールを AssumeRole し、一時認証情報を返す', async () => {
+      const expiration = new Date('2026-01-01T00:00:00Z');
+      const stsClient = new STSClient({ region: 'us-east-1' });
+      const sendSpy = jest.spyOn(stsClient, 'send').mockResolvedValue({
+        Credentials: {
+          AccessKeyId: 'AKIA_TEST',
+          SecretAccessKey: 'secret',
+          SessionToken: 'token',
+          Expiration: expiration,
+        },
+      } as never);
+
+      const credentials = await createAssumeRoleCredentialsProvider(roleArn, stsClient)();
+
+      expect(credentials).toEqual({
+        accessKeyId: 'AKIA_TEST',
+        secretAccessKey: 'secret',
+        sessionToken: 'token',
+        expiration,
+      });
+      const command = sendSpy.mock.calls[0][0] as AssumeRoleCommand;
+      expect(command).toBeInstanceOf(AssumeRoleCommand);
+      expect(command.input).toEqual({
+        RoleArn: roleArn,
+        RoleSessionName: 'nagiyu-dev-sync',
+      });
+    });
+
+    it('認証情報が返らない場合はエラーを投げる', async () => {
+      const stsClient = new STSClient({ region: 'us-east-1' });
+      jest.spyOn(stsClient, 'send').mockResolvedValue({} as never);
+
+      await expect(createAssumeRoleCredentialsProvider(roleArn, stsClient)()).rejects.toThrow(
+        ERROR_MESSAGES.SOURCE_READER_ASSUME_ROLE_FAILED
+      );
     });
   });
 });

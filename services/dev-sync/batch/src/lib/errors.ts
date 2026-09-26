@@ -37,4 +37,7 @@ export const ERROR_MESSAGES = {
    */
   SOURCE_READER_ROLE_ARN_MISSING:
     '環境変数 SOURCE_READER_ROLE_ARN が設定されていません。prod テーブル読み取り用ロールの ARN を指定してください。',
+  /** prod 読み取り用ロールの AssumeRole で認証情報が得られなかった場合のエラー */
+  SOURCE_READER_ASSUME_ROLE_FAILED:
+    'prod テーブル読み取り用ロールの AssumeRole で認証情報を取得できませんでした。',
 } as const;
