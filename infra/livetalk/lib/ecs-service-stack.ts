@@ -15,6 +15,7 @@ import {
   getDynamoDBTableArn,
   getDynamoDBTableName,
   getEcrRepositoryName,
+  getServiceUrl,
   grantErrorEventsWrite,
 } from '@nagiyu/infra-common';
 
@@ -80,11 +81,9 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
       SECRET_NAMES.LIVETALK_VAPID(environment)
     );
 
-    const authUrl =
-      environment === 'prod' ? 'https://auth.nagiyu.com' : `https://dev-auth.nagiyu.com`;
+    const authUrl = getServiceUrl('auth', environment);
 
-    const appUrl =
-      environment === 'prod' ? 'https://live-talk.nagiyu.com' : 'https://dev-live-talk.nagiyu.com';
+    const appUrl = getServiceUrl('live-talk', environment);
 
     const vpcId = ssm.StringParameter.valueForStringParameter(
       this,
@@ -298,6 +297,10 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
         // Next.js は next start で NODE_ENV を 'production' に強制上書きするため、
         // メトリクス用の環境識別子として別変数を用意する。
         LIVETALK_ENV: environment,
+        // NAGIYU_ENV: NextAuth の Cookie ドメイン判定用（@nagiyu/nextjs/auth-config.ts）。
+        // LIVETALK_ENV と同じ理由（NODE_ENV が 'production' に上書きされる）で別変数が必要なため、
+        // 共通ライブラリ側が参照する変数名として渡す。
+        NAGIYU_ENV: environment,
         PORT: '3000',
         APP_VERSION: appVersion,
         // Auth サービスの URL（サインインリダイレクト先）

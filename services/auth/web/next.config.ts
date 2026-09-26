@@ -13,7 +13,7 @@ const nextConfig: NextConfig = {
   ],
   experimental: {
     serverActions: {
-      allowedOrigins: ['dev-auth.nagiyu.com', 'auth.nagiyu.com', '*.lambda-url.us-east-1.on.aws'],
+      allowedOrigins: ['auth.dev.nagiyu.com', 'auth.nagiyu.com', '*.lambda-url.us-east-1.on.aws'],
     },
   },
 };

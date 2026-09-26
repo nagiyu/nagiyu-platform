@@ -13,6 +13,8 @@ export {
   getEcrRepositoryName,
   getLambdaFunctionName,
   getCloudFrontDomainName,
+  getRootDomainName,
+  getServiceUrl,
   getS3BucketName,
   getDynamoDBTableName,
   getIamRoleName,
@@ -63,5 +65,8 @@ export type { EcrStackBaseProps } from './stacks/ecr-stack-base';
 export { LambdaStackBase } from './stacks/lambda-stack-base';
 export type { LambdaStackBaseProps } from './stacks/lambda-stack-base';
 
-export { CloudFrontStackBase } from './stacks/cloudfront-stack-base';
+export {
+  CloudFrontStackBase,
+  CLOUDFRONT_STACK_BASE_ERROR_MESSAGES,
+} from './stacks/cloudfront-stack-base';
 export type { CloudFrontStackBaseProps } from './stacks/cloudfront-stack-base';
