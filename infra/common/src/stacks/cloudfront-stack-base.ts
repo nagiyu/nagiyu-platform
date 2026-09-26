@@ -14,6 +14,15 @@ import { DEFAULT_CLOUDFRONT_CONFIG, mergeConfig } from '../constants/defaults';
 import { SECURITY_HEADERS } from '../constants/security-headers';
 
 /**
+ * CloudFrontStackBase のエラーメッセージ定数
+ */
+export const CLOUDFRONT_STACK_BASE_ERROR_MESSAGES = {
+  INVALID_DEV_DOMAIN_NAME:
+    'dev 環境の Route53 ALIAS レコードを作成できません。domainName は dev アカウントの ' +
+    'Route53 ゾーン（dev.nagiyu.com、またはそのサブドメイン）に属している必要があります',
+} as const;
+
+/**
  * CloudFrontStackBase のプロパティ
  */
 export interface CloudFrontStackBaseProps extends cdk.StackProps {
@@ -266,14 +275,17 @@ export class CloudFrontStackBase extends cdk.Stack {
 
       // domainName がゾーンルート（例: dev.nagiyu.com）と一致する場合はゾーン頂点に、
       // それ以外はゾーンルートからの相対名（例: share-together）でレコードを作成する。
+      // ゾーン外の domainName は誤った Route53 レコードを作ってしまうため、synth を失敗させる。
       const devRootDomain = getRootDomainName('dev');
       const devZoneSuffix = `.${devRootDomain}`;
-      const relativeRecordName =
-        domainName === devRootDomain
-          ? undefined
-          : domainName.endsWith(devZoneSuffix)
-            ? domainName.slice(0, domainName.length - devZoneSuffix.length)
-            : domainName;
+      const isDevZoneRoot = domainName === devRootDomain;
+      const isDevZoneSubdomain = domainName.endsWith(devZoneSuffix);
+      if (!isDevZoneRoot && !isDevZoneSubdomain) {
+        throw new Error(CLOUDFRONT_STACK_BASE_ERROR_MESSAGES.INVALID_DEV_DOMAIN_NAME);
+      }
+      const relativeRecordName = isDevZoneRoot
+        ? undefined
+        : domainName.slice(0, domainName.length - devZoneSuffix.length);
 
       new route53.ARecord(this, 'AliasRecord', {
         zone: hostedZone,

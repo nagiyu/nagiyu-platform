@@ -1,6 +1,9 @@
 import * as cdk from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
-import { CloudFrontStackBase } from '../../../src/stacks/cloudfront-stack-base';
+import {
+  CloudFrontStackBase,
+  CLOUDFRONT_STACK_BASE_ERROR_MESSAGES,
+} from '../../../src/stacks/cloudfront-stack-base';
 
 describe('CloudFrontStackBase', () => {
   let app: cdk.App;
@@ -149,9 +152,10 @@ describe('CloudFrontStackBase', () => {
   describe('customization', () => {
     it('should allow custom domain name', () => {
       // Arrange & Act
+      // prod では dev ゾーン検証（ALIAS 作成）が走らないため、任意のカスタムドメインを許容できる
       const stack = new CloudFrontStackBase(app, 'TestCloudFrontStack', {
         serviceName: 'tools',
-        environment: 'dev',
+        environment: 'prod',
         functionUrl: 'https://example.lambda-url.ap-northeast-1.on.aws/',
         certificateArn: 'arn:aws:acm:us-east-1:123456789012:certificate/test',
         cloudfrontConfig: {
@@ -385,6 +389,21 @@ describe('CloudFrontStackBase', () => {
 
       const template = Template.fromStack(stack);
       template.resourceCountIs('AWS::Route53::RecordSet', 0);
+    });
+
+    it('domainName が dev ゾーン外の場合は synth を失敗させる（誤った ALIAS 作成を防止）', () => {
+      expect(
+        () =>
+          new CloudFrontStackBase(app, 'TestDevInvalidDomainStack', {
+            serviceName: 'tools',
+            environment: 'dev',
+            functionUrl: 'https://example.lambda-url.ap-northeast-1.on.aws/',
+            certificateArn: 'arn:aws:acm:us-east-1:123456789012:certificate/test',
+            cloudfrontConfig: {
+              domainName: 'tools.nagiyu.com',
+            },
+          })
+      ).toThrow(CLOUDFRONT_STACK_BASE_ERROR_MESSAGES.INVALID_DEV_DOMAIN_NAME);
     });
 
     it('dev 環境では Route53 hosted zone を SSM パラメータから動的に取得する', () => {
