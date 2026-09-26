@@ -12,12 +12,12 @@ describe('Route53RecordsStack', () => {
     return new Route53RecordsStack(app, 'TestRoute53RecordsStack', { domainName });
   };
 
-  it('CloudFront 向け CNAME を 16 件、Google Search Console / ACM 検証を各 1 件、apex ALIAS を 1 件作成する', () => {
+  it('CloudFront 向け CNAME を 16 件、Google Search Console / ACM 検証 / dev サブゾーン委任 NS を各 1 件、apex ALIAS を 1 件作成する', () => {
     const stack = createStack();
     const template = Template.fromStack(stack);
 
-    // 16 (CloudFront) + 1 (Google) + 1 (ACM 検証) + 1 (apex ALIAS) = 19
-    template.resourceCountIs('AWS::Route53::RecordSet', 19);
+    // 16 (CloudFront) + 1 (Google) + 1 (ACM 検証) + 1 (dev 委任 NS) + 1 (apex ALIAS) = 20
+    template.resourceCountIs('AWS::Route53::RecordSet', 20);
   });
 
   it('全 CNAME レコードに TTL 300 秒を設定する', () => {
@@ -90,7 +90,7 @@ describe('Route53RecordsStack', () => {
     });
   });
 
-  it('dev.nagiyu.com の CNAME は含まない（次 PR で NS 委任するため削除済み）', () => {
+  it('dev.nagiyu.com は CNAME ではなく dev アカウントのゾーンへの NS 委任になる', () => {
     const stack = createStack();
     const template = Template.fromStack(stack);
 
@@ -98,6 +98,18 @@ describe('Route53RecordsStack', () => {
       Properties: { Type: 'CNAME', Name: 'dev.nagiyu.com.' },
     });
     expect(Object.keys(devCnames).length).toBe(0);
+
+    template.hasResourceProperties('AWS::Route53::RecordSet', {
+      Name: 'dev.nagiyu.com.',
+      Type: 'NS',
+      TTL: '300',
+      ResourceRecords: [
+        'ns-179.awsdns-22.com',
+        'ns-561.awsdns-06.net',
+        'ns-1932.awsdns-49.co.uk',
+        'ns-1237.awsdns-26.org',
+      ],
+    });
   });
 
   it('ホストゾーン参照は SSM パラメータから動的に解決する', () => {

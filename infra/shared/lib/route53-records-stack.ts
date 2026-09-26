@@ -18,10 +18,8 @@ const RECORD_TTL = cdk.Duration.seconds(300);
  * Phase 2 で Route53 に複製する CloudFront 向け CNAME 一覧
  * （NS 切替後に Phase 6 で ALIAS に置換予定）
  */
-// `dev`（dev.nagiyu.com の root）は Issue #3819 のマルチアカウント化に伴い、
-// dev アカウントへ NS 委任するサブゾーンとして次 PR で追加する。
-// 既存の `dev` CNAME と同名レコードは共存できず、CloudFormation の
-// 置換順序（新規作成→旧削除）で失敗するため、削除と追加を別 PR に分ける。
+// `dev`（dev.nagiyu.com）は dev アカウントへ NS 委任するサブゾーンのため、ここには含めない
+// （DEV_ZONE_DELEGATION を参照）。
 const CLOUDFRONT_CNAMES: ReadonlyArray<{
   recordName: string;
   target: string;
@@ -84,6 +82,27 @@ const ACM_VALIDATION_CNAME = {
 };
 
 /**
+ * dev 環境のサブゾーン（dev.nagiyu.com）を dev アカウントへ委任する NS レコード（Issue #3819）
+ *
+ * dev 資材は dev アカウントに置き、dev 配下の DNS レコード・ACM 検証も dev アカウントの
+ * ゾーンで完結させる。prod ゾーンが持つのはこの委任 1 件のみで、dev 側でサービスを
+ * 追加しても prod のリリースは不要。
+ *
+ * 値は dev アカウントの NagiyuSharedRoute53 スタックの出力 HostedZoneNameServersExport。
+ * dev のホストゾーンを作り直すと NS が変わるため、その場合はここも更新する。
+ */
+const DEV_ZONE_DELEGATION = {
+  recordName: 'dev',
+  nameServers: [
+    'ns-179.awsdns-22.com',
+    'ns-561.awsdns-06.net',
+    'ns-1932.awsdns-49.co.uk',
+    'ns-1237.awsdns-26.org',
+  ],
+  comment: 'Delegation of dev subzone to the dev account (Issue #3819)',
+};
+
+/**
  * Phase 2 + Phase 5: 既存 XServer DNS レコードと ACM 検証 CNAME を
  * Route53 に複製するスタック
  *
@@ -116,6 +135,14 @@ export class Route53RecordsStack extends cdk.Stack {
         comment: spec.comment,
       });
     }
+
+    new route53.NsRecord(this, 'NsDevZoneDelegation', {
+      zone: hostedZone,
+      recordName: DEV_ZONE_DELEGATION.recordName,
+      values: DEV_ZONE_DELEGATION.nameServers,
+      ttl: RECORD_TTL,
+      comment: DEV_ZONE_DELEGATION.comment,
+    });
 
     new route53.CnameRecord(this, 'CnameGoogleSearchConsole', {
       zone: hostedZone,
