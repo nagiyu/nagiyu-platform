@@ -214,9 +214,9 @@ NextAuth v5 (Auth.js) は認証フロー全体で複数のクッキー（`sessio
 | prod | `.nagiyu.com` | なし |
 
 - **SSO**: 同一 domain 配下では Cookie が共有されるため、dev は `auth.dev.nagiyu.com` / `admin.dev.nagiyu.com` / `stock-tracker.dev.nagiyu.com` などで、prod は `auth.nagiyu.com` / `admin.nagiyu.com` / `tools.nagiyu.com` などで SSO が成立する。
-- **なぜクッキー名まで変えるか**: `domain` の分離だけでは、同名クッキーが dev/prod 双方のブラウザ環境で偶然衝突しうる。**すべてのクッキー名**を環境別に変えることで、dev と prod の認証フロー全体が混同されないようにしている。`sessionToken` だけでなく `callbackUrl` 等も揃えて変える必要がある。
+- **なぜクッキー名まで変えるか**: prod の Cookie（`Domain=.nagiyu.com`）は `*.dev.nagiyu.com` にも送られるため、`domain` を分けるだけでは dev 側で prod の Cookie と同名になって衝突する。**すべてのクッキー名**を環境別に変えることで、dev と prod の認証フロー全体が混同されないようにしている。`sessionToken` だけでなく `callbackUrl` 等も揃えて変える必要がある。
 
-**dev/prod の判定に `NODE_ENV` ではなく実行時環境変数 `NAGIYU_ENV` を使う理由**: Next.js は `next build` 時に `process.env.NODE_ENV` をリテラル `'production'` へ静的に置換するため、デプロイ後のサーバーサイドでは `NODE_ENV` から dev/prod を判定できない（`NEXT_PUBLIC_` プレフィックスの環境変数も同様にビルド時にインライン化される）。実際、この置換により dev 環境も過去は prod 扱いの Cookie 設定（`.dev` サフィックスなし）で動いていた。専用の実行時環境変数 `NAGIYU_ENV`（未設定時は安全側で prod 扱い）を導入することで、デプロイ後も正しく判定できるようにしている。`NODE_ENV === 'development'`（ローカル開発）の判定のみ、`next build` を経ないため引き続き `NODE_ENV` を使う。
+**dev/prod の判定に `NODE_ENV` ではなく実行時環境変数 `NAGIYU_ENV` を使う理由**: Next.js は `next build` 時に `process.env.NODE_ENV` をリテラル `'production'` へ静的に置換するため、デプロイ後のサーバーサイドでは `NODE_ENV` から dev/prod を判定できない（`NEXT_PUBLIC_` プレフィックスの環境変数も同様にビルド時にインライン化される）。実際、以前は `NODE_ENV === 'prod'` で本番を判定していたため判定が常に偽になり、prod も dev も `.dev` サフィックス付き・`Domain=.nagiyu.com` の同じ設定で動いていた。専用の実行時環境変数 `NAGIYU_ENV`（未設定時は安全側で prod 扱い）を導入することで、デプロイ後も正しく判定できるようにしている。`NODE_ENV === 'development'`（ローカル開発）の判定のみ、`next build` を経ないため引き続き `NODE_ENV` を使う。
 
 **移行の影響**: 上記の是正により本番のクッキー名が変わるため、master リリース時に一度だけ全ユーザーの再ログインが必要になる。
 
