@@ -68,7 +68,7 @@ jobs:
       - name: CDK Bootstrap (if needed)
         run: |
           echo "Checking if CDK bootstrap is needed..."
-          npm run cdk --workspace=@nagiyu/infra-admin -- bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }} --context env=${{ steps.setup-environment.outputs.environment }} || echo "Bootstrap already exists"
+          npm run cdk --workspace=@nagiyu/infra-admin -- bootstrap aws://$(aws sts get-caller-identity --query Account --output text)/${{ env.AWS_REGION }} --context env=${{ steps.setup-environment.outputs.environment }} || echo "Bootstrap already exists"
 
       - name: Deploy Infrastructure (ECR)
         env:
