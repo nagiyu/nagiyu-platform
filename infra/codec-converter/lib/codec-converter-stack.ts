@@ -14,12 +14,7 @@ import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import { Construct } from 'constructs';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
-import {
-  SSM_PARAMETERS,
-  grantErrorEventsWrite,
-  getCloudFrontDomainName,
-  getServiceUrl,
-} from '@nagiyu/infra-common';
+import { SSM_PARAMETERS, grantErrorEventsWrite } from '@nagiyu/infra-common';
 import { AppRuntimePolicy } from './policies/app-runtime-policy';
 import { LambdaExecutionRole } from './roles/lambda-execution-role';
 import { BatchJobRole } from './roles/batch-job-role';
@@ -37,8 +32,16 @@ export class CodecConverterStack extends cdk.Stack {
     const envName = this.node.tryGetContext('env') || 'dev';
     const appVersion = props?.appVersion || '1.0.0';
 
-    // CORS allowed origin (configurable per environment)
-    const defaultOrigin = getServiceUrl('codec-converter', envName as 'dev' | 'prod');
+    // ベースドメイン（SSM 共有パラメータ）。prod アカウントでは 'nagiyu.com'、
+    // dev アカウントでは 'dev.nagiyu.com' が入る（アカウントごとに値が異なる）ため、
+    // dev/prod で分岐せず同じ組み立て方（`codec-converter.${baseDomain}`）でよい。
+    const baseDomain = ssm.StringParameter.valueForStringParameter(
+      this,
+      SSM_PARAMETERS.ACM_DOMAIN_NAME
+    );
+
+    // CORS allowed origin (dev/prod 共通で baseDomain から組み立てる)
+    const defaultOrigin = `https://codec-converter.${baseDomain}`;
     const allowedOrigin = this.node.tryGetContext('allowedOrigin') || defaultOrigin;
 
     // S3 Bucket for input/output files
@@ -346,8 +349,8 @@ export class CodecConverterStack extends cdk.Stack {
         ssm.StringParameter.valueForStringParameter(this, SSM_PARAMETERS.ACM_CERTIFICATE_ARN)
       );
 
-      // Construct domain name based on environment
-      const domainName = getCloudFrontDomainName('codec-converter', envName as 'dev' | 'prod');
+      // ドメイン名（dev/prod 共通で baseDomain から組み立てる。envName によるプレフィックス分岐はしない）
+      const domainName = `codec-converter.${baseDomain}`;
 
       // 検索エンジンにインデックスさせない（Portal 以外は常に noindex）
       const noindexHeadersPolicy = new cloudfront.ResponseHeadersPolicy(
