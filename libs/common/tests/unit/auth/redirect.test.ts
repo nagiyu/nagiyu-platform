@@ -20,9 +20,9 @@ describe('isAllowedNagiyuRedirectUrl', () => {
     });
 
     it('*.dev.nagiyu.com（dev 環境のサブドメイン）は許可', () => {
-      expect(
-        isAllowedNagiyuRedirectUrl('https://stock-tracker.dev.nagiyu.com/x', BASE_URL)
-      ).toBe(true);
+      expect(isAllowedNagiyuRedirectUrl('https://stock-tracker.dev.nagiyu.com/x', BASE_URL)).toBe(
+        true
+      );
     });
 
     it('apex ドメイン nagiyu.com は許可', () => {
