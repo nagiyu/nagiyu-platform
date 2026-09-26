@@ -8,7 +8,7 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { SnsEventSource, DynamoEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { Construct } from 'constructs';
-import { grantErrorEventsWrite } from '@nagiyu/infra-common';
+import { grantErrorEventsWrite, getServiceUrl } from '@nagiyu/infra-common';
 
 export interface BatchLambdaStackProps extends cdk.StackProps {
   environment: 'dev' | 'prod';
@@ -54,10 +54,7 @@ export class BatchLambdaStack extends cdk.Stack {
     const adminAlarmTopicArn = `arn:aws:sns:${region}:${account}:nagiyu-admin-alarms-${environment}`;
 
     // Admin Web の URL（自分自身、Push 通知の遷移先）
-    const adminUrl =
-      environment === 'prod'
-        ? 'https://admin.nagiyu.com'
-        : `https://${environment}-admin.nagiyu.com`;
+    const adminUrl = getServiceUrl('admin', environment);
 
     // VAPID キー（CDK context から渡される。未指定時はプレースホルダー）
     const vapidPublicKey = scope.node.tryGetContext('vapidPublicKey') || 'PLACEHOLDER';

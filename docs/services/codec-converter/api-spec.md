@@ -8,7 +8,7 @@
 
 | 環境 | URL                                      |
 | ---- | ---------------------------------------- |
-| 開発 | `https://dev-codec-converter.nagiyu.com` |
+| 開発 | `https://codec-converter.dev.nagiyu.com` |
 | 本番 | `https://codec-converter.nagiyu.com`     |
 
 ### 1.2 認証方式
@@ -370,7 +370,7 @@ interface Job {
 
 ```json
 {
-    "AllowedOrigins": ["https://codec-converter.nagiyu.com", "https://dev-codec-converter.nagiyu.com"],
+    "AllowedOrigins": ["https://codec-converter.nagiyu.com", "https://codec-converter.dev.nagiyu.com"],
     "AllowedMethods": ["GET", "POST"],
     "AllowedHeaders": ["*"],
     "MaxAgeSeconds": 3600

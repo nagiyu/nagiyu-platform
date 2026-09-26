@@ -10,7 +10,7 @@
 
 | 環境        | 用途               | デプロイ元ブランチ          | URL                                 |
 | ----------- | ------------------ | --------------------------- | ----------------------------------- |
-| dev (開発)  | 開発・検証環境     | `develop`, `integration/**` | `https://dev-tools.nagiyu.com`      |
+| dev (開発)  | 開発・検証環境     | `develop`, `integration/**` | `https://tools.dev.nagiyu.com`      |
 | prod (本番) | 本番サービス提供   | `master`                    | `https://tools.nagiyu.com`          |
 
 ### 1.2 リソース構成
@@ -54,13 +54,9 @@
 
 ### 2.3 認証情報
 
-GitHub Actions で自動デプロイを行うには、既存の IAM ユーザー (`nagiyu-github-actions`) の認証情報が必要です。
-
-IAM ユーザーは `infra/shared/iam/users/github-actions-user.yaml` で定義されており、以下のポリシーがアタッチされています:
-- `nagiyu-deploy-policy-core`
-- `nagiyu-deploy-policy-container` (ECR 権限を含む)
-- `nagiyu-deploy-policy-application` (Lambda 権限を含む)
-- `nagiyu-deploy-policy-integration`
+GitHub Actions で自動デプロイを行うための AWS 認証は、共有インフラの GitHub OIDC ロール
+（dev / prod / pull_request 用の 3 ロール）を使う。長期アクセスキーは使わない。
+設計・登録手順は [共通インフラ: IAM 詳細](../../infra/shared/iam.md) を参照。
 
 ---
 
@@ -628,25 +624,20 @@ npm test
 
 #### 前提条件
 
-GitHub Actions で自動デプロイを行うには、既存の IAM ユーザー (`nagiyu-github-actions`) の認証情報が必要です。
+GitHub Actions で自動デプロイを行うための AWS 認証は、共有インフラの GitHub OIDC ロール
+（dev / prod / pull_request 用の 3 ロール）を使う。長期アクセスキーは使わない。
+設計・登録手順は [共通インフラ: IAM 詳細](../../infra/shared/iam.md) を参照。
 
-IAM ユーザーは `infra/shared/iam/users/github-actions-user.yaml` で定義されており、以下のポリシーがアタッチされています:
-- `nagiyu-deploy-policy-core`
-- `nagiyu-deploy-policy-container` (ECR 権限を含む)
-- `nagiyu-deploy-policy-application` (Lambda 権限を含む)
-- `nagiyu-deploy-policy-integration`
+#### GitHub Variables の設定
 
-#### GitHub Secrets の設定
-
-GitHub リポジトリの Settings → Secrets and variables → Actions で以下を確認:
+GitHub リポジトリの Settings → Secrets and variables → Actions → Variables で以下を確認:
 
 | Name | 説明 | 設定済み |
 |------|------|---------|
-| `AWS_ACCESS_KEY_ID` | IAM ユーザーのアクセスキー ID | ✓ (共通インフラで設定済み) |
-| `AWS_SECRET_ACCESS_KEY` | IAM ユーザーのシークレットアクセスキー | ✓ (共通インフラで設定済み) |
-| `AWS_REGION` | デプロイ先リージョン (`us-east-1`) | ✓ (共通インフラで設定済み) |
+| `AWS_ROLE_ARN`（Environment `dev` / `prod`） | 対応する GitHub Actions OIDC ロールの ARN | ✓ (共通インフラで設定済み) |
+| `AWS_PR_ROLE_ARN`（リポジトリ変数） | pull_request 用ロールの ARN | ✓ (共通インフラで設定済み) |
 
-**注意**: これらのシークレットは既存の共通インフラワークフロー (ACM, VPC など) と共有されます。
+**注意**: これらの変数は既存の共通インフラワークフロー (ACM, VPC など) と共有されます。
 
 #### ワークフロー詳細
 
@@ -671,7 +662,7 @@ GitHub リポジトリの Settings → Secrets and variables → Actions で以�
 5. **検証**: Function URL を取得してヘルスチェック実行
 6. **CloudFront デプロイ**: CloudFront ディストリビューションの CDK スタックをデプロイ
     - ACM 証明書 ARN を共有インフラスタックのエクスポートから自動取得
-    - ドメイン名を共有インフラスタックのエクスポートから自動取得し、環境に応じたサブドメインを構成 (prod: `tools.example.com`, dev: `dev-tools.example.com`)
+    - ドメイン名を共有インフラスタックのエクスポートから自動取得し、環境に応じたサブドメインを構成 (prod: `tools.example.com`, dev: `tools.dev.example.com`)
 
 **CDK との統合:**
 - インフラとアプリケーションを一つのワークフローで完全自動デプロイ

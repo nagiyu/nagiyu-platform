@@ -46,6 +46,7 @@ jobs:
     needs: [nextjs-build]
 
     permissions:
+      id-token: write
       contents: read
 
     steps:
@@ -69,8 +70,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
 
       - name: Build Web Docker image
@@ -127,6 +127,7 @@ jobs:
     needs: [test]
 
     permissions:
+      id-token: write
       contents: read
 
     steps:
@@ -182,15 +183,14 @@ jobs:
         if: always()
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
 
-      - name: Upload Playwright HTML report to reports.nagiyu.com
+      - name: Upload Playwright HTML report to E2E reports
         if: always()
         run: |
           aws s3 sync services/codec-converter/web/playwright-report/ \
-            "s3://nagiyu-e2e-reports/codec-converter/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-mobile/" \
+            "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/codec-converter/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-mobile/" \
             --delete --no-progress
 
   integration-test-chromium-desktop:
@@ -200,6 +200,7 @@ jobs:
     if: github.base_ref == 'develop' || github.base_ref == 'master'
 
     permissions:
+      id-token: write
       contents: read
 
     steps:
@@ -255,15 +256,14 @@ jobs:
         if: always()
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
 
-      - name: Upload Playwright HTML report to reports.nagiyu.com
+      - name: Upload Playwright HTML report to E2E reports
         if: always()
         run: |
           aws s3 sync services/codec-converter/web/playwright-report/ \
-            "s3://nagiyu-e2e-reports/codec-converter/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-desktop/" \
+            "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/codec-converter/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-desktop/" \
             --delete --no-progress
 
   integration-test-webkit-mobile:
@@ -273,6 +273,7 @@ jobs:
     if: github.base_ref == 'develop' || github.base_ref == 'master'
 
     permissions:
+      id-token: write
       contents: read
 
     steps:
@@ -328,15 +329,14 @@ jobs:
         if: always()
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
 
-      - name: Upload Playwright HTML report to reports.nagiyu.com
+      - name: Upload Playwright HTML report to E2E reports
         if: always()
         run: |
           aws s3 sync services/codec-converter/web/playwright-report/ \
-            "s3://nagiyu-e2e-reports/codec-converter/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/webkit-mobile/" \
+            "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/codec-converter/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/webkit-mobile/" \
             --delete --no-progress
 
   lint:
@@ -507,7 +507,7 @@ jobs:
               'skipped': '⏭️'
             };
 
-            const reportBaseUrl = `https://reports.nagiyu.com/codec-converter/pr-${context.issue.number}/${context.runId}`;
+            const reportBaseUrl = `${{ vars.E2E_REPORTS_BASE_URL || 'https://reports.nagiyu.com' }}/codec-converter/pr-${context.issue.number}/${context.runId}`;
             const reportProjects = {
               'Integration Tests (chromium-mobile)': 'chromium-mobile',
               'Integration Tests (chromium-desktop)': 'chromium-desktop',

@@ -12,6 +12,7 @@ import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { JobConfigSchema } from './lib/types.js';
 import { runCopy } from './lib/copy-logic.js';
 import { DynamoDocumentClientStoreAdapter } from './lib/dynamo-store-adapter.js';
+import { createSourceDynamoDBDocumentClient } from './lib/source-reader-client.js';
 import { ERROR_MESSAGES } from './lib/errors.js';
 import type { JobConfig, CopyResult } from './lib/types.js';
 
@@ -62,9 +63,13 @@ export async function handler(event: unknown): Promise<HandlerResponse> {
   });
 
   try {
-    const docClient = getDynamoDBDocumentClient();
-    const sourceStore = new DynamoDocumentClientStoreAdapter(docClient, config.sourceTable);
-    const destStore = new DynamoDocumentClientStoreAdapter(docClient, config.destTable);
+    // source（prod）と dest（dev）で別クライアント・別認証情報を使う。
+    // source は SOURCE_READER_ROLE_ARN を AssumeRole した一時認証情報、
+    // dest は Lambda 実行ロール（dev アカウント自身）のデフォルト認証情報。
+    const sourceDocClient = createSourceDynamoDBDocumentClient();
+    const destDocClient = getDynamoDBDocumentClient();
+    const sourceStore = new DynamoDocumentClientStoreAdapter(sourceDocClient, config.sourceTable);
+    const destStore = new DynamoDocumentClientStoreAdapter(destDocClient, config.destTable);
 
     const result: CopyResult = await runCopy(sourceStore, destStore, config);
 

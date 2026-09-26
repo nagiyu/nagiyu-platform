@@ -362,7 +362,7 @@ CI 環境で必要な環境変数:
 ```bash
 GOOGLE_TEST_EMAIL={テスト用 Google アカウント}
 GOOGLE_TEST_PASSWORD={パスワード}
-NEXTAUTH_URL=https://dev-auth.nagiyu.com
+NEXTAUTH_URL=https://auth.dev.nagiyu.com
 ```
 
 ---

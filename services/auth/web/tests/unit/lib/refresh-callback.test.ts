@@ -46,13 +46,13 @@ describe('resolveRefreshCallbackUrl', () => {
     });
 
     it('http スキームの *.nagiyu.com も許可する', () => {
-      const url = 'http://dev-admin.nagiyu.com/';
+      const url = 'http://admin.dev.nagiyu.com/';
       const result = resolveRefreshCallbackUrl(url, BASE_URL);
       expect(result).toBe(url);
     });
 
-    it('dev-*.nagiyu.com も許可する', () => {
-      const url = 'https://dev-stock-tracker.nagiyu.com/';
+    it('*.dev.nagiyu.com（dev 環境のサブドメイン）も許可する', () => {
+      const url = 'https://stock-tracker.dev.nagiyu.com/';
       const result = resolveRefreshCallbackUrl(url, BASE_URL);
       expect(result).toBe(url);
     });

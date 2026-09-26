@@ -47,4 +47,16 @@ describe('DockerBuildLockStack', () => {
       },
     });
   });
+
+  it('bucketName を指定した場合はそのバケット名を使用する（dev アカウント用）', () => {
+    const app = new cdk.App();
+    const stack = new DockerBuildLockStack(app, 'TestDockerBuildLockStackDev', {
+      bucketName: 'nagiyu-docker-build-lock-dev',
+    });
+
+    const template = Template.fromStack(stack);
+    template.hasResourceProperties('AWS::S3::Bucket', {
+      BucketName: 'nagiyu-docker-build-lock-dev',
+    });
+  });
 });

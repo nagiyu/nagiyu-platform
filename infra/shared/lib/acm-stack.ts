@@ -1,11 +1,19 @@
 import * as cdk from 'aws-cdk-lib';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { SSM_PARAMETERS } from '../libs/utils/ssm';
 
 export interface AcmStackProps extends cdk.StackProps {
   domainName: string;
+  /**
+   * DNS 検証に使うホストゾーン。
+   * 指定した場合はそのゾーンで自動 DNS 検証する（dev アカウント: 同一アカウント内の
+   * Route53Stack のホストゾーンを渡し、手動での検証レコード追加を不要にする）。
+   * 未指定の場合は現行どおり `CertificateValidation.fromDns()`（手動 DNS 検証）を使う。
+   */
+  hostedZone?: route53.IHostedZone;
 }
 
 export class AcmStack extends cdk.Stack {
@@ -18,7 +26,9 @@ export class AcmStack extends cdk.Stack {
     this.certificate = new acm.Certificate(this, 'Certificate', {
       domainName: props.domainName,
       subjectAlternativeNames: [`*.${props.domainName}`],
-      validation: acm.CertificateValidation.fromDns(),
+      validation: props.hostedZone
+        ? acm.CertificateValidation.fromDns(props.hostedZone)
+        : acm.CertificateValidation.fromDns(),
     });
 
     // Export

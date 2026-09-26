@@ -3,6 +3,8 @@ import {
   getEcrRepositoryName,
   getLambdaFunctionName,
   getCloudFrontDomainName,
+  getRootDomainName,
+  getServiceUrl,
   getS3BucketName,
   getDynamoDBTableName,
   getIamRoleName,
@@ -48,9 +50,29 @@ describe('naming utilities', () => {
       expect(getCloudFrontDomainName('auth', 'prod')).toBe('auth.nagiyu.com');
     });
 
-    it('should generate CloudFront domain name for dev environment with prefix', () => {
-      expect(getCloudFrontDomainName('tools', 'dev')).toBe('dev-tools.nagiyu.com');
-      expect(getCloudFrontDomainName('auth', 'dev')).toBe('dev-auth.nagiyu.com');
+    it('should generate CloudFront domain name for dev environment under the dev zone', () => {
+      expect(getCloudFrontDomainName('tools', 'dev')).toBe('tools.dev.nagiyu.com');
+      expect(getCloudFrontDomainName('auth', 'dev')).toBe('auth.dev.nagiyu.com');
+    });
+  });
+
+  describe('getRootDomainName', () => {
+    it('should return nagiyu.com for prod', () => {
+      expect(getRootDomainName('prod')).toBe('nagiyu.com');
+    });
+
+    it('should return dev.nagiyu.com for dev', () => {
+      expect(getRootDomainName('dev')).toBe('dev.nagiyu.com');
+    });
+  });
+
+  describe('getServiceUrl', () => {
+    it('should generate service URL for prod environment', () => {
+      expect(getServiceUrl('auth', 'prod')).toBe('https://auth.nagiyu.com');
+    });
+
+    it('should generate service URL for dev environment under the dev zone', () => {
+      expect(getServiceUrl('auth', 'dev')).toBe('https://auth.dev.nagiyu.com');
     });
   });
 

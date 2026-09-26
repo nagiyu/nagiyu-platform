@@ -3,6 +3,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import { Construct } from 'constructs';
+import { getServiceUrl } from '@nagiyu/infra-common';
 
 export interface SNSStackProps {
   environment: string;
@@ -28,10 +29,7 @@ export class SNSStack extends Construct {
     super(scope, id);
 
     const { environment } = props;
-    const adminUrl =
-      environment === 'prod'
-        ? 'https://admin.nagiyu.com'
-        : `https://${environment}-admin.nagiyu.com`;
+    const adminUrl = getServiceUrl('admin', environment as 'dev' | 'prod');
 
     // 本流: 各サービスの CloudWatch Alarm 集約用
     // HTTPS subscription は意図的に付けない（alarm-ingest Lambda のみが subscribe する）

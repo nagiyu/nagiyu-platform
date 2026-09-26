@@ -26,4 +26,18 @@ export const ERROR_MESSAGES = {
     'mirror 戦略では gsi 設定は使用できません。gsi は gsiWindow 戦略専用です。',
   /** mirror 戦略で scope が未指定の場合のエラー */
   MIRROR_SCOPE_REQUIRED: 'mirror 戦略では scope の指定が必須です。',
+  /**
+   * 環境変数 SOURCE_READER_ROLE_ARN が未設定の場合のエラー
+   *
+   * prod テーブルは AWS マネージドキー暗号化のためクロスアカウントの
+   * リソースポリシー許可が使えず、prod 側の読み取り専用ロールを
+   * AssumeRole する必要がある。未設定時に同一アカウントの読み取りへ
+   * フォールバックすると誤ってコピー元アカウントのテーブルを読みに行く
+   * 恐れがあるため、フォールバックせずエラーにする。
+   */
+  SOURCE_READER_ROLE_ARN_MISSING:
+    '環境変数 SOURCE_READER_ROLE_ARN が設定されていません。prod テーブル読み取り用ロールの ARN を指定してください。',
+  /** prod 読み取り用ロールの AssumeRole で認証情報が得られなかった場合のエラー */
+  SOURCE_READER_ASSUME_ROLE_FAILED:
+    'prod テーブル読み取り用ロールの AssumeRole で認証情報を取得できませんでした。',
 } as const;

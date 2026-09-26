@@ -8,7 +8,7 @@
 
 - [初回セットアップ](./setup.md) が完了していること
 - AWS CLI が設定済みであること
-- デプロイ権限を持つ IAM ユーザーの認証情報が設定されていること
+- IAM Identity Center（SSO）のプロファイルが設定済みであること（[AWS アカウント構成とアクセス管理](./aws-accounts.md) を参照）
 
 ---
 
@@ -16,12 +16,11 @@
 
 ### ローカル環境からのデプロイ
 
-#### 1. AWS プロファイルの切り替え（必要な場合）
-
-ローカル開発ユーザーを使用する場合:
+#### 1. SSO ログインとプロファイルの切り替え
 
 ```bash
-export AWS_PROFILE=nagiyu-local-dev
+aws sso login --sso-session nagiyu
+export AWS_PROFILE=nagiyu-prod-admin
 ```
 
 #### 2. スタックのデプロイ
@@ -84,16 +83,6 @@ cd infra/shared/iam/users
 aws cloudformation deploy \
   --template-file github-actions-user.yaml \
   --stack-name nagiyu-shared-github-actions-user \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region us-east-1
-```
-
-ローカル開発ユーザー:
-
-```bash
-aws cloudformation deploy \
-  --template-file local-dev-user.yaml \
-  --stack-name nagiyu-shared-local-dev-user \
   --capabilities CAPABILITY_NAMED_IAM \
   --region us-east-1
 ```
@@ -249,48 +238,6 @@ gh workflow run tools-deploy.yml
 
 ---
 
-## GitHub Actions による自動デプロイ (レガシー)
-
-### ワークフロー設定例
-
-`.github/workflows/deploy-infra.yml`:
-
-```yaml
-name: Deploy Infrastructure
-
-on:
-  push:
-    branches:
-      - develop
-      - integration/**
-    paths:
-      - 'infra/**'
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Deploy CloudFormation stack
-        run: |
-          aws cloudformation deploy \
-            --template-file infra/<パス>/template.yaml \
-            --stack-name <スタック名> \
-            --capabilities CAPABILITY_NAMED_IAM \
-            --region us-east-1
-```
-
----
-
 ## デプロイ確認
 
 ### スタックの状態確認
@@ -354,10 +301,9 @@ aws cloudformation wait stack-delete-complete \
 3. nagiyu-shared-deploy-policy-application
 4. nagiyu-shared-deploy-policy-integration
 5. nagiyu-shared-github-actions-user
-6. nagiyu-shared-local-dev-user
 ```
 
-**依存関係:** 4つのdeploy-policy → github-actions-user, local-dev-user
+**依存関係:** 4つのdeploy-policy → github-actions-user
 
 ### 2. 共通インフラ（将来）
 
@@ -445,26 +391,27 @@ aws cloudformation deploy --template-file <テンプレート> --stack-name <ス
 #### GitHub Actions ワークフローが失敗する
 
 **原因:**
-- IAM 権限が不足している
-- AWS_ACCOUNT_ID シークレットが未設定
+- OIDC ロールに必要な IAM 権限が不足している
+- Environment / リポジトリの `AWS_ROLE_ARN` / `AWS_PR_ROLE_ARN` 変数が未設定
 - CDK Bootstrap が未実行
 
 **対処法:**
 
 ```bash
-# IAM 権限の確認
-aws iam list-attached-user-policies --user-name nagiyu-github-actions
+# IAM 権限の確認（対象ロールは環境に応じて -dev / -prod / -pr を使い分ける）
+aws iam list-attached-role-policies --role-name nagiyu-github-actions-dev
 
-# 必要なシークレットの確認
-# GitHub Settings → Secrets → Actions で以下を確認:
-# - AWS_ACCESS_KEY_ID
-# - AWS_SECRET_ACCESS_KEY
-# - AWS_ACCOUNT_ID
+# 必要な変数の確認
+# GitHub Settings → Secrets and variables → Actions → Variables で以下を確認:
+# - Environment `dev` / `prod` の AWS_ROLE_ARN
+# - リポジトリ変数 AWS_PR_ROLE_ARN
 
 # CDK Bootstrap の手動実行
 cd infra/shared
 npx cdk bootstrap aws://<ACCOUNT_ID>/us-east-1
 ```
+
+GitHub Actions の AWS 認証の設計・登録手順は [IAM 詳細](./shared/iam.md) を参照。
 
 #### CDK Deploy がスタック名を見つけられない
 

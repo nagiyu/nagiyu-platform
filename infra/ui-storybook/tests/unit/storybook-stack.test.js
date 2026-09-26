@@ -36,11 +36,11 @@ const synth = () => {
 };
 
 describe('StorybookStack', () => {
-  it('dev-storybook.nagiyu.com を Aliases に設定する', () => {
+  it('storybook.dev.nagiyu.com を Aliases に設定する', () => {
     const template = synth();
     template.hasResourceProperties('AWS::CloudFront::Distribution', {
       DistributionConfig: Match.objectLike({
-        Aliases: ['dev-storybook.nagiyu.com'],
+        Aliases: ['storybook.dev.nagiyu.com'],
       }),
     });
   });
@@ -104,12 +104,12 @@ describe('StorybookStack', () => {
     });
   });
 
-  it('Route53 ALIAS A レコードを dev-storybook で作成する', () => {
+  it('Route53 ALIAS A レコードを storybook で作成する', () => {
     const template = synth();
     template.hasResourceProperties('AWS::Route53::RecordSet', {
       Type: 'A',
       Name: {
-        'Fn::Join': ['', Match.arrayWith(['dev-storybook.'])],
+        'Fn::Join': ['', Match.arrayWith(['storybook.'])],
       },
     });
   });

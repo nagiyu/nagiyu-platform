@@ -17,7 +17,7 @@
 - **リポジトリ**: nagiyu-platform monorepo
 - **配置場所**: `services/share-together/`
 - **インフラ定義**: `infra/share-together/`
-- **ドメイン**: `share-together.nagiyu.com`（prod）/ `dev-share-together.nagiyu.com`（dev）
+- **ドメイン**: `share-together.nagiyu.com`（prod）/ `share-together.dev.nagiyu.com`（dev）
 
 ## 主要機能
 

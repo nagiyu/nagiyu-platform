@@ -1,12 +1,42 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly LOCK_BUCKET="nagiyu-docker-build-lock"
+readonly ACCOUNT_ID_DEV="253388243634"
+readonly ACCOUNT_ID_PROD="166562222746"
+readonly LOCK_BUCKET_DEV="nagiyu-docker-build-lock-dev"
+readonly LOCK_BUCKET_PROD="nagiyu-docker-build-lock"
 readonly LOCK_PREFIX="locks"
 readonly LOCK_LIMIT=3
 readonly POLL_INTERVAL_SECONDS=30
 readonly ERROR_MESSAGE_INVALID_LOCK_COUNT="Docker ビルドロックの取得に失敗しました: ロック数が不正です"
 readonly ERROR_MESSAGE_USAGE="使用方法: $0 <acquire|release>"
+readonly ERROR_MESSAGE_UNKNOWN_ACCOUNT="Docker ビルドロックバケットの判定に失敗しました: 未知の AWS アカウント ID です"
+
+function resolve_lock_bucket() {
+  if [[ -n "${DOCKER_BUILD_LOCK_BUCKET:-}" ]]; then
+    echo "${DOCKER_BUILD_LOCK_BUCKET}"
+    return 0
+  fi
+
+  local account_id
+  account_id="$(aws sts get-caller-identity --query Account --output text)"
+
+  case "${account_id}" in
+  "${ACCOUNT_ID_DEV}")
+    echo "${LOCK_BUCKET_DEV}"
+    ;;
+  "${ACCOUNT_ID_PROD}")
+    echo "${LOCK_BUCKET_PROD}"
+    ;;
+  *)
+    echo "${ERROR_MESSAGE_UNKNOWN_ACCOUNT} (${account_id})" >&2
+    return 1
+    ;;
+  esac
+}
+
+LOCK_BUCKET="$(resolve_lock_bucket)"
+readonly LOCK_BUCKET
 
 readonly WORKFLOW_NAME="${GITHUB_WORKFLOW:?GITHUB_WORKFLOW is required}"
 readonly RUN_ID="${GITHUB_RUN_ID:?GITHUB_RUN_ID is required}"
