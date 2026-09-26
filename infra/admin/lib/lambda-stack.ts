@@ -2,7 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
-import { LambdaStackBase, LambdaStackBaseProps } from '@nagiyu/infra-common';
+import { LambdaStackBase, LambdaStackBaseProps, getServiceUrl } from '@nagiyu/infra-common';
 
 export interface LambdaStackProps extends cdk.StackProps {
   environment: string;
@@ -32,16 +32,10 @@ export class LambdaStack extends LambdaStackBase {
     const vapidPrivateKey = scope.node.tryGetContext('vapidPrivateKey') || 'PLACEHOLDER';
 
     // Auth サービスの URL
-    const authUrl =
-      environment === 'prod'
-        ? 'https://auth.nagiyu.com'
-        : `https://${environment}-auth.nagiyu.com`;
+    const authUrl = getServiceUrl('auth', environment as 'dev' | 'prod');
 
     // Admin サービスの URL (自分自身)
-    const adminUrl =
-      environment === 'prod'
-        ? 'https://admin.nagiyu.com'
-        : `https://${environment}-admin.nagiyu.com`;
+    const adminUrl = getServiceUrl('admin', environment as 'dev' | 'prod');
 
     const additionalPolicyStatements = [
       new iam.PolicyStatement({

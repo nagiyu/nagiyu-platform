@@ -2,7 +2,12 @@ import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
-import { LambdaStackBase, LambdaStackBaseProps, grantErrorEventsWrite } from '@nagiyu/infra-common';
+import {
+  LambdaStackBase,
+  LambdaStackBaseProps,
+  grantErrorEventsWrite,
+  getServiceUrl,
+} from '@nagiyu/infra-common';
 
 export interface LambdaStackProps extends cdk.StackProps {
   environment: string;
@@ -24,8 +29,7 @@ export class LambdaStack extends LambdaStackBase {
       scope.node.tryGetContext('nextAuthSecret') || 'PLACEHOLDER_NEXTAUTH_SECRET';
 
     // NEXTAUTH_URL の構築
-    const nextAuthUrl =
-      environment === 'prod' ? 'https://auth.nagiyu.com' : `https://${environment}-auth.nagiyu.com`;
+    const nextAuthUrl = getServiceUrl('auth', environment as 'dev' | 'prod');
 
     // DynamoDB アクセス権限の定義
     const additionalPolicyStatements = [

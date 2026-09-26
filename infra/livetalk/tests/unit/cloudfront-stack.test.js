@@ -16,11 +16,11 @@ const synth = (environment) => {
 };
 
 describe('LiveTalkCloudFrontStack', () => {
-  it('dev 環境では dev-live-talk.nagiyu.com を Aliases に設定する', () => {
+  it('dev 環境では live-talk.dev.nagiyu.com を Aliases に設定する', () => {
     const template = synth('dev');
     template.hasResourceProperties('AWS::CloudFront::Distribution', {
       DistributionConfig: Match.objectLike({
-        Aliases: ['dev-live-talk.nagiyu.com'],
+        Aliases: ['live-talk.dev.nagiyu.com'],
       }),
     });
   });
@@ -119,7 +119,7 @@ describe('LiveTalkCloudFrontStack', () => {
     });
     template.hasResourceProperties('AWS::SSM::Parameter', {
       Name: '/nagiyu/livetalk/dev/cloudfront/custom-domain',
-      Value: 'dev-live-talk.nagiyu.com',
+      Value: 'live-talk.dev.nagiyu.com',
     });
   });
 
@@ -143,12 +143,12 @@ describe('LiveTalkCloudFrontStack', () => {
 
   // Route53 ALIAS の Name は `{recordName}.{zoneName}.` の Fn::Join で生成される。
   // zoneName は SSM トークン参照なので、Join 配列内の先頭要素 `{recordName}.` を検証する。
-  it('dev 環境では dev-live-talk の Route53 ALIAS A レコードを CloudFront 向けに作成する', () => {
+  it('dev 環境では live-talk の Route53 ALIAS A レコードを CloudFront 向けに作成する', () => {
     const template = synth('dev');
     template.hasResourceProperties('AWS::Route53::RecordSet', {
       Type: 'A',
       Name: {
-        'Fn::Join': ['', Match.arrayWith(['dev-live-talk.'])],
+        'Fn::Join': ['', Match.arrayWith(['live-talk.'])],
       },
       AliasTarget: Match.objectLike({
         DNSName: {

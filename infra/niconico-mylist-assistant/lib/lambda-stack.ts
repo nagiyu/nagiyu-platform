@@ -5,7 +5,7 @@ import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
-import { grantErrorEventsWrite } from '@nagiyu/infra-common';
+import { grantErrorEventsWrite, getServiceUrl } from '@nagiyu/infra-common';
 import { WebRuntimePolicy } from './policies/web-runtime-policy';
 
 export interface LambdaStackProps extends cdk.StackProps {
@@ -54,12 +54,8 @@ export class LambdaStack extends cdk.Stack {
     } = props;
 
     // Auth URL configuration
-    const authUrl =
-      environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com';
-    const appUrl =
-      environment === 'prod'
-        ? 'https://niconico-mylist-assistant.nagiyu.com'
-        : 'https://dev-niconico-mylist-assistant.nagiyu.com';
+    const authUrl = getServiceUrl('auth', environment as 'dev' | 'prod');
+    const appUrl = getServiceUrl('niconico-mylist-assistant', environment as 'dev' | 'prod');
 
     // ECR リポジトリの参照
     const webRepository = ecr.Repository.fromRepositoryName(

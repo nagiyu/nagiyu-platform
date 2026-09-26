@@ -7,7 +7,7 @@ import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { Environment, SSM_PARAMETERS } from '@nagiyu/infra-common';
+import { Environment, SSM_PARAMETERS, getCloudFrontDomainName } from '@nagiyu/infra-common';
 
 export interface LiveTalkCloudFrontStackProps extends cdk.StackProps {
   environment: Environment;
@@ -21,7 +21,7 @@ export interface LiveTalkCloudFrontStackProps extends cdk.StackProps {
  *   private S3 bucket（OAC 経由、CACHING_OPTIMIZED）
  * - 証明書: 共通ワイルドカード ACM（`*.nagiyu.com`、us-east-1）
  * - カスタムドメイン:
- *     - dev: `dev-live-talk.nagiyu.com`
+ *     - dev: `live-talk.dev.nagiyu.com`
  *     - prod: `live-talk.nagiyu.com`
  * - Route53 ALIAS レコードを同一スタック内で作成（`infra/ui-storybook` と同じパターン）。
  * - 後続 Phase の LLM ストリーミング向けにオリジンタイムアウトを 60s に延長。
@@ -66,9 +66,10 @@ export class LiveTalkCloudFrontStack extends cdk.Stack {
       SSM_PARAMETERS.LIVETALK_ALB_DNS_NAME(environment)
     );
 
-    const customDomain =
-      environment === 'prod' ? 'live-talk.nagiyu.com' : 'dev-live-talk.nagiyu.com';
-    const recordName = environment === 'prod' ? 'live-talk' : 'dev-live-talk';
+    const customDomain = getCloudFrontDomainName('live-talk', environment);
+    // Route53 ALIAS レコード名はゾーンルートからの相対名。
+    // dev はゾーン自体が dev.nagiyu.com のため相対名は 'live-talk'（prod と同じ）でよい。
+    const recordName = 'live-talk';
 
     // CloudFront behavior のパスパターン /assets/* にマッチしたリクエストは
     // URI がそのまま S3 キーになるため /assets/ prefix を除去する必要がある。

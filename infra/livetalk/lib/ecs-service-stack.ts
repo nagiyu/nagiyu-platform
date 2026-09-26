@@ -15,6 +15,7 @@ import {
   getDynamoDBTableArn,
   getDynamoDBTableName,
   getEcrRepositoryName,
+  getServiceUrl,
   grantErrorEventsWrite,
 } from '@nagiyu/infra-common';
 
@@ -80,11 +81,9 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
       SECRET_NAMES.LIVETALK_VAPID(environment)
     );
 
-    const authUrl =
-      environment === 'prod' ? 'https://auth.nagiyu.com' : `https://dev-auth.nagiyu.com`;
+    const authUrl = getServiceUrl('auth', environment);
 
-    const appUrl =
-      environment === 'prod' ? 'https://live-talk.nagiyu.com' : 'https://dev-live-talk.nagiyu.com';
+    const appUrl = getServiceUrl('live-talk', environment);
 
     const vpcId = ssm.StringParameter.valueForStringParameter(
       this,
