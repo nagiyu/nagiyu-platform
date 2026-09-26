@@ -37,9 +37,13 @@ export interface ChatOptions {
   model?: string;
   /** 用途。既定: `conversation`（会話）。要約・分類は安価なモデルへ振り分ける */
   purpose?: ChatPurpose;
-  /** temperature。Provider 側の既定にそのまま投げる場合は省略 */
-  temperature?: number;
-  /** 上限トークン数。Provider 側の既定にそのまま投げる場合は省略 */
+  /**
+   * 上限トークン数。Provider 側の既定にそのまま投げる場合は省略。
+   *
+   * `temperature` は意図的に持たない。GPT-5.2 以降、`reasoning` を有効にした状態で
+   * `temperature` / `top_p` を渡すと API エラーになるため、reasoning.effort の
+   * 用途別チューニング（Issue #3780）に備えて型から先に塞いでいる。
+   */
   maxTokens?: number;
 }
 

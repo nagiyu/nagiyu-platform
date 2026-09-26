@@ -11,10 +11,22 @@ import { IamContainerPolicyStack } from '../lib/iam/iam-container-policy-stack';
 import { IamIntegrationPolicyStack } from '../lib/iam/iam-integration-policy-stack';
 import { IamClaudeReadonlyPolicyStack } from '../lib/iam/iam-claude-readonly-policy-stack';
 import { IamUsersStack } from '../lib/iam/iam-users-stack';
+import { IamGitHubActionsOidcStack } from '../lib/iam/iam-github-actions-oidc-stack';
+import { DevSyncSourceReaderStack } from '../lib/iam/dev-sync-source-reader-stack';
 import { DockerBuildLockStack } from '../lib/docker-build-lock-stack';
 import { ErrorEventsTableStack } from '../lib/error-events-table-stack';
 import { ReportsHostingStack } from '../lib/reports-hosting-stack';
 import { EcsSharedClusterStack } from '../lib/ecs-cluster-stack';
+import { resolveAccountScope } from '../lib/account-scope';
+import {
+  assertScopeAllowsEnv,
+  getDockerBuildLockBucketName,
+  getGitHubActionsOidcRoleIds,
+  getReportsBucketName,
+  includesProdOnlyStacks,
+  getRoute53DomainName,
+  shouldCreateGitHubActionsUser,
+} from '../lib/stack-plan';
 
 const app = new cdk.App();
 
@@ -24,6 +36,19 @@ const env = app.node.tryGetContext('env') || 'dev';
 if (!['dev', 'prod'].includes(env)) {
   throw new Error(`Invalid environment: ${env}. Allowed: dev, prod`);
 }
+
+// デプロイ先アカウントスコープを解決する（マルチアカウント化: Issue #3819）。
+// CDK_DEFAULT_ACCOUNT が prod/dev いずれかに一致すればそのスコープ、
+// 未定義（認証情報なしの synth 等）なら accountScope コンテキスト（既定値 'prod'）を使う。
+const accountScope = resolveAccountScope(
+  process.env.CDK_DEFAULT_ACCOUNT,
+  app.node.tryGetContext('accountScope')
+);
+
+// dev アカウントには dev 環境の資材しか置かない。
+// prod スコープでは現行と同一の全スタック、dev スコープでは prod 専用スタックを除いた構成となる。
+assertScopeAllowsEnv(accountScope, env as 'dev' | 'prod');
+const prodOnlyStacks = includesProdOnlyStacks(accountScope);
 
 const stackEnv = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
@@ -37,37 +62,49 @@ new VpcStack(app, `NagiyuSharedVpc${env.charAt(0).toUpperCase() + env.slice(1)}`
   description: `Shared VPC Infrastructure - ${env} environment`,
 });
 
-// ACM スタックを作成（環境非依存）
-// CloudFront 用の証明書は us-east-1 リージョン必須
 const domainName = process.env.DOMAIN_NAME || app.node.tryGetContext('domainName');
 if (!domainName) {
   throw new Error('DOMAIN_NAME environment variable or domainName context is required');
 }
 
-new AcmStack(app, 'NagiyuSharedAcm', {
-  domainName,
+// dev アカウントでは dev.<domainName> のサブドメインでゾーンを作成し、
+// prod ゾーンから NS 委任する（Issue #3819）
+const scopedDomainName = getRoute53DomainName(accountScope, domainName);
+
+// Route53 ホストゾーン（環境非依存・グローバル）
+// Phase 1 時点ではホストゾーンを作成するのみで、XServer の NS 切替は実施しない
+const route53Stack = new Route53Stack(app, 'NagiyuSharedRoute53', {
+  domainName: scopedDomainName,
+  env: stackEnv,
+  description: 'Shared Route53 hosted zone for nagiyu.com',
+});
+
+// ACM スタックを作成
+// CloudFront 用の証明書は us-east-1 リージョン必須
+// dev アカウントでは dev.<domainName> + *.dev.<domainName> の証明書を、
+// 同一アカウント内の Route53Stack のホストゾーンで自動 DNS 検証する
+const acmStack = new AcmStack(app, 'NagiyuSharedAcm', {
+  domainName: scopedDomainName,
+  hostedZone: accountScope === 'dev' ? route53Stack.hostedZone : undefined,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: 'us-east-1', // CloudFront 用証明書は us-east-1 必須
   },
   description: 'Shared ACM Certificate for CloudFront',
 });
-
-// Route53 ホストゾーン（環境非依存・グローバル）
-// Phase 1 時点ではホストゾーンを作成するのみで、XServer の NS 切替は実施しない
-new Route53Stack(app, 'NagiyuSharedRoute53', {
-  domainName,
-  env: stackEnv,
-  description: 'Shared Route53 hosted zone for nagiyu.com',
-});
+if (accountScope === 'dev') {
+  acmStack.addDependency(route53Stack);
+}
 
 // Route53 レコード（Phase 2: NS 切替前に既存レコードを Route53 に複製）
 // XServer 経由の現行 DNS には影響せず、NS 切替後にこのレコードが応答する
-new Route53RecordsStack(app, 'NagiyuSharedRoute53Records', {
-  domainName,
-  env: stackEnv,
-  description: 'Shared Route53 records replicated from XServer (Phase 2)',
-});
+if (prodOnlyStacks) {
+  new Route53RecordsStack(app, 'NagiyuSharedRoute53Records', {
+    domainName,
+    env: stackEnv,
+    description: 'Shared Route53 records replicated from XServer (Phase 2)',
+  });
+}
 
 // IAM Policies スタックを作成（環境非依存）
 // ポリシーサイズ制限対策のため4つに分割
@@ -98,6 +135,8 @@ const claudeReadonlyPolicyStack = new IamClaudeReadonlyPolicyStack(app, 'NagiyuS
 });
 
 // IAM Users スタックを作成（ポリシーに依存）
+// dev アカウントでは GitHub Actions 用の旧ユーザー（長期アクセスキー方式）は作らず、
+// OIDC ロールのみを使う（Claude 閲覧ユーザーは引き続き作成する）
 new IamUsersStack(app, 'NagiyuSharedIamUsers', {
   policies: {
     core: corePolicyStack.policy,
@@ -106,9 +145,34 @@ new IamUsersStack(app, 'NagiyuSharedIamUsers', {
     integration: integrationPolicyStack.policy,
     claudeReadonly: claudeReadonlyPolicyStack.policy,
   },
+  createGitHubActionsUser: shouldCreateGitHubActionsUser(accountScope),
   env: stackEnv,
-  description: 'Shared IAM Users for GitHub Actions, Local Development and Claude Code on the web',
+  description: 'Shared IAM Users for GitHub Actions and Claude Code on the web',
 });
+
+// GitHub Actions OIDC スタックを作成（ポリシーに依存・環境非依存）
+// 既存の IamUsersStack（長期アクセスキー）とは並行稼働する
+// dev アカウントでは prod ロールを作らない（dev/pr ロールのみ）
+new IamGitHubActionsOidcStack(app, 'NagiyuSharedIamGitHubOidc', {
+  policies: {
+    core: corePolicyStack.policy,
+    application: applicationPolicyStack.policy,
+    container: containerPolicyStack.policy,
+    integration: integrationPolicyStack.policy,
+  },
+  roleIds: getGitHubActionsOidcRoleIds(accountScope),
+  env: stackEnv,
+  description: 'Shared IAM OIDC Provider and GitHub Actions AssumeRole roles',
+});
+
+// dev-sync（dev アカウントの Lambda）が prod テーブルを読み取る際に
+// AssumeRole する読み取り専用ロール（prod アカウントにのみ作成する）
+if (prodOnlyStacks) {
+  new DevSyncSourceReaderStack(app, 'NagiyuSharedDevSyncSourceReader', {
+    env: stackEnv,
+    description: 'IAM role for dev-sync Lambda (dev account) to read prod DynamoDB tables',
+  });
+}
 
 // プラットフォーム共通 ECS Cluster（Portal 専用 nagiyu-root-cluster-{env} とは別物）
 new EcsSharedClusterStack(
@@ -121,7 +185,10 @@ new EcsSharedClusterStack(
   }
 );
 
+// Docker ビルドロック用 S3 バケット
+// dev アカウントでは -dev サフィックス付きの別バケットを使う
 new DockerBuildLockStack(app, 'NagiyuDockerBuildLock', {
+  bucketName: getDockerBuildLockBucketName(accountScope),
   env: stackEnv,
   description: 'S3 bucket for Docker build lock semaphore',
 });
@@ -138,12 +205,20 @@ new ErrorEventsTableStack(
   }
 );
 
-// E2E HTML レポートのホスティング基盤（環境非依存）
-// 各サービスの Playwright HTML レポートを reports.nagiyu.com で公開する
-new ReportsHostingStack(app, 'NagiyuE2eReportsHosting', {
-  domainName,
+// E2E HTML レポートのホスティング基盤
+// 各サービスの Playwright HTML レポートを公開する
+// dev アカウントでは reports.dev.<domainName> で公開し、-dev サフィックス付きの別バケットを使う
+const reportsHostingStack = new ReportsHostingStack(app, 'NagiyuE2eReportsHosting', {
+  domainName: scopedDomainName,
+  bucketName: getReportsBucketName(accountScope),
   env: stackEnv,
   description: 'E2E HTML reports hosting (S3 + CloudFront)',
 });
+if (accountScope === 'dev') {
+  // ACM 証明書・Route53 ホストゾーンの SSM パラメータを読むため、
+  // 両スタックのデプロイ完了を待ってから作成する
+  reportsHostingStack.addDependency(acmStack);
+  reportsHostingStack.addDependency(route53Stack);
+}
 
 app.synth();

@@ -135,6 +135,7 @@ jobs:
     needs: [unit-test]
 
     permissions:
+      id-token: write
       contents: read
 
     steps:
@@ -194,15 +195,14 @@ jobs:
         if: always()
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
 
-      - name: Upload Playwright HTML report to reports.nagiyu.com
+      - name: Upload Playwright HTML report to E2E reports
         if: always()
         run: |
           aws s3 sync services/admin/web/playwright-report/ \
-            "s3://nagiyu-e2e-reports/admin/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-mobile/" \
+            "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/admin/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-mobile/" \
             --delete --no-progress
 
   e2e-test-chromium-desktop:
@@ -212,6 +212,7 @@ jobs:
     if: github.base_ref == 'develop'
 
     permissions:
+      id-token: write
       contents: read
 
     steps:
@@ -271,15 +272,14 @@ jobs:
         if: always()
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
 
-      - name: Upload Playwright HTML report to reports.nagiyu.com
+      - name: Upload Playwright HTML report to E2E reports
         if: always()
         run: |
           aws s3 sync services/admin/web/playwright-report/ \
-            "s3://nagiyu-e2e-reports/admin/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-desktop/" \
+            "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/admin/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-desktop/" \
             --delete --no-progress
 
   e2e-test-webkit-mobile:
@@ -289,6 +289,7 @@ jobs:
     if: github.base_ref == 'develop'
 
     permissions:
+      id-token: write
       contents: read
 
     steps:
@@ -348,15 +349,14 @@ jobs:
         if: always()
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
 
-      - name: Upload Playwright HTML report to reports.nagiyu.com
+      - name: Upload Playwright HTML report to E2E reports
         if: always()
         run: |
           aws s3 sync services/admin/web/playwright-report/ \
-            "s3://nagiyu-e2e-reports/admin/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/webkit-mobile/" \
+            "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/admin/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/webkit-mobile/" \
             --delete --no-progress
 
   build:
@@ -379,6 +379,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build]
 
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -393,8 +397,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
 
       - name: Build Docker image
@@ -450,7 +453,7 @@ jobs:
               'skipped': '⏭️'
             };
 
-            const reportBaseUrl = `https://reports.nagiyu.com/admin/pr-${context.issue.number}/${context.runId}`;
+            const reportBaseUrl = `${{ vars.E2E_REPORTS_BASE_URL || 'https://reports.nagiyu.com' }}/admin/pr-${context.issue.number}/${context.runId}`;
             const reportProjects = {
               'E2E Tests (chromium-mobile)': 'chromium-mobile',
               'E2E Tests (chromium-desktop)': 'chromium-desktop',

@@ -104,9 +104,13 @@ infra/
     - GitHub Actions および ローカル開発者が共通で使用
     - 4つのポリシーに分割: Core, Application, Container, Integration
 
-- **GitHub Actions ユーザー** (CDK: `lib/iam/iam-users-stack.ts`)
-    - CI/CD パイプラインで使用する IAM ユーザー
+- **GitHub Actions OIDC ロール** (CDK: `lib/iam/iam-github-actions-oidc-stack.ts`)
+    - CI/CD パイプラインが GitHub OIDC + AssumeRole で引き受けるロール（dev / prod / pull_request の 3 つ）
     - デプロイポリシーをアタッチ
+    - 旧 GitHub Actions ユーザー（長期アクセスキー）は切り戻し用に残置（撤去予定 #3820）
+
+- **GitHub Actions ユーザー**（長期アクセスキー・移行済み） (CDK: `lib/iam/iam-users-stack.ts`)
+    - OIDC ロールへ移行済みの旧 IAM ユーザー。通常のデプロイでは使わない
 
 - **ローカル開発ユーザー** (CDK: `lib/iam/iam-users-stack.ts`)
     - 開発者がローカル環境から手動デプロイする際に使用
@@ -255,9 +259,8 @@ Nagiyu{Service}{ResourceType}{Env}
 
 ### 認証情報の管理
 
-- IAM ユーザーのアクセスキーは手動発行（CloudFormation では自動生成しない）
-- GitHub Actions には GitHub Secrets で管理
-- ローカル開発者は `~/.aws/credentials` で管理
+- GitHub Actions は GitHub OIDC + AssumeRole で認証し、長期アクセスキーを持たない（詳細は [IAM 詳細](./shared/iam.md)）
+- ローカル開発者用など、引き続きアクセスキーを使うユーザーは手動発行（CloudFormation/CDK では自動生成しない）し、`~/.aws/credentials` で管理
 
 ### タグ戦略
 

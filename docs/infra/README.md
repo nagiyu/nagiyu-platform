@@ -10,6 +10,7 @@ AWS CDK (TypeScript) を用いて、共通基盤と各アプリケーション�
 ### 概要・設計
 
 - [アーキテクチャ](./architecture.md) - インフラ全体の設計思想と構成
+- [AWS アカウント構成とアクセス管理](./aws-accounts.md) - Organizations・IAM Identity Center・ルートユーザーの扱い
 
 ### 運用手順
 

@@ -418,6 +418,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-web]
 
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -432,8 +436,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
 
       - name: Build Web Docker image
@@ -447,6 +450,10 @@ jobs:
     name: Docker Build Batch
     runs-on: ubuntu-latest
     needs: [build-batch]
+
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - name: Checkout code
@@ -462,8 +469,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
 
       - name: Build Batch Docker image
@@ -477,6 +483,10 @@ jobs:
     name: Docker Build Lambda Clip
     runs-on: ubuntu-latest
     needs: [build-lambda-clip]
+
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - name: Checkout code
@@ -492,8 +502,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
 
       - name: Build Lambda Clip Docker image
@@ -507,6 +516,10 @@ jobs:
     name: Docker Build Lambda Zip
     runs-on: ubuntu-latest
     needs: [build-lambda-zip]
+
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - name: Checkout code
@@ -522,8 +535,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
 
       - name: Build Lambda Zip Docker image
@@ -537,6 +549,10 @@ jobs:
     name: E2E Tests (chromium-mobile)
     runs-on: ubuntu-latest
     needs: [build-web]
+
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - name: Checkout code
@@ -589,15 +605,14 @@ jobs:
         if: always()
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
 
-      - name: Upload Playwright HTML report to reports.nagiyu.com
+      - name: Upload Playwright HTML report to E2E reports
         if: always()
         run: |
           aws s3 sync services/quick-clip/web/playwright-report/ \
-            "s3://nagiyu-e2e-reports/quick-clip/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-mobile/" \
+            "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/quick-clip/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-mobile/" \
             --delete --no-progress
 
   e2e-test-web-chromium-desktop:
@@ -605,6 +620,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-web]
     if: github.base_ref == 'develop'
+
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - name: Checkout code
@@ -657,15 +676,14 @@ jobs:
         if: always()
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
 
-      - name: Upload Playwright HTML report to reports.nagiyu.com
+      - name: Upload Playwright HTML report to E2E reports
         if: always()
         run: |
           aws s3 sync services/quick-clip/web/playwright-report/ \
-            "s3://nagiyu-e2e-reports/quick-clip/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-desktop/" \
+            "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/quick-clip/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-desktop/" \
             --delete --no-progress
 
   e2e-test-web-webkit-mobile:
@@ -673,6 +691,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-web]
     if: github.base_ref == 'develop'
+
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - name: Checkout code
@@ -725,15 +747,14 @@ jobs:
         if: always()
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
           aws-region: us-east-1
 
-      - name: Upload Playwright HTML report to reports.nagiyu.com
+      - name: Upload Playwright HTML report to E2E reports
         if: always()
         run: |
           aws s3 sync services/quick-clip/web/playwright-report/ \
-            "s3://nagiyu-e2e-reports/quick-clip/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/webkit-mobile/" \
+            "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/quick-clip/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/webkit-mobile/" \
             --delete --no-progress
 
   report:
@@ -808,7 +829,7 @@ jobs:
               skipped: '⏭️'
             };
 
-            const reportBaseUrl = `https://reports.nagiyu.com/quick-clip/pr-${context.issue.number}/${context.runId}`;
+            const reportBaseUrl = `${{ vars.E2E_REPORTS_BASE_URL || 'https://reports.nagiyu.com' }}/quick-clip/pr-${context.issue.number}/${context.runId}`;
             const reportProjects = {
               'E2E Tests (chromium-mobile)': 'chromium-mobile',
               'E2E Tests (chromium-desktop)': 'chromium-desktop',

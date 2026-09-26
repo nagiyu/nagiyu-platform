@@ -69,13 +69,12 @@ describe('findPendingEvaluations', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].summary.Date).toBe('2026-02-26');
-      expect(result[0].evaluationDate).toBe('2026-02-27');
+      expect(result[0].lastTradingDate).toBe('2026-02-27');
       expect(result[0].exchange.ExchangeID).toBe('NASDAQ');
     });
 
-    it('翌営業日がまだ閉まっていない予測はスキップする', async () => {
-      // 予測日 2026-02-27（金）→ 翌営業日 2026-03-02（月）
-      // 現在 = 2026-02-27 18:00 EST、L = 2026-02-27 のため翌営業日はまだ未確定
+    it('予測日が直近完了取引日以降の予測はスキップする（翌営業日がまだ確定しない）', async () => {
+      // 予測日 2026-02-27（金）= lastTradingDate のため、まだ翌営業日は存在し得ない
       await dailySummaryRepository.upsert(createSummaryInput({ Date: '2026-02-27' }));
 
       const result = await findPendingEvaluations(exchangeRepository, dailySummaryRepository, NOW);
@@ -93,7 +92,7 @@ describe('findPendingEvaluations', () => {
       const result = await findPendingEvaluations(exchangeRepository, dailySummaryRepository, now);
 
       expect(result).toHaveLength(1);
-      expect(result[0].evaluationDate).toBe('2026-02-23');
+      expect(result[0].lastTradingDate).toBe('2026-02-23');
     });
 
     it('AiAnalysisError がある予測は除外する', async () => {

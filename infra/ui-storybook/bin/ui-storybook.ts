@@ -24,7 +24,7 @@ new StorybookStack(app, `NagiyuUiStorybook${envSuffix}`, {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: 'us-east-1',
   },
-  description: `UI Storybook Stack - ${env} (S3 + CloudFront, dev-storybook.nagiyu.com)`,
+  description: `UI Storybook Stack - ${env} (S3 + CloudFront, storybook.dev.nagiyu.com)`,
 });
 
 app.synth();

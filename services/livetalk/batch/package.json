@@ -19,7 +19,7 @@
     "@nagiyu/aws": "*",
     "@nagiyu/common": "*",
     "@nagiyu/livetalk-core": "*",
-    "openai": "^6.42.0"
+    "openai": "^7.5.0"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",

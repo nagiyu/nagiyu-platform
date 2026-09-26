@@ -285,7 +285,7 @@ interface JsonValidationResult {
 | レコードタイプ | 名前 | 値 | TTL |
 |--------------|------|-----|-----|
 | CNAME | `tools.example.com` | `d123456.cloudfront.net` | 300 |
-| CNAME | `dev-tools.example.com` | `d789012.cloudfront.net` | 300 |
+| CNAME | `tools.dev.example.com` | `d789012.cloudfront.net` | 300 |
 
 **注**: `d123456.cloudfront.net` は CloudFront のドメイン名 (スタック出力から取得)
 

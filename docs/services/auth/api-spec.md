@@ -8,7 +8,7 @@
 
 | 環境 | URL |
 |------|-----|
-| 開発 | `https://dev-auth.nagiyu.com` |
+| 開発 | `https://auth.dev.nagiyu.com` |
 | 本番 | `https://auth.nagiyu.com` |
 
 ### 1.2 認証方式

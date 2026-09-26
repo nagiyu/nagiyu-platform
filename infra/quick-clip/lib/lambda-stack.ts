@@ -3,12 +3,17 @@ import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { Construct } from 'constructs';
-import { LambdaStackBase, LambdaStackBaseProps, grantErrorEventsWrite } from '@nagiyu/infra-common';
+import {
+  LambdaStackBase,
+  LambdaStackBaseProps,
+  grantErrorEventsWrite,
+  getServiceUrl,
+} from '@nagiyu/infra-common';
 import type { QuickClipEnvironment } from './environment';
 
 const QUICK_CLIP_ALLOWED_ORIGINS: Record<QuickClipEnvironment, string[]> = {
-  prod: ['https://quick-clip.nagiyu.com'],
-  dev: ['https://dev-quick-clip.nagiyu.com'],
+  prod: [getServiceUrl('quick-clip', 'prod')],
+  dev: [getServiceUrl('quick-clip', 'dev')],
 };
 const BATCH_JOB_DEFINITION_VARIANTS = ['small', 'large', 'xlarge'] as const;
 

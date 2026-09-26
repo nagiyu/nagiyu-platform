@@ -14,7 +14,7 @@ import * as path from 'path';
  * UI Storybook Stack
  *
  * `libs/ui/storybook-static/` をビルド済み成果物として S3 に配置し、
- * CloudFront 経由で `dev-storybook.nagiyu.com` で配信する。
+ * CloudFront 経由で `storybook.dev.nagiyu.com` で配信する。
  *
  * 共有 ACM 証明書（`*.nagiyu.com` ワイルドカード、`infra/shared/lib/acm-stack.ts`
  * で発行済み）を SSM Parameter Store 経由で参照することで、本スタック単体での
@@ -25,7 +25,7 @@ import * as path from 'path';
  * Issue #2919 で計画されている「各サービスの CloudFront スタックが ALIAS を
  * 自前管理する」という最終形に最初から準拠する形とする。
  *
- * 配信先ドメイン: dev-storybook.nagiyu.com
+ * 配信先ドメイン: storybook.dev.nagiyu.com
  * - dev 環境のみ提供（本番環境は不要のため未対応）
  */
 export interface StorybookStackProps extends cdk.StackProps {
@@ -43,7 +43,7 @@ export class StorybookStack extends cdk.Stack {
     super(scope, id, props);
 
     const { environment } = props;
-    const domainName = 'dev-storybook.nagiyu.com';
+    const domainName = 'storybook.dev.nagiyu.com';
 
     // Storybook 静的サイト配信用の S3 バケット
     this.bucket = new s3.Bucket(this, 'StorybookBucket', {
@@ -149,7 +149,7 @@ export class StorybookStack extends cdk.Stack {
 
     new route53.ARecord(this, 'AliasRecord', {
       zone: hostedZone,
-      recordName: 'dev-storybook',
+      recordName: 'storybook',
       target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(this.distribution)),
       comment: 'UI Storybook (dev) - alias to CloudFront',
     });
