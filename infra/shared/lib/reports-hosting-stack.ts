@@ -11,10 +11,13 @@ import { SSM_PARAMETERS } from '../libs/utils/ssm';
 
 export interface ReportsHostingStackProps extends cdk.StackProps {
   domainName: string;
+  /** レポート用 S3 バケット名。未指定の場合は `nagiyu-e2e-reports` を使う */
+  bucketName?: string;
 }
 
 const REPORTS_SUBDOMAIN = 'reports';
-const REPORTS_BUCKET_NAME = 'nagiyu-e2e-reports';
+/** バケット名未指定時の既定値（現行の prod 用バケット名） */
+const DEFAULT_REPORTS_BUCKET_NAME = 'nagiyu-e2e-reports';
 const REPORTS_LIFECYCLE_DAYS = 3;
 
 /**
@@ -36,7 +39,7 @@ export class ReportsHostingStack extends cdk.Stack {
     super(scope, id, props);
 
     this.bucket = new s3.Bucket(this, 'ReportsBucket', {
-      bucketName: REPORTS_BUCKET_NAME,
+      bucketName: props.bucketName ?? DEFAULT_REPORTS_BUCKET_NAME,
       encryption: s3.BucketEncryption.S3_MANAGED,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       versioned: false,
