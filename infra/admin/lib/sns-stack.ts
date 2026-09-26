@@ -81,12 +81,9 @@ export class SNSStack extends Construct {
       topicName: `nagiyu-admin-self-monitoring-${environment}`,
       displayName: `Admin Self-Monitoring (${environment})`,
     });
-    // TODO(#3819): dev アカウント初回構築のため一時的に無効化。admin アプリの
-    // デプロイ後に元へ戻す（登録時に SNS がエンドポイントへの到達性を確認するため、
-    // アプリより先にスタックを作る初回だけ Unreachable Endpoint で失敗する）
-    // this.selfMonitoringTopic.addSubscription(
-    //   new subscriptions.UrlSubscription(`${adminUrl}/api/notify/sns`)
-    // );
+    this.selfMonitoringTopic.addSubscription(
+      new subscriptions.UrlSubscription(`${adminUrl}/api/notify/sns`)
+    );
 
     [this.alarmTopic, this.selfMonitoringTopic].forEach((topic) => {
       cdk.Tags.of(topic).add('Application', 'nagiyu');
