@@ -65,12 +65,15 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Deploy ECR Stack
+      - name: Deploy ECR and Secrets Stacks
         env:
           ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
           STACK_SUFFIX: ${{ steps.setup-environment.outputs.stack-suffix }}
         run: |
-          npm run cdk --workspace=@nagiyu/infra-quick-clip -- deploy NagiyuQuickClipECR${STACK_SUFFIX} \
+          # Secrets は後段 infrastructure-app の Secrets Manager 取得より前に存在している必要がある
+          npm run cdk --workspace=@nagiyu/infra-quick-clip -- deploy \
+            NagiyuQuickClipECR${STACK_SUFFIX} \
+            NagiyuQuickClipSecrets${STACK_SUFFIX} \
             --context env="$ENVIRONMENT" \
             --require-approval never
 
