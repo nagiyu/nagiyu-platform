@@ -10,7 +10,7 @@
 
 | 環境        | 用途               | デプロイ元ブランチ          | URL                                 |
 | ----------- | ------------------ | --------------------------- | ----------------------------------- |
-| dev (開発)  | 開発・検証環境     | `develop`, `integration/**` | `https://dev-tools.nagiyu.com`      |
+| dev (開発)  | 開発・検証環境     | `develop`, `integration/**` | `https://tools.dev.nagiyu.com`      |
 | prod (本番) | 本番サービス提供   | `master`                    | `https://tools.nagiyu.com`          |
 
 ### 1.2 リソース構成
@@ -662,7 +662,7 @@ GitHub リポジトリの Settings → Secrets and variables → Actions → Var
 5. **検証**: Function URL を取得してヘルスチェック実行
 6. **CloudFront デプロイ**: CloudFront ディストリビューションの CDK スタックをデプロイ
     - ACM 証明書 ARN を共有インフラスタックのエクスポートから自動取得
-    - ドメイン名を共有インフラスタックのエクスポートから自動取得し、環境に応じたサブドメインを構成 (prod: `tools.example.com`, dev: `dev-tools.example.com`)
+    - ドメイン名を共有インフラスタックのエクスポートから自動取得し、環境に応じたサブドメインを構成 (prod: `tools.example.com`, dev: `tools.dev.example.com`)
 
 **CDK との統合:**
 - インフラとアプリケーションを一つのワークフローで完全自動デプロイ

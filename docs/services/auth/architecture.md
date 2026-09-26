@@ -203,64 +203,22 @@ sequenceDiagram
 
 #### クッキー設定
 
-NextAuth v5 (Auth.js) は認証フロー全体で複数のクッキーを使用するため、**すべてのクッキー**を環境別に設定する必要があります：
+NextAuth v5 (Auth.js) は認証フロー全体で複数のクッキー（`sessionToken`、`callbackUrl`、`csrfToken`、`state`、`pkceCodeVerifier`、`nonce`）を使用する。**すべてのクッキー**の `domain` とクッキー名のサフィックスを環境別に切り替えることで、ローカル開発・dev・prod の 3 環境を分離している（実装は `libs/nextjs/src/auth-config.ts`）。
 
-```typescript
-const cookieOptions = {
-  httpOnly: true,     // XSS 対策
-  sameSite: 'lax',    // CSRF 対策
-  path: '/',
-  secure: !isDevelopment,  // ローカル開発環境以外では HTTPS のみ
-  // 全環境で .nagiyu.com を設定してSSO共有を実現
-  // ローカル開発環境のみ未設定（localhost専用）
-  domain: isDevelopment ? undefined : '.nagiyu.com',
-};
+**環境ごとの値:**
 
-const cookieSuffix = isProduction ? '' : isDevelopment ? '' : '.dev';
+| 環境 | domain | クッキー名サフィックス |
+|---|---|---|
+| ローカル開発（`next dev`） | 未設定（`undefined`。localhost 専用） | なし |
+| dev | `.dev.nagiyu.com` | `.dev` |
+| prod | `.nagiyu.com` | なし |
 
-cookies: {
-  // すべてのクッキーを環境別に分離
-  // NextAuth v5 では authjs.* がデフォルトのプレフィックス
-  sessionToken: {
-    name: `__Secure-authjs.session-token${cookieSuffix}`,
-    options: cookieOptions,
-  },
-  callbackUrl: {
-    name: `__Secure-authjs.callback-url${cookieSuffix}`,
-    options: cookieOptions,
-  },
-  csrfToken: {
-    name: `__Host-authjs.csrf-token${cookieSuffix}`,
-    options: { ...cookieOptions, domain: undefined },
-  },
-  state: {
-    name: `__Secure-authjs.state${cookieSuffix}`,
-    options: cookieOptions,
-  },
-  pkceCodeVerifier: {
-    name: `__Secure-authjs.pkce.code_verifier${cookieSuffix}`,
-    options: cookieOptions,
-  },
-  nonce: {
-    name: `__Secure-authjs.nonce${cookieSuffix}`,
-    options: cookieOptions,
-  },
-}
-```
+- **SSO**: 同一 domain 配下では Cookie が共有されるため、dev は `auth.dev.nagiyu.com` / `admin.dev.nagiyu.com` / `stock-tracker.dev.nagiyu.com` などで、prod は `auth.nagiyu.com` / `admin.nagiyu.com` / `tools.nagiyu.com` などで SSO が成立する。
+- **なぜクッキー名まで変えるか**: `domain` の分離だけでは、同名クッキーが dev/prod 双方のブラウザ環境で偶然衝突しうる。**すべてのクッキー名**を環境別に変えることで、dev と prod の認証フロー全体が混同されないようにしている。`sessionToken` だけでなく `callbackUrl` 等も揃えて変える必要がある。
 
-**重要な設計判断:**
+**dev/prod の判定に `NODE_ENV` ではなく実行時環境変数 `NAGIYU_ENV` を使う理由**: Next.js は `next build` 時に `process.env.NODE_ENV` をリテラル `'production'` へ静的に置換するため、デプロイ後のサーバーサイドでは `NODE_ENV` から dev/prod を判定できない（`NEXT_PUBLIC_` プレフィックスの環境変数も同様にビルド時にインライン化される）。実際、この置換により dev 環境も過去は prod 扱いの Cookie 設定（`.dev` サフィックスなし）で動いていた。専用の実行時環境変数 `NAGIYU_ENV`（未設定時は安全側で prod 扱い）を導入することで、デプロイ後も正しく判定できるようにしている。`NODE_ENV === 'development'`（ローカル開発）の判定のみ、`next build` を経ないため引き続き `NODE_ENV` を使う。
 
-- **完全な環境分離**: **すべてのクッキー名**を環境別に変更することで分離
-  - **ローカル開発環境** (NODE_ENV=development): 標準名、`domain=undefined` (localhost専用)
-  - **dev 環境** (NODE_ENV=dev): `.dev` サフィックス付き、`domain=.nagiyu.com` (dev-*.nagiyu.com で SSO)
-  - **prod 環境** (NODE_ENV=prod): 標準名、`domain=.nagiyu.com` (*.nagiyu.com で SSO)
-
-- **SSO 機能**: dev 環境と prod 環境の両方で SSO を実現
-  - dev 環境: `dev-auth.nagiyu.com`, `dev-admin.nagiyu.com`, `dev-stock-tracker.nagiyu.com` などで SSO
-  - prod 環境: `auth.nagiyu.com`, `admin.nagiyu.com`, `tools.nagiyu.com` などで SSO
-  - **すべてのクッキー名**が異なるため、dev と prod で認証フロー全体が混同されない
-
-- **注意**: `sessionToken` だけを環境別に設定しても不十分です。`callbackUrl`、`csrfToken`、`state`、`pkceCodeVerifier`、`nonce` も環境別に設定しないと、これらのクッキーが環境間で混同され、認証フローが正常に動作しなくなります。
+**移行の影響**: 上記の是正により本番のクッキー名が変わるため、master リリース時に一度だけ全ユーザーの再ログインが必要になる。
 
 ### 4.4 他サービスとの認証共有 (SSO)
 
@@ -289,17 +247,7 @@ sequenceDiagram
 
 #### SSO の仕組み
 
-**JWT Cookie 詳細:**
-- **Cookie 名**:
-  - **ローカル開発環境** (NODE_ENV=development): `__Secure-next-auth.session-token` (localhost のみ)
-  - **dev 環境** (NODE_ENV=dev): `__Secure-next-auth.session-token.dev` (dev-*.nagiyu.com で SSO)
-  - **prod 環境** (NODE_ENV=prod): `__Secure-next-auth.session-token` (*.nagiyu.com で SSO)
-- **Domain**:
-  - **ローカル開発環境**: 未設定（localhost のみ）
-  - **dev 環境**: `.nagiyu.com`（dev-auth, dev-admin, dev-stock-tracker などで SSO 共有）
-  - **prod 環境**: `.nagiyu.com`（auth, admin, tools などで SSO 共有）
-- **属性**: `HttpOnly; Secure; SameSite=Lax`
-- **有効期限**: 30日
+Cookie 名・domain の環境ごとの値は [4.3 のクッキー設定](#43-セッション管理) を参照。
 
 **メリット:**
 - ✓ 一度のログインで全サービスにアクセス可能（dev 環境、prod 環境それぞれで）
@@ -313,7 +261,6 @@ sequenceDiagram
 1. ユーザーが admin.nagiyu.com にアクセス
     ↓
 2. Admin サービスのミドルウェアがクッキーをチェック
-    - クッキー名: nagiyu-session
     - domain: .nagiyu.com なので admin でも読み取れる
     ↓
 3. クッキーがない場合
@@ -469,7 +416,7 @@ const canManageUsers = hasPermission(user.roles, 'users:write');
 #### リダイレクト URI 検証
 
 - Google OAuth Console で許可する URI を制限
-- dev: `https://dev-auth.nagiyu.com/api/auth/callback/google`
+- dev: `https://auth.dev.nagiyu.com/api/auth/callback/google`
 - prod: `https://auth.nagiyu.com/api/auth/callback/google`
 
 #### クライアントシークレットの管理

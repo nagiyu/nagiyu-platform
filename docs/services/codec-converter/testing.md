@@ -289,7 +289,7 @@ GitHub Actions で自動実行されます:
 CI 環境で必要な環境変数:
 
 ```bash
-BASE_URL=https://dev-codec-converter.nagiyu.com
+BASE_URL=https://codec-converter.dev.nagiyu.com
 AWS_REGION=us-east-1
 AWS_ACCESS_KEY_ID=<開発用IAMユーザーのアクセスキー>
 AWS_SECRET_ACCESS_KEY=<開発用IAMユーザーのシークレットキー>

@@ -12,7 +12,7 @@ nagiyu-platform では、CloudFront でカスタムドメインを使用する�
 
 - **ワイルドカード証明書**: `*.example.com` と `example.com` をカバー
 - **DNS 検証**: Route53 ホストゾーンに検証 CNAME を登録（CDK で管理）
-- **共通証明書**: dev/prod 環境で同じ証明書を使用（サブドメインで環境を分ける）
+- **アカウントごとに別証明書**: dev アカウントは自分のホストゾーン（`dev.example.com`）で `*.dev.example.com` + `dev.example.com` の証明書を持ち、prod アカウントの証明書（`*.example.com` + `example.com`）とは別物。dev アカウントは prod アカウントから独立しており、prod のゾーン・証明書に依存せず DNS 検証を完結させるため（詳細は [Route53 詳細](./route53.md) の「アカウント分離との関係」を参照）
 - **リージョン**: `us-east-1` (CloudFront 用の証明書は us-east-1 必須)
 
 ---
