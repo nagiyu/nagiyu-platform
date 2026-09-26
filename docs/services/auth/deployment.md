@@ -10,7 +10,7 @@
 
 | 環境        | 用途                 | デプロイ元ブランチ          | URL                          |
 | ----------- | -------------------- | --------------------------- | ---------------------------- |
-| dev (開発)  | 開発・検証環境       | `develop`, `integration/**` | `https://dev-auth.nagiyu.com` |
+| dev (開発)  | 開発・検証環境       | `develop`, `integration/**` | `https://auth.dev.nagiyu.com` |
 | prod (本番) | 本番環境             | `master`                    | `https://auth.nagiyu.com`     |
 
 ### 1.2 リソース構成
@@ -49,7 +49,7 @@
 
 - [ ] **VPC**: `nagiyu-{env}-vpc` - [共有インフラ: VPC](../../infra/shared/vpc.md) 参照
 - [ ] **ACM 証明書** (CloudFront 用): [共有インフラ: ACM](../../infra/shared/acm.md) 参照
-- [ ] **外部 DNS サービス**: カスタムドメイン設定 (auth.nagiyu.com, dev-auth.nagiyu.com)
+- [ ] **外部 DNS サービス**: カスタムドメイン設定 (auth.nagiyu.com, auth.dev.nagiyu.com)
 
 ### 2.2 必要なツール
 
@@ -76,7 +76,7 @@ Auth サービス初回デプロイ前に、以下を準備:
 
 1. Google Cloud Console で OAuth 2.0 クライアント ID を作成
 2. リダイレクト URI を設定:
-   - dev: `https://dev-auth.nagiyu.com/api/auth/callback/google`
+   - dev: `https://auth.dev.nagiyu.com/api/auth/callback/google`
    - prod: `https://auth.nagiyu.com/api/auth/callback/google`
 3. クライアント ID とシークレットを AWS Secrets Manager に保存
 
@@ -201,7 +201,7 @@ aws lambda get-function \
     --region us-east-1
 
 # ヘルスチェック
-curl https://dev-auth.nagiyu.com/api/health
+curl https://auth.dev.nagiyu.com/api/health
 
 # 期待されるレスポンス:
 # {
@@ -396,7 +396,7 @@ aws lambda update-function-code \
 
 | 環境変数                 | 説明                                       | 例                                      | 必須 |
 | ------------------------ | ------------------------------------------ | --------------------------------------- | ---- |
-| `NEXTAUTH_URL`           | NextAuth.js のベース URL                   | `https://dev-auth.nagiyu.com`           | ✅   |
+| `NEXTAUTH_URL`           | NextAuth.js のベース URL                   | `https://auth.dev.nagiyu.com`           | ✅   |
 | `NEXTAUTH_SECRET`        | JWT 署名用秘密鍵 (Secrets Manager から取得) | (32文字以上のランダム文字列)           | ✅   |
 | `GOOGLE_CLIENT_ID`       | Google OAuth クライアント ID               | `123456789.apps.googleusercontent.com`  | ✅   |
 | `GOOGLE_CLIENT_SECRET`   | Google OAuth クライアントシークレット      | (Secrets Manager から取得)              | ✅   |
@@ -426,7 +426,7 @@ environment: {
 ```bash
 aws lambda update-function-configuration \
     --function-name auth-dev \
-    --environment Variables="{NEXTAUTH_URL=https://dev-auth.nagiyu.com}" \
+    --environment Variables="{NEXTAUTH_URL=https://auth.dev.nagiyu.com}" \
     --region us-east-1
 ```
 

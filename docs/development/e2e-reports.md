@@ -1,12 +1,14 @@
 # E2E HTML レポートのホスティング
 
-各サービスの Playwright E2E テストの HTML レポートは `reports.nagiyu.com` で公開しており、PR コメントから直接開ける。
+各サービスの Playwright E2E テストの HTML レポートは公開しており、PR コメントから直接開ける。公開先はデプロイ先アカウント（prod / dev）ごとに分かれている（[アカウントごとのバケット](#アカウントごとのバケット) を参照）。
 
 ## URL 体系
 
 ```
-https://reports.nagiyu.com/{service}/pr-{pr-number}/{run-id}/{project}/index.html
+https://{E2E_REPORTS_BASE_URL}/{service}/pr-{pr-number}/{run-id}/{project}/index.html
 ```
+
+`E2E_REPORTS_BASE_URL` は既定で `https://reports.nagiyu.com`（prod アカウント）。dev アカウントのワークフローではリポジトリ変数 `E2E_REPORTS_BASE_URL` で `https://reports.dev.nagiyu.com` を指定する。
 
 | 階層 | 値 | 例 |
 |---|---|---|
@@ -60,10 +62,20 @@ https://reports.nagiyu.com/portal/pr-123/9876543210/chromium-mobile/
 
 ## インフラ構成
 
-- S3 バケット `nagiyu-e2e-reports`（環境非依存）
+### アカウントごとのバケット
+
+dev アカウントの分離方針（[AWS アカウント構成](../infra/aws-accounts.md) を参照）に合わせ、レポート用バケットも prod/dev で別々に持つ。
+
+| アカウント | S3 バケット | 公開 URL |
+|---|---|---|
+| prod | `nagiyu-e2e-reports` | `https://reports.nagiyu.com` |
+| dev | `nagiyu-e2e-reports-dev` | `https://reports.dev.nagiyu.com` |
+
+各サービスの `*-verify.yml` はリポジトリ変数 `E2E_REPORTS_BUCKET` / `E2E_REPORTS_BASE_URL` を参照する。変数が未設定の場合は prod の値（`nagiyu-e2e-reports` / `https://reports.nagiyu.com`）にフォールバックする。
+
 - CloudFront Distribution（OAC 経由で S3 を参照）
-- Route53 ALIAS レコード `reports.nagiyu.com → CloudFront`
-- 既存の wildcard ACM 証明書（`*.nagiyu.com`）を流用
+- Route53 ALIAS レコード（`reports.nagiyu.com` / `reports.dev.nagiyu.com` → 各アカウントの CloudFront）
+- 各アカウントの wildcard ACM 証明書を流用
 - CDK 定義: [`infra/shared/lib/reports-hosting-stack.ts`](../../infra/shared/lib/reports-hosting-stack.ts)
 
 ## アップロードフロー
@@ -79,11 +91,11 @@ https://reports.nagiyu.com/portal/pr-123/9876543210/chromium-mobile/
     role-to-assume: ${{ vars.AWS_PR_ROLE_ARN }}
     aws-region: us-east-1
 
-- name: Upload Playwright HTML report to reports.nagiyu.com
+- name: Upload Playwright HTML report
   if: always()
   run: |
     aws s3 sync services/{service}/web/playwright-report/ \
-      "s3://nagiyu-e2e-reports/{service}/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/{project}/" \
+      "s3://${{ vars.E2E_REPORTS_BUCKET || 'nagiyu-e2e-reports' }}/{service}/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/{project}/" \
       --delete --no-progress
 ```
 

@@ -543,7 +543,7 @@ Referrer-Policy: strict-origin-when-cross-origin
 - Batchジョブ定義: `codec-converter-job-{env}`
 - Batchジョブキュー: `codec-converter-queue-{env}`
 - CloudFrontドメイン:
-  - dev: `dev-codec-converter.{domain}` (例: `dev-codec-converter.example.com`)
+  - dev: `codec-converter.dev.{domain}` (例: `codec-converter.dev.example.com`)
   - prod: `codec-converter.{domain}` (例: `codec-converter.example.com`)
 
 ### GitHub Actions ワークフロー

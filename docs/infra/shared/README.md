@@ -2,6 +2,8 @@
 
 nagiyu プラットフォーム全体で共有されるインフラストラクチャリソースを管理します。
 
+`infra/shared` は prod アカウント・dev アカウントの両方にデプロイされる CDK アプリで、デプロイ先アカウントによって作成するスタックの構成が変わる（[AWS アカウント構成](../aws-accounts.md) を参照）。Docker ビルドロック用バケット・E2E レポート用バケットのように、アカウントごとに別リソースとして持つものもある（詳細は [Docker ビルド排他制御](./docker-build-lock.md)・[E2E レポート](../../development/e2e-reports.md) を参照）。
+
 ## 構成
 
 ### VPC Stack
@@ -18,8 +20,8 @@ nagiyu プラットフォーム全体で共有されるインフラストラク�
 - **DNS 検証**: Route53 ホストゾーンに検証 CNAME を登録
 
 ### Route53 Stack / Route53Records Stack
-- **Route53Stack**: `nagiyu.com` のパブリックホストゾーンを作成
-- **Route53RecordsStack**: CloudFront 向け CNAME / apex ALIAS / ACM 検証 / Google Search Console 検証の各レコードを管理
+- **Route53Stack**: デプロイ先アカウントに応じてホストゾーンを作成（prod: `nagiyu.com`、dev: `dev.nagiyu.com`）
+- **Route53RecordsStack**: prod アカウントにのみデプロイ。CloudFront 向け CNAME / apex ALIAS / `dev.nagiyu.com` への NS 委任 / ACM 検証 / Google Search Console 検証の各レコードを管理（詳細は [Route53 詳細](./route53.md) を参照）
 
 ### IAM Policies Stack
 - **Core Policy**: CloudFormation, IAM, VPC 関連

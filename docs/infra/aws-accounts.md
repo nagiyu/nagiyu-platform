@@ -15,7 +15,8 @@ AWS Organizations でアカウントを役割ごとに分離し、人のログ�
 | dev | dev 資材（integration / develop のデプロイ先） | `Workloads / Dev` |
 
 - Control Tower は個人規模では過剰なため採用せず、素の Organizations で運用する。
-- dev アカウントは段階的に切り出す途中であり、切り出しが完了するまでは dev 資材も prod アカウントに同居している。
+- dev アカウントは prod アカウントから**完全に独立**させる方針とする（[#3819](https://github.com/nagiyu/nagiyu-platform/issues/3819)）。prod と dev の依存は dev-sync によるデータコピー（[dev-sync](../development/dev-sync.md) を参照）だけに絞り、それ以外（DNS・IAM・S3 バケット等の共有基盤）は各アカウントで完結させる。理由は「本番の資格情報・設定ミスが dev 側に波及しない」「dev 側の実験的な変更が本番に影響しない」というアカウント分離の効果を、共有基盤の便宜のために削らないため。
+- 上記の移行は develop への取り込み（[#3819](https://github.com/nagiyu/nagiyu-platform/issues/3819) / PR [#3859](https://github.com/nagiyu/nagiyu-platform/pull/3859)）で完了している。ただし prod アカウントに残る旧 dev 資材（旧バケット・旧ロール・旧アクセスキー等）の削除、および prod に対する SCP 適用は別 Issue（[#3820](https://github.com/nagiyu/nagiyu-platform/issues/3820)）で行う。それまでの間、prod アカウントには使われなくなった旧 dev 資材が残存する。
 
 ---
 
@@ -109,6 +110,15 @@ Claude Code on the web のコンテナは環境変数に置いた認証情報を
 5. 許可セット `AdministratorAccess` / `ReadOnlyAccess` を事前定義ポリシーから作成する（セッション時間は既定の 1 時間では短いため延ばしている）。
 6. アカウントにユーザーと許可セットを割り当てる。
 7. アクセスポータルから各アカウント・各許可セットでコンソールに入れること、`aws sts get-caller-identity` が `AWSReservedSSO_*` ロールを返すことを確認する。
+
+### 3. 新規アカウントを一から構築する際に詰まった点
+
+dev アカウントを新規作成して `infra/shared` 等をデプロイした際に実際に発生した、アカウント自体の初期状態に起因する詰まりどころ。次に新規アカウントを構築する際の参考として残す。
+
+- **Lambda の同時実行数上限**: 新規アカウントは既定で 10 しかなく、`ReservedConcurrentExecutions` を使うサービス（stock-tracker 等）のデプロイが失敗する。Service Quotas で引き上げを事前に申請する必要がある。
+- **S3 バケット名のグローバル一意性**: 旧アカウントに同名バケットが残っていると新アカウントで同名バケットを作成できない。削除した直後もしばらく（数分〜）409 で作成に失敗する。
+- **自己監視 SNS サブスクリプションの初回失敗**: HTTPS エンドポイントへの SNS サブスクリプションは登録時に到達確認が行われるが、監視対象アプリのスタックより監視基盤（AdminInfra 等）のスタックが先に作られる構成では、初回デプロイ時にアプリがまだ存在せず到達確認に失敗する。初回だけ該当サブスクリプションを一時的に無効化し、アプリのデプロイ後に有効化し直す。
+- **Secrets Manager の PLACEHOLDER 値**: CDK で作成した直後のシークレットは PLACEHOLDER 値が入っているため、実際の値を投入したあとに依存する Lambda 等の再デプロイが必要になる。Google OAuth を使うサービスでは、新アカウントのドメイン向けのリダイレクト URI（例: `https://auth.dev.nagiyu.com/api/auth/callback/google`）を Google Cloud Console 側にも追加する必要がある。
 
 ---
 

@@ -165,7 +165,7 @@ const cloudfrontStack = new CloudFrontStackBase(app, 'ToolsCloudFrontStack', {
   functionUrl: lambdaStack.functionUrl!.url,
 });
 
-// ドメイン名: dev-tools.nagiyu.com
+// ドメイン名: tools.dev.nagiyu.com
 // セキュリティヘッダー: 有効
 // TLS: 1.2以上
 // HTTP: HTTP/2 + HTTP/3
@@ -291,7 +291,7 @@ const lambdaName = getLambdaFunctionName('auth', 'prod');
 
 // CloudFront ドメイン名
 // prod: tools.nagiyu.com
-// dev: dev-tools.nagiyu.com
+// dev: tools.dev.nagiyu.com
 const domain = getCloudFrontDomainName('tools', 'prod');
 
 // S3 バケット名: nagiyu-tools-s3-dev
