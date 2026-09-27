@@ -49,10 +49,10 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockedGetBatchClient.mockReturnValue({
       send: batchSend.mockResolvedValue({ jobId: 'batch-job-1' }),
-    } as ReturnType<typeof getBatchClient>);
+    } as unknown as ReturnType<typeof getBatchClient>);
     mockedGetS3Client.mockReturnValue({
       send: s3Send.mockResolvedValue({}),
-    } as ReturnType<typeof getS3Client>);
+    } as unknown as ReturnType<typeof getS3Client>);
     mockGetById.mockResolvedValue({
       jobId: 'job-1',
       originalFileName: 'movie.mp4',

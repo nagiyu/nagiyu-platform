@@ -49,7 +49,7 @@ describe('POST /api/jobs/[jobId]/highlights/[highlightId]/regenerate', () => {
     );
     mockedGetLambdaClient.mockReturnValue({
       send: lambdaSend.mockResolvedValue({}),
-    } as ReturnType<typeof getLambdaClient>);
+    } as unknown as ReturnType<typeof getLambdaClient>);
   });
 
   it('正常系: Lambda 非同期実行後に clipStatus を GENERATING へ更新して返す', async () => {

@@ -4,7 +4,8 @@ import { render, act } from '@testing-library/react';
 import { VideoAd } from '@/app/jobs/[jobId]/VideoAd';
 
 // IMA SDK モックの型定義
-type AdsManagerLoadedHandler = (event: { getAdsManager: () => MockAdsManager }) => void;
+type AdsManagerLoadedEventPayload = { getAdsManager: () => MockAdsManager };
+type AdsManagerLoadedHandler = (event: AdsManagerLoadedEventPayload) => void;
 type AdErrorHandler = () => void;
 type AdsManagerEventHandler = () => void;
 
@@ -39,8 +40,8 @@ const buildMockIma = (): {
   mockAdsManager: MockAdsManager;
   mockAdsLoader: MockAdsLoader;
   mockAdDisplayContainer: MockAdDisplayContainer;
-  triggerAdsManagerLoaded: (handler: AdsManagerLoadedHandler) => void;
-  triggerLoaderAdError: (handler: AdErrorHandler) => void;
+  triggerAdsManagerLoaded: (event: AdsManagerLoadedEventPayload) => void;
+  triggerLoaderAdError: () => void;
 } => {
   const mockAdsManager: MockAdsManager = {
     addEventListener: jest.fn(),
@@ -87,8 +88,8 @@ const buildMockIma = (): {
     mockAdsManager,
     mockAdsLoader,
     mockAdDisplayContainer,
-    triggerAdsManagerLoaded: (handler) => {
-      if (adsManagerLoadedHandler) adsManagerLoadedHandler(handler as never);
+    triggerAdsManagerLoaded: (event) => {
+      if (adsManagerLoadedHandler) adsManagerLoadedHandler(event);
     },
     triggerLoaderAdError: () => {
       if (loaderAdErrorHandler) loaderAdErrorHandler();
@@ -107,7 +108,7 @@ describe('VideoAd', () => {
   afterEach(() => {
     process.env = originalEnv;
     jest.clearAllMocks();
-    delete (window as Window & { google?: { ima: MockIma } }).google;
+    delete (window as unknown as Window & { google?: { ima: MockIma } }).google;
   });
 
   it('VAST タグ URL が未設定の場合、即座に onAdFinished を呼ぶ', async () => {
@@ -159,7 +160,7 @@ describe('VideoAd', () => {
       return origCreateElement(tagName);
     });
     jest.spyOn(document.body, 'appendChild').mockImplementation((node) => {
-      if (node === mockScript && mockScript.onerror) {
+      if ((node as unknown) === mockScript && mockScript.onerror) {
         Promise.resolve().then(() => mockScript.onerror!());
       }
       return node;
@@ -180,7 +181,7 @@ describe('VideoAd', () => {
     const onAdFinished = jest.fn();
 
     const { ima, triggerLoaderAdError } = buildMockIma();
-    (window as Window & { google?: { ima: MockIma } }).google = { ima };
+    (window as unknown as Window & { google?: { ima: MockIma } }).google = { ima };
 
     await act(async () => {
       render(<VideoAd onAdFinished={onAdFinished} />);
@@ -199,7 +200,7 @@ describe('VideoAd', () => {
     const onAdFinished = jest.fn();
 
     const { ima, mockAdsManager, triggerAdsManagerLoaded } = buildMockIma();
-    (window as Window & { google?: { ima: MockIma } }).google = { ima };
+    (window as unknown as Window & { google?: { ima: MockIma } }).google = { ima };
 
     let completeHandler: AdsManagerEventHandler | null = null;
     mockAdsManager.addEventListener.mockImplementation(
@@ -234,7 +235,7 @@ describe('VideoAd', () => {
     const onAdFinished = jest.fn();
 
     const { ima, mockAdsManager, triggerAdsManagerLoaded } = buildMockIma();
-    (window as Window & { google?: { ima: MockIma } }).google = { ima };
+    (window as unknown as Window & { google?: { ima: MockIma } }).google = { ima };
 
     let allAdsCompletedHandler: AdsManagerEventHandler | null = null;
     mockAdsManager.addEventListener.mockImplementation(
@@ -266,7 +267,7 @@ describe('VideoAd', () => {
     const onAdFinished = jest.fn();
 
     const { ima, mockAdsManager, triggerAdsManagerLoaded } = buildMockIma();
-    (window as Window & { google?: { ima: MockIma } }).google = { ima };
+    (window as unknown as Window & { google?: { ima: MockIma } }).google = { ima };
 
     let skippedHandler: AdsManagerEventHandler | null = null;
     mockAdsManager.addEventListener.mockImplementation(
@@ -298,7 +299,7 @@ describe('VideoAd', () => {
     const onAdFinished = jest.fn();
 
     const { ima, mockAdsManager, triggerAdsManagerLoaded } = buildMockIma();
-    (window as Window & { google?: { ima: MockIma } }).google = { ima };
+    (window as unknown as Window & { google?: { ima: MockIma } }).google = { ima };
 
     const handlers: AdsManagerEventHandler[] = [];
     mockAdsManager.addEventListener.mockImplementation(
@@ -331,7 +332,7 @@ describe('VideoAd', () => {
     const onAdFinished = jest.fn();
 
     const { ima, mockAdsManager, triggerAdsManagerLoaded } = buildMockIma();
-    (window as Window & { google?: { ima: MockIma } }).google = { ima };
+    (window as unknown as Window & { google?: { ima: MockIma } }).google = { ima };
 
     mockAdsManager.addEventListener.mockImplementation(jest.fn());
 
@@ -380,10 +381,10 @@ describe('VideoAd', () => {
       return origCreateElement(tagName);
     });
     jest.spyOn(document.body, 'appendChild').mockImplementation((node) => {
-      if (node === mockScript) {
+      if ((node as unknown) === mockScript) {
         // SDK の非同期ロードをシミュレート（解決は後で行う）
         sdkPromise.then(() => {
-          (window as Window & { google?: { ima: MockIma } }).google = { ima };
+          (window as unknown as Window & { google?: { ima: MockIma } }).google = { ima };
           if (mockScript.onload) mockScript.onload();
         });
       }
