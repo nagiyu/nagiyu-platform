@@ -148,9 +148,12 @@
 
 ### 2.1 方針
 
-- **既存の DailySummary には書き込まない**。確度・採点・重みは別のアイテムとして持つ。
-    - FR-24（AI 関連データを残す）と、NFR-2（確度が失敗してもサマリーは保存する）を両立しやすい。
-    - DailySummary の `upsert` は PutItem による丸ごと上書きのため、同じアイテムに確度を載せると、サマリーの再判定で確度が消える。
+- **DailySummary は事実の記録、確度は予測の記録として分ける**。確度・採点・重みは別のアイテムとして持ち、DailySummary には書き込まない（人と合意）。
+    - DailySummary は「その日の足と、足から決まる判定（パターン）」を持つ。パターンの再判定などで書き直されうる。
+    - 確度は「その日に出した予測と、その答え合わせ」で、一度書いたら書き換えない（FR-12）。性質の違う 2 つを同じアイテムに置くと、書き換えない保証が難しくなる（現行の `upsert` は PutItem による丸ごと上書き）。
+    - AI の出力と採点は、本来こちら（予測の記録）の性質だったものが DailySummary に同居していた。v4 ではそれを削除し（§2.4）、予測は Forecast 系に置く。
+    - 過去救済（初期値算出）も、DailySummary を読んで Forecast を書くだけで、既存のアイテムには触れない（FR-13）。
+    - 確度の算出が失敗しても、サマリーの保存と表示は影響を受けない（NFR-2）。
 - **予測時点の値は書き換えない**（FR-12）。確度アイテムの確率・基準値・中立帯・寄与は、算出時に一度だけ書く。採点結果は別の属性として後から追記する。
 - **軸の値は Map で持つ**（NFR-7）。軸を追加しても既存アイテムの移行は不要。値がない軸は「値なし」として表示・集計から外す。
 
@@ -242,8 +245,11 @@ type ModelSnapshotItem = {
 
 ### 2.4 AI 撤去後の DailySummary の扱い（FR-24）
 
-- 型から AI 関連の属性（`AiAnalysisResult` / `AiAnalysisError` / `Evaluation*`）を外しても、DynamoDB 上のデータは残す。
-- **注意**: 現行の `upsert` は PutItem で丸ごと上書きする。型から AI 属性を外したあとに、再判定（新パターン追加時の `needsStaticAnalysis`）や手動生成（`/api/summaries/refresh`）が最新日のアイテムを上書きすると、そのアイテムの AI データが消えて FR-24 に反する（現行でも、再判定の経路は `Evaluation*` を引き継いでいない）。消える範囲は最新日分に限られるが、撤去と同時に、`upsert` を「サマリーが管理する属性だけを UpdateItem で更新する」形に変える。
+- AI 撤去にあわせて、DailySummary から AI 関連の属性（`AiAnalysisResult` / `AiAnalysisError` / 旧形式の `AiAnalysis` / `Evaluation*`）を削除する（人と合意）。エクスポートはしない。
+- 削除後の DailySummary は「その日の足（OHLCV）と、足から決まる判定（パターン）」だけを持つ。事実の記録が DailySummary、予測と答え合わせの記録が Forecast 系、と役割が分かれる（§2.1）。
+- 削除は、AI を読み書きするコードがなくなった後（§5 の順 2・3 の後）に、ワンショットのスクリプトで全 DailySummary の該当属性を REMOVE する。prod と dev の両方で行う。
+- **本番データの削除のため、実施前に人に確認する**。テーブルはポイントインタイムリカバリ（35 日間保持）が有効なので、削除直後に問題が見つかれば復元できる。
+- AI データを消すので、現行の `upsert`（PutItem による丸ごと上書き）で AI 属性が消える問題は考えなくてよい。保存処理は変更しない。
 
 ---
 
@@ -321,12 +327,13 @@ type ModelSnapshotItem = {
 
 | 順 | 内容 | 注意 |
 |----|------|------|
-| 1 | `upsert` を UpdateItem 化する（§2.4） | AI 型を外す前に行う。FR-24 の前提 |
-| 2 | web: AI 表示（投資判断・予測リターン・確信度・AI 解析・サポート／レジスタンス）と予測精度ダッシュボード（ページ・`/api/prediction-evaluation/summary`）を撤去し、v4 の表示に置き換える | `/prediction-evaluation` は `/axis-performance` へリダイレクト |
-| 3 | batch / core: `summary` の AI 解析、`evaluation`、`prediction-judger` / `prediction-aggregator`、`ai-analysis-result`、`chart-renderer` と依存パッケージ（openai・echarts・@resvg・zod の不要分） | 型・マッパーから AI 属性を外す（データは残る） |
-| 4 | infra: Lambda の `OPENAI_API_KEY`、`openAiApiKey` の受け渡し（bin・deploy workflow）、`evaluation` の Lambda と EventBridge ルール | — |
-| 5 | Secrets Manager のシークレット `nagiyu-stock-tracker-openai-api-key-{env}` | **本番リソースの削除のため、実施前に人に確認する**。スタックから外すと削除される（復旧期間あり）。キーの失効（OpenAI 側）は人が行う |
-| 6 | 権限: `stocks:read-evaluation` を Permission 型と stock-admin ロールから削除（ADR-V4-03） | libs/common の変更。他サービスへの影響がないことを確認する |
+| 1 | web: AI 表示（投資判断・予測リターン・確信度・AI 解析・サポート／レジスタンス）と予測精度ダッシュボード（ページ・`/api/prediction-evaluation/summary`）を撤去し、v4 の表示に置き換える | `/prediction-evaluation` は `/axis-performance` へリダイレクト |
+| 2 | batch / core: `summary` の AI 解析、`evaluation`、`prediction-judger` / `prediction-aggregator`、`ai-analysis-result`、`chart-renderer` と依存パッケージ（openai・echarts・@resvg・zod の不要分） | 型・マッパーから AI 属性を外す |
+| 3 | infra: Lambda の `OPENAI_API_KEY`、`openAiApiKey` の受け渡し（bin・deploy workflow）、`evaluation` の Lambda と EventBridge ルール | — |
+| 4 | Secrets Manager のシークレット `nagiyu-stock-tracker-openai-api-key-{env}` | **本番リソースの削除のため、実施前に人に確認する**。スタックから外すと削除される（復旧期間あり）。キーの失効（OpenAI 側）は人が行う |
+| 5 | 権限: `stocks:read-evaluation` を Permission 型と stock-admin ロールから削除（ADR-V4-03） | libs/common の変更。他サービスへの影響がないことを確認する |
+| 6 | dev 環境: dev-sync の DailySummary の複製を止め、dev でも `summary` を定期実行する（§3.4） | 順 2 の後。複製の停止と `summary` の有効化は同じデプロイで行う |
+| 7 | データ: DailySummary の AI 関連属性を削除する（§2.4） | 順 2・3 の後。**本番データの削除のため、実施前に人に確認する** |
 
 - docs の更新（UC-006・UC-011・UC-012、SCR-007、採点関連の ADR、AI 改善ロードマップの削除）は Phase 4 で行う（要件 §7）。
 
@@ -469,10 +476,10 @@ type AxisPerformanceResponse = {
 |------|------|------|-------------|
 | **3-1 算出の中核** | `core` に純粋関数として実装する。軸の定義と算出、平常、実績と採点、ロジスティック回帰（IRLS）、基準値、中立帯、寄与、確率帯の実績。将来データ混入のテスト（§4）と、`analysis/` を参照実装にしたゴールデンテストも含む | なし | なし（DB・画面に触れない） |
 | **3-2 データ層とバッチ** | Forecast 系アイテムのリポジトリ、`forecast` バッチ（採点 → 重み → 確度）、`summary` からの起動（IAM の `lambda:InvokeFunction` を含む）、infra（Lambda・EventBridge・CloudWatch アラーム。dev でも有効）と deploy workflow、初期値算出（リプレイ） | 3-1 | dev で初期値算出を走らせ、Forecast・ModelSnapshot・PerformanceDaily ができることと、その内容を確認する |
-| **3-3 画面と API** | 一覧 API の変更、`/api/forecasts`・`/api/axis-performance`、SCR-004（荒れ予報カード・列・詳細ダイアログ）、SCR-001 のサマリーパネル、SCR-007。旧パスのリダイレクト。既存 E2E（`patternDetails` 等に依存するもの）の書き換え。AI の表示はこの単位で置き換わる（§5 の順 2） | 3-2（型は 3-1） | dev の画面で確認する（人の目視レビュー） |
-| **3-4 AI の撤去** | §5 の順 1・3〜6（`upsert` の UpdateItem 化、AI 解析・採点バッチ・集計・依存パッケージ、infra の OpenAI 関連、`stocks:read-evaluation`）。あわせて、dev-sync の DailySummary の複製を止め、dev でも `summary` を定期実行する（§3.4） | 3-3 | dev の `summary` が定期実行でサマリーを作れること、既存の AI データが消えないことを確認する |
+| **3-3 画面と API** | 一覧 API の変更、`/api/forecasts`・`/api/axis-performance`、SCR-004（荒れ予報カード・列・詳細ダイアログ）、SCR-001 のサマリーパネル、SCR-007。旧パスのリダイレクト。既存 E2E（`patternDetails` 等に依存するもの）の書き換え。AI の表示はこの単位で置き換わる（§5 の順 1） | 3-2（型は 3-1） | dev の画面で確認する（人の目視レビュー） |
+| **3-4 AI の撤去** | §5 の順 2〜7（AI 解析・採点バッチ・集計・依存パッケージ、infra の OpenAI 関連、`stocks:read-evaluation`、dev でのサマリー生成への切り替え、AI 関連データの削除） | 3-3 | dev の `summary` が定期実行でサマリーを作れること、dev で AI 関連属性の削除スクリプトが意図どおりに動くことを確認する |
 
-- 3-1 と 3-2 は、設計がほぼ機械的に決まっている。人の判断が要るのは、3-3 の見た目と、3-4 のシークレット削除（本番リソース）である。
+- 3-1 と 3-2 は、設計がほぼ機械的に決まっている。人の判断が要るのは、3-3 の見た目と、3-4 のシークレット削除・AI 関連データの削除（いずれも本番の不可逆な操作）である。
 - 3-3 の web 側は、3-2 の型が固まれば、フィクスチャで先に作れる。
 
 ---

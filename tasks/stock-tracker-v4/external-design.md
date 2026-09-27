@@ -232,7 +232,7 @@ erDiagram
     ModelSnapshot ||--o{ MarketForecast : "その日の算出に使用"
 ```
 
-- 既存の DailySummary は変更しない（AI 関連フィールドも残す。FR-24）。確度は別のレコードとして持ち、判断軸の追加で既存レコードを移行しなくて済むようにする（NFR-7）。保存形式は design.md で決める。
+- DailySummary は「その日の足と、足から決まる判定（パターン）」の記録とし、確度は別のレコードとして持つ。判断軸を追加しても既存レコードの移行は要らない（NFR-7）。DailySummary の AI 関連フィールドは、AI の撤去にあわせて削除する（FR-24）。保存形式は design.md で決める。
 
 ---
 
