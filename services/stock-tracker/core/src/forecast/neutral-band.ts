@@ -10,10 +10,8 @@ import {
   NEUTRAL_BAND_SIGNIFICANCE_LEVEL,
   NEUTRAL_BAND_STEP,
   PROBABILITY_BAND_STEP,
-  type Market,
   type Question,
 } from './constants.js';
-import { getCalendarIndex } from './time.js';
 import { holmCorrection, twoSidedBinomialTest } from './stats.js';
 import type { BandHistoryEntry, Lean, NeutralBand, NeutralBandState } from './types.js';
 
@@ -120,27 +118,31 @@ export function determineNeutralBandForQuestion(
 }
 
 /**
- * 中立帯の見直し（design.md §1.5）。
+ * 中立帯の見直し（design.md §1.5、参照実装 decision2.py の運用シミュレーション相当）。
  *
- * 直前の中立帯が null か、decidedOn より後で date 以下の予測市場のカレンダー日数が
- * REVIEW_INTERVAL 以上なら判定し直す（decidedOn = date）。それ以外は引き継ぐ。
+ * 直前の中立帯が null か、decidedOn より後で date 以下の**両市場を合わせたカレンダー**
+ * （JP・US のサンプル日付の和集合）の日数が REVIEW_INTERVAL 以上なら判定し直す
+ * （decidedOn = date）。それ以外は引き継ぐ。`decidedOn` がカレンダーに存在しない日付でも
+ * 日付の大小比較で正しく数える（インデックス検索には依存しない）。
+ *
+ * `forceRecompute: true` を渡すと、上記の条件によらず必ず判定し直す（稼働開始日用）。
  */
 export function resolveNeutralBandState(params: {
   question: Question;
   date: string;
-  market: Market;
+  /** 両市場を合わせたカレンダー（JP・US のサンプル日付の和集合。ソート済み） */
   calendar: readonly string[];
   previous: NeutralBandState | null | undefined;
   hist: readonly NeutralBandHistoryPoint[];
+  /** true なら見直し間隔によらず必ず判定し直す（稼働開始日など） */
+  forceRecompute?: boolean;
 }): NeutralBandState {
-  const { previous, calendar, date } = params;
+  const { previous, calendar, date, forceRecompute } = params;
 
   const shouldRecompute = (() => {
+    if (forceRecompute) return true;
     if (previous === null || previous === undefined) return true;
-    const decidedIndex = getCalendarIndex(calendar, previous.decidedOn);
-    const dateIndex = getCalendarIndex(calendar, date);
-    if (decidedIndex === -1 || dateIndex === -1) return true;
-    const elapsedDays = dateIndex - decidedIndex;
+    const elapsedDays = calendar.filter((d) => d > previous.decidedOn && d <= date).length;
     return elapsedDays >= NEUTRAL_BAND_REVIEW_INTERVAL_DAYS;
   })();
 

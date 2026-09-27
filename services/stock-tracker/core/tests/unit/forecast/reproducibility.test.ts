@@ -2,16 +2,15 @@
  * 再現性テスト（NFR-3・design.md §4）。
  *
  * 同じ入力で 2 回実行し、完全一致することを確認する（乱数を使わない）。
+ * design.md §3.1 の restructure 後は computeForDate/computeOutcomes とも bars を直接受け取る
+ * （保存済みサンプルは内部でリプレイして組み立てる。ForecastHistory 相当の型は廃止済み）。
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { computeForDate, computeOutcomes } from '../../../src/forecast/compute.js';
 import { PATTERN_REGISTRY } from '../../../src/patterns/pattern-registry.js';
-import type {
-  DailyBarInput,
-  ForecastHistory,
-  PatternResults,
-} from '../../../src/forecast/index.js';
+import type { DailyBarInput, PatternResults } from '../../../src/forecast/index.js';
+import { REAL_EXCHANGES } from './support/exchanges.js';
 
 const FIXTURE_PATH = path.join(__dirname, 'fixtures', 'golden.json');
 interface FixtureBar {
@@ -55,57 +54,42 @@ const bars: DailyBarInput[] = fixture.bars.map((b) => ({
   patternResults: toPatternResults(b.patternsMatched, b.patternsInsufficient),
 }));
 
-const history: ForecastHistory = {
-  bars,
-  knownDirSamples: [],
-  knownVolSamples: [],
-  knownMktSamples: [],
-};
+// フィクスチャの最終営業日（JP・US とも観測がある）
+const TARGET_DATE = '2024-03-18';
 
 describe('再現性', () => {
   it('computeForDate は同じ入力から同じ結果を返す（2 回実行して完全一致）', () => {
-    const first = computeForDate(history, '2024-04-19', 'JP', { now: 12345 });
-    const second = computeForDate(history, '2024-04-19', 'JP', { now: 12345 });
+    const first = computeForDate(bars, TARGET_DATE, 'JP', REAL_EXCHANGES, { now: 12345 });
+    const second = computeForDate(bars, TARGET_DATE, 'JP', REAL_EXCHANGES, { now: 12345 });
     expect(second).toEqual(first);
   });
 
   it('computeForDate は US 側でも再現する', () => {
-    const first = computeForDate(history, '2024-04-22', 'US', { now: 12345 });
-    const second = computeForDate(history, '2024-04-22', 'US', { now: 12345 });
+    const first = computeForDate(bars, TARGET_DATE, 'US', REAL_EXCHANGES, { now: 12345 });
+    const second = computeForDate(bars, TARGET_DATE, 'US', REAL_EXCHANGES, { now: 12345 });
     expect(second).toEqual(first);
   });
 
   it('computeOutcomes は同じ入力から同じ結果を返す', () => {
-    const first = computeOutcomes(bars, 999);
-    const second = computeOutcomes(bars, 999);
+    const first = computeOutcomes(bars, 999, REAL_EXCHANGES);
+    const second = computeOutcomes(bars, 999, REAL_EXCHANGES);
     expect(second).toEqual(first);
   });
 
-  it('入力配列の順序を変えても、銘柄ごとの確率はほぼ一致する（浮動小数点の丸め誤差の範囲）', () => {
-    // 銘柄の並び順や集計の加算順が変わると、浮動小数点演算の丸め誤差（最終桁）で厳密一致しない
-    // ことがある。NFR-3 が求める再現性は「同じ入力から同じ結果」であり、入力の並び替えに対する
-    // ビット単位の不変性までは求めていないため、ここでは許容誤差つきで確認する。
+  it('入力配列の並び順を変えても結果は完全一致する（指摘 D: (market, date, tickerId) で正準化）', () => {
+    // buildPanel は ticker を tickerId 昇順に正準化してから集計するため、bars の入力順（Map の
+    // 反復順）に依存する浮動小数点の加算順序は生まれない。NFR-3 の「同じ入力から同じ結果」を、
+    // 入力の並び替えに対しても厳密一致で確認する。
     const shuffled = [...bars].reverse();
-    const a = computeForDate({ ...history, bars }, '2024-04-19', 'JP', { now: 0 });
-    const b = computeForDate({ ...history, bars: shuffled }, '2024-04-19', 'JP', { now: 0 });
-    const byTicker = (r: typeof a) => new Map(r.tickers.map((t) => [t.tickerId, t]));
-    const aMap = byTicker(a);
-    const bMap = byTicker(b);
-    expect(bMap.size).toBe(aMap.size);
-    for (const [tickerId, aTicker] of aMap) {
-      const bTicker = bMap.get(tickerId)!;
-      expect(bTicker.probabilities.DIR?.probability).toBeCloseTo(
-        aTicker.probabilities.DIR?.probability ?? 0,
-        9
-      );
-      expect(bTicker.probabilities.VOL?.probability).toBeCloseTo(
-        aTicker.probabilities.VOL?.probability ?? 0,
-        9
-      );
-    }
-    expect(b.marketForecast.probabilities.MKT?.probability).toBeCloseTo(
-      a.marketForecast.probabilities.MKT?.probability ?? 0,
-      9
-    );
+    const a = computeForDate(bars, TARGET_DATE, 'JP', REAL_EXCHANGES, { now: 0 });
+    const b = computeForDate(shuffled, TARGET_DATE, 'JP', REAL_EXCHANGES, { now: 0 });
+    expect(b).toEqual(a);
+  });
+
+  it('取引所マスタの並び順を変えても結果は変わらない（入力の正準化。指摘 D）', () => {
+    const reorderedExchanges = [...REAL_EXCHANGES].reverse();
+    const a = computeForDate(bars, TARGET_DATE, 'JP', REAL_EXCHANGES, { now: 0 });
+    const b = computeForDate(bars, TARGET_DATE, 'JP', reorderedExchanges, { now: 0 });
+    expect(b).toEqual(a);
   });
 });

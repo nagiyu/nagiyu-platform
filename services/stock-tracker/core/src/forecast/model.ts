@@ -4,12 +4,7 @@
  * L2 正則化ロジスティック回帰（切片なし・オフセット付き）を、問いごとに JP/US 共通で学習する。
  */
 import { getAxisDefinition } from './axes.js';
-import {
-  LOW_SAMPLE_AXIS_THRESHOLD,
-  MIN_TRAINING_DATES,
-  REGULARIZATION_ALPHA,
-  type Question,
-} from './constants.js';
+import { LOW_SAMPLE_AXIS_THRESHOLD, REGULARIZATION_ALPHA, type Question } from './constants.js';
 import { fitLogisticRegression, meanAndPopulationStd, sigmoid } from './stats.js';
 import type { AxisId, AxisStatsEntry } from './types.js';
 
@@ -94,14 +89,6 @@ export function fitQuestionModel(
     distinctTrainingDates,
     axisStats,
   };
-}
-
-/**
- * バーンイン判定: 学習サンプルの異なる日付が MIN_TRAINING_DATES 未満なら確率を出さない
- * （design.md §1.6）。
- */
-export function hasEnoughTrainingData(model: FittedQuestionModel): boolean {
-  return model.distinctTrainingDates >= MIN_TRAINING_DATES;
 }
 
 /**

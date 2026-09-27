@@ -4,8 +4,9 @@
 import { buildPanel, excludeLegacyBackfillRows } from '../../../src/forecast/preprocessing.js';
 import { computeOutcomes } from '../../../src/forecast/compute.js';
 import { LEGACY_BACKFILL_HOLIDAY_COPY_DATES } from '../../../src/forecast/constants.js';
-import { nominalOpenTime } from '../../../src/forecast/time.js';
+import { nominalExchangeTime } from '../../../src/forecast/time.js';
 import type { DailyBarInput } from '../../../src/forecast/types.js';
+import { REAL_EXCHANGES } from './support/exchanges.js';
 
 function bar(
   overrides: Partial<DailyBarInput> & Pick<DailyBarInput, 'tickerId' | 'exchangeId' | 'date'>
@@ -28,7 +29,7 @@ describe('極端リターンの除外（FR-14）', () => {
       bar({ tickerId: 'A', exchangeId: 'TSE', date: '2026-01-06', close: 130 }), // +30%
       bar({ tickerId: 'A', exchangeId: 'TSE', date: '2026-01-07', close: 131 }),
     ];
-    const { tickerOutcomes } = computeOutcomes(bars, 1);
+    const { tickerOutcomes } = computeOutcomes(bars, 1, REAL_EXCHANGES);
     const outcome = tickerOutcomes.find((o) => o.date === '2026-01-05')!;
     expect(outcome.excludedReason).toBe('EXTREME_RETURN');
     expect(outcome.hit).toEqual({});
@@ -42,7 +43,7 @@ describe('極端リターンの除外（FR-14）', () => {
       bar({ tickerId: 'A', exchangeId: 'TSE', date: '2026-01-06', close: 120 }), // ちょうど+20%
       bar({ tickerId: 'A', exchangeId: 'TSE', date: '2026-01-07', close: 121 }),
     ];
-    const { tickerOutcomes } = computeOutcomes(bars, 1);
+    const { tickerOutcomes } = computeOutcomes(bars, 1, REAL_EXCHANGES);
     const outcome = tickerOutcomes.find((o) => o.date === '2026-01-05')!;
     expect(outcome.excludedReason).toBeUndefined();
   });
@@ -62,14 +63,14 @@ describe('観測カレンダーによる翌営業日の決定と、欠落日を�
       bar({ tickerId: 'B', exchangeId: 'TSE', date: '2026-01-07' }),
       bar({ tickerId: 'B', exchangeId: 'TSE', date: '2026-01-08' }),
     ];
-    const panel = buildPanel(bars);
+    const panel = buildPanel(bars, REAL_EXCHANGES);
     // 観測カレンダーには 01-07 が含まれる（B のおかげで欠落日でも観測カレンダーからは消えない）
     expect(panel.calendar.JP).toContain('2026-01-07');
 
     const aOn0106 = panel.tickerSamples.find((s) => s.tickerId === 'A' && s.date === '2026-01-06')!;
     expect(aOn0106.nextOk).toBe(false); // 次の実レコード(01-08) が観測カレンダーの翌営業日(01-07)と不一致
 
-    const { tickerOutcomes } = computeOutcomes(bars, 1);
+    const { tickerOutcomes } = computeOutcomes(bars, 1, REAL_EXCHANGES);
     expect(
       tickerOutcomes.find((o) => o.tickerId === 'A' && o.date === '2026-01-06')
     ).toBeUndefined();
@@ -86,7 +87,7 @@ describe('#3830 過去データ除外（初期値算出のみで使う）', () =
       bar({ tickerId: 'A', exchangeId: 'TSE', date: holiday, close: 999 }),
       bar({ tickerId: 'A', exchangeId: 'TSE', date: '2026-01-06', close: 101 }),
     ];
-    const filtered = excludeLegacyBackfillRows(bars);
+    const filtered = excludeLegacyBackfillRows(bars, REAL_EXCHANGES);
     expect(filtered.find((b) => b.date === holiday)).toBeUndefined();
     expect(filtered).toHaveLength(2);
   });
@@ -121,7 +122,7 @@ describe('#3830 過去データ除外（初期値算出のみで使う）', () =
         close: 101,
       }),
     ];
-    const filtered = excludeLegacyBackfillRows(bars);
+    const filtered = excludeLegacyBackfillRows(bars, REAL_EXCHANGES);
     expect(filtered.map((b) => b.date)).toEqual(['2026-01-05', '2026-01-07']);
   });
 
@@ -133,11 +134,11 @@ describe('#3830 過去データ除外（初期値算出のみで使う）', () =
         exchangeId: 'TSE',
         date: '2026-01-06',
         close: 101,
-        createdAt: nominalOpenTime('2026-01-07', 'JP'), // 翌営業日の寄付き以降 = 途中足
+        createdAt: nominalExchangeTime('TSE', '2026-01-07', 'open', REAL_EXCHANGES), // 翌営業日の寄付き以降 = 途中足
       }),
       bar({ tickerId: 'A', exchangeId: 'TSE', date: '2026-01-07', close: 102 }),
     ];
-    const filtered = excludeLegacyBackfillRows(bars);
+    const filtered = excludeLegacyBackfillRows(bars, REAL_EXCHANGES);
     expect(filtered.map((b) => b.date)).toEqual(['2026-01-05', '2026-01-07']);
   });
 
@@ -162,7 +163,7 @@ describe('#3830 過去データ除外（初期値算出のみで使う）', () =
         close: 102,
       }),
     ];
-    const filtered = excludeLegacyBackfillRows(bars);
+    const filtered = excludeLegacyBackfillRows(bars, REAL_EXCHANGES);
     expect(filtered).toHaveLength(2);
   });
 });

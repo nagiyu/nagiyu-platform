@@ -12,19 +12,44 @@ export * from './baseline.js';
 export * from './neutral-band.js';
 export * from './contributions.js';
 export {
+  axisValuesFromMarketSample,
+  axisValuesFromTickerSample,
   buildObservationCalendar,
   buildPanel,
+  computeAxisValuesForDate,
   excludeLegacyBackfillRows,
+  getMarketAxisValue,
+  getTickerAxisValue,
+  partitionByKnownExchange,
+  type KnownExchangeBars,
   type MarketDaySample,
   type PreprocessedPanel,
   type TickerDaySample,
 } from './preprocessing.js';
 export {
+  buildBaselineSamples,
+  buildCalendarFromEntries,
+  buildSampleCalendar,
+  buildTrainingRows,
+  buildUnionCalendarFromEntries,
+  buildUnionSampleCalendar,
+  collectKnownProbabilitySamples,
+  ensureCalendarIncludes,
+} from './sampling.js';
+export {
   fitQuestionModel,
-  hasEnoughTrainingData,
   predictProbability,
   standardizeForPrediction,
   type FittedQuestionModel,
   type TrainingRow,
 } from './model.js';
-export { computeForDate, computeOutcomes, type ComputeForDateOptions } from './compute.js';
+export {
+  buildSampleHistoryThroughDate,
+  computeForDate,
+  computeModelSnapshot,
+  computeOutcomeForDate,
+  computeOutcomes,
+  computeProbabilityRecord,
+  hasEnoughTrainingData,
+  type ComputeModelSnapshotOptions,
+} from './compute.js';

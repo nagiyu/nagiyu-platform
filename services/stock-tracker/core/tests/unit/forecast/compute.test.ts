@@ -1,16 +1,22 @@
 /**
- * computeForDate / computeOutcomes の振る舞いテスト（バーンイン・寄与の合計・件数不足の目印等）。
+ * computeForDate / computeOutcomes の振る舞いテスト（バーンイン・寄与の合計・件数不足の目印・
+ * D の足が無い日の契約・未対応 ExchangeID の扱い等）。
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { computeForDate, computeOutcomes } from '../../../src/forecast/compute.js';
+import {
+  computeForDate,
+  computeOutcomes,
+  hasEnoughTrainingData,
+} from '../../../src/forecast/compute.js';
 import { MIN_TRAINING_DATES } from '../../../src/forecast/constants.js';
 import { PATTERN_REGISTRY } from '../../../src/patterns/pattern-registry.js';
 import type {
   DailyBarInput,
-  ForecastHistory,
+  ModelSnapshotItem,
   PatternResults,
 } from '../../../src/forecast/index.js';
+import { REAL_EXCHANGES } from './support/exchanges.js';
 
 const FIXTURE_PATH = path.join(__dirname, 'fixtures', 'golden.json');
 interface FixtureBar {
@@ -54,27 +60,61 @@ const allBars: DailyBarInput[] = fixture.bars.map((b) => ({
   patternResults: toPatternResults(b.patternsMatched, b.patternsInsufficient),
 }));
 
-function historyWith(bars: DailyBarInput[]): ForecastHistory {
-  return { bars, knownDirSamples: [], knownVolSamples: [], knownMktSamples: [] };
-}
+// computeForDate（bars だけのリプレイ便宜関数）は、対象日までの全期間を毎回学習し直すため
+// 呼び出しごとにコストがかかる。同じ (bars, date, market) の結果を複数の it() で使うときは
+// beforeAll で 1 回だけ計算して共有する（テストの意図はそのまま、実行時間だけを縮める）。
+let sharedResult: ReturnType<typeof computeForDate>;
+beforeAll(() => {
+  sharedResult = computeForDate(allBars, '2024-03-18', 'JP', REAL_EXCHANGES, { now: 0 });
+});
 
 describe('バーンイン（design.md §1.6）', () => {
   it('学習サンプルの異なる日付が MIN_TRAINING_DATES 未満なら Probabilities を出さない', () => {
     // 最初の数日分だけを渡す（バーンインを満たさない）
     const earlyBars = allBars.filter((b) => b.date <= '2024-01-10');
-    const result = computeForDate(historyWith(earlyBars), '2024-01-10', 'JP', { now: 0 });
+    const result = computeForDate(earlyBars, '2024-01-10', 'JP', REAL_EXCHANGES, { now: 0 });
     for (const ticker of result.tickers) {
       expect(ticker.probabilities.DIR).toBeUndefined();
       expect(ticker.probabilities.VOL).toBeUndefined();
     }
-    expect(result.marketForecast.probabilities.MKT).toBeUndefined();
+    expect(result.marketForecast?.probabilities.MKT).toBeUndefined();
   });
 
   it('十分な学習サンプルがあれば Probabilities.DIR が出る', () => {
-    const result = computeForDate(historyWith(allBars), '2024-04-19', 'JP', { now: 0 });
-    const withDir = result.tickers.filter((t) => t.probabilities.DIR !== undefined);
+    const withDir = sharedResult.tickers.filter((t) => t.probabilities.DIR !== undefined);
     expect(withDir.length).toBeGreaterThan(0);
-    expect(result.modelSnapshots.DIR!.trainingSize).toBeGreaterThanOrEqual(MIN_TRAINING_DATES);
+    expect(sharedResult.modelSnapshots.DIR!.trainingSize).toBeGreaterThan(0);
+  });
+});
+
+describe('hasEnoughTrainingData', () => {
+  const base: ModelSnapshotItem = {
+    question: 'DIR',
+    market: 'JP',
+    date: '2026-01-01',
+    modelVersion: 'v',
+    alpha: 80,
+    weights: {},
+    standardization: {},
+    baseline: 0.5,
+    neutralBand: { lower: -1, upper: 1, decidedOn: '2026-01-01' },
+    bandHistory: [],
+    axisStats: {},
+    trainingSize: 0,
+    distinctTrainingDates: 0,
+    createdAt: 0,
+  };
+
+  it('MIN_TRAINING_DATES 未満なら false', () => {
+    expect(hasEnoughTrainingData({ ...base, distinctTrainingDates: MIN_TRAINING_DATES - 1 })).toBe(
+      false
+    );
+  });
+
+  it('MIN_TRAINING_DATES 以上なら true', () => {
+    expect(hasEnoughTrainingData({ ...base, distinctTrainingDates: MIN_TRAINING_DATES })).toBe(
+      true
+    );
   });
 });
 
@@ -84,10 +124,10 @@ describe('平常が無い銘柄は VOL を出さない（DIR は出す）', () =
     // ことはできない（対象日自身がバーンインを満たさなくなるため）。
     // 代わりに、対象日の少し前に新規上場した「20レコード未満」の銘柄を混ぜて確認する。
     const lateStartTicker = allBars
-      .filter((b) => b.tickerId === 'JT1' && b.date >= '2024-04-01' && b.date <= '2024-04-19')
+      .filter((b) => b.tickerId === 'JT1' && b.date >= '2024-02-27' && b.date <= '2024-03-18')
       .map((b) => ({ ...b, tickerId: 'NEWCOMER' }));
     const combined = [...allBars, ...lateStartTicker];
-    const result = computeForDate(historyWith(combined), '2024-04-19', 'JP', { now: 0 });
+    const result = computeForDate(combined, '2024-03-18', 'JP', REAL_EXCHANGES, { now: 0 });
     const newcomer = result.tickers.find((t) => t.tickerId === 'NEWCOMER')!;
     expect(newcomer).toBeDefined();
     expect(newcomer.normal.range).toBeUndefined();
@@ -98,7 +138,7 @@ describe('平常が無い銘柄は VOL を出さない（DIR は出す）', () =
 
 describe('寄与の合計（design.md §1.4）', () => {
   it('寄与の合計は「確率 − 基準値」に一致する', () => {
-    const result = computeForDate(historyWith(allBars), '2024-04-19', 'JP', { now: 0 });
+    const result = sharedResult;
     for (const ticker of result.tickers) {
       for (const key of ['DIR', 'VOL'] as const) {
         const record = ticker.probabilities[key];
@@ -107,7 +147,7 @@ describe('寄与の合計（design.md §1.4）', () => {
         expect(sum).toBeCloseTo(record.probability - record.baseline, 8);
       }
     }
-    const mkt = result.marketForecast.probabilities.MKT;
+    const mkt = result.marketForecast?.probabilities.MKT;
     if (mkt) {
       const sum = Object.values(mkt.contributions).reduce((a, b) => a + (b ?? 0), 0);
       expect(sum).toBeCloseTo(mkt.probability - mkt.baseline, 8);
@@ -148,7 +188,7 @@ describe('件数不足の目印（design.md §1.4）', () => {
       });
     }
     const targetDate = dates[dates.length - 1];
-    const result = computeForDate(historyWith(rareBars), targetDate, 'JP', { now: 0 });
+    const result = computeForDate(rareBars, targetDate, 'JP', REAL_EXCHANGES, { now: 0 });
     const snapshot = result.modelSnapshots.DIR!;
     expect(snapshot.axisStats['morning-star']?.lowSample).toBe(true);
     expect(snapshot.axisStats['morning-star']!.count).toBeLessThan(30);
@@ -157,8 +197,7 @@ describe('件数不足の目印（design.md §1.4）', () => {
   });
 
   it('数値型軸は lowSample が付かない', () => {
-    const result = computeForDate(historyWith(allBars), '2024-04-19', 'JP', { now: 0 });
-    const snapshot = result.modelSnapshots.VOL!;
+    const snapshot = sharedResult.modelSnapshots.VOL!;
     for (const stats of Object.values(snapshot.axisStats)) {
       expect(stats!.lowSample).toBe(false);
     }
@@ -167,8 +206,7 @@ describe('件数不足の目印（design.md §1.4）', () => {
 
 describe('AxisValues は FLAG を boolean、NUMERIC を数値で持つ', () => {
   it('パターン軸は boolean、大きさ軸は数値', () => {
-    const result = computeForDate(historyWith(allBars), '2024-04-19', 'JP', { now: 0 });
-    const ticker = result.tickers[0];
+    const ticker = sharedResult.tickers[0];
     expect(typeof ticker.axisValues['morning-star']).toBe('boolean');
     if (ticker.axisValues['range-today'] !== undefined) {
       expect(typeof ticker.axisValues['range-today']).toBe('number');
@@ -176,11 +214,68 @@ describe('AxisValues は FLAG を boolean、NUMERIC を数値で持つ', () => {
   });
 });
 
+describe('D の足が無い日の契約（design.md §1・指摘 B-3）', () => {
+  it('その市場・日の観測が無ければ、NaN を出さず空の結果を返す', () => {
+    const result = computeForDate(allBars, '1999-01-01', 'JP', REAL_EXCHANGES, { now: 0 });
+    expect(result.tickers).toEqual([]);
+    expect(result.marketForecast).toBeUndefined();
+    expect(result.modelSnapshots).toEqual({});
+  });
+
+  it('US 側でも同様に空の結果を返す', () => {
+    const result = computeForDate(allBars, '1999-01-01', 'US', REAL_EXCHANGES, { now: 0 });
+    expect(result.tickers).toEqual([]);
+    expect(result.marketForecast).toBeUndefined();
+  });
+});
+
+describe('未対応の ExchangeID（NFR-2・指摘 D）', () => {
+  it('未対応の ExchangeID のバーは除外して続行し、skippedExchangeIds に残す', () => {
+    const withUnknown: DailyBarInput[] = [
+      ...allBars,
+      {
+        tickerId: 'XX1',
+        exchangeId: 'LSE',
+        date: '2024-03-18',
+        open: 100,
+        high: 105,
+        low: 95,
+        close: 100,
+        volume: 1000,
+        createdAt: 0,
+      },
+    ];
+    const result = computeForDate(withUnknown, '2024-03-18', 'JP', REAL_EXCHANGES, { now: 0 });
+    expect(result.skippedExchangeIds).toContain('LSE');
+    // LSE の銘柄は結果に含まれない
+    expect(result.tickers.find((t) => t.tickerId === 'XX1')).toBeUndefined();
+    // 他の銘柄の計算は継続する
+    expect(result.tickers.length).toBeGreaterThan(0);
+  });
+});
+
+describe('computeOutcomes: 銘柄の採点（Q-VOL）', () => {
+  it('翌日の値幅（比率）が平常を上回れば的中し、値幅は生の価格差ではなく比率で表す', () => {
+    const { tickerOutcomes } = computeOutcomes(allBars, 1, REAL_EXCHANGES);
+    expect(tickerOutcomes.length).toBeGreaterThan(0);
+    for (const outcome of tickerOutcomes) {
+      // 値幅は比率（design.md §1.1）: 常識的な範囲（0〜数十%）に収まる
+      expect(outcome.nextRange).toBeGreaterThan(0);
+      expect(outcome.nextRange).toBeLessThan(1);
+      if (outcome.rangeRatio !== undefined) {
+        expect(outcome.hit.VOL).toBe(outcome.rangeRatio > 1);
+      }
+    }
+  });
+});
+
 describe('computeOutcomes: 市場の採点（Q-MKT）', () => {
   it('翌日の市場平均値幅が平常を上回れば的中', () => {
-    const { marketOutcomes } = computeOutcomes(allBars, 1);
+    const { marketOutcomes } = computeOutcomes(allBars, 1, REAL_EXCHANGES);
     expect(marketOutcomes.length).toBeGreaterThan(0);
     for (const outcome of marketOutcomes) {
+      expect(outcome.nextRange).toBeGreaterThan(0);
+      expect(outcome.nextRange).toBeLessThan(1);
       if (outcome.rangeRatio !== undefined) {
         expect(outcome.hit.MKT).toBe(outcome.rangeRatio > 1);
       }

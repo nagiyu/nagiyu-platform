@@ -3,12 +3,10 @@
  */
 import {
   fitQuestionModel,
-  hasEnoughTrainingData,
   predictProbability,
   standardizeForPrediction,
   type TrainingRow,
 } from '../../../src/forecast/model.js';
-import { MIN_TRAINING_DATES } from '../../../src/forecast/constants.js';
 import { logit } from '../../../src/forecast/stats.js';
 
 describe('fitQuestionModel', () => {
@@ -52,30 +50,6 @@ describe('fitQuestionModel', () => {
     const model = fitQuestionModel('DIR', ['a'], rows);
     expect(model.trainingSize).toBe(3);
     expect(model.distinctTrainingDates).toBe(2);
-  });
-});
-
-describe('hasEnoughTrainingData', () => {
-  it('MIN_TRAINING_DATES 未満なら false', () => {
-    const rows: TrainingRow[] = Array.from({ length: MIN_TRAINING_DATES - 1 }, (_, i) => ({
-      values: { a: 1 },
-      y: 1,
-      offset: 0,
-      date: `d${i}`,
-    }));
-    const model = fitQuestionModel('DIR', ['a'], rows);
-    expect(hasEnoughTrainingData(model)).toBe(false);
-  });
-
-  it('MIN_TRAINING_DATES 以上なら true', () => {
-    const rows: TrainingRow[] = Array.from({ length: MIN_TRAINING_DATES }, (_, i) => ({
-      values: { a: 1 },
-      y: 1,
-      offset: 0,
-      date: `d${i}`,
-    }));
-    const model = fitQuestionModel('DIR', ['a'], rows);
-    expect(hasEnoughTrainingData(model)).toBe(true);
   });
 });
 

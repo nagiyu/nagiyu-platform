@@ -39,6 +39,7 @@ assert len(PATTERNS) == 27
 
 N = 20
 ALPHA = {'Q-DIR': 80, 'Q-VOL': 20, 'Q-MKT': 20}
+MIN_TRAINING_DATES = 30  # design.md §1.6・constants.ts の MIN_TRAINING_DATES と同じ
 
 
 def size(n):
@@ -76,22 +77,23 @@ def to_axis_id(col: str) -> str:
 
 
 # ------------------------------------------------------------------ 1. 合成データ生成
-N_DAYS = 80
+# 銘柄数・日数は、TS 側が D までの全期間を日次でリプレイして学習し直す構造になったこと
+# （design.md §3.1）に合わせ、ゴールデンテストの実行時間を抑えるため必要最小限にしている
+# （バーンイン 30 営業日 + 評価対象・中立帯の見直し(30日)を試せる程度）。
+N_DAYS = 55
 DATES = pd.bdate_range('2024-01-02', periods=N_DAYS).strftime('%Y-%m-%d').tolist()
 
 TICKERS = [
     ('JT1', 'TSE'),
     ('JT2', 'TSE'),
     ('JT3', 'TSE'),
-    ('JT4', 'TSE'),
     ('UT1', 'NASDAQ'),
     ('UT2', 'NYSE'),
     ('UT3', 'AMEX'),
-    ('UT4', 'NASDAQ'),
 ]
 
-DROP_TICKER, DROP_DATE_INDEX = 'UT3', 40  # 1銘柄だけ1日欠落 -> 翌営業日不一致を作る
-EXTREME_TICKER, EXTREME_DATE_INDEX = 'JT2', 55  # |リターン| > 20% を1件作る
+DROP_TICKER, DROP_DATE_INDEX = 'UT3', 32  # 1銘柄だけ1日欠落 -> 翌営業日不一致を作る
+EXTREME_TICKER, EXTREME_DATE_INDEX = 'JT2', 40  # |リターン| > 20% を1件作る
 
 created_base = int(pd.Timestamp('2024-01-02T00:00:00Z').timestamp() * 1000)
 
@@ -239,11 +241,14 @@ def next_calendar_date(mkt, date):
     return cal[idx + 1]
 
 
-# ------------------------------------------------------------------ 6. 評価対象（各市場の最終3営業日）
+# ------------------------------------------------------------------ 6. 評価対象（各市場の最終2営業日）
 EVAL_DATES = {m: list(CAL[m][-2:]) for m in ['JP', 'US']}
+TARGET_KEYS = {(m, d) for m, dates in EVAL_DATES.items() for d in dates}
 
 QUESTIONS = ['Q-DIR', 'Q-VOL', 'Q-MKT']
 Q_TO_KEY = {'Q-DIR': 'DIR', 'Q-VOL': 'VOL', 'Q-MKT': 'MKT'}
+REVIEW_EVERY = 30  # design.md §1.5・decision2.py と同じ見直し間隔（両市場を合わせたカレンダーで数える）
+ALL_DATES = sorted(set(CAL['JP']) | set(CAL['US']))  # 中立帯の見直し間隔用（両市場合算カレンダー）
 
 
 _FIT_CACHE = {}
@@ -279,13 +284,20 @@ def fit_at(q, market, date):
 
 def known_history(q, market, date):
     """determine_band / calib_table に渡す既知サンプル (d, y, base) を、時刻の規則でフィルタして作る。
-    TS 側の history.knownXxxSamples に渡す元データ（market, date, probability, baseline, hit）も保持する。"""
+
+    指摘 C-3: 値がない軸を含む銘柄・市場も（学習からは除外されるが）予測は出す設計
+    （design.md §1「予測時は標準化後0」）に合わせ、ここでは cols（判断軸）の完全性は要求しない
+    （standardize_row が欠損を 0 として扱う）。要求するのは「採点済み（ycol）」であることと、
+    Q-VOL のみ「平常（nrng{N}）がある」こと（design.md §1.6 のバーンイン: 平常が無い銘柄は
+    VOL を出さない）。"""
     df_q = mk if q == 'Q-MKT' else panel
     cols = FEATS[q]
     off_col = f'offset_{q}'
     ycol = YCOL[q]
     base_col = f'baseline_{q}_clipped'
-    need = df_q[cols + [ycol, off_col]].notna().all(axis=1)
+    need = df_q[[ycol, off_col]].notna().all(axis=1)
+    if q == 'Q-VOL':
+        need &= df_q[f'nrng{N}'].notna()
     candidates = df_q[need].copy()
     rows_out = []
     for _, r in candidates.iterrows():
@@ -294,7 +306,9 @@ def known_history(q, market, date):
             continue
         if not sample_usable(nb, r.mkt, date, market):
             continue
-        model, _, _ = fit_at(q, r.mkt, r.date)
+        model, distinct_dates, _ = fit_at(q, r.mkt, r.date)
+        if distinct_dates < MIN_TRAINING_DATES:
+            continue  # その日はバーンイン未達で確率を出していない（design.md §1.6）
         z = standardize_row(model, cols, r)
         p = float(sigmoid(r[off_col] + np.dot(model.beta[1:], z)))
         base = float(r[base_col])
@@ -350,87 +364,140 @@ def find_band(table, p, step=0.05):
     return None
 
 
-# ------------------------------------------------------------------ 7. 評価対象ごとに詳細を出力
-targets = []
-for market, dates in EVAL_DATES.items():
-    for date in dates:
-        detail = {'market': market, 'date': date, 'questions': {}}
-        for q in QUESTIONS:
-            model, distinct_dates, training_size = fit_at(q, market, date)
-            cols = FEATS[q]
-            weights = {to_axis_id(c): float(model.beta[1 + j]) for j, c in enumerate(cols)}
-            standardization = {}
-            num_idx = 0
-            for j, c in enumerate(cols):
-                if model.num[j]:
-                    standardization[to_axis_id(c)] = {'mean': float(model.mu[num_idx]), 'std': float(model.sd[num_idx])}
-                    num_idx += 1
-            df_q = mk if q == 'Q-MKT' else panel
-            base_clipped = float(df_q.loc[(df_q.mkt == market) & (df_q.date == date), f'baseline_{q}_clipped'].iloc[0])
-            offset_logit = float(logit(base_clipped))
+# ------------------------------------------------------------------ 7. 日次リプレイして評価対象の詳細を出力
+#
+# TS 側は D までの全期間を名目引け時刻の順にリプレイし、中立帯は「両市場を合わせたカレンダーで
+# 30 営業日ごと」に見直して引き継ぐ（design.md §1.5・§3.1、指摘 A-2）。ゴールデン側もこの
+# 見直しの持ち回りを再現しないと、評価対象日の中立帯が一致しない（TS は毎回フレッシュには
+# 判定し直さないため）。確率帯の過去実績（bandHistoryTable）はスナップショットのたびに
+# 毎回フレッシュに計算する（中立帯の見直しとは別サイクル）。
+ALL_ENTRIES = sorted(
+    ({'market': m, 'date': d} for m in ['JP', 'US'] for d in CAL[m]),
+    key=lambda e: close_time(e['date'], e['market']),
+)
 
-            hist_df = known_history(q, market, date)
-            hist_for_band = hist_df[['d', 'y', 'base']]
-            lo, hi = determine_band(hist_for_band, STEP[q], MINN[q], min_diff=0.03)
-            lo, hi = to_sentinel(lo, hi)
-            band_table = calib_table(hist_df, step=0.05)
-            known_samples = [
-                {'market': rr.market, 'date': rr.date, 'probability': float(rr.p), 'baseline': float(rr.base), 'hit': bool(rr.y)}
-                for rr in hist_df.itertuples()
-            ]
+neutral_state = {q: None for q in QUESTIONS}
+targets_by_key = {}
 
-            q_detail = {
-                'baseline': base_clipped,
-                'weights': weights,
-                'standardization': standardization,
-                'trainingSize': training_size,
-                'distinctTrainingDates': distinct_dates,
-                'neutralBand': {'lower': float(lo), 'upper': float(hi)},
-                'bandHistoryTable': band_table,
-                'knownSamples': known_samples,
-                'predictions': [],
-            }
 
-            if q == 'Q-MKT':
-                row = df_q[(df_q.mkt == market) & (df_q.date == date)]
-                if len(row) == 1:
-                    r = row.iloc[0]
-                    if not r[cols].isna().any():
-                        z = standardize_row(model, cols, r)
-                        p = float(sigmoid(offset_logit + np.dot(model.beta[1:], z)))
-                        contrib = sequential_contributions(offset_logit, model.beta[1:], z, cols)
-                        band_entry = find_band(band_table, p)
-                        q_detail['predictions'].append(
-                            {'key': market, 'probability': p, 'contributions': contrib, 'bandHistory': band_entry}
-                        )
-            else:
-                rows_today = df_q[(df_q.mkt == market) & (df_q.date == date)]
-                for _, r in rows_today.iterrows():
-                    if r[cols].isna().any():
-                        continue  # 値なし軸のケースは別途 TS 単体テストで扱う（報告に記載）
-                    z = standardize_row(model, cols, r)
-                    p = float(sigmoid(offset_logit + np.dot(model.beta[1:], z)))
-                    contrib = sequential_contributions(offset_logit, model.beta[1:], z, cols)
-                    band_entry = find_band(band_table, p)
-                    q_detail['predictions'].append(
-                        {'key': r.ticker, 'probability': p, 'contributions': contrib, 'bandHistory': band_entry}
-                    )
-            detail['questions'][Q_TO_KEY[q]] = q_detail
-        targets.append(detail)
+def maybe_recompute_band(q, market, date):
+    prev = neutral_state[q]
+    if prev is None:
+        should_recompute = True
+    else:
+        elapsed = sum(1 for d in ALL_DATES if d > prev['decidedOn'] and d <= date)
+        should_recompute = elapsed >= REVIEW_EVERY
+    if should_recompute:
+        hist_df = known_history(q, market, date)
+        lo, hi = determine_band(hist_df[['d', 'y', 'base']], STEP[q], MINN[q], min_diff=0.03)
+        lo, hi = to_sentinel(lo, hi)
+        neutral_state[q] = {'lo': lo, 'hi': hi, 'decidedOn': date}
+    return neutral_state[q]
+
+
+for entry in ALL_ENTRIES:
+    market, date = entry['market'], entry['date']
+    is_target = (market, date) in TARGET_KEYS
+    detail = {'market': market, 'date': date, 'questions': {}} if is_target else None
+
+    for q in QUESTIONS:
+        band_state = maybe_recompute_band(q, market, date)
+        if not is_target:
+            continue
+
+        model, distinct_dates, training_size = fit_at(q, market, date)
+        cols = FEATS[q]
+        weights = {to_axis_id(c): float(model.beta[1 + j]) for j, c in enumerate(cols)}
+        standardization = {}
+        num_idx = 0
+        for j, c in enumerate(cols):
+            if model.num[j]:
+                standardization[to_axis_id(c)] = {'mean': float(model.mu[num_idx]), 'std': float(model.sd[num_idx])}
+                num_idx += 1
+        df_q = mk if q == 'Q-MKT' else panel
+        base_clipped = float(df_q.loc[(df_q.mkt == market) & (df_q.date == date), f'baseline_{q}_clipped'].iloc[0])
+        offset_logit = float(logit(base_clipped))
+
+        # 確率帯の過去実績は、中立帯の見直し間隔とは別に毎回フレッシュに計算する（TS と同じ）
+        hist_df = known_history(q, market, date)
+        band_table = calib_table(hist_df, step=0.05)
+        known_samples = [
+            {'market': rr.market, 'date': rr.date, 'probability': float(rr.p), 'baseline': float(rr.base), 'hit': bool(rr.y)}
+            for rr in hist_df.itertuples()
+        ]
+
+        q_detail = {
+            'baseline': base_clipped,
+            'weights': weights,
+            'standardization': standardization,
+            'trainingSize': training_size,
+            'distinctTrainingDates': distinct_dates,
+            'neutralBand': {'lower': float(band_state['lo']), 'upper': float(band_state['hi'])},
+            'bandHistoryTable': band_table,
+            'knownSamples': known_samples,
+            'predictions': [],
+        }
+
+        # 指摘 C-3: 値なしの軸を含む銘柄・市場も、標準化後 0（寄与なし）として予測に含める
+        # （TS の standardize_row と同じ扱い。除外しない）。
+        if q == 'Q-MKT':
+            row = df_q[(df_q.mkt == market) & (df_q.date == date)]
+            if len(row) == 1:
+                r = row.iloc[0]
+                z = standardize_row(model, cols, r)
+                p = float(sigmoid(offset_logit + np.dot(model.beta[1:], z)))
+                contrib = sequential_contributions(offset_logit, model.beta[1:], z, cols)
+                band_entry = find_band(band_table, p)
+                q_detail['predictions'].append(
+                    {'key': market, 'probability': p, 'contributions': contrib, 'bandHistory': band_entry}
+                )
+        else:
+            rows_today = df_q[(df_q.mkt == market) & (df_q.date == date)]
+            for _, r in rows_today.iterrows():
+                z = standardize_row(model, cols, r)
+                p = float(sigmoid(offset_logit + np.dot(model.beta[1:], z)))
+                contrib = sequential_contributions(offset_logit, model.beta[1:], z, cols)
+                band_entry = find_band(band_table, p)
+                q_detail['predictions'].append(
+                    {'key': r.ticker, 'probability': p, 'contributions': contrib, 'bandHistory': band_entry}
+                )
+        detail['questions'][Q_TO_KEY[q]] = q_detail
+
+    if is_target:
+        targets_by_key[(market, date)] = detail
+
+targets = [targets_by_key[k] for m, dates in EVAL_DATES.items() for k in [(m, d) for d in dates]]
 
 # ------------------------------------------------------------------ 8. 採点結果（実績）の出力
+#
+# 指摘 B-1・B-2: TickerOutcome.nextRange は生の価格差ではなく比率（(翌日高値-翌日安値)÷基準日終値）
+# で持つ。ここでは panel の next_ok・close を使って参照実装と同じ値幅の定義で計算し、
+# TS の computeOutcomes（compute.test.ts で突き合わせる）と直接比較できる形にする。
+panel_sorted = panel.sort_values(['ticker', 'date']).reset_index(drop=True)
+g_ticker = panel_sorted.groupby('ticker')
+panel_sorted['next_close'] = g_ticker.close.shift(-1)
+
 outcomes_ticker = []
-for _, r in panel.iterrows():
-    if pd.isna(r.next_date) or not r.next_ok:
+for _, r in panel_sorted.iterrows():
+    if not r.next_ok or pd.isna(r.next_date):
         continue
-    entry = {'ticker': r.ticker, 'market': r.mkt, 'date': r.date, 'nextDate': r.next_date}
-    if pd.isna(r.ret1):
+    next_return_raw = float(r.next_close) / float(r.close) - 1  # 除外されていても実際の値を持つ
+    excluded = abs(next_return_raw) > 0.20
+    entry = {
+        'ticker': r.ticker,
+        'market': r.mkt,
+        'date': r.date,
+        'nextDate': r.next_date,
+        'nextReturn': next_return_raw,
+    }
+    if excluded:
         entry['excludedReason'] = 'EXTREME_RETURN'
     else:
         entry['excessReturn'] = float(r.excess)
         entry['hitDir'] = bool(r.excess > 0)
     if not pd.isna(r.rng_next):
-        entry['rangeNextRatio'] = float(r.rng_next)
+        # rng_next は既に比率（(翌日高値-翌日安値)÷基準日終値。prep.py の定義どおり）
+        entry['nextRange'] = float(r.rng_next)
         nrng = r[f'nrng{N}']
         if not pd.isna(nrng):
             entry['rangeRatio'] = float(r.rng_next / nrng)
@@ -443,7 +510,7 @@ for _, r in mk.iterrows():
         continue
     if pd.isna(r.Rn):
         continue
-    entry = {'market': r.mkt, 'date': r.date, 'nextDate': r.next_date}
+    entry = {'market': r.mkt, 'date': r.date, 'nextDate': r.next_date, 'nextRange': float(r.Rn)}
     nr = r[f'nR{N}']
     if not pd.isna(nr):
         entry['rangeRatio'] = float(r.Rn / nr)
@@ -471,6 +538,73 @@ for _, r in raw_df.iterrows():
         }
     )
 
+# ------------------------------------------------------------------ 10. 中立帯: 有意なケースの追加検証（指摘 C-2）
+#
+# 実勢データ（上の合成価格データ）は基準値からの偏りが小さく、中立帯が寄りなし（番兵値）に
+# なることが多い。determine_band 自体（両側二項検定 + Holm 補正 + 向き + 最小差）を参照実装と
+# 突き合わせるため、明確に偏った合成の hist データを別途用意する。bars には依存しない。
+def make_biased_hist(base, bands):
+    """bands: [(帯の下端 b, その帯の実現率, 件数), ...]。件数分の (d, y, base) 行を作る。"""
+    rows = []
+    for b, realized, n in bands:
+        k = int(round(realized * n))
+        for i in range(n):
+            d = b + 0.001 * (i % 10)  # 帯の中に収める微小なばらつき（境界跨ぎを避ける）
+            y = 1.0 if i < k else 0.0
+            rows.append({'d': d, 'y': y, 'base': base})
+    return pd.DataFrame(rows)
+
+
+neutral_band_cases = []
+
+# Q-DIR 相当（5pt 刻み・最小件数30・最小差3pt）: 上下とも明確に有意な偏りを作る
+hist_dir = make_biased_hist(
+    0.40,
+    [
+        (-0.15, 0.10, 80),
+        (-0.10, 0.15, 80),
+        (-0.05, 0.25, 80),
+        (0.00, 0.40, 80),
+        (0.05, 0.75, 80),
+        (0.10, 0.85, 80),
+        (0.15, 0.90, 80),
+    ],
+)
+lo_dir, hi_dir = determine_band(hist_dir[['d', 'y', 'base']], STEP['Q-DIR'], MINN['Q-DIR'], min_diff=0.03)
+lo_dir, hi_dir = to_sentinel(lo_dir, hi_dir)
+neutral_band_cases.append(
+    {
+        'label': 'dir_significant_both_sides',
+        'step': STEP['Q-DIR'],
+        'minCount': MINN['Q-DIR'],
+        'minDiff': 0.03,
+        'hist': hist_dir[['d', 'y', 'base']].to_dict(orient='records'),
+        'expected': {'lower': float(lo_dir), 'upper': float(hi_dir)},
+    }
+)
+
+# Q-MKT 相当（10pt 刻み・最小件数10）: 上側だけ有意、下側は件数不足で寄りなしのまま
+hist_mkt = make_biased_hist(
+    0.35,
+    [
+        (-0.20, 0.30, 5),  # 件数不足（10未満）で判定されない
+        (0.00, 0.35, 15),
+        (0.10, 0.85, 15),
+    ],
+)
+lo_mkt, hi_mkt = determine_band(hist_mkt[['d', 'y', 'base']], STEP['Q-MKT'], MINN['Q-MKT'], min_diff=0.03)
+lo_mkt, hi_mkt = to_sentinel(lo_mkt, hi_mkt)
+neutral_band_cases.append(
+    {
+        'label': 'mkt_significant_upper_only',
+        'step': STEP['Q-MKT'],
+        'minCount': MINN['Q-MKT'],
+        'minDiff': 0.03,
+        'hist': hist_mkt[['d', 'y', 'base']].to_dict(orient='records'),
+        'expected': {'lower': float(lo_mkt), 'upper': float(hi_mkt)},
+    }
+)
+
 fixture = {
     'seed': 20260927,
     'patterns': PATTERNS,
@@ -482,6 +616,7 @@ fixture = {
     'targets': targets,
     'outcomesTicker': outcomes_ticker,
     'outcomesMarket': outcomes_market,
+    'neutralBandCases': neutral_band_cases,
 }
 
 out_path = os.path.join(FIXTURES_DIR, 'golden.json')

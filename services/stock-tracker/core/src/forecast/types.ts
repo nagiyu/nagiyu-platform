@@ -60,13 +60,22 @@ export interface ProbabilityRecord {
   lowSampleAxes: AxisId[];
 }
 
-/** 軸ごとの成績（ModelSnapshot.AxisStats） */
+/**
+ * 軸ごとの成績（ModelSnapshot.AxisStats）。
+ *
+ * `diffFromBaseline` は「点灯時の的中率 − 学習サンプル全体の的中率」（design.md §1.4・点12）。
+ * 60 営業日窓の「基準値」（baseline.ts）とは別の量で、あくまで学習に使った全サンプルとの比較。
+ */
 export interface AxisStatsEntry {
+  /** 点灯回数（FLAG は値=1、NUMERIC は値>0 の回数） */
   count: number;
+  /** 点灯時の的中率 */
   hitRate: number;
+  /** 点灯時の的中率 − 学習サンプル全体の的中率 */
   diffFromBaseline: number;
-  /** DIR のみ */
+  /** DIR のみ。点灯時の平均超過リターン */
   meanExcessReturn?: number;
+  /** 件数不足の目印（点灯型のみ。count < LOW_SAMPLE_AXIS_THRESHOLD） */
   lowSample: boolean;
 }
 
@@ -85,12 +94,21 @@ export interface ModelSnapshotItem {
   neutralBand: NeutralBandState;
   bandHistory: BandHistoryEntry[];
   axisStats: Partial<Record<AxisId, AxisStatsEntry>>;
+  /** 学習に使ったサンプル数（行数） */
   trainingSize: number;
+  /**
+   * 学習サンプルの異なる日付の数（design.md §1.6 のバーンイン判定に使う実装拡張フィールド。
+   * design.md の型スケッチには無いが、スナップショット単体からバーンイン可否を判定できるように持つ）。
+   */
+  distinctTrainingDates: number;
   createdAt: number;
 }
 
-/** 銘柄×日の算出結果（Forecast アイテムの予測部分に対応） */
-export interface TickerForecastResult {
+/**
+ * 銘柄×日の軸の値（`computeAxisValuesForDate` の戻り値。design.md §1「D の足と直近の履歴 → 軸の値」）。
+ * まだ実績・確率は含まない（Outcome は翌営業日の到着後、Probabilities はスナップショット計算後に決まる）。
+ */
+export interface TickerAxisValues {
   tickerId: string;
   exchangeId: string;
   market: Market;
@@ -99,14 +117,22 @@ export interface TickerForecastResult {
   axisValues: Partial<Record<AxisId, number | boolean>>;
   /** 算出に使った平常 */
   normal: { range?: number; volume?: number };
+}
+
+/** 市場×日の軸の値 */
+export interface MarketAxisValues {
+  market: Market;
+  date: string;
+  axisValues: Partial<Record<AxisId, number>>;
+}
+
+/** 銘柄×日の算出結果（Forecast アイテムの予測部分に対応） */
+export interface TickerForecastResult extends TickerAxisValues {
   probabilities: Partial<Record<'DIR' | 'VOL', ProbabilityRecord>>;
 }
 
 /** 市場×日の算出結果（MarketForecast アイテムの予測部分に対応） */
-export interface MarketForecastResult {
-  market: Market;
-  date: string;
-  axisValues: Partial<Record<AxisId, number>>;
+export interface MarketForecastResult extends MarketAxisValues {
   probabilities: Partial<Record<'MKT', ProbabilityRecord>>;
 }
 
@@ -115,12 +141,15 @@ export interface ComputeForDateResult {
   date: string;
   market: Market;
   tickers: TickerForecastResult[];
-  marketForecast: MarketForecastResult;
+  /** その市場・日の観測が 1 件も無ければ undefined（design.md §1「D の足が無いときは空」） */
+  marketForecast: MarketForecastResult | undefined;
   modelSnapshots: Partial<Record<Question, ModelSnapshotItem>>;
+  /** 未対応の ExchangeID を持つバー（NFR-2。処理は継続しつつ、この一覧で呼び出し側がログできる） */
+  skippedExchangeIds: string[];
 }
 
 /**
- * computeForDate への入力の 1 行（DailySummary 相当）。
+ * computeAxisValuesForDate / computeOutcomes への入力の 1 行（DailySummary 相当）。
  *
  * PK/SK 等 DynamoDB の実装詳細は含まない。CreatedAt は #3830 の過去データ除外でのみ使う。
  */
@@ -139,34 +168,6 @@ export interface DailyBarInput {
   createdAt: number;
 }
 
-/**
- * 既知の（採点済みで、時刻の規則により参照してよい）過去の予測 1 件。
- * 中立帯の判定・確率帯の過去実績にのみ使う（学習・基準値は DailyBarInput から再計算する）。
- */
-export interface KnownProbabilitySample {
-  market: Market;
-  /** 予測日 */
-  date: string;
-  probability: number;
-  baseline: number;
-  /** 採点結果（的中したか） */
-  hit: boolean;
-}
-
-/** computeForDate に渡す履歴（NFR-4: DB アクセスは呼び出し側に閉じる） */
-export interface ForecastHistory {
-  /** 全市場の DailySummary 相当。将来のバーも含めてよい（時刻の規則で内部フィルタする） */
-  bars: readonly DailyBarInput[];
-  /** 既知の Q-DIR 予測（採点済み） */
-  knownDirSamples: readonly KnownProbabilitySample[];
-  /** 既知の Q-VOL 予測（採点済み） */
-  knownVolSamples: readonly KnownProbabilitySample[];
-  /** 既知の Q-MKT 予測（採点済み） */
-  knownMktSamples: readonly KnownProbabilitySample[];
-  /** 問いごとの直前の中立帯（design.md §1.5 見直しの規則）。なければ null または省略 */
-  previousNeutralBands?: Partial<Record<Question, NeutralBandState | null>>;
-}
-
 /** 銘柄×日の採点結果（Forecast.Outcome に対応） */
 export interface TickerOutcome {
   tickerId: string;
@@ -182,7 +183,10 @@ export interface TickerOutcome {
    * 極端リターンで除外された行は、参照実装で ret1 が NaN 扱いになり超過リターンも算出できないため省略する。
    */
   excessReturn?: number;
-  /** 翌営業日の値幅（生値。実際の値。除外時も参考値として持つ） */
+  /**
+   * 翌営業日の値幅（(翌営業日高値 − 翌営業日安値) ÷ 基準日終値。design.md §1.1 の値幅の定義と揃える。
+   * 生の価格差ではなく比率）。除外時も参考値として持つ。
+   */
   nextRange: number;
   /** 翌日値幅 ÷ 平常。平常が算出できない、または極端リターンで除外されたときは省略 */
   rangeRatio?: number;
@@ -196,6 +200,7 @@ export interface MarketOutcome {
   market: Market;
   date: string;
   nextDate: string;
+  /** 翌営業日の市場平均値幅（有効銘柄の値幅比率の平均。既に比率であり生値ではない） */
   nextRange: number;
   /** 翌日値幅 ÷ 平常。平常（直近20市場日平均）が算出できないときは省略 */
   rangeRatio?: number;
@@ -207,4 +212,52 @@ export interface MarketOutcome {
 export interface ComputeOutcomesResult {
   tickerOutcomes: TickerOutcome[];
   marketOutcomes: MarketOutcome[];
+}
+
+/**
+ * 銘柄×日のサンプル（design.md §3.1「保存済み Forecast」相当）。
+ *
+ * 学習・基準値・中立帯・確率帯の実績・AxisStats は、生の DailySummary からではなく、
+ * この形（= 実際に DynamoDB へ保存される Forecast アイテムの写し）から計算する。
+ * 時刻の規則（`isSampleUsable`）は `outcome.nextDate` と `market` から直接判定し、
+ * 観測カレンダーには依存しない。
+ */
+export interface TickerSample {
+  tickerId: string;
+  exchangeId: string;
+  market: Market;
+  date: string;
+  axisValues: Partial<Record<AxisId, number | boolean>>;
+  normal?: { range?: number; volume?: number };
+  /** 採点済みのときだけ存在する（Forecast.Outcome 相当） */
+  outcome?: {
+    nextDate: string;
+    hit: Partial<Record<'DIR' | 'VOL', boolean>>;
+    /** DIR の AxisStats.meanExcessReturn 用 */
+    excessReturn?: number;
+    excludedReason?: 'EXTREME_RETURN';
+  };
+  /** その日に確率を出していれば存在する（Forecast.Probabilities 相当。中立帯の判定に使う） */
+  probabilities?: Partial<Record<'DIR' | 'VOL', { probability: number; baseline: number }>>;
+}
+
+/** 市場×日のサンプル（design.md §3.1「保存済み MarketForecast」相当） */
+export interface MarketSample {
+  market: Market;
+  date: string;
+  axisValues: Partial<Record<AxisId, number>>;
+  outcome?: {
+    nextDate: string;
+    hit: Partial<Record<'MKT', boolean>>;
+  };
+  probabilities?: Partial<Record<'MKT', { probability: number; baseline: number }>>;
+}
+
+/**
+ * 保存済みサンプルの履歴（design.md §3.1）。学習・基準値・中立帯・AxisStats の入力。
+ * DailyBarInput（生の DailySummary）は含まない。
+ */
+export interface SampleHistory {
+  tickerSamples: readonly TickerSample[];
+  marketSamples: readonly MarketSample[];
 }

@@ -59,6 +59,8 @@ describe('determineNeutralBand', () => {
 });
 
 describe('resolveNeutralBandState', () => {
+  // 両市場を合わせたカレンダー（サンプル日付の和集合）を想定。単純な連番でも
+  // 「decidedOn より後で date 以下」の日数カウント（日付比較）を確認できる。
   const calendar = Array.from(
     { length: 100 },
     (_, i) =>
@@ -69,7 +71,6 @@ describe('resolveNeutralBandState', () => {
     const state = resolveNeutralBandState({
       question: 'DIR',
       date: calendar[10],
-      market: 'JP',
       calendar,
       previous: null,
       hist: [],
@@ -82,7 +83,6 @@ describe('resolveNeutralBandState', () => {
     const state = resolveNeutralBandState({
       question: 'DIR',
       date: calendar[20], // 10 日しか経っていない
-      market: 'JP',
       calendar,
       previous,
       hist: [],
@@ -95,12 +95,48 @@ describe('resolveNeutralBandState', () => {
     const state = resolveNeutralBandState({
       question: 'DIR',
       date: calendar[40], // 30 日経過
-      market: 'JP',
       calendar,
       previous,
       hist: [],
     });
     expect(state.decidedOn).toBe(calendar[40]);
+  });
+
+  it('decidedOn がカレンダーに存在しない日付でも、日付比較で正しく数える', () => {
+    // decidedOn がカレンダーには無い日付（カレンダーの2つの日付の間）でも動く
+    const previous = { lower: -0.1, upper: 0.2, decidedOn: '2026-01-15T12:00:00' };
+    const withinInterval = resolveNeutralBandState({
+      question: 'DIR',
+      date: calendar[10],
+      calendar,
+      previous,
+      hist: [],
+    });
+    expect(withinInterval).toEqual(previous);
+
+    // decidedOn ('2026-01-15T12:00:00') より後の日付は calendar[15] 以降（'2026-01-15' 自体は
+    // 文字列比較で decidedOn より前になる）。30 件以上経過するのは calendar[44] 以降。
+    const afterInterval = resolveNeutralBandState({
+      question: 'DIR',
+      date: calendar[44],
+      calendar,
+      previous,
+      hist: [],
+    });
+    expect(afterInterval.decidedOn).toBe(calendar[44]);
+  });
+
+  it('forceRecompute: true なら見直し間隔によらず必ず判定し直す', () => {
+    const previous = { lower: -0.1, upper: 0.2, decidedOn: calendar[10] };
+    const state = resolveNeutralBandState({
+      question: 'DIR',
+      date: calendar[11], // 1 日しか経っていない
+      calendar,
+      previous,
+      hist: [],
+      forceRecompute: true,
+    });
+    expect(state.decidedOn).toBe(calendar[11]);
   });
 });
 

@@ -3,6 +3,7 @@
  */
 import { buildObservationCalendar, buildPanel } from '../../../src/forecast/preprocessing.js';
 import type { DailyBarInput } from '../../../src/forecast/types.js';
+import { REAL_EXCHANGES } from './support/exchanges.js';
 
 function bar(
   overrides: Partial<DailyBarInput> & Pick<DailyBarInput, 'tickerId' | 'exchangeId' | 'date'>
@@ -25,7 +26,7 @@ describe('buildObservationCalendar', () => {
       bar({ tickerId: 'B', exchangeId: 'TSE', date: '2026-01-05' }),
       bar({ tickerId: 'A', exchangeId: 'NASDAQ', date: '2026-01-05' }), // ticker id が同じでも exchangeId で市場が決まる
     ];
-    const calendar = buildObservationCalendar(bars);
+    const calendar = buildObservationCalendar(bars, REAL_EXCHANGES);
     expect(calendar.JP).toEqual(['2026-01-05', '2026-01-06']);
     expect(calendar.US).toEqual(['2026-01-05']);
   });
@@ -44,7 +45,7 @@ describe('値幅・出来高の異常値（design.md §1.2）', () => {
         close: 100,
       }),
     ];
-    const panel = buildPanel(bars);
+    const panel = buildPanel(bars, REAL_EXCHANGES);
     const row = panel.tickerSamples.find((s) => s.date === '2026-01-06')!;
     expect(row.rawRangeToday).toBeUndefined();
   });
@@ -53,7 +54,7 @@ describe('値幅・出来高の異常値（design.md §1.2）', () => {
     const bars: DailyBarInput[] = [
       bar({ tickerId: 'A', exchangeId: 'TSE', date: '2026-01-05', volume: 0 }),
     ];
-    const panel = buildPanel(bars);
+    const panel = buildPanel(bars, REAL_EXCHANGES);
     const row = panel.tickerSamples[0];
     expect(row.normalVolume).toBeUndefined();
   });
@@ -68,7 +69,7 @@ describe('平常（直近20レコード平均。design.md §1.1）', () => {
         bar({ tickerId: 'A', exchangeId: 'TSE', date, high: 110, low: 90, close: 100 + i })
       );
     }
-    const panel = buildPanel(bars);
+    const panel = buildPanel(bars, REAL_EXCHANGES);
     const rows = panel.tickerSamples;
     // 値幅は前日終値が要るため index0 は値幅自体が無く、直近20件の値幅がすべて揃うのは index20 から
     expect(rows[19].normalRange).toBeUndefined();
@@ -91,7 +92,7 @@ describe('平常（直近20レコード平均。design.md §1.1）', () => {
         })
       );
     }
-    const panel = buildPanel(bars);
+    const panel = buildPanel(bars, REAL_EXCHANGES);
     const rows = panel.tickerSamples;
     // index10 の欠損のせいで、index10..29 の20件窓には常に欠損が含まれるため normalRange は無い
     // (index29 の窓は index10..29 のちょうど20件で、欠損を含む)
@@ -107,7 +108,7 @@ describe('市場レベル軸（design.md §1.2 後段）', () => {
       bars.push(bar({ tickerId: 'A', exchangeId: 'TSE', date, high: 110, low: 90, close: 100 }));
       bars.push(bar({ tickerId: 'B', exchangeId: 'TSE', date, high: 108, low: 92, close: 100 }));
     }
-    const panel = buildPanel(bars);
+    const panel = buildPanel(bars, REAL_EXCHANGES);
     const lastDate = '2026-01-25';
     const a = panel.tickerSamples.find((s) => s.tickerId === 'A' && s.date === lastDate)!;
     const b = panel.tickerSamples.find((s) => s.tickerId === 'B' && s.date === lastDate)!;
@@ -126,7 +127,7 @@ describe('市場×日パネル（Q-MKT。design.md §1.2）', () => {
         bar({ tickerId: 'A', exchangeId: 'TSE', date, high: 110, low: 90, close: 100 + i })
       );
     }
-    const panel = buildPanel(bars);
+    const panel = buildPanel(bars, REAL_EXCHANGES);
     const marketRows = panel.marketSamples.filter((s) => s.market === 'JP');
     expect(marketRows[marketRows.length - 1].marketRangeAvg).toBeDefined();
   });

@@ -22,14 +22,15 @@ export interface BaselineKnownSample {
 
 /**
  * 基準値（rolling_base, scope='pooled'）: 市場 M・日付 D の予測時点で知り得る、
- * 直近 BASELINE_WINDOW 営業日（M のカレンダー）のラベル付きサンプルの的中率（JP・US 合算）。
+ * 直近 BASELINE_WINDOW 営業日（M のカレンダー）のラベル付きサンプルの的中率（全市場合算）。
  * 20 件未満なら既知の全サンプル、それも無ければ 0.5（design.md §1.5）。
  *
  * calendar の全日付に対して baseline を返す（学習時のオフセット列と、表示する基準値の両方に使うため）。
+ * 市場コードの集合は `calendar` のキー（固定 JP/US ではない。design.md §1.1）から決まる。
  */
 export function computeRollingBaseline(params: {
   calendar: Record<Market, readonly string[]>;
-  /** 両市場合算の既知サンプル */
+  /** 全市場合算の既知サンプル */
   samples: readonly BaselineKnownSample[];
   predTimeOf: (date: string, market: Market) => number;
   window?: number;
@@ -41,8 +42,9 @@ export function computeRollingBaseline(params: {
   const labelTimes = params.samples.map((s) => s.labelTime);
   const ys = params.samples.map((s) => s.y);
 
-  const result: Record<Market, Record<string, number>> = { JP: {}, US: {} };
-  for (const market of ['JP', 'US'] as const) {
+  const result: Record<Market, Record<string, number>> = {};
+  for (const market of Object.keys(params.calendar)) {
+    result[market] = {};
     const calendar = params.calendar[market];
     for (let i = 0; i < calendar.length; i++) {
       const date = calendar[i];

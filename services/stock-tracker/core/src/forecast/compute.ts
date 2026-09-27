@@ -1,21 +1,23 @@
 /**
- * Stock Tracker Core - Forecast 算出の中核（design.md §1・§2.3・§4）
+ * Stock Tracker Core - Forecast 算出の中核（design.md §1・§2.3・§3.1・§4）
  *
- * `computeForDate` が中核の入口。DB アクセスは行わない純粋関数（NFR-4）。
+ * design.md §3.1 のとおり、bars（生の DailySummary 相当）から計算するのは
+ * 「D の軸の値」（{@link computeAxisValuesForDate}）と「実績」（{@link computeOutcomes} /
+ * {@link computeOutcomeForDate}）だけにする。学習・基準値・標準化・中立帯・確率帯の実績・
+ * AxisStats は、保存済みサンプル列（{@link SampleHistory}）から計算する
+ * （{@link computeModelSnapshot}）。スナップショットと軸の値から確率を組み立てるのが
+ * {@link computeProbabilityRecord}。
+ *
+ * 3-2 のバッチは、この 4 つを日付順に呼んでサンプルを積んでいけばよい。`computeForDate` は
+ * bars だけからリプレイ相当で全部作る便宜の合成関数で、テストとゴールデン用。
+ *
+ * いずれも DB アクセスは行わない純粋関数（NFR-4）。
  */
-import {
-  AXIS_ID_MARKET_PARKINSON_5D,
-  AXIS_ID_MARKET_RANGE_AVG,
-  AXIS_ID_MARKET_RANGE_TODAY,
-  AXIS_ID_MARKET_VOLUME_RATIO,
-  AXIS_ID_PARKINSON_5D,
-  AXIS_ID_RANGE_TODAY,
-  AXIS_ID_VOLUME_RATIO,
-  getAxisIdsForQuestion,
-} from './axes.js';
+import { getAxisIdsForQuestion } from './axes.js';
 import { baselineOffset, clipBaseline, computeRollingBaseline } from './baseline.js';
 import {
   FORECAST_MODEL_VERSION,
+  MIN_TRAINING_DATES,
   PROBABILITY_BAND_STEP,
   REGULARIZATION_ALPHA,
   type Market,
@@ -27,397 +29,213 @@ import {
   computeBandHistoryTable,
   findBandHistoryEntry,
   resolveNeutralBandState,
-  type NeutralBandHistoryPoint,
 } from './neutral-band.js';
 import {
   fitQuestionModel,
-  hasEnoughTrainingData,
   predictProbability,
   standardizeForPrediction,
   type FittedQuestionModel,
-  type TrainingRow,
 } from './model.js';
-import { buildPanel, type MarketDaySample, type TickerDaySample } from './preprocessing.js';
 import {
-  getMarketForExchange,
-  getNextCalendarDate,
-  isSampleUsable,
-  nominalCloseTime,
-} from './time.js';
+  axisValuesFromMarketSample,
+  axisValuesFromTickerSample,
+  computeAxisValuesForDate,
+  buildPanel,
+  partitionByKnownExchange,
+  type MarketDaySample,
+  type TickerDaySample,
+} from './preprocessing.js';
+import {
+  buildSampleCalendar,
+  buildUnionSampleCalendar,
+  buildBaselineSamples,
+  buildTrainingRows,
+  collectKnownProbabilitySamples,
+  ensureCalendarIncludes,
+} from './sampling.js';
+import { nominalMarketCloseTime, type ExchangeSessionInfo } from './time.js';
 import { logit } from './stats.js';
 import type {
   AxisId,
   ComputeForDateResult,
   ComputeOutcomesResult,
   DailyBarInput,
-  ForecastHistory,
-  KnownProbabilitySample,
   MarketForecastResult,
   MarketOutcome,
+  MarketSample,
   ModelSnapshotItem,
+  NeutralBandState,
   ProbabilityRecord,
+  SampleHistory,
   TickerForecastResult,
   TickerOutcome,
+  TickerSample,
 } from './types.js';
 
-/** 銘柄×日のサンプルから軸の値を取り出す */
-function getTickerAxisValue(sample: TickerDaySample, axisId: AxisId): number | undefined {
-  switch (axisId) {
-    case AXIS_ID_PARKINSON_5D:
-      return sample.parkinson5d;
-    case AXIS_ID_RANGE_TODAY:
-      return sample.rangeToday;
-    case AXIS_ID_VOLUME_RATIO:
-      return sample.volumeRatio;
-    case AXIS_ID_MARKET_PARKINSON_5D:
-      return sample.marketParkinson5d;
-    case AXIS_ID_MARKET_RANGE_TODAY:
-      return sample.marketRangeToday;
-    case AXIS_ID_MARKET_VOLUME_RATIO:
-      return sample.marketVolumeRatio;
-    default:
-      return sample.flags[axisId];
+/** 銘柄×日のサンプル 1 行から採点結果を作る（採点できないときは undefined） */
+function tickerOutcomeFromSample(
+  sample: TickerDaySample,
+  evaluatedAt: number
+): TickerOutcome | undefined {
+  if (!sample.nextOk || sample.nextDate === undefined || sample.outcomeRaw === undefined)
+    return undefined;
+  const { nextReturn, nextRawRange, excludedExtremeReturn } = sample.outcomeRaw;
+  // 値幅の定義（design.md §1.1）に揃える: 翌営業日の値幅 ÷ 基準日終値（生の価格差ではない）
+  const nextRange = nextRawRange / sample.close;
+  const outcome: TickerOutcome = {
+    tickerId: sample.tickerId,
+    exchangeId: sample.exchangeId,
+    market: sample.market,
+    date: sample.date,
+    nextDate: sample.nextDate,
+    nextReturn,
+    nextRange,
+    hit: {},
+    evaluatedAt,
+  };
+  if (excludedExtremeReturn) {
+    outcome.excludedReason = 'EXTREME_RETURN';
+  } else {
+    outcome.excessReturn = sample.excessReturn;
+    if (sample.excessReturn !== undefined) {
+      outcome.hit.DIR = sample.excessReturn > 0;
+    }
+    if (sample.normalRange !== undefined) {
+      const rangeRatio = nextRange / sample.normalRange;
+      outcome.rangeRatio = rangeRatio;
+      outcome.hit.VOL = rangeRatio > 1;
+    }
   }
+  return outcome;
 }
 
-/** 市場×日のサンプルから軸の値を取り出す */
-function getMarketAxisValue(sample: MarketDaySample, axisId: AxisId): number | undefined {
-  switch (axisId) {
-    case AXIS_ID_MARKET_PARKINSON_5D:
-      return sample.marketParkinson5d;
-    case AXIS_ID_MARKET_RANGE_TODAY:
-      return sample.marketRangeToday;
-    case AXIS_ID_MARKET_VOLUME_RATIO:
-      return sample.marketVolumeRatio;
-    case AXIS_ID_MARKET_RANGE_AVG:
-      return sample.marketRangeAvg;
-    default:
-      return undefined;
+/** 市場×日のサンプル 1 行から採点結果を作る（採点できないときは undefined） */
+function marketOutcomeFromSample(
+  sample: MarketDaySample,
+  evaluatedAt: number
+): MarketOutcome | undefined {
+  if (!sample.nextOk || sample.nextDate === undefined || sample.outcomeRaw === undefined)
+    return undefined;
+  const { nextMeanRange } = sample.outcomeRaw;
+  const outcome: MarketOutcome = {
+    market: sample.market,
+    date: sample.date,
+    nextDate: sample.nextDate,
+    nextRange: nextMeanRange,
+    hit: {},
+    evaluatedAt,
+  };
+  if (sample.normalMeanRange !== undefined) {
+    const rangeRatio = nextMeanRange / sample.normalMeanRange;
+    outcome.rangeRatio = rangeRatio;
+    outcome.hit.MKT = rangeRatio > 1;
   }
+  return outcome;
 }
 
-function pickTickerAxisValues(
-  axisIds: readonly AxisId[],
-  sample: TickerDaySample
-): Partial<Record<AxisId, number>> {
-  const values: Partial<Record<AxisId, number>> = {};
-  for (const axisId of axisIds) {
-    const v = getTickerAxisValue(sample, axisId);
-    if (v !== undefined) values[axisId] = v;
-  }
-  return values;
+/**
+ * 実績（採点）の算出（design.md §1・§3.1「D と翌営業日の足 → Outcome」。純粋関数として export する）。
+ *
+ * bars（全期間分でよい）から、翌営業日のレコードが揃っている行すべてについて採点結果を返す。
+ * どの日付の Outcome を実際に永続化するかは呼び出し側（バッチ）が決める。
+ */
+export function computeOutcomes(
+  bars: readonly DailyBarInput[],
+  evaluatedAt: number,
+  exchanges: readonly ExchangeSessionInfo[]
+): ComputeOutcomesResult {
+  const panel = buildPanel(bars, exchanges);
+  const tickerOutcomes = panel.tickerSamples
+    .map((sample) => tickerOutcomeFromSample(sample, evaluatedAt))
+    .filter((o): o is TickerOutcome => o !== undefined);
+  const marketOutcomes = panel.marketSamples
+    .map((sample) => marketOutcomeFromSample(sample, evaluatedAt))
+    .filter((o): o is MarketOutcome => o !== undefined);
+  return { tickerOutcomes, marketOutcomes };
 }
 
-function pickMarketAxisValues(
-  axisIds: readonly AxisId[],
-  sample: MarketDaySample
-): Partial<Record<AxisId, number>> {
-  const values: Partial<Record<AxisId, number>> = {};
-  for (const axisId of axisIds) {
-    const v = getMarketAxisValue(sample, axisId);
-    if (v !== undefined) values[axisId] = v;
-  }
-  return values;
-}
-
-/** 既知の予測サンプルを、時刻の規則で「今すでに知り得るもの」だけに絞り込む */
-function filterKnownSamples(
-  samples: readonly KnownProbabilitySample[],
-  calendar: Record<Market, readonly string[]>,
+/**
+ * 「D と翌営業日の足 → Outcome」を 1 市場・1 日に絞って返す薄いラッパー
+ * （design.md §3.1。3-2 のバッチはこちらを日付ごとに呼べばよい）。
+ */
+export function computeOutcomeForDate(
+  bars: readonly DailyBarInput[],
   date: string,
-  market: Market
-): NeutralBandHistoryPoint[] {
-  const result: NeutralBandHistoryPoint[] = [];
-  for (const sample of samples) {
-    const nextDate = getNextCalendarDate(calendar[sample.market], sample.date);
-    if (nextDate === undefined) continue;
-    if (!isSampleUsable(nextDate, sample.market, date, market)) continue;
-    result.push({
-      d: sample.probability - sample.baseline,
-      y: sample.hit ? 1 : 0,
-      base: sample.baseline,
-    });
-  }
-  return result;
+  market: Market,
+  evaluatedAt: number,
+  exchanges: readonly ExchangeSessionInfo[]
+): { tickerOutcomes: TickerOutcome[]; marketOutcome: MarketOutcome | undefined } {
+  const { tickerOutcomes, marketOutcomes } = computeOutcomes(bars, evaluatedAt, exchanges);
+  return {
+    tickerOutcomes: tickerOutcomes.filter((o) => o.market === market && o.date === date),
+    marketOutcome: marketOutcomes.find((o) => o.market === market && o.date === date),
+  };
 }
 
-export interface ComputeForDateOptions {
-  /** ModelSnapshot.CreatedAt に使う時刻 (Unix timestamp ms)。省略時は Date.now()（再現性テストでは固定値を渡す） */
+export interface ComputeModelSnapshotOptions {
+  /** 直前の中立帯（design.md §1.5 見直しの規則）。無ければ null または省略 */
+  previousNeutralBand?: NeutralBandState | null;
+  /** true なら見直し間隔によらず必ず中立帯を判定し直す（稼働開始日用） */
+  forceNeutralBandRecompute?: boolean;
+  /** ModelSnapshot.CreatedAt に使う時刻 (Unix timestamp ms)。省略時は Date.now() */
   now?: number;
 }
 
 /**
- * 中核の入口（design.md §4）。
+ * 保存済みサンプル列 + D → スナップショット（design.md §3.1）。
  *
- * history（全市場の DailySummary 相当と、既知の過去の予測）から、市場 market・日付 date の
- * 各銘柄の軸の値と確率（DIR・VOL）、市場の軸の値と確率（MKT）、問いごとのスナップショットを返す。
+ * 学習・基準値・標準化・中立帯・確率帯の実績・AxisStats を、`history`（保存済み
+ * Forecast/MarketForecast 相当）から計算する。bars（生の DailySummary）には依存しない。
  */
-export function computeForDate(
-  history: ForecastHistory,
-  date: string,
-  market: Market,
-  options: ComputeForDateOptions = {}
-): ComputeForDateResult {
-  const now = options.now ?? Date.now();
-  // 予測時刻より後に確定するバー（NFR-4）は、前処理より前に落とす。切り詰め不変性テストが
-  // 保証するとおり最終出力は変わらないが、未確定データへ一切アクセスしないことをここで担保する。
-  const cutoff = nominalCloseTime(date, market);
-  const visibleBars = history.bars.filter(
-    (bar) => nominalCloseTime(bar.date, getMarketForExchange(bar.exchangeId)) <= cutoff
-  );
-  const panel = buildPanel(visibleBars);
-  const calendar = panel.calendar;
-
-  const dirAxisIds = getAxisIdsForQuestion('DIR');
-  const volAxisIds = getAxisIdsForQuestion('VOL');
-  const mktAxisIds = getAxisIdsForQuestion('MKT');
-
-  // ---- 基準値（問いごと。pooled = JP・US 合算）
-  const dirBaseline = computeRollingBaseline({
-    calendar,
-    samples: panel.tickerSamples
-      .filter((s) => s.yDir !== undefined)
-      .map((s) => ({ market: s.market, date: s.date, labelTime: s.labelTime!, y: s.yDir! })),
-    predTimeOf: nominalCloseTime,
-  });
-  const volBaseline = computeRollingBaseline({
-    calendar,
-    samples: panel.tickerSamples
-      .filter((s) => s.yVol !== undefined)
-      .map((s) => ({ market: s.market, date: s.date, labelTime: s.labelTime!, y: s.yVol! })),
-    predTimeOf: nominalCloseTime,
-  });
-  const mktBaseline = computeRollingBaseline({
-    calendar,
-    samples: panel.marketSamples
-      .filter((s) => s.yMkt !== undefined)
-      .map((s) => ({ market: s.market, date: s.date, labelTime: s.labelTime!, y: s.yMkt! })),
-    predTimeOf: nominalCloseTime,
-  });
-
-  // ---- 学習サンプル（時刻の規則でフィルタ。design.md §1.4）
-  const dirTrainingRows: TrainingRow[] = [];
-  const volTrainingRows: TrainingRow[] = [];
-  for (const sample of panel.tickerSamples) {
-    if (!sample.nextOk || sample.nextDate === undefined) continue;
-    if (!isSampleUsable(sample.nextDate, sample.market, date, market)) continue;
-    if (sample.yDir !== undefined) {
-      dirTrainingRows.push({
-        values: pickTickerAxisValues(dirAxisIds, sample),
-        y: sample.yDir,
-        offset: baselineOffset(dirBaseline[sample.market][sample.date]),
-        date: sample.date,
-        excessReturn: sample.excessReturn,
-      });
-    }
-    if (sample.yVol !== undefined) {
-      volTrainingRows.push({
-        values: pickTickerAxisValues(volAxisIds, sample),
-        y: sample.yVol,
-        offset: baselineOffset(volBaseline[sample.market][sample.date]),
-        date: sample.date,
-      });
-    }
-  }
-
-  const mktTrainingRows: TrainingRow[] = [];
-  for (const sample of panel.marketSamples) {
-    if (!sample.nextOk || sample.nextDate === undefined) continue;
-    if (!isSampleUsable(sample.nextDate, sample.market, date, market)) continue;
-    if (sample.yMkt !== undefined) {
-      mktTrainingRows.push({
-        values: pickMarketAxisValues(mktAxisIds, sample),
-        y: sample.yMkt,
-        offset: baselineOffset(mktBaseline[sample.market][sample.date]),
-        date: sample.date,
-      });
-    }
-  }
-
-  const dirModel = fitQuestionModel('DIR', dirAxisIds, dirTrainingRows);
-  const volModel = fitQuestionModel('VOL', volAxisIds, volTrainingRows);
-  const mktModel = fitQuestionModel('MKT', mktAxisIds, mktTrainingRows);
-
-  const dirBurnInOk = hasEnoughTrainingData(dirModel);
-  const volBurnInOk = hasEnoughTrainingData(volModel);
-  const mktBurnInOk = hasEnoughTrainingData(mktModel);
-
-  const dirBaselineValue = clipBaseline(dirBaseline[market][date]);
-  const volBaselineValue = clipBaseline(volBaseline[market][date]);
-  const mktBaselineValue = clipBaseline(mktBaseline[market][date]);
-
-  // ---- 中立帯（見直しの規則。design.md §1.5）
-  const dirKnownHist = filterKnownSamples(history.knownDirSamples, calendar, date, market);
-  const volKnownHist = filterKnownSamples(history.knownVolSamples, calendar, date, market);
-  const mktKnownHist = filterKnownSamples(history.knownMktSamples, calendar, date, market);
-
-  const dirNeutralBand = resolveNeutralBandState({
-    question: 'DIR',
-    date,
-    market,
-    calendar: calendar[market],
-    previous: history.previousNeutralBands?.DIR,
-    hist: dirKnownHist,
-  });
-  const volNeutralBand = resolveNeutralBandState({
-    question: 'VOL',
-    date,
-    market,
-    calendar: calendar[market],
-    previous: history.previousNeutralBands?.VOL,
-    hist: volKnownHist,
-  });
-  const mktNeutralBand = resolveNeutralBandState({
-    question: 'MKT',
-    date,
-    market,
-    calendar: calendar[market],
-    previous: history.previousNeutralBands?.MKT,
-    hist: mktKnownHist,
-  });
-
-  const dirBandHistoryTable = computeBandHistoryTable(
-    dirKnownHist.map((h) => ({ probability: h.d + h.base, hit: h.y })),
-    PROBABILITY_BAND_STEP
-  );
-  const volBandHistoryTable = computeBandHistoryTable(
-    volKnownHist.map((h) => ({ probability: h.d + h.base, hit: h.y })),
-    PROBABILITY_BAND_STEP
-  );
-  const mktBandHistoryTable = computeBandHistoryTable(
-    mktKnownHist.map((h) => ({ probability: h.d + h.base, hit: h.y })),
-    PROBABILITY_BAND_STEP
-  );
-
-  const dirLowSampleAxes = lowSampleAxesOf(dirModel);
-  const volLowSampleAxes = lowSampleAxesOf(volModel);
-  const mktLowSampleAxes = lowSampleAxesOf(mktModel);
-
-  // ---- 銘柄×日: 軸の値・確率
-  const tickers: TickerForecastResult[] = [];
-  for (const sample of panel.tickerSamples) {
-    if (sample.market !== market || sample.date !== date) continue;
-
-    const axisValues: Partial<Record<AxisId, number | boolean>> = {};
-    for (const axisId of dirAxisIds) {
-      axisValues[axisId] = sample.flags[axisId] === 1;
-    }
-    for (const axisId of volAxisIds) {
-      const v = getTickerAxisValue(sample, axisId);
-      if (v !== undefined) axisValues[axisId] = v;
-    }
-
-    const probabilities: TickerForecastResult['probabilities'] = {};
-
-    if (dirBurnInOk) {
-      probabilities.DIR = buildProbabilityRecord({
-        question: 'DIR',
-        model: dirModel,
-        values: pickTickerAxisValues(dirAxisIds, sample),
-        baseline: dirBaselineValue,
-        neutralBand: dirNeutralBand,
-        bandHistoryTable: dirBandHistoryTable,
-        lowSampleAxes: dirLowSampleAxes,
-      });
-    }
-    if (volBurnInOk && sample.normalRange !== undefined) {
-      probabilities.VOL = buildProbabilityRecord({
-        question: 'VOL',
-        model: volModel,
-        values: pickTickerAxisValues(volAxisIds, sample),
-        baseline: volBaselineValue,
-        neutralBand: volNeutralBand,
-        bandHistoryTable: volBandHistoryTable,
-        lowSampleAxes: volLowSampleAxes,
-      });
-    }
-
-    tickers.push({
-      tickerId: sample.tickerId,
-      exchangeId: sample.exchangeId,
-      market: sample.market,
-      date: sample.date,
-      axisValues,
-      normal: { range: sample.normalRange, volume: sample.normalVolume },
-      probabilities,
-    });
-  }
-
-  // ---- 市場×日: 軸の値・確率
-  const marketSample = panel.marketSamples.find((s) => s.market === market && s.date === date);
-  const marketAxisValues: Partial<Record<AxisId, number>> = marketSample
-    ? pickMarketAxisValues(mktAxisIds, marketSample)
-    : {};
-  const marketProbabilities: MarketForecastResult['probabilities'] = {};
-  if (mktBurnInOk && marketSample) {
-    marketProbabilities.MKT = buildProbabilityRecord({
-      question: 'MKT',
-      model: mktModel,
-      values: pickMarketAxisValues(mktAxisIds, marketSample),
-      baseline: mktBaselineValue,
-      neutralBand: mktNeutralBand,
-      bandHistoryTable: mktBandHistoryTable,
-      lowSampleAxes: mktLowSampleAxes,
-    });
-  }
-
-  const marketForecast: MarketForecastResult = {
-    market,
-    date,
-    axisValues: marketAxisValues,
-    probabilities: marketProbabilities,
-  };
-
-  const modelSnapshots: ComputeForDateResult['modelSnapshots'] = {
-    DIR: buildModelSnapshot(
-      'DIR',
-      market,
-      date,
-      dirModel,
-      dirBaselineValue,
-      dirNeutralBand,
-      dirBandHistoryTable,
-      now
-    ),
-    VOL: buildModelSnapshot(
-      'VOL',
-      market,
-      date,
-      volModel,
-      volBaselineValue,
-      volNeutralBand,
-      volBandHistoryTable,
-      now
-    ),
-    MKT: buildModelSnapshot(
-      'MKT',
-      market,
-      date,
-      mktModel,
-      mktBaselineValue,
-      mktNeutralBand,
-      mktBandHistoryTable,
-      now
-    ),
-  };
-
-  return { date, market, tickers, marketForecast, modelSnapshots };
-}
-
-function lowSampleAxesOf(model: FittedQuestionModel): AxisId[] {
-  return model.axisIds.filter((axisId) => model.axisStats[axisId]?.lowSample === true);
-}
-
-function buildModelSnapshot(
+export function computeModelSnapshot(
   question: Question,
-  market: Market,
+  history: SampleHistory,
   date: string,
-  model: FittedQuestionModel,
-  baseline: number,
-  neutralBand: ModelSnapshotItem['neutralBand'],
-  bandHistory: ModelSnapshotItem['bandHistory'],
-  createdAt: number
+  market: Market,
+  exchanges: readonly ExchangeSessionInfo[],
+  options: ComputeModelSnapshotOptions = {}
 ): ModelSnapshotItem {
+  const axisIds = getAxisIdsForQuestion(question);
+
+  const perMarketCalendar = ensureCalendarIncludes(
+    buildSampleCalendar(question, history),
+    market,
+    date
+  );
+  const baselineSamples = buildBaselineSamples(question, history, exchanges);
+  const baselineByMarketDate = computeRollingBaseline({
+    calendar: perMarketCalendar,
+    samples: baselineSamples,
+    predTimeOf: (d, m) => nominalMarketCloseTime(m, d, exchanges),
+  });
+
+  const trainingRows = buildTrainingRows(
+    question,
+    history,
+    date,
+    market,
+    (sMarket, sDate) => baselineOffset(baselineByMarketDate[sMarket][sDate]),
+    exchanges
+  );
+  const model = fitQuestionModel(question, axisIds, trainingRows);
+
+  const baselineValue = clipBaseline(baselineByMarketDate[market][date]);
+
+  const unionCalendar = buildUnionSampleCalendar(question, history);
+  const knownHist = collectKnownProbabilitySamples(question, history, date, market, exchanges);
+  const neutralBand = resolveNeutralBandState({
+    question,
+    date,
+    calendar: unionCalendar.includes(date) ? unionCalendar : [...unionCalendar, date].sort(),
+    previous: options.previousNeutralBand,
+    hist: knownHist,
+    forceRecompute: options.forceNeutralBandRecompute,
+  });
+  const bandHistory = computeBandHistoryTable(
+    knownHist.map((h) => ({ probability: h.d + h.base, hit: h.y })),
+    PROBABILITY_BAND_STEP
+  );
+
   return {
     question,
     market,
@@ -426,45 +244,73 @@ function buildModelSnapshot(
     alpha: REGULARIZATION_ALPHA[question],
     weights: model.weights,
     standardization: model.standardization,
-    baseline,
+    baseline: baselineValue,
     neutralBand,
     bandHistory,
     axisStats: model.axisStats,
     trainingSize: model.trainingSize,
-    createdAt,
+    distinctTrainingDates: model.distinctTrainingDates,
+    createdAt: options.now ?? Date.now(),
   };
 }
 
-function buildProbabilityRecord(params: {
-  question: Question;
-  model: FittedQuestionModel;
-  values: Partial<Record<AxisId, number>>;
-  baseline: number;
-  neutralBand: { lower: number; upper: number; decidedOn: string };
-  bandHistoryTable: ModelSnapshotItem['bandHistory'];
-  lowSampleAxes: AxisId[];
-}): ProbabilityRecord {
-  const { question, model, values, baseline, neutralBand, bandHistoryTable, lowSampleAxes } =
-    params;
-  const offsetLogit = logit(baseline);
-  const standardized = standardizeForPrediction(model, values);
-  const probability = predictProbability(model, offsetLogit, standardized);
+/** スナップショットのバーンイン判定（design.md §1.6）。学習サンプルの異なる日付が閾値未満なら false */
+export function hasEnoughTrainingData(snapshot: ModelSnapshotItem): boolean {
+  return snapshot.distinctTrainingDates >= MIN_TRAINING_DATES;
+}
+
+/**
+ * スナップショット + D の軸の値 → ProbabilityRecord（design.md §3.1）。
+ *
+ * バーンイン判定（{@link hasEnoughTrainingData}）と、VOL の「平常が無い銘柄は出さない」判定は
+ * 呼び出し側が行う（このスナップショットに閉じた判定ではないため）。
+ */
+export function computeProbabilityRecord(
+  question: Question,
+  snapshot: ModelSnapshotItem,
+  axisValues: Partial<Record<AxisId, number | boolean>>
+): ProbabilityRecord {
+  const axisIds = getAxisIdsForQuestion(question);
+  const numericValues: Partial<Record<AxisId, number>> = {};
+  for (const axisId of axisIds) {
+    const raw = axisValues[axisId];
+    if (raw === undefined) continue;
+    numericValues[axisId] = typeof raw === 'boolean' ? (raw ? 1 : 0) : raw;
+  }
+
+  const fittedModel: FittedQuestionModel = {
+    axisIds,
+    weights: snapshot.weights,
+    standardization: snapshot.standardization,
+    trainingSize: snapshot.trainingSize,
+    distinctTrainingDates: snapshot.distinctTrainingDates,
+    axisStats: snapshot.axisStats,
+  };
+
+  const offsetLogit = logit(snapshot.baseline);
+  const standardized = standardizeForPrediction(fittedModel, numericValues);
+  const probability = predictProbability(fittedModel, offsetLogit, standardized);
   const contributions = computeSequentialContributions(
     offsetLogit,
-    model.axisIds.map((axisId) => ({
+    axisIds.map((axisId) => ({
       axisId,
-      weight: model.weights[axisId] ?? 0,
+      weight: snapshot.weights[axisId] ?? 0,
       standardizedValue: standardized[axisId] ?? 0,
     }))
   );
-  const d = probability - baseline;
-  const lean = determineLean(question, d, neutralBand);
-  const bandHistory = findBandHistoryEntry(bandHistoryTable, probability, PROBABILITY_BAND_STEP);
+  const d = probability - snapshot.baseline;
+  const lean = determineLean(question, d, snapshot.neutralBand);
+  const bandHistory = findBandHistoryEntry(
+    snapshot.bandHistory,
+    probability,
+    PROBABILITY_BAND_STEP
+  );
+  const lowSampleAxes = axisIds.filter((axisId) => snapshot.axisStats[axisId]?.lowSample === true);
 
   return {
     probability,
-    baseline,
-    neutralBand: { lower: neutralBand.lower, upper: neutralBand.upper },
+    baseline: snapshot.baseline,
+    neutralBand: { lower: snapshot.neutralBand.lower, upper: snapshot.neutralBand.upper },
     bandHistory,
     lean,
     contributions,
@@ -472,70 +318,229 @@ function buildProbabilityRecord(params: {
   };
 }
 
-/**
- * 実績（採点）の算出（design.md §1・§2.3。純粋関数として export する。design.md 点13）。
- *
- * bars（全期間分でよい）から、翌営業日のレコードが揃っている行すべてについて採点結果を返す。
- * どの日付の Outcome を実際に永続化するかは呼び出し側（バッチ）が決める。
- */
-export function computeOutcomes(
-  bars: readonly DailyBarInput[],
-  evaluatedAt: number
-): ComputeOutcomesResult {
-  const panel = buildPanel(bars);
-
-  const tickerOutcomes: TickerOutcome[] = [];
-  for (const sample of panel.tickerSamples) {
-    if (!sample.nextOk || sample.nextDate === undefined || sample.outcomeRaw === undefined)
-      continue;
-    const { nextReturn, nextRawRange, excludedExtremeReturn } = sample.outcomeRaw;
-    const outcome: TickerOutcome = {
-      tickerId: sample.tickerId,
-      exchangeId: sample.exchangeId,
-      market: sample.market,
-      date: sample.date,
-      nextDate: sample.nextDate,
-      nextReturn,
-      nextRange: nextRawRange,
-      hit: {},
-      evaluatedAt,
-    };
-    if (excludedExtremeReturn) {
-      outcome.excludedReason = 'EXTREME_RETURN';
-    } else {
-      outcome.excessReturn = sample.excessReturn;
-      if (sample.excessReturn !== undefined) {
-        outcome.hit.DIR = sample.excessReturn > 0;
-      }
-      if (sample.normalRange !== undefined) {
-        const rangeRatio = nextRawRange / sample.close / sample.normalRange;
-        outcome.rangeRatio = rangeRatio;
-        outcome.hit.VOL = rangeRatio > 1;
-      }
-    }
-    tickerOutcomes.push(outcome);
-  }
-
-  const marketOutcomes: MarketOutcome[] = [];
-  for (const sample of panel.marketSamples) {
-    if (!sample.nextOk || sample.nextDate === undefined || sample.outcomeRaw === undefined)
-      continue;
-    const { nextMeanRawRange } = sample.outcomeRaw;
-    const outcome: MarketOutcome = {
-      market: sample.market,
-      date: sample.date,
-      nextDate: sample.nextDate,
-      nextRange: nextMeanRawRange,
-      hit: {},
-      evaluatedAt,
-    };
-    if (sample.normalMeanRange !== undefined) {
-      const rangeRatio = nextMeanRawRange / sample.normalMeanRange;
-      outcome.rangeRatio = rangeRatio;
-      outcome.hit.MKT = rangeRatio > 1;
-    }
-    marketOutcomes.push(outcome);
-  }
-
-  return { tickerOutcomes, marketOutcomes };
+/** (market,date) でソートするための比較キー */
+function sortKey(market: Market, date: string): string {
+  return `${market}#${date}`;
 }
+
+/**
+ * bars だけから、D までのサンプル履歴（{@link SampleHistory}）をリプレイで組み立てる。
+ * テスト・ゴールデン・初期値算出（リプレイ）用の便宜関数（design.md §3.1・§3.3）。
+ *
+ * 名目引け時刻の順に (market, date) を 1 つずつ処理し、それぞれの時点で「それまでに
+ * 積んだサンプルだけ」からスナップショットを計算して確率を出す。将来データは
+ * 構造的に混ざらない。
+ */
+export function buildSampleHistoryThroughDate(
+  bars: readonly DailyBarInput[],
+  throughDate: string,
+  throughMarket: Market,
+  exchanges: readonly ExchangeSessionInfo[]
+): { history: SampleHistory; neutralBands: Partial<Record<Question, NeutralBandState>> } {
+  // パネルは 1 回だけ組み立てて使い回す（各行の rolling 計算はそれ自身より前の行にしか依存しない
+  // ため、リプレイの各時点で bars から作り直しても同じ値になる。切り詰め不変性テストが保証する
+  // とおりで、ここでは単に無駄な再計算を避けるための最適化）。
+  const panel = buildPanel(bars, exchanges);
+  const tickersByKey = new Map<string, TickerDaySample[]>();
+  for (const sample of panel.tickerSamples) {
+    const key = sortKey(sample.market, sample.date);
+    const list = tickersByKey.get(key);
+    if (list) list.push(sample);
+    else tickersByKey.set(key, [sample]);
+  }
+  const marketByKey = new Map<string, MarketDaySample>();
+  for (const sample of panel.marketSamples) {
+    marketByKey.set(sortKey(sample.market, sample.date), sample);
+  }
+
+  // 市場コードの集合は panel.calendar に現れたもの（= 実際に観測がある市場）ぶんだけ動的に回す
+  // （design.md §1.1「取引所マスタの市場属性で決める」。固定 JP/US ではない）。
+  const calendarEntries: { market: Market; date: string }[] = [];
+  for (const market of Object.keys(panel.calendar)) {
+    for (const date of panel.calendar[market]) {
+      calendarEntries.push({ market, date });
+    }
+  }
+  calendarEntries.sort(
+    (a, b) =>
+      nominalMarketCloseTime(a.market, a.date, exchanges) -
+      nominalMarketCloseTime(b.market, b.date, exchanges)
+  );
+
+  const cutoff = nominalMarketCloseTime(throughMarket, throughDate, exchanges);
+
+  const tickerSamples: TickerSample[] = [];
+  const marketSamples: MarketSample[] = [];
+  const neutralBands: Partial<Record<Question, NeutralBandState>> = {};
+
+  for (const entry of calendarEntries) {
+    const entryCloseTime = nominalMarketCloseTime(entry.market, entry.date, exchanges);
+    if (entryCloseTime > cutoff) break;
+    if (entryCloseTime === cutoff && entry.market === throughMarket && entry.date === throughDate) {
+      // 対象そのものは履歴に積まない（まだ「保存済み」ではないため）
+      continue;
+    }
+
+    const key = sortKey(entry.market, entry.date);
+    const tickerRows = tickersByKey.get(key) ?? [];
+    const marketRow = marketByKey.get(key);
+    if (tickerRows.length === 0 && marketRow === undefined) continue;
+
+    const historySoFar: SampleHistory = { tickerSamples, marketSamples };
+    const tickerAxisValues = tickerRows.map(axisValuesFromTickerSample);
+    const marketAxisValues = marketRow ? axisValuesFromMarketSample(marketRow) : undefined;
+
+    const snapshots: Partial<Record<Question, ModelSnapshotItem>> = {};
+    for (const question of ['DIR', 'VOL', 'MKT'] as const) {
+      if (question !== 'MKT' && tickerRows.length === 0) continue;
+      if (question === 'MKT' && marketAxisValues === undefined) continue;
+      snapshots[question] = computeModelSnapshot(
+        question,
+        historySoFar,
+        entry.date,
+        entry.market,
+        exchanges,
+        {
+          previousNeutralBand: neutralBands[question] ?? null,
+          now: entryCloseTime,
+        }
+      );
+      neutralBands[question] = snapshots[question]!.neutralBand;
+    }
+
+    for (let i = 0; i < tickerRows.length; i++) {
+      const tickerRow = tickerRows[i];
+      const ticker = tickerAxisValues[i];
+      const tickerOutcome = tickerOutcomeFromSample(tickerRow, entryCloseTime);
+      const sample: TickerSample = {
+        tickerId: ticker.tickerId,
+        exchangeId: ticker.exchangeId,
+        market: ticker.market,
+        date: ticker.date,
+        axisValues: ticker.axisValues,
+        normal: ticker.normal,
+      };
+      if (tickerOutcome) {
+        sample.outcome = {
+          nextDate: tickerOutcome.nextDate,
+          hit: tickerOutcome.hit,
+          excessReturn: tickerOutcome.excessReturn,
+          excludedReason: tickerOutcome.excludedReason,
+        };
+      }
+      const probabilities: TickerSample['probabilities'] = {};
+      const dirSnapshot = snapshots.DIR;
+      const volSnapshot = snapshots.VOL;
+      if (dirSnapshot && hasEnoughTrainingData(dirSnapshot)) {
+        const record = computeProbabilityRecord('DIR', dirSnapshot, ticker.axisValues);
+        probabilities.DIR = { probability: record.probability, baseline: record.baseline };
+      }
+      if (volSnapshot && hasEnoughTrainingData(volSnapshot) && ticker.normal.range !== undefined) {
+        const record = computeProbabilityRecord('VOL', volSnapshot, ticker.axisValues);
+        probabilities.VOL = { probability: record.probability, baseline: record.baseline };
+      }
+      if (Object.keys(probabilities).length > 0) {
+        sample.probabilities = probabilities;
+      }
+      tickerSamples.push(sample);
+    }
+
+    if (marketRow && marketAxisValues) {
+      const marketOutcome = marketOutcomeFromSample(marketRow, entryCloseTime);
+      const sample: MarketSample = {
+        market: marketAxisValues.market,
+        date: marketAxisValues.date,
+        axisValues: marketAxisValues.axisValues,
+      };
+      if (marketOutcome) {
+        sample.outcome = { nextDate: marketOutcome.nextDate, hit: marketOutcome.hit };
+      }
+      const mktSnapshot = snapshots.MKT;
+      if (mktSnapshot && hasEnoughTrainingData(mktSnapshot)) {
+        const record = computeProbabilityRecord('MKT', mktSnapshot, marketAxisValues.axisValues);
+        sample.probabilities = {
+          MKT: { probability: record.probability, baseline: record.baseline },
+        };
+      }
+      marketSamples.push(sample);
+    }
+  }
+
+  return { history: { tickerSamples, marketSamples }, neutralBands };
+}
+
+/**
+ * bars だけを渡すと、D までの履歴をリプレイで組み立てたうえで D の確度を返す便宜の合成関数
+ * （design.md §3.1・§7 の「テストとゴールデン用」）。3-2 のバッチは、この内部と同じ 4 つの
+ * 関数（{@link computeAxisValuesForDate}・{@link computeOutcomeForDate}・
+ * {@link computeModelSnapshot}・{@link computeProbabilityRecord}）を、保存済みサンプルを
+ * 積みながら個別に呼ぶ。
+ */
+export function computeForDate(
+  bars: readonly DailyBarInput[],
+  date: string,
+  market: Market,
+  exchanges: readonly ExchangeSessionInfo[],
+  options: { now?: number } = {}
+): ComputeForDateResult {
+  const now = options.now ?? Date.now();
+  const { skippedExchangeIds } = partitionByKnownExchange(bars, exchanges);
+  const axisValues = computeAxisValuesForDate(bars, date, market, exchanges);
+
+  if (axisValues.tickers.length === 0 && axisValues.market === undefined) {
+    // design.md §1「D の足がその市場に 1 件も無いときは空の結果を返す」（NaN を出さない）
+    return {
+      date,
+      market,
+      tickers: [],
+      marketForecast: undefined,
+      modelSnapshots: {},
+      skippedExchangeIds,
+    };
+  }
+
+  const { history } = buildSampleHistoryThroughDate(bars, date, market, exchanges);
+
+  const modelSnapshots: Partial<Record<Question, ModelSnapshotItem>> = {};
+  for (const question of ['DIR', 'VOL', 'MKT'] as const) {
+    modelSnapshots[question] = computeModelSnapshot(question, history, date, market, exchanges, {
+      now,
+    });
+  }
+
+  const dirSnapshot = modelSnapshots.DIR!;
+  const volSnapshot = modelSnapshots.VOL!;
+  const mktSnapshot = modelSnapshots.MKT!;
+  const dirBurnInOk = hasEnoughTrainingData(dirSnapshot);
+  const volBurnInOk = hasEnoughTrainingData(volSnapshot);
+  const mktBurnInOk = hasEnoughTrainingData(mktSnapshot);
+
+  const tickers: TickerForecastResult[] = axisValues.tickers.map((ticker) => {
+    const probabilities: TickerForecastResult['probabilities'] = {};
+    if (dirBurnInOk) {
+      probabilities.DIR = computeProbabilityRecord('DIR', dirSnapshot, ticker.axisValues);
+    }
+    if (volBurnInOk && ticker.normal.range !== undefined) {
+      probabilities.VOL = computeProbabilityRecord('VOL', volSnapshot, ticker.axisValues);
+    }
+    return { ...ticker, probabilities };
+  });
+
+  let marketForecast: MarketForecastResult | undefined;
+  if (axisValues.market) {
+    const probabilities: MarketForecastResult['probabilities'] = {};
+    if (mktBurnInOk) {
+      probabilities.MKT = computeProbabilityRecord(
+        'MKT',
+        mktSnapshot,
+        axisValues.market.axisValues
+      );
+    }
+    marketForecast = { ...axisValues.market, probabilities };
+  }
+
+  return { date, market, tickers, marketForecast, modelSnapshots, skippedExchangeIds };
+}
+
+// 参照実装との突き合わせ（golden test）やバッチ側の型付けのために、内部データ型も export する。
+export type { TickerDaySample, MarketDaySample };

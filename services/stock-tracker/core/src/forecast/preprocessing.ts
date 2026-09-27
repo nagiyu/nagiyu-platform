@@ -8,12 +8,14 @@ import { PATTERN_REGISTRY } from '../patterns/pattern-registry.js';
 import {
   AXIS_ID_BUY_COUNT_GE2,
   AXIS_ID_MARKET_PARKINSON_5D,
+  AXIS_ID_MARKET_RANGE_AVG,
   AXIS_ID_MARKET_RANGE_TODAY,
   AXIS_ID_MARKET_VOLUME_RATIO,
   AXIS_ID_PARKINSON_5D,
   AXIS_ID_RANGE_TODAY,
   AXIS_ID_SELL_COUNT_GE2,
   AXIS_ID_VOLUME_RATIO,
+  getAxisIdsForQuestion,
   PATTERN_AXIS_IDS,
 } from './axes.js';
 import {
@@ -24,12 +26,13 @@ import {
   type Market,
 } from './constants.js';
 import {
-  getMarketForExchange,
   getNextCalendarDate,
-  nominalCloseTime,
-  nominalOpenTime,
+  nominalExchangeTime,
+  nominalMarketCloseTime,
+  tryGetMarketForExchange,
+  type ExchangeSessionInfo,
 } from './time.js';
-import type { AxisId, DailyBarInput } from './types.js';
+import type { AxisId, DailyBarInput, MarketAxisValues, TickerAxisValues } from './types.js';
 
 const BUY_PATTERN_IDS = new Set(
   PATTERN_REGISTRY.filter((pattern) => pattern.definition.signalType === 'BUY').map(
@@ -110,7 +113,8 @@ export interface MarketDaySample {
   /** Q-MKT の目的変数 */
   yMkt?: number;
   outcomeRaw?: {
-    nextMeanRawRange: number;
+    /** 翌営業日の市場平均値幅（有効銘柄の rangeNext 比率の平均。既に比率であり生値ではない） */
+    nextMeanRange: number;
   };
 }
 
@@ -118,33 +122,92 @@ export interface PreprocessedPanel {
   calendar: Record<Market, string[]>;
   tickerSamples: TickerDaySample[];
   marketSamples: MarketDaySample[];
+  /** 未対応の ExchangeID のため除外したもの（NFR-2） */
+  skippedExchangeIds: string[];
+}
+
+/**
+ * 未対応の ExchangeID を持つバーを除いて処理を続けるための組（NFR-2）。
+ * サマリーの保存・表示は確度の算出失敗の影響を受けないため、1 件の未知 ExchangeID で
+ * 処理全体を止めず、除外した ID を呼び出し側がログできるように返す。
+ */
+export interface KnownExchangeBars {
+  bars: DailyBarInput[];
+  /** 除外した ExchangeID（重複なし・ソート済み） */
+  skippedExchangeIds: string[];
+}
+
+/**
+ * バーを ExchangeID が既知（取引所マスタに時刻情報があり、かつ市場が設定されている）のものだけに
+ * 絞る（未対応 ID・市場未設定の取引所は除外して skippedExchangeIds に集める）。
+ */
+export function partitionByKnownExchange(
+  bars: readonly DailyBarInput[],
+  exchanges: readonly ExchangeSessionInfo[]
+): KnownExchangeBars {
+  const known: DailyBarInput[] = [];
+  const skipped = new Set<string>();
+  for (const bar of bars) {
+    if (tryGetMarketForExchange(bar.exchangeId, exchanges) !== undefined) {
+      known.push(bar);
+    } else {
+      skipped.add(bar.exchangeId);
+    }
+  }
+  return { bars: known, skippedExchangeIds: [...skipped].sort() };
 }
 
 /**
  * 市場の観測カレンダー（design.md §1.1）: いずれかの銘柄の DailySummary がある日付の集合。
+ * 市場ごとに分けたレコードを、取引所マスタに現れる市場の集合ぶんだけ動的に持つ
+ * （固定 JP/US ではない。design.md §1.1「取引所マスタの市場属性で決める」）。
+ * 未対応の ExchangeID・市場未設定の取引所を持つバーは無視する（NFR-2）。
  */
-export function buildObservationCalendar(bars: readonly DailyBarInput[]): Record<Market, string[]> {
-  const sets: Record<Market, Set<string>> = { JP: new Set(), US: new Set() };
+export function buildObservationCalendar(
+  bars: readonly DailyBarInput[],
+  exchanges: readonly ExchangeSessionInfo[]
+): Record<Market, string[]> {
+  const sets = new Map<Market, Set<string>>();
   for (const bar of bars) {
-    const market = getMarketForExchange(bar.exchangeId);
-    sets[market].add(bar.date);
+    const market = tryGetMarketForExchange(bar.exchangeId, exchanges);
+    if (market === undefined) continue;
+    let set = sets.get(market);
+    if (set === undefined) {
+      set = new Set();
+      sets.set(market, set);
+    }
+    set.add(bar.date);
   }
-  return {
-    JP: [...sets.JP].sort(),
-    US: [...sets.US].sort(),
-  };
+  const result: Record<Market, string[]> = {};
+  for (const [market, set] of sets) {
+    result[market] = [...set].sort();
+  }
+  return result;
 }
 
 /**
- * #3830 の過去データ除外（初期値算出でのみ使う。design.md 必読メモ・§1.1）。
+ * #3830 の過去データ除外。**初期値算出（FR-13）専用**であり、#3833 以降に作られたバーには
+ * 使わない（#3833 以降は途中足・休場日コピー足のデータ自体が作られないため）。
  *
  * 除外1: 休場日コピー足の日付、または前レコードと OHLC が完全一致
  * 除外2: CreatedAt が翌営業日の取引開始時刻以降（途中足）
  *
  * 除外1適用後の観測カレンダーで除外2の翌営業日を決める（参照実装 prep.py と同じ順序）。
+ * 除外2の「翌営業日の取引開始」は、その取引所（銘柄の ExchangeID）の Start（design.md §1.1）。
+ *
+ * @param exchanges 取引所マスタ（Timezone・Start・End）
+ * @param beforeDate 指定すると、この日付より前のバーにだけ除外ロジックを適用する（#3833 の
+ *   切り替え日を渡す想定）。以降のバーはそのまま素通りする。省略すると全件に適用する。
  */
-export function excludeLegacyBackfillRows(bars: readonly DailyBarInput[]): DailyBarInput[] {
-  const byTicker = groupByTicker(bars);
+export function excludeLegacyBackfillRows(
+  bars: readonly DailyBarInput[],
+  exchanges: readonly ExchangeSessionInfo[],
+  beforeDate?: string
+): DailyBarInput[] {
+  const targets = beforeDate === undefined ? bars : bars.filter((bar) => bar.date < beforeDate);
+  const passthrough = beforeDate === undefined ? [] : bars.filter((bar) => bar.date >= beforeDate);
+
+  const byTicker = groupByTicker(targets);
 
   // 除外1: 休場日コピー足 + 前レコードと OHLC 完全一致
   const afterFirstExclusion: DailyBarInput[] = [];
@@ -152,8 +215,9 @@ export function excludeLegacyBackfillRows(bars: readonly DailyBarInput[]): Daily
     const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
     for (let i = 0; i < sorted.length; i++) {
       const bar = sorted[i];
-      const market = getMarketForExchange(bar.exchangeId);
-      const isHoliday = LEGACY_BACKFILL_HOLIDAY_COPY_DATES[market].includes(bar.date);
+      const market = tryGetMarketForExchange(bar.exchangeId, exchanges);
+      if (market === undefined) continue;
+      const isHoliday = (LEGACY_BACKFILL_HOLIDAY_COPY_DATES[market] ?? []).includes(bar.date);
       const prev = i > 0 ? sorted[i - 1] : undefined;
       const isSameOhlc =
         prev !== undefined &&
@@ -168,18 +232,21 @@ export function excludeLegacyBackfillRows(bars: readonly DailyBarInput[]): Daily
   }
 
   // 除外1後の観測カレンダーで翌営業日を決める
-  const calendar = buildObservationCalendar(afterFirstExclusion);
+  const calendar = buildObservationCalendar(afterFirstExclusion, exchanges);
 
-  // 除外2: 途中足（CreatedAt が翌営業日の取引開始以降）
-  return afterFirstExclusion.filter((bar) => {
-    const market = getMarketForExchange(bar.exchangeId);
+  // 除外2: 途中足（CreatedAt がその取引所の翌営業日の取引開始（Start）以降）
+  const afterSecondExclusion = afterFirstExclusion.filter((bar) => {
+    const market = tryGetMarketForExchange(bar.exchangeId, exchanges);
+    if (market === undefined) return false;
     const nextDate = getNextCalendarDate(calendar[market], bar.date);
     if (nextDate === undefined) {
       return true;
     }
-    const sessionOpen = nominalOpenTime(nextDate, market);
+    const sessionOpen = nominalExchangeTime(bar.exchangeId, nextDate, 'open', exchanges);
     return bar.createdAt < sessionOpen;
   });
+
+  return [...afterSecondExclusion, ...passthrough];
 }
 
 function groupByTicker(bars: readonly DailyBarInput[]): Map<string, DailyBarInput[]> {
@@ -240,17 +307,28 @@ function meanIgnoringUndefined(values: readonly (number | undefined)[]): number 
  *
  * 将来データの排除は行わない（呼び出し側 = 学習・基準値・予測の各関数が、時刻の規則で
  * 必要な範囲だけをフィルタする。NFR-4 の「切り詰め不変性」を成り立たせるため）。
+ * 未対応の ExchangeID を持つバーは除外して続行し、除外した ID は `skippedExchangeIds` に
+ * 集める（NFR-2）。
  */
-export function buildPanel(bars: readonly DailyBarInput[]): PreprocessedPanel {
-  const calendar = buildObservationCalendar(bars);
-  const byTicker = groupByTicker(bars);
+export function buildPanel(
+  bars: readonly DailyBarInput[],
+  exchanges: readonly ExchangeSessionInfo[]
+): PreprocessedPanel {
+  const { bars: knownBars, skippedExchangeIds } = partitionByKnownExchange(bars, exchanges);
+  const calendar = buildObservationCalendar(knownBars, exchanges);
+  const byTicker = groupByTicker(knownBars);
 
   const tickerSamples: TickerDaySample[] = [];
 
-  for (const [tickerId, rows] of byTicker) {
+  // ticker の反復順を tickerId 昇順に正準化する（指摘 D「入力の並び順に依存しない」）。
+  // bars の入力順で Map の反復順が変わっても、同じ (market, date) 内の集計順序・浮動小数点の
+  // 加算順序が変わらないようにするため。
+  const canonicalTickerEntries = [...byTicker.entries()].sort(([a], [b]) => a.localeCompare(b));
+  for (const [tickerId, rows] of canonicalTickerEntries) {
     const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
     const n = sorted.length;
-    const market = getMarketForExchange(sorted[0].exchangeId);
+    // partitionByKnownExchange 済みのため必ず解決できる
+    const market = tryGetMarketForExchange(sorted[0].exchangeId, exchanges)!;
 
     const rangeSeries: (number | undefined)[] = new Array(n).fill(undefined);
     const lhl2Series: (number | undefined)[] = new Array(n).fill(undefined);
@@ -327,11 +405,14 @@ export function buildPanel(bars: readonly DailyBarInput[]): PreprocessedPanel {
         exchangeId: bar.exchangeId,
         market,
         date: bar.date,
-        predTime: nominalCloseTime(bar.date, market),
+        // 銘柄（取引所）自身の名目引け時刻。design.md §1.4「その足・サンプルの取引所の End」
+        predTime: nominalExchangeTime(bar.exchangeId, bar.date, 'close', exchanges),
         close: bar.close,
         nextDate: next?.date,
         nextOk,
-        labelTime: nextOk ? nominalCloseTime(next!.date, market) : undefined,
+        labelTime: nextOk
+          ? nominalExchangeTime(bar.exchangeId, next!.date, 'close', exchanges)
+          : undefined,
         flags,
         rangeToday,
         parkinson5d,
@@ -395,10 +476,13 @@ export function buildPanel(bars: readonly DailyBarInput[]): PreprocessedPanel {
     }
   }
 
-  // --- 市場×日パネル（Q-MKT）
+  // --- 市場×日パネル（Q-MKT）。市場の集合は observation calendar に現れたものぶんだけ動的に回す
+  // （design.md §1.1「取引所マスタの市場属性で決める」。固定 JP/US ではない）。
   const marketSamples: MarketDaySample[] = [];
-  const marketRowsByMarket: Record<Market, MarketDaySample[]> = { JP: [], US: [] };
-  for (const market of ['JP', 'US'] as const) {
+  const marketRowsByMarket: Record<Market, MarketDaySample[]> = {};
+  const markets = Object.keys(calendar);
+  for (const market of markets) {
+    marketRowsByMarket[market] = [];
     for (const date of calendar[market]) {
       const list = byMarketDate.get(`${market}#${date}`) ?? [];
       const meanRangeToday = meanIgnoringUndefined(list.map((s) => s.rawRangeToday));
@@ -408,7 +492,7 @@ export function buildPanel(bars: readonly DailyBarInput[]): PreprocessedPanel {
       const row: MarketDaySample = {
         market,
         date,
-        predTime: nominalCloseTime(date, market),
+        predTime: nominalMarketCloseTime(market, date, exchanges),
         nextOk: false,
         meanRangeToday,
         marketParkinson5d,
@@ -420,7 +504,7 @@ export function buildPanel(bars: readonly DailyBarInput[]): PreprocessedPanel {
     }
   }
 
-  for (const market of ['JP', 'US'] as const) {
+  for (const market of markets) {
     const rows = marketRowsByMarket[market];
     const meanRangeSeries = rows.map((r) => r.meanRangeToday);
     const normalMeanRangeSeries = rollingMeanFullWindow(meanRangeSeries, NORMAL_WINDOW);
@@ -439,7 +523,7 @@ export function buildPanel(bars: readonly DailyBarInput[]): PreprocessedPanel {
       const nextOk = next !== undefined && next.date === calNext;
       row.nextDate = next?.date;
       row.nextOk = nextOk;
-      row.labelTime = nextOk ? nominalCloseTime(next!.date, market) : undefined;
+      row.labelTime = nextOk ? nominalMarketCloseTime(market, next!.date, exchanges) : undefined;
 
       if (nextOk) {
         // Rn = 当日のグループの各銘柄の rng_next（翌日の値幅 ÷ 当日終値）の平均
@@ -447,19 +531,138 @@ export function buildPanel(bars: readonly DailyBarInput[]): PreprocessedPanel {
         const nextRangeValues = currentTickerRows
           .filter((s) => s.outcomeRaw !== undefined && !s.outcomeRaw.excludedExtremeReturn)
           .map((s) => s.outcomeRaw!.nextRawRange / s.close);
-        const nextMeanRawRange = meanIgnoringUndefined(nextRangeValues);
-        if (nextMeanRawRange !== undefined) {
-          row.outcomeRaw = { nextMeanRawRange };
+        const nextMeanRange = meanIgnoringUndefined(nextRangeValues);
+        if (nextMeanRange !== undefined) {
+          row.outcomeRaw = { nextMeanRange };
           if (row.normalMeanRange !== undefined) {
-            row.yMkt = nextMeanRawRange > row.normalMeanRange ? 1 : 0;
+            row.yMkt = nextMeanRange > row.normalMeanRange ? 1 : 0;
           }
         }
       }
     }
   }
 
-  return { calendar, tickerSamples, marketSamples };
+  return { calendar, tickerSamples, marketSamples, skippedExchangeIds };
 }
 
 export { AXIS_ID_MARKET_PARKINSON_5D, AXIS_ID_MARKET_RANGE_TODAY, AXIS_ID_MARKET_VOLUME_RATIO };
 export { AXIS_ID_PARKINSON_5D, AXIS_ID_RANGE_TODAY, AXIS_ID_VOLUME_RATIO };
+
+/** 銘柄×日のサンプルから軸の値を取り出す */
+export function getTickerAxisValue(sample: TickerDaySample, axisId: AxisId): number | undefined {
+  switch (axisId) {
+    case AXIS_ID_PARKINSON_5D:
+      return sample.parkinson5d;
+    case AXIS_ID_RANGE_TODAY:
+      return sample.rangeToday;
+    case AXIS_ID_VOLUME_RATIO:
+      return sample.volumeRatio;
+    case AXIS_ID_MARKET_PARKINSON_5D:
+      return sample.marketParkinson5d;
+    case AXIS_ID_MARKET_RANGE_TODAY:
+      return sample.marketRangeToday;
+    case AXIS_ID_MARKET_VOLUME_RATIO:
+      return sample.marketVolumeRatio;
+    default:
+      return sample.flags[axisId];
+  }
+}
+
+/** 市場×日のサンプルから軸の値を取り出す */
+export function getMarketAxisValue(sample: MarketDaySample, axisId: AxisId): number | undefined {
+  switch (axisId) {
+    case AXIS_ID_MARKET_PARKINSON_5D:
+      return sample.marketParkinson5d;
+    case AXIS_ID_MARKET_RANGE_TODAY:
+      return sample.marketRangeToday;
+    case AXIS_ID_MARKET_VOLUME_RATIO:
+      return sample.marketVolumeRatio;
+    case AXIS_ID_MARKET_RANGE_AVG:
+      return sample.marketRangeAvg;
+    default:
+      return undefined;
+  }
+}
+
+function pickMarketNumericAxisValues(
+  axisIds: readonly AxisId[],
+  sample: MarketDaySample
+): Partial<Record<AxisId, number>> {
+  const values: Partial<Record<AxisId, number>> = {};
+  for (const axisId of axisIds) {
+    const v = getMarketAxisValue(sample, axisId);
+    if (v !== undefined) values[axisId] = v;
+  }
+  return values;
+}
+
+const DIR_AXIS_IDS = getAxisIdsForQuestion('DIR');
+const VOL_AXIS_IDS = getAxisIdsForQuestion('VOL');
+const MKT_AXIS_IDS = getAxisIdsForQuestion('MKT');
+
+/** 銘柄×日のサンプル 1 行を {@link TickerAxisValues} に変換する（前処理済みパネルの再利用用） */
+export function axisValuesFromTickerSample(sample: TickerDaySample): TickerAxisValues {
+  const axisValues: Partial<Record<AxisId, number | boolean>> = {};
+  for (const axisId of DIR_AXIS_IDS) {
+    axisValues[axisId] = sample.flags[axisId] === 1;
+  }
+  for (const axisId of VOL_AXIS_IDS) {
+    const v = getTickerAxisValue(sample, axisId);
+    if (v !== undefined) axisValues[axisId] = v;
+  }
+  return {
+    tickerId: sample.tickerId,
+    exchangeId: sample.exchangeId,
+    market: sample.market,
+    date: sample.date,
+    axisValues,
+    normal: { range: sample.normalRange, volume: sample.normalVolume },
+  };
+}
+
+/** 市場×日のサンプル 1 行を {@link MarketAxisValues} に変換する（前処理済みパネルの再利用用） */
+export function axisValuesFromMarketSample(sample: MarketDaySample): MarketAxisValues {
+  return {
+    market: sample.market,
+    date: sample.date,
+    axisValues: pickMarketNumericAxisValues(MKT_AXIS_IDS, sample),
+  };
+}
+
+/**
+ * D の足と直近の履歴から、D の軸の値を計算する（design.md §3.1「D の足と直近の履歴 → D の軸の値」）。
+ *
+ * bars から計算するのはこの軸の値と実績（{@link computeOutcomeForDate}）だけで、学習・基準値・
+ * 中立帯は {@link SampleHistory} から計算する（design.md §3.1）。
+ *
+ * その市場・日の観測が 1 件も無ければ `{ tickers: [], market: undefined }` を返す（NaN を出さない）。
+ */
+export function computeAxisValuesForDate(
+  bars: readonly DailyBarInput[],
+  date: string,
+  market: Market,
+  exchanges: readonly ExchangeSessionInfo[]
+): {
+  tickers: TickerAxisValues[];
+  market: MarketAxisValues | undefined;
+  skippedExchangeIds: string[];
+} {
+  const cutoff = nominalMarketCloseTime(market, date, exchanges);
+  const visibleBars = bars.filter((bar) => {
+    const barMarket = tryGetMarketForExchange(bar.exchangeId, exchanges);
+    return (
+      barMarket !== undefined &&
+      nominalExchangeTime(bar.exchangeId, bar.date, 'close', exchanges) <= cutoff
+    );
+  });
+  const panel = buildPanel(visibleBars, exchanges);
+
+  const tickers = panel.tickerSamples
+    .filter((sample) => sample.market === market && sample.date === date)
+    .map(axisValuesFromTickerSample);
+
+  const marketSample = panel.marketSamples.find((s) => s.market === market && s.date === date);
+  const marketAxisValues = marketSample ? axisValuesFromMarketSample(marketSample) : undefined;
+
+  return { tickers, market: marketAxisValues, skippedExchangeIds: panel.skippedExchangeIds };
+}

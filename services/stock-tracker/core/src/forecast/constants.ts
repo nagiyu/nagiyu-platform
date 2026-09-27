@@ -7,13 +7,17 @@
  * 実データを扱う定数（休場日コピー足の日付リスト等）もここに置く。DB には持たない（設計 §1.2）。
  */
 
-/** 市場 */
-export type Market = 'JP' | 'US';
+/**
+ * 市場コード。取引所マスタ（Exchange）が持つ「市場」属性の値（design.md §1.1）。
+ * JP・US に固定せず、取引所マスタの入力（{@link ExchangeSessionInfo} の `market`）から決まる
+ * 任意の文字列として扱う。市場の集合は core の定数ではなく、呼び出し側が渡す取引所マスタから
+ * 導出する（`time.ts` の `distinctMarkets` を参照）。
+ */
+export type Market = string;
 
 /** 問い */
 export type Question = 'DIR' | 'VOL' | 'MKT';
 
-export const MARKETS: readonly Market[] = ['JP', 'US'];
 export const QUESTIONS: readonly Question[] = ['DIR', 'VOL', 'MKT'];
 
 /**
@@ -21,28 +25,11 @@ export const QUESTIONS: readonly Question[] = ['DIR', 'VOL', 'MKT'];
  */
 export const FORECAST_MODEL_VERSION = 'forecast-core-v1';
 
-/**
- * 市場と ExchangeID の対応（design.md §1.1 ADR-V4-01）
- */
-export const JP_EXCHANGE_IDS: readonly string[] = ['TSE'];
-export const US_EXCHANGE_IDS: readonly string[] = ['NASDAQ', 'NYSE', 'AMEX'];
-
-/**
- * 名目セッション時刻（時間外取引を含む取引所マスタの Start/End は使わない。design.md 必読メモ）
- * 参照実装 prep.py の TZ / OPEN / CLOSE と同じ値。
- */
-export const SESSION_TIMEZONE: Record<Market, string> = {
-  JP: 'Asia/Tokyo',
-  US: 'America/New_York',
-};
-export const SESSION_OPEN_TIME: Record<Market, string> = {
-  JP: '09:00',
-  US: '09:30',
-};
-export const SESSION_CLOSE_TIME: Record<Market, string> = {
-  JP: '15:30',
-  US: '16:00',
-};
+// 市場への振り分け・名目の取引時刻は、いずれも取引所マスタ（Exchange の 市場・Timezone・
+// Start・End）から求める（design.md §1.1 ADR-V4-01・§1.4）。取引所は画面から追加・編集でき、
+// 市場の集合も固定 2 つとは限らないため、core は固定の ExchangeID→市場対応表やセッション時刻
+// 定数を持たない。`time.ts` の `ExchangeSessionInfo`／`getMarketForExchange`／
+// `nominalExchangeTime`／`nominalMarketCloseTime`／`distinctMarkets` を参照。
 
 /** 平常の算出窓（値幅・出来高。design.md §1.1） */
 export const NORMAL_WINDOW = 20;
@@ -93,7 +80,7 @@ export const NEUTRAL_BAND_REVIEW_INTERVAL_DAYS = 30;
 
 /**
  * 中立帯の寄りなし側の番兵値（±∞ の代わり）。
- * DynamoDB/JSON に Infinity を保存できないため、番兵値で「無限」を表す（design.md §10）。
+ * DynamoDB/JSON に Infinity を保存できないため、番兵値で「無限」を表す（design.md §1.5）。
  */
 export const NEUTRAL_BAND_SENTINEL_LOWER = -1;
 export const NEUTRAL_BAND_SENTINEL_UPPER = 1;
@@ -106,8 +93,11 @@ export const LOW_SAMPLE_AXIS_THRESHOLD = 30;
 
 /**
  * #3830 の過去データ除外リスト（休場日コピー足の日付）。
- * 初期値算出（FR-13）で旧 DailySummary を読むときだけ適用する（design.md 必読メモ・§1.1）。
+ * 初期値算出（FR-13）で #3833 より前の旧 DailySummary を読むときだけ適用する（design.md §1.1）。
  * 参照実装 analysis/prep.py の HOLIDAY_COPIES と同じ値。
+ *
+ * 初期設定の JP・US だけを持つ（market が未知のキーは無い。呼び出し側は該当が無ければ
+ * 空配列として扱うこと。design.md ADR-V4-01 の JP/US は初期設定の例）。
  */
 export const LEGACY_BACKFILL_HOLIDAY_COPY_DATES: Record<Market, readonly string[]> = {
   JP: [
@@ -129,8 +119,7 @@ export const LEGACY_BACKFILL_HOLIDAY_COPY_DATES: Record<Market, readonly string[
  * Forecast 系のエラーメッセージ（日本語 + 定数化）
  */
 export const FORECAST_ERROR_MESSAGES = {
+  /** 対象の ExchangeID を末尾に付けて投げる（例外を投げる getMarketForExchange のみで使う） */
   UNKNOWN_EXCHANGE: '未対応の取引所IDです',
-  INVALID_TIME_FORMAT: '無効な時刻形式です。HH:MM形式で指定してください',
   SINGULAR_MATRIX: 'IRLS の連立方程式が特異行列のため解けません',
-  EMPTY_BAND_HISTORY: '中立帯の判定に使える帯がありません',
 } as const;

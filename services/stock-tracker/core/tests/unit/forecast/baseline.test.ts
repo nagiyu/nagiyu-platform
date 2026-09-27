@@ -4,7 +4,12 @@ import {
   computeRollingBaseline,
 } from '../../../src/forecast/baseline.js';
 import { logit } from '../../../src/forecast/stats.js';
-import { nominalCloseTime } from '../../../src/forecast/time.js';
+import { nominalMarketCloseTime } from '../../../src/forecast/time.js';
+import { REAL_EXCHANGES } from './support/exchanges.js';
+
+/** テスト内の既存呼び出し（date, market の順）に合わせた薄いラッパー */
+const nominalCloseTime = (date: string, market: string) =>
+  nominalMarketCloseTime(market, date, REAL_EXCHANGES);
 
 describe('computeRollingBaseline', () => {
   it('既知サンプルが 0 件なら 0.5', () => {

@@ -178,42 +178,41 @@ export function meanAndPopulationStd(values: readonly number[]): { mean: number;
 }
 
 /**
- * 二項分布の確率質量関数 P(X = k) for X ~ Binomial(n, p)。
+ * 0..n の対数階乗の表を 1 回だけ作る（logFactorialTable[i] = log(i!)）。
+ * 二項検定の全点 pmf 計算を O(n) にするための下ごしらえ。
  */
-function binomialPmf(k: number, n: number, p: number): number {
-  if (p <= 0) return k === 0 ? 1 : 0;
-  if (p >= 1) return k === n ? 1 : 0;
-  const logCoefficient = logChoose(n, k);
-  const logProb = logCoefficient + k * Math.log(p) + (n - k) * Math.log(1 - p);
-  return Math.exp(logProb);
-}
-
-function logChoose(n: number, k: number): number {
-  return logFactorial(n) - logFactorial(k) - logFactorial(n - k);
-}
-
-function logFactorial(n: number): number {
-  let sum = 0;
-  for (let i = 2; i <= n; i++) {
-    sum += Math.log(i);
+function buildLogFactorialTable(n: number): number[] {
+  const table = new Array<number>(n + 1);
+  table[0] = 0;
+  for (let i = 1; i <= n; i++) {
+    table[i] = table[i - 1] + Math.log(i);
   }
-  return sum;
+  return table;
 }
 
 /**
  * 両側二項検定の p 値（scipy.stats.binomtest の two-sided と同じ定義）。
  *
  * 定義: 観測値 k の確率質量 × (1 + 1e-7) 以下となる全ての点の確率質量の総和。
+ * 対数階乗の表を 1 回だけ作ってから全点の pmf を求めるため O(n)（n = 試行数）。
  */
 export function twoSidedBinomialTest(k: number, n: number, p: number): number {
   if (n === 0) return 1;
-  const observedPmf = binomialPmf(k, n, p);
+  const logFactorial = buildLogFactorialTable(n);
+  const pmf = (x: number): number => {
+    if (p <= 0) return x === 0 ? 1 : 0;
+    if (p >= 1) return x === n ? 1 : 0;
+    const logCoefficient = logFactorial[n] - logFactorial[x] - logFactorial[n - x];
+    return Math.exp(logCoefficient + x * Math.log(p) + (n - x) * Math.log(1 - p));
+  };
+
+  const observedPmf = pmf(k);
   const threshold = observedPmf * (1 + 1e-7);
   let total = 0;
   for (let x = 0; x <= n; x++) {
-    const pmf = binomialPmf(x, n, p);
-    if (pmf <= threshold) {
-      total += pmf;
+    const value = pmf(x);
+    if (value <= threshold) {
+      total += value;
     }
   }
   return Math.min(1, total);
