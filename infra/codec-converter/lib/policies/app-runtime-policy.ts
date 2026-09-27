@@ -49,7 +49,9 @@ export class AppRuntimePolicy extends iam.ManagedPolicy {
   constructor(scope: Construct, id: string, props: AppRuntimePolicyProps) {
     super(scope, id, {
       managedPolicyName: `codec-converter-app-runtime-${props.envName}`,
-      description: 'Codec Converter application runtime permissions (used by Lambda)',
+      // 既存ポリシーの Description を変えると置き換えになり、固定名の衝突でデプロイが失敗するため据え置く
+      description:
+        'Codec Converter application runtime permissions (shared by Lambda and developers)',
     });
 
     // S3 権限: Presigned URL 生成とファイル操作
