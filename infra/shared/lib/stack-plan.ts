@@ -19,7 +19,8 @@ export function assertScopeAllowsEnv(accountScope: AccountScope, env: Environmen
 }
 
 /**
- * prod アカウントにだけ置くスタック（Route53Records / DevSyncSourceReader）を作るかどうか。
+ * prod アカウントにだけ置くスタック（Route53Records / DevSyncSourceReader）・資材
+ * （IamClaudeAccessStack 内のキー保持ユーザー `nagiyu-claude-key`）を作るかどうか。
  * ACM / DockerBuildLock / ReportsHosting は dev/prod 双方に作成するため対象外
  * （バケット名・ドメイン名はアカウントスコープごとに `getDockerBuildLockBucketName` /
  * `getReportsBucketName` / `getRoute53DomainName` で出し分ける）。
@@ -29,22 +30,17 @@ export function includesProdOnlyStacks(accountScope: AccountScope): boolean {
 }
 
 /**
- * GitHub Actions 用 IAM ユーザー（長期アクセスキー方式）を作成するかどうか。
- * dev アカウントでは新設しない（Claude 閲覧ユーザーのみ作成する）。
- */
-export function shouldCreateGitHubActionsUser(accountScope: AccountScope): boolean {
-  return accountScope === 'prod';
-}
-
-/**
  * GitHub Actions OIDC ロールのうち、当該アカウントスコープで作成すべきロール ID。
- * `undefined` を返す場合は `IamGitHubActionsOidcStack` 側の既定（3 ロール全部）を使う。
- * dev アカウントでは prod ロールを作らない。
+ *
+ * prod アカウントには ProdRole のみ、dev アカウントには DevRole / PrRole のみを作成する
+ * （旧: prod アカウントでは絞り込みをせず 3 ロール全部を作成していたが、prod アカウントに
+ * dev / pr ロールがあると dev Environment や pull_request の文脈から prod アカウントを
+ * 操作できてしまい、アカウント分離の効果を削るため #3820 で撤去した）。
  */
 export function getGitHubActionsOidcRoleIds(
   accountScope: AccountScope
-): ('DevRole' | 'ProdRole' | 'PrRole')[] | undefined {
-  return accountScope === 'dev' ? ['DevRole', 'PrRole'] : undefined;
+): ('DevRole' | 'ProdRole' | 'PrRole')[] {
+  return accountScope === 'dev' ? ['DevRole', 'PrRole'] : ['ProdRole'];
 }
 
 /**
@@ -78,4 +74,34 @@ export const E2E_REPORTS_BUCKET_NAMES: Record<AccountScope, string> = {
 /** アカウントスコープに応じた E2E レポートホスティング用 S3 バケット名を返す */
 export function getReportsBucketName(accountScope: AccountScope): string {
   return E2E_REPORTS_BUCKET_NAMES[accountScope];
+}
+
+/**
+ * Claude Code on the web が dev アカウントで実行を許可される Lambda 関数名（Issue #3861）。
+ *
+ * 対象は、手動で実行する場面がある「スケジュール起動のバッチ」に絞っている。
+ * - Web 系（Function URL 経由で画面から呼ばれる）や、画面からの操作で呼ばれるハンドラ
+ *   （quick-clip の clip-regenerate / zip-generator 等）は、手動で実行する場面がないため含めない。
+ * - 外部送信（Web Push 等）を伴う関数（livetalk-batch-notify 等）と、一回きりの移行用
+ *   （livetalk-batch-migrate）は含めない。
+ * - prod アカウントへ届く dev-sync Lambda（prod テーブルへの AssumeRole 経路を持つ）は含めない。
+ * - OpenAI 等の有料 API を使う関数でも、改修の対象になるシステムの中核のバッチ
+ *   （livetalk-batch-acquire / consolidate、stock-tracker-batch-summary）は検証のために含める。
+ */
+export const CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV = [
+  'nagiyu-stock-tracker-batch-daily-dev',
+  'nagiyu-stock-tracker-batch-evaluation-dev',
+  'nagiyu-stock-tracker-batch-temporary-alert-expiry-dev',
+  'nagiyu-stock-tracker-batch-summary-dev',
+  'nagiyu-livetalk-batch-learn-user-activity-dev',
+  'nagiyu-livetalk-batch-acquire-dev',
+  'nagiyu-livetalk-batch-consolidate-dev',
+] as const;
+
+/**
+ * アカウントスコープに応じた、Claude が実行を許可される Lambda 関数名の一覧を返す。
+ * prod アカウントでは実行権限を一切与えないため空配列になる。
+ */
+export function getClaudeInvokableFunctionNames(accountScope: AccountScope): string[] {
+  return accountScope === 'dev' ? [...CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV] : [];
 }

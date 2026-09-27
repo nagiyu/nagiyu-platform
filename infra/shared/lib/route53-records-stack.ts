@@ -15,8 +15,12 @@ const CLOUDFRONT_HOSTED_ZONE_ID = 'Z2FDTNDATAQYW2';
 const RECORD_TTL = cdk.Duration.seconds(300);
 
 /**
- * Phase 2 で Route53 に複製する CloudFront 向け CNAME 一覧
+ * Phase 2 で Route53 に複製した CloudFront 向け CNAME 一覧
  * （NS 切替後に Phase 6 で ALIAS に置換予定）
+ *
+ * prod 向けのみ。旧 `dev-*` レコード（マルチアカウント化前の旧 dev 環境向け CloudFront）は
+ * dev アカウントが自身のゾーン（`dev.nagiyu.com`、DEV_ZONE_DELEGATION 参照）で完結するように
+ * なったため Issue #3820 で撤去した。
  */
 // `dev`（dev.nagiyu.com）は dev アカウントへ NS 委任するサブゾーンのため、ここには含めない
 // （DEV_ZONE_DELEGATION を参照）。
@@ -26,21 +30,13 @@ const CLOUDFRONT_CNAMES: ReadonlyArray<{
   comment: string;
 }> = [
   { recordName: 'tools', target: 'dxsm9dplwcq8k.cloudfront.net', comment: 'Tools (prod)' },
-  { recordName: 'dev-tools', target: 'di5qiqkse31ld.cloudfront.net', comment: 'Tools (dev)' },
   { recordName: 'auth', target: 'd34m95nq713g26.cloudfront.net', comment: 'Auth (prod)' },
-  { recordName: 'dev-auth', target: 'dqwp0hty66uo0.cloudfront.net', comment: 'Auth (dev)' },
   { recordName: 'admin', target: 'da84amiv79v4m.cloudfront.net', comment: 'Admin (prod)' },
-  { recordName: 'dev-admin', target: 'd20d90d0yxf3hy.cloudfront.net', comment: 'Admin (dev)' },
   { recordName: 'quick-clip', target: 'd1v96dysvz62zc.cloudfront.net', comment: 'Quick Clip (prod)' },
-  { recordName: 'dev-quick-clip', target: 'dh18sa23cobm6.cloudfront.net', comment: 'Quick Clip (dev)' },
   { recordName: 'stock-tracker', target: 'd1n3pw1wiam9k0.cloudfront.net', comment: 'Stock Tracker (prod)' },
-  { recordName: 'dev-stock-tracker', target: 'd1vh86o7kq78ya.cloudfront.net', comment: 'Stock Tracker (dev)' },
   { recordName: 'share-together', target: 'd3vh0c4lc7bae6.cloudfront.net', comment: 'Share Together (prod)' },
-  { recordName: 'dev-share-together', target: 'd3f8lnzpu25qxe.cloudfront.net', comment: 'Share Together (dev)' },
   { recordName: 'niconico-mylist-assistant', target: 'd2jj4a3zh6zf5h.cloudfront.net', comment: 'Niconico Mylist Assistant (prod)' },
-  { recordName: 'dev-niconico-mylist-assistant', target: 'd1m48o6sp5o6j9.cloudfront.net', comment: 'Niconico Mylist Assistant (dev)' },
   { recordName: 'codec-converter', target: 'd1bh7qvatnkglt.cloudfront.net', comment: 'Codec Converter (prod)' },
-  { recordName: 'dev-codec-converter', target: 'dj528on1g8nw0.cloudfront.net', comment: 'Codec Converter (dev)' },
 ];
 
 /**

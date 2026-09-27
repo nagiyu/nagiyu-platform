@@ -87,8 +87,6 @@ Route53 関連は共有インフラ（`infra/shared`）配下のスタックで�
 | Google Search Console 検証 CNAME | ドメイン所有権確認用                                               |
 | ACM DNS 検証 CNAME               | ワイルドカード証明書 (`*.nagiyu.com`) の自動更新用                 |
 
-このスタックが持つ CNAME 一覧には、移行過渡期の名残として旧形式（`dev-tools` 等）の記載が残っている場合がある。これは prod アカウントに残存する旧 dev 資材（[#3820](https://github.com/nagiyu/nagiyu-platform/issues/3820) で整理予定）に対応するものであり、新形式の dev URL とは無関係。
-
 **TTL**: 全レコード 300 秒で統一。
 
 ### IAM 権限

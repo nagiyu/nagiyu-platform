@@ -10,7 +10,7 @@ import { IamApplicationPolicyStack } from '../lib/iam/iam-application-policy-sta
 import { IamContainerPolicyStack } from '../lib/iam/iam-container-policy-stack';
 import { IamIntegrationPolicyStack } from '../lib/iam/iam-integration-policy-stack';
 import { IamClaudeReadonlyPolicyStack } from '../lib/iam/iam-claude-readonly-policy-stack';
-import { IamUsersStack } from '../lib/iam/iam-users-stack';
+import { IamClaudeAccessStack } from '../lib/iam/iam-claude-access-stack';
 import { IamGitHubActionsOidcStack } from '../lib/iam/iam-github-actions-oidc-stack';
 import { DevSyncSourceReaderStack } from '../lib/iam/dev-sync-source-reader-stack';
 import { DockerBuildLockStack } from '../lib/docker-build-lock-stack';
@@ -20,12 +20,12 @@ import { EcsSharedClusterStack } from '../lib/ecs-cluster-stack';
 import { resolveAccountScope } from '../lib/account-scope';
 import {
   assertScopeAllowsEnv,
+  getClaudeInvokableFunctionNames,
   getDockerBuildLockBucketName,
   getGitHubActionsOidcRoleIds,
   getReportsBucketName,
   includesProdOnlyStacks,
   getRoute53DomainName,
-  shouldCreateGitHubActionsUser,
 } from '../lib/stack-plan';
 
 const app = new cdk.App();
@@ -134,25 +134,20 @@ const claudeReadonlyPolicyStack = new IamClaudeReadonlyPolicyStack(app, 'NagiyuS
   description: 'Shared IAM Claude Read-Only Policy (List/Get/Describe with explicit Deny on secrets/PII)',
 });
 
-// IAM Users スタックを作成（ポリシーに依存）
-// dev アカウントでは GitHub Actions 用の旧ユーザー（長期アクセスキー方式）は作らず、
-// OIDC ロールのみを使う（Claude 閲覧ユーザーは引き続き作成する）
-new IamUsersStack(app, 'NagiyuSharedIamUsers', {
-  policies: {
-    core: corePolicyStack.policy,
-    application: applicationPolicyStack.policy,
-    container: containerPolicyStack.policy,
-    integration: integrationPolicyStack.policy,
-    claudeReadonly: claudeReadonlyPolicyStack.policy,
-  },
-  createGitHubActionsUser: shouldCreateGitHubActionsUser(accountScope),
+// Claude Code on the web の dev/prod 両アカウント対応ロール・キー保持ユーザー（Issue #3861）。
+// dev アカウントには追加で dev-operations ポリシー（Lambda 実行のみ）を付与し、
+// prod アカウントにはキー保持ユーザー（nagiyu-claude-key）を作成する。
+new IamClaudeAccessStack(app, 'NagiyuSharedIamClaude', {
+  readonlyPolicy: claudeReadonlyPolicyStack.policy,
+  invokableFunctionNames: getClaudeInvokableFunctionNames(accountScope),
+  createKeyUser: prodOnlyStacks,
   env: stackEnv,
-  description: 'Shared IAM Users for GitHub Actions and Claude Code on the web',
+  description: 'Shared IAM Role/User for Claude Code on the web (multi-account, #3861)',
 });
 
 // GitHub Actions OIDC スタックを作成（ポリシーに依存・環境非依存）
-// 既存の IamUsersStack（長期アクセスキー）とは並行稼働する
-// dev アカウントでは prod ロールを作らない（dev/pr ロールのみ）
+// アカウントスコープごとに作成するロールを絞る
+// （prod アカウントは ProdRole のみ、dev アカウントは Dev/PrRole のみ）
 new IamGitHubActionsOidcStack(app, 'NagiyuSharedIamGitHubOidc', {
   policies: {
     core: corePolicyStack.policy,

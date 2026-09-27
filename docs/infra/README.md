@@ -46,7 +46,7 @@ infra/
 │   │   ├── acm-stack.ts
 │   │   ├── iam/
 │   │   │   ├── iam-policies-stack.ts
-│   │   │   └── iam-users-stack.ts
+│   │   │   └── iam-claude-access-stack.ts
 │   │   └── utils/
 │   │       └── exports.ts
 │   ├── package.json

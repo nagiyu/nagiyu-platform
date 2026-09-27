@@ -68,7 +68,7 @@ npx cdk deploy SharedVpc-dev --context env=dev
 npx cdk deploy SharedAcm
 
 # IAM のみ
-npx cdk deploy SharedIamPolicies SharedIamUsers
+npx cdk deploy SharedIamPolicies NagiyuSharedIamClaude
 ```
 
 ## 差分確認
