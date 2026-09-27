@@ -81,14 +81,11 @@ export function getReportsBucketName(accountScope: AccountScope): string {
  * 対象は、外部の有料 API 呼び出し・外部送信・prod アカウントへのアクセスを伴わず、
  * dev アカウント内で完結する関数に限定している（dev-sync Lambda は prod テーブルへの
  * AssumeRole 経路を持つため対象外）。
+ * さらに、手動で実行する場面がある「スケジュール起動のバッチ」に絞っている。
+ * Web 系（Function URL 経由で画面から呼ばれる）や、画面からの操作で呼ばれるハンドラ
+ * （quick-clip の clip-regenerate / zip-generator 等）は、手動で実行する場面がないため含めない。
  */
 export const CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV = [
-  'nagiyu-portal-lambda-dev',
-  'nagiyu-tools-lambda-dev',
-  'nagiyu-auth-lambda-dev',
-  'nagiyu-share-together-lambda-dev',
-  'nagiyu-quick-clip-clip-regenerate-dev',
-  'nagiyu-quick-clip-zip-generator-dev',
   'nagiyu-stock-tracker-batch-daily-dev',
   'nagiyu-stock-tracker-batch-evaluation-dev',
   'nagiyu-stock-tracker-batch-temporary-alert-expiry-dev',
