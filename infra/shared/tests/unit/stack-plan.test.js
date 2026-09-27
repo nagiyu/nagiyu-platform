@@ -6,6 +6,9 @@ const {
   getGitHubActionsOidcRoleIds,
   getReportsBucketName,
   getRoute53DomainName,
+  getClaudeInvokableFunctionNames,
+  includesClaudeKeyUser,
+  CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV,
   SHARED_STACK_PLAN_ERROR_MESSAGES,
 } = require('../../lib/stack-plan');
 
@@ -73,5 +76,36 @@ describe('getReportsBucketName', () => {
 
   it('dev スコープでは -dev サフィックス付きバケット名を返す', () => {
     expect(getReportsBucketName('dev')).toBe('nagiyu-e2e-reports-dev');
+  });
+});
+
+describe('getClaudeInvokableFunctionNames', () => {
+  it('prod スコープでは空配列を返す（実行権限を一切与えない）', () => {
+    expect(getClaudeInvokableFunctionNames('prod')).toEqual([]);
+  });
+
+  it('dev スコープでは定数と同じ内容の関数名一覧を返す', () => {
+    expect(getClaudeInvokableFunctionNames('dev')).toEqual(CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV);
+  });
+
+  it('dev アカウント（prod）へアクセスする関数は含まれない（dev-sync）', () => {
+    const names = getClaudeInvokableFunctionNames('dev');
+    expect(names.some((name) => name.includes('dev-sync'))).toBe(false);
+  });
+
+  it('返り値は呼び出しごとに独立した配列である（定数の参照を直接返さない）', () => {
+    const names = getClaudeInvokableFunctionNames('dev');
+    names.push('mutated');
+    expect(getClaudeInvokableFunctionNames('dev')).toEqual(CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV);
+  });
+});
+
+describe('includesClaudeKeyUser', () => {
+  it('prod スコープでは true', () => {
+    expect(includesClaudeKeyUser('prod')).toBe(true);
+  });
+
+  it('dev スコープでは false', () => {
+    expect(includesClaudeKeyUser('dev')).toBe(false);
   });
 });

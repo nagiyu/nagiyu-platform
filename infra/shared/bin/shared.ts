@@ -11,6 +11,7 @@ import { IamContainerPolicyStack } from '../lib/iam/iam-container-policy-stack';
 import { IamIntegrationPolicyStack } from '../lib/iam/iam-integration-policy-stack';
 import { IamClaudeReadonlyPolicyStack } from '../lib/iam/iam-claude-readonly-policy-stack';
 import { IamUsersStack } from '../lib/iam/iam-users-stack';
+import { IamClaudeAccessStack } from '../lib/iam/iam-claude-access-stack';
 import { IamGitHubActionsOidcStack } from '../lib/iam/iam-github-actions-oidc-stack';
 import { DevSyncSourceReaderStack } from '../lib/iam/dev-sync-source-reader-stack';
 import { DockerBuildLockStack } from '../lib/docker-build-lock-stack';
@@ -20,9 +21,11 @@ import { EcsSharedClusterStack } from '../lib/ecs-cluster-stack';
 import { resolveAccountScope } from '../lib/account-scope';
 import {
   assertScopeAllowsEnv,
+  getClaudeInvokableFunctionNames,
   getDockerBuildLockBucketName,
   getGitHubActionsOidcRoleIds,
   getReportsBucketName,
+  includesClaudeKeyUser,
   includesProdOnlyStacks,
   getRoute53DomainName,
 } from '../lib/stack-plan';
@@ -136,12 +139,25 @@ const claudeReadonlyPolicyStack = new IamClaudeReadonlyPolicyStack(app, 'NagiyuS
 // IAM Users スタックを作成（ポリシーに依存）
 // GitHub Actions は OIDC ロールのみを使う（旧ユーザーは Issue #3820 で撤去済み）。
 // Claude 閲覧ユーザーは dev/prod 両アカウントで作成する。
+// 旧 IamUsersStack（nagiyu-claude-readonly ユーザー）は、下記 IamClaudeAccessStack への
+// 切り替え完了を確認したうえで別 PR で撤去予定（#3861 の後続）。
 new IamUsersStack(app, 'NagiyuSharedIamUsers', {
   policies: {
     claudeReadonly: claudeReadonlyPolicyStack.policy,
   },
   env: stackEnv,
   description: 'Shared IAM Users for Claude Code on the web',
+});
+
+// Claude Code on the web の dev/prod 両アカウント対応ロール・キー保持ユーザー（Issue #3861）。
+// dev アカウントには追加で dev-operations ポリシー（Lambda 実行のみ）を付与し、
+// prod アカウントにはキー保持ユーザー（nagiyu-claude-key）を作成する。
+new IamClaudeAccessStack(app, 'NagiyuSharedIamClaude', {
+  readonlyPolicy: claudeReadonlyPolicyStack.policy,
+  invokableFunctionNames: getClaudeInvokableFunctionNames(accountScope),
+  createKeyUser: includesClaudeKeyUser(accountScope),
+  env: stackEnv,
+  description: 'Shared IAM Role/User for Claude Code on the web (multi-account, #3861)',
 });
 
 // GitHub Actions OIDC スタックを作成（ポリシーに依存・環境非依存）

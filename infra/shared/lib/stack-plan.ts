@@ -74,3 +74,39 @@ export const E2E_REPORTS_BUCKET_NAMES: Record<AccountScope, string> = {
 export function getReportsBucketName(accountScope: AccountScope): string {
   return E2E_REPORTS_BUCKET_NAMES[accountScope];
 }
+
+/**
+ * Claude Code on the web が dev アカウントで実行を許可される Lambda 関数名（Issue #3861）。
+ *
+ * 対象は、外部の有料 API 呼び出し・外部送信・prod アカウントへのアクセスを伴わず、
+ * dev アカウント内で完結する関数に限定している（dev-sync Lambda は prod テーブルへの
+ * AssumeRole 経路を持つため対象外）。
+ */
+export const CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV = [
+  'nagiyu-portal-lambda-dev',
+  'nagiyu-tools-lambda-dev',
+  'nagiyu-auth-lambda-dev',
+  'nagiyu-share-together-lambda-dev',
+  'nagiyu-quick-clip-clip-regenerate-dev',
+  'nagiyu-quick-clip-zip-generator-dev',
+  'nagiyu-stock-tracker-batch-daily-dev',
+  'nagiyu-stock-tracker-batch-evaluation-dev',
+  'nagiyu-stock-tracker-batch-temporary-alert-expiry-dev',
+  'nagiyu-livetalk-batch-learn-user-activity-dev',
+] as const;
+
+/**
+ * アカウントスコープに応じた、Claude が実行を許可される Lambda 関数名の一覧を返す。
+ * prod アカウントでは実行権限を一切与えないため空配列になる。
+ */
+export function getClaudeInvokableFunctionNames(accountScope: AccountScope): string[] {
+  return accountScope === 'dev' ? [...CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV] : [];
+}
+
+/**
+ * Claude のキー保持ユーザー（`nagiyu-claude-key`）を作成するアカウントスコープかどうか。
+ * 身元は prod アカウントにのみ置くため、prod スコープでのみ true を返す。
+ */
+export function includesClaudeKeyUser(accountScope: AccountScope): boolean {
+  return accountScope === 'prod';
+}
