@@ -7,7 +7,6 @@ const {
   getReportsBucketName,
   getRoute53DomainName,
   getClaudeInvokableFunctionNames,
-  includesClaudeKeyUser,
   CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV,
   SHARED_STACK_PLAN_ERROR_MESSAGES,
 } = require('../../lib/stack-plan');
@@ -112,12 +111,3 @@ describe('getClaudeInvokableFunctionNames', () => {
   });
 });
 
-describe('includesClaudeKeyUser', () => {
-  it('prod スコープでは true', () => {
-    expect(includesClaudeKeyUser('prod')).toBe(true);
-  });
-
-  it('dev スコープでは false', () => {
-    expect(includesClaudeKeyUser('dev')).toBe(false);
-  });
-});

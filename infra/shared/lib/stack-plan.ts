@@ -19,7 +19,8 @@ export function assertScopeAllowsEnv(accountScope: AccountScope, env: Environmen
 }
 
 /**
- * prod アカウントにだけ置くスタック（Route53Records / DevSyncSourceReader）を作るかどうか。
+ * prod アカウントにだけ置くスタック（Route53Records / DevSyncSourceReader）・資材
+ * （IamClaudeAccessStack 内のキー保持ユーザー `nagiyu-claude-key`）を作るかどうか。
  * ACM / DockerBuildLock / ReportsHosting は dev/prod 双方に作成するため対象外
  * （バケット名・ドメイン名はアカウントスコープごとに `getDockerBuildLockBucketName` /
  * `getReportsBucketName` / `getRoute53DomainName` で出し分ける）。
@@ -103,12 +104,4 @@ export const CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV = [
  */
 export function getClaudeInvokableFunctionNames(accountScope: AccountScope): string[] {
   return accountScope === 'dev' ? [...CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV] : [];
-}
-
-/**
- * Claude のキー保持ユーザー（`nagiyu-claude-key`）を作成するアカウントスコープかどうか。
- * 身元は prod アカウントにのみ置くため、prod スコープでのみ true を返す。
- */
-export function includesClaudeKeyUser(accountScope: AccountScope): boolean {
-  return accountScope === 'prod';
 }

@@ -25,7 +25,6 @@ import {
   getDockerBuildLockBucketName,
   getGitHubActionsOidcRoleIds,
   getReportsBucketName,
-  includesClaudeKeyUser,
   includesProdOnlyStacks,
   getRoute53DomainName,
 } from '../lib/stack-plan';
@@ -155,7 +154,7 @@ new IamUsersStack(app, 'NagiyuSharedIamUsers', {
 new IamClaudeAccessStack(app, 'NagiyuSharedIamClaude', {
   readonlyPolicy: claudeReadonlyPolicyStack.policy,
   invokableFunctionNames: getClaudeInvokableFunctionNames(accountScope),
-  createKeyUser: includesClaudeKeyUser(accountScope),
+  createKeyUser: prodOnlyStacks,
   env: stackEnv,
   description: 'Shared IAM Role/User for Claude Code on the web (multi-account, #3861)',
 });
