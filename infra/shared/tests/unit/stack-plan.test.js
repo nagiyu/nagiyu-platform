@@ -6,7 +6,6 @@ const {
   getGitHubActionsOidcRoleIds,
   getReportsBucketName,
   getRoute53DomainName,
-  shouldCreateGitHubActionsUser,
   SHARED_STACK_PLAN_ERROR_MESSAGES,
 } = require('../../lib/stack-plan');
 
@@ -37,19 +36,9 @@ describe('includesProdOnlyStacks', () => {
   });
 });
 
-describe('shouldCreateGitHubActionsUser', () => {
-  it('prod スコープでは true', () => {
-    expect(shouldCreateGitHubActionsUser('prod')).toBe(true);
-  });
-
-  it('dev スコープでは false', () => {
-    expect(shouldCreateGitHubActionsUser('dev')).toBe(false);
-  });
-});
-
 describe('getGitHubActionsOidcRoleIds', () => {
-  it('prod スコープでは undefined（= 全ロール作成）', () => {
-    expect(getGitHubActionsOidcRoleIds('prod')).toBeUndefined();
+  it('prod スコープでは ProdRole のみ', () => {
+    expect(getGitHubActionsOidcRoleIds('prod')).toEqual(['ProdRole']);
   });
 
   it('dev スコープでは DevRole/PrRole のみ', () => {

@@ -25,7 +25,6 @@ import {
   getReportsBucketName,
   includesProdOnlyStacks,
   getRoute53DomainName,
-  shouldCreateGitHubActionsUser,
 } from '../lib/stack-plan';
 
 const app = new cdk.App();
@@ -135,24 +134,19 @@ const claudeReadonlyPolicyStack = new IamClaudeReadonlyPolicyStack(app, 'NagiyuS
 });
 
 // IAM Users スタックを作成（ポリシーに依存）
-// dev アカウントでは GitHub Actions 用の旧ユーザー（長期アクセスキー方式）は作らず、
-// OIDC ロールのみを使う（Claude 閲覧ユーザーは引き続き作成する）
+// GitHub Actions は OIDC ロールのみを使う（旧ユーザーは Issue #3820 で撤去済み）。
+// Claude 閲覧ユーザーは dev/prod 両アカウントで作成する。
 new IamUsersStack(app, 'NagiyuSharedIamUsers', {
   policies: {
-    core: corePolicyStack.policy,
-    application: applicationPolicyStack.policy,
-    container: containerPolicyStack.policy,
-    integration: integrationPolicyStack.policy,
     claudeReadonly: claudeReadonlyPolicyStack.policy,
   },
-  createGitHubActionsUser: shouldCreateGitHubActionsUser(accountScope),
   env: stackEnv,
-  description: 'Shared IAM Users for GitHub Actions and Claude Code on the web',
+  description: 'Shared IAM Users for Claude Code on the web',
 });
 
 // GitHub Actions OIDC スタックを作成（ポリシーに依存・環境非依存）
-// 既存の IamUsersStack（長期アクセスキー）とは並行稼働する
-// dev アカウントでは prod ロールを作らない（dev/pr ロールのみ）
+// アカウントスコープごとに作成するロールを絞る
+// （prod アカウントは ProdRole のみ、dev アカウントは Dev/PrRole のみ）
 new IamGitHubActionsOidcStack(app, 'NagiyuSharedIamGitHubOidc', {
   policies: {
     core: corePolicyStack.policy,
