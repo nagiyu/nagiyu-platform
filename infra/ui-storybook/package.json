@@ -19,7 +19,7 @@
     "destroy": "npx cdk destroy"
   },
   "dependencies": {
-    "aws-cdk-lib": "^2.258.0",
+    "aws-cdk-lib": "^2.271.0",
     "constructs": "^10.6.0",
     "source-map-support": "^0.5.21"
   },
