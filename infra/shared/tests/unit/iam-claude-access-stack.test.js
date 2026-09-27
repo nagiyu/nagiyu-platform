@@ -52,7 +52,7 @@ describe('IamClaudeAccessStack', () => {
         template.hasResourceProperties('AWS::IAM::Role', {
           RoleName: 'nagiyu-claude',
           AssumeRolePolicyDocument: {
-            Statement: Match.arrayWith([
+            Statement: [
               Match.objectLike({
                 Effect: 'Allow',
                 Action: 'sts:AssumeRole',
@@ -70,7 +70,7 @@ describe('IamClaudeAccessStack', () => {
                   },
                 },
               }),
-            ]),
+            ],
           },
         });
       }
@@ -134,6 +134,19 @@ describe('IamClaudeAccessStack', () => {
 
       // 列挙した関数の数 × 2（本体 + バージョン/エイリアス修飾）のみ
       expect(resources.length).toBe(DEV_INVOKABLE_FUNCTION_NAMES.length * 2);
+    });
+
+    it('追加ポリシーを nagiyu-claude ロールに付与する', () => {
+      const template = createTemplate('dev');
+      const policies = template.findResources('AWS::IAM::ManagedPolicy', {
+        Properties: { ManagedPolicyName: 'nagiyu-claude-dev-operations-policy' },
+      });
+      const [operationsPolicyLogicalId] = Object.keys(policies);
+
+      template.hasResourceProperties('AWS::IAM::Role', {
+        RoleName: 'nagiyu-claude',
+        ManagedPolicyArns: Match.arrayWith([{ Ref: operationsPolicyLogicalId }]),
+      });
     });
 
     it('nagiyu-claude-key ユーザーは作成しない', () => {

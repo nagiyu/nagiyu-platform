@@ -75,7 +75,7 @@ export class IamClaudeAccessStack extends cdk.Stack {
     // prod へのアクセスを伴わず dev 内で完結するものに限定している。
     if (props.invokableFunctionNames.length > 0) {
       const invokeResources = props.invokableFunctionNames.flatMap((functionName) => {
-        const functionArn = `arn:aws:lambda:us-east-1:${this.account}:function:${functionName}`;
+        const functionArn = `arn:aws:lambda:${this.region}:${this.account}:function:${functionName}`;
         // バージョン/エイリアス修飾付き呼び出し（`:1` `:live` 等）も許可する
         return [functionArn, `${functionArn}:*`];
       });

@@ -88,7 +88,7 @@ describe('getClaudeInvokableFunctionNames', () => {
     expect(getClaudeInvokableFunctionNames('dev')).toEqual(CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV);
   });
 
-  it('dev アカウント（prod）へアクセスする関数は含まれない（dev-sync）', () => {
+  it('prod アカウントへアクセスする関数（dev-sync）は含まれない', () => {
     const names = getClaudeInvokableFunctionNames('dev');
     expect(names.some((name) => name.includes('dev-sync'))).toBe(false);
   });
