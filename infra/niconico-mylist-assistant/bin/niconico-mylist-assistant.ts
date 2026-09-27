@@ -8,7 +8,6 @@ import { WebECRStack, BatchECRStack } from '../lib/ecr-stacks';
 import { LambdaStack } from '../lib/lambda-stack';
 import { CloudFrontStack } from '../lib/cloudfront-stack';
 import { BatchStack } from '../lib/batch-stack';
-import { IAMStack } from '../lib/iam-stack';
 import { getBatchJobQueueArn, getBatchJobDefinitionArn } from '@nagiyu/infra-common';
 
 const app = new cdk.App();
@@ -123,18 +122,7 @@ lambdaStack.addDependency(secretsStack);
 lambdaStack.addDependency(webEcrStack);
 lambdaStack.addDependency(batchStack);
 
-// 8. IAM スタック（開発用 IAM ユーザー - dev 環境のみ）
-const iamStack = new IAMStack(app, `NagiyuNiconicoMylistAssistantIAM${envSuffix}`, {
-  environment: env,
-  webRuntimePolicy: lambdaStack.webRuntimePolicy,
-  batchRuntimePolicy: batchStack.batchRuntimePolicy,
-  env: stackEnv,
-  description: `Niconico Mylist Assistant IAM Resources - ${env} environment`,
-});
-iamStack.addDependency(lambdaStack);
-iamStack.addDependency(batchStack);
-
-// 9. CloudFront スタックを作成
+// 8. CloudFront スタックを作成
 if (!lambdaStack.functionUrl) {
   throw new Error('Lambda function URL is not available');
 }

@@ -38,12 +38,7 @@ export interface AppRuntimePolicyProps {
 /**
  * Codec Converter アプリケーション実行時権限のマネージドポリシー
  *
- * このポリシーは以下の両方で使用される:
- * - Lambda 実行ロール (Next.js アプリケーション用)
- * - 開発用 IAM ユーザー (ローカル開発用)
- *
- * 同じポリシーを共有することで、開発者は本番環境の Lambda と全く同じ権限で
- * テストでき、デプロイ前に権限ミスを防ぐことができる。
+ * Lambda 実行ロール (Next.js アプリケーション用) が使用する。
  *
  * 含まれる権限:
  * - S3: ストレージバケットへの読み書きアクセス (Presigned URL 用)
@@ -54,8 +49,7 @@ export class AppRuntimePolicy extends iam.ManagedPolicy {
   constructor(scope: Construct, id: string, props: AppRuntimePolicyProps) {
     super(scope, id, {
       managedPolicyName: `codec-converter-app-runtime-${props.envName}`,
-      description:
-        'Codec Converter application runtime permissions (shared by Lambda and developers)',
+      description: 'Codec Converter application runtime permissions (used by Lambda)',
     });
 
     // S3 権限: Presigned URL 生成とファイル操作

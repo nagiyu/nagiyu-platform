@@ -6,7 +6,6 @@ import { WebEcrStack, BatchEcrStack } from '../lib/ecr-stack';
 import { DynamoDBStack } from '../lib/dynamodb-stack';
 import { SNSStack } from '../lib/sns-stack';
 import { LambdaStack } from '../lib/lambda-stack';
-import { IAMStack } from '../lib/iam-stack';
 import { CloudFrontStack } from '../lib/cloudfront-stack';
 import { EventBridgeStack } from '../lib/eventbridge-stack';
 import { CloudWatchAlarmsStack } from '../lib/cloudwatch-alarms-stack';
@@ -99,17 +98,7 @@ lambdaStack.addDependency(batchEcrStack);
 lambdaStack.addDependency(secretsStack);
 lambdaStack.addDependency(dynamoStack);
 
-// 6. IAM スタック（開発用 IAM ユーザー - dev 環境のみ）
-const iamStack = new IAMStack(app, `NagiyuStockTrackerIAM${envSuffix}`, {
-  environment: env,
-  webRuntimePolicy: lambdaStack.webRuntimePolicy,
-  batchRuntimePolicy: lambdaStack.batchRuntimePolicy,
-  env: stackEnv,
-  description: `Stock Tracker IAM Resources - ${env} environment`,
-});
-iamStack.addDependency(lambdaStack);
-
-// 7. CloudFront スタック
+// 6. CloudFront スタック
 if (!lambdaStack.functionUrl) {
   throw new Error('Lambda function URL is not available');
 }
@@ -126,7 +115,7 @@ const cloudFrontStack = new CloudFrontStack(app, `NagiyuStockTrackerCloudFront${
 });
 cloudFrontStack.addDependency(lambdaStack);
 
-// 8. EventBridge スタック（バッチ処理スケジューラ）
+// 7. EventBridge スタック（バッチ処理スケジューラ）
 const eventBridgeStack = new EventBridgeStack(app, `NagiyuStockTrackerEventBridge${envSuffix}`, {
   environment: env,
   batchMinuteFunction: lambdaStack.batchMinuteFunction,
@@ -140,7 +129,7 @@ const eventBridgeStack = new EventBridgeStack(app, `NagiyuStockTrackerEventBridg
 });
 eventBridgeStack.addDependency(lambdaStack);
 
-// 9. CloudWatch Alarms スタック（監視アラーム）
+// 8. CloudWatch Alarms スタック（監視アラーム）
 const alarmsStack = new CloudWatchAlarmsStack(app, `NagiyuStockTrackerAlarms${envSuffix}`, {
   environment: env,
   webFunction: lambdaStack.webFunction,
