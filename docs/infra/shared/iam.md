@@ -32,8 +32,7 @@ infra/shared/
 │   ├── iam-integration-policy-stack.ts      # デプロイポリシー: Integration
 │   ├── iam-claude-readonly-policy-stack.ts  # Claude 用閲覧専用ポリシー（共通閲覧ポリシー）
 │   ├── iam-claude-access-stack.ts           # Claude 用ロール nagiyu-claude・キー保持ユーザー
-│   ├── iam-policies-stack.ts                # 旧（4 ポリシーまとめ。互換用）
-│   └── iam-users-stack.ts                   # IAM ユーザー（Claude 閲覧専用）
+│   └── iam-policies-stack.ts                # 旧（4 ポリシーまとめ。互換用）
 ├── iam/                         # 旧 CloudFormation テンプレート（バックアップ）
 │   ├── policies/
 │   │   ├── backup/              # YAML ファイルのバックアップ
@@ -236,67 +235,7 @@ fork からの pull_request では GitHub が `id-token: write` を付与しな�
 旧ローカル開発ユーザー `nagiyu-local-dev` は長期キーを避けるため削除した。
 方式と設計判断は [AWS アカウント構成とアクセス管理](../aws-accounts.md) を参照。
 
-### 4. Claude 閲覧専用ユーザー（旧構成・撤去予定）
-
-**CDK スタック名:** `SharedIamUsers`（NagiyuClaudeReadonlyUser リソース）
-
-> 5. の `nagiyu-claude` ロールへの切り替えと動作確認が済むまで並べて残している旧構成。切り替え後に撤去する（Issue #3871）。
-
-**概要:**
-Claude Code on the web のリモート環境に投入し、Claude が AWS リソースを閲覧調査するための IAM ユーザー。
-
-**ユーザー名:** `nagiyu-claude-readonly`
-
-**アタッチされるポリシー:**
-- `nagiyu-claude-readonly-policy`（Claude Read-Only Policy 単独）
-
-**出力値（CfnOutput）:**
-- ユーザー ARN
-- ユーザー名
-
-**アクセスキー発行手順:**
-1. AWS マネジメントコンソールにログイン
-2. IAM → ユーザー → `nagiyu-claude-readonly` を選択
-3. 「セキュリティ認証情報」タブ → 「アクセスキーを作成」
-4. 用途は「サードパーティーサービス」を選択し、アクセスキー ID と
-   シークレットアクセスキーを安全に保存
-5. 発行後はユーザーごとに最大 2 本までしか保持できないため、不要になった旧キーは削除
-
-**Claude Code on the web への登録:**
-
-CDK / 設定ファイルではなく、**Claude Code on the web のリモート環境設定 UI** から
-セッション環境変数として投入する。
-
-| 環境変数名 | 値 |
-| --- | --- |
-| `AWS_ACCESS_KEY_ID` | 発行したアクセスキー ID |
-| `AWS_SECRET_ACCESS_KEY` | 発行したシークレットアクセスキー |
-| `AWS_REGION` | `us-east-1` |
-
-**動作確認:**
-
-Claude セッション内で以下が成功すること:
-
-```bash
-aws sts get-caller-identity
-aws logs describe-log-groups --region us-east-1
-aws cloudformation list-stacks --region us-east-1
-```
-
-同セッション内で以下が `AccessDenied` で失敗すること（保護が効いている証拠）:
-
-```bash
-aws secretsmanager get-secret-value --secret-id <任意のシークレット>
-aws dynamodb scan --table-name nagiyu-auth-users-dev
-aws ssm get-parameter --name <SecureString パラメータ> --with-decryption
-```
-
-**注意:**
-- このユーザーには **デプロイ権限を一切付与しない**（既存 4 ポリシーは添付しない）
-- ローカル開発・CI / CD では使わない（ローカル開発は IAM Identity Center、CI/CD は GitHub Actions OIDC ロールを利用）
-- アクセスキーは Claude Code on the web 以外の環境にコピーしない
-
-### 5. Claude 用ロール `nagiyu-claude` とキー保持ユーザー
+### 4. Claude 用ロール `nagiyu-claude` とキー保持ユーザー
 
 **CDK スタック名:** `NagiyuSharedIamClaude`
 
@@ -314,8 +253,49 @@ Claude Code on the web が dev / prod 両アカウントを扱うための構成
 **信頼ポリシーをアカウント + `aws:PrincipalArn` 条件にしている理由:**
 IAM は、信頼ポリシーの Principal に存在しないユーザーを直接書くと、ロールの作成時にエラーにする。dev のロールは prod のキー保持ユーザーより先にデプロイされうる（integration では dev にしかデプロイされない）ため、Principal は prod アカウントにして、`aws:PrincipalArn` の条件でキー保持ユーザーに絞っている。
 
-**反映の順序:**
-prod のキー保持ユーザーとロールは、prod へのデプロイ（master）で初めて作られる。アクセスキーの発行と Claude Code on the web の環境変数・Setup Script の切り替えは、その後に人が行う。
+**プロファイルを分けている理由（意図的な設計）:**
+プロファイルを指定しないとキー保持ユーザーの権限（AssumeRole のみ）になり、何も見えない。これは、毎回どちらのアカウントかを明示させ、意図せず prod を操作する事故を防ぐための設計である。
+
+**アクセスキー発行手順:**
+1. AWS マネジメントコンソールにログイン（prod アカウント）
+2. IAM → ユーザー → `nagiyu-claude-key` を選択
+3. 「セキュリティ認証情報」タブ → 「アクセスキーを作成」
+4. 用途は「サードパーティーサービス」を選択し、アクセスキー ID と
+   シークレットアクセスキーを安全に保存
+5. 発行後はユーザーごとに最大 2 本までしか保持できないため、不要になった旧キーは削除
+
+**Claude Code on the web への登録:**
+
+CDK / 設定ファイルではなく、**Claude Code on the web の環境設定（Setup Script）** から人が書き出す（リポジトリ外の設定）。
+
+- 環境変数 `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` に `nagiyu-claude-key` のキーを設定する
+- `~/.aws/credentials` に名前付きプロファイル `[nagiyu-claude-key]` として同じキーを設定する
+- `~/.aws/config` に `nagiyu-prod` / `nagiyu-dev` の 2 プロファイルを設定する。それぞれ `role_arn` を各アカウントの `nagiyu-claude` ロール、`source_profile = nagiyu-claude-key`、`role_session_name = claude-code-web`、`region = us-east-1` とする
+- どちらにも既定プロファイル（`[default]`）は作らない
+
+**動作確認:**
+
+```bash
+aws sts get-caller-identity --profile nagiyu-prod
+aws sts get-caller-identity --profile nagiyu-dev
+```
+
+プロファイルを指定しない呼び出しは拒否されること（キー保持ユーザーは AssumeRole 権限しか持たない）。
+
+```bash
+aws secretsmanager get-secret-value --secret-id <任意のシークレット> --profile nagiyu-prod
+aws dynamodb scan --table-name nagiyu-auth-users-dev --profile nagiyu-dev
+```
+
+上記は `AccessDenied` で失敗すること（保護が効いている証拠）。dev の許可済み Lambda 関数は、実行結果に影響を与えずに呼び出せることを `--invocation-type DryRun` で確認できる。
+
+```bash
+aws lambda invoke --function-name <許可済み関数名> --invocation-type DryRun --profile nagiyu-dev /dev/stdout
+```
+
+**注意:**
+- このロールには **デプロイ権限を一切付与しない**（既存 4 ポリシーは添付しない）
+- アクセスキーは Claude Code on the web 以外の環境にコピーしない
 
 ---
 
@@ -370,22 +350,22 @@ npx cdk deploy NagiyuSharedIamClaudeReadonly --require-approval never
 このコマンドで Claude 用の独立した閲覧専用ポリシー (`nagiyu-claude-readonly-policy`)
 がデプロイされる。デプロイポリシー（ステップ2）には影響を与えない。
 
-### ステップ3: IAM ユーザーのデプロイ
+### ステップ3: Claude 用ロール・キー保持ユーザーのデプロイ
 
-ポリシーのデプロイ完了後、IAM ユーザーをデプロイします。
+ポリシーのデプロイ完了後にデプロイします。
 
 ```bash
 cd infra/shared
 
 # 差分確認
-npx cdk diff SharedIamUsers
+npx cdk diff NagiyuSharedIamClaude
 
 # デプロイ
-npx cdk deploy SharedIamUsers --require-approval never
+npx cdk deploy NagiyuSharedIamClaude --require-approval never
 ```
 
-このコマンドで以下のユーザーがデプロイされます:
-- nagiyu-claude-readonly
+このコマンドで dev/prod 両アカウントに `nagiyu-claude` ロールが（prod にはキー保持ユーザー
+`nagiyu-claude-key` も）デプロイされます。
 
 ### ステップ4: 動作確認
 
@@ -395,181 +375,6 @@ aws iam get-policy --policy-arn arn:aws:iam::<account-id>:policy/nagiyu-deploy-p
 aws iam get-policy --policy-arn arn:aws:iam::<account-id>:policy/nagiyu-deploy-policy-application --region us-east-1
 aws iam get-policy --policy-arn arn:aws:iam::<account-id>:policy/nagiyu-deploy-policy-container --region us-east-1
 aws iam get-policy --policy-arn arn:aws:iam::<account-id>:policy/nagiyu-deploy-policy-integration --region us-east-1
-```
-
----
-
-## 旧 CloudFormation からの移行手順
-
-### 移行の概要
-
-CloudFormation で管理されていた IAM リソースを CDK に移行します。既存のアクセスキーは変更されません。
-
-### 重要な注意事項
-
-⚠️ **アクセスキーは変更されません**
-
-- CDK は既存のアクセスキーを管理しません
-- GitHub Actions Secrets の更新は不要
-- ローカル環境の `~/.aws/credentials` も変更不要
-
-### 移行手順
-
-#### 1. 既存スタックのバックアップ
-
-```bash
-cd infra/shared/iam/policies
-mkdir -p backup
-cp *.yaml backup/
-
-cd ../users
-mkdir -p backup
-cp *.yaml backup/
-```
-
-#### 2. ポリシーの移行
-
-```bash
-cd infra/shared
-
-# 差分確認（リソースの削除がないことを確認）
-npx cdk diff SharedIamPolicies
-
-# デプロイ
-npx cdk deploy SharedIamPolicies
-```
-
-**確認ポイント:**
-- `cdk diff` でリソースの削除がないこと
-- Export 名が既存と完全一致していること
-
-#### 3. 旧ポリシースタックの削除
-
-⚠️ **重要**: ユーザースタックから参照されているため、順序を守ってください。
-
-```bash
-# 旧スタックを削除
-aws cloudformation delete-stack --stack-name nagiyu-shared-deploy-policy-core --region us-east-1
-aws cloudformation delete-stack --stack-name nagiyu-shared-deploy-policy-container --region us-east-1
-aws cloudformation delete-stack --stack-name nagiyu-shared-deploy-policy-application --region us-east-1
-aws cloudformation delete-stack --stack-name nagiyu-shared-deploy-policy-integration --region us-east-1
-```
-
-#### 4. ユーザーの移行
-
-```bash
-cd infra/shared
-
-# 差分確認
-npx cdk diff SharedIamUsers
-
-# デプロイ
-npx cdk deploy SharedIamUsers
-```
-
-#### 5. 旧ユーザースタックの削除
-
-```bash
-aws cloudformation delete-stack --stack-name nagiyu-shared-github-actions-user --region us-east-1
-aws cloudformation delete-stack --stack-name nagiyu-shared-local-dev-user --region us-east-1
-```
-
-#### 6. 動作確認
-
-```bash
-# GitHub Actions テスト（手動トリガー）
-gh workflow run root-deploy.yml
-```
-
-### ロールバック手順
-
-万が一問題が発生した場合:
-
-```bash
-# CDK スタックを削除（逆順）
-cd infra/shared
-npx cdk destroy SharedIamUsers
-npx cdk destroy SharedIamPolicies
-
-# 元の CloudFormation スタックを再デプロイ
-cd iam/policies/backup
-aws cloudformation deploy --template-file deploy-policy-core.yaml --stack-name nagiyu-shared-deploy-policy-core --capabilities CAPABILITY_NAMED_IAM --region us-east-1
-aws cloudformation deploy --template-file deploy-policy-container.yaml --stack-name nagiyu-shared-deploy-policy-container --capabilities CAPABILITY_NAMED_IAM --region us-east-1
-aws cloudformation deploy --template-file deploy-policy-application.yaml --stack-name nagiyu-shared-deploy-policy-application --capabilities CAPABILITY_NAMED_IAM --region us-east-1
-aws cloudformation deploy --template-file deploy-policy-integration.yaml --stack-name nagiyu-shared-deploy-policy-integration --capabilities CAPABILITY_NAMED_IAM --region us-east-1
-
-cd ../users/backup
-aws cloudformation deploy --template-file github-actions-user.yaml --stack-name nagiyu-shared-github-actions-user --capabilities CAPABILITY_NAMED_IAM --region us-east-1
-aws cloudformation deploy --template-file local-dev-user.yaml --stack-name nagiyu-shared-local-dev-user --capabilities CAPABILITY_NAMED_IAM --region us-east-1
-```
-
----
-
-## デプロイ手順（旧 CloudFormation - 廃止予定）
-
-⚠️ **注意**: この方法は廃止されました。CDK を使用してください。
-
-<details>
-<summary>旧手順（参考用）</summary>
-
-IAM リソースは依存関係があるため、以下の順序でデプロイしてください。
-
-### ステップ1: デプロイポリシー（4つ）
-
-すべてのデプロイポリシーを先にデプロイします。順序は問いません。
-
-```bash
-cd infra/shared/iam/policies
-
-# Core Policy
-aws cloudformation deploy \
-  --template-file deploy-policy-core.yaml \
-  --stack-name nagiyu-shared-deploy-policy-core \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region us-east-1
-
-# Container Policy
-aws cloudformation deploy \
-  --template-file deploy-policy-container.yaml \
-  --stack-name nagiyu-shared-deploy-policy-container \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region us-east-1
-
-# Application Policy
-aws cloudformation deploy \
-  --template-file deploy-policy-application.yaml \
-  --stack-name nagiyu-shared-deploy-policy-application \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region us-east-1
-
-# Integration Policy
-aws cloudformation deploy \
-  --template-file deploy-policy-integration.yaml \
-  --stack-name nagiyu-shared-deploy-policy-integration \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region us-east-1
-```
-
-### ステップ2: IAM ユーザー
-
-ポリシーのデプロイ完了後、IAM ユーザーをデプロイします。
-
-```bash
-cd infra/shared/iam/users
-
-# GitHub Actions ユーザー
-aws cloudformation deploy \
-  --template-file github-actions-user.yaml \
-  --stack-name nagiyu-shared-github-actions-user \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region us-east-1
-
-# ローカル開発ユーザー
-aws cloudformation deploy \
-  --template-file local-dev-user.yaml \
-  --stack-name nagiyu-shared-local-dev-user \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region us-east-1
 ```
 
 ---
@@ -602,28 +407,33 @@ aws cloudformation deploy \
 ### アクセスキーのローテーション
 
 **注意**: GitHub Actions の認証は OIDC + AssumeRole で行い、アクセスキーを持たない。
-以下は `nagiyu-claude-readonly` など、アクセスキーで運用するユーザー向けの手順。
+以下は `nagiyu-claude-key` のアクセスキーのローテーション手順。
 
 #### 1. 新しいアクセスキーの発行
 
 ```bash
-aws iam create-access-key --user-name nagiyu-claude-readonly
+aws iam create-access-key --user-name nagiyu-claude-key --profile nagiyu-prod
 ```
 
-#### 2. Claude Code on the web のリモート環境設定への更新
+#### 2. 環境変数と Setup Script の差し替え
 
-新しいアクセスキーでセッション環境変数を更新。
+Claude Code on the web の環境変数（`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`）と、
+Setup Script が書き出す `~/.aws/credentials` の `[nagiyu-claude-key]` プロファイルを
+新しいキーに差し替える。実行中のセッションには環境変数の変更が反映されないため、
+新しいセッションを開始して確認する。
 
 #### 3. 動作確認
 
-新しいアクセスキーで閲覧調査が正常に動作することを確認。
+新しいセッションで両プロファイル（`nagiyu-prod` / `nagiyu-dev`）の
+`aws sts get-caller-identity` が成功することを確認する。
 
 #### 4. 古いアクセスキーの削除
 
 ```bash
 aws iam delete-access-key \
-  --user-name nagiyu-claude-readonly \
-  --access-key-id <古いアクセスキーID>
+  --user-name nagiyu-claude-key \
+  --access-key-id <古いアクセスキーID> \
+  --profile nagiyu-prod
 ```
 
 ### ポリシーの更新
@@ -716,17 +526,17 @@ aws cloudformation deploy \
 
 ### アクセスキーが無効化されている
 
-対象は `nagiyu-claude-readonly` などアクセスキー方式のユーザーのみ。
-GitHub Actions OIDC ロールはアクセスキーを持たないため対象外。
+対象は `nagiyu-claude-key` のみ。GitHub Actions OIDC ロールはアクセスキーを持たないため対象外。
 
 **原因:** アクセスキーが非アクティブ化されている。
 
 **解決策:**
 ```bash
 aws iam update-access-key \
-  --user-name nagiyu-claude-readonly \
+  --user-name nagiyu-claude-key \
   --access-key-id <アクセスキーID> \
-  --status Active
+  --status Active \
+  --profile nagiyu-prod
 ```
 
 ---
