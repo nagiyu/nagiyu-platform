@@ -133,10 +133,9 @@ aws iam list-roles \
   --output table
 ```
 
-以下のロールが表示されることを確認:
-- `nagiyu-github-actions-dev`
-- `nagiyu-github-actions-prod`
-- `nagiyu-github-actions-pr`
+作成されるロールはデプロイ先のアカウントスコープにより異なる（詳細は [IAM 詳細](./shared/iam.md) を参照）:
+- prod アカウント: `nagiyu-github-actions-prod`
+- dev アカウント: `nagiyu-github-actions-dev`, `nagiyu-github-actions-pr`
 
 ### IAM ユーザーの確認
 
@@ -148,7 +147,6 @@ aws iam list-users \
 
 以下のユーザーが表示されることを確認:
 - `nagiyu-claude-readonly`
-- `nagiyu-github-actions`（OIDC 移行の切り戻し用。撤去後は表示されない）
 
 ---
 
