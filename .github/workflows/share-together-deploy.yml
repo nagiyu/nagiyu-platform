@@ -185,7 +185,7 @@ jobs:
           secret-ids: |
             NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ needs.build.outputs.environment }}
 
-      - name: Deploy Lambda, IAM and CloudFront Stacks
+      - name: Deploy Lambda and CloudFront Stacks
         env:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
           STACK_SUFFIX: ${{ needs.build.outputs.stack-suffix }}

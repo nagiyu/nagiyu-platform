@@ -26,12 +26,7 @@ export interface BatchRuntimePolicyProps {
 /**
  * Stock Tracker Batch Lambda 実行時権限のマネージドポリシー
  *
- * このポリシーは以下の両方で使用される:
- * - Batch Lambda 実行ロール (バッチ処理用、3関数共通)
- * - 開発用 IAM ユーザー (ローカル開発用)
- *
- * 同じポリシーを共有することで、開発者は本番環境の Lambda と全く同じ権限で
- * テストでき、デプロイ前に権限ミスを防ぐことができる。
+ * Batch Lambda 実行ロール (バッチ処理用、3関数共通) が使用する。
  *
  * 含まれる権限:
  * - DynamoDB: バッチ実行に必要なアクセス (Query, Scan, GetItem, UpdateItem, PutItem)
@@ -44,6 +39,7 @@ export class BatchRuntimePolicy extends iam.ManagedPolicy {
   constructor(scope: Construct, id: string, props: BatchRuntimePolicyProps) {
     super(scope, id, {
       managedPolicyName: `stock-tracker-batch-runtime-${props.envName}`,
+      // 既存ポリシーの Description を変えると置き換えになり、固定名の衝突でデプロイが失敗するため据え置く
       description: 'Stock Tracker Batch runtime permissions (shared by Lambda and developers)',
     });
 

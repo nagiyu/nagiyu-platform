@@ -18,7 +18,6 @@ import { SSM_PARAMETERS, grantErrorEventsWrite } from '@nagiyu/infra-common';
 import { AppRuntimePolicy } from './policies/app-runtime-policy';
 import { LambdaExecutionRole } from './roles/lambda-execution-role';
 import { BatchJobRole } from './roles/batch-job-role';
-import { DevUser } from './users/dev-user';
 
 export interface CodecConverterStackProps extends cdk.StackProps {
   appVersion?: string;
@@ -281,7 +280,7 @@ export class CodecConverterStack extends cdk.Stack {
       // Keep reference to medium job definition for backward compatibility (default)
       const jobDefinition = createdJobDefinitions[1]; // medium is at index 1
 
-      // Application Runtime Policy (shared by Lambda and developers)
+      // Application Runtime Policy (Lambda 実行ロールが使用)
       const appRuntimePolicy = new AppRuntimePolicy(this, 'AppRuntimePolicy', {
         storageBucket,
         jobsTable,
@@ -295,12 +294,6 @@ export class CodecConverterStack extends cdk.Stack {
         appRuntimePolicy,
       });
       grantErrorEventsWrite(this, lambdaExecutionRole, envName as 'dev' | 'prod');
-
-      // Development IAM User (shares the same runtime policy as Lambda)
-      new DevUser(this, 'DevUser', {
-        appRuntimePolicy,
-        envName,
-      });
 
       // CloudWatch Log Group for Lambda (created explicitly to avoid conflicts)
       const lambdaLogGroup = new logs.LogGroup(this, 'LambdaLogGroup', {

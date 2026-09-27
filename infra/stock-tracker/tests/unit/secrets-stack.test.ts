@@ -96,11 +96,11 @@ describe('SecretsStack', () => {
   });
 
   describe('既存シークレットが引き続き作成される', () => {
-    it('dev 環境: VAPID / OpenAI / Finnhub の 3 シークレットに dev 認証情報シークレットを加えた合計 4 シークレットが作成される', () => {
+    it('dev 環境: VAPID / OpenAI / Finnhub の合計 3 シークレットが作成される', () => {
       const { stack } = createTestStack('dev');
       const template = Template.fromStack(stack);
-      // dev: VAPID + OpenAI + Finnhub + DevCredentials = 4
-      template.resourceCountIs('AWS::SecretsManager::Secret', 4);
+      // dev: VAPID + OpenAI + Finnhub = 3
+      template.resourceCountIs('AWS::SecretsManager::Secret', 3);
     });
 
     it('prod 環境: VAPID / OpenAI / Finnhub の合計 3 シークレットが作成される', () => {

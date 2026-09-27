@@ -9,14 +9,13 @@ export interface SecretsStackProps extends cdk.StackProps {
 /**
  * Stock Tracker Secrets Stack
  *
- * VAPID キー（Web Push 通知用）と開発用 IAM 認証情報を Secrets Manager で管理します。
+ * VAPID キー（Web Push 通知用）と外部 API キーを Secrets Manager で管理します。
  * 初回デプロイ時は PLACEHOLDER 値で作成し、後で AWS Console から実際の値を上書きします。
  */
 export class SecretsStack extends cdk.Stack {
   public readonly vapidSecret: secretsmanager.ISecret;
   public readonly openAiApiKeySecret: secretsmanager.ISecret;
   public readonly finnhubApiKeySecret: secretsmanager.ISecret;
-  public readonly devCredentialsSecret?: secretsmanager.ISecret;
 
   constructor(scope: Construct, id: string, props: SecretsStackProps) {
     super(scope, id, props);
@@ -92,33 +91,5 @@ export class SecretsStack extends cdk.Stack {
       value: this.finnhubApiKeySecret.secretName,
       description: 'Finnhub API Key Secret Name',
     });
-
-    // 開発用 IAM 認証情報シークレット（dev 環境のみ）
-    if (environment === 'dev') {
-      this.devCredentialsSecret = new secretsmanager.Secret(this, 'DevCredentialsSecret', {
-        secretName: `nagiyu-stock-tracker-dev-credentials-${environment}`,
-        description: 'IAM credentials for development user (used by E2E tests)',
-        secretObjectValue: {
-          accessKeyId: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
-          secretAccessKey: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
-        },
-      });
-
-      // タグの追加
-      cdk.Tags.of(this.devCredentialsSecret).add('Application', 'nagiyu');
-      cdk.Tags.of(this.devCredentialsSecret).add('Service', 'stock-tracker');
-      cdk.Tags.of(this.devCredentialsSecret).add('Environment', environment);
-
-      // CloudFormation Outputs
-      new cdk.CfnOutput(this, 'DevCredentialsSecretArn', {
-        value: this.devCredentialsSecret.secretArn,
-        description: 'Development IAM Credentials Secret ARN',
-      });
-
-      new cdk.CfnOutput(this, 'DevCredentialsSecretName', {
-        value: this.devCredentialsSecret.secretName,
-        description: 'Development IAM Credentials Secret Name',
-      });
-    }
   }
 }
