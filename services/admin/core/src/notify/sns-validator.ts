@@ -6,9 +6,7 @@ const ERROR_MESSAGES = {
 } as const;
 
 export type SnsMessageType =
-  | 'SubscriptionConfirmation'
-  | 'Notification'
-  | 'UnsubscribeConfirmation';
+  'SubscriptionConfirmation' | 'Notification' | 'UnsubscribeConfirmation';
 
 export type SnsMessage = {
   Type: SnsMessageType;

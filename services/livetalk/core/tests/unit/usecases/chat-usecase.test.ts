@@ -131,12 +131,10 @@ function makeModerationClient(
   categories: Record<string, boolean> = {}
 ): IModerationClient {
   return {
-    check: jest.fn(
-      async (): Promise<ModerationResult> => ({
-        flagged,
-        categories,
-      })
-    ),
+    check: jest.fn(async (): Promise<ModerationResult> => ({
+      flagged,
+      categories,
+    })),
   };
 }
 
