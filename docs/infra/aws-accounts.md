@@ -48,7 +48,7 @@ AWS アカウントのルートユーザーはアカウントごとに別のメ�
 | --- | --- | --- |
 | 人（コンソール・ローカル CLI） | IAM Identity Center（SSO） | 長期キーを持たない |
 | GitHub Actions | GitHub OIDC + AssumeRole | [IAM](./shared/iam.md) を参照 |
-| Claude Code on the web | IAM ユーザー `nagiyu-claude-readonly`（長期キー） | 後述 |
+| Claude Code on the web | prod のキー保持ユーザー（長期キー）から、両アカウントの `nagiyu-claude` ロールを AssumeRole | 後述 |
 | ルートユーザー | prod / dev は SCP で利用禁止。管理アカウントのみ break-glass として残す | 後述 |
 
 ### IAM Identity Center
@@ -78,9 +78,52 @@ aws sts get-caller-identity --profile nagiyu-prod-admin
 
 CDK も `--profile`（または `AWS_PROFILE`）でそのまま使える。セッションが切れたら `aws sso login` をやり直す。
 
-### Claude Code on the web は IAM ユーザーのまま
+### Claude Code on the web は長期キー 1 本 + 両アカウントのロール
 
-Claude Code on the web のコンテナは環境変数に置いた認証情報を非対話で使う。Identity Center の一時認証情報は期限（最大 12 時間）ごとにブラウザでの再ログインが必要なため、この用途には合わない。閲覧専用ポリシーに絞った IAM ユーザーの長期キーを使い続ける（詳細は [IAM](./shared/iam.md) を参照）。
+```
+キー保持ユーザー（prod）── AssumeRole ──┬→ prod: nagiyu-claude ロール = 共通閲覧ポリシー
+                                          └→ dev : nagiyu-claude ロール = 共通閲覧ポリシー + dev 操作ポリシー
+```
+
+#### 長期キーを 1 本だけ残す
+
+Claude Code on the web のコンテナには、クラウドに身元を証明する手段（OIDC トークン等）がない。そのため、長期の秘密なしでは AWS に認証できない。次の代替案はいずれも採用しなかった。
+
+- Identity Center などの一時認証情報を人が都度環境変数に入れる：最大 12 時間ほどで失効し、運用が回らない
+- IAM Roles Anywhere：証明書の秘密鍵が長期の秘密になるだけで、実質的な改善にならない
+- GitHub Actions を中継して OIDC で読む：リポジトリが public のため、ログや成果物から閲覧結果が公開されてしまう
+
+クラウドセッションへの OIDC トークン発行（[anthropics/claude-code#81502](https://github.com/anthropics/claude-code/issues/81502)）が実装されたら、ロールの信頼先を Claude の OIDC プロバイダに差し替えて、キー保持ユーザーを削除する。ロールの信頼ポリシーを変えるだけで済むよう、身元（ユーザー）と権限（ロール）を分けてある。
+
+#### 身元は prod に置く
+
+キー保持ユーザーは prod アカウントに置き、権限は両アカウントの `nagiyu-claude` ロールへの AssumeRole だけにする（自分では何も閲覧できない）。身元は、届くアカウントのうち最も信頼度の高い側に置き、信頼は prod → dev の一方向にする。dev に置くと、dev で IAM を操作できる主体が prod を閲覧できるようになる。たとえば dev の OIDC ロールは `iam:CreateAccessKey` を含み、PR からも引き受けられるため、PR のワークフローからキーを発行して prod を閲覧する経路ができてしまう。
+
+#### ロールは両アカウントで対称にする
+
+`nagiyu-claude` ロールは、両アカウントで同じスタック・同じ名前・同じ信頼関係・同じ共通閲覧ポリシーにする。dev と prod の違いは、dev にだけ付く追加ポリシー 1 点に集約し、構造は分けない。prod は閲覧に徹する。
+
+プロファイルは `nagiyu-prod` / `nagiyu-dev` の 2 つを用意し、既定のプロファイルは作らない。毎回どちらのアカウントかを明示させ、意図せず prod を操作する事故を防ぐ。
+
+#### dev の追加ポリシーの基準
+
+基準は「**実行は可、何が実行されるかの変更は不可**」とし、今後の拡張もこの基準で判断する。dev には prod へ届く経路（dev-sync Lambda のロールから prod テーブル読み取りロールへ）があるため、dev での操作権限が prod の権限に波及しないことが要件になる。
+
+| 操作 | 可否 | 理由 |
+| --- | --- | --- |
+| Lambda の実行（対象を列挙） | 可 | CI がデプロイしたコードを実行するだけで、権限は広がらない |
+| Lambda のコード・設定の変更 | 不可 | dev-sync Lambda に任意のコードを載せると、prod テーブルを直接読めてしまう（PII の Deny も迂回される） |
+| IAM 操作・PassRole・AssumeRole | 不可 | 権限昇格の入口になる |
+| Secrets の取得・KMS の復号 | 不可 | 共通閲覧ポリシーの Deny を維持する |
+
+実行を許す関数は、ワイルドカードではなく関数名で列挙する。新しく足した関数が自動では許可されないようにし、その都度この基準で判断するため。選定の考え方は次のとおり。
+
+- 手で実行する場面があるスケジュール起動のバッチに絞る。Web 系の関数や画面の操作から呼ばれるハンドラは、手で実行する場面がないので含めない
+- 外部送信（Web Push 等）を伴う関数と、一回きりの移行用の関数は含めない
+- prod へ届く dev-sync は含めない
+- OpenAI 等の有料 API を使う関数でも、改修の対象になるシステムの中核のバッチは、検証のために含める
+
+旧構成の閲覧専用ユーザー `nagiyu-claude-readonly` は、切り替えと動作確認が済むまで並べて残している（撤去は Issue #3871）。
 
 ### ルートユーザーの封印
 
@@ -203,6 +246,6 @@ dev アカウントを新規作成して `infra/shared` 等をデプロイした
 
 ## 関連ドキュメント
 
-- [IAM](./shared/iam.md) - デプロイポリシー、GitHub Actions OIDC ロール、Claude 閲覧専用ユーザー
+- [IAM](./shared/iam.md) - デプロイポリシー、GitHub Actions OIDC ロール、Claude 用ロールとキー保持ユーザー
 - [初回セットアップ](./setup.md)
 - [デプロイ手順](./deploy.md)

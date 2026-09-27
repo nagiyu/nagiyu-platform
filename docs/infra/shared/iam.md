@@ -30,7 +30,8 @@ infra/shared/
 │   ├── iam-application-policy-stack.ts      # デプロイポリシー: Application
 │   ├── iam-container-policy-stack.ts        # デプロイポリシー: Container
 │   ├── iam-integration-policy-stack.ts      # デプロイポリシー: Integration
-│   ├── iam-claude-readonly-policy-stack.ts  # Claude 用閲覧専用ポリシー
+│   ├── iam-claude-readonly-policy-stack.ts  # Claude 用閲覧専用ポリシー（共通閲覧ポリシー）
+│   ├── iam-claude-access-stack.ts           # Claude 用ロール nagiyu-claude・キー保持ユーザー
 │   ├── iam-policies-stack.ts                # 旧（4 ポリシーまとめ。互換用）
 │   └── iam-users-stack.ts                   # IAM ユーザー（Claude 閲覧専用）
 ├── iam/                         # 旧 CloudFormation テンプレート（バックアップ）
@@ -235,9 +236,11 @@ fork からの pull_request では GitHub が `id-token: write` を付与しな�
 旧ローカル開発ユーザー `nagiyu-local-dev` は長期キーを避けるため削除した。
 方式と設計判断は [AWS アカウント構成とアクセス管理](../aws-accounts.md) を参照。
 
-### 4. Claude 閲覧専用ユーザー
+### 4. Claude 閲覧専用ユーザー（旧構成・撤去予定）
 
 **CDK スタック名:** `SharedIamUsers`（NagiyuClaudeReadonlyUser リソース）
+
+> 5. の `nagiyu-claude` ロールへの切り替えと動作確認が済むまで並べて残している旧構成。切り替え後に撤去する（Issue #3871）。
 
 **概要:**
 Claude Code on the web のリモート環境に投入し、Claude が AWS リソースを閲覧調査するための IAM ユーザー。
@@ -292,6 +295,27 @@ aws ssm get-parameter --name <SecureString パラメータ> --with-decryption
 - このユーザーには **デプロイ権限を一切付与しない**（既存 4 ポリシーは添付しない）
 - ローカル開発・CI / CD では使わない（ローカル開発は IAM Identity Center、CI/CD は GitHub Actions OIDC ロールを利用）
 - アクセスキーは Claude Code on the web 以外の環境にコピーしない
+
+### 5. Claude 用ロール `nagiyu-claude` とキー保持ユーザー
+
+**CDK スタック名:** `NagiyuSharedIamClaude`
+
+**概要:**
+Claude Code on the web が dev / prod 両アカウントを扱うための構成。prod のキー保持ユーザー `nagiyu-claude-key` の長期キーで、各アカウントの `nagiyu-claude` ロールを AssumeRole する。構造の設計判断（身元を prod に置く理由、長期キーを残す理由、dev の追加ポリシーの基準）は [AWS アカウント構成とアクセス管理](../aws-accounts.md) を参照。
+
+**アカウントごとの構成:**
+
+| リソース | prod | dev |
+| --- | --- | --- |
+| ロール `nagiyu-claude` + 共通閲覧ポリシー（1.5.） | 作成 | 作成 |
+| 追加ポリシー `nagiyu-claude-dev-operations-policy`（Lambda の実行のみ） | なし | 作成 |
+| キー保持ユーザー `nagiyu-claude-key`（権限は両アカウントの `nagiyu-claude` への AssumeRole のみ） | 作成 | なし |
+
+**信頼ポリシーをアカウント + `aws:PrincipalArn` 条件にしている理由:**
+IAM は、信頼ポリシーの Principal に存在しないユーザーを直接書くと、ロールの作成時にエラーにする。dev のロールは prod のキー保持ユーザーより先にデプロイされうる（integration では dev にしかデプロイされない）ため、Principal は prod アカウントにして、`aws:PrincipalArn` の条件でキー保持ユーザーに絞っている。
+
+**反映の順序:**
+prod のキー保持ユーザーとロールは、prod へのデプロイ（master）で初めて作られる。アクセスキーの発行と Claude Code on the web の環境変数・Setup Script の切り替えは、その後に人が行う。
 
 ---
 
