@@ -6,6 +6,8 @@ const {
   getGitHubActionsOidcRoleIds,
   getReportsBucketName,
   getRoute53DomainName,
+  getClaudeInvokableFunctionNames,
+  CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV,
   SHARED_STACK_PLAN_ERROR_MESSAGES,
 } = require('../../lib/stack-plan');
 
@@ -75,3 +77,37 @@ describe('getReportsBucketName', () => {
     expect(getReportsBucketName('dev')).toBe('nagiyu-e2e-reports-dev');
   });
 });
+
+describe('getClaudeInvokableFunctionNames', () => {
+  it('prod スコープでは空配列を返す（実行権限を一切与えない）', () => {
+    expect(getClaudeInvokableFunctionNames('prod')).toEqual([]);
+  });
+
+  it('dev スコープでは定数と同じ内容の関数名一覧を返す', () => {
+    expect(getClaudeInvokableFunctionNames('dev')).toEqual(CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV);
+  });
+
+  it('dev スコープの許可対象は合意済みのバッチ 7 本に限る（意図しない拡張を検出する）', () => {
+    expect(getClaudeInvokableFunctionNames('dev')).toEqual([
+      'nagiyu-stock-tracker-batch-daily-dev',
+      'nagiyu-stock-tracker-batch-evaluation-dev',
+      'nagiyu-stock-tracker-batch-temporary-alert-expiry-dev',
+      'nagiyu-stock-tracker-batch-summary-dev',
+      'nagiyu-livetalk-batch-learn-user-activity-dev',
+      'nagiyu-livetalk-batch-acquire-dev',
+      'nagiyu-livetalk-batch-consolidate-dev',
+    ]);
+  });
+
+  it('prod アカウントへアクセスする関数（dev-sync）は含まれない', () => {
+    const names = getClaudeInvokableFunctionNames('dev');
+    expect(names.some((name) => name.includes('dev-sync'))).toBe(false);
+  });
+
+  it('返り値は呼び出しごとに独立した配列である（定数の参照を直接返さない）', () => {
+    const names = getClaudeInvokableFunctionNames('dev');
+    names.push('mutated');
+    expect(getClaudeInvokableFunctionNames('dev')).toEqual(CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV);
+  });
+});
+
