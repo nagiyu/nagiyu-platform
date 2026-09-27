@@ -24,7 +24,8 @@
 - **Q-DIR の実績**: 翌営業日の終値リターン（基準日終値比）− 同日・同市場の有効銘柄の平均。> 0 なら的中。
 - **Q-VOL の実績**: 翌営業日の値幅 (高値 − 安値) ÷ 基準日終値 が、その銘柄の平常を上回れば的中。
 - **Q-MKT の実績**: 翌営業日の市場平均値幅が、市場の平常を上回れば的中。
-- **平常**: 【分析待ち】直近 N 営業日（基準日を含む）の値幅の平均。N の比較結果で決める。
+- **平常**: 直近 **20 営業日**（基準日を含む）の値幅の平均（人と合意）。20 日分の履歴がない銘柄は、荒れの確度を出さない。
+    - 60 日と比べると予測力はやや落ちる（AUC 0.65 vs 0.67）。一方、局面が変わったときに「平常」が追従するため、確率のずれが小さい（ECE 0.037 vs 0.062）。確率を表示する以上、信頼性を優先した。
 - **採点から除外するもの**（FR-14。#3830 の結果に揃える）
     - 翌営業日の |リターン| > 20%（株式分割またぎ等）。除外理由を実績に記録する。
     - 休場日コピー足・途中足は、#3833 以降はデータ自体が作られない。初期値算出（FR-13）で過去データを読むときだけ、#3830 の除外リスト（祝日の日付・前レコードと OHLC が同一・CreatedAt が翌営業日の取引開始以降）を適用する。
@@ -43,7 +44,17 @@
 
 ### 1.3 軸と問いの対応（FR-5）
 
-【分析待ち】対応を固定する案と、全軸を全問いで使う案の比較結果で決める。
+**対応を固定する**（分析結果にもとづく）。
+
+| 問い | 使う軸 |
+|------|-------|
+| Q-DIR | 単一パターン 27・複合パターン 2 |
+| Q-VOL | 大きさ 3 ＋ 市場レベル 3（その銘柄の市場の値） |
+| Q-MKT | 市場レベル 3 ＋ 市場平均値幅の平常比 |
+
+- 全軸を全問いで使うと、Q-DIR で大きさ系の軸がノイズとして効き、基準値より**有意に悪化**した（log loss 差 −0.0023、90% CI [−0.0039, −0.0008]）。Q-VOL ではパターン系を足しても変わらなかった。
+- Q-VOL に市場レベルの軸を足すと改善した（log loss 改善 +0.045 → +0.053）。銘柄が荒れるかどうかは、市場全体の荒れ具合にも左右されるためである。
+- 軸の定義に「対象の問い」を持たせる（FR-5）。追加した軸も、定義した問いにだけ使う。
 
 ### 1.4 合成方式
 
@@ -207,7 +218,132 @@ type ForecastItem = {
 
 ## 6. API 仕様（型）
 
-【外部設計の合意後に詳細化】エンドポイント一覧は external-design.md §2。
+エンドポイント一覧は external-design.md §2。認証は現行どおり `withAuth(getSession, 'stocks:read', …)`。エラーメッセージは日本語の定数（`ERROR_MESSAGES`）で返す。
+
+### 6.1 共通の型
+
+```typescript
+type Lean = 'UP' | 'DOWN' | 'HIGH' | 'NEUTRAL';  // 強含み / 弱含み / 荒れそう / 中立・平常
+
+/** 一覧・カード用の確度の要約 */
+type ProbabilityView = {
+  probability: number;   // 0〜1。DIR は P(市場平均を上回る)、VOL・MKT は P(平常より荒れる)
+  baseline: number;
+  lean: Lean;            // 中立帯との比較結果（算出時に確定して保存したもの）
+};
+```
+
+- `lean` はサーバー側で決めて返す。表示のラベル文言（「強含み 56%」「弱含み 58%」等）への変換は web 側の純粋関数で行う（`DOWN` のときは 1 − probability を表示する）。
+
+### 6.2 GET /api/summaries?date=（変更）
+
+```typescript
+type SummariesResponse = {
+  exchanges: ExchangeSummaryGroupResponse[];   // 既存
+  marketForecasts: MarketForecastResponse[];   // 追加（JP・US）
+};
+
+type MarketForecastResponse = {
+  market: 'JP' | 'US';
+  date: string;                        // 基準日
+  forecast: (ProbabilityView & { lowSample: boolean }) | null;  // 算出なし・失敗は null
+};
+
+// TickerSummaryResponse の変更
+// - 削除: aiAnalysisResult, aiAnalysisError, patternDetails
+// - 追加:
+type TickerSummaryResponse = /* 既存の項目 */ {
+  forecast: {
+    dir: ProbabilityView | null;
+    vol: ProbabilityView | null;       // 平常の算出に必要な履歴が足りなければ null
+    lit: { total: number; buy: number; sell: number };  // 点灯型軸の点灯数（複合軸を含む）
+  } | null;                            // Forecast アイテムがなければ null
+};
+```
+
+- `/api/summaries/{tickerId}` も同じ `TickerSummaryResponse` を返す。
+- `date` 省略時の「最新日」は現行どおり DailySummary 側で決め、同じ日付の Forecast を結合する。
+
+### 6.3 GET /api/forecasts/{tickerId}?date=（新規）
+
+```typescript
+type ForecastDetailResponse = {
+  tickerId: string;
+  date: string;
+  questions: {
+    DIR: QuestionDetail | null;
+    VOL: QuestionDetail | null;
+  };
+};
+
+type QuestionDetail = {
+  probability: number;
+  baseline: number;
+  lean: Lean;
+  neutralBand: { lower: number; upper: number };
+  bandHistory: { lower: number; upper: number; count: number; hitRate: number } | null;
+  axes: AxisBreakdown[];   // 寄与の絶対値の降順。点灯しなかった点灯型軸は lit=false で末尾
+};
+
+type AxisBreakdown = {
+  axisId: string;
+  name: string;
+  kind: 'FLAG' | 'NUMERIC';
+  lit?: boolean;           // FLAG のみ
+  ratio?: number;          // NUMERIC のみ。平常比（例: 1.4）
+  performance: {           // 算出時点の成績（ModelSnapshot から。FR-12）
+    count: number;
+    hitRate: number;
+    diffFromBaseline: number;
+    meanExcessReturn?: number;  // DIR のみ
+  };
+  contribution: number;    // 寄与（確率の差、−1〜1。表示時に pt 換算）
+  lowSample: boolean;
+};
+```
+
+- 取引所 ID は `tickerId` の分割ではなく、Ticker マスタから引く（現行の `/api/summaries/{tickerId}` は `tickerId.split(':')[0]` を使っており、Exchange.Key ≠ ExchangeID の取引所では 404 になる）。
+
+| ステータス | 説明 |
+|-----------|------|
+| 400 | date の形式が不正 |
+| 404 | ティッカーが存在しない、または指定日の Forecast がない |
+
+### 6.4 GET /api/axis-performance?question=&period=&market=（新規）
+
+```typescript
+type AxisPerformanceQuery = {
+  question: 'DIR' | 'VOL' | 'MKT';
+  period: '30d' | '90d' | 'all';   // 予測日で切る
+  market: 'ALL' | 'JP' | 'US';     // MKT では ALL を受け付けない（400）
+};
+
+type AxisPerformanceResponse = {
+  question: 'DIR' | 'VOL' | 'MKT';
+  period: '30d' | '90d' | 'all';
+  market: 'ALL' | 'JP' | 'US';
+  from: string;
+  to: string;
+  evaluatedCount: number;
+  hitRate: number;               // 期間全体の実現率
+  neutralBand: { lower: number; upper: number } | null;  // 最新スナップショットのもの（網掛け用）
+  calibration: { lower: number; upper: number; count: number; meanProbability: number; hitRate: number }[];
+  axes: {
+    axisId: string;
+    name: string;
+    kind: 'FLAG' | 'NUMERIC';
+    count: number;               // FLAG は点灯回数、NUMERIC は平常より高かった回数
+    hitRate: number;
+    diffFromBaseline: number;
+    meanExcessReturn?: number;   // DIR のみ
+    currentWeight: number;       // 最新スナップショットの係数
+    lowSample: boolean;
+  }[];
+};
+```
+
+- 集計は PerformanceDaily（予測日ごとの集計）を期間分合計して作る。Forecast を全件読まない。
+- 数値型軸の「件数・的中率」は、値が平常より高い日（平常比 > 1）を「点灯」とみなして数える。表示用の定義で、合成には値そのものを使う。
 
 ---
 
