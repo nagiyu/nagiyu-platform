@@ -91,6 +91,12 @@ jobs:
         run: |
           npm run synth --workspace=@nagiyu/infra-shared -- --all --context env=dev
 
+      - name: Synthesize CDK stacks (dev account scope)
+        env:
+          DOMAIN_NAME: example.com
+        run: |
+          npm run synth --workspace=@nagiyu/infra-shared -- --all --context env=dev --context accountScope=dev
+
       - name: Validate generated CloudFormation templates
         run: |
           echo "Validating CloudFormation templates..."

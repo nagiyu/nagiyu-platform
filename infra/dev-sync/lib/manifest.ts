@@ -39,6 +39,16 @@
  *   schedule: 'rate(6 hours)',
  * },
  * ```
+ *
+ * ## source テーブルを追加する場合の注意
+ *
+ * dev-sync は dev アカウントで動作し、prod テーブル（AWS マネージドキー暗号化のため
+ * クロスアカウントのリソースポリシー許可が使えない）を prod 側の読み取り専用ロール
+ * （`nagiyu-dev-sync-source-reader`）経由で AssumeRole して読み取る。
+ * このロールは manifest の source テーブルにのみ Scan/Query/GetItem を許可しているため、
+ * ここに新しい `sourceTable` を追加する場合は、
+ * **`infra/shared/lib/iam/dev-sync-source-reader-stack.ts` の `SOURCE_TABLE_NAMES` にも
+ * 追記し、prod へのリリースを行わないと dev-sync が新テーブルを読み取れない**。
  */
 
 /**

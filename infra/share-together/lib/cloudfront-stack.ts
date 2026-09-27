@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { CloudFrontStackBase, CloudFrontStackBaseProps } from '@nagiyu/infra-common';
+import { CloudFrontStackBase, CloudFrontStackBaseProps, getCloudFrontDomainName } from '@nagiyu/infra-common';
 
 export interface CloudFrontStackProps extends cdk.StackProps {
   environment: string;
@@ -17,8 +17,7 @@ export class CloudFrontStack extends CloudFrontStackBase {
       environment: environment as 'dev' | 'prod',
       functionUrl,
       cloudfrontConfig: {
-        domainName:
-          environment === 'prod' ? 'share-together.nagiyu.com' : 'dev-share-together.nagiyu.com',
+        domainName: getCloudFrontDomainName('share-together', environment as 'dev' | 'prod'),
         // 検索エンジンにインデックスさせない（Portal 以外は常に noindex）
         noindex: true,
       },

@@ -1,7 +1,14 @@
 import { zodTextFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
-import { withRetry, withTimeout } from '@nagiyu/common';
+import {
+  withRetry,
+  withTimeout,
+  extractOpenAIResponsesUsage,
+  logLLMUsage,
+  resolveOpenAIResponsesOutcome,
+} from '@nagiyu/common';
 import type OpenAI from 'openai';
+import type { ReasoningEffort } from 'openai/resources/shared';
 import type {
   EmotionFilter,
   EmotionHighlightScore,
@@ -9,11 +16,30 @@ import type {
 } from './highlight-extractor.service.js';
 import type { TranscriptSegment } from './transcription.service.js';
 
-const OPENAI_MODEL = 'gpt-5-mini';
+const OPENAI_MODEL = 'gpt-5.6-luna';
+/**
+ * emotion-scoring 用の reasoning.effort。
+ *
+ * セグメントごとの構造化スコアリングであり、出力はスキーマで縛られた 0.0〜1.0 の数値。
+ * dev 実測では reasoning/出力比 14.9% と全用途中で最も低い部類で、モデル自身もあまり
+ * reasoning を使っていない。これを踏まえ `none` に倒し reasoning コストを削る。
+ *
+ * 呼び出し回数は `SEGMENTS_PER_CHUNK` によるチャンク分割で決まるため、**動画の長さに比例
+ * する**。実測に使った変換は 56 呼び出し（reasoning 合計 15,830 トークン）だったが、短い
+ * 動画では 1 呼び出しで終わる。したがって before の実測値（56 件）は単一の変換から得た
+ * ものであり、1 変換あたりの削減量は動画長によって大きく変わる。
+ *
+ * 設定後の dev 実測では reasoning が 0 トークンになることを確認済み。
+ *
+ * @see Issue #3780 "reasoning.effort の用途別チューニング"（Step 2: 実測にもとづく effort 設定）
+ */
+const OPENAI_REASONING_EFFORT = 'none' satisfies ReasoningEffort;
 const MAX_RETRIES = 3;
 const REQUEST_TIMEOUT_MS = 600_000;
 const SEGMENTS_PER_CHUNK = 50;
 const EMOTION_SCORING_CONCURRENCY = 3;
+const LLM_USAGE_SERVICE = 'quick-clip';
+const LLM_USAGE_PURPOSE = 'emotion-scoring';
 
 const ERROR_MESSAGES = {
   TIMEOUT: 'OpenAI APIの呼び出しがタイムアウトしました',
@@ -133,6 +159,7 @@ export class EmotionHighlightService {
               this.client.responses.parse({
                 model: OPENAI_MODEL,
                 stream: false,
+                reasoning: { effort: OPENAI_REASONING_EFFORT },
                 text: {
                   format: zodTextFormat(emotionScoresSchema, 'emotion_scores'),
                 },
@@ -174,6 +201,14 @@ export class EmotionHighlightService {
         console.info(
           `[EmotionHighlightService] チャンク${chunkIndex + 1}/${chunks.length} API 呼び出し完了`
         );
+        logLLMUsage({
+          service: LLM_USAGE_SERVICE,
+          purpose: LLM_USAGE_PURPOSE,
+          model: OPENAI_MODEL,
+          reasoningEffort: OPENAI_REASONING_EFFORT,
+          outcome: resolveOpenAIResponsesOutcome(response.status),
+          ...extractOpenAIResponsesUsage(response.usage),
+        });
         if (onProgress && chunks.length > 1) {
           await onProgress(chunkIndex + 1, chunks.length);
         }

@@ -164,7 +164,7 @@ npm run deploy -w codec-converter -- --context env=dev --context deploymentPhase
 | DynamoDB テーブル   | `nagiyu-codec-converter-jobs-dev`    | `nagiyu-codec-converter-jobs-prod`    |
 | Lambda 関数         | `codec-converter-dev`                | `codec-converter-prod`                |
 | Batch Job Queue     | `codec-converter-dev`                | `codec-converter-prod`                |
-| CloudFront ドメイン | `dev-codec-converter.nagiyu.com`     | `codec-converter.nagiyu.com`          |
+| CloudFront ドメイン | `codec-converter.dev.nagiyu.com`     | `codec-converter.nagiyu.com`          |
 | 開発用 IAM User     | `codec-converter-dev-dev`            | `codec-converter-dev-prod`            |
 
 ### 4.2 環境変数

@@ -62,6 +62,53 @@ describe('DevSyncStack', () => {
       });
     });
 
+    it('Lambda 実行ロールに固定名 nagiyu-dev-sync-dev-execution が付与される', () => {
+      const stack = new DevSyncStack(app, 'TestStack', {
+        environment: 'dev',
+        ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
+        manifest: [],
+      });
+
+      const template = Template.fromStack(stack);
+      template.hasResourceProperties('AWS::IAM::Role', {
+        RoleName: 'nagiyu-dev-sync-dev-execution',
+      });
+    });
+
+    it('Lambda 実行ロールに source 読み取りロールへの AssumeRole のみが付与される（source テーブルへの直接権限なし）', () => {
+      const stack = new DevSyncStack(app, 'TestStack', {
+        environment: 'dev',
+        ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
+        manifest: [],
+      });
+
+      const template = Template.fromStack(stack);
+      const policies = template.findResources('AWS::IAM::Policy');
+      const allPoliciesStr = JSON.stringify(policies);
+
+      expect(allPoliciesStr).toContain('sts:AssumeRole');
+      expect(allPoliciesStr).toContain(
+        'arn:aws:iam::166562222746:role/nagiyu-dev-sync-source-reader'
+      );
+    });
+
+    it('Lambda の環境変数に SOURCE_READER_ROLE_ARN が設定される', () => {
+      const stack = new DevSyncStack(app, 'TestStack', {
+        environment: 'dev',
+        ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
+        manifest: [],
+      });
+
+      const template = Template.fromStack(stack);
+      template.hasResourceProperties('AWS::Lambda::Function', {
+        Environment: {
+          Variables: Match.objectLike({
+            SOURCE_READER_ROLE_ARN: 'arn:aws:iam::166562222746:role/nagiyu-dev-sync-source-reader',
+          }),
+        },
+      });
+    });
+
     it('CfnOutput が存在する', () => {
       const stack = new DevSyncStack(app, 'TestStack', {
         environment: 'dev',
@@ -249,6 +296,19 @@ describe('DevSyncStack', () => {
         FunctionName: 'nagiyu-dev-sync-prod',
       });
     });
+
+    it('prod 環境では Lambda 実行ロールに固定名 nagiyu-dev-sync-prod-execution が付与される', () => {
+      const stack = new DevSyncStack(app, 'TestStack', {
+        environment: 'prod',
+        ecrRepositoryName: 'nagiyu-dev-sync-ecr-prod',
+        manifest: [],
+      });
+
+      const template = Template.fromStack(stack);
+      template.hasResourceProperties('AWS::IAM::Role', {
+        RoleName: 'nagiyu-dev-sync-prod-execution',
+      });
+    });
   });
 
   describe('IAM 最小権限回帰テスト（安全核心）', () => {
@@ -280,7 +340,7 @@ describe('DevSyncStack', () => {
       },
     ];
 
-    it('source テーブル ARN に PutItem が付与されていない', () => {
+    it('source テーブル名が Lambda 実行ロールの IAM ポリシーに一切登場しない（直接権限を持たない）', () => {
       const stack = new DevSyncStack(app, 'TestStack', {
         environment: 'dev',
         ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
@@ -288,23 +348,15 @@ describe('DevSyncStack', () => {
       });
 
       const template = Template.fromStack(stack);
-      // 全 IAM ポリシーを取得し、source テーブル ARN に PutItem が付与されていないことを確認
+      // 全 IAM ポリシーを取得し、source テーブル名が一切登場しないことを確認する。
+      // source への読み取りは prod 側の読み取り専用ロールへの AssumeRole 経由でのみ行う。
       const policies = template.findResources('AWS::IAM::Policy');
-      const policyDocuments = Object.values(policies).map(
-        (p) => JSON.stringify(p) as string
-      );
+      const allPoliciesStr = JSON.stringify(policies);
 
-      // source テーブル ARN は "table/nagiyu-test-main-prod" を含む
-      // PutItem が source テーブルに付与されていないことを確認
-      for (const doc of policyDocuments) {
-        if (doc.includes('nagiyu-test-main-prod') && !doc.includes('index')) {
-          expect(doc).not.toContain('dynamodb:PutItem');
-          expect(doc).not.toContain('dynamodb:DeleteItem');
-        }
-      }
+      expect(allPoliciesStr).not.toContain('nagiyu-test-main-prod');
     });
 
-    it('source テーブル ARN に DeleteItem が付与されていない（単一 source / dest）', () => {
+    it('Lambda 実行ロールのポリシーに source テーブルへの Scan/Query/GetItem が付与されていない（単一 source / dest）', () => {
       const stack = new DevSyncStack(app, 'TestStack', {
         environment: 'dev',
         ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
@@ -315,15 +367,19 @@ describe('DevSyncStack', () => {
       const policies = template.findResources('AWS::IAM::Policy');
       const allPoliciesStr = JSON.stringify(policies);
 
-      // ポリシー文字列全体で prod テーブルの ARN が存在することは正常（source として read 付与）
-      // ただし prod ARN のリソースに PutItem/DeleteItem が付与されてはいけない
-      // CDK は ARN を動的に組み立てるため、ここでは IAM ポリシーを action レベルで検証する
-      const putItemCount = (allPoliciesStr.match(/"dynamodb:PutItem"/g) ?? []).length;
-      const deleteItemCount = (allPoliciesStr.match(/"dynamodb:DeleteItem"/g) ?? []).length;
+      // source への直接権限は一切付与しない（AssumeRole のみ）ため
+      // Query/GetItem はポリシー内に一切登場しない
+      expect(allPoliciesStr).not.toContain('dynamodb:Query');
+      expect(allPoliciesStr).not.toContain('dynamodb:GetItem');
       // PutItem は dest テーブルのポリシーとして 1 件のみ存在するはず
+      const putItemCount = (allPoliciesStr.match(/"dynamodb:PutItem"/g) ?? []).length;
       expect(putItemCount).toBe(1);
       // DeleteItem は delete=on のエントリの dest テーブルのポリシーとして 1 件のみ存在するはず
+      const deleteItemCount = (allPoliciesStr.match(/"dynamodb:DeleteItem"/g) ?? []).length;
       expect(deleteItemCount).toBe(1);
+      // AssumeRole は source 読み取りロールに対して 1 件のみ存在するはず
+      const assumeRoleCount = (allPoliciesStr.match(/"sts:AssumeRole"/g) ?? []).length;
+      expect(assumeRoleCount).toBe(1);
     });
 
     it('delete=off の dest テーブルに DeleteItem/Scan が付与されない', () => {
@@ -402,7 +458,7 @@ describe('DevSyncStack', () => {
       template.resourceCountIs('AWS::Scheduler::Schedule', 7);
     });
 
-    it('Lambda 実行ロールに Niconico source（prod）への read 権限が含まれる', () => {
+    it('Lambda 実行ロールに Niconico source（prod）への直接権限が含まれず、source 読み取りロールへの AssumeRole のみが含まれる', () => {
       const stack = new DevSyncStack(app, 'TestStackPhaseBCRead', {
         environment: 'dev',
         ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
@@ -412,11 +468,13 @@ describe('DevSyncStack', () => {
       const template = Template.fromStack(stack);
       const policies = template.findResources('AWS::IAM::Policy');
       const allPoliciesStr = JSON.stringify(policies);
-      // Niconico prod テーブル名が登場するポリシー内に read アクションが存在すること
-      expect(allPoliciesStr).toContain('nagiyu-niconico-mylist-assistant-dynamodb-prod');
-      expect(allPoliciesStr).toContain('dynamodb:Scan');
-      expect(allPoliciesStr).toContain('dynamodb:Query');
-      expect(allPoliciesStr).toContain('dynamodb:GetItem');
+      // Niconico prod テーブル名は Lambda 実行ロールのポリシーに登場しない
+      // （source への直接権限は付与せず、AssumeRole 経由のみ）
+      expect(allPoliciesStr).not.toContain('nagiyu-niconico-mylist-assistant-dynamodb-prod');
+      expect(allPoliciesStr).toContain('sts:AssumeRole');
+      expect(allPoliciesStr).toContain(
+        'arn:aws:iam::166562222746:role/nagiyu-dev-sync-source-reader'
+      );
     });
 
     it('Lambda 実行ロールに Niconico dest（dev）への PutItem 権限が含まれる', () => {
@@ -512,7 +570,7 @@ describe('DevSyncStack', () => {
       expect(matching[0].delete).toBe('on');
     });
 
-    it('実 MANIFEST で synth したとき stock-tracker prod テーブルへの read 権限が含まれる', () => {
+    it('実 MANIFEST で synth したとき stock-tracker prod テーブルへの直接権限は含まれず、AssumeRole のみが含まれる', () => {
       const stack = new DevSyncStack(app, 'TestStackPhaseCRead', {
         environment: 'dev',
         ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
@@ -522,11 +580,11 @@ describe('DevSyncStack', () => {
       const template = Template.fromStack(stack);
       const policies = template.findResources('AWS::IAM::Policy');
       const allPoliciesStr = JSON.stringify(policies);
-      // stock-tracker prod テーブルへの read アクションが付与されていること
-      expect(allPoliciesStr).toContain('nagiyu-stock-tracker-main-prod');
-      expect(allPoliciesStr).toContain('dynamodb:Scan');
-      expect(allPoliciesStr).toContain('dynamodb:Query');
-      expect(allPoliciesStr).toContain('dynamodb:GetItem');
+      // stock-tracker prod テーブル名は Lambda 実行ロールのポリシーに登場しない
+      expect(allPoliciesStr).not.toContain('nagiyu-stock-tracker-main-prod');
+      expect(allPoliciesStr).not.toContain('dynamodb:Query');
+      expect(allPoliciesStr).not.toContain('dynamodb:GetItem');
+      expect(allPoliciesStr).toContain('sts:AssumeRole');
     });
 
     it('実 MANIFEST で synth したとき stock-tracker dev テーブルへの PutItem 権限が含まれる', () => {

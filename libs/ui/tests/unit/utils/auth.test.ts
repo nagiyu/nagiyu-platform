@@ -69,11 +69,11 @@ describe('buildSignOutUrl', () => {
   describe('開発環境 URL の対応', () => {
     it('dev 環境のサブドメインでも正しく URL を生成する', () => {
       const result = buildSignOutUrl(
-        'https://dev-auth.nagiyu.com',
-        'https://dev-live-talk.nagiyu.com'
+        'https://auth.dev.nagiyu.com',
+        'https://live-talk.dev.nagiyu.com'
       );
       expect(result).toBe(
-        'https://dev-auth.nagiyu.com/api/auth/signout?callbackUrl=https%3A%2F%2Fdev-live-talk.nagiyu.com'
+        'https://auth.dev.nagiyu.com/api/auth/signout?callbackUrl=https%3A%2F%2Flive-talk.dev.nagiyu.com'
       );
     });
 
@@ -153,11 +153,11 @@ describe('buildRefreshUrl', () => {
   describe('開発環境 URL の対応', () => {
     it('dev 環境のサブドメインでも正しく URL を生成する', () => {
       const result = buildRefreshUrl(
-        'https://dev-auth.nagiyu.com',
-        'https://dev-live-talk.nagiyu.com'
+        'https://auth.dev.nagiyu.com',
+        'https://live-talk.dev.nagiyu.com'
       );
       expect(result).toBe(
-        'https://dev-auth.nagiyu.com/refresh?callbackUrl=https%3A%2F%2Fdev-live-talk.nagiyu.com'
+        'https://auth.dev.nagiyu.com/refresh?callbackUrl=https%3A%2F%2Flive-talk.dev.nagiyu.com'
       );
     });
 

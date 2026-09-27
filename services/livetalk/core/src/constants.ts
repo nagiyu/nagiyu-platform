@@ -291,9 +291,10 @@ export const WEBFACT_REVIEW_INTERVAL_MS: Record<'low' | 'medium' | 'high', numbe
 export const ACQUIRE_MAX_QUERIES_PER_RUN = 3;
 
 /**
- * acquire バッチ: 鮮度掃引（GSI-STALE の窓走査）で 1 回に取得する WEB fact の上限件数。
- * ページングの 1 ページ分の上限であり、`ACQUIRE_MAX_QUERIES_PER_RUN` と合わせて
- * 実際に再取得を実行する件数の上限を絞る。
+ * acquire バッチ: 鮮度掃引（GSI-STALE の窓走査）で 1 回に読み込む WEB fact の上限件数。
+ * 鮮度切れ再取得はトピック単位に集約して research するため（#3781）、この件数は
+ * `ACQUIRE_MAX_QUERIES_PER_RUN`（research 回数の上限）とは独立に、束ねる元になる
+ * fact をどこまで読むかの上限として働く。
  */
 export const ACQUIRE_STALE_SWEEP_LIMIT = 10;
 

@@ -4,6 +4,7 @@
 
 import { EntityAlreadyExistsError, InMemorySingleTableStore } from '@nagiyu/aws';
 import * as awsModule from '@nagiyu/aws';
+import { logger } from '@nagiyu/common';
 import {
   InMemoryDailySummaryRepository,
   InMemoryExchangeRepository,
@@ -102,6 +103,14 @@ describe('evaluation batch handler', () => {
 
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
         {
+          time: Date.UTC(2026, 1, 26, 14, 30, 0), // 2026-02-26 09:30 EST（予測日＝基準日の足）
+          open: 99,
+          high: 101,
+          low: 98,
+          close: 100,
+          volume: 1900,
+        },
+        {
           time: Date.UTC(2026, 1, 27, 14, 30, 0), // 2026-02-27 09:30 EST
           open: 103,
           high: 106,
@@ -125,6 +134,7 @@ describe('evaluation batch handler', () => {
         evaluated: 1,
         alreadyEvaluatedSkipped: 0,
         missingClose: 0,
+        missingBaseBar: 0,
         failed: 0,
       });
 
@@ -146,6 +156,14 @@ describe('evaluation batch handler', () => {
       );
 
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
+        {
+          time: Date.UTC(2026, 1, 26, 14, 30, 0), // 予測日＝基準日の足
+          open: 99,
+          high: 101,
+          low: 98,
+          close: 100,
+          volume: 1900,
+        },
         {
           time: Date.UTC(2026, 1, 27, 14, 30, 0),
           open: 99,
@@ -179,6 +197,14 @@ describe('evaluation batch handler', () => {
 
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
         {
+          time: Date.UTC(2026, 1, 26, 14, 30, 0), // 予測日＝基準日の足
+          open: 99,
+          high: 101,
+          low: 98,
+          close: 100,
+          volume: 1900,
+        },
+        {
           time: Date.UTC(2026, 1, 27, 14, 30, 0),
           open: 100,
           high: 101,
@@ -198,6 +224,209 @@ describe('evaluation batch handler', () => {
       const updated = await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-26');
       expect(updated?.Hit).toBe(true);
       expect(updated?.ActualReturn).toBeCloseTo(0.2, 5);
+    });
+  });
+
+  describe('基準日の足がチャートに無い場合', () => {
+    it('summary.Close へはフォールバックせず採点をスキップする（休場日コピー足の可能性）', async () => {
+      await dailySummaryRepository.upsert(
+        summaryInput({
+          Close: 100,
+          AiAnalysisResult: baseAiResult('BULLISH'),
+        })
+      );
+
+      const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
+      // チャートには翌営業日の足しか含まれず、予測日（基準日）の足は含まれない
+      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
+        {
+          time: Date.UTC(2026, 1, 27, 14, 30, 0),
+          open: 103,
+          high: 106,
+          low: 102,
+          close: 105,
+          volume: 2000,
+        },
+      ]);
+
+      const response = await handler(buildEvent(), {
+        exchangeRepository,
+        dailySummaryRepository,
+        getChartDataFn,
+        nowFn: () => NOW,
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.statistics.missingBaseBar).toBe(1);
+      expect(body.statistics.evaluated).toBe(0);
+
+      const updated = await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-26');
+      expect(updated?.EvaluatedAt).toBeUndefined();
+      expect(infoSpy).toHaveBeenCalledWith(
+        '予測日の足がチャートに存在しない（休場日の可能性）ため採点しません',
+        expect.objectContaining({ tickerId: 'NSDQ:AAPL', date: '2026-02-26' })
+      );
+    });
+  });
+
+  describe('祝日・株式分割対応（Issue #3830）', () => {
+    it('翌平日が祝日でも、実データ上の次の足（2日後）で採点される', async () => {
+      // 予測日 2026-02-25（水）、翌日 2026-02-26（木）が祝日で休場、
+      // 実際の次の取引日は 2026-02-27（金）
+      await dailySummaryRepository.upsert(
+        summaryInput({
+          Date: '2026-02-25',
+          Close: 100,
+          AiAnalysisResult: baseAiResult('BULLISH'),
+        })
+      );
+
+      // チャートには祝日の足は存在せず、予測日(2026-02-25)と 2026-02-27 の足のみが現れる
+      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
+        {
+          time: Date.UTC(2026, 1, 25, 14, 30, 0), // 2026-02-25 09:30 EST（予測日＝基準日の足）
+          open: 99,
+          high: 101,
+          low: 98,
+          close: 100,
+          volume: 1900,
+        },
+        {
+          time: Date.UTC(2026, 1, 27, 14, 30, 0), // 2026-02-27 09:30 EST
+          open: 101,
+          high: 104,
+          low: 100,
+          close: 103,
+          volume: 1800,
+        },
+      ]);
+
+      const response = await handler(buildEvent(), {
+        exchangeRepository,
+        dailySummaryRepository,
+        getChartDataFn,
+        nowFn: () => NOW,
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.statistics.evaluated).toBe(1);
+      expect(body.statistics.missingClose).toBe(0);
+      expect(body.statistics.missingBaseBar).toBe(0);
+
+      const updated = await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-25');
+      // 祝日 2026-02-26 を飛ばして 2026-02-27 が評価日として確定する
+      expect(updated?.EvaluationDate).toBe('2026-02-27');
+      expect(updated?.EvaluationClose).toBe(103);
+      expect(updated?.ActualReturn).toBeCloseTo(3, 5);
+    });
+
+    it('次の足の日付が lastTradingDate より後（まだ引けていない）場合は次回に回す', async () => {
+      const candidate: PendingEvaluation = {
+        summary: {
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Date: '2026-02-25',
+          Open: 100,
+          High: 110,
+          Low: 95,
+          Close: 100,
+          AiAnalysisResult: baseAiResult('BULLISH'),
+          CreatedAt: 0,
+          UpdatedAt: 0,
+        },
+        exchange: {
+          ExchangeID: 'NASDAQ',
+          Name: 'NASDAQ',
+          Key: 'NSDQ',
+          Timezone: 'America/New_York',
+          Start: '09:00',
+          End: '17:00',
+          CreatedAt: 0,
+          UpdatedAt: 0,
+        },
+        // 抽出時点の直近完了取引日は 2026-02-26 だが、チャート上の次の足は 2026-02-27 で
+        // まだ引けていない（進行中）扱いになるケースを再現する
+        lastTradingDate: '2026-02-26',
+      };
+      const findPendingEvaluationsFn = jest
+        .fn<Promise<PendingEvaluation[]>, never[]>()
+        .mockResolvedValue([candidate]);
+      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
+        {
+          time: Date.UTC(2026, 1, 27, 14, 30, 0), // 2026-02-27（lastTradingDate より後）
+          open: 101,
+          high: 104,
+          low: 100,
+          close: 103,
+          volume: 1800,
+        },
+      ]);
+
+      const response = await handler(buildEvent(), {
+        exchangeRepository,
+        dailySummaryRepository,
+        getChartDataFn,
+        nowFn: () => NOW,
+        findPendingEvaluationsFn: findPendingEvaluationsFn as never,
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.statistics.missingClose).toBe(1);
+      expect(body.statistics.evaluated).toBe(0);
+    });
+
+    it('株式分割をまたいでも、チャート上の基準日の終値で ActualReturn を計算する', async () => {
+      // 保存済み summary.Close は分割前の値(100)。分割後、チャート上の同じ日の終値は
+      // 調整済みの値(50)になっている想定
+      await dailySummaryRepository.upsert(
+        summaryInput({
+          Date: '2026-02-25',
+          Close: 100,
+          AiAnalysisResult: baseAiResult('BULLISH'),
+        })
+      );
+
+      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
+        {
+          // 予測日 2026-02-25 の足（分割調整後の終値 50）
+          time: Date.UTC(2026, 1, 25, 14, 30, 0),
+          open: 49,
+          high: 51,
+          low: 48,
+          close: 50,
+          volume: 4000,
+        },
+        {
+          // 翌営業日 2026-02-26 の足（分割調整後の終値 52）
+          time: Date.UTC(2026, 1, 26, 14, 30, 0),
+          open: 50,
+          high: 53,
+          low: 49,
+          close: 52,
+          volume: 4200,
+        },
+      ]);
+
+      // 2026-02-26（木）18:00 EST（取引終了後）→ lastTradingDate = 2026-02-26
+      const now = Date.UTC(2026, 1, 26, 23, 0, 0);
+
+      const response = await handler(buildEvent(), {
+        exchangeRepository,
+        dailySummaryRepository,
+        getChartDataFn,
+        nowFn: () => now,
+      });
+
+      expect(response.statusCode).toBe(200);
+      const updated = await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-25');
+      expect(updated?.EvaluationDate).toBe('2026-02-26');
+      expect(updated?.EvaluationClose).toBe(52);
+      // 分割調整後の基準終値50を使うため (52-50)/50*100 = 4%（分割前Close=100基準なら-48%になってしまう）
+      expect(updated?.ActualReturn).toBeCloseTo(4, 5);
+      expect(updated?.Hit).toBe(true);
     });
   });
 
@@ -247,6 +476,14 @@ describe('evaluation batch handler', () => {
         })
         .mockResolvedValueOnce([
           {
+            time: Date.UTC(2026, 1, 26, 14, 30, 0), // 予測日＝基準日の足
+            open: 99,
+            high: 101,
+            low: 98,
+            close: 100,
+            volume: 1900,
+          },
+          {
             time: Date.UTC(2026, 1, 27, 14, 30, 0),
             open: 103,
             high: 106,
@@ -290,6 +527,14 @@ describe('evaluation batch handler', () => {
 
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
         {
+          time: Date.UTC(2026, 1, 26, 14, 30, 0), // 予測日＝基準日の足
+          open: 99,
+          high: 101,
+          low: 98,
+          close: 100,
+          volume: 1900,
+        },
+        {
           time: Date.UTC(2026, 1, 27, 14, 30, 0),
           open: 103,
           high: 106,
@@ -328,6 +573,14 @@ describe('evaluation batch handler', () => {
       await dailySummaryRepository.upsert(summaryInput({ Close: 100 }));
 
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
+        {
+          time: Date.UTC(2026, 1, 26, 14, 30, 0), // 予測日＝基準日の足
+          open: 99,
+          high: 101,
+          low: 98,
+          close: 100,
+          volume: 1900,
+        },
         {
           time: Date.UTC(2026, 1, 27, 14, 30, 0),
           open: 103,
@@ -377,7 +630,7 @@ describe('evaluation batch handler', () => {
           CreatedAt: 0,
           UpdatedAt: 0,
         },
-        evaluationDate: '2026-02-27',
+        lastTradingDate: '2026-02-27',
       };
       const findPendingEvaluationsFn = jest
         .fn<Promise<PendingEvaluation[]>, never[]>()
@@ -403,6 +656,14 @@ describe('evaluation batch handler', () => {
       await dailySummaryRepository.upsert(summaryInput({ Close: 0 }));
 
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
+        {
+          time: Date.UTC(2026, 1, 26, 14, 30, 0), // 予測日＝基準日の足（Close 0 のまま）
+          open: 0,
+          high: 0,
+          low: 0,
+          close: 0,
+          volume: 0,
+        },
         {
           time: Date.UTC(2026, 1, 27, 14, 30, 0),
           open: 1,

@@ -8,7 +8,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 import { WebRuntimePolicy } from './policies/web-runtime-policy';
 import { BatchRuntimePolicy } from './policies/batch-runtime-policy';
-import { grantErrorEventsWrite } from '@nagiyu/infra-common';
+import { grantErrorEventsWrite, getServiceUrl } from '@nagiyu/infra-common';
 
 export interface LambdaStackProps extends cdk.StackProps {
   environment: string;
@@ -113,18 +113,17 @@ export class LambdaStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(30),
       environment: {
         NODE_ENV: environment,
+        // NAGIYU_ENV: NextAuth の Cookie ドメイン判定用。NODE_ENV は Next.js のビルド時に
+        // 'production' へ静的置換されるため、デプロイ後の dev/prod 判定には使えない
+        // （libs/nextjs/src/auth-config.ts 参照）。
+        NAGIYU_ENV: environment,
         APP_VERSION: appVersion,
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         VAPID_PUBLIC_KEY: vapidPublicKey,
         VAPID_PRIVATE_KEY: vapidPrivateKey,
-        AUTH_URL:
-          environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com',
-        NEXT_PUBLIC_AUTH_URL:
-          environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com',
-        APP_URL:
-          environment === 'prod'
-            ? 'https://stock-tracker.nagiyu.com'
-            : 'https://dev-stock-tracker.nagiyu.com',
+        AUTH_URL: getServiceUrl('auth', environment as 'dev' | 'prod'),
+        NEXT_PUBLIC_AUTH_URL: getServiceUrl('auth', environment as 'dev' | 'prod'),
+        APP_URL: getServiceUrl('stock-tracker', environment as 'dev' | 'prod'),
         AUTH_SECRET: nextAuthSecret,
         STOCK_TRACKER_SUMMARY_BATCH_FUNCTION_NAME: `nagiyu-stock-tracker-batch-summary-${environment}`,
         ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,

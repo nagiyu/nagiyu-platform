@@ -2,6 +2,26 @@ import type { NextAuthConfig } from 'next-auth';
 
 const AUTH_SESSION_MAX_AGE = 30 * 24 * 60 * 60;
 
+/**
+ * Cookie domain 定数
+ *
+ * - prod（NAGIYU_ENV === 'prod' または未設定）: `.nagiyu.com`
+ * - development（ローカル開発、NODE_ENV === 'development'）: 未設定（undefined）
+ * - dev（デプロイ済み dev 環境、NAGIYU_ENV === 'dev'）: `.dev.nagiyu.com`
+ */
+const AUTH_COOKIE_DOMAIN = {
+  PROD: '.nagiyu.com',
+  DEV: '.dev.nagiyu.com',
+} as const;
+
+/**
+ * Cookie 名サフィックス定数（dev/prod でクッキーを分離し、環境間の混同を防ぐ）
+ */
+const AUTH_COOKIE_SUFFIX = {
+  NONE: '',
+  DEV: '.dev',
+} as const;
+
 export type AuthCookieOptions = {
   httpOnly: true;
   sameSite: 'lax';
@@ -17,10 +37,47 @@ export interface CreateAuthCallbacksOptions {
 
 export interface CreateAuthConfigOptions extends CreateAuthCallbacksOptions {
   nodeEnv?: string;
+  nagiyuEnv?: string;
 }
 
 export interface CreateServiceAuthConfigOptions {
   includeSubAsUserIdFallback?: boolean;
+}
+
+interface ResolvedAuthCookieEnv {
+  domain: string | undefined;
+  suffix: string;
+  isDevelopment: boolean;
+}
+
+/**
+ * dev / prod の判定を集約する。
+ *
+ * Next.js はビルド時（`next build`）に `process.env.NODE_ENV` をリテラル 'production' へ
+ * 静的置換する（define-env.js）ため、デプロイ後のサーバーサイドでは `NODE_ENV` から
+ * dev/prod を判定できない（`NEXT_PUBLIC_` プレフィックスの環境変数も同様にビルド時へ
+ * インライン化される）。そのため dev/prod の判定には、ビルド時に置換されない
+ * 専用の実行時環境変数 `NAGIYU_ENV`（'dev' | 'prod'）を用いる。
+ * `NODE_ENV === 'development'`（`next dev` によるローカル開発）の判定のみ、
+ * 引き続き `NODE_ENV` を用いる（ローカルでは `next build` を経ないため置換されない）。
+ *
+ * `NAGIYU_ENV` が未設定の場合は prod 扱いとする（本番環境の設定漏れで dev 扱いになり
+ * SSO や Cookie ドメインが壊れることを避けるための安全側のデフォルト）。
+ */
+function resolveAuthCookieEnv(nodeEnv?: string, nagiyuEnv?: string): ResolvedAuthCookieEnv {
+  const resolvedNodeEnv = nodeEnv ?? process.env.NODE_ENV;
+  const isDevelopment = resolvedNodeEnv === 'development';
+
+  if (isDevelopment) {
+    return { domain: undefined, suffix: AUTH_COOKIE_SUFFIX.NONE, isDevelopment: true };
+  }
+
+  const resolvedNagiyuEnv = nagiyuEnv ?? process.env.NAGIYU_ENV;
+  if (resolvedNagiyuEnv === 'dev') {
+    return { domain: AUTH_COOKIE_DOMAIN.DEV, suffix: AUTH_COOKIE_SUFFIX.DEV, isDevelopment: false };
+  }
+
+  return { domain: AUTH_COOKIE_DOMAIN.PROD, suffix: AUTH_COOKIE_SUFFIX.NONE, isDevelopment: false };
 }
 
 export function createAuthSessionConfig(): NonNullable<NextAuthConfig['session']> {
@@ -30,25 +87,24 @@ export function createAuthSessionConfig(): NonNullable<NextAuthConfig['session']
   };
 }
 
-export function createAuthCookieOptions(nodeEnv?: string): AuthCookieOptions {
-  const resolvedNodeEnv = nodeEnv ?? process.env.NODE_ENV;
-  const isDevelopment = resolvedNodeEnv === 'development';
+export function createAuthCookieOptions(nodeEnv?: string, nagiyuEnv?: string): AuthCookieOptions {
+  const { domain, isDevelopment } = resolveAuthCookieEnv(nodeEnv, nagiyuEnv);
 
   return {
     httpOnly: true,
     sameSite: 'lax',
     path: '/',
-    domain: isDevelopment ? undefined : '.nagiyu.com',
+    domain,
     secure: !isDevelopment,
   };
 }
 
-export function createAuthCookies(nodeEnv?: string): NonNullable<NextAuthConfig['cookies']> {
-  const resolvedNodeEnv = nodeEnv ?? process.env.NODE_ENV;
-  const cookieOptions = createAuthCookieOptions(resolvedNodeEnv);
-  const isDevelopment = resolvedNodeEnv === 'development';
-  const isProduction = resolvedNodeEnv === 'prod';
-  const cookieSuffix = isProduction ? '' : isDevelopment ? '' : '.dev';
+export function createAuthCookies(
+  nodeEnv?: string,
+  nagiyuEnv?: string
+): NonNullable<NextAuthConfig['cookies']> {
+  const { suffix: cookieSuffix } = resolveAuthCookieEnv(nodeEnv, nagiyuEnv);
+  const cookieOptions = createAuthCookieOptions(nodeEnv, nagiyuEnv);
 
   return {
     sessionToken: {
@@ -118,11 +174,11 @@ export function createAuthCallbacks(
 export function createAuthConfig(
   options: CreateAuthConfigOptions = {}
 ): Pick<NextAuthConfig, 'session' | 'cookies' | 'callbacks'> {
-  const { nodeEnv, includeSubAsUserIdFallback, jwt } = options;
+  const { nodeEnv, nagiyuEnv, includeSubAsUserIdFallback, jwt } = options;
 
   return {
     session: createAuthSessionConfig(),
-    cookies: createAuthCookies(nodeEnv),
+    cookies: createAuthCookies(nodeEnv, nagiyuEnv),
     callbacks: createAuthCallbacks({ includeSubAsUserIdFallback, jwt }),
   };
 }

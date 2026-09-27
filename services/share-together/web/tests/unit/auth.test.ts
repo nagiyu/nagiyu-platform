@@ -43,8 +43,12 @@ describe('authConfig', () => {
     });
   });
 
-  it('NODE_ENV=production の場合は .dev サフィックス付きクッキー名を利用する', () => {
+  // Next.js はビルド時（next build）に NODE_ENV を 'production' へ静的置換するため、
+  // デプロイ後の dev/prod 判定には NAGIYU_ENV（ビルド時に置換されない実行時環境変数）を使う
+  // （@nagiyu/nextjs の auth-config.ts 参照）。
+  it('NODE_ENV=production かつ NAGIYU_ENV=dev の場合は .dev サフィックス付きクッキー名を利用する', () => {
     process.env.NODE_ENV = 'production';
+    process.env.NAGIYU_ENV = 'dev';
 
     jest.isolateModules(() => {
       const { authConfig: reloadedAuthConfig } =
@@ -55,8 +59,20 @@ describe('authConfig', () => {
     });
   });
 
-  it('NODE_ENV=prod の場合はサフィックスなしクッキー名を利用する', () => {
-    process.env.NODE_ENV = 'prod';
+  it('NODE_ENV=production かつ NAGIYU_ENV=prod の場合はサフィックスなしクッキー名を利用する', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.NAGIYU_ENV = 'prod';
+
+    jest.isolateModules(() => {
+      const { authConfig: reloadedAuthConfig } =
+        jest.requireActual<typeof import('../../auth')>('../../auth');
+      expect(reloadedAuthConfig.cookies?.sessionToken?.name).toBe('__Secure-authjs.session-token');
+    });
+  });
+
+  it('NAGIYU_ENV 未設定の場合は prod 扱い（サフィックスなし）になる', () => {
+    process.env.NODE_ENV = 'production';
+    delete process.env.NAGIYU_ENV;
 
     jest.isolateModules(() => {
       const { authConfig: reloadedAuthConfig } =

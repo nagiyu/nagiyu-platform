@@ -4,7 +4,7 @@
 
 | 環境        | URL                                                | デプロイ元ブランチ          |
 | ----------- | -------------------------------------------------- | --------------------------- |
-| dev (開発)  | `https://dev-niconico-mylist-assistant.nagiyu.com` | `develop`, `integration/**` |
+| dev (開発)  | `https://niconico-mylist-assistant.dev.nagiyu.com` | `develop`, `integration/**` |
 | prod (本番) | `https://niconico-mylist-assistant.nagiyu.com`     | `master`                    |
 
 ## 2. 主要リソース

@@ -7,6 +7,28 @@ import * as scheduler from 'aws-cdk-lib/aws-scheduler';
 import { Construct } from 'constructs';
 import type { ManifestEntry } from './manifest';
 
+/**
+ * prod アカウント ID（秘匿情報ではないため定数化する）
+ *
+ * `infra/shared/lib/account-scope.ts` の `ACCOUNT_IDS.prod` と同じ値。
+ * `infra/dev-sync` パッケージは `infra/shared` に依存しないため
+ * （パッケージを跨いだ import はしない方針）、値は手動同期する。
+ */
+const PROD_ACCOUNT_ID = '166562222746';
+
+/**
+ * dev-sync 用 prod 読み取りロール名（固定値）
+ *
+ * `infra/shared/lib/iam/dev-sync-source-reader-stack.ts` で prod アカウントに
+ * 作成済みのロール名と一致させる必要がある。
+ */
+const SOURCE_READER_ROLE_NAME = 'nagiyu-dev-sync-source-reader';
+
+/**
+ * dev-sync が prod テーブルを読み取る際に AssumeRole するロールの ARN
+ */
+const SOURCE_READER_ROLE_ARN = `arn:aws:iam::${PROD_ACCOUNT_ID}:role/${SOURCE_READER_ROLE_NAME}`;
+
 export interface DevSyncStackProps extends cdk.StackProps {
   environment: 'dev' | 'prod';
   /**
@@ -27,7 +49,15 @@ export interface DevSyncStackProps extends cdk.StackProps {
  * - マニフェストの各エントリに対して EventBridge Scheduler スケジュールを作成
  *   - Lambda の input にジョブ設定を渡す
  *   - Phase A はマニフェストが空のためスケジュール 0 個
- * - IAM: マニフェストの source ARN に read 専用、dest ARN に write のみ（最小権限）
+ * - IAM:
+ *   - source（prod）テーブルへの直接の読み取り権限は付与しない。
+ *     prod テーブルは AWS マネージドキー暗号化のためリソースポリシーによる
+ *     クロスアカウント許可が使えないため、prod 側の読み取り専用ロール
+ *     （`nagiyu-dev-sync-source-reader`）を AssumeRole して読み取る。
+ *     AssumeRole 先はこの 1 ロールの ARN に固定し、Lambda の環境変数
+ *     `SOURCE_READER_ROLE_ARN` で渡す。
+ *   - dest（自アカウントの `-dev` テーブル）には PutItem / DeleteItem / Scan を
+ *     現行どおり自アカウントに付与（最小権限）
  */
 export class DevSyncStack extends cdk.Stack {
   public readonly syncFunction: lambda.Function;
@@ -65,6 +95,7 @@ export class DevSyncStack extends cdk.Stack {
     // Lambda 実行ロール（最小権限）
     // ─────────────────────────────────────────
     const executionRole = new iam.Role(this, 'SyncFunctionExecutionRole', {
+      roleName: `nagiyu-dev-sync-${environment}-execution`,
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       description: `Execution role for dev-sync Lambda (${environment})`,
       managedPolicies: [
@@ -72,27 +103,25 @@ export class DevSyncStack extends cdk.Stack {
       ],
     });
 
-    // マニフェストのエントリごとに IAM ポリシーを付与（最小権限）
-    const processedSources = new Set<string>();
+    // source（prod）テーブルへの直接の読み取り権限は付与せず、
+    // prod 側の読み取り専用ロール（SOURCE_READER_ROLE_ARN）への AssumeRole のみを許可する。
+    // このロール自身が manifest の source テーブルに対する Scan/Query/GetItem を
+    // 最小権限で制御するため、実行ロール側でテーブル単位のポリシーは持たない。
+    executionRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['sts:AssumeRole'],
+        resources: [SOURCE_READER_ROLE_ARN],
+      })
+    );
+
+    // マニフェストのエントリごとに dest 側の IAM ポリシーを付与（最小権限）
     // dest テーブルは PutItem 付与済みかどうかをキャッシュ
     const processedDestsPut = new Set<string>();
     // dest テーブルは DeleteItem/Scan 付与済みかどうかをキャッシュ（delete=on エントリにのみ付与）
     const processedDestsDelete = new Set<string>();
 
     for (const entry of manifest) {
-      // source テーブル: read 専用（Scan/Query/GetItem のみ。PutItem/DeleteItem は付与しない）
-      if (!processedSources.has(entry.sourceTable)) {
-        processedSources.add(entry.sourceTable);
-        const sourceArn = `arn:aws:dynamodb:${region}:${account}:table/${entry.sourceTable}`;
-        executionRole.addToPolicy(
-          new iam.PolicyStatement({
-            effect: iam.Effect.ALLOW,
-            actions: ['dynamodb:Scan', 'dynamodb:Query', 'dynamodb:GetItem'],
-            resources: [sourceArn, `${sourceArn}/index/*`],
-          })
-        );
-      }
-
       // dest テーブル: PutItem は常時付与
       if (!processedDestsPut.has(entry.destTable)) {
         processedDestsPut.add(entry.destTable);
@@ -137,6 +166,7 @@ export class DevSyncStack extends cdk.Stack {
       timeout: cdk.Duration.minutes(15),
       environment: {
         NODE_ENV: environment,
+        SOURCE_READER_ROLE_ARN: SOURCE_READER_ROLE_ARN,
       },
       tracing: lambda.Tracing.ACTIVE,
       logRetention: logs.RetentionDays.ONE_MONTH,

@@ -104,4 +104,27 @@ describe('ReportsHostingStack', () => {
       }),
     });
   });
+
+  it('bucketName・domainName を指定した場合は dev アカウント用の値を使用する', () => {
+    const app = new cdk.App();
+    const stack = new ReportsHostingStack(app, 'TestReportsHostingStackDev', {
+      domainName: 'dev.nagiyu.com',
+      bucketName: 'nagiyu-e2e-reports-dev',
+      env: { account: '123456789012', region: 'us-east-1' },
+    });
+
+    const template = Template.fromStack(stack);
+    template.hasResourceProperties('AWS::S3::Bucket', {
+      BucketName: 'nagiyu-e2e-reports-dev',
+    });
+    template.hasResourceProperties('AWS::CloudFront::Distribution', {
+      DistributionConfig: Match.objectLike({
+        Aliases: ['reports.dev.nagiyu.com'],
+      }),
+    });
+    template.hasResourceProperties('AWS::Route53::RecordSet', {
+      Name: 'reports.dev.nagiyu.com.',
+      Type: 'A',
+    });
+  });
 });

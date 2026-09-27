@@ -1,7 +1,7 @@
 {
   "name": "@nagiyu/infra-ui-storybook",
   "version": "1.0.0",
-  "description": "UI Storybook AWS CDK Infrastructure (S3 + CloudFront for dev-storybook.nagiyu.com)",
+  "description": "UI Storybook AWS CDK Infrastructure (S3 + CloudFront for storybook.dev.nagiyu.com)",
   "main": "bin/ui-storybook.js",
   "scripts": {
     "build": "tsc",

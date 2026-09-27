@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { logger } from '@nagiyu/common';
 import { generateAiAnalysis } from '../../../src/lib/openai-client.js';
 
 const mockParse = jest.fn();
@@ -83,7 +84,8 @@ describe('generateAiAnalysis', () => {
     expect(mockParse).toHaveBeenCalledTimes(1);
     expect(mockParse).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: 'gpt-5-mini',
+        model: 'gpt-5.6-luna',
+        reasoning: { effort: 'low' },
         tools: [{ type: 'web_search' }],
         tool_choice: 'required',
         input: [
@@ -146,6 +148,39 @@ describe('generateAiAnalysis', () => {
         }),
       })
     );
+  });
+
+  it('service=stock-tracker / purpose=stock-analysis で usage ログを出力する', async () => {
+    const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
+    mockParse.mockResolvedValue({
+      ...mockOutputParsed(0.2),
+      usage: {
+        input_tokens: 500,
+        input_tokens_details: { cached_tokens: 50 },
+        output_tokens: 200,
+        output_tokens_details: { reasoning_tokens: 10 },
+        total_tokens: 700,
+      },
+    });
+
+    await generateAiAnalysis('test-api-key', testInput);
+
+    expect(infoSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        service: 'stock-tracker',
+        purpose: 'stock-analysis',
+        model: 'gpt-5.6-luna',
+        reasoningEffort: 'low',
+        inputTokens: 500,
+        cachedInputTokens: 50,
+        outputTokens: 200,
+        reasoningTokens: 10,
+        totalTokens: 700,
+      })
+    );
+
+    infoSpy.mockRestore();
   });
 
   it('プロンプトに predictedReturn / confidence の指示文が含まれる', async () => {
@@ -392,5 +427,37 @@ describe('generateAiAnalysis', () => {
     await expect(generateAiAnalysis('test-api-key', testInput)).rejects.toThrow(
       'AI解析の応答が不正です'
     );
+  });
+
+  it('異常系: output_parsed が空で INVALID_RESPONSE を throw する場合でも、throw より前に usage ログは出ている', async () => {
+    const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
+    mockParse.mockResolvedValue({
+      output_parsed: null,
+      usage: {
+        input_tokens: 400,
+        input_tokens_details: { cached_tokens: 0 },
+        output_tokens: 0,
+        output_tokens_details: { reasoning_tokens: 0 },
+        total_tokens: 400,
+      },
+    });
+
+    await expect(generateAiAnalysis('test-api-key', testInput)).rejects.toThrow(
+      'AI解析の応答が不正です'
+    );
+
+    // throw する前に usage ログが出ていることを固定する
+    // （誰かが logLLMUsage を throw の後ろへ動かしてもこのテストで検知できる）
+    expect(infoSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        service: 'stock-tracker',
+        purpose: 'stock-analysis',
+        inputTokens: 400,
+        totalTokens: 400,
+      })
+    );
+
+    infoSpy.mockRestore();
   });
 });

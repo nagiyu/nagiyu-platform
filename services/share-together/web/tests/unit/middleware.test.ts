@@ -54,13 +54,13 @@ describe('middleware', () => {
   });
 
   it('未認証時に Auth サービスのサインインへリダイレクトする', () => {
-    process.env.NEXT_PUBLIC_AUTH_URL = 'https://dev-auth.nagiyu.com';
-    process.env.APP_URL = 'https://dev-share-together.nagiyu.com';
+    process.env.NEXT_PUBLIC_AUTH_URL = 'https://auth.dev.nagiyu.com';
+    process.env.APP_URL = 'https://share-together.dev.nagiyu.com';
 
     const response = middleware(
       createRequest({
         auth: null,
-        href: 'https://dev-share-together.nagiyu.com/groups?tab=all',
+        href: 'https://share-together.dev.nagiyu.com/groups?tab=all',
         pathname: '/groups',
         search: '?tab=all',
       })
@@ -68,7 +68,7 @@ describe('middleware', () => {
 
     expect(response).toEqual({
       type: 'redirect',
-      url: 'https://dev-auth.nagiyu.com/signin?callbackUrl=https%3A%2F%2Fdev-share-together.nagiyu.com%2Fgroups%3Ftab%3Dall',
+      url: 'https://auth.dev.nagiyu.com/signin?callbackUrl=https%3A%2F%2Fshare-together.dev.nagiyu.com%2Fgroups%3Ftab%3Dall',
     });
   });
 
@@ -76,7 +76,7 @@ describe('middleware', () => {
     const response = middleware(
       createRequest({
         auth: { user: { id: 'user-1' } },
-        href: 'https://dev-share-together.nagiyu.com/',
+        href: 'https://share-together.dev.nagiyu.com/',
         pathname: '/',
         search: '',
       })
@@ -91,7 +91,7 @@ describe('middleware', () => {
     const response = middleware(
       createRequest({
         auth: null,
-        href: 'https://dev-share-together.nagiyu.com/groups',
+        href: 'https://share-together.dev.nagiyu.com/groups',
         pathname: '/groups',
         search: '',
       })
@@ -108,7 +108,7 @@ describe('middleware', () => {
     const response = middleware(
       createRequest({
         auth: null,
-        href: 'https://dev-share-together.nagiyu.com/groups',
+        href: 'https://share-together.dev.nagiyu.com/groups',
         pathname: '/groups',
         search: '',
       })
@@ -129,7 +129,7 @@ describe('middleware', () => {
   });
 
   it('APP_URL 未設定時はリクエスト URL を callbackUrl に利用する', () => {
-    process.env.NEXT_PUBLIC_AUTH_URL = 'https://dev-auth.nagiyu.com';
+    process.env.NEXT_PUBLIC_AUTH_URL = 'https://auth.dev.nagiyu.com';
     delete process.env.APP_URL;
 
     const response = middleware(
@@ -143,7 +143,7 @@ describe('middleware', () => {
 
     expect(response).toEqual({
       type: 'redirect',
-      url: 'https://dev-auth.nagiyu.com/signin?callbackUrl=https%3A%2F%2Flocalhost%3A3000%2Fgroups%3Ftab%3Dall',
+      url: 'https://auth.dev.nagiyu.com/signin?callbackUrl=https%3A%2F%2Flocalhost%3A3000%2Fgroups%3Ftab%3Dall',
     });
   });
 

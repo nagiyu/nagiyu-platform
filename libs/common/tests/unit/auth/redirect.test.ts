@@ -19,8 +19,8 @@ describe('isAllowedNagiyuRedirectUrl', () => {
       expect(isAllowedNagiyuRedirectUrl('https://admin.nagiyu.com/', BASE_URL)).toBe(true);
     });
 
-    it('dev-*.nagiyu.com は許可', () => {
-      expect(isAllowedNagiyuRedirectUrl('https://dev-stock-tracker.nagiyu.com/x', BASE_URL)).toBe(
+    it('*.dev.nagiyu.com（dev 環境のサブドメイン）は許可', () => {
+      expect(isAllowedNagiyuRedirectUrl('https://stock-tracker.dev.nagiyu.com/x', BASE_URL)).toBe(
         true
       );
     });

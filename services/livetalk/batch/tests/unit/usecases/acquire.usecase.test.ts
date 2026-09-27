@@ -91,6 +91,7 @@ describe('acquireAllUsers', () => {
       requestsProcessed: 1,
       staleRefreshed: 0,
       staleChanged: 0,
+      staleFactsReviewed: 0,
       selfStudied: 0,
       webRawWritten: 1,
     });
@@ -113,6 +114,7 @@ describe('acquireAllUsers', () => {
         requestsProcessed: 1,
         staleRefreshed: 0,
         staleChanged: 0,
+        staleFactsReviewed: 0,
         selfStudied: 0,
         webRawWritten: 1,
       }) // u1 hiyori
@@ -150,6 +152,7 @@ describe('acquireAllUsers', () => {
         requestsProcessed: 1,
         staleRefreshed: 0,
         staleChanged: 0,
+        staleFactsReviewed: 0,
         selfStudied: 0,
         webRawWritten: 1,
       }) // u1 ageha
@@ -158,6 +161,7 @@ describe('acquireAllUsers', () => {
         requestsProcessed: 1,
         staleRefreshed: 0,
         staleChanged: 0,
+        staleFactsReviewed: 0,
         selfStudied: 0,
         webRawWritten: 1,
       }) // u2 hiyori
@@ -166,6 +170,7 @@ describe('acquireAllUsers', () => {
         requestsProcessed: 1,
         staleRefreshed: 0,
         staleChanged: 0,
+        staleFactsReviewed: 0,
         selfStudied: 0,
         webRawWritten: 1,
       }); // u2 ageha
@@ -185,6 +190,7 @@ describe('acquireAllUsers', () => {
       requestsProcessed: 1,
       staleRefreshed: 2,
       staleChanged: 1,
+      staleFactsReviewed: 5,
       selfStudied: 1,
       webRawWritten: 3,
     });
@@ -196,6 +202,7 @@ describe('acquireAllUsers', () => {
     expect(result.requestsProcessed).toBe(4);
     expect(result.staleRefreshed).toBe(8);
     expect(result.staleChanged).toBe(4);
+    expect(result.staleFactsReviewed).toBe(20);
     expect(result.selfStudied).toBe(4);
     expect(result.webRawWritten).toBe(12);
   });
@@ -224,6 +231,7 @@ describe('acquireAllUsers', () => {
       requestsProcessed: 0,
       staleRefreshed: 0,
       staleChanged: 0,
+      staleFactsReviewed: 0,
       selfStudied: 0,
       webRawWritten: 0,
     });

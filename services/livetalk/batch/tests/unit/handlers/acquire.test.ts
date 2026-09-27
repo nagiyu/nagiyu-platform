@@ -50,6 +50,7 @@ describe('acquire handler', () => {
       requestsProcessed: 3,
       staleRefreshed: 2,
       staleChanged: 1,
+      staleFactsReviewed: 4,
       selfStudied: 1,
       webRawWritten: 5,
     });
@@ -96,6 +97,7 @@ describe('acquire handler', () => {
       requestsProcessed: 0,
       staleRefreshed: 0,
       staleChanged: 0,
+      staleFactsReviewed: 0,
       selfStudied: 0,
       webRawWritten: 0,
     });
