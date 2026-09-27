@@ -78,18 +78,22 @@ export function getReportsBucketName(accountScope: AccountScope): string {
 /**
  * Claude Code on the web が dev アカウントで実行を許可される Lambda 関数名（Issue #3861）。
  *
- * 対象は、外部の有料 API 呼び出し・外部送信・prod アカウントへのアクセスを伴わず、
- * dev アカウント内で完結する関数に限定している（dev-sync Lambda は prod テーブルへの
- * AssumeRole 経路を持つため対象外）。
- * さらに、手動で実行する場面がある「スケジュール起動のバッチ」に絞っている。
- * Web 系（Function URL 経由で画面から呼ばれる）や、画面からの操作で呼ばれるハンドラ
- * （quick-clip の clip-regenerate / zip-generator 等）は、手動で実行する場面がないため含めない。
+ * 対象は、手動で実行する場面がある「スケジュール起動のバッチ」に絞っている。
+ * - Web 系（Function URL 経由で画面から呼ばれる）や、画面からの操作で呼ばれるハンドラ
+ *   （quick-clip の clip-regenerate / zip-generator 等）は、手動で実行する場面がないため含めない。
+ * - 外部送信（Web Push 等）を伴う関数（livetalk-batch-notify 等）と、一回きりの移行用
+ *   （livetalk-batch-migrate）は含めない。
+ * - prod アカウントへ届く dev-sync Lambda（prod テーブルへの AssumeRole 経路を持つ）は含めない。
+ * - OpenAI 等の有料 API を使う関数でも、改修の対象になるシステムの中核のバッチ
+ *   （livetalk-batch-acquire / consolidate）は検証のために含める。
  */
 export const CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV = [
   'nagiyu-stock-tracker-batch-daily-dev',
   'nagiyu-stock-tracker-batch-evaluation-dev',
   'nagiyu-stock-tracker-batch-temporary-alert-expiry-dev',
   'nagiyu-livetalk-batch-learn-user-activity-dev',
+  'nagiyu-livetalk-batch-acquire-dev',
+  'nagiyu-livetalk-batch-consolidate-dev',
 ] as const;
 
 /**

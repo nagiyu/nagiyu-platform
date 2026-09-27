@@ -71,8 +71,8 @@ export class IamClaudeAccessStack extends cdk.Stack {
     // lambda:InvokeFunction のみを、列挙した関数（+ バージョン/エイリアス修飾付き ARN）に
     // 限定して許可し、UpdateFunctionCode / UpdateFunctionConfiguration・iam:*・
     // PassRole・sts:AssumeRole は一切付与しない（dev-sync Lambda のロール経由で
-    // prod テーブルへ届く経路があるため）。対象関数自体も、外部の有料 API・外部送信・
-    // prod へのアクセスを伴わず dev 内で完結するものに限定している。
+    // prod テーブルへ届く経路があるため）。対象関数の選定基準は
+    // `stack-plan.ts` の `CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV` を参照。
     if (props.invokableFunctionNames.length > 0) {
       const invokeResources = props.invokableFunctionNames.flatMap((functionName) => {
         const functionArn = `arn:aws:lambda:${this.region}:${this.account}:function:${functionName}`;
