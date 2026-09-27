@@ -31,6 +31,9 @@ playwright-report/
 # CDK
 cdk.out/
 
+# 生成されたテストフィクスチャ（機械生成の大きな JSON。整形すると肥大化するため対象外にする）
+services/stock-tracker/core/tests/unit/forecast/fixtures/golden.json
+
 # Terraform
 .terraform/
 *.tfstate
