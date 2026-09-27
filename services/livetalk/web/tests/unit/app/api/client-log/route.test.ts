@@ -1,6 +1,7 @@
 /**
  * @jest-environment node
  */
+import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/client-log/route';
 import { CLIENT_LOG_ERROR_MESSAGES } from '@/app/api/client-log/constants';
 import { getSession } from '@/lib/server/session';
@@ -30,8 +31,8 @@ const validSession = {
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
 
-function buildRequest(body: unknown): Request {
-  return new Request('http://localhost/api/client-log', {
+function buildRequest(body: unknown): NextRequest {
+  return new NextRequest('http://localhost/api/client-log', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: typeof body === 'string' ? body : JSON.stringify(body),
