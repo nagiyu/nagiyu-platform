@@ -284,10 +284,10 @@ aws sts get-caller-identity --profile nagiyu-dev
 
 ```bash
 aws secretsmanager get-secret-value --secret-id <任意のシークレット> --profile nagiyu-prod
-aws dynamodb scan --table-name nagiyu-auth-users-dev --profile nagiyu-dev
+aws dynamodb scan --table-name nagiyu-auth-users-dev --select COUNT --limit 1 --profile nagiyu-dev
 ```
 
-上記は `AccessDenied` で失敗すること（保護が効いている証拠）。dev の許可済み Lambda 関数は、実行結果に影響を与えずに呼び出せることを `--invocation-type DryRun` で確認できる。
+上記は `AccessDenied` で失敗すること（保護が効いている証拠）。auth-users は `--select COUNT` を付け、万一 Deny が効いていなくても中身が表示されないようにする。dev の Lambda の実行権限は、`--invocation-type DryRun` で関数を実際には動かさずに確認できる（許可した関数は StatusCode 204、それ以外は AccessDenied）。
 
 ```bash
 aws lambda invoke --function-name <許可済み関数名> --invocation-type DryRun --profile nagiyu-dev /dev/stdout
