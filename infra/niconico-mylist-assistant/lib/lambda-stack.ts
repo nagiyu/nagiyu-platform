@@ -28,7 +28,7 @@ export interface LambdaStackProps extends cdk.StackProps {
  *
  * Web Lambda（Next.js）を作成します。
  * また、マネージドポリシー（WebRuntimePolicy）を作成し、
- * Lambda 実行ロールと開発用 IAM ユーザー（別スタック）で共有します。
+ * Lambda 実行ロールに付与します。
  */
 export class LambdaStack extends cdk.Stack {
   public readonly webFunction: lambda.Function;
@@ -65,7 +65,7 @@ export class LambdaStack extends cdk.Stack {
     );
 
     // マネージドポリシーの作成
-    // Web Lambda と開発用 IAM ユーザーで共有
+    // Web Lambda 実行ロールに付与
     this.webRuntimePolicy = new WebRuntimePolicy(this, 'WebRuntimePolicy', {
       dynamoTable,
       envName: environment,

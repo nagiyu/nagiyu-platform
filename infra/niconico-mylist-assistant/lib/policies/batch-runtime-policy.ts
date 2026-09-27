@@ -44,12 +44,7 @@ export interface BatchRuntimePolicyProps {
 /**
  * Niconico Mylist Assistant Batch 実行時権限のマネージドポリシー
  *
- * このポリシーは以下の両方で使用される:
- * - Batch Job 実行ロール (AWS Batch ジョブ用)
- * - 開発用 IAM ユーザー (ローカル開発用)
- *
- * 同じポリシーを共有することで、開発者は本番環境の Batch と全く同じ権限で
- * テストでき、デプロイ前に権限ミスを防ぐことができる。
+ * Batch Job 実行ロール (AWS Batch ジョブ用) が使用する。
  *
  * 含まれる権限:
  * - DynamoDB: テーブルへの読み書きアクセス (Query, GetItem, PutItem, UpdateItem)
@@ -62,6 +57,7 @@ export class BatchRuntimePolicy extends iam.ManagedPolicy {
   constructor(scope: Construct, id: string, props: BatchRuntimePolicyProps) {
     super(scope, id, {
       managedPolicyName: `niconico-mylist-assistant-batch-runtime-${props.envName}`,
+      // 既存ポリシーの Description を変えると置き換えになり、固定名の衝突でデプロイが失敗するため据え置く
       description:
         'Niconico Mylist Assistant Batch runtime permissions (shared by Batch Job and developers)',
     });

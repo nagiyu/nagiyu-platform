@@ -116,7 +116,7 @@ export class BatchStack extends cdk.Stack {
     });
 
     // マネージドポリシーの作成
-    // Batch Job と開発用 IAM ユーザーで共有
+    // Batch Job 実行ロールに付与
     this.batchRuntimePolicy = new BatchRuntimePolicy(this, 'BatchRuntimePolicy', {
       dynamoTableName: tableName,
       dynamoTableArn,

@@ -30,7 +30,7 @@ export interface LambdaStackProps extends cdk.StackProps {
  * Web Lambda 1関数と Batch Lambda 6関数（minute, hourly, summary, daily, temporary-alert-expiry,
  * evaluation）の合計7関数を作成します。
  * また、マネージドポリシー（WebRuntimePolicy, BatchRuntimePolicy）を作成し、
- * Lambda 実行ロールと開発用 IAM ユーザー（別スタック）で共有します。
+ * Lambda 実行ロールに付与します。
  */
 export class LambdaStack extends cdk.Stack {
   public readonly webFunction: lambda.Function;
@@ -74,14 +74,14 @@ export class LambdaStack extends cdk.Stack {
     );
 
     // マネージドポリシーの作成
-    // Web Lambda と開発用 IAM ユーザーで共有
+    // Web Lambda 実行ロールに付与
     this.webRuntimePolicy = new WebRuntimePolicy(this, 'WebRuntimePolicy', {
       dynamoTable,
       vapidSecret,
       envName: environment,
     });
 
-    // Batch Lambda と開発用 IAM ユーザーで共有
+    // Batch Lambda 実行ロールに付与
     this.batchRuntimePolicy = new BatchRuntimePolicy(this, 'BatchRuntimePolicy', {
       dynamoTable,
       vapidSecret,

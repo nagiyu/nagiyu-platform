@@ -4,7 +4,6 @@ import * as cdk from 'aws-cdk-lib';
 import { DynamoDBStack } from '../lib/dynamodb-stack';
 import { EcrStack } from '../lib/ecr-stack';
 import { LambdaStack } from '../lib/lambda-stack';
-import { IAMStack } from '../lib/iam-stack';
 import { CloudFrontStack } from '../lib/cloudfront-stack';
 
 const app = new cdk.App();
@@ -45,14 +44,6 @@ const lambdaStack = new LambdaStack(app, `NagiyuShareTogetherLambda${envSuffix}`
 });
 lambdaStack.addDependency(dynamoStack);
 lambdaStack.addDependency(ecrStack);
-
-const iamStack = new IAMStack(app, `NagiyuShareTogetherIAM${envSuffix}`, {
-  environment: env,
-  webRuntimePolicy: lambdaStack.webRuntimePolicy,
-  env: stackEnv,
-  description: `Share Together IAM Resources - ${env} environment`,
-});
-iamStack.addDependency(lambdaStack);
 
 if (!lambdaStack.functionUrl) {
   throw new Error('Lambda function URL is not available');
