@@ -16,7 +16,7 @@ AWS Organizations でアカウントを役割ごとに分離し、人のログ�
 
 - Control Tower は個人規模では過剰なため採用せず、素の Organizations で運用する。
 - dev アカウントは prod アカウントから**完全に独立**させる方針とする（[#3819](https://github.com/nagiyu/nagiyu-platform/issues/3819)）。prod と dev の依存は dev-sync によるデータコピー（[dev-sync](../development/dev-sync.md) を参照）だけに絞り、それ以外（DNS・IAM・S3 バケット等の共有基盤）は各アカウントで完結させる。理由は「本番の資格情報・設定ミスが dev 側に波及しない」「dev 側の実験的な変更が本番に影響しない」というアカウント分離の効果を、共有基盤の便宜のために削らないため。
-- 上記の移行は develop への取り込み（[#3819](https://github.com/nagiyu/nagiyu-platform/issues/3819) / PR [#3859](https://github.com/nagiyu/nagiyu-platform/pull/3859)）で完了している。ただし prod アカウントに残る旧 dev 資材（旧バケット・旧ロール・旧アクセスキー等）の削除、および prod に対する SCP 適用は別 Issue（[#3820](https://github.com/nagiyu/nagiyu-platform/issues/3820)）で行う。それまでの間、prod アカウントには使われなくなった旧 dev 資材が残存する。
+- 上記の移行は develop への取り込み（[#3819](https://github.com/nagiyu/nagiyu-platform/issues/3819) / PR [#3859](https://github.com/nagiyu/nagiyu-platform/pull/3859)）で完了している。prod アカウント（旧単一アカウント）に残っていた旧 dev 資材・旧キー・マルチアカウント化以前の資材は [#3820](https://github.com/nagiyu/nagiyu-platform/issues/3820) / [#3868](https://github.com/nagiyu/nagiyu-platform/issues/3868) で撤去し、SCP も適用済み（後述）。
 
 ---
 
@@ -49,12 +49,12 @@ AWS アカウントのルートユーザーはアカウントごとに別のメ�
 | 人（コンソール・ローカル CLI） | IAM Identity Center（SSO） | 長期キーを持たない |
 | GitHub Actions | GitHub OIDC + AssumeRole | [IAM](./shared/iam.md) を参照 |
 | Claude Code on the web | IAM ユーザー `nagiyu-claude-readonly`（長期キー） | 後述 |
-| ルートユーザー | 日常利用しない（MFA 付きで封印） | 後述 |
+| ルートユーザー | prod / dev は SCP で利用禁止。管理アカウントのみ break-glass として残す | 後述 |
 
 ### IAM Identity Center
 
 - **インスタンス**: 組織インスタンス。単一リージョン（us-east-1）で、暗号化は AWS 所有キー。
-    - マルチリージョンインスタンスはカスタマーマネージド KMS キーが必須になり、費用とキーポリシー誤操作によるロックアウトリスクが増える。us-east-1 障害時に SSO に入れなくなっても各アカウントのルートユーザーで入れるため、個人規模では冗長化の利点が小さい。
+    - マルチリージョンインスタンスはカスタマーマネージド KMS キーが必須になり、費用とキーポリシー誤操作によるロックアウトリスクが増える。us-east-1 障害時に SSO に入れなくなっても管理アカウントのルートユーザーで入れる（メンバーアカウントのルートは SCP で禁止しているが、管理アカウントから SCP を外せば使える）ため、個人規模では冗長化の利点が小さい。
 - **ID ソース**: Identity Center ディレクトリ（外部 IdP は使わない）。
 - **MFA**: サインインのたびに要求。未登録ならサインイン時に登録を強制する。
 - **許可セット**: AWS 管理ポリシーをそのまま使う 2 種類に絞る。
@@ -84,9 +84,86 @@ Claude Code on the web のコンテナは環境変数に置いた認証情報を
 
 ### ルートユーザーの封印
 
-- **管理アカウント**: MFA を設定し、日常は使わない。Identity Center が使えない場合の最終手段（break-glass）として残す。
-- **prod アカウント**: MFA 付きのまま日常は使わない。
-- 組織の「ルートアクセスの一元管理」（管理アカウントからメンバーのルート認証情報を削除する機能）は、SCP によるルートユーザー利用禁止と合わせて判断する。削除すると復旧に管理アカウントからの操作が必要になり、可逆性が下がるため、現時点では有効化していない。
+- **管理アカウント**: MFA を設定し、日常は使わない。Identity Center が使えない場合の最終手段（break-glass）として残す。SCP は管理アカウントには効かない。
+- **prod / dev アカウント**: SCP でルートユーザーの操作をすべて拒否している（後述）。ルートでしかできない操作（アカウント設定の変更等）が必要になったら、管理アカウントから一時的に SCP を外して行う。
+- モバイルからの閲覧もルートではなく Identity Center で行う（AWS Console Mobile App の「Use a sign-in URL」にアクセスポータル URL を入れてサインインできることを確認済み）。ルート禁止を入れる前提として確認した。
+- 組織の「ルートアクセスの一元管理」（管理アカウントからメンバーのルート認証情報を削除する機能）は有効化しない。SCP で操作は封じられており、認証情報まで削除すると復旧に管理アカウントからの操作が必要になって可逆性が下がる一方、上乗せされる安全性は小さいため。
+
+---
+
+## SCP（ガードレール）
+
+`Workloads` OU に `WorkloadsBaseline` を 1 本アタッチし、prod / dev の両方に効かせている（Prod / Dev 固有の差分は現状なし）。SCP は Organizations のコンソールで管理しており、CDK 管理ではない。
+
+| 内容 | 理由 |
+| --- | --- |
+| ルートユーザーの利用禁止 | ルートの認証情報が漏洩しても被害を止める最後の防壁。日常のログインは Identity Center に寄せている |
+| 組織からの離脱禁止 | 離脱されると SCP と一括請求の管理外に出てしまうため |
+| us-east-1 以外のリージョン禁止 | 全資材が us-east-1 にあり、他リージョンは使わない。未使用リージョンに資材が作られる（誤操作・漏洩した認証情報の悪用）のを防ぐ |
+
+- リージョン禁止では、グローバルサービス（IAM / STS / Organizations / CloudFront / Route53 / SSO / 請求系等）を `NotAction` で除外している。STS / IAM を除外しているため、あるアカウントのユーザーから他アカウントのロールを AssumeRole する構成も妨げない。
+- **「CloudTrail 停止禁止」は入れていない**。CloudTrail の証跡（trail）は作らず、イベント履歴（管理イベント 90 日・無効化不可）だけで運用しているため、守る対象がない。個人規模の調査なら 90 日で足りている。
+- 適用時は `Dev` OU に先にアタッチして dev へのデプロイが通ることを確認してから、`Workloads` へ付け替えた。内容を変更する際も同じ順で確認する。
+
+<details><summary>WorkloadsBaseline（2026-09 時点）</summary>
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyRootUser",
+      "Effect": "Deny",
+      "Action": "*",
+      "Resource": "*",
+      "Condition": {
+        "ArnLike": { "aws:PrincipalArn": "arn:aws:iam::*:root" }
+      }
+    },
+    {
+      "Sid": "DenyLeaveOrganization",
+      "Effect": "Deny",
+      "Action": "organizations:LeaveOrganization",
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyOutsideUsEast1",
+      "Effect": "Deny",
+      "NotAction": [
+        "account:*",
+        "budgets:*",
+        "ce:*",
+        "cloudfront:*",
+        "cur:*",
+        "globalaccelerator:*",
+        "health:*",
+        "iam:*",
+        "organizations:*",
+        "pricing:*",
+        "route53:*",
+        "route53domains:*",
+        "s3:GetAccountPublicAccessBlock",
+        "s3:ListAllMyBuckets",
+        "s3:GetBucketLocation",
+        "shield:*",
+        "sso:*",
+        "sts:*",
+        "support:*",
+        "trustedadvisor:*",
+        "waf:*",
+        "wafv2:*",
+        "waf-regional:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": { "aws:RequestedRegion": ["us-east-1"] }
+      }
+    }
+  ]
+}
+```
+
+</details>
 
 ---
 
@@ -100,6 +177,7 @@ Claude Code on the web のコンテナは環境変数に置いた認証情報を
 4. OU `Workloads`、その配下に `Prod` / `Dev` を作成する。
 5. 既存アカウントを **アカウント ID 指定**で招待し、既存アカウント側で承諾する。承諾以降、請求は管理アカウントに一括される。
 6. 参加したアカウントを該当 OU（既存アカウントは `Prod`）へ移動する。
+7. Organizations のポリシーで SCP を有効化し、`WorkloadsBaseline`（前述）を作成して `Workloads` にアタッチする。
 
 ### 2. IAM Identity Center
 
@@ -117,6 +195,7 @@ dev アカウントを新規作成して `infra/shared` 等をデプロイした
 
 - **Lambda の同時実行数上限**: 新規アカウントは既定で 10 しかなく、`ReservedConcurrentExecutions` を使うサービス（stock-tracker 等）のデプロイが失敗する。Service Quotas で引き上げを事前に申請する必要がある。
 - **S3 バケット名のグローバル一意性**: 旧アカウントに同名バケットが残っていると新アカウントで同名バケットを作成できない。削除した直後もしばらく（数分〜）409 で作成に失敗する。
+    - 逆に、旧アカウント側のスタックは「同名バケットを自分の資材」と認識したまま残る。移行後に旧アカウントのスタックを削除すると、新アカウントに作り直したバケットに対して削除（中身の自動削除・バケットポリシー削除）を試みて AccessDenied で `DELETE_FAILED` になる（#3868）。この場合は `delete-stack --retain-resources` で S3 関連リソースをスタックから切り離して削除する。新アカウントのバケットには影響しない。
 - **自己監視 SNS サブスクリプションの初回失敗**: HTTPS エンドポイントへの SNS サブスクリプションは登録時に到達確認が行われるが、監視対象アプリのスタックより監視基盤（AdminInfra 等）のスタックが先に作られる構成では、初回デプロイ時にアプリがまだ存在せず到達確認に失敗する。初回だけ該当サブスクリプションを一時的に無効化し、アプリのデプロイ後に有効化し直す。
 - **Secrets Manager の PLACEHOLDER 値**: CDK で作成した直後のシークレットは PLACEHOLDER 値が入っているため、実際の値を投入したあとに依存する Lambda 等の再デプロイが必要になる。Google OAuth を使うサービスでは、新アカウントのドメイン向けのリダイレクト URI（例: `https://auth.dev.nagiyu.com/api/auth/callback/google`）を Google Cloud Console 側にも追加する必要がある。
 
