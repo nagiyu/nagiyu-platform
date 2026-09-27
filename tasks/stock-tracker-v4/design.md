@@ -286,6 +286,17 @@ type ModelSnapshotItem = {
 
 ### 3.4 dev 環境
 
+**AI 撤去後は、dev でも DailySummary を dev のバッチで作る**（人と合意）。
+
+- dev-sync が DailySummary を prod からコピーしているのは、AI 解析・採点という高コストな生成を dev で二重に行わないためだった（`docs/development/dev-sync.md`）。AI を撤去すればこの前提はなくなり、残る外部呼び出しは株価の取得だけになる。
+- そこで 3-4 で、dev-sync の DailySummary の複製を止め、dev でも `summary` を定期実行する。取引所・銘柄（Exchange・Ticker）の複製は続ける（人が管理するマスタで、dev でも prod と同じ銘柄をそろえたいため）。
+- 切り替えの順序: `summary` から AI 解析を外した後に行う。DailySummary の複製停止と dev の `summary` の有効化は、同じデプロイで切り替える（二重書き込みの期間を作らない）。
+- dev-sync は削除しない設定なので、コピー済みの履歴に dev が作ったサマリーが続く。確度の初期値算出にもそのまま使える。
+- 外部 API への負荷: サマリーは既存データがあればスキップするため、増えるのは 1 日あたり銘柄数ぶん程度の見込み。Finnhub の API キーが dev と prod で同じ場合は、レート制限（無料枠で 1 分 60 回）を取り合うため、切り替え前に確認する。
+- `docs/development/dev-sync.md` の StockTracker の記述と「dev バッチの扱い」を、あわせて更新する。
+
+**切り替えまで（3-2〜3-3 の間）**
+
 - dev では `summary`・`evaluation` が停止している（dev-sync との二重実行を避けるため）。`forecast` は Forecast 系のアイテムにしか書かず、dev-sync が複製しない範囲なので、**dev でも有効にする**。dev-sync が複製した DailySummary から、dev の `forecast` が確度を算出する。
 - これにより dev で確度の画面とバッチを検証できる。外部 API を呼ばず、同じ入力から同じ結果が出る（NFR-3）ため、prod との差は入力データの差だけになる。
 
@@ -459,7 +470,7 @@ type AxisPerformanceResponse = {
 | **3-1 算出の中核** | `core` に純粋関数として実装する。軸の定義と算出、平常、実績と採点、ロジスティック回帰（IRLS）、基準値、中立帯、寄与、確率帯の実績。将来データ混入のテスト（§4）と、`analysis/` を参照実装にしたゴールデンテストも含む | なし | なし（DB・画面に触れない） |
 | **3-2 データ層とバッチ** | Forecast 系アイテムのリポジトリ、`forecast` バッチ（採点 → 重み → 確度）、`summary` からの起動（IAM の `lambda:InvokeFunction` を含む）、infra（Lambda・EventBridge・CloudWatch アラーム。dev でも有効）と deploy workflow、初期値算出（リプレイ） | 3-1 | dev で初期値算出を走らせ、Forecast・ModelSnapshot・PerformanceDaily ができることと、その内容を確認する |
 | **3-3 画面と API** | 一覧 API の変更、`/api/forecasts`・`/api/axis-performance`、SCR-004（荒れ予報カード・列・詳細ダイアログ）、SCR-001 のサマリーパネル、SCR-007。旧パスのリダイレクト。既存 E2E（`patternDetails` 等に依存するもの）の書き換え。AI の表示はこの単位で置き換わる（§5 の順 2） | 3-2（型は 3-1） | dev の画面で確認する（人の目視レビュー） |
-| **3-4 AI の撤去** | §5 の順 1・3〜6（`upsert` の UpdateItem 化、AI 解析・採点バッチ・集計・依存パッケージ、infra の OpenAI 関連、`stocks:read-evaluation`） | 3-3 | dev で `summary` がサマリーを作れること、既存の AI データが消えないことを確認する |
+| **3-4 AI の撤去** | §5 の順 1・3〜6（`upsert` の UpdateItem 化、AI 解析・採点バッチ・集計・依存パッケージ、infra の OpenAI 関連、`stocks:read-evaluation`）。あわせて、dev-sync の DailySummary の複製を止め、dev でも `summary` を定期実行する（§3.4） | 3-3 | dev の `summary` が定期実行でサマリーを作れること、既存の AI データが消えないことを確認する |
 
 - 3-1 と 3-2 は、設計がほぼ機械的に決まっている。人の判断が要るのは、3-3 の見た目と、3-4 のシークレット削除（本番リソース）である。
 - 3-3 の web 側は、3-2 の型が固まれば、フィクスチャで先に作れる。
