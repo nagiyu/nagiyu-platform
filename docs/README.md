@@ -27,6 +27,7 @@
 ### 開発ガイドライン
 
 - [コーディング規約・べからず集](./development/rules.md)
+- [表記規約](./development/writing-style.md) - コメントと文書の記号表記 (半角化・スペース・Markdown 強調)
 - [アーキテクチャ方針](./development/architecture.md)
 - [共通設定ファイル](./development/configs.md)
 - [テスト戦略](./development/testing.md)

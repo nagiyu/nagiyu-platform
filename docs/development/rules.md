@@ -218,6 +218,89 @@ class UserRepository {
 
 - コンストラクタには `public` を付けない（`overrides: { constructors: 'no-public' }` 設定）
 
+### 1.5 コメント
+
+コメントは、コードを読んでも得られない情報を補うためにある。書いた時点の文脈に依存するコメントは、コードが変わるたびに読み手を誤らせる。
+
+#### MUST: WHY を書き、WHAT は書かない
+
+コードを読めばわかる処理内容の言い換えは書かない。書くのは、その実装を選んだ理由、守るべき制約、自明でない前提である。
+
+```typescript
+// ❌ NG: 処理内容の言い換え
+// ユーザー ID でキャッシュを削除する
+cache.delete(userId);
+
+// ✅ OK: 理由
+// 権限変更を次のリクエストから反映させるため、TTL を待たずに破棄する
+cache.delete(userId);
+```
+
+#### MUST NOT: 参照で説明を代替しない
+
+ファイルパス、ドキュメント、セクション番号を指して説明を済ませない。参照先の変更や削除に追従できず、リンク切れになる (`tasks/` は完了後に削除される)。必要な情報はコメント自体に書く。
+
+```typescript
+// ❌ NG
+// @see docs/services/xxx/api-spec.md Section 5.1
+
+// ✅ OK: 必要な制約をその場で書く
+// ページングトークンは DynamoDB の LastEvaluatedKey をそのまま返すため、呼び出し側で中身を解釈しない
+```
+
+**例外**: 外部仕様の URL (AWS ドキュメント、RFC など) は書いてよい。
+
+#### MUST NOT: Issue / PR 番号・Phase 名を書かない
+
+経緯を知るために、わざわざ Issue や PR を見に行かないとわからない状態を作らない。Phase は開発中だけの区切りであり、完了後には意味を失う。変更の経緯は Git 履歴と PR が持つ。コメントに残す必要がある内容は、コメント自体に要点を書く。
+
+```typescript
+// ❌ NG
+// LiveTalk Secrets Stack (Phase 2b / Issue #3248)
+
+// ✅ OK: 番号を外し、必要なら理由を書く
+// LiveTalk Secrets Stack
+```
+
+#### MUST: 経緯は今後の開発に効く制約としてのみ書く
+
+「以前はこうだったが今はこう」という変更履歴や備忘は書かない。過去の失敗が今後の変更で再発しうる場合に限り、「こうすると壊れる」という現在形の制約として書く。
+
+```typescript
+// ❌ NG: 変更履歴
+// 以前は command で引数を渡していたが、環境変数に変更した
+
+// ✅ OK: 現在形の制約
+// Docker の CMD 上書きで引数が消えるため、command ではなく環境変数で渡す
+```
+
+#### SHOULD: JSDoc は原則書き、自明なものは省く
+
+関数・クラス・型には原則 JSDoc を書く。ただし名前・型・実装から自明なものは省いてよい。省略の判断は、JSDoc 全体にも、個々の `@param` / `@returns` にも同じく適用する。
+
+```typescript
+// ❌ NG: 名前と型の言い換え
+/**
+ * ユーザーを取得する
+ *
+ * @param id - ユーザー ID
+ * @returns ユーザー
+ */
+public async getUserById(id: string): Promise<User | null>
+
+// ✅ OK: 自明でない振る舞いだけを書く
+/**
+ * @returns 退会済みユーザーは null を返す (例外は投げない)
+ */
+public async getUserById(id: string): Promise<User | null>
+```
+
+タグごとの書き方は [アーキテクチャ方針](./architecture.md) の「JSDoc コメントの書き方」を参照。
+
+#### MUST: 表記は表記規約に従う
+
+記号の半角化、スペース、Markdown の強調は [表記規約](./writing-style.md) に従う。
+
 ---
 
 ## 2. React / Next.js ルール
@@ -1553,6 +1636,13 @@ export function clipboard() {
 - [ ] エラーメッセージを定数化
 - [ ] 純粋関数として実装 (該当する場合)
 
+#### コメント
+
+- [ ] WHY を書き、WHAT の言い換えを書いていない
+- [ ] リポジトリ内への参照・Issue / PR 番号・Phase 名を書いていない
+- [ ] 経緯は今後の開発に効く制約としてのみ書いている
+- [ ] 表記規約 (記号の半角化・スペース) に従っている
+
 #### ブラウザAPI
 
 - [ ] localStorage/Clipboard API は共通ラッパーを使用
@@ -1587,7 +1677,7 @@ export function clipboard() {
 
 - [ ] implementation.md を更新 (該当する場合)
 - [ ] README.md を更新 (機能追加の場合)
-- [ ] 型定義のコメントを追加 (公開APIの場合)
+- [ ] JSDoc を記述 (名前・型・実装から自明なものは省略可)
 
 #### CI/CD
 
@@ -1600,6 +1690,7 @@ export function clipboard() {
 ## 参考ドキュメント
 
 - [アーキテクチャ方針](./architecture.md)
+- [表記規約](./writing-style.md)
 - [共通設定ファイル](./configs.md)
 - [テスト戦略](./testing.md)
 - [共通ライブラリ設計](./shared-libraries.md)
