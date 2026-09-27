@@ -76,7 +76,8 @@ export interface PseudoSourceChunk {
 }
 
 type TaggedPseudoSource =
-  { kind: 'message'; entity: MessageEntity } | { kind: 'webraw'; entity: WebRawEntity };
+  | { kind: 'message'; entity: MessageEntity }
+  | { kind: 'webraw'; entity: WebRawEntity };
 
 /**
  * 擬似メッセージ・擬似 webraw を結合ストリームとして `chunkSize` 件ずつのチャンクに分割する。

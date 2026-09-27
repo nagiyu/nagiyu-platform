@@ -164,7 +164,13 @@ export type ThemeMode = 'light' | 'dark';
  * コンポーネントの `color` Prop の値として用いる。
  */
 export type ColorRole =
-  'primary' | 'secondary' | 'danger' | 'warning' | 'success' | 'info' | 'neutral';
+  | 'primary'
+  | 'secondary'
+  | 'danger'
+  | 'warning'
+  | 'success'
+  | 'info'
+  | 'neutral';
 
 /**
  * セマンティックなサイズ

@@ -253,7 +253,8 @@ export class DynamoDBTodoRepository implements TodoRepository {
 
         pendingRequests =
           (batchWriteResult.UnprocessedItems?.[this.tableName] as
-            typeof pendingRequests | undefined) ?? [];
+            | typeof pendingRequests
+            | undefined) ?? [];
       }
     }
   }
