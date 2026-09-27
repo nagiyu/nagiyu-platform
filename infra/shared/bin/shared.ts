@@ -10,7 +10,6 @@ import { IamApplicationPolicyStack } from '../lib/iam/iam-application-policy-sta
 import { IamContainerPolicyStack } from '../lib/iam/iam-container-policy-stack';
 import { IamIntegrationPolicyStack } from '../lib/iam/iam-integration-policy-stack';
 import { IamClaudeReadonlyPolicyStack } from '../lib/iam/iam-claude-readonly-policy-stack';
-import { IamUsersStack } from '../lib/iam/iam-users-stack';
 import { IamClaudeAccessStack } from '../lib/iam/iam-claude-access-stack';
 import { IamGitHubActionsOidcStack } from '../lib/iam/iam-github-actions-oidc-stack';
 import { DevSyncSourceReaderStack } from '../lib/iam/dev-sync-source-reader-stack';
@@ -133,19 +132,6 @@ const integrationPolicyStack = new IamIntegrationPolicyStack(app, 'NagiyuSharedI
 const claudeReadonlyPolicyStack = new IamClaudeReadonlyPolicyStack(app, 'NagiyuSharedIamClaudeReadonly', {
   env: stackEnv,
   description: 'Shared IAM Claude Read-Only Policy (List/Get/Describe with explicit Deny on secrets/PII)',
-});
-
-// IAM Users スタックを作成（ポリシーに依存）
-// GitHub Actions は OIDC ロールのみを使う（旧ユーザーは Issue #3820 で撤去済み）。
-// Claude 閲覧ユーザーは dev/prod 両アカウントで作成する。
-// 旧 IamUsersStack（nagiyu-claude-readonly ユーザー）は、下記 IamClaudeAccessStack への
-// 切り替え完了を確認したうえで別 PR で撤去予定（#3861 の後続）。
-new IamUsersStack(app, 'NagiyuSharedIamUsers', {
-  policies: {
-    claudeReadonly: claudeReadonlyPolicyStack.policy,
-  },
-  env: stackEnv,
-  description: 'Shared IAM Users for Claude Code on the web',
 });
 
 // Claude Code on the web の dev/prod 両アカウント対応ロール・キー保持ユーザー（Issue #3861）。

@@ -68,7 +68,7 @@ Claude on Web のベースイメージに同梱されており、リポジトリ
 
 | ツール | 場所 | バージョン | 備考 |
 |---|---|---|---|
-| AWS CLI | `/usr/local/bin/aws` | 2.34.x | 認証は環境変数（`AWS_ACCESS_KEY_ID` 等）経由。読み取り専用 IAM が用意されている前提 |
+| AWS CLI | `/usr/local/bin/aws` | 2.34.x | 認証は環境変数 + `--profile nagiyu-prod` / `--profile nagiyu-dev` の明示指定が必須（既定プロファイルは無い）。プロファイル設定は Setup Script が書き出す。詳細は [`docs/infra/shared/iam.md`](../infra/shared/iam.md)・[`docs/infra/aws-accounts.md`](../infra/aws-accounts.md) を参照 |
 | Node | `/opt/node22/bin/node` | v22 | プロジェクト要求は v24+ だが engine warning のみで実質動作する |
 | Playwright（global） | `/opt/node22/bin/playwright` | **1.56.1** | プロジェクト同梱版（1.59.1）と**バージョンミスマッチ**。原則使わない |
 | Playwright browsers | `/opt/pw-browsers/chromium-1194` | (global 1.56.1 用) | プロジェクト要求は v1217 系。**そのままでは使えない** |
