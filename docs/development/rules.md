@@ -1046,6 +1046,27 @@ jobs:
 - 環境振り分け: master は prod、それ以外は dev 環境へデプロイ
 - パスフィルター: 関連ファイル変更時のみデプロイを実行
 
+#### MUST: ワークフローには concurrency を設定する
+
+```yaml
+# *-verify*.yml (pull_request 起点)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# *-deploy.yml (push / workflow_dispatch 起点)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && inputs.environment || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+  cancel-in-progress: false
+```
+
+**理由**:
+
+- Verify: 同じ PR の古いコミットに対する検証は結果を使わないため、新しい run が来たら打ち切って CI リソースを節約する
+- Deploy のグループ単位: dev 環境は `integration/**` と `develop` で共有するため、ブランチ単位では別ブランチからの同時デプロイを防げない。デプロイ先環境の単位で直列化する
+- Deploy の `cancel-in-progress: false`: CDK デプロイを途中で止めるとスタックが更新中のまま残り、次のデプロイが失敗しやすい。実行中の run は完走させる。待機できる run はグループごとに 1 つだけで、新しい run が来ると古い待機中の run はキャンセルされるため、最後に push した資材が最後にデプロイされる (後勝ち) 挙動は保たれる
+- dev 環境固定のワークフロー (`dev-sync-deploy.yml` 等) はグループの環境部分を `dev` に固定する
+
 #### MUST: ワークスペース指定はパッケージ名 (@nagiyu/hoge) を使用
 
 ```yaml
