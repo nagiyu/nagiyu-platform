@@ -85,12 +85,13 @@ export function getReportsBucketName(accountScope: AccountScope): string {
  *   （livetalk-batch-migrate）は含めない。
  * - prod アカウントへ届く dev-sync Lambda（prod テーブルへの AssumeRole 経路を持つ）は含めない。
  * - OpenAI 等の有料 API を使う関数でも、改修の対象になるシステムの中核のバッチ
- *   （livetalk-batch-acquire / consolidate）は検証のために含める。
+ *   （livetalk-batch-acquire / consolidate、stock-tracker-batch-summary）は検証のために含める。
  */
 export const CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV = [
   'nagiyu-stock-tracker-batch-daily-dev',
   'nagiyu-stock-tracker-batch-evaluation-dev',
   'nagiyu-stock-tracker-batch-temporary-alert-expiry-dev',
+  'nagiyu-stock-tracker-batch-summary-dev',
   'nagiyu-livetalk-batch-learn-user-activity-dev',
   'nagiyu-livetalk-batch-acquire-dev',
   'nagiyu-livetalk-batch-consolidate-dev',

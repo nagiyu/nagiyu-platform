@@ -88,11 +88,12 @@ describe('getClaudeInvokableFunctionNames', () => {
     expect(getClaudeInvokableFunctionNames('dev')).toEqual(CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV);
   });
 
-  it('dev スコープの許可対象は合意済みのバッチ 6 本に限る（意図しない拡張を検出する）', () => {
+  it('dev スコープの許可対象は合意済みのバッチ 7 本に限る（意図しない拡張を検出する）', () => {
     expect(getClaudeInvokableFunctionNames('dev')).toEqual([
       'nagiyu-stock-tracker-batch-daily-dev',
       'nagiyu-stock-tracker-batch-evaluation-dev',
       'nagiyu-stock-tracker-batch-temporary-alert-expiry-dev',
+      'nagiyu-stock-tracker-batch-summary-dev',
       'nagiyu-livetalk-batch-learn-user-activity-dev',
       'nagiyu-livetalk-batch-acquire-dev',
       'nagiyu-livetalk-batch-consolidate-dev',
