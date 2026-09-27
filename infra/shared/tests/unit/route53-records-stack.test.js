@@ -12,12 +12,12 @@ describe('Route53RecordsStack', () => {
     return new Route53RecordsStack(app, 'TestRoute53RecordsStack', { domainName });
   };
 
-  it('CloudFront 向け CNAME を 16 件、Google Search Console / ACM 検証 / dev サブゾーン委任 NS を各 1 件、apex ALIAS を 1 件作成する', () => {
+  it('CloudFront 向け CNAME を 8 件、Google Search Console / ACM 検証 / dev サブゾーン委任 NS を各 1 件、apex ALIAS を 1 件作成する', () => {
     const stack = createStack();
     const template = Template.fromStack(stack);
 
-    // 16 (CloudFront) + 1 (Google) + 1 (ACM 検証) + 1 (dev 委任 NS) + 1 (apex ALIAS) = 20
-    template.resourceCountIs('AWS::Route53::RecordSet', 20);
+    // 8 (CloudFront) + 1 (Google) + 1 (ACM 検証) + 1 (dev 委任 NS) + 1 (apex ALIAS) = 12
+    template.resourceCountIs('AWS::Route53::RecordSet', 12);
   });
 
   it('全 CNAME レコードに TTL 300 秒を設定する', () => {
@@ -28,8 +28,8 @@ describe('Route53RecordsStack', () => {
       Properties: { Type: 'CNAME' },
     });
 
-    // 16 (CloudFront) + 1 (Google) + 1 (ACM 検証) = 18 CNAME
-    expect(Object.keys(cnameRecords).length).toBe(18);
+    // 8 (CloudFront) + 1 (Google) + 1 (ACM 検証) = 10 CNAME
+    expect(Object.keys(cnameRecords).length).toBe(10);
     for (const [, resource] of Object.entries(cnameRecords)) {
       expect(resource.Properties.TTL).toBe('300');
     }
@@ -55,7 +55,6 @@ describe('Route53RecordsStack', () => {
 
     const expectations = [
       { name: 'tools.nagiyu.com.', target: 'dxsm9dplwcq8k.cloudfront.net' },
-      { name: 'dev-tools.nagiyu.com.', target: 'di5qiqkse31ld.cloudfront.net' },
       { name: 'auth.nagiyu.com.', target: 'd34m95nq713g26.cloudfront.net' },
     ];
 
@@ -65,6 +64,29 @@ describe('Route53RecordsStack', () => {
         Name: expected.name,
         ResourceRecords: [expected.target],
       });
+    }
+  });
+
+  it('旧 dev-* CNAME（旧 dev 環境向け CloudFront）は作成しない（Issue #3820）', () => {
+    const stack = createStack();
+    const template = Template.fromStack(stack);
+
+    const devPrefixedNames = [
+      'dev-tools.nagiyu.com.',
+      'dev-auth.nagiyu.com.',
+      'dev-admin.nagiyu.com.',
+      'dev-quick-clip.nagiyu.com.',
+      'dev-stock-tracker.nagiyu.com.',
+      'dev-share-together.nagiyu.com.',
+      'dev-niconico-mylist-assistant.nagiyu.com.',
+      'dev-codec-converter.nagiyu.com.',
+    ];
+
+    for (const name of devPrefixedNames) {
+      const matches = template.findResources('AWS::Route53::RecordSet', {
+        Properties: { Type: 'CNAME', Name: name },
+      });
+      expect(Object.keys(matches).length).toBe(0);
     }
   });
 

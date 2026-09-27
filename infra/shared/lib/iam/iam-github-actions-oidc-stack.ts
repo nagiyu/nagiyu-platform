@@ -22,10 +22,11 @@ export interface IamGitHubActionsOidcStackProps extends cdk.StackProps {
     integration: iam.IManagedPolicy;
   };
   /**
-   * 作成するロールを絞り込む場合に指定する（マルチアカウント化対応）。
-   * 未指定の場合は現行どおり 3 ロール全部（DevRole / ProdRole / PrRole）を作成する。
+   * 作成するロール ID（マルチアカウント化対応）。
+   * アカウントスコープごとに作成対象を絞る（`stack-plan.ts` の `getGitHubActionsOidcRoleIds`）。
+   * prod アカウントでは `['ProdRole']`、dev アカウントでは `['DevRole', 'PrRole']` を渡す想定。
    */
-  roleIds?: ('DevRole' | 'ProdRole' | 'PrRole')[];
+  roleIds: ('DevRole' | 'ProdRole' | 'PrRole')[];
 }
 
 /**
@@ -78,16 +79,17 @@ const GITHUB_ACTIONS_ROLE_DEFINITIONS: GitHubActionsRoleDefinition[] = [
  *   pull_request イベントで分けることで、ワークフローの実行文脈ごとに
  *   引き受けられるロールを限定する（例: PR ワークフローが prod ロールを
  *   引き受けられないようにする）。
- * - 権限（付与ポリシー）自体は当面すべてのロールで同一（既存の
- *   nagiyu-github-actions IAM ユーザーと同等の 4 ポリシー）とし、
- *   権限の絞り込みは後続対応のスコープとする。
+ * - 権限（付与ポリシー）自体は当面すべてのロールで同一（core / application /
+ *   container / integration の既存 4 ポリシー）とし、権限の絞り込みは後続対応の
+ *   スコープとする。
  * - ロール定義を配列でデータ駆動にしているのは、dev/prod を別 AWS アカウントに
  *   分割した構成（Issue #3819）で、アカウントごとに作成するロールを `roleIds` props
- *   で絞り込めるようにするため（例: dev アカウントでは prod ロールを作らない）。
+ *   で絞り込めるようにするため（dev アカウントでは prod ロールを作らず、
+ *   prod アカウントでは dev / pr ロールを作らない。Issue #3820）。
  *
- * 既存の `IamUsersStack`（長期アクセスキー方式）には手を入れず、
- * 本スタックは並行稼働する形で追加する。旧ユーザーは全ワークフローの
- * 移行と本番での稼働確認が済んだ後に廃止する。
+ * かつては長期アクセスキー方式の `IamUsersStack`（旧 `nagiyu-github-actions` ユーザー）と
+ * 並行稼働していたが、全ワークフローの OIDC 移行と本番での稼働確認が済んだため、
+ * 旧ユーザーは撤去済み（Issue #3820）。
  */
 export class IamGitHubActionsOidcStack extends cdk.Stack {
   public readonly oidcProvider: iam.IOidcProvider;
@@ -108,9 +110,8 @@ export class IamGitHubActionsOidcStack extends cdk.Stack {
     // ==========================================
     // GitHub Actions Roles（環境・イベントごとに信頼条件を分離）
     // ==========================================
-    const roleIds = props.roleIds ?? GITHUB_ACTIONS_ROLE_DEFINITIONS.map((definition) => definition.id);
     const targetDefinitions = GITHUB_ACTIONS_ROLE_DEFINITIONS.filter((definition) =>
-      roleIds.includes(definition.id as 'DevRole' | 'ProdRole' | 'PrRole')
+      props.roleIds.includes(definition.id as 'DevRole' | 'ProdRole' | 'PrRole')
     );
 
     for (const definition of targetDefinitions) {

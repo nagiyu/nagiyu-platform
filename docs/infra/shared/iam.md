@@ -32,7 +32,7 @@ infra/shared/
 │   ├── iam-integration-policy-stack.ts      # デプロイポリシー: Integration
 │   ├── iam-claude-readonly-policy-stack.ts  # Claude 用閲覧専用ポリシー
 │   ├── iam-policies-stack.ts                # 旧（4 ポリシーまとめ。互換用）
-│   └── iam-users-stack.ts                   # IAM ユーザー（GitHub Actions 旧ユーザー・Claude 閲覧専用）
+│   └── iam-users-stack.ts                   # IAM ユーザー（Claude 閲覧専用）
 ├── iam/                         # 旧 CloudFormation テンプレート（バックアップ）
 │   ├── policies/
 │   │   ├── backup/              # YAML ファイルのバックアップ
@@ -167,41 +167,15 @@ Claude Code on the web のリモート環境から AWS リソースを「閲覧�
 **参照方法:**
 - `arn:aws:iam::{account}:policy/nagiyu-claude-readonly-policy`（`managedPolicyName` で固定）
 
-### 2. GitHub Actions ユーザー（長期アクセスキー・移行済み）
-
-**状態:** GitHub Actions の AWS 認証は GitHub OIDC + AssumeRole（後述の「GitHub Actions OIDC ロール」）へ移行済み。
-本ユーザーは本番環境で OIDC の動作確認が完了するまでの切り戻し用に残しており、確認後に #3820 で撤去する。
-**新規のワークフローでこのユーザーのアクセスキーを発行しないこと。**
-
-**CDK スタック名:** `SharedIamUsers`（NagiyuGitHubActionsUser リソース）
-
-**概要:**
-CI/CD パイプライン（GitHub Actions）で使用していた IAM ユーザー。
-
-**ユーザー名:** `nagiyu-github-actions`
-
-**アタッチされるポリシー:**
-- `nagiyu-deploy-policy-core`
-- `nagiyu-deploy-policy-container`
-- `nagiyu-deploy-policy-application`
-- `nagiyu-deploy-policy-integration`
-
-**タグ:**
-- `Application: nagiyu`
-- `Purpose: GitHub Actions CI/CD`
-
-**出力値（CfnOutput）:**
-- ユーザー ARN
-- ユーザー名
-
-### 2.5. GitHub Actions OIDC ロール（現在の方式）
+### 2. GitHub Actions OIDC ロール
 
 **CDK スタック名:** `NagiyuSharedIamGitHubOidc`
 
 **概要:**
 GitHub Actions から AWS への認証を、長期アクセスキーではなく GitHub OIDC + AssumeRole で行う。
 GitHub OIDC プロバイダ（発行者: `token.actions.githubusercontent.com`）と、ワークフローの実行文脈ごとに
-信頼条件を分けた 3 つのロールを作成する。
+信頼条件を分けた 3 つのロールを作成する。旧 `nagiyu-github-actions` ユーザー（長期アクセスキー方式）は
+全ワークフローの OIDC 移行と本番での稼働確認が済んだため撤去済み（#3820）。
 
 **ロール一覧:**
 
@@ -211,8 +185,15 @@ GitHub OIDC プロバイダ（発行者: `token.actions.githubusercontent.com`�
 | `nagiyu-github-actions-prod` | `repo:nagiyu/nagiyu-platform:environment:prod` | GitHub Environment `prod` を指定する deploy 系 job |
 | `nagiyu-github-actions-pr` | `repo:nagiyu/nagiyu-platform:pull_request` | `pull_request` イベントで動く verify 系 job |
 
+**アカウントスコープによるロールの絞り込み（マルチアカウント化・#3820）:**
+上記 3 ロールは 1 つの AWS アカウントに全部作られるわけではなく、デプロイ先アカウントごとに作成対象を絞る
+（`stack-plan.ts` の `getGitHubActionsOidcRoleIds`）。prod アカウントには `nagiyu-github-actions-prod` のみ、
+dev アカウントには `nagiyu-github-actions-dev` / `-pr` のみを作成する。prod アカウントに dev / pr ロールを
+置くと、dev Environment や pull_request の文脈から prod アカウントを操作できてしまい、アカウント分離の
+効果を削るため。
+
 **アタッチされるポリシー:**
-当面は 3 ロールとも、旧 `nagiyu-github-actions` ユーザーと同じ 4 ポリシー（core / application / container / integration）を使う。
+当面は 3 ロールとも同じ 4 ポリシー（core / application / container / integration）を使う。
 ロールごとの権限の絞り込みは今回のスコープ外。
 
 **なぜロールを 3 つに分けたか:**
@@ -379,8 +360,7 @@ npx cdk diff SharedIamUsers
 npx cdk deploy SharedIamUsers --require-approval never
 ```
 
-このコマンドで以下のユーザーが一度にデプロイされます:
-- nagiyu-github-actions
+このコマンドで以下のユーザーがデプロイされます:
 - nagiyu-claude-readonly
 
 ### ステップ4: 動作確認
@@ -597,29 +577,28 @@ aws cloudformation deploy \
 
 ### アクセスキーのローテーション
 
-**注意**: GitHub Actions の認証は OIDC + AssumeRole に移行済みで、アクセスキーを持たない。
-以下は `nagiyu-claude-readonly` など、引き続きアクセスキーで運用するユーザー向けの手順であり、
-`nagiyu-github-actions` はロールバック用ユーザーのため通常はローテーション対象外。
+**注意**: GitHub Actions の認証は OIDC + AssumeRole で行い、アクセスキーを持たない。
+以下は `nagiyu-claude-readonly` など、アクセスキーで運用するユーザー向けの手順。
 
 #### 1. 新しいアクセスキーの発行
 
 ```bash
-aws iam create-access-key --user-name nagiyu-github-actions
+aws iam create-access-key --user-name nagiyu-claude-readonly
 ```
 
-#### 2. GitHub Secrets / ローカル環境への更新
+#### 2. Claude Code on the web のリモート環境設定への更新
 
-新しいアクセスキーで Secrets を更新。
+新しいアクセスキーでセッション環境変数を更新。
 
 #### 3. 動作確認
 
-新しいアクセスキーでデプロイが正常に動作することを確認。
+新しいアクセスキーで閲覧調査が正常に動作することを確認。
 
 #### 4. 古いアクセスキーの削除
 
 ```bash
 aws iam delete-access-key \
-  --user-name nagiyu-github-actions \
+  --user-name nagiyu-claude-readonly \
   --access-key-id <古いアクセスキーID>
 ```
 
@@ -713,7 +692,7 @@ aws cloudformation deploy \
 
 ### アクセスキーが無効化されている
 
-対象は `nagiyu-claude-readonly` や `nagiyu-github-actions`（ロールバック用）などアクセスキー方式のユーザーのみ。
+対象は `nagiyu-claude-readonly` などアクセスキー方式のユーザーのみ。
 GitHub Actions OIDC ロールはアクセスキーを持たないため対象外。
 
 **原因:** アクセスキーが非アクティブ化されている。
@@ -721,7 +700,7 @@ GitHub Actions OIDC ロールはアクセスキーを持たないため対象外
 **解決策:**
 ```bash
 aws iam update-access-key \
-  --user-name nagiyu-github-actions \
+  --user-name nagiyu-claude-readonly \
   --access-key-id <アクセスキーID> \
   --status Active
 ```

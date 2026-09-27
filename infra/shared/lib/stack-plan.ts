@@ -29,22 +29,17 @@ export function includesProdOnlyStacks(accountScope: AccountScope): boolean {
 }
 
 /**
- * GitHub Actions 用 IAM ユーザー（長期アクセスキー方式）を作成するかどうか。
- * dev アカウントでは新設しない（Claude 閲覧ユーザーのみ作成する）。
- */
-export function shouldCreateGitHubActionsUser(accountScope: AccountScope): boolean {
-  return accountScope === 'prod';
-}
-
-/**
  * GitHub Actions OIDC ロールのうち、当該アカウントスコープで作成すべきロール ID。
- * `undefined` を返す場合は `IamGitHubActionsOidcStack` 側の既定（3 ロール全部）を使う。
- * dev アカウントでは prod ロールを作らない。
+ *
+ * prod アカウントには ProdRole のみ、dev アカウントには DevRole / PrRole のみを作成する
+ * （旧: prod アカウントでは絞り込みをせず 3 ロール全部を作成していたが、prod アカウントに
+ * dev / pr ロールがあると dev Environment や pull_request の文脈から prod アカウントを
+ * 操作できてしまい、アカウント分離の効果を削るため #3820 で撤去した）。
  */
 export function getGitHubActionsOidcRoleIds(
   accountScope: AccountScope
-): ('DevRole' | 'ProdRole' | 'PrRole')[] | undefined {
-  return accountScope === 'dev' ? ['DevRole', 'PrRole'] : undefined;
+): ('DevRole' | 'ProdRole' | 'PrRole')[] {
+  return accountScope === 'dev' ? ['DevRole', 'PrRole'] : ['ProdRole'];
 }
 
 /**

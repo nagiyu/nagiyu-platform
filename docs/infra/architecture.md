@@ -107,10 +107,9 @@ infra/
 - **GitHub Actions OIDC ロール** (CDK: `lib/iam/iam-github-actions-oidc-stack.ts`)
     - CI/CD パイプラインが GitHub OIDC + AssumeRole で引き受けるロール（dev / prod / pull_request の 3 つ）
     - デプロイポリシーをアタッチ
-    - 旧 GitHub Actions ユーザー（長期アクセスキー）は切り戻し用に残置（撤去予定 #3820）
-
-- **GitHub Actions ユーザー**（長期アクセスキー・移行済み） (CDK: `lib/iam/iam-users-stack.ts`)
-    - OIDC ロールへ移行済みの旧 IAM ユーザー。通常のデプロイでは使わない
+    - アカウント分離のため、作成対象は AWS アカウントごとに絞る（prod アカウントは prod ロールのみ、
+      dev アカウントは dev / pr ロールのみ。詳細は [IAM 詳細](./shared/iam.md) を参照）
+    - 旧 GitHub Actions ユーザー（長期アクセスキー）は撤去済み（#3820）
 
 - **ローカル開発ユーザー** (CDK: `lib/iam/iam-users-stack.ts`)
     - 開発者がローカル環境から手動デプロイする際に使用
