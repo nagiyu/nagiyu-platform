@@ -28,10 +28,9 @@ export interface IamClaudeAccessStackProps extends cdk.StackProps {
  * `nagiyu-claude` と、そのロールを引き受けるキー保持ユーザー `nagiyu-claude-key`
  * （prod アカウントにのみ作成）を管理する（Issue #3861）。
  *
- * 旧 `IamUsersStack`（`nagiyu-claude-readonly` ユーザー）・
- * `IamClaudeReadonlyPolicyStack`（`nagiyu-claude-readonly-policy`）には手を加えず、
- * 切り替え完了を確認してから別 PR で撤去する方針のため、本スタックとは意図的に
- * 並存させている。
+ * 旧 `IamUsersStack`（`nagiyu-claude-readonly` ユーザー）は切り替え完了の確認後、
+ * Issue #3871 で撤去済み。`IamClaudeReadonlyPolicyStack`
+ * （`nagiyu-claude-readonly-policy`）は本スタックのロールが引き続き使うため残す。
  *
  * dev/prod でスタックの構造自体は同一とし、差分は props（readonlyPolicy /
  * invokableFunctionNames / createKeyUser）だけで表現する
