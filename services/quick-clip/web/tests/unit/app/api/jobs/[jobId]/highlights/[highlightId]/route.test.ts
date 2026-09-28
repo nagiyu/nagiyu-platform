@@ -51,7 +51,7 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
   const mockedGetClipRegenerateFunctionName = getClipRegenerateFunctionName as jest.MockedFunction<
     typeof getClipRegenerateFunctionName
   >;
-  const mockedInvokeCommand = InvokeCommand as jest.MockedFunction<typeof InvokeCommand>;
+  const mockedInvokeCommand = InvokeCommand as jest.MockedClass<typeof InvokeCommand>;
   let consoleErrorSpy: jest.SpyInstance;
 
   beforeEach(() => {
@@ -61,7 +61,7 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
     );
     mockedGetLambdaClient.mockReturnValue({
       send: mockLambdaSend,
-    } as ReturnType<typeof getLambdaClient>);
+    } as unknown as ReturnType<typeof getLambdaClient>);
     mockedGetClipRegenerateFunctionName.mockReturnValue('clip-regenerate');
     mockLambdaSend.mockResolvedValue({});
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});

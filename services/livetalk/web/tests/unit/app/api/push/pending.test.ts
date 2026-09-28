@@ -72,17 +72,12 @@ function makeRepo(aggregatedResult: NotificationEventEntity[]): NotificationEven
   } as unknown as NotificationEventRepository;
 }
 
-/** GET リクエストを組み立てるヘルパー */
-function buildGetRequest(): Request {
-  return new Request('http://localhost/api/push/pending', { method: 'GET' });
-}
-
 describe('GET /api/push/pending', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('未認証は 401 を返す', async () => {
     mockGetSession.mockResolvedValueOnce(null);
-    const res = await GET(buildGetRequest());
+    const res = await GET();
     expect(res.status).toBe(401);
   });
 
@@ -90,7 +85,7 @@ describe('GET /api/push/pending', () => {
     mockGetSession.mockResolvedValue(validSession);
     mockGetNotificationEventRepo.mockReturnValue(makeRepo([]));
 
-    const res = await GET(buildGetRequest());
+    const res = await GET();
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json).toEqual([]);
@@ -113,7 +108,7 @@ describe('GET /api/push/pending', () => {
 
     mockGetNotificationEventRepo.mockReturnValue(makeRepo([hiyoriEvent, agehaEvent]));
 
-    const res = await GET(buildGetRequest());
+    const res = await GET();
     expect(res.status).toBe(200);
     const json = await res.json();
 
@@ -139,7 +134,7 @@ describe('GET /api/push/pending', () => {
     const repo = makeRepo([]);
     mockGetNotificationEventRepo.mockReturnValue(repo);
 
-    await GET(buildGetRequest());
+    await GET();
 
     // getAllCharacterIds() の戻り値（hiyori, ageha）が渡されること
     expect(repo.listLatestUnconsumedByCharacter).toHaveBeenCalledWith(
@@ -159,7 +154,7 @@ describe('GET /api/push/pending', () => {
     });
     mockGetNotificationEventRepo.mockReturnValue(makeRepo([lateUnconsumed]));
 
-    const res = await GET(buildGetRequest());
+    const res = await GET();
     expect(res.status).toBe(200);
     const json = await res.json();
 
@@ -178,7 +173,7 @@ describe('GET /api/push/pending', () => {
     });
     mockGetNotificationEventRepo.mockReturnValue(makeRepo([event]));
 
-    const res = await GET(buildGetRequest());
+    const res = await GET();
     expect(res.status).toBe(200);
     const json = await res.json();
 
@@ -195,7 +190,7 @@ describe('GET /api/push/pending', () => {
     const agehaEvent = makeEvent({ NotifID: 'n-a', CharacterID: 'ageha' });
     mockGetNotificationEventRepo.mockReturnValue(makeRepo([hiyoriEvent, agehaEvent]));
 
-    const res = await GET(buildGetRequest());
+    const res = await GET();
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json).toHaveLength(2);

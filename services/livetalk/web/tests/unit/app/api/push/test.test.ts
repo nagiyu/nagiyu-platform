@@ -113,6 +113,7 @@ function makeSubscription(overrides: Partial<PushSubscriptionEntity> = {}): Push
     P256dhKey: 'p256dh-key',
     AuthKey: 'auth-key',
     CreatedAt: Date.now(),
+    UpdatedAt: Date.now(),
     ...overrides,
   };
 }

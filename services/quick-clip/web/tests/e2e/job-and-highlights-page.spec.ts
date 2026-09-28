@@ -73,7 +73,8 @@ test.describe('QuickClip Highlights Page', () => {
         status?: 'accepted' | 'rejected' | 'unconfirmed';
       };
       const requestUrl = new URL(request.url());
-      const highlightId = requestUrl.pathname.split('/').at(-1) ?? '';
+      const pathSegments = requestUrl.pathname.split('/');
+      const highlightId = pathSegments[pathSegments.length - 1] ?? '';
       const current = highlights.find((item) => item.highlightId === highlightId);
 
       if (!current) {

@@ -56,7 +56,8 @@ const makeRepo = (overrides: Partial<MessageRepository> = {}): MessageRepository
     totalTokens: 10,
     truncated: false,
   }));
-  return { create, getById, getRecentByTokenBudget, ...overrides };
+  const listSince: MessageRepository['listSince'] = jest.fn(async () => []);
+  return { create, getById, getRecentByTokenBudget, listSince, ...overrides };
 };
 
 describe('GET /api/messages', () => {
