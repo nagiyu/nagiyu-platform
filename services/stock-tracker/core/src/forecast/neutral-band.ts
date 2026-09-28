@@ -1,5 +1,5 @@
 /**
- * Stock Tracker Core - 中立帯・確率帯の過去実績（design.md §1.5、参照実装 analysis/decision2.py 相当）
+ * Stock Tracker Core - 中立帯・確率帯の過去実績
  */
 import {
   NEUTRAL_BAND_MIN_DIFF,
@@ -32,7 +32,7 @@ function bandOf(value: number, step: number): number {
 }
 
 /**
- * 中立帯の判定（design.md §1.5、参照実装 decision2.py の determine_band）。
+ * 中立帯の判定。
  *
  * hist を「確率 − 基準値」で step 刻みの帯に分け、各帯で実現率 vs その帯の基準値平均を
  * 両側二項検定、Holm 法で補正（有意水準 alpha）。基準値を含む帯から外側へ進み、
@@ -118,7 +118,7 @@ export function determineNeutralBandForQuestion(
 }
 
 /**
- * 中立帯の見直し（design.md §1.5、参照実装 decision2.py の運用シミュレーション相当）。
+ * 中立帯の見直し。
  *
  * 直前の中立帯が null か、decidedOn より後で date 以下の**両市場を合わせたカレンダー**
  * （JP・US のサンプル日付の和集合）の日数が REVIEW_INTERVAL 以上なら判定し直す
@@ -155,8 +155,7 @@ export function resolveNeutralBandState(params: {
 }
 
 /**
- * 確率帯（5pt 刻み）ごとの過去実績（design.md §1.5「同じ確率帯の過去実績」、
- * 参照実装 wf.py の calib_table 相当）。
+ * 確率帯（5pt 刻み）ごとの過去実績。
  */
 export function computeBandHistoryTable(
   samples: readonly { probability: number; hit: number }[],
@@ -180,7 +179,7 @@ export function computeBandHistoryTable(
     }));
 }
 
-/** 確率が属する帯の過去実績を探す（design.md §1.5・§2.3 bandHistory） */
+/** 確率が属する帯の過去実績を探す */
 export function findBandHistoryEntry(
   table: readonly BandHistoryEntry[],
   probability: number,
@@ -191,7 +190,7 @@ export function findBandHistoryEntry(
 }
 
 /**
- * 中立帯との比較結果（design.md §1.5・§2.3）。
+ * 中立帯との比較結果。
  * DIR: d >= upper で UP、d < lower で DOWN、それ以外 NEUTRAL。
  * VOL・MKT: d >= upper で HIGH、それ以外 NEUTRAL。
  */

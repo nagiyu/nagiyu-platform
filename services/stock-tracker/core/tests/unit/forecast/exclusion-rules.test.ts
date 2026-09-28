@@ -1,5 +1,5 @@
 /**
- * 除外ルールのテスト（design.md §1.1・§4、#3830 の過去データ除外）。
+ * 除外ルールのテスト。
  */
 import { buildPanel, excludeLegacyBackfillRows } from '../../../src/forecast/preprocessing.js';
 import { computeOutcomes } from '../../../src/forecast/compute.js';
@@ -22,7 +22,7 @@ function bar(
   };
 }
 
-describe('極端リターンの除外（FR-14）', () => {
+describe('極端リターンの除外', () => {
   it('|翌営業日リターン| > 20% は Outcome から除外され、Hit が付かない', () => {
     const bars: DailyBarInput[] = [
       bar({ tickerId: 'A', exchangeId: 'TSE', date: '2026-01-05', close: 100 }),
@@ -79,7 +79,7 @@ describe('観測カレンダーによる翌営業日の決定と、欠落日を�
   });
 });
 
-describe('#3830 過去データ除外（初期値算出のみで使う）', () => {
+describe('初期値算出専用の過去データ除外', () => {
   it('休場日コピー足の日付は除外される', () => {
     const holiday = LEGACY_BACKFILL_HOLIDAY_COPY_DATES.JP[0];
     const bars: DailyBarInput[] = [

@@ -1,18 +1,13 @@
 /**
- * 切り詰め不変性テスト（design.md §4・指摘 C-1）。
+ * 切り詰め不変性テスト（SampleHistory レベル）。
  *
- * 以前の版は「bars を computeForDate 内部と同じ述語で外部から切り詰めてから渡す」形だったため、
- * computeForDate 自身が内部で行っているフィルタと同じ述語を外側でもう一度適用しているだけの
- * 同語反復になっていた（それが正しく実装されていることは何も保証しない）。
- *
- * この版は SampleHistory のレベルで検証する: `buildSampleHistoryThroughDate` で作った
- * 「D より後のサンプル（採点結果・その時点の確率を含む）まで積んだ、切り詰めていない履歴」を
- * そのまま `computeModelSnapshot` に渡しても、正しく切り詰めた履歴を渡したときと完全に同じ
- * 結果になることを確認する。サンプルの採否は `buildTrainingRows` / `collectKnownProbabilitySamples` /
- * `buildBaselineSamples` が各サンプル自身の `outcome.nextDate`（銘柄サンプルはさらに
- * `exchangeId`）から直接判定するため（S-2 の解消）、呼び出し側が渡す履歴に未来のサンプルが
- * 混ざっていても、それだけで結果を汚染しないはずである。この関数自身の切り詰めロジックを
- * 検証する、外側の述語に依存しないテストになっている。
+ * `buildSampleHistoryThroughDate` で作った「D より後のサンプル（採点結果・その時点の確率を
+ * 含む）まで積んだ、切り詰めていない履歴」を、そのまま `computeModelSnapshot` に渡しても、
+ * 正しく切り詰めた履歴を渡したときと完全に同じ結果になることを確認する。サンプルの採否は
+ * `buildTrainingRows` / `collectKnownProbabilitySamples` / `buildBaselineSamples` が各サンプル
+ * 自身の `outcome.nextDate`（銘柄サンプルはさらに `exchangeId`）から直接判定するため、呼び出し
+ * 側が渡す履歴に未来のサンプルが混ざっていても、それだけで結果を汚染しないはずである。この
+ * 関数自身の切り詰めロジックを検証する、外側の述語に依存しないテストになっている。
  */
 import fs from 'node:fs';
 import path from 'node:path';

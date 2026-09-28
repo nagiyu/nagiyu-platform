@@ -1,17 +1,15 @@
 /**
  * Stock Tracker Core - Forecast (確度) 定数
  *
- * tasks/stock-tracker-v4/design.md §1・§2.3 および
- * tasks/stock-tracker-v4/analysis/{prep,wf,decision,decision2}.py（参照実装）と対応する定数を集約する。
- *
- * 実データを扱う定数（休場日コピー足の日付リスト等）もここに置く。DB には持たない（設計 §1.2）。
+ * 算出ロジックが使う定数を集約する。実データを扱う定数（休場日コピー足の日付リスト等）も
+ * ここに置き、DB には持たない。
  */
 
 /**
- * 市場コード。取引所マスタ（Exchange）が持つ「市場」属性の値（design.md §1.1）。
+ * 市場コード。取引所マスタ（Exchange）が持つ「市場」属性の値。
  * JP・US に固定せず、取引所マスタの入力（{@link ExchangeSessionInfo} の `market`）から決まる
  * 任意の文字列として扱う。市場の集合は core の定数ではなく、呼び出し側が渡す取引所マスタから
- * 導出する（`time.ts` の `distinctMarkets` を参照）。
+ * 導出する（{@link distinctMarkets} を参照）。
  */
 export type Market = string;
 
@@ -21,26 +19,26 @@ export type Question = 'DIR' | 'VOL' | 'MKT';
 export const QUESTIONS: readonly Question[] = ['DIR', 'VOL', 'MKT'];
 
 /**
- * 算出ロジックの版（軸定義・方式の変更を追えるように。design.md §2.3 ModelVersion）
+ * 算出ロジックの版（軸定義・方式の変更を追えるように）
  */
 export const FORECAST_MODEL_VERSION = 'forecast-core-v1';
 
 // 市場への振り分け・名目の取引時刻は、いずれも取引所マスタ（Exchange の 市場・Timezone・
-// Start・End）から求める（design.md §1.1 ADR-V4-01・§1.4）。取引所は画面から追加・編集でき、
-// 市場の集合も固定 2 つとは限らないため、core は固定の ExchangeID→市場対応表やセッション時刻
-// 定数を持たない。`time.ts` の `ExchangeSessionInfo`／`getMarketForExchange`／
-// `nominalExchangeTime`／`nominalMarketCloseTime`／`distinctMarkets` を参照。
+// Start・End）から求める。取引所は画面から追加・編集でき、市場の集合も固定 2 つとは限らない
+// ため、core は固定の ExchangeID→市場対応表やセッション時刻定数を持たない。
+// `ExchangeSessionInfo`／`getMarketForExchange`／`nominalExchangeTime`／
+// `nominalMarketCloseTime`／`distinctMarkets` を参照。
 
-/** 平常の算出窓（値幅・出来高。design.md §1.1） */
+/** 平常の算出窓（値幅・出来高） */
 export const NORMAL_WINDOW = 20;
 
-/** Parkinson の算出窓（直近 N 日。design.md §1.2） */
+/** Parkinson の算出窓（直近 N 日） */
 export const PARKINSON_WINDOW = 5;
 
-/** 採点から除外する極端リターンの閾値（|リターン| > 20%。design.md §1.1 FR-14） */
+/** 採点から除外する極端リターンの閾値（|リターン| > 20%） */
 export const EXTREME_RETURN_THRESHOLD = 0.2;
 
-/** 基準値（rolling_base）の窓・最小件数・クリップ範囲（design.md §1.5） */
+/** 基準値（rolling_base）の窓・最小件数・クリップ範囲 */
 export const BASELINE_WINDOW = 60;
 export const BASELINE_MIN_COUNT = 20;
 export const BASELINE_CLIP_MIN = 0.02;
@@ -49,7 +47,7 @@ export const BASELINE_CLIP_MAX = 0.98;
 /** バーンイン: 学習サンプルの異なる日付がこれ未満なら確率を出さない */
 export const MIN_TRAINING_DATES = 30;
 
-/** L2 正則化係数（design.md §1.4） */
+/** L2 正則化係数 */
 export const REGULARIZATION_ALPHA: Record<Question, number> = {
   DIR: 80,
   VOL: 20,
@@ -60,10 +58,10 @@ export const REGULARIZATION_ALPHA: Record<Question, number> = {
 export const IRLS_MAX_ITERATIONS = 50;
 export const IRLS_STEP_TOLERANCE = 1e-8;
 
-/** logit/sigmoid のクリップ（参照実装 wf.py の EPS = 1e-6 と同じ） */
+/** logit/sigmoid の入力値をクリップする幅（0 または 1 ちょうどでの発散を防ぐ） */
 export const LOGIT_EPSILON = 1e-6;
 
-/** 中立帯（design.md §1.5） */
+/** 中立帯 */
 export const NEUTRAL_BAND_STEP: Record<Question, number> = {
   DIR: 0.05,
   VOL: 0.05,
@@ -80,24 +78,23 @@ export const NEUTRAL_BAND_REVIEW_INTERVAL_DAYS = 30;
 
 /**
  * 中立帯の寄りなし側の番兵値（±∞ の代わり）。
- * DynamoDB/JSON に Infinity を保存できないため、番兵値で「無限」を表す（design.md §1.5）。
+ * DynamoDB/JSON に Infinity を保存できないため、番兵値で「無限」を表す。
  */
 export const NEUTRAL_BAND_SENTINEL_LOWER = -1;
 export const NEUTRAL_BAND_SENTINEL_UPPER = 1;
 
-/** 確率帯（同じ確率帯の過去実績）の刻み幅（design.md §1.5、参照実装 wf.py calib_table） */
+/** 確率帯（同じ確率帯の過去実績）の刻み幅 */
 export const PROBABILITY_BAND_STEP = 0.05;
 
-/** 点灯型軸の件数不足の目印のしきい値（design.md §1.4） */
+/** 点灯型軸の件数不足の目印のしきい値 */
 export const LOW_SAMPLE_AXIS_THRESHOLD = 30;
 
 /**
- * #3830 の過去データ除外リスト（休場日コピー足の日付）。
- * 初期値算出（FR-13）で #3833 より前の旧 DailySummary を読むときだけ適用する（design.md §1.1）。
- * 参照実装 analysis/prep.py の HOLIDAY_COPIES と同じ値。
+ * 初期値算出（過去データからの一括再計算）専用の除外リスト（休場日コピー足の日付）。
+ * バー生成ロジックの改修より前に作られた旧 DailySummary を読むときだけ適用する。
  *
  * 初期設定の JP・US だけを持つ（market が未知のキーは無い。呼び出し側は該当が無ければ
- * 空配列として扱うこと。design.md ADR-V4-01 の JP/US は初期設定の例）。
+ * 空配列として扱うこと）。
  */
 export const LEGACY_BACKFILL_HOLIDAY_COPY_DATES: Record<Market, readonly string[]> = {
   JP: [

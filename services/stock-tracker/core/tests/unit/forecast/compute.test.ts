@@ -68,7 +68,7 @@ beforeAll(() => {
   sharedResult = computeForDate(allBars, '2024-03-18', 'JP', REAL_EXCHANGES, { now: 0 });
 });
 
-describe('バーンイン（design.md §1.6）', () => {
+describe('バーンイン', () => {
   it('学習サンプルの異なる日付が MIN_TRAINING_DATES 未満なら Probabilities を出さない', () => {
     // 最初の数日分だけを渡す（バーンインを満たさない）
     const earlyBars = allBars.filter((b) => b.date <= '2024-01-10');
@@ -136,7 +136,7 @@ describe('平常が無い銘柄は VOL を出さない（DIR は出す）', () =
   });
 });
 
-describe('寄与の合計（design.md §1.4）', () => {
+describe('寄与の合計', () => {
   it('寄与の合計は「確率 − 基準値」に一致する', () => {
     const result = sharedResult;
     for (const ticker of result.tickers) {
@@ -155,7 +155,7 @@ describe('寄与の合計（design.md §1.4）', () => {
   });
 });
 
-describe('件数不足の目印（design.md §1.4）', () => {
+describe('件数不足の目印', () => {
   it('学習サンプル中の点灯回数が30未満の点灯型軸は lowSampleAxes に含まれる', () => {
     // 「morning-star」だけほとんど MATCHED しない小さな合成データを作り、
     // 件数不足の目印が付くことを確認する。
@@ -214,7 +214,7 @@ describe('AxisValues は FLAG を boolean、NUMERIC を数値で持つ', () => {
   });
 });
 
-describe('D の足が無い日の契約（design.md §1・指摘 B-3）', () => {
+describe('D の足が無い日の契約', () => {
   it('その市場・日の観測が無ければ、NaN を出さず空の結果を返す', () => {
     const result = computeForDate(allBars, '1999-01-01', 'JP', REAL_EXCHANGES, { now: 0 });
     expect(result.tickers).toEqual([]);
@@ -229,7 +229,7 @@ describe('D の足が無い日の契約（design.md §1・指摘 B-3）', () => 
   });
 });
 
-describe('未対応の ExchangeID（NFR-2・指摘 D）', () => {
+describe('未対応の ExchangeID', () => {
   it('未対応の ExchangeID のバーは除外して続行し、skippedExchangeIds に残す', () => {
     const withUnknown: DailyBarInput[] = [
       ...allBars,
@@ -259,7 +259,7 @@ describe('computeOutcomes: 銘柄の採点（Q-VOL）', () => {
     const { tickerOutcomes } = computeOutcomes(allBars, 1, REAL_EXCHANGES);
     expect(tickerOutcomes.length).toBeGreaterThan(0);
     for (const outcome of tickerOutcomes) {
-      // 値幅は比率（design.md §1.1）: 常識的な範囲（0〜数十%）に収まる
+      // 値幅は比率: 常識的な範囲（0〜数十%）に収まる
       expect(outcome.nextRange).toBeGreaterThan(0);
       expect(outcome.nextRange).toBeLessThan(1);
       if (outcome.rangeRatio !== undefined) {

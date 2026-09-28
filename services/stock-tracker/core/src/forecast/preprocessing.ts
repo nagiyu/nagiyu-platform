@@ -1,8 +1,8 @@
 /**
- * Stock Tracker Core - Forecast 前処理（design.md §1.1・§1.2、参照実装 analysis/prep.py 相当）
+ * Stock Tracker Core - Forecast 前処理
  *
  * DailySummary 相当の入力から、観測カレンダー・翌営業日の判定・判断軸の値・実績（採点前の生の目的変数）を
- * 純粋関数として組み立てる。DB アクセスは含まない（NFR-4）。
+ * 純粋関数として組み立てる。DB アクセスは含まない。
  */
 import { PATTERN_REGISTRY } from '../patterns/pattern-registry.js';
 import {
@@ -92,7 +92,7 @@ export interface TickerDaySample {
   };
 }
 
-/** 市場×日 1 行（Q-MKT 用。参照実装 prep.py の mkt パネルに相当） */
+/** 市場×日 1 行（Q-MKT 用） */
 export interface MarketDaySample {
   market: Market;
   date: string;
@@ -122,12 +122,12 @@ export interface PreprocessedPanel {
   calendar: Record<Market, string[]>;
   tickerSamples: TickerDaySample[];
   marketSamples: MarketDaySample[];
-  /** 未対応の ExchangeID のため除外したもの（NFR-2） */
+  /** 未対応の ExchangeID のため除外したもの */
   skippedExchangeIds: string[];
 }
 
 /**
- * 未対応の ExchangeID を持つバーを除いて処理を続けるための組（NFR-2）。
+ * 未対応の ExchangeID を持つバーを除いて処理を続けるための組。
  * サマリーの保存・表示は確度の算出失敗の影響を受けないため、1 件の未知 ExchangeID で
  * 処理全体を止めず、除外した ID を呼び出し側がログできるように返す。
  */
@@ -158,10 +158,10 @@ export function partitionByKnownExchange(
 }
 
 /**
- * 市場の観測カレンダー（design.md §1.1）: いずれかの銘柄の DailySummary がある日付の集合。
+ * 市場の観測カレンダー: いずれかの銘柄の DailySummary がある日付の集合。
  * 市場ごとに分けたレコードを、取引所マスタに現れる市場の集合ぶんだけ動的に持つ
- * （固定 JP/US ではない。design.md §1.1「取引所マスタの市場属性で決める」）。
- * 未対応の ExchangeID・市場未設定の取引所を持つバーは無視する（NFR-2）。
+ * （固定 JP/US ではなく、取引所マスタの市場属性で決まる）。
+ * 未対応の ExchangeID・市場未設定の取引所を持つバーは無視する。
  */
 export function buildObservationCalendar(
   bars: readonly DailyBarInput[],
@@ -186,18 +186,20 @@ export function buildObservationCalendar(
 }
 
 /**
- * #3830 の過去データ除外。**初期値算出（FR-13）専用**であり、#3833 以降に作られたバーには
- * 使わない（#3833 以降は途中足・休場日コピー足のデータ自体が作られないため）。
+ * **初期値算出（過去データからの一括再計算）専用**の除外ロジック。以前の DailySummary
+ * 生成では、休場日をコピー足で埋め、取引時間中に未確定の途中経過をバーとして記録していた
+ * 時期があり、それらは確度算出の学習データに混ぜてはならない。バー生成ロジックの改修で
+ * 両方とも作られなくなった日付以降には使わない（現在のバー生成では発生しないため）。
  *
  * 除外1: 休場日コピー足の日付、または前レコードと OHLC が完全一致
  * 除外2: CreatedAt が翌営業日の取引開始時刻以降（途中足）
  *
- * 除外1適用後の観測カレンダーで除外2の翌営業日を決める（参照実装 prep.py と同じ順序）。
- * 除外2の「翌営業日の取引開始」は、その取引所（銘柄の ExchangeID）の Start（design.md §1.1）。
+ * 除外1適用後の観測カレンダーで除外2の翌営業日を決める。
+ * 除外2の「翌営業日の取引開始」は、その取引所（銘柄の ExchangeID）の Start。
  *
  * @param exchanges 取引所マスタ（Timezone・Start・End）
- * @param beforeDate 指定すると、この日付より前のバーにだけ除外ロジックを適用する（#3833 の
- *   切り替え日を渡す想定）。以降のバーはそのまま素通りする。省略すると全件に適用する。
+ * @param beforeDate 指定すると、この日付より前のバーにだけ除外ロジックを適用する
+ *   （バー生成ロジックの改修日を渡す想定）。以降のバーはそのまま素通りする。省略すると全件に適用する。
  */
 export function excludeLegacyBackfillRows(
   bars: readonly DailyBarInput[],
@@ -306,9 +308,10 @@ function meanIgnoringUndefined(values: readonly (number | undefined)[]): number 
  * DailySummary 相当のバー配列から、判断軸の値・実績（採点前の生の目的変数）を計算する。
  *
  * 将来データの排除は行わない（呼び出し側 = 学習・基準値・予測の各関数が、時刻の規則で
- * 必要な範囲だけをフィルタする。NFR-4 の「切り詰め不変性」を成り立たせるため）。
+ * 必要な範囲だけをフィルタする。バーを未来側で切り詰めても、切り詰める前の日付までの計算
+ * 結果が変わらない「切り詰め不変性」を保つため）。
  * 未対応の ExchangeID を持つバーは除外して続行し、除外した ID は `skippedExchangeIds` に
- * 集める（NFR-2）。
+ * 集める。
  */
 export function buildPanel(
   bars: readonly DailyBarInput[],
@@ -320,9 +323,8 @@ export function buildPanel(
 
   const tickerSamples: TickerDaySample[] = [];
 
-  // ticker の反復順を tickerId 昇順に正準化する（指摘 D「入力の並び順に依存しない」）。
-  // bars の入力順で Map の反復順が変わっても、同じ (market, date) 内の集計順序・浮動小数点の
-  // 加算順序が変わらないようにするため。
+  // ticker の反復順を tickerId 昇順に正準化する。bars の入力順で Map の反復順が変わっても、
+  // 同じ (market, date) 内の集計順序・浮動小数点の加算順序が変わらないようにするため。
   const canonicalTickerEntries = [...byTicker.entries()].sort(([a], [b]) => a.localeCompare(b));
   for (const [tickerId, rows] of canonicalTickerEntries) {
     const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
@@ -352,8 +354,8 @@ export function buildPanel(
     );
     const normalRangeSeries = rollingMeanFullWindow(rangeSeries, NORMAL_WINDOW);
     // 平常の Parkinson は「5日窓の park5 の20日平均」ではなく、生の lhl2 を直接20日窓で
-    // rolling した Parkinson 推定量（参照実装 prep.py の npark{N} と同じ）。lhl2 は当日の
-    // High/Low だけで決まり欠損しないため、20件目から定義される。
+    // rolling した Parkinson 推定量とする。lhl2 は当日の High/Low だけで決まり欠損しないため、
+    // 20件目から定義される。
     const normalParkSeries = rollingMeanFullWindow(lhl2Series, NORMAL_WINDOW).map((v) =>
       v === undefined ? undefined : Math.sqrt(v / (4 * Math.log(2)))
     );
@@ -405,7 +407,7 @@ export function buildPanel(
         exchangeId: bar.exchangeId,
         market,
         date: bar.date,
-        // 銘柄（取引所）自身の名目引け時刻。design.md §1.4「その足・サンプルの取引所の End」
+        // 銘柄（取引所）自身の名目引け時刻（その取引所の End）
         predTime: nominalExchangeTime(bar.exchangeId, bar.date, 'close', exchanges),
         close: bar.close,
         nextDate: next?.date,
@@ -433,7 +435,7 @@ export function buildPanel(
     }
   }
 
-  // --- 市場レベルの平均（同日・同市場、大きさ軸に値がある銘柄の平均。design.md §1.2 の後段）
+  // --- 市場レベルの平均（同日・同市場、大きさ軸に値がある銘柄の平均）
   const byMarketDate = new Map<string, TickerDaySample[]>();
   for (const sample of tickerSamples) {
     const key = `${sample.market}#${sample.date}`;
@@ -462,7 +464,7 @@ export function buildPanel(
     for (const sample of list) {
       if (sample.outcomeRaw === undefined) continue;
       if (sample.outcomeRaw.excludedExtremeReturn) {
-        // 除外: Q-DIR の目的変数は作らない（参照実装で ret1 が NaN になり excess も NaN になる）
+        // 除外: 極端リターンは採点対象外のため、Q-DIR の目的変数も作らない
         continue;
       }
       if (meanValidReturn === undefined) continue;
@@ -477,7 +479,7 @@ export function buildPanel(
   }
 
   // --- 市場×日パネル（Q-MKT）。市場の集合は observation calendar に現れたものぶんだけ動的に回す
-  // （design.md §1.1「取引所マスタの市場属性で決める」。固定 JP/US ではない）。
+  // （固定 JP/US ではなく、取引所マスタの市場属性で決まる）。
   const marketSamples: MarketDaySample[] = [];
   const marketRowsByMarket: Record<Market, MarketDaySample[]> = {};
   const markets = Object.keys(calendar);
@@ -630,10 +632,10 @@ export function axisValuesFromMarketSample(sample: MarketDaySample): MarketAxisV
 }
 
 /**
- * D の足と直近の履歴から、D の軸の値を計算する（design.md §3.1「D の足と直近の履歴 → D の軸の値」）。
+ * D の足と直近の履歴から、D の軸の値を計算する。
  *
  * bars から計算するのはこの軸の値と実績（{@link computeOutcomeForDate}）だけで、学習・基準値・
- * 中立帯は {@link SampleHistory} から計算する（design.md §3.1）。
+ * 中立帯は {@link SampleHistory} から計算する。
  *
  * その市場・日の観測が 1 件も無ければ `{ tickers: [], market: undefined }` を返す（NaN を出さない）。
  */

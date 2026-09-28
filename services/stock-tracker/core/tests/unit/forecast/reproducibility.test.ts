@@ -1,9 +1,9 @@
 /**
- * 再現性テスト（NFR-3・design.md §4）。
+ * 再現性テスト。
  *
  * 同じ入力で 2 回実行し、完全一致することを確認する（乱数を使わない）。
- * design.md §3.1 の restructure 後は computeForDate/computeOutcomes とも bars を直接受け取る
- * （保存済みサンプルは内部でリプレイして組み立てる。ForecastHistory 相当の型は廃止済み）。
+ * computeForDate/computeOutcomes とも bars を直接受け取り、保存済みサンプルは内部で
+ * リプレイして組み立てる。
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -76,9 +76,9 @@ describe('再現性', () => {
     expect(second).toEqual(first);
   });
 
-  it('入力配列の並び順を変えても結果は完全一致する（指摘 D: (market, date, tickerId) で正準化）', () => {
+  it('入力配列の並び順を変えても結果は完全一致する（(market, date, tickerId) で正準化する）', () => {
     // buildPanel は ticker を tickerId 昇順に正準化してから集計するため、bars の入力順（Map の
-    // 反復順）に依存する浮動小数点の加算順序は生まれない。NFR-3 の「同じ入力から同じ結果」を、
+    // 反復順）に依存する浮動小数点の加算順序は生まれない。同じ入力から同じ結果になることを、
     // 入力の並び替えに対しても厳密一致で確認する。
     const shuffled = [...bars].reverse();
     const a = computeForDate(bars, TARGET_DATE, 'JP', REAL_EXCHANGES, { now: 0 });
@@ -86,7 +86,7 @@ describe('再現性', () => {
     expect(b).toEqual(a);
   });
 
-  it('取引所マスタの並び順を変えても結果は変わらない（入力の正準化。指摘 D）', () => {
+  it('取引所マスタの並び順を変えても結果は変わらない（入力の正準化）', () => {
     const reorderedExchanges = [...REAL_EXCHANGES].reverse();
     const a = computeForDate(bars, TARGET_DATE, 'JP', REAL_EXCHANGES, { now: 0 });
     const b = computeForDate(bars, TARGET_DATE, 'JP', reorderedExchanges, { now: 0 });
