@@ -138,4 +138,58 @@ describe('LambdaStack', () => {
       });
     });
   });
+
+  describe('BatchForecastFunction', () => {
+    let template: Template;
+
+    beforeEach(() => {
+      const { stack } = createTestStack();
+      template = Template.fromStack(stack);
+    });
+
+    it('forecast.handler をハンドラーとして 15 分タイムアウトで作成される', () => {
+      template.hasResourceProperties('AWS::Lambda::Function', {
+        FunctionName: 'nagiyu-stock-tracker-batch-forecast-dev',
+        Timeout: 900, // 15分（秒）。リプレイ（初期値算出）が Lambda の上限に収まる想定
+        Environment: {
+          Variables: Match.objectLike({
+            BATCH_TYPE: 'FORECAST',
+          }),
+        },
+      });
+    });
+
+    it('BatchSummaryFunction の環境変数に STOCK_TRACKER_FORECAST_BATCH_FUNCTION_NAME が含まれる', () => {
+      // summary バッチが完了時に forecast を非同期起動するため（NFR-1）
+      template.hasResourceProperties('AWS::Lambda::Function', {
+        FunctionName: 'nagiyu-stock-tracker-batch-summary-dev',
+        Environment: {
+          Variables: Match.objectLike({
+            STOCK_TRACKER_FORECAST_BATCH_FUNCTION_NAME: 'nagiyu-stock-tracker-batch-forecast-dev',
+          }),
+        },
+      });
+    });
+
+    it('BatchRuntimePolicy に forecast 関数への lambda:InvokeFunction が含まれる', () => {
+      // batchExecutionRole は全 batch 関数で共有されるため、この付与で summary からの
+      // 非同期起動（NFR-1）が可能になる
+      template.hasResourceProperties('AWS::IAM::ManagedPolicy', {
+        PolicyDocument: Match.objectLike({
+          Statement: Match.arrayWith([
+            Match.objectLike({
+              Sid: 'InvokeForecastBatchFunction',
+              Action: 'lambda:InvokeFunction',
+              Effect: 'Allow',
+              Resource: Match.objectLike({
+                'Fn::Join': Match.arrayWith([
+                  Match.arrayWith([Match.stringLikeRegexp('nagiyu-stock-tracker-batch-forecast-dev$')]),
+                ]),
+              }),
+            }),
+          ]),
+        }),
+      });
+    });
+  });
 });

@@ -3,7 +3,7 @@
  *
  * dev 環境では summary/evaluation の EventBridge Rule が DISABLED になり、
  * prod 環境では ENABLED（State プロパティなし、または ENABLED）になることを検証する。
- * minute/hourly/daily/temporary-alert-expiry は dev でも無効化されないことを確認する。
+ * minute/hourly/daily/temporary-alert-expiry/forecast は dev でも無効化されないことを確認する。
  */
 
 import * as cdk from 'aws-cdk-lib';
@@ -24,7 +24,7 @@ function createTestStack(environment: string): { app: cdk.App; stack: EventBridg
     env: { account: '123456789012', region: 'us-east-1' },
   });
 
-  // テスト用ダミー Lambda 関数を 6 つ作成
+  // テスト用ダミー Lambda 関数を 7 つ作成
   const createDummyFunction = (id: string): lambda.Function =>
     new lambda.Function(lambdaHolderStack, id, {
       runtime: lambda.Runtime.NODEJS_22_X,
@@ -38,6 +38,7 @@ function createTestStack(environment: string): { app: cdk.App; stack: EventBridg
   const batchDailyFunction = createDummyFunction('BatchDailyFunction');
   const batchTemporaryAlertExpiryFunction = createDummyFunction('BatchTemporaryAlertExpiryFunction');
   const batchEvaluationFunction = createDummyFunction('BatchEvaluationFunction');
+  const batchForecastFunction = createDummyFunction('BatchForecastFunction');
 
   const stack = new EventBridgeStack(app, 'TestEventBridgeStack', {
     environment,
@@ -47,6 +48,7 @@ function createTestStack(environment: string): { app: cdk.App; stack: EventBridg
     batchDailyFunction,
     batchTemporaryAlertExpiryFunction,
     batchEvaluationFunction,
+    batchForecastFunction,
     env: { account: '123456789012', region: 'us-east-1' },
   });
 
@@ -117,8 +119,18 @@ describe('EventBridgeStack', () => {
       expect(Object.keys(rules)).toHaveLength(0);
     });
 
-    it('合計 6 つの Rule が作成される', () => {
-      template.resourceCountIs('AWS::Events::Rule', 6);
+    it('forecast Rule は dev でも DISABLED にならない（Forecast 系のアイテムにしか書き込まないため）', () => {
+      const rules = template.findResources('AWS::Events::Rule', {
+        Properties: {
+          Name: 'stock-tracker-batch-forecast-dev',
+          State: 'DISABLED',
+        },
+      });
+      expect(Object.keys(rules)).toHaveLength(0);
+    });
+
+    it('合計 7 つの Rule が作成される', () => {
+      template.resourceCountIs('AWS::Events::Rule', 7);
     });
   });
 
@@ -151,8 +163,8 @@ describe('EventBridgeStack', () => {
       expect(Object.keys(disabledRules)).toHaveLength(0);
     });
 
-    it('prod 環境でも合計 6 つの Rule が作成される', () => {
-      template.resourceCountIs('AWS::Events::Rule', 6);
+    it('prod 環境でも合計 7 つの Rule が作成される', () => {
+      template.resourceCountIs('AWS::Events::Rule', 7);
     });
   });
 
@@ -228,6 +240,7 @@ describe('EventBridgeStack', () => {
         'stock-tracker-batch-summary-dev',
         'stock-tracker-batch-temporary-alert-expiry-dev',
         'stock-tracker-batch-evaluation-dev',
+        'stock-tracker-batch-forecast-dev',
         'stock-tracker-batch-daily-dev',
       ];
 
@@ -246,6 +259,7 @@ describe('EventBridgeStack', () => {
         'stock-tracker-batch-summary-prod',
         'stock-tracker-batch-temporary-alert-expiry-prod',
         'stock-tracker-batch-evaluation-prod',
+        'stock-tracker-batch-forecast-prod',
         'stock-tracker-batch-daily-prod',
       ];
 
@@ -265,6 +279,7 @@ describe('EventBridgeStack', () => {
       template.hasOutput('SummaryRuleArn', {});
       template.hasOutput('TemporaryAlertExpiryRuleArn', {});
       template.hasOutput('EvaluationRuleArn', {});
+      template.hasOutput('ForecastRuleArn', {});
       template.hasOutput('DailyRuleArn', {});
     });
   });

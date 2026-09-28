@@ -124,6 +124,7 @@ const eventBridgeStack = new EventBridgeStack(app, `NagiyuStockTrackerEventBridg
   batchDailyFunction: lambdaStack.batchDailyFunction,
   batchTemporaryAlertExpiryFunction: lambdaStack.batchTemporaryAlertExpiryFunction,
   batchEvaluationFunction: lambdaStack.batchEvaluationFunction,
+  batchForecastFunction: lambdaStack.batchForecastFunction,
   env: stackEnv,
   description: `Stock Tracker EventBridge Scheduler - ${env} environment`,
 });
@@ -136,6 +137,7 @@ const alarmsStack = new CloudWatchAlarmsStack(app, `NagiyuStockTrackerAlarms${en
   batchMinuteFunction: lambdaStack.batchMinuteFunction,
   batchHourlyFunction: lambdaStack.batchHourlyFunction,
   batchDailyFunction: lambdaStack.batchDailyFunction,
+  batchForecastFunction: lambdaStack.batchForecastFunction,
   dynamoTable: dynamoStack.table,
   alarmTopic: snsStack.alarmTopic,
   adminAlarmTopicArn,

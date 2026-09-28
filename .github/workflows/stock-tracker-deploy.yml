@@ -347,6 +347,11 @@ jobs:
             --image-uri "$BATCH_IMAGE_URI" \
             --region ${{ env.AWS_REGION }}
 
+          aws lambda update-function-code \
+            --function-name "nagiyu-stock-tracker-batch-forecast-$ENVIRONMENT" \
+            --image-uri "$BATCH_IMAGE_URI" \
+            --region ${{ env.AWS_REGION }}
+
           echo "Lambda functions updated with latest images"
 
       - name: Wait for Lambda updates to complete
@@ -380,6 +385,10 @@ jobs:
 
           aws lambda wait function-updated \
             --function-name "nagiyu-stock-tracker-batch-evaluation-$ENVIRONMENT" \
+            --region ${{ env.AWS_REGION }}
+
+          aws lambda wait function-updated \
+            --function-name "nagiyu-stock-tracker-batch-forecast-$ENVIRONMENT" \
             --region ${{ env.AWS_REGION }}
 
           echo "All Lambda functions updated successfully"

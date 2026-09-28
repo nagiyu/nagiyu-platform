@@ -3,8 +3,14 @@
  * EventBridge Scheduler から rate(1 hour) で実行される
  */
 
+import { InvokeCommand } from '@aws-sdk/client-lambda';
 import { logger, toErrorMessage } from '@nagiyu/common';
-import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
+import {
+  getDynamoDBDocumentClient,
+  getLambdaClient,
+  getTableName,
+  reportErrorEvent,
+} from '@nagiyu/aws';
 import {
   DynamoDBDailySummaryRepository,
   DynamoDBExchangeRepository,
@@ -83,6 +89,41 @@ interface HandlerDependencies {
   createChartImageBase64Fn: typeof createChartImageBase64;
   nowFn: () => number;
   generateAiAnalysisFn?: (apiKey: string, input: AiAnalysisInput) => Promise<AiAnalysisResult>;
+  /** テスト時に forecast バッチの非同期起動を差し替えるためのフック */
+  invokeForecastBatchFn: () => Promise<void>;
+}
+
+/**
+ * forecast バッチ（確度算出）の Lambda 関数名。
+ *
+ * summary バッチの完了時に非同期起動するため、STOCK_TRACKER_FORECAST_BATCH_FUNCTION_NAME
+ * で明示的に渡す（未設定時は NODE_ENV から dev/prod を推定する）。
+ */
+function getForecastBatchFunctionName(): string {
+  if (process.env.STOCK_TRACKER_FORECAST_BATCH_FUNCTION_NAME) {
+    return process.env.STOCK_TRACKER_FORECAST_BATCH_FUNCTION_NAME;
+  }
+  const envName = process.env.NODE_ENV === 'production' ? 'prod' : 'dev';
+  return `nagiyu-stock-tracker-batch-forecast-${envName}`;
+}
+
+/**
+ * forecast バッチを非同期起動する（毎時の起動を待たずに確度算出へ進めるため。NFR-1）。
+ *
+ * 起動の失敗はサマリー生成自体の成否に影響させない（サマリーの保存・表示は確度算出の失敗の
+ * 影響を受けない。NFR-2 と対称の考え方）ため、ここで例外を握りつぶし警告ログのみ出す。
+ */
+async function invokeForecastBatch(): Promise<void> {
+  try {
+    await getLambdaClient().send(
+      new InvokeCommand({
+        FunctionName: getForecastBatchFunctionName(),
+        InvocationType: 'Event',
+      })
+    );
+  } catch (error) {
+    logger.warn('確度算出バッチの起動に失敗しました', { reason: toErrorMessage(error) });
+  }
 }
 
 const REQUIRED_CHART_DATA_COUNT = 100;
@@ -522,8 +563,9 @@ export async function handler(
     errors: 0,
   };
 
+  let resolvedDependencies: HandlerDependencies | undefined;
+
   try {
-    let resolvedDependencies: HandlerDependencies;
     if (
       dependencies?.exchangeRepository &&
       dependencies?.tickerRepository &&
@@ -537,6 +579,7 @@ export async function handler(
         createChartImageBase64Fn: dependencies.createChartImageBase64Fn ?? createChartImageBase64,
         nowFn: dependencies.nowFn ?? Date.now,
         generateAiAnalysisFn: dependencies.generateAiAnalysisFn ?? generateAiAnalysis,
+        invokeForecastBatchFn: dependencies.invokeForecastBatchFn ?? invokeForecastBatch,
       };
     } else {
       const docClient = getDynamoDBDocumentClient();
@@ -550,6 +593,7 @@ export async function handler(
         createChartImageBase64Fn: dependencies?.createChartImageBase64Fn ?? createChartImageBase64,
         nowFn: dependencies?.nowFn ?? Date.now,
         generateAiAnalysisFn: dependencies?.generateAiAnalysisFn ?? generateAiAnalysis,
+        invokeForecastBatchFn: dependencies?.invokeForecastBatchFn ?? invokeForecastBatch,
       };
     }
 
@@ -564,6 +608,16 @@ export async function handler(
       eventId: event.id,
       statistics: stats,
     });
+
+    // 毎時の起動を待たずに確度算出へ進められるよう、完了時に forecast バッチを非同期起動する
+    // （NFR-1）。起動失敗はサマリー生成自体の結果に影響させない。invokeForecastBatch 自体が
+    // 例外を握りつぶす実装だが、差し替え用のフックが同じ規約を守るとは限らないため、
+    // ここでも二重に保護する。
+    try {
+      await resolvedDependencies.invokeForecastBatchFn();
+    } catch (error) {
+      logger.warn('確度算出バッチの起動に失敗しました', { reason: toErrorMessage(error) });
+    }
 
     return {
       statusCode: 200,
