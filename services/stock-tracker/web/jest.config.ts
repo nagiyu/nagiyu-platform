@@ -26,9 +26,9 @@ const config: Config = {
     'lib/repository-factory.ts',
     'lib/percentage-helper.ts',
     'lib/ai-analysis-format.ts',
-    'lib/prediction-evaluation/**/*.ts',
+    'lib/axis-performance-view/**/*.ts',
     'lib/forecast/**/*.ts',
-    'components/prediction-evaluation/**/*.tsx',
+    'components/axis-performance/**/*.tsx',
   ],
   coverageThreshold: {
     global: {
@@ -37,7 +37,7 @@ const config: Config = {
       lines: 100,
       statements: 100,
     },
-    './lib/prediction-evaluation/': {
+    './lib/axis-performance-view/': {
       branches: 80,
       functions: 80,
       lines: 80,
@@ -49,7 +49,7 @@ const config: Config = {
       lines: 80,
       statements: 80,
     },
-    './components/prediction-evaluation/': {
+    './components/axis-performance/': {
       branches: 80,
       functions: 80,
       lines: 80,
