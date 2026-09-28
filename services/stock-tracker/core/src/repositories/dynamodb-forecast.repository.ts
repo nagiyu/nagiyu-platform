@@ -33,7 +33,6 @@ import { ForecastMapper } from '../mappers/forecast.mapper.js';
  */
 const SAMPLE_PROJECTION_NAMES: Record<string, string> = {
   '#gsi4pk': 'GSI4PK',
-  '#gsi4sk': 'GSI4SK',
   '#tickerId': 'TickerID',
   '#exchangeId': 'ExchangeID',
   '#market': 'Market',
@@ -65,6 +64,7 @@ const SAMPLE_PROJECTION_EXPRESSION = [
 /** GSI4SK の期間条件（`buildSampleKeyCondition` の戻り値） */
 interface KeyConditionParts {
   expression: string;
+  names: Record<string, string>;
   values: Record<string, unknown>;
 }
 
@@ -251,7 +251,7 @@ export class DynamoDBForecastRepository implements ForecastRepository {
             IndexName: 'ExchangeSummaryIndex',
             KeyConditionExpression: condition.expression,
             ProjectionExpression: SAMPLE_PROJECTION_EXPRESSION,
-            ExpressionAttributeNames: SAMPLE_PROJECTION_NAMES,
+            ExpressionAttributeNames: { ...SAMPLE_PROJECTION_NAMES, ...condition.names },
             ExpressionAttributeValues: {
               ':exchangeId': this.mapper.buildGsi4Pk(exchangeId),
               ...condition.values,
@@ -272,19 +272,34 @@ export class DynamoDBForecastRepository implements ForecastRepository {
   }
 }
 
-/** GSI4SK の期間条件を組み立てる（fromDate・toDate の有無で 3 通り） */
+/**
+ * GSI4SK の期間条件を組み立てる。
+ *
+ * DynamoDB は式で使わない ExpressionAttributeNames を拒否するため、範囲条件がないときは
+ * `#gsi4sk` を名前に含めない。
+ */
 function buildSampleKeyCondition(fromDate?: string, toDate?: string): KeyConditionParts {
+  const skName = { '#gsi4sk': 'GSI4SK' };
   if (fromDate !== undefined && toDate !== undefined) {
     return {
       expression: '#gsi4pk = :exchangeId AND #gsi4sk BETWEEN :from AND :to',
+      names: skName,
       values: { ':from': `DATE#${fromDate}`, ':to': `DATE#${toDate}#~` },
     };
   }
   if (fromDate !== undefined) {
     return {
       expression: '#gsi4pk = :exchangeId AND #gsi4sk >= :from',
+      names: skName,
       values: { ':from': `DATE#${fromDate}` },
     };
   }
-  return { expression: '#gsi4pk = :exchangeId', values: {} };
+  if (toDate !== undefined) {
+    return {
+      expression: '#gsi4pk = :exchangeId AND #gsi4sk <= :to',
+      names: skName,
+      values: { ':to': `DATE#${toDate}#~` },
+    };
+  }
+  return { expression: '#gsi4pk = :exchangeId', names: {}, values: {} };
 }

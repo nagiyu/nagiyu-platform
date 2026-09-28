@@ -203,6 +203,19 @@ export function defineForecastRepositoryContract(
       expect(result.map((s) => s.tickerId).sort()).toEqual(['T1', 'T2']);
     });
 
+    it('getSamplesByExchangesAndDateRange は toDate だけ指定すると、その日以前を返す', async () => {
+      await repository.createIfAbsent(buildForecastInput({ TickerID: 'T1', Date: '2026-01-01' }));
+      await repository.createIfAbsent(buildForecastInput({ TickerID: 'T2', Date: '2026-02-27' }));
+      await repository.createIfAbsent(buildForecastInput({ TickerID: 'T3', Date: '2026-03-01' }));
+
+      const result = await repository.getSamplesByExchangesAndDateRange(
+        ['NASDAQ'],
+        undefined,
+        '2026-02-27'
+      );
+      expect(result.map((s) => s.tickerId).sort()).toEqual(['T1', 'T2']);
+    });
+
     it('getSamplesByExchangesAndDateRange は採点済みサンプルの outcome・probabilities を含む', async () => {
       await repository.createIfAbsent(buildForecastInput());
       await repository.appendOutcome({ tickerId: 'NSDQ:AAPL', date: '2026-02-27' }, buildOutcome());

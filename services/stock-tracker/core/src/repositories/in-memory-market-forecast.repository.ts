@@ -137,12 +137,15 @@ export class InMemoryMarketForecastRepository implements MarketForecastRepositor
 function buildSkCondition(
   fromDate?: string,
   toDate?: string
-): { operator: 'between' | 'gte'; value: string | [string, string] } | undefined {
+): { operator: 'between' | 'gte' | 'lte'; value: string | [string, string] } | undefined {
   if (fromDate !== undefined && toDate !== undefined) {
     return { operator: 'between', value: [`DATE#${fromDate}`, `DATE#${toDate}#~`] };
   }
   if (fromDate !== undefined) {
     return { operator: 'gte', value: `DATE#${fromDate}` };
+  }
+  if (toDate !== undefined) {
+    return { operator: 'lte', value: `DATE#${toDate}#~` };
   }
   return undefined;
 }

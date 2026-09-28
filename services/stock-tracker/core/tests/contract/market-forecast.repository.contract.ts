@@ -155,6 +155,15 @@ export function defineMarketForecastRepositoryContract(
       expect(result.map((s) => s.date)).toEqual(['2026-01-01', '2026-12-31']);
     });
 
+    it('getSamplesByDateRange は toDate だけ指定すると、その日以前を返す', async () => {
+      await repository.createIfAbsent(buildMarketForecastInput({ Date: '2026-01-01' }));
+      await repository.createIfAbsent(buildMarketForecastInput({ Date: '2026-02-27' }));
+      await repository.createIfAbsent(buildMarketForecastInput({ Date: '2026-03-01' }));
+
+      const result = await repository.getSamplesByDateRange('US', undefined, '2026-02-27');
+      expect(result.map((s) => s.date)).toEqual(['2026-01-01', '2026-02-27']);
+    });
+
     it('getSamplesByDateRange は採点済みサンプルの outcome・probabilities を含む', async () => {
       await repository.createIfAbsent(buildMarketForecastInput());
       await repository.appendOutcome({ market: 'US', date: '2026-02-27' }, buildOutcome());

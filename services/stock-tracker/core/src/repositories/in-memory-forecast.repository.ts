@@ -160,7 +160,7 @@ export class InMemoryForecastRepository implements ForecastRepository {
   }
 }
 
-/** GSI4SK の条件（begins_with / between / 以上）を組み立てる。全条件省略時は undefined（全件） */
+/** GSI4SK の条件（begins_with / between / 以上 / 以下）を組み立てる。全条件省略時は undefined（全件） */
 function buildSkCondition(
   datePrefix?: string,
   fromDate?: string,
@@ -168,7 +168,7 @@ function buildSkCondition(
 ):
   | {
       attributeName: string;
-      operator: 'begins_with' | 'between' | 'gte';
+      operator: 'begins_with' | 'between' | 'gte' | 'lte';
       value: string | [string, string];
     }
   | undefined {
@@ -184,6 +184,9 @@ function buildSkCondition(
   }
   if (fromDate !== undefined) {
     return { attributeName: 'GSI4SK', operator: 'gte', value: `DATE#${fromDate}` };
+  }
+  if (toDate !== undefined) {
+    return { attributeName: 'GSI4SK', operator: 'lte', value: `DATE#${toDate}#~` };
   }
   return undefined;
 }

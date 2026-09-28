@@ -165,7 +165,7 @@ export class DynamoDBMarketForecastRepository implements MarketForecastRepositor
           new QueryCommand({
             TableName: this.tableName,
             KeyConditionExpression: condition.expression,
-            ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
+            ExpressionAttributeNames: { '#pk': 'PK', ...condition.names },
             ExpressionAttributeValues: {
               ':pk': this.mapper.buildPk(market),
               ...condition.values,
@@ -186,22 +186,37 @@ export class DynamoDBMarketForecastRepository implements MarketForecastRepositor
   }
 }
 
-/** ベーステーブル SK（`DATE#{Date}`）の期間条件を組み立てる（fromDate・toDate の有無で 3 通り） */
+/**
+ * ベーステーブル SK（`DATE#{Date}`）の期間条件を組み立てる。
+ *
+ * DynamoDB は式で使わない ExpressionAttributeNames を拒否するため、範囲条件がないときは
+ * `#sk` を名前に含めない。
+ */
 function buildSkCondition(
   fromDate?: string,
   toDate?: string
-): { expression: string; values: Record<string, unknown> } {
+): { expression: string; names: Record<string, string>; values: Record<string, unknown> } {
+  const skName = { '#sk': 'SK' };
   if (fromDate !== undefined && toDate !== undefined) {
     return {
       expression: '#pk = :pk AND #sk BETWEEN :from AND :to',
+      names: skName,
       values: { ':from': `DATE#${fromDate}`, ':to': `DATE#${toDate}#~` },
     };
   }
   if (fromDate !== undefined) {
     return {
       expression: '#pk = :pk AND #sk >= :from',
+      names: skName,
       values: { ':from': `DATE#${fromDate}` },
     };
   }
-  return { expression: '#pk = :pk', values: {} };
+  if (toDate !== undefined) {
+    return {
+      expression: '#pk = :pk AND #sk <= :to',
+      names: skName,
+      values: { ':to': `DATE#${toDate}#~` },
+    };
+  }
+  return { expression: '#pk = :pk', names: {}, values: {} };
 }
