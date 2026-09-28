@@ -21,6 +21,11 @@ on:
 permissions:
   contents: read
 
+# 同じ PR (push 起点ではブランチ) の古いコミットに対する検証は不要なため、新しい run が来たら打ち切る。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   nextjs-build:
     name: Next.js Build Verification
