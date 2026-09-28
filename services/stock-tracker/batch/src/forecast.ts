@@ -18,7 +18,6 @@ import { logger, toErrorMessage } from '@nagiyu/common';
 import {
   EntityNotFoundError,
   getDynamoDBDocumentClient,
-  getLambdaClient,
   getTableName,
   reportErrorEvent,
 } from '@nagiyu/aws';
@@ -63,6 +62,7 @@ import type {
   TickerOutcome,
   TickerSample,
 } from '@nagiyu/stock-tracker-core';
+import { runConcurrent } from './lib/concurrent-queue.js';
 
 /** 通常モードの Lambda Handler イベント型（EventBridge Scheduler） */
 export interface ScheduledEvent {
@@ -150,6 +150,15 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
  * 直近レコードを確保できるよう、休場日を見込んだ余裕を持たせる。
  */
 const NORMAL_MODE_LOOKBACK_DAYS = 60;
+
+/**
+ * 銘柄ごとの採点（Outcome 追記）・確度算出（Forecast 作成）を並列実行する上限。
+ *
+ * いずれも銘柄ごとに独立した条件付き書き込みであり、直列に await すると銘柄数（約120）×
+ * 日数ぶんの往復時間がそのままリプレイの所要時間に乗ってしまう。上限を設けて並列化することで、
+ * 初期値算出（リプレイ）が Lambda の15分制限に収まる見込みを確保する。
+ */
+const TICKER_WRITE_CONCURRENCY = 10;
 
 /**
  * リプレイモードで DailySummary を読む範囲の番兵値。
@@ -428,7 +437,9 @@ export async function processMarketDate(
       exchanges
     );
 
-    for (const outcome of tickerOutcomes) {
+    // 銘柄ごとに独立した条件付き書き込みなので、直列 await を避けて並列実行する
+    // （TICKER_WRITE_CONCURRENCY。リプレイの所要時間短縮）。
+    const tickerOutcomeTasks = tickerOutcomes.map((outcome) => async () => {
       try {
         const appended = await deps.forecastRepository.appendOutcome(
           { tickerId: outcome.tickerId, date: prevDate },
@@ -444,10 +455,19 @@ export async function processMarketDate(
             date: prevDate,
             tickerId: outcome.tickerId,
           });
-          continue;
+          return;
         }
         throw error;
       }
+    });
+    const { results: tickerOutcomeResults } = await runConcurrent(
+      tickerOutcomeTasks,
+      TICKER_WRITE_CONCURRENCY,
+      () => false
+    );
+    const failedTickerOutcome = tickerOutcomeResults.find((r) => r.status === 'rejected');
+    if (failedTickerOutcome && failedTickerOutcome.status === 'rejected') {
+      throw failedTickerOutcome.reason;
     }
 
     if (marketOutcome !== undefined) {
@@ -502,7 +522,10 @@ export async function processMarketDate(
   const volBurnInOk = hasEnoughTrainingData(volSnapshot);
   const mktBurnInOk = hasEnoughTrainingData(mktSnapshot);
 
-  for (const ticker of axisValues.tickers) {
+  // 書き込み対象を先に元の順序（buildPanel で銘柄IDの昇順に正準化済み）のまま組み立ててから
+  // 並列に書き込む。アキュムレータへの反映は書き込み完了後にこの元の順序で行うことで、並列化の
+  // 完了順に依存せず学習サンプルの並び（浮動小数点の加算順序）を決定的に保つ（NFR-3 再現性）。
+  const tickerCreations = axisValues.tickers.map((ticker) => {
     const probabilities: Partial<Record<'DIR' | 'VOL', ProbabilityRecord>> = {};
     if (dirBurnInOk) {
       probabilities.DIR = computeProbabilityRecord('DIR', dirSnapshot, ticker.axisValues);
@@ -510,6 +533,19 @@ export async function processMarketDate(
     if (volBurnInOk && ticker.normal.range !== undefined) {
       probabilities.VOL = computeProbabilityRecord('VOL', volSnapshot, ticker.axisValues);
     }
+    const sample: TickerSample = {
+      tickerId: ticker.tickerId,
+      exchangeId: ticker.exchangeId,
+      market: ticker.market,
+      date: ticker.date,
+      axisValues: ticker.axisValues,
+      normal: ticker.normal,
+      probabilities: toTickerSampleProbabilities(probabilities),
+    };
+    return { ticker, probabilities, sample };
+  });
+
+  const tickerCreateTasks = tickerCreations.map(({ ticker, probabilities }) => async () => {
     const created = await deps.forecastRepository.createIfAbsent({
       TickerID: ticker.tickerId,
       ExchangeID: ticker.exchangeId,
@@ -521,16 +557,22 @@ export async function processMarketDate(
       ModelVersion: FORECAST_MODEL_VERSION,
       Source: source,
     });
-    if (created.created) result.createdTickerForecasts++;
-    sampleAccess.onTickerForecastCreated({
-      tickerId: ticker.tickerId,
-      exchangeId: ticker.exchangeId,
-      market: ticker.market,
-      date: ticker.date,
-      axisValues: ticker.axisValues,
-      normal: ticker.normal,
-      probabilities: toTickerSampleProbabilities(probabilities),
-    });
+    return created.created;
+  });
+  const { results: tickerCreateResults } = await runConcurrent(
+    tickerCreateTasks,
+    TICKER_WRITE_CONCURRENCY,
+    () => false
+  );
+  const failedTickerCreate = tickerCreateResults.find((r) => r.status === 'rejected');
+  if (failedTickerCreate && failedTickerCreate.status === 'rejected') {
+    throw failedTickerCreate.reason;
+  }
+  for (const r of tickerCreateResults) {
+    if (r.status === 'fulfilled' && r.value) result.createdTickerForecasts++;
+  }
+  for (const { sample } of tickerCreations) {
+    sampleAccess.onTickerForecastCreated(sample);
   }
 
   if (axisValues.market !== undefined) {
