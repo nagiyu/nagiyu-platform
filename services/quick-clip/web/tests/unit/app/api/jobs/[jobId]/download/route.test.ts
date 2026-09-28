@@ -54,7 +54,7 @@ describe('GET /api/jobs/[jobId]/download', () => {
     jest.clearAllMocks();
     mockedGetS3Client.mockReturnValue({
       send: s3Send,
-    } as ReturnType<typeof getS3Client>);
+    } as unknown as ReturnType<typeof getS3Client>);
     mockGetSignedUrl.mockResolvedValue('https://example.com/clips.zip?signed=1');
   });
 
@@ -111,10 +111,10 @@ describe('POST /api/jobs/[jobId]/download', () => {
     jest.clearAllMocks();
     mockedGetLambdaClient.mockReturnValue({
       send: lambdaSend,
-    } as ReturnType<typeof getLambdaClient>);
+    } as unknown as ReturnType<typeof getLambdaClient>);
     mockedGetS3Client.mockReturnValue({
       send: s3Send,
-    } as ReturnType<typeof getS3Client>);
+    } as unknown as ReturnType<typeof getS3Client>);
     s3Send.mockResolvedValue({});
     lambdaSend.mockResolvedValue({ StatusCode: 202 });
   });
