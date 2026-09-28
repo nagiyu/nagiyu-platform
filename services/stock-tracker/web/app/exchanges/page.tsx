@@ -31,7 +31,9 @@ import {
   ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import type { PriceSource } from '@nagiyu/stock-tracker-core';
+// core パッケージから型のみを取り込む（値のimportにするとクライアントバンドルに
+// @nagiyu/aws 経由の node:crypto 依存が引き込まれ、webpack のクライアントビルドが失敗するため）
+import type { PriceSource, ExchangeMarket } from '@nagiyu/stock-tracker-core';
 
 // API レスポンス型定義
 interface Exchange {
@@ -44,6 +46,7 @@ interface Exchange {
     end: string;
   };
   priceSource: PriceSource;
+  market?: ExchangeMarket;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -57,6 +60,8 @@ interface ExchangeFormData {
   start: string;
   end: string;
   priceSource: PriceSource;
+  // 空文字は「未設定」を表す（市場は省略可能でデフォルト値を持たない）
+  market: ExchangeMarket | '';
 }
 
 // エラーメッセージ定数
@@ -82,6 +87,19 @@ const PRICE_SOURCE_OPTIONS = [
   { value: 'tradingview', label: 'TradingView' },
   { value: 'finnhub', label: 'Finnhub' },
 ] as const;
+
+// 市場選択オプション（core の EXCHANGE_MARKET_LABELS と表示名を合わせる。
+// 「未設定」は Select の placeholder で表現するためオプションには含めない）
+const MARKET_OPTIONS: ReadonlyArray<{ value: ExchangeMarket; label: string }> = [
+  { value: 'JP', label: '日本' },
+  { value: 'US', label: '米国' },
+];
+
+// exchange.market（コード）から表示名を引くためのマップ（一覧テーブル表示用）
+const MARKET_LABELS: Record<ExchangeMarket, string> = {
+  JP: '日本',
+  US: '米国',
+};
 
 // タイムゾーンオプション（主要な取引所のタイムゾーン）
 const TIMEZONE_OPTIONS = [
@@ -140,6 +158,7 @@ export default function ExchangesPage() {
     start: '',
     end: '',
     priceSource: 'tradingview',
+    market: '',
   });
 
   // 時間選択用の状態（start）
@@ -203,6 +222,7 @@ export default function ExchangesPage() {
       start: '',
       end: '',
       priceSource: 'tradingview',
+      market: '',
     });
     setStartHour('09');
     setStartMinute('30');
@@ -224,6 +244,7 @@ export default function ExchangesPage() {
       start: exchange.tradingHours.start,
       end: exchange.tradingHours.end,
       priceSource: exchange.priceSource ?? 'tradingview',
+      market: exchange.market ?? '',
     });
     setStartHour(startTime.hour);
     setStartMinute(startTime.minute);
@@ -275,6 +296,8 @@ export default function ExchangesPage() {
             end: formatTime(endHour, endMinute),
           },
           priceSource: formData.priceSource,
+          // 空文字（未設定）は送信しない。JSON.stringify は undefined のプロパティを除去する
+          market: formData.market || undefined,
         }),
       });
 
@@ -326,6 +349,8 @@ export default function ExchangesPage() {
             end: formatTime(endHour, endMinute),
           },
           priceSource: formData.priceSource,
+          // 空文字（未設定）は null として送信し、既存の市場設定を明示的にクリアする
+          market: formData.market === '' ? null : formData.market,
         }),
       });
 
@@ -452,6 +477,7 @@ export default function ExchangesPage() {
                 <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>タイムゾーン</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>取引時間</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>データソース</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>市場</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">
                   操作
                 </TableCell>
@@ -460,7 +486,7 @@ export default function ExchangesPage() {
             <TableBody>
               {exchanges.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 5 }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 5 }}>
                     <Typography variant="body1" color="text.secondary">
                       取引所が登録されていません
                     </Typography>
@@ -489,6 +515,11 @@ export default function ExchangesPage() {
                     <TableCell>
                       <Typography variant="body2">
                         {exchange.priceSource ?? 'tradingview'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {exchange.market ? MARKET_LABELS[exchange.market] : '未設定'}
                       </Typography>
                     </TableCell>
                     <TableCell align="center">
@@ -611,6 +642,27 @@ export default function ExchangesPage() {
               />
               <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ Finnhub は米国株（NASDAQ/NYSE/AMEX）のみ対応。東証など他市場は TradingView を選択
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                市場
+              </Typography>
+              <Select
+                fullWidth
+                id="exchange-market-create"
+                disabled={submitting}
+                value={formData.market}
+                onChange={(value) =>
+                  setFormData((prev) => ({ ...prev, market: value as ExchangeMarket | '' }))
+                }
+                placeholder="未設定"
+                options={MARKET_OPTIONS}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                ※
+                確度算出の単位となる市場（省略可）。同じ営業日カレンダー・引け時刻の取引所のまとまり
               </Typography>
             </Box>
 
@@ -765,6 +817,27 @@ export default function ExchangesPage() {
               />
               <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ Finnhub は米国株（NASDAQ/NYSE/AMEX）のみ対応。東証など他市場は TradingView を選択
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                市場
+              </Typography>
+              <Select
+                fullWidth
+                id="exchange-market-edit"
+                disabled={submitting}
+                value={formData.market}
+                onChange={(value) =>
+                  setFormData((prev) => ({ ...prev, market: value as ExchangeMarket | '' }))
+                }
+                placeholder="未設定"
+                options={MARKET_OPTIONS}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                ※
+                確度算出の単位となる市場（省略可）。同じ営業日カレンダー・引け時刻の取引所のまとまり
               </Typography>
             </Box>
 

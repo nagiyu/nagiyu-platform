@@ -78,8 +78,10 @@ export type {
   CreateExchangeInput,
   UpdateExchangeInput,
   PriceSource,
+  ExchangeMarket,
 } from './entities/exchange.entity.js';
 export { PRICE_SOURCES, DEFAULT_PRICE_SOURCE } from './entities/exchange.entity.js';
+export { EXCHANGE_MARKETS, EXCHANGE_MARKET_LABELS } from './entities/exchange.entity.js';
 export type {
   DailySummaryEntity,
   CreateDailySummaryInput,

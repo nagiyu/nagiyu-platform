@@ -8,8 +8,12 @@ import type { DynamoDBItem } from '@nagiyu/aws';
 import { validateStringField, validateTimestampField } from '@nagiyu/aws';
 import type { EntityMapper } from '@nagiyu/aws';
 import type { ExchangeEntity, ExchangeKey } from '../entities/exchange.entity.js';
-import { PRICE_SOURCES, DEFAULT_PRICE_SOURCE } from '../entities/exchange.entity.js';
-import type { PriceSource } from '../entities/exchange.entity.js';
+import {
+  PRICE_SOURCES,
+  DEFAULT_PRICE_SOURCE,
+  EXCHANGE_MARKETS,
+} from '../entities/exchange.entity.js';
+import type { PriceSource, ExchangeMarket } from '../entities/exchange.entity.js';
 
 /**
  * Exchange Mapper
@@ -41,6 +45,7 @@ export class ExchangeMapper implements EntityMapper<ExchangeEntity, ExchangeKey>
       Start: entity.Start,
       End: entity.End,
       PriceSource: entity.PriceSource,
+      ...(entity.Market !== undefined ? { Market: entity.Market } : {}),
       CreatedAt: entity.CreatedAt,
       UpdatedAt: entity.UpdatedAt,
     };
@@ -61,6 +66,7 @@ export class ExchangeMapper implements EntityMapper<ExchangeEntity, ExchangeKey>
       Start: validateStringField(item.Start, 'Start'),
       End: validateStringField(item.End, 'End'),
       PriceSource: this.resolvePriceSource(item.PriceSource),
+      Market: this.resolveMarket(item.Market),
       CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
       UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
     };
@@ -79,6 +85,22 @@ export class ExchangeMapper implements EntityMapper<ExchangeEntity, ExchangeKey>
       return value as PriceSource;
     }
     return DEFAULT_PRICE_SOURCE;
+  }
+
+  /**
+   * DynamoDB Item から Market を解決する
+   *
+   * Market はデフォルト値を持たない（design.md §1.1）。属性が存在しない場合や無効な値の
+   * 場合は undefined（未設定）を返す。
+   *
+   * @param value - DynamoDB から取得した生の値
+   * @returns 有効な Market、または未設定を表す undefined
+   */
+  private resolveMarket(value: unknown): ExchangeMarket | undefined {
+    if (typeof value === 'string' && (EXCHANGE_MARKETS as readonly string[]).includes(value)) {
+      return value as ExchangeMarket;
+    }
+    return undefined;
   }
 
   /**

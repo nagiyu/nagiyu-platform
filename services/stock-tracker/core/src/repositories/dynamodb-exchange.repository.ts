@@ -67,6 +67,7 @@ export class DynamoDBExchangeRepository
       Start: entity.Start,
       End: entity.End,
       PriceSource: entity.PriceSource,
+      ...(entity.Market !== undefined ? { Market: entity.Market } : {}),
     };
   }
 
@@ -123,8 +124,9 @@ export class DynamoDBExchangeRepository
       const { pk, sk } = this.mapper.buildKeys({ exchangeId });
       const now = Date.now();
 
-      // 更新式を動的に構築
+      // 更新式を動的に構築（SET句とREMOVE句を分けて組み立てる）
       const updateExpressions: string[] = [];
+      const removeExpressions: string[] = [];
       const expressionAttributeNames: Record<string, string> = {};
       const expressionAttributeValues: Record<string, unknown> = {};
 
@@ -153,17 +155,32 @@ export class DynamoDBExchangeRepository
         expressionAttributeNames['#priceSource'] = 'PriceSource';
         expressionAttributeValues[':priceSource'] = updates.PriceSource;
       }
+      // Market は undefined（更新しない）・null（未設定に戻す＝REMOVE）・値（SET）の3値を区別する
+      if (updates.Market !== undefined) {
+        expressionAttributeNames['#market'] = 'Market';
+        if (updates.Market === null) {
+          removeExpressions.push('#market');
+        } else {
+          updateExpressions.push('#market = :market');
+          expressionAttributeValues[':market'] = updates.Market;
+        }
+      }
 
       // UpdatedAt を常に更新
       updateExpressions.push('#updatedAt = :updatedAt');
       expressionAttributeNames['#updatedAt'] = 'UpdatedAt';
       expressionAttributeValues[':updatedAt'] = now;
 
+      const updateExpressionParts = [`SET ${updateExpressions.join(', ')}`];
+      if (removeExpressions.length > 0) {
+        updateExpressionParts.push(`REMOVE ${removeExpressions.join(', ')}`);
+      }
+
       const result = await this.docClient.send(
         new UpdateCommand({
           TableName: this.config.tableName,
           Key: { PK: pk, SK: sk },
-          UpdateExpression: `SET ${updateExpressions.join(', ')}`,
+          UpdateExpression: updateExpressionParts.join(' '),
           ExpressionAttributeNames: expressionAttributeNames,
           ExpressionAttributeValues: expressionAttributeValues,
           ConditionExpression: 'attribute_exists(PK)',

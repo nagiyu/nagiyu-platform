@@ -116,6 +116,7 @@ test.describe('取引所管理画面 (E2E-006)', () => {
       await expect(page.locator('th:has-text("APIキー")')).toBeVisible();
       await expect(page.locator('th:has-text("タイムゾーン")')).toBeVisible();
       await expect(page.locator('th:has-text("取引時間")')).toBeVisible();
+      await expect(page.locator('th:has-text("市場")')).toBeVisible();
       await expect(page.locator('th:has-text("操作")')).toBeVisible();
     });
 
@@ -176,6 +177,36 @@ test.describe('取引所管理画面 (E2E-006)', () => {
       const createdRow = page.locator(`tr:has-text("${testId}")`);
       await expect(createdRow).toBeVisible();
       await expect(createdRow.locator('td:has-text("Test Exchange")')).toBeVisible();
+      // 市場を指定しなかった場合は「未設定」と表示される
+      await expect(createdRow.locator('td:has-text("未設定")')).toBeVisible();
+    });
+
+    test('市場を指定して取引所を新規作成できる', async ({ page }) => {
+      const testId = 'E2E-EXCR-03';
+      const testKey = 'E2EEXCR3';
+
+      const modal = await openCreateDialog(page);
+
+      await page.locator('input[placeholder="NASDAQ"]').fill(testId);
+      await page.locator('input[placeholder="NASDAQ Stock Market"]').fill('Test Exchange Market');
+      await page.locator('input[placeholder="NSDQ"]').fill(testKey);
+
+      await modal.locator('#exchange-timezone').selectOption('Asia/Tokyo');
+      await modal.locator('#exchange-market-create').selectOption('JP');
+      await modal.locator('#exchange-start-hour').selectOption('09');
+      await modal.locator('#exchange-start-minute').selectOption('00');
+      await modal.locator('#exchange-end-hour').selectOption('15');
+      await modal.locator('#exchange-end-minute').selectOption('30');
+
+      await page.locator('button:has-text("保存")').click();
+
+      await expect(modal).not.toBeVisible({ timeout: 10000 });
+      await expect(page.locator('text=取引所を作成しました')).toBeVisible({ timeout: 3000 });
+
+      const createdRow = page.locator(`tr:has-text("${testId}")`);
+      await expect(createdRow).toBeVisible();
+      // 市場コードは表示名（日本）に変換されて表示される
+      await expect(createdRow.locator('td:has-text("日本")')).toBeVisible();
     });
 
     test('登録モーダルのテキスト入力でエンターキーを押すと取引所が登録される', async ({ page }) => {
@@ -236,6 +267,53 @@ test.describe('取引所管理画面 (E2E-006)', () => {
       await expect(page.locator('text=取引所を更新しました')).toBeVisible({ timeout: 3000 });
 
       await expect(page.locator(`td:has-text("${updatedName}")`)).toBeVisible();
+    });
+
+    test('未設定の市場をUSに更新できる', async ({ page }) => {
+      const targetRow = page.locator(`tr:has-text("${EXCHANGE_ID}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
+      // 前提の取引所は市場を指定していないため「未設定」から始まる
+      await expect(targetRow.locator('td:has-text("未設定")')).toBeVisible();
+
+      await targetRow.locator('button:has-text("編集")').click();
+
+      const modal = page.getByRole('dialog', { name: '取引所編集' });
+      await expect(modal).toBeVisible();
+
+      await modal.locator('#exchange-market-edit').selectOption('US');
+      await page.locator('button:has-text("保存")').click();
+
+      await expect(modal).not.toBeVisible({ timeout: 10000 });
+      await expect(page.locator('text=取引所を更新しました')).toBeVisible({ timeout: 3000 });
+
+      await expect(targetRow.locator('td:has-text("米国")')).toBeVisible();
+    });
+
+    test('設定済みの市場を未設定に戻せる', async ({ page, request }) => {
+      // 市場を JP に設定済みの状態から始める
+      await resetState(request, { exchanges: [{ ...baseExchangeEntity(), Market: 'JP' }] });
+      await page.goto('/exchanges');
+      await page.waitForLoadState('networkidle');
+
+      const targetRow = page.locator(`tr:has-text("${EXCHANGE_ID}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
+      await expect(targetRow.locator('td:has-text("日本")')).toBeVisible();
+
+      await targetRow.locator('button:has-text("編集")').click();
+
+      const modal = page.getByRole('dialog', { name: '取引所編集' });
+      await expect(modal).toBeVisible();
+
+      // 編集モーダルを開いた時点で現在の市場（JP）が選択されていることを確認する
+      await expect(modal.locator('#exchange-market-edit')).toHaveValue('JP');
+
+      await modal.locator('#exchange-market-edit').selectOption('');
+      await page.locator('button:has-text("保存")').click();
+
+      await expect(modal).not.toBeVisible({ timeout: 10000 });
+      await expect(page.locator('text=取引所を更新しました')).toBeVisible({ timeout: 3000 });
+
+      await expect(targetRow.locator('td:has-text("未設定")')).toBeVisible();
     });
   });
 
