@@ -84,7 +84,10 @@ export function getReportsBucketName(accountScope: AccountScope): string {
  *   （quick-clip の clip-regenerate / zip-generator 等）は、手動で実行する場面がないため含めない。
  * - 外部送信（Web Push 等）を伴う関数（livetalk-batch-notify 等）と、一回きりの移行用
  *   （livetalk-batch-migrate）は含めない。
- * - prod アカウントへ届く dev-sync Lambda（prod テーブルへの AssumeRole 経路を持つ）は含めない。
+ * - dev-sync（prod テーブルを読んで dev テーブルへ書く）は、dev に過去データを埋め直す場面があるため含める。
+ *   読める prod テーブルはマニフェストの複製元に限られ、いずれも Claude の prod 閲覧ロールで元から読めるため、
+ *   実行を許しても閲覧できる範囲は広がらない。書き込みもマニフェストの `-dev` テーブルに限られる。
+ *   コードの差し替えは引き続き許さない（任意のコードを載せると prod テーブルを直接読めてしまうため）。
  * - OpenAI 等の有料 API を使う関数でも、改修の対象になるシステムの中核のバッチ
  *   （livetalk-batch-acquire / consolidate、stock-tracker-batch-summary）は検証のために含める。
  */
@@ -97,6 +100,7 @@ export const CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV = [
   'nagiyu-livetalk-batch-learn-user-activity-dev',
   'nagiyu-livetalk-batch-acquire-dev',
   'nagiyu-livetalk-batch-consolidate-dev',
+  'nagiyu-dev-sync-dev',
 ] as const;
 
 /**
