@@ -1,5 +1,5 @@
 /**
- * Stock Tracker Core - 寄与の分解（design.md §1.4「寄与の分解」、参照実装 decision2.py 検証4）
+ * Stock Tracker Core - 寄与の分解
  */
 import { sigmoid } from './stats.js';
 import type { AxisId } from './types.js';
@@ -14,7 +14,7 @@ export interface ContributionAxisInput {
 
 /**
  * 基準値の logit から、|w_i * z_i| の大きい順に 1 軸ずつ足していき、そのたびの確率の増分を
- * その軸の寄与とする。合計は必ず「確率 − 基準値」に一致する（design.md §1.4）。
+ * その軸の寄与とする。合計は必ず「確率 − 基準値」に一致する。
  */
 export function computeSequentialContributions(
   offsetLogit: number,

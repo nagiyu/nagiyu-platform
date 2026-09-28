@@ -1,7 +1,6 @@
 /**
  * Stock Tracker Core - Forecast (確度) 型定義
  *
- * design.md §2.3 の論理モデル（ProbabilityRecord / ModelSnapshotItem 等）に対応する。
  * DB のキー設計（PK/SK/GSI）は含まない純粋なビジネスオブジェクトのみを持つ（entities/ と同じ方針）。
  */
 import type { PatternResults } from '../types.js';
@@ -15,13 +14,13 @@ export type AxisKind = 'FLAG' | 'NUMERIC';
 /** 軸 ID（パターン軸は patternId そのもの。複合・大きさ・市場レベル軸は固定 ID） */
 export type AxisId = string;
 
-/** 判断軸の定義（design.md §1.2・§1.3。DB には持たずコードで持つ） */
+/** 判断軸の定義（DB には持たずコードで持つ） */
 export interface AxisDefinition {
   axisId: AxisId;
   /** 日本語名 */
   name: string;
   kind: AxisKind;
-  /** この軸を使う問い（design.md §1.3 の対応を固定） */
+  /** この軸を使う問い */
   questions: readonly Question[];
 }
 
@@ -47,7 +46,7 @@ export interface BandHistoryEntry {
 /** 中立帯との比較結果 */
 export type Lean = 'UP' | 'DOWN' | 'HIGH' | 'NEUTRAL';
 
-/** 問いごとの確度（予測時点の値。一度書いたら書き換えない。design.md §2.3） */
+/** 問いごとの確度（予測時点の値。一度書いたら書き換えない） */
 export interface ProbabilityRecord {
   probability: number;
   baseline: number;
@@ -63,7 +62,7 @@ export interface ProbabilityRecord {
 /**
  * 軸ごとの成績（ModelSnapshot.AxisStats）。
  *
- * `diffFromBaseline` は「点灯時の的中率 − 学習サンプル全体の的中率」（design.md §1.4・点12）。
+ * `diffFromBaseline` は「点灯時の的中率 − 学習サンプル全体の的中率」。
  * 60 営業日窓の「基準値」（baseline.ts）とは別の量で、あくまで学習に使った全サンプルとの比較。
  */
 export interface AxisStatsEntry {
@@ -79,7 +78,7 @@ export interface AxisStatsEntry {
   lowSample: boolean;
 }
 
-/** その日の算出に使った重み・基準値・中立帯・成績のスナップショット（design.md §2.3） */
+/** その日の算出に使った重み・基準値・中立帯・成績のスナップショット */
 export interface ModelSnapshotItem {
   question: Question;
   /** 算出した市場（タイミング）。モデル自体は JP/US 共通 */
@@ -97,15 +96,15 @@ export interface ModelSnapshotItem {
   /** 学習に使ったサンプル数（行数） */
   trainingSize: number;
   /**
-   * 学習サンプルの異なる日付の数（design.md §1.6 のバーンイン判定に使う実装拡張フィールド。
-   * design.md の型スケッチには無いが、スナップショット単体からバーンイン可否を判定できるように持つ）。
+   * 学習サンプルの異なる日付の数。スナップショット単体からバーンイン可否を判定できるように、
+   * バーンイン判定用にここへ持たせている。
    */
   distinctTrainingDates: number;
   createdAt: number;
 }
 
 /**
- * 銘柄×日の軸の値（`computeAxisValuesForDate` の戻り値。design.md §1「D の足と直近の履歴 → 軸の値」）。
+ * 銘柄×日の軸の値（`computeAxisValuesForDate` の戻り値）。
  * まだ実績・確率は含まない（Outcome は翌営業日の到着後、Probabilities はスナップショット計算後に決まる）。
  */
 export interface TickerAxisValues {
@@ -141,17 +140,17 @@ export interface ComputeForDateResult {
   date: string;
   market: Market;
   tickers: TickerForecastResult[];
-  /** その市場・日の観測が 1 件も無ければ undefined（design.md §1「D の足が無いときは空」） */
+  /** その市場・日の観測が 1 件も無ければ undefined */
   marketForecast: MarketForecastResult | undefined;
   modelSnapshots: Partial<Record<Question, ModelSnapshotItem>>;
-  /** 未対応の ExchangeID を持つバー（NFR-2。処理は継続しつつ、この一覧で呼び出し側がログできる） */
+  /** 未対応の ExchangeID を持つバー（処理は継続しつつ、この一覧で呼び出し側がログできる） */
   skippedExchangeIds: string[];
 }
 
 /**
  * computeAxisValuesForDate / computeOutcomes への入力の 1 行（DailySummary 相当）。
  *
- * PK/SK 等 DynamoDB の実装詳細は含まない。CreatedAt は #3830 の過去データ除外でのみ使う。
+ * PK/SK 等 DynamoDB の実装詳細は含まない。CreatedAt は初期値算出の過去データ除外でのみ使う。
  */
 export interface DailyBarInput {
   tickerId: string;
@@ -164,7 +163,7 @@ export interface DailyBarInput {
   close: number;
   volume?: number;
   patternResults?: PatternResults;
-  /** 作成日時 (Unix timestamp ms)。#3830 の除外2（途中足）でのみ使う */
+  /** 作成日時 (Unix timestamp ms)。初期値算出の除外2（途中足）でのみ使う */
   createdAt: number;
 }
 
@@ -180,12 +179,12 @@ export interface TickerOutcome {
   nextReturn: number;
   /**
    * 超過リターン（同日・同市場の有効銘柄平均との差）。
-   * 極端リターンで除外された行は、参照実装で ret1 が NaN 扱いになり超過リターンも算出できないため省略する。
+   * 極端リターンで除外された行は Q-DIR の採点自体を行わないため、超過リターンも省略する。
    */
   excessReturn?: number;
   /**
-   * 翌営業日の値幅（(翌営業日高値 − 翌営業日安値) ÷ 基準日終値。design.md §1.1 の値幅の定義と揃える。
-   * 生の価格差ではなく比率）。除外時も参考値として持つ。
+   * 翌営業日の値幅（(翌営業日高値 − 翌営業日安値) ÷ 基準日終値。生の価格差ではなく比率）。
+   * 除外時も参考値として持つ。
    */
   nextRange: number;
   /** 翌日値幅 ÷ 平常。平常が算出できない、または極端リターンで除外されたときは省略 */
@@ -215,7 +214,7 @@ export interface ComputeOutcomesResult {
 }
 
 /**
- * 銘柄×日のサンプル（design.md §3.1「保存済み Forecast」相当）。
+ * 銘柄×日のサンプル（保存済み Forecast アイテムに対応）。
  *
  * 学習・基準値・中立帯・確率帯の実績・AxisStats は、生の DailySummary からではなく、
  * この形（= 実際に DynamoDB へ保存される Forecast アイテムの写し）から計算する。
@@ -241,7 +240,7 @@ export interface TickerSample {
   probabilities?: Partial<Record<'DIR' | 'VOL', { probability: number; baseline: number }>>;
 }
 
-/** 市場×日のサンプル（design.md §3.1「保存済み MarketForecast」相当） */
+/** 市場×日のサンプル（保存済み MarketForecast アイテムに対応） */
 export interface MarketSample {
   market: Market;
   date: string;
@@ -254,7 +253,7 @@ export interface MarketSample {
 }
 
 /**
- * 保存済みサンプルの履歴（design.md §3.1）。学習・基準値・中立帯・AxisStats の入力。
+ * 保存済みサンプルの履歴。学習・基準値・中立帯・AxisStats の入力。
  * DailyBarInput（生の DailySummary）は含まない。
  */
 export interface SampleHistory {

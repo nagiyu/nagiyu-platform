@@ -2,7 +2,7 @@
  * Stock Tracker Core - Forecast 統計ユーティリティ
  *
  * L2 正則化ロジスティック回帰（IRLS/ニュートン法）、logit/sigmoid、両側二項検定、Holm 補正。
- * 乱数は使わない（NFR-3）。参照実装 analysis/wf.py の LR クラス・decision2.py の二項検定と同じ定義。
+ * 乱数は使わない（結果の再現性を保証するため）。
  */
 import {
   FORECAST_ERROR_MESSAGES,
@@ -85,7 +85,7 @@ export interface LogisticRegressionInput {
   y: readonly number[];
   /** オフセット（基準値の logit）。サンプルごとに与える */
   offset: readonly number[];
-  /** L2 正則化係数（全軸共通。design.md §1.4） */
+  /** L2 正則化係数（全軸共通） */
   alpha: number;
 }
 
@@ -94,7 +94,7 @@ export interface LogisticRegressionInput {
  *
  * 損失 = Σ[-y log(sigmoid(offset+Xβ)) - (1-y) log(1-sigmoid(offset+Xβ))] + (alpha/2)‖β‖²
  * 初期値 0、最大 IRLS_MAX_ITERATIONS 回、max|step| < IRLS_STEP_TOLERANCE で終了。
- * 乱数は使わない（NFR-3・design.md §1.4 参照実装 wf.py LR クラスの fit_intercept=False 相当）。
+ * 切片は持たず、基準値の logit をオフセットとして扱う。乱数は使わない（結果の再現性を保証するため）。
  */
 export function fitLogisticRegression(input: LogisticRegressionInput): number[] {
   const { design, y, offset, alpha } = input;
@@ -164,7 +164,7 @@ export function fitLogisticRegression(input: LogisticRegressionInput): number[] 
 }
 
 /**
- * 標本平均・母標準偏差（ddof=0）を返す。0 なら 1 に丸める（design.md §1.4）。
+ * 標本平均・母標準偏差（ddof=0）を返す。標準偏差が 0 なら、標準化でのゼロ除算を避けるため 1 に丸める。
  */
 export function meanAndPopulationStd(values: readonly number[]): { mean: number; std: number } {
   const n = values.length;
