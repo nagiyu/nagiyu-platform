@@ -164,5 +164,50 @@ export function defineExchangeRepositoryContract(
         expect.objectContaining({ name: 'EntityNotFoundError' })
       );
     });
+
+    it('Market を指定せずに作成すると未設定のまま取得できる', async () => {
+      const created = await repository.create(buildExchangeInput());
+
+      expect(created.Market).toBeUndefined();
+
+      const fetched = await repository.getById(created.ExchangeID);
+      expect(fetched?.Market).toBeUndefined();
+    });
+
+    it('Market を指定して作成・取得できる', async () => {
+      const created = await repository.create(buildExchangeInput({ Market: 'JP' }));
+
+      expect(created.Market).toBe('JP');
+
+      const fetched = await repository.getById(created.ExchangeID);
+      expect(fetched?.Market).toBe('JP');
+    });
+
+    it('未設定のMarketをupdateで設定できる', async () => {
+      const created = await repository.create(buildExchangeInput());
+
+      const updated = await repository.update(created.ExchangeID, { Market: 'US' });
+
+      expect(updated.Market).toBe('US');
+    });
+
+    it('Marketをnullでupdateすると未設定に戻る（DynamoDBの属性削除相当）', async () => {
+      const created = await repository.create(buildExchangeInput({ Market: 'JP' }));
+
+      const updated = await repository.update(created.ExchangeID, { Market: null });
+
+      expect(updated.Market).toBeUndefined();
+
+      const fetched = await repository.getById(created.ExchangeID);
+      expect(fetched?.Market).toBeUndefined();
+    });
+
+    it('Marketを指定しないupdateでは既存の値が保持される', async () => {
+      const created = await repository.create(buildExchangeInput({ Market: 'JP' }));
+
+      const updated = await repository.update(created.ExchangeID, { Name: 'NASDAQ改称' });
+
+      expect(updated.Market).toBe('JP');
+    });
   });
 }

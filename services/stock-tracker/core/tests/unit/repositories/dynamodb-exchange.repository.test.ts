@@ -347,6 +347,106 @@ describe('DynamoDBExchangeRepository', () => {
         EntityNotFoundError
       );
     });
+
+    it('Market を指定して更新するとSET句に含まれる', async () => {
+      const mockUpdatedItem = {
+        PK: 'EXCHANGE#NASDAQ',
+        SK: 'METADATA',
+        Type: 'Exchange',
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ',
+        Key: 'NASDAQ',
+        Timezone: 'America/New_York',
+        Start: '09:30',
+        End: '16:00',
+        Market: 'US',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067300000,
+      };
+
+      mockDocClient.send.mockResolvedValueOnce({
+        Attributes: mockUpdatedItem,
+      });
+
+      const result = await repository.update('NASDAQ', { Market: 'US' });
+
+      expect(result.Market).toBe('US');
+      const sentCommand = mockDocClient.send.mock.calls[0]?.[0] as {
+        input: {
+          UpdateExpression: string;
+          ExpressionAttributeNames: Record<string, string>;
+          ExpressionAttributeValues: Record<string, unknown>;
+        };
+      };
+      expect(sentCommand.input.UpdateExpression).toContain('SET');
+      expect(sentCommand.input.UpdateExpression).toContain('#market = :market');
+      expect(sentCommand.input.UpdateExpression).not.toContain('REMOVE');
+      expect(sentCommand.input.ExpressionAttributeNames['#market']).toBe('Market');
+      expect(sentCommand.input.ExpressionAttributeValues[':market']).toBe('US');
+    });
+
+    it('Market を null で更新するとREMOVE句が発行される', async () => {
+      const mockUpdatedItem = {
+        PK: 'EXCHANGE#NASDAQ',
+        SK: 'METADATA',
+        Type: 'Exchange',
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ',
+        Key: 'NASDAQ',
+        Timezone: 'America/New_York',
+        Start: '09:30',
+        End: '16:00',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067300000,
+        // Market はREMOVEされたため存在しない
+      };
+
+      mockDocClient.send.mockResolvedValueOnce({
+        Attributes: mockUpdatedItem,
+      });
+
+      const result = await repository.update('NASDAQ', { Market: null });
+
+      expect(result.Market).toBeUndefined();
+      const sentCommand = mockDocClient.send.mock.calls[0]?.[0] as {
+        input: {
+          UpdateExpression: string;
+          ExpressionAttributeNames: Record<string, string>;
+          ExpressionAttributeValues: Record<string, unknown>;
+        };
+      };
+      expect(sentCommand.input.UpdateExpression).toContain('REMOVE #market');
+      expect(sentCommand.input.ExpressionAttributeNames['#market']).toBe('Market');
+      expect(sentCommand.input.ExpressionAttributeValues[':market']).toBeUndefined();
+    });
+
+    it('Market を指定しない更新ではSET句にもREMOVE句にも含まれない', async () => {
+      const mockUpdatedItem = {
+        PK: 'EXCHANGE#NASDAQ',
+        SK: 'METADATA',
+        Type: 'Exchange',
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ (Updated)',
+        Key: 'NASDAQ',
+        Timezone: 'America/New_York',
+        Start: '09:30',
+        End: '16:00',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067300000,
+      };
+
+      mockDocClient.send.mockResolvedValueOnce({
+        Attributes: mockUpdatedItem,
+      });
+
+      await repository.update('NASDAQ', { Name: 'NASDAQ (Updated)' });
+
+      const sentCommand = mockDocClient.send.mock.calls[0]?.[0] as {
+        input: { UpdateExpression: string; ExpressionAttributeNames: Record<string, string> };
+      };
+      expect(sentCommand.input.UpdateExpression).not.toContain('REMOVE');
+      expect(sentCommand.input.ExpressionAttributeNames['#market']).toBeUndefined();
+    });
   });
 
   describe('delete', () => {

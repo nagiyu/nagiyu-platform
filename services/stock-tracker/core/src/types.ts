@@ -19,6 +19,7 @@ import type { PushSubscription } from '@nagiyu/common';
  * - Start: HH:MM形式（例: 04:00）、時間外取引込みの開始時刻
  * - End: HH:MM形式（例: 20:00）、時間外取引込みの終了時刻
  * - PriceSource: 'tradingview' または 'finnhub'（省略時は 'tradingview'）
+ * - Market: 'JP' または 'US'（省略可能。デフォルト値はなく、未設定の取引所は確度算出の対象外）
  * - CreatedAt: Unix timestamp、作成後変更不可
  * - UpdatedAt: Unix timestamp、更新時に自動更新
  *
@@ -45,6 +46,13 @@ export type Exchange = {
    * - finnhub: Finnhub API（米国株専用: NASDAQ/NYSE/AMEX）
    */
   PriceSource?: 'tradingview' | 'finnhub';
+  /**
+   * 市場（省略可能。デフォルト値はなく、未設定の場合は確度算出の対象外）
+   *
+   * - JP: 日本
+   * - US: 米国
+   */
+  Market?: 'JP' | 'US';
   /** 作成日時 (Unix timestamp) - 変更不可 */
   CreatedAt: number;
   /** 更新日時 (Unix timestamp) - 自動更新 */

@@ -130,12 +130,24 @@ export class InMemoryExchangeRepository implements ExchangeRepository {
     const existingEntity = this.mapper.toEntity(existingItem);
     const now = Date.now();
 
+    // Market は undefined（更新しない）・null（未設定に戻す）・値（設定）の3値を区別するため、
+    // スプレッドとは別に扱う（DynamoDB実装のSET/REMOVEと同じ意味論）
+    const { Market, ...restUpdates } = updates;
+
     // 更新を適用
     const updatedEntity: ExchangeEntity = {
       ...existingEntity,
-      ...updates,
+      ...restUpdates,
       UpdatedAt: now,
     };
+
+    if (Market !== undefined) {
+      if (Market === null) {
+        delete updatedEntity.Market;
+      } else {
+        updatedEntity.Market = Market;
+      }
+    }
 
     const updatedItem = this.mapper.toItem(updatedEntity);
     this.store.put(updatedItem);

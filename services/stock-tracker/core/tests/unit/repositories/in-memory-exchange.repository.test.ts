@@ -578,6 +578,131 @@ describe('InMemoryExchangeRepository', () => {
     });
   });
 
+  describe('Market の create/update 反映', () => {
+    it('Market を指定せずに作成すると未設定になる', async () => {
+      const input: CreateExchangeInput = {
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ Stock Market',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '04:00',
+        End: '20:00',
+        PriceSource: 'tradingview',
+      };
+
+      const result = await repository.create(input);
+
+      expect(result.Market).toBeUndefined();
+    });
+
+    it('Market が JP で作成できる', async () => {
+      const input: CreateExchangeInput = {
+        ExchangeID: 'TSE',
+        Name: '東京証券取引所',
+        Key: 'TSE',
+        Timezone: 'Asia/Tokyo',
+        Start: '09:00',
+        End: '15:30',
+        PriceSource: 'tradingview',
+        Market: 'JP',
+      };
+
+      const result = await repository.create(input);
+
+      expect(result.Market).toBe('JP');
+    });
+
+    it('Market が US で作成できる', async () => {
+      const input: CreateExchangeInput = {
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ Stock Market',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '04:00',
+        End: '20:00',
+        PriceSource: 'finnhub',
+        Market: 'US',
+      };
+
+      const result = await repository.create(input);
+
+      expect(result.Market).toBe('US');
+    });
+
+    it('未設定の Market を後から設定できる', async () => {
+      const input: CreateExchangeInput = {
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ Stock Market',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '04:00',
+        End: '20:00',
+        PriceSource: 'tradingview',
+      };
+
+      await repository.create(input);
+      const updated = await repository.update('NASDAQ', { Market: 'US' });
+
+      expect(updated.Market).toBe('US');
+    });
+
+    it('Market を null で更新すると未設定に戻る', async () => {
+      const input: CreateExchangeInput = {
+        ExchangeID: 'TSE',
+        Name: '東京証券取引所',
+        Key: 'TSE',
+        Timezone: 'Asia/Tokyo',
+        Start: '09:00',
+        End: '15:30',
+        PriceSource: 'tradingview',
+        Market: 'JP',
+      };
+
+      await repository.create(input);
+      const updated = await repository.update('TSE', { Market: null });
+
+      expect(updated.Market).toBeUndefined();
+    });
+
+    it('Market を指定しない更新では既存の値が保持される', async () => {
+      const input: CreateExchangeInput = {
+        ExchangeID: 'TSE',
+        Name: '東京証券取引所',
+        Key: 'TSE',
+        Timezone: 'Asia/Tokyo',
+        Start: '09:00',
+        End: '15:30',
+        PriceSource: 'tradingview',
+        Market: 'JP',
+      };
+
+      await repository.create(input);
+      const updated = await repository.update('TSE', { Name: '東証' });
+
+      expect(updated.Market).toBe('JP');
+    });
+
+    it('Market 更新後も他のフィールドが保持される', async () => {
+      const input: CreateExchangeInput = {
+        ExchangeID: 'TSE',
+        Name: '東京証券取引所',
+        Key: 'TSE',
+        Timezone: 'Asia/Tokyo',
+        Start: '09:00',
+        End: '15:30',
+        PriceSource: 'tradingview',
+        Market: 'JP',
+      };
+
+      await repository.create(input);
+      const updated = await repository.update('TSE', { Market: null });
+
+      expect(updated.Market).toBeUndefined();
+      expect(updated.Name).toBe('東京証券取引所');
+      expect(updated.PriceSource).toBe('tradingview');
+    });
+  });
+
   describe('delete - error handling', () => {
     it('削除時に予期しないエラーが発生した場合は再スローする', async () => {
       const unexpectedError = new Error('Unexpected store error');
