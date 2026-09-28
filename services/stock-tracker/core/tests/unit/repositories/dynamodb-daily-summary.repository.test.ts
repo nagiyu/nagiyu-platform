@@ -468,6 +468,59 @@ describe('DynamoDBDailySummaryRepository', () => {
     });
   });
 
+  describe('getForecastFieldsByExchangeAndDateRange', () => {
+    it('GSI4 を BETWEEN クエリで利用し、ProjectionExpression で絞った射影を返す', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Items: [
+          {
+            TickerID: 'NSDQ:AAPL',
+            ExchangeID: 'NASDAQ',
+            Date: '2026-02-27',
+            Open: 182.15,
+            High: 183.92,
+            Low: 181.44,
+            Close: 183.31,
+            Volume: 1234567,
+            CreatedAt: 1708992000000,
+          },
+        ],
+      });
+
+      const result = await repository.getForecastFieldsByExchangeAndDateRange(
+        'NASDAQ',
+        '2026-02-20',
+        '2026-02-27'
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).not.toHaveProperty('UpdatedAt');
+      const command = mockDocClient.send.mock.calls[0][0] as QueryCommand;
+      expect(command).toBeInstanceOf(QueryCommand);
+      expect(command.input).toMatchObject({
+        TableName: TABLE_NAME,
+        IndexName: 'ExchangeSummaryIndex',
+        KeyConditionExpression: '#gsi4pk = :exchangeId AND #gsi4sk BETWEEN :from AND :to',
+        ProjectionExpression:
+          '#tickerId, #exchangeId, #date, #open, #high, #low, #close, #volume, ' +
+          '#patternResults, #buyPatternCount, #sellPatternCount, #createdAt',
+        ExpressionAttributeValues: {
+          ':exchangeId': 'NASDAQ',
+          ':from': 'DATE#2026-02-20',
+          ':to': 'DATE#2026-02-27#~',
+        },
+      });
+      expect(command.input.ExpressionAttributeNames).not.toHaveProperty('#updatedAt');
+    });
+
+    it('データベースエラー時にDatabaseErrorをスローする', async () => {
+      mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
+
+      await expect(
+        repository.getForecastFieldsByExchangeAndDateRange('NASDAQ', '2026-02-20', '2026-02-27')
+      ).rejects.toThrow(DatabaseError);
+    });
+  });
+
   describe('markAsEvaluated', () => {
     const fields: DailySummaryEvaluationFields = {
       EvaluationDate: '2026-02-28',

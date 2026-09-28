@@ -223,6 +223,47 @@ describe('DailySummaryMapper', () => {
     });
   });
 
+  describe('toForecastFields', () => {
+    it('OHLCV・パターン結果・CreatedAt だけを持つ射影に変換し、UpdatedAt を含まない', () => {
+      const item: DynamoDBItem = {
+        PK: 'SUMMARY#NSDQ:AAPL',
+        SK: 'DATE#2026-02-27',
+        Type: 'DailySummary',
+        GSI4PK: 'NASDAQ',
+        GSI4SK: 'DATE#2026-02-27#NSDQ:AAPL',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        Volume: 1234567,
+        BuyPatternCount: 3,
+        SellPatternCount: 1,
+        CreatedAt: 1708992000000,
+        // ProjectionExpression で絞った読み出しを模し、AI 解析結果・UpdatedAt を含めない
+      };
+
+      const fields = mapper.toForecastFields(item);
+
+      expect(fields).toEqual({
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        Volume: 1234567,
+        PatternResults: undefined,
+        BuyPatternCount: 3,
+        SellPatternCount: 1,
+        CreatedAt: 1708992000000,
+      });
+    });
+  });
+
   describe('変換の往復', () => {
     it('toItem と toEntity で往復変換できる', () => {
       const entity: DailySummaryEntity = {

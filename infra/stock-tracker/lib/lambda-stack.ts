@@ -22,13 +22,18 @@ export interface LambdaStackProps extends cdk.StackProps {
   openAiApiKey: string; // OpenAI API Key（デプロイ時に Secrets Manager から取得）
   finnhubApiKey: string; // Finnhub API Key（デプロイ時に Secrets Manager から取得）
   nextAuthSecret: string; // NextAuth Secret (Auth サービスから取得)
+  /**
+   * forecast バッチの通常モードで、この日付より前の DailySummary にだけ過去データ除外を
+   * 適用する境界日（YYYY-MM-DD）。未指定なら通常モードでは除外を適用しない。
+   */
+  forecastLegacyExclusionBefore?: string;
 }
 
 /**
  * Stock Tracker Lambda Stack
  *
- * Web Lambda 1関数と Batch Lambda 6関数（minute, hourly, summary, daily, temporary-alert-expiry,
- * evaluation）の合計7関数を作成します。
+ * Web Lambda 1関数と Batch Lambda 7関数（minute, hourly, summary, daily, temporary-alert-expiry,
+ * evaluation, forecast）の合計8関数を作成します。
  * また、マネージドポリシー（WebRuntimePolicy, BatchRuntimePolicy）を作成し、
  * Lambda 実行ロールに付与します。
  */
@@ -40,6 +45,7 @@ export class LambdaStack extends cdk.Stack {
   public readonly batchDailyFunction: lambda.Function;
   public readonly batchTemporaryAlertExpiryFunction: lambda.Function;
   public readonly batchEvaluationFunction: lambda.Function;
+  public readonly batchForecastFunction: lambda.Function;
   public readonly functionUrl: lambda.FunctionUrl;
   public readonly webRuntimePolicy: iam.IManagedPolicy;
   public readonly batchRuntimePolicy: iam.IManagedPolicy;
@@ -59,6 +65,7 @@ export class LambdaStack extends cdk.Stack {
       openAiApiKey,
       finnhubApiKey,
       nextAuthSecret,
+      forecastLegacyExclusionBefore,
     } = props;
 
     // ECR リポジトリの参照
@@ -231,6 +238,8 @@ export class LambdaStack extends cdk.Stack {
         BATCH_TYPE: 'SUMMARY',
         OPENAI_API_KEY: openAiApiKey,
         ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
+        // 毎時の起動を待たずに、サマリーができた直後に確度算出へ進められるようにするため
+        STOCK_TRACKER_FORECAST_BATCH_FUNCTION_NAME: `nagiyu-stock-tracker-batch-forecast-${environment}`,
       },
       tracing: lambda.Tracing.ACTIVE,
       logRetention: logs.RetentionDays.ONE_MONTH,
@@ -281,6 +290,36 @@ export class LambdaStack extends cdk.Stack {
       logRetention: logs.RetentionDays.ONE_MONTH,
     });
 
+    // Batch Lambda - Forecast（1時間間隔、確度算出。summary バッチからも非同期起動される）
+    // タイムアウトは、手動起動する初期値算出（リプレイ）が Lambda の上限 15 分に収まる想定で設定する。
+    this.batchForecastFunction = new lambda.Function(this, 'BatchForecastFunction', {
+      functionName: `nagiyu-stock-tracker-batch-forecast-${environment}`,
+      runtime: lambda.Runtime.FROM_IMAGE,
+      code: lambda.Code.fromEcrImage(batchRepository, {
+        tagOrDigest: 'latest',
+        cmd: ['services/stock-tracker/batch/dist/src/forecast.handler'],
+      }),
+      handler: lambda.Handler.FROM_IMAGE,
+      role: batchExecutionRole,
+      memorySize: 1024,
+      timeout: cdk.Duration.minutes(15),
+      // 通常モードは1回の実行につき処理する日数に上限を持つため多重実行を並列化する意味がなく、
+      // リプレイ（手動起動）も同時に複数走らせると同じ市場・日付の書き込みが重複するだけなので、
+      // 同時実行数を1に抑える。
+      reservedConcurrentExecutions: 1,
+      environment: {
+        NODE_ENV: environment,
+        DYNAMODB_TABLE_NAME: dynamoTable.tableName,
+        BATCH_TYPE: 'FORECAST',
+        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
+        ...(forecastLegacyExclusionBefore !== undefined
+          ? { STOCK_TRACKER_LEGACY_EXCLUSION_BEFORE: forecastLegacyExclusionBefore }
+          : {}),
+      },
+      tracing: lambda.Tracing.ACTIVE,
+      logRetention: logs.RetentionDays.ONE_MONTH,
+    });
+
     // Batch Lambda - Temporary Alert Expiry（1時間間隔、一時通知の期限切れ無効化）
     this.batchTemporaryAlertExpiryFunction = new lambda.Function(
       this,
@@ -317,6 +356,7 @@ export class LambdaStack extends cdk.Stack {
       this.batchDailyFunction,
       this.batchTemporaryAlertExpiryFunction,
       this.batchEvaluationFunction,
+      this.batchForecastFunction,
     ].forEach((fn) => {
       cdk.Tags.of(fn).add('Application', 'nagiyu');
       cdk.Tags.of(fn).add('Service', 'stock-tracker');
@@ -362,6 +402,11 @@ export class LambdaStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'BatchEvaluationFunctionArn', {
       value: this.batchEvaluationFunction.functionArn,
       description: 'Batch Evaluation Lambda Function ARN',
+    });
+
+    new cdk.CfnOutput(this, 'BatchForecastFunctionArn', {
+      value: this.batchForecastFunction.functionArn,
+      description: 'Batch Forecast Lambda Function ARN',
     });
 
     // Runtime Policies (IAM スタックで参照するため Export)

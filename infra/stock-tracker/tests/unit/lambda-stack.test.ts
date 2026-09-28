@@ -13,7 +13,10 @@ import { LambdaStack } from '../../lib/lambda-stack';
 /**
  * テスト用 LambdaStack を生成するヘルパー
  */
-function createTestStack(finnhubApiKey = 'test-finnhub-api-key'): {
+function createTestStack(
+  finnhubApiKey = 'test-finnhub-api-key',
+  forecastLegacyExclusionBefore?: string
+): {
   app: cdk.App;
   stack: LambdaStack;
 } {
@@ -41,6 +44,7 @@ function createTestStack(finnhubApiKey = 'test-finnhub-api-key'): {
     openAiApiKey: 'test-openai-key',
     finnhubApiKey,
     nextAuthSecret: 'test-nextauth-secret',
+    forecastLegacyExclusionBefore,
     env,
   });
 
@@ -135,6 +139,89 @@ describe('LambdaStack', () => {
             FINNHUB_API_KEY: 'PLACEHOLDER',
           }),
         },
+      });
+    });
+  });
+
+  describe('BatchForecastFunction', () => {
+    let template: Template;
+
+    beforeEach(() => {
+      const { stack } = createTestStack();
+      template = Template.fromStack(stack);
+    });
+
+    it('forecast.handler をハンドラーとして 15 分タイムアウト・同時実行数1で作成される', () => {
+      template.hasResourceProperties('AWS::Lambda::Function', {
+        FunctionName: 'nagiyu-stock-tracker-batch-forecast-dev',
+        Timeout: 900, // 15分（秒）。リプレイ（初期値算出）が Lambda の上限に収まる想定
+        ReservedConcurrentExecutions: 1,
+        Environment: {
+          Variables: Match.objectLike({
+            BATCH_TYPE: 'FORECAST',
+          }),
+        },
+      });
+    });
+
+    it('forecastLegacyExclusionBefore 未指定時は STOCK_TRACKER_LEGACY_EXCLUSION_BEFORE を含まない', () => {
+      const resources = template.findResources('AWS::Lambda::Function', {
+        Properties: {
+          FunctionName: 'nagiyu-stock-tracker-batch-forecast-dev',
+          Environment: {
+            Variables: Match.objectLike({
+              STOCK_TRACKER_LEGACY_EXCLUSION_BEFORE: Match.anyValue(),
+            }),
+          },
+        },
+      });
+      expect(Object.keys(resources)).toHaveLength(0);
+    });
+
+    it('forecastLegacyExclusionBefore 指定時は STOCK_TRACKER_LEGACY_EXCLUSION_BEFORE に反映される', () => {
+      const { stack } = createTestStack('test-finnhub-api-key', '2026-03-15');
+      const templateWithBoundary = Template.fromStack(stack);
+
+      templateWithBoundary.hasResourceProperties('AWS::Lambda::Function', {
+        FunctionName: 'nagiyu-stock-tracker-batch-forecast-dev',
+        Environment: {
+          Variables: Match.objectLike({
+            STOCK_TRACKER_LEGACY_EXCLUSION_BEFORE: '2026-03-15',
+          }),
+        },
+      });
+    });
+
+    it('BatchSummaryFunction の環境変数に STOCK_TRACKER_FORECAST_BATCH_FUNCTION_NAME が含まれる', () => {
+      // 毎時の起動を待たずに、summary バッチが完了時に forecast を非同期起動するため
+      template.hasResourceProperties('AWS::Lambda::Function', {
+        FunctionName: 'nagiyu-stock-tracker-batch-summary-dev',
+        Environment: {
+          Variables: Match.objectLike({
+            STOCK_TRACKER_FORECAST_BATCH_FUNCTION_NAME: 'nagiyu-stock-tracker-batch-forecast-dev',
+          }),
+        },
+      });
+    });
+
+    it('BatchRuntimePolicy に forecast 関数への lambda:InvokeFunction が含まれる', () => {
+      // batchExecutionRole は全 batch 関数で共有されるため、この付与で summary からの
+      // 非同期起動が可能になる
+      template.hasResourceProperties('AWS::IAM::ManagedPolicy', {
+        PolicyDocument: Match.objectLike({
+          Statement: Match.arrayWith([
+            Match.objectLike({
+              Sid: 'InvokeForecastBatchFunction',
+              Action: 'lambda:InvokeFunction',
+              Effect: 'Allow',
+              Resource: Match.objectLike({
+                'Fn::Join': Match.arrayWith([
+                  Match.arrayWith([Match.stringLikeRegexp('nagiyu-stock-tracker-batch-forecast-dev$')]),
+                ]),
+              }),
+            }),
+          ]),
+        }),
       });
     });
   });

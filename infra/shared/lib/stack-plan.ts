@@ -93,6 +93,7 @@ export const CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV = [
   'nagiyu-stock-tracker-batch-evaluation-dev',
   'nagiyu-stock-tracker-batch-temporary-alert-expiry-dev',
   'nagiyu-stock-tracker-batch-summary-dev',
+  'nagiyu-stock-tracker-batch-forecast-dev',
   'nagiyu-livetalk-batch-learn-user-activity-dev',
   'nagiyu-livetalk-batch-acquire-dev',
   'nagiyu-livetalk-batch-consolidate-dev',

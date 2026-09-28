@@ -17,6 +17,15 @@ import type { ScheduledEvent } from '../../src/summary.js';
 import { getChartData } from '@nagiyu/stock-tracker-core';
 import { logger } from '@nagiyu/common';
 
+// 完了時に forecast バッチを非同期起動するため、実際の AWS 呼び出しを避けて
+// @aws-sdk/client-lambda をモック化する（getLambdaClient は @nagiyu/aws 内でキャッシュされ
+// jest.spyOn で差し替えられないため、送信元の SDK クライアントごと差し替える）。
+const mockLambdaSend = jest.fn();
+jest.mock('@aws-sdk/client-lambda', () => ({
+  LambdaClient: jest.fn(() => ({ send: mockLambdaSend })),
+  InvokeCommand: jest.fn((input: unknown) => ({ input })),
+}));
+
 describe('summary batch handler', () => {
   let exchangeRepository: InMemoryExchangeRepository;
   let tickerRepository: InMemoryTickerRepository;
@@ -25,6 +34,7 @@ describe('summary batch handler', () => {
 
   beforeEach(() => {
     jest.spyOn(awsModule, 'reportErrorEvent').mockResolvedValue(null);
+    mockLambdaSend.mockReset().mockResolvedValue({});
 
     const store = new InMemorySingleTableStore();
     exchangeRepository = new InMemoryExchangeRepository(store);
@@ -1692,6 +1702,119 @@ describe('summary batch handler', () => {
       expect(response.statusCode).toBe(200);
       expect(awsModule.getDynamoDBDocumentClient).toHaveBeenCalled();
       expect(awsModule.getTableName).toHaveBeenCalled();
+    });
+  });
+
+  describe('forecast バッチの非同期起動', () => {
+    const emptyDependencies = () => ({
+      exchangeRepository: {
+        getAll: jest.fn().mockResolvedValue([]),
+      } as unknown as InMemoryExchangeRepository,
+      tickerRepository: tickerRepository as InMemoryTickerRepository,
+      dailySummaryRepository: dailySummaryRepository as InMemoryDailySummaryRepository,
+    });
+
+    /** 取引所1件・ティッカー1件の最小構成で、サマリーを1件保存する依存関係を組み立てる */
+    const dependenciesWithOneSavedSummary = async () => {
+      await exchangeRepository.create({
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '09:00',
+        End: '17:00',
+      });
+      await tickerRepository.create({
+        TickerID: 'NSDQ:AAPL',
+        Symbol: 'AAPL',
+        Name: 'Apple Inc.',
+        ExchangeID: 'NASDAQ',
+      });
+      jest.spyOn(PatternAnalyzer.prototype, 'analyze').mockReturnValue({
+        patternResults: {},
+        buyPatternCount: 0,
+        sellPatternCount: 0,
+      });
+      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue(
+        Array.from({ length: 100 }, (_, index) => ({
+          time: Date.UTC(2026, 1, 27 - index, 14, 30, 0),
+          open: 100 + index,
+          high: 110 + index,
+          low: 95 + index,
+          close: 108 + index,
+          volume: 1000 + index,
+        }))
+      );
+      return {
+        exchangeRepository,
+        tickerRepository,
+        dailySummaryRepository,
+        getChartDataFn,
+        // 2026-02-27 (金曜日) 23:00 UTC = 18:00 ET (取引終了後)
+        nowFn: jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0)),
+      };
+    };
+
+    it('サマリーを1件以上保存した場合、正常完了時に forecast バッチを Event 呼び出しで起動する', async () => {
+      const invokeForecastBatchFn = jest.fn().mockResolvedValue(undefined);
+
+      const response = await handler(mockEvent, {
+        ...(await dependenciesWithOneSavedSummary()),
+        invokeForecastBatchFn,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(invokeForecastBatchFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('保存したサマリーが無い場合は forecast バッチを起動しない', async () => {
+      const invokeForecastBatchFn = jest.fn().mockResolvedValue(undefined);
+
+      const response = await handler(mockEvent, {
+        ...emptyDependencies(),
+        invokeForecastBatchFn,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(invokeForecastBatchFn).not.toHaveBeenCalled();
+    });
+
+    it('起動フックが失敗してもサマリーバッチ自体は200のまま完了する', async () => {
+      const invokeForecastBatchFn = jest.fn().mockRejectedValue(new Error('invoke failed'));
+
+      const response = await handler(mockEvent, {
+        ...(await dependenciesWithOneSavedSummary()),
+        invokeForecastBatchFn,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(invokeForecastBatchFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('既定の起動実装（実際の Lambda 呼び出し）が失敗してもサマリーバッチ自体は200のまま完了する', async () => {
+      // invokeForecastBatchFn を差し替えず、summary.ts が組み立てる既定実装
+      // （getLambdaClient().send(InvokeCommand)）をそのまま経由させる
+      mockLambdaSend.mockRejectedValue(new Error('network error'));
+
+      const response = await handler(mockEvent, await dependenciesWithOneSavedSummary());
+
+      expect(response.statusCode).toBe(200);
+    });
+
+    it('取引所処理でエラーが起きた場合（500応答）は forecast バッチを起動しない', async () => {
+      const invokeForecastBatchFn = jest.fn().mockResolvedValue(undefined);
+
+      const response = await handler(mockEvent, {
+        exchangeRepository: {
+          getAll: jest.fn().mockRejectedValue('exchange fetch failed'),
+        } as unknown as InMemoryExchangeRepository,
+        tickerRepository: tickerRepository as InMemoryTickerRepository,
+        dailySummaryRepository: dailySummaryRepository as InMemoryDailySummaryRepository,
+        invokeForecastBatchFn,
+      });
+
+      expect(response.statusCode).toBe(500);
+      expect(invokeForecastBatchFn).not.toHaveBeenCalled();
     });
   });
 });

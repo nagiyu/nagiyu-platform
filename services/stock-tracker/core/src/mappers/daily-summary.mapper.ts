@@ -12,7 +12,11 @@ import {
   validateTimestampField,
   type EntityMapper,
 } from '@nagiyu/aws';
-import type { DailySummaryEntity, DailySummaryKey } from '../entities/daily-summary.entity.js';
+import type {
+  DailySummaryEntity,
+  DailySummaryForecastFields,
+  DailySummaryKey,
+} from '../entities/daily-summary.entity.js';
 import type { AiAnalysisResult } from '../ai-analysis-result.js';
 import { PATTERN_REGISTRY } from '../patterns/pattern-registry.js';
 import type { PatternStatus } from '../types.js';
@@ -200,6 +204,40 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
           : validateTimestampField(item.EvaluatedAt, 'EvaluatedAt'),
       CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
       UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
+    };
+  }
+
+  /**
+   * 確度算出バッチが読む属性だけの射影（{@link DailySummaryForecastFields}）に変換する。
+   *
+   * ProjectionExpression で絞った読み出しの結果でも動くよう、`toEntity` と異なり
+   * AI 解析結果・採点結果・UpdatedAt は読まない（そもそも存在しない）。
+   */
+  public toForecastFields(item: Record<string, unknown>): DailySummaryForecastFields {
+    return {
+      TickerID: validateStringField(item.TickerID, 'TickerID'),
+      ExchangeID: validateStringField(item.ExchangeID, 'ExchangeID'),
+      Date: validateStringField(item.Date, 'Date'),
+      Open: validateNumberField(item.Open, 'Open'),
+      High: validateNumberField(item.High, 'High'),
+      Low: validateNumberField(item.Low, 'Low'),
+      Close: validateNumberField(item.Close, 'Close'),
+      Volume: item.Volume === undefined ? undefined : validateNumberField(item.Volume, 'Volume'),
+      PatternResults:
+        item.PatternResults &&
+        typeof item.PatternResults === 'object' &&
+        !Array.isArray(item.PatternResults)
+          ? (item.PatternResults as DailySummaryEntity['PatternResults'])
+          : undefined,
+      BuyPatternCount:
+        item.BuyPatternCount === undefined
+          ? undefined
+          : validateNumberField(item.BuyPatternCount, 'BuyPatternCount'),
+      SellPatternCount:
+        item.SellPatternCount === undefined
+          ? undefined
+          : validateNumberField(item.SellPatternCount, 'SellPatternCount'),
+      CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
     };
   }
 

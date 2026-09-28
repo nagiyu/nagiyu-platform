@@ -23,6 +23,7 @@ import type {
 } from './daily-summary.repository.interface.js';
 import type {
   DailySummaryEntity,
+  DailySummaryForecastFields,
   DailySummaryKey,
   CreateDailySummaryInput,
 } from '../entities/daily-summary.entity.js';
@@ -180,6 +181,64 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
       } while (lastEvaluatedKey);
 
       return items.map((item) => this.mapper.toEntity(item));
+    } catch (error) {
+      const message = toErrorMessage(error);
+      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+    }
+  }
+
+  /**
+   * 取引所IDと日付範囲で、確度算出に使う属性だけを ProjectionExpression で絞って取得する
+   * （GSI4使用、両端含む。範囲の扱いは `getByExchangeAndDateRange` と同じ）。
+   */
+  public async getForecastFieldsByExchangeAndDateRange(
+    exchangeId: string,
+    fromDate: string,
+    toDate: string
+  ): Promise<DailySummaryForecastFields[]> {
+    try {
+      const items: DynamoDBItem[] = [];
+      let lastEvaluatedKey: Record<string, unknown> | undefined;
+
+      do {
+        const result = await this.docClient.send(
+          new QueryCommand({
+            TableName: this.tableName,
+            IndexName: 'ExchangeSummaryIndex',
+            KeyConditionExpression: '#gsi4pk = :exchangeId AND #gsi4sk BETWEEN :from AND :to',
+            ProjectionExpression:
+              '#tickerId, #exchangeId, #date, #open, #high, #low, #close, #volume, ' +
+              '#patternResults, #buyPatternCount, #sellPatternCount, #createdAt',
+            ExpressionAttributeNames: {
+              '#gsi4pk': 'GSI4PK',
+              '#gsi4sk': 'GSI4SK',
+              '#tickerId': 'TickerID',
+              '#exchangeId': 'ExchangeID',
+              '#date': 'Date',
+              '#open': 'Open',
+              '#high': 'High',
+              '#low': 'Low',
+              '#close': 'Close',
+              '#volume': 'Volume',
+              '#patternResults': 'PatternResults',
+              '#buyPatternCount': 'BuyPatternCount',
+              '#sellPatternCount': 'SellPatternCount',
+              '#createdAt': 'CreatedAt',
+            },
+            ExpressionAttributeValues: {
+              ':exchangeId': exchangeId,
+              ':from': `DATE#${fromDate}`,
+              ':to': `DATE#${toDate}#~`,
+            },
+            ExclusiveStartKey: lastEvaluatedKey,
+          })
+        );
+
+        items.push(...((result.Items as DynamoDBItem[] | undefined) ?? []));
+        lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+      } while (lastEvaluatedKey);
+
+      return items.map((item) => this.mapper.toForecastFields(item));
     } catch (error) {
       const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);

@@ -234,6 +234,62 @@ describe('InMemoryDailySummaryRepository', () => {
     });
   });
 
+  describe('getForecastFieldsByExchangeAndDateRange', () => {
+    it('AI解析結果・採点結果・UpdatedAtを持たず、OHLCV等の射影だけを返す', async () => {
+      await repository.upsert({
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-25',
+        Open: 100,
+        High: 110,
+        Low: 95,
+        Close: 105,
+        Volume: 999,
+        BuyPatternCount: 1,
+        SellPatternCount: 0,
+        AiAnalysisResult: {
+          priceMovementAnalysis: 'dummy',
+          patternAnalysis: 'dummy',
+          supportLevels: [1, 2, 3],
+          resistanceLevels: [4, 5, 6],
+          relatedMarketTrend: 'dummy',
+          investmentJudgment: { signal: 'BULLISH', reason: 'dummy' },
+        },
+      });
+      await repository.upsert({
+        TickerID: 'NYSE:IBM',
+        ExchangeID: 'NYSE',
+        Date: '2026-02-25',
+        Open: 200,
+        High: 205,
+        Low: 198,
+        Close: 204,
+      });
+
+      const result = await repository.getForecastFieldsByExchangeAndDateRange(
+        'NASDAQ',
+        '2026-02-25',
+        '2026-02-25'
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-25',
+        Open: 100,
+        High: 110,
+        Low: 95,
+        Close: 105,
+        Volume: 999,
+        BuyPatternCount: 1,
+        SellPatternCount: 0,
+      });
+      expect(result[0]).not.toHaveProperty('AiAnalysisResult');
+      expect(result[0]).not.toHaveProperty('UpdatedAt');
+    });
+  });
+
   describe('markAsEvaluated', () => {
     const fields: DailySummaryEvaluationFields = {
       EvaluationDate: '2026-02-28',

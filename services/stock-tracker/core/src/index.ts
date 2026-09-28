@@ -99,6 +99,7 @@ export { PRICE_SOURCES, DEFAULT_PRICE_SOURCE } from './entities/exchange.entity.
 export { EXCHANGE_MARKETS, EXCHANGE_MARKET_LABELS } from './entities/exchange.entity.js';
 export type {
   DailySummaryEntity,
+  DailySummaryForecastFields,
   CreateDailySummaryInput,
   DailySummaryKey,
 } from './entities/daily-summary.entity.js';

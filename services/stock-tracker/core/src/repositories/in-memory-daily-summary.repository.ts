@@ -9,6 +9,7 @@ import {
   EntityNotFoundError,
   InMemorySingleTableStore,
   type AttributeQueryCondition,
+  type DynamoDBItem,
 } from '@nagiyu/aws';
 import type {
   DailySummaryEvaluationFields,
@@ -16,6 +17,7 @@ import type {
 } from './daily-summary.repository.interface.js';
 import type {
   DailySummaryEntity,
+  DailySummaryForecastFields,
   DailySummaryKey,
   CreateDailySummaryInput,
 } from '../entities/daily-summary.entity.js';
@@ -119,12 +121,45 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
   }
 
   /**
+   * 取引所IDと日付範囲で、確度算出に使う属性だけを取得する（GSI4 をシミュレート、両端含む）。
+   *
+   * InMemory の store は実際の ProjectionExpression を持たないため、通常どおり全属性を
+   * 読んでから `toForecastFields` で絞る（DynamoDB 実装との読み出し量の違いはここでは
+   * 再現しない。契約上の型・値が一致することの確認が目的）。
+   */
+  public async getForecastFieldsByExchangeAndDateRange(
+    exchangeId: string,
+    fromDate: string,
+    toDate: string
+  ): Promise<DailySummaryForecastFields[]> {
+    const items = this.queryRawByGsi4({
+      attributeName: 'GSI4PK',
+      attributeValue: exchangeId,
+      sk: {
+        attributeName: 'GSI4SK',
+        operator: 'between' as const,
+        value: [`DATE#${fromDate}`, `DATE#${toDate}#~`],
+      },
+    });
+    return items.map((item) => this.mapper.toForecastFields(item));
+  }
+
+  /**
    * GSI4条件に一致する全アイテムをcursorループで集約し、Entityへ変換して返す。
    * store既定limit（100件）による打ち切りを避けるため、getByExchange /
    * getByExchangeAndDateRangeはこのヘルパーを経由する。
    */
   private queryAllByGsi4(condition: AttributeQueryCondition): DailySummaryEntity[] {
-    const items: DailySummaryEntity[] = [];
+    return this.queryRawByGsi4(condition).map((item) => this.mapper.toEntity(item));
+  }
+
+  /**
+   * GSI4条件に一致する全アイテム（DynamoDBItem のまま）をcursorループで集約する。
+   * Entity への変換方法が呼び出し側で異なる（`toEntity` / `toForecastFields`）ため、
+   * 変換前の生アイテム集約だけをここに切り出す。
+   */
+  private queryRawByGsi4(condition: AttributeQueryCondition): DynamoDBItem[] {
+    const items: DynamoDBItem[] = [];
     let cursor: string | undefined;
 
     do {
@@ -132,7 +167,7 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
         limit: GSI4_FULL_AGGREGATION_PAGE_SIZE,
         cursor,
       });
-      items.push(...page.items.map((item) => this.mapper.toEntity(item)));
+      items.push(...page.items);
       cursor = page.nextCursor;
     } while (cursor);
 
