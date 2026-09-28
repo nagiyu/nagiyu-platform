@@ -1,5 +1,5 @@
 /**
- * Stock Tracker Core - 基準値（design.md §1.5、参照実装 analysis/decision.py の rolling_base 相当）
+ * Stock Tracker Core - 基準値
  */
 import {
   BASELINE_CLIP_MAX,
@@ -23,10 +23,10 @@ export interface BaselineKnownSample {
 /**
  * 基準値（rolling_base, scope='pooled'）: 市場 M・日付 D の予測時点で知り得る、
  * 直近 BASELINE_WINDOW 営業日（M のカレンダー）のラベル付きサンプルの的中率（全市場合算）。
- * 20 件未満なら既知の全サンプル、それも無ければ 0.5（design.md §1.5）。
+ * 20 件未満なら既知の全サンプル、それも無ければ 0.5。
  *
  * calendar の全日付に対して baseline を返す（学習時のオフセット列と、表示する基準値の両方に使うため）。
- * 市場コードの集合は `calendar` のキー（固定 JP/US ではない。design.md §1.1）から決まる。
+ * 市場コードの集合は `calendar` のキー（固定 JP/US ではない）から決まる。
  */
 export function computeRollingBaseline(params: {
   calendar: Record<Market, readonly string[]>;
@@ -79,7 +79,7 @@ export function computeRollingBaseline(params: {
   return result;
 }
 
-/** 表示・オフセットに使う基準値は [0.02, 0.98] にクリップする（design.md §1.5） */
+/** 表示・オフセットに使う基準値は [0.02, 0.98] にクリップする */
 export function clipBaseline(baseline: number): number {
   return Math.min(BASELINE_CLIP_MAX, Math.max(BASELINE_CLIP_MIN, baseline));
 }

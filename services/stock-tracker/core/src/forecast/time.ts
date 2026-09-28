@@ -1,14 +1,14 @@
 /**
  * Stock Tracker Core - Forecast 市場・セッション時刻
  *
- * 将来データ混入を防ぐための時刻の規則（design.md §1.4・§4）の基礎になる純粋関数群。
+ * 将来データ混入を防ぐための時刻の規則の基礎になる純粋関数群。
  *
  * 市場への振り分け・名目の取引時刻は、いずれも取引所マスタ（Exchange の 市場・Timezone・
  * Start・End）から求める。取引所は画面から追加・編集でき、時間外取引込みの Start/End を
  * 標準として扱っている（他の箇所、例えば `services/trading-hours-checker.ts` の
  * `getLastTradingDate` も End を使う）ため、core が固定の ExchangeID→市場対応表やセッション
  * 時刻の定数を持つのではなく、呼び出し側から {@link ExchangeSessionInfo} の配列として
- * 受け取る（純粋関数のまま保つ。design.md §1.1 ADR-V4-01・§1.4）。
+ * 受け取る（純粋関数のまま保つため）。
  */
 import { fromZonedTime } from 'date-fns-tz';
 import { FORECAST_ERROR_MESSAGES, type Market } from './constants.js';
@@ -17,7 +17,7 @@ import { FORECAST_ERROR_MESSAGES, type Market } from './constants.js';
 export interface ExchangeSessionInfo {
   exchangeId: string;
   /**
-   * 市場コード（design.md ADR-V4-01。初期設定は 'JP' / 'US'）。
+   * 市場コード（初期設定は 'JP' / 'US'）。
    * 未設定（market を持たない取引所）は、未対応の ExchangeID と同様に除外して扱う。
    */
   market?: Market;
@@ -37,11 +37,11 @@ function findExchangeSession(
 }
 
 /**
- * ExchangeID から市場を判定する（取引所マスタの market 属性。design.md ADR-V4-01）。
+ * ExchangeID から市場を判定する（取引所マスタの market 属性）。
  * マスタに無い ExchangeID、または market が未設定の取引所は例外を投げる。
  *
  * バッチのように多数のバーを扱う場所では、1 件の未対応 ID で処理全体を止めないため
- * {@link tryGetMarketForExchange} を使うこと（NFR-2。design.md §1.1 ADR-V4-01）。
+ * {@link tryGetMarketForExchange} を使うこと。
  */
 export function getMarketForExchange(
   exchangeId: string,
@@ -57,8 +57,8 @@ export function getMarketForExchange(
 /**
  * ExchangeID から市場を判定する（例外を投げない版）。マスタに無い ExchangeID、または
  * market が未設定の取引所なら undefined。呼び出し側は該当の足を除外して処理を続け、
- * 除外した ID を結果に残してログできるようにする（NFR-2。サマリー保存・表示は確度の
- * 算出失敗の影響を受けない）。
+ * 除外した ID を結果に残してログできるようにする（サマリーの保存・表示を確度算出の
+ * 失敗から独立させるため）。
  */
 export function tryGetMarketForExchange(
   exchangeId: string,
@@ -76,9 +76,8 @@ export function hasExchangeSession(
 }
 
 /**
- * 取引所マスタが持つ市場コードの集合（重複なし・ソート済み）。design.md §1.1 の
- * 「取引所マスタの市場属性で決める」を踏まえ、市場ごとに回す処理（観測カレンダー・
- * MarketForecast・中立帯のカレンダー等）は、この集合を対象にループする。
+ * 取引所マスタが持つ市場コードの集合（重複なし・ソート済み）。市場ごとに回す処理
+ * （観測カレンダー・MarketForecast・中立帯のカレンダー等）は、この集合を対象にループする。
  * market が未設定の取引所は数えない。
  */
 export function distinctMarkets(exchanges: readonly ExchangeSessionInfo[]): Market[] {
@@ -92,7 +91,7 @@ export function distinctMarkets(exchanges: readonly ExchangeSessionInfo[]): Mark
 /**
  * 取引所の名目の取引開始・引け時刻（UTC の Unix timestamp ms）を返す。
  * 取引所マスタに exchangeId が無ければ例外を投げる（呼び出し側は {@link hasExchangeSession} で
- * 事前に除外すること。NFR-2）。
+ * 事前に除外すること）。
  */
 export function nominalExchangeTime(
   exchangeId: string,
@@ -110,7 +109,7 @@ export function nominalExchangeTime(
 
 /**
  * 市場 M の名目引け時刻（UTC ms）: 取引所マスタで市場が M の取引所のうち、End の最も遅いもの
- * （design.md §1.4。同じ市場に複数の取引所があっても（例: US の初期設定）安全側になるように
+ * （同じ市場に複数の取引所があっても（例: US の初期設定）安全側になるように
  * 「最も遅いもの」を取る）。
  *
  * 市場 M に属する取引所が 1 つもマスタに無ければ例外を投げる。
@@ -130,7 +129,7 @@ export function nominalMarketCloseTime(
 }
 
 /**
- * 銘柄（取引所）のサンプルを、市場 M の D の予測に使ってよいかどうか（design.md §1.4）。
+ * 銘柄（取引所）のサンプルを、市場 M の D の予測に使ってよいかどうか。
  *
  * 名目引け時刻(サンプルの翌営業日, サンプルの取引所) ≤ 名目引け時刻(D, M)
  */
@@ -148,7 +147,7 @@ export function isTickerSampleUsable(
 }
 
 /**
- * 市場レベルのサンプル（Q-MKT）を、市場 M の D の予測に使ってよいかどうか（design.md §1.4）。
+ * 市場レベルのサンプル（Q-MKT）を、市場 M の D の予測に使ってよいかどうか。
  * サンプル自身が特定の取引所を持たないため、サンプルの市場の名目引け時刻を使う。
  */
 export function isMarketSampleUsable(

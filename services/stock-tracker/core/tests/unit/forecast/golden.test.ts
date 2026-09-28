@@ -1,10 +1,9 @@
 /**
- * ゴールデンテスト（design.md §4）。
+ * ゴールデンテスト。
  *
- * tasks/stock-tracker-v4/analysis/golden.py が、参照実装（prep.py・wf.py の LR・
- * decision.py の rolling_base・decision2.py の determine_band と順次寄与）で計算した期待値と、
- * TypeScript 実装（computeForDate・computeOutcomes・determineNeutralBand）の出力を
- * 許容誤差内で突き合わせる。
+ * 参照実装（prep.py・wf.py の LR・decision.py の rolling_base・decision2.py の
+ * determine_band と順次寄与）で計算した期待値と、TypeScript 実装（computeForDate・
+ * computeOutcomes・determineNeutralBand）の出力を許容誤差内で突き合わせる。
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -199,7 +198,7 @@ describe.each(fixture.targets)('ゴールデン: $market $date', (target) => {
             );
           }
         }
-        // 銘柄数・市場の有無が期待値と一致する（値なしの軸を理由に除外されていないことの確認。指摘 C-3）
+        // 銘柄数・市場の有無が期待値と一致する（値なしの軸を理由に除外されていないことの確認）
         if (question === 'MKT') {
           expect(expectedQ.predictions.length).toBeLessThanOrEqual(1);
         } else {
@@ -213,7 +212,7 @@ describe.each(fixture.targets)('ゴールデン: $market $date', (target) => {
   });
 });
 
-describe('ゴールデン: 実績（採点）の突き合わせ（指摘 B-1・B-2）', () => {
+describe('ゴールデン: 実績（採点）の突き合わせ', () => {
   const { tickerOutcomes, marketOutcomes } = computeOutcomes(bars, 0, REAL_EXCHANGES);
 
   it('銘柄の採点（超過リターン・値幅比・的中・除外理由）が一致する', () => {
@@ -236,7 +235,7 @@ describe('ゴールデン: 実績（採点）の突き合わせ（指摘 B-1・B
         expect(actual!.hit.DIR).toBe(expected.hitDir);
       }
       if (expected.nextRange !== undefined) {
-        // design.md §1.1: 値幅は比率（(翌日高値-翌日安値)÷基準日終値）で、生の価格差ではない（指摘 B-1）
+        // 値幅は比率（(翌日高値-翌日安値)÷基準日終値）で、生の価格差ではない
         expectClose(actual!.nextRange, expected.nextRange, 'nextRange');
       }
       if (expected.rangeRatio !== undefined) {
@@ -263,7 +262,7 @@ describe('ゴールデン: 実績（採点）の突き合わせ（指摘 B-1・B
   });
 });
 
-describe('ゴールデン: 中立帯の有意なケース（指摘 C-2）', () => {
+describe('ゴールデン: 中立帯の有意なケース', () => {
   it.each(fixture.neutralBandCases)('$label', (testCase) => {
     const band = determineNeutralBand(testCase.hist, {
       step: testCase.step,

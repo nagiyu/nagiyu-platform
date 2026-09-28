@@ -1,7 +1,7 @@
 /**
  * Stock Tracker Core - Forecast (確度) パッケージのエクスポート
  *
- * Phase 3-1「算出の中核」（design.md §7）。DB・バッチ・画面には触れない純粋関数群。
+ * 確度算出の中核となる、DB・バッチ・画面には触れない純粋関数群。
  */
 export * from './constants.js';
 export * from './types.js';

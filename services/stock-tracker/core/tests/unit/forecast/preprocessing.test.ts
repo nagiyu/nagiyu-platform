@@ -1,5 +1,5 @@
 /**
- * 前処理（design.md §1.1・§1.2）の単体テスト。小さな手作りデータで境界条件を確認する。
+ * 前処理の単体テスト。小さな手作りデータで境界条件を確認する。
  */
 import { buildObservationCalendar, buildPanel } from '../../../src/forecast/preprocessing.js';
 import type { DailyBarInput } from '../../../src/forecast/types.js';
@@ -32,7 +32,7 @@ describe('buildObservationCalendar', () => {
   });
 });
 
-describe('値幅・出来高の異常値（design.md §1.2）', () => {
+describe('値幅・出来高の異常値', () => {
   it('値幅が0以下は欠損扱いになる（当日高値=安値）', () => {
     const bars: DailyBarInput[] = [
       bar({ tickerId: 'A', exchangeId: 'TSE', date: '2026-01-05', close: 100 }),
@@ -60,7 +60,7 @@ describe('値幅・出来高の異常値（design.md §1.2）', () => {
   });
 });
 
-describe('平常（直近20レコード平均。design.md §1.1）', () => {
+describe('平常（直近20レコード平均）', () => {
   it('20レコードすべて有効な場合のみ算出される', () => {
     const bars: DailyBarInput[] = [];
     for (let i = 0; i < 25; i++) {
@@ -100,7 +100,7 @@ describe('平常（直近20レコード平均。design.md §1.1）', () => {
   });
 });
 
-describe('市場レベル軸（design.md §1.2 後段）', () => {
+describe('市場レベル軸', () => {
   it('同日・同市場の銘柄のうち、値がある銘柄だけで平均する', () => {
     const bars: DailyBarInput[] = [];
     for (let i = 0; i < 25; i++) {
@@ -118,7 +118,7 @@ describe('市場レベル軸（design.md §1.2 後段）', () => {
   });
 });
 
-describe('市場×日パネル（Q-MKT。design.md §1.2）', () => {
+describe('市場×日パネル（Q-MKT）', () => {
   it('市場平均値幅の平常比(market-range-avg)が算出される', () => {
     const bars: DailyBarInput[] = [];
     for (let i = 0; i < 25; i++) {

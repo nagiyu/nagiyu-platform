@@ -1,12 +1,12 @@
 /**
- * Stock Tracker Core - 保存済みサンプルから学習・基準値・中立帯の入力を組み立てる
- * （design.md §3.1「学習は保存済み Forecast から行う」）。
+ * Stock Tracker Core - 保存済みサンプルから学習・基準値・中立帯の入力を組み立てる。
  *
  * `SampleHistory`（TickerSample/MarketSample の履歴）だけを入力にする。DailyBarInput
  * （生の DailySummary）には依存しない。時刻の規則はサンプル自身が持つ `outcome.nextDate`
- * と `market`（銘柄サンプルはさらに `exchangeId`）から直接判定し、観測カレンダーを介さない
- * （S-2 の解消）。市場コードの集合は固定 JP/US ではなく、呼び出し側が渡す取引所マスタ
- * （{@link ExchangeSessionInfo}）に現れるものを使う（design.md §1.1）。
+ * と `market`（銘柄サンプルはさらに `exchangeId`）から直接判定し、観測カレンダーは介さない
+ * （渡されたサンプル集合の一部だけから観測カレンダーを作り直すと、欠けた日付を挟んで誤判定する
+ * おそれがあるため）。市場コードの集合は固定 JP/US ではなく、呼び出し側が渡す取引所マスタ
+ * （{@link ExchangeSessionInfo}）に現れるものを使う。
  */
 import { getAxisIdsForQuestion } from './axes.js';
 import type { Market, Question } from './constants.js';
@@ -43,7 +43,7 @@ function pickAxisValues(
 
 /**
  * (market, date) の一覧から、市場ごとのソート済みカレンダーを作る。
- * 市場コードの集合はサンプルに現れたものぶんだけ動的に持つ（固定 JP/US ではない。design.md §1.1）。
+ * 市場コードの集合はサンプルに現れたものぶんだけ動的に持つ（固定 JP/US ではない）。
  */
 export function buildCalendarFromEntries(
   entries: readonly { market: Market; date: string }[]
@@ -88,7 +88,7 @@ export function buildSampleCalendar(
   return buildCalendarFromEntries(samplesForQuestion(question, history));
 }
 
-/** 中立帯の見直し間隔に使う、両市場を合わせたカレンダー（design.md §1.5・decision2.py と同じ） */
+/** 中立帯の見直し間隔に使う、両市場を合わせたカレンダー */
 export function buildUnionSampleCalendar(question: Question, history: SampleHistory): string[] {
   return buildUnionCalendarFromEntries(samplesForQuestion(question, history));
 }
@@ -96,7 +96,7 @@ export function buildUnionSampleCalendar(question: Question, history: SampleHist
 /**
  * カレンダーに date が無ければ挿入して返す（無ければそのまま）。
  * 予測対象日がまだサンプルとして 1 件も無い場合でも、基準値の算出が NaN にならないようにする
- * （design.md §1「D の足が無い日」でも安全に扱えるようにする防御的な措置）。
+ * 防御的な措置。
  */
 export function ensureCalendarIncludes(
   calendar: Record<Market, readonly string[]>,
@@ -124,7 +124,7 @@ function outcomeY(question: Question, sample: TickerSample | MarketSample): numb
 }
 
 /**
- * 基準値（rolling_base）の算出に使う、全市場合算の既知サンプルを作る（design.md §1.5）。
+ * 基準値（rolling_base）の算出に使う、全市場合算の既知サンプルを作る。
  * オフセットは呼び出し側で `computeRollingBaseline` に渡して求める。
  */
 export function buildBaselineSamples(
@@ -163,7 +163,7 @@ function labelTimeOf(
 }
 
 /**
- * サンプルを、予測対象 (date, market) の予測に使ってよいかどうか（design.md §1.4）。
+ * サンプルを、予測対象 (date, market) の予測に使ってよいかどうか。
  * 銘柄サンプルは `isTickerSampleUsable`（自身の取引所の End）、市場サンプルは
  * `isMarketSampleUsable`（サンプルの市場の名目引け時刻）で判定する。
  */
@@ -180,9 +180,10 @@ function sampleUsable(
 }
 
 /**
- * 学習サンプル（design.md §1.4）を、時刻の規則でフィルタして作る。
+ * 学習サンプルを、時刻の規則でフィルタして作る。
  * サンプル自身の `outcome.nextDate`（銘柄サンプルはさらに `exchangeId`）から時刻の規則を
- * 直接判定するため、観測カレンダーは使わない（S-2 の解消）。
+ * 直接判定するため、観測カレンダーは使わない（渡されたサンプル集合の一部だけから観測
+ * カレンダーを作り直すと、欠けた日付を挟んで誤判定するおそれがあるため）。
  */
 export function buildTrainingRows(
   question: Question,
