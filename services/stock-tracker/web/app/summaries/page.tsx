@@ -14,25 +14,39 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   Typography,
 } from '@mui/material';
-import { Button, Chip, ErrorAlert, Select } from '@nagiyu/ui';
+import { Button, ErrorAlert, Select } from '@nagiyu/ui';
 import { useSession } from 'next-auth/react';
 import { hasPermission } from '@nagiyu/common';
 import type { SummariesResponse, TickerSummary } from '@/types/stock';
-import { resolveInvestmentSignalColor, resolveInvestmentSignalLabel } from './ai-analysis';
-import { formatConfidence, formatPredictedReturn } from '../../lib/ai-analysis-format';
 import SummaryDetailDialog from '../../components/SummaryDetailDialog';
+import ForecastLabelChip from '../../components/ForecastLabelChip';
+import MarketForecastCards from '../../components/MarketForecastCards';
+import { formatLit, resolveUnavailableReason } from '../../lib/forecast-view/labels';
+import {
+  nextSortState,
+  sortByForecast,
+  type ForecastSortColumn,
+  type ForecastSortState,
+} from '../../lib/forecast-view/sort';
 
 const ERROR_MESSAGES = {
   FETCH_FAILED: 'サマリーの取得に失敗しました',
   REFRESH_FAILED: 'サマリーバッチの実行に失敗しました',
   REFRESH_SUCCESS: 'サマリーバッチを実行しました',
-  INSUFFICIENT_DATA_REASON: 'データ不足',
 } as const;
-const UI_DISPLAY_VALUES = {
-  NOT_AVAILABLE: '-',
-} as const;
+
+const getAriaSort = (
+  sort: ForecastSortState | null,
+  column: ForecastSortColumn
+): 'ascending' | 'descending' | 'none' => {
+  if (sort?.column !== column) {
+    return 'none';
+  }
+  return sort.direction === 'asc' ? 'ascending' : 'descending';
+};
 
 const formatLatestUpdatedAt = (summaries: TickerSummary[]): string => {
   const latest = summaries.reduce<number | null>((currentMax, summary) => {
@@ -75,6 +89,7 @@ export default function SummariesPage() {
   const [selectedExchangeId, setSelectedExchangeId] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedTicker, setSelectedTicker] = useState<TickerSummary | null>(null);
+  const [sort, setSort] = useState<ForecastSortState | null>(null);
   const hasManageDataPermission =
     !!session?.user &&
     'roles' in session.user &&
@@ -138,6 +153,10 @@ export default function SummariesPage() {
     setSelectedTicker(ticker);
   };
 
+  const handleSortClick = (column: ForecastSortColumn) => {
+    setSort((current) => nextSortState(current, column));
+  };
+
   const handleDialogClose = () => setSelectedTicker(null);
   const filteredExchanges = selectedExchangeId
     ? summaries.exchanges.filter((exchange) => exchange.exchangeId === selectedExchangeId)
@@ -147,6 +166,7 @@ export default function SummariesPage() {
       <Typography variant="h4" component="h1" sx={{ mb: 2 }}>
         日次サマリー
       </Typography>
+      <MarketForecastCards marketForecasts={summaries.marketForecasts} />
       <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
         <Box sx={{ minWidth: 220 }}>
           <Select
@@ -205,24 +225,36 @@ export default function SummariesPage() {
                   <TableContainer component={Paper} variant="outlined" sx={{ overflowX: 'auto' }}>
                     <Table
                       size="small"
-                      sx={{ minWidth: 940, '& .MuiTableCell-root': { whiteSpace: 'nowrap' } }}
+                      sx={{ minWidth: 820, '& .MuiTableCell-root': { whiteSpace: 'nowrap' } }}
                     >
                       <TableHead>
                         <TableRow>
                           <TableCell>シンボル</TableCell>
                           <TableCell>銘柄名</TableCell>
-                          <TableCell align="center">保有可否</TableCell>
-                          <TableCell align="right">投資判断</TableCell>
-                          <TableCell align="right">予測リターン</TableCell>
-                          <TableCell align="right">確信度</TableCell>
-                          <TableCell align="right">買いシグナル</TableCell>
-                          <TableCell align="right">売りシグナル</TableCell>
+                          <TableCell align="center">保有</TableCell>
+                          {(['dir', 'vol'] as const).map((column) => (
+                            <TableCell
+                              key={column}
+                              align="right"
+                              aria-sort={getAriaSort(sort, column)}
+                            >
+                              <TableSortLabel
+                                active={sort?.column === column}
+                                direction={sort?.column === column ? sort.direction : 'desc'}
+                                onClick={() => handleSortClick(column)}
+                                data-testid={`sort-${column}`}
+                              >
+                                {column === 'dir' ? '方向' : '荒れ'}
+                              </TableSortLabel>
+                            </TableCell>
+                          ))}
+                          <TableCell align="right">点灯</TableCell>
                           <TableCell align="right">買いアラート数</TableCell>
                           <TableCell align="right">売りアラート数</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {exchange.summaries.map((summary) => (
+                        {sortByForecast(exchange.summaries, sort).map((summary) => (
                           <TableRow
                             key={summary.tickerId}
                             hover
@@ -232,52 +264,28 @@ export default function SummariesPage() {
                             <TableCell>{summary.symbol}</TableCell>
                             <TableCell>{summary.name}</TableCell>
                             <TableCell align="center">{summary.holding ? '✓' : '-'}</TableCell>
-                            <TableCell
-                              align="right"
-                              data-testid={`investment-judgment-${summary.tickerId}`}
-                            >
-                              {summary.aiAnalysisResult?.investmentJudgment?.signal ? (
-                                <Chip
-                                  color={resolveInvestmentSignalColor(
-                                    summary.aiAnalysisResult.investmentJudgment.signal
-                                  )}
-                                  size="sm"
-                                >
-                                  {resolveInvestmentSignalLabel(
-                                    summary.aiAnalysisResult.investmentJudgment.signal
-                                  )}
-                                </Chip>
-                              ) : (
-                                UI_DISPLAY_VALUES.NOT_AVAILABLE
-                              )}
+                            <TableCell align="right" data-testid={`dir-${summary.tickerId}`}>
+                              <ForecastLabelChip
+                                question="DIR"
+                                view={summary.forecast?.dir}
+                                unavailableReason={resolveUnavailableReason(
+                                  'DIR',
+                                  summary.forecast
+                                )}
+                              />
                             </TableCell>
-                            <TableCell
-                              align="right"
-                              data-testid={`predicted-return-${summary.tickerId}`}
-                            >
-                              {typeof summary.aiAnalysisResult?.investmentJudgment
-                                ?.predictedReturn === 'number'
-                                ? formatPredictedReturn(
-                                    summary.aiAnalysisResult.investmentJudgment.predictedReturn
-                                  )
-                                : UI_DISPLAY_VALUES.NOT_AVAILABLE}
+                            <TableCell align="right" data-testid={`vol-${summary.tickerId}`}>
+                              <ForecastLabelChip
+                                question="VOL"
+                                view={summary.forecast?.vol}
+                                unavailableReason={resolveUnavailableReason(
+                                  'VOL',
+                                  summary.forecast
+                                )}
+                              />
                             </TableCell>
-                            <TableCell align="right" data-testid={`confidence-${summary.tickerId}`}>
-                              {typeof summary.aiAnalysisResult?.investmentJudgment?.confidence ===
-                              'number'
-                                ? formatConfidence(
-                                    summary.aiAnalysisResult.investmentJudgment.confidence
-                                  )
-                                : UI_DISPLAY_VALUES.NOT_AVAILABLE}
-                            </TableCell>
-                            <TableCell align="right" data-testid={`buy-signal-${summary.tickerId}`}>
-                              {summary.buyPatternCount ?? 0}
-                            </TableCell>
-                            <TableCell
-                              align="right"
-                              data-testid={`sell-signal-${summary.tickerId}`}
-                            >
-                              {summary.sellPatternCount ?? 0}
+                            <TableCell align="right" data-testid={`lit-${summary.tickerId}`}>
+                              {formatLit(summary.forecast?.lit)}
                             </TableCell>
                             <TableCell align="right" data-testid={`buy-alert-${summary.tickerId}`}>
                               {formatAlertCount(

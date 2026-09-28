@@ -75,6 +75,7 @@ export const GET = withAuth(
       }
 
       const forecast = await fetchForecastSummary(tickerId, latestSummary.Date);
+      const patternCounts = dailySummaryMapper.toTickerSummaryResponse(latestSummary);
 
       const alerts = alertsResult.items.filter((alert) => alert.TickerID === tickerId);
       const buyAlertCount = { enabled: 0, disabled: 0 };
@@ -92,6 +93,7 @@ export const GET = withAuth(
       return NextResponse.json(
         {
           tickerId: latestSummary.TickerID,
+          date: latestSummary.Date,
           symbol: ticker?.Symbol ?? latestSummary.TickerID.split(':')[1] ?? latestSummary.TickerID,
           name: ticker?.Name ?? latestSummary.TickerID,
           open: latestSummary.Open,
@@ -109,7 +111,8 @@ export const GET = withAuth(
               }
             : null,
           forecast,
-          ...dailySummaryMapper.toTickerSummaryResponse(latestSummary),
+          buyPatternCount: patternCounts.buyPatternCount,
+          sellPatternCount: patternCounts.sellPatternCount,
         },
         { status: 200 }
       );

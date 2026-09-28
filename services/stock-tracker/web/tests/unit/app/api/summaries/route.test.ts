@@ -152,6 +152,7 @@ describe('GET /api/summaries', () => {
           summaries: [
             {
               tickerId: 'NSDQ:AAPL',
+              date: '2024-01-15',
               symbol: 'AAPL',
               name: 'Apple Inc.',
               open: 182.15,
@@ -170,7 +171,6 @@ describe('GET /api/summaries', () => {
                 enabled: 0,
                 disabled: 0,
               },
-              patternDetails: [],
               holding: null,
               forecast: null,
             },
@@ -250,20 +250,7 @@ describe('GET /api/summaries', () => {
         sellPatternCount: 0,
       })
     );
-    expect(body.exchanges[0].summaries[0].patternDetails).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          patternId: 'morning-star',
-          signalType: 'BUY',
-          status: 'MATCHED',
-        }),
-        expect.objectContaining({
-          patternId: 'evening-star',
-          signalType: 'SELL',
-          status: 'NOT_MATCHED',
-        }),
-      ])
-    );
+    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('patternDetails');
   });
 
   it('正常系: 銘柄ごとの買い/売りアラート件数を返す', async () => {
@@ -350,12 +337,11 @@ describe('GET /api/summaries', () => {
       expect.objectContaining({
         buyPatternCount: 0,
         sellPatternCount: 0,
-        patternDetails: [],
       })
     );
   });
 
-  it('正常系: AiAnalysisResult がある場合は aiAnalysisResult として返す', async () => {
+  it('正常系: AI 解析の結果・エラーとパターン詳細は返さない', async () => {
     mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
     mockGetAllTickers.mockResolvedValue({ items: [] });
     mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
@@ -370,6 +356,9 @@ describe('GET /api/summaries', () => {
         Close: 183.31,
         CreatedAt: 1705276800000,
         UpdatedAt: 1705352400000,
+        PatternResults: { 'morning-star': 'MATCHED' },
+        BuyPatternCount: 1,
+        SellPatternCount: 0,
         AiAnalysisResult: {
           priceMovementAnalysis: '当日の値動き分析',
           patternAnalysis: 'パターン分析',
@@ -378,64 +367,6 @@ describe('GET /api/summaries', () => {
           relatedMarketTrend: '関連市場動向',
           investmentJudgment: { signal: 'NEUTRAL', reason: '様子見' },
         },
-      },
-    ]);
-
-    const response = await GET(new NextRequest('http://localhost/api/summaries'));
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.exchanges[0].summaries[0]).toEqual(
-      expect.objectContaining({
-        aiAnalysisResult: expect.objectContaining({
-          priceMovementAnalysis: '当日の値動き分析',
-        }),
-      })
-    );
-    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysisError');
-  });
-
-  it('正常系: AiAnalysisResult と AiAnalysisError がない場合は両方とも返さない', async () => {
-    mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
-    mockGetAllTickers.mockResolvedValue({ items: [] });
-    mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
-    mockGetByExchange.mockResolvedValue([
-      {
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2024-01-15',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        CreatedAt: 1705276800000,
-        UpdatedAt: 1705352400000,
-      },
-    ]);
-
-    const response = await GET(new NextRequest('http://localhost/api/summaries'));
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysisResult');
-    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysisError');
-  });
-
-  it('正常系: aiAnalysisError がある場合はその値を返す', async () => {
-    mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
-    mockGetAllTickers.mockResolvedValue({ items: [] });
-    mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
-    mockGetByExchange.mockResolvedValue([
-      {
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2024-01-15',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        CreatedAt: 1705276800000,
-        UpdatedAt: 1705352400000,
         AiAnalysisError: 'AI解析の生成に失敗しました',
       },
     ]);
@@ -444,40 +375,11 @@ describe('GET /api/summaries', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.exchanges[0].summaries[0]).toEqual(
-      expect.objectContaining({
-        aiAnalysisError: 'AI解析の生成に失敗しました',
-      })
-    );
-    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysisResult');
-  });
-
-  it('正常系: aiAnalysisResult と aiAnalysisError が明示的に undefined の場合はそのまま返す', async () => {
-    mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
-    mockGetAllTickers.mockResolvedValue({ items: [] });
-    mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
-    mockGetByExchange.mockResolvedValue([
-      {
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2024-01-15',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        CreatedAt: 1705276800000,
-        UpdatedAt: 1705352400000,
-        AiAnalysisResult: undefined,
-        AiAnalysisError: undefined,
-      },
-    ]);
-
-    const response = await GET(new NextRequest('http://localhost/api/summaries'));
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysisResult');
-    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysisError');
+    const summary = body.exchanges[0].summaries[0];
+    expect(summary).not.toHaveProperty('aiAnalysisResult');
+    expect(summary).not.toHaveProperty('aiAnalysisError');
+    expect(summary).not.toHaveProperty('patternDetails');
+    expect(summary).toEqual(expect.objectContaining({ buyPatternCount: 1, sellPatternCount: 0 }));
   });
 
   it('異常系: date パラメータが不正な場合は 400 を返す', async () => {

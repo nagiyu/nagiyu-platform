@@ -1,13 +1,15 @@
 /** @jest-environment jsdom */
 /**
- * SummaryDetailDialog - 予測リターン・確信度表示 Unit Tests
+ * SummaryDetailDialog Unit Tests
  *
- * 新フィールド（predictedReturn / confidence）の表示・非表示を検証する。
+ * 開いたときの確度取得と、確度カード・内訳・折りたたみ・成績画面リンク・確度なしの表示を検証する。
  */
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import SummaryDetailDialog from '../../../components/SummaryDetailDialog';
+import type { TickerSummary } from '../../../types/stock';
+import type { ForecastDetailResponse, QuestionDetail } from '../../../types/forecast';
 
-// 依存コンポーネントのモック
 jest.mock('../../../components/StockChart', () => ({
   __esModule: true,
   default: () => React.createElement('div', null, 'StockChartMock'),
@@ -15,216 +17,237 @@ jest.mock('../../../components/StockChart', () => ({
 
 jest.mock('../../../components/AlertSettingsModal', () => ({
   __esModule: true,
-  default: () => null,
+  default: ({ open }: { open: boolean }) =>
+    open ? React.createElement('div', null, 'AlertSettingsModalMock') : null,
 }));
 
-jest.mock('../../../components/AiAnalysisMarkdown', () => ({
-  __esModule: true,
-  default: ({ content }: { content: string }) => React.createElement('span', null, content),
-}));
-
-jest.mock('@mui/material', () => {
-  const createEl = (tag: string) => {
-    const Comp = ({ children, ...props }: Record<string, unknown>) => {
-      const { sx, ...rest } = props as { sx?: unknown } & Record<string, unknown>;
-      void sx;
-      return React.createElement(tag, rest, children as React.ReactNode);
-    };
-    Comp.displayName = `Mock_${tag}`;
-    return Comp;
-  };
-
-  return {
-    Box: createEl('div'),
-    Dialog: ({ open, children }: { open: boolean; children: React.ReactNode }) =>
-      open ? React.createElement('div', { role: 'dialog' }, children) : null,
-    DialogContent: createEl('div'),
-    DialogTitle: createEl('div'),
-    Divider: () => React.createElement('hr'),
-    IconButton: createEl('button'),
-    Menu: () => null,
-    MenuItem: createEl('li'),
-    Table: createEl('table'),
-    TableBody: createEl('tbody'),
-    TableCell: createEl('td'),
-    TableContainer: createEl('div'),
-    TableRow: createEl('tr'),
-    Tooltip: ({ children }: { children: React.ReactNode }) =>
-      React.createElement(React.Fragment, null, children),
-    Typography: createEl('span'),
-  };
-});
-
-jest.mock('@nagiyu/ui', () => ({
-  Button: ({ children, ...props }: Record<string, unknown>) =>
-    React.createElement('button', props, children as React.ReactNode),
-  Chip: ({ children, ...props }: Record<string, unknown>) =>
-    React.createElement('span', props, children as React.ReactNode),
-}));
-
-jest.mock('@mui/icons-material', () => ({
-  Close: () => React.createElement('span', null, 'X'),
-}));
-
-import SummaryDetailDialog from '../../../components/SummaryDetailDialog';
-import type { TickerSummary } from '../../../types/stock';
-
-/** ベースとなる TickerSummary を生成するヘルパー */
-const buildSummary = (overrides: Partial<TickerSummary> = {}): TickerSummary => ({
-  tickerId: 'NSDQ:AAPL',
-  symbol: 'AAPL',
-  name: 'Apple Inc.',
+const summary: TickerSummary = {
+  tickerId: 'NASDAQ:NVDA',
+  date: '2025-09-25',
+  symbol: 'NVDA',
+  name: 'NVIDIA',
   open: 100,
-  high: 110,
-  low: 95,
-  close: 105,
-  volume: 1000000,
-  updatedAt: '2026-03-04T00:00:00.000Z',
-  buyPatternCount: 0,
+  high: 120,
+  low: 90,
+  close: 110,
+  volume: 1234,
+  updatedAt: '2026-01-01T00:00:00.000Z',
+  buyPatternCount: 1,
   sellPatternCount: 0,
   buyAlertCount: { enabled: 0, disabled: 0 },
   sellAlertCount: { enabled: 0, disabled: 0 },
-  patternDetails: [],
-  holding: null,
-  ...overrides,
+  holding: { quantity: 3, averagePrice: 99 },
+  forecast: null,
+};
+
+const dirDetail: QuestionDetail = {
+  probability: 0.56,
+  baseline: 0.5,
+  lean: 'UP',
+  neutralBand: { lower: 0.47, upper: 0.53 },
+  bandHistory: { lower: 0.55, upper: 0.6, count: 212, hitRate: 0.57 },
+  axes: [
+    {
+      axisId: 'morning-star',
+      name: '三川明けの明星',
+      kind: 'FLAG',
+      lit: true,
+      performance: { count: 120, hitRate: 0.58, diffFromBaseline: 0.08 },
+      contribution: 0.021,
+      lowSample: false,
+    },
+    {
+      axisId: 'range-5d',
+      name: '直近 5 日の値幅',
+      kind: 'NUMERIC',
+      ratio: 1.42,
+      performance: { count: 10, hitRate: 0.5, diffFromBaseline: 0 },
+      contribution: -0.008,
+      lowSample: true,
+    },
+    {
+      axisId: 'evening-star',
+      name: '三川宵の明星',
+      kind: 'FLAG',
+      lit: false,
+      performance: { count: 90, hitRate: 0.45, diffFromBaseline: -0.05 },
+      contribution: 0,
+      lowSample: false,
+    },
+  ],
+};
+
+const volDetail: QuestionDetail = {
+  probability: 0.64,
+  baseline: 0.5,
+  lean: 'HIGH',
+  neutralBand: { lower: 0.47, upper: 0.53 },
+  bandHistory: { lower: 0.6, upper: 0.65, count: 12, hitRate: 0.6 },
+  axes: [
+    {
+      axisId: 'gap',
+      name: 'ギャップ',
+      kind: 'FLAG',
+      lit: true,
+      performance: { count: 40, hitRate: 0.7, diffFromBaseline: 0.2 },
+      contribution: 0.05,
+      lowSample: false,
+    },
+  ],
+};
+
+const detailResponse = (vol: QuestionDetail | null = volDetail): ForecastDetailResponse => ({
+  tickerId: 'NASDAQ:NVDA',
+  date: '2025-09-25',
+  questions: { DIR: dirDetail, VOL: vol },
 });
 
-describe('SummaryDetailDialog - 予測リターン・確信度の表示', () => {
-  it('predictedReturn と confidence がある場合に表示される', () => {
-    const summary = buildSummary({
-      aiAnalysisResult: {
-        priceMovementAnalysis: '値動き分析',
-        patternAnalysis: 'パターン分析',
-        supportLevels: [100, 99, 98],
-        resistanceLevels: [110, 111, 112],
-        relatedMarketTrend: '市場動向',
-        investmentJudgment: {
-          signal: 'BULLISH',
-          predictedReturn: 1.23,
-          confidence: 0.72,
-          reason: '上昇シグナル',
-        },
-      },
-    });
+const mockFetch = (response: { ok: boolean; status: number; body?: unknown } | Error) => {
+  global.fetch = jest.fn(async () => {
+    if (response instanceof Error) {
+      throw response;
+    }
+    return {
+      ok: response.ok,
+      status: response.status,
+      json: async () => response.body,
+    } as Response;
+  });
+};
 
-    render(
-      React.createElement(SummaryDetailDialog, {
-        open: true,
-        summary,
-        onClose: jest.fn(),
-      })
-    );
+const renderDialog = () =>
+  render(React.createElement(SummaryDetailDialog, { open: true, summary, onClose: jest.fn() }));
 
-    // 予測リターンが表示されること
-    expect(screen.getByTestId('predicted-return').textContent).toBe('+1.23%');
-    // 確信度が表示されること
-    expect(screen.getByTestId('confidence').textContent).toBe('72%');
-    // ラベルが表示されること
-    expect(screen.getByText('予測リターン:')).toBeTruthy();
-    expect(screen.getByText('確信度:')).toBeTruthy();
+describe('SummaryDetailDialog', () => {
+  it('開いたときに基準日つきで確度を取得する', async () => {
+    mockFetch({ ok: true, status: 200, body: detailResponse() });
+    renderDialog();
+
+    await screen.findByTestId('forecast-label-DIR');
+    expect(global.fetch).toHaveBeenCalledWith('/api/forecasts/NASDAQ%3ANVDA?date=2025-09-25');
+    expect(screen.getByText(/9\/25 引け時点/)).toBeTruthy();
   });
 
-  it('predictedReturn がない旧レコードでは予測リターン行が表示されない', () => {
-    const summary = buildSummary({
-      aiAnalysisResult: {
-        priceMovementAnalysis: '値動き分析',
-        patternAnalysis: 'パターン分析',
-        supportLevels: [100, 99, 98],
-        resistanceLevels: [110, 111, 112],
-        relatedMarketTrend: '市場動向',
-        investmentJudgment: {
-          signal: 'NEUTRAL',
-          reason: '様子見',
-          // predictedReturn と confidence を持たない旧レコード
-        },
-      },
-    });
+  it('確度カードにラベル・基準値との差・同じ確率帯の過去実績を表示する', async () => {
+    mockFetch({ ok: true, status: 200, body: detailResponse() });
+    renderDialog();
 
-    render(
-      React.createElement(SummaryDetailDialog, {
-        open: true,
-        summary,
-        onClose: jest.fn(),
-      })
-    );
+    await screen.findByTestId('forecast-label-DIR');
+    const dirCard = screen.getByTestId('forecast-card-DIR');
+    expect(within(dirCard).getByText('強含み 56%')).toBeTruthy();
+    expect(within(dirCard).getByText(/基準 50%/).textContent).toContain('+6pt');
+    expect(within(dirCard).getByText('55〜60% の帯の実績: 的中 57%（212 件）')).toBeTruthy();
+    expect(within(dirCard).queryByText('件数が少なく参考値')).toBeNull();
 
-    // 旧レコードでは表示されないこと
-    expect(screen.queryByTestId('predicted-return')).toBeNull();
-    expect(screen.queryByTestId('confidence')).toBeNull();
-    expect(screen.queryByText('予測リターン:')).toBeNull();
-    expect(screen.queryByText('確信度:')).toBeNull();
+    const volCard = screen.getByTestId('forecast-card-VOL');
+    expect(within(volCard).getByText('荒れそう 64%')).toBeTruthy();
+    expect(within(volCard).getByText('件数が少なく参考値')).toBeTruthy();
   });
 
-  it('aiAnalysisResult がない場合は投資判断セクション全体が非表示', () => {
-    const summary = buildSummary({ aiAnalysisResult: undefined });
+  it('方向の内訳に値・寄与・件数不足を表示し、点灯しなかった軸は閉じた折りたたみに入れる', async () => {
+    mockFetch({ ok: true, status: 200, body: detailResponse() });
+    renderDialog();
 
-    render(
-      React.createElement(SummaryDetailDialog, {
-        open: true,
-        summary,
-        onClose: jest.fn(),
-      })
-    );
+    await screen.findByTestId('breakdown-DIR-table');
+    const table = screen.getByTestId('breakdown-DIR-table');
+    const flagRow = within(table).getByTestId('breakdown-DIR-row-morning-star');
+    expect(within(flagRow).getByText('点灯')).toBeTruthy();
+    expect(within(flagRow).getByText('+2.1pt')).toBeTruthy();
 
-    expect(screen.queryByTestId('predicted-return')).toBeNull();
-    expect(screen.queryByTestId('confidence')).toBeNull();
+    const numericRow = within(table).getByTestId('breakdown-DIR-row-range-5d');
+    expect(within(numericRow).getByText('1.4 倍（平常比）')).toBeTruthy();
+    expect(within(numericRow).getByText(/−0\.8pt/)).toBeTruthy();
+    expect(within(numericRow).getByText('件数不足')).toBeTruthy();
+
+    const fold = screen.getByTestId('breakdown-DIR-inactive') as HTMLDetailsElement;
+    expect(fold.open).toBe(false);
+    expect(within(fold).getByText('三川宵の明星')).toBeTruthy();
+    expect(within(table).queryByText('三川宵の明星')).toBeNull();
   });
 
-  it('predictedReturn のみあって confidence がない場合は predictedReturn のみ表示', () => {
-    const summary = buildSummary({
-      aiAnalysisResult: {
-        priceMovementAnalysis: '値動き分析',
-        patternAnalysis: 'パターン分析',
-        supportLevels: [100, 99, 98],
-        resistanceLevels: [110, 111, 112],
-        relatedMarketTrend: '市場動向',
-        investmentJudgment: {
-          signal: 'BULLISH',
-          predictedReturn: 0.5,
-          reason: '上昇シグナル',
-          // confidence なし
-        },
-      },
-    });
+  it('内訳タブで荒れに切り替えると成績画面リンクの問いも切り替わる', async () => {
+    mockFetch({ ok: true, status: 200, body: detailResponse() });
+    renderDialog();
 
-    render(
-      React.createElement(SummaryDetailDialog, {
-        open: true,
-        summary,
-        onClose: jest.fn(),
-      })
+    await screen.findByTestId('breakdown-DIR-table');
+    expect(screen.getByTestId('axis-performance-link').getAttribute('href')).toBe(
+      '/axis-performance?question=DIR'
     );
 
-    expect(screen.getByTestId('predicted-return').textContent).toBe('+0.50%');
-    expect(screen.queryByTestId('confidence')).toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: '荒れの内訳' }));
+
+    expect(await screen.findByTestId('breakdown-VOL-table')).toBeTruthy();
+    expect(screen.getByTestId('axis-performance-link').getAttribute('href')).toBe(
+      '/axis-performance?question=VOL'
+    );
   });
 
-  it('confidence のみあって predictedReturn がない場合は confidence のみ表示', () => {
-    const summary = buildSummary({
-      aiAnalysisResult: {
-        priceMovementAnalysis: '値動き分析',
-        patternAnalysis: 'パターン分析',
-        supportLevels: [100, 99, 98],
-        resistanceLevels: [110, 111, 112],
-        relatedMarketTrend: '市場動向',
-        investmentJudgment: {
-          signal: 'BEARISH',
-          confidence: 0.9,
-          reason: '下落シグナル',
-          // predictedReturn なし
-        },
-      },
-    });
+  it('荒れだけ確度がないときは荒れを「—」にし、荒れの内訳の代わりに理由を出す', async () => {
+    mockFetch({ ok: true, status: 200, body: detailResponse(null) });
+    renderDialog();
 
-    render(
-      React.createElement(SummaryDetailDialog, {
-        open: true,
-        summary,
-        onClose: jest.fn(),
-      })
+    await screen.findByTestId('forecast-label-DIR');
+    expect(screen.getByTestId('forecast-label-VOL').textContent).toBe('—');
+
+    fireEvent.click(screen.getByRole('tab', { name: '荒れの内訳' }));
+    expect((await screen.findByTestId('breakdown-unavailable')).textContent).toBe(
+      '履歴が足りず算出できません'
     );
+  });
 
-    expect(screen.queryByTestId('predicted-return')).toBeNull();
-    expect(screen.getByTestId('confidence').textContent).toBe('90%');
+  it('404 のときは「—」と理由を表示し、チャートとアラート作成は使える', async () => {
+    mockFetch({ ok: false, status: 404 });
+    renderDialog();
+
+    expect((await screen.findByTestId('forecast-unavailable-reason')).textContent).toBe(
+      'この日の確度はありません'
+    );
+    expect(screen.getByTestId('forecast-label-DIR').textContent).toBe('—');
+    expect(screen.getByTestId('forecast-label-VOL').textContent).toBe('—');
+    expect(screen.queryByTestId('breakdown-DIR-table')).toBeNull();
+    expect(screen.getByText('StockChartMock')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: '買いアラート設定' }));
+    expect(screen.getByText('AlertSettingsModalMock')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '売りアラート設定' })).toBeTruthy();
+  });
+
+  it('取得に失敗したときは算出できなかった旨を表示する', async () => {
+    mockFetch(new Error('network'));
+    renderDialog();
+
+    expect((await screen.findByTestId('forecast-unavailable-reason')).textContent).toBe(
+      '確度を算出できませんでした'
+    );
+  });
+
+  it('AI 由来の表示とパターン一覧を含まない', async () => {
+    mockFetch({ ok: true, status: 200, body: detailResponse() });
+    renderDialog();
+
+    await screen.findByTestId('forecast-label-DIR');
+    expect(screen.queryByText('AI 解析')).toBeNull();
+    expect(screen.queryByText('パターン分析')).toBeNull();
+    expect(screen.queryByText('投資判断')).toBeNull();
+    expect(screen.queryByText('サポートレベル')).toBeNull();
+  });
+
+  it('閉じているときは確度を取得しない', async () => {
+    mockFetch({ ok: true, status: 200, body: detailResponse() });
+    render(React.createElement(SummaryDetailDialog, { open: false, summary, onClose: jest.fn() }));
+
+    await waitFor(() => expect(global.fetch).not.toHaveBeenCalled());
+  });
+
+  it('モバイル向けの行展開で値と過去成績を表示する', async () => {
+    mockFetch({ ok: true, status: 200, body: detailResponse() });
+    renderDialog();
+
+    await screen.findByTestId('breakdown-DIR-table');
+    fireEvent.click(screen.getByRole('button', { name: '三川明けの明星の詳細を開く' }));
+
+    expect(screen.getByText(/過去成績: 120 件 \/ 的中 58%/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '三川明けの明星の詳細を閉じる' }));
+    expect(screen.queryByText(/過去成績: 120 件/)).toBeNull();
   });
 });
