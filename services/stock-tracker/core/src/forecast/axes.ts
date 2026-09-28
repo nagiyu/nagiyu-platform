@@ -1,12 +1,12 @@
 /**
- * Stock Tracker Core - 判断軸の定義（design.md §1.2・§1.3）
+ * Stock Tracker Core - 判断軸の定義
  *
- * 軸は DB に持たずコードで定義する。軸を追加しても既存の構造が壊れないこと（NFR-7）。
+ * 軸は DB に持たずコードで定義する。軸を追加しても既存の構造が壊れないようにする。
  */
 import { PATTERN_REGISTRY } from '../patterns/pattern-registry.js';
 import type { AxisDefinition, AxisId } from './types.js';
 
-/** 複合パターン軸 ID（design.md §1.2） */
+/** 複合パターン軸 ID */
 export const AXIS_ID_BUY_COUNT_GE2 = 'buy-count-ge2';
 export const AXIS_ID_SELL_COUNT_GE2 = 'sell-count-ge2';
 
@@ -80,8 +80,8 @@ const MARKET_RANGE_AVG_AXIS: readonly AxisDefinition[] = [
 ];
 
 /**
- * 判断軸のレジストリ（design.md §1.2）。
- * 軸を追加するときはこの配列に足すだけでよい（NFR-7）。
+ * 判断軸のレジストリ。
+ * 軸を追加するときはこの配列に足すだけでよい。
  */
 export const AXIS_REGISTRY: readonly AxisDefinition[] = [
   ...PATTERN_AXES,
@@ -100,7 +100,7 @@ export function getAxisDefinition(axisId: AxisId): AxisDefinition | undefined {
   return AXIS_BY_ID.get(axisId);
 }
 
-/** 問いが使う軸 ID の一覧（design.md §1.3 の対応。順序は AXIS_REGISTRY の登録順） */
+/** 問いが使う軸 ID の一覧（順序は AXIS_REGISTRY の登録順） */
 export function getAxisIdsForQuestion(question: 'DIR' | 'VOL' | 'MKT'): AxisId[] {
   return AXIS_REGISTRY.filter((axis) => axis.questions.includes(question)).map(
     (axis) => axis.axisId

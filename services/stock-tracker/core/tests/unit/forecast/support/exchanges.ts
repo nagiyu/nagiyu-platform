@@ -1,10 +1,10 @@
 /**
- * テスト共通の取引所マスタ入力（design.md §1.1・§1.4）。
+ * テスト共通の取引所マスタ入力。
  *
- * 参照実装・golden.py と同じ実際の値（JP: TSE 09:00-15:30 Asia/Tokyo、
- * US: NASDAQ・NYSE・AMEX 09:30-16:00 America/New_York）を、時刻の規則・市場への振り分けの
- * 両方に使う「取引所マスタ」として各テストへ渡す。市場は core の定数ではなく、この入力の
- * `market` 属性から決まる（design.md §1.1「取引所マスタの市場属性で決める」）。
+ * ゴールデンテストの入力データ（fixtures/golden.json）と整合する実際の値（JP: TSE
+ * 09:00-15:30 Asia/Tokyo、US: NASDAQ・NYSE・AMEX 09:30-16:00 America/New_York）を、
+ * 時刻の規則・市場への振り分けの両方に使う「取引所マスタ」として各テストへ渡す。市場は
+ * core の定数ではなく、この入力の `market` 属性から決まる。
  */
 import type { ExchangeSessionInfo } from '../../../../src/forecast/time.js';
 

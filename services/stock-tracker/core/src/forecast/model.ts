@@ -1,5 +1,5 @@
 /**
- * Stock Tracker Core - 問いごとの合成モデル（design.md §1.4、参照実装 analysis/wf.py の LR クラス相当）
+ * Stock Tracker Core - 問いごとの合成モデル
  *
  * L2 正則化ロジスティック回帰（切片なし・オフセット付き）を、問いごとに JP/US 共通で学習する。
  */
@@ -34,7 +34,8 @@ export interface FittedQuestionModel {
 }
 
 /**
- * notna().all の行だけを使って学習する（design.md §1「値がない軸(出来高欠損等)は...学習ではその行を除外」）。
+ * 軸の値が 1 つでも欠けている行（出来高欠損等）は学習から除外する。欠損を 0 として扱うと、
+ * 実際には観測できていない軸まで学習に寄与してしまうため。
  */
 function selectUsableRows(axisIds: readonly AxisId[], rows: readonly TrainingRow[]): TrainingRow[] {
   return rows.filter((row) => axisIds.every((id) => row.values[id] !== undefined));
@@ -92,7 +93,7 @@ export function fitQuestionModel(
 }
 
 /**
- * 軸ごとの成績（design.md §2.3 AxisStats）。学習サンプル（notna().all を満たす行）での
+ * 軸ごとの成績。学習サンプル（notna().all を満たす行）での
  * 点灯回数・点灯時の的中率・全体との差・（DIR のみ）平均超過リターン・件数不足の目印。
  */
 function computeAxisStats(
@@ -136,7 +137,7 @@ function mean(values: readonly number[]): number {
 }
 
 /**
- * 標準化済みの値を返す（値なしの軸は標準化後 0 = 寄与なし。design.md §1「予測時は標準化後0」）。
+ * 標準化済みの値を返す（値なしの軸は標準化後 0 として扱い、モデルへの寄与をなくす）。
  */
 export function standardizeForPrediction(
   model: FittedQuestionModel,

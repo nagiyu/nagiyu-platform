@@ -1,13 +1,13 @@
 /**
- * 市場をまたぐケース（design.md §4・§1.4 時刻の規則）。
+ * 市場をまたぐケース（時刻の規則）。
  *
  * 「JP の D の予測に、US の D−1 の実績（US の D の引けで確定）が入らないこと」を、
  * 明示的なテストケースとして持つ。US の D のバーを大きく変えても JP の D の予測が変わらない
  * ことで検証する（US の D のバーは、US の D−1 の翌営業日レコードであり、そのラベルは
  * US の D の引けで確定するため、JP の D の予測には使えない）。
  *
- * 逆方向（指摘 C-5）: US の D の予測には JP の D の実績を使ってよい（JP の引けは同じ暦日の
- * より早い時刻のため）。DIR/VOL・Q-MKT はいずれも JP・US 共通のモデル（design.md §1.2）で
+ * 逆方向: US の D の予測には JP の D の実績を使ってよい（JP の引けは同じ暦日の
+ * より早い時刻のため）。DIR/VOL・Q-MKT はいずれも JP・US 共通のモデルで
  * あり、市場そのものではなく時刻の規則だけで学習サンプルの採否が決まることを、この非対称性で
  * 確認する。
  */
@@ -99,7 +99,7 @@ describe('市場をまたぐケース', () => {
     expect(perturbedResult).not.toEqual(baseline);
   });
 
-  it('許容される向き（指摘 C-5）: US の D の予測には JP の D の実績を使ってよい', () => {
+  it('許容される向き: US の D の予測には JP の D の実績を使ってよい', () => {
     const baseline = computeForDate(allBars, TARGET_DATE, 'US', REAL_EXCHANGES, { now: 0 });
     const perturbed = perturb(allBars, 'JT1', TARGET_DATE);
     const perturbedResult = computeForDate(perturbed, TARGET_DATE, 'US', REAL_EXCHANGES, {
@@ -107,11 +107,11 @@ describe('市場をまたぐケース', () => {
     });
 
     // JP の D の引け（15:30 JST）は US の D の引け（16:00 EST、同じ暦日のより遅い時刻）より早いため、
-    // JP・US 共通のプールドモデル（design.md §1.2）の学習に JP の D の実績が使える。
+    // JP・US 共通のプールドモデルの学習に JP の D の実績が使える。
     expect(perturbedResult).not.toEqual(baseline);
   });
 
-  it('取引所マスタの設定（US の End）を変えても、時刻の規則の向きは変わらない（指摘: 時間外込み設定でも成立）', () => {
+  it('取引所マスタの設定（US の End）を変えても、時刻の規則の向きは変わらない（時間外込み設定でも成立する）', () => {
     // US の End を 20:00（時間外取引込み）にしても、JP の D は依然として US の D−1 までしか
     // 使えず、US の D は JP の D を使える、という向きそのものは変わらないことを確認する。
     const jpBaseline = computeForDate(allBars, TARGET_DATE, 'JP', US_AFTER_HOURS_EXCHANGES, {

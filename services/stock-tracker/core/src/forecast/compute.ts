@@ -1,17 +1,17 @@
 /**
- * Stock Tracker Core - Forecast 算出の中核（design.md §1・§2.3・§3.1・§4）
+ * Stock Tracker Core - Forecast 算出の中核
  *
- * design.md §3.1 のとおり、bars（生の DailySummary 相当）から計算するのは
- * 「D の軸の値」（{@link computeAxisValuesForDate}）と「実績」（{@link computeOutcomes} /
+ * bars（生の DailySummary 相当）から計算するのは「D の軸の値」
+ * （{@link computeAxisValuesForDate}）と「実績」（{@link computeOutcomes} /
  * {@link computeOutcomeForDate}）だけにする。学習・基準値・標準化・中立帯・確率帯の実績・
  * AxisStats は、保存済みサンプル列（{@link SampleHistory}）から計算する
  * （{@link computeModelSnapshot}）。スナップショットと軸の値から確率を組み立てるのが
  * {@link computeProbabilityRecord}。
  *
- * 3-2 のバッチは、この 4 つを日付順に呼んでサンプルを積んでいけばよい。`computeForDate` は
+ * 後続のバッチ処理は、この 4 つを日付順に呼んでサンプルを積んでいけばよい。`computeForDate` は
  * bars だけからリプレイ相当で全部作る便宜の合成関数で、テストとゴールデン用。
  *
- * いずれも DB アクセスは行わない純粋関数（NFR-4）。
+ * いずれも DB アクセスは行わない純粋関数。
  */
 import { getAxisIdsForQuestion } from './axes.js';
 import { baselineOffset, clipBaseline, computeRollingBaseline } from './baseline.js';
@@ -80,7 +80,7 @@ function tickerOutcomeFromSample(
   if (!sample.nextOk || sample.nextDate === undefined || sample.outcomeRaw === undefined)
     return undefined;
   const { nextReturn, nextRawRange, excludedExtremeReturn } = sample.outcomeRaw;
-  // 値幅の定義（design.md §1.1）に揃える: 翌営業日の値幅 ÷ 基準日終値（生の価格差ではない）
+  // 翌営業日の値幅は比率で表す: 翌営業日の値幅 ÷ 基準日終値（生の価格差ではない）
   const nextRange = nextRawRange / sample.close;
   const outcome: TickerOutcome = {
     tickerId: sample.tickerId,
@@ -134,7 +134,7 @@ function marketOutcomeFromSample(
 }
 
 /**
- * 実績（採点）の算出（design.md §1・§3.1「D と翌営業日の足 → Outcome」。純粋関数として export する）。
+ * 実績（採点）の算出。純粋関数として export する。
  *
  * bars（全期間分でよい）から、翌営業日のレコードが揃っている行すべてについて採点結果を返す。
  * どの日付の Outcome を実際に永続化するかは呼び出し側（バッチ）が決める。
@@ -156,7 +156,7 @@ export function computeOutcomes(
 
 /**
  * 「D と翌営業日の足 → Outcome」を 1 市場・1 日に絞って返す薄いラッパー
- * （design.md §3.1。3-2 のバッチはこちらを日付ごとに呼べばよい）。
+ * （後続のバッチ処理はこちらを日付ごとに呼べばよい）。
  */
 export function computeOutcomeForDate(
   bars: readonly DailyBarInput[],
@@ -173,7 +173,7 @@ export function computeOutcomeForDate(
 }
 
 export interface ComputeModelSnapshotOptions {
-  /** 直前の中立帯（design.md §1.5 見直しの規則）。無ければ null または省略 */
+  /** 直前の中立帯。無ければ null または省略 */
   previousNeutralBand?: NeutralBandState | null;
   /** true なら見直し間隔によらず必ず中立帯を判定し直す（稼働開始日用） */
   forceNeutralBandRecompute?: boolean;
@@ -182,7 +182,7 @@ export interface ComputeModelSnapshotOptions {
 }
 
 /**
- * 保存済みサンプル列 + D → スナップショット（design.md §3.1）。
+ * 保存済みサンプル列 + D → スナップショット。
  *
  * 学習・基準値・標準化・中立帯・確率帯の実績・AxisStats を、`history`（保存済み
  * Forecast/MarketForecast 相当）から計算する。bars（生の DailySummary）には依存しない。
@@ -254,13 +254,13 @@ export function computeModelSnapshot(
   };
 }
 
-/** スナップショットのバーンイン判定（design.md §1.6）。学習サンプルの異なる日付が閾値未満なら false */
+/** スナップショットのバーンイン判定。学習サンプルの異なる日付が閾値未満なら false */
 export function hasEnoughTrainingData(snapshot: ModelSnapshotItem): boolean {
   return snapshot.distinctTrainingDates >= MIN_TRAINING_DATES;
 }
 
 /**
- * スナップショット + D の軸の値 → ProbabilityRecord（design.md §3.1）。
+ * スナップショット + D の軸の値 → ProbabilityRecord。
  *
  * バーンイン判定（{@link hasEnoughTrainingData}）と、VOL の「平常が無い銘柄は出さない」判定は
  * 呼び出し側が行う（このスナップショットに閉じた判定ではないため）。
@@ -325,7 +325,7 @@ function sortKey(market: Market, date: string): string {
 
 /**
  * bars だけから、D までのサンプル履歴（{@link SampleHistory}）をリプレイで組み立てる。
- * テスト・ゴールデン・初期値算出（リプレイ）用の便宜関数（design.md §3.1・§3.3）。
+ * テスト・ゴールデン・初期値算出（リプレイ）用の便宜関数。
  *
  * 名目引け時刻の順に (market, date) を 1 つずつ処理し、それぞれの時点で「それまでに
  * 積んだサンプルだけ」からスナップショットを計算して確率を出す。将来データは
@@ -354,7 +354,7 @@ export function buildSampleHistoryThroughDate(
   }
 
   // 市場コードの集合は panel.calendar に現れたもの（= 実際に観測がある市場）ぶんだけ動的に回す
-  // （design.md §1.1「取引所マスタの市場属性で決める」。固定 JP/US ではない）。
+  // （固定 JP/US ではなく、取引所マスタの市場属性で決まる）。
   const calendarEntries: { market: Market; date: string }[] = [];
   for (const market of Object.keys(panel.calendar)) {
     for (const date of panel.calendar[market]) {
@@ -471,7 +471,7 @@ export function buildSampleHistoryThroughDate(
 
 /**
  * bars だけを渡すと、D までの履歴をリプレイで組み立てたうえで D の確度を返す便宜の合成関数
- * （design.md §3.1・§7 の「テストとゴールデン用」）。3-2 のバッチは、この内部と同じ 4 つの
+ * （テストとゴールデン用）。後続のバッチ処理は、この内部と同じ 4 つの
  * 関数（{@link computeAxisValuesForDate}・{@link computeOutcomeForDate}・
  * {@link computeModelSnapshot}・{@link computeProbabilityRecord}）を、保存済みサンプルを
  * 積みながら個別に呼ぶ。
@@ -488,7 +488,7 @@ export function computeForDate(
   const axisValues = computeAxisValuesForDate(bars, date, market, exchanges);
 
   if (axisValues.tickers.length === 0 && axisValues.market === undefined) {
-    // design.md §1「D の足がその市場に 1 件も無いときは空の結果を返す」（NaN を出さない）
+    // D の足がその市場に 1 件も無いときは空の結果を返す（NaN を出さない）
     return {
       date,
       market,
@@ -542,5 +542,5 @@ export function computeForDate(
   return { date, market, tickers, marketForecast, modelSnapshots, skippedExchangeIds };
 }
 
-// 参照実装との突き合わせ（golden test）やバッチ側の型付けのために、内部データ型も export する。
+// ゴールデンテストやバッチ側の型付けのために、内部データ型も export する。
 export type { TickerDaySample, MarketDaySample };
