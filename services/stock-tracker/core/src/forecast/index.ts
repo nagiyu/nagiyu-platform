@@ -53,3 +53,9 @@ export {
   hasEnoughTrainingData,
   type ComputeModelSnapshotOptions,
 } from './compute.js';
+export {
+  computePerformanceDaily,
+  type AxisPerformanceDailyEntry,
+  type PerformanceDailyItem,
+  type ProbabilityBandDailyEntry,
+} from './performance.js';
