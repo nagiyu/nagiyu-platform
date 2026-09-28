@@ -17,12 +17,10 @@ infra/codec-converter/
 ├── lib/
 │   ├── codec-converter-stack.ts    # メインスタック
 │   ├── policies/
-│   │   └── app-runtime-policy.ts   # Lambda と開発者で共有する実行権限
-│   ├── roles/
-│   │   ├── lambda-execution-role.ts # Lambda 実行ロール
-│   │   └── batch-job-role.ts       # Batch Job 実行ロール
-│   └── users/
-│       └── dev-user.ts             # 開発用 IAM ユーザー
+│   │   └── app-runtime-policy.ts   # Lambda 実行ロールが使用する実行権限
+│   └── roles/
+│       ├── lambda-execution-role.ts # Lambda 実行ロール
+│       └── batch-job-role.ts       # Batch Job 実行ロール
 ├── bin/
 │   └── codec-converter.ts          # エントリーポイント
 └── test/
@@ -118,16 +116,7 @@ npm run deploy -w codec-converter -- --context env=prod --context deploymentPhas
 
 ## 2. 開発環境セットアップ
 
-### 2.1 開発用 IAM ユーザーの設定
-
-詳細は [architecture.md の開発環境セットアップ](./architecture.md#ローカル開発用-iam-ユーザーのセットアップ) を参照してください。
-
-**概要**:
-
-1. CDK デプロイにより `codec-converter-dev-{env}` ユーザーが作成される
-2. AWS コンソールでアクセスキーを手動発行
-3. `aws configure --profile codec-converter-dev` で設定
-4. `export AWS_PROFILE=codec-converter-dev` で使用
+ローカルから dev 環境の AWS リソースへアクセスする場合は、IAM Identity Center（SSO）の一時認証情報を使う。詳細は [architecture.md の開発環境セットアップ](./architecture.md#開発環境セットアップ) を参照してください。
 
 ---
 
@@ -165,7 +154,6 @@ npm run deploy -w codec-converter -- --context env=dev --context deploymentPhase
 | Lambda 関数         | `codec-converter-dev`                | `codec-converter-prod`                |
 | Batch Job Queue     | `codec-converter-dev`                | `codec-converter-prod`                |
 | CloudFront ドメイン | `codec-converter.dev.nagiyu.com`     | `codec-converter.nagiyu.com`          |
-| 開発用 IAM User     | `codec-converter-dev-dev`            | `codec-converter-dev-prod`            |
 
 ### 4.2 環境変数
 

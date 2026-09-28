@@ -12,6 +12,7 @@ jest.mock('@nagiyu/livetalk-core', () => ({
 const mockLLMInstance: ILLMClient = {
   chatStream: jest.fn(),
   chatComplete: jest.fn(),
+  chatStructured: jest.fn(),
 };
 
 describe('getLLMClient', () => {
@@ -41,6 +42,7 @@ describe('setLLMClientForTesting', () => {
     const testClient: ILLMClient = {
       chatStream: jest.fn(),
       chatComplete: jest.fn(),
+      chatStructured: jest.fn(),
     };
     setLLMClientForTesting(testClient);
     expect(getLLMClient()).toBe(testClient);

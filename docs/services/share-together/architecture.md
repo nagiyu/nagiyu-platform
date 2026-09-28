@@ -213,7 +213,6 @@ CDK スタックは以下の構成で管理します。
 | DynamoDBStack   | シングルテーブル（2 GSI、オンデマンド課金、PITR 有効） |
 | EcrStack        | Web コンテナイメージリポジトリ                         |
 | LambdaStack     | Lambda（コンテナイメージで web を実行）                |
-| IAMStack        | 開発用 IAM ユーザー（dev 環境のみ）                    |
 | CloudFrontStack | CDN（`CloudFrontStackBase` 継承）                      |
 
 **バッチスタックを含まない理由**: MVP では定期的なバッチ処理が不要です。将来のプッシュ通知実装時に BatchStack・SNS・EventBridge を追加します。`CloudFrontStackBase` を継承することで CDN 設定のメンテナンスコストを削減しています。

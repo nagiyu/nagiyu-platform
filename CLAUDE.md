@@ -12,6 +12,7 @@
 
 - コードスニペット・エラーメッセージ内の英語はそのまま保持する
 - TypeScript / Next.js / React などの技術用語は英語のまま使用してよい
+- 記号の表記は [表記規約](docs/development/writing-style.md) に従う (記号は半角、スペースは記号の役割で決める、`「」` `『』` は全角のまま)
 
 ---
 
@@ -252,11 +253,19 @@ claude/**, feature/**  →  integration/**  →  develop  →  master
 - エラーメッセージは日本語 + 定数化（`ERROR_MESSAGES` オブジェクト）
 - UI 層（`components/`, `app/`）とビジネスロジック（`lib/`）を分離
 - ライブラリ依存の一方向性を保つ（`ui → browser → common`、循環依存禁止）
+- コメントには WHY を書き、WHAT の言い換えは書かない。経緯は今後の開発に効く制約としてのみ、現在形で書く
+- コメントと文書の表記は [表記規約](docs/development/writing-style.md) に従う
 
 ### MUST NOT
 
 - ライブラリ内でパスエイリアス（`@/`）を使用しない
 - `dangerouslySetInnerHTML` を直接使用しない（DOMPurify 経由のみ）
+- コメントで、リポジトリ内のファイル・ドキュメントへの参照に説明を委ねない (外部仕様の URL は可)
+- コメントに Issue / PR 番号・Phase 名を書かない
+
+### SHOULD
+
+- JSDoc は原則書く。名前・型・実装から自明なもの (JSDoc 全体・個々のタグとも) は省いてよい
 
 ---
 
@@ -340,6 +349,7 @@ PR 作成時は `.github/pull_request_template.md` の構造に従い、以下�
 
 - ブランチ戦略: [`docs/branching.md`](docs/branching.md)
 - コーディング規約: [`docs/development/rules.md`](docs/development/rules.md)
+- 表記規約: [`docs/development/writing-style.md`](docs/development/writing-style.md)
 - アーキテクチャ: [`docs/development/architecture.md`](docs/development/architecture.md)
 - テスト戦略: [`docs/development/testing.md`](docs/development/testing.md)
 - 開発フロー: [`docs/development/flow.md`](docs/development/flow.md)

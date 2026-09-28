@@ -217,31 +217,33 @@ export function calculateTargetPrice(averagePrice: number): number | null {
 - 型安全性が保たれる（戻り値の型が単純）
 - エラーハンドリングが呼び出し側で明示的になる
 
-#### JSDoc コメントの必須項目
+#### JSDoc コメントの書き方
 
-##### MUST: 関数の説明、@param、@returns
+JSDoc は原則書く。ただし名前・型・実装から自明なものは省いてよい。省略の判断は、JSDoc 全体にも個々のタグにも適用する (方針は [コーディング規約](./rules.md) の「コメント」を参照)。
+
+##### SHOULD: 関数の説明、@param、@returns
+
+自明なタグは省く。次の例では、`averagePrice` は名前と型から意味がわかるため `@param` を省き、名前からわからない算出式だけを `@returns` に書いている。
 
 ```typescript
 /**
  * 目標価格の算出
  *
- * @param averagePrice - 平均取得価格
- * @returns 目標価格（平均取得価格 × 1.2）
+ * @returns 目標価格 (平均取得価格 × 1.2)
  */
 export function calculateTargetPrice(averagePrice: number): number {
   return averagePrice * 1.2;
 }
 ```
 
-##### SHOULD: @throws（例外を投げる場合）
+##### SHOULD: @throws (例外を投げる場合)
 
 ```typescript
 /**
  * 目標価格の算出
  *
- * @param averagePrice - 平均取得価格
- * @returns 目標価格（平均取得価格 × 1.2）
- * @throws Error - 無効な価格の場合
+ * @returns 目標価格 (平均取得価格 × 1.2)
+ * @throws Error - 平均取得価格が負の場合
  */
 export function calculateTargetPrice(averagePrice: number): number {
   if (averagePrice < 0) {
@@ -251,15 +253,14 @@ export function calculateTargetPrice(averagePrice: number): number {
 }
 ```
 
-##### SHOULD: @example（使用例）
+##### SHOULD: @example (使用例)
 
 ```typescript
 /**
  * 目標価格の算出
  *
- * @param averagePrice - 平均取得価格
- * @returns 目標価格（平均取得価格 × 1.2）
- * @throws Error - 無効な価格の場合
+ * @returns 目標価格 (平均取得価格 × 1.2)
+ * @throws Error - 平均取得価格が負の場合
  *
  * @example
  * calculateTargetPrice(100.00) // => 120.00

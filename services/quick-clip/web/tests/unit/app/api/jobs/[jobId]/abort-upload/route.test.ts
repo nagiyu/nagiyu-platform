@@ -25,7 +25,7 @@ describe('POST /api/jobs/[jobId]/abort-upload', () => {
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockedGetS3Client.mockReturnValue({
       send: s3Send.mockResolvedValue({}),
-    } as ReturnType<typeof getS3Client>);
+    } as unknown as ReturnType<typeof getS3Client>);
   });
 
   afterEach(() => {

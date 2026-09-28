@@ -39,7 +39,7 @@ devDependencies は可能な限りモノレポルートで一元管理する。
 
 - overrides はあくまで暫定対処であり、恒久的な解決策ではない
 - 直接依存パッケージ側が修正版をリリースした場合は、overrides を削除して通常の依存解決に戻すことが望ましい
-- Critical・High レベルの脆弱性を対象とし、直接依存のバージョンアップで解決できない場合に限り適用する
+- Critical・High レベルの脆弱性を対象とし、直接依存のバージョンアップでも、依存元の範囲内での更新 (`npm update <パッケージ名>`) でも解決できない場合に限り適用する
 
 ### 対象となる脆弱性の例
 
@@ -52,8 +52,18 @@ devDependencies は可能な限りモノレポルートで一元管理する。
 
 ### 管理上の注意
 
-- overrides を追加する際は、適用理由と参照元（CVE や GitHub Advisory）をコメントで残す
+- `package.json` にはコメントを書けないため、overrides の適用理由と参照元 (CVE や GitHub Advisory) は PR に残す。コードから意図を読み取れないものは、下記「脆弱性以外の overrides」のように本ドキュメントに残す
 - 定期メンテナンスのタイミングで overrides の必要性を再確認し、不要になったものは削除する
+
+### 脆弱性以外の overrides
+
+#### playwright-core を @playwright/test と同じバージョンに揃える
+
+`playwright-core` は `$@playwright/test` という参照で、ルートの `@playwright/test` と同じバージョンに固定している。
+
+- **理由**: `@axe-core/playwright` が `playwright-core` を範囲の広い peerDependency で要求するため、`@playwright/test` とは別系統の新しい `playwright-core` が入ることがある。両者の `Page` 型が食い違うと、E2E テストの型チェックが失敗する
+- **`$` 参照にした理由**: Playwright は `@playwright/test` と `playwright-core` を同じバージョン番号で揃えて出している。版を直接書くと、`@playwright/test` を更新するたびに overrides も手で直す必要があり、忘れると食い違いが再発する
+- **前提**: `$` で参照できるのはルートの直接依存だけである。`@playwright/test` をルートの依存から外す場合は、この overrides も見直す
 
 ## 参考
 

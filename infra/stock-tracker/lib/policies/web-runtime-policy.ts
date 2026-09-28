@@ -27,12 +27,7 @@ export interface WebRuntimePolicyProps {
 /**
  * Stock Tracker Web Lambda 実行時権限のマネージドポリシー
  *
- * このポリシーは以下の両方で使用される:
- * - Web Lambda 実行ロール (Next.js アプリケーション用)
- * - 開発用 IAM ユーザー (ローカル開発用)
- *
- * 同じポリシーを共有することで、開発者は本番環境の Lambda と全く同じ権限で
- * テストでき、デプロイ前に権限ミスを防ぐことができる。
+ * Web Lambda 実行ロール (Next.js アプリケーション用) が使用する。
  *
  * 含まれる権限:
  * - DynamoDB: テーブルへの読み書きアクセス (Query, GetItem, PutItem, UpdateItem, DeleteItem)
@@ -43,6 +38,7 @@ export class WebRuntimePolicy extends iam.ManagedPolicy {
   constructor(scope: Construct, id: string, props: WebRuntimePolicyProps) {
     super(scope, id, {
       managedPolicyName: `stock-tracker-web-runtime-${props.envName}`,
+      // 既存ポリシーの Description を変えると置き換えになり、固定名の衝突でデプロイが失敗するため据え置く
       description: 'Stock Tracker Web runtime permissions (shared by Lambda and developers)',
     });
 
