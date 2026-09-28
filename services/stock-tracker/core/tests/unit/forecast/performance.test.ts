@@ -1,8 +1,8 @@
 /**
  * Stock Tracker Core - PerformanceDaily 集計（computePerformanceDaily）のユニットテスト
  *
- * design.md §2.2 PerformanceDaily・§6.4 の集計仕様（軸ごとの件数・的中数・超過リターン合計、
- * 確率帯ごとの件数・的中数・確率の合計、除外分は数えない）を検証する。
+ * 集計仕様（軸ごとの件数・的中数・超過リターン合計、確率帯ごとの件数・的中数・確率の合計、
+ * 除外分は数えない）を検証する。
  */
 import {
   AXIS_ID_BUY_COUNT_GE2,

@@ -26,7 +26,7 @@ export interface AppendMarketForecastOutcomeResult {
  * MarketForecast Repository インターフェース
  *
  * DynamoDB実装とInMemory実装が共通で実装するインターフェース。
- * ForecastRepository と同じ「一度きりの条件付き書き込み」の方針に従う（design.md §2.1 FR-12）。
+ * ForecastRepository と同じ「一度きりの条件付き書き込み」の方針に従う。
  */
 export interface MarketForecastRepository {
   /**

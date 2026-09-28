@@ -1,16 +1,16 @@
 /**
- * Stock Tracker Core - 予測日ごとの採点済み件数の集計（design.md §2.2 PerformanceDaily、§6.4）
+ * Stock Tracker Core - 予測日ごとの採点済み件数の集計
  *
- * SCR-007・`/api/axis-performance` は、Forecast/MarketForecast を全件読まず、
- * この集計結果（日ごとの件数・的中数）を期間分合計して作る（design.md §6.4）。
- * ここでは 1 日分の集計を保存済みサンプル（{@link SampleHistory} の 1 日分）から作る
- * 純粋関数だけを持つ。DB アクセス・期間分の合算は呼び出し側（バッチ・API）が行う。
+ * 成績画面・軸ごとの成績 API は、Forecast/MarketForecast を全件読まず、この集計結果
+ * （日ごとの件数・的中数）を期間分合計して作る想定である。ここでは 1 日分の集計を
+ * 保存済みサンプルから作る純粋関数だけを持つ。DB アクセス・期間分の合算は呼び出し側
+ * （バッチ・API）が行う。
  */
 import { getAxisDefinition, getAxisIdsForQuestion } from './axes.js';
 import { PROBABILITY_BAND_STEP, type Market, type Question } from './constants.js';
 import type { AxisId, MarketSample, TickerSample } from './types.js';
 
-/** 軸ごとの 1 日分の集計（design.md「軸ごとの件数・的中数・超過リターン合計」） */
+/** 軸ごとの 1 日分の集計（件数・的中数・超過リターン合計） */
 export interface AxisPerformanceDailyEntry {
   /** 点灯回数（FLAG は値=true、NUMERIC は値>0 の回数） */
   count: number;
@@ -20,9 +20,9 @@ export interface AxisPerformanceDailyEntry {
   sumExcessReturn?: number;
 }
 
-/** 確率帯（5pt 刻み）ごとの 1 日分の集計（design.md「確率帯ごとの件数・的中数」） */
+/** 確率帯（5pt 刻み）ごとの 1 日分の集計（件数・的中数・確率の合計） */
 export interface ProbabilityBandDailyEntry {
-  /** 帯の下限（「確率」を 5pt 刻みにした値。design.md §1.5 と同じ刻み） */
+  /** 帯の下限（確率を 5pt 刻みにした値） */
   lower: number;
   upper: number;
   count: number;
@@ -31,7 +31,7 @@ export interface ProbabilityBandDailyEntry {
   sumProbability: number;
 }
 
-/** 予測日ごとの採点済み件数の集計（design.md §2.2 PerformanceDaily の中身） */
+/** 予測日ごとの採点済み件数の集計 */
 export interface PerformanceDailyItem {
   question: Question;
   /** 算出した市場（ModelSnapshot と同じく「算出した市場 × 日」で持つ） */
@@ -47,20 +47,20 @@ export interface PerformanceDailyItem {
   createdAt: number;
 }
 
-/** 帯ごとの丸め（浮動小数点誤差を避けるため、小数第 8 位で丸める。neutral-band.ts の bandOf と同じ規則） */
+/** 帯ごとの丸め（浮動小数点誤差を避けるため、小数第 8 位で丸める） */
 function bandOf(value: number, step: number): number {
   const raw = Math.floor(value / step + 1e-9) * step;
   return Math.round(raw * 1e8) / 1e8;
 }
 
-/** 軸が「点灯」しているか（design.md §6.4「数値型軸は平常比 > 1 を点灯とみなす」） */
+/** 軸が「点灯」しているか（数値型軸は平常比 > 1、つまり値 > 0 を点灯とみなす） */
 function isAxisLit(axisId: AxisId, value: number | boolean | undefined): boolean {
   if (value === undefined) return false;
   const kind = getAxisDefinition(axisId)?.kind ?? 'NUMERIC';
   return kind === 'FLAG' ? value === true || value === 1 : (value as number) > 0;
 }
 
-/** サンプルが銘柄サンプル（TickerSample）か（`exchangeId` の有無で判定。sampling.ts と同じ規則） */
+/** サンプルが銘柄サンプル（TickerSample）か（TickerSample だけが exchangeId を持つため、その有無で判定する） */
 function isTickerSample(sample: TickerSample | MarketSample): sample is TickerSample {
   return 'exchangeId' in sample;
 }
@@ -70,7 +70,7 @@ function hitOf(question: Question, sample: TickerSample | MarketSample): boolean
   const outcome = sample.outcome;
   if (outcome === undefined) return undefined;
   // 除外（極端リターン等）があるサンプルは Hit を持たないため自然に除外されるが、
-  // design.md の「Outcome の除外があるものは数えない」を明示的にも保証しておく。
+  // 除外理由がある行を数えないことをここでも明示的に保証しておく。
   if ('excludedReason' in outcome && outcome.excludedReason !== undefined) return undefined;
   return (outcome.hit as Partial<Record<Question, boolean>>)[question];
 }
@@ -88,12 +88,11 @@ function probabilityOf(
 }
 
 /**
- * 予測日 D の採点済みサンプル（同じ問い・同じ日のものに限る）から、1 日分の集計を作る
- * （design.md §2.2 PerformanceDaily、§6.4）。
+ * 予測日 D の採点済みサンプル（同じ問い・同じ日のものに限る）から、1 日分の集計を作る。
  *
- * `samples` は呼び出し側があらかじめ対象日に絞って渡す（このアイテムの PK/SK が
- * `PERF#{Question}#{Market}` / `DATE#{Date}` で 1 日単位のため、他日のサンプルが混ざっていても
- * 結果には影響しないが、無駄な走査になるため呼び出し側で絞ることを前提とする）。
+ * `samples` は呼び出し側があらかじめ対象日に絞って渡す（保存先が 1 日単位のため、他日の
+ * サンプルが混ざっていても結果には影響しないが、無駄な走査になるため呼び出し側で絞ることを
+ * 前提とする）。
  */
 export function computePerformanceDaily(
   question: Question,

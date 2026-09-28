@@ -2,12 +2,13 @@
  * Stock Tracker Core - MarketForecast Entity
  *
  * 確度（市場×日）のビジネスオブジェクト（PK/SKを持たない純粋なエンティティ）。
- * Forecast と同じ性質を持つ（design.md §2.3「MarketForecast も同じ形」）。
+ * Forecast（銘柄×日）と同じ性質を持つ（予測部分は一度書いたら書き換えず、
+ * Outcome は採点バッチが後から追記する）。
  */
 import type { AxisId, Market, MarketOutcome, ProbabilityRecord } from '../forecast/index.js';
 
 /**
- * MarketForecast.Outcome（design.md §2.3）。
+ * 採点結果（採点バッチが後から追記する）。
  *
  * 市場・基準日は親アイテム（Market/Date）と重複するため持たない
  * （`MarketOutcome` から識別子フィールドを除いた形）。

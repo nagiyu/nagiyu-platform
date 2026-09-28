@@ -2,8 +2,8 @@
  * ForecastRepository 契約テスト（実装非依存の振る舞い仕様）
  *
  * InMemory実装と実DynamoDB実装（DynamoDB Local）の双方に同一の仕様を通し、実装間の乖離
- * （条件付き書き込みの意味論・GSI4 射影・ページングなど）を機械的に検知する。design.md §2.1・
- * §2.3 の「一度書いたら書き換えない」（条件付き作成・Outcome の一度きりの追記）を中心に検証する。
+ * （条件付き書き込みの意味論・GSI4 射影・ページングなど）を機械的に検知する。
+ * 「一度書いたら書き換えない」（条件付き作成・Outcome の一度きりの追記）を中心に検証する。
  */
 import type { ForecastRepository } from '../../src/repositories/forecast.repository.interface.js';
 import type { CreateForecastInput } from '../../src/entities/forecast.entity.js';
@@ -112,7 +112,7 @@ export function defineForecastRepositoryContract(
       expect(second.item).toEqual(first.item);
 
       const fetched = await repository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27');
-      // 予測部分は最初に書いた値のまま（design.md §2.1「一度書いたら書き換えない」）
+      // 予測部分は最初に書いた値のまま（一度書いたら書き換えない）
       expect(fetched?.AxisValues).toEqual(buildForecastInput().AxisValues);
     });
 

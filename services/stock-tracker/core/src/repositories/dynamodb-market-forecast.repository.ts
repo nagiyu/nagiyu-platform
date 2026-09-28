@@ -148,7 +148,7 @@ export class DynamoDBMarketForecastRepository implements MarketForecastRepositor
    * 市場の MarketForecast を、期間でサンプル列として読み出す（ベーステーブルの PK=MARKETFORECAST#{Market} を Query）
    *
    * MarketForecast は市場につき 1 日 1 件のため、Forecast のような軽量プロジェクションは行わない
-   * （読み出し量が Forecast ほど線形に増えないため。design.md §3.1 の見積もりを参照）。
+   * （読み出し量が Forecast ほど銘柄数に比例して増えないため）。
    */
   public async getSamplesByDateRange(
     market: Market,

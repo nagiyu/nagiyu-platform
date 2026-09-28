@@ -2,8 +2,8 @@
  * Stock Tracker Core - PerformanceDaily Mapper
  *
  * `PerformanceDailyItem`（core の型。camelCase）↔ DynamoDBItem（PascalCase 属性）の変換を担当する。
- * PerformanceDaily は `entities/` に別のビジネスオブジェクトを持たない
- * （performance-daily.entity.ts の説明を参照）ため、Mapper がこの型そのものを扱う。
+ * PerformanceDaily は同じ形の型を core と entities で重複して持たないため、Mapper が
+ * `PerformanceDailyItem` をそのままビジネスオブジェクトとして扱う。
  */
 import type { DynamoDBItem } from '@nagiyu/aws';
 import {
@@ -47,7 +47,7 @@ export class PerformanceDailyMapper implements EntityMapper<
       HitCount: entity.hitCount,
       AxisStats: entity.axisStats,
       ProbabilityBands: entity.probabilityBands,
-      // PerformanceDaily は日ごとに再計算して置き換える（design.md §2.1「冪等」）ため
+      // PerformanceDaily は日ごとに再計算して置き換える（冪等な upsert）ため
       // UpdatedAt は業務上意味を持たないが、DynamoDBItem 型の必須フィールドのため CreatedAt を入れる。
       CreatedAt: entity.createdAt,
       UpdatedAt: entity.createdAt,

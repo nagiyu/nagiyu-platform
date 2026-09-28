@@ -2,8 +2,8 @@
  * Stock Tracker Core - ModelSnapshot Mapper
  *
  * `ModelSnapshotItem`（core の型。camelCase）↔ DynamoDBItem（PascalCase 属性）の変換を担当する。
- * ModelSnapshot は `entities/` に別のビジネスオブジェクトを持たない
- * （model-snapshot.entity.ts の説明を参照）ため、Mapper がこの型そのものを扱う。
+ * ModelSnapshot は同じ形の型を core と entities で重複して持たないため、Mapper が
+ * `ModelSnapshotItem` をそのままビジネスオブジェクトとして扱う。
  */
 import type { DynamoDBItem } from '@nagiyu/aws';
 import {
@@ -53,7 +53,7 @@ export class ModelSnapshotMapper implements EntityMapper<ModelSnapshotItem, Mode
       DistinctTrainingDates: entity.distinctTrainingDates,
       // AbstractDynamoDBRepository 由来ではない独自実装のため UpdatedAt は不要だが、
       // DynamoDBItem 型（@nagiyu/aws）の必須フィールドのため CreatedAt と同じ値を入れておく。
-      // ModelSnapshot は一度書いたら書き換えない（design.md §2.3）ため、以後更新されることはない。
+      // ModelSnapshot は一度書いたら書き換えないため、以後更新されることはない。
       CreatedAt: entity.createdAt,
       UpdatedAt: entity.createdAt,
     };

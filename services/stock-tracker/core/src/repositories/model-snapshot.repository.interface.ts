@@ -15,8 +15,7 @@ export interface CreateModelSnapshotResult {
  * ModelSnapshot Repository インターフェース
  *
  * DynamoDB実装とInMemory実装が共通で実装するインターフェース。
- * ModelSnapshot は一度書いたら書き換えない（design.md §2.3 FR-12）ため、条件付き作成のみを持つ
- * （更新・削除は無い）。
+ * ModelSnapshot は一度書いたら書き換えないため、条件付き作成のみを持つ（更新・削除は無い）。
  */
 export interface ModelSnapshotRepository {
   /**
@@ -34,7 +33,7 @@ export interface ModelSnapshotRepository {
 
   /**
    * 問い・市場について、指定日より前の最新の ModelSnapshot を取得する
-   * （重みの更新時に「直前の中立帯」を引き継ぐために使う。design.md §1.5）。
+   * （重みの更新時に「直前の中立帯」を引き継ぐために使う）。
    *
    * @param date - この日付より前（未満）のスナップショットを探す
    * @returns 最新の ModelSnapshot（無ければ null）

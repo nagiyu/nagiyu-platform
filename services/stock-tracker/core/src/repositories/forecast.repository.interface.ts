@@ -30,8 +30,8 @@ export interface AppendForecastOutcomeResult {
  * Forecast Repository インターフェース
  *
  * DynamoDB実装とInMemory実装が共通で実装するインターフェース。
- * 予測部分（AxisValues〜BackfilledAxes）と Outcome は、それぞれ一度きりの条件付き書き込みで
- * 作成・追記する（design.md §2.1・§2.3 FR-12）。再実行しても既存の値を上書きしないため、
+ * 画面に出した値を後から検証できるよう、予測部分（AxisValues〜BackfilledAxes）と Outcome は、
+ * それぞれ一度きりの条件付き書き込みで作成・追記する。再実行しても既存の値を上書きしないため、
  * いずれも例外を投げず「書き込んだかどうか」を結果で返す（バッチが素直に再実行できるようにする）。
  */
 export interface ForecastRepository {

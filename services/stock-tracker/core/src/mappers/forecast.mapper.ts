@@ -23,7 +23,7 @@ import type {
 import type { ProbabilityRecord, TickerOutcome, TickerSample } from '../forecast/index.js';
 
 /**
- * GSI4PK に付ける接頭辞（design.md §2.2）。
+ * GSI4PK に付ける接頭辞。
  *
  * DailySummary の GSI4PK（`ExchangeID` そのもの）と値が衝突しないよう、Forecast だけこの
  * 接頭辞を付ける。dev-sync は DailySummary を GSI4PK の完全一致で複製しており、Forecast を

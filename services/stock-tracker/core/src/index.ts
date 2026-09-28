@@ -160,7 +160,7 @@ export * from './services/tradingview-client.js';
 export * from './services/prediction-judger.js';
 export * from './services/prediction-aggregator.js';
 
-// Forecast（確度の算出。Phase 3-1「算出の中核」）
+// Forecast（確度の算出）
 export * from './forecast/index.js';
 
 // Market Data（現在価格プロバイダー抽象化）

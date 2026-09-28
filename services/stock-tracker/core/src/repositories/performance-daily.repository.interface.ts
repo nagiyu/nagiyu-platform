@@ -10,7 +10,7 @@ import type { Market, PerformanceDailyItem, Question } from '../forecast/index.j
  *
  * DynamoDB実装とInMemory実装が共通で実装するインターフェース。
  * PerformanceDaily は予測日ごとの集計であり、採点が進むたびに再計算して置き換えてよい
- * （design.md §2.1「冪等」）ため、条件無しの upsert のみを持つ。
+ * （冪等）ため、条件無しの upsert のみを持つ。
  */
 export interface PerformanceDailyRepository {
   /**
@@ -27,7 +27,7 @@ export interface PerformanceDailyRepository {
 
   /**
    * 問い・市場の PerformanceDaily を、期間（fromDate 以上・toDate 以下）で取得する
-   * （`/api/axis-performance` が期間分を合計するための入力。design.md §6.4）。
+   * （軸ごとの成績 API が期間分を合計するための入力）。
    *
    * @param fromDate - 開始日 (YYYY-MM-DD、含む)
    * @param toDate - 終了日 (YYYY-MM-DD、含む)。省略時は fromDate 以降の全期間

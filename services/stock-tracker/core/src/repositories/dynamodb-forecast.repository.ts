@@ -29,7 +29,7 @@ import { ForecastMapper } from '../mappers/forecast.mapper.js';
  * サンプル読み出し（{@link TickerSample}）用の軽量 ProjectionExpression。
  *
  * 寄与（contributions）・確率帯実績（bandHistory）・中立帯（neutralBand）等、学習・基準値・
- * 中立帯の算出に使わない属性を落とし、全期間読み出し時の転送量を抑える（design.md §3.1）。
+ * 中立帯の算出に使わない属性を落とし、全期間読み出し時の転送量を抑える。
  */
 const SAMPLE_PROJECTION_NAMES: Record<string, string> = {
   '#gsi4pk': 'GSI4PK',

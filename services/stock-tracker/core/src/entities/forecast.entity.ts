@@ -2,19 +2,19 @@
  * Stock Tracker Core - Forecast Entity
  *
  * 確度（銘柄×日）のビジネスオブジェクト（PK/SKを持たない純粋なエンティティ）。
- * 予測部分（AxisValues〜BackfilledAxes）は一度書いたら書き換えない（design.md §2.1・§2.3 FR-12）。
- * Outcome は採点バッチが後から追記する別属性として持つ。
+ * 画面に出した値を後から検証できるよう、予測部分（AxisValues〜BackfilledAxes）は
+ * 一度書いたら書き換えない。Outcome は採点バッチが後から追記する別属性として持つ。
  */
 import type { AxisId, Market, ProbabilityRecord, TickerOutcome } from '../forecast/index.js';
 
-/** 算出に使った平常（design.md §2.3 Normal） */
+/** 算出に使った平常 */
 export interface ForecastNormal {
   range?: number;
   volume?: number;
 }
 
 /**
- * Forecast.Outcome（design.md §2.3）。
+ * 採点結果（採点バッチが後から追記する）。
  *
  * 銘柄・基準日は親アイテム（TickerID/Date）と重複するため持たない
  * （`TickerOutcome` から識別子フィールドを除いた形）。
