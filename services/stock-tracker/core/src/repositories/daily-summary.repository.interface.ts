@@ -6,6 +6,7 @@
 
 import type {
   DailySummaryEntity,
+  DailySummaryForecastFields,
   DailySummaryKey,
   CreateDailySummaryInput,
 } from '../entities/daily-summary.entity.js';
@@ -74,6 +75,23 @@ export interface DailySummaryRepository {
     fromDate: string,
     toDate: string
   ): Promise<DailySummaryEntity[]>;
+
+  /**
+   * 取引所IDと日付範囲で、確度算出に使う属性だけを取得する。
+   *
+   * AI 解析結果のような確度算出に使わない大きい属性を持たないため、`getByExchangeAndDateRange`
+   * より読み出し量が少ない。返却順序・範囲の両端の扱いは `getByExchangeAndDateRange` と同じ。
+   *
+   * @param exchangeId - 取引所ID
+   * @param fromDate - 開始日 (YYYY-MM-DD、含む)
+   * @param toDate - 終了日 (YYYY-MM-DD、含む)
+   * @returns 期間内の全サマリーの射影配列（Date昇順・同日内はTickerID昇順）
+   */
+  getForecastFieldsByExchangeAndDateRange(
+    exchangeId: string,
+    fromDate: string,
+    toDate: string
+  ): Promise<DailySummaryForecastFields[]>;
 
   /**
    * サマリーを保存（既存の場合は上書き）

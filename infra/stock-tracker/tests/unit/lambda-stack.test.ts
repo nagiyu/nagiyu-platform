@@ -13,7 +13,10 @@ import { LambdaStack } from '../../lib/lambda-stack';
 /**
  * テスト用 LambdaStack を生成するヘルパー
  */
-function createTestStack(finnhubApiKey = 'test-finnhub-api-key'): {
+function createTestStack(
+  finnhubApiKey = 'test-finnhub-api-key',
+  forecastLegacyExclusionBefore?: string
+): {
   app: cdk.App;
   stack: LambdaStack;
 } {
@@ -41,6 +44,7 @@ function createTestStack(finnhubApiKey = 'test-finnhub-api-key'): {
     openAiApiKey: 'test-openai-key',
     finnhubApiKey,
     nextAuthSecret: 'test-nextauth-secret',
+    forecastLegacyExclusionBefore,
     env,
   });
 
@@ -147,13 +151,42 @@ describe('LambdaStack', () => {
       template = Template.fromStack(stack);
     });
 
-    it('forecast.handler をハンドラーとして 15 分タイムアウトで作成される', () => {
+    it('forecast.handler をハンドラーとして 15 分タイムアウト・同時実行数1で作成される', () => {
       template.hasResourceProperties('AWS::Lambda::Function', {
         FunctionName: 'nagiyu-stock-tracker-batch-forecast-dev',
         Timeout: 900, // 15分（秒）。リプレイ（初期値算出）が Lambda の上限に収まる想定
+        ReservedConcurrentExecutions: 1,
         Environment: {
           Variables: Match.objectLike({
             BATCH_TYPE: 'FORECAST',
+          }),
+        },
+      });
+    });
+
+    it('forecastLegacyExclusionBefore 未指定時は STOCK_TRACKER_LEGACY_EXCLUSION_BEFORE を含まない', () => {
+      const resources = template.findResources('AWS::Lambda::Function', {
+        Properties: {
+          FunctionName: 'nagiyu-stock-tracker-batch-forecast-dev',
+          Environment: {
+            Variables: Match.objectLike({
+              STOCK_TRACKER_LEGACY_EXCLUSION_BEFORE: Match.anyValue(),
+            }),
+          },
+        },
+      });
+      expect(Object.keys(resources)).toHaveLength(0);
+    });
+
+    it('forecastLegacyExclusionBefore 指定時は STOCK_TRACKER_LEGACY_EXCLUSION_BEFORE に反映される', () => {
+      const { stack } = createTestStack('test-finnhub-api-key', '2026-03-15');
+      const templateWithBoundary = Template.fromStack(stack);
+
+      templateWithBoundary.hasResourceProperties('AWS::Lambda::Function', {
+        FunctionName: 'nagiyu-stock-tracker-batch-forecast-dev',
+        Environment: {
+          Variables: Match.objectLike({
+            STOCK_TRACKER_LEGACY_EXCLUSION_BEFORE: '2026-03-15',
           }),
         },
       });

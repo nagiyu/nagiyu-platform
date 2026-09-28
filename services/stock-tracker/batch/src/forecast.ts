@@ -43,7 +43,7 @@ import {
 } from '@nagiyu/stock-tracker-core';
 import type {
   DailyBarInput,
-  DailySummaryEntity,
+  DailySummaryForecastFields,
   DailySummaryRepository,
   ExchangeEntity,
   ExchangeRepository,
@@ -55,6 +55,7 @@ import type {
   MarketSample,
   ModelSnapshotItem,
   ModelSnapshotRepository,
+  NeutralBandState,
   PerformanceDailyRepository,
   ProbabilityRecord,
   Question,
@@ -120,9 +121,13 @@ export interface HandlerDependencies {
 export interface NormalBatchStatistics {
   /** 取引所マスタから決まる市場数 */
   totalMarkets: number;
-  /** 新たに日付を処理した市場数 */
+  /** 新たに1日以上を処理した市場数 */
   processedMarkets: number;
-  /** 最新日がすでに確度算出済みで何もしなかった市場数 */
+  /** 新たに処理した日数の合計（市場をまたいで積算） */
+  processedDates: number;
+  /** リプレイ未実施のため何もしなかった市場数 */
+  replayNotDone: number;
+  /** 未処理の日が無く何もしなかった市場数 */
   alreadyUpToDate: number;
   /** 銘柄のサマリーがまだ揃っておらず待機した市場数 */
   waitingForData: number;
@@ -156,6 +161,14 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const NORMAL_MODE_LOOKBACK_DAYS = 60;
 
 /**
+ * 通常モードで1回の実行が処理する日数の上限。
+ *
+ * バッチが数時間〜数日止まっていた場合でも、未処理の日をまとめて処理しようとして
+ * 1回の実行が長くなりすぎないよう、残りは次回の実行に回す。
+ */
+const MAX_DATES_PER_RUN = 10;
+
+/**
  * 銘柄ごとの採点（Outcome 追記）・確度算出（Forecast 作成）を並列実行する上限。
  *
  * いずれも銘柄ごとに独立した条件付き書き込みであり、直列に await すると銘柄数（約120）×
@@ -175,6 +188,11 @@ const REPLAY_LATEST_DATE = '2100-01-01';
 
 function toYmd(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
+}
+
+/** YYYY-MM-DD をその日の UTC 0時の Unix timestamp (ms) に変換する */
+function ymdToMs(date: string): number {
+  return Date.parse(`${date}T00:00:00Z`);
 }
 
 function isReplayEvent(event: ForecastBatchEvent): event is ReplayEvent {
@@ -204,7 +222,7 @@ function toSessionInfos(exchanges: readonly ExchangeEntity[]): {
   return { known, skippedExchangeIds };
 }
 
-function toDailyBarInput(summary: DailySummaryEntity): DailyBarInput {
+function toDailyBarInput(summary: DailySummaryForecastFields): DailyBarInput {
   return {
     tickerId: summary.TickerID,
     exchangeId: summary.ExchangeID,
@@ -377,6 +395,40 @@ async function seedReplaySampleStore(
   };
 }
 
+/**
+ * 問いごとに、市場をまたいで最も新しく判定された中立帯を引き継ぐ。
+ *
+ * 重みは市場共通のモデルであり、中立帯もモデルの一部のため、算出した市場ではなく
+ * 実際の判定時刻（名目引け時刻）で最も新しいものを引き継ぐ（`targetPredTime` より前のものに限る）。
+ * 市場ごとの ModelSnapshot は「算出した市場」ごとに分けて持つが、これはあくまで保存単位で
+ * あり、モデル自体が市場ごとに別れているわけではない。
+ */
+async function getLatestNeutralBandAcrossMarkets(
+  deps: HandlerDependencies,
+  question: Question,
+  markets: readonly Market[],
+  exchanges: readonly ExchangeSessionInfo[],
+  targetPredTime: number
+): Promise<NeutralBandState | null> {
+  let best: { predTime: number; band: NeutralBandState } | undefined;
+  for (const market of markets) {
+    const candidate = await deps.modelSnapshotRepository.getLatestBefore(
+      question,
+      market,
+      REPLAY_LATEST_DATE
+    );
+    if (candidate === null) continue;
+    const candidatePredTime = nominalMarketCloseTime(market, candidate.date, exchanges);
+    if (
+      candidatePredTime < targetPredTime &&
+      (best === undefined || candidatePredTime > best.predTime)
+    ) {
+      best = { predTime: candidatePredTime, band: candidate.neutralBand };
+    }
+  }
+  return best?.band ?? null;
+}
+
 export interface ProcessMarketDateParams {
   date: string;
   market: Market;
@@ -507,11 +559,19 @@ export async function processMarketDate(
 
   // --- 段階2: 重みの更新（保存済みサンプルから ModelSnapshot(D) を条件付きで作る） ---
   const history = await sampleAccess.loadAllSamples();
+  const allMarkets = distinctMarkets(exchanges);
+  const targetPredTime = nominalMarketCloseTime(market, date, exchanges);
   const snapshots: Partial<Record<Question, ModelSnapshotItem>> = {};
   for (const question of QUESTIONS) {
-    const previous = await deps.modelSnapshotRepository.getLatestBefore(question, market, date);
+    const previousNeutralBand = await getLatestNeutralBandAcrossMarkets(
+      deps,
+      question,
+      allMarkets,
+      exchanges,
+      targetPredTime
+    );
     const snapshot = computeModelSnapshot(question, history, date, market, exchanges, {
-      previousNeutralBand: previous?.neutralBand ?? null,
+      previousNeutralBand,
       forceNeutralBandRecompute,
       now,
     });
@@ -631,26 +691,65 @@ function isMarketDateReady(
   return true;
 }
 
-async function processMarket(
+/**
+ * 市場のサマリーを読む（確度算出に使う属性だけの射影）。過去データ除外の境界日が
+ * 与えられていれば適用する（A.4）。
+ */
+async function loadMarketBars(
   market: Market,
   exchanges: readonly ExchangeSessionInfo[],
   deps: HandlerDependencies,
-  now: number,
-  stats: NormalBatchStatistics
-): Promise<void> {
+  fromDate: string,
+  toDate: string,
+  legacyExclusionBefore: string | undefined
+): Promise<DailyBarInput[]> {
   const marketExchangeIds = exchanges.filter((e) => e.market === market).map((e) => e.exchangeId);
-  const fromDate = toYmd(now - NORMAL_MODE_LOOKBACK_DAYS * MS_PER_DAY);
-  const toDate = toYmd(now + MS_PER_DAY);
-
   const bars: DailyBarInput[] = [];
   for (const exchangeId of marketExchangeIds) {
-    const summaries = await deps.dailySummaryRepository.getByExchangeAndDateRange(
+    const summaries = await deps.dailySummaryRepository.getForecastFieldsByExchangeAndDateRange(
       exchangeId,
       fromDate,
       toDate
     );
     bars.push(...summaries.map(toDailyBarInput));
   }
+  return legacyExclusionBefore !== undefined
+    ? excludeLegacyBackfillRows(bars, exchanges, legacyExclusionBefore)
+    : bars;
+}
+
+async function processMarket(
+  market: Market,
+  exchanges: readonly ExchangeSessionInfo[],
+  deps: HandlerDependencies,
+  now: number,
+  legacyExclusionBefore: string | undefined,
+  stats: NormalBatchStatistics
+): Promise<void> {
+  // 稼働開始前ガード: リプレイが1回も実行されていない市場では通常モードは何もしない
+  // （重みの更新が「保存済みサンプルからの再推定」である以上、種になる過去データが要る）。
+  const lastSnapshot = await deps.modelSnapshotRepository.getLatestBefore(
+    'DIR',
+    market,
+    REPLAY_LATEST_DATE
+  );
+  if (lastSnapshot === null) {
+    logger.info('リプレイ未実施のためスキップします', { market });
+    stats.replayNotDone++;
+    return;
+  }
+  const lastProcessedDate = lastSnapshot.date;
+
+  const fromDate = toYmd(ymdToMs(lastProcessedDate) - NORMAL_MODE_LOOKBACK_DAYS * MS_PER_DAY);
+  const toDate = toYmd(now + MS_PER_DAY);
+  const bars = await loadMarketBars(
+    market,
+    exchanges,
+    deps,
+    fromDate,
+    toDate,
+    legacyExclusionBefore
+  );
 
   const calendar = buildObservationCalendar(bars, exchanges);
   const marketDates = calendar[market] ?? [];
@@ -660,42 +759,84 @@ async function processMarket(
     return;
   }
 
-  const targetDate = marketDates[marketDates.length - 1];
-  const existing = await deps.marketForecastRepository.getByMarketAndDate(market, targetDate);
-  if (existing !== null) {
-    logger.info('最新日はすでに確度算出済みのためスキップします', { market, date: targetDate });
+  // 未処理の日を古い順に処理する。前回の実行が段階2（ModelSnapshot 作成）の後・段階3
+  // （Forecast/MarketForecast 作成）の前で終わっていた場合に備え、lastProcessedDate 自身も
+  // MarketForecast が無ければ処理対象に含める（再実行は各段が条件付き書き込みのため安全）。
+  const candidateDates = marketDates.filter((d) => d >= lastProcessedDate);
+  let pendingDates = candidateDates;
+  if (candidateDates.length > 0 && candidateDates[0] === lastProcessedDate) {
+    const lastMarketForecast = await deps.marketForecastRepository.getByMarketAndDate(
+      market,
+      lastProcessedDate
+    );
+    if (lastMarketForecast !== null) {
+      pendingDates = candidateDates.slice(1);
+    }
+  }
+
+  if (pendingDates.length === 0) {
+    logger.info('最新日はすでに確度算出済みのためスキップします', {
+      market,
+      date: marketDates[marketDates.length - 1],
+    });
     stats.alreadyUpToDate++;
     return;
   }
 
-  const prevDate = marketDates.length >= 2 ? marketDates[marketDates.length - 2] : undefined;
-  if (!isMarketDateReady(bars, targetDate, prevDate)) {
-    const cutoff = nominalMarketCloseTime(market, targetDate, exchanges) + CUTOFF_MS_AFTER_CLOSE;
-    if (now < cutoff) {
-      logger.info('銘柄のサマリーがまだ揃っていないため待機します', { market, date: targetDate });
-      stats.waitingForData++;
-      return;
+  const sampleAccess = createDbSampleAccess(deps, exchanges);
+  let processedCount = 0;
+
+  for (const targetDate of pendingDates) {
+    if (processedCount >= MAX_DATES_PER_RUN) {
+      logger.info('1回の実行で処理する日数の上限に達したため、残りは次回の実行に回します', {
+        market,
+        remaining: pendingDates.length - processedCount,
+      });
+      break;
     }
-    logger.info('打ち切り時刻を過ぎたため、揃っている銘柄だけで確度を算出します', {
-      market,
+
+    // 引け前のガード: D の名目引け時刻より前なら、その日のサマリーはまだ確定していない
+    const closeTime = nominalMarketCloseTime(market, targetDate, exchanges);
+    if (now < closeTime) {
+      logger.info('名目引け時刻より前のため処理しません', { market, date: targetDate });
+      break;
+    }
+
+    const dateIndex = marketDates.indexOf(targetDate);
+    const prevDate = dateIndex > 0 ? marketDates[dateIndex - 1] : undefined;
+
+    if (!isMarketDateReady(bars, targetDate, prevDate)) {
+      const cutoff = closeTime + CUTOFF_MS_AFTER_CLOSE;
+      if (now < cutoff) {
+        logger.info('銘柄のサマリーがまだ揃っていないため待機します', { market, date: targetDate });
+        stats.waitingForData++;
+        break;
+      }
+      logger.info('打ち切り時刻を過ぎたため、揃っている銘柄だけで確度を算出します', {
+        market,
+        date: targetDate,
+      });
+    }
+
+    const result = await processMarketDate({
       date: targetDate,
+      market,
+      exchanges,
+      bars,
+      source: 'LIVE',
+      now,
+      forceNeutralBandRecompute: false,
+      deps,
+      sampleAccess,
     });
+    processedCount++;
+    stats.processedDates++;
+    logger.info('市場の確度算出が完了しました', { market, date: targetDate, ...result });
   }
 
-  const sampleAccess = createDbSampleAccess(deps, exchanges);
-  const result = await processMarketDate({
-    date: targetDate,
-    market,
-    exchanges,
-    bars,
-    source: 'LIVE',
-    now,
-    forceNeutralBandRecompute: false,
-    deps,
-    sampleAccess,
-  });
-  stats.processedMarkets++;
-  logger.info('市場の確度算出が完了しました', { market, date: targetDate, ...result });
+  if (processedCount > 0) {
+    stats.processedMarkets++;
+  }
 }
 
 async function handleScheduled(
@@ -707,12 +848,16 @@ async function handleScheduled(
   const stats: NormalBatchStatistics = {
     totalMarkets: 0,
     processedMarkets: 0,
+    processedDates: 0,
+    replayNotDone: 0,
     alreadyUpToDate: 0,
     waitingForData: 0,
     noMarketData: 0,
     errors: 0,
   };
+  const legacyExclusionBefore = process.env.STOCK_TRACKER_LEGACY_EXCLUSION_BEFORE;
 
+  let fatalError: unknown;
   try {
     const now = deps.nowFn();
     const exchanges = await deps.exchangeRepository.getAll();
@@ -726,7 +871,7 @@ async function handleScheduled(
 
     for (const market of markets) {
       try {
-        await processMarket(market, sessionInfos, deps, now, stats);
+        await processMarket(market, sessionInfos, deps, now, legacyExclusionBefore, stats);
       } catch (error) {
         const errorMessage = toErrorMessage(error);
         logger.error('市場の確度算出バッチでエラーが発生しました', { market, error: errorMessage });
@@ -742,25 +887,8 @@ async function handleScheduled(
     }
 
     logger.info('確度算出バッチが完了しました', { eventId: event.id, statistics: stats });
-
-    if (stats.errors > 0) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          message: '確度算出バッチで一部の市場の処理に失敗しました',
-          statistics: stats,
-        }),
-      };
-    }
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        message: '確度算出バッチが正常に完了しました',
-        statistics: stats,
-      }),
-    };
   } catch (error) {
+    fatalError = error;
     const errorMessage = toErrorMessage(error);
     logger.error('確度算出バッチでエラーが発生しました', {
       eventId: event.id,
@@ -774,16 +902,26 @@ async function handleScheduled(
       message: errorMessage,
       context: { eventId: event.id, statistics: stats },
     });
-
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: '確度算出バッチでエラーが発生しました',
-        error: errorMessage,
-        statistics: stats,
-      }),
-    };
   }
+
+  // 他の市場の処理を済ませた後、いずれかの市場が失敗していれば最後に例外を投げて
+  // Lambda の呼び出し自体をエラーにする（CloudWatch のエラー率アラームで検知できるようにする）。
+  if (fatalError !== undefined) {
+    throw fatalError instanceof Error ? fatalError : new Error(toErrorMessage(fatalError));
+  }
+  if (stats.errors > 0) {
+    throw new Error(
+      `確度算出バッチで一部の市場の処理に失敗しました（失敗数: ${stats.errors}）: ${JSON.stringify(stats)}`
+    );
+  }
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({
+      message: '確度算出バッチが正常に完了しました',
+      statistics: stats,
+    }),
+  };
 }
 
 /** 最終日のスナップショットの要約（問いごとの学習件数・基準値・中立帯） */
@@ -834,6 +972,11 @@ async function handleReplay(
     errors: 0,
   };
 
+  let fatalError: unknown;
+  let stoppedAt: { market: Market; date: string; reason: string } | undefined;
+  let lastProcessed: { market: Market; date: string } | undefined;
+  let snapshotSummary: Record<string, unknown> | undefined;
+
   try {
     const now = deps.nowFn();
     const exchanges = await deps.exchangeRepository.getAll();
@@ -844,7 +987,7 @@ async function handleReplay(
 
     const bars: DailyBarInput[] = [];
     for (const exchange of sessionInfos) {
-      const summaries = await deps.dailySummaryRepository.getByExchangeAndDateRange(
+      const summaries = await deps.dailySummaryRepository.getForecastFieldsByExchangeAndDateRange(
         exchange.exchangeId,
         REPLAY_EARLIEST_DATE,
         REPLAY_LATEST_DATE
@@ -869,23 +1012,53 @@ async function handleReplay(
     );
     stats.totalSteps = steps.length;
 
+    // to を指定した分割実行では、明示しない限り中立帯の強制判定はしない
+    // （その回の最終日が稼働開始日とは限らないため）。
     const forceNeutralBandOnDate =
-      event.forceNeutralBandOn ?? (steps.length > 0 ? steps[steps.length - 1].date : undefined);
+      event.forceNeutralBandOn ??
+      (event.to === undefined && steps.length > 0 ? steps[steps.length - 1].date : undefined);
 
     const store = await seedReplaySampleStore(deps, sessionInfos);
     const sampleAccess = createReplaySampleAccess(store);
 
-    let lastProcessed: { market: Market; date: string } | undefined;
-    for (const step of steps) {
-      try {
-        const existing = await deps.marketForecastRepository.getByMarketAndDate(
-          step.market,
-          step.date
-        );
-        if (existing !== null) {
-          stats.alreadyDone++;
-          continue;
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+      const isLastStep = i === steps.length - 1;
+
+      const existing = await deps.marketForecastRepository.getByMarketAndDate(
+        step.market,
+        step.date
+      );
+      if (existing !== null) {
+        stats.alreadyDone++;
+        continue;
+      }
+
+      // リプレイ対象期間の最終日は、通常モードと同じ揃った判定・打ち切り判定をかける
+      // （そこがまだ引け前後で銘柄のサマリーが出揃っていない可能性があるため）。
+      // それより前の日は、対象期間全体の DailySummary を読み終えた時点で確定済みとみなせる。
+      if (isLastStep) {
+        const marketDates = calendar[step.market] ?? [];
+        const dateIndex = marketDates.indexOf(step.date);
+        const prevDate = dateIndex > 0 ? marketDates[dateIndex - 1] : undefined;
+        if (!isMarketDateReady(excludedBars, step.date, prevDate)) {
+          const cutoff =
+            nominalMarketCloseTime(step.market, step.date, sessionInfos) + CUTOFF_MS_AFTER_CLOSE;
+          if (now < cutoff) {
+            logger.info('リプレイ最終日の銘柄サマリーがまだ揃っていないため処理しません', {
+              market: step.market,
+              date: step.date,
+            });
+            break;
+          }
+          logger.info('打ち切り時刻を過ぎたため、揃っている銘柄だけで確度を算出します', {
+            market: step.market,
+            date: step.date,
+          });
         }
+      }
+
+      try {
         await processMarketDate({
           date: step.date,
           market: step.market,
@@ -901,6 +1074,9 @@ async function handleReplay(
         lastProcessed = step;
       } catch (error) {
         const errorMessage = toErrorMessage(error);
+        // 続行すると、このステップの前営業日の採点（Outcome 追記）が恒久的に書き漏れる
+        // （Forecast は書き換えない方針のため後から補えない）ため、最初のエラーで止める。
+        stoppedAt = { market: step.market, date: step.date, reason: errorMessage };
         logger.error('リプレイのステップでエラーが発生しました', {
           market: step.market,
           date: step.date,
@@ -918,27 +1094,21 @@ async function handleReplay(
           },
         });
         stats.errors++;
+        break;
       }
     }
 
-    const snapshotSummary = lastProcessed
+    snapshotSummary = lastProcessed
       ? await summarizeLatestSnapshots(deps, lastProcessed.market, lastProcessed.date)
       : undefined;
 
-    logger.info('確度算出バッチ（リプレイ）が完了しました', { statistics: stats, snapshotSummary });
-
-    return {
-      statusCode: stats.errors > 0 ? 500 : 200,
-      body: JSON.stringify({
-        message:
-          stats.errors > 0
-            ? '確度算出バッチ（リプレイ）で一部のステップの処理に失敗しました'
-            : '確度算出バッチ（リプレイ）が正常に完了しました',
-        statistics: stats,
-        snapshotSummary,
-      }),
-    };
+    logger.info('確度算出バッチ（リプレイ）が完了しました', {
+      statistics: stats,
+      stoppedAt,
+      snapshotSummary,
+    });
   } catch (error) {
+    fatalError = error;
     const errorMessage = toErrorMessage(error);
     logger.error('確度算出バッチ（リプレイ）でエラーが発生しました', {
       error: errorMessage,
@@ -951,16 +1121,25 @@ async function handleReplay(
       message: errorMessage,
       context: { statistics: stats },
     });
-
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: '確度算出バッチ（リプレイ）でエラーが発生しました',
-        error: errorMessage,
-        statistics: stats,
-      }),
-    };
   }
+
+  if (fatalError !== undefined) {
+    throw fatalError instanceof Error ? fatalError : new Error(toErrorMessage(fatalError));
+  }
+  if (stoppedAt !== undefined) {
+    throw new Error(
+      `リプレイが ${stoppedAt.market} ${stoppedAt.date} で停止しました: ${stoppedAt.reason}（統計: ${JSON.stringify(stats)}）`
+    );
+  }
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({
+      message: '確度算出バッチ（リプレイ）が正常に完了しました',
+      statistics: stats,
+      snapshotSummary,
+    }),
+  };
 }
 
 function resolveDependencies(dependencies?: Partial<HandlerDependencies>): HandlerDependencies {

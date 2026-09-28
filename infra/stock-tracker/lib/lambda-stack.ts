@@ -22,6 +22,11 @@ export interface LambdaStackProps extends cdk.StackProps {
   openAiApiKey: string; // OpenAI API Key（デプロイ時に Secrets Manager から取得）
   finnhubApiKey: string; // Finnhub API Key（デプロイ時に Secrets Manager から取得）
   nextAuthSecret: string; // NextAuth Secret (Auth サービスから取得)
+  /**
+   * forecast バッチの通常モードで、この日付より前の DailySummary にだけ過去データ除外を
+   * 適用する境界日（YYYY-MM-DD）。未指定なら通常モードでは除外を適用しない。
+   */
+  forecastLegacyExclusionBefore?: string;
 }
 
 /**
@@ -60,6 +65,7 @@ export class LambdaStack extends cdk.Stack {
       openAiApiKey,
       finnhubApiKey,
       nextAuthSecret,
+      forecastLegacyExclusionBefore,
     } = props;
 
     // ECR リポジトリの参照
@@ -297,11 +303,18 @@ export class LambdaStack extends cdk.Stack {
       role: batchExecutionRole,
       memorySize: 1024,
       timeout: cdk.Duration.minutes(15),
+      // 通常モードは1回の実行につき処理する日数に上限を持つため多重実行を並列化する意味がなく、
+      // リプレイ（手動起動）も同時に複数走らせると同じ市場・日付の書き込みが重複するだけなので、
+      // 同時実行数を1に抑える。
+      reservedConcurrentExecutions: 1,
       environment: {
         NODE_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         BATCH_TYPE: 'FORECAST',
         ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
+        ...(forecastLegacyExclusionBefore !== undefined
+          ? { STOCK_TRACKER_LEGACY_EXCLUSION_BEFORE: forecastLegacyExclusionBefore }
+          : {}),
       },
       tracing: lambda.Tracing.ACTIVE,
       logRetention: logs.RetentionDays.ONE_MONTH,

@@ -1714,7 +1714,60 @@ describe('summary batch handler', () => {
       dailySummaryRepository: dailySummaryRepository as InMemoryDailySummaryRepository,
     });
 
-    it('正常完了時に forecast バッチを Event 呼び出しで起動する', async () => {
+    /** 取引所1件・ティッカー1件の最小構成で、サマリーを1件保存する依存関係を組み立てる */
+    const dependenciesWithOneSavedSummary = async () => {
+      await exchangeRepository.create({
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '09:00',
+        End: '17:00',
+      });
+      await tickerRepository.create({
+        TickerID: 'NSDQ:AAPL',
+        Symbol: 'AAPL',
+        Name: 'Apple Inc.',
+        ExchangeID: 'NASDAQ',
+      });
+      jest.spyOn(PatternAnalyzer.prototype, 'analyze').mockReturnValue({
+        patternResults: {},
+        buyPatternCount: 0,
+        sellPatternCount: 0,
+      });
+      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue(
+        Array.from({ length: 100 }, (_, index) => ({
+          time: Date.UTC(2026, 1, 27 - index, 14, 30, 0),
+          open: 100 + index,
+          high: 110 + index,
+          low: 95 + index,
+          close: 108 + index,
+          volume: 1000 + index,
+        }))
+      );
+      return {
+        exchangeRepository,
+        tickerRepository,
+        dailySummaryRepository,
+        getChartDataFn,
+        // 2026-02-27 (金曜日) 23:00 UTC = 18:00 ET (取引終了後)
+        nowFn: jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0)),
+      };
+    };
+
+    it('サマリーを1件以上保存した場合、正常完了時に forecast バッチを Event 呼び出しで起動する', async () => {
+      const invokeForecastBatchFn = jest.fn().mockResolvedValue(undefined);
+
+      const response = await handler(mockEvent, {
+        ...(await dependenciesWithOneSavedSummary()),
+        invokeForecastBatchFn,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(invokeForecastBatchFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('保存したサマリーが無い場合は forecast バッチを起動しない', async () => {
       const invokeForecastBatchFn = jest.fn().mockResolvedValue(undefined);
 
       const response = await handler(mockEvent, {
@@ -1723,14 +1776,14 @@ describe('summary batch handler', () => {
       });
 
       expect(response.statusCode).toBe(200);
-      expect(invokeForecastBatchFn).toHaveBeenCalledTimes(1);
+      expect(invokeForecastBatchFn).not.toHaveBeenCalled();
     });
 
     it('起動フックが失敗してもサマリーバッチ自体は200のまま完了する', async () => {
       const invokeForecastBatchFn = jest.fn().mockRejectedValue(new Error('invoke failed'));
 
       const response = await handler(mockEvent, {
-        ...emptyDependencies(),
+        ...(await dependenciesWithOneSavedSummary()),
         invokeForecastBatchFn,
       });
 
@@ -1743,7 +1796,7 @@ describe('summary batch handler', () => {
       // （getLambdaClient().send(InvokeCommand)）をそのまま経由させる
       mockLambdaSend.mockRejectedValue(new Error('network error'));
 
-      const response = await handler(mockEvent, emptyDependencies());
+      const response = await handler(mockEvent, await dependenciesWithOneSavedSummary());
 
       expect(response.statusCode).toBe(200);
     });

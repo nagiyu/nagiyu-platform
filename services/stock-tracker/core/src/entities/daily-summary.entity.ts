@@ -62,6 +62,28 @@ export interface DailySummaryEntity {
 export type CreateDailySummaryInput = Omit<DailySummaryEntity, 'CreatedAt' | 'UpdatedAt'>;
 
 /**
+ * 確度算出バッチが読む属性だけに絞った DailySummary の射影。
+ *
+ * AI 解析結果・採点結果は確度算出に使わず、かつ AI 解析結果は1件あたりのサイズが大きいため、
+ * 大量の日付・銘柄を読む確度算出バッチでは持たせない。
+ */
+export type DailySummaryForecastFields = Pick<
+  DailySummaryEntity,
+  | 'TickerID'
+  | 'ExchangeID'
+  | 'Date'
+  | 'Open'
+  | 'High'
+  | 'Low'
+  | 'Close'
+  | 'Volume'
+  | 'PatternResults'
+  | 'BuyPatternCount'
+  | 'SellPatternCount'
+  | 'CreatedAt'
+>;
+
+/**
  * DailySummaryのビジネスキー
  */
 export interface DailySummaryKey {

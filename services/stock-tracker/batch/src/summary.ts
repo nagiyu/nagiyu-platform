@@ -611,13 +611,16 @@ export async function handler(
     });
 
     // 毎時の起動を待たずに確度算出へ進められるよう、完了時に forecast バッチを非同期起動する。
-    // 起動失敗はサマリー生成自体の結果に影響させない。invokeForecastBatch 自体が例外を
-    // 握りつぶす実装だが、差し替え用のフックが同じ規約を守るとは限らないため、ここでも
+    // 保存したサマリーが1件も無ければ、確度算出バッチが読んでも対象日が増えていないため
+    // 起動しない。起動失敗はサマリー生成自体の結果に影響させない。invokeForecastBatch 自体が
+    // 例外を握りつぶす実装だが、差し替え用のフックが同じ規約を守るとは限らないため、ここでも
     // 二重に保護する。
-    try {
-      await resolvedDependencies.invokeForecastBatchFn();
-    } catch (error) {
-      logger.warn('確度算出バッチの起動に失敗しました', { reason: toErrorMessage(error) });
+    if (stats.summariesSaved > 0) {
+      try {
+        await resolvedDependencies.invokeForecastBatchFn();
+      } catch (error) {
+        logger.warn('確度算出バッチの起動に失敗しました', { reason: toErrorMessage(error) });
+      }
     }
 
     return {

@@ -246,6 +246,70 @@ export function defineDailySummaryRepositoryContract(
       expect(result.map((item) => item.TickerID)).toEqual(['T2', 'T3', 'T4']);
     });
 
+    it('getForecastFieldsByExchangeAndDateRangeはOHLCV・パターン結果・CreatedAtを持ちAI解析結果を持たない', async () => {
+      await repository.upsert(
+        buildDailySummaryInput({
+          TickerID: 'T1',
+          ExchangeID: 'EX-A',
+          Date: '2024-01-02',
+          Volume: 12345,
+          BuyPatternCount: 2,
+          SellPatternCount: 0,
+          AiAnalysisResult: {
+            priceMovementAnalysis: 'dummy',
+            patternAnalysis: 'dummy',
+            supportLevels: [1, 2, 3],
+            resistanceLevels: [4, 5, 6],
+            relatedMarketTrend: 'dummy',
+            investmentJudgment: { signal: 'BULLISH', reason: 'dummy' },
+          },
+        })
+      );
+
+      const result = await repository.getForecastFieldsByExchangeAndDateRange(
+        'EX-A',
+        '2024-01-01',
+        '2024-01-03'
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        TickerID: 'T1',
+        ExchangeID: 'EX-A',
+        Date: '2024-01-02',
+        Open: 100,
+        High: 110,
+        Low: 95,
+        Close: 105,
+        Volume: 12345,
+        BuyPatternCount: 2,
+        SellPatternCount: 0,
+      });
+      expect(typeof result[0].CreatedAt).toBe('number');
+      expect(result[0]).not.toHaveProperty('AiAnalysisResult');
+      expect(result[0]).not.toHaveProperty('UpdatedAt');
+    });
+
+    it('getForecastFieldsByExchangeAndDateRangeは境界日を含み範囲外の日付を除く', async () => {
+      await repository.upsert(
+        buildDailySummaryInput({ TickerID: 'T1', ExchangeID: 'EX-A', Date: '2024-01-01' })
+      );
+      await repository.upsert(
+        buildDailySummaryInput({ TickerID: 'T2', ExchangeID: 'EX-A', Date: '2024-01-02' })
+      );
+      await repository.upsert(
+        buildDailySummaryInput({ TickerID: 'T3', ExchangeID: 'EX-A', Date: '2024-01-05' })
+      );
+
+      const result = await repository.getForecastFieldsByExchangeAndDateRange(
+        'EX-A',
+        '2024-01-02',
+        '2024-01-04'
+      );
+
+      expect(result.map((item) => item.TickerID)).toEqual(['T2']);
+    });
+
     it('getByExchangeAndDateRangeは他取引所のサマリーを含まない（パーティション分離）', async () => {
       await repository.upsert(
         buildDailySummaryInput({ TickerID: 'T1', ExchangeID: 'EX-A', Date: '2024-01-02' })
