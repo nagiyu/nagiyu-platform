@@ -1,3 +1,5 @@
+import type { MarketForecastResponse, TickerForecastSummary } from './forecast';
+
 /**
  * UI表示用の型定義
  *
@@ -95,6 +97,8 @@ export interface TickerSummary {
     quantity: number;
     averagePrice: number;
   } | null;
+  /** 確度の要約（Forecast アイテムが無ければ null） */
+  forecast: TickerForecastSummary | null;
 }
 
 export interface AlertCount {
@@ -117,5 +121,7 @@ export interface ExchangeSummaryGroup {
  */
 export interface SummariesResponse {
   exchanges: ExchangeSummaryGroup[];
+  /** 市場の荒れ予報（JP・US の 2 件） */
+  marketForecasts: MarketForecastResponse[];
 }
 import type { AiAnalysisResult } from '@nagiyu/stock-tracker-core';
