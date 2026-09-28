@@ -74,7 +74,7 @@ export class BatchRuntimePolicy extends iam.ManagedPolicy {
       })
     );
 
-    // Lambda 権限: forecast バッチの非同期起動（Summary バッチの完了時に呼び出す。NFR-1）
+    // Lambda 権限: forecast バッチの非同期起動（Summary バッチの完了時に呼び出す）
     // forecast 関数は Lambda Stack 内で本ポリシーより後に作られるため、Web 側の
     // InvokeSummaryBatchFunction と同じく固定名の ARN を直接組み立てる。
     this.addStatements(

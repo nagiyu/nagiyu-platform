@@ -160,7 +160,7 @@ describe('LambdaStack', () => {
     });
 
     it('BatchSummaryFunction の環境変数に STOCK_TRACKER_FORECAST_BATCH_FUNCTION_NAME が含まれる', () => {
-      // summary バッチが完了時に forecast を非同期起動するため（NFR-1）
+      // 毎時の起動を待たずに、summary バッチが完了時に forecast を非同期起動するため
       template.hasResourceProperties('AWS::Lambda::Function', {
         FunctionName: 'nagiyu-stock-tracker-batch-summary-dev',
         Environment: {
@@ -173,7 +173,7 @@ describe('LambdaStack', () => {
 
     it('BatchRuntimePolicy に forecast 関数への lambda:InvokeFunction が含まれる', () => {
       // batchExecutionRole は全 batch 関数で共有されるため、この付与で summary からの
-      // 非同期起動（NFR-1）が可能になる
+      // 非同期起動が可能になる
       template.hasResourceProperties('AWS::IAM::ManagedPolicy', {
         PolicyDocument: Match.objectLike({
           Statement: Match.arrayWith([

@@ -232,7 +232,7 @@ export class LambdaStack extends cdk.Stack {
         BATCH_TYPE: 'SUMMARY',
         OPENAI_API_KEY: openAiApiKey,
         ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
-        // 実行終了時に forecast バッチを非同期起動するため（NFR-1）
+        // 毎時の起動を待たずに、サマリーができた直後に確度算出へ進められるようにするため
         STOCK_TRACKER_FORECAST_BATCH_FUNCTION_NAME: `nagiyu-stock-tracker-batch-forecast-${environment}`,
       },
       tracing: lambda.Tracing.ACTIVE,

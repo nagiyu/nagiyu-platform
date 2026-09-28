@@ -78,12 +78,16 @@ export interface ScheduledEvent {
 }
 
 /**
- * リプレイモードのイベント型（design.md §3.3 成績の初期値算出）。
- * 手動起動（`aws lambda invoke` 等）で渡す。
+ * リプレイモードのイベント型。稼働開始時に過去の DailySummary から成績をさかのぼって
+ * 作る初期値算出に使う。手動起動（`aws lambda invoke` 等）で渡す。
  */
 export interface ReplayEvent {
   mode: 'replay';
-  /** この日付より前の DailySummary にだけ #3830 の過去データ除外を適用する（YYYY-MM-DD） */
+  /**
+   * この日付より前の DailySummary にだけ過去データ除外（休場日コピー足・途中足の除去）を
+   * 適用する（YYYY-MM-DD）。それ以降は当時からこの除外が要らないデータになっているため、
+   * 起動時に人が切り替え日を判断して渡す。
+   */
   legacyExclusionBefore: string;
   /** リプレイ対象期間の開始日（省略時は観測カレンダーの最初から） */
   from?: string;
@@ -138,7 +142,7 @@ export interface ReplayBatchStatistics {
   errors: number;
 }
 
-/** 打ち切りまでの猶予（名目引け時刻からの経過時間。design.md §3.1） */
+/** 打ち切りまでの猶予（名目引け時刻からの経過時間） */
 const CUTOFF_MS_AFTER_CLOSE = 12 * 60 * 60 * 1000;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -255,9 +259,10 @@ function toMarketSampleProbabilities(
  * 段階2（重みの更新）・段階1（PerformanceDaily の再計算）が読む保存済みサンプルの取得先を
  * 抽象化したもの。
  *
- * 通常モードは毎回 DB から読む（DB 版）。リプレイモードはメモリ上に積んだサンプルを読み書きし、
- * 日ごとに DB を全件読み直さない（design.md §3.1「サンプルはメモリ上に積み上げ」。累積版）。
- * `on*` フックは、DB 版では何もしない（DB 自体が唯一の記録のため）。
+ * 通常モードは毎回 DB から読む（DB 版）。リプレイモードは全期間を通しで処理するため、
+ * 日ごとに DB を全件読み直すと読み出し量が日数分積み上がってしまう。そのためメモリ上に
+ * 積んだサンプルを読み書きする版を使う。`on*` フックは、DB 版では何もしない
+ * （DB 自体が唯一の記録のため）。
  */
 interface SampleAccess {
   /** 段階2用: 全市場の学習サンプル */
@@ -394,7 +399,7 @@ export interface ProcessMarketDateResult {
 }
 
 /**
- * 1つの (市場, 日付) について、採点 → 重みの更新 → 確度の算出の3段を進める（design.md §3.1）。
+ * 1つの (市場, 日付) について、採点 → 重みの更新 → 確度の算出の3段を進める。
  *
  * 通常モード（1回のバッチ実行で1市場1日）とリプレイモード（初期値算出で日付を1日ずつ進める）が
  * 共通で呼ぶ、確度算出バッチの中核処理。いずれの書き込みも条件付き（作成済みなら書かない・
@@ -449,7 +454,8 @@ export async function processMarketDate(
         sampleAccess.onTickerOutcomeAppended(outcome.tickerId, prevDate, outcome);
       } catch (error) {
         if (error instanceof EntityNotFoundError) {
-          // 打ち切りでその日の Forecast 自体が無い銘柄（design.md §3.1「後から届いても作り直さない」）
+          // 打ち切りでその日の Forecast 自体が無い銘柄。Forecast は書き換えない方針のため、
+          // 後からサマリーが届いても採点はせず、このまま欠けた状態で確定させる
           logger.info('採点対象の Forecast が存在しないためスキップします', {
             market,
             date: prevDate,
@@ -524,7 +530,8 @@ export async function processMarketDate(
 
   // 書き込み対象を先に元の順序（buildPanel で銘柄IDの昇順に正準化済み）のまま組み立ててから
   // 並列に書き込む。アキュムレータへの反映は書き込み完了後にこの元の順序で行うことで、並列化の
-  // 完了順に依存せず学習サンプルの並び（浮動小数点の加算順序）を決定的に保つ（NFR-3 再現性）。
+  // 完了順（実行のたびに変わりうる）に依存せず、同じ入力なら常に同じ学習結果になるようにする
+  // （浮動小数点の加算順序が変わると学習結果もわずかにずれるため）。
   const tickerCreations = axisValues.tickers.map((ticker) => {
     const probabilities: Partial<Record<'DIR' | 'VOL', ProbabilityRecord>> = {};
     if (dirBurnInOk) {
@@ -605,7 +612,7 @@ export async function processMarketDate(
 }
 
 /**
- * 揃った判定（design.md §3.1）。
+ * 揃った判定。
  *
  * 観測カレンダーの前日に DailySummary があった銘柄が、すべて D のサマリーを持てば true。
  * 前日が無い（D がその市場の最初の観測日）場合は判定対象が無いため true とする。

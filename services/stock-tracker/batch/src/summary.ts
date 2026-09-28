@@ -108,10 +108,11 @@ function getForecastBatchFunctionName(): string {
 }
 
 /**
- * forecast バッチを非同期起動する（毎時の起動を待たずに確度算出へ進めるため。NFR-1）。
+ * forecast バッチを非同期起動する（毎時の起動を待たずに、サマリーができた直後に
+ * 確度算出へ進められるようにするため）。
  *
- * 起動の失敗はサマリー生成自体の成否に影響させない（サマリーの保存・表示は確度算出の失敗の
- * 影響を受けない。NFR-2 と対称の考え方）ため、ここで例外を握りつぶし警告ログのみ出す。
+ * サマリーの保存・表示は確度算出の失敗の影響を受けない方針と同様に、起動の失敗も
+ * サマリー生成自体の成否に影響させたくないため、ここで例外を握りつぶし警告ログのみ出す。
  */
 async function invokeForecastBatch(): Promise<void> {
   try {
@@ -609,10 +610,10 @@ export async function handler(
       statistics: stats,
     });
 
-    // 毎時の起動を待たずに確度算出へ進められるよう、完了時に forecast バッチを非同期起動する
-    // （NFR-1）。起動失敗はサマリー生成自体の結果に影響させない。invokeForecastBatch 自体が
-    // 例外を握りつぶす実装だが、差し替え用のフックが同じ規約を守るとは限らないため、
-    // ここでも二重に保護する。
+    // 毎時の起動を待たずに確度算出へ進められるよう、完了時に forecast バッチを非同期起動する。
+    // 起動失敗はサマリー生成自体の結果に影響させない。invokeForecastBatch 自体が例外を
+    // 握りつぶす実装だが、差し替え用のフックが同じ規約を守るとは限らないため、ここでも
+    // 二重に保護する。
     try {
       await resolvedDependencies.invokeForecastBatchFn();
     } catch (error) {

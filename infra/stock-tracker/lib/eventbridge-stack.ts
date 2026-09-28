@@ -92,7 +92,8 @@ export class EventBridgeStack extends cdk.Stack {
     // EventBridge Rule - Forecast（1時間間隔、確度算出）
     // dev-sync が複製する DailySummary から算出するだけで、Forecast 系のアイテムにしか
     // 書き込まない（GSI4PK に FORECAST# 接頭辞を付けて dev-sync の複製対象から外している）ため、
-    // summary・evaluation と異なり dev でも有効にする（design.md §3.4 切り替えまでの間）。
+    // summary・evaluation と異なり dev でも有効にする（dev-sync が DailySummary を複製する間の措置。
+    // dev で summary を直接動かすようになれば、他のバッチと同じ扱いに揃える）。
     const forecastRule = new events.Rule(this, 'BatchForecastRule', {
       ruleName: `stock-tracker-batch-forecast-${environment}`,
       description: 'Trigger Stock Tracker Forecast Batch every 1 hour',

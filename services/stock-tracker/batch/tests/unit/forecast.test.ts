@@ -388,8 +388,8 @@ describe('forecast batch handler（リプレイモード）', () => {
   let performanceDailyRepository: InMemoryPerformanceDailyRepository;
   let dependencies: Omit<HandlerDependencies, 'nowFn'>;
 
-  // #3830 の除外2（途中足）は CreatedAt（テスト実行時の実時刻）と翌営業日の取引開始時刻を
-  // 比較するため、テスト実行時刻より確実に先の日付を使う（過去日付だと常に除外2に該当してしまう）。
+  // 過去データ除外の「途中足」判定は CreatedAt（テスト実行時の実時刻）と翌営業日の取引開始
+  // 時刻を比較するため、テスト実行時刻より確実に先の日付を使う（過去日付だと常に該当してしまう）。
   const d1 = '2030-01-07';
   const d2 = '2030-01-08'; // 重複 OHLC。legacyExclusionBefore より前なので除外される
   const d3 = '2030-01-09'; // legacyExclusionBefore

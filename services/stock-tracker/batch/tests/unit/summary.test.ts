@@ -17,7 +17,7 @@ import type { ScheduledEvent } from '../../src/summary.js';
 import { getChartData } from '@nagiyu/stock-tracker-core';
 import { logger } from '@nagiyu/common';
 
-// 完了時に forecast バッチを非同期起動する（NFR-1）ため、実際の AWS 呼び出しを避けて
+// 完了時に forecast バッチを非同期起動するため、実際の AWS 呼び出しを避けて
 // @aws-sdk/client-lambda をモック化する（getLambdaClient は @nagiyu/aws 内でキャッシュされ
 // jest.spyOn で差し替えられないため、送信元の SDK クライアントごと差し替える）。
 const mockLambdaSend = jest.fn();
@@ -1705,7 +1705,7 @@ describe('summary batch handler', () => {
     });
   });
 
-  describe('forecast バッチの非同期起動（NFR-1）', () => {
+  describe('forecast バッチの非同期起動', () => {
     const emptyDependencies = () => ({
       exchangeRepository: {
         getAll: jest.fn().mockResolvedValue([]),
