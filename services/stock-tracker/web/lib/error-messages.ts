@@ -44,4 +44,5 @@ export const ERROR_MESSAGES = {
   PUSH_SUBSCRIPTION_FAILED: 'プッシュ通知の登録に失敗しました',
   PUSH_UNSUBSCRIPTION_FAILED: 'プッシュ通知の解除に失敗しました',
   VAPID_KEY_ERROR: 'VAPID公開鍵の取得に失敗しました',
+  FORECAST_FETCH_FAILED: '確度を取得できませんでした',
 } as const;

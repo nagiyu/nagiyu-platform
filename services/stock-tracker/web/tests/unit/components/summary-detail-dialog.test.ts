@@ -212,12 +212,12 @@ describe('SummaryDetailDialog', () => {
     expect(screen.getByRole('button', { name: '売りアラート設定' })).toBeTruthy();
   });
 
-  it('取得に失敗したときは算出できなかった旨を表示する', async () => {
+  it('取得に失敗したときは取得できなかった旨を表示する', async () => {
     mockFetch(new Error('network'));
     renderDialog();
 
     expect((await screen.findByTestId('forecast-unavailable-reason')).textContent).toBe(
-      '確度を算出できませんでした'
+      '確度を取得できませんでした'
     );
   });
 
@@ -249,5 +249,31 @@ describe('SummaryDetailDialog', () => {
     expect(screen.getByText(/過去成績: 120 件 \/ 的中 58%/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '三川明けの明星の詳細を閉じる' }));
     expect(screen.queryByText(/過去成績: 120 件/)).toBeNull();
+  });
+
+  it('別の銘柄で開き直したとき、前回の結果を描画せず読み込み中に戻る', async () => {
+    mockFetch({ ok: true, status: 200, body: detailResponse() });
+    const { rerender } = renderDialog();
+    await screen.findByTestId('forecast-label-DIR');
+
+    global.fetch = jest.fn(() => new Promise<Response>(() => undefined));
+    rerender(
+      React.createElement(SummaryDetailDialog, {
+        open: true,
+        summary: { ...summary, tickerId: 'NASDAQ:AMD', symbol: 'AMD' },
+        onClose: jest.fn(),
+      })
+    );
+
+    expect(screen.queryByTestId('forecast-label-DIR')).toBeNull();
+    expect(screen.getByText('読み込み中...')).toBeTruthy();
+  });
+
+  it('確度なしの「—」はキーボードでフォーカスできる', async () => {
+    mockFetch({ ok: false, status: 404 });
+    renderDialog();
+
+    const label = await screen.findByTestId('forecast-label-DIR');
+    expect(label.getAttribute('tabindex')).toBe('0');
   });
 });

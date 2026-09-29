@@ -38,6 +38,7 @@ import {
   splitAxes,
   toProbabilityView,
 } from '@/lib/forecast-view/labels';
+import { ERROR_MESSAGES } from '@/lib/error-messages';
 import { fetchForecastDetail } from '@/lib/forecast-view/fetch-detail';
 
 interface SummaryDetailDialogProps {
@@ -62,7 +63,7 @@ const QUESTION_TITLES: Record<DetailQuestion, string> = {
 
 const UNAVAILABLE_MESSAGES = {
   unavailable: FORECAST_TEXT.NO_FORECAST,
-  error: FORECAST_TEXT.CALC_FAILED,
+  error: ERROR_MESSAGES.FORECAST_FETCH_FAILED,
 } as const;
 
 const extractExchangeId = (tickerId: string): string => {
@@ -128,7 +129,7 @@ export default function SummaryDetailDialog({
     tradeMode: AlertMode;
     initialPrice: number;
   }>({ open: false, tradeMode: 'Buy', initialPrice: 0 });
-  const [forecastState, setForecastState] = useState<ForecastLoadState>({ status: 'loading' });
+  const [loaded, setLoaded] = useState<{ key: string; state: ForecastLoadState } | null>(null);
   const [activeQuestion, setActiveQuestion] = useState<DetailQuestion>('DIR');
 
   const tickerId = summary?.tickerId ?? null;
@@ -139,18 +140,24 @@ export default function SummaryDetailDialog({
     if (!open || tickerId === null) {
       return;
     }
+    const requestKey = `${tickerId}|${summaryDate}`;
     let cancelled = false;
-    setForecastState({ status: 'loading' });
     setActiveQuestion('DIR');
     void fetchForecastDetail(tickerId, summaryDate).then((result) => {
       if (!cancelled) {
-        setForecastState(result);
+        setLoaded({ key: requestKey, state: result });
       }
     });
     return () => {
       cancelled = true;
     };
   }, [open, tickerId, summaryDate]);
+
+  // 別の銘柄・日付や閉じた後に、前回の結果を一瞬でも描画しないよう、キーが一致するときだけ採用する
+  const forecastState: ForecastLoadState =
+    open && loaded && loaded.key === `${tickerId}|${summaryDate}`
+      ? loaded.state
+      : { status: 'loading' };
 
   const handleClose = () => {
     setAlertModalState((s) => ({ ...s, open: false }));

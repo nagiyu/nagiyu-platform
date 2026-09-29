@@ -4,7 +4,12 @@ import { Box, Card, CardContent, IconButton, Tooltip, Typography } from '@mui/ma
 import { HelpOutlined as HelpIcon } from '@mui/icons-material';
 import type { ForecastMarket, MarketForecastResponse } from '../types/forecast';
 import ForecastLabelChip from './ForecastLabelChip';
-import { FORECAST_TEXT, formatBaseline, formatReferenceDate } from '../lib/forecast-view/labels';
+import {
+  FORECAST_TEXT,
+  formatBaseline,
+  formatDiffFromBaseline,
+  formatReferenceDate,
+} from '../lib/forecast-view/labels';
 
 interface MarketForecastCardsProps {
   marketForecasts: readonly MarketForecastResponse[];
@@ -62,12 +67,17 @@ export default function MarketForecastCards({ marketForecasts }: MarketForecastC
                   unavailableReason={FORECAST_TEXT.NO_FORECAST}
                   data-testid={`market-forecast-label-${market}`}
                 />
-                {forecast && (
-                  <Typography variant="body2" color="text.secondary">
-                    {formatBaseline(forecast.baseline)}
-                  </Typography>
-                )}
               </Box>
+              {forecast && (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  data-testid={`market-forecast-baseline-${market}`}
+                >
+                  {formatBaseline(forecast.baseline)} ／{' '}
+                  {formatDiffFromBaseline(forecast.probability, forecast.baseline)}
+                </Typography>
+              )}
               {referenceDate && (
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                   {referenceDate}

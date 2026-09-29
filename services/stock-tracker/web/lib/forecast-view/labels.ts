@@ -19,7 +19,6 @@ export const FORECAST_UNAVAILABLE = '—';
 
 export const FORECAST_TEXT = {
   NO_FORECAST: 'この日の確度はありません',
-  CALC_FAILED: '確度を算出できませんでした',
   NO_HISTORY: '履歴が足りず算出できません',
   LOW_SAMPLE_BAND: '件数が少なく参考値',
   LOW_SAMPLE_AXIS: '件数不足',

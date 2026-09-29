@@ -43,6 +43,7 @@ export default function ForecastLabelChip({
           variant="body2"
           color="text.secondary"
           data-testid={testId}
+          tabIndex={unavailableReason ? 0 : undefined}
           aria-label={unavailableReason ? `${label.text}（${unavailableReason}）` : undefined}
         >
           {label.text}

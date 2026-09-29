@@ -108,7 +108,9 @@ describe('SummariesPage', () => {
 
     const jp = screen.getByTestId('market-forecast-JP');
     expect(within(jp).getByTestId('market-forecast-label-JP').textContent).toBe('荒れそう 64%');
-    expect(within(jp).getByText('基準 50%')).toBeTruthy();
+    expect(within(jp).getByTestId('market-forecast-baseline-JP').textContent).toBe(
+      '基準 50% ／ +14pt'
+    );
     expect(within(jp).getByText('9/25 引け時点')).toBeTruthy();
     expect(within(jp).getByTestId('market-forecast-low-sample-JP').textContent).toBe(
       '過去の日数が少なく参考値'

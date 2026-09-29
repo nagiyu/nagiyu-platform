@@ -367,7 +367,7 @@ test.describe('サマリー画面スモークテスト', () => {
 
     const jp = page.getByTestId('market-forecast-JP');
     await expect(jp.getByTestId('market-forecast-label-JP')).toHaveText('荒れそう 64%');
-    await expect(jp.getByText('基準 50%')).toBeVisible();
+    await expect(jp.getByTestId('market-forecast-baseline-JP')).toHaveText('基準 50% ／ +14pt');
     await expect(jp.getByText('3/2 引け時点')).toBeVisible();
     await expect(jp.getByText('過去の日数が少なく参考値')).toBeVisible();
     await expect(
