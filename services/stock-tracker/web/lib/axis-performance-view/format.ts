@@ -42,11 +42,11 @@ export function formatCount(count: number): string {
   return count.toLocaleString('ja-JP');
 }
 
-/** 見出し行（「採点済み 8,120 件 ／ 基準 50.3%」） */
+/** 見出し行（「採点済み 8,120 件 ／ ふだん 50.3%」） */
 export function buildHeadline(
   response: Pick<AxisPerformanceResponse, 'evaluatedCount' | 'hitRate'>
 ): string {
-  return `採点済み ${formatCount(response.evaluatedCount)} 件 ／ 基準 ${formatPercent(response.hitRate)}`;
+  return `採点済み ${formatCount(response.evaluatedCount)} 件 ／ ふだん ${formatPercent(response.hitRate)}`;
 }
 
 /** 集計対象の予測日の範囲。データなしは null */
@@ -55,7 +55,7 @@ export function buildRangeText(from: string | null, to: string | null): string |
 }
 
 /**
- * 中立帯の文言（「基準値 +0〜+5pt は中立」）。
+ * 中立帯の文言（「ふだんの割合から +0〜+5pt は中立」）。
  * 番兵値の側は寄りなしを意味するため、その側の境界を出さず「下側なし」「上側なし」を添える。
  */
 export function buildNeutralBandText(band: NeutralBandView | null): string | null {
@@ -66,11 +66,11 @@ export function buildNeutralBandText(band: NeutralBandView | null): string | nul
   const upper = withSign(band.upper * 100, 0);
 
   if (noLower && noUpper) {
-    return '基準値からどれだけ離れても中立 (下側なし・上側なし)';
+    return 'ふだんの割合からどれだけ離れても中立 (下側なし・上側なし)';
   }
-  if (noLower) return `基準値 ${upper}pt 未満は中立 (下側なし)`;
-  if (noUpper) return `基準値 ${lower}pt 以上は中立 (上側なし)`;
-  return `基準値 ${lower}〜${upper}pt は中立`;
+  if (noLower) return `ふだんの割合から ${upper}pt 未満は中立 (下側なし)`;
+  if (noUpper) return `ふだんの割合から ${lower}pt 以上は中立 (上側なし)`;
+  return `ふだんの割合から ${lower}〜${upper}pt は中立`;
 }
 
 /** 確率帯の見出し（0.45, 0.5 → 45〜50%） */

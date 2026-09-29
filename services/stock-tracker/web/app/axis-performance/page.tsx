@@ -7,6 +7,7 @@ import {
   Container,
   Tab,
   Tabs,
+  Tooltip,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
@@ -18,6 +19,7 @@ import { hasPermission } from '@nagiyu/common';
 import AxisTable from '../../components/axis-performance/AxisTable';
 import CalibrationSection from '../../components/axis-performance/CalibrationSection';
 import {
+  BASELINE_HELP,
   DEFAULT_MARKET,
   DEFAULT_PERIOD,
   EMPTY_MESSAGE,
@@ -85,13 +87,41 @@ function AxisPerformanceContent() {
         <Typography variant="h4" component="h1" sx={{ mb: 0.5 }}>
           判断軸の成績
         </Typography>
-        <Typography
-          variant="subtitle1"
-          color="text.secondary"
-          data-testid="axis-performance-headline"
-        >
-          {data ? buildHeadline(data) : '読み込み中...'}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Typography
+            variant="subtitle1"
+            color="text.secondary"
+            data-testid="axis-performance-headline"
+          >
+            {data ? buildHeadline(data) : '読み込み中...'}
+          </Typography>
+          {data && (
+            <Tooltip title={BASELINE_HELP[question]} enterTouchDelay={0} leaveTouchDelay={5000}>
+              <Box
+                component="button"
+                type="button"
+                aria-label="ふだんの割合とは"
+                data-testid="baseline-help"
+                sx={{
+                  width: 20,
+                  height: 20,
+                  p: 0,
+                  border: 1,
+                  borderColor: 'divider',
+                  borderRadius: '50%',
+                  bgcolor: 'transparent',
+                  color: 'text.secondary',
+                  font: 'inherit',
+                  fontSize: 12,
+                  lineHeight: 1,
+                  cursor: 'help',
+                }}
+              >
+                ？
+              </Box>
+            </Tooltip>
+          )}
+        </Box>
         {rangeText && (
           <Typography variant="caption" color="text.secondary" data-testid="axis-performance-range">
             {rangeText}

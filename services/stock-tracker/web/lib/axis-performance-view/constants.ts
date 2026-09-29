@@ -58,3 +58,10 @@ export const LOW_SAMPLE_BAND_COUNT = 30;
 export const NEUTRAL_BAND_SENTINEL = { lower: -1, upper: 1 } as const;
 
 export const EMPTY_MESSAGE = 'この期間に採点済みの予測はありません';
+
+/** 見出し行の「ふだん」が何の割合かを問いごとに説明する */
+export const BASELINE_HELP: Record<ForecastQuestion, string> = {
+  DIR: '翌営業日に市場平均を上回った割合',
+  VOL: '翌営業日に平常より荒れた割合',
+  MKT: '翌営業日に平常より荒れた割合',
+};

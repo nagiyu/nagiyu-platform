@@ -81,10 +81,11 @@ describe('AxisPerformancePage', () => {
     render(React.createElement(AxisPerformancePage));
     await waitFor(() =>
       expect(screen.getByTestId('axis-performance-headline').textContent).toBe(
-        '採点済み 8,120 件 ／ 基準 50.3%'
+        '採点済み 8,120 件 ／ ふだん 50.3%'
       )
     );
     expect(lastUrl()).toBe('/api/axis-performance?question=DIR&period=90d&market=ALL');
+    expect(screen.getByTestId('baseline-help').getAttribute('aria-label')).toBe('ふだんの割合とは');
     expect(screen.getByTestId('axis-performance-range').textContent).toContain('2026-06-30');
     expect(screen.getByTestId('calibration-section')).toBeTruthy();
     expect(screen.getByTestId('axis-table-section')).toBeTruthy();

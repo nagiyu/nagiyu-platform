@@ -52,7 +52,9 @@ describe('CalibrationSection', () => {
         neutralBand: { lower: 0, upper: 0.05 },
       })
     );
-    expect(screen.getByTestId('neutral-band-text').textContent).toBe('基準値 +0〜+5pt は中立');
+    expect(screen.getByTestId('neutral-band-text').textContent).toBe(
+      'ふだんの割合から +0〜+5pt は中立'
+    );
     const rows = screen.getAllByTestId('calibration-row');
     expect(rows).toHaveLength(2);
     expect(rows[0].getAttribute('data-low-sample')).toBe('false');
@@ -121,7 +123,7 @@ describe('AxisTable', () => {
     expect(names()).toEqual(['軸A', '軸B']);
     fireEvent.click(screen.getByText('件数'));
     expect(names()).toEqual(['軸B', '軸A']);
-    fireEvent.click(screen.getByText('基準差'));
+    fireEvent.click(screen.getByText('ふだんとの差'));
     expect(names()).toEqual(['軸A', '軸B']);
   });
 

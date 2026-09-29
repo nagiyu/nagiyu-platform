@@ -33,7 +33,7 @@ describe('format', () => {
 
   it('見出し行を作る', () => {
     expect(buildHeadline({ evaluatedCount: 8120, hitRate: 0.503 })).toBe(
-      '採点済み 8,120 件 ／ 基準 50.3%'
+      '採点済み 8,120 件 ／ ふだん 50.3%'
     );
   });
 
@@ -47,17 +47,21 @@ describe('format', () => {
       expect(buildNeutralBandText(null)).toBeNull();
     });
     it('両側あり', () => {
-      expect(buildNeutralBandText({ lower: 0, upper: 0.05 })).toBe('基準値 +0〜+5pt は中立');
-      expect(buildNeutralBandText({ lower: -0.05, upper: 0.1 })).toBe('基準値 −5〜+10pt は中立');
+      expect(buildNeutralBandText({ lower: 0, upper: 0.05 })).toBe(
+        'ふだんの割合から +0〜+5pt は中立'
+      );
+      expect(buildNeutralBandText({ lower: -0.05, upper: 0.1 })).toBe(
+        'ふだんの割合から −5〜+10pt は中立'
+      );
     });
     it('下側の番兵値は下側なし', () => {
       expect(buildNeutralBandText({ lower: -1, upper: 0.05 })).toBe(
-        '基準値 +5pt 未満は中立 (下側なし)'
+        'ふだんの割合から +5pt 未満は中立 (下側なし)'
       );
     });
     it('上側の番兵値は上側なし', () => {
       expect(buildNeutralBandText({ lower: 0, upper: 1 })).toBe(
-        '基準値 +0pt 以上は中立 (上側なし)'
+        'ふだんの割合から +0pt 以上は中立 (上側なし)'
       );
     });
     it('両側とも番兵値', () => {

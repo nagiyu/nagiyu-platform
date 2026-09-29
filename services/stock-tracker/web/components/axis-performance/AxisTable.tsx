@@ -53,7 +53,7 @@ const COLUMNS: Column[] = [
   { key: 'kind', label: '種類', align: 'left', priority: false },
   { key: 'count', label: '件数', align: 'right', priority: true },
   { key: 'hitRate', label: '的中率', align: 'right', priority: false },
-  { key: 'diffFromBaseline', label: '基準差', align: 'right', priority: true },
+  { key: 'diffFromBaseline', label: 'ふだんとの差', align: 'right', priority: true },
   { key: 'meanExcessReturn', label: '平均超過リターン', align: 'right', priority: false },
   { key: 'currentWeight', label: '現在の重み', align: 'right', priority: true },
 ];

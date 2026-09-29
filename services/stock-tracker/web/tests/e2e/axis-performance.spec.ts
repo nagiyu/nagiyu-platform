@@ -81,9 +81,13 @@ test.describe('判断軸の成績 (stock-viewer)', () => {
 
     await expect(page.getByRole('heading', { name: '判断軸の成績' })).toBeVisible();
     await expect(page.getByTestId('axis-performance-headline')).toHaveText(
-      '採点済み 8,120 件 ／ 基準 50.3%'
+      '採点済み 8,120 件 ／ ふだん 50.3%'
     );
-    await expect(page.getByTestId('neutral-band-text')).toHaveText('基準値 +0〜+5pt は中立');
+    await page.getByTestId('baseline-help').hover();
+    await expect(page.getByRole('tooltip')).toHaveText('翌営業日に市場平均を上回った割合');
+    await expect(page.getByTestId('neutral-band-text')).toHaveText(
+      'ふだんの割合から +0〜+5pt は中立'
+    );
     await expect(page.getByRole('heading', { name: '確度の成績' })).toBeVisible();
     await expect(page.getByRole('heading', { name: '軸ごとの成績' })).toBeVisible();
     await expect(page.getByTestId('calibration-row')).toHaveCount(2);
