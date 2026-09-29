@@ -25,6 +25,7 @@ import {
   formatSignedPercent,
   formatSignedPt,
   formatWeight,
+  NOT_AVAILABLE,
 } from '../../lib/axis-performance-view/format';
 import {
   sortAxes,
@@ -153,7 +154,9 @@ export default function AxisTable({ question, axes }: AxisTableProps) {
                 <TableCell align="right">{formatSignedPt(axis.diffFromBaseline)}</TableCell>
                 {question === 'DIR' && (
                   <TableCell align="right" sx={{ display: cellDisplay(false) }}>
-                    {formatSignedPercent(axis.meanExcessReturn ?? 0)}
+                    {axis.meanExcessReturn === undefined
+                      ? NOT_AVAILABLE
+                      : formatSignedPercent(axis.meanExcessReturn)}
                   </TableCell>
                 )}
                 <TableCell align="right">

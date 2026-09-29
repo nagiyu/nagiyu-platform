@@ -11,6 +11,7 @@ import {
   TableHead,
   TableRow,
   Typography,
+  useTheme,
 } from '@mui/material';
 import type { EChartsOption } from 'echarts';
 import type { CalibrationBand, NeutralBandView } from '../../types/forecast';
@@ -35,7 +36,17 @@ const isLowSample = (band: CalibrationBand): boolean => band.count < LOW_SAMPLE_
  * 信頼度図。対角線 (予測の平均 = 実際の的中率) に乗るほど確率が額面どおりに当たっている。
  * 件数が少ない帯は実績が読めないため、点を薄くして区別する。
  */
-export const buildCalibrationOption = (calibration: CalibrationBand[]): EChartsOption => ({
+export interface CalibrationColors {
+  point: string;
+  reference: string;
+  text: string;
+}
+
+export const buildCalibrationOption = (
+  calibration: CalibrationBand[],
+  colors: CalibrationColors
+): EChartsOption => ({
+  textStyle: { color: colors.text },
   tooltip: {
     trigger: 'item',
     formatter: (params: unknown) => {
@@ -64,8 +75,8 @@ export const buildCalibrationOption = (calibration: CalibrationBand[]): EChartsO
         [100, 100],
       ],
       showSymbol: false,
-      lineStyle: { type: 'dashed', color: '#9e9e9e' },
-      itemStyle: { color: '#9e9e9e' },
+      lineStyle: { type: 'dashed', color: colors.reference },
+      itemStyle: { color: colors.reference },
     },
     {
       name: '確率帯',
@@ -74,13 +85,14 @@ export const buildCalibrationOption = (calibration: CalibrationBand[]): EChartsO
       data: calibration.map((band) => ({
         value: [band.meanProbability * 100, band.hitRate * 100],
         count: band.count,
-        itemStyle: { color: '#1976d2', opacity: isLowSample(band) ? 0.3 : 1 },
+        itemStyle: { color: colors.point, opacity: isLowSample(band) ? 0.3 : 1 },
       })),
     },
   ],
 });
 
 export default function CalibrationSection({ calibration, neutralBand }: CalibrationSectionProps) {
+  const theme = useTheme();
   const neutralBandText = buildNeutralBandText(neutralBand);
 
   return (
@@ -133,7 +145,11 @@ export default function CalibrationSection({ calibration, neutralBand }: Calibra
             aria-label="確度の信頼度図 (対角線が完全なキャリブレーション)"
           >
             <ReactECharts
-              option={buildCalibrationOption(calibration)}
+              option={buildCalibrationOption(calibration, {
+                point: theme.palette.primary.main,
+                reference: theme.palette.text.disabled,
+                text: theme.palette.text.secondary,
+              })}
               style={{ height: '100%', minHeight: 300 }}
               opts={{ renderer: 'canvas', locale: 'JP' }}
               notMerge

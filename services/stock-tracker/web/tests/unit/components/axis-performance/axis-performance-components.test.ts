@@ -17,6 +17,8 @@ const BANDS: CalibrationBand[] = [
   { lower: 0.5, upper: 0.55, count: 10, meanProbability: 0.52, hitRate: 0.7 },
 ];
 
+const COLORS = { point: '#111111', reference: '#222222', text: '#333333' };
+
 const AXES: AxisPerformanceAxis[] = [
   {
     axisId: 'a',
@@ -67,10 +69,10 @@ describe('CalibrationSection', () => {
   });
 
   it('信頼度図は対角線と確率帯の点を持ち、少ない帯を薄くする', () => {
-    const option = buildCalibrationOption(BANDS) as unknown as {
+    const option = buildCalibrationOption(BANDS, COLORS) as unknown as {
       series: Array<{
         name: string;
-        data: Array<{ value: number[]; itemStyle: { opacity: number } }>;
+        data: Array<{ value: number[]; itemStyle: { opacity: number; color: string } }>;
       }>;
       tooltip: { formatter: (p: unknown) => string };
     };
@@ -80,6 +82,7 @@ describe('CalibrationSection', () => {
     ]);
     const points = option.series[1].data;
     expect(points[0].value).toEqual([47, 48]);
+    expect(points[0].itemStyle.color).toBe('#111111');
     expect(points[0].itemStyle.opacity).toBe(1);
     expect(points[1].itemStyle.opacity).toBe(0.3);
     expect(option.tooltip.formatter({ data: points[0] })).toContain('100 件');
@@ -133,6 +136,17 @@ describe('AxisTable', () => {
     fireEvent.click(screen.getByText('軸A'));
     fireEvent.click(document.body);
     await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
+  });
+
+  it('平均超過リターンが無い軸は「—」を出す', () => {
+    render(
+      React.createElement(AxisTable, {
+        question: 'DIR',
+        axes: [{ ...AXES[0], meanExcessReturn: undefined }],
+      })
+    );
+    expect(screen.queryByText('+0.00%')).toBeNull();
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
   });
 
   it('重みがすべて 0 でも表示できる', () => {
