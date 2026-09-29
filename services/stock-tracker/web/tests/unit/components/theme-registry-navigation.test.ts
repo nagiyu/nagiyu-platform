@@ -139,7 +139,10 @@ describe('ThemeRegistry navigationItems', () => {
     );
     const navigationItems = getNavigationItems(html);
     expect(navigationItems).not.toContainEqual({ label: 'サマリー', href: '/summaries' });
-    expect(navigationItems).not.toContainEqual({ label: '判断軸の成績', href: '/axis-performance' });
+    expect(navigationItems).not.toContainEqual({
+      label: '判断軸の成績',
+      href: '/axis-performance',
+    });
   });
 });
 
