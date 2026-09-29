@@ -1,13 +1,10 @@
+/** @jest-environment jsdom */
 import React from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-import SummariesPage from '../../../app/summaries/page';
-import {
-  resolveAiAnalysisFallbackMessage,
-  resolveInvestmentSignalColor,
-  resolveInvestmentSignalLabel,
-} from '../../../app/summaries/ai-analysis';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useSession } from 'next-auth/react';
-import { ERROR_MESSAGES } from '../../../lib/error-messages';
+import SummariesPage from '../../../app/summaries/page';
+import type { SummariesResponse, TickerSummary } from '../../../types/stock';
+import type { TickerForecastSummary } from '../../../types/forecast';
 
 jest.mock('../../../components/StockChart', () => ({
   __esModule: true,
@@ -18,94 +15,190 @@ jest.mock('next-auth/react', () => ({
   useSession: jest.fn(),
 }));
 
+const forecast = (dir: number | null, vol: number | null): TickerForecastSummary => ({
+  dir:
+    dir === null
+      ? null
+      : {
+          probability: dir,
+          baseline: 0.5,
+          lean: dir > 0.53 ? 'UP' : dir < 0.47 ? 'DOWN' : 'NEUTRAL',
+        },
+  vol:
+    vol === null
+      ? null
+      : { probability: vol, baseline: 0.5, lean: vol > 0.55 ? 'HIGH' : 'NEUTRAL' },
+  lit: { total: 3, buy: 2, sell: 1 },
+});
+
+const ticker = (
+  symbol: string,
+  forecastSummary: TickerForecastSummary | null,
+  overrides: Partial<TickerSummary> = {}
+): TickerSummary => ({
+  tickerId: `TEST:${symbol}`,
+  date: '2025-09-25',
+  symbol,
+  name: `${symbol}株式会社`,
+  open: 1,
+  high: 2,
+  low: 1,
+  close: 2,
+  updatedAt: '2026-03-02T00:00:00.000Z',
+  buyPatternCount: 0,
+  sellPatternCount: 0,
+  buyAlertCount: { enabled: 1, disabled: 2 },
+  sellAlertCount: { enabled: 0, disabled: 0 },
+  holding: null,
+  forecast: forecastSummary,
+  ...overrides,
+});
+
+const response: SummariesResponse = {
+  exchanges: [
+    {
+      exchangeId: 'test',
+      exchangeName: 'テスト取引所',
+      date: '2025-09-25',
+      summaries: [
+        ticker('AAA', forecast(0.5, 0.4)),
+        ticker('BBB', forecast(0.62, 0.7)),
+        ticker('CCC', null),
+        ticker('DDD', forecast(0.35, 0.5), { holding: { quantity: 1, averagePrice: 1 } }),
+      ],
+    },
+  ],
+  marketForecasts: [
+    {
+      market: 'JP',
+      date: '2025-09-25',
+      forecast: { probability: 0.64, baseline: 0.5, lean: 'HIGH', lowSample: true },
+    },
+    { market: 'US', date: null, forecast: null },
+  ],
+};
+
+const symbolsInOrder = (): string[] =>
+  screen
+    .getAllByRole('row')
+    .slice(1)
+    .map((row) => row.querySelectorAll('td')[0].textContent ?? '');
+
 describe('SummariesPage', () => {
-  let html: string;
-  const mockedUseSession = useSession as jest.MockedFunction<typeof useSession>;
-
-  beforeAll(() => {
-    mockedUseSession.mockReturnValue({
-      data: null,
-      status: 'unauthenticated',
-      update: jest.fn(),
-    });
-    html = renderToStaticMarkup(React.createElement(SummariesPage));
+  beforeEach(() => {
+    (useSession as jest.Mock).mockReturnValue({ data: null, status: 'unauthenticated' });
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => response,
+    })) as unknown as typeof fetch;
   });
 
-  it('見出しを表示する', () => {
-    expect(html).toContain('日次サマリー');
+  it('見出しと取引所セレクトを表示する', async () => {
+    render(React.createElement(SummariesPage));
+
+    expect(screen.getByText('日次サマリー')).toBeTruthy();
+    expect(screen.getByText('読み込み中...')).toBeTruthy();
+    await screen.findByRole('heading', { name: 'テスト取引所' });
   });
 
-  it('ローディング状態を表示する', () => {
-    expect(html).toContain('読み込み中...');
+  it('市場の荒れ予報カードを JP・US の 2 枚表示し、参考値の注記と「—」を出す', async () => {
+    render(React.createElement(SummariesPage));
+    await screen.findByRole('heading', { name: 'テスト取引所' });
+
+    const jp = screen.getByTestId('market-forecast-JP');
+    expect(within(jp).getByTestId('market-forecast-label-JP').textContent).toBe('荒れそう 64%');
+    expect(within(jp).getByTestId('market-forecast-baseline-JP').textContent).toBe(
+      '基準 50% ／ +14pt'
+    );
+    expect(within(jp).getByText('9/25 引け時点')).toBeTruthy();
+    expect(within(jp).getByTestId('market-forecast-low-sample-JP').textContent).toBe(
+      '過去の日数が少なく参考値'
+    );
+
+    const us = screen.getByTestId('market-forecast-US');
+    expect(within(us).getByTestId('market-forecast-label-US').textContent).toBe('—');
+    expect(within(us).queryByTestId('market-forecast-low-sample-US')).toBeNull();
   });
 
-  it('取引所セレクトボックスを表示する', () => {
-    expect(html).toContain('取引所');
+  it('一覧の列を確度用に置き換え、AI 由来の列を持たない', async () => {
+    render(React.createElement(SummariesPage));
+    await screen.findByRole('heading', { name: 'テスト取引所' });
+
+    for (const name of [
+      'シンボル',
+      '銘柄名',
+      '保有',
+      '方向',
+      '荒れ',
+      '点灯',
+      '買いアラート数',
+      '売りアラート数',
+    ]) {
+      expect(screen.getByRole('columnheader', { name })).toBeTruthy();
+    }
+    for (const name of ['投資判断', '予測リターン', '確信度', '買いシグナル', '売りシグナル']) {
+      expect(screen.queryByRole('columnheader', { name })).toBeNull();
+    }
   });
 
-  describe('ai-analysis helpers', () => {
-    const baseSummary = {
-      tickerId: 'TSE:7203',
-      symbol: '7203',
-      name: 'トヨタ自動車',
-      open: 1000,
-      high: 1010,
-      low: 990,
-      close: 1005,
-      updatedAt: '2026-03-01T00:00:00.000Z',
-      buyPatternCount: 0,
-      sellPatternCount: 0,
-      patternDetails: [],
-      holding: null,
-    };
+  it('行に方向・荒れ・点灯・アラート数を表示する', async () => {
+    render(React.createElement(SummariesPage));
+    await screen.findByRole('heading', { name: 'テスト取引所' });
 
-    it('投資判断シグナルを日本語ラベルに変換できる', () => {
-      expect(resolveInvestmentSignalLabel('BULLISH')).toBe('強気');
-      expect(resolveInvestmentSignalLabel('NEUTRAL')).toBe('中立');
-      expect(resolveInvestmentSignalLabel('BEARISH')).toBe('弱気');
-    });
+    expect(screen.getByTestId('dir-TEST:BBB').textContent).toBe('強含み 62%');
+    expect(screen.getByTestId('vol-TEST:BBB').textContent).toBe('荒れそう 70%');
+    expect(screen.getByTestId('dir-TEST:DDD').textContent).toBe('弱含み 65%');
+    expect(screen.getByTestId('dir-TEST:AAA').textContent).toBe('中立');
+    expect(screen.getByTestId('vol-TEST:AAA').textContent).toBe('平常');
+    expect(screen.getByTestId('lit-TEST:BBB').textContent).toBe('3（買2売1）');
+    expect(screen.getByTestId('buy-alert-TEST:BBB').textContent).toBe('1 (2)');
+    expect(screen.getByTestId('dir-TEST:CCC').textContent).toBe('—');
+    expect(screen.getByTestId('lit-TEST:CCC').textContent).toBe('—');
+  });
 
-    describe('resolveInvestmentSignalColor', () => {
-      it('BULLISH は success を返す', () => {
-        expect(resolveInvestmentSignalColor('BULLISH')).toBe('success');
-      });
+  it('方向の列見出しで 降順 → 昇順 → 既定順 に並べ替え、確度なしは常に末尾にする', async () => {
+    render(React.createElement(SummariesPage));
+    await screen.findByRole('heading', { name: 'テスト取引所' });
+    expect(symbolsInOrder()).toEqual(['AAA', 'BBB', 'CCC', 'DDD']);
 
-      it('NEUTRAL は neutral を返す', () => {
-        expect(resolveInvestmentSignalColor('NEUTRAL')).toBe('neutral');
-      });
+    const dirSort = screen.getByTestId('sort-dir');
+    fireEvent.click(dirSort);
+    expect(symbolsInOrder()).toEqual(['BBB', 'AAA', 'DDD', 'CCC']);
 
-      it('BEARISH は danger を返す', () => {
-        expect(resolveInvestmentSignalColor('BEARISH')).toBe('danger');
-      });
-    });
+    fireEvent.click(dirSort);
+    expect(symbolsInOrder()).toEqual(['DDD', 'AAA', 'BBB', 'CCC']);
 
-    it('aiAnalysisError が string の場合は失敗メッセージを表示する', () => {
-      expect(
-        resolveAiAnalysisFallbackMessage({ ...baseSummary, aiAnalysisError: 'OpenAI timeout' })
-      ).toBe(ERROR_MESSAGES.AI_ANALYSIS_FAILED);
-    });
+    fireEvent.click(dirSort);
+    expect(symbolsInOrder()).toEqual(['AAA', 'BBB', 'CCC', 'DDD']);
+  });
 
-    it('aiAnalysisResult と aiAnalysisError が両方ある場合は aiAnalysisResult を優先表示する', () => {
-      expect(
-        resolveAiAnalysisFallbackMessage({
-          ...baseSummary,
-          aiAnalysisResult: {
-            priceMovementAnalysis: '優先される値動き分析',
-            patternAnalysis: 'パターン分析',
-            supportLevels: [100, 99, 98],
-            resistanceLevels: [110, 111, 112],
-            relatedMarketTrend: '市場動向',
-            investmentJudgment: { signal: 'NEUTRAL', reason: '様子見' },
-          },
-          aiAnalysisError: 'OpenAI timeout',
-        })
-      ).toBeNull();
-    });
+  it('荒れの列見出しは P(荒れる) で並べ替える', async () => {
+    render(React.createElement(SummariesPage));
+    await screen.findByRole('heading', { name: 'テスト取引所' });
 
-    it('aiAnalysisResult と aiAnalysisError が未定義の場合は未生成メッセージを表示する', () => {
-      expect(resolveAiAnalysisFallbackMessage(baseSummary)).toBe(
-        ERROR_MESSAGES.AI_ANALYSIS_NOT_GENERATED
-      );
-    });
+    fireEvent.click(screen.getByTestId('sort-vol'));
+    expect(symbolsInOrder()).toEqual(['BBB', 'DDD', 'AAA', 'CCC']);
+  });
+
+  it('行のクリックで詳細ダイアログを開く', async () => {
+    render(React.createElement(SummariesPage));
+    await screen.findByRole('heading', { name: 'テスト取引所' });
+
+    fireEvent.click(screen.getByText('BBB'));
+
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
+    expect(global.fetch).toHaveBeenCalledWith('/api/forecasts/TEST%3ABBB?date=2025-09-25');
+  });
+
+  it('取得に失敗したときはエラーメッセージを表示する', async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: false,
+      status: 500,
+      json: async () => ({ message: '取得エラー' }),
+    })) as unknown as typeof fetch;
+    render(React.createElement(SummariesPage));
+
+    expect(await screen.findByText('取得エラー')).toBeTruthy();
   });
 });

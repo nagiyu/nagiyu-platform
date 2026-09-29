@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   DailySummaryMapper,
-  type AiAnalysisResult,
   type DailySummaryEntity,
   type ExchangeEntity,
   type ForecastEntity,
-  type PatternDetailResponse,
   type TickerEntity,
 } from '@nagiyu/stock-tracker-core';
 import type { ErrorResponse } from '@nagiyu/common';
@@ -53,6 +51,8 @@ interface HoldingSummaryResponse {
 
 interface TickerSummaryResponse {
   tickerId: string;
+  /** 確度の基準日（YYYY-MM-DD） */
+  date: string;
   symbol: string;
   name: string;
   open: number;
@@ -65,9 +65,6 @@ interface TickerSummaryResponse {
   sellPatternCount: number;
   buyAlertCount: AlertCountResponse;
   sellAlertCount: AlertCountResponse;
-  patternDetails: PatternDetailResponse[];
-  aiAnalysisResult?: AiAnalysisResult;
-  aiAnalysisError?: string;
   holding: HoldingSummaryResponse | null;
   forecast: TickerForecastSummary | null;
 }
@@ -112,6 +109,7 @@ function toTickerSummaryResponse(
 ): TickerSummaryResponse {
   const ticker = resolveTicker(summary, tickerMap);
   const holding = holdingMap.get(summary.TickerID) ?? null;
+  const patternCounts = dailySummaryMapper.toTickerSummaryResponse(summary);
   const alertCount = alertCountMap.get(summary.TickerID) ?? {
     buy: { enabled: 0, disabled: 0 },
     sell: { enabled: 0, disabled: 0 },
@@ -119,6 +117,7 @@ function toTickerSummaryResponse(
 
   return {
     tickerId: summary.TickerID,
+    date: summary.Date,
     symbol: ticker?.Symbol ?? summary.TickerID.split(':')[1] ?? summary.TickerID,
     name: ticker?.Name ?? summary.TickerID,
     open: summary.Open,
@@ -131,7 +130,8 @@ function toTickerSummaryResponse(
     buyAlertCount: alertCount.buy,
     sellAlertCount: alertCount.sell,
     forecast: toTickerForecastSummary(forecastMap.get(summary.TickerID)),
-    ...dailySummaryMapper.toTickerSummaryResponse(summary),
+    buyPatternCount: patternCounts.buyPatternCount,
+    sellPatternCount: patternCounts.sellPatternCount,
   };
 }
 

@@ -196,7 +196,8 @@ describe('HomePageClient クエリ初期選択', () => {
             sellPatternCount: 0,
             buyAlertCount: { enabled: 1, disabled: 0 },
             sellAlertCount: { enabled: 0, disabled: 0 },
-            patternDetails: [],
+            date: '2025-09-25',
+            forecast: null,
             holding: { quantity: 5, averagePrice: 98 },
           }),
         } as Response;

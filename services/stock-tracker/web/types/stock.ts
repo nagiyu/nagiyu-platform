@@ -49,26 +49,12 @@ export const CHART_BAR_COUNT_LABELS: Record<ChartBarCount, string> = {
 } as const;
 
 /**
- * パターン分析の詳細
- */
-export interface PatternDetail {
-  /** パターン識別子（例: morning-star） */
-  patternId: string;
-  /** パターン名（例: 三川明けの明星） */
-  name: string;
-  /** パターン説明（ツールチップ表示用） */
-  description: string;
-  /** シグナル種別（買い/売り） */
-  signalType: 'BUY' | 'SELL';
-  /** 判定結果（合致/非合致/判定不能） */
-  status: 'MATCHED' | 'NOT_MATCHED' | 'INSUFFICIENT_DATA';
-}
-
-/**
  * サマリーAPIレスポンス型
  */
 export interface TickerSummary {
   tickerId: string;
+  /** 確度の基準日（YYYY-MM-DD） */
+  date: string;
   symbol: string;
   name: string;
   open: number;
@@ -86,12 +72,6 @@ export interface TickerSummary {
   buyAlertCount: AlertCount;
   /** 売りアラート件数（enabled: 有効, disabled: 無効） */
   sellAlertCount: AlertCount;
-  /** パターン詳細一覧（空配列はバッチ未実行） */
-  patternDetails: PatternDetail[];
-  /** AI 解析結果（生成成功時のみ） */
-  aiAnalysisResult?: AiAnalysisResult;
-  /** AI 解析生成失敗時のエラー情報 */
-  aiAnalysisError?: string;
   /** 保有情報（未保有の場合は null） */
   holding: {
     quantity: number;
@@ -124,4 +104,3 @@ export interface SummariesResponse {
   /** 市場の荒れ予報（JP・US の 2 件） */
   marketForecasts: MarketForecastResponse[];
 }
-import type { AiAnalysisResult } from '@nagiyu/stock-tracker-core';
