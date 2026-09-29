@@ -128,6 +128,32 @@ export function defineExchangeRepositoryContract(
       expect(result[0]).toEqual(exchange);
     });
 
+    it('キーを持つ取引所がある状態でも、銘柄の getAll（オプション未指定）は全取引所の銘柄を返す', async () => {
+      await repository.create(buildExchangeInput({ ExchangeID: 'NASDAQ' }));
+      await repository.create(buildExchangeInput({ ExchangeID: 'NYSE' }));
+      const tickerRepository = await hooks.makeTickerRepository();
+      const tickers = [
+        await tickerRepository.create({
+          TickerID: 'NSDQ:AAPL',
+          Symbol: 'AAPL',
+          Name: 'Apple Inc.',
+          ExchangeID: 'NASDAQ',
+        }),
+        await tickerRepository.create({
+          TickerID: 'NYSE:IBM',
+          Symbol: 'IBM',
+          Name: 'IBM',
+          ExchangeID: 'NYSE',
+        }),
+      ];
+
+      const result = await tickerRepository.getAll();
+
+      expect(result.items.map((t) => t.TickerID).sort()).toEqual(
+        tickers.map((t) => t.TickerID).sort()
+      );
+    });
+
     it('getAll は100件超のExchangeがあってもページ境界をまたいで全件を取りこぼさない（打ち切りの回帰防止）', async () => {
       const total = 130;
       const created: Awaited<ReturnType<ExchangeRepository['create']>>[] = [];

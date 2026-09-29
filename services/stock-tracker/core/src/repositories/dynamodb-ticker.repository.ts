@@ -26,6 +26,7 @@ import {
 import type { TickerRepository } from './ticker.repository.interface.js';
 import type { TickerEntity, UpdateTickerInput } from '../entities/ticker.entity.js';
 import { TickerMapper } from '../mappers/ticker.mapper.js';
+import { queryExchangeItems } from './query-exchange-index.js';
 import { toErrorMessage } from '@nagiyu/common';
 
 // エラーメッセージ定数
@@ -118,43 +119,17 @@ export class DynamoDBTickerRepository
   }
 
   /**
-   * 全ティッカー取得（Scan with filter）
+   * 全ティッカー取得
    *
-   * ScanはGSIを介さず全件を走査するため、返却順序を保証しない。options未指定時は
-   * LastEvaluatedKeyループで全件集約し、nextCursorはundefinedを返す。
+   * 返却順序は保証しない。options未指定時は全件集約し、nextCursorはundefinedを返す。
+   * options指定時はカーソル形式を保つため従来どおりScanでページングする。
    */
   public async getAll(options?: PaginationOptions): Promise<PaginatedResult<TickerEntity>> {
     try {
       const usePagination = options?.limit !== undefined || options?.cursor !== undefined;
 
       if (!usePagination) {
-        const allItems: TickerEntity[] = [];
-        let exclusiveStartKey: ScanCommandInput['ExclusiveStartKey'];
-
-        do {
-          const result = await this.docClient.send(
-            new ScanCommand({
-              TableName: this.config.tableName,
-              FilterExpression: '#type = :type',
-              ExpressionAttributeNames: {
-                '#type': 'Type',
-              },
-              ExpressionAttributeValues: {
-                ':type': 'Ticker',
-              },
-              ExclusiveStartKey: exclusiveStartKey,
-            })
-          );
-
-          const pageItems = (result.Items || []).map((item) =>
-            this.mapper.toEntity(item as unknown as DynamoDBItem)
-          );
-          for (const pageItem of pageItems) {
-            allItems.push(pageItem);
-          }
-          exclusiveStartKey = result.LastEvaluatedKey;
-        } while (exclusiveStartKey);
-
+        const allItems = await this.getAllWithoutPagination();
         return {
           items: allItems,
           nextCursor: undefined,
@@ -194,6 +169,55 @@ export class DynamoDBTickerRepository
       const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
+  }
+
+  /**
+   * options 未指定の全件取得
+   *
+   * 取引所一覧(ExchangeTickerIndex)を引き、取引所ごとに getByExchange の Query で集める。
+   * テーブル全体の Scan を避けるため。取引所一覧が 0 件(GSI キー未付与の環境)のときだけ
+   * 従来どおり Type フィルタ付き Scan にフォールバックし、銘柄が取れなくなるのを防ぐ。
+   */
+  private async getAllWithoutPagination(): Promise<TickerEntity[]> {
+    const exchangeItems = await queryExchangeItems(this.docClient, this.config.tableName);
+    if (exchangeItems.length === 0) {
+      return this.scanAllTickers();
+    }
+
+    const exchangeIds = exchangeItems.map((item) => String(item.ExchangeID));
+    const perExchange = await Promise.all(exchangeIds.map((id) => this.getByExchange(id)));
+    return perExchange.flat();
+  }
+
+  /**
+   * Type フィルタ付き Scan で全ティッカーを取得する(フォールバック用)
+   */
+  private async scanAllTickers(): Promise<TickerEntity[]> {
+    const allItems: TickerEntity[] = [];
+    let exclusiveStartKey: ScanCommandInput['ExclusiveStartKey'];
+
+    do {
+      const result = await this.docClient.send(
+        new ScanCommand({
+          TableName: this.config.tableName,
+          FilterExpression: '#type = :type',
+          ExpressionAttributeNames: {
+            '#type': 'Type',
+          },
+          ExpressionAttributeValues: {
+            ':type': 'Ticker',
+          },
+          ExclusiveStartKey: exclusiveStartKey,
+        })
+      );
+
+      for (const item of result.Items || []) {
+        allItems.push(this.mapper.toEntity(item as unknown as DynamoDBItem));
+      }
+      exclusiveStartKey = result.LastEvaluatedKey;
+    } while (exclusiveStartKey);
+
+    return allItems;
   }
 
   /**

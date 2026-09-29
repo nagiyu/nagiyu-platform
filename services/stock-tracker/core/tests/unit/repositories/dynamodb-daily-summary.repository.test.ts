@@ -116,48 +116,59 @@ describe('DynamoDBDailySummaryRepository', () => {
       });
     });
 
-    it('date未指定時は最新日付のサマリーのみ返す', async () => {
-      mockDocClient.send.mockResolvedValueOnce({
-        Items: [
-          {
-            PK: 'SUMMARY#NSDQ:AAPL',
-            SK: 'DATE#2026-02-26',
-            Type: 'DailySummary',
-            GSI4PK: 'NASDAQ',
-            GSI4SK: 'DATE#2026-02-26#NSDQ:AAPL',
-            TickerID: 'NSDQ:AAPL',
-            ExchangeID: 'NASDAQ',
-            Date: '2026-02-26',
-            Open: 180.0,
-            High: 181.0,
-            Low: 179.0,
-            Close: 180.5,
-            CreatedAt: 1708905600000,
-            UpdatedAt: 1708905600000,
-          },
-          {
-            PK: 'SUMMARY#NSDQ:AAPL',
-            SK: 'DATE#2026-02-27',
-            Type: 'DailySummary',
-            GSI4PK: 'NASDAQ',
-            GSI4SK: 'DATE#2026-02-27#NSDQ:AAPL',
-            TickerID: 'NSDQ:AAPL',
-            ExchangeID: 'NASDAQ',
-            Date: '2026-02-27',
-            Open: 182.15,
-            High: 183.92,
-            Low: 181.44,
-            Close: 183.31,
-            CreatedAt: 1708992000000,
-            UpdatedAt: 1708992000000,
-          },
-        ],
+    it('date未指定時はGSI4を降順・1件で引いて最新日を特定し、その日のサマリーのみ返す', async () => {
+      const buildItem = (tickerId: string, date: string) => ({
+        PK: `SUMMARY#${tickerId}`,
+        SK: `DATE#${date}`,
+        Type: 'DailySummary',
+        GSI4PK: 'NASDAQ',
+        GSI4SK: `DATE#${date}#${tickerId}`,
+        TickerID: tickerId,
+        ExchangeID: 'NASDAQ',
+        Date: date,
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        CreatedAt: 1708992000000,
+        UpdatedAt: 1708992000000,
       });
+      mockDocClient.send
+        .mockResolvedValueOnce({ Items: [buildItem('NSDQ:MSFT', '2026-02-27')] })
+        .mockResolvedValueOnce({
+          Items: [buildItem('NSDQ:AAPL', '2026-02-27'), buildItem('NSDQ:MSFT', '2026-02-27')],
+        });
 
       const result = await repository.getByExchange('NASDAQ');
 
-      expect(result).toHaveLength(1);
-      expect(result[0].Date).toBe('2026-02-27');
+      expect(result.map((r) => r.TickerID)).toEqual(['NSDQ:AAPL', 'NSDQ:MSFT']);
+      expect(result.every((r) => r.Date === '2026-02-27')).toBe(true);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
+
+      const latestQuery = mockDocClient.send.mock.calls[0][0] as QueryCommand;
+      expect(latestQuery.input).toMatchObject({
+        IndexName: 'ExchangeSummaryIndex',
+        KeyConditionExpression: '#gsi4pk = :exchangeId',
+        ScanIndexForward: false,
+        Limit: 1,
+      });
+      const dayQuery = mockDocClient.send.mock.calls[1][0] as QueryCommand;
+      expect(dayQuery.input).toMatchObject({
+        KeyConditionExpression: '#gsi4pk = :exchangeId AND begins_with(#gsi4sk, :datePrefix)',
+        ExpressionAttributeValues: {
+          ':exchangeId': 'NASDAQ',
+          ':datePrefix': 'DATE#2026-02-27',
+        },
+      });
+    });
+
+    it('date未指定でサマリーが1件もない場合は最新日の問い合わせだけで空配列を返す', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Items: [] });
+
+      const result = await repository.getByExchange('NASDAQ');
+
+      expect(result).toEqual([]);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(1);
     });
 
     it('date指定時に複数ページを取得して全件返す', async () => {
@@ -220,59 +231,41 @@ describe('DynamoDBDailySummaryRepository', () => {
       });
     });
 
-    it('date未指定時に複数ページ取得後の最新日付でフィルタする', async () => {
+    it('date未指定時も最新日の問い合わせが複数ページに及ぶ場合は全件集約する', async () => {
+      const buildItem = (tickerId: string) => ({
+        PK: `SUMMARY#${tickerId}`,
+        SK: 'DATE#2026-02-27',
+        Type: 'DailySummary',
+        GSI4PK: 'NASDAQ',
+        GSI4SK: `DATE#2026-02-27#${tickerId}`,
+        TickerID: tickerId,
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 1,
+        High: 2,
+        Low: 0.5,
+        Close: 1.5,
+        CreatedAt: 1708992000000,
+        UpdatedAt: 1708992000000,
+      });
       mockDocClient.send
+        .mockResolvedValueOnce({ Items: [buildItem('NSDQ:MSFT')] })
         .mockResolvedValueOnce({
-          Items: [
-            {
-              PK: 'SUMMARY#NSDQ:AAPL',
-              SK: 'DATE#2026-02-26',
-              Type: 'DailySummary',
-              GSI4PK: 'NASDAQ',
-              GSI4SK: 'DATE#2026-02-26#NSDQ:AAPL',
-              TickerID: 'NSDQ:AAPL',
-              ExchangeID: 'NASDAQ',
-              Date: '2026-02-26',
-              Open: 180.0,
-              High: 181.0,
-              Low: 179.0,
-              Close: 180.5,
-              CreatedAt: 1708905600000,
-              UpdatedAt: 1708905600000,
-            },
-          ],
-          LastEvaluatedKey: {
-            PK: 'SUMMARY#NSDQ:AAPL',
-            SK: 'DATE#2026-02-26',
-          },
+          Items: [buildItem('NSDQ:AAPL')],
+          LastEvaluatedKey: { PK: 'SUMMARY#NSDQ:AAPL', SK: 'DATE#2026-02-27' },
         })
-        .mockResolvedValueOnce({
-          Items: [
-            {
-              PK: 'SUMMARY#NSDQ:MSFT',
-              SK: 'DATE#2026-02-27',
-              Type: 'DailySummary',
-              GSI4PK: 'NASDAQ',
-              GSI4SK: 'DATE#2026-02-27#NSDQ:MSFT',
-              TickerID: 'NSDQ:MSFT',
-              ExchangeID: 'NASDAQ',
-              Date: '2026-02-27',
-              Open: 405.0,
-              High: 408.0,
-              Low: 404.0,
-              Close: 407.5,
-              CreatedAt: 1708992000000,
-              UpdatedAt: 1708992000000,
-            },
-          ],
-        });
+        .mockResolvedValueOnce({ Items: [buildItem('NSDQ:MSFT')] });
 
       const result = await repository.getByExchange('NASDAQ');
 
-      expect(result).toHaveLength(1);
-      expect(result[0].Date).toBe('2026-02-27');
-      expect(result[0].TickerID).toBe('NSDQ:MSFT');
-      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
+      expect(result.map((r) => r.TickerID)).toEqual(['NSDQ:AAPL', 'NSDQ:MSFT']);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(3);
+      expect((mockDocClient.send.mock.calls[2][0] as QueryCommand).input.ExclusiveStartKey).toEqual(
+        {
+          PK: 'SUMMARY#NSDQ:AAPL',
+          SK: 'DATE#2026-02-27',
+        }
+      );
     });
 
     it('データベースエラー時にDatabaseErrorをスローする', async () => {

@@ -78,12 +78,17 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
    * 取引所IDでサマリーを取得（GSI4=ExchangeSummaryIndexを使用）
    *
    * GSI4SK（`DATE#{Date}#{TickerID}`）昇順のQueryで、インタフェース契約のDate昇順・
-   * 同日内TickerID昇順を実現する。date指定時はbegins_with、省略時はパーティション全件
-   * （PKのみ）のQuery＋クライアント側での最新日フィルタ。LastEvaluatedKeyループで
-   * 全件を集約してから最新日を判定するため、ページ境界をまたいでも取りこぼさない。
+   * 同日内TickerID昇順を実現する。date省略時は、取引所の全履歴を読むと履歴の増加に
+   * 比例して遅くなるため、GSI4SK降順・Limit 1のQueryで最新日だけを先に特定し、
+   * その日付で date 指定時と同じ Query を行う。
    */
   public async getByExchange(exchangeId: string, date?: string): Promise<DailySummaryEntity[]> {
     try {
+      const targetDate = date ?? (await this.findLatestDate(exchangeId));
+      if (targetDate === undefined) {
+        return [];
+      }
+
       const items: DynamoDBItem[] = [];
       let lastEvaluatedKey: Record<string, unknown> | undefined;
 
@@ -92,25 +97,15 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
           new QueryCommand({
             TableName: this.tableName,
             IndexName: 'ExchangeSummaryIndex',
-            KeyConditionExpression: date
-              ? '#gsi4pk = :exchangeId AND begins_with(#gsi4sk, :datePrefix)'
-              : '#gsi4pk = :exchangeId',
-            ExpressionAttributeNames: date
-              ? {
-                  '#gsi4pk': 'GSI4PK',
-                  '#gsi4sk': 'GSI4SK',
-                }
-              : {
-                  '#gsi4pk': 'GSI4PK',
-                },
-            ExpressionAttributeValues: date
-              ? {
-                  ':exchangeId': exchangeId,
-                  ':datePrefix': `DATE#${date}`,
-                }
-              : {
-                  ':exchangeId': exchangeId,
-                },
+            KeyConditionExpression: '#gsi4pk = :exchangeId AND begins_with(#gsi4sk, :datePrefix)',
+            ExpressionAttributeNames: {
+              '#gsi4pk': 'GSI4PK',
+              '#gsi4sk': 'GSI4SK',
+            },
+            ExpressionAttributeValues: {
+              ':exchangeId': exchangeId,
+              ':datePrefix': `DATE#${targetDate}`,
+            },
             ExclusiveStartKey: lastEvaluatedKey,
           })
         );
@@ -119,21 +114,37 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
         lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
       } while (lastEvaluatedKey);
 
-      const summaries = items.map((item) => this.mapper.toEntity(item));
-
-      if (date || summaries.length === 0) {
-        return summaries;
-      }
-
-      const latestDate = summaries.reduce((latest, summary) => {
-        return summary.Date > latest ? summary.Date : latest;
-      }, summaries[0].Date);
-
-      return summaries.filter((summary) => summary.Date === latestDate);
+      return items.map((item) => this.mapper.toEntity(item));
     } catch (error) {
       const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
+  }
+
+  /**
+   * 取引所の最新サマリー日付を取得する（GSI4を降順・1件で引く）
+   *
+   * @returns 最新日付。サマリーが1件もなければ undefined
+   */
+  private async findLatestDate(exchangeId: string): Promise<string | undefined> {
+    const result = await this.docClient.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: 'ExchangeSummaryIndex',
+        KeyConditionExpression: '#gsi4pk = :exchangeId',
+        ExpressionAttributeNames: {
+          '#gsi4pk': 'GSI4PK',
+        },
+        ExpressionAttributeValues: {
+          ':exchangeId': exchangeId,
+        },
+        ScanIndexForward: false,
+        Limit: 1,
+      })
+    );
+
+    const latest = result.Items?.[0] as DynamoDBItem | undefined;
+    return latest ? this.mapper.toEntity(latest).Date : undefined;
   }
 
   /**
