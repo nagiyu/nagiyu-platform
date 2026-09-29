@@ -151,6 +151,28 @@ describe('InMemoryExchangeRepository', () => {
     });
   });
 
+  describe('getAllIndexed', () => {
+    it('getAll と同じ全件を返す', async () => {
+      const base: CreateExchangeInput = {
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ Stock Market',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '04:00',
+        End: '20:00',
+        PriceSource: 'tradingview' as const,
+      };
+      await repository.create({ ...base, ExchangeID: 'NYSE' });
+      await repository.create(base);
+
+      const indexed = await repository.getAllIndexed();
+      const all = await repository.getAll();
+
+      expect(indexed.map((e) => e.ExchangeID).sort()).toEqual(['NASDAQ', 'NYSE']);
+      expect(indexed).toEqual(all);
+    });
+  });
+
   describe('getAll', () => {
     it('全ての取引所を取得できる', async () => {
       const input1: CreateExchangeInput = {

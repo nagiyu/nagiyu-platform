@@ -34,6 +34,18 @@ export interface ExchangeRepository {
   getAll(): Promise<ExchangeEntity[]>;
 
   /**
+   * 全取引所を速い経路で取得
+   *
+   * GSI キーを持つ取引所だけを返しうる。キー未付与の取引所が混在する移行途中では欠ける。
+   * 0 件のときは Scan にフォールバックする。欠けても許容できる一覧表示専用で、
+   * 管理画面やバッチなど全件が必要な用途では getAll を使うこと。
+   * 返却順序は保証しない。
+   *
+   * @returns 取引所の配列（順序不定）
+   */
+  getAllIndexed(): Promise<ExchangeEntity[]>;
+
+  /**
    * 新しい取引所を作成
    *
    * @param input - 取引所データ

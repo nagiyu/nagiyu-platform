@@ -277,16 +277,19 @@ export const GET = withAuth(
       const exchangeRepository = createExchangeRepository();
       const tickerRepository = createTickerRepository();
 
-      const [exchanges, tickersResult] = await Promise.all([
-        exchangeRepository.getAll(),
-        tickerRepository.getAll(),
-      ]);
+      // 一覧表示専用のため、テーブル全体を走査しない速い経路(GSI Query)で取引所と銘柄を集める
+      const exchanges = await exchangeRepository.getAllIndexed();
+      const tickersByExchange = await Promise.all(
+        exchanges.map((exchange) => tickerRepository.getByExchange(exchange.ExchangeID))
+      );
       const [holdingMap, alertCountMap] = await Promise.all([
         fetchHoldingMap(session.user.userId),
         fetchAlertCountMap(session.user.userId),
       ]);
 
-      const tickerMap = new Map(tickersResult.items.map((ticker) => [ticker.TickerID, ticker]));
+      const tickerMap = new Map(
+        tickersByExchange.flat().map((ticker) => [ticker.TickerID, ticker])
+      );
       const exchangeSummaryGroups = await Promise.all(
         exchanges.map((exchange) =>
           buildExchangeSummaryGroup(exchange, date, tickerMap, holdingMap, alertCountMap)

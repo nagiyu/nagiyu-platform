@@ -81,13 +81,28 @@ export class DynamoDBExchangeRepository
   /**
    * 全取引所を取得
    *
-   * ExchangeTickerIndex(GSI3PK 固定値)の Query で取得するため、テーブル全体を走査しない。
-   * Query 結果が 0 件のときだけ Scan(Type フィルタ)にフォールバックする。GSI キーは
-   * 作成時と更新時にしか付かないため、キー導入前の既存データやデータ同期で上書きされた
-   * 環境では Query が空になり、そのまま返すと一覧が空になってしまうため。
-   * 返却順序は保証しない(Query 経路は ExchangeID 昇順、Scan 経路は不定)。
+   * Type フィルタ付き Scan で取得するため、GSI キーの有無にかかわらず常に全件を返す。
+   * 返却順序は保証しない。LastEvaluatedKey ループで全件を集約する。
    */
   public async getAll(): Promise<ExchangeEntity[]> {
+    try {
+      return await this.scanAll();
+    } catch (error) {
+      const message = toErrorMessage(error);
+      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+    }
+  }
+
+  /**
+   * ExchangeTickerIndex の Query で取引所を取得する(GSI キー付きのみ)
+   *
+   * テーブル全体を走査しないため速い。一方で GSI キーは作成時と更新時にしか付かないので、
+   * キー未付与の取引所が混在する移行途中では、それらが結果から欠ける。
+   * Query が 0 件のときだけ Scan にフォールバックする。
+   * 欠けても許容できる読み取り専用の一覧表示でのみ使い、それ以外は getAll を使うこと。
+   * 返却順序は保証しない(Query 経路は ExchangeID 昇順、Scan 経路は不定)。
+   */
+  public async getAllIndexed(): Promise<ExchangeEntity[]> {
     try {
       const indexed = await queryExchangeItems(this.docClient, this.config.tableName);
       if (indexed.length > 0) {
@@ -101,7 +116,7 @@ export class DynamoDBExchangeRepository
   }
 
   /**
-   * Type フィルタ付き Scan で全取引所を取得する(GSI キー未付与データ向けのフォールバック)
+   * Type フィルタ付き Scan で全取引所を取得する
    */
   private async scanAll(): Promise<ExchangeEntity[]> {
     const allItems: ExchangeEntity[] = [];
@@ -188,7 +203,7 @@ export class DynamoDBExchangeRepository
       }
 
       // 更新のたびに GSI3 キーを付け直す。キー導入前に作られた既存アイテムは、
-      // 画面から保存し直すことで getAll の Query 対象になる。
+      // 画面から保存し直すことで getAllIndexed の Query 対象になる。
       updateExpressions.push('#gsi3pk = :gsi3pk', '#gsi3sk = :gsi3sk');
       expressionAttributeNames['#gsi3pk'] = 'GSI3PK';
       expressionAttributeNames['#gsi3sk'] = 'GSI3SK';
