@@ -61,10 +61,15 @@ describe('チャート画面カードコンポーネント', () => {
 
     expect(screen.getByText('サマリー')).toBeTruthy();
     expect(screen.getByTestId('summary-reference-date').textContent).toBe('9/25 引け時点');
-    expect(screen.getByTestId('summary-dir-label').textContent).toBe('強含み 56%');
+    expect(screen.getByTestId('summary-dir-label').textContent).toBe('強含み');
     expect(screen.getByTestId('summary-vol-label').textContent).toBe('平常');
     expect(screen.getByTestId('summary-lit').textContent).toBe('点灯: 3（買2売1）');
-    expect(screen.getAllByText('基準 50%')).toHaveLength(2);
+    expect(screen.getByTestId('summary-dir-probability').textContent).toBe(
+      '上回る確率 56% (ふだん 50%)'
+    );
+    expect(screen.getByTestId('summary-vol-probability').textContent).toBe(
+      '荒れる確率 40% (ふだん 50%)'
+    );
     expect(screen.getByRole('button', { name: '詳細' })).toBeTruthy();
   });
 
@@ -92,7 +97,7 @@ describe('チャート画面カードコンポーネント', () => {
       forecast: { ...baseSummary.forecast!, vol: null },
     });
 
-    expect(screen.getByTestId('summary-dir-label').textContent).toBe('強含み 56%');
+    expect(screen.getByTestId('summary-dir-label').textContent).toBe('強含み');
     expect(screen.getByTestId('summary-vol-label').textContent).toBe('—');
   });
 

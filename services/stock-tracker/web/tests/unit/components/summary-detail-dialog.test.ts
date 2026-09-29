@@ -128,19 +128,22 @@ describe('SummaryDetailDialog', () => {
     expect(screen.getByText(/9\/25 引け時点/)).toBeTruthy();
   });
 
-  it('確度カードにラベル・基準値との差・同じ確率帯の過去実績を表示する', async () => {
+  it('確度カードにラベル・確率とふだんの割合・同じ確率帯の過去実績を表示する', async () => {
     mockFetch({ ok: true, status: 200, body: detailResponse() });
     renderDialog();
 
     await screen.findByTestId('forecast-label-DIR');
     const dirCard = screen.getByTestId('forecast-card-DIR');
-    expect(within(dirCard).getByText('強含み 56%')).toBeTruthy();
-    expect(within(dirCard).getByText(/基準 50%/).textContent).toContain('+6pt');
+    expect(within(dirCard).getByText('強含み')).toBeTruthy();
+    expect(within(dirCard).getByText('上回る確率 56% (ふだん 50%)')).toBeTruthy();
     expect(within(dirCard).getByText('55〜60% の帯の実績: 的中 57%（212 件）')).toBeTruthy();
     expect(within(dirCard).queryByText('件数が少なく参考値')).toBeNull();
 
     const volCard = screen.getByTestId('forecast-card-VOL');
-    expect(within(volCard).getByText('荒れそう 64%')).toBeTruthy();
+    expect(within(volCard).getByText('荒れそう')).toBeTruthy();
+    expect(within(volCard).getByTestId('forecast-probability-VOL').textContent).toMatch(
+      /^荒れる確率 64% \(ふだん \d+%\)$/
+    );
     expect(within(volCard).getByText('件数が少なく参考値')).toBeTruthy();
   });
 

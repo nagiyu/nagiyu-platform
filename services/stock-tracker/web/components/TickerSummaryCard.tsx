@@ -7,8 +7,8 @@ import type { TickerSummary } from '@/types/stock';
 import SummaryDetailDialog from './SummaryDetailDialog';
 import ForecastLabelChip from './ForecastLabelChip';
 import {
-  formatBaseline,
   formatLit,
+  formatProbabilityWithUsual,
   formatReferenceDate,
   resolveUnavailableReason,
 } from '@/lib/forecast-view/labels';
@@ -70,8 +70,12 @@ export default function TickerSummaryCard({
                   data-testid="summary-dir-label"
                 />
                 {summary.forecast?.dir && (
-                  <Typography variant="caption" color="text.secondary">
-                    {formatBaseline(summary.forecast.dir.baseline)}
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    data-testid="summary-dir-probability"
+                  >
+                    {formatProbabilityWithUsual('DIR', summary.forecast.dir)}
                   </Typography>
                 )}
               </Box>
@@ -86,8 +90,12 @@ export default function TickerSummaryCard({
                   data-testid="summary-vol-label"
                 />
                 {summary.forecast?.vol && (
-                  <Typography variant="caption" color="text.secondary">
-                    {formatBaseline(summary.forecast.vol.baseline)}
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    data-testid="summary-vol-probability"
+                  >
+                    {formatProbabilityWithUsual('VOL', summary.forecast.vol)}
                   </Typography>
                 )}
               </Box>
