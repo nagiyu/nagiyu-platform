@@ -6,7 +6,7 @@
 
 import { DynamoDBExchangeRepository } from '../../../src/repositories/dynamodb-exchange.repository.js';
 import { EntityAlreadyExistsError, EntityNotFoundError, DatabaseError } from '@nagiyu/aws';
-import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { QueryCommand, ScanCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { CreateExchangeInput } from '../../../src/entities/exchange.entity.js';
 
 describe('DynamoDBExchangeRepository', () => {
@@ -173,23 +173,81 @@ describe('DynamoDBExchangeRepository', () => {
       expect(result[0].ExchangeID).toBe('NASDAQ');
       expect(result[1].ExchangeID).toBe('NYSE');
       expect(mockDocClient.send).toHaveBeenCalledTimes(1);
+
+      const command = mockDocClient.send.mock.calls[0][0];
+      expect(command).toBeInstanceOf(QueryCommand);
+      expect((command as QueryCommand).input).toMatchObject({
+        TableName: TABLE_NAME,
+        IndexName: 'ExchangeTickerIndex',
+        KeyConditionExpression: '#gsi3pk = :exchanges',
+        ExpressionAttributeNames: { '#gsi3pk': 'GSI3PK' },
+        ExpressionAttributeValues: { ':exchanges': 'EXCHANGES' },
+      });
     });
 
-    it('該当する取引所がない場合は空配列を返す', async () => {
-      mockDocClient.send.mockResolvedValueOnce({
-        Items: [],
-        Count: 0,
+    it('Queryが0件の場合はScanにフォールバックして取引所を返す', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Items: [], Count: 0 }).mockResolvedValueOnce({
+        Items: [
+          {
+            PK: 'EXCHANGE#NASDAQ',
+            SK: 'METADATA',
+            Type: 'Exchange',
+            ExchangeID: 'NASDAQ',
+            Name: 'NASDAQ',
+            Key: 'NASDAQ',
+            Timezone: 'America/New_York',
+            Start: '09:30',
+            End: '16:00',
+            CreatedAt: 1704067200000,
+            UpdatedAt: 1704067200000,
+          },
+        ],
       });
 
       const result = await repository.getAll();
 
-      expect(result).toHaveLength(0);
+      expect(result.map((e) => e.ExchangeID)).toEqual(['NASDAQ']);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
+      expect(mockDocClient.send.mock.calls[0][0]).toBeInstanceOf(QueryCommand);
+      const scan = mockDocClient.send.mock.calls[1][0];
+      expect(scan).toBeInstanceOf(ScanCommand);
+      expect((scan as ScanCommand).input.ExpressionAttributeValues).toEqual({
+        ':type': 'Exchange',
+      });
     });
 
-    it('Itemsが存在しない場合は空配列を返す', async () => {
-      mockDocClient.send.mockResolvedValueOnce({
-        Count: 0,
+    it('Scanフォールバックでも LastEvaluatedKey を辿って全件取得する', async () => {
+      const buildItem = (id: string) => ({
+        PK: `EXCHANGE#${id}`,
+        SK: 'METADATA',
+        Type: 'Exchange',
+        ExchangeID: id,
+        Name: id,
+        Key: id,
+        Timezone: 'America/New_York',
+        Start: '09:30',
+        End: '16:00',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
       });
+      mockDocClient.send
+        .mockResolvedValueOnce({ Items: [] })
+        .mockResolvedValueOnce({
+          Items: [buildItem('NASDAQ')],
+          LastEvaluatedKey: { PK: 'EXCHANGE#NASDAQ', SK: 'METADATA' },
+        })
+        .mockResolvedValueOnce({ Items: [buildItem('NYSE')] });
+
+      const result = await repository.getAll();
+
+      expect(result.map((e) => e.ExchangeID)).toEqual(['NASDAQ', 'NYSE']);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(3);
+    });
+
+    it('Query・Scanとも該当する取引所がない場合は空配列を返す', async () => {
+      mockDocClient.send
+        .mockResolvedValueOnce({ Items: [], Count: 0 })
+        .mockResolvedValueOnce({ Count: 0 });
 
       const result = await repository.getAll();
 
@@ -282,6 +340,39 @@ describe('DynamoDBExchangeRepository', () => {
 
       expect(result.Name).toBe('NASDAQ (Updated)');
       expect(mockDocClient.send).toHaveBeenCalledTimes(1);
+    });
+
+    it('更新のたびにGSI3キーをSETする', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Attributes: {
+          PK: 'EXCHANGE#NASDAQ',
+          SK: 'METADATA',
+          Type: 'Exchange',
+          ExchangeID: 'NASDAQ',
+          Name: 'NASDAQ (Updated)',
+          Key: 'NASDAQ',
+          Timezone: 'America/New_York',
+          Start: '09:30',
+          End: '16:00',
+          CreatedAt: 1704067200000,
+          UpdatedAt: 1704067300000,
+        },
+      });
+
+      await repository.update('NASDAQ', { Name: 'NASDAQ (Updated)' });
+
+      const input = (mockDocClient.send.mock.calls[0][0] as { input: Record<string, unknown> })
+        .input;
+      expect(input.UpdateExpression).toContain('#gsi3pk = :gsi3pk');
+      expect(input.UpdateExpression).toContain('#gsi3sk = :gsi3sk');
+      expect(input.ExpressionAttributeNames).toMatchObject({
+        '#gsi3pk': 'GSI3PK',
+        '#gsi3sk': 'GSI3SK',
+      });
+      expect(input.ExpressionAttributeValues).toMatchObject({
+        ':gsi3pk': 'EXCHANGES',
+        ':gsi3sk': 'EXCHANGE#NASDAQ',
+      });
     });
 
     it('存在しない取引所を更新しようとするとEntityNotFoundErrorをスローする', async () => {

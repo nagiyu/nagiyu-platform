@@ -19,7 +19,12 @@ import {
 } from '@nagiyu/aws';
 import type { ExchangeRepository } from './exchange.repository.interface.js';
 import type { ExchangeEntity, UpdateExchangeInput } from '../entities/exchange.entity.js';
-import { ExchangeMapper } from '../mappers/exchange.mapper.js';
+import {
+  ExchangeMapper,
+  EXCHANGE_GSI3_PK,
+  buildExchangeGsi3Sk,
+} from '../mappers/exchange.mapper.js';
+import { queryExchangeItems } from './query-exchange-index.js';
 import { toErrorMessage } from '@nagiyu/common';
 
 // エラーメッセージ定数
@@ -60,6 +65,8 @@ export class DynamoDBExchangeRepository
       PK: pk,
       SK: sk,
       Type: 'Exchange',
+      GSI3PK: EXCHANGE_GSI3_PK,
+      GSI3SK: buildExchangeGsi3Sk(entity.ExchangeID),
       ExchangeID: entity.ExchangeID,
       Name: entity.Name,
       Key: entity.Key,
@@ -72,43 +79,57 @@ export class DynamoDBExchangeRepository
   }
 
   /**
-   * 全取引所を取得（Scan with filter）
+   * 全取引所を取得
    *
-   * ScanはGSIを介さず全件を走査するため、返却順序を保証しない。LastEvaluatedKeyループで
-   * 全件を集約して返す。
+   * ExchangeTickerIndex(GSI3PK 固定値)の Query で取得するため、テーブル全体を走査しない。
+   * Query 結果が 0 件のときだけ Scan(Type フィルタ)にフォールバックする。GSI キーは
+   * 作成時と更新時にしか付かないため、キー導入前の既存データやデータ同期で上書きされた
+   * 環境では Query が空になり、そのまま返すと一覧が空になってしまうため。
+   * 返却順序は保証しない(Query 経路は ExchangeID 昇順、Scan 経路は不定)。
    */
   public async getAll(): Promise<ExchangeEntity[]> {
     try {
-      const allItems: ExchangeEntity[] = [];
-      let exclusiveStartKey: ScanCommandInput['ExclusiveStartKey'];
-
-      do {
-        const result = await this.docClient.send(
-          new ScanCommand({
-            TableName: this.config.tableName,
-            FilterExpression: '#type = :type',
-            ExpressionAttributeNames: {
-              '#type': 'Type',
-            },
-            ExpressionAttributeValues: {
-              ':type': 'Exchange',
-            },
-            ExclusiveStartKey: exclusiveStartKey,
-          })
-        );
-
-        const pageItems = (result.Items || []).map((item) =>
-          this.mapper.toEntity(item as unknown as DynamoDBItem)
-        );
-        allItems.push(...pageItems);
-        exclusiveStartKey = result.LastEvaluatedKey;
-      } while (exclusiveStartKey);
-
-      return allItems;
+      const indexed = await queryExchangeItems(this.docClient, this.config.tableName);
+      if (indexed.length > 0) {
+        return indexed.map((item) => this.mapper.toEntity(item));
+      }
+      return await this.scanAll();
     } catch (error) {
       const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
+  }
+
+  /**
+   * Type フィルタ付き Scan で全取引所を取得する(GSI キー未付与データ向けのフォールバック)
+   */
+  private async scanAll(): Promise<ExchangeEntity[]> {
+    const allItems: ExchangeEntity[] = [];
+    let exclusiveStartKey: ScanCommandInput['ExclusiveStartKey'];
+
+    do {
+      const result = await this.docClient.send(
+        new ScanCommand({
+          TableName: this.config.tableName,
+          FilterExpression: '#type = :type',
+          ExpressionAttributeNames: {
+            '#type': 'Type',
+          },
+          ExpressionAttributeValues: {
+            ':type': 'Exchange',
+          },
+          ExclusiveStartKey: exclusiveStartKey,
+        })
+      );
+
+      const pageItems = (result.Items || []).map((item) =>
+        this.mapper.toEntity(item as unknown as DynamoDBItem)
+      );
+      allItems.push(...pageItems);
+      exclusiveStartKey = result.LastEvaluatedKey;
+    } while (exclusiveStartKey);
+
+    return allItems;
   }
 
   /**
@@ -165,6 +186,14 @@ export class DynamoDBExchangeRepository
           expressionAttributeValues[':market'] = updates.Market;
         }
       }
+
+      // 更新のたびに GSI3 キーを付け直す。キー導入前に作られた既存アイテムは、
+      // 画面から保存し直すことで getAll の Query 対象になる。
+      updateExpressions.push('#gsi3pk = :gsi3pk', '#gsi3sk = :gsi3sk');
+      expressionAttributeNames['#gsi3pk'] = 'GSI3PK';
+      expressionAttributeNames['#gsi3sk'] = 'GSI3SK';
+      expressionAttributeValues[':gsi3pk'] = EXCHANGE_GSI3_PK;
+      expressionAttributeValues[':gsi3sk'] = buildExchangeGsi3Sk(exchangeId);
 
       // UpdatedAt を常に更新
       updateExpressions.push('#updatedAt = :updatedAt');

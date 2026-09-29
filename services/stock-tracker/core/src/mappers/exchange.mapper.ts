@@ -16,6 +16,25 @@ import {
 import type { PriceSource, ExchangeMarket } from '../entities/exchange.entity.js';
 
 /**
+ * 全取引所を ExchangeTickerIndex(GSI3) から一括取得するための固定パーティションキー。
+ * 銘柄側の GSI3PK は ExchangeID(`TSE` 等)なので、この値と衝突しない前提で相乗りする。
+ */
+export const EXCHANGE_GSI3_PK = 'EXCHANGES';
+
+/** 取引所アイテムの GSI3SK の接頭辞 */
+export const EXCHANGE_GSI3_SK_PREFIX = 'EXCHANGE#';
+
+/**
+ * 取引所 ID から GSI3SK を構築する
+ *
+ * @param exchangeId - 取引所ID
+ * @returns GSI3SK
+ */
+export function buildExchangeGsi3Sk(exchangeId: string): string {
+  return `${EXCHANGE_GSI3_SK_PREFIX}${exchangeId}`;
+}
+
+/**
  * Exchange Mapper
  *
  * ExchangeEntity と DynamoDB Item 間の変換を行う
@@ -38,6 +57,8 @@ export class ExchangeMapper implements EntityMapper<ExchangeEntity, ExchangeKey>
       PK: pk,
       SK: sk,
       Type: this.entityType,
+      GSI3PK: EXCHANGE_GSI3_PK,
+      GSI3SK: buildExchangeGsi3Sk(entity.ExchangeID),
       ExchangeID: entity.ExchangeID,
       Name: entity.Name,
       Key: entity.Key,

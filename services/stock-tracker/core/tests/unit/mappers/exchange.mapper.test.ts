@@ -36,6 +36,8 @@ describe('ExchangeMapper', () => {
         PK: 'EXCHANGE#NASDAQ',
         SK: 'METADATA',
         Type: 'Exchange',
+        GSI3PK: 'EXCHANGES',
+        GSI3SK: 'EXCHANGE#NASDAQ',
         ExchangeID: 'NASDAQ',
         Name: 'NASDAQ Stock Market',
         Key: 'NSDQ',

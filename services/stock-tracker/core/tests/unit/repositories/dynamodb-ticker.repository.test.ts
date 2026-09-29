@@ -6,7 +6,7 @@
 
 import { DynamoDBTickerRepository } from '../../../src/repositories/dynamodb-ticker.repository.js';
 import { EntityAlreadyExistsError, EntityNotFoundError, DatabaseError } from '@nagiyu/aws';
-import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { QueryCommand, ScanCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { CreateTickerInput } from '../../../src/entities/ticker.entity.js';
 
 describe('DynamoDBTickerRepository', () => {
@@ -265,78 +265,65 @@ describe('DynamoDBTickerRepository', () => {
   });
 
   describe('getAll', () => {
-    it('全てのティッカーを取得できる', async () => {
-      const mockItems = [
-        {
-          PK: 'TICKER#NSDQ:AAPL',
-          SK: 'METADATA',
-          Type: 'Ticker',
-          TickerID: 'NSDQ:AAPL',
-          Symbol: 'AAPL',
-          Name: 'Apple Inc.',
-          ExchangeID: 'NASDAQ',
-          CreatedAt: 1704067200000,
-          UpdatedAt: 1704067200000,
-        },
-      ];
+    const buildTickerItem = (tickerId: string, exchangeId: string) => ({
+      PK: `TICKER#${tickerId}`,
+      SK: 'METADATA',
+      Type: 'Ticker',
+      GSI3PK: exchangeId,
+      GSI3SK: `TICKER#${tickerId}`,
+      TickerID: tickerId,
+      Symbol: tickerId.split(':')[1],
+      Name: tickerId,
+      ExchangeID: exchangeId,
+      CreatedAt: 1704067200000,
+      UpdatedAt: 1704067200000,
+    });
+    const buildExchangeKeyItem = (exchangeId: string) => ({
+      PK: `EXCHANGE#${exchangeId}`,
+      SK: 'METADATA',
+      Type: 'Exchange',
+      GSI3PK: 'EXCHANGES',
+      GSI3SK: `EXCHANGE#${exchangeId}`,
+      ExchangeID: exchangeId,
+    });
 
-      mockDocClient.send.mockResolvedValueOnce({
-        Items: mockItems,
-        Count: 1,
-      });
+    it('options未指定時は取引所一覧をQueryし、取引所ごとのQueryで全銘柄を集める', async () => {
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Items: [buildExchangeKeyItem('NASDAQ'), buildExchangeKeyItem('NYSE')],
+        })
+        .mockResolvedValueOnce({ Items: [buildTickerItem('NSDQ:AAPL', 'NASDAQ')] })
+        .mockResolvedValueOnce({ Items: [buildTickerItem('NYSE:IBM', 'NYSE')] });
 
       const result = await repository.getAll();
 
-      expect(result.items).toHaveLength(1);
-      expect(mockDocClient.send).toHaveBeenCalledTimes(1);
+      expect(result.items.map((t) => t.TickerID).sort()).toEqual(['NSDQ:AAPL', 'NYSE:IBM']);
+      expect(result.count).toBe(2);
+      expect(result.nextCursor).toBeUndefined();
+      expect(mockDocClient.send).toHaveBeenCalledTimes(3);
+
+      const calls = mockDocClient.send.mock.calls.map((c) => c[0]);
+      calls.forEach((command) => expect(command).toBeInstanceOf(QueryCommand));
+      expect((calls[0] as QueryCommand).input.ExpressionAttributeValues).toEqual({
+        ':exchanges': 'EXCHANGES',
+      });
+      const exchangeIds = calls
+        .slice(1)
+        .map((c) => (c as QueryCommand).input.ExpressionAttributeValues?.[':exchangeId'])
+        .sort();
+      expect(exchangeIds).toEqual(['NASDAQ', 'NYSE']);
     });
 
-    it('データベースエラー時にDatabaseErrorをスローする', async () => {
-      const dbError = new Error('Database connection failed');
-      mockDocClient.send.mockRejectedValueOnce(dbError);
-
-      await expect(repository.getAll()).rejects.toThrow(DatabaseError);
-    });
-
-    it('options未指定時はLastEvaluatedKeyがなくなるまで全ページを取得する', async () => {
-      const page1Items = [
-        {
-          PK: 'TICKER#NSDQ:AAPL',
-          SK: 'METADATA',
-          Type: 'Ticker',
-          TickerID: 'NSDQ:AAPL',
-          Symbol: 'AAPL',
-          Name: 'Apple Inc.',
-          ExchangeID: 'NASDAQ',
-          CreatedAt: 1704067200000,
-          UpdatedAt: 1704067200000,
-        },
-      ];
-      const page2Items = [
-        {
-          PK: 'TICKER#NYSE:IBM',
-          SK: 'METADATA',
-          Type: 'Ticker',
-          TickerID: 'NYSE:IBM',
-          Symbol: 'IBM',
-          Name: 'IBM',
-          ExchangeID: 'NYSE',
-          CreatedAt: 1704067200000,
-          UpdatedAt: 1704067200000,
-        },
-      ];
-
+    it('取引所一覧が0件の場合はScanにフォールバックし、LastEvaluatedKeyを辿って全件取得する', async () => {
       mockDocClient.send
+        .mockResolvedValueOnce({ Items: [] })
         .mockResolvedValueOnce({
-          Items: page1Items,
+          Items: [buildTickerItem('NSDQ:AAPL', 'NASDAQ')],
           Count: 1,
-          LastEvaluatedKey: {
-            PK: 'TICKER#NSDQ:AAPL',
-            SK: 'METADATA',
-          },
+          LastEvaluatedKey: { PK: 'TICKER#NSDQ:AAPL', SK: 'METADATA' },
         })
         .mockResolvedValueOnce({
-          Items: page2Items,
+          Items: [buildTickerItem('NYSE:IBM', 'NYSE')],
           Count: 1,
         });
 
@@ -345,16 +332,23 @@ describe('DynamoDBTickerRepository', () => {
       expect(result.items).toHaveLength(2);
       expect(result.count).toBe(2);
       expect(result.nextCursor).toBeUndefined();
-      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(3);
 
-      const firstScanCommand = mockDocClient.send.mock.calls[0][0];
-      const secondScanCommand = mockDocClient.send.mock.calls[1][0];
-
-      expect(firstScanCommand.input.Limit).toBeUndefined();
-      expect(secondScanCommand.input.ExclusiveStartKey).toEqual({
+      const firstScan = mockDocClient.send.mock.calls[1][0] as ScanCommand;
+      const secondScan = mockDocClient.send.mock.calls[2][0] as ScanCommand;
+      expect(firstScan).toBeInstanceOf(ScanCommand);
+      expect(firstScan.input.Limit).toBeUndefined();
+      expect(secondScan.input.ExclusiveStartKey).toEqual({
         PK: 'TICKER#NSDQ:AAPL',
         SK: 'METADATA',
       });
+    });
+
+    it('データベースエラー時にDatabaseErrorをスローする', async () => {
+      const dbError = new Error('Database connection failed');
+      mockDocClient.send.mockRejectedValueOnce(dbError);
+
+      await expect(repository.getAll()).rejects.toThrow(DatabaseError);
     });
 
     it('options指定時は従来どおりページネーション結果を返す', async () => {
