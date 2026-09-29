@@ -87,6 +87,15 @@ export class InMemoryExchangeRepository implements ExchangeRepository {
   }
 
   /**
+   * 速い経路の全取引所取得
+   *
+   * InMemory には GSI キー未付与の状態がないため、getAll と同じ結果を返す。
+   */
+  public async getAllIndexed(): Promise<ExchangeEntity[]> {
+    return this.getAll();
+  }
+
+  /**
    * 新しい取引所を作成
    */
   public async create(input: CreateExchangeInput): Promise<ExchangeEntity> {
