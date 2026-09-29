@@ -65,7 +65,10 @@ const formatAlertCount = (enabledCount: number, disabledCount: number): string =
 
 export default function SummariesPage() {
   const { data: session } = useSession();
-  const [summaries, setSummaries] = useState<SummariesResponse>({ exchanges: [] });
+  const [summaries, setSummaries] = useState<SummariesResponse>({
+    exchanges: [],
+    marketForecasts: [],
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
@@ -103,7 +106,7 @@ export default function SummariesPage() {
           : ''
       );
     } catch (error) {
-      setSummaries({ exchanges: [] });
+      setSummaries({ exchanges: [], marketForecasts: [] });
       setErrorMessage(error instanceof Error ? error.message : ERROR_MESSAGES.FETCH_FAILED);
     } finally {
       setIsLoading(false);

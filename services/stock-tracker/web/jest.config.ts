@@ -27,6 +27,7 @@ const config: Config = {
     'lib/percentage-helper.ts',
     'lib/ai-analysis-format.ts',
     'lib/prediction-evaluation/**/*.ts',
+    'lib/forecast/**/*.ts',
     'components/prediction-evaluation/**/*.tsx',
   ],
   coverageThreshold: {
@@ -37,6 +38,12 @@ const config: Config = {
       statements: 100,
     },
     './lib/prediction-evaluation/': {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
+    },
+    './lib/forecast/': {
       branches: 80,
       functions: 80,
       lines: 80,
