@@ -22,9 +22,10 @@ import { useSession } from 'next-auth/react';
 import { hasPermission } from '@nagiyu/common';
 import type { SummariesResponse, TickerSummary } from '@/types/stock';
 import SummaryDetailDialog from '../../components/SummaryDetailDialog';
-import ForecastLabelChip from '../../components/ForecastLabelChip';
+import ForecastCell from '../../components/ForecastCell';
+import LitCell from '../../components/LitCell';
 import MarketForecastCards from '../../components/MarketForecastCards';
-import { formatLit, formatPercent, resolveUnavailableReason } from '../../lib/forecast-view/labels';
+import { resolveUnavailableReason } from '../../lib/forecast-view/labels';
 import {
   nextSortState,
   sortByForecast,
@@ -265,55 +266,27 @@ export default function SummariesPage() {
                             <TableCell>{summary.name}</TableCell>
                             <TableCell align="center">{summary.holding ? '✓' : '-'}</TableCell>
                             <TableCell align="right" data-testid={`dir-${summary.tickerId}`}>
-                              <Box
-                                sx={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 0.5,
-                                  justifyContent: 'flex-end',
-                                }}
-                              >
-                                <ForecastLabelChip
-                                  question="DIR"
-                                  view={summary.forecast?.dir}
-                                  unavailableReason={resolveUnavailableReason(
-                                    'DIR',
-                                    summary.forecast
-                                  )}
-                                />
-                                {summary.forecast?.dir && (
-                                  <Typography variant="caption" color="text.secondary">
-                                    {formatPercent(summary.forecast.dir.probability)}
-                                  </Typography>
+                              <ForecastCell
+                                question="DIR"
+                                view={summary.forecast?.dir}
+                                unavailableReason={resolveUnavailableReason(
+                                  'DIR',
+                                  summary.forecast
                                 )}
-                              </Box>
+                              />
                             </TableCell>
                             <TableCell align="right" data-testid={`vol-${summary.tickerId}`}>
-                              <Box
-                                sx={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 0.5,
-                                  justifyContent: 'flex-end',
-                                }}
-                              >
-                                <ForecastLabelChip
-                                  question="VOL"
-                                  view={summary.forecast?.vol}
-                                  unavailableReason={resolveUnavailableReason(
-                                    'VOL',
-                                    summary.forecast
-                                  )}
-                                />
-                                {summary.forecast?.vol && (
-                                  <Typography variant="caption" color="text.secondary">
-                                    {formatPercent(summary.forecast.vol.probability)}
-                                  </Typography>
+                              <ForecastCell
+                                question="VOL"
+                                view={summary.forecast?.vol}
+                                unavailableReason={resolveUnavailableReason(
+                                  'VOL',
+                                  summary.forecast
                                 )}
-                              </Box>
+                              />
                             </TableCell>
                             <TableCell align="right" data-testid={`lit-${summary.tickerId}`}>
-                              {formatLit(summary.forecast?.lit)}
+                              <LitCell lit={summary.forecast?.lit} />
                             </TableCell>
                             <TableCell align="right" data-testid={`buy-alert-${summary.tickerId}`}>
                               {formatAlertCount(

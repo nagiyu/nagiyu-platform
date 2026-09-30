@@ -174,15 +174,42 @@ export function formatReferenceDate(date: string | null | undefined): string | n
   return `${Number(match[1])}/${Number(match[2])} 引け時点`;
 }
 
-/** 点灯列の表示。「3（買2売1）」 */
-export function formatLit(lit: TickerForecastSummary['lit'] | null | undefined): string {
+/** 点灯列の表示部品。合計を固定幅で並べるため、合計と内訳を分けて返す */
+export interface LitParts {
+  /** 合計。点灯情報がないときは「—」 */
+  total: string;
+  /** 「（買2売1）」。合計が 0 のときと情報がないときは null */
+  breakdown: string | null;
+}
+
+export function buildLitParts(lit: TickerForecastSummary['lit'] | null | undefined): LitParts {
   if (!lit) {
-    return FORECAST_UNAVAILABLE;
+    return { total: FORECAST_UNAVAILABLE, breakdown: null };
   }
   if (lit.total === 0) {
-    return '0';
+    return { total: '0', breakdown: null };
   }
-  return `${lit.total}（買${lit.buy}売${lit.sell}）`;
+  return { total: `${lit.total}`, breakdown: `（買${lit.buy}売${lit.sell}）` };
+}
+
+/** 点灯列の表示。「3（買2売1）」 */
+export function formatLit(lit: TickerForecastSummary['lit'] | null | undefined): string {
+  const { total, breakdown } = buildLitParts(lit);
+  return `${total}${breakdown ?? ''}`;
+}
+
+/**
+ * 一覧のラベル枠の幅(rem)。その問いで最も長いラベルが収まる幅にして、
+ * 後ろの確率の開始位置を行ごとにそろえる。
+ */
+export function resolveLabelSlotWidthRem(question: ForecastQuestion): number {
+  const labels =
+    question === 'DIR'
+      ? [FORECAST_TEXT.NEUTRAL, FORECAST_TEXT.UP, FORECAST_TEXT.DOWN]
+      : [FORECAST_TEXT.CALM, FORECAST_TEXT.HIGH];
+  const longest = Math.max(...labels.map((label) => label.length));
+  // チップの文字幅(約 0.85rem/字)と左右の内側余白の分
+  return Math.ceil(longest * 0.85 + 1.75);
 }
 
 /** 同じ確率帯の過去実績 1 行 */
