@@ -1,5 +1,5 @@
 name: Build Docker Image
-description: Build Docker image with docker build lock and optional build args
+description: Docker build lock を取得し、public ECR へ認証したうえで Docker イメージをビルドする（build args 指定可）
 
 inputs:
   dockerfile:
@@ -18,6 +18,19 @@ runs:
   steps:
     - name: Acquire Docker build lock
       uses: ./.github/actions/docker-build-lock-acquire
+
+    # 匿名 pull は送信元 IP 単位のクォータで、共有 IP の runner では他者に枠を消費されて
+    # `Data limit exceeded` になる。認証するとクォータが認証済みアカウント単位になる。
+    # IAM 権限の反映がデプロイタイミングにより遅れる環境でもビルドを止めないよう、
+    # ログイン失敗は警告にとどめて匿名 pull で続行する。
+    - name: Login to public ECR
+      shell: bash
+      run: |
+        # ECR Public の認証トークンは us-east-1 でしか取得できない
+        if ! aws ecr-public get-login-password --region us-east-1 \
+          | docker login --username AWS --password-stdin public.ecr.aws; then
+          echo "::warning::public ECR へのログインに失敗したため、匿名 pull で続行します"
+        fi
 
     - name: Build Docker image
       shell: bash
