@@ -1,8 +1,5 @@
 import type { AxisPerformanceAxis } from '../../../../types/forecast';
-import {
-  normalizeMarket,
-  parseInitialQuestion,
-} from '../../../../lib/axis-performance-view/params';
+import { normalizeMarket } from '../../../../lib/axis-performance-view/params';
 import { sortAxes, toggleSort, weightBarRatio } from '../../../../lib/axis-performance-view/sort';
 
 const axis = (overrides: Partial<AxisPerformanceAxis>): AxisPerformanceAxis => ({
@@ -94,13 +91,6 @@ describe('weightBarRatio', () => {
 });
 
 describe('params', () => {
-  it('question を検証して初期タブにする', () => {
-    expect(parseInitialQuestion('VOL')).toBe('VOL');
-    expect(parseInitialQuestion('MKT')).toBe('MKT');
-    expect(parseInitialQuestion('xxx')).toBe('DIR');
-    expect(parseInitialQuestion(null)).toBe('DIR');
-    expect(parseInitialQuestion(undefined)).toBe('DIR');
-  });
   it('市場の荒れでは ALL を JP に寄せる', () => {
     expect(normalizeMarket('MKT', 'ALL')).toBe('JP');
     expect(normalizeMarket('MKT', 'US')).toBe('US');

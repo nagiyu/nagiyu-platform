@@ -2,19 +2,16 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useSession } from 'next-auth/react';
-import { useSearchParams } from 'next/navigation';
 import AxisPerformancePage from '../../../app/axis-performance/page';
 import { EMPTY_MESSAGE } from '../../../lib/axis-performance-view/constants';
 
 jest.mock('next-auth/react', () => ({ useSession: jest.fn() }));
-jest.mock('next/navigation', () => ({ useSearchParams: jest.fn() }));
 jest.mock('echarts-for-react', () => ({
   __esModule: true,
   default: () => React.createElement('div', { 'data-testid': 'mock-echarts' }),
 }));
 
 const mockedSession = useSession as jest.MockedFunction<typeof useSession>;
-const mockedParams = useSearchParams as jest.MockedFunction<typeof useSearchParams>;
 
 const asViewer = () =>
   mockedSession.mockReturnValue({
@@ -55,7 +52,6 @@ beforeEach(() => {
   fetchMock.mockReset();
   fetchMock.mockResolvedValue({ ok: true, json: async () => RESPONSE });
   global.fetch = fetchMock as unknown as typeof fetch;
-  mockedParams.mockReturnValue(new URLSearchParams() as never);
   asViewer();
 });
 
@@ -89,14 +85,6 @@ describe('AxisPerformancePage', () => {
     expect(screen.getByTestId('axis-performance-range').textContent).toContain('2026-06-30');
     expect(screen.getByTestId('calibration-section')).toBeTruthy();
     expect(screen.getByTestId('axis-table-section')).toBeTruthy();
-  });
-
-  it('question クエリで初期タブを選べる。市場の荒れは JP から始める', async () => {
-    mockedParams.mockReturnValue(new URLSearchParams('question=MKT') as never);
-    render(React.createElement(AxisPerformancePage));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    expect(lastUrl()).toBe('/api/axis-performance?question=MKT&period=90d&market=JP');
-    expect(screen.queryByRole('button', { name: '全体' })).toBeNull();
   });
 
   it('タブ・期間・市場の切替で再取得し、市場の荒れタブへ切り替えると ALL を JP に寄せる', async () => {

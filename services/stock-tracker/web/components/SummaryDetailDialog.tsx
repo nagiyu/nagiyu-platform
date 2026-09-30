@@ -17,9 +17,8 @@ import {
   Tabs,
   Typography,
 } from '@mui/material';
-import { Button, Link } from '@nagiyu/ui';
+import { Button } from '@nagiyu/ui';
 import { Close as CloseIcon } from '@mui/icons-material';
-import NextLink from 'next/link';
 import AlertSettingsModal from './AlertSettingsModal';
 import AxisBreakdownTable from './AxisBreakdownTable';
 import ForecastLabelChip from './ForecastLabelChip';
@@ -29,7 +28,6 @@ import type { AlertMode } from '@/types/alert';
 import type { ForecastDetailResponse, QuestionDetail } from '@/types/forecast';
 import {
   FORECAST_TEXT,
-  buildAxisPerformanceHref,
   formatBandHistory,
   formatProbabilityWithUsual,
   formatReferenceDate,
@@ -287,14 +285,6 @@ export default function SummaryDetailDialog({
                             : FORECAST_TEXT.NO_FORECAST}
                         </Typography>
                       )}
-                      <Link asChild>
-                        <NextLink
-                          href={buildAxisPerformanceHref(activeQuestion)}
-                          data-testid="axis-performance-link"
-                        >
-                          判断軸の成績を見る
-                        </NextLink>
-                      </Link>
                     </Box>
                   )}
                 </>

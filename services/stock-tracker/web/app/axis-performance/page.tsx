@@ -1,9 +1,8 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { useState } from 'react';
 import {
   Box,
-  CircularProgress,
   Container,
   Tab,
   Tabs,
@@ -13,7 +12,6 @@ import {
   Typography,
 } from '@mui/material';
 import { ErrorAlert, LoadingState } from '@nagiyu/ui';
-import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { hasPermission } from '@nagiyu/common';
 import AxisTable from '../../components/axis-performance/AxisTable';
@@ -21,6 +19,7 @@ import CalibrationSection from '../../components/axis-performance/CalibrationSec
 import {
   BASELINE_HELP,
   DEFAULT_MARKET,
+  DEFAULT_QUESTION,
   DEFAULT_PERIOD,
   EMPTY_MESSAGE,
   ERROR_MESSAGES,
@@ -32,7 +31,7 @@ import {
   QUESTION_LABELS,
 } from '../../lib/axis-performance-view/constants';
 import { buildHeadline, buildRangeText } from '../../lib/axis-performance-view/format';
-import { normalizeMarket, parseInitialQuestion } from '../../lib/axis-performance-view/params';
+import { normalizeMarket } from '../../lib/axis-performance-view/params';
 import { useAxisPerformance } from '../../lib/axis-performance-view/use-axis-performance';
 import type {
   AxisPerformanceMarket,
@@ -42,14 +41,9 @@ import type {
 
 function AxisPerformanceContent() {
   const { data: session, status } = useSession();
-  const searchParams = useSearchParams();
-  const [question, setQuestion] = useState<ForecastQuestion>(() =>
-    parseInitialQuestion(searchParams.get('question'))
-  );
+  const [question, setQuestion] = useState<ForecastQuestion>(DEFAULT_QUESTION);
   const [period, setPeriod] = useState<AxisPerformancePeriod>(DEFAULT_PERIOD);
-  const [market, setMarket] = useState<AxisPerformanceMarket>(() =>
-    normalizeMarket(parseInitialQuestion(searchParams.get('question')), DEFAULT_MARKET)
-  );
+  const [market, setMarket] = useState<AxisPerformanceMarket>(DEFAULT_MARKET);
 
   const hasReadPermission =
     !!session?.user &&
@@ -192,17 +186,5 @@ function AxisPerformanceContent() {
 }
 
 export default function AxisPerformancePage() {
-  return (
-    <Suspense
-      fallback={
-        <Container maxWidth="xl" sx={{ py: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-            <CircularProgress />
-          </Box>
-        </Container>
-      }
-    >
-      <AxisPerformanceContent />
-    </Suspense>
-  );
+  return <AxisPerformanceContent />;
 }

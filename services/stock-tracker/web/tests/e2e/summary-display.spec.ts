@@ -494,17 +494,8 @@ test.describe('サマリー画面スモークテスト', () => {
     await fold.getByText(/点灯しなかった軸/).click();
     await expect(fold.getByText('三川宵の明星')).toBeVisible();
 
-    // 荒れの内訳に切り替えると成績画面へのリンクの問いも変わる
-    await expect(dialog.getByTestId('axis-performance-link')).toHaveAttribute(
-      'href',
-      '/axis-performance?question=DIR'
-    );
     await dialog.getByRole('tab', { name: '荒れの内訳' }).click();
     await expect(dialog.getByTestId('breakdown-VOL-table').getByText('ギャップ')).toBeVisible();
-    await expect(dialog.getByTestId('axis-performance-link')).toHaveAttribute(
-      'href',
-      '/axis-performance?question=VOL'
-    );
   });
 
   test('確度がない日は「—」と理由を表示し、チャートとアラート作成は使える', async ({ page }) => {

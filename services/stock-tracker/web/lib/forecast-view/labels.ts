@@ -281,8 +281,3 @@ export function toProbabilityView(
   }
   return { probability: detail.probability, baseline: detail.baseline, lean: detail.lean };
 }
-
-/** 成績画面へのリンク。開いている問いのタブに対応させる */
-export function buildAxisPerformanceHref(question: 'DIR' | 'VOL'): string {
-  return `/axis-performance?question=${question}`;
-}
