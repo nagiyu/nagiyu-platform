@@ -490,8 +490,10 @@ test.describe('サマリー画面スモークテスト', () => {
 
     // 点灯しなかった軸は既定で閉じた折りたたみ
     const fold = dialog.getByTestId('breakdown-DIR-inactive');
-    await expect(fold).not.toHaveAttribute('open', '');
-    await fold.getByText(/点灯しなかった軸/).click();
+    const foldToggle = fold.getByRole('button', { name: /点灯しなかった軸/ });
+    await expect(foldToggle).toHaveAttribute('aria-expanded', 'false');
+    await foldToggle.click();
+    await expect(foldToggle).toHaveAttribute('aria-expanded', 'true');
     await expect(fold.getByText('三川宵の明星')).toBeVisible();
 
     await dialog.getByRole('tab', { name: '荒れの内訳' }).click();

@@ -12,7 +12,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
+import { ChevronRight as ChevronRightIcon } from '@mui/icons-material';
 import type { AxisBreakdown } from '../types/forecast';
 import {
   FORECAST_TEXT,
@@ -73,10 +73,12 @@ export default function AxisBreakdownTable({ axes, testIdPrefix }: AxisBreakdown
                         onClick={() => toggle(axis.axisId)}
                         sx={{
                           display: { xs: 'inline-flex', sm: 'none' },
-                          transform: expanded ? 'rotate(180deg)' : 'none',
+                          // 閉じている=右向き、開いている=下向きにそろえる
+                          transform: expanded ? 'rotate(90deg)' : 'none',
+                          transition: 'transform 0.2s',
                         }}
                       >
-                        <ExpandMoreIcon fontSize="small" />
+                        <ChevronRightIcon fontSize="small" />
                       </IconButton>
                       <span>{axis.name}</span>
                     </Box>

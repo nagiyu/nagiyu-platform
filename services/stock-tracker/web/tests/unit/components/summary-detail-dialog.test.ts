@@ -162,8 +162,13 @@ describe('SummaryDetailDialog', () => {
     expect(within(numericRow).getByText(/−0\.8pt/)).toBeTruthy();
     expect(within(numericRow).getByText('件数不足')).toBeTruthy();
 
-    const fold = screen.getByTestId('breakdown-DIR-inactive') as HTMLDetailsElement;
-    expect(fold.open).toBe(false);
+    const fold = screen.getByTestId('breakdown-DIR-inactive');
+    const toggle = within(fold).getByRole('button', { name: /点灯しなかった軸/ });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(within(fold).queryByText('三川宵の明星')).toBeNull();
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
     expect(within(fold).getByText('三川宵の明星')).toBeTruthy();
     expect(within(table).queryByText('三川宵の明星')).toBeNull();
   });
