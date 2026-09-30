@@ -2,7 +2,12 @@
 
 ## 概要
 
-複数のワークフローが並列実行される際、`public.ecr.aws` の公開 ECR イメージへのアクセスが集中し、Rate Limit エラー（`toomanyrequests`）が発生することがある。これを防ぐため、S3 オブジェクトをセマフォとして使用し、同時に実行中の Docker ビルド数を上限未満に制御する。
+`public.ecr.aws` の公開 ECR イメージを pull する際、Rate Limit エラー（`toomanyrequests`）が発生することがある。原因は次の 2 つ。
+
+- **匿名 pull のクォータ**: 匿名 pull のクォータは送信元 IP 単位で、GitHub-hosted runner の IP は他者と共有されるため、こちらの同時実行数と無関係に枠が消費される。対策は public ECR への認証（後述「public ECR への認証」）
+- **自リポジトリ内の同時アクセス集中**: 複数のワークフローが並列実行されると pull が重なる。対策は、S3 オブジェクトをセマフォとして使い、同時に実行中の Docker ビルド数を上限未満に制御すること
+
+認証が主対策で、セマフォとリトライは補完として残している。
 
 ---
 
@@ -12,6 +17,16 @@
 - **厳密でない排他制御**: 完全に同タイミングでのロック取得による一時的な上限超過は許容する
 - **アカウントごとに別バケット**: dev アカウントの分離方針（[AWS アカウント構成](../aws-accounts.md) を参照）に合わせ、ロック用バケットも dev/prod で別々に持つ。dev と prod が同時にセマフォを取り合う場面はほぼ無く、たとえ競合してもリトライ（後述）で吸収できるため、バケットを分けてアカウントの独立を優先する方を選んだ
 - **ゾンビロック対策**: ビルド失敗などでロック解放されなかった場合も、S3 ライフサイクルルールによって自動回収する
+
+---
+
+## public ECR への認証
+
+ビルド前に `aws ecr-public get-login-password` で public ECR へ `docker login` する。認証するとクォータの単位が送信元 IP から認証済みアカウントに変わり、共有 IP の runner でも他者に枠を消費されない。
+
+- **リージョンは us-east-1 固定**: ECR Public の認証トークンは us-east-1 でしか取得できない。呼び出し元の `AWS_REGION` には依存させない
+- **ログイン失敗はジョブを失敗させず、警告を出して匿名 pull で続行する**: 必要な IAM 権限（Container Policy の `ecr-public:GetAuthorizationToken` / `sts:GetServiceBearerToken`）は dev / prod で反映タイミングが異なりうる。ログインの成否でビルド全体が止まるより、従来どおり匿名 pull で進める方が安全なため
+- **待機リトライでは解消しない場合がある**: `Data limit exceeded` は転送量の上限超過であり、短時間の待機では回復しないことが多い。そのため後述のリトライだけに頼らず、認証でクォータの単位を変えている
 
 ---
 
@@ -46,7 +61,9 @@ Docker ビルドおよびイメージプッシュ完了後（成功・失敗問�
 
 ## IAM 権限
 
-GitHub Actions 用ユーザーに付与済みの Application Policy に `s3:PutObject` / `s3:GetObject` / `s3:DeleteObject` / `s3:ListBucket` がリソース `*` で含まれているため、追加の IAM 変更は不要。
+GitHub Actions 用ユーザーに付与済みの Application Policy に `s3:PutObject` / `s3:GetObject` / `s3:DeleteObject` / `s3:ListBucket` がリソース `*` で含まれているため、ロック処理のための追加の IAM 変更は不要。
+
+public ECR への認証に必要な `ecr-public:GetAuthorizationToken` / `sts:GetServiceBearerToken` は Container Policy に含まれ、GitHub Actions の全ロールに付与される（[IAM ポリシー](iam.md) を参照）。
 
 ---
 
