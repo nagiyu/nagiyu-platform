@@ -99,6 +99,7 @@ IAM マネージドポリシーのサイズ制限（6144文字）により、デ
 
 **主な権限:**
 - **ECR**: リポジトリ管理、イメージのプッシュ/プル、ライフサイクルポリシー
+- **ECR Public**: 認証トークンの取得（`public.ecr.aws` からのベースイメージを認証付きで pull するため）
 - **ECS**: クラスター、タスク定義、サービス、タスクの管理
 - **Batch**: Compute Environment、Job Queue、Job Definition の管理
 
