@@ -1,6 +1,7 @@
 import {
   buildAxisPerformanceHref,
   buildForecastLabel,
+  buildLitParts,
   formatAxisPerformance,
   formatAxisValue,
   formatBandHistory,
@@ -12,6 +13,7 @@ import {
   formatReferenceDate,
   formatUsualRate,
   isBandLowSample,
+  resolveLabelSlotWidthRem,
   resolveMarketNotes,
   resolveUnavailableReason,
   splitAxes,
@@ -240,5 +242,19 @@ describe('resolveMarketNotes', () => {
       baselinePerRow: false,
       lowSamplePerRow: false,
     });
+  });
+
+  it('点灯数を合計と内訳に分ける', () => {
+    expect(buildLitParts({ total: 1, buy: 0, sell: 1 })).toEqual({
+      total: '1',
+      breakdown: '（買0売1）',
+    });
+    expect(buildLitParts({ total: 0, buy: 0, sell: 0 })).toEqual({ total: '0', breakdown: null });
+    expect(buildLitParts(null)).toEqual({ total: '—', breakdown: null });
+  });
+
+  it('ラベル枠の幅は最も長いラベルに合わせ、荒れが方向以上になる', () => {
+    expect(resolveLabelSlotWidthRem('DIR')).toBeGreaterThan(0);
+    expect(resolveLabelSlotWidthRem('VOL')).toBeGreaterThanOrEqual(resolveLabelSlotWidthRem('DIR'));
   });
 });
