@@ -48,10 +48,8 @@ const makeProfileRepo = (
 ): ProfileRepository => ({
   getById: jest.fn(async () => profile),
   upsert: jest.fn(async () => consentedProfile),
+  listAllUserIds: jest.fn(async () => []),
 });
-
-const buildGetRequest = (): Request =>
-  new Request('http://localhost/api/consent', { method: 'GET' });
 
 const buildPostRequest = (body: unknown): Request =>
   new Request('http://localhost/api/consent', {
@@ -65,14 +63,14 @@ describe('GET /api/consent', () => {
 
   it('未認証は 401', async () => {
     mockGetSession.mockResolvedValueOnce(null);
-    const res = await GET(buildGetRequest());
+    const res = await GET();
     expect(res.status).toBe(401);
   });
 
   it('同意済みプロファイルがあれば consented: true を返す', async () => {
     mockGetSession.mockResolvedValue(validSession);
     mockGetProfileRepo.mockReturnValue(makeProfileRepo(consentedProfile));
-    const res = await GET(buildGetRequest());
+    const res = await GET();
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.consented).toBe(true);
@@ -82,7 +80,7 @@ describe('GET /api/consent', () => {
   it('プロファイルがなければ consented: false を返す', async () => {
     mockGetSession.mockResolvedValue(validSession);
     mockGetProfileRepo.mockReturnValue(makeProfileRepo(null));
-    const res = await GET(buildGetRequest());
+    const res = await GET();
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.consented).toBe(false);
@@ -99,7 +97,7 @@ describe('GET /api/consent', () => {
       },
     };
     mockGetProfileRepo.mockReturnValue(makeProfileRepo(oldProfile));
-    const res = await GET(buildGetRequest());
+    const res = await GET();
     const json = await res.json();
     expect(json.consented).toBe(false);
   });
@@ -112,8 +110,9 @@ describe('GET /api/consent', () => {
         throw new Error('db error');
       }),
       upsert: jest.fn(async () => consentedProfile),
+      listAllUserIds: jest.fn(async () => []),
     });
-    const res = await GET(buildGetRequest());
+    const res = await GET();
     expect(res.status).toBe(500);
     const json = await res.json();
     expect(json.message).toBe(CONSENT_ERROR_MESSAGES.FETCH_FAILED);
@@ -198,6 +197,7 @@ describe('POST /api/consent', () => {
       upsert: jest.fn(async () => {
         throw new Error('db error');
       }),
+      listAllUserIds: jest.fn(async () => []),
     });
     const res = await POST(
       buildPostRequest({ termsAgreed: true, privacyAgreed: true, ageVerified: true })

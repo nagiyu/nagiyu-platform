@@ -41,7 +41,7 @@ beforeEach(() => {
 describe('DELETE /api/account', () => {
   it('未認証は 401 を返す', async () => {
     mockGetSession.mockResolvedValueOnce(null);
-    const res = await DELETE(new Request('http://localhost'));
+    const res = await DELETE();
     expect(res.status).toBe(401);
   });
 
@@ -50,7 +50,7 @@ describe('DELETE /api/account', () => {
     const repo = makeRepo();
     mockGetRepo.mockReturnValue(repo);
 
-    const res = await DELETE(new Request('http://localhost'));
+    const res = await DELETE();
 
     expect(res.status).toBe(200);
     const json = await res.json();
@@ -62,7 +62,7 @@ describe('DELETE /api/account', () => {
     const repo = makeRepo();
     mockGetRepo.mockReturnValue(repo);
 
-    await DELETE(new Request('http://localhost'));
+    await DELETE();
 
     expect(repo.deleteAccount).toHaveBeenCalledWith('g1');
     expect(repo.deleteAccount).toHaveBeenCalledTimes(1);
@@ -72,7 +72,7 @@ describe('DELETE /api/account', () => {
     mockGetSession.mockResolvedValueOnce(session);
     mockGetRepo.mockReturnValue(makeRepo());
 
-    const res = await DELETE(new Request('http://localhost'));
+    const res = await DELETE();
     const json = await res.json();
 
     expect(json).not.toHaveProperty('anonymizedCount');
@@ -88,7 +88,7 @@ describe('DELETE /api/account', () => {
     });
     mockGetRepo.mockReturnValue(repo);
 
-    const res = await DELETE(new Request('http://localhost'));
+    const res = await DELETE();
 
     expect(res.status).toBe(500);
     const json = await res.json();

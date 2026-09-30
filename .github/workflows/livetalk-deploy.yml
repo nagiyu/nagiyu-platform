@@ -32,6 +32,12 @@ permissions:
   id-token: write
   contents: read
 
+# dev 環境は integration/** と develop で共有するため、ブランチではなくデプロイ先環境の単位で直列化する。
+# CDK デプロイを途中で止めるとスタックが更新中のまま残るので実行中の run は完走させ、待機中は最新の run だけを残す。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && inputs.environment || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+  cancel-in-progress: false
+
 jobs:
   infrastructure-ecr:
     name: Deploy ECR Repository

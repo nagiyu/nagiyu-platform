@@ -118,6 +118,10 @@ const DEFAULT_CONFIG: Config = {
 }
 ```
 
+Next.js 16.3 以降の `next build` は、tsconfig の対象全体を tsc で型チェックする。そのため、テストファイル (`*.test.*` / `*.spec.*`) の型エラーでもビルドが失敗する。テストの型エラーは、ビルド設定 (`experimental.useTypeScriptCli: false`) の変更や、型エラーを避ける目的での `exclude` の追加で回避せず、テスト側を実型に合わせて直す。
+
+**理由**: 回避すると、テストの型の誤りが実装とのずれとして表に出なくなる。
+
 #### MUST: ライブラリは src と tests のみを明示的に指定
 
 ```json
@@ -217,6 +221,89 @@ class UserRepository {
 **例外**:
 
 - コンストラクタには `public` を付けない（`overrides: { constructors: 'no-public' }` 設定）
+
+### 1.5 コメント
+
+コメントは、コードを読んでも得られない情報を補うためにある。書いた時点の文脈に依存するコメントは、コードが変わるたびに読み手を誤らせる。
+
+#### MUST: WHY を書き、WHAT は書かない
+
+コードを読めばわかる処理内容の言い換えは書かない。書くのは、その実装を選んだ理由、守るべき制約、自明でない前提である。
+
+```typescript
+// ❌ NG: 処理内容の言い換え
+// ユーザー ID でキャッシュを削除する
+cache.delete(userId);
+
+// ✅ OK: 理由
+// 権限変更を次のリクエストから反映させるため、TTL を待たずに破棄する
+cache.delete(userId);
+```
+
+#### MUST NOT: 参照で説明を代替しない
+
+ファイルパス、ドキュメント、セクション番号を指して説明を済ませない。参照先の変更や削除に追従できず、リンク切れになる (`tasks/` は完了後に削除される)。必要な情報はコメント自体に書く。
+
+```typescript
+// ❌ NG
+// @see docs/services/xxx/api-spec.md Section 5.1
+
+// ✅ OK: 必要な制約をその場で書く
+// ページングトークンは DynamoDB の LastEvaluatedKey をそのまま返すため、呼び出し側で中身を解釈しない
+```
+
+**例外**: 外部仕様の URL (AWS ドキュメント、RFC など) は書いてよい。
+
+#### MUST NOT: Issue / PR 番号・Phase 名を書かない
+
+経緯を知るために、わざわざ Issue や PR を見に行かないとわからない状態を作らない。Phase は開発中だけの区切りであり、完了後には意味を失う。変更の経緯は Git 履歴と PR が持つ。コメントに残す必要がある内容は、コメント自体に要点を書く。
+
+```typescript
+// ❌ NG
+// LiveTalk Secrets Stack (Phase 2b / Issue #3248)
+
+// ✅ OK: 番号を外し、必要なら理由を書く
+// LiveTalk Secrets Stack
+```
+
+#### MUST: 経緯は今後の開発に効く制約としてのみ書く
+
+「以前はこうだったが今はこう」という変更履歴や備忘は書かない。過去の失敗が今後の変更で再発しうる場合に限り、「こうすると壊れる」という現在形の制約として書く。
+
+```typescript
+// ❌ NG: 変更履歴
+// 以前は command で引数を渡していたが、環境変数に変更した
+
+// ✅ OK: 現在形の制約
+// Docker の CMD 上書きで引数が消えるため、command ではなく環境変数で渡す
+```
+
+#### SHOULD: JSDoc は原則書き、自明なものは省く
+
+関数・クラス・型には原則 JSDoc を書く。ただし名前・型・実装から自明なものは省いてよい。省略の判断は、JSDoc 全体にも、個々の `@param` / `@returns` にも同じく適用する。
+
+```typescript
+// ❌ NG: 名前と型の言い換え
+/**
+ * ユーザーを取得する
+ *
+ * @param id - ユーザー ID
+ * @returns ユーザー
+ */
+public async getUserById(id: string): Promise<User | null>
+
+// ✅ OK: 自明でない振る舞いだけを書く
+/**
+ * @returns 退会済みユーザーは null を返す (例外は投げない)
+ */
+public async getUserById(id: string): Promise<User | null>
+```
+
+タグごとの書き方は [アーキテクチャ方針](./architecture.md) の「JSDoc コメントの書き方」を参照。
+
+#### MUST: 表記は表記規約に従う
+
+記号の半角化、スペース、Markdown の強調は [表記規約](./writing-style.md) に従う。
 
 ---
 
@@ -963,6 +1050,27 @@ jobs:
 - 環境振り分け: master は prod、それ以外は dev 環境へデプロイ
 - パスフィルター: 関連ファイル変更時のみデプロイを実行
 
+#### MUST: ワークフローには concurrency を設定する
+
+```yaml
+# *-verify*.yml (pull_request 起点)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# *-deploy.yml (push / workflow_dispatch 起点)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && inputs.environment || (github.ref == 'refs/heads/master' && 'prod' || 'dev') }}
+  cancel-in-progress: false
+```
+
+**理由**:
+
+- Verify: 同じ PR の古いコミットに対する検証は結果を使わないため、新しい run が来たら打ち切って CI リソースを節約する
+- Deploy のグループ単位: dev 環境は `integration/**` と `develop` で共有するため、ブランチ単位では別ブランチからの同時デプロイを防げない。デプロイ先環境の単位で直列化する
+- Deploy の `cancel-in-progress: false`: CDK デプロイを途中で止めるとスタックが更新中のまま残り、次のデプロイが失敗しやすい。実行中の run は完走させる。待機できる run はグループごとに 1 つだけで、新しい run が来ると古い待機中の run はキャンセルされるため、最後に push した資材が最後にデプロイされる (後勝ち) 挙動は保たれる
+- dev 環境固定のワークフロー (`dev-sync-deploy.yml` 等) はグループの環境部分を `dev` に固定する
+
 #### MUST: ワークスペース指定はパッケージ名 (@nagiyu/hoge) を使用
 
 ```yaml
@@ -1225,15 +1333,19 @@ Docker・CI・DevContainer・`package.json` の `engines.node` を含む全環�
 
 **理由**: ランタイムと型定義のバージョンを一致させることで、型チェックと実際の動作の整合性を保証する。
 
-#### MUST: High 以上の脆弱性は overrides で即時対応する
+#### MUST: 間接依存の脆弱性は範囲内の更新を優先し、足りない場合だけ overrides で固定する
 
-直接依存ではないパッケージに High 以上のセキュリティ脆弱性が検出された場合は、ルートの `package.json` の `overrides` フィールドで安全なバージョンに強制固定する。
+直接依存ではないパッケージに High 以上のセキュリティ脆弱性が検出された場合は、次の順で対処する。
+
+1. `npm update <パッケージ名>` で、依存元が許容するバージョン範囲内の修正版に更新する
+2. 範囲内に修正版がない場合だけ、ルートの `package.json` の `overrides` で安全なバージョンに固定する
 
 - `npm audit --audit-level=high` を定期的に実行し、HIGH 以上の脆弱性がゼロであることを確認する
-- 修正バージョンが存在する場合は、`overrides` に最新の安全なバージョンを指定する
-- 修正後は `npm install` を実行して `package-lock.json` を再生成する
+- パッケージ名を指定しない `npm update` は実行しない
+- 依存元が同梱 (bundledDependencies) しているパッケージには `overrides` が効かないため、依存元自体を更新する
+- `package-lock.json` は npm で再生成し、手で編集しない
 
-**理由**: 間接依存は `npm update` では更新されないため、`overrides` による明示的な固定が唯一の確実な対処手段である。
+**理由**: 間接依存の多くは、依存元の範囲指定に修正版が含まれており、lockfile 内の更新だけで解消できる。`overrides` は依存元の範囲を無視して版を固定するため、残すほど依存元の更新と食い違う余地が増える。一方、パッケージ名を指定しない `npm update` は、脆弱性と無関係なパッケージまで範囲内の最新に上げる。挙動の変わった推移依存でテストやビルドが壊れ、差分の大半が脆弱性と無関係な更新になる。対象を絞ることで、差分を脆弱性の解消に必要な分だけに保つ。
 
 #### MUST NOT: workspace 個別の package.json に overrides を定義しない
 
@@ -1553,6 +1665,13 @@ export function clipboard() {
 - [ ] エラーメッセージを定数化
 - [ ] 純粋関数として実装 (該当する場合)
 
+#### コメント
+
+- [ ] WHY を書き、WHAT の言い換えを書いていない
+- [ ] リポジトリ内への参照・Issue / PR 番号・Phase 名を書いていない
+- [ ] 経緯は今後の開発に効く制約としてのみ書いている
+- [ ] 表記規約 (記号の半角化・スペース) に従っている
+
 #### ブラウザAPI
 
 - [ ] localStorage/Clipboard API は共通ラッパーを使用
@@ -1587,7 +1706,7 @@ export function clipboard() {
 
 - [ ] implementation.md を更新 (該当する場合)
 - [ ] README.md を更新 (機能追加の場合)
-- [ ] 型定義のコメントを追加 (公開APIの場合)
+- [ ] JSDoc を記述 (名前・型・実装から自明なものは省略可)
 
 #### CI/CD
 
@@ -1600,6 +1719,7 @@ export function clipboard() {
 ## 参考ドキュメント
 
 - [アーキテクチャ方針](./architecture.md)
+- [表記規約](./writing-style.md)
 - [共通設定ファイル](./configs.md)
 - [テスト戦略](./testing.md)
 - [共通ライブラリ設計](./shared-libraries.md)
