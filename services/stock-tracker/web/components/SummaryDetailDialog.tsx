@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import {
   Box,
+  ButtonBase,
+  Collapse,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -18,7 +20,7 @@ import {
   Typography,
 } from '@mui/material';
 import { Button } from '@nagiyu/ui';
-import { Close as CloseIcon } from '@mui/icons-material';
+import { ChevronRight as ChevronRightIcon, Close as CloseIcon } from '@mui/icons-material';
 import AlertSettingsModal from './AlertSettingsModal';
 import AxisBreakdownTable from './AxisBreakdownTable';
 import ForecastLabelChip from './ForecastLabelChip';
@@ -131,6 +133,7 @@ export default function SummaryDetailDialog({
   }>({ open: false, tradeMode: 'Buy', initialPrice: 0 });
   const [loaded, setLoaded] = useState<{ key: string; state: ForecastLoadState } | null>(null);
   const [activeQuestion, setActiveQuestion] = useState<DetailQuestion>('DIR');
+  const [inactiveOpen, setInactiveOpen] = useState(false);
 
   const tickerId = summary?.tickerId ?? null;
   const summaryDate = summary?.date ?? '';
@@ -143,6 +146,7 @@ export default function SummaryDetailDialog({
     const requestKey = `${tickerId}|${summaryDate}`;
     let cancelled = false;
     setActiveQuestion('DIR');
+    setInactiveOpen(false);
     void fetchForecastDetail(tickerId, summaryDate).then((result) => {
       if (!cancelled) {
         setLoaded({ key: requestKey, state: result });
@@ -264,17 +268,34 @@ export default function SummaryDetailDialog({
                             testIdPrefix={`breakdown-${activeQuestion}`}
                           />
                           {axes.inactive.length > 0 && (
-                            <Box
-                              component="details"
-                              data-testid={`breakdown-${activeQuestion}-inactive`}
-                            >
-                              <Box component="summary" sx={{ cursor: 'pointer', py: 0.5 }}>
+                            <Box data-testid={`breakdown-${activeQuestion}-inactive`}>
+                              <ButtonBase
+                                onClick={() => setInactiveOpen((current) => !current)}
+                                aria-expanded={inactiveOpen}
+                                aria-controls={`breakdown-${activeQuestion}-inactive-panel`}
+                                data-testid={`breakdown-${activeQuestion}-inactive-toggle`}
+                                sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.5 }}
+                              >
+                                <ChevronRightIcon
+                                  fontSize="small"
+                                  sx={{
+                                    // 閉じている=右向き、開いている=下向きにそろえる
+                                    transform: inactiveOpen ? 'rotate(90deg)' : 'none',
+                                    transition: 'transform 0.2s',
+                                  }}
+                                />
                                 点灯しなかった軸（{axes.inactive.length}）
-                              </Box>
-                              <AxisBreakdownTable
-                                axes={axes.inactive}
-                                testIdPrefix={`breakdown-${activeQuestion}-off`}
-                              />
+                              </ButtonBase>
+                              <Collapse
+                                in={inactiveOpen}
+                                unmountOnExit
+                                id={`breakdown-${activeQuestion}-inactive-panel`}
+                              >
+                                <AxisBreakdownTable
+                                  axes={axes.inactive}
+                                  testIdPrefix={`breakdown-${activeQuestion}-off`}
+                                />
+                              </Collapse>
                             </Box>
                           )}
                         </>
