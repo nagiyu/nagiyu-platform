@@ -236,7 +236,7 @@ export default function SummariesPage() {
                           {(['dir', 'vol'] as const).map((column) => (
                             <TableCell
                               key={column}
-                              align="right"
+                              align="left"
                               aria-sort={getAriaSort(sort, column)}
                             >
                               <TableSortLabel
@@ -249,7 +249,7 @@ export default function SummariesPage() {
                               </TableSortLabel>
                             </TableCell>
                           ))}
-                          <TableCell align="right">点灯</TableCell>
+                          <TableCell align="left">点灯</TableCell>
                           <TableCell align="right">買いアラート数</TableCell>
                           <TableCell align="right">売りアラート数</TableCell>
                         </TableRow>
@@ -265,7 +265,7 @@ export default function SummariesPage() {
                             <TableCell>{summary.symbol}</TableCell>
                             <TableCell>{summary.name}</TableCell>
                             <TableCell align="center">{summary.holding ? '✓' : '-'}</TableCell>
-                            <TableCell align="right" data-testid={`dir-${summary.tickerId}`}>
+                            <TableCell align="left" data-testid={`dir-${summary.tickerId}`}>
                               <ForecastCell
                                 question="DIR"
                                 view={summary.forecast?.dir}
@@ -275,7 +275,7 @@ export default function SummariesPage() {
                                 )}
                               />
                             </TableCell>
-                            <TableCell align="right" data-testid={`vol-${summary.tickerId}`}>
+                            <TableCell align="left" data-testid={`vol-${summary.tickerId}`}>
                               <ForecastCell
                                 question="VOL"
                                 view={summary.forecast?.vol}
@@ -285,7 +285,7 @@ export default function SummariesPage() {
                                 )}
                               />
                             </TableCell>
-                            <TableCell align="right" data-testid={`lit-${summary.tickerId}`}>
+                            <TableCell align="left" data-testid={`lit-${summary.tickerId}`}>
                               <LitCell lit={summary.forecast?.lit} />
                             </TableCell>
                             <TableCell align="right" data-testid={`buy-alert-${summary.tickerId}`}>
