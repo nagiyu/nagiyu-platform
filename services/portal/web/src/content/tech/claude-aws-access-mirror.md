@@ -31,7 +31,7 @@ featured: false
 
 少し前に、IAM のアクセスキーが漏洩してアカウントに制限を受けたことがある。マルチアカウント化の過程で、使っていない長期キーはほぼ全部掃除した。できるなら、Claude の長期キーもなくしたかった。
 
-GitHub Actions は OIDC で長期キーをなくせた。同じことが Claude Code on the web でもできないか調べたが、クラウドセッションのコンテナには、AWS に対して自分の身元を証明する手段（OIDC トークンなど）がない。公式リポジトリには、まさにそれを求める要望（[anthropics/claude-code#81502](https://github.com/anthropics/claude-code/issues/81502)）が出ていたが、Open のままだった。
+GitHub Actions は OIDC で長期キーをなくせた。同じことが Claude Code on the web でもできないか調べたが、クラウドセッションのコンテナには、AWS に対して自分の身元を証明する手段（OIDC トークンなど）がない。
 
 代替案もいくつか検討して、全部捨てた。
 
