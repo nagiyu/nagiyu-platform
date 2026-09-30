@@ -255,7 +255,11 @@ export default function SummaryDetailDialog({
                     <Box sx={{ display: 'grid', gap: 1 }}>
                       <Tabs
                         value={activeQuestion}
-                        onChange={(_event, value: DetailQuestion) => setActiveQuestion(value)}
+                        onChange={(_event, value: DetailQuestion) => {
+                          // 開いた行や折りたたみを一括で閉じる手段をタブ切り替えで兼ねるため、展開状態を初期化する
+                          setActiveQuestion(value);
+                          setInactiveOpen(false);
+                        }}
                         aria-label="内訳の切り替え"
                       >
                         <Tab value="DIR" label="方向の内訳" />
@@ -264,6 +268,7 @@ export default function SummaryDetailDialog({
                       {activeDetail && axes ? (
                         <>
                           <AxisBreakdownTable
+                            key={`${activeQuestion}-active`}
                             axes={axes.active}
                             testIdPrefix={`breakdown-${activeQuestion}`}
                           />
@@ -292,6 +297,7 @@ export default function SummaryDetailDialog({
                                 id={`breakdown-${activeQuestion}-inactive-panel`}
                               >
                                 <AxisBreakdownTable
+                                  key={`${activeQuestion}-inactive`}
                                   axes={axes.inactive}
                                   testIdPrefix={`breakdown-${activeQuestion}-off`}
                                 />
