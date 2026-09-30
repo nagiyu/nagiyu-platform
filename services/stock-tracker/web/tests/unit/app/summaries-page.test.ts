@@ -164,18 +164,18 @@ describe('SummariesPage', () => {
     expect(screen.getByTestId('lit-TEST:CCC').textContent).toBe('—');
   });
 
-  it('方向・荒れ・点灯の見出しとセルはセル内容の開始位置に合わせて左寄せにする', async () => {
+  it('方向・荒れ・点灯の見出しとセルは中央寄せにする', async () => {
     render(React.createElement(SummariesPage));
     await screen.findByRole('heading', { name: 'テスト取引所' });
 
-    const isLeft = (el: HTMLElement | null) =>
-      el?.closest('th,td')?.classList.contains('MuiTableCell-alignLeft') ?? false;
-    expect(isLeft(screen.getByTestId('sort-dir'))).toBe(true);
-    expect(isLeft(screen.getByTestId('sort-vol'))).toBe(true);
-    expect(isLeft(screen.getByText('点灯'))).toBe(true);
-    expect(isLeft(screen.getByTestId('dir-TEST:AAA'))).toBe(true);
-    expect(isLeft(screen.getByTestId('vol-TEST:AAA'))).toBe(true);
-    expect(isLeft(screen.getByTestId('lit-TEST:AAA'))).toBe(true);
+    const isCenter = (el: HTMLElement | null) =>
+      el?.closest('th,td')?.classList.contains('MuiTableCell-alignCenter') ?? false;
+    expect(isCenter(screen.getByTestId('sort-dir'))).toBe(true);
+    expect(isCenter(screen.getByTestId('sort-vol'))).toBe(true);
+    expect(isCenter(screen.getByText('点灯'))).toBe(true);
+    expect(isCenter(screen.getByTestId('dir-TEST:AAA'))).toBe(true);
+    expect(isCenter(screen.getByTestId('vol-TEST:AAA'))).toBe(true);
+    expect(isCenter(screen.getByTestId('lit-TEST:AAA'))).toBe(true);
   });
 
   it('方向の列見出しで 降順 → 昇順 → 既定順 に並べ替え、確度なしは常に末尾にする', async () => {
