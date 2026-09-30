@@ -4,13 +4,15 @@ import {
   formatAxisPerformance,
   formatAxisValue,
   formatBandHistory,
-  formatBaseline,
   formatContribution,
-  formatDiffFromBaseline,
   formatLit,
   formatPercent,
+  formatProbability,
+  formatProbabilityWithUsual,
   formatReferenceDate,
+  formatUsualRate,
   isBandLowSample,
+  resolveMarketNotes,
   resolveUnavailableReason,
   splitAxes,
   toProbabilityView,
@@ -35,14 +37,14 @@ describe('buildForecastLabel', () => {
 
   it('方向: UP は P(上回る) を強含みで表示する', () => {
     expect(buildForecastLabel('DIR', { probability: 0.56, baseline: 0.5, lean: 'UP' })).toEqual({
-      text: '強含み 56%',
+      text: '強含み',
       tone: 'up',
     });
   });
 
-  it('方向: DOWN は 1 - probability を弱含みで表示する', () => {
+  it('方向: DOWN は確率を含めず弱含みだけを返す', () => {
     expect(buildForecastLabel('DIR', { probability: 0.42, baseline: 0.5, lean: 'DOWN' })).toEqual({
-      text: '弱含み 58%',
+      text: '弱含み',
       tone: 'down',
     });
   });
@@ -56,7 +58,7 @@ describe('buildForecastLabel', () => {
   it.each(['VOL', 'MKT'] as const)('%s: HIGH は荒れそう、それ以外は平常', (question) => {
     expect(
       buildForecastLabel(question, { probability: 0.64, baseline: 0.5, lean: 'HIGH' })
-    ).toEqual({ text: '荒れそう 64%', tone: 'high' });
+    ).toEqual({ text: '荒れそう', tone: 'high' });
     expect(buildForecastLabel(question, { probability: 0.3, baseline: 0.5, lean: 'DOWN' })).toEqual(
       { text: '平常', tone: 'muted' }
     );
@@ -72,14 +74,26 @@ describe('数値の書式', () => {
     expect(formatPercent(0.567)).toBe('57%');
   });
 
-  it('基準値を「基準 50%」にする', () => {
-    expect(formatBaseline(0.5)).toBe('基準 50%');
+  it('方向の確率は下側でも上回る確率をそのまま出す', () => {
+    expect(formatProbability('DIR', 0.42)).toBe('上回る確率 42%');
+    expect(formatProbability('DIR', 0.49)).toBe('上回る確率 49%');
   });
 
-  it('基準値との差を符号付きの整数 pt にする', () => {
-    expect(formatDiffFromBaseline(0.56, 0.5)).toBe('+6pt');
-    expect(formatDiffFromBaseline(0.44, 0.5)).toBe('−6pt');
-    expect(formatDiffFromBaseline(0.501, 0.5)).toBe('0pt');
+  it.each(['VOL', 'MKT'] as const)('%s の確率は「荒れる確率」で出す', (question) => {
+    expect(formatProbability(question, 0.3)).toBe('荒れる確率 30%');
+  });
+
+  it('基準値を「ふだん 37%」にする', () => {
+    expect(formatUsualRate(0.37)).toBe('ふだん 37%');
+  });
+
+  it('確率とふだんの割合を並べる', () => {
+    expect(formatProbabilityWithUsual('VOL', { probability: 0.23, baseline: 0.37 })).toBe(
+      '荒れる確率 23% (ふだん 37%)'
+    );
+    expect(formatProbabilityWithUsual('DIR', { probability: 0.49, baseline: 0.5 })).toBe(
+      '上回る確率 49% (ふだん 50%)'
+    );
   });
 
   it('寄与を小数 1 桁の pt にする', () => {
@@ -134,7 +148,7 @@ describe('内訳', () => {
   });
 
   it('過去成績を件数・的中率・基準差で表示する', () => {
-    expect(formatAxisPerformance(axis({}))).toBe('100 件 / 的中 57% / 基準差 +3.2pt');
+    expect(formatAxisPerformance(axis({}))).toBe('100 件 / 的中 57% / ふだんとの差 +3.2pt');
   });
 
   it('点灯しなかった点灯型の軸だけを分け、順序を保つ', () => {
@@ -181,5 +195,50 @@ describe('その他', () => {
   it('成績画面のリンクを問いごとに組み立てる', () => {
     expect(buildAxisPerformanceHref('DIR')).toBe('/axis-performance?question=DIR');
     expect(buildAxisPerformanceHref('VOL')).toBe('/axis-performance?question=VOL');
+  });
+});
+
+describe('resolveMarketNotes', () => {
+  const view = (baseline: number, lowSample: boolean) => ({
+    probability: 0.3,
+    baseline,
+    lean: 'NEUTRAL' as const,
+    lowSample,
+  });
+
+  it('全市場でふだんの割合が同じで両方とも参考値なら、共通行に 1 回だけ出す', () => {
+    expect(resolveMarketNotes([view(0.36, true), view(0.36, true)])).toEqual({
+      sharedBaseline: 0.36,
+      sharedLowSample: true,
+      baselinePerRow: false,
+      lowSamplePerRow: false,
+    });
+  });
+
+  it('ふだんの割合が市場で違えば各行に出す', () => {
+    const notes = resolveMarketNotes([view(0.36, false), view(0.4, false)]);
+    expect(notes.sharedBaseline).toBeNull();
+    expect(notes.baselinePerRow).toBe(true);
+  });
+
+  it('参考値が片方だけなら該当する行に出す', () => {
+    const notes = resolveMarketNotes([view(0.36, true), view(0.36, false)]);
+    expect(notes.sharedLowSample).toBe(false);
+    expect(notes.lowSamplePerRow).toBe(true);
+  });
+
+  it('確度のある市場が 1 つだけでもその値を共通行に使う', () => {
+    const notes = resolveMarketNotes([view(0.36, true), null]);
+    expect(notes.sharedBaseline).toBe(0.36);
+    expect(notes.sharedLowSample).toBe(true);
+  });
+
+  it('確度がなければ何も出さない', () => {
+    expect(resolveMarketNotes([null, null])).toEqual({
+      sharedBaseline: null,
+      sharedLowSample: false,
+      baselinePerRow: false,
+      lowSamplePerRow: false,
+    });
   });
 });

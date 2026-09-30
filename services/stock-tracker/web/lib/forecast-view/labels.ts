@@ -22,12 +22,17 @@ export const FORECAST_TEXT = {
   NO_HISTORY: '履歴が足りず算出できません',
   LOW_SAMPLE_BAND: '件数が少なく参考値',
   LOW_SAMPLE_AXIS: '件数不足',
-  LOW_SAMPLE_MARKET: '過去の日数が少なく参考値',
+  LOW_SAMPLE_MARKET: '過去の日数が少ないため参考値',
+  LOW_SAMPLE_MARKET_ROW: '(参考値)',
   NEUTRAL: '中立',
   CALM: '平常',
   UP: '強含み',
   DOWN: '弱含み',
   HIGH: '荒れそう',
+  USUAL: 'ふだん',
+  USUAL_MARKET: 'ふだんの荒れる割合',
+  PROBABILITY_DIR: '上回る確率',
+  PROBABILITY_VOL: '荒れる確率',
 } as const;
 
 /** 帯の実績の件数がこの値未満なら参考値扱いにする */
@@ -37,7 +42,7 @@ export const BAND_LOW_SAMPLE_THRESHOLD = 30;
 export type ForecastTone = 'up' | 'down' | 'high' | 'muted' | 'none';
 
 export interface ForecastLabel {
-  /** 「強含み 56%」「中立」「—」など */
+  /** 「強含み」「中立」「—」など。確率は含めない */
   text: string;
   tone: ForecastTone;
 }
@@ -50,7 +55,8 @@ export function formatPercent(value: number): string {
 /**
  * 確度のラベルを返す。
  *
- * 方向の下側はそちら向きの確率(1 - probability)で出す。
+ * 文字だけを返し、確率は含めない。方向の弱含みに「下回る確率」を添えると、
+ * 隣に並ぶ「上回る確率」と食い違って見えるため、確率は別の表示に分ける。
  * 荒れの下側は要件どおり「平常」にまとめる。
  */
 export function buildForecastLabel(
@@ -63,26 +69,45 @@ export function buildForecastLabel(
 
   if (question === 'DIR') {
     if (view.lean === 'UP') {
-      return { text: `${FORECAST_TEXT.UP} ${formatPercent(view.probability)}`, tone: 'up' };
+      return { text: FORECAST_TEXT.UP, tone: 'up' };
     }
     if (view.lean === 'DOWN') {
-      return {
-        text: `${FORECAST_TEXT.DOWN} ${formatPercent(1 - view.probability)}`,
-        tone: 'down',
-      };
+      return { text: FORECAST_TEXT.DOWN, tone: 'down' };
     }
     return { text: FORECAST_TEXT.NEUTRAL, tone: 'muted' };
   }
 
   if (view.lean === 'HIGH') {
-    return { text: `${FORECAST_TEXT.HIGH} ${formatPercent(view.probability)}`, tone: 'high' };
+    return { text: FORECAST_TEXT.HIGH, tone: 'high' };
   }
   return { text: FORECAST_TEXT.CALM, tone: 'muted' };
 }
 
-/** 「基準 50%」 */
-export function formatBaseline(baseline: number): string {
-  return `基準 ${formatPercent(baseline)}`;
+/**
+ * 確率の見出し。方向は P(市場平均を上回る) をそのまま出し、
+ * 下側でも 1 - p に置き換えない。
+ */
+export function formatProbability(question: ForecastQuestion, probability: number): string {
+  const title = question === 'DIR' ? FORECAST_TEXT.PROBABILITY_DIR : FORECAST_TEXT.PROBABILITY_VOL;
+  return `${title} ${formatPercent(probability)}`;
+}
+
+/** 「ふだん 37%」 */
+export function formatUsualRate(baseline: number): string {
+  return `${FORECAST_TEXT.USUAL} ${formatPercent(baseline)}`;
+}
+
+/** 「荒れる確率 23% (ふだん 37%)」 */
+export function formatProbabilityWithUsual(
+  question: ForecastQuestion,
+  view: Pick<ProbabilityView, 'probability' | 'baseline'>
+): string {
+  return `${formatProbability(question, view.probability)} (${formatUsualRate(view.baseline)})`;
+}
+
+/** 軸の寄与(小数 1 桁 pt)。「+2.1pt」「−0.8pt」 */
+export function formatContribution(contribution: number): string {
+  return formatSignedPt(contribution * 100, 1);
 }
 
 /** 符号付きで pt 表記にする。マイナスは U+2212 */
@@ -95,14 +120,46 @@ function formatSignedPt(pt: number, digits: number): string {
   return `${rounded > 0 ? '+' : '−'}${body}pt`;
 }
 
-/** 基準値との差(整数 pt)。「+6pt」 */
-export function formatDiffFromBaseline(probability: number, baseline: number): string {
-  return formatSignedPt((probability - baseline) * 100, 0);
+/** 市場の荒れ予報 1 件分。forecast が無い市場は null */
+export type MarketForecastView = (ProbabilityView & { lowSample: boolean }) | null;
+
+export interface MarketForecastNotes {
+  /** 全市場で同じ「ふだん」の値。共通行に 1 回だけ出す。値が違うときは null */
+  sharedBaseline: number | null;
+  /** 全市場が参考値のとき true。共通行に 1 回だけ出す */
+  sharedLowSample: boolean;
+  /** 各行に「(ふだん NN%)」を付けるか */
+  baselinePerRow: boolean;
+  /** 各行に「(参考値)」を付けるか */
+  lowSamplePerRow: boolean;
 }
 
-/** 軸の寄与(小数 1 桁 pt)。「+2.1pt」「−0.8pt」 */
-export function formatContribution(contribution: number): string {
-  return formatSignedPt(contribution * 100, 1);
+/**
+ * 市場の荒れ予報の共通情報の置き場所を決める。
+ * ふだんの割合は仕様上 JP・US で同じだが、違う値が来たときは共通行だと
+ * どちらかを隠してしまうため、各行に出す。
+ */
+export function resolveMarketNotes(forecasts: readonly MarketForecastView[]): MarketForecastNotes {
+  const present = forecasts.filter((forecast): forecast is NonNullable<MarketForecastView> =>
+    Boolean(forecast)
+  );
+  if (present.length === 0) {
+    return {
+      sharedBaseline: null,
+      sharedLowSample: false,
+      baselinePerRow: false,
+      lowSamplePerRow: false,
+    };
+  }
+  const first = present[0].baseline;
+  const sameBaseline = present.every((forecast) => forecast.baseline === first);
+  const lowCount = present.filter((forecast) => forecast.lowSample).length;
+  return {
+    sharedBaseline: sameBaseline ? first : null,
+    sharedLowSample: lowCount === present.length,
+    baselinePerRow: !sameBaseline,
+    lowSamplePerRow: lowCount > 0 && lowCount < present.length,
+  };
 }
 
 /** 「9/25 引け時点」。不正な日付は null */
@@ -148,10 +205,10 @@ export function formatAxisValue(axis: AxisBreakdown): string {
     : FORECAST_UNAVAILABLE;
 }
 
-/** 内訳テーブルの「過去成績」列。「212 件 / 的中 57% / 基準差 +3.0pt」 */
+/** 内訳テーブルの「過去成績」列。「212 件 / 的中 57% / ふだんとの差 +3.0pt」 */
 export function formatAxisPerformance(axis: AxisBreakdown): string {
   const { count, hitRate, diffFromBaseline } = axis.performance;
-  return `${count} 件 / 的中 ${formatPercent(hitRate)} / 基準差 ${formatSignedPt(diffFromBaseline * 100, 1)}`;
+  return `${count} 件 / 的中 ${formatPercent(hitRate)} / ふだんとの差 ${formatSignedPt(diffFromBaseline * 100, 1)}`;
 }
 
 /**

@@ -31,8 +31,7 @@ import {
   FORECAST_TEXT,
   buildAxisPerformanceHref,
   formatBandHistory,
-  formatBaseline,
-  formatDiffFromBaseline,
+  formatProbabilityWithUsual,
   formatReferenceDate,
   isBandLowSample,
   splitAxes,
@@ -96,9 +95,12 @@ function ForecastCard({ question, detail, unavailableReason }: ForecastCardProps
           data-testid={`forecast-label-${question}`}
         />
         {detail && (
-          <Typography variant="body2" color="text.secondary">
-            {formatBaseline(detail.baseline)} ／{' '}
-            {formatDiffFromBaseline(detail.probability, detail.baseline)}
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            data-testid={`forecast-probability-${question}`}
+          >
+            {formatProbabilityWithUsual(question, detail)}
           </Typography>
         )}
       </Box>

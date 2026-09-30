@@ -102,23 +102,30 @@ describe('SummariesPage', () => {
     await screen.findByRole('heading', { name: 'テスト取引所' });
   });
 
-  it('市場の荒れ予報カードを JP・US の 2 枚表示し、参考値の注記と「—」を出す', async () => {
+  it('市場の荒れ予報を 1 枚のカードにまとめ、共通の注記は 1 回だけ出す', async () => {
     render(React.createElement(SummariesPage));
     await screen.findByRole('heading', { name: 'テスト取引所' });
 
+    expect(screen.getAllByTestId('market-forecast-card')).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: '市場の荒れ予報の説明' })).toHaveLength(1);
+
     const jp = screen.getByTestId('market-forecast-JP');
-    expect(within(jp).getByTestId('market-forecast-label-JP').textContent).toBe('荒れそう 64%');
-    expect(within(jp).getByTestId('market-forecast-baseline-JP').textContent).toBe(
-      '基準 50% ／ +14pt'
+    expect(within(jp).getByTestId('market-forecast-label-JP').textContent).toBe('荒れそう');
+    expect(within(jp).getByTestId('market-forecast-probability-JP').textContent).toBe(
+      '荒れる確率 64%'
     );
     expect(within(jp).getByText('9/25 引け時点')).toBeTruthy();
-    expect(within(jp).getByTestId('market-forecast-low-sample-JP').textContent).toBe(
-      '過去の日数が少なく参考値'
-    );
 
     const us = screen.getByTestId('market-forecast-US');
     expect(within(us).getByTestId('market-forecast-label-US').textContent).toBe('—');
-    expect(within(us).queryByTestId('market-forecast-low-sample-US')).toBeNull();
+    expect(within(us).queryByTestId('market-forecast-probability-US')).toBeNull();
+
+    expect(screen.getAllByTestId('market-forecast-usual')).toHaveLength(1);
+    expect(screen.getByTestId('market-forecast-usual').textContent).toBe('ふだんの荒れる割合 50%');
+    expect(screen.getAllByTestId('market-forecast-low-sample')).toHaveLength(1);
+    expect(screen.getByTestId('market-forecast-low-sample').textContent).toBe(
+      '過去の日数が少ないため参考値'
+    );
   });
 
   it('一覧の列を確度用に置き換え、AI 由来の列を持たない', async () => {
@@ -146,11 +153,11 @@ describe('SummariesPage', () => {
     render(React.createElement(SummariesPage));
     await screen.findByRole('heading', { name: 'テスト取引所' });
 
-    expect(screen.getByTestId('dir-TEST:BBB').textContent).toBe('強含み 62%');
-    expect(screen.getByTestId('vol-TEST:BBB').textContent).toBe('荒れそう 70%');
-    expect(screen.getByTestId('dir-TEST:DDD').textContent).toBe('弱含み 65%');
-    expect(screen.getByTestId('dir-TEST:AAA').textContent).toBe('中立');
-    expect(screen.getByTestId('vol-TEST:AAA').textContent).toBe('平常');
+    expect(screen.getByTestId('dir-TEST:BBB').textContent).toBe('強含み62%');
+    expect(screen.getByTestId('vol-TEST:BBB').textContent).toBe('荒れそう70%');
+    expect(screen.getByTestId('dir-TEST:DDD').textContent).toBe('弱含み35%');
+    expect(screen.getByTestId('dir-TEST:AAA').textContent).toBe('中立50%');
+    expect(screen.getByTestId('vol-TEST:AAA').textContent).toBe('平常40%');
     expect(screen.getByTestId('lit-TEST:BBB').textContent).toBe('3（買2売1）');
     expect(screen.getByTestId('buy-alert-TEST:BBB').textContent).toBe('1 (2)');
     expect(screen.getByTestId('dir-TEST:CCC').textContent).toBe('—');

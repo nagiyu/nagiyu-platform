@@ -347,35 +347,37 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect(page.locator('.MuiTableContainer-root').first()).toHaveCSS('overflow-x', 'auto');
     await expect(page.locator('tbody tr')).toHaveCount(4);
 
-    await expect(page.getByTestId('dir-TEST:AAA')).toHaveText('強含み 56%');
-    await expect(page.getByTestId('vol-TEST:AAA')).toHaveText('荒れそう 64%');
+    await expect(page.getByTestId('dir-TEST:AAA')).toHaveText('強含み56%');
+    await expect(page.getByTestId('vol-TEST:AAA')).toHaveText('荒れそう64%');
     await expect(page.getByTestId('lit-TEST:AAA')).toHaveText('3（買2売1）');
     await expect(page.getByTestId('buy-alert-TEST:AAA')).toHaveText('1 (2)');
-    await expect(page.getByTestId('dir-TEST:BBB')).toHaveText('弱含み 58%');
-    await expect(page.getByTestId('vol-TEST:BBB')).toHaveText('平常');
+    await expect(page.getByTestId('dir-TEST:BBB')).toHaveText('弱含み42%');
+    await expect(page.getByTestId('vol-TEST:BBB')).toHaveText('平常40%');
     await expect(page.getByTestId('sell-alert-TEST:BBB')).toHaveText('3 (1)');
-    await expect(page.getByTestId('dir-TEST:CCC')).toHaveText('中立');
+    await expect(page.getByTestId('dir-TEST:CCC')).toHaveText('中立50%');
     await expect(page.getByTestId('vol-TEST:CCC')).toHaveText('—');
     await expect(page.getByTestId('dir-TEST:DDD')).toHaveText('—');
     await expect(page.getByTestId('lit-TEST:DDD')).toHaveText('—');
   });
 
-  test('市場の荒れ予報カードを JP・US の 2 枚表示できる', async ({ page }) => {
+  test('市場の荒れ予報を 1 枚のカードに JP・US の行として表示できる', async ({ page }) => {
     await mockSummaries(page, buildSummariesResponse([buildTickerSummary('AAA')]));
 
     await page.goto('/summaries');
 
+    await expect(page.getByTestId('market-forecast-card')).toHaveCount(1);
     const jp = page.getByTestId('market-forecast-JP');
-    await expect(jp.getByTestId('market-forecast-label-JP')).toHaveText('荒れそう 64%');
-    await expect(jp.getByTestId('market-forecast-baseline-JP')).toHaveText('基準 50% ／ +14pt');
+    await expect(jp.getByTestId('market-forecast-label-JP')).toHaveText('荒れそう');
+    await expect(jp.getByTestId('market-forecast-probability-JP')).toHaveText('荒れる確率 64%');
     await expect(jp.getByText('3/2 引け時点')).toBeVisible();
-    await expect(jp.getByText('過去の日数が少なく参考値')).toBeVisible();
+    await expect(page.getByTestId('market-forecast-usual')).toHaveText('ふだんの荒れる割合 50%');
+    await expect(page.getByText('過去の日数が少ないため参考値')).toHaveCount(1);
     await expect(
       page.getByTestId('market-forecast-US').getByTestId('market-forecast-label-US')
     ).toHaveText('—');
 
-    await jp.getByRole('button', { name: /の荒れ予報の説明/ }).hover();
-    await expect(page.getByRole('tooltip')).toContainText('値幅が平常を上回る確率');
+    await page.getByRole('button', { name: '市場の荒れ予報の説明' }).hover();
+    await expect(page.getByRole('tooltip')).toContainText('値幅がふだんより大きくなる確率');
   });
 
   test('方向・荒れの列見出しで確率順に並べ替えられる', async ({ page }) => {
@@ -469,13 +471,14 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect(dialog.getByText('3/2 引け時点')).toBeVisible();
 
     const dirCard = dialog.getByTestId('forecast-card-DIR');
-    await expect(dirCard.getByText('強含み 56%')).toBeVisible();
-    await expect(dirCard.getByText(/基準 50%/)).toContainText('+6pt');
+    await expect(dirCard.getByText('強含み')).toBeVisible();
+    await expect(dirCard.getByText('上回る確率 56% (ふだん 50%)')).toBeVisible();
     await expect(dirCard.getByText('55〜60% の帯の実績: 的中 57%（212 件）')).toBeVisible();
     await expect(dirCard.getByText('件数が少なく参考値')).toHaveCount(0);
 
     const volCard = dialog.getByTestId('forecast-card-VOL');
-    await expect(volCard.getByText('荒れそう 64%')).toBeVisible();
+    await expect(volCard.getByText('荒れそう')).toBeVisible();
+    await expect(volCard.getByTestId('forecast-probability-VOL')).toContainText('荒れる確率 64%');
     await expect(volCard.getByText('件数が少なく参考値')).toBeVisible();
 
     // 方向の内訳(寄与の絶対値の大きい順)。モバイル幅では値・過去成績の列は行の展開で見せる
@@ -687,7 +690,10 @@ test.describe('サマリー画面スモークテスト', () => {
     await page.goto('/?exchangeId=test-exchange-id&tickerId=TEST%3AAAA');
 
     await expect(page.getByTestId('summary-reference-date')).toHaveText('3/2 引け時点');
-    await expect(page.getByTestId('summary-dir-label')).toHaveText('強含み 56%');
+    await expect(page.getByTestId('summary-dir-label')).toHaveText('強含み');
+    await expect(page.getByTestId('summary-dir-probability')).toHaveText(
+      '上回る確率 56% (ふだん 50%)'
+    );
     await expect(page.getByTestId('summary-vol-label')).toHaveText('平常');
     await expect(page.getByTestId('summary-lit')).toHaveText('点灯: 3（買2売1）');
     for (const text of ['投資判断', '予測リターン', '確信度', 'サポートレベル']) {
