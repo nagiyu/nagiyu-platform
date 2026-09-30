@@ -96,7 +96,7 @@ test.describe('判断軸の成績 (stock-viewer)', () => {
     expect(urls[0]).toContain('question=DIR&period=90d&market=ALL');
   });
 
-  test('question クエリで市場の荒れタブが開き、全体は選べない', async ({ page }) => {
+  test('市場の荒れタブでは全体を選べず、JP から取得する', async ({ page }) => {
     const urls: string[] = [];
     await page.route('**/api/axis-performance**', (route) => {
       urls.push(route.request().url());
@@ -107,7 +107,8 @@ test.describe('判断軸の成績 (stock-viewer)', () => {
       });
     });
 
-    await page.goto('/axis-performance?question=MKT');
+    await page.goto('/axis-performance');
+    await page.getByRole('tab', { name: '市場の荒れ' }).click();
 
     await expect(page.getByRole('tab', { name: '市場の荒れ' })).toHaveAttribute(
       'aria-selected',
@@ -115,7 +116,7 @@ test.describe('判断軸の成績 (stock-viewer)', () => {
     );
     await expect(page.getByRole('button', { name: '全体' })).toHaveCount(0);
     await expect(page.getByTestId('axis-performance-headline')).toBeVisible();
-    expect(urls[0]).toContain('question=MKT&period=90d&market=JP');
+    expect(urls[urls.length - 1]).toContain('question=MKT&period=90d&market=JP');
   });
 
   test('期間と市場を切り替えると再取得する', async ({ page }) => {

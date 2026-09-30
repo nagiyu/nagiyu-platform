@@ -168,23 +168,6 @@ describe('SummaryDetailDialog', () => {
     expect(within(table).queryByText('三川宵の明星')).toBeNull();
   });
 
-  it('内訳タブで荒れに切り替えると成績画面リンクの問いも切り替わる', async () => {
-    mockFetch({ ok: true, status: 200, body: detailResponse() });
-    renderDialog();
-
-    await screen.findByTestId('breakdown-DIR-table');
-    expect(screen.getByTestId('axis-performance-link').getAttribute('href')).toBe(
-      '/axis-performance?question=DIR'
-    );
-
-    fireEvent.click(screen.getByRole('tab', { name: '荒れの内訳' }));
-
-    expect(await screen.findByTestId('breakdown-VOL-table')).toBeTruthy();
-    expect(screen.getByTestId('axis-performance-link').getAttribute('href')).toBe(
-      '/axis-performance?question=VOL'
-    );
-  });
-
   it('荒れだけ確度がないときは荒れを「—」にし、荒れの内訳の代わりに理由を出す', async () => {
     mockFetch({ ok: true, status: 200, body: detailResponse(null) });
     renderDialog();

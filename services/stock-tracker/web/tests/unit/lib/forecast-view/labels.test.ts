@@ -1,5 +1,4 @@
 import {
-  buildAxisPerformanceHref,
   buildForecastLabel,
   buildLitParts,
   formatAxisPerformance,
@@ -192,11 +191,6 @@ describe('その他', () => {
     expect(toProbabilityView(detail)).toEqual({ probability: 0.6, baseline: 0.5, lean: 'UP' });
     expect(toProbabilityView(null)).toBeNull();
     expect(toProbabilityView(undefined)).toBeNull();
-  });
-
-  it('成績画面のリンクを問いごとに組み立てる', () => {
-    expect(buildAxisPerformanceHref('DIR')).toBe('/axis-performance?question=DIR');
-    expect(buildAxisPerformanceHref('VOL')).toBe('/axis-performance?question=VOL');
   });
 });
 
