@@ -173,6 +173,28 @@ describe('SummaryDetailDialog', () => {
     expect(within(table).queryByText('三川宵の明星')).toBeNull();
   });
 
+  it('タブを切り替えると、点灯しなかった軸の折りたたみと各行の展開を閉じた状態に戻す', async () => {
+    mockFetch({ ok: true, status: 200, body: detailResponse() });
+    renderDialog();
+
+    await screen.findByTestId('breakdown-DIR-table');
+    fireEvent.click(screen.getByRole('button', { name: '三川明けの明星の詳細を開く' }));
+    fireEvent.click(screen.getByRole('button', { name: /点灯しなかった軸/ }));
+    fireEvent.click(screen.getByRole('button', { name: '三川宵の明星の詳細を開く' }));
+    expect(screen.getByRole('button', { name: '三川明けの明星の詳細を閉じる' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '三川宵の明星の詳細を閉じる' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('tab', { name: '荒れの内訳' }));
+    await screen.findByTestId('breakdown-VOL-table');
+    fireEvent.click(screen.getByRole('tab', { name: '方向の内訳' }));
+    await screen.findByTestId('breakdown-DIR-table');
+
+    expect(screen.getByRole('button', { name: '三川明けの明星の詳細を開く' })).toBeTruthy();
+    const toggle = screen.getByRole('button', { name: /点灯しなかった軸/ });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByText('三川宵の明星')).toBeNull();
+  });
+
   it('荒れだけ確度がないときは荒れを「—」にし、荒れの内訳の代わりに理由を出す', async () => {
     mockFetch({ ok: true, status: 200, body: detailResponse(null) });
     renderDialog();
