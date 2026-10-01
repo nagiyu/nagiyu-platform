@@ -55,10 +55,14 @@ describe('SecretsStack', () => {
         template.hasOutput('FinnhubApiKeySecretName', {});
       });
 
-      it('OpenAI シークレットも引き続き作成される', () => {
-        template.hasResourceProperties('AWS::SecretsManager::Secret', {
-          Name: 'nagiyu-stock-tracker-openai-api-key-dev',
-        });
+      it('OpenAI API キーのシークレットと出力が作成されない', () => {
+        template.resourcePropertiesCountIs(
+          'AWS::SecretsManager::Secret',
+          { Name: 'nagiyu-stock-tracker-openai-api-key-dev' },
+          0
+        );
+        expect(Object.keys(template.toJSON().Outputs)).not.toContain('OpenAiApiKeySecretArn');
+        expect(Object.keys(template.toJSON().Outputs)).not.toContain('OpenAiApiKeySecretName');
       });
 
       it('VAPID シークレットも引き続き作成される', () => {
@@ -96,18 +100,18 @@ describe('SecretsStack', () => {
   });
 
   describe('既存シークレットが引き続き作成される', () => {
-    it('dev 環境: VAPID / OpenAI / Finnhub の合計 3 シークレットが作成される', () => {
+    it('dev 環境: VAPID / Finnhub の合計 2 シークレットが作成される', () => {
       const { stack } = createTestStack('dev');
       const template = Template.fromStack(stack);
-      // dev: VAPID + OpenAI + Finnhub = 3
-      template.resourceCountIs('AWS::SecretsManager::Secret', 3);
+      // dev: VAPID + Finnhub = 2
+      template.resourceCountIs('AWS::SecretsManager::Secret', 2);
     });
 
-    it('prod 環境: VAPID / OpenAI / Finnhub の合計 3 シークレットが作成される', () => {
+    it('prod 環境: VAPID / Finnhub の合計 2 シークレットが作成される', () => {
       const { stack } = createTestStack('prod');
       const template = Template.fromStack(stack);
-      // prod: VAPID + OpenAI + Finnhub = 3
-      template.resourceCountIs('AWS::SecretsManager::Secret', 3);
+      // prod: VAPID + Finnhub = 2
+      template.resourceCountIs('AWS::SecretsManager::Secret', 2);
     });
   });
 });
