@@ -22,8 +22,7 @@ export interface EventBridgeStackProps extends cdk.StackProps {
  * - Hourly: 1時間間隔（HOURLY_LEVEL アラート処理）
  * - Summary: 1時間間隔（日次サマリー生成）
  * - Temporary Alert Expiry: 1時間間隔（一時通知アラートの期限切れ無効化）
- * - Forecast: 1時間間隔（確度算出。dev-sync が複製する DailySummary から算出するだけで、
- *   Forecast 系のアイテムにしか書き込まないため dev でも有効にする）
+ * - Forecast: 1時間間隔（確度算出）
  * - Daily: 日次（データクリーンアップ）
  */
 export class EventBridgeStack extends cdk.Stack {
@@ -57,12 +56,10 @@ export class EventBridgeStack extends cdk.Stack {
     hourlyRule.addTarget(new targets.LambdaFunction(batchHourlyFunction));
 
     // EventBridge Rule - Summary（1時間間隔、日次サマリー生成）
-    // dev では DailySummary を dev-sync でコピーするため、二重実行を避けるために自動実行を停止する
     const summaryRule = new events.Rule(this, 'BatchSummaryRule', {
       ruleName: `stock-tracker-batch-summary-${environment}`,
       description: 'Trigger Stock Tracker Summary Batch every 1 hour',
       schedule: events.Schedule.rate(cdk.Duration.hours(1)),
-      enabled: environment === 'prod',
     });
     summaryRule.addTarget(new targets.LambdaFunction(batchSummaryFunction));
 
@@ -77,10 +74,6 @@ export class EventBridgeStack extends cdk.Stack {
     );
 
     // EventBridge Rule - Forecast（1時間間隔、確度算出）
-    // dev-sync が複製する DailySummary から算出するだけで、Forecast 系のアイテムにしか
-    // 書き込まない（GSI4PK に FORECAST# 接頭辞を付けて dev-sync の複製対象から外している）ため、
-    // summary と異なり dev でも有効にする（dev-sync が DailySummary を複製する間の措置。
-    // dev で summary を直接動かすようになれば、他のバッチと同じ扱いに揃える）。
     const forecastRule = new events.Rule(this, 'BatchForecastRule', {
       ruleName: `stock-tracker-batch-forecast-${environment}`,
       description: 'Trigger Stock Tracker Forecast Batch every 1 hour',

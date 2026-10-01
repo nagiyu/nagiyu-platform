@@ -26,8 +26,7 @@ import type { ProbabilityRecord, TickerOutcome, TickerSample } from '../forecast
  * GSI4PK に付ける接頭辞。
  *
  * DailySummary の GSI4PK（`ExchangeID` そのもの）と値が衝突しないよう、Forecast だけこの
- * 接頭辞を付ける。dev-sync は DailySummary を GSI4PK の完全一致で複製しており、Forecast を
- * 複製対象に含めないための区別でもある。
+ * 接頭辞を付ける。同じ GSI を共有しても取引所単位の検索に Forecast が混ざらないようにする。
  */
 const GSI4PK_PREFIX = 'FORECAST#';
 
