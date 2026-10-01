@@ -151,8 +151,7 @@ export const MANIFEST: ManifestEntry[] = [
   // ─────────────────────────────────────────
   // Phase C: StockTracer（単一テーブル設計: nagiyu-stock-tracker-main-prod）
   //
-  // 人が管理する共有マスタ（Exchange / Ticker）だけを全件 mirror する。dev でも prod と同じ銘柄をそろえるため。
-  // DailySummary は dev の summary バッチが自前で生成するため複製しない。
+  // 人が管理する共有マスタ（Exchange / Ticker）を全件 mirror する。dev でも prod と同じ銘柄をそろえるため。
   // USER# プレフィックスのアイテム（Holding / Alert）は対象外（EXCHANGE#/TICKER# と衝突しない）。
   // ─────────────────────────────────────────
 

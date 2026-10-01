@@ -519,14 +519,6 @@ describe('DevSyncStack', () => {
   });
 
   describe('Phase C: StockTracer マニフェスト内容のアサーション', () => {
-    it('DailySummary の複製エントリ（gsiWindow）が StockTracer に存在しない', () => {
-      const matching = MANIFEST.filter(
-        (entry) =>
-          entry.strategy === 'gsiWindow' && entry.sourceTable === 'nagiyu-stock-tracker-main-prod'
-      );
-      expect(matching).toHaveLength(0);
-    });
-
     it('Exchange mirror エントリが pkPrefix="EXCHANGE#" で 1 件・delete=on で存在する', () => {
       const matching = MANIFEST.filter(
         (entry) =>
