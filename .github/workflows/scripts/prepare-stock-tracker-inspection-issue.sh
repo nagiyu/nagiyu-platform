@@ -5,10 +5,10 @@ set -euo pipefail
 #
 # 環境変数:
 #   INCLUDE_MKT - Q-MKT の節を含めるか (true/false。未指定は false)
-#   CREATE_TIME - 作成日時 (未指定時は現在 UTC 時刻)
+#   CREATE_TIME - 作成日時 (未指定時は現在の JST 時刻)
 
 INCLUDE_MKT="${INCLUDE_MKT:-false}"
-CREATE_TIME="${CREATE_TIME:-$(date -u +"%Y-%m-%d %H:%M UTC")}"
+CREATE_TIME="${CREATE_TIME:-$(TZ=Asia/Tokyo date +"%Y-%m-%d %H:%M JST")}"
 
 TEMPLATE_DIR=.github/workflows/templates
 
