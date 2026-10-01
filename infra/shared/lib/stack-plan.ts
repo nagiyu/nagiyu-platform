@@ -89,11 +89,10 @@ export function getReportsBucketName(accountScope: AccountScope): string {
  *   実行を許しても閲覧できる範囲は広がらない。書き込みもマニフェストの `-dev` テーブルに限られる。
  *   コードの差し替えは引き続き許さない（任意のコードを載せると prod テーブルを直接読めてしまうため）。
  * - OpenAI 等の有料 API を使う関数でも、改修の対象になるシステムの中核のバッチ
- *   （livetalk-batch-acquire / consolidate、stock-tracker-batch-summary）は検証のために含める。
+ *   （livetalk-batch-acquire / consolidate）は検証のために含める。
  */
 export const CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV = [
   'nagiyu-stock-tracker-batch-daily-dev',
-  'nagiyu-stock-tracker-batch-evaluation-dev',
   'nagiyu-stock-tracker-batch-temporary-alert-expiry-dev',
   'nagiyu-stock-tracker-batch-summary-dev',
   'nagiyu-stock-tracker-batch-forecast-dev',

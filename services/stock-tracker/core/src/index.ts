@@ -9,7 +9,6 @@
  */
 
 export * from './types.js';
-export type { AiAnalysisResult, InvestmentSignal } from './ai-analysis-result.js';
 export * from './validation/helpers.js';
 export * from './validation/index.js';
 export { CandlestickPattern } from './patterns/candlestick-pattern.js';
@@ -49,10 +48,7 @@ export type { AlertRepository } from './repositories/alert.repository.interface.
 export type { HoldingRepository } from './repositories/holding.repository.interface.js';
 export type { TickerRepository } from './repositories/ticker.repository.interface.js';
 export type { ExchangeRepository } from './repositories/exchange.repository.interface.js';
-export type {
-  DailySummaryRepository,
-  DailySummaryEvaluationFields,
-} from './repositories/daily-summary.repository.interface.js';
+export type { DailySummaryRepository } from './repositories/daily-summary.repository.interface.js';
 export type {
   ForecastRepository,
   CreateForecastResult,
@@ -158,8 +154,6 @@ export * from './services/alert-evaluator.js';
 export * from './services/price-calculator.js';
 export * from './services/trading-hours-checker.js';
 export * from './services/tradingview-client.js';
-export * from './services/prediction-judger.js';
-export * from './services/prediction-aggregator.js';
 
 // Forecast（確度の算出。DB・バッチ・画面には触れない純粋関数群）
 export * from './forecast/index.js';

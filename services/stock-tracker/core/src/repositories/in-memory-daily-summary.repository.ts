@@ -5,20 +5,14 @@
  */
 
 import {
-  EntityAlreadyExistsError,
-  EntityNotFoundError,
   InMemorySingleTableStore,
   type AttributeQueryCondition,
   type DynamoDBItem,
 } from '@nagiyu/aws';
-import type {
-  DailySummaryEvaluationFields,
-  DailySummaryRepository,
-} from './daily-summary.repository.interface.js';
+import type { DailySummaryRepository } from './daily-summary.repository.interface.js';
 import type {
   DailySummaryEntity,
   DailySummaryForecastFields,
-  DailySummaryKey,
   CreateDailySummaryInput,
 } from '../entities/daily-summary.entity.js';
 import { DailySummaryMapper } from '../mappers/daily-summary.mapper.js';
@@ -188,35 +182,5 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
 
     this.store.put(this.mapper.toItem(entity));
     return entity;
-  }
-
-  /**
-   * 採点結果を既存 DailySummary に書き込む
-   *
-   * - 対象が存在しない場合は `EntityNotFoundError`
-   * - 既に採点済み（`EvaluatedAt` あり）の場合は `EntityAlreadyExistsError`
-   */
-  public async markAsEvaluated(
-    key: DailySummaryKey,
-    fields: DailySummaryEvaluationFields
-  ): Promise<void> {
-    const existing = await this.getByTickerAndDate(key.tickerId, key.date);
-    const identifier = `${key.tickerId}#${key.date}`;
-
-    if (!existing) {
-      throw new EntityNotFoundError('DailySummary', identifier);
-    }
-    if (existing.EvaluatedAt !== undefined) {
-      throw new EntityAlreadyExistsError('DailySummaryEvaluation', identifier);
-    }
-
-    const now = Date.now();
-    const updated: DailySummaryEntity = {
-      ...existing,
-      ...fields,
-      UpdatedAt: now,
-    };
-
-    this.store.put(this.mapper.toItem(updated));
   }
 }

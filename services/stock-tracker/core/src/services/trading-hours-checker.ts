@@ -90,8 +90,7 @@ function formatYmd(date: Date): string {
 /**
  * YYYY-MM-DD の翌平日を返す
  *
- * 採点バッチで「予測日 → 採点に使う翌営業日」を算出するために使う。
- * 祝日は Phase 1 では考慮しない（土日のみスキップ）。
+ * 祝日は考慮しない（土日のみスキップ）。
  */
 export function getNextWeekday(dateYmd: string): string {
   const base = new Date(`${dateYmd}T00:00:00Z`);
@@ -107,9 +106,7 @@ export function getNextWeekday(dateYmd: string): string {
  *
  * - from == to のとき 0
  * - from > to のとき 0（防御的）
- * - 土日はカウント対象外、祝日は Phase 1 では平日扱い
- *
- * 採点バッチで「予測日から何営業日経過したか」を計算するために使う。
+ * - 土日はカウント対象外、祝日は平日扱い
  */
 export function countWeekdaysBetween(fromYmd: string, toYmd: string): number {
   const DAY_MS = 24 * 60 * 60 * 1000;

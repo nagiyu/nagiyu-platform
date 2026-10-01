@@ -8,13 +8,11 @@ import {
   GetCommand,
   PutCommand,
   QueryCommand,
-  UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError, EntityAlreadyExistsError, EntityNotFoundError } from '@nagiyu/aws';
+import { DatabaseError } from '@nagiyu/aws';
 import { DynamoDBDailySummaryRepository } from '../../../src/repositories/dynamodb-daily-summary.repository.js';
 import type { CreateDailySummaryInput } from '../../../src/entities/daily-summary.entity.js';
-import type { DailySummaryEvaluationFields } from '../../../src/repositories/daily-summary.repository.interface.js';
 
 describe('DynamoDBDailySummaryRepository', () => {
   let repository: DynamoDBDailySummaryRepository;
@@ -510,95 +508,6 @@ describe('DynamoDBDailySummaryRepository', () => {
 
       await expect(
         repository.getForecastFieldsByExchangeAndDateRange('NASDAQ', '2026-02-20', '2026-02-27')
-      ).rejects.toThrow(DatabaseError);
-    });
-  });
-
-  describe('markAsEvaluated', () => {
-    const fields: DailySummaryEvaluationFields = {
-      EvaluationDate: '2026-02-28',
-      EvaluationClose: 184.5,
-      ActualReturn: 0.65,
-      Hit: true,
-      EvaluationThresholdPercent: 0.5,
-      EvaluatedAt: 1709078400000,
-    };
-
-    it('UpdateItem を条件付きで送信し、Evaluation* と UpdatedAt を SET する', async () => {
-      const now = 1709100000000;
-      jest.spyOn(Date, 'now').mockReturnValue(now);
-
-      mockDocClient.send.mockResolvedValueOnce({ $metadata: {} });
-
-      await repository.markAsEvaluated({ tickerId: 'NSDQ:AAPL', date: '2026-02-27' }, fields);
-
-      expect(mockDocClient.send).toHaveBeenCalledTimes(1);
-      const command = mockDocClient.send.mock.calls[0][0] as UpdateCommand;
-      expect(command).toBeInstanceOf(UpdateCommand);
-      expect(command.input).toMatchObject({
-        TableName: TABLE_NAME,
-        Key: { PK: 'SUMMARY#NSDQ:AAPL', SK: 'DATE#2026-02-27' },
-        ConditionExpression: 'attribute_exists(PK) AND attribute_not_exists(EvaluatedAt)',
-      });
-      expect(command.input.ExpressionAttributeValues).toMatchObject({
-        ':evaluationDate': '2026-02-28',
-        ':evaluationClose': 184.5,
-        ':actualReturn': 0.65,
-        ':hit': true,
-        ':evaluationThresholdPercent': 0.5,
-        ':evaluatedAt': 1709078400000,
-        ':updatedAt': now,
-      });
-    });
-
-    it('既採点（条件式違反）の場合は EntityAlreadyExistsError をスローする', async () => {
-      const conditionalError = new Error('The conditional request failed');
-      conditionalError.name = 'ConditionalCheckFailedException';
-
-      mockDocClient.send
-        .mockRejectedValueOnce(conditionalError)
-        // 再確認の GetItem は既存レコードを返す
-        .mockResolvedValueOnce({
-          Item: {
-            PK: 'SUMMARY#NSDQ:AAPL',
-            SK: 'DATE#2026-02-27',
-            Type: 'DailySummary',
-            TickerID: 'NSDQ:AAPL',
-            ExchangeID: 'NASDAQ',
-            Date: '2026-02-27',
-            Open: 182.15,
-            High: 183.92,
-            Low: 181.44,
-            Close: 183.31,
-            EvaluatedAt: 1709000000000,
-            CreatedAt: 1708992000000,
-            UpdatedAt: 1709000000000,
-          },
-        });
-
-      await expect(
-        repository.markAsEvaluated({ tickerId: 'NSDQ:AAPL', date: '2026-02-27' }, fields)
-      ).rejects.toBeInstanceOf(EntityAlreadyExistsError);
-    });
-
-    it('対象 DailySummary が存在しない場合は EntityNotFoundError をスローする', async () => {
-      const conditionalError = new Error('The conditional request failed');
-      conditionalError.name = 'ConditionalCheckFailedException';
-
-      mockDocClient.send
-        .mockRejectedValueOnce(conditionalError)
-        .mockResolvedValueOnce({ Item: undefined });
-
-      await expect(
-        repository.markAsEvaluated({ tickerId: 'NSDQ:AAPL', date: '2026-02-27' }, fields)
-      ).rejects.toBeInstanceOf(EntityNotFoundError);
-    });
-
-    it('その他のデータベースエラーは DatabaseError に変換される', async () => {
-      mockDocClient.send.mockRejectedValueOnce(new Error('Throughput exceeded'));
-
-      await expect(
-        repository.markAsEvaluated({ tickerId: 'NSDQ:AAPL', date: '2026-02-27' }, fields)
       ).rejects.toThrow(DatabaseError);
     });
   });
