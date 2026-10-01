@@ -347,7 +347,7 @@ describe('GET /api/summaries', () => {
     );
   });
 
-  it('正常系: AI 解析の結果・エラーとパターン詳細は返さない', async () => {
+  it('正常系: パターン詳細は返さない', async () => {
     mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
     setTickers([]);
     mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
@@ -365,15 +365,6 @@ describe('GET /api/summaries', () => {
         PatternResults: { 'morning-star': 'MATCHED' },
         BuyPatternCount: 1,
         SellPatternCount: 0,
-        AiAnalysisResult: {
-          priceMovementAnalysis: '当日の値動き分析',
-          patternAnalysis: 'パターン分析',
-          supportLevels: [100, 99, 98],
-          resistanceLevels: [110, 111, 112],
-          relatedMarketTrend: '関連市場動向',
-          investmentJudgment: { signal: 'NEUTRAL', reason: '様子見' },
-        },
-        AiAnalysisError: 'AI解析の生成に失敗しました',
       },
     ]);
 
@@ -382,8 +373,6 @@ describe('GET /api/summaries', () => {
 
     expect(response.status).toBe(200);
     const summary = body.exchanges[0].summaries[0];
-    expect(summary).not.toHaveProperty('aiAnalysisResult');
-    expect(summary).not.toHaveProperty('aiAnalysisError');
     expect(summary).not.toHaveProperty('patternDetails');
     expect(summary).toEqual(expect.objectContaining({ buyPatternCount: 1, sellPatternCount: 0 }));
   });

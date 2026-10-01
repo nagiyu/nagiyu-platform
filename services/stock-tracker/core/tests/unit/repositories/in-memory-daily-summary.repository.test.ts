@@ -5,13 +5,8 @@
  */
 
 import { InMemoryDailySummaryRepository } from '../../../src/repositories/in-memory-daily-summary.repository.js';
-import {
-  EntityAlreadyExistsError,
-  EntityNotFoundError,
-  InMemorySingleTableStore,
-} from '@nagiyu/aws';
+import { InMemorySingleTableStore } from '@nagiyu/aws';
 import type { CreateDailySummaryInput } from '../../../src/entities/daily-summary.entity.js';
-import type { DailySummaryEvaluationFields } from '../../../src/repositories/daily-summary.repository.interface.js';
 
 describe('InMemoryDailySummaryRepository', () => {
   let repository: InMemoryDailySummaryRepository;
@@ -235,7 +230,7 @@ describe('InMemoryDailySummaryRepository', () => {
   });
 
   describe('getForecastFieldsByExchangeAndDateRange', () => {
-    it('AI解析結果・採点結果・UpdatedAtを持たず、OHLCV等の射影だけを返す', async () => {
+    it('UpdatedAtを持たず、OHLCV等の射影だけを返す', async () => {
       await repository.upsert({
         TickerID: 'NSDQ:AAPL',
         ExchangeID: 'NASDAQ',
@@ -247,14 +242,6 @@ describe('InMemoryDailySummaryRepository', () => {
         Volume: 999,
         BuyPatternCount: 1,
         SellPatternCount: 0,
-        AiAnalysisResult: {
-          priceMovementAnalysis: 'dummy',
-          patternAnalysis: 'dummy',
-          supportLevels: [1, 2, 3],
-          resistanceLevels: [4, 5, 6],
-          relatedMarketTrend: 'dummy',
-          investmentJudgment: { signal: 'BULLISH', reason: 'dummy' },
-        },
       });
       await repository.upsert({
         TickerID: 'NYSE:IBM',
@@ -285,66 +272,7 @@ describe('InMemoryDailySummaryRepository', () => {
         BuyPatternCount: 1,
         SellPatternCount: 0,
       });
-      expect(result[0]).not.toHaveProperty('AiAnalysisResult');
       expect(result[0]).not.toHaveProperty('UpdatedAt');
-    });
-  });
-
-  describe('markAsEvaluated', () => {
-    const fields: DailySummaryEvaluationFields = {
-      EvaluationDate: '2026-02-28',
-      EvaluationClose: 110,
-      ActualReturn: 1.85,
-      Hit: true,
-      EvaluationThresholdPercent: 0.5,
-      EvaluatedAt: 1709078400000,
-    };
-
-    const base: CreateDailySummaryInput = {
-      TickerID: 'NSDQ:AAPL',
-      ExchangeID: 'NASDAQ',
-      Date: '2026-02-27',
-      Open: 105,
-      High: 112,
-      Low: 104,
-      Close: 108,
-    };
-
-    it('正常系: Evaluation* が書き込まれ getByTickerAndDate で取得できる', async () => {
-      await repository.upsert(base);
-
-      await repository.markAsEvaluated({ tickerId: base.TickerID, date: base.Date }, fields);
-
-      const after = await repository.getByTickerAndDate(base.TickerID, base.Date);
-      expect(after).not.toBeNull();
-      expect(after).toMatchObject(fields);
-      expect(after?.Open).toBe(base.Open);
-    });
-
-    it('対象 DailySummary が存在しないとき EntityNotFoundError', async () => {
-      await expect(
-        repository.markAsEvaluated({ tickerId: 'NSDQ:UNKNOWN', date: '2026-02-27' }, fields)
-      ).rejects.toBeInstanceOf(EntityNotFoundError);
-    });
-
-    it('既に採点済みのとき EntityAlreadyExistsError（二重採点防止）', async () => {
-      await repository.upsert(base);
-      await repository.markAsEvaluated({ tickerId: base.TickerID, date: base.Date }, fields);
-
-      await expect(
-        repository.markAsEvaluated({ tickerId: base.TickerID, date: base.Date }, fields)
-      ).rejects.toBeInstanceOf(EntityAlreadyExistsError);
-    });
-
-    it('採点後でも upsert は通常通り上書きできる（既存メソッドへの影響なし）', async () => {
-      await repository.upsert(base);
-      await repository.markAsEvaluated({ tickerId: base.TickerID, date: base.Date }, fields);
-
-      const updated = await repository.upsert({ ...base, Close: 120 });
-
-      expect(updated.Close).toBe(120);
-      // upsert は Evaluation* を保持しない（CreateDailySummaryInput には Evaluation* がないため）
-      expect(updated.EvaluatedAt).toBeUndefined();
     });
   });
 });

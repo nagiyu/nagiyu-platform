@@ -110,71 +110,6 @@ export function defineDailySummaryRepositoryContract(
       expect(fetched?.CreatedAt).toBe(created.CreatedAt);
     });
 
-    it('markAsEvaluatedは採点結果フィールドを一括反映する', async () => {
-      const created = await repository.upsert(buildDailySummaryInput());
-
-      await repository.markAsEvaluated(
-        { tickerId: created.TickerID, date: created.Date },
-        {
-          EvaluationDate: '2024-01-03',
-          EvaluationClose: 108,
-          ActualReturn: 2.5,
-          Hit: true,
-          EvaluationThresholdPercent: 0.5,
-          EvaluatedAt: 1_700_000_000_000,
-        }
-      );
-
-      const fetched = await repository.getByTickerAndDate(created.TickerID, created.Date);
-      expect(fetched).toMatchObject({
-        EvaluationDate: '2024-01-03',
-        EvaluationClose: 108,
-        ActualReturn: 2.5,
-        Hit: true,
-        EvaluationThresholdPercent: 0.5,
-        EvaluatedAt: 1_700_000_000_000,
-      });
-    });
-
-    it('存在しない対象へのmarkAsEvaluatedはEntityNotFoundErrorをスローする', async () => {
-      await expect(
-        repository.markAsEvaluated(
-          { tickerId: 'NO-SUCH-TICKER', date: '2024-01-01' },
-          {
-            EvaluationDate: '2024-01-02',
-            EvaluationClose: 100,
-            ActualReturn: 0,
-            Hit: false,
-            EvaluationThresholdPercent: 0.5,
-            EvaluatedAt: 1_700_000_000_000,
-          }
-        )
-      ).rejects.toThrow(expect.objectContaining({ name: 'EntityNotFoundError' }));
-    });
-
-    it('採点済みの対象への再度のmarkAsEvaluatedはEntityAlreadyExistsErrorをスローする', async () => {
-      const created = await repository.upsert(buildDailySummaryInput());
-      const evaluationFields = {
-        EvaluationDate: '2024-01-03',
-        EvaluationClose: 108,
-        ActualReturn: 2.5,
-        Hit: true,
-        EvaluationThresholdPercent: 0.5,
-        EvaluatedAt: 1_700_000_000_000,
-      };
-      await repository.markAsEvaluated(
-        { tickerId: created.TickerID, date: created.Date },
-        evaluationFields
-      );
-
-      await expect(
-        repository.markAsEvaluated(
-          { tickerId: created.TickerID, date: created.Date },
-          evaluationFields
-        )
-      ).rejects.toThrow(expect.objectContaining({ name: 'EntityAlreadyExistsError' }));
-    });
-
     it('getByExchangeはdate指定時、begins_withで対象取引所・対象日のサマリーだけをGSI4SK昇順で返す', async () => {
       // 意図的に非ソート順（C→Bの順）で作成し、他日・他取引所のノイズも混ぜる
       await repository.upsert(
@@ -246,7 +181,7 @@ export function defineDailySummaryRepositoryContract(
       expect(result.map((item) => item.TickerID)).toEqual(['T2', 'T3', 'T4']);
     });
 
-    it('getForecastFieldsByExchangeAndDateRangeはOHLCV・パターン結果・CreatedAtを持ちAI解析結果を持たない', async () => {
+    it('getForecastFieldsByExchangeAndDateRangeはOHLCV・パターン結果・CreatedAtを持ちUpdatedAtを持たない', async () => {
       await repository.upsert(
         buildDailySummaryInput({
           TickerID: 'T1',
@@ -255,14 +190,6 @@ export function defineDailySummaryRepositoryContract(
           Volume: 12345,
           BuyPatternCount: 2,
           SellPatternCount: 0,
-          AiAnalysisResult: {
-            priceMovementAnalysis: 'dummy',
-            patternAnalysis: 'dummy',
-            supportLevels: [1, 2, 3],
-            resistanceLevels: [4, 5, 6],
-            relatedMarketTrend: 'dummy',
-            investmentJudgment: { signal: 'BULLISH', reason: 'dummy' },
-          },
         })
       );
 
@@ -286,7 +213,6 @@ export function defineDailySummaryRepositoryContract(
         SellPatternCount: 0,
       });
       expect(typeof result[0].CreatedAt).toBe('number');
-      expect(result[0]).not.toHaveProperty('AiAnalysisResult');
       expect(result[0]).not.toHaveProperty('UpdatedAt');
     });
 

@@ -41,7 +41,6 @@ function createTestStack(
     vapidSecret,
     vapidPublicKey: 'test-vapid-public',
     vapidPrivateKey: 'test-vapid-private',
-    openAiApiKey: 'test-openai-key',
     finnhubApiKey,
     nextAuthSecret: 'test-nextauth-secret',
     forecastLegacyExclusionBefore,
@@ -52,6 +51,47 @@ function createTestStack(
 }
 
 describe('LambdaStack', () => {
+  describe('関数構成', () => {
+    let template: Template;
+
+    beforeEach(() => {
+      const { stack } = createTestStack('test-finnhub-key');
+      template = Template.fromStack(stack);
+    });
+
+    it('どの関数にも OPENAI_API_KEY が設定されない', () => {
+      const functions = template.findResources('AWS::Lambda::Function');
+      for (const resource of Object.values(functions)) {
+        const variables = (resource.Properties.Environment?.Variables ?? {}) as Record<
+          string,
+          unknown
+        >;
+        expect(variables).not.toHaveProperty('OPENAI_API_KEY');
+      }
+    });
+
+    it('evaluation 関数は作成されない', () => {
+      const resources = template.findResources('AWS::Lambda::Function', {
+        Properties: { FunctionName: 'nagiyu-stock-tracker-batch-evaluation-dev' },
+      });
+      expect(Object.keys(resources)).toHaveLength(0);
+    });
+
+    it('EventBridge スタックが import していた evaluation 関数の export を同じ名前で残す', () => {
+      const outputs = template.findOutputs('*', {
+        Export: {
+          Name: 'TestLambdaStack:ExportsOutputFnGetAttBatchEvaluationFunction6D54C23BArnD68CF6BB',
+        },
+      });
+      expect(Object.keys(outputs)).toHaveLength(1);
+      const value = JSON.stringify(Object.values(outputs)[0].Value);
+      expect(value).toContain(
+        ':${AWS::AccountId}:function:nagiyu-stock-tracker-batch-evaluation-${Env}'
+      );
+      expect(value).toContain('"Env":"dev"');
+    });
+  });
+
   describe('FINNHUB_API_KEY の注入', () => {
     let template: Template;
 
@@ -216,7 +256,9 @@ describe('LambdaStack', () => {
               Effect: 'Allow',
               Resource: Match.objectLike({
                 'Fn::Join': Match.arrayWith([
-                  Match.arrayWith([Match.stringLikeRegexp('nagiyu-stock-tracker-batch-forecast-dev$')]),
+                  Match.arrayWith([
+                    Match.stringLikeRegexp('nagiyu-stock-tracker-batch-forecast-dev$'),
+                  ]),
                 ]),
               }),
             }),

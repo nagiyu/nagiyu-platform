@@ -21,13 +21,8 @@ import {
   getChartData,
   getLastTradingDate,
 } from '@nagiyu/stock-tracker-core';
-import { generateAiAnalysis } from './lib/openai-client.js';
-import type { AiAnalysisInput } from './lib/openai-client.js';
-import { createChartImageBase64 } from './lib/chart-renderer.js';
 import type {
-  AiAnalysisResult,
   CreateDailySummaryInput,
-  DailySummaryEntity,
   DailySummaryRepository,
   ExchangeEntity,
   ExchangeRepository,
@@ -67,8 +62,6 @@ interface BatchStatistics {
   totalTickers: number;
   processedTickers: number;
   summariesSaved: number;
-  aiAnalysisGenerated: number;
-  aiAnalysisSkipped: number;
   /** summaryDate に一致する取引日の足が見つからず（休場日 等）サマリー生成をスキップした件数 */
   skippedNoBarForDate: number;
   /**
@@ -86,9 +79,7 @@ interface HandlerDependencies {
   tickerRepository: TickerRepository;
   dailySummaryRepository: DailySummaryRepository;
   getChartDataFn: typeof getChartData;
-  createChartImageBase64Fn: typeof createChartImageBase64;
   nowFn: () => number;
-  generateAiAnalysisFn?: (apiKey: string, input: AiAnalysisInput) => Promise<AiAnalysisResult>;
   /** テスト時に forecast バッチの非同期起動を差し替えるためのフック */
   invokeForecastBatchFn: () => Promise<void>;
 }
@@ -128,14 +119,13 @@ async function invokeForecastBatch(): Promise<void> {
 }
 
 const REQUIRED_CHART_DATA_COUNT = 100;
-const AI_ANALYSIS_HISTORY_COUNT = 50;
 
 /**
  * チャートデータの取得件数に持たせる余裕本数
  *
  * バッチ障害等でサマリー生成が翌営業日の取引時間中にずれ込むと、`chartData[0]` が
  * summaryDate より後の進行中の足になる。これを summaryDate 以前の足に絞り込んだ後も
- * REQUIRED_CHART_DATA_COUNT / AI_ANALYSIS_HISTORY_COUNT 分の本数を確保できるよう、
+ * REQUIRED_CHART_DATA_COUNT 分の本数を確保できるよう、
  * 取得時点で余裕を持たせておく。
  */
 const CHART_DATA_FETCH_MARGIN = 5;
@@ -183,23 +173,6 @@ function filterChartDataOnOrBefore(
   return chartData.filter((point) => formatDateInTimezone(point.time, timezone) <= dateYmd);
 }
 
-function toHistoricalDataFromChartData(
-  chartData: Awaited<ReturnType<typeof getChartData>>
-): AiAnalysisInput['historicalData'] {
-  if (chartData.length === 0) {
-    return [];
-  }
-
-  return chartData.slice(0, AI_ANALYSIS_HISTORY_COUNT).map((point) => ({
-    date: new Date(point.time).toISOString().slice(0, 10),
-    open: point.open,
-    high: point.high,
-    low: point.low,
-    close: point.close,
-    volume: point.volume,
-  }));
-}
-
 function needsStaticAnalysis(
   existingSummary: Awaited<ReturnType<DailySummaryRepository['getByTickerAndDate']>>
 ): boolean {
@@ -226,24 +199,6 @@ function needsStaticAnalysis(
   );
 }
 
-function toCreateDailySummaryInput(summary: DailySummaryEntity): CreateDailySummaryInput {
-  return {
-    TickerID: summary.TickerID,
-    ExchangeID: summary.ExchangeID,
-    Date: summary.Date,
-    Open: summary.Open,
-    High: summary.High,
-    Low: summary.Low,
-    Close: summary.Close,
-    Volume: summary.Volume,
-    PatternResults: summary.PatternResults,
-    BuyPatternCount: summary.BuyPatternCount,
-    SellPatternCount: summary.SellPatternCount,
-    AiAnalysisResult: summary.AiAnalysisResult,
-    AiAnalysisError: summary.AiAnalysisError,
-  };
-}
-
 async function processExchange(
   exchange: ExchangeEntity,
   dependencies: HandlerDependencies,
@@ -266,9 +221,6 @@ async function processExchange(
           ticker.TickerID,
           summaryDate
         );
-        let currentSummaryInput: CreateDailySummaryInput;
-        let historicalDataForAiFromChart: AiAnalysisInput['historicalData'] | undefined;
-
         if (needsStaticAnalysis(existingSummary)) {
           const chartData = await dependencies.getChartDataFn(ticker.TickerID, 'D', {
             count: REQUIRED_CHART_DATA_COUNT + CHART_DATA_FETCH_MARGIN,
@@ -350,7 +302,7 @@ async function processExchange(
                 }
               : patternAnalyzer.analyze(patternCandles);
 
-          currentSummaryInput = {
+          const summaryInput: CreateDailySummaryInput = {
             TickerID: ticker.TickerID,
             ExchangeID: exchange.ExchangeID,
             Date: summaryDate,
@@ -362,136 +314,9 @@ async function processExchange(
             PatternResults: patternAnalysis.patternResults,
             BuyPatternCount: patternAnalysis.buyPatternCount,
             SellPatternCount: patternAnalysis.sellPatternCount,
-            AiAnalysisResult: existingSummary?.AiAnalysisResult,
-            AiAnalysisError: existingSummary?.AiAnalysisError,
           };
-          historicalDataForAiFromChart = toHistoricalDataFromChartData(onOrBeforeSummaryDate);
-          await dependencies.dailySummaryRepository.upsert(currentSummaryInput);
+          await dependencies.dailySummaryRepository.upsert(summaryInput);
           stats.summariesSaved++;
-        } else if (existingSummary) {
-          currentSummaryInput = toCreateDailySummaryInput(existingSummary);
-        } else {
-          continue;
-        }
-
-        if (currentSummaryInput.AiAnalysisResult !== undefined) {
-          logger.debug('既存の日次サマリーが存在するためティッカーをスキップします', {
-            exchangeId: exchange.ExchangeID,
-            tickerId: ticker.TickerID,
-            date: summaryDate,
-          });
-          continue;
-        }
-
-        const openAiApiKey = process.env.OPENAI_API_KEY;
-        if (!openAiApiKey || !dependencies.generateAiAnalysisFn) {
-          stats.aiAnalysisSkipped++;
-          continue;
-        }
-
-        try {
-          const matchedPatterns = PATTERN_REGISTRY.filter(
-            (pattern) =>
-              currentSummaryInput.PatternResults?.[pattern.definition.patternId] === 'MATCHED'
-          );
-          let historicalData: AiAnalysisInput['historicalData'] =
-            historicalDataForAiFromChart ?? [];
-          if (historicalDataForAiFromChart === undefined) {
-            try {
-              const chartDataForAi = await dependencies.getChartDataFn(ticker.TickerID, 'D', {
-                count: AI_ANALYSIS_HISTORY_COUNT + CHART_DATA_FETCH_MARGIN,
-                session: 'extended',
-              });
-              const onOrBeforeSummaryDateForAi = filterChartDataOnOrBefore(
-                chartDataForAi,
-                exchange.Timezone,
-                summaryDate
-              );
-              historicalData = toHistoricalDataFromChartData(onOrBeforeSummaryDateForAi);
-            } catch (error) {
-              const errorMessage = toErrorMessage(error);
-              logger.warn(
-                'AI解析用チャートデータの取得に失敗したため、当日データのみでAI解析を継続します',
-                {
-                  exchangeId: exchange.ExchangeID,
-                  tickerId: ticker.TickerID,
-                  reason: errorMessage,
-                }
-              );
-              await reportErrorEvent({
-                serviceId: 'stock-tracker',
-                severity: 'warning',
-                title: 'サマリーバッチ: AI解析用チャートデータ取得失敗',
-                message: errorMessage,
-                context: {
-                  exchangeId: exchange.ExchangeID,
-                  tickerId: ticker.TickerID,
-                  errorStack: error instanceof Error ? error.stack : undefined,
-                },
-              });
-              stats.aiAnalysisSkipped++;
-              continue;
-            }
-          }
-
-          let chartImageBase64: string | undefined;
-          try {
-            chartImageBase64 = dependencies.createChartImageBase64Fn(historicalData);
-          } catch (error) {
-            const errorMessage = toErrorMessage(error);
-            logger.warn('チャート画像生成に失敗したため、画像なしでAI解析を継続します', {
-              exchangeId: exchange.ExchangeID,
-              tickerId: ticker.TickerID,
-              reason: errorMessage,
-            });
-          }
-
-          const aiAnalysis = await dependencies.generateAiAnalysisFn(openAiApiKey, {
-            tickerId: ticker.TickerID,
-            name: ticker.Name,
-            date: summaryDate,
-            open: currentSummaryInput.Open,
-            high: currentSummaryInput.High,
-            low: currentSummaryInput.Low,
-            close: currentSummaryInput.Close,
-            volume: currentSummaryInput.Volume,
-            buyPatternCount: currentSummaryInput.BuyPatternCount ?? 0,
-            sellPatternCount: currentSummaryInput.SellPatternCount ?? 0,
-            patternSummary: matchedPatterns.map((pattern) => pattern.definition.name).join('、'),
-            historicalData,
-            chartImageBase64,
-          });
-
-          await dependencies.dailySummaryRepository.upsert({
-            ...currentSummaryInput,
-            AiAnalysisResult: aiAnalysis,
-            AiAnalysisError: undefined,
-          });
-          stats.aiAnalysisGenerated++;
-        } catch (error) {
-          const errorMessage = toErrorMessage(error);
-          logger.warn('AI解析の生成に失敗したため、エラー情報を保存して処理を継続します', {
-            exchangeId: exchange.ExchangeID,
-            tickerId: ticker.TickerID,
-            reason: errorMessage,
-          });
-          await reportErrorEvent({
-            serviceId: 'stock-tracker',
-            severity: 'warning',
-            title: 'サマリーバッチ: AI解析生成失敗',
-            message: errorMessage,
-            context: {
-              exchangeId: exchange.ExchangeID,
-              tickerId: ticker.TickerID,
-              errorStack: error instanceof Error ? error.stack : undefined,
-            },
-          });
-          await dependencies.dailySummaryRepository.upsert({
-            ...currentSummaryInput,
-            AiAnalysisResult: undefined,
-            AiAnalysisError: errorMessage,
-          });
-          stats.aiAnalysisSkipped++;
         }
       } catch (error) {
         const errorMessage = toErrorMessage(error);
@@ -557,8 +382,6 @@ export async function handler(
     totalTickers: 0,
     processedTickers: 0,
     summariesSaved: 0,
-    aiAnalysisGenerated: 0,
-    aiAnalysisSkipped: 0,
     skippedNoBarForDate: 0,
     skippedExchangesAsClosed: 0,
     errors: 0,
@@ -577,9 +400,7 @@ export async function handler(
         tickerRepository: dependencies.tickerRepository,
         dailySummaryRepository: dependencies.dailySummaryRepository,
         getChartDataFn: dependencies.getChartDataFn ?? getChartData,
-        createChartImageBase64Fn: dependencies.createChartImageBase64Fn ?? createChartImageBase64,
         nowFn: dependencies.nowFn ?? Date.now,
-        generateAiAnalysisFn: dependencies.generateAiAnalysisFn ?? generateAiAnalysis,
         invokeForecastBatchFn: dependencies.invokeForecastBatchFn ?? invokeForecastBatch,
       };
     } else {
@@ -591,9 +412,7 @@ export async function handler(
         tickerRepository: new DynamoDBTickerRepository(docClient, tableName),
         dailySummaryRepository,
         getChartDataFn: dependencies?.getChartDataFn ?? getChartData,
-        createChartImageBase64Fn: dependencies?.createChartImageBase64Fn ?? createChartImageBase64,
         nowFn: dependencies?.nowFn ?? Date.now,
-        generateAiAnalysisFn: dependencies?.generateAiAnalysisFn ?? generateAiAnalysis,
         invokeForecastBatchFn: dependencies?.invokeForecastBatchFn ?? invokeForecastBatch,
       };
     }

@@ -11,7 +11,6 @@ export interface EventBridgeStackProps extends cdk.StackProps {
   batchSummaryFunction: lambda.IFunction;
   batchDailyFunction: lambda.IFunction;
   batchTemporaryAlertExpiryFunction: lambda.IFunction;
-  batchEvaluationFunction: lambda.IFunction;
   batchForecastFunction: lambda.IFunction;
 }
 
@@ -23,7 +22,6 @@ export interface EventBridgeStackProps extends cdk.StackProps {
  * - Hourly: 1時間間隔（HOURLY_LEVEL アラート処理）
  * - Summary: 1時間間隔（日次サマリー生成）
  * - Temporary Alert Expiry: 1時間間隔（一時通知アラートの期限切れ無効化）
- * - Evaluation: 1時間間隔（予測精度の採点）
  * - Forecast: 1時間間隔（確度算出。dev-sync が複製する DailySummary から算出するだけで、
  *   Forecast 系のアイテムにしか書き込まないため dev でも有効にする）
  * - Daily: 日次（データクリーンアップ）
@@ -39,7 +37,6 @@ export class EventBridgeStack extends cdk.Stack {
       batchSummaryFunction,
       batchDailyFunction,
       batchTemporaryAlertExpiryFunction,
-      batchEvaluationFunction,
       batchForecastFunction,
     } = props;
 
@@ -79,20 +76,10 @@ export class EventBridgeStack extends cdk.Stack {
       new targets.LambdaFunction(batchTemporaryAlertExpiryFunction)
     );
 
-    // EventBridge Rule - Evaluation（1時間間隔、予測精度の採点）
-    // dev では DailySummary を dev-sync でコピーするため、採点の二重実行を避けるために自動実行を停止する
-    const evaluationRule = new events.Rule(this, 'BatchEvaluationRule', {
-      ruleName: `stock-tracker-batch-evaluation-${environment}`,
-      description: 'Trigger Stock Tracker Evaluation Batch every 1 hour',
-      schedule: events.Schedule.rate(cdk.Duration.hours(1)),
-      enabled: environment === 'prod',
-    });
-    evaluationRule.addTarget(new targets.LambdaFunction(batchEvaluationFunction));
-
     // EventBridge Rule - Forecast（1時間間隔、確度算出）
     // dev-sync が複製する DailySummary から算出するだけで、Forecast 系のアイテムにしか
     // 書き込まない（GSI4PK に FORECAST# 接頭辞を付けて dev-sync の複製対象から外している）ため、
-    // summary・evaluation と異なり dev でも有効にする（dev-sync が DailySummary を複製する間の措置。
+    // summary と異なり dev でも有効にする（dev-sync が DailySummary を複製する間の措置。
     // dev で summary を直接動かすようになれば、他のバッチと同じ扱いに揃える）。
     const forecastRule = new events.Rule(this, 'BatchForecastRule', {
       ruleName: `stock-tracker-batch-forecast-${environment}`,
@@ -121,7 +108,6 @@ export class EventBridgeStack extends cdk.Stack {
       hourlyRule,
       summaryRule,
       temporaryAlertExpiryRule,
-      evaluationRule,
       forecastRule,
       dailyRule,
     ].forEach((rule) => {
@@ -149,11 +135,6 @@ export class EventBridgeStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'TemporaryAlertExpiryRuleArn', {
       value: temporaryAlertExpiryRule.ruleArn,
       description: 'Temporary Alert Expiry Batch EventBridge Rule ARN',
-    });
-
-    new cdk.CfnOutput(this, 'EvaluationRuleArn', {
-      value: evaluationRule.ruleArn,
-      description: 'Evaluation Batch EventBridge Rule ARN',
     });
 
     new cdk.CfnOutput(this, 'ForecastRuleArn', {
