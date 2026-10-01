@@ -1,9 +1,8 @@
 /**
  * EventBridgeStack の単体テスト
  *
- * dev 環境では summary の EventBridge Rule が DISABLED になり、
- * prod 環境では ENABLED（State プロパティなし、または ENABLED）になることを検証する。
- * minute/hourly/daily/temporary-alert-expiry/forecast は dev でも無効化されないことを確認する。
+ * dev / prod のどちらの環境でも、全バッチの EventBridge Rule が無効化されないこと
+ * （State プロパティなし、または ENABLED）を検証する。
  */
 
 import * as cdk from 'aws-cdk-lib';
@@ -56,7 +55,7 @@ function createTestStack(environment: string): { app: cdk.App; stack: EventBridg
 }
 
 describe('EventBridgeStack', () => {
-  describe('dev 環境: summary の Rule が DISABLED になる', () => {
+  describe('dev 環境: 全 Rule が有効', () => {
     let template: Template;
 
     beforeEach(() => {
@@ -64,10 +63,17 @@ describe('EventBridgeStack', () => {
       template = Template.fromStack(stack);
     });
 
-    it('summary Rule（stock-tracker-batch-summary-dev）が State=DISABLED', () => {
+    it('summary Rule（stock-tracker-batch-summary-dev）は dev でも DISABLED にならない', () => {
+      const rules = template.findResources('AWS::Events::Rule', {
+        Properties: {
+          Name: 'stock-tracker-batch-summary-dev',
+          State: 'DISABLED',
+        },
+      });
+      expect(Object.keys(rules)).toHaveLength(0);
       template.hasResourceProperties('AWS::Events::Rule', {
         Name: 'stock-tracker-batch-summary-dev',
-        State: 'DISABLED',
+        State: 'ENABLED',
       });
     });
 
@@ -112,7 +118,7 @@ describe('EventBridgeStack', () => {
       expect(Object.keys(rules)).toHaveLength(0);
     });
 
-    it('forecast Rule は dev でも DISABLED にならない（Forecast 系のアイテムにしか書き込まないため）', () => {
+    it('forecast Rule は dev でも DISABLED にならない', () => {
       const rules = template.findResources('AWS::Events::Rule', {
         Properties: {
           Name: 'stock-tracker-batch-forecast-dev',
@@ -159,7 +165,7 @@ describe('EventBridgeStack', () => {
       // summary Rule に Targets が存在することを確認
       template.hasResourceProperties('AWS::Events::Rule', {
         Name: 'stock-tracker-batch-summary-dev',
-        State: 'DISABLED',
+        State: 'ENABLED',
         Targets: Match.arrayWith([
           Match.objectLike({
             Arn: Match.anyValue(),
