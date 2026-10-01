@@ -383,5 +383,19 @@ export class LambdaStack extends cdk.Stack {
       value: this.batchRuntimePolicy.managedPolicyArn,
       description: 'Batch Runtime Managed Policy ARN',
     });
+
+    // デプロイ済みの EventBridge スタックが、もう存在しない evaluation 関数の ARN をこの名前で
+    // import している。import が残ったまま export を消すと CloudFormation がスタックの更新を拒むため、
+    // EventBridge スタックから import が外れるまで、同じ名前・同じ値の export を残す。
+    // dev と prod の両方で import が外れたら消してよい。
+    this.exportValue(
+      cdk.Fn.sub(
+        'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:nagiyu-stock-tracker-batch-evaluation-${Env}',
+        { Env: environment }
+      ),
+      {
+        name: `${this.stackName}:ExportsOutputFnGetAttBatchEvaluationFunction6D54C23BArnD68CF6BB`,
+      }
+    );
   }
 }

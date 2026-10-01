@@ -102,32 +102,6 @@ export function getNextWeekday(dateYmd: string): string {
 }
 
 /**
- * from から to までに経過した平日数を返す（左開・右閉: (from, to]）
- *
- * - from == to のとき 0
- * - from > to のとき 0（防御的）
- * - 土日はカウント対象外、祝日は平日扱い
- */
-export function countWeekdaysBetween(fromYmd: string, toYmd: string): number {
-  const DAY_MS = 24 * 60 * 60 * 1000;
-  const fromMs = new Date(`${fromYmd}T00:00:00Z`).getTime();
-  const toMs = new Date(`${toYmd}T00:00:00Z`).getTime();
-  if (toMs <= fromMs) {
-    return 0;
-  }
-  let count = 0;
-  let cursor = fromMs + DAY_MS;
-  while (cursor <= toMs) {
-    const dow = new Date(cursor).getUTCDay();
-    if (dow !== 0 && dow !== 6) {
-      count++;
-    }
-    cursor += DAY_MS;
-  }
-  return count;
-}
-
-/**
  * Unix timestamp (ms) を指定タイムゾーンの YYYY-MM-DD に変換する
  *
  * TradingView API の日足バーから取引日を取り出す用途で、core 側に集約する。
