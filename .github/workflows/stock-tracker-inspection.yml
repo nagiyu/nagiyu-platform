@@ -1,6 +1,10 @@
 name: Stock Tracker Inspection
 
 on:
+  # 動作確認のための一時的なトリガー
+  push:
+    branches:
+      - claude/3927-inspection
   schedule:
     # 毎月 1 日 9:00 JST (0:00 UTC)
     - cron: '0 0 1 * *'
