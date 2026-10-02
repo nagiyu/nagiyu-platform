@@ -282,6 +282,46 @@ describe('validateExchange', () => {
       );
     });
   });
+
+  describe('Market バリデーション', () => {
+    it('Market が JP の場合はバリデーションに成功する', () => {
+      const exchange: Exchange = { ...validExchange, Market: 'JP' };
+      const result = validateExchange(exchange);
+      expect(result.valid).toBe(true);
+    });
+
+    it('Market が US の場合はバリデーションに成功する', () => {
+      const exchange: Exchange = { ...validExchange, Market: 'US' };
+      const result = validateExchange(exchange);
+      expect(result.valid).toBe(true);
+    });
+
+    it('Market が undefined の場合はバリデーションに成功する（省略可能）', () => {
+      const { Market: _, ...exchangeWithoutMarket } = { ...validExchange };
+      const result = validateExchange(exchangeWithoutMarket);
+      expect(result.valid).toBe(true);
+    });
+
+    it('Market が null の場合はバリデーションに成功する（未設定に戻す更新を許容）', () => {
+      const exchange = { ...validExchange, Market: null };
+      const result = validateExchange(exchange);
+      expect(result.valid).toBe(true);
+    });
+
+    it('Market が不正な値の場合はバリデーションに失敗する', () => {
+      const exchange = { ...validExchange, Market: 'EU' };
+      const result = validateExchange(exchange);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('市場は "JP" または "US" のいずれかを指定してください');
+    });
+
+    it('Market が空文字の場合はバリデーションに失敗する', () => {
+      const exchange = { ...validExchange, Market: '' };
+      const result = validateExchange(exchange);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('市場は "JP" または "US" のいずれかを指定してください');
+    });
+  });
 });
 
 describe('validateTicker', () => {

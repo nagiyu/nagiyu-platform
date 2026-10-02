@@ -128,6 +128,21 @@ export function defineExchangeRepositoryContract(
       expect(result[0]).toEqual(exchange);
     });
 
+    it('getAllIndexed は登録済みの全Exchangeを集合として返す', async () => {
+      const created = [
+        await repository.create(buildExchangeInput({ ExchangeID: 'NYSE', Name: 'NYSE' })),
+        await repository.create(buildExchangeInput({ ExchangeID: 'NASDAQ', Name: 'NASDAQ' })),
+      ];
+
+      const result = await repository.getAllIndexed();
+
+      expect(sortByExchangeId(result)).toEqual(sortByExchangeId(created));
+    });
+
+    it('getAllIndexed は取引所が0件なら空配列を返す', async () => {
+      expect(await repository.getAllIndexed()).toEqual([]);
+    });
+
     it('getAll は100件超のExchangeがあってもページ境界をまたいで全件を取りこぼさない（打ち切りの回帰防止）', async () => {
       const total = 130;
       const created: Awaited<ReturnType<ExchangeRepository['create']>>[] = [];
@@ -163,6 +178,51 @@ export function defineExchangeRepositoryContract(
       await expect(repository.delete('NO-SUCH-EXCHANGE')).rejects.toThrow(
         expect.objectContaining({ name: 'EntityNotFoundError' })
       );
+    });
+
+    it('Market を指定せずに作成すると未設定のまま取得できる', async () => {
+      const created = await repository.create(buildExchangeInput());
+
+      expect(created.Market).toBeUndefined();
+
+      const fetched = await repository.getById(created.ExchangeID);
+      expect(fetched?.Market).toBeUndefined();
+    });
+
+    it('Market を指定して作成・取得できる', async () => {
+      const created = await repository.create(buildExchangeInput({ Market: 'JP' }));
+
+      expect(created.Market).toBe('JP');
+
+      const fetched = await repository.getById(created.ExchangeID);
+      expect(fetched?.Market).toBe('JP');
+    });
+
+    it('未設定のMarketをupdateで設定できる', async () => {
+      const created = await repository.create(buildExchangeInput());
+
+      const updated = await repository.update(created.ExchangeID, { Market: 'US' });
+
+      expect(updated.Market).toBe('US');
+    });
+
+    it('Marketをnullでupdateすると未設定に戻る（DynamoDBの属性削除相当）', async () => {
+      const created = await repository.create(buildExchangeInput({ Market: 'JP' }));
+
+      const updated = await repository.update(created.ExchangeID, { Market: null });
+
+      expect(updated.Market).toBeUndefined();
+
+      const fetched = await repository.getById(created.ExchangeID);
+      expect(fetched?.Market).toBeUndefined();
+    });
+
+    it('Marketを指定しないupdateでは既存の値が保持される', async () => {
+      const created = await repository.create(buildExchangeInput({ Market: 'JP' }));
+
+      const updated = await repository.update(created.ExchangeID, { Name: 'NASDAQ改称' });
+
+      expect(updated.Market).toBe('JP');
     });
   });
 }

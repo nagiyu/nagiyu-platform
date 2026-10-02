@@ -4,7 +4,10 @@ import {
   createAlertRepository,
   createDailySummaryRepository,
   createExchangeRepository,
+  createForecastRepository,
   createHoldingRepository,
+  createMarketForecastRepository,
+  createPerformanceDailyRepository,
   createTickerRepository,
 } from '../../../../../lib/repository-factory';
 
@@ -14,6 +17,9 @@ jest.mock('../../../../../lib/repository-factory', () => ({
   createAlertRepository: jest.fn(),
   createHoldingRepository: jest.fn(),
   createTickerRepository: jest.fn(),
+  createForecastRepository: jest.fn(),
+  createMarketForecastRepository: jest.fn(),
+  createPerformanceDailyRepository: jest.fn(),
 }));
 
 jest.mock('../../../../../lib/auth', () => ({
@@ -41,19 +47,43 @@ describe('GET /api/summaries', () => {
   const mockedCreateHoldingRepository = createHoldingRepository as MockedCreateHoldingRepository;
 
   const mockGetAllExchanges = jest.fn();
+  const mockGetTickersByExchange = jest.fn();
   const mockGetAllTickers = jest.fn();
+  // 取引所ごとの getByExchange が、その取引所の銘柄だけを返す挙動に揃える
+  const setTickers = (tickers: Array<{ ExchangeID: string }>): void => {
+    mockGetTickersByExchange.mockImplementation(async (exchangeId: string) =>
+      tickers.filter((ticker) => ticker.ExchangeID === exchangeId)
+    );
+  };
   const mockGetByExchange = jest.fn();
   const mockGetAlertsByUserId = jest.fn();
   const mockGetHoldingsByUserId = jest.fn();
+  const mockGetForecastsByExchangeAndDate = jest.fn();
+  const mockGetMarketForecast = jest.fn();
+  const mockGetPerformanceByPeriod = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
 
+    mockGetForecastsByExchangeAndDate.mockResolvedValue([]);
+    mockGetMarketForecast.mockResolvedValue(null);
+    mockGetPerformanceByPeriod.mockResolvedValue([]);
+    (createForecastRepository as jest.Mock).mockReturnValue({
+      getByExchangeAndDate: mockGetForecastsByExchangeAndDate,
+    });
+    (createMarketForecastRepository as jest.Mock).mockReturnValue({
+      getByMarketAndDate: mockGetMarketForecast,
+    });
+    (createPerformanceDailyRepository as jest.Mock).mockReturnValue({
+      getByPeriod: mockGetPerformanceByPeriod,
+    });
+
     mockedCreateExchangeRepository.mockReturnValue({
-      getAll: mockGetAllExchanges,
+      getAllIndexed: mockGetAllExchanges,
     } as ReturnType<typeof createExchangeRepository>);
 
     mockedCreateTickerRepository.mockReturnValue({
+      getByExchange: mockGetTickersByExchange,
       getAll: mockGetAllTickers,
     } as ReturnType<typeof createTickerRepository>);
 
@@ -84,18 +114,16 @@ describe('GET /api/summaries', () => {
       },
     ]);
 
-    mockGetAllTickers.mockResolvedValue({
-      items: [
-        {
-          TickerID: 'NSDQ:AAPL',
-          Symbol: 'AAPL',
-          Name: 'Apple Inc.',
-          ExchangeID: 'NASDAQ',
-          CreatedAt: 1,
-          UpdatedAt: 1,
-        },
-      ],
-    });
+    setTickers([
+      {
+        TickerID: 'NSDQ:AAPL',
+        Symbol: 'AAPL',
+        Name: 'Apple Inc.',
+        ExchangeID: 'NASDAQ',
+        CreatedAt: 1,
+        UpdatedAt: 1,
+      },
+    ]);
 
     mockGetByExchange
       .mockResolvedValueOnce([
@@ -119,6 +147,10 @@ describe('GET /api/summaries', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(mockGetTickersByExchange).toHaveBeenCalledTimes(2);
+    expect(mockGetTickersByExchange).toHaveBeenCalledWith('NASDAQ');
+    expect(mockGetTickersByExchange).toHaveBeenCalledWith('NYSE');
+    expect(mockGetAllTickers).not.toHaveBeenCalled();
     expect(mockGetByExchange).toHaveBeenNthCalledWith(1, 'NASDAQ', undefined);
     expect(mockGetByExchange).toHaveBeenNthCalledWith(2, 'NYSE', undefined);
     expect(body).toEqual({
@@ -130,6 +162,7 @@ describe('GET /api/summaries', () => {
           summaries: [
             {
               tickerId: 'NSDQ:AAPL',
+              date: '2024-01-15',
               symbol: 'AAPL',
               name: 'Apple Inc.',
               open: 182.15,
@@ -148,8 +181,8 @@ describe('GET /api/summaries', () => {
                 enabled: 0,
                 disabled: 0,
               },
-              patternDetails: [],
               holding: null,
+              forecast: null,
             },
           ],
         },
@@ -159,6 +192,10 @@ describe('GET /api/summaries', () => {
           date: null,
           summaries: [],
         },
+      ],
+      marketForecasts: [
+        { market: 'JP', date: null, forecast: null },
+        { market: 'US', date: null, forecast: null },
       ],
     });
   });
@@ -171,18 +208,16 @@ describe('GET /api/summaries', () => {
       },
     ]);
 
-    mockGetAllTickers.mockResolvedValue({
-      items: [
-        {
-          TickerID: 'NSDQ:AAPL',
-          Symbol: 'AAPL',
-          Name: 'Apple Inc.',
-          ExchangeID: 'NASDAQ',
-          CreatedAt: 1,
-          UpdatedAt: 1,
-        },
-      ],
-    });
+    setTickers([
+      {
+        TickerID: 'NSDQ:AAPL',
+        Symbol: 'AAPL',
+        Name: 'Apple Inc.',
+        ExchangeID: 'NASDAQ',
+        CreatedAt: 1,
+        UpdatedAt: 1,
+      },
+    ]);
 
     mockGetByExchange.mockResolvedValue([
       {
@@ -223,27 +258,14 @@ describe('GET /api/summaries', () => {
         sellPatternCount: 0,
       })
     );
-    expect(body.exchanges[0].summaries[0].patternDetails).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          patternId: 'morning-star',
-          signalType: 'BUY',
-          status: 'MATCHED',
-        }),
-        expect.objectContaining({
-          patternId: 'evening-star',
-          signalType: 'SELL',
-          status: 'NOT_MATCHED',
-        }),
-      ])
-    );
+    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('patternDetails');
   });
 
   it('正常系: 銘柄ごとの買い/売りアラート件数を返す', async () => {
     mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
-    mockGetAllTickers.mockResolvedValue({
-      items: [{ TickerID: 'NSDQ:AAPL', Symbol: 'AAPL', Name: 'Apple Inc.', ExchangeID: 'NASDAQ' }],
-    });
+    setTickers([
+      { TickerID: 'NSDQ:AAPL', Symbol: 'AAPL', Name: 'Apple Inc.', ExchangeID: 'NASDAQ' },
+    ]);
     mockGetByExchange.mockResolvedValue([
       {
         TickerID: 'NSDQ:AAPL',
@@ -287,18 +309,16 @@ describe('GET /api/summaries', () => {
       },
     ]);
 
-    mockGetAllTickers.mockResolvedValue({
-      items: [
-        {
-          TickerID: 'NSDQ:MSFT',
-          Symbol: 'MSFT',
-          Name: 'Microsoft Corporation',
-          ExchangeID: 'NASDAQ',
-          CreatedAt: 1,
-          UpdatedAt: 1,
-        },
-      ],
-    });
+    setTickers([
+      {
+        TickerID: 'NSDQ:MSFT',
+        Symbol: 'MSFT',
+        Name: 'Microsoft Corporation',
+        ExchangeID: 'NASDAQ',
+        CreatedAt: 1,
+        UpdatedAt: 1,
+      },
+    ]);
 
     mockGetByExchange.mockResolvedValue([
       {
@@ -323,14 +343,13 @@ describe('GET /api/summaries', () => {
       expect.objectContaining({
         buyPatternCount: 0,
         sellPatternCount: 0,
-        patternDetails: [],
       })
     );
   });
 
-  it('正常系: AiAnalysisResult がある場合は aiAnalysisResult として返す', async () => {
+  it('正常系: パターン詳細は返さない', async () => {
     mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
-    mockGetAllTickers.mockResolvedValue({ items: [] });
+    setTickers([]);
     mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
     mockGetByExchange.mockResolvedValue([
       {
@@ -343,14 +362,9 @@ describe('GET /api/summaries', () => {
         Close: 183.31,
         CreatedAt: 1705276800000,
         UpdatedAt: 1705352400000,
-        AiAnalysisResult: {
-          priceMovementAnalysis: '当日の値動き分析',
-          patternAnalysis: 'パターン分析',
-          supportLevels: [100, 99, 98],
-          resistanceLevels: [110, 111, 112],
-          relatedMarketTrend: '関連市場動向',
-          investmentJudgment: { signal: 'NEUTRAL', reason: '様子見' },
-        },
+        PatternResults: { 'morning-star': 'MATCHED' },
+        BuyPatternCount: 1,
+        SellPatternCount: 0,
       },
     ]);
 
@@ -358,99 +372,9 @@ describe('GET /api/summaries', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.exchanges[0].summaries[0]).toEqual(
-      expect.objectContaining({
-        aiAnalysisResult: expect.objectContaining({
-          priceMovementAnalysis: '当日の値動き分析',
-        }),
-      })
-    );
-    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysisError');
-  });
-
-  it('正常系: AiAnalysisResult と AiAnalysisError がない場合は両方とも返さない', async () => {
-    mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
-    mockGetAllTickers.mockResolvedValue({ items: [] });
-    mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
-    mockGetByExchange.mockResolvedValue([
-      {
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2024-01-15',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        CreatedAt: 1705276800000,
-        UpdatedAt: 1705352400000,
-      },
-    ]);
-
-    const response = await GET(new NextRequest('http://localhost/api/summaries'));
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysisResult');
-    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysisError');
-  });
-
-  it('正常系: aiAnalysisError がある場合はその値を返す', async () => {
-    mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
-    mockGetAllTickers.mockResolvedValue({ items: [] });
-    mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
-    mockGetByExchange.mockResolvedValue([
-      {
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2024-01-15',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        CreatedAt: 1705276800000,
-        UpdatedAt: 1705352400000,
-        AiAnalysisError: 'AI解析の生成に失敗しました',
-      },
-    ]);
-
-    const response = await GET(new NextRequest('http://localhost/api/summaries'));
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.exchanges[0].summaries[0]).toEqual(
-      expect.objectContaining({
-        aiAnalysisError: 'AI解析の生成に失敗しました',
-      })
-    );
-    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysisResult');
-  });
-
-  it('正常系: aiAnalysisResult と aiAnalysisError が明示的に undefined の場合はそのまま返す', async () => {
-    mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
-    mockGetAllTickers.mockResolvedValue({ items: [] });
-    mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
-    mockGetByExchange.mockResolvedValue([
-      {
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2024-01-15',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        CreatedAt: 1705276800000,
-        UpdatedAt: 1705352400000,
-        AiAnalysisResult: undefined,
-        AiAnalysisError: undefined,
-      },
-    ]);
-
-    const response = await GET(new NextRequest('http://localhost/api/summaries'));
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysisResult');
-    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysisError');
+    const summary = body.exchanges[0].summaries[0];
+    expect(summary).not.toHaveProperty('patternDetails');
+    expect(summary).toEqual(expect.objectContaining({ buyPatternCount: 1, sellPatternCount: 0 }));
   });
 
   it('異常系: date パラメータが不正な場合は 400 を返す', async () => {
@@ -488,7 +412,7 @@ describe('GET /api/summaries', () => {
         Name: 'NYSE',
       },
     ]);
-    mockGetAllTickers.mockResolvedValue({ items: [] });
+    setTickers([]);
     mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
     mockGetByExchange.mockResolvedValue([]);
 
@@ -513,6 +437,10 @@ describe('GET /api/summaries', () => {
           summaries: [],
         },
       ],
+      marketForecasts: [
+        { market: 'JP', date: '2024-01-15', forecast: null },
+        { market: 'US', date: '2024-01-15', forecast: null },
+      ],
     });
   });
 
@@ -531,7 +459,7 @@ describe('GET /api/summaries', () => {
 
   it('正常系: 保有株式情報がある場合は summaries に holding を含める', async () => {
     mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
-    mockGetAllTickers.mockResolvedValue({ items: [] });
+    setTickers([]);
     mockGetByExchange.mockResolvedValue([
       {
         TickerID: 'NSDQ:AAPL',
@@ -576,7 +504,7 @@ describe('GET /api/summaries', () => {
 
   it('正常系: 保有株式情報の取得に失敗してもサマリー取得を継続する', async () => {
     mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
-    mockGetAllTickers.mockResolvedValue({ items: [] });
+    setTickers([]);
     mockGetByExchange.mockResolvedValue([
       {
         TickerID: 'NSDQ:AAPL',
@@ -601,5 +529,138 @@ describe('GET /api/summaries', () => {
         holding: null,
       })
     );
+  });
+
+  describe('確度の結合', () => {
+    const summary = (tickerId: string, exchangeId: string, date: string) => ({
+      TickerID: tickerId,
+      ExchangeID: exchangeId,
+      Date: date,
+      Open: 1,
+      High: 2,
+      Low: 1,
+      Close: 2,
+      CreatedAt: 1,
+      UpdatedAt: 1,
+    });
+
+    it('正常系: 取引所ごとに 1 回だけ Forecast を引いて銘柄へ結合する', async () => {
+      mockGetAllExchanges.mockResolvedValue([
+        { ExchangeID: 'NASDAQ', Name: 'NASDAQ', Market: 'US' },
+        { ExchangeID: 'TSE', Name: 'TSE', Market: 'JP' },
+      ]);
+      setTickers([]);
+      mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
+      mockGetByExchange
+        .mockResolvedValueOnce([
+          summary('NSDQ:AAPL', 'NASDAQ', '2024-01-15'),
+          summary('NSDQ:MSFT', 'NASDAQ', '2024-01-15'),
+        ])
+        .mockResolvedValueOnce([summary('TSE:7203', 'TSE', '2024-01-16')]);
+      mockGetForecastsByExchangeAndDate.mockImplementation(async (exchangeId: string) =>
+        exchangeId === 'NASDAQ'
+          ? [
+              {
+                TickerID: 'NSDQ:AAPL',
+                AxisValues: { 'morning-star': true, 'bearish-engulfing': 1 },
+                Probabilities: {
+                  DIR: {
+                    probability: 0.56,
+                    baseline: 0.5,
+                    lean: 'UP',
+                    neutralBand: { lower: -0.05, upper: 0.05 },
+                    bandHistory: null,
+                    contributions: {},
+                    lowSampleAxes: [],
+                  },
+                },
+              },
+            ]
+          : []
+      );
+      mockGetMarketForecast.mockImplementation(async (market: string) =>
+        market === 'JP'
+          ? {
+              Probabilities: {
+                MKT: {
+                  probability: 0.4,
+                  baseline: 0.3,
+                  lean: 'HIGH',
+                  neutralBand: { lower: 0, upper: 0.1 },
+                  bandHistory: null,
+                  contributions: {},
+                  lowSampleAxes: [],
+                },
+              },
+            }
+          : null
+      );
+      mockGetPerformanceByPeriod.mockResolvedValue([{ evaluatedCount: 3 }, { evaluatedCount: 0 }]);
+
+      const response = await GET(new NextRequest('http://localhost/api/summaries'));
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(mockGetForecastsByExchangeAndDate).toHaveBeenCalledTimes(2);
+      expect(mockGetForecastsByExchangeAndDate).toHaveBeenCalledWith('NASDAQ', '2024-01-15');
+      expect(mockGetForecastsByExchangeAndDate).toHaveBeenCalledWith('TSE', '2024-01-16');
+      expect(body.exchanges[0].summaries[0].forecast).toEqual({
+        dir: { probability: 0.56, baseline: 0.5, lean: 'UP' },
+        vol: null,
+        lit: { total: 2, buy: 1, sell: 1 },
+      });
+      expect(body.exchanges[0].summaries[1].forecast).toBeNull();
+      expect(body.marketForecasts).toEqual([
+        {
+          market: 'JP',
+          date: '2024-01-16',
+          forecast: { probability: 0.4, baseline: 0.3, lean: 'HIGH', lowSample: true },
+        },
+        { market: 'US', date: '2024-01-15', forecast: null },
+      ]);
+      expect(mockGetPerformanceByPeriod).toHaveBeenCalledWith(
+        'MKT',
+        'JP',
+        '0000-01-01',
+        '2024-01-15'
+      );
+    });
+
+    it('正常系: Forecast の取得に失敗しても一覧を返す', async () => {
+      mockGetAllExchanges.mockResolvedValue([
+        { ExchangeID: 'NASDAQ', Name: 'NASDAQ', Market: 'US' },
+      ]);
+      setTickers([]);
+      mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
+      mockGetByExchange.mockResolvedValue([summary('NSDQ:AAPL', 'NASDAQ', '2024-01-15')]);
+      mockGetForecastsByExchangeAndDate.mockRejectedValue(new Error('forecast db error'));
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      const response = await GET(new NextRequest('http://localhost/api/summaries'));
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.exchanges[0].summaries[0].forecast).toBeNull();
+    });
+
+    it('正常系: 市場の荒れ予報の取得に失敗しても一覧を返し、JP・US を null で返す', async () => {
+      mockGetAllExchanges.mockResolvedValue([
+        { ExchangeID: 'NASDAQ', Name: 'NASDAQ', Market: 'US' },
+      ]);
+      setTickers([]);
+      mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
+      mockGetByExchange.mockResolvedValue([summary('NSDQ:AAPL', 'NASDAQ', '2024-01-15')]);
+      mockGetMarketForecast.mockRejectedValue(new Error('market db error'));
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      const response = await GET(new NextRequest('http://localhost/api/summaries'));
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.marketForecasts).toEqual([
+        { market: 'JP', date: null, forecast: null },
+        { market: 'US', date: null, forecast: null },
+      ]);
+    });
   });
 });

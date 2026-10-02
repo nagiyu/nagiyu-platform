@@ -46,67 +46,6 @@ describe('DailySummaryEntity 型定義', () => {
     expect(input.Volume).toBe(7654321);
   });
 
-  it('AiAnalysisResult フィールドが構造化データとして保持できる', () => {
-    const entity: DailySummaryEntity = {
-      TickerID: 'NSDQ:AAPL',
-      ExchangeID: 'NASDAQ',
-      Date: '2026-02-27',
-      Open: 100,
-      High: 110,
-      Low: 90,
-      Close: 105,
-      AiAnalysisResult: {
-        priceMovementAnalysis: '本日は上昇トレンドが継続しています。',
-        patternAnalysis: 'パターン分析結果は中立です。',
-        supportLevels: [100, 99, 98],
-        resistanceLevels: [110, 111, 112],
-        relatedMarketTrend: '関連市場は方向感が乏しい状態です。',
-        investmentJudgment: {
-          signal: 'NEUTRAL',
-          reason: '明確な優位性がありません。',
-        },
-      },
-      CreatedAt: 1700000000000,
-      UpdatedAt: 1700000000000,
-    };
-
-    expect(entity.AiAnalysisResult?.investmentJudgment.signal).toBe('NEUTRAL');
-  });
-
-  it('AiAnalysisError フィールドが string として保持できる', () => {
-    const entity: DailySummaryEntity = {
-      TickerID: 'NSDQ:AAPL',
-      ExchangeID: 'NASDAQ',
-      Date: '2026-02-27',
-      Open: 100,
-      High: 110,
-      Low: 90,
-      Close: 105,
-      AiAnalysisError: 'OpenAI API 呼び出しに失敗しました',
-      CreatedAt: 1700000000000,
-      UpdatedAt: 1700000000000,
-    };
-
-    expect(entity.AiAnalysisError).toBe('OpenAI API 呼び出しに失敗しました');
-  });
-
-  it('AiAnalysisResult / AiAnalysisError が未生成状態として undefined を保持できる', () => {
-    const entity: DailySummaryEntity = {
-      TickerID: 'NSDQ:AAPL',
-      ExchangeID: 'NASDAQ',
-      Date: '2026-02-27',
-      Open: 100,
-      High: 110,
-      Low: 90,
-      Close: 105,
-      CreatedAt: 1700000000000,
-      UpdatedAt: 1700000000000,
-    };
-
-    expect(entity.AiAnalysisResult).toBeUndefined();
-    expect(entity.AiAnalysisError).toBeUndefined();
-  });
-
   it('DailySummaryKey が tickerId/date を保持できる', () => {
     const key: DailySummaryKey = {
       tickerId: 'NSDQ:AAPL',

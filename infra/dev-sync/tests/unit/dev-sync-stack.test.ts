@@ -447,7 +447,7 @@ describe('DevSyncStack', () => {
       }
     });
 
-    it('実 MANIFEST でスケジュールがちょうど 7 個作られる（Niconico 1 + StockTracer 6）', () => {
+    it('実 MANIFEST でスケジュールがちょうど 3 個作られる（Niconico 1 + StockTracer 2）', () => {
       const stack = new DevSyncStack(app, 'TestStackPhaseBC', {
         environment: 'dev',
         ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
@@ -455,7 +455,7 @@ describe('DevSyncStack', () => {
       });
 
       const template = Template.fromStack(stack);
-      template.resourceCountIs('AWS::Scheduler::Schedule', 7);
+      template.resourceCountIs('AWS::Scheduler::Schedule', 3);
     });
 
     it('Lambda 実行ロールに Niconico source（prod）への直接権限が含まれず、source 読み取りロールへの AssumeRole のみが含まれる', () => {
@@ -504,7 +504,7 @@ describe('DevSyncStack', () => {
       expect(allPoliciesStr).toContain('dynamodb:DeleteItem');
     });
 
-    it('ManifestEntryCount が 7 と出力される', () => {
+    it('ManifestEntryCount が 3 と出力される', () => {
       const stack = new DevSyncStack(app, 'TestStackPhaseBCCount', {
         environment: 'dev',
         ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
@@ -513,41 +513,12 @@ describe('DevSyncStack', () => {
 
       const template = Template.fromStack(stack);
       template.hasOutput('ManifestEntryCount', {
-        Value: '7',
+        Value: '3',
       });
     });
   });
 
   describe('Phase C: StockTracer マニフェスト内容のアサーション', () => {
-    it('DailySummary の gsiWindow エントリが NYSE/NASDAQ/AMEX/TSE の 4 取引所分・各 1 件存在する', () => {
-      const exchanges = ['NYSE', 'NASDAQ', 'AMEX', 'TSE'];
-      for (const exchange of exchanges) {
-        const matching = MANIFEST.filter(
-          (entry) =>
-            entry.strategy === 'gsiWindow' &&
-            entry.gsi?.pkValue === exchange
-        );
-        expect(matching).toHaveLength(1);
-      }
-    });
-
-    it('DailySummary の gsiWindow エントリの gsi 設定が正しい', () => {
-      const gsiEntries = MANIFEST.filter(
-        (entry) =>
-          entry.strategy === 'gsiWindow' &&
-          entry.sourceTable === 'nagiyu-stock-tracker-main-prod'
-      );
-      expect(gsiEntries).toHaveLength(4);
-      for (const entry of gsiEntries) {
-        expect(entry.gsi?.indexName).toBe('ExchangeSummaryIndex');
-        expect(entry.gsi?.skPrefix).toBe('DATE#');
-        expect(entry.gsi?.dateGranularity).toBe('date');
-        expect(entry.gsi?.windowDays).toBe(14);
-        expect(entry.delete).toBe('off');
-        expect(entry.destTable).toBe('nagiyu-stock-tracker-main-dev');
-      }
-    });
-
     it('Exchange mirror エントリが pkPrefix="EXCHANGE#" で 1 件・delete=on で存在する', () => {
       const matching = MANIFEST.filter(
         (entry) =>

@@ -9,7 +9,7 @@ import type { ValidationResult } from '@nagiyu/common';
 import { isNonEmptyString, isValidTimestamp } from '@nagiyu/common';
 import type { Exchange, Ticker, Holding, Alert } from '../types.js';
 import { isValidPrice, isValidQuantity } from './helpers.js';
-import { PRICE_SOURCES } from '../entities/exchange.entity.js';
+import { PRICE_SOURCES, EXCHANGE_MARKETS } from '../entities/exchange.entity.js';
 
 /**
  * バリデーションエラーメッセージ定数
@@ -31,6 +31,7 @@ const ERROR_MESSAGES = {
   EXCHANGE_END_INVALID_FORMAT: '取引終了時刻はHH:MM形式（例: 20:00）で入力してください',
   EXCHANGE_PRICE_SOURCE_INVALID:
     'データソースは "tradingview" または "finnhub" のいずれかを指定してください',
+  EXCHANGE_MARKET_INVALID: '市場は "JP" または "US" のいずれかを指定してください',
   EXCHANGE_CREATED_AT_REQUIRED: '作成日時は必須です',
   EXCHANGE_CREATED_AT_INVALID: '作成日時が無効です',
   EXCHANGE_UPDATED_AT_REQUIRED: '更新日時は必須です',
@@ -171,6 +172,13 @@ export function validateExchange(exchange: unknown): ValidationResult {
   if (ex.PriceSource !== undefined) {
     if (!(PRICE_SOURCES as readonly string[]).includes(ex.PriceSource as string)) {
       errors.push(ERROR_MESSAGES.EXCHANGE_PRICE_SOURCE_INVALID);
+    }
+  }
+
+  // Market（省略可能。未設定に戻す null も許可し、指定される場合は有効値のみ許可）
+  if (ex.Market !== undefined && ex.Market !== null) {
+    if (!(EXCHANGE_MARKETS as readonly string[]).includes(ex.Market as string)) {
+      errors.push(ERROR_MESSAGES.EXCHANGE_MARKET_INVALID);
     }
   }
 

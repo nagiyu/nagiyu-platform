@@ -11,7 +11,7 @@ export interface EventBridgeStackProps extends cdk.StackProps {
   batchSummaryFunction: lambda.IFunction;
   batchDailyFunction: lambda.IFunction;
   batchTemporaryAlertExpiryFunction: lambda.IFunction;
-  batchEvaluationFunction: lambda.IFunction;
+  batchForecastFunction: lambda.IFunction;
 }
 
 /**
@@ -22,7 +22,7 @@ export interface EventBridgeStackProps extends cdk.StackProps {
  * - Hourly: 1時間間隔（HOURLY_LEVEL アラート処理）
  * - Summary: 1時間間隔（日次サマリー生成）
  * - Temporary Alert Expiry: 1時間間隔（一時通知アラートの期限切れ無効化）
- * - Evaluation: 1時間間隔（予測精度の採点）
+ * - Forecast: 1時間間隔（確度算出）
  * - Daily: 日次（データクリーンアップ）
  */
 export class EventBridgeStack extends cdk.Stack {
@@ -36,7 +36,7 @@ export class EventBridgeStack extends cdk.Stack {
       batchSummaryFunction,
       batchDailyFunction,
       batchTemporaryAlertExpiryFunction,
-      batchEvaluationFunction,
+      batchForecastFunction,
     } = props;
 
     // EventBridge Rule - Minute（1分間隔）
@@ -56,12 +56,10 @@ export class EventBridgeStack extends cdk.Stack {
     hourlyRule.addTarget(new targets.LambdaFunction(batchHourlyFunction));
 
     // EventBridge Rule - Summary（1時間間隔、日次サマリー生成）
-    // dev では DailySummary を dev-sync でコピーするため、二重実行を避けるために自動実行を停止する
     const summaryRule = new events.Rule(this, 'BatchSummaryRule', {
       ruleName: `stock-tracker-batch-summary-${environment}`,
       description: 'Trigger Stock Tracker Summary Batch every 1 hour',
       schedule: events.Schedule.rate(cdk.Duration.hours(1)),
-      enabled: environment === 'prod',
     });
     summaryRule.addTarget(new targets.LambdaFunction(batchSummaryFunction));
 
@@ -75,15 +73,13 @@ export class EventBridgeStack extends cdk.Stack {
       new targets.LambdaFunction(batchTemporaryAlertExpiryFunction)
     );
 
-    // EventBridge Rule - Evaluation（1時間間隔、予測精度の採点）
-    // dev では DailySummary を dev-sync でコピーするため、採点の二重実行を避けるために自動実行を停止する
-    const evaluationRule = new events.Rule(this, 'BatchEvaluationRule', {
-      ruleName: `stock-tracker-batch-evaluation-${environment}`,
-      description: 'Trigger Stock Tracker Evaluation Batch every 1 hour',
+    // EventBridge Rule - Forecast（1時間間隔、確度算出）
+    const forecastRule = new events.Rule(this, 'BatchForecastRule', {
+      ruleName: `stock-tracker-batch-forecast-${environment}`,
+      description: 'Trigger Stock Tracker Forecast Batch every 1 hour',
       schedule: events.Schedule.rate(cdk.Duration.hours(1)),
-      enabled: environment === 'prod',
     });
-    evaluationRule.addTarget(new targets.LambdaFunction(batchEvaluationFunction));
+    forecastRule.addTarget(new targets.LambdaFunction(batchForecastFunction));
 
     // EventBridge Rule - Daily（日次、UTC 0:00）
     const dailyRule = new events.Rule(this, 'BatchDailyRule', {
@@ -105,7 +101,7 @@ export class EventBridgeStack extends cdk.Stack {
       hourlyRule,
       summaryRule,
       temporaryAlertExpiryRule,
-      evaluationRule,
+      forecastRule,
       dailyRule,
     ].forEach((rule) => {
       cdk.Tags.of(rule).add('Application', 'nagiyu');
@@ -134,9 +130,9 @@ export class EventBridgeStack extends cdk.Stack {
       description: 'Temporary Alert Expiry Batch EventBridge Rule ARN',
     });
 
-    new cdk.CfnOutput(this, 'EvaluationRuleArn', {
-      value: evaluationRule.ruleArn,
-      description: 'Evaluation Batch EventBridge Rule ARN',
+    new cdk.CfnOutput(this, 'ForecastRuleArn', {
+      value: forecastRule.ruleArn,
+      description: 'Forecast Batch EventBridge Rule ARN',
     });
 
     new cdk.CfnOutput(this, 'DailyRuleArn', {

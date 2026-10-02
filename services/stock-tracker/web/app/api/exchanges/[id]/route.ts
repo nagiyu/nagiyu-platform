@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
-import { validateExchange, PRICE_SOURCES, type PriceSource } from '@nagiyu/stock-tracker-core';
+import {
+  validateExchange,
+  PRICE_SOURCES,
+  type PriceSource,
+  EXCHANGE_MARKETS,
+  type ExchangeMarket,
+} from '@nagiyu/stock-tracker-core';
 import { withAuth, handleApiError } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
 import { createExchangeRepository } from '../../../../lib/repository-factory';
@@ -14,6 +20,7 @@ const ERROR_MESSAGES = {
   RELATED_TICKERS_EXIST: '関連するティッカーが存在するため削除できません',
   INVALID_PRICE_SOURCE:
     'データソースは "tradingview" または "finnhub" のいずれかを指定してください',
+  INVALID_MARKET: '市場は "JP" または "US" のいずれかを指定してください',
 } as const;
 
 /**
@@ -65,6 +72,7 @@ export const GET = withAuth(
           end: exchange.End,
         },
         priceSource: exchange.PriceSource,
+        market: exchange.Market,
         createdAt: new Date(exchange.CreatedAt).toISOString(),
         updatedAt: new Date(exchange.UpdatedAt).toISOString(),
       });
@@ -126,6 +134,18 @@ export const PUT = withAuth(
         );
       }
 
+      // market のバリデーション（指定された場合のみ。null は未設定に戻す指定として許容する）
+      if (
+        body.market !== undefined &&
+        body.market !== null &&
+        !(EXCHANGE_MARKETS as readonly string[]).includes(body.market)
+      ) {
+        return NextResponse.json(
+          { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.INVALID_MARKET },
+          { status: 400 }
+        );
+      }
+
       // 更新可能なフィールドのみ抽出
       const updates: {
         Name?: string;
@@ -133,6 +153,7 @@ export const PUT = withAuth(
         Start?: string;
         End?: string;
         PriceSource?: PriceSource;
+        Market?: ExchangeMarket | null;
       } = {};
 
       if (body.name !== undefined) {
@@ -153,6 +174,11 @@ export const PUT = withAuth(
 
       if (body.priceSource !== undefined) {
         updates.PriceSource = body.priceSource as PriceSource;
+      }
+
+      // market は undefined（更新しない）・null（未設定に戻す）・値（設定）の3値を区別する
+      if (body.market !== undefined) {
+        updates.Market = body.market === null ? null : (body.market as ExchangeMarket);
       }
 
       // 更新フィールドが空の場合はエラー
@@ -199,6 +225,7 @@ export const PUT = withAuth(
           end: updatedExchange.End,
         },
         priceSource: updatedExchange.PriceSource,
+        market: updatedExchange.Market,
         updatedAt: new Date(updatedExchange.UpdatedAt).toISOString(),
       });
     } catch (error) {

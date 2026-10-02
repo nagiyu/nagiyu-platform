@@ -9,7 +9,6 @@
  */
 
 export * from './types.js';
-export type { AiAnalysisResult, InvestmentSignal } from './ai-analysis-result.js';
 export * from './validation/helpers.js';
 export * from './validation/index.js';
 export { CandlestickPattern } from './patterns/candlestick-pattern.js';
@@ -49,10 +48,22 @@ export type { AlertRepository } from './repositories/alert.repository.interface.
 export type { HoldingRepository } from './repositories/holding.repository.interface.js';
 export type { TickerRepository } from './repositories/ticker.repository.interface.js';
 export type { ExchangeRepository } from './repositories/exchange.repository.interface.js';
+export type { DailySummaryRepository } from './repositories/daily-summary.repository.interface.js';
 export type {
-  DailySummaryRepository,
-  DailySummaryEvaluationFields,
-} from './repositories/daily-summary.repository.interface.js';
+  ForecastRepository,
+  CreateForecastResult,
+  AppendForecastOutcomeResult,
+} from './repositories/forecast.repository.interface.js';
+export type {
+  MarketForecastRepository,
+  CreateMarketForecastResult,
+  AppendMarketForecastOutcomeResult,
+} from './repositories/market-forecast.repository.interface.js';
+export type {
+  ModelSnapshotRepository,
+  CreateModelSnapshotResult,
+} from './repositories/model-snapshot.repository.interface.js';
+export type { PerformanceDailyRepository } from './repositories/performance-daily.repository.interface.js';
 
 // Entities (explicit exports to avoid conflicts with types.ts)
 export type {
@@ -78,14 +89,32 @@ export type {
   CreateExchangeInput,
   UpdateExchangeInput,
   PriceSource,
+  ExchangeMarket,
 } from './entities/exchange.entity.js';
 export { PRICE_SOURCES, DEFAULT_PRICE_SOURCE } from './entities/exchange.entity.js';
+export { EXCHANGE_MARKETS, EXCHANGE_MARKET_LABELS } from './entities/exchange.entity.js';
 export type {
   DailySummaryEntity,
+  DailySummaryForecastFields,
   CreateDailySummaryInput,
   DailySummaryKey,
 } from './entities/daily-summary.entity.js';
 export type { TemporaryAlertCandidate } from './entities/temporary-alert-candidate.entity.js';
+export type {
+  ForecastEntity,
+  ForecastNormal,
+  ForecastOutcome,
+  CreateForecastInput,
+  ForecastKey,
+} from './entities/forecast.entity.js';
+export type {
+  MarketForecastEntity,
+  MarketForecastOutcome,
+  CreateMarketForecastInput,
+  MarketForecastKey,
+} from './entities/market-forecast.entity.js';
+export type { ModelSnapshotKey } from './entities/model-snapshot.entity.js';
+export type { PerformanceDailyKey } from './entities/performance-daily.entity.js';
 
 // Mappers
 export * from './mappers/alert.mapper.js';
@@ -93,6 +122,10 @@ export * from './mappers/holding.mapper.js';
 export * from './mappers/ticker.mapper.js';
 export * from './mappers/exchange.mapper.js';
 export * from './mappers/daily-summary.mapper.js';
+export * from './mappers/forecast.mapper.js';
+export * from './mappers/market-forecast.mapper.js';
+export * from './mappers/model-snapshot.mapper.js';
+export * from './mappers/performance-daily.mapper.js';
 
 // DynamoDB Implementations
 export * from './repositories/dynamodb-alert.repository.js';
@@ -100,6 +133,10 @@ export * from './repositories/dynamodb-holding.repository.js';
 export * from './repositories/dynamodb-ticker.repository.js';
 export * from './repositories/dynamodb-exchange.repository.js';
 export * from './repositories/dynamodb-daily-summary.repository.js';
+export * from './repositories/dynamodb-forecast.repository.js';
+export * from './repositories/dynamodb-market-forecast.repository.js';
+export * from './repositories/dynamodb-model-snapshot.repository.js';
+export * from './repositories/dynamodb-performance-daily.repository.js';
 
 // InMemory Implementations
 export * from './repositories/in-memory-alert.repository.js';
@@ -107,14 +144,19 @@ export * from './repositories/in-memory-holding.repository.js';
 export * from './repositories/in-memory-ticker.repository.js';
 export * from './repositories/in-memory-exchange.repository.js';
 export * from './repositories/in-memory-daily-summary.repository.js';
+export * from './repositories/in-memory-forecast.repository.js';
+export * from './repositories/in-memory-market-forecast.repository.js';
+export * from './repositories/in-memory-model-snapshot.repository.js';
+export * from './repositories/in-memory-performance-daily.repository.js';
 
 // Services
 export * from './services/alert-evaluator.js';
 export * from './services/price-calculator.js';
 export * from './services/trading-hours-checker.js';
 export * from './services/tradingview-client.js';
-export * from './services/prediction-judger.js';
-export * from './services/prediction-aggregator.js';
+
+// Forecast（確度の算出。DB・バッチ・画面には触れない純粋関数群）
+export * from './forecast/index.js';
 
 // Market Data（現在価格プロバイダー抽象化）
 export type {

@@ -6,27 +6,9 @@
 
 import type {
   DailySummaryEntity,
-  DailySummaryKey,
+  DailySummaryForecastFields,
   CreateDailySummaryInput,
 } from '../entities/daily-summary.entity.js';
-
-/**
- * `markAsEvaluated` で 1 回の書き込みとして反映する採点結果フィールド集合
- */
-export interface DailySummaryEvaluationFields {
-  /** 採点に使った翌営業日 (YYYY-MM-DD) */
-  EvaluationDate: string;
-  /** 採点終値 */
-  EvaluationClose: number;
-  /** 実績リターン (%) */
-  ActualReturn: number;
-  /** Hit / Miss 判定 */
-  Hit: boolean;
-  /** 採点に使った閾値 (%) */
-  EvaluationThresholdPercent: number;
-  /** 採点実行時刻 (Unix timestamp ms) */
-  EvaluatedAt: number;
-}
 
 /**
  * Daily Summary Repository インターフェース
@@ -58,8 +40,8 @@ export interface DailySummaryRepository {
   /**
    * 取引所IDと日付範囲でサマリーを取得
    *
-   * 採点バッチ / 集計 API 用。既存 `getByExchange` は単一日付 / 最新日に特化しているため
-   * 期間範囲対応を新設する。範囲は両端含む（inclusive）。
+   * `getByExchange` は単一日付 / 最新日に特化しているため、期間範囲の取得はこちらを使う。
+   * 範囲は両端含む（inclusive）。
    *
    * 返却順序は Date 昇順・同日内は TickerID 昇順を契約とする（兄弟メソッドの
    * `getByExchange` と同じ順序）。
@@ -76,23 +58,27 @@ export interface DailySummaryRepository {
   ): Promise<DailySummaryEntity[]>;
 
   /**
+   * 取引所IDと日付範囲で、確度算出に使う属性だけを取得する。
+   *
+   * 確度算出に使わない属性を持たないため、`getByExchangeAndDateRange` より読み出し量が少ない。
+   * 返却順序・範囲の両端の扱いは `getByExchangeAndDateRange` と同じ。
+   *
+   * @param exchangeId - 取引所ID
+   * @param fromDate - 開始日 (YYYY-MM-DD、含む)
+   * @param toDate - 終了日 (YYYY-MM-DD、含む)
+   * @returns 期間内の全サマリーの射影配列（Date昇順・同日内はTickerID昇順）
+   */
+  getForecastFieldsByExchangeAndDateRange(
+    exchangeId: string,
+    fromDate: string,
+    toDate: string
+  ): Promise<DailySummaryForecastFields[]>;
+
+  /**
    * サマリーを保存（既存の場合は上書き）
    *
    * @param input - 日次サマリーデータ
    * @returns 保存されたサマリー
    */
   upsert(input: CreateDailySummaryInput): Promise<DailySummaryEntity>;
-
-  /**
-   * 採点結果を既存 DailySummary に書き込む
-   *
-   * 条件: `attribute_not_exists(EvaluatedAt)`（二重採点防止）。
-   * 既に採点済みの場合は `EntityAlreadyExistsError` を投げ、呼び出し側で skip 判定できる。
-   *
-   * @param key - 対象 DailySummary のキー
-   * @param fields - 採点結果フィールド一式
-   * @throws {EntityAlreadyExistsError} 既に採点済みの場合
-   * @throws {EntityNotFoundError} 対象の DailySummary が存在しない場合
-   */
-  markAsEvaluated(key: DailySummaryKey, fields: DailySummaryEvaluationFields): Promise<void>;
 }

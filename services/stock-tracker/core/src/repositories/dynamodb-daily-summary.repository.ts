@@ -8,22 +8,13 @@ import {
   GetCommand,
   PutCommand,
   QueryCommand,
-  UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import {
-  DatabaseError,
-  EntityAlreadyExistsError,
-  EntityNotFoundError,
-  type DynamoDBItem,
-} from '@nagiyu/aws';
-import type {
-  DailySummaryEvaluationFields,
-  DailySummaryRepository,
-} from './daily-summary.repository.interface.js';
+import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import type { DailySummaryRepository } from './daily-summary.repository.interface.js';
 import type {
   DailySummaryEntity,
-  DailySummaryKey,
+  DailySummaryForecastFields,
   CreateDailySummaryInput,
 } from '../entities/daily-summary.entity.js';
 import { DailySummaryMapper } from '../mappers/daily-summary.mapper.js';
@@ -77,12 +68,17 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
    * 取引所IDでサマリーを取得（GSI4=ExchangeSummaryIndexを使用）
    *
    * GSI4SK（`DATE#{Date}#{TickerID}`）昇順のQueryで、インタフェース契約のDate昇順・
-   * 同日内TickerID昇順を実現する。date指定時はbegins_with、省略時はパーティション全件
-   * （PKのみ）のQuery＋クライアント側での最新日フィルタ。LastEvaluatedKeyループで
-   * 全件を集約してから最新日を判定するため、ページ境界をまたいでも取りこぼさない。
+   * 同日内TickerID昇順を実現する。date省略時は、取引所の全履歴を読むと履歴の増加に
+   * 比例して遅くなるため、GSI4SK降順・Limit 1のQueryで最新日だけを先に特定し、
+   * その日付で date 指定時と同じ Query を行う。
    */
   public async getByExchange(exchangeId: string, date?: string): Promise<DailySummaryEntity[]> {
     try {
+      const targetDate = date ?? (await this.findLatestDate(exchangeId));
+      if (targetDate === undefined) {
+        return [];
+      }
+
       const items: DynamoDBItem[] = [];
       let lastEvaluatedKey: Record<string, unknown> | undefined;
 
@@ -91,25 +87,15 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
           new QueryCommand({
             TableName: this.tableName,
             IndexName: 'ExchangeSummaryIndex',
-            KeyConditionExpression: date
-              ? '#gsi4pk = :exchangeId AND begins_with(#gsi4sk, :datePrefix)'
-              : '#gsi4pk = :exchangeId',
-            ExpressionAttributeNames: date
-              ? {
-                  '#gsi4pk': 'GSI4PK',
-                  '#gsi4sk': 'GSI4SK',
-                }
-              : {
-                  '#gsi4pk': 'GSI4PK',
-                },
-            ExpressionAttributeValues: date
-              ? {
-                  ':exchangeId': exchangeId,
-                  ':datePrefix': `DATE#${date}`,
-                }
-              : {
-                  ':exchangeId': exchangeId,
-                },
+            KeyConditionExpression: '#gsi4pk = :exchangeId AND begins_with(#gsi4sk, :datePrefix)',
+            ExpressionAttributeNames: {
+              '#gsi4pk': 'GSI4PK',
+              '#gsi4sk': 'GSI4SK',
+            },
+            ExpressionAttributeValues: {
+              ':exchangeId': exchangeId,
+              ':datePrefix': `DATE#${targetDate}`,
+            },
             ExclusiveStartKey: lastEvaluatedKey,
           })
         );
@@ -118,21 +104,37 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
         lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
       } while (lastEvaluatedKey);
 
-      const summaries = items.map((item) => this.mapper.toEntity(item));
-
-      if (date || summaries.length === 0) {
-        return summaries;
-      }
-
-      const latestDate = summaries.reduce((latest, summary) => {
-        return summary.Date > latest ? summary.Date : latest;
-      }, summaries[0].Date);
-
-      return summaries.filter((summary) => summary.Date === latestDate);
+      return items.map((item) => this.mapper.toEntity(item));
     } catch (error) {
       const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
+  }
+
+  /**
+   * 取引所の最新サマリー日付を取得する（GSI4を降順・1件で引く）
+   *
+   * @returns 最新日付。サマリーが1件もなければ undefined
+   */
+  private async findLatestDate(exchangeId: string): Promise<string | undefined> {
+    const result = await this.docClient.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: 'ExchangeSummaryIndex',
+        KeyConditionExpression: '#gsi4pk = :exchangeId',
+        ExpressionAttributeNames: {
+          '#gsi4pk': 'GSI4PK',
+        },
+        ExpressionAttributeValues: {
+          ':exchangeId': exchangeId,
+        },
+        ScanIndexForward: false,
+        Limit: 1,
+      })
+    );
+
+    const latest = result.Items?.[0] as DynamoDBItem | undefined;
+    return latest ? this.mapper.toEntity(latest).Date : undefined;
   }
 
   /**
@@ -187,6 +189,64 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
   }
 
   /**
+   * 取引所IDと日付範囲で、確度算出に使う属性だけを ProjectionExpression で絞って取得する
+   * （GSI4使用、両端含む。範囲の扱いは `getByExchangeAndDateRange` と同じ）。
+   */
+  public async getForecastFieldsByExchangeAndDateRange(
+    exchangeId: string,
+    fromDate: string,
+    toDate: string
+  ): Promise<DailySummaryForecastFields[]> {
+    try {
+      const items: DynamoDBItem[] = [];
+      let lastEvaluatedKey: Record<string, unknown> | undefined;
+
+      do {
+        const result = await this.docClient.send(
+          new QueryCommand({
+            TableName: this.tableName,
+            IndexName: 'ExchangeSummaryIndex',
+            KeyConditionExpression: '#gsi4pk = :exchangeId AND #gsi4sk BETWEEN :from AND :to',
+            ProjectionExpression:
+              '#tickerId, #exchangeId, #date, #open, #high, #low, #close, #volume, ' +
+              '#patternResults, #buyPatternCount, #sellPatternCount, #createdAt',
+            ExpressionAttributeNames: {
+              '#gsi4pk': 'GSI4PK',
+              '#gsi4sk': 'GSI4SK',
+              '#tickerId': 'TickerID',
+              '#exchangeId': 'ExchangeID',
+              '#date': 'Date',
+              '#open': 'Open',
+              '#high': 'High',
+              '#low': 'Low',
+              '#close': 'Close',
+              '#volume': 'Volume',
+              '#patternResults': 'PatternResults',
+              '#buyPatternCount': 'BuyPatternCount',
+              '#sellPatternCount': 'SellPatternCount',
+              '#createdAt': 'CreatedAt',
+            },
+            ExpressionAttributeValues: {
+              ':exchangeId': exchangeId,
+              ':from': `DATE#${fromDate}`,
+              ':to': `DATE#${toDate}#~`,
+            },
+            ExclusiveStartKey: lastEvaluatedKey,
+          })
+        );
+
+        items.push(...((result.Items as DynamoDBItem[] | undefined) ?? []));
+        lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+      } while (lastEvaluatedKey);
+
+      return items.map((item) => this.mapper.toForecastFields(item));
+    } catch (error) {
+      const message = toErrorMessage(error);
+      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+    }
+  }
+
+  /**
    * サマリーを保存（既存の場合は上書き）
    */
   public async upsert(input: CreateDailySummaryInput): Promise<DailySummaryEntity> {
@@ -208,64 +268,6 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
 
       return entity;
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
-    }
-  }
-
-  /**
-   * 採点結果を既存 DailySummary に書き込む（条件付き UpdateItem）
-   *
-   * - 条件 `attribute_exists(PK)` で対象 DailySummary が存在することを保証
-   * - 条件 `attribute_not_exists(EvaluatedAt)` で二重採点を防止
-   * - いずれか違反時は `ConditionalCheckFailedException` が発生し、
-   *   存在しない場合は `EntityNotFoundError`、既採点の場合は `EntityAlreadyExistsError` に変換する
-   */
-  public async markAsEvaluated(
-    key: DailySummaryKey,
-    fields: DailySummaryEvaluationFields
-  ): Promise<void> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys(key);
-      const now = Date.now();
-
-      await this.docClient.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-          UpdateExpression:
-            'SET #evaluationDate = :evaluationDate, #evaluationClose = :evaluationClose, #actualReturn = :actualReturn, #hit = :hit, #evaluationThresholdPercent = :evaluationThresholdPercent, #evaluatedAt = :evaluatedAt, #updatedAt = :updatedAt',
-          ExpressionAttributeNames: {
-            '#evaluationDate': 'EvaluationDate',
-            '#evaluationClose': 'EvaluationClose',
-            '#actualReturn': 'ActualReturn',
-            '#hit': 'Hit',
-            '#evaluationThresholdPercent': 'EvaluationThresholdPercent',
-            '#evaluatedAt': 'EvaluatedAt',
-            '#updatedAt': 'UpdatedAt',
-          },
-          ExpressionAttributeValues: {
-            ':evaluationDate': fields.EvaluationDate,
-            ':evaluationClose': fields.EvaluationClose,
-            ':actualReturn': fields.ActualReturn,
-            ':hit': fields.Hit,
-            ':evaluationThresholdPercent': fields.EvaluationThresholdPercent,
-            ':evaluatedAt': fields.EvaluatedAt,
-            ':updatedAt': now,
-          },
-          ConditionExpression: 'attribute_exists(PK) AND attribute_not_exists(EvaluatedAt)',
-        })
-      );
-    } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        const identifier = `${key.tickerId}#${key.date}`;
-        // 既採点 vs 未存在を区別するために GetItem で再確認
-        const existing = await this.getByTickerAndDate(key.tickerId, key.date);
-        if (!existing) {
-          throw new EntityNotFoundError('DailySummary', identifier);
-        }
-        throw new EntityAlreadyExistsError('DailySummaryEvaluation', identifier);
-      }
       const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }

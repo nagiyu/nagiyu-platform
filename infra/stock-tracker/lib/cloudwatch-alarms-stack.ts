@@ -12,6 +12,7 @@ export interface CloudWatchAlarmsStackProps extends cdk.StackProps {
   batchMinuteFunction: lambda.IFunction;
   batchHourlyFunction: lambda.IFunction;
   batchDailyFunction: lambda.IFunction;
+  batchForecastFunction: lambda.IFunction;
   dynamoTable: dynamodb.ITable;
   alarmTopic: sns.ITopic;
   adminAlarmTopicArn: string;
@@ -21,7 +22,7 @@ export interface CloudWatchAlarmsStackProps extends cdk.StackProps {
  * Stock Tracker CloudWatch Alarms Stack
  *
  * Lambda と DynamoDB のメトリクスを監視し、異常時に SNS トピックに通知します。
- * 合計14個のアラームを設定します。
+ * 合計15個のアラームを設定します。
  */
 export class CloudWatchAlarmsStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: CloudWatchAlarmsStackProps) {
@@ -33,6 +34,7 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
       batchMinuteFunction,
       batchHourlyFunction,
       batchDailyFunction,
+      batchForecastFunction,
       dynamoTable,
       alarmTopic,
       adminAlarmTopicArn,
@@ -234,6 +236,24 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
     batchDailyThrottleAlarm.addAlarmAction(alarmAction);
     batchDailyThrottleAlarm.addAlarmAction(adminAlarmAction);
 
+    // Lambda Batch Forecast - エラー率アラーム
+    // リプレイ実行時は所要時間が大きく変わるため、実行時間・スロットリングのアラームは設けない
+    // （他の batch と同じ流儀のエラーアラームのみ）。
+    const batchForecastErrorAlarm = new cloudwatch.Alarm(this, 'BatchForecastLambdaErrorAlarm', {
+      alarmName: `stock-tracker-batch-forecast-error-rate-${environment}`,
+      alarmDescription: 'Batch Forecast Lambda error rate exceeds 10%',
+      metric: batchForecastFunction.metricErrors({
+        statistic: cloudwatch.Stats.AVERAGE,
+        period: cdk.Duration.minutes(5),
+      }),
+      threshold: 0.1, // 10%
+      evaluationPeriods: 1,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    batchForecastErrorAlarm.addAlarmAction(alarmAction);
+    batchForecastErrorAlarm.addAlarmAction(adminAlarmAction);
+
     // DynamoDB - Read Throttle Events アラーム
     const dynamoReadThrottleAlarm = new cloudwatch.Alarm(this, 'DynamoDBReadThrottleAlarm', {
       alarmName: `stock-tracker-dynamodb-read-throttle-${environment}`,
@@ -290,6 +310,7 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
       batchDailyErrorAlarm,
       batchDailyDurationAlarm,
       batchDailyThrottleAlarm,
+      batchForecastErrorAlarm,
       dynamoReadThrottleAlarm,
       dynamoWriteThrottleAlarm,
     ];

@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   DailySummaryMapper,
-  type AiAnalysisResult,
   type DailySummaryEntity,
   type ExchangeEntity,
-  type PatternDetailResponse,
+  type ForecastEntity,
   type TickerEntity,
 } from '@nagiyu/stock-tracker-core';
 import type { ErrorResponse } from '@nagiyu/common';
@@ -14,15 +13,27 @@ import {
   createAlertRepository,
   createDailySummaryRepository,
   createExchangeRepository,
+  createForecastRepository,
   createHoldingRepository,
+  createMarketForecastRepository,
+  createPerformanceDailyRepository,
   createTickerRepository,
 } from '../../../lib/repository-factory';
+import { isValidDateFormat } from '../../../lib/forecast/date';
+import { buildMarketForecasts } from '../../../lib/forecast/market-forecast';
+import {
+  indexForecastsByTicker,
+  toTickerForecastSummary,
+} from '../../../lib/forecast/ticker-forecast';
+import type { MarketForecastResponse, TickerForecastSummary } from '../../../types/forecast';
 
 const ERROR_MESSAGES = {
   INVALID_DATE: '日付はYYYY-MM-DD形式で指定してください',
   INTERNAL_ERROR: 'サマリーの取得に失敗しました',
   FETCH_HOLDINGS_FAILED: '保有株式情報の取得に失敗しました',
   FETCH_ALERTS_FAILED: 'アラート情報の取得に失敗しました',
+  FETCH_FORECASTS_FAILED: '確度情報の取得に失敗しました',
+  FETCH_MARKET_FORECASTS_FAILED: '市場の荒れ予報の取得に失敗しました',
 } as const;
 // サマリーAPIでは保有情報取得を1回のレスポンスで完結させるため、初期実装は100件を上限とする。
 // getByUserId の limit で先頭100件のみ取得し、典型的な利用の保有銘柄数を満たしつつ
@@ -40,6 +51,8 @@ interface HoldingSummaryResponse {
 
 interface TickerSummaryResponse {
   tickerId: string;
+  /** 確度の基準日（YYYY-MM-DD） */
+  date: string;
   symbol: string;
   name: string;
   open: number;
@@ -52,10 +65,8 @@ interface TickerSummaryResponse {
   sellPatternCount: number;
   buyAlertCount: AlertCountResponse;
   sellAlertCount: AlertCountResponse;
-  patternDetails: PatternDetailResponse[];
-  aiAnalysisResult?: AiAnalysisResult;
-  aiAnalysisError?: string;
   holding: HoldingSummaryResponse | null;
+  forecast: TickerForecastSummary | null;
 }
 
 interface AlertCountResponse {
@@ -77,15 +88,7 @@ interface ExchangeSummaryGroupResponse {
 
 interface SummariesResponse {
   exchanges: ExchangeSummaryGroupResponse[];
-}
-
-function isValidDateFormat(date: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return false;
-  }
-
-  const parsedDate = new Date(`${date}T00:00:00.000Z`);
-  return !Number.isNaN(parsedDate.getTime()) && parsedDate.toISOString().startsWith(date);
+  marketForecasts: MarketForecastResponse[];
 }
 
 function resolveTicker(
@@ -101,10 +104,12 @@ function toTickerSummaryResponse(
   summary: DailySummaryEntity,
   tickerMap: Map<string, TickerEntity>,
   holdingMap: Map<string, HoldingSummaryResponse>,
-  alertCountMap: Map<string, TickerAlertCountResponse>
+  alertCountMap: Map<string, TickerAlertCountResponse>,
+  forecastMap: Map<string, ForecastEntity>
 ): TickerSummaryResponse {
   const ticker = resolveTicker(summary, tickerMap);
   const holding = holdingMap.get(summary.TickerID) ?? null;
+  const patternCounts = dailySummaryMapper.toTickerSummaryResponse(summary);
   const alertCount = alertCountMap.get(summary.TickerID) ?? {
     buy: { enabled: 0, disabled: 0 },
     sell: { enabled: 0, disabled: 0 },
@@ -112,6 +117,7 @@ function toTickerSummaryResponse(
 
   return {
     tickerId: summary.TickerID,
+    date: summary.Date,
     symbol: ticker?.Symbol ?? summary.TickerID.split(':')[1] ?? summary.TickerID,
     name: ticker?.Name ?? summary.TickerID,
     open: summary.Open,
@@ -123,7 +129,9 @@ function toTickerSummaryResponse(
     holding,
     buyAlertCount: alertCount.buy,
     sellAlertCount: alertCount.sell,
-    ...dailySummaryMapper.toTickerSummaryResponse(summary),
+    forecast: toTickerForecastSummary(forecastMap.get(summary.TickerID)),
+    buyPatternCount: patternCounts.buyPatternCount,
+    sellPatternCount: patternCounts.sellPatternCount,
   };
 }
 
@@ -177,6 +185,49 @@ async function fetchAlertCountMap(userId: string): Promise<Map<string, TickerAle
   }
 }
 
+/**
+ * 取引所・日付単位で Forecast を 1 回だけ引く（銘柄ごとに引かない）。
+ * 確度は付加情報のため、取得に失敗しても一覧全体は返す。
+ */
+async function fetchForecastMap(
+  exchangeId: string,
+  date: string | null
+): Promise<Map<string, ForecastEntity>> {
+  if (date === null) {
+    return new Map<string, ForecastEntity>();
+  }
+  try {
+    const forecasts = await createForecastRepository().getByExchangeAndDate(exchangeId, date);
+    return indexForecastsByTicker(forecasts);
+  } catch (error) {
+    console.error(ERROR_MESSAGES.FETCH_FORECASTS_FAILED, error);
+    return new Map<string, ForecastEntity>();
+  }
+}
+
+async function fetchMarketForecasts(
+  requestedDate: string | null,
+  exchanges: readonly ExchangeEntity[],
+  groups: readonly ExchangeSummaryGroupResponse[]
+): Promise<MarketForecastResponse[]> {
+  try {
+    return await buildMarketForecasts(
+      {
+        marketForecastRepository: createMarketForecastRepository(),
+        performanceDailyRepository: createPerformanceDailyRepository(),
+      },
+      requestedDate,
+      exchanges.map((exchange, index) => ({
+        market: exchange.Market,
+        date: groups[index]?.date ?? null,
+      }))
+    );
+  } catch (error) {
+    console.error(ERROR_MESSAGES.FETCH_MARKET_FORECASTS_FAILED, error);
+    return (['JP', 'US'] as const).map((market) => ({ market, date: null, forecast: null }));
+  }
+}
+
 async function buildExchangeSummaryGroup(
   exchange: ExchangeEntity,
   date: string | null,
@@ -189,13 +240,15 @@ async function buildExchangeSummaryGroup(
     exchange.ExchangeID,
     date || undefined
   );
+  const resolvedDate = date ?? summaries[0]?.Date ?? null;
+  const forecastMap = await fetchForecastMap(exchange.ExchangeID, resolvedDate);
 
   return {
     exchangeId: exchange.ExchangeID,
     exchangeName: exchange.Name,
-    date: date ?? summaries[0]?.Date ?? null,
+    date: resolvedDate,
     summaries: summaries.map((summary) =>
-      toTickerSummaryResponse(summary, tickerMap, holdingMap, alertCountMap)
+      toTickerSummaryResponse(summary, tickerMap, holdingMap, alertCountMap, forecastMap)
     ),
   };
 }
@@ -224,23 +277,31 @@ export const GET = withAuth(
       const exchangeRepository = createExchangeRepository();
       const tickerRepository = createTickerRepository();
 
-      const [exchanges, tickersResult] = await Promise.all([
-        exchangeRepository.getAll(),
-        tickerRepository.getAll(),
-      ]);
+      // 一覧表示専用のため、テーブル全体を走査しない速い経路(GSI Query)で取引所と銘柄を集める
+      const exchanges = await exchangeRepository.getAllIndexed();
+      const tickersByExchange = await Promise.all(
+        exchanges.map((exchange) => tickerRepository.getByExchange(exchange.ExchangeID))
+      );
       const [holdingMap, alertCountMap] = await Promise.all([
         fetchHoldingMap(session.user.userId),
         fetchAlertCountMap(session.user.userId),
       ]);
 
-      const tickerMap = new Map(tickersResult.items.map((ticker) => [ticker.TickerID, ticker]));
+      const tickerMap = new Map(
+        tickersByExchange.flat().map((ticker) => [ticker.TickerID, ticker])
+      );
       const exchangeSummaryGroups = await Promise.all(
         exchanges.map((exchange) =>
           buildExchangeSummaryGroup(exchange, date, tickerMap, holdingMap, alertCountMap)
         )
       );
 
-      return NextResponse.json({ exchanges: exchangeSummaryGroups }, { status: 200 });
+      const marketForecasts = await fetchMarketForecasts(date, exchanges, exchangeSummaryGroups);
+
+      return NextResponse.json(
+        { exchanges: exchangeSummaryGroups, marketForecasts },
+        { status: 200 }
+      );
     } catch {
       return NextResponse.json(
         {

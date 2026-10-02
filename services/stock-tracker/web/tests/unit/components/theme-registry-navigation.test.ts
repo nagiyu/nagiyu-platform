@@ -113,6 +113,11 @@ describe('ThemeRegistry navigationItems', () => {
     );
     const navigationItems = getNavigationItems(html);
     expect(navigationItems).toContainEqual({ label: 'サマリー', href: '/summaries' });
+    expect(navigationItems).toContainEqual({ label: '判断軸の成績', href: '/axis-performance' });
+    expect(navigationItems).not.toContainEqual({
+      label: '予測精度',
+      href: '/prediction-evaluation',
+    });
   });
 
   it('user-manager ロール（stocks:read 権限なし）の場合にサマリー導線を表示しない', () => {
@@ -134,6 +139,10 @@ describe('ThemeRegistry navigationItems', () => {
     );
     const navigationItems = getNavigationItems(html);
     expect(navigationItems).not.toContainEqual({ label: 'サマリー', href: '/summaries' });
+    expect(navigationItems).not.toContainEqual({
+      label: '判断軸の成績',
+      href: '/axis-performance',
+    });
   });
 });
 

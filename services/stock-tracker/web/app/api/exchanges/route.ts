@@ -6,6 +6,8 @@ import {
   DEFAULT_PRICE_SOURCE,
   PRICE_SOURCES,
   type PriceSource,
+  EXCHANGE_MARKETS,
+  type ExchangeMarket,
 } from '@nagiyu/stock-tracker-core';
 import { withAuth, handleApiError } from '@nagiyu/nextjs';
 import { reportErrorEvent } from '@nagiyu/aws';
@@ -20,6 +22,7 @@ const ERROR_MESSAGES = {
   EXCHANGE_ALREADY_EXISTS: '取引所は既に存在します',
   INVALID_PRICE_SOURCE:
     'データソースは "tradingview" または "finnhub" のいずれかを指定してください',
+  INVALID_MARKET: '市場は "JP" または "US" のいずれかを指定してください',
 } as const;
 
 /**
@@ -54,6 +57,7 @@ export const GET = withAuth(getSession, 'stocks:read', async () => {
           end: exchange.End,
         },
         priceSource: exchange.PriceSource,
+        market: exchange.Market,
       })),
     });
   } catch (error) {
@@ -91,7 +95,7 @@ export const POST = withAuth(
       const body = await request.json();
 
       // リクエストボディから Exchange オブジェクトを構築（バリデーション用）
-      const { exchangeId, name, key, timezone, tradingHours, priceSource } = body;
+      const { exchangeId, name, key, timezone, tradingHours, priceSource, market } = body;
 
       // priceSource のバリデーション（指定された場合のみ）
       if (
@@ -100,6 +104,14 @@ export const POST = withAuth(
       ) {
         return NextResponse.json(
           { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.INVALID_PRICE_SOURCE },
+          { status: 400 }
+        );
+      }
+
+      // market のバリデーション（指定された場合のみ。省略可能で、デフォルト値は持たない）
+      if (market !== undefined && !(EXCHANGE_MARKETS as readonly string[]).includes(market)) {
+        return NextResponse.json(
+          { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.INVALID_MARKET },
           { status: 400 }
         );
       }
@@ -117,6 +129,7 @@ export const POST = withAuth(
         Start: tradingHours?.start,
         End: tradingHours?.end,
         PriceSource: resolvedPriceSource,
+        Market: market as ExchangeMarket | undefined,
         CreatedAt: Date.now(), // バリデーション用の仮値
         UpdatedAt: Date.now(), // バリデーション用の仮値
       };
@@ -146,6 +159,7 @@ export const POST = withAuth(
         Start: tradingHours.start,
         End: tradingHours.end,
         PriceSource: resolvedPriceSource,
+        Market: market as ExchangeMarket | undefined,
       });
 
       // レスポンスを返す (API仕様に従った形式)
@@ -160,6 +174,7 @@ export const POST = withAuth(
             end: newExchange.End,
           },
           priceSource: newExchange.PriceSource,
+          market: newExchange.Market,
           createdAt: new Date(newExchange.CreatedAt).toISOString(),
         },
         { status: 201 }

@@ -8,8 +8,31 @@ import type { DynamoDBItem } from '@nagiyu/aws';
 import { validateStringField, validateTimestampField } from '@nagiyu/aws';
 import type { EntityMapper } from '@nagiyu/aws';
 import type { ExchangeEntity, ExchangeKey } from '../entities/exchange.entity.js';
-import { PRICE_SOURCES, DEFAULT_PRICE_SOURCE } from '../entities/exchange.entity.js';
-import type { PriceSource } from '../entities/exchange.entity.js';
+import {
+  PRICE_SOURCES,
+  DEFAULT_PRICE_SOURCE,
+  EXCHANGE_MARKETS,
+} from '../entities/exchange.entity.js';
+import type { PriceSource, ExchangeMarket } from '../entities/exchange.entity.js';
+
+/**
+ * 全取引所を ExchangeTickerIndex(GSI3) から一括取得するための固定パーティションキー。
+ * 銘柄側の GSI3PK は ExchangeID(`TSE` 等)なので、この値と衝突しない前提で相乗りする。
+ */
+export const EXCHANGE_GSI3_PK = 'EXCHANGES';
+
+/** 取引所アイテムの GSI3SK の接頭辞 */
+export const EXCHANGE_GSI3_SK_PREFIX = 'EXCHANGE#';
+
+/**
+ * 取引所 ID から GSI3SK を構築する
+ *
+ * @param exchangeId - 取引所ID
+ * @returns GSI3SK
+ */
+export function buildExchangeGsi3Sk(exchangeId: string): string {
+  return `${EXCHANGE_GSI3_SK_PREFIX}${exchangeId}`;
+}
 
 /**
  * Exchange Mapper
@@ -34,6 +57,8 @@ export class ExchangeMapper implements EntityMapper<ExchangeEntity, ExchangeKey>
       PK: pk,
       SK: sk,
       Type: this.entityType,
+      GSI3PK: EXCHANGE_GSI3_PK,
+      GSI3SK: buildExchangeGsi3Sk(entity.ExchangeID),
       ExchangeID: entity.ExchangeID,
       Name: entity.Name,
       Key: entity.Key,
@@ -41,6 +66,7 @@ export class ExchangeMapper implements EntityMapper<ExchangeEntity, ExchangeKey>
       Start: entity.Start,
       End: entity.End,
       PriceSource: entity.PriceSource,
+      ...(entity.Market !== undefined ? { Market: entity.Market } : {}),
       CreatedAt: entity.CreatedAt,
       UpdatedAt: entity.UpdatedAt,
     };
@@ -61,6 +87,7 @@ export class ExchangeMapper implements EntityMapper<ExchangeEntity, ExchangeKey>
       Start: validateStringField(item.Start, 'Start'),
       End: validateStringField(item.End, 'End'),
       PriceSource: this.resolvePriceSource(item.PriceSource),
+      Market: this.resolveMarket(item.Market),
       CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
       UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
     };
@@ -79,6 +106,22 @@ export class ExchangeMapper implements EntityMapper<ExchangeEntity, ExchangeKey>
       return value as PriceSource;
     }
     return DEFAULT_PRICE_SOURCE;
+  }
+
+  /**
+   * DynamoDB Item から Market を解決する
+   *
+   * Market はデフォルト値を持たない（design.md §1.1）。属性が存在しない場合や無効な値の
+   * 場合は undefined（未設定）を返す。
+   *
+   * @param value - DynamoDB から取得した生の値
+   * @returns 有効な Market、または未設定を表す undefined
+   */
+  private resolveMarket(value: unknown): ExchangeMarket | undefined {
+    if (typeof value === 'string' && (EXCHANGE_MARKETS as readonly string[]).includes(value)) {
+      return value as ExchangeMarket;
+    }
+    return undefined;
   }
 
   /**

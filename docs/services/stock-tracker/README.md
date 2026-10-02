@@ -4,7 +4,7 @@
 
 Stock Tracker サービスは、nagiyu プラットフォームにおける株価監視・通知機能を提供します。ユーザーは監視したい銘柄と目標株価（上限・下限）を設定し、株価が目標値に達した際に Web Push 通知を受け取ることができます。
 
-バッチ処理により定期的に株価データを取得し、設定されたアラート条件をチェックします。
+バッチ処理により定期的に株価データを取得し、設定されたアラート条件をチェックします。また、日次サマリーから機械的な判断軸を算出し、軸ごとの成績で重みづけした確度 (翌営業日についての確率) を、その内訳とあわせて示します。
 
 ---
 
@@ -15,7 +15,6 @@ Stock Tracker サービスは、nagiyu プラットフォームにおける株�
 | [requirements.md](./requirements.md) | ビジネス要件・ユースケース・機能要件・ドメインオブジェクト |
 | [external-design.md](./external-design.md) | 画面設計・概念データモデル・設計上の決定事項 |
 | [architecture.md](./architecture.md) | アーキテクチャ設計決定記録（ADR） |
-| [ai-improvement-roadmap.md](./ai-improvement-roadmap.md) | AI 予測精度改善ロードマップ（Phase 1〜4） |
 
 ---
 

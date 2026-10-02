@@ -6,21 +6,18 @@
 
 import type { DynamoDBItem } from '@nagiyu/aws';
 import {
-  validateBooleanField,
   validateNumberField,
   validateStringField,
   validateTimestampField,
   type EntityMapper,
 } from '@nagiyu/aws';
-import type { DailySummaryEntity, DailySummaryKey } from '../entities/daily-summary.entity.js';
-import type { AiAnalysisResult } from '../ai-analysis-result.js';
+import type {
+  DailySummaryEntity,
+  DailySummaryForecastFields,
+  DailySummaryKey,
+} from '../entities/daily-summary.entity.js';
 import { PATTERN_REGISTRY } from '../patterns/pattern-registry.js';
 import type { PatternStatus } from '../types.js';
-
-const ERROR_MESSAGES = {
-  INVALID_AI_ANALYSIS_RESULT_JSON: 'AiAnalysisResultのJSON形式が不正です',
-  INVALID_AI_ANALYSIS_RESULT: 'AiAnalysisResultの形式が不正です',
-} as const;
 
 export interface PatternDetailResponse {
   patternId: string;
@@ -34,41 +31,6 @@ export interface DailySummaryPatternResponse {
   buyPatternCount: number;
   sellPatternCount: number;
   patternDetails: PatternDetailResponse[];
-  aiAnalysisResult?: AiAnalysisResult;
-  aiAnalysisError?: string;
-}
-
-function isAiAnalysisResult(value: unknown): value is AiAnalysisResult {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-
-  const candidate = value as Record<string, unknown>;
-  const supportLevels = candidate.supportLevels;
-  const resistanceLevels = candidate.resistanceLevels;
-  const investmentJudgment = candidate.investmentJudgment;
-
-  return (
-    typeof candidate.priceMovementAnalysis === 'string' &&
-    typeof candidate.patternAnalysis === 'string' &&
-    Array.isArray(supportLevels) &&
-    supportLevels.length === 3 &&
-    supportLevels.every((level) => typeof level === 'number') &&
-    Array.isArray(resistanceLevels) &&
-    resistanceLevels.length === 3 &&
-    resistanceLevels.every((level) => typeof level === 'number') &&
-    typeof candidate.relatedMarketTrend === 'string' &&
-    !!investmentJudgment &&
-    typeof investmentJudgment === 'object' &&
-    ['BULLISH', 'NEUTRAL', 'BEARISH'].includes(
-      (investmentJudgment as Record<string, unknown>).signal as string
-    ) &&
-    typeof (investmentJudgment as Record<string, unknown>).reason === 'string' &&
-    ((investmentJudgment as Record<string, unknown>).predictedReturn === undefined ||
-      typeof (investmentJudgment as Record<string, unknown>).predictedReturn === 'number') &&
-    ((investmentJudgment as Record<string, unknown>).confidence === undefined ||
-      typeof (investmentJudgment as Record<string, unknown>).confidence === 'number')
-  );
 }
 
 /**
@@ -110,18 +72,6 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
       ...(entity.SellPatternCount !== undefined
         ? { SellPatternCount: entity.SellPatternCount }
         : {}),
-      ...(entity.AiAnalysisResult !== undefined
-        ? { AiAnalysisResult: JSON.stringify(entity.AiAnalysisResult) }
-        : {}),
-      ...(entity.AiAnalysisError !== undefined ? { AiAnalysisError: entity.AiAnalysisError } : {}),
-      ...(entity.EvaluationDate !== undefined ? { EvaluationDate: entity.EvaluationDate } : {}),
-      ...(entity.EvaluationClose !== undefined ? { EvaluationClose: entity.EvaluationClose } : {}),
-      ...(entity.ActualReturn !== undefined ? { ActualReturn: entity.ActualReturn } : {}),
-      ...(entity.Hit !== undefined ? { Hit: entity.Hit } : {}),
-      ...(entity.EvaluationThresholdPercent !== undefined
-        ? { EvaluationThresholdPercent: entity.EvaluationThresholdPercent }
-        : {}),
-      ...(entity.EvaluatedAt !== undefined ? { EvaluatedAt: entity.EvaluatedAt } : {}),
       CreatedAt: entity.CreatedAt,
       UpdatedAt: entity.UpdatedAt,
     };
@@ -157,49 +107,42 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
         item.SellPatternCount === undefined
           ? undefined
           : validateNumberField(item.SellPatternCount, 'SellPatternCount'),
-      AiAnalysisResult:
-        item.AiAnalysisResult === undefined
-          ? undefined
-          : (() => {
-              const rawValue = validateStringField(item.AiAnalysisResult, 'AiAnalysisResult');
-              let parsedValue: unknown;
-              try {
-                parsedValue = JSON.parse(rawValue) as unknown;
-              } catch {
-                throw new Error(ERROR_MESSAGES.INVALID_AI_ANALYSIS_RESULT_JSON);
-              }
-              if (!isAiAnalysisResult(parsedValue)) {
-                throw new Error(ERROR_MESSAGES.INVALID_AI_ANALYSIS_RESULT);
-              }
-              return parsedValue;
-            })(),
-      AiAnalysisError:
-        item.AiAnalysisError === undefined
-          ? undefined
-          : validateStringField(item.AiAnalysisError, 'AiAnalysisError'),
-      EvaluationDate:
-        item.EvaluationDate === undefined
-          ? undefined
-          : validateStringField(item.EvaluationDate, 'EvaluationDate'),
-      EvaluationClose:
-        item.EvaluationClose === undefined
-          ? undefined
-          : validateNumberField(item.EvaluationClose, 'EvaluationClose'),
-      ActualReturn:
-        item.ActualReturn === undefined
-          ? undefined
-          : validateNumberField(item.ActualReturn, 'ActualReturn'),
-      Hit: item.Hit === undefined ? undefined : validateBooleanField(item.Hit, 'Hit'),
-      EvaluationThresholdPercent:
-        item.EvaluationThresholdPercent === undefined
-          ? undefined
-          : validateNumberField(item.EvaluationThresholdPercent, 'EvaluationThresholdPercent'),
-      EvaluatedAt:
-        item.EvaluatedAt === undefined
-          ? undefined
-          : validateTimestampField(item.EvaluatedAt, 'EvaluatedAt'),
       CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
       UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
+    };
+  }
+
+  /**
+   * 確度算出バッチが読む属性だけの射影（{@link DailySummaryForecastFields}）に変換する。
+   *
+   * ProjectionExpression で絞った読み出しの結果でも動くよう、`toEntity` と異なり
+   * UpdatedAt は射影に含めないため読まない。
+   */
+  public toForecastFields(item: Record<string, unknown>): DailySummaryForecastFields {
+    return {
+      TickerID: validateStringField(item.TickerID, 'TickerID'),
+      ExchangeID: validateStringField(item.ExchangeID, 'ExchangeID'),
+      Date: validateStringField(item.Date, 'Date'),
+      Open: validateNumberField(item.Open, 'Open'),
+      High: validateNumberField(item.High, 'High'),
+      Low: validateNumberField(item.Low, 'Low'),
+      Close: validateNumberField(item.Close, 'Close'),
+      Volume: item.Volume === undefined ? undefined : validateNumberField(item.Volume, 'Volume'),
+      PatternResults:
+        item.PatternResults &&
+        typeof item.PatternResults === 'object' &&
+        !Array.isArray(item.PatternResults)
+          ? (item.PatternResults as DailySummaryEntity['PatternResults'])
+          : undefined,
+      BuyPatternCount:
+        item.BuyPatternCount === undefined
+          ? undefined
+          : validateNumberField(item.BuyPatternCount, 'BuyPatternCount'),
+      SellPatternCount:
+        item.SellPatternCount === undefined
+          ? undefined
+          : validateNumberField(item.SellPatternCount, 'SellPatternCount'),
+      CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
     };
   }
 
@@ -215,8 +158,6 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
         buyPatternCount: 0,
         sellPatternCount: 0,
         patternDetails: [],
-        aiAnalysisResult: entity.AiAnalysisResult,
-        aiAnalysisError: entity.AiAnalysisError,
       };
     }
 
@@ -239,8 +180,6 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
       buyPatternCount: entity.BuyPatternCount ?? 0,
       sellPatternCount: entity.SellPatternCount ?? 0,
       patternDetails,
-      aiAnalysisResult: entity.AiAnalysisResult,
-      aiAnalysisError: entity.AiAnalysisError,
     };
   }
 

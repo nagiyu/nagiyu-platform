@@ -271,7 +271,6 @@ jobs:
           secret-ids: |
             NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ needs.infrastructure-ecr.outputs.environment }}
             VAPID,nagiyu-stock-tracker-vapid-${{ needs.infrastructure-ecr.outputs.environment }}
-            OPENAI_API_KEY,nagiyu-stock-tracker-openai-api-key-${{ needs.infrastructure-ecr.outputs.environment }}
             FINNHUB_API_KEY,nagiyu-stock-tracker-finnhub-api-key-${{ needs.infrastructure-ecr.outputs.environment }}
           parse-json-secrets: true
 
@@ -283,7 +282,6 @@ jobs:
           SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
           VAPID_PUBLIC: ${{ env.VAPID_PUBLICKEY }}
           VAPID_PRIVATE: ${{ env.VAPID_PRIVATEKEY }}
-          OPENAI_API_KEY: ${{ env.OPENAI_API_KEY_APIKEY }}
           FINNHUB_API_KEY: ${{ env.FINNHUB_API_KEY_APIKEY }}
         run: |
           npm run cdk --workspace=@nagiyu/infra-stock-tracker -- deploy \
@@ -291,7 +289,6 @@ jobs:
             --context nextAuthSecret="$SECRET_VALUE" \
             --context vapidPublicKey="$VAPID_PUBLIC" \
             --context vapidPrivateKey="$VAPID_PRIVATE" \
-            --context openAiApiKey="$OPENAI_API_KEY" \
             --context finnhubApiKey="$FINNHUB_API_KEY" \
             --require-approval never \
             --all \
@@ -343,7 +340,7 @@ jobs:
             --region ${{ env.AWS_REGION }}
 
           aws lambda update-function-code \
-            --function-name "nagiyu-stock-tracker-batch-evaluation-$ENVIRONMENT" \
+            --function-name "nagiyu-stock-tracker-batch-forecast-$ENVIRONMENT" \
             --image-uri "$BATCH_IMAGE_URI" \
             --region ${{ env.AWS_REGION }}
 
@@ -379,7 +376,7 @@ jobs:
             --region ${{ env.AWS_REGION }}
 
           aws lambda wait function-updated \
-            --function-name "nagiyu-stock-tracker-batch-evaluation-$ENVIRONMENT" \
+            --function-name "nagiyu-stock-tracker-batch-forecast-$ENVIRONMENT" \
             --region ${{ env.AWS_REGION }}
 
           echo "All Lambda functions updated successfully"

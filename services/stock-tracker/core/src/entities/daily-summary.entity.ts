@@ -4,7 +4,6 @@
  * 日次サマリーのビジネスオブジェクト（PK/SKを持たない純粋なエンティティ）
  */
 import type { PatternResults } from '../types.js';
-import type { AiAnalysisResult } from '../ai-analysis-result.js';
 
 /**
  * 日次サマリーエンティティ
@@ -34,22 +33,6 @@ export interface DailySummaryEntity {
   BuyPatternCount?: number;
   /** 売りシグナル合致数 */
   SellPatternCount?: number;
-  /** AI 解析結果（構造化） */
-  AiAnalysisResult?: AiAnalysisResult;
-  /** AI 解析生成失敗時のエラー情報 */
-  AiAnalysisError?: string;
-  /** 採点に使った翌営業日 (YYYY-MM-DD)。採点バッチが書き込む */
-  EvaluationDate?: string;
-  /** 採点終値 (EvaluationDate の終値) */
-  EvaluationClose?: number;
-  /** 実績リターン (%)。(EvaluationClose - Close) / Close * 100 */
-  ActualReturn?: number;
-  /** 採点結果（予測シグナルと閾値に基づく Hit/Miss） */
-  Hit?: boolean;
-  /** 採点に使った閾値 (%)。Phase 1 では 0.5 固定 */
-  EvaluationThresholdPercent?: number;
-  /** 採点実行時刻 (Unix timestamp ms)。存在で採点済みと判定する */
-  EvaluatedAt?: number;
   /** 作成日時 (Unix timestamp ms) */
   CreatedAt: number;
   /** 更新日時 (Unix timestamp ms) */
@@ -60,6 +43,28 @@ export interface DailySummaryEntity {
  * DailySummary作成時の入力データ（CreatedAt/UpdatedAtを含まない）
  */
 export type CreateDailySummaryInput = Omit<DailySummaryEntity, 'CreatedAt' | 'UpdatedAt'>;
+
+/**
+ * 確度算出バッチが読む属性だけに絞った DailySummary の射影。
+ *
+ * 大量の日付・銘柄を読む確度算出バッチの読み出し量を抑えるため、確度算出に使わない
+ * 属性（UpdatedAt 等）は持たせない。
+ */
+export type DailySummaryForecastFields = Pick<
+  DailySummaryEntity,
+  | 'TickerID'
+  | 'ExchangeID'
+  | 'Date'
+  | 'Open'
+  | 'High'
+  | 'Low'
+  | 'Close'
+  | 'Volume'
+  | 'PatternResults'
+  | 'BuyPatternCount'
+  | 'SellPatternCount'
+  | 'CreatedAt'
+>;
 
 /**
  * DailySummaryのビジネスキー

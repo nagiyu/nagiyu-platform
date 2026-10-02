@@ -2,7 +2,7 @@
  * Repository Factory
  *
  * 環境変数に基づいてリポジトリインスタンスを生成するファクトリー関数群。
- * `@nagiyu/aws` の `registerDynamoRepositories` を利用し、5 リポジトリと
+ * `@nagiyu/aws` の `registerDynamoRepositories` を利用し、9 リポジトリと
  * 共有 InMemorySingleTableStore を一括管理する。
  *
  * - USE_IN_MEMORY_DB=true の場合はインメモリ実装を返す
@@ -17,6 +17,10 @@ import type {
   TickerRepository,
   ExchangeRepository,
   DailySummaryRepository,
+  ForecastRepository,
+  MarketForecastRepository,
+  ModelSnapshotRepository,
+  PerformanceDailyRepository,
 } from '@nagiyu/stock-tracker-core';
 import {
   DynamoDBAlertRepository,
@@ -29,6 +33,14 @@ import {
   InMemoryHoldingRepository,
   InMemoryTickerRepository,
   InMemoryExchangeRepository,
+  DynamoDBForecastRepository,
+  DynamoDBMarketForecastRepository,
+  DynamoDBModelSnapshotRepository,
+  DynamoDBPerformanceDailyRepository,
+  InMemoryForecastRepository,
+  InMemoryMarketForecastRepository,
+  InMemoryModelSnapshotRepository,
+  InMemoryPerformanceDailyRepository,
 } from '@nagiyu/stock-tracker-core';
 
 const repositoryRegistry = registerDynamoRepositories<
@@ -38,6 +50,10 @@ const repositoryRegistry = registerDynamoRepositories<
     ticker: TickerRepository;
     exchange: ExchangeRepository;
     dailySummary: DailySummaryRepository;
+    forecast: ForecastRepository;
+    marketForecast: MarketForecastRepository;
+    modelSnapshot: ModelSnapshotRepository;
+    performanceDaily: PerformanceDailyRepository;
   },
   InMemorySingleTableStore
 >(
@@ -66,6 +82,26 @@ const repositoryRegistry = registerDynamoRepositories<
       createInMemoryRepository: (store) => new InMemoryDailySummaryRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBDailySummaryRepository(docClient, tableName),
+    },
+    forecast: {
+      createInMemoryRepository: (store) => new InMemoryForecastRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBForecastRepository(docClient, tableName),
+    },
+    marketForecast: {
+      createInMemoryRepository: (store) => new InMemoryMarketForecastRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBMarketForecastRepository(docClient, tableName),
+    },
+    modelSnapshot: {
+      createInMemoryRepository: (store) => new InMemoryModelSnapshotRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBModelSnapshotRepository(docClient, tableName),
+    },
+    performanceDaily: {
+      createInMemoryRepository: (store) => new InMemoryPerformanceDailyRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBPerformanceDailyRepository(docClient, tableName),
     },
   },
   {
@@ -99,4 +135,20 @@ export function createExchangeRepository(): ExchangeRepository {
 
 export function createDailySummaryRepository(): DailySummaryRepository {
   return repositoryRegistry.dailySummary.createRepository();
+}
+
+export function createForecastRepository(): ForecastRepository {
+  return repositoryRegistry.forecast.createRepository();
+}
+
+export function createMarketForecastRepository(): MarketForecastRepository {
+  return repositoryRegistry.marketForecast.createRepository();
+}
+
+export function createModelSnapshotRepository(): ModelSnapshotRepository {
+  return repositoryRegistry.modelSnapshot.createRepository();
+}
+
+export function createPerformanceDailyRepository(): PerformanceDailyRepository {
+  return repositoryRegistry.performanceDaily.createRepository();
 }

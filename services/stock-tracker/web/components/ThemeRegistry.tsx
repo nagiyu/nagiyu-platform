@@ -25,17 +25,15 @@ function ThemeRegistryContent({ children, version = '1.0.0', authUrl = '' }: The
     Array.isArray(session.user.roles) &&
     hasPermission(session.user.roles, 'stocks:read');
 
-  const hasReadEvaluation =
-    !!session?.user &&
-    'roles' in session.user &&
-    Array.isArray(session.user.roles) &&
-    hasPermission(session.user.roles, 'stocks:read-evaluation');
-
   // ナビゲーションメニュー項目の定義
   const navigationItems: NavigationItem[] = [
     { label: 'チャート', href: '/' },
-    ...(hasStocksRead ? [{ label: 'サマリー', href: '/summaries' }] : []),
-    ...(hasReadEvaluation ? [{ label: '予測精度', href: '/prediction-evaluation' }] : []),
+    ...(hasStocksRead
+      ? [
+          { label: 'サマリー', href: '/summaries' },
+          { label: '判断軸の成績', href: '/axis-performance' },
+        ]
+      : []),
     { label: '保有株式', href: '/holdings' },
     { label: 'アラート', href: '/alerts' },
     // 権限ベースの管理メニュー（stocks:manage-data 権限が必要）

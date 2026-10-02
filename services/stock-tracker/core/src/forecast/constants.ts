@@ -1,0 +1,122 @@
+/**
+ * Stock Tracker Core - Forecast (確度) 定数
+ *
+ * 算出ロジックが使う定数を集約する。実データを扱う定数（休場日コピー足の日付リスト等）も
+ * ここに置き、DB には持たない。
+ */
+
+/**
+ * 市場コード。取引所マスタ（Exchange）が持つ「市場」属性の値。
+ * JP・US に固定せず、取引所マスタの入力（{@link ExchangeSessionInfo} の `market`）から決まる
+ * 任意の文字列として扱う。市場の集合は core の定数ではなく、呼び出し側が渡す取引所マスタから
+ * 導出する（{@link distinctMarkets} を参照）。
+ */
+export type Market = string;
+
+/** 問い */
+export type Question = 'DIR' | 'VOL' | 'MKT';
+
+export const QUESTIONS: readonly Question[] = ['DIR', 'VOL', 'MKT'];
+
+/**
+ * 算出ロジックの版（軸定義・方式の変更を追えるように）
+ */
+export const FORECAST_MODEL_VERSION = 'forecast-core-v1';
+
+// 市場への振り分け・名目の取引時刻は、いずれも取引所マスタ（Exchange の 市場・Timezone・
+// Start・End）から求める。取引所は画面から追加・編集でき、市場の集合も固定 2 つとは限らない
+// ため、core は固定の ExchangeID→市場対応表やセッション時刻定数を持たない。
+// `ExchangeSessionInfo`／`getMarketForExchange`／`nominalExchangeTime`／
+// `nominalMarketCloseTime`／`distinctMarkets` を参照。
+
+/** 平常の算出窓（値幅・出来高） */
+export const NORMAL_WINDOW = 20;
+
+/** Parkinson の算出窓（直近 N 日） */
+export const PARKINSON_WINDOW = 5;
+
+/** 採点から除外する極端リターンの閾値（|リターン| > 20%） */
+export const EXTREME_RETURN_THRESHOLD = 0.2;
+
+/** 基準値（rolling_base）の窓・最小件数・クリップ範囲 */
+export const BASELINE_WINDOW = 60;
+export const BASELINE_MIN_COUNT = 20;
+export const BASELINE_CLIP_MIN = 0.02;
+export const BASELINE_CLIP_MAX = 0.98;
+
+/** バーンイン: 学習サンプルの異なる日付がこれ未満なら確率を出さない */
+export const MIN_TRAINING_DATES = 30;
+
+/** L2 正則化係数 */
+export const REGULARIZATION_ALPHA: Record<Question, number> = {
+  DIR: 80,
+  VOL: 20,
+  MKT: 20,
+};
+
+/** IRLS（ニュートン法）の収束条件 */
+export const IRLS_MAX_ITERATIONS = 50;
+export const IRLS_STEP_TOLERANCE = 1e-8;
+
+/** logit/sigmoid の入力値をクリップする幅（0 または 1 ちょうどでの発散を防ぐ） */
+export const LOGIT_EPSILON = 1e-6;
+
+/** 中立帯 */
+export const NEUTRAL_BAND_STEP: Record<Question, number> = {
+  DIR: 0.05,
+  VOL: 0.05,
+  MKT: 0.1,
+};
+export const NEUTRAL_BAND_MIN_COUNT: Record<Question, number> = {
+  DIR: 30,
+  VOL: 30,
+  MKT: 10,
+};
+export const NEUTRAL_BAND_MIN_DIFF = 0.03;
+export const NEUTRAL_BAND_SIGNIFICANCE_LEVEL = 0.05;
+export const NEUTRAL_BAND_REVIEW_INTERVAL_DAYS = 30;
+
+/**
+ * 中立帯の寄りなし側の番兵値（±∞ の代わり）。
+ * DynamoDB/JSON に Infinity を保存できないため、番兵値で「無限」を表す。
+ */
+export const NEUTRAL_BAND_SENTINEL_LOWER = -1;
+export const NEUTRAL_BAND_SENTINEL_UPPER = 1;
+
+/** 確率帯（同じ確率帯の過去実績）の刻み幅 */
+export const PROBABILITY_BAND_STEP = 0.05;
+
+/** 点灯型軸の件数不足の目印のしきい値 */
+export const LOW_SAMPLE_AXIS_THRESHOLD = 30;
+
+/**
+ * 初期値算出（過去データからの一括再計算）専用の除外リスト（休場日コピー足の日付）。
+ * バー生成ロジックの改修より前に作られた旧 DailySummary を読むときだけ適用する。
+ *
+ * 初期設定の JP・US だけを持つ（market が未知のキーは無い。呼び出し側は該当が無ければ
+ * 空配列として扱うこと）。
+ */
+export const LEGACY_BACKFILL_HOLIDAY_COPY_DATES: Record<Market, readonly string[]> = {
+  JP: [
+    '2026-03-20',
+    '2026-04-29',
+    '2026-05-04',
+    '2026-05-05',
+    '2026-05-06',
+    '2026-07-20',
+    '2026-08-11',
+    '2026-09-21',
+    '2026-09-22',
+    '2026-09-23',
+  ],
+  US: ['2026-04-03', '2026-05-25', '2026-06-19', '2026-07-03', '2026-09-07'],
+};
+
+/**
+ * Forecast 系のエラーメッセージ（日本語 + 定数化）
+ */
+export const FORECAST_ERROR_MESSAGES = {
+  /** 対象の ExchangeID を末尾に付けて投げる（例外を投げる getMarketForExchange のみで使う） */
+  UNKNOWN_EXCHANGE: '未対応の取引所IDです',
+  SINGULAR_MATRIX: 'IRLS の連立方程式が特異行列のため解けません',
+} as const;

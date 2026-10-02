@@ -5,7 +5,6 @@ const config: Config = {
   testEnvironment: 'node',
   roots: ['<rootDir>/lib', '<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
-  setupFiles: ['<rootDir>/tests/jest.setup.ts'],
   moduleNameMapper: {
     // @nagiyu/ui の CSS Modules import をスタブ化（クラス名そのものを返す）
     '\\.module\\.css$': 'identity-obj-proxy',
@@ -25,9 +24,10 @@ const config: Config = {
   collectCoverageFrom: [
     'lib/repository-factory.ts',
     'lib/percentage-helper.ts',
-    'lib/ai-analysis-format.ts',
-    'lib/prediction-evaluation/**/*.ts',
-    'components/prediction-evaluation/**/*.tsx',
+    'lib/axis-performance-view/**/*.ts',
+    'lib/forecast/**/*.ts',
+    'lib/forecast-view/**/*.ts',
+    'components/axis-performance/**/*.tsx',
   ],
   coverageThreshold: {
     global: {
@@ -36,13 +36,25 @@ const config: Config = {
       lines: 100,
       statements: 100,
     },
-    './lib/prediction-evaluation/': {
+    './lib/axis-performance-view/': {
       branches: 80,
       functions: 80,
       lines: 80,
       statements: 80,
     },
-    './components/prediction-evaluation/': {
+    './lib/forecast/': {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
+    },
+    './lib/forecast-view/': {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
+    },
+    './components/axis-performance/': {
       branches: 80,
       functions: 80,
       lines: 80,
