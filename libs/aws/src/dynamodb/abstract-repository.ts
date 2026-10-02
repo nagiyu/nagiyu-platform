@@ -16,10 +16,10 @@ import {
   EntityNotFoundError,
   EntityAlreadyExistsError,
   DatabaseError,
+  isConditionalCheckFailed,
   InvalidEntityDataError,
 } from './errors.js';
 import { conditionalPut, conditionalUpdate, conditionalDelete } from './helpers.js';
-import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import { toErrorMessage } from '@nagiyu/common';
 
 /**
@@ -175,10 +175,7 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
 
       return this.mapToEntity(item);
     } catch (error) {
-      if (
-        error instanceof ConditionalCheckFailedException ||
-        (error instanceof Error && error.name === 'ConditionalCheckFailedException')
-      ) {
+      if (isConditionalCheckFailed(error)) {
         throw new EntityAlreadyExistsError(this.config.entityType, JSON.stringify(entity));
       }
       throw new DatabaseError(
@@ -256,10 +253,7 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
 
       return updated;
     } catch (error) {
-      if (
-        error instanceof ConditionalCheckFailedException ||
-        (error instanceof Error && error.name === 'ConditionalCheckFailedException')
-      ) {
+      if (isConditionalCheckFailed(error)) {
         throw new EntityNotFoundError(this.config.entityType, JSON.stringify(key));
       }
       if (error instanceof EntityNotFoundError || error instanceof InvalidEntityDataError) {
@@ -292,10 +286,7 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
         )
       );
     } catch (error) {
-      if (
-        error instanceof ConditionalCheckFailedException ||
-        (error instanceof Error && error.name === 'ConditionalCheckFailedException')
-      ) {
+      if (isConditionalCheckFailed(error)) {
         throw new EntityNotFoundError(this.config.entityType, JSON.stringify(key));
       }
       throw new DatabaseError(
