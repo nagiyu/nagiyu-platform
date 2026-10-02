@@ -1,17 +1,19 @@
-"""Stock Tracker v4 Phase 3-1 ゴールデンテスト用フィクスチャ生成スクリプト。
+"""ゴールデンテスト用フィクスチャ (fixtures/golden.json) の生成スクリプト。
 
-固定シードの合成データ（JP4銘柄・US4銘柄 × 80営業日程度）を作り、参照実装（prep.py・wf.py・
-decision.py の rolling_base・decision2.py の determine_band と順次寄与）で期待値を計算し、
-JSON として core/tests/unit/forecast/fixtures/ に出力する。
+固定シードの合成データ (JP と US の数銘柄 × 数十営業日) を作り、参照実装 (prep.py の前処理・
+wf.py のロジスティック回帰・このファイルに写した基準値 / 中立帯 / 順次寄与) で期待値を計算して JSON に出力する。
 
-参照実装のロジックは書き換えず、そのまま呼ぶ／コピーする（rolling_base・determine_band・
-順次寄与は decision.py / decision2.py が実データを読み込む都合上コピーする）。
+実データに依存するとデータ更新のたびに期待値が変わるため、合成データだけを使う。
+参照実装のロジックは書き換えない。
 
 使い方: python3 golden.py
 """
+import atexit
 import json
 import os
+import shutil
 import sys
+import tempfile
 
 import numpy as np
 import pandas as pd
@@ -23,13 +25,14 @@ sys.path.insert(0, HERE)
 import prep  # noqa: E402  (参照実装。main() をパスを差し替えて呼ぶ)
 from wf import LR, logit, sigmoid  # noqa: E402  (参照実装。学習・ロジット変換に使う)
 
-WORK_DIR = os.path.join(HERE, 'golden_work')
-os.makedirs(WORK_DIR, exist_ok=True)
+# 中間成果物はリポジトリに残さないよう一時ディレクトリへ置く
+WORK_DIR = tempfile.mkdtemp(prefix='golden_work_')
+atexit.register(shutil.rmtree, WORK_DIR, ignore_errors=True)
 DATA_PATH = os.path.join(WORK_DIR, 'ds.parquet')
 OUT_DIR = os.path.join(WORK_DIR, 'out')
 os.makedirs(OUT_DIR, exist_ok=True)
 
-FIXTURES_DIR = os.path.join(HERE, '..', '..', '..', 'services', 'stock-tracker', 'core', 'tests', 'unit', 'forecast', 'fixtures')
+FIXTURES_DIR = os.path.join(HERE, '..', 'fixtures')
 os.makedirs(FIXTURES_DIR, exist_ok=True)
 
 RNG = np.random.default_rng(20260927)
@@ -39,7 +42,7 @@ assert len(PATTERNS) == 27
 
 N = 20
 ALPHA = {'Q-DIR': 80, 'Q-VOL': 20, 'Q-MKT': 20}
-MIN_TRAINING_DATES = 30  # design.md §1.6・constants.ts の MIN_TRAINING_DATES と同じ
+MIN_TRAINING_DATES = 30  # constants.ts の MIN_TRAINING_DATES と同じ。学習に使う日付数がこれに満たない間は確率を出さない
 
 
 def size(n):
@@ -77,8 +80,8 @@ def to_axis_id(col: str) -> str:
 
 
 # ------------------------------------------------------------------ 1. 合成データ生成
-# 銘柄数・日数は、TS 側が D までの全期間を日次でリプレイして学習し直す構造になったこと
-# （design.md §3.1）に合わせ、ゴールデンテストの実行時間を抑えるため必要最小限にしている
+# 銘柄数・日数は、TS 側が評価日までの全期間を日次でリプレイして学習し直す構造に合わせ、
+# ゴールデンテストの実行時間を抑えるため必要最小限にしている
 # （バーンイン 30 営業日 + 評価対象・中立帯の見直し(30日)を試せる程度）。
 N_DAYS = 55
 DATES = pd.bdate_range('2024-01-02', periods=N_DAYS).strftime('%Y-%m-%d').tolist()
@@ -149,7 +152,7 @@ FEATS = {'Q-DIR': PAT_COLS, 'Q-VOL': size(N) + msize(N), 'Q-MKT': msize(N) + [f'
 CAL = {m: np.array(sorted(panel[panel.mkt == m].date.unique())) for m in ['JP', 'US']}
 
 
-# ------------------------------------------------------------------ 3. 基準値（decision.py の rolling_base をそのまま写す）
+# ------------------------------------------------------------------ 3. 基準値（分析時の rolling_base をそのまま写す）
 def rolling_base(df, ycol, scope, window=60, minn=20):
     out = pd.Series(np.nan, index=df.index)
     lab = df.label_time.to_numpy()
@@ -180,7 +183,7 @@ for q in ['Q-DIR', 'Q-VOL', 'Q-MKT']:
     df_q[f'offset_{q}'] = logit(df_q[f'baseline_{q}_clipped'])
 
 
-# ------------------------------------------------------------------ 4. 中立帯（decision2.py の determine_band をそのまま写す）
+# ------------------------------------------------------------------ 4. 中立帯（分析時の determine_band をそのまま写す）
 def determine_band(hist, step, minn, alpha=0.05, min_diff=0.0):
     b = np.floor(hist.d / step + 1e-9) * step
     g = hist.assign(b=b).groupby('b').agg(n=('y', 'size'), k=('y', 'sum'), base=('base', 'mean')).reset_index()
@@ -247,7 +250,7 @@ TARGET_KEYS = {(m, d) for m, dates in EVAL_DATES.items() for d in dates}
 
 QUESTIONS = ['Q-DIR', 'Q-VOL', 'Q-MKT']
 Q_TO_KEY = {'Q-DIR': 'DIR', 'Q-VOL': 'VOL', 'Q-MKT': 'MKT'}
-REVIEW_EVERY = 30  # design.md §1.5・decision2.py と同じ見直し間隔（両市場を合わせたカレンダーで数える）
+REVIEW_EVERY = 30  # 中立帯の見直し間隔。TS 側と同じく両市場を合わせたカレンダーで数える
 ALL_DATES = sorted(set(CAL['JP']) | set(CAL['US']))  # 中立帯の見直し間隔用（両市場合算カレンダー）
 
 
@@ -285,11 +288,11 @@ def fit_at(q, market, date):
 def known_history(q, market, date):
     """determine_band / calib_table に渡す既知サンプル (d, y, base) を、時刻の規則でフィルタして作る。
 
-    指摘 C-3: 値がない軸を含む銘柄・市場も（学習からは除外されるが）予測は出す設計
-    （design.md §1「予測時は標準化後0」）に合わせ、ここでは cols（判断軸）の完全性は要求しない
+    値がない軸を含む銘柄・市場も (学習からは除外されるが) 予測は出す設計
+    (予測時は欠損の軸を標準化後 0 として扱う) に合わせ、ここでは cols（判断軸）の完全性は要求しない
     （standardize_row が欠損を 0 として扱う）。要求するのは「採点済み（ycol）」であることと、
-    Q-VOL のみ「平常（nrng{N}）がある」こと（design.md §1.6 のバーンイン: 平常が無い銘柄は
-    VOL を出さない）。"""
+    Q-VOL のみ「平常（nrng{N}）がある」こと（平常が無い銘柄は
+    バーンイン未達として VOL を出さない）。"""
     df_q = mk if q == 'Q-MKT' else panel
     cols = FEATS[q]
     off_col = f'offset_{q}'
@@ -308,7 +311,7 @@ def known_history(q, market, date):
             continue
         model, distinct_dates, _ = fit_at(q, r.mkt, r.date)
         if distinct_dates < MIN_TRAINING_DATES:
-            continue  # その日はバーンイン未達で確率を出していない（design.md §1.6）
+            continue  # その日はバーンイン未達で確率を出していない
         z = standardize_row(model, cols, r)
         p = float(sigmoid(r[off_col] + np.dot(model.beta[1:], z)))
         base = float(r[base_col])
@@ -367,7 +370,7 @@ def find_band(table, p, step=0.05):
 # ------------------------------------------------------------------ 7. 日次リプレイして評価対象の詳細を出力
 #
 # TS 側は D までの全期間を名目引け時刻の順にリプレイし、中立帯は「両市場を合わせたカレンダーで
-# 30 営業日ごと」に見直して引き継ぐ（design.md §1.5・§3.1、指摘 A-2）。ゴールデン側もこの
+# 30 営業日ごと」に見直して引き継ぐ。ゴールデン側もこの
 # 見直しの持ち回りを再現しないと、評価対象日の中立帯が一致しない（TS は毎回フレッシュには
 # 判定し直さないため）。確率帯の過去実績（bandHistoryTable）はスナップショットのたびに
 # 毎回フレッシュに計算する（中立帯の見直しとは別サイクル）。
@@ -438,7 +441,7 @@ for entry in ALL_ENTRIES:
             'predictions': [],
         }
 
-        # 指摘 C-3: 値なしの軸を含む銘柄・市場も、標準化後 0（寄与なし）として予測に含める
+        # 値なしの軸を含む銘柄・市場も、標準化後 0（寄与なし）として予測に含める
         # （TS の standardize_row と同じ扱い。除外しない）。
         if q == 'Q-MKT':
             row = df_q[(df_q.mkt == market) & (df_q.date == date)]
@@ -470,7 +473,7 @@ targets = [targets_by_key[k] for m, dates in EVAL_DATES.items() for k in [(m, d)
 
 # ------------------------------------------------------------------ 8. 採点結果（実績）の出力
 #
-# 指摘 B-1・B-2: TickerOutcome.nextRange は生の価格差ではなく比率（(翌日高値-翌日安値)÷基準日終値）
+# TickerOutcome.nextRange は生の価格差ではなく比率（(翌日高値-翌日安値)÷基準日終値）
 # で持つ。ここでは panel の next_ok・close を使って参照実装と同じ値幅の定義で計算し、
 # TS の computeOutcomes（compute.test.ts で突き合わせる）と直接比較できる形にする。
 panel_sorted = panel.sort_values(['ticker', 'date']).reset_index(drop=True)
@@ -538,7 +541,7 @@ for _, r in raw_df.iterrows():
         }
     )
 
-# ------------------------------------------------------------------ 10. 中立帯: 有意なケースの追加検証（指摘 C-2）
+# ------------------------------------------------------------------ 10. 中立帯: 有意なケースの追加検証
 #
 # 実勢データ（上の合成価格データ）は基準値からの偏りが小さく、中立帯が寄りなし（番兵値）に
 # なることが多い。determine_band 自体（両側二項検定 + Holm 補正 + 向き + 最小差）を参照実装と

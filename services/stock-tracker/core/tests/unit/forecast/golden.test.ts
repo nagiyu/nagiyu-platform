@@ -1,8 +1,8 @@
 /**
  * ゴールデンテスト。
  *
- * 参照実装（prep.py・wf.py の LR・decision.py の rolling_base・decision2.py の
- * determine_band と順次寄与）で計算した期待値と、TypeScript 実装（computeForDate・
+ * 参照実装（golden-generator/ の前処理・ロジスティック回帰・基準値・中立帯・順次寄与）で
+ * 計算した期待値と、TypeScript 実装（computeForDate・
  * computeOutcomes・determineNeutralBand）の出力を許容誤差内で突き合わせる。
  */
 import fs from 'node:fs';
