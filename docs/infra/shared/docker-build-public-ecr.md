@@ -2,10 +2,10 @@
 
 ## 概要
 
-Docker ビルドで `public.ecr.aws` のベースイメージを pull する際、レート制限エラー（`toomanyrequests` / `Data limit exceeded`）が発生することがある。対策は次の 2 段構えで、`build-docker-image` action に組み込んでいる。
+Docker ビルドで `public.ecr.aws` のベースイメージを pull する際、レート制限エラー (`toomanyrequests` / `Data limit exceeded`) が発生することがある。対策は次の 2 段構えで、`build-docker-image` action に組み込んでいる。
 
-- **主対策**: public ECR への認証（後述「public ECR への認証」）
-- **保険**: `toomanyrequests` 検知時の自動リトライ（後述「リトライ方針」）
+- **主対策**: public ECR への認証 (後述「public ECR への認証」)
+- **保険**: `toomanyrequests` 検知時の自動リトライ (後述「リトライ方針」)
 
 ---
 
@@ -14,10 +14,10 @@ Docker ビルドで `public.ecr.aws` のベースイメージを pull する際�
 ビルド前に `aws ecr-public get-login-password` で public ECR へ `docker login` する。匿名 pull のクォータは送信元 IP 単位で、GitHub-hosted runner の IP は他者と共有されるため、こちらの同時実行数と無関係に枠が消費される。認証するとクォータの単位が送信元 IP から認証済みアカウントに変わり、他者に枠を消費されない。
 
 - **リージョンは us-east-1 固定**: ECR Public の認証トークンは us-east-1 でしか取得できない。呼び出し元の `AWS_REGION` には依存させない
-- **ログイン失敗はジョブを失敗させず、警告を出して匿名 pull で続行する**: 必要な IAM 権限（Container Policy の `ecr-public:GetAuthorizationToken` / `sts:GetServiceBearerToken`）は dev / prod で反映タイミングが異なりうる。ログインの成否でビルド全体が止まるより、匿名 pull で進める方が安全なため
+- **ログイン失敗はジョブを失敗させず、警告を出して匿名 pull で続行する**: 必要な IAM 権限 (Container Policy の `ecr-public:GetAuthorizationToken` / `sts:GetServiceBearerToken`) は dev / prod で反映タイミングが異なりうる。ログインの成否でビルド全体が止まるより、匿名 pull で進める方が安全なため
 - **待機リトライでは解消しない場合がある**: `Data limit exceeded` は転送量の上限超過であり、短時間の待機では回復しないことが多い。リトライだけに頼らず、認証でクォータの単位を変えている
 
-必要な IAM 権限は Container Policy に含まれ、GitHub Actions の全ロールに付与される（[IAM ポリシー](iam.md) を参照）。
+必要な IAM 権限は Container Policy に含まれ、GitHub Actions の全ロールに付与される ([IAM ポリシー](iam.md) を参照)。
 
 ---
 
