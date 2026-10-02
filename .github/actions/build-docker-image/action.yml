@@ -1,5 +1,5 @@
 name: Build Docker Image
-description: Docker build lock を取得し、public ECR へ認証したうえで Docker イメージをビルドする（build args 指定可）
+description: public ECR へ認証したうえで Docker イメージをビルドする（build args 指定可）
 
 inputs:
   dockerfile:
@@ -16,9 +16,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Acquire Docker build lock
-      uses: ./.github/actions/docker-build-lock-acquire
-
     # 匿名 pull は送信元 IP 単位のクォータで、共有 IP の runner では他者に枠を消費されて
     # `Data limit exceeded` になる。認証するとクォータが認証済みアカウント単位になる。
     # IAM 権限の反映がデプロイタイミングにより遅れる環境でもビルドを止めないよう、
@@ -41,7 +38,3 @@ runs:
         ./.github/scripts/docker-build-with-retry.sh \
           "${{ inputs.image-tag }}" \
           "${{ inputs.dockerfile }}"
-
-    - name: Release Docker build lock
-      if: always()
-      uses: ./.github/actions/docker-build-lock-release

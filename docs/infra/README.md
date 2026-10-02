@@ -27,7 +27,7 @@ AWS CDK (TypeScript) を用いて、共通基盤と各アプリケーション�
     - [ACM](./shared/acm.md) - SSL/TLS 証明書の管理
     - [CloudFront](./shared/cloudfront.md) - CloudFront の設計と運用
     - [ECS Cluster](./shared/ecs-cluster.md) - プラットフォーム共通 ECS Cluster の設計方針
-    - [Docker ビルド排他制御](./shared/docker-build-lock.md) - Docker ビルドの並列実行制御
+    - [Docker ビルドの public ECR 認証とリトライ](./shared/docker-build-public-ecr.md) - public ECR のレート制限対策
 
 - [ツールサービス](./tools/README.md) - Tools サービスのインフラストラクチャ
 - [ルートドメインインフラ](./root/architecture.md) - ルートドメイン (example.com) のアーキテクチャと設計
