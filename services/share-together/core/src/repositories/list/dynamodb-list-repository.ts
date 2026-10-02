@@ -129,20 +129,30 @@ export class DynamoDBListRepository implements ListRepository {
       setExpressions.push('#name = :name');
     }
 
-    const result = await this.docClient.send(
-      new UpdateCommand({
-        TableName: this.tableName,
-        Key: {
-          PK: this.buildUserPk(userId),
-          SK: this.buildPersonalListSk(listId),
+    let result;
+    try {
+      result = await this.docClient.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: {
+            PK: this.buildUserPk(userId),
+            SK: this.buildPersonalListSk(listId),
+          },
+          UpdateExpression: `SET ${setExpressions.join(', ')}`,
+          ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
+          ExpressionAttributeNames: names,
+          ExpressionAttributeValues: values,
+          ReturnValues: 'ALL_NEW',
+        })
+      );
+    } catch (error: unknown) {
+      mapConditionalCheckFailed(error, {
+        onMissing: () => {
+          throw new Error(ERROR_MESSAGES.PERSONAL_LIST_NOT_FOUND);
         },
-        UpdateExpression: `SET ${setExpressions.join(', ')}`,
-        ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
-        ExpressionAttributeNames: names,
-        ExpressionAttributeValues: values,
-        ReturnValues: 'ALL_NEW',
-      })
-    );
+      });
+      throw error;
+    }
 
     if (!result.Attributes) {
       throw new Error(ERROR_MESSAGES.PERSONAL_LIST_NOT_FOUND);
@@ -263,20 +273,30 @@ export class DynamoDBListRepository implements ListRepository {
       setExpressions.push('#name = :name');
     }
 
-    const result = await this.docClient.send(
-      new UpdateCommand({
-        TableName: this.tableName,
-        Key: {
-          PK: this.buildGroupPk(groupId),
-          SK: this.buildGroupListSk(listId),
+    let result;
+    try {
+      result = await this.docClient.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: {
+            PK: this.buildGroupPk(groupId),
+            SK: this.buildGroupListSk(listId),
+          },
+          UpdateExpression: `SET ${setExpressions.join(', ')}`,
+          ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
+          ExpressionAttributeNames: names,
+          ExpressionAttributeValues: values,
+          ReturnValues: 'ALL_NEW',
+        })
+      );
+    } catch (error: unknown) {
+      mapConditionalCheckFailed(error, {
+        onMissing: () => {
+          throw new Error(ERROR_MESSAGES.GROUP_LIST_NOT_FOUND);
         },
-        UpdateExpression: `SET ${setExpressions.join(', ')}`,
-        ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
-        ExpressionAttributeNames: names,
-        ExpressionAttributeValues: values,
-        ReturnValues: 'ALL_NEW',
-      })
-    );
+      });
+      throw error;
+    }
 
     if (!result.Attributes) {
       throw new Error(ERROR_MESSAGES.GROUP_LIST_NOT_FOUND);

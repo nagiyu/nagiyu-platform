@@ -227,6 +227,24 @@ describe('DynamoDBListRepository', () => {
         ':updatedAt': expect.any(String),
       });
     });
+
+    it('リストが存在しない場合は個人リストエラーを投げる', async () => {
+      mockDocClient.send.mockRejectedValueOnce({
+        name: 'ConditionalCheckFailedException',
+      });
+
+      await expect(
+        repository.updatePersonalList('user-1', 'list-404', { name: '更新後リスト' })
+      ).rejects.toThrow('個人リストが見つかりません');
+    });
+
+    it('条件違反以外のエラーはそのまま再送出する', async () => {
+      mockDocClient.send.mockRejectedValueOnce(new Error('DynamoDB error'));
+
+      await expect(
+        repository.updatePersonalList('user-1', 'list-404', { name: '更新後リスト' })
+      ).rejects.toThrow('DynamoDB error');
+    });
   });
 
   describe('deletePersonalList', () => {
@@ -451,6 +469,24 @@ describe('DynamoDBListRepository', () => {
       expect(command.input.ExpressionAttributeValues).toMatchObject({
         ':updatedAt': expect.any(String),
       });
+    });
+
+    it('リストが存在しない場合はグループリストエラーを投げる', async () => {
+      mockDocClient.send.mockRejectedValueOnce({
+        name: 'ConditionalCheckFailedException',
+      });
+
+      await expect(
+        repository.updateGroupList('group-1', 'list-404', { name: '更新後共有リスト' })
+      ).rejects.toThrow('グループリストが見つかりません');
+    });
+
+    it('条件違反以外のエラーはそのまま再送出する', async () => {
+      mockDocClient.send.mockRejectedValueOnce(new Error('DynamoDB error'));
+
+      await expect(
+        repository.updateGroupList('group-1', 'list-404', { name: '更新後共有リスト' })
+      ).rejects.toThrow('DynamoDB error');
     });
   });
 
