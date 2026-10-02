@@ -2,7 +2,7 @@
 
 nagiyu プラットフォーム全体で共有されるインフラストラクチャリソースを管理します。
 
-`infra/shared` は prod アカウント・dev アカウントの両方にデプロイされる CDK アプリで、デプロイ先アカウントによって作成するスタックの構成が変わる（[AWS アカウント構成](../aws-accounts.md) を参照）。Docker ビルドロック用バケット・E2E レポート用バケットのように、アカウントごとに別リソースとして持つものもある（詳細は [Docker ビルド排他制御](./docker-build-lock.md)・[E2E レポート](../../development/e2e-reports.md) を参照）。
+`infra/shared` は prod アカウント・dev アカウントの両方にデプロイされる CDK アプリで、デプロイ先アカウントによって作成するスタックの構成が変わる（[AWS アカウント構成](../aws-accounts.md) を参照）。E2E レポート用バケットのように、アカウントごとに別リソースとして持つものもある（詳細は [E2E レポート](../../development/e2e-reports.md) を参照）。
 
 ## 構成
 
@@ -118,5 +118,5 @@ Export が他のスタックから参照されている場合、削除できま�
 - [ECS Cluster 詳細ドキュメント](./ecs-cluster.md)
 - [CDK ユーティリティ](./cdk-utils.md)
 - [共有リソースの使用方法](./shared-cdk-usage.md)
-- [Docker ビルド排他制御](./docker-build-lock.md)
+- [Docker ビルドの public ECR 認証とリトライ](./docker-build-public-ecr.md)
 - [ワークフロー composite actions](./workflow-actions.md)

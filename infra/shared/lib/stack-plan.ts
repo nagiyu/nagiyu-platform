@@ -21,9 +21,9 @@ export function assertScopeAllowsEnv(accountScope: AccountScope, env: Environmen
 /**
  * prod アカウントにだけ置くスタック（Route53Records / DevSyncSourceReader）・資材
  * （IamClaudeAccessStack 内のキー保持ユーザー `nagiyu-claude-key`）を作るかどうか。
- * ACM / DockerBuildLock / ReportsHosting は dev/prod 双方に作成するため対象外
- * （バケット名・ドメイン名はアカウントスコープごとに `getDockerBuildLockBucketName` /
- * `getReportsBucketName` / `getRoute53DomainName` で出し分ける）。
+ * ACM / ReportsHosting は dev/prod 双方に作成するため対象外
+ * （バケット名・ドメイン名はアカウントスコープごとに `getReportsBucketName` /
+ * `getRoute53DomainName` で出し分ける）。
  */
 export function includesProdOnlyStacks(accountScope: AccountScope): boolean {
   return accountScope === 'prod';
@@ -52,17 +52,6 @@ export function getGitHubActionsOidcRoleIds(
  */
 export function getRoute53DomainName(accountScope: AccountScope, domainName: string): string {
   return accountScope === 'dev' ? `dev.${domainName}` : domainName;
-}
-
-/** Docker ビルドロック用 S3 バケット名（アカウントスコープごとに固定） */
-export const DOCKER_BUILD_LOCK_BUCKET_NAMES: Record<AccountScope, string> = {
-  prod: 'nagiyu-docker-build-lock',
-  dev: 'nagiyu-docker-build-lock-dev',
-} as const;
-
-/** アカウントスコープに応じた Docker ビルドロック用 S3 バケット名を返す */
-export function getDockerBuildLockBucketName(accountScope: AccountScope): string {
-  return DOCKER_BUILD_LOCK_BUCKET_NAMES[accountScope];
 }
 
 /** E2E レポートホスティング用 S3 バケット名（アカウントスコープごとに固定） */
