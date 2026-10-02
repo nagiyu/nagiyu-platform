@@ -5,19 +5,34 @@ import { getSession } from '../../../../lib/auth';
 import {
   createAlertRepository,
   createDailySummaryRepository,
+  createForecastRepository,
   createHoldingRepository,
   createTickerRepository,
 } from '../../../../lib/repository-factory';
 import { MAX_ALERTS_PER_USER } from '../../../../lib/constants';
+import { toTickerForecastSummary } from '../../../../lib/forecast/ticker-forecast';
 import type { ErrorResponse } from '@nagiyu/common';
 
 const ERROR_MESSAGES = {
   INVALID_TICKER_ID: 'ティッカーIDが不正です',
   NOT_FOUND: 'サマリーが見つかりません',
   INTERNAL_ERROR: 'サマリーの取得に失敗しました',
+  FETCH_FORECAST_FAILED: '確度情報の取得に失敗しました',
 } as const;
 
 const dailySummaryMapper = new DailySummaryMapper();
+
+/** 確度は付加情報のため、取得に失敗してもサマリー自体は返す */
+async function fetchForecastSummary(tickerId: string, date: string) {
+  try {
+    return toTickerForecastSummary(
+      await createForecastRepository().getByTickerAndDate(tickerId, date)
+    );
+  } catch (error) {
+    console.error(ERROR_MESSAGES.FETCH_FORECAST_FAILED, error);
+    return null;
+  }
+}
 
 export const GET = withAuth(
   getSession,
@@ -59,6 +74,9 @@ export const GET = withAuth(
         );
       }
 
+      const forecast = await fetchForecastSummary(tickerId, latestSummary.Date);
+      const patternCounts = dailySummaryMapper.toTickerSummaryResponse(latestSummary);
+
       const alerts = alertsResult.items.filter((alert) => alert.TickerID === tickerId);
       const buyAlertCount = { enabled: 0, disabled: 0 };
       const sellAlertCount = { enabled: 0, disabled: 0 };
@@ -75,6 +93,7 @@ export const GET = withAuth(
       return NextResponse.json(
         {
           tickerId: latestSummary.TickerID,
+          date: latestSummary.Date,
           symbol: ticker?.Symbol ?? latestSummary.TickerID.split(':')[1] ?? latestSummary.TickerID,
           name: ticker?.Name ?? latestSummary.TickerID,
           open: latestSummary.Open,
@@ -91,7 +110,9 @@ export const GET = withAuth(
                 averagePrice: holding.AveragePrice,
               }
             : null,
-          ...dailySummaryMapper.toTickerSummaryResponse(latestSummary),
+          forecast,
+          buyPatternCount: patternCounts.buyPatternCount,
+          sellPatternCount: patternCounts.sellPatternCount,
         },
         { status: 200 }
       );

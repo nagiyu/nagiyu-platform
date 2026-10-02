@@ -18,25 +18,30 @@ jest.mock('../../../components/AlertSettingsModal', () => ({
 }));
 
 describe('チャート画面カードコンポーネント', () => {
-  it('TickerSummaryCard: サマリー情報を表示する', () => {
-    const summary: TickerSummary = {
-      tickerId: 'NASDAQ:NVDA',
-      symbol: 'NVDA',
-      name: 'NVIDIA',
-      open: 100,
-      high: 120,
-      low: 90,
-      close: 110,
-      volume: 1000,
-      updatedAt: '2026-01-01T00:00:00.000Z',
-      buyPatternCount: 2,
-      sellPatternCount: 1,
-      buyAlertCount: { enabled: 1, disabled: 0 },
-      sellAlertCount: { enabled: 0, disabled: 0 },
-      patternDetails: [],
-      holding: null,
-    };
+  const baseSummary: TickerSummary = {
+    tickerId: 'NASDAQ:NVDA',
+    date: '2025-09-25',
+    symbol: 'NVDA',
+    name: 'NVIDIA',
+    open: 100,
+    high: 120,
+    low: 90,
+    close: 110,
+    volume: 1000,
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    buyPatternCount: 2,
+    sellPatternCount: 1,
+    buyAlertCount: { enabled: 1, disabled: 0 },
+    sellAlertCount: { enabled: 0, disabled: 0 },
+    holding: null,
+    forecast: {
+      dir: { probability: 0.56, baseline: 0.5, lean: 'UP' },
+      vol: { probability: 0.4, baseline: 0.5, lean: 'NEUTRAL' },
+      lit: { total: 3, buy: 2, sell: 1 },
+    },
+  };
 
+  const renderCard = (summary: TickerSummary) =>
     render(
       React.createElement(TickerSummaryCard, {
         summary,
@@ -46,378 +51,64 @@ describe('チャート画面カードコンポーネント', () => {
       })
     );
 
+  beforeEach(() => {
+    // 詳細ダイアログを開くと確度を取得しにいくため、404 を返して「確度なし」の経路に倒す
+    global.fetch = jest.fn(async () => ({ ok: false, status: 404 }) as Response);
+  });
+
+  it('TickerSummaryCard: 基準日・方向・荒れ・点灯を表示する', () => {
+    renderCard(baseSummary);
+
     expect(screen.getByText('サマリー')).toBeTruthy();
-    // 投資判断: ラベルと「未生成」テキストは別ノードになっている
-    expect(screen.getByText('投資判断:')).toBeTruthy();
-    expect(screen.getByText('未生成')).toBeTruthy();
-    expect(screen.getByText('買いシグナル: 2')).toBeTruthy();
-    expect(screen.getByText('売りシグナル: 1')).toBeTruthy();
+    expect(screen.getByTestId('summary-reference-date').textContent).toBe('9/25 引け時点');
+    expect(screen.getByTestId('summary-dir-label').textContent).toBe('強含み');
+    expect(screen.getByTestId('summary-vol-label').textContent).toBe('平常');
+    expect(screen.getByTestId('summary-lit').textContent).toBe('点灯: 3（買2売1）');
+    expect(screen.getByTestId('summary-dir-probability').textContent).toBe(
+      '上回る確率 56% (ふだん 50%)'
+    );
+    expect(screen.getByTestId('summary-vol-probability').textContent).toBe(
+      '荒れる確率 40% (ふだん 50%)'
+    );
     expect(screen.getByRole('button', { name: '詳細' })).toBeTruthy();
   });
 
-  it('TickerSummaryCard: サポート/レジスタンスを表示し、詳細ダイアログを開ける', () => {
-    const summary: TickerSummary = {
-      tickerId: 'NASDAQ:NVDA',
-      symbol: 'NVDA',
-      name: 'NVIDIA',
-      open: 100,
-      high: 120,
-      low: 90,
-      close: 110,
-      volume: 1000,
-      updatedAt: '2026-01-01T00:00:00.000Z',
-      buyPatternCount: 2,
-      sellPatternCount: 1,
-      buyAlertCount: { enabled: 1, disabled: 0 },
-      sellAlertCount: { enabled: 0, disabled: 0 },
-      patternDetails: [],
-      holding: null,
-      aiAnalysisResult: {
-        priceMovementAnalysis: '値動き分析',
-        patternAnalysis: 'パターン分析',
-        supportLevels: [100, 95, 90],
-        resistanceLevels: [120, 125, 130],
-        relatedMarketTrend: '市場動向',
-        investmentJudgment: { signal: 'BULLISH', reason: '上昇トレンド' },
-      },
-    };
+  it('TickerSummaryCard: AI 由来の表示を含まない', () => {
+    renderCard(baseSummary);
 
-    render(
-      React.createElement(TickerSummaryCard, {
-        summary,
-        loading: false,
-        error: '',
-        onChanged: jest.fn(async () => undefined),
-      })
-    );
+    expect(screen.queryByText('投資判断:')).toBeNull();
+    expect(screen.queryByText('予測リターン:')).toBeNull();
+    expect(screen.queryByText('確信度:')).toBeNull();
+    expect(screen.queryByText('サポートレベル')).toBeNull();
+    expect(screen.queryByText('レジスタンスレベル')).toBeNull();
+  });
 
-    expect(screen.getByText('サポートレベル')).toBeTruthy();
-    expect(screen.getByText('レジスタンスレベル')).toBeTruthy();
-    expect(screen.getByText('100')).toBeTruthy();
-    expect(screen.getByText('95')).toBeTruthy();
-    expect(screen.getByText('90')).toBeTruthy();
-    expect(screen.getByText('120')).toBeTruthy();
-    expect(screen.getByText('125')).toBeTruthy();
-    expect(screen.getByText('130')).toBeTruthy();
+  it('TickerSummaryCard: 確度がないときは「—」を表示する', () => {
+    renderCard({ ...baseSummary, forecast: null });
+
+    expect(screen.getByTestId('summary-dir-label').textContent).toBe('—');
+    expect(screen.getByTestId('summary-vol-label').textContent).toBe('—');
+    expect(screen.getByTestId('summary-lit').textContent).toBe('点灯: —');
+  });
+
+  it('TickerSummaryCard: 荒れだけ確度がないときは荒れのみ「—」を表示する', () => {
+    renderCard({
+      ...baseSummary,
+      forecast: { ...baseSummary.forecast!, vol: null },
+    });
+
+    expect(screen.getByTestId('summary-dir-label').textContent).toBe('強含み');
+    expect(screen.getByTestId('summary-vol-label').textContent).toBe('—');
+  });
+
+  it('TickerSummaryCard: 詳細ボタンで詳細ダイアログを開ける', async () => {
+    renderCard(baseSummary);
 
     fireEvent.click(screen.getByRole('button', { name: '詳細' }));
-    expect(screen.getByText('AI 解析')).toBeTruthy();
+
     expect(screen.getByText('StockChartMock')).toBeTruthy();
-  });
-
-  it('TickerSummaryCard: 投資判断 BULLISH を Chip で表示する', () => {
-    const summary: TickerSummary = {
-      tickerId: 'NASDAQ:NVDA',
-      symbol: 'NVDA',
-      name: 'NVIDIA',
-      open: 100,
-      high: 120,
-      low: 90,
-      close: 110,
-      volume: 1000,
-      updatedAt: '2026-01-01T00:00:00.000Z',
-      buyPatternCount: 2,
-      sellPatternCount: 1,
-      buyAlertCount: { enabled: 1, disabled: 0 },
-      sellAlertCount: { enabled: 0, disabled: 0 },
-      patternDetails: [],
-      holding: null,
-      aiAnalysisResult: {
-        priceMovementAnalysis: '値動き分析',
-        patternAnalysis: 'パターン分析',
-        supportLevels: [],
-        resistanceLevels: [],
-        relatedMarketTrend: '市場動向',
-        investmentJudgment: { signal: 'BULLISH', reason: '上昇トレンド' },
-      },
-    };
-
-    render(
-      React.createElement(TickerSummaryCard, {
-        summary,
-        loading: false,
-        error: '',
-        onChanged: jest.fn(async () => undefined),
-      })
-    );
-
-    // BULLISH: 強気ラベルが Chip として表示される
-    const chip = screen.getByTestId('summary-investment-signal');
-    expect(chip.textContent).toBe('強気');
-    // 「未生成」は表示されない
-    expect(screen.queryByTestId('summary-investment-signal-unset')).toBeNull();
-  });
-
-  it('TickerSummaryCard: 投資判断 NEUTRAL を Chip で表示する', () => {
-    const summary: TickerSummary = {
-      tickerId: 'NASDAQ:NVDA',
-      symbol: 'NVDA',
-      name: 'NVIDIA',
-      open: 100,
-      high: 120,
-      low: 90,
-      close: 110,
-      volume: 1000,
-      updatedAt: '2026-01-01T00:00:00.000Z',
-      buyPatternCount: 0,
-      sellPatternCount: 0,
-      buyAlertCount: { enabled: 0, disabled: 0 },
-      sellAlertCount: { enabled: 0, disabled: 0 },
-      patternDetails: [],
-      holding: null,
-      aiAnalysisResult: {
-        priceMovementAnalysis: '値動き分析',
-        patternAnalysis: 'パターン分析',
-        supportLevels: [],
-        resistanceLevels: [],
-        relatedMarketTrend: '市場動向',
-        investmentJudgment: { signal: 'NEUTRAL', reason: '様子見' },
-      },
-    };
-
-    render(
-      React.createElement(TickerSummaryCard, {
-        summary,
-        loading: false,
-        error: '',
-        onChanged: jest.fn(async () => undefined),
-      })
-    );
-
-    const chip = screen.getByTestId('summary-investment-signal');
-    expect(chip.textContent).toBe('中立');
-    expect(screen.queryByTestId('summary-investment-signal-unset')).toBeNull();
-  });
-
-  it('TickerSummaryCard: 投資判断 BEARISH を Chip で表示する', () => {
-    const summary: TickerSummary = {
-      tickerId: 'NASDAQ:NVDA',
-      symbol: 'NVDA',
-      name: 'NVIDIA',
-      open: 100,
-      high: 120,
-      low: 90,
-      close: 110,
-      volume: 1000,
-      updatedAt: '2026-01-01T00:00:00.000Z',
-      buyPatternCount: 0,
-      sellPatternCount: 0,
-      buyAlertCount: { enabled: 0, disabled: 0 },
-      sellAlertCount: { enabled: 0, disabled: 0 },
-      patternDetails: [],
-      holding: null,
-      aiAnalysisResult: {
-        priceMovementAnalysis: '値動き分析',
-        patternAnalysis: 'パターン分析',
-        supportLevels: [],
-        resistanceLevels: [],
-        relatedMarketTrend: '市場動向',
-        investmentJudgment: { signal: 'BEARISH', reason: '下落トレンド' },
-      },
-    };
-
-    render(
-      React.createElement(TickerSummaryCard, {
-        summary,
-        loading: false,
-        error: '',
-        onChanged: jest.fn(async () => undefined),
-      })
-    );
-
-    const chip = screen.getByTestId('summary-investment-signal');
-    expect(chip.textContent).toBe('弱気');
-    expect(screen.queryByTestId('summary-investment-signal-unset')).toBeNull();
-  });
-
-  it('TickerSummaryCard: aiAnalysisResult なしの場合は「未生成」テキストを表示する', () => {
-    const summary: TickerSummary = {
-      tickerId: 'NASDAQ:NVDA',
-      symbol: 'NVDA',
-      name: 'NVIDIA',
-      open: 100,
-      high: 120,
-      low: 90,
-      close: 110,
-      volume: 1000,
-      updatedAt: '2026-01-01T00:00:00.000Z',
-      buyPatternCount: 0,
-      sellPatternCount: 0,
-      buyAlertCount: { enabled: 0, disabled: 0 },
-      sellAlertCount: { enabled: 0, disabled: 0 },
-      patternDetails: [],
-      holding: null,
-      // aiAnalysisResult は未設定
-    };
-
-    render(
-      React.createElement(TickerSummaryCard, {
-        summary,
-        loading: false,
-        error: '',
-        onChanged: jest.fn(async () => undefined),
-      })
-    );
-
-    // Chip は表示されず「未生成」テキストが出る
-    expect(screen.queryByTestId('summary-investment-signal')).toBeNull();
-    expect(screen.getByTestId('summary-investment-signal-unset').textContent).toBe('未生成');
-  });
-
-  it('TickerSummaryCard: predictedReturn がある場合に表示する', () => {
-    const summary: TickerSummary = {
-      tickerId: 'NASDAQ:NVDA',
-      symbol: 'NVDA',
-      name: 'NVIDIA',
-      open: 100,
-      high: 120,
-      low: 90,
-      close: 110,
-      volume: 1000,
-      updatedAt: '2026-01-01T00:00:00.000Z',
-      buyPatternCount: 0,
-      sellPatternCount: 0,
-      buyAlertCount: { enabled: 0, disabled: 0 },
-      sellAlertCount: { enabled: 0, disabled: 0 },
-      patternDetails: [],
-      holding: null,
-      aiAnalysisResult: {
-        priceMovementAnalysis: '値動き分析',
-        patternAnalysis: 'パターン分析',
-        supportLevels: [],
-        resistanceLevels: [],
-        relatedMarketTrend: '市場動向',
-        investmentJudgment: { signal: 'BULLISH', predictedReturn: 1.23, reason: '上昇' },
-      },
-    };
-
-    render(
-      React.createElement(TickerSummaryCard, {
-        summary,
-        loading: false,
-        error: '',
-        onChanged: jest.fn(async () => undefined),
-      })
-    );
-
-    expect(screen.getByTestId('summary-predicted-return').textContent).toBe('+1.23%');
-  });
-
-  it('TickerSummaryCard: predictedReturn がない場合は予測リターン行を表示しない', () => {
-    const summary: TickerSummary = {
-      tickerId: 'NASDAQ:NVDA',
-      symbol: 'NVDA',
-      name: 'NVIDIA',
-      open: 100,
-      high: 120,
-      low: 90,
-      close: 110,
-      volume: 1000,
-      updatedAt: '2026-01-01T00:00:00.000Z',
-      buyPatternCount: 0,
-      sellPatternCount: 0,
-      buyAlertCount: { enabled: 0, disabled: 0 },
-      sellAlertCount: { enabled: 0, disabled: 0 },
-      patternDetails: [],
-      holding: null,
-      aiAnalysisResult: {
-        priceMovementAnalysis: '値動き分析',
-        patternAnalysis: 'パターン分析',
-        supportLevels: [],
-        resistanceLevels: [],
-        relatedMarketTrend: '市場動向',
-        investmentJudgment: { signal: 'BULLISH', reason: '上昇' },
-      },
-    };
-
-    render(
-      React.createElement(TickerSummaryCard, {
-        summary,
-        loading: false,
-        error: '',
-        onChanged: jest.fn(async () => undefined),
-      })
-    );
-
-    expect(screen.queryByTestId('summary-predicted-return')).toBeNull();
-  });
-
-  it('TickerSummaryCard: confidence がある場合に表示する', () => {
-    const summary: TickerSummary = {
-      tickerId: 'NASDAQ:NVDA',
-      symbol: 'NVDA',
-      name: 'NVIDIA',
-      open: 100,
-      high: 120,
-      low: 90,
-      close: 110,
-      volume: 1000,
-      updatedAt: '2026-01-01T00:00:00.000Z',
-      buyPatternCount: 0,
-      sellPatternCount: 0,
-      buyAlertCount: { enabled: 0, disabled: 0 },
-      sellAlertCount: { enabled: 0, disabled: 0 },
-      patternDetails: [],
-      holding: null,
-      aiAnalysisResult: {
-        priceMovementAnalysis: '値動き分析',
-        patternAnalysis: 'パターン分析',
-        supportLevels: [],
-        resistanceLevels: [],
-        relatedMarketTrend: '市場動向',
-        investmentJudgment: { signal: 'BULLISH', confidence: 0.75, reason: '上昇' },
-      },
-    };
-
-    render(
-      React.createElement(TickerSummaryCard, {
-        summary,
-        loading: false,
-        error: '',
-        onChanged: jest.fn(async () => undefined),
-      })
-    );
-
-    expect(screen.getByTestId('summary-confidence').textContent).toBe('75%');
-  });
-
-  it('TickerSummaryCard: confidence がない場合は確信度行を表示しない', () => {
-    const summary: TickerSummary = {
-      tickerId: 'NASDAQ:NVDA',
-      symbol: 'NVDA',
-      name: 'NVIDIA',
-      open: 100,
-      high: 120,
-      low: 90,
-      close: 110,
-      volume: 1000,
-      updatedAt: '2026-01-01T00:00:00.000Z',
-      buyPatternCount: 0,
-      sellPatternCount: 0,
-      buyAlertCount: { enabled: 0, disabled: 0 },
-      sellAlertCount: { enabled: 0, disabled: 0 },
-      patternDetails: [],
-      holding: null,
-      aiAnalysisResult: {
-        priceMovementAnalysis: '値動き分析',
-        patternAnalysis: 'パターン分析',
-        supportLevels: [],
-        resistanceLevels: [],
-        relatedMarketTrend: '市場動向',
-        investmentJudgment: { signal: 'BULLISH', reason: '上昇' },
-      },
-    };
-
-    render(
-      React.createElement(TickerSummaryCard, {
-        summary,
-        loading: false,
-        error: '',
-        onChanged: jest.fn(async () => undefined),
-      })
-    );
-
-    expect(screen.queryByTestId('summary-confidence')).toBeNull();
+    expect(await screen.findByTestId('forecast-unavailable-reason')).toBeTruthy();
+    expect(screen.queryByText('AI 解析')).toBeNull();
   });
 
   it('HoldingCard: 保有なしを表示する', () => {

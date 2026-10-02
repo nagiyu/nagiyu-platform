@@ -52,6 +52,15 @@ export class IamContainerPolicyStack extends cdk.Stack {
             ],
             resources: ['*'],
           }),
+          // ECR Public Pull
+          // ベースイメージ (public.ecr.aws) を認証付きで pull するために必要。
+          // 匿名 pull は送信元 IP 単位のクォータで、共有 IP の runner では枠を消費されるため。
+          new iam.PolicyStatement({
+            sid: 'ECRPublicPull',
+            effect: iam.Effect.ALLOW,
+            actions: ['ecr-public:GetAuthorizationToken', 'sts:GetServiceBearerToken'],
+            resources: ['*'],
+          }),
           // ECS Operations
           new iam.PolicyStatement({
             sid: 'ECSOperations',

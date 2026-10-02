@@ -9,12 +9,11 @@ export interface SecretsStackProps extends cdk.StackProps {
 /**
  * Stock Tracker Secrets Stack
  *
- * VAPID キー（Web Push 通知用）と外部 API キーを Secrets Manager で管理します。
+ * VAPID キー（Web Push 通知用）と Finnhub API キーを Secrets Manager で管理します。
  * 初回デプロイ時は PLACEHOLDER 値で作成し、後で AWS Console から実際の値を上書きします。
  */
 export class SecretsStack extends cdk.Stack {
   public readonly vapidSecret: secretsmanager.ISecret;
-  public readonly openAiApiKeySecret: secretsmanager.ISecret;
   public readonly finnhubApiKeySecret: secretsmanager.ISecret;
 
   constructor(scope: Construct, id: string, props: SecretsStackProps) {
@@ -32,15 +31,6 @@ export class SecretsStack extends cdk.Stack {
       },
     });
 
-    // OpenAI API キーシークレット（初回は PLACEHOLDER 値）
-    this.openAiApiKeySecret = new secretsmanager.Secret(this, 'OpenAiApiKeySecret', {
-      secretName: `nagiyu-stock-tracker-openai-api-key-${environment}`,
-      description: 'OpenAI API key for stock analysis batch processing',
-      secretObjectValue: {
-        apiKey: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
-      },
-    });
-
     // Finnhub API キーシークレット（初回は PLACEHOLDER 値）
     this.finnhubApiKeySecret = new secretsmanager.Secret(this, 'FinnhubApiKeySecret', {
       secretName: `nagiyu-stock-tracker-finnhub-api-key-${environment}`,
@@ -54,9 +44,6 @@ export class SecretsStack extends cdk.Stack {
     cdk.Tags.of(this.vapidSecret).add('Application', 'nagiyu');
     cdk.Tags.of(this.vapidSecret).add('Service', 'stock-tracker');
     cdk.Tags.of(this.vapidSecret).add('Environment', environment);
-    cdk.Tags.of(this.openAiApiKeySecret).add('Application', 'nagiyu');
-    cdk.Tags.of(this.openAiApiKeySecret).add('Service', 'stock-tracker');
-    cdk.Tags.of(this.openAiApiKeySecret).add('Environment', environment);
     cdk.Tags.of(this.finnhubApiKeySecret).add('Application', 'nagiyu');
     cdk.Tags.of(this.finnhubApiKeySecret).add('Service', 'stock-tracker');
     cdk.Tags.of(this.finnhubApiKeySecret).add('Environment', environment);
@@ -70,16 +57,6 @@ export class SecretsStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'VapidSecretName', {
       value: this.vapidSecret.secretName,
       description: 'VAPID Secret Name',
-    });
-
-    new cdk.CfnOutput(this, 'OpenAiApiKeySecretArn', {
-      value: this.openAiApiKeySecret.secretArn,
-      description: 'OpenAI API Key Secret ARN',
-    });
-
-    new cdk.CfnOutput(this, 'OpenAiApiKeySecretName', {
-      value: this.openAiApiKeySecret.secretName,
-      description: 'OpenAI API Key Secret Name',
     });
 
     new cdk.CfnOutput(this, 'FinnhubApiKeySecretArn', {

@@ -110,71 +110,6 @@ export function defineDailySummaryRepositoryContract(
       expect(fetched?.CreatedAt).toBe(created.CreatedAt);
     });
 
-    it('markAsEvaluatedは採点結果フィールドを一括反映する', async () => {
-      const created = await repository.upsert(buildDailySummaryInput());
-
-      await repository.markAsEvaluated(
-        { tickerId: created.TickerID, date: created.Date },
-        {
-          EvaluationDate: '2024-01-03',
-          EvaluationClose: 108,
-          ActualReturn: 2.5,
-          Hit: true,
-          EvaluationThresholdPercent: 0.5,
-          EvaluatedAt: 1_700_000_000_000,
-        }
-      );
-
-      const fetched = await repository.getByTickerAndDate(created.TickerID, created.Date);
-      expect(fetched).toMatchObject({
-        EvaluationDate: '2024-01-03',
-        EvaluationClose: 108,
-        ActualReturn: 2.5,
-        Hit: true,
-        EvaluationThresholdPercent: 0.5,
-        EvaluatedAt: 1_700_000_000_000,
-      });
-    });
-
-    it('存在しない対象へのmarkAsEvaluatedはEntityNotFoundErrorをスローする', async () => {
-      await expect(
-        repository.markAsEvaluated(
-          { tickerId: 'NO-SUCH-TICKER', date: '2024-01-01' },
-          {
-            EvaluationDate: '2024-01-02',
-            EvaluationClose: 100,
-            ActualReturn: 0,
-            Hit: false,
-            EvaluationThresholdPercent: 0.5,
-            EvaluatedAt: 1_700_000_000_000,
-          }
-        )
-      ).rejects.toThrow(expect.objectContaining({ name: 'EntityNotFoundError' }));
-    });
-
-    it('採点済みの対象への再度のmarkAsEvaluatedはEntityAlreadyExistsErrorをスローする', async () => {
-      const created = await repository.upsert(buildDailySummaryInput());
-      const evaluationFields = {
-        EvaluationDate: '2024-01-03',
-        EvaluationClose: 108,
-        ActualReturn: 2.5,
-        Hit: true,
-        EvaluationThresholdPercent: 0.5,
-        EvaluatedAt: 1_700_000_000_000,
-      };
-      await repository.markAsEvaluated(
-        { tickerId: created.TickerID, date: created.Date },
-        evaluationFields
-      );
-
-      await expect(
-        repository.markAsEvaluated(
-          { tickerId: created.TickerID, date: created.Date },
-          evaluationFields
-        )
-      ).rejects.toThrow(expect.objectContaining({ name: 'EntityAlreadyExistsError' }));
-    });
-
     it('getByExchangeはdate指定時、begins_withで対象取引所・対象日のサマリーだけをGSI4SK昇順で返す', async () => {
       // 意図的に非ソート順（C→Bの順）で作成し、他日・他取引所のノイズも混ぜる
       await repository.upsert(
@@ -244,6 +179,61 @@ export function defineDailySummaryRepositoryContract(
 
       expect(result.map((item) => item.Date)).toEqual(['2024-01-02', '2024-01-03', '2024-01-05']);
       expect(result.map((item) => item.TickerID)).toEqual(['T2', 'T3', 'T4']);
+    });
+
+    it('getForecastFieldsByExchangeAndDateRangeはOHLCV・パターン結果・CreatedAtを持ちUpdatedAtを持たない', async () => {
+      await repository.upsert(
+        buildDailySummaryInput({
+          TickerID: 'T1',
+          ExchangeID: 'EX-A',
+          Date: '2024-01-02',
+          Volume: 12345,
+          BuyPatternCount: 2,
+          SellPatternCount: 0,
+        })
+      );
+
+      const result = await repository.getForecastFieldsByExchangeAndDateRange(
+        'EX-A',
+        '2024-01-01',
+        '2024-01-03'
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        TickerID: 'T1',
+        ExchangeID: 'EX-A',
+        Date: '2024-01-02',
+        Open: 100,
+        High: 110,
+        Low: 95,
+        Close: 105,
+        Volume: 12345,
+        BuyPatternCount: 2,
+        SellPatternCount: 0,
+      });
+      expect(typeof result[0].CreatedAt).toBe('number');
+      expect(result[0]).not.toHaveProperty('UpdatedAt');
+    });
+
+    it('getForecastFieldsByExchangeAndDateRangeは境界日を含み範囲外の日付を除く', async () => {
+      await repository.upsert(
+        buildDailySummaryInput({ TickerID: 'T1', ExchangeID: 'EX-A', Date: '2024-01-01' })
+      );
+      await repository.upsert(
+        buildDailySummaryInput({ TickerID: 'T2', ExchangeID: 'EX-A', Date: '2024-01-02' })
+      );
+      await repository.upsert(
+        buildDailySummaryInput({ TickerID: 'T3', ExchangeID: 'EX-A', Date: '2024-01-05' })
+      );
+
+      const result = await repository.getForecastFieldsByExchangeAndDateRange(
+        'EX-A',
+        '2024-01-02',
+        '2024-01-04'
+      );
+
+      expect(result.map((item) => item.TickerID)).toEqual(['T2']);
     });
 
     it('getByExchangeAndDateRangeは他取引所のサマリーを含まない（パーティション分離）', async () => {

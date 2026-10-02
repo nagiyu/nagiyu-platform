@@ -87,21 +87,21 @@ describe('getClaudeInvokableFunctionNames', () => {
     expect(getClaudeInvokableFunctionNames('dev')).toEqual(CLAUDE_INVOKABLE_FUNCTION_NAMES_DEV);
   });
 
-  it('dev スコープの許可対象は合意済みのバッチ 7 本に限る（意図しない拡張を検出する）', () => {
+  it('dev スコープの許可対象は合意済みの 8 本に限る（意図しない拡張を検出する）', () => {
     expect(getClaudeInvokableFunctionNames('dev')).toEqual([
       'nagiyu-stock-tracker-batch-daily-dev',
-      'nagiyu-stock-tracker-batch-evaluation-dev',
       'nagiyu-stock-tracker-batch-temporary-alert-expiry-dev',
       'nagiyu-stock-tracker-batch-summary-dev',
+      'nagiyu-stock-tracker-batch-forecast-dev',
       'nagiyu-livetalk-batch-learn-user-activity-dev',
       'nagiyu-livetalk-batch-acquire-dev',
       'nagiyu-livetalk-batch-consolidate-dev',
+      'nagiyu-dev-sync-dev',
     ]);
   });
 
-  it('prod アカウントへアクセスする関数（dev-sync）は含まれない', () => {
-    const names = getClaudeInvokableFunctionNames('dev');
-    expect(names.some((name) => name.includes('dev-sync'))).toBe(false);
+  it('prod スコープには dev-sync を含め、実行を許す関数が 1 つもない', () => {
+    expect(getClaudeInvokableFunctionNames('prod')).toEqual([]);
   });
 
   it('返り値は呼び出しごとに独立した配列である（定数の参照を直接返さない）', () => {

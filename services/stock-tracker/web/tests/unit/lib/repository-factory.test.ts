@@ -10,6 +10,10 @@ import {
   createTickerRepository,
   createExchangeRepository,
   createDailySummaryRepository,
+  createForecastRepository,
+  createMarketForecastRepository,
+  createModelSnapshotRepository,
+  createPerformanceDailyRepository,
   clearMemoryStore,
 } from '../../../lib/repository-factory';
 import * as aws from '@nagiyu/aws';
@@ -87,6 +91,19 @@ describe('Repository Factory', () => {
       expect(repo.constructor.name).toBe('InMemoryDailySummaryRepository');
     });
 
+    it('確度系 4 リポジトリはInMemory実装を返す', () => {
+      expect(createForecastRepository().constructor.name).toBe('InMemoryForecastRepository');
+      expect(createMarketForecastRepository().constructor.name).toBe(
+        'InMemoryMarketForecastRepository'
+      );
+      expect(createModelSnapshotRepository().constructor.name).toBe(
+        'InMemoryModelSnapshotRepository'
+      );
+      expect(createPerformanceDailyRepository().constructor.name).toBe(
+        'InMemoryPerformanceDailyRepository'
+      );
+    });
+
     it('シングルトンパターンが機能する', () => {
       const repo1 = createAlertRepository();
       const repo2 = createAlertRepository();
@@ -140,6 +157,19 @@ describe('Repository Factory', () => {
       const repo = createExchangeRepository();
       expect(repo).toBeDefined();
       expect(repo.constructor.name).toBe('DynamoDBExchangeRepository');
+    });
+
+    it('確度系 4 リポジトリはDynamoDB実装を返す', () => {
+      expect(createForecastRepository().constructor.name).toBe('DynamoDBForecastRepository');
+      expect(createMarketForecastRepository().constructor.name).toBe(
+        'DynamoDBMarketForecastRepository'
+      );
+      expect(createModelSnapshotRepository().constructor.name).toBe(
+        'DynamoDBModelSnapshotRepository'
+      );
+      expect(createPerformanceDailyRepository().constructor.name).toBe(
+        'DynamoDBPerformanceDailyRepository'
+      );
     });
 
     it('createDailySummaryRepository はDynamoDB実装を返す', () => {

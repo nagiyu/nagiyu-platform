@@ -1,33 +1,44 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Box,
+  ButtonBase,
+  Collapse,
   Dialog,
   DialogContent,
   DialogTitle,
   Divider,
   IconButton,
-  Menu,
+  Tab,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableRow,
-  Tooltip,
+  Tabs,
   Typography,
 } from '@mui/material';
-// eslint-disable-next-line no-restricted-imports -- MUI Menu の子要素として利用。共通 Select の選択肢用途とは別物のため統合対象外。
-import { MenuItem } from '@mui/material';
-import { Button, Chip } from '@nagiyu/ui';
-import { Close as CloseIcon } from '@mui/icons-material';
-import AiAnalysisMarkdown from './AiAnalysisMarkdown';
+import { Button } from '@nagiyu/ui';
+import { ChevronRight as ChevronRightIcon, Close as CloseIcon } from '@mui/icons-material';
 import AlertSettingsModal from './AlertSettingsModal';
+import AxisBreakdownTable from './AxisBreakdownTable';
+import ForecastLabelChip from './ForecastLabelChip';
 import StockChart from './StockChart';
-import type { PatternDetail, TickerSummary } from '@/types/stock';
+import type { TickerSummary } from '@/types/stock';
 import type { AlertMode } from '@/types/alert';
+import type { ForecastDetailResponse, QuestionDetail } from '@/types/forecast';
+import {
+  FORECAST_TEXT,
+  formatBandHistory,
+  formatProbabilityWithUsual,
+  formatReferenceDate,
+  isBandLowSample,
+  splitAxes,
+  toProbabilityView,
+} from '@/lib/forecast-view/labels';
 import { ERROR_MESSAGES } from '@/lib/error-messages';
-import { formatPredictedReturn, formatConfidence } from '@/lib/ai-analysis-format';
+import { fetchForecastDetail } from '@/lib/forecast-view/fetch-detail';
 
 interface SummaryDetailDialogProps {
   open: boolean;
@@ -36,13 +47,22 @@ interface SummaryDetailDialogProps {
   onAlertChanged?: () => Promise<void>;
 }
 
-const INVESTMENT_SIGNAL_LABELS = {
-  BULLISH: '強気',
-  NEUTRAL: '中立',
-  BEARISH: '弱気',
-} as const;
-const UI_ERROR_MESSAGES = {
-  INSUFFICIENT_DATA_REASON: 'データ不足',
+type DetailQuestion = 'DIR' | 'VOL';
+
+type ForecastLoadState =
+  | { status: 'loading' }
+  | { status: 'ok'; data: ForecastDetailResponse }
+  | { status: 'unavailable' }
+  | { status: 'error' };
+
+const QUESTION_TITLES: Record<DetailQuestion, string> = {
+  DIR: '方向',
+  VOL: '荒れ',
+};
+
+const UNAVAILABLE_MESSAGES = {
+  unavailable: FORECAST_TEXT.NO_FORECAST,
+  error: ERROR_MESSAGES.FORECAST_FETCH_FAILED,
 } as const;
 
 const extractExchangeId = (tickerId: string): string => {
@@ -50,16 +70,55 @@ const extractExchangeId = (tickerId: string): string => {
   return exchangeId && symbol ? exchangeId : '';
 };
 
-const resolveAiAnalysisFallbackMessage = (summary: TickerSummary): string => {
-  if (summary.aiAnalysisResult) {
-    return '';
-  }
-  if (typeof summary.aiAnalysisError === 'string') {
-    return ERROR_MESSAGES.AI_ANALYSIS_FAILED;
-  }
+interface ForecastCardProps {
+  question: DetailQuestion;
+  detail: QuestionDetail | null;
+  unavailableReason: string;
+}
 
-  return ERROR_MESSAGES.AI_ANALYSIS_NOT_GENERATED;
-};
+function ForecastCard({ question, detail, unavailableReason }: ForecastCardProps) {
+  const view = toProbabilityView(detail);
+  return (
+    <Box
+      data-testid={`forecast-card-${question}`}
+      sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5, minWidth: 0 }}
+    >
+      <Typography variant="subtitle2" color="text.secondary">
+        {QUESTION_TITLES[question]}
+      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+        <ForecastLabelChip
+          question={question}
+          view={view}
+          size="md"
+          unavailableReason={unavailableReason}
+          data-testid={`forecast-label-${question}`}
+        />
+        {detail && (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            data-testid={`forecast-probability-${question}`}
+          >
+            {formatProbabilityWithUsual(question, detail)}
+          </Typography>
+        )}
+      </Box>
+      {detail?.bandHistory && (
+        <Box sx={{ mt: 0.5 }} data-testid={`forecast-band-${question}`}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+            {formatBandHistory(detail.bandHistory)}
+          </Typography>
+          {isBandLowSample(detail.bandHistory) && (
+            <Typography variant="caption" color="warning.main">
+              {FORECAST_TEXT.LOW_SAMPLE_BAND}
+            </Typography>
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+}
 
 export default function SummaryDetailDialog({
   open,
@@ -72,29 +131,56 @@ export default function SummaryDetailDialog({
     tradeMode: AlertMode;
     initialPrice: number;
   }>({ open: false, tradeMode: 'Buy', initialPrice: 0 });
-  const [chipMenuAnchor, setChipMenuAnchor] = useState<{
-    element: HTMLElement;
-    price: number;
-  } | null>(null);
+  const [loaded, setLoaded] = useState<{ key: string; state: ForecastLoadState } | null>(null);
+  const [activeQuestion, setActiveQuestion] = useState<DetailQuestion>('DIR');
+  const [inactiveOpen, setInactiveOpen] = useState(false);
+
+  const tickerId = summary?.tickerId ?? null;
+  const summaryDate = summary?.date ?? '';
+
+  // 開くたびに、その銘柄・基準日の確度を取り直す
+  useEffect(() => {
+    if (!open || tickerId === null) {
+      return;
+    }
+    const requestKey = `${tickerId}|${summaryDate}`;
+    let cancelled = false;
+    setActiveQuestion('DIR');
+    setInactiveOpen(false);
+    void fetchForecastDetail(tickerId, summaryDate).then((result) => {
+      if (!cancelled) {
+        setLoaded({ key: requestKey, state: result });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, tickerId, summaryDate]);
+
+  // 別の銘柄・日付や閉じた後に、前回の結果を一瞬でも描画しないよう、キーが一致するときだけ採用する
+  const forecastState: ForecastLoadState =
+    open && loaded && loaded.key === `${tickerId}|${summaryDate}`
+      ? loaded.state
+      : { status: 'loading' };
 
   const handleClose = () => {
     setAlertModalState((s) => ({ ...s, open: false }));
-    setChipMenuAnchor(null);
     onClose();
   };
 
   const openAlertModal = (tradeMode: AlertMode, initialPrice: number) => {
-    setChipMenuAnchor(null);
     setAlertModalState({ open: true, tradeMode, initialPrice });
   };
 
-  const buyPatternDetails: PatternDetail[] = (summary?.patternDetails ?? []).filter(
-    (pattern) => pattern.signalType === 'BUY'
-  );
-  const sellPatternDetails: PatternDetail[] = (summary?.patternDetails ?? []).filter(
-    (pattern) => pattern.signalType === 'SELL'
-  );
   const selectedTickerExchangeId = summary ? extractExchangeId(summary.tickerId) : '';
+  const forecastData = forecastState.status === 'ok' ? forecastState.data : null;
+  const referenceDate = formatReferenceDate(forecastData?.date ?? summary?.date);
+  const activeDetail = forecastData?.questions[activeQuestion] ?? null;
+  const axes = activeDetail ? splitAxes(activeDetail.axes) : null;
+  const unavailableMessage =
+    forecastState.status === 'unavailable' || forecastState.status === 'error'
+      ? UNAVAILABLE_MESSAGES[forecastState.status]
+      : null;
 
   return (
     <>
@@ -116,7 +202,15 @@ export default function SummaryDetailDialog({
         <DialogTitle
           sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
         >
-          {summary?.symbol}
+          <Box component="span" sx={{ minWidth: 0 }}>
+            {summary?.symbol}
+            {summary && (
+              <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+                {summary.name}
+                {referenceDate && ` ／ ${referenceDate}`}
+              </Typography>
+            )}
+          </Box>
           <IconButton onClick={handleClose} size="small" aria-label="閉じる">
             <CloseIcon />
           </IconButton>
@@ -124,6 +218,105 @@ export default function SummaryDetailDialog({
         <DialogContent dividers sx={{ overflowX: 'hidden' }}>
           {summary && (
             <Box sx={{ display: 'grid', gap: 2, maxWidth: '100%', overflowX: 'hidden' }}>
+              <Typography variant="h6">確度</Typography>
+              {forecastState.status === 'loading' ? (
+                <Typography color="text.secondary">読み込み中...</Typography>
+              ) : (
+                <>
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gap: 1.5,
+                      gridTemplateColumns: {
+                        xs: 'minmax(0, 1fr)',
+                        sm: 'repeat(2, minmax(0, 1fr))',
+                      },
+                    }}
+                  >
+                    {(['DIR', 'VOL'] as const).map((question) => (
+                      <ForecastCard
+                        key={question}
+                        question={question}
+                        detail={forecastData?.questions[question] ?? null}
+                        unavailableReason={
+                          unavailableMessage ??
+                          (question === 'VOL'
+                            ? FORECAST_TEXT.NO_HISTORY
+                            : FORECAST_TEXT.NO_FORECAST)
+                        }
+                      />
+                    ))}
+                  </Box>
+                  {unavailableMessage ? (
+                    <Typography color="text.secondary" data-testid="forecast-unavailable-reason">
+                      {unavailableMessage}
+                    </Typography>
+                  ) : (
+                    <Box sx={{ display: 'grid', gap: 1 }}>
+                      <Tabs
+                        value={activeQuestion}
+                        onChange={(_event, value: DetailQuestion) => {
+                          // 開いた行や折りたたみを一括で閉じる手段をタブ切り替えで兼ねるため、展開状態を初期化する
+                          setActiveQuestion(value);
+                          setInactiveOpen(false);
+                        }}
+                        aria-label="内訳の切り替え"
+                      >
+                        <Tab value="DIR" label="方向の内訳" />
+                        <Tab value="VOL" label="荒れの内訳" />
+                      </Tabs>
+                      {activeDetail && axes ? (
+                        <>
+                          <AxisBreakdownTable
+                            key={`${activeQuestion}-active`}
+                            axes={axes.active}
+                            testIdPrefix={`breakdown-${activeQuestion}`}
+                          />
+                          {axes.inactive.length > 0 && (
+                            <Box data-testid={`breakdown-${activeQuestion}-inactive`}>
+                              <ButtonBase
+                                onClick={() => setInactiveOpen((current) => !current)}
+                                aria-expanded={inactiveOpen}
+                                aria-controls={`breakdown-${activeQuestion}-inactive-panel`}
+                                data-testid={`breakdown-${activeQuestion}-inactive-toggle`}
+                                sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.5 }}
+                              >
+                                <ChevronRightIcon
+                                  fontSize="small"
+                                  sx={{
+                                    // 閉じている=右向き、開いている=下向きにそろえる
+                                    transform: inactiveOpen ? 'rotate(90deg)' : 'none',
+                                    transition: 'transform 0.2s',
+                                  }}
+                                />
+                                点灯しなかった軸（{axes.inactive.length}）
+                              </ButtonBase>
+                              <Collapse
+                                in={inactiveOpen}
+                                unmountOnExit
+                                id={`breakdown-${activeQuestion}-inactive-panel`}
+                              >
+                                <AxisBreakdownTable
+                                  key={`${activeQuestion}-inactive`}
+                                  axes={axes.inactive}
+                                  testIdPrefix={`breakdown-${activeQuestion}-off`}
+                                />
+                              </Collapse>
+                            </Box>
+                          )}
+                        </>
+                      ) : (
+                        <Typography color="text.secondary" data-testid="breakdown-unavailable">
+                          {activeQuestion === 'VOL'
+                            ? FORECAST_TEXT.NO_HISTORY
+                            : FORECAST_TEXT.NO_FORECAST}
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
+                </>
+              )}
+              <Divider />
               <Typography variant="h6">株価チャート</Typography>
               <StockChart
                 tickerId={summary.tickerId}
@@ -213,261 +406,10 @@ export default function SummaryDetailDialog({
                   </Button>
                 )}
               </Box>
-              <Divider />
-              <Typography variant="h6">パターン分析</Typography>
-              <Box sx={{ display: 'grid', gap: 1 }} data-testid="pattern-analysis-buy">
-                <Typography variant="subtitle2">買いパターン</Typography>
-                <TableContainer sx={{ maxWidth: '100%', overflowX: 'auto' }}>
-                  <Table size="small">
-                    <TableBody>
-                      {buyPatternDetails.map((pattern) => (
-                        <TableRow key={pattern.patternId}>
-                          <TableCell>
-                            <Tooltip title={pattern.description}>
-                              <Typography
-                                component="span"
-                                variant="body2"
-                                aria-label={pattern.description}
-                                sx={{
-                                  textDecoration: 'underline',
-                                  textDecorationStyle: 'dotted',
-                                  cursor: 'help',
-                                }}
-                              >
-                                {pattern.name}
-                              </Typography>
-                            </Tooltip>
-                            {pattern.status === 'INSUFFICIENT_DATA' && (
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                sx={{ display: 'block' }}
-                              >
-                                理由: {UI_ERROR_MESSAGES.INSUFFICIENT_DATA_REASON}
-                              </Typography>
-                            )}
-                          </TableCell>
-                          <TableCell align="right" sx={{ width: '10%' }}>
-                            <Typography
-                              component="span"
-                              data-testid={`pattern-status-${pattern.patternId}`}
-                              color={
-                                pattern.status === 'MATCHED'
-                                  ? 'success.main'
-                                  : pattern.status === 'INSUFFICIENT_DATA'
-                                    ? 'text.disabled'
-                                    : 'text.secondary'
-                              }
-                              sx={{ fontWeight: 'bold' }}
-                            >
-                              {pattern.status === 'MATCHED'
-                                ? '✓'
-                                : pattern.status === 'INSUFFICIENT_DATA'
-                                  ? '-'
-                                  : '✗'}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Box>
-              <Box sx={{ display: 'grid', gap: 1 }} data-testid="pattern-analysis-sell">
-                <Typography variant="subtitle2">売りパターン</Typography>
-                <TableContainer sx={{ maxWidth: '100%', overflowX: 'auto' }}>
-                  <Table size="small">
-                    <TableBody>
-                      {sellPatternDetails.map((pattern) => (
-                        <TableRow key={pattern.patternId}>
-                          <TableCell>
-                            <Tooltip title={pattern.description}>
-                              <Typography
-                                component="span"
-                                variant="body2"
-                                aria-label={pattern.description}
-                                sx={{
-                                  textDecoration: 'underline',
-                                  textDecorationStyle: 'dotted',
-                                  cursor: 'help',
-                                }}
-                              >
-                                {pattern.name}
-                              </Typography>
-                            </Tooltip>
-                            {pattern.status === 'INSUFFICIENT_DATA' && (
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                sx={{ display: 'block' }}
-                              >
-                                理由: {UI_ERROR_MESSAGES.INSUFFICIENT_DATA_REASON}
-                              </Typography>
-                            )}
-                          </TableCell>
-                          <TableCell align="right" sx={{ width: '10%' }}>
-                            <Typography
-                              component="span"
-                              data-testid={`pattern-status-${pattern.patternId}`}
-                              color={
-                                pattern.status === 'MATCHED'
-                                  ? 'success.main'
-                                  : pattern.status === 'INSUFFICIENT_DATA'
-                                    ? 'text.disabled'
-                                    : 'text.secondary'
-                              }
-                              sx={{ fontWeight: 'bold' }}
-                            >
-                              {pattern.status === 'MATCHED'
-                                ? '✓'
-                                : pattern.status === 'INSUFFICIENT_DATA'
-                                  ? '-'
-                                  : '✗'}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Box>
-              <Box component="section" aria-labelledby="ai-analysis-heading">
-                <Divider sx={{ mb: 2 }} />
-                <Typography id="ai-analysis-heading" variant="h6">
-                  AI 解析
-                </Typography>
-                {summary.aiAnalysisResult ? (
-                  <Box sx={{ mt: 2, display: 'grid', gap: 2 }}>
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        当日の値動き分析
-                      </Typography>
-                      <AiAnalysisMarkdown
-                        content={summary.aiAnalysisResult.priceMovementAnalysis}
-                      />
-                    </Box>
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        パターン分析
-                      </Typography>
-                      <AiAnalysisMarkdown content={summary.aiAnalysisResult.patternAnalysis} />
-                    </Box>
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-                        サポートレベル
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                        {summary.aiAnalysisResult.supportLevels.map((level, index) => (
-                          <Chip
-                            key={`support-${level}-${index}`}
-                            size="sm"
-                            onClick={(e) =>
-                              setChipMenuAnchor({ element: e.currentTarget, price: level })
-                            }
-                          >
-                            {`${level}`}
-                          </Chip>
-                        ))}
-                      </Box>
-                    </Box>
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-                        レジスタンスレベル
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                        {summary.aiAnalysisResult.resistanceLevels.map((level, index) => (
-                          <Chip
-                            key={`resistance-${level}-${index}`}
-                            size="sm"
-                            onClick={(e) =>
-                              setChipMenuAnchor({ element: e.currentTarget, price: level })
-                            }
-                          >
-                            {`${level}`}
-                          </Chip>
-                        ))}
-                      </Box>
-                    </Box>
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        関連市場・セクター動向
-                      </Typography>
-                      <AiAnalysisMarkdown content={summary.aiAnalysisResult.relatedMarketTrend} />
-                    </Box>
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-                        投資判断
-                      </Typography>
-                      <Chip
-                        color={
-                          summary.aiAnalysisResult.investmentJudgment.signal === 'BULLISH'
-                            ? 'success'
-                            : summary.aiAnalysisResult.investmentJudgment.signal === 'BEARISH'
-                              ? 'danger'
-                              : 'neutral'
-                        }
-                        size="sm"
-                        className="mb-1"
-                      >
-                        {
-                          INVESTMENT_SIGNAL_LABELS[
-                            summary.aiAnalysisResult.investmentJudgment.signal
-                          ]
-                        }
-                      </Chip>
-                      {typeof summary.aiAnalysisResult.investmentJudgment.predictedReturn ===
-                        'number' && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                          <Typography variant="body2" color="text.secondary">
-                            予測リターン:
-                          </Typography>
-                          <Typography variant="body2" data-testid="predicted-return">
-                            {formatPredictedReturn(
-                              summary.aiAnalysisResult.investmentJudgment.predictedReturn
-                            )}
-                          </Typography>
-                        </Box>
-                      )}
-                      {typeof summary.aiAnalysisResult.investmentJudgment.confidence ===
-                        'number' && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                          <Typography variant="body2" color="text.secondary">
-                            確信度:
-                          </Typography>
-                          <Typography variant="body2" data-testid="confidence">
-                            {formatConfidence(
-                              summary.aiAnalysisResult.investmentJudgment.confidence
-                            )}
-                          </Typography>
-                        </Box>
-                      )}
-                      <AiAnalysisMarkdown
-                        content={summary.aiAnalysisResult.investmentJudgment.reason}
-                      />
-                    </Box>
-                  </Box>
-                ) : (
-                  <Typography sx={{ mt: 2 }} color="text.secondary">
-                    {resolveAiAnalysisFallbackMessage(summary)}
-                  </Typography>
-                )}
-              </Box>
             </Box>
           )}
         </DialogContent>
       </Dialog>
-      <Menu
-        anchorEl={chipMenuAnchor?.element ?? null}
-        open={Boolean(chipMenuAnchor)}
-        onClose={() => setChipMenuAnchor(null)}
-      >
-        <MenuItem onClick={() => openAlertModal('Buy', chipMenuAnchor!.price)}>
-          買いアラートを設定
-        </MenuItem>
-        <MenuItem onClick={() => openAlertModal('Sell', chipMenuAnchor!.price)}>
-          売りアラートを設定
-        </MenuItem>
-      </Menu>
       {summary && (
         <AlertSettingsModal
           open={alertModalState.open}

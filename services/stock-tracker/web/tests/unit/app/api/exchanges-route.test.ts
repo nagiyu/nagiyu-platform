@@ -78,6 +78,51 @@ describe('GET /api/exchanges', () => {
     expect(body.exchanges[0].priceSource).toBe('finnhub');
   });
 
+  it('GET レスポンスに market が含まれる', async () => {
+    mockGetAll.mockResolvedValue([
+      {
+        ExchangeID: 'TSE',
+        Name: '東京証券取引所',
+        Key: 'TSE',
+        Timezone: 'Asia/Tokyo',
+        Start: '09:00',
+        End: '15:30',
+        PriceSource: 'tradingview',
+        Market: 'JP',
+        CreatedAt: 1,
+        UpdatedAt: 1,
+      },
+    ]);
+
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.exchanges[0].market).toBe('JP');
+  });
+
+  it('market が未設定の場合、GET レスポンスに market を含まない', async () => {
+    mockGetAll.mockResolvedValue([
+      {
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '09:00',
+        End: '17:00',
+        PriceSource: 'tradingview',
+        CreatedAt: 1,
+        UpdatedAt: 1,
+      },
+    ]);
+
+    const response = await GET();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.exchanges[0].market).toBeUndefined();
+  });
+
   it('DynamoDB エラー時に reportErrorEvent が呼ばれる', async () => {
     mockGetAll.mockRejectedValue(new Error('DynamoDB 接続エラー'));
 
@@ -176,6 +221,58 @@ describe('POST /api/exchanges', () => {
     expect(body.error).toBe('INVALID_REQUEST');
   });
 
+  it('market 未指定時は未設定のまま作成される', async () => {
+    mockCreate.mockResolvedValue({
+      ExchangeID: 'TSE',
+      Name: '東京証券取引所',
+      Key: 'TSE',
+      Timezone: 'Asia/Tokyo',
+      Start: '09:00',
+      End: '15:30',
+      PriceSource: 'tradingview',
+      CreatedAt: 1,
+      UpdatedAt: 1,
+    });
+
+    const response = await POST(createRequest(validBody) as never);
+    const body = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(body.market).toBeUndefined();
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ Market: undefined }));
+  });
+
+  it('market に JP を指定すると反映される', async () => {
+    mockCreate.mockResolvedValue({
+      ExchangeID: 'TSE',
+      Name: '東京証券取引所',
+      Key: 'TSE',
+      Timezone: 'Asia/Tokyo',
+      Start: '09:00',
+      End: '15:30',
+      PriceSource: 'tradingview',
+      Market: 'JP',
+      CreatedAt: 1,
+      UpdatedAt: 1,
+    });
+
+    const response = await POST(createRequest({ ...validBody, market: 'JP' }) as never);
+    const body = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(body.market).toBe('JP');
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ Market: 'JP' }));
+  });
+
+  it('不正な market を指定すると 400 を返す', async () => {
+    const response = await POST(createRequest({ ...validBody, market: 'EU' }) as never);
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toBe('INVALID_REQUEST');
+    expect(body.message).toBe('市場は "JP" または "US" のいずれかを指定してください');
+  });
+
   it('DynamoDB エラー時に reportErrorEvent が呼ばれる', async () => {
     mockCreate.mockRejectedValue(new Error('DynamoDB 書き込みエラー'));
 
@@ -260,5 +357,67 @@ describe('PUT /api/exchanges/:id', () => {
 
     expect(response.status).toBe(200);
     expect(body.priceSource).toBe('tradingview');
+  });
+
+  it('未設定の market を JP に更新できる', async () => {
+    mockUpdate.mockResolvedValue({
+      ...existingExchange,
+      Market: 'JP',
+      UpdatedAt: 2,
+    });
+
+    const response = await PUT(
+      createPutRequest('TSE', { market: 'JP' }) as never,
+      createParams('TSE') as never
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.market).toBe('JP');
+    expect(mockUpdate).toHaveBeenCalledWith('TSE', expect.objectContaining({ Market: 'JP' }));
+  });
+
+  it('market に null を指定すると未設定に戻る（DynamoDBの属性削除相当）', async () => {
+    mockGetById.mockResolvedValue({ ...existingExchange, Market: 'JP' });
+    mockUpdate.mockResolvedValue({
+      ...existingExchange,
+      Market: undefined,
+      UpdatedAt: 2,
+    });
+
+    const response = await PUT(
+      createPutRequest('TSE', { market: null }) as never,
+      createParams('TSE') as never
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.market).toBeUndefined();
+    expect(mockUpdate).toHaveBeenCalledWith('TSE', expect.objectContaining({ Market: null }));
+  });
+
+  it('market を指定しない更新では Market が更新対象に含まれない', async () => {
+    mockUpdate.mockResolvedValue({
+      ...existingExchange,
+      Name: '東証改称',
+      UpdatedAt: 2,
+    });
+
+    await PUT(createPutRequest('TSE', { name: '東証改称' }) as never, createParams('TSE') as never);
+
+    const updateArg = mockUpdate.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(updateArg).not.toHaveProperty('Market');
+  });
+
+  it('不正な market を指定すると 400 を返す', async () => {
+    const response = await PUT(
+      createPutRequest('TSE', { market: 'EU' }) as never,
+      createParams('TSE') as never
+    );
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toBe('INVALID_REQUEST');
+    expect(body.message).toBe('市場は "JP" または "US" のいずれかを指定してください');
   });
 });

@@ -1,9 +1,8 @@
 /**
  * EventBridgeStack の単体テスト
  *
- * dev 環境では summary/evaluation の EventBridge Rule が DISABLED になり、
- * prod 環境では ENABLED（State プロパティなし、または ENABLED）になることを検証する。
- * minute/hourly/daily/temporary-alert-expiry は dev でも無効化されないことを確認する。
+ * dev / prod のどちらの環境でも、全バッチの EventBridge Rule が無効化されないこと
+ * （State プロパティなし、または ENABLED）を検証する。
  */
 
 import * as cdk from 'aws-cdk-lib';
@@ -36,8 +35,10 @@ function createTestStack(environment: string): { app: cdk.App; stack: EventBridg
   const batchHourlyFunction = createDummyFunction('BatchHourlyFunction');
   const batchSummaryFunction = createDummyFunction('BatchSummaryFunction');
   const batchDailyFunction = createDummyFunction('BatchDailyFunction');
-  const batchTemporaryAlertExpiryFunction = createDummyFunction('BatchTemporaryAlertExpiryFunction');
-  const batchEvaluationFunction = createDummyFunction('BatchEvaluationFunction');
+  const batchTemporaryAlertExpiryFunction = createDummyFunction(
+    'BatchTemporaryAlertExpiryFunction'
+  );
+  const batchForecastFunction = createDummyFunction('BatchForecastFunction');
 
   const stack = new EventBridgeStack(app, 'TestEventBridgeStack', {
     environment,
@@ -46,7 +47,7 @@ function createTestStack(environment: string): { app: cdk.App; stack: EventBridg
     batchSummaryFunction,
     batchDailyFunction,
     batchTemporaryAlertExpiryFunction,
-    batchEvaluationFunction,
+    batchForecastFunction,
     env: { account: '123456789012', region: 'us-east-1' },
   });
 
@@ -54,7 +55,7 @@ function createTestStack(environment: string): { app: cdk.App; stack: EventBridg
 }
 
 describe('EventBridgeStack', () => {
-  describe('dev 環境: summary/evaluation の Rule が DISABLED になる', () => {
+  describe('dev 環境: 全 Rule が有効', () => {
     let template: Template;
 
     beforeEach(() => {
@@ -62,17 +63,17 @@ describe('EventBridgeStack', () => {
       template = Template.fromStack(stack);
     });
 
-    it('summary Rule（stock-tracker-batch-summary-dev）が State=DISABLED', () => {
+    it('summary Rule（stock-tracker-batch-summary-dev）は dev でも DISABLED にならない', () => {
+      const rules = template.findResources('AWS::Events::Rule', {
+        Properties: {
+          Name: 'stock-tracker-batch-summary-dev',
+          State: 'DISABLED',
+        },
+      });
+      expect(Object.keys(rules)).toHaveLength(0);
       template.hasResourceProperties('AWS::Events::Rule', {
         Name: 'stock-tracker-batch-summary-dev',
-        State: 'DISABLED',
-      });
-    });
-
-    it('evaluation Rule（stock-tracker-batch-evaluation-dev）が State=DISABLED', () => {
-      template.hasResourceProperties('AWS::Events::Rule', {
-        Name: 'stock-tracker-batch-evaluation-dev',
-        State: 'DISABLED',
+        State: 'ENABLED',
       });
     });
 
@@ -117,12 +118,22 @@ describe('EventBridgeStack', () => {
       expect(Object.keys(rules)).toHaveLength(0);
     });
 
+    it('forecast Rule は dev でも DISABLED にならない', () => {
+      const rules = template.findResources('AWS::Events::Rule', {
+        Properties: {
+          Name: 'stock-tracker-batch-forecast-dev',
+          State: 'DISABLED',
+        },
+      });
+      expect(Object.keys(rules)).toHaveLength(0);
+    });
+
     it('合計 6 つの Rule が作成される', () => {
       template.resourceCountIs('AWS::Events::Rule', 6);
     });
   });
 
-  describe('prod 環境: summary/evaluation の Rule が ENABLED（DISABLED でない）', () => {
+  describe('prod 環境: summary の Rule が ENABLED（DISABLED でない）', () => {
     let template: Template;
 
     beforeEach(() => {
@@ -135,16 +146,6 @@ describe('EventBridgeStack', () => {
       const disabledRules = template.findResources('AWS::Events::Rule', {
         Properties: {
           Name: 'stock-tracker-batch-summary-prod',
-          State: 'DISABLED',
-        },
-      });
-      expect(Object.keys(disabledRules)).toHaveLength(0);
-    });
-
-    it('evaluation Rule（stock-tracker-batch-evaluation-prod）が DISABLED でない', () => {
-      const disabledRules = template.findResources('AWS::Events::Rule', {
-        Properties: {
-          Name: 'stock-tracker-batch-evaluation-prod',
           State: 'DISABLED',
         },
       });
@@ -164,22 +165,7 @@ describe('EventBridgeStack', () => {
       // summary Rule に Targets が存在することを確認
       template.hasResourceProperties('AWS::Events::Rule', {
         Name: 'stock-tracker-batch-summary-dev',
-        State: 'DISABLED',
-        Targets: Match.arrayWith([
-          Match.objectLike({
-            Arn: Match.anyValue(),
-          }),
-        ]),
-      });
-    });
-
-    it('dev 環境: evaluation Rule に Lambda ターゲットが存在する', () => {
-      const { stack } = createTestStack('dev');
-      const template = Template.fromStack(stack);
-
-      template.hasResourceProperties('AWS::Events::Rule', {
-        Name: 'stock-tracker-batch-evaluation-dev',
-        State: 'DISABLED',
+        State: 'ENABLED',
         Targets: Match.arrayWith([
           Match.objectLike({
             Arn: Match.anyValue(),
@@ -201,20 +187,6 @@ describe('EventBridgeStack', () => {
         ]),
       });
     });
-
-    it('prod 環境: evaluation Rule に Lambda ターゲットが存在する', () => {
-      const { stack } = createTestStack('prod');
-      const template = Template.fromStack(stack);
-
-      template.hasResourceProperties('AWS::Events::Rule', {
-        Name: 'stock-tracker-batch-evaluation-prod',
-        Targets: Match.arrayWith([
-          Match.objectLike({
-            Arn: Match.anyValue(),
-          }),
-        ]),
-      });
-    });
   });
 
   describe('Rule 名と基本プロパティの検証', () => {
@@ -227,7 +199,7 @@ describe('EventBridgeStack', () => {
         'stock-tracker-batch-hourly-dev',
         'stock-tracker-batch-summary-dev',
         'stock-tracker-batch-temporary-alert-expiry-dev',
-        'stock-tracker-batch-evaluation-dev',
+        'stock-tracker-batch-forecast-dev',
         'stock-tracker-batch-daily-dev',
       ];
 
@@ -245,7 +217,7 @@ describe('EventBridgeStack', () => {
         'stock-tracker-batch-hourly-prod',
         'stock-tracker-batch-summary-prod',
         'stock-tracker-batch-temporary-alert-expiry-prod',
-        'stock-tracker-batch-evaluation-prod',
+        'stock-tracker-batch-forecast-prod',
         'stock-tracker-batch-daily-prod',
       ];
 
@@ -264,7 +236,7 @@ describe('EventBridgeStack', () => {
       template.hasOutput('HourlyRuleArn', {});
       template.hasOutput('SummaryRuleArn', {});
       template.hasOutput('TemporaryAlertExpiryRuleArn', {});
-      template.hasOutput('EvaluationRuleArn', {});
+      template.hasOutput('ForecastRuleArn', {});
       template.hasOutput('DailyRuleArn', {});
     });
   });

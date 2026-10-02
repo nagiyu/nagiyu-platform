@@ -1,0 +1,77 @@
+name: Stock Tracker Inspection
+
+on:
+  schedule:
+    # 毎月 1 日 9:00 JST (0:00 UTC)
+    - cron: '0 0 1 * *'
+  workflow_dispatch: # 手動実行も可能
+    inputs:
+      include_mkt:
+        description: 'Q-MKT の節 (四半期点検) を含める'
+        type: boolean
+        default: false
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  create-inspection-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Decide inspection scope
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_INCLUDE_MKT: ${{ inputs.include_mkt }}
+        run: |
+          # 月は JST で数える (起動は UTC の月初 0:00 で、JST でも同じ日の 9:00)
+          YEAR=$(TZ=Asia/Tokyo date +%Y)
+          MONTH=$(TZ=Asia/Tokyo date +%-m)
+
+          # 定期実行では 1・4・7・10 月に Q-MKT を含める。手動実行では入力で選ぶ
+          if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
+            INCLUDE_MKT="$INPUT_INCLUDE_MKT"
+          else
+            case "$MONTH" in
+              1|4|7|10) INCLUDE_MKT=true ;;
+              *) INCLUDE_MKT=false ;;
+            esac
+          fi
+
+          TITLE="[Stock Tracker 点検] ${YEAR}年${MONTH}月 確度の定期点検"
+          if [ "$INCLUDE_MKT" == "true" ]; then
+            TITLE="${TITLE} (四半期: Q-MKT を含む)"
+          fi
+
+          echo "include_mkt=$INCLUDE_MKT" >> "$GITHUB_OUTPUT"
+          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare issue body from template
+        env:
+          INCLUDE_MKT: ${{ steps.scope.outputs.include_mkt }}
+        run: |
+          .github/workflows/scripts/prepare-stock-tracker-inspection-issue.sh > "$RUNNER_TEMP/inspection-body.md"
+
+      - name: Create inspection issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: ${{ steps.scope.outputs.title }}
+        run: |
+          # ラベル・Assignee・マイルストーンは付けない (人が付ける)
+          gh issue create \
+            --title "$TITLE" \
+            --body-file "$RUNNER_TEMP/inspection-body.md"
+
+      - name: Summary
+        env:
+          TITLE: ${{ steps.scope.outputs.title }}
+          INCLUDE_MKT: ${{ steps.scope.outputs.include_mkt }}
+        run: |
+          echo "✅ Stock Tracker 確度の定期点検 Issue を作成しました" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**タイトル**: $TITLE" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Q-MKT を含む**: $INCLUDE_MKT" >> "$GITHUB_STEP_SUMMARY"
