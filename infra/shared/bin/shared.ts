@@ -13,7 +13,6 @@ import { IamClaudeReadonlyPolicyStack } from '../lib/iam/iam-claude-readonly-pol
 import { IamClaudeAccessStack } from '../lib/iam/iam-claude-access-stack';
 import { IamGitHubActionsOidcStack } from '../lib/iam/iam-github-actions-oidc-stack';
 import { DevSyncSourceReaderStack } from '../lib/iam/dev-sync-source-reader-stack';
-import { DockerBuildLockStack } from '../lib/docker-build-lock-stack';
 import { ErrorEventsTableStack } from '../lib/error-events-table-stack';
 import { ReportsHostingStack } from '../lib/reports-hosting-stack';
 import { EcsSharedClusterStack } from '../lib/ecs-cluster-stack';
@@ -21,7 +20,6 @@ import { resolveAccountScope } from '../lib/account-scope';
 import {
   assertScopeAllowsEnv,
   getClaudeInvokableFunctionNames,
-  getDockerBuildLockBucketName,
   getGitHubActionsOidcRoleIds,
   getReportsBucketName,
   includesProdOnlyStacks,
@@ -179,14 +177,6 @@ new EcsSharedClusterStack(
     description: `Platform Shared ECS Cluster - ${env} environment`,
   }
 );
-
-// Docker ビルドロック用 S3 バケット
-// dev アカウントでは -dev サフィックス付きの別バケットを使う
-new DockerBuildLockStack(app, 'NagiyuDockerBuildLock', {
-  bucketName: getDockerBuildLockBucketName(accountScope),
-  env: stackEnv,
-  description: 'S3 bucket for Docker build lock semaphore',
-});
 
 // プラットフォーム共通のエラーイベント永続化テーブル
 // 各サービスから直接 PutItem され、Admin が読み取る共有リソース
