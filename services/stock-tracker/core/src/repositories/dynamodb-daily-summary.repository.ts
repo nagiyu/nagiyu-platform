@@ -10,7 +10,7 @@ import {
   QueryCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import type { DailySummaryRepository } from './daily-summary.repository.interface.js';
 import type {
   DailySummaryEntity,
@@ -18,7 +18,6 @@ import type {
   CreateDailySummaryInput,
 } from '../entities/daily-summary.entity.js';
 import { DailySummaryMapper } from '../mappers/daily-summary.mapper.js';
-import { toErrorMessage } from '@nagiyu/common';
 
 /**
  * DynamoDB Daily Summary Repository
@@ -59,8 +58,7 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
 
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -106,8 +104,7 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
 
       return items.map((item) => this.mapper.toEntity(item));
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -183,8 +180,7 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
 
       return items.map((item) => this.mapper.toEntity(item));
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -241,8 +237,7 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
 
       return items.map((item) => this.mapper.toForecastFields(item));
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -268,8 +263,7 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
 
       return entity;
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }

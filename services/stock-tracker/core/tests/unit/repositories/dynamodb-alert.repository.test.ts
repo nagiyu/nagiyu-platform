@@ -882,6 +882,26 @@ describe('DynamoDBAlertRepository', () => {
       await expect(repository.update('user-123', 'alert-123', {})).rejects.toThrow(DatabaseError);
     });
 
+    it('更新するフィールドがない場合はエラーメッセージの接頭辞が二重にならない', async () => {
+      const error = await repository.update('user-123', 'alert-123', {}).catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(DatabaseError);
+      const message = (error as DatabaseError).message;
+      expect(message).toContain('更新するフィールドが指定されていません');
+      expect(message.split('データベースエラーが発生しました').length - 1).toBe(1);
+    });
+
+    it('Error 以外が投げられた場合は文字列化して DatabaseError にする', async () => {
+      mockDocClient.send.mockRejectedValueOnce('文字列エラー');
+
+      const error = await repository
+        .update('user-123', 'alert-123', { Enabled: false })
+        .catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(DatabaseError);
+      expect((error as DatabaseError).message).toContain('文字列エラー');
+    });
+
     it('データベースエラー時にDatabaseErrorをスローする', async () => {
       const dbError = new Error('Database connection failed');
       mockDocClient.send.mockRejectedValueOnce(dbError);

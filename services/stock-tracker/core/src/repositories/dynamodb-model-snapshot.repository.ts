@@ -9,8 +9,12 @@ import {
   QueryCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
-import { toErrorMessage } from '@nagiyu/common';
+import {
+  DatabaseError,
+  isConditionalCheckFailed,
+  toDatabaseError,
+  type DynamoDBItem,
+} from '@nagiyu/aws';
 import type {
   CreateModelSnapshotResult,
   ModelSnapshotRepository,
@@ -51,7 +55,7 @@ export class DynamoDBModelSnapshotRepository implements ModelSnapshotRepository 
 
       return { item: this.mapper.toEntity(dbItem), created: true };
     } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+      if (isConditionalCheckFailed(error)) {
         const existing = await this.getByDate(item.question, item.market, item.date);
         if (!existing) {
           throw new DatabaseError(
@@ -60,8 +64,7 @@ export class DynamoDBModelSnapshotRepository implements ModelSnapshotRepository 
         }
         return { item: existing, created: false };
       }
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -89,8 +92,7 @@ export class DynamoDBModelSnapshotRepository implements ModelSnapshotRepository 
 
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -125,8 +127,7 @@ export class DynamoDBModelSnapshotRepository implements ModelSnapshotRepository 
 
       return this.mapper.toEntity(items[0]);
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }
