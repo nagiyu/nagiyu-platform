@@ -8,6 +8,11 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBListRepository } from '../../../../src/repositories/list/dynamodb-list-repository.js';
 
+import { DatabaseError } from '@nagiyu/aws';
+
+const createSdkError = (): Error =>
+  Object.assign(new Error('スループット超過'), { name: 'ProvisionedThroughputExceededException' });
+
 describe('DynamoDBListRepository', () => {
   const TABLE_NAME = 'test-share-together-main';
   let repository: DynamoDBListRepository;
@@ -504,6 +509,50 @@ describe('DynamoDBListRepository', () => {
           SK: 'GLIST#list-2',
         },
       });
+    });
+  });
+
+  describe('SDK例外のDatabaseError化', () => {
+    it('個人リスト取得時のSDK例外はDatabaseErrorに包まれる', async () => {
+      mockDocClient.send.mockRejectedValueOnce(createSdkError());
+
+      const promise = repository.getPersonalListById('user-1', 'list-1');
+
+      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
+      await expect(promise).rejects.toMatchObject({
+        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
+      });
+    });
+
+    it('個人リスト更新時の条件違反以外のSDK例外はDatabaseErrorに包まれる', async () => {
+      mockDocClient.send.mockRejectedValueOnce(createSdkError());
+
+      const promise = repository.updatePersonalList('user-1', 'list-1', { name: '更新後' });
+
+      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
+      await expect(promise).rejects.toMatchObject({
+        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
+      });
+    });
+
+    it('共有リスト削除時のSDK例外はDatabaseErrorに包まれる', async () => {
+      mockDocClient.send.mockRejectedValueOnce(createSdkError());
+
+      const promise = repository.deleteGroupList('group-1', 'list-1');
+
+      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
+      await expect(promise).rejects.toMatchObject({
+        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
+      });
+    });
+
+    it('共有リスト更新対象がない場合は素のErrorのまま日本語メッセージで投げる', async () => {
+      mockDocClient.send.mockRejectedValueOnce({ name: 'ConditionalCheckFailedException' });
+
+      const promise = repository.updateGroupList('group-1', 'list-404', { name: '更新後' });
+
+      await expect(promise).rejects.toThrow('グループリストが見つかりません');
+      await expect(promise).rejects.not.toBeInstanceOf(DatabaseError);
     });
   });
 });

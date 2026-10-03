@@ -8,6 +8,11 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBUserRepository } from '../../../../src/repositories/user/dynamodb-user-repository.js';
 
+import { DatabaseError } from '@nagiyu/aws';
+
+const createSdkError = (): Error =>
+  Object.assign(new Error('スループット超過'), { name: 'ProvisionedThroughputExceededException' });
+
 describe('DynamoDBUserRepository', () => {
   const TABLE_NAME = 'test-share-together-main';
   let repository: DynamoDBUserRepository;
@@ -331,6 +336,50 @@ describe('DynamoDBUserRepository', () => {
       mockDocClient.send.mockResolvedValueOnce({});
 
       await expect(repository.delete('user-404')).resolves.toBeUndefined();
+    });
+  });
+
+  describe('SDK例外のDatabaseError化', () => {
+    it('取得時のSDK例外はDatabaseErrorに包まれる', async () => {
+      mockDocClient.send.mockRejectedValueOnce(createSdkError());
+
+      const promise = repository.getById('user-1');
+
+      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
+      await expect(promise).rejects.toMatchObject({
+        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
+      });
+    });
+
+    it('削除時のSDK例外はDatabaseErrorに包まれる', async () => {
+      mockDocClient.send.mockRejectedValueOnce(createSdkError());
+
+      const promise = repository.delete('user-1');
+
+      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
+      await expect(promise).rejects.toMatchObject({
+        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
+      });
+    });
+
+    it('更新時の条件違反以外のSDK例外はDatabaseErrorに包まれる', async () => {
+      mockDocClient.send.mockRejectedValueOnce(createSdkError());
+
+      const promise = repository.update('user-1', { name: '更新後' });
+
+      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
+      await expect(promise).rejects.toMatchObject({
+        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
+      });
+    });
+
+    it('更新対象がない場合は素のErrorのまま日本語メッセージで投げる', async () => {
+      mockDocClient.send.mockRejectedValueOnce({ name: 'ConditionalCheckFailedException' });
+
+      const promise = repository.update('user-404', { name: '更新後' });
+
+      await expect(promise).rejects.toThrow('ユーザーが見つかりません');
+      await expect(promise).rejects.not.toBeInstanceOf(DatabaseError);
     });
   });
 });

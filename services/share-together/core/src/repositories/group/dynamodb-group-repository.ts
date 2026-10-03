@@ -6,9 +6,10 @@ import {
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { mapConditionalCheckFailed } from '@nagiyu/aws';
+import { mapConditionalCheckFailed, toDatabaseError } from '@nagiyu/aws';
 import type { CreateGroupInput, Group, UpdateGroupInput } from '../../types/index.js';
 import type { GroupRepository } from './group-repository.interface.js';
+import { withDatabaseError } from '../with-database-error.js';
 
 const GROUP_META_SK = '#META#';
 
@@ -28,14 +29,16 @@ export class DynamoDBGroupRepository implements GroupRepository {
   }
 
   public async getById(groupId: string): Promise<Group | null> {
-    const result = await this.docClient.send(
-      new GetCommand({
-        TableName: this.tableName,
-        Key: {
-          PK: this.buildGroupPk(groupId),
-          SK: GROUP_META_SK,
-        },
-      })
+    const result = await withDatabaseError(() =>
+      this.docClient.send(
+        new GetCommand({
+          TableName: this.tableName,
+          Key: {
+            PK: this.buildGroupPk(groupId),
+            SK: GROUP_META_SK,
+          },
+        })
+      )
     );
 
     if (!result.Item) {
@@ -50,17 +53,19 @@ export class DynamoDBGroupRepository implements GroupRepository {
       return [];
     }
 
-    const result = await this.docClient.send(
-      new BatchGetCommand({
-        RequestItems: {
-          [this.tableName]: {
-            Keys: groupIds.map((groupId) => ({
-              PK: this.buildGroupPk(groupId),
-              SK: GROUP_META_SK,
-            })),
+    const result = await withDatabaseError(() =>
+      this.docClient.send(
+        new BatchGetCommand({
+          RequestItems: {
+            [this.tableName]: {
+              Keys: groupIds.map((groupId) => ({
+                PK: this.buildGroupPk(groupId),
+                SK: GROUP_META_SK,
+              })),
+            },
           },
-        },
-      })
+        })
+      )
     );
 
     const items = result.Responses?.[this.tableName] ?? [];
@@ -93,7 +98,7 @@ export class DynamoDBGroupRepository implements GroupRepository {
           throw new Error(ERROR_MESSAGES.GROUP_ALREADY_EXISTS);
         },
       });
-      throw error;
+      throw toDatabaseError(error);
     }
 
     return group;
@@ -136,7 +141,7 @@ export class DynamoDBGroupRepository implements GroupRepository {
           throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND);
         },
       });
-      throw error;
+      throw toDatabaseError(error);
     }
 
     return this.toGroup((result.Attributes ?? {}) as Record<string, unknown>);
@@ -160,7 +165,7 @@ export class DynamoDBGroupRepository implements GroupRepository {
           throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND);
         },
       });
-      throw error;
+      throw toDatabaseError(error);
     }
   }
 
