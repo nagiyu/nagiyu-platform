@@ -9,6 +9,10 @@ WORKDIR /app
 ARG APP_VERSION=1.0.0
 ENV APP_VERSION=${APP_VERSION}
 
+# デプロイ先環境（dev / prod）。SSG のプリレンダリングがビルド時に環境を参照するため、ビルド前に必要
+ARG NAGIYU_ENV=
+ENV NAGIYU_ENV=${NAGIYU_ENV}
+
 # モノレポ全体のファイルをコピー
 COPY package*.json ./
 COPY configs ./configs/
@@ -32,10 +36,15 @@ WORKDIR /app
 # Install curl for health checks
 RUN apk add --no-cache curl
 
+# builder ステージの ARG は引き継がれないため再宣言する
+ARG NAGIYU_ENV=
+
 # Lambda Web Adapter のバイナリをコピー
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
 
 ENV NODE_ENV=production
+# 動的レンダリングされるルートでもビルド時と同じ判定になるようにする
+ENV NAGIYU_ENV=${NAGIYU_ENV}
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 
