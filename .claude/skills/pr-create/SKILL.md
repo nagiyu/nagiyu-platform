@@ -27,7 +27,7 @@ description: Draft PR を作成する。実装単位の作業ブランチから 
 
 - **作業ブランチ → integration の PR**：`Closes #{issue}` を**含めない**。
     - 親（メイン）Issue は integration → develop マージ後にクローズする。
-    - サブ Issue は integration 取り込み + dev 反映確認後に**手動でクローズ**してよい（`Closes #` での自動クローズはしない）。進捗の可視化が目的。
+    - サブ Issue は integration 取り込み + dev 反映確認後にクローズしてよい。進捗の可視化が目的。
 - **integration → develop の PR**：`Closes #{issue}`（親 Issue）を含めてよい。**ただし作成前に必ず人へ確認を取る**（MUST NOT: 無断作成）。
 - 作業ブランチ → develop 直接で、その PR が Issue を完了させきらない場合（Phase が残る等）は Close せず参照に留める。
 

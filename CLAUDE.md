@@ -133,7 +133,7 @@ Issue / `tasks/` / コメントは **「セッションの継ぎ目」をつな�
 - 各実装単位の Draft PR は、原則 `integration/**`（大規模時）または `develop`（軽量時）をターゲットにする。
 - 作業ブランチ → integration の PR には `Closes #{issue-number}` を含めない。Issue のクローズ時期はロールで分ける。
     - **親（メイン）Issue**: 全資材が develop に載って初めてクローズする（integration → develop マージ後）。`Closes #` は integration → develop の PR でのみ使う。
-    - **サブ Issue**: integration 等のトピックブランチへの取り込みと dev 環境への反映が確認できた時点でクローズしてよい（進捗を可視化するため）。`Closes #` での自動クローズはせず、反映確認後に**手動でクローズ**する（オーケストレーターが実施）。
+    - **サブ Issue**: integration 等のトピックブランチへの取り込みと dev 環境への反映が確認できた時点でクローズしてよい（進捗を可視化するため）。
 - **integration → develop の PR は Claude が作成してよいが、作成前に必ず人へ確認を取る**。承認後に Draft で作成し、`Closes #{issue-number}`（親 Issue）を含めてよい。
 
 ### コミット・push
