@@ -66,6 +66,37 @@ export class DatabaseError extends RepositoryError {
 }
 
 /**
+ * ConditionalCheckFailedException かどうかを判定する。
+ * SDK の例外クラスが重複インスタンス化されると instanceof が失敗するため、
+ * Error 以外のオブジェクトも含めて name で判定する。
+ */
+export function isConditionalCheckFailed(
+  error: unknown
+): error is { name: 'ConditionalCheckFailedException' } {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'name' in error &&
+    (error as { name: unknown }).name === 'ConditionalCheckFailedException'
+  );
+}
+
+/**
+ * 任意のエラーを RepositoryError に正規化する。
+ * 既に RepositoryError ならメッセージが二重に包まれないようそのまま返し、
+ * 各リポジトリの catch での DatabaseError ラップを `throw toDatabaseError(error)` に集約する。
+ */
+export function toDatabaseError(error: unknown): RepositoryError {
+  if (error instanceof RepositoryError) {
+    return error;
+  }
+  if (error instanceof Error) {
+    return new DatabaseError(error.message, error);
+  }
+  return new DatabaseError(String(error));
+}
+
+/**
  * DynamoDB の ConditionalCheckFailedException を Entity 例外にマッピングするヘルパー。
  * `onExists` は conditional put（存在チェック）失敗時、`onMissing` は conditional update/delete
  * （不在チェック）失敗時に呼ぶコールバックを渡す。
@@ -78,12 +109,7 @@ export function mapConditionalCheckFailed(
     onMissing?: () => never;
   }
 ): void {
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'name' in error &&
-    (error as { name: unknown }).name === 'ConditionalCheckFailedException'
-  ) {
+  if (isConditionalCheckFailed(error)) {
     if (callbacks.onExists) {
       callbacks.onExists();
     } else if (callbacks.onMissing) {

@@ -10,6 +10,8 @@ export {
   InvalidEntityDataError,
   DatabaseError,
   mapConditionalCheckFailed,
+  isConditionalCheckFailed,
+  toDatabaseError,
 } from './errors.js';
 
 // cursor ヘルパー
