@@ -13,6 +13,7 @@ import ArticleIcon from '@mui/icons-material/Article';
 import InfoIcon from '@mui/icons-material/Info';
 import '@nagiyu/ui/tokens.css';
 import './globals.css';
+import { shouldLoadAdsense } from '@/lib/adsense';
 
 export const metadata: Metadata = {
   title: {
@@ -58,7 +59,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const version = process.env.APP_VERSION || '1.0.0';
-  const isProduction = process.env.NODE_ENV === 'production';
+  // SSG のためビルド時の値で確定する。next build は常に NODE_ENV=production になり dev と prod を区別できない
+  const loadAdsense = shouldLoadAdsense(process.env.NAGIYU_ENV);
 
   /** git 初コミットの年。著作権表記の開始年として使用する。 */
   const copyrightStartYear = 2026;
@@ -115,7 +117,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ja">
       <head>
-        {isProduction && (
+        {loadAdsense && (
           <Script
             async
             src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6784165593921713"
