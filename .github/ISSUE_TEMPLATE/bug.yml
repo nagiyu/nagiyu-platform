@@ -1,7 +1,6 @@
 name: バグ修正
 description: バグや不具合の修正タスク
 title: "[Bug] "
-labels: ["bug"]
 body:
   - type: markdown
     attributes:

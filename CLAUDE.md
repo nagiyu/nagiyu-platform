@@ -50,7 +50,7 @@
 - **各セッションは着手前に自分の上流ゲートを置く（ゲートも再帰する）**: 起票ロールは状況確認のうえ「**どんな Issue を立てるか（スコープ・方針）**」と「**integration ブランチを作るか否か**」を提案し、**人の承認を得てから着手する**。承認後は、同一セッションで完結する場合も含め、起票・ブランチ作成・オーケスト・実装・Draft PR まで自動で進めてよい。**最上位でゲートを通ったことは、子セッションのゲートを免除しない。** 子・孫セッションも、自分がさらに分岐する前に自分のゲートを持つ。
 - **Phase 分けを伴う場合は「進め方」も合意する**: 各 Phase をどう進めるか（別セッションで回す／同一セッション内で連続する）を上流ゲートで提示して合意する。トポロジ自体は固定せず、合意があればどの形でもよい。要は黙ってどちらかに決めて進まないこと。
 - **役割・セッションの遷移をサイレントに行わない**: 「計画 → 実装」「Phase → Phase」の境界では地続きで進めず、合意した進め方に沿って進む。
-- 起票時にラベル・マイルストーン・Assignee は **Claude が付与しない**（人力で付ける）。
+- 起票時はタイトルに種別プレフィックスを付け、親 Issue に**サービスラベルを付ける**（サブ Issue には付けない）。マイルストーン・Assignee は **Claude が付与しない**（人力で付ける）（→ [Issue の分類](docs/development/issue-classification.md)）。
 - **integration の判断は Issue 本文に書かない**（ブランチが存在することで伝わる）。
 - **起票するか否かの判断**: develop に入る資材は、リリース時に「どこで・どの資材が入ったか」を追えるよう **基本的に Issue を立てる**。ただし **既存 Issue の管轄内**（その Issue の対応中・dev 反映後に見つかったバグ等、混入源が同じもの）は、リリースまで元 Issue が対応スコープを持つため **新規起票しない**。起票は強制しない（規模ではなく「独立した資材か／既存 Issue の管轄内か」で判断する）。
 
@@ -165,7 +165,7 @@ integration は **develop の「いつでもリリース可能」を守る**た�
     - Draft → Ready の切替
     - PR のマージ
     - PR のクローズ（明示的な指示がある場合を除く）
-- **ラベル・マイルストーン・Assignee の付与・変更**（Issue / PR 共通）
+- **ラベル・マイルストーン・Assignee の付与・変更**（Issue / PR 共通。自分が起票した親 Issue へのサービスラベル付与は除く）
 - **`develop` / `master` ブランチへの直接 push**
 - **`develop` / `master` ブランチへの強制 push（force push）**
 - **`integration/xxx` → `develop` の PR 作成**（人の確認が取れた場合のみ可）
@@ -353,6 +353,7 @@ PR 作成時は `.github/pull_request_template.md` の構造に従い、以下�
 - アーキテクチャ: [`docs/development/architecture.md`](docs/development/architecture.md)
 - テスト戦略: [`docs/development/testing.md`](docs/development/testing.md)
 - 開発フロー: [`docs/development/flow.md`](docs/development/flow.md)
+- Issue の分類: [`docs/development/issue-classification.md`](docs/development/issue-classification.md)
 - 共通ライブラリ: [`docs/development/shared-libraries.md`](docs/development/shared-libraries.md)
 - 共通 UI コンポーネント: [`docs/development/shared-ui-components.md`](docs/development/shared-ui-components.md)
 - 実行環境（Claude on Web）: [`docs/development/claude-environment.md`](docs/development/claude-environment.md)

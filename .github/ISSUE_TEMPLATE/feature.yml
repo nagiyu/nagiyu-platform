@@ -1,7 +1,6 @@
 name: 新規機能実装
 description: 新しい機能やサービスの実装タスク
 title: "[Feature] "
-labels: ["enhancement"]
 body:
   - type: markdown
     attributes:

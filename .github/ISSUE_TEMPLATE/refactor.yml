@@ -1,7 +1,6 @@
 name: リファクタリング
 description: コードのリファクタリングや改善タスク
 title: "[Refactor] "
-labels: ["refactor"]
 body:
   - type: markdown
     attributes:
