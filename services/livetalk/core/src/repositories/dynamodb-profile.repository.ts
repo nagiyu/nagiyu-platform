@@ -4,7 +4,7 @@ import {
   QueryCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import type {
   CreateProfileInput,
   ProfileEntity,
@@ -50,8 +50,7 @@ export class DynamoDBProfileRepository implements ProfileRepository {
       if (!result.Item) return null;
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -80,8 +79,7 @@ export class DynamoDBProfileRepository implements ProfileRepository {
         lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
       } while (lastEvaluatedKey !== undefined);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
 
     return userIds;
@@ -115,8 +113,7 @@ export class DynamoDBProfileRepository implements ProfileRepository {
       );
       return merged;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }

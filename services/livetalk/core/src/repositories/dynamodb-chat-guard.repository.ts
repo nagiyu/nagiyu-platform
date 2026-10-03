@@ -12,7 +12,7 @@
  */
 
 import { DeleteCommand, UpdateCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError } from '@nagiyu/aws';
+import { isConditionalCheckFailed, toDatabaseError } from '@nagiyu/aws';
 import { buildUserPK, buildChatLockSK, buildChatRateLimitSK } from '../mappers/keys.js';
 import type {
   AcquireLockResult,
@@ -91,8 +91,7 @@ export class DynamoDBChatGuardRepository implements ChatGuardRepository {
       const count = (result.Attributes?.['Count'] as number | undefined) ?? 1;
       return { count, window };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -130,12 +129,11 @@ export class DynamoDBChatGuardRepository implements ChatGuardRepository {
       );
       return { acquired: true, ownerToken };
     } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+      if (isConditionalCheckFailed(error)) {
         // 有効なロックが存在するため取得失敗
         return { acquired: false };
       }
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -156,7 +154,7 @@ export class DynamoDBChatGuardRepository implements ChatGuardRepository {
         })
       );
     } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+      if (isConditionalCheckFailed(error)) {
         // ownerToken 不一致（期限切れ・奪取済み）は安全に握りつぶす。
         return;
       }
