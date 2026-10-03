@@ -5,7 +5,7 @@ import {
   QueryCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import type {
   CreatePushSubscriptionInput,
   PushSubscriptionEntity,
@@ -45,8 +45,7 @@ export class DynamoDBPushSubscriptionRepository implements PushSubscriptionRepos
       );
       return entity;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -69,8 +68,7 @@ export class DynamoDBPushSubscriptionRepository implements PushSubscriptionRepos
           })
         );
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new DatabaseError(message, error instanceof Error ? error : undefined);
+        throw toDatabaseError(error);
       }
 
       for (const raw of result.Items ?? []) {
@@ -94,8 +92,7 @@ export class DynamoDBPushSubscriptionRepository implements PushSubscriptionRepos
       if (!result.Item) return null;
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -107,8 +104,7 @@ export class DynamoDBPushSubscriptionRepository implements PushSubscriptionRepos
         new DeleteCommand({ TableName: this.tableName, Key: { PK: pk, SK: sk } })
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }

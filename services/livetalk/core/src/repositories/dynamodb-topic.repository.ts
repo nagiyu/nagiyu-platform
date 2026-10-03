@@ -7,7 +7,7 @@ import {
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import { logger } from '@nagiyu/common';
-import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { isConditionalCheckFailed, toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import type {
   CreateSelfFactInput,
   SelfFactEntity,
@@ -101,14 +101,13 @@ export class DynamoDBTopicRepository implements TopicRepository {
       );
       return entity;
     } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+      if (isConditionalCheckFailed(error)) {
         throw new OptimisticLockError(
           'Topic',
           `${entity.UserID}#${entity.CharacterID}#${entity.TopicID}`
         );
       }
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -121,8 +120,7 @@ export class DynamoDBTopicRepository implements TopicRepository {
       if (!result.Item) return null;
       return this.topicMapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -145,8 +143,7 @@ export class DynamoDBTopicRepository implements TopicRepository {
           })
         );
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new DatabaseError(message, error instanceof Error ? error : undefined);
+        throw toDatabaseError(error);
       }
 
       for (const raw of result.Items ?? []) {
@@ -210,8 +207,7 @@ export class DynamoDBTopicRepository implements TopicRepository {
           })
         );
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new DatabaseError(message, error instanceof Error ? error : undefined);
+        throw toDatabaseError(error);
       }
 
       for (const raw of result.Items ?? []) {
@@ -239,8 +235,7 @@ export class DynamoDBTopicRepository implements TopicRepository {
       );
       return entity;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -261,8 +256,7 @@ export class DynamoDBTopicRepository implements TopicRepository {
         new DeleteCommand({ TableName: this.tableName, Key: { PK: pk, SK: sk } })
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -277,8 +271,7 @@ export class DynamoDBTopicRepository implements TopicRepository {
       );
       return entity;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -319,8 +312,7 @@ export class DynamoDBTopicRepository implements TopicRepository {
           })
         );
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new DatabaseError(message, error instanceof Error ? error : undefined);
+        throw toDatabaseError(error);
       }
 
       for (const raw of result.Items ?? []) {
@@ -352,7 +344,7 @@ export class DynamoDBTopicRepository implements TopicRepository {
         })
       );
     } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+      if (isConditionalCheckFailed(error)) {
         logger.warn(
           '[DynamoDBTopicRepository] updateWebFactNextReview: 対象 WEB fact が存在しません',
           {
@@ -361,8 +353,7 @@ export class DynamoDBTopicRepository implements TopicRepository {
         );
         return;
       }
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -387,8 +378,7 @@ export class DynamoDBTopicRepository implements TopicRepository {
           })
         );
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new DatabaseError(message, error instanceof Error ? error : undefined);
+        throw toDatabaseError(error);
       }
 
       for (const raw of result.Items ?? []) {

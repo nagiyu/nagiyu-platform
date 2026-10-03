@@ -1,5 +1,5 @@
 import { GetCommand, PutCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import { updateAffectionLevel } from '../affection/calculator.js';
 import type {
   CharacterStateEntity,
@@ -39,8 +39,7 @@ export class DynamoDBCharacterStateRepository implements CharacterStateRepositor
       if (!result.Item) return null;
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -73,8 +72,7 @@ export class DynamoDBCharacterStateRepository implements CharacterStateRepositor
       );
       return merged;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 

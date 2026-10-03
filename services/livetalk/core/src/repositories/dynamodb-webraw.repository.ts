@@ -1,5 +1,5 @@
 import { PutCommand, QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import { logger } from '@nagiyu/common';
 import { WEBRAW_TTL_SECONDS } from '../constants.js';
 import type { CreateWebRawInput, WebRawEntity } from '../entities/webraw.entity.js';
@@ -53,8 +53,7 @@ export class DynamoDBWebRawRepository implements WebRawRepository {
       await this.docClient.send(new PutCommand({ TableName: this.tableName, Item: item }));
       return entity;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -87,8 +86,7 @@ export class DynamoDBWebRawRepository implements WebRawRepository {
           })
         );
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new DatabaseError(message, error instanceof Error ? error : undefined);
+        throw toDatabaseError(error);
       }
 
       for (const raw of result.Items ?? []) {
