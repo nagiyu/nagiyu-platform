@@ -152,7 +152,9 @@ jobs:
         with:
           dockerfile: services/portal/web/Dockerfile
           image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:latest
-          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
+          build-args: |
+            APP_VERSION=${{ steps.get-version.outputs.app-version }}
+            NAGIYU_ENV=${{ needs.infrastructure-ecr.outputs.environment }}
 
       - name: Push Docker image
         id: build-image
