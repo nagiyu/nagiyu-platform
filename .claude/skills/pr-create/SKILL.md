@@ -13,6 +13,7 @@ description: Draft PR を作成する。実装単位の作業ブランチから 
 - レビュー対応で追加 push しても **Draft 状態を維持**する。
 - `.github/pull_request_template.md` の構造をすべて埋める（変更概要・関連 Issue・変更種別・実装チェックリスト・テスト内容・レビューポイント・UI 変更時はスクリーンショット）。
 - 出力（PR タイトル・本文・コメント）は日本語。
+- タイトルは「何を変えるか」を文で書き、種別プレフィックスは付けない。
 
 ## ターゲットブランチの選び方
 
@@ -23,13 +24,13 @@ description: Draft PR を作成する。実装単位の作業ブランチから 
 
 迷ったら [`docs/branching.md`](../../../docs/branching.md) と CLAUDE.md「integration の考え方」を参照。
 
-## `Closes #` の扱い
+## 関連 Issue とクローズ
 
-- **作業ブランチ → integration の PR**：`Closes #{issue}` を**含めない**。
-    - 親（メイン）Issue は integration → develop マージ後にクローズする。
-    - サブ Issue は integration 取り込み + dev 反映確認後にクローズしてよい。進捗の可視化が目的。
-- **integration → develop の PR**：`Closes #{issue}`（親 Issue）を含めてよい。**ただし作成前に必ず人へ確認を取る**（MUST NOT: 無断作成）。
-- 作業ブランチ → develop 直接で、その PR が Issue を完了させきらない場合（Phase が残る等）は Close せず参照に留める。
+- `Closes #` 等の closing keyword は**書かない**。関連 Issue は `#番号` で参照するだけにする。
+- Issue は完了した時点で、開いていれば Claude が手動でクローズする。
+    - 親（メイン）Issue: 全資材が develop に載ってから（integration → develop マージ後）。
+    - サブ Issue: integration 取り込み + dev 反映確認後。進捗の可視化が目的。
+- integration → develop の PR は、**作成前に必ず人へ確認を取る**（MUST NOT: 無断作成）。
 
 ## 作成後
 

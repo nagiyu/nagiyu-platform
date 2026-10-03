@@ -4,8 +4,8 @@
 
 ## 関連 Issue
 
-<!-- 関連する Issue がある場合は記載してください -->
-Closes #
+<!-- 関連する Issue がある場合は #番号 で記載してください。Closes # 等の closing keyword は使わず、Issue は完了時に手動でクローズします -->
+#
 
 ## 変更種別
 

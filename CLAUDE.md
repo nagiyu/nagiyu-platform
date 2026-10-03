@@ -123,7 +123,7 @@ Issue / `tasks/` / コメントは **「セッションの継ぎ目」をつな�
 
 - **判断基準**: コードを読んでも得られない情報（なぜ・設計判断・UI 設計の判断根拠・ADR）が今回の変更で増減したか。増えた／変わった場合のみ追従する。コードを読めばわかることは書かない。
 - **追従する場合**: develop へ**直接ドキュメント更新の Draft PR** を出す（dev に資材が出ない軽量変更扱い → 「integration の考え方」）。
-- **担保はセッション内に閉じる**: この判断は、対処しているオーケストレーターのセッションが**終わるまでに**済ませる。継ぎ目をまたがない想定なので、専用 Issue やクローズゲートは設けない（`Closes #` による自動クローズ運用には手を入れない）。別セッションをまたぐ規模（＝大規模）では、既存の `tasks/ → docs/` 移行がこの追従にあたる。
+- **担保はセッション内に閉じる**: この判断は、対処しているオーケストレーターのセッションが**終わるまでに**済ませる。継ぎ目をまたがない想定なので、専用 Issue やクローズゲートは設けない。別セッションをまたぐ規模（＝大規模）では、既存の `tasks/ → docs/` 移行がこの追従にあたる。
 - **不要なら何も残さない**: 追従不要と判断した場合は記録を残さずクローズしてよい（継ぎ目モデル・過剰コメント禁止と整合）。
 - **超軽微は畳む**: 値戻し・設定追加など docs に影響しない変更では、この判断自体を畳んでよい。
 
@@ -131,10 +131,11 @@ Issue / `tasks/` / コメントは **「セッションの継ぎ目」をつな�
 
 - PR は **必ず Draft で作成**し、`.github/pull_request_template.md` を埋める。
 - 各実装単位の Draft PR は、原則 `integration/**`（大規模時）または `develop`（軽量時）をターゲットにする。
-- 作業ブランチ → integration の PR には `Closes #{issue-number}` を含めない。Issue のクローズ時期はロールで分ける。
-    - **親（メイン）Issue**: 全資材が develop に載って初めてクローズする（integration → develop マージ後）。`Closes #` は integration → develop の PR でのみ使う。
+- PR タイトルは「何を変えるか」を文で書き、種別プレフィックスは付けない（→ [Issue の分類](docs/development/issue-classification.md)）。
+- PR には `Closes #` 等の closing keyword を書かず、関連 Issue は `#番号` で参照するだけにする。Issue のクローズ時期はロールで分け、その時点で開いていれば Claude が手動でクローズする。
+    - **親（メイン）Issue**: 全資材が develop に載って初めてクローズする（integration → develop マージ後）。
     - **サブ Issue**: integration 等のトピックブランチへの取り込みと dev 環境への反映が確認できた時点でクローズしてよい（進捗を可視化するため）。
-- **integration → develop の PR は Claude が作成してよいが、作成前に必ず人へ確認を取る**。承認後に Draft で作成し、`Closes #{issue-number}`（親 Issue）を含めてよい。
+- **integration → develop の PR は Claude が作成してよいが、作成前に必ず人へ確認を取る**。承認後に Draft で作成する。
 
 ### コミット・push
 
@@ -324,7 +325,7 @@ Claude Code on the web で本リポジトリを扱う際の環境固有の事情
 PR 作成時は `.github/pull_request_template.md` の構造に従い、以下を確実に記述する。
 
 - 変更の概要
-- 関連 Issue（integration → develop の PR でのみ `Closes #` を使用）
+- 関連 Issue（`#番号` で参照のみ。`Closes #` は使わない）
 - 変更種別のチェック
 - 実装チェックリストの完了状況
 - テスト内容
