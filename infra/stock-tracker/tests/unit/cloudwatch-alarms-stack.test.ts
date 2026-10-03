@@ -1,7 +1,7 @@
 /**
  * CloudWatchAlarmsStack の単体テスト
  *
- * forecast バッチのエラー率アラームが、他の batch と同じ流儀（閾値10%・5分周期）で
+ * summary / temporary-alert-expiry / forecast バッチのエラー率アラームが、他の batch と同じ流儀（閾値10%・5分周期）で
  * 作成されることを検証する。
  */
 
@@ -29,7 +29,11 @@ function createTestStack(): { app: cdk.App; stack: CloudWatchAlarmsStack } {
   const webFunction = createDummyFunction('WebFunction');
   const batchMinuteFunction = createDummyFunction('BatchMinuteFunction');
   const batchHourlyFunction = createDummyFunction('BatchHourlyFunction');
+  const batchSummaryFunction = createDummyFunction('BatchSummaryFunction');
   const batchDailyFunction = createDummyFunction('BatchDailyFunction');
+  const batchTemporaryAlertExpiryFunction = createDummyFunction(
+    'BatchTemporaryAlertExpiryFunction'
+  );
   const batchForecastFunction = createDummyFunction('BatchForecastFunction');
 
   const dynamoTable = new dynamodb.Table(parentStack, 'Table', {
@@ -43,7 +47,9 @@ function createTestStack(): { app: cdk.App; stack: CloudWatchAlarmsStack } {
     webFunction,
     batchMinuteFunction,
     batchHourlyFunction,
+    batchSummaryFunction,
     batchDailyFunction,
+    batchTemporaryAlertExpiryFunction,
     batchForecastFunction,
     dynamoTable,
     alarmTopic,
@@ -71,6 +77,26 @@ describe('CloudWatchAlarmsStack', () => {
     });
   });
 
+  it('summary のエラー率アラームが、他の batch と同じ流儀（閾値10%・5分周期）で作成される', () => {
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'stock-tracker-batch-summary-error-rate-dev',
+      MetricName: 'Errors',
+      Threshold: 0.1,
+      Period: 300,
+      ComparisonOperator: 'GreaterThanThreshold',
+    });
+  });
+
+  it('temporary-alert-expiry のエラー率アラームが、他の batch と同じ流儀（閾値10%・5分周期）で作成される', () => {
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'stock-tracker-batch-temporary-alert-expiry-error-rate-dev',
+      MetricName: 'Errors',
+      Threshold: 0.1,
+      Period: 300,
+      ComparisonOperator: 'GreaterThanThreshold',
+    });
+  });
+
   it('forecast には実行時間・スロットリングのアラームを設けない（所要時間が実行内容で大きく変わるため）', () => {
     const durationAlarms = template.findResources('AWS::CloudWatch::Alarm', {
       Properties: { AlarmName: 'stock-tracker-batch-forecast-duration-dev' },
@@ -82,7 +108,7 @@ describe('CloudWatchAlarmsStack', () => {
     expect(Object.keys(throttleAlarms)).toHaveLength(0);
   });
 
-  it('合計15個のアラームが作成される', () => {
-    template.resourceCountIs('AWS::CloudWatch::Alarm', 15);
+  it('合計17個のアラームが作成される', () => {
+    template.resourceCountIs('AWS::CloudWatch::Alarm', 17);
   });
 });
