@@ -11,7 +11,9 @@ export interface CloudWatchAlarmsStackProps extends cdk.StackProps {
   webFunction: lambda.IFunction;
   batchMinuteFunction: lambda.IFunction;
   batchHourlyFunction: lambda.IFunction;
+  batchSummaryFunction: lambda.IFunction;
   batchDailyFunction: lambda.IFunction;
+  batchTemporaryAlertExpiryFunction: lambda.IFunction;
   batchForecastFunction: lambda.IFunction;
   dynamoTable: dynamodb.ITable;
   alarmTopic: sns.ITopic;
@@ -22,7 +24,7 @@ export interface CloudWatchAlarmsStackProps extends cdk.StackProps {
  * Stock Tracker CloudWatch Alarms Stack
  *
  * Lambda と DynamoDB のメトリクスを監視し、異常時に SNS トピックに通知します。
- * 合計15個のアラームを設定します。
+ * 合計17個のアラームを設定します。
  */
 export class CloudWatchAlarmsStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: CloudWatchAlarmsStackProps) {
@@ -33,7 +35,9 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
       webFunction,
       batchMinuteFunction,
       batchHourlyFunction,
+      batchSummaryFunction,
       batchDailyFunction,
+      batchTemporaryAlertExpiryFunction,
       batchForecastFunction,
       dynamoTable,
       alarmTopic,
@@ -188,6 +192,22 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
     batchHourlyThrottleAlarm.addAlarmAction(alarmAction);
     batchHourlyThrottleAlarm.addAlarmAction(adminAlarmAction);
 
+    // Lambda Batch Summary - エラー率アラーム
+    const batchSummaryErrorAlarm = new cloudwatch.Alarm(this, 'BatchSummaryLambdaErrorAlarm', {
+      alarmName: `stock-tracker-batch-summary-error-rate-${environment}`,
+      alarmDescription: 'Batch Summary Lambda error rate exceeds 10%',
+      metric: batchSummaryFunction.metricErrors({
+        statistic: cloudwatch.Stats.AVERAGE,
+        period: cdk.Duration.minutes(5),
+      }),
+      threshold: 0.1, // 10%
+      evaluationPeriods: 1,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    batchSummaryErrorAlarm.addAlarmAction(alarmAction);
+    batchSummaryErrorAlarm.addAlarmAction(adminAlarmAction);
+
     // Lambda Batch Daily - エラー率アラーム
     const batchDailyErrorAlarm = new cloudwatch.Alarm(this, 'BatchDailyLambdaErrorAlarm', {
       alarmName: `stock-tracker-batch-daily-error-rate-${environment}`,
@@ -235,6 +255,26 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
     });
     batchDailyThrottleAlarm.addAlarmAction(alarmAction);
     batchDailyThrottleAlarm.addAlarmAction(adminAlarmAction);
+
+    // Lambda Batch Temporary Alert Expiry - エラー率アラーム
+    const batchTemporaryAlertExpiryErrorAlarm = new cloudwatch.Alarm(
+      this,
+      'BatchTemporaryAlertExpiryLambdaErrorAlarm',
+      {
+        alarmName: `stock-tracker-batch-temporary-alert-expiry-error-rate-${environment}`,
+        alarmDescription: 'Batch Temporary Alert Expiry Lambda error rate exceeds 10%',
+        metric: batchTemporaryAlertExpiryFunction.metricErrors({
+          statistic: cloudwatch.Stats.AVERAGE,
+          period: cdk.Duration.minutes(5),
+        }),
+        threshold: 0.1, // 10%
+        evaluationPeriods: 1,
+        comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      }
+    );
+    batchTemporaryAlertExpiryErrorAlarm.addAlarmAction(alarmAction);
+    batchTemporaryAlertExpiryErrorAlarm.addAlarmAction(adminAlarmAction);
 
     // Lambda Batch Forecast - エラー率アラーム
     // リプレイ実行時は所要時間が大きく変わるため、実行時間・スロットリングのアラームは設けない
@@ -307,9 +347,11 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
       batchHourlyErrorAlarm,
       batchHourlyDurationAlarm,
       batchHourlyThrottleAlarm,
+      batchSummaryErrorAlarm,
       batchDailyErrorAlarm,
       batchDailyDurationAlarm,
       batchDailyThrottleAlarm,
+      batchTemporaryAlertExpiryErrorAlarm,
       batchForecastErrorAlarm,
       dynamoReadThrottleAlarm,
       dynamoWriteThrottleAlarm,
