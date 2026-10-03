@@ -6,10 +6,11 @@ import {
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { mapConditionalCheckFailed } from '@nagiyu/aws';
+import { mapConditionalCheckFailed, toDatabaseError } from '@nagiyu/aws';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import type { CreateUserInput, UpdateUserInput, User } from '../../types/index.js';
 import type { UserRepository } from './user-repository.interface.js';
+import { withDatabaseError } from '../with-database-error.js';
 
 const USER_META_SK = '#META#';
 const GSI2_INDEX_NAME = 'GSI2';
@@ -30,14 +31,16 @@ export class DynamoDBUserRepository implements UserRepository {
   }
 
   public async getById(userId: string): Promise<User | null> {
-    const result = await this.docClient.send(
-      new GetCommand({
-        TableName: this.tableName,
-        Key: {
-          PK: this.buildUserPk(userId),
-          SK: USER_META_SK,
-        },
-      })
+    const result = await withDatabaseError(() =>
+      this.docClient.send(
+        new GetCommand({
+          TableName: this.tableName,
+          Key: {
+            PK: this.buildUserPk(userId),
+            SK: USER_META_SK,
+          },
+        })
+      )
     );
 
     if (!result.Item) {
@@ -48,19 +51,21 @@ export class DynamoDBUserRepository implements UserRepository {
   }
 
   public async getByEmail(email: string): Promise<User | null> {
-    const result = await this.docClient.send(
-      new QueryCommand({
-        TableName: this.tableName,
-        IndexName: GSI2_INDEX_NAME,
-        KeyConditionExpression: '#gsi2pk = :gsi2pk',
-        ExpressionAttributeNames: {
-          '#gsi2pk': 'GSI2PK',
-        },
-        ExpressionAttributeValues: {
-          ':gsi2pk': this.buildEmailGsiPk(email),
-        },
-        Limit: 1,
-      })
+    const result = await withDatabaseError(() =>
+      this.docClient.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          IndexName: GSI2_INDEX_NAME,
+          KeyConditionExpression: '#gsi2pk = :gsi2pk',
+          ExpressionAttributeNames: {
+            '#gsi2pk': 'GSI2PK',
+          },
+          ExpressionAttributeValues: {
+            ':gsi2pk': this.buildEmailGsiPk(email),
+          },
+          Limit: 1,
+        })
+      )
     );
 
     if (!result.Items || result.Items.length === 0) {
@@ -99,7 +104,7 @@ export class DynamoDBUserRepository implements UserRepository {
           throw new Error(ERROR_MESSAGES.USER_ALREADY_EXISTS);
         },
       });
-      throw error;
+      throw toDatabaseError(error);
     }
 
     return this.toUser(item);
@@ -161,7 +166,7 @@ export class DynamoDBUserRepository implements UserRepository {
           throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
         },
       });
-      throw error;
+      throw toDatabaseError(error);
     }
 
     if (!result.Attributes) {
@@ -172,14 +177,16 @@ export class DynamoDBUserRepository implements UserRepository {
   }
 
   public async delete(userId: string): Promise<void> {
-    await this.docClient.send(
-      new DeleteCommand({
-        TableName: this.tableName,
-        Key: {
-          PK: this.buildUserPk(userId),
-          SK: USER_META_SK,
-        },
-      })
+    await withDatabaseError(() =>
+      this.docClient.send(
+        new DeleteCommand({
+          TableName: this.tableName,
+          Key: {
+            PK: this.buildUserPk(userId),
+            SK: USER_META_SK,
+          },
+        })
+      )
     );
   }
 

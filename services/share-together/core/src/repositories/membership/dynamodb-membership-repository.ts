@@ -14,6 +14,7 @@ import type {
   UpdateGroupMembershipInput,
 } from '../../types/index.js';
 import type { MembershipRepository } from './membership-repository.interface.js';
+import { withDatabaseError } from '../with-database-error.js';
 
 const MEMBER_SK_PREFIX = 'MEMBER#';
 const GSI1_INDEX_NAME = 'GSI1';
@@ -33,14 +34,16 @@ export class DynamoDBMembershipRepository implements MembershipRepository {
   }
 
   public async getById(groupId: string, userId: string): Promise<GroupMembership | null> {
-    const result = await this.docClient.send(
-      new GetCommand({
-        TableName: this.tableName,
-        Key: {
-          PK: this.buildGroupPk(groupId),
-          SK: this.buildMemberSk(userId),
-        },
-      })
+    const result = await withDatabaseError(() =>
+      this.docClient.send(
+        new GetCommand({
+          TableName: this.tableName,
+          Key: {
+            PK: this.buildGroupPk(groupId),
+            SK: this.buildMemberSk(userId),
+          },
+        })
+      )
     );
 
     if (!result.Item) {
@@ -51,58 +54,64 @@ export class DynamoDBMembershipRepository implements MembershipRepository {
   }
 
   public async getByGroupId(groupId: string): Promise<GroupMembership[]> {
-    const result = await this.docClient.send(
-      new QueryCommand({
-        TableName: this.tableName,
-        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :memberSkPrefix)',
-        ExpressionAttributeNames: {
-          '#pk': 'PK',
-          '#sk': 'SK',
-        },
-        ExpressionAttributeValues: {
-          ':pk': this.buildGroupPk(groupId),
-          ':memberSkPrefix': MEMBER_SK_PREFIX,
-        },
-      })
+    const result = await withDatabaseError(() =>
+      this.docClient.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :memberSkPrefix)',
+          ExpressionAttributeNames: {
+            '#pk': 'PK',
+            '#sk': 'SK',
+          },
+          ExpressionAttributeValues: {
+            ':pk': this.buildGroupPk(groupId),
+            ':memberSkPrefix': MEMBER_SK_PREFIX,
+          },
+        })
+      )
     );
 
     return (result.Items ?? []).map((item) => this.toMembership(item as Record<string, unknown>));
   }
 
   public async getByUserId(userId: string): Promise<GroupMembership[]> {
-    const result = await this.docClient.send(
-      new QueryCommand({
-        TableName: this.tableName,
-        IndexName: GSI1_INDEX_NAME,
-        KeyConditionExpression: '#gsi1pk = :gsi1pk',
-        ExpressionAttributeNames: {
-          '#gsi1pk': 'GSI1PK',
-        },
-        ExpressionAttributeValues: {
-          ':gsi1pk': this.buildUserGsiPk(userId),
-        },
-      })
+    const result = await withDatabaseError(() =>
+      this.docClient.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          IndexName: GSI1_INDEX_NAME,
+          KeyConditionExpression: '#gsi1pk = :gsi1pk',
+          ExpressionAttributeNames: {
+            '#gsi1pk': 'GSI1PK',
+          },
+          ExpressionAttributeValues: {
+            ':gsi1pk': this.buildUserGsiPk(userId),
+          },
+        })
+      )
     );
 
     return (result.Items ?? []).map((item) => this.toMembership(item as Record<string, unknown>));
   }
 
   public async getPendingInvitationsByUserId(userId: string): Promise<GroupMembership[]> {
-    const result = await this.docClient.send(
-      new QueryCommand({
-        TableName: this.tableName,
-        IndexName: GSI1_INDEX_NAME,
-        KeyConditionExpression: '#gsi1pk = :gsi1pk',
-        FilterExpression: '#status = :pending',
-        ExpressionAttributeNames: {
-          '#gsi1pk': 'GSI1PK',
-          '#status': 'status',
-        },
-        ExpressionAttributeValues: {
-          ':gsi1pk': this.buildUserGsiPk(userId),
-          ':pending': 'PENDING',
-        },
-      })
+    const result = await withDatabaseError(() =>
+      this.docClient.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          IndexName: GSI1_INDEX_NAME,
+          KeyConditionExpression: '#gsi1pk = :gsi1pk',
+          FilterExpression: '#status = :pending',
+          ExpressionAttributeNames: {
+            '#gsi1pk': 'GSI1PK',
+            '#status': 'status',
+          },
+          ExpressionAttributeValues: {
+            ':gsi1pk': this.buildUserGsiPk(userId),
+            ':pending': 'PENDING',
+          },
+        })
+      )
     );
 
     return (result.Items ?? []).map((item) => this.toMembership(item as Record<string, unknown>));
@@ -116,11 +125,13 @@ export class DynamoDBMembershipRepository implements MembershipRepository {
       updatedAt: now,
     };
 
-    await this.docClient.send(
-      new PutCommand({
-        TableName: this.tableName,
-        Item: this.toItem(membership),
-      })
+    await withDatabaseError(() =>
+      this.docClient.send(
+        new PutCommand({
+          TableName: this.tableName,
+          Item: this.toItem(membership),
+        })
+      )
     );
 
     return membership;
@@ -199,18 +210,20 @@ export class DynamoDBMembershipRepository implements MembershipRepository {
       .filter((value) => value !== '')
       .join(' ');
 
-    const result = await this.docClient.send(
-      new UpdateCommand({
-        TableName: this.tableName,
-        Key: {
-          PK: this.buildGroupPk(groupId),
-          SK: this.buildMemberSk(userId),
-        },
-        UpdateExpression: updateExpression,
-        ExpressionAttributeNames: expressionAttributeNames,
-        ExpressionAttributeValues: expressionAttributeValues,
-        ReturnValues: 'ALL_NEW',
-      })
+    const result = await withDatabaseError(() =>
+      this.docClient.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: {
+            PK: this.buildGroupPk(groupId),
+            SK: this.buildMemberSk(userId),
+          },
+          UpdateExpression: updateExpression,
+          ExpressionAttributeNames: expressionAttributeNames,
+          ExpressionAttributeValues: expressionAttributeValues,
+          ReturnValues: 'ALL_NEW',
+        })
+      )
     );
 
     if (!result.Attributes) {
@@ -221,14 +234,16 @@ export class DynamoDBMembershipRepository implements MembershipRepository {
   }
 
   public async delete(groupId: string, userId: string): Promise<void> {
-    await this.docClient.send(
-      new DeleteCommand({
-        TableName: this.tableName,
-        Key: {
-          PK: this.buildGroupPk(groupId),
-          SK: this.buildMemberSk(userId),
-        },
-      })
+    await withDatabaseError(() =>
+      this.docClient.send(
+        new DeleteCommand({
+          TableName: this.tableName,
+          Key: {
+            PK: this.buildGroupPk(groupId),
+            SK: this.buildMemberSk(userId),
+          },
+        })
+      )
     );
   }
 
