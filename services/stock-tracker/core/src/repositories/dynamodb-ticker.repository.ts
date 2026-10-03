@@ -17,6 +17,7 @@ import {
   EntityNotFoundError,
   DatabaseError,
   mapConditionalCheckFailed,
+  toDatabaseError,
   encodeCursor,
   decodeCursor,
   type PaginationOptions,
@@ -26,7 +27,6 @@ import {
 import type { TickerRepository } from './ticker.repository.interface.js';
 import type { TickerEntity, UpdateTickerInput } from '../entities/ticker.entity.js';
 import { TickerMapper } from '../mappers/ticker.mapper.js';
-import { toErrorMessage } from '@nagiyu/common';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -110,8 +110,7 @@ export class DynamoDBTickerRepository
         exclusiveStartKey = result.LastEvaluatedKey;
       } while (exclusiveStartKey);
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
 
     return items;
@@ -191,8 +190,7 @@ export class DynamoDBTickerRepository
         count: result.Count,
       };
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -253,12 +251,7 @@ export class DynamoDBTickerRepository
           throw new EntityNotFoundError('Ticker', tickerId);
         },
       });
-      // EntityNotFoundError はそのまま投げる
-      if (error instanceof EntityNotFoundError) {
-        throw error;
-      }
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }

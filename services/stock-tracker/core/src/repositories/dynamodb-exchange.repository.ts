@@ -15,6 +15,7 @@ import {
   EntityNotFoundError,
   DatabaseError,
   mapConditionalCheckFailed,
+  toDatabaseError,
   type DynamoDBItem,
 } from '@nagiyu/aws';
 import type { ExchangeRepository } from './exchange.repository.interface.js';
@@ -25,7 +26,6 @@ import {
   buildExchangeGsi3Sk,
 } from '../mappers/exchange.mapper.js';
 import { queryExchangeItems } from './query-exchange-index.js';
-import { toErrorMessage } from '@nagiyu/common';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -88,8 +88,7 @@ export class DynamoDBExchangeRepository
     try {
       return await this.scanAll();
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -110,8 +109,7 @@ export class DynamoDBExchangeRepository
       }
       return await this.scanAll();
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -243,12 +241,7 @@ export class DynamoDBExchangeRepository
           throw new EntityNotFoundError('Exchange', exchangeId);
         },
       });
-      // EntityNotFoundError はそのまま投げる
-      if (error instanceof EntityNotFoundError) {
-        throw error;
-      }
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }

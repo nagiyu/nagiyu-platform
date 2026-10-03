@@ -9,8 +9,7 @@ import {
   QueryCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
-import { toErrorMessage } from '@nagiyu/common';
+import { toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import type { PerformanceDailyRepository } from './performance-daily.repository.interface.js';
 import type { Market, PerformanceDailyItem, Question } from '../forecast/index.js';
 import { PerformanceDailyMapper } from '../mappers/performance-daily.mapper.js';
@@ -47,8 +46,7 @@ export class DynamoDBPerformanceDailyRepository implements PerformanceDailyRepos
 
       return item;
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -76,8 +74,7 @@ export class DynamoDBPerformanceDailyRepository implements PerformanceDailyRepos
 
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -122,8 +119,7 @@ export class DynamoDBPerformanceDailyRepository implements PerformanceDailyRepos
 
       return items.map((item) => this.mapper.toEntity(item));
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }
