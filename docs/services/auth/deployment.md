@@ -223,6 +223,8 @@ curl https://auth.dev.nagiyu.com/api/health
 
 Auth サービスでは、以下の GitHub Actions ワークフローを使用します:
 
+各ワークフローのパスフィルター (`paths`) は [コーディング規約](../../development/rules.md) の共通ルールに従うため、ここには記載しません。
+
 #### 1. 高速検証ワークフロー (`.github/workflows/auth-verify-fast.yml`)
 
 **目的**: integration/\*\* ブランチへのプルリクエスト時に素早いフィードバックを提供
@@ -234,10 +236,6 @@ on:
   pull_request:
     branches:
       - integration/**
-    paths:
-      - 'services/auth/**'
-      - 'libs/**'
-      - 'infra/auth/**'
 ```
 
 **ジョブ構成**:
@@ -260,10 +258,6 @@ on:
   pull_request:
     branches:
       - develop
-    paths:
-      - 'services/auth/**'
-      - 'libs/**'
-      - 'infra/auth/**'
 ```
 
 **ジョブ構成**:
@@ -289,9 +283,6 @@ on:
       - develop
       - integration/**
       - master
-    paths:
-      - 'services/auth/**'
-      - 'infra/auth/**'
 ```
 
 **ジョブ構成**:
