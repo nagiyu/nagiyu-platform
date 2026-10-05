@@ -6,11 +6,13 @@
 import { InvokeCommand } from '@aws-sdk/client-lambda';
 import { logger, toErrorMessage } from '@nagiyu/common';
 import {
+  createScheduledHandler,
   getDynamoDBDocumentClient,
   getLambdaClient,
   getTableName,
   reportErrorEvent,
 } from '@nagiyu/aws';
+import type { HandlerResponse, ScheduledEvent } from '@nagiyu/aws';
 import {
   DynamoDBDailySummaryRepository,
   DynamoDBExchangeRepository,
@@ -29,29 +31,6 @@ import type {
   PatternResults,
   TickerRepository,
 } from '@nagiyu/stock-tracker-core';
-
-/**
- * Lambda Handlerイベント型
- */
-export interface ScheduledEvent {
-  version: string;
-  id: string;
-  'detail-type': string;
-  source: string;
-  account: string;
-  time: string;
-  region: string;
-  resources: string[];
-  detail: Record<string, unknown>;
-}
-
-/**
- * Lambda Handler レスポンス型
- */
-export interface HandlerResponse {
-  statusCode: number;
-  body: string;
-}
 
 /**
  * バッチ処理の統計情報
@@ -364,18 +343,10 @@ async function processExchange(
   }
 }
 
-/**
- * Lambda Handler
- */
-export async function handler(
+async function runSummaryBatch(
   event: ScheduledEvent,
   dependencies?: Partial<HandlerDependencies>
 ): Promise<HandlerResponse> {
-  logger.info('日次サマリー生成バッチを開始します', {
-    eventId: event.id,
-    eventTime: event.time,
-  });
-
   const stats: BatchStatistics = {
     totalExchanges: 0,
     processedExchanges: 0,
@@ -389,88 +360,78 @@ export async function handler(
 
   let resolvedDependencies: HandlerDependencies | undefined;
 
-  try {
-    if (
-      dependencies?.exchangeRepository &&
-      dependencies?.tickerRepository &&
-      dependencies?.dailySummaryRepository
-    ) {
-      resolvedDependencies = {
-        exchangeRepository: dependencies.exchangeRepository,
-        tickerRepository: dependencies.tickerRepository,
-        dailySummaryRepository: dependencies.dailySummaryRepository,
-        getChartDataFn: dependencies.getChartDataFn ?? getChartData,
-        nowFn: dependencies.nowFn ?? Date.now,
-        invokeForecastBatchFn: dependencies.invokeForecastBatchFn ?? invokeForecastBatch,
-      };
-    } else {
-      const docClient = getDynamoDBDocumentClient();
-      const tableName = getTableName();
-      const dailySummaryRepository = new DynamoDBDailySummaryRepository(docClient, tableName);
-      resolvedDependencies = {
-        exchangeRepository: new DynamoDBExchangeRepository(docClient, tableName),
-        tickerRepository: new DynamoDBTickerRepository(docClient, tableName),
-        dailySummaryRepository,
-        getChartDataFn: dependencies?.getChartDataFn ?? getChartData,
-        nowFn: dependencies?.nowFn ?? Date.now,
-        invokeForecastBatchFn: dependencies?.invokeForecastBatchFn ?? invokeForecastBatch,
-      };
-    }
-
-    const exchanges = await resolvedDependencies.exchangeRepository.getAll();
-    stats.totalExchanges = exchanges.length;
-
-    for (const exchange of exchanges) {
-      await processExchange(exchange, resolvedDependencies, stats);
-    }
-
-    logger.info('日次サマリー生成バッチが正常に完了しました', {
-      eventId: event.id,
-      statistics: stats,
-    });
-
-    // 毎時の起動を待たずに確度算出へ進められるよう、完了時に forecast バッチを非同期起動する。
-    // 保存したサマリーが1件も無ければ、確度算出バッチが読んでも対象日が増えていないため
-    // 起動しない。起動失敗はサマリー生成自体の結果に影響させない。invokeForecastBatch 自体が
-    // 例外を握りつぶす実装だが、差し替え用のフックが同じ規約を守るとは限らないため、ここでも
-    // 二重に保護する。
-    if (stats.summariesSaved > 0) {
-      try {
-        await resolvedDependencies.invokeForecastBatchFn();
-      } catch (error) {
-        logger.warn('確度算出バッチの起動に失敗しました', { reason: toErrorMessage(error) });
-      }
-    }
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        message: '日次サマリー生成バッチが正常に完了しました',
-        statistics: stats,
-      }),
+  if (
+    dependencies?.exchangeRepository &&
+    dependencies?.tickerRepository &&
+    dependencies?.dailySummaryRepository
+  ) {
+    resolvedDependencies = {
+      exchangeRepository: dependencies.exchangeRepository,
+      tickerRepository: dependencies.tickerRepository,
+      dailySummaryRepository: dependencies.dailySummaryRepository,
+      getChartDataFn: dependencies.getChartDataFn ?? getChartData,
+      nowFn: dependencies.nowFn ?? Date.now,
+      invokeForecastBatchFn: dependencies.invokeForecastBatchFn ?? invokeForecastBatch,
     };
-  } catch (error) {
-    const errorMessage = toErrorMessage(error);
-    logger.error('日次サマリー生成バッチでエラーが発生しました', {
-      eventId: event.id,
-      error: errorMessage,
-      statistics: stats,
-    });
-    await reportErrorEvent({
-      serviceId: 'stock-tracker',
-      severity: 'error',
-      title: 'サマリーバッチ: 致命的エラー',
-      message: errorMessage,
-      context: { eventId: event.id, statistics: stats },
-    });
-
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: '日次サマリー生成バッチでエラーが発生しました',
-        error: errorMessage,
-        statistics: stats,
-      }),
+  } else {
+    const docClient = getDynamoDBDocumentClient();
+    const tableName = getTableName();
+    const dailySummaryRepository = new DynamoDBDailySummaryRepository(docClient, tableName);
+    resolvedDependencies = {
+      exchangeRepository: new DynamoDBExchangeRepository(docClient, tableName),
+      tickerRepository: new DynamoDBTickerRepository(docClient, tableName),
+      dailySummaryRepository,
+      getChartDataFn: dependencies?.getChartDataFn ?? getChartData,
+      nowFn: dependencies?.nowFn ?? Date.now,
+      invokeForecastBatchFn: dependencies?.invokeForecastBatchFn ?? invokeForecastBatch,
     };
   }
+
+  const exchanges = await resolvedDependencies.exchangeRepository.getAll();
+  stats.totalExchanges = exchanges.length;
+
+  for (const exchange of exchanges) {
+    await processExchange(exchange, resolvedDependencies, stats);
+  }
+
+  logger.info('日次サマリー生成バッチが正常に完了しました', {
+    eventId: event.id,
+    statistics: stats,
+  });
+
+  // 毎時の起動を待たずに確度算出へ進められるよう、完了時に forecast バッチを非同期起動する。
+  // 保存したサマリーが1件も無ければ、確度算出バッチが読んでも対象日が増えていないため
+  // 起動しない。起動失敗はサマリー生成自体の結果に影響させない。invokeForecastBatch 自体が
+  // 例外を握りつぶす実装だが、差し替え用のフックが同じ規約を守るとは限らないため、ここでも
+  // 二重に保護する。
+  if (stats.summariesSaved > 0) {
+    try {
+      await resolvedDependencies.invokeForecastBatchFn();
+    } catch (error) {
+      logger.warn('確度算出バッチの起動に失敗しました', { reason: toErrorMessage(error) });
+    }
+  }
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({
+      message: '日次サマリー生成バッチが正常に完了しました',
+      statistics: stats,
+    }),
+  };
+}
+
+/**
+ * Lambda Handler
+ *
+ * テストから依存を差し替えられるよう、呼び出しごとに骨格へ dependencies を束ねる。
+ */
+export async function handler(
+  event: ScheduledEvent,
+  dependencies?: Partial<HandlerDependencies>
+): Promise<HandlerResponse> {
+  return createScheduledHandler(
+    { serviceId: 'stock-tracker', name: 'summary', errorTitle: 'サマリーバッチ: 致命的エラー' },
+    (scheduledEvent: ScheduledEvent) => runSummaryBatch(scheduledEvent, dependencies)
+  )(event);
 }

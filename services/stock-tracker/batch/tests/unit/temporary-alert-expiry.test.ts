@@ -1,5 +1,5 @@
 import { handler } from '../../src/temporary-alert-expiry.js';
-import type { ScheduledEvent } from '../../src/temporary-alert-expiry.js';
+import type { ScheduledEvent } from '@nagiyu/aws';
 import * as awsClients from '@nagiyu/aws';
 import { logger } from '@nagiyu/common';
 import type { ExchangeRepository, TemporaryAlertCandidate } from '@nagiyu/stock-tracker-core';
@@ -17,7 +17,20 @@ jest.mock('@nagiyu/common', () => ({
   },
 }));
 
-jest.mock('@nagiyu/aws');
+// createScheduledHandler の骨格は本物を使い、骨格内部のエラー報告も同じモックで観測できるよう
+// 報告関数の実体モジュールを差し替える。
+jest.mock('../../../../../libs/aws/src/error-events/report.js', () => ({
+  ...jest.requireActual('../../../../../libs/aws/src/error-events/report.js'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
+jest.mock('@nagiyu/aws', () => {
+  const actual = jest.requireActual('@nagiyu/aws');
+  return {
+    ...jest.createMockFromModule('@nagiyu/aws'),
+    createScheduledHandler: actual.createScheduledHandler,
+    reportErrorEvent: actual.reportErrorEvent,
+  };
+});
 jest.mock('@nagiyu/stock-tracker-core', () => ({
   ...jest.requireActual('@nagiyu/stock-tracker-core'),
   DynamoDBAlertRepository: jest.fn(),
@@ -266,17 +279,20 @@ describe('temporary alert expiry batch handler', () => {
     );
   });
 
-  it('getTemporaryCandidatesByFrequency でエラーが発生した場合は 500 を返す', async () => {
-    mockAlertRepo.getTemporaryCandidatesByFrequency.mockRejectedValue(
-      new Error('DynamoDB 接続エラー')
+  it('getTemporaryCandidatesByFrequency でエラーが発生した場合はエラー報告したうえで例外を再送出する', async () => {
+    const dbError = new Error('DynamoDB 接続エラー');
+    mockAlertRepo.getTemporaryCandidatesByFrequency.mockRejectedValue(dbError);
+
+    await expect(handler(mockEvent)).rejects.toBe(dbError);
+
+    expect(awsClients.reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: '一時通知アラート失効バッチ: 致命的エラー',
+        message: 'DynamoDB 接続エラー',
+      })
     );
-
-    const response = await handler(mockEvent);
-    const body = JSON.parse(response.body);
-
-    expect(response.statusCode).toBe(500);
-    expect(body.message).toBe('一時通知アラート失効バッチでエラーが発生しました');
-    expect(body.error).toContain('DynamoDB 接続エラー');
   });
 
   it('ページ上限到達時にワーニングログを出し、HOURLY_LEVEL の処理を継続する', async () => {

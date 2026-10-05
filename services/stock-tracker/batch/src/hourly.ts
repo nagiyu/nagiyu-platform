@@ -5,10 +5,15 @@
  */
 
 import { logger, toErrorMessage, withRetry } from '@nagiyu/common';
-import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
+import {
+  createScheduledHandler,
+  getDynamoDBDocumentClient,
+  getTableName,
+  reportErrorEvent,
+} from '@nagiyu/aws';
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import { createAlertNotificationPayload } from './lib/web-push-client.js';
-import type { AlertRepository, ExchangeRepository } from '@nagiyu/stock-tracker-core';
+import type { ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { evaluateAlert } from '@nagiyu/stock-tracker-core';
 import { isTradingHours } from '@nagiyu/stock-tracker-core';
@@ -18,30 +23,7 @@ import {
   resolveQuoteProvider,
   DEFAULT_PRICE_SOURCE,
 } from '@nagiyu/stock-tracker-core';
-import type { Alert, Exchange } from '@nagiyu/stock-tracker-core';
-
-/**
- * Lambda Handlerイベント型
- */
-export interface ScheduledEvent {
-  version: string;
-  id: string;
-  'detail-type': string;
-  source: string;
-  account: string;
-  time: string;
-  region: string;
-  resources: string[];
-  detail: Record<string, unknown>;
-}
-
-/**
- * Lambda Handler レスポンス型
- */
-export interface HandlerResponse {
-  statusCode: number;
-  body: string;
-}
+import type { Alert } from '@nagiyu/stock-tracker-core';
 
 /**
  * バッチ処理の統計情報
@@ -193,24 +175,20 @@ async function processAlert(
  * Lambda Handler
  * EventBridge Scheduler から定期実行される
  */
-export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
-  logger.info('1時間間隔バッチ処理を開始します', {
-    eventId: event.id,
-    eventTime: event.time,
-  });
+export const handler = createScheduledHandler(
+  { serviceId: 'stock-tracker', name: 'hourly', errorTitle: '時間次バッチ: 致命的エラー' },
+  async (event) => {
+    // バッチ統計情報の初期化
+    const stats: BatchStatistics = {
+      totalAlerts: 0,
+      processedAlerts: 0,
+      skippedDisabled: 0,
+      skippedOffHours: 0,
+      conditionsMet: 0,
+      notificationsSent: 0,
+      errors: 0,
+    };
 
-  // バッチ統計情報の初期化
-  const stats: BatchStatistics = {
-    totalAlerts: 0,
-    processedAlerts: 0,
-    skippedDisabled: 0,
-    skippedOffHours: 0,
-    conditionsMet: 0,
-    notificationsSent: 0,
-    errors: 0,
-  };
-
-  try {
     // DynamoDB クライアントとリポジトリの初期化
     const docClient = getDynamoDBDocumentClient();
     const tableName = getTableName();
@@ -250,28 +228,5 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
         statistics: stats,
       }),
     };
-  } catch (error) {
-    const errorMessage = toErrorMessage(error);
-    logger.error('1時間間隔バッチ処理でエラーが発生しました', {
-      eventId: event.id,
-      error: errorMessage,
-      statistics: stats,
-    });
-    await reportErrorEvent({
-      serviceId: 'stock-tracker',
-      severity: 'error',
-      title: '時間次バッチ: 致命的エラー',
-      message: errorMessage,
-      context: { eventId: event.id, statistics: stats },
-    });
-
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: '1時間間隔バッチ処理でエラーが発生しました',
-        error: errorMessage,
-        statistics: stats,
-      }),
-    };
   }
-}
+);
