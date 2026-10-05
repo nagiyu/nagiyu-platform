@@ -12,6 +12,7 @@ jest.mock('../../../../lib/auth', () => ({
 }));
 
 jest.mock('@nagiyu/nextjs', () => ({
+  validatePushSubscription: jest.requireActual('@nagiyu/nextjs').validatePushSubscription,
   withAuth: jest.fn((_auth, _permission, handler) => {
     return async (...args: unknown[]) => handler({ user: { userId: 'test-user' } }, ...args);
   }),
@@ -55,6 +56,19 @@ describe('POST /api/alerts', () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
+    expect(body.message).toBe('Web Push サブスクリプション情報が必要です');
+  });
+
+  it.each([
+    ['endpoint が URL 形式でない', { endpoint: 'not-a-url', keys: { p256dh: 'a', auth: 'b' } }],
+    ['p256dh が空', { endpoint: 'https://example.com/e', keys: { p256dh: '', auth: 'b' } }],
+    ['auth が欠落', { endpoint: 'https://example.com/e', keys: { p256dh: 'a' } }],
+  ])('subscription が不正（%s）な場合は 400 を返す', async (_label, subscription) => {
+    const response = await POST(createRequest({ ...validRequestBody, subscription }));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('INVALID_REQUEST');
     expect(body.message).toBe('Web Push サブスクリプション情報が必要です');
   });
 });

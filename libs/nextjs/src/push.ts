@@ -129,12 +129,25 @@ type SubscribeErrorResponse = {
   message: string;
 };
 
-export interface CreatePushSubscribeRouteOptions {
-  getSession: AuthFunction<SessionWithRoles>;
+export interface CreatePushSubscribeRouteOptions<
+  TSession extends SessionWithRoles = SessionWithRoles,
+> {
+  getSession: AuthFunction<TSession>;
   requiredPermission?: Permission;
+  /**
+   * 検証済みの購読を保存するフック。
+   * 201 を返す直前に呼ばれ、例外は 500 として扱われる。
+   */
+  onSubscribe?: (params: {
+    session: TSession;
+    subscription: PushSubscription;
+    subscriptionId: string;
+  }) => Promise<void>;
 }
 
-export function createPushSubscribeRoute(options: CreatePushSubscribeRouteOptions) {
+export function createPushSubscribeRoute<TSession extends SessionWithRoles = SessionWithRoles>(
+  options: CreatePushSubscribeRouteOptions<TSession>
+) {
   return async function POST(
     request: NextRequest
   ): Promise<NextResponse<SubscribeResponse | SubscribeErrorResponse>> {
@@ -198,6 +211,11 @@ export function createPushSubscribeRoute(options: CreatePushSubscribeRouteOption
       }
 
       const subscriptionId = await createSubscriptionId(subscription.endpoint);
+
+      if (options.onSubscribe) {
+        // authError が null なので session は非 null
+        await options.onSubscribe({ session: session as TSession, subscription, subscriptionId });
+      }
 
       return NextResponse.json(
         {
