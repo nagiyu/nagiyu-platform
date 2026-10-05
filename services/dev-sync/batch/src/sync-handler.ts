@@ -6,9 +6,14 @@
  * prod DynamoDB テーブルを dev へコピーする。
  *
  * イベントの input にはジョブ設定 JSON を渡す（zod でバリデーション）。
+ * 失敗時は例外を投げ、Lambda の Errors メトリクス・再試行に載せる。
  */
 
-import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import {
+  createScheduledHandler,
+  getDynamoDBDocumentClient,
+  type HandlerResponse,
+} from '@nagiyu/aws';
 import { JobConfigSchema } from './lib/types.js';
 import { runCopy } from './lib/copy-logic.js';
 import { DynamoDocumentClientStoreAdapter } from './lib/dynamo-store-adapter.js';
@@ -25,11 +30,15 @@ import type { JobConfig, CopyResult } from './lib/types.js';
 export type DevSyncEvent = JobConfig;
 
 /**
- * Lambda レスポンス型
+ * ログ・エラー報告の context を作る。
+ * 検証前の不正な入力でも呼ばれるため、文字列として取れる項目だけを拾い、例外を投げない。
  */
-export interface HandlerResponse {
-  statusCode: number;
-  body: string;
+function getLogContext(event: unknown): Record<string, unknown> {
+  if (typeof event !== 'object' || event === null) {
+    return {};
+  }
+  const { sourceTable, destTable, strategy, delete: deleteMode } = event as Record<string, unknown>;
+  return { sourceTable, destTable, strategy, delete: deleteMode };
 }
 
 /**
@@ -37,32 +46,24 @@ export interface HandlerResponse {
  *
  * EventBridge Scheduler の「入力」に設定されたジョブ設定（JobConfig）を
  * zod でバリデーションし、コピーロジックを実行する。
+ * 入力不正・コピー失敗のいずれも例外として投げる。
  */
-export async function handler(event: unknown): Promise<HandlerResponse> {
-  // zod でイベント入力をバリデーション
-  const parseResult = JobConfigSchema.safeParse(event);
-  if (!parseResult.success) {
-    const errorMessage = `${ERROR_MESSAGES.INVALID_EVENT_INPUT}: ${parseResult.error.message}`;
-    console.error(errorMessage, { event });
-    return {
-      statusCode: 400,
-      body: JSON.stringify({
-        message: errorMessage,
-        errors: parseResult.error.issues,
-      }),
-    };
-  }
+export const handler = createScheduledHandler<unknown, HandlerResponse>(
+  {
+    serviceId: 'dev-sync',
+    name: 'dev-sync',
+    errorTitle: 'dev-sync ジョブ失敗',
+    getLogContext,
+  },
+  async (event) => {
+    // zod でイベント入力をバリデーション
+    const parseResult = JobConfigSchema.safeParse(event);
+    if (!parseResult.success) {
+      throw new Error(`${ERROR_MESSAGES.INVALID_EVENT_INPUT}: ${parseResult.error.message}`);
+    }
 
-  const config = parseResult.data;
+    const config = parseResult.data;
 
-  console.info('dev-sync ジョブを開始します', {
-    sourceTable: config.sourceTable,
-    destTable: config.destTable,
-    strategy: config.strategy,
-    delete: config.delete,
-  });
-
-  try {
     // source（prod）と dest（dev）で別クライアント・別認証情報を使う。
     // source は SOURCE_READER_ROLE_ARN を AssumeRole した一時認証情報、
     // dest は Lambda 実行ロール（dev アカウント自身）のデフォルト認証情報。
@@ -87,20 +88,5 @@ export async function handler(event: unknown): Promise<HandlerResponse> {
         result,
       }),
     };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('dev-sync ジョブでエラーが発生しました', {
-      sourceTable: config.sourceTable,
-      destTable: config.destTable,
-      error: errorMessage,
-    });
-
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: 'dev-sync ジョブでエラーが発生しました',
-        error: errorMessage,
-      }),
-    };
   }
-}
+);
