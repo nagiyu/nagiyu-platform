@@ -18,6 +18,7 @@ import {
   EntityAlreadyExistsError,
   DatabaseError,
   mapConditionalCheckFailed,
+  toDatabaseError,
   encodeCursor,
   decodeCursor,
   type PaginationOptions,
@@ -72,8 +73,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
 
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -116,8 +116,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
         })
       );
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
 
     // mapper.toEntity は同期的なデータ検証であり、ここから投げられるエラーは
@@ -193,8 +192,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
         exclusiveStartKey = result.LastEvaluatedKey;
       } while (exclusiveStartKey);
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
 
     return items;
@@ -254,8 +252,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
         })
       );
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
 
     const items: TemporaryAlertCandidate[] = [];
@@ -312,8 +309,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
           throw new EntityAlreadyExistsError('Alert', `${input.UserID}#(generated)`);
         },
       });
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -422,12 +418,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
           throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
         },
       });
-      // EntityNotFoundError はそのまま投げる
-      if (error instanceof EntityNotFoundError) {
-        throw error;
-      }
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -451,8 +442,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
           throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
         },
       });
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -495,8 +485,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
           throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
         },
       });
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }
