@@ -78,8 +78,8 @@ feature/**  →  integration/**  →  develop  →  master
            (Fast CI)      (Full CI)   (本番)
 ```
 
-- 作業ブランチは `feature/{issue-number}-{slug}` 形式で作成する
-- PR のターゲットは原則 `integration/{service-name}` または `develop`
+- 作業ブランチ名は自由
+- PR のターゲットは原則 `integration/{issue-number}-{slug}` または `develop`
 
 ---
 
