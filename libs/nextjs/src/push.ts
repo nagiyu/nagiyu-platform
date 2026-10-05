@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { createSubscriptionId } from '@nagiyu/common';
 import type { Permission, PushSubscription } from '@nagiyu/common';
 import { getAuthError } from './auth.js';
 import type { AuthFunction, SessionWithRoles } from './auth.js';
@@ -55,22 +56,6 @@ export function validatePushSubscription(subscription: unknown): subscription is
   }
 
   return true;
-}
-
-/**
- * Push サブスクリプション endpoint から一意なIDを生成する。
- *
- * SHA-256 ハッシュを作成し、先頭32文字を `sub_` プレフィックス付きで返す。
- * この関数は `validatePushSubscription()` で endpoint が検証済みであることを前提とする。
- */
-export async function createSubscriptionId(endpoint: string): Promise<string> {
-  const endpointBytes = new TextEncoder().encode(endpoint);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', endpointBytes);
-  const hashHex = Array.from(new Uint8Array(hashBuffer))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('');
-
-  return `sub_${hashHex.substring(0, 32)}`;
 }
 
 /**
@@ -218,3 +203,5 @@ export function createPushSubscribeRoute(options: CreatePushSubscribeRouteOption
     }
   };
 }
+
+export { createSubscriptionId };

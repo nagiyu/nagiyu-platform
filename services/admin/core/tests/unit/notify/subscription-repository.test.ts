@@ -45,6 +45,25 @@ describe('DynamoDBPushSubscriptionRepository', () => {
     expect(result.subscriptionId).toBeTruthy();
   });
 
+  it('同じ endpoint で保存し直すと同じ subscriptionId になり、同じ PK を上書きする', async () => {
+    ddbMock.on(PutCommand).resolves({});
+    const input = {
+      userId: 'admin-user-1',
+      subscription: {
+        endpoint: 'https://example.com/same-endpoint',
+        keys: { p256dh: 'p256dh-key', auth: 'auth-key' },
+      },
+    };
+
+    const first = await repository.save(input);
+    const second = await repository.save(input);
+
+    expect(first.subscriptionId).toMatch(/^sub_[0-9a-f]{32}$/);
+    expect(second.subscriptionId).toBe(first.subscriptionId);
+    const puts = ddbMock.commandCalls(PutCommand);
+    expect(puts[0].args[0].input.Item?.PK).toBe(puts[1].args[0].input.Item?.PK);
+  });
+
   it('endpoint が空文字の場合は保存時にエラーを投げる', async () => {
     await expect(
       repository.save({
@@ -147,6 +166,24 @@ describe('createPushSubscriptionRepository', () => {
 
     expect(all).toHaveLength(1);
     expect(deleted).toBe(1);
+  });
+
+  it('インメモリ実装でも同じ endpoint の再登録は 1 件のまま上書きされる', async () => {
+    process.env.USE_IN_MEMORY_DB = 'true';
+
+    const repository = createPushSubscriptionRepository();
+    const input = {
+      userId: 'admin-user-2',
+      subscription: {
+        endpoint: 'https://example.com/in-memory-same',
+        keys: { p256dh: 'memory-p256dh', auth: 'memory-auth' },
+      },
+    };
+    const first = await repository.save(input);
+    const second = await repository.save(input);
+
+    expect(second.subscriptionId).toBe(first.subscriptionId);
+    expect(await repository.findAll()).toHaveLength(1);
   });
 
   it('tableName が引数・env のいずれでも未指定なら例外を投げる', () => {
