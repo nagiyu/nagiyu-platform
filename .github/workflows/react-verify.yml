@@ -10,9 +10,7 @@ on:
       - develop
       - integration/**
     paths:
-      - 'libs/react/**'
-      - 'libs/browser/**'
-      - 'libs/common/**'
+      - 'libs/**'
       - 'configs/**'
       - '.github/actions/**'
       - 'package.json'

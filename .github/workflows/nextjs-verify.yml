@@ -10,8 +10,7 @@ on:
       - develop
       - integration/**
     paths:
-      - 'libs/nextjs/**'
-      - 'libs/common/**'
+      - 'libs/**'
       - 'configs/**'
       - '.github/actions/**'
       - 'package.json'

@@ -10,9 +10,7 @@ on:
       - develop
       - integration/**
     paths:
-      - 'libs/ui/**'
-      - 'libs/browser/**'
-      - 'libs/common/**'
+      - 'libs/**'
       - 'configs/**'
       - '.github/actions/**'
       - 'package.json'
