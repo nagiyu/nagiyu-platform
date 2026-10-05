@@ -15,7 +15,7 @@ import {
 import {
   EntityNotFoundError,
   EntityAlreadyExistsError,
-  DatabaseError,
+  toDatabaseError,
   mapConditionalCheckFailed,
   encodeCursor,
   decodeCursor,
@@ -30,7 +30,6 @@ import type {
   UpdateUserSettingInput,
 } from '../entities/user-setting.entity.js';
 import { UserSettingMapper } from '../mappers/user-setting.mapper.js';
-import { toErrorMessage } from '@nagiyu/common';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -73,8 +72,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
 
       return this.mapper.toEntity(result.Item as DynamoDBItem);
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -112,8 +110,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
         count: result.Count,
       };
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -202,8 +199,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
           );
         },
       });
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -234,8 +230,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
 
       return entity;
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -302,8 +297,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
           throw new EntityNotFoundError('UserSetting', `userId=${userId}, videoId=${videoId}`);
         },
       });
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -321,8 +315,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
         })
       );
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }
