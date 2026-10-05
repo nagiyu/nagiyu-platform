@@ -4,7 +4,12 @@ import {
   QueryCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError, EntityAlreadyExistsError, type DynamoDBItem } from '@nagiyu/aws';
+import {
+  EntityAlreadyExistsError,
+  isConditionalCheckFailed,
+  toDatabaseError,
+  type DynamoDBItem,
+} from '@nagiyu/aws';
 import type {
   CreateSafetyEventInput,
   SafetyEventEntity,
@@ -57,14 +62,13 @@ export class DynamoDBSafetyEventRepository implements SafetyEventRepository {
       );
       return entity;
     } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+      if (isConditionalCheckFailed(error)) {
         throw new EntityAlreadyExistsError(
           this.mapper.entityType,
           `${entity.UserID}#${entity.EventID}`
         );
       }
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -80,8 +84,7 @@ export class DynamoDBSafetyEventRepository implements SafetyEventRepository {
       if (!result.Item) return null;
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -102,8 +105,7 @@ export class DynamoDBSafetyEventRepository implements SafetyEventRepository {
         this.mapper.toSummary(item as unknown as DynamoDBItem)
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }

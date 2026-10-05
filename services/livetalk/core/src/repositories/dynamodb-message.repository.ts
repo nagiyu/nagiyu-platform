@@ -5,7 +5,12 @@ import {
   type DynamoDBDocumentClient,
   type QueryCommandOutput,
 } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError, EntityAlreadyExistsError, type DynamoDBItem } from '@nagiyu/aws';
+import {
+  EntityAlreadyExistsError,
+  isConditionalCheckFailed,
+  toDatabaseError,
+  type DynamoDBItem,
+} from '@nagiyu/aws';
 import { logger } from '@nagiyu/common';
 import { MESSAGE_TTL_SECONDS, TOKEN_BUDGETED_QUERY_PAGE_SIZE } from '../constants.js';
 import type { CreateMessageInput, MessageEntity, MessageKey } from '../entities/message.entity.js';
@@ -68,14 +73,13 @@ export class DynamoDBMessageRepository implements MessageRepository {
       );
       return entity;
     } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+      if (isConditionalCheckFailed(error)) {
         throw new EntityAlreadyExistsError(
           this.mapper.entityType,
           `${entity.UserID}#${entity.CharacterID}#${messageId}`
         );
       }
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -91,8 +95,7 @@ export class DynamoDBMessageRepository implements MessageRepository {
       if (!result.Item) return null;
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -125,8 +128,7 @@ export class DynamoDBMessageRepository implements MessageRepository {
           })
         );
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new DatabaseError(message, error instanceof Error ? error : undefined);
+        throw toDatabaseError(error);
       }
 
       for (const raw of result.Items ?? []) {
@@ -188,8 +190,7 @@ export class DynamoDBMessageRepository implements MessageRepository {
           })
         );
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new DatabaseError(message, error instanceof Error ? error : undefined);
+        throw toDatabaseError(error);
       }
 
       totalConsumedCapacity += result.ConsumedCapacity?.CapacityUnits ?? 0;

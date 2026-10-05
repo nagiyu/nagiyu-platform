@@ -6,7 +6,7 @@ import {
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import { logger } from '@nagiyu/common';
-import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { isConditionalCheckFailed, toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import type { CreateNoteInput, NoteEntity, NoteKey } from '../entities/note.entity.js';
 import { NoteMapper } from '../mappers/note.mapper.js';
 import { buildNoteSK, buildNoteSKPrefix, buildUserPK } from '../mappers/keys.js';
@@ -38,8 +38,7 @@ export class DynamoDBNoteRepository implements NoteRepository {
       );
       return entity;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -64,8 +63,7 @@ export class DynamoDBNoteRepository implements NoteRepository {
           })
         );
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new DatabaseError(message, error instanceof Error ? error : undefined);
+        throw toDatabaseError(error);
       }
 
       for (const raw of result.Items ?? []) {
@@ -100,8 +98,7 @@ export class DynamoDBNoteRepository implements NoteRepository {
           })
         );
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new DatabaseError(message, error instanceof Error ? error : undefined);
+        throw toDatabaseError(error);
       }
 
       for (const raw of result.Items ?? []) {
@@ -148,8 +145,7 @@ export class DynamoDBNoteRepository implements NoteRepository {
       if (!result.Item) return null;
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -180,12 +176,11 @@ export class DynamoDBNoteRepository implements NoteRepository {
         })
       );
     } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+      if (isConditionalCheckFailed(error)) {
         logger.warn('[DynamoDBNoteRepository] updateReaction: 対象ノートが存在しません', { key });
         return;
       }
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }
