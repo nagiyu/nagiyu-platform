@@ -4,8 +4,8 @@
 
 ## 関連 Issue
 
-<!-- 関連する Issue がある場合は記載してください -->
-Closes #
+<!-- 関連する Issue がある場合は #番号 で記載してください。Closes # 等の closing keyword は使わず、Issue は完了時に手動でクローズします -->
+#
 
 ## 変更種別
 
@@ -18,14 +18,6 @@ Closes #
 - [ ] CI/CD 更新
 - [ ] インフラ更新
 - [ ] その他
-
-## 実装前チェックリスト
-
-<!-- 実装前に確認すべき項目 -->
-
-- [ ] [コーディング規約・べからず集](../docs/development/rules.md) を確認した
-- [ ] [アーキテクチャガイドライン](../docs/development/architecture.md) を確認した
-- [ ] [開発方針](../docs/README.md) を確認した
 
 ## 実装チェックリスト
 

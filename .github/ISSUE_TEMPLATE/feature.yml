@@ -1,7 +1,6 @@
 name: 新規機能実装
 description: 新しい機能やサービスの実装タスク
 title: "[Feature] "
-labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
@@ -50,9 +49,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        ## 実装方針（Sonnet 引き継ぎ用）
+        ## 対応方針（任意）
 
-        以下は実装フェーズで参照する情報です。Sonnet に実装を移譲する場合や、別セッションで再開する場合に備え、可能な限り詳細に記載してください。
+        分かっている範囲で記載してください。
 
   - type: textarea
     id: implementation-approach

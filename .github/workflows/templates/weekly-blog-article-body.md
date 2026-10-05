@@ -79,7 +79,7 @@
 
 ## 🌿 ブランチ運用
 
-**CLAUDE.md の正規フローに従うこと**（`agent-claude.yml` の簡易フローではなく）。Portal 記事は「デプロイして描画を見ないと検証できない」ため、軽量変更に見えても **integration 経由**にする。
+**CLAUDE.md の正規フローに従うこと**。Portal 記事は「デプロイして描画を見ないと検証できない」ため、軽量変更に見えても **integration 経由**にする。
 
 ```
 Issue → integration/{issue-number}-{slug} ブランチ（develop から分岐）へ直接コミット
