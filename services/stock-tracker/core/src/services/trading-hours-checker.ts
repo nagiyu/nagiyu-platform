@@ -46,39 +46,6 @@ function parseTime(timeString: string): { hours: number; minutes: number } {
 }
 
 /**
- * 取引時間内かどうかをチェック
- *
- * @param exchange - 取引所情報 (Timezone, Start, End)
- * @param currentTime - 現在時刻 (Unix timestamp またはDateオブジェクト)
- * @returns 取引時間内の場合は true、取引時間外の場合は false
- * @throws Error - 無効なタイムゾーン、時刻形式、現在時刻の場合
- *
- * @example
- * // NASDAQ (America/New_York, 04:00-20:00) での例
- * const nasdaq: Exchange = {
- *   ExchangeID: 'NASDAQ',
- *   Name: 'NASDAQ',
- *   Key: 'NSDQ',
- *   Timezone: 'America/New_York',
- *   Start: '04:00',
- *   End: '20:00',
- *   CreatedAt: Date.now(),
- *   UpdatedAt: Date.now(),
- * };
- *
- * // 平日の取引時間内
- * const tradingHours = new Date('2024-01-15T14:00:00Z'); // 月曜日 UTC 14:00 = EST 09:00
- * isTradingHours(nasdaq, tradingHours) // => true
- *
- * // 平日の取引時間外
- * const afterHours = new Date('2024-01-15T02:00:00Z'); // 月曜日 UTC 02:00 = EST 21:00
- * isTradingHours(nasdaq, afterHours) // => false
- *
- * // 土日
- * const weekend = new Date('2024-01-14T14:00:00Z'); // 日曜日
- * isTradingHours(nasdaq, weekend) // => false
- */
-/**
  * YYYY-MM-DD の翌平日を返す
  *
  * 祝日は考慮しない（土日のみスキップ）。
@@ -158,6 +125,39 @@ export function calculateTemporaryExpireDate(exchange: Exchange, now: number): s
   return getNextWeekday(lastTradingDate);
 }
 
+/**
+ * 取引時間内かどうかをチェック
+ *
+ * @param exchange - 取引所情報 (Timezone, Start, End)
+ * @param currentTime - 現在時刻 (Unix timestamp またはDateオブジェクト)
+ * @returns 取引時間内の場合は true、取引時間外の場合は false
+ * @throws Error - 無効なタイムゾーン、時刻形式、現在時刻の場合
+ *
+ * @example
+ * // NASDAQ (America/New_York, 04:00-20:00) での例
+ * const nasdaq: Exchange = {
+ *   ExchangeID: 'NASDAQ',
+ *   Name: 'NASDAQ',
+ *   Key: 'NSDQ',
+ *   Timezone: 'America/New_York',
+ *   Start: '04:00',
+ *   End: '20:00',
+ *   CreatedAt: Date.now(),
+ *   UpdatedAt: Date.now(),
+ * };
+ *
+ * // 平日の取引時間内
+ * const tradingHours = new Date('2024-01-15T14:00:00Z'); // 月曜日 UTC 14:00 = EST 09:00
+ * isTradingHours(nasdaq, tradingHours) // => true
+ *
+ * // 平日の取引時間外
+ * const afterHours = new Date('2024-01-15T02:00:00Z'); // 月曜日 UTC 02:00 = EST 21:00
+ * isTradingHours(nasdaq, afterHours) // => false
+ *
+ * // 土日
+ * const weekend = new Date('2024-01-14T14:00:00Z'); // 日曜日
+ * isTradingHours(nasdaq, weekend) // => false
+ */
 export function isTradingHours(exchange: Exchange, currentTime: number | Date): boolean {
   // 現在時刻の妥当性チェック
   let currentDate: Date;
