@@ -335,6 +335,67 @@ describe('EmotionHighlightService', () => {
     expect(onProgress).toHaveBeenCalledTimes(2);
   });
 
+  it('onProgress には完了したチャンクの件数が単調増加で渡され、全完了時だけ N/N になる', async () => {
+    const segmentsPerChunk = 50;
+    const resolvers: Array<(value: unknown) => void> = [];
+    mockParse.mockImplementation(
+      () => new Promise((resolve) => resolvers.push(resolve as (value: unknown) => void))
+    );
+
+    const onProgress = jest.fn().mockResolvedValue(undefined);
+    const service = new EmotionHighlightService(mockClient);
+    const promise = service.getScores(makeSegments(3 * segmentsPerChunk), 'any', onProgress);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(resolvers).toHaveLength(3);
+
+    // 最後のチャンクが先に終わっても完了扱いにならない
+    resolvers[2]!({ output_parsed: { items: [] } });
+    await jest.advanceTimersByTimeAsync(0);
+    expect(onProgress).toHaveBeenLastCalledWith(1, 3);
+
+    resolvers[0]!({ output_parsed: { items: [] } });
+    await jest.advanceTimersByTimeAsync(0);
+    expect(onProgress).toHaveBeenLastCalledWith(2, 3);
+
+    resolvers[1]!({ output_parsed: { items: [] } });
+    await promise;
+
+    expect(onProgress.mock.calls).toEqual([
+      [1, 3],
+      [2, 3],
+      [3, 3],
+    ]);
+  });
+
+  it('1 チャンクが失敗したら新しいチャンクの API 呼び出しを始めず、実行中の完了を待って reject する', async () => {
+    const segmentsPerChunk = 50;
+    const resolvers: Array<(value: unknown) => void> = [];
+    mockParse
+      .mockRejectedValueOnce(new Error('OpenAI APIの呼び出しがタイムアウトしました'))
+      .mockImplementation(
+        () => new Promise((resolve) => resolvers.push(resolve as (value: unknown) => void))
+      );
+
+    const service = new EmotionHighlightService(mockClient);
+    let settled = false;
+    const promise = service.getScores(makeSegments(4 * segmentsPerChunk), 'any').catch((e) => {
+      settled = true;
+      return e;
+    });
+    await jest.advanceTimersByTimeAsync(0);
+
+    // 3 並列のうち 1 つが失敗しても 4 つ目のチャンクは始まらず、実行中の 2 つが終わるまで reject しない
+    expect(mockParse).toHaveBeenCalledTimes(3);
+    expect(settled).toBe(false);
+
+    resolvers.forEach((resolve) => resolve({ output_parsed: { items: [] } }));
+    const error = await promise;
+
+    expect(settled).toBe(true);
+    expect(error).toBeInstanceOf(Error);
+    expect(mockParse).toHaveBeenCalledTimes(3);
+  });
+
   it('onProgress コールバックはチャンク数 === 1 のときは呼ばれない', async () => {
     mockParse.mockResolvedValueOnce({ output_parsed: { items: [] } });
 
