@@ -9,6 +9,11 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBTodoRepository } from '../../../../src/repositories/todo/dynamodb-todo-repository.js';
 
+import { DatabaseError } from '@nagiyu/aws';
+
+const createSdkError = (): Error =>
+  Object.assign(new Error('スループット超過'), { name: 'ProvisionedThroughputExceededException' });
+
 describe('DynamoDBTodoRepository', () => {
   const TABLE_NAME = 'test-share-together-main';
   let repository: DynamoDBTodoRepository;
@@ -367,6 +372,50 @@ describe('DynamoDBTodoRepository', () => {
       await repository.deleteByListId('list-1');
 
       expect(mockDocClient.send).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('SDK例外のDatabaseError化', () => {
+    it('取得時のSDK例外はDatabaseErrorに包まれる', async () => {
+      mockDocClient.send.mockRejectedValueOnce(createSdkError());
+
+      const promise = repository.getById('list-1', 'todo-1');
+
+      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
+      await expect(promise).rejects.toMatchObject({
+        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
+      });
+    });
+
+    it('更新時の条件違反以外のSDK例外はDatabaseErrorに包まれる', async () => {
+      mockDocClient.send.mockRejectedValueOnce(createSdkError());
+
+      const promise = repository.update('list-1', 'todo-1', { title: '更新後' });
+
+      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
+      await expect(promise).rejects.toMatchObject({
+        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
+      });
+    });
+
+    it('リスト配下一括削除のQuery時のSDK例外はDatabaseErrorに包まれる', async () => {
+      mockDocClient.send.mockRejectedValueOnce(createSdkError());
+
+      const promise = repository.deleteByListId('list-1');
+
+      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
+      await expect(promise).rejects.toMatchObject({
+        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
+      });
+    });
+
+    it('更新対象がない場合は素のErrorのまま日本語メッセージで投げる', async () => {
+      mockDocClient.send.mockRejectedValueOnce({ name: 'ConditionalCheckFailedException' });
+
+      const promise = repository.update('list-1', 'todo-404', { title: '更新後' });
+
+      await expect(promise).rejects.toThrow('指定されたToDoは存在しません');
+      await expect(promise).rejects.not.toBeInstanceOf(DatabaseError);
     });
   });
 });

@@ -8,6 +8,11 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBMembershipRepository } from '../../../../src/repositories/membership/dynamodb-membership-repository.js';
 
+import { DatabaseError } from '@nagiyu/aws';
+
+const createSdkError = (): Error =>
+  Object.assign(new Error('スループット超過'), { name: 'ProvisionedThroughputExceededException' });
+
 describe('DynamoDBMembershipRepository', () => {
   const TABLE_NAME = 'test-share-together-main';
   let repository: DynamoDBMembershipRepository;
@@ -338,6 +343,39 @@ describe('DynamoDBMembershipRepository', () => {
     expect(secondCommand.input.Key).toEqual({
       PK: 'GROUP#group-1',
       SK: 'MEMBER#user-2',
+    });
+  });
+
+  describe('SDK例外のDatabaseError化', () => {
+    it('取得時のSDK例外はDatabaseErrorに包まれる', async () => {
+      mockDocClient.send.mockRejectedValueOnce(createSdkError());
+
+      const promise = repository.getById('group-1', 'user-1');
+
+      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
+      await expect(promise).rejects.toMatchObject({
+        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
+      });
+    });
+
+    it('更新時のSDK例外はDatabaseErrorに包まれる', async () => {
+      mockDocClient.send.mockRejectedValueOnce(createSdkError());
+
+      const promise = repository.update('group-1', 'user-1', { role: 'OWNER' });
+
+      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
+      await expect(promise).rejects.toMatchObject({
+        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
+      });
+    });
+
+    it('更新結果がない場合は素のErrorのまま日本語メッセージで投げる', async () => {
+      mockDocClient.send.mockResolvedValueOnce({});
+
+      const promise = repository.update('group-1', 'user-1', {});
+
+      await expect(promise).rejects.toThrow('メンバーシップが見つかりません');
+      await expect(promise).rejects.not.toBeInstanceOf(DatabaseError);
     });
   });
 });
