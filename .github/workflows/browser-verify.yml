@@ -10,8 +10,9 @@ on:
       - develop
       - integration/**
     paths:
-      - 'libs/browser/**'
-      - 'libs/common/**'
+      - 'libs/**'
+      - 'configs/**'
+      - '.github/actions/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/browser-verify.yml'

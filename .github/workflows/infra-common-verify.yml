@@ -7,6 +7,8 @@ on:
       - integration/**
     paths:
       - 'infra/common/**'
+      - 'configs/**'
+      - '.github/actions/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/infra-common-verify.yml'

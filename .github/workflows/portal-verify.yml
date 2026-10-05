@@ -12,6 +12,8 @@ on:
     paths:
       - 'services/portal/**'
       - 'libs/**'
+      - 'configs/**'
+      - '.github/actions/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/portal-verify.yml'

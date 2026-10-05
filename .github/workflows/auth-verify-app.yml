@@ -11,8 +11,11 @@ on:
       - develop
     paths:
       - 'services/auth/**'
-      - 'libs/common/**'
+      - 'libs/**'
       - 'infra/auth/**'
+      - 'infra/common/**'
+      - 'configs/**'
+      - '.github/actions/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/auth-verify-app.yml'
