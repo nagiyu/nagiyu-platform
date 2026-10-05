@@ -8,6 +8,9 @@ on:
     paths:
       - 'infra/ui-storybook/**'
       - 'infra/common/**'
+      - 'infra/tsconfig.json'
+      - 'configs/**'
+      - '.github/actions/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/ui-storybook-verify.yml'

@@ -10,6 +10,9 @@ on:
       - integration/**
     paths:
       - 'infra/auth/**'
+      - 'infra/common/**'
+      - 'configs/**'
+      - '.github/actions/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/auth-verify.yml'
@@ -20,6 +23,9 @@ on:
       - master
     paths:
       - 'infra/auth/**'
+      - 'infra/common/**'
+      - 'configs/**'
+      - '.github/actions/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/auth-verify.yml'

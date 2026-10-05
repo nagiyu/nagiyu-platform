@@ -9,6 +9,7 @@ on:
     paths:
       - 'services/codec-converter/**'
       - 'infra/codec-converter/**'
+      - 'infra/common/**'
       - 'libs/**'
       - 'package.json'
       - 'package-lock.json'

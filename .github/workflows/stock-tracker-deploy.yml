@@ -9,6 +9,8 @@ on:
     paths:
       - 'services/stock-tracker/**'
       - 'infra/stock-tracker/**'
+      - 'infra/common/**'
+      - 'libs/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/stock-tracker-deploy.yml'

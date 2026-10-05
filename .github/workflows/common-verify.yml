@@ -10,7 +10,9 @@ on:
       - develop
       - integration/**
     paths:
-      - 'libs/common/**'
+      - 'libs/**'
+      - 'configs/**'
+      - '.github/actions/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/common-verify.yml'
