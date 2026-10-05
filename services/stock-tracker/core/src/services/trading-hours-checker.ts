@@ -11,6 +11,7 @@
  */
 
 import { toZonedTime } from 'date-fns-tz';
+import { formatLocalDate } from '@nagiyu/common';
 import type { Exchange } from '../types.js';
 
 /**
@@ -78,16 +79,6 @@ function parseTime(timeString: string): { hours: number; minutes: number } {
  * isTradingHours(nasdaq, weekend) // => false
  */
 /**
- * Date オブジェクトを YYYY-MM-DD 形式にフォーマット
- */
-function formatYmd(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-/**
  * YYYY-MM-DD の翌平日を返す
  *
  * 祝日は考慮しない（土日のみスキップ）。
@@ -98,7 +89,8 @@ export function getNextWeekday(dateYmd: string): string {
   while (candidate.getUTCDay() === 0 || candidate.getUTCDay() === 6) {
     candidate = new Date(candidate.getTime() + 24 * 60 * 60 * 1000);
   }
-  return formatYmd(candidate);
+  // candidate は UTC 0 時基準のため、ローカル時刻ではなく UTC として読む
+  return candidate.toISOString().slice(0, 10);
 }
 
 /**
@@ -111,7 +103,7 @@ export function formatDateInTimezone(timestampMs: number, timezone: string): str
   if (isNaN(zoned.getTime())) {
     throw new Error(TRADING_HOURS_ERROR_MESSAGES.INVALID_TIMEZONE);
   }
-  return formatYmd(zoned);
+  return formatLocalDate(zoned);
 }
 
 /**
@@ -137,7 +129,7 @@ export function getLastTradingDate(exchange: Exchange, now: number): string {
 
   // 今日が平日かつ取引終了後 → 今日が最新取引日
   if (dayOfWeek !== 0 && dayOfWeek !== 6 && currentTotalMinutes >= endTotalMinutes) {
-    return formatYmd(zonedNow);
+    return formatLocalDate(zonedNow);
   }
 
   // それ以外: 1日ずつ遡り最初の平日を返す (最大3回でFridayに到達)
@@ -146,7 +138,7 @@ export function getLastTradingDate(exchange: Exchange, now: number): string {
     const candidate = toZonedTime(new Date(candidateMs), exchange.Timezone);
     const dow = candidate.getDay();
     if (dow !== 0 && dow !== 6) {
-      return formatYmd(candidate);
+      return formatLocalDate(candidate);
     }
     candidateMs -= 24 * 60 * 60 * 1000;
   }
@@ -160,7 +152,7 @@ export function getLastTradingDate(exchange: Exchange, now: number): string {
  */
 export function calculateTemporaryExpireDate(exchange: Exchange, now: number): string {
   if (isTradingHours(exchange, now)) {
-    return formatYmd(toZonedTime(new Date(now), exchange.Timezone));
+    return formatLocalDate(toZonedTime(new Date(now), exchange.Timezone));
   }
   const lastTradingDate = getLastTradingDate(exchange, now);
   return getNextWeekday(lastTradingDate);

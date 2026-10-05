@@ -1,3 +1,4 @@
+import { sleep } from '../async/sleep.js';
 import { logger } from '../logger/logger.js';
 import type { RetryOptions, RetryLogger } from './types.js';
 
@@ -13,13 +14,6 @@ export const DEFAULT_RETRY_OPTIONS: RetryOptions = {
 const ERROR_MESSAGES = {
   UNEXPECTED: 'リトライ処理中に予期しないエラーが発生しました',
 } as const;
-
-/**
- * 指定されたミリ秒間待機する内部ヘルパー関数
- */
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 /**
  * 指数バックオフでリトライを実行する

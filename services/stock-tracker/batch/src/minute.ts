@@ -4,7 +4,7 @@
  * MINUTE_LEVEL のアラート条件をチェックして通知を送信する
  */
 
-import { logger, toErrorMessage } from '@nagiyu/common';
+import { logger, sleep, toErrorMessage } from '@nagiyu/common';
 import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import { createAlertNotificationPayload } from './lib/web-push-client.js';
@@ -20,15 +20,6 @@ import {
   DEFAULT_PRICE_SOURCE,
 } from '@nagiyu/stock-tracker-core';
 import type { Alert } from '@nagiyu/stock-tracker-core';
-
-/**
- * 指定ミリ秒待機する
- *
- * @param ms - 待機時間（ミリ秒）
- */
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 /**
  * Lambda Handlerイベント型
