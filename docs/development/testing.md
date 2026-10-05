@@ -149,28 +149,24 @@ libs/{library-name}/
 #### ロール／権限の差し替え（リクエストヘッダ + フィクスチャ）
 
 - テストは Playwright フィクスチャの `role` オプション（`test.use({ role: [...] })`）でロールを宣言する。フィクスチャは全 HTTP リクエスト（ページ遷移・`request` の双方）に `x-test-user-roles`（`,` 区切り）ヘッダを付与する。
-- `@nagiyu/nextjs` の `createSessionGetter` は、**`SKIP_AUTH_CHECK=true` のテスト専用経路でのみ**このヘッダを読み、テストセッションのロールを上書きする（ヘッダ名は `TEST_USER_ROLES_HEADER`）。ヘッダ未設定時は従来どおり `TEST_USER_ROLES` 環境変数にフォールバックするため、フィクスチャを使わない既存テストは影響を受けない。
+- `@nagiyu/nextjs` の `createSessionGetter` と `createClientSessionGetHandler` は、**`SKIP_AUTH_CHECK=true` のテスト専用経路でのみ**このヘッダを読み、テストセッションのロールを上書きする（ヘッダ名は `TEST_USER_ROLES_HEADER`）。ヘッダ未設定時は従来どおり `TEST_USER_ROLES` 環境変数にフォールバックするため、フィクスチャを使わない既存テストは影響を受けない。
 - **本番安全性**: `SKIP_AUTH_CHECK` は本番／公開環境では有効化されない前提であり、その経路の外ではヘッダを一切読まない（`headers()` すら呼ばない）。権限昇格の新規経路は生じない。
 - 権限ゲート（`withAuth` の `requiredPermission` や middleware の権限判定）を**実際に評価**させたうえで結果を固定できるため、権限拒否（403）を条件分岐なしの独立テストとして書ける。
 
-#### ロール差し替えが効く範囲（重要な制約）
+#### ロール差し替えが効く範囲
 
-このヘッダを解釈するのは `createSessionGetter` だけである。したがってロールの差し替えが効くのは、**サーバー側でこのセッション取得を通る経路に限られる**。
+ヘッダを解釈するのは `@nagiyu/nextjs` の次の 2 つで、いずれも `SKIP_AUTH_CHECK=true` のときだけ働く。ロールの解決順は共通で、ヘッダ → `TEST_USER_ROLES` → サービスの既定ロールとなる。
 
-| 経路 | 効くか |
+| 経路 | 解釈する関数 |
 |---|---|
-| API ルート（権限ゲートを含む） | 効く |
-| Server Component（そこから props で渡す先の Client Component を含む） | 効く |
-| Client Component が直接取得するセッション | **効かない** |
+| API ルート・Server Component（権限ゲートを含む） | `createSessionGetter` |
+| Client Component の `useSession()`（`/api/auth/session`） | `createClientSessionGetHandler` |
 
-Client Component が認証ライブラリのクライアント API で自前にセッションを取得する場合、その経路は `createSessionGetter` を通らないため、ヘッダを付けても `.env.test` の既定ロールが返る。**画面上の出し分けがクライアント側のセッションに依存している場合、ロールを宣言しただけでは検証したい状態にならない**ので注意する。
+- ロール文字列は `,` で分割し、trim と空要素の除去を行う。結果が空なら未設定扱いとなり、`TEST_USER_ROLES=""` も既定ロールに戻る（`parseTestUserRoles`）。
+- クライアント向けの経路は、`[...nextauth]/route.ts` の GET を `createClientSessionGetHandler` で包んで有効にする。サーバー側と同じユーザー・ロール・有効期限（30 日）を返すため、画面上の出し分けがクライアントのセッションに依存していても、`role` の宣言だけで検証したい状態になる。
+- 新しいサービスでこの経路を使うときは、`createTestSession` が受け取った `overrides` を `resolveTestUser` へそのまま渡すこと。これを怠ると、サーバー側だけロールが既定値のままになる。
 
-この場合の対処は次のいずれか。
-
-1. 権限判定をサーバー側（Server Component）へ寄せ、結果を props で渡す。**設計としてはこちらが望ましい**（テスト都合ではなく、権限判定の一元化として）。
-2. テスト側でセッション取得のレスポンスを固定応答へ差し替える。権限判定ロジック自体はアプリのコードが評価するため検証意図は保てるが、セッション取得の実配線は通らなくなる。
-
-あわせて、**「ボタンが表示されないこと」のような否定的な assert は、クライアントセッションの取得完了前だと無条件に通る**点にも注意する。これは「壊れても落ちない」状態であり、実際に一部環境でのみ失敗する不安定なテストの原因になった。否定を assert する前に、対象の状態が確定したことを示す肯定的な条件を先に待つこと。
+**「ボタンが表示されないこと」のような否定的な assert は、クライアントセッションの取得完了前だと無条件に通る**点には引き続き注意する。これは「壊れても落ちない」状態であり、実際に一部環境でのみ失敗する不安定なテストの原因になった。否定を assert する前に、`/api/auth/session` のレスポンスが期待ロールであることを `page.waitForResponse`（`goto` より前に待ち受ける）で確認し、そのうえで描画完了を示す肯定的な条件を待つこと。
 
 #### 初期状態の seed／リセット（テスト用エンドポイント）
 
