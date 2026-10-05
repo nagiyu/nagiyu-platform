@@ -21,7 +21,8 @@ description: 本番リリース（develop → master）を手伝う。マイル�
 
 ## 2. リリースブランチの作成
 
-- `develop` から `release/vX.Y.Z` を作成する（GitHub の create_branch で可）。
+- 通常は `develop` から `release/vX.Y.Z` を作成する（GitHub の create_branch で可）。
+- develop に、まだ本番に出せない資材が載っている場合は `master` から作成し、必要な修正だけを入れる。どちらから切るかは人に確認する。
 
 ## 3. バージョン更新の候補を出す
 
@@ -58,7 +59,7 @@ description: 本番リリース（develop → master）を手伝う。マイル�
 
 - 各デプロイワークフローが master への push で何をどの順にデプロイするかを確認する（例: 1 コマンドで複数スタックを deploy していれば、1 つの失敗で後続も止まる）。
 - 過去に問題になった観点:
-    - **DynamoDB の GSI を 1 回の更新で 2 つ以上作成しない**。CloudFormation の更新が失敗する。dev では別々に入っていても、本番で同時に入ると失敗する。段階的に反映する（片方を外してリリースし、後から hotfix で追加する等）。GSI の作成中（CREATING / Backfilling）に次の GSI を追加しても失敗するので、ACTIVE を待つ。
+    - **DynamoDB の GSI を 1 回の更新で 2 つ以上作成しない**。CloudFormation の更新が失敗する。dev では別々に入っていても、本番で同時に入ると失敗する。段階的に反映する（片方を外してリリースし、次のリリースで戻す等）。GSI の作成中（CREATING / Backfilling）に次の GSI を追加しても失敗するので、ACTIVE を待つ。
     - **手動発火のバッチ（一回性の移行など）**。起動手順・引数・本番ガード（`confirmEnv` 等）を事前に確認する。**非同期 invoke は既定で最大 2 回リトライされる**ため、冪等でない処理はリトライ 0 回になっているかを見る。実行時間が Lambda の上限（15 分）に収まるかも本番データ量で見積もる。
     - **Secrets Manager / SSM の名前変更**。名前を変えるとリソースが置換され、値が PLACEHOLDER に戻る。
 - 本番の現状は AWS CLI（read-only）で確認できる（`describe-table`・`describe-stacks`・`get-function-configuration` 等）。
@@ -79,8 +80,10 @@ description: 本番リリース（develop → master）を手伝う。マイル�
 
 ## 注意点
 
-- **本番向けにだけ入れたコミットを含むリリースブランチは、develop へ再マージしない**（例: 本番の GSI 段階反映のために外した定義）。develop 向け PR をマージした後で release ブランチに追加コミットした場合は特に注意する。
-- **hotfix**: master から作業ブランチを切り、master 向けに Draft PR を作る。develop に同じ内容が既にあれば develop へ戻す必要はない（差分がないことを確認する）。
+- **master と develop の資材をずらしたままにしない**。master に入れた変更は develop にも入れる（→ [`docs/branching.md`](../../../docs/branching.md) の「リリース」）。
+    - 本番の GSI 段階反映のように一時的に外す場合は、外したら戻すまでを 1 組として扱い、戻すリリースまで見届ける。
+    - develop 向け PR をマージした後で release ブランチに追加コミットした場合は、develop にも反映されているかを確認する。
+- 本番の不具合修正も「hotfix」という別手順は設けず、リリースとして扱う（起点は上の「2. リリースブランチの作成」）。
 - 本番で問題が出た場合は、修正を develop に入れて dev で確認してから、パッチリリース（vX.Y.Z+1）で本番に入れる（本番で直接試さない）。
 
 ## やらないこと（MUST NOT）

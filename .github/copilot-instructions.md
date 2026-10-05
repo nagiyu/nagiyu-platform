@@ -29,10 +29,13 @@ libs/
 └── aws/           # AWS SDK 依存ユーティリティ
 
 services/          # アプリケーション
-├── admin/                    # 管理画面
-├── auth/                     # 認証サービス
-├── codec-converter/          # コーデック変換サービス
+├── admin/                    # 管理画面（core + web + batch）
+├── auth/                     # 認証サービス（core + web）
+├── codec-converter/          # コーデック変換サービス（core + web + batch）
+├── dev-sync/                 # prod → dev データ同期（batch）
+├── livetalk/                 # リブトーク: AI コンパニオン（core + web + batch）
 ├── niconico-mylist-assistant/ # ニコニコマイリスト管理（core + web + batch）
+├── portal/                   # 技術メディアサイト（web）
 ├── quick-clip/               # クイッククリップ（core + web + batch + lambda）
 ├── share-together/           # みんなでシェアリスト（core + web）
 ├── stock-tracker/            # 株価トラッカー（core + web + batch）
