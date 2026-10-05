@@ -8,8 +8,9 @@ on:
       - master
     paths:
       - 'services/admin/**'
-      - 'libs/common/**'
+      - 'libs/**'
       - 'infra/admin/**'
+      - 'infra/common/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/admin-deploy.yml'
