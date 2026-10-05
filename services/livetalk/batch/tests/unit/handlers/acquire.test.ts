@@ -1,8 +1,12 @@
-import type { ScheduledEvent } from '../../../src/handlers/acquire.js';
+import type { ScheduledEvent } from '@nagiyu/aws';
 
+// 骨格 (createScheduledHandler) は実物を使い、副作用のある DynamoDB 取得とエラー報告だけを差し替える
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
   getDynamoDBDocumentClient: jest.fn(() => ({})),
   getTableName: jest.fn(() => 'test-table'),
+}));
+jest.mock('../../../../../../libs/aws/src/error-events/report.js', () => ({
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
@@ -109,7 +113,7 @@ describe('acquire handler', () => {
       expect.objectContaining({
         serviceId: 'livetalk',
         severity: 'error',
-        title: 'acquire バッチ: 部分失敗',
+        title: 'acquire バッチ: 致命的エラー',
       })
     );
   });
