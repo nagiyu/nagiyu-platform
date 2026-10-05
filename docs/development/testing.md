@@ -279,8 +279,9 @@ on:
             - develop           # メインブランチ
             - integration/**    # 統合ブランチ
         paths:
-            - 'libs/hoge/**'           # ターゲットファイル
-            - 'libs/common/**'            # 依存ライブラリ
+            - 'libs/**'                   # ターゲットと依存ライブラリ
+            - 'configs/**'                # 共有設定
+            - '.github/actions/**'        # 共有 composite action
             - 'package.json'              # ルートパッケージ定義
             - 'package-lock.json'         # 依存関係ロック
             - '.github/workflows/hoge-verify.yml'  # ワークフロー自体
@@ -294,7 +295,7 @@ on:
 
 2. **パスフィルター**: 関連ファイルのみでトリガー
     - **ターゲット**: 変更対象のディレクトリ（例: `services/hoge/**`）
-    - **依存対象**: 直接依存するライブラリ（例: `libs/common/**`）
+    - **依存対象**: 依存ライブラリは個別に列挙せず `libs/**` とする。共通インフラ部品・共有設定も含める (理由と対象は [コーディング規約](./rules.md) の「Verify ワークフローは PR をトリガーとし、パスフィルターを設定」を参照)
     - **ルートパッケージ**: `package.json`, `package-lock.json`
     - **ワークフロー自体**: ワークフロー定義ファイル
 
