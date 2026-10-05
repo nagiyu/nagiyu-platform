@@ -4,18 +4,9 @@ import { useCallback, useState } from 'react';
 import { Box, Paper, Typography } from '@mui/material';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import { Button } from '@nagiyu/ui';
-import { subscribePush, fetchVapidPublicKey } from '@nagiyu/browser';
+import { subscribePush, fetchVapidPublicKey, postPushSubscription } from '@nagiyu/browser';
 import { snoozeNotificationPermission } from '@/lib/pwa/standalone';
 import { PWA_MESSAGES } from '@/lib/pwa/messages';
-
-const postSubscription = async (subscription: PushSubscription): Promise<void> => {
-  const response = await fetch('/api/push/subscribe', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ subscription: subscription.toJSON() }),
-  });
-  if (!response.ok) throw new Error('サブスクリプションの登録に失敗しました');
-};
 
 export interface NotificationPermissionProps {
   onGranted: () => void;
@@ -32,7 +23,7 @@ export default function NotificationPermission({ onGranted, onSkip }: Notificati
     try {
       await subscribePush({
         vapidPublicKey: fetchVapidPublicKey,
-        onSubscribed: postSubscription,
+        onSubscribed: (subscription) => postPushSubscription(subscription),
       });
       onGranted();
     } catch {

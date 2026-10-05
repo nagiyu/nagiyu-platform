@@ -15,7 +15,7 @@ import {
   Switch,
 } from '@mui/material';
 import { Button, ErrorAlert, Select } from '@nagiyu/ui';
-import { subscribePush, fetchVapidPublicKey } from '@nagiyu/browser';
+import { subscribePush, fetchVapidPublicKey, postPushSubscription } from '@nagiyu/browser';
 import { formatPrice } from '@nagiyu/common';
 import { useEnterSubmit } from '@nagiyu/react';
 import { calculateTargetPriceFromPercentage } from '../lib/percentage-helper';
@@ -322,16 +322,7 @@ export default function AlertSettingsModal({
     try {
       const sub = await subscribePush({
         vapidPublicKey: await fetchVapidPublicKey(),
-        onSubscribed: async (subscription) => {
-          const subscribeResponse = await fetch('/api/push/subscribe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ subscription }),
-          });
-          if (!subscribeResponse.ok) {
-            throw new Error(ERROR_MESSAGES.SUBSCRIPTION_ERROR);
-          }
-        },
+        onSubscribed: (subscription) => postPushSubscription(subscription),
       });
       return sub;
     } catch (err) {

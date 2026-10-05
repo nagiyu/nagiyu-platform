@@ -3,6 +3,7 @@ import NotificationToggle, { NOTIFICATION_TOGGLE_MESSAGES } from '@/components/N
 import { subscribePush } from '@nagiyu/browser';
 
 jest.mock('@nagiyu/browser', () => ({
+  ...jest.requireActual('@nagiyu/browser'),
   subscribePush: jest.fn(),
 }));
 

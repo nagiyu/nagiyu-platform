@@ -1,7 +1,6 @@
 import {
   isStandalone,
   detectPlatform,
-  isPushSupported,
   shouldShowInstallGuide,
   snoozeInstallGuide,
   shouldShowNotificationPermission,
@@ -86,34 +85,6 @@ describe('detectPlatform', () => {
   it('デスクトップ UA で other を返す', () => {
     setUA('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36');
     expect(detectPlatform()).toBe('other');
-  });
-});
-
-// ---------- isPushSupported ----------
-
-describe('isPushSupported', () => {
-  it('Notification・serviceWorker・PushManager がすべてあれば true', () => {
-    Object.defineProperty(window, 'Notification', {
-      value: { permission: 'default' },
-      configurable: true,
-    });
-    Object.defineProperty(navigator, 'serviceWorker', {
-      value: { register: jest.fn() },
-      configurable: true,
-    });
-    Object.defineProperty(window, 'PushManager', {
-      value: function PushManager() {},
-      configurable: true,
-    });
-    expect(isPushSupported()).toBe(true);
-  });
-
-  it('Notification がなければ false', () => {
-    const original = window.Notification;
-    // @ts-expect-error テスト用
-    delete window.Notification;
-    expect(isPushSupported()).toBe(false);
-    Object.defineProperty(window, 'Notification', { value: original, configurable: true });
   });
 });
 

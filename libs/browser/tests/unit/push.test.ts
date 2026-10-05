@@ -5,6 +5,8 @@ import {
   urlBase64ToUint8Array,
   subscribePush,
   fetchVapidPublicKey,
+  isPushSupported,
+  postPushSubscription,
   PUSH_ERROR_MESSAGES,
 } from '../../src/push';
 
@@ -288,6 +290,119 @@ describe('push utilities', () => {
       } as Response);
 
       await expect(fetchVapidPublicKey()).rejects.toThrow(PUSH_ERROR_MESSAGES.VAPID_KEY_EMPTY);
+    });
+  });
+
+  describe('isPushSupported', () => {
+    const setup = (opts: {
+      requestPermission?: unknown;
+      notification?: boolean;
+      register?: unknown;
+      serviceWorker?: boolean;
+      pushManager?: boolean;
+    }) => {
+      const { notification = true, serviceWorker = true, pushManager = true } = opts;
+      // undefined を明示的に渡して「関数でない」状態を作れるよう、キーの有無で既定値を決める
+      const requestPermission = 'requestPermission' in opts ? opts.requestPermission : jest.fn();
+      const register = 'register' in opts ? opts.register : jest.fn();
+      if (notification) {
+        (window as unknown as { Notification: unknown }).Notification = { requestPermission };
+      } else {
+        delete (window as unknown as { Notification?: unknown }).Notification;
+      }
+      Object.defineProperty(navigator, 'serviceWorker', {
+        configurable: true,
+        value: serviceWorker ? { register } : undefined,
+      });
+      if (!serviceWorker) {
+        // 'serviceWorker' in navigator を false にするため実体を削除する
+        delete (navigator as unknown as { serviceWorker?: unknown }).serviceWorker;
+      }
+      if (pushManager) {
+        (window as unknown as { PushManager: unknown }).PushManager = function () {};
+      } else {
+        delete (window as unknown as { PushManager?: unknown }).PushManager;
+      }
+    };
+
+    afterEach(() => {
+      delete (window as unknown as { Notification?: unknown }).Notification;
+      delete (window as unknown as { PushManager?: unknown }).PushManager;
+    });
+
+    it('すべての API が揃っていれば true', () => {
+      setup({});
+      expect(isPushSupported()).toBe(true);
+    });
+
+    it('Notification がなければ false', () => {
+      setup({ notification: false });
+      expect(isPushSupported()).toBe(false);
+    });
+
+    it('requestPermission が関数でなければ false', () => {
+      setup({ requestPermission: undefined });
+      expect(isPushSupported()).toBe(false);
+    });
+
+    it('serviceWorker がなければ false', () => {
+      setup({ serviceWorker: false });
+      expect(isPushSupported()).toBe(false);
+    });
+
+    it('serviceWorker.register が関数でなければ false', () => {
+      setup({ register: undefined });
+      expect(isPushSupported()).toBe(false);
+    });
+
+    it('PushManager がなければ false', () => {
+      setup({ pushManager: false });
+      expect(isPushSupported()).toBe(false);
+    });
+  });
+
+  describe('postPushSubscription', () => {
+    const originalFetch = global.fetch;
+    const json = { endpoint: 'https://example.com/sub', keys: { p256dh: 'a', auth: 'b' } };
+    const subscription = { toJSON: () => json } as unknown as PushSubscription;
+
+    afterEach(() => {
+      global.fetch = originalFetch;
+    });
+
+    it('既定では /api/push/subscribe に { subscription } で包んで POST する', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true } as Response);
+
+      await postPushSubscription(subscription);
+
+      expect(global.fetch).toHaveBeenCalledWith('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: json }),
+      });
+    });
+
+    it('endpoint と raw 形式を指定できる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true } as Response);
+
+      await postPushSubscription(subscription, {
+        endpoint: '/api/notify/subscribe',
+        bodyShape: 'raw',
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith('/api/notify/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(json),
+      });
+    });
+
+    it('レスポンスが !ok の場合は SUBSCRIPTION_REGISTER_FAILED エラーを投げる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false } as Response);
+
+      await expect(postPushSubscription(subscription)).rejects.toThrow(
+        PUSH_ERROR_MESSAGES.SUBSCRIPTION_REGISTER_FAILED
+      );
     });
   });
 });

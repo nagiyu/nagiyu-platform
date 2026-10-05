@@ -69,7 +69,6 @@ jest.mock('next/navigation', () => ({
 // オンボーディング判定をスタブ化
 jest.mock('@/lib/pwa/standalone', () => ({
   isStandalone: jest.fn().mockReturnValue(false),
-  isPushSupported: jest.fn().mockReturnValue(false),
   shouldShowInstallGuide: jest.fn().mockReturnValue(false),
   shouldShowNotificationPermission: jest.fn().mockReturnValue(false),
   snoozeInstallGuide: jest.fn(),
