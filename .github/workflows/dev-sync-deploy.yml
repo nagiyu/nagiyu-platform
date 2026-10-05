@@ -8,8 +8,8 @@ on:
     paths:
       - 'services/dev-sync/**'
       - 'infra/dev-sync/**'
-      - 'libs/common/**'
-      - 'libs/aws/**'
+      - 'infra/common/**'
+      - 'libs/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/dev-sync-deploy.yml'

@@ -9,6 +9,7 @@ on:
     paths:
       - 'services/niconico-mylist-assistant/**'
       - 'infra/niconico-mylist-assistant/**'
+      - 'infra/common/**'
       - 'libs/**'
       - 'package.json'
       - 'package-lock.json'
