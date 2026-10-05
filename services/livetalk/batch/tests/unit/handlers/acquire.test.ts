@@ -113,7 +113,8 @@ describe('acquire handler', () => {
       expect.objectContaining({
         serviceId: 'livetalk',
         severity: 'error',
-        title: 'acquire バッチ: 致命的エラー',
+        title: 'acquire バッチ: 部分失敗',
+        context: expect.objectContaining({ failedUserIds: ['u1'] }),
       })
     );
   });

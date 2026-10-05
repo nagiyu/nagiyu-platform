@@ -100,7 +100,8 @@ describe('consolidate-conversations handler', () => {
       expect.objectContaining({
         serviceId: 'livetalk',
         severity: 'error',
-        title: '集約バッチ: 致命的エラー',
+        title: '集約バッチ: 部分失敗',
+        context: expect.objectContaining({ failedUserIds: ['u1'] }),
       })
     );
   });

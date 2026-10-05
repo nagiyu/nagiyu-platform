@@ -12,6 +12,7 @@ import {
   createScheduledHandler,
   getDynamoDBDocumentClient,
   getTableName,
+  ScheduledHandlerError,
   type HandlerResponse,
 } from '@nagiyu/aws';
 import {
@@ -71,14 +72,17 @@ export const handler = createScheduledHandler<MigratePayload, HandlerResponse>(
     logger.info('[migrate] バッチ完了', { ...result, scopeReports: undefined });
 
     if (result.failedScopes > 0) {
-      // 部分失敗も例外にして Lambda を失敗させ、再実行判断は人が行う。
-      // エラー報告は骨格が行うため、失敗スコープのキーはここでログに残す。
+      // 部分失敗も例外にして Lambda を失敗させる。報告のタイトルと失敗 ID は例外に持たせ、
+      // 骨格が 1 回だけ報告する。
       const message = `一回性移行バッチで ${result.failedScopes} 件のスコープ処理が失敗しました`;
       logger.error('[migrate] 部分失敗', {
         failedScopes: result.failedScopes,
         failedScopeKeys: result.failedScopeKeys,
       });
-      throw new Error(message);
+      throw new ScheduledHandlerError(message, {
+        title: '一回性移行バッチ: 部分失敗',
+        context: { failedScopeKeys: result.failedScopeKeys },
+      });
     }
 
     return {

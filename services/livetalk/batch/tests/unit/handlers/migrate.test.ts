@@ -104,7 +104,8 @@ describe('migrate handler', () => {
       expect.objectContaining({
         serviceId: 'livetalk',
         severity: 'error',
-        title: '一回性移行バッチ: 致命的エラー',
+        title: '一回性移行バッチ: 部分失敗',
+        context: expect.objectContaining({ failedScopeKeys: ['u1#hiyori'] }),
       })
     );
   });

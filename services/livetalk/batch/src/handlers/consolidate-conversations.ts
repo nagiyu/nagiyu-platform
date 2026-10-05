@@ -3,6 +3,7 @@ import {
   createScheduledHandler,
   getDynamoDBDocumentClient,
   getTableName,
+  ScheduledHandlerError,
   type HandlerResponse,
   type ScheduledEvent,
 } from '@nagiyu/aws';
@@ -58,15 +59,18 @@ export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
     });
 
     if (result.failedUsers > 0) {
-      // 部分失敗も例外にして Lambda を失敗させる。エラー報告は骨格が行うため、
-      // 失敗したユーザー ID はここでログに残す。
+      // 部分失敗も例外にして Lambda を失敗させる。報告のタイトルと失敗 ID は例外に持たせ、
+      // 骨格が 1 回だけ報告する。
       const message = `集約バッチで ${result.failedUsers} 件のユーザー処理が失敗しました`;
       logger.error('[consolidate-conversations] 部分失敗', {
         eventId: event.id,
         failedUsers: result.failedUsers,
         failedUserIds: result.failedUserIds,
       });
-      throw new Error(message);
+      throw new ScheduledHandlerError(message, {
+        title: '集約バッチ: 部分失敗',
+        context: { failedUserIds: result.failedUserIds },
+      });
     }
 
     return {
