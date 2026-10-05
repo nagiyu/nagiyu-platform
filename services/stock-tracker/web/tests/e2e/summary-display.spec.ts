@@ -785,15 +785,11 @@ test.describe('サマリー画面スモークテスト', () => {
       const sessionBody = await sessionResponse.json();
       expect(sessionBody.user.roles).toEqual(['stock-viewer']);
 
-      // 取引所フィルタは権限に依存せず常に描画されるため、描画完了の指標にする。
-      // 応答受信から state 反映までに隙間があるため、2 フレーム待って描画を確定させる。
-      await expect(page.locator('#exchange-filter')).toBeVisible();
-      await page.evaluate(
-        () =>
-          new Promise<void>((resolve) =>
-            requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-          )
-      );
+      // ヘッダのアカウントメニューは session.user があるときだけ描画される（未取得時は
+      // ログアウトボタンが出る）。ボタン表示の判定と同じ SessionProvider の state から
+      // 描画され、デスクトップ・モバイルとも常設のため、これが見えれば
+      // セッションが React に反映済みと言える。
+      await expect(page.getByRole('button', { name: 'アカウントメニュー' })).toBeVisible();
       await expect(page.getByRole('button', { name: 'サマリー更新' })).toHaveCount(0);
     });
   });
