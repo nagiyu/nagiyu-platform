@@ -11,6 +11,8 @@ on:
       - integration/**
     paths:
       - 'infra/shared/**'
+      - 'configs/**'
+      - '.github/actions/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/infra-shared-verify.yml'

@@ -12,6 +12,8 @@ on:
     paths:
       - 'libs/nextjs/**'
       - 'libs/common/**'
+      - 'configs/**'
+      - '.github/actions/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/nextjs-verify.yml'

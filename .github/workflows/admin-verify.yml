@@ -11,8 +11,12 @@ on:
       - develop
     paths:
       - 'services/admin/**'
-      - 'libs/common/**'
+      - 'libs/**'
       - 'infra/admin/**'
+      - 'infra/common/**'
+      - 'infra/tsconfig.json'
+      - 'configs/**'
+      - '.github/actions/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/admin-verify.yml'

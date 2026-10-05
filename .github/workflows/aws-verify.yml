@@ -12,6 +12,8 @@ on:
     paths:
       - 'libs/aws/**'
       - 'libs/common/**'
+      - 'configs/**'
+      - '.github/actions/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/aws-verify.yml'

@@ -11,6 +11,8 @@ on:
       - integration/**
     paths:
       - 'libs/common/**'
+      - 'configs/**'
+      - '.github/actions/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/common-verify.yml'

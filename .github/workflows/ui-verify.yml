@@ -13,6 +13,8 @@ on:
       - 'libs/ui/**'
       - 'libs/browser/**'
       - 'libs/common/**'
+      - 'configs/**'
+      - '.github/actions/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/ui-verify.yml'

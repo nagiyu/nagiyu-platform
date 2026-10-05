@@ -12,6 +12,8 @@ on:
     paths:
       - 'libs/browser/**'
       - 'libs/common/**'
+      - 'configs/**'
+      - '.github/actions/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/browser-verify.yml'
