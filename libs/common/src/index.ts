@@ -26,6 +26,9 @@ export * from './retry/index.js';
 // LLM usage module - Provider 非依存の LLM トークン使用量ログ
 export * from './llm-usage/index.js';
 
+// Concurrency module - 同時実行数を制限したタスク実行
+export { runWithConcurrency } from './concurrency/run-with-concurrency.js';
+
 // Push module - Web Push utilities (browser-safe exports only)
 export { normalizeVapidKey } from './push/vapid.js';
 export type { VapidKeyName } from './push/vapid.js';
