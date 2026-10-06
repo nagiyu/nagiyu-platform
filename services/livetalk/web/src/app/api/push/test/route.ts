@@ -13,7 +13,7 @@
 import { NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
 import { logger, toErrorMessage } from '@nagiyu/common';
-import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
+import { sendWebPushNotifications, getVapidConfig } from '@nagiyu/common/push';
 import { defaultUlidFactory, NOTIFICATION_EVENT_TTL_SECONDS } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
 import {
@@ -100,33 +100,31 @@ export const POST = withAuth(getSession, 'livetalk:admin', async (session, reque
 
     // 各サブスクリプションへ送信する（失敗はログのみで継続・無効サブスクは削除）
     const pushSubscriptionRepo = getPushSubscriptionRepository();
-    let sentCount = 0;
+    const result = await sendWebPushNotifications(
+      subscriptions,
+      (sub) => ({ endpoint: sub.Endpoint, keys: { p256dh: sub.P256dhKey, auth: sub.AuthKey } }),
+      payload,
+      vapidConfig
+    );
 
-    for (const sub of subscriptions) {
-      try {
-        const sent = await sendWebPushNotification(
-          { endpoint: sub.Endpoint, keys: { p256dh: sub.P256dhKey, auth: sub.AuthKey } },
-          payload,
-          vapidConfig
-        );
-        if (sent) {
-          sentCount++;
-        } else {
-          // 無効なサブスクリプション（404/410）を削除する
-          await pushSubscriptionRepo.delete({
-            userId,
-            subscriptionId: sub.SubscriptionID,
-          });
-        }
-      } catch (error) {
-        logger.warn('[POST /api/push/test] Push 送信失敗（継続）', {
-          userId,
-          characterId,
-          subscriptionId: sub.SubscriptionID,
-          error: toErrorMessage(error),
-        });
-      }
+    // 無効なサブスクリプション（404/410）を削除する
+    for (const sub of result.invalid) {
+      await pushSubscriptionRepo.delete({
+        userId,
+        subscriptionId: sub.SubscriptionID,
+      });
     }
+
+    for (const { target, error } of result.failed) {
+      logger.warn('[POST /api/push/test] Push 送信失敗（継続）', {
+        userId,
+        characterId,
+        subscriptionId: target.SubscriptionID,
+        error: toErrorMessage(error),
+      });
+    }
+
+    const sentCount = result.sent.length;
 
     // 1 件以上送信成功した場合、NotificationEvent を記録する（first-word/pending 検証のため）
     if (sentCount > 0) {

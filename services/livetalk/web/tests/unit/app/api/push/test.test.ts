@@ -39,6 +39,27 @@ jest.mock('@/lib/server/repositories', () => ({
 
 jest.mock('@nagiyu/common/push', () => ({
   sendWebPushNotification: jest.fn(),
+  sendWebPushNotifications: jest.fn(
+    async (
+      targets: unknown[],
+      toSubscription: (target: unknown) => unknown,
+      payload: unknown,
+      vapidConfig: unknown
+    ) => {
+      // 共通ライブラリ内部の import はモックできないため、単体送信モックを逐次呼ぶ振る舞いを再現する
+      const send = jest.requireMock('@nagiyu/common/push').sendWebPushNotification;
+      const result = { sent: [] as unknown[], invalid: [] as unknown[], failed: [] as unknown[] };
+      for (const target of targets) {
+        try {
+          const ok = await send(toSubscription(target), payload, vapidConfig);
+          (ok ? result.sent : result.invalid).push(target);
+        } catch (error) {
+          result.failed.push({ target, error });
+        }
+      }
+      return result;
+    }
+  ),
   getVapidConfig: jest.fn(() => ({
     publicKey: 'test-public-key',
     privateKey: 'test-private-key',

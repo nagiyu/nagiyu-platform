@@ -1,5 +1,5 @@
 import { logger, toErrorMessage } from '@nagiyu/common';
-import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
+import { sendWebPushNotifications, getVapidConfig } from '@nagiyu/common/push';
 import {
   DEFAULT_CHARACTER_ID,
   buildCriticalNotificationMessage,
@@ -266,30 +266,28 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
     };
 
     // 全サブスクリプションに送信（失敗はログのみ、無効は削除）
-    let sentCount = 0;
-    for (const sub of subscriptions) {
-      try {
-        const sent = await sendWebPushNotification(
-          { endpoint: sub.Endpoint, keys: { p256dh: sub.P256dhKey, auth: sub.AuthKey } },
-          payload,
-          vapidConfig
-        );
-        if (sent) {
-          sentCount++;
-        } else {
-          // 無効なサブスクリプション（404/410）を削除
-          await pushSubscriptionRepo.delete({ userId, subscriptionId: sub.SubscriptionID });
-        }
-      } catch (error) {
-        logger.warn('[notifyAllUsers] Push 送信失敗（継続）', {
-          userId,
-          characterId,
-          subscriptionId: sub.SubscriptionID,
-          error: toErrorMessage(error),
-        });
-      }
+    const result = await sendWebPushNotifications(
+      subscriptions,
+      (sub) => ({ endpoint: sub.Endpoint, keys: { p256dh: sub.P256dhKey, auth: sub.AuthKey } }),
+      payload,
+      vapidConfig
+    );
+
+    // 無効なサブスクリプション（404/410）を削除
+    for (const sub of result.invalid) {
+      await pushSubscriptionRepo.delete({ userId, subscriptionId: sub.SubscriptionID });
     }
 
+    for (const { target, error } of result.failed) {
+      logger.warn('[notifyAllUsers] Push 送信失敗（継続）', {
+        userId,
+        characterId,
+        subscriptionId: target.SubscriptionID,
+        error: toErrorMessage(error),
+      });
+    }
+
+    const sentCount = result.sent.length;
     if (sentCount === 0) continue;
 
     // 配信履歴を記録（CharacterID・SuggestedReply を付与）
