@@ -8,7 +8,7 @@
  */
 
 import { logger, toErrorMessage } from '@nagiyu/common';
-import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
+import { createScheduledHandler, getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
 import type {
   AlertRepository,
   ExchangeRepository,
@@ -20,23 +20,6 @@ import {
   getLastTradingDate,
   isTradingHours,
 } from '@nagiyu/stock-tracker-core';
-
-export interface ScheduledEvent {
-  version: string;
-  id: string;
-  'detail-type': string;
-  source: string;
-  account: string;
-  time: string;
-  region: string;
-  resources: string[];
-  detail: Record<string, unknown>;
-}
-
-export interface HandlerResponse {
-  statusCode: number;
-  body: string;
-}
 
 interface BatchStatistics {
   totalAlerts: number;
@@ -148,19 +131,24 @@ async function processCandidate(
   }
 }
 
-export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
-  const stats: BatchStatistics = {
-    totalAlerts: 0,
-    skippedNonTemporary: 0,
-    skippedInvalidData: 0,
-    skippedTradingHours: 0,
-    skippedNotExpired: 0,
-    deactivated: 0,
-    deactivatedManually: 0,
-    errors: 0,
-  };
+export const handler = createScheduledHandler(
+  {
+    serviceId: 'stock-tracker',
+    name: 'temporary-alert-expiry',
+    errorTitle: '一時通知アラート失効バッチ: 致命的エラー',
+  },
+  async (event) => {
+    const stats: BatchStatistics = {
+      totalAlerts: 0,
+      skippedNonTemporary: 0,
+      skippedInvalidData: 0,
+      skippedTradingHours: 0,
+      skippedNotExpired: 0,
+      deactivated: 0,
+      deactivatedManually: 0,
+      errors: 0,
+    };
 
-  try {
     const docClient = getDynamoDBDocumentClient();
     const tableName = getTableName();
     const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
@@ -188,20 +176,5 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
         statistics: stats,
       }),
     };
-  } catch (error) {
-    const errorMessage = toErrorMessage(error);
-    logger.error('一時通知アラート失効バッチでエラーが発生しました', {
-      eventId: event.id,
-      error: errorMessage,
-      statistics: stats,
-    });
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: '一時通知アラート失効バッチでエラーが発生しました',
-        error: errorMessage,
-        statistics: stats,
-      }),
-    };
   }
-}
+);

@@ -3,13 +3,26 @@
  */
 
 import { handler } from '../../src/daily.js';
-import type { ScheduledEvent } from '../../src/daily.js';
+import type { ScheduledEvent } from '@nagiyu/aws';
 import * as awsClients from '@nagiyu/aws';
 import { ScanCommand } from '@aws-sdk/lib-dynamodb';
 import type { Alert } from '@nagiyu/stock-tracker-core';
 
 // モックの設定
-jest.mock('@nagiyu/aws');
+// createScheduledHandler の骨格は本物を使い、骨格内部のエラー報告も同じモックで観測できるよう
+// 報告関数の実体モジュールを差し替える。
+jest.mock('../../../../../libs/aws/src/error-events/report.js', () => ({
+  ...jest.requireActual('../../../../../libs/aws/src/error-events/report.js'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
+jest.mock('@nagiyu/aws', () => {
+  const actual = jest.requireActual('@nagiyu/aws');
+  return {
+    ...jest.createMockFromModule('@nagiyu/aws'),
+    createScheduledHandler: actual.createScheduledHandler,
+    reportErrorEvent: actual.reportErrorEvent,
+  };
+});
 
 describe('daily batch handler', () => {
   let mockDocClient: {
@@ -208,26 +221,22 @@ describe('daily batch handler', () => {
   });
 
   describe('異常系: DynamoDBエラー', () => {
-    it('DynamoDBでエラーが発生した場合、500エラーを返す', async () => {
+    it('DynamoDBでエラーが発生した場合、エラー報告したうえで例外を再送出する', async () => {
       // Arrange
       const dbError = new Error('DynamoDB Error');
       mockDocClient.send.mockRejectedValue(dbError);
       (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
 
-      // Act
-      const response = await handler(mockEvent);
-
-      // Assert
-      expect(response.statusCode).toBe(500);
+      // Act & Assert
+      await expect(handler(mockEvent)).rejects.toBe(dbError);
       expect(awsClients.reportErrorEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           serviceId: 'stock-tracker',
           severity: 'error',
+          title: '日次バッチ: 致命的エラー',
+          message: 'DynamoDB Error',
         })
       );
-      const body = JSON.parse(response.body);
-      expect(body.message).toBe('日次バッチ処理でエラーが発生しました');
-      expect(body.error).toBe('DynamoDB Error');
     });
   });
 
