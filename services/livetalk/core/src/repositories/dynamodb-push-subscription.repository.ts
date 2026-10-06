@@ -2,10 +2,9 @@ import {
   DeleteCommand,
   GetCommand,
   PutCommand,
-  QueryCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { queryAllItems, toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import type {
   CreatePushSubscriptionInput,
   PushSubscriptionEntity,
@@ -52,34 +51,18 @@ export class DynamoDBPushSubscriptionRepository implements PushSubscriptionRepos
   public async listByUser(userId: string): Promise<PushSubscriptionEntity[]> {
     const pk = buildUserPK(userId);
     const prefix = buildPushSubscriptionSKPrefix();
-    const results: PushSubscriptionEntity[] = [];
-    let exclusiveStartKey: Record<string, unknown> | undefined;
 
-    for (;;) {
-      let result;
-      try {
-        result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
-            ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
-            ExpressionAttributeValues: { ':pk': pk, ':prefix': prefix },
-            ExclusiveStartKey: exclusiveStartKey,
-          })
-        );
-      } catch (error) {
-        throw toDatabaseError(error);
-      }
-
-      for (const raw of result.Items ?? []) {
-        results.push(this.mapper.toEntity(raw as unknown as DynamoDBItem));
-      }
-
-      if (!result.LastEvaluatedKey) break;
-      exclusiveStartKey = result.LastEvaluatedKey;
+    try {
+      const items = await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
+        ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
+        ExpressionAttributeValues: { ':pk': pk, ':prefix': prefix },
+      });
+      return items.map((raw) => this.mapper.toEntity(raw));
+    } catch (error) {
+      throw toDatabaseError(error);
     }
-
-    return results;
   }
 
   public async get(key: PushSubscriptionKey): Promise<PushSubscriptionEntity | null> {

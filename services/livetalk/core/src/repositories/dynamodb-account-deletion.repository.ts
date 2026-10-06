@@ -12,11 +12,10 @@
 
 import {
   BatchWriteCommand,
-  QueryCommand,
   TransactWriteCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { DatabaseError, queryAllItems, type DynamoDBItem } from '@nagiyu/aws';
 import { sleep } from '@nagiyu/common';
 import type { AccountDeletionResult } from '../entities/account-deletion.entity.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
@@ -97,41 +96,22 @@ export class DynamoDBAccountDeletionRepository implements AccountDeletionReposit
 
   /**
    * PK 配下の全アイテムをページネーションで取得する。
-   * ExclusiveStartKey ループで全ページを集約する。
    */
   private async queryAll(pk: string): Promise<DynamoDBItem[]> {
-    const items: DynamoDBItem[] = [];
-    let exclusiveStartKey: Record<string, unknown> | undefined;
-
-    for (;;) {
-      let result;
-      try {
-        result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            KeyConditionExpression: '#pk = :pk',
-            ExpressionAttributeNames: { '#pk': 'PK' },
-            ExpressionAttributeValues: { ':pk': pk },
-            ExclusiveStartKey: exclusiveStartKey,
-          })
-        );
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new DatabaseError(
-          `${ACCOUNT_DELETION_ERROR_MESSAGES.クエリ失敗}: ${message}`,
-          error instanceof Error ? error : undefined
-        );
-      }
-
-      for (const raw of result.Items ?? []) {
-        items.push(raw as unknown as DynamoDBItem);
-      }
-
-      if (!result.LastEvaluatedKey) break;
-      exclusiveStartKey = result.LastEvaluatedKey;
+    try {
+      return await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: '#pk = :pk',
+        ExpressionAttributeNames: { '#pk': 'PK' },
+        ExpressionAttributeValues: { ':pk': pk },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new DatabaseError(
+        `${ACCOUNT_DELETION_ERROR_MESSAGES.クエリ失敗}: ${message}`,
+        error instanceof Error ? error : undefined
+      );
     }
-
-    return items;
   }
 
   /**

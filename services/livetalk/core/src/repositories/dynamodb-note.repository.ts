@@ -1,12 +1,17 @@
 import {
   GetCommand,
   PutCommand,
-  QueryCommand,
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import { logger } from '@nagiyu/common';
-import { isConditionalCheckFailed, toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import {
+  isConditionalCheckFailed,
+  queryAllItems,
+  queryPages,
+  toDatabaseError,
+  type DynamoDBItem,
+} from '@nagiyu/aws';
 import type { CreateNoteInput, NoteEntity, NoteKey } from '../entities/note.entity.js';
 import { NoteMapper } from '../mappers/note.mapper.js';
 import { buildNoteSK, buildNoteSKPrefix, buildUserPK } from '../mappers/keys.js';
@@ -46,32 +51,24 @@ export class DynamoDBNoteRepository implements NoteRepository {
     const pk = buildUserPK(userId);
     const prefix = buildNoteSKPrefix(characterId);
     const results: NoteEntity[] = [];
-    let exclusiveStartKey: Record<string, unknown> | undefined;
 
-    for (;;) {
-      let result;
-      try {
-        result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
-            ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
-            ExpressionAttributeValues: { ':pk': pk, ':prefix': prefix },
-            ScanIndexForward: false,
-            Limit: limit,
-            ExclusiveStartKey: exclusiveStartKey,
-          })
-        );
-      } catch (error) {
-        throw toDatabaseError(error);
+    try {
+      for await (const page of queryPages(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
+        ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
+        ExpressionAttributeValues: { ':pk': pk, ':prefix': prefix },
+        ScanIndexForward: false,
+        Limit: limit,
+      })) {
+        for (const raw of page) {
+          this.pushMappedEntity(results, raw, userId, characterId);
+        }
+
+        if (results.length >= limit) break;
       }
-
-      for (const raw of result.Items ?? []) {
-        this.pushMappedEntity(results, raw as unknown as DynamoDBItem, userId, characterId);
-      }
-
-      if (!result.LastEvaluatedKey || results.length >= limit) break;
-      exclusiveStartKey = result.LastEvaluatedKey;
+    } catch (error) {
+      throw toDatabaseError(error);
     }
 
     return results;
@@ -81,32 +78,21 @@ export class DynamoDBNoteRepository implements NoteRepository {
     const pk = buildUserPK(userId);
     const prefix = buildNoteSKPrefix(characterId);
     const results: NoteEntity[] = [];
-    let exclusiveStartKey: Record<string, unknown> | undefined;
 
-    for (;;) {
-      let result;
-      try {
-        result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
-            ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
-            ExpressionAttributeValues: { ':pk': pk, ':prefix': prefix },
-            ScanIndexForward: false,
-            Limit: 100,
-            ExclusiveStartKey: exclusiveStartKey,
-          })
-        );
-      } catch (error) {
-        throw toDatabaseError(error);
+    try {
+      const items = await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
+        ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
+        ExpressionAttributeValues: { ':pk': pk, ':prefix': prefix },
+        ScanIndexForward: false,
+        Limit: 100,
+      });
+      for (const raw of items) {
+        this.pushMappedEntity(results, raw, userId, characterId);
       }
-
-      for (const raw of result.Items ?? []) {
-        this.pushMappedEntity(results, raw as unknown as DynamoDBItem, userId, characterId);
-      }
-
-      if (!result.LastEvaluatedKey) break;
-      exclusiveStartKey = result.LastEvaluatedKey;
+    } catch (error) {
+      throw toDatabaseError(error);
     }
 
     return results;
