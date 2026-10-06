@@ -4,18 +4,14 @@
  * DynamoDBを使用したExchangeRepositoryの実装
  */
 
-import {
-  UpdateCommand,
-  ScanCommand,
-  type DynamoDBDocumentClient,
-  type ScanCommandInput,
-} from '@aws-sdk/lib-dynamodb';
+import { UpdateCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
   AbstractDynamoDBRepository,
   EntityNotFoundError,
   DatabaseError,
   mapConditionalCheckFailed,
   toDatabaseError,
+  scanAllItems,
   type DynamoDBItem,
 } from '@nagiyu/aws';
 import type { ExchangeRepository } from './exchange.repository.interface.js';
@@ -117,32 +113,17 @@ export class DynamoDBExchangeRepository
    * Type フィルタ付き Scan で全取引所を取得する
    */
   private async scanAll(): Promise<ExchangeEntity[]> {
-    const allItems: ExchangeEntity[] = [];
-    let exclusiveStartKey: ScanCommandInput['ExclusiveStartKey'];
-
-    do {
-      const result = await this.docClient.send(
-        new ScanCommand({
-          TableName: this.config.tableName,
-          FilterExpression: '#type = :type',
-          ExpressionAttributeNames: {
-            '#type': 'Type',
-          },
-          ExpressionAttributeValues: {
-            ':type': 'Exchange',
-          },
-          ExclusiveStartKey: exclusiveStartKey,
-        })
-      );
-
-      const pageItems = (result.Items || []).map((item) =>
-        this.mapper.toEntity(item as unknown as DynamoDBItem)
-      );
-      allItems.push(...pageItems);
-      exclusiveStartKey = result.LastEvaluatedKey;
-    } while (exclusiveStartKey);
-
-    return allItems;
+    const items = await scanAllItems(this.docClient, {
+      TableName: this.config.tableName,
+      FilterExpression: '#type = :type',
+      ExpressionAttributeNames: {
+        '#type': 'Type',
+      },
+      ExpressionAttributeValues: {
+        ':type': 'Exchange',
+      },
+    });
+    return items.map((item) => this.mapper.toEntity(item));
   }
 
   /**

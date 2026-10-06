@@ -3,13 +3,8 @@
  *
  * DynamoDBを使用したPerformanceDailyRepositoryの実装
  */
-import {
-  GetCommand,
-  PutCommand,
-  QueryCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
-import { toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { GetCommand, PutCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { queryAllItems, toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import type { PerformanceDailyRepository } from './performance-daily.repository.interface.js';
 import type { Market, PerformanceDailyItem, Question } from '../forecast/index.js';
 import { PerformanceDailyMapper } from '../mappers/performance-daily.mapper.js';
@@ -89,8 +84,6 @@ export class DynamoDBPerformanceDailyRepository implements PerformanceDailyRepos
   ): Promise<PerformanceDailyItem[]> {
     try {
       const { pk } = this.mapper.buildKeys({ question, market, date: fromDate });
-      const items: DynamoDBItem[] = [];
-      let lastEvaluatedKey: Record<string, unknown> | undefined;
 
       const keyConditionExpression =
         toDate !== undefined
@@ -102,20 +95,12 @@ export class DynamoDBPerformanceDailyRepository implements PerformanceDailyRepos
         ...(toDate !== undefined ? { ':to': `DATE#${toDate}#~` } : {}),
       };
 
-      do {
-        const result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            KeyConditionExpression: keyConditionExpression,
-            ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
-            ExpressionAttributeValues: expressionAttributeValues,
-            ExclusiveStartKey: lastEvaluatedKey,
-          })
-        );
-
-        items.push(...((result.Items as DynamoDBItem[] | undefined) ?? []));
-        lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
-      } while (lastEvaluatedKey);
+      const items = await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: keyConditionExpression,
+        ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
+        ExpressionAttributeValues: expressionAttributeValues,
+      });
 
       return items.map((item) => this.mapper.toEntity(item));
     } catch (error) {

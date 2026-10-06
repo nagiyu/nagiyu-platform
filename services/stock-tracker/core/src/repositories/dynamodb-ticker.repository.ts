@@ -4,20 +4,15 @@
  * DynamoDBを使用したTickerRepositoryの実装
  */
 
-import {
-  UpdateCommand,
-  QueryCommand,
-  ScanCommand,
-  type DynamoDBDocumentClient,
-  type ScanCommandInput,
-  type QueryCommandOutput,
-} from '@aws-sdk/lib-dynamodb';
+import { UpdateCommand, ScanCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
   AbstractDynamoDBRepository,
   EntityNotFoundError,
   DatabaseError,
   mapConditionalCheckFailed,
   toDatabaseError,
+  queryAllItems,
+  scanAllItems,
   encodeCursor,
   decodeCursor,
   type PaginationOptions,
@@ -83,37 +78,22 @@ export class DynamoDBTickerRepository
    * Limitは指定しない（DynamoDBの1MBページ単位）。
    */
   public async getByExchange(exchangeId: string): Promise<TickerEntity[]> {
-    const items: TickerEntity[] = [];
-    let exclusiveStartKey: QueryCommandOutput['LastEvaluatedKey'];
-
     try {
-      do {
-        const result: QueryCommandOutput = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.config.tableName,
-            IndexName: 'ExchangeTickerIndex',
-            KeyConditionExpression: '#gsi3pk = :exchangeId',
-            ExpressionAttributeNames: {
-              '#gsi3pk': 'GSI3PK',
-            },
-            ExpressionAttributeValues: {
-              ':exchangeId': exchangeId,
-            },
-            ExclusiveStartKey: exclusiveStartKey,
-          })
-        );
-
-        for (const item of result.Items || []) {
-          items.push(this.mapper.toEntity(item as unknown as DynamoDBItem));
-        }
-
-        exclusiveStartKey = result.LastEvaluatedKey;
-      } while (exclusiveStartKey);
+      const items = await queryAllItems(this.docClient, {
+        TableName: this.config.tableName,
+        IndexName: 'ExchangeTickerIndex',
+        KeyConditionExpression: '#gsi3pk = :exchangeId',
+        ExpressionAttributeNames: {
+          '#gsi3pk': 'GSI3PK',
+        },
+        ExpressionAttributeValues: {
+          ':exchangeId': exchangeId,
+        },
+      });
+      return items.map((item) => this.mapper.toEntity(item));
     } catch (error) {
       throw toDatabaseError(error);
     }
-
-    return items;
   }
 
   /**
@@ -127,32 +107,17 @@ export class DynamoDBTickerRepository
       const usePagination = options?.limit !== undefined || options?.cursor !== undefined;
 
       if (!usePagination) {
-        const allItems: TickerEntity[] = [];
-        let exclusiveStartKey: ScanCommandInput['ExclusiveStartKey'];
-
-        do {
-          const result = await this.docClient.send(
-            new ScanCommand({
-              TableName: this.config.tableName,
-              FilterExpression: '#type = :type',
-              ExpressionAttributeNames: {
-                '#type': 'Type',
-              },
-              ExpressionAttributeValues: {
-                ':type': 'Ticker',
-              },
-              ExclusiveStartKey: exclusiveStartKey,
-            })
-          );
-
-          const pageItems = (result.Items || []).map((item) =>
-            this.mapper.toEntity(item as unknown as DynamoDBItem)
-          );
-          for (const pageItem of pageItems) {
-            allItems.push(pageItem);
-          }
-          exclusiveStartKey = result.LastEvaluatedKey;
-        } while (exclusiveStartKey);
+        const items = await scanAllItems(this.docClient, {
+          TableName: this.config.tableName,
+          FilterExpression: '#type = :type',
+          ExpressionAttributeNames: {
+            '#type': 'Type',
+          },
+          ExpressionAttributeValues: {
+            ':type': 'Ticker',
+          },
+        });
+        const allItems = items.map((item) => this.mapper.toEntity(item));
 
         return {
           items: allItems,
