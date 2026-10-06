@@ -973,6 +973,40 @@ describe('minute batch handler', () => {
       expect(exitSpy).not.toHaveBeenCalled();
     });
 
+    it('購読が無効なだけの場合、errors は増えず invalidSubscriptions が増え、process.exit も呼ばずアラートも変更しない', async () => {
+      // Arrange: 送信先の購読が無効（sendWebPushNotification が false）
+      const alert = makeAlert();
+      mockAlertRepo.getByFrequency.mockResolvedValue([alert]);
+      mockExchangeRepo.getById.mockResolvedValue(mockExchange);
+      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
+      mockSession.getCurrentPrice.mockResolvedValue(205.0);
+      (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(true);
+      (sendWebPushNotification as jest.Mock).mockResolvedValue(false);
+      (webPushClient.createAlertNotificationPayload as jest.Mock).mockReturnValue({
+        title: 'Test Alert',
+        body: 'Test body',
+      });
+      (getVapidConfig as jest.Mock).mockReturnValue({
+        publicKey: 'test-public-key',
+        privateKey: 'test-private-key',
+        subject: 'mailto:support@nagiyu.com',
+      });
+
+      // Act
+      const response = await handler(mockEvent);
+
+      // Assert
+      const body = JSON.parse(response.body);
+      expect(body.statistics.conditionsMet).toBe(1);
+      expect(body.statistics.notificationsSent).toBe(0);
+      expect(body.statistics.errors).toBe(0);
+      expect(body.statistics.invalidSubscriptions).toBe(1);
+      expect(awsClients.reportErrorEvent).not.toHaveBeenCalled();
+      expect(exitSpy).not.toHaveBeenCalled();
+      expect(mockAlertRepo.update).not.toHaveBeenCalled();
+      expect(mockAlertRepo.delete).not.toHaveBeenCalled();
+    });
+
     it('閾値環境変数が未設定の場合、デフォルト 1 で発火する', async () => {
       // Arrange: 環境変数を未設定（デフォルト値 1 で動作することを検証）
       delete process.env.MINUTE_BATCH_CONTAINER_KILL_THRESHOLD;

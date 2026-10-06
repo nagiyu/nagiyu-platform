@@ -36,6 +36,8 @@ interface BatchStatistics {
   conditionsMet: number;
   notificationsSent: number;
   errors: number;
+  /** 送信先の購読が無効（404/410）で通知をスキップした件数。errors には含めない */
+  invalidSubscriptions: number;
 }
 
 /**
@@ -55,7 +57,7 @@ interface ProviderMap {
  * @param exchangeRepo - Exchange リポジトリ
  * @param providers - QuoteProvider マップ（tradingView / finnhub）
  * @param stats - バッチ統計情報
- * @returns 処理が成功した場合は true、失敗した場合は false
+ * @returns エラーなく処理できた場合は true（購読が無効で通知をスキップした場合も含む）、失敗した場合は false
  */
 async function processAlert(
   alert: Alert,
@@ -144,10 +146,18 @@ async function processAlert(
         conditions: alert.ConditionList,
       });
     } else {
-      stats.errors++;
+      // 購読はアラートのフィールドなので、無効だからと消すとユーザーの条件設定ごと失われる。
+      // 購読はユーザーが次に画面を開いたときに更新されるため、それまでの空振りは許容する。
+      stats.invalidSubscriptions++;
+      logger.warn('送信先の Web Push 購読が無効なため通知をスキップしました', {
+        alertId: alert.AlertID,
+        userId: alert.UserID,
+        tickerId: alert.TickerID,
+      });
     }
 
-    return notificationSent;
+    // 購読が無効でもエラーではないため成功扱いにする
+    return true;
   } catch (error) {
     const errorMessage = toErrorMessage(error);
     logger.error('アラート処理中にエラーが発生しました', {
@@ -187,6 +197,7 @@ export const handler = createScheduledHandler(
       conditionsMet: 0,
       notificationsSent: 0,
       errors: 0,
+      invalidSubscriptions: 0,
     };
 
     // DynamoDB クライアントとリポジトリの初期化

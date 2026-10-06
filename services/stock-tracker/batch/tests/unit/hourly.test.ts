@@ -680,7 +680,7 @@ describe('hourly batch handler', () => {
   });
 
   describe('異常系: 通知送信失敗', () => {
-    it('sendWebPushNotification が false を返した場合、errors カウンターが増加する', async () => {
+    it('購読が無効（sendWebPushNotification が false）の場合、errors ではなく invalidSubscriptions が増加しアラートは変更されない', async () => {
       const mockAlert: Alert = {
         AlertID: 'alert-1',
         UserID: 'user-1',
@@ -732,7 +732,11 @@ describe('hourly batch handler', () => {
       const body = JSON.parse(response.body);
       expect(body.statistics.conditionsMet).toBe(1);
       expect(body.statistics.notificationsSent).toBe(0);
-      expect(body.statistics.errors).toBe(1);
+      expect(body.statistics.errors).toBe(0);
+      expect(body.statistics.invalidSubscriptions).toBe(1);
+      expect(awsClients.reportErrorEvent).not.toHaveBeenCalled();
+      expect(mockAlertRepo.update).not.toHaveBeenCalled();
+      expect(mockAlertRepo.delete).not.toHaveBeenCalled();
     });
   });
 
