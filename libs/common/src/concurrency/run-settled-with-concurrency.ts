@@ -40,19 +40,32 @@ export async function runSettledWithConcurrency<T>(
   const outcomes: Array<PromiseSettledResult<T> | undefined> = new Array(tasks.length);
   let nextIndex = 0;
   let skipping = false;
+  let dispatchQueue: Promise<unknown> = Promise.resolve();
+
+  // 開始の判定とジッターは全 worker で直列に行う。並行に待つと立ち上がりで concurrency 個が
+  // ほぼ同時に始まり、ジッターで接続のバーストを和らげる意味がなくなるため
+  function prepareDispatch(): Promise<boolean> {
+    const turn = dispatchQueue.then(async () => {
+      // 一度 true になったら戻さない。予算超過後に判定が揺れて後続だけ動くのを避ける
+      if (skipping || shouldSkip?.()) {
+        skipping = true;
+        return false;
+      }
+      if (jitterMs > 0) {
+        const delay = Math.floor(Math.random() * jitterMs);
+        if (delay > 0) await sleep(delay);
+      }
+      return true;
+    });
+    dispatchQueue = turn;
+    return turn;
+  }
 
   async function worker(): Promise<void> {
     while (nextIndex < tasks.length) {
       const i = nextIndex++;
-      // 一度 true になったら戻さない。予算超過後に判定が揺れて後続だけ動くのを避ける
-      if (skipping || shouldSkip?.()) {
-        skipping = true;
+      if (!(await prepareDispatch())) {
         continue;
-      }
-
-      if (jitterMs > 0) {
-        const delay = Math.floor(Math.random() * jitterMs);
-        if (delay > 0) await sleep(delay);
       }
 
       try {

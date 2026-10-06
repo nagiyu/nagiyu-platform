@@ -117,6 +117,23 @@ describe('runSettledWithConcurrency', () => {
       expect(delays.filter((d) => d === 10)).toHaveLength(2);
     });
 
+    it('ジッターは worker 間で直列に待ち、タスクの開始が間隔を空けて 1 つずつになる', async () => {
+      jest.spyOn(Math, 'random').mockReturnValue(0.5);
+      const startedAt: number[] = [];
+      const begin = Date.now();
+      const tasks = Array.from({ length: 3 }, () => async () => {
+        startedAt.push(Date.now() - begin);
+        await new Promise((r) => setTimeout(r, 200));
+      });
+
+      await runSettledWithConcurrency(tasks, 3, { jitterMs: 100 });
+
+      // 各開始の前に 50ms ずつ待つので、並行に待った場合 (全員ほぼ 50ms) と区別できる
+      expect(startedAt).toHaveLength(3);
+      expect(startedAt[1]! - startedAt[0]!).toBeGreaterThanOrEqual(40);
+      expect(startedAt[2]! - startedAt[1]!).toBeGreaterThanOrEqual(40);
+    });
+
     it('jitterMs が 0 なら待機しない', async () => {
       const timeoutSpy = jest.spyOn(global, 'setTimeout');
 
