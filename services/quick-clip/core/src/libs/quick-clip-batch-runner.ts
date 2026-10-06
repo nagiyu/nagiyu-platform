@@ -19,7 +19,7 @@ import { createOpenAIClient } from './openai-client.js';
 import { TranscriptionService } from './transcription.service.js';
 import type { TranscriptSegment } from './transcription.service.js';
 import { EmotionHighlightService } from './emotion-highlight.service.js';
-import { toErrorMessage } from '@nagiyu/common';
+import { sleep, toErrorMessage } from '@nagiyu/common';
 
 /** Batch 実行コマンド種別。 */
 export type QuickClipBatchCommand = 'extract';
@@ -71,11 +71,6 @@ const isNoSuchKeyError = (error: unknown): boolean => {
   return s3Error.name === 'NoSuchKey' || s3Error.Code === 'NoSuchKey';
 };
 
-const wait = async (ms: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-
 const downloadSourceVideo = async (
   bucketName: string,
   jobId: string,
@@ -113,7 +108,7 @@ const downloadSourceVideo = async (
         console.info(
           `[downloadSourceVideo] NoSuchKey リトライ: ${retryCount}/${DOWNLOAD_RETRY_COUNT} key=${sourceVideoKey}`
         );
-        await wait(DOWNLOAD_RETRY_INTERVAL_MS);
+        await sleep(DOWNLOAD_RETRY_INTERVAL_MS);
         continue;
       }
 

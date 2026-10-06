@@ -6,4 +6,4 @@
 
 export { formatFileSize } from './file-size.js';
 export { formatPrice } from './price.js';
-export { getTimestamp, formatLocalDateTime } from './timestamp.js';
+export { getTimestamp, formatLocalDateTime, formatLocalDate } from './timestamp.js';

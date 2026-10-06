@@ -8,7 +8,7 @@ import {
   QueryCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { logger } from '@nagiyu/common';
+import { logger, sleep } from '@nagiyu/common';
 import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 
 /** 一回性移行のエラーメッセージ定数（日本語） */
@@ -27,7 +27,6 @@ const UNPROCESSED_MAX_RETRIES = 4;
 const UNPROCESSED_BASE_DELAY_MS = 50;
 
 type SleepFn = (ms: number) => Promise<void>;
-const defaultSleep: SleepFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * `PK = pk AND begins_with(SK, skPrefix)` のアイテムをページネーションで全件取得する。
@@ -82,7 +81,7 @@ export async function batchDeleteItems(
   docClient: DynamoDBDocumentClient,
   tableName: string,
   items: DynamoDBItem[],
-  sleep: SleepFn = defaultSleep
+  sleepFn: SleepFn = sleep
 ): Promise<number> {
   if (items.length === 0) return 0;
 
@@ -123,7 +122,7 @@ export async function batchDeleteItems(
         );
       }
 
-      await sleep(UNPROCESSED_BASE_DELAY_MS * Math.pow(2, retries));
+      await sleepFn(UNPROCESSED_BASE_DELAY_MS * Math.pow(2, retries));
       retries++;
 
       requestItems = unprocessed
