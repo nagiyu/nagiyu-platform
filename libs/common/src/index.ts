@@ -43,3 +43,6 @@ export { HTTP_STATUS } from './constants/http-status.js';
 
 // ErrorEvent module - プラットフォーム共通のエラー通知型
 export * from './error-event/index.js';
+
+// Push 購読 ID - endpoint から決定的に決まる ID
+export { createSubscriptionId } from './push-subscription/subscription-id.js';
