@@ -3,11 +3,10 @@ import {
   DeleteCommand,
   GetCommand,
   PutCommand,
-  QueryCommand,
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { mapConditionalCheckFailed, toDatabaseError } from '@nagiyu/aws';
+import { mapConditionalCheckFailed, queryAllItems, toDatabaseError } from '@nagiyu/aws';
 import type { CreateTodoItemInput, TodoItem, UpdateTodoItemInput } from '../../types/index.js';
 import type { TodoRepository } from './todo-repository.interface.js';
 import { withDatabaseError } from '../with-database-error.js';
@@ -30,28 +29,22 @@ export class DynamoDBTodoRepository implements TodoRepository {
   }
 
   public async getByListId(listId: string): Promise<TodoItem[]> {
-    const result = await withDatabaseError(() =>
-      this.docClient.send(
-        new QueryCommand({
-          TableName: this.tableName,
-          KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
-          ExpressionAttributeNames: {
-            '#pk': 'PK',
-            '#sk': 'SK',
-          },
-          ExpressionAttributeValues: {
-            ':pk': this.buildListPk(listId),
-            ':skPrefix': TODO_SK_PREFIX,
-          },
-        })
-      )
+    const items = await withDatabaseError(() =>
+      queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+        ExpressionAttributeNames: {
+          '#pk': 'PK',
+          '#sk': 'SK',
+        },
+        ExpressionAttributeValues: {
+          ':pk': this.buildListPk(listId),
+          ':skPrefix': TODO_SK_PREFIX,
+        },
+      })
     );
 
-    if (!result.Items || result.Items.length === 0) {
-      return [];
-    }
-
-    return result.Items.map((item) => this.toTodoItem(item as Record<string, unknown>));
+    return items.map((item) => this.toTodoItem(item as Record<string, unknown>));
   }
 
   public async getById(listId: string, todoId: string): Promise<TodoItem | null> {
@@ -207,38 +200,29 @@ export class DynamoDBTodoRepository implements TodoRepository {
     const listPk = this.buildListPk(listId);
     const keys: Array<{ PK: string; SK: string }> = [];
 
-    let lastEvaluatedKey: Record<string, unknown> | undefined;
-    do {
-      const queryResult = await withDatabaseError(() =>
-        this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
-            ExpressionAttributeNames: {
-              '#pk': 'PK',
-              '#sk': 'SK',
-            },
-            ExpressionAttributeValues: {
-              ':pk': listPk,
-              ':skPrefix': TODO_SK_PREFIX,
-            },
-            ProjectionExpression: '#pk, #sk',
-            ExclusiveStartKey: lastEvaluatedKey,
-          })
-        )
-      );
+    const items = await withDatabaseError(() =>
+      queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+        ExpressionAttributeNames: {
+          '#pk': 'PK',
+          '#sk': 'SK',
+        },
+        ExpressionAttributeValues: {
+          ':pk': listPk,
+          ':skPrefix': TODO_SK_PREFIX,
+        },
+        ProjectionExpression: '#pk, #sk',
+      })
+    );
 
-      const queriedKeys = (queryResult.Items ?? []).flatMap((item) => {
-        const pk = item['PK'];
-        const sk = item['SK'];
-        if (typeof pk !== 'string' || typeof sk !== 'string') {
-          return [];
-        }
-        return [{ PK: pk, SK: sk }];
-      });
-      keys.push(...queriedKeys);
-      lastEvaluatedKey = queryResult.LastEvaluatedKey as Record<string, unknown> | undefined;
-    } while (lastEvaluatedKey);
+    for (const item of items) {
+      const pk = item['PK'];
+      const sk = item['SK'];
+      if (typeof pk === 'string' && typeof sk === 'string') {
+        keys.push({ PK: pk, SK: sk });
+      }
+    }
 
     if (keys.length === 0) {
       return;

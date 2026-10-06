@@ -2,11 +2,10 @@ import {
   DeleteCommand,
   GetCommand,
   PutCommand,
-  QueryCommand,
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { mapConditionalCheckFailed, toDatabaseError } from '@nagiyu/aws';
+import { mapConditionalCheckFailed, queryAllItems, toDatabaseError } from '@nagiyu/aws';
 import type {
   CreateGroupListInput,
   CreatePersonalListInput,
@@ -41,28 +40,22 @@ export class DynamoDBListRepository implements ListRepository {
   }
 
   public async getPersonalListsByUserId(userId: string): Promise<PersonalList[]> {
-    const result = await withDatabaseError(() =>
-      this.docClient.send(
-        new QueryCommand({
-          TableName: this.tableName,
-          KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
-          ExpressionAttributeNames: {
-            '#pk': 'PK',
-            '#sk': 'SK',
-          },
-          ExpressionAttributeValues: {
-            ':pk': this.buildUserPk(userId),
-            ':skPrefix': PERSONAL_LIST_SK_PREFIX,
-          },
-        })
-      )
+    const items = await withDatabaseError(() =>
+      queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+        ExpressionAttributeNames: {
+          '#pk': 'PK',
+          '#sk': 'SK',
+        },
+        ExpressionAttributeValues: {
+          ':pk': this.buildUserPk(userId),
+          ':skPrefix': PERSONAL_LIST_SK_PREFIX,
+        },
+      })
     );
 
-    if (!result.Items) {
-      return [];
-    }
-
-    return result.Items.map((item) => this.toPersonalList(item as Record<string, unknown>));
+    return items.map((item) => this.toPersonalList(item as Record<string, unknown>));
   }
 
   public async getPersonalListById(userId: string, listId: string): Promise<PersonalList | null> {
@@ -191,28 +184,22 @@ export class DynamoDBListRepository implements ListRepository {
   }
 
   public async getGroupListsByGroupId(groupId: string): Promise<GroupList[]> {
-    const result = await withDatabaseError(() =>
-      this.docClient.send(
-        new QueryCommand({
-          TableName: this.tableName,
-          KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
-          ExpressionAttributeNames: {
-            '#pk': 'PK',
-            '#sk': 'SK',
-          },
-          ExpressionAttributeValues: {
-            ':pk': this.buildGroupPk(groupId),
-            ':skPrefix': GROUP_LIST_SK_PREFIX,
-          },
-        })
-      )
+    const items = await withDatabaseError(() =>
+      queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+        ExpressionAttributeNames: {
+          '#pk': 'PK',
+          '#sk': 'SK',
+        },
+        ExpressionAttributeValues: {
+          ':pk': this.buildGroupPk(groupId),
+          ':skPrefix': GROUP_LIST_SK_PREFIX,
+        },
+      })
     );
 
-    if (!result.Items) {
-      return [];
-    }
-
-    return result.Items.map((item) => this.toGroupList(item as Record<string, unknown>));
+    return items.map((item) => this.toGroupList(item as Record<string, unknown>));
   }
 
   public async getGroupListById(groupId: string, listId: string): Promise<GroupList | null> {

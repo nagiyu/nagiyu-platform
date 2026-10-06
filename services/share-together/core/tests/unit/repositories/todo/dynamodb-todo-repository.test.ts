@@ -375,6 +375,58 @@ describe('DynamoDBTodoRepository', () => {
     });
   });
 
+  describe('ページング', () => {
+    const createTodoItem = (todoId: string): Record<string, unknown> => ({
+      PK: 'LIST#list-1',
+      SK: `TODO#${todoId}`,
+      todoId,
+      listId: 'list-1',
+      title: todoId,
+      isCompleted: false,
+      createdBy: 'user-1',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    it('getByListId は複数ページにわたる全件を取得する', async () => {
+      const lastEvaluatedKey = { PK: 'LIST#list-1', SK: 'TODO#todo-1' };
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Items: [createTodoItem('todo-1')],
+          LastEvaluatedKey: lastEvaluatedKey,
+        })
+        .mockResolvedValueOnce({ Items: [createTodoItem('todo-2')] });
+
+      const result = await repository.getByListId('list-1');
+
+      expect(result.map((todo) => todo.todoId)).toEqual(['todo-1', 'todo-2']);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
+      const secondCommand = mockDocClient.send.mock.calls[1]?.[0] as QueryCommand;
+      expect(secondCommand.input.ExclusiveStartKey).toEqual(lastEvaluatedKey);
+    });
+
+    it('deleteByListId は複数ページにわたる両ページのキーを削除対象にする', async () => {
+      const lastEvaluatedKey = { PK: 'LIST#list-1', SK: 'TODO#todo-1' };
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Items: [{ PK: 'LIST#list-1', SK: 'TODO#todo-1' }],
+          LastEvaluatedKey: lastEvaluatedKey,
+        })
+        .mockResolvedValueOnce({ Items: [{ PK: 'LIST#list-1', SK: 'TODO#todo-2' }] })
+        .mockResolvedValueOnce({});
+
+      await repository.deleteByListId('list-1');
+
+      const secondQuery = mockDocClient.send.mock.calls[1]?.[0] as QueryCommand;
+      const batchWriteCommand = mockDocClient.send.mock.calls[2]?.[0] as BatchWriteCommand;
+      expect(secondQuery.input.ExclusiveStartKey).toEqual(lastEvaluatedKey);
+      expect(batchWriteCommand.input.RequestItems?.[TABLE_NAME]).toEqual([
+        { DeleteRequest: { Key: { PK: 'LIST#list-1', SK: 'TODO#todo-1' } } },
+        { DeleteRequest: { Key: { PK: 'LIST#list-1', SK: 'TODO#todo-2' } } },
+      ]);
+    });
+  });
+
   describe('SDK例外のDatabaseError化', () => {
     it('取得時のSDK例外はDatabaseErrorに包まれる', async () => {
       mockDocClient.send.mockRejectedValueOnce(createSdkError());

@@ -2,10 +2,10 @@ import {
   DeleteCommand,
   GetCommand,
   PutCommand,
-  QueryCommand,
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
+import { queryAllItems } from '@nagiyu/aws';
 import type {
   CreateGroupMembershipInput,
   GroupMembership,
@@ -54,67 +54,61 @@ export class DynamoDBMembershipRepository implements MembershipRepository {
   }
 
   public async getByGroupId(groupId: string): Promise<GroupMembership[]> {
-    const result = await withDatabaseError(() =>
-      this.docClient.send(
-        new QueryCommand({
-          TableName: this.tableName,
-          KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :memberSkPrefix)',
-          ExpressionAttributeNames: {
-            '#pk': 'PK',
-            '#sk': 'SK',
-          },
-          ExpressionAttributeValues: {
-            ':pk': this.buildGroupPk(groupId),
-            ':memberSkPrefix': MEMBER_SK_PREFIX,
-          },
-        })
-      )
+    const items = await withDatabaseError(() =>
+      queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :memberSkPrefix)',
+        ExpressionAttributeNames: {
+          '#pk': 'PK',
+          '#sk': 'SK',
+        },
+        ExpressionAttributeValues: {
+          ':pk': this.buildGroupPk(groupId),
+          ':memberSkPrefix': MEMBER_SK_PREFIX,
+        },
+      })
     );
 
-    return (result.Items ?? []).map((item) => this.toMembership(item as Record<string, unknown>));
+    return items.map((item) => this.toMembership(item as Record<string, unknown>));
   }
 
   public async getByUserId(userId: string): Promise<GroupMembership[]> {
-    const result = await withDatabaseError(() =>
-      this.docClient.send(
-        new QueryCommand({
-          TableName: this.tableName,
-          IndexName: GSI1_INDEX_NAME,
-          KeyConditionExpression: '#gsi1pk = :gsi1pk',
-          ExpressionAttributeNames: {
-            '#gsi1pk': 'GSI1PK',
-          },
-          ExpressionAttributeValues: {
-            ':gsi1pk': this.buildUserGsiPk(userId),
-          },
-        })
-      )
+    const items = await withDatabaseError(() =>
+      queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        IndexName: GSI1_INDEX_NAME,
+        KeyConditionExpression: '#gsi1pk = :gsi1pk',
+        ExpressionAttributeNames: {
+          '#gsi1pk': 'GSI1PK',
+        },
+        ExpressionAttributeValues: {
+          ':gsi1pk': this.buildUserGsiPk(userId),
+        },
+      })
     );
 
-    return (result.Items ?? []).map((item) => this.toMembership(item as Record<string, unknown>));
+    return items.map((item) => this.toMembership(item as Record<string, unknown>));
   }
 
   public async getPendingInvitationsByUserId(userId: string): Promise<GroupMembership[]> {
-    const result = await withDatabaseError(() =>
-      this.docClient.send(
-        new QueryCommand({
-          TableName: this.tableName,
-          IndexName: GSI1_INDEX_NAME,
-          KeyConditionExpression: '#gsi1pk = :gsi1pk',
-          FilterExpression: '#status = :pending',
-          ExpressionAttributeNames: {
-            '#gsi1pk': 'GSI1PK',
-            '#status': 'status',
-          },
-          ExpressionAttributeValues: {
-            ':gsi1pk': this.buildUserGsiPk(userId),
-            ':pending': 'PENDING',
-          },
-        })
-      )
+    const items = await withDatabaseError(() =>
+      queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        IndexName: GSI1_INDEX_NAME,
+        KeyConditionExpression: '#gsi1pk = :gsi1pk',
+        FilterExpression: '#status = :pending',
+        ExpressionAttributeNames: {
+          '#gsi1pk': 'GSI1PK',
+          '#status': 'status',
+        },
+        ExpressionAttributeValues: {
+          ':gsi1pk': this.buildUserGsiPk(userId),
+          ':pending': 'PENDING',
+        },
+      })
     );
 
-    return (result.Items ?? []).map((item) => this.toMembership(item as Record<string, unknown>));
+    return items.map((item) => this.toMembership(item as Record<string, unknown>));
   }
 
   public async create(input: CreateGroupMembershipInput): Promise<GroupMembership> {
