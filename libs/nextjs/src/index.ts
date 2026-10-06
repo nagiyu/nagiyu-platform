@@ -23,8 +23,17 @@ export type {
 } from './auth-config.js';
 export { createAuthMiddleware } from './middleware.js';
 export type { AuthMiddlewareRequest, CreateAuthMiddlewareOptions } from './middleware.js';
-export { createSessionGetter, resolveTestUser, TEST_USER_ROLES_HEADER } from './session.js';
+export {
+  createSessionGetter,
+  createClientSessionGetHandler,
+  createTestSessionExpires,
+  parseTestUserRoles,
+  resolveTestUser,
+  TEST_SESSION_TTL_MS,
+  TEST_USER_ROLES_HEADER,
+} from './session.js';
 export type {
+  CreateClientSessionGetHandlerOptions,
   CreateSessionGetterOptions,
   ResolveTestUserOptions,
   ResolvedTestUser,

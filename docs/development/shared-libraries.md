@@ -263,6 +263,8 @@ Consumer サービスのミドルウェアは `createAuthMiddleware()` を利用
 
 Consumer サービスのセッション取得は `createSessionGetter()` を利用して統一する。オプションとして `auth`（サービスの auth 関数）、`createTestSession`（`SKIP_AUTH_CHECK` 有効時に返すモックセッション生成関数）、`mapSession`（NextAuth セッションをサービス固有のセッション型に変換する関数、**省略可**）を受け取る。`mapSession` を省略した場合は NextAuth セッションをそのままパススルーする。`createAuthCallbacks` 等でセッション形状が既に正規化されている場合は `mapSession` を省略してよい。
 
+`SKIP_AUTH_CHECK` 時のテストセッションは `resolveTestUser`（ロールはヘッダ `x-test-user-roles` → `TEST_USER_ROLES` → 既定ロールの順）と `createTestSessionExpires`（有効期限 30 日）で組み立て、`createTestSession` は受け取った `overrides` を `resolveTestUser` に渡す。クライアントの `/api/auth/session` は `createClientSessionGetHandler` で同じ規則に揃える。
+
 ### Web Push ルートの共通化
 
 Push 通知機能を持つサービスの API ルートは `@nagiyu/nextjs` が提供するファクトリ関数を利用して実装する。

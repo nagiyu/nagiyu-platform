@@ -3,8 +3,10 @@
  *
  * `role` テストオプションでロールを指定すると、ページ遷移（`page`）・API 呼び出し
  * （`request`）双方の全 HTTP リクエストに `x-test-user-roles` ヘッダが付与される。
- * `libs/nextjs` の `createSessionGetter`（SKIP_AUTH_CHECK=true 時）がこのヘッダを
- * 読み取り、テストセッションのロールを上書きする。
+ * `libs/nextjs` の `createSessionGetter`（API ルート・Server Component 向け）と
+ * `createClientSessionGetHandler`（クライアントの `useSession()` が取得する
+ * `/api/auth/session` 向け）が、SKIP_AUTH_CHECK=true 時にこのヘッダを読み取り、
+ * テストセッションのロールを上書きする。
  *
  * 使い方:
  * ```ts

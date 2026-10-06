@@ -1,5 +1,6 @@
 import { handlers } from '@/auth';
-import { NextRequest } from 'next/server';
+import { createClientSessionGetHandler } from '@nagiyu/nextjs';
+import type { NextRequest } from 'next/server';
 
 /**
  * NextAuth のルートハンドラ（`/api/auth/*`）。
@@ -15,22 +16,9 @@ import { NextRequest } from 'next/server';
  * テスト用セッションを返し、サーバー側の `getSession()`（session.ts）と
  * ロールの見え方を一致させる。
  */
-async function GET(req: NextRequest) {
-  if (process.env.SKIP_AUTH_CHECK === 'true' && req.nextUrl.pathname === '/api/auth/session') {
-    return Response.json({
-      user: {
-        name: 'Test User',
-        email: process.env.TEST_USER_EMAIL || 'test@example.com',
-        image: null,
-        roles: process.env.TEST_USER_ROLES?.split(',').map((role) => role.trim()) || [
-          'livetalk-user',
-        ],
-      },
-      expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    });
-  }
-  return handlers.GET(req);
-}
+const GET = createClientSessionGetHandler((req: NextRequest) => handlers.GET(req), {
+  defaultRoles: ['livetalk-user'],
+});
 
 // サインアウト処理は Cookie 発行元の auth サービスに集約する方針のため、
 // consumer である livetalk はローカルで signout POST を受け付けない。

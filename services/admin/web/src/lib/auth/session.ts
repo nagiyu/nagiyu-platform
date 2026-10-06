@@ -1,11 +1,15 @@
 import { auth } from '../../auth';
-import { createSessionGetter, resolveTestUser } from '@nagiyu/nextjs/session';
+import {
+  createSessionGetter,
+  createTestSessionExpires,
+  resolveTestUser,
+} from '@nagiyu/nextjs/session';
 import type { Session } from 'next-auth';
 
 export const getSession = createSessionGetter({
   auth: auth as () => Promise<Session | null>,
-  createTestSession: () => {
-    const u = resolveTestUser({ defaultRoles: ['admin'] });
+  createTestSession: (overrides) => {
+    const u = resolveTestUser({ defaultRoles: ['admin'], roles: overrides?.roles });
     return {
       user: {
         id: u.id,
@@ -14,7 +18,7 @@ export const getSession = createSessionGetter({
         image: u.image,
         roles: u.roles,
       },
-      expires: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      expires: createTestSessionExpires(),
     };
   },
 });

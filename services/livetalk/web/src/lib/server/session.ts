@@ -1,5 +1,5 @@
 import { auth } from '@/auth';
-import { createSessionGetter, resolveTestUser } from '@nagiyu/nextjs';
+import { createSessionGetter, createTestSessionExpires, resolveTestUser } from '@nagiyu/nextjs';
 import type { Session } from '@nagiyu/common';
 import type { Session as NextAuthSession } from 'next-auth';
 
@@ -12,8 +12,8 @@ import type { Session as NextAuthSession } from 'next-auth';
  */
 const getSessionFromAuth = createSessionGetter({
   auth,
-  createTestSession: () => {
-    const u = resolveTestUser({ defaultRoles: ['livetalk-user'] });
+  createTestSession: (overrides) => {
+    const u = resolveTestUser({ defaultRoles: ['livetalk-user'], roles: overrides?.roles });
     return {
       user: {
         userId: u.id,
@@ -24,7 +24,7 @@ const getSessionFromAuth = createSessionGetter({
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
-      expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      expires: createTestSessionExpires(),
     };
   },
   mapSession: (session: NextAuthSession): Session => ({
