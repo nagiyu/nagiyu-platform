@@ -1,5 +1,9 @@
 import { auth } from '../../auth';
-import { createSessionGetter, resolveTestUser } from '@nagiyu/nextjs/session';
+import {
+  createSessionGetter,
+  createTestSessionExpires,
+  resolveTestUser,
+} from '@nagiyu/nextjs/session';
 import type { Session } from 'next-auth';
 
 type NiconicoSession = {
@@ -14,8 +18,8 @@ type NiconicoSession = {
 
 const getSessionFromAuth = createSessionGetter<Session, NiconicoSession>({
   auth: auth as () => Promise<Session | null>,
-  createTestSession: () => {
-    const u = resolveTestUser({ defaultRoles: [] });
+  createTestSession: (overrides) => {
+    const u = resolveTestUser({ defaultRoles: [], roles: overrides?.roles });
     return {
       user: {
         userId: u.id,
@@ -23,7 +27,7 @@ const getSessionFromAuth = createSessionGetter<Session, NiconicoSession>({
         name: u.name,
         roles: u.roles,
       },
-      expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      expires: createTestSessionExpires(),
     };
   },
   mapSession: (session): NiconicoSession => ({

@@ -4,25 +4,13 @@ import { useState } from 'react';
 import { Alert } from '@mui/material';
 import { Button } from '@nagiyu/ui';
 import { usePushSubscription } from '@nagiyu/react';
-import { fetchVapidPublicKey } from '@nagiyu/browser';
+import { fetchVapidPublicKey, postPushSubscription } from '@nagiyu/browser';
 
 const ERROR_MESSAGES = {
-  SUBSCRIPTION_REGISTER_FAILED: '通知購読の登録に失敗しました',
   UNKNOWN: '通知設定中にエラーが発生しました',
 } as const;
 
 const SUCCESS_MESSAGE = '通知を有効化しました';
-
-const postSubscription = async (subscription: PushSubscription): Promise<void> => {
-  const response = await fetch('/api/notify/subscribe', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(subscription.toJSON()),
-  });
-  if (!response.ok) {
-    throw new Error(ERROR_MESSAGES.SUBSCRIPTION_REGISTER_FAILED);
-  }
-};
 
 export default function NotifyButton() {
   const [message, setMessage] = useState<string | null>(null);
@@ -31,7 +19,11 @@ export default function NotifyButton() {
   const { loading, subscribe } = usePushSubscription({
     getVapidPublicKey: () => fetchVapidPublicKey('/api/notify/vapid-key'),
     swPath: '/sw-push.js',
-    onSubscribed: postSubscription,
+    onSubscribed: (subscription) =>
+      postPushSubscription(subscription, {
+        endpoint: '/api/notify/subscribe',
+        bodyShape: 'raw',
+      }),
   });
 
   const handleEnableNotification = async () => {

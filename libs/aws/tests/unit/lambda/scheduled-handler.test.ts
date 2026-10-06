@@ -1,6 +1,7 @@
 import { logger } from '@nagiyu/common';
 import {
   createScheduledHandler,
+  ScheduledHandlerError,
   type ScheduledEvent,
 } from '../../../src/lambda/scheduled-handler.js';
 import { reportErrorEvent } from '../../../src/error-events/report.js';
@@ -118,5 +119,44 @@ describe('createScheduledHandler', () => {
 
     await expect(handler({})).rejects.toBe('str');
     expect(mockReport).toHaveBeenCalledTimes(1);
+  });
+
+  it('ScheduledHandlerError の title と context で報告を上書き・マージし、元の例外を再送出する', async () => {
+    const error = new ScheduledHandlerError('一部失敗', {
+      title: '部分失敗',
+      context: { failedIds: ['a', 'b'] },
+    });
+    const handler = createScheduledHandler(baseOptions, async () => {
+      throw error;
+    });
+
+    await expect(handler(scheduledEvent)).rejects.toBe(error);
+    expect(mockReport).toHaveBeenCalledTimes(1);
+    expect(mockReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: '部分失敗',
+        message: '一部失敗',
+        context: expect.objectContaining({
+          eventId: 'evt-1',
+          failedIds: ['a', 'b'],
+          errorName: 'ScheduledHandlerError',
+          errorMessage: '一部失敗',
+        }),
+      })
+    );
+  });
+
+  it('ScheduledHandlerError の title / context が未指定なら errorTitle と既定 context を使う', async () => {
+    const handler = createScheduledHandler(baseOptions, async () => {
+      throw new ScheduledHandlerError('x');
+    });
+
+    await expect(handler(scheduledEvent)).rejects.toThrow('x');
+    expect(mockReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: '通知バッチ失敗',
+        context: expect.objectContaining({ eventId: 'evt-1' }),
+      })
+    );
   });
 });

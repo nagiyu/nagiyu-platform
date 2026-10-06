@@ -31,6 +31,7 @@ jest.mock('@nagiyu/react', () => ({
 // fetchVapidPublicKey をスタブ化
 jest.mock('@nagiyu/browser', () => ({
   fetchVapidPublicKey: jest.fn(),
+  postPushSubscription: jest.fn(),
 }));
 
 // @nagiyu/ui の Button をシンプルなスタブにする（MUI 依存を最小化）

@@ -19,8 +19,11 @@ import {
   EntityNotFoundError,
   getDynamoDBDocumentClient,
   getTableName,
+  createScheduledHandler,
   reportErrorEvent,
+  ScheduledHandlerError,
 } from '@nagiyu/aws';
+import type { HandlerResponse, ScheduledEvent } from '@nagiyu/aws';
 import {
   DynamoDBDailySummaryRepository,
   DynamoDBExchangeRepository,
@@ -65,19 +68,6 @@ import type {
 } from '@nagiyu/stock-tracker-core';
 import { runConcurrent } from './lib/concurrent-queue.js';
 
-/** 通常モードの Lambda Handler イベント型（EventBridge Scheduler） */
-export interface ScheduledEvent {
-  version: string;
-  id: string;
-  'detail-type': string;
-  source: string;
-  account: string;
-  time: string;
-  region: string;
-  resources: string[];
-  detail: Record<string, unknown>;
-}
-
 /**
  * リプレイモードのイベント型。稼働開始時に過去の DailySummary から成績をさかのぼって
  * 作る初期値算出に使う。手動起動（`aws lambda invoke` 等）で渡す。
@@ -99,12 +89,6 @@ export interface ReplayEvent {
 }
 
 export type ForecastBatchEvent = ScheduledEvent | ReplayEvent;
-
-/** Lambda Handler レスポンス型 */
-export interface HandlerResponse {
-  statusCode: number;
-  body: string;
-}
 
 /** 依存注入用 */
 export interface HandlerDependencies {
@@ -843,8 +827,6 @@ async function handleScheduled(
   event: ScheduledEvent,
   deps: HandlerDependencies
 ): Promise<HandlerResponse> {
-  logger.info('確度算出バッチを開始します', { eventId: event.id, eventTime: event.time });
-
   const stats: NormalBatchStatistics = {
     totalMarkets: 0,
     processedMarkets: 0,
@@ -855,63 +837,49 @@ async function handleScheduled(
     noMarketData: 0,
     errors: 0,
   };
+  const failedMarkets: Market[] = [];
   const legacyExclusionBefore = process.env.STOCK_TRACKER_LEGACY_EXCLUSION_BEFORE;
 
-  let fatalError: unknown;
-  try {
-    const now = deps.nowFn();
-    const exchanges = await deps.exchangeRepository.getAll();
-    const { known: sessionInfos, skippedExchangeIds } = toSessionInfos(exchanges);
-    if (skippedExchangeIds.length > 0) {
-      logger.info('市場未設定の取引所を除外しました', { skippedExchangeIds });
-    }
-
-    const markets = distinctMarkets(sessionInfos);
-    stats.totalMarkets = markets.length;
-
-    for (const market of markets) {
-      try {
-        await processMarket(market, sessionInfos, deps, now, legacyExclusionBefore, stats);
-      } catch (error) {
-        const errorMessage = toErrorMessage(error);
-        logger.error('市場の確度算出バッチでエラーが発生しました', { market, error: errorMessage });
-        await reportErrorEvent({
-          serviceId: 'stock-tracker',
-          severity: 'error',
-          title: '確度算出バッチ: 市場処理失敗',
-          message: errorMessage,
-          context: { market, errorStack: error instanceof Error ? error.stack : undefined },
-        });
-        stats.errors++;
-      }
-    }
-
-    logger.info('確度算出バッチが完了しました', { eventId: event.id, statistics: stats });
-  } catch (error) {
-    fatalError = error;
-    const errorMessage = toErrorMessage(error);
-    logger.error('確度算出バッチでエラーが発生しました', {
-      eventId: event.id,
-      error: errorMessage,
-      statistics: stats,
-    });
-    await reportErrorEvent({
-      serviceId: 'stock-tracker',
-      severity: 'error',
-      title: '確度算出バッチ: 致命的エラー',
-      message: errorMessage,
-      context: { eventId: event.id, statistics: stats },
-    });
+  const now = deps.nowFn();
+  const exchanges = await deps.exchangeRepository.getAll();
+  const { known: sessionInfos, skippedExchangeIds } = toSessionInfos(exchanges);
+  if (skippedExchangeIds.length > 0) {
+    logger.info('市場未設定の取引所を除外しました', { skippedExchangeIds });
   }
+
+  const markets = distinctMarkets(sessionInfos);
+  stats.totalMarkets = markets.length;
+
+  for (const market of markets) {
+    try {
+      await processMarket(market, sessionInfos, deps, now, legacyExclusionBefore, stats);
+    } catch (error) {
+      const errorMessage = toErrorMessage(error);
+      logger.error('市場の確度算出バッチでエラーが発生しました', { market, error: errorMessage });
+      await reportErrorEvent({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: '確度算出バッチ: 市場処理失敗',
+        message: errorMessage,
+        context: { market, errorStack: error instanceof Error ? error.stack : undefined },
+      });
+      stats.errors++;
+      failedMarkets.push(market);
+    }
+  }
+
+  logger.info('確度算出バッチが完了しました', { eventId: event.id, statistics: stats });
 
   // 他の市場の処理を済ませた後、いずれかの市場が失敗していれば最後に例外を投げて
   // Lambda の呼び出し自体をエラーにする（CloudWatch のエラー率アラームで検知できるようにする）。
-  if (fatalError !== undefined) {
-    throw fatalError instanceof Error ? fatalError : new Error(toErrorMessage(fatalError));
-  }
   if (stats.errors > 0) {
-    throw new Error(
-      `確度算出バッチで一部の市場の処理に失敗しました（失敗数: ${stats.errors}）: ${JSON.stringify(stats)}`
+    // 市場ごとの個別報告は済んでいるため、骨格の報告は「致命的エラー」ではなく部分失敗として区別する。
+    throw new ScheduledHandlerError(
+      `確度算出バッチで一部の市場の処理に失敗しました（失敗数: ${stats.errors}）: ${JSON.stringify(stats)}`,
+      {
+        title: '確度算出バッチ: 部分失敗',
+        context: { statistics: stats, failedMarkets },
+      }
     );
   }
 
@@ -972,163 +940,143 @@ async function handleReplay(
     errors: 0,
   };
 
-  let fatalError: unknown;
   let stoppedAt: { market: Market; date: string; reason: string } | undefined;
   let lastProcessed: { market: Market; date: string } | undefined;
-  let snapshotSummary: Record<string, unknown> | undefined;
+  const now = deps.nowFn();
+  const exchanges = await deps.exchangeRepository.getAll();
+  const { known: sessionInfos, skippedExchangeIds } = toSessionInfos(exchanges);
+  if (skippedExchangeIds.length > 0) {
+    logger.info('市場未設定の取引所を除外しました', { skippedExchangeIds });
+  }
 
-  try {
-    const now = deps.nowFn();
-    const exchanges = await deps.exchangeRepository.getAll();
-    const { known: sessionInfos, skippedExchangeIds } = toSessionInfos(exchanges);
-    if (skippedExchangeIds.length > 0) {
-      logger.info('市場未設定の取引所を除外しました', { skippedExchangeIds });
-    }
-
-    const bars: DailyBarInput[] = [];
-    for (const exchange of sessionInfos) {
-      const summaries = await deps.dailySummaryRepository.getForecastFieldsByExchangeAndDateRange(
-        exchange.exchangeId,
-        REPLAY_EARLIEST_DATE,
-        REPLAY_LATEST_DATE
-      );
-      bars.push(...summaries.map(toDailyBarInput));
-    }
-    const excludedBars = excludeLegacyBackfillRows(bars, sessionInfos, event.legacyExclusionBefore);
-
-    const calendar = buildObservationCalendar(excludedBars, sessionInfos);
-    const steps: { market: Market; date: string }[] = [];
-    for (const market of Object.keys(calendar)) {
-      for (const date of calendar[market]) {
-        if (event.from !== undefined && date < event.from) continue;
-        if (event.to !== undefined && date > event.to) continue;
-        steps.push({ market, date });
-      }
-    }
-    steps.sort(
-      (a, b) =>
-        nominalMarketCloseTime(a.market, a.date, sessionInfos) -
-        nominalMarketCloseTime(b.market, b.date, sessionInfos)
+  const bars: DailyBarInput[] = [];
+  for (const exchange of sessionInfos) {
+    const summaries = await deps.dailySummaryRepository.getForecastFieldsByExchangeAndDateRange(
+      exchange.exchangeId,
+      REPLAY_EARLIEST_DATE,
+      REPLAY_LATEST_DATE
     );
-    stats.totalSteps = steps.length;
+    bars.push(...summaries.map(toDailyBarInput));
+  }
+  const excludedBars = excludeLegacyBackfillRows(bars, sessionInfos, event.legacyExclusionBefore);
 
-    // to を指定した分割実行では、明示しない限り中立帯の強制判定はしない
-    // （その回の最終日が稼働開始日とは限らないため）。
-    const forceNeutralBandOnDate =
-      event.forceNeutralBandOn ??
-      (event.to === undefined && steps.length > 0 ? steps[steps.length - 1].date : undefined);
+  const calendar = buildObservationCalendar(excludedBars, sessionInfos);
+  const steps: { market: Market; date: string }[] = [];
+  for (const market of Object.keys(calendar)) {
+    for (const date of calendar[market]) {
+      if (event.from !== undefined && date < event.from) continue;
+      if (event.to !== undefined && date > event.to) continue;
+      steps.push({ market, date });
+    }
+  }
+  steps.sort(
+    (a, b) =>
+      nominalMarketCloseTime(a.market, a.date, sessionInfos) -
+      nominalMarketCloseTime(b.market, b.date, sessionInfos)
+  );
+  stats.totalSteps = steps.length;
 
-    const store = await seedReplaySampleStore(deps, sessionInfos);
-    const sampleAccess = createReplaySampleAccess(store);
+  // to を指定した分割実行では、明示しない限り中立帯の強制判定はしない
+  // （その回の最終日が稼働開始日とは限らないため）。
+  const forceNeutralBandOnDate =
+    event.forceNeutralBandOn ??
+    (event.to === undefined && steps.length > 0 ? steps[steps.length - 1].date : undefined);
 
-    for (let i = 0; i < steps.length; i++) {
-      const step = steps[i];
-      const isLastStep = i === steps.length - 1;
+  const store = await seedReplaySampleStore(deps, sessionInfos);
+  const sampleAccess = createReplaySampleAccess(store);
 
-      const existing = await deps.marketForecastRepository.getByMarketAndDate(
-        step.market,
-        step.date
-      );
-      if (existing !== null) {
-        stats.alreadyDone++;
-        continue;
-      }
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    const isLastStep = i === steps.length - 1;
 
-      // リプレイ対象期間の最終日は、通常モードと同じ揃った判定・打ち切り判定をかける
-      // （そこがまだ引け前後で銘柄のサマリーが出揃っていない可能性があるため）。
-      // それより前の日は、対象期間全体の DailySummary を読み終えた時点で確定済みとみなせる。
-      if (isLastStep) {
-        const marketDates = calendar[step.market] ?? [];
-        const dateIndex = marketDates.indexOf(step.date);
-        const prevDate = dateIndex > 0 ? marketDates[dateIndex - 1] : undefined;
-        if (!isMarketDateReady(excludedBars, step.date, prevDate)) {
-          const cutoff =
-            nominalMarketCloseTime(step.market, step.date, sessionInfos) + CUTOFF_MS_AFTER_CLOSE;
-          if (now < cutoff) {
-            logger.info('リプレイ最終日の銘柄サマリーがまだ揃っていないため処理しません', {
-              market: step.market,
-              date: step.date,
-            });
-            break;
-          }
-          logger.info('打ち切り時刻を過ぎたため、揃っている銘柄だけで確度を算出します', {
+    const existing = await deps.marketForecastRepository.getByMarketAndDate(step.market, step.date);
+    if (existing !== null) {
+      stats.alreadyDone++;
+      continue;
+    }
+
+    // リプレイ対象期間の最終日は、通常モードと同じ揃った判定・打ち切り判定をかける
+    // （そこがまだ引け前後で銘柄のサマリーが出揃っていない可能性があるため）。
+    // それより前の日は、対象期間全体の DailySummary を読み終えた時点で確定済みとみなせる。
+    if (isLastStep) {
+      const marketDates = calendar[step.market] ?? [];
+      const dateIndex = marketDates.indexOf(step.date);
+      const prevDate = dateIndex > 0 ? marketDates[dateIndex - 1] : undefined;
+      if (!isMarketDateReady(excludedBars, step.date, prevDate)) {
+        const cutoff =
+          nominalMarketCloseTime(step.market, step.date, sessionInfos) + CUTOFF_MS_AFTER_CLOSE;
+        if (now < cutoff) {
+          logger.info('リプレイ最終日の銘柄サマリーがまだ揃っていないため処理しません', {
             market: step.market,
             date: step.date,
           });
+          break;
         }
-      }
-
-      try {
-        await processMarketDate({
-          date: step.date,
-          market: step.market,
-          exchanges: sessionInfos,
-          bars: excludedBars,
-          source: 'REPLAY',
-          now,
-          forceNeutralBandRecompute: step.date === forceNeutralBandOnDate,
-          deps,
-          sampleAccess,
-        });
-        stats.processedSteps++;
-        lastProcessed = step;
-      } catch (error) {
-        const errorMessage = toErrorMessage(error);
-        // 続行すると、このステップの前営業日の採点（Outcome 追記）が恒久的に書き漏れる
-        // （Forecast は書き換えない方針のため後から補えない）ため、最初のエラーで止める。
-        stoppedAt = { market: step.market, date: step.date, reason: errorMessage };
-        logger.error('リプレイのステップでエラーが発生しました', {
+        logger.info('打ち切り時刻を過ぎたため、揃っている銘柄だけで確度を算出します', {
           market: step.market,
           date: step.date,
-          error: errorMessage,
         });
-        await reportErrorEvent({
-          serviceId: 'stock-tracker',
-          severity: 'error',
-          title: '確度算出バッチ（リプレイ）: ステップ処理失敗',
-          message: errorMessage,
-          context: {
-            market: step.market,
-            date: step.date,
-            errorStack: error instanceof Error ? error.stack : undefined,
-          },
-        });
-        stats.errors++;
-        break;
       }
     }
 
-    snapshotSummary = lastProcessed
-      ? await summarizeLatestSnapshots(deps, lastProcessed.market, lastProcessed.date)
-      : undefined;
-
-    logger.info('確度算出バッチ（リプレイ）が完了しました', {
-      statistics: stats,
-      stoppedAt,
-      snapshotSummary,
-    });
-  } catch (error) {
-    fatalError = error;
-    const errorMessage = toErrorMessage(error);
-    logger.error('確度算出バッチ（リプレイ）でエラーが発生しました', {
-      error: errorMessage,
-      statistics: stats,
-    });
-    await reportErrorEvent({
-      serviceId: 'stock-tracker',
-      severity: 'error',
-      title: '確度算出バッチ（リプレイ）: 致命的エラー',
-      message: errorMessage,
-      context: { statistics: stats },
-    });
+    try {
+      await processMarketDate({
+        date: step.date,
+        market: step.market,
+        exchanges: sessionInfos,
+        bars: excludedBars,
+        source: 'REPLAY',
+        now,
+        forceNeutralBandRecompute: step.date === forceNeutralBandOnDate,
+        deps,
+        sampleAccess,
+      });
+      stats.processedSteps++;
+      lastProcessed = step;
+    } catch (error) {
+      const errorMessage = toErrorMessage(error);
+      // 続行すると、このステップの前営業日の採点（Outcome 追記）が恒久的に書き漏れる
+      // （Forecast は書き換えない方針のため後から補えない）ため、最初のエラーで止める。
+      stoppedAt = { market: step.market, date: step.date, reason: errorMessage };
+      logger.error('リプレイのステップでエラーが発生しました', {
+        market: step.market,
+        date: step.date,
+        error: errorMessage,
+      });
+      await reportErrorEvent({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: '確度算出バッチ（リプレイ）: ステップ処理失敗',
+        message: errorMessage,
+        context: {
+          market: step.market,
+          date: step.date,
+          errorStack: error instanceof Error ? error.stack : undefined,
+        },
+      });
+      stats.errors++;
+      break;
+    }
   }
 
-  if (fatalError !== undefined) {
-    throw fatalError instanceof Error ? fatalError : new Error(toErrorMessage(fatalError));
-  }
+  const snapshotSummary: Record<string, unknown> | undefined = lastProcessed
+    ? await summarizeLatestSnapshots(deps, lastProcessed.market, lastProcessed.date)
+    : undefined;
+
+  logger.info('確度算出バッチ（リプレイ）が完了しました', {
+    statistics: stats,
+    stoppedAt,
+    snapshotSummary,
+  });
+
   if (stoppedAt !== undefined) {
-    throw new Error(
-      `リプレイが ${stoppedAt.market} ${stoppedAt.date} で停止しました: ${stoppedAt.reason}（統計: ${JSON.stringify(stats)}）`
+    // ステップごとの個別報告は済んでいるため、骨格の報告は「致命的エラー」ではなく停止として区別する。
+    throw new ScheduledHandlerError(
+      `リプレイが ${stoppedAt.market} ${stoppedAt.date} で停止しました: ${stoppedAt.reason}（統計: ${JSON.stringify(stats)}）`,
+      {
+        title: '確度算出バッチ（リプレイ）: 停止',
+        context: { statistics: stats, stoppedAt },
+      }
     );
   }
 
@@ -1186,5 +1134,12 @@ export async function handler(
   dependencies?: Partial<HandlerDependencies>
 ): Promise<HandlerResponse> {
   const resolved = resolveDependencies(dependencies);
-  return isReplayEvent(event) ? handleReplay(event, resolved) : handleScheduled(event, resolved);
+  const run = createScheduledHandler<ForecastBatchEvent>(
+    { serviceId: 'stock-tracker', name: 'forecast', errorTitle: '確度算出バッチ: 致命的エラー' },
+    (batchEvent) =>
+      isReplayEvent(batchEvent)
+        ? handleReplay(batchEvent, resolved)
+        : handleScheduled(batchEvent, resolved)
+  );
+  return run(event);
 }

@@ -19,7 +19,53 @@ export const PUSH_ERROR_MESSAGES = {
   PERMISSION_DENIED: '通知が拒否されました。ブラウザ設定から通知を許可してください',
   VAPID_KEY_FETCH_FAILED: 'VAPID公開鍵の取得に失敗しました',
   VAPID_KEY_EMPTY: 'VAPID公開鍵が空です',
+  SUBSCRIPTION_REGISTER_FAILED: 'サブスクリプションの登録に失敗しました',
 } as const;
+
+/**
+ * ブラウザが Web Push の購読フローを実行できるかを判定する。
+ * 購読フローで実際に呼ぶ API の存在まで確認し、古いブラウザでの実行時エラーを防ぐ。
+ */
+export function isPushSupported(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.Notification !== 'undefined' &&
+    typeof window.Notification.requestPermission === 'function' &&
+    'serviceWorker' in navigator &&
+    typeof navigator.serviceWorker?.register === 'function' &&
+    'PushManager' in window
+  );
+}
+
+export interface PostPushSubscriptionOptions {
+  /** 送信先 URL（既定: `/api/push/subscribe`） */
+  endpoint?: string;
+  /**
+   * body の形。`wrapped` は `{ subscription: ... }` で包み、`raw` は `toJSON()` をそのまま送る。
+   * サーバー側 API の期待する形に合わせる（既定: `wrapped`）。
+   */
+  bodyShape?: 'wrapped' | 'raw';
+}
+
+/**
+ * 購読情報をサーバーへ POST する。
+ *
+ * @throws レスポンスが ok でない場合
+ */
+export async function postPushSubscription(
+  subscription: PushSubscription,
+  { endpoint = '/api/push/subscribe', bodyShape = 'wrapped' }: PostPushSubscriptionOptions = {}
+): Promise<void> {
+  const json = subscription.toJSON();
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(bodyShape === 'raw' ? json : { subscription: json }),
+  });
+  if (!response.ok) {
+    throw new Error(PUSH_ERROR_MESSAGES.SUBSCRIPTION_REGISTER_FAILED);
+  }
+}
 
 /**
  * VAPID 公開鍵をサーバから取得する。
@@ -70,14 +116,7 @@ export async function subscribePush({
   swPath = '/sw.js',
   onSubscribed,
 }: SubscribePushOptions): Promise<PushSubscription> {
-  if (
-    typeof window === 'undefined' ||
-    typeof window.Notification === 'undefined' ||
-    typeof window.Notification.requestPermission !== 'function' ||
-    !('serviceWorker' in navigator) ||
-    typeof navigator.serviceWorker?.register !== 'function' ||
-    !('PushManager' in window)
-  ) {
+  if (!isPushSupported()) {
     throw new Error(PUSH_ERROR_MESSAGES.UNSUPPORTED);
   }
 

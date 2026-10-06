@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
-import type { PushSubscription } from '@nagiyu/common';
 import { COMMON_ERROR_MESSAGES, requirePermission } from '@nagiyu/common';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
-import { createErrorResponse } from '@nagiyu/nextjs';
+import { createErrorResponse, validatePushSubscription } from '@nagiyu/nextjs';
 import { createPushSubscriptionRepository } from '@nagiyu/admin-core';
 import { getSession } from '@/lib/auth/session';
 
@@ -14,24 +13,6 @@ const ERROR_MESSAGES = {
   INTERNAL_ERROR: 'サブスクリプション処理に失敗しました',
   DYNAMODB_TABLE_NAME_REQUIRED: 'DYNAMODB_TABLE_NAME が設定されていません',
 } as const;
-
-function isValidPushSubscription(value: unknown): value is PushSubscription {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-
-  const subscription = value as Record<string, unknown>;
-  if (typeof subscription.endpoint !== 'string' || subscription.endpoint.length === 0) {
-    return false;
-  }
-
-  if (!subscription.keys || typeof subscription.keys !== 'object') {
-    return false;
-  }
-
-  const keys = subscription.keys as Record<string, unknown>;
-  return typeof keys.p256dh === 'string' && typeof keys.auth === 'string';
-}
 
 function getRepository() {
   const docClient =
@@ -63,7 +44,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     const body = await request.json();
-    if (!isValidPushSubscription(body)) {
+    if (!validatePushSubscription(body)) {
       return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_SUBSCRIPTION);
     }
 

@@ -29,7 +29,10 @@ jest.mock('../../src/lib/dynamo-store-adapter.js', () => ({
   DynamoDocumentClientStoreAdapter: mockAdapterCtor,
 }));
 
+// createScheduledHandler / withErrorReporting は実物を使う。
+// reportErrorEvent は ERROR_EVENTS_TABLE_NAME 未設定時にログのみで null を返すため副作用はない
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual<typeof import('@nagiyu/aws')>('@nagiyu/aws'),
   getDynamoDBDocumentClient: jest.fn().mockReturnValue(mockDestDocClient),
 }));
 
@@ -59,35 +62,34 @@ describe('sync-handler', () => {
   });
 
   describe('zod バリデーション', () => {
-    it('不正な入力（null）は 400 を返す', async () => {
-      const response = await handler(null);
-      expect(response.statusCode).toBe(400);
-      expect(JSON.parse(response.body).message).toContain('バリデーション');
+    it('不正な入力（null）は例外を投げる', async () => {
+      await expect(handler(null)).rejects.toThrow('バリデーション');
     });
 
-    it('不正な入力（空オブジェクト）は 400 を返す', async () => {
-      const response = await handler({});
-      expect(response.statusCode).toBe(400);
+    it('不正な入力（空オブジェクト）は例外を投げる', async () => {
+      await expect(handler({})).rejects.toThrow('バリデーション');
     });
 
-    it('strategy が不正な値は 400 を返す', async () => {
-      const response = await handler({
-        sourceTable: 'nagiyu-test-prod',
-        destTable: 'nagiyu-test-dev',
-        strategy: 'invalid',
-        delete: 'on',
-      });
-      expect(response.statusCode).toBe(400);
+    it('strategy が不正な値は例外を投げる', async () => {
+      await expect(
+        handler({
+          sourceTable: 'nagiyu-test-prod',
+          destTable: 'nagiyu-test-dev',
+          strategy: 'invalid',
+          delete: 'on',
+        })
+      ).rejects.toThrow('バリデーション');
     });
 
-    it('destTable が空文字列は 400 を返す', async () => {
-      const response = await handler({
-        sourceTable: 'nagiyu-test-prod',
-        destTable: '',
-        strategy: 'mirror',
-        delete: 'on',
-      });
-      expect(response.statusCode).toBe(400);
+    it('destTable が空文字列は例外を投げる', async () => {
+      await expect(
+        handler({
+          sourceTable: 'nagiyu-test-prod',
+          destTable: '',
+          strategy: 'mirror',
+          delete: 'on',
+        })
+      ).rejects.toThrow('バリデーション');
     });
   });
 
@@ -131,43 +133,41 @@ describe('sync-handler', () => {
   });
 
   describe('SOURCE_READER_ROLE_ARN 未設定', () => {
-    it('source 用クライアント生成が失敗した場合は 500 を返す（同一アカウントへのフォールバックはしない）', async () => {
+    it('source 用クライアント生成が失敗した場合は例外を投げる（同一アカウントへのフォールバックはしない）', async () => {
       mockCreateSourceClient.mockImplementation(() => {
         throw new Error(
           '環境変数 SOURCE_READER_ROLE_ARN が設定されていません。prod テーブル読み取り用ロールの ARN を指定してください。'
         );
       });
 
-      const response = await handler({
-        sourceTable: 'nagiyu-test-prod',
-        destTable: 'nagiyu-test-dev',
-        strategy: 'mirror',
-        scope: { pkPrefix: 'USER#' },
-        delete: 'off',
-      });
-
-      expect(response.statusCode).toBe(500);
-      expect(JSON.parse(response.body).error).toContain('SOURCE_READER_ROLE_ARN');
+      await expect(
+        handler({
+          sourceTable: 'nagiyu-test-prod',
+          destTable: 'nagiyu-test-dev',
+          strategy: 'mirror',
+          scope: { pkPrefix: 'USER#' },
+          delete: 'off',
+        })
+      ).rejects.toThrow('SOURCE_READER_ROLE_ARN');
       // dest 側の store（DynamoDocumentClientStoreAdapter）は生成されない
       expect(mockAdapterCtor).not.toHaveBeenCalled();
     });
   });
 
   describe('安全ガード', () => {
-    it('destTable が -dev で終わらない場合は 500 を返す', async () => {
+    it('destTable が -dev で終わらない場合は例外を投げる', async () => {
       // zod は通過する（destTable の形式はスキーマで検証しない）が、
       // copy-logic 内の assertDestIsDevTable で abort される
-      const response = await handler({
-        sourceTable: 'nagiyu-test-prod',
-        destTable: 'nagiyu-test-prod', // 危険: prod テーブル
-        strategy: 'mirror',
-        scope: { pkPrefix: 'USER#' }, // mirror 戦略では scope 必須
-        delete: 'off',
-      });
-
-      // copy-logic 内の安全ガードで abort → 500 を返す
-      expect(response.statusCode).toBe(500);
-      expect(JSON.parse(response.body).error).toContain('-dev');
+      // copy-logic 内の安全ガードで abort → 例外を投げる
+      await expect(
+        handler({
+          sourceTable: 'nagiyu-test-prod',
+          destTable: 'nagiyu-test-prod', // 危険: prod テーブル
+          strategy: 'mirror',
+          scope: { pkPrefix: 'USER#' }, // mirror 戦略では scope 必須
+          delete: 'off',
+        })
+      ).rejects.toThrow('-dev');
     });
   });
 

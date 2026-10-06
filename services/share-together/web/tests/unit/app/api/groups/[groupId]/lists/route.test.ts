@@ -96,6 +96,18 @@ describe('/api/groups/[groupId]/lists route', () => {
     expect(mockDynamoDBMembershipRepository).not.toHaveBeenCalled();
   });
 
+  it('GET: 空白だけの groupId は400レスポンスを返しメンバー確認を行わない', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrErrorResponse);
+
+    const response = await GET({} as Request, { params: Promise.resolve({ groupId: '   ' }) });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: 'VALIDATION_ERROR' });
+    expect(mockGetMembershipById).not.toHaveBeenCalled();
+  });
+
   it('GET: 非メンバーの場合は403レスポンスを返す', async () => {
     mockGetSessionOrUnauthorized.mockResolvedValue({
       user: { id: 'user-1' },

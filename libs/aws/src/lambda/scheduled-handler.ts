@@ -1,5 +1,5 @@
 import { logger, toErrorMessage } from '@nagiyu/common';
-import { withErrorReporting } from '../error-events/with-error-reporting.js';
+import { reportErrorEvent } from '../error-events/report.js';
 
 /** EventBridge のスケジュールルールから Lambda に渡されるイベント */
 export interface ScheduledEvent {
@@ -18,6 +18,31 @@ export interface ScheduledEvent {
 export interface HandlerResponse {
   statusCode: number;
   body: string;
+}
+
+export interface ScheduledHandlerErrorOptions {
+  /** エラー報告のタイトル。未指定なら createScheduledHandler の errorTitle を使う */
+  title?: string;
+  /** エラー報告の context にマージする追加情報（失敗した対象の ID 等） */
+  context?: Record<string, unknown>;
+}
+
+/**
+ * 部分失敗など、エラー報告のタイトルや context を呼び出し側で指定したい失敗に使う例外。
+ *
+ * 骨格は報告を 1 回に保つため、fn 内で reportErrorEvent を直接呼ぶ代わりに
+ * この例外を投げて、報告内容だけを上書きさせる。
+ */
+export class ScheduledHandlerError extends Error {
+  public readonly title?: string;
+  public readonly context?: Record<string, unknown>;
+
+  constructor(message: string, options: ScheduledHandlerErrorOptions = {}) {
+    super(message);
+    this.name = 'ScheduledHandlerError';
+    this.title = options.title;
+    this.context = options.context;
+  }
 }
 
 export interface ScheduledHandlerOptions<TEvent> {
@@ -77,21 +102,30 @@ export function createScheduledHandler<TEvent = ScheduledEvent, TResult = Handle
 
     logger.info(`${prefix} ${LOG_MESSAGES.START}`, context);
 
-    // fn が例外を投げた場合 withErrorReporting が報告後に再送出するため、成功時のみ結果が返る
-    const result = await withErrorReporting(
-      {
+    try {
+      return await fn(event);
+    } catch (error) {
+      const override = error instanceof ScheduledHandlerError ? error : undefined;
+
+      logger.error(`${prefix} ${LOG_MESSAGES.FAILED}`, {
+        ...context,
+        error: toErrorMessage(error),
+      });
+      // 報告は補助的手段で reportErrorEvent は例外を投げないため、元の例外の再送出を妨げない
+      await reportErrorEvent({
         serviceId: options.serviceId,
-        title: options.errorTitle,
-        context,
-        onError: async (error) => {
-          logger.error(`${prefix} ${LOG_MESSAGES.FAILED}`, {
-            ...context,
-            error: toErrorMessage(error),
-          });
+        severity: 'error',
+        title: override?.title ?? options.errorTitle,
+        message: toErrorMessage(error),
+        context: {
+          ...context,
+          ...override?.context,
+          errorName: error instanceof Error ? error.name : typeof error,
+          errorMessage: toErrorMessage(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
         },
-      },
-      () => fn(event)
-    );
-    return result as TResult;
+      });
+      throw error;
+    }
   };
 }

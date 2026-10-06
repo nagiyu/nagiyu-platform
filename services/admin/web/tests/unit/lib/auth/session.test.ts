@@ -2,6 +2,12 @@ import { getSession } from '../../../../src/lib/auth/session';
 import { auth } from '../../../../src/auth';
 import type { Session as NextAuthSession } from 'next-auth';
 
+// リクエストスコープ外では headers() が例外を投げるため、ヘッダ読み取りだけを差し替える
+const mockHeaders = jest.fn();
+jest.mock('next/headers', () => ({
+  headers: () => mockHeaders(),
+}));
+
 // Mock the auth module
 jest.mock('../../../../src/auth', () => ({
   auth: jest.fn(),
@@ -12,6 +18,9 @@ const mockAuth = auth as unknown as jest.MockedFunction<() => Promise<NextAuthSe
 describe('getSession', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockHeaders.mockImplementation(() => {
+      throw new Error('リクエストスコープ外');
+    });
     delete process.env.SKIP_AUTH_CHECK;
     delete process.env.TEST_USER_EMAIL;
     delete process.env.TEST_USER_ID;
@@ -62,6 +71,30 @@ describe('getSession', () => {
       const session = await getSession();
 
       expect(session?.user.roles).toEqual(['admin', 'editor']);
+    });
+
+    it('should expire in 30 days', async () => {
+      const session = await getSession();
+
+      const diff = new Date(session!.expires).getTime() - Date.now();
+      expect(Math.abs(diff - 30 * 24 * 60 * 60 * 1000)).toBeLessThan(60 * 1000);
+    });
+
+    it('should prefer x-test-user-roles header over TEST_USER_ROLES', async () => {
+      process.env.TEST_USER_ROLES = 'admin';
+      mockHeaders.mockResolvedValue(new Headers({ 'x-test-user-roles': 'viewer' }));
+
+      const session = await getSession();
+
+      expect(session?.user.roles).toEqual(['viewer']);
+    });
+
+    it('should fall back to default roles when TEST_USER_ROLES is empty', async () => {
+      process.env.TEST_USER_ROLES = '';
+
+      const session = await getSession();
+
+      expect(session?.user.roles).toEqual(['admin']);
     });
   });
 
