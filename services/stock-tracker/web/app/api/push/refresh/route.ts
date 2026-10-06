@@ -10,7 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthError } from '@nagiyu/nextjs';
+import { getAuthError, validatePushSubscription } from '@nagiyu/nextjs';
 import { createAlertRepository } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
 import type { ErrorResponse } from '@nagiyu/common';
@@ -27,64 +27,11 @@ const ERROR_MESSAGES = {
 } as const;
 
 /**
- * リクエストボディ型定義
- */
-interface RefreshRequest {
-  subscription: {
-    endpoint: string;
-    keys: {
-      p256dh: string;
-      auth: string;
-    };
-  };
-}
-
-/**
  * レスポンス型定義
  */
 interface RefreshResponse {
   success: true;
   updatedCount: number;
-}
-
-/**
- * サブスクリプション情報のバリデーション
- */
-function validateSubscription(
-  subscription: unknown
-): subscription is RefreshRequest['subscription'] {
-  if (!subscription || typeof subscription !== 'object') {
-    return false;
-  }
-
-  const sub = subscription as Record<string, unknown>;
-
-  if (typeof sub.endpoint !== 'string' || !sub.endpoint) {
-    return false;
-  }
-
-  // endpoint が有効な URL 形式であることを検証
-  try {
-    new URL(sub.endpoint);
-  } catch {
-    return false;
-  }
-
-  if (!sub.keys || typeof sub.keys !== 'object') {
-    return false;
-  }
-
-  const keys = sub.keys as Record<string, unknown>;
-
-  if (typeof keys.p256dh !== 'string' || !keys.p256dh) {
-    return false;
-  }
-
-  if (typeof keys.auth !== 'string' || !keys.auth) {
-    return false;
-  }
-
-  return true;
 }
 
 /**
@@ -137,7 +84,7 @@ export async function POST(
     const { subscription } = body as { subscription: unknown };
 
     // サブスクリプション情報のバリデーション
-    if (!validateSubscription(subscription)) {
+    if (!validatePushSubscription(subscription)) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
