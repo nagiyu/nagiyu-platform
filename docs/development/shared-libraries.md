@@ -510,6 +510,14 @@ mapConditionalCheckFailed(error, { onExists?, onMissing? });
 }
 ```
 
+### DynamoDB 一括書き込み・一括読み込み
+
+BatchWriteItem (25 件まで) と BatchGetItem (100 件まで) は、上限件数ごとの分割と、未処理分 (`UnprocessedItems` / `UnprocessedKeys`) の再送を `@nagiyu/aws` の共通処理に任せる。サービス側で分割・再送のループを書かない。
+
+- **未処理分を黙って捨てない**: 一括読み込みで未処理キーを捨てると、存在するデータが「無い」と表示される。一括削除で未処理を残したまま成功扱いにすると、削除漏れに気づけない。
+- **再送は回数の上限と待機付き**: 上限なし・待機なしの即時再送は、スロットリング中のテーブルに負荷をかけ続ける。既定は最大 4 回、50ms から倍々に待つ。
+- **上限を超えたら例外にする**: 取りこぼしを残したまま返すより、失敗として呼び出し元に知らせ、再実行に委ねる。この例外は `DatabaseError` の派生にしない。呼び出し元ごとに包み方 (`toDatabaseError` か、独自の接頭辞付きメッセージか) が違うため、ここで `DatabaseError` にすると文言が二重になる。
+
 ### crypto ユーティリティ（AES-256-GCM + Secrets Manager）
 
 AWS Secrets Manager からキーを取得して AES-256-GCM 暗号化・復号化を行うユーティリティを `@nagiyu/aws` の `crypto` モジュールとして提供する。Secrets Manager 連携を伴うため `libs/common` ではなく `libs/aws` に配置する。
