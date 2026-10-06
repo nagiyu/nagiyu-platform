@@ -226,7 +226,7 @@ Next.js に依存するユーティリティ。
 - NextAuth 型定義（`types/next-auth.d.ts`）
 - 認証ミドルウェアファクトリ（`createAuthMiddleware`）
 - セッション取得ファクトリ（`createSessionGetter`）
-- Push ルートファクトリ（`createVapidPublicKeyRoute`・`createPushSubscribeRoute`・`validatePushSubscription`・`createSubscriptionId`）
+- Push ルートファクトリ（`createVapidPublicKeyRoute`・`createPushSubscribeRoute`・`validatePushSubscription`）
 
 ### パッケージ名
 
@@ -272,7 +272,12 @@ Push 通知機能を持つサービスの API ルートは `@nagiyu/nextjs` が�
 - **`createVapidPublicKeyRoute()`**: VAPID 公開鍵を返す `GET /api/push/vapid-public-key` ルートハンドラーを生成する。`VAPID_PUBLIC_KEY` 環境変数が未設定の場合は 500 エラーを返す。
 - **`createPushSubscribeRoute()`**: Push サブスクリプション登録用のルートハンドラーを生成する。
 - **`validatePushSubscription(subscription)`**: Push サブスクリプション情報のバリデーション。endpoint が有効な URL 形式で keys.p256dh と keys.auth が非空文字列の場合に `true` を返す type guard。
-- **`createSubscriptionId(endpoint)`**: Push サブスクリプション endpoint を SHA-256 ハッシュで一意な ID（`sub_` プレフィックス + 32文字）に変換する。
+
+購読を受け取る API は、サービス側で独自の検証を書かず、必ず `validatePushSubscription` を通す。検証が緩いと、送信時まで不正な購読に気付けないためである。不正な購読は 400 で弾く。
+
+購読をサービス固有の保存先へ書き込む場合も、`createPushSubscribeRoute` を書き写さず、保存のフック (`onSubscribe`) で保存だけを行う。認証・検証・ID の採番はファクトリに任せ、サービスごとの差を生まないようにする。
+
+既存の API の形 (body で購読を包まない等) がファクトリと合わず、クライアントへの影響を避けたい場合に限り、ファクトリを使わずに検証だけ `validatePushSubscription` に揃えてよい。
 
 ### next.config.ts の transpilePackages 標準設定
 
@@ -297,6 +302,7 @@ Push 通知機能を持つサービスの API ルートは `@nagiyu/nextjs` が�
 - localStorage/sessionStorageラッパー
 - Web Push 用 Base64 URL デコード（`urlBase64ToUint8Array`）
 - Web Push 購読フロー（`subscribePush`）
+- Web Push 対応判定 (`isPushSupported`)・購読のサーバー送信 (`postPushSubscription`)
 - その他ブラウザ固有APIの抽象化
 
 ### パッケージ名
@@ -336,6 +342,11 @@ const subscription = await subscribePush({
 
 Hook として状態管理込みで利用したい場合は `@nagiyu/react` の `usePushSubscription` を併用する。
 
+Push 対応判定と購読のサーバー送信も、サービス側で書かずに `@nagiyu/browser` のものを使う。
+
+- **対応判定の条件は購読フローと揃える**: 対応判定は、購読フローが実際に呼ぶ API (通知の許可要求・Service Worker の登録・PushManager) がすべて揃っているかで判断する。判定が購読フローより緩いと、「対応」と表示したのに購読で失敗する画面になるためである。
+- **送信する body の形はオプションで選ぶ**: 購読を `{ subscription }` で包むか、そのまま送るかはサーバー側 API の形に合わせて指定する。形の違いを理由に送信処理をコピーしない。
+
 ## libs/common/
 
 ### 責務
@@ -353,6 +364,7 @@ Hook として状態管理込みで利用したい場合は `@nagiyu/react` の 
 - Web Push 用 VAPID キー正規化（`normalizeVapidKey`）
 - Web Push VAPID 設定取得（`getVapidConfig`）
 - Web Push 送信クライアント（`sendWebPushNotification`）
+- Push サブスクリプション ID の生成 (`createSubscriptionId`)
 
 ### パッケージ名
 
@@ -391,6 +403,14 @@ Hook として状態管理込みで利用したい場合は `@nagiyu/react` の 
 - **インポートパス**: `@nagiyu/common/push`（ルートインデックスではなくサブパスから参照すること。不要なモジュールの読み込みを避けるため）
 - **薄いラッパー禁止**: サービス側で `sendWebPushNotification()` をラップした関数を作らず、呼び出し元から直接呼び出すこと
 - **通知アイコン**: 通知ペイロードの `icon` は `@nagiyu/common/push` の `DEFAULT_NOTIFICATION_ICON` を利用する。サービス側で同一の URL をハードコードしない（サービス共通のアイコンを差し替える際の影響範囲を最小化するため）
+
+### Push サブスクリプション ID の生成
+
+購読を保存する ID は、`createSubscriptionId(endpoint)` で endpoint から決まる値にする。登録のたびに乱数で ID を振ると、同じ端末で登録し直すたびに行が増え、同じ通知が重複して届くためである。
+
+- **置き場所が `@nagiyu/common` である理由**: サービスの core パッケージ (Next.js に依存しない) からも使えるようにするため。`@nagiyu/nextjs` は同じ関数を再 export しているだけで、実装は 1 つである。
+- **Web Crypto で実装する理由**: ルートインデックスから公開しているため、Edge ランタイムで動きうる middleware からも読み込まれうる。Node.js 専用の API に依存すると、そこで壊れる。
+- **形式を変えてはならない**: 既に保存されている購読の ID と互換を保つため、ID の形式 (SHA-256 の先頭 32 文字に `sub_` を付ける) は変えない。
 
 ### API レスポンス型の共通化
 
