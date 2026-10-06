@@ -19,6 +19,7 @@ import {
   DatabaseError,
   mapConditionalCheckFailed,
   toDatabaseError,
+  queryAllItems,
   encodeCursor,
   decodeCursor,
   type PaginationOptions,
@@ -153,49 +154,38 @@ export class DynamoDBAlertRepository implements AlertRepository {
    * ループして全件を集約する契約のため、Limitは指定しない（DynamoDBの1MBページ単位）。
    */
   public async getByFrequency(frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL'): Promise<AlertEntity[]> {
-    const items: AlertEntity[] = [];
-    let exclusiveStartKey: QueryCommandOutput['LastEvaluatedKey'];
-
     try {
-      do {
-        const result: QueryCommandOutput = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            IndexName: 'AlertIndex',
-            KeyConditionExpression: '#gsi2pk = :pk',
-            ExpressionAttributeNames: {
-              '#gsi2pk': 'GSI2PK',
-            },
-            ExpressionAttributeValues: {
-              ':pk': `ALERT#${frequency}`,
-            },
-            ExclusiveStartKey: exclusiveStartKey,
-          })
-        );
+      const rawItems = await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        IndexName: 'AlertIndex',
+        KeyConditionExpression: '#gsi2pk = :pk',
+        ExpressionAttributeNames: {
+          '#gsi2pk': 'GSI2PK',
+        },
+        ExpressionAttributeValues: {
+          ':pk': `ALERT#${frequency}`,
+        },
+      });
 
-        // mapper.toEntity は同期的なデータ検証であり、ここから投げられるエラーは
-        // 全て個別アイテムの検証失敗。バッチ呼び出し全体を壊さないよう、
-        // エラー種別の判定に依存せず常にスキップ＆警告ログとする。
-        for (const item of result.Items || []) {
-          try {
-            items.push(this.mapper.toEntity(item as unknown as DynamoDBItem));
-          } catch (error) {
-            const record = item as Record<string, unknown>;
-            logger.warn('無効なアラートデータをスキップしました', {
-              pk: record.PK,
-              sk: record.SK,
-              error: toErrorMessage(error),
-            });
-          }
+      // mapper.toEntity は同期的なデータ検証であり、ここから投げられるエラーは
+      // 全て個別アイテムの検証失敗。バッチ呼び出し全体を壊さないよう、
+      // エラー種別の判定に依存せず常にスキップ＆警告ログとする。
+      const items: AlertEntity[] = [];
+      for (const item of rawItems) {
+        try {
+          items.push(this.mapper.toEntity(item));
+        } catch (error) {
+          logger.warn('無効なアラートデータをスキップしました', {
+            pk: item.PK,
+            sk: item.SK,
+            error: toErrorMessage(error),
+          });
         }
-
-        exclusiveStartKey = result.LastEvaluatedKey;
-      } while (exclusiveStartKey);
+      }
+      return items;
     } catch (error) {
       throw toDatabaseError(error);
     }
-
-    return items;
   }
 
   /**

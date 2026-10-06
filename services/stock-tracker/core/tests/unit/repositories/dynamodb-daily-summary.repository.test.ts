@@ -503,6 +503,37 @@ describe('DynamoDBDailySummaryRepository', () => {
       expect(command.input.ExpressionAttributeNames).not.toHaveProperty('#updatedAt');
     });
 
+    it('LastEvaluatedKey がある間は全ページを読み出す', async () => {
+      const lastKey = { PK: 'SUMMARY#NSDQ:AAPL', SK: 'DATE#2026-02-27' };
+      const buildItem = (tickerId: string) => ({
+        TickerID: tickerId,
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        Volume: 1234567,
+        CreatedAt: 1708992000000,
+      });
+      mockDocClient.send
+        .mockResolvedValueOnce({ Items: [buildItem('NSDQ:AAPL')], LastEvaluatedKey: lastKey })
+        .mockResolvedValueOnce({ Items: [buildItem('NSDQ:MSFT')] });
+
+      const result = await repository.getForecastFieldsByExchangeAndDateRange(
+        'NASDAQ',
+        '2026-02-20',
+        '2026-02-27'
+      );
+
+      expect(result.map((fields) => fields.TickerID)).toEqual(['NSDQ:AAPL', 'NSDQ:MSFT']);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
+      const first = mockDocClient.send.mock.calls[0][0] as QueryCommand;
+      const second = mockDocClient.send.mock.calls[1][0] as QueryCommand;
+      expect(first.input).not.toHaveProperty('ExclusiveStartKey');
+      expect(second.input.ExclusiveStartKey).toEqual(lastKey);
+    });
+
     it('データベースエラー時にDatabaseErrorをスローする', async () => {
       mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
 

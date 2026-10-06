@@ -6,7 +6,6 @@
 import {
   GetCommand,
   PutCommand,
-  QueryCommand,
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
@@ -14,6 +13,7 @@ import {
   DatabaseError,
   isConditionalCheckFailed,
   toDatabaseError,
+  queryAllItems,
   EntityNotFoundError,
   type DynamoDBItem,
 } from '@nagiyu/aws';
@@ -191,27 +191,16 @@ export class DynamoDBForecastRepository implements ForecastRepository {
    */
   public async getByExchangeAndDate(exchangeId: string, date: string): Promise<ForecastEntity[]> {
     try {
-      const items: DynamoDBItem[] = [];
-      let lastEvaluatedKey: Record<string, unknown> | undefined;
-
-      do {
-        const result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            IndexName: 'ExchangeSummaryIndex',
-            KeyConditionExpression: '#gsi4pk = :exchangeId AND begins_with(#gsi4sk, :datePrefix)',
-            ExpressionAttributeNames: { '#gsi4pk': 'GSI4PK', '#gsi4sk': 'GSI4SK' },
-            ExpressionAttributeValues: {
-              ':exchangeId': this.mapper.buildGsi4Pk(exchangeId),
-              ':datePrefix': `DATE#${date}`,
-            },
-            ExclusiveStartKey: lastEvaluatedKey,
-          })
-        );
-
-        items.push(...((result.Items as DynamoDBItem[] | undefined) ?? []));
-        lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
-      } while (lastEvaluatedKey);
+      const items = await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        IndexName: 'ExchangeSummaryIndex',
+        KeyConditionExpression: '#gsi4pk = :exchangeId AND begins_with(#gsi4sk, :datePrefix)',
+        ExpressionAttributeNames: { '#gsi4pk': 'GSI4PK', '#gsi4sk': 'GSI4SK' },
+        ExpressionAttributeValues: {
+          ':exchangeId': this.mapper.buildGsi4Pk(exchangeId),
+          ':datePrefix': `DATE#${date}`,
+        },
+      });
 
       return items.map((item) => this.mapper.toEntity(item));
     } catch (error) {
@@ -241,29 +230,19 @@ export class DynamoDBForecastRepository implements ForecastRepository {
     toDate?: string
   ): Promise<TickerSample[]> {
     try {
-      const items: Record<string, unknown>[] = [];
-      let lastEvaluatedKey: Record<string, unknown> | undefined;
       const condition = buildSampleKeyCondition(fromDate, toDate);
 
-      do {
-        const result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            IndexName: 'ExchangeSummaryIndex',
-            KeyConditionExpression: condition.expression,
-            ProjectionExpression: SAMPLE_PROJECTION_EXPRESSION,
-            ExpressionAttributeNames: { ...SAMPLE_PROJECTION_NAMES, ...condition.names },
-            ExpressionAttributeValues: {
-              ':exchangeId': this.mapper.buildGsi4Pk(exchangeId),
-              ...condition.values,
-            },
-            ExclusiveStartKey: lastEvaluatedKey,
-          })
-        );
-
-        items.push(...((result.Items as Record<string, unknown>[] | undefined) ?? []));
-        lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
-      } while (lastEvaluatedKey);
+      const items = await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        IndexName: 'ExchangeSummaryIndex',
+        KeyConditionExpression: condition.expression,
+        ProjectionExpression: SAMPLE_PROJECTION_EXPRESSION,
+        ExpressionAttributeNames: { ...SAMPLE_PROJECTION_NAMES, ...condition.names },
+        ExpressionAttributeValues: {
+          ':exchangeId': this.mapper.buildGsi4Pk(exchangeId),
+          ...condition.values,
+        },
+      });
 
       return items.map((item) => this.mapper.toSample(item));
     } catch (error) {

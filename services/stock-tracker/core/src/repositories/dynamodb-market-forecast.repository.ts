@@ -6,7 +6,6 @@
 import {
   GetCommand,
   PutCommand,
-  QueryCommand,
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
@@ -14,6 +13,7 @@ import {
   DatabaseError,
   isConditionalCheckFailed,
   toDatabaseError,
+  queryAllItems,
   EntityNotFoundError,
   type DynamoDBItem,
 } from '@nagiyu/aws';
@@ -158,27 +158,17 @@ export class DynamoDBMarketForecastRepository implements MarketForecastRepositor
     toDate?: string
   ): Promise<MarketSample[]> {
     try {
-      const items: DynamoDBItem[] = [];
-      let lastEvaluatedKey: Record<string, unknown> | undefined;
       const condition = buildSkCondition(fromDate, toDate);
 
-      do {
-        const result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            KeyConditionExpression: condition.expression,
-            ExpressionAttributeNames: { '#pk': 'PK', ...condition.names },
-            ExpressionAttributeValues: {
-              ':pk': this.mapper.buildPk(market),
-              ...condition.values,
-            },
-            ExclusiveStartKey: lastEvaluatedKey,
-          })
-        );
-
-        items.push(...((result.Items as DynamoDBItem[] | undefined) ?? []));
-        lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
-      } while (lastEvaluatedKey);
+      const items = await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: condition.expression,
+        ExpressionAttributeNames: { '#pk': 'PK', ...condition.names },
+        ExpressionAttributeValues: {
+          ':pk': this.mapper.buildPk(market),
+          ...condition.values,
+        },
+      });
 
       return items.map((item) => this.mapper.toSample(item));
     } catch (error) {

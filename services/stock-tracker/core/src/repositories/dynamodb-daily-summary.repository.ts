@@ -10,7 +10,7 @@ import {
   QueryCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { queryAllItems, toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import type { DailySummaryRepository } from './daily-summary.repository.interface.js';
 import type {
   DailySummaryEntity,
@@ -77,30 +77,19 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
         return [];
       }
 
-      const items: DynamoDBItem[] = [];
-      let lastEvaluatedKey: Record<string, unknown> | undefined;
-
-      do {
-        const result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            IndexName: 'ExchangeSummaryIndex',
-            KeyConditionExpression: '#gsi4pk = :exchangeId AND begins_with(#gsi4sk, :datePrefix)',
-            ExpressionAttributeNames: {
-              '#gsi4pk': 'GSI4PK',
-              '#gsi4sk': 'GSI4SK',
-            },
-            ExpressionAttributeValues: {
-              ':exchangeId': exchangeId,
-              ':datePrefix': `DATE#${targetDate}`,
-            },
-            ExclusiveStartKey: lastEvaluatedKey,
-          })
-        );
-
-        items.push(...((result.Items as DynamoDBItem[] | undefined) ?? []));
-        lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
-      } while (lastEvaluatedKey);
+      const items = await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        IndexName: 'ExchangeSummaryIndex',
+        KeyConditionExpression: '#gsi4pk = :exchangeId AND begins_with(#gsi4sk, :datePrefix)',
+        ExpressionAttributeNames: {
+          '#gsi4pk': 'GSI4PK',
+          '#gsi4sk': 'GSI4SK',
+        },
+        ExpressionAttributeValues: {
+          ':exchangeId': exchangeId,
+          ':datePrefix': `DATE#${targetDate}`,
+        },
+      });
 
       return items.map((item) => this.mapper.toEntity(item));
     } catch (error) {
@@ -152,31 +141,20 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
     toDate: string
   ): Promise<DailySummaryEntity[]> {
     try {
-      const items: DynamoDBItem[] = [];
-      let lastEvaluatedKey: Record<string, unknown> | undefined;
-
-      do {
-        const result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            IndexName: 'ExchangeSummaryIndex',
-            KeyConditionExpression: '#gsi4pk = :exchangeId AND #gsi4sk BETWEEN :from AND :to',
-            ExpressionAttributeNames: {
-              '#gsi4pk': 'GSI4PK',
-              '#gsi4sk': 'GSI4SK',
-            },
-            ExpressionAttributeValues: {
-              ':exchangeId': exchangeId,
-              ':from': `DATE#${fromDate}`,
-              ':to': `DATE#${toDate}#~`,
-            },
-            ExclusiveStartKey: lastEvaluatedKey,
-          })
-        );
-
-        items.push(...((result.Items as DynamoDBItem[] | undefined) ?? []));
-        lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
-      } while (lastEvaluatedKey);
+      const items = await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        IndexName: 'ExchangeSummaryIndex',
+        KeyConditionExpression: '#gsi4pk = :exchangeId AND #gsi4sk BETWEEN :from AND :to',
+        ExpressionAttributeNames: {
+          '#gsi4pk': 'GSI4PK',
+          '#gsi4sk': 'GSI4SK',
+        },
+        ExpressionAttributeValues: {
+          ':exchangeId': exchangeId,
+          ':from': `DATE#${fromDate}`,
+          ':to': `DATE#${toDate}#~`,
+        },
+      });
 
       return items.map((item) => this.mapper.toEntity(item));
     } catch (error) {
@@ -194,46 +172,35 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
     toDate: string
   ): Promise<DailySummaryForecastFields[]> {
     try {
-      const items: DynamoDBItem[] = [];
-      let lastEvaluatedKey: Record<string, unknown> | undefined;
-
-      do {
-        const result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            IndexName: 'ExchangeSummaryIndex',
-            KeyConditionExpression: '#gsi4pk = :exchangeId AND #gsi4sk BETWEEN :from AND :to',
-            ProjectionExpression:
-              '#tickerId, #exchangeId, #date, #open, #high, #low, #close, #volume, ' +
-              '#patternResults, #buyPatternCount, #sellPatternCount, #createdAt',
-            ExpressionAttributeNames: {
-              '#gsi4pk': 'GSI4PK',
-              '#gsi4sk': 'GSI4SK',
-              '#tickerId': 'TickerID',
-              '#exchangeId': 'ExchangeID',
-              '#date': 'Date',
-              '#open': 'Open',
-              '#high': 'High',
-              '#low': 'Low',
-              '#close': 'Close',
-              '#volume': 'Volume',
-              '#patternResults': 'PatternResults',
-              '#buyPatternCount': 'BuyPatternCount',
-              '#sellPatternCount': 'SellPatternCount',
-              '#createdAt': 'CreatedAt',
-            },
-            ExpressionAttributeValues: {
-              ':exchangeId': exchangeId,
-              ':from': `DATE#${fromDate}`,
-              ':to': `DATE#${toDate}#~`,
-            },
-            ExclusiveStartKey: lastEvaluatedKey,
-          })
-        );
-
-        items.push(...((result.Items as DynamoDBItem[] | undefined) ?? []));
-        lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
-      } while (lastEvaluatedKey);
+      const items = await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        IndexName: 'ExchangeSummaryIndex',
+        KeyConditionExpression: '#gsi4pk = :exchangeId AND #gsi4sk BETWEEN :from AND :to',
+        ProjectionExpression:
+          '#tickerId, #exchangeId, #date, #open, #high, #low, #close, #volume, ' +
+          '#patternResults, #buyPatternCount, #sellPatternCount, #createdAt',
+        ExpressionAttributeNames: {
+          '#gsi4pk': 'GSI4PK',
+          '#gsi4sk': 'GSI4SK',
+          '#tickerId': 'TickerID',
+          '#exchangeId': 'ExchangeID',
+          '#date': 'Date',
+          '#open': 'Open',
+          '#high': 'High',
+          '#low': 'Low',
+          '#close': 'Close',
+          '#volume': 'Volume',
+          '#patternResults': 'PatternResults',
+          '#buyPatternCount': 'BuyPatternCount',
+          '#sellPatternCount': 'SellPatternCount',
+          '#createdAt': 'CreatedAt',
+        },
+        ExpressionAttributeValues: {
+          ':exchangeId': exchangeId,
+          ':from': `DATE#${fromDate}`,
+          ':to': `DATE#${toDate}#~`,
+        },
+      });
 
       return items.map((item) => this.mapper.toForecastFields(item));
     } catch (error) {
