@@ -17,6 +17,7 @@ import { executeMylistRegistration } from './playwright-automation.js';
 import { createBatchCompletionPayload } from './lib/web-push-client.js';
 import { determineBatchJobStatus } from './lib/job-status.js';
 import { formatLocalDateTime, getTimestamp, toErrorMessage } from '@nagiyu/common';
+import type { PushSubscription } from '@nagiyu/common';
 import { DEFAULT_MYLIST_NAME_PREFIX, ERROR_MESSAGES } from './constants.js';
 import { MylistRegistrationJobParams } from './types.js';
 
@@ -144,7 +145,7 @@ async function main() {
   console.log('========================================');
 
   let params: MylistRegistrationJobParams | null = null;
-  let pushSubscription: { endpoint: string; keys: { p256dh: string; auth: string } } | undefined;
+  let pushSubscription: PushSubscription | undefined;
 
   const context: Record<string, unknown> = {};
 
