@@ -69,3 +69,12 @@ export {
 
 // ページネーション
 export { queryPages, queryAllItems, scanAllItems } from './pagination.js';
+
+// バッチ処理
+export {
+  batchWriteAll,
+  batchGetAll,
+  BatchRetryExhaustedError,
+  type BatchRetryOptions,
+  type BatchWriteRequest,
+} from './batch.js';
