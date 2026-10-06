@@ -9,13 +9,13 @@ import {
   PutCommand,
   DeleteCommand,
   BatchGetCommand,
-  ScanCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import {
   EntityAlreadyExistsError,
   toDatabaseError,
   mapConditionalCheckFailed,
+  scanAllItems,
   type DynamoDBItem,
 } from '@nagiyu/aws';
 import type { VideoRepository } from './video.repository.interface.js';
@@ -43,26 +43,13 @@ export class DynamoDBVideoRepository implements VideoRepository {
    */
   public async listAll(): Promise<VideoEntity[]> {
     try {
-      const items: DynamoDBItem[] = [];
-      let exclusiveStartKey: DynamoDBItem | undefined;
-
-      do {
-        const result = await this.docClient.send(
-          new ScanCommand({
-            TableName: this.tableName,
-            FilterExpression: 'begins_with(PK, :videoPrefix) AND begins_with(SK, :videoPrefix)',
-            ExpressionAttributeValues: {
-              ':videoPrefix': 'VIDEO#',
-            },
-            ExclusiveStartKey: exclusiveStartKey,
-          })
-        );
-
-        if (result.Items) {
-          items.push(...(result.Items as DynamoDBItem[]));
-        }
-        exclusiveStartKey = result.LastEvaluatedKey as DynamoDBItem | undefined;
-      } while (exclusiveStartKey);
+      const items = await scanAllItems(this.docClient, {
+        TableName: this.tableName,
+        FilterExpression: 'begins_with(PK, :videoPrefix) AND begins_with(SK, :videoPrefix)',
+        ExpressionAttributeValues: {
+          ':videoPrefix': 'VIDEO#',
+        },
+      });
 
       return items.map((item) => this.mapper.toEntity(item));
     } catch (error) {

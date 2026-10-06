@@ -66,3 +66,6 @@ export {
   type AttributeQueryCondition,
   type AttributeProjection,
 } from './in-memory/single-table-store.js';
+
+// ページネーション
+export { queryPages, queryAllItems, scanAllItems } from './pagination.js';
