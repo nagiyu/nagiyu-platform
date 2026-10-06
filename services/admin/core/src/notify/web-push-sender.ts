@@ -53,8 +53,16 @@ export class WebPushSender {
       this.vapidConfig
     );
 
+    // 削除の失敗で送信結果ごと呼び出し元を失敗させると、再試行で通知が重複するため継続する
     for (const record of result.invalid) {
-      await this.repository.deleteByEndpoint(record.subscription.endpoint);
+      try {
+        await this.repository.deleteByEndpoint(record.subscription.endpoint);
+      } catch (error) {
+        logger.warn('無効な Web Push 購読の削除に失敗しました', {
+          endpoint: record.subscription.endpoint,
+          error: toErrorMessage(error),
+        });
+      }
     }
 
     for (const { target, error } of result.failed) {

@@ -271,6 +271,45 @@ describe('notifyAllUsers', () => {
     });
   });
 
+  it('無効サブスクリプションの削除に失敗しても、他の送信成功分の notifEvent は保存される', async () => {
+    mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
+    mockShouldNotifyNow.mockReturnValue({
+      notify: true,
+      kind: 'normal',
+      toneBucket: 'normal',
+      elapsedMs: DAY,
+    });
+    mockSendWebPush.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+
+    const pushSubscriptionRepo = makePushSubscriptionRepo([
+      {
+        SubscriptionID: 'sub_1',
+        Endpoint: 'https://push.example.com/1',
+        P256dhKey: 'p',
+        AuthKey: 'a',
+      },
+      {
+        SubscriptionID: 'sub_2',
+        Endpoint: 'https://push.example.com/2',
+        P256dhKey: 'p',
+        AuthKey: 'a',
+      },
+    ]);
+    pushSubscriptionRepo.delete.mockRejectedValue(new Error('delete failed'));
+    const notifEventRepo = makeNotifEventRepo();
+    const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+    const result = await notifyAllUsers(
+      makeParams({
+        pushSubscriptionRepo: pushSubscriptionRepo as never,
+        notifEventRepo: notifEventRepo as never,
+      })
+    );
+
+    expect(notifEventRepo.put).toHaveBeenCalledTimes(1);
+    expect(result.notifiedUsers).toBe(1);
+    expect(result.failedUsers).toBe(0);
+  });
+
   it('全送信が false でも notifEvent は保存されない（sentCount=0）', async () => {
     mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
     mockShouldNotifyNow.mockReturnValue({

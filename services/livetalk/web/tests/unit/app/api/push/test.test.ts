@@ -386,6 +386,27 @@ describe('POST /api/push/test', () => {
       });
     });
 
+    it('無効サブスクの削除に失敗しても 200 を返し NotificationEvent を記録する', async () => {
+      mockGetSession.mockResolvedValue(adminSession);
+      const validSub = makeSubscription({ SubscriptionID: 'sub-valid' });
+      const invalidSub = makeSubscription({
+        SubscriptionID: 'sub-invalid',
+        Endpoint: 'https://push.example.com/sub-invalid',
+      });
+      const pushRepo = makePushRepo([validSub, invalidSub]);
+      (pushRepo.delete as jest.Mock).mockRejectedValue(new Error('delete failed'));
+      mockGetPushSubscriptionRepo.mockReturnValue(pushRepo);
+      const notifRepo = makeNotifEventRepo();
+      mockGetNotifEventRepo.mockReturnValue(notifRepo);
+      mockSendWebPushNotification.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+
+      const res = await POST(buildPostRequest({ characterId: 'hiyori' }));
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.sent).toBe(1);
+      expect(notifRepo.put).toHaveBeenCalledTimes(1);
+    });
+
     it('全サブスク無効（sent=0）のとき NotificationEvent は記録されない', async () => {
       mockGetSession.mockResolvedValue(adminSession);
       mockGetPushSubscriptionRepo.mockReturnValue(makePushRepo([makeSubscription()]));

@@ -273,9 +273,17 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
       vapidConfig
     );
 
-    // 無効なサブスクリプション（404/410）を削除
+    // 無効なサブスクリプション（404/410）を削除する。削除の失敗で配信履歴の記録を止めないよう継続する
     for (const sub of result.invalid) {
-      await pushSubscriptionRepo.delete({ userId, subscriptionId: sub.SubscriptionID });
+      try {
+        await pushSubscriptionRepo.delete({ userId, subscriptionId: sub.SubscriptionID });
+      } catch (error) {
+        logger.warn('[notifyAllUsers] 無効なサブスクリプションの削除失敗（継続）', {
+          userId,
+          subscriptionId: sub.SubscriptionID,
+          error: toErrorMessage(error),
+        });
+      }
     }
 
     for (const { target, error } of result.failed) {

@@ -18,7 +18,6 @@ export type BulkSendResult<T> = {
  * 複数の送信先へ Web Push を順番に送信する。
  *
  * 1 件の失敗で残りの送信を止めないよう、例外は捕捉して failed に集約する。
- * 並列化すると送信先サービスへの負荷が読めなくなるため、逐次で送る。
  */
 export async function sendWebPushNotifications<T>(
   targets: readonly T[],

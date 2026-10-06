@@ -142,6 +142,29 @@ describe('WebPushSender', () => {
     expect(mockSendWebPushNotification).not.toHaveBeenCalled();
   });
 
+  it('無効な購読の削除に失敗しても警告ログを残して結果を返す', async () => {
+    mockSendWebPushNotification.mockResolvedValue(false);
+    repository.deleteByEndpoint = async () => {
+      throw new Error('delete failed');
+    };
+
+    const sender = new WebPushSender({
+      repository,
+      vapidConfig,
+    });
+
+    const result = await sender.sendAll({
+      title: 'アラーム通知',
+      body: 'CloudWatch Alarm が発火しました',
+    });
+
+    expect(result).toEqual({ sent: 0, invalid: 1, failed: 0 });
+    expect(logger.warn).toHaveBeenCalledWith('無効な Web Push 購読の削除に失敗しました', {
+      endpoint: 'https://example.com/subscription-1',
+      error: 'delete failed',
+    });
+  });
+
   it('404/410以外のエラーでは削除しない', async () => {
     mockSendWebPushNotification.mockRejectedValue(new Error('network timeout'));
 
