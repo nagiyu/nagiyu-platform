@@ -274,6 +274,51 @@ describe('DynamoDBGroupRepository', () => {
     });
   });
 
+  describe('batchGetByIds の分割と再送', () => {
+    const createGroupItem = (groupId: string): Record<string, unknown> => ({
+      PK: `GROUP#${groupId}`,
+      SK: '#META#',
+      groupId,
+      name: groupId,
+      ownerUserId: 'user-1',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    it('未処理キーを再送して取得できる', async () => {
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Responses: { [TABLE_NAME]: [createGroupItem('group-1')] },
+          UnprocessedKeys: { [TABLE_NAME]: { Keys: [{ PK: 'GROUP#group-2', SK: '#META#' }] } },
+        })
+        .mockResolvedValueOnce({ Responses: { [TABLE_NAME]: [createGroupItem('group-2')] } });
+
+      const result = await repository.batchGetByIds(['group-1', 'group-2']);
+
+      expect(result.map((group) => group.groupId)).toEqual(['group-1', 'group-2']);
+      const retryCommand = mockDocClient.send.mock.calls[1][0] as BatchGetCommand;
+      expect(retryCommand.input.RequestItems?.[TABLE_NAME]?.Keys).toEqual([
+        { PK: 'GROUP#group-2', SK: '#META#' },
+      ]);
+    });
+
+    it('100件を超える場合は分割して取得する', async () => {
+      const groupIds = Array.from({ length: 101 }, (_, i) => `group-${i}`);
+      mockDocClient.send
+        .mockResolvedValueOnce({ Responses: { [TABLE_NAME]: [createGroupItem('group-0')] } })
+        .mockResolvedValueOnce({ Responses: { [TABLE_NAME]: [createGroupItem('group-100')] } });
+
+      const result = await repository.batchGetByIds(groupIds);
+
+      expect(result.map((group) => group.groupId)).toEqual(['group-0', 'group-100']);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
+      const first = mockDocClient.send.mock.calls[0][0] as BatchGetCommand;
+      const second = mockDocClient.send.mock.calls[1][0] as BatchGetCommand;
+      expect(first.input.RequestItems?.[TABLE_NAME]?.Keys).toHaveLength(100);
+      expect(second.input.RequestItems?.[TABLE_NAME]?.Keys).toHaveLength(1);
+    });
+  });
+
   describe('SDK例外のDatabaseError化', () => {
     it('取得時のSDK例外はDatabaseErrorに包まれる', async () => {
       mockDocClient.send.mockRejectedValueOnce(createSdkError());

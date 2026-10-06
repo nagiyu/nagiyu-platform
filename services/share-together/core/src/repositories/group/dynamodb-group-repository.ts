@@ -1,12 +1,11 @@
 import {
-  BatchGetCommand,
   DeleteCommand,
   GetCommand,
   PutCommand,
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { mapConditionalCheckFailed, toDatabaseError } from '@nagiyu/aws';
+import { batchGetAll, mapConditionalCheckFailed, toDatabaseError } from '@nagiyu/aws';
 import type { CreateGroupInput, Group, UpdateGroupInput } from '../../types/index.js';
 import type { GroupRepository } from './group-repository.interface.js';
 import { withDatabaseError } from '../with-database-error.js';
@@ -53,22 +52,17 @@ export class DynamoDBGroupRepository implements GroupRepository {
       return [];
     }
 
-    const result = await withDatabaseError(() =>
-      this.docClient.send(
-        new BatchGetCommand({
-          RequestItems: {
-            [this.tableName]: {
-              Keys: groupIds.map((groupId) => ({
-                PK: this.buildGroupPk(groupId),
-                SK: GROUP_META_SK,
-              })),
-            },
-          },
-        })
+    const items = await withDatabaseError(() =>
+      batchGetAll(
+        this.docClient,
+        this.tableName,
+        groupIds.map((groupId) => ({
+          PK: this.buildGroupPk(groupId),
+          SK: GROUP_META_SK,
+        }))
       )
     );
 
-    const items = result.Responses?.[this.tableName] ?? [];
     return items.map((item) => this.toGroup(item as Record<string, unknown>));
   }
 

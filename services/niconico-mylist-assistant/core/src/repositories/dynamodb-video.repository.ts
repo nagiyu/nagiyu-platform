@@ -8,10 +8,10 @@ import {
   GetCommand,
   PutCommand,
   DeleteCommand,
-  BatchGetCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import {
+  batchGetAll,
   EntityAlreadyExistsError,
   toDatabaseError,
   mapConditionalCheckFailed,
@@ -90,26 +90,15 @@ export class DynamoDBVideoRepository implements VideoRepository {
     }
 
     try {
-      const items: DynamoDBItem[] = [];
-      for (let i = 0; i < videoIds.length; i += 100) {
-        const chunk = videoIds.slice(i, i + 100);
-        const result = await this.docClient.send(
-          new BatchGetCommand({
-            RequestItems: {
-              [this.tableName]: {
-                Keys: chunk.map((videoId) => {
-                  const { pk, sk } = this.mapper.buildKeys({ videoId });
-                  return { PK: pk, SK: sk };
-                }),
-              },
-            },
-          })
-        );
-
-        const responseItems = result.Responses?.[this.tableName] as DynamoDBItem[] | undefined;
-        items.push(...(responseItems ?? []));
-      }
-      return items.map((item) => this.mapper.toEntity(item as DynamoDBItem));
+      const items = await batchGetAll(
+        this.docClient,
+        this.tableName,
+        videoIds.map((videoId) => {
+          const { pk, sk } = this.mapper.buildKeys({ videoId });
+          return { PK: pk, SK: sk };
+        })
+      );
+      return items.map((item) => this.mapper.toEntity(item));
     } catch (error) {
       throw toDatabaseError(error);
     }

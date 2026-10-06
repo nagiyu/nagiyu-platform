@@ -366,6 +366,22 @@ describe('DynamoDBTodoRepository', () => {
       });
     });
 
+    it('未処理分が残り続けた場合は再送の上限後にDatabaseErrorを投げる', async () => {
+      const unprocessed = [{ DeleteRequest: { Key: { PK: 'LIST#list-1', SK: 'TODO#todo-1' } } }];
+      mockDocClient.send
+        .mockResolvedValueOnce({ Items: [{ PK: 'LIST#list-1', SK: 'TODO#todo-1' }] })
+        .mockResolvedValue({ UnprocessedItems: { [TABLE_NAME]: unprocessed } });
+
+      const promise = repository.deleteByListId('list-1');
+
+      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
+      await expect(promise).rejects.toMatchObject({
+        cause: expect.objectContaining({ name: 'BatchRetryExhaustedError' }),
+      });
+      // query 1 回 + 初回送信 1 回 + 再送 4 回
+      expect(mockDocClient.send).toHaveBeenCalledTimes(6);
+    });
+
     it('ToDoが存在しない場合は何もしない', async () => {
       mockDocClient.send.mockResolvedValueOnce({ Items: [] });
 
