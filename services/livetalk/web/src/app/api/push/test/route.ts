@@ -117,6 +117,7 @@ export const POST = withAuth(getSession, 'livetalk:admin', async (session, reque
       } catch (error) {
         logger.warn('[POST /api/push/test] 無効なサブスクリプションの削除失敗（継続）', {
           userId,
+          characterId,
           subscriptionId: sub.SubscriptionID,
           error: toErrorMessage(error),
         });

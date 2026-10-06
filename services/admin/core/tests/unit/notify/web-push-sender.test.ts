@@ -69,6 +69,14 @@ function createSubscription(endpoint: string): PushSubscriptionRecord {
   };
 }
 
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = value;
+  }
+}
+
 describe('WebPushSender', () => {
   let subscriptions: PushSubscriptionRecord[];
   let deletedEndpoints: string[];
@@ -78,6 +86,7 @@ describe('WebPushSender', () => {
     subscriptions = [createSubscription('https://example.com/subscription-1')];
     deletedEndpoints = [];
     mockSendWebPushNotification.mockReset();
+    (logger.warn as jest.Mock).mockClear();
 
     repository = {
       save: async () => {
@@ -106,6 +115,26 @@ describe('WebPushSender', () => {
 
     expect(result).toEqual({ sent: 1, invalid: 0, failed: 0 });
     expect(mockSendWebPushNotification).toHaveBeenCalledTimes(1);
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it('成功・無効・例外が混在する場合はそれぞれを数え、無効な購読だけを削除する', async () => {
+    subscriptions = [
+      createSubscription('https://example.com/sent'),
+      createSubscription('https://example.com/invalid'),
+      createSubscription('https://example.com/failed'),
+    ];
+    mockSendWebPushNotification
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false)
+      .mockRejectedValueOnce(new Error('network timeout'));
+
+    const sender = new WebPushSender({ repository, vapidConfig });
+    const result = await sender.sendAll({ title: 't', body: 'b' });
+
+    expect(result).toEqual({ sent: 1, invalid: 1, failed: 1 });
+    expect(deletedEndpoints).toEqual(['https://example.com/invalid']);
+    expect(logger.warn).toHaveBeenCalledTimes(1);
   });
 
   it('410 Gone のときにサブスクリプションを削除する', async () => {
@@ -187,6 +216,8 @@ describe('WebPushSender', () => {
   });
 
   it('vapidConfig 省略時は環境変数から VAPID 設定を読む', async () => {
+    const originalPublicKey = process.env.VAPID_PUBLIC_KEY;
+    const originalPrivateKey = process.env.VAPID_PRIVATE_KEY;
     process.env.VAPID_PUBLIC_KEY = 'env-public';
     process.env.VAPID_PRIVATE_KEY = 'env-private';
     mockSendWebPushNotification.mockResolvedValue(true);
@@ -195,8 +226,8 @@ describe('WebPushSender', () => {
       const sender = new WebPushSender({ repository });
       await sender.sendAll({ title: 't', body: 'b' });
     } finally {
-      delete process.env.VAPID_PUBLIC_KEY;
-      delete process.env.VAPID_PRIVATE_KEY;
+      restoreEnv('VAPID_PUBLIC_KEY', originalPublicKey);
+      restoreEnv('VAPID_PRIVATE_KEY', originalPrivateKey);
     }
 
     expect(mockSendWebPushNotification.mock.calls[0][2]).toEqual({

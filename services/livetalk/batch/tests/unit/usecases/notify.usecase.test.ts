@@ -1,3 +1,4 @@
+import { logger } from '@nagiyu/common';
 import { type VapidConfig } from '@nagiyu/common/push';
 
 jest.mock('@nagiyu/common', () => ({
@@ -308,6 +309,10 @@ describe('notifyAllUsers', () => {
     expect(notifEventRepo.put).toHaveBeenCalledTimes(1);
     expect(result.notifiedUsers).toBe(1);
     expect(result.failedUsers).toBe(0);
+    expect(logger.warn).toHaveBeenCalledWith(
+      '[notifyAllUsers] 無効なサブスクリプションの削除失敗（継続）',
+      expect.objectContaining({ userId: 'u1', subscriptionId: 'sub_2', error: 'delete failed' })
+    );
   });
 
   it('全送信が false でも notifEvent は保存されない（sentCount=0）', async () => {

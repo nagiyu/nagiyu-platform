@@ -280,6 +280,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
       } catch (error) {
         logger.warn('[notifyAllUsers] 無効なサブスクリプションの削除失敗（継続）', {
           userId,
+          characterId,
           subscriptionId: sub.SubscriptionID,
           error: toErrorMessage(error),
         });

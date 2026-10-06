@@ -12,6 +12,7 @@
  *     成功時 NotificationEvent が CharacterID 付きで記録、`{ sent }` を返す
  *   - 無効サブスク（false 戻り）→ delete される
  */
+import { logger } from '@nagiyu/common';
 import { POST } from '@/app/api/push/test/route';
 import { getSession } from '@/lib/server/session';
 import {
@@ -399,12 +400,21 @@ describe('POST /api/push/test', () => {
       const notifRepo = makeNotifEventRepo();
       mockGetNotifEventRepo.mockReturnValue(notifRepo);
       mockSendWebPushNotification.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+      const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
 
-      const res = await POST(buildPostRequest({ characterId: 'hiyori' }));
-      expect(res.status).toBe(200);
-      const json = await res.json();
-      expect(json.sent).toBe(1);
-      expect(notifRepo.put).toHaveBeenCalledTimes(1);
+      try {
+        const res = await POST(buildPostRequest({ characterId: 'hiyori' }));
+        expect(res.status).toBe(200);
+        const json = await res.json();
+        expect(json.sent).toBe(1);
+        expect(notifRepo.put).toHaveBeenCalledTimes(1);
+        expect(warnSpy).toHaveBeenCalledWith(
+          '[POST /api/push/test] 無効なサブスクリプションの削除失敗（継続）',
+          expect.objectContaining({ subscriptionId: 'sub-invalid', error: 'delete failed' })
+        );
+      } finally {
+        warnSpy.mockRestore();
+      }
     });
 
     it('全サブスク無効（sent=0）のとき NotificationEvent は記録されない', async () => {

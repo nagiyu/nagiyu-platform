@@ -363,7 +363,7 @@ Push 対応判定と購読のサーバー送信も、サービス側で書かず
 - バックエンド向けリトライ処理（`withRetry<T>`・`RetryOptions`・`DEFAULT_RETRY_OPTIONS`）
 - Web Push 用 VAPID キー正規化（`normalizeVapidKey`）
 - Web Push VAPID 設定取得（`getVapidConfig`）
-- Web Push 送信クライアント（`sendWebPushNotification`）
+- Web Push 送信クライアント（`sendWebPushNotification`・一斉送信の `sendWebPushNotifications`）
 - Push サブスクリプション ID の生成 (`createSubscriptionId`)
 
 ### パッケージ名
@@ -397,11 +397,15 @@ Push 対応判定と購読のサーバー送信も、サービス側で書かず
 バッチサービスから Web Push 通知を送信する場合は `@nagiyu/common/push` の `sendWebPushNotification` を利用する。
 
 - **引数**: `subscription`（`PushSubscription`）、`payload`（`NotificationPayload`）、`vapidConfig`（`VapidConfig`）
-- **戻り値**: 成功時 `true`、失敗時（410/404 含む）`false`
+- **戻り値**: 成功時 `true`、購読が無効（404/410）なら `false`。それ以外の送信失敗は例外をスローする
 - **VAPID 未設定時**: 例外をスロー
 - **VAPID 設定の取得**: `VapidConfig` は `getVapidConfig()` で取得して渡すこと
 - **インポートパス**: `@nagiyu/common/push`（ルートインデックスではなくサブパスから参照すること。不要なモジュールの読み込みを避けるため）
 - **薄いラッパー禁止**: サービス側で `sendWebPushNotification()` をラップした関数を作らず、呼び出し元から直接呼び出すこと
+- **複数の購読への一斉送信**: 送信ループをサービス側で書かず、`sendWebPushNotifications` を利用する。逐次で送り、結果を `sent`（成功）・`invalid`（購読が無効）・`failed`（例外）に振り分けて返す。1 件の例外で残りの送信を止めない
+- **無効な購読の扱いは呼び出し側が決める**: 購読の持ち方がサービスごとに違うため、一斉送信の関数は削除もログ出力もしない。購読を独立したレコードで持つサービスは `invalid` を削除する。stock-tracker のように購読がアラートのフィールドになっている場合は削除せず、ユーザーが次に画面を開いたときの購読更新で復旧させる (消すとユーザーの条件設定ごと失われるため)
+- **無効な購読をエラーとして数えない**: 無効な購読は端末側の都合で日常的に発生する。バッチのエラー数に含めると、エラー数で動く仕組み (例: stock-tracker の minute のコンテナ破棄) が本来の目的以外で発火するため、別に数える
+- **削除の失敗で後続を止めない**: 無効な購読の削除に失敗しても、警告ログを残して処理を続ける。呼び出し元まで失敗させると、再試行で同じ通知が重複して届く
 - **通知アイコン**: 通知ペイロードの `icon` は `@nagiyu/common/push` の `DEFAULT_NOTIFICATION_ICON` を利用する。サービス側で同一の URL をハードコードしない（サービス共通のアイコンを差し替える際の影響範囲を最小化するため）
 
 ### Push サブスクリプション ID の生成
