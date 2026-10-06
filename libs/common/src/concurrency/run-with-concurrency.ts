@@ -1,6 +1,4 @@
-const ERROR_MESSAGES = {
-  INVALID_CONCURRENCY: '同時実行数は 1 以上の整数で指定してください',
-} as const;
+import { CONCURRENCY_ERROR_MESSAGES as ERROR_MESSAGES } from './error-messages.js';
 
 /**
  * タスクを最大 `concurrency` 個まで同時に実行し、結果を入力順で返す。
