@@ -3,13 +3,9 @@
  * legacy-reader / schema-janitor で共有するページネーション Query と
  * BatchWrite 削除の共通実装を提供する。
  */
-import {
-  BatchWriteCommand,
-  QueryCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
+import { BatchWriteCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { logger } from '@nagiyu/common';
-import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { DatabaseError, queryAllItems, type DynamoDBItem } from '@nagiyu/aws';
 
 /** 一回性移行のエラーメッセージ定数（日本語） */
 export const MIGRATION_ERROR_MESSAGES = {
@@ -38,38 +34,20 @@ export async function queryItemsByPrefix(
   pk: string,
   skPrefix: string
 ): Promise<DynamoDBItem[]> {
-  const items: DynamoDBItem[] = [];
-  let exclusiveStartKey: Record<string, unknown> | undefined;
-
-  for (;;) {
-    let result;
-    try {
-      result = await docClient.send(
-        new QueryCommand({
-          TableName: tableName,
-          KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
-          ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
-          ExpressionAttributeValues: { ':pk': pk, ':prefix': skPrefix },
-          ExclusiveStartKey: exclusiveStartKey,
-        })
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(
-        `${MIGRATION_ERROR_MESSAGES.クエリ失敗}: ${message}`,
-        error instanceof Error ? error : undefined
-      );
-    }
-
-    for (const raw of result.Items ?? []) {
-      items.push(raw as unknown as DynamoDBItem);
-    }
-
-    if (!result.LastEvaluatedKey) break;
-    exclusiveStartKey = result.LastEvaluatedKey;
+  try {
+    return await queryAllItems(docClient, {
+      TableName: tableName,
+      KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
+      ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
+      ExpressionAttributeValues: { ':pk': pk, ':prefix': skPrefix },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new DatabaseError(
+      `${MIGRATION_ERROR_MESSAGES.クエリ失敗}: ${message}`,
+      error instanceof Error ? error : undefined
+    );
   }
-
-  return items;
 }
 
 /**

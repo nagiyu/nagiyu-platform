@@ -8,6 +8,7 @@ import {
 import {
   EntityAlreadyExistsError,
   isConditionalCheckFailed,
+  queryAllItems,
   toDatabaseError,
   type DynamoDBItem,
 } from '@nagiyu/aws';
@@ -107,44 +108,34 @@ export class DynamoDBMessageRepository implements MessageRepository {
     const pk = buildUserPK(userId);
     const skPrefix = buildMessageSKPrefix(characterId);
     const results: MessageEntity[] = [];
-    let exclusiveStartKey: Record<string, unknown> | undefined;
 
-    for (;;) {
-      let result;
-      try {
-        result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
-            FilterExpression: sinceMs > 0 ? 'CreatedAt > :sinceMs' : undefined,
-            ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
-            ExpressionAttributeValues: {
-              ':pk': pk,
-              ':prefix': skPrefix,
-              ...(sinceMs > 0 && { ':sinceMs': sinceMs }),
-            },
-            ScanIndexForward: true,
-            ExclusiveStartKey: exclusiveStartKey,
-          })
-        );
-      } catch (error) {
-        throw toDatabaseError(error);
-      }
+    try {
+      const items = await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
+        FilterExpression: sinceMs > 0 ? 'CreatedAt > :sinceMs' : undefined,
+        ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
+        ExpressionAttributeValues: {
+          ':pk': pk,
+          ':prefix': skPrefix,
+          ...(sinceMs > 0 && { ':sinceMs': sinceMs }),
+        },
+        ScanIndexForward: true,
+      });
 
-      for (const raw of result.Items ?? []) {
+      for (const raw of items) {
         try {
-          results.push(this.mapper.toEntity(raw as unknown as DynamoDBItem));
+          results.push(this.mapper.toEntity(raw));
         } catch (error) {
           logger.warn('無効なメッセージデータをスキップしました', {
-            pk: (raw as Record<string, unknown>).PK,
-            sk: (raw as Record<string, unknown>).SK,
+            pk: raw.PK,
+            sk: raw.SK,
             error: error instanceof Error ? error.message : String(error),
           });
         }
       }
-
-      if (!result.LastEvaluatedKey) break;
-      exclusiveStartKey = result.LastEvaluatedKey;
+    } catch (error) {
+      throw toDatabaseError(error);
     }
 
     return results;

@@ -2,12 +2,17 @@ import {
   DeleteCommand,
   GetCommand,
   PutCommand,
-  QueryCommand,
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import { logger } from '@nagiyu/common';
-import { isConditionalCheckFailed, toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import {
+  isConditionalCheckFailed,
+  queryAllItems,
+  queryPages,
+  toDatabaseError,
+  type DynamoDBItem,
+} from '@nagiyu/aws';
 import type {
   CreateSelfFactInput,
   SelfFactEntity,
@@ -128,26 +133,16 @@ export class DynamoDBTopicRepository implements TopicRepository {
     const pk = buildUserPK(key.userId);
     const prefix = buildTopicBundleSKPrefix(key.characterId, key.topicId);
     const bundle: TopicBundle = { topic: null, selfFacts: [], webFacts: [] };
-    let exclusiveStartKey: Record<string, unknown> | undefined;
 
-    for (;;) {
-      let result;
-      try {
-        result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
-            ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
-            ExpressionAttributeValues: { ':pk': pk, ':prefix': prefix },
-            ExclusiveStartKey: exclusiveStartKey,
-          })
-        );
-      } catch (error) {
-        throw toDatabaseError(error);
-      }
+    try {
+      const items = await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
+        ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
+        ExpressionAttributeValues: { ':pk': pk, ':prefix': prefix },
+      });
 
-      for (const raw of result.Items ?? []) {
-        const item = raw as unknown as DynamoDBItem;
+      for (const item of items) {
         switch (item.Type) {
           case 'Topic':
             bundle.topic = this.topicMapper.toEntity(item);
@@ -162,9 +157,8 @@ export class DynamoDBTopicRepository implements TopicRepository {
             break;
         }
       }
-
-      if (!result.LastEvaluatedKey) break;
-      exclusiveStartKey = result.LastEvaluatedKey;
+    } catch (error) {
+      throw toDatabaseError(error);
     }
 
     return bundle;
@@ -189,36 +183,26 @@ export class DynamoDBTopicRepository implements TopicRepository {
   ): Promise<TopicEntity[]> {
     const gsi3pk = buildTopicGSI3PK(characterId, userId);
     const results: TopicEntity[] = [];
-    let exclusiveStartKey: Record<string, unknown> | undefined;
 
-    for (;;) {
-      let result;
-      try {
-        result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            IndexName: TOPIC_GSI_INDEX_NAME,
-            KeyConditionExpression: '#gsi3pk = :pk',
-            ExpressionAttributeNames: { '#gsi3pk': 'GSI3PK' },
-            ExpressionAttributeValues: { ':pk': gsi3pk },
-            ScanIndexForward: options.scanIndexForward,
-            ...(options.limit !== undefined ? { Limit: options.limit } : {}),
-            ExclusiveStartKey: exclusiveStartKey,
-          })
-        );
-      } catch (error) {
-        throw toDatabaseError(error);
-      }
-
-      for (const raw of result.Items ?? []) {
-        results.push(this.topicMapper.toEntity(raw as unknown as DynamoDBItem));
-        if (options.limit !== undefined && results.length >= options.limit) {
-          return results.slice(0, options.limit);
+    try {
+      for await (const page of queryPages(this.docClient, {
+        TableName: this.tableName,
+        IndexName: TOPIC_GSI_INDEX_NAME,
+        KeyConditionExpression: '#gsi3pk = :pk',
+        ExpressionAttributeNames: { '#gsi3pk': 'GSI3PK' },
+        ExpressionAttributeValues: { ':pk': gsi3pk },
+        ScanIndexForward: options.scanIndexForward,
+        ...(options.limit !== undefined ? { Limit: options.limit } : {}),
+      })) {
+        for (const raw of page) {
+          results.push(this.topicMapper.toEntity(raw));
+          if (options.limit !== undefined && results.length >= options.limit) {
+            return results.slice(0, options.limit);
+          }
         }
       }
-
-      if (!result.LastEvaluatedKey) break;
-      exclusiveStartKey = result.LastEvaluatedKey;
+    } catch (error) {
+      throw toDatabaseError(error);
     }
 
     return results;
@@ -293,37 +277,27 @@ export class DynamoDBTopicRepository implements TopicRepository {
   ): Promise<WebFactEntity[]> {
     const gsi4pk = buildTopicStaleGSI4PK(characterId, userId);
     const results: WebFactEntity[] = [];
-    let exclusiveStartKey: Record<string, unknown> | undefined;
 
-    for (;;) {
-      let result;
-      try {
-        result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            IndexName: STALE_GSI_INDEX_NAME,
-            KeyConditionExpression: '#gsi4pk = :pk AND #gsi4sk <= :now',
-            ExpressionAttributeNames: { '#gsi4pk': 'GSI4PK', '#gsi4sk': 'GSI4SK' },
-            ExpressionAttributeValues: { ':pk': gsi4pk, ':now': nowMs },
-            // 期限が古い順（昇順）で窓走査する。停止分・遅延分を取りこぼさないため、
-            // begins_with や現在バケットのみの参照ではなく `GSI4SK <= now` で幅広く拾う。
-            ScanIndexForward: true,
-            ExclusiveStartKey: exclusiveStartKey,
-          })
-        );
-      } catch (error) {
-        throw toDatabaseError(error);
-      }
-
-      for (const raw of result.Items ?? []) {
-        results.push(this.webFactMapper.toEntity(raw as unknown as DynamoDBItem));
-        if (results.length >= limit) {
-          return results.slice(0, limit);
+    try {
+      for await (const page of queryPages(this.docClient, {
+        TableName: this.tableName,
+        IndexName: STALE_GSI_INDEX_NAME,
+        KeyConditionExpression: '#gsi4pk = :pk AND #gsi4sk <= :now',
+        ExpressionAttributeNames: { '#gsi4pk': 'GSI4PK', '#gsi4sk': 'GSI4SK' },
+        ExpressionAttributeValues: { ':pk': gsi4pk, ':now': nowMs },
+        // 期限が古い順（昇順）で窓走査する。停止分・遅延分を取りこぼさないため、
+        // begins_with や現在バケットのみの参照ではなく `GSI4SK <= now` で幅広く拾う。
+        ScanIndexForward: true,
+      })) {
+        for (const raw of page) {
+          results.push(this.webFactMapper.toEntity(raw));
+          if (results.length >= limit) {
+            return results.slice(0, limit);
+          }
         }
       }
-
-      if (!result.LastEvaluatedKey) break;
-      exclusiveStartKey = result.LastEvaluatedKey;
+    } catch (error) {
+      throw toDatabaseError(error);
     }
 
     return results;
@@ -362,33 +336,16 @@ export class DynamoDBTopicRepository implements TopicRepository {
     skPrefix: string,
     mapper: { toEntity(item: DynamoDBItem): T }
   ): Promise<T[]> {
-    const results: T[] = [];
-    let exclusiveStartKey: Record<string, unknown> | undefined;
-
-    for (;;) {
-      let result;
-      try {
-        result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
-            ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
-            ExpressionAttributeValues: { ':pk': pk, ':prefix': skPrefix },
-            ExclusiveStartKey: exclusiveStartKey,
-          })
-        );
-      } catch (error) {
-        throw toDatabaseError(error);
-      }
-
-      for (const raw of result.Items ?? []) {
-        results.push(mapper.toEntity(raw as unknown as DynamoDBItem));
-      }
-
-      if (!result.LastEvaluatedKey) break;
-      exclusiveStartKey = result.LastEvaluatedKey;
+    try {
+      const items = await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
+        ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
+        ExpressionAttributeValues: { ':pk': pk, ':prefix': skPrefix },
+      });
+      return items.map((raw) => mapper.toEntity(raw));
+    } catch (error) {
+      throw toDatabaseError(error);
     }
-
-    return results;
   }
 }
