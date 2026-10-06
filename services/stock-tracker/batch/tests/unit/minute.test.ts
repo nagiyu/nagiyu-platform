@@ -6,7 +6,7 @@
  */
 
 import { handler } from '../../src/minute.js';
-import type { ScheduledEvent } from '../../src/minute.js';
+import type { ScheduledEvent } from '@nagiyu/aws';
 import * as awsClients from '@nagiyu/aws';
 import * as webPushClient from '../../src/lib/web-push-client.js';
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
@@ -26,7 +26,20 @@ const mockGetCurrentPrice = jest.fn();
 let mockFinnhubGetCurrentPrice: jest.Mock;
 
 // モックの設定
-jest.mock('@nagiyu/aws');
+// createScheduledHandler の骨格は本物を使い、骨格内部のエラー報告も同じモックで観測できるよう
+// 報告関数の実体モジュールを差し替える。
+jest.mock('../../../../../libs/aws/src/error-events/report.js', () => ({
+  ...jest.requireActual('../../../../../libs/aws/src/error-events/report.js'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
+jest.mock('@nagiyu/aws', () => {
+  const actual = jest.requireActual('@nagiyu/aws');
+  return {
+    ...jest.createMockFromModule('@nagiyu/aws'),
+    createScheduledHandler: actual.createScheduledHandler,
+    reportErrorEvent: actual.reportErrorEvent,
+  };
+});
 jest.mock('../../src/lib/web-push-client.js');
 jest.mock('@nagiyu/common/push', () => ({
   sendWebPushNotification: jest.fn(),
@@ -506,25 +519,22 @@ describe('minute batch handler', () => {
   });
 
   describe('異常系: DynamoDB 接続エラー', () => {
-    it('DynamoDB 接続エラーが発生した場合、500 エラーを返す', async () => {
+    it('DynamoDB 接続エラーが発生した場合、エラー報告したうえで例外を再送出する', async () => {
       // Arrange
-      mockAlertRepo.getByFrequency.mockRejectedValue(new Error('DynamoDB 接続エラー'));
+      const dbError = new Error('DynamoDB 接続エラー');
+      mockAlertRepo.getByFrequency.mockRejectedValue(dbError);
       (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
 
-      // Act
-      const response = await handler(mockEvent);
-
-      // Assert
-      expect(response.statusCode).toBe(500);
+      // Act & Assert
+      await expect(handler(mockEvent)).rejects.toBe(dbError);
       expect(awsClients.reportErrorEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           serviceId: 'stock-tracker',
           severity: 'error',
+          title: '分次バッチ: 致命的エラー',
+          message: 'DynamoDB 接続エラー',
         })
       );
-      const body = JSON.parse(response.body);
-      expect(body.message).toContain('エラーが発生しました');
-      expect(body.error).toContain('DynamoDB 接続エラー');
     });
   });
 

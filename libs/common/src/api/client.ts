@@ -7,6 +7,9 @@
 import { handleFetchError, extractErrorInfo } from './error-handler.js';
 import { APIError } from './types.js';
 import type { RetryConfig, APIRequestOptions } from './types.js';
+import { sleep } from '../async/sleep.js';
+
+export { sleep };
 
 /**
  * デフォルトリトライ設定
@@ -34,13 +37,6 @@ export function calculateBackoffDelay(attempt: number, config: RetryConfig): num
   // ジッター追加（遅延時間の±25%のランダム値）
   const jitter = delay * 0.25 * (Math.random() * 2 - 1);
   return Math.floor(delay + jitter);
-}
-
-/**
- * 指定時間スリープ
- */
-export function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**

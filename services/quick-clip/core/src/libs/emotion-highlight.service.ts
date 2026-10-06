@@ -1,6 +1,7 @@
 import { zodTextFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
 import {
+  runWithConcurrency,
   withRetry,
   withTimeout,
   extractOpenAIResponsesUsage,
@@ -106,24 +107,6 @@ function toDominantEmotion(item: {
   return entries.reduce((best, current) => (current[1] > best[1] ? current : best))[0];
 }
 
-async function runWithConcurrency<T>(
-  tasks: Array<() => Promise<T>>,
-  concurrency: number
-): Promise<T[]> {
-  const results: T[] = new Array(tasks.length);
-  let index = 0;
-
-  async function worker(): Promise<void> {
-    while (index < tasks.length) {
-      const i = index++;
-      results[i] = await tasks[i]();
-    }
-  }
-
-  await Promise.all(Array.from({ length: concurrency }, worker));
-  return results;
-}
-
 export class EmotionHighlightService {
   private readonly client: OpenAI;
 
@@ -148,6 +131,8 @@ export class EmotionHighlightService {
       tension: number;
     }> = [];
 
+    // 並列実行ではチャンク番号の完了順が入れ替わるため、完了件数で進捗を報告する
+    let completedChunks = 0;
     const responses = await runWithConcurrency(
       chunks.map((chunk, chunkIndex) => async () => {
         console.info(
@@ -209,8 +194,9 @@ export class EmotionHighlightService {
           outcome: resolveOpenAIResponsesOutcome(response.status),
           ...extractOpenAIResponsesUsage(response.usage),
         });
+        completedChunks++;
         if (onProgress && chunks.length > 1) {
-          await onProgress(chunkIndex + 1, chunks.length);
+          await onProgress(completedChunks, chunks.length);
         }
         return response;
       }),

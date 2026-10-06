@@ -1,46 +1,21 @@
 import { ListService } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
-import type { ApiErrorResponse, PersonalListResponse, PersonalListsResponse } from '@/types';
+import type { PersonalListResponse, PersonalListsResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createListRepository } from '@nagiyu/share-together-core';
+import {
+  createValidationErrorResponse,
+  createConflictErrorResponse,
+  createInternalServerErrorResponse,
+} from '@/lib/api/responses';
+import { isNonEmptyString, isValidationError } from '@/lib/api/validation';
 
 const VALIDATION_ERROR_MESSAGES: Set<string> = new Set([
   ERROR_MESSAGES.USER_ID_REQUIRED,
   ERROR_MESSAGES.LIST_NAME_INVALID,
 ]);
-
-function createValidationErrorResponse(): NextResponse {
-  const response: ApiErrorResponse = {
-    error: 'VALIDATION_ERROR',
-    message: ERROR_MESSAGES.VALIDATION_ERROR,
-  };
-
-  return NextResponse.json(response, { status: 400 });
-}
-
-function createInternalServerErrorResponse(): NextResponse {
-  const response: ApiErrorResponse = {
-    error: 'INTERNAL_SERVER_ERROR',
-    message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-  };
-
-  return NextResponse.json(response, { status: 500 });
-}
-
-function createConflictResponse(code: string, message: string): NextResponse {
-  const response: ApiErrorResponse = {
-    error: code,
-    message,
-  };
-
-  return NextResponse.json(response, { status: 409 });
-}
-
-function isValidationError(error: unknown): boolean {
-  return error instanceof Error && VALIDATION_ERROR_MESSAGES.has(error.message);
-}
 
 function createListService(): ListService {
   const tableName = process.env.DYNAMODB_TABLE_NAME;
@@ -52,10 +27,6 @@ function createListService(): ListService {
     process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
   const listRepository = createListRepository(docClient, tableName);
   return new ListService(listRepository);
-}
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
 }
 
 export async function GET(): Promise<NextResponse> {
@@ -84,7 +55,7 @@ export async function GET(): Promise<NextResponse> {
 
     return NextResponse.json(response);
   } catch (error) {
-    if (isValidationError(error)) {
+    if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
       return createValidationErrorResponse();
     }
 
@@ -125,11 +96,11 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     return NextResponse.json(response, { status: 201 });
   } catch (error) {
-    if (isValidationError(error) || error instanceof SyntaxError) {
+    if (isValidationError(error, VALIDATION_ERROR_MESSAGES) || error instanceof SyntaxError) {
       return createValidationErrorResponse();
     }
     if (error instanceof Error && error.message === ERROR_MESSAGES.PERSONAL_LIST_LIMIT_EXCEEDED) {
-      return createConflictResponse('PERSONAL_LIST_LIMIT_EXCEEDED', error.message);
+      return createConflictErrorResponse('PERSONAL_LIST_LIMIT_EXCEEDED', error.message);
     }
 
     console.error('個人リスト作成 API の実行に失敗しました', {

@@ -16,6 +16,7 @@ import {
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import { DatabaseError, queryAllItems, type DynamoDBItem } from '@nagiyu/aws';
+import { sleep } from '@nagiyu/common';
 import type { AccountDeletionResult } from '../entities/account-deletion.entity.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
 import { buildSafetyEventGSI2PK, buildSafetyEventSKPrefix, buildUserPK } from '../mappers/keys.js';
@@ -42,7 +43,6 @@ const UNPROCESSED_BASE_DELAY_MS = 50;
  * テストで差し替えやすいよう DI 可能にする。
  */
 type SleepFn = (ms: number) => Promise<void>;
-const defaultSleep: SleepFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export class DynamoDBAccountDeletionRepository implements AccountDeletionRepository {
   private readonly docClient: DynamoDBDocumentClient;
@@ -56,13 +56,13 @@ export class DynamoDBAccountDeletionRepository implements AccountDeletionReposit
     tableName: string,
     ulidFactory: UlidFactory = defaultUlidFactory,
     nowMs: () => number = () => Date.now(),
-    sleep: SleepFn = defaultSleep
+    sleepFn: SleepFn = sleep
   ) {
     this.docClient = docClient;
     this.tableName = tableName;
     this.ulidFactory = ulidFactory;
     this.nowMs = nowMs;
-    this.sleep = sleep;
+    this.sleep = sleepFn;
   }
 
   public async deleteAccount(userId: string): Promise<AccountDeletionResult> {

@@ -325,6 +325,37 @@ describe('Trading Hours Checker Service', () => {
     it('日曜日 → 翌日月曜日を返す', () => {
       expect(getNextWeekday('2024-01-14')).toBe('2024-01-15');
     });
+
+    describe('負のオフセットのタイムゾーン', () => {
+      // Jest の process.env は実プロセスに反映されず TZ を切り替えられないため、
+      // UTC-5 相当のローカル getter に差し替えて負のオフセット環境を再現する
+      const OFFSET_MS = -5 * 60 * 60 * 1000;
+      const shifted = (date: Date): Date => new Date(date.getTime() + OFFSET_MS);
+
+      beforeEach(() => {
+        jest.spyOn(Date.prototype, 'getFullYear').mockImplementation(function (this: Date) {
+          return shifted(this).getUTCFullYear();
+        });
+        jest.spyOn(Date.prototype, 'getMonth').mockImplementation(function (this: Date) {
+          return shifted(this).getUTCMonth();
+        });
+        jest.spyOn(Date.prototype, 'getDate').mockImplementation(function (this: Date) {
+          return shifted(this).getUTCDate();
+        });
+      });
+
+      afterEach(() => {
+        jest.restoreAllMocks();
+      });
+
+      it('ローカル時刻が前日になる環境でも UTC 基準の翌平日を返す', () => {
+        // 前提の確認: UTC 0 時はこの環境のローカル時刻では前日になる
+        expect(new Date('2024-01-16T00:00:00Z').getDate()).toBe(15);
+
+        expect(getNextWeekday('2024-01-15')).toBe('2024-01-16');
+        expect(getNextWeekday('2024-01-12')).toBe('2024-01-15');
+      });
+    });
   });
 
   describe('formatDateInTimezone', () => {

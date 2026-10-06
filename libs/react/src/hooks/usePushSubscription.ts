@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { subscribePush } from '@nagiyu/browser';
+import { isPushSupported, subscribePush } from '@nagiyu/browser';
 
 export interface UsePushSubscriptionOptions {
   /** VAPID 公開鍵を取得する関数。subscribe() 呼び出し時に遅延実行される。 */
@@ -30,13 +30,6 @@ export interface UsePushSubscriptionReturn {
   /** プッシュ通知の購読を解除する */
   unsubscribe: () => Promise<void>;
 }
-
-const isPushSupported = (): boolean =>
-  typeof window !== 'undefined' &&
-  typeof window.Notification !== 'undefined' &&
-  'serviceWorker' in navigator &&
-  typeof navigator.serviceWorker?.register === 'function' &&
-  'PushManager' in window;
 
 /**
  * プッシュ通知の購読状態を管理する React Hook。
