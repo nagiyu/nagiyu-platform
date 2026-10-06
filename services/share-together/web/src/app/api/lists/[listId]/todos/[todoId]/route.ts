@@ -1,10 +1,17 @@
 import { type ListRepository, TodoService } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
-import type { ApiErrorResponse, TodoResponse } from '@/types';
+import type { TodoResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createListRepository, createTodoRepository } from '@nagiyu/share-together-core';
+import {
+  createValidationErrorResponse,
+  createNotFoundErrorResponse,
+  createForbiddenErrorResponse,
+  createInternalServerErrorResponse,
+} from '@/lib/api/responses';
+import { isNonEmptyString, isValidationError, isNotFoundError } from '@/lib/api/validation';
 
 const VALIDATION_ERROR_MESSAGES: Set<string> = new Set([
   ERROR_MESSAGES.USER_ID_REQUIRED,
@@ -26,42 +33,6 @@ interface UpdateTodoRequestBody {
   isCompleted?: unknown;
 }
 
-function createValidationErrorResponse(): NextResponse {
-  const response: ApiErrorResponse = {
-    error: 'VALIDATION_ERROR',
-    message: ERROR_MESSAGES.VALIDATION_ERROR,
-  };
-
-  return NextResponse.json(response, { status: 400 });
-}
-
-function createNotFoundErrorResponse(): NextResponse {
-  const response: ApiErrorResponse = {
-    error: 'NOT_FOUND',
-    message: ERROR_MESSAGES.NOT_FOUND,
-  };
-
-  return NextResponse.json(response, { status: 404 });
-}
-
-function createForbiddenErrorResponse(): NextResponse {
-  const response: ApiErrorResponse = {
-    error: 'FORBIDDEN',
-    message: ERROR_MESSAGES.FORBIDDEN,
-  };
-
-  return NextResponse.json(response, { status: 403 });
-}
-
-function createInternalServerErrorResponse(): NextResponse {
-  const response: ApiErrorResponse = {
-    error: 'INTERNAL_SERVER_ERROR',
-    message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-  };
-
-  return NextResponse.json(response, { status: 500 });
-}
-
 function createServices(): { listRepository: ListRepository; todoService: TodoService } {
   const tableName = process.env.DYNAMODB_TABLE_NAME;
   if (!tableName) {
@@ -76,10 +47,6 @@ function createServices(): { listRepository: ListRepository; todoService: TodoSe
     listRepository,
     todoService: new TodoService(todoRepository),
   };
-}
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
 }
 
 function parseUpdateBody(
@@ -102,14 +69,6 @@ function parseUpdateBody(
   }
 
   return updates;
-}
-
-function isValidationError(error: unknown): boolean {
-  return error instanceof Error && VALIDATION_ERROR_MESSAGES.has(error.message);
-}
-
-function isNotFoundError(error: unknown): boolean {
-  return error instanceof Error && NOT_FOUND_ERROR_MESSAGES.has(error.message);
 }
 
 export async function PUT(
@@ -155,10 +114,10 @@ export async function PUT(
 
     return NextResponse.json(response);
   } catch (error) {
-    if (isValidationError(error) || error instanceof SyntaxError) {
+    if (isValidationError(error, VALIDATION_ERROR_MESSAGES) || error instanceof SyntaxError) {
       return createValidationErrorResponse();
     }
-    if (isNotFoundError(error)) {
+    if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
       return createNotFoundErrorResponse();
     }
 
@@ -205,10 +164,10 @@ export async function DELETE(
     await todoService.deleteTodo(listId, todoId);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    if (isValidationError(error)) {
+    if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
       return createValidationErrorResponse();
     }
-    if (isNotFoundError(error)) {
+    if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
       return createNotFoundErrorResponse();
     }
 
