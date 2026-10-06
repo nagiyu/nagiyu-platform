@@ -1,12 +1,16 @@
 import {
-  BatchWriteCommand,
   DeleteCommand,
   GetCommand,
   PutCommand,
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { mapConditionalCheckFailed, queryAllItems, toDatabaseError } from '@nagiyu/aws';
+import {
+  batchWriteAll,
+  mapConditionalCheckFailed,
+  queryAllItems,
+  toDatabaseError,
+} from '@nagiyu/aws';
 import type { CreateTodoItemInput, TodoItem, UpdateTodoItemInput } from '../../types/index.js';
 import type { TodoRepository } from './todo-repository.interface.js';
 import { withDatabaseError } from '../with-database-error.js';
@@ -228,28 +232,13 @@ export class DynamoDBTodoRepository implements TodoRepository {
       return;
     }
 
-    for (let batchStartIndex = 0; batchStartIndex < keys.length; batchStartIndex += 25) {
-      let pendingRequests = keys.slice(batchStartIndex, batchStartIndex + 25).map((key) => ({
-        DeleteRequest: { Key: key },
-      }));
-
-      while (pendingRequests.length > 0) {
-        const batchWriteResult = await withDatabaseError(() =>
-          this.docClient.send(
-            new BatchWriteCommand({
-              RequestItems: {
-                [this.tableName]: pendingRequests,
-              },
-            })
-          )
-        );
-
-        pendingRequests =
-          (batchWriteResult.UnprocessedItems?.[this.tableName] as
-            | typeof pendingRequests
-            | undefined) ?? [];
-      }
-    }
+    await withDatabaseError(() =>
+      batchWriteAll(
+        this.docClient,
+        this.tableName,
+        keys.map((key) => ({ DeleteRequest: { Key: key } }))
+      )
+    );
   }
 
   private buildListPk(listId: string): string {

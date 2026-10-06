@@ -212,6 +212,32 @@ describe('DynamoDBVideoRepository', () => {
       expect(ddbMock.commandCalls(BatchGetCommand)).toHaveLength(2);
     });
 
+    it('未処理キーを再送して取得できる', async () => {
+      const buildItem = (videoId: string) => ({
+        PK: `VIDEO#${videoId}`,
+        SK: `VIDEO#${videoId}`,
+        Type: 'VIDEO',
+        videoId,
+        title: videoId,
+        thumbnailUrl: 'https://example.com/thumb.jpg',
+        length: '5:00',
+        CreatedAt: 1234567890000,
+        UpdatedAt: 1234567890000,
+      });
+      ddbMock
+        .on(BatchGetCommand)
+        .resolvesOnce({
+          Responses: { [tableName]: [buildItem('sm1')] },
+          UnprocessedKeys: { [tableName]: { Keys: [{ PK: 'VIDEO#sm2', SK: 'VIDEO#sm2' }] } },
+        })
+        .resolvesOnce({ Responses: { [tableName]: [buildItem('sm2')] } });
+
+      const result = await repository.batchGet(['sm1', 'sm2']);
+
+      expect(result.map((video) => video.videoId)).toEqual(['sm1', 'sm2']);
+      expect(ddbMock.commandCalls(BatchGetCommand)).toHaveLength(2);
+    });
+
     it('Responsesがundefinedの場合は空配列を返す', async () => {
       ddbMock.on(BatchGetCommand).resolves({});
 
