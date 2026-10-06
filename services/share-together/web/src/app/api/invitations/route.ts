@@ -1,6 +1,6 @@
 import { BatchGetCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { NextResponse } from 'next/server';
-import type { ApiErrorResponse, InvitationSummary, InvitationsResponse } from '@/types';
+import type { InvitationSummary, InvitationsResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
@@ -10,26 +10,12 @@ import {
   createUserRepository,
 } from '@nagiyu/share-together-core';
 import { toErrorMessage } from '@nagiyu/common';
+import {
+  createValidationErrorResponse,
+  createInternalServerErrorResponse,
+} from '@/lib/api/responses';
 
 const USER_META_SK = '#META#';
-
-function createValidationErrorResponse(): NextResponse {
-  const response: ApiErrorResponse = {
-    error: 'VALIDATION_ERROR',
-    message: ERROR_MESSAGES.VALIDATION_ERROR,
-  };
-
-  return NextResponse.json(response, { status: 400 });
-}
-
-function createInternalServerErrorResponse(): NextResponse {
-  const response: ApiErrorResponse = {
-    error: 'INTERNAL_SERVER_ERROR',
-    message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-  };
-
-  return NextResponse.json(response, { status: 500 });
-}
 
 export async function GET(): Promise<NextResponse> {
   try {

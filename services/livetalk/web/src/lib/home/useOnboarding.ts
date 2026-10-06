@@ -1,9 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { isPushSupported } from '@nagiyu/browser';
 import {
   isStandalone,
-  isPushSupported,
   shouldShowInstallGuide,
   shouldShowNotificationPermission,
 } from '../pwa/standalone';

@@ -3,12 +3,18 @@ import {
   respondToInvitation,
 } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
-import type { ApiErrorResponse, ApiSuccessResponse } from '@/types';
+import type { ApiSuccessResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createGroupRepository, createMembershipRepository } from '@nagiyu/share-together-core';
 import { toErrorMessage } from '@nagiyu/common';
+import {
+  createValidationErrorResponse,
+  createNotFoundErrorResponse,
+  createInternalServerErrorResponse,
+} from '@/lib/api/responses';
+import { createErrorResponse } from '@nagiyu/nextjs';
 
 type RouteParams = {
   params: Promise<{ groupId: string }>;
@@ -25,22 +31,6 @@ type InvitationUpdateResponse = {
   status: 'ACCEPTED' | 'REJECTED';
   updatedAt: string;
 };
-
-function createErrorResponse(code: string, message: string, status: number): NextResponse {
-  const response: ApiErrorResponse = {
-    error: code,
-    message,
-  };
-  return NextResponse.json(response, { status });
-}
-
-function createValidationErrorResponse(): NextResponse {
-  return createErrorResponse('VALIDATION_ERROR', ERROR_MESSAGES.VALIDATION_ERROR, 400);
-}
-
-function createInternalServerErrorResponse(): NextResponse {
-  return createErrorResponse('INTERNAL_SERVER_ERROR', ERROR_MESSAGES.INTERNAL_SERVER_ERROR, 500);
-}
 
 function isInvitationAction(action: unknown): action is InvitationAction {
   return action === 'ACCEPT' || action === 'REJECT';
@@ -109,10 +99,10 @@ export async function PUT(request: Request, { params }: RouteParams): Promise<Ne
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === GROUP_ERROR_MESSAGES.INVITATION_NOT_FOUND) {
-        return createErrorResponse('NOT_FOUND', ERROR_MESSAGES.NOT_FOUND, 404);
+        return createNotFoundErrorResponse();
       }
       if (error.message === GROUP_ERROR_MESSAGES.INVITATION_ALREADY_RESPONDED) {
-        return createErrorResponse('ALREADY_RESPONDED', ERROR_MESSAGES.ALREADY_RESPONDED, 409);
+        return createErrorResponse(409, 'ALREADY_RESPONDED', ERROR_MESSAGES.ALREADY_RESPONDED);
       }
     }
 

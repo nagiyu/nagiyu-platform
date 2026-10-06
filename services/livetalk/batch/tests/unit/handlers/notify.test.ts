@@ -1,8 +1,12 @@
-import type { ScheduledEvent } from '../../../src/handlers/notify.js';
+import type { ScheduledEvent } from '@nagiyu/aws';
 
+// 骨格 (createScheduledHandler) は実物を使い、副作用のある DynamoDB 取得とエラー報告だけを差し替える
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
   getDynamoDBDocumentClient: jest.fn(() => ({})),
   getTableName: jest.fn(() => 'test-table'),
+}));
+jest.mock('../../../../../../libs/aws/src/error-events/report.js', () => ({
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
@@ -59,24 +63,26 @@ describe('notify handler', () => {
     expect(body.skippedUsers).toBe(2);
   });
 
-  it('notifyAllUsers が throw した場合に 500 を返す', async () => {
+  it('notifyAllUsers が throw した場合に元の例外を再送出する', async () => {
     mockNotifyAll.mockRejectedValue(new Error('DynamoDB 障害'));
 
     const { handler } = await import('../../../src/handlers/notify.js');
-    const response = await handler(makeEvent());
-
-    expect(response.statusCode).toBe(500);
-    const body = JSON.parse(response.body);
-    expect(body.error).toContain('DynamoDB 障害');
+    await expect(handler(makeEvent())).rejects.toThrow('DynamoDB 障害');
   });
 
-  it('reportErrorEvent が 500 時に呼ばれる', async () => {
+  it('例外発生時に reportErrorEvent を呼ぶ', async () => {
     mockNotifyAll.mockRejectedValue(new Error('致命的エラー'));
-    const { reportErrorEvent } = jest.requireMock('@nagiyu/aws');
+    const { reportErrorEvent } = await import('@nagiyu/aws');
 
     const { handler } = await import('../../../src/handlers/notify.js');
-    await handler(makeEvent());
+    await expect(handler(makeEvent())).rejects.toThrow();
 
-    expect(reportErrorEvent).toHaveBeenCalledWith(expect.objectContaining({ severity: 'error' }));
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'livetalk',
+        severity: 'error',
+        title: '通知バッチ: 致命的エラー',
+      })
+    );
   });
 });

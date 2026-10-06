@@ -5,6 +5,7 @@ import { subscribePush } from '@nagiyu/browser';
 import { snoozeNotificationPermission } from '@/lib/pwa/standalone';
 
 jest.mock('@nagiyu/browser', () => ({
+  ...jest.requireActual('@nagiyu/browser'),
   subscribePush: jest.fn(),
 }));
 

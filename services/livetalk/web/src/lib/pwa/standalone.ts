@@ -23,15 +23,6 @@ export function detectPlatform(): Platform {
   return 'other';
 }
 
-export function isPushSupported(): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    typeof window.Notification !== 'undefined' &&
-    'serviceWorker' in navigator &&
-    'PushManager' in window
-  );
-}
-
 function readSnoozedAt(key: string): number | null {
   if (typeof window === 'undefined') return null;
   // @nagiyu/browser の getItem は値を JSON.parse 試行するため、
