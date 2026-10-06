@@ -1,3 +1,4 @@
+import { logger } from '@nagiyu/common';
 import { type VapidConfig } from '@nagiyu/common/push';
 
 jest.mock('@nagiyu/common', () => ({
@@ -7,6 +8,27 @@ jest.mock('@nagiyu/common', () => ({
 
 jest.mock('@nagiyu/common/push', () => ({
   sendWebPushNotification: jest.fn(),
+  sendWebPushNotifications: jest.fn(
+    async (
+      targets: unknown[],
+      toSubscription: (target: unknown) => unknown,
+      payload: unknown,
+      vapidConfig: unknown
+    ) => {
+      // 共通ライブラリ内部の import はモックできないため、単体送信モックを逐次呼ぶ振る舞いを再現する
+      const send = jest.requireMock('@nagiyu/common/push').sendWebPushNotification;
+      const result = { sent: [] as unknown[], invalid: [] as unknown[], failed: [] as unknown[] };
+      for (const target of targets) {
+        try {
+          const ok = await send(toSubscription(target), payload, vapidConfig);
+          (ok ? result.sent : result.invalid).push(target);
+        } catch (error) {
+          result.failed.push({ target, error });
+        }
+      }
+      return result;
+    }
+  ),
   getVapidConfig: jest.fn(
     () =>
       ({
@@ -248,6 +270,49 @@ describe('notifyAllUsers', () => {
       userId: 'u1',
       subscriptionId: 'sub_1',
     });
+  });
+
+  it('無効サブスクリプションの削除に失敗しても、他の送信成功分の notifEvent は保存される', async () => {
+    mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
+    mockShouldNotifyNow.mockReturnValue({
+      notify: true,
+      kind: 'normal',
+      toneBucket: 'normal',
+      elapsedMs: DAY,
+    });
+    mockSendWebPush.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+
+    const pushSubscriptionRepo = makePushSubscriptionRepo([
+      {
+        SubscriptionID: 'sub_1',
+        Endpoint: 'https://push.example.com/1',
+        P256dhKey: 'p',
+        AuthKey: 'a',
+      },
+      {
+        SubscriptionID: 'sub_2',
+        Endpoint: 'https://push.example.com/2',
+        P256dhKey: 'p',
+        AuthKey: 'a',
+      },
+    ]);
+    pushSubscriptionRepo.delete.mockRejectedValue(new Error('delete failed'));
+    const notifEventRepo = makeNotifEventRepo();
+    const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+    const result = await notifyAllUsers(
+      makeParams({
+        pushSubscriptionRepo: pushSubscriptionRepo as never,
+        notifEventRepo: notifEventRepo as never,
+      })
+    );
+
+    expect(notifEventRepo.put).toHaveBeenCalledTimes(1);
+    expect(result.notifiedUsers).toBe(1);
+    expect(result.failedUsers).toBe(0);
+    expect(logger.warn).toHaveBeenCalledWith(
+      '[notifyAllUsers] 無効なサブスクリプションの削除失敗（継続）',
+      expect.objectContaining({ userId: 'u1', subscriptionId: 'sub_2', error: 'delete failed' })
+    );
   });
 
   it('全送信が false でも notifEvent は保存されない（sentCount=0）', async () => {
