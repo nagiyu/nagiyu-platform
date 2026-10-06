@@ -1,23 +1,18 @@
 import { createGroup, type Group } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
-import type { ApiErrorResponse, ApiSuccessResponse } from '@/types';
+import type { ApiSuccessResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createGroupRepository, createMembershipRepository } from '@nagiyu/share-together-core';
 import { toErrorMessage } from '@nagiyu/common';
+import {
+  createValidationErrorResponse,
+  createInternalServerErrorResponse,
+} from '@/lib/api/responses';
 
 interface GroupSummary extends Group {
   isOwner: boolean;
-}
-
-function createErrorResponse(status: number, code: string, message: string): NextResponse {
-  const response: ApiErrorResponse = {
-    error: code,
-    message,
-  };
-
-  return NextResponse.json(response, { status });
 }
 
 export async function GET(): Promise<NextResponse> {
@@ -69,7 +64,7 @@ export async function GET(): Promise<NextResponse> {
       message: errorMessage,
       context: { errorStack: error instanceof Error ? error.stack : undefined },
     });
-    return createErrorResponse(500, 'INTERNAL_SERVER_ERROR', ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
+    return createInternalServerErrorResponse();
   }
 }
 
@@ -85,7 +80,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     const body = (await request.json()) as { name?: unknown };
     const name = typeof body.name === 'string' ? body.name.trim() : '';
     if (name.length === 0 || name.length > 100) {
-      return createErrorResponse(400, 'VALIDATION_ERROR', ERROR_MESSAGES.VALIDATION_ERROR);
+      return createValidationErrorResponse();
     }
 
     const tableName = process.env.DYNAMODB_TABLE_NAME;
@@ -119,6 +114,6 @@ export async function POST(request: Request): Promise<NextResponse> {
       message: errorMessage,
       context: { errorStack: error instanceof Error ? error.stack : undefined },
     });
-    return createErrorResponse(500, 'INTERNAL_SERVER_ERROR', ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
+    return createInternalServerErrorResponse();
   }
 }

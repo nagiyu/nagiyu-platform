@@ -17,7 +17,10 @@ export async function getVideoInfoBatch(
   const success: NiconicoVideoInfo[] = [];
   const failed: Array<{ videoId: string; error: string }> = [];
 
-  // 並列数を制限しながら取得
+  // 並列数を制限しながら取得する。
+  // N 件ずつ区切って全件の完了を待ってから次へ進めるのは、空いたらすぐ次を始める方式
+  // (共通の runWithConcurrency) だとニコニコ動画への時間あたりのリクエスト数が増えるため。
+  // 区切りごとの待ちがリクエスト間隔を空ける役割を持つので、共通ヘルパーには置き換えない。
   for (let i = 0; i < videoIds.length; i += concurrency) {
     const batch = videoIds.slice(i, i + concurrency);
     const promises = batch.map(async (videoId) => {

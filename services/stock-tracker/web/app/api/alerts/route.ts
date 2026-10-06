@@ -9,7 +9,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { validateAlert, calculateTemporaryExpireDate } from '@nagiyu/stock-tracker-core';
-import { withAuth, parsePagination, handleApiError } from '@nagiyu/nextjs';
+import {
+  withAuth,
+  parsePagination,
+  handleApiError,
+  validatePushSubscription,
+} from '@nagiyu/nextjs';
 import { reportErrorEvent } from '@nagiyu/aws';
 import {
   createAlertRepository,
@@ -208,18 +213,8 @@ export const POST = withAuth(
       const userId = session.user.userId;
 
       // Web Push サブスクリプション情報の確認
-      if (!body.subscription || typeof body.subscription !== 'object') {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.SUBSCRIPTION_REQUIRED,
-          },
-          { status: 400 }
-        );
-      }
-
       const subscription = body.subscription;
-      if (!subscription.endpoint || !subscription.keys?.p256dh || !subscription.keys?.auth) {
+      if (!validatePushSubscription(subscription)) {
         return NextResponse.json(
           {
             error: 'INVALID_REQUEST',

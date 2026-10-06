@@ -38,7 +38,7 @@ export class LiveTalkAlarmsStack extends cdk.Stack {
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     };
 
-    // ---- (A) バッチ Lambda Errors（2本）----
+    // ---- (A) バッチ Lambda Errors（4本）----
 
     const learnActivityErrorAlarm = new cloudwatch.Alarm(this, 'LearnActivityErrorsAlarm', {
       alarmName: `livetalk-batch-learn-activity-errors-${environment}`,
@@ -69,6 +69,34 @@ export class LiveTalkAlarmsStack extends cdk.Stack {
       ...commonAlarmProps,
     });
     notifyErrorAlarm.addAlarmAction(action);
+
+    const consolidateErrorAlarm = new cloudwatch.Alarm(this, 'ConsolidateErrorsAlarm', {
+      alarmName: `livetalk-batch-consolidate-errors-${environment}`,
+      alarmDescription: '集約バッチ Lambda の例外発生（5 分間で 1 件以上）',
+      metric: new cloudwatch.Metric({
+        namespace: 'AWS/Lambda',
+        metricName: 'Errors',
+        dimensionsMap: { FunctionName: `nagiyu-livetalk-batch-consolidate-${environment}` },
+        statistic: cloudwatch.Stats.SUM,
+        period: cdk.Duration.minutes(5),
+      }),
+      ...commonAlarmProps,
+    });
+    consolidateErrorAlarm.addAlarmAction(action);
+
+    const acquireErrorAlarm = new cloudwatch.Alarm(this, 'AcquireErrorsAlarm', {
+      alarmName: `livetalk-batch-acquire-errors-${environment}`,
+      alarmDescription: '取得バッチ Lambda の例外発生（5 分間で 1 件以上）',
+      metric: new cloudwatch.Metric({
+        namespace: 'AWS/Lambda',
+        metricName: 'Errors',
+        dimensionsMap: { FunctionName: `nagiyu-livetalk-batch-acquire-${environment}` },
+        statistic: cloudwatch.Stats.SUM,
+        period: cdk.Duration.minutes(5),
+      }),
+      ...commonAlarmProps,
+    });
+    acquireErrorAlarm.addAlarmAction(action);
 
     // ---- (B) バッチ DLQ 滞留（2本）----
 
@@ -169,6 +197,8 @@ export class LiveTalkAlarmsStack extends cdk.Stack {
     const allAlarms = [
       learnActivityErrorAlarm,
       notifyErrorAlarm,
+      consolidateErrorAlarm,
+      acquireErrorAlarm,
       learnActivityDlqAlarm,
       notifyDlqAlarm,
       alb5xxAlarm,

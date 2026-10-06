@@ -115,6 +115,40 @@ describe('POST /api/mylist/register', () => {
     expect(json.error).toBe('UNAUTHORIZED');
   });
 
+  it.each([
+    ['endpoint が URL 形式でない', { endpoint: 'not-a-url', keys: { p256dh: 'a', auth: 'b' } }],
+    ['鍵が空', { endpoint: 'https://example.com/e', keys: { p256dh: '', auth: '' } }],
+    ['null', null],
+  ])('pushSubscription が不正（%s）な場合は 400 を返す', async (_label, pushSubscription) => {
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+
+    const response = await POST(
+      makePostRequest({ maxCount: 10, mylistName: 'テストマイリスト', pushSubscription })
+    );
+    expect(response.status).toBe(400);
+
+    const json = await response.json();
+    expect(json.error).toBe('INVALID_REQUEST');
+    expect(json.message).toBe('pushSubscription の形式が不正です');
+    expect(mockGetEncryptedUserSessionBlob).not.toHaveBeenCalled();
+  });
+
+  it('pushSubscription が正しい場合は検証を通過する', async () => {
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+    mockGetEncryptedUserSessionBlob.mockResolvedValue(null);
+
+    const response = await POST(
+      makePostRequest({
+        maxCount: 10,
+        mylistName: 'テストマイリスト',
+        pushSubscription: { endpoint: 'https://example.com/e', keys: { p256dh: 'a', auth: 'b' } },
+      })
+    );
+
+    // 検証を通過し、後続の保存セッション確認で 400 SESSION_NOT_REGISTERED になる
+    expect((await response.json()).error).toBe('SESSION_NOT_REGISTERED');
+  });
+
   it('保存セッションが未登録の場合は 400 を返す', async () => {
     mockGetSession.mockResolvedValue(MOCK_SESSION);
     mockGetEncryptedUserSessionBlob.mockResolvedValue(null);

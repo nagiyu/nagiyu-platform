@@ -16,9 +16,9 @@ const synth = (environment = 'dev') => {
 };
 
 describe('LiveTalkAlarmsStack', () => {
-  it('CloudWatch アラームが 7 個作成される', () => {
+  it('CloudWatch アラームが 9 個作成される', () => {
     const { template } = synth();
-    template.resourceCountIs('AWS::CloudWatch::Alarm', 7);
+    template.resourceCountIs('AWS::CloudWatch::Alarm', 9);
   });
 
   it('学習バッチ Lambda エラーアラームが存在する', () => {
@@ -36,6 +36,26 @@ describe('LiveTalkAlarmsStack', () => {
       AlarmName: 'livetalk-batch-notify-errors-dev',
       Namespace: 'AWS/Lambda',
       MetricName: 'Errors',
+    });
+  });
+
+  it('集約バッチ Lambda エラーアラームが存在する', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'livetalk-batch-consolidate-errors-dev',
+      Namespace: 'AWS/Lambda',
+      MetricName: 'Errors',
+      Dimensions: [{ Name: 'FunctionName', Value: 'nagiyu-livetalk-batch-consolidate-dev' }],
+    });
+  });
+
+  it('取得バッチ Lambda エラーアラームが存在する', () => {
+    const { template } = synth();
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      AlarmName: 'livetalk-batch-acquire-errors-dev',
+      Namespace: 'AWS/Lambda',
+      MetricName: 'Errors',
+      Dimensions: [{ Name: 'FunctionName', Value: 'nagiyu-livetalk-batch-acquire-dev' }],
     });
   });
 
@@ -110,16 +130,16 @@ describe('LiveTalkAlarmsStack', () => {
     template.hasOutput('TotalAlarmsCount', Match.anyValue());
   });
 
-  it('TotalAlarmsCount の Output 値が 7 である', () => {
+  it('TotalAlarmsCount の Output 値が 9 である', () => {
     const { template } = synth();
     template.hasOutput('TotalAlarmsCount', {
-      Value: '7',
+      Value: '9',
     });
   });
 
   it('prod 環境でも正しく synth できる', () => {
     const { template } = synth('prod');
-    template.resourceCountIs('AWS::CloudWatch::Alarm', 7);
+    template.resourceCountIs('AWS::CloudWatch::Alarm', 9);
     template.hasResourceProperties('AWS::CloudWatch::Alarm', {
       AlarmName: 'livetalk-batch-learn-activity-errors-prod',
       Namespace: 'AWS/Lambda',
@@ -127,10 +147,10 @@ describe('LiveTalkAlarmsStack', () => {
     });
   });
 
-  it('prod 環境の TotalAlarmsCount が 7 である', () => {
+  it('prod 環境の TotalAlarmsCount が 9 である', () => {
     const { template } = synth('prod');
     template.hasOutput('TotalAlarmsCount', {
-      Value: '7',
+      Value: '9',
     });
   });
 });

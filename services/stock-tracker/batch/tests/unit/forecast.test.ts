@@ -30,7 +30,8 @@ import type {
   Question,
 } from '@nagiyu/stock-tracker-core';
 import { handler } from '../../src/forecast.js';
-import type { HandlerDependencies, ReplayEvent, ScheduledEvent } from '../../src/forecast.js';
+import type { ScheduledEvent } from '@nagiyu/aws';
+import type { HandlerDependencies, ReplayEvent } from '../../src/forecast.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 

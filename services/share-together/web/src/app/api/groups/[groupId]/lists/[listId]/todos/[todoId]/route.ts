@@ -1,14 +1,15 @@
 import { type ListRepository, TodoService } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
-import type { ApiErrorResponse, TodoResponse } from '@/types';
-import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import type { TodoResponse } from '@/types';
+import { getAuthorizedGroupContext } from '@/lib/api/authorization';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { createListRepository, createTodoRepository } from '@nagiyu/share-together-core';
 import {
-  createListRepository,
-  createMembershipRepository,
-  createTodoRepository,
-} from '@nagiyu/share-together-core';
+  createValidationErrorResponse,
+  createNotFoundErrorResponse,
+  createInternalServerErrorResponse,
+} from '@/lib/api/responses';
+import { isValidationError, isNotFoundError } from '@/lib/api/validation';
 
 interface TodoRouteParams {
   groupId: string;
@@ -35,19 +36,6 @@ const VALIDATION_ERROR_MESSAGES: Set<string> = new Set([
 
 const NOT_FOUND_ERROR_MESSAGES: Set<string> = new Set([ERROR_MESSAGES.TODO_NOT_FOUND]);
 
-function createErrorResponse(code: string, message: string, status: number): NextResponse {
-  const response: ApiErrorResponse = {
-    error: code,
-    message,
-  };
-
-  return NextResponse.json(response, { status });
-}
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
-}
-
 function parseUpdateBody(
   body: UpdateTodoRequestBody
 ): { title?: string; isCompleted?: boolean } | null {
@@ -70,14 +58,6 @@ function parseUpdateBody(
   return updates;
 }
 
-function isValidationError(error: unknown): boolean {
-  return error instanceof Error && VALIDATION_ERROR_MESSAGES.has(error.message);
-}
-
-function isNotFoundError(error: unknown): boolean {
-  return error instanceof Error && NOT_FOUND_ERROR_MESSAGES.has(error.message);
-}
-
 async function getAuthorizedContext(params: RouteParams['params']): Promise<
   | {
       groupId: string;
@@ -89,44 +69,19 @@ async function getAuthorizedContext(params: RouteParams['params']): Promise<
     }
   | NextResponse
 > {
-  const sessionOrUnauthorized = await getSessionOrUnauthorized();
-  if ('status' in sessionOrUnauthorized) {
-    return sessionOrUnauthorized;
+  const contextOrResponse = await getAuthorizedGroupContext(params);
+  if ('status' in contextOrResponse) {
+    return contextOrResponse;
   }
 
-  const { groupId, listId, todoId } = await params;
-  const userId = sessionOrUnauthorized.user.id;
-  if (
-    !isNonEmptyString(groupId) ||
-    !isNonEmptyString(listId) ||
-    !isNonEmptyString(todoId) ||
-    !isNonEmptyString(userId)
-  ) {
-    return createErrorResponse('VALIDATION_ERROR', ERROR_MESSAGES.VALIDATION_ERROR, 400);
-  }
-
-  const tableName = process.env.DYNAMODB_TABLE_NAME;
-  if (!tableName) {
-    throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
-  }
-
-  const docClient =
-    process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
-  const membershipRepository = createMembershipRepository(docClient, tableName);
-  const membership = await membershipRepository.getById(groupId, userId);
-  if (!membership || membership.status !== 'ACCEPTED') {
-    return createErrorResponse('FORBIDDEN', ERROR_MESSAGES.FORBIDDEN, 403);
-  }
-
-  const todoRepository = createTodoRepository(docClient, tableName);
-
+  const { groupId, listId, todoId, userId, docClient, tableName } = contextOrResponse;
   return {
     groupId,
     listId,
     todoId,
     userId,
     listRepository: createListRepository(docClient, tableName),
-    todoService: new TodoService(todoRepository),
+    todoService: new TodoService(createTodoRepository(docClient, tableName)),
   };
 }
 
@@ -150,7 +105,7 @@ export async function PUT(request: Request, { params }: RouteParams): Promise<Ne
     const body = (await request.json()) as UpdateTodoRequestBody;
     const updates = parseUpdateBody(body);
     if (!updates) {
-      return createErrorResponse('VALIDATION_ERROR', ERROR_MESSAGES.VALIDATION_ERROR, 400);
+      return createValidationErrorResponse();
     }
 
     const existingList = await authorizedContextOrResponse.listRepository.getGroupListById(
@@ -158,7 +113,7 @@ export async function PUT(request: Request, { params }: RouteParams): Promise<Ne
       authorizedContextOrResponse.listId
     );
     if (!existingList) {
-      return createErrorResponse('NOT_FOUND', ERROR_MESSAGES.NOT_FOUND, 404);
+      return createNotFoundErrorResponse();
     }
 
     const todo = await authorizedContextOrResponse.todoService.updateTodo(
@@ -171,11 +126,11 @@ export async function PUT(request: Request, { params }: RouteParams): Promise<Ne
     const response: TodoResponse = { data: todo };
     return NextResponse.json(response);
   } catch (error) {
-    if (isValidationError(error) || error instanceof SyntaxError) {
-      return createErrorResponse('VALIDATION_ERROR', ERROR_MESSAGES.VALIDATION_ERROR, 400);
+    if (isValidationError(error, VALIDATION_ERROR_MESSAGES) || error instanceof SyntaxError) {
+      return createValidationErrorResponse();
     }
-    if (isNotFoundError(error)) {
-      return createErrorResponse('NOT_FOUND', ERROR_MESSAGES.NOT_FOUND, 404);
+    if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
+      return createNotFoundErrorResponse();
     }
 
     console.error('グループ共有ToDo更新 API の実行に失敗しました', {
@@ -185,7 +140,7 @@ export async function PUT(request: Request, { params }: RouteParams): Promise<Ne
       userId: requestedUserId,
       error,
     });
-    return createErrorResponse('INTERNAL_SERVER_ERROR', ERROR_MESSAGES.INTERNAL_SERVER_ERROR, 500);
+    return createInternalServerErrorResponse();
   }
 }
 
@@ -209,7 +164,7 @@ export async function DELETE(_request: Request, { params }: RouteParams): Promis
       authorizedContextOrResponse.listId
     );
     if (!existingList) {
-      return createErrorResponse('NOT_FOUND', ERROR_MESSAGES.NOT_FOUND, 404);
+      return createNotFoundErrorResponse();
     }
 
     await authorizedContextOrResponse.todoService.deleteTodo(
@@ -218,11 +173,11 @@ export async function DELETE(_request: Request, { params }: RouteParams): Promis
     );
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    if (isValidationError(error)) {
-      return createErrorResponse('VALIDATION_ERROR', ERROR_MESSAGES.VALIDATION_ERROR, 400);
+    if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
+      return createValidationErrorResponse();
     }
-    if (isNotFoundError(error)) {
-      return createErrorResponse('NOT_FOUND', ERROR_MESSAGES.NOT_FOUND, 404);
+    if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
+      return createNotFoundErrorResponse();
     }
 
     console.error('グループ共有ToDo削除 API の実行に失敗しました', {
@@ -231,6 +186,6 @@ export async function DELETE(_request: Request, { params }: RouteParams): Promis
       todoId: requestedTodoId,
       error,
     });
-    return createErrorResponse('INTERNAL_SERVER_ERROR', ERROR_MESSAGES.INTERNAL_SERVER_ERROR, 500);
+    return createInternalServerErrorResponse();
   }
 }
