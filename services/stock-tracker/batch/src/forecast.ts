@@ -21,6 +21,7 @@ import {
   getTableName,
   createScheduledHandler,
   reportErrorEvent,
+  ScheduledHandlerError,
 } from '@nagiyu/aws';
 import type { HandlerResponse, ScheduledEvent } from '@nagiyu/aws';
 import {
@@ -836,6 +837,7 @@ async function handleScheduled(
     noMarketData: 0,
     errors: 0,
   };
+  const failedMarkets: Market[] = [];
   const legacyExclusionBefore = process.env.STOCK_TRACKER_LEGACY_EXCLUSION_BEFORE;
 
   const now = deps.nowFn();
@@ -862,6 +864,7 @@ async function handleScheduled(
         context: { market, errorStack: error instanceof Error ? error.stack : undefined },
       });
       stats.errors++;
+      failedMarkets.push(market);
     }
   }
 
@@ -870,8 +873,13 @@ async function handleScheduled(
   // 他の市場の処理を済ませた後、いずれかの市場が失敗していれば最後に例外を投げて
   // Lambda の呼び出し自体をエラーにする（CloudWatch のエラー率アラームで検知できるようにする）。
   if (stats.errors > 0) {
-    throw new Error(
-      `確度算出バッチで一部の市場の処理に失敗しました（失敗数: ${stats.errors}）: ${JSON.stringify(stats)}`
+    // 市場ごとの個別報告は済んでいるため、骨格の報告は「致命的エラー」ではなく部分失敗として区別する。
+    throw new ScheduledHandlerError(
+      `確度算出バッチで一部の市場の処理に失敗しました（失敗数: ${stats.errors}）: ${JSON.stringify(stats)}`,
+      {
+        title: '確度算出バッチ: 部分失敗',
+        context: { statistics: stats, failedMarkets },
+      }
     );
   }
 
@@ -1062,8 +1070,13 @@ async function handleReplay(
   });
 
   if (stoppedAt !== undefined) {
-    throw new Error(
-      `リプレイが ${stoppedAt.market} ${stoppedAt.date} で停止しました: ${stoppedAt.reason}（統計: ${JSON.stringify(stats)}）`
+    // ステップごとの個別報告は済んでいるため、骨格の報告は「致命的エラー」ではなく停止として区別する。
+    throw new ScheduledHandlerError(
+      `リプレイが ${stoppedAt.market} ${stoppedAt.date} で停止しました: ${stoppedAt.reason}（統計: ${JSON.stringify(stats)}）`,
+      {
+        title: '確度算出バッチ（リプレイ）: 停止',
+        context: { statistics: stats, stoppedAt },
+      }
     );
   }
 
