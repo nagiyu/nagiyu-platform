@@ -512,6 +512,61 @@ describe('DynamoDBListRepository', () => {
     });
   });
 
+  describe('ページング', () => {
+    const lastEvaluatedKey = { PK: 'USER#user-1', SK: 'PLIST#list-1' };
+
+    it('getPersonalListsByUserId は複数ページにわたる全件を取得する', async () => {
+      const createItem = (listId: string): Record<string, unknown> => ({
+        PK: 'USER#user-1',
+        SK: `PLIST#${listId}`,
+        listId,
+        userId: 'user-1',
+        name: listId,
+        isDefault: false,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      });
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Items: [createItem('list-1')],
+          LastEvaluatedKey: lastEvaluatedKey,
+        })
+        .mockResolvedValueOnce({ Items: [createItem('list-2')] });
+
+      const result = await repository.getPersonalListsByUserId('user-1');
+
+      expect(result.map((list) => list.listId)).toEqual(['list-1', 'list-2']);
+      const secondCommand = mockDocClient.send.mock.calls[1]?.[0] as QueryCommand;
+      expect(secondCommand.input.ExclusiveStartKey).toEqual(lastEvaluatedKey);
+    });
+
+    it('getGroupListsByGroupId は複数ページにわたる全件を取得する', async () => {
+      const createItem = (listId: string): Record<string, unknown> => ({
+        PK: 'GROUP#group-1',
+        SK: `GLIST#${listId}`,
+        listId,
+        groupId: 'group-1',
+        name: listId,
+        createdBy: 'user-1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      });
+      const groupLastEvaluatedKey = { PK: 'GROUP#group-1', SK: 'GLIST#list-1' };
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Items: [createItem('list-1')],
+          LastEvaluatedKey: groupLastEvaluatedKey,
+        })
+        .mockResolvedValueOnce({ Items: [createItem('list-2')] });
+
+      const result = await repository.getGroupListsByGroupId('group-1');
+
+      expect(result.map((list) => list.listId)).toEqual(['list-1', 'list-2']);
+      const secondCommand = mockDocClient.send.mock.calls[1]?.[0] as QueryCommand;
+      expect(secondCommand.input.ExclusiveStartKey).toEqual(groupLastEvaluatedKey);
+    });
+  });
+
   describe('SDK例外のDatabaseError化', () => {
     it('個人リスト取得時のSDK例外はDatabaseErrorに包まれる', async () => {
       mockDocClient.send.mockRejectedValueOnce(createSdkError());

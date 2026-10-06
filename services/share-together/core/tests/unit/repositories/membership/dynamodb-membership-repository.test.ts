@@ -346,6 +346,51 @@ describe('DynamoDBMembershipRepository', () => {
     });
   });
 
+  describe('ページング', () => {
+    const lastEvaluatedKey = { PK: 'GROUP#group-1', SK: 'MEMBER#user-1' };
+
+    const expectPaged = async (
+      run: () => Promise<{ userId: string }[]>,
+      firstItem: Record<string, unknown>,
+      secondItem: Record<string, unknown>
+    ): Promise<void> => {
+      mockDocClient.send
+        .mockResolvedValueOnce({ Items: [firstItem], LastEvaluatedKey: lastEvaluatedKey })
+        .mockResolvedValueOnce({ Items: [secondItem] });
+
+      const result = await run();
+
+      expect(result.map((membership) => membership.userId)).toEqual(['user-1', 'user-2']);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
+      const secondCommand = mockDocClient.send.mock.calls[1]?.[0] as QueryCommand;
+      expect(secondCommand.input.ExclusiveStartKey).toEqual(lastEvaluatedKey);
+    };
+
+    it('getByGroupId は複数ページにわたる全件を取得する', async () => {
+      await expectPaged(
+        () => repository.getByGroupId('group-1'),
+        createMembershipItem(),
+        createMembershipItem({ SK: 'MEMBER#user-2', userId: 'user-2' })
+      );
+    });
+
+    it('getByUserId は複数ページにわたる全件を取得する', async () => {
+      await expectPaged(
+        () => repository.getByUserId('user-1'),
+        createMembershipItem(),
+        createMembershipItem({ userId: 'user-2' })
+      );
+    });
+
+    it('getPendingInvitationsByUserId は複数ページにわたる全件を取得する', async () => {
+      await expectPaged(
+        () => repository.getPendingInvitationsByUserId('user-1'),
+        createMembershipItem(),
+        createMembershipItem({ userId: 'user-2' })
+      );
+    });
+  });
+
   describe('SDK例外のDatabaseError化', () => {
     it('取得時のSDK例外はDatabaseErrorに包まれる', async () => {
       mockDocClient.send.mockRejectedValueOnce(createSdkError());
