@@ -197,6 +197,6 @@ describe('NotifyButton', () => {
     render(<NotifyButton />);
     await userEvent.click(screen.getByRole('button', { name: '通知を有効にする' }));
 
-    expect(await screen.findByText('通知購読の登録に失敗しました')).toBeInTheDocument();
+    expect(await screen.findByText('サブスクリプションの登録に失敗しました')).toBeInTheDocument();
   });
 });
