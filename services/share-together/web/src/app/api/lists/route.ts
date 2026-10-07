@@ -4,7 +4,7 @@ import type { PersonalListResponse, PersonalListsResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
-import { createListRepository } from '@nagiyu/share-together-core';
+import { createListRepository, createTodoRepository } from '@nagiyu/share-together-core';
 import {
   createValidationErrorResponse,
   createConflictErrorResponse,
@@ -26,7 +26,8 @@ function createListService(): ListService {
   const docClient =
     process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
   const listRepository = createListRepository(docClient, tableName);
-  return new ListService(listRepository);
+  const todoRepository = createTodoRepository(docClient, tableName);
+  return new ListService(listRepository, todoRepository);
 }
 
 export async function GET(): Promise<NextResponse> {

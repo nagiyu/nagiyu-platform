@@ -44,7 +44,7 @@ function createServices(): { listService: ListService; todoService: TodoService 
   const todoRepository = createTodoRepository(docClient, tableName);
 
   return {
-    listService: new ListService(listRepository),
+    listService: new ListService(listRepository, todoRepository),
     todoService: new TodoService(todoRepository),
   };
 }
