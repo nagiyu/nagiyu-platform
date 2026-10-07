@@ -518,6 +518,15 @@ BatchWriteItem (25 件まで) と BatchGetItem (100 件まで) は、上限件�
 - **再送は回数の上限と待機付き**: 上限なし・待機なしの即時再送は、スロットリング中のテーブルに負荷をかけ続ける。既定は最大 4 回、50ms から倍々に待つ。
 - **上限を超えたら例外にする**: 取りこぼしを残したまま返すより、失敗として呼び出し元に知らせ、再実行に委ねる。この例外は `DatabaseError` の派生にしない。呼び出し元ごとに包み方 (`toDatabaseError` か、独自の接頭辞付きメッセージか) が違うため、ここで `DatabaseError` にすると文言が二重になる。
 
+### DynamoDB 部分更新の式の組み立て
+
+`UpdateCommand` の `UpdateExpression` と名前・値の対応表は、`@nagiyu/aws` の `buildUpdateExpression` で組み立てる。サービス側で「項目があれば式・名前・値の 3 つに足す」処理を手書きしない。手書きは、使わない名前を表に残す、式に入れ忘れた値が残るといった不整合を起こしやすく、どちらも DynamoDB がエラーにする。
+
+- **値が `undefined` の項目は飛ばす**: 共通クライアントは `undefined` の値を表から落とすので、式に置き場所だけが残るとエラーになる。
+- **消す合図はサービスごとに違い、揃えていない**: stock-tracker は `null`、share-together は「キーがあって値が `undefined`」が消す合図になっている。共通関数は特定の値を消す合図と決めず、目印 `REMOVE_ATTRIBUTE` だけを受け付ける。各サービスは呼び出し側で自分の合図を目印に変換する。
+- **更新日時の属性名と形式は呼び出し側が渡す**: `UpdatedAt` (ミリ秒) / `updatedAt` (ISO 文字列) / `updatedAt` (秒) がサービスごとに混在しており、既存データと読み取り側がそれを前提にしている。
+- **更新日時は更新項目に数えない**: 更新項目が空のときの扱い (エラーにする / 更新日時だけ更新する) もサービスごとに違う。共通関数は `null` を返して呼び出し側に判断を委ね、更新日時だけ更新するサービスは `updateTimestampWhenEmpty` を指定する。
+
 ### crypto ユーティリティ（AES-256-GCM + Secrets Manager）
 
 AWS Secrets Manager からキーを取得して AES-256-GCM 暗号化・復号化を行うユーティリティを `@nagiyu/aws` の `crypto` モジュールとして提供する。Secrets Manager 連携を伴うため `libs/common` ではなく `libs/aws` に配置する。
