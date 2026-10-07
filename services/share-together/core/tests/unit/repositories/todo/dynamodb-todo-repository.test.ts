@@ -8,6 +8,7 @@ import {
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBTodoRepository } from '../../../../src/repositories/todo/dynamodb-todo-repository.js';
+import { parseUpdateExpression } from '../../../helpers/update-expression.js';
 
 import { DatabaseError } from '@nagiyu/aws';
 
@@ -241,13 +242,15 @@ describe('DynamoDBTodoRepository', () => {
         ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
         ReturnValues: 'ALL_NEW',
       });
-      expect(command.input.UpdateExpression).toContain('#title = :title');
-      expect(command.input.UpdateExpression).toContain('#isCompleted = :isCompleted');
-      expect(command.input.UpdateExpression).toContain('#completedBy = :completedBy');
-      expect(command.input.ExpressionAttributeValues?.[':title']).toBe('updated');
-      expect(command.input.ExpressionAttributeValues?.[':isCompleted']).toBe(true);
-      expect(command.input.ExpressionAttributeValues?.[':completedBy']).toBe('user-1');
-      expect(command.input.ExpressionAttributeValues?.[':updatedAt']).toEqual(expect.any(String));
+      const parsed = parseUpdateExpression(command.input);
+      expect(parsed.set).toEqual({
+        title: 'updated',
+        isCompleted: true,
+        completedBy: 'user-1',
+        updatedAt: expect.any(String),
+      });
+      expect(parsed.remove).toEqual([]);
+      expect(command.input.ExpressionAttributeNames).toMatchObject({ '#pk': 'PK', '#sk': 'SK' });
     });
 
     it('completedByを削除して更新できる', async () => {
@@ -271,9 +274,10 @@ describe('DynamoDBTodoRepository', () => {
       });
       const command = mockDocClient.send.mock.calls[0]?.[0] as UpdateCommand;
 
-      expect(command.input.UpdateExpression).toContain('REMOVE #completedBy');
-      expect(command.input.ExpressionAttributeValues?.[':isCompleted']).toBe(false);
-      expect(command.input.ExpressionAttributeValues?.[':updatedAt']).toEqual(expect.any(String));
+      const parsed = parseUpdateExpression(command.input);
+      expect(parsed.remove).toEqual(['completedBy']);
+      expect(parsed.set).toEqual({ isCompleted: false, updatedAt: expect.any(String) });
+      expect(command.input.ExpressionAttributeNames).toMatchObject({ '#pk': 'PK', '#sk': 'SK' });
     });
 
     it('存在しないToDo更新時は日本語エラーを投げる', async () => {

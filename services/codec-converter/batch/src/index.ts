@@ -10,6 +10,7 @@ import {
   withErrorReporting,
   getDynamoDBDocumentClient,
   getS3Client,
+  buildUpdateExpression,
 } from '@nagiyu/aws';
 import { requireEnv, toErrorMessage } from '@nagiyu/common';
 
@@ -20,6 +21,7 @@ const ERROR_MESSAGES = {
   S3_DOWNLOAD_FAILED: 'S3からのダウンロードに失敗しました',
   S3_UPLOAD_FAILED: 'S3へのアップロードに失敗しました',
   DYNAMODB_UPDATE_FAILED: 'DynamoDBの更新に失敗しました',
+  UPDATE_EXPRESSION_EMPTY: '更新式を生成できませんでした',
   FFMPEG_EXECUTION_FAILED: 'FFmpegの実行に失敗しました',
   CLEANUP_FAILED: '一時ファイルのクリーンアップに失敗しました',
 } as const;
@@ -169,36 +171,23 @@ export async function updateJobStatus(
   errorMessage?: string
 ): Promise<void> {
   try {
-    const now = Math.floor(Date.now() / 1000);
-    const updateExpression = outputFile
-      ? 'SET #status = :status, #updatedAt = :updatedAt, #outputFile = :outputFile'
-      : errorMessage
-        ? 'SET #status = :status, #updatedAt = :updatedAt, #errorMessage = :errorMessage'
-        : 'SET #status = :status, #updatedAt = :updatedAt';
-
-    const expressionAttributeValues: Record<string, string | number> = {
-      ':status': status,
-      ':updatedAt': now,
-    };
-
-    if (outputFile) {
-      expressionAttributeValues[':outputFile'] = outputFile;
-    }
-    if (errorMessage) {
-      expressionAttributeValues[':errorMessage'] = errorMessage;
+    // 空文字は未指定として扱い、保存しない
+    const updateParts = buildUpdateExpression(
+      {
+        status,
+        outputFile: outputFile || undefined,
+        errorMessage: errorMessage || undefined,
+      },
+      { timestamp: { attributeName: 'updatedAt', value: Math.floor(Date.now() / 1000) } }
+    );
+    if (!updateParts) {
+      throw new Error(ERROR_MESSAGES.UPDATE_EXPRESSION_EMPTY);
     }
 
     const command = new UpdateCommand({
       TableName: tableName,
       Key: { jobId },
-      UpdateExpression: updateExpression,
-      ExpressionAttributeNames: {
-        '#status': 'status',
-        '#updatedAt': 'updatedAt',
-        ...(outputFile && { '#outputFile': 'outputFile' }),
-        ...(errorMessage && { '#errorMessage': 'errorMessage' }),
-      },
-      ExpressionAttributeValues: expressionAttributeValues,
+      ...updateParts,
     });
 
     await dynamodbClient.send(command);

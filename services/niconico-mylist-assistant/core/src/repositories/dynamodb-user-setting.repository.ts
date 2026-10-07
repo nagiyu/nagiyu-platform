@@ -17,6 +17,7 @@ import {
   EntityAlreadyExistsError,
   toDatabaseError,
   mapConditionalCheckFailed,
+  buildUpdateExpression,
   encodeCursor,
   decodeCursor,
   type PaginationOptions,
@@ -242,35 +243,18 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
     videoId: string,
     updates: UpdateUserSettingInput
   ): Promise<UserSettingEntity> {
-    const updateExpressions: string[] = [];
-    const expressionAttributeNames: Record<string, string> = {};
-    const expressionAttributeValues: Record<string, string | boolean | number> = {};
+    const updateParts = buildUpdateExpression(
+      {
+        isFavorite: updates.isFavorite,
+        isSkip: updates.isSkip,
+        memo: updates.memo,
+      },
+      { timestamp: { attributeName: 'UpdatedAt', value: Date.now() } }
+    );
 
-    if (updates.isFavorite !== undefined) {
-      updateExpressions.push('#isFavorite = :isFavorite');
-      expressionAttributeNames['#isFavorite'] = 'isFavorite';
-      expressionAttributeValues[':isFavorite'] = updates.isFavorite;
-    }
-
-    if (updates.isSkip !== undefined) {
-      updateExpressions.push('#isSkip = :isSkip');
-      expressionAttributeNames['#isSkip'] = 'isSkip';
-      expressionAttributeValues[':isSkip'] = updates.isSkip;
-    }
-
-    if (updates.memo !== undefined) {
-      updateExpressions.push('#memo = :memo');
-      expressionAttributeNames['#memo'] = 'memo';
-      expressionAttributeValues[':memo'] = updates.memo;
-    }
-
-    if (updateExpressions.length === 0) {
+    if (!updateParts) {
       throw new Error(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
     }
-
-    updateExpressions.push('#UpdatedAt = :UpdatedAt');
-    expressionAttributeNames['#UpdatedAt'] = 'UpdatedAt';
-    expressionAttributeValues[':UpdatedAt'] = Date.now();
 
     try {
       const { pk, sk } = this.mapper.buildKeys({ userId, videoId });
@@ -282,9 +266,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
             PK: pk,
             SK: sk,
           },
-          UpdateExpression: `SET ${updateExpressions.join(', ')}`,
-          ExpressionAttributeNames: expressionAttributeNames,
-          ExpressionAttributeValues: expressionAttributeValues,
+          ...updateParts,
           ConditionExpression: 'attribute_exists(PK)',
           ReturnValues: 'ALL_NEW',
         })

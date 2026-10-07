@@ -6,7 +6,7 @@ import {
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { mapConditionalCheckFailed, toDatabaseError } from '@nagiyu/aws';
+import { buildUpdateExpression, mapConditionalCheckFailed, toDatabaseError } from '@nagiyu/aws';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import type { CreateUserInput, UpdateUserInput, User } from '../../types/index.js';
 import type { UserRepository } from './user-repository.interface.js';
@@ -19,6 +19,7 @@ const ERROR_MESSAGES = {
   INVALID_USER_DATA: 'ユーザー情報の形式が不正です',
   USER_ALREADY_EXISTS: 'ユーザーは既に存在します',
   USER_NOT_FOUND: COMMON_ERROR_MESSAGES.USER_NOT_FOUND,
+  UPDATE_EXPRESSION_EMPTY: '更新式を生成できませんでした',
 } as const;
 
 export class DynamoDBUserRepository implements UserRepository {
@@ -111,37 +112,22 @@ export class DynamoDBUserRepository implements UserRepository {
   }
 
   public async update(userId: string, updates: UpdateUserInput): Promise<User> {
-    const now = new Date().toISOString();
-    const names: Record<string, string> = { '#updatedAt': 'updatedAt' };
-    const values: Record<string, unknown> = { ':updatedAt': now };
-    const setExpressions: string[] = ['#updatedAt = :updatedAt'];
-
-    if (updates.email !== undefined) {
-      names['#email'] = 'email';
-      values[':email'] = updates.email;
-      setExpressions.push('#email = :email');
-
-      names['#gsi2pk'] = 'GSI2PK';
-      values[':gsi2pk'] = this.buildEmailGsiPk(updates.email);
-      setExpressions.push('#gsi2pk = :gsi2pk');
-    }
-
-    if (updates.name !== undefined) {
-      names['#name'] = 'name';
-      values[':name'] = updates.name;
-      setExpressions.push('#name = :name');
-    }
-
-    if (updates.image !== undefined) {
-      names['#image'] = 'image';
-      values[':image'] = updates.image;
-      setExpressions.push('#image = :image');
-    }
-
-    if (updates.defaultListId !== undefined) {
-      names['#defaultListId'] = 'defaultListId';
-      values[':defaultListId'] = updates.defaultListId;
-      setExpressions.push('#defaultListId = :defaultListId');
+    const updateParts = buildUpdateExpression(
+      {
+        email: updates.email,
+        // GSI2PK は email から導出するため、email の更新に合わせて付け直す
+        GSI2PK: updates.email !== undefined ? this.buildEmailGsiPk(updates.email) : undefined,
+        name: updates.name,
+        image: updates.image,
+        defaultListId: updates.defaultListId,
+      },
+      {
+        timestamp: { attributeName: 'updatedAt', value: new Date().toISOString() },
+        updateTimestampWhenEmpty: true,
+      }
+    );
+    if (!updateParts) {
+      throw new Error(ERROR_MESSAGES.UPDATE_EXPRESSION_EMPTY);
     }
 
     let result;
@@ -153,10 +139,8 @@ export class DynamoDBUserRepository implements UserRepository {
             PK: this.buildUserPk(userId),
             SK: USER_META_SK,
           },
-          UpdateExpression: `SET ${setExpressions.join(', ')}`,
+          ...updateParts,
           ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
-          ExpressionAttributeNames: names,
-          ExpressionAttributeValues: values,
           ReturnValues: 'ALL_NEW',
         })
       );

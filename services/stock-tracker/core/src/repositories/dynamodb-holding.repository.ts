@@ -18,6 +18,7 @@ import {
   DatabaseError,
   mapConditionalCheckFailed,
   toDatabaseError,
+  buildUpdateExpression,
   encodeCursor,
   decodeCursor,
   type PaginationOptions,
@@ -169,41 +170,24 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
       }
 
       const { pk, sk } = this.mapper.buildKeys({ userId, tickerId });
-      const now = Date.now();
-
-      // 更新式を動的に構築
-      const updateExpressions: string[] = [];
-      const expressionAttributeNames: Record<string, string> = {};
-      const expressionAttributeValues: Record<string, unknown> = {};
-
-      if (updates.Quantity !== undefined) {
-        updateExpressions.push('#quantity = :quantity');
-        expressionAttributeNames['#quantity'] = 'Quantity';
-        expressionAttributeValues[':quantity'] = updates.Quantity;
+      const fields = {
+        Quantity: updates.Quantity,
+        AveragePrice: updates.AveragePrice,
+        Currency: updates.Currency,
+      };
+      const updateParts = buildUpdateExpression(fields, {
+        timestamp: { attributeName: 'UpdatedAt', value: Date.now() },
+        updateTimestampWhenEmpty: true,
+      });
+      if (!updateParts) {
+        throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
       }
-      if (updates.AveragePrice !== undefined) {
-        updateExpressions.push('#averagePrice = :averagePrice');
-        expressionAttributeNames['#averagePrice'] = 'AveragePrice';
-        expressionAttributeValues[':averagePrice'] = updates.AveragePrice;
-      }
-      if (updates.Currency !== undefined) {
-        updateExpressions.push('#currency = :currency');
-        expressionAttributeNames['#currency'] = 'Currency';
-        expressionAttributeValues[':currency'] = updates.Currency;
-      }
-
-      // UpdatedAt を常に更新
-      updateExpressions.push('#updatedAt = :updatedAt');
-      expressionAttributeNames['#updatedAt'] = 'UpdatedAt';
-      expressionAttributeValues[':updatedAt'] = now;
 
       const result = await this.docClient.send(
         new UpdateCommand({
           TableName: this.tableName,
           Key: { PK: pk, SK: sk },
-          UpdateExpression: `SET ${updateExpressions.join(', ')}`,
-          ExpressionAttributeNames: expressionAttributeNames,
-          ExpressionAttributeValues: expressionAttributeValues,
+          ...updateParts,
           ConditionExpression: 'attribute_exists(PK)',
           ReturnValues: 'ALL_NEW',
         })

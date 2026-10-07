@@ -5,7 +5,12 @@ import {
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { mapConditionalCheckFailed, queryAllItems, toDatabaseError } from '@nagiyu/aws';
+import {
+  buildUpdateExpression,
+  mapConditionalCheckFailed,
+  queryAllItems,
+  toDatabaseError,
+} from '@nagiyu/aws';
 import type {
   CreateGroupListInput,
   CreatePersonalListInput,
@@ -28,6 +33,7 @@ const ERROR_MESSAGES = {
   PERSONAL_LIST_NOT_FOUND: '個人リストが見つかりません',
   GROUP_LIST_NOT_FOUND: 'グループリストが見つかりません',
   DEFAULT_PERSONAL_LIST_NOT_DELETABLE: 'デフォルトリストは削除できません',
+  UPDATE_EXPRESSION_EMPTY: '更新式を生成できませんでした',
 } as const;
 
 export class DynamoDBListRepository implements ListRepository {
@@ -116,15 +122,15 @@ export class DynamoDBListRepository implements ListRepository {
     listId: string,
     updates: UpdatePersonalListInput
   ): Promise<PersonalList> {
-    const now = new Date().toISOString();
-    const names: Record<string, string> = { '#updatedAt': 'updatedAt' };
-    const values: Record<string, unknown> = { ':updatedAt': now };
-    const setExpressions: string[] = ['#updatedAt = :updatedAt'];
-
-    if (updates.name !== undefined) {
-      names['#name'] = 'name';
-      values[':name'] = updates.name;
-      setExpressions.push('#name = :name');
+    const updateParts = buildUpdateExpression(
+      { name: updates.name },
+      {
+        timestamp: { attributeName: 'updatedAt', value: new Date().toISOString() },
+        updateTimestampWhenEmpty: true,
+      }
+    );
+    if (!updateParts) {
+      throw new Error(ERROR_MESSAGES.UPDATE_EXPRESSION_EMPTY);
     }
 
     let result;
@@ -136,10 +142,8 @@ export class DynamoDBListRepository implements ListRepository {
             PK: this.buildUserPk(userId),
             SK: this.buildPersonalListSk(listId),
           },
-          UpdateExpression: `SET ${setExpressions.join(', ')}`,
+          ...updateParts,
           ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
-          ExpressionAttributeNames: names,
-          ExpressionAttributeValues: values,
           ReturnValues: 'ALL_NEW',
         })
       );
@@ -260,15 +264,15 @@ export class DynamoDBListRepository implements ListRepository {
     listId: string,
     updates: UpdateGroupListInput
   ): Promise<GroupList> {
-    const now = new Date().toISOString();
-    const names: Record<string, string> = { '#updatedAt': 'updatedAt' };
-    const values: Record<string, unknown> = { ':updatedAt': now };
-    const setExpressions: string[] = ['#updatedAt = :updatedAt'];
-
-    if (updates.name !== undefined) {
-      names['#name'] = 'name';
-      values[':name'] = updates.name;
-      setExpressions.push('#name = :name');
+    const updateParts = buildUpdateExpression(
+      { name: updates.name },
+      {
+        timestamp: { attributeName: 'updatedAt', value: new Date().toISOString() },
+        updateTimestampWhenEmpty: true,
+      }
+    );
+    if (!updateParts) {
+      throw new Error(ERROR_MESSAGES.UPDATE_EXPRESSION_EMPTY);
     }
 
     let result;
@@ -280,10 +284,8 @@ export class DynamoDBListRepository implements ListRepository {
             PK: this.buildGroupPk(groupId),
             SK: this.buildGroupListSk(listId),
           },
-          UpdateExpression: `SET ${setExpressions.join(', ')}`,
+          ...updateParts,
           ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
-          ExpressionAttributeNames: names,
-          ExpressionAttributeValues: values,
           ReturnValues: 'ALL_NEW',
         })
       );

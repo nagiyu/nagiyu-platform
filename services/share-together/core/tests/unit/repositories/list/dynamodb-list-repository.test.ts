@@ -7,6 +7,7 @@ import {
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBListRepository } from '../../../../src/repositories/list/dynamodb-list-repository.js';
+import { parseUpdateExpression } from '../../../helpers/update-expression.js';
 
 import { DatabaseError } from '@nagiyu/aws';
 
@@ -217,19 +218,12 @@ describe('DynamoDBListRepository', () => {
           PK: 'USER#user-1',
           SK: 'PLIST#list-1',
         },
-        UpdateExpression: 'SET #updatedAt = :updatedAt, #name = :name',
         ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
-        ExpressionAttributeNames: {
-          '#updatedAt': 'updatedAt',
-          '#name': 'name',
-        },
-        ExpressionAttributeValues: {
-          ':name': '更新後リスト',
-        },
         ReturnValues: 'ALL_NEW',
       });
-      expect(command.input.ExpressionAttributeValues).toMatchObject({
-        ':updatedAt': expect.any(String),
+      expect(parseUpdateExpression(command.input).set).toEqual({
+        name: '更新後リスト',
+        updatedAt: expect.any(String),
       });
     });
 
@@ -460,19 +454,12 @@ describe('DynamoDBListRepository', () => {
           PK: 'GROUP#group-1',
           SK: 'GLIST#list-1',
         },
-        UpdateExpression: 'SET #updatedAt = :updatedAt, #name = :name',
         ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
-        ExpressionAttributeNames: {
-          '#updatedAt': 'updatedAt',
-          '#name': 'name',
-        },
-        ExpressionAttributeValues: {
-          ':name': '更新後共有リスト',
-        },
         ReturnValues: 'ALL_NEW',
       });
-      expect(command.input.ExpressionAttributeValues).toMatchObject({
-        ':updatedAt': expect.any(String),
+      expect(parseUpdateExpression(command.input).set).toEqual({
+        name: '更新後共有リスト',
+        updatedAt: expect.any(String),
       });
     });
 

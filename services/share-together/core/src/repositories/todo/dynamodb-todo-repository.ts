@@ -7,8 +7,10 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import {
   batchWriteAll,
+  buildUpdateExpression,
   mapConditionalCheckFailed,
   queryAllItems,
+  REMOVE_ATTRIBUTE,
   toDatabaseError,
 } from '@nagiyu/aws';
 import type { CreateTodoItemInput, TodoItem, UpdateTodoItemInput } from '../../types/index.js';
@@ -21,6 +23,7 @@ const ERROR_MESSAGES = {
   INVALID_TODO_DATA: 'ToDo情報の形式が不正です',
   TODO_ALREADY_EXISTS: '指定されたToDoは既に存在します',
   TODO_NOT_FOUND: '指定されたToDoは存在しません',
+  UPDATE_EXPRESSION_EMPTY: '更新式を生成できませんでした',
 } as const;
 
 export class DynamoDBTodoRepository implements TodoRepository {
@@ -110,36 +113,23 @@ export class DynamoDBTodoRepository implements TodoRepository {
     todoId: string,
     updates: UpdateTodoItemInput
   ): Promise<TodoItem> {
-    const updatedAt = new Date().toISOString();
-    const setExpressions = ['#updatedAt = :updatedAt'];
-    const removeExpressions: string[] = [];
-    const expressionAttributeNames: Record<string, string> = {
-      '#pk': 'PK',
-      '#sk': 'SK',
-      '#updatedAt': 'updatedAt',
-    };
-    const expressionAttributeValues: Record<string, unknown> = {
-      ':updatedAt': updatedAt,
-    };
-
-    if (updates.title !== undefined) {
-      setExpressions.push('#title = :title');
-      expressionAttributeNames['#title'] = 'title';
-      expressionAttributeValues[':title'] = updates.title;
-    }
-    if (updates.isCompleted !== undefined) {
-      setExpressions.push('#isCompleted = :isCompleted');
-      expressionAttributeNames['#isCompleted'] = 'isCompleted';
-      expressionAttributeValues[':isCompleted'] = updates.isCompleted;
-    }
-    if ('completedBy' in updates) {
-      expressionAttributeNames['#completedBy'] = 'completedBy';
-      if (updates.completedBy === undefined) {
-        removeExpressions.push('#completedBy');
-      } else {
-        setExpressions.push('#completedBy = :completedBy');
-        expressionAttributeValues[':completedBy'] = updates.completedBy;
+    const updateParts = buildUpdateExpression(
+      {
+        title: updates.title,
+        isCompleted: updates.isCompleted,
+        // completedBy は、キーが存在して値が undefined のときだけ属性を削除する
+        completedBy:
+          'completedBy' in updates && updates.completedBy === undefined
+            ? REMOVE_ATTRIBUTE
+            : updates.completedBy,
+      },
+      {
+        timestamp: { attributeName: 'updatedAt', value: new Date().toISOString() },
+        updateTimestampWhenEmpty: true,
       }
+    );
+    if (!updateParts) {
+      throw new Error(ERROR_MESSAGES.UPDATE_EXPRESSION_EMPTY);
     }
 
     let result;
@@ -151,10 +141,14 @@ export class DynamoDBTodoRepository implements TodoRepository {
             PK: this.buildListPk(listId),
             SK: this.buildTodoSk(todoId),
           },
-          UpdateExpression: `SET ${setExpressions.join(', ')}${removeExpressions.length > 0 ? ` REMOVE ${removeExpressions.join(', ')}` : ''}`,
+          ...updateParts,
           ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
-          ExpressionAttributeNames: expressionAttributeNames,
-          ExpressionAttributeValues: expressionAttributeValues,
+          // 条件式用の #pk / #sk は共通関数が採番する名前と衝突しない
+          ExpressionAttributeNames: {
+            ...updateParts.ExpressionAttributeNames,
+            '#pk': 'PK',
+            '#sk': 'SK',
+          },
           ReturnValues: 'ALL_NEW',
         })
       );
