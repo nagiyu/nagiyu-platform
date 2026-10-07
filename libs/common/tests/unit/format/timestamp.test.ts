@@ -1,5 +1,9 @@
 import { describe, it, expect, afterEach, jest } from '@jest/globals';
-import { getTimestamp, formatLocalDateTime } from '../../../src/format/timestamp.js';
+import {
+  getTimestamp,
+  formatLocalDateTime,
+  formatLocalDate,
+} from '../../../src/format/timestamp.js';
 
 describe('getTimestamp', () => {
   it('ISO 8601 形式（UTC）のタイムスタンプを返す', () => {
@@ -58,5 +62,15 @@ describe('formatLocalDateTime', () => {
     const d1 = new Date(2024, 5, 15, 10, 30, 45);
     const d2 = new Date(2024, 5, 15, 10, 30, 46);
     expect(formatLocalDateTime(d1)).not.toBe(formatLocalDateTime(d2));
+  });
+});
+
+describe('formatLocalDate', () => {
+  it('ローカル時刻の日付を YYYY-MM-DD 形式で返す', () => {
+    expect(formatLocalDate(new Date(2024, 11, 25, 23, 59, 59))).toBe('2024-12-25');
+  });
+
+  it('月と日を 2 桁にゼロ埋めする', () => {
+    expect(formatLocalDate(new Date(2024, 0, 5, 0, 0, 0))).toBe('2024-01-05');
   });
 });

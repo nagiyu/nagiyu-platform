@@ -5,6 +5,8 @@ import {
   InvalidEntityDataError,
   DatabaseError,
   mapConditionalCheckFailed,
+  isConditionalCheckFailed,
+  toDatabaseError,
 } from '../../../src/dynamodb/errors.js';
 
 describe('errors', () => {
@@ -188,6 +190,60 @@ describe('errors', () => {
       });
 
       expect(() => mapConditionalCheckFailed(error, {})).not.toThrow();
+    });
+  });
+
+  describe('isConditionalCheckFailed', () => {
+    it('name が一致する Error は true', () => {
+      const error = new Error('x');
+      error.name = 'ConditionalCheckFailedException';
+      expect(isConditionalCheckFailed(error)).toBe(true);
+    });
+
+    it('name が一致するプレーンオブジェクトは true', () => {
+      expect(isConditionalCheckFailed({ name: 'ConditionalCheckFailedException' })).toBe(true);
+    });
+
+    it('別の name は false', () => {
+      expect(isConditionalCheckFailed(new Error('x'))).toBe(false);
+      expect(isConditionalCheckFailed({ name: 'Other' })).toBe(false);
+    });
+
+    it('null / undefined / 文字列は false', () => {
+      expect(isConditionalCheckFailed(null)).toBe(false);
+      expect(isConditionalCheckFailed(undefined)).toBe(false);
+      expect(isConditionalCheckFailed('ConditionalCheckFailedException')).toBe(false);
+    });
+  });
+
+  describe('toDatabaseError', () => {
+    it('Error を DatabaseError に包み cause に元エラーを渡す', () => {
+      const cause = new Error('boom');
+      const result = toDatabaseError(cause);
+      expect(result).toBeInstanceOf(DatabaseError);
+      expect(result.message).toBe('データベースエラーが発生しました: boom');
+      expect((result as DatabaseError).cause).toBe(cause);
+    });
+
+    it('文字列は DatabaseError になり cause は undefined', () => {
+      const result = toDatabaseError('oops');
+      expect(result).toBeInstanceOf(DatabaseError);
+      expect(result.message).toBe('データベースエラーが発生しました: oops');
+      expect((result as DatabaseError).cause).toBeUndefined();
+    });
+
+    it('DatabaseError はそのまま返す', () => {
+      const original = new DatabaseError('inner');
+      const result = toDatabaseError(original);
+      expect(result).toBe(original);
+      expect(result.message).toBe('データベースエラーが発生しました: inner');
+    });
+
+    it('RepositoryError 派生はそのまま返す', () => {
+      const notFound = new EntityNotFoundError('User', 'u1');
+      expect(toDatabaseError(notFound)).toBe(notFound);
+      const base = new RepositoryError('base');
+      expect(toDatabaseError(base)).toBe(base);
     });
   });
 });

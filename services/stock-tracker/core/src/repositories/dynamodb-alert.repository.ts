@@ -18,6 +18,9 @@ import {
   EntityAlreadyExistsError,
   DatabaseError,
   mapConditionalCheckFailed,
+  toDatabaseError,
+  buildUpdateExpression,
+  queryAllItems,
   encodeCursor,
   decodeCursor,
   type PaginationOptions,
@@ -72,8 +75,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
 
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -116,8 +118,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
         })
       );
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
 
     // mapper.toEntity は同期的なデータ検証であり、ここから投げられるエラーは
@@ -154,50 +155,38 @@ export class DynamoDBAlertRepository implements AlertRepository {
    * ループして全件を集約する契約のため、Limitは指定しない（DynamoDBの1MBページ単位）。
    */
   public async getByFrequency(frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL'): Promise<AlertEntity[]> {
-    const items: AlertEntity[] = [];
-    let exclusiveStartKey: QueryCommandOutput['LastEvaluatedKey'];
-
     try {
-      do {
-        const result: QueryCommandOutput = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            IndexName: 'AlertIndex',
-            KeyConditionExpression: '#gsi2pk = :pk',
-            ExpressionAttributeNames: {
-              '#gsi2pk': 'GSI2PK',
-            },
-            ExpressionAttributeValues: {
-              ':pk': `ALERT#${frequency}`,
-            },
-            ExclusiveStartKey: exclusiveStartKey,
-          })
-        );
+      const rawItems = await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        IndexName: 'AlertIndex',
+        KeyConditionExpression: '#gsi2pk = :pk',
+        ExpressionAttributeNames: {
+          '#gsi2pk': 'GSI2PK',
+        },
+        ExpressionAttributeValues: {
+          ':pk': `ALERT#${frequency}`,
+        },
+      });
 
-        // mapper.toEntity は同期的なデータ検証であり、ここから投げられるエラーは
-        // 全て個別アイテムの検証失敗。バッチ呼び出し全体を壊さないよう、
-        // エラー種別の判定に依存せず常にスキップ＆警告ログとする。
-        for (const item of result.Items || []) {
-          try {
-            items.push(this.mapper.toEntity(item as unknown as DynamoDBItem));
-          } catch (error) {
-            const record = item as Record<string, unknown>;
-            logger.warn('無効なアラートデータをスキップしました', {
-              pk: record.PK,
-              sk: record.SK,
-              error: toErrorMessage(error),
-            });
-          }
+      // mapper.toEntity は同期的なデータ検証であり、ここから投げられるエラーは
+      // 全て個別アイテムの検証失敗。バッチ呼び出し全体を壊さないよう、
+      // エラー種別の判定に依存せず常にスキップ＆警告ログとする。
+      const items: AlertEntity[] = [];
+      for (const item of rawItems) {
+        try {
+          items.push(this.mapper.toEntity(item));
+        } catch (error) {
+          logger.warn('無効なアラートデータをスキップしました', {
+            pk: item.PK,
+            sk: item.SK,
+            error: toErrorMessage(error),
+          });
         }
-
-        exclusiveStartKey = result.LastEvaluatedKey;
-      } while (exclusiveStartKey);
+      }
+      return items;
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
-
-    return items;
   }
 
   /**
@@ -254,8 +243,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
         })
       );
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
 
     const items: TemporaryAlertCandidate[] = [];
@@ -312,8 +300,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
           throw new EntityAlreadyExistsError('Alert', `${input.UserID}#(generated)`);
         },
       });
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -332,80 +319,35 @@ export class DynamoDBAlertRepository implements AlertRepository {
       }
 
       const { pk, sk } = this.mapper.buildKeys({ userId, alertId });
-      const now = Date.now();
-
-      // 更新式を動的に構築
-      const updateExpressions: string[] = [];
-      const expressionAttributeNames: Record<string, string> = {};
-      const expressionAttributeValues: Record<string, unknown> = {};
-
-      if (updates.TickerID !== undefined) {
-        updateExpressions.push('#tickerId = :tickerId');
-        expressionAttributeNames['#tickerId'] = 'TickerID';
-        expressionAttributeValues[':tickerId'] = updates.TickerID;
-      }
-      if (updates.ExchangeID !== undefined) {
-        updateExpressions.push('#exchangeId = :exchangeId');
-        expressionAttributeNames['#exchangeId'] = 'ExchangeID';
-        expressionAttributeValues[':exchangeId'] = updates.ExchangeID;
-      }
-      if (updates.Mode !== undefined) {
-        updateExpressions.push('#mode = :mode');
-        expressionAttributeNames['#mode'] = 'Mode';
-        expressionAttributeValues[':mode'] = updates.Mode;
-      }
+      const fields: Record<string, unknown> = {
+        TickerID: updates.TickerID,
+        ExchangeID: updates.ExchangeID,
+        Mode: updates.Mode,
+        Frequency: updates.Frequency,
+        Enabled: updates.Enabled,
+        Temporary: updates.Temporary,
+        TemporaryExpireDate: updates.TemporaryExpireDate,
+        ConditionList: updates.ConditionList,
+        subscription: updates.subscription,
+        CustomMessage: updates.CustomMessage,
+      };
+      // GSI2PK は Frequency から導出するため、Frequency の更新に合わせて付け直す
       if (updates.Frequency !== undefined) {
-        updateExpressions.push('#frequency = :frequency');
-        expressionAttributeNames['#frequency'] = 'Frequency';
-        expressionAttributeValues[':frequency'] = updates.Frequency;
-        // Frequency が更新される場合、GSI2PK も更新する必要がある
-        updateExpressions.push('#gsi2pk = :gsi2pk');
-        expressionAttributeNames['#gsi2pk'] = 'GSI2PK';
-        expressionAttributeValues[':gsi2pk'] = `ALERT#${updates.Frequency}`;
+        fields.GSI2PK = `ALERT#${updates.Frequency}`;
       }
-      if (updates.Enabled !== undefined) {
-        updateExpressions.push('#enabled = :enabled');
-        expressionAttributeNames['#enabled'] = 'Enabled';
-        expressionAttributeValues[':enabled'] = updates.Enabled;
+      const updateParts = buildUpdateExpression(fields, {
+        timestamp: { attributeName: 'UpdatedAt', value: Date.now() },
+        updateTimestampWhenEmpty: true,
+      });
+      if (!updateParts) {
+        throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
       }
-      if (updates.Temporary !== undefined) {
-        updateExpressions.push('#temporary = :temporary');
-        expressionAttributeNames['#temporary'] = 'Temporary';
-        expressionAttributeValues[':temporary'] = updates.Temporary;
-      }
-      if (updates.TemporaryExpireDate !== undefined) {
-        updateExpressions.push('#temporaryExpireDate = :temporaryExpireDate');
-        expressionAttributeNames['#temporaryExpireDate'] = 'TemporaryExpireDate';
-        expressionAttributeValues[':temporaryExpireDate'] = updates.TemporaryExpireDate;
-      }
-      if (updates.ConditionList !== undefined) {
-        updateExpressions.push('#conditionList = :conditionList');
-        expressionAttributeNames['#conditionList'] = 'ConditionList';
-        expressionAttributeValues[':conditionList'] = updates.ConditionList;
-      }
-      if (updates.subscription !== undefined) {
-        updateExpressions.push('#subscription = :subscription');
-        expressionAttributeNames['#subscription'] = 'subscription';
-        expressionAttributeValues[':subscription'] = updates.subscription;
-      }
-      if (updates.CustomMessage !== undefined) {
-        updateExpressions.push('#customMessage = :customMessage');
-        expressionAttributeNames['#customMessage'] = 'CustomMessage';
-        expressionAttributeValues[':customMessage'] = updates.CustomMessage;
-      }
-
-      // UpdatedAt を常に更新
-      updateExpressions.push('#updatedAt = :updatedAt');
-      expressionAttributeNames['#updatedAt'] = 'UpdatedAt';
-      expressionAttributeValues[':updatedAt'] = now;
 
       const result = await this.docClient.send(
         new UpdateCommand({
           TableName: this.tableName,
           Key: { PK: pk, SK: sk },
-          UpdateExpression: `SET ${updateExpressions.join(', ')}`,
-          ExpressionAttributeNames: expressionAttributeNames,
-          ExpressionAttributeValues: expressionAttributeValues,
+          ...updateParts,
           ConditionExpression: 'attribute_exists(PK)',
           ReturnValues: 'ALL_NEW',
         })
@@ -422,12 +364,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
           throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
         },
       });
-      // EntityNotFoundError はそのまま投げる
-      if (error instanceof EntityNotFoundError) {
-        throw error;
-      }
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -451,8 +388,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
           throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
         },
       });
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -495,8 +431,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
           throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
         },
       });
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }

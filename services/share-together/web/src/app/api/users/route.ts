@@ -2,11 +2,15 @@ import type { User } from '@nagiyu/share-together-core';
 import { withAuth } from '@nagiyu/nextjs';
 import type { Session } from 'next-auth';
 import { NextResponse } from 'next/server';
-import type { ApiErrorResponse, UserResponse } from '@/types';
+import type { UserResponse } from '@/types';
 import { getSession } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createListRepository, createUserRepository } from '@nagiyu/share-together-core';
+import {
+  createValidationErrorResponse,
+  createInternalServerErrorResponse,
+} from '@/lib/api/responses';
 
 const DEFAULT_LIST_NAME = 'デフォルトリスト';
 const DEFAULT_ROLES: string[] = [];
@@ -32,24 +36,6 @@ async function getSessionWithRoles(): Promise<UsersRouteSession | null> {
       roles: DEFAULT_ROLES,
     },
   };
-}
-
-function createValidationErrorResponse(): NextResponse {
-  const response: ApiErrorResponse = {
-    error: 'VALIDATION_ERROR',
-    message: ERROR_MESSAGES.VALIDATION_ERROR,
-  };
-
-  return NextResponse.json(response, { status: 400 });
-}
-
-function createInternalServerErrorResponse(): NextResponse {
-  const response: ApiErrorResponse = {
-    error: 'INTERNAL_SERVER_ERROR',
-    message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-  };
-
-  return NextResponse.json(response, { status: 500 });
 }
 
 export const POST = withAuth(getSessionWithRoles, null, async (session): Promise<NextResponse> => {

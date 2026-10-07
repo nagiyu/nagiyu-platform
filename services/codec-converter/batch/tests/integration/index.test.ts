@@ -25,6 +25,7 @@ jest.mock('@nagiyu/aws', () => ({
 }));
 
 import { reportErrorEvent } from '@nagiyu/aws';
+import { parseUpdateExpression } from '../helpers/update-expression.js';
 const reportErrorEventMock = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
 
 // AWS SDK モック
@@ -285,6 +286,21 @@ describe('updateJobStatus', () => {
       TableName: 'test-table',
       Key: { jobId: 'test-job-id' },
     });
+    expect(parseUpdateExpression(call.args[0].input).set).toEqual({
+      status: 'PROCESSING',
+      updatedAt: expect.any(Number),
+    });
+  });
+
+  it('updatedAt を秒単位のエポック値で設定する', async () => {
+    dynamodbMock.on(UpdateCommand).resolves({});
+    const before = Math.floor(Date.now() / 1000);
+
+    await updateJobStatus(createMockDynamoDBClient(), 'test-table', 'test-job-id', 'PROCESSING');
+
+    const { updatedAt } = parseUpdateExpression(dynamodbMock.call(0).args[0].input).set;
+    expect(updatedAt).toBeGreaterThanOrEqual(before);
+    expect(updatedAt).toBeLessThan(before + 10);
   });
 
   it('ステータスをCOMPLETEDに更新し、outputFileを設定できる', async () => {
@@ -302,9 +318,11 @@ describe('updateJobStatus', () => {
 
     expect(dynamodbMock.calls()).toHaveLength(1);
     const call = dynamodbMock.call(0);
-    expect(
-      (call.args[0].input as Record<string, unknown>).ExpressionAttributeValues
-    ).toHaveProperty(':outputFile');
+    expect(parseUpdateExpression(call.args[0].input).set).toEqual({
+      status: 'COMPLETED',
+      outputFile: 'outputs/test-job-id/output.mp4',
+      updatedAt: expect.any(Number),
+    });
   });
 
   it('ステータスをFAILEDに更新し、errorMessageを設定できる', async () => {
@@ -323,9 +341,58 @@ describe('updateJobStatus', () => {
 
     expect(dynamodbMock.calls()).toHaveLength(1);
     const call = dynamodbMock.call(0);
-    expect(
-      (call.args[0].input as Record<string, unknown>).ExpressionAttributeValues
-    ).toHaveProperty(':errorMessage');
+    expect(parseUpdateExpression(call.args[0].input).set).toEqual({
+      status: 'FAILED',
+      errorMessage: 'Test error',
+      updatedAt: expect.any(Number),
+    });
+  });
+
+  it('outputFile と errorMessage を同時に指定すると両方を保存する', async () => {
+    dynamodbMock.on(UpdateCommand).resolves({});
+
+    await updateJobStatus(
+      createMockDynamoDBClient(),
+      'test-table',
+      'test-job-id',
+      'FAILED',
+      'outputs/test-job-id/output.mp4',
+      'Test error'
+    );
+
+    const input = dynamodbMock.call(0).args[0].input;
+    expect(parseUpdateExpression(input).set).toEqual({
+      status: 'FAILED',
+      outputFile: 'outputs/test-job-id/output.mp4',
+      errorMessage: 'Test error',
+      updatedAt: expect.any(Number),
+    });
+    // 式に使われないプレースホルダが残ると DynamoDB がエラーにする
+    const expression = (input as { UpdateExpression: string }).UpdateExpression;
+    for (const placeholder of Object.keys(input.ExpressionAttributeNames ?? {})) {
+      expect(expression).toContain(placeholder);
+    }
+    for (const placeholder of Object.keys(input.ExpressionAttributeValues ?? {})) {
+      expect(expression).toContain(placeholder);
+    }
+  });
+
+  it('空文字の outputFile / errorMessage は保存しない', async () => {
+    dynamodbMock.on(UpdateCommand).resolves({});
+
+    await updateJobStatus(
+      createMockDynamoDBClient(),
+      'test-table',
+      'test-job-id',
+      'COMPLETED',
+      '',
+      ''
+    );
+
+    expect(parseUpdateExpression(dynamodbMock.call(0).args[0].input).set).toEqual({
+      status: 'COMPLETED',
+      updatedAt: expect.any(Number),
+    });
   });
 
   it('DynamoDBエラーが発生した場合はエラー', async () => {

@@ -1,3 +1,4 @@
+import { formatLocalDate } from '@nagiyu/common';
 import type { ILLMClient } from '../llm-client/types.js';
 import { EscalationSchema } from '../llm-client/schemas/escalation.schema.js';
 import type { TopicEntity } from '../entities/topic.entity.js';
@@ -35,18 +36,6 @@ export interface DetectCriticalInput {
   llmClient: ILLMClient;
   /** 判定基準時刻（today 計算・LLM プロンプトの今日日付注入に使用） */
   now: Date;
-}
-
-/**
- * JST の今日の日付を "YYYY-MM-DD" 形式で返す。
- *
- * Node.js は TZ=Asia/Tokyo で実行されることを前提とする。
- */
-function toJstDateString(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
 }
 
 /**
@@ -123,7 +112,8 @@ function isUrgent(eventDate: string | null, now: Date): boolean {
 export async function detectCriticalTopic(input: DetectCriticalInput): Promise<EscalationResult> {
   const { candidates, careThreshold, llmClient, now } = input;
 
-  const todayStr = toJstDateString(now);
+  // Node.js は TZ=Asia/Tokyo で実行される前提のため、ローカル時刻で読むと JST の日付になる
+  const todayStr = formatLocalDate(now);
 
   for (const candidate of candidates) {
     const { topic, webFacts } = candidate;

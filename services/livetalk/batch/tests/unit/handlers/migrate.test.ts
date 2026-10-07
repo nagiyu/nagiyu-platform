@@ -1,8 +1,12 @@
 import type { MigratePayload } from '../../../src/usecases/migrate.usecase.js';
 
+// 骨格 (createScheduledHandler) は実物を使い、副作用のある DynamoDB 取得とエラー報告だけを差し替える
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
   getDynamoDBDocumentClient: jest.fn(() => ({})),
   getTableName: jest.fn(() => 'test-table'),
+}));
+jest.mock('../../../../../../libs/aws/src/error-events/report.js', () => ({
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
@@ -101,6 +105,7 @@ describe('migrate handler', () => {
         serviceId: 'livetalk',
         severity: 'error',
         title: '一回性移行バッチ: 部分失敗',
+        context: expect.objectContaining({ failedScopeKeys: ['u1#hiyori'] }),
       })
     );
   });

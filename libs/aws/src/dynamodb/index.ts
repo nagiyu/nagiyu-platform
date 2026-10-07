@@ -10,6 +10,8 @@ export {
   InvalidEntityDataError,
   DatabaseError,
   mapConditionalCheckFailed,
+  isConditionalCheckFailed,
+  toDatabaseError,
 } from './errors.js';
 
 // cursor ヘルパー
@@ -34,11 +36,13 @@ export {
 
 // ヘルパー関数
 export {
+  REMOVE_ATTRIBUTE,
   buildUpdateExpression,
   conditionalPut,
   conditionalUpdate,
   conditionalDelete,
 } from './helpers.js';
+export type { UpdateExpressionParts, BuildUpdateExpressionOptions } from './helpers.js';
 export { getDynamoDBDocumentClient, getTableName, clearDynamoDBClientCache } from './client.js';
 export { createRepositoryFactory } from './repository-factory.js';
 export {
@@ -64,3 +68,15 @@ export {
   type AttributeQueryCondition,
   type AttributeProjection,
 } from './in-memory/single-table-store.js';
+
+// ページネーション
+export { queryPages, queryAllItems, scanAllItems } from './pagination.js';
+
+// バッチ処理
+export {
+  batchWriteAll,
+  batchGetAll,
+  BatchRetryExhaustedError,
+  type BatchRetryOptions,
+  type BatchWriteRequest,
+} from './batch.js';

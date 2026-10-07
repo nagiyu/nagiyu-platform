@@ -4,7 +4,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { Box, Typography } from '@mui/material';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import { Button } from '@nagiyu/ui';
-import { subscribePush, fetchVapidPublicKey } from '@nagiyu/browser';
+import {
+  subscribePush,
+  fetchVapidPublicKey,
+  isPushSupported,
+  postPushSubscription,
+} from '@nagiyu/browser';
 import { getCharacterDisplay } from '@/lib/characters/client-profiles';
 
 /**
@@ -25,23 +30,6 @@ export const NOTIFICATION_TOGGLE_MESSAGES = {
   DENIED: 'ブラウザの設定から通知を許可してね',
   ERROR: '通知の設定に失敗しちゃった。あとでもう一度試してね',
 } as const;
-
-const postSubscription = async (subscription: PushSubscription): Promise<void> => {
-  const response = await fetch('/api/push/subscribe', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ subscription: subscription.toJSON() }),
-  });
-  if (!response.ok) {
-    throw new Error('サブスクリプションの登録に失敗しました');
-  }
-};
-
-const isPushSupported = (): boolean =>
-  typeof window !== 'undefined' &&
-  typeof window.Notification !== 'undefined' &&
-  'serviceWorker' in navigator &&
-  'PushManager' in window;
 
 type ToggleState = 'idle' | 'subscribing' | 'subscribed' | 'denied' | 'error';
 
@@ -67,7 +55,7 @@ export default function NotificationToggle() {
     try {
       await subscribePush({
         vapidPublicKey: fetchVapidPublicKey,
-        onSubscribed: postSubscription,
+        onSubscribed: (subscription) => postPushSubscription(subscription),
       });
       setState('subscribed');
     } catch {

@@ -8,20 +8,19 @@ import {
   GetCommand,
   PutCommand,
   DeleteCommand,
-  BatchGetCommand,
-  ScanCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import {
+  batchGetAll,
   EntityAlreadyExistsError,
-  DatabaseError,
+  toDatabaseError,
   mapConditionalCheckFailed,
+  scanAllItems,
   type DynamoDBItem,
 } from '@nagiyu/aws';
 import type { VideoRepository } from './video.repository.interface.js';
 import type { VideoEntity, CreateVideoInput } from '../entities/video.entity.js';
 import { VideoMapper } from '../mappers/video.mapper.js';
-import { toErrorMessage } from '@nagiyu/common';
 
 /**
  * DynamoDB Video Repository
@@ -44,31 +43,17 @@ export class DynamoDBVideoRepository implements VideoRepository {
    */
   public async listAll(): Promise<VideoEntity[]> {
     try {
-      const items: DynamoDBItem[] = [];
-      let exclusiveStartKey: DynamoDBItem | undefined;
-
-      do {
-        const result = await this.docClient.send(
-          new ScanCommand({
-            TableName: this.tableName,
-            FilterExpression: 'begins_with(PK, :videoPrefix) AND begins_with(SK, :videoPrefix)',
-            ExpressionAttributeValues: {
-              ':videoPrefix': 'VIDEO#',
-            },
-            ExclusiveStartKey: exclusiveStartKey,
-          })
-        );
-
-        if (result.Items) {
-          items.push(...(result.Items as DynamoDBItem[]));
-        }
-        exclusiveStartKey = result.LastEvaluatedKey as DynamoDBItem | undefined;
-      } while (exclusiveStartKey);
+      const items = await scanAllItems(this.docClient, {
+        TableName: this.tableName,
+        FilterExpression: 'begins_with(PK, :videoPrefix) AND begins_with(SK, :videoPrefix)',
+        ExpressionAttributeValues: {
+          ':videoPrefix': 'VIDEO#',
+        },
+      });
 
       return items.map((item) => this.mapper.toEntity(item));
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -92,8 +77,7 @@ export class DynamoDBVideoRepository implements VideoRepository {
 
       return this.mapper.toEntity(result.Item as DynamoDBItem);
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -106,29 +90,17 @@ export class DynamoDBVideoRepository implements VideoRepository {
     }
 
     try {
-      const items: DynamoDBItem[] = [];
-      for (let i = 0; i < videoIds.length; i += 100) {
-        const chunk = videoIds.slice(i, i + 100);
-        const result = await this.docClient.send(
-          new BatchGetCommand({
-            RequestItems: {
-              [this.tableName]: {
-                Keys: chunk.map((videoId) => {
-                  const { pk, sk } = this.mapper.buildKeys({ videoId });
-                  return { PK: pk, SK: sk };
-                }),
-              },
-            },
-          })
-        );
-
-        const responseItems = result.Responses?.[this.tableName] as DynamoDBItem[] | undefined;
-        items.push(...(responseItems ?? []));
-      }
-      return items.map((item) => this.mapper.toEntity(item as DynamoDBItem));
+      const items = await batchGetAll(
+        this.docClient,
+        this.tableName,
+        videoIds.map((videoId) => {
+          const { pk, sk } = this.mapper.buildKeys({ videoId });
+          return { PK: pk, SK: sk };
+        })
+      );
+      return items.map((item) => this.mapper.toEntity(item));
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -160,8 +132,7 @@ export class DynamoDBVideoRepository implements VideoRepository {
           throw new EntityAlreadyExistsError('Video', input.videoId);
         },
       });
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -179,8 +150,7 @@ export class DynamoDBVideoRepository implements VideoRepository {
         })
       );
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }

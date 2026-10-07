@@ -92,6 +92,33 @@ describe('DynamoDBVideoRepository', () => {
       expect(result).toHaveLength(1);
       expect(result[0].videoId).toBe('sm12345');
     });
+
+    it('複数ページにわたる Scan で全件取得し、前ページの LastEvaluatedKey を引き継ぐ', async () => {
+      const buildItem = (videoId: string) => ({
+        PK: `VIDEO#${videoId}`,
+        SK: `VIDEO#${videoId}`,
+        Type: 'VIDEO',
+        videoId,
+        title: `Title ${videoId}`,
+        thumbnailUrl: `https://example.com/${videoId}.jpg`,
+        length: '5:00',
+        CreatedAt: 1234567890000,
+        UpdatedAt: 1234567890000,
+      });
+      const lastEvaluatedKey = { PK: 'VIDEO#sm1', SK: 'VIDEO#sm1' };
+      ddbMock
+        .on(ScanCommand)
+        .resolvesOnce({ Items: [buildItem('sm1')], LastEvaluatedKey: lastEvaluatedKey })
+        .resolvesOnce({ Items: [buildItem('sm2')] });
+
+      const result = await repository.listAll();
+
+      expect(result.map((v) => v.videoId)).toEqual(['sm1', 'sm2']);
+      const calls = ddbMock.commandCalls(ScanCommand);
+      expect(calls).toHaveLength(2);
+      expect(calls[0].args[0].input.ExclusiveStartKey).toBeUndefined();
+      expect(calls[1].args[0].input.ExclusiveStartKey).toEqual(lastEvaluatedKey);
+    });
   });
 
   describe('batchGet', () => {
@@ -182,6 +209,32 @@ describe('DynamoDBVideoRepository', () => {
       const result = await repository.batchGet(videoIds);
       expect(result).toHaveLength(2);
       expect(result.map((video) => video.videoId)).toEqual(['sm0', 'sm100']);
+      expect(ddbMock.commandCalls(BatchGetCommand)).toHaveLength(2);
+    });
+
+    it('未処理キーを再送して取得できる', async () => {
+      const buildItem = (videoId: string) => ({
+        PK: `VIDEO#${videoId}`,
+        SK: `VIDEO#${videoId}`,
+        Type: 'VIDEO',
+        videoId,
+        title: videoId,
+        thumbnailUrl: 'https://example.com/thumb.jpg',
+        length: '5:00',
+        CreatedAt: 1234567890000,
+        UpdatedAt: 1234567890000,
+      });
+      ddbMock
+        .on(BatchGetCommand)
+        .resolvesOnce({
+          Responses: { [tableName]: [buildItem('sm1')] },
+          UnprocessedKeys: { [tableName]: { Keys: [{ PK: 'VIDEO#sm2', SK: 'VIDEO#sm2' }] } },
+        })
+        .resolvesOnce({ Responses: { [tableName]: [buildItem('sm2')] } });
+
+      const result = await repository.batchGet(['sm1', 'sm2']);
+
+      expect(result.map((video) => video.videoId)).toEqual(['sm1', 'sm2']);
       expect(ddbMock.commandCalls(BatchGetCommand)).toHaveLength(2);
     });
 

@@ -32,6 +32,7 @@ export const ERROR_MESSAGES = {
   MAX_COUNT_INVALID_RANGE: 'maxCount は 1 以上 100 以下である必要があります',
   MYLIST_REGISTER_MAX_COUNT_MUST_BE_INTEGER: '登録件数は整数で指定してください',
   MYLIST_REGISTER_MAX_COUNT_INVALID_RANGE: '登録件数は1～100の範囲で指定してください',
+  INVALID_PUSH_SUBSCRIPTION: 'pushSubscription の形式が不正です',
   MYLIST_NAME_REQUIRED: 'mylistName は必須です',
   MYLIST_NAME_MUST_BE_STRING: 'mylistName は文字列である必要があります',
   USER_SESSION_REQUIRED: 'user_session は必須です',

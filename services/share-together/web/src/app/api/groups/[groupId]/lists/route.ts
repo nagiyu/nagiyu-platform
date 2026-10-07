@@ -1,23 +1,17 @@
 import { type ListRepository, type GroupList } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
-import type { ApiErrorResponse, GroupListsResponse } from '@/types';
-import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import type { GroupListsResponse } from '@/types';
+import { getAuthorizedGroupContext } from '@/lib/api/authorization';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
-import { createListRepository, createMembershipRepository } from '@nagiyu/share-together-core';
+import { createListRepository } from '@nagiyu/share-together-core';
+import {
+  createValidationErrorResponse,
+  createInternalServerErrorResponse,
+} from '@/lib/api/responses';
 
 type RouteParams = {
   params: Promise<{ groupId: string }>;
 };
-
-function createErrorResponse(code: string, message: string, status: number): NextResponse {
-  const response: ApiErrorResponse = {
-    error: code,
-    message,
-  };
-
-  return NextResponse.json(response, { status });
-}
 
 async function getAuthorizedContext(params: RouteParams['params']): Promise<
   | {
@@ -27,27 +21,12 @@ async function getAuthorizedContext(params: RouteParams['params']): Promise<
     }
   | NextResponse
 > {
-  const sessionOrUnauthorized = await getSessionOrUnauthorized();
-  if ('status' in sessionOrUnauthorized) {
-    return sessionOrUnauthorized;
+  const contextOrResponse = await getAuthorizedGroupContext(params);
+  if ('status' in contextOrResponse) {
+    return contextOrResponse;
   }
 
-  const { groupId } = await params;
-  const userId = sessionOrUnauthorized.user.id;
-
-  const tableName = process.env.DYNAMODB_TABLE_NAME;
-  if (!tableName) {
-    throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
-  }
-
-  const docClient =
-    process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
-  const membershipRepository = createMembershipRepository(docClient, tableName);
-  const membership = await membershipRepository.getById(groupId, userId);
-  if (!membership || membership.status !== 'ACCEPTED') {
-    return createErrorResponse('FORBIDDEN', ERROR_MESSAGES.FORBIDDEN, 403);
-  }
-
+  const { groupId, userId, docClient, tableName } = contextOrResponse;
   return {
     groupId,
     userId,
@@ -75,7 +54,7 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
       groupId: requestedGroupId,
       error,
     });
-    return createErrorResponse('INTERNAL_SERVER_ERROR', ERROR_MESSAGES.INTERNAL_SERVER_ERROR, 500);
+    return createInternalServerErrorResponse();
   }
 }
 
@@ -94,7 +73,7 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
     const body = (await request.json()) as { name?: unknown };
     const name = typeof body.name === 'string' ? body.name.trim() : '';
     if (name.length < 1 || name.length > 100) {
-      return createErrorResponse('VALIDATION_ERROR', ERROR_MESSAGES.LIST_NAME_INVALID, 400);
+      return createValidationErrorResponse(ERROR_MESSAGES.LIST_NAME_INVALID);
     }
 
     const createdList: GroupList = await authorizedContextOrResponse.listRepository.createGroupList(
@@ -113,6 +92,6 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
       userId: requestedUserId,
       error,
     });
-    return createErrorResponse('INTERNAL_SERVER_ERROR', ERROR_MESSAGES.INTERNAL_SERVER_ERROR, 500);
+    return createInternalServerErrorResponse();
   }
 }

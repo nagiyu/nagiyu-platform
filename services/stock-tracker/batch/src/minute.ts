@@ -4,11 +4,15 @@
  * MINUTE_LEVEL のアラート条件をチェックして通知を送信する
  */
 
-import { logger, toErrorMessage } from '@nagiyu/common';
-import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
+import { logger, runSettledWithConcurrency, sleep, toErrorMessage } from '@nagiyu/common';
+import {
+  createScheduledHandler,
+  getDynamoDBDocumentClient,
+  getTableName,
+  reportErrorEvent,
+} from '@nagiyu/aws';
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import { createAlertNotificationPayload } from './lib/web-push-client.js';
-import { runConcurrent } from './lib/concurrent-queue.js';
 import type { ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { evaluateAlert } from '@nagiyu/stock-tracker-core';
@@ -22,38 +26,6 @@ import {
 import type { Alert } from '@nagiyu/stock-tracker-core';
 
 /**
- * 指定ミリ秒待機する
- *
- * @param ms - 待機時間（ミリ秒）
- */
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * Lambda Handlerイベント型
- */
-export interface ScheduledEvent {
-  version: string;
-  id: string;
-  'detail-type': string;
-  source: string;
-  account: string;
-  time: string;
-  region: string;
-  resources: string[];
-  detail: Record<string, unknown>;
-}
-
-/**
- * Lambda Handler レスポンス型
- */
-export interface HandlerResponse {
-  statusCode: number;
-  body: string;
-}
-
-/**
  * バッチ処理の統計情報
  */
 interface BatchStatistics {
@@ -65,6 +37,8 @@ interface BatchStatistics {
   conditionsMet: number;
   notificationsSent: number;
   errors: number;
+  /** 送信先の購読が無効（404/410）で通知をスキップした件数。errors には含めない */
+  invalidSubscriptions: number;
   /** 共有セッション失敗後に新規 WS で再試行した回数 */
   freshSessionRetries: number;
 }
@@ -80,7 +54,7 @@ interface BatchStatistics {
  * @param firstAttemptTimeoutMs - 共有セッションの 1 回目タイムアウト（ms）
  * @param retryTimeoutMs - 新規 WS リトライのタイムアウト（ms）
  * @param retryDelayMs - 1 回目失敗後のリトライ前遅延（ms）
- * @returns 処理が成功した場合は true、失敗した場合は false
+ * @returns エラーなく処理できた場合は true（購読が無効で通知をスキップした場合も含む）、失敗した場合は false
  */
 async function processAlert(
   alert: Alert,
@@ -197,10 +171,18 @@ async function processAlert(
         conditions: alert.ConditionList,
       });
     } else {
-      stats.errors++;
+      // 購読はアラートのフィールドなので、無効だからと消すとユーザーの条件設定ごと失われる。
+      // 購読はユーザーが次に画面を開いたときに更新されるため、それまでの空振りは許容する。
+      stats.invalidSubscriptions++;
+      logger.warn('送信先の Web Push 購読が無効なため通知をスキップしました', {
+        alertId: alert.AlertID,
+        userId: alert.UserID,
+        tickerId: alert.TickerID,
+      });
     }
 
-    return notificationSent;
+    // 購読が無効でもエラーではないため成功扱いにする
+    return true;
   } catch (error) {
     const errorMessage = toErrorMessage(error);
     logger.error('アラート処理中にエラーが発生しました', {
@@ -228,154 +210,131 @@ async function processAlert(
  * Lambda Handler
  * EventBridge Scheduler から定期実行される
  */
-export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
-  const startTime = Date.now();
+export const handler = createScheduledHandler(
+  { serviceId: 'stock-tracker', name: 'minute', errorTitle: '分次バッチ: 致命的エラー' },
+  async (event) => {
+    const startTime = Date.now();
 
-  logger.info('1分間隔バッチ処理を開始します', {
-    eventId: event.id,
-    eventTime: event.time,
-  });
+    // バッチ統計情報の初期化
+    const stats: BatchStatistics = {
+      totalAlerts: 0,
+      processedAlerts: 0,
+      skippedDisabled: 0,
+      skippedOffHours: 0,
+      skippedTimeBudget: 0,
+      conditionsMet: 0,
+      notificationsSent: 0,
+      errors: 0,
+      invalidSubscriptions: 0,
+      freshSessionRetries: 0,
+    };
 
-  // バッチ統計情報の初期化
-  const stats: BatchStatistics = {
-    totalAlerts: 0,
-    processedAlerts: 0,
-    skippedDisabled: 0,
-    skippedOffHours: 0,
-    skippedTimeBudget: 0,
-    conditionsMet: 0,
-    notificationsSent: 0,
-    errors: 0,
-    freshSessionRetries: 0,
-  };
-
-  // 並列度・時間予算・タイムアウトは環境変数で調整可能
-  // 並列度を 3 に下げることで WS 接続バーストを緩和する（jitter と併用）
-  // TIME_BUDGET_MS を 30s に設定し、in-flight タスクの完了（最大 ~12.5s）を含めて 50s 以内に収める
-  // worst case/ticker = FIRST_ATTEMPT_TIMEOUT(4s) + RETRY_DELAY(0.5s) + RETRY_TIMEOUT(8s) = 12.5s
-  const concurrency = parseInt(process.env.MINUTE_BATCH_CONCURRENCY ?? '3', 10);
-  const timeBudgetMs = parseInt(process.env.MINUTE_BATCH_TIME_BUDGET_MS ?? '30000', 10);
-  const firstAttemptTimeoutMs = parseInt(
-    process.env.MINUTE_BATCH_FIRST_ATTEMPT_TIMEOUT_MS ?? '4000',
-    10
-  );
-  const retryTimeoutMs = parseInt(process.env.MINUTE_BATCH_RETRY_TIMEOUT_MS ?? '8000', 10);
-  const retryDelayMs = parseInt(process.env.MINUTE_BATCH_RETRY_DELAY_MS ?? '500', 10);
-  const isBudgetExceeded = (): boolean => Date.now() - startTime > timeBudgetMs;
-
-  // container kill 閾値: invocation 内エラー数がこの値以上になると process.exit(1) で container を廃棄する
-  // 観測（PR #3290 デプロイ後）: broken container でも 1 invocation あたり errors は最大 1 のため、閾値 1 で kill する。
-  // 誤検知コストは Lambda cold start のみで運用影響ゼロ。broken container 居座りによる通知欠落の方が深刻。
-  const containerKillThreshold = parseInt(
-    process.env.MINUTE_BATCH_CONTAINER_KILL_THRESHOLD ?? '1',
-    10
-  );
-  let shouldKillContainer = false;
-
-  // invocation スコープで 1 つの TradingView WebSocket 接続を共有する
-  const session = new TradingViewSession();
-  // Finnhub 経路（PriceSource = 'finnhub'）用のプロバイダーを 1 回生成
-  const finnhubProvider = new FinnhubQuoteProvider();
-
-  try {
-    // DynamoDB クライアントとリポジトリの初期化
-    const docClient = getDynamoDBDocumentClient();
-    const tableName = getTableName();
-    const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
-    const exchangeRepo = new DynamoDBExchangeRepository(docClient, tableName);
-
-    // 1. GSI2 で MINUTE_LEVEL アラート一覧を取得（全件、内部でページを辿り切る）
-    const alerts = await alertRepo.getByFrequency('MINUTE_LEVEL');
-    stats.totalAlerts = alerts.length;
-
-    logger.info('MINUTE_LEVEL アラートを取得しました', {
-      count: alerts.length,
-    });
-
-    // 2. 順序をシャッフルして特定アラートが常に後回しになることを防ぐ
-    const shuffledAlerts = [...alerts].sort(() => Math.random() - 0.5);
-
-    // 3. 並列度上限・時間予算ガード・jitter でアラートを処理
-    const tasks = shuffledAlerts.map(
-      (alert) => () =>
-        processAlert(
-          alert,
-          exchangeRepo,
-          session,
-          finnhubProvider,
-          stats,
-          firstAttemptTimeoutMs,
-          retryTimeoutMs,
-          retryDelayMs
-        )
+    // 並列度・時間予算・タイムアウトは環境変数で調整可能
+    // 並列度を 3 に下げることで WS 接続バーストを緩和する（jitter と併用）
+    // TIME_BUDGET_MS を 30s に設定し、in-flight タスクの完了（最大 ~12.5s）を含めて 50s 以内に収める
+    // worst case/ticker = FIRST_ATTEMPT_TIMEOUT(4s) + RETRY_DELAY(0.5s) + RETRY_TIMEOUT(8s) = 12.5s
+    const concurrency = parseInt(process.env.MINUTE_BATCH_CONCURRENCY ?? '3', 10);
+    const timeBudgetMs = parseInt(process.env.MINUTE_BATCH_TIME_BUDGET_MS ?? '30000', 10);
+    const firstAttemptTimeoutMs = parseInt(
+      process.env.MINUTE_BATCH_FIRST_ATTEMPT_TIMEOUT_MS ?? '4000',
+      10
     );
+    const retryTimeoutMs = parseInt(process.env.MINUTE_BATCH_RETRY_TIMEOUT_MS ?? '8000', 10);
+    const retryDelayMs = parseInt(process.env.MINUTE_BATCH_RETRY_DELAY_MS ?? '500', 10);
+    const isBudgetExceeded = (): boolean => Date.now() - startTime > timeBudgetMs;
 
-    const { results, skippedCount } = await runConcurrent(tasks, concurrency, isBudgetExceeded, {
-      jitterMs: 150,
-    });
+    // container kill 閾値: invocation 内エラー数がこの値以上になると process.exit(1) で container を廃棄する
+    // 観測（PR #3290 デプロイ後）: broken container でも 1 invocation あたり errors は最大 1 のため、閾値 1 で kill する。
+    // 誤検知コストは Lambda cold start のみで運用影響ゼロ。broken container 居座りによる通知欠落の方が深刻。
+    const containerKillThreshold = parseInt(
+      process.env.MINUTE_BATCH_CONTAINER_KILL_THRESHOLD ?? '1',
+      10
+    );
+    let shouldKillContainer = false;
 
-    stats.processedAlerts = results.length;
-    stats.skippedTimeBudget = skippedCount;
+    // invocation スコープで 1 つの TradingView WebSocket 接続を共有する
+    const session = new TradingViewSession();
+    // Finnhub 経路（PriceSource = 'finnhub'）用のプロバイダーを 1 回生成
+    const finnhubProvider = new FinnhubQuoteProvider();
 
-    if (skippedCount > 0) {
-      logger.warn('時間予算超過のためアラートをスキップしました', {
-        skippedCount,
-        elapsedMs: Date.now() - startTime,
+    try {
+      // DynamoDB クライアントとリポジトリの初期化
+      const docClient = getDynamoDBDocumentClient();
+      const tableName = getTableName();
+      const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
+      const exchangeRepo = new DynamoDBExchangeRepository(docClient, tableName);
+
+      // 1. GSI2 で MINUTE_LEVEL アラート一覧を取得（全件、内部でページを辿り切る）
+      const alerts = await alertRepo.getByFrequency('MINUTE_LEVEL');
+      stats.totalAlerts = alerts.length;
+
+      logger.info('MINUTE_LEVEL アラートを取得しました', {
+        count: alerts.length,
       });
-    }
 
-    // broken container 検出: invocation 内エラー数が閾値以上なら container を廃棄する
-    // finally ブロックで session.close() 後に process.exit(1) を呼ぶ
-    if (stats.errors >= containerKillThreshold) {
-      shouldKillContainer = true;
-      logger.warn('連続タイムアウト発生のため container を破棄します', {
-        errors: stats.errors,
-        threshold: containerKillThreshold,
+      // 2. 順序をシャッフルして特定アラートが常に後回しになることを防ぐ
+      const shuffledAlerts = [...alerts].sort(() => Math.random() - 0.5);
+
+      // 3. 並列度上限・時間予算ガード・jitter でアラートを処理
+      const tasks = shuffledAlerts.map(
+        (alert) => () =>
+          processAlert(
+            alert,
+            exchangeRepo,
+            session,
+            finnhubProvider,
+            stats,
+            firstAttemptTimeoutMs,
+            retryTimeoutMs,
+            retryDelayMs
+          )
+      );
+
+      const { results, skippedCount } = await runSettledWithConcurrency(tasks, concurrency, {
+        shouldSkip: isBudgetExceeded,
+        jitterMs: 150,
+      });
+
+      stats.processedAlerts = results.length;
+      stats.skippedTimeBudget = skippedCount;
+
+      if (skippedCount > 0) {
+        logger.warn('時間予算超過のためアラートをスキップしました', {
+          skippedCount,
+          elapsedMs: Date.now() - startTime,
+        });
+      }
+
+      // broken container 検出: invocation 内エラー数が閾値以上なら container を廃棄する
+      // finally ブロックで session.close() 後に process.exit(1) を呼ぶ
+      if (stats.errors >= containerKillThreshold) {
+        shouldKillContainer = true;
+        logger.warn('連続タイムアウト発生のため container を破棄します', {
+          errors: stats.errors,
+          threshold: containerKillThreshold,
+          sessionId: session.getSessionId(),
+        });
+      }
+
+      // 最終統計をログ出力
+      logger.info('1分間隔バッチ処理が正常に完了しました', {
+        eventId: event.id,
+        statistics: stats,
         sessionId: session.getSessionId(),
       });
-    }
 
-    // 最終統計をログ出力
-    logger.info('1分間隔バッチ処理が正常に完了しました', {
-      eventId: event.id,
-      statistics: stats,
-      sessionId: session.getSessionId(),
-    });
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        message: '1分間隔バッチ処理が正常に完了しました',
-        statistics: stats,
-      }),
-    };
-  } catch (error) {
-    const errorMessage = toErrorMessage(error);
-    logger.error('1分間隔バッチ処理でエラーが発生しました', {
-      eventId: event.id,
-      error: errorMessage,
-      statistics: stats,
-    });
-    await reportErrorEvent({
-      serviceId: 'stock-tracker',
-      severity: 'error',
-      title: '分次バッチ: 致命的エラー',
-      message: errorMessage,
-      context: { eventId: event.id, statistics: stats },
-    });
-
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: '1分間隔バッチ処理でエラーが発生しました',
-        error: errorMessage,
-        statistics: stats,
-      }),
-    };
-  } finally {
-    await session.close();
-    if (shouldKillContainer) {
-      process.exit(1);
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          message: '1分間隔バッチ処理が正常に完了しました',
+          statistics: stats,
+        }),
+      };
+    } finally {
+      await session.close();
+      if (shouldKillContainer) {
+        process.exit(1);
+      }
     }
   }
-}
+);

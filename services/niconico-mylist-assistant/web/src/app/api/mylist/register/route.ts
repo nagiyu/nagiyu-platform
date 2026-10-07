@@ -5,7 +5,8 @@ import { getBatchClient, reportErrorEvent } from '@nagiyu/aws';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { getEncryptedUserSessionBlob } from '@/lib/niconico-session';
-import { toErrorMessage, type ErrorResponse } from '@nagiyu/common';
+import { toErrorMessage, type ErrorResponse, type PushSubscription } from '@nagiyu/common';
+import { validatePushSubscription } from '@nagiyu/nextjs';
 
 /**
  * リクエストボディの型定義
@@ -17,13 +18,7 @@ interface RegisterMylistRequest {
   favoriteOnly?: boolean;
   excludeSkip?: boolean;
   mylistName: string;
-  pushSubscription?: {
-    endpoint: string;
-    keys: {
-      p256dh: string;
-      auth: string;
-    };
-  };
+  pushSubscription?: PushSubscription;
 }
 
 /**
@@ -149,6 +144,17 @@ export async function POST(
         {
           error: 'INVALID_REQUEST',
           message: ERROR_MESSAGES.MYLIST_NAME_MUST_BE_STRING,
+        },
+        { status: 400 }
+      );
+    }
+
+    // バリデーション: pushSubscription（任意。指定時のみ検証する）
+    if (body.pushSubscription !== undefined && !validatePushSubscription(body.pushSubscription)) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.INVALID_PUSH_SUBSCRIPTION,
         },
         { status: 400 }
       );

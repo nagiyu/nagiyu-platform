@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import {
   createVapidPublicKeyRoute,
   createPushSubscribeRoute,
+  type CreatePushSubscribeRouteOptions,
   validatePushSubscription,
   createSubscriptionId,
 } from '../../src/push';
@@ -160,5 +161,87 @@ describe('createPushSubscribeRoute', () => {
     expect(response.status).toBe(201);
     expect(body.success).toBe(true);
     expect(body.subscriptionId).toMatch(/^sub_[a-f0-9]{32}$/);
+  });
+
+  describe('onSubscribe フック', () => {
+    const session = {
+      user: { userId: 'user-1', email: 'test@example.com', roles: ['stock-user'] },
+    };
+    type HookSession = typeof session;
+    type Hook = NonNullable<CreatePushSubscribeRouteOptions<HookSession>['onSubscribe']>;
+    const createHook = () => jest.fn<Hook>();
+
+    it('検証後にセッション・購読・ID を渡して呼び出し、201 を返す', async () => {
+      const onSubscribe = createHook().mockResolvedValue(undefined);
+      const POST = createPushSubscribeRoute({
+        getSession: async () => session,
+        onSubscribe,
+      });
+
+      const response = await POST(
+        createRequest({ subscription: validSubscription }) as unknown as NextRequest
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(201);
+      expect(onSubscribe).toHaveBeenCalledTimes(1);
+      expect(onSubscribe).toHaveBeenCalledWith({
+        session,
+        subscription: validSubscription,
+        subscriptionId: body.subscriptionId,
+      });
+    });
+
+    it('購読が不正な場合は呼び出さない', async () => {
+      const onSubscribe = createHook();
+      const POST = createPushSubscribeRoute({
+        getSession: async () => session,
+        onSubscribe,
+      });
+
+      const response = await POST(
+        createRequest({ subscription: { endpoint: 'invalid' } }) as unknown as NextRequest
+      );
+
+      expect(response.status).toBe(400);
+      expect(onSubscribe).not.toHaveBeenCalled();
+    });
+
+    it('VAPID 鍵が未設定の場合は呼び出さない', async () => {
+      delete process.env.VAPID_PRIVATE_KEY;
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      const onSubscribe = createHook();
+      const POST = createPushSubscribeRoute({
+        getSession: async () => session,
+        onSubscribe,
+      });
+
+      const response = await POST(
+        createRequest({ subscription: validSubscription }) as unknown as NextRequest
+      );
+
+      expect(response.status).toBe(500);
+      expect(onSubscribe).not.toHaveBeenCalled();
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('フックが例外を投げた場合は 500 を返す', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      const POST = createPushSubscribeRoute({
+        getSession: async () => session,
+        onSubscribe: async () => {
+          throw new Error('保存失敗');
+        },
+      });
+
+      const response = await POST(
+        createRequest({ subscription: validSubscription }) as unknown as NextRequest
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body.error).toBe('INTERNAL_ERROR');
+      consoleErrorSpy.mockRestore();
+    });
   });
 });

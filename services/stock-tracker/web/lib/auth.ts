@@ -5,8 +5,11 @@
  */
 
 import { auth } from '../auth';
-import { createSessionGetter } from '@nagiyu/nextjs/session';
-import type { TestSessionOverrides } from '@nagiyu/nextjs/session';
+import {
+  createSessionGetter,
+  createTestSessionExpires,
+  resolveTestUser,
+} from '@nagiyu/nextjs/session';
 import type { Session } from '@nagiyu/common';
 import type { Session as NextAuthSession } from 'next-auth';
 
@@ -19,25 +22,27 @@ import type { Session as NextAuthSession } from 'next-auth';
  *
  * E2E テストではリクエストヘッダ `x-test-user-roles` によって 1 テスト単位でロールを
  * 差し替えられる（`@nagiyu/nextjs` の `createSessionGetter` がヘッダを解決して渡す）。
- * ヘッダが未設定の場合は従来どおり `TEST_USER_ROLES` 環境変数 → `stock-user` の順に
- * フォールバックする。
+ * ヘッダが未設定の場合は `TEST_USER_ROLES` 環境変数 → `stock-user` の順にフォールバックする。
  *
  * @returns セッション情報、未認証の場合は null
  */
 const getSessionFromAuth = createSessionGetter({
   auth,
-  createTestSession: (overrides?: TestSessionOverrides) => ({
-    user: {
-      userId: 'test-user-id',
-      googleId: 'test-google-id',
-      email: process.env.TEST_USER_EMAIL || 'test@example.com',
-      name: 'Test User',
-      roles: overrides?.roles ?? (process.env.TEST_USER_ROLES?.split(',') || ['stock-user']),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
-  }),
+  createTestSession: (overrides) => {
+    const u = resolveTestUser({ defaultRoles: ['stock-user'], roles: overrides?.roles });
+    return {
+      user: {
+        userId: u.id,
+        googleId: 'test-google-id',
+        email: u.email,
+        name: u.name,
+        roles: u.roles,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      expires: createTestSessionExpires(),
+    };
+  },
   mapSession: (session: NextAuthSession): Session => ({
     user: {
       userId: session.user.id || '',

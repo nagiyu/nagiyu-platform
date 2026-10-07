@@ -1,6 +1,5 @@
 import { ERROR_MESSAGES as GROUP_ERROR_MESSAGES, inviteMember } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
-import type { ApiErrorResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
@@ -9,6 +8,13 @@ import {
   createMembershipRepository,
   createUserRepository,
 } from '@nagiyu/share-together-core';
+import {
+  createValidationErrorResponse,
+  createNotFoundErrorResponse,
+  createForbiddenErrorResponse,
+  createConflictErrorResponse,
+  createInternalServerErrorResponse,
+} from '@/lib/api/responses';
 
 type RouteParams = {
   params: Promise<{ groupId: string }>;
@@ -18,37 +24,6 @@ type InviteRequestBody = {
   email?: unknown;
   userId?: unknown;
 };
-
-function createErrorResponse(code: string, message: string, status: number): NextResponse {
-  const response: ApiErrorResponse = {
-    error: code,
-    message,
-  };
-  return NextResponse.json(response, { status });
-}
-
-function createValidationErrorResponse(): NextResponse {
-  return createErrorResponse('VALIDATION_ERROR', ERROR_MESSAGES.VALIDATION_ERROR, 400);
-}
-
-function createForbiddenResponse(
-  code: string = 'FORBIDDEN',
-  message: string = ERROR_MESSAGES.FORBIDDEN
-): NextResponse {
-  return createErrorResponse(code, message, 403);
-}
-
-function createNotFoundResponse(): NextResponse {
-  return createErrorResponse('NOT_FOUND', ERROR_MESSAGES.NOT_FOUND, 404);
-}
-
-function createConflictResponse(code: string, message: string): NextResponse {
-  return createErrorResponse(code, message, 409);
-}
-
-function createInternalServerErrorResponse(): NextResponse {
-  return createErrorResponse('INTERNAL_SERVER_ERROR', ERROR_MESSAGES.INTERNAL_SERVER_ERROR, 500);
-}
 
 function resolveGroupId(groupId: string): string | null {
   return groupId.length > 0 ? groupId : null;
@@ -86,7 +61,7 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
 
     const requesterMembership = await membershipRepository.getById(resolvedGroupId, userId);
     if (!requesterMembership || requesterMembership.status !== 'ACCEPTED') {
-      return createForbiddenResponse();
+      return createForbiddenErrorResponse();
     }
 
     const memberships = await membershipRepository.getByGroupId(resolvedGroupId);
@@ -169,23 +144,23 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
 
     const group = await groupRepository.getById(resolvedGroupId);
     if (!group) {
-      return createNotFoundResponse();
+      return createNotFoundErrorResponse();
     }
 
     const requesterMembership = await membershipRepository.getById(resolvedGroupId, userId);
     if (!requesterMembership || requesterMembership.status !== 'ACCEPTED') {
-      return createForbiddenResponse();
+      return createForbiddenErrorResponse();
     }
 
     if (group.ownerUserId !== userId) {
-      return createForbiddenResponse('OWNER_ONLY', ERROR_MESSAGES.OWNER_ONLY);
+      return createForbiddenErrorResponse('OWNER_ONLY', ERROR_MESSAGES.OWNER_ONLY);
     }
 
     const invitee = userIdInput
       ? await userRepository.getById(userIdInput)
       : await userRepository.getByEmail(emailInput);
     if (!invitee) {
-      return createNotFoundResponse();
+      return createNotFoundErrorResponse();
     }
 
     const now = new Date().toISOString();
@@ -214,13 +189,13 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === GROUP_ERROR_MESSAGES.DUPLICATE_INVITATION) {
-        return createConflictResponse('ALREADY_INVITED', ERROR_MESSAGES.ALREADY_INVITED);
+        return createConflictErrorResponse('ALREADY_INVITED', ERROR_MESSAGES.ALREADY_INVITED);
       }
       if (error.message === GROUP_ERROR_MESSAGES.ALREADY_GROUP_MEMBER) {
-        return createConflictResponse('ALREADY_MEMBER', ERROR_MESSAGES.ALREADY_MEMBER);
+        return createConflictErrorResponse('ALREADY_MEMBER', ERROR_MESSAGES.ALREADY_MEMBER);
       }
       if (error.message === GROUP_ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED) {
-        return createConflictResponse(
+        return createConflictErrorResponse(
           'MEMBER_LIMIT_EXCEEDED',
           ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED
         );

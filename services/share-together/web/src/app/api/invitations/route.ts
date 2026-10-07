@@ -1,8 +1,8 @@
-import { BatchGetCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { NextResponse } from 'next/server';
-import type { ApiErrorResponse, InvitationSummary, InvitationsResponse } from '@/types';
+import type { InvitationSummary, InvitationsResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
+import { batchGetAll, getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import {
   createGroupRepository,
@@ -10,26 +10,12 @@ import {
   createUserRepository,
 } from '@nagiyu/share-together-core';
 import { toErrorMessage } from '@nagiyu/common';
+import {
+  createValidationErrorResponse,
+  createInternalServerErrorResponse,
+} from '@/lib/api/responses';
 
 const USER_META_SK = '#META#';
-
-function createValidationErrorResponse(): NextResponse {
-  const response: ApiErrorResponse = {
-    error: 'VALIDATION_ERROR',
-    message: ERROR_MESSAGES.VALIDATION_ERROR,
-  };
-
-  return NextResponse.json(response, { status: 400 });
-}
-
-function createInternalServerErrorResponse(): NextResponse {
-  const response: ApiErrorResponse = {
-    error: 'INTERNAL_SERVER_ERROR',
-    message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-  };
-
-  return NextResponse.json(response, { status: 500 });
-}
 
 export async function GET(): Promise<NextResponse> {
   try {
@@ -134,21 +120,17 @@ async function getInviterNames(
     throw new Error(ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
   }
 
-  const result = await docClient.send(
-    new BatchGetCommand({
-      RequestItems: {
-        [tableName]: {
-          Keys: inviterUserIds.map((inviterUserId) => ({
-            PK: `USER#${inviterUserId}`,
-            SK: USER_META_SK,
-          })),
-        },
-      },
-    })
+  const items = await batchGetAll(
+    docClient,
+    tableName,
+    inviterUserIds.map((inviterUserId) => ({
+      PK: `USER#${inviterUserId}`,
+      SK: USER_META_SK,
+    }))
   );
 
   const inviterNames = new Map<string, string>();
-  for (const item of (result.Responses?.[tableName] ?? []) as Record<string, unknown>[]) {
+  for (const item of items) {
     const userId = item['userId'];
     const name = item['name'];
     if (typeof userId === 'string' && typeof name === 'string') {

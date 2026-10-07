@@ -33,6 +33,37 @@ describe('reportErrorEvent', () => {
     loggerErrorSpy.mockRestore();
   });
 
+  describe('例外を投げない', () => {
+    it('循環参照を含む context でも代替値で書き込みを続ける', async () => {
+      const context: Record<string, unknown> = {};
+      context.self = context;
+
+      const event = await reportErrorEvent({
+        serviceId: 'svc',
+        severity: 'error',
+        title: 't',
+        message: 'm',
+        context,
+      });
+
+      expect(event).not.toBeNull();
+      expect(JSON.parse(event!.context)).toHaveProperty('contextSerializeError');
+      expect(loggerErrorSpy).toHaveBeenCalled();
+    });
+
+    it('BigInt を含む context でも例外を投げない', async () => {
+      await expect(
+        reportErrorEvent({
+          serviceId: 'svc',
+          severity: 'error',
+          title: 't',
+          message: 'm',
+          context: { n: BigInt(1) },
+        })
+      ).resolves.not.toBeNull();
+    });
+  });
+
   describe('デフォルト値', () => {
     it('source のデフォルトは application', async () => {
       const event = await reportErrorEvent({

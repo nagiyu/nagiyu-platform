@@ -12,6 +12,7 @@ jest.mock('@/lib/auth/session', () => ({
 }));
 
 jest.mock('@nagiyu/aws', () => ({
+  batchGetAll: jest.requireActual('@nagiyu/aws').batchGetAll,
   getDynamoDBDocumentClient: jest.fn(),
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
@@ -151,6 +152,46 @@ describe('GET /api/invitations', () => {
         ],
       },
     });
+  });
+
+  it('招待者名の未処理キーを再送して取得する', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrUnauthorized);
+    mockGetPendingInvitationsByUserId.mockResolvedValue(
+      ['inviter-1', 'inviter-2'].map((invitedBy, index) => ({
+        groupId: `group-${index}`,
+        userId: 'user-1',
+        role: 'MEMBER',
+        status: 'PENDING',
+        invitedBy,
+        createdAt: '2026-03-01T00:00:00.000Z',
+        updatedAt: '2026-03-01T00:00:00.000Z',
+      }))
+    );
+    mockBatchGetByIds.mockResolvedValue([]);
+    mockSend
+      .mockResolvedValueOnce({
+        Responses: { 'test-share-together-main': [{ userId: 'inviter-1', name: '招待者1' }] },
+        UnprocessedKeys: {
+          'test-share-together-main': { Keys: [{ PK: 'USER#inviter-2', SK: '#META#' }] },
+        },
+      })
+      .mockResolvedValueOnce({
+        Responses: { 'test-share-together-main': [{ userId: 'inviter-2', name: '招待者2' }] },
+      });
+
+    const response = await GET();
+    const body = (await response.json()) as {
+      data: { invitations: Array<{ inviterName: string }> };
+    };
+
+    expect(response.status).toBe(200);
+    expect(mockSend).toHaveBeenCalledTimes(2);
+    expect(body.data.invitations.map((invitation) => invitation.inviterName)).toEqual([
+      '招待者1',
+      '招待者2',
+    ]);
   });
 
   it('例外発生時は500レスポンスを返し reportErrorEvent を呼ぶ', async () => {

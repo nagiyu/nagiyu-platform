@@ -12,9 +12,11 @@ import {
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import {
+  DatabaseError,
   EntityAlreadyExistsError,
   EntityNotFoundError,
-  DatabaseError,
+  buildUpdateExpression,
+  toDatabaseError,
   mapConditionalCheckFailed,
   type DynamoDBItem,
 } from '@nagiyu/aws';
@@ -25,7 +27,10 @@ import type {
   UpdateBatchJobInput,
 } from '../entities/batch-job.entity.js';
 import { BatchJobMapper } from '../mappers/batch-job.mapper.js';
-import { toErrorMessage } from '@nagiyu/common';
+
+const ERROR_MESSAGES = {
+  NO_UPDATES_SPECIFIED: '更新するフィールドが指定されていません',
+} as const;
 
 /**
  * DynamoDB BatchJob Repository
@@ -63,8 +68,7 @@ export class DynamoDBBatchJobRepository implements BatchJobRepository {
 
       return this.mapper.toEntity(result.Item as DynamoDBItem);
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -97,8 +101,7 @@ export class DynamoDBBatchJobRepository implements BatchJobRepository {
           throw new EntityAlreadyExistsError('BatchJob', `${input.jobId}#${input.userId}`);
         },
       });
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -114,27 +117,17 @@ export class DynamoDBBatchJobRepository implements BatchJobRepository {
       const { pk, sk } = this.mapper.buildKeys({ jobId, userId });
       const attributes = this.mapper.buildUpdateAttributes(input);
 
-      // UpdateExpression と ExpressionAttributeNames, ExpressionAttributeValues を構築
-      const updateExpressionParts: string[] = [];
-      const expressionAttributeNames: Record<string, string> = {};
-      const expressionAttributeValues: Record<string, unknown> = {};
-
-      for (const [key, value] of Object.entries(attributes)) {
-        // DynamoDB の予約語を ExpressionAttributeNames でエスケープ
-        const nameToken = `#${key}`;
-        const valueToken = `:${key}`;
-        updateExpressionParts.push(`${nameToken} = ${valueToken}`);
-        expressionAttributeNames[nameToken] = key;
-        expressionAttributeValues[valueToken] = value;
+      // mapper が status と UpdatedAt を常に返すため null にはならない。型を絞るための分岐
+      const updateParts = buildUpdateExpression(attributes);
+      if (!updateParts) {
+        throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
       }
 
       const result = await this.docClient.send(
         new UpdateCommand({
           TableName: this.tableName,
           Key: { PK: pk, SK: sk },
-          UpdateExpression: `SET ${updateExpressionParts.join(', ')}`,
-          ExpressionAttributeNames: expressionAttributeNames,
-          ExpressionAttributeValues: expressionAttributeValues,
+          ...updateParts,
           ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
           ReturnValues: 'ALL_NEW',
         })
@@ -151,11 +144,7 @@ export class DynamoDBBatchJobRepository implements BatchJobRepository {
           throw new EntityNotFoundError('BatchJob', `${jobId}#${userId}`);
         },
       });
-      if (error instanceof EntityNotFoundError) {
-        throw error;
-      }
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -173,8 +162,7 @@ export class DynamoDBBatchJobRepository implements BatchJobRepository {
         })
       );
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }

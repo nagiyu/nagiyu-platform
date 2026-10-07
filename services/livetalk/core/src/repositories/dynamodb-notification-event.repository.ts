@@ -1,11 +1,10 @@
 import {
   GetCommand,
   PutCommand,
-  QueryCommand,
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { queryPages, toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import type {
   CreateNotificationEventInput,
   NotificationEventEntity,
@@ -40,8 +39,7 @@ export class DynamoDBNotificationEventRepository implements NotificationEventRep
       );
       return entity;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -49,33 +47,24 @@ export class DynamoDBNotificationEventRepository implements NotificationEventRep
     const pk = buildUserPK(userId);
     const prefix = buildNotifSKPrefix();
     const results: NotificationEventEntity[] = [];
-    let exclusiveStartKey: Record<string, unknown> | undefined;
 
-    for (;;) {
-      let result;
-      try {
-        result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
-            ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
-            ExpressionAttributeValues: { ':pk': pk, ':prefix': prefix },
-            ScanIndexForward: false,
-            Limit: limit,
-            ExclusiveStartKey: exclusiveStartKey,
-          })
-        );
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new DatabaseError(message, error instanceof Error ? error : undefined);
+    try {
+      for await (const page of queryPages(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
+        ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
+        ExpressionAttributeValues: { ':pk': pk, ':prefix': prefix },
+        ScanIndexForward: false,
+        Limit: limit,
+      })) {
+        for (const raw of page) {
+          results.push(this.mapper.toEntity(raw));
+        }
+
+        if (results.length >= limit) break;
       }
-
-      for (const raw of result.Items ?? []) {
-        results.push(this.mapper.toEntity(raw as unknown as DynamoDBItem));
-      }
-
-      if (!result.LastEvaluatedKey || results.length >= limit) break;
-      exclusiveStartKey = result.LastEvaluatedKey;
+    } catch (error) {
+      throw toDatabaseError(error);
     }
 
     return results;
@@ -91,40 +80,31 @@ export class DynamoDBNotificationEventRepository implements NotificationEventRep
     const prefix = buildNotifSKPrefix();
     const target = new Set(characterIds);
     const map = new Map<string, NotificationEventEntity>();
-    let exclusiveStartKey: Record<string, unknown> | undefined;
 
-    for (;;) {
-      let result;
-      try {
-        result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
-            ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
-            ExpressionAttributeValues: { ':pk': pk, ':prefix': prefix },
-            ScanIndexForward: false,
-            Limit: 100,
-            ExclusiveStartKey: exclusiveStartKey,
-          })
-        );
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new DatabaseError(message, error instanceof Error ? error : undefined);
-      }
-
-      for (const raw of result.Items ?? []) {
-        const entity = this.mapper.toEntity(raw as unknown as DynamoDBItem);
-        if (
-          target.has(entity.CharacterID) &&
-          entity.ConsumedAt === undefined &&
-          !map.has(entity.CharacterID)
-        ) {
-          map.set(entity.CharacterID, entity);
+    try {
+      for await (const page of queryPages(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
+        ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
+        ExpressionAttributeValues: { ':pk': pk, ':prefix': prefix },
+        ScanIndexForward: false,
+        Limit: 100,
+      })) {
+        for (const raw of page) {
+          const entity = this.mapper.toEntity(raw);
+          if (
+            target.has(entity.CharacterID) &&
+            entity.ConsumedAt === undefined &&
+            !map.has(entity.CharacterID)
+          ) {
+            map.set(entity.CharacterID, entity);
+          }
         }
-      }
 
-      if (map.size >= target.size || !result.LastEvaluatedKey) break;
-      exclusiveStartKey = result.LastEvaluatedKey;
+        if (map.size >= target.size) break;
+      }
+    } catch (error) {
+      throw toDatabaseError(error);
     }
 
     return Array.from(map.values());
@@ -140,8 +120,7 @@ export class DynamoDBNotificationEventRepository implements NotificationEventRep
       if (!result.Item) return null;
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -158,8 +137,7 @@ export class DynamoDBNotificationEventRepository implements NotificationEventRep
         })
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }

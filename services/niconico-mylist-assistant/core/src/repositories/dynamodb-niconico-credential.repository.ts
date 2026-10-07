@@ -10,8 +10,7 @@ import {
   DeleteCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
-import { toErrorMessage } from '@nagiyu/common';
+import { toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import type { NiconicoCredentialRepository } from './niconico-credential.repository.interface.js';
 import type {
   NiconicoCredentialEntity,
@@ -55,8 +54,7 @@ export class DynamoDBNiconicoCredentialRepository implements NiconicoCredentialR
 
       return this.mapper.toEntity(result.Item as DynamoDBItem);
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -76,8 +74,7 @@ export class DynamoDBNiconicoCredentialRepository implements NiconicoCredentialR
 
       return input;
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -95,8 +92,7 @@ export class DynamoDBNiconicoCredentialRepository implements NiconicoCredentialR
         })
       );
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }

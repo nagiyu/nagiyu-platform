@@ -5,6 +5,10 @@
  */
 
 import { DynamoDBExchangeRepository } from '../../../src/repositories/dynamodb-exchange.repository.js';
+import {
+  parseUpdateExpression,
+  type UpdateExpressionInput,
+} from '../../helpers/update-expression.js';
 import { EntityAlreadyExistsError, EntityNotFoundError, DatabaseError } from '@nagiyu/aws';
 import { QueryCommand, ScanCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { CreateExchangeInput } from '../../../src/entities/exchange.entity.js';
@@ -514,15 +518,9 @@ describe('DynamoDBExchangeRepository', () => {
 
       const input = (mockDocClient.send.mock.calls[0][0] as { input: Record<string, unknown> })
         .input;
-      expect(input.UpdateExpression).toContain('#gsi3pk = :gsi3pk');
-      expect(input.UpdateExpression).toContain('#gsi3sk = :gsi3sk');
-      expect(input.ExpressionAttributeNames).toMatchObject({
-        '#gsi3pk': 'GSI3PK',
-        '#gsi3sk': 'GSI3SK',
-      });
-      expect(input.ExpressionAttributeValues).toMatchObject({
-        ':gsi3pk': 'EXCHANGES',
-        ':gsi3sk': 'EXCHANGE#NASDAQ',
+      expect(parseUpdateExpression(input).set).toMatchObject({
+        GSI3PK: 'EXCHANGES',
+        GSI3SK: 'EXCHANGE#NASDAQ',
       });
     });
 
@@ -620,11 +618,10 @@ describe('DynamoDBExchangeRepository', () => {
           ExpressionAttributeValues: Record<string, unknown>;
         };
       };
-      expect(sentCommand.input.UpdateExpression).toContain('SET');
-      expect(sentCommand.input.UpdateExpression).toContain('#market = :market');
+      const parsed = parseUpdateExpression(sentCommand.input);
+      expect(parsed.set).toMatchObject({ Market: 'US' });
+      expect(parsed.remove).toEqual([]);
       expect(sentCommand.input.UpdateExpression).not.toContain('REMOVE');
-      expect(sentCommand.input.ExpressionAttributeNames['#market']).toBe('Market');
-      expect(sentCommand.input.ExpressionAttributeValues[':market']).toBe('US');
     });
 
     it('Market を null で更新するとREMOVE句が発行される', async () => {
@@ -657,9 +654,9 @@ describe('DynamoDBExchangeRepository', () => {
           ExpressionAttributeValues: Record<string, unknown>;
         };
       };
-      expect(sentCommand.input.UpdateExpression).toContain('REMOVE #market');
-      expect(sentCommand.input.ExpressionAttributeNames['#market']).toBe('Market');
-      expect(sentCommand.input.ExpressionAttributeValues[':market']).toBeUndefined();
+      const parsed = parseUpdateExpression(sentCommand.input);
+      expect(parsed.remove).toEqual(['Market']);
+      expect(parsed.set).not.toHaveProperty('Market');
     });
 
     it('Market を指定しない更新ではSET句にもREMOVE句にも含まれない', async () => {
@@ -684,10 +681,14 @@ describe('DynamoDBExchangeRepository', () => {
       await repository.update('NASDAQ', { Name: 'NASDAQ (Updated)' });
 
       const sentCommand = mockDocClient.send.mock.calls[0]?.[0] as {
-        input: { UpdateExpression: string; ExpressionAttributeNames: Record<string, string> };
+        input: UpdateExpressionInput;
       };
-      expect(sentCommand.input.UpdateExpression).not.toContain('REMOVE');
-      expect(sentCommand.input.ExpressionAttributeNames['#market']).toBeUndefined();
+      const parsed = parseUpdateExpression(sentCommand.input);
+      expect(parsed.remove).toEqual([]);
+      expect(parsed.set).not.toHaveProperty('Market');
+      expect(Object.values(sentCommand.input.ExpressionAttributeNames ?? {})).not.toContain(
+        'Market'
+      );
     });
   });
 

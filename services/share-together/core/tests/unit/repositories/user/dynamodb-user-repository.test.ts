@@ -7,6 +7,12 @@ import {
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBUserRepository } from '../../../../src/repositories/user/dynamodb-user-repository.js';
+import { parseUpdateExpression } from '../../../helpers/update-expression.js';
+
+import { DatabaseError } from '@nagiyu/aws';
+
+const createSdkError = (): Error =>
+  Object.assign(new Error('スループット超過'), { name: 'ProvisionedThroughputExceededException' });
 
 describe('DynamoDBUserRepository', () => {
   const TABLE_NAME = 'test-share-together-main';
@@ -268,11 +274,10 @@ describe('DynamoDBUserRepository', () => {
       await repository.update('user-1', { email: 'updated@example.com' });
       const command = mockDocClient.send.mock.calls[0]?.[0] as UpdateCommand;
 
-      expect(command.input.ExpressionAttributeNames).toHaveProperty('#gsi2pk', 'GSI2PK');
-      expect(command.input.ExpressionAttributeValues).toHaveProperty(
-        ':gsi2pk',
-        'EMAIL#updated@example.com'
-      );
+      expect(parseUpdateExpression(command.input).set).toMatchObject({
+        email: 'updated@example.com',
+        GSI2PK: 'EMAIL#updated@example.com',
+      });
     });
 
     it('nameのみ更新できる', async () => {
@@ -287,8 +292,10 @@ describe('DynamoDBUserRepository', () => {
       const command = mockDocClient.send.mock.calls[0]?.[0] as UpdateCommand;
 
       expect(result.name).toBe('名前だけ変更');
-      expect(command.input.ExpressionAttributeNames).not.toHaveProperty('#email');
-      expect(command.input.ExpressionAttributeNames).toHaveProperty('#name', 'name');
+      const parsed = parseUpdateExpression(command.input);
+      expect(parsed.set).not.toHaveProperty('email');
+      expect(parsed.set).not.toHaveProperty('GSI2PK');
+      expect(parsed.set).toMatchObject({ name: '名前だけ変更', updatedAt: expect.any(String) });
     });
 
     it('ユーザーが存在しない場合はエラーを投げる', async () => {
@@ -331,6 +338,50 @@ describe('DynamoDBUserRepository', () => {
       mockDocClient.send.mockResolvedValueOnce({});
 
       await expect(repository.delete('user-404')).resolves.toBeUndefined();
+    });
+  });
+
+  describe('SDK例外のDatabaseError化', () => {
+    it('取得時のSDK例外はDatabaseErrorに包まれる', async () => {
+      mockDocClient.send.mockRejectedValueOnce(createSdkError());
+
+      const promise = repository.getById('user-1');
+
+      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
+      await expect(promise).rejects.toMatchObject({
+        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
+      });
+    });
+
+    it('削除時のSDK例外はDatabaseErrorに包まれる', async () => {
+      mockDocClient.send.mockRejectedValueOnce(createSdkError());
+
+      const promise = repository.delete('user-1');
+
+      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
+      await expect(promise).rejects.toMatchObject({
+        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
+      });
+    });
+
+    it('更新時の条件違反以外のSDK例外はDatabaseErrorに包まれる', async () => {
+      mockDocClient.send.mockRejectedValueOnce(createSdkError());
+
+      const promise = repository.update('user-1', { name: '更新後' });
+
+      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
+      await expect(promise).rejects.toMatchObject({
+        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
+      });
+    });
+
+    it('更新対象がない場合は素のErrorのまま日本語メッセージで投げる', async () => {
+      mockDocClient.send.mockRejectedValueOnce({ name: 'ConditionalCheckFailedException' });
+
+      const promise = repository.update('user-404', { name: '更新後' });
+
+      await expect(promise).rejects.toThrow('ユーザーが見つかりません');
+      await expect(promise).rejects.not.toBeInstanceOf(DatabaseError);
     });
   });
 });

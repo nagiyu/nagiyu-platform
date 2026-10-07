@@ -371,9 +371,9 @@ describe('DevSyncStack', () => {
       // Query/GetItem はポリシー内に一切登場しない
       expect(allPoliciesStr).not.toContain('dynamodb:Query');
       expect(allPoliciesStr).not.toContain('dynamodb:GetItem');
-      // PutItem は dest テーブルのポリシーとして 1 件のみ存在するはず
+      // PutItem は dest テーブルと error-events テーブルのポリシーとして 2 件のみ存在するはず
       const putItemCount = (allPoliciesStr.match(/"dynamodb:PutItem"/g) ?? []).length;
-      expect(putItemCount).toBe(1);
+      expect(putItemCount).toBe(2);
       // DeleteItem は delete=on のエントリの dest テーブルのポリシーとして 1 件のみ存在するはず
       const deleteItemCount = (allPoliciesStr.match(/"dynamodb:DeleteItem"/g) ?? []).length;
       expect(deleteItemCount).toBe(1);
@@ -650,6 +650,50 @@ describe('DevSyncStack', () => {
           manifest: validManifest,
         });
       }).not.toThrow();
+    });
+  });
+
+  describe('error-events テーブルへの書き込み設定', () => {
+    it.each(['dev', 'prod'] as const)(
+      '%s 環境で環境変数 ERROR_EVENTS_TABLE_NAME が設定される',
+      (environment) => {
+        const stack = new DevSyncStack(app, 'TestStack', {
+          environment,
+          ecrRepositoryName: `nagiyu-dev-sync-ecr-${environment}`,
+          manifest: [],
+        });
+
+        const template = Template.fromStack(stack);
+        template.hasResourceProperties('AWS::Lambda::Function', {
+          FunctionName: `nagiyu-dev-sync-${environment}`,
+          Environment: {
+            Variables: Match.objectLike({
+              ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
+            }),
+          },
+        });
+      }
+    );
+
+    it('error-events テーブルへの dynamodb:PutItem のみが cross-stack import の ARN に対して付与される', () => {
+      const stack = new DevSyncStack(app, 'TestStack', {
+        environment: 'dev',
+        ecrRepositoryName: 'nagiyu-dev-sync-ecr-dev',
+        manifest: [],
+      });
+
+      const template = Template.fromStack(stack);
+      template.hasResourceProperties('AWS::IAM::Policy', {
+        PolicyDocument: {
+          Statement: Match.arrayWith([
+            {
+              Effect: 'Allow',
+              Action: 'dynamodb:PutItem',
+              Resource: { 'Fn::ImportValue': 'nagiyu-error-events-table-arn-dev' },
+            },
+          ]),
+        },
+      });
     });
   });
 });

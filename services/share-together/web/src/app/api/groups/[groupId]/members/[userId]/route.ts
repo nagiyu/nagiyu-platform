@@ -6,20 +6,16 @@ import {
   type MembershipRepository,
 } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
-import type { ApiErrorResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createGroupRepository, createMembershipRepository } from '@nagiyu/share-together-core';
-
-function createErrorResponse(code: string, message: string, status: number): NextResponse {
-  const response: ApiErrorResponse = {
-    error: code,
-    message,
-  };
-
-  return NextResponse.json(response, { status });
-}
+import {
+  createValidationErrorResponse,
+  createNotFoundErrorResponse,
+  createInternalServerErrorResponse,
+} from '@/lib/api/responses';
+import { createErrorResponse } from '@nagiyu/nextjs';
 
 function createNoContentResponse(): NextResponse {
   return new NextResponse(null, { status: 204 });
@@ -49,7 +45,7 @@ export async function DELETE(
 
     const { groupId, userId } = await params;
     if (!groupId || !userId) {
-      return createErrorResponse('VALIDATION_ERROR', ERROR_MESSAGES.VALIDATION_ERROR, 400);
+      return createValidationErrorResponse();
     }
 
     const tableName = process.env.DYNAMODB_TABLE_NAME;
@@ -59,7 +55,7 @@ export async function DELETE(
 
     const userIdFromSession = sessionOrUnauthorized.user.id;
     if (typeof userIdFromSession !== 'string' || userIdFromSession.length === 0) {
-      return createErrorResponse('VALIDATION_ERROR', ERROR_MESSAGES.VALIDATION_ERROR, 400);
+      return createValidationErrorResponse();
     }
 
     const dependencies = createDependencies(tableName);
@@ -74,21 +70,21 @@ export async function DELETE(
       userIdFromSession
     );
     if (requesterMembership?.role !== 'OWNER') {
-      return createErrorResponse('OWNER_ONLY', ERROR_MESSAGES.OWNER_ONLY, 403);
+      return createErrorResponse(403, 'OWNER_ONLY', ERROR_MESSAGES.OWNER_ONLY);
     }
 
     await removeMember(groupId, userId, dependencies);
     return createNoContentResponse();
   } catch (error) {
     if (error instanceof Error && error.message === GROUP_ERROR_MESSAGES.MEMBERSHIP_NOT_FOUND) {
-      return createErrorResponse('NOT_FOUND', ERROR_MESSAGES.NOT_FOUND, 404);
+      return createNotFoundErrorResponse();
     }
 
     if (error instanceof Error && error.message === GROUP_ERROR_MESSAGES.OWNER_CANNOT_LEAVE) {
-      return createErrorResponse('OWNER_CANNOT_LEAVE', ERROR_MESSAGES.OWNER_CANNOT_LEAVE, 403);
+      return createErrorResponse(403, 'OWNER_CANNOT_LEAVE', ERROR_MESSAGES.OWNER_CANNOT_LEAVE);
     }
 
     console.error('グループメンバー除外・脱退 API の実行に失敗しました', { error });
-    return createErrorResponse('INTERNAL_SERVER_ERROR', ERROR_MESSAGES.INTERNAL_SERVER_ERROR, 500);
+    return createInternalServerErrorResponse();
   }
 }

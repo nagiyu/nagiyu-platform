@@ -20,7 +20,6 @@ import {
 
 const ERROR_MESSAGES = {
   ADMIN_DYNAMODB_TABLE_NAME_REQUIRED: 'DYNAMODB_TABLE_NAME が設定されていません',
-  VAPID_KEYS_REQUIRED: 'VAPID キーが設定されていません',
   APP_URL_REQUIRED: 'APP_URL が設定されていません',
 } as const;
 
@@ -54,17 +53,7 @@ function getSubscriptionRepository() {
 }
 
 function getWebPushSender(): WebPushSender {
-  const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
-  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
-  if (!vapidPublicKey || !vapidPrivateKey) {
-    throw new Error(ERROR_MESSAGES.VAPID_KEYS_REQUIRED);
-  }
-
-  return new WebPushSender({
-    repository: getSubscriptionRepository(),
-    vapidPublicKey,
-    vapidPrivateKey,
-  });
+  return new WebPushSender({ repository: getSubscriptionRepository() });
 }
 
 const VALID_SEVERITIES: ReadonlySet<ErrorSeverity> = new Set([

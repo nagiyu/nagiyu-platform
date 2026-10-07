@@ -7,6 +7,12 @@ import {
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBGroupRepository } from '../../../../src/repositories/group/dynamodb-group-repository.js';
+import { parseUpdateExpression } from '../../../helpers/update-expression.js';
+
+import { DatabaseError } from '@nagiyu/aws';
+
+const createSdkError = (): Error =>
+  Object.assign(new Error('スループット超過'), { name: 'ProvisionedThroughputExceededException' });
 
 describe('DynamoDBGroupRepository', () => {
   const TABLE_NAME = 'test-share-together-main';
@@ -205,8 +211,6 @@ describe('DynamoDBGroupRepository', () => {
 
       const result = await repository.update('group-1', { name: '更新後グループ' });
       const command = mockDocClient.send.mock.calls[0][0] as UpdateCommand;
-      const names = command.input.ExpressionAttributeNames as Record<string, string>;
-      const values = command.input.ExpressionAttributeValues as Record<string, unknown>;
 
       expect(result).toEqual({
         groupId: 'group-1',
@@ -220,16 +224,14 @@ describe('DynamoDBGroupRepository', () => {
         PK: 'GROUP#group-1',
         SK: '#META#',
       });
-      expect(command.input.UpdateExpression).toContain('#updatedAt = :updatedAt');
-      expect(command.input.UpdateExpression).toContain('#name = :name');
+      expect(parseUpdateExpression(command.input).set).toEqual({
+        name: '更新後グループ',
+        updatedAt: expect.any(String),
+      });
       expect(command.input.ConditionExpression).toBe(
         'attribute_exists(PK) AND attribute_exists(SK)'
       );
       expect(command.input.ReturnValues).toBe('ALL_NEW');
-      expect(names['#updatedAt']).toBe('updatedAt');
-      expect(names['#name']).toBe('name');
-      expect(values[':name']).toBe('更新後グループ');
-      expect(values[':updatedAt']).toEqual(expect.any(String));
     });
 
     it('グループが存在しない場合はエラーを投げる', async () => {
@@ -266,6 +268,84 @@ describe('DynamoDBGroupRepository', () => {
       });
 
       await expect(repository.delete('group-404')).rejects.toThrow('グループが見つかりません');
+    });
+  });
+
+  describe('batchGetByIds の分割と再送', () => {
+    const createGroupItem = (groupId: string): Record<string, unknown> => ({
+      PK: `GROUP#${groupId}`,
+      SK: '#META#',
+      groupId,
+      name: groupId,
+      ownerUserId: 'user-1',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    it('未処理キーを再送して取得できる', async () => {
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Responses: { [TABLE_NAME]: [createGroupItem('group-1')] },
+          UnprocessedKeys: { [TABLE_NAME]: { Keys: [{ PK: 'GROUP#group-2', SK: '#META#' }] } },
+        })
+        .mockResolvedValueOnce({ Responses: { [TABLE_NAME]: [createGroupItem('group-2')] } });
+
+      const result = await repository.batchGetByIds(['group-1', 'group-2']);
+
+      expect(result.map((group) => group.groupId)).toEqual(['group-1', 'group-2']);
+      const retryCommand = mockDocClient.send.mock.calls[1][0] as BatchGetCommand;
+      expect(retryCommand.input.RequestItems?.[TABLE_NAME]?.Keys).toEqual([
+        { PK: 'GROUP#group-2', SK: '#META#' },
+      ]);
+    });
+
+    it('100件を超える場合は分割して取得する', async () => {
+      const groupIds = Array.from({ length: 101 }, (_, i) => `group-${i}`);
+      mockDocClient.send
+        .mockResolvedValueOnce({ Responses: { [TABLE_NAME]: [createGroupItem('group-0')] } })
+        .mockResolvedValueOnce({ Responses: { [TABLE_NAME]: [createGroupItem('group-100')] } });
+
+      const result = await repository.batchGetByIds(groupIds);
+
+      expect(result.map((group) => group.groupId)).toEqual(['group-0', 'group-100']);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
+      const first = mockDocClient.send.mock.calls[0][0] as BatchGetCommand;
+      const second = mockDocClient.send.mock.calls[1][0] as BatchGetCommand;
+      expect(first.input.RequestItems?.[TABLE_NAME]?.Keys).toHaveLength(100);
+      expect(second.input.RequestItems?.[TABLE_NAME]?.Keys).toHaveLength(1);
+    });
+  });
+
+  describe('SDK例外のDatabaseError化', () => {
+    it('取得時のSDK例外はDatabaseErrorに包まれる', async () => {
+      mockDocClient.send.mockRejectedValueOnce(createSdkError());
+
+      const promise = repository.getById('group-1');
+
+      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
+      await expect(promise).rejects.toMatchObject({
+        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
+      });
+    });
+
+    it('削除時の条件違反以外のSDK例外はDatabaseErrorに包まれる', async () => {
+      mockDocClient.send.mockRejectedValueOnce(createSdkError());
+
+      const promise = repository.delete('group-1');
+
+      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
+      await expect(promise).rejects.toMatchObject({
+        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
+      });
+    });
+
+    it('削除対象がない場合は素のErrorのまま日本語メッセージで投げる', async () => {
+      mockDocClient.send.mockRejectedValueOnce({ name: 'ConditionalCheckFailedException' });
+
+      const promise = repository.delete('group-404');
+
+      await expect(promise).rejects.toThrow('グループが見つかりません');
+      await expect(promise).rejects.not.toBeInstanceOf(DatabaseError);
     });
   });
 });

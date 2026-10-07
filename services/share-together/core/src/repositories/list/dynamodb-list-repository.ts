@@ -2,11 +2,15 @@ import {
   DeleteCommand,
   GetCommand,
   PutCommand,
-  QueryCommand,
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { mapConditionalCheckFailed } from '@nagiyu/aws';
+import {
+  buildUpdateExpression,
+  mapConditionalCheckFailed,
+  queryAllItems,
+  toDatabaseError,
+} from '@nagiyu/aws';
 import type {
   CreateGroupListInput,
   CreatePersonalListInput,
@@ -16,6 +20,7 @@ import type {
   UpdatePersonalListInput,
 } from '../../types/index.js';
 import type { ListRepository } from './list-repository.interface.js';
+import { withDatabaseError } from '../with-database-error.js';
 
 const PERSONAL_LIST_SK_PREFIX = 'PLIST#';
 const GROUP_LIST_SK_PREFIX = 'GLIST#';
@@ -28,6 +33,7 @@ const ERROR_MESSAGES = {
   PERSONAL_LIST_NOT_FOUND: '個人リストが見つかりません',
   GROUP_LIST_NOT_FOUND: 'グループリストが見つかりません',
   DEFAULT_PERSONAL_LIST_NOT_DELETABLE: 'デフォルトリストは削除できません',
+  UPDATE_EXPRESSION_EMPTY: '更新式を生成できませんでした',
 } as const;
 
 export class DynamoDBListRepository implements ListRepository {
@@ -40,8 +46,8 @@ export class DynamoDBListRepository implements ListRepository {
   }
 
   public async getPersonalListsByUserId(userId: string): Promise<PersonalList[]> {
-    const result = await this.docClient.send(
-      new QueryCommand({
+    const items = await withDatabaseError(() =>
+      queryAllItems(this.docClient, {
         TableName: this.tableName,
         KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
         ExpressionAttributeNames: {
@@ -55,22 +61,20 @@ export class DynamoDBListRepository implements ListRepository {
       })
     );
 
-    if (!result.Items) {
-      return [];
-    }
-
-    return result.Items.map((item) => this.toPersonalList(item as Record<string, unknown>));
+    return items.map((item) => this.toPersonalList(item as Record<string, unknown>));
   }
 
   public async getPersonalListById(userId: string, listId: string): Promise<PersonalList | null> {
-    const result = await this.docClient.send(
-      new GetCommand({
-        TableName: this.tableName,
-        Key: {
-          PK: this.buildUserPk(userId),
-          SK: this.buildPersonalListSk(listId),
-        },
-      })
+    const result = await withDatabaseError(() =>
+      this.docClient.send(
+        new GetCommand({
+          TableName: this.tableName,
+          Key: {
+            PK: this.buildUserPk(userId),
+            SK: this.buildPersonalListSk(listId),
+          },
+        })
+      )
     );
 
     if (!result.Item) {
@@ -107,7 +111,7 @@ export class DynamoDBListRepository implements ListRepository {
           throw new Error(ERROR_MESSAGES.PERSONAL_LIST_ALREADY_EXISTS);
         },
       });
-      throw error;
+      throw toDatabaseError(error);
     }
 
     return this.toPersonalList(item);
@@ -118,15 +122,15 @@ export class DynamoDBListRepository implements ListRepository {
     listId: string,
     updates: UpdatePersonalListInput
   ): Promise<PersonalList> {
-    const now = new Date().toISOString();
-    const names: Record<string, string> = { '#updatedAt': 'updatedAt' };
-    const values: Record<string, unknown> = { ':updatedAt': now };
-    const setExpressions: string[] = ['#updatedAt = :updatedAt'];
-
-    if (updates.name !== undefined) {
-      names['#name'] = 'name';
-      values[':name'] = updates.name;
-      setExpressions.push('#name = :name');
+    const updateParts = buildUpdateExpression(
+      { name: updates.name },
+      {
+        timestamp: { attributeName: 'updatedAt', value: new Date().toISOString() },
+        updateTimestampWhenEmpty: true,
+      }
+    );
+    if (!updateParts) {
+      throw new Error(ERROR_MESSAGES.UPDATE_EXPRESSION_EMPTY);
     }
 
     let result;
@@ -138,10 +142,8 @@ export class DynamoDBListRepository implements ListRepository {
             PK: this.buildUserPk(userId),
             SK: this.buildPersonalListSk(listId),
           },
-          UpdateExpression: `SET ${setExpressions.join(', ')}`,
+          ...updateParts,
           ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
-          ExpressionAttributeNames: names,
-          ExpressionAttributeValues: values,
           ReturnValues: 'ALL_NEW',
         })
       );
@@ -151,7 +153,7 @@ export class DynamoDBListRepository implements ListRepository {
           throw new Error(ERROR_MESSAGES.PERSONAL_LIST_NOT_FOUND);
         },
       });
-      throw error;
+      throw toDatabaseError(error);
     }
 
     if (!result.Attributes) {
@@ -172,20 +174,22 @@ export class DynamoDBListRepository implements ListRepository {
       throw new Error(ERROR_MESSAGES.DEFAULT_PERSONAL_LIST_NOT_DELETABLE);
     }
 
-    await this.docClient.send(
-      new DeleteCommand({
-        TableName: this.tableName,
-        Key: {
-          PK: this.buildUserPk(userId),
-          SK: this.buildPersonalListSk(listId),
-        },
-      })
+    await withDatabaseError(() =>
+      this.docClient.send(
+        new DeleteCommand({
+          TableName: this.tableName,
+          Key: {
+            PK: this.buildUserPk(userId),
+            SK: this.buildPersonalListSk(listId),
+          },
+        })
+      )
     );
   }
 
   public async getGroupListsByGroupId(groupId: string): Promise<GroupList[]> {
-    const result = await this.docClient.send(
-      new QueryCommand({
+    const items = await withDatabaseError(() =>
+      queryAllItems(this.docClient, {
         TableName: this.tableName,
         KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
         ExpressionAttributeNames: {
@@ -199,22 +203,20 @@ export class DynamoDBListRepository implements ListRepository {
       })
     );
 
-    if (!result.Items) {
-      return [];
-    }
-
-    return result.Items.map((item) => this.toGroupList(item as Record<string, unknown>));
+    return items.map((item) => this.toGroupList(item as Record<string, unknown>));
   }
 
   public async getGroupListById(groupId: string, listId: string): Promise<GroupList | null> {
-    const result = await this.docClient.send(
-      new GetCommand({
-        TableName: this.tableName,
-        Key: {
-          PK: this.buildGroupPk(groupId),
-          SK: this.buildGroupListSk(listId),
-        },
-      })
+    const result = await withDatabaseError(() =>
+      this.docClient.send(
+        new GetCommand({
+          TableName: this.tableName,
+          Key: {
+            PK: this.buildGroupPk(groupId),
+            SK: this.buildGroupListSk(listId),
+          },
+        })
+      )
     );
 
     if (!result.Item) {
@@ -251,7 +253,7 @@ export class DynamoDBListRepository implements ListRepository {
           throw new Error(ERROR_MESSAGES.GROUP_LIST_ALREADY_EXISTS);
         },
       });
-      throw error;
+      throw toDatabaseError(error);
     }
 
     return this.toGroupList(item);
@@ -262,15 +264,15 @@ export class DynamoDBListRepository implements ListRepository {
     listId: string,
     updates: UpdateGroupListInput
   ): Promise<GroupList> {
-    const now = new Date().toISOString();
-    const names: Record<string, string> = { '#updatedAt': 'updatedAt' };
-    const values: Record<string, unknown> = { ':updatedAt': now };
-    const setExpressions: string[] = ['#updatedAt = :updatedAt'];
-
-    if (updates.name !== undefined) {
-      names['#name'] = 'name';
-      values[':name'] = updates.name;
-      setExpressions.push('#name = :name');
+    const updateParts = buildUpdateExpression(
+      { name: updates.name },
+      {
+        timestamp: { attributeName: 'updatedAt', value: new Date().toISOString() },
+        updateTimestampWhenEmpty: true,
+      }
+    );
+    if (!updateParts) {
+      throw new Error(ERROR_MESSAGES.UPDATE_EXPRESSION_EMPTY);
     }
 
     let result;
@@ -282,10 +284,8 @@ export class DynamoDBListRepository implements ListRepository {
             PK: this.buildGroupPk(groupId),
             SK: this.buildGroupListSk(listId),
           },
-          UpdateExpression: `SET ${setExpressions.join(', ')}`,
+          ...updateParts,
           ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
-          ExpressionAttributeNames: names,
-          ExpressionAttributeValues: values,
           ReturnValues: 'ALL_NEW',
         })
       );
@@ -295,7 +295,7 @@ export class DynamoDBListRepository implements ListRepository {
           throw new Error(ERROR_MESSAGES.GROUP_LIST_NOT_FOUND);
         },
       });
-      throw error;
+      throw toDatabaseError(error);
     }
 
     if (!result.Attributes) {
@@ -306,14 +306,16 @@ export class DynamoDBListRepository implements ListRepository {
   }
 
   public async deleteGroupList(groupId: string, listId: string): Promise<void> {
-    await this.docClient.send(
-      new DeleteCommand({
-        TableName: this.tableName,
-        Key: {
-          PK: this.buildGroupPk(groupId),
-          SK: this.buildGroupListSk(listId),
-        },
-      })
+    await withDatabaseError(() =>
+      this.docClient.send(
+        new DeleteCommand({
+          TableName: this.tableName,
+          Key: {
+            PK: this.buildGroupPk(groupId),
+            SK: this.buildGroupListSk(listId),
+          },
+        })
+      )
     );
   }
 

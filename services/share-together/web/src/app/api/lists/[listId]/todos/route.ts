@@ -1,10 +1,16 @@
 import { ListService, TodoService } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
-import type { ApiErrorResponse, TodoResponse, TodosResponse } from '@/types';
+import type { TodoResponse, TodosResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createListRepository, createTodoRepository } from '@nagiyu/share-together-core';
+import {
+  createValidationErrorResponse,
+  createNotFoundErrorResponse,
+  createInternalServerErrorResponse,
+} from '@/lib/api/responses';
+import { isNonEmptyString, isValidationError, isNotFoundError } from '@/lib/api/validation';
 
 interface RouteContext {
   params: Promise<{ listId: string }>;
@@ -22,40 +28,9 @@ const VALIDATION_ERROR_MESSAGES: Set<string> = new Set([
   SERVICE_ERROR_MESSAGES.TITLE_INVALID,
 ]);
 
-function createValidationErrorResponse(): NextResponse {
-  const response: ApiErrorResponse = {
-    error: 'VALIDATION_ERROR',
-    message: ERROR_MESSAGES.VALIDATION_ERROR,
-  };
-
-  return NextResponse.json(response, { status: 400 });
-}
-
-function createNotFoundErrorResponse(): NextResponse {
-  const response: ApiErrorResponse = {
-    error: 'NOT_FOUND',
-    message: ERROR_MESSAGES.NOT_FOUND,
-  };
-
-  return NextResponse.json(response, { status: 404 });
-}
-
-function createInternalServerErrorResponse(): NextResponse {
-  const response: ApiErrorResponse = {
-    error: 'INTERNAL_SERVER_ERROR',
-    message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-  };
-
-  return NextResponse.json(response, { status: 500 });
-}
-
-function isValidationError(error: unknown): boolean {
-  return error instanceof Error && VALIDATION_ERROR_MESSAGES.has(error.message);
-}
-
-function isNotFoundError(error: unknown): boolean {
-  return error instanceof Error && error.message === SERVICE_ERROR_MESSAGES.PERSONAL_LIST_NOT_FOUND;
-}
+const NOT_FOUND_ERROR_MESSAGES: Set<string> = new Set([
+  SERVICE_ERROR_MESSAGES.PERSONAL_LIST_NOT_FOUND,
+]);
 
 function createServices(): { listService: ListService; todoService: TodoService } {
   const tableName = process.env.DYNAMODB_TABLE_NAME;
@@ -72,10 +47,6 @@ function createServices(): { listService: ListService; todoService: TodoService 
     listService: new ListService(listRepository),
     todoService: new TodoService(todoRepository),
   };
-}
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
 }
 
 export async function GET(_request: Request, { params }: RouteContext): Promise<NextResponse> {
@@ -113,11 +84,11 @@ export async function GET(_request: Request, { params }: RouteContext): Promise<
 
     return NextResponse.json(response);
   } catch (error) {
-    if (isValidationError(error)) {
+    if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
       return createValidationErrorResponse();
     }
 
-    if (isNotFoundError(error)) {
+    if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
       return createNotFoundErrorResponse();
     }
 
@@ -168,11 +139,11 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
 
     return NextResponse.json(response, { status: 201 });
   } catch (error) {
-    if (isValidationError(error) || error instanceof SyntaxError) {
+    if (isValidationError(error, VALIDATION_ERROR_MESSAGES) || error instanceof SyntaxError) {
       return createValidationErrorResponse();
     }
 
-    if (isNotFoundError(error)) {
+    if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
       return createNotFoundErrorResponse();
     }
 

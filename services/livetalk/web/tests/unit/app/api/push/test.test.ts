@@ -12,6 +12,7 @@
  *     成功時 NotificationEvent が CharacterID 付きで記録、`{ sent }` を返す
  *   - 無効サブスク（false 戻り）→ delete される
  */
+import { logger } from '@nagiyu/common';
 import { POST } from '@/app/api/push/test/route';
 import { getSession } from '@/lib/server/session';
 import {
@@ -39,6 +40,27 @@ jest.mock('@/lib/server/repositories', () => ({
 
 jest.mock('@nagiyu/common/push', () => ({
   sendWebPushNotification: jest.fn(),
+  sendWebPushNotifications: jest.fn(
+    async (
+      targets: unknown[],
+      toSubscription: (target: unknown) => unknown,
+      payload: unknown,
+      vapidConfig: unknown
+    ) => {
+      // 共通ライブラリ内部の import はモックできないため、単体送信モックを逐次呼ぶ振る舞いを再現する
+      const send = jest.requireMock('@nagiyu/common/push').sendWebPushNotification;
+      const result = { sent: [] as unknown[], invalid: [] as unknown[], failed: [] as unknown[] };
+      for (const target of targets) {
+        try {
+          const ok = await send(toSubscription(target), payload, vapidConfig);
+          (ok ? result.sent : result.invalid).push(target);
+        } catch (error) {
+          result.failed.push({ target, error });
+        }
+      }
+      return result;
+    }
+  ),
   getVapidConfig: jest.fn(() => ({
     publicKey: 'test-public-key',
     privateKey: 'test-private-key',
@@ -363,6 +385,36 @@ describe('POST /api/push/test', () => {
         userId: 'g1',
         subscriptionId: 'sub-invalid',
       });
+    });
+
+    it('無効サブスクの削除に失敗しても 200 を返し NotificationEvent を記録する', async () => {
+      mockGetSession.mockResolvedValue(adminSession);
+      const validSub = makeSubscription({ SubscriptionID: 'sub-valid' });
+      const invalidSub = makeSubscription({
+        SubscriptionID: 'sub-invalid',
+        Endpoint: 'https://push.example.com/sub-invalid',
+      });
+      const pushRepo = makePushRepo([validSub, invalidSub]);
+      (pushRepo.delete as jest.Mock).mockRejectedValue(new Error('delete failed'));
+      mockGetPushSubscriptionRepo.mockReturnValue(pushRepo);
+      const notifRepo = makeNotifEventRepo();
+      mockGetNotifEventRepo.mockReturnValue(notifRepo);
+      mockSendWebPushNotification.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+      const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
+
+      try {
+        const res = await POST(buildPostRequest({ characterId: 'hiyori' }));
+        expect(res.status).toBe(200);
+        const json = await res.json();
+        expect(json.sent).toBe(1);
+        expect(notifRepo.put).toHaveBeenCalledTimes(1);
+        expect(warnSpy).toHaveBeenCalledWith(
+          '[POST /api/push/test] 無効なサブスクリプションの削除失敗（継続）',
+          expect.objectContaining({ subscriptionId: 'sub-invalid', error: 'delete failed' })
+        );
+      } finally {
+        warnSpy.mockRestore();
+      }
     });
 
     it('全サブスク無効（sent=0）のとき NotificationEvent は記録されない', async () => {

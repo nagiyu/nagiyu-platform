@@ -1,10 +1,13 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useOnboarding } from '@/lib/home/useOnboarding';
 
+jest.mock('@nagiyu/browser', () => ({
+  isPushSupported: jest.fn().mockReturnValue(false),
+}));
+
 // オンボーディング判定関数をモック
 jest.mock('@/lib/pwa/standalone', () => ({
   isStandalone: jest.fn().mockReturnValue(false),
-  isPushSupported: jest.fn().mockReturnValue(false),
   shouldShowInstallGuide: jest.fn().mockReturnValue(false),
   shouldShowNotificationPermission: jest.fn().mockReturnValue(false),
 }));
@@ -17,9 +20,9 @@ jest.mock('@/lib/pwa/messages', () => ({
   },
 }));
 
+import { isPushSupported } from '@nagiyu/browser';
 import {
   isStandalone,
-  isPushSupported,
   shouldShowInstallGuide,
   shouldShowNotificationPermission,
 } from '@/lib/pwa/standalone';

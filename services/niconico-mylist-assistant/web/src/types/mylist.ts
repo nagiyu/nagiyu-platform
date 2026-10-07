@@ -2,6 +2,8 @@
  * マイリスト登録フォームの型定義
  */
 
+import type { PushSubscription } from '@nagiyu/common';
+
 /**
  * マイリスト登録フォームの入力データ
  *
@@ -38,13 +40,7 @@ export interface MylistRegisterRequest {
   favoriteOnly?: boolean;
   excludeSkip?: boolean;
   mylistName: string;
-  pushSubscription?: {
-    endpoint: string;
-    keys: {
-      p256dh: string;
-      auth: string;
-    };
-  };
+  pushSubscription?: PushSubscription;
 }
 
 /**

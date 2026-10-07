@@ -32,7 +32,6 @@ const ERROR_MESSAGES = {
   INVALID_SIGNATURE: 'SNS 署名の検証に失敗しました',
   INTERNAL_ERROR: 'SNS 通知処理に失敗しました',
   DYNAMODB_TABLE_NAME_REQUIRED: 'DYNAMODB_TABLE_NAME が設定されていません',
-  VAPID_KEYS_REQUIRED: 'VAPID キーが設定されていません',
 } as const;
 
 type SnsNotificationMessage = {
@@ -116,18 +115,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       return NextResponse.json({ success: true }, { status: 200 });
     }
 
-    const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
-    const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
-    if (!vapidPublicKey || !vapidPrivateKey) {
-      throw new Error(ERROR_MESSAGES.VAPID_KEYS_REQUIRED);
-    }
-
     const repository = getRepository();
-    const sender = new WebPushSender({
-      repository,
-      vapidPublicKey,
-      vapidPrivateKey,
-    });
+    const sender = new WebPushSender({ repository });
 
     const payload = createNotificationPayload(message.Subject, message.Message);
     const sendResult = await sender.sendAll(payload);
