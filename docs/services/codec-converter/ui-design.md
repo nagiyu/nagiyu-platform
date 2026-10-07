@@ -48,7 +48,7 @@ graph LR
 
 ### ワイヤーフレーム
 
-![トップ画面](../../images/services/codec-converter/ui-top.drawio.svg)
+![トップ画面](../../images/services/codec-converter/ui-top.svg)
 
 ### UI要素
 
