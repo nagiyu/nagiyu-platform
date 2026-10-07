@@ -148,6 +148,8 @@ curl https://admin-dev.nagiyu.com/api/health
 
 Admin サービスでは、以下の GitHub Actions ワークフローを使用します:
 
+各ワークフローのパスフィルター (`paths`) は [コーディング規約](../../development/rules.md) の共通ルールに従うため、ここには記載しません。
+
 #### 1. 高速検証ワークフロー (`.github/workflows/admin-verify-fast.yml`)
 
 **目的**: integration/\*\* ブランチへのプルリクエスト時に素早いフィードバックを提供
@@ -159,10 +161,6 @@ on:
   pull_request:
     branches:
       - integration/**
-    paths:
-      - 'services/admin/**'
-      - 'libs/**'
-      - 'infra/admin/**'
 ```
 
 **ジョブ構成**:
@@ -185,10 +183,6 @@ on:
   pull_request:
     branches:
       - develop
-    paths:
-      - 'services/admin/**'
-      - 'libs/**'
-      - 'infra/admin/**'
 ```
 
 **ジョブ構成**:
@@ -214,9 +208,6 @@ on:
       - develop
       - integration/**
       - master
-    paths:
-      - 'services/admin/**'
-      - 'infra/admin/**'
 ```
 
 **ジョブ構成**:
