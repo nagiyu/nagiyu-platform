@@ -450,7 +450,7 @@ Profile item のみを索引化する sparse GSI（`GSI1`）を追加し、バ�
 - **削除は生 item 走査で実装**。`PK=USER#<googleId>` を Query で全件取得し、SK が `SAFETY#` 以外を `BatchWriteItem` で削除する。SK 種別を列挙せず走査するため、将来の item 種別追加に自動で追従する。
 - **1 PK スコープ・冪等。完全原子性は持たない**。DynamoDB に「PK 一括削除」がないため `BatchWriteItem` ＋ 未処理リトライで進め、リトライ上限後も残存すれば例外を返して再実行に委ねる（途中失敗は再実行で収束）。退会は本人セッションの `googleId` のみを対象とし、他ユーザーには波及しない（dev 実地検証で 1 PK スコープを確認）。
 - **匿名化 = SafetyEvent の re-key**。`TransactWrite` で `PK=USER#ANON#<ulid>` へ移し、`UserID` を **不可逆なランダム匿名トークン**へ置換する。googleId から決定論的に導出する擬似匿名化（pseudonymization）は採らない —— 横断グルーピングの利便より「個人識別子を切り離す」真の匿名化を優先したため。`InputText`/`ResponseText` は開発者防御の証跡として保持し、`GSI2PK`/`GSI2SK` を維持して横断レビュー（ADR-2.22 / Issue #3580）に残す。
-- **退会後の遷移**。`signOut` のサーバ側リダイレクト解決はリバースプロキシ背後で内部ホスト名に化けて到達不能になるため使わず、セッション破棄後にブラウザ側で公開オリジンのトップへ遷移する。
+- **退会後の遷移**。サインアウトは Cookie 発行元の auth サービスに集約しており、livetalk は `/api/auth/signout` への POST を受け付けない。そのため `next-auth/react` の `signOut` は使わず、ヘッダーのサインアウトと同じく auth サービスのサインアウト URL へ遷移し、callbackUrl に公開オリジンを渡してトップへ戻す。
 
 ### 2.22 セーフティイベントの横断レビューは sparse GSI + 管理画面（ADR / Issue #3532）
 
