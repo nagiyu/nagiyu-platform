@@ -117,7 +117,7 @@ export class DynamoDBBatchJobRepository implements BatchJobRepository {
       const { pk, sk } = this.mapper.buildKeys({ jobId, userId });
       const attributes = this.mapper.buildUpdateAttributes(input);
 
-      // status が常に含まれるため null にはならない。型を絞るための分岐
+      // mapper が status と UpdatedAt を常に返すため null にはならない。型を絞るための分岐
       const updateParts = buildUpdateExpression(attributes);
       if (!updateParts) {
         throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);

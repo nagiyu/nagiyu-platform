@@ -5,7 +5,10 @@
  */
 
 import { DynamoDBExchangeRepository } from '../../../src/repositories/dynamodb-exchange.repository.js';
-import { parseUpdateExpression } from '../../helpers/update-expression.js';
+import {
+  parseUpdateExpression,
+  type UpdateExpressionInput,
+} from '../../helpers/update-expression.js';
 import { EntityAlreadyExistsError, EntityNotFoundError, DatabaseError } from '@nagiyu/aws';
 import { QueryCommand, ScanCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { CreateExchangeInput } from '../../../src/entities/exchange.entity.js';
@@ -678,10 +681,14 @@ describe('DynamoDBExchangeRepository', () => {
       await repository.update('NASDAQ', { Name: 'NASDAQ (Updated)' });
 
       const sentCommand = mockDocClient.send.mock.calls[0]?.[0] as {
-        input: { UpdateExpression: string; ExpressionAttributeNames: Record<string, string> };
+        input: UpdateExpressionInput;
       };
-      expect(sentCommand.input.UpdateExpression).not.toContain('REMOVE');
-      expect(sentCommand.input.ExpressionAttributeNames['#market']).toBeUndefined();
+      const parsed = parseUpdateExpression(sentCommand.input);
+      expect(parsed.remove).toEqual([]);
+      expect(parsed.set).not.toHaveProperty('Market');
+      expect(Object.values(sentCommand.input.ExpressionAttributeNames ?? {})).not.toContain(
+        'Market'
+      );
     });
   });
 

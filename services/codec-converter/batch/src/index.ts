@@ -171,7 +171,7 @@ export async function updateJobStatus(
   errorMessage?: string
 ): Promise<void> {
   try {
-    // 空文字は未指定として扱い、既存どおり保存しない
+    // 空文字は未指定として扱い、保存しない
     const updateParts = buildUpdateExpression(
       {
         status,

@@ -145,7 +145,7 @@ export class DynamoDBExchangeRepository
         Start: updates.Start,
         End: updates.End,
         PriceSource: updates.PriceSource,
-        // Market は undefined（更新しない）・null（未設定に戻す＝REMOVE）・値（SET）の3値を区別する
+        // Market は undefined (更新しない)・null (未設定に戻す = REMOVE)・値 (SET) の 3 値を区別する
         Market: updates.Market === null ? REMOVE_ATTRIBUTE : updates.Market,
         // 更新のたびに GSI3 キーを付け直す。キー導入前に作られた既存アイテムは、
         // 画面から保存し直すことで getAllIndexed の Query 対象になる。
