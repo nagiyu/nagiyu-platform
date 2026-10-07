@@ -68,7 +68,7 @@ export default function LiveTalkHeader({ authUrl }: LiveTalkHeaderProps) {
     error: deletionError,
     requestDeletion,
     clearError: clearDeletionError,
-  } = useAccountDeletion();
+  } = useAccountDeletion(authUrl);
   const [deletionModalOpen, setDeletionModalOpen] = useState(false);
 
   // 退会モーダルを開く（前回の残留エラーをクリアしてから開く）
