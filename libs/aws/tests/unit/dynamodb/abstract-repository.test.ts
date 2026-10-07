@@ -184,6 +184,31 @@ describe('AbstractDynamoDBRepository', () => {
       expect(result.name).toBe('Updated Item');
     });
 
+    it('新しいプレースホルダで UpdateCommand を組み立て UpdatedAt を付与する', async () => {
+      mockDocClient.send.mockResolvedValueOnce({}).mockResolvedValueOnce({ Item: validItem });
+      await repository.update({ id: '1' }, { name: 'Updated Item', CreatedAt: 1 });
+      const input = (mockDocClient.send.mock.calls[0][0] as { input: Record<string, unknown> })
+        .input;
+      expect(input.UpdateExpression).toBe('SET #n0 = :v0, #n1 = :v1');
+      expect(input.ExpressionAttributeNames).toEqual({ '#n0': 'name', '#n1': 'UpdatedAt' });
+      expect(input.ExpressionAttributeValues).toMatchObject({ ':v0': 'Updated Item' });
+    });
+
+    it('undefined のフィールドはスキップする', async () => {
+      mockDocClient.send.mockResolvedValueOnce({}).mockResolvedValueOnce({ Item: validItem });
+      await repository.update({ id: '1' }, { id: undefined, name: 'Updated Item' });
+      const input = (mockDocClient.send.mock.calls[0][0] as { input: Record<string, unknown> })
+        .input;
+      expect(input.ExpressionAttributeNames).toEqual({ '#n0': 'name', '#n1': 'UpdatedAt' });
+    });
+
+    it('すべて undefined なら InvalidEntityDataError を throw する', async () => {
+      await expect(repository.update({ id: '1' }, { name: undefined })).rejects.toBeInstanceOf(
+        InvalidEntityDataError
+      );
+      expect(mockDocClient.send).not.toHaveBeenCalled();
+    });
+
     it('空オブジェクトを渡すと InvalidEntityDataError を throw する', async () => {
       await expect(repository.update({ id: '1' }, {})).rejects.toBeInstanceOf(
         InvalidEntityDataError

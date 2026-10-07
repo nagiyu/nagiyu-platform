@@ -36,11 +36,13 @@ export {
 
 // ヘルパー関数
 export {
+  REMOVE_ATTRIBUTE,
   buildUpdateExpression,
   conditionalPut,
   conditionalUpdate,
   conditionalDelete,
 } from './helpers.js';
+export type { UpdateExpressionParts, BuildUpdateExpressionOptions } from './helpers.js';
 export { getDynamoDBDocumentClient, getTableName, clearDynamoDBClientCache } from './client.js';
 export { createRepositoryFactory } from './repository-factory.js';
 export {
