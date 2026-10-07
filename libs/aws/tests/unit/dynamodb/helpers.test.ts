@@ -1,4 +1,5 @@
 import {
+  REMOVE_ATTRIBUTE,
   buildUpdateExpression,
   conditionalPut,
   conditionalUpdate,
@@ -7,93 +8,107 @@ import {
 
 describe('helpers', () => {
   describe('buildUpdateExpression', () => {
-    beforeEach(() => {
-      jest.useFakeTimers();
-      jest.setSystemTime(new Date('2024-01-01T00:00:00.000Z'));
-    });
+    const ts = { attributeName: 'UpdatedAt', value: 1234567890 };
 
-    afterEach(() => {
-      jest.useRealTimers();
-    });
-
-    it('should build update expression with single field', () => {
-      const result = buildUpdateExpression({ Name: 'John Doe' });
-
-      expect(result.updateExpression).toBe('SET #field0 = :value0, #updatedAt = :updatedAt');
-      expect(result.expressionAttributeNames).toEqual({
-        '#field0': 'Name',
-        '#updatedAt': 'UpdatedAt',
-      });
-      expect(result.expressionAttributeValues).toEqual({
-        ':value0': 'John Doe',
-        ':updatedAt': Date.now(),
+    it('SET のみ', () => {
+      expect(buildUpdateExpression({ Name: 'a', Age: 3 })).toEqual({
+        UpdateExpression: 'SET #n0 = :v0, #n1 = :v1',
+        ExpressionAttributeNames: { '#n0': 'Name', '#n1': 'Age' },
+        ExpressionAttributeValues: { ':v0': 'a', ':v1': 3 },
       });
     });
 
-    it('should build update expression with multiple fields', () => {
-      const result = buildUpdateExpression({
-        Name: 'John Doe',
-        Email: 'john@example.com',
-        Age: 30,
-      });
+    it('REMOVE のみは ExpressionAttributeValues キーを持たない', () => {
+      const result = buildUpdateExpression({ Memo: REMOVE_ATTRIBUTE, Tag: REMOVE_ATTRIBUTE });
 
-      expect(result.updateExpression).toBe(
-        'SET #field0 = :value0, #field1 = :value1, #field2 = :value2, #updatedAt = :updatedAt'
+      expect(result).toEqual({
+        UpdateExpression: 'REMOVE #n0, #n1',
+        ExpressionAttributeNames: { '#n0': 'Memo', '#n1': 'Tag' },
+      });
+      expect(result).not.toHaveProperty('ExpressionAttributeValues');
+    });
+
+    it('SET と REMOVE を併用すると連番を共有し単一スペースで連結する', () => {
+      expect(buildUpdateExpression({ A: 1, B: REMOVE_ATTRIBUTE, C: 2 })).toEqual({
+        UpdateExpression: 'SET #n0 = :v0, #n2 = :v2 REMOVE #n1',
+        ExpressionAttributeNames: { '#n0': 'A', '#n1': 'B', '#n2': 'C' },
+        ExpressionAttributeValues: { ':v0': 1, ':v2': 2 },
+      });
+    });
+
+    it('undefined はスキップし連番も消費しない', () => {
+      expect(buildUpdateExpression({ A: undefined, B: 'b', C: undefined, D: 'd' })).toEqual({
+        UpdateExpression: 'SET #n0 = :v0, #n1 = :v1',
+        ExpressionAttributeNames: { '#n0': 'B', '#n1': 'D' },
+        ExpressionAttributeValues: { ':v0': 'b', ':v1': 'd' },
+      });
+    });
+
+    it('null / 空文字 / 0 / false は SET 対象', () => {
+      const result = buildUpdateExpression({ A: null, B: '', C: 0, D: false });
+
+      expect(result?.UpdateExpression).toBe('SET #n0 = :v0, #n1 = :v1, #n2 = :v2, #n3 = :v3');
+      expect(result?.ExpressionAttributeValues).toEqual({
+        ':v0': null,
+        ':v1': '',
+        ':v2': 0,
+        ':v3': false,
+      });
+    });
+
+    it('timestamp はフィールドの次の連番で SET 句の末尾に付く', () => {
+      expect(buildUpdateExpression({ A: 1, B: REMOVE_ATTRIBUTE }, { timestamp: ts })).toEqual({
+        UpdateExpression: 'SET #n0 = :v0, #n2 = :v2 REMOVE #n1',
+        ExpressionAttributeNames: { '#n0': 'A', '#n1': 'B', '#n2': 'UpdatedAt' },
+        ExpressionAttributeValues: { ':v0': 1, ':v2': 1234567890 },
+      });
+    });
+
+    it('REMOVE のみでも timestamp があれば SET 句が付く', () => {
+      expect(buildUpdateExpression({ A: REMOVE_ATTRIBUTE }, { timestamp: ts })).toEqual({
+        UpdateExpression: 'SET #n1 = :v1 REMOVE #n0',
+        ExpressionAttributeNames: { '#n0': 'A', '#n1': 'UpdatedAt' },
+        ExpressionAttributeValues: { ':v1': 1234567890 },
+      });
+    });
+
+    it('更新項目が空なら null', () => {
+      expect(buildUpdateExpression({})).toBeNull();
+    });
+
+    it('すべて undefined なら null', () => {
+      expect(buildUpdateExpression({ A: undefined })).toBeNull();
+    });
+
+    it('更新項目が空の場合 timestamp があっても null (更新項目に数えない)', () => {
+      expect(buildUpdateExpression({}, { timestamp: ts })).toBeNull();
+    });
+
+    it('updateTimestampWhenEmpty が true なら timestamp のみを更新する', () => {
+      expect(
+        buildUpdateExpression({ A: undefined }, { timestamp: ts, updateTimestampWhenEmpty: true })
+      ).toEqual({
+        UpdateExpression: 'SET #n0 = :v0',
+        ExpressionAttributeNames: { '#n0': 'UpdatedAt' },
+        ExpressionAttributeValues: { ':v0': 1234567890 },
+      });
+    });
+
+    it('updateTimestampWhenEmpty が true でも timestamp がなければ null', () => {
+      expect(buildUpdateExpression({}, { updateTimestampWhenEmpty: true })).toBeNull();
+    });
+
+    it('updateTimestampWhenEmpty が true でも更新項目があれば通常どおり', () => {
+      const result = buildUpdateExpression(
+        { A: 1 },
+        { timestamp: ts, updateTimestampWhenEmpty: true }
       );
-      expect(result.expressionAttributeNames).toEqual({
-        '#field0': 'Name',
-        '#field1': 'Email',
-        '#field2': 'Age',
-        '#updatedAt': 'UpdatedAt',
-      });
-      expect(result.expressionAttributeValues).toEqual({
-        ':value0': 'John Doe',
-        ':value1': 'john@example.com',
-        ':value2': 30,
-        ':updatedAt': Date.now(),
-      });
+      expect(result?.UpdateExpression).toBe('SET #n0 = :v0, #n1 = :v1');
     });
 
-    it('should not add updatedAt when autoUpdateTimestamp is false', () => {
-      const result = buildUpdateExpression({ Name: 'John Doe' }, { autoUpdateTimestamp: false });
-
-      expect(result.updateExpression).toBe('SET #field0 = :value0');
-      expect(result.expressionAttributeNames).toEqual({
-        '#field0': 'Name',
-      });
-      expect(result.expressionAttributeValues).toEqual({
-        ':value0': 'John Doe',
-      });
-    });
-
-    it('should handle empty updates object', () => {
-      const result = buildUpdateExpression({});
-
-      expect(result.updateExpression).toBe('SET #updatedAt = :updatedAt');
-      expect(result.expressionAttributeNames).toEqual({
-        '#updatedAt': 'UpdatedAt',
-      });
-      expect(result.expressionAttributeValues).toEqual({
-        ':updatedAt': Date.now(),
-      });
-    });
-
-    it('should handle various value types', () => {
-      const result = buildUpdateExpression({
-        StringField: 'text',
-        NumberField: 42,
-        BooleanField: true,
-        NullField: null,
-        ArrayField: [1, 2, 3],
-        ObjectField: { nested: 'value' },
-      });
-
-      expect(result.expressionAttributeValues[':value0']).toBe('text');
-      expect(result.expressionAttributeValues[':value1']).toBe(42);
-      expect(result.expressionAttributeValues[':value2']).toBe(true);
-      expect(result.expressionAttributeValues[':value3']).toBeNull();
-      expect(result.expressionAttributeValues[':value4']).toEqual([1, 2, 3]);
-      expect(result.expressionAttributeValues[':value5']).toEqual({ nested: 'value' });
+    it('配列やオブジェクトの値もそのまま渡す', () => {
+      const result = buildUpdateExpression({ Arr: [1, 2], Obj: { x: 1 } });
+      expect(result?.ExpressionAttributeValues).toEqual({ ':v0': [1, 2], ':v1': { x: 1 } });
     });
   });
 
