@@ -17,6 +17,7 @@ import type {
   CreateBatchJobInput,
   UpdateBatchJobInput,
 } from '../../../src/entities/batch-job.entity.js';
+import { parseUpdateExpression } from '../../helpers/update-expression.js';
 
 const ddbMock = mockClient(DynamoDBDocumentClient);
 
@@ -142,6 +143,30 @@ describe('DynamoDBBatchJobRepository', () => {
       expect(result.status).toBe('PROCESSING');
       expect(result.jobId).toBe('job-123');
       expect(result.userId).toBe('user-456');
+    });
+
+    it('マッパーが生成した更新属性 (UpdatedAt を含む) をすべて SET する', async () => {
+      ddbMock.on(UpdateCommand).resolves({
+        Attributes: {
+          PK: 'BATCH_JOB#job-123#user-456',
+          SK: 'BATCH_JOB#job-123#user-456',
+          Type: 'BATCH_JOB',
+          jobId: 'job-123',
+          userId: 'user-456',
+          status: 'COMPLETED',
+          CreatedAt: 1234567890000,
+          UpdatedAt: 1234567999999,
+        },
+      });
+
+      await repository.update('job-123', 'user-456', { status: 'COMPLETED', result: 'SUCCESS' });
+
+      const input = ddbMock.call(0).args[0].input as Parameters<typeof parseUpdateExpression>[0];
+      expect(parseUpdateExpression(input).set).toEqual({
+        status: 'COMPLETED',
+        result: 'SUCCESS',
+        UpdatedAt: expect.any(Number),
+      });
     });
 
     it('存在しないバッチジョブを更新するとEntityNotFoundErrorをスローする', async () => {

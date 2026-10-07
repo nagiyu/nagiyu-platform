@@ -28,6 +28,7 @@ import {
   deleteUserVideoSetting,
 } from '../../src/db/videos';
 import { reportErrorEvent } from '@nagiyu/aws';
+import { parseUpdateExpression } from '../helpers/update-expression.js';
 import type {
   CreateVideoBasicInfoInput,
   CreateUserSettingInput,
@@ -411,8 +412,10 @@ describe('videos', () => {
         expect(result.isFavorite).toBe(true);
         expect(ddbMock.calls()).toHaveLength(1);
         const call = ddbMock.call(0);
-        expect(call.args[0].input.UpdateExpression).toContain('#isFavorite = :isFavorite');
-        expect(call.args[0].input.UpdateExpression).toContain('#UpdatedAt = :UpdatedAt');
+        expect(parseUpdateExpression(call.args[0].input).set).toEqual({
+          isFavorite: true,
+          UpdatedAt: expect.any(Number),
+        });
         expect(call.args[0].input.ConditionExpression).toBe('attribute_exists(PK)');
       });
 
@@ -442,9 +445,12 @@ describe('videos', () => {
 
         expect(ddbMock.calls()).toHaveLength(1);
         const call = ddbMock.call(0);
-        expect(call.args[0].input.UpdateExpression).toContain('#isFavorite = :isFavorite');
-        expect(call.args[0].input.UpdateExpression).toContain('#isSkip = :isSkip');
-        expect(call.args[0].input.UpdateExpression).toContain('#memo = :memo');
+        expect(parseUpdateExpression(call.args[0].input).set).toEqual({
+          isFavorite: true,
+          isSkip: true,
+          memo: 'テストメモ',
+          UpdatedAt: expect.any(Number),
+        });
       });
 
       it('更新する項目が指定されていない場合はエラーを返す', async () => {
