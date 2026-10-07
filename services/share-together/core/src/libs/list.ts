@@ -1,4 +1,5 @@
 import type { ListRepository } from '../repositories/list/list-repository.interface.js';
+import type { TodoRepository } from '../repositories/todo/todo-repository.interface.js';
 import type { PersonalList } from '../types/index.js';
 
 const ERROR_MESSAGES = {
@@ -17,9 +18,15 @@ const PERSONAL_LIST_NOT_FOUND_MESSAGES = new Set([
 
 export class ListService {
   private readonly listRepository: ListRepository;
+  private readonly todoRepository: TodoRepository;
 
-  constructor(listRepository: ListRepository) {
+  /**
+   * todoRepository を必須にするのは、リスト削除時の ToDo 削除を呼び出し側が渡し忘れて
+   * ToDo が DynamoDB に残り続けるのを型で防ぐため。
+   */
+  constructor(listRepository: ListRepository, todoRepository: TodoRepository) {
     this.listRepository = listRepository;
+    this.todoRepository = todoRepository;
   }
 
   public async getPersonalListsByUserId(userId: string): Promise<PersonalList[]> {
@@ -91,6 +98,8 @@ export class ListService {
     }
 
     try {
+      // リスト削除後に ToDo 削除が失敗すると参照元のない ToDo が残るため、ToDo を先に削除する
+      await this.todoRepository.deleteByListId(listId);
       await this.listRepository.deletePersonalList(userId, listId);
     } catch (error) {
       this.rethrowPersonalListNotFoundError(error);

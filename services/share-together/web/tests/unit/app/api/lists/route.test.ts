@@ -18,6 +18,7 @@ jest.mock('@nagiyu/aws', () => ({
 jest.mock('@nagiyu/share-together-core', () => ({
   DynamoDBListRepository: jest.fn(),
   createListRepository: jest.fn(),
+  createTodoRepository: jest.fn(),
   ListService: jest.fn(),
 }));
 

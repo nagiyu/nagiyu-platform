@@ -1,9 +1,11 @@
 import { ListService } from '../../../src/libs/list.js';
 import type { ListRepository } from '../../../src/repositories/list/list-repository.interface.js';
+import type { TodoRepository } from '../../../src/repositories/todo/todo-repository.interface.js';
 import type { PersonalList } from '../../../src/types/index.js';
 
 describe('ListService', () => {
   let listRepository: jest.Mocked<ListRepository>;
+  let todoRepository: jest.Mocked<TodoRepository>;
   let listService: ListService;
 
   beforeEach(() => {
@@ -19,8 +21,16 @@ describe('ListService', () => {
       updateGroupList: jest.fn(),
       deleteGroupList: jest.fn(),
     };
+    todoRepository = {
+      getByListId: jest.fn(),
+      getById: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      deleteByListId: jest.fn(),
+    };
     listRepository.getPersonalListsByUserId.mockResolvedValue([]);
-    listService = new ListService(listRepository);
+    listService = new ListService(listRepository, todoRepository);
   });
 
   it('個人リスト作成時に名前をトリムして保存する', async () => {
@@ -135,6 +145,7 @@ describe('ListService', () => {
       'デフォルトリストは削除できません'
     );
     expect(listRepository.deletePersonalList).not.toHaveBeenCalled();
+    expect(todoRepository.deleteByListId).not.toHaveBeenCalled();
   });
 
   it('存在しないリスト更新エラーを統一メッセージに変換する', async () => {
@@ -201,6 +212,40 @@ describe('ListService', () => {
     expect(listRepository.deletePersonalList).toHaveBeenCalledWith('user-1', 'list-1');
   });
 
+  it('個人リスト削除時に ToDo を削除してからリストを削除する', async () => {
+    listRepository.getPersonalListById.mockResolvedValue({
+      listId: 'list-1',
+      userId: 'user-1',
+      name: '買い物',
+      isDefault: false,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    await listService.deletePersonalList('user-1', 'list-1');
+
+    expect(todoRepository.deleteByListId).toHaveBeenCalledTimes(1);
+    expect(todoRepository.deleteByListId).toHaveBeenCalledWith('list-1');
+    expect(todoRepository.deleteByListId.mock.invocationCallOrder[0]).toBeLessThan(
+      listRepository.deletePersonalList.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('ToDo 削除に失敗した場合はリストを削除しない', async () => {
+    listRepository.getPersonalListById.mockResolvedValue({
+      listId: 'list-1',
+      userId: 'user-1',
+      name: '買い物',
+      isDefault: false,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+    todoRepository.deleteByListId.mockRejectedValue(new Error('DBエラー'));
+
+    await expect(listService.deletePersonalList('user-1', 'list-1')).rejects.toThrow('DBエラー');
+    expect(listRepository.deletePersonalList).not.toHaveBeenCalled();
+  });
+
   it('存在しない個人リストを削除しようとするとエラーになる', async () => {
     listRepository.getPersonalListById.mockResolvedValue(null);
 
@@ -208,5 +253,14 @@ describe('ListService', () => {
       '個人リストが見つかりません'
     );
     expect(listRepository.deletePersonalList).not.toHaveBeenCalled();
+  });
+
+  it('存在しない個人リスト削除時は ToDo も削除しない', async () => {
+    listRepository.getPersonalListById.mockResolvedValue(null);
+
+    await expect(listService.deletePersonalList('user-1', 'list-404')).rejects.toThrow(
+      '個人リストが見つかりません'
+    );
+    expect(todoRepository.deleteByListId).not.toHaveBeenCalled();
   });
 });
