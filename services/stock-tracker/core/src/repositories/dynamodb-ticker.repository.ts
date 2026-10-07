@@ -11,6 +11,7 @@ import {
   DatabaseError,
   mapConditionalCheckFailed,
   toDatabaseError,
+  buildUpdateExpression,
   queryAllItems,
   scanAllItems,
   encodeCursor,
@@ -170,36 +171,23 @@ export class DynamoDBTickerRepository
       }
 
       const { pk, sk } = this.mapper.buildKeys({ tickerId });
-      const now = Date.now();
-
-      // 更新式を動的に構築
-      const updateExpressions: string[] = [];
-      const expressionAttributeNames: Record<string, string> = {};
-      const expressionAttributeValues: Record<string, unknown> = {};
-
-      if (updates.Symbol !== undefined) {
-        updateExpressions.push('#symbol = :symbol');
-        expressionAttributeNames['#symbol'] = 'Symbol';
-        expressionAttributeValues[':symbol'] = updates.Symbol;
+      const fields = {
+        Symbol: updates.Symbol,
+        Name: updates.Name,
+      };
+      const updateParts = buildUpdateExpression(fields, {
+        timestamp: { attributeName: 'UpdatedAt', value: Date.now() },
+        updateTimestampWhenEmpty: true,
+      });
+      if (!updateParts) {
+        throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
       }
-      if (updates.Name !== undefined) {
-        updateExpressions.push('#name = :name');
-        expressionAttributeNames['#name'] = 'Name';
-        expressionAttributeValues[':name'] = updates.Name;
-      }
-
-      // UpdatedAt を常に更新
-      updateExpressions.push('#updatedAt = :updatedAt');
-      expressionAttributeNames['#updatedAt'] = 'UpdatedAt';
-      expressionAttributeValues[':updatedAt'] = now;
 
       const result = await this.docClient.send(
         new UpdateCommand({
           TableName: this.config.tableName,
           Key: { PK: pk, SK: sk },
-          UpdateExpression: `SET ${updateExpressions.join(', ')}`,
-          ExpressionAttributeNames: expressionAttributeNames,
-          ExpressionAttributeValues: expressionAttributeValues,
+          ...updateParts,
           ConditionExpression: 'attribute_exists(PK)',
           ReturnValues: 'ALL_NEW',
         })

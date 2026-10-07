@@ -19,6 +19,7 @@ import {
   DatabaseError,
   mapConditionalCheckFailed,
   toDatabaseError,
+  buildUpdateExpression,
   queryAllItems,
   encodeCursor,
   decodeCursor,
@@ -318,80 +319,35 @@ export class DynamoDBAlertRepository implements AlertRepository {
       }
 
       const { pk, sk } = this.mapper.buildKeys({ userId, alertId });
-      const now = Date.now();
-
-      // 更新式を動的に構築
-      const updateExpressions: string[] = [];
-      const expressionAttributeNames: Record<string, string> = {};
-      const expressionAttributeValues: Record<string, unknown> = {};
-
-      if (updates.TickerID !== undefined) {
-        updateExpressions.push('#tickerId = :tickerId');
-        expressionAttributeNames['#tickerId'] = 'TickerID';
-        expressionAttributeValues[':tickerId'] = updates.TickerID;
-      }
-      if (updates.ExchangeID !== undefined) {
-        updateExpressions.push('#exchangeId = :exchangeId');
-        expressionAttributeNames['#exchangeId'] = 'ExchangeID';
-        expressionAttributeValues[':exchangeId'] = updates.ExchangeID;
-      }
-      if (updates.Mode !== undefined) {
-        updateExpressions.push('#mode = :mode');
-        expressionAttributeNames['#mode'] = 'Mode';
-        expressionAttributeValues[':mode'] = updates.Mode;
-      }
+      const fields: Record<string, unknown> = {
+        TickerID: updates.TickerID,
+        ExchangeID: updates.ExchangeID,
+        Mode: updates.Mode,
+        Frequency: updates.Frequency,
+        Enabled: updates.Enabled,
+        Temporary: updates.Temporary,
+        TemporaryExpireDate: updates.TemporaryExpireDate,
+        ConditionList: updates.ConditionList,
+        subscription: updates.subscription,
+        CustomMessage: updates.CustomMessage,
+      };
+      // GSI2PK は Frequency から導出するため、Frequency の更新に合わせて付け直す
       if (updates.Frequency !== undefined) {
-        updateExpressions.push('#frequency = :frequency');
-        expressionAttributeNames['#frequency'] = 'Frequency';
-        expressionAttributeValues[':frequency'] = updates.Frequency;
-        // Frequency が更新される場合、GSI2PK も更新する必要がある
-        updateExpressions.push('#gsi2pk = :gsi2pk');
-        expressionAttributeNames['#gsi2pk'] = 'GSI2PK';
-        expressionAttributeValues[':gsi2pk'] = `ALERT#${updates.Frequency}`;
+        fields.GSI2PK = `ALERT#${updates.Frequency}`;
       }
-      if (updates.Enabled !== undefined) {
-        updateExpressions.push('#enabled = :enabled');
-        expressionAttributeNames['#enabled'] = 'Enabled';
-        expressionAttributeValues[':enabled'] = updates.Enabled;
+      const updateParts = buildUpdateExpression(fields, {
+        timestamp: { attributeName: 'UpdatedAt', value: Date.now() },
+        updateTimestampWhenEmpty: true,
+      });
+      if (!updateParts) {
+        throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
       }
-      if (updates.Temporary !== undefined) {
-        updateExpressions.push('#temporary = :temporary');
-        expressionAttributeNames['#temporary'] = 'Temporary';
-        expressionAttributeValues[':temporary'] = updates.Temporary;
-      }
-      if (updates.TemporaryExpireDate !== undefined) {
-        updateExpressions.push('#temporaryExpireDate = :temporaryExpireDate');
-        expressionAttributeNames['#temporaryExpireDate'] = 'TemporaryExpireDate';
-        expressionAttributeValues[':temporaryExpireDate'] = updates.TemporaryExpireDate;
-      }
-      if (updates.ConditionList !== undefined) {
-        updateExpressions.push('#conditionList = :conditionList');
-        expressionAttributeNames['#conditionList'] = 'ConditionList';
-        expressionAttributeValues[':conditionList'] = updates.ConditionList;
-      }
-      if (updates.subscription !== undefined) {
-        updateExpressions.push('#subscription = :subscription');
-        expressionAttributeNames['#subscription'] = 'subscription';
-        expressionAttributeValues[':subscription'] = updates.subscription;
-      }
-      if (updates.CustomMessage !== undefined) {
-        updateExpressions.push('#customMessage = :customMessage');
-        expressionAttributeNames['#customMessage'] = 'CustomMessage';
-        expressionAttributeValues[':customMessage'] = updates.CustomMessage;
-      }
-
-      // UpdatedAt を常に更新
-      updateExpressions.push('#updatedAt = :updatedAt');
-      expressionAttributeNames['#updatedAt'] = 'UpdatedAt';
-      expressionAttributeValues[':updatedAt'] = now;
 
       const result = await this.docClient.send(
         new UpdateCommand({
           TableName: this.tableName,
           Key: { PK: pk, SK: sk },
-          UpdateExpression: `SET ${updateExpressions.join(', ')}`,
-          ExpressionAttributeNames: expressionAttributeNames,
-          ExpressionAttributeValues: expressionAttributeValues,
+          ...updateParts,
           ConditionExpression: 'attribute_exists(PK)',
           ReturnValues: 'ALL_NEW',
         })

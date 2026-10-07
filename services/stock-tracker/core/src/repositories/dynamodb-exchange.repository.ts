@@ -11,6 +11,8 @@ import {
   DatabaseError,
   mapConditionalCheckFailed,
   toDatabaseError,
+  buildUpdateExpression,
+  REMOVE_ATTRIBUTE,
   scanAllItems,
   type DynamoDBItem,
 } from '@nagiyu/aws';
@@ -137,75 +139,31 @@ export class DynamoDBExchangeRepository
       }
 
       const { pk, sk } = this.mapper.buildKeys({ exchangeId });
-      const now = Date.now();
-
-      // 更新式を動的に構築（SET句とREMOVE句を分けて組み立てる）
-      const updateExpressions: string[] = [];
-      const removeExpressions: string[] = [];
-      const expressionAttributeNames: Record<string, string> = {};
-      const expressionAttributeValues: Record<string, unknown> = {};
-
-      if (updates.Name !== undefined) {
-        updateExpressions.push('#name = :name');
-        expressionAttributeNames['#name'] = 'Name';
-        expressionAttributeValues[':name'] = updates.Name;
-      }
-      if (updates.Timezone !== undefined) {
-        updateExpressions.push('#timezone = :timezone');
-        expressionAttributeNames['#timezone'] = 'Timezone';
-        expressionAttributeValues[':timezone'] = updates.Timezone;
-      }
-      if (updates.Start !== undefined) {
-        updateExpressions.push('#start = :start');
-        expressionAttributeNames['#start'] = 'Start';
-        expressionAttributeValues[':start'] = updates.Start;
-      }
-      if (updates.End !== undefined) {
-        updateExpressions.push('#end = :end');
-        expressionAttributeNames['#end'] = 'End';
-        expressionAttributeValues[':end'] = updates.End;
-      }
-      if (updates.PriceSource !== undefined) {
-        updateExpressions.push('#priceSource = :priceSource');
-        expressionAttributeNames['#priceSource'] = 'PriceSource';
-        expressionAttributeValues[':priceSource'] = updates.PriceSource;
-      }
-      // Market は undefined（更新しない）・null（未設定に戻す＝REMOVE）・値（SET）の3値を区別する
-      if (updates.Market !== undefined) {
-        expressionAttributeNames['#market'] = 'Market';
-        if (updates.Market === null) {
-          removeExpressions.push('#market');
-        } else {
-          updateExpressions.push('#market = :market');
-          expressionAttributeValues[':market'] = updates.Market;
-        }
-      }
-
-      // 更新のたびに GSI3 キーを付け直す。キー導入前に作られた既存アイテムは、
-      // 画面から保存し直すことで getAllIndexed の Query 対象になる。
-      updateExpressions.push('#gsi3pk = :gsi3pk', '#gsi3sk = :gsi3sk');
-      expressionAttributeNames['#gsi3pk'] = 'GSI3PK';
-      expressionAttributeNames['#gsi3sk'] = 'GSI3SK';
-      expressionAttributeValues[':gsi3pk'] = EXCHANGE_GSI3_PK;
-      expressionAttributeValues[':gsi3sk'] = buildExchangeGsi3Sk(exchangeId);
-
-      // UpdatedAt を常に更新
-      updateExpressions.push('#updatedAt = :updatedAt');
-      expressionAttributeNames['#updatedAt'] = 'UpdatedAt';
-      expressionAttributeValues[':updatedAt'] = now;
-
-      const updateExpressionParts = [`SET ${updateExpressions.join(', ')}`];
-      if (removeExpressions.length > 0) {
-        updateExpressionParts.push(`REMOVE ${removeExpressions.join(', ')}`);
+      const fields = {
+        Name: updates.Name,
+        Timezone: updates.Timezone,
+        Start: updates.Start,
+        End: updates.End,
+        PriceSource: updates.PriceSource,
+        // Market は undefined（更新しない）・null（未設定に戻す＝REMOVE）・値（SET）の3値を区別する
+        Market: updates.Market === null ? REMOVE_ATTRIBUTE : updates.Market,
+        // 更新のたびに GSI3 キーを付け直す。キー導入前に作られた既存アイテムは、
+        // 画面から保存し直すことで getAllIndexed の Query 対象になる。
+        GSI3PK: EXCHANGE_GSI3_PK,
+        GSI3SK: buildExchangeGsi3Sk(exchangeId),
+      };
+      const updateParts = buildUpdateExpression(fields, {
+        timestamp: { attributeName: 'UpdatedAt', value: Date.now() },
+      });
+      if (!updateParts) {
+        throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
       }
 
       const result = await this.docClient.send(
         new UpdateCommand({
           TableName: this.config.tableName,
           Key: { PK: pk, SK: sk },
-          UpdateExpression: updateExpressionParts.join(' '),
-          ExpressionAttributeNames: expressionAttributeNames,
-          ExpressionAttributeValues: expressionAttributeValues,
+          ...updateParts,
           ConditionExpression: 'attribute_exists(PK)',
           ReturnValues: 'ALL_NEW',
         })
