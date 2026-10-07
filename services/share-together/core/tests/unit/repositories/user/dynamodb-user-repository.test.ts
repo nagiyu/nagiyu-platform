@@ -7,6 +7,7 @@ import {
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBUserRepository } from '../../../../src/repositories/user/dynamodb-user-repository.js';
+import { parseUpdateExpression } from '../../../helpers/update-expression.js';
 
 import { DatabaseError } from '@nagiyu/aws';
 
@@ -273,11 +274,10 @@ describe('DynamoDBUserRepository', () => {
       await repository.update('user-1', { email: 'updated@example.com' });
       const command = mockDocClient.send.mock.calls[0]?.[0] as UpdateCommand;
 
-      expect(command.input.ExpressionAttributeNames).toHaveProperty('#gsi2pk', 'GSI2PK');
-      expect(command.input.ExpressionAttributeValues).toHaveProperty(
-        ':gsi2pk',
-        'EMAIL#updated@example.com'
-      );
+      expect(parseUpdateExpression(command.input).set).toMatchObject({
+        email: 'updated@example.com',
+        GSI2PK: 'EMAIL#updated@example.com',
+      });
     });
 
     it('nameのみ更新できる', async () => {
@@ -292,8 +292,10 @@ describe('DynamoDBUserRepository', () => {
       const command = mockDocClient.send.mock.calls[0]?.[0] as UpdateCommand;
 
       expect(result.name).toBe('名前だけ変更');
-      expect(command.input.ExpressionAttributeNames).not.toHaveProperty('#email');
-      expect(command.input.ExpressionAttributeNames).toHaveProperty('#name', 'name');
+      const parsed = parseUpdateExpression(command.input);
+      expect(parsed.set).not.toHaveProperty('email');
+      expect(parsed.set).not.toHaveProperty('GSI2PK');
+      expect(parsed.set).toMatchObject({ name: '名前だけ変更', updatedAt: expect.any(String) });
     });
 
     it('ユーザーが存在しない場合はエラーを投げる', async () => {

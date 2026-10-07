@@ -5,7 +5,7 @@ import {
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { queryAllItems } from '@nagiyu/aws';
+import { buildUpdateExpression, queryAllItems, REMOVE_ATTRIBUTE } from '@nagiyu/aws';
 import type {
   CreateGroupMembershipInput,
   GroupMembership,
@@ -22,7 +22,22 @@ const GSI1_INDEX_NAME = 'GSI1';
 const ERROR_MESSAGES = {
   INVALID_MEMBERSHIP_DATA: 'メンバーシップ情報の形式が不正です',
   MEMBERSHIP_NOT_FOUND: 'メンバーシップが見つかりません',
+  UPDATE_EXPRESSION_EMPTY: '更新式を生成できませんでした',
 } as const;
+
+/**
+ * キーが存在して値が undefined のときだけ属性の削除を表す。
+ * キーが存在しない場合は更新対象に含めない (undefined のまま返す)。
+ */
+function toRemovableField<K extends keyof UpdateGroupMembershipInput>(
+  updates: UpdateGroupMembershipInput,
+  key: K
+): UpdateGroupMembershipInput[K] | typeof REMOVE_ATTRIBUTE {
+  if (Object.prototype.hasOwnProperty.call(updates, key) && updates[key] === undefined) {
+    return REMOVE_ATTRIBUTE;
+  }
+  return updates[key];
+}
 
 export class DynamoDBMembershipRepository implements MembershipRepository {
   private readonly docClient: DynamoDBDocumentClient;
@@ -136,73 +151,23 @@ export class DynamoDBMembershipRepository implements MembershipRepository {
     userId: string,
     updates: UpdateGroupMembershipInput
   ): Promise<GroupMembership> {
-    const expressionAttributeNames: Record<string, string> = {
-      '#updatedAt': 'updatedAt',
-      '#ttl': 'TTL',
-    };
-    const expressionAttributeValues: Record<string, unknown> = {
-      ':updatedAt': new Date().toISOString(),
-    };
-    const setExpressions = ['#updatedAt = :updatedAt'];
-    const removeExpressions: string[] = [];
-
-    if (updates.role !== undefined) {
-      expressionAttributeNames['#role'] = 'role';
-      expressionAttributeValues[':role'] = updates.role;
-      setExpressions.push('#role = :role');
-    }
-
-    if (updates.status !== undefined) {
-      expressionAttributeNames['#status'] = 'status';
-      expressionAttributeValues[':status'] = updates.status;
-      setExpressions.push('#status = :status');
-    }
-
-    if (Object.prototype.hasOwnProperty.call(updates, 'invitedBy')) {
-      expressionAttributeNames['#invitedBy'] = 'invitedBy';
-      if (updates.invitedBy === undefined) {
-        removeExpressions.push('#invitedBy');
-      } else {
-        expressionAttributeValues[':invitedBy'] = updates.invitedBy;
-        setExpressions.push('#invitedBy = :invitedBy');
+    const updateParts = buildUpdateExpression(
+      {
+        role: updates.role,
+        status: updates.status,
+        invitedBy: toRemovableField(updates, 'invitedBy'),
+        invitedAt: toRemovableField(updates, 'invitedAt'),
+        respondedAt: toRemovableField(updates, 'respondedAt'),
+        TTL: toRemovableField(updates, 'ttl'),
+      },
+      {
+        timestamp: { attributeName: 'updatedAt', value: new Date().toISOString() },
+        updateTimestampWhenEmpty: true,
       }
+    );
+    if (!updateParts) {
+      throw new Error(ERROR_MESSAGES.UPDATE_EXPRESSION_EMPTY);
     }
-
-    if (Object.prototype.hasOwnProperty.call(updates, 'invitedAt')) {
-      expressionAttributeNames['#invitedAt'] = 'invitedAt';
-      if (updates.invitedAt === undefined) {
-        removeExpressions.push('#invitedAt');
-      } else {
-        expressionAttributeValues[':invitedAt'] = updates.invitedAt;
-        setExpressions.push('#invitedAt = :invitedAt');
-      }
-    }
-
-    if (Object.prototype.hasOwnProperty.call(updates, 'respondedAt')) {
-      expressionAttributeNames['#respondedAt'] = 'respondedAt';
-      if (updates.respondedAt === undefined) {
-        removeExpressions.push('#respondedAt');
-      } else {
-        expressionAttributeValues[':respondedAt'] = updates.respondedAt;
-        setExpressions.push('#respondedAt = :respondedAt');
-      }
-    }
-
-    if (Object.prototype.hasOwnProperty.call(updates, 'ttl')) {
-      if (updates.ttl === undefined) {
-        removeExpressions.push('#ttl');
-      } else {
-        expressionAttributeValues[':ttl'] = updates.ttl;
-        setExpressions.push('#ttl = :ttl');
-      }
-    }
-
-    const updateExpression = [
-      `SET ${setExpressions.join(', ')}`,
-      removeExpressions.length > 0 ? `REMOVE ${removeExpressions.join(', ')}` : '',
-    ]
-      .filter((value) => value !== '')
-      .join(' ');
 
     const result = await withDatabaseError(() =>
       this.docClient.send(
@@ -212,9 +177,7 @@ export class DynamoDBMembershipRepository implements MembershipRepository {
             PK: this.buildGroupPk(groupId),
             SK: this.buildMemberSk(userId),
           },
-          UpdateExpression: updateExpression,
-          ExpressionAttributeNames: expressionAttributeNames,
-          ExpressionAttributeValues: expressionAttributeValues,
+          ...updateParts,
           ReturnValues: 'ALL_NEW',
         })
       )

@@ -7,6 +7,7 @@ import {
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBMembershipRepository } from '../../../../src/repositories/membership/dynamodb-membership-repository.js';
+import { parseUpdateExpression } from '../../../helpers/update-expression.js';
 
 import { DatabaseError } from '@nagiyu/aws';
 
@@ -239,7 +240,38 @@ describe('DynamoDBMembershipRepository', () => {
 
     expect(result.status).toBe('ACCEPTED');
     expect(result.ttl).toBeUndefined();
-    expect(command.input.UpdateExpression).toContain('REMOVE #ttl');
+    const parsed = parseUpdateExpression(command.input);
+    expect(parsed.remove).toEqual(['TTL']);
+    expect(parsed.set).toMatchObject({
+      status: 'ACCEPTED',
+      respondedAt: '2026-01-02T00:00:00.000Z',
+    });
+  });
+
+  it('update は ttl を指定しない場合に TTL を式にもプレースホルダにも含めない', async () => {
+    mockDocClient.send.mockResolvedValueOnce({
+      Attributes: createMembershipItem({ status: 'ACCEPTED' }),
+    });
+
+    await repository.update('group-1', 'user-1', { status: 'ACCEPTED' });
+    const command = mockDocClient.send.mock.calls[0]?.[0] as UpdateCommand;
+
+    const parsed = parseUpdateExpression(command.input);
+    expect(parsed.set).toMatchObject({ status: 'ACCEPTED', updatedAt: expect.any(String) });
+    expect(parsed.set).not.toHaveProperty('TTL');
+    expect(parsed.remove).toEqual([]);
+    expect(Object.values(command.input.ExpressionAttributeNames ?? {})).not.toContain('TTL');
+  });
+
+  it('update は対象フィールドがなくても updatedAt のみ更新する', async () => {
+    mockDocClient.send.mockResolvedValueOnce({ Attributes: createMembershipItem({}) });
+
+    await repository.update('group-1', 'user-1', {});
+    const command = mockDocClient.send.mock.calls[0]?.[0] as UpdateCommand;
+
+    const parsed = parseUpdateExpression(command.input);
+    expect(Object.keys(parsed.set)).toEqual(['updatedAt']);
+    expect(parsed.remove).toEqual([]);
   });
 
   it('update は optional 項目を個別に SET/REMOVE できる', async () => {
@@ -264,11 +296,14 @@ describe('DynamoDBMembershipRepository', () => {
     });
     const command = mockDocClient.send.mock.calls[0]?.[0] as UpdateCommand;
 
-    expect(command.input.UpdateExpression).toContain('SET #updatedAt = :updatedAt');
-    expect(command.input.UpdateExpression).toContain('#role = :role');
-    expect(command.input.UpdateExpression).toContain('#status = :status');
-    expect(command.input.UpdateExpression).toContain('#ttl = :ttl');
-    expect(command.input.UpdateExpression).toContain('REMOVE #invitedBy, #invitedAt, #respondedAt');
+    const parsed = parseUpdateExpression(command.input);
+    expect(parsed.set).toMatchObject({
+      role: 'OWNER',
+      status: 'ACCEPTED',
+      TTL: 1_800_000_000,
+      updatedAt: expect.any(String),
+    });
+    expect([...parsed.remove].sort()).toEqual(['invitedAt', 'invitedBy', 'respondedAt']);
   });
 
   it('update は更新対象がない場合にエラーを投げる', async () => {

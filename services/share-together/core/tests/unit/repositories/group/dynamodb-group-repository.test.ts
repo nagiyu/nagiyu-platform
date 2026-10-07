@@ -7,6 +7,7 @@ import {
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBGroupRepository } from '../../../../src/repositories/group/dynamodb-group-repository.js';
+import { parseUpdateExpression } from '../../../helpers/update-expression.js';
 
 import { DatabaseError } from '@nagiyu/aws';
 
@@ -210,8 +211,6 @@ describe('DynamoDBGroupRepository', () => {
 
       const result = await repository.update('group-1', { name: '更新後グループ' });
       const command = mockDocClient.send.mock.calls[0][0] as UpdateCommand;
-      const names = command.input.ExpressionAttributeNames as Record<string, string>;
-      const values = command.input.ExpressionAttributeValues as Record<string, unknown>;
 
       expect(result).toEqual({
         groupId: 'group-1',
@@ -225,16 +224,14 @@ describe('DynamoDBGroupRepository', () => {
         PK: 'GROUP#group-1',
         SK: '#META#',
       });
-      expect(command.input.UpdateExpression).toContain('#updatedAt = :updatedAt');
-      expect(command.input.UpdateExpression).toContain('#name = :name');
+      expect(parseUpdateExpression(command.input).set).toEqual({
+        name: '更新後グループ',
+        updatedAt: expect.any(String),
+      });
       expect(command.input.ConditionExpression).toBe(
         'attribute_exists(PK) AND attribute_exists(SK)'
       );
       expect(command.input.ReturnValues).toBe('ALL_NEW');
-      expect(names['#updatedAt']).toBe('updatedAt');
-      expect(names['#name']).toBe('name');
-      expect(values[':name']).toBe('更新後グループ');
-      expect(values[':updatedAt']).toEqual(expect.any(String));
     });
 
     it('グループが存在しない場合はエラーを投げる', async () => {

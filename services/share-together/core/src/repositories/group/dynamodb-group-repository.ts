@@ -5,7 +5,12 @@ import {
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { batchGetAll, mapConditionalCheckFailed, toDatabaseError } from '@nagiyu/aws';
+import {
+  batchGetAll,
+  buildUpdateExpression,
+  mapConditionalCheckFailed,
+  toDatabaseError,
+} from '@nagiyu/aws';
 import type { CreateGroupInput, Group, UpdateGroupInput } from '../../types/index.js';
 import type { GroupRepository } from './group-repository.interface.js';
 import { withDatabaseError } from '../with-database-error.js';
@@ -16,6 +21,7 @@ const ERROR_MESSAGES = {
   INVALID_GROUP_DATA: 'グループ情報の形式が不正です',
   GROUP_ALREADY_EXISTS: 'グループは既に存在します',
   GROUP_NOT_FOUND: 'グループが見つかりません',
+  UPDATE_EXPRESSION_EMPTY: '更新式を生成できませんでした',
 } as const;
 
 export class DynamoDBGroupRepository implements GroupRepository {
@@ -99,18 +105,15 @@ export class DynamoDBGroupRepository implements GroupRepository {
   }
 
   public async update(groupId: string, updates: UpdateGroupInput): Promise<Group> {
-    const expressionNames: Record<string, string> = {
-      '#updatedAt': 'updatedAt',
-    };
-    const expressionValues: Record<string, unknown> = {
-      ':updatedAt': new Date().toISOString(),
-    };
-    const setExpressions: string[] = ['#updatedAt = :updatedAt'];
-
-    if (updates.name !== undefined) {
-      expressionNames['#name'] = 'name';
-      expressionValues[':name'] = updates.name;
-      setExpressions.push('#name = :name');
+    const updateParts = buildUpdateExpression(
+      { name: updates.name },
+      {
+        timestamp: { attributeName: 'updatedAt', value: new Date().toISOString() },
+        updateTimestampWhenEmpty: true,
+      }
+    );
+    if (!updateParts) {
+      throw new Error(ERROR_MESSAGES.UPDATE_EXPRESSION_EMPTY);
     }
 
     let result;
@@ -122,9 +125,7 @@ export class DynamoDBGroupRepository implements GroupRepository {
             PK: this.buildGroupPk(groupId),
             SK: GROUP_META_SK,
           },
-          UpdateExpression: `SET ${setExpressions.join(', ')}`,
-          ExpressionAttributeNames: expressionNames,
-          ExpressionAttributeValues: expressionValues,
+          ...updateParts,
           ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
           ReturnValues: 'ALL_NEW',
         })
