@@ -4,7 +4,7 @@
  * MINUTE_LEVEL のアラート条件をチェックして通知を送信する
  */
 
-import { logger, sleep, toErrorMessage } from '@nagiyu/common';
+import { logger, runSettledWithConcurrency, sleep, toErrorMessage } from '@nagiyu/common';
 import {
   createScheduledHandler,
   getDynamoDBDocumentClient,
@@ -13,7 +13,6 @@ import {
 } from '@nagiyu/aws';
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import { createAlertNotificationPayload } from './lib/web-push-client.js';
-import { runConcurrent } from './lib/concurrent-queue.js';
 import type { ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { evaluateAlert } from '@nagiyu/stock-tracker-core';
@@ -291,7 +290,8 @@ export const handler = createScheduledHandler(
           )
       );
 
-      const { results, skippedCount } = await runConcurrent(tasks, concurrency, isBudgetExceeded, {
+      const { results, skippedCount } = await runSettledWithConcurrency(tasks, concurrency, {
+        shouldSkip: isBudgetExceeded,
         jitterMs: 150,
       });
 
