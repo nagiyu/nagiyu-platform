@@ -928,7 +928,8 @@ NextAuth v5 (Auth.js) は以下の複数のクッキーを使用するため、*
 
 | 依存内容 | 配置先 |
 |---|---|
-| 外部依存なし（Node.js 標準のみ） | `libs/common/` |
+| 外部依存なし (Node.js 標準のみ) | `libs/common/` |
+| 外部ライブラリに依存するが、フレームワーク・AWS SDK には依存しない | `libs/common/` の機能単位サブパス (`@nagiyu/common/push` など) |
 | Next.js・NextAuth に依存 | `libs/nextjs/` |
 | React hooks に依存 | `libs/react/` |
 | ブラウザ API のみに依存（React なし） | `libs/browser/` |

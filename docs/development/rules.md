@@ -1472,14 +1472,9 @@ libs/
 // @nagiyu/browser が @nagiyu/common に依存
 ```
 
-#### MUST: common は外部依存なし (Node.js 標準ライブラリのみ可)
+#### MUST: common のメインエクスポートは外部依存なし (Node.js 標準ライブラリのみ可)
 
-```json
-// libs/common/package.json
-{
-  "dependencies": {} // 外部依存なし
-}
-```
+外部ライブラリを要する機能は、機能単位のサブパス (`@nagiyu/common/push` など) に分け、メインエクスポートからは読み込まない。メインエクスポートだけを使う利用側に、使わない機能の依存を持ち込まないためである。
 
 ### 9.2 境界保護 (ESLint)
 

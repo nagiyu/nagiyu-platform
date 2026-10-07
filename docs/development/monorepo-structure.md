@@ -156,7 +156,7 @@ flowchart TB
 
 1. **一方向性**: 依存は常に下位レイヤー（より汎用的なパッケージ）へ向かう
 2. **循環依存禁止**: 上位パッケージから下位パッケージへの依存のみ許可
-3. **独立性**: `libs/common` は外部依存なし（Node.js標準ライブラリのみ可）
+3. **独立性**: `libs/common` のメインエクスポートは外部依存なし (Node.js 標準ライブラリのみ可)。外部依存は機能単位のサブパス (`@nagiyu/common/push` など) に限り許容する
 
 ### ライブラリ間の依存
 
@@ -164,15 +164,15 @@ flowchart TB
 libs/ui → libs/browser → libs/common
 libs/react → libs/common
 libs/nextjs → libs/common
-libs/aws (モノレポ内の他ライブラリに依存しない)
+libs/aws → libs/common
 ```
 
 - `libs/ui`: `libs/browser` に依存可
 - `libs/browser`: `libs/common` に依存可
 - `libs/react`: `libs/common` に依存可
 - `libs/nextjs`: `libs/common` に依存可
-- `libs/aws`: モノレポ内の他ライブラリに依存しない（AWS SDKはpeerDependencies）
-- `libs/common`: 外部依存なし
+- `libs/aws`: `libs/common` に依存可 (AWS SDK は dependencies)
+- `libs/common`: メインエクスポートは外部依存なし (サブパスは前述の原則を参照)
 
 ### 禁止パターン
 
@@ -262,7 +262,7 @@ libs/aws (モノレポ内の他ライブラリに依存しない)
 
 **特徴**:
 
-- 外部依存なし（Node.js標準ライブラリのみ可）
+- メインエクスポートは外部依存なし (Node.js 標準ライブラリのみ可)。外部依存が要る機能は `@nagiyu/common/push` のようなサブパスに分ける
 - 純粋関数として実装
 - 高いテストカバレッジ維持
 
@@ -374,14 +374,14 @@ libs/aws (モノレポ内の他ライブラリに依存しない)
 
 **特徴**:
 
-- AWS SDK に依存（peerDependencies）
+- AWS SDK に依存 (dependencies)
 - Single Table Design 対応
 - 型安全なマッピング
 - 日本語エラーメッセージ
 
 **依存可能なパッケージ**:
 
-- なし（モノレポ内の他ライブラリに依存しない。AWS SDKはpeerDependencies）
+- `@nagiyu/common`
 
 **パッケージ名**: `@nagiyu/aws`
 

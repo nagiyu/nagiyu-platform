@@ -294,7 +294,7 @@ claude/**, feature/**  →  integration/**  →  develop  →  master
 
 ```
 libs/
-├── common/   # フレームワーク非依存（外部依存なし）
+├── common/   # フレームワーク非依存 (外部依存は機能単位のサブパスのみ)
 ├── browser/  # ブラウザ API（Clipboard、localStorage 等）
 ├── ui/       # Next.js + Material-UI
 ├── react/    # React hooks 等
