@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { signOut } from 'next-auth/react';
 import { ACCOUNT_API_ERROR_MESSAGES, deleteAccount } from './api-client';
-import { redirectToTop } from './navigation';
+import { redirectToSignOut } from './navigation';
 
 /**
  * useAccountDeletion の戻り値型。
@@ -13,7 +12,7 @@ export interface UseAccountDeletionResult {
   loading: boolean;
   /** 削除処理のエラーメッセージ（失敗時のみ非 null） */
   error: string | null;
-  /** 退会処理を実行する。成功時は signOut してトップへリダイレクトする。 */
+  /** 退会処理を実行する。成功時は auth サービスのサインアウト URL へ遷移する。 */
   requestDeletion: () => Promise<void>;
   /** エラー状態をクリアする（モーダルの開閉時に残留エラーを消すために使う）。 */
   clearError: () => void;
@@ -23,10 +22,12 @@ export interface UseAccountDeletionResult {
  * アカウント削除（退会）ロジックを管理するカスタム hook。
  *
  * - `DELETE /api/account` を呼び出してデータを削除する
- * - 成功時は next-auth の signOut でセッションを破棄し、ブラウザ側でトップ（/）へ遷移する
+ * - 成功時は auth サービスのサインアウト URL へブラウザ側で遷移し、セッションを破棄する
  * - 失敗時はエラーメッセージをセットし、モーダルは開いたままにする
+ *
+ * @param authUrl - auth サービスのベース URL（ヘッダーのサインアウトと同じ値）
  */
-export function useAccountDeletion(): UseAccountDeletionResult {
+export function useAccountDeletion(authUrl: string): UseAccountDeletionResult {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,16 +36,15 @@ export function useAccountDeletion(): UseAccountDeletionResult {
     setError(null);
     try {
       await deleteAccount();
-      // signOut のサーバ側リダイレクト解決はリバースプロキシ背後で内部ホスト名に化けるため使わない。
-      // セッションだけ破棄し、遷移はブラウザ側（redirectToTop）で公開オリジンのトップへ移動する。
-      await signOut({ redirect: false });
-      redirectToTop();
+      // サインアウトは Cookie 発行元の auth サービスに集約しており、自サービスは signout の POST を
+      // 受け付けない（next-auth の signOut は 405 になる）。ヘッダーのサインアウトと同じ遷移に揃える。
+      redirectToSignOut(authUrl);
     } catch (e) {
       setError(e instanceof Error ? e.message : ACCOUNT_API_ERROR_MESSAGES.DELETE_FAILED);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [authUrl]);
 
   const clearError = useCallback(() => setError(null), []);
 
