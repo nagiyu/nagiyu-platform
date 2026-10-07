@@ -28,6 +28,11 @@ export * from './llm-usage/index.js';
 
 // Concurrency module - 同時実行数を制限したタスク実行
 export { runWithConcurrency } from './concurrency/run-with-concurrency.js';
+export { runSettledWithConcurrency } from './concurrency/run-settled-with-concurrency.js';
+export type {
+  RunSettledWithConcurrencyOptions,
+  RunSettledWithConcurrencyResult,
+} from './concurrency/run-settled-with-concurrency.js';
 
 // Push module - Web Push utilities (browser-safe exports only)
 export { normalizeVapidKey } from './push/vapid.js';

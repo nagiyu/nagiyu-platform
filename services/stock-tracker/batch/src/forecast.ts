@@ -14,7 +14,7 @@
  * 次の実行で続きから進められる。1 つの市場・ステップの失敗は他を止めない。
  */
 
-import { logger, toErrorMessage } from '@nagiyu/common';
+import { logger, runSettledWithConcurrency, toErrorMessage } from '@nagiyu/common';
 import {
   EntityNotFoundError,
   getDynamoDBDocumentClient,
@@ -66,7 +66,6 @@ import type {
   TickerOutcome,
   TickerSample,
 } from '@nagiyu/stock-tracker-core';
-import { runConcurrent } from './lib/concurrent-queue.js';
 
 /**
  * リプレイモードのイベント型。稼働開始時に過去の DailySummary から成績をさかのぼって
@@ -502,10 +501,9 @@ export async function processMarketDate(
         throw error;
       }
     });
-    const { results: tickerOutcomeResults } = await runConcurrent(
+    const { results: tickerOutcomeResults } = await runSettledWithConcurrency(
       tickerOutcomeTasks,
-      TICKER_WRITE_CONCURRENCY,
-      () => false
+      TICKER_WRITE_CONCURRENCY
     );
     const failedTickerOutcome = tickerOutcomeResults.find((r) => r.status === 'rejected');
     if (failedTickerOutcome && failedTickerOutcome.status === 'rejected') {
@@ -610,10 +608,9 @@ export async function processMarketDate(
     });
     return created.created;
   });
-  const { results: tickerCreateResults } = await runConcurrent(
+  const { results: tickerCreateResults } = await runSettledWithConcurrency(
     tickerCreateTasks,
-    TICKER_WRITE_CONCURRENCY,
-    () => false
+    TICKER_WRITE_CONCURRENCY
   );
   const failedTickerCreate = tickerCreateResults.find((r) => r.status === 'rejected');
   if (failedTickerCreate && failedTickerCreate.status === 'rejected') {
