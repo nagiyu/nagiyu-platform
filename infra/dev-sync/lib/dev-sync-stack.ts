@@ -5,6 +5,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as scheduler from 'aws-cdk-lib/aws-scheduler';
 import { Construct } from 'constructs';
+import { grantErrorEventsWrite } from '@nagiyu/infra-common';
 import type { ManifestEntry } from './manifest';
 
 /**
@@ -115,6 +116,11 @@ export class DevSyncStack extends cdk.Stack {
       })
     );
 
+    // 失敗時のエラーイベントを自アカウントの共有 error-events テーブルへ書き込めるようにする。
+    // テーブルは同一アカウント・同一環境の共有スタックが管理するため、他サービスと同じく
+    // cross-stack import 経由で ARN を解決する。
+    grantErrorEventsWrite(this, executionRole, environment);
+
     // マニフェストのエントリごとに dest 側の IAM ポリシーを付与（最小権限）
     // dest テーブルは PutItem 付与済みかどうかをキャッシュ
     const processedDestsPut = new Set<string>();
@@ -167,6 +173,7 @@ export class DevSyncStack extends cdk.Stack {
       environment: {
         NODE_ENV: environment,
         SOURCE_READER_ROLE_ARN: SOURCE_READER_ROLE_ARN,
+        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
       },
       tracing: lambda.Tracing.ACTIVE,
       logRetention: logs.RetentionDays.ONE_MONTH,

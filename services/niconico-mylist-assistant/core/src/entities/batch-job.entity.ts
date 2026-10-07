@@ -7,6 +7,7 @@
  */
 
 import { BatchStatus, BatchResult } from '../types/index.js';
+import type { PushSubscription } from '@nagiyu/common';
 
 /**
  * BatchJob Entity
@@ -61,13 +62,7 @@ export interface BatchJobEntity {
    * Web Push サブスクリプション情報（バッチ完了通知用）
    * ジョブ作成時に設定される
    */
-  pushSubscription?: {
-    endpoint: string;
-    keys: {
-      p256dh: string;
-      auth: string;
-    };
-  };
+  pushSubscription?: PushSubscription;
 }
 
 /**

@@ -5,7 +5,13 @@ import {
   type DynamoDBDocumentClient,
   type QueryCommandOutput,
 } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError, EntityAlreadyExistsError, type DynamoDBItem } from '@nagiyu/aws';
+import {
+  EntityAlreadyExistsError,
+  isConditionalCheckFailed,
+  queryAllItems,
+  toDatabaseError,
+  type DynamoDBItem,
+} from '@nagiyu/aws';
 import { logger } from '@nagiyu/common';
 import { MESSAGE_TTL_SECONDS, TOKEN_BUDGETED_QUERY_PAGE_SIZE } from '../constants.js';
 import type { CreateMessageInput, MessageEntity, MessageKey } from '../entities/message.entity.js';
@@ -68,14 +74,13 @@ export class DynamoDBMessageRepository implements MessageRepository {
       );
       return entity;
     } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+      if (isConditionalCheckFailed(error)) {
         throw new EntityAlreadyExistsError(
           this.mapper.entityType,
           `${entity.UserID}#${entity.CharacterID}#${messageId}`
         );
       }
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -91,8 +96,7 @@ export class DynamoDBMessageRepository implements MessageRepository {
       if (!result.Item) return null;
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -104,45 +108,34 @@ export class DynamoDBMessageRepository implements MessageRepository {
     const pk = buildUserPK(userId);
     const skPrefix = buildMessageSKPrefix(characterId);
     const results: MessageEntity[] = [];
-    let exclusiveStartKey: Record<string, unknown> | undefined;
 
-    for (;;) {
-      let result;
-      try {
-        result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
-            FilterExpression: sinceMs > 0 ? 'CreatedAt > :sinceMs' : undefined,
-            ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
-            ExpressionAttributeValues: {
-              ':pk': pk,
-              ':prefix': skPrefix,
-              ...(sinceMs > 0 && { ':sinceMs': sinceMs }),
-            },
-            ScanIndexForward: true,
-            ExclusiveStartKey: exclusiveStartKey,
-          })
-        );
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new DatabaseError(message, error instanceof Error ? error : undefined);
-      }
+    try {
+      const items = await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
+        FilterExpression: sinceMs > 0 ? 'CreatedAt > :sinceMs' : undefined,
+        ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
+        ExpressionAttributeValues: {
+          ':pk': pk,
+          ':prefix': skPrefix,
+          ...(sinceMs > 0 && { ':sinceMs': sinceMs }),
+        },
+        ScanIndexForward: true,
+      });
 
-      for (const raw of result.Items ?? []) {
+      for (const raw of items) {
         try {
-          results.push(this.mapper.toEntity(raw as unknown as DynamoDBItem));
+          results.push(this.mapper.toEntity(raw));
         } catch (error) {
           logger.warn('無効なメッセージデータをスキップしました', {
-            pk: (raw as Record<string, unknown>).PK,
-            sk: (raw as Record<string, unknown>).SK,
+            pk: raw.PK,
+            sk: raw.SK,
             error: error instanceof Error ? error.message : String(error),
           });
         }
       }
-
-      if (!result.LastEvaluatedKey) break;
-      exclusiveStartKey = result.LastEvaluatedKey;
+    } catch (error) {
+      throw toDatabaseError(error);
     }
 
     return results;
@@ -188,8 +181,7 @@ export class DynamoDBMessageRepository implements MessageRepository {
           })
         );
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new DatabaseError(message, error instanceof Error ? error : undefined);
+        throw toDatabaseError(error);
       }
 
       totalConsumedCapacity += result.ConsumedCapacity?.CapacityUnits ?? 0;

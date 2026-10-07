@@ -1,10 +1,17 @@
 import { ListService } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
-import type { ApiErrorResponse, PersonalListResponse } from '@/types';
+import type { PersonalListResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
-import { createListRepository } from '@nagiyu/share-together-core';
+import { createListRepository, createTodoRepository } from '@nagiyu/share-together-core';
+import {
+  createValidationErrorResponse,
+  createNotFoundErrorResponse,
+  createInternalServerErrorResponse,
+} from '@/lib/api/responses';
+import { isNonEmptyString, isValidationError, isNotFoundError } from '@/lib/api/validation';
+import { createErrorResponse } from '@nagiyu/nextjs';
 
 interface RouteContext {
   params: Promise<{ listId: string }>;
@@ -17,40 +24,12 @@ const VALIDATION_ERROR_MESSAGES: Set<string> = new Set([
   ERROR_MESSAGES.LIST_NAME_INVALID,
 ]);
 
-function createValidationErrorResponse(): NextResponse {
-  const response: ApiErrorResponse = {
-    error: 'VALIDATION_ERROR',
-    message: ERROR_MESSAGES.VALIDATION_ERROR,
-  };
-
-  return NextResponse.json(response, { status: 400 });
-}
-
-function createNotFoundErrorResponse(): NextResponse {
-  const response: ApiErrorResponse = {
-    error: 'NOT_FOUND',
-    message: ERROR_MESSAGES.NOT_FOUND,
-  };
-
-  return NextResponse.json(response, { status: 404 });
-}
-
 function createDefaultListNotDeletableResponse(): NextResponse {
-  const response: ApiErrorResponse = {
-    error: 'DEFAULT_LIST_NOT_DELETABLE',
-    message: ERROR_MESSAGES.DEFAULT_LIST_NOT_DELETABLE,
-  };
-
-  return NextResponse.json(response, { status: 400 });
-}
-
-function createInternalServerErrorResponse(): NextResponse {
-  const response: ApiErrorResponse = {
-    error: 'INTERNAL_SERVER_ERROR',
-    message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-  };
-
-  return NextResponse.json(response, { status: 500 });
+  return createErrorResponse(
+    400,
+    'DEFAULT_LIST_NOT_DELETABLE',
+    ERROR_MESSAGES.DEFAULT_LIST_NOT_DELETABLE
+  );
 }
 
 function createListService(): ListService {
@@ -62,19 +41,8 @@ function createListService(): ListService {
   const docClient =
     process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
   const listRepository = createListRepository(docClient, tableName);
-  return new ListService(listRepository);
-}
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
-}
-
-function isValidationError(error: unknown): boolean {
-  return error instanceof Error && VALIDATION_ERROR_MESSAGES.has(error.message);
-}
-
-function isNotFoundError(error: unknown): boolean {
-  return error instanceof Error && NOT_FOUND_ERROR_MESSAGES.has(error.message);
+  const todoRepository = createTodoRepository(docClient, tableName);
+  return new ListService(listRepository, todoRepository);
 }
 
 function isDefaultListNotDeletableError(error: unknown): boolean {
@@ -108,10 +76,10 @@ export async function GET(_request: Request, { params }: RouteContext): Promise<
 
     return NextResponse.json(response);
   } catch (error) {
-    if (isValidationError(error)) {
+    if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
       return createValidationErrorResponse();
     }
-    if (isNotFoundError(error)) {
+    if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
       return createNotFoundErrorResponse();
     }
 
@@ -156,10 +124,10 @@ export async function PUT(request: Request, { params }: RouteContext): Promise<N
 
     return NextResponse.json(response);
   } catch (error) {
-    if (isValidationError(error) || error instanceof SyntaxError) {
+    if (isValidationError(error, VALIDATION_ERROR_MESSAGES) || error instanceof SyntaxError) {
       return createValidationErrorResponse();
     }
-    if (isNotFoundError(error)) {
+    if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
       return createNotFoundErrorResponse();
     }
 
@@ -196,13 +164,13 @@ export async function DELETE(_request: Request, { params }: RouteContext): Promi
 
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    if (isValidationError(error)) {
+    if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
       return createValidationErrorResponse();
     }
     if (isDefaultListNotDeletableError(error)) {
       return createDefaultListNotDeletableResponse();
     }
-    if (isNotFoundError(error)) {
+    if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
       return createNotFoundErrorResponse();
     }
 

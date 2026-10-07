@@ -1002,14 +1002,23 @@ on:
       - integration/** # Fast verification
     paths:
       - 'services/<service>/**'
-      - 'libs/**' # 依存ライブラリ
+      - 'libs/**' # 依存ライブラリ (個別に列挙しない)
       - 'infra/<service>/**' # インフラコード (該当する場合)
+      - 'infra/common/**' # 共通インフラ部品 (infra/<service> がある場合)
+      - 'infra/tsconfig.json' # infra/<service> の tsconfig が継承している場合
+      - 'configs/**' # 共有の tsconfig / eslint / playwright 設定
+      - '.github/actions/**' # 共有 composite action
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/<service>-verify-*.yml'
 ```
 
-**理由**: 関連ファイル変更時のみワークフローを実行し、CI リソースを最適化
+**理由**:
+
+- 関連ファイル変更時のみワークフローを実行し、CI リソースを最適化する
+- パスフィルターから漏れた変更では、検証が「走らない」だけで CI は赤くならない。漏れに気づける仕組みがないため、取りこぼさない側に倒す
+- 依存ライブラリは個別に列挙せず `libs/**` とする。依存を追加したときに `paths` の追従を忘れると、その依存先の変更で検証が走らなくなるため。ライブラリ同士の verify も同様とし、無関係なライブラリの変更で検証が走るコストは許容する
+- 共通インフラ部品と共有設定は、変更が全サービスに効くため含める
 
 #### MUST: Deploy ワークフローは push をトリガーとし、環境を振り分ける
 
@@ -1025,6 +1034,7 @@ on:
       - 'services/<service>/**'
       - 'libs/**'
       - 'infra/<service>/**'
+      - 'infra/common/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/<service>-deploy.yml'
@@ -1049,6 +1059,8 @@ jobs:
 - Deploy: マージ後に自動デプロイを実行
 - 環境振り分け: master は prod、それ以外は dev 環境へデプロイ
 - パスフィルター: 関連ファイル変更時のみデプロイを実行
+    - 依存ライブラリ (`libs/**`) と共通インフラ部品 (`infra/common/**`) を含める。含めないと、共通部品の修正がそのサービスの次の変更まで dev / prod に反映されない
+    - 共有設定 (`configs/**`、`.github/actions/**`) は含めない。lint 設定の変更などで全サービスがデプロイされるのを避けるため。共有設定の妥当性は verify 側で検証する
 
 #### MUST: ワークフローには concurrency を設定する
 
@@ -1460,14 +1472,9 @@ libs/
 // @nagiyu/browser が @nagiyu/common に依存
 ```
 
-#### MUST: common は外部依存なし (Node.js 標準ライブラリのみ可)
+#### MUST: common のメインエクスポートは外部依存なし (Node.js 標準ライブラリのみ可)
 
-```json
-// libs/common/package.json
-{
-  "dependencies": {} // 外部依存なし
-}
-```
+外部ライブラリを要する機能は、機能単位のサブパス (`@nagiyu/common/push` など) に分け、メインエクスポートからは読み込まない。メインエクスポートだけを使う利用側に、使わない機能の依存を持ち込まないためである。
 
 ### 9.2 境界保護 (ESLint)
 

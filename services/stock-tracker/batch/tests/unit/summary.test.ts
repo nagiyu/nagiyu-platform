@@ -13,7 +13,7 @@ import {
   PatternAnalyzer,
 } from '@nagiyu/stock-tracker-core';
 import { handler } from '../../src/summary.js';
-import type { ScheduledEvent } from '../../src/summary.js';
+import type { ScheduledEvent } from '@nagiyu/aws';
 import { getChartData } from '@nagiyu/stock-tracker-core';
 import { logger } from '@nagiyu/common';
 
@@ -1172,20 +1172,16 @@ describe('summary batch handler', () => {
   });
 
   describe('ハンドラーレベルのエラー', () => {
-    it('取引所一覧取得で例外が発生した場合は500を返す', async () => {
-      const response = await handler(mockEvent, {
-        exchangeRepository: {
-          getAll: jest.fn().mockRejectedValue('exchange fetch failed'),
-        } as unknown as InMemoryExchangeRepository,
-        tickerRepository: tickerRepository as InMemoryTickerRepository,
-        dailySummaryRepository: dailySummaryRepository as InMemoryDailySummaryRepository,
-      });
-
-      expect(response.statusCode).toBe(500);
-      expect(JSON.parse(response.body)).toMatchObject({
-        message: '日次サマリー生成バッチでエラーが発生しました',
-        error: 'exchange fetch failed',
-      });
+    it('取引所一覧取得で例外が発生した場合は元の例外を再送出する', async () => {
+      await expect(
+        handler(mockEvent, {
+          exchangeRepository: {
+            getAll: jest.fn().mockRejectedValue('exchange fetch failed'),
+          } as unknown as InMemoryExchangeRepository,
+          tickerRepository: tickerRepository as InMemoryTickerRepository,
+          dailySummaryRepository: dailySummaryRepository as InMemoryDailySummaryRepository,
+        })
+      ).rejects.toBe('exchange fetch failed');
     });
   });
 
@@ -1299,19 +1295,20 @@ describe('summary batch handler', () => {
       expect(response.statusCode).toBe(200);
     });
 
-    it('取引所処理でエラーが起きた場合（500応答）は forecast バッチを起動しない', async () => {
+    it('取引所一覧取得で例外が発生した場合は forecast バッチを起動しない', async () => {
       const invokeForecastBatchFn = jest.fn().mockResolvedValue(undefined);
 
-      const response = await handler(mockEvent, {
-        exchangeRepository: {
-          getAll: jest.fn().mockRejectedValue('exchange fetch failed'),
-        } as unknown as InMemoryExchangeRepository,
-        tickerRepository: tickerRepository as InMemoryTickerRepository,
-        dailySummaryRepository: dailySummaryRepository as InMemoryDailySummaryRepository,
-        invokeForecastBatchFn,
-      });
+      await expect(
+        handler(mockEvent, {
+          exchangeRepository: {
+            getAll: jest.fn().mockRejectedValue('exchange fetch failed'),
+          } as unknown as InMemoryExchangeRepository,
+          tickerRepository: tickerRepository as InMemoryTickerRepository,
+          dailySummaryRepository: dailySummaryRepository as InMemoryDailySummaryRepository,
+          invokeForecastBatchFn,
+        })
+      ).rejects.toBe('exchange fetch failed');
 
-      expect(response.statusCode).toBe(500);
       expect(invokeForecastBatchFn).not.toHaveBeenCalled();
     });
   });

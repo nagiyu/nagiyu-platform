@@ -1,10 +1,5 @@
-import {
-  PutCommand,
-  QueryCommand,
-  UpdateCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
-import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { PutCommand, UpdateCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { queryAllItems, toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import type {
   CreateStudyTopicInput,
   StudyTopicEntity,
@@ -40,8 +35,7 @@ export class DynamoDBStudyTopicRepository implements StudyTopicRepository {
       );
       return entity;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -53,34 +47,22 @@ export class DynamoDBStudyTopicRepository implements StudyTopicRepository {
     const pk = buildUserPK(userId);
     const prefix = buildStudyTopicSKPrefix(characterId);
     const results: StudyTopicEntity[] = [];
-    let exclusiveStartKey: Record<string, unknown> | undefined;
 
-    for (;;) {
-      let result;
-      try {
-        result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
-            ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
-            ExpressionAttributeValues: { ':pk': pk, ':prefix': prefix },
-            ExclusiveStartKey: exclusiveStartKey,
-          })
-        );
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new DatabaseError(message, error instanceof Error ? error : undefined);
-      }
-
-      for (const raw of result.Items ?? []) {
-        const entity = this.mapper.toEntity(raw as unknown as DynamoDBItem);
+    try {
+      const items = await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
+        ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
+        ExpressionAttributeValues: { ':pk': pk, ':prefix': prefix },
+      });
+      for (const raw of items) {
+        const entity = this.mapper.toEntity(raw);
         if (status === undefined || entity.Status === status) {
           results.push(entity);
         }
       }
-
-      if (!result.LastEvaluatedKey) break;
-      exclusiveStartKey = result.LastEvaluatedKey;
+    } catch (error) {
+      throw toDatabaseError(error);
     }
 
     return results.sort((a, b) => b.Priority - a.Priority || a.CreatedAt - b.CreatedAt);
@@ -126,8 +108,7 @@ export class DynamoDBStudyTopicRepository implements StudyTopicRepository {
       );
       return this.mapper.toEntity(result.Attributes as unknown as DynamoDBItem);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 

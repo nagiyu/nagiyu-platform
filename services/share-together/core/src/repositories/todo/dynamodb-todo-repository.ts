@@ -1,15 +1,21 @@
 import {
-  BatchWriteCommand,
   DeleteCommand,
   GetCommand,
   PutCommand,
-  QueryCommand,
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { mapConditionalCheckFailed } from '@nagiyu/aws';
+import {
+  batchWriteAll,
+  buildUpdateExpression,
+  mapConditionalCheckFailed,
+  queryAllItems,
+  REMOVE_ATTRIBUTE,
+  toDatabaseError,
+} from '@nagiyu/aws';
 import type { CreateTodoItemInput, TodoItem, UpdateTodoItemInput } from '../../types/index.js';
 import type { TodoRepository } from './todo-repository.interface.js';
+import { withDatabaseError } from '../with-database-error.js';
 
 const TODO_SK_PREFIX = 'TODO#';
 
@@ -17,6 +23,7 @@ const ERROR_MESSAGES = {
   INVALID_TODO_DATA: 'ToDo情報の形式が不正です',
   TODO_ALREADY_EXISTS: '指定されたToDoは既に存在します',
   TODO_NOT_FOUND: '指定されたToDoは存在しません',
+  UPDATE_EXPRESSION_EMPTY: '更新式を生成できませんでした',
 } as const;
 
 export class DynamoDBTodoRepository implements TodoRepository {
@@ -29,8 +36,8 @@ export class DynamoDBTodoRepository implements TodoRepository {
   }
 
   public async getByListId(listId: string): Promise<TodoItem[]> {
-    const result = await this.docClient.send(
-      new QueryCommand({
+    const items = await withDatabaseError(() =>
+      queryAllItems(this.docClient, {
         TableName: this.tableName,
         KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
         ExpressionAttributeNames: {
@@ -44,22 +51,20 @@ export class DynamoDBTodoRepository implements TodoRepository {
       })
     );
 
-    if (!result.Items || result.Items.length === 0) {
-      return [];
-    }
-
-    return result.Items.map((item) => this.toTodoItem(item as Record<string, unknown>));
+    return items.map((item) => this.toTodoItem(item as Record<string, unknown>));
   }
 
   public async getById(listId: string, todoId: string): Promise<TodoItem | null> {
-    const result = await this.docClient.send(
-      new GetCommand({
-        TableName: this.tableName,
-        Key: {
-          PK: this.buildListPk(listId),
-          SK: this.buildTodoSk(todoId),
-        },
-      })
+    const result = await withDatabaseError(() =>
+      this.docClient.send(
+        new GetCommand({
+          TableName: this.tableName,
+          Key: {
+            PK: this.buildListPk(listId),
+            SK: this.buildTodoSk(todoId),
+          },
+        })
+      )
     );
 
     if (!result.Item) {
@@ -97,7 +102,7 @@ export class DynamoDBTodoRepository implements TodoRepository {
           throw new Error(ERROR_MESSAGES.TODO_ALREADY_EXISTS);
         },
       });
-      throw error;
+      throw toDatabaseError(error);
     }
 
     return this.toTodoItem(item as Record<string, unknown>);
@@ -108,36 +113,23 @@ export class DynamoDBTodoRepository implements TodoRepository {
     todoId: string,
     updates: UpdateTodoItemInput
   ): Promise<TodoItem> {
-    const updatedAt = new Date().toISOString();
-    const setExpressions = ['#updatedAt = :updatedAt'];
-    const removeExpressions: string[] = [];
-    const expressionAttributeNames: Record<string, string> = {
-      '#pk': 'PK',
-      '#sk': 'SK',
-      '#updatedAt': 'updatedAt',
-    };
-    const expressionAttributeValues: Record<string, unknown> = {
-      ':updatedAt': updatedAt,
-    };
-
-    if (updates.title !== undefined) {
-      setExpressions.push('#title = :title');
-      expressionAttributeNames['#title'] = 'title';
-      expressionAttributeValues[':title'] = updates.title;
-    }
-    if (updates.isCompleted !== undefined) {
-      setExpressions.push('#isCompleted = :isCompleted');
-      expressionAttributeNames['#isCompleted'] = 'isCompleted';
-      expressionAttributeValues[':isCompleted'] = updates.isCompleted;
-    }
-    if ('completedBy' in updates) {
-      expressionAttributeNames['#completedBy'] = 'completedBy';
-      if (updates.completedBy === undefined) {
-        removeExpressions.push('#completedBy');
-      } else {
-        setExpressions.push('#completedBy = :completedBy');
-        expressionAttributeValues[':completedBy'] = updates.completedBy;
+    const updateParts = buildUpdateExpression(
+      {
+        title: updates.title,
+        isCompleted: updates.isCompleted,
+        // completedBy は、キーが存在して値が undefined のときだけ属性を削除する
+        completedBy:
+          'completedBy' in updates && updates.completedBy === undefined
+            ? REMOVE_ATTRIBUTE
+            : updates.completedBy,
+      },
+      {
+        timestamp: { attributeName: 'updatedAt', value: new Date().toISOString() },
+        updateTimestampWhenEmpty: true,
       }
+    );
+    if (!updateParts) {
+      throw new Error(ERROR_MESSAGES.UPDATE_EXPRESSION_EMPTY);
     }
 
     let result;
@@ -149,10 +141,14 @@ export class DynamoDBTodoRepository implements TodoRepository {
             PK: this.buildListPk(listId),
             SK: this.buildTodoSk(todoId),
           },
-          UpdateExpression: `SET ${setExpressions.join(', ')}${removeExpressions.length > 0 ? ` REMOVE ${removeExpressions.join(', ')}` : ''}`,
+          ...updateParts,
           ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
-          ExpressionAttributeNames: expressionAttributeNames,
-          ExpressionAttributeValues: expressionAttributeValues,
+          // 条件式用の #pk / #sk は共通関数が採番する名前と衝突しない
+          ExpressionAttributeNames: {
+            ...updateParts.ExpressionAttributeNames,
+            '#pk': 'PK',
+            '#sk': 'SK',
+          },
           ReturnValues: 'ALL_NEW',
         })
       );
@@ -162,7 +158,7 @@ export class DynamoDBTodoRepository implements TodoRepository {
           throw new Error(ERROR_MESSAGES.TODO_NOT_FOUND);
         },
       });
-      throw error;
+      throw toDatabaseError(error);
     }
 
     if (!result.Attributes) {
@@ -194,7 +190,7 @@ export class DynamoDBTodoRepository implements TodoRepository {
           throw new Error(ERROR_MESSAGES.TODO_NOT_FOUND);
         },
       });
-      throw error;
+      throw toDatabaseError(error);
     }
   }
 
@@ -202,61 +198,41 @@ export class DynamoDBTodoRepository implements TodoRepository {
     const listPk = this.buildListPk(listId);
     const keys: Array<{ PK: string; SK: string }> = [];
 
-    let lastEvaluatedKey: Record<string, unknown> | undefined;
-    do {
-      const queryResult = await this.docClient.send(
-        new QueryCommand({
-          TableName: this.tableName,
-          KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
-          ExpressionAttributeNames: {
-            '#pk': 'PK',
-            '#sk': 'SK',
-          },
-          ExpressionAttributeValues: {
-            ':pk': listPk,
-            ':skPrefix': TODO_SK_PREFIX,
-          },
-          ProjectionExpression: '#pk, #sk',
-          ExclusiveStartKey: lastEvaluatedKey,
-        })
-      );
+    const items = await withDatabaseError(() =>
+      queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+        ExpressionAttributeNames: {
+          '#pk': 'PK',
+          '#sk': 'SK',
+        },
+        ExpressionAttributeValues: {
+          ':pk': listPk,
+          ':skPrefix': TODO_SK_PREFIX,
+        },
+        ProjectionExpression: '#pk, #sk',
+      })
+    );
 
-      const queriedKeys = (queryResult.Items ?? []).flatMap((item) => {
-        const pk = item['PK'];
-        const sk = item['SK'];
-        if (typeof pk !== 'string' || typeof sk !== 'string') {
-          return [];
-        }
-        return [{ PK: pk, SK: sk }];
-      });
-      keys.push(...queriedKeys);
-      lastEvaluatedKey = queryResult.LastEvaluatedKey as Record<string, unknown> | undefined;
-    } while (lastEvaluatedKey);
+    for (const item of items) {
+      const pk = item['PK'];
+      const sk = item['SK'];
+      if (typeof pk === 'string' && typeof sk === 'string') {
+        keys.push({ PK: pk, SK: sk });
+      }
+    }
 
     if (keys.length === 0) {
       return;
     }
 
-    for (let batchStartIndex = 0; batchStartIndex < keys.length; batchStartIndex += 25) {
-      let pendingRequests = keys.slice(batchStartIndex, batchStartIndex + 25).map((key) => ({
-        DeleteRequest: { Key: key },
-      }));
-
-      while (pendingRequests.length > 0) {
-        const batchWriteResult = await this.docClient.send(
-          new BatchWriteCommand({
-            RequestItems: {
-              [this.tableName]: pendingRequests,
-            },
-          })
-        );
-
-        pendingRequests =
-          (batchWriteResult.UnprocessedItems?.[this.tableName] as
-            | typeof pendingRequests
-            | undefined) ?? [];
-      }
-    }
+    await withDatabaseError(() =>
+      batchWriteAll(
+        this.docClient,
+        this.tableName,
+        keys.map((key) => ({ DeleteRequest: { Key: key } }))
+      )
+    );
   }
 
   private buildListPk(listId: string): string {

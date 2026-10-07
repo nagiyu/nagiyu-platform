@@ -4,19 +4,16 @@
  * DynamoDBを使用したTickerRepositoryの実装
  */
 
-import {
-  UpdateCommand,
-  QueryCommand,
-  ScanCommand,
-  type DynamoDBDocumentClient,
-  type ScanCommandInput,
-  type QueryCommandOutput,
-} from '@aws-sdk/lib-dynamodb';
+import { UpdateCommand, ScanCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
   AbstractDynamoDBRepository,
   EntityNotFoundError,
   DatabaseError,
   mapConditionalCheckFailed,
+  toDatabaseError,
+  buildUpdateExpression,
+  queryAllItems,
+  scanAllItems,
   encodeCursor,
   decodeCursor,
   type PaginationOptions,
@@ -26,7 +23,6 @@ import {
 import type { TickerRepository } from './ticker.repository.interface.js';
 import type { TickerEntity, UpdateTickerInput } from '../entities/ticker.entity.js';
 import { TickerMapper } from '../mappers/ticker.mapper.js';
-import { toErrorMessage } from '@nagiyu/common';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -83,38 +79,22 @@ export class DynamoDBTickerRepository
    * Limitは指定しない（DynamoDBの1MBページ単位）。
    */
   public async getByExchange(exchangeId: string): Promise<TickerEntity[]> {
-    const items: TickerEntity[] = [];
-    let exclusiveStartKey: QueryCommandOutput['LastEvaluatedKey'];
-
     try {
-      do {
-        const result: QueryCommandOutput = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.config.tableName,
-            IndexName: 'ExchangeTickerIndex',
-            KeyConditionExpression: '#gsi3pk = :exchangeId',
-            ExpressionAttributeNames: {
-              '#gsi3pk': 'GSI3PK',
-            },
-            ExpressionAttributeValues: {
-              ':exchangeId': exchangeId,
-            },
-            ExclusiveStartKey: exclusiveStartKey,
-          })
-        );
-
-        for (const item of result.Items || []) {
-          items.push(this.mapper.toEntity(item as unknown as DynamoDBItem));
-        }
-
-        exclusiveStartKey = result.LastEvaluatedKey;
-      } while (exclusiveStartKey);
+      const items = await queryAllItems(this.docClient, {
+        TableName: this.config.tableName,
+        IndexName: 'ExchangeTickerIndex',
+        KeyConditionExpression: '#gsi3pk = :exchangeId',
+        ExpressionAttributeNames: {
+          '#gsi3pk': 'GSI3PK',
+        },
+        ExpressionAttributeValues: {
+          ':exchangeId': exchangeId,
+        },
+      });
+      return items.map((item) => this.mapper.toEntity(item));
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
-
-    return items;
   }
 
   /**
@@ -128,32 +108,17 @@ export class DynamoDBTickerRepository
       const usePagination = options?.limit !== undefined || options?.cursor !== undefined;
 
       if (!usePagination) {
-        const allItems: TickerEntity[] = [];
-        let exclusiveStartKey: ScanCommandInput['ExclusiveStartKey'];
-
-        do {
-          const result = await this.docClient.send(
-            new ScanCommand({
-              TableName: this.config.tableName,
-              FilterExpression: '#type = :type',
-              ExpressionAttributeNames: {
-                '#type': 'Type',
-              },
-              ExpressionAttributeValues: {
-                ':type': 'Ticker',
-              },
-              ExclusiveStartKey: exclusiveStartKey,
-            })
-          );
-
-          const pageItems = (result.Items || []).map((item) =>
-            this.mapper.toEntity(item as unknown as DynamoDBItem)
-          );
-          for (const pageItem of pageItems) {
-            allItems.push(pageItem);
-          }
-          exclusiveStartKey = result.LastEvaluatedKey;
-        } while (exclusiveStartKey);
+        const items = await scanAllItems(this.docClient, {
+          TableName: this.config.tableName,
+          FilterExpression: '#type = :type',
+          ExpressionAttributeNames: {
+            '#type': 'Type',
+          },
+          ExpressionAttributeValues: {
+            ':type': 'Ticker',
+          },
+        });
+        const allItems = items.map((item) => this.mapper.toEntity(item));
 
         return {
           items: allItems,
@@ -191,8 +156,7 @@ export class DynamoDBTickerRepository
         count: result.Count,
       };
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -207,36 +171,23 @@ export class DynamoDBTickerRepository
       }
 
       const { pk, sk } = this.mapper.buildKeys({ tickerId });
-      const now = Date.now();
-
-      // 更新式を動的に構築
-      const updateExpressions: string[] = [];
-      const expressionAttributeNames: Record<string, string> = {};
-      const expressionAttributeValues: Record<string, unknown> = {};
-
-      if (updates.Symbol !== undefined) {
-        updateExpressions.push('#symbol = :symbol');
-        expressionAttributeNames['#symbol'] = 'Symbol';
-        expressionAttributeValues[':symbol'] = updates.Symbol;
+      const fields = {
+        Symbol: updates.Symbol,
+        Name: updates.Name,
+      };
+      const updateParts = buildUpdateExpression(fields, {
+        timestamp: { attributeName: 'UpdatedAt', value: Date.now() },
+        updateTimestampWhenEmpty: true,
+      });
+      if (!updateParts) {
+        throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
       }
-      if (updates.Name !== undefined) {
-        updateExpressions.push('#name = :name');
-        expressionAttributeNames['#name'] = 'Name';
-        expressionAttributeValues[':name'] = updates.Name;
-      }
-
-      // UpdatedAt を常に更新
-      updateExpressions.push('#updatedAt = :updatedAt');
-      expressionAttributeNames['#updatedAt'] = 'UpdatedAt';
-      expressionAttributeValues[':updatedAt'] = now;
 
       const result = await this.docClient.send(
         new UpdateCommand({
           TableName: this.config.tableName,
           Key: { PK: pk, SK: sk },
-          UpdateExpression: `SET ${updateExpressions.join(', ')}`,
-          ExpressionAttributeNames: expressionAttributeNames,
-          ExpressionAttributeValues: expressionAttributeValues,
+          ...updateParts,
           ConditionExpression: 'attribute_exists(PK)',
           ReturnValues: 'ALL_NEW',
         })
@@ -253,12 +204,7 @@ export class DynamoDBTickerRepository
           throw new EntityNotFoundError('Ticker', tickerId);
         },
       });
-      // EntityNotFoundError はそのまま投げる
-      if (error instanceof EntityNotFoundError) {
-        throw error;
-      }
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }

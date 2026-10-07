@@ -5,10 +5,15 @@
  */
 
 import { logger, toErrorMessage, withRetry } from '@nagiyu/common';
-import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
+import {
+  createScheduledHandler,
+  getDynamoDBDocumentClient,
+  getTableName,
+  reportErrorEvent,
+} from '@nagiyu/aws';
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import { createAlertNotificationPayload } from './lib/web-push-client.js';
-import type { AlertRepository, ExchangeRepository } from '@nagiyu/stock-tracker-core';
+import type { ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { evaluateAlert } from '@nagiyu/stock-tracker-core';
 import { isTradingHours } from '@nagiyu/stock-tracker-core';
@@ -18,30 +23,7 @@ import {
   resolveQuoteProvider,
   DEFAULT_PRICE_SOURCE,
 } from '@nagiyu/stock-tracker-core';
-import type { Alert, Exchange } from '@nagiyu/stock-tracker-core';
-
-/**
- * Lambda Handlerイベント型
- */
-export interface ScheduledEvent {
-  version: string;
-  id: string;
-  'detail-type': string;
-  source: string;
-  account: string;
-  time: string;
-  region: string;
-  resources: string[];
-  detail: Record<string, unknown>;
-}
-
-/**
- * Lambda Handler レスポンス型
- */
-export interface HandlerResponse {
-  statusCode: number;
-  body: string;
-}
+import type { Alert } from '@nagiyu/stock-tracker-core';
 
 /**
  * バッチ処理の統計情報
@@ -54,6 +36,8 @@ interface BatchStatistics {
   conditionsMet: number;
   notificationsSent: number;
   errors: number;
+  /** 送信先の購読が無効（404/410）で通知をスキップした件数。errors には含めない */
+  invalidSubscriptions: number;
 }
 
 /**
@@ -73,7 +57,7 @@ interface ProviderMap {
  * @param exchangeRepo - Exchange リポジトリ
  * @param providers - QuoteProvider マップ（tradingView / finnhub）
  * @param stats - バッチ統計情報
- * @returns 処理が成功した場合は true、失敗した場合は false
+ * @returns エラーなく処理できた場合は true（購読が無効で通知をスキップした場合も含む）、失敗した場合は false
  */
 async function processAlert(
   alert: Alert,
@@ -162,10 +146,18 @@ async function processAlert(
         conditions: alert.ConditionList,
       });
     } else {
-      stats.errors++;
+      // 購読はアラートのフィールドなので、無効だからと消すとユーザーの条件設定ごと失われる。
+      // 購読はユーザーが次に画面を開いたときに更新されるため、それまでの空振りは許容する。
+      stats.invalidSubscriptions++;
+      logger.warn('送信先の Web Push 購読が無効なため通知をスキップしました', {
+        alertId: alert.AlertID,
+        userId: alert.UserID,
+        tickerId: alert.TickerID,
+      });
     }
 
-    return notificationSent;
+    // 購読が無効でもエラーではないため成功扱いにする
+    return true;
   } catch (error) {
     const errorMessage = toErrorMessage(error);
     logger.error('アラート処理中にエラーが発生しました', {
@@ -193,24 +185,21 @@ async function processAlert(
  * Lambda Handler
  * EventBridge Scheduler から定期実行される
  */
-export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
-  logger.info('1時間間隔バッチ処理を開始します', {
-    eventId: event.id,
-    eventTime: event.time,
-  });
+export const handler = createScheduledHandler(
+  { serviceId: 'stock-tracker', name: 'hourly', errorTitle: '時間次バッチ: 致命的エラー' },
+  async (event) => {
+    // バッチ統計情報の初期化
+    const stats: BatchStatistics = {
+      totalAlerts: 0,
+      processedAlerts: 0,
+      skippedDisabled: 0,
+      skippedOffHours: 0,
+      conditionsMet: 0,
+      notificationsSent: 0,
+      errors: 0,
+      invalidSubscriptions: 0,
+    };
 
-  // バッチ統計情報の初期化
-  const stats: BatchStatistics = {
-    totalAlerts: 0,
-    processedAlerts: 0,
-    skippedDisabled: 0,
-    skippedOffHours: 0,
-    conditionsMet: 0,
-    notificationsSent: 0,
-    errors: 0,
-  };
-
-  try {
     // DynamoDB クライアントとリポジトリの初期化
     const docClient = getDynamoDBDocumentClient();
     const tableName = getTableName();
@@ -250,28 +239,5 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
         statistics: stats,
       }),
     };
-  } catch (error) {
-    const errorMessage = toErrorMessage(error);
-    logger.error('1時間間隔バッチ処理でエラーが発生しました', {
-      eventId: event.id,
-      error: errorMessage,
-      statistics: stats,
-    });
-    await reportErrorEvent({
-      serviceId: 'stock-tracker',
-      severity: 'error',
-      title: '時間次バッチ: 致命的エラー',
-      message: errorMessage,
-      context: { eventId: event.id, statistics: stats },
-    });
-
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: '1時間間隔バッチ処理でエラーが発生しました',
-        error: errorMessage,
-        statistics: stats,
-      }),
-    };
   }
-}
+);

@@ -379,6 +379,24 @@ describe('DynamoDBForecastRepository', () => {
       expect(mockDocClient.send).toHaveBeenCalledTimes(2);
     });
 
+    it('LastEvaluatedKey がある間は全ページを読み出す', async () => {
+      const lastKey = { PK: 'FORECAST#NSDQ:AAPL', SK: 'DATE#2026-02-27' };
+      mockDocClient.send
+        .mockResolvedValueOnce({ Items: [sampleItem], LastEvaluatedKey: lastKey })
+        .mockResolvedValueOnce({
+          Items: [{ ...sampleItem, TickerID: 'NSDQ:MSFT' }],
+        });
+
+      const result = await repository.getSamplesByExchangesAndDateRange(['NASDAQ']);
+
+      expect(result.map((sample) => sample.tickerId)).toEqual(['NSDQ:AAPL', 'NSDQ:MSFT']);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
+      const first = mockDocClient.send.mock.calls[0][0] as QueryCommand;
+      const second = mockDocClient.send.mock.calls[1][0] as QueryCommand;
+      expect(first.input).not.toHaveProperty('ExclusiveStartKey');
+      expect(second.input.ExclusiveStartKey).toEqual(lastKey);
+    });
+
     it('データベースエラー時に DatabaseError をスローする', async () => {
       mockDocClient.send.mockRejectedValueOnce(new Error('boom'));
       await expect(repository.getSamplesByExchangesAndDateRange(['NASDAQ'])).rejects.toThrow(

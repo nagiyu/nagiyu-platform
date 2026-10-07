@@ -131,6 +131,8 @@ curl https://<FUNCTION_URL>/api/health
 
 Tools アプリでは、2段階のテスト戦略に基づく3つの GitHub Actions ワークフローを使用します:
 
+各ワークフローのパスフィルター (`paths`) は [コーディング規約](../../development/rules.md) の共通ルールに従うため、ここには記載しません。
+
 #### 1. 高速検証ワークフロー (`.github/workflows/tools-verify-fast.yml`)
 
 **目的**: integration/** ブランチへのプルリクエスト時に素早いフィードバックを提供
@@ -142,11 +144,6 @@ on:
   pull_request:
     branches:
       - integration/**
-    paths:
-      - 'services/tools/**'
-      - 'libs/**'
-      - 'infra/tools/**'
-      - '.github/workflows/tools-verify-fast.yml'
 ```
 
 **ジョブ構成**:
@@ -186,11 +183,6 @@ on:
   pull_request:
     branches:
       - develop
-    paths:
-      - 'services/tools/**'
-      - 'libs/**'
-      - 'infra/tools/**'
-      - '.github/workflows/tools-verify-full.yml'
 ```
 
 **ジョブ構成**:
@@ -223,10 +215,6 @@ on:
       - develop
       - integration/**
       - master
-    paths:
-      - 'services/tools/**'
-      - 'infra/tools/**'
-      - '.github/workflows/tools-deploy.yml'
 ```
 
 **ジョブ構成**:
@@ -727,6 +715,8 @@ curl https://<FUNCTION_URL>/api/health
 
 Tools アプリでは、2段階のテスト戦略に基づく3つの GitHub Actions ワークフローを使用します:
 
+各ワークフローのパスフィルター (`paths`) は [コーディング規約](../../development/rules.md) の共通ルールに従うため、ここには記載しません。
+
 #### 1. 高速検証ワークフロー (`.github/workflows/tools-verify-fast.yml`)
 
 **目的**: integration/** ブランチへのプルリクエスト時に素早いフィードバックを提供
@@ -737,11 +727,6 @@ on:
   pull_request:
     branches:
         - integration/**
-    paths:
-        - 'services/tools/**'
-        - 'libs/**'
-        - 'infra/tools/**'
-        - '.github/workflows/tools-verify-fast.yml'
 ```
 
 **ジョブ構成**:
@@ -780,11 +765,6 @@ on:
   pull_request:
     branches:
         - develop
-    paths:
-        - 'services/tools/**'
-        - 'libs/**'
-        - 'infra/tools/**'
-        - '.github/workflows/tools-verify-full.yml'
 ```
 
 **ジョブ構成**:
@@ -816,10 +796,6 @@ on:
         - develop
         - integration/**
         - master
-    paths:
-        - 'services/tools/**'
-        - 'infra/tools/**'
-        - '.github/workflows/tools-deploy.yml'
 ```
 
 **ジョブ構成**:

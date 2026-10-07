@@ -4,33 +4,10 @@
  * データクリーンアップを実行する
  */
 
-import { logger, toErrorMessage } from '@nagiyu/common';
-import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
+import { logger } from '@nagiyu/common';
+import { createScheduledHandler, getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
 import { ScanCommand } from '@aws-sdk/lib-dynamodb';
 import type { Alert } from '@nagiyu/stock-tracker-core';
-
-/**
- * Lambda Handlerイベント型
- */
-export interface ScheduledEvent {
-  version: string;
-  id: string;
-  'detail-type': string;
-  source: string;
-  account: string;
-  time: string;
-  region: string;
-  resources: string[];
-  detail: Record<string, unknown>;
-}
-
-/**
- * Lambda Handler レスポンス型
- */
-export interface HandlerResponse {
-  statusCode: number;
-  body: string;
-}
 
 /**
  * バッチ処理の統計情報
@@ -78,21 +55,17 @@ function isValidSubscription(alert: Alert): boolean {
  * Lambda Handler
  * EventBridge Scheduler から定期実行される
  */
-export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
-  logger.info('日次バッチ処理を開始します', {
-    eventId: event.id,
-    eventTime: event.time,
-  });
+export const handler = createScheduledHandler(
+  { serviceId: 'stock-tracker', name: 'daily', errorTitle: '日次バッチ: 致命的エラー' },
+  async (event) => {
+    // バッチ統計情報の初期化
+    const stats: BatchStatistics = {
+      totalAlerts: 0,
+      validSubscriptions: 0,
+      invalidSubscriptions: 0,
+      invalidAlerts: [],
+    };
 
-  // バッチ統計情報の初期化
-  const stats: BatchStatistics = {
-    totalAlerts: 0,
-    validSubscriptions: 0,
-    invalidSubscriptions: 0,
-    invalidAlerts: [],
-  };
-
-  try {
     // DynamoDB クライアントの初期化
     const docClient = getDynamoDBDocumentClient();
     const tableName = getTableName();
@@ -167,36 +140,5 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
         },
       }),
     };
-  } catch (error) {
-    const errorMessage = toErrorMessage(error);
-    logger.error('日次バッチ処理でエラーが発生しました', {
-      eventId: event.id,
-      error: errorMessage,
-      statistics: {
-        totalAlerts: stats.totalAlerts,
-        validSubscriptions: stats.validSubscriptions,
-        invalidSubscriptions: stats.invalidSubscriptions,
-      },
-    });
-    await reportErrorEvent({
-      serviceId: 'stock-tracker',
-      severity: 'error',
-      title: '日次バッチ: 致命的エラー',
-      message: errorMessage,
-      context: {
-        eventId: event.id,
-        totalAlerts: stats.totalAlerts,
-        validSubscriptions: stats.validSubscriptions,
-        invalidSubscriptions: stats.invalidSubscriptions,
-      },
-    });
-
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: '日次バッチ処理でエラーが発生しました',
-        error: errorMessage,
-      }),
-    };
   }
-}
+);

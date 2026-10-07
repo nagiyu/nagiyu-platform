@@ -10,65 +10,111 @@ import type {
   DeleteCommandInput,
 } from '@aws-sdk/lib-dynamodb';
 
+/** 属性を削除 (REMOVE 句) することを示すマーカー */
+export const REMOVE_ATTRIBUTE: unique symbol = Symbol('REMOVE_ATTRIBUTE');
+
+/** buildUpdateExpression の戻り値。UpdateCommand の入力にそのまま展開できる */
+export interface UpdateExpressionParts {
+  UpdateExpression: string;
+  ExpressionAttributeNames: Record<string, string>;
+  /** 値が 1 つもない場合 (REMOVE のみ) はキーごと省略する。DynamoDB は空マップを拒否するため */
+  ExpressionAttributeValues?: Record<string, unknown>;
+}
+
+/** buildUpdateExpression のオプション */
+export interface BuildUpdateExpressionOptions {
+  /** 更新日時の属性名と値。省略時は付与しない。値の形式は呼び出し側が決める */
+  timestamp?: { attributeName: string; value: unknown };
+  /** fields に更新項目がなくても、timestamp があればそれだけを更新する式を返す */
+  updateTimestampWhenEmpty?: boolean;
+}
+
 /**
- * UpdateExpression を動的に生成
+ * UpdateCommand 用の UpdateExpression 一式を生成
  *
- * @param updates - 更新するフィールドと値のマップ
- * @param options - オプション
- * @param options.autoUpdateTimestamp - UpdatedAt を自動更新するか（デフォルト: true）
- * @returns UpdateExpression と関連する AttributeNames, AttributeValues
+ * - 値が undefined のフィールドはスキップする
+ * - 値が REMOVE_ATTRIBUTE のフィールドは REMOVE 句に入れる
+ * - それ以外 (null / '' / 0 / false を含む) は SET 句に入れる
+ *
+ * undefined をスキップするのは、共有クライアントが undefined の値をマップから落とすため。
+ * 式にプレースホルダだけが残ると DynamoDB がエラーにする。
+ *
+ * プレースホルダは使用したフィールドごとに連番 (#n0 / :v0 ...) を振る。
+ * 呼び出し側が追加する固定名 (#pk 等) と衝突しない。
+ *
+ * @param fields - 属性名と値のマップ (挿入順に処理する)
+ * @param options - タイムスタンプ付与などのオプション
+ * @returns 更新式一式。更新項目がなければ null (timestamp は更新項目に数えない)
  *
  * @example
  * ```typescript
- * const result = buildUpdateExpression({
- *   Name: 'New Name',
- *   Status: 'active'
- * });
- * // result.updateExpression: 'SET #name = :name, #status = :status, #updatedAt = :updatedAt'
- * // result.expressionAttributeNames: { '#name': 'Name', '#status': 'Status', '#updatedAt': 'UpdatedAt' }
- * // result.expressionAttributeValues: { ':name': 'New Name', ':status': 'active', ':updatedAt': 1234567890 }
+ * const parts = buildUpdateExpression(
+ *   { Name: '新しい名前', Memo: REMOVE_ATTRIBUTE, Skip: undefined },
+ *   { timestamp: { attributeName: 'UpdatedAt', value: Date.now() } }
+ * );
+ * // parts.UpdateExpression: 'SET #n0 = :v0, #n2 = :v1 REMOVE #n1'
+ * // parts.ExpressionAttributeNames: { '#n0': 'Name', '#n1': 'Memo', '#n2': 'UpdatedAt' }
+ * // parts.ExpressionAttributeValues: { ':v0': '新しい名前', ':v1': 1234567890 }
  * ```
  */
 export function buildUpdateExpression(
-  updates: Record<string, unknown>,
-  options: {
-    autoUpdateTimestamp?: boolean;
-  } = {}
-): {
-  updateExpression: string;
-  expressionAttributeNames: Record<string, string>;
-  expressionAttributeValues: Record<string, unknown>;
-} {
-  const { autoUpdateTimestamp = true } = options;
+  fields: Record<string, unknown>,
+  options: BuildUpdateExpressionOptions = {}
+): UpdateExpressionParts | null {
+  const { timestamp, updateTimestampWhenEmpty = false } = options;
 
-  const updateExpressions: string[] = [];
-  const expressionAttributeNames: Record<string, string> = {};
-  const expressionAttributeValues: Record<string, unknown> = {};
+  const setClauses: string[] = [];
+  const removeClauses: string[] = [];
+  const names: Record<string, string> = {};
+  const values: Record<string, unknown> = {};
 
-  // 更新フィールドを処理
-  let fieldIndex = 0;
-  for (const [key, value] of Object.entries(updates)) {
-    const attrName = `#field${fieldIndex}`;
-    const attrValue = `:value${fieldIndex}`;
-    fieldIndex++;
-
-    updateExpressions.push(`${attrName} = ${attrValue}`);
-    expressionAttributeNames[attrName] = key;
-    expressionAttributeValues[attrValue] = value;
+  let index = 0;
+  for (const [key, value] of Object.entries(fields)) {
+    if (value === undefined) {
+      continue;
+    }
+    const nameKey = `#n${index}`;
+    names[nameKey] = key;
+    if (value === REMOVE_ATTRIBUTE) {
+      removeClauses.push(nameKey);
+    } else {
+      const valueKey = `:v${index}`;
+      setClauses.push(`${nameKey} = ${valueKey}`);
+      values[valueKey] = value;
+    }
+    index++;
   }
 
-  // タイムスタンプを自動更新
-  if (autoUpdateTimestamp) {
-    updateExpressions.push('#updatedAt = :updatedAt');
-    expressionAttributeNames['#updatedAt'] = 'UpdatedAt';
-    expressionAttributeValues[':updatedAt'] = Date.now();
+  if (setClauses.length === 0 && removeClauses.length === 0) {
+    if (!(updateTimestampWhenEmpty && timestamp)) {
+      return null;
+    }
   }
 
-  return {
-    updateExpression: `SET ${updateExpressions.join(', ')}`,
-    expressionAttributeNames,
-    expressionAttributeValues,
+  if (timestamp) {
+    const nameKey = `#n${index}`;
+    const valueKey = `:v${index}`;
+    setClauses.push(`${nameKey} = ${valueKey}`);
+    names[nameKey] = timestamp.attributeName;
+    values[valueKey] = timestamp.value;
+  }
+
+  const clauses: string[] = [];
+  if (setClauses.length > 0) {
+    clauses.push(`SET ${setClauses.join(', ')}`);
+  }
+  if (removeClauses.length > 0) {
+    clauses.push(`REMOVE ${removeClauses.join(', ')}`);
+  }
+
+  const parts: UpdateExpressionParts = {
+    UpdateExpression: clauses.join(' '),
+    ExpressionAttributeNames: names,
   };
+  if (Object.keys(values).length > 0) {
+    parts.ExpressionAttributeValues = values;
+  }
+  return parts;
 }
 
 /**

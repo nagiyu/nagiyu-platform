@@ -16,6 +16,8 @@ export {
   urlBase64ToUint8Array,
   subscribePush,
   fetchVapidPublicKey,
+  isPushSupported,
+  postPushSubscription,
   PUSH_ERROR_MESSAGES,
 } from './push';
-export type { SubscribePushOptions } from './push';
+export type { SubscribePushOptions, PostPushSubscriptionOptions } from './push';

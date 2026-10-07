@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { createSubscriptionId } from '@nagiyu/common';
 import type { PushSubscription } from '@nagiyu/common';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { DeleteCommand, PutCommand, QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
@@ -69,7 +70,7 @@ export class DynamoDBPushSubscriptionRepository
   }
 
   public async save(input: SavePushSubscriptionInput): Promise<PushSubscriptionRecord> {
-    const subscriptionId = crypto.randomUUID();
+    const subscriptionId = await createSubscriptionId(input.subscription.endpoint);
     const item = this.mapToItem({
       subscriptionId,
       userId: input.userId,
@@ -209,7 +210,7 @@ class InMemoryPushSubscriptionRepository implements PushSubscriptionRepository {
   private readonly records = new Map<string, PushSubscriptionRecord>();
 
   public async save(input: SavePushSubscriptionInput): Promise<PushSubscriptionRecord> {
-    const subscriptionId = crypto.randomUUID();
+    const subscriptionId = await createSubscriptionId(input.subscription.endpoint);
     const now = new Date().toISOString();
     const record: PushSubscriptionRecord = {
       subscriptionId,

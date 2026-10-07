@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Container, Typography, Box } from '@mui/material';
 import { Button } from '@nagiyu/ui';
 import { usePushSubscription } from '@nagiyu/react';
-import { fetchVapidPublicKey } from '@nagiyu/browser';
+import { fetchVapidPublicKey, postPushSubscription } from '@nagiyu/browser';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import NotificationPermissionDialog from './NotificationPermissionButton';
 
@@ -16,17 +16,6 @@ interface HomePageClientProps {
   /** サインイン URL のベース（サーバーコンポーネントでランタイム env を解決して渡す） */
   authUrl: string;
 }
-
-const postSubscription = async (subscription: PushSubscription): Promise<void> => {
-  const response = await fetch('/api/push/subscribe', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ subscription: subscription.toJSON() }),
-  });
-  if (!response.ok) {
-    throw new Error('サブスクリプションの登録に失敗しました');
-  }
-};
 
 export default function HomePageClient({
   userName,
@@ -39,7 +28,7 @@ export default function HomePageClient({
 
   const { subscribed, subscribe } = usePushSubscription({
     getVapidPublicKey: fetchVapidPublicKey,
-    onSubscribed: postSubscription,
+    onSubscribed: (subscription) => postPushSubscription(subscription),
   });
 
   const handleOpenNotificationDialog = () => {

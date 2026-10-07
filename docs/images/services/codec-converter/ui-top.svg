@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="430" height="660" viewBox="0 0 430 660" font-family="'Helvetica Neue', Arial, 'Hiragino Sans', 'Noto Sans JP', sans-serif">
+  <title>Codec Converter トップ/アップロード画面</title>
+  <style>
+    .bg { fill: #ffffff; }
+    .fg { fill: #1f1f1f; }
+    .sub { fill: #555555; }
+    .muted { fill: #999999; }
+    .drop { fill: #f5f5f5; stroke: #777777; }
+    .radio { fill: none; stroke: #666666; }
+    .accent { fill: #1976d2; }
+    .accent-stroke { stroke: #1976d2; }
+    .btn { fill: #cccccc; stroke: #999999; }
+    .btn-label { fill: #777777; }
+    .folder-back { fill: #e8a838; }
+    .folder-front { fill: #f7c95c; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #121212; }
+      .fg { fill: #eeeeee; }
+      .sub { fill: #bbbbbb; }
+      .muted { fill: #888888; }
+      .drop { fill: #1e1e1e; stroke: #888888; }
+      .radio { stroke: #aaaaaa; }
+      .accent { fill: #64b5f6; }
+      .accent-stroke { stroke: #64b5f6; }
+      .btn { fill: #3a3a3a; stroke: #555555; }
+      .btn-label { fill: #8a8a8a; }
+    }
+  </style>
+
+  <rect class="bg" width="430" height="660"/>
+
+  <!-- ページタイトル -->
+  <text class="fg" x="215" y="28" text-anchor="middle" font-size="24" font-weight="bold">Codec Converter</text>
+  <text class="sub" x="215" y="66" text-anchor="middle" font-size="14">動画ファイルのコーデックを変換します</text>
+
+  <!-- ファイルアップロードエリア -->
+  <rect class="drop" x="15" y="101" width="400" height="199" rx="24" stroke-width="2" stroke-dasharray="12 8"/>
+  <g transform="translate(190 140)">
+    <path class="folder-back" d="M0 6 a4 4 0 0 1 4 -4 h14 l6 6 h22 a4 4 0 0 1 4 4 v30 a4 4 0 0 1 -4 4 h-42 a4 4 0 0 1 -4 -4 z"/>
+    <path class="folder-front" d="M0 16 h50 v26 a4 4 0 0 1 -4 4 h-42 a4 4 0 0 1 -4 -4 z"/>
+  </g>
+  <text class="fg" x="215" y="221" text-anchor="middle" font-size="15">ファイルをドラッグ&amp;ドロップ</text>
+  <text class="fg" x="215" y="242" text-anchor="middle" font-size="15">または クリックして選択</text>
+  <text class="muted" x="215" y="275" text-anchor="middle" font-size="13">MP4ファイルのみ、最大500MB</text>
+
+  <!-- 出力コーデック選択 -->
+  <text class="fg" x="15" y="352" font-size="18" font-weight="bold">出力コーデック選択</text>
+
+  <g transform="translate(0 385)">
+    <circle class="radio accent-stroke" cx="25" cy="0" r="10" stroke-width="2"/>
+    <circle class="accent" cx="25" cy="0" r="5"/>
+    <text class="fg" x="46" y="6" font-size="15" font-weight="bold">H.264</text>
+    <text class="sub" x="46" y="28" font-size="13">互換性重視（MP4）</text>
+  </g>
+  <g transform="translate(0 445)">
+    <circle class="radio" cx="25" cy="0" r="10" stroke-width="2"/>
+    <text class="fg" x="46" y="6" font-size="15" font-weight="bold">VP9</text>
+    <text class="sub" x="46" y="28" font-size="13">バランス型（WebM）</text>
+  </g>
+  <g transform="translate(0 505)">
+    <circle class="radio" cx="25" cy="0" r="10" stroke-width="2"/>
+    <text class="fg" x="46" y="6" font-size="15" font-weight="bold">AV1</text>
+    <text class="sub" x="46" y="28" font-size="13">高圧縮率（WebM）</text>
+  </g>
+
+  <!-- 変換開始ボタン (ファイル未選択時は非活性) -->
+  <rect class="btn" x="115" y="571" width="200" height="50" rx="6"/>
+  <text class="btn-label" x="215" y="601" text-anchor="middle" font-size="16" font-weight="bold">変換開始</text>
+  <text class="muted" x="215" y="644" text-anchor="middle" font-size="12" font-style="italic">※ ファイル未選択時は非活性</text>
+</svg>

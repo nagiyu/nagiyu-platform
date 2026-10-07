@@ -1,10 +1,5 @@
-import {
-  GetCommand,
-  PutCommand,
-  QueryCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
-import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { GetCommand, PutCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { queryAllItems, toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import type {
   CreateProfileInput,
   ProfileEntity,
@@ -50,38 +45,29 @@ export class DynamoDBProfileRepository implements ProfileRepository {
       if (!result.Item) return null;
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
   public async listAllUserIds(): Promise<string[]> {
     const userIds: string[] = [];
-    let lastEvaluatedKey: Record<string, unknown> | undefined;
 
     try {
-      do {
-        const result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            IndexName: PROFILE_GSI_INDEX_NAME,
-            KeyConditionExpression: '#gsi1pk = :pk',
-            ExpressionAttributeNames: { '#gsi1pk': 'GSI1PK' },
-            ExpressionAttributeValues: { ':pk': buildProfileGSI1PK() },
-            ...(lastEvaluatedKey ? { ExclusiveStartKey: lastEvaluatedKey } : {}),
-          })
-        );
-        for (const item of result.Items ?? []) {
-          // KEYS_ONLY 射影のため GSI1SK（生の UserID）から読み取る
-          if (typeof item.GSI1SK === 'string' && item.GSI1SK) {
-            userIds.push(item.GSI1SK);
-          }
+      const items = await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        IndexName: PROFILE_GSI_INDEX_NAME,
+        KeyConditionExpression: '#gsi1pk = :pk',
+        ExpressionAttributeNames: { '#gsi1pk': 'GSI1PK' },
+        ExpressionAttributeValues: { ':pk': buildProfileGSI1PK() },
+      });
+      for (const item of items) {
+        // KEYS_ONLY 射影のため GSI1SK（生の UserID）から読み取る
+        if (typeof item.GSI1SK === 'string' && item.GSI1SK) {
+          userIds.push(item.GSI1SK);
         }
-        lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
-      } while (lastEvaluatedKey !== undefined);
+      }
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
 
     return userIds;
@@ -115,8 +101,7 @@ export class DynamoDBProfileRepository implements ProfileRepository {
       );
       return merged;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }

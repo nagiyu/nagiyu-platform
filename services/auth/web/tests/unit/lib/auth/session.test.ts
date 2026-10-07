@@ -4,31 +4,10 @@ jest.mock('@nagiyu/auth-core', () => ({
   auth: jest.fn(),
 }));
 
-jest.mock('@nagiyu/nextjs/session', () => ({
-  resolveTestUser: jest.fn((options?: { defaultRoles?: string[] }) => ({
-    id: process.env.TEST_USER_ID || 'test-user-id',
-    email: process.env.TEST_USER_EMAIL || 'test@example.com',
-    name: process.env.TEST_USER_NAME || 'Test User',
-    image: process.env.TEST_USER_IMAGE || undefined,
-    roles: process.env.TEST_USER_ROLES?.split(',') || options?.defaultRoles || [],
-  })),
-  createSessionGetter: jest.fn(
-    (config: {
-      auth: () => Promise<unknown>;
-      createTestSession: () => unknown;
-      mapSession?: (session: unknown) => unknown;
-    }) => {
-      return async () => {
-        if (process.env.SKIP_AUTH_CHECK === 'true') {
-          const testSession = config.createTestSession();
-          return config.mapSession ? config.mapSession(testSession) : testSession;
-        }
-        const session = await config.auth();
-        if (!session) return null;
-        return config.mapSession ? config.mapSession(session) : session;
-      };
-    }
-  ),
+// リクエストスコープ外では headers() が例外を投げるため、ヘッダ読み取りだけを差し替える
+const mockHeaders = jest.fn();
+jest.mock('next/headers', () => ({
+  headers: () => mockHeaders(),
 }));
 
 import { auth as mockedAuth } from '@nagiyu/auth-core';
@@ -39,6 +18,9 @@ describe('getSession', () => {
   beforeEach(() => {
     process.env = { ...originalEnv };
     jest.clearAllMocks();
+    mockHeaders.mockImplementation(() => {
+      throw new Error('リクエストスコープ外');
+    });
   });
 
   afterEach(() => {
@@ -104,5 +86,36 @@ describe('getSession', () => {
 
     expect(session?.user?.id).toBe('u1');
     expect(session?.expires).toBe('2099-01-01T00:00:00.000Z');
+  });
+
+  it('テストセッションの有効期限は 30 日後になる', async () => {
+    process.env.SKIP_AUTH_CHECK = 'true';
+
+    const { getSession } = await import('../../../../src/lib/auth/session');
+    const session = await getSession();
+
+    const diff = new Date(session!.expires).getTime() - Date.now();
+    expect(Math.abs(diff - 30 * 24 * 60 * 60 * 1000)).toBeLessThan(60 * 1000);
+  });
+
+  it('ヘッダ x-test-user-roles が TEST_USER_ROLES より優先される', async () => {
+    process.env.SKIP_AUTH_CHECK = 'true';
+    process.env.TEST_USER_ROLES = 'admin';
+    mockHeaders.mockResolvedValue(new Headers({ 'x-test-user-roles': 'viewer, editor' }));
+
+    const { getSession } = await import('../../../../src/lib/auth/session');
+    const session = await getSession();
+
+    expect(session?.user?.roles).toEqual(['viewer', 'editor']);
+  });
+
+  it('TEST_USER_ROLES が空文字なら既定ロールに戻る', async () => {
+    process.env.SKIP_AUTH_CHECK = 'true';
+    process.env.TEST_USER_ROLES = '';
+
+    const { getSession } = await import('../../../../src/lib/auth/session');
+    const session = await getSession();
+
+    expect(session?.user?.roles).toEqual(['admin']);
   });
 });

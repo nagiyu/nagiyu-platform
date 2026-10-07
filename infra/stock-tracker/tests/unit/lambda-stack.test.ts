@@ -76,20 +76,6 @@ describe('LambdaStack', () => {
       });
       expect(Object.keys(resources)).toHaveLength(0);
     });
-
-    it('EventBridge スタックが import していた evaluation 関数の export を同じ名前で残す', () => {
-      const outputs = template.findOutputs('*', {
-        Export: {
-          Name: 'TestLambdaStack:ExportsOutputFnGetAttBatchEvaluationFunction6D54C23BArnD68CF6BB',
-        },
-      });
-      expect(Object.keys(outputs)).toHaveLength(1);
-      const value = JSON.stringify(Object.values(outputs)[0].Value);
-      expect(value).toContain(
-        ':${AWS::AccountId}:function:nagiyu-stock-tracker-batch-evaluation-${Env}'
-      );
-      expect(value).toContain('"Env":"dev"');
-    });
   });
 
   describe('FINNHUB_API_KEY の注入', () => {

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { createSubscriptionId } from '@nagiyu/common';
 import type { Permission, PushSubscription } from '@nagiyu/common';
 import { getAuthError } from './auth.js';
 import type { AuthFunction, SessionWithRoles } from './auth.js';
@@ -58,22 +59,6 @@ export function validatePushSubscription(subscription: unknown): subscription is
 }
 
 /**
- * Push サブスクリプション endpoint から一意なIDを生成する。
- *
- * SHA-256 ハッシュを作成し、先頭32文字を `sub_` プレフィックス付きで返す。
- * この関数は `validatePushSubscription()` で endpoint が検証済みであることを前提とする。
- */
-export async function createSubscriptionId(endpoint: string): Promise<string> {
-  const endpointBytes = new TextEncoder().encode(endpoint);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', endpointBytes);
-  const hashHex = Array.from(new Uint8Array(hashBuffer))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('');
-
-  return `sub_${hashHex.substring(0, 32)}`;
-}
-
-/**
  * サービス共通の VAPID 公開鍵 route ハンドラーを生成する。
  */
 export function createVapidPublicKeyRoute() {
@@ -129,12 +114,25 @@ type SubscribeErrorResponse = {
   message: string;
 };
 
-export interface CreatePushSubscribeRouteOptions {
-  getSession: AuthFunction<SessionWithRoles>;
+export interface CreatePushSubscribeRouteOptions<
+  TSession extends SessionWithRoles = SessionWithRoles,
+> {
+  getSession: AuthFunction<TSession>;
   requiredPermission?: Permission;
+  /**
+   * 検証済みの購読を保存するフック。
+   * 201 を返す直前に呼ばれ、例外は 500 として扱われる。
+   */
+  onSubscribe?: (params: {
+    session: TSession;
+    subscription: PushSubscription;
+    subscriptionId: string;
+  }) => Promise<void>;
 }
 
-export function createPushSubscribeRoute(options: CreatePushSubscribeRouteOptions) {
+export function createPushSubscribeRoute<TSession extends SessionWithRoles = SessionWithRoles>(
+  options: CreatePushSubscribeRouteOptions<TSession>
+) {
   return async function POST(
     request: NextRequest
   ): Promise<NextResponse<SubscribeResponse | SubscribeErrorResponse>> {
@@ -199,6 +197,11 @@ export function createPushSubscribeRoute(options: CreatePushSubscribeRouteOption
 
       const subscriptionId = await createSubscriptionId(subscription.endpoint);
 
+      if (options.onSubscribe) {
+        // authError が null なので session は非 null
+        await options.onSubscribe({ session: session as TSession, subscription, subscriptionId });
+      }
+
       return NextResponse.json(
         {
           success: true,
@@ -218,3 +221,5 @@ export function createPushSubscribeRoute(options: CreatePushSubscribeRouteOption
     }
   };
 }
+
+export { createSubscriptionId };

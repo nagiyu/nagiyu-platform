@@ -1,31 +1,18 @@
 import { type ListRepository, type TodoRepository } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
-import type { ApiErrorResponse, TodoResponse, TodosResponse } from '@/types';
-import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import type { TodoResponse, TodosResponse } from '@/types';
+import { getAuthorizedGroupContext } from '@/lib/api/authorization';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { createListRepository, createTodoRepository } from '@nagiyu/share-together-core';
 import {
-  createListRepository,
-  createMembershipRepository,
-  createTodoRepository,
-} from '@nagiyu/share-together-core';
+  createValidationErrorResponse,
+  createNotFoundErrorResponse,
+  createInternalServerErrorResponse,
+} from '@/lib/api/responses';
 
 type RouteParams = {
   params: Promise<{ groupId: string; listId: string }>;
 };
-
-function createErrorResponse(code: string, message: string, status: number): NextResponse {
-  const response: ApiErrorResponse = {
-    error: code,
-    message,
-  };
-
-  return NextResponse.json(response, { status });
-}
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
-}
 
 async function getAuthorizedContext(params: RouteParams['params']): Promise<
   | {
@@ -37,30 +24,12 @@ async function getAuthorizedContext(params: RouteParams['params']): Promise<
     }
   | NextResponse
 > {
-  const sessionOrUnauthorized = await getSessionOrUnauthorized();
-  if ('status' in sessionOrUnauthorized) {
-    return sessionOrUnauthorized;
+  const contextOrResponse = await getAuthorizedGroupContext(params);
+  if ('status' in contextOrResponse) {
+    return contextOrResponse;
   }
 
-  const { groupId, listId } = await params;
-  const userId = sessionOrUnauthorized.user.id;
-  if (!isNonEmptyString(groupId) || !isNonEmptyString(listId) || !isNonEmptyString(userId)) {
-    return createErrorResponse('VALIDATION_ERROR', ERROR_MESSAGES.VALIDATION_ERROR, 400);
-  }
-
-  const tableName = process.env.DYNAMODB_TABLE_NAME;
-  if (!tableName) {
-    throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
-  }
-
-  const docClient =
-    process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
-  const membershipRepository = createMembershipRepository(docClient, tableName);
-  const membership = await membershipRepository.getById(groupId, userId);
-  if (!membership || membership.status !== 'ACCEPTED') {
-    return createErrorResponse('FORBIDDEN', ERROR_MESSAGES.FORBIDDEN, 403);
-  }
-
+  const { groupId, listId, userId, docClient, tableName } = contextOrResponse;
   return {
     groupId,
     listId,
@@ -87,7 +56,7 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
       authorizedContextOrResponse.listId
     );
     if (!existingList) {
-      return createErrorResponse('NOT_FOUND', ERROR_MESSAGES.NOT_FOUND, 404);
+      return createNotFoundErrorResponse();
     }
 
     const todos = await authorizedContextOrResponse.todoRepository.getByListId(
@@ -102,7 +71,7 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
       listId: requestedListId,
       error,
     });
-    return createErrorResponse('INTERNAL_SERVER_ERROR', ERROR_MESSAGES.INTERNAL_SERVER_ERROR, 500);
+    return createInternalServerErrorResponse();
   }
 }
 
@@ -123,7 +92,7 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
     const body = (await request.json()) as { title?: unknown };
     const title = typeof body.title === 'string' ? body.title.trim() : '';
     if (title.length < 1 || title.length > 200) {
-      return createErrorResponse('VALIDATION_ERROR', ERROR_MESSAGES.TODO_TITLE_INVALID, 400);
+      return createValidationErrorResponse(ERROR_MESSAGES.TODO_TITLE_INVALID);
     }
 
     const existingList = await authorizedContextOrResponse.listRepository.getGroupListById(
@@ -131,7 +100,7 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
       authorizedContextOrResponse.listId
     );
     if (!existingList) {
-      return createErrorResponse('NOT_FOUND', ERROR_MESSAGES.NOT_FOUND, 404);
+      return createNotFoundErrorResponse();
     }
 
     const todo = await authorizedContextOrResponse.todoRepository.create({
@@ -151,6 +120,6 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
       userId: requestedUserId,
       error,
     });
-    return createErrorResponse('INTERNAL_SERVER_ERROR', ERROR_MESSAGES.INTERNAL_SERVER_ERROR, 500);
+    return createInternalServerErrorResponse();
   }
 }

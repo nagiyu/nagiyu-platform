@@ -16,10 +16,15 @@ import {
   EntityNotFoundError,
   EntityAlreadyExistsError,
   DatabaseError,
+  isConditionalCheckFailed,
   InvalidEntityDataError,
 } from './errors.js';
-import { conditionalPut, conditionalUpdate, conditionalDelete } from './helpers.js';
-import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
+import {
+  buildUpdateExpression,
+  conditionalPut,
+  conditionalUpdate,
+  conditionalDelete,
+} from './helpers.js';
 import { toErrorMessage } from '@nagiyu/common';
 
 /**
@@ -175,10 +180,7 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
 
       return this.mapToEntity(item);
     } catch (error) {
-      if (
-        error instanceof ConditionalCheckFailedException ||
-        (error instanceof Error && error.name === 'ConditionalCheckFailedException')
-      ) {
+      if (isConditionalCheckFailed(error)) {
         throw new EntityAlreadyExistsError(this.config.entityType, JSON.stringify(entity));
       }
       throw new DatabaseError(
@@ -200,50 +202,26 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
   public async update(key: TKey, updates: Partial<TEntity>): Promise<TEntity> {
     try {
       const keys = this.buildKeys(key);
-      const now = Date.now();
 
-      // UpdateExpression を動的に生成
-      const updateExpressions: string[] = [];
-      const expressionAttributeNames: Record<string, string> = {};
-      const expressionAttributeValues: Record<string, unknown> = {};
-
-      let fieldIndex = 0;
-      let hasUpdates = false;
-
-      for (const [field, value] of Object.entries(updates)) {
-        if (field === 'CreatedAt' || field === 'UpdatedAt') {
-          // タイムスタンプフィールドは自動管理のためスキップ
-          continue;
-        }
-
-        const attrName = `#field${fieldIndex}`;
-        const attrValue = `:value${fieldIndex}`;
-        fieldIndex++;
-
-        updateExpressions.push(`${attrName} = ${attrValue}`);
-        expressionAttributeNames[attrName] = field;
-        expressionAttributeValues[attrValue] = value;
-        hasUpdates = true;
-      }
-
-      if (!hasUpdates) {
-        // 更新するフィールドが指定されていない
+      // タイムスタンプは自動管理のため呼び出し側の指定を無視する
+      const fields = Object.fromEntries(
+        Object.entries(updates as Record<string, unknown>).filter(
+          ([field]) => field !== 'CreatedAt' && field !== 'UpdatedAt'
+        )
+      );
+      const parts = buildUpdateExpression(fields, {
+        timestamp: { attributeName: 'UpdatedAt', value: Date.now() },
+      });
+      if (!parts) {
         throw new InvalidEntityDataError('更新するフィールドが指定されていません');
       }
-
-      // UpdatedAt を自動更新
-      updateExpressions.push('#updatedAt = :updatedAt');
-      expressionAttributeNames['#updatedAt'] = 'UpdatedAt';
-      expressionAttributeValues[':updatedAt'] = now;
 
       await this.docClient.send(
         new UpdateCommand(
           conditionalUpdate({
             TableName: this.config.tableName,
             Key: keys,
-            UpdateExpression: `SET ${updateExpressions.join(', ')}`,
-            ExpressionAttributeNames: expressionAttributeNames,
-            ExpressionAttributeValues: expressionAttributeValues,
+            ...parts,
           })
         )
       );
@@ -256,10 +234,7 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
 
       return updated;
     } catch (error) {
-      if (
-        error instanceof ConditionalCheckFailedException ||
-        (error instanceof Error && error.name === 'ConditionalCheckFailedException')
-      ) {
+      if (isConditionalCheckFailed(error)) {
         throw new EntityNotFoundError(this.config.entityType, JSON.stringify(key));
       }
       if (error instanceof EntityNotFoundError || error instanceof InvalidEntityDataError) {
@@ -292,10 +267,7 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
         )
       );
     } catch (error) {
-      if (
-        error instanceof ConditionalCheckFailedException ||
-        (error instanceof Error && error.name === 'ConditionalCheckFailedException')
-      ) {
+      if (isConditionalCheckFailed(error)) {
         throw new EntityNotFoundError(this.config.entityType, JSON.stringify(key));
       }
       throw new DatabaseError(

@@ -186,6 +186,12 @@ describe('ログアウト導線', () => {
     });
   });
 
+  it('useAccountDeletion に authUrl が引数として渡される', () => {
+    render(<LiveTalkHeader authUrl="https://auth.nagiyu.com" />);
+
+    expect(mockUseAccountDeletion).toHaveBeenCalledWith('https://auth.nagiyu.com');
+  });
+
   it('サインアウト項目クリック時に authUrl が buildSignOutUrl の第一引数として渡される', async () => {
     const user = userEvent.setup();
     setupUserSession();

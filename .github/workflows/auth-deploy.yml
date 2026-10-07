@@ -8,8 +8,9 @@ on:
       - master
     paths:
       - 'services/auth/**'
-      - 'libs/common/**'
+      - 'libs/**'
       - 'infra/auth/**'
+      - 'infra/common/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/auth-deploy.yml'

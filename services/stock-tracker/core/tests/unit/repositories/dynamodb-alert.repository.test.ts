@@ -5,6 +5,7 @@
  */
 
 import { DynamoDBAlertRepository } from '../../../src/repositories/dynamodb-alert.repository.js';
+import { parseUpdateExpression } from '../../helpers/update-expression.js';
 import {
   EntityAlreadyExistsError,
   EntityNotFoundError,
@@ -863,9 +864,80 @@ describe('DynamoDBAlertRepository', () => {
         };
       };
 
-      expect(command.input.UpdateExpression).toContain('#customMessage = :customMessage');
-      expect(command.input.ExpressionAttributeNames['#customMessage']).toBe('CustomMessage');
-      expect(command.input.ExpressionAttributeValues[':customMessage']).toBe('戦略メモ');
+      const parsed = parseUpdateExpression(command.input);
+      expect(parsed.set).toMatchObject({ CustomMessage: '戦略メモ' });
+      expect(parsed.remove).toEqual([]);
+    });
+
+    it('Frequency を更新するとGSI2PKも付け直し、UpdatedAtを付与する', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Attributes: {
+          PK: 'USER#user-123',
+          SK: 'ALERT#alert-123',
+          Type: 'Alert',
+          GSI1PK: 'user-123',
+          GSI1SK: 'Alert#alert-123',
+          GSI2PK: 'ALERT#HOURLY_LEVEL',
+          GSI2SK: 'user-123#alert-123',
+          AlertID: 'alert-123',
+          UserID: 'user-123',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Mode: 'Buy',
+          Frequency: 'HOURLY_LEVEL',
+          Enabled: true,
+          ConditionList: [{ field: 'price', operator: 'lte', value: 140.0 }],
+          subscription: { endpoint: 'https://example.com/push', keys: { p256dh: 'p', auth: 'a' } },
+          CreatedAt: 1704067200000,
+          UpdatedAt: 1704067300000,
+        },
+      });
+
+      await repository.update('user-123', 'alert-123', { Frequency: 'HOURLY_LEVEL' });
+
+      const command = mockDocClient.send.mock.calls[0]?.[0] as {
+        input: Parameters<typeof parseUpdateExpression>[0];
+      };
+      const parsed = parseUpdateExpression(command.input);
+      expect(parsed.set).toMatchObject({
+        Frequency: 'HOURLY_LEVEL',
+        GSI2PK: 'ALERT#HOURLY_LEVEL',
+        UpdatedAt: expect.any(Number),
+      });
+    });
+
+    it('更新フィールドがすべて undefined の場合は UpdatedAt のみ更新する', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Attributes: {
+          PK: 'USER#user-123',
+          SK: 'ALERT#alert-123',
+          Type: 'Alert',
+          GSI1PK: 'user-123',
+          GSI1SK: 'Alert#alert-123',
+          GSI2PK: 'ALERT#HOURLY_LEVEL',
+          GSI2SK: 'user-123#alert-123',
+          AlertID: 'alert-123',
+          UserID: 'user-123',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Mode: 'Buy',
+          Frequency: 'HOURLY_LEVEL',
+          Enabled: true,
+          ConditionList: [{ field: 'price', operator: 'lte', value: 140.0 }],
+          subscription: { endpoint: 'https://example.com/push', keys: { p256dh: 'p', auth: 'a' } },
+          CreatedAt: 1704067200000,
+          UpdatedAt: 1704067300000,
+        },
+      });
+
+      await repository.update('user-123', 'alert-123', { Enabled: undefined });
+
+      const command = mockDocClient.send.mock.calls[0]?.[0] as {
+        input: Parameters<typeof parseUpdateExpression>[0];
+      };
+      const parsed = parseUpdateExpression(command.input);
+      expect(Object.keys(parsed.set)).toEqual(['UpdatedAt']);
+      expect(parsed.remove).toEqual([]);
     });
 
     it('存在しないアラートを更新しようとするとEntityNotFoundErrorをスローする', async () => {
@@ -880,6 +952,26 @@ describe('DynamoDBAlertRepository', () => {
 
     it('更新するフィールドがない場合はDatabaseErrorをスローする', async () => {
       await expect(repository.update('user-123', 'alert-123', {})).rejects.toThrow(DatabaseError);
+    });
+
+    it('更新するフィールドがない場合はエラーメッセージの接頭辞が二重にならない', async () => {
+      const error = await repository.update('user-123', 'alert-123', {}).catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(DatabaseError);
+      const message = (error as DatabaseError).message;
+      expect(message).toContain('更新するフィールドが指定されていません');
+      expect(message.split('データベースエラーが発生しました').length - 1).toBe(1);
+    });
+
+    it('Error 以外が投げられた場合は文字列化して DatabaseError にする', async () => {
+      mockDocClient.send.mockRejectedValueOnce('文字列エラー');
+
+      const error = await repository
+        .update('user-123', 'alert-123', { Enabled: false })
+        .catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(DatabaseError);
+      expect((error as DatabaseError).message).toContain('文字列エラー');
     });
 
     it('データベースエラー時にDatabaseErrorをスローする', async () => {

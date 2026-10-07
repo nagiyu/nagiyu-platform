@@ -9,6 +9,7 @@ on:
     paths:
       - 'services/share-together/**'
       - 'infra/share-together/**'
+      - 'infra/common/**'
       - 'libs/**'
       - 'package.json'
       - 'package-lock.json'

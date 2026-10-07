@@ -1,5 +1,5 @@
 import { GetCommand, PutCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import type {
   CreateLifecycleInput,
   LifecycleEntity,
@@ -37,8 +37,7 @@ export class DynamoDBLifecycleRepository implements LifecycleRepository {
       if (!result.Item) return null;
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -65,8 +64,7 @@ export class DynamoDBLifecycleRepository implements LifecycleRepository {
       );
       return entity;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -91,8 +89,7 @@ export class DynamoDBLifecycleRepository implements LifecycleRepository {
       );
       return entity;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -119,8 +116,7 @@ export class DynamoDBLifecycleRepository implements LifecycleRepository {
       );
       return entity;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }

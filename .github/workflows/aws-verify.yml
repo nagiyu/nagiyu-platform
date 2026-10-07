@@ -10,8 +10,9 @@ on:
       - develop
       - integration/**
     paths:
-      - 'libs/aws/**'
-      - 'libs/common/**'
+      - 'libs/**'
+      - 'configs/**'
+      - '.github/actions/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/aws-verify.yml'

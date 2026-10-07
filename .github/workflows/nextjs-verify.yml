@@ -10,8 +10,9 @@ on:
       - develop
       - integration/**
     paths:
-      - 'libs/nextjs/**'
-      - 'libs/common/**'
+      - 'libs/**'
+      - 'configs/**'
+      - '.github/actions/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/nextjs-verify.yml'

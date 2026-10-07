@@ -1,5 +1,5 @@
 import { GetCommand, PutCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { isConditionalCheckFailed, toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import type {
   ConsolidationCursorEntity,
   PutConsolidationCursorInput,
@@ -37,8 +37,7 @@ export class DynamoDBConsolidationCursorRepository implements ConsolidationCurso
       if (!result.Item) return null;
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -65,14 +64,13 @@ export class DynamoDBConsolidationCursorRepository implements ConsolidationCurso
       );
       return merged;
     } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+      if (isConditionalCheckFailed(error)) {
         throw new OptimisticLockError(
           'ConsolidationCursor',
           `${merged.UserID}#${merged.CharacterID}`
         );
       }
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }

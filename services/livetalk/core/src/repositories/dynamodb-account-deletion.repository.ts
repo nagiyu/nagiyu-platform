@@ -10,13 +10,9 @@
  * @see docs/services/livetalk/architecture.md §2.21（ADR-2.21）
  */
 
-import {
-  BatchWriteCommand,
-  QueryCommand,
-  TransactWriteCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
-import { DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { TransactWriteCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { batchWriteAll, DatabaseError, queryAllItems, type DynamoDBItem } from '@nagiyu/aws';
+import { sleep } from '@nagiyu/common';
 import type { AccountDeletionResult } from '../entities/account-deletion.entity.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
 import { buildSafetyEventGSI2PK, buildSafetyEventSKPrefix, buildUserPK } from '../mappers/keys.js';
@@ -29,21 +25,11 @@ export const ACCOUNT_DELETION_ERROR_MESSAGES = {
   再キー失敗: 'アカウント削除: SafetyEvent の匿名化（re-key）に失敗しました',
 } as const;
 
-/** BatchWriteCommand の最大アイテム数 */
-const BATCH_WRITE_MAX = 25;
-
-/** UnprocessedItems リトライの最大回数 */
-const UNPROCESSED_MAX_RETRIES = 4;
-
-/** UnprocessedItems リトライの初期待機時間（ms） */
-const UNPROCESSED_BASE_DELAY_MS = 50;
-
 /**
  * 指定ミリ秒だけ待機するヘルパー。
  * テストで差し替えやすいよう DI 可能にする。
  */
 type SleepFn = (ms: number) => Promise<void>;
-const defaultSleep: SleepFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export class DynamoDBAccountDeletionRepository implements AccountDeletionRepository {
   private readonly docClient: DynamoDBDocumentClient;
@@ -57,13 +43,13 @@ export class DynamoDBAccountDeletionRepository implements AccountDeletionReposit
     tableName: string,
     ulidFactory: UlidFactory = defaultUlidFactory,
     nowMs: () => number = () => Date.now(),
-    sleep: SleepFn = defaultSleep
+    sleepFn: SleepFn = sleep
   ) {
     this.docClient = docClient;
     this.tableName = tableName;
     this.ulidFactory = ulidFactory;
     this.nowMs = nowMs;
-    this.sleep = sleep;
+    this.sleep = sleepFn;
   }
 
   public async deleteAccount(userId: string): Promise<AccountDeletionResult> {
@@ -97,116 +83,49 @@ export class DynamoDBAccountDeletionRepository implements AccountDeletionReposit
 
   /**
    * PK 配下の全アイテムをページネーションで取得する。
-   * ExclusiveStartKey ループで全ページを集約する。
    */
   private async queryAll(pk: string): Promise<DynamoDBItem[]> {
-    const items: DynamoDBItem[] = [];
-    let exclusiveStartKey: Record<string, unknown> | undefined;
-
-    for (;;) {
-      let result;
-      try {
-        result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            KeyConditionExpression: '#pk = :pk',
-            ExpressionAttributeNames: { '#pk': 'PK' },
-            ExpressionAttributeValues: { ':pk': pk },
-            ExclusiveStartKey: exclusiveStartKey,
-          })
-        );
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new DatabaseError(
-          `${ACCOUNT_DELETION_ERROR_MESSAGES.クエリ失敗}: ${message}`,
-          error instanceof Error ? error : undefined
-        );
-      }
-
-      for (const raw of result.Items ?? []) {
-        items.push(raw as unknown as DynamoDBItem);
-      }
-
-      if (!result.LastEvaluatedKey) break;
-      exclusiveStartKey = result.LastEvaluatedKey;
+    try {
+      return await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: '#pk = :pk',
+        ExpressionAttributeNames: { '#pk': 'PK' },
+        ExpressionAttributeValues: { ':pk': pk },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new DatabaseError(
+        `${ACCOUNT_DELETION_ERROR_MESSAGES.クエリ失敗}: ${message}`,
+        error instanceof Error ? error : undefined
+      );
     }
-
-    return items;
   }
 
   /**
    * 対象アイテムを BatchWriteCommand で削除する。
    * 25 件ごとにバッチを分割し、UnprocessedItems は指数バックオフでリトライする。
+   * 不可逆な「データ削除」では未削除を残したまま成功扱いにせず、残件があれば例外を投げて
+   * 呼び出し側で 500 を返し、冪等再実行に委ねる。
    *
    * @returns 削除件数（リトライ後の最終成功数）
    */
   private async batchDelete(items: DynamoDBItem[]): Promise<number> {
-    if (items.length === 0) return 0;
-
-    let deletedCount = 0;
-
-    // 25 件ごとに分割してバッチ送信する
-    for (let i = 0; i < items.length; i += BATCH_WRITE_MAX) {
-      const chunk = items.slice(i, i + BATCH_WRITE_MAX);
-      let requestItems: Array<{ DeleteRequest: { Key: { PK: string; SK: string } } }> = chunk.map(
-        (item) => ({
-          DeleteRequest: {
-            Key: { PK: String(item['PK']), SK: String(item['SK']) },
-          },
-        })
+    try {
+      return await batchWriteAll(
+        this.docClient,
+        this.tableName,
+        items.map((item) => ({
+          DeleteRequest: { Key: { PK: String(item['PK']), SK: String(item['SK']) } },
+        })),
+        { sleep: this.sleep }
       );
-
-      let retries = 0;
-      while (requestItems.length > 0) {
-        let result;
-        try {
-          result = await this.docClient.send(
-            new BatchWriteCommand({
-              RequestItems: {
-                [this.tableName]: requestItems,
-              },
-            })
-          );
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          throw new DatabaseError(
-            `${ACCOUNT_DELETION_ERROR_MESSAGES.バッチ削除失敗}: ${message}`,
-            error instanceof Error ? error : undefined
-          );
-        }
-
-        const unprocessed = result.UnprocessedItems?.[this.tableName];
-        const processedCount = requestItems.length - (unprocessed?.length ?? 0);
-        deletedCount += processedCount;
-
-        if (!unprocessed || unprocessed.length === 0) break;
-
-        if (retries >= UNPROCESSED_MAX_RETRIES) {
-          // 不可逆な「データ削除」では未削除を残したまま成功扱いにしない。
-          // 残件があれば例外を投げ、呼び出し側で 500 を返して冪等再実行に委ねる。
-          throw new DatabaseError(
-            `${ACCOUNT_DELETION_ERROR_MESSAGES.バッチ削除失敗}: UnprocessedItems が最大リトライ回数（${UNPROCESSED_MAX_RETRIES}）後も残存しました（残 ${unprocessed.length} 件）`
-          );
-        }
-
-        // 指数バックオフ（50ms, 100ms, 200ms, 400ms）
-        await this.sleep(UNPROCESSED_BASE_DELAY_MS * Math.pow(2, retries));
-        retries++;
-
-        requestItems = unprocessed
-          .filter((r) => r.DeleteRequest !== undefined)
-          .map((r) => ({
-            DeleteRequest: {
-              Key: {
-                PK: String((r.DeleteRequest?.Key as Record<string, unknown>)?.['PK'] ?? ''),
-                SK: String((r.DeleteRequest?.Key as Record<string, unknown>)?.['SK'] ?? ''),
-              },
-            },
-          }));
-      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new DatabaseError(
+        `${ACCOUNT_DELETION_ERROR_MESSAGES.バッチ削除失敗}: ${message}`,
+        error instanceof Error ? error : undefined
+      );
     }
-
-    return deletedCount;
   }
 
   /**

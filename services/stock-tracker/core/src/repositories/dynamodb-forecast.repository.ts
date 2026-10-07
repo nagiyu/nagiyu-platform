@@ -6,12 +6,17 @@
 import {
   GetCommand,
   PutCommand,
-  QueryCommand,
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError, EntityNotFoundError, type DynamoDBItem } from '@nagiyu/aws';
-import { toErrorMessage } from '@nagiyu/common';
+import {
+  DatabaseError,
+  isConditionalCheckFailed,
+  toDatabaseError,
+  queryAllItems,
+  EntityNotFoundError,
+  type DynamoDBItem,
+} from '@nagiyu/aws';
 import type {
   AppendForecastOutcomeResult,
   CreateForecastResult,
@@ -102,15 +107,14 @@ export class DynamoDBForecastRepository implements ForecastRepository {
 
       return { item: this.mapper.toEntity(item), created: true };
     } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+      if (isConditionalCheckFailed(error)) {
         const existing = await this.getByTickerAndDate(input.TickerID, input.Date);
         if (!existing) {
           throw new DatabaseError('Forecast の作成に失敗しましたが、既存アイテムが見つかりません');
         }
         return { item: existing, created: false };
       }
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -144,7 +148,7 @@ export class DynamoDBForecastRepository implements ForecastRepository {
         updated: true,
       };
     } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+      if (isConditionalCheckFailed(error)) {
         const existing = await this.getByTickerAndDate(key.tickerId, key.date);
         if (!existing) {
           throw new EntityNotFoundError('Forecast', `${key.tickerId}#${key.date}`);
@@ -152,8 +156,7 @@ export class DynamoDBForecastRepository implements ForecastRepository {
         // 既存アイテムはあるが条件不成立 → 既に Outcome がある（冪等な再実行）
         return { item: existing, updated: false };
       }
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -177,8 +180,7 @@ export class DynamoDBForecastRepository implements ForecastRepository {
 
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -189,32 +191,20 @@ export class DynamoDBForecastRepository implements ForecastRepository {
    */
   public async getByExchangeAndDate(exchangeId: string, date: string): Promise<ForecastEntity[]> {
     try {
-      const items: DynamoDBItem[] = [];
-      let lastEvaluatedKey: Record<string, unknown> | undefined;
-
-      do {
-        const result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            IndexName: 'ExchangeSummaryIndex',
-            KeyConditionExpression: '#gsi4pk = :exchangeId AND begins_with(#gsi4sk, :datePrefix)',
-            ExpressionAttributeNames: { '#gsi4pk': 'GSI4PK', '#gsi4sk': 'GSI4SK' },
-            ExpressionAttributeValues: {
-              ':exchangeId': this.mapper.buildGsi4Pk(exchangeId),
-              ':datePrefix': `DATE#${date}`,
-            },
-            ExclusiveStartKey: lastEvaluatedKey,
-          })
-        );
-
-        items.push(...((result.Items as DynamoDBItem[] | undefined) ?? []));
-        lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
-      } while (lastEvaluatedKey);
+      const items = await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        IndexName: 'ExchangeSummaryIndex',
+        KeyConditionExpression: '#gsi4pk = :exchangeId AND begins_with(#gsi4sk, :datePrefix)',
+        ExpressionAttributeNames: { '#gsi4pk': 'GSI4PK', '#gsi4sk': 'GSI4SK' },
+        ExpressionAttributeValues: {
+          ':exchangeId': this.mapper.buildGsi4Pk(exchangeId),
+          ':datePrefix': `DATE#${date}`,
+        },
+      });
 
       return items.map((item) => this.mapper.toEntity(item));
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -240,34 +230,23 @@ export class DynamoDBForecastRepository implements ForecastRepository {
     toDate?: string
   ): Promise<TickerSample[]> {
     try {
-      const items: Record<string, unknown>[] = [];
-      let lastEvaluatedKey: Record<string, unknown> | undefined;
       const condition = buildSampleKeyCondition(fromDate, toDate);
 
-      do {
-        const result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            IndexName: 'ExchangeSummaryIndex',
-            KeyConditionExpression: condition.expression,
-            ProjectionExpression: SAMPLE_PROJECTION_EXPRESSION,
-            ExpressionAttributeNames: { ...SAMPLE_PROJECTION_NAMES, ...condition.names },
-            ExpressionAttributeValues: {
-              ':exchangeId': this.mapper.buildGsi4Pk(exchangeId),
-              ...condition.values,
-            },
-            ExclusiveStartKey: lastEvaluatedKey,
-          })
-        );
-
-        items.push(...((result.Items as Record<string, unknown>[] | undefined) ?? []));
-        lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
-      } while (lastEvaluatedKey);
+      const items = await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        IndexName: 'ExchangeSummaryIndex',
+        KeyConditionExpression: condition.expression,
+        ProjectionExpression: SAMPLE_PROJECTION_EXPRESSION,
+        ExpressionAttributeNames: { ...SAMPLE_PROJECTION_NAMES, ...condition.names },
+        ExpressionAttributeValues: {
+          ':exchangeId': this.mapper.buildGsi4Pk(exchangeId),
+          ...condition.values,
+        },
+      });
 
       return items.map((item) => this.mapper.toSample(item));
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }

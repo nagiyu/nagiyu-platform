@@ -9,6 +9,7 @@ on:
     paths:
       - 'services/quick-clip/**'
       - 'infra/quick-clip/**'
+      - 'infra/common/**'
       - 'libs/**'
       - 'package.json'
       - 'package-lock.json'

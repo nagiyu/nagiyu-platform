@@ -1,5 +1,12 @@
-import { logger, toErrorMessage } from '@nagiyu/common';
-import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
+import { logger } from '@nagiyu/common';
+import {
+  createScheduledHandler,
+  getDynamoDBDocumentClient,
+  getTableName,
+  ScheduledHandlerError,
+  type HandlerResponse,
+  type ScheduledEvent,
+} from '@nagiyu/aws';
 import {
   DynamoDBTopicRepository,
   DynamoDBWebRawRepository,
@@ -11,53 +18,13 @@ import {
   LLMWebFactChangeDetector,
   defaultUlidFactory,
 } from '@nagiyu/livetalk-core';
-import { acquireAllUsers, type AcquireAllUsersResult } from '../usecases/acquire.usecase.js';
+import { acquireAllUsers } from '../usecases/acquire.usecase.js';
 
 const SERVICE_ID = 'livetalk';
 
-/**
- * エラー通知は best-effort。通知自体が失敗しても、後続の throw（Lambda 失敗→DLQ/リトライ）を
- * 握り潰さないよう warn に留める。
- */
-async function safeReportErrorEvent(
-  params: Parameters<typeof reportErrorEvent>[0],
-  eventId: string
-): Promise<void> {
-  try {
-    await reportErrorEvent(params);
-  } catch (reportError) {
-    logger.warn('[acquire] エラー通知の送信に失敗しました', {
-      eventId,
-      error: toErrorMessage(reportError),
-    });
-  }
-}
-
-export interface ScheduledEvent {
-  version: string;
-  id: string;
-  'detail-type': string;
-  source: string;
-  account: string;
-  time: string;
-  region: string;
-  resources: string[];
-  detail: Record<string, unknown>;
-}
-
-export interface HandlerResponse {
-  statusCode: number;
-  body: string;
-}
-
-export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
-  logger.info('[acquire] バッチ開始', {
-    eventId: event.id,
-    eventTime: event.time,
-  });
-
-  let result: AcquireAllUsersResult;
-  try {
+export const handler = createScheduledHandler<ScheduledEvent, HandlerResponse>(
+  { serviceId: SERVICE_ID, name: 'acquire', errorTitle: 'acquire バッチ: 致命的エラー' },
+  async (event) => {
     const docClient = getDynamoDBDocumentClient();
     const tableName = getTableName();
     const apiKey = process.env.OPENAI_API_KEY ?? '';
@@ -71,7 +38,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     const llmClient = new OpenAIClient({ apiKey });
     const changeDetector = new LLMWebFactChangeDetector(llmClient);
 
-    result = await acquireAllUsers({
+    const result = await acquireAllUsers({
       profileRepo,
       lifecycleRepo,
       topicRepo,
@@ -81,57 +48,33 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       changeDetector,
       ulidFactory: defaultUlidFactory,
     });
-  } catch (error) {
-    // 致命的エラー: 報告して rethrow（非同期 Lambda を失敗させ DLQ/リトライに乗せる）
-    const errorMessage = toErrorMessage(error);
-    logger.error('[acquire] バッチ失敗', {
+
+    logger.info('[acquire] バッチ完了', {
       eventId: event.id,
-      error: errorMessage,
-    });
-    await safeReportErrorEvent(
-      {
-        serviceId: SERVICE_ID,
-        severity: 'error',
-        title: 'acquire バッチ: 致命的エラー',
-        message: errorMessage,
-        context: { eventId: event.id },
-      },
-      event.id
-    );
-    throw error;
-  }
-
-  logger.info('[acquire] バッチ完了', {
-    eventId: event.id,
-    ...result,
-  });
-
-  if (result.failedUsers > 0) {
-    // 部分失敗: 報告して throw（非同期 Lambda を失敗させ DLQ/リトライに乗せる）
-    const message = `acquire バッチで ${result.failedUsers} 件のユーザー処理が失敗しました`;
-    logger.error('[acquire] 部分失敗', {
-      eventId: event.id,
-      failedUsers: result.failedUsers,
-      failedUserIds: result.failedUserIds,
-    });
-    await safeReportErrorEvent(
-      {
-        serviceId: SERVICE_ID,
-        severity: 'error',
-        title: 'acquire バッチ: 部分失敗',
-        message,
-        context: { eventId: event.id, failedUserIds: result.failedUserIds },
-      },
-      event.id
-    );
-    throw new Error(message);
-  }
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify({
-      message: 'acquire バッチが正常に完了しました',
       ...result,
-    }),
-  };
-}
+    });
+
+    if (result.failedUsers > 0) {
+      // 部分失敗も例外にして Lambda を失敗させる。報告のタイトルと失敗 ID は例外に持たせ、
+      // 骨格が 1 回だけ報告する。
+      const message = `acquire バッチで ${result.failedUsers} 件のユーザー処理が失敗しました`;
+      logger.error('[acquire] 部分失敗', {
+        eventId: event.id,
+        failedUsers: result.failedUsers,
+        failedUserIds: result.failedUserIds,
+      });
+      throw new ScheduledHandlerError(message, {
+        title: 'acquire バッチ: 部分失敗',
+        context: { failedUserIds: result.failedUserIds },
+      });
+    }
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        message: 'acquire バッチが正常に完了しました',
+        ...result,
+      }),
+    };
+  }
+);

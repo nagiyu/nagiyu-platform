@@ -15,8 +15,9 @@ import {
 import {
   EntityNotFoundError,
   EntityAlreadyExistsError,
-  DatabaseError,
+  toDatabaseError,
   mapConditionalCheckFailed,
+  buildUpdateExpression,
   encodeCursor,
   decodeCursor,
   type PaginationOptions,
@@ -30,7 +31,6 @@ import type {
   UpdateUserSettingInput,
 } from '../entities/user-setting.entity.js';
 import { UserSettingMapper } from '../mappers/user-setting.mapper.js';
-import { toErrorMessage } from '@nagiyu/common';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -73,8 +73,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
 
       return this.mapper.toEntity(result.Item as DynamoDBItem);
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -112,8 +111,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
         count: result.Count,
       };
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -202,8 +200,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
           );
         },
       });
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -234,8 +231,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
 
       return entity;
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -247,35 +243,18 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
     videoId: string,
     updates: UpdateUserSettingInput
   ): Promise<UserSettingEntity> {
-    const updateExpressions: string[] = [];
-    const expressionAttributeNames: Record<string, string> = {};
-    const expressionAttributeValues: Record<string, string | boolean | number> = {};
+    const updateParts = buildUpdateExpression(
+      {
+        isFavorite: updates.isFavorite,
+        isSkip: updates.isSkip,
+        memo: updates.memo,
+      },
+      { timestamp: { attributeName: 'UpdatedAt', value: Date.now() } }
+    );
 
-    if (updates.isFavorite !== undefined) {
-      updateExpressions.push('#isFavorite = :isFavorite');
-      expressionAttributeNames['#isFavorite'] = 'isFavorite';
-      expressionAttributeValues[':isFavorite'] = updates.isFavorite;
-    }
-
-    if (updates.isSkip !== undefined) {
-      updateExpressions.push('#isSkip = :isSkip');
-      expressionAttributeNames['#isSkip'] = 'isSkip';
-      expressionAttributeValues[':isSkip'] = updates.isSkip;
-    }
-
-    if (updates.memo !== undefined) {
-      updateExpressions.push('#memo = :memo');
-      expressionAttributeNames['#memo'] = 'memo';
-      expressionAttributeValues[':memo'] = updates.memo;
-    }
-
-    if (updateExpressions.length === 0) {
+    if (!updateParts) {
       throw new Error(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
     }
-
-    updateExpressions.push('#UpdatedAt = :UpdatedAt');
-    expressionAttributeNames['#UpdatedAt'] = 'UpdatedAt';
-    expressionAttributeValues[':UpdatedAt'] = Date.now();
 
     try {
       const { pk, sk } = this.mapper.buildKeys({ userId, videoId });
@@ -287,9 +266,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
             PK: pk,
             SK: sk,
           },
-          UpdateExpression: `SET ${updateExpressions.join(', ')}`,
-          ExpressionAttributeNames: expressionAttributeNames,
-          ExpressionAttributeValues: expressionAttributeValues,
+          ...updateParts,
           ConditionExpression: 'attribute_exists(PK)',
           ReturnValues: 'ALL_NEW',
         })
@@ -302,8 +279,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
           throw new EntityNotFoundError('UserSetting', `userId=${userId}, videoId=${videoId}`);
         },
       });
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -321,8 +297,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
         })
       );
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }

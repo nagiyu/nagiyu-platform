@@ -6,12 +6,17 @@
 import {
   GetCommand,
   PutCommand,
-  QueryCommand,
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError, EntityNotFoundError, type DynamoDBItem } from '@nagiyu/aws';
-import { toErrorMessage } from '@nagiyu/common';
+import {
+  DatabaseError,
+  isConditionalCheckFailed,
+  toDatabaseError,
+  queryAllItems,
+  EntityNotFoundError,
+  type DynamoDBItem,
+} from '@nagiyu/aws';
 import type {
   AppendMarketForecastOutcomeResult,
   CreateMarketForecastResult,
@@ -61,7 +66,7 @@ export class DynamoDBMarketForecastRepository implements MarketForecastRepositor
 
       return { item: this.mapper.toEntity(item), created: true };
     } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+      if (isConditionalCheckFailed(error)) {
         const existing = await this.getByMarketAndDate(input.Market, input.Date);
         if (!existing) {
           throw new DatabaseError(
@@ -70,8 +75,7 @@ export class DynamoDBMarketForecastRepository implements MarketForecastRepositor
         }
         return { item: existing, created: false };
       }
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -104,15 +108,14 @@ export class DynamoDBMarketForecastRepository implements MarketForecastRepositor
         updated: true,
       };
     } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+      if (isConditionalCheckFailed(error)) {
         const existing = await this.getByMarketAndDate(key.market, key.date);
         if (!existing) {
           throw new EntityNotFoundError('MarketForecast', `${key.market}#${key.date}`);
         }
         return { item: existing, updated: false };
       }
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -139,8 +142,7 @@ export class DynamoDBMarketForecastRepository implements MarketForecastRepositor
 
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 
@@ -156,32 +158,21 @@ export class DynamoDBMarketForecastRepository implements MarketForecastRepositor
     toDate?: string
   ): Promise<MarketSample[]> {
     try {
-      const items: DynamoDBItem[] = [];
-      let lastEvaluatedKey: Record<string, unknown> | undefined;
       const condition = buildSkCondition(fromDate, toDate);
 
-      do {
-        const result = await this.docClient.send(
-          new QueryCommand({
-            TableName: this.tableName,
-            KeyConditionExpression: condition.expression,
-            ExpressionAttributeNames: { '#pk': 'PK', ...condition.names },
-            ExpressionAttributeValues: {
-              ':pk': this.mapper.buildPk(market),
-              ...condition.values,
-            },
-            ExclusiveStartKey: lastEvaluatedKey,
-          })
-        );
-
-        items.push(...((result.Items as DynamoDBItem[] | undefined) ?? []));
-        lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
-      } while (lastEvaluatedKey);
+      const items = await queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: condition.expression,
+        ExpressionAttributeNames: { '#pk': 'PK', ...condition.names },
+        ExpressionAttributeValues: {
+          ':pk': this.mapper.buildPk(market),
+          ...condition.values,
+        },
+      });
 
       return items.map((item) => this.mapper.toSample(item));
     } catch (error) {
-      const message = toErrorMessage(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+      throw toDatabaseError(error);
     }
   }
 }

@@ -21,6 +21,8 @@ import { createErrorEventWriter } from './factory.js';
 
 const ERROR_MESSAGES = {
   ERROR_EVENTS_TABLE_NAME_REQUIRED: 'ERROR_EVENTS_TABLE_NAME が設定されていません',
+  CONTEXT_SERIALIZE_FAILED:
+    '[reportErrorEvent] context のシリアライズに失敗したため代替値で報告します',
   WRITE_FAILED: '[reportErrorEvent] DynamoDB 書き込みに失敗しました',
 } as const;
 
@@ -44,30 +46,31 @@ export interface ReportErrorEventInput {
  *
  * - `ERROR_EVENTS_TABLE_NAME` 環境変数が未設定の場合は logger.error で警告して null を返す
  * - 書き込み失敗時も logger.error で警告して null を返す（例外は投げない）
+ * - context がシリアライズできない場合は代替 JSON で報告を続ける
  */
 export async function reportErrorEvent(input: ReportErrorEventInput): Promise<ErrorEvent | null> {
-  const tableName = process.env.ERROR_EVENTS_TABLE_NAME;
-  if (!tableName) {
-    logger.error(ERROR_MESSAGES.ERROR_EVENTS_TABLE_NAME_REQUIRED);
-    return null;
-  }
-
-  const docClient =
-    process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
-  const writer = createErrorEventWriter(docClient, tableName);
-
-  const event: ErrorEvent = {
-    eventId: input.eventId ?? generateEventId(),
-    serviceId: input.serviceId,
-    source: input.source ?? 'application',
-    severity: input.severity,
-    title: input.title,
-    message: input.message,
-    context: input.context !== undefined ? JSON.stringify(input.context) : '{}',
-    occurredAt: input.occurredAt ?? new Date().toISOString(),
-  };
-
   try {
+    const tableName = process.env.ERROR_EVENTS_TABLE_NAME;
+    if (!tableName) {
+      logger.error(ERROR_MESSAGES.ERROR_EVENTS_TABLE_NAME_REQUIRED);
+      return null;
+    }
+
+    const docClient =
+      process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
+    const writer = createErrorEventWriter(docClient, tableName);
+
+    const event: ErrorEvent = {
+      eventId: input.eventId ?? generateEventId(),
+      serviceId: input.serviceId,
+      source: input.source ?? 'application',
+      severity: input.severity,
+      title: input.title,
+      message: input.message,
+      context: serializeContext(input.context),
+      occurredAt: input.occurredAt ?? new Date().toISOString(),
+    };
+
     await writer.put(event);
     return event;
   } catch (error) {
@@ -75,6 +78,26 @@ export async function reportErrorEvent(input: ReportErrorEventInput): Promise<Er
       error: toErrorMessage(error),
     });
     return null;
+  }
+}
+
+/**
+ * context を JSON 文字列にする。
+ *
+ * 循環参照や BigInt を含む context でも報告自体は諦めず、
+ * シリアライズ失敗を示す代替 JSON を保存して原因調査の手掛かりを残す。
+ */
+function serializeContext(context: Record<string, unknown> | undefined): string {
+  if (context === undefined) {
+    return '{}';
+  }
+  try {
+    return JSON.stringify(context);
+  } catch (error) {
+    logger.error(ERROR_MESSAGES.CONTEXT_SERIALIZE_FAILED, {
+      error: toErrorMessage(error),
+    });
+    return JSON.stringify({ contextSerializeError: toErrorMessage(error) });
   }
 }
 

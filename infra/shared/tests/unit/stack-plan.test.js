@@ -2,7 +2,6 @@ require('ts-node/register/transpile-only');
 const {
   assertScopeAllowsEnv,
   includesProdOnlyStacks,
-  getDockerBuildLockBucketName,
   getGitHubActionsOidcRoleIds,
   getReportsBucketName,
   getRoute53DomainName,
@@ -55,16 +54,6 @@ describe('getRoute53DomainName', () => {
 
   it('dev スコープでは dev. サブドメインを付与する', () => {
     expect(getRoute53DomainName('dev', 'nagiyu.com')).toBe('dev.nagiyu.com');
-  });
-});
-
-describe('getDockerBuildLockBucketName', () => {
-  it('prod スコープでは固定バケット名を返す', () => {
-    expect(getDockerBuildLockBucketName('prod')).toBe('nagiyu-docker-build-lock');
-  });
-
-  it('dev スコープでは -dev サフィックス付きバケット名を返す', () => {
-    expect(getDockerBuildLockBucketName('dev')).toBe('nagiyu-docker-build-lock-dev');
   });
 });
 

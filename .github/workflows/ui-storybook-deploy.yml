@@ -7,9 +7,7 @@ on:
       - integration/**
       - master
     paths:
-      - 'libs/ui/**'
-      - 'libs/browser/**'
-      - 'libs/common/**'
+      - 'libs/**'
       - 'infra/ui-storybook/**'
       - 'package.json'
       - 'package-lock.json'

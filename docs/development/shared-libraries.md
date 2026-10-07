@@ -68,12 +68,12 @@ libs/
 ui → browser → common
 react → common
 nextjs → common
-aws (モノレポ内の他ライブラリに依存しない)
+aws → common
 ```
 
 - **一方向のみ**: 上位から下位への依存のみ許可
 - **循環依存禁止**: 下位ライブラリは上位を参照しない
-- **独立性**: common は外部依存なし、aws はモノレポ内の他ライブラリに依存しない
+- **独立性**: common のメインエクスポートは外部依存なし。外部依存は機能単位のサブパス (`@nagiyu/common/push` など) に限り許容する
 
 #### 固有パッケージから共通ライブラリへの依存
 
@@ -226,7 +226,7 @@ Next.js に依存するユーティリティ。
 - NextAuth 型定義（`types/next-auth.d.ts`）
 - 認証ミドルウェアファクトリ（`createAuthMiddleware`）
 - セッション取得ファクトリ（`createSessionGetter`）
-- Push ルートファクトリ（`createVapidPublicKeyRoute`・`createPushSubscribeRoute`・`validatePushSubscription`・`createSubscriptionId`）
+- Push ルートファクトリ（`createVapidPublicKeyRoute`・`createPushSubscribeRoute`・`validatePushSubscription`）
 
 ### パッケージ名
 
@@ -263,6 +263,8 @@ Consumer サービスのミドルウェアは `createAuthMiddleware()` を利用
 
 Consumer サービスのセッション取得は `createSessionGetter()` を利用して統一する。オプションとして `auth`（サービスの auth 関数）、`createTestSession`（`SKIP_AUTH_CHECK` 有効時に返すモックセッション生成関数）、`mapSession`（NextAuth セッションをサービス固有のセッション型に変換する関数、**省略可**）を受け取る。`mapSession` を省略した場合は NextAuth セッションをそのままパススルーする。`createAuthCallbacks` 等でセッション形状が既に正規化されている場合は `mapSession` を省略してよい。
 
+`SKIP_AUTH_CHECK` 時のテストセッションは `resolveTestUser`（ロールはヘッダ `x-test-user-roles` → `TEST_USER_ROLES` → 既定ロールの順）と `createTestSessionExpires`（有効期限 30 日）で組み立て、`createTestSession` は受け取った `overrides` を `resolveTestUser` に渡す。クライアントの `/api/auth/session` は `createClientSessionGetHandler` で同じ規則に揃える。
+
 ### Web Push ルートの共通化
 
 Push 通知機能を持つサービスの API ルートは `@nagiyu/nextjs` が提供するファクトリ関数を利用して実装する。
@@ -270,7 +272,12 @@ Push 通知機能を持つサービスの API ルートは `@nagiyu/nextjs` が�
 - **`createVapidPublicKeyRoute()`**: VAPID 公開鍵を返す `GET /api/push/vapid-public-key` ルートハンドラーを生成する。`VAPID_PUBLIC_KEY` 環境変数が未設定の場合は 500 エラーを返す。
 - **`createPushSubscribeRoute()`**: Push サブスクリプション登録用のルートハンドラーを生成する。
 - **`validatePushSubscription(subscription)`**: Push サブスクリプション情報のバリデーション。endpoint が有効な URL 形式で keys.p256dh と keys.auth が非空文字列の場合に `true` を返す type guard。
-- **`createSubscriptionId(endpoint)`**: Push サブスクリプション endpoint を SHA-256 ハッシュで一意な ID（`sub_` プレフィックス + 32文字）に変換する。
+
+購読を受け取る API は、サービス側で独自の検証を書かず、必ず `validatePushSubscription` を通す。検証が緩いと、送信時まで不正な購読に気付けないためである。不正な購読は 400 で弾く。
+
+購読をサービス固有の保存先へ書き込む場合も、`createPushSubscribeRoute` を書き写さず、保存のフック (`onSubscribe`) で保存だけを行う。認証・検証・ID の採番はファクトリに任せ、サービスごとの差を生まないようにする。
+
+既存の API の形 (body で購読を包まない等) がファクトリと合わず、クライアントへの影響を避けたい場合に限り、ファクトリを使わずに検証だけ `validatePushSubscription` に揃えてよい。
 
 ### next.config.ts の transpilePackages 標準設定
 
@@ -295,6 +302,7 @@ Push 通知機能を持つサービスの API ルートは `@nagiyu/nextjs` が�
 - localStorage/sessionStorageラッパー
 - Web Push 用 Base64 URL デコード（`urlBase64ToUint8Array`）
 - Web Push 購読フロー（`subscribePush`）
+- Web Push 対応判定 (`isPushSupported`)・購読のサーバー送信 (`postPushSubscription`)
 - その他ブラウザ固有APIの抽象化
 
 ### パッケージ名
@@ -334,6 +342,11 @@ const subscription = await subscribePush({
 
 Hook として状態管理込みで利用したい場合は `@nagiyu/react` の `usePushSubscription` を併用する。
 
+Push 対応判定と購読のサーバー送信も、サービス側で書かずに `@nagiyu/browser` のものを使う。
+
+- **対応判定の条件は購読フローと揃える**: 対応判定は、購読フローが実際に呼ぶ API (通知の許可要求・Service Worker の登録・PushManager) がすべて揃っているかで判断する。判定が購読フローより緩いと、「対応」と表示したのに購読で失敗する画面になるためである。
+- **送信する body の形はオプションで選ぶ**: 購読を `{ subscription }` で包むか、そのまま送るかはサーバー側 API の形に合わせて指定する。形の違いを理由に送信処理をコピーしない。
+
 ## libs/common/
 
 ### 責務
@@ -350,7 +363,8 @@ Hook として状態管理込みで利用したい場合は `@nagiyu/react` の 
 - バックエンド向けリトライ処理（`withRetry<T>`・`RetryOptions`・`DEFAULT_RETRY_OPTIONS`）
 - Web Push 用 VAPID キー正規化（`normalizeVapidKey`）
 - Web Push VAPID 設定取得（`getVapidConfig`）
-- Web Push 送信クライアント（`sendWebPushNotification`）
+- Web Push 送信クライアント（`sendWebPushNotification`・一斉送信の `sendWebPushNotifications`）
+- Push サブスクリプション ID の生成 (`createSubscriptionId`)
 
 ### パッケージ名
 
@@ -359,7 +373,7 @@ Hook として状態管理込みで利用したい場合は `@nagiyu/react` の 
 ### 設計のポイント
 
 - 純粋関数として実装
-- 外部依存なし（Node.js標準ライブラリのみ可）
+- メインエクスポートは外部依存なし (Node.js 標準ライブラリのみ可)。Web Push 送信は `web-push` に依存するため `@nagiyu/common/push` サブパスに分け、メインエクスポートから読み込まない
 - 高いテストカバレッジを維持
 
 ### User 型定義
@@ -383,12 +397,24 @@ Hook として状態管理込みで利用したい場合は `@nagiyu/react` の 
 バッチサービスから Web Push 通知を送信する場合は `@nagiyu/common/push` の `sendWebPushNotification` を利用する。
 
 - **引数**: `subscription`（`PushSubscription`）、`payload`（`NotificationPayload`）、`vapidConfig`（`VapidConfig`）
-- **戻り値**: 成功時 `true`、失敗時（410/404 含む）`false`
+- **戻り値**: 成功時 `true`、購読が無効（404/410）なら `false`。それ以外の送信失敗は例外をスローする
 - **VAPID 未設定時**: 例外をスロー
 - **VAPID 設定の取得**: `VapidConfig` は `getVapidConfig()` で取得して渡すこと
 - **インポートパス**: `@nagiyu/common/push`（ルートインデックスではなくサブパスから参照すること。不要なモジュールの読み込みを避けるため）
 - **薄いラッパー禁止**: サービス側で `sendWebPushNotification()` をラップした関数を作らず、呼び出し元から直接呼び出すこと
+- **複数の購読への一斉送信**: 送信ループをサービス側で書かず、`sendWebPushNotifications` を利用する。逐次で送り、結果を `sent`（成功）・`invalid`（購読が無効）・`failed`（例外）に振り分けて返す。1 件の例外で残りの送信を止めない
+- **無効な購読の扱いは呼び出し側が決める**: 購読の持ち方がサービスごとに違うため、一斉送信の関数は削除もログ出力もしない。購読を独立したレコードで持つサービスは `invalid` を削除する。stock-tracker のように購読がアラートのフィールドになっている場合は削除せず、ユーザーが次に画面を開いたときの購読更新で復旧させる (消すとユーザーの条件設定ごと失われるため)
+- **無効な購読をエラーとして数えない**: 無効な購読は端末側の都合で日常的に発生する。バッチのエラー数に含めると、エラー数で動く仕組み (例: stock-tracker の minute のコンテナ破棄) が本来の目的以外で発火するため、別に数える
+- **削除の失敗で後続を止めない**: 無効な購読の削除に失敗しても、警告ログを残して処理を続ける。呼び出し元まで失敗させると、再試行で同じ通知が重複して届く
 - **通知アイコン**: 通知ペイロードの `icon` は `@nagiyu/common/push` の `DEFAULT_NOTIFICATION_ICON` を利用する。サービス側で同一の URL をハードコードしない（サービス共通のアイコンを差し替える際の影響範囲を最小化するため）
+
+### Push サブスクリプション ID の生成
+
+購読を保存する ID は、`createSubscriptionId(endpoint)` で endpoint から決まる値にする。登録のたびに乱数で ID を振ると、同じ端末で登録し直すたびに行が増え、同じ通知が重複して届くためである。
+
+- **置き場所が `@nagiyu/common` である理由**: サービスの core パッケージ (Next.js に依存しない) からも使えるようにするため。`@nagiyu/nextjs` は同じ関数を再 export しているだけで、実装は 1 つである。
+- **Web Crypto で実装する理由**: ルートインデックスから公開しているため、Edge ランタイムで動きうる middleware からも読み込まれうる。Node.js 専用の API に依存すると、そこで壊れる。
+- **形式を変えてはならない**: 既に保存されている購読の ID と互換を保つため、ID の形式 (SHA-256 の先頭 32 文字に `sub_` を付ける) は変えない。
 
 ### API レスポンス型の共通化
 
@@ -484,6 +510,23 @@ mapConditionalCheckFailed(error, { onExists?, onMissing? });
 }
 ```
 
+### DynamoDB 一括書き込み・一括読み込み
+
+BatchWriteItem (25 件まで) と BatchGetItem (100 件まで) は、上限件数ごとの分割と、未処理分 (`UnprocessedItems` / `UnprocessedKeys`) の再送を `@nagiyu/aws` の共通処理に任せる。サービス側で分割・再送のループを書かない。
+
+- **未処理分を黙って捨てない**: 一括読み込みで未処理キーを捨てると、存在するデータが「無い」と表示される。一括削除で未処理を残したまま成功扱いにすると、削除漏れに気づけない。
+- **再送は回数の上限と待機付き**: 上限なし・待機なしの即時再送は、スロットリング中のテーブルに負荷をかけ続ける。既定は最大 4 回、50ms から倍々に待つ。
+- **上限を超えたら例外にする**: 取りこぼしを残したまま返すより、失敗として呼び出し元に知らせ、再実行に委ねる。この例外は `DatabaseError` の派生にしない。呼び出し元ごとに包み方 (`toDatabaseError` か、独自の接頭辞付きメッセージか) が違うため、ここで `DatabaseError` にすると文言が二重になる。
+
+### DynamoDB 部分更新の式の組み立て
+
+`UpdateCommand` の `UpdateExpression` と名前・値の対応表は、`@nagiyu/aws` の `buildUpdateExpression` で組み立てる。サービス側で「項目があれば式・名前・値の 3 つに足す」処理を手書きしない。手書きは、使わない名前を表に残す、式に入れ忘れた値が残るといった不整合を起こしやすく、どちらも DynamoDB がエラーにする。
+
+- **値が `undefined` の項目は飛ばす**: 共通クライアントは `undefined` の値を表から落とすので、式に置き場所だけが残るとエラーになる。
+- **消す合図はサービスごとに違い、揃えていない**: stock-tracker は `null`、share-together は「キーがあって値が `undefined`」が消す合図になっている。共通関数は特定の値を消す合図と決めず、目印 `REMOVE_ATTRIBUTE` だけを受け付ける。各サービスは呼び出し側で自分の合図を目印に変換する。
+- **更新日時の属性名と形式は呼び出し側が渡す**: `UpdatedAt` (ミリ秒) / `updatedAt` (ISO 文字列) / `updatedAt` (秒) がサービスごとに混在しており、既存データと読み取り側がそれを前提にしている。
+- **更新日時は更新項目に数えない**: 更新項目が空のときの扱い (エラーにする / 更新日時だけ更新する) もサービスごとに違う。共通関数は `null` を返して呼び出し側に判断を委ね、更新日時だけ更新するサービスは `updateTimestampWhenEmpty` を指定する。
+
 ### crypto ユーティリティ（AES-256-GCM + Secrets Manager）
 
 AWS Secrets Manager からキーを取得して AES-256-GCM 暗号化・復号化を行うユーティリティを `@nagiyu/aws` の `crypto` モジュールとして提供する。Secrets Manager 連携を伴うため `libs/common` ではなく `libs/aws` に配置する。
@@ -541,6 +584,18 @@ withErrorReporting(
 
 エラーの `stack` / `message` / `name` は `context` に自動マージされるため、呼び出し側で指定する必要はない。
 
+### 定期実行 Lambda の骨格 (`createScheduledHandler`)
+
+EventBridge から定期実行される Lambda は、`createScheduledHandler` で包む。開始ログ・失敗ログ・エラー報告は骨格が受け持ち、handler は本処理と、統計付きの完了ログだけを書く。
+
+**失敗時は 500 を返さず、例外を投げる。** 500 を返して正常終了すると、Lambda としては成功扱いになる。そのため、インフラに用意した Errors アラーム・DLQ・非同期呼び出しの再試行が働かない。骨格はエラーを報告したあと元の例外を投げ直すので、handler 側で catch して握りつぶさないこと。
+
+- **再試行による二重実行**: 例外で失敗すると、EventBridge の再試行で、途中まで済んだ処理がもう一度実行されうる。Push 通知のように副作用がある処理では、二重に送られることを前提に設計する。
+- **全体の失敗と部分的な失敗**: 対象 1 件ごとの失敗を数えて処理を続ける部分的な失敗は、handler の中で扱う。それを最終的に Lambda の失敗にするかどうかは、handler が決める。
+- **部分的な失敗の報告**: 部分的な失敗を例外にするときは `ScheduledHandlerError` を投げ、報告のタイトルと context (失敗した対象の ID など) を持たせる。handler の中で個別に報告してから普通の例外を投げると、骨格がもう一度「致命的エラー」として報告してしまうため。
+
+エラー報告 (`reportErrorEvent`) は補助的な手段なので、どんな入力でも例外を投げない。報告に失敗しても、元の例外の投げ直しは妨げられない。
+
 ### 必須環境変数の一括チェック（`requireEnv`）
 
 複数の必須環境変数を一括で検証し、不足があれば一括エラーを投げるユーティリティを `@nagiyu/common` の validation モジュールとして提供する。
@@ -569,7 +624,8 @@ DynamoDB・S3・Batch・Lambda を含むすべての AWS クライアントの�
 
 ### 依存関係設計
 
-AWS SDKはpeerDependenciesとして管理。各サービスが必要なバージョンを柔軟に選択可能にすることで、SDKの頻繁な更新に対応。
+- AWS SDK は dependencies として持つ
+- エラーメッセージ変換などの共通ユーティリティを使うため `@nagiyu/common` に依存する
 
 ### 設計のポイント
 

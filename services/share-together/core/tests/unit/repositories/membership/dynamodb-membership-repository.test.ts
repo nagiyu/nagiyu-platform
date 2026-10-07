@@ -7,6 +7,12 @@ import {
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBMembershipRepository } from '../../../../src/repositories/membership/dynamodb-membership-repository.js';
+import { parseUpdateExpression } from '../../../helpers/update-expression.js';
+
+import { DatabaseError } from '@nagiyu/aws';
+
+const createSdkError = (): Error =>
+  Object.assign(new Error('スループット超過'), { name: 'ProvisionedThroughputExceededException' });
 
 describe('DynamoDBMembershipRepository', () => {
   const TABLE_NAME = 'test-share-together-main';
@@ -234,7 +240,38 @@ describe('DynamoDBMembershipRepository', () => {
 
     expect(result.status).toBe('ACCEPTED');
     expect(result.ttl).toBeUndefined();
-    expect(command.input.UpdateExpression).toContain('REMOVE #ttl');
+    const parsed = parseUpdateExpression(command.input);
+    expect(parsed.remove).toEqual(['TTL']);
+    expect(parsed.set).toMatchObject({
+      status: 'ACCEPTED',
+      respondedAt: '2026-01-02T00:00:00.000Z',
+    });
+  });
+
+  it('update は ttl を指定しない場合に TTL を式にもプレースホルダにも含めない', async () => {
+    mockDocClient.send.mockResolvedValueOnce({
+      Attributes: createMembershipItem({ status: 'ACCEPTED' }),
+    });
+
+    await repository.update('group-1', 'user-1', { status: 'ACCEPTED' });
+    const command = mockDocClient.send.mock.calls[0]?.[0] as UpdateCommand;
+
+    const parsed = parseUpdateExpression(command.input);
+    expect(parsed.set).toMatchObject({ status: 'ACCEPTED', updatedAt: expect.any(String) });
+    expect(parsed.set).not.toHaveProperty('TTL');
+    expect(parsed.remove).toEqual([]);
+    expect(Object.values(command.input.ExpressionAttributeNames ?? {})).not.toContain('TTL');
+  });
+
+  it('update は対象フィールドがなくても updatedAt のみ更新する', async () => {
+    mockDocClient.send.mockResolvedValueOnce({ Attributes: createMembershipItem({}) });
+
+    await repository.update('group-1', 'user-1', {});
+    const command = mockDocClient.send.mock.calls[0]?.[0] as UpdateCommand;
+
+    const parsed = parseUpdateExpression(command.input);
+    expect(Object.keys(parsed.set)).toEqual(['updatedAt']);
+    expect(parsed.remove).toEqual([]);
   });
 
   it('update は optional 項目を個別に SET/REMOVE できる', async () => {
@@ -259,11 +296,14 @@ describe('DynamoDBMembershipRepository', () => {
     });
     const command = mockDocClient.send.mock.calls[0]?.[0] as UpdateCommand;
 
-    expect(command.input.UpdateExpression).toContain('SET #updatedAt = :updatedAt');
-    expect(command.input.UpdateExpression).toContain('#role = :role');
-    expect(command.input.UpdateExpression).toContain('#status = :status');
-    expect(command.input.UpdateExpression).toContain('#ttl = :ttl');
-    expect(command.input.UpdateExpression).toContain('REMOVE #invitedBy, #invitedAt, #respondedAt');
+    const parsed = parseUpdateExpression(command.input);
+    expect(parsed.set).toMatchObject({
+      role: 'OWNER',
+      status: 'ACCEPTED',
+      TTL: 1_800_000_000,
+      updatedAt: expect.any(String),
+    });
+    expect([...parsed.remove].sort()).toEqual(['invitedAt', 'invitedBy', 'respondedAt']);
   });
 
   it('update は更新対象がない場合にエラーを投げる', async () => {
@@ -338,6 +378,84 @@ describe('DynamoDBMembershipRepository', () => {
     expect(secondCommand.input.Key).toEqual({
       PK: 'GROUP#group-1',
       SK: 'MEMBER#user-2',
+    });
+  });
+
+  describe('ページング', () => {
+    const lastEvaluatedKey = { PK: 'GROUP#group-1', SK: 'MEMBER#user-1' };
+
+    const expectPaged = async (
+      run: () => Promise<{ userId: string }[]>,
+      firstItem: Record<string, unknown>,
+      secondItem: Record<string, unknown>
+    ): Promise<void> => {
+      mockDocClient.send
+        .mockResolvedValueOnce({ Items: [firstItem], LastEvaluatedKey: lastEvaluatedKey })
+        .mockResolvedValueOnce({ Items: [secondItem] });
+
+      const result = await run();
+
+      expect(result.map((membership) => membership.userId)).toEqual(['user-1', 'user-2']);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
+      const secondCommand = mockDocClient.send.mock.calls[1]?.[0] as QueryCommand;
+      expect(secondCommand.input.ExclusiveStartKey).toEqual(lastEvaluatedKey);
+    };
+
+    it('getByGroupId は複数ページにわたる全件を取得する', async () => {
+      await expectPaged(
+        () => repository.getByGroupId('group-1'),
+        createMembershipItem(),
+        createMembershipItem({ SK: 'MEMBER#user-2', userId: 'user-2' })
+      );
+    });
+
+    it('getByUserId は複数ページにわたる全件を取得する', async () => {
+      await expectPaged(
+        () => repository.getByUserId('user-1'),
+        createMembershipItem(),
+        createMembershipItem({ userId: 'user-2' })
+      );
+    });
+
+    it('getPendingInvitationsByUserId は複数ページにわたる全件を取得する', async () => {
+      await expectPaged(
+        () => repository.getPendingInvitationsByUserId('user-1'),
+        createMembershipItem(),
+        createMembershipItem({ userId: 'user-2' })
+      );
+    });
+  });
+
+  describe('SDK例外のDatabaseError化', () => {
+    it('取得時のSDK例外はDatabaseErrorに包まれる', async () => {
+      mockDocClient.send.mockRejectedValueOnce(createSdkError());
+
+      const promise = repository.getById('group-1', 'user-1');
+
+      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
+      await expect(promise).rejects.toMatchObject({
+        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
+      });
+    });
+
+    it('更新時のSDK例外はDatabaseErrorに包まれる', async () => {
+      mockDocClient.send.mockRejectedValueOnce(createSdkError());
+
+      const promise = repository.update('group-1', 'user-1', { role: 'OWNER' });
+
+      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
+      await expect(promise).rejects.toMatchObject({
+        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
+      });
+    });
+
+    it('更新結果がない場合は素のErrorのまま日本語メッセージで投げる', async () => {
+      mockDocClient.send.mockResolvedValueOnce({});
+
+      const promise = repository.update('group-1', 'user-1', {});
+
+      await expect(promise).rejects.toThrow('メンバーシップが見つかりません');
+      await expect(promise).rejects.not.toBeInstanceOf(DatabaseError);
     });
   });
 });
