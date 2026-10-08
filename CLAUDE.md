@@ -136,7 +136,7 @@ Issue / `tasks/` / コメントは **「セッションの継ぎ目」をつな�
 - 各実装単位の Draft PR は、原則 `integration/**`（大規模時）または `develop`（軽量時）をターゲットにする。
 - PR タイトルは「何を変えるか」を文で書き、種別プレフィックスは付けない（→ [Issue の分類](docs/development/issue-classification.md)）。
 - PR には `Closes #` 等の closing keyword を書かず、関連 Issue は `#番号` で参照するだけにする。Issue のクローズ時期はロールで分け、その時点で開いていれば Claude が手動でクローズする。
-    - **親（メイン）Issue**: 全資材が develop に載って初めてクローズする（integration → develop マージ後）。
+    - **親（メイン）Issue**: 全資材が develop に載り、dev 環境で反映を確認できた時点でクローズする（integration → develop マージ後のデプロイ完了を待つ）。dev 環境に資材が出ない変更（docs・運用ルール等）は確認対象がないため、develop へのマージ時点でクローズしてよい。
     - **サブ Issue**: integration 等のトピックブランチへの取り込みと dev 環境への反映が確認できた時点でクローズしてよい（進捗を可視化するため）。
 - **integration → develop の PR は Claude が作成してよいが、作成前に必ず人へ確認を取る**。承認後に Draft で作成する。
 
