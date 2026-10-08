@@ -12,6 +12,7 @@ import { validateAlert, calculateTemporaryExpireDate } from '@nagiyu/stock-track
 import {
   withAuth,
   parsePagination,
+  PaginationValidationError,
   handleApiError,
   validatePushSubscription,
 } from '@nagiyu/nextjs';
@@ -163,6 +164,10 @@ export const GET = withAuth(
         { status: 200 }
       );
     } catch (error) {
+      // クライアントの入力ミスはサーバーの障害ではないため、エラーイベントとして通知しない
+      if (error instanceof PaginationValidationError) {
+        return handleApiError(error);
+      }
       const errorMessage = toErrorMessage(error);
       await reportErrorEvent({
         serviceId: 'stock-tracker',

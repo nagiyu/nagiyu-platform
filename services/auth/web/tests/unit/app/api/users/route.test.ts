@@ -15,7 +15,8 @@ const mockReportErrorEvent = jest.fn().mockResolvedValue(null);
 const mockHasPermission = jest.fn();
 const mockGetSession = jest.fn();
 
-// import が jest.mock より後に評価されるため、モック関数は呼び出し時に参照して初期化前アクセスを避ける
+// jest.mock は import より前に巻き上げられ、ファクトリは const の初期化前に実行される。
+// そのため、モック関数はファクトリ内で直接参照せず、呼び出し時に参照する
 jest.mock('@nagiyu/auth-core', () => ({
   createUserRepository: jest.fn(() => ({
     listUsers: (...args: unknown[]) => mockListUsers(...args),

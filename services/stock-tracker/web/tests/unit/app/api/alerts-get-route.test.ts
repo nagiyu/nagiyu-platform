@@ -63,7 +63,7 @@ describe('GET /api/alerts', () => {
   });
 
   it.each(['0', '101', 'abc'])(
-    'limit=%s の場合は 400 を返しリポジトリを呼ばない',
+    'limit=%s の場合は 400 を返し、リポジトリの呼び出しもエラーイベントの通知もしない',
     async (limit) => {
       const response = await GET(new NextRequest(`http://localhost/api/alerts?limit=${limit}`));
       const body = await response.json();
@@ -72,6 +72,7 @@ describe('GET /api/alerts', () => {
       expect(body.error).toBe('VALIDATION_ERROR');
       expect(body.message).toBe('limit は 1 から 100 の間で指定してください');
       expect(mockGetByUserId).not.toHaveBeenCalled();
+      expect(awsModule.reportErrorEvent).not.toHaveBeenCalled();
     }
   );
 
