@@ -57,11 +57,12 @@ export class DynamoDBNotificationEventRepository implements NotificationEventRep
         ScanIndexForward: false,
         Limit: limit,
       })) {
+        // Limit はページ単位の上限にすぎず、1MB 上限で 1 ページ目が limit 未満になると
+        // 次ページへ進むため、件数はアイテム単位で打ち切る。
         for (const raw of page) {
           results.push(this.mapper.toEntity(raw));
+          if (results.length >= limit) return results;
         }
-
-        if (results.length >= limit) break;
       }
     } catch (error) {
       throw toDatabaseError(error);

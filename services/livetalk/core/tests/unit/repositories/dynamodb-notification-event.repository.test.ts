@@ -162,6 +162,32 @@ describe('DynamoDBNotificationEventRepository', () => {
       expect(callCount).toBe(1);
     });
 
+    it('1 ページ目が limit 未満で次ページへ進んでも limit 件で打ち切る', async () => {
+      let callCount = 0;
+      const client = makeClient(async () => {
+        callCount++;
+        // 1MB 上限で 1 ページ目が limit 未満になり、2 ページ目で limit を超える状況を再現する
+        const items =
+          callCount === 1
+            ? [{ ...baseItem, NotifID: 'NOTIF-1' }]
+            : [
+                { ...baseItem, NotifID: 'NOTIF-2' },
+                { ...baseItem, NotifID: 'NOTIF-3' },
+                { ...baseItem, NotifID: 'NOTIF-4' },
+              ];
+        return { Items: items, LastEvaluatedKey: { PK: 'USER#u1', SK: 'last' } };
+      });
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
+
+      const list = await repo.listByUser('u1', 3);
+      expect(list.map((e) => e.NotifID)).toEqual(['NOTIF-1', 'NOTIF-2', 'NOTIF-3']);
+      expect(callCount).toBe(2);
+    });
+
     it('エラー時は DatabaseError を投げる', async () => {
       const client = makeClient(async () => {
         throw new Error('query 失敗');

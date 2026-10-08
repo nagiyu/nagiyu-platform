@@ -129,6 +129,49 @@ describe('DynamoDBNoteRepository', () => {
       );
       warnSpy.mockRestore();
     });
+
+    it('1 ページ目が limit 未満で次ページへ進んでも limit 件で打ち切る', async () => {
+      let callCount = 0;
+      const client = makeClient(async () => {
+        callCount++;
+        const items =
+          callCount === 1
+            ? [{ ...baseItem, NoteID: 'note-1' }]
+            : [
+                { ...baseItem, NoteID: 'note-2' },
+                { ...baseItem, NoteID: 'note-3' },
+                { ...baseItem, NoteID: 'note-4' },
+              ];
+        return { Items: items, LastEvaluatedKey: { PK: 'USER#u1', SK: 'last' } };
+      });
+      const repo = new DynamoDBNoteRepository(client as never, tableName, () => fixedNow);
+
+      const list = await repo.list('u1', 'hiyori', 3);
+      expect(list.map((n) => n.NoteID)).toEqual(['note-1', 'note-2', 'note-3']);
+      expect(callCount).toBe(2);
+    });
+
+    it('旧設計 item のスキップで 1 ページ目が limit 未満になっても limit 件で打ち切る', async () => {
+      const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+      let callCount = 0;
+      const client = makeClient(async () => {
+        callCount++;
+        const items =
+          callCount === 1
+            ? [{ ...baseItem, NoteID: 'note-1' }, legacyItem]
+            : [
+                { ...baseItem, NoteID: 'note-2' },
+                { ...baseItem, NoteID: 'note-3' },
+              ];
+        return { Items: items, LastEvaluatedKey: { PK: 'USER#u1', SK: 'last' } };
+      });
+      const repo = new DynamoDBNoteRepository(client as never, tableName, () => fixedNow);
+
+      const list = await repo.list('u1', 'hiyori', 2);
+      expect(list.map((n) => n.NoteID)).toEqual(['note-1', 'note-2']);
+      expect(callCount).toBe(2);
+      warnSpy.mockRestore();
+    });
   });
 
   describe('get', () => {

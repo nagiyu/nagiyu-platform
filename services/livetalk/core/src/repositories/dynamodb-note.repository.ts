@@ -61,11 +61,12 @@ export class DynamoDBNoteRepository implements NoteRepository {
         ScanIndexForward: false,
         Limit: limit,
       })) {
+        // Limit はページ単位の上限にすぎず、1MB 上限や不正 item のスキップで 1 ページ目が
+        // limit 未満になると次ページへ進むため、件数はアイテム単位で打ち切る。
         for (const raw of page) {
           this.pushMappedEntity(results, raw, userId, characterId);
+          if (results.length >= limit) return results;
         }
-
-        if (results.length >= limit) break;
       }
     } catch (error) {
       throw toDatabaseError(error);
