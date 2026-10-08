@@ -28,8 +28,9 @@ description: Draft PR を作成する。実装単位の作業ブランチから 
 
 - `Closes #` 等の closing keyword は**書かない**。関連 Issue は `#番号` で参照するだけにする。
 - Issue は完了した時点で、開いていれば Claude が手動でクローズする。
-    - 親（メイン）Issue: 全資材が develop に載り、dev 環境で確認してから。
-    - サブ Issue: integration 取り込み + dev 反映確認後。進捗の可視化が目的。
+    - 親（メイン）Issue: 全資材が develop に載り、dev 環境で動作確認してから。
+    - サブ Issue: integration に取り込まれ、dev 環境で動作確認してから。進捗の可視化が目的。
+    - 動作確認はデプロイの成功では代えられない。dev に資材が出ない変更は畳んでよい。詳細は CLAUDE.md「人ゲートと PR」。
 - integration → develop の PR は、**作成前に必ず人へ確認を取る**（MUST NOT: 無断作成）。
 
 ## 作成後
