@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server';
 import type { ErrorResponse } from '@nagiyu/common';
 import { ERROR_CODES } from '@nagiyu/common';
+import { PaginationValidationError } from './pagination.js';
 
 /**
  * エラーメッセージ定数
@@ -43,6 +44,17 @@ export function handleApiError(error: unknown): NextResponse<ErrorResponse> {
 
   // カスタムエラークラスの判定
   if (error instanceof Error) {
+    // PaginationValidationError → 400
+    if (error instanceof PaginationValidationError) {
+      return NextResponse.json(
+        {
+          error: ERROR_CODES.VALIDATION_ERROR,
+          message: error.message || ERROR_MESSAGES.VALIDATION_ERROR,
+        },
+        { status: 400 }
+      );
+    }
+
     // EntityNotFoundError → 404
     if (error.name.includes('NotFound')) {
       return NextResponse.json(

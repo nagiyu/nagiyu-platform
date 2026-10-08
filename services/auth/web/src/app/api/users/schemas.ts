@@ -17,16 +17,3 @@ export const UpdateUserSchema = z
     roles: z.array(z.enum(validRoleIds)).optional(),
   })
   .strict(); // 定義外のフィールドを許可しない
-
-/**
- * ユーザー一覧取得のクエリパラメータバリデーションスキーマ
- */
-export const ListUsersQuerySchema = z.object({
-  limit: z.coerce
-    .number()
-    .int()
-    .min(1, 'limit は1以上である必要があります')
-    .max(100, 'limit は100以下である必要があります')
-    .default(100),
-  nextToken: z.string().optional(),
-});

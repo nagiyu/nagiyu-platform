@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createUserRepository } from '@nagiyu/auth-core';
 import { COMMON_ERROR_MESSAGES, hasPermission, toErrorMessage } from '@nagiyu/common';
-import { reportErrorEvent } from '@nagiyu/aws';
-import { ListUsersQuerySchema } from './schemas';
-import { ZodError } from 'zod';
+import { decodeCursor, encodeCursor, reportErrorEvent } from '@nagiyu/aws';
+import { PaginationValidationError, parsePagination } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
 
 // エラーメッセージ定数
@@ -16,8 +15,8 @@ const ERROR_MESSAGES = {
  * GET /api/users - ユーザー一覧取得
  *
  * クエリパラメータ:
- * - limit: 取得件数 (デフォルト: 100, 最大: 100)
- * - nextToken: ページネーション用キー (base64エンコード)
+ * - limit: 取得件数 (デフォルト: 50, 1〜100)
+ * - lastKey: ページネーション用キー (前回レスポンスの pagination.lastKey。不正な値は無視して先頭から取得)
  *
  * 必要な権限: users:read
  */
@@ -42,44 +41,26 @@ export async function GET(req: NextRequest) {
 
   try {
     const repo = createUserRepository();
-    const searchParams = req.nextUrl.searchParams;
 
-    // クエリパラメータのバリデーション
-    const validatedQuery = ListUsersQuerySchema.parse({
-      limit: searchParams.get('limit') || undefined,
-      nextToken: searchParams.get('nextToken') || undefined,
-    });
-
-    // nextToken をデコード
-    let lastEvaluatedKey: Record<string, unknown> | undefined;
-    if (validatedQuery.nextToken) {
-      try {
-        const decoded = Buffer.from(validatedQuery.nextToken, 'base64').toString();
-        lastEvaluatedKey = JSON.parse(decoded);
-      } catch {
-        return NextResponse.json({ error: 'nextToken の形式が不正です' }, { status: 400 });
-      }
-    }
+    const { limit, cursor } = parsePagination(req);
 
     // ユーザー一覧を取得
-    const result = await repo.listUsers(validatedQuery.limit, lastEvaluatedKey);
+    const result = await repo.listUsers(limit, decodeCursor(cursor));
 
     // レスポンスを返す
     return NextResponse.json({
       users: result.users,
-      nextToken: result.lastEvaluatedKey
-        ? Buffer.from(JSON.stringify(result.lastEvaluatedKey)).toString('base64')
-        : undefined,
+      pagination: {
+        count: result.users.length,
+        lastKey: encodeCursor(result.lastEvaluatedKey),
+      },
     });
   } catch (error) {
-    if (error instanceof ZodError) {
+    if (error instanceof PaginationValidationError) {
       return NextResponse.json(
         {
           error: COMMON_ERROR_MESSAGES.INVALID_REQUEST_PARAMS,
-          details: error.issues.map((e) => ({
-            field: e.path.join('.'),
-            message: e.message,
-          })),
+          details: [{ field: 'limit', message: error.message }],
         },
         { status: 400 }
       );

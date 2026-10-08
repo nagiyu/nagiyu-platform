@@ -3,7 +3,13 @@
  */
 
 import { describe, it, expect } from '@jest/globals';
+import { ERROR_CODES } from '@nagiyu/common';
 import { handleApiError, createErrorResponse } from '../../src/error';
+import {
+  PAGINATION_ERROR_CODES,
+  PAGINATION_ERROR_MESSAGES,
+  PaginationValidationError,
+} from '../../src/pagination';
 
 describe('handleApiError', () => {
   it('NotFoundエラーを404レスポンスに変換する', () => {
@@ -83,6 +89,19 @@ describe('handleApiError', () => {
     error.name = 'InvalidHoldingDataError';
     const response = handleApiError(error);
     expect(response.status).toBe(400);
+  });
+
+  it('PaginationValidationErrorを400のVALIDATION_ERRORレスポンスに変換する', async () => {
+    const error = new PaginationValidationError(
+      PAGINATION_ERROR_MESSAGES.INVALID_LIMIT,
+      PAGINATION_ERROR_CODES.INVALID_LIMIT
+    );
+    const response = handleApiError(error);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: ERROR_CODES.VALIDATION_ERROR,
+      message: PAGINATION_ERROR_MESSAGES.INVALID_LIMIT,
+    });
   });
 });
 

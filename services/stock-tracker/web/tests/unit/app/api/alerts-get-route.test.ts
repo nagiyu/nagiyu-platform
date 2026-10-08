@@ -13,13 +13,11 @@ jest.mock('../../../../lib/auth', () => ({
   getSession: jest.fn(),
 }));
 
+// ページネーションの検証とエラー変換は実物を使い、withAuth だけを差し替える
 jest.mock('@nagiyu/nextjs', () => ({
+  ...jest.requireActual('@nagiyu/nextjs'),
   withAuth: jest.fn((_auth, _permission, handler) => {
     return async (...args: unknown[]) => handler({ user: { userId: 'test-user' } }, ...args);
-  }),
-  parsePagination: jest.fn(() => ({ limit: 50, cursor: undefined })),
-  handleApiError: jest.fn((error) => {
-    throw error;
   }),
 }));
 
@@ -50,14 +48,40 @@ describe('GET /api/alerts', () => {
   });
 
   it('クエリパラメータのlastKeyをそのままcursorとしてリポジトリへ渡す', async () => {
-    // parsePagination()のlastKeyはJSON.parse済みのオブジェクトでリポジトリのcursor
-    // （Base64の不透明トークン文字列）とは型が異なるため、ルート側は生のクエリ
-    // パラメータ文字列を直接cursorとして渡す（holdings/route.tsと同じ配線）。
     await GET(new NextRequest('http://localhost/api/alerts?lastKey=abc123'));
 
     expect(mockGetByUserId).toHaveBeenCalledTimes(1);
     const [, options] = mockGetByUserId.mock.calls[0];
     expect(options.cursor).toBe('abc123');
+  });
+
+  it('limitクエリパラメータをリポジトリへ渡す', async () => {
+    await GET(new NextRequest('http://localhost/api/alerts?limit=10'));
+
+    const [, options] = mockGetByUserId.mock.calls[0];
+    expect(options.limit).toBe(10);
+  });
+
+  it.each(['0', '101', 'abc'])(
+    'limit=%s の場合は 400 を返しリポジトリを呼ばない',
+    async (limit) => {
+      const response = await GET(new NextRequest(`http://localhost/api/alerts?limit=${limit}`));
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body.error).toBe('VALIDATION_ERROR');
+      expect(body.message).toBe('limit は 1 から 100 の間で指定してください');
+      expect(mockGetByUserId).not.toHaveBeenCalled();
+    }
+  );
+
+  it('リポジトリが返した nextCursor を pagination.lastKey として返す', async () => {
+    mockGetByUserId.mockResolvedValue({ items: [], nextCursor: 'next-cursor' });
+
+    const response = await GET(new NextRequest('http://localhost/api/alerts'));
+    const body = await response.json();
+
+    expect(body.pagination).toEqual({ count: 0, lastKey: 'next-cursor' });
   });
 
   it('lastKeyクエリパラメータが無い場合はcursorがundefinedになる', async () => {
@@ -109,9 +133,9 @@ describe('GET /api/alerts', () => {
   it('DynamoDB エラー時に reportErrorEvent が呼ばれる', async () => {
     mockGetByUserId.mockRejectedValue(new Error('DynamoDB 接続エラー'));
 
-    await expect(GET(new NextRequest('http://localhost/api/alerts'))).rejects.toThrow(
-      'DynamoDB 接続エラー'
-    );
+    const response = await GET(new NextRequest('http://localhost/api/alerts'));
+
+    expect(response.status).toBe(500);
     expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
       expect.objectContaining({ serviceId: 'stock-tracker', severity: 'error' })
     );
