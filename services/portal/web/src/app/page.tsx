@@ -2,14 +2,14 @@ import type { Metadata } from 'next';
 import { Container } from '@mui/material';
 import { getAllArticles, getFeaturedArticles } from '@/lib/content';
 import { buildOrganizationJsonLd, buildWebSiteJsonLd, jsonLdScript } from '@/lib/jsonLd';
+import { SITE } from '@/lib/author';
 import HomeHeroSection from '@/components/HomeHeroSection';
 import HomeFeaturedSection from '@/components/HomeFeaturedSection';
 import HomeLatestArticlesSection from '@/components/HomeLatestArticlesSection';
 
 export const metadata: Metadata = {
   title: 'nagiyu - AWS と個人開発の実運用ノート',
-  description:
-    '個人で複数の Web サービスを AWS 上で開発・運用する中で、実際に踏んだ失敗と、その場で下した判断を記録している技術メディアです。',
+  description: SITE.description,
   alternates: {
     canonical: 'https://nagiyu.com',
   },
