@@ -324,7 +324,7 @@ test.describe('個人リスト管理', () => {
     await page.goto('/lists?listId=list-default');
     const scopeSelect = page.getByLabel('表示範囲').first();
     await scopeSelect.selectOption('shared');
-    await expect(page.getByLabel('グループ')).toHaveValue('shared-create-group');
+    await expect(page.getByRole('main').getByLabel('グループ')).toHaveValue('shared-create-group');
     await expect(page.getByRole('button', { name: '共有リストを作成' })).toBeVisible();
 
     await page.getByRole('button', { name: '共有リストを作成' }).click();
