@@ -52,11 +52,8 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: us-east-1
 
-      - name: Build dependencies (common, browser, ui)
-        run: |
-          npm run build --workspace=@nagiyu/common
-          npm run build --workspace=@nagiyu/browser
-          npm run build --workspace=@nagiyu/ui
+      - name: Build shared libraries
+        run: npm run build:libs
 
       - name: Build Storybook static site
         run: npm run build-storybook --workspace=@nagiyu/ui

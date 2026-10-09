@@ -83,12 +83,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/nextjs
+        run: npm run build:libs
 
       - name: Run unit tests (auth-core)
         run: npm run test --workspace @nagiyu/auth-core
@@ -153,12 +148,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/nextjs
+        run: npm run build:libs
 
       - name: Build auth-core
         run: npm run build --workspace @nagiyu/auth-core
@@ -231,12 +221,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/nextjs
+        run: npm run build:libs
 
       - name: Build auth-core
         run: npm run build --workspace @nagiyu/auth-core
@@ -309,12 +294,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/nextjs
+        run: npm run build:libs
 
       - name: Build auth-core
         run: npm run build --workspace @nagiyu/auth-core
@@ -379,7 +359,7 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/auth-web'
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/aws,@nagiyu/nextjs,@nagiyu/auth-core'
+          shared-workspaces: '@nagiyu/auth-core'
 
   docker-build:
     name: Docker Build Verification

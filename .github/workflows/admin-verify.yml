@@ -81,12 +81,7 @@ jobs:
 
       - name: Build shared libraries
         run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/react
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
+          npm run build:libs
           npm run build --workspace @nagiyu/admin-core
 
       - name: Run unit tests
@@ -110,12 +105,7 @@ jobs:
 
       - name: Build shared libraries
         run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/react
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
+          npm run build:libs
           npm run build --workspace @nagiyu/admin-core
 
       - name: Run tests with coverage
@@ -159,12 +149,7 @@ jobs:
 
       - name: Build shared libraries
         run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/react
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
+          npm run build:libs
           npm run build --workspace @nagiyu/admin-core
 
       - name: Build web application
@@ -236,12 +221,7 @@ jobs:
 
       - name: Build shared libraries
         run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/react
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
+          npm run build:libs
           npm run build --workspace @nagiyu/admin-core
 
       - name: Build web application
@@ -313,12 +293,7 @@ jobs:
 
       - name: Build shared libraries
         run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/react
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
+          npm run build:libs
           npm run build --workspace @nagiyu/admin-core
 
       - name: Build web application
@@ -381,7 +356,7 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/admin'
-          shared-workspaces: '@nagiyu/common,@nagiyu/aws,@nagiyu/browser,@nagiyu/react,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/admin-core'
+          shared-workspaces: '@nagiyu/admin-core'
 
   docker-build:
     name: Docker Build Verification
