@@ -8,6 +8,7 @@ WORKDIR /app
 # ビルド引数を受け取る
 ARG APP_VERSION=1.0.0
 ENV APP_VERSION=${APP_VERSION}
+
 # CI/ビルド検証用のデフォルト値（本番環境では実際の値で上書き）
 ARG DYNAMODB_TABLE_NAME=dummy-table
 ENV DYNAMODB_TABLE_NAME=${DYNAMODB_TABLE_NAME}
@@ -22,14 +23,9 @@ COPY services/niconico-mylist-assistant/web ./services/niconico-mylist-assistant
 # 依存関係をインストール（ソースコード存在下で実行）
 RUN npm ci
 
-# モノレポのルートからビルド（共通ライブラリも含めて）
+# 共通ライブラリ、core、web の順にビルドする
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build --workspace=@nagiyu/common
-RUN npm run build --workspace=@nagiyu/browser
-RUN npm run build --workspace=@nagiyu/react
-RUN npm run build --workspace=@nagiyu/aws
-RUN npm run build --workspace=@nagiyu/ui
-RUN npm run build --workspace=@nagiyu/nextjs
+RUN npm run build:libs
 RUN npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
 RUN npm run build --workspace=@nagiyu/niconico-mylist-assistant-web
 
@@ -37,7 +33,7 @@ RUN npm run build --workspace=@nagiyu/niconico-mylist-assistant-web
 FROM base AS runner
 WORKDIR /app
 
-# Install curl for health checks
+# ヘルスチェック用に curl をインストール
 RUN apk add --no-cache curl
 
 # Lambda Web Adapter のバイナリをコピー
@@ -48,10 +44,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 
 # Next.js が生成した standalone ビルドをコピー
-# standaloneには必要な依存関係とserver.jsが全て含まれている
+# standalone には必要な依存関係と server.js が全て含まれている
 COPY --from=builder /app/services/niconico-mylist-assistant/web/.next/standalone ./
 
-# publicとstaticは別途コピーが必要
+# public と static は別途コピーが必要
 COPY --from=builder /app/services/niconico-mylist-assistant/web/public ./services/niconico-mylist-assistant/web/public
 COPY --from=builder /app/services/niconico-mylist-assistant/web/.next/static ./services/niconico-mylist-assistant/web/.next/static
 
