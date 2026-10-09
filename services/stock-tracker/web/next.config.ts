@@ -12,6 +12,8 @@ const nextConfig: NextConfig = {
     '@nagiyu/aws',
     '@nagiyu/stock-tracker-core',
   ],
+  // AI エージェントから起動したときに、このディレクトリへ AGENTS.md と CLAUDE.md を作らせない。エージェント向けの指示はリポジトリ直下に一本化している
+  agentRules: false,
   // 旧予測精度ダッシュボードのブックマークを判断軸の成績へ引き継ぐ
   async redirects() {
     return [

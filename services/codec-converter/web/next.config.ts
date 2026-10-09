@@ -14,6 +14,8 @@ const nextConfig: NextConfig = {
     '@nagiyu/nextjs',
     '@nagiyu/codec-converter-core',
   ],
+  // AI エージェントから起動したときに、このディレクトリへ AGENTS.md と CLAUDE.md を作らせない。エージェント向けの指示はリポジトリ直下に一本化している
+  agentRules: false,
 };
 
 export default nextConfig;
