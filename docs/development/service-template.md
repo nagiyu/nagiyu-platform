@@ -193,16 +193,12 @@ services/{service-name}/
 
 ```json
 {
-    "extends": "../../../configs/tsconfig.base.json",
+    "extends": "../../../configs/tsconfig.web.json",
     "compilerOptions": {
-        "lib": ["DOM", "DOM.Iterable", "ES2020"],
-        "jsx": "preserve",
         "paths": {
-        "@/*": ["./src/*"]
+            "@/*": ["./src/*"]
         }
     },
-    "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-    "exclude": ["node_modules"],
     "references": [
         { "path": "../core" },
         { "path": "../../../libs/ui" },
@@ -214,8 +210,9 @@ services/{service-name}/
 
 **ポイント**:
 
+- `lib`・`jsx`・`include`・`exclude` は `configs/tsconfig.web.json` が持つため、固有の差分だけを書く
+- `paths` は extends でマージされず共通側にも置けないため、`@/*` を各パッケージで書く
 - `composite` は設定しない（Next.jsが独自にビルド）
-- path alias (`@/*`) の使用可能
 - 依存するすべてのパッケージを `references` に記載
 
 #### batch パッケージの tsconfig.json
@@ -562,7 +559,7 @@ services/{service}/
 ### Phase 2: 設定ファイルの整備
 
 - [ ] `configs/` の共通設定を extends
-    - [ ] `tsconfig.base.json` を extends
+    - [ ] `tsconfig.base.json` を extends（web は `tsconfig.web.json` を extends）
     - [ ] `eslint.config.base.mjs` を extends
     - [ ] `.prettierrc` を継承
 
