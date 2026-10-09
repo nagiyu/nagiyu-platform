@@ -1,10 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { SessionProvider, useSession } from 'next-auth/react';
-import { ErrorBoundary, ServiceLayout, buildSignOutUrl, type NavigationItem } from '@nagiyu/ui';
+import { SessionProvider } from 'next-auth/react';
+import { ErrorBoundary, ServiceLayout, type NavigationItem } from '@nagiyu/ui';
+import { SessionHeader } from '@nagiyu/ui/session-provider';
 import { SnackbarProvider } from './SnackbarProvider';
-import { hasPermission } from '@nagiyu/common';
 
 interface ThemeRegistryProps {
   children: React.ReactNode;
@@ -16,72 +16,39 @@ interface ThemeRegistryProps {
   authUrl?: string;
 }
 
+/**
+ * ナビゲーション項目。
+ * 権限による出し分けは Header が requiredPermission を見て行うため、ここでは静的に持つ。
+ */
+const NAVIGATION_ITEMS: NavigationItem[] = [
+  { label: 'チャート', href: '/' },
+  { label: 'サマリー', href: '/summaries', requiredPermission: 'stocks:read' },
+  { label: '判断軸の成績', href: '/axis-performance', requiredPermission: 'stocks:read' },
+  { label: '保有株式', href: '/holdings' },
+  { label: 'アラート', href: '/alerts' },
+  {
+    label: '管理',
+    href: '#',
+    requiredPermission: 'stocks:manage-data',
+    children: [
+      { label: '取引所', href: '/exchanges' },
+      { label: 'ティッカー', href: '/tickers' },
+    ],
+  },
+];
+
 function ThemeRegistryContent({ children, version = '1.0.0', authUrl = '' }: ThemeRegistryProps) {
-  const { data: session } = useSession();
-
-  const hasStocksRead =
-    !!session?.user &&
-    'roles' in session.user &&
-    Array.isArray(session.user.roles) &&
-    hasPermission(session.user.roles, 'stocks:read');
-
-  // ナビゲーションメニュー項目の定義
-  const navigationItems: NavigationItem[] = [
-    { label: 'チャート', href: '/' },
-    ...(hasStocksRead
-      ? [
-          { label: 'サマリー', href: '/summaries' },
-          { label: '判断軸の成績', href: '/axis-performance' },
-        ]
-      : []),
-    { label: '保有株式', href: '/holdings' },
-    { label: 'アラート', href: '/alerts' },
-    // 権限ベースの管理メニュー（stocks:manage-data 権限が必要）
-    ...(session?.user &&
-    'roles' in session.user &&
-    Array.isArray(session.user.roles) &&
-    hasPermission(session.user.roles, 'stocks:manage-data')
-      ? [
-          {
-            label: '管理',
-            href: '#',
-            children: [
-              { label: '取引所', href: '/exchanges' },
-              { label: 'ティッカー', href: '/tickers' },
-            ],
-          },
-        ]
-      : []),
-  ];
-
-  // ユーザー情報
-  const user = session?.user
-    ? {
-        name: session.user.name || '',
-        email: session.user.email || '',
-        avatar: 'image' in session.user && session.user.image ? session.user.image : undefined,
-      }
-    : undefined;
-
-  // ログアウトハンドラー
-  // サインアウトは Cookie 発行元の auth サービスに集約する方針のため、
-  // buildSignOutUrl で生成した auth サービスの URL へ遷移させる。
-  // authUrl はサーバーコンポーネント（layout.tsx）でランタイム env から解決して prop で受け取る。
-  // client component 内で process.env.NEXT_PUBLIC_AUTH_URL を直接参照すると
-  // ビルド時インライン化により空文字になり、相対 URL 化してサインアウトが失敗するため。
-  const handleLogout = () =>
-    window.location.assign(buildSignOutUrl(authUrl, window.location.origin));
-
   return (
     <ErrorBoundary>
       <SnackbarProvider>
         <ServiceLayout
-          headerProps={{
-            title: 'Stock Tracker',
-            navigationItems,
-            user,
-            onLogout: handleLogout,
-          }}
+          headerSlot={
+            <SessionHeader
+              title="Stock Tracker"
+              navigationItems={NAVIGATION_ITEMS}
+              authUrl={authUrl}
+            />
+          }
           footerProps={{ version }}
         >
           {children}

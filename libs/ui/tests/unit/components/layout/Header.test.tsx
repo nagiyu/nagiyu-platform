@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { axe } from 'jest-axe';
 import Header from '../../../../src/components/layout/Header';
 import type { NavigationItem } from '../../../../src/components/layout/Header';
 
@@ -400,6 +401,176 @@ describe('Header', () => {
       render(<Header onLogout={handleLogout} logoutLabel="サインアウト" />);
 
       expect(screen.getByRole('button', { name: 'サインアウト' })).toBeInTheDocument();
+    });
+  });
+
+  describe('roles による項目の絞り込み', () => {
+    const items: NavigationItem[] = [
+      { label: 'ホーム', href: '/' },
+      { label: 'チャット', href: '/chat', requiredPermission: 'livetalk:chat' },
+      { label: 'ステータス', href: '/status', requiredPermission: 'livetalk:admin' },
+      {
+        label: '管理',
+        href: '#',
+        children: [
+          { label: 'ユーザー', href: '/admin/users', requiredPermission: 'users:read' },
+          { label: 'ロール', href: '/admin/roles', requiredPermission: 'roles:assign' },
+        ],
+      },
+    ];
+
+    it('requiredPermission がない項目は roles 未指定でも表示される', () => {
+      render(<Header navigationItems={items} />);
+
+      expect(screen.getByRole('link', { name: 'ホーム' })).toBeInTheDocument();
+    });
+
+    it('roles 未指定のとき、requiredPermission を持つ項目は権限なしとして非表示になる', () => {
+      render(<Header navigationItems={items} />);
+
+      expect(screen.queryByRole('link', { name: 'チャット' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'ステータス' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: '管理 メニュー' })).not.toBeInTheDocument();
+    });
+
+    it('権限を満たす項目だけが表示される', () => {
+      render(<Header navigationItems={items} roles={['livetalk-user']} />);
+
+      expect(screen.getByRole('link', { name: 'チャット' })).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'ステータス' })).not.toBeInTheDocument();
+    });
+
+    it('子メニューにも同じ判定がかかる', async () => {
+      const user = userEvent.setup();
+      render(<Header navigationItems={items} roles={['user-manager']} />);
+
+      await user.click(screen.getByRole('button', { name: '管理 メニュー' }));
+
+      expect(screen.getByRole('menuitem', { name: 'ユーザー' })).toBeInTheDocument();
+      expect(screen.queryByRole('menuitem', { name: 'ロール' })).not.toBeInTheDocument();
+    });
+
+    it('子がすべて絞り込まれた親項目は表示されない', () => {
+      render(<Header navigationItems={items} roles={['livetalk-user']} />);
+
+      expect(screen.queryByRole('button', { name: '管理 メニュー' })).not.toBeInTheDocument();
+    });
+
+    it('親項目自体が requiredPermission を持つ場合、満たさなければ子が通っても表示されない', () => {
+      const guarded: NavigationItem[] = [
+        {
+          label: '管理',
+          href: '#',
+          requiredPermission: 'roles:assign',
+          children: [{ label: 'ユーザー', href: '/admin/users', requiredPermission: 'users:read' }],
+        },
+      ];
+      render(<Header navigationItems={guarded} roles={['user-manager']} />);
+
+      expect(screen.queryByRole('button', { name: '管理 メニュー' })).not.toBeInTheDocument();
+    });
+
+    it('元から子が空配列の項目は絞り込みで消えない', () => {
+      render(<Header navigationItems={[{ label: '空', href: '#', children: [] }]} />);
+
+      expect(screen.getByRole('button', { name: '空 メニュー' })).toBeInTheDocument();
+    });
+
+    it('Drawer にも同じ絞り込みが効く', async () => {
+      const user = userEvent.setup();
+      render(<Header navigationItems={items} roles={['user-manager']} />);
+
+      await user.click(screen.getByLabelText('メニューを開く'));
+      const drawer = screen.getByRole('navigation', { name: 'ナビゲーションメニュー' });
+
+      expect(within(drawer).getByText('ホーム')).toBeInTheDocument();
+      expect(within(drawer).queryByText('チャット')).not.toBeInTheDocument();
+
+      await user.click(within(drawer).getByText('管理'));
+      expect(within(drawer).getByText('ユーザー')).toBeInTheDocument();
+      expect(within(drawer).queryByText('ロール')).not.toBeInTheDocument();
+    });
+
+    it('表示できる項目が 0 件のとき、ハンバーガーメニューも表示されない', () => {
+      const guardedOnly: NavigationItem[] = [
+        { label: 'チャット', href: '/chat', requiredPermission: 'livetalk:chat' },
+      ];
+      render(<Header navigationItems={guardedOnly} roles={[]} />);
+
+      expect(screen.queryByLabelText('メニューを開く')).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('navigation', { name: 'ナビゲーションメニュー' })
+      ).not.toBeInTheDocument();
+    });
+
+    it('roles と navigationItems を指定した状態で a11y 違反がない', async () => {
+      const { container } = render(
+        <Header title="LiveTalk" navigationItems={items} roles={['admin']} />
+      );
+
+      expect(await axe(container)).toHaveNoViolations();
+    });
+  });
+
+  describe('actions', () => {
+    it('actions が描画される', () => {
+      render(<Header actions={<span data-testid="invite-badge">3</span>} />);
+
+      expect(screen.getByTestId('invite-badge')).toHaveTextContent('3');
+    });
+
+    it('actions が未指定のとき何も追加されない', () => {
+      render(<Header />);
+
+      expect(screen.queryByTestId('invite-badge')).not.toBeInTheDocument();
+    });
+
+    it('actions はアカウントメニューの手前に描画される', () => {
+      render(<Header user={{ name: 'テスト' }} actions={<span data-testid="invite-badge" />} />);
+
+      const badge = screen.getByTestId('invite-badge');
+      const trigger = screen.getByLabelText('アカウントメニュー');
+
+      expect(
+        badge.compareDocumentPosition(trigger) & Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+    });
+
+    it('actions は単独ログアウトボタンの手前に描画される', () => {
+      render(<Header onLogout={jest.fn()} actions={<span data-testid="invite-badge" />} />);
+
+      const badge = screen.getByTestId('invite-badge');
+      const logout = screen.getByRole('button', { name: 'ログアウト' });
+
+      expect(badge.compareDocumentPosition(logout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('navigationItems が全件絞り込まれてもモバイル用に actions は表示される', () => {
+      render(
+        <Header
+          navigationItems={[
+            { label: 'チャット', href: '/chat', requiredPermission: 'livetalk:chat' },
+          ]}
+          actions={<span data-testid="invite-badge" />}
+        />
+      );
+
+      expect(screen.getByTestId('invite-badge')).toBeInTheDocument();
+    });
+
+    it('actions とアカウントメニューを指定した状態で a11y 違反がない', async () => {
+      const { container } = render(
+        <Header
+          user={{ name: 'テスト' }}
+          actions={
+            <span aria-label="招待 3 件" role="img">
+              3
+            </span>
+          }
+        />
+      );
+
+      expect(await axe(container)).toHaveNoViolations();
     });
   });
 

@@ -47,13 +47,13 @@ test.describe('Dashboard', () => {
     await expect(page.getByText('JWT トークンによる認証が有効です')).toBeVisible();
   });
 
-  test('should display logout button', async ({ page }) => {
+  test('should show logout in the header account menu', async ({ page }) => {
     await page.goto('/dashboard');
     await page.waitForLoadState('networkidle');
 
-    // Check logout button is displayed
-    const logoutButton = page.getByRole('link', { name: 'ログアウト' });
-    await expect(logoutButton).toBeVisible();
+    // Sign-out entry lives in the header account menu
+    await page.getByRole('button', { name: 'アカウントメニュー' }).click();
+    await expect(page.getByRole('menuitem', { name: 'ログアウト' })).toBeVisible();
   });
 
   test('should display Header with Admin title', async ({ page }) => {
@@ -82,7 +82,7 @@ test.describe('Dashboard', () => {
     await expect(page.getByRole('heading', { name: 'ダッシュボード', level: 1 })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'ユーザー情報' })).toBeVisible();
     await expect(page.getByRole('heading', { name: '認証ステータス' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'ログアウト' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'アカウントメニュー' })).toBeVisible();
   });
 
   test('should be responsive on PC viewport (1280px)', async ({ page }) => {
@@ -95,6 +95,6 @@ test.describe('Dashboard', () => {
     await expect(page.getByRole('heading', { name: 'ダッシュボード', level: 1 })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'ユーザー情報' })).toBeVisible();
     await expect(page.getByRole('heading', { name: '認証ステータス' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'ログアウト' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'アカウントメニュー' })).toBeVisible();
   });
 });
