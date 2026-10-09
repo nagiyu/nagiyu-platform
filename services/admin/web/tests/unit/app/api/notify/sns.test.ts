@@ -140,6 +140,19 @@ describe('POST /api/notify/sns', () => {
     );
   });
 
+  it('不一致トピックの UnsubscribeConfirmation は 403 を返す', async () => {
+    mockValidateSnsMessage.mockResolvedValue({
+      Type: 'UnsubscribeConfirmation',
+      TopicArn: OTHER_TOPIC_ARN,
+    });
+
+    const response = await POST(createRequest({}));
+
+    expect(response.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(sendAll).not.toHaveBeenCalled();
+  });
+
   it('不一致トピックの Notification は 403 を返し、sendAll を呼ばない', async () => {
     mockValidateSnsMessage.mockResolvedValue(notification(OTHER_TOPIC_ARN));
 
@@ -157,6 +170,8 @@ describe('POST /api/notify/sns', () => {
   it.each([
     ['TopicArn なし', undefined],
     ['TopicArn が文字列でない', 12345],
+    ['別環境のトピック', ALLOWED_TOPIC_ARN.replace(/-dev$/, '-prod')],
+    ['許可トピックを前方一致で含むトピック', `${ALLOWED_TOPIC_ARN}-extra`],
   ])('%s の場合は 403 を返し、何も実行しない', async (_label, topicArn) => {
     mockValidateSnsMessage.mockResolvedValue(subscriptionConfirmation(topicArn));
 
