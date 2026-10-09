@@ -27,7 +27,8 @@ export function UsersTable({ canAssignRoles }: UsersTableProps) {
   useEffect(() => {
     async function fetchUsers() {
       try {
-        const response = await fetch('/api/users');
+        // 次ページを取得する UI が無いため、1 回で取れる上限まで取得する
+        const response = await fetch('/api/users?limit=100');
         if (!response.ok) {
           throw new Error('ユーザー一覧の取得に失敗しました');
         }

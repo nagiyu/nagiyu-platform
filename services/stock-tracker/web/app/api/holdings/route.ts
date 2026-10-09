@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { validateHolding } from '@nagiyu/stock-tracker-core';
-import { withAuth, handleApiError } from '@nagiyu/nextjs';
+import { withAuth, handleApiError, parsePagination } from '@nagiyu/nextjs';
 import { createHoldingRepository, createTickerRepository } from '../../../lib/repository-factory';
 import { getSession } from '../../../lib/auth';
 import type { Holding } from '@nagiyu/stock-tracker-core';
@@ -19,7 +19,6 @@ import type { Holding } from '@nagiyu/stock-tracker-core';
  * エラーメッセージ定数
  */
 const ERROR_MESSAGES = {
-  INVALID_LIMIT: 'limit は 1 から 100 の間で指定してください',
   INVALID_REQUEST_BODY: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
   VALIDATION_ERROR: '入力データが不正です',
   INTERNAL_ERROR: '保有株式の取得に失敗しました',
@@ -80,23 +79,6 @@ function mapHoldingToResponse(
  */
 export const GET = withAuth(getSession, 'stocks:read', async (session, request: NextRequest) => {
   try {
-    // クエリパラメータの取得
-    const { searchParams } = new URL(request.url);
-    const limitParam = searchParams.get('limit');
-    const lastKeyParam = searchParams.get('lastKey');
-
-    // limit のバリデーション
-    const limit = limitParam ? parseInt(limitParam, 10) : 50;
-    if (isNaN(limit) || limit < 1 || limit > 100) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.INVALID_LIMIT,
-        },
-        { status: 400 }
-      );
-    }
-
     // リポジトリの初期化
     const holdingRepo = createHoldingRepository();
 
@@ -104,10 +86,7 @@ export const GET = withAuth(getSession, 'stocks:read', async (session, request: 
     const userId = session!.user.userId;
 
     // 保有株式一覧取得
-    const result = await holdingRepo.getByUserId(userId, {
-      limit,
-      cursor: lastKeyParam || undefined,
-    });
+    const result = await holdingRepo.getByUserId(userId, parsePagination(request));
 
     // TickerリポジトリでSymbolとNameを取得
     // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化

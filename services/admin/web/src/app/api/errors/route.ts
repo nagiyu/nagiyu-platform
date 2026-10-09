@@ -1,8 +1,13 @@
-import { NextResponse } from 'next/server';
+import type { NextRequest, NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES, hasPermission, toErrorMessage } from '@nagiyu/common';
 import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
 import { createErrorEventReader, type ListErrorEventsQuery } from '@nagiyu/admin-core';
-import { createErrorResponse } from '@nagiyu/nextjs';
+import {
+  createErrorResponse,
+  createPaginatedResponse,
+  PaginationValidationError,
+  parsePagination,
+} from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
 
 const ERROR_MESSAGES = {
@@ -29,19 +34,11 @@ function getReader() {
   return createErrorEventReader(docClient, tableName);
 }
 
-function parseLimit(value: string | null): number | undefined {
-  if (value === null) {
-    return undefined;
-  }
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-
 function isValidIsoString(value: string): boolean {
   return !Number.isNaN(Date.parse(value));
 }
 
-export async function GET(request: Request): Promise<NextResponse> {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const session = await getSession();
     if (!session?.user) {
@@ -75,12 +72,8 @@ export async function GET(request: Request): Promise<NextResponse> {
       query.to = to;
     }
 
-    const limit = parseLimit(searchParams.get('limit'));
-    if (limit !== undefined) {
-      query.limit = limit;
-    }
-
-    const cursor = searchParams.get('cursor');
+    const { limit, cursor } = parsePagination(request);
+    query.limit = limit;
     if (cursor) {
       query.cursor = cursor;
     }
@@ -88,8 +81,11 @@ export async function GET(request: Request): Promise<NextResponse> {
     const reader = getReader();
     const result = await reader.list(query);
 
-    return NextResponse.json(result, { status: 200 });
+    return createPaginatedResponse(result.items, result.nextCursor ?? undefined);
   } catch (error) {
+    if (error instanceof PaginationValidationError) {
+      return createErrorResponse(400, 'INVALID_REQUEST', error.message);
+    }
     if (error instanceof Error && error.message.includes('cursor')) {
       return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
     }

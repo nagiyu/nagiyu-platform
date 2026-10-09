@@ -1,6 +1,7 @@
 /**
  * @jest-environment node
  */
+import { NextRequest } from 'next/server';
 import { GET as listErrors } from '@/app/api/errors/route';
 import { GET as getErrorDetail } from '@/app/api/errors/[eventId]/route';
 import { reportErrorEvent } from '@nagiyu/aws';
@@ -50,7 +51,7 @@ describe('admin /api/errors の reportErrorEvent 連携', () => {
       list: jest.fn().mockRejectedValue(new Error('DynamoDB 接続失敗')),
     } as unknown as ReturnType<typeof createErrorEventReader>);
 
-    const response = await listErrors(new Request('http://localhost/api/errors'));
+    const response = await listErrors(new NextRequest('http://localhost/api/errors'));
 
     expect(response.status).toBe(500);
     expect(mockReportErrorEvent).toHaveBeenCalledTimes(1);
