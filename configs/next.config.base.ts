@@ -14,7 +14,7 @@ const ERROR_MESSAGES = {
 
 /**
  * サービスの package.json が依存する `@nagiyu/*` を列挙する。
- * ワークスペースの TypeScript ソースを依存と食い違いなくトランスパイルさせるため、手書きの一覧を持たない。
+ * 手書きの一覧は依存の増減に追従せず食い違うため、package.json から導く。
  */
 function resolveWorkspaceDependencies(serviceDir: string): string[] {
   const packageJsonPath = path.join(serviceDir, 'package.json');
