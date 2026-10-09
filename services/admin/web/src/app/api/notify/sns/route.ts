@@ -13,6 +13,7 @@
  * 仕様:
  * - 永続化はしない。Push のみ送信する（自己監視は履歴を残す対象ではない）
  * - 本流の CloudWatch Alarm は届かない（Topic が分離されているため）
+ * - 署名が正しくても送信元 Topic は任意のため、`SNS_ALLOWED_TOPIC_ARN` 以外の Topic からのメッセージは 403 で拒否する
  * - 関連設計: `tasks/persist-error-notifications/design.md` セクション 4
  */
 
@@ -30,6 +31,9 @@ import { createErrorResponse } from '@nagiyu/nextjs';
 const ERROR_MESSAGES = {
   INVALID_REQUEST: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
   INVALID_SIGNATURE: 'SNS 署名の検証に失敗しました',
+  TOPIC_NOT_ALLOWED: '許可されていない SNS トピックからのメッセージです',
+  ALLOWED_TOPIC_NOT_CONFIGURED:
+    'SNS_ALLOWED_TOPIC_ARN が設定されていないため、メッセージを拒否しました',
   INTERNAL_ERROR: 'SNS 通知処理に失敗しました',
   DYNAMODB_TABLE_NAME_REQUIRED: 'DYNAMODB_TABLE_NAME が設定されていません',
 } as const;
@@ -101,6 +105,24 @@ export async function POST(request: Request): Promise<NextResponse> {
       message = await validateSnsMessage(body);
     } catch {
       return createErrorResponse(401, 'UNAUTHORIZED', ERROR_MESSAGES.INVALID_SIGNATURE);
+    }
+
+    // 副作用 (SubscribeURL の取得・Push 送信) の前に送信元トピックを確定させる
+    const allowedTopicArn = process.env.SNS_ALLOWED_TOPIC_ARN;
+    if (!allowedTopicArn) {
+      console.warn(ERROR_MESSAGES.ALLOWED_TOPIC_NOT_CONFIGURED, {
+        topicArn: message.TopicArn,
+        type: message.Type,
+      });
+      return createErrorResponse(403, 'FORBIDDEN', ERROR_MESSAGES.TOPIC_NOT_ALLOWED);
+    }
+
+    if (typeof message.TopicArn !== 'string' || message.TopicArn !== allowedTopicArn) {
+      console.warn(ERROR_MESSAGES.TOPIC_NOT_ALLOWED, {
+        topicArn: message.TopicArn,
+        type: message.Type,
+      });
+      return createErrorResponse(403, 'FORBIDDEN', ERROR_MESSAGES.TOPIC_NOT_ALLOWED);
     }
 
     if (message.Type === 'SubscriptionConfirmation') {
