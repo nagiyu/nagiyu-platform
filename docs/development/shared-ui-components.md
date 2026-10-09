@@ -48,7 +48,7 @@
 
 - `Header` / `Footer` / `AppLayout` / `ServiceLayout`
 - `AppThemeProvider`
-- `SessionProviderWrapper`（`next-auth` の `SessionProvider` ラッパー。barrel ではなく subpath `@nagiyu/ui/session-provider` で提供 → 後述）
+- `SessionProviderWrapper` / `SessionHeader`（`next-auth` に依存するため、barrel ではなく subpath `@nagiyu/ui/session-provider` で提供 → 後述）
 - `ErrorBoundary` / `ErrorAlert`
 - `LoadingState`
 - `PrivacyPolicyDialog` / `TermsOfServiceDialog` / `ConfirmDialog`
@@ -67,9 +67,9 @@
 - `ServiceLayout` を採用しないサービスは `AppThemeProvider` を利用し、`AppRouterCacheProvider + ThemeProvider + CssBaseline` の定型を独自実装しない。
 - サービス固有の追加要素（tools の `MigrationDialog` 等）は `AppThemeProvider` の `children` として合成する。
 
-#### `SessionProviderWrapper` は subpath export で提供する
+#### next-auth に依存するコンポーネントは subpath export で提供する
 
-`next-auth`（ESM 配布）に依存する `SessionProviderWrapper` は、`@nagiyu/ui` の barrel（`src/index.ts`）からではなく、専用 subpath `@nagiyu/ui/session-provider` から named export で提供する。実際に next-auth を使うサービス（現状 `auth-web` / `livetalk-web`）だけがここから import する。
+`next-auth`（ESM 配布）に依存する `SessionProviderWrapper` / `SessionHeader` は、`@nagiyu/ui` の barrel（`src/index.ts`）からではなく、専用 subpath `@nagiyu/ui/session-provider` から named export で提供する。実際に next-auth を使うサービスだけがここから import する。
 
 - **なぜ barrel に載せないか**: barrel から re-export すると、`Button` など無関係なコンポーネントを import しただけで `@nagiyu/ui` の**全利用サービス**（現状 9 サービス）が `next-auth` を推移的に読み込む（barrel は先頭から評価されるため）。結果、各サービスの Jest が ESM の `next-auth` を変換対象に含める設定（`transformIgnorePatterns`）を持たないと `Cannot use import statement outside a module` で落ち、`next build` にも不要なコストが乗る。subpath に隔離することで、この負担を実利用サービスだけに閉じ込める。
 - **依存の持たせ方**: `next-auth` は `@nagiyu/ui` の `peerDependency`（実利用サービスが供給）とする。利用サービス側の `jest.config.ts` は `transformIgnorePatterns` で `next-auth` 系を変換対象に含める（`services/portal/web` の既存パターンと同型）。
@@ -77,9 +77,11 @@
 
 #### Navigation の集約
 
-`Header` は `navigationItems: NavigationItem[]` プロパティを受け取り、デスクトップでは横並びメニュー、モバイルではハンバーガー Drawer に切り替える。サービスは独自 `Navigation` コンポーネントを実装せず、`ServiceLayout` の `headerProps.navigationItems` に項目を渡す。
+`Header` は `navigationItems: NavigationItem[]` プロパティを受け取り、デスクトップでは横並びメニュー、モバイルではハンバーガー Drawer に切り替える。サービスは独自 `Navigation` コンポーネントを実装せず、ナビ項目を `Header` に渡す。
 
-- **例外**: 動的バッジ等のカスタム要素を必要とするサービス（share-together の招待数バッジ等）は、`NavigationItem` の `label: string` 制約では再現できないため、当面サービスローカルな `Navigation` を維持してよい。`NavigationItem` 側にカスタム要素 slot が追加された段階で統合を再検討する。
+- **権限による出し分けは `Header` が行う**: 項目に `requiredPermission` を付け、`Header` にユーザーのロール (`roles`) を渡すと、権限を満たさない項目は表示されない。子をすべて除かれた親項目も表示しない。セッションからロールを取り出して項目を組み立てる処理が各サービスに重複していたため、判定を共通側に寄せた。サービスは項目を静的に宣言するだけでよい。
+- `roles` 未指定は「権限なし」として扱う。読み込み中や未ログインで、権限の要る項目が一瞬見えることを防ぐため。
+- **バッジなどのカスタム要素は `actions` スロットに置く**: `NavigationItem` の `label: string` では表せない要素 (share-together の招待件数バッジ等) は、ツールバー右側の `actions` に渡す。`Header` を作り直したり、`headerSlot` で丸ごと置き換えたりしない。`actions` はモバイルでも Drawer に隠さずツールバーに残す。通知のように常に目に入るべき要素を想定しているため。
 
 #### アカウントメニューの集約
 
@@ -88,6 +90,15 @@
 - `onDeleteAccount` は**任意コールバック**。`Header` は退会フロー自体を持たず（サービス固有を知らず generic なまま）、退会モーダル等の実体は各サービスが保持してコールバックで注入する。退会を提供するサービスだけが opt-in する。
 - 後方互換: `user` 未指定時はアカウントメニューを描画しない。`user` 無しで `onLogout` のみ渡した場合は、従来どおり単独のログアウトボタンを表示する。
 - サインアウトは Cookie 発行元の auth サービスへ集約する方針のため、`onLogout` は `buildSignOutUrl` で生成した URL へ遷移させる（`authUrl` はビルド時インライン化を避けるためサーバーでランタイム env から解決して渡す）。
+
+#### ログインのあるサービスは `SessionHeader` を使う
+
+`SessionHeader` は、next-auth のセッションから `Header` の `user` / `roles` / `onLogout` を組み立てる。ログインのあるサービスは、ルートレイアウトで `SessionProviderWrapper` の内側に置き、`ServiceLayout` の `headerSlot` に渡す。セッションからヘッダーを組み立てる処理とサインアウトの遷移が各サービスに重複し、サービスによってユーザー表示の有無もばらついていたため、共通化してすべてのログインのあるサービスで揃えた。
+
+- `Header` 自体は next-auth に依存させない。セッションを持たないサービスでも、`roles` や `actions` を含めてそのまま使えるようにするため。
+- クライアントの `useSession()` は自サービスの `/api/auth/session` を取得する。サービスには NextAuth の route を置き、GET だけを公開する (サインアウトは auth サービスに集約しているため、POST は受けない)。
+- `authUrl` をランタイム env から読むため、`SessionHeader` を置くルートレイアウトは動的レンダリングにする。静的にプリレンダされると、ビルド時の空文字が HTML に固定され、サインアウト先が壊れる。
+- 退会のようにサービス固有のフローを持つ場合は、`SessionHeader` に `onDeleteAccount` を渡し、モーダル等の実体はサービス側の薄いコンポーネントで持つ。
 
 ---
 
