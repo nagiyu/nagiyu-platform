@@ -1,17 +1,6 @@
-import type { NextConfig } from 'next';
+import { createNextConfig } from '../../../configs/next.config.base';
 
-const nextConfig: NextConfig = {
-  output: 'standalone',
-  // Transpile shared libraries
-  transpilePackages: [
-    '@nagiyu/ui',
-    '@nagiyu/browser',
-    '@nagiyu/common',
-    '@nagiyu/nextjs',
-    '@nagiyu/react',
-    '@nagiyu/aws',
-    '@nagiyu/stock-tracker-core',
-  ],
+export default createNextConfig(__dirname, {
   // 旧予測精度ダッシュボードのブックマークを判断軸の成績へ引き継ぐ
   async redirects() {
     return [
@@ -22,10 +11,4 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // Environment variables
-  env: {
-    NEXT_PUBLIC_SERVICE_NAME: 'stock-tracker',
-  },
-};
-
-export default nextConfig;
+});

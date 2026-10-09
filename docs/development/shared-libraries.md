@@ -279,16 +279,9 @@ Push 通知機能を持つサービスの API ルートは `@nagiyu/nextjs` が�
 
 既存の API の形 (body で購読を包まない等) がファクトリと合わず、クライアントへの影響を避けたい場合に限り、ファクトリを使わずに検証だけ `validatePushSubscription` に揃えてよい。
 
-### next.config.ts の transpilePackages 標準設定
+### next.config.ts の transpilePackages
 
-全 web サービスの `next.config.ts` で共通して指定すべきベースリスト:
-
-- `@nagiyu/ui`
-- `@nagiyu/browser`
-- `@nagiyu/common`
-- `@nagiyu/nextjs`
-
-サービス固有の追加パッケージ（必要に応じて追加）: `@nagiyu/aws`, `@nagiyu/react`, `@nagiyu/{service}-core` など
+`configs/next.config.base.ts` の `createNextConfig` が、サービスの package.json の dependencies / devDependencies のうち `@nagiyu/` で始まるものから `transpilePackages` を導く。サービス側で手書きしない。共通 lib を使うには package.json に依存を足せばよい。
 
 ## libs/browser/
 

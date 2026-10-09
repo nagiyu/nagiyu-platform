@@ -4,7 +4,7 @@
     "paths": {
       "@/*": ["./src/*"]
     },
-    "rootDir": "."
+    "rootDir": "../../.."
   },
   "exclude": ["node_modules", "playwright.config.ts", "tests/**/*"],
   "references": [

@@ -1388,6 +1388,21 @@ Docker・CI・DevContainer・`package.json` の `engines.node` を含む全環�
 
 #### MUST: next.config.ts を作成
 
+`configs/next.config.base.ts` の `createNextConfig` を使い、サービス側には固有の設定だけを書く。
+
+```typescript
+// services/*/web/next.config.ts
+import { createNextConfig } from '../../../configs/next.config.base';
+
+export default createNextConfig(__dirname, {
+  // redirects / headers など、そのサービス固有の設定のみ
+});
+```
+
+`output` / `outputFileTracingRoot` / `transpilePackages` は共通の土台が決める。サービス側で書き直さない。
+
+**理由**: 設定をサービスごとに書き写すと、トレースの起点を誤る (standalone の配置が変わる)、依存の増減に `transpilePackages` が追従しない、といった食い違いが静かに生まれる。
+
 #### MUST: jest.config.ts を作成
 
 #### MUST: playwright.config.ts を作成

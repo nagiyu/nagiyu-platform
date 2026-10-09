@@ -544,7 +544,7 @@ services/{service}/
     - [ ] `public/` ディレクトリ作成
     - [ ] `package.json` 作成（`{service-name}-web`）
     - [ ] `tsconfig.json` 作成（references 設定）
-    - [ ] `next.config.ts` 作成
+    - [ ] `next.config.ts` 作成 (`configs/next.config.base.ts` の `createNextConfig` を使い、固有の設定だけ書く)
     - [ ] `playwright.config.ts` 作成
     - [ ] `eslint.config.mjs` 作成
 
