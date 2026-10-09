@@ -1,6 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import { hasPermission } from '@nagiyu/common';
+import type { Permission } from '@nagiyu/common';
 import {
   AppBar,
   Toolbar,
@@ -47,9 +50,10 @@ export interface NavigationItem {
   children?: NavigationItem[];
 
   /**
-   * 必要な権限（オプション）
+   * 必要な権限（オプション）。
+   * 指定すると、Header の roles がこの権限を満たすときだけ表示される。
    */
-  requiredPermission?: string;
+  requiredPermission?: Permission;
 }
 
 export interface HeaderProps {
@@ -73,6 +77,20 @@ export interface HeaderProps {
    * ナビゲーションメニュー項目
    */
   navigationItems?: NavigationItem[];
+
+  /**
+   * ユーザーのロール ID の配列。
+   * requiredPermission を持つナビゲーション項目の表示可否の判定に使う。
+   * 未指定の場合は権限なしとして扱い、requiredPermission を持つ項目は表示しない。
+   */
+  roles?: string[];
+
+  /**
+   * ツールバー右側、アカウントメニュー（またはログアウトボタン）の手前に描画する要素。
+   * 招待数のバッジなど、サービス固有の要素を差し込むために使う。
+   * モバイルでも表示される。
+   */
+  actions?: ReactNode;
 
   /**
    * ユーザー情報。指定するとアバターがアカウントメニューのトリガーになる。
@@ -107,6 +125,27 @@ export interface HeaderProps {
    * @default "退会・データ削除"
    */
   deleteAccountLabel?: string;
+}
+
+/**
+ * roles で表示可能なナビゲーション項目だけに絞り込む。
+ *
+ * 子をすべて絞り込まれた親項目を残すと、開いても空のメニューになるため親ごと除く。
+ * 元から子が空配列の項目は、利用側の意図を尊重してそのまま残す。
+ */
+function filterNavigationItems(items: NavigationItem[], roles: string[]): NavigationItem[] {
+  return items.flatMap((item) => {
+    if (item.requiredPermission && !hasPermission(roles, item.requiredPermission)) {
+      return [];
+    }
+
+    if (!item.children || item.children.length === 0) {
+      return [item];
+    }
+
+    const children = filterNavigationItems(item.children, roles);
+    return children.length > 0 ? [{ ...item, children }] : [];
+  });
 }
 
 /**
@@ -306,12 +345,19 @@ export default function Header({
   href = '/',
   ariaLabel,
   navigationItems,
+  roles,
+  actions,
   user,
   onLogout,
   logoutLabel = 'ログアウト',
   onDeleteAccount,
   deleteAccountLabel = '退会・データ削除',
 }: HeaderProps) {
+  const visibleItems = useMemo(
+    () => filterNavigationItems(navigationItems ?? [], roles ?? []),
+    [navigationItems, roles]
+  );
+  const hasNavigation = visibleItems.length > 0;
   const defaultAriaLabel = `${title} - Navigate to homepage`;
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -327,7 +373,7 @@ export default function Header({
           }}
         >
           {/* モバイル: ハンバーガーメニュー */}
-          {navigationItems && navigationItems.length > 0 && (
+          {hasNavigation && (
             <IconButton
               edge="start"
               color="inherit"
@@ -357,9 +403,9 @@ export default function Header({
           </Typography>
 
           {/* デスクトップ: 横並びメニュー */}
-          {navigationItems && navigationItems.length > 0 && (
+          {hasNavigation && (
             <Box sx={{ display: { xs: 'none', md: 'flex' }, ml: 4 }}>
-              {navigationItems.map((item) => (
+              {visibleItems.map((item) => (
                 <NavigationMenuItem key={item.label} item={item} />
               ))}
             </Box>
@@ -369,6 +415,8 @@ export default function Header({
               デスクトップは元々ナビ領域が伸びて右寄せだったが、モバイルはナビが
               Drawer に隠れて右寄せにならなかった。常設スペーサーで両表示を統一する。 */}
           <Box sx={{ flexGrow: 1 }} />
+
+          {actions}
 
           {/* ユーザー指定あり: アバターをトリガーにしたアカウントメニュー */}
           {user ? (
@@ -391,7 +439,7 @@ export default function Header({
       </AppBar>
 
       {/* モバイル: Drawer */}
-      {navigationItems && navigationItems.length > 0 && (
+      {hasNavigation && (
         <Drawer
           anchor="left"
           open={drawerOpen}
@@ -413,7 +461,7 @@ export default function Header({
             }}
           >
             <List>
-              {navigationItems.map((item) => (
+              {visibleItems.map((item) => (
                 <NavigationDrawerItem key={item.label} item={item} onClose={handleDrawerClose} />
               ))}
             </List>

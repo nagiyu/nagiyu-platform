@@ -31,6 +31,32 @@ export function hasPermission(roles: string[], permission: Permission): boolean 
 }
 
 /**
+ * Check if a session user has a specific permission
+ *
+ * session.user.roles は next-auth の型拡張に依存せず、未ログイン・roles 未設定・
+ * 想定外の型のいずれでも例外にせず false を返したいので、unknown として受けて検証する。
+ *
+ * @param user - Session user (null/undefined when not signed in)
+ * @param permission - Required permission in the format {resource}:{action}
+ * @returns true if the user has an array of roles that grants the permission, false otherwise
+ *
+ * @example
+ * ```typescript
+ * const canChat = hasUserPermission(session?.user, 'livetalk:chat');
+ * ```
+ */
+export function hasUserPermission(
+  user: { roles?: unknown } | null | undefined,
+  permission: Permission
+): boolean {
+  if (!user || !Array.isArray(user.roles)) {
+    return false;
+  }
+
+  return hasPermission(user.roles, permission);
+}
+
+/**
  * Require a specific permission, throwing an error if not granted
  *
  * @param roles - Array of role IDs assigned to the user
