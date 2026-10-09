@@ -854,10 +854,7 @@ it('should calculate total', () => {
 
 ```yaml
 - name: Build shared libraries
-  run: |
-    npm run build --workspace @nagiyu/common
-    npm run build --workspace @nagiyu/browser
-    npm run build --workspace @nagiyu/ui
+  run: npm run build:libs
 
 - name: Build Next.js application
   run: npm run build --workspace <service-name>
@@ -1105,18 +1102,15 @@ concurrency:
 ```yaml
 # ✅ OK
 - name: Build shared libraries
-  run: |
-    npm run build --workspace @nagiyu/common
-    npm run build --workspace @nagiyu/browser
-    npm run build --workspace @nagiyu/ui
+  run: npm run build:libs
 
 # ❌ NG: 並列実行のため依存関係が保証されない
 - run: npm run build --workspaces
 ```
 
-#### MUST: 依存関係順にビルド (common → browser → ui)
+#### MUST: 依存関係順にビルド (libs は `npm run build:libs` を使う)
 
-#### MUST: npm run build --workspace @nagiyu/common のように個別ビルド
+#### MUST: libs 以外は npm run build --workspace @nagiyu/hoge のように個別ビルド
 
 #### MUST NOT: npm run build --workspaces を使用しない (並列実行のため)
 
@@ -1371,7 +1365,7 @@ Docker・CI・DevContainer・`package.json` の `engines.node` を含む全環�
 {
   "scripts": {
     "dev": "next dev",
-    "build": "next build --webpack",
+    "build": "next build",
     "lint": "eslint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

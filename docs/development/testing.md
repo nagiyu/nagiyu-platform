@@ -306,10 +306,7 @@ on:
 4. **ビルド順序の考慮**: 依存関係に従って順序を守る
     ```yaml
     - name: Build shared libraries
-        run: |
-            npm run build --workspace @nagiyu/common
-            npm run build --workspace @nagiyu/browser
-            npm run build --workspace @nagiyu/ui
+        run: npm run build:libs
 
     - name: Build application
         run: npm run build --workspace @nagiyu/hoge
