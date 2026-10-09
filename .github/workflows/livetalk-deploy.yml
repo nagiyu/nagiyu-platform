@@ -12,6 +12,7 @@ on:
       - 'infra/common/**'
       - 'infra/tsconfig.json'
       - 'libs/**'
+      - 'configs/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/livetalk-deploy.yml'
@@ -134,7 +135,7 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/livetalk-web'
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/aws,@nagiyu/livetalk-core'
+          shared-workspaces: '@nagiyu/livetalk-core'
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

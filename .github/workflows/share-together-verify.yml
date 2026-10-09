@@ -86,9 +86,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        uses: ./.github/actions/build-shared-workspaces
-        with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/aws'
+        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/share-together-core
@@ -106,7 +104,7 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/share-together-web'
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/aws,@nagiyu/share-together-core'
+          shared-workspaces: '@nagiyu/share-together-core'
 
   docker-build:
     name: Docker Build Web
@@ -157,9 +155,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        uses: ./.github/actions/build-shared-workspaces
-        with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/aws'
+        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/share-together-core
@@ -183,9 +179,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        uses: ./.github/actions/build-shared-workspaces
-        with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/aws'
+        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/share-together-core
@@ -210,9 +204,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        uses: ./.github/actions/build-shared-workspaces
-        with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/aws'
+        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/share-together-core
@@ -240,9 +232,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        uses: ./.github/actions/build-shared-workspaces
-        with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/aws'
+        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/share-together-core
@@ -313,9 +303,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        uses: ./.github/actions/build-shared-workspaces
-        with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/aws'
+        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/share-together-core
@@ -386,9 +374,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        uses: ./.github/actions/build-shared-workspaces
-        with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/aws'
+        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/share-together-core

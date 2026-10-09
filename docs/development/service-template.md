@@ -132,7 +132,7 @@ services/{service-name}/
     "private": true,
     "scripts": {
         "dev": "next dev",
-        "build": "next build --webpack",
+        "build": "next build",
         "start": "next start",
         "lint": "eslint",
         "format": "prettier --write .",
@@ -380,37 +380,25 @@ services/{service}/batch/
 
 **順序**:
 
-1. **共通ライブラリ（依存なし）**
+1. **共通ライブラリ（全 libs を依存順にビルド）**
 
     ```bash
-    npm run build --workspace @nagiyu/common
+    npm run build:libs
     ```
 
-2. **ブラウザライブラリ（common に依存）**
-
-    ```bash
-    npm run build --workspace @nagiyu/browser
-    ```
-
-3. **UI ライブラリ（browser に依存）**
-
-    ```bash
-    npm run build --workspace @nagiyu/ui
-    ```
-
-4. **サービス core（common に依存）**
+2. **サービス core（common に依存）**
 
     ```bash
     npm run build --workspace {service-name}-core
     ```
 
-5. **サービス batch（core に依存）**
+3. **サービス batch（core に依存）**
 
     ```bash
     npm run build --workspace {service-name}-batch
     ```
 
-6. **サービス web（Next.js ビルド、任意）**
+4. **サービス web（Next.js ビルド、任意）**
     ```bash
     npm run build --workspace {service-name}-web
     ```
@@ -418,7 +406,8 @@ services/{service}/batch/
 **重要な注意点**:
 
 - 並列ビルド（`npm run build --workspaces`）は禁止（依存関係の順序が保証されない）
-- 順次ビルドを実施（`&&` で連結）
+- libs は `npm run build:libs` を使う。複数の `--workspace` を指定した `npm run` は指定順に 1 つずつ実行するため、並びがそのままビルド順になる
+- libs 以外は 1 パッケージずつ順次ビルドする（`&&` で連結）
 
 詳細は [monorepo-structure.md](./monorepo-structure.md) の「ビルド戦略」セクションを参照。
 

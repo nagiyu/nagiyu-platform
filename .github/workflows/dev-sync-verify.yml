@@ -80,9 +80,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
+        run: npm run build:libs
 
       - name: Run Batch tests
         run: npm run test --workspace @nagiyu/dev-sync-batch
@@ -104,9 +102,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
+        run: npm run build:libs
 
       - name: Run Batch tests with coverage
         run: npm run test:coverage --workspace @nagiyu/dev-sync-batch

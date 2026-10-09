@@ -658,15 +658,12 @@ DynamoDB・S3・Batch・Lambda を含むすべての AWS クライアントの�
 **モノレポ全体をビルドする場合:**
 
 ```bash
-npm run build --workspace @nagiyu/common
-npm run build --workspace @nagiyu/aws
-npm run build --workspace @nagiyu/react
-npm run build --workspace @nagiyu/browser
-npm run build --workspace @nagiyu/nextjs
-npm run build --workspace @nagiyu/ui
+npm run build:libs
 ```
 
-**重要**: `npm run build --workspaces` は並列実行されるため、依存関係の順序が保証されず、ビルドエラーが発生する可能性があります。
+`build:libs`（ルートの `package.json`）は、依存を満たす順に `--workspace` を並べて 1 つずつ実行する。npm は複数の `--workspace` を指定順に実行するため、並びがそのままビルド順になる。lib を追加したり依存を変えたりしたら、この並びを直す。
+
+**重要**: `npm run build --workspaces` は依存関係ではなくワークスペースの定義順で実行するため、ビルドエラーが発生する可能性があります。
 
 ### CI/CDでのビルド
 
@@ -674,13 +671,7 @@ GitHub Actions などの CI/CD 環境でも、同じ順序でビルドを実行�
 
 ```yaml
 - name: Build shared libraries
-    run: |
-        npm run build --workspace @nagiyu/common
-        npm run build --workspace @nagiyu/aws
-        npm run build --workspace @nagiyu/react
-        npm run build --workspace @nagiyu/browser
-        npm run build --workspace @nagiyu/nextjs
-        npm run build --workspace @nagiyu/ui
+    run: npm run build:libs
 ```
 
 詳細は [testing.md](./testing.md) の「GitHub Actions ワークフロー設計パターン」を参照してください。
