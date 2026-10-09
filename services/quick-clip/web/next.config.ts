@@ -5,7 +5,13 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   outputFileTracingRoot: path.join(__dirname, '../../../'),
   turbopack: {},
-  transpilePackages: ['@nagiyu/ui', '@nagiyu/nextjs', '@nagiyu/quick-clip-core'],
+  transpilePackages: [
+    '@nagiyu/ui',
+    '@nagiyu/browser',
+    '@nagiyu/common',
+    '@nagiyu/nextjs',
+    '@nagiyu/quick-clip-core',
+  ],
 };
 
 export default nextConfig;
