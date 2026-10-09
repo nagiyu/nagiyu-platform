@@ -232,7 +232,6 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
     const response = await PATCH(request, {
       params: Promise.resolve({ jobId: 'job-1', highlightId: 'h1' }),
     });
-    const body = await response.json();
 
     expect(response.status).toBe(200);
     expect(mockUpdate).toHaveBeenCalledWith(
