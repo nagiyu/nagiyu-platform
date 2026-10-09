@@ -79,7 +79,7 @@
 
 `Header` は `navigationItems: NavigationItem[]` プロパティを受け取り、デスクトップでは横並びメニュー、モバイルではハンバーガー Drawer に切り替える。サービスは独自 `Navigation` コンポーネントを実装せず、ナビ項目を `Header` に渡す。
 
-- **権限による出し分けは `Header` が行う**: 項目に `requiredPermission` を付け、`Header` にユーザーのロール (`roles`) を渡すと、権限を満たさない項目は表示されない。子をすべて除かれた親項目も表示しない。セッションからロールを取り出して項目を組み立てる処理が各サービスに重複していたため、判定を共通側に寄せた。サービスは項目を静的に宣言するだけでよい。
+- **権限による出し分けは `Header` が行う**: 項目に `requiredPermission` を付け、`Header` にユーザーのロール (`roles`) を渡すと、権限を満たさない項目は表示されない。子をすべて除かれた親項目も表示しない。サービスは項目を静的に宣言し、権限の判定を自前で書かない。
 - `roles` 未指定は「権限なし」として扱う。読み込み中や未ログインで、権限の要る項目が一瞬見えることを防ぐため。
 - **バッジなどのカスタム要素は `actions` スロットに置く**: `NavigationItem` の `label: string` では表せない要素 (share-together の招待件数バッジ等) は、ツールバー右側の `actions` に渡す。`Header` を作り直したり、`headerSlot` で丸ごと置き換えたりしない。`actions` はモバイルでも Drawer に隠さずツールバーに残す。通知のように常に目に入るべき要素を想定しているため。
 
@@ -93,7 +93,7 @@
 
 #### ログインのあるサービスは `SessionHeader` を使う
 
-`SessionHeader` は、next-auth のセッションから `Header` の `user` / `roles` / `onLogout` を組み立てる。ログインのあるサービスは、ルートレイアウトで `SessionProviderWrapper` の内側に置き、`ServiceLayout` の `headerSlot` に渡す。セッションからヘッダーを組み立てる処理とサインアウトの遷移が各サービスに重複し、サービスによってユーザー表示の有無もばらついていたため、共通化してすべてのログインのあるサービスで揃えた。
+`SessionHeader` は、next-auth のセッションから `Header` の `user` / `roles` / `onLogout` を組み立てる。ログインのあるサービスは、ルートレイアウトで `SessionProviderWrapper` の内側に置き、`ServiceLayout` の `headerSlot` に渡す。ユーザー表示とサインアウトはすべてのログインのあるサービスでこの部品から提供し、セッションからヘッダーを組み立てる処理を各サービスで書かない。
 
 - `Header` 自体は next-auth に依存させない。セッションを持たないサービスでも、`roles` や `actions` を含めてそのまま使えるようにするため。
 - クライアントの `useSession()` は自サービスの `/api/auth/session` を取得する。サービスには NextAuth の route を置き、GET だけを公開する (サインアウトは auth サービスに集約しているため、POST は受けない)。
