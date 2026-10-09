@@ -12,6 +12,7 @@ const config: Config = {
   moduleNameMapper: {
     '\\.module\\.css$': 'identity-obj-proxy',
     '^@/(.*)$': '<rootDir>/src/$1',
+    '^@nagiyu/ui/session-provider$': '<rootDir>/../../../libs/ui/src/session-provider.ts',
     '^@nagiyu/ui$': '<rootDir>/../../../libs/ui/src/index.ts',
     '^@nagiyu/browser$': '<rootDir>/../../../libs/browser/src/index.ts',
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
@@ -25,6 +26,8 @@ const config: Config = {
   modulePathIgnorePatterns: ['<rootDir>/../../../package.json', '<rootDir>/.next/'],
   coverageDirectory: 'coverage',
   collectCoverageFrom: [
+    'src/app/layout.tsx',
+    'src/app/api/auth/[...nextauth]/route.ts',
     'src/components/HomePageClient.tsx',
     'src/components/NiconicoSessionManager.tsx',
     'src/components/VideoSearchModal.tsx',

@@ -1,13 +1,12 @@
 import '@testing-library/jest-dom';
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import RootLayout, { dynamic, metadata } from '@/app/layout';
+import RootLayout, { dynamic } from '@/app/layout';
 
 const mockSessionHeader = jest.fn();
 
 jest.mock('@nagiyu/ui', () => ({
   __esModule: true,
-  ...jest.requireActual('@nagiyu/ui'),
   ServiceLayout: ({
     children,
     headerSlot,
@@ -18,13 +17,11 @@ jest.mock('@nagiyu/ui', () => ({
     footerProps?: { version?: string };
   }) => (
     <div>
-      <div>ServiceLayout</div>
       {headerSlot}
       {children}
       <div>{footerProps?.version}</div>
     </div>
   ),
-  ServiceWorkerRegistration: () => <div>ServiceWorkerRegistration</div>,
 }));
 
 jest.mock('@nagiyu/ui/session-provider', () => ({
@@ -38,22 +35,9 @@ jest.mock('@nagiyu/ui/session-provider', () => ({
   },
 }));
 
-jest.mock('@/components/InvitationBadge', () => ({
-  InvitationBadge: () => <div>InvitationBadge</div>,
-}));
-
-jest.mock('@/components/UserRegistrationInitializer', () => ({
-  __esModule: true,
-  default: () => <div>UserRegistrationInitializer</div>,
-}));
-
-jest.mock('@/components/LastVisitedPathController', () => ({
-  __esModule: true,
-  default: () => <div>LastVisitedPathController</div>,
-}));
-
 describe('RootLayout', () => {
   const originalAuthUrl = process.env.NEXT_PUBLIC_AUTH_URL;
+  const originalAppVersion = process.env.APP_VERSION;
 
   beforeEach(() => {
     mockSessionHeader.mockClear();
@@ -65,31 +49,19 @@ describe('RootLayout', () => {
     } else {
       process.env.NEXT_PUBLIC_AUTH_URL = originalAuthUrl;
     }
-  });
-
-  it('manifest.json をメタデータに設定する', () => {
-    expect(metadata.manifest).toBe('/manifest.json');
+    if (originalAppVersion === undefined) {
+      delete process.env.APP_VERSION;
+    } else {
+      process.env.APP_VERSION = originalAppVersion;
+    }
   });
 
   it('ランタイム env を読むため動的レンダリングを強制する', () => {
     expect(dynamic).toBe('force-dynamic');
   });
 
-  it('ServiceWorkerRegistration・UserRegistrationInitializer と子要素を描画する', () => {
-    const html = renderToStaticMarkup(
-      <RootLayout>
-        <div>RootLayout Child</div>
-      </RootLayout>
-    );
-
-    expect(html).toContain('ServiceWorkerRegistration');
-    expect(html).toContain('UserRegistrationInitializer');
-    expect(html).toContain('LastVisitedPathController');
-    expect(html).toContain('RootLayout Child');
-    expect(html).toContain('1.0.0');
-  });
-
-  it('ヘッダーを SessionProvider の内側に描画する', () => {
+  it('ヘッダーを SessionProvider の内側に描画し、子要素とバージョンも描画する', () => {
+    process.env.APP_VERSION = '9.9.9';
     const html = renderToStaticMarkup(
       <RootLayout>
         <div>RootLayout Child</div>
@@ -97,9 +69,11 @@ describe('RootLayout', () => {
     );
 
     expect(html).toMatch(/data-testid="session-provider">.*SessionHeader/);
+    expect(html).toContain('RootLayout Child');
+    expect(html).toContain('9.9.9');
   });
 
-  it('SessionHeader にタイトル・ナビ・招待バッジ・authUrl を渡す', () => {
+  it('SessionHeader にタイトル・ariaLabel・authUrl を渡す', () => {
     process.env.NEXT_PUBLIC_AUTH_URL = 'https://auth.example.com';
 
     renderToStaticMarkup(
@@ -109,15 +83,11 @@ describe('RootLayout', () => {
     );
 
     expect(mockSessionHeader).toHaveBeenCalledTimes(1);
-    const props = mockSessionHeader.mock.calls[0][0];
-    expect(props.title).toBe('Share Together');
-    expect(props.ariaLabel).toBe('Share Together ホームページに戻る');
-    expect(props.navigationItems).toEqual([
-      { label: 'リスト', href: '/lists' },
-      { label: 'グループ', href: '/groups' },
-    ]);
-    expect(renderToStaticMarkup(props.actions)).toContain('InvitationBadge');
-    expect(props.authUrl).toBe('https://auth.example.com');
+    expect(mockSessionHeader.mock.calls[0][0]).toEqual({
+      title: 'Admin',
+      ariaLabel: 'Admin ホームページに戻る',
+      authUrl: 'https://auth.example.com',
+    });
   });
 
   it('NEXT_PUBLIC_AUTH_URL が未設定のとき authUrl は空文字になる', () => {
