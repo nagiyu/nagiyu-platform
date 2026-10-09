@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { ErrorAlert, LoadingState } from '@nagiyu/ui';
 import { useSession } from 'next-auth/react';
-import { hasPermission } from '@nagiyu/common';
+import { hasUserPermission } from '@nagiyu/common';
 import AxisTable from '../../components/axis-performance/AxisTable';
 import CalibrationSection from '../../components/axis-performance/CalibrationSection';
 import {
@@ -45,11 +45,7 @@ function AxisPerformanceContent() {
   const [period, setPeriod] = useState<AxisPerformancePeriod>(DEFAULT_PERIOD);
   const [market, setMarket] = useState<AxisPerformanceMarket>(DEFAULT_MARKET);
 
-  const hasReadPermission =
-    !!session?.user &&
-    'roles' in session.user &&
-    Array.isArray(session.user.roles) &&
-    hasPermission(session.user.roles, 'stocks:read');
+  const hasReadPermission = hasUserPermission(session?.user, 'stocks:read');
 
   const performance = useAxisPerformance(question, period, market, hasReadPermission);
 
