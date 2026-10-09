@@ -14,7 +14,7 @@
     "paths": {
       "@/*": ["./*"]
     },
-    "rootDir": "."
+    "rootDir": "../../.."
   },
   "include": [
     "next-env.d.ts",
