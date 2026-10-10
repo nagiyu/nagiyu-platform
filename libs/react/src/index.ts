@@ -16,6 +16,10 @@ export type {
   UseEnterSubmitOptions,
 } from './hooks';
 
+// Export React components
+export { ServiceWorkerRegistration } from './components';
+export type { ServiceWorkerRegistrationProps } from './components';
+
 // Export API Client
 export { ApiClient, APIError } from './api-client';
 export type { APIRequestOptions, RetryConfig, ErrorInfo } from './api-client';

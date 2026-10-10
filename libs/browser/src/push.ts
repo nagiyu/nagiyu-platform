@@ -20,7 +20,30 @@ export const PUSH_ERROR_MESSAGES = {
   VAPID_KEY_FETCH_FAILED: 'VAPID公開鍵の取得に失敗しました',
   VAPID_KEY_EMPTY: 'VAPID公開鍵が空です',
   SUBSCRIPTION_REGISTER_FAILED: 'サブスクリプションの登録に失敗しました',
+  SERVICE_WORKER_UNSUPPORTED: 'このブラウザは Service Worker に対応していません',
 } as const;
+
+const DEFAULT_VAPID_PUBLIC_KEY_ENDPOINT = '/api/push/vapid-public-key';
+const DEFAULT_SUBSCRIBE_ENDPOINT = '/api/push/subscribe';
+const DEFAULT_SW_PATH = '/sw.js';
+
+/**
+ * Push 購読まわりの手続きで共通に受け取る設定。
+ * サービスごとに API パスや Service Worker のパスが異なるため、すべて差し替え可能にしている。
+ */
+export interface PushEndpointOptions {
+  /** VAPID 公開鍵を返す API の URL（既定: `/api/push/vapid-public-key`） */
+  vapidPublicKeyEndpoint?: string;
+  /** 購読情報の送信先 URL（既定: `/api/push/subscribe`） */
+  subscribeEndpoint?: string;
+  /**
+   * 送信 body の形。`wrapped` は `{ subscription: ... }` で包み、`raw` は `toJSON()` をそのまま送る。
+   * サーバー側 API の期待する形に合わせる（既定: `wrapped`）。
+   */
+  bodyShape?: 'wrapped' | 'raw';
+  /** Service Worker のスクリプトパス（既定: `/sw.js`） */
+  swPath?: string;
+}
 
 /**
  * ブラウザが Web Push の購読フローを実行できるかを判定する。
@@ -48,20 +71,31 @@ export interface PostPushSubscriptionOptions {
 }
 
 /**
+ * 購読情報を POST し、レスポンスをそのまま返す。
+ * 未ログイン (401) を失敗として扱うかどうかを呼び出し側が決められるよう、ok 判定は行わない。
+ */
+async function sendPushSubscription(
+  subscription: PushSubscription,
+  { endpoint = DEFAULT_SUBSCRIBE_ENDPOINT, bodyShape = 'wrapped' }: PostPushSubscriptionOptions = {}
+): Promise<Response> {
+  const json = subscription.toJSON();
+  return fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(bodyShape === 'raw' ? json : { subscription: json }),
+  });
+}
+
+/**
  * 購読情報をサーバーへ POST する。
  *
  * @throws レスポンスが ok でない場合
  */
 export async function postPushSubscription(
   subscription: PushSubscription,
-  { endpoint = '/api/push/subscribe', bodyShape = 'wrapped' }: PostPushSubscriptionOptions = {}
+  options: PostPushSubscriptionOptions = {}
 ): Promise<void> {
-  const json = subscription.toJSON();
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(bodyShape === 'raw' ? json : { subscription: json }),
-  });
+  const response = await sendPushSubscription(subscription, options);
   if (!response.ok) {
     throw new Error(PUSH_ERROR_MESSAGES.SUBSCRIPTION_REGISTER_FAILED);
   }
@@ -75,7 +109,7 @@ export async function postPushSubscription(
  * @throws 取得失敗時または空のキーを受け取った時
  */
 export async function fetchVapidPublicKey(
-  endpoint: string = '/api/push/vapid-public-key'
+  endpoint: string = DEFAULT_VAPID_PUBLIC_KEY_ENDPOINT
 ): Promise<string> {
   const response = await fetch(endpoint);
   if (!response.ok) {
@@ -88,16 +122,18 @@ export async function fetchVapidPublicKey(
   return publicKey;
 }
 
-export interface SubscribePushOptions {
+export interface SubscribePushOptions extends PushEndpointOptions {
   /**
    * VAPID 公開鍵（base64url 形式）。
-   * 文字列で事前取得済みのキーを渡すか、関数で遅延取得する。
-   * 取得 API は呼び出し側責務。関数形式の場合は許可チェック後に実行される。
+   * 文字列で事前取得済みのキーを渡すか、関数で遅延取得する。関数形式の場合は許可チェック後に実行される。
+   * 省略時は `vapidPublicKeyEndpoint` から取得する。
    */
-  vapidPublicKey: string | (() => Promise<string>);
-  /** Service Worker のスクリプトパス（既定: /sw.js） */
-  swPath?: string;
-  /** 購読完了後に呼ばれるコールバック。サーバへの POST 送信などに利用。 */
+  vapidPublicKey?: string | (() => Promise<string>);
+  /**
+   * 購読完了後に呼ばれるコールバック。
+   * 省略時は `subscribeEndpoint` / `bodyShape` に従って購読情報をサーバーへ送信する。
+   * 渡した場合は既定の送信の代わりに呼ばれる（二重送信しない）。
+   */
   onSubscribed?: (subscription: PushSubscription) => Promise<void> | void;
 }
 
@@ -109,13 +145,16 @@ export interface SubscribePushOptions {
  * 2. 通知許可をリクエスト
  * 3. Service Worker の登録（既存があれば再利用）
  * 4. 既存 subscription の確認、なければ `pushManager.subscribe()` で新規作成
- * 5. `onSubscribed` コールバックがあれば呼び出し
+ * 5. `onSubscribed` があれば呼び出し、なければ購読情報をサーバーへ送信
  */
 export async function subscribePush({
   vapidPublicKey,
-  swPath = '/sw.js',
+  vapidPublicKeyEndpoint,
+  subscribeEndpoint,
+  bodyShape,
+  swPath = DEFAULT_SW_PATH,
   onSubscribed,
-}: SubscribePushOptions): Promise<PushSubscription> {
+}: SubscribePushOptions = {}): Promise<PushSubscription> {
   if (!isPushSupported()) {
     throw new Error(PUSH_ERROR_MESSAGES.UNSUPPORTED);
   }
@@ -132,14 +171,129 @@ export async function subscribePush({
 
   let subscription = await registration.pushManager.getSubscription();
   if (!subscription) {
-    const resolvedKey =
-      typeof vapidPublicKey === 'function' ? await vapidPublicKey() : vapidPublicKey;
-    subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(resolvedKey) as BufferSource,
-    });
+    const resolvedKey = await resolveVapidPublicKey(vapidPublicKey, vapidPublicKeyEndpoint);
+    subscription = await createPushSubscription(registration, resolvedKey);
   }
 
-  await onSubscribed?.(subscription);
+  if (onSubscribed) {
+    await onSubscribed(subscription);
+  } else {
+    await postPushSubscription(subscription, { endpoint: subscribeEndpoint, bodyShape });
+  }
   return subscription;
+}
+
+async function resolveVapidPublicKey(
+  vapidPublicKey: SubscribePushOptions['vapidPublicKey'],
+  vapidPublicKeyEndpoint: string | undefined
+): Promise<string> {
+  if (typeof vapidPublicKey === 'function') {
+    return vapidPublicKey();
+  }
+  return vapidPublicKey ?? fetchVapidPublicKey(vapidPublicKeyEndpoint);
+}
+
+function createPushSubscription(
+  registration: ServiceWorkerRegistration,
+  vapidPublicKey: string
+): Promise<PushSubscription> {
+  return registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
+  });
+}
+
+/**
+ * Service Worker を登録し、更新確認を走らせて registration を返す。
+ *
+ * 更新確認はオフラインなどで失敗しうるが、登録自体の成否とは無関係なので握りつぶす。
+ * 待たずに返すのは、ネットワーク待ちで後続の購読処理を遅らせないため。
+ *
+ * @throws Service Worker 非対応、または登録に失敗した場合
+ */
+export async function registerServiceWorker(
+  swPath: string = DEFAULT_SW_PATH
+): Promise<ServiceWorkerRegistration> {
+  if (typeof navigator === 'undefined' || !navigator.serviceWorker) {
+    throw new Error(PUSH_ERROR_MESSAGES.SERVICE_WORKER_UNSUPPORTED);
+  }
+  const registration = await navigator.serviceWorker.register(swPath);
+  try {
+    registration.update().catch(() => undefined);
+  } catch {
+    // update() の同期的な失敗も登録の成否には影響させない
+  }
+  return registration;
+}
+
+/**
+ * 既存の Push 購読を取得する。Service Worker・PushManager 非対応または未登録なら `null`。
+ *
+ * `navigator.serviceWorker.ready` は未登録だと永久に解決しないため使わず、`getRegistration()` で判定する。
+ * Service Worker はあっても PushManager が無いブラウザ (iOS Safari の通常タブなど) では
+ * `registration.pushManager` が存在しないため、先に弾く。
+ */
+export async function getPushSubscription(): Promise<PushSubscription | null> {
+  if (
+    typeof navigator === 'undefined' ||
+    !navigator.serviceWorker ||
+    typeof window === 'undefined' ||
+    !('PushManager' in window)
+  ) {
+    return null;
+  }
+  const registration = await navigator.serviceWorker.getRegistration();
+  if (!registration) {
+    return null;
+  }
+  return registration.pushManager.getSubscription();
+}
+
+/**
+ * 既存の Push 購読を解除する。サーバーへの通知は行わない。非対応・未購読なら何もしない。
+ */
+export async function unsubscribePush(): Promise<void> {
+  const subscription = await getPushSubscription();
+  if (subscription) {
+    await subscription.unsubscribe();
+  }
+}
+
+/**
+ * 通知を許可済みのユーザーについて、購読の存在を保証してサーバーへ送り直す。
+ * layout から毎回呼ばれる想定で、許可ダイアログは出さない。
+ *
+ * 送信先が 401 を返した場合は未ログインとみなし、例外にせず静かに終える。
+ * それ以外の失敗は例外として投げる（ログ出力は呼び出し側の責務）。
+ */
+export async function refreshPushSubscription({
+  vapidPublicKeyEndpoint,
+  subscribeEndpoint,
+  bodyShape,
+  swPath = DEFAULT_SW_PATH,
+}: PushEndpointOptions = {}): Promise<void> {
+  if (!isPushSupported() || window.Notification.permission !== 'granted') {
+    return;
+  }
+
+  let registration = await navigator.serviceWorker.getRegistration();
+  if (!registration) {
+    registration = await navigator.serviceWorker.register(swPath);
+  }
+  // 登録直後は Service Worker が active でなく、pushManager.subscribe が失敗するため有効化を待つ
+  await navigator.serviceWorker.ready;
+
+  let subscription = await registration.pushManager.getSubscription();
+  if (!subscription) {
+    const vapidPublicKey = await fetchVapidPublicKey(vapidPublicKeyEndpoint);
+    subscription = await createPushSubscription(registration, vapidPublicKey);
+  }
+
+  const response = await sendPushSubscription(subscription, {
+    endpoint: subscribeEndpoint,
+    bodyShape,
+  });
+  if (!response.ok && response.status !== 401) {
+    throw new Error(PUSH_ERROR_MESSAGES.SUBSCRIPTION_REGISTER_FAILED);
+  }
 }

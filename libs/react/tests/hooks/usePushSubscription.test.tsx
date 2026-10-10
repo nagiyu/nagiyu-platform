@@ -86,7 +86,15 @@ const setupBrowser = (options: SetupOptions = {}) => {
   };
 };
 
+const originalFetch = global.fetch;
+
+beforeEach(() => {
+  // onSubscribed 省略時の既定の送信先を実ネットワークに向けないためのスタブ
+  global.fetch = jest.fn().mockResolvedValue({ ok: true } as Response);
+});
+
 afterEach(() => {
+  global.fetch = originalFetch;
   delete (window as unknown as { Notification?: unknown }).Notification;
   delete (window as unknown as { PushManager?: unknown }).PushManager;
 });
@@ -110,7 +118,67 @@ describe('usePushSubscription', () => {
     it('サポート対応ブラウザでは supported=true', async () => {
       setupBrowser();
       const { result } = renderHook(() => usePushSubscription({ getVapidPublicKey }));
-      expect(result.current.supported).toBe(true);
+      await waitFor(() => expect(result.current.supported).toBe(true));
+    });
+
+    it('初回レンダリングはサーバーと同じ値 (supported=false, permission=default, ready=false)', () => {
+      setupBrowser({ permission: 'granted' });
+      const seen: Array<{ supported: boolean; permission: string; ready: boolean }> = [];
+      renderHook(() => {
+        const state = usePushSubscription({ getVapidPublicKey });
+        if (seen.length === 0) {
+          seen.push({
+            supported: state.supported,
+            permission: state.permission,
+            ready: state.ready,
+          });
+        }
+        return state;
+      });
+      expect(seen[0]).toEqual({ supported: false, permission: 'default', ready: false });
+    });
+
+    it('初期判定が終わると ready=true になる', async () => {
+      setupBrowser();
+      const { result } = renderHook(() => usePushSubscription({ getVapidPublicKey }));
+      await waitFor(() => expect(result.current.ready).toBe(true));
+    });
+
+    it('未サポートブラウザでも ready=true になる', async () => {
+      setupBrowser({ hasNotification: false });
+      const { result } = renderHook(() => usePushSubscription({ getVapidPublicKey }));
+      await waitFor(() => expect(result.current.ready).toBe(true));
+      expect(result.current.supported).toBe(false);
+    });
+
+    it('既存 subscription の取得に失敗しても ready=true になる', async () => {
+      const { getRegistrationFn } = setupBrowser();
+      getRegistrationFn.mockRejectedValue(new Error('boom'));
+      const { result } = renderHook(() => usePushSubscription({ getVapidPublicKey }));
+      await waitFor(() => expect(result.current.ready).toBe(true));
+      expect(result.current.subscribed).toBe(false);
+    });
+
+    it('初期判定中にアンマウントしても状態を更新しない', async () => {
+      const { getRegistrationFn } = setupBrowser();
+      let resolveRegistration: (value: null) => void = () => {};
+      getRegistrationFn.mockReturnValue(
+        new Promise<null>((resolve) => {
+          resolveRegistration = resolve;
+        })
+      );
+      const { result, unmount } = renderHook(() => usePushSubscription({ getVapidPublicKey }));
+      unmount();
+      await act(async () => {
+        resolveRegistration(null);
+      });
+      expect(result.current.ready).toBe(false);
+    });
+
+    it('オプションを省略しても動作する', async () => {
+      setupBrowser();
+      const { result } = renderHook(() => usePushSubscription());
+      await waitFor(() => expect(result.current.supported).toBe(true));
     });
 
     it('既存 subscription があれば subscribed=true になる', async () => {
@@ -134,7 +202,7 @@ describe('usePushSubscription', () => {
     it('permission は Notification.permission を反映する', async () => {
       setupBrowser({ permission: 'denied' });
       const { result } = renderHook(() => usePushSubscription({ getVapidPublicKey }));
-      expect(result.current.permission).toBe('denied');
+      await waitFor(() => expect(result.current.permission).toBe('denied'));
     });
   });
 
@@ -163,6 +231,44 @@ describe('usePushSubscription', () => {
       });
 
       expect(onSubscribed).toHaveBeenCalledWith(created);
+    });
+
+    it('購読した PushSubscription を返す', async () => {
+      const { created } = setupBrowser({ permission: 'granted' });
+      const { result } = renderHook(() => usePushSubscription({ getVapidPublicKey }));
+
+      let returned: PushSubscription | undefined;
+      await act(async () => {
+        returned = await result.current.subscribe();
+      });
+
+      expect(returned).toBe(created);
+    });
+
+    it('getVapidPublicKey を省略すると vapidPublicKeyEndpoint から取得し、既定の送信先へ POST する', async () => {
+      const { created } = setupBrowser({ permission: 'granted' });
+      global.fetch = jest
+        .fn()
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ publicKey: 'SGVsbG8' }) })
+        .mockResolvedValueOnce({ ok: true });
+      const { result } = renderHook(() =>
+        usePushSubscription({
+          vapidPublicKeyEndpoint: '/api/notify/vapid-key',
+          subscribeEndpoint: '/api/notify/subscribe',
+          bodyShape: 'raw',
+        })
+      );
+
+      await act(async () => {
+        await result.current.subscribe();
+      });
+
+      expect(global.fetch).toHaveBeenNthCalledWith(1, '/api/notify/vapid-key');
+      expect(global.fetch).toHaveBeenNthCalledWith(2, '/api/notify/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(created.toJSON?.()),
+      });
     });
 
     it('失敗時に error が設定され throw される', async () => {
@@ -242,6 +348,22 @@ describe('usePushSubscription', () => {
       });
 
       expect(onUnsubscribed).toHaveBeenCalledTimes(1);
+    });
+
+    it('購読解除に失敗した場合は error が設定され throw される', async () => {
+      const existing: MockPushSubscription = {
+        unsubscribe: jest.fn().mockRejectedValue(new Error('unsubscribe failed')),
+      };
+      setupBrowser({ existingSubscription: existing });
+      const { result } = renderHook(() => usePushSubscription({ getVapidPublicKey }));
+      await waitFor(() => expect(result.current.subscribed).toBe(true));
+
+      await act(async () => {
+        await expect(result.current.unsubscribe()).rejects.toThrow('unsubscribe failed');
+      });
+
+      expect(result.current.error?.message).toBe('unsubscribe failed');
+      expect(result.current.subscribed).toBe(true);
     });
 
     it('未サポートブラウザでは何もせず subscribed=false', async () => {

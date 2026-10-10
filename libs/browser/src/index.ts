@@ -18,6 +18,14 @@ export {
   fetchVapidPublicKey,
   isPushSupported,
   postPushSubscription,
+  registerServiceWorker,
+  getPushSubscription,
+  refreshPushSubscription,
+  unsubscribePush,
   PUSH_ERROR_MESSAGES,
 } from './push';
-export type { SubscribePushOptions, PostPushSubscriptionOptions } from './push';
+export type {
+  SubscribePushOptions,
+  PostPushSubscriptionOptions,
+  PushEndpointOptions,
+} from './push';
