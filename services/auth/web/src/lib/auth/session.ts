@@ -1,4 +1,4 @@
-import { auth } from '@nagiyu/auth-core';
+import { auth } from '@/lib/auth/auth';
 import {
   createSessionGetter,
   createTestSessionExpires,

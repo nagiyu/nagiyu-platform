@@ -1,4 +1,6 @@
 /**
+ * @jest-environment node
+ *
  * jwt コールバックのロール再取得（TTL ゲート・強制リフレッシュ）テスト
  *
  * テスト対象:
@@ -43,7 +45,7 @@ jest.mock('next-auth/providers/google', () => ({
   default: jest.fn().mockReturnValue({}),
 }));
 
-jest.mock('../../../src/repositories/factory', () => ({
+jest.mock('@nagiyu/auth-core', () => ({
   createUserRepository: jest.fn().mockReturnValue({
     getUserByGoogleId: mockGetUserByGoogleId,
     updateLastLogin: mockUpdateLastLogin,
@@ -56,7 +58,7 @@ const TTL_MS = 5 * 60 * 1000;
 
 describe('jwt コールバック - rolesRefreshedAt', () => {
   beforeAll(async () => {
-    await import('../../../src/auth/auth');
+    await import('@/lib/auth/auth');
   });
 
   beforeEach(() => {
@@ -72,7 +74,7 @@ describe('jwt コールバック - rolesRefreshedAt', () => {
       mockGetUserByGoogleId.mockResolvedValueOnce({ userId: 'u1', roles: ['admin'] });
       mockUpdateLastLogin.mockResolvedValueOnce(undefined);
 
-      const { createUserRepository } = await import('../../../src/repositories/factory');
+      const { createUserRepository } = await import('@nagiyu/auth-core');
       (createUserRepository as jest.Mock).mockReturnValueOnce({
         getUserByGoogleId: mockGetUserByGoogleId,
         updateLastLogin: mockUpdateLastLogin,
@@ -93,7 +95,7 @@ describe('jwt コールバック - rolesRefreshedAt', () => {
       mockGetUserByGoogleId.mockResolvedValueOnce({ userId: 'u1', roles: ['admin', 'viewer'] });
       mockUpdateLastLogin.mockResolvedValueOnce(undefined);
 
-      const { createUserRepository } = await import('../../../src/repositories/factory');
+      const { createUserRepository } = await import('@nagiyu/auth-core');
       (createUserRepository as jest.Mock).mockReturnValueOnce({
         getUserByGoogleId: mockGetUserByGoogleId,
         updateLastLogin: mockUpdateLastLogin,
@@ -117,7 +119,7 @@ describe('jwt コールバック - rolesRefreshedAt', () => {
       const mockDbUser = { userId: 'u2', roles: ['manager'] };
       mockGetUserByGoogleId.mockResolvedValueOnce(mockDbUser);
 
-      const { createUserRepository } = await import('../../../src/repositories/factory');
+      const { createUserRepository } = await import('@nagiyu/auth-core');
       (createUserRepository as jest.Mock).mockReturnValueOnce({
         getUserByGoogleId: mockGetUserByGoogleId,
         updateLastLogin: mockUpdateLastLogin,
@@ -140,7 +142,7 @@ describe('jwt コールバック - rolesRefreshedAt', () => {
     it('rolesRefreshedAt が TTL 内（新しい）かつ trigger なしの場合、再取得されない', async () => {
       const recentTimestamp = Date.now() - 1000; // 1 秒前（TTL 5 分以内）
 
-      const { createUserRepository } = await import('../../../src/repositories/factory');
+      const { createUserRepository } = await import('@nagiyu/auth-core');
       (createUserRepository as jest.Mock).mockReturnValueOnce({
         getUserByGoogleId: mockGetUserByGoogleId,
         updateLastLogin: mockUpdateLastLogin,
@@ -160,7 +162,7 @@ describe('jwt コールバック - rolesRefreshedAt', () => {
     it('rolesRefreshedAt が未設定の場合（初回 TTL チェック）、再取得される', async () => {
       mockGetUserByGoogleId.mockResolvedValueOnce({ userId: 'u3', roles: ['viewer'] });
 
-      const { createUserRepository } = await import('../../../src/repositories/factory');
+      const { createUserRepository } = await import('@nagiyu/auth-core');
       (createUserRepository as jest.Mock).mockReturnValueOnce({
         getUserByGoogleId: mockGetUserByGoogleId,
         updateLastLogin: mockUpdateLastLogin,
@@ -180,7 +182,7 @@ describe('jwt コールバック - rolesRefreshedAt', () => {
       const recentTimestamp = Date.now() - 1000; // TTL 内でも強制再取得される
       mockGetUserByGoogleId.mockResolvedValueOnce({ userId: 'u4', roles: ['super-admin'] });
 
-      const { createUserRepository } = await import('../../../src/repositories/factory');
+      const { createUserRepository } = await import('@nagiyu/auth-core');
       (createUserRepository as jest.Mock).mockReturnValueOnce({
         getUserByGoogleId: mockGetUserByGoogleId,
         updateLastLogin: mockUpdateLastLogin,
@@ -201,7 +203,7 @@ describe('jwt コールバック - rolesRefreshedAt', () => {
       const recentTimestamp = Date.now() - 1000;
       mockGetUserByGoogleId.mockResolvedValueOnce({ userId: 'u5', roles: [] });
 
-      const { createUserRepository } = await import('../../../src/repositories/factory');
+      const { createUserRepository } = await import('@nagiyu/auth-core');
       (createUserRepository as jest.Mock).mockReturnValueOnce({
         getUserByGoogleId: mockGetUserByGoogleId,
         updateLastLogin: mockUpdateLastLogin,
@@ -223,7 +225,7 @@ describe('jwt コールバック - rolesRefreshedAt', () => {
       const oldTimestamp = Date.now() - TTL_MS - 1000;
       mockGetUserByGoogleId.mockResolvedValueOnce(null);
 
-      const { createUserRepository } = await import('../../../src/repositories/factory');
+      const { createUserRepository } = await import('@nagiyu/auth-core');
       (createUserRepository as jest.Mock).mockReturnValueOnce({
         getUserByGoogleId: mockGetUserByGoogleId,
         updateLastLogin: mockUpdateLastLogin,
@@ -251,7 +253,7 @@ describe('jwt コールバック - rolesRefreshedAt', () => {
       const oldTimestamp = Date.now() - TTL_MS - 1000;
       mockGetUserByGoogleId.mockRejectedValueOnce(new Error('DynamoDB 接続エラー'));
 
-      const { createUserRepository } = await import('../../../src/repositories/factory');
+      const { createUserRepository } = await import('@nagiyu/auth-core');
       (createUserRepository as jest.Mock).mockReturnValueOnce({
         getUserByGoogleId: mockGetUserByGoogleId,
         updateLastLogin: mockUpdateLastLogin,
@@ -275,7 +277,7 @@ describe('jwt コールバック - rolesRefreshedAt', () => {
       const dbError = new Error('DynamoDB タイムアウト');
       mockGetUserByGoogleId.mockRejectedValueOnce(dbError);
 
-      const { createUserRepository } = await import('../../../src/repositories/factory');
+      const { createUserRepository } = await import('@nagiyu/auth-core');
       (createUserRepository as jest.Mock).mockReturnValueOnce({
         getUserByGoogleId: mockGetUserByGoogleId,
         updateLastLogin: mockUpdateLastLogin,
@@ -301,7 +303,7 @@ describe('jwt コールバック - rolesRefreshedAt', () => {
       const oldTimestamp = Date.now() - TTL_MS - 1000;
       mockGetUserByGoogleId.mockRejectedValueOnce(new Error('DB unavailable'));
 
-      const { createUserRepository } = await import('../../../src/repositories/factory');
+      const { createUserRepository } = await import('@nagiyu/auth-core');
       (createUserRepository as jest.Mock).mockReturnValueOnce({
         getUserByGoogleId: mockGetUserByGoogleId,
         updateLastLogin: mockUpdateLastLogin,
