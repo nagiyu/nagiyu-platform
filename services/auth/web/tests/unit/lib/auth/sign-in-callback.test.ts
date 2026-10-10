@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 import { reportErrorEvent } from '@nagiyu/aws';
 
 const mockUpsertUser = jest.fn();
@@ -32,7 +36,7 @@ jest.mock('next-auth/providers/google', () => ({
   default: jest.fn().mockReturnValue({}),
 }));
 
-jest.mock('../../../src/repositories/factory', () => ({
+jest.mock('@nagiyu/auth-core', () => ({
   createUserRepository: jest.fn().mockReturnValue({ upsertUser: mockUpsertUser }),
 }));
 
@@ -41,7 +45,7 @@ describe('jwt コールバック', () => {
   let mockUpdateLastLogin: jest.Mock;
 
   beforeAll(async () => {
-    await import('../../../src/auth/auth');
+    await import('@/lib/auth/auth');
   });
 
   beforeEach(() => {
@@ -57,7 +61,7 @@ describe('jwt コールバック', () => {
     mockGetUserByGoogleId.mockResolvedValueOnce(mockDbUser);
     mockUpdateLastLogin.mockResolvedValueOnce(undefined);
 
-    const { createUserRepository } = await import('../../../src/repositories/factory');
+    const { createUserRepository } = await import('@nagiyu/auth-core');
     (createUserRepository as jest.Mock).mockReturnValueOnce({
       getUserByGoogleId: mockGetUserByGoogleId,
       updateLastLogin: mockUpdateLastLogin,
@@ -83,7 +87,7 @@ describe('jwt コールバック', () => {
   it('dbUser が見つからない場合は roles を空配列に設定する', async () => {
     mockGetUserByGoogleId.mockResolvedValueOnce(null);
 
-    const { createUserRepository } = await import('../../../src/repositories/factory');
+    const { createUserRepository } = await import('@nagiyu/auth-core');
     (createUserRepository as jest.Mock).mockReturnValueOnce({
       getUserByGoogleId: mockGetUserByGoogleId,
       updateLastLogin: mockUpdateLastLogin,
@@ -105,7 +109,7 @@ describe('redirect コールバック', () => {
   let redirect: AnyAsyncFn;
 
   beforeAll(async () => {
-    const { authConfig } = await import('../../../src/auth/auth');
+    const { authConfig } = await import('@/lib/auth/auth');
     redirect = authConfig.callbacks!.redirect as AnyAsyncFn;
   });
 
@@ -138,7 +142,7 @@ describe('signIn コールバック', () => {
   let signIn: AnyAsyncFn;
 
   beforeAll(async () => {
-    const { authConfig } = await import('../../../src/auth/auth');
+    const { authConfig } = await import('@/lib/auth/auth');
     signIn = authConfig.callbacks!.signIn as AnyAsyncFn;
   });
 

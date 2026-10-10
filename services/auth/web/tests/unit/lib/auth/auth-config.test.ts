@@ -1,4 +1,6 @@
 /**
+ * @jest-environment node
+ *
  * Auth Configuration のテスト
  *
  * 独自に条件式を再実装するのではなく、実際に使われている @nagiyu/nextjs の
