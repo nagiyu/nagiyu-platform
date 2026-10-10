@@ -15,6 +15,7 @@ export type SnsMessage = {
   Message?: string;
   Subject?: string;
   SubscribeURL?: string;
+  TopicArn?: string;
   [key: string]: unknown;
 };
 
