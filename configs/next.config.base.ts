@@ -51,6 +51,8 @@ export function createNextConfig(serviceDir: string, overrides: NextConfig = {})
     // standalone にモノレポ内の共通 libs と node_modules を含めるため、トレースの起点をルートに固定する
     outputFileTracingRoot: MONOREPO_ROOT,
     transpilePackages: resolveWorkspaceDependencies(serviceDir),
+    // AI エージェントから next dev を起動したときに、サービスのディレクトリへ AGENTS.md と CLAUDE.md を作らせない。エージェント向けの指示はリポジトリ直下に一本化している
+    agentRules: false,
     ...overrides,
   };
 }
