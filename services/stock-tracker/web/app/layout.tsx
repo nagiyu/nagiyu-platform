@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { ServiceWorkerRegistration } from '@nagiyu/ui';
+import { ServiceWorkerRegistration } from '@nagiyu/react';
 import ThemeRegistry from '@/components/ThemeRegistry';
 import '@nagiyu/ui/tokens.css';
 import './globals.css';
@@ -38,10 +38,8 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body>
-        <ServiceWorkerRegistration
-          subscribeEndpoint="/api/push/refresh"
-          vapidPublicKeyEndpoint="/api/push/vapid-public-key"
-        />
+        {/* 再購読は既存アラートの購読情報を更新する専用 API へ送る */}
+        <ServiceWorkerRegistration resubscribe subscribeEndpoint="/api/push/refresh" />
         <ThemeRegistry version={version} authUrl={authUrl}>
           {children}
         </ThemeRegistry>

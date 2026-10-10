@@ -15,9 +15,8 @@ import {
   Switch,
 } from '@mui/material';
 import { Button, ErrorAlert, Select } from '@nagiyu/ui';
-import { subscribePush, fetchVapidPublicKey, postPushSubscription } from '@nagiyu/browser';
 import { formatPrice } from '@nagiyu/common';
-import { useEnterSubmit } from '@nagiyu/react';
+import { useEnterSubmit, usePushSubscription } from '@nagiyu/react';
 import { calculateTargetPriceFromPercentage } from '../lib/percentage-helper';
 import type { Timeframe } from '../types/stock';
 import { TIMEFRAME_LABELS } from '../types/stock';
@@ -318,13 +317,11 @@ export default function AlertSettingsModal({
   }, [open, mode, tradeMode, editTarget, defaultTargetPrice]);
 
   // Web Push通知許可をリクエスト
+  const { subscribe } = usePushSubscription();
+
   const requestNotificationPermission = async (): Promise<PushSubscription | null> => {
     try {
-      const sub = await subscribePush({
-        vapidPublicKey: await fetchVapidPublicKey(),
-        onSubscribed: (subscription) => postPushSubscription(subscription),
-      });
-      return sub;
+      return await subscribe();
     } catch (err) {
       console.error('Error requesting notification permission:', err);
       setError(err instanceof Error ? err.message : ERROR_MESSAGES.SUBSCRIPTION_ERROR);

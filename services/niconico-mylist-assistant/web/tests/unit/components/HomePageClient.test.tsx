@@ -21,17 +21,9 @@ import HomePageClient from '../../../src/components/HomePageClient';
 const mockSubscribe = jest.fn();
 
 // usePushSubscription を最小スタブ化（push 通知 API への依存を排除）
+const mockUsePushSubscription = jest.fn();
 jest.mock('@nagiyu/react', () => ({
-  usePushSubscription: jest.fn(() => ({
-    subscribed: false,
-    subscribe: mockSubscribe,
-  })),
-}));
-
-// fetchVapidPublicKey をスタブ化
-jest.mock('@nagiyu/browser', () => ({
-  fetchVapidPublicKey: jest.fn(),
-  postPushSubscription: jest.fn(),
+  usePushSubscription: (...args: unknown[]) => mockUsePushSubscription(...args),
 }));
 
 // @nagiyu/ui の Button をシンプルなスタブにする（MUI 依存を最小化）
@@ -96,16 +88,13 @@ jest.mock('../../../src/components/NotificationPermissionButton', () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
-  // fetch をモック化（subscribe 経由で postSubscription が呼ばれる場合に備える）
-  global.fetch = jest.fn().mockResolvedValue({ ok: true });
+  mockUsePushSubscription.mockReturnValue({
+    supported: true,
+    subscribed: false,
+    subscribe: mockSubscribe,
+  });
   // window.alert をモック化（jsdom は alert を実装しない）
   global.alert = jest.fn();
-  // Notification API を jsdom に追加（canUseNotificationApi が true になるよう）
-  Object.defineProperty(window, 'Notification', {
-    value: {},
-    writable: true,
-    configurable: true,
-  });
 });
 
 describe('HomePageClient ログインリンク', () => {
@@ -216,6 +205,25 @@ describe('HomePageClient ナビゲーションリンク', () => {
 });
 
 describe('HomePageClient 通知ダイアログ', () => {
+  it('プッシュ通知に対応していないブラウザでは通知設定ボタンを表示しない', () => {
+    mockUsePushSubscription.mockReturnValue({
+      supported: false,
+      subscribed: false,
+      subscribe: mockSubscribe,
+    });
+
+    render(
+      <HomePageClient
+        isAuthenticated={true}
+        userName="テストユーザー"
+        appUrl="https://niconico.nagiyu.com"
+        authUrl="https://auth.nagiyu.com"
+      />
+    );
+
+    expect(screen.queryByText('通知設定')).not.toBeInTheDocument();
+  });
+
   it('通知設定ボタンをクリックするとダイアログが開く', () => {
     render(
       <HomePageClient

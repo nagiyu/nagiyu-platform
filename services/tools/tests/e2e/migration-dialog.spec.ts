@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
  * chromium-mobile プロジェクトは playwright.config.base.ts 側で `serviceWorkers: 'block'` を
  * 設定済みだが、chromium-desktop / webkit-mobile は未設定という非対称がある。
  * stock-tracker / niconico-mylist-assistant では実際に Service Worker
- *（`@nagiyu/ui` の ServiceWorkerRegistration 経由で `/sw.js` を登録）を使っており、
+ *（`@nagiyu/react` の ServiceWorkerRegistration 経由で `/sw.js` を登録）を使っており、
  * webkit 環境で SW が `page.route` のモックを迂回して非決定性を生むことが実測されている
  * ため、一律に block している。
  *

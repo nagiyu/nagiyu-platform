@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Alert } from '@mui/material';
 import { Button } from '@nagiyu/ui';
 import { usePushSubscription } from '@nagiyu/react';
-import { fetchVapidPublicKey, postPushSubscription } from '@nagiyu/browser';
 
 const ERROR_MESSAGES = {
   UNKNOWN: '通知設定中にエラーが発生しました',
@@ -17,13 +16,10 @@ export default function NotifyButton() {
   const [isError, setIsError] = useState(false);
 
   const { loading, subscribe } = usePushSubscription({
-    getVapidPublicKey: () => fetchVapidPublicKey('/api/notify/vapid-key'),
+    vapidPublicKeyEndpoint: '/api/notify/vapid-key',
+    subscribeEndpoint: '/api/notify/subscribe',
+    bodyShape: 'raw',
     swPath: '/sw-push.js',
-    onSubscribed: (subscription) =>
-      postPushSubscription(subscription, {
-        endpoint: '/api/notify/subscribe',
-        bodyShape: 'raw',
-      }),
   });
 
   const handleEnableNotification = async () => {

@@ -4,10 +4,18 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import RootLayout, { dynamic } from '@/app/layout';
 
 const mockSessionHeader = jest.fn();
+const mockServiceWorkerRegistration = jest.fn();
+
+jest.mock('@nagiyu/react', () => ({
+  __esModule: true,
+  ServiceWorkerRegistration: (props: Record<string, unknown>) => {
+    mockServiceWorkerRegistration(props);
+    return <div>ServiceWorkerRegistration</div>;
+  },
+}));
 
 jest.mock('@nagiyu/ui', () => ({
   __esModule: true,
-  ServiceWorkerRegistration: () => <div>ServiceWorkerRegistration</div>,
   ServiceLayout: ({
     children,
     headerSlot,
@@ -45,6 +53,7 @@ describe('RootLayout', () => {
 
   beforeEach(() => {
     mockSessionHeader.mockClear();
+    mockServiceWorkerRegistration.mockClear();
   });
 
   afterEach(() => {
@@ -76,6 +85,17 @@ describe('RootLayout', () => {
     expect(html).toContain('ServiceWorkerRegistration');
     expect(html).toContain('RootLayout Child');
     expect(html).toContain('9.9.9');
+  });
+
+  it('許可済みユーザーの再購読を有効にして Service Worker を登録する', () => {
+    renderToStaticMarkup(
+      <RootLayout>
+        <div>RootLayout Child</div>
+      </RootLayout>
+    );
+
+    expect(mockServiceWorkerRegistration).toHaveBeenCalledTimes(1);
+    expect(mockServiceWorkerRegistration.mock.calls[0][0]).toEqual({ resubscribe: true });
   });
 
   it('SessionHeader にタイトル・ariaLabel・ナビ・authUrl を渡す', () => {
