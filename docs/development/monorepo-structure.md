@@ -129,6 +129,10 @@ flowchart TB
         ui_label["React UI"]
     end
 
+    subgraph react["libs/react/"]
+        react_label["React hooks"]
+    end
+
     subgraph browser["libs/browser/"]
         browser_label["Browser API"]
     end
@@ -139,8 +143,10 @@ flowchart TB
 
     web --> core
     web --> ui
+    web --> react
     web --> browser
-    ui --> browser
+    ui --> common
+    react --> browser
     browser --> common
     core --> common
 
@@ -161,15 +167,15 @@ flowchart TB
 ### ライブラリ間の依存
 
 ```
-libs/ui → libs/browser → libs/common
-libs/react → libs/common
+libs/react → libs/browser → libs/common
+libs/ui → libs/common
 libs/nextjs → libs/common
 libs/aws → libs/common
 ```
 
-- `libs/ui`: `libs/browser` に依存可
+- `libs/react`: `libs/browser`・`libs/common` に依存可
 - `libs/browser`: `libs/common` に依存可
-- `libs/react`: `libs/common` に依存可
+- `libs/ui`: `libs/common` に依存可
 - `libs/nextjs`: `libs/common` に依存可
 - `libs/aws`: `libs/common` に依存可 (AWS SDK は dependencies)
 - `libs/common`: メインエクスポートは外部依存なし (サブパスは前述の原則を参照)
@@ -178,7 +184,7 @@ libs/aws → libs/common
 
 ```
 ❌ libs/common → libs/browser     # 下位から上位への依存
-❌ libs/browser → libs/ui → libs/browser  # 循環依存
+❌ libs/browser → libs/react → libs/browser  # 循環依存
 ❌ services/{service}/core → services/{service}/web  # 逆方向の依存
 ❌ services/{serviceA}/core → services/{serviceB}/core  # サービス間の直接依存
 ```
@@ -225,6 +231,7 @@ libs/aws → libs/common
 
 - `services/{service}/core`
 - `libs/ui`
+- `libs/react`
 - `libs/browser`
 - `libs/common`
 
@@ -299,7 +306,6 @@ libs/aws → libs/common
 - Header, Footer コンポーネント
 - テーマ設定（カラーパレット、タイポグラフィ）
 - グローバルCSS
-- ServiceWorkerRegistration
 
 **特徴**:
 
@@ -309,7 +315,6 @@ libs/aws → libs/common
 
 **依存可能なパッケージ**:
 
-- `libs/browser`
 - `libs/common`
 
 **パッケージ名**: `@nagiyu/ui`
@@ -332,6 +337,7 @@ libs/aws → libs/common
 
 **依存可能なパッケージ**:
 
+- `libs/browser`
 - `libs/common`
 
 **パッケージ名**: `@nagiyu/react`

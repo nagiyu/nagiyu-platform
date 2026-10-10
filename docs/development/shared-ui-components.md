@@ -53,7 +53,6 @@
 - `LoadingState`
 - `PrivacyPolicyDialog` / `TermsOfServiceDialog` / `ConfirmDialog`
 - `LegalSections`
-- `ServiceWorkerRegistration`
 
 #### `ServiceLayout` と `AppThemeProvider` の使い分け
 
