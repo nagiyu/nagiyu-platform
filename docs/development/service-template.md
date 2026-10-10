@@ -278,10 +278,19 @@ export default [
 ];
 ```
 
-#### web パッケージと batch パッケージ
+#### web パッケージ
 
 ```javascript
-// web/eslint.config.mjs または batch/eslint.config.mjs
+// web/eslint.config.mjs
+import webConfig from '../../../configs/eslint.config.web.mjs';
+
+export default webConfig;
+```
+
+#### batch パッケージ
+
+```javascript
+// batch/eslint.config.mjs
 import baseConfig from '../../../configs/eslint.config.base.mjs';
 
 export default baseConfig;
@@ -549,7 +558,7 @@ services/{service}/
 
 - [ ] `configs/` の共通設定を extends
     - [ ] `tsconfig.base.json` を extends（web は `tsconfig.web.json` を extends）
-    - [ ] `eslint.config.base.mjs` を extends
+    - [ ] `eslint.config.base.mjs` を extends (web は `eslint.config.web.mjs` を extends)
     - [ ] `.prettierrc` を継承
 
 - [ ] TypeScript Project References を設定

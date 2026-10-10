@@ -1,4 +1,4 @@
-import { defineConfig, globalIgnores } from 'eslint/config';
+import { defineConfig } from 'eslint/config';
 import { fixupConfigRules } from '@eslint/compat';
 import nextVitals from 'eslint-config-next/core-web-vitals';
 import tseslint from 'typescript-eslint';
@@ -16,8 +16,6 @@ export default defineConfig([
   ...baseConfig,
   ...fixupConfigRules(nextVitals.filter((c) => c.name !== 'next/typescript')),
   { languageOptions: { parser: tseslint.parser } },
-  // eslint-config-next の既定の除外を上書きする際に失われないよう明示する
-  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts']),
   {
     rules: {
       // eslint-config-next 16.2.3で追加。既存コードへの影響が大きいため別途対応

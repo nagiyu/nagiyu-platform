@@ -1414,20 +1414,27 @@ import baseConfig from '../../configs/eslint.config.base.mjs';
 export default baseConfig;
 ```
 
+#### MUST: Next.js の web パッケージは configs/eslint.config.web.mjs を継承
+
+```javascript
+// services/{service}/web/eslint.config.mjs
+import webConfig from '../../../configs/eslint.config.web.mjs';
+
+export default webConfig;
+```
+
 #### MAY: サービス固有の要件がある場合のみ追加設定
 
 ```javascript
-// services/tools/eslint.config.mjs (Next.js の場合)
-import baseConfig from '../../configs/eslint.config.base.mjs';
-import nextVitals from 'eslint-config-next/core-web-vitals';
-import nextTs from 'eslint-config-next/typescript';
+// services/tools/eslint.config.mjs
+import { defineConfig, globalIgnores } from 'eslint/config';
+import webConfig from '../../configs/eslint.config.web.mjs';
 
-export default [
-  ...baseConfig,
-  ...nextVitals,
-  ...nextTs,
+export default defineConfig([
+  ...webConfig,
   // 必要に応じて ignores などをカスタマイズ
-];
+  globalIgnores(['public/sw.js', 'public/workbox-*.js']),
+]);
 ```
 
 ### 8.5 Prettier
@@ -1526,16 +1533,10 @@ web (フロントエンド) や batch (バッチ処理) パッケージは、UI/
 
 ```javascript
 // services/{service}/web/eslint.config.mjs
-import baseConfig from '../../../configs/eslint.config.base.mjs';
-import nextVitals from 'eslint-config-next/core-web-vitals';
-import nextTs from 'eslint-config-next/typescript';
+// UI/Browser ライブラリのインポート制限なし
+import webConfig from '../../../configs/eslint.config.web.mjs';
 
-export default [
-  ...baseConfig,
-  ...nextVitals,
-  ...nextTs,
-  // UI/Browser ライブラリのインポート制限なし
-];
+export default webConfig;
 ```
 
 ### 9.3 パスエイリアス
