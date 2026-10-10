@@ -5,22 +5,14 @@
  * 施行日: 2026年5月26日
  */
 
-export interface TermContent {
-  mainContent: string;
-  subItems?: string[];
-}
-
-export interface TermSection {
-  title: string;
-  contents: TermContent[];
-}
+import type { LegalSection } from '@nagiyu/ui';
 
 export const LIVETALK_TERMS_VERSION = '1.0.0';
 
 export const LIVETALK_LICENSE_TEXT =
   'VOICEVOX:冥鳴ひまり / Live2D キャラクター: 桃瀬ひより ©2010 Live2D Inc.';
 
-export const liveTalkTermsSections: TermSection[] = [
+export const liveTalkTermsSections: LegalSection[] = [
   {
     title: 'サービス概要と適用',
     contents: [
@@ -69,11 +61,11 @@ export const liveTalkTermsSections: TermSection[] = [
       {
         mainContent:
           '以下に該当する場合、当社はユーザーの利用登録を拒否または取り消すことができます。',
-        subItems: [
-          '本規約に違反したことがある場合',
-          '虚偽の情報を申告した場合（年齢を含む）',
-          '反社会的勢力に関係する場合',
-          'その他当社が不適切と判断した場合',
+        subContents: [
+          { subContent: '本規約に違反したことがある場合' },
+          { subContent: '虚偽の情報を申告した場合（年齢を含む）' },
+          { subContent: '反社会的勢力に関係する場合' },
+          { subContent: 'その他当社が不適切と判断した場合' },
         ],
       },
     ],
@@ -88,10 +80,10 @@ export const liveTalkTermsSections: TermSection[] = [
       {
         mainContent:
           '本サービスは、エンターテインメントおよびコミュニケーション体験の提供を目的としており、以下の目的には使用できません。また、これらの代替となるものではありません。',
-        subItems: [
-          '医療的な診断または治療',
-          '精神的なカウンセリングまたは心理療法',
-          '法律・財務・その他の専門的なアドバイス',
+        subContents: [
+          { subContent: '医療的な診断または治療' },
+          { subContent: '精神的なカウンセリングまたは心理療法' },
+          { subContent: '法律・財務・その他の専門的なアドバイス' },
         ],
       },
       {
@@ -110,20 +102,25 @@ export const liveTalkTermsSections: TermSection[] = [
       {
         mainContent:
           '本サービスは、ユーザーの安全を最優先に考えています。AI キャラクターとの会話において、自殺・自傷・他者への危害等の危機的な内容が検出された場合、以下の対応を行います。',
-        subItems: [
-          '安全に配慮した AI キャラクターからの応答（セーフティフロー）を実施',
-          '専門機関・相談窓口への案内を表示',
-          '危機検出ログ（SafetyEvent）を別領域に記録（詳細はプライバシーポリシーを参照）',
+        subContents: [
+          { subContent: '安全に配慮した AI キャラクターからの応答（セーフティフロー）を実施' },
+          { subContent: '専門機関・相談窓口への案内を表示' },
+          {
+            subContent:
+              '危機検出ログ（SafetyEvent）を別領域に記録（詳細はプライバシーポリシーを参照）',
+          },
         ],
       },
       {
         mainContent:
           '危機時には以下の専門機関にご相談ください（案内は参考情報であり、当社との連携はありません）。',
-        subItems: [
-          'いのちの電話: 0120-783-556（無料、毎日16時〜21時、毎月10日は8時〜翌8時）',
-          'よりそいホットライン: 0120-279-338（24時間対応）',
-          '警察: 110',
-          '救急: 119',
+        subContents: [
+          {
+            subContent: 'いのちの電話: 0120-783-556（無料、毎日16時〜21時、毎月10日は8時〜翌8時）',
+          },
+          { subContent: 'よりそいホットライン: 0120-279-338（24時間対応）' },
+          { subContent: '警察: 110' },
+          { subContent: '救急: 119' },
         ],
       },
       {
@@ -137,17 +134,23 @@ export const liveTalkTermsSections: TermSection[] = [
     contents: [
       {
         mainContent: 'ユーザーは、本サービスの利用にあたり、以下の行為を行ってはなりません。',
-        subItems: [
-          '法令または公序良俗に違反する行為',
-          '本サービスを犯罪行為に関連する目的で利用する行為',
-          '当社または第三者の知的財産権、プライバシー権、名誉権その他の権利を侵害する行為',
-          'AI キャラクターを通じて、自身または第三者を傷つける意図を持つ表現を行う行為',
-          '本サービスの運営を妨害する行為（過度なリクエスト送信、不正アクセス等）',
-          '他のユーザーまたは第三者を誹謗中傷する行為',
-          '18歳未満であることを偽って利用する行為',
-          '自動化ツール・ボット等を用いた本サービスの利用',
-          '本サービスのリバースエンジニアリング、逆コンパイル、逆アセンブル',
-          'その他当社が不適切と判断する行為',
+        subContents: [
+          { subContent: '法令または公序良俗に違反する行為' },
+          { subContent: '本サービスを犯罪行為に関連する目的で利用する行為' },
+          {
+            subContent:
+              '当社または第三者の知的財産権、プライバシー権、名誉権その他の権利を侵害する行為',
+          },
+          {
+            subContent:
+              'AI キャラクターを通じて、自身または第三者を傷つける意図を持つ表現を行う行為',
+          },
+          { subContent: '本サービスの運営を妨害する行為（過度なリクエスト送信、不正アクセス等）' },
+          { subContent: '他のユーザーまたは第三者を誹謗中傷する行為' },
+          { subContent: '18歳未満であることを偽って利用する行為' },
+          { subContent: '自動化ツール・ボット等を用いた本サービスの利用' },
+          { subContent: '本サービスのリバースエンジニアリング、逆コンパイル、逆アセンブル' },
+          { subContent: 'その他当社が不適切と判断する行為' },
         ],
       },
       {
@@ -161,11 +164,20 @@ export const liveTalkTermsSections: TermSection[] = [
     contents: [
       {
         mainContent: '本サービスでは、以下のデータを収集・保存します。',
-        subItems: [
-          '会話履歴: ユーザーと AI キャラクターとの会話テキスト（90日間保存後に自動削除）',
-          '音声合成データ: テキストから音声を生成するためのデータ（VOICEVOX はローカル処理のため外部送信なし）',
-          'AI 記憶データ: AI キャラクターがユーザーを記憶するためのデータ（Tier A: 永続、Tier B: 180日、Tier C: 30日）',
-          'プロフィール情報: ユーザーが設定したニックネーム・誕生日等',
+        subContents: [
+          {
+            subContent:
+              '会話履歴: ユーザーと AI キャラクターとの会話テキスト（90日間保存後に自動削除）',
+          },
+          {
+            subContent:
+              '音声合成データ: テキストから音声を生成するためのデータ（VOICEVOX はローカル処理のため外部送信なし）',
+          },
+          {
+            subContent:
+              'AI 記憶データ: AI キャラクターがユーザーを記憶するためのデータ（Tier A: 永続、Tier B: 180日、Tier C: 30日）',
+          },
+          { subContent: 'プロフィール情報: ユーザーが設定したニックネーム・誕生日等' },
         ],
       },
       {
@@ -209,11 +221,11 @@ export const liveTalkTermsSections: TermSection[] = [
       {
         mainContent:
           '当社は、以下の場合において、事前通知なく本サービスの全部または一部を停止・変更することができます。',
-        subItems: [
-          'システムのメンテナンスや更新作業を行う場合',
-          '地震・火災・停電等の天災による場合',
-          '当社が提供するサービスに障害が生じた場合',
-          'その他当社が必要と判断した場合',
+        subContents: [
+          { subContent: 'システムのメンテナンスや更新作業を行う場合' },
+          { subContent: '地震・火災・停電等の天災による場合' },
+          { subContent: '当社が提供するサービスに障害が生じた場合' },
+          { subContent: 'その他当社が必要と判断した場合' },
         ],
       },
       {
@@ -232,12 +244,12 @@ export const liveTalkTermsSections: TermSection[] = [
       {
         mainContent:
           '当社は、本サービスに関して以下の事項について責任を負いません（当社の故意または重大な過失がある場合を除く）。',
-        subItems: [
-          'AI キャラクターの会話内容の正確性・有用性・適切性',
-          '本サービスの利用によってユーザーに生じた損害（精神的損害を含む）',
-          '通信環境・デバイスの不具合による本サービスの利用障害',
-          '第三者による不正アクセスによって生じた損害',
-          'ユーザー間またはユーザーと第三者との間で生じたトラブル',
+        subContents: [
+          { subContent: 'AI キャラクターの会話内容の正確性・有用性・適切性' },
+          { subContent: '本サービスの利用によってユーザーに生じた損害（精神的損害を含む）' },
+          { subContent: '通信環境・デバイスの不具合による本サービスの利用障害' },
+          { subContent: '第三者による不正アクセスによって生じた損害' },
+          { subContent: 'ユーザー間またはユーザーと第三者との間で生じたトラブル' },
         ],
       },
       {

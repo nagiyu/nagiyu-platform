@@ -29,6 +29,8 @@ export { default as PrivacyPolicyDialog } from './components/dialogs/PrivacyPoli
 export type { PrivacyPolicyDialogProps } from './components/dialogs/PrivacyPolicyDialog';
 export { default as TermsOfServiceDialog } from './components/dialogs/TermsOfServiceDialog';
 export type { TermsOfServiceDialogProps } from './components/dialogs/TermsOfServiceDialog';
+export { default as LegalSections } from './components/legal';
+export type { LegalSectionsProps } from './components/legal';
 export { default as ConfirmDialog } from './components/dialogs/ConfirmDialog';
 export type { ConfirmDialogProps } from './components/dialogs/ConfirmDialog';
 export { default as AppThemeProvider } from './components/providers/AppThemeProvider';
@@ -44,9 +46,8 @@ export type { LoadingStateProps } from './components/loading/LoadingState';
 
 // Export data
 export { privacyPolicySections } from './data/privacyPolicyData';
-export type { PolicySection, PolicyContent, PolicySubContent } from './data/privacyPolicyData';
 export { termSections } from './data/termsOfServiceData';
-export type { TermSection, TermContent } from './data/termsOfServiceData';
+export type { LegalSection, LegalContent, LegalSubContent } from './types/legal';
 
 // Export utils
 export { buildSignOutUrl, buildRefreshUrl } from './utils/auth';
