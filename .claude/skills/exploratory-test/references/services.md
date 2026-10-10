@@ -30,7 +30,7 @@
 | codec-converter | `services/codec-converter/web` | `@nagiyu/codec-converter-core` |
 | quick-clip | `services/quick-clip/web` | `@nagiyu/quick-clip-core` |
 
-`next dev` は web ディレクトリに `AGENTS.md` と `CLAUDE.md` を生成し、`next-env.d.ts` を書き換える。コミットしない。
+`next dev` は web ディレクトリの `next-env.d.ts` を書き換えることがある。コミットしない。
 
 ## 全サービス共通の勘所
 
@@ -119,7 +119,7 @@
 
 - 認証もロールも無い。画面はアップロードとジョブ詳細の 2 つだけ。
 - 偽の AWS を起動する: `FAKE_PORT=<F> node <SCRIPTS>/fake-aws/codec-converter-fake-aws.js`
-- web は `next dev --webpack`。次の環境変数を渡す。エンドポイントは `127.0.0.1` の IP にする (S3 が path-style になる。`localhost` だと virtual-host 形式になる)。
+- web は次の環境変数を渡して起動する。エンドポイントは `127.0.0.1` の IP にする (S3 が path-style になる。`localhost` だと virtual-host 形式になる)。
 
     ```
     AWS_ENDPOINT_URL=http://127.0.0.1:<F>
@@ -135,7 +135,7 @@
 ## quick-clip (段階 C、偽の AWS)
 
 - 偽の AWS を起動する: `FAKE_PORT=<F> node <SCRIPTS>/fake-aws/quick-clip-fake-aws.js`。DynamoDB / S3 (マルチパートを含む) / Batch / Lambda を 1 ポートで動かす。
-- web は `next dev --webpack`。次の環境変数を渡す。ETag を CORS で expose する必要があるが、偽のサーバーは既定で expose する。
+- web は次の環境変数を渡して起動する。ETag を CORS で expose する必要があるが、偽のサーバーは既定で expose する。
 
     ```
     AWS_ENDPOINT_URL_DYNAMODB / _S3 / _BATCH / _LAMBDA=http://127.0.0.1:<F>

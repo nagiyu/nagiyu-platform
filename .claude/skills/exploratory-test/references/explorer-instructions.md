@@ -37,7 +37,7 @@
     ```
 
     `setsid` は子を作って終わるので、`$!` はグループ ID にならない。`pgrep` のパターンは先頭を `^node` に固定し、自分のコマンドラインに一致しないようにする。
-    `.env.test` が無いサービスは `DOTENV_CONFIG_PATH` と `NODE_OPTIONS` を外し、必要な環境変数を `NODE_ENV=development` と並べて渡す。`codec-converter` と `quick-clip` は `next dev --webpack`。
+    `.env.test` が無いサービスは `DOTENV_CONFIG_PATH` と `NODE_OPTIONS` を外し、必要な環境変数を `NODE_ENV=development` と並べて渡す。
 4. 起動後、主要ページと API を一度ずつ叩いてウォームアップする。dev モードは初回コンパイルに 1〜2 秒かかり、その間の遷移はリクエストの中断で誤観測の元になる。
 5. 起動できない、外部依存で動かない部分があれば、それ自体を「環境起因」として記録し、動く範囲で探索を続ける。どうしても起動できなければ、詰まった内容を詳しく報告して終える。
 
@@ -49,7 +49,7 @@
 - クリップボードを使う機能は、context の permissions で許可する。
 - Web Push の購読が必要な機能は、VAPID 鍵がダミーなので、既存 E2E のモックの方法を探して使う。
 - 既存 E2E (`tests/e2e/`) の fixtures と helpers に、seed やモックの方法が書いてあることが多い。最初に読むと早い。
-- `next dev` は `AGENTS.md` / `CLAUDE.md` を web ディレクトリに生成し、`next-env.d.ts` を書き換える。気にしなくてよい (後で親が片付ける)。
+- `next dev` は `next-env.d.ts` を書き換えることがある。気にしなくてよい (後で親が片付ける)。
 
 ## やること
 

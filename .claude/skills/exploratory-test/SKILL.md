@@ -15,7 +15,7 @@ description: 探索的テストを回す。探索的テストの Issue を進め
 
 ```bash
 npm ci                                                    # 約 60 秒
-.claude/skills/build-shared-libs/scripts/build.sh         # 共通ライブラリ。約 16 秒
+npm run build:libs                                        # 共通ライブラリ
 .claude/skills/playwright-setup/scripts/install.sh        # chromium。約 34 秒
 ```
 
@@ -29,7 +29,7 @@ npm ci                                                    # 約 60 秒
 |---|---|---|
 | A | tools / share-together / stock-tracker / niconico-mylist-assistant / portal | `.env.test` のまま動く。core のビルドだけ |
 | B | auth / livetalk / admin | `.env.test` に環境変数を足す (`USE_IN_MEMORY_DB=true` など)。admin はさらに偽の DynamoDB が要る |
-| C | codec-converter / quick-clip | インメモリ DB の仕組みが無い。偽の AWS サーバーに `AWS_ENDPOINT_URL*` で向ける。dev の起動は `next dev --webpack` |
+| C | codec-converter / quick-clip | インメモリ DB の仕組みが無い。偽の AWS サーバーに `AWS_ENDPOINT_URL*` で向ける |
 
 ### AWS の扱い
 
@@ -65,9 +65,7 @@ npm ci                                                    # 約 60 秒
 探索が終わったら、リポジトリを元に戻す。
 
 - 起動した `next dev` と偽の AWS サーバーを、プロセスグループ単位で止める (`kill -- -<PGID>`)。`npx` 経由で起動すると、止めても子のプロセスが残る。パターンで広く殺す `pkill -f` は使わない。
-- `next dev` が生成・変更したファイルを戻す。
-    - `git status --short` で、各 web ディレクトリの `AGENTS.md` / `CLAUDE.md` (未追跡) と `next-env.d.ts` (変更) を確認する。
-    - `next-env.d.ts` は `git checkout -- <パス>` で戻し、`AGENTS.md` / `CLAUDE.md` は削除する。コミットしない。
+- `next dev` が書き換えた `next-env.d.ts` を戻す。`git status --short` で変更が出ていれば `git checkout -- <パス>` で戻し、コミットしない。
 - 大きなテストファイル (マルチパートの確認用など) と、一時ディレクトリの作業ファイルを消す。リポジトリ外 (`/` 直下など) にファイルを作らない。
 
 ## 5. 起票の判断の進め方
