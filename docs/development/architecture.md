@@ -32,14 +32,17 @@
 ### 依存関係の原則
 
 ```
-web   → core → libs/common
-      → libs/ui → libs/browser → libs/common
+web   → core → libs/aws → libs/common
+      → libs/ui, libs/react → libs/browser → libs/common
+      → libs/nextjs → libs/common
 
-batch → core → libs/common
+batch → core → libs/aws, libs/common
+      → libs/aws, libs/common
 ```
 
 - **web** と **batch** は **core** に依存可能
-- **core** は UI に依存しない（web, libs/ui への依存禁止）
+- **core** と **batch** が依存してよい libs は `libs/common` と `libs/aws` のみ。永続化 (DynamoDB 等) を core が持つため `libs/aws` は許容し、Next.js / React / next-auth には依存させない (web, libs/ui, libs/react, libs/nextjs への依存禁止)
+- **web** は libs すべてに依存可能
 - **core** は相対パスで import（path alias 不使用）
 
 ### 分離の利点
