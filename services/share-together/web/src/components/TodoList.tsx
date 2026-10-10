@@ -11,6 +11,7 @@ import type { TodoItem as TodoItemType } from '@/types';
 const ERROR_MESSAGES = {
   TODOS_FETCH_FAILED: 'ToDo 一覧取得 API の実行に失敗しました',
   TODO_CREATE_FAILED: 'ToDo 作成 API の実行に失敗しました',
+  TODO_CREATE_FAILED_NOTICE: 'ToDoの追加に失敗しました。',
   TODO_UPDATE_FAILED: 'ToDo 更新 API の実行に失敗しました',
   TODO_DELETE_FAILED: 'ToDo 削除 API の実行に失敗しました',
   TODOS_FETCH_FAILED_NOTICE: 'ToDo一覧の取得に失敗しました。',
@@ -213,28 +214,29 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
     setPendingDeleteId(null);
   };
 
-  const handleAdd = (title: string) => {
+  const handleAdd = async (title: string): Promise<boolean> => {
     if (!listId || (scope === 'group' && !groupId)) {
-      return;
+      return false;
     }
 
-    void globalThis
-      .fetch(createTodosApiPath(scope, listId, groupId), {
+    try {
+      const response = await globalThis.fetch(createTodosApiPath(scope, listId, groupId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title }),
-      })
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(`status: ${response.status}`);
-        }
-        const result = (await response.json()) as TodoResponse;
-        setTodos((prev) => [...prev, toDisplayTodo(result.data)]);
-        setSnackbarMessage('ToDoを追加しました。');
-      })
-      .catch((error: unknown) => {
-        console.error(ERROR_MESSAGES.TODO_CREATE_FAILED, { error, listId });
       });
+      if (!response.ok) {
+        throw new Error(`status: ${response.status}`);
+      }
+      const result = (await response.json()) as TodoResponse;
+      setTodos((prev) => [...prev, toDisplayTodo(result.data)]);
+      setSnackbarMessage('ToDoを追加しました。');
+      return true;
+    } catch (error: unknown) {
+      console.error(ERROR_MESSAGES.TODO_CREATE_FAILED, { error, listId });
+      setSnackbarMessage(ERROR_MESSAGES.TODO_CREATE_FAILED_NOTICE);
+      return false;
+    }
   };
 
   return (
