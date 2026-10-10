@@ -24,6 +24,9 @@
     "@nagiyu/browser": "*",
     "@nagiyu/common": "*"
   },
+  "peerDependencies": {
+    "react": ">=19.0.0"
+  },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
     "@types/react": "^19.2.17",
