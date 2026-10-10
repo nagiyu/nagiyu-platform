@@ -9,20 +9,7 @@ import {
 } from '@nagiyu/browser';
 import type { PushEndpointOptions } from '@nagiyu/browser';
 
-export interface UsePushSubscriptionOptions extends PushEndpointOptions {
-  /**
-   * VAPID 公開鍵を取得する関数。subscribe() 呼び出し時に遅延実行される。
-   * 省略時は `vapidPublicKeyEndpoint` から取得する。
-   */
-  getVapidPublicKey?: () => Promise<string>;
-  /**
-   * 購読作成/取得が成功した後に呼ばれるコールバック。
-   * 省略時は `subscribeEndpoint` / `bodyShape` に従ってサーバへ送信する。渡した場合は既定の送信の代わりに呼ばれる。
-   */
-  onSubscribed?: (subscription: PushSubscription) => Promise<void> | void;
-  /** 購読解除が完了した後に呼ばれるコールバック */
-  onUnsubscribed?: () => Promise<void> | void;
-}
+export type UsePushSubscriptionOptions = PushEndpointOptions;
 
 export interface UsePushSubscriptionReturn {
   /**
@@ -62,17 +49,14 @@ function readPermission(): NotificationPermission {
  * プッシュ通知の購読状態を管理する React Hook。
  *
  * - マウント後にブラウザ対応・許可状態・既存 subscription を確認
- * - `subscribe()` で `@nagiyu/browser` の `subscribePush` を呼び出す
+ * - `subscribe()` で `@nagiyu/browser` の `subscribePush` を呼び出し、公開鍵の取得とサーバー送信まで行う
  * - `unsubscribe()` で既存 subscription を解除
  */
 export function usePushSubscription({
-  getVapidPublicKey,
   vapidPublicKeyEndpoint,
   subscribeEndpoint,
   bodyShape,
   swPath,
-  onSubscribed,
-  onUnsubscribed,
 }: UsePushSubscriptionOptions = {}): UsePushSubscriptionReturn {
   const [supported, setSupported] = useState<boolean>(false);
   const [permission, setPermission] = useState<NotificationPermission>('default');
@@ -116,12 +100,10 @@ export function usePushSubscription({
     setError(null);
     try {
       const subscription = await subscribePush({
-        vapidPublicKey: getVapidPublicKey,
         vapidPublicKeyEndpoint,
         subscribeEndpoint,
         bodyShape,
         swPath,
-        onSubscribed,
       });
       setSubscribed(true);
       setPermission(readPermission());
@@ -134,14 +116,7 @@ export function usePushSubscription({
     } finally {
       setLoading(false);
     }
-  }, [
-    getVapidPublicKey,
-    vapidPublicKeyEndpoint,
-    subscribeEndpoint,
-    bodyShape,
-    swPath,
-    onSubscribed,
-  ]);
+  }, [vapidPublicKeyEndpoint, subscribeEndpoint, bodyShape, swPath]);
 
   const unsubscribe = useCallback(async () => {
     setLoading(true);
@@ -153,7 +128,6 @@ export function usePushSubscription({
       }
       await unsubscribePush();
       setSubscribed(false);
-      await onUnsubscribed?.();
     } catch (err) {
       const asError = err instanceof Error ? err : new Error(String(err));
       setError(asError);
@@ -161,7 +135,7 @@ export function usePushSubscription({
     } finally {
       setLoading(false);
     }
-  }, [supported, onUnsubscribed]);
+  }, [supported]);
 
   return {
     supported,
