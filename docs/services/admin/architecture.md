@@ -389,6 +389,7 @@ CloudWatch Alarm
   → SNS トピック（Admin 専用）
     → POST /api/notify/sns（Admin サービス）
       → SNS 署名検証
+      → 送信元 Topic の照合 (許可した Topic 以外は拒否)
       → DynamoDB から全プッシュサブスクリプション取得
       → Web Push API で各端末に配信
         → サービスワーカーがシステム通知を表示
@@ -528,16 +529,20 @@ CloudWatch Alarm 由来のエラーを永続化し Admin から一覧閲覧で�
 
 `nagiyu-admin-self-monitoring-{env}` を新設し、既存の `/api/notify/sns` HTTPS サブスクリプションをこの Topic に紐付ける。本流 Topic（`nagiyu-admin-alarms-{env}`）は Lambda subscription（`alarm-ingest`）のみとする。
 
+`/api/notify/sns` は自己監視 Topic からのメッセージだけを受け付け、それ以外の Topic からの購読確認・通知は拒否する。
+
 **理由**:
 
 - 同一 Topic に両方の subscription を載せると本流アラームでも `/api/notify/sns` 経由で Push が飛び、新システム経由の Push と二重通知になる
 - 経路の障害ドメインを完全に分離することで、新システムが障害中でも `/api/notify/sns` 経路で Push が届く
 - 既存 `/api/notify/sns` のコードを維持して再利用できるため、追加実装が不要
+- SNS の署名は、どの AWS アカウントの Topic から送られても正規のものになる。署名検証だけでは送信元を限定できないため、受け付ける Topic を自己監視 Topic に固定する
 
 **トレードオフ**:
 
 - Topic が 2 つに増える
 - 自己監視のアラーム定義は専用スタックに集約することで運用負荷を抑える
+- `/api/notify/sns` に別の Topic を購読させても、購読確認の時点で拒否されて購読は成立しない。受け口を増やす場合は、許可する Topic も合わせて変える必要がある
 
 ---
 
