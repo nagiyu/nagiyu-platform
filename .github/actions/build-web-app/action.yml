@@ -1,12 +1,12 @@
 name: Build Web App
-description: Setup Node.js, install dependencies, build shared workspaces and target web workspace
+description: Setup Node.js, install dependencies, build shared libs, shared workspaces and target web workspace
 
 inputs:
   workspace:
     description: NPM workspace name to build (e.g. @nagiyu/admin)
     required: true
   shared-workspaces:
-    description: Comma-separated shared workspaces to build before target workspace
+    description: Comma-separated non-lib workspaces (e.g. core packages) to build before target workspace
     required: false
     default: ''
 
@@ -23,6 +23,11 @@ runs:
     - name: Install dependencies
       shell: bash
       run: npm ci
+
+    # libs 間の依存順は build:libs が持つため、呼び出し側で個別に並べない
+    - name: Build shared libs
+      shell: bash
+      run: npm run build:libs
 
     - name: Build shared workspaces
       if: inputs.shared-workspaces != ''

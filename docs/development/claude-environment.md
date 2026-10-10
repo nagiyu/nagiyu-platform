@@ -130,13 +130,10 @@ sudo npx --yes playwright@1.59.1 install --with-deps webkit
 
 **`npm ci` はビルドを走らせない**ため、`dist/` が無いままサービス（Next.js）を起動すると `@nagiyu/ui` 等のモジュール解決に失敗し、`/` が 500 を返す。`next dev` も `next build` 内のサブステップも、これに依存している。
 
-CI（`.github/workflows/portal-verify.yml` 等）では E2E ジョブの直前に、そのサービスが必要とする libs のサブセットを依存順にビルドしている（portal の例）：
+全 libs は、ルートの `build:libs` で依存順にビルドできる：
 
 ```bash
-npm run build --workspace @nagiyu/common
-npm run build --workspace @nagiyu/browser
-npm run build --workspace @nagiyu/ui
-npm run build --workspace @nagiyu/nextjs
+npm run build:libs
 ```
 
 各 lib の内部依存（正確な依存グラフ）:
@@ -150,7 +147,7 @@ react    ← browser, common
 ui       ← browser, common
 ```
 
-**ローカルで `next dev` や E2E を起動する前にも同様に依存順でビルドする**。全 libs を依存順でビルドするスクリプトを `build-shared-libs` スキル（[`.claude/skills/build-shared-libs/`](../../.claude/skills/build-shared-libs/SKILL.md)）に同梱しているので、`.claude/skills/build-shared-libs/scripts/build.sh` を使う。
+**ローカルで `next dev` や E2E を起動する前にも `npm run build:libs` を実行する**（`build-shared-libs` スキル（[`.claude/skills/build-shared-libs/`](../../.claude/skills/build-shared-libs/SKILL.md)）も同じコマンドを使う）。ビルド順は `build:libs` の `--workspace` の並びで決まる。lib を増やしたり依存を変えたりしたら、この並びを依存順に直す。
 
 ### libs だけでは足りない：サービスの core も必要
 
@@ -208,10 +205,7 @@ docker run -d --name ddb -p 8000:8000 amazon/dynamodb-local
 - E2E 実行までの最短手順
   ```bash
   npm ci
-  npm run build --workspace @nagiyu/common
-  npm run build --workspace @nagiyu/browser
-  npm run build --workspace @nagiyu/ui
-  npm run build --workspace @nagiyu/nextjs
+  npm run build:libs
   node_modules/.bin/playwright install chromium    # Setup Script 未設定なら
   cd services/<svc>/web
   ../../../node_modules/.bin/playwright test --project=chromium-mobile
