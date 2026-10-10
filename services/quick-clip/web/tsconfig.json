@@ -5,5 +5,11 @@
       "@/*": ["./src/*"]
     }
   },
-  "references": [{ "path": "../core" }]
+  "references": [
+    { "path": "../../../libs/aws" },
+    { "path": "../../../libs/common" },
+    { "path": "../../../libs/nextjs" },
+    { "path": "../../../libs/ui" },
+    { "path": "../core" }
+  ]
 }

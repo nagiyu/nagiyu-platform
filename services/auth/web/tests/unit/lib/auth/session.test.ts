@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 
-jest.mock('@nagiyu/auth-core', () => ({
+jest.mock('@/lib/auth/auth', () => ({
   auth: jest.fn(),
 }));
 
@@ -10,7 +10,7 @@ jest.mock('next/headers', () => ({
   headers: () => mockHeaders(),
 }));
 
-import { auth as mockedAuth } from '@nagiyu/auth-core';
+import { auth as mockedAuth } from '@/lib/auth/auth';
 
 describe('getSession', () => {
   const originalEnv = process.env;

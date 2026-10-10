@@ -10,5 +10,5 @@
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests"],
-  "references": [{ "path": "../../../libs/common" }, { "path": "../core" }]
+  "references": [{ "path": "../../../libs/aws" }, { "path": "../core" }]
 }

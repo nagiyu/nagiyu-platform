@@ -77,6 +77,23 @@ export const Sizes: Story = {
 };
 
 /**
+ * 未チェックとチェック済みを並べ、どのサイズでも枠の大きさが揃うことを見比べる。
+ */
+export const SizesByState: Story = {
+  argTypes: { size: { control: false }, checked: { control: false } },
+  render: (args) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {(['sm', 'md', 'lg'] as const).map((size) => (
+        <div key={size} style={{ display: 'flex', gap: 24 }}>
+          <Checkbox {...args} size={size} checked={false} label={`${size} 未チェック`} />
+          <Checkbox {...args} size={size} checked label={`${size} チェック済み`} />
+        </div>
+      ))}
+    </div>
+  ),
+};
+
+/**
  * 制御コンポーネントの動作確認用ストーリー。
  */
 export const Controlled: Story = {

@@ -33,5 +33,17 @@
   "dependencies": {
     "@nagiyu/common": "*",
     "next-auth": "^5.0.0-beta.32"
+  },
+  "peerDependencies": {
+    "@aws-sdk/lib-dynamodb": "^3.1063.0",
+    "next": ">=16.1.7"
+  },
+  "peerDependenciesMeta": {
+    "@aws-sdk/lib-dynamodb": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@aws-sdk/lib-dynamodb": "^3.1063.0"
   }
 }

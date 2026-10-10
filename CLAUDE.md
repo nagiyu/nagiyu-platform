@@ -81,14 +81,14 @@ Issue / `tasks/` / コメントは **「セッションの継ぎ目」をつな�
 
 再帰で新しいマスターセッションを立てる際、**Claude 自身がリモートから子セッションを起動してよい**（`create_session`）。従来は起動文言だけ書いて人がコピペしていた工程を自動化するもの。
 
-- **孫セッションも許可する。深さ制限は設けない。**
+- **孫セッションも許可する。運用上の深さ制限は設けない** (仕組み側の上限は [`docs/development/claude-sessions.md`](docs/development/claude-sessions.md))。
 - ただし**勝手には立てない**。そのセッションで人に方針を伝え、**合意してから分岐する**（→「ゲートも再帰する」）。
 - 人のクリックで起動する Spawn Task（`spawn_task`）も選択肢としてはあるが、**ブランチを指定できないため非推奨**（→ [`docs/development/claude-sessions.md`](docs/development/claude-sessions.md)）。
 - 本項は**人が介入しうるセッション**の話。**サブエージェント（`implementer` / `reviewer`）の spawn は制限しない**（従来どおり）。
 
 #### 起動プロンプトの鉄則
 
-親から子へのチャネルは**起動時の一度きり**である。起動後は追い指示が事実上効かず、子の会話も親からは読めない（→ [`docs/development/claude-sessions.md`](docs/development/claude-sessions.md)）。したがって起動プロンプトの内容が子セッションの成否を決める。
+親から子へ判断を渡すチャネルは、実質的に**起動プロンプト**である。起動後も追い指示を送ることや子の会話を読むことは技術的にはできる。しかし子は親から届いたものを人の指示として扱わず、push や PR 作成のような外部に影響する操作は、子の中で人が許可するまで行わない (→ [`docs/development/claude-sessions.md`](docs/development/claude-sessions.md))。したがって起動プロンプトの内容が子セッションの成否を決める。
 
 決め打ちのテンプレートは設けない。鉄則は 1 つだけ。
 

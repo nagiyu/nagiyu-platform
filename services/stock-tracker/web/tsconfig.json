@@ -6,5 +6,14 @@
     },
     "rootDir": "../../.."
   },
-  "exclude": ["node_modules", "playwright.config.ts", "tests/**/*"]
+  "exclude": ["node_modules", "playwright.config.ts", "tests/**/*"],
+  "references": [
+    { "path": "../../../libs/aws" },
+    { "path": "../../../libs/browser" },
+    { "path": "../../../libs/common" },
+    { "path": "../../../libs/nextjs" },
+    { "path": "../../../libs/react" },
+    { "path": "../../../libs/ui" },
+    { "path": "../core" }
+  ]
 }

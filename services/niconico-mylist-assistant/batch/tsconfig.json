@@ -9,5 +9,10 @@
     "types": ["node"]
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "tests"]
+  "exclude": ["node_modules", "dist", "tests"],
+  "references": [
+    { "path": "../../../libs/aws" },
+    { "path": "../../../libs/common" },
+    { "path": "../core" }
+  ]
 }
