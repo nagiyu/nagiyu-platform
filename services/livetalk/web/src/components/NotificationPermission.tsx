@@ -1,10 +1,10 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { Box, Paper, Typography } from '@mui/material';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import { Button } from '@nagiyu/ui';
-import { subscribePush, fetchVapidPublicKey, postPushSubscription } from '@nagiyu/browser';
+import { usePushSubscription } from '@nagiyu/react';
 import { snoozeNotificationPermission } from '@/lib/pwa/standalone';
 import { PWA_MESSAGES } from '@/lib/pwa/messages';
 
@@ -13,49 +13,42 @@ export interface NotificationPermissionProps {
   onSkip: () => void;
 }
 
-type PermissionState = 'idle' | 'subscribing' | 'denied' | 'error';
-
 export default function NotificationPermission({ onGranted, onSkip }: NotificationPermissionProps) {
-  const [state, setState] = useState<PermissionState>('idle');
+  const { permission, loading, error, subscribe } = usePushSubscription();
 
   const handleSubscribe = useCallback(async () => {
-    setState('subscribing');
     try {
-      await subscribePush({
-        vapidPublicKey: fetchVapidPublicKey,
-        onSubscribed: (subscription) => postPushSubscription(subscription),
-      });
-      onGranted();
+      await subscribe();
     } catch {
-      const denied =
-        typeof window !== 'undefined' &&
-        typeof window.Notification !== 'undefined' &&
-        window.Notification.permission === 'denied';
-      setState(denied ? 'denied' : 'error');
+      // 失敗の内容は hook の error / permission に反映されるため、ここでは握りつぶす
+      return;
     }
-  }, [onGranted]);
+    onGranted();
+  }, [subscribe, onGranted]);
 
   const handleSkip = useCallback(() => {
     snoozeNotificationPermission();
     onSkip();
   }, [onSkip]);
 
+  const denied = Boolean(error) && permission === 'denied';
+
   return (
     <Paper variant="outlined" sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
       <Button
         variant="solid"
         onClick={handleSubscribe}
-        loading={state === 'subscribing'}
+        loading={loading}
         startIcon={<NotificationsActiveIcon fontSize="small" />}
       >
         {PWA_MESSAGES.NOTIFICATION_BUTTON}
       </Button>
-      {state === 'denied' && (
+      {denied && (
         <Typography variant="caption" color="text.secondary">
           {PWA_MESSAGES.NOTIFICATION_DENIED_HINT}
         </Typography>
       )}
-      {state === 'error' && (
+      {error && !denied && (
         <Typography variant="caption" color="error.main" role="alert">
           {PWA_MESSAGES.NOTIFICATION_ERROR}
         </Typography>

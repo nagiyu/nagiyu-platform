@@ -4,7 +4,7 @@ import { clearTestData } from './helpers/test-data';
 /**
  * webkit-mobile 対応: 実 Service Worker（/sw.js）を無効化する。
  *
- * 本サービスは libs/ui の ServiceWorkerRegistration を layout.tsx で使っており、
+ * 本サービスは libs/react の ServiceWorkerRegistration を layout.tsx で使っており、
  * 全ページで /sw.js を登録する。webkit ではこの SW がページを制御して API 応答を
  * 仲介・キャッシュするため、Playwright の既知制約
  * 「Service Worker 経由のリクエストは Chromium 以外では page.route で捕捉できない」

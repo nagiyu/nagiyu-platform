@@ -13,11 +13,12 @@ export { getItem, setItem, removeItem } from './localStorage';
 
 // Web Push utilities
 export {
-  urlBase64ToUint8Array,
   subscribePush,
-  fetchVapidPublicKey,
   isPushSupported,
-  postPushSubscription,
+  registerServiceWorker,
+  getPushSubscription,
+  refreshPushSubscription,
+  unsubscribePush,
   PUSH_ERROR_MESSAGES,
 } from './push';
-export type { SubscribePushOptions, PostPushSubscriptionOptions } from './push';
+export type { SubscribePushOptions, PushEndpointOptions } from './push';

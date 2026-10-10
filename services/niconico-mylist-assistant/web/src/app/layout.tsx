@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
-import { ServiceLayout, ServiceWorkerRegistration, type NavigationItem } from '@nagiyu/ui';
+import { ServiceWorkerRegistration } from '@nagiyu/react';
+import { ServiceLayout, type NavigationItem } from '@nagiyu/ui';
 import { SessionHeader, SessionProviderWrapper } from '@nagiyu/ui/session-provider';
 import '@nagiyu/ui/tokens.css';
 import './globals.css';
@@ -44,10 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ja">
       <body>
-        <ServiceWorkerRegistration
-          subscribeEndpoint="/api/push/subscribe"
-          vapidPublicKeyEndpoint="/api/push/vapid-public-key"
-        />
+        <ServiceWorkerRegistration resubscribe />
         {/* SessionHeader は useSession を使うため、SessionProvider の内側に置く。
             トップページは未ログインでも開けるが、その場合は session が空になり
             アカウントメニューが出ないだけでヘッダー自体は表示される。 */}

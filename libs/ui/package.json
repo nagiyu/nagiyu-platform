@@ -46,7 +46,6 @@
     "react-dom": ">=19.0.0"
   },
   "dependencies": {
-    "@nagiyu/browser": "*",
     "@nagiyu/common": "*",
     "@radix-ui/react-slot": "^1.2.4"
   },
