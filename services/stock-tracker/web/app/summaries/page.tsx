@@ -19,7 +19,7 @@ import {
 } from '@mui/material';
 import { Button, ErrorAlert, Select } from '@nagiyu/ui';
 import { useSession } from 'next-auth/react';
-import { hasPermission } from '@nagiyu/common';
+import { hasUserPermission } from '@nagiyu/common';
 import type { SummariesResponse, TickerSummary } from '@/types/stock';
 import SummaryDetailDialog from '../../components/SummaryDetailDialog';
 import ForecastCell from '../../components/ForecastCell';
@@ -91,11 +91,7 @@ export default function SummariesPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedTicker, setSelectedTicker] = useState<TickerSummary | null>(null);
   const [sort, setSort] = useState<ForecastSortState | null>(null);
-  const hasManageDataPermission =
-    !!session?.user &&
-    'roles' in session.user &&
-    Array.isArray(session.user.roles) &&
-    hasPermission(session.user.roles, 'stocks:manage-data');
+  const hasManageDataPermission = hasUserPermission(session?.user, 'stocks:manage-data');
 
   const fetchSummaries = useCallback(async () => {
     setIsLoading(true);
