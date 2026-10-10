@@ -17,7 +17,7 @@ export default async function middleware(req: NextRequest) {
   }
 
   // 本番環境では NextAuth の middleware を使用
-  const { auth } = await import('@nagiyu/auth-core');
+  const { auth } = await import('@/lib/auth/auth');
 
   // auth() でラップされた middleware を作成
   const authMiddleware = auth(authMiddlewareHandler);

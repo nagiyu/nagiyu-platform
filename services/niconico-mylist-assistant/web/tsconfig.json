@@ -4,5 +4,14 @@
     "paths": {
       "@/*": ["./src/*"]
     }
-  }
+  },
+  "references": [
+    { "path": "../../../libs/aws" },
+    { "path": "../../../libs/browser" },
+    { "path": "../../../libs/common" },
+    { "path": "../../../libs/nextjs" },
+    { "path": "../../../libs/react" },
+    { "path": "../../../libs/ui" },
+    { "path": "../core" }
+  ]
 }

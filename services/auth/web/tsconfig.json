@@ -2,10 +2,16 @@
   "extends": "../../../configs/tsconfig.web.json",
   "compilerOptions": {
     "paths": {
-      "@/*": ["./src/*"],
-      "@nagiyu/auth-core": ["../core/src"]
+      "@/*": ["./src/*"]
     }
   },
-  "files": ["../core/src/types/next-auth.d.ts"],
-  "exclude": ["node_modules", "playwright.config.ts", "tests"]
+  "exclude": ["node_modules", "playwright.config.ts", "tests"],
+  "references": [
+    { "path": "../../../libs/common" },
+    { "path": "../../../libs/aws" },
+    { "path": "../../../libs/browser" },
+    { "path": "../../../libs/nextjs" },
+    { "path": "../../../libs/ui" },
+    { "path": "../core" }
+  ]
 }

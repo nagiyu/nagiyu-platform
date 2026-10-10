@@ -47,6 +47,21 @@ test.describe('個人 ToDo 管理', () => {
     await expect(page.getByText('ToDoを追加しました。')).toBeVisible();
   });
 
+  test('未完了 ToDo のチェックボックスが既定の大きさで描画される', async ({ page }) => {
+    const checkbox = page
+      .getByRole('listitem')
+      .filter({ hasText: 'E2E 未完了 ToDo' })
+      .getByRole('checkbox');
+    // native input は透明で、見た目は aria-hidden の兄弟要素が描く。
+    // input は外枠いっぱいに広がるため、崩れを検知するには見た目側の要素を測る必要がある。
+    const visualBox = checkbox.locator('xpath=following-sibling::span[@aria-hidden="true"]');
+
+    const rect = await visualBox.boundingBox();
+    expect(rect).not.toBeNull();
+    expect(rect!.width).toBeCloseTo(20, 0);
+    expect(rect!.height).toBeCloseTo(20, 0);
+  });
+
   test('ToDo を完了にできる', async ({ page }) => {
     const checkbox = page
       .getByRole('listitem')

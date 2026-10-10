@@ -39,9 +39,9 @@
 固有パッケージは共通パッケージに依存することができるが、共通パッケージは固有パッケージに依存してはならない。
 
 ```
-services/{service}/web   → libs/ui, libs/browser, libs/common
-services/{service}/core  → libs/common のみ
-services/{service}/batch → libs/common のみ
+services/{service}/web   → 同サービスの core, libs すべて
+services/{service}/core  → libs/common, libs/aws
+services/{service}/batch → 同サービスの core, libs/common, libs/aws
 ```
 
 詳細は「依存関係ルール」セクションを参照。
@@ -66,7 +66,7 @@ libs/
 
 ```
 ui → browser → common
-react → common
+react → browser, common
 nextjs → common
 aws → common
 ```
@@ -79,11 +79,13 @@ aws → common
 
 固有パッケージは、その責務に応じて特定の共通ライブラリのみに依存可能。
 
-| 固有パッケージ     | 依存可能な共通ライブラリ                 | 理由                                   |
-| ------------------ | ---------------------------------------- | -------------------------------------- |
-| `services/*/core`  | `libs/common` のみ                       | ビジネスロジックはフレームワーク非依存 |
-| `services/*/web`   | `libs/common`, `libs/browser`, `libs/ui` | UI実装にフレームワーク機能が必要       |
-| `services/*/batch` | `libs/common` のみ                       | バッチ処理はフレームワーク非依存       |
+| 固有パッケージ     | 依存可能な共通ライブラリ  | 理由                                                                                          |
+| ------------------ | ------------------------- | --------------------------------------------------------------------------------------------- |
+| `services/*/core`  | `libs/common`, `libs/aws` | 永続化 (DynamoDB 等) を持つため `libs/aws` を使う。Next.js / React / next-auth には依存しない |
+| `services/*/web`   | `libs/` のすべて          | UI 実装にフレームワーク機能が必要                                                             |
+| `services/*/batch` | `libs/common`, `libs/aws` | バッチ処理はフレームワーク非依存。永続化や AWS 連携に `libs/aws` を使う                       |
+
+`services/*/core` と `services/*/batch` は、`libs/browser`・`libs/ui`・`libs/react`・`libs/nextjs` に依存しない。認証まわりなど Next.js に依存する処理は `web` に置く。
 
 #### 依存関係の図
 
@@ -97,30 +99,41 @@ flowchart TB
 
     subgraph libs["共通パッケージ (libs/)"]
         ui["ui<br/>(React UI)"]
+        react["react<br/>(React hooks)"]
+        nextjs["nextjs<br/>(Next.js ヘルパー)"]
         browser["browser<br/>(Browser API)"]
+        aws["aws<br/>(AWS SDK)"]
         common["common<br/>(完全非依存)"]
     end
 
     web --> core
     web --> ui
+    web --> react
+    web --> nextjs
     web --> browser
+    web --> aws
     web --> common
 
     batch --> core
+    batch --> aws
     batch --> common
 
+    core --> aws
     core --> common
 
     ui --> browser
+    react --> browser
     browser --> common
+    nextjs --> common
+    aws --> common
 ```
 
 #### 禁止パターン
 
 ```
 ❌ libs/common → services/*/core          # 共通から固有への依存
-❌ services/*/core → libs/ui              # core から UI ライブラリへの依存
-❌ services/*/batch → libs/ui             # batch から UI ライブラリへの依存
+❌ services/*/core → libs/ui, libs/react, libs/nextjs, libs/browser  # core からフレームワーク依存ライブラリへの依存
+❌ services/*/batch → libs/ui, libs/react, libs/nextjs, libs/browser # batch からフレームワーク依存ライブラリへの依存
 ❌ services/{serviceA}/* → services/{serviceB}/*  # サービス間の直接依存
 ```
 

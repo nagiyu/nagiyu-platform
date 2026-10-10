@@ -3,7 +3,7 @@ import Google from 'next-auth/providers/google';
 import { createAuthConfig } from '@nagiyu/nextjs';
 import { reportErrorEvent } from '@nagiyu/aws';
 import { toErrorMessage, isAllowedNagiyuRedirectUrl } from '@nagiyu/common';
-import { createUserRepository } from '../repositories/factory';
+import { createUserRepository } from '@nagiyu/auth-core';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
