@@ -17,10 +17,10 @@
 ```
 configs/
 ├── tsconfig.base.json      # TypeScript基本設定
+├── tsconfig.web.json       # Next.js web パッケージ共通の TypeScript 設定
 ├── eslint.config.base.mjs  # ESLint基本設定
 └── samples/                # サンプル設定ファイル
     ├── tsconfig.core.json  # core パッケージ用サンプル
-    ├── tsconfig.web.json   # web パッケージ用サンプル
     └── tsconfig.batch.json # batch パッケージ用サンプル
 ```
 
@@ -39,14 +39,11 @@ configs/
 # Core パッケージ
 cp configs/samples/tsconfig.core.json services/myservice/core/tsconfig.json
 
-# Web パッケージ
-cp configs/samples/tsconfig.web.json services/myservice/web/tsconfig.json
-
 # Batch パッケージ
 cp configs/samples/tsconfig.batch.json services/myservice/batch/tsconfig.json
 ```
 
-**注意**: サンプルファイルの相対パスは `services/{service}/core`, `services/{service}/web`, `services/{service}/batch` に配置されることを前提としている。
+**注意**: サンプルファイルの相対パスは `services/{service}/core`, `services/{service}/batch` に配置されることを前提としている。web パッケージはサンプルを複製せず、`configs/tsconfig.web.json` を extends する (→ 下記)。
 
 ## TypeScript設定
 
@@ -73,6 +70,28 @@ cp configs/samples/tsconfig.batch.json services/myservice/batch/tsconfig.json
     }
 }
 ```
+
+### configs/tsconfig.web.json
+
+Next.js web パッケージ (`services/*/web`, `services/tools`) 共通の土台。`tsconfig.base.json` を extends し、`lib`・`jsx`・`include`・`exclude` などを持つ。
+
+web パッケージの tsconfig.json は、これを extends して固有の差分だけを書く。`@/*` の `paths` は共通側に置けないため、各パッケージで書く。
+
+```json
+{
+    "extends": "../../../configs/tsconfig.web.json",
+    "compilerOptions": {
+        "paths": {
+            "@/*": ["./src/*"]
+        }
+    }
+}
+```
+
+- `paths`・`include`・`exclude`・`references` は extends でマージされず、子で書くと丸ごと上書きになる。`paths` に別名を足すときも `@/*` を書き直す。
+- `paths` を共通側に置かないのは、Turbopack が `${configDir}` を解決できず、`@/*` が引けなくなるため。相対パスで共通側に置くと、継承した設定の置き場所 (configs/) 基準で解決されてしまう。
+- 共通側の `include` / `exclude` は `${configDir}` (TypeScript 5.5+) でパッケージのディレクトリを指す。
+- テストを型チェック対象から外すパッケージは、`exclude` を子で上書きする。ts-jest がテストを `include` の外から読む場合は、`rootDir` も指定する。
 
 #### 各ライブラリでの使用
 

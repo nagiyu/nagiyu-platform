@@ -43,7 +43,7 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/stock-tracker-web'
-          shared-workspaces: '@nagiyu/common,@nagiyu/aws,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui,@nagiyu/stock-tracker-core'
+          shared-workspaces: '@nagiyu/stock-tracker-core'
 
   build-core:
     name: Core Build Verification
@@ -61,9 +61,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
+        run: npm run build:libs
 
       - name: Build Core package
         run: npm run build --workspace @nagiyu/stock-tracker-core
@@ -84,9 +82,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
+        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace @nagiyu/stock-tracker-core
@@ -197,13 +193,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/nextjs
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/react
-          npm run build --workspace @nagiyu/ui
+        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace @nagiyu/stock-tracker-core
@@ -227,9 +217,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
+        run: npm run build:libs
 
       - name: Run Core tests
         run: npm run test --workspace @nagiyu/stock-tracker-core
@@ -256,9 +244,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
+        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace @nagiyu/stock-tracker-core
@@ -294,9 +280,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
+        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace @nagiyu/stock-tracker-core
@@ -321,9 +305,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
+        run: npm run build:libs
 
       - name: Run Core tests with coverage
         run: npm run test:coverage --workspace @nagiyu/stock-tracker-core
@@ -348,13 +330,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/nextjs
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/react
-          npm run build --workspace @nagiyu/ui
+        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace @nagiyu/stock-tracker-core
@@ -428,13 +404,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/nextjs
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/react
-          npm run build --workspace @nagiyu/ui
+        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace @nagiyu/stock-tracker-core
@@ -508,13 +478,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/nextjs
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/react
-          npm run build --workspace @nagiyu/ui
+        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace @nagiyu/stock-tracker-core

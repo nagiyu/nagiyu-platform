@@ -46,7 +46,7 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/codec-converter-web'
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/aws,@nagiyu/codec-converter-core'
+          shared-workspaces: '@nagiyu/codec-converter-core'
 
   docker-build:
     name: Docker Build Verification
@@ -114,11 +114,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/aws
+        run: npm run build:libs
 
       - name: Build codec-converter-core library
         run: npm run build --workspace=@nagiyu/codec-converter-core
@@ -149,11 +145,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/aws
+        run: npm run build:libs
 
       - name: Build codec-converter-core library
         run: npm run build --workspace=@nagiyu/codec-converter-core
@@ -222,11 +214,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/aws
+        run: npm run build:libs
 
       - name: Build codec-converter-core library
         run: npm run build --workspace=@nagiyu/codec-converter-core
@@ -295,11 +283,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/aws
+        run: npm run build:libs
 
       - name: Build codec-converter-core library
         run: npm run build --workspace=@nagiyu/codec-converter-core

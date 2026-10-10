@@ -9,10 +9,10 @@ description: 共通ライブラリ @nagiyu/* を依存順にビルドする。ne
 
 ## 使い方
 
-リポジトリルートで同梱スクリプトを実行する（依存順にビルドする）:
+リポジトリルートで実行する（全 libs を依存順にビルドする）:
 
 ```bash
-.claude/skills/build-shared-libs/scripts/build.sh
+npm run build:libs
 ```
 
 `npm ci` 未実行なら先に済ませること。
@@ -30,24 +30,15 @@ react    ← browser, common
 ui       ← browser, common （+ build に scripts/copy-assets.mjs の追加ステップあり）
 ```
 
-トポロジカル順（スクリプトもこの順で実行する）:
+`build:libs`（ルート `package.json`）は、この依存を満たす順に `--workspace` を並べている。npm は複数の `--workspace` を指定順に 1 つずつ実行するため、並べた順がそのままビルド順になる。lib を追加・依存を変えたときは、ルートの `build:libs` の並びを直す。
 
-1. `@nagiyu/common`
-2. `@nagiyu/aws` / `@nagiyu/browser` / `@nagiyu/nextjs`（common のみに依存）
-3. `@nagiyu/react` / `@nagiyu/ui`（browser, common に依存）
-
-> 注: 以前のドキュメントは `common → browser → ui → nextjs` の 4 つだけを記載し、`aws` / `react` が欠落していた。また `nextjs` は `browser` ではなく `common` のみに依存する。本スキプトが正となる。
-
-## 手動で実行する場合
+## 手動で 1 つだけビルドする場合
 
 ```bash
 npm run build --workspace @nagiyu/common
-npm run build --workspace @nagiyu/aws
-npm run build --workspace @nagiyu/browser
-npm run build --workspace @nagiyu/nextjs
-npm run build --workspace @nagiyu/react
-npm run build --workspace @nagiyu/ui
 ```
+
+依存先が先にビルドされている必要がある（上のグラフを参照）。
 
 ## 関連
 
