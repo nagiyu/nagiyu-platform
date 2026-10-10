@@ -6,7 +6,13 @@ import { Select, type SelectOption } from '@nagiyu/ui';
 import { CreateItemDialog } from '@/components/CreateItemDialog';
 import { ListSidebar } from '@/components/ListSidebar';
 import { TodoList } from '@/components/TodoList';
-import type { GroupListResponse, GroupListsResponse, GroupsResponse } from '@/types';
+import type {
+  GroupListResponse,
+  GroupListsResponse,
+  GroupsResponse,
+  PersonalListsResponse,
+} from '@/types';
+
 type SharedGroup = {
   groupId: string;
   name: string;
@@ -25,6 +31,7 @@ const SCOPE_OPTIONS: ReadonlyArray<SelectOption> = [
 const ERROR_MESSAGES = {
   SHARED_GROUPS_FETCH_FAILED: '共有グループ一覧の取得に失敗しました',
   SHARED_LISTS_FETCH_FAILED: '共有リスト一覧の取得に失敗しました',
+  PERSONAL_LISTS_FETCH_FAILED: '個人リスト一覧の取得に失敗しました',
   SHARED_LIST_CREATE_FAILED: '共有リストの作成に失敗しました。',
   SHARED_LIST_RENAME_FAILED: '共有リスト名の更新に失敗しました。',
   SHARED_LIST_DELETE_FAILED: '共有リストの削除に失敗しました。',
@@ -50,6 +57,11 @@ export function ListWorkspace({
   >({});
   const [selectedGroupId, setSelectedGroupId] = useState<string>(initialGroupId);
   const [selectedListId, setSelectedListId] = useState(initialListId);
+  // 共有スコープから入った場合 initialListId は共有リストの ID なので、個人スコープの戻り先に使えない。
+  // 個人スコープから入った場合のみ initialListId を戻り先の初期値にする。
+  const [personalListId, setPersonalListId] = useState(
+    initialScope === 'personal' ? initialListId : ''
+  );
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
@@ -118,6 +130,41 @@ export function ListWorkspace({
   }, []);
 
   useEffect(() => {
+    if (initialScope === 'personal') {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const fetchDefaultPersonalList = async (): Promise<void> => {
+      try {
+        const response = await globalThis.fetch('/api/lists', { signal: controller.signal });
+        if (!response.ok) {
+          throw new Error(`status: ${response.status}`);
+        }
+        const result = (await response.json()) as PersonalListsResponse;
+        const defaultList =
+          result.data.lists.find((list) => list.isDefault) ?? result.data.lists[0];
+        if (defaultList) {
+          // 取得中にサイドバーで個人リストを選択済みなら、その選択を上書きしない。
+          setPersonalListId((previous) => previous || defaultList.listId);
+        }
+      } catch (error: unknown) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          return;
+        }
+        console.error(ERROR_MESSAGES.PERSONAL_LISTS_FETCH_FAILED, { error });
+      }
+    };
+
+    void fetchDefaultPersonalList();
+
+    return () => {
+      controller.abort();
+    };
+  }, [initialScope]);
+
+  useEffect(() => {
     if (sharedGroups.length === 0) {
       return;
     }
@@ -151,7 +198,7 @@ export function ListWorkspace({
   if (scope === 'shared') {
     currentListId = selectedInCurrentScope?.listId ?? sidebarLists[0]?.listId ?? '';
   } else {
-    currentListId = selectedListId;
+    currentListId = personalListId;
   }
 
   const handleCreateList = async (name: string) => {
@@ -282,9 +329,6 @@ export function ListWorkspace({
             onChange={(nextValue) => {
               const nextScope = nextValue as 'personal' | 'shared';
               setScope(nextScope);
-              if (nextScope === 'personal') {
-                setSelectedListId(initialListId);
-              }
               let nextLists: readonly { listId: string; name: string }[] = [];
               if (nextScope === 'shared') {
                 nextLists = sharedLists;
@@ -325,7 +369,9 @@ export function ListWorkspace({
             lists={scope === 'personal' ? undefined : sidebarLists}
             hrefPrefix={scope === 'personal' ? '/lists' : `/groups/${selectedGroupId}/lists`}
             onCreateList={scope === 'shared' ? () => setCreateDialogOpen(true) : undefined}
-            onListSelect={(listId) => setSelectedListId(listId)}
+            onListSelect={(listId) =>
+              scope === 'personal' ? setPersonalListId(listId) : setSelectedListId(listId)
+            }
             onRenameList={scope === 'shared' ? handleRenameSharedList : undefined}
             onDeleteList={scope === 'shared' ? handleDeleteSharedList : undefined}
           />
