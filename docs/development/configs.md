@@ -19,6 +19,9 @@ configs/
 ├── tsconfig.base.json      # TypeScript基本設定
 ├── tsconfig.web.json       # Next.js web パッケージ共通の TypeScript 設定
 ├── eslint.config.base.mjs  # ESLint基本設定
+├── eslint.config.core.mjs  # core パッケージ用 ESLint 設定 (UI/Browser への依存禁止)
+├── eslint.config.web.mjs   # Next.js web パッケージ共通の ESLint 設定
+├── eslint.config.no-restricted-mui.mjs # MUI の共通ラップ済みコンポーネントの直接 import 禁止
 └── samples/                # サンプル設定ファイル
     ├── tsconfig.core.json  # core パッケージ用サンプル
     └── tsconfig.batch.json # batch パッケージ用サンプル
@@ -143,9 +146,9 @@ web パッケージの tsconfig.json は、これを extends して固有の差�
 #### 含まれる設定
 
 - ESLint v9 Flat Config形式
-- Next.js公式ルールセット
-- TypeScript対応
-- PWA生成ファイルの除外
+- `@eslint/js` と typescript-eslint の推奨ルール
+- ビルド出力の除外
+- クラスのフィールド定義とアクセス修飾子のルール
 
 #### 各サービスでの使用
 
@@ -171,6 +174,43 @@ export default [
 
 - サービス固有のルール追加
 - 特定ファイルの除外
+
+### configs/eslint.config.web.mjs
+
+Next.js の web パッケージ (`services/*/web`、`services/tools`) が共通で使う設定。各サービスはこれを読み込み、固有の差分だけを書く。
+
+#### 含まれる設定
+
+- `eslint.config.base.mjs`
+- `eslint-config-next/core-web-vitals` (`next/typescript` を除く。TypeScript のルールは base の typescript-eslint で管理する)
+- typescript-eslint のパーサー
+- eslint-config-next 16.2.3 で追加された react-hooks の一部ルールの無効化 (既存コードへの影響が大きいため別途対応する)
+- `eslint.config.no-restricted-mui.mjs`
+
+E2E テスト (`tests/e2e/`) も lint 対象に含める。
+
+#### 各サービスでの使用
+
+```javascript
+// services/{service}/web/eslint.config.mjs
+import webConfig from '../../../configs/eslint.config.web.mjs';
+
+export default webConfig;
+```
+
+固有の除外やルールがある場合だけ追記する。
+
+```javascript
+// services/tools/eslint.config.mjs
+import { defineConfig, globalIgnores } from 'eslint/config';
+import webConfig from '../../configs/eslint.config.web.mjs';
+
+export default defineConfig([
+  ...webConfig,
+  // next-pwa が生成するファイルは lint 対象外
+  globalIgnores(['public/sw.js', 'public/workbox-*.js']),
+]);
+```
 
 ## Jest設定
 

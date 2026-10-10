@@ -30,7 +30,6 @@ const VALID_JSON_NESTED = `{"user":{"name":"Alice","profile":{"age":25,"country"
 const INVALID_JSON_MISSING_QUOTE = `{name:"John"}`;
 const INVALID_JSON_TRAILING_COMMA = `{"name":"John",}`;
 const INVALID_JSON_SINGLE_QUOTES = `{'name':'John'}`;
-const EMPTY_INPUT = '';
 
 test.describe('JSON Formatter - E2E Tests', () => {
   test.beforeEach(async ({ page }) => {

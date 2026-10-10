@@ -15,10 +15,10 @@ export const test = base.extend({
   /**
    * Automatically run accessibility tests on each page
    */
-  makeAxeBuilder: async ({ page }, use) => {
+  makeAxeBuilder: async ({ page }, provide) => {
     const makeAxeBuilder = () =>
       new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']);
-    await use(makeAxeBuilder);
+    await provide(makeAxeBuilder);
   },
 });
 
