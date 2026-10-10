@@ -4,6 +4,15 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import RootLayout, { dynamic, metadata } from '@/app/layout';
 
 const mockSessionHeader = jest.fn();
+const mockServiceWorkerRegistration = jest.fn();
+
+jest.mock('@nagiyu/react', () => ({
+  __esModule: true,
+  ServiceWorkerRegistration: (props: Record<string, unknown>) => {
+    mockServiceWorkerRegistration(props);
+    return <div>ServiceWorkerRegistration</div>;
+  },
+}));
 
 jest.mock('@nagiyu/ui', () => ({
   __esModule: true,
@@ -24,7 +33,6 @@ jest.mock('@nagiyu/ui', () => ({
       <div>{footerProps?.version}</div>
     </div>
   ),
-  ServiceWorkerRegistration: () => <div>ServiceWorkerRegistration</div>,
 }));
 
 jest.mock('@nagiyu/ui/session-provider', () => ({
@@ -57,6 +65,7 @@ describe('RootLayout', () => {
 
   beforeEach(() => {
     mockSessionHeader.mockClear();
+    mockServiceWorkerRegistration.mockClear();
   });
 
   afterEach(() => {
@@ -87,6 +96,18 @@ describe('RootLayout', () => {
     expect(html).toContain('LastVisitedPathController');
     expect(html).toContain('RootLayout Child');
     expect(html).toContain('1.0.0');
+  });
+
+  it('Service Worker の登録だけを行い、再購読は行わない', () => {
+    renderToStaticMarkup(
+      <RootLayout>
+        <div>RootLayout Child</div>
+      </RootLayout>
+    );
+
+    // share-together の sw.js は Push を持たないため、再購読を有効にしない
+    expect(mockServiceWorkerRegistration).toHaveBeenCalledTimes(1);
+    expect(mockServiceWorkerRegistration.mock.calls[0][0]).toEqual({});
   });
 
   it('ヘッダーを SessionProvider の内側に描画する', () => {

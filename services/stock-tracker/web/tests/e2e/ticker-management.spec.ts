@@ -3,7 +3,7 @@ import { test, expect, resetState, type ResetSeedData } from './fixtures';
 /**
  * webkit-mobile 対応: 実 Service Worker（/sw.js）を無効化する。
  *
- * 本アプリは libs/ui の ServiceWorkerRegistration が全ページで /sw.js を登録するため、
+ * 本アプリは libs/react の ServiceWorkerRegistration が全ページで /sw.js を登録するため、
  * webkit では SW がページを制御し、API 応答を仲介・キャッシュしてしまう。Playwright は
  * 「Service Worker 経由のリクエストは Chromium 以外では page.route で捕捉できない」
  * という既知の制約があるため、モックが素通りしたり、UI が古い応答を表示したりして

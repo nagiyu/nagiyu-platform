@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { ServiceLayout, ServiceWorkerRegistration, type NavigationItem } from '@nagiyu/ui';
+import { ServiceWorkerRegistration } from '@nagiyu/react';
+import { ServiceLayout, type NavigationItem } from '@nagiyu/ui';
 import { SessionHeader, SessionProviderWrapper } from '@nagiyu/ui/session-provider';
 import { InvitationBadge } from '@/components/InvitationBadge';
 import LastVisitedPathController from '@/components/LastVisitedPathController';

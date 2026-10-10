@@ -72,7 +72,6 @@
     - `GET /api/niconico/session` を `{hasSession:true,validity:'valid'}` にする
     - `/api/mylist/register` と `/api/batch/status/**`
 - seed 動画のサムネイルは `https://example.com/*.jpg` なので、route で 1x1 の PNG を返す。
-- Service Worker を block すると、登録の送信が止まる (`serviceWorker.ready` を待つため)。登録を試すときは Service Worker を許可した context で。
 - ニコニコの実 API は読み取りなら動く (検索、`sm9` の getthumbinfo)。外部への書き込み (マイリスト登録の実行) はしない。
 
 ## auth (段階 B)

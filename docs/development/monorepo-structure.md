@@ -299,7 +299,6 @@ libs/aws → libs/common
 - Header, Footer コンポーネント
 - テーマ設定（カラーパレット、タイポグラフィ）
 - グローバルCSS
-- ServiceWorkerRegistration
 
 **特徴**:
 

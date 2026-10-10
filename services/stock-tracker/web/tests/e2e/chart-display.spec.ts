@@ -35,7 +35,7 @@ import { test, expect, resetState, type ResetSeedData } from './fixtures';
  *
  * `chromium-mobile` プロジェクトは `serviceWorkers: 'block'` を設定しているため
  * `page.route('**\/api/chart/**')` のモックが常に有効だが、`webkit-mobile` は未設定だった。
- * 本アプリは `ServiceWorkerRegistration`（libs/ui）が全ページで実際に `/sw.js` を登録しており、
+ * 本アプリは `ServiceWorkerRegistration`（libs/react）が全ページで実際に `/sw.js` を登録しており、
  * webkit ではこの登録が成功して SW がページを制御する（`self.clients.claim()`）。Playwright は
  * 「Service Worker 経由のリクエストは Chromium 以外では `page.route` で捕捉できない」という
  * 既知の制約があり（https://playwright.dev/docs/service-workers-experimental 参照）、実測でも
