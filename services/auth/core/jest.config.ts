@@ -8,11 +8,8 @@ const config: Config = {
   moduleNameMapper: {
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
     '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
-    '^@nagiyu/nextjs$': '<rootDir>/../../../libs/nextjs/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
-  // next-auth などの ES モジュールをトランスフォームする
-  transformIgnorePatterns: ['node_modules/(?!(next-auth|@auth|oauth4webapi)/)'],
   coverageDirectory: 'coverage',
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
   coverageThreshold: {
