@@ -64,7 +64,7 @@ export function isPushSupported(): boolean {
 /**
  * 購読情報の送信の設定。パッケージの入口からは公開しない。
  */
-export interface PostPushSubscriptionOptions {
+interface PostPushSubscriptionOptions {
   /** 送信先 URL（既定: `/api/push/subscribe`） */
   endpoint?: string;
   /**
@@ -161,6 +161,8 @@ export async function subscribePush({
   if (!registration) {
     registration = await navigator.serviceWorker.register(swPath);
   }
+  // 登録直後は Service Worker が active でなく、pushManager.subscribe が失敗するため有効化を待つ
+  await navigator.serviceWorker.ready;
 
   let subscription = await registration.pushManager.getSubscription();
   if (!subscription) {

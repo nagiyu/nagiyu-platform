@@ -316,9 +316,9 @@ export default function AlertSettingsModal({
     }
   }, [open, mode, tradeMode, editTarget, defaultTargetPrice]);
 
-  // Web Push通知許可をリクエスト
   const { subscribe } = usePushSubscription();
 
+  // Web Push通知許可をリクエスト
   const requestNotificationPermission = async (): Promise<PushSubscription | null> => {
     try {
       return await subscribe();

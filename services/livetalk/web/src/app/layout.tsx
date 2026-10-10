@@ -46,7 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           他のスクリプトより先にロードする必要がある */}
       <Script src="/assets/cubism-core/live2dcubismcore.min.js" strategy="beforeInteractive" />
       <body>
-        {/* 通知許可済みのユーザーは再訪時に自動で SW 登録・再購読する */}
+        {/* 許可済みユーザーの購読は、ブラウザ側で失われることがあるため訪問のたびに作り直して送る */}
         <ServiceWorkerRegistration resubscribe />
         {/*
           CharacterProvider で最外をラップする。

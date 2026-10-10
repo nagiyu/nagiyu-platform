@@ -44,6 +44,7 @@ describe('push utilities', () => {
       existingSubscription?: MockPushSubscription | null;
       registerImpl?: jest.Mock;
       subscribeImpl?: jest.Mock;
+      ready?: Promise<unknown>;
     };
 
     const setupBrowser = (options: SetupOptions = {}) => {
@@ -56,6 +57,7 @@ describe('push utilities', () => {
         existingSubscription = null,
         registerImpl,
         subscribeImpl,
+        ready,
       } = options;
 
       const createdSubscription: MockPushSubscription = {
@@ -92,6 +94,7 @@ describe('push utilities', () => {
           value: {
             register: registerFn,
             getRegistration: getRegistrationFn,
+            ready: ready ?? Promise.resolve(registration),
           },
         });
       } else {
@@ -193,6 +196,22 @@ describe('push utilities', () => {
         applicationServerKey: expect.any(Uint8Array),
       });
       expect(result).toBe(createdSubscription);
+    });
+
+    it('Service Worker が有効になるまで pushManager.subscribe を呼ばない', async () => {
+      let activate: () => void = () => undefined;
+      const ready = new Promise<void>((resolve) => {
+        activate = resolve;
+      });
+      const { subscribeFn } = setupBrowser({ existingRegistration: null, ready });
+
+      const pending = subscribePush();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(subscribeFn).not.toHaveBeenCalled();
+
+      activate();
+      await pending;
+      expect(subscribeFn).toHaveBeenCalledTimes(1);
     });
 
     it('既存の subscription があれば公開鍵を取得しない', async () => {
