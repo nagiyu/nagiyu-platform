@@ -74,7 +74,6 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/portal-web'
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/nextjs'
 
   docker-build:
     name: Docker Build Verification
@@ -125,11 +124,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
+        run: npm run build:libs
 
       - name: Run unit tests
         run: npm run test --workspace @nagiyu/portal-web
@@ -154,11 +149,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
+        run: npm run build:libs
 
       - name: Run tests with coverage
         run: npm run test:coverage --workspace @nagiyu/portal-web
@@ -183,11 +174,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
+        run: npm run build:libs
 
       - name: Build web application
         run: npm run build --workspace @nagiyu/portal-web
@@ -252,11 +239,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
+        run: npm run build:libs
 
       - name: Build web application
         run: npm run build --workspace @nagiyu/portal-web
@@ -321,11 +304,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
+        run: npm run build:libs
 
       - name: Build web application
         run: npm run build --workspace @nagiyu/portal-web

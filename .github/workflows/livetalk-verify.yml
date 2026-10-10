@@ -139,7 +139,7 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/livetalk-web'
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/aws,@nagiyu/livetalk-core'
+          shared-workspaces: '@nagiyu/livetalk-core'
 
   docker-build:
     name: Docker Build Verification
@@ -197,11 +197,7 @@ jobs:
 
       - name: Build shared libraries
         run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
-          npm run build --workspace @nagiyu/aws
+          npm run build:libs
           npm run build --workspace @nagiyu/livetalk-core
 
       - name: Run core unit tests
@@ -235,9 +231,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
+        run: npm run build:libs
 
       - name: Build infra-common package
         run: npm run build --workspace=@nagiyu/infra-common
@@ -278,11 +272,7 @@ jobs:
 
       - name: Build shared libraries
         run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
-          npm run build --workspace @nagiyu/aws
+          npm run build:libs
           npm run build --workspace @nagiyu/livetalk-core
 
       - name: Run core tests with coverage
@@ -312,11 +302,7 @@ jobs:
 
       - name: Build shared libraries
         run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
-          npm run build --workspace @nagiyu/aws
+          npm run build:libs
           npm run build --workspace @nagiyu/livetalk-core
 
       - name: Build web application
@@ -383,11 +369,7 @@ jobs:
 
       - name: Build shared libraries
         run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
-          npm run build --workspace @nagiyu/aws
+          npm run build:libs
           npm run build --workspace @nagiyu/livetalk-core
 
       - name: Build web application
@@ -454,11 +436,7 @@ jobs:
 
       - name: Build shared libraries
         run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
-          npm run build --workspace @nagiyu/aws
+          npm run build:libs
           npm run build --workspace @nagiyu/livetalk-core
 
       - name: Build web application

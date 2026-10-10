@@ -777,39 +777,25 @@ export default [
 
 **順序**:
 
-1. **共通ライブラリ（依存なし）** - 並列実行可能
+1. **共通ライブラリ（全 libs を依存順にビルド）**
 
    ```bash
-   npm run build --workspace @nagiyu/common
-   npm run build --workspace @nagiyu/aws
+   npm run build:libs
    ```
 
-2. **React/ブラウザライブラリ（common に依存）** - 並列実行可能
-
-   ```bash
-   npm run build --workspace @nagiyu/react
-   npm run build --workspace @nagiyu/browser
-   ```
-
-3. **UI ライブラリ（browser に依存）**
-
-   ```bash
-   npm run build --workspace @nagiyu/ui
-   ```
-
-4. **サービス core（common に依存）**
+2. **サービス core（common に依存）**
 
    ```bash
    npm run build --workspace tools-core
    ```
 
-5. **サービス batch（core に依存）**
+3. **サービス batch（core に依存）**
 
    ```bash
    npm run build --workspace tools-batch
    ```
 
-6. **サービス web（Next.js ビルド、任意）**
+4. **サービス web（Next.js ビルド、任意）**
    ```bash
    npm run build --workspace tools-web
    ```
@@ -818,12 +804,7 @@ export default [
 
 ```yaml
 - name: Build shared libraries
-  run: |
-    npm run build --workspace @nagiyu/common && \
-    npm run build --workspace @nagiyu/aws && \
-    npm run build --workspace @nagiyu/react && \
-    npm run build --workspace @nagiyu/browser && \
-    npm run build --workspace @nagiyu/ui
+  run: npm run build:libs
 
 - name: Build service core
   run: npm run build --workspace tools-core
@@ -847,12 +828,8 @@ npm run build --workspaces
 **順次ビルドの実施**:
 
 ```bash
-# ✅ 依存関係の順序に従って順次ビルド
-npm run build --workspace @nagiyu/common && \
-npm run build --workspace @nagiyu/aws && \
-npm run build --workspace @nagiyu/react && \
-npm run build --workspace @nagiyu/browser && \
-npm run build --workspace @nagiyu/ui
+# ✅ 依存関係の順序に従って順次ビルド（libs は build:libs が依存順に並べている）
+npm run build:libs
 ```
 
 詳細は [shared-libraries.md](./shared-libraries.md) の「ビルド順序」セクションを参照。

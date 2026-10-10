@@ -854,10 +854,7 @@ it('should calculate total', () => {
 
 ```yaml
 - name: Build shared libraries
-  run: |
-    npm run build --workspace @nagiyu/common
-    npm run build --workspace @nagiyu/browser
-    npm run build --workspace @nagiyu/ui
+  run: npm run build:libs
 
 - name: Build Next.js application
   run: npm run build --workspace <service-name>
@@ -1105,18 +1102,15 @@ concurrency:
 ```yaml
 # ✅ OK
 - name: Build shared libraries
-  run: |
-    npm run build --workspace @nagiyu/common
-    npm run build --workspace @nagiyu/browser
-    npm run build --workspace @nagiyu/ui
+  run: npm run build:libs
 
 # ❌ NG: 並列実行のため依存関係が保証されない
 - run: npm run build --workspaces
 ```
 
-#### MUST: 依存関係順にビルド (common → browser → ui)
+#### MUST: 依存関係順にビルド (libs は `npm run build:libs` を使う)
 
-#### MUST: npm run build --workspace @nagiyu/common のように個別ビルド
+#### MUST: libs 以外は npm run build --workspace @nagiyu/hoge のように個別ビルド
 
 #### MUST NOT: npm run build --workspaces を使用しない (並列実行のため)
 
@@ -1371,7 +1365,7 @@ Docker・CI・DevContainer・`package.json` の `engines.node` を含む全環�
 {
   "scripts": {
     "dev": "next dev",
-    "build": "next build --webpack",
+    "build": "next build",
     "lint": "eslint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -1387,6 +1381,21 @@ Docker・CI・DevContainer・`package.json` の `engines.node` を含む全環�
 #### MUST: tsconfig.json で共通設定を継承
 
 #### MUST: next.config.ts を作成
+
+`configs/next.config.base.ts` の `createNextConfig` を使い、サービス側には固有の設定だけを書く。
+
+```typescript
+// services/*/web/next.config.ts
+import { createNextConfig } from '../../../configs/next.config.base';
+
+export default createNextConfig(__dirname, {
+  // redirects / headers など、そのサービス固有の設定のみ
+});
+```
+
+`output` / `outputFileTracingRoot` / `transpilePackages` は共通の土台が決める。サービス側で書き直さない。
+
+**理由**: 設定をサービスごとに書き写すと、トレースの起点を誤る (standalone の配置が変わる)、依存の増減に `transpilePackages` が追従しない、といった食い違いが静かに生まれる。
 
 #### MUST: jest.config.ts を作成
 
