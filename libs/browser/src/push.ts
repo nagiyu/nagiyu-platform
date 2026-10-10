@@ -227,12 +227,19 @@ export async function registerServiceWorker(
 }
 
 /**
- * 既存の Push 購読を取得する。Service Worker 非対応または未登録なら `null`。
+ * 既存の Push 購読を取得する。Service Worker・PushManager 非対応または未登録なら `null`。
  *
  * `navigator.serviceWorker.ready` は未登録だと永久に解決しないため使わず、`getRegistration()` で判定する。
+ * Service Worker はあっても PushManager が無いブラウザ (iOS Safari の通常タブなど) では
+ * `registration.pushManager` が存在しないため、先に弾く。
  */
 export async function getPushSubscription(): Promise<PushSubscription | null> {
-  if (typeof navigator === 'undefined' || !navigator.serviceWorker) {
+  if (
+    typeof navigator === 'undefined' ||
+    !navigator.serviceWorker ||
+    typeof window === 'undefined' ||
+    !('PushManager' in window)
+  ) {
     return null;
   }
   const registration = await navigator.serviceWorker.getRegistration();

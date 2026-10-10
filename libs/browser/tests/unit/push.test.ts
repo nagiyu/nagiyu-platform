@@ -582,6 +582,13 @@ describe('push utilities', () => {
         await expect(getPushSubscription()).resolves.toBeNull();
       });
 
+      it('PushManager 非対応なら SW の登録を見ずに null', async () => {
+        const { getRegistration } = setup({ existingSubscription: makeSub() });
+        delete (window as unknown as { PushManager?: unknown }).PushManager;
+        await expect(getPushSubscription()).resolves.toBeNull();
+        expect(getRegistration).not.toHaveBeenCalled();
+      });
+
       it('SW 未登録なら null', async () => {
         const { getSubscriptionFn } = setup({ hasRegistration: false });
         await expect(getPushSubscription()).resolves.toBeNull();
