@@ -138,7 +138,6 @@ Next.jsとMaterial-UIに依存するUIコンポーネント。
 - AppThemeProvider（`AppRouterCacheProvider + ThemeProvider + CssBaseline` の軽量プロバイダー。`ServiceLayout` を採用しないサービス向け）
 - theme.ts（カラーパレット、タイポグラフィ）
 - グローバルCSS
-- ServiceWorkerRegistration
 - ErrorBoundary（React エラーキャッチ用クラスコンポーネント）
 - ErrorAlert（MUI Alert ラッパー。アクセシビリティ対応済みのエラー表示）
 - LoadingState（MUI CircularProgress ラッパー。ローディング表示）
@@ -173,7 +172,7 @@ React依存のユーティリティ。
 - React hooks（`useAPIRequest` 等）
 - React コンポーネント
 - React固有の抽象化
-- Web Push 購読 Hook（`usePushSubscription`）
+- Web Push の React からの入口 (hook の `usePushSubscription`、layout 用の `ServiceWorkerRegistration`)
 
 ### パッケージ名
 
@@ -185,29 +184,20 @@ React依存のユーティリティ。
 - フレームワーク固有機能の提供
 - テスト容易性（モック化しやすい設計）
 
-### Web Push 購読 Hook（`usePushSubscription`）
+### Web Push の置き場所と React からの入口
 
-`@nagiyu/browser` の `subscribePush` を React Hook としてラップしたもの。状態管理（`supported` / `permission` / `subscribed` / `loading` / `error`）と `subscribe()` / `unsubscribe()` メソッドを提供する。
+Web Push の購読まわりは、手続きを `@nagiyu/browser`、React からの入口を `@nagiyu/react` に置く。`@nagiyu/ui` は Push を持たない。
 
-```tsx
-import { usePushSubscription } from '@nagiyu/react';
+- **置き場所の分け方**: `libs/browser` は React を使わない手続きすべて (対応判定・Service Worker の登録・購読・解除・再購読・サーバーへの送信)、`libs/react` はそれを React から呼ぶ入口 (hook と layout 用コンポーネント) だけを持つ。
+- **分ける理由**: 呼び出し側が公開鍵の取得とサーバー送信を毎回つなぐと、サービスごとに同じ処理が重複する。また、ユーザー操作での購読と、許可済みユーザーの再購読が別の層に分かれていると、「初回はここ、再購読はあそこ」という暗黙の役割分担が層をまたいで生まれ、片方の修正がもう片方に伝わらなくなる。
 
-function NotifyButton() {
-  const { supported, subscribed, loading, error, subscribe, unsubscribe } = usePushSubscription({
-    vapidPublicKey: () => fetchVapidPublicKey(),
-    onSubscribed: async (subscription) => {
-      await fetch('/api/push/subscribe', {
-        method: 'POST',
-        body: JSON.stringify(subscription),
-      });
-    },
-  });
-  // ...
-}
-```
+サービスの側は次のように使う。
 
-- 初期化時に既存 subscription をチェックして `subscribed` を反映する。
-- 取得した `subscription` を後続の API 呼び出しで利用する必要がある場合（例: stock-tracker の `/api/alerts`）は、Hook ではなく `subscribePush` を直接呼ぶ方が自然。
+- **購読は hook 経由で行う**: `usePushSubscription` の `subscribe()` が、公開鍵の取得からサーバー送信までを済ませる。呼び出し側で鍵取得や送信をつながない。エンドポイントや body の形が既定と違うサービスは、hook のオプションで指定する。購読した `PushSubscription` を後続の API 呼び出しに使う場合も、`subscribe()` の戻り値を使う。
+- **layout には `@nagiyu/react` の `ServiceWorkerRegistration` を置く**: Service Worker の登録に加え、`resubscribe` を指定すると、許可済みユーザーの購読を作り直してサーバーへ送り直す。許可済みユーザーの再購読はここが担い、各画面の購読 UI は初回の許可に専念する。Push を持たない Service Worker のサービスは、`resubscribe` を付けずに登録だけを行う。
+- **再購読で送信が 401 のときは、未ログインとして黙って終える**: layout は全ページで動き、未ログインのユーザーにも実行されるため、失敗として扱うとログイン前のたびにエラーが出る。
+
+hook の `supported` / `permission` / `subscribed` は、ハイドレーション不一致を避けるためマウント後に確定する。確定前の値で表示を切り替えないよう、`ready` を見る。
 
 ## libs/nextjs/
 
@@ -293,9 +283,7 @@ Push 通知機能を持つサービスの API ルートは `@nagiyu/nextjs` が�
 
 - Clipboard APIラッパー
 - localStorage/sessionStorageラッパー
-- Web Push 用 Base64 URL デコード（`urlBase64ToUint8Array`）
-- Web Push 購読フロー（`subscribePush`）
-- Web Push 対応判定 (`isPushSupported`)・購読のサーバー送信 (`postPushSubscription`)
+- Web Push の手続き (対応判定・Service Worker の登録・購読・解除・再購読)
 - その他ブラウザ固有APIの抽象化
 
 ### パッケージ名
@@ -308,37 +296,14 @@ Push 通知機能を持つサービスの API ルートは `@nagiyu/nextjs` が�
 - SSR対応（ブラウザ環境チェック）
 - テスト容易性（モック化しやすい設計）
 
-### Web Push 購読フロー（`subscribePush`）
+### Web Push の手続き
 
-Web Push の購読フローを 1 関数に集約する。サービス側の重複（permission 取得 → SW 登録 → vapid 取得 → `pushManager.subscribe` → サーバへの POST）を解消する。
+Web Push の手続きを、React を使わないものとしてここに集約する。React からの入口と置き場所の分け方は、`libs/react` の節を参照。
 
-```ts
-import { subscribePush } from '@nagiyu/browser';
-
-const subscription = await subscribePush({
-  vapidPublicKey: () => fetchVapidPublicKey(),
-  swPath: '/service-worker.js',
-  onSubscribed: async (subscription) => {
-    await fetch('/api/push/subscribe', {
-      method: 'POST',
-      body: JSON.stringify(subscription),
-    });
-  },
-});
-```
-
-- `vapidPublicKey` は `string` または `() => Promise<string>` を受け付ける。関数形式の場合、許可チェック後にのみ呼ばれる（許可拒否時に不要な fetch を避ける）。
-- `swPath` 省略時は `/service-worker.js` を使用する。
-- `onSubscribed` は購読成功時に呼ばれるコールバック。サーバへの POST ボディ形式の差異を呼び出し側で吸収する。
-- 既存 subscription がある場合は再利用する（重複登録を避ける）。
-- 非対応ブラウザ・許可拒否時は `PUSH_ERROR_MESSAGES` 由来のエラーをスローする。
-
-Hook として状態管理込みで利用したい場合は `@nagiyu/react` の `usePushSubscription` を併用する。
-
-Push 対応判定と購読のサーバー送信も、サービス側で書かずに `@nagiyu/browser` のものを使う。
-
+- **公開鍵の取得とサーバー送信は購読の中で済ませ、個別には公開しない**: 呼び出し側がつなぐ口を残すと、サービスごとの重複と、層をまたぐ暗黙の分担が再発する。サービスごとに違うのは、API のパス・body の形・Service Worker のパスだけなので、オプションで指定する。
 - **対応判定の条件は購読フローと揃える**: 対応判定は、購読フローが実際に呼ぶ API (通知の許可要求・Service Worker の登録・PushManager) がすべて揃っているかで判断する。判定が購読フローより緩いと、「対応」と表示したのに購読で失敗する画面になるためである。
 - **送信する body の形はオプションで選ぶ**: 購読を `{ subscription }` で包むか、そのまま送るかはサーバー側 API の形に合わせて指定する。形の違いを理由に送信処理をコピーしない。
+- **既存の購読の確認に `navigator.serviceWorker.ready` を使わない**: Service Worker が未登録だと永久に解決しないため、登録の有無を先に確かめる。PushManager が無いブラウザでは、その時点で「購読なし」とする。
 
 ## libs/common/
 

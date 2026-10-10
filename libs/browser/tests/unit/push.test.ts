@@ -44,6 +44,7 @@ describe('push utilities', () => {
       existingSubscription?: MockPushSubscription | null;
       registerImpl?: jest.Mock;
       subscribeImpl?: jest.Mock;
+      ready?: Promise<unknown>;
     };
 
     const setupBrowser = (options: SetupOptions = {}) => {
@@ -56,6 +57,7 @@ describe('push utilities', () => {
         existingSubscription = null,
         registerImpl,
         subscribeImpl,
+        ready,
       } = options;
 
       const createdSubscription: MockPushSubscription = {
@@ -92,6 +94,7 @@ describe('push utilities', () => {
           value: {
             register: registerFn,
             getRegistration: getRegistrationFn,
+            ready: ready ?? Promise.resolve(registration),
           },
         });
       } else {
@@ -121,8 +124,14 @@ describe('push utilities', () => {
     const originalFetch = global.fetch;
 
     beforeEach(() => {
-      // onSubscribed 省略時の既定の送信先を実ネットワークに向けないためのスタブ
-      global.fetch = jest.fn().mockResolvedValue({ ok: true } as Response);
+      // 公開鍵の取得と購読情報の送信を実ネットワークに向けないためのスタブ
+      global.fetch = jest
+        .fn()
+        .mockImplementation(async (url: string) =>
+          url === '/api/push/vapid-public-key'
+            ? ({ ok: true, json: async () => ({ publicKey: VAPID_KEY }) } as Response)
+            : ({ ok: true } as Response)
+        );
     });
 
     afterEach(() => {
@@ -134,62 +143,54 @@ describe('push utilities', () => {
 
     it('Notification API がない場合は UNSUPPORTED エラー', async () => {
       setupBrowser({ hasNotification: false });
-      await expect(subscribePush({ vapidPublicKey: VAPID_KEY })).rejects.toThrow(
-        PUSH_ERROR_MESSAGES.UNSUPPORTED
-      );
+      await expect(subscribePush()).rejects.toThrow(PUSH_ERROR_MESSAGES.UNSUPPORTED);
     });
 
     it('Service Worker API がない場合は UNSUPPORTED エラー', async () => {
       setupBrowser({ hasServiceWorker: false });
-      await expect(subscribePush({ vapidPublicKey: VAPID_KEY })).rejects.toThrow(
-        PUSH_ERROR_MESSAGES.UNSUPPORTED
-      );
+      await expect(subscribePush()).rejects.toThrow(PUSH_ERROR_MESSAGES.UNSUPPORTED);
     });
 
     it('PushManager がない場合は UNSUPPORTED エラー', async () => {
       setupBrowser({ hasPushManager: false });
-      await expect(subscribePush({ vapidPublicKey: VAPID_KEY })).rejects.toThrow(
-        PUSH_ERROR_MESSAGES.UNSUPPORTED
-      );
+      await expect(subscribePush()).rejects.toThrow(PUSH_ERROR_MESSAGES.UNSUPPORTED);
     });
 
     it('通知許可が拒否された場合は PERMISSION_DENIED エラー', async () => {
       setupBrowser({ permission: 'denied' });
-      await expect(subscribePush({ vapidPublicKey: VAPID_KEY })).rejects.toThrow(
-        PUSH_ERROR_MESSAGES.PERMISSION_DENIED
-      );
+      await expect(subscribePush()).rejects.toThrow(PUSH_ERROR_MESSAGES.PERMISSION_DENIED);
     });
 
     it('既存の SW 登録があれば再利用する', async () => {
       const { registerFn, getRegistrationFn } = setupBrowser();
-      await subscribePush({ vapidPublicKey: VAPID_KEY });
+      await subscribePush();
       expect(getRegistrationFn).toHaveBeenCalledTimes(1);
       expect(registerFn).not.toHaveBeenCalled();
     });
 
     it('既存の SW 登録がなければ新規登録する', async () => {
       const { registerFn } = setupBrowser({ existingRegistration: null });
-      await subscribePush({ vapidPublicKey: VAPID_KEY, swPath: '/custom-sw.js' });
+      await subscribePush({ swPath: '/custom-sw.js' });
       expect(registerFn).toHaveBeenCalledWith('/custom-sw.js');
     });
 
     it('既定の swPath は /sw.js', async () => {
       const { registerFn } = setupBrowser({ existingRegistration: null });
-      await subscribePush({ vapidPublicKey: VAPID_KEY });
+      await subscribePush();
       expect(registerFn).toHaveBeenCalledWith('/sw.js');
     });
 
     it('既存の subscription があれば再利用する', async () => {
       const existing: MockPushSubscription = { toJSON: () => ({ endpoint: 'existing' }) };
       const { subscribeFn } = setupBrowser({ existingSubscription: existing });
-      const result = await subscribePush({ vapidPublicKey: VAPID_KEY });
+      const result = await subscribePush();
       expect(subscribeFn).not.toHaveBeenCalled();
       expect(result).toBe(existing);
     });
 
     it('既存の subscription がなければ pushManager.subscribe を呼ぶ', async () => {
       const { subscribeFn, createdSubscription } = setupBrowser();
-      const result = await subscribePush({ vapidPublicKey: VAPID_KEY });
+      const result = await subscribePush();
       expect(subscribeFn).toHaveBeenCalledWith({
         userVisibleOnly: true,
         applicationServerKey: expect.any(Uint8Array),
@@ -197,52 +198,33 @@ describe('push utilities', () => {
       expect(result).toBe(createdSubscription);
     });
 
-    it('onSubscribed コールバックが呼ばれる', async () => {
-      const { createdSubscription } = setupBrowser();
-      const onSubscribed = jest.fn().mockResolvedValue(undefined);
-      await subscribePush({ vapidPublicKey: VAPID_KEY, onSubscribed });
-      expect(onSubscribed).toHaveBeenCalledWith(createdSubscription);
+    it('Service Worker が有効になるまで pushManager.subscribe を呼ばない', async () => {
+      let activate: () => void = () => undefined;
+      const ready = new Promise<void>((resolve) => {
+        activate = resolve;
+      });
+      const { subscribeFn } = setupBrowser({ existingRegistration: null, ready });
+
+      const pending = subscribePush();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(subscribeFn).not.toHaveBeenCalled();
+
+      activate();
+      await pending;
+      expect(subscribeFn).toHaveBeenCalledTimes(1);
     });
 
-    it('onSubscribed が同期関数でも動作する', async () => {
-      setupBrowser();
-      const onSubscribed = jest.fn();
-      await expect(
-        subscribePush({ vapidPublicKey: VAPID_KEY, onSubscribed })
-      ).resolves.toBeDefined();
-      expect(onSubscribed).toHaveBeenCalled();
-    });
-
-    it('onSubscribed が例外を投げた場合は伝播する', async () => {
-      setupBrowser();
-      const onSubscribed = jest.fn().mockRejectedValue(new Error('post failed'));
-      await expect(subscribePush({ vapidPublicKey: VAPID_KEY, onSubscribed })).rejects.toThrow(
-        'post failed'
-      );
-    });
-
-    it('vapidPublicKey に関数を渡せる（許可後に呼ばれる）', async () => {
-      setupBrowser();
-      const getKey = jest.fn().mockResolvedValue(VAPID_KEY);
-      await subscribePush({ vapidPublicKey: getKey });
-      expect(getKey).toHaveBeenCalledTimes(1);
-    });
-
-    it('vapidPublicKey の関数は許可拒否時には呼ばれない', async () => {
-      setupBrowser({ permission: 'denied' });
-      const getKey = jest.fn().mockResolvedValue(VAPID_KEY);
-      await expect(subscribePush({ vapidPublicKey: getKey })).rejects.toThrow(
-        PUSH_ERROR_MESSAGES.PERMISSION_DENIED
-      );
-      expect(getKey).not.toHaveBeenCalled();
-    });
-
-    it('既存 subscription があれば vapidPublicKey の関数は呼ばれない', async () => {
+    it('既存の subscription があれば公開鍵を取得しない', async () => {
       const existing: MockPushSubscription = { toJSON: () => ({ endpoint: 'existing' }) };
       setupBrowser({ existingSubscription: existing });
-      const getKey = jest.fn().mockResolvedValue(VAPID_KEY);
-      await subscribePush({ vapidPublicKey: getKey });
-      expect(getKey).not.toHaveBeenCalled();
+      await subscribePush();
+      expect(global.fetch).not.toHaveBeenCalledWith('/api/push/vapid-public-key');
+    });
+
+    it('許可が拒否された場合は公開鍵を取得しない', async () => {
+      setupBrowser({ permission: 'denied' });
+      await expect(subscribePush()).rejects.toThrow(PUSH_ERROR_MESSAGES.PERMISSION_DENIED);
+      expect(global.fetch).not.toHaveBeenCalled();
     });
   });
 
@@ -516,22 +498,14 @@ describe('push utilities', () => {
         });
       });
 
-      it('onSubscribed を渡した場合は既定の送信を行わない', async () => {
-        setup();
-        global.fetch = jest.fn();
-        const onSubscribed = jest.fn();
-
-        await subscribePush({ vapidPublicKey: VAPID_KEY, onSubscribed });
-
-        expect(onSubscribed).toHaveBeenCalledTimes(1);
-        expect(global.fetch).not.toHaveBeenCalled();
-      });
-
       it('既定の送信が失敗した場合は SUBSCRIPTION_REGISTER_FAILED を投げる', async () => {
         setup();
-        global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 500 });
+        global.fetch = jest
+          .fn()
+          .mockResolvedValueOnce({ ok: true, json: async () => ({ publicKey: VAPID_KEY }) })
+          .mockResolvedValueOnce({ ok: false, status: 500 });
 
-        await expect(subscribePush({ vapidPublicKey: VAPID_KEY })).rejects.toThrow(
+        await expect(subscribePush()).rejects.toThrow(
           PUSH_ERROR_MESSAGES.SUBSCRIPTION_REGISTER_FAILED
         );
       });

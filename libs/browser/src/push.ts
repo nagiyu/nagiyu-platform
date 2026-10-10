@@ -1,5 +1,6 @@
 /**
  * Base64 URL エンコードされた文字列を Uint8Array に変換する。
+ * パッケージの入口からは公開しない内部関数で、テストのためにモジュールからは export している。
  */
 export function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -60,7 +61,10 @@ export function isPushSupported(): boolean {
   );
 }
 
-export interface PostPushSubscriptionOptions {
+/**
+ * 購読情報の送信の設定。パッケージの入口からは公開しない。
+ */
+interface PostPushSubscriptionOptions {
   /** 送信先 URL（既定: `/api/push/subscribe`） */
   endpoint?: string;
   /**
@@ -87,7 +91,7 @@ async function sendPushSubscription(
 }
 
 /**
- * 購読情報をサーバーへ POST する。
+ * 購読情報をサーバーへ POST する。パッケージの入口からは公開しない内部関数。
  *
  * @throws レスポンスが ok でない場合
  */
@@ -102,7 +106,7 @@ export async function postPushSubscription(
 }
 
 /**
- * VAPID 公開鍵をサーバから取得する。
+ * VAPID 公開鍵をサーバから取得する。パッケージの入口からは公開しない内部関数。
  *
  * @param endpoint - VAPID 公開鍵を返す API エンドポイント（省略時は `/api/push/vapid-public-key`）
  * @returns VAPID 公開鍵文字列（base64url 形式）
@@ -122,20 +126,11 @@ export async function fetchVapidPublicKey(
   return publicKey;
 }
 
-export interface SubscribePushOptions extends PushEndpointOptions {
-  /**
-   * VAPID 公開鍵（base64url 形式）。
-   * 文字列で事前取得済みのキーを渡すか、関数で遅延取得する。関数形式の場合は許可チェック後に実行される。
-   * 省略時は `vapidPublicKeyEndpoint` から取得する。
-   */
-  vapidPublicKey?: string | (() => Promise<string>);
-  /**
-   * 購読完了後に呼ばれるコールバック。
-   * 省略時は `subscribeEndpoint` / `bodyShape` に従って購読情報をサーバーへ送信する。
-   * 渡した場合は既定の送信の代わりに呼ばれる（二重送信しない）。
-   */
-  onSubscribed?: (subscription: PushSubscription) => Promise<void> | void;
-}
+/**
+ * `subscribePush` の設定。公開鍵の取得と購読情報の送信は `PushEndpointOptions` の
+ * エンドポイントに対して常に行うため、呼び出し側が鍵取得や送信を差し込む口は持たない。
+ */
+export type SubscribePushOptions = PushEndpointOptions;
 
 /**
  * プッシュ通知の購読フローを実行する。
@@ -144,16 +139,14 @@ export interface SubscribePushOptions extends PushEndpointOptions {
  * 1. ブラウザ対応チェック（Notification / ServiceWorker / PushManager）
  * 2. 通知許可をリクエスト
  * 3. Service Worker の登録（既存があれば再利用）
- * 4. 既存 subscription の確認、なければ `pushManager.subscribe()` で新規作成
- * 5. `onSubscribed` があれば呼び出し、なければ購読情報をサーバーへ送信
+ * 4. 既存 subscription の確認、なければ VAPID 公開鍵を取得して `pushManager.subscribe()` で新規作成
+ * 5. 購読情報をサーバーへ送信
  */
 export async function subscribePush({
-  vapidPublicKey,
   vapidPublicKeyEndpoint,
   subscribeEndpoint,
   bodyShape,
   swPath = DEFAULT_SW_PATH,
-  onSubscribed,
 }: SubscribePushOptions = {}): Promise<PushSubscription> {
   if (!isPushSupported()) {
     throw new Error(PUSH_ERROR_MESSAGES.UNSUPPORTED);
@@ -168,29 +161,17 @@ export async function subscribePush({
   if (!registration) {
     registration = await navigator.serviceWorker.register(swPath);
   }
+  // 登録直後は Service Worker が active でなく、pushManager.subscribe が失敗するため有効化を待つ
+  await navigator.serviceWorker.ready;
 
   let subscription = await registration.pushManager.getSubscription();
   if (!subscription) {
-    const resolvedKey = await resolveVapidPublicKey(vapidPublicKey, vapidPublicKeyEndpoint);
-    subscription = await createPushSubscription(registration, resolvedKey);
+    const vapidPublicKey = await fetchVapidPublicKey(vapidPublicKeyEndpoint);
+    subscription = await createPushSubscription(registration, vapidPublicKey);
   }
 
-  if (onSubscribed) {
-    await onSubscribed(subscription);
-  } else {
-    await postPushSubscription(subscription, { endpoint: subscribeEndpoint, bodyShape });
-  }
+  await postPushSubscription(subscription, { endpoint: subscribeEndpoint, bodyShape });
   return subscription;
-}
-
-async function resolveVapidPublicKey(
-  vapidPublicKey: SubscribePushOptions['vapidPublicKey'],
-  vapidPublicKeyEndpoint: string | undefined
-): Promise<string> {
-  if (typeof vapidPublicKey === 'function') {
-    return vapidPublicKey();
-  }
-  return vapidPublicKey ?? fetchVapidPublicKey(vapidPublicKeyEndpoint);
 }
 
 function createPushSubscription(

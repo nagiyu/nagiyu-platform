@@ -19,5 +19,5 @@
     "src/**/*.stories.ts",
     "src/**/*.stories.tsx"
   ],
-  "references": [{ "path": "../browser" }]
+  "references": [{ "path": "../common" }]
 }
