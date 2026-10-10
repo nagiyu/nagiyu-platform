@@ -52,6 +52,7 @@
 - `ErrorBoundary` / `ErrorAlert`
 - `LoadingState`
 - `PrivacyPolicyDialog` / `TermsOfServiceDialog` / `ConfirmDialog`
+- `LegalSections`
 - `ServiceWorkerRegistration`
 
 #### `ServiceLayout` と `AppThemeProvider` の使い分け
@@ -99,6 +100,13 @@
 - クライアントの `useSession()` は自サービスの `/api/auth/session` を取得する。サービスには NextAuth の route を置き、GET だけを公開する (サインアウトは auth サービスに集約しているため、POST は受けない)。
 - `authUrl` をランタイム env から読むため、`SessionHeader` を置くルートレイアウトは動的レンダリングにする。静的にプリレンダされると、ビルド時の空文字が HTML に固定され、サインアウト先が壊れる。
 - 退会のようにサービス固有のフローを持つ場合は、`SessionHeader` に `onDeleteAccount` を渡し、モーダル等の実体はサービス側の薄いコンポーネントで持つ。
+
+#### 利用規約・プライバシーポリシーは `LegalSections` で描画する
+
+利用規約とプライバシーポリシーは、ダイアログでもページでも `LegalSections` で描画する。サービスが独自の規約・ポリシーを持つ場合も、`@nagiyu/ui` のデータ形式で文面を定義して渡し、描画ループや型を自前で書かない。
+
+- **データ形式は規約とポリシーで 1 つにする**: 規約の形式 (本文 + 番号付きリスト) は、ポリシーの形式 (本文 + 入れ子の番号付きリスト + リンク) の一部として表せる。形式を分けておく理由がないため、ポリシーの形式に揃えている。
+- **見た目はサービス間で揃え、描画部品にオプションを持たせない**: 余白・改行・リンク色をサービスごとに変えられるようにすると、同じ描画が再び分かれていく。本文の改行は常に表示する (文面の `\n` をそのまま改行にする)。
 
 ---
 
