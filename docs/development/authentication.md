@@ -193,15 +193,17 @@ CDK でスタックを個別にデプロイする際、依存するスタック�
 
 ## セッション型の設計方針
 
-プラットフォームでは、用途が異なる2種類の Session 型を明確に分離する。
+`@nagiyu/common` には、似て非なる 2 種類のユーザー型がある。混同しないよう用途で分ける。
 
-### DynamoDB エンティティ用（サーバーサイドのみ）
+### User (DB 上のユーザー)
 
-`@nagiyu/common` の `Session` 型は、DynamoDB に永続化された完全なユーザーエンティティを表す。`createdAt`/`updatedAt`/`lastLoginAt` 等を含む。サーバーサイドのリポジトリ層・バッチ処理のみが参照し、フロントエンドや API ルートの `getSession()` 戻り値には使用しない。
+DynamoDB に永続化されたユーザーエンティティ。`userId` / `googleId` / `createdAt` / `updatedAt` / `lastLoginAt` 等を持つ。Auth サービスのリポジトリ層やバッチ処理など、DB を直接読み書きする箇所で使う。API ルートや画面が受け取るセッションの型には使わない。
 
-### Web セッション用（フロントエンド・API ルート）
+### Session / SessionUser (セッション)
 
-`@nagiyu/nextjs` の `types/next-auth.d.ts` で定義した NextAuth の `Session` 拡張型を使用する。JWT/セッショントークンから復元される軽量な表現（`id`, `email`, `name`, `roles` 等のみ）であり、全 Consumer サービスで統一する。`createdAt`/`updatedAt` が必要なサーバーサイド処理は DynamoDB を直接参照する。
+JWT から復元される、リクエスト時点の認証済みユーザーを表す。`SessionUser` は `id` / `email` / `name` / `image?` / `roles` だけを持ち、DB にしかない値 (`googleId` や作成日時) は含まない。`@nagiyu/nextjs` の `types/next-auth.d.ts` は next-auth の `Session['user']` をこの `SessionUser` で拡張しているため、サーバー側の `getSession()` が返す値とクライアントの `useSession()` が返す値は同じ形になる。
+
+DB の値が必要なサーバー側の処理は、セッションの `user.id` をキーに DynamoDB を参照する。サービスごとに独自のセッション型を定義したり、存在しない値を埋めて変換したりしない。
 
 ---
 
@@ -224,11 +226,12 @@ Cookie オプション（`domain`, `secure`, `sameSite`, `httpOnly` 等）・セ
 
 ## セッション取得の統一パターン
 
-全 Consumer サービスのセッション取得は `@nagiyu/nextjs` の `createSessionGetter()` を使用する。
+全 Consumer サービスのセッション取得は `@nagiyu/nextjs` の `createSessionGetter()` を使用する。戻り値は全サービスで `@nagiyu/common` の `Session | null` に揃う。
 
-- `auth`: サービスの auth 関数を渡す
-- `createTestSession`: `SKIP_AUTH_CHECK` が有効な場合に返すモックセッションの生成関数を渡す
-- `mapSession`: NextAuth セッションをサービス固有のセッション型に変換する関数を渡す（**省略可**）。省略時は NextAuth セッションをそのままパススルーする。`createAuthCallbacks` でセッション形状が正規化済みの場合は省略してよい
+- `auth`: サービスの auth 関数を `auth as () => Promise<Session | null>` として渡す
+- `defaultRoles`: `SKIP_AUTH_CHECK` が有効なときのテストセッションで、ロールが未指定の場合に使う既定ロールを渡す (**省略可**)
+
+テストセッションはライブラリが組み立てる。ロールはヘッダ `x-test-user-roles`、`TEST_USER_ROLES`、`defaultRoles` の順に解決する。サービス側にセッションの変換やテストセッションの生成は持たない。
 
 セッション取得ロジックをサービス側で個別実装しない。
 
