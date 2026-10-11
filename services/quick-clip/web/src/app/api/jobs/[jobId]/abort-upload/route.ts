@@ -1,5 +1,6 @@
 import { AbortMultipartUploadCommand } from '@aws-sdk/client-s3';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { NextResponse } from 'next/server';
 import { getBucketName, getS3Client } from '@/lib/server/aws';
 
@@ -18,19 +19,14 @@ type AbortUploadRequest = {
   uploadId: string;
 };
 
-const isAbortUploadRequest = (body: unknown): body is AbortUploadRequest => {
-  if (typeof body !== 'object' || body === null) {
-    return false;
-  }
-  const candidate = body as { uploadId?: unknown };
-  return typeof candidate.uploadId === 'string' && candidate.uploadId.trim().length > 0;
-};
+const isAbortUploadRequest = (body: Record<string, unknown>): body is AbortUploadRequest =>
+  typeof body.uploadId === 'string' && body.uploadId.trim().length > 0;
 
 export async function POST(request: Request, { params }: RouteParams): Promise<NextResponse> {
   try {
     const { jobId } = await params;
-    const body = await request.json();
-    if (!isAbortUploadRequest(body)) {
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok || !isAbortUploadRequest(bodyResult.body)) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -39,6 +35,8 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
         { status: 400 }
       );
     }
+
+    const body = bodyResult.body;
 
     const bucketName = getBucketName();
     const uploadKey = `uploads/${jobId}/input.mp4`;

@@ -5,6 +5,7 @@ import { CreateMultipartUploadCommand, UploadPartCommand } from '@aws-sdk/client
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createPresignedUploadUrl } from '@nagiyu/aws';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { NextResponse } from 'next/server';
 import {
   getAwsRegion,
@@ -43,22 +44,20 @@ const MULTIPART_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
 const MULTIPART_CHUNK_SIZE_BYTES = 50 * 1024 * 1024;
 const MAX_DURATION_SEC = 24 * 60 * 60;
 
-const isCreateJobRequest = (body: unknown): body is CreateJobRequest => {
-  if (typeof body !== 'object' || body === null) {
+const isCreateJobRequest = (body: Record<string, unknown>): body is CreateJobRequest => {
+  if (typeof body.fileName !== 'string' || typeof body.fileSize !== 'number') {
     return false;
   }
-
-  const request = body as Partial<CreateJobRequest>;
-  if (typeof request.fileName !== 'string' || typeof request.fileSize !== 'number') {
+  if (body.contentType !== undefined && typeof body.contentType !== 'string') {
     return false;
   }
   if (
-    request.emotionFilter !== undefined &&
-    !VALID_EMOTION_FILTERS.has(request.emotionFilter as string)
+    body.emotionFilter !== undefined &&
+    (typeof body.emotionFilter !== 'string' || !VALID_EMOTION_FILTERS.has(body.emotionFilter))
   ) {
     return false;
   }
-  if (request.durationSec !== undefined && typeof request.durationSec !== 'number') {
+  if (body.durationSec !== undefined && typeof body.durationSec !== 'number') {
     return false;
   }
   return true;
@@ -66,8 +65,8 @@ const isCreateJobRequest = (body: unknown): body is CreateJobRequest => {
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {
-    const body = await request.json();
-    if (!isCreateJobRequest(body)) {
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok || !isCreateJobRequest(bodyResult.body)) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -76,6 +75,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         { status: 400 }
       );
     }
+    const body = bodyResult.body;
 
     const normalizedFileName = body.fileName.trim();
     if (
