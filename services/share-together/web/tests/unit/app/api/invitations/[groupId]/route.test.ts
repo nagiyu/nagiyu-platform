@@ -73,6 +73,12 @@ const mockRespondToInvitation = respondToInvitation as jest.MockedFunction<
 >;
 type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 
+import {
+  createRequestWithJson,
+  MALFORMED_BODY_CASES,
+  type InvalidBodyCase,
+} from '../../invalidBodyCases';
+
 describe('PUT /api/invitations/[groupId]', () => {
   beforeEach(() => {
     process.env.DYNAMODB_TABLE_NAME = 'test-share-together-main';
@@ -249,5 +255,21 @@ describe('PUT /api/invitations/[groupId]', () => {
     expect(mockReportErrorEvent).toHaveBeenCalledWith(
       expect.objectContaining({ serviceId: 'share-together', severity: 'error' })
     );
+  });
+
+  it.each<InvalidBodyCase>([
+    ...MALFORMED_BODY_CASES,
+    ['action が数値', async () => ({ action: 123 })],
+  ])('PUT: リクエストボディが不正な場合 (%s) は400を返す', async (_label, json) => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrUnauthorized);
+
+    const response = await PUT(createRequestWithJson(json), {
+      params: Promise.resolve({ groupId: 'group-1' }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(mockReportErrorEvent).not.toHaveBeenCalled();
   });
 });

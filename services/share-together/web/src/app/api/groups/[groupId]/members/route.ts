@@ -1,5 +1,6 @@
 import { ERROR_MESSAGES as GROUP_ERROR_MESSAGES, inviteMember } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
@@ -20,10 +21,9 @@ type RouteParams = {
   params: Promise<{ groupId: string }>;
 };
 
-type InviteRequestBody = {
-  email?: unknown;
-  userId?: unknown;
-};
+function isOptionalString(value: unknown): value is string | undefined {
+  return value === undefined || typeof value === 'string';
+}
 
 function resolveGroupId(groupId: string): string | null {
   return groupId.length > 0 ? groupId : null;
@@ -122,9 +122,16 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
     }
     inviterUserId = userId;
 
-    const body = (await request.json()) as InviteRequestBody;
-    const userIdInput = typeof body.userId === 'string' ? body.userId.trim() : '';
-    const emailInput = typeof body.email === 'string' ? body.email.trim() : '';
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return createValidationErrorResponse();
+    }
+    const { body } = bodyResult;
+    if (!isOptionalString(body.userId) || !isOptionalString(body.email)) {
+      return createValidationErrorResponse();
+    }
+    const userIdInput = body.userId?.trim() ?? '';
+    const emailInput = body.email?.trim() ?? '';
     const hasUserId = userIdInput.length > 0;
     const hasEmail = emailInput.length > 0;
     if ((!hasUserId && !hasEmail) || (hasUserId && hasEmail)) {

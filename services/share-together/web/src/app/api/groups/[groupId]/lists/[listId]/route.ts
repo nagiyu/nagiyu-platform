@@ -1,5 +1,6 @@
 import { type ListRepository, type TodoRepository } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import type { GroupListResponse } from '@/types';
 import { getAuthorizedGroupContext } from '@/lib/api/authorization';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
@@ -49,7 +50,11 @@ export async function PUT(request: Request, { params }: RouteParams): Promise<Ne
     requestedGroupId = authorizedContextOrResponse.groupId;
     requestedListId = authorizedContextOrResponse.listId;
 
-    const body = (await request.json()) as { name?: unknown };
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return createValidationErrorResponse();
+    }
+    const { body } = bodyResult;
     const name = typeof body.name === 'string' ? body.name.trim() : '';
     if (name.length < 1 || name.length > 100) {
       return createValidationErrorResponse(ERROR_MESSAGES.LIST_NAME_INVALID);

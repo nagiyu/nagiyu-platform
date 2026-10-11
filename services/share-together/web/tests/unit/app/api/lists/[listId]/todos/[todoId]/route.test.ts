@@ -75,6 +75,12 @@ const mockDynamoDBTodoRepository = DynamoDBTodoRepository as jest.MockedClass<
 const mockTodoService = TodoService as jest.MockedClass<typeof TodoService>;
 type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 
+import {
+  createRequestWithJson,
+  MALFORMED_BODY_CASES,
+  type InvalidBodyCase,
+} from '../../../../invalidBodyCases';
+
 describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
   const mockGetPersonalListById = jest.fn();
   const mockUpdateTodo = jest.fn();
@@ -261,5 +267,20 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
       message: ERROR_MESSAGES.FORBIDDEN,
     });
     expect(mockDeleteTodo).not.toHaveBeenCalled();
+  });
+
+  it.each<InvalidBodyCase>([
+    ...MALFORMED_BODY_CASES,
+    ['title が数値', async () => ({ title: 123 })],
+    ['isCompleted が文字列', async () => ({ isCompleted: 'true' })],
+  ])('PUT: リクエストボディが不正な場合 (%s) は400を返す', async (_label, json) => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrUnauthorized);
+
+    const response = await PUT(createRequestWithJson(json), createContext());
+
+    expect(response.status).toBe(400);
+    expect(mockUpdateTodo).not.toHaveBeenCalled();
   });
 });
