@@ -14,17 +14,13 @@ import {
   createNotFoundErrorResponse,
   createInternalServerErrorResponse,
 } from '@/lib/api/responses';
-import { createErrorResponse } from '@nagiyu/nextjs';
+import { createErrorResponse, readJsonObjectBody } from '@nagiyu/nextjs';
 
 type RouteParams = {
   params: Promise<{ groupId: string }>;
 };
 
 type InvitationAction = 'ACCEPT' | 'REJECT';
-
-type InvitationResponseBody = {
-  action?: unknown;
-};
 
 type InvitationUpdateResponse = {
   groupId: string;
@@ -63,7 +59,11 @@ export async function PUT(request: Request, { params }: RouteParams): Promise<Ne
       return createValidationErrorResponse();
     }
 
-    const body = (await request.json()) as InvitationResponseBody;
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return createValidationErrorResponse();
+    }
+    const { body } = bodyResult;
     if (!isInvitationAction(body.action)) {
       return createValidationErrorResponse();
     }

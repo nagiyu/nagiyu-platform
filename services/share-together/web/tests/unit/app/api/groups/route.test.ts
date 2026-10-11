@@ -59,6 +59,12 @@ const mockDynamoDBMembershipRepository = DynamoDBMembershipRepository as jest.Mo
 const mockCreateGroup = createGroup as jest.MockedFunction<typeof createGroup>;
 type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 
+import {
+  createRequestWithJson,
+  MALFORMED_BODY_CASES,
+  type InvalidBodyCase,
+} from '../invalidBodyCases';
+
 describe('/api/groups route', () => {
   const mockSend = jest.fn();
   const mockBatchGetByIds = jest.fn();
@@ -233,4 +239,19 @@ describe('/api/groups route', () => {
       expect.objectContaining({ serviceId: 'share-together', severity: 'error' })
     );
   });
+
+  it.each<InvalidBodyCase>([...MALFORMED_BODY_CASES, ['name が数値', async () => ({ name: 123 })]])(
+    'POST: リクエストボディが不正な場合 (%s) は400を返す',
+    async (_label, json) => {
+      mockGetSessionOrUnauthorized.mockResolvedValue({
+        user: { id: 'owner-1' },
+      } as SessionOrUnauthorized);
+
+      const response = await POST(createRequestWithJson(json));
+
+      expect(response.status).toBe(400);
+      expect(mockCreateGroup).not.toHaveBeenCalled();
+      expect(mockReportErrorEvent).not.toHaveBeenCalled();
+    }
+  );
 });

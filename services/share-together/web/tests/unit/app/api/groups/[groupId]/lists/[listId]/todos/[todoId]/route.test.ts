@@ -81,6 +81,12 @@ const mockDynamoDBTodoRepository = DynamoDBTodoRepository as jest.MockedClass<
 const mockTodoService = TodoService as jest.MockedClass<typeof TodoService>;
 type SessionOrErrorResponse = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 
+import {
+  createRequestWithJson,
+  MALFORMED_BODY_CASES,
+  type InvalidBodyCase,
+} from '../../../../../../invalidBodyCases';
+
 describe('/api/groups/[groupId]/lists/[listId]/todos/[todoId] route', () => {
   const mockGetMembershipById = jest.fn();
   const mockGetGroupListById = jest.fn();
@@ -272,5 +278,25 @@ describe('/api/groups/[groupId]/lists/[listId]/todos/[todoId] route', () => {
       error: 'NOT_FOUND',
       message: '対象のデータが見つかりません',
     });
+  });
+
+  it.each<InvalidBodyCase>([
+    ...MALFORMED_BODY_CASES,
+    ['title が数値', async () => ({ title: 123 })],
+    ['isCompleted が文字列', async () => ({ isCompleted: 'true' })],
+  ])('PUT: リクエストボディが不正な場合 (%s) は400を返す', async (_label, json) => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrErrorResponse);
+    mockGetMembershipById.mockResolvedValue({
+      groupId: 'group-1',
+      userId: 'user-1',
+      status: 'ACCEPTED',
+    });
+
+    const response = await PUT(createRequestWithJson(json), createContext());
+
+    expect(response.status).toBe(400);
+    expect(mockUpdateTodo).not.toHaveBeenCalled();
   });
 });

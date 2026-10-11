@@ -15,7 +15,8 @@ import {
   createNotFoundErrorResponse,
   createInternalServerErrorResponse,
 } from '@/lib/api/responses';
-import { createErrorResponse } from '@nagiyu/nextjs';
+import { normalizeGroupName } from '@/lib/api/validation';
+import { createErrorResponse, readJsonObjectBody } from '@nagiyu/nextjs';
 
 const CORE_ERROR_MESSAGES = {
   GROUP_NOT_FOUND: 'グループが見つかりません',
@@ -25,14 +26,6 @@ interface RouteParams {
   params: Promise<{
     groupId: string;
   }>;
-}
-
-interface UpdateGroupRequestBody {
-  name?: string;
-}
-
-function validateGroupName(name: unknown): name is string {
-  return typeof name === 'string' && name.trim().length > 0 && name.length <= 100;
 }
 
 function toNotFoundIfGroupMissing(error: unknown): NextResponse | null {
@@ -92,13 +85,18 @@ export async function PUT(request: NextRequest, { params }: RouteParams): Promis
       return ownedGroupOrResponse;
     }
 
-    const body = (await request.json()) as UpdateGroupRequestBody;
-    if (!validateGroupName(body.name)) {
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return createValidationErrorResponse();
+    }
+    const { body } = bodyResult;
+    const name = normalizeGroupName(body.name);
+    if (name === null) {
       return createValidationErrorResponse();
     }
 
     const updatedGroup = await ownedGroupOrResponse.groupRepository.update(groupId, {
-      name: body.name,
+      name,
     });
 
     const response: GroupResponse = {

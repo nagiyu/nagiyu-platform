@@ -11,7 +11,7 @@ import {
   createInternalServerErrorResponse,
 } from '@/lib/api/responses';
 import { isNonEmptyString, isValidationError, isNotFoundError } from '@/lib/api/validation';
-import { createErrorResponse } from '@nagiyu/nextjs';
+import { createErrorResponse, readJsonObjectBody } from '@nagiyu/nextjs';
 
 interface RouteContext {
   params: Promise<{ listId: string }>;
@@ -111,7 +111,11 @@ export async function PUT(request: Request, { params }: RouteContext): Promise<N
     requestedUserId = userId;
     requestedListId = listId;
 
-    const body = (await request.json()) as { name?: unknown };
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return createValidationErrorResponse();
+    }
+    const { body } = bodyResult;
     if (!isNonEmptyString(body.name)) {
       return createValidationErrorResponse();
     }
@@ -124,7 +128,7 @@ export async function PUT(request: Request, { params }: RouteContext): Promise<N
 
     return NextResponse.json(response);
   } catch (error) {
-    if (isValidationError(error, VALIDATION_ERROR_MESSAGES) || error instanceof SyntaxError) {
+    if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
       return createValidationErrorResponse();
     }
     if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {

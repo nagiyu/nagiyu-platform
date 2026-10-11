@@ -60,6 +60,12 @@ const mockListService = ListService as jest.MockedClass<typeof ListService>;
 const mockTodoService = TodoService as jest.MockedClass<typeof TodoService>;
 type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 
+import {
+  createRequestWithJson,
+  MALFORMED_BODY_CASES,
+  type InvalidBodyCase,
+} from '../../../invalidBodyCases';
+
 describe('/api/lists/[listId]/todos route handlers', () => {
   const mockGetPersonalListById = jest.fn();
   const mockGetTodosByListId = jest.fn();
@@ -241,6 +247,20 @@ describe('/api/lists/[listId]/todos route handlers', () => {
     } as SessionOrUnauthorized);
 
     const response = await POST(createRequest({}), createContext('list-1'));
+
+    expect(response.status).toBe(400);
+    expect(mockCreateTodo).not.toHaveBeenCalled();
+  });
+
+  it.each<InvalidBodyCase>([
+    ...MALFORMED_BODY_CASES,
+    ['title が数値', async () => ({ title: 123 })],
+  ])('POST: リクエストボディが不正な場合 (%s) は400を返す', async (_label, json) => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrUnauthorized);
+
+    const response = await POST(createRequestWithJson(json), createContext('list-1'));
 
     expect(response.status).toBe(400);
     expect(mockCreateTodo).not.toHaveBeenCalled();

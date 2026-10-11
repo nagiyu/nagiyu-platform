@@ -1,5 +1,6 @@
 import { ListService, TodoService } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import type { TodoResponse, TodosResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
@@ -124,7 +125,11 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
     requestedUserId = userId;
     requestedListId = listId;
 
-    const body = (await request.json()) as { title?: unknown };
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return createValidationErrorResponse();
+    }
+    const { body } = bodyResult;
     if (!isNonEmptyString(body.title)) {
       return createValidationErrorResponse();
     }
@@ -139,7 +144,7 @@ export async function POST(request: Request, { params }: RouteContext): Promise<
 
     return NextResponse.json(response, { status: 201 });
   } catch (error) {
-    if (isValidationError(error, VALIDATION_ERROR_MESSAGES) || error instanceof SyntaxError) {
+    if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
       return createValidationErrorResponse();
     }
 

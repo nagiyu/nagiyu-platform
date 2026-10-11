@@ -1,5 +1,6 @@
 import { createGroup, type Group } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import type { ApiSuccessResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
@@ -10,6 +11,7 @@ import {
   createValidationErrorResponse,
   createInternalServerErrorResponse,
 } from '@/lib/api/responses';
+import { normalizeGroupName } from '@/lib/api/validation';
 
 interface GroupSummary extends Group {
   isOwner: boolean;
@@ -77,9 +79,13 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const userId = sessionOrUnauthorized.user.id;
 
-    const body = (await request.json()) as { name?: unknown };
-    const name = typeof body.name === 'string' ? body.name.trim() : '';
-    if (name.length === 0 || name.length > 100) {
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return createValidationErrorResponse();
+    }
+    const { body } = bodyResult;
+    const name = normalizeGroupName(body.name);
+    if (name === null) {
       return createValidationErrorResponse();
     }
 

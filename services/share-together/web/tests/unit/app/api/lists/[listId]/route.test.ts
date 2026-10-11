@@ -62,6 +62,12 @@ const mockDynamoDBListRepository = DynamoDBListRepository as jest.MockedClass<
 const mockListService = ListService as jest.MockedClass<typeof ListService>;
 type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 
+import {
+  createRequestWithJson,
+  MALFORMED_BODY_CASES,
+  type InvalidBodyCase,
+} from '../../invalidBodyCases';
+
 describe('/api/lists/[listId] route handlers', () => {
   const mockGetPersonalListById = jest.fn();
   const mockUpdatePersonalList = jest.fn();
@@ -185,4 +191,18 @@ describe('/api/lists/[listId] route handlers', () => {
       message: ERROR_MESSAGES.DEFAULT_LIST_NOT_DELETABLE,
     });
   });
+
+  it.each<InvalidBodyCase>([...MALFORMED_BODY_CASES, ['name が数値', async () => ({ name: 123 })]])(
+    'PUT: リクエストボディが不正な場合 (%s) は400を返す',
+    async (_label, json) => {
+      mockGetSessionOrUnauthorized.mockResolvedValue({
+        user: { id: 'user-1' },
+      } as SessionOrUnauthorized);
+
+      const response = await PUT(createRequestWithJson(json), createContext());
+
+      expect(response.status).toBe(400);
+      expect(mockUpdatePersonalList).not.toHaveBeenCalled();
+    }
+  );
 });
