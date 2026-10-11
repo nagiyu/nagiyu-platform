@@ -13,6 +13,7 @@ jest.mock('../../../../lib/auth', () => ({
 }));
 
 jest.mock('@nagiyu/nextjs', () => ({
+  readJsonObjectBody: jest.requireActual('@nagiyu/nextjs').readJsonObjectBody,
   withAuth: jest.fn((_auth, _permission, handler) => {
     return async (...args: unknown[]) => handler({ user: { id: 'test-user' } }, ...args);
   }),

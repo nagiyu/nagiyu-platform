@@ -15,6 +15,7 @@ import {
   PaginationValidationError,
   handleApiError,
   validatePushSubscription,
+  readJsonObjectBody,
 } from '@nagiyu/nextjs';
 import { reportErrorEvent } from '@nagiyu/aws';
 import {
@@ -23,6 +24,8 @@ import {
   createExchangeRepository,
 } from '../../../lib/repository-factory';
 import { getSession } from '../../../lib/auth';
+import { parseAlertConditionList } from '../../../lib/alert-condition';
+import { isOptionalString, isRecord } from '../../../lib/request-guards';
 import type { AlertEntity, CreateAlertInput } from '@nagiyu/stock-tracker-core';
 import type { ErrorResponse } from '@nagiyu/common';
 import { COMMON_ERROR_MESSAGES, toErrorMessage } from '@nagiyu/common';
@@ -65,23 +68,17 @@ interface AlertResponse {
   updatedAt: string;
 }
 
-interface CreateAlertRequest {
-  tickerId: string;
-  exchangeId?: string;
-  mode: AlertEntity['Mode'];
-  frequency: AlertEntity['Frequency'];
-  conditions?: AlertEntity['ConditionList'];
-  logicalOperator?: AlertEntity['LogicalOperator'];
-  enabled?: boolean;
-  temporary?: boolean;
-  customMessage?: string;
-  subscription?: {
-    endpoint?: string;
-    keys?: {
-      p256dh?: string;
-      auth?: string;
-    };
-  };
+/**
+ * リクエストボディが不正なときの 400 レスポンス
+ */
+function invalidRequestBodyResponse(): NextResponse<ErrorResponse> {
+  return NextResponse.json(
+    {
+      error: 'INVALID_REQUEST',
+      message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
+    },
+    { status: 400 }
+  );
 }
 
 /**
@@ -191,24 +188,39 @@ export const POST = withAuth(
   async (session, request: NextRequest): Promise<NextResponse<AlertResponse | ErrorResponse>> => {
     try {
       // リクエストボディの取得
-      let body: CreateAlertRequest;
-      try {
-        body = await request.json();
-      } catch {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
-          },
-          { status: 400 }
-        );
+      const bodyResult = await readJsonObjectBody(request);
+      if (!bodyResult.ok) {
+        return invalidRequestBodyResponse();
+      }
+      const {
+        tickerId,
+        exchangeId: requestedExchangeId,
+        mode,
+        frequency,
+        conditions,
+        logicalOperator,
+        enabled,
+        temporary,
+        customMessage,
+        subscription,
+      } = bodyResult.body;
+
+      // 項目の型チェック
+      // 文字列の項目と条件の各要素は、バリデーションが型を前提に参照するため先に確かめる
+      if (!isOptionalString(tickerId) || !isOptionalString(requestedExchangeId)) {
+        return invalidRequestBodyResponse();
+      }
+      if (Array.isArray(conditions) && !conditions.every(isRecord)) {
+        return invalidRequestBodyResponse();
+      }
+      if (enabled !== undefined && typeof enabled !== 'boolean') {
+        return invalidRequestBodyResponse();
       }
 
       // ユーザーIDを取得
       const userId = session.user.id;
 
       // Web Push サブスクリプション情報の確認
-      const subscription = body.subscription;
       if (!validatePushSubscription(subscription)) {
         return NextResponse.json(
           {
@@ -220,27 +232,33 @@ export const POST = withAuth(
       }
 
       // ExchangeID の自動取得（tickerId から）
-      const exchangeId = body.exchangeId || body.tickerId?.split(':')[0] || '';
+      const exchangeId = requestedExchangeId || tickerId?.split(':')[0] || '';
+
+      // 条件は想定外の項目を取り込まずに取り出す。
+      // 取り出せない場合も、バリデーションの指摘を返すため元の値を検証にかける
+      const parsedConditions = Array.isArray(conditions)
+        ? parseAlertConditionList(conditions)
+        : null;
 
       // リクエストボディから Alert オブジェクトを構築
       // Note: AlertID, CreatedAt, UpdatedAt はリポジトリで自動生成される
       // バリデーション用プレースホルダー（実際のIDはリポジトリで生成）
       const VALIDATION_PLACEHOLDER_UUID = '00000000-0000-4000-8000-000000000000';
 
-      const alertData: AlertEntity = {
+      const alertCandidate = {
         UserID: userId,
-        TickerID: body.tickerId,
+        TickerID: tickerId,
         ExchangeID: exchangeId,
-        Mode: body.mode,
-        Frequency: body.frequency,
-        Enabled: body.enabled !== undefined ? body.enabled : true,
-        ConditionList: body.conditions || [],
-        LogicalOperator: body.logicalOperator,
-        Temporary: body.temporary === true ? true : undefined,
+        Mode: mode,
+        Frequency: frequency,
+        Enabled: enabled !== undefined ? enabled : true,
+        ConditionList: parsedConditions ?? (conditions || []),
+        LogicalOperator: logicalOperator,
+        Temporary: temporary === true ? true : undefined,
         TemporaryExpireDate: undefined,
         CustomMessage:
-          typeof body.customMessage === 'string' && body.customMessage.trim().length > 0
-            ? body.customMessage.trim()
+          typeof customMessage === 'string' && customMessage.trim().length > 0
+            ? customMessage.trim()
             : undefined,
         subscription: {
           endpoint: subscription.endpoint,
@@ -256,8 +274,16 @@ export const POST = withAuth(
       };
 
       // バリデーション
-      const validationResult = validateAlert(alertData);
-      if (!validationResult.valid) {
+      // 型の絞り込みも兼ねる (検証を通った値は期待する型だが、型システムには伝わらないため)
+      const validationResult = validateAlert(alertCandidate);
+      if (
+        !validationResult.valid ||
+        parsedConditions === null ||
+        tickerId === undefined ||
+        (mode !== 'Buy' && mode !== 'Sell') ||
+        (frequency !== 'MINUTE_LEVEL' && frequency !== 'HOURLY_LEVEL') ||
+        (logicalOperator !== undefined && logicalOperator !== 'AND' && logicalOperator !== 'OR')
+      ) {
         return NextResponse.json(
           {
             error: 'INVALID_REQUEST',
@@ -267,6 +293,16 @@ export const POST = withAuth(
           { status: 400 }
         );
       }
+
+      const alertData: AlertEntity = {
+        ...alertCandidate,
+        TickerID: tickerId,
+        ExchangeID: exchangeId,
+        Mode: mode,
+        Frequency: frequency,
+        ConditionList: parsedConditions,
+        LogicalOperator: logicalOperator,
+      };
 
       // リポジトリの初期化
       const alertRepo = createAlertRepository();
@@ -278,7 +314,7 @@ export const POST = withAuth(
       const { AlertID, CreatedAt, UpdatedAt, ...alertDataForCreate } = alertData;
       const createInput: CreateAlertInput = { ...alertDataForCreate };
 
-      if (body.temporary === true) {
+      if (temporary === true) {
         const exchange = await exchangeRepo.getById(exchangeId);
         if (!exchange) {
           return NextResponse.json(
