@@ -6,7 +6,6 @@ import type {
   GroupList,
   TodoItem,
 } from '@nagiyu/share-together-core';
-import type { DefaultSession } from 'next-auth';
 import type {
   ApiSuccessResponse,
   ApiResponse,
@@ -37,15 +36,3 @@ export type InvitationSummary = {
 };
 
 export type InvitationsResponse = ApiSuccessResponse<{ invitations: InvitationSummary[] }>;
-
-export type SessionUser = NonNullable<DefaultSession['user']> & { id: string };
-
-declare module 'next-auth' {
-  interface Session {
-    user: SessionUser;
-  }
-
-  interface User {
-    id: string;
-  }
-}
