@@ -6,7 +6,7 @@
  */
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { withAuth } from '@nagiyu/nextjs';
+import { readJsonObjectBody, withAuth } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/server/session';
 import { getNotificationEventRepository } from '@/lib/server/repositories';
 
@@ -19,29 +19,15 @@ export const PATCH = withAuth(
   getSession,
   'livetalk:chat',
   async (session, request: NextRequest) => {
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
+    const bodyResult = await readJsonObjectBody(request);
+    const notifId = bodyResult.ok ? bodyResult.body.notifId : undefined;
+    if (typeof notifId !== 'string') {
       return NextResponse.json(
         { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.MISSING_NOTIF_ID },
         { status: 400 }
       );
     }
 
-    if (
-      !body ||
-      typeof body !== 'object' ||
-      !('notifId' in body) ||
-      typeof (body as { notifId: unknown }).notifId !== 'string'
-    ) {
-      return NextResponse.json(
-        { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.MISSING_NOTIF_ID },
-        { status: 400 }
-      );
-    }
-
-    const { notifId } = body as { notifId: string };
     const userId = session.user.id;
 
     const repo = getNotificationEventRepository();

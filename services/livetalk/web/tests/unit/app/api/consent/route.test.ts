@@ -144,6 +144,25 @@ describe('POST /api/consent', () => {
     expect(res.status).toBe(400);
   });
 
+  it.each([
+    ['null', 'null'],
+    ['配列', '[{"termsAgreed":true,"privacyAgreed":true,"ageVerified":true}]'],
+    ['文字列', '"true"'],
+    ['privacyAgreed が文字列', { termsAgreed: true, privacyAgreed: 'true', ageVerified: true }],
+    ['ageVerified が数値', { termsAgreed: true, privacyAgreed: true, ageVerified: 1 }],
+    ['ageVerified が欠落', { termsAgreed: true, privacyAgreed: true }],
+  ])('body が %s の場合は 400 で保存しない', async (_label, body) => {
+    mockGetSession.mockResolvedValue(validSession);
+    const repo = makeProfileRepo();
+    mockGetProfileRepo.mockReturnValue(repo);
+
+    const res = await POST(buildPostRequest(body));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.message).toBe(CONSENT_ERROR_MESSAGES.INVALID_REQUEST);
+    expect(repo.upsert).not.toHaveBeenCalled();
+  });
+
   it('termsAgreed が false なら 400 ALL_CONSENTS_REQUIRED', async () => {
     mockGetSession.mockResolvedValue(validSession);
     const res = await POST(

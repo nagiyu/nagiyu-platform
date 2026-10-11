@@ -113,6 +113,25 @@ describe('POST /api/chat', () => {
       expect(json.message).toBe(CHAT_ERROR_MESSAGES.INVALID_REQUEST);
     });
 
+    it.each([
+      ['null', 'null'],
+      ['配列', '[{"text":"hello"}]'],
+      ['文字列', '"hello"'],
+      ['text が数値', { text: 1 }],
+      ['text が配列', { text: ['hello'] }],
+    ])('body が %s の場合は 400 INVALID_REQUEST で下流を呼ばない', async (_label, body) => {
+      const guard = makeDefaultGuardMock();
+      mockGetChatGuardRepository.mockReturnValue(guard);
+
+      const res = await POST(buildRequest(body));
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.message).toBe(CHAT_ERROR_MESSAGES.INVALID_REQUEST);
+      expect(guard.acquireLock).not.toHaveBeenCalled();
+      expect(guard.incrementRateLimit).not.toHaveBeenCalled();
+      expect(mockRunChatUseCase).not.toHaveBeenCalled();
+    });
+
     it('text フィールドがない場合は 400 INVALID_REQUEST', async () => {
       const res = await POST(buildRequest({ foo: 'bar' }));
       expect(res.status).toBe(400);

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { withAuth } from '@nagiyu/nextjs';
+import { readJsonObjectBody, withAuth } from '@nagiyu/nextjs';
 import {
   isConsentValid,
   LIVETALK_TERMS_VERSION,
@@ -15,13 +15,13 @@ interface ConsentRequest {
   ageVerified: boolean;
 }
 
-function isConsentRequest(body: unknown): body is ConsentRequest {
+function isConsentRequest(
+  body: Record<string, unknown>
+): body is Record<string, unknown> & ConsentRequest {
   return (
-    typeof body === 'object' &&
-    body !== null &&
-    typeof (body as Partial<ConsentRequest>).termsAgreed === 'boolean' &&
-    typeof (body as Partial<ConsentRequest>).privacyAgreed === 'boolean' &&
-    typeof (body as Partial<ConsentRequest>).ageVerified === 'boolean'
+    typeof body.termsAgreed === 'boolean' &&
+    typeof body.privacyAgreed === 'boolean' &&
+    typeof body.ageVerified === 'boolean'
   );
 }
 
@@ -65,22 +65,15 @@ export const GET = withAuth(getSession, 'livetalk:chat', async (session) => {
  * 3 フラグが全て true でなければ 400 を返す。
  */
 export const POST = withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
+  const bodyResult = await readJsonObjectBody(request);
+  if (!bodyResult.ok || !isConsentRequest(bodyResult.body)) {
     return NextResponse.json(
       { error: 'INVALID_REQUEST', message: CONSENT_ERROR_MESSAGES.INVALID_REQUEST },
       { status: 400 }
     );
   }
 
-  if (!isConsentRequest(body)) {
-    return NextResponse.json(
-      { error: 'INVALID_REQUEST', message: CONSENT_ERROR_MESSAGES.INVALID_REQUEST },
-      { status: 400 }
-    );
-  }
+  const body = bodyResult.body;
 
   if (!body.termsAgreed || !body.privacyAgreed || !body.ageVerified) {
     return NextResponse.json(
