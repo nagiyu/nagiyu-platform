@@ -6,9 +6,23 @@
  */
 
 /**
+ * エラーの重大度の一覧
+ *
+ * 保存データの検証と型の導出を同じ定義から行うため、値は一覧として持つ。
+ */
+export const ERROR_SEVERITIES = ['info', 'warning', 'error', 'critical'] as const;
+
+/**
  * エラーの重大度
  */
-export type ErrorSeverity = 'info' | 'warning' | 'error' | 'critical';
+export type ErrorSeverity = (typeof ERROR_SEVERITIES)[number];
+
+/**
+ * エラーの発生源種別の一覧
+ *
+ * 保存データの検証と型の導出を同じ定義から行うため、値は一覧として持つ。
+ */
+export const ERROR_SOURCES = ['cloudwatch-alarm', 'application', 'manual', 'batch-event'] as const;
 
 /**
  * エラーの発生源種別
@@ -18,7 +32,21 @@ export type ErrorSeverity = 'info' | 'warning' | 'error' | 'critical';
  * - `manual`: 運用者による手動投入（将来拡張）
  * - `batch-event`: AWS のイベント由来（EventBridge 経由の Batch Job State Change 等、プロセスの生死に依存しない検知）
  */
-export type ErrorSource = 'cloudwatch-alarm' | 'application' | 'manual' | 'batch-event';
+export type ErrorSource = (typeof ERROR_SOURCES)[number];
+
+/**
+ * 値が ErrorSeverity かを判定する型ガード。
+ */
+export function isErrorSeverity(value: unknown): value is ErrorSeverity {
+  return typeof value === 'string' && (ERROR_SEVERITIES as readonly string[]).includes(value);
+}
+
+/**
+ * 値が ErrorSource かを判定する型ガード。
+ */
+export function isErrorSource(value: unknown): value is ErrorSource {
+  return typeof value === 'string' && (ERROR_SOURCES as readonly string[]).includes(value);
+}
 
 /**
  * 永続化される 1 件のエラーイベント

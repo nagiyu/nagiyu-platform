@@ -3,12 +3,13 @@
  */
 
 import { QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import type { ErrorEvent, ErrorSeverity, ErrorSource } from '@nagiyu/common';
+import type { ErrorEvent } from '@nagiyu/common';
 import {
   buildErrorEventPK,
   buildErrorEventSK,
   ERROR_EVENT_GSI1_PK,
   ERROR_EVENT_SK_PREFIX,
+  parseErrorEventItem,
 } from '@nagiyu/aws';
 import {
   decodeCursor,
@@ -26,19 +27,6 @@ const ERROR_MESSAGES = {
 const ALL_BY_OCCURRED_AT_INDEX = 'AllByOccurredAt';
 
 type ItemRecord = Record<string, unknown>;
-
-function toErrorEvent(item: ItemRecord): ErrorEvent {
-  return {
-    eventId: item.eventId as string,
-    serviceId: item.serviceId as string,
-    source: item.source as ErrorSource,
-    severity: item.severity as ErrorSeverity,
-    title: item.title as string,
-    message: item.message as string,
-    context: item.context as string,
-    occurredAt: item.occurredAt as string,
-  };
-}
 
 /**
  * DynamoDB をバックエンドとする ErrorEventReader 実装。
@@ -110,7 +98,7 @@ export class DynamoDBErrorEventReader implements ErrorEventReader {
     const nextCursor = result.LastEvaluatedKey ? encodeCursor(result.LastEvaluatedKey) : null;
 
     return {
-      items: items.map(toErrorEvent),
+      items: items.map(parseErrorEventItem),
       nextCursor,
     };
   }
@@ -137,6 +125,6 @@ export class DynamoDBErrorEventReader implements ErrorEventReader {
     );
 
     const item = result.Items?.[0] as ItemRecord | undefined;
-    return item ? toErrorEvent(item) : null;
+    return item ? parseErrorEventItem(item) : null;
   }
 }
