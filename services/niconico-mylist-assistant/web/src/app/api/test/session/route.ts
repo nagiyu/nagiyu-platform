@@ -52,7 +52,7 @@ export async function POST() {
     const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
     await repo.upsert({
-      userId: session.user.userId,
+      userId: session.user.id,
       encryptedUserSession,
       acquiredAt: now,
       estimatedExpiresAt: now + SESSION_TTL_MS,
@@ -86,7 +86,7 @@ export async function DELETE() {
 
   try {
     const repo = createNiconicoCredentialRepository();
-    await repo.delete(session.user.userId);
+    await repo.delete(session.user.id);
 
     return NextResponse.json({ success: true });
   } catch (error) {

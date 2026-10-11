@@ -83,7 +83,7 @@ export const GET = withAuth(getSession, 'stocks:read', async (session, request: 
     const holdingRepo = createHoldingRepository();
 
     // ユーザーIDを取得
-    const userId = session!.user.userId;
+    const userId = session!.user.id;
 
     // 保有株式一覧取得
     const result = await holdingRepo.getByUserId(userId, parsePagination(request));
@@ -150,7 +150,7 @@ export const POST = withAuth(
       }
 
       // ユーザーIDを取得
-      const userId = session!.user.userId;
+      const userId = session!.user.id;
 
       // リクエストボディから Holding オブジェクトを構築
       const holdingData = {

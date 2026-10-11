@@ -1,4 +1,5 @@
 import { headers } from 'next/headers';
+import type { Session } from '@nagiyu/common';
 
 /**
  * テストユーザーのロールをリクエストヘッダで上書きする際に使用するヘッダ名。
@@ -107,50 +108,61 @@ async function readRolesFromHeader(): Promise<string[] | undefined> {
   }
 }
 
-interface SessionWithOptionalUser {
-  user?: unknown;
+/**
+ * テストセッションを組み立てる。
+ *
+ * サーバー側の `getSession()` とクライアント向け `/api/auth/session` が同じ解決規則
+ * (ヘッダ → `TEST_USER_ROLES` → 既定ロール) で同じ形を返すよう、組み立てをここに集約する。
+ *
+ * @param options - 既定ロールとヘッダ由来のロール
+ * @returns テストセッション
+ */
+function buildTestSession(options?: ResolveTestUserOptions): Session {
+  const user = resolveTestUser(options);
+  return {
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      image: user.image,
+      roles: user.roles,
+    },
+    expires: createTestSessionExpires(),
+  };
 }
-
-type SessionWithRequiredUser<TSession extends SessionWithOptionalUser> = TSession & {
-  user: NonNullable<TSession['user']>;
-};
 
 /**
- * `createTestSession` に渡すテストセッションの上書きオプション。
+ * `createSessionGetter` のオプション。
  */
-export interface TestSessionOverrides {
-  /** リクエストヘッダから解決されたロール一覧。 */
-  roles?: string[];
-}
-
-export interface CreateSessionGetterOptions<
-  TAuthSession extends SessionWithOptionalUser,
-  TSessionResult = SessionWithRequiredUser<TAuthSession>,
-> {
-  auth: () => Promise<TAuthSession | null>;
+export interface CreateSessionGetterOptions {
   /**
-   * SKIP_AUTH_CHECK=true 時に呼ばれるテストセッション生成関数。
+   * next-auth の `auth`。
    *
-   * `overrides` はリクエストヘッダ `x-test-user-roles` が設定されている場合のみ渡される。
-   * 未設定時は引数なしで呼び出されるため、既存の `() => TSessionResult` 実装もそのまま動作する
-   * （後方互換）。
+   * `auth` は middleware 用のオーバーロードを持ち、そのままでは代入できないため、
+   * 呼び出し側で `auth as () => Promise<Session | null>` と絞って渡す。
    */
-  createTestSession: (overrides?: TestSessionOverrides) => TSessionResult;
-  mapSession?: (session: SessionWithRequiredUser<TAuthSession>) => TSessionResult;
+  auth: () => Promise<Session | null>;
+  /** `SKIP_AUTH_CHECK=true` のテストセッションでロールが未設定の場合に使う既定ロール。 */
+  defaultRoles?: string[];
 }
 
-export function createSessionGetter<
-  TAuthSession extends SessionWithOptionalUser,
-  TSessionResult = SessionWithRequiredUser<TAuthSession>,
->(options: CreateSessionGetterOptions<TAuthSession, TSessionResult>) {
-  const { auth, createTestSession, mapSession } = options;
+/**
+ * サーバー側のセッション取得関数を作る。
+ *
+ * 戻り値はサービスによらず `@nagiyu/common` の `Session` で揃える。
+ * `SKIP_AUTH_CHECK=true` のときは `auth()` を呼ばず、ヘッダ `x-test-user-roles` →
+ * `TEST_USER_ROLES` → `defaultRoles` の順でロールを解決したテストセッションを返す。
+ *
+ * @param options - `auth` と既定ロール
+ * @returns 未認証の場合は null を返すセッション取得関数
+ */
+export function createSessionGetter(options: CreateSessionGetterOptions) {
+  const { auth, defaultRoles } = options;
 
-  return async (): Promise<TSessionResult | null> => {
+  return async (): Promise<Session | null> => {
     if (process.env.SKIP_AUTH_CHECK === 'true') {
-      // ヘッダにテスト用ロールが設定されている場合のみ上書きを渡す。
-      // 未設定時は従来どおり引数なしで呼び出し、サービス側の env フォールバックに委ねる。
-      const headerRoles = await readRolesFromHeader();
-      return headerRoles ? createTestSession({ roles: headerRoles }) : createTestSession();
+      const roles = await readRolesFromHeader();
+      return buildTestSession({ defaultRoles, roles });
     }
 
     const session = await auth();
@@ -158,10 +170,7 @@ export function createSessionGetter<
       return null;
     }
 
-    const sessionWithUser = session as SessionWithRequiredUser<TAuthSession>;
-    return mapSession
-      ? mapSession(sessionWithUser)
-      : (sessionWithUser as unknown as TSessionResult);
+    return session;
   };
 }
 
@@ -176,7 +185,7 @@ const CLIENT_SESSION_PATH = '/api/auth/session';
  * `createClientSessionGetHandler` のオプション。
  */
 export interface CreateClientSessionGetHandlerOptions {
-  /** ロールが未設定の場合に使用する既定ロール一覧。サーバー側の `createTestSession` と揃える。 */
+  /** ロールが未設定の場合に使用する既定ロール一覧。サーバー側の `createSessionGetter` の `defaultRoles` と揃える。 */
   defaultRoles?: string[];
 }
 
@@ -201,19 +210,14 @@ export function createClientSessionGetHandler<TRequest extends Request>(
       process.env.SKIP_AUTH_CHECK === 'true' &&
       new URL(req.url).pathname === CLIENT_SESSION_PATH
     ) {
-      const user = resolveTestUser({
+      const session = buildTestSession({
         defaultRoles: options?.defaultRoles,
         roles: parseTestUserRoles(req.headers.get(TEST_USER_ROLES_HEADER)),
       });
+      // next-auth の useSession() は image 未設定を null として受け取る前提のため揃える。
       return Response.json({
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          image: user.image ?? null,
-          roles: user.roles,
-        },
-        expires: createTestSessionExpires(),
+        ...session,
+        user: { ...session.user, image: session.user.image ?? null },
       });
     }
 

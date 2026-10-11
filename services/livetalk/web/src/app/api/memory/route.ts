@@ -30,7 +30,7 @@ export const GET = withAuth(getSession, 'livetalk:chat', async (session, request
     );
   }
 
-  const userId = session.user.googleId;
+  const userId = session.user.id;
   const topicRepository = getTopicRepository();
 
   try {

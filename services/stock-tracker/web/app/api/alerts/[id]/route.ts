@@ -129,7 +129,7 @@ export const PUT = withAuth(
     try {
       // パラメータの取得
       const { id: alertId } = await params;
-      const userId = session.user.userId;
+      const userId = session.user.id;
 
       // リクエストボディの取得
       let body: UpdateAlertRequest;
@@ -295,7 +295,7 @@ export const DELETE = withAuth(
     try {
       // パラメータの取得
       const { id: alertId } = await params;
-      const userId = session.user.userId;
+      const userId = session.user.id;
 
       // リポジトリの初期化
       const alertRepo = createAlertRepository();

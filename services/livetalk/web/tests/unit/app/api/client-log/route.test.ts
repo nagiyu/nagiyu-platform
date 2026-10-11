@@ -20,13 +20,10 @@ const mockReportErrorEvent = reportErrorEvent as jest.MockedFunction<typeof repo
 
 const validSession = {
   user: {
-    userId: 'u1',
-    googleId: 'g1',
+    id: 'u1',
     email: 'u@example.com',
     name: 'U',
     roles: ['livetalk-user'],
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
   },
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
@@ -125,7 +122,7 @@ describe('POST /api/client-log', () => {
         severity: 'warning',
         title: 'T',
         message: 'M',
-        context: expect.objectContaining({ userId: 'g1' }),
+        context: expect.objectContaining({ userId: 'u1' }),
       })
     );
   });
@@ -159,7 +156,7 @@ describe('POST /api/client-log', () => {
     expect(mockReportErrorEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         context: {
-          userId: 'g1',
+          userId: 'u1',
           screen: 'chat',
           audioContextState: 'suspended',
         },

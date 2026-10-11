@@ -2,7 +2,7 @@
  * セーフティ検出イベント（Phase 2d / Issue #3250）。
  *
  * DynamoDB Single Table:
- *   PK = USER#<googleId>
+ *   PK = USER#<userId>
  *   SK = SAFETY#<ulid>
  *
  * TTL なし（人間レビュー用途のため永続保持）。

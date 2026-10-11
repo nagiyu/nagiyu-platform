@@ -44,7 +44,7 @@ export const GET = withAuth(getSession, 'livetalk:chat', async (session, request
 
   try {
     const result = await getMessageRepository().getRecentByTokenBudget({
-      userId: session.user.googleId,
+      userId: session.user.id,
       characterId,
       tokenLimit,
     });

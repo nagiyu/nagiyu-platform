@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 動画一覧を取得
-    const { videos: rawVideos, total } = await listVideosWithSettings(session.user.userId, {
+    const { videos: rawVideos, total } = await listVideosWithSettings(session.user.id, {
       limit,
       offset,
       isFavorite,

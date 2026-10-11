@@ -15,7 +15,7 @@ import { ACCOUNT_ERROR_MESSAGES } from './constants';
  * - レスポンスには削除件数・匿名化件数を含めない（SafetyEvent の存在を本人に示すのは不適切）。
  */
 export const DELETE = withAuth(getSession, 'livetalk:chat', async (session) => {
-  const userId = session.user.googleId;
+  const userId = session.user.id;
 
   try {
     const result = await getAccountDeletionRepository().deleteAccount(userId);

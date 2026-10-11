@@ -21,7 +21,7 @@ export const DELETE = withAuth(
   'livetalk:chat',
   async (session, _request: Request, context: RouteContext) => {
     const { id } = await context.params;
-    const key = decodeSelfFactId(id, session.user.googleId);
+    const key = decodeSelfFactId(id, session.user.id);
     if (!key) {
       return NextResponse.json(
         { error: 'INVALID_ID', message: MEMORY_ERROR_MESSAGES.INVALID_ID },

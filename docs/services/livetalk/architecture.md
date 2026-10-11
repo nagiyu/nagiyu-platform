@@ -44,7 +44,7 @@ Live2D アバター（桃瀬ひより）と AI（OpenAI LLM + VOICEVOX TTS）を
 
 **決定**
 
-PK = `USER#<googleId>`、SK = `CHAR#<charId>#MSG#<ulid>` 等で、メッセージは個別 item として保存する。Single Table 設計の標準パターンに従う。
+PK = `USER#<userId>`、SK = `CHAR#<charId>#MSG#<ulid>` 等で、メッセージは個別 item として保存する。Single Table 設計の標準パターンに従う。
 
 **根拠・トレードオフ**
 
@@ -432,8 +432,8 @@ Profile item のみを索引化する sparse GSI（`GSI1`）を追加し、バ�
 
 **決定**
 
-- **退会 = 即時ハード削除**。`PK=USER#<googleId>` 配下の全 item（Profile / Message / Memory / Summary / Affection / Knowledge / Note / Notification / PushSubscription 等）を一括削除する。論理削除＋猶予期間は本サービスの規模に対して過剰なため採らない。
-- **例外: SafetyEvent は残す**。自傷・希死念慮の検出ログは、Character.AI / OpenAI の訴訟事例（ADR-009 の動機）を踏まえ、開発者防御の証跡として保持する。ただし退会時に **googleId 等の個人識別子を切り離した匿名化レコード**へ移し、横断レビュー用領域（ADR-2.22 の GSI 配下）でのみ参照できるようにする。保持期限は公開フェーズの法務レビューで確定する（暫定 3 年）。
+- **退会 = 即時ハード削除**。`PK=USER#<userId>` 配下の全 item（Profile / Message / Memory / Summary / Affection / Knowledge / Note / Notification / PushSubscription 等）を一括削除する。論理削除＋猶予期間は本サービスの規模に対して過剰なため採らない。
+- **例外: SafetyEvent は残す**。自傷・希死念慮の検出ログは、Character.AI / OpenAI の訴訟事例（ADR-009 の動機）を踏まえ、開発者防御の証跡として保持する。ただし退会時に **ユーザー ID 等の個人識別子を切り離した匿名化レコード**へ移し、横断レビュー用領域（ADR-2.22 の GSI 配下）でのみ参照できるようにする。保持期限は公開フェーズの法務レビューで確定する（暫定 3 年）。
 - **退会のスコープは livetalk サービスのデータのみ**。プラットフォームの Google アカウント自体や他サービスのデータは対象外。RBAC role（`livetalk-user`）の剥奪は運用（人力）で行う。
 - **データエクスポート（セルフサービスのポータビリティ）は作らない**。国内法（個人情報保護法）で必須なのは開示請求への対応であり、これは運用（問い合わせ対応での手動開示）で代替する。セルフサービス化は将来検討（roadmap）。
 
@@ -447,9 +447,9 @@ Profile item のみを索引化する sparse GSI（`GSI1`）を追加し、バ�
 
 上記「別途整備」のうち、退会の実装で確定した設計判断（コードからは読み取れない「なぜ」）を残す。
 
-- **削除は生 item 走査で実装**。`PK=USER#<googleId>` を Query で全件取得し、SK が `SAFETY#` 以外を `BatchWriteItem` で削除する。SK 種別を列挙せず走査するため、将来の item 種別追加に自動で追従する。
-- **1 PK スコープ・冪等。完全原子性は持たない**。DynamoDB に「PK 一括削除」がないため `BatchWriteItem` ＋ 未処理リトライで進め、リトライ上限後も残存すれば例外を返して再実行に委ねる（途中失敗は再実行で収束）。退会は本人セッションの `googleId` のみを対象とし、他ユーザーには波及しない（dev 実地検証で 1 PK スコープを確認）。
-- **匿名化 = SafetyEvent の re-key**。`TransactWrite` で `PK=USER#ANON#<ulid>` へ移し、`UserID` を **不可逆なランダム匿名トークン**へ置換する。googleId から決定論的に導出する擬似匿名化（pseudonymization）は採らない —— 横断グルーピングの利便より「個人識別子を切り離す」真の匿名化を優先したため。`InputText`/`ResponseText` は開発者防御の証跡として保持し、`GSI2PK`/`GSI2SK` を維持して横断レビュー（ADR-2.22 / Issue #3580）に残す。
+- **削除は生 item 走査で実装**。`PK=USER#<userId>` を Query で全件取得し、SK が `SAFETY#` 以外を `BatchWriteItem` で削除する。SK 種別を列挙せず走査するため、将来の item 種別追加に自動で追従する。
+- **1 PK スコープ・冪等。完全原子性は持たない**。DynamoDB に「PK 一括削除」がないため `BatchWriteItem` ＋ 未処理リトライで進め、リトライ上限後も残存すれば例外を返して再実行に委ねる（途中失敗は再実行で収束）。退会は本人セッションのユーザー ID のみを対象とし、他ユーザーには波及しない（dev 実地検証で 1 PK スコープを確認）。
+- **匿名化 = SafetyEvent の re-key**。`TransactWrite` で `PK=USER#ANON#<ulid>` へ移し、`UserID` を **不可逆なランダム匿名トークン**へ置換する。ユーザー ID から決定論的に導出する擬似匿名化（pseudonymization）は採らない —— 横断グルーピングの利便より「個人識別子を切り離す」真の匿名化を優先したため。`InputText`/`ResponseText` は開発者防御の証跡として保持し、`GSI2PK`/`GSI2SK` を維持して横断レビュー（ADR-2.22 / Issue #3580）に残す。
 - **退会後の遷移**。サインアウトは Cookie 発行元の auth サービスに集約しており、livetalk は `/api/auth/signout` への POST を受け付けない。そのため `next-auth/react` の `signOut` は使わず、ヘッダーのサインアウトと同じく auth サービスのサインアウト URL へ遷移し、callbackUrl に公開オリジンを渡してトップへ戻す。
 
 ### 2.22 セーフティイベントの横断レビューは sparse GSI + 管理画面（ADR / Issue #3532）
@@ -464,7 +464,7 @@ requirements 3.2 はセーフティ検出ログを「別領域・人間レビュ
   - `GSI2PK='SAFETY'` を SafetyEvent item にのみ付与（sparse）。`GSI2SK` = 検出時刻ベースの ULID（時系列降順で「最近の検出」を取得）。
   - 射影は一覧表示に必要なメタデータを `INCLUDE`。実装で確定した属性は `UserID`（匿名化済みユーザー参照）/ `EventID` / `CharacterID`（キャラ）/ `Trigger`（応答種別）/ `DetectedPattern`（検出パターン）/ `CreatedAt`（検出時刻）。**PII（`InputText` / `ResponseText`）は射影しない**（横断レビューはメタデータのみ。フル本文が要る場合だけベーステーブルの `getById` 経由）。なお `CharacterID` は本対応で SafetyEvent に追加した（既存レコードには無いため optional）。
 - **`livetalk:admin` 権限の管理画面**で時系列一覧を提供する。SCR-009（ステータス画面）の拡張とし、新規ページは増やさない。
-- ユーザーが在籍中は SafetyEvent に googleId を保持し、退会時に匿名化する（ADR-2.21）。GSI2 はどちらの状態でも横断 Query できる。
+- ユーザーが在籍中は SafetyEvent にユーザー ID を保持し、退会時に匿名化する（ADR-2.21）。GSI2 はどちらの状態でも横断 Query できる。
 
 **根拠・トレードオフ**
 
@@ -550,7 +550,7 @@ care は「ユーザーがその話題をどれだけ気にしているか」の
 
 DynamoDB Single Table（`nagiyu-livetalk-dynamodb-{env}`）。
 
-- PK = `USER#<googleId>`
+- PK = `USER#<userId>`
 - SK 階層パターン（例）:
   - `PROFILE`
   - `CHAR#<charId>#STATE` / `#LIFECYCLE` / `#AFFECTION`
@@ -578,7 +578,7 @@ DynamoDB Single Table（`nagiyu-livetalk-dynamodb-{env}`）。
   - **鮮度掃引用 GSI**: 揮発 WEB fact のみを再確認期限で索引化し、期限到来分だけをまとめて走査する（安定 fact は載せない）。現状 1 ユーザー規模のため時間バケットのシャーディングは行わない
   - ⚠️ 増設した GSI を Query する各ロールにも、GSI2 と同じく `fromTableAttributes` + `globalIndexes` の grant が要る（ADR-2.22 の教訓）
 
-**保持・削除ポリシー（ADR-2.21 / 2.24）**: 元データ（Message・Web 取得生）は TTL 90 日、Topic 配下（ヘッダ・SELF fact・WEB fact）と共有ログ Note は恒久、Affection は在籍中は無期限。退会時は `PK=USER#<googleId>` 配下を即時ハード削除するが、SafetyEvent のみ匿名化（個人識別子を切り離す）して保持する（暫定保持期限 3 年、法務レビューで確定）。SELF fact のユーザー削除は物理削除で、当該 Topic 要約を即時再生成する（決定的忘却、ADR-2.24）。
+**保持・削除ポリシー（ADR-2.21 / 2.24）**: 元データ（Message・Web 取得生）は TTL 90 日、Topic 配下（ヘッダ・SELF fact・WEB fact）と共有ログ Note は恒久、Affection は在籍中は無期限。退会時は `PK=USER#<userId>` 配下を即時ハード削除するが、SafetyEvent のみ匿名化（個人識別子を切り離す）して保持する（暫定保持期限 3 年、法務レビューで確定）。SELF fact のユーザー削除は物理削除で、当該 Topic 要約を即時再生成する（決定的忘却、ADR-2.24）。
 
 詳細な SK 定義・属性は実装（`services/livetalk/core/src/mappers/keys.ts`、`entities/`）を参照。概念モデルは [external-design.md](./external-design.md) を参照。
 

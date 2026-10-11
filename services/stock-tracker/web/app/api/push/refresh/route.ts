@@ -95,7 +95,7 @@ export async function POST(
     }
 
     // ユーザーIDを取得
-    const userId = session!.user.userId;
+    const userId = session!.user.id;
 
     // リポジトリの初期化
     const alertRepo = createAlertRepository();

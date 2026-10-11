@@ -1,6 +1,6 @@
 import type { User } from '@nagiyu/share-together-core';
 import { withAuth } from '@nagiyu/nextjs';
-import type { Session } from 'next-auth';
+import type { Session } from '@nagiyu/common';
 import { NextResponse } from 'next/server';
 import type { UserResponse } from '@/types';
 import { getSession } from '@/lib/auth/session';
@@ -15,14 +15,7 @@ import {
 const DEFAULT_LIST_NAME = 'デフォルトリスト';
 const DEFAULT_ROLES: string[] = [];
 
-type UsersRouteSession = Session & {
-  user: Session['user'] & {
-    id: string;
-    roles: string[];
-  };
-};
-
-async function getSessionWithRoles(): Promise<UsersRouteSession | null> {
+async function getSessionWithRoles(): Promise<Session | null> {
   const session = await getSession();
   if (!session) {
     return null;
@@ -32,7 +25,6 @@ async function getSessionWithRoles(): Promise<UsersRouteSession | null> {
     ...session,
     user: {
       ...session.user,
-      id: session.user.id,
       roles: DEFAULT_ROLES,
     },
   };
