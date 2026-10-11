@@ -21,6 +21,7 @@ import {
 } from '@/lib/niconico-session';
 import type { ErrorResponse } from '@nagiyu/common';
 import { toErrorMessage } from '@nagiyu/common';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 
 /**
  * セッション状態レスポンスの型定義
@@ -109,25 +110,25 @@ export async function POST(
   }
 
   try {
-    // リクエストボディのパース（不正 JSON は 400 で返す）
-    let body: { userSession?: unknown };
-    try {
-      body = (await request.json()) as { userSession?: unknown };
-    } catch {
+    // リクエストボディのパース（不正な本文は 400 で返す）
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
       return NextResponse.json(
         { error: 'INVALID_REQUEST_BODY', message: ERROR_MESSAGES.INVALID_REQUEST_BODY },
         { status: 400 }
       );
     }
 
-    if (!body.userSession) {
+    const { userSession } = bodyResult.body;
+
+    if (!userSession) {
       return NextResponse.json(
         { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.USER_SESSION_REQUIRED },
         { status: 400 }
       );
     }
 
-    if (typeof body.userSession !== 'string') {
+    if (typeof userSession !== 'string') {
       return NextResponse.json(
         { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.USER_SESSION_MUST_BE_STRING },
         { status: 400 }
@@ -137,7 +138,7 @@ export async function POST(
     const cryptoConfig = getCryptoConfig();
     const { acquiredAt, estimatedExpiresAt } = await saveNiconicoSession(
       session.user.id,
-      body.userSession,
+      userSession,
       cryptoConfig
     );
 
