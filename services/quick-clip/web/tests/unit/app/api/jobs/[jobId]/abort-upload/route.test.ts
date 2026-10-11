@@ -95,4 +95,33 @@ describe('POST /api/jobs/[jobId]/abort-upload', () => {
       abortError
     );
   });
+
+  const createBrokenJsonRequest = (): Request =>
+    ({
+      json: async () => {
+        throw new SyntaxError('Unexpected token');
+      },
+    }) as unknown as Request;
+
+  it.each([
+    ['壊れた JSON', () => createBrokenJsonRequest()],
+    ['null', () => createRequest(null)],
+    ['配列', () => createRequest([{ uploadId: 'upload-1' }])],
+    ['文字列', () => createRequest('upload-1')],
+    ['uploadId が数値', () => createRequest({ uploadId: 1 })],
+    ['uploadId が null', () => createRequest({ uploadId: null })],
+  ])('異常系: %s の場合は 400 を返し、S3 を呼ばない', async (_label, buildRequest) => {
+    const response = await POST(buildRequest(), {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      error: 'INVALID_REQUEST',
+      message: 'リクエストが不正です',
+    });
+    expect(s3Send).not.toHaveBeenCalled();
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+  });
 });
