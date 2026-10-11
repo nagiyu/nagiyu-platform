@@ -2,6 +2,7 @@ import { GET, POST } from '../../../../app/api/exchanges/route';
 import { GET as GET_BY_ID, PUT } from '../../../../app/api/exchanges/[id]/route';
 import { createExchangeRepository } from '../../../../lib/repository-factory';
 import * as awsModule from '@nagiyu/aws';
+import { MALFORMED_BODY_CASES } from './invalidBodyCases';
 
 jest.mock('../../../../lib/repository-factory', () => ({
   createExchangeRepository: jest.fn(),
@@ -12,6 +13,7 @@ jest.mock('../../../../lib/auth', () => ({
 }));
 
 jest.mock('@nagiyu/nextjs', () => ({
+  readJsonObjectBody: jest.requireActual('@nagiyu/nextjs').readJsonObjectBody,
   withAuth: jest.fn((_auth, _permission, handler) => {
     return async (...args: unknown[]) => handler({ user: { id: 'test-user' } }, ...args);
   }),
@@ -419,5 +421,163 @@ describe('PUT /api/exchanges/:id', () => {
     const body = await response.json();
     expect(body.error).toBe('INVALID_REQUEST');
     expect(body.message).toBe('市場は "JP" または "US" のいずれかを指定してください');
+  });
+});
+
+describe('POST /api/exchanges のリクエストボディ検証', () => {
+  const mockCreate = jest.fn();
+
+  const validBody = {
+    exchangeId: 'TSE',
+    name: '東京証券取引所',
+    key: 'TSE',
+    timezone: 'Asia/Tokyo',
+    tradingHours: { start: '09:00', end: '15:30' },
+  };
+
+  const createRawRequest = (rawBody: string) =>
+    new Request('http://localhost/api/exchanges', {
+      method: 'POST',
+      body: rawBody,
+      headers: { 'content-type': 'application/json' },
+    });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (createExchangeRepository as jest.Mock).mockReturnValue({ create: mockCreate });
+  });
+
+  it.each([
+    ...MALFORMED_BODY_CASES,
+    ['exchangeId が数値', JSON.stringify({ ...validBody, exchangeId: 1 })],
+    ['name が数値', JSON.stringify({ ...validBody, name: 1 })],
+    ['key が配列', JSON.stringify({ ...validBody, key: ['TSE'] })],
+    ['timezone が真偽値', JSON.stringify({ ...validBody, timezone: true })],
+    ['tradingHours が文字列', JSON.stringify({ ...validBody, tradingHours: '09:00-15:30' })],
+    ['tradingHours が null', JSON.stringify({ ...validBody, tradingHours: null })],
+    ['tradingHours が配列', JSON.stringify({ ...validBody, tradingHours: [] })],
+    [
+      'tradingHours.start が数値',
+      JSON.stringify({ ...validBody, tradingHours: { start: 900, end: '15:30' } }),
+    ],
+    [
+      'tradingHours.end が数値',
+      JSON.stringify({ ...validBody, tradingHours: { start: '09:00', end: 1530 } }),
+    ],
+    ['priceSource が数値', JSON.stringify({ ...validBody, priceSource: 1 })],
+    ['market が null', JSON.stringify({ ...validBody, market: null })],
+  ])('異常系: %s の場合は 400 を返し、下流を呼ばず通報もしない', async (_label, rawBody) => {
+    const response = await POST(createRawRequest(rawBody) as never);
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe('INVALID_REQUEST');
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(awsModule.reportErrorEvent).not.toHaveBeenCalled();
+  });
+
+  it('壊れた JSON の場合は専用のメッセージを返す', async () => {
+    const response = await POST(createRawRequest('{"exchangeId":') as never);
+
+    expect((await response.json()).message).toBe('リクエストボディが不正です');
+  });
+
+  it('必須項目が欠けている場合はバリデーションの指摘を 400 で返す', async () => {
+    const response = await POST(
+      createRawRequest(JSON.stringify({ ...validBody, name: undefined })) as never
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.message).toBe('取引所名は必須です');
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it('tradingHours が未指定の場合は開始時刻の不足を 400 で返す', async () => {
+    const response = await POST(
+      createRawRequest(JSON.stringify({ ...validBody, tradingHours: undefined })) as never
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe('PUT /api/exchanges/:id のリクエストボディ検証', () => {
+  const mockGetById = jest.fn();
+  const mockUpdate = jest.fn();
+
+  const existingExchange = {
+    ExchangeID: 'TSE',
+    Name: '東京証券取引所',
+    Key: 'TSE',
+    Timezone: 'Asia/Tokyo',
+    Start: '09:00',
+    End: '15:30',
+    PriceSource: 'tradingview' as const,
+    CreatedAt: 1,
+    UpdatedAt: 1,
+  };
+
+  const createRawRequest = (rawBody: string) =>
+    new Request('http://localhost/api/exchanges/TSE', {
+      method: 'PUT',
+      body: rawBody,
+      headers: { 'content-type': 'application/json' },
+    });
+
+  const params = { params: Promise.resolve({ id: 'TSE' }) };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (createExchangeRepository as jest.Mock).mockReturnValue({
+      getById: mockGetById,
+      update: mockUpdate,
+    });
+    mockGetById.mockResolvedValue(existingExchange);
+  });
+
+  it('更新対象の項目だけをリポジトリへ渡す', async () => {
+    mockUpdate.mockResolvedValue({ ...existingExchange, Name: '東証', UpdatedAt: 2 });
+
+    const response = await PUT(
+      createRawRequest(
+        JSON.stringify({
+          name: '東証',
+          tradingHours: { start: '09:30' },
+          exchangeId: 'OTHER',
+          key: 'OTHER',
+        })
+      ) as never,
+      params as never
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledWith('TSE', { Name: '東証', Start: '09:30' });
+  });
+
+  it.each([
+    ...MALFORMED_BODY_CASES,
+    ['name が数値', JSON.stringify({ name: 1 })],
+    ['timezone が真偽値', JSON.stringify({ timezone: true })],
+    ['tradingHours が文字列', JSON.stringify({ tradingHours: '09:00-15:30' })],
+    ['tradingHours が null', JSON.stringify({ tradingHours: null })],
+    ['tradingHours が配列', JSON.stringify({ tradingHours: [] })],
+    ['tradingHours.start が数値', JSON.stringify({ tradingHours: { start: 900 } })],
+    ['tradingHours.end が null', JSON.stringify({ tradingHours: { end: null } })],
+    ['priceSource が数値', JSON.stringify({ priceSource: 1 })],
+    ['market が数値', JSON.stringify({ market: 1 })],
+  ])('異常系: %s の場合は 400 を返し、下流を呼ばず通報もしない', async (_label, rawBody) => {
+    const response = await PUT(createRawRequest(rawBody) as never, params as never);
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe('INVALID_REQUEST');
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(awsModule.reportErrorEvent).not.toHaveBeenCalled();
+  });
+
+  it('壊れた JSON の場合は専用のメッセージを返す', async () => {
+    const response = await PUT(createRawRequest('{"name":') as never, params as never);
+
+    expect((await response.json()).message).toBe('リクエストボディが不正です');
   });
 });
