@@ -116,6 +116,14 @@ describe('DynamoDBErrorEventReader', () => {
       const cmd = mockDocClient.send.mock.calls[0][0] as QueryCommand;
       expect(cmd.input.ExclusiveStartKey).toEqual(lastKey);
     });
+
+    it('不正な Item が含まれる場合は除外せず例外を伝える', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Items: [itemFor(sampleEvent), { ...itemFor(sampleEvent), severity: 'unknown' }],
+      } as never);
+
+      await expect(reader.list({})).rejects.toThrow('severity');
+    });
   });
 
   describe('findById', () => {
@@ -138,6 +146,16 @@ describe('DynamoDBErrorEventReader', () => {
       mockDocClient.send.mockResolvedValueOnce({ Items: [] } as never);
       const result = await reader.findById('x', '2026-05-06T00:00:00Z', 'stock-tracker');
       expect(result).toBeNull();
+    });
+
+    it('不正な Item なら例外を伝える', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Items: [{ ...itemFor(sampleEvent), source: 'unknown' }],
+      } as never);
+
+      await expect(
+        reader.findById(sampleEvent.eventId, sampleEvent.occurredAt, sampleEvent.serviceId)
+      ).rejects.toThrow('source');
     });
   });
 });

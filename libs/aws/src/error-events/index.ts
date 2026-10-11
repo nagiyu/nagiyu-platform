@@ -15,6 +15,7 @@ export {
   buildErrorEventSK,
   computeErrorEventTtl,
 } from './writer.js';
+export { toErrorEventItem, parseErrorEventItem } from './item.js';
 export { DynamoDBErrorEventWriter } from './dynamodb-writer.js';
 export { InMemoryErrorEventWriter } from './in-memory-writer.js';
 export { createErrorEventWriter, resetErrorEventWriter } from './factory.js';

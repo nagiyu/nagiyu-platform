@@ -10,8 +10,8 @@
  */
 
 import { unmarshall } from '@aws-sdk/util-dynamodb';
-import type { ErrorEvent, ErrorSeverity, ErrorSource } from '@nagiyu/common';
-import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import type { ErrorEvent } from '@nagiyu/common';
+import { getDynamoDBDocumentClient, parseErrorEventItem } from '@nagiyu/aws';
 import {
   createPushSubscriptionRepository,
   WebPushSender,
@@ -56,58 +56,14 @@ function getWebPushSender(): WebPushSender {
   return new WebPushSender({ repository: getSubscriptionRepository() });
 }
 
-const VALID_SEVERITIES: ReadonlySet<ErrorSeverity> = new Set([
-  'info',
-  'warning',
-  'error',
-  'critical',
-]);
-
-const VALID_SOURCES: ReadonlySet<ErrorSource> = new Set([
-  'cloudwatch-alarm',
-  'application',
-  'manual',
-  'batch-event',
-]);
-
-function isErrorSeverity(value: unknown): value is ErrorSeverity {
-  return typeof value === 'string' && VALID_SEVERITIES.has(value as ErrorSeverity);
-}
-
-function isErrorSource(value: unknown): value is ErrorSource {
-  return typeof value === 'string' && VALID_SOURCES.has(value as ErrorSource);
-}
-
 /**
  * Streams の NewImage（DynamoDB AttributeValue 形式）から ErrorEvent を復元する。
- * 必須フィールドが欠けている場合は null。
+ *
+ * @throws 必須フィールドが欠けている・値が不正な場合。読み飛ばすと無音になるため、
+ *   例外にして Lambda の Errors アラームで検知できるようにする。
  */
-export function unmarshallErrorEvent(newImage: Record<string, unknown>): ErrorEvent | null {
-  const item = unmarshall(newImage as Parameters<typeof unmarshall>[0]);
-
-  if (
-    typeof item.eventId !== 'string' ||
-    typeof item.serviceId !== 'string' ||
-    typeof item.title !== 'string' ||
-    typeof item.message !== 'string' ||
-    typeof item.context !== 'string' ||
-    typeof item.occurredAt !== 'string' ||
-    !isErrorSource(item.source) ||
-    !isErrorSeverity(item.severity)
-  ) {
-    return null;
-  }
-
-  return {
-    eventId: item.eventId,
-    serviceId: item.serviceId,
-    source: item.source,
-    severity: item.severity,
-    title: item.title,
-    message: item.message,
-    context: item.context,
-    occurredAt: item.occurredAt,
-  };
+export function unmarshallErrorEvent(newImage: Record<string, unknown>): ErrorEvent {
+  return parseErrorEventItem(unmarshall(newImage as Parameters<typeof unmarshall>[0]));
 }
 
 /**
@@ -158,10 +114,6 @@ export async function handler(event: StreamHandlerEvent): Promise<HandlerRespons
       continue;
     }
     const errorEvent = unmarshallErrorEvent(newImage);
-    if (!errorEvent) {
-      skipped += 1;
-      continue;
-    }
 
     const payload = buildPushPayload(errorEvent, appUrl);
     await sender.sendAll(payload);

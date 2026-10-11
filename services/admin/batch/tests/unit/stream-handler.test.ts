@@ -53,25 +53,27 @@ describe('unmarshallErrorEvent', () => {
     expect(result).toEqual(sampleEvent);
   });
 
-  it('必須フィールドが無いと null', () => {
+  it('必須フィールドが無いと例外', () => {
     const newImage = marshall({ eventId: 'x' });
-    expect(unmarshallErrorEvent(newImage as Record<string, unknown>)).toBeNull();
+    expect(() => unmarshallErrorEvent(newImage as Record<string, unknown>)).toThrow(
+      'エラーイベントの保存データのフィールドが不正です'
+    );
   });
 
-  it('severity が不正なら null', () => {
+  it('severity が不正なら例外', () => {
     const newImage = marshall({ ...sampleEvent, severity: 'unknown-severity' });
-    expect(unmarshallErrorEvent(newImage as Record<string, unknown>)).toBeNull();
+    expect(() => unmarshallErrorEvent(newImage as Record<string, unknown>)).toThrow('severity');
   });
 
-  it('source が不正なら null', () => {
+  it('source が不正なら例外', () => {
     const newImage = marshall({ ...sampleEvent, source: 'invalid-source' });
-    expect(unmarshallErrorEvent(newImage as Record<string, unknown>)).toBeNull();
+    expect(() => unmarshallErrorEvent(newImage as Record<string, unknown>)).toThrow('source');
   });
 
   it('source が batch-event でも ErrorEvent に変換する', () => {
     const newImage = marshall({ ...sampleEvent, source: 'batch-event' });
     const result = unmarshallErrorEvent(newImage as Record<string, unknown>);
-    expect(result?.source).toBe('batch-event');
+    expect(result.source).toBe('batch-event');
   });
 });
 
@@ -153,6 +155,18 @@ describe('handler', () => {
     };
     const result = await handler(event);
     expect(result).toEqual({ notified: 0, skipped: 1 });
+  });
+
+  it('NewImage が不正な INSERT は読み飛ばさず例外を投げる', async () => {
+    const invalid: StreamHandlerEvent = {
+      Records: [
+        {
+          eventName: 'INSERT',
+          dynamodb: { NewImage: marshall({ ...sampleEvent, severity: 'unknown-severity' }) },
+        },
+      ],
+    };
+    await expect(handler(invalid)).rejects.toThrow('severity');
   });
 
   it('VAPID キー未設定で例外', async () => {
