@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server';
-import { GET } from '../../../../app/api/holdings/route';
+import { GET, POST } from '../../../../app/api/holdings/route';
 import {
   createHoldingRepository,
   createTickerRepository,
 } from '../../../../lib/repository-factory';
+import { MALFORMED_BODY_CASES } from './invalidBodyCases';
 
 jest.mock('../../../../lib/repository-factory', () => ({
   createHoldingRepository: jest.fn(),
@@ -101,5 +102,94 @@ describe('GET /api/holdings', () => {
     const body = await response.json();
 
     expect(body.pagination).toEqual({ count: 0 });
+  });
+});
+
+describe('POST /api/holdings', () => {
+  const mockCreate = jest.fn();
+  const mockGetTickerById = jest.fn();
+
+  const validBody = {
+    tickerId: 'NSDQ:AAPL',
+    quantity: 10,
+    averagePrice: 150.5,
+    currency: 'USD',
+  };
+
+  const createRequest = (rawBody: string) =>
+    new NextRequest('http://localhost/api/holdings', {
+      method: 'POST',
+      body: rawBody,
+      headers: { 'content-type': 'application/json' },
+    });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (createHoldingRepository as jest.Mock).mockReturnValue({ create: mockCreate });
+    (createTickerRepository as jest.Mock).mockReturnValue({ getById: mockGetTickerById });
+  });
+
+  it('取引所 ID をティッカー ID から補って保有株式を登録する', async () => {
+    mockCreate.mockResolvedValue({
+      UserID: 'test-user',
+      TickerID: 'NSDQ:AAPL',
+      ExchangeID: 'NSDQ',
+      Quantity: 10,
+      AveragePrice: 150.5,
+      Currency: 'USD',
+      CreatedAt: 1704067200000,
+      UpdatedAt: 1704067200000,
+    });
+    mockGetTickerById.mockResolvedValue({ Symbol: 'AAPL', Name: 'Apple Inc.' });
+
+    const response = await POST(
+      createRequest(JSON.stringify({ ...validBody, userId: 'other-user' }))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(body.holdingId).toBe('test-user#NSDQ:AAPL');
+    expect(mockCreate).toHaveBeenCalledWith({
+      UserID: 'test-user',
+      TickerID: 'NSDQ:AAPL',
+      ExchangeID: 'NSDQ',
+      Quantity: 10,
+      AveragePrice: 150.5,
+      Currency: 'USD',
+    });
+  });
+
+  it('必須項目が欠けている場合はバリデーションの指摘を 400 で返す', async () => {
+    const response = await POST(
+      createRequest(JSON.stringify({ ...validBody, currency: undefined }))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.message).toBe('入力データが不正です');
+    expect(body.details).toEqual(['通貨コードは必須です']);
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ...MALFORMED_BODY_CASES,
+    ['tickerId が数値', JSON.stringify({ ...validBody, tickerId: 1 })],
+    ['exchangeId が数値', JSON.stringify({ ...validBody, exchangeId: 1 })],
+    ['quantity が文字列', JSON.stringify({ ...validBody, quantity: '10' })],
+    ['averagePrice が文字列', JSON.stringify({ ...validBody, averagePrice: '150.5' })],
+    ['currency が数値', JSON.stringify({ ...validBody, currency: 1 })],
+  ])('異常系: %s の場合は 400 を返し、下流を呼ばない', async (_label, rawBody) => {
+    const response = await POST(createRequest(rawBody));
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe('INVALID_REQUEST');
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(mockGetTickerById).not.toHaveBeenCalled();
+  });
+
+  it('壊れた JSON の場合は専用のメッセージを返す', async () => {
+    const response = await POST(createRequest('{"tickerId":'));
+
+    expect((await response.json()).message).toBe('リクエストボディが不正です');
   });
 });
