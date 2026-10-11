@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createUserRepository, UserNotFoundError } from '@nagiyu/auth-core';
 import { COMMON_ERROR_MESSAGES, VALID_ROLES, hasPermission, toErrorMessage } from '@nagiyu/common';
 import { reportErrorEvent } from '@nagiyu/aws';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { z } from 'zod';
 import { getSession } from '@/lib/auth/session';
+import { USER_VALIDATION_ERROR_MESSAGES } from '../../schemas';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -14,9 +16,14 @@ const ERROR_MESSAGES = {
 } as const;
 
 // ロール割り当てリクエストのバリデーションスキーマ
-const AssignRolesSchema = z.object({
-  roles: z.array(z.string()).min(0, 'roles は配列である必要があります'),
-});
+const AssignRolesSchema = z.object(
+  {
+    roles: z.array(z.string({ error: USER_VALIDATION_ERROR_MESSAGES.ROLE_NOT_STRING }), {
+      error: USER_VALIDATION_ERROR_MESSAGES.ROLES_NOT_ARRAY,
+    }),
+  },
+  { error: USER_VALIDATION_ERROR_MESSAGES.BODY_NOT_OBJECT }
+);
 
 /**
  * POST /api/users/[userId]/roles - ロール割り当て
@@ -47,10 +54,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ use
 
   try {
     const { userId } = await params;
-    const body = await req.json();
+    const bodyResult = await readJsonObjectBody(req);
+    if (!bodyResult.ok) {
+      return NextResponse.json(
+        {
+          error: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
+          details: [{ field: '', message: USER_VALIDATION_ERROR_MESSAGES.BODY_NOT_OBJECT }],
+        },
+        { status: 400 }
+      );
+    }
 
     // リクエストボディのバリデーション
-    const validatedData = AssignRolesSchema.parse(body);
+    const validatedData = AssignRolesSchema.parse(bodyResult.body);
     const { roles } = validatedData;
 
     // ロールの妥当性チェック
