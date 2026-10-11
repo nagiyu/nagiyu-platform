@@ -1,9 +1,6 @@
 /**
  * Unit tests for PATCH /api/users/[userId] endpoint
  *
- * NOTE: jest.config.ts の testPathIgnorePatterns により自動テストランナーから除外されている。
- * 個別に実行する場合は --testPathIgnorePatterns=/node_modules/ を指定する。
- *
  * @jest-environment node
  */
 

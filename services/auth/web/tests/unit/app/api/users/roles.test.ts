@@ -1,12 +1,10 @@
 /**
  * Unit tests for POST /api/users/[userId]/roles endpoint
  *
- * NOTE: jest.config.ts の testPathIgnorePatterns により自動テストランナーから除外されている。
- * 個別に実行する場合は --testPathIgnorePatterns=/node_modules/ を指定する。
- *
  * @jest-environment node
  */
 
+import { NextRequest } from 'next/server';
 import { UserNotFoundError } from '@nagiyu/auth-core';
 import { POST } from '../../../../../src/app/api/users/[userId]/roles/route';
 import { USER_VALIDATION_ERROR_MESSAGES } from '../../../../../src/app/api/users/schemas';
@@ -54,7 +52,7 @@ describe('POST /api/users/[userId]/roles', () => {
     it('未認証の場合は 401 を返す', async () => {
       mockGetSession.mockResolvedValue(null);
 
-      const request = new Request('http://localhost/api/users/user-123/roles', {
+      const request = new NextRequest('http://localhost/api/users/user-123/roles', {
         method: 'POST',
         body: JSON.stringify({ roles: ['admin'] }),
       });
@@ -79,7 +77,7 @@ describe('POST /api/users/[userId]/roles', () => {
       });
       mockHasPermission.mockReturnValue(false);
 
-      const request = new Request('http://localhost/api/users/user-456/roles', {
+      const request = new NextRequest('http://localhost/api/users/user-456/roles', {
         method: 'POST',
         body: JSON.stringify({ roles: ['admin'] }),
       });
@@ -107,7 +105,7 @@ describe('POST /api/users/[userId]/roles', () => {
     });
 
     it('無効なロールの場合は 400 を返す', async () => {
-      const request = new Request('http://localhost/api/users/user-456/roles', {
+      const request = new NextRequest('http://localhost/api/users/user-456/roles', {
         method: 'POST',
         body: JSON.stringify({ roles: ['invalid-role', 'another-invalid'] }),
       });
@@ -131,7 +129,7 @@ describe('POST /api/users/[userId]/roles', () => {
         updatedAt: '2024-01-15T12:00:00Z',
       });
 
-      const request = new Request('http://localhost/api/users/user-456/roles', {
+      const request = new NextRequest('http://localhost/api/users/user-456/roles', {
         method: 'POST',
         body: JSON.stringify({ roles: ['admin', 'user-manager'] }),
       });
@@ -153,7 +151,7 @@ describe('POST /api/users/[userId]/roles', () => {
         updatedAt: '2024-01-15T12:00:00Z',
       });
 
-      const request = new Request('http://localhost/api/users/user-456/roles', {
+      const request = new NextRequest('http://localhost/api/users/user-456/roles', {
         method: 'POST',
         body: JSON.stringify({ roles: [] }),
       });
@@ -181,7 +179,7 @@ describe('POST /api/users/[userId]/roles', () => {
     it('ユーザーが見つからない場合は 404 を返す', async () => {
       mockAssignRoles.mockRejectedValue(new UserNotFoundError('user-999'));
 
-      const request = new Request('http://localhost/api/users/user-999/roles', {
+      const request = new NextRequest('http://localhost/api/users/user-999/roles', {
         method: 'POST',
         body: JSON.stringify({ roles: ['admin'] }),
       });
@@ -218,7 +216,7 @@ describe('POST /api/users/[userId]/roles', () => {
 
       mockAssignRoles.mockResolvedValue(mockUpdatedUser);
 
-      const request = new Request('http://localhost/api/users/user-456/roles', {
+      const request = new NextRequest('http://localhost/api/users/user-456/roles', {
         method: 'POST',
         body: JSON.stringify({ roles: ['admin'] }),
       });
@@ -245,7 +243,7 @@ describe('POST /api/users/[userId]/roles', () => {
     });
 
     it('roles が配列でない場合は 400 を返す', async () => {
-      const request = new Request('http://localhost/api/users/user-456/roles', {
+      const request = new NextRequest('http://localhost/api/users/user-456/roles', {
         method: 'POST',
         body: JSON.stringify({ roles: 'not-an-array' }),
       });
@@ -261,7 +259,7 @@ describe('POST /api/users/[userId]/roles', () => {
     });
 
     it('roles フィールドが欠けている場合は 400 を返す', async () => {
-      const request = new Request('http://localhost/api/users/user-456/roles', {
+      const request = new NextRequest('http://localhost/api/users/user-456/roles', {
         method: 'POST',
         body: JSON.stringify({}),
       });
@@ -284,7 +282,7 @@ describe('POST /api/users/[userId]/roles', () => {
 
     const postRaw = (rawBody: string) =>
       POST(
-        new Request('http://localhost/api/users/user-456/roles', {
+        new NextRequest('http://localhost/api/users/user-456/roles', {
           method: 'POST',
           body: rawBody,
         }) as unknown as Parameters<typeof POST>[0],
