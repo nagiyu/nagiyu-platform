@@ -56,6 +56,10 @@ export type { PaginationParams, PaginationErrorCode } from './pagination.js';
 // Error module - Error handling helpers
 export { handleApiError, createErrorResponse } from './error.js';
 
+// Request body module - Safe JSON body reader
+export { readJsonObjectBody } from './request-body.js';
+export type { JsonObjectBodyResult } from './request-body.js';
+
 // Health module - Health check route helper
 export { createHealthRoute } from './health.js';
 export type { HealthRouteOptions } from './health.js';
