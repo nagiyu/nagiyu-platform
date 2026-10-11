@@ -36,7 +36,7 @@ const TEST_PUSH_ERROR_MESSAGES = {
 } as const;
 
 export const POST = withAuth(getSession, 'livetalk:admin', async (session, request: Request) => {
-  const userId = session.user.googleId;
+  const userId = session.user.id;
 
   // リクエストボディを解析する
   let body: unknown;

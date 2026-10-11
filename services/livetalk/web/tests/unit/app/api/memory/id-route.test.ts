@@ -26,19 +26,16 @@ const mockForgetSelfFact = forgetSelfFact as jest.Mock;
 
 const session = {
   user: {
-    userId: 'u1',
-    googleId: 'g1',
+    id: 'u1',
     email: 'u@example.com',
     name: 'U',
     roles: ['livetalk-user'],
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
   },
   expires: new Date(Date.now() + 60_000).toISOString(),
 };
 
 const validId = encodeSelfFactId({
-  userId: 'g1',
+  userId: 'u1',
   characterId: 'hiyori',
   topicId: 't1',
   factId: 'f1',
@@ -67,7 +64,7 @@ describe('DELETE /api/memory/:id', () => {
     const json = await res.json();
     expect(json).toEqual({ deleted: true });
     expect(mockForgetSelfFact).toHaveBeenCalledWith(
-      { userId: 'g1', characterId: 'hiyori', topicId: 't1', factId: 'f1' },
+      { userId: 'u1', characterId: 'hiyori', topicId: 't1', factId: 'f1' },
       expect.objectContaining({ topicRepository: expect.anything(), llmClient: expect.anything() })
     );
   });

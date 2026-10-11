@@ -37,7 +37,6 @@ export type {
   CreateSessionGetterOptions,
   ResolveTestUserOptions,
   ResolvedTestUser,
-  TestSessionOverrides,
 } from './session.js';
 
 // Repository module - Repository initialization helpers

@@ -252,7 +252,7 @@ Next.js に依存するユーティリティ。
 
 ### NextAuth 型定義の集約
 
-プラットフォーム全体で共通の NextAuth 型定義（`Session`, `User`, `JWT`）は `libs/nextjs/src/types/next-auth.d.ts` に集約する。各サービスに `types/next-auth.d.ts` を個別配置しない。
+プラットフォーム全体で共通の NextAuth 型定義（`Session`, `User`, `JWT`）は `libs/nextjs/src/types/next-auth.d.ts` に集約する。`Session['user']` は `@nagiyu/common` の `SessionUser` を参照し、型を二重に定義しない。各サービスに `types/next-auth.d.ts` を個別配置しない。
 
 ### Health ルートの共通化
 
@@ -264,9 +264,9 @@ Consumer サービスのミドルウェアは `createAuthMiddleware()` を利用
 
 ### セッション取得の共通化
 
-Consumer サービスのセッション取得は `createSessionGetter()` を利用して統一する。オプションとして `auth`（サービスの auth 関数）、`createTestSession`（`SKIP_AUTH_CHECK` 有効時に返すモックセッション生成関数）、`mapSession`（NextAuth セッションをサービス固有のセッション型に変換する関数、**省略可**）を受け取る。`mapSession` を省略した場合は NextAuth セッションをそのままパススルーする。`createAuthCallbacks` 等でセッション形状が既に正規化されている場合は `mapSession` を省略してよい。
+Consumer サービスのセッション取得は `createSessionGetter({ auth, defaultRoles })` で統一する。戻り値は全サービスで `@nagiyu/common` の `Session | null` であり、サービス固有のセッション型への変換は行わない。`defaultRoles` は `SKIP_AUTH_CHECK` 有効時のテストセッションでロールが未指定の場合に使う既定ロールで、省略できる。
 
-`SKIP_AUTH_CHECK` 時のテストセッションは `resolveTestUser`（ロールはヘッダ `x-test-user-roles` → `TEST_USER_ROLES` → 既定ロールの順）と `createTestSessionExpires`（有効期限 30 日）で組み立て、`createTestSession` は受け取った `overrides` を `resolveTestUser` に渡す。クライアントの `/api/auth/session` は `createClientSessionGetHandler` で同じ規則に揃える。
+`SKIP_AUTH_CHECK` 時のテストセッションはライブラリが `resolveTestUser` (ロールはヘッダ `x-test-user-roles` → `TEST_USER_ROLES` → `defaultRoles` の順) と `createTestSessionExpires` (有効期限 30 日) で組み立てる。クライアントの `/api/auth/session` は `createClientSessionGetHandler` で同じ規則に揃える。
 
 ### Web Push ルートの共通化
 
@@ -349,7 +349,7 @@ Web Push の手続きを、React を使わないものとしてここに集約�
 
 ### User 型定義
 
-プラットフォーム全体で使用するユーザー情報の型は `@nagiyu/common` の `User` インターフェースを利用する。各サービスが独自の `User` 型を定義してはならない。
+プラットフォーム全体で使用する DB 上のユーザー情報の型は `@nagiyu/common` の `User` インターフェースを利用する。各サービスが独自の `User` 型を定義してはならない。セッション上のユーザーは別の型 `SessionUser` で、`User` とは区別する。
 
 - **主要フィールド**: `userId`・`googleId`・`email`・`name`・`roles`・`createdAt`・`updatedAt`
 - **`picture?: string`**: OAuth プロバイダーから取得したプロフィール画像 URL（省略可能）。UI で表示する際は XSS 対策を遵守すること（`dangerouslySetInnerHTML` 禁止）

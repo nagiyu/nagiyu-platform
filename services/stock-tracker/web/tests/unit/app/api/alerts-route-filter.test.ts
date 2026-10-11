@@ -14,7 +14,7 @@ jest.mock('../../../../lib/auth', () => ({
 
 jest.mock('@nagiyu/nextjs', () => ({
   withAuth: jest.fn((_auth, _permission, handler) => {
-    return async (...args: unknown[]) => handler({ user: { userId: 'test-user' } }, ...args);
+    return async (...args: unknown[]) => handler({ user: { id: 'test-user' } }, ...args);
   }),
   parsePagination: jest.fn(() => ({ limit: 50, cursor: undefined })),
   handleApiError: jest.fn((error) => {

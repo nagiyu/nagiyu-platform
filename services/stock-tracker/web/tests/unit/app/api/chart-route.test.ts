@@ -40,13 +40,10 @@ describe('/api/chart/[tickerId] GET', () => {
     jest.clearAllMocks();
     mockedGetSession.mockResolvedValue({
       user: {
-        userId: 'test-user',
-        googleId: 'g',
+        id: 'test-user',
         email: 'test@example.com',
         name: 'Test',
         roles: ['stock-user'],
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
       },
       expires: '2026-12-31T00:00:00.000Z',
     });

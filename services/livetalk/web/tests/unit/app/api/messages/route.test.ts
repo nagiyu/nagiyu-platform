@@ -15,13 +15,10 @@ const mockGetRepo = getMessageRepository as jest.MockedFunction<typeof getMessag
 
 const validSession = {
   user: {
-    userId: 'u1',
-    googleId: 'g1',
+    id: 'u1',
     email: 'u@example.com',
     name: 'U',
     roles: ['livetalk-user'],
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
   },
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
@@ -35,7 +32,7 @@ const makeRepo = (overrides: Partial<MessageRepository> = {}): MessageRepository
   const getRecentByTokenBudget: MessageRepository['getRecentByTokenBudget'] = jest.fn(async () => ({
     messages: [
       {
-        UserID: 'g1',
+        UserID: 'u1',
         CharacterID: 'hiyori',
         MessageID: 'm1',
         Role: 'user' as const,
@@ -44,7 +41,7 @@ const makeRepo = (overrides: Partial<MessageRepository> = {}): MessageRepository
         UpdatedAt: 1_700_000_000_000,
       },
       {
-        UserID: 'g1',
+        UserID: 'u1',
         CharacterID: 'hiyori',
         MessageID: 'm2',
         Role: 'assistant' as const,
@@ -110,7 +107,7 @@ describe('GET /api/messages', () => {
       expect(json.totalTokens).toBe(10);
       expect(json.truncated).toBe(false);
       expect(repo.getRecentByTokenBudget).toHaveBeenCalledWith({
-        userId: 'g1',
+        userId: 'u1',
         characterId: 'hiyori',
         tokenLimit: undefined,
       });

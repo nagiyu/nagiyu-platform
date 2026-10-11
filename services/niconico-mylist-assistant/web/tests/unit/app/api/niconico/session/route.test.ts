@@ -56,7 +56,7 @@ const mockDeleteNiconicoSession = deleteNiconicoSession as jest.MockedFunction<
 
 /** 認証済みセッションのモック */
 const MOCK_SESSION = {
-  user: { userId: 'user123', email: 'test@example.com', name: 'テストユーザー', roles: [] },
+  user: { id: 'user123', email: 'test@example.com', name: 'テストユーザー', roles: [] },
   expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
 };
 

@@ -22,7 +22,7 @@ jest.mock('../../../../lib/auth', () => ({
 jest.mock('@nagiyu/nextjs', () => ({
   withAuth: jest.fn((_auth, _permission, handler) => {
     return async (...args: unknown[]) =>
-      handler({ user: { userId: 'test-user', roles: ['stock-user'] } }, ...args);
+      handler({ user: { id: 'test-user', roles: ['stock-user'] } }, ...args);
   }),
 }));
 

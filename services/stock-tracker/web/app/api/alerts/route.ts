@@ -132,7 +132,7 @@ export const GET = withAuth(
       const tickerRepo = createTickerRepository();
 
       // ユーザーIDを取得
-      const userId = session.user.userId;
+      const userId = session.user.id;
 
       // アラート一覧取得（無効化済みアラートも UI に表示するため除外しない）
       const result = await alertRepo.getByUserId(userId, parsePagination(request));
@@ -205,7 +205,7 @@ export const POST = withAuth(
       }
 
       // ユーザーIDを取得
-      const userId = session.user.userId;
+      const userId = session.user.id;
 
       // Web Push サブスクリプション情報の確認
       const subscription = body.subscription;

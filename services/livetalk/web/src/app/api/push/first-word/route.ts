@@ -26,7 +26,7 @@ export const GET = withAuth(getSession, 'livetalk:chat', async (session, request
     return new NextResponse(null, { status: 204 });
   }
 
-  const userId = session.user.googleId;
+  const userId = session.user.id;
   const repo = getNotificationEventRepository();
   const events = await repo.listByUser(userId, 20);
 

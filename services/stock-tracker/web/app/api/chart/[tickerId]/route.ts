@@ -200,10 +200,10 @@ export async function GET(
     const symbol = parts.length >= 2 ? parts[1] : tickerId;
     let holdingAveragePrice: number | undefined;
 
-    if (session?.user.userId) {
+    if (session?.user.id) {
       try {
         const holdingRepository = createHoldingRepository();
-        const holding = await holdingRepository.getById(session.user.userId, tickerId);
+        const holding = await holdingRepository.getById(session.user.id, tickerId);
 
         if (holding && holding.Quantity > 0) {
           holdingAveragePrice = holding.AveragePrice;

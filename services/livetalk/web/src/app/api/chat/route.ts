@@ -118,7 +118,7 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (session, reques
     );
   }
 
-  const userId = session.user.googleId;
+  const userId = session.user.id;
   const chatGuardRepository = getChatGuardRepository();
   const nowMs = Date.now();
 

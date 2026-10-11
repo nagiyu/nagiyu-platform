@@ -15,19 +15,16 @@ const mockGetRepo = getNoteRepository as jest.MockedFunction<typeof getNoteRepos
 
 const session = {
   user: {
-    userId: 'u1',
-    googleId: 'g1',
+    id: 'u1',
     email: 'u@example.com',
     name: 'U',
     roles: ['livetalk-user'],
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
   },
   expires: new Date(Date.now() + 60_000).toISOString(),
 };
 
 const makeEntity = (over: Partial<NoteEntity> = {}): NoteEntity => ({
-  UserID: 'g1',
+  UserID: 'u1',
   CharacterID: 'hiyori',
   NoteID: 'note-1',
   TopicID: 'topic-1',
@@ -73,7 +70,7 @@ describe('GET /api/notes', () => {
     const json = await res.json();
     expect(json.notes).toHaveLength(2);
     expect(json.notes[0].headline).toBeUndefined();
-    expect(decodeNoteId(json.notes[0].id, 'g1')?.noteId).toBe('new');
+    expect(decodeNoteId(json.notes[0].id, 'u1')?.noteId).toBe('new');
   });
 
   it('listAll が呼ばれる（list ではない）', async () => {
@@ -112,7 +109,7 @@ describe('GET /api/notes', () => {
       new Request('http://localhost/api/notes?characterId=ageha', { method: 'GET' });
     const res = await GET(req2());
     expect(res.status).toBe(200);
-    expect(listAll).toHaveBeenCalledWith('g1', 'ageha');
+    expect(listAll).toHaveBeenCalledWith('u1', 'ageha');
   });
 
   it('不正な characterId は 400', async () => {

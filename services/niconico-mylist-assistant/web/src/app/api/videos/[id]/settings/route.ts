@@ -54,7 +54,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     // 動画とユーザー設定を取得
     const [basicInfo, setting] = await Promise.all([
       getVideoBasicInfo(id),
-      getUserVideoSetting(session.user.userId, id),
+      getUserVideoSetting(session.user.id, id),
     ]);
     if (!basicInfo) {
       return NextResponse.json({ error: ERROR_MESSAGES.VIDEO_NOT_FOUND }, { status: 404 });
@@ -62,13 +62,13 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     // 設定更新（設定未作成の場合は新規作成）
     const updatedSetting = setting
-      ? await updateUserVideoSetting(session.user.userId, id, {
+      ? await updateUserVideoSetting(session.user.id, id, {
           isFavorite: body.isFavorite,
           isSkip: body.isSkip,
           memo: body.memo,
         })
       : await createUserVideoSetting({
-          userId: session.user.userId,
+          userId: session.user.id,
           videoId: id,
           isFavorite: body.isFavorite ?? false,
           isSkip: body.isSkip ?? false,

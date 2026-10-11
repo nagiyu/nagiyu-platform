@@ -283,8 +283,8 @@ export const GET = withAuth(
         exchanges.map((exchange) => tickerRepository.getByExchange(exchange.ExchangeID))
       );
       const [holdingMap, alertCountMap] = await Promise.all([
-        fetchHoldingMap(session.user.userId),
-        fetchAlertCountMap(session.user.userId),
+        fetchHoldingMap(session.user.id),
+        fetchAlertCountMap(session.user.id),
       ]);
 
       const tickerMap = new Map(

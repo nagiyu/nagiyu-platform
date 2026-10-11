@@ -31,7 +31,7 @@ export interface PendingNotification {
 }
 
 export const GET = withAuth(getSession, 'livetalk:chat', async (session) => {
-  const userId = session.user.googleId;
+  const userId = session.user.id;
   const repo = getNotificationEventRepository();
   const characterIds = getAllCharacterIds();
 

@@ -161,7 +161,7 @@ export async function POST(
     }
 
     // 保存済みニコニコセッションの取得（Phase 2: リクエストボディの userSession は使用しない）
-    const encryptedUserSessionBlob = await getEncryptedUserSessionBlob(session.user.userId);
+    const encryptedUserSessionBlob = await getEncryptedUserSessionBlob(session.user.id);
     if (!encryptedUserSessionBlob) {
       return NextResponse.json(
         {
@@ -177,7 +177,7 @@ export async function POST(
     let selectedVideos: Awaited<ReturnType<typeof selectRandomVideos>>;
     try {
       selectedVideos = await selectRandomVideos({
-        userId: session.user.userId,
+        userId: session.user.id,
         maxCount: body.maxCount,
         favoriteOnly: body.favoriteOnly,
         skipExclude: body.excludeSkip,
@@ -210,7 +210,7 @@ export async function POST(
     const { BATCH_JOB_QUEUE, BATCH_JOB_DEFINITION, DYNAMODB_TABLE_NAME, AWS_REGION } = getEnvVars();
     const batchClient = getBatchClient(AWS_REGION);
 
-    const jobName = `niconico-mylist-${session.user.userId}-${Date.now()}`;
+    const jobName = `niconico-mylist-${session.user.id}-${Date.now()}`;
     const videoIds = selectedVideos.map((video) => video.videoId);
 
     // 保存済みブロブをそのまま ENCRYPTED_USER_SESSION として渡す（再暗号化不要）
@@ -221,7 +221,7 @@ export async function POST(
         jobDefinition: BATCH_JOB_DEFINITION,
         containerOverrides: {
           environment: [
-            { name: 'USER_ID', value: session.user.userId },
+            { name: 'USER_ID', value: session.user.id },
             { name: 'VIDEO_IDS', value: JSON.stringify(videoIds) },
             { name: 'MYLIST_NAME', value: body.mylistName },
             { name: 'ENCRYPTED_USER_SESSION', value: encryptedUserSessionBlob },
@@ -241,7 +241,7 @@ export async function POST(
         title: 'Batch ジョブ ID 未取得',
         message: 'SubmitJob のレスポンスにジョブ ID が含まれていませんでした',
         context: {
-          userId: session.user.userId,
+          userId: session.user.id,
           jobName,
         },
       });
@@ -260,7 +260,7 @@ export async function POST(
     try {
       await createBatchJob({
         jobId: submitResult.jobId,
-        userId: session.user.userId,
+        userId: session.user.id,
         status: 'SUBMITTED',
         pushSubscription: body.pushSubscription,
       });
@@ -273,7 +273,7 @@ export async function POST(
         title: 'DynamoDB バッチジョブレコード作成失敗',
         message: toErrorMessage(error),
         context: {
-          userId: session.user.userId,
+          userId: session.user.id,
           jobId: submitResult.jobId,
           error: toErrorMessage(error),
         },

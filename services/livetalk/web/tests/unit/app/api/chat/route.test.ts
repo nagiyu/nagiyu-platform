@@ -50,13 +50,10 @@ const makeDefaultGuardMock = () => ({
 
 const validSession = {
   user: {
-    userId: 'u1',
-    googleId: 'g1',
+    id: 'u1',
     email: 'u@example.com',
     name: 'U',
     roles: ['livetalk-user'],
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
   },
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
@@ -200,7 +197,7 @@ describe('POST /api/chat', () => {
       await POST(buildRequest({ text: '  テスト  ' }));
 
       expect(mockRunChatUseCase).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: 'g1', userText: 'テスト' })
+        expect.objectContaining({ userId: 'u1', userText: 'テスト' })
       );
     });
 
@@ -461,7 +458,7 @@ describe('POST /api/chat', () => {
 
       // acquireLock に渡されたトークンが releaseLock にも渡されることを確認する
       expect(capturedOwnerToken).toBeDefined();
-      expect(guardMock.releaseLock).toHaveBeenCalledWith('g1', capturedOwnerToken);
+      expect(guardMock.releaseLock).toHaveBeenCalledWith('u1', capturedOwnerToken);
     });
   });
 });

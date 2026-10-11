@@ -30,13 +30,10 @@ const mockGetNotificationEventRepo = getNotificationEventRepository as jest.Mock
 /** テスト用有効セッション */
 const validSession = {
   user: {
-    userId: 'u1',
-    googleId: 'g1',
+    id: 'u1',
     email: 'u@example.com',
     name: 'U',
     roles: ['livetalk-user'],
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
   },
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
@@ -44,7 +41,7 @@ const validSession = {
 /** 通知イベントエンティティのファクトリ */
 function makeEvent(overrides: Partial<NotificationEventEntity> = {}): NotificationEventEntity {
   return {
-    UserID: 'g1',
+    UserID: 'u1',
     NotifID: 'n1',
     CharacterID: 'hiyori',
     Kind: 'normal',
@@ -138,7 +135,7 @@ describe('GET /api/push/pending', () => {
 
     // getAllCharacterIds() の戻り値（hiyori, ageha）が渡されること
     expect(repo.listLatestUnconsumedByCharacter).toHaveBeenCalledWith(
-      'g1',
+      'u1',
       expect.arrayContaining(['hiyori', 'ageha'])
     );
   });

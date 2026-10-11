@@ -28,7 +28,7 @@ import { hasCharacter } from '@/lib/characters/registry';
  * UI を止めない。
  */
 export const GET = withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
-  const userId = session.user.googleId;
+  const userId = session.user.id;
   const url = new URL(request.url);
   const queriedId = url.searchParams.get('characterId');
   const characterId = queriedId && hasCharacter(queriedId) ? queriedId : DEFAULT_CHARACTER_ID;

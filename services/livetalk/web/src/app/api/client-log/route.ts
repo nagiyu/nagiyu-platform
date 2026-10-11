@@ -74,7 +74,7 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (session, reques
     title: body.title,
     message: body.message,
     context: {
-      userId: session.user.googleId,
+      userId: session.user.id,
       ...(body.context ?? {}),
     },
     occurredAt: body.occurredAt,
