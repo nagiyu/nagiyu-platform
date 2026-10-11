@@ -119,7 +119,7 @@ export const PUT = withAuth(
       const { userId: targetUserId, tickerId } = parsedId;
 
       // 他ユーザーのデータへのアクセスを拒否
-      const currentUserId = session.user.userId;
+      const currentUserId = session.user.id;
       if (targetUserId !== currentUserId) {
         return NextResponse.json(
           {
@@ -237,7 +237,7 @@ export const DELETE = withAuth(
       const { userId: targetUserId, tickerId } = parsedId;
 
       // 他ユーザーのデータへのアクセスを拒否
-      const currentUserId = session.user.userId;
+      const currentUserId = session.user.id;
       if (targetUserId !== currentUserId) {
         return NextResponse.json(
           {

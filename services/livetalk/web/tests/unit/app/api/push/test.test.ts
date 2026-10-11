@@ -101,13 +101,10 @@ const mockGetCharacterDefinition = getCharacterDefinition as jest.MockedFunction
 /** 非 admin セッション（livetalk:admin 権限なし） */
 const livetalkUserSession = {
   user: {
-    userId: 'u1',
-    googleId: 'g1',
+    id: 'u1',
     email: 'user@example.com',
     name: 'User',
     roles: ['livetalk-user'],
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
   },
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
@@ -115,13 +112,10 @@ const livetalkUserSession = {
 /** admin セッション */
 const adminSession = {
   user: {
-    userId: 'u1',
-    googleId: 'g1',
+    id: 'u1',
     email: 'admin@example.com',
     name: 'Admin',
     roles: ['livetalk-admin'],
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
   },
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
@@ -129,7 +123,7 @@ const adminSession = {
 /** サブスクリプションエンティティのファクトリ */
 function makeSubscription(overrides: Partial<PushSubscriptionEntity> = {}): PushSubscriptionEntity {
   return {
-    UserID: 'g1',
+    UserID: 'u1',
     SubscriptionID: 'sub-1',
     Endpoint: 'https://push.example.com/sub-1',
     P256dhKey: 'p256dh-key',
@@ -336,7 +330,7 @@ describe('POST /api/push/test', () => {
       expect(notifRepo.put).toHaveBeenCalledTimes(1);
       const putArg = (notifRepo.put as jest.Mock).mock.calls[0][0];
       expect(putArg.CharacterID).toBe('hiyori');
-      expect(putArg.UserID).toBe('g1');
+      expect(putArg.UserID).toBe('u1');
       expect(putArg.Kind).toBe('normal');
     });
 
@@ -382,7 +376,7 @@ describe('POST /api/push/test', () => {
 
       // 無効サブスクが delete される
       expect(pushRepo.delete).toHaveBeenCalledWith({
-        userId: 'g1',
+        userId: 'u1',
         subscriptionId: 'sub-invalid',
       });
     });

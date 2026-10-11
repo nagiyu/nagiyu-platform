@@ -25,7 +25,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // 動画基本情報とユーザー設定を並行取得
     const [basicInfo, setting] = await Promise.all([
       getVideoBasicInfo(id),
-      getUserVideoSetting(session.user.userId, id),
+      getUserVideoSetting(session.user.id, id),
     ]);
 
     if (!basicInfo) {
@@ -73,7 +73,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // 確実に掃除するため、両方を取得してから片方ずつ削除する
     const [basicInfo, setting] = await Promise.all([
       getVideoBasicInfo(id),
-      getUserVideoSetting(session.user.userId, id),
+      getUserVideoSetting(session.user.id, id),
     ]);
 
     if (!basicInfo && !setting) {
@@ -82,7 +82,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     await Promise.all([
       basicInfo ? deleteVideoBasicInfo(id) : Promise.resolve(),
-      setting ? deleteUserVideoSetting(session.user.userId, id) : Promise.resolve(),
+      setting ? deleteUserVideoSetting(session.user.id, id) : Promise.resolve(),
     ]);
 
     return NextResponse.json({ success: true });

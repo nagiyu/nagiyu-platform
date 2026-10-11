@@ -78,7 +78,7 @@ export async function GET(): Promise<NextResponse<SessionStatusResponse | ErrorR
 
   try {
     const cryptoConfig = getCryptoConfig();
-    const status = await getNiconicoSessionStatus(session.user.userId, cryptoConfig);
+    const status = await getNiconicoSessionStatus(session.user.id, cryptoConfig);
     return NextResponse.json(status);
   } catch (error) {
     // 復号エラーはクッキー値を含まないメッセージのみログ出力
@@ -136,7 +136,7 @@ export async function POST(
 
     const cryptoConfig = getCryptoConfig();
     const { acquiredAt, estimatedExpiresAt } = await saveNiconicoSession(
-      session.user.userId,
+      session.user.id,
       body.userSession,
       cryptoConfig
     );
@@ -186,7 +186,7 @@ export async function DELETE(): Promise<NextResponse<SessionDeleteResponse | Err
   }
 
   try {
-    await deleteNiconicoSession(session.user.userId);
+    await deleteNiconicoSession(session.user.id);
     return NextResponse.json({ message: SUCCESS_MESSAGES.SESSION_DELETED });
   } catch (error) {
     console.error('ニコニコセッション削除エラー:', toErrorMessage(error));

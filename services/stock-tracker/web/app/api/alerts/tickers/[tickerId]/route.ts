@@ -96,7 +96,7 @@ export const GET = withAuth(
 
       const alertRepo = createAlertRepository();
       const tickerRepo = createTickerRepository();
-      const userId = session.user.userId;
+      const userId = session.user.id;
 
       const result = await alertRepo.getByUserId(userId, { limit: MAX_ALERTS_PER_USER });
       const targetAlerts = result.items.filter((alert) => alert.TickerID === tickerId);

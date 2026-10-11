@@ -24,19 +24,16 @@ const mockGetTopicRepo = getTopicRepository as jest.MockedFunction<typeof getTop
 
 const session = {
   user: {
-    userId: 'u1',
-    googleId: 'g1',
+    id: 'u1',
     email: 'u@example.com',
     name: 'U',
     roles: ['livetalk-user'],
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
   },
   expires: new Date(Date.now() + 60_000).toISOString(),
 };
 
 const entity: NoteEntity = {
-  UserID: 'g1',
+  UserID: 'u1',
   CharacterID: 'hiyori',
   NoteID: 'note-1',
   TopicID: 'topic-1',
@@ -51,7 +48,7 @@ const makeBundle = (): TopicBundle => ({
   selfFacts: [],
   webFacts: [
     {
-      UserID: 'g1',
+      UserID: 'u1',
       CharacterID: 'hiyori',
       TopicID: 'topic-1',
       FactID: 'fact-1',
@@ -92,7 +89,7 @@ const makeTopicRepo = (over: Partial<TopicRepository> = {}): TopicRepository =>
     ...over,
   }) as unknown as TopicRepository;
 
-const validId = encodeNoteId({ userId: 'g1', characterId: 'hiyori', noteId: 'note-1' });
+const validId = encodeNoteId({ userId: 'u1', characterId: 'hiyori', noteId: 'note-1' });
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
 const req = () => new Request('http://localhost/api/notes/x', { method: 'GET' });
 
@@ -135,7 +132,7 @@ describe('GET /api/notes/:id', () => {
     expect(json.note.webFacts).toEqual(['コーヒーには覚醒作用がある']);
     expect(json.note.sources).toEqual(['https://example.com']);
     // userId は SK ではなくセッションから（PK はクライアント入力を信用しない）
-    expect(get).toHaveBeenCalledWith({ userId: 'g1', characterId: 'hiyori', noteId: 'note-1' });
+    expect(get).toHaveBeenCalledWith({ userId: 'u1', characterId: 'hiyori', noteId: 'note-1' });
   });
 
   it('Topic 取得に失敗しても headline のみで 200 を返す（fail-soft）', async () => {

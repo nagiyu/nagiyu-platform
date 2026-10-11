@@ -59,8 +59,8 @@ export const GET = withAuth(
       const [ticker, summaries, holding, alertsResult] = await Promise.all([
         createTickerRepository().getById(tickerId),
         createDailySummaryRepository().getByExchange(exchangeId),
-        createHoldingRepository().getById(session.user.userId, tickerId),
-        createAlertRepository().getByUserId(session.user.userId, { limit: MAX_ALERTS_PER_USER }),
+        createHoldingRepository().getById(session.user.id, tickerId),
+        createAlertRepository().getByUserId(session.user.id, { limit: MAX_ALERTS_PER_USER }),
       ]);
 
       const latestSummary = summaries.find((summary) => summary.TickerID === tickerId);

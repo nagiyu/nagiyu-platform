@@ -13,7 +13,7 @@ export const POST = createPushSubscribeRoute({
   requiredPermission: 'livetalk:chat',
   onSubscribe: async ({ session, subscription, subscriptionId }) => {
     await getPushSubscriptionRepository().put({
-      UserID: session.user.googleId,
+      UserID: session.user.id,
       SubscriptionID: subscriptionId,
       Endpoint: subscription.endpoint,
       P256dhKey: subscription.keys.p256dh,

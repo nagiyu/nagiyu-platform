@@ -101,7 +101,7 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
 
   const { characterId: queriedId } = await searchParams;
   const characterId = queriedId && hasCharacter(queriedId) ? queriedId : DEFAULT_CHARACTER_ID;
-  const userId = session.user.googleId;
+  const userId = session.user.id;
   const now = new Date();
 
   const [lifecycle, notificationEvents, allMessages, studyPending, recentSafetyEvents] =

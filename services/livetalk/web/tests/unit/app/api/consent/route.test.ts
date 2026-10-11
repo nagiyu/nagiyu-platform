@@ -20,19 +20,16 @@ const mockGetProfileRepo = getProfileRepository as jest.MockedFunction<typeof ge
 
 const validSession = {
   user: {
-    userId: 'u1',
-    googleId: 'g1',
+    id: 'u1',
     email: 'u@example.com',
     name: 'U',
     roles: ['livetalk-user'],
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
   },
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
 
 const consentedProfile = {
-  UserID: 'g1',
+  UserID: 'u1',
   LastActiveAt: 0,
   CreatedAt: 0,
   UpdatedAt: 0,
@@ -178,7 +175,7 @@ describe('POST /api/consent', () => {
     const json = await res.json();
     expect(json.consented).toBe(true);
     expect(repo.upsert).toHaveBeenCalledWith(
-      { UserID: 'g1' },
+      { UserID: 'u1' },
       expect.objectContaining({
         Consents: expect.objectContaining({
           TermsAgreed: expect.objectContaining({ Version: '1.0.0' }),

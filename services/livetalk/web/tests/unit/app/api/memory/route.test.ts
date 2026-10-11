@@ -15,19 +15,16 @@ const mockGetTopicRepository = getTopicRepository as jest.MockedFunction<typeof 
 
 const session = {
   user: {
-    userId: 'u1',
-    googleId: 'g1',
+    id: 'u1',
     email: 'u@example.com',
     name: 'U',
     roles: ['livetalk-user'],
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
   },
   expires: new Date(Date.now() + 60_000).toISOString(),
 };
 
 const makeTopic = (over: Partial<TopicEntity> = {}): TopicEntity => ({
-  UserID: 'g1',
+  UserID: 'u1',
   CharacterID: 'hiyori',
   TopicID: 't1',
   Subject: '好きな食べ物',
@@ -41,7 +38,7 @@ const makeTopic = (over: Partial<TopicEntity> = {}): TopicEntity => ({
 });
 
 const makeFact = (over: Partial<SelfFactEntity> = {}): SelfFactEntity => ({
-  UserID: 'g1',
+  UserID: 'u1',
   CharacterID: 'hiyori',
   TopicID: 't1',
   FactID: 'f1',
@@ -98,7 +95,7 @@ describe('GET /api/memory', () => {
     expect(json.selfFacts[0].topicId).toBe('t2');
     expect(listSelfFacts).toHaveBeenCalledTimes(2);
     // id は decode 可能
-    expect(decodeSelfFactId(json.selfFacts[0].id, 'g1')?.factId).toBe('b');
+    expect(decodeSelfFactId(json.selfFacts[0].id, 'u1')?.factId).toBe('b');
   });
 
   it('Topic が 0 件なら空配列', async () => {
@@ -117,7 +114,7 @@ describe('GET /api/memory', () => {
 
     const res = await GET(req('http://localhost/api/memory?characterId=ageha'));
     expect(res.status).toBe(200);
-    expect(listTopicHeaders).toHaveBeenCalledWith('g1', 'ageha');
+    expect(listTopicHeaders).toHaveBeenCalledWith('u1', 'ageha');
   });
 
   it('不正な characterId は 400', async () => {

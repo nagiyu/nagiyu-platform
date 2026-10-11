@@ -84,9 +84,9 @@ describe('getSession', () => {
     expect(await getSession()).toBeNull();
   });
 
-  it('NextAuth session を Session 型にマップする', async () => {
+  it('auth() のセッションをそのまま返す', async () => {
     delete process.env.SKIP_AUTH_CHECK;
-    mockAuth.mockResolvedValueOnce({
+    const authSession = {
       user: {
         id: 'user-1',
         email: 'a@example.com',
@@ -94,27 +94,18 @@ describe('getSession', () => {
         roles: ['livetalk-user'],
       },
       expires: '2026-12-31T00:00:00.000Z',
-    });
-    const session = await getSession();
-    expect(session?.user.userId).toBe('user-1');
-    expect(session?.user.googleId).toBe('user-1');
-    expect(session?.user.email).toBe('a@example.com');
-    expect(session?.user.name).toBe('Alice');
-    expect(session?.user.roles).toEqual(['livetalk-user']);
-    expect(session?.expires).toBe('2026-12-31T00:00:00.000Z');
+    };
+    mockAuth.mockResolvedValueOnce(authSession);
+
+    expect(await getSession()).toEqual(authSession);
   });
 
-  it('NextAuth session のフィールド欠落でも安全に既定値を返す', async () => {
-    delete process.env.SKIP_AUTH_CHECK;
-    mockAuth.mockResolvedValueOnce({
-      user: {},
-    });
+  it('テストセッションのユーザー ID は TEST_USER_ID 既定値になる', async () => {
+    process.env.SKIP_AUTH_CHECK = 'true';
+    delete process.env.TEST_USER_ID;
+
     const session = await getSession();
-    expect(session?.user.userId).toBe('');
-    expect(session?.user.googleId).toBe('');
-    expect(session?.user.email).toBe('');
-    expect(session?.user.name).toBe('');
-    expect(session?.user.roles).toEqual([]);
-    expect(typeof session?.expires).toBe('string');
+
+    expect(session?.user.id).toBe('test-user-id');
   });
 });

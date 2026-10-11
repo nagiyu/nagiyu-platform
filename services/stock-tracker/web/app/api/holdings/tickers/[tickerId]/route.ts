@@ -54,7 +54,7 @@ export const GET = withAuth(
       }
 
       const holdingRepo = createHoldingRepository();
-      const holding = await holdingRepo.getById(session.user.userId, tickerId);
+      const holding = await holdingRepo.getById(session.user.id, tickerId);
 
       if (!holding) {
         return NextResponse.json(

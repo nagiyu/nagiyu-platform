@@ -41,26 +41,20 @@ const mockGetMessageRepo = getMessageRepository as jest.MockedFunction<typeof ge
 
 const livetalkUserSession = {
   user: {
-    userId: 'u1',
-    googleId: 'g1',
+    id: 'u1',
     email: 'user@example.com',
     name: 'User',
     roles: ['livetalk-user'],
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
   },
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
 
 const adminSession = {
   user: {
-    userId: 'u1',
-    googleId: 'g1',
+    id: 'u1',
     email: 'admin@example.com',
     name: 'Admin',
     roles: ['livetalk-admin'],
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
   },
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
@@ -68,7 +62,7 @@ const adminSession = {
 const makeLifecycleRepo = () =>
   ({
     get: jest.fn(async () => ({
-      UserID: 'g1',
+      UserID: 'u1',
       CharacterID: 'hiyori',
       Bedtime: '01:30',
       WakeUpTime: '09:30',
@@ -168,7 +162,7 @@ describe('GET /api/status', () => {
     mockGetSession.mockResolvedValueOnce(adminSession);
     mockGetLifecycleRepo.mockReturnValue({
       get: jest.fn(async () => ({
-        UserID: 'g1',
+        UserID: 'u1',
         CharacterID: 'hiyori',
         Bedtime: '01:30',
         WakeUpTime: '09:30',
@@ -195,7 +189,7 @@ describe('GET /api/status', () => {
 
     const longBody = 'a'.repeat(200);
     const events = Array.from({ length: 7 }, (_, i) => ({
-      UserID: 'g1',
+      UserID: 'u1',
       NotifID: `notif-${i}`,
       Kind: 'normal' as const,
       Title: 'タイトル',
@@ -256,7 +250,7 @@ describe('GET /api/status', () => {
   it('characterId クエリで指定したキャラの characterId でリポジトリを呼び出す', async () => {
     mockGetSession.mockResolvedValueOnce(adminSession);
     const mockGet = jest.fn(async () => ({
-      UserID: 'g1',
+      UserID: 'u1',
       CharacterID: 'ageha',
       Bedtime: '01:30',
       WakeUpTime: '09:30',
@@ -277,7 +271,7 @@ describe('GET /api/status', () => {
   it('不正な characterId は DEFAULT_CHARACTER_ID にフォールバックする', async () => {
     mockGetSession.mockResolvedValueOnce(adminSession);
     const mockGet = jest.fn(async () => ({
-      UserID: 'g1',
+      UserID: 'u1',
       CharacterID: 'hiyori',
       Bedtime: '01:30',
       WakeUpTime: '09:30',

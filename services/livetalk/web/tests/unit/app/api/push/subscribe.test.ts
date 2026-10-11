@@ -39,7 +39,7 @@ describe('POST /api/push/subscribe', () => {
     process.env.VAPID_PUBLIC_KEY = 'public';
     process.env.VAPID_PRIVATE_KEY = 'private';
     mockGetSession.mockResolvedValue({
-      user: { userId: 'u1', googleId: 'google-1', roles: ['livetalk-user'] },
+      user: { id: 'u1', roles: ['livetalk-user'] },
     } as never);
     mockGetRepo.mockReturnValue({ put } as never);
   });
@@ -65,14 +65,14 @@ describe('POST /api/push/subscribe', () => {
     expect(put).not.toHaveBeenCalled();
   });
 
-  it('有効な購読を googleId をキーに保存して 201 を返す', async () => {
+  it('有効な購読を セッションのユーザー ID をキーに保存して 201 を返す', async () => {
     const response = await POST(createRequest({ subscription: validSubscription }));
     const body = await response.json();
 
     expect(response.status).toBe(201);
     expect(body.subscriptionId).toMatch(/^sub_[a-f0-9]{32}$/);
     expect(put).toHaveBeenCalledWith({
-      UserID: 'google-1',
+      UserID: 'u1',
       SubscriptionID: body.subscriptionId,
       Endpoint: validSubscription.endpoint,
       P256dhKey: 'p256dh-key',

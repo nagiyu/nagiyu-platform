@@ -23,7 +23,7 @@ export const GET = withAuth(
   'livetalk:chat',
   async (session, _request: Request, context: RouteContext) => {
     const { id } = await context.params;
-    const key = decodeNoteId(id, session.user.googleId);
+    const key = decodeNoteId(id, session.user.id);
     if (!key) {
       return NextResponse.json(
         { error: 'INVALID_ID', message: NOTE_ERROR_MESSAGES.INVALID_ID },

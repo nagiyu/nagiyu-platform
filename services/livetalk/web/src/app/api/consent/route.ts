@@ -32,7 +32,7 @@ function isConsentRequest(body: unknown): body is ConsentRequest {
  * `consented: true` の場合はチャット機能を利用可能。
  */
 export const GET = withAuth(getSession, 'livetalk:chat', async (session) => {
-  const userId = session.user.googleId;
+  const userId = session.user.id;
 
   try {
     const profile = await getProfileRepository().getById({ userId });
@@ -90,7 +90,7 @@ export const POST = withAuth(getSession, 'livetalk:chat', async (session, reques
   }
 
   const now = Date.now();
-  const userId = session.user.googleId;
+  const userId = session.user.id;
 
   try {
     await getProfileRepository().upsert(
