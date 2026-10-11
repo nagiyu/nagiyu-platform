@@ -20,7 +20,12 @@ const config: Config = {
   testMatch: ['**/tests/unit/**/*.test.ts'],
   modulePathIgnorePatterns: ['<rootDir>/../../../package.json', '<rootDir>/.next/'],
   coverageDirectory: 'coverage',
-  collectCoverageFrom: ['src/app/api/jobs/route.ts'],
+  collectCoverageFrom: [
+    'src/**/*.{ts,tsx}',
+    '!src/**/*.d.ts',
+    '!src/app/**/layout.tsx',
+    '!src/app/**/page.tsx',
+  ],
   coverageThreshold: {
     global: {
       branches: 80,

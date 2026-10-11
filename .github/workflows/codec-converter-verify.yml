@@ -125,6 +125,9 @@ jobs:
       - name: Run batch tests
         run: npm run test --workspace=@nagiyu/codec-converter-batch
 
+      - name: Run web tests
+        run: npm run test --workspace=@nagiyu/codec-converter-web
+
   integration-test-chromium-mobile:
     name: Run Integration Tests (chromium-mobile)
     runs-on: ubuntu-latest
