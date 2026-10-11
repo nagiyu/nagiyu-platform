@@ -8,7 +8,9 @@ const mockUpsertUser = jest.fn();
 
 type AnyAsyncFn = (...args: unknown[]) => Promise<unknown>;
 
-const capturedCallbacks: { jwt?: AnyAsyncFn } = {};
+type JwtCallback = (...args: unknown[]) => Promise<Record<string, unknown>>;
+
+const capturedCallbacks: { jwt?: JwtCallback } = {};
 
 jest.mock('@nagiyu/aws', () => ({
   reportErrorEvent: jest.fn().mockResolvedValue(null),

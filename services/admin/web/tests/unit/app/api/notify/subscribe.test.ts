@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { POST } from '@/app/api/notify/subscribe/route';
+import { DELETE, POST } from '@/app/api/notify/subscribe/route';
 import { GET as getVapidKey } from '@/app/api/notify/vapid-key/route';
 import { createPushSubscriptionRepository } from '@nagiyu/admin-core';
 import { getSession } from '@/lib/auth/session';
@@ -32,12 +32,22 @@ const validSubscription = {
   keys: { p256dh: 'p256dh-key', auth: 'auth-key' },
 };
 
-const createRequest = (body: unknown) =>
+const createRawRequest = (method: 'POST' | 'DELETE', rawBody: string) =>
   new Request('http://localhost/api/notify/subscribe', {
-    method: 'POST',
+    method,
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
+    body: rawBody,
   });
+
+const createRequest = (body: unknown) => createRawRequest('POST', JSON.stringify(body));
+
+const INVALID_BODY_CASES: [string, string][] = [
+  ['壊れた JSON', '{"endpoint": '],
+  ['空のボディ', ''],
+  ['null', 'null'],
+  ['配列', '[{"endpoint":"https://example.com/e"}]'],
+  ['文字列', '"endpoint"'],
+];
 
 describe('POST /api/notify/subscribe', () => {
   const save = jest.fn();
@@ -64,6 +74,17 @@ describe('POST /api/notify/subscribe', () => {
     expect(save).toHaveBeenCalledWith({ userId: 'user-1', subscription: validSubscription });
   });
 
+  it.each(INVALID_BODY_CASES)(
+    'ボディが %s の場合は 400 を返し保存しない',
+    async (_label, rawBody) => {
+      const response = await POST(createRawRequest('POST', rawBody));
+
+      expect(response.status).toBe(400);
+      expect(save).not.toHaveBeenCalled();
+      expect(mockCreateRepository).not.toHaveBeenCalled();
+    }
+  );
+
   it.each([
     ['鍵が空', { endpoint: 'https://example.com/e', keys: { p256dh: '', auth: '' } }],
     ['endpoint が URL 形式でない', { endpoint: 'not-a-url', keys: { p256dh: 'a', auth: 'b' } }],
@@ -73,6 +94,48 @@ describe('POST /api/notify/subscribe', () => {
 
     expect(response.status).toBe(400);
     expect(save).not.toHaveBeenCalled();
+  });
+});
+
+describe('DELETE /api/notify/subscribe', () => {
+  const deleteByEndpoint = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.USE_IN_MEMORY_DB = 'true';
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-1', roles: ['admin'] },
+    } as never);
+    mockCreateRepository.mockReturnValue({ deleteByEndpoint } as never);
+    deleteByEndpoint.mockResolvedValue(1);
+  });
+
+  afterEach(() => {
+    delete process.env.USE_IN_MEMORY_DB;
+  });
+
+  it('endpoint を指定すると 200 と deletedCount を返す', async () => {
+    const response = await DELETE(
+      createRawRequest('DELETE', JSON.stringify({ endpoint: 'https://example.com/e' }))
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ success: true, deletedCount: 1 });
+    expect(deleteByEndpoint).toHaveBeenCalledWith('https://example.com/e');
+  });
+
+  it.each([
+    ...INVALID_BODY_CASES,
+    ['endpoint が数値', '{"endpoint":1}'],
+    ['endpoint が null', '{"endpoint":null}'],
+    ['endpoint が空文字', '{"endpoint":""}'],
+    ['endpoint が無い', '{}'],
+  ])('ボディが %s の場合は 400 を返し削除しない', async (_label, rawBody) => {
+    const response = await DELETE(createRawRequest('DELETE', rawBody));
+
+    expect(response.status).toBe(400);
+    expect(deleteByEndpoint).not.toHaveBeenCalled();
+    expect(mockCreateRepository).not.toHaveBeenCalled();
   });
 });
 
