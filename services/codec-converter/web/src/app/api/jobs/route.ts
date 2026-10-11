@@ -9,6 +9,7 @@ import {
 } from '@nagiyu/codec-converter-core';
 import { toErrorMessage, type ErrorResponse } from '@nagiyu/common';
 import { getAwsClients, reportErrorEvent, createPresignedUploadUrl } from '@nagiyu/aws';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
 // Presigned URLの有効期限（1時間 = 3600秒）
@@ -28,13 +29,12 @@ function getEnvVars() {
 }
 
 /**
- * リクエストボディの型定義
+ * 値が有効なコーデックかどうかを判定する
+ *
+ * リクエストボディの値は unknown のため、型の確認と値の確認を 1 つにまとめる。
  */
-interface CreateJobRequest {
-  fileName: string;
-  fileSize: number;
-  contentType: string;
-  outputCodec: CodecType;
+function isValidCodec(value: unknown): value is CodecType {
+  return typeof value === 'string' && (VALID_CODECS as string[]).includes(value);
 }
 
 /**
@@ -59,8 +59,17 @@ export async function POST(
     const { DYNAMODB_TABLE, S3_BUCKET } = getEnvVars();
 
     // リクエストボディの取得とパース
-    const body: CreateJobRequest = await request.json();
-    const { fileName, fileSize, contentType, outputCodec } = body;
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
+        },
+        { status: 400 }
+      );
+    }
+    const { fileName, fileSize, contentType, outputCodec } = bodyResult.body;
 
     // 必須フィールドのチェック
     if (!fileName || typeof fileSize !== 'number' || !contentType || !outputCodec) {
@@ -68,6 +77,17 @@ export async function POST(
         {
           error: 'INVALID_REQUEST',
           message: ERROR_MESSAGES.MISSING_REQUIRED_FIELDS,
+        },
+        { status: 400 }
+      );
+    }
+
+    // 文字列でない値は validateFile が扱えず 500 になるため、ここで弾く
+    if (typeof fileName !== 'string' || typeof contentType !== 'string') {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
         },
         { status: 400 }
       );
@@ -87,7 +107,7 @@ export async function POST(
     }
 
     // outputCodecのバリデーション
-    if (!VALID_CODECS.includes(outputCodec)) {
+    if (!isValidCodec(outputCodec)) {
       return NextResponse.json(
         {
           error: 'INVALID_CODEC',
