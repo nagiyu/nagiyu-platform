@@ -612,7 +612,7 @@ Push 通知の `data.url` には永続化された `ErrorEvent` の詳細ペー�
 
 - **検知は各サービスの責務**として当該サービスの infra に置く（quick-clip では `infra/quick-clip/lib/monitoring-stack.ts` の EventBridge ルールが自サービスの job queue に絞って検知し、本流 SNS `nagiyu-admin-alarms-{env}` へ転送する）。
 - **変換は共通の集約窓口（alarm-ingest）に汎用的に追加**する。`alarm-ingest` は CloudWatch Alarm 形式に加えて Batch Job State Change イベントも `ErrorEvent`（`source: 'batch-event'`）へ変換する。`serviceId` はイベントの `jobName`（`{service}-{component}-...` 命名規約）から導出し、**特定サービス固有の分岐は持たない**。
-- 既存の `alarm-ingest → error-events → DynamoDB Streams → stream-handler → Web Push` パイプライン（ADR-003 / ADR-005）をそのまま再利用する。`ErrorSource` に `'batch-event'` を追加し、`stream-handler` の受理ホワイトリストにも追加する（追加しないと Push 発火経路で弾かれる）。
+- 既存の `alarm-ingest → error-events → DynamoDB Streams → stream-handler → Web Push` パイプライン（ADR-003 / ADR-005）をそのまま再利用する。`ErrorSource` に `'batch-event'` を追加する。
 
 これにより ADR-007 が前提としていた「入力は CloudWatch Alarm のみ」が拡張され、alarm-ingest は 2 種類の失敗信号（CloudWatch Alarm / Batch Job State Change）を受ける。
 
