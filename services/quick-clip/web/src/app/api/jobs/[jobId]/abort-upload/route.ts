@@ -2,6 +2,7 @@ import { AbortMultipartUploadCommand } from '@aws-sdk/client-s3';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { NextResponse } from 'next/server';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { getBucketName, getS3Client } from '@/lib/server/aws';
 
 const ERROR_MESSAGES = {
@@ -22,8 +23,10 @@ type AbortUploadRequest = {
 const isAbortUploadRequest = (body: Record<string, unknown>): body is AbortUploadRequest =>
   typeof body.uploadId === 'string' && body.uploadId.trim().length > 0;
 
-export async function POST(request: Request, { params }: RouteParams): Promise<NextResponse> {
-  try {
+export const POST = withApiErrorReporting(
+  'Web API: アップロード中断エラー',
+  ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+  async (request: Request, { params }: RouteParams): Promise<NextResponse> => {
     const { jobId } = await params;
     const bodyResult = await readJsonObjectBody(request);
     if (!bodyResult.ok || !isAbortUploadRequest(bodyResult.body)) {
@@ -49,17 +52,5 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
     );
 
     return NextResponse.json({}, { status: 200 });
-  } catch (error) {
-    console.error(
-      '[POST /api/jobs/[jobId]/abort-upload] アップロード中断処理に失敗しました',
-      error
-    );
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_SERVER_ERROR',
-        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-      },
-      { status: 500 }
-    );
   }
-}
+);

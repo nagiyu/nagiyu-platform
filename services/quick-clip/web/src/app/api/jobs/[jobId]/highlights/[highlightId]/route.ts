@@ -1,4 +1,6 @@
 import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
+import { reportErrorEvent } from '@nagiyu/aws';
+import { toErrorMessage } from '@nagiyu/common';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { NextResponse } from 'next/server';
 import { InvokeCommand } from '@aws-sdk/client-lambda';
@@ -8,6 +10,7 @@ import {
   getLambdaClient,
   getTableName,
 } from '@/lib/server/aws';
+import { SERVICE_ID, withApiErrorReporting } from '@/lib/api-error-reporting';
 import {
   DOMAIN_ERROR_MESSAGES,
   HighlightDomainService,
@@ -82,96 +85,18 @@ const invokeClipRegenerate = async (jobId: string, highlight: Highlight): Promis
   );
 };
 
-export async function PATCH(request: Request, { params }: RouteParams): Promise<NextResponse> {
-  const { jobId, highlightId } = await params;
-  const highlightService = new HighlightDomainService(
-    new DynamoDBHighlightRepository(getDynamoDBDocumentClient(), getTableName())
-  );
-
-  const bodyResult = await readJsonObjectBody(request);
-  const body = bodyResult.ok ? parseUpdateRequest(bodyResult.body) : null;
-  if (body === null) {
-    return NextResponse.json(
-      {
-        error: 'INVALID_REQUEST',
-        message: ERROR_MESSAGES.INVALID_REQUEST,
-      },
-      { status: 400 }
+export const PATCH = withApiErrorReporting(
+  'Web API: 見どころ更新エラー',
+  ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+  async (request: Request, { params }: RouteParams): Promise<NextResponse> => {
+    const { jobId, highlightId } = await params;
+    const highlightService = new HighlightDomainService(
+      new DynamoDBHighlightRepository(getDynamoDBDocumentClient(), getTableName())
     );
-  }
 
-  if (
-    typeof body.startSec === 'number' &&
-    typeof body.endSec === 'number' &&
-    body.startSec >= body.endSec
-  ) {
-    return NextResponse.json(
-      {
-        error: 'INVALID_REQUEST',
-        message: ERROR_MESSAGES.INVALID_REQUEST,
-      },
-      { status: 400 }
-    );
-  }
-
-  try {
-    const hasTimeUpdateRequest =
-      typeof body.startSec === 'number' || typeof body.endSec === 'number';
-    if (!hasTimeUpdateRequest) {
-      const updated = await highlightService.updateHighlight(jobId, highlightId, body);
-      return NextResponse.json(updated);
-    }
-
-    const currentHighlight = await highlightService.getHighlight(jobId, highlightId);
-    if (!currentHighlight) {
-      return NextResponse.json(
-        {
-          error: 'HIGHLIGHT_NOT_FOUND',
-          message: ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND,
-        },
-        { status: 404 }
-      );
-    }
-
-    const statusReset =
-      currentHighlight.status === 'accepted' || currentHighlight.status === 'rejected'
-        ? { status: 'unconfirmed' as const }
-        : {};
-
-    const updates = {
-      ...body,
-      ...statusReset,
-      clipStatus: 'GENERATING' as const,
-    };
-
-    const updated = await highlightService.updateHighlight(jobId, highlightId, updates);
-
-    try {
-      await invokeClipRegenerate(jobId, updated);
-    } catch (invokeError) {
-      console.error(
-        `[PATCH /api/jobs/[jobId]/highlights/[highlightId]] ${ERROR_MESSAGES.CLIP_REGENERATE_INVOKE_FAILED}`,
-        {
-          jobId,
-          highlightId,
-          error: invokeError,
-        }
-      );
-    }
-
-    return NextResponse.json(updated);
-  } catch (error) {
-    if (error instanceof Error && error.message === DOMAIN_ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND) {
-      return NextResponse.json(
-        {
-          error: 'HIGHLIGHT_NOT_FOUND',
-          message: ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND,
-        },
-        { status: 404 }
-      );
-    }
-
-    if (error instanceof Error && VALIDATION_ERROR_MESSAGES.has(error.message)) {
+    const bodyResult = await readJsonObjectBody(request);
+    const body = bodyResult.ok ? parseUpdateRequest(bodyResult.body) : null;
+    if (body === null) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -181,12 +106,102 @@ export async function PATCH(request: Request, { params }: RouteParams): Promise<
       );
     }
 
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_SERVER_ERROR',
-        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-      },
-      { status: 500 }
-    );
+    if (
+      typeof body.startSec === 'number' &&
+      typeof body.endSec === 'number' &&
+      body.startSec >= body.endSec
+    ) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.INVALID_REQUEST,
+        },
+        { status: 400 }
+      );
+    }
+
+    try {
+      const hasTimeUpdateRequest =
+        typeof body.startSec === 'number' || typeof body.endSec === 'number';
+      if (!hasTimeUpdateRequest) {
+        const updated = await highlightService.updateHighlight(jobId, highlightId, body);
+        return NextResponse.json(updated);
+      }
+
+      const currentHighlight = await highlightService.getHighlight(jobId, highlightId);
+      if (!currentHighlight) {
+        return NextResponse.json(
+          {
+            error: 'HIGHLIGHT_NOT_FOUND',
+            message: ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND,
+          },
+          { status: 404 }
+        );
+      }
+
+      const statusReset =
+        currentHighlight.status === 'accepted' || currentHighlight.status === 'rejected'
+          ? { status: 'unconfirmed' as const }
+          : {};
+
+      const updates = {
+        ...body,
+        ...statusReset,
+        clipStatus: 'GENERATING' as const,
+      };
+
+      const updated = await highlightService.updateHighlight(jobId, highlightId, updates);
+
+      try {
+        await invokeClipRegenerate(jobId, updated);
+      } catch (invokeError) {
+        console.error(
+          `[PATCH /api/jobs/[jobId]/highlights/[highlightId]] ${ERROR_MESSAGES.CLIP_REGENERATE_INVOKE_FAILED}`,
+          {
+            jobId,
+            highlightId,
+            error: invokeError,
+          }
+        );
+        // 再生成の起動に失敗しても更新結果を 200 で返すため、例外が上に届かない。ここで報告する
+        await reportErrorEvent({
+          serviceId: SERVICE_ID,
+          severity: 'error',
+          title: 'Web API: クリップ再生成起動エラー',
+          message: toErrorMessage(invokeError),
+          context: {
+            jobId,
+            highlightId,
+            errorName: invokeError instanceof Error ? invokeError.name : typeof invokeError,
+            errorMessage: toErrorMessage(invokeError),
+            errorStack: invokeError instanceof Error ? invokeError.stack : undefined,
+          },
+        });
+      }
+
+      return NextResponse.json(updated);
+    } catch (error) {
+      if (error instanceof Error && error.message === DOMAIN_ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND) {
+        return NextResponse.json(
+          {
+            error: 'HIGHLIGHT_NOT_FOUND',
+            message: ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND,
+          },
+          { status: 404 }
+        );
+      }
+
+      if (error instanceof Error && VALIDATION_ERROR_MESSAGES.has(error.message)) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.INVALID_REQUEST,
+          },
+          { status: 400 }
+        );
+      }
+
+      throw error;
+    }
   }
-}
+);

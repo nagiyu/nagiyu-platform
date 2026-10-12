@@ -17,6 +17,7 @@ import {
   getS3Client,
   getTableName,
 } from '@/lib/server/aws';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { VALID_EMOTION_FILTERS } from '@/lib/server/emotion-filter';
 import { JobDomainService } from '@/lib/server/domain-services';
 
@@ -63,8 +64,10 @@ const isCreateJobRequest = (body: Record<string, unknown>): body is CreateJobReq
   return true;
 };
 
-export async function POST(request: Request): Promise<NextResponse> {
-  try {
+export const POST = withApiErrorReporting(
+  'Web API: ジョブ作成エラー',
+  ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+  async (request: Request): Promise<NextResponse> => {
     const bodyResult = await readJsonObjectBody(request);
     if (!bodyResult.ok || !isCreateJobRequest(bodyResult.body)) {
       return NextResponse.json(
@@ -221,14 +224,5 @@ export async function POST(request: Request): Promise<NextResponse> {
       },
       { status: 201 }
     );
-  } catch (error) {
-    console.error('[POST /api/jobs] ジョブの作成に失敗しました', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_SERVER_ERROR',
-        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-      },
-      { status: 500 }
-    );
   }
-}
+);

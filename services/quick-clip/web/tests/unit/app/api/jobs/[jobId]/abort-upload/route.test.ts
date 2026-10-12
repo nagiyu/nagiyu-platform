@@ -1,5 +1,11 @@
+import { reportErrorEvent } from '@nagiyu/aws';
 import { getS3Client } from '@/lib/server/aws';
 import { POST } from '@/app/api/jobs/[jobId]/abort-upload/route';
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
 
 jest.mock('@/lib/server/aws', () => ({
   getBucketName: jest.fn(() => 'test-bucket'),
@@ -90,9 +96,13 @@ describe('POST /api/jobs/[jobId]/abort-upload', () => {
       error: 'INTERNAL_SERVER_ERROR',
       message: 'アップロード中断処理に失敗しました',
     });
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '[POST /api/jobs/[jobId]/abort-upload] アップロード中断処理に失敗しました',
-      abortError
+    expect(consoleErrorSpy).toHaveBeenCalledWith('[Web API: アップロード中断エラー]', abortError);
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'quick-clip',
+        severity: 'error',
+        title: 'Web API: アップロード中断エラー',
+      })
     );
   });
 
