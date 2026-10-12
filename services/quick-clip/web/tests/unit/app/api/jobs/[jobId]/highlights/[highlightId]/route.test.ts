@@ -1,3 +1,4 @@
+import { reportErrorEvent } from '@nagiyu/aws';
 import { PATCH } from '@/app/api/jobs/[jobId]/highlights/[highlightId]/route';
 import type { HighlightRepository } from '@nagiyu/quick-clip-core';
 import {
@@ -30,6 +31,11 @@ jest.mock('next/server', () => ({
       json: async () => body,
     }),
   },
+}));
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock('@/lib/server/aws', () => ({
@@ -328,6 +334,35 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       '[PATCH /api/jobs/[jobId]/highlights/[highlightId]] クリップ再生成の起動に失敗しました',
       expect.objectContaining({ jobId: 'job-1', highlightId: 'h1', error: expect.any(Error) })
+    );
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'quick-clip',
+        severity: 'error',
+        title: 'Web API: クリップ再生成起動エラー',
+      })
+    );
+  });
+
+  it('異常系: 想定外のエラーは500を返し報告する', async () => {
+    mockGetById.mockRejectedValueOnce(new Error('db failed'));
+
+    const response = await PATCH(createRequest({ startSec: 11, endSec: 21 }), {
+      params: Promise.resolve({ jobId: 'job-1', highlightId: 'h1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: 'INTERNAL_SERVER_ERROR',
+      message: '見どころの更新に失敗しました',
+    });
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'quick-clip',
+        severity: 'error',
+        title: 'Web API: 見どころ更新エラー',
+      })
     );
   });
 

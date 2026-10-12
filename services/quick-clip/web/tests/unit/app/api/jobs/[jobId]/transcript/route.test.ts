@@ -1,3 +1,4 @@
+import { reportErrorEvent } from '@nagiyu/aws';
 import { GET } from '@/app/api/jobs/[jobId]/transcript/route';
 import type { JobRepository } from '@nagiyu/quick-clip-core';
 import { getDynamoDBDocumentClient, getS3Client } from '@/lib/server/aws';
@@ -9,6 +10,11 @@ jest.mock('next/server', () => ({
       json: async () => body,
     }),
   },
+}));
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock('@/lib/server/aws', () => ({
@@ -158,5 +164,12 @@ describe('GET /api/jobs/[jobId]/transcript', () => {
       error: 'INTERNAL_SERVER_ERROR',
       message: '文字起こし情報の取得に失敗しました',
     });
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'quick-clip',
+        severity: 'error',
+        title: 'Web API: 文字起こし取得エラー',
+      })
+    );
   });
 });

@@ -8,6 +8,7 @@ import {
   getS3Client,
   getTableName,
 } from '@/lib/server/aws';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { JobDomainService } from '@/lib/server/domain-services';
 import type { TranscriptSegment } from '@/types/quick-clip';
 
@@ -37,8 +38,10 @@ type RouteParams = {
   }>;
 };
 
-export async function GET(_request: Request, { params }: RouteParams): Promise<NextResponse> {
-  try {
+export const GET = withApiErrorReporting(
+  'Web API: 文字起こし取得エラー',
+  ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+  async (_request: Request, { params }: RouteParams): Promise<NextResponse> => {
     const { jobId } = await params;
     const jobService = new JobDomainService(
       new DynamoDBJobRepository(getDynamoDBDocumentClient(), getTableName())
@@ -79,13 +82,5 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
       }
       throw error;
     }
-  } catch {
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_SERVER_ERROR',
-        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-      },
-      { status: 500 }
-    );
   }
-}
+);

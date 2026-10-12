@@ -1,3 +1,4 @@
+import { reportErrorEvent } from '@nagiyu/aws';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { JobRepository } from '@nagiyu/quick-clip-core';
 import { DynamoDBJobRepository } from '@nagiyu/quick-clip-core';
@@ -11,6 +12,11 @@ jest.mock('next/server', () => ({
       json: async () => body,
     }),
   },
+}));
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock('@aws-sdk/s3-request-presigner', () => ({
@@ -212,9 +218,13 @@ describe('POST /api/jobs', () => {
       error: 'INTERNAL_SERVER_ERROR',
       message: 'ジョブの作成に失敗しました',
     });
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '[POST /api/jobs] ジョブの作成に失敗しました',
-      expect.any(Error)
+    expect(consoleErrorSpy).toHaveBeenCalledWith('[Web API: ジョブ作成エラー]', expect.any(Error));
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'quick-clip',
+        severity: 'error',
+        title: 'Web API: ジョブ作成エラー',
+      })
     );
   });
 
@@ -234,9 +244,13 @@ describe('POST /api/jobs', () => {
       error: 'INTERNAL_SERVER_ERROR',
       message: 'ジョブの作成に失敗しました',
     });
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '[POST /api/jobs] ジョブの作成に失敗しました',
-      expect.any(Error)
+    expect(consoleErrorSpy).toHaveBeenCalledWith('[Web API: ジョブ作成エラー]', expect.any(Error));
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'quick-clip',
+        severity: 'error',
+        title: 'Web API: ジョブ作成エラー',
+      })
     );
   });
 
@@ -257,9 +271,13 @@ describe('POST /api/jobs', () => {
       error: 'INTERNAL_SERVER_ERROR',
       message: 'ジョブの作成に失敗しました',
     });
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '[POST /api/jobs] ジョブの作成に失敗しました',
-      batchError
+    expect(consoleErrorSpy).toHaveBeenCalledWith('[Web API: ジョブ作成エラー]', batchError);
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'quick-clip',
+        severity: 'error',
+        title: 'Web API: ジョブ作成エラー',
+      })
     );
   });
 
