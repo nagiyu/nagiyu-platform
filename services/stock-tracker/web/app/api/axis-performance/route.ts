@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
 import type { ErrorResponse } from '@nagiyu/common';
 import { getSession } from '../../../lib/auth';
+import { createInternalErrorReporting } from '../../../lib/api-error-reporting';
 import {
   createModelSnapshotRepository,
   createPerformanceDailyRepository,
@@ -22,11 +23,14 @@ const ERROR_MESSAGES = {
   INTERNAL_ERROR: '軸ごとの成績の取得に失敗しました',
 } as const satisfies Record<AxisPerformanceQueryError | 'INTERNAL_ERROR', string>;
 
+const withInternalErrorReporting = createInternalErrorReporting(ERROR_MESSAGES.INTERNAL_ERROR);
+
 export const GET = withAuth(
   getSession,
   'stocks:read',
-  async (_session, request: NextRequest): Promise<NextResponse> => {
-    try {
+  withInternalErrorReporting(
+    'Web API: 軸ごとの成績取得エラー',
+    async (_session, request: NextRequest): Promise<NextResponse> => {
       const parsed = parseAxisPerformanceQuery(new URL(request.url).searchParams);
       if (!parsed.ok) {
         return NextResponse.json(
@@ -58,11 +62,6 @@ export const GET = withAuth(
         buildAxisPerformance(query, itemsByMarket.flat(), pickLatestSnapshot(snapshots)),
         { status: 200 }
       );
-    } catch {
-      return NextResponse.json(
-        { error: 'INTERNAL_ERROR', message: ERROR_MESSAGES.INTERNAL_ERROR } satisfies ErrorResponse,
-        { status: 500 }
-      );
     }
-  }
+  )
 );

@@ -1,10 +1,16 @@
 import { NextRequest } from 'next/server';
+import * as awsModule from '@nagiyu/aws';
 import { GET } from '../../../../app/api/axis-performance/route';
 import {
   createModelSnapshotRepository,
   createPerformanceDailyRepository,
 } from '../../../../lib/repository-factory';
 import { performanceDaily, snapshot } from '../../lib/forecast/fixtures';
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
 
 jest.mock('../../../../lib/repository-factory', () => ({
   createModelSnapshotRepository: jest.fn(),
@@ -16,6 +22,7 @@ jest.mock('../../../../lib/auth', () => ({
 }));
 
 jest.mock('@nagiyu/nextjs', () => ({
+  createApiErrorReporting: jest.requireActual('@nagiyu/nextjs').createApiErrorReporting,
   withAuth: jest.fn((_auth, _permission, handler) => {
     return async (...args: unknown[]) => handler({ user: { id: 'test-user' } }, ...args);
   }),
@@ -121,6 +128,7 @@ describe('GET /api/axis-performance', () => {
     expect(response.status).toBe(400);
     expect(body).toEqual({ error, message });
     expect(mockGetByPeriod).not.toHaveBeenCalled();
+    expect(awsModule.reportErrorEvent).not.toHaveBeenCalled();
   });
 
   it('異常系: リポジトリが失敗したら 500', async () => {
@@ -133,5 +141,13 @@ describe('GET /api/axis-performance', () => {
       error: 'INTERNAL_ERROR',
       message: '軸ごとの成績の取得に失敗しました',
     });
+    expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: 軸ごとの成績取得エラー',
+        message: 'db error',
+      })
+    );
   });
 });

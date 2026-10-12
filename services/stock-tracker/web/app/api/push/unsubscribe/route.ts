@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthError, readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
-import type { ErrorResponse } from '@nagiyu/common';
+import { createInternalErrorReporting } from '../../../../lib/api-error-reporting';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 
 /**
@@ -21,6 +21,11 @@ const ERROR_MESSAGES = {
   INVALID_ENDPOINT: 'エンドポイント情報が不正です',
   INTERNAL_ERROR: 'サブスクリプションの解除に失敗しました',
 } as const;
+
+const withInternalErrorReporting = createInternalErrorReporting(
+  ERROR_MESSAGES.INTERNAL_ERROR,
+  'Error unsubscribing from push notifications:'
+);
 
 /**
  * レスポンス型定義
@@ -51,10 +56,9 @@ function validateEndpoint(endpoint: unknown): endpoint is string {
  * DELETE /api/push/unsubscribe
  * Web Push サブスクリプション解除
  */
-export async function DELETE(
-  request: NextRequest
-): Promise<NextResponse<UnsubscribeResponse | ErrorResponse>> {
-  try {
+export const DELETE = withInternalErrorReporting(
+  'Web API: サブスクリプション解除エラー',
+  async (request: NextRequest) => {
     // 認証・権限チェック
     const session = await getSession();
     const authError = getAuthError(session, 'stocks:write-own');
@@ -114,14 +118,5 @@ export async function DELETE(
     };
 
     return NextResponse.json(response, { status: 200 });
-  } catch (error) {
-    console.error('Error unsubscribing from push notifications:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_ERROR',
-        message: ERROR_MESSAGES.INTERNAL_ERROR,
-      },
-      { status: 500 }
-    );
   }
-}
+);

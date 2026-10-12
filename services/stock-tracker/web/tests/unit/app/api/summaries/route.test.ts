@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import * as awsModule from '@nagiyu/aws';
 import { GET } from '../../../../../app/api/summaries/route';
 import {
   createAlertRepository,
@@ -10,6 +11,11 @@ import {
   createPerformanceDailyRepository,
   createTickerRepository,
 } from '../../../../../lib/repository-factory';
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
 
 jest.mock('../../../../../lib/repository-factory', () => ({
   createDailySummaryRepository: jest.fn(),
@@ -27,6 +33,7 @@ jest.mock('../../../../../lib/auth', () => ({
 }));
 
 jest.mock('@nagiyu/nextjs', () => ({
+  createApiErrorReporting: jest.requireActual('@nagiyu/nextjs').createApiErrorReporting,
   withAuth: jest.fn((_auth, _permission, handler) => {
     return async (...args: unknown[]) => handler({ user: { roles: ['stock-user'] } }, ...args);
   }),
@@ -455,6 +462,14 @@ describe('GET /api/summaries', () => {
       error: 'INTERNAL_ERROR',
       message: 'サマリーの取得に失敗しました',
     });
+    expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: サマリー一覧取得エラー',
+        message: 'db error',
+      })
+    );
   });
 
   it('正常系: 保有株式情報がある場合は summaries に holding を含める', async () => {
@@ -524,6 +539,14 @@ describe('GET /api/summaries', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: サマリーの保有株式取得エラー',
+        message: 'holding db error',
+      })
+    );
     expect(body.exchanges[0].summaries[0]).toEqual(
       expect.objectContaining({
         holding: null,
@@ -641,6 +664,14 @@ describe('GET /api/summaries', () => {
 
       expect(response.status).toBe(200);
       expect(body.exchanges[0].summaries[0].forecast).toBeNull();
+      expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          serviceId: 'stock-tracker',
+          severity: 'error',
+          title: 'Web API: サマリーの確度取得エラー',
+          message: 'forecast db error',
+        })
+      );
     });
 
     it('正常系: 市場の荒れ予報の取得に失敗しても一覧を返し、JP・US を null で返す', async () => {
@@ -661,6 +692,14 @@ describe('GET /api/summaries', () => {
         { market: 'JP', date: null, forecast: null },
         { market: 'US', date: null, forecast: null },
       ]);
+      expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          serviceId: 'stock-tracker',
+          severity: 'error',
+          title: 'Web API: サマリーの市場の荒れ予報取得エラー',
+          message: 'market db error',
+        })
+      );
     });
   });
 });

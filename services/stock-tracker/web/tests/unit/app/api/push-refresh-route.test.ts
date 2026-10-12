@@ -1,8 +1,14 @@
 import { NextRequest } from 'next/server';
+import * as awsModule from '@nagiyu/aws';
 import { POST } from '../../../../app/api/push/refresh/route';
 import { createAlertRepository } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
 import { MALFORMED_BODY_CASES } from './invalidBodyCases';
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
 
 jest.mock('../../../../lib/repository-factory', () => ({
   createAlertRepository: jest.fn(),
@@ -78,6 +84,26 @@ describe('POST /api/push/refresh', () => {
       expect(consoleErrorSpy).not.toHaveBeenCalled();
     }
   );
+
+  it('想定外のエラーは 500 を返して報告する', async () => {
+    mockGetByUserId.mockRejectedValue(new Error('db error'));
+
+    const response = await POST(createRequest(JSON.stringify({ subscription: newSubscription })));
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: 'INTERNAL_ERROR',
+      message: 'サブスクリプションの更新に失敗しました',
+    });
+    expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: サブスクリプション更新エラー',
+        message: 'db error',
+      })
+    );
+  });
 
   it('subscription がない場合は 400 を返す', async () => {
     const response = await POST(createRequest('{}'));

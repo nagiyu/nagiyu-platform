@@ -3,6 +3,10 @@ import { withAuth } from '@nagiyu/nextjs';
 import { DailySummaryMapper } from '@nagiyu/stock-tracker-core';
 import { getSession } from '../../../../lib/auth';
 import {
+  createInternalErrorReporting,
+  reportSwallowedError,
+} from '../../../../lib/api-error-reporting';
+import {
   createAlertRepository,
   createDailySummaryRepository,
   createForecastRepository,
@@ -11,7 +15,7 @@ import {
 } from '../../../../lib/repository-factory';
 import { MAX_ALERTS_PER_USER } from '../../../../lib/constants';
 import { toTickerForecastSummary } from '../../../../lib/forecast/ticker-forecast';
-import type { ErrorResponse } from '@nagiyu/common';
+import type { ErrorResponse, Session } from '@nagiyu/common';
 
 const ERROR_MESSAGES = {
   INVALID_TICKER_ID: 'ティッカーIDが不正です',
@@ -19,6 +23,12 @@ const ERROR_MESSAGES = {
   INTERNAL_ERROR: 'サマリーの取得に失敗しました',
   FETCH_FORECAST_FAILED: '確度情報の取得に失敗しました',
 } as const;
+
+const REPORT_TITLES = {
+  FETCH_FORECAST_FAILED: 'Web API: サマリーの確度取得エラー',
+} as const;
+
+const withInternalErrorReporting = createInternalErrorReporting(ERROR_MESSAGES.INTERNAL_ERROR);
 
 const dailySummaryMapper = new DailySummaryMapper();
 
@@ -30,6 +40,7 @@ async function fetchForecastSummary(tickerId: string, date: string) {
     );
   } catch (error) {
     console.error(ERROR_MESSAGES.FETCH_FORECAST_FAILED, error);
+    await reportSwallowedError(REPORT_TITLES.FETCH_FORECAST_FAILED, error, { tickerId });
     return null;
   }
 }
@@ -37,12 +48,13 @@ async function fetchForecastSummary(tickerId: string, date: string) {
 export const GET = withAuth(
   getSession,
   'stocks:read',
-  async (
-    session,
-    _request: Request,
-    { params }: { params: Promise<{ tickerId: string }> }
-  ): Promise<NextResponse> => {
-    try {
+  withInternalErrorReporting(
+    'Web API: サマリー取得エラー',
+    async (
+      session: Session,
+      _request: Request,
+      { params }: { params: Promise<{ tickerId: string }> }
+    ): Promise<NextResponse> => {
       const { tickerId } = await params;
 
       if (!tickerId || !tickerId.includes(':')) {
@@ -116,14 +128,6 @@ export const GET = withAuth(
         },
         { status: 200 }
       );
-    } catch {
-      return NextResponse.json(
-        {
-          error: 'INTERNAL_ERROR',
-          message: ERROR_MESSAGES.INTERNAL_ERROR,
-        } satisfies ErrorResponse,
-        { status: 500 }
-      );
     }
-  }
+  )
 );
