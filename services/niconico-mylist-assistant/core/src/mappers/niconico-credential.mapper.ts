@@ -4,7 +4,7 @@
  * NiconicoCredentialEntity ↔ DynamoDBItem の変換を担当
  */
 
-import type { DynamoDBItem, EntityMapper } from '@nagiyu/aws';
+import type { DynamoDBItem, LegacyEntityMapper } from '@nagiyu/aws';
 import { validateStringField, validateTimestampField } from '@nagiyu/aws';
 import type {
   NiconicoCredentialEntity,
@@ -17,7 +17,7 @@ import { NICONICO_CREDENTIAL_SK } from '../entities/niconico-credential.entity.j
  *
  * NiconicoCredentialEntity と DynamoDB Item 間の変換を行う
  */
-export class NiconicoCredentialMapper implements EntityMapper<
+export class NiconicoCredentialMapper implements LegacyEntityMapper<
   NiconicoCredentialEntity,
   NiconicoCredentialKey
 > {

@@ -4,7 +4,7 @@
  * VideoEntity ↔ DynamoDBItem の変換を担当
  */
 
-import type { DynamoDBItem, EntityMapper } from '@nagiyu/aws';
+import type { DynamoDBItem, LegacyEntityMapper } from '@nagiyu/aws';
 import { validateStringField, validateTimestampField } from '@nagiyu/aws';
 import type { VideoEntity, VideoKey } from '../entities/video.entity.js';
 
@@ -13,7 +13,7 @@ import type { VideoEntity, VideoKey } from '../entities/video.entity.js';
  *
  * VideoEntity と DynamoDB Item 間の変換を行う
  */
-export class VideoMapper implements EntityMapper<VideoEntity, VideoKey> {
+export class VideoMapper implements LegacyEntityMapper<VideoEntity, VideoKey> {
   private readonly entityType = 'VIDEO';
 
   /**

@@ -4,7 +4,7 @@
  * BatchJobEntity ↔ DynamoDBItem の変換を担当
  */
 
-import type { DynamoDBItem, EntityMapper } from '@nagiyu/aws';
+import type { DynamoDBItem, LegacyEntityMapper } from '@nagiyu/aws';
 import { validateStringField, validateTimestampField } from '@nagiyu/aws';
 import type {
   BatchJobEntity,
@@ -18,7 +18,7 @@ import type { BatchStatus, BatchResult } from '../types/index.js';
  *
  * BatchJobEntity と DynamoDB Item 間の変換を行う
  */
-export class BatchJobMapper implements EntityMapper<BatchJobEntity, BatchJobKey> {
+export class BatchJobMapper implements LegacyEntityMapper<BatchJobEntity, BatchJobKey> {
   private readonly entityType = 'BATCH_JOB';
 
   /**

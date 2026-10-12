@@ -2,12 +2,12 @@ import {
   validateStringField,
   validateTimestampField,
   type DynamoDBItem,
-  type EntityMapper,
+  type LegacyEntityMapper,
 } from '@nagiyu/aws';
 import type { ProfileEntity, ProfileKey, UserConsents } from '../entities/profile.entity.js';
 import { buildProfileSK, buildUserPK, buildProfileGSI1PK } from './keys.js';
 
-export class ProfileMapper implements EntityMapper<ProfileEntity, ProfileKey> {
+export class ProfileMapper implements LegacyEntityMapper<ProfileEntity, ProfileKey> {
   public readonly entityType = 'Profile';
 
   public toItem(entity: ProfileEntity): DynamoDBItem {

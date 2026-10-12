@@ -2,7 +2,7 @@ import {
   validateStringField,
   validateTimestampField,
   type DynamoDBItem,
-  type EntityMapper,
+  type LegacyEntityMapper,
 } from '@nagiyu/aws';
 import type {
   LifecycleEntity,
@@ -24,7 +24,7 @@ function toUserActivityProfile(raw: unknown): UserActivityProfile {
   };
 }
 
-export class LifecycleMapper implements EntityMapper<LifecycleEntity, LifecycleKey> {
+export class LifecycleMapper implements LegacyEntityMapper<LifecycleEntity, LifecycleKey> {
   public readonly entityType = 'Lifecycle';
 
   public toItem(entity: LifecycleEntity): DynamoDBItem {

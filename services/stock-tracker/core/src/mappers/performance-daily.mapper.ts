@@ -11,7 +11,7 @@ import {
   validateEnumField,
   validateNumberField,
   validateStringField,
-  type EntityMapper,
+  type LegacyEntityMapper,
 } from '@nagiyu/aws';
 import type { PerformanceDailyKey } from '../entities/performance-daily.entity.js';
 import {
@@ -20,7 +20,7 @@ import {
   type ProbabilityBandDailyEntry,
 } from '../forecast/index.js';
 
-export class PerformanceDailyMapper implements EntityMapper<
+export class PerformanceDailyMapper implements LegacyEntityMapper<
   PerformanceDailyItem,
   PerformanceDailyKey
 > {

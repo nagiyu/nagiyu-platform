@@ -4,7 +4,7 @@
  * UserSettingEntity ↔ DynamoDBItem の変換を担当
  */
 
-import type { DynamoDBItem, EntityMapper } from '@nagiyu/aws';
+import type { DynamoDBItem, LegacyEntityMapper } from '@nagiyu/aws';
 import { validateStringField, validateBooleanField, validateTimestampField } from '@nagiyu/aws';
 import type { UserSettingEntity, UserSettingKey } from '../entities/user-setting.entity.js';
 
@@ -13,7 +13,7 @@ import type { UserSettingEntity, UserSettingKey } from '../entities/user-setting
  *
  * UserSettingEntity と DynamoDB Item 間の変換を行う
  */
-export class UserSettingMapper implements EntityMapper<UserSettingEntity, UserSettingKey> {
+export class UserSettingMapper implements LegacyEntityMapper<UserSettingEntity, UserSettingKey> {
   private readonly entityType = 'USER_SETTING';
 
   /**

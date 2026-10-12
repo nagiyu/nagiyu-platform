@@ -3,12 +3,12 @@ import {
   validateStringField,
   validateTimestampField,
   type DynamoDBItem,
-  type EntityMapper,
+  type LegacyEntityMapper,
 } from '@nagiyu/aws';
 import type { StudyTopicEntity, StudyTopicKey } from '../entities/study-topic.entity.js';
 import { buildStudyTopicSK, buildUserPK } from './keys.js';
 
-export class StudyTopicMapper implements EntityMapper<StudyTopicEntity, StudyTopicKey> {
+export class StudyTopicMapper implements LegacyEntityMapper<StudyTopicEntity, StudyTopicKey> {
   public readonly entityType = 'StudyTopic';
 
   public toItem(entity: StudyTopicEntity): DynamoDBItem {

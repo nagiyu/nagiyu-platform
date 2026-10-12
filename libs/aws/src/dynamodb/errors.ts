@@ -10,6 +10,7 @@ const ERROR_MESSAGES = {
   ENTITY_ALREADY_EXISTS: 'エンティティは既に存在します',
   INVALID_ENTITY_DATA: 'エンティティデータが無効です',
   DATABASE_ERROR: 'データベースエラーが発生しました',
+  OPTIMISTIC_LOCK_FAILED: '他の更新と競合しました',
 } as const;
 
 /**
@@ -115,5 +116,15 @@ export function mapConditionalCheckFailed(
     } else if (callbacks.onMissing) {
       callbacks.onMissing();
     }
+  }
+}
+
+/**
+ * 楽観ロックの条件 (UpdatedAt の一致) を満たさなかった場合のエラー
+ */
+export class OptimisticLockError extends RepositoryError {
+  constructor(entityType: string, identifier: string) {
+    super(`${ERROR_MESSAGES.OPTIMISTIC_LOCK_FAILED}: ${entityType}=${identifier}`);
+    this.name = 'OptimisticLockError';
   }
 }

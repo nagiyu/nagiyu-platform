@@ -12,7 +12,7 @@ import {
   validateTimestampField,
   InvalidEntityDataError,
 } from '@nagiyu/aws';
-import type { EntityMapper } from '@nagiyu/aws';
+import type { LegacyEntityMapper } from '@nagiyu/aws';
 import type { AlertEntity, AlertKey } from '../entities/alert.entity.js';
 import type { TemporaryAlertCandidate } from '../entities/temporary-alert-candidate.entity.js';
 import type { PushSubscription } from '@nagiyu/common';
@@ -22,7 +22,7 @@ import type { PushSubscription } from '@nagiyu/common';
  *
  * AlertEntity と DynamoDB Item 間の変換を行う
  */
-export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
+export class AlertMapper implements LegacyEntityMapper<AlertEntity, AlertKey> {
   private readonly entityType = 'Alert';
 
   /**

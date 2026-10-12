@@ -3,7 +3,7 @@ import {
   validateStringField,
   validateTimestampField,
   type DynamoDBItem,
-  type EntityMapper,
+  type LegacyEntityMapper,
 } from '@nagiyu/aws';
 import type { WebRawEntity, WebRawKey, WebRawOrigin } from '../entities/webraw.entity.js';
 import { buildUserPK, buildWebRawSK } from './keys.js';
@@ -12,7 +12,7 @@ import { buildUserPK, buildWebRawSK } from './keys.js';
  * `WebRawEntity ↔ DynamoDB Item` の変換と PK/SK 組み立てを担当する Mapper。
  * TTL 属性の付与はリポジトリ側の責務とする（既存 Message と同じ方針）。
  */
-export class WebRawMapper implements EntityMapper<WebRawEntity, WebRawKey> {
+export class WebRawMapper implements LegacyEntityMapper<WebRawEntity, WebRawKey> {
   public readonly entityType = 'WebRaw';
 
   public toItem(entity: WebRawEntity): DynamoDBItem {

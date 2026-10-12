@@ -9,6 +9,7 @@ export {
   EntityAlreadyExistsError,
   InvalidEntityDataError,
   DatabaseError,
+  OptimisticLockError,
   mapConditionalCheckFailed,
   isConditionalCheckFailed,
   toDatabaseError,
@@ -32,6 +33,11 @@ export {
   validateEnumField,
   validateBooleanField,
   validateTimestampField,
+  readAttribute,
+  readTimestamp,
+  readOptionalTimestamp,
+  TTL_ATTRIBUTE_NAME,
+  toTtlSeconds,
 } from './validators.js';
 
 // ヘルパー関数
@@ -59,7 +65,29 @@ export {
 export { AbstractDynamoDBRepository } from './abstract-repository.js';
 
 // Mapper インターフェース
-export type { EntityMapper } from './mapper/entity-mapper.interface.js';
+export type {
+  EntityMapper,
+  EntityPatch,
+  DynamoDBKey,
+  DynamoDBAttributes,
+} from './mapper/entity-mapper.interface.js';
+/** @deprecated 新規実装は `EntityMapper` を使う */
+export type { LegacyEntityMapper } from './mapper/legacy-entity-mapper.interface.js';
+
+// EntityStore (CRUD の骨格)
+export type {
+  EntityStore,
+  EntityReadOptions,
+  EntityWriteOptions,
+} from './store/entity-store.interface.js';
+export {
+  DynamoDBEntityStore,
+  type DynamoDBEntityStoreOptions,
+} from './store/dynamodb-entity-store.js';
+export {
+  InMemoryEntityStore,
+  type InMemoryEntityStoreOptions,
+} from './store/in-memory-entity-store.js';
 
 // InMemory 実装
 export {

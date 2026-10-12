@@ -3,7 +3,7 @@ import {
   validateStringField,
   validateTimestampField,
   type DynamoDBItem,
-  type EntityMapper,
+  type LegacyEntityMapper,
 } from '@nagiyu/aws';
 import type {
   NotificationEventEntity,
@@ -12,7 +12,7 @@ import type {
 import { DEFAULT_CHARACTER_ID } from '../constants.js';
 import { buildNotifSK, buildUserPK } from './keys.js';
 
-export class NotificationEventMapper implements EntityMapper<
+export class NotificationEventMapper implements LegacyEntityMapper<
   NotificationEventEntity,
   NotificationEventKey
 > {

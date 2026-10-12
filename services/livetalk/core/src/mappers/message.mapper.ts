@@ -3,7 +3,7 @@ import {
   validateStringField,
   validateTimestampField,
   type DynamoDBItem,
-  type EntityMapper,
+  type LegacyEntityMapper,
 } from '@nagiyu/aws';
 import type { MessageEntity, MessageKey } from '../entities/message.entity.js';
 import { buildMessageSK, buildUserPK } from './keys.js';
@@ -11,7 +11,7 @@ import { buildMessageSK, buildUserPK } from './keys.js';
 /**
  * `MessageEntity ↔ DynamoDB Item` の変換と PK/SK 組み立てを担当する Mapper。
  */
-export class MessageMapper implements EntityMapper<MessageEntity, MessageKey> {
+export class MessageMapper implements LegacyEntityMapper<MessageEntity, MessageKey> {
   public readonly entityType = 'Message';
 
   public toItem(entity: MessageEntity): DynamoDBItem {

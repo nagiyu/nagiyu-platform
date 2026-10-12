@@ -6,7 +6,7 @@
 
 import type { DynamoDBItem } from '@nagiyu/aws';
 import { validateStringField, validateTimestampField } from '@nagiyu/aws';
-import type { EntityMapper } from '@nagiyu/aws';
+import type { LegacyEntityMapper } from '@nagiyu/aws';
 import type { TickerEntity, TickerKey } from '../entities/ticker.entity.js';
 
 /**
@@ -14,7 +14,7 @@ import type { TickerEntity, TickerKey } from '../entities/ticker.entity.js';
  *
  * TickerEntity と DynamoDB Item 間の変換を行う
  */
-export class TickerMapper implements EntityMapper<TickerEntity, TickerKey> {
+export class TickerMapper implements LegacyEntityMapper<TickerEntity, TickerKey> {
   private readonly entityType = 'Ticker';
 
   /**

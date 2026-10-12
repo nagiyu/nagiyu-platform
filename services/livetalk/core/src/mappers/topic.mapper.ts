@@ -4,7 +4,7 @@ import {
   validateStringField,
   validateTimestampField,
   type DynamoDBItem,
-  type EntityMapper,
+  type LegacyEntityMapper,
 } from '@nagiyu/aws';
 import type { TopicEntity, TopicKey } from '../entities/topic.entity.js';
 import { buildTopicGSI3PK, buildTopicMetaSK, buildUserPK } from './keys.js';
@@ -29,7 +29,7 @@ function validateNumberArrayField(value: unknown, fieldName: string): number[] {
  * `toEntity` は GSI3 の Query 結果（`Care` 属性は投影せず `GSI3SK` に重複させている）
  * も同じロジックで扱えるよう、`Care` が無ければ `GSI3SK` にフォールバックする。
  */
-export class TopicMapper implements EntityMapper<TopicEntity, TopicKey> {
+export class TopicMapper implements LegacyEntityMapper<TopicEntity, TopicKey> {
   public readonly entityType = 'Topic';
 
   public toItem(entity: TopicEntity): DynamoDBItem {

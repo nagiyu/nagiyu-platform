@@ -11,7 +11,7 @@ import {
   validateEnumField,
   validateStringField,
   validateTimestampField,
-  type EntityMapper,
+  type LegacyEntityMapper,
 } from '@nagiyu/aws';
 import type {
   CreateForecastInput,
@@ -30,7 +30,7 @@ import type { ProbabilityRecord, TickerOutcome, TickerSample } from '../forecast
  */
 const GSI4PK_PREFIX = 'FORECAST#';
 
-export class ForecastMapper implements EntityMapper<ForecastEntity, ForecastKey> {
+export class ForecastMapper implements LegacyEntityMapper<ForecastEntity, ForecastKey> {
   private readonly entityType = 'Forecast';
 
   /**
