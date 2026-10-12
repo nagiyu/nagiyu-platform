@@ -90,14 +90,8 @@ describe('videos', () => {
 
         await expect(createVideoBasicInfo(input)).rejects.toThrow('エンティティは既に存在します');
 
-        expect(jest.mocked(reportErrorEvent)).toHaveBeenCalledWith(
-          expect.objectContaining({
-            serviceId: 'niconico-mylist-assistant',
-            severity: 'error',
-            title: 'DynamoDB 動画基本情報書き込み失敗',
-            context: expect.objectContaining({ videoId: 'sm12345678' }),
-          })
-        );
+        // 報告は例外を受け止める上位層の責務なので、リポジトリ呼び出し側では報告しない
+        expect(jest.mocked(reportErrorEvent)).not.toHaveBeenCalled();
       });
     });
 
@@ -472,14 +466,8 @@ describe('videos', () => {
           'エンティティが見つかりません'
         );
 
-        expect(jest.mocked(reportErrorEvent)).toHaveBeenCalledWith(
-          expect.objectContaining({
-            serviceId: 'niconico-mylist-assistant',
-            severity: 'error',
-            title: 'DynamoDB ユーザー設定更新失敗',
-            context: expect.objectContaining({ userId: 'user123', videoId: 'sm99999999' }),
-          })
-        );
+        // 報告は例外を受け止める上位層の責務なので、リポジトリ呼び出し側では報告しない
+        expect(jest.mocked(reportErrorEvent)).not.toHaveBeenCalled();
       });
     });
 

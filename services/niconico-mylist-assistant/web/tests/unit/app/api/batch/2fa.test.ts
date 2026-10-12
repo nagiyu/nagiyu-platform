@@ -20,8 +20,14 @@ jest.mock('@nagiyu/niconico-mylist-assistant-core', () => ({
   TWO_FACTOR_AUTH_CODE_REGEX: /^\d{6}$/,
 }));
 
+// モック：@nagiyu/aws（エラー報告）
+jest.mock('@nagiyu/aws', () => ({
+  reportErrorEvent: jest.fn(),
+}));
+
 import { NextRequest } from 'next/server';
 import { POST } from '../../../../../src/app/api/batch/2fa/route';
+import { reportErrorEvent } from '@nagiyu/aws';
 import { getSession } from '../../../../../src/lib/auth/session';
 import { updateBatchJob, getBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
 
@@ -142,6 +148,13 @@ describe('POST /api/batch/2fa', () => {
 
     const json = await response.json();
     expect(json.error.code).toBe('DATABASE_ERROR');
+    expect(reportErrorEvent).toHaveBeenCalledTimes(1);
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'niconico-mylist-assistant',
+        title: 'Web API: 二段階認証コード登録エラー',
+      })
+    );
   });
 
   it.each([

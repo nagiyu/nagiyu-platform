@@ -300,6 +300,10 @@ describe('POST /api/mylist/register', () => {
 
     const json = await response.json();
     expect(json.error).toBe('BATCH_ERROR');
+    expect(mockReportErrorEvent).toHaveBeenCalledTimes(1);
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Batch ジョブ ID 未取得' })
+    );
   });
 
   it('createBatchJob が失敗した場合は 500 を返す', async () => {
@@ -319,6 +323,11 @@ describe('POST /api/mylist/register', () => {
 
     const json = await response.json();
     expect(json.error).toBe('DATABASE_ERROR');
+    // 例外を握って 500 を返すため、この場で報告する
+    expect(mockReportErrorEvent).toHaveBeenCalledTimes(1);
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'DynamoDB バッチジョブレコード作成失敗' })
+    );
   });
 
   it('Batch 投入で予期しない例外が発生した場合は 500 を返す', async () => {
@@ -341,6 +350,15 @@ describe('POST /api/mylist/register', () => {
 
     const json = await response.json();
     expect(json.error).toBe('BATCH_ERROR');
+    // 想定外の例外はラッパーが 1 回だけ報告する
+    expect(mockReportErrorEvent).toHaveBeenCalledTimes(1);
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'niconico-mylist-assistant',
+        title: 'Batch ジョブ投入エラー',
+        context: expect.objectContaining({ errorMessage: 'Batch 接続エラー' }),
+      })
+    );
   });
 
   it('ENCRYPTED_USER_SESSION ブロブが containerOverrides に渡される', async () => {

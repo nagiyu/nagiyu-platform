@@ -6,6 +6,7 @@ import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { getEncryptedUserSessionBlob } from '@/lib/niconico-session';
 import { toErrorMessage, type ErrorResponse } from '@nagiyu/common';
+import { createWithApiErrorReportingBody } from '@/lib/api-error-reporting';
 import { readJsonObjectBody, validatePushSubscription } from '@nagiyu/nextjs';
 
 /**
@@ -65,10 +66,14 @@ const SUCCESS_MESSAGES = {
  *
  * Phase 2: user_session をリクエストボディから受け取らず、サーバー保存済みのものを使用する。
  */
-export async function POST(
-  request: NextRequest
-): Promise<NextResponse<RegisterMylistResponse | ErrorResponse>> {
-  try {
+const withApiErrorReporting = createWithApiErrorReportingBody('バッチジョブ投入エラー:', {
+  error: 'BATCH_ERROR',
+  message: ERROR_MESSAGES.BATCH_JOB_SUBMISSION_FAILED,
+});
+
+export const POST = withApiErrorReporting(
+  'Batch ジョブ投入エラー',
+  async (request: NextRequest): Promise<NextResponse<RegisterMylistResponse | ErrorResponse>> => {
     // 認証チェック
     const session = await getSession();
     if (!session?.user) {
@@ -320,26 +325,5 @@ export async function POST(
       },
       { status: 200 }
     );
-  } catch (error) {
-    console.error('バッチジョブ投入エラー:', error);
-    await reportErrorEvent({
-      serviceId: 'niconico-mylist-assistant',
-      severity: 'error',
-      title: 'Batch ジョブ投入エラー',
-      message: toErrorMessage(error),
-      context: {
-        error: toErrorMessage(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      },
-    });
-
-    // AWS Batch エラー
-    return NextResponse.json(
-      {
-        error: 'BATCH_ERROR',
-        message: ERROR_MESSAGES.BATCH_JOB_SUBMISSION_FAILED,
-      },
-      { status: 500 }
-    );
   }
-}
+);

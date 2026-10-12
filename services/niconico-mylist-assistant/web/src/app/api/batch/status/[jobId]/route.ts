@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
-import { withAuth, withRepository, handleApiError } from '@nagiyu/nextjs';
+import { withAuth, withRepository } from '@nagiyu/nextjs';
 import type { BatchJobRepository } from '@nagiyu/niconico-mylist-assistant-core';
 import { DynamoDBBatchJobRepository } from '@nagiyu/niconico-mylist-assistant-core';
 import type { BatchJobStatusResponse } from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 
 interface RouteParams {
   params: Promise<{ jobId: string }>;
@@ -68,14 +69,20 @@ const withBatchJobRepository = withRepository(
   }
 );
 
+// withAuth は内側の例外を自前の 500 に変換してしまうため、報告は withAuth の内側で行う
+const getBatchJobStatus = withApiErrorReporting(
+  'Web API: バッチジョブステータス取得エラー',
+  async (
+    request: NextRequest,
+    context: RouteParams,
+    session: NonNullable<Awaited<ReturnType<typeof getSession>>>
+  ) => withBatchJobRepository(request, context, session)
+);
+
 export const GET = withAuth(
   getSession,
   null,
-  async (session, request: NextRequest, context: RouteParams) => {
-    try {
-      return await withBatchJobRepository(request, context, session);
-    } catch (error) {
-      return handleApiError(error);
-    }
-  }
+  // ラッパーの戻り値は Response に広がるが、どちらの経路も NextResponse を返す
+  async (session, request: NextRequest, context: RouteParams) =>
+    (await getBatchJobStatus(request, context, session)) as NextResponse
 );

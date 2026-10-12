@@ -27,8 +27,14 @@ jest.mock('@nagiyu/niconico-mylist-assistant-core', () => ({
   upsertUserVideoSetting: jest.fn(),
 }));
 
+// モック：@nagiyu/aws（エラー報告）
+jest.mock('@nagiyu/aws', () => ({
+  reportErrorEvent: jest.fn(),
+}));
+
 import { NextRequest } from 'next/server';
 import { POST } from '../../../../../../src/app/api/videos/bulk-import/route';
+import { reportErrorEvent } from '@nagiyu/aws';
 import { getSession } from '../../../../../../src/lib/auth/session';
 import {
   getVideoInfoBatch,
@@ -233,6 +239,72 @@ describe('POST /api/videos/bulk-import', () => {
     expect(json.failed).toBe(0);
     expect(json.skipped).toBe(0);
     expect(json.total).toBe(2);
+    expect(reportErrorEvent).not.toHaveBeenCalled();
+  });
+
+  it('既に存在する動画基本情報の作成失敗は想定内なので報告しない', async () => {
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+    mockGetUserVideoSetting.mockResolvedValue(null);
+    mockGetVideoInfoBatch.mockResolvedValue({ success: [makeVideoInfo('sm1')], failed: [] });
+    mockCreateVideoBasicInfo.mockRejectedValue(new Error('ConditionalCheckFailedException'));
+    mockUpsertUserVideoSetting.mockImplementation(async (input) =>
+      makeUserVideoSetting(input.videoId)
+    );
+
+    const response = await POST(makePostRequest({ videoIds: ['sm1'] }));
+    expect(response.status).toBe(200);
+
+    const json = await response.json();
+    expect(json.success).toBe(1);
+    expect(reportErrorEvent).not.toHaveBeenCalled();
+  });
+
+  it('DB 保存に失敗した動画は失敗件数に数えて 200 を返し、失敗ごとに報告する', async () => {
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+    mockGetUserVideoSetting.mockResolvedValue(null);
+    mockGetVideoInfoBatch.mockResolvedValue({
+      success: [makeVideoInfo('sm1'), makeVideoInfo('sm2')],
+      failed: [],
+    });
+    mockCreateVideoBasicInfo.mockImplementation(async (input) => makeVideoBasicInfo(input.videoId));
+    mockUpsertUserVideoSetting.mockImplementation(async (input) => {
+      if (input.videoId === 'sm2') {
+        throw new Error('DB 書き込み失敗');
+      }
+      return makeUserVideoSetting(input.videoId);
+    });
+
+    const response = await POST(makePostRequest({ videoIds: ['sm1', 'sm2'] }));
+    expect(response.status).toBe(200);
+
+    const json = await response.json();
+    expect(json.success).toBe(1);
+    expect(json.failed).toBe(1);
+    expect(reportErrorEvent).toHaveBeenCalledTimes(1);
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'niconico-mylist-assistant',
+        title: 'Web API: 動画一括登録の保存エラー',
+        message: 'DB 書き込み失敗',
+        context: expect.objectContaining({ userId: 'user123', videoId: 'sm2' }),
+      })
+    );
+  });
+
+  it('想定外の例外は 500 を返し、ラッパーが 1 回だけ報告する', async () => {
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+    mockGetUserVideoSetting.mockRejectedValue(new Error('DB 接続失敗'));
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const response = await POST(makePostRequest({ videoIds: ['sm1'] }));
+    expect(response.status).toBe(500);
+
+    const json = await response.json();
+    expect(json.error).toBe('サーバーエラーが発生しました');
+    expect(reportErrorEvent).toHaveBeenCalledTimes(1);
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Web API: 動画一括登録エラー' })
+    );
   });
 });
 
