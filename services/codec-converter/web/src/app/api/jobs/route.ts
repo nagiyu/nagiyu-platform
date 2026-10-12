@@ -7,10 +7,10 @@ import {
   type Job,
   type CodecType,
 } from '@nagiyu/codec-converter-core';
-import { toErrorMessage, type ErrorResponse } from '@nagiyu/common';
-import { getAwsClients, reportErrorEvent, createPresignedUploadUrl } from '@nagiyu/aws';
+import { getAwsClients, createPresignedUploadUrl } from '@nagiyu/aws';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 
 // Presigned URLの有効期限（1時間 = 3600秒）
 const PRESIGNED_URL_EXPIRES_IN = 3600;
@@ -50,10 +50,9 @@ interface CreateJobResponse {
  * POST /api/jobs
  * 新しい変換ジョブを作成し、アップロード用の Presigned URL を取得
  */
-export async function POST(
-  request: NextRequest
-): Promise<NextResponse<CreateJobResponse | ErrorResponse>> {
-  try {
+export const POST = withApiErrorReporting(
+  'ジョブ作成に失敗しました',
+  async (request: NextRequest) => {
     // AWS クライアントと環境変数の取得
     const { docClient, s3Client } = getAwsClients();
     const { DYNAMODB_TABLE, S3_BUCKET } = getEnvVars();
@@ -158,33 +157,15 @@ export async function POST(
     );
 
     // レスポンスを返却
-    return NextResponse.json(
-      {
-        jobId,
-        uploadUrl,
-        expiresIn: PRESIGNED_URL_EXPIRES_IN,
-      },
-      { status: 201 }
-    );
-  } catch (error) {
-    const errorMessage = toErrorMessage(error);
-    console.error('Error creating job:', error);
-    await reportErrorEvent({
-      serviceId: 'codec-converter',
-      severity: 'error',
-      title: 'ジョブ作成に失敗しました',
-      message: errorMessage,
-      context: { errorStack: error instanceof Error ? error.stack : undefined },
-    });
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_SERVER_ERROR',
-        message: ERROR_MESSAGES.JOB_CREATION_FAILED,
-      },
-      { status: 500 }
-    );
-  }
-}
+    const response: CreateJobResponse = {
+      jobId,
+      uploadUrl,
+      expiresIn: PRESIGNED_URL_EXPIRES_IN,
+    };
+    return NextResponse.json(response, { status: 201 });
+  },
+  ERROR_MESSAGES.JOB_CREATION_FAILED
+);
 
 /**
  * バリデーションエラーメッセージからエラーコードを取得

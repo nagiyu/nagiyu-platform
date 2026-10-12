@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { COMMON_ERROR_MESSAGES, hasPermission, toErrorMessage } from '@nagiyu/common';
-import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
+import { COMMON_ERROR_MESSAGES, hasPermission } from '@nagiyu/common';
+import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { createErrorEventReader } from '@nagiyu/admin-core';
 import { createErrorResponse } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 
 const ERROR_MESSAGES = {
   UNAUTHORIZED: 'ログインが必要です',
@@ -30,11 +31,9 @@ function getReader() {
   return createErrorEventReader(docClient, tableName);
 }
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ eventId: string }> }
-): Promise<NextResponse> {
-  try {
+export const GET = withApiErrorReporting(
+  'エラー詳細取得 API の実行に失敗しました',
+  async (request: Request, { params }: { params: Promise<{ eventId: string }> }) => {
     const session = await getSession();
     if (!session?.user) {
       return createErrorResponse(401, 'UNAUTHORIZED', ERROR_MESSAGES.UNAUTHORIZED);
@@ -60,18 +59,6 @@ export async function GET(
     }
 
     return NextResponse.json(event, { status: 200 });
-  } catch (error) {
-    console.error('エラー詳細取得 API の実行に失敗しました', { error });
-    await reportErrorEvent({
-      serviceId: 'admin',
-      severity: 'error',
-      title: 'エラー詳細取得 API の実行に失敗しました',
-      message: toErrorMessage(error),
-      context: {
-        endpoint: 'GET /api/errors/[eventId]',
-        errorStack: error instanceof Error ? error.stack : undefined,
-      },
-    });
-    return createErrorResponse(500, 'INTERNAL_ERROR', ERROR_MESSAGES.INTERNAL_ERROR);
-  }
-}
+  },
+  ERROR_MESSAGES.INTERNAL_ERROR
+);

@@ -7,6 +7,7 @@ import {
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { createWithApiErrorReportingBody } from '@/lib/api-error-reporting';
 
 /**
  * 二段階認証コード登録 API
@@ -17,8 +18,16 @@ import { ERROR_MESSAGES } from '@/lib/constants/errors';
  * @param request - Next.js リクエストオブジェクト
  * @returns 成功レスポンスまたはエラーレスポンス
  */
-export async function POST(request: NextRequest) {
-  try {
+const withApiErrorReporting = createWithApiErrorReportingBody('二段階認証コード登録エラー:', {
+  error: {
+    code: 'DATABASE_ERROR',
+    message: 'データベースへのアクセスに失敗しました',
+  },
+});
+
+export const POST = withApiErrorReporting(
+  'Web API: 二段階認証コード登録エラー',
+  async (request: NextRequest) => {
     // 認証チェック
     const session = await getSession();
     if (!session?.user) {
@@ -126,16 +135,5 @@ export async function POST(request: NextRequest) {
       success: true,
       message: '二段階認証コードを登録しました',
     });
-  } catch (error) {
-    console.error('二段階認証コード登録エラー:', error);
-    return NextResponse.json(
-      {
-        error: {
-          code: 'DATABASE_ERROR',
-          message: 'データベースへのアクセスに失敗しました',
-        },
-      },
-      { status: 500 }
-    );
   }
-}
+);

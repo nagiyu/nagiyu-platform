@@ -2,9 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { batchGetVideoBasicInfo, searchVideos } from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES, VALIDATION_LIMITS } from '@/lib/constants/errors';
+import { createWithApiErrorReportingBody } from '@/lib/api-error-reporting';
 
-export async function GET(request: NextRequest) {
-  try {
+const withApiErrorReporting = createWithApiErrorReportingBody('動画検索エラー:', {
+  error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+});
+
+export const GET = withApiErrorReporting(
+  'Web API: 動画検索エラー',
+  async (request: NextRequest) => {
     const session = await getSession();
     if (!session?.user) {
       return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });
@@ -38,8 +44,5 @@ export async function GET(request: NextRequest) {
       videos: videosWithRegistration,
       total: videosWithRegistration.length,
     });
-  } catch (error) {
-    console.error('動画検索エラー:', error);
-    return NextResponse.json({ error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR }, { status: 500 });
   }
-}
+);
