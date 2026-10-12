@@ -15,11 +15,9 @@ jest.mock('../../../../lib/auth', () => ({
 }));
 
 jest.mock('@nagiyu/nextjs', () => ({
+  createApiErrorReporting: jest.requireActual('@nagiyu/nextjs').createApiErrorReporting,
   withAuth: jest.fn((_auth, _permission, handler) => {
     return async (...args: unknown[]) => handler({ user: { id: 'test-user' } }, ...args);
-  }),
-  handleApiError: jest.fn((error) => {
-    throw error;
   }),
 }));
 

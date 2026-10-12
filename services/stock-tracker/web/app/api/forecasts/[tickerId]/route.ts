@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
 import type { ErrorResponse } from '@nagiyu/common';
 import { getSession } from '../../../../lib/auth';
+import { createInternalErrorReporting } from '../../../../lib/api-error-reporting';
 import {
   createDailySummaryRepository,
   createForecastRepository,
@@ -19,6 +20,8 @@ const ERROR_MESSAGES = {
   INTERNAL_ERROR: '確度の取得に失敗しました',
 } as const;
 
+const withInternalErrorReporting = createInternalErrorReporting(ERROR_MESSAGES.INTERNAL_ERROR);
+
 function errorResponse(
   error: string,
   message: string,
@@ -27,15 +30,16 @@ function errorResponse(
   return NextResponse.json({ error, message } satisfies ErrorResponse, { status });
 }
 
-export const GET = withAuth(
-  getSession,
-  'stocks:read',
-  async (
-    _session,
-    request: NextRequest,
-    { params }: { params: Promise<{ tickerId: string }> }
-  ): Promise<NextResponse> => {
-    try {
+export const GET = withInternalErrorReporting(
+  'Web API: 確度取得エラー',
+  withAuth(
+    getSession,
+    'stocks:read',
+    async (
+      _session,
+      request: NextRequest,
+      { params }: { params: Promise<{ tickerId: string }> }
+    ): Promise<NextResponse> => {
       const { tickerId } = await params;
       if (!tickerId) {
         return errorResponse('INVALID_REQUEST', ERROR_MESSAGES.INVALID_TICKER_ID, 400);
@@ -73,8 +77,6 @@ export const GET = withAuth(
       return NextResponse.json(buildForecastDetail(forecast, { DIR: dir, VOL: vol }), {
         status: 200,
       });
-    } catch {
-      return errorResponse('INTERNAL_ERROR', ERROR_MESSAGES.INTERNAL_ERROR, 500);
     }
-  }
+  )
 );

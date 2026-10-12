@@ -9,13 +9,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { validateAlert, calculateTemporaryExpireDate } from '@nagiyu/stock-tracker-core';
-import { withAuth, handleApiError, readJsonObjectBody } from '@nagiyu/nextjs';
+import { withAuth, readJsonObjectBody } from '@nagiyu/nextjs';
 import {
   createAlertRepository,
   createTickerRepository,
   createExchangeRepository,
 } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
+import { withApiErrorReporting } from '../../../../lib/api-error-reporting';
 import { parseAlertConditionList } from '../../../../lib/alert-condition';
 import { isRecord } from '../../../../lib/request-guards';
 import type { AlertEntity } from '@nagiyu/stock-tracker-core';
@@ -118,15 +119,16 @@ function mapAlertToResponse(
  * PUT /api/alerts/{id}
  * アラート更新
  */
-export const PUT = withAuth(
-  getSession,
-  'stocks:write-own',
-  async (
-    session,
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-  ): Promise<NextResponse<AlertResponse | ErrorResponse>> => {
-    try {
+export const PUT = withApiErrorReporting(
+  'Web API: アラート更新エラー',
+  withAuth(
+    getSession,
+    'stocks:write-own',
+    async (
+      session,
+      request: NextRequest,
+      { params }: { params: Promise<{ id: string }> }
+    ): Promise<NextResponse<AlertResponse | ErrorResponse>> => {
       // パラメータの取得
       const { id: alertId } = await params;
       const userId = session.user.id;
@@ -317,25 +319,24 @@ export const PUT = withAuth(
       );
 
       return NextResponse.json(response, { status: 200 });
-    } catch (error) {
-      return handleApiError(error);
     }
-  }
+  )
 );
 
 /**
  * DELETE /api/alerts/{id}
  * アラート削除
  */
-export const DELETE = withAuth(
-  getSession,
-  'stocks:write-own',
-  async (
-    session,
-    _request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-  ): Promise<NextResponse<DeleteResponse | ErrorResponse>> => {
-    try {
+export const DELETE = withApiErrorReporting(
+  'Web API: アラート削除エラー',
+  withAuth(
+    getSession,
+    'stocks:write-own',
+    async (
+      session,
+      _request: NextRequest,
+      { params }: { params: Promise<{ id: string }> }
+    ): Promise<NextResponse<DeleteResponse | ErrorResponse>> => {
       // パラメータの取得
       const { id: alertId } = await params;
       const userId = session.user.id;
@@ -353,8 +354,6 @@ export const DELETE = withAuth(
       };
 
       return NextResponse.json(response, { status: 200 });
-    } catch (error) {
-      return handleApiError(error);
     }
-  }
+  )
 );

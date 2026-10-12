@@ -24,6 +24,7 @@ const config: Config = {
   coverageDirectory: 'coverage',
   collectCoverageFrom: [
     'lib/repository-factory.ts',
+    'lib/api-error-reporting.ts',
     'lib/percentage-helper.ts',
     'lib/axis-performance-view/**/*.ts',
     'lib/forecast/**/*.ts',

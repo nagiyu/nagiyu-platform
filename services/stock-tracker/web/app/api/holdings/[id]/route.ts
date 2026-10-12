@@ -9,12 +9,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
-import { withAuth, handleApiError, readJsonObjectBody } from '@nagiyu/nextjs';
+import { withAuth, readJsonObjectBody } from '@nagiyu/nextjs';
 import {
   createHoldingRepository,
   createTickerRepository,
 } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
+import { withApiErrorReporting } from '../../../../lib/api-error-reporting';
 import type { Holding } from '@nagiyu/stock-tracker-core';
 
 /**
@@ -110,11 +111,12 @@ function parseHoldingId(holdingId: string): { userId: string; tickerId: string }
  * PUT /api/holdings/[id]
  * 保有株式更新
  */
-export const PUT = withAuth(
-  getSession,
-  'stocks:write-own',
-  async (session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-    try {
+export const PUT = withApiErrorReporting(
+  'Web API: 保有株式更新エラー',
+  withAuth(
+    getSession,
+    'stocks:write-own',
+    async (session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
       // paramsを await で取得 (Next.js 15+)
       const resolvedParams = await params;
 
@@ -226,21 +228,20 @@ export const PUT = withAuth(
       );
 
       return NextResponse.json(response, { status: 200 });
-    } catch (error) {
-      return handleApiError(error);
     }
-  }
+  )
 );
 
 /**
  * DELETE /api/holdings/[id]
  * 保有株式削除
  */
-export const DELETE = withAuth(
-  getSession,
-  'stocks:write-own',
-  async (session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-    try {
+export const DELETE = withApiErrorReporting(
+  'Web API: 保有株式削除エラー',
+  withAuth(
+    getSession,
+    'stocks:write-own',
+    async (session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
       // paramsを await で取得 (Next.js 15+)
       const resolvedParams = await params;
 
@@ -298,8 +299,6 @@ export const DELETE = withAuth(
       };
 
       return NextResponse.json(response, { status: 200 });
-    } catch (error) {
-      return handleApiError(error);
     }
-  }
+  )
 );

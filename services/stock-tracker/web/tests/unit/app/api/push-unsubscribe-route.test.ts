@@ -1,7 +1,13 @@
 import { NextRequest } from 'next/server';
+import * as awsModule from '@nagiyu/aws';
 import { DELETE } from '../../../../app/api/push/unsubscribe/route';
 import { getSession } from '../../../../lib/auth';
 import { MALFORMED_BODY_CASES } from './invalidBodyCases';
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
 
 jest.mock('../../../../lib/auth', () => ({
   getSession: jest.fn(),
@@ -49,6 +55,28 @@ describe('DELETE /api/push/unsubscribe', () => {
       expect(consoleErrorSpy).not.toHaveBeenCalled();
     }
   );
+
+  it('想定外のエラーは 500 を返して報告する', async () => {
+    (getSession as jest.Mock).mockRejectedValue(new Error('session error'));
+
+    const response = await DELETE(
+      createRequest(JSON.stringify({ endpoint: 'https://example.com/endpoint' }))
+    );
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: 'INTERNAL_ERROR',
+      message: 'サブスクリプションの解除に失敗しました',
+    });
+    expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: サブスクリプション解除エラー',
+        message: 'session error',
+      })
+    );
+  });
 
   it('endpoint がない場合は 400 を返す', async () => {
     const response = await DELETE(createRequest('{}'));

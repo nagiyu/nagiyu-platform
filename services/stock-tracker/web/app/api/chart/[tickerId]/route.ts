@@ -15,9 +15,12 @@ import {
 } from '@nagiyu/stock-tracker-core';
 import type { ChartData, ChartDataPoint } from '@nagiyu/stock-tracker-core';
 import { getAuthError } from '@nagiyu/nextjs';
-import type { ErrorResponse } from '@nagiyu/common';
 import { createHoldingRepository } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
+import {
+  createInternalErrorReporting,
+  reportSwallowedError,
+} from '../../../../lib/api-error-reporting';
 
 /**
  * エラーメッセージ定数
@@ -31,15 +34,22 @@ const ERROR_MESSAGES = {
   FETCH_HOLDING_FAILED: '保有情報の取得に失敗しました',
 } as const;
 
+const REPORT_TITLES = {
+  FETCH_HOLDING_FAILED: 'Web API: チャートの保有情報取得エラー',
+} as const;
+
+const withInternalErrorReporting = createInternalErrorReporting(
+  ERROR_MESSAGES.INTERNAL_ERROR,
+  'Error in chart API:'
+);
+
 /**
  * GET /api/chart/{tickerId}
  * チャートデータ取得
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ tickerId: string }> }
-): Promise<NextResponse<ChartData | ErrorResponse>> {
-  try {
+export const GET = withInternalErrorReporting(
+  'Web API: チャートデータ取得エラー',
+  async (request: NextRequest, { params }: { params: Promise<{ tickerId: string }> }) => {
     // 認証・権限チェック
     const session = await getSession();
     const authError = getAuthError(session, 'stocks:read');
@@ -183,15 +193,8 @@ export async function GET(
         }
       }
 
-      // その他のエラー
-      console.error('Error fetching chart data from TradingView:', error);
-      return NextResponse.json(
-        {
-          error: 'INTERNAL_ERROR',
-          message: ERROR_MESSAGES.INTERNAL_ERROR,
-        },
-        { status: 500 }
-      );
+      // 上記以外は想定外のため、ルート入口のラッパーに報告させる
+      throw error;
     }
 
     // ティッカーIDからシンボルを抽出（例: "NSDQ:NVDA" → "NVDA"）
@@ -209,7 +212,9 @@ export async function GET(
           holdingAveragePrice = holding.AveragePrice;
         }
       } catch (error) {
+        // 保有情報は付加情報のため、取得に失敗してもチャートは返す。握りつぶすので上位のラッパーでは拾えない
         console.error(ERROR_MESSAGES.FETCH_HOLDING_FAILED, error);
+        await reportSwallowedError(REPORT_TITLES.FETCH_HOLDING_FAILED, error, { tickerId });
       }
     }
 
@@ -223,14 +228,5 @@ export async function GET(
     };
 
     return NextResponse.json(response, { status: 200 });
-  } catch (error) {
-    console.error('Error in chart API:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_ERROR',
-        message: ERROR_MESSAGES.INTERNAL_ERROR,
-      },
-      { status: 500 }
-    );
   }
-}
+);

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import * as awsModule from '@nagiyu/aws';
 import { GET } from '../../../../app/api/forecasts/[tickerId]/route';
 import {
   createDailySummaryRepository,
@@ -7,6 +8,11 @@ import {
   createTickerRepository,
 } from '../../../../lib/repository-factory';
 import { forecastEntity, probabilityRecord, snapshot } from '../../lib/forecast/fixtures';
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
 
 jest.mock('../../../../lib/repository-factory', () => ({
   createDailySummaryRepository: jest.fn(),
@@ -20,6 +26,7 @@ jest.mock('../../../../lib/auth', () => ({
 }));
 
 jest.mock('@nagiyu/nextjs', () => ({
+  createApiErrorReporting: jest.requireActual('@nagiyu/nextjs').createApiErrorReporting,
   withAuth: jest.fn((_auth, _permission, handler) => {
     return async (...args: unknown[]) => handler({ user: { id: 'test-user' } }, ...args);
   }),
@@ -123,5 +130,13 @@ describe('GET /api/forecasts/[tickerId]', () => {
 
     expect(response.status).toBe(500);
     expect(body).toEqual({ error: 'INTERNAL_ERROR', message: '確度の取得に失敗しました' });
+    expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: 確度取得エラー',
+        message: 'db error',
+      })
+    );
   });
 });
