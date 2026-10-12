@@ -7,12 +7,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuth, handleApiError } from '@nagiyu/nextjs';
+import { withAuth } from '@nagiyu/nextjs';
 import {
   createAlertRepository,
   createTickerRepository,
 } from '../../../../../lib/repository-factory';
 import { getSession } from '../../../../../lib/auth';
+import { withApiErrorReporting } from '../../../../../lib/api-error-reporting';
 import { MAX_ALERTS_PER_USER } from '../../../../../lib/constants';
 import type { AlertEntity } from '@nagiyu/stock-tracker-core';
 
@@ -74,15 +75,16 @@ function mapAlertToResponse(
   return response;
 }
 
-export const GET = withAuth(
-  getSession,
-  'stocks:read',
-  async (
-    session,
-    _request: NextRequest,
-    { params }: { params: Promise<{ tickerId: string }> }
-  ): Promise<NextResponse> => {
-    try {
+export const GET = withApiErrorReporting(
+  'Web API: ティッカー単位のアラート一覧取得エラー',
+  withAuth(
+    getSession,
+    'stocks:read',
+    async (
+      session,
+      _request: NextRequest,
+      { params }: { params: Promise<{ tickerId: string }> }
+    ): Promise<NextResponse> => {
       const { tickerId } = await params;
       if (!tickerId || !tickerId.includes(':')) {
         return NextResponse.json(
@@ -117,8 +119,6 @@ export const GET = withAuth(
         },
         { status: 200 }
       );
-    } catch (error) {
-      return handleApiError(error);
     }
-  }
+  )
 );

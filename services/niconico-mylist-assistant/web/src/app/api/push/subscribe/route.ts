@@ -5,8 +5,10 @@
  */
 
 import { createPushSubscribeRoute } from '@nagiyu/nextjs';
+import { createPushRouteOnError } from '../../../../lib/api-error-reporting';
 import { getSession } from '../../../../lib/auth/session';
 
 export const POST = createPushSubscribeRoute({
   getSession,
+  onError: createPushRouteOnError('Web API: Push 購読登録エラー'),
 });

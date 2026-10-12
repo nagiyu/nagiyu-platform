@@ -47,14 +47,29 @@ const sharedAuthConfig = createAuthConfig({
       token.name = user.name;
       token.picture = user.image;
 
-      const userRepository = createUserRepository();
-      const dbUser = await userRepository.getUserByGoogleId(account.providerAccountId);
-      token.userId = dbUser?.userId;
-      token.roles = dbUser?.roles || [];
-      token.rolesRefreshedAt = Date.now();
+      try {
+        const userRepository = createUserRepository();
+        const dbUser = await userRepository.getUserByGoogleId(account.providerAccountId);
+        token.userId = dbUser?.userId;
+        token.roles = dbUser?.roles || [];
+        token.rolesRefreshedAt = Date.now();
 
-      if (dbUser) {
-        await userRepository.updateLastLogin(dbUser.userId);
+        if (dbUser) {
+          await userRepository.updateLastLogin(dbUser.userId);
+        }
+      } catch (error) {
+        // NextAuth が jwt コールバックの例外をログイン失敗として握るため、ここで報告しないと残らない
+        await reportErrorEvent({
+          serviceId: 'auth',
+          severity: 'error',
+          title: 'jwt コールバック: ログイン時のユーザー情報取得に失敗しました',
+          message: toErrorMessage(error),
+          context: {
+            step: 'loginUserLookup',
+            errorStack: error instanceof Error ? error.stack : undefined,
+          },
+        });
+        throw error;
       }
     } else if (token.googleId) {
       // ログイン以外の呼び出し: TTL ゲートまたは明示的な update トリガーでロールを再取得する

@@ -1,3 +1,4 @@
+import { reportErrorEvent } from '@nagiyu/aws';
 import { POST } from '@/app/api/jobs/[jobId]/highlights/[highlightId]/regenerate/route';
 import type { HighlightRepository } from '@nagiyu/quick-clip-core';
 import { getDynamoDBDocumentClient, getLambdaClient } from '@/lib/server/aws';
@@ -25,6 +26,11 @@ jest.mock('next/server', () => ({
       json: async () => body,
     }),
   },
+}));
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock('@/lib/server/aws', () => ({
@@ -100,5 +106,39 @@ describe('POST /api/jobs/[jobId]/highlights/[highlightId]/regenerate', () => {
       error: 'HIGHLIGHT_NOT_FOUND',
       message: '指定された見どころが見つかりません',
     });
+    expect(reportErrorEvent).not.toHaveBeenCalled();
+  });
+
+  it('異常系: 想定外のエラーは500を返し報告する', async () => {
+    mockGetById.mockResolvedValue({
+      highlightId: 'h1',
+      jobId: 'job-1',
+      order: 1,
+      startSec: 10,
+      endSec: 20,
+      status: 'accepted',
+      clipStatus: 'PENDING',
+    });
+    lambdaSend.mockRejectedValueOnce(new Error('invoke failed'));
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    const response = await POST({} as Request, {
+      params: Promise.resolve({ jobId: 'job-1', highlightId: 'h1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: 'INTERNAL_SERVER_ERROR',
+      message: 'クリップ再生成の開始に失敗しました',
+    });
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'quick-clip',
+        severity: 'error',
+        title: 'Web API: クリップ再生成開始エラー',
+      })
+    );
+    consoleErrorSpy.mockRestore();
   });
 });

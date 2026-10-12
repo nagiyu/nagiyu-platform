@@ -16,6 +16,7 @@ import { logger, toErrorMessage } from '@nagiyu/common';
 import { sendWebPushNotifications, getVapidConfig } from '@nagiyu/common/push';
 import { defaultUlidFactory, NOTIFICATION_EVENT_TTL_SECONDS } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
+import { reportSwallowedError, withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import {
   getPushSubscriptionRepository,
   getNotificationEventRepository,
@@ -35,36 +36,37 @@ const TEST_PUSH_ERROR_MESSAGES = {
   SEND_FAILED: 'テスト通知の送信に失敗しました',
 } as const;
 
-export const POST = withAuth(getSession, 'livetalk:admin', async (session, request: Request) => {
-  const userId = session.user.id;
+export const POST = withApiErrorReporting(
+  'Web API: テスト通知送信エラー',
+  withAuth(getSession, 'livetalk:admin', async (session, request: Request) => {
+    const userId = session.user.id;
 
-  // リクエストボディを解析する
-  const bodyResult = await readJsonObjectBody(request);
-  if (!bodyResult.ok) {
-    return NextResponse.json(
-      { error: 'INVALID_REQUEST', message: TEST_PUSH_ERROR_MESSAGES.INVALID_REQUEST_BODY },
-      { status: 400 }
-    );
-  }
+    // リクエストボディを解析する
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return NextResponse.json(
+        { error: 'INVALID_REQUEST', message: TEST_PUSH_ERROR_MESSAGES.INVALID_REQUEST_BODY },
+        { status: 400 }
+      );
+    }
 
-  // characterId バリデーション
-  const { characterId } = bodyResult.body;
+    // characterId バリデーション
+    const { characterId } = bodyResult.body;
 
-  if (typeof characterId !== 'string' || characterId.trim() === '') {
-    return NextResponse.json(
-      { error: 'INVALID_REQUEST', message: TEST_PUSH_ERROR_MESSAGES.MISSING_CHARACTER_ID },
-      { status: 400 }
-    );
-  }
+    if (typeof characterId !== 'string' || characterId.trim() === '') {
+      return NextResponse.json(
+        { error: 'INVALID_REQUEST', message: TEST_PUSH_ERROR_MESSAGES.MISSING_CHARACTER_ID },
+        { status: 400 }
+      );
+    }
 
-  if (!hasCharacter(characterId)) {
-    return NextResponse.json(
-      { error: 'UNKNOWN_CHARACTER', message: TEST_PUSH_ERROR_MESSAGES.UNKNOWN_CHARACTER },
-      { status: 400 }
-    );
-  }
+    if (!hasCharacter(characterId)) {
+      return NextResponse.json(
+        { error: 'UNKNOWN_CHARACTER', message: TEST_PUSH_ERROR_MESSAGES.UNKNOWN_CHARACTER },
+        { status: 400 }
+      );
+    }
 
-  try {
     // キャラクター定義からテスト通知の文面を生成する（テストと明確に分かる内容にする）
     const def = getCharacterDefinition(characterId);
     const title = `${def.notificationName}より`;
@@ -112,6 +114,12 @@ export const POST = withAuth(getSession, 'livetalk:admin', async (session, reque
           subscriptionId: sub.SubscriptionID,
           error: toErrorMessage(error),
         });
+        await reportSwallowedError(
+          'Web API: 無効なサブスクリプションの削除エラー',
+          error,
+          { characterId, subscriptionId: sub.SubscriptionID },
+          'warning'
+        );
       }
     }
 
@@ -152,15 +160,6 @@ export const POST = withAuth(getSession, 'livetalk:admin', async (session, reque
     }
 
     return NextResponse.json({ sent: sentCount, characterId }, { status: 200 });
-  } catch (error) {
-    logger.error('[POST /api/push/test] テスト通知送信に失敗しました', {
-      userId,
-      characterId,
-      error: toErrorMessage(error),
-    });
-    return NextResponse.json(
-      { error: 'SEND_FAILED', message: TEST_PUSH_ERROR_MESSAGES.SEND_FAILED },
-      { status: 500 }
-    );
-  }
-});
+  }),
+  { error: 'SEND_FAILED', message: TEST_PUSH_ERROR_MESSAGES.SEND_FAILED }
+);

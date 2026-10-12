@@ -490,6 +490,28 @@ throw new Error(ERROR_MESSAGES.EMPTY_INPUT);
 **理由**: メッセージの一元管理、変更の容易性
 **違反時の影響**: メッセージの不一致、メンテナンス性の低下
 
+#### MUST: エラーの報告は、例外を最後に受け止める層だけが行う
+
+- Web API はルート入口のラッパー (`@nagiyu/nextjs` の `createApiErrorReporting`)、Lambda / Batch は `withErrorReporting` が報告する
+- core・リポジトリは報告せず throw する
+- 例外を握りつぶして処理を続ける箇所は、上に届かないためその場で報告する
+
+```typescript
+// ❌ NG: 報告して再 throw すると、入口でも報告されて二重になる
+try {
+  await repository.save(item);
+} catch (error) {
+  await reportErrorEvent({ /* ... */ });
+  throw error;
+}
+
+// ✅ OK: core は throw するだけ。入口のラッパーが 1 回だけ報告する
+await repository.save(item);
+```
+
+**理由**: 例外は呼び出し元をたどって最後の層に必ず届くので、そこで報告すれば漏れも重複もなくなる。途中の層が報告すると、同じ障害が複数件の ErrorEvent になる
+**違反時の影響**: 同一障害の二重報告、握りつぶした例外の報告漏れ
+
 #### SHOULD: 技術的な詳細より対処方法を優先
 
 ```typescript

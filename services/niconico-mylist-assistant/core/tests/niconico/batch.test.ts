@@ -1,6 +1,11 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { reportErrorEvent } from '@nagiyu/aws';
 import { getVideoInfoBatch } from '../../src/niconico/batch';
 import * as client from '../../src/niconico/client';
+
+jest.mock('@nagiyu/aws', () => ({
+  reportErrorEvent: jest.fn(),
+}));
 
 describe('getVideoInfoBatch', () => {
   beforeEach(() => {
@@ -65,6 +70,34 @@ describe('getVideoInfoBatch', () => {
     expect(result.success[1].videoId).toBe('sm3');
     expect(result.failed[0].videoId).toBe('sm2');
     expect(result.failed[0].error).toBe('動画が見つかりませんでした');
+    // 失敗を握って処理を続けるため、ここで報告する
+    expect(reportErrorEvent).toHaveBeenCalledTimes(1);
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'niconico-mylist-assistant',
+        title: 'Niconico API エラー',
+        message: '動画が見つかりませんでした',
+        context: { videoId: 'sm2', errorCode: 'NOT_FOUND' },
+      })
+    );
+
+    mockGetVideoInfo.mockRestore();
+  });
+
+  it('should report unknown errors as failed with a generic message', async () => {
+    const mockGetVideoInfo = jest
+      .spyOn(client, 'getVideoInfo')
+      .mockRejectedValue(new Error('予期しない失敗'));
+
+    const result = await getVideoInfoBatch(['sm1']);
+
+    expect(result.failed).toEqual([{ videoId: 'sm1', error: '不明なエラー' }]);
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: '予期しない失敗',
+        context: { videoId: 'sm1', errorCode: undefined },
+      })
+    );
 
     mockGetVideoInfo.mockRestore();
   });

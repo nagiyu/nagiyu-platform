@@ -13,12 +13,10 @@ jest.mock('../../../../lib/auth', () => ({
 }));
 
 jest.mock('@nagiyu/nextjs', () => ({
+  createApiErrorReporting: jest.requireActual('@nagiyu/nextjs').createApiErrorReporting,
   readJsonObjectBody: jest.requireActual('@nagiyu/nextjs').readJsonObjectBody,
   withAuth: jest.fn((_auth, _permission, handler) => {
     return async (...args: unknown[]) => handler({ user: { id: 'test-user' } }, ...args);
-  }),
-  handleApiError: jest.fn((error) => {
-    throw error;
   }),
 }));
 
@@ -46,10 +44,18 @@ describe('PUT /api/tickers/[id]', () => {
       headers: { 'content-type': 'application/json' },
     });
 
-    await expect(PUT(request, makeParams('NSDQ:AAPL'))).rejects.toThrow();
+    const response = await PUT(request, makeParams('NSDQ:AAPL'));
+
+    expect(response.status).toBe(500);
     expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ serviceId: 'stock-tracker', severity: 'error' })
+      expect.objectContaining({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: ティッカー更新エラー',
+        message: expect.stringContaining('DynamoDB'),
+      })
     );
+    expect(awsModule.reportErrorEvent).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -130,9 +136,17 @@ describe('DELETE /api/tickers/[id]', () => {
       method: 'DELETE',
     });
 
-    await expect(DELETE(request, makeParams('NSDQ:AAPL'))).rejects.toThrow();
+    const response = await DELETE(request, makeParams('NSDQ:AAPL'));
+
+    expect(response.status).toBe(500);
     expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ serviceId: 'stock-tracker', severity: 'error' })
+      expect.objectContaining({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: ティッカー削除エラー',
+        message: expect.stringContaining('DynamoDB'),
+      })
     );
+    expect(awsModule.reportErrorEvent).toHaveBeenCalledTimes(1);
   });
 });

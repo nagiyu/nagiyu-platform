@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
-import { withAuth, withRepository, handleApiError } from '@nagiyu/nextjs';
+import { withAuth, withRepository } from '@nagiyu/nextjs';
 import type { BatchJobRepository } from '@nagiyu/niconico-mylist-assistant-core';
 import { DynamoDBBatchJobRepository } from '@nagiyu/niconico-mylist-assistant-core';
 import type { BatchJobStatusResponse } from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 
 interface RouteParams {
   params: Promise<{ jobId: string }>;
@@ -68,14 +69,9 @@ const withBatchJobRepository = withRepository(
   }
 );
 
-export const GET = withAuth(
-  getSession,
-  null,
-  async (session, request: NextRequest, context: RouteParams) => {
-    try {
-      return await withBatchJobRepository(request, context, session);
-    } catch (error) {
-      return handleApiError(error);
-    }
-  }
+export const GET = withApiErrorReporting(
+  'Web API: バッチジョブステータス取得エラー',
+  withAuth(getSession, null, (session, request: NextRequest, context: RouteParams) =>
+    withBatchJobRepository(request, context, session)
+  )
 );

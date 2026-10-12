@@ -61,7 +61,7 @@ describe('admin /api/errors の reportErrorEvent 連携', () => {
         severity: 'error',
         title: 'エラー一覧取得 API の実行に失敗しました',
         message: 'DynamoDB 接続失敗',
-        context: expect.objectContaining({ endpoint: 'GET /api/errors' }),
+        context: expect.objectContaining({ method: 'GET', pathname: '/api/errors' }),
       })
     );
   });
@@ -84,7 +84,7 @@ describe('admin /api/errors の reportErrorEvent 連携', () => {
         severity: 'error',
         title: 'エラー詳細取得 API の実行に失敗しました',
         message: 'DynamoDB 読み取り失敗',
-        context: expect.objectContaining({ endpoint: 'GET /api/errors/[eventId]' }),
+        context: expect.objectContaining({ method: 'GET', pathname: '/api/errors/evt-1' }),
       })
     );
   });

@@ -15,6 +15,7 @@ import {
   getS3Client,
   getTableName,
 } from '@/lib/server/aws';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { VALID_EMOTION_FILTERS } from '@/lib/server/emotion-filter';
 import { JobDomainService } from '@/lib/server/domain-services';
 
@@ -69,8 +70,10 @@ const isCompleteUploadRequest = (body: Record<string, unknown>): body is Complet
   return true;
 };
 
-export async function POST(request: Request, { params }: RouteParams): Promise<NextResponse> {
-  try {
+export const POST = withApiErrorReporting(
+  'Web API: アップロード完了処理エラー',
+  ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+  async (request: Request, { params }: RouteParams): Promise<NextResponse> => {
     const { jobId } = await params;
     const bodyResult = await readJsonObjectBody(request);
     if (!bodyResult.ok || !isCompleteUploadRequest(bodyResult.body)) {
@@ -142,17 +145,5 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
     await jobService.updateBatchJobId(job.jobId, submitResponse.jobId!);
 
     return NextResponse.json({}, { status: 200 });
-  } catch (error) {
-    console.error(
-      '[POST /api/jobs/[jobId]/complete-upload] アップロード完了処理に失敗しました',
-      error
-    );
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_SERVER_ERROR',
-        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-      },
-      { status: 500 }
-    );
   }
-}
+);

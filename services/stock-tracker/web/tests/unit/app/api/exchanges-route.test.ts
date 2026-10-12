@@ -13,12 +13,10 @@ jest.mock('../../../../lib/auth', () => ({
 }));
 
 jest.mock('@nagiyu/nextjs', () => ({
+  createApiErrorReporting: jest.requireActual('@nagiyu/nextjs').createApiErrorReporting,
   readJsonObjectBody: jest.requireActual('@nagiyu/nextjs').readJsonObjectBody,
   withAuth: jest.fn((_auth, _permission, handler) => {
     return async (...args: unknown[]) => handler({ user: { id: 'test-user' } }, ...args);
-  }),
-  handleApiError: jest.fn((error) => {
-    throw error;
   }),
 }));
 
@@ -128,10 +126,18 @@ describe('GET /api/exchanges', () => {
   it('DynamoDB エラー時に reportErrorEvent が呼ばれる', async () => {
     mockGetAll.mockRejectedValue(new Error('DynamoDB 接続エラー'));
 
-    await expect(GET()).rejects.toThrow('DynamoDB 接続エラー');
+    const response = await GET();
+
+    expect(response.status).toBe(500);
     expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ serviceId: 'stock-tracker', severity: 'error' })
+      expect.objectContaining({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: 取引所一覧取得エラー',
+        message: expect.stringContaining('DynamoDB'),
+      })
     );
+    expect(awsModule.reportErrorEvent).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -278,10 +284,18 @@ describe('POST /api/exchanges', () => {
   it('DynamoDB エラー時に reportErrorEvent が呼ばれる', async () => {
     mockCreate.mockRejectedValue(new Error('DynamoDB 書き込みエラー'));
 
-    await expect(POST(createRequest(validBody) as never)).rejects.toThrow();
+    const response = await POST(createRequest(validBody) as never);
+
+    expect(response.status).toBe(500);
     expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ serviceId: 'stock-tracker', severity: 'error' })
+      expect.objectContaining({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: 取引所作成エラー',
+        message: expect.stringContaining('DynamoDB'),
+      })
     );
+    expect(awsModule.reportErrorEvent).toHaveBeenCalledTimes(1);
   });
 });
 

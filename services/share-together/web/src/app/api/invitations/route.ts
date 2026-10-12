@@ -1,24 +1,22 @@
 import { type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { NextResponse } from 'next/server';
 import type { InvitationSummary, InvitationsResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { batchGetAll, getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
+import { batchGetAll, getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import {
   createGroupRepository,
   createMembershipRepository,
   createUserRepository,
 } from '@nagiyu/share-together-core';
-import { toErrorMessage } from '@nagiyu/common';
-import {
-  createValidationErrorResponse,
-  createInternalServerErrorResponse,
-} from '@/lib/api/responses';
+import { createValidationErrorResponse } from '@/lib/api/responses';
 
 const USER_META_SK = '#META#';
 
-export async function GET(): Promise<NextResponse> {
-  try {
+export const GET = withApiErrorReporting(
+  'Web API: 招待一覧取得エラー',
+  async (): Promise<NextResponse> => {
     const sessionOrUnauthorized = await getSessionOrUnauthorized();
     if ('status' in sessionOrUnauthorized) {
       return sessionOrUnauthorized;
@@ -81,19 +79,8 @@ export async function GET(): Promise<NextResponse> {
     };
 
     return NextResponse.json(response);
-  } catch (error) {
-    const errorMessage = toErrorMessage(error);
-    console.error('招待一覧取得 API の実行に失敗しました', { error });
-    await reportErrorEvent({
-      serviceId: 'share-together',
-      severity: 'error',
-      title: 'Web API: 招待一覧取得エラー',
-      message: errorMessage,
-      context: { errorStack: error instanceof Error ? error.stack : undefined },
-    });
-    return createInternalServerErrorResponse();
   }
-}
+);
 
 async function getInviterNames(
   docClient: DynamoDBDocumentClient | undefined,

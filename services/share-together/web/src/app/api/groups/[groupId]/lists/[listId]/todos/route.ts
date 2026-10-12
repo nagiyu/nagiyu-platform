@@ -1,15 +1,12 @@
 import { type ListRepository, type TodoRepository } from '@nagiyu/share-together-core';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { NextResponse } from 'next/server';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import type { TodoResponse, TodosResponse } from '@/types';
 import { getAuthorizedGroupContext } from '@/lib/api/authorization';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createListRepository, createTodoRepository } from '@nagiyu/share-together-core';
-import {
-  createValidationErrorResponse,
-  createNotFoundErrorResponse,
-  createInternalServerErrorResponse,
-} from '@/lib/api/responses';
+import { createValidationErrorResponse, createNotFoundErrorResponse } from '@/lib/api/responses';
 
 type RouteParams = {
   params: Promise<{ groupId: string; listId: string }>;
@@ -40,17 +37,13 @@ async function getAuthorizedContext(params: RouteParams['params']): Promise<
   };
 }
 
-export async function GET(_request: Request, { params }: RouteParams): Promise<NextResponse> {
-  let requestedGroupId: string | undefined;
-  let requestedListId: string | undefined;
-  try {
+export const GET = withApiErrorReporting(
+  'Web API: グループ共有ToDo一覧取得エラー',
+  async (_request: Request, { params }: RouteParams): Promise<NextResponse> => {
     const authorizedContextOrResponse = await getAuthorizedContext(params);
     if ('status' in authorizedContextOrResponse) {
       return authorizedContextOrResponse;
     }
-
-    requestedGroupId = authorizedContextOrResponse.groupId;
-    requestedListId = authorizedContextOrResponse.listId;
 
     const existingList = await authorizedContextOrResponse.listRepository.getGroupListById(
       authorizedContextOrResponse.groupId,
@@ -66,29 +59,16 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
     const response: TodosResponse = { data: { todos } };
 
     return NextResponse.json(response);
-  } catch (error) {
-    console.error('グループ共有ToDo一覧取得 API の実行に失敗しました', {
-      groupId: requestedGroupId,
-      listId: requestedListId,
-      error,
-    });
-    return createInternalServerErrorResponse();
   }
-}
+);
 
-export async function POST(request: Request, { params }: RouteParams): Promise<NextResponse> {
-  let requestedGroupId: string | undefined;
-  let requestedListId: string | undefined;
-  let requestedUserId: string | undefined;
-  try {
+export const POST = withApiErrorReporting(
+  'Web API: グループ共有ToDo作成エラー',
+  async (request: Request, { params }: RouteParams): Promise<NextResponse> => {
     const authorizedContextOrResponse = await getAuthorizedContext(params);
     if ('status' in authorizedContextOrResponse) {
       return authorizedContextOrResponse;
     }
-
-    requestedGroupId = authorizedContextOrResponse.groupId;
-    requestedListId = authorizedContextOrResponse.listId;
-    requestedUserId = authorizedContextOrResponse.userId;
 
     const bodyResult = await readJsonObjectBody(request);
     if (!bodyResult.ok) {
@@ -118,13 +98,5 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
     const response: TodoResponse = { data: todo };
 
     return NextResponse.json(response, { status: 201 });
-  } catch (error) {
-    console.error('グループ共有ToDo作成 API の実行に失敗しました', {
-      groupId: requestedGroupId,
-      listId: requestedListId,
-      userId: requestedUserId,
-      error,
-    });
-    return createInternalServerErrorResponse();
   }
-}
+);

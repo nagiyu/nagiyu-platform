@@ -7,9 +7,13 @@ import { getSession } from '@/lib/server/session';
 import { getLLMClient } from '@/lib/server/llm';
 import { getVoiceClient } from '@/lib/server/voice';
 import { getMessageRepository, getChatGuardRepository } from '@/lib/server/repositories';
-import { DatabaseError } from '@nagiyu/aws';
+import { DatabaseError, reportErrorEvent } from '@nagiyu/aws';
 
 jest.mock('@/lib/server/session', () => ({ getSession: jest.fn() }));
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
 jest.mock('@/lib/server/llm', () => ({ getLLMClient: jest.fn() }));
 jest.mock('@/lib/server/voice', () => ({ getVoiceClient: jest.fn() }));
 jest.mock('@/lib/server/repositories', () => ({
@@ -206,6 +210,13 @@ describe('POST /api/chat', () => {
       expect(res.status).toBe(200);
       const events = await readNDJSONStream(res);
       expect(events[0]).toMatchObject({ type: 'error' });
+      expect(reportErrorEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          serviceId: 'livetalk',
+          title: 'Web API: チャットのストリーミングエラー',
+          message: 'usecase error',
+        })
+      );
     });
 
     it('runChatUseCase に userId と userText が渡される', async () => {
@@ -399,6 +410,9 @@ describe('POST /api/chat', () => {
       // フェイルオープン: 障害でもリクエストを通す
       expect(res.status).toBe(200);
       expect(mockRunChatUseCase).toHaveBeenCalled();
+      expect(reportErrorEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Web API: チャットのロック取得エラー (バイパス)' })
+      );
     });
 
     it('ロック取得が DatabaseError の場合は releaseLock が呼ばれない', async () => {
@@ -424,6 +438,11 @@ describe('POST /api/chat', () => {
       // フェイルオープン: 障害でもリクエストを通す
       expect(res.status).toBe(200);
       expect(mockRunChatUseCase).toHaveBeenCalled();
+      expect(reportErrorEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Web API: チャットのレートリミット確認エラー (バイパス)',
+        })
+      );
     });
 
     // ---- ロック解放 ----

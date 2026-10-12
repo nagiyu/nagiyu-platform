@@ -207,7 +207,7 @@ describe('withAuth', () => {
     expect(response.status).toBe(403);
   });
 
-  it('ハンドラーでエラーが発生した場合、500エラーを返す', async () => {
+  it('ハンドラーの例外は握らず投げ直す', async () => {
     const mockSession: Session = {
       user: {
         id: 'user-1',
@@ -219,16 +219,28 @@ describe('withAuth', () => {
     };
 
     const mockAuth: AuthFunction = jest.fn(async () => mockSession);
+    const failure = new Error('Handler error');
     const handler = jest
       .fn<(session: Session, request: NextRequest) => Promise<NextResponse>>()
-      .mockRejectedValue(new Error('Handler error'));
+      .mockRejectedValue(failure);
     const wrappedHandler = withAuth(mockAuth, 'stocks:read', handler);
     const request = new NextRequest('http://localhost/api/test');
-    const response = await wrappedHandler(request);
 
+    await expect(wrappedHandler(request)).rejects.toBe(failure);
     expect(handler).toHaveBeenCalled();
-    expect(response.status).toBe(500);
-    expect(consoleErrorSpy).toHaveBeenCalled();
+  });
+
+  it('auth() の例外は握らず投げ直し、ハンドラーを実行しない', async () => {
+    const failure = new Error('Auth error');
+    const mockAuth: AuthFunction = jest.fn(async () => {
+      throw failure;
+    });
+    const handler = jest.fn<(session: Session, request: NextRequest) => Promise<NextResponse>>();
+    const wrappedHandler = withAuth(mockAuth, 'stocks:read', handler);
+    const request = new NextRequest('http://localhost/api/test');
+
+    await expect(wrappedHandler(request)).rejects.toBe(failure);
+    expect(handler).not.toHaveBeenCalled();
   });
 
   it('権限指定なしの場合、roles が空でもハンドラーを実行する', async () => {

@@ -6,11 +6,13 @@
  */
 import { createPushSubscribeRoute } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/server/session';
+import { createPushRouteErrorReporter } from '@/lib/server/api-error-reporting';
 import { getPushSubscriptionRepository } from '@/lib/server/repositories';
 
 export const POST = createPushSubscribeRoute({
   getSession,
   requiredPermission: 'livetalk:chat',
+  onError: createPushRouteErrorReporter('Web API: Push 購読登録エラー'),
   onSubscribe: async ({ session, subscription, subscriptionId }) => {
     await getPushSubscriptionRepository().put({
       UserID: session.user.id,

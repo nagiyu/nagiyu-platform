@@ -10,6 +10,10 @@ import type { ErrorResponse } from '@nagiyu/common';
 import { withAuth } from '@nagiyu/nextjs';
 import { getSession } from '../../../lib/auth';
 import {
+  createInternalErrorReporting,
+  reportSwallowedError,
+} from '../../../lib/api-error-reporting';
+import {
   createAlertRepository,
   createDailySummaryRepository,
   createExchangeRepository,
@@ -35,6 +39,16 @@ const ERROR_MESSAGES = {
   FETCH_FORECASTS_FAILED: '確度情報の取得に失敗しました',
   FETCH_MARKET_FORECASTS_FAILED: '市場の荒れ予報の取得に失敗しました',
 } as const;
+
+// 付加情報の取得失敗は握りつぶして一覧を返すため、上位のラッパーでは拾えない。その場で報告する
+const REPORT_TITLES = {
+  FETCH_HOLDINGS_FAILED: 'Web API: サマリーの保有株式取得エラー',
+  FETCH_ALERTS_FAILED: 'Web API: サマリーのアラート取得エラー',
+  FETCH_FORECASTS_FAILED: 'Web API: サマリーの確度取得エラー',
+  FETCH_MARKET_FORECASTS_FAILED: 'Web API: サマリーの市場の荒れ予報取得エラー',
+} as const;
+
+const withInternalErrorReporting = createInternalErrorReporting(ERROR_MESSAGES.INTERNAL_ERROR);
 // サマリーAPIでは保有情報取得を1回のレスポンスで完結させるため、初期実装は100件を上限とする。
 // getByUserId の limit で先頭100件のみ取得し、典型的な利用の保有銘柄数を満たしつつ
 // レスポンス遅延や過剰なDBアクセスを抑制する。
@@ -152,6 +166,7 @@ async function fetchHoldingMap(userId: string): Promise<Map<string, HoldingSumma
     );
   } catch (error) {
     console.error(ERROR_MESSAGES.FETCH_HOLDINGS_FAILED, error);
+    await reportSwallowedError(REPORT_TITLES.FETCH_HOLDINGS_FAILED, error);
     return new Map<string, HoldingSummaryResponse>();
   }
 }
@@ -181,6 +196,7 @@ async function fetchAlertCountMap(userId: string): Promise<Map<string, TickerAle
     return alertCountMap;
   } catch (error) {
     console.error(ERROR_MESSAGES.FETCH_ALERTS_FAILED, error);
+    await reportSwallowedError(REPORT_TITLES.FETCH_ALERTS_FAILED, error);
     return new Map<string, TickerAlertCountResponse>();
   }
 }
@@ -201,6 +217,7 @@ async function fetchForecastMap(
     return indexForecastsByTicker(forecasts);
   } catch (error) {
     console.error(ERROR_MESSAGES.FETCH_FORECASTS_FAILED, error);
+    await reportSwallowedError(REPORT_TITLES.FETCH_FORECASTS_FAILED, error);
     return new Map<string, ForecastEntity>();
   }
 }
@@ -224,6 +241,7 @@ async function fetchMarketForecasts(
     );
   } catch (error) {
     console.error(ERROR_MESSAGES.FETCH_MARKET_FORECASTS_FAILED, error);
+    await reportSwallowedError(REPORT_TITLES.FETCH_MARKET_FORECASTS_FAILED, error);
     return (['JP', 'US'] as const).map((market) => ({ market, date: null, forecast: null }));
   }
 }
@@ -253,14 +271,15 @@ async function buildExchangeSummaryGroup(
   };
 }
 
-export const GET = withAuth(
-  getSession,
-  'stocks:read',
-  async (
-    session,
-    request: NextRequest
-  ): Promise<NextResponse<SummariesResponse | ErrorResponse>> => {
-    try {
+export const GET = withInternalErrorReporting(
+  'Web API: サマリー一覧取得エラー',
+  withAuth(
+    getSession,
+    'stocks:read',
+    async (
+      session,
+      request: NextRequest
+    ): Promise<NextResponse<SummariesResponse | ErrorResponse>> => {
       const { searchParams } = new URL(request.url);
       const date = searchParams.get('date');
 
@@ -302,14 +321,6 @@ export const GET = withAuth(
         { exchanges: exchangeSummaryGroups, marketForecasts },
         { status: 200 }
       );
-    } catch {
-      return NextResponse.json(
-        {
-          error: 'INTERNAL_ERROR',
-          message: ERROR_MESSAGES.INTERNAL_ERROR,
-        },
-        { status: 500 }
-      );
     }
-  }
+  )
 );

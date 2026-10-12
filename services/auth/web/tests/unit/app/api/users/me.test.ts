@@ -68,11 +68,12 @@ describe('GET /api/users/me', () => {
     const response = await GET();
 
     expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: 'ユーザー情報の取得に失敗しました' });
     expect(mockReportErrorEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         serviceId: 'auth',
+        title: 'Web API: 自分のユーザー情報取得エラー',
         message: 'DB error',
-        context: expect.objectContaining({ userId: 'user-123' }),
       })
     );
   });

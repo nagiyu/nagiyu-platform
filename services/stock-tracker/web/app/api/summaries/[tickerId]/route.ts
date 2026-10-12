@@ -3,6 +3,10 @@ import { withAuth } from '@nagiyu/nextjs';
 import { DailySummaryMapper } from '@nagiyu/stock-tracker-core';
 import { getSession } from '../../../../lib/auth';
 import {
+  createInternalErrorReporting,
+  reportSwallowedError,
+} from '../../../../lib/api-error-reporting';
+import {
   createAlertRepository,
   createDailySummaryRepository,
   createForecastRepository,
@@ -20,6 +24,12 @@ const ERROR_MESSAGES = {
   FETCH_FORECAST_FAILED: '確度情報の取得に失敗しました',
 } as const;
 
+const REPORT_TITLES = {
+  FETCH_FORECAST_FAILED: 'Web API: サマリーの確度取得エラー',
+} as const;
+
+const withInternalErrorReporting = createInternalErrorReporting(ERROR_MESSAGES.INTERNAL_ERROR);
+
 const dailySummaryMapper = new DailySummaryMapper();
 
 /** 確度は付加情報のため、取得に失敗してもサマリー自体は返す */
@@ -30,19 +40,21 @@ async function fetchForecastSummary(tickerId: string, date: string) {
     );
   } catch (error) {
     console.error(ERROR_MESSAGES.FETCH_FORECAST_FAILED, error);
+    await reportSwallowedError(REPORT_TITLES.FETCH_FORECAST_FAILED, error, { tickerId });
     return null;
   }
 }
 
-export const GET = withAuth(
-  getSession,
-  'stocks:read',
-  async (
-    session,
-    _request: Request,
-    { params }: { params: Promise<{ tickerId: string }> }
-  ): Promise<NextResponse> => {
-    try {
+export const GET = withInternalErrorReporting(
+  'Web API: サマリー取得エラー',
+  withAuth(
+    getSession,
+    'stocks:read',
+    async (
+      session,
+      _request: Request,
+      { params }: { params: Promise<{ tickerId: string }> }
+    ): Promise<NextResponse> => {
       const { tickerId } = await params;
 
       if (!tickerId || !tickerId.includes(':')) {
@@ -116,14 +128,6 @@ export const GET = withAuth(
         },
         { status: 200 }
       );
-    } catch {
-      return NextResponse.json(
-        {
-          error: 'INTERNAL_ERROR',
-          message: ERROR_MESSAGES.INTERNAL_ERROR,
-        } satisfies ErrorResponse,
-        { status: 500 }
-      );
     }
-  }
+  )
 );

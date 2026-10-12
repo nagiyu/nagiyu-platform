@@ -1,3 +1,4 @@
+import { reportErrorEvent } from '@nagiyu/aws';
 import type { JobRepository } from '@nagiyu/quick-clip-core';
 import { getBatchClient, getS3Client } from '@/lib/server/aws';
 import { POST } from '@/app/api/jobs/[jobId]/complete-upload/route';
@@ -15,6 +16,11 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
         updateBatchJobId: mockUpdateBatchJobId,
       }) as unknown as JobRepository
   ),
+}));
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock('@/lib/server/aws', () => ({
@@ -256,8 +262,15 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
       message: 'アップロード完了処理に失敗しました',
     });
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '[POST /api/jobs/[jobId]/complete-upload] アップロード完了処理に失敗しました',
+      '[Web API: アップロード完了処理エラー]',
       multipartError
+    );
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'quick-clip',
+        severity: 'error',
+        title: 'Web API: アップロード完了処理エラー',
+      })
     );
   });
 
