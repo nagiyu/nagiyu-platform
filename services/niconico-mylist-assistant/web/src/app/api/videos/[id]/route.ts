@@ -7,13 +7,23 @@ import {
 } from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { createWithApiErrorReportingBody } from '@/lib/api-error-reporting';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
+const withGetErrorReporting = createWithApiErrorReportingBody('Get video error:', {
+  error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+});
+
+const withDeleteErrorReporting = createWithApiErrorReportingBody('Delete video error:', {
+  error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+});
+
+export const GET = withGetErrorReporting(
+  'Web API: 動画取得エラー',
+  async (request: NextRequest, { params }: RouteParams) => {
     const { id } = await params;
 
     // 認証チェック
@@ -52,14 +62,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     };
 
     return NextResponse.json({ video });
-  } catch (error) {
-    console.error('Get video error:', error);
-    return NextResponse.json({ error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR }, { status: 500 });
   }
-}
+);
 
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
+export const DELETE = withDeleteErrorReporting(
+  'Web API: 動画削除エラー',
+  async (request: NextRequest, { params }: RouteParams) => {
     const { id } = await params;
 
     // 認証チェック
@@ -86,8 +94,5 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     ]);
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Delete video error:', error);
-    return NextResponse.json({ error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR }, { status: 500 });
   }
-}
+);
