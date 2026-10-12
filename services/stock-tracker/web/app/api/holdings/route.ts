@@ -10,9 +10,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { validateHolding } from '@nagiyu/stock-tracker-core';
-import { withAuth, handleApiError, parsePagination } from '@nagiyu/nextjs';
+import { withAuth, handleApiError, parsePagination, readJsonObjectBody } from '@nagiyu/nextjs';
 import { createHoldingRepository, createTickerRepository } from '../../../lib/repository-factory';
 import { getSession } from '../../../lib/auth';
+import { isOptionalString } from '../../../lib/request-guards';
 import type { Holding } from '@nagiyu/stock-tracker-core';
 
 /**
@@ -136,10 +137,8 @@ export const POST = withAuth(
   async (session, request: NextRequest) => {
     try {
       // リクエストボディの取得
-      let body;
-      try {
-        body = await request.json();
-      } catch {
+      const bodyResult = await readJsonObjectBody(request);
+      if (!bodyResult.ok) {
         return NextResponse.json(
           {
             error: 'INVALID_REQUEST',
@@ -148,25 +147,58 @@ export const POST = withAuth(
           { status: 400 }
         );
       }
+      const {
+        tickerId,
+        exchangeId: requestedExchangeId,
+        quantity,
+        averagePrice,
+        currency,
+      } = bodyResult.body;
+
+      // 文字列の項目は、バリデーションが文字列であることを前提にするため先に型を確かめる
+      // (数量と価格の型違いはバリデーションが指摘する)
+      if (
+        !isOptionalString(tickerId) ||
+        !isOptionalString(requestedExchangeId) ||
+        !isOptionalString(currency)
+      ) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.VALIDATION_ERROR,
+          },
+          { status: 400 }
+        );
+      }
 
       // ユーザーIDを取得
       const userId = session!.user.id;
 
+      // 取引所IDは未指定ならティッカーID ({取引所}:{シンボル}) の先頭から補う
+      const exchangeId = requestedExchangeId || tickerId?.split(':')[0] || '';
+
       // リクエストボディから Holding オブジェクトを構築
       const holdingData = {
         UserID: userId,
-        TickerID: body.tickerId,
-        ExchangeID: body.exchangeId || body.tickerId?.split(':')[0] || '',
-        Quantity: body.quantity,
-        AveragePrice: body.averagePrice,
-        Currency: body.currency,
+        TickerID: tickerId,
+        ExchangeID: exchangeId,
+        Quantity: quantity,
+        AveragePrice: averagePrice,
+        Currency: currency,
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       };
 
       // バリデーション
+      // 型の絞り込みも兼ねる (検証を通った値は期待する型だが、型システムには伝わらないため)
       const validationResult = validateHolding(holdingData);
-      if (!validationResult.valid) {
+      if (
+        !validationResult.valid ||
+        tickerId === undefined ||
+        typeof quantity !== 'number' ||
+        typeof averagePrice !== 'number' ||
+        currency === undefined
+      ) {
         return NextResponse.json(
           {
             error: 'INVALID_REQUEST',
@@ -185,11 +217,11 @@ export const POST = withAuth(
       try {
         createdHolding = await holdingRepo.create({
           UserID: userId,
-          TickerID: holdingData.TickerID,
-          ExchangeID: holdingData.ExchangeID,
-          Quantity: holdingData.Quantity,
-          AveragePrice: holdingData.AveragePrice,
-          Currency: holdingData.Currency,
+          TickerID: tickerId,
+          ExchangeID: exchangeId,
+          Quantity: quantity,
+          AveragePrice: averagePrice,
+          Currency: currency,
         });
       } catch (error) {
         // HoldingAlreadyExistsError のチェック

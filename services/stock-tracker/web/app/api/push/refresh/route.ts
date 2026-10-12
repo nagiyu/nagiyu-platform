@@ -10,7 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthError, validatePushSubscription } from '@nagiyu/nextjs';
+import { getAuthError, validatePushSubscription, readJsonObjectBody } from '@nagiyu/nextjs';
 import { createAlertRepository } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
 import type { ErrorResponse } from '@nagiyu/common';
@@ -57,10 +57,8 @@ export async function POST(
     }
 
     // リクエストボディの取得
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -71,7 +69,7 @@ export async function POST(
     }
 
     // subscription フィールドのチェック
-    if (!body || typeof body !== 'object' || !('subscription' in body)) {
+    if (!('subscription' in bodyResult.body)) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -81,7 +79,7 @@ export async function POST(
       );
     }
 
-    const { subscription } = body as { subscription: unknown };
+    const { subscription } = bodyResult.body;
 
     // サブスクリプション情報のバリデーション
     if (!validatePushSubscription(subscription)) {

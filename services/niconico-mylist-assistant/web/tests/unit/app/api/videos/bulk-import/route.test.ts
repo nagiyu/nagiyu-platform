@@ -103,6 +103,15 @@ function makeUserVideoSetting(videoId: string): UserVideoSetting {
   };
 }
 
+/** 本文の文字列をそのまま持つ NextRequest を生成するヘルパー */
+function makeRawRequest(rawBody: string): NextRequest {
+  return new NextRequest('http://localhost/api/videos/bulk-import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: rawBody,
+  });
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
 });
@@ -224,5 +233,43 @@ describe('POST /api/videos/bulk-import', () => {
     expect(json.failed).toBe(0);
     expect(json.skipped).toBe(0);
     expect(json.total).toBe(2);
+  });
+});
+
+describe('POST /api/videos/bulk-import の不正なリクエストボディ', () => {
+  it.each([
+    ['壊れた JSON', 'this is not json{'],
+    ['空の本文', ''],
+    ['null', 'null'],
+    ['配列', '["sm1"]'],
+    ['文字列', '"sm1"'],
+  ])('本文が %s の場合は 400 を返し、下流を呼ばない', async (_label, rawBody) => {
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+
+    const response = await POST(makeRawRequest(rawBody));
+    expect(response.status).toBe(400);
+
+    const json = await response.json();
+    expect(json.error).toBe('リクエストボディが不正です');
+    expect(mockGetUserVideoSetting).not.toHaveBeenCalled();
+    expect(mockGetVideoInfoBatch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['配列の要素', [['sm1']]],
+    ['数値', [123]],
+    ['null', [null]],
+    ['オブジェクト', [{ id: 'sm1' }]],
+  ])('videoIds に文字列以外（%s）が含まれる場合は 400 を返し、下流を呼ばない', async (_l, ids) => {
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+
+    const response = await POST(makePostRequest({ videoIds: ['sm9', ...ids] }));
+    expect(response.status).toBe(400);
+
+    const json = await response.json();
+    expect(json.error).toBe('不正な動画 ID 形式が含まれています');
+    expect(json.invalidIds).toEqual(ids);
+    expect(mockGetUserVideoSetting).not.toHaveBeenCalled();
+    expect(mockGetVideoInfoBatch).not.toHaveBeenCalled();
   });
 });

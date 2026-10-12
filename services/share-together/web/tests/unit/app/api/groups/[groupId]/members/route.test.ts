@@ -81,6 +81,12 @@ const mockDynamoDBUserRepository = DynamoDBUserRepository as jest.MockedClass<
 const mockInviteMember = inviteMember as jest.MockedFunction<typeof inviteMember>;
 type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 
+import {
+  createRequestWithJson,
+  MALFORMED_BODY_CASES,
+  type InvalidBodyCase,
+} from '../../../invalidBodyCases';
+
 describe('/api/groups/[groupId]/members route', () => {
   const mockGetGroupById = jest.fn();
   const mockGetMembershipById = jest.fn();
@@ -364,5 +370,23 @@ describe('/api/groups/[groupId]/members route', () => {
       error: 'MEMBER_LIMIT_EXCEEDED',
       message: 'グループメンバーは最大5名です',
     });
+  });
+
+  it.each<InvalidBodyCase>([
+    ...MALFORMED_BODY_CASES,
+    ['email が数値', async () => ({ email: 123 })],
+    ['userId が配列', async () => ({ userId: ['user-2'] })],
+    ['userId が不正で email が正しい', async () => ({ userId: 123, email: 'invitee@example.com' })],
+  ])('POST: リクエストボディが不正な場合 (%s) は400を返す', async (_label, json) => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrUnauthorized);
+
+    const response = await POST(createRequestWithJson(json), {
+      params: Promise.resolve({ groupId: 'group-1' }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(mockGetGroupById).not.toHaveBeenCalled();
   });
 });

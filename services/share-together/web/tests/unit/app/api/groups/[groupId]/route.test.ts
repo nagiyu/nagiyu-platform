@@ -67,6 +67,12 @@ const mockDynamoDBMembershipRepository = DynamoDBMembershipRepository as jest.Mo
 );
 type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 
+import {
+  createRequestWithJson,
+  MALFORMED_BODY_CASES,
+  type InvalidBodyCase,
+} from '../../invalidBodyCases';
+
 describe('/api/groups/[groupId] route handlers', () => {
   const mockGetById = jest.fn();
   const mockUpdate = jest.fn();
@@ -267,4 +273,71 @@ describe('/api/groups/[groupId] route handlers', () => {
       expect.objectContaining({ serviceId: 'share-together', severity: 'error' })
     );
   });
+
+  it('PUT: 空白で囲まれた100文字の名前は trim 後の値で保存する', async () => {
+    const trimmedName = 'あ'.repeat(100);
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'owner-1' },
+    } as SessionOrUnauthorized);
+    mockGetById.mockResolvedValue({
+      groupId: 'group-1',
+      name: 'グループ',
+      ownerUserId: 'owner-1',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+    mockUpdate.mockResolvedValue({ groupId: 'group-1', name: trimmedName });
+
+    const response = await PUT({ json: async () => ({ name: `  ${trimmedName}  ` }) } as Request, {
+      params: Promise.resolve({ groupId: 'group-1' }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledWith('group-1', { name: trimmedName });
+  });
+
+  it('PUT: trim 後に101文字になる名前は400を返す', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'owner-1' },
+    } as SessionOrUnauthorized);
+    mockGetById.mockResolvedValue({
+      groupId: 'group-1',
+      name: 'グループ',
+      ownerUserId: 'owner-1',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    const response = await PUT(
+      { json: async () => ({ name: ` ${'あ'.repeat(101)} ` }) } as Request,
+      { params: Promise.resolve({ groupId: 'group-1' }) }
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it.each<InvalidBodyCase>([...MALFORMED_BODY_CASES, ['name が数値', async () => ({ name: 123 })]])(
+    'PUT: リクエストボディが不正な場合 (%s) は400を返す',
+    async (_label, json) => {
+      mockGetSessionOrUnauthorized.mockResolvedValue({
+        user: { id: 'owner-1' },
+      } as SessionOrUnauthorized);
+      mockGetById.mockResolvedValue({
+        groupId: 'group-1',
+        name: 'グループ',
+        ownerUserId: 'owner-1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      });
+
+      const response = await PUT(createRequestWithJson(json), {
+        params: Promise.resolve({ groupId: 'group-1' }),
+      });
+
+      expect(response.status).toBe(400);
+      expect(mockUpdate).not.toHaveBeenCalled();
+      expect(mockReportErrorEvent).not.toHaveBeenCalled();
+    }
+  );
 });

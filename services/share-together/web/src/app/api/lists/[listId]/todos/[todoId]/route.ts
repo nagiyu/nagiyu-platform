@@ -1,5 +1,6 @@
 import { type ListRepository, TodoService } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import type { TodoResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
@@ -28,11 +29,6 @@ interface TodoRouteParams {
   todoId: string;
 }
 
-interface UpdateTodoRequestBody {
-  title?: unknown;
-  isCompleted?: unknown;
-}
-
 function createServices(): { listRepository: ListRepository; todoService: TodoService } {
   const tableName = process.env.DYNAMODB_TABLE_NAME;
   if (!tableName) {
@@ -50,7 +46,7 @@ function createServices(): { listRepository: ListRepository; todoService: TodoSe
 }
 
 function parseUpdateBody(
-  body: UpdateTodoRequestBody
+  body: Record<string, unknown>
 ): { title?: string; isCompleted?: boolean } | null {
   const updates: { title?: string; isCompleted?: boolean } = {};
 
@@ -96,7 +92,11 @@ export async function PUT(
     requestedListId = listId;
     requestedTodoId = todoId;
 
-    const body = (await request.json()) as UpdateTodoRequestBody;
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return createValidationErrorResponse();
+    }
+    const { body } = bodyResult;
     const updates = parseUpdateBody(body);
     if (!updates) {
       return createValidationErrorResponse();
@@ -114,7 +114,7 @@ export async function PUT(
 
     return NextResponse.json(response);
   } catch (error) {
-    if (isValidationError(error, VALIDATION_ERROR_MESSAGES) || error instanceof SyntaxError) {
+    if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
       return createValidationErrorResponse();
     }
     if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {

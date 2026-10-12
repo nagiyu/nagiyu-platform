@@ -57,6 +57,25 @@ describe('POST /api/client-log', () => {
     expect(mockReportErrorEvent).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['null', 'null'],
+    ['配列', '[{"severity":"error","title":"T","message":"M"}]'],
+    ['文字列', '"error"'],
+    ['title が数値', { severity: 'error', title: 1, message: 'M' }],
+    ['message が配列', { severity: 'error', title: 'T', message: ['M'] }],
+    ['severity が数値', { severity: 1, title: 'T', message: 'M' }],
+    ['context が文字列', { severity: 'error', title: 'T', message: 'M', context: 'x' }],
+    ['context が null', { severity: 'error', title: 'T', message: 'M', context: null }],
+    ['occurredAt が数値', { severity: 'error', title: 'T', message: 'M', occurredAt: 1 }],
+  ])('body が %s のとき 400 で通報しない', async (_label, body) => {
+    mockGetSession.mockResolvedValue(validSession);
+    const res = await POST(buildRequest(body));
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as Record<string, string>;
+    expect(json.message).toBe(CLIENT_LOG_ERROR_MESSAGES.INVALID_REQUEST);
+    expect(mockReportErrorEvent).not.toHaveBeenCalled();
+  });
+
   it('severity が info のとき 400（クライアントから info は受け付けない）', async () => {
     mockGetSession.mockResolvedValue(validSession);
     const res = await POST(buildRequest({ severity: 'info', title: 'T', message: 'M' }));

@@ -223,16 +223,19 @@ describe('POST /api/notify/sns', () => {
     expect(sendAll).not.toHaveBeenCalled();
   });
 
-  it('不正な JSON の場合は 400 を返す', async () => {
-    // jest のサンドボックスと Request 実装で SyntaxError の realm が異なり instanceof が成立しないため、
-    // テスト側の realm で生成した SyntaxError を json() から返す
-    const request = {
-      json: jest.fn().mockRejectedValue(new SyntaxError('不正な JSON')),
-    } as unknown as Request;
-
-    const response = await POST(request);
+  it.each([
+    ['壊れた JSON', '{"Type": '],
+    ['空のボディ', ''],
+    ['null', 'null'],
+    ['配列', '[{"Type":"Notification"}]'],
+    ['文字列', '"Notification"'],
+  ])('ボディが %s の場合は 400 を返し、署名検証も送信もしない', async (_label, rawBody) => {
+    const response = await POST(createRequest(rawBody));
 
     expect(response.status).toBe(400);
     expect(mockValidateSnsMessage).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(sendAll).not.toHaveBeenCalled();
+    expect(mockCreateRepository).not.toHaveBeenCalled();
   });
 });

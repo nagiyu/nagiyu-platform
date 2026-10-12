@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES, requirePermission } from '@nagiyu/common';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
-import { createErrorResponse, validatePushSubscription } from '@nagiyu/nextjs';
+import { createErrorResponse, readJsonObjectBody, validatePushSubscription } from '@nagiyu/nextjs';
 import { createPushSubscriptionRepository } from '@nagiyu/admin-core';
 import { getSession } from '@/lib/auth/session';
 
@@ -43,7 +43,11 @@ export async function POST(request: Request): Promise<NextResponse> {
       return createErrorResponse(403, 'FORBIDDEN', ERROR_MESSAGES.FORBIDDEN);
     }
 
-    const body = await request.json();
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
+    }
+    const { body } = bodyResult;
     if (!validatePushSubscription(body)) {
       return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_SUBSCRIPTION);
     }
@@ -59,10 +63,6 @@ export async function POST(request: Request): Promise<NextResponse> {
       { status: 200 }
     );
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
-    }
-
     console.error('プッシュサブスクリプション登録 API の実行に失敗しました', { error });
     return createErrorResponse(500, 'INTERNAL_ERROR', ERROR_MESSAGES.INTERNAL_ERROR);
   }
@@ -81,7 +81,11 @@ export async function DELETE(request: Request): Promise<NextResponse> {
       return createErrorResponse(403, 'FORBIDDEN', ERROR_MESSAGES.FORBIDDEN);
     }
 
-    const body = (await request.json()) as { endpoint?: unknown };
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
+    }
+    const { body } = bodyResult;
     if (typeof body.endpoint !== 'string' || body.endpoint.length === 0) {
       return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
     }
@@ -91,10 +95,6 @@ export async function DELETE(request: Request): Promise<NextResponse> {
 
     return NextResponse.json({ success: true, deletedCount }, { status: 200 });
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
-    }
-
     console.error('プッシュサブスクリプション削除 API の実行に失敗しました', { error });
     return createErrorResponse(500, 'INTERNAL_ERROR', ERROR_MESSAGES.INTERNAL_ERROR);
   }

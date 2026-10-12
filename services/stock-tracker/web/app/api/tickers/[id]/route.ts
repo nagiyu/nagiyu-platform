@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES, toErrorMessage } from '@nagiyu/common';
 import { TickerNotFoundError, validateTickerUpdateData } from '@nagiyu/stock-tracker-core';
-import { withAuth, handleApiError } from '@nagiyu/nextjs';
+import { withAuth, handleApiError, readJsonObjectBody } from '@nagiyu/nextjs';
 import { reportErrorEvent } from '@nagiyu/aws';
 import { getSession } from '../../../../lib/auth';
 import { createTickerRepository } from '../../../../lib/repository-factory';
@@ -25,13 +25,6 @@ const ERROR_MESSAGES = {
   RELATED_DATA_EXISTS: '関連するデータが存在するため削除できません',
   INVALID_REQUEST_BODY: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
 } as const;
-
-/**
- * PUT リクエストボディ型定義
- */
-interface UpdateTickerRequest {
-  name?: string;
-}
 
 /**
  * PUT レスポンス型定義
@@ -65,10 +58,8 @@ export const PUT = withAuth(
       const { id: tickerId } = await params;
 
       // リクエストボディの取得
-      let body: UpdateTickerRequest;
-      try {
-        body = await request.json();
-      } catch {
+      const bodyResult = await readJsonObjectBody(request);
+      if (!bodyResult.ok) {
         return NextResponse.json(
           {
             error: 'INVALID_REQUEST',
@@ -77,10 +68,12 @@ export const PUT = withAuth(
           { status: 400 }
         );
       }
+      const { name } = bodyResult.body;
 
       // バリデーション
-      const validationResult = validateTickerUpdateData(body);
-      if (!validationResult.valid) {
+      // 型の絞り込みも兼ねる (検証を通った値は文字列だが、型システムには伝わらないため)
+      const validationResult = validateTickerUpdateData(bodyResult.body);
+      if (!validationResult.valid || typeof name !== 'string') {
         return NextResponse.json(
           {
             error: 'INVALID_REQUEST',
@@ -96,7 +89,7 @@ export const PUT = withAuth(
       // ティッカー更新
       try {
         const updatedTicker = await tickerRepo.update(tickerId, {
-          Name: body.name,
+          Name: name,
         });
 
         // レスポンス形式に変換

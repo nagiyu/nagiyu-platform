@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthError } from '@nagiyu/nextjs';
+import { getAuthError, readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
 import type { ErrorResponse } from '@nagiyu/common';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
@@ -70,10 +70,8 @@ export async function DELETE(
     }
 
     // リクエストボディの取得
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -84,7 +82,7 @@ export async function DELETE(
     }
 
     // endpoint フィールドのチェック
-    if (!body || typeof body !== 'object' || !('endpoint' in body)) {
+    if (!('endpoint' in bodyResult.body)) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -94,7 +92,7 @@ export async function DELETE(
       );
     }
 
-    const { endpoint } = body as { endpoint: unknown };
+    const { endpoint } = bodyResult.body;
 
     // エンドポイント情報のバリデーション
     if (!validateEndpoint(endpoint)) {

@@ -1,4 +1,5 @@
 import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { NextResponse } from 'next/server';
 import { InvokeCommand } from '@aws-sdk/client-lambda';
 import {
@@ -40,17 +41,28 @@ const VALIDATION_ERROR_MESSAGES: ReadonlySet<string> = new Set([
   DOMAIN_ERROR_MESSAGES.RANGE_INVALID,
 ]);
 
-const isUpdateRequest = (body: unknown): body is UpdateHighlightRequest => {
-  if (typeof body !== 'object' || body === null) {
-    return false;
+/**
+ * リクエストボディから更新内容を取り出す
+ *
+ * 型が不正な場合は null を返す。更新対象外の項目は後段へ渡さない。
+ */
+const parseUpdateRequest = (body: Record<string, unknown>): UpdateHighlightRequest | null => {
+  const { startSec, endSec, status } = body;
+  if (startSec !== undefined && typeof startSec !== 'number') {
+    return null;
+  }
+  if (endSec !== undefined && typeof endSec !== 'number') {
+    return null;
+  }
+  if (status !== undefined && !isHighlightStatus(status)) {
+    return null;
   }
 
-  const request = body as UpdateHighlightRequest;
-  const hasStart = request.startSec === undefined || typeof request.startSec === 'number';
-  const hasEnd = request.endSec === undefined || typeof request.endSec === 'number';
-  const hasStatus = request.status === undefined || isHighlightStatus(request.status);
-
-  return hasStart && hasEnd && hasStatus;
+  return {
+    ...(startSec !== undefined ? { startSec } : {}),
+    ...(endSec !== undefined ? { endSec } : {}),
+    ...(status !== undefined ? { status } : {}),
+  };
 };
 
 const invokeClipRegenerate = async (jobId: string, highlight: Highlight): Promise<void> => {
@@ -76,114 +88,105 @@ export async function PATCH(request: Request, { params }: RouteParams): Promise<
     new DynamoDBHighlightRepository(getDynamoDBDocumentClient(), getTableName())
   );
 
-  try {
-    const body = await request.json();
-    if (!isUpdateRequest(body)) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.INVALID_REQUEST,
-        },
-        { status: 400 }
-      );
-    }
-
-    if (
-      typeof body.startSec === 'number' &&
-      typeof body.endSec === 'number' &&
-      body.startSec >= body.endSec
-    ) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.INVALID_REQUEST,
-        },
-        { status: 400 }
-      );
-    }
-
-    try {
-      const hasTimeUpdateRequest =
-        typeof body.startSec === 'number' || typeof body.endSec === 'number';
-      if (!hasTimeUpdateRequest) {
-        const updated = await highlightService.updateHighlight(jobId, highlightId, body);
-        return NextResponse.json(updated);
-      }
-
-      const currentHighlight = await highlightService.getHighlight(jobId, highlightId);
-      if (!currentHighlight) {
-        return NextResponse.json(
-          {
-            error: 'HIGHLIGHT_NOT_FOUND',
-            message: ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND,
-          },
-          { status: 404 }
-        );
-      }
-
-      const statusReset =
-        currentHighlight.status === 'accepted' || currentHighlight.status === 'rejected'
-          ? { status: 'unconfirmed' as const }
-          : {};
-
-      const updates = {
-        ...body,
-        ...statusReset,
-        clipStatus: 'GENERATING' as const,
-      };
-
-      const updated = await highlightService.updateHighlight(jobId, highlightId, updates);
-
-      try {
-        await invokeClipRegenerate(jobId, updated);
-      } catch (invokeError) {
-        console.error(
-          `[PATCH /api/jobs/[jobId]/highlights/[highlightId]] ${ERROR_MESSAGES.CLIP_REGENERATE_INVOKE_FAILED}`,
-          {
-            jobId,
-            highlightId,
-            error: invokeError,
-          }
-        );
-      }
-
-      return NextResponse.json(updated);
-    } catch (error) {
-      if (error instanceof Error && error.message === DOMAIN_ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND) {
-        return NextResponse.json(
-          {
-            error: 'HIGHLIGHT_NOT_FOUND',
-            message: ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND,
-          },
-          { status: 404 }
-        );
-      }
-
-      if (error instanceof Error && VALIDATION_ERROR_MESSAGES.has(error.message)) {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.INVALID_REQUEST,
-          },
-          { status: 400 }
-        );
-      }
-
-      return NextResponse.json(
-        {
-          error: 'INTERNAL_SERVER_ERROR',
-          message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-        },
-        { status: 500 }
-      );
-    }
-  } catch {
+  const bodyResult = await readJsonObjectBody(request);
+  const body = bodyResult.ok ? parseUpdateRequest(bodyResult.body) : null;
+  if (body === null) {
     return NextResponse.json(
       {
         error: 'INVALID_REQUEST',
         message: ERROR_MESSAGES.INVALID_REQUEST,
       },
       { status: 400 }
+    );
+  }
+
+  if (
+    typeof body.startSec === 'number' &&
+    typeof body.endSec === 'number' &&
+    body.startSec >= body.endSec
+  ) {
+    return NextResponse.json(
+      {
+        error: 'INVALID_REQUEST',
+        message: ERROR_MESSAGES.INVALID_REQUEST,
+      },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const hasTimeUpdateRequest =
+      typeof body.startSec === 'number' || typeof body.endSec === 'number';
+    if (!hasTimeUpdateRequest) {
+      const updated = await highlightService.updateHighlight(jobId, highlightId, body);
+      return NextResponse.json(updated);
+    }
+
+    const currentHighlight = await highlightService.getHighlight(jobId, highlightId);
+    if (!currentHighlight) {
+      return NextResponse.json(
+        {
+          error: 'HIGHLIGHT_NOT_FOUND',
+          message: ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND,
+        },
+        { status: 404 }
+      );
+    }
+
+    const statusReset =
+      currentHighlight.status === 'accepted' || currentHighlight.status === 'rejected'
+        ? { status: 'unconfirmed' as const }
+        : {};
+
+    const updates = {
+      ...body,
+      ...statusReset,
+      clipStatus: 'GENERATING' as const,
+    };
+
+    const updated = await highlightService.updateHighlight(jobId, highlightId, updates);
+
+    try {
+      await invokeClipRegenerate(jobId, updated);
+    } catch (invokeError) {
+      console.error(
+        `[PATCH /api/jobs/[jobId]/highlights/[highlightId]] ${ERROR_MESSAGES.CLIP_REGENERATE_INVOKE_FAILED}`,
+        {
+          jobId,
+          highlightId,
+          error: invokeError,
+        }
+      );
+    }
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    if (error instanceof Error && error.message === DOMAIN_ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND) {
+      return NextResponse.json(
+        {
+          error: 'HIGHLIGHT_NOT_FOUND',
+          message: ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND,
+        },
+        { status: 404 }
+      );
+    }
+
+    if (error instanceof Error && VALIDATION_ERROR_MESSAGES.has(error.message)) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.INVALID_REQUEST,
+        },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error: 'INTERNAL_SERVER_ERROR',
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+      },
+      { status: 500 }
     );
   }
 }

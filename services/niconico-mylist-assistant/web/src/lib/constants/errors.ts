@@ -32,9 +32,12 @@ export const ERROR_MESSAGES = {
   MAX_COUNT_INVALID_RANGE: 'maxCount は 1 以上 100 以下である必要があります',
   MYLIST_REGISTER_MAX_COUNT_MUST_BE_INTEGER: '登録件数は整数で指定してください',
   MYLIST_REGISTER_MAX_COUNT_INVALID_RANGE: '登録件数は1～100の範囲で指定してください',
+  FAVORITE_ONLY_MUST_BE_BOOLEAN: 'favoriteOnly は真偽値である必要があります',
+  EXCLUDE_SKIP_MUST_BE_BOOLEAN: 'excludeSkip は真偽値である必要があります',
   INVALID_PUSH_SUBSCRIPTION: 'pushSubscription の形式が不正です',
   MYLIST_NAME_REQUIRED: 'mylistName は必須です',
   MYLIST_NAME_MUST_BE_STRING: 'mylistName は文字列である必要があります',
+  JOB_ID_MUST_BE_STRING: 'jobId は文字列である必要があります',
   USER_SESSION_REQUIRED: 'user_session は必須です',
   USER_SESSION_MUST_BE_STRING: 'user_session は文字列である必要があります',
   NO_VIDEOS_AVAILABLE: '登録可能な動画が見つかりませんでした',
@@ -42,9 +45,6 @@ export const ERROR_MESSAGES = {
   BATCH_JOB_SUBMISSION_FAILED: 'バッチジョブの投入に失敗しました',
   DATABASE_ERROR: 'データベースへのアクセスに失敗しました',
   USER_SESSION_ENCRYPTION_FAILED: 'user_session の暗号化に失敗しました',
-
-  // リクエストエラー
-  INVALID_REQUEST_BODY: 'リクエストボディが不正な JSON です',
 
   // セッション管理 API エラー
   NICONICO_SESSION_NOT_REGISTERED:

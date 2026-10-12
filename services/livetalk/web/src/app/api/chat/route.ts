@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { withAuth } from '@nagiyu/nextjs';
+import { readJsonObjectBody, withAuth } from '@nagiyu/nextjs';
 import {
   CHAT_LOCK_TTL_MS,
   CHAT_RATE_LIMIT_PER_HOUR,
@@ -37,15 +37,13 @@ interface ChatRequest {
   characterId?: string;
 }
 
-function isChatRequest(body: unknown): body is ChatRequest {
+function isChatRequest(
+  body: Record<string, unknown>
+): body is Record<string, unknown> & ChatRequest {
   return (
-    typeof body === 'object' &&
-    body !== null &&
-    typeof (body as Partial<ChatRequest>).text === 'string' &&
-    ((body as Partial<ChatRequest>).knowledgeId === undefined ||
-      typeof (body as Partial<ChatRequest>).knowledgeId === 'string') &&
-    ((body as Partial<ChatRequest>).characterId === undefined ||
-      typeof (body as Partial<ChatRequest>).characterId === 'string')
+    typeof body.text === 'string' &&
+    (body.knowledgeId === undefined || typeof body.knowledgeId === 'string') &&
+    (body.characterId === undefined || typeof body.characterId === 'string')
   );
 }
 
@@ -78,22 +76,15 @@ function isChatRequest(body: unknown): body is ChatRequest {
  * - ストリーム開始後のエラーは error event で通知
  */
 export const POST = withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
+  const bodyResult = await readJsonObjectBody(request);
+  if (!bodyResult.ok || !isChatRequest(bodyResult.body)) {
     return NextResponse.json(
       { error: 'INVALID_REQUEST', message: CHAT_ERROR_MESSAGES.INVALID_REQUEST },
       { status: 400 }
     );
   }
 
-  if (!isChatRequest(body)) {
-    return NextResponse.json(
-      { error: 'INVALID_REQUEST', message: CHAT_ERROR_MESSAGES.INVALID_REQUEST },
-      { status: 400 }
-    );
-  }
+  const body = bodyResult.body;
 
   const text = body.text.trim();
   const characterId = body.characterId ?? DEFAULT_CHARACTER_ID;

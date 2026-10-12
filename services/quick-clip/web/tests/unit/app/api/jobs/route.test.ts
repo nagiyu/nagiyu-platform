@@ -1,5 +1,6 @@
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { JobRepository } from '@nagiyu/quick-clip-core';
+import { DynamoDBJobRepository } from '@nagiyu/quick-clip-core';
 import { getBatchClient, getS3Client } from '@/lib/server/aws';
 import { POST } from '@/app/api/jobs/route';
 
@@ -411,6 +412,44 @@ describe('POST /api/jobs', () => {
     expect(body).toEqual({
       error: 'INVALID_DURATION',
       message: '動画の再生時間が不正です',
+    });
+  });
+
+  const createBrokenJsonRequest = (): Request =>
+    ({
+      json: async () => {
+        throw new SyntaxError('Unexpected token');
+      },
+    }) as unknown as Request;
+
+  describe('不正なリクエストボディ', () => {
+    const validBody = { fileName: 'movie.mp4', fileSize: 1024, contentType: 'video/mp4' };
+
+    it.each([
+      ['壊れた JSON', () => createBrokenJsonRequest()],
+      ['null', () => createRequest(null)],
+      ['配列', () => createRequest([validBody])],
+      ['文字列', () => createRequest('movie.mp4')],
+      ['fileName が数値', () => createRequest({ ...validBody, fileName: 1 })],
+      ['fileSize が文字列', () => createRequest({ ...validBody, fileSize: '1024' })],
+      ['contentType が数値', () => createRequest({ ...validBody, contentType: 1 })],
+      ['contentType が null', () => createRequest({ ...validBody, contentType: null })],
+      ['emotionFilter が数値', () => createRequest({ ...validBody, emotionFilter: 1 })],
+      ['durationSec が null', () => createRequest({ ...validBody, durationSec: null })],
+    ])('異常系: %s の場合は 400 を返し、下流を呼ばない', async (_label, buildRequest) => {
+      const response = await POST(buildRequest());
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body).toEqual({
+        error: 'INVALID_REQUEST',
+        message: 'リクエストが不正です',
+      });
+      expect(DynamoDBJobRepository).not.toHaveBeenCalled();
+      expect(mockedGetSignedUrl).not.toHaveBeenCalled();
+      expect(s3Send).not.toHaveBeenCalled();
+      expect(batchSend).not.toHaveBeenCalled();
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
   });
 });

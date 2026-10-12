@@ -1,5 +1,6 @@
 import { ListService } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import type { PersonalListResponse, PersonalListsResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
@@ -84,7 +85,11 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     requestedUserId = userId;
 
-    const body = (await request.json()) as { name?: unknown };
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return createValidationErrorResponse();
+    }
+    const { body } = bodyResult;
     if (!isNonEmptyString(body.name)) {
       return createValidationErrorResponse();
     }
@@ -97,7 +102,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     return NextResponse.json(response, { status: 201 });
   } catch (error) {
-    if (isValidationError(error, VALIDATION_ERROR_MESSAGES) || error instanceof SyntaxError) {
+    if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
       return createValidationErrorResponse();
     }
     if (error instanceof Error && error.message === ERROR_MESSAGES.PERSONAL_LIST_LIMIT_EXCEEDED) {

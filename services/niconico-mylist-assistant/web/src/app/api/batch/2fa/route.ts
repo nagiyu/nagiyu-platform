@@ -4,16 +4,9 @@ import {
   getBatchJob,
   TWO_FACTOR_AUTH_CODE_REGEX,
 } from '@nagiyu/niconico-mylist-assistant-core';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
-
-/**
- * 二段階認証コード登録リクエスト
- */
-interface TwoFactorAuthRequest {
-  jobId: string;
-  code: string;
-}
 
 /**
  * 二段階認証コード登録 API
@@ -41,8 +34,20 @@ export async function POST(request: NextRequest) {
     }
 
     // リクエストボディを取得
-    const body: TwoFactorAuthRequest = await request.json();
-    const { jobId, code } = body;
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    const { jobId, code } = bodyResult.body;
 
     // バリデーション
     if (!jobId || !code) {
@@ -57,8 +62,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (typeof jobId !== 'string') {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.JOB_ID_MUST_BE_STRING,
+          },
+        },
+        { status: 400 }
+      );
+    }
+
     // 二段階認証コードの形式チェック（6桁の数字）
-    if (!TWO_FACTOR_AUTH_CODE_REGEX.test(code)) {
+    // 正規表現は引数を文字列へ変換して判定するため、文字列以外 (例: 数値 123456) を通さないよう型も確かめる
+    if (typeof code !== 'string' || !TWO_FACTOR_AUTH_CODE_REGEX.test(code)) {
       return NextResponse.json(
         {
           error: {

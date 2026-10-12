@@ -1,5 +1,6 @@
 import { type ListRepository, type TodoRepository } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import type { TodoResponse, TodosResponse } from '@/types';
 import { getAuthorizedGroupContext } from '@/lib/api/authorization';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
@@ -89,7 +90,11 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
     requestedListId = authorizedContextOrResponse.listId;
     requestedUserId = authorizedContextOrResponse.userId;
 
-    const body = (await request.json()) as { title?: unknown };
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return createValidationErrorResponse();
+    }
+    const { body } = bodyResult;
     const title = typeof body.title === 'string' ? body.title.trim() : '';
     if (title.length < 1 || title.length > 200) {
       return createValidationErrorResponse(ERROR_MESSAGES.TODO_TITLE_INVALID);

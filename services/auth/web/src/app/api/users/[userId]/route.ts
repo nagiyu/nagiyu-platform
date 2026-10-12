@@ -3,7 +3,8 @@ import { createUserRepository, UserNotFoundError } from '@nagiyu/auth-core';
 import { getSession } from '@/lib/auth/session';
 import { COMMON_ERROR_MESSAGES, hasPermission, toErrorMessage } from '@nagiyu/common';
 import { reportErrorEvent } from '@nagiyu/aws';
-import { UpdateUserSchema } from '../schemas';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
+import { UpdateUserSchema, USER_VALIDATION_ERROR_MESSAGES } from '../schemas';
 import { ZodError } from 'zod';
 
 // エラーメッセージ定数
@@ -94,10 +95,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
 
   try {
     const { userId } = await params;
-    const body = await req.json();
+    const bodyResult = await readJsonObjectBody(req);
+    if (!bodyResult.ok) {
+      return NextResponse.json(
+        {
+          error: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
+          details: [{ field: '', message: USER_VALIDATION_ERROR_MESSAGES.BODY_NOT_OBJECT }],
+        },
+        { status: 400 }
+      );
+    }
 
     // リクエストボディのバリデーション
-    const validatedData = UpdateUserSchema.parse(body);
+    const validatedData = UpdateUserSchema.parse(bodyResult.body);
 
     // ロール変更の権限チェック
     if (validatedData.roles && !hasPermission(session.user.roles, 'roles:assign')) {

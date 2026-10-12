@@ -9,14 +9,16 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { validateAlert, calculateTemporaryExpireDate } from '@nagiyu/stock-tracker-core';
-import { withAuth, handleApiError } from '@nagiyu/nextjs';
+import { withAuth, handleApiError, readJsonObjectBody } from '@nagiyu/nextjs';
 import {
   createAlertRepository,
   createTickerRepository,
   createExchangeRepository,
 } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
-import type { AlertEntity, AlertCondition } from '@nagiyu/stock-tracker-core';
+import { parseAlertConditionList } from '../../../../lib/alert-condition';
+import { isRecord } from '../../../../lib/request-guards';
+import type { AlertEntity } from '@nagiyu/stock-tracker-core';
 import type { ErrorResponse } from '@nagiyu/common';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 
@@ -65,19 +67,17 @@ interface DeleteResponse {
   deletedAlertId: string;
 }
 
-interface UpdateAlertRequest {
-  conditions?: Array<{
-    field?: AlertCondition['field'];
-    operator?: AlertCondition['operator'];
-    value?: number;
-    isPercentage?: boolean;
-    percentageValue?: number;
-    basePrice?: number;
-  }>;
-  enabled?: boolean;
-  temporary?: boolean;
-  logicalOperator?: AlertEntity['LogicalOperator'];
-  customMessage?: string;
+/**
+ * リクエストボディが不正なときの 400 レスポンス
+ */
+function invalidRequestBodyResponse(): NextResponse<ErrorResponse> {
+  return NextResponse.json(
+    {
+      error: 'INVALID_REQUEST',
+      message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
+    },
+    { status: 400 }
+  );
 }
 
 /**
@@ -132,17 +132,28 @@ export const PUT = withAuth(
       const userId = session.user.id;
 
       // リクエストボディの取得
-      let body: UpdateAlertRequest;
-      try {
-        body = await request.json();
-      } catch {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
-          },
-          { status: 400 }
-        );
+      const bodyResult = await readJsonObjectBody(request);
+      if (!bodyResult.ok) {
+        return invalidRequestBodyResponse();
+      }
+      const { conditions, enabled, temporary, logicalOperator, customMessage } = bodyResult.body;
+
+      // 項目の型チェック
+      // 条件の要素は null (その位置は更新しない) かオブジェクトのみ許容する
+      if (conditions !== undefined && !Array.isArray(conditions)) {
+        return invalidRequestBodyResponse();
+      }
+      if (conditions !== undefined && !conditions.every((c) => c === null || isRecord(c))) {
+        return invalidRequestBodyResponse();
+      }
+      if (enabled !== undefined && typeof enabled !== 'boolean') {
+        return invalidRequestBodyResponse();
+      }
+      if (temporary !== undefined && typeof temporary !== 'boolean') {
+        return invalidRequestBodyResponse();
+      }
+      if (customMessage !== undefined && typeof customMessage !== 'string') {
+        return invalidRequestBodyResponse();
       }
 
       // リポジトリの初期化
@@ -165,17 +176,16 @@ export const PUT = withAuth(
       // 更新可能なフィールドを抽出
       const updates: Partial<AlertEntity> = {};
 
-      if (body.conditions !== undefined) {
-        const updateConditions = body.conditions;
-
+      if (conditions !== undefined) {
         // 条件の部分更新をサポート
         // 既存条件とインデックス対応でマージ（単一・範囲指定の両方に対応）
-        const updatedConditions: AlertCondition[] = existingAlert.ConditionList.map(
+        // 更新値の型は未検証のため、マージ結果は取り出し (parseAlertConditionList) で絞り込む
+        const mergedConditions: Array<Record<string, unknown>> = existingAlert.ConditionList.map(
           (existingCondition, index) => {
-            const updateCondition = updateConditions[index];
-            if (!updateCondition) return existingCondition;
+            const updateCondition: unknown = conditions[index];
+            if (!isRecord(updateCondition)) return { ...existingCondition };
 
-            const mergedCondition: AlertCondition = {
+            const mergedCondition: Record<string, unknown> = {
               field: updateCondition.field ?? existingCondition.field,
               operator: updateCondition.operator ?? existingCondition.operator,
               value: updateCondition.value ?? existingCondition.value,
@@ -198,15 +208,33 @@ export const PUT = withAuth(
           }
         );
 
+        const updatedConditions = parseAlertConditionList(mergedConditions);
+        if (updatedConditions === null) {
+          // 取り出せない条件でも、どこが不正かはバリデーションの指摘で返す
+          const conditionValidation = validateAlert({
+            ...existingAlert,
+            ConditionList: mergedConditions,
+            UpdatedAt: Date.now(),
+          });
+          return NextResponse.json(
+            {
+              error: 'INVALID_REQUEST',
+              message: ERROR_MESSAGES.VALIDATION_ERROR,
+              details: conditionValidation.errors,
+            },
+            { status: 400 }
+          );
+        }
+
         updates.ConditionList = updatedConditions;
       }
 
-      if (body.enabled !== undefined) {
-        updates.Enabled = body.enabled;
+      if (enabled !== undefined) {
+        updates.Enabled = enabled;
       }
-      if (body.temporary !== undefined) {
-        updates.Temporary = body.temporary === true;
-        if (body.temporary === true) {
+      if (temporary !== undefined) {
+        updates.Temporary = temporary;
+        if (temporary) {
           const exchange = await exchangeRepo.getById(existingAlert.ExchangeID);
           if (!exchange) {
             return NextResponse.json(
@@ -222,12 +250,27 @@ export const PUT = withAuth(
       }
 
       // LogicalOperator は 'AND' | 'OR' のみ許容（null は除外）
-      if (body.logicalOperator !== undefined && body.logicalOperator !== null) {
-        updates.LogicalOperator = body.logicalOperator;
+      if (logicalOperator !== undefined && logicalOperator !== null) {
+        if (logicalOperator !== 'AND' && logicalOperator !== 'OR') {
+          // 値が不正な場合も、バリデーションの指摘を返す
+          const operatorValidation = validateAlert({
+            ...existingAlert,
+            LogicalOperator: logicalOperator,
+            UpdatedAt: Date.now(),
+          });
+          return NextResponse.json(
+            {
+              error: 'INVALID_REQUEST',
+              message: ERROR_MESSAGES.VALIDATION_ERROR,
+              details: operatorValidation.errors,
+            },
+            { status: 400 }
+          );
+        }
+        updates.LogicalOperator = logicalOperator;
       }
-      if (body.customMessage !== undefined) {
-        updates.CustomMessage =
-          body.customMessage.trim().length > 0 ? body.customMessage.trim() : undefined;
+      if (customMessage !== undefined) {
+        updates.CustomMessage = customMessage.trim().length > 0 ? customMessage.trim() : undefined;
       }
 
       // 更新フィールドが存在しない場合

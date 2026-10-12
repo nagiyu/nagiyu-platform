@@ -27,14 +27,13 @@ const config: Config = {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   testMatch: ['**/tests/unit/**/*.test.ts', '**/tests/unit/**/*.test.tsx'],
-  testPathIgnorePatterns: ['/node_modules/', '/tests/unit/app/api/'],
+  testPathIgnorePatterns: ['/node_modules/'],
   coverageDirectory: 'coverage',
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',
     '!src/app/**/layout.tsx',
     '!src/app/**/page.tsx',
-    '!src/app/api/**', // Exclude API routes from coverage for now
     '!src/lib/navigate.ts', // window.location.assign の薄いラッパー（jsdom でテスト困難）
   ],
   // Coverage thresholds (fail if below 80%)
