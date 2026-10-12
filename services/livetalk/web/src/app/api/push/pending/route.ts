@@ -13,7 +13,6 @@
  * 未消化通知がない場合は空配列を返す。
  */
 import { NextResponse } from 'next/server';
-import type { Session } from '@nagiyu/common';
 import { withAuth } from '@nagiyu/nextjs';
 import { getAllCharacterIds } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
@@ -32,10 +31,9 @@ export interface PendingNotification {
   body: string;
 }
 
-export const GET = withAuth(
-  getSession,
-  'livetalk:chat',
-  withApiErrorReporting('Web API: 未消化通知取得エラー', async (session: Session) => {
+export const GET = withApiErrorReporting(
+  'Web API: 未消化通知取得エラー',
+  withAuth(getSession, 'livetalk:chat', async (session) => {
     const userId = session.user.id;
     const repo = getNotificationEventRepository();
     const characterIds = getAllCharacterIds();

@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import type { Session } from '@nagiyu/common';
 import { withAuth } from '@nagiyu/nextjs';
 import { forgetSelfFact } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
@@ -18,12 +17,12 @@ type RouteContext = { params: Promise<{ id: string }> };
  * `:id` は base64url エンコードした完全 SK。`forgetSelfFact` が
  * 削除 → 残 fact からの canonicalSummary 再生成（楽観ロック + リトライ）までを行う。
  */
-export const DELETE = withAuth(
-  getSession,
-  'livetalk:chat',
-  withApiErrorReporting(
-    'Web API: 記憶削除エラー',
-    async (session: Session, _request: Request, context: RouteContext) => {
+export const DELETE = withApiErrorReporting(
+  'Web API: 記憶削除エラー',
+  withAuth(
+    getSession,
+    'livetalk:chat',
+    async (session, _request: Request, context: RouteContext) => {
       const { id } = await context.params;
       const key = decodeSelfFactId(id, session.user.id);
       if (!key) {
@@ -38,7 +37,7 @@ export const DELETE = withAuth(
         llmClient: getLLMClient(),
       });
       return NextResponse.json({ deleted: true });
-    },
-    { error: 'DELETE_FAILED', message: MEMORY_ERROR_MESSAGES.DELETE_FAILED }
-  )
+    }
+  ),
+  { error: 'DELETE_FAILED', message: MEMORY_ERROR_MESSAGES.DELETE_FAILED }
 );

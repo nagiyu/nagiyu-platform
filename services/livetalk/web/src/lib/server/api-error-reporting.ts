@@ -36,13 +36,13 @@ export const DEFAULT_API_FAILURE_BODY: ApiFailureBody = {
  * ルートハンドラを包み、投げられた例外を 500 にして報告する。
  *
  * 失敗の本文がルートごとに異なるため、ルートから受け取る。
- * 認証ラッパーは例外を握って 500 にするので、このラッパーはその内側 (認証後のハンドラ) に置く。
+ * withAuth は例外を投げ直すので、このラッパーを withAuth の外側に置く。
  */
-export function withApiErrorReporting<Args extends unknown[]>(
+export function withApiErrorReporting<Args extends unknown[], R extends Response>(
   title: string,
-  handler: (...args: Args) => Promise<NextResponse>,
+  handler: (...args: Args) => Promise<R>,
   failureBody: ApiFailureBody = DEFAULT_API_FAILURE_BODY
-): (...args: Args) => Promise<NextResponse> {
+): (...args: Args) => Promise<R | Response> {
   const wrap = createApiErrorReporting({
     serviceId: SERVICE_ID,
     report: reportErrorEvent,
@@ -52,8 +52,15 @@ export function withApiErrorReporting<Args extends unknown[]>(
       return NextResponse.json(failureBody, { status: 500 });
     },
   });
-  // toErrorResponse が NextResponse を返すので、戻り値の型を NextResponse に狭めてよい
-  return wrap(title, handler) as (...args: Args) => Promise<NextResponse>;
+  return wrap(title, handler);
+}
+
+/**
+ * Push 系ルートのファクトリが 500 を返す直前に呼ぶ報告関数を作る。
+ * ファクトリは例外を自分で握って 500 にするため、ラッパーでは報告できない。
+ */
+export function createPushRouteErrorReporter(title: string): (error: unknown) => Promise<void> {
+  return (error) => reportSwallowedError(title, error);
 }
 
 /**

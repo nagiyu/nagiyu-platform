@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import type { Session } from '@nagiyu/common';
 import { readJsonObjectBody, withAuth } from '@nagiyu/nextjs';
 import {
   CHAT_LOCK_TTL_MS,
@@ -77,10 +76,9 @@ function isChatRequest(
  * - VOICEVOX エラー時は当該 sentence event をスキップ（テキストは既に表示済み）
  * - ストリーム開始後のエラーは error event で通知
  */
-export const POST = withAuth(
-  getSession,
-  'livetalk:chat',
-  withApiErrorReporting('Web API: チャットエラー', async (session: Session, request: Request) => {
+export const POST = withApiErrorReporting(
+  'Web API: チャットエラー',
+  withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
     const bodyResult = await readJsonObjectBody(request);
     if (!bodyResult.ok || !isChatRequest(bodyResult.body)) {
       return NextResponse.json(

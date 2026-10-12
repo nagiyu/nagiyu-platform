@@ -11,7 +11,6 @@
  */
 
 import { NextResponse } from 'next/server';
-import type { Session } from '@nagiyu/common';
 import { readJsonObjectBody, withAuth } from '@nagiyu/nextjs';
 import { logger, toErrorMessage } from '@nagiyu/common';
 import { sendWebPushNotifications, getVapidConfig } from '@nagiyu/common/push';
@@ -37,140 +36,130 @@ const TEST_PUSH_ERROR_MESSAGES = {
   SEND_FAILED: 'テスト通知の送信に失敗しました',
 } as const;
 
-export const POST = withAuth(
-  getSession,
-  'livetalk:admin',
-  withApiErrorReporting(
-    'Web API: テスト通知送信エラー',
-    async (session: Session, request: Request) => {
-      const userId = session.user.id;
+export const POST = withApiErrorReporting(
+  'Web API: テスト通知送信エラー',
+  withAuth(getSession, 'livetalk:admin', async (session, request: Request) => {
+    const userId = session.user.id;
 
-      // リクエストボディを解析する
-      const bodyResult = await readJsonObjectBody(request);
-      if (!bodyResult.ok) {
-        return NextResponse.json(
-          { error: 'INVALID_REQUEST', message: TEST_PUSH_ERROR_MESSAGES.INVALID_REQUEST_BODY },
-          { status: 400 }
-        );
-      }
-
-      // characterId バリデーション
-      const { characterId } = bodyResult.body;
-
-      if (typeof characterId !== 'string' || characterId.trim() === '') {
-        return NextResponse.json(
-          { error: 'INVALID_REQUEST', message: TEST_PUSH_ERROR_MESSAGES.MISSING_CHARACTER_ID },
-          { status: 400 }
-        );
-      }
-
-      if (!hasCharacter(characterId)) {
-        return NextResponse.json(
-          { error: 'UNKNOWN_CHARACTER', message: TEST_PUSH_ERROR_MESSAGES.UNKNOWN_CHARACTER },
-          { status: 400 }
-        );
-      }
-
-      // キャラクター定義からテスト通知の文面を生成する（テストと明確に分かる内容にする）
-      const def = getCharacterDefinition(characterId);
-      const title = `${def.notificationName}より`;
-      const bodyText = `【テスト送信】${def.displayName}からのテスト通知です`;
-
-      // プッシュサブスクリプションを取得する
-      const subscriptions = await getPushSubscriptionRepository().listByUser(userId);
-
-      // サブスクリプションが 0 件の場合は送信せずに返す
-      if (subscriptions.length === 0) {
-        logger.info('[POST /api/push/test] 購読なし（送信スキップ）', { userId, characterId });
-        return NextResponse.json({ sent: 0, characterId }, { status: 200 });
-      }
-
-      // VAPID 設定を取得する
-      const vapidConfig = getVapidConfig();
-
-      // payload: notify.usecase.ts と同様の形式
-      const payload = {
-        title,
-        body: bodyText,
-        data: { url: `/?character=${characterId}`, characterId },
-      };
-
-      // 各サブスクリプションへ送信する（失敗はログのみで継続・無効サブスクは削除）
-      const pushSubscriptionRepo = getPushSubscriptionRepository();
-      const result = await sendWebPushNotifications(
-        subscriptions,
-        (sub) => ({ endpoint: sub.Endpoint, keys: { p256dh: sub.P256dhKey, auth: sub.AuthKey } }),
-        payload,
-        vapidConfig
+    // リクエストボディを解析する
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return NextResponse.json(
+        { error: 'INVALID_REQUEST', message: TEST_PUSH_ERROR_MESSAGES.INVALID_REQUEST_BODY },
+        { status: 400 }
       );
+    }
 
-      // 無効なサブスクリプション（404/410）を削除する。削除の失敗で配信履歴の記録を止めないよう継続する
-      for (const sub of result.invalid) {
-        try {
-          await pushSubscriptionRepo.delete({
-            userId,
-            subscriptionId: sub.SubscriptionID,
-          });
-        } catch (error) {
-          logger.warn('[POST /api/push/test] 無効なサブスクリプションの削除失敗（継続）', {
-            userId,
-            characterId,
-            subscriptionId: sub.SubscriptionID,
-            error: toErrorMessage(error),
-          });
-          await reportSwallowedError(
-            'Web API: 無効なサブスクリプションの削除エラー',
-            error,
-            { characterId, subscriptionId: sub.SubscriptionID },
-            'warning'
-          );
-        }
-      }
+    // characterId バリデーション
+    const { characterId } = bodyResult.body;
 
-      for (const { target, error } of result.failed) {
-        logger.warn('[POST /api/push/test] Push 送信失敗（継続）', {
+    if (typeof characterId !== 'string' || characterId.trim() === '') {
+      return NextResponse.json(
+        { error: 'INVALID_REQUEST', message: TEST_PUSH_ERROR_MESSAGES.MISSING_CHARACTER_ID },
+        { status: 400 }
+      );
+    }
+
+    if (!hasCharacter(characterId)) {
+      return NextResponse.json(
+        { error: 'UNKNOWN_CHARACTER', message: TEST_PUSH_ERROR_MESSAGES.UNKNOWN_CHARACTER },
+        { status: 400 }
+      );
+    }
+
+    // キャラクター定義からテスト通知の文面を生成する（テストと明確に分かる内容にする）
+    const def = getCharacterDefinition(characterId);
+    const title = `${def.notificationName}より`;
+    const bodyText = `【テスト送信】${def.displayName}からのテスト通知です`;
+
+    // プッシュサブスクリプションを取得する
+    const subscriptions = await getPushSubscriptionRepository().listByUser(userId);
+
+    // サブスクリプションが 0 件の場合は送信せずに返す
+    if (subscriptions.length === 0) {
+      logger.info('[POST /api/push/test] 購読なし（送信スキップ）', { userId, characterId });
+      return NextResponse.json({ sent: 0, characterId }, { status: 200 });
+    }
+
+    // VAPID 設定を取得する
+    const vapidConfig = getVapidConfig();
+
+    // payload: notify.usecase.ts と同様の形式
+    const payload = {
+      title,
+      body: bodyText,
+      data: { url: `/?character=${characterId}`, characterId },
+    };
+
+    // 各サブスクリプションへ送信する（失敗はログのみで継続・無効サブスクは削除）
+    const pushSubscriptionRepo = getPushSubscriptionRepository();
+    const result = await sendWebPushNotifications(
+      subscriptions,
+      (sub) => ({ endpoint: sub.Endpoint, keys: { p256dh: sub.P256dhKey, auth: sub.AuthKey } }),
+      payload,
+      vapidConfig
+    );
+
+    // 無効なサブスクリプション（404/410）を削除する。削除の失敗で配信履歴の記録を止めないよう継続する
+    for (const sub of result.invalid) {
+      try {
+        await pushSubscriptionRepo.delete({
+          userId,
+          subscriptionId: sub.SubscriptionID,
+        });
+      } catch (error) {
+        logger.warn('[POST /api/push/test] 無効なサブスクリプションの削除失敗（継続）', {
           userId,
           characterId,
-          subscriptionId: target.SubscriptionID,
+          subscriptionId: sub.SubscriptionID,
           error: toErrorMessage(error),
         });
         await reportSwallowedError(
-          'Web API: テスト通知の Push 送信エラー',
+          'Web API: 無効なサブスクリプションの削除エラー',
           error,
-          { characterId, subscriptionId: target.SubscriptionID },
+          { characterId, subscriptionId: sub.SubscriptionID },
           'warning'
         );
       }
+    }
 
-      const sentCount = result.sent.length;
+    for (const { target, error } of result.failed) {
+      logger.warn('[POST /api/push/test] Push 送信失敗（継続）', {
+        userId,
+        characterId,
+        subscriptionId: target.SubscriptionID,
+        error: toErrorMessage(error),
+      });
+    }
 
-      // 1 件以上送信成功した場合、NotificationEvent を記録する（first-word/pending 検証のため）
-      if (sentCount > 0) {
-        const ttl = Math.floor(Date.now() / 1000) + NOTIFICATION_EVENT_TTL_SECONDS;
-        await getNotificationEventRepository().put({
-          UserID: userId,
-          NotifID: defaultUlidFactory(),
-          CharacterID: characterId,
-          Kind: 'normal',
-          Title: title,
-          Body: bodyText,
-          Ttl: ttl,
-        });
+    const sentCount = result.sent.length;
 
-        logger.info('[POST /api/push/test] テスト通知送信完了', {
-          userId,
-          characterId,
-          sentCount,
-        });
-      } else {
-        logger.info('[POST /api/push/test] 有効サブスクリプションなし（送信 0 件）', {
-          userId,
-          characterId,
-        });
-      }
+    // 1 件以上送信成功した場合、NotificationEvent を記録する（first-word/pending 検証のため）
+    if (sentCount > 0) {
+      const ttl = Math.floor(Date.now() / 1000) + NOTIFICATION_EVENT_TTL_SECONDS;
+      await getNotificationEventRepository().put({
+        UserID: userId,
+        NotifID: defaultUlidFactory(),
+        CharacterID: characterId,
+        Kind: 'normal',
+        Title: title,
+        Body: bodyText,
+        Ttl: ttl,
+      });
 
-      return NextResponse.json({ sent: sentCount, characterId }, { status: 200 });
-    },
-    { error: 'SEND_FAILED', message: TEST_PUSH_ERROR_MESSAGES.SEND_FAILED }
-  )
+      logger.info('[POST /api/push/test] テスト通知送信完了', {
+        userId,
+        characterId,
+        sentCount,
+      });
+    } else {
+      logger.info('[POST /api/push/test] 有効サブスクリプションなし（送信 0 件）', {
+        userId,
+        characterId,
+      });
+    }
+
+    return NextResponse.json({ sent: sentCount, characterId }, { status: 200 });
+  }),
+  { error: 'SEND_FAILED', message: TEST_PUSH_ERROR_MESSAGES.SEND_FAILED }
 );

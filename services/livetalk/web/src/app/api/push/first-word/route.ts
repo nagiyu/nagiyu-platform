@@ -13,16 +13,14 @@
  * レスポンスからも knowledgeId フィールドを削除した。
  */
 import { NextResponse } from 'next/server';
-import type { Session } from '@nagiyu/common';
 import { withAuth } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/server/session';
 import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import { getNotificationEventRepository } from '@/lib/server/repositories';
 
-export const GET = withAuth(
-  getSession,
-  'livetalk:chat',
-  withApiErrorReporting('Web API: 第一声取得エラー', async (session: Session, request: Request) => {
+export const GET = withApiErrorReporting(
+  'Web API: 第一声取得エラー',
+  withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
     const url = new URL(request.url);
     const characterId = url.searchParams.get('characterId');
 

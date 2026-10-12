@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import type { Session } from '@nagiyu/common';
 import { withAuth } from '@nagiyu/nextjs';
 import { DEFAULT_CHARACTER_ID } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
@@ -18,28 +17,24 @@ import { NOTE_ERROR_MESSAGES } from './constants';
  * Query パラメータ：
  * - `characterId`（任意、未指定なら DEFAULT_CHARACTER_ID）。選択中のキャラクター ID。
  */
-export const GET = withAuth(
-  getSession,
-  'livetalk:chat',
-  withApiErrorReporting(
-    'Web API: ノート一覧取得エラー',
-    async (session: Session, request: Request) => {
-      const url = new URL(request.url);
-      const characterId = url.searchParams.get('characterId') || DEFAULT_CHARACTER_ID;
-      if (!hasCharacter(characterId)) {
-        return NextResponse.json(
-          { error: 'INVALID_CHARACTER', message: NOTE_ERROR_MESSAGES.INVALID_CHARACTER },
-          { status: 400 }
-        );
-      }
+export const GET = withApiErrorReporting(
+  'Web API: ノート一覧取得エラー',
+  withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
+    const url = new URL(request.url);
+    const characterId = url.searchParams.get('characterId') || DEFAULT_CHARACTER_ID;
+    if (!hasCharacter(characterId)) {
+      return NextResponse.json(
+        { error: 'INVALID_CHARACTER', message: NOTE_ERROR_MESSAGES.INVALID_CHARACTER },
+        { status: 400 }
+      );
+    }
 
-      const userId = session.user.id;
-      const repo = getNoteRepository();
+    const userId = session.user.id;
+    const repo = getNoteRepository();
 
-      const items = await repo.listAll(userId, characterId);
-      const notes = sortNotes(items.map(toNoteListItem));
-      return NextResponse.json({ notes });
-    },
-    { error: 'FETCH_FAILED', message: NOTE_ERROR_MESSAGES.FETCH_FAILED }
-  )
+    const items = await repo.listAll(userId, characterId);
+    const notes = sortNotes(items.map(toNoteListItem));
+    return NextResponse.json({ notes });
+  }),
+  { error: 'FETCH_FAILED', message: NOTE_ERROR_MESSAGES.FETCH_FAILED }
 );

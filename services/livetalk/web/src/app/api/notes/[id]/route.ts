@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import type { Session } from '@nagiyu/common';
 import { withAuth } from '@nagiyu/nextjs';
 import type { TopicBundle } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
@@ -20,12 +19,12 @@ type RouteContext = { params: Promise<{ id: string }> };
  * （リブトーク知識・記憶再設計 P4「ノート（ギフト化）」）。Topic の取得に失敗しても
  * headline（贈った瞬間の不変記録）は返す（fail-soft）。
  */
-export const GET = withAuth(
-  getSession,
-  'livetalk:chat',
-  withApiErrorReporting(
-    'Web API: ノート取得エラー',
-    async (session: Session, _request: Request, context: RouteContext) => {
+export const GET = withApiErrorReporting(
+  'Web API: ノート取得エラー',
+  withAuth(
+    getSession,
+    'livetalk:chat',
+    async (session, _request: Request, context: RouteContext) => {
       const { id } = await context.params;
       const key = decodeNoteId(id, session.user.id);
       if (!key) {
@@ -62,7 +61,7 @@ export const GET = withAuth(
       }
 
       return NextResponse.json({ note: toNoteDetail(note, bundle) });
-    },
-    { error: 'FETCH_FAILED', message: NOTE_ERROR_MESSAGES.FETCH_FAILED }
-  )
+    }
+  ),
+  { error: 'FETCH_FAILED', message: NOTE_ERROR_MESSAGES.FETCH_FAILED }
 );

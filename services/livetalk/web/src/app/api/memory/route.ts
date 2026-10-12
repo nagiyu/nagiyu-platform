@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import type { Session } from '@nagiyu/common';
 import { withAuth } from '@nagiyu/nextjs';
 import { DEFAULT_CHARACTER_ID } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
@@ -22,37 +21,33 @@ import type { SelfFactListItem } from '@/lib/memory/types';
  * データ源: `listTopicHeaders`（GSI-TOPIC 経由）で Topic を列挙し、各 Topic の
  * `listSelfFacts` を集約して SELF fact 一覧を構築する（GSI-SELF は追加しない、D1）。
  */
-export const GET = withAuth(
-  getSession,
-  'livetalk:chat',
-  withApiErrorReporting(
-    'Web API: SELF fact 一覧取得エラー',
-    async (session: Session, request: Request) => {
-      const url = new URL(request.url);
-      const characterId = url.searchParams.get('characterId') || DEFAULT_CHARACTER_ID;
-      if (!hasCharacter(characterId)) {
-        return NextResponse.json(
-          { error: 'INVALID_CHARACTER', message: MEMORY_ERROR_MESSAGES.INVALID_CHARACTER },
-          { status: 400 }
-        );
-      }
-
-      const userId = session.user.id;
-      const topicRepository = getTopicRepository();
-
-      const topicHeaders = await topicRepository.listTopicHeaders(userId, characterId);
-
-      const perTopicItems = await Promise.all(
-        topicHeaders.map(async (topic) => {
-          const selfFacts = await topicRepository.listSelfFacts(userId, characterId, topic.TopicID);
-          return selfFacts.map((fact) => toSelfFactListItem(fact, topic.Subject));
-        })
+export const GET = withApiErrorReporting(
+  'Web API: SELF fact 一覧取得エラー',
+  withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
+    const url = new URL(request.url);
+    const characterId = url.searchParams.get('characterId') || DEFAULT_CHARACTER_ID;
+    if (!hasCharacter(characterId)) {
+      return NextResponse.json(
+        { error: 'INVALID_CHARACTER', message: MEMORY_ERROR_MESSAGES.INVALID_CHARACTER },
+        { status: 400 }
       );
+    }
 
-      const collected: SelfFactListItem[] = perTopicItems.flat();
-      const selfFacts = sortSelfFacts(collected);
-      return NextResponse.json({ selfFacts });
-    },
-    { error: 'FETCH_FAILED', message: MEMORY_ERROR_MESSAGES.FETCH_FAILED }
-  )
+    const userId = session.user.id;
+    const topicRepository = getTopicRepository();
+
+    const topicHeaders = await topicRepository.listTopicHeaders(userId, characterId);
+
+    const perTopicItems = await Promise.all(
+      topicHeaders.map(async (topic) => {
+        const selfFacts = await topicRepository.listSelfFacts(userId, characterId, topic.TopicID);
+        return selfFacts.map((fact) => toSelfFactListItem(fact, topic.Subject));
+      })
+    );
+
+    const collected: SelfFactListItem[] = perTopicItems.flat();
+    const selfFacts = sortSelfFacts(collected);
+    return NextResponse.json({ selfFacts });
+  }),
+  { error: 'FETCH_FAILED', message: MEMORY_ERROR_MESSAGES.FETCH_FAILED }
 );

@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import type { Session } from '@nagiyu/common';
 import { withAuth } from '@nagiyu/nextjs';
 import { DEFAULT_CHARACTER_ID } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
@@ -23,49 +22,45 @@ import {
  * Phase 2a では Phase 2c の `/api/chat` 統合までの中継 API。LLM プロンプト用に
  * 時系列昇順で返すため、UI 側で「最新メッセージ N 件」UI を作る場合は反転する想定。
  */
-export const GET = withAuth(
-  getSession,
-  'livetalk:chat',
-  withApiErrorReporting(
-    'Web API: メッセージ取得エラー',
-    async (session: Session, request: Request) => {
-      const url = new URL(request.url);
-      const characterId = url.searchParams.get('characterId') || DEFAULT_CHARACTER_ID;
+export const GET = withApiErrorReporting(
+  'Web API: メッセージ取得エラー',
+  withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
+    const url = new URL(request.url);
+    const characterId = url.searchParams.get('characterId') || DEFAULT_CHARACTER_ID;
 
-      let tokenLimit: number | undefined;
-      const rawTokenLimit = url.searchParams.get('tokenLimit');
-      if (rawTokenLimit !== null) {
-        const parsed = Number.parseInt(rawTokenLimit, 10);
-        if (
-          !Number.isFinite(parsed) ||
-          parsed < MESSAGES_MIN_TOKEN_LIMIT ||
-          parsed > MESSAGES_MAX_TOKEN_LIMIT
-        ) {
-          return NextResponse.json(
-            { error: 'INVALID_REQUEST', message: MESSAGES_ERROR_MESSAGES.INVALID_REQUEST },
-            { status: 400 }
-          );
-        }
-        tokenLimit = parsed;
+    let tokenLimit: number | undefined;
+    const rawTokenLimit = url.searchParams.get('tokenLimit');
+    if (rawTokenLimit !== null) {
+      const parsed = Number.parseInt(rawTokenLimit, 10);
+      if (
+        !Number.isFinite(parsed) ||
+        parsed < MESSAGES_MIN_TOKEN_LIMIT ||
+        parsed > MESSAGES_MAX_TOKEN_LIMIT
+      ) {
+        return NextResponse.json(
+          { error: 'INVALID_REQUEST', message: MESSAGES_ERROR_MESSAGES.INVALID_REQUEST },
+          { status: 400 }
+        );
       }
+      tokenLimit = parsed;
+    }
 
-      const result = await getMessageRepository().getRecentByTokenBudget({
-        userId: session.user.id,
-        characterId,
-        tokenLimit,
-      });
-      return NextResponse.json({
-        messages: result.messages.map((m) => ({
-          messageId: m.MessageID,
-          characterId: m.CharacterID,
-          role: m.Role,
-          text: m.Text,
-          createdAt: m.CreatedAt,
-        })),
-        totalTokens: result.totalTokens,
-        truncated: result.truncated,
-      });
-    },
-    { error: 'FETCH_FAILED', message: MESSAGES_ERROR_MESSAGES.FETCH_FAILED }
-  )
+    const result = await getMessageRepository().getRecentByTokenBudget({
+      userId: session.user.id,
+      characterId,
+      tokenLimit,
+    });
+    return NextResponse.json({
+      messages: result.messages.map((m) => ({
+        messageId: m.MessageID,
+        characterId: m.CharacterID,
+        role: m.Role,
+        text: m.Text,
+        createdAt: m.CreatedAt,
+      })),
+      totalTokens: result.totalTokens,
+      truncated: result.truncated,
+    });
+  }),
+  { error: 'FETCH_FAILED', message: MESSAGES_ERROR_MESSAGES.FETCH_FAILED }
 );

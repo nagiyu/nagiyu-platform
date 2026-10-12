@@ -5,7 +5,6 @@
  * クライアントがこのエンドポイントを呼び ConsumedAt を記録する。
  */
 import { NextResponse } from 'next/server';
-import type { Session } from '@nagiyu/common';
 import type { NextRequest } from 'next/server';
 import { readJsonObjectBody, withAuth } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/server/session';
@@ -17,27 +16,23 @@ const ERROR_MESSAGES = {
   INTERNAL_ERROR: '消化済みマークの更新に失敗しました',
 } as const;
 
-export const PATCH = withAuth(
-  getSession,
-  'livetalk:chat',
-  withApiErrorReporting(
-    'Web API: 通知消化済みマークエラー',
-    async (session: Session, request: NextRequest) => {
-      const bodyResult = await readJsonObjectBody(request);
-      const notifId = bodyResult.ok ? bodyResult.body.notifId : undefined;
-      if (typeof notifId !== 'string') {
-        return NextResponse.json(
-          { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.MISSING_NOTIF_ID },
-          { status: 400 }
-        );
-      }
-
-      const userId = session.user.id;
-
-      const repo = getNotificationEventRepository();
-      await repo.markConsumed({ userId, notifId }, Date.now());
-
-      return NextResponse.json({ success: true }, { status: 200 });
+export const PATCH = withApiErrorReporting(
+  'Web API: 通知消化済みマークエラー',
+  withAuth(getSession, 'livetalk:chat', async (session, request: NextRequest) => {
+    const bodyResult = await readJsonObjectBody(request);
+    const notifId = bodyResult.ok ? bodyResult.body.notifId : undefined;
+    if (typeof notifId !== 'string') {
+      return NextResponse.json(
+        { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.MISSING_NOTIF_ID },
+        { status: 400 }
+      );
     }
-  )
+
+    const userId = session.user.id;
+
+    const repo = getNotificationEventRepository();
+    await repo.markConsumed({ userId, notifId }, Date.now());
+
+    return NextResponse.json({ success: true }, { status: 200 });
+  })
 );

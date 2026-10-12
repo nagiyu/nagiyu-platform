@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server';
 import { reportErrorEvent } from '@nagiyu/aws';
 import {
+  createPushRouteErrorReporter,
   DEFAULT_API_FAILURE_BODY,
   reportSwallowedError,
   withApiErrorReporting,
@@ -147,5 +148,19 @@ describe('reportSwallowedError', () => {
     await expect(
       reportSwallowedError('Web API: 握りつぶし', new Error('oops'))
     ).resolves.toBeUndefined();
+  });
+});
+
+describe('createPushRouteErrorReporter', () => {
+  it('指定した title で報告する関数を返す', async () => {
+    await createPushRouteErrorReporter('Web API: Push テスト')(new Error('push failed'));
+
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'livetalk',
+        title: 'Web API: Push テスト',
+        message: 'push failed',
+      })
+    );
   });
 });
