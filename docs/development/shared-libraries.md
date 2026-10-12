@@ -224,6 +224,7 @@ Next.js に依存するユーティリティ。
 - リポジトリ初期化ヘルパー
 - ページネーション
 - APIエラーレスポンス生成（`handleApiError`・`createErrorResponse`）
+- リクエストボディの読み取り（`readJsonObjectBody`）
 - NextAuth 設定ファクトリ（`createAuthConfig`・`createServiceAuthConfig`）
 - Health ルートファクトリ（`createHealthRoute`）
 - NextAuth 型定義（`types/next-auth.d.ts`）

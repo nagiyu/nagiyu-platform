@@ -393,19 +393,26 @@ return errors.length === 0 ? { valid: true } : { valid: false, errors };
 
 ## API Routeでの使用方法
 
+### リクエストボディの読み取り
+
+**MUST**: リクエストボディは `@nagiyu/nextjs` の `readJsonObjectBody` で読み、読めなければ 400 を返す。`request.json()` を直接呼ばない。
+
+壊れた JSON・本文 `null`・配列・プリミティブは、利用者の入力の誤りである。`request.json()` を直接呼ぶと、これらが例外やプロパティ参照の失敗としてルートの汎用 catch に落ち、500 になる。500 の経路ではエラーを通報するため、利用者の入力ミスが障害の通知に混ざり、本物の障害が埋もれる。
+
+`readJsonObjectBody` は例外を投げず、読めたかどうかだけを返す。400 のレスポンスの形は、各サービスが自前で組み立てる。読めた値の各項目は `unknown` のままなので、型は呼び出し側で確かめる (型が違えば 400)。
+
 ### バリデーションの実行
 
 ```typescript
 import { NextRequest, NextResponse } from 'next/server';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { validateUser } from '@/lib/validation';
 
 export async function POST(request: NextRequest) {
     try {
         // リクエストボディの取得
-        let body;
-        try {
-            body = await request.json();
-        } catch (error) {
+        const bodyResult = await readJsonObjectBody(request);
+        if (!bodyResult.ok) {
             return NextResponse.json(
                 {
                     error: 'INVALID_REQUEST',
@@ -414,6 +421,7 @@ export async function POST(request: NextRequest) {
                 { status: 400 }
             );
         }
+        const body = bodyResult.body;
         
         // バリデーション
         const validationResult = validateUser(body);
@@ -545,13 +553,12 @@ function processUser(data: unknown): void {
 // ❌ NG: any 型を使用
 const body: any = await request.json();
 
-// ✅ OK: unknown 型を使用
-let body: unknown;
-try {
-    body = await request.json();
-} catch (error) {
-    // エラーハンドリング
+// ✅ OK: 各項目を unknown として受け取る
+const bodyResult = await readJsonObjectBody(request);
+if (!bodyResult.ok) {
+    // 400 を返す
 }
+const body = bodyResult.body; // Record<string, unknown>
 
 // バリデーション後に型キャスト
 const validationResult = validateUser(body);
