@@ -445,7 +445,7 @@ AWS SDK 補助・拡張ライブラリ。DynamoDB Repository パターン実装�
 ### 含まれるもの
 
 - **エラークラス**: 階層的なエラー設計（`RepositoryError`基底、`EntityNotFoundError`等）
-- **抽象基底クラス**: CRUD操作の共通実装（`AbstractDynamoDBRepository`）
+- **Mapper と EntityStore**: Entity と Item の変換の型 (`EntityMapper`) と、単一アイテムの CRUD の骨格 (`EntityStore` の DynamoDB 版・InMemory 版)
 - **バリデーション関数**: 型安全なマッピング（文字列、数値、列挙型、タイムスタンプ等）
 - **ヘルパー関数**: 条件付き操作、UpdateExpression生成
 - **型定義**: Single Table Design対応（`DynamoDBItem`、`PaginatedResult`等）
@@ -453,12 +453,11 @@ AWS SDK 補助・拡張ライブラリ。DynamoDB Repository パターン実装�
 - **Batch クライアントファクトリ**: `getBatchClient()`、`clearBatchClientCache()`
 - **リポジトリファクトリー共通化ヘルパー**: InMemory/DynamoDB の切り替えを含む初期化処理を共通化
 
-### AbstractDynamoDBRepository 適用方針
+### リポジトリの標準の書き方
 
-新規追加する DynamoDB リポジトリには `AbstractDynamoDBRepository<TEntity, TKey>` を継承する。
+DynamoDB リポジトリは、`EntityMapper` で変換を担い、単一アイテムの CRUD を `EntityStore` に任せる (継承ではなく合成)。GSI を使う一覧などの独自のクエリだけを各リポジトリに書く。キー・属性名・時刻の形式・操作の振る舞いの標準と、その理由は [データアクセス層](./data-access-layer.md) を参照。
 
-- **新規リポジトリへの適用**: `getById`・`create`・`update`・`delete` の共通 CRUD 実装を活用し、サービス固有のロジックのみを追加する。
-- **既存リポジトリの移行は段階的**: 複数パラメータのキー・非標準 CRUD インターフェース・GSI 更新ロジックなど基底クラスと非互換のリポジトリが存在するため、既存リポジトリへの適用は大きな変更が発生したタイミングで対応する。
+- **`AbstractDynamoDBRepository` と `LegacyEntityMapper` は移行中の旧方式**: 全サービスが標準の書き方へ移り終わった時点で削除する。新規のリポジトリでは使わない。
 
 ### DynamoDB クライアントファクトリ
 
