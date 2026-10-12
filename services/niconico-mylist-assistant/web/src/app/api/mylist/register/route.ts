@@ -208,6 +208,18 @@ export const POST = withApiErrorReporting(
       });
     } catch (error) {
       if (isDynamoDbError(error)) {
+        // 例外を握って 500 を返すため、この場で報告する
+        await reportErrorEvent({
+          serviceId: 'niconico-mylist-assistant',
+          severity: 'error',
+          title: 'DynamoDB 動画取得失敗',
+          message: toErrorMessage(error),
+          context: {
+            userId: session.user.id,
+            errorName: error.name,
+            errorStack: error.stack,
+          },
+        });
         return NextResponse.json(
           {
             error: 'DATABASE_ERROR',

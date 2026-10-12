@@ -281,6 +281,13 @@ describe('POST /api/mylist/register', () => {
 
     const json = await response.json();
     expect(json.error).toBe('DATABASE_ERROR');
+    expect(mockReportErrorEvent).toHaveBeenCalledTimes(1);
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'DynamoDB 動画取得失敗',
+        context: expect.objectContaining({ userId: 'user123' }),
+      })
+    );
   });
 
   it('Batch jobId が返らない場合は 500 を返す', async () => {
