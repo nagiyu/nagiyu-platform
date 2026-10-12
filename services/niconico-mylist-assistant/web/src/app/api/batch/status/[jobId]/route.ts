@@ -69,20 +69,9 @@ const withBatchJobRepository = withRepository(
   }
 );
 
-// withAuth は内側の例外を自前の 500 に変換してしまうため、報告は withAuth の内側で行う
-const getBatchJobStatus = withApiErrorReporting(
+export const GET = withApiErrorReporting(
   'Web API: バッチジョブステータス取得エラー',
-  async (
-    request: NextRequest,
-    context: RouteParams,
-    session: NonNullable<Awaited<ReturnType<typeof getSession>>>
-  ) => withBatchJobRepository(request, context, session)
-);
-
-export const GET = withAuth(
-  getSession,
-  null,
-  // ラッパーの戻り値は Response に広がるが、どちらの経路も NextResponse を返す
-  async (session, request: NextRequest, context: RouteParams) =>
-    (await getBatchJobStatus(request, context, session)) as NextResponse
+  withAuth(getSession, null, (session, request: NextRequest, context: RouteParams) =>
+    withBatchJobRepository(request, context, session)
+  )
 );

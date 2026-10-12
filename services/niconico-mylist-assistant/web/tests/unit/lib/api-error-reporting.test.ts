@@ -9,6 +9,7 @@ jest.mock('@nagiyu/aws', () => ({
 import { NextRequest, NextResponse } from 'next/server';
 import { reportErrorEvent } from '@nagiyu/aws';
 import {
+  createPushRouteOnError,
   createWithApiErrorReportingBody,
   withApiErrorReporting,
 } from '../../../src/lib/api-error-reporting';
@@ -115,5 +116,32 @@ describe('createWithApiErrorReportingBody', () => {
     const response = await handler(makeRequest());
     expect(response.status).toBe(200);
     expect(mockReportErrorEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe('createPushRouteOnError', () => {
+  it('serviceId と title を詰めて報告する', async () => {
+    await createPushRouteOnError('Web API: Push 購読登録エラー')(new Error('保存失敗'));
+
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'niconico-mylist-assistant',
+        severity: 'error',
+        title: 'Web API: Push 購読登録エラー',
+        message: '保存失敗',
+        context: expect.objectContaining({ errorName: 'Error' }),
+      })
+    );
+  });
+
+  it('Error 以外の値でも報告できる', async () => {
+    await createPushRouteOnError('Web API: VAPID 公開鍵取得エラー')('文字列の例外');
+
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: '文字列の例外',
+        context: { errorName: 'string', errorStack: undefined },
+      })
+    );
   });
 });
