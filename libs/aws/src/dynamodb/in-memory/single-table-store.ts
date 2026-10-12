@@ -1,4 +1,5 @@
 import type { DynamoDBItem, PaginationOptions, PaginatedResult } from '../types.js';
+import type { DynamoDBKey } from '../mapper/entity-mapper.interface.js';
 import { EntityNotFoundError, EntityAlreadyExistsError } from '../errors.js';
 
 /**
@@ -275,6 +276,45 @@ export class InMemorySingleTableStore {
   }
 
   /**
+   * キーオブジェクトでアイテムを取得する。
+   * `{ PK, SK }` 以外の単一キー (例: `{ userId }`) のテーブルを扱うために使う。
+   *
+   * @param key - DynamoDB の `Key` と同じ形のキーオブジェクト
+   */
+  getByKey(key: DynamoDBKey): Record<string, unknown> | undefined {
+    return this.store.get(this.buildKeyFromObject(key));
+  }
+
+  /**
+   * キーオブジェクトを指定してアイテムを保存する (上書き)。
+   *
+   * `put` は item.PK / item.SK からキーを作るため、PK/SK を持たないテーブルには使えない。
+   * undefined の属性は実際の DynamoDB クライアントと同様に落とす。
+   *
+   * @param key - 保存先のキー
+   * @param item - 保存する Item
+   */
+  putByKey(key: DynamoDBKey, item: Record<string, unknown>): void {
+    const stored: Record<string, unknown> = {};
+    for (const [name, value] of Object.entries(item)) {
+      if (value !== undefined) {
+        stored[name] = value;
+      }
+    }
+    // 呼び出し側が渡した参照を後から書き換えられても、ストアの中身が変わらないようにする
+    this.store.set(this.buildKeyFromObject(key), { ...stored } as DynamoDBItem);
+  }
+
+  /**
+   * キーオブジェクトでアイテムを削除する (なくても成功)。
+   *
+   * @param key - 削除対象のキー
+   */
+  deleteByKey(key: DynamoDBKey): void {
+    this.store.delete(this.buildKeyFromObject(key));
+  }
+
+  /**
    * ストアをクリア（テスト用）
    */
   clear(): void {
@@ -293,6 +333,17 @@ export class InMemorySingleTableStore {
    */
   private buildKey(pk: string, sk: string): string {
     return `${pk}#${sk}`;
+  }
+
+  /**
+   * キーオブジェクトから内部キーを構築する。
+   *
+   * キー属性の並び順 (パーティションキー先頭) に従って `#` で連結する。
+   * `{ PK, SK }` は `get(pk, sk)` / `put` の内部キーと同じ文字列になるため、
+   * 両方の経路で同じアイテムを指せる。
+   */
+  private buildKeyFromObject(key: DynamoDBKey): string {
+    return Object.values(key).map(String).join('#');
   }
 
   /**

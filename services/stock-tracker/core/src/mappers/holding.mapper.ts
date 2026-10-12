@@ -6,7 +6,7 @@
 
 import type { DynamoDBItem } from '@nagiyu/aws';
 import { validateStringField, validateNumberField, validateTimestampField } from '@nagiyu/aws';
-import type { EntityMapper } from '@nagiyu/aws';
+import type { LegacyEntityMapper } from '@nagiyu/aws';
 import type { HoldingEntity, HoldingKey } from '../entities/holding.entity.js';
 
 /**
@@ -14,7 +14,7 @@ import type { HoldingEntity, HoldingKey } from '../entities/holding.entity.js';
  *
  * HoldingEntity と DynamoDB Item 間の変換を行う
  */
-export class HoldingMapper implements EntityMapper<HoldingEntity, HoldingKey> {
+export class HoldingMapper implements LegacyEntityMapper<HoldingEntity, HoldingKey> {
   private readonly entityType = 'Holding';
 
   /**

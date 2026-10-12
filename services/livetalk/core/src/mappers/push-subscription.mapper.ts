@@ -2,7 +2,7 @@ import {
   validateStringField,
   validateTimestampField,
   type DynamoDBItem,
-  type EntityMapper,
+  type LegacyEntityMapper,
 } from '@nagiyu/aws';
 import type {
   PushSubscriptionEntity,
@@ -10,7 +10,7 @@ import type {
 } from '../entities/push-subscription.entity.js';
 import { buildPushSubscriptionSK, buildUserPK } from './keys.js';
 
-export class PushSubscriptionMapper implements EntityMapper<
+export class PushSubscriptionMapper implements LegacyEntityMapper<
   PushSubscriptionEntity,
   PushSubscriptionKey
 > {

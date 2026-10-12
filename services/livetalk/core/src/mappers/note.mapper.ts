@@ -2,12 +2,12 @@ import {
   validateStringField,
   validateTimestampField,
   type DynamoDBItem,
-  type EntityMapper,
+  type LegacyEntityMapper,
 } from '@nagiyu/aws';
 import type { NoteEntity, NoteKey } from '../entities/note.entity.js';
 import { buildNoteSK, buildUserPK } from './keys.js';
 
-export class NoteMapper implements EntityMapper<NoteEntity, NoteKey> {
+export class NoteMapper implements LegacyEntityMapper<NoteEntity, NoteKey> {
   public readonly entityType = 'Note';
 
   public toItem(entity: NoteEntity): DynamoDBItem {

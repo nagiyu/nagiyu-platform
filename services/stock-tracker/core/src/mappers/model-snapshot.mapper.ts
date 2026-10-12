@@ -11,7 +11,7 @@ import {
   validateEnumField,
   validateNumberField,
   validateStringField,
-  type EntityMapper,
+  type LegacyEntityMapper,
 } from '@nagiyu/aws';
 import type { ModelSnapshotKey } from '../entities/model-snapshot.entity.js';
 import {
@@ -21,7 +21,10 @@ import {
   type NeutralBandState,
 } from '../forecast/index.js';
 
-export class ModelSnapshotMapper implements EntityMapper<ModelSnapshotItem, ModelSnapshotKey> {
+export class ModelSnapshotMapper implements LegacyEntityMapper<
+  ModelSnapshotItem,
+  ModelSnapshotKey
+> {
   private readonly entityType = 'ModelSnapshot';
 
   /**

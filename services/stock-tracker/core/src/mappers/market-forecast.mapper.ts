@@ -10,7 +10,7 @@ import {
   validateEnumField,
   validateStringField,
   validateTimestampField,
-  type EntityMapper,
+  type LegacyEntityMapper,
 } from '@nagiyu/aws';
 import type {
   CreateMarketForecastInput,
@@ -20,7 +20,10 @@ import type {
 } from '../entities/market-forecast.entity.js';
 import type { Market, MarketOutcome, MarketSample } from '../forecast/index.js';
 
-export class MarketForecastMapper implements EntityMapper<MarketForecastEntity, MarketForecastKey> {
+export class MarketForecastMapper implements LegacyEntityMapper<
+  MarketForecastEntity,
+  MarketForecastKey
+> {
   private readonly entityType = 'MarketForecast';
 
   /**

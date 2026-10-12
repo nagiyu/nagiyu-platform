@@ -2,7 +2,7 @@ import {
   validateStringField,
   validateTimestampField,
   type DynamoDBItem,
-  type EntityMapper,
+  type LegacyEntityMapper,
 } from '@nagiyu/aws';
 import type { SelfFactEntity, SelfFactKey } from '../entities/self-fact.entity.js';
 import { buildSelfFactSK, buildUserPK } from './keys.js';
@@ -10,7 +10,7 @@ import { buildSelfFactSK, buildUserPK } from './keys.js';
 /**
  * `SelfFactEntity ↔ DynamoDB Item` の変換と PK/SK 組み立てを担当する Mapper。
  */
-export class SelfFactMapper implements EntityMapper<SelfFactEntity, SelfFactKey> {
+export class SelfFactMapper implements LegacyEntityMapper<SelfFactEntity, SelfFactKey> {
   public readonly entityType = 'SelfFact';
 
   public toItem(entity: SelfFactEntity): DynamoDBItem {

@@ -3,7 +3,7 @@ import {
   validateStringField,
   validateTimestampField,
   type DynamoDBItem,
-  type EntityMapper,
+  type LegacyEntityMapper,
 } from '@nagiyu/aws';
 import type {
   ConsolidationCursorEntity,
@@ -14,7 +14,7 @@ import { buildConsolidationCursorSK, buildUserPK } from './keys.js';
 /**
  * `ConsolidationCursorEntity ↔ DynamoDB Item` の変換と PK/SK 組み立てを担当する Mapper。
  */
-export class ConsolidationCursorMapper implements EntityMapper<
+export class ConsolidationCursorMapper implements LegacyEntityMapper<
   ConsolidationCursorEntity,
   ConsolidationCursorKey
 > {

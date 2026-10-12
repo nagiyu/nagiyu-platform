@@ -9,7 +9,7 @@ import {
   validateNumberField,
   validateStringField,
   validateTimestampField,
-  type EntityMapper,
+  type LegacyEntityMapper,
 } from '@nagiyu/aws';
 import type {
   DailySummaryEntity,
@@ -38,7 +38,7 @@ export interface DailySummaryPatternResponse {
  *
  * DailySummaryEntity と DynamoDB Item 間の変換を行う
  */
-export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, DailySummaryKey> {
+export class DailySummaryMapper implements LegacyEntityMapper<DailySummaryEntity, DailySummaryKey> {
   private readonly entityType = 'DailySummary';
 
   /**

@@ -3,7 +3,7 @@ import {
   validateStringField,
   validateTimestampField,
   type DynamoDBItem,
-  type EntityMapper,
+  type LegacyEntityMapper,
 } from '@nagiyu/aws';
 import type { WebFactEntity, WebFactKey, WebFactVolatility } from '../entities/web-fact.entity.js';
 import { buildUserPK, buildWebFactSK, buildTopicStaleGSI4PK } from './keys.js';
@@ -18,7 +18,7 @@ const WEB_FACT_VOLATILITIES: readonly WebFactVolatility[] = [
 /**
  * `WebFactEntity ↔ DynamoDB Item` の変換と PK/SK 組み立てを担当する Mapper。
  */
-export class WebFactMapper implements EntityMapper<WebFactEntity, WebFactKey> {
+export class WebFactMapper implements LegacyEntityMapper<WebFactEntity, WebFactKey> {
   public readonly entityType = 'WebFact';
 
   public toItem(entity: WebFactEntity): DynamoDBItem {

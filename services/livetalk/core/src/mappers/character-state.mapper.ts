@@ -2,7 +2,7 @@ import {
   validateStringField,
   validateTimestampField,
   type DynamoDBItem,
-  type EntityMapper,
+  type LegacyEntityMapper,
 } from '@nagiyu/aws';
 import type {
   CharacterStateEntity,
@@ -10,7 +10,10 @@ import type {
 } from '../entities/character-state.entity.js';
 import { buildCharacterStateSK, buildUserPK } from './keys.js';
 
-export class CharacterStateMapper implements EntityMapper<CharacterStateEntity, CharacterStateKey> {
+export class CharacterStateMapper implements LegacyEntityMapper<
+  CharacterStateEntity,
+  CharacterStateKey
+> {
   public readonly entityType = 'CharacterState';
 
   public toItem(entity: CharacterStateEntity): DynamoDBItem {

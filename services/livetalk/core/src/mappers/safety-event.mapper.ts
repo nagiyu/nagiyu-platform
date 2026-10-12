@@ -2,7 +2,7 @@ import {
   validateStringField,
   validateTimestampField,
   type DynamoDBItem,
-  type EntityMapper,
+  type LegacyEntityMapper,
 } from '@nagiyu/aws';
 import type {
   SafetyEventEntity,
@@ -12,7 +12,7 @@ import type {
 import type { SafetyTrigger } from '../safety/types.js';
 import { buildSafetyEventGSI2PK, buildSafetyEventSK, buildUserPK } from './keys.js';
 
-export class SafetyEventMapper implements EntityMapper<SafetyEventEntity, SafetyEventKey> {
+export class SafetyEventMapper implements LegacyEntityMapper<SafetyEventEntity, SafetyEventKey> {
   public readonly entityType = 'SafetyEvent';
 
   public toItem(entity: SafetyEventEntity): DynamoDBItem {

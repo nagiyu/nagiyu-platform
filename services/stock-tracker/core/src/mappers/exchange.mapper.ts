@@ -6,7 +6,7 @@
 
 import type { DynamoDBItem } from '@nagiyu/aws';
 import { validateStringField, validateTimestampField } from '@nagiyu/aws';
-import type { EntityMapper } from '@nagiyu/aws';
+import type { LegacyEntityMapper } from '@nagiyu/aws';
 import type { ExchangeEntity, ExchangeKey } from '../entities/exchange.entity.js';
 import {
   PRICE_SOURCES,
@@ -39,7 +39,7 @@ export function buildExchangeGsi3Sk(exchangeId: string): string {
  *
  * ExchangeEntity と DynamoDB Item 間の変換を行う
  */
-export class ExchangeMapper implements EntityMapper<ExchangeEntity, ExchangeKey> {
+export class ExchangeMapper implements LegacyEntityMapper<ExchangeEntity, ExchangeKey> {
   private readonly entityType = 'Exchange';
 
   /**
