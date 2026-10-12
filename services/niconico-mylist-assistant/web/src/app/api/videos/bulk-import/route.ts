@@ -6,9 +6,12 @@ import {
   upsertUserVideoSetting,
   BulkImportResponse,
 } from '@nagiyu/niconico-mylist-assistant-core';
+import { reportErrorEvent } from '@nagiyu/aws';
+import { toErrorMessage } from '@nagiyu/common';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { createWithApiErrorReportingBody } from '@/lib/api-error-reporting';
 
 /**
  * 動画 ID (英字接頭辞 + 数字) の形式かを判定する
@@ -17,8 +20,13 @@ import { ERROR_MESSAGES } from '@/lib/constants/errors';
  */
 const isVideoId = (id: unknown): id is string => typeof id === 'string' && /^[a-z]+\d+$/.test(id);
 
-export async function POST(request: NextRequest) {
-  try {
+const withApiErrorReporting = createWithApiErrorReportingBody('Bulk import error:', {
+  error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+});
+
+export const POST = withApiErrorReporting(
+  'Web API: 動画一括登録エラー',
+  async (request: NextRequest) => {
     // 認証チェック
     const session = await getSession();
     if (!session?.user) {
@@ -115,13 +123,32 @@ export async function POST(request: NextRequest) {
     );
 
     // 保存結果の処理
-    saveResults.forEach((result) => {
+    // 失敗件数に数えてレスポンスを返すため、例外は上に届かない。ここで報告する
+    const saveFailures: Array<{ videoId: string; reason: unknown }> = [];
+    saveResults.forEach((result, index) => {
       if (result.status === 'fulfilled') {
         successCount++;
       } else {
         dbFailedCount++;
+        saveFailures.push({ videoId: videoInfos[index].videoId, reason: result.reason });
       }
     });
+    await Promise.all(
+      saveFailures.map(({ videoId, reason }) =>
+        reportErrorEvent({
+          serviceId: 'niconico-mylist-assistant',
+          severity: 'error',
+          title: 'Web API: 動画一括登録の保存エラー',
+          message: toErrorMessage(reason),
+          context: {
+            userId: session.user.id,
+            videoId,
+            errorName: reason instanceof Error ? reason.name : typeof reason,
+            errorStack: reason instanceof Error ? reason.stack : undefined,
+          },
+        })
+      )
+    );
 
     const response: BulkImportResponse = {
       success: successCount,
@@ -132,8 +159,5 @@ export async function POST(request: NextRequest) {
     };
 
     return NextResponse.json(response);
-  } catch (error) {
-    console.error('Bulk import error:', error);
-    return NextResponse.json({ error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR }, { status: 500 });
   }
-}
+);

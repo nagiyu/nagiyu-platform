@@ -117,6 +117,15 @@ describe('POST /api/jobs/[jobId]/submit', () => {
     expect((batchSend.mock.calls[0][0] as SubmitJobCommand).input.jobDefinition).toBe(
       'codec-medium'
     );
+    // 処理を続行するため上に例外が届かない。その場で報告されること
+    expect(mockedReportErrorEvent).toHaveBeenCalledTimes(1);
+    expect(mockedReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'codec-converter',
+        message: '選択できません',
+        context: expect.objectContaining({ jobId: 'job-1' }),
+      })
+    );
   });
 
   it('ジョブ定義が原因で投入に失敗した場合は medium で再投入する', async () => {
@@ -128,6 +137,14 @@ describe('POST /api/jobs/[jobId]/submit', () => {
     expect(batchSend).toHaveBeenCalledTimes(2);
     expect((batchSend.mock.calls[1][0] as SubmitJobCommand).input.jobDefinition).toBe(
       'codec-medium'
+    );
+    expect(mockedReportErrorEvent).toHaveBeenCalledTimes(1);
+    expect(mockedReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'codec-converter',
+        message: 'JobDefinition not found',
+        context: expect.objectContaining({ jobId: 'job-1' }),
+      })
     );
   });
 
@@ -142,8 +159,9 @@ describe('POST /api/jobs/[jobId]/submit', () => {
     expect(mockedReportErrorEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         serviceId: 'codec-converter',
+        title: 'Batchジョブの投入に失敗しました',
         message: 'Throttling',
-        context: expect.objectContaining({ jobId: 'job-1' }),
+        context: expect.objectContaining({ pathname: '/api/jobs/job-1/submit' }),
       })
     );
   });

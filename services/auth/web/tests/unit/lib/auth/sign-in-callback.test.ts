@@ -105,6 +105,35 @@ describe('jwt コールバック', () => {
     expect(result.roles).toEqual([]);
     expect(mockUpdateLastLogin).not.toHaveBeenCalled();
   });
+
+  it('ログイン時にユーザー取得が失敗した場合は報告して再スローする', async () => {
+    const dbError = new Error('DynamoDB タイムアウト');
+    mockGetUserByGoogleId.mockRejectedValueOnce(dbError);
+
+    const { createUserRepository } = await import('@nagiyu/auth-core');
+    (createUserRepository as jest.Mock).mockReturnValueOnce({
+      getUserByGoogleId: mockGetUserByGoogleId,
+      updateLastLogin: mockUpdateLastLogin,
+    });
+
+    await expect(
+      capturedCallbacks.jwt!({
+        token: {},
+        user: {},
+        account: { providerAccountId: 'google-123' },
+      })
+    ).rejects.toThrow(dbError);
+
+    expect(reportErrorEvent).toHaveBeenCalledTimes(1);
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'auth',
+        severity: 'error',
+        message: 'DynamoDB タイムアウト',
+        context: expect.objectContaining({ step: 'loginUserLookup' }),
+      })
+    );
+  });
 });
 
 describe('redirect コールバック', () => {

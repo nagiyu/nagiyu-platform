@@ -21,8 +21,14 @@ jest.mock('@nagiyu/niconico-mylist-assistant-core', () => ({
   updateUserVideoSetting: jest.fn(),
 }));
 
+// モック: @nagiyu/aws (エラー報告)
+jest.mock('@nagiyu/aws', () => ({
+  reportErrorEvent: jest.fn(),
+}));
+
 import { NextRequest } from 'next/server';
 import { PUT } from '../../../../../../src/app/api/videos/[id]/settings/route';
+import { reportErrorEvent } from '@nagiyu/aws';
 import { getSession } from '../../../../../../src/lib/auth/session';
 import {
   createUserVideoSetting,
@@ -169,6 +175,17 @@ describe('PUT /api/videos/[id]/settings', () => {
 
     const response = await PUT(makePutRequest({ isFavorite: true }), ROUTE_PARAMS);
     expect(response.status).toBe(500);
+
+    const json = await response.json();
+    expect(json.error).toBe('サーバーエラーが発生しました');
+    expect(reportErrorEvent).toHaveBeenCalledTimes(1);
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'niconico-mylist-assistant',
+        title: 'Web API: 動画設定更新エラー',
+        message: 'DB 接続失敗',
+      })
+    );
   });
 
   it.each([
