@@ -49,6 +49,49 @@ describe('createVapidPublicKeyRoute', () => {
   });
 });
 
+describe('createVapidPublicKeyRoute の onError', () => {
+  let consoleErrorSpy: jest.SpiedFunction<typeof console.error>;
+
+  beforeEach(() => {
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    delete process.env.VAPID_PUBLIC_KEY;
+  });
+
+  afterEach(() => {
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('500 を返すときに呼ばれる', async () => {
+    const onError = jest.fn<(error: unknown) => void>();
+    const response = await createVapidPublicKeyRoute({ onError })();
+
+    expect(response.status).toBe(500);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError.mock.calls[0][0]).toBeInstanceOf(Error);
+  });
+
+  it('200 のときは呼ばれない', async () => {
+    process.env.VAPID_PUBLIC_KEY = 'key';
+    const onError = jest.fn<(error: unknown) => void>();
+    const response = await createVapidPublicKeyRoute({ onError })();
+
+    expect(response.status).toBe(200);
+    expect(onError).not.toHaveBeenCalled();
+    delete process.env.VAPID_PUBLIC_KEY;
+  });
+
+  it('onError が reject しても 500 を返す', async () => {
+    const onError = jest.fn<(error: unknown) => Promise<void>>().mockRejectedValue(new Error('x'));
+    const response = await createVapidPublicKeyRoute({ onError })();
+
+    expect(response.status).toBe(500);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[push] onError コールバックが失敗しました',
+      expect.any(Error)
+    );
+  });
+});
+
 describe('validatePushSubscription', () => {
   it('有効なサブスクリプション情報の場合は true を返す', () => {
     expect(
@@ -242,6 +285,99 @@ describe('createPushSubscribeRoute', () => {
       expect(response.status).toBe(500);
       expect(body.error).toBe('INTERNAL_ERROR');
       consoleErrorSpy.mockRestore();
+    });
+  });
+
+  describe('onError コールバック', () => {
+    const session = {
+      user: { userId: 'user-1', email: 'test@example.com', roles: ['stock-user'] },
+    };
+    let consoleErrorSpy: jest.SpiedFunction<typeof console.error>;
+
+    beforeEach(() => {
+      consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+      consoleErrorSpy.mockRestore();
+    });
+
+    const failingSave = async () => {
+      throw new Error('保存失敗');
+    };
+
+    it('onSubscribe の例外で 500 を返すとき、その例外を渡して呼ばれる', async () => {
+      const onError = jest.fn<(error: unknown) => void>();
+      const POST = createPushSubscribeRoute({
+        getSession: async () => session,
+        onSubscribe: failingSave,
+        onError,
+      });
+
+      const response = await POST(
+        createRequest({ subscription: validSubscription }) as unknown as NextRequest
+      );
+
+      expect(response.status).toBe(500);
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect((onError.mock.calls[0][0] as Error).message).toBe('保存失敗');
+    });
+
+    it('VAPID 鍵未設定の 500 でも呼ばれる', async () => {
+      delete process.env.VAPID_PRIVATE_KEY;
+      const onError = jest.fn<(error: unknown) => void>();
+      const POST = createPushSubscribeRoute({ getSession: async () => session, onError });
+
+      const response = await POST(
+        createRequest({ subscription: validSubscription }) as unknown as NextRequest
+      );
+
+      expect(response.status).toBe(500);
+      expect(onError).toHaveBeenCalledTimes(1);
+    });
+
+    it('400 では呼ばれない', async () => {
+      const onError = jest.fn<(error: unknown) => void>();
+      const POST = createPushSubscribeRoute({ getSession: async () => session, onError });
+
+      const response = await POST(
+        createRequest({ subscription: { endpoint: 'invalid' } }) as unknown as NextRequest
+      );
+
+      expect(response.status).toBe(400);
+      expect(onError).not.toHaveBeenCalled();
+    });
+
+    it('onError が reject しても 500 を返す', async () => {
+      const onError = jest
+        .fn<(error: unknown) => Promise<void>>()
+        .mockRejectedValue(new Error('報告失敗'));
+      const POST = createPushSubscribeRoute({
+        getSession: async () => session,
+        onSubscribe: failingSave,
+        onError,
+      });
+
+      const response = await POST(
+        createRequest({ subscription: validSubscription }) as unknown as NextRequest
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body.error).toBe('INTERNAL_ERROR');
+    });
+
+    it('未指定でも従来どおり 500 を返す', async () => {
+      const POST = createPushSubscribeRoute({
+        getSession: async () => session,
+        onSubscribe: failingSave,
+      });
+
+      const response = await POST(
+        createRequest({ subscription: validSubscription }) as unknown as NextRequest
+      );
+
+      expect(response.status).toBe(500);
     });
   });
 });

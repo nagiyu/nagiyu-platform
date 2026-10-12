@@ -41,7 +41,6 @@ export type AuthFunction<TSession extends SessionWithRoles = Session> =
 const AUTH_ERROR_MESSAGES = {
   UNAUTHORIZED: 'ログインが必要です',
   FORBIDDEN: 'この操作を実行する権限がありません',
-  AUTH_PROCESSING_ERROR: '認証処理に失敗しました',
 } as const;
 
 /**
@@ -143,6 +142,10 @@ export async function getOptionalSession<TSession extends SessionWithRoles>(
  *
  * API Route ハンドラーをラップして、認証・権限チェックを自動化します。
  *
+ * 認証エラー (401 / 403) だけをレスポンスにし、auth() やハンドラーの例外は握らず投げ直す。
+ * ここで 500 に変換すると、例外を最後に受け止める層 (withApiErrorReporting) に届かず、
+ * 障害が報告されなくなるため。利用側は withAuth の外側にラッパーを置くこと。
+ *
  * @param auth - NextAuth の auth 関数
  * @param permission - 必要な権限
  * @param handler - 元のハンドラー関数
@@ -156,6 +159,9 @@ export async function getOptionalSession<TSession extends SessionWithRoles>(
  *   // 認証済みの処理
  *   return NextResponse.json({ data: 'success' });
  * });
+ *
+ * // 例外の報告・500 への変換はラッパーに任せる
+ * export const POST = withApiErrorReporting('POST /api/stocks', withAuth(auth, 'stocks:write', handler));
  * ```
  */
 export function withAuth<TSession extends SessionWithRoles, T extends unknown[]>(
@@ -164,30 +170,19 @@ export function withAuth<TSession extends SessionWithRoles, T extends unknown[]>
   handler: (session: TSession, ...args: T) => Promise<NextResponse>
 ): (...args: T) => Promise<NextResponse> {
   return async (...args: T) => {
-    try {
-      const session = await getOptionalSession(auth);
-      const authError = getAuthError(session, permission);
+    const session = await getOptionalSession(auth);
+    const authError = getAuthError(session, permission);
 
-      if (authError) {
-        return NextResponse.json(
-          {
-            error: authError.statusCode === 401 ? ERROR_CODES.UNAUTHORIZED : ERROR_CODES.FORBIDDEN,
-            message: authError.message,
-          },
-          { status: authError.statusCode }
-        );
-      }
-
-      return await handler(session!, ...args);
-    } catch (error) {
-      console.error('Auth error:', error);
+    if (authError) {
       return NextResponse.json(
         {
-          error: ERROR_CODES.INTERNAL_ERROR,
-          message: AUTH_ERROR_MESSAGES.AUTH_PROCESSING_ERROR,
+          error: authError.statusCode === 401 ? ERROR_CODES.UNAUTHORIZED : ERROR_CODES.FORBIDDEN,
+          message: authError.message,
         },
-        { status: 500 }
+        { status: authError.statusCode }
       );
     }
+
+    return await handler(session!, ...args);
   };
 }

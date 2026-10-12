@@ -7,11 +7,36 @@ import type { AuthFunction, SessionWithRoles } from './auth.js';
 
 const ERROR_MESSAGES = {
   MISSING_VAPID_KEY: 'VAPID公開鍵が設定されていません',
+  ON_ERROR_FAILED: '[push] onError コールバックが失敗しました',
 } as const;
 
 type VapidPublicKeyResponse = {
   publicKey: string;
 };
+
+/**
+ * 500 を返す経路で呼ばれる報告用コールバック。
+ * libs/nextjs は報告基盤に依存しないため、報告そのものは呼び出し側が渡す。
+ */
+export type PushRouteErrorHandler = (error: unknown) => Promise<void> | void;
+
+export interface CreateVapidPublicKeyRouteOptions {
+  onError?: PushRouteErrorHandler;
+}
+
+/**
+ * onError の失敗でレスポンスを失わないよう、例外を握って console.error に留める。
+ */
+async function notifyError(onError: PushRouteErrorHandler | undefined, error: unknown) {
+  if (!onError) {
+    return;
+  }
+  try {
+    await onError(error);
+  } catch (onErrorFailure) {
+    console.error(ERROR_MESSAGES.ON_ERROR_FAILED, onErrorFailure);
+  }
+}
 
 type ErrorResponse = {
   error: string;
@@ -61,13 +86,14 @@ export function validatePushSubscription(subscription: unknown): subscription is
 /**
  * サービス共通の VAPID 公開鍵 route ハンドラーを生成する。
  */
-export function createVapidPublicKeyRoute() {
+export function createVapidPublicKeyRoute(options: CreateVapidPublicKeyRouteOptions = {}) {
   return async function GET(): Promise<NextResponse<VapidPublicKeyResponse | ErrorResponse>> {
     try {
       const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
 
       if (!vapidPublicKey) {
         console.error('VAPID_PUBLIC_KEY is not configured');
+        await notifyError(options.onError, new Error(ERROR_MESSAGES.MISSING_VAPID_KEY));
         return NextResponse.json(
           {
             error: 'INTERNAL_ERROR',
@@ -85,6 +111,7 @@ export function createVapidPublicKeyRoute() {
       );
     } catch (error) {
       console.error('Error getting VAPID public key:', error);
+      await notifyError(options.onError, error);
       return NextResponse.json(
         {
           error: 'INTERNAL_ERROR',
@@ -119,6 +146,8 @@ export interface CreatePushSubscribeRouteOptions<
 > {
   getSession: AuthFunction<TSession>;
   requiredPermission?: Permission;
+  /** 500 を返す直前に呼ばれる。失敗してもレスポンスは変わらない */
+  onError?: PushRouteErrorHandler;
   /**
    * 検証済みの購読を保存するフック。
    * 201 を返す直前に呼ばれ、例外は 500 として扱われる。
@@ -186,6 +215,7 @@ export function createPushSubscribeRoute<TSession extends SessionWithRoles = Ses
 
       if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
         console.error('VAPID keys are not configured');
+        await notifyError(options.onError, new Error(SUBSCRIBE_ERROR_MESSAGES.MISSING_VAPID_KEYS));
         return NextResponse.json(
           {
             error: 'INTERNAL_ERROR',
@@ -211,6 +241,7 @@ export function createPushSubscribeRoute<TSession extends SessionWithRoles = Ses
       );
     } catch (error) {
       console.error('Error subscribing to push notifications:', error);
+      await notifyError(options.onError, error);
       return NextResponse.json(
         {
           error: 'INTERNAL_ERROR',

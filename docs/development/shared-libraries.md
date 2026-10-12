@@ -251,6 +251,8 @@ Next.js に依存するユーティリティ。
 - **組み立ては 1 回だけ**: サービスの `lib/` で `serviceId` と報告関数を渡して作り、各ルートで使い回す。
 - **レスポンスの形を保つ**: 既定は `handleApiError`。サービス固有のエラー形式があるときは `toErrorResponse` で差し替える。報告するかどうかは、変換後の status で決まる。
 - **ハンドラ自身が返したレスポンスは報告しない**: 4xx / 5xx を返り値で返した場合は想定内として扱う。
+- **`withAuth` と合成するときはラッパーを外側に置く**: `withApiErrorReporting(title, withAuth(...))`。`withAuth` は認証エラー (401 / 403) だけを返し、例外は握らず投げ直す。内側で 500 に変換すると、ラッパーに届かず報告されないため。
+- **Push 系ファクトリは `onError` で報告を渡す**: `createVapidPublicKeyRoute` と `createPushSubscribeRoute` は内部で例外を握って 500 を返すので、ラッパーでは包めない。500 を返すときに呼ばれる `onError` に報告を渡す。`onError` の失敗はレスポンスに影響しない。
 
 ```typescript
 // lib/api-error-reporting.ts

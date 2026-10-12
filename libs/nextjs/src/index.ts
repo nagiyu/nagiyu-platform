@@ -75,4 +75,8 @@ export {
   validatePushSubscription,
   createSubscriptionId,
 } from './push.js';
-export type { CreatePushSubscribeRouteOptions } from './push.js';
+export type {
+  CreatePushSubscribeRouteOptions,
+  CreateVapidPublicKeyRouteOptions,
+  PushRouteErrorHandler,
+} from './push.js';

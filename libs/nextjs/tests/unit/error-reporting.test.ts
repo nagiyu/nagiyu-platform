@@ -4,6 +4,7 @@
 
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import { NextResponse } from 'next/server';
+import { withAuth, type AuthFunction } from '../../src/auth';
 import { createApiErrorReporting, type ApiErrorReportInput } from '../../src/error-reporting';
 
 describe('createApiErrorReporting', () => {
@@ -158,5 +159,22 @@ describe('createApiErrorReporting', () => {
     const ctx = { params: Promise.resolve({ id: '1' }) };
     await wrapped(request, ctx);
     expect(handler).toHaveBeenCalledWith(request, ctx);
+  });
+
+  it('withAuth の内側で起きた例外もラッパーが報告して 500 にする', async () => {
+    const auth: AuthFunction = async () => ({
+      user: { id: 'u', email: 'a@example.com', name: 'n', roles: [] },
+      expires: '2099-01-01T00:00:00Z',
+    });
+    const wrapped = create()(
+      'GET /x',
+      withAuth(auth, null, async () => {
+        throw new Error('boom');
+      })
+    );
+    const res = await wrapped();
+    expect(res.status).toBe(500);
+    expect(report).toHaveBeenCalledTimes(1);
+    expect(report.mock.calls[0][0].title).toBe('GET /x');
   });
 });
