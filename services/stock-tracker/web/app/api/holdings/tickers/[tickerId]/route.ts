@@ -7,12 +7,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuth, handleApiError } from '@nagiyu/nextjs';
+import { withAuth } from '@nagiyu/nextjs';
 import {
   createHoldingRepository,
   createTickerRepository,
 } from '../../../../../lib/repository-factory';
+import type { Session } from '@nagiyu/common';
 import { getSession } from '../../../../../lib/auth';
+import { withApiErrorReporting } from '../../../../../lib/api-error-reporting';
 import type { Holding } from '@nagiyu/stock-tracker-core';
 
 const ERROR_MESSAGES = {
@@ -35,12 +37,13 @@ interface HoldingResponse {
 export const GET = withAuth(
   getSession,
   'stocks:read',
-  async (
-    session,
-    _request: NextRequest,
-    { params }: { params: Promise<{ tickerId: string }> }
-  ): Promise<NextResponse> => {
-    try {
+  withApiErrorReporting(
+    'Web API: 保有株式取得エラー',
+    async (
+      session: Session,
+      _request: NextRequest,
+      { params }: { params: Promise<{ tickerId: string }> }
+    ): Promise<NextResponse> => {
       const { tickerId } = await params;
 
       if (!tickerId || !tickerId.includes(':')) {
@@ -77,10 +80,8 @@ export const GET = withAuth(
         ),
         { status: 200 }
       );
-    } catch (error) {
-      return handleApiError(error);
     }
-  }
+  )
 );
 
 function mapHoldingToResponse(

@@ -12,23 +12,21 @@ import { validateAlert, calculateTemporaryExpireDate } from '@nagiyu/stock-track
 import {
   withAuth,
   parsePagination,
-  PaginationValidationError,
-  handleApiError,
   validatePushSubscription,
   readJsonObjectBody,
 } from '@nagiyu/nextjs';
-import { reportErrorEvent } from '@nagiyu/aws';
 import {
   createAlertRepository,
   createTickerRepository,
   createExchangeRepository,
 } from '../../../lib/repository-factory';
 import { getSession } from '../../../lib/auth';
+import { withApiErrorReporting } from '../../../lib/api-error-reporting';
 import { parseAlertConditionList } from '../../../lib/alert-condition';
 import { isOptionalString, isRecord } from '../../../lib/request-guards';
 import type { AlertEntity, CreateAlertInput } from '@nagiyu/stock-tracker-core';
-import type { ErrorResponse } from '@nagiyu/common';
-import { COMMON_ERROR_MESSAGES, toErrorMessage } from '@nagiyu/common';
+import type { ErrorResponse, Session } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 
 /**
  * エラーメッセージ定数
@@ -122,8 +120,9 @@ function mapAlertToResponse(
 export const GET = withAuth(
   getSession,
   'stocks:read',
-  async (session, request: NextRequest): Promise<NextResponse> => {
-    try {
+  withApiErrorReporting(
+    'Web API: アラート一覧取得エラー',
+    async (session: Session, request: NextRequest): Promise<NextResponse> => {
       // リポジトリの初期化
       const alertRepo = createAlertRepository();
       const tickerRepo = createTickerRepository();
@@ -160,22 +159,8 @@ export const GET = withAuth(
         },
         { status: 200 }
       );
-    } catch (error) {
-      // クライアントの入力ミスはサーバーの障害ではないため、エラーイベントとして通知しない
-      if (error instanceof PaginationValidationError) {
-        return handleApiError(error);
-      }
-      const errorMessage = toErrorMessage(error);
-      await reportErrorEvent({
-        serviceId: 'stock-tracker',
-        severity: 'error',
-        title: 'Web API: アラート一覧取得エラー',
-        message: errorMessage,
-        context: { errorStack: error instanceof Error ? error.stack : undefined },
-      });
-      return handleApiError(error);
     }
-  }
+  )
 );
 
 /**
@@ -185,8 +170,12 @@ export const GET = withAuth(
 export const POST = withAuth(
   getSession,
   'stocks:write-own',
-  async (session, request: NextRequest): Promise<NextResponse<AlertResponse | ErrorResponse>> => {
-    try {
+  withApiErrorReporting(
+    'Web API: アラート作成エラー',
+    async (
+      session: Session,
+      request: NextRequest
+    ): Promise<NextResponse<AlertResponse | ErrorResponse>> => {
       // リクエストボディの取得
       const bodyResult = await readJsonObjectBody(request);
       if (!bodyResult.ok) {
@@ -342,16 +331,6 @@ export const POST = withAuth(
       );
 
       return NextResponse.json(response, { status: 201 });
-    } catch (error) {
-      const errorMessage = toErrorMessage(error);
-      await reportErrorEvent({
-        serviceId: 'stock-tracker',
-        severity: 'error',
-        title: 'Web API: アラート作成エラー',
-        message: errorMessage,
-        context: { errorStack: error instanceof Error ? error.stack : undefined },
-      });
-      return handleApiError(error);
     }
-  }
+  )
 );

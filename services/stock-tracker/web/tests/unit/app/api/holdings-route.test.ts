@@ -1,10 +1,16 @@
 import { NextRequest } from 'next/server';
+import * as awsModule from '@nagiyu/aws';
 import { GET, POST } from '../../../../app/api/holdings/route';
 import {
   createHoldingRepository,
   createTickerRepository,
 } from '../../../../lib/repository-factory';
 import { MALFORMED_BODY_CASES } from './invalidBodyCases';
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
 
 jest.mock('../../../../lib/repository-factory', () => ({
   createHoldingRepository: jest.fn(),
@@ -37,6 +43,37 @@ describe('GET /api/holdings', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it('ティッカー情報の取得に失敗しても一覧を返し、その場で報告する', async () => {
+    mockGetByUserId.mockResolvedValue({
+      items: [
+        {
+          UserID: 'test-user',
+          TickerID: 'NSDQ:AAPL',
+          Quantity: 1,
+          AveragePrice: 100,
+          Currency: 'USD',
+          CreatedAt: 1,
+          UpdatedAt: 1,
+        },
+      ],
+    });
+    mockGetTickerById.mockRejectedValue(new Error('ticker db error'));
+
+    const response = await GET(new NextRequest('http://localhost/api/holdings'));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.holdings[0]).toEqual(expect.objectContaining({ symbol: 'AAPL', name: '' }));
+    expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: 保有株式一覧の銘柄情報取得エラー',
+        message: 'ticker db error',
+      })
+    );
   });
 
   it('クエリ未指定の場合は limit=50 でリポジトリを呼ぶ', async () => {

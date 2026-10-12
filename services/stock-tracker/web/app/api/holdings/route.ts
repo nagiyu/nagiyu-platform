@@ -10,9 +10,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { validateHolding } from '@nagiyu/stock-tracker-core';
-import { withAuth, handleApiError, parsePagination, readJsonObjectBody } from '@nagiyu/nextjs';
+import { withAuth, parsePagination, readJsonObjectBody } from '@nagiyu/nextjs';
 import { createHoldingRepository, createTickerRepository } from '../../../lib/repository-factory';
+import type { Session } from '@nagiyu/common';
 import { getSession } from '../../../lib/auth';
+import { withApiErrorReporting, reportSwallowedError } from '../../../lib/api-error-reporting';
 import { isOptionalString } from '../../../lib/request-guards';
 import type { Holding } from '@nagiyu/stock-tracker-core';
 
@@ -25,6 +27,13 @@ const ERROR_MESSAGES = {
   INTERNAL_ERROR: '保有株式の取得に失敗しました',
   CREATE_ERROR: '保有株式の登録に失敗しました',
   ALREADY_EXISTS: '指定された銘柄は既に保有株式として登録されています',
+} as const;
+
+/**
+ * 握りつぶした例外の報告タイトル
+ */
+const REPORT_TITLES = {
+  TICKER_LOOKUP: 'Web API: 保有株式一覧の銘柄情報取得エラー',
 } as const;
 
 /**
@@ -78,54 +87,60 @@ function mapHoldingToResponse(
  * GET /api/holdings
  * 保有株式一覧取得
  */
-export const GET = withAuth(getSession, 'stocks:read', async (session, request: NextRequest) => {
-  try {
-    // リポジトリの初期化
-    const holdingRepo = createHoldingRepository();
+export const GET = withAuth(
+  getSession,
+  'stocks:read',
+  withApiErrorReporting(
+    'Web API: 保有株式一覧取得エラー',
+    async (session: Session, request: NextRequest) => {
+      // リポジトリの初期化
+      const holdingRepo = createHoldingRepository();
 
-    // ユーザーIDを取得
-    const userId = session!.user.id;
+      // ユーザーIDを取得
+      const userId = session!.user.id;
 
-    // 保有株式一覧取得
-    const result = await holdingRepo.getByUserId(userId, parsePagination(request));
+      // 保有株式一覧取得
+      const result = await holdingRepo.getByUserId(userId, parsePagination(request));
 
-    // TickerリポジトリでSymbolとNameを取得
-    // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化
-    const tickerRepo = createTickerRepository();
+      // TickerリポジトリでSymbolとNameを取得
+      // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化
+      const tickerRepo = createTickerRepository();
 
-    const holdings: HoldingResponse[] = [];
-    for (const holding of result.items) {
-      // ティッカーが見つからない場合はデフォルト値を使用
-      let ticker;
-      try {
-        ticker = await tickerRepo.getById(holding.TickerID);
-      } catch {
-        // ティッカーが見つからない場合は null として扱う
-        ticker = null;
+      const holdings: HoldingResponse[] = [];
+      for (const holding of result.items) {
+        // ティッカーが見つからない場合はデフォルト値を使用
+        let ticker;
+        try {
+          ticker = await tickerRepo.getById(holding.TickerID);
+        } catch (error) {
+          // 銘柄名は付加情報のため、取得に失敗しても一覧は返す。握りつぶすので上位のラッパーでは拾えない
+          await reportSwallowedError(REPORT_TITLES.TICKER_LOOKUP, error, {
+            tickerId: holding.TickerID,
+          });
+          ticker = null;
+        }
+        holdings.push(
+          mapHoldingToResponse(
+            holding,
+            ticker?.Symbol || holding.TickerID.split(':')[1] || '',
+            ticker?.Name || ''
+          )
+        );
       }
-      holdings.push(
-        mapHoldingToResponse(
-          holding,
-          ticker?.Symbol || holding.TickerID.split(':')[1] || '',
-          ticker?.Name || ''
-        )
-      );
+
+      // レスポンス形式に変換
+      const response: HoldingsListResponse = {
+        holdings,
+        pagination: {
+          count: holdings.length,
+          ...(result.nextCursor && { lastKey: result.nextCursor }),
+        },
+      };
+
+      return NextResponse.json(response, { status: 200 });
     }
-
-    // レスポンス形式に変換
-    const response: HoldingsListResponse = {
-      holdings,
-      pagination: {
-        count: holdings.length,
-        ...(result.nextCursor && { lastKey: result.nextCursor }),
-      },
-    };
-
-    return NextResponse.json(response, { status: 200 });
-  } catch (error) {
-    return handleApiError(error);
-  }
-});
+  )
+);
 
 /**
  * POST /api/holdings
@@ -134,8 +149,9 @@ export const GET = withAuth(getSession, 'stocks:read', async (session, request: 
 export const POST = withAuth(
   getSession,
   'stocks:write-own',
-  async (session, request: NextRequest) => {
-    try {
+  withApiErrorReporting(
+    'Web API: 保有株式登録エラー',
+    async (session: Session, request: NextRequest) => {
       // リクエストボディの取得
       const bodyResult = await readJsonObjectBody(request);
       if (!bodyResult.ok) {
@@ -249,8 +265,6 @@ export const POST = withAuth(
       );
 
       return NextResponse.json(response, { status: 201 });
-    } catch (error) {
-      return handleApiError(error);
     }
-  }
+  )
 );

@@ -8,11 +8,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { COMMON_ERROR_MESSAGES, toErrorMessage } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { TickerNotFoundError, validateTickerUpdateData } from '@nagiyu/stock-tracker-core';
-import { withAuth, handleApiError, readJsonObjectBody } from '@nagiyu/nextjs';
-import { reportErrorEvent } from '@nagiyu/aws';
+import { withAuth, readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
+import { withApiErrorReporting } from '../../../../lib/api-error-reporting';
 import { createTickerRepository } from '../../../../lib/repository-factory';
 
 /**
@@ -52,8 +52,9 @@ interface DeleteTickerResponse {
 export const PUT = withAuth(
   getSession,
   'stocks:manage-data',
-  async (_session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-    try {
+  withApiErrorReporting(
+    'Web API: ティッカー更新エラー',
+    async (_session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
       // パスパラメータの取得
       const { id: tickerId } = await params;
 
@@ -115,18 +116,8 @@ export const PUT = withAuth(
         }
         throw error;
       }
-    } catch (error) {
-      const errorMessage = toErrorMessage(error);
-      await reportErrorEvent({
-        serviceId: 'stock-tracker',
-        severity: 'error',
-        title: 'Web API: ティッカー更新エラー',
-        message: errorMessage,
-        context: { errorStack: error instanceof Error ? error.stack : undefined },
-      });
-      return handleApiError(error);
     }
-  }
+  )
 );
 
 /**
@@ -136,8 +127,9 @@ export const PUT = withAuth(
 export const DELETE = withAuth(
   getSession,
   'stocks:manage-data',
-  async (_session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-    try {
+  withApiErrorReporting(
+    'Web API: ティッカー削除エラー',
+    async (_session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
       // パスパラメータの取得
       const { id: tickerId } = await params;
 
@@ -168,16 +160,6 @@ export const DELETE = withAuth(
         }
         throw error;
       }
-    } catch (error) {
-      const errorMessage = toErrorMessage(error);
-      await reportErrorEvent({
-        serviceId: 'stock-tracker',
-        severity: 'error',
-        title: 'Web API: ティッカー削除エラー',
-        message: errorMessage,
-        context: { errorStack: error instanceof Error ? error.stack : undefined },
-      });
-      return handleApiError(error);
     }
-  }
+  )
 );

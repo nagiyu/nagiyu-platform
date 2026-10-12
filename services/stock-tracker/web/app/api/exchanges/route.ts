@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
-import { COMMON_ERROR_MESSAGES, toErrorMessage } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import {
   validateExchange,
   type ExchangeEntity,
   DEFAULT_PRICE_SOURCE,
   type PriceSource,
 } from '@nagiyu/stock-tracker-core';
-import { withAuth, handleApiError, readJsonObjectBody } from '@nagiyu/nextjs';
-import { reportErrorEvent } from '@nagiyu/aws';
+import { withAuth, readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '../../../lib/auth';
+import { withApiErrorReporting } from '../../../lib/api-error-reporting';
 import { createExchangeRepository } from '../../../lib/repository-factory';
 import {
   isExchangeMarket,
@@ -51,8 +51,10 @@ function invalidRequestBodyResponse(): NextResponse {
  * @returns 権限エラー (403 Forbidden)
  * @returns サーバーエラー (500 Internal Server Error)
  */
-export const GET = withAuth(getSession, 'stocks:read', async () => {
-  try {
+export const GET = withAuth(
+  getSession,
+  'stocks:read',
+  withApiErrorReporting('Web API: 取引所一覧取得エラー', async () => {
     // Exchange リポジトリを初期化
     const exchangeRepo = createExchangeRepository();
 
@@ -74,18 +76,8 @@ export const GET = withAuth(getSession, 'stocks:read', async () => {
         market: exchange.Market,
       })),
     });
-  } catch (error) {
-    const errorMessage = toErrorMessage(error);
-    await reportErrorEvent({
-      serviceId: 'stock-tracker',
-      severity: 'error',
-      title: 'Web API: 取引所一覧取得エラー',
-      message: errorMessage,
-      context: { errorStack: error instanceof Error ? error.stack : undefined },
-    });
-    return handleApiError(error);
-  }
-});
+  })
+);
 
 /**
  * POST /api/exchanges - 取引所作成
@@ -103,133 +95,120 @@ export const GET = withAuth(getSession, 'stocks:read', async () => {
 export const POST = withAuth(
   getSession,
   'stocks:manage-data',
-  async (_session, request: Request) => {
-    try {
-      // リクエストボディをパース
-      const bodyResult = await readJsonObjectBody(request);
-      if (!bodyResult.ok) {
-        return invalidRequestBodyResponse();
-      }
+  withApiErrorReporting('Web API: 取引所作成エラー', async (_session, request: Request) => {
+    // リクエストボディをパース
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return invalidRequestBodyResponse();
+    }
 
-      // リクエストボディから Exchange オブジェクトを構築（バリデーション用）
-      const { exchangeId, name, key, timezone, tradingHours, priceSource, market } =
-        bodyResult.body;
+    // リクエストボディから Exchange オブジェクトを構築（バリデーション用）
+    const { exchangeId, name, key, timezone, tradingHours, priceSource, market } = bodyResult.body;
 
-      // priceSource のバリデーション（指定された場合のみ）
-      if (priceSource !== undefined && !isPriceSource(priceSource)) {
-        return NextResponse.json(
-          { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.INVALID_PRICE_SOURCE },
-          { status: 400 }
-        );
-      }
+    // priceSource のバリデーション（指定された場合のみ）
+    if (priceSource !== undefined && !isPriceSource(priceSource)) {
+      return NextResponse.json(
+        { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.INVALID_PRICE_SOURCE },
+        { status: 400 }
+      );
+    }
 
-      // market のバリデーション（指定された場合のみ。省略可能で、デフォルト値は持たない）
-      if (market !== undefined && !isExchangeMarket(market)) {
-        return NextResponse.json(
-          { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.INVALID_MARKET },
-          { status: 400 }
-        );
-      }
+    // market のバリデーション（指定された場合のみ。省略可能で、デフォルト値は持たない）
+    if (market !== undefined && !isExchangeMarket(market)) {
+      return NextResponse.json(
+        { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.INVALID_MARKET },
+        { status: 400 }
+      );
+    }
 
-      // 各項目の型チェック（必須かどうかは後段の validateExchange が判定する）
-      const hours = tradingHours === undefined ? {} : tradingHours;
-      if (!isRecord(hours)) {
-        return invalidRequestBodyResponse();
-      }
-      const { start, end } = hours;
-      if (
-        !isOptionalString(exchangeId) ||
-        !isOptionalString(name) ||
-        !isOptionalString(key) ||
-        !isOptionalString(timezone) ||
-        !isOptionalString(start) ||
-        !isOptionalString(end)
-      ) {
-        return invalidRequestBodyResponse();
-      }
+    // 各項目の型チェック（必須かどうかは後段の validateExchange が判定する）
+    const hours = tradingHours === undefined ? {} : tradingHours;
+    if (!isRecord(hours)) {
+      return invalidRequestBodyResponse();
+    }
+    const { start, end } = hours;
+    if (
+      !isOptionalString(exchangeId) ||
+      !isOptionalString(name) ||
+      !isOptionalString(key) ||
+      !isOptionalString(timezone) ||
+      !isOptionalString(start) ||
+      !isOptionalString(end)
+    ) {
+      return invalidRequestBodyResponse();
+    }
 
-      // 解決済みの PriceSource（未指定時はデフォルト値を使用）
-      const resolvedPriceSource: PriceSource =
-        priceSource !== undefined ? priceSource : DEFAULT_PRICE_SOURCE;
+    // 解決済みの PriceSource（未指定時はデフォルト値を使用）
+    const resolvedPriceSource: PriceSource =
+      priceSource !== undefined ? priceSource : DEFAULT_PRICE_SOURCE;
 
-      // バリデーション用の一時的な Exchange オブジェクトを作成
-      const exchangeToValidate = {
-        ExchangeID: exchangeId,
-        Name: name,
-        Key: key,
-        Timezone: timezone,
-        Start: start,
-        End: end,
-        PriceSource: resolvedPriceSource,
-        Market: market,
-        CreatedAt: Date.now(), // バリデーション用の仮値
-        UpdatedAt: Date.now(), // バリデーション用の仮値
-      };
+    // バリデーション用の一時的な Exchange オブジェクトを作成
+    const exchangeToValidate = {
+      ExchangeID: exchangeId,
+      Name: name,
+      Key: key,
+      Timezone: timezone,
+      Start: start,
+      End: end,
+      PriceSource: resolvedPriceSource,
+      Market: market,
+      CreatedAt: Date.now(), // バリデーション用の仮値
+      UpdatedAt: Date.now(), // バリデーション用の仮値
+    };
 
-      // バリデーション実行
-      // 未指定の項目の絞り込みも兼ねる (検証を通った値は必須項目が揃っているが、型システムには伝わらないため)
-      const validationResult = validateExchange(exchangeToValidate);
+    // バリデーション実行
+    // 未指定の項目の絞り込みも兼ねる (検証を通った値は必須項目が揃っているが、型システムには伝わらないため)
+    const validationResult = validateExchange(exchangeToValidate);
 
-      if (
-        !validationResult.valid ||
-        exchangeId === undefined ||
-        name === undefined ||
-        key === undefined ||
-        timezone === undefined ||
-        start === undefined ||
-        end === undefined
-      ) {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: validationResult.errors?.join(', ') || ERROR_MESSAGES.INVALID_REQUEST,
-          },
-          { status: 400 }
-        );
-      }
-
-      // Exchange リポジトリを初期化
-      const exchangeRepo = createExchangeRepository();
-
-      // 取引所を作成
-      const newExchange = await exchangeRepo.create({
-        ExchangeID: exchangeId,
-        Name: name,
-        Key: key,
-        Timezone: timezone,
-        Start: start,
-        End: end,
-        PriceSource: resolvedPriceSource,
-        Market: market,
-      });
-
-      // レスポンスを返す (API仕様に従った形式)
+    if (
+      !validationResult.valid ||
+      exchangeId === undefined ||
+      name === undefined ||
+      key === undefined ||
+      timezone === undefined ||
+      start === undefined ||
+      end === undefined
+    ) {
       return NextResponse.json(
         {
-          exchangeId: newExchange.ExchangeID,
-          name: newExchange.Name,
-          key: newExchange.Key,
-          timezone: newExchange.Timezone,
-          tradingHours: {
-            start: newExchange.Start,
-            end: newExchange.End,
-          },
-          priceSource: newExchange.PriceSource,
-          market: newExchange.Market,
-          createdAt: new Date(newExchange.CreatedAt).toISOString(),
+          error: 'INVALID_REQUEST',
+          message: validationResult.errors?.join(', ') || ERROR_MESSAGES.INVALID_REQUEST,
         },
-        { status: 201 }
+        { status: 400 }
       );
-    } catch (error) {
-      const errorMessage = toErrorMessage(error);
-      await reportErrorEvent({
-        serviceId: 'stock-tracker',
-        severity: 'error',
-        title: 'Web API: 取引所作成エラー',
-        message: errorMessage,
-        context: { errorStack: error instanceof Error ? error.stack : undefined },
-      });
-      return handleApiError(error);
     }
-  }
+
+    // Exchange リポジトリを初期化
+    const exchangeRepo = createExchangeRepository();
+
+    // 取引所を作成
+    const newExchange = await exchangeRepo.create({
+      ExchangeID: exchangeId,
+      Name: name,
+      Key: key,
+      Timezone: timezone,
+      Start: start,
+      End: end,
+      PriceSource: resolvedPriceSource,
+      Market: market,
+    });
+
+    // レスポンスを返す (API仕様に従った形式)
+    return NextResponse.json(
+      {
+        exchangeId: newExchange.ExchangeID,
+        name: newExchange.Name,
+        key: newExchange.Key,
+        timezone: newExchange.Timezone,
+        tradingHours: {
+          start: newExchange.Start,
+          end: newExchange.End,
+        },
+        priceSource: newExchange.PriceSource,
+        market: newExchange.Market,
+        createdAt: new Date(newExchange.CreatedAt).toISOString(),
+      },
+      { status: 201 }
+    );
+  })
 );

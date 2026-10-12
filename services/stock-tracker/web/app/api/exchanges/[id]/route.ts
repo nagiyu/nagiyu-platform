@@ -5,8 +5,9 @@ import {
   type PriceSource,
   type ExchangeMarket,
 } from '@nagiyu/stock-tracker-core';
-import { withAuth, handleApiError, readJsonObjectBody } from '@nagiyu/nextjs';
+import { withAuth, readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
+import { withApiErrorReporting } from '../../../../lib/api-error-reporting';
 import { createExchangeRepository } from '../../../../lib/repository-factory';
 import {
   isExchangeMarket,
@@ -56,8 +57,9 @@ function invalidRequestBodyResponse(): NextResponse {
 export const GET = withAuth(
   getSession,
   'stocks:read',
-  async (_session, _request: Request, { params }: { params: Promise<{ id: string }> }) => {
-    try {
+  withApiErrorReporting(
+    'Web API: 取引所取得エラー',
+    async (_session, _request: Request, { params }: { params: Promise<{ id: string }> }) => {
       const { id: exchangeId } = await params;
 
       // Exchange リポジトリを初期化
@@ -91,10 +93,8 @@ export const GET = withAuth(
         createdAt: new Date(exchange.CreatedAt).toISOString(),
         updatedAt: new Date(exchange.UpdatedAt).toISOString(),
       });
-    } catch (error) {
-      return handleApiError(error);
     }
-  }
+  )
 );
 
 /**
@@ -116,8 +116,9 @@ export const GET = withAuth(
 export const PUT = withAuth(
   getSession,
   'stocks:manage-data',
-  async (_session, request: Request, { params }: { params: Promise<{ id: string }> }) => {
-    try {
+  withApiErrorReporting(
+    'Web API: 取引所更新エラー',
+    async (_session, request: Request, { params }: { params: Promise<{ id: string }> }) => {
       const { id: exchangeId } = await params;
 
       // Exchange リポジトリを初期化
@@ -255,10 +256,8 @@ export const PUT = withAuth(
         market: updatedExchange.Market,
         updatedAt: new Date(updatedExchange.UpdatedAt).toISOString(),
       });
-    } catch (error) {
-      return handleApiError(error);
     }
-  }
+  )
 );
 
 /**
@@ -280,8 +279,9 @@ export const PUT = withAuth(
 export const DELETE = withAuth(
   getSession,
   'stocks:manage-data',
-  async (_session, _request: Request, { params }: { params: Promise<{ id: string }> }) => {
-    try {
+  withApiErrorReporting(
+    'Web API: 取引所削除エラー',
+    async (_session, _request: Request, { params }: { params: Promise<{ id: string }> }) => {
       const { id: exchangeId } = await params;
 
       // Exchange リポジトリを初期化
@@ -295,8 +295,6 @@ export const DELETE = withAuth(
         success: true,
         deletedExchangeId: exchangeId,
       });
-    } catch (error) {
-      return handleApiError(error);
     }
-  }
+  )
 );
