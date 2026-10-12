@@ -94,11 +94,11 @@ GSI を使う一覧などの独自のクエリは、各 Repository が DocumentC
 
 ### 3. 保存する属性名は PascalCase、Entity は camelCase
 
-**決定**: DynamoDB に保存する属性名は PascalCase にする (`UserId`、`CreatedAt` など)。Entity と API は TypeScript の慣習どおり camelCase にする。名前の対応づけは Mapper が担う。
+**決定**: DynamoDB に保存する属性名は PascalCase にする (`UserID`、`CreatedAt` など)。頭字語 (ID・URL など) は大文字のまま書く。Entity と API は TypeScript の慣習どおり camelCase にし、頭字語も先頭だけ大文字にする (`userId`)。名前の対応づけは Mapper が担う。
 
 **例外**: テーブルや GSI のキーになっている属性 (auth の `userId`・`googleId`、codec-converter の `jobId`) は camelCase のまま据え置く。キー属性の名前はテーブルを作り直さないと変えられず、データのコピーと切り替えを伴うためである。
 
-**理由**: 保存側は、キー属性 (`PK` / `SK` / `GSI1PK` など) と並べたときに揃う PascalCase に統一する。Entity と API は、TypeScript のコードとして自然な camelCase に統一する。どちらか一方に寄せると、もう一方で慣習から外れた名前を書き続けることになる。
+**理由**: 保存側は、キー属性 (`PK` / `SK` / `GSI1PK` など) と並べたときに揃う PascalCase に統一する。頭字語を大文字のままにするのは、既に PascalCase で保存しているサービスの属性名 (`UserID` など) を変えずに済ませるためである。Entity と API は、TypeScript のコードとして自然な camelCase に統一する。どちらか一方に寄せると、もう一方で慣習から外れた名前を書き続けることになる。
 
 ### 4. 時刻は数値ミリ秒、TTL だけエポック秒
 
