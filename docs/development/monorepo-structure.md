@@ -366,7 +366,7 @@ libs/aws → libs/common
 
 - DynamoDB Repository パターン実装
 - エラークラス（`RepositoryError`、`EntityNotFoundError` 等）
-- 抽象基底クラス（`AbstractDynamoDBRepository`）
+- Mapper と EntityStore (単一アイテムの CRUD の骨格。DynamoDB 版・InMemory 版)
 - バリデーション関数
 - ヘルパー関数
 - InMemory/DynamoDB 切り替えを含むリポジトリファクトリー共通化ヘルパー
