@@ -3,7 +3,10 @@
  */
 
 import { NextResponse } from 'next/server';
-import { withApiErrorReporting } from '../../../src/lib/api-error-reporting';
+import {
+  createRouteErrorReporter,
+  withApiErrorReporting,
+} from '../../../src/lib/api-error-reporting';
 
 const mockReportErrorEvent = jest.fn();
 
@@ -91,5 +94,37 @@ describe('withApiErrorReporting', () => {
     expect(console.error).toHaveBeenCalledWith('Web API: テストエラー', {
       error: expect.any(Error),
     });
+  });
+});
+
+describe('createRouteErrorReporter', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockReportErrorEvent.mockResolvedValue(null);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('serviceId admin と title を詰めて報告する', async () => {
+    await createRouteErrorReporter('Web API: テストエラー')(new Error('鍵なし'));
+
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'admin',
+        severity: 'error',
+        title: 'Web API: テストエラー',
+        message: '鍵なし',
+      })
+    );
+  });
+
+  it('報告に失敗しても例外を投げない', async () => {
+    mockReportErrorEvent.mockRejectedValueOnce(new Error('送信失敗'));
+
+    await expect(createRouteErrorReporter('t')(new Error('x'))).resolves.toBeUndefined();
+    expect(console.error).toHaveBeenCalled();
   });
 });
