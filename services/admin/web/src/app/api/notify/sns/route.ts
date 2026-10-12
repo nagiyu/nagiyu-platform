@@ -27,6 +27,7 @@ import {
 } from '@nagiyu/admin-core';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { createErrorResponse, readJsonObjectBody } from '@nagiyu/nextjs';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 
 const ERROR_MESSAGES = {
   INVALID_REQUEST: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
@@ -96,8 +97,9 @@ function createNotificationPayload(subject?: string, rawMessage?: string): PushN
   };
 }
 
-export async function POST(request: Request): Promise<NextResponse> {
-  try {
+export const POST = withApiErrorReporting(
+  'Web API: SNS 通知受信エラー',
+  async (request: Request) => {
     const bodyResult = await readJsonObjectBody(request);
     if (!bodyResult.ok) {
       return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
@@ -147,8 +149,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     const sendResult = await sender.sendAll(payload);
 
     return NextResponse.json({ success: true, ...sendResult }, { status: 200 });
-  } catch (error) {
-    console.error('SNS 通知受信 API の実行に失敗しました', { error });
-    return createErrorResponse(500, 'INTERNAL_ERROR', ERROR_MESSAGES.INTERNAL_ERROR);
-  }
-}
+  },
+  ERROR_MESSAGES.INTERNAL_ERROR
+);

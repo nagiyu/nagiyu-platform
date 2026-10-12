@@ -85,38 +85,13 @@ describe('DynamoDBUserRepository', () => {
       expect(result).toBeNull();
     });
 
-    it('DynamoDB エラー時は reportErrorEvent を呼び再スローする', async () => {
+    it('DynamoDB エラー時は報告せずそのまま再スローする', async () => {
       const dbError = new Error('DynamoDB connection failed');
       mockSend.mockRejectedValueOnce(dbError);
 
       await expect(repository.getUserByGoogleId('google-123')).rejects.toThrow(dbError);
 
-      expect(reportErrorEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          serviceId: 'auth',
-          severity: 'error',
-          title: 'DB: getUserByGoogleId エラー',
-          message: 'DynamoDB connection failed',
-        })
-      );
-      const call = (reportErrorEvent as jest.Mock).mock.calls[0][0];
-      expect(JSON.stringify(call.context)).not.toContain('google-123');
-    });
-
-    it('Error インスタンス以外の例外でも reportErrorEvent を呼び再スローする', async () => {
-      const stringError = 'unexpected string error';
-      mockSend.mockRejectedValueOnce(stringError);
-
-      await expect(repository.getUserByGoogleId('google-123')).rejects.toBe(stringError);
-
-      expect(reportErrorEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          serviceId: 'auth',
-          severity: 'error',
-          message: 'unexpected string error',
-          context: expect.objectContaining({ errorStack: undefined }),
-        })
-      );
+      expect(reportErrorEvent).not.toHaveBeenCalled();
     });
   });
 
@@ -339,7 +314,7 @@ describe('DynamoDBUserRepository', () => {
       expect(mockSend).toHaveBeenCalledTimes(2);
     });
 
-    it('新規ユーザー作成時に DynamoDB エラーが発生した場合は reportErrorEvent を呼び再スローする', async () => {
+    it('新規ユーザー作成時に DynamoDB エラーが発生した場合は報告せずそのまま再スローする', async () => {
       const dbError = new Error('DynamoDB put failed');
 
       // getUserByGoogleId returns null (new user)
@@ -351,36 +326,10 @@ describe('DynamoDBUserRepository', () => {
         repository.upsertUser({ googleId: 'google-new', email: 'new@example.com', name: '新規' })
       ).rejects.toThrow(dbError);
 
-      expect(reportErrorEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          serviceId: 'auth',
-          severity: 'error',
-          title: 'DB: upsertUser (新規ユーザー作成) エラー',
-          message: 'DynamoDB put failed',
-        })
-      );
-      const call = (reportErrorEvent as jest.Mock).mock.calls[0][0];
-      expect(JSON.stringify(call.context)).not.toContain('google-new');
-      expect(JSON.stringify(call.context)).not.toContain('@example.com');
+      expect(reportErrorEvent).not.toHaveBeenCalled();
     });
 
-    it('新規ユーザー作成時に Error 以外の例外でも reportErrorEvent を呼ぶ', async () => {
-      mockSend.mockResolvedValueOnce({ Items: [], $metadata: {} });
-      mockSend.mockRejectedValueOnce('db string error');
-
-      await expect(
-        repository.upsertUser({ googleId: 'g', email: 'e@example.com', name: 'N' })
-      ).rejects.toBe('db string error');
-
-      expect(reportErrorEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: 'db string error',
-          context: expect.objectContaining({ errorStack: undefined }),
-        })
-      );
-    });
-
-    it('既存ユーザー更新時に DynamoDB エラーが発生した場合は reportErrorEvent を userId 付きで呼ぶ', async () => {
+    it('既存ユーザー更新時に DynamoDB エラーが発生した場合は報告せずそのまま再スローする', async () => {
       const existingUser: User = {
         userId: 'user-existing',
         googleId: 'google-existing',
@@ -405,45 +354,7 @@ describe('DynamoDBUserRepository', () => {
         })
       ).rejects.toThrow(dbError);
 
-      expect(reportErrorEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          serviceId: 'auth',
-          severity: 'error',
-          title: 'DB: upsertUser (既存ユーザー更新) エラー',
-          context: expect.objectContaining({ userId: 'user-existing' }),
-        })
-      );
-      const call = (reportErrorEvent as jest.Mock).mock.calls[0][0];
-      expect(JSON.stringify(call.context)).not.toContain('google-existing');
-      expect(JSON.stringify(call.context)).not.toContain('@example.com');
-    });
-
-    it('既存ユーザー更新時に Error 以外の例外でも reportErrorEvent を呼ぶ', async () => {
-      const existingUser: User = {
-        userId: 'user-existing',
-        googleId: 'google-existing',
-        email: 'old@example.com',
-        name: '古い名前',
-        roles: [],
-        createdAt: '2024-01-01T00:00:00.000Z',
-        updatedAt: '2024-01-01T00:00:00.000Z',
-      };
-      mockSend.mockResolvedValueOnce({ Items: [existingUser], $metadata: {} });
-      mockSend.mockRejectedValueOnce('db string error');
-
-      await expect(
-        repository.upsertUser({
-          googleId: 'google-existing',
-          email: 'old@example.com',
-          name: '名前',
-        })
-      ).rejects.toBe('db string error');
-
-      expect(reportErrorEvent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          context: expect.objectContaining({ errorStack: undefined, userId: 'user-existing' }),
-        })
-      );
+      expect(reportErrorEvent).not.toHaveBeenCalled();
     });
   });
 
