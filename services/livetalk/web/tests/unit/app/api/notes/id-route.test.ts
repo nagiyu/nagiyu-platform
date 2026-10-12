@@ -4,6 +4,7 @@
 import { GET } from '@/app/api/notes/[id]/route';
 import { getSession } from '@/lib/server/session';
 import { getNoteRepository, getTopicRepository } from '@/lib/server/repositories';
+import { reportErrorEvent } from '@nagiyu/aws';
 import type {
   NoteEntity,
   NoteRepository,
@@ -11,12 +12,16 @@ import type {
   TopicRepository,
 } from '@nagiyu/livetalk-core';
 import { encodeNoteId } from '@/lib/notes/note-id';
+import { NOTE_ERROR_MESSAGES } from '@/app/api/notes/constants';
 
 jest.mock('@/lib/server/session', () => ({ getSession: jest.fn() }));
 jest.mock('@/lib/server/repositories', () => ({
   getNoteRepository: jest.fn(),
   getTopicRepository: jest.fn(),
 }));
+jest.mock('@nagiyu/aws', () => ({ reportErrorEvent: jest.fn().mockResolvedValue(null) }));
+
+const mockReportErrorEvent = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
 const mockGetRepo = getNoteRepository as jest.MockedFunction<typeof getNoteRepository>;
@@ -153,6 +158,13 @@ describe('GET /api/notes/:id', () => {
     expect(json.note.headline).toBe(entity.Headline);
     expect(json.note.webFacts).toBeUndefined();
     expect(json.note.sources).toBeUndefined();
+    expect(mockReportErrorEvent).toHaveBeenCalledTimes(1);
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Web API: ノート参照先トピック取得エラー',
+        message: 'topic fetch failed',
+      })
+    );
     spy.mockRestore();
   });
 
@@ -168,6 +180,13 @@ describe('GET /api/notes/:id', () => {
     );
     const res = await GET(req(), ctx(validId));
     expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({
+      error: 'FETCH_FAILED',
+      message: NOTE_ERROR_MESSAGES.FETCH_FAILED,
+    });
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Web API: ノート取得エラー', message: 'boom' })
+    );
     spy.mockRestore();
   });
 });

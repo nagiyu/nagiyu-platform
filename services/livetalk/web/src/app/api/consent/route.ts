@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import type { Session } from '@nagiyu/common';
 import { readJsonObjectBody, withAuth } from '@nagiyu/nextjs';
 import {
   isConsentValid,
@@ -6,6 +7,7 @@ import {
   LIVETALK_PRIVACY_VERSION,
 } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
+import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import { getProfileRepository } from '@/lib/server/repositories';
 import { CONSENT_ERROR_MESSAGES } from './constants';
 
@@ -31,32 +33,32 @@ function isConsentRequest(
  * 現在のユーザーの同意状態を返す。
  * `consented: true` の場合はチャット機能を利用可能。
  */
-export const GET = withAuth(getSession, 'livetalk:chat', async (session) => {
-  const userId = session.user.id;
+export const GET = withAuth(
+  getSession,
+  'livetalk:chat',
+  withApiErrorReporting(
+    'Web API: 同意状態取得エラー',
+    async (session: Session) => {
+      const userId = session.user.id;
 
-  try {
-    const profile = await getProfileRepository().getById({ userId });
-    const consented = isConsentValid(profile?.Consents, {
-      termsVersion: LIVETALK_TERMS_VERSION,
-      privacyVersion: LIVETALK_PRIVACY_VERSION,
-    });
+      const profile = await getProfileRepository().getById({ userId });
+      const consented = isConsentValid(profile?.Consents, {
+        termsVersion: LIVETALK_TERMS_VERSION,
+        privacyVersion: LIVETALK_PRIVACY_VERSION,
+      });
 
-    return NextResponse.json({
-      consented,
-      requiredVersions: {
-        terms: LIVETALK_TERMS_VERSION,
-        privacy: LIVETALK_PRIVACY_VERSION,
-      },
-      current: profile?.Consents ?? null,
-    });
-  } catch (error) {
-    console.error('[GET /api/consent] 同意状態の取得に失敗しました', error);
-    return NextResponse.json(
-      { error: 'FETCH_FAILED', message: CONSENT_ERROR_MESSAGES.FETCH_FAILED },
-      { status: 500 }
-    );
-  }
-});
+      return NextResponse.json({
+        consented,
+        requiredVersions: {
+          terms: LIVETALK_TERMS_VERSION,
+          privacy: LIVETALK_PRIVACY_VERSION,
+        },
+        current: profile?.Consents ?? null,
+      });
+    },
+    { error: 'FETCH_FAILED', message: CONSENT_ERROR_MESSAGES.FETCH_FAILED }
+  )
+);
 
 /**
  * POST /api/consent
@@ -64,46 +66,46 @@ export const GET = withAuth(getSession, 'livetalk:chat', async (session) => {
  * 全ての同意を受け付けて DynamoDB Profile に永続化する。
  * 3 フラグが全て true でなければ 400 を返す。
  */
-export const POST = withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
-  const bodyResult = await readJsonObjectBody(request);
-  if (!bodyResult.ok || !isConsentRequest(bodyResult.body)) {
-    return NextResponse.json(
-      { error: 'INVALID_REQUEST', message: CONSENT_ERROR_MESSAGES.INVALID_REQUEST },
-      { status: 400 }
-    );
-  }
-
-  const body = bodyResult.body;
-
-  if (!body.termsAgreed || !body.privacyAgreed || !body.ageVerified) {
-    return NextResponse.json(
-      { error: 'ALL_CONSENTS_REQUIRED', message: CONSENT_ERROR_MESSAGES.ALL_CONSENTS_REQUIRED },
-      { status: 400 }
-    );
-  }
-
-  const now = Date.now();
-  const userId = session.user.id;
-
-  try {
-    await getProfileRepository().upsert(
-      { UserID: userId },
-      {
-        LastActiveAt: now,
-        Consents: {
-          TermsAgreed: { Version: LIVETALK_TERMS_VERSION, AgreedAt: now },
-          PrivacyAgreed: { Version: LIVETALK_PRIVACY_VERSION, AgreedAt: now },
-          AgeVerified: { Value: true, VerifiedAt: now },
-        },
+export const POST = withAuth(
+  getSession,
+  'livetalk:chat',
+  withApiErrorReporting(
+    'Web API: 同意状態保存エラー',
+    async (session: Session, request: Request) => {
+      const bodyResult = await readJsonObjectBody(request);
+      if (!bodyResult.ok || !isConsentRequest(bodyResult.body)) {
+        return NextResponse.json(
+          { error: 'INVALID_REQUEST', message: CONSENT_ERROR_MESSAGES.INVALID_REQUEST },
+          { status: 400 }
+        );
       }
-    );
 
-    return NextResponse.json({ consented: true });
-  } catch (error) {
-    console.error('[POST /api/consent] 同意状態の保存に失敗しました', error);
-    return NextResponse.json(
-      { error: 'SAVE_FAILED', message: CONSENT_ERROR_MESSAGES.SAVE_FAILED },
-      { status: 500 }
-    );
-  }
-});
+      const body = bodyResult.body;
+
+      if (!body.termsAgreed || !body.privacyAgreed || !body.ageVerified) {
+        return NextResponse.json(
+          { error: 'ALL_CONSENTS_REQUIRED', message: CONSENT_ERROR_MESSAGES.ALL_CONSENTS_REQUIRED },
+          { status: 400 }
+        );
+      }
+
+      const now = Date.now();
+      const userId = session.user.id;
+
+      await getProfileRepository().upsert(
+        { UserID: userId },
+        {
+          LastActiveAt: now,
+          Consents: {
+            TermsAgreed: { Version: LIVETALK_TERMS_VERSION, AgreedAt: now },
+            PrivacyAgreed: { Version: LIVETALK_PRIVACY_VERSION, AgreedAt: now },
+            AgeVerified: { Value: true, VerifiedAt: now },
+          },
+        }
+      );
+
+      return NextResponse.json({ consented: true });
+    },
+    { error: 'SAVE_FAILED', message: CONSENT_ERROR_MESSAGES.SAVE_FAILED }
+  )
+);

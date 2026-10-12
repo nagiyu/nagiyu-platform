@@ -13,6 +13,7 @@
  *   - 無効サブスク（false 戻り）→ delete される
  */
 import { logger } from '@nagiyu/common';
+import { reportErrorEvent } from '@nagiyu/aws';
 import { POST } from '@/app/api/push/test/route';
 import { getSession } from '@/lib/server/session';
 import {
@@ -37,6 +38,8 @@ jest.mock('@/lib/server/repositories', () => ({
   getPushSubscriptionRepository: jest.fn(),
   getNotificationEventRepository: jest.fn(),
 }));
+
+jest.mock('@nagiyu/aws', () => ({ reportErrorEvent: jest.fn().mockResolvedValue(null) }));
 
 jest.mock('@nagiyu/common/push', () => ({
   sendWebPushNotification: jest.fn(),
@@ -443,6 +446,14 @@ describe('POST /api/push/test', () => {
         expect(warnSpy).toHaveBeenCalledWith(
           '[POST /api/push/test] 無効なサブスクリプションの削除失敗（継続）',
           expect.objectContaining({ subscriptionId: 'sub-invalid', error: 'delete failed' })
+        );
+        expect(reportErrorEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            serviceId: 'livetalk',
+            severity: 'warning',
+            title: 'Web API: 無効なサブスクリプションの削除エラー',
+            message: 'delete failed',
+          })
         );
       } finally {
         warnSpy.mockRestore();

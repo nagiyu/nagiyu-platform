@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
+import type { Session } from '@nagiyu/common';
 import { withAuth } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/server/session';
+import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import { getAccountDeletionRepository } from '@/lib/server/repositories';
 import { ACCOUNT_ERROR_MESSAGES } from './constants';
 
@@ -14,21 +16,21 @@ import { ACCOUNT_ERROR_MESSAGES } from './constants';
  * - userId はセッションから取得するため、本人以外のデータは削除されない。
  * - レスポンスには削除件数・匿名化件数を含めない（SafetyEvent の存在を本人に示すのは不適切）。
  */
-export const DELETE = withAuth(getSession, 'livetalk:chat', async (session) => {
-  const userId = session.user.id;
+export const DELETE = withAuth(
+  getSession,
+  'livetalk:chat',
+  withApiErrorReporting(
+    'Web API: アカウント削除エラー',
+    async (session: Session) => {
+      const userId = session.user.id;
 
-  try {
-    const result = await getAccountDeletionRepository().deleteAccount(userId);
-    console.log('[DELETE /api/account] アカウントを削除しました', {
-      deletedCount: result.deletedCount,
-      anonymizedCount: result.anonymizedCount,
-    });
-    return NextResponse.json({ deleted: true });
-  } catch (error) {
-    console.error('[DELETE /api/account] アカウントの削除に失敗しました', error);
-    return NextResponse.json(
-      { error: 'DELETE_FAILED', message: ACCOUNT_ERROR_MESSAGES.DELETE_FAILED },
-      { status: 500 }
-    );
-  }
-});
+      const result = await getAccountDeletionRepository().deleteAccount(userId);
+      console.log('[DELETE /api/account] アカウントを削除しました', {
+        deletedCount: result.deletedCount,
+        anonymizedCount: result.anonymizedCount,
+      });
+      return NextResponse.json({ deleted: true });
+    },
+    { error: 'DELETE_FAILED', message: ACCOUNT_ERROR_MESSAGES.DELETE_FAILED }
+  )
+);

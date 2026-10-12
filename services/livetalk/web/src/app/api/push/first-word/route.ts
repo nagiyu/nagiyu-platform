@@ -13,38 +13,44 @@
  * レスポンスからも knowledgeId フィールドを削除した。
  */
 import { NextResponse } from 'next/server';
+import type { Session } from '@nagiyu/common';
 import { withAuth } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/server/session';
+import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import { getNotificationEventRepository } from '@/lib/server/repositories';
 
-export const GET = withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
-  const url = new URL(request.url);
-  const characterId = url.searchParams.get('characterId');
+export const GET = withAuth(
+  getSession,
+  'livetalk:chat',
+  withApiErrorReporting('Web API: 第一声取得エラー', async (session: Session, request: Request) => {
+    const url = new URL(request.url);
+    const characterId = url.searchParams.get('characterId');
 
-  // characterId 未指定時は 204 を返す（呼び出し側は必ず characterId を付与する設計）
-  if (!characterId) {
-    return new NextResponse(null, { status: 204 });
-  }
+    // characterId 未指定時は 204 を返す（呼び出し側は必ず characterId を付与する設計）
+    if (!characterId) {
+      return new NextResponse(null, { status: 204 });
+    }
 
-  const userId = session.user.id;
-  const repo = getNotificationEventRepository();
-  const events = await repo.listByUser(userId, 20);
+    const userId = session.user.id;
+    const repo = getNotificationEventRepository();
+    const events = await repo.listByUser(userId, 20);
 
-  // 指定キャラクターの未消化最新を返す
-  const unconsumed = events.find(
-    (e) => e.CharacterID === characterId && e.ConsumedAt === undefined
-  );
-  if (!unconsumed) {
-    return new NextResponse(null, { status: 204 });
-  }
+    // 指定キャラクターの未消化最新を返す
+    const unconsumed = events.find(
+      (e) => e.CharacterID === characterId && e.ConsumedAt === undefined
+    );
+    if (!unconsumed) {
+      return new NextResponse(null, { status: 204 });
+    }
 
-  return NextResponse.json(
-    {
-      notifId: unconsumed.NotifID,
-      body: unconsumed.Body,
-      characterId: unconsumed.CharacterID,
-      suggestedReply: unconsumed.SuggestedReply ?? null,
-    },
-    { status: 200 }
-  );
-});
+    return NextResponse.json(
+      {
+        notifId: unconsumed.NotifID,
+        body: unconsumed.Body,
+        characterId: unconsumed.CharacterID,
+        suggestedReply: unconsumed.SuggestedReply ?? null,
+      },
+      { status: 200 }
+    );
+  })
+);

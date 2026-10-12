@@ -15,6 +15,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import type { Session } from '@nagiyu/common';
 import { withAuth } from '@nagiyu/nextjs';
 import {
   DEFAULT_CHARACTER_ID,
@@ -33,6 +34,7 @@ import {
   type NotificationEventEntity,
 } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
+import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import {
   getLifecycleRepository,
   getNotificationEventRepository,
@@ -71,74 +73,74 @@ function computeNextEarliestAt(
   return referenceTime + baseIntervalMs * Math.pow(NOTIFY_BACKOFF_BASE, missedCount);
 }
 
-export const GET = withAuth(getSession, 'livetalk:admin', async (session, request: Request) => {
-  const userId = session.user.id;
-  const url = new URL(request.url);
-  const queriedId = url.searchParams.get('characterId');
-  const characterId = queriedId && hasCharacter(queriedId) ? queriedId : DEFAULT_CHARACTER_ID;
-  const now = new Date();
+export const GET = withAuth(
+  getSession,
+  'livetalk:admin',
+  withApiErrorReporting(
+    'Web API: ステータス情報取得エラー',
+    async (session: Session, request: Request) => {
+      const userId = session.user.id;
+      const url = new URL(request.url);
+      const queriedId = url.searchParams.get('characterId');
+      const characterId = queriedId && hasCharacter(queriedId) ? queriedId : DEFAULT_CHARACTER_ID;
+      const now = new Date();
 
-  try {
-    const [lifecycle, notificationEvents, allMessages, studyPending] = await Promise.all([
-      getLifecycleRepository().get({ userId, characterId }),
-      getNotificationEventRepository().listByUser(userId, 10),
-      getMessageRepository().listSince(userId, characterId, 0),
-      getStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
-    ]);
+      const [lifecycle, notificationEvents, allMessages, studyPending] = await Promise.all([
+        getLifecycleRepository().get({ userId, characterId }),
+        getNotificationEventRepository().listByUser(userId, 10),
+        getMessageRepository().listSince(userId, characterId, 0),
+        getStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
+      ]);
 
-    const bedtime = lifecycle?.Bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
-    const wakeUpTime = lifecycle?.WakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME;
-    const state = resolveLifecycleState(now, bedtime, wakeUpTime);
+      const bedtime = lifecycle?.Bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
+      const wakeUpTime = lifecycle?.WakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME;
+      const state = resolveLifecycleState(now, bedtime, wakeUpTime);
 
-    const userMessages = allMessages.filter((m) => m.Role === 'user');
+      const userMessages = allMessages.filter((m) => m.Role === 'user');
 
-    const lifecycleForDecision = lifecycle ?? {
-      UserID: userId,
-      CharacterID: characterId,
-      Bedtime: LIFECYCLE_DEFAULT_BEDTIME,
-      WakeUpTime: LIFECYCLE_DEFAULT_WAKE_UP_TIME,
-      CreatedAt: 0,
-      UpdatedAt: 0,
-    };
+      const lifecycleForDecision = lifecycle ?? {
+        UserID: userId,
+        CharacterID: characterId,
+        Bedtime: LIFECYCLE_DEFAULT_BEDTIME,
+        WakeUpTime: LIFECYCLE_DEFAULT_WAKE_UP_TIME,
+        CreatedAt: 0,
+        UpdatedAt: 0,
+      };
 
-    const notifyDecision = shouldNotifyNow({
-      userMessages,
-      lifecycle: lifecycleForDecision,
-      notificationEvents,
-      now,
-    });
+      const notifyDecision = shouldNotifyNow({
+        userMessages,
+        lifecycle: lifecycleForDecision,
+        notificationEvents,
+        now,
+      });
 
-    let nextEarliestAt: number | undefined;
-    if (!notifyDecision.notify && notifyDecision.reason === 'not_due') {
-      nextEarliestAt = computeNextEarliestAt(userMessages, notificationEvents, now);
-    }
+      let nextEarliestAt: number | undefined;
+      if (!notifyDecision.notify && notifyDecision.reason === 'not_due') {
+        nextEarliestAt = computeNextEarliestAt(userMessages, notificationEvents, now);
+      }
 
-    return NextResponse.json({
-      lifecycle: {
-        state,
-        bedtime,
-        wakeUpTime,
-        userActivityProfile: lifecycle?.UserActivityProfile ?? null,
-      },
-      recentNotifications: notificationEvents.slice(0, 5).map((e) => ({
-        notifId: e.NotifID,
-        kind: e.Kind,
-        title: e.Title,
-        body: e.Body.slice(0, 100),
-        createdAt: e.CreatedAt,
-        consumedAt: e.ConsumedAt ?? null,
-      })),
-      notifyDecision: {
-        ...notifyDecision,
-        ...(nextEarliestAt !== undefined ? { nextEarliestAt } : {}),
-      },
-      studyTopicPendingCount: studyPending.length,
-    });
-  } catch (error) {
-    console.error('[GET /api/status] ステータス情報の取得に失敗しました', error);
-    return NextResponse.json(
-      { error: 'FETCH_FAILED', message: STATUS_ERROR_MESSAGES.FETCH_FAILED },
-      { status: 500 }
-    );
-  }
-});
+      return NextResponse.json({
+        lifecycle: {
+          state,
+          bedtime,
+          wakeUpTime,
+          userActivityProfile: lifecycle?.UserActivityProfile ?? null,
+        },
+        recentNotifications: notificationEvents.slice(0, 5).map((e) => ({
+          notifId: e.NotifID,
+          kind: e.Kind,
+          title: e.Title,
+          body: e.Body.slice(0, 100),
+          createdAt: e.CreatedAt,
+          consumedAt: e.ConsumedAt ?? null,
+        })),
+        notifyDecision: {
+          ...notifyDecision,
+          ...(nextEarliestAt !== undefined ? { nextEarliestAt } : {}),
+        },
+        studyTopicPendingCount: studyPending.length,
+      });
+    },
+    { error: 'FETCH_FAILED', message: STATUS_ERROR_MESSAGES.FETCH_FAILED }
+  )
+);

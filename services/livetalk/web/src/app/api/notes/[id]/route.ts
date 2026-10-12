@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
+import type { Session } from '@nagiyu/common';
 import { withAuth } from '@nagiyu/nextjs';
 import type { TopicBundle } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
+import { reportSwallowedError, withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import { getNoteRepository, getTopicRepository } from '@/lib/server/repositories';
 import { decodeNoteId } from '@/lib/notes/note-id';
 import { toNoteDetail } from '@/lib/notes/serializer';
@@ -21,17 +23,18 @@ type RouteContext = { params: Promise<{ id: string }> };
 export const GET = withAuth(
   getSession,
   'livetalk:chat',
-  async (session, _request: Request, context: RouteContext) => {
-    const { id } = await context.params;
-    const key = decodeNoteId(id, session.user.id);
-    if (!key) {
-      return NextResponse.json(
-        { error: 'INVALID_ID', message: NOTE_ERROR_MESSAGES.INVALID_ID },
-        { status: 400 }
-      );
-    }
+  withApiErrorReporting(
+    'Web API: ノート取得エラー',
+    async (session: Session, _request: Request, context: RouteContext) => {
+      const { id } = await context.params;
+      const key = decodeNoteId(id, session.user.id);
+      if (!key) {
+        return NextResponse.json(
+          { error: 'INVALID_ID', message: NOTE_ERROR_MESSAGES.INVALID_ID },
+          { status: 400 }
+        );
+      }
 
-    try {
       const note = await getNoteRepository().get(key);
       if (!note) {
         return NextResponse.json(
@@ -53,15 +56,13 @@ export const GET = withAuth(
           '[GET /api/notes/:id] 参照先 Topic の取得に失敗しました（headline のみ返します）',
           error
         );
+        await reportSwallowedError('Web API: ノート参照先トピック取得エラー', error, {
+          characterId: key.characterId,
+        });
       }
 
       return NextResponse.json({ note: toNoteDetail(note, bundle) });
-    } catch (error) {
-      console.error('[GET /api/notes/:id] ノートの取得に失敗しました', error);
-      return NextResponse.json(
-        { error: 'FETCH_FAILED', message: NOTE_ERROR_MESSAGES.FETCH_FAILED },
-        { status: 500 }
-      );
-    }
-  }
+    },
+    { error: 'FETCH_FAILED', message: NOTE_ERROR_MESSAGES.FETCH_FAILED }
+  )
 );

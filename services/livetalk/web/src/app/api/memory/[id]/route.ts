@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
+import type { Session } from '@nagiyu/common';
 import { withAuth } from '@nagiyu/nextjs';
 import { forgetSelfFact } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
+import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import { getTopicRepository } from '@/lib/server/repositories';
 import { getLLMClient } from '@/lib/server/llm';
 import { decodeSelfFactId } from '@/lib/memory/memory-id';
@@ -19,28 +21,24 @@ type RouteContext = { params: Promise<{ id: string }> };
 export const DELETE = withAuth(
   getSession,
   'livetalk:chat',
-  async (session, _request: Request, context: RouteContext) => {
-    const { id } = await context.params;
-    const key = decodeSelfFactId(id, session.user.id);
-    if (!key) {
-      return NextResponse.json(
-        { error: 'INVALID_ID', message: MEMORY_ERROR_MESSAGES.INVALID_ID },
-        { status: 400 }
-      );
-    }
+  withApiErrorReporting(
+    'Web API: 記憶削除エラー',
+    async (session: Session, _request: Request, context: RouteContext) => {
+      const { id } = await context.params;
+      const key = decodeSelfFactId(id, session.user.id);
+      if (!key) {
+        return NextResponse.json(
+          { error: 'INVALID_ID', message: MEMORY_ERROR_MESSAGES.INVALID_ID },
+          { status: 400 }
+        );
+      }
 
-    try {
       await forgetSelfFact(key, {
         topicRepository: getTopicRepository(),
         llmClient: getLLMClient(),
       });
       return NextResponse.json({ deleted: true });
-    } catch (error) {
-      console.error('[DELETE /api/memory/:id] 記憶の削除に失敗しました', error);
-      return NextResponse.json(
-        { error: 'DELETE_FAILED', message: MEMORY_ERROR_MESSAGES.DELETE_FAILED },
-        { status: 500 }
-      );
-    }
-  }
+    },
+    { error: 'DELETE_FAILED', message: MEMORY_ERROR_MESSAGES.DELETE_FAILED }
+  )
 );

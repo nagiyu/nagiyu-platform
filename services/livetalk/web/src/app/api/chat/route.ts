@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import type { Session } from '@nagiyu/common';
 import { readJsonObjectBody, withAuth } from '@nagiyu/nextjs';
 import {
   CHAT_LOCK_TTL_MS,
@@ -10,6 +11,7 @@ import {
 } from '@nagiyu/livetalk-core';
 import { getCharacterDefinition, hasCharacter } from '@/lib/characters/registry';
 import { getSession } from '@/lib/server/session';
+import { reportSwallowedError, withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import { getLLMClient } from '@/lib/server/llm';
 import { getVoiceClient } from '@/lib/server/voice';
 import {
@@ -75,177 +77,194 @@ function isChatRequest(
  * - VOICEVOX エラー時は当該 sentence event をスキップ（テキストは既に表示済み）
  * - ストリーム開始後のエラーは error event で通知
  */
-export const POST = withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
-  const bodyResult = await readJsonObjectBody(request);
-  if (!bodyResult.ok || !isChatRequest(bodyResult.body)) {
-    return NextResponse.json(
-      { error: 'INVALID_REQUEST', message: CHAT_ERROR_MESSAGES.INVALID_REQUEST },
-      { status: 400 }
-    );
-  }
-
-  const body = bodyResult.body;
-
-  const text = body.text.trim();
-  const characterId = body.characterId ?? DEFAULT_CHARACTER_ID;
-
-  if (!hasCharacter(characterId)) {
-    return NextResponse.json(
-      { error: 'INVALID_REQUEST', message: CHAT_ERROR_MESSAGES.INVALID_REQUEST },
-      { status: 400 }
-    );
-  }
-
-  if (!text) {
-    return NextResponse.json(
-      { error: 'EMPTY_TEXT', message: CHAT_ERROR_MESSAGES.EMPTY_TEXT },
-      { status: 400 }
-    );
-  }
-  if (text.length > CHAT_MAX_TEXT_LENGTH) {
-    return NextResponse.json(
-      { error: 'TEXT_TOO_LONG', message: CHAT_ERROR_MESSAGES.TEXT_TOO_LONG },
-      { status: 400 }
-    );
-  }
-
-  const userId = session.user.id;
-  const chatGuardRepository = getChatGuardRepository();
-  const nowMs = Date.now();
-
-  // ---- ガード 1: in-flight ロック取得 ----
-  // 同一ユーザーの並行リクエストを 1 本に制限する。
-  // DynamoDB 障害時はフェイルオープン（ロック無しで続行）し、警告ログを残す。
-  const ownerToken = defaultUlidFactory(nowMs);
-  let lockAcquired = false;
-
-  let lockResult;
-  try {
-    lockResult = await chatGuardRepository.acquireLock(userId, ownerToken, CHAT_LOCK_TTL_MS, nowMs);
-  } catch (lockErr) {
-    // DynamoDB 障害: フェイルオープン（ロック無しで続行する）
-    console.warn(
-      '[POST /api/chat] ロック取得に失敗したためバイパスしました。障害時フェイルオープン。',
-      lockErr
-    );
-    lockResult = null;
-  }
-
-  if (lockResult !== null) {
-    if (!lockResult.acquired) {
+export const POST = withAuth(
+  getSession,
+  'livetalk:chat',
+  withApiErrorReporting('Web API: チャットエラー', async (session: Session, request: Request) => {
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok || !isChatRequest(bodyResult.body)) {
       return NextResponse.json(
-        { error: 'CONCURRENT_REQUEST', message: CHAT_ERROR_MESSAGES.CONCURRENT_REQUEST },
-        { status: 429 }
+        { error: 'INVALID_REQUEST', message: CHAT_ERROR_MESSAGES.INVALID_REQUEST },
+        { status: 400 }
       );
     }
-    lockAcquired = true;
-  }
 
-  // ---- ガード 2: レートリミット ----
-  // 1 分・1 時間の 2 ウィンドウをアトミックにインクリメントし、いずれか超過で 429 を返す。
-  // ロック取得後にチェックすることで、並行リクエスト（ロック競合で 429 拒否）が
-  // レートカウンタを消費しないようにする。
-  // DynamoDB 障害時はフェイルオープン（レート超過扱いにせず通す）し、警告ログを残す。
-  let limitPerMinResult;
-  let limitPerHourResult;
-  try {
-    [limitPerMinResult, limitPerHourResult] = await Promise.all([
-      chatGuardRepository.incrementRateLimit(userId, '1m', nowMs),
-      chatGuardRepository.incrementRateLimit(userId, '1h', nowMs),
-    ]);
-  } catch (rateErr) {
-    // DynamoDB 障害: フェイルオープン（レートリミットをバイパスして通す）
-    console.warn(
-      '[POST /api/chat] レートリミットのチェックに失敗したためバイパスしました。障害時フェイルオープン。',
-      rateErr
-    );
-    limitPerMinResult = null;
-    limitPerHourResult = null;
-  }
+    const body = bodyResult.body;
 
-  if (
-    limitPerMinResult !== null &&
-    limitPerHourResult !== null &&
-    (limitPerMinResult.count > CHAT_RATE_LIMIT_PER_MINUTE ||
-      limitPerHourResult.count > CHAT_RATE_LIMIT_PER_HOUR)
-  ) {
-    // レート超過時はロックを解放してから 429 を返す
-    if (lockAcquired) {
-      try {
-        await chatGuardRepository.releaseLock(userId, ownerToken);
-      } catch (releaseErr) {
-        console.warn('[POST /api/chat] レート超過時のロック解放に失敗しました。', releaseErr);
-      }
+    const text = body.text.trim();
+    const characterId = body.characterId ?? DEFAULT_CHARACTER_ID;
+
+    if (!hasCharacter(characterId)) {
+      return NextResponse.json(
+        { error: 'INVALID_REQUEST', message: CHAT_ERROR_MESSAGES.INVALID_REQUEST },
+        { status: 400 }
+      );
     }
-    return NextResponse.json(
-      { error: 'RATE_LIMIT_EXCEEDED', message: CHAT_ERROR_MESSAGES.RATE_LIMIT_EXCEEDED },
-      {
-        status: 429,
-        headers: {
-          // 1 分窓が超過している場合は次の分までの秒数、それ以外は次の時間までの秒数
-          'Retry-After':
-            limitPerMinResult.count > CHAT_RATE_LIMIT_PER_MINUTE
-              ? String(60 - Math.floor((nowMs % 60_000) / 1000))
-              : String(3600 - Math.floor((nowMs % 3_600_000) / 1000)),
-        },
+
+    if (!text) {
+      return NextResponse.json(
+        { error: 'EMPTY_TEXT', message: CHAT_ERROR_MESSAGES.EMPTY_TEXT },
+        { status: 400 }
+      );
+    }
+    if (text.length > CHAT_MAX_TEXT_LENGTH) {
+      return NextResponse.json(
+        { error: 'TEXT_TOO_LONG', message: CHAT_ERROR_MESSAGES.TEXT_TOO_LONG },
+        { status: 400 }
+      );
+    }
+
+    const userId = session.user.id;
+    const chatGuardRepository = getChatGuardRepository();
+    const nowMs = Date.now();
+
+    // ---- ガード 1: in-flight ロック取得 ----
+    // 同一ユーザーの並行リクエストを 1 本に制限する。
+    // DynamoDB 障害時はフェイルオープン（ロック無しで続行）し、警告ログを残す。
+    const ownerToken = defaultUlidFactory(nowMs);
+    let lockAcquired = false;
+
+    let lockResult;
+    try {
+      lockResult = await chatGuardRepository.acquireLock(
+        userId,
+        ownerToken,
+        CHAT_LOCK_TTL_MS,
+        nowMs
+      );
+    } catch (lockErr) {
+      // DynamoDB 障害: フェイルオープン（ロック無しで続行する）
+      console.warn(
+        '[POST /api/chat] ロック取得に失敗したためバイパスしました。障害時フェイルオープン。',
+        lockErr
+      );
+      await reportSwallowedError('Web API: チャットのロック取得エラー (バイパス)', lockErr);
+      lockResult = null;
+    }
+
+    if (lockResult !== null) {
+      if (!lockResult.acquired) {
+        return NextResponse.json(
+          { error: 'CONCURRENT_REQUEST', message: CHAT_ERROR_MESSAGES.CONCURRENT_REQUEST },
+          { status: 429 }
+        );
       }
-    );
-  }
+      lockAcquired = true;
+    }
 
-  const encoder = new TextEncoder();
+    // ---- ガード 2: レートリミット ----
+    // 1 分・1 時間の 2 ウィンドウをアトミックにインクリメントし、いずれか超過で 429 を返す。
+    // ロック取得後にチェックすることで、並行リクエスト（ロック競合で 429 拒否）が
+    // レートカウンタを消費しないようにする。
+    // DynamoDB 障害時はフェイルオープン（レート超過扱いにせず通す）し、警告ログを残す。
+    let limitPerMinResult;
+    let limitPerHourResult;
+    try {
+      [limitPerMinResult, limitPerHourResult] = await Promise.all([
+        chatGuardRepository.incrementRateLimit(userId, '1m', nowMs),
+        chatGuardRepository.incrementRateLimit(userId, '1h', nowMs),
+      ]);
+    } catch (rateErr) {
+      // DynamoDB 障害: フェイルオープン（レートリミットをバイパスして通す）
+      console.warn(
+        '[POST /api/chat] レートリミットのチェックに失敗したためバイパスしました。障害時フェイルオープン。',
+        rateErr
+      );
+      await reportSwallowedError('Web API: チャットのレートリミット確認エラー (バイパス)', rateErr);
+      limitPerMinResult = null;
+      limitPerHourResult = null;
+    }
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      const write = (event: object) => {
-        controller.enqueue(encoder.encode(JSON.stringify(event) + '\n'));
-      };
-
-      try {
-        const eventGenerator = runChatUseCase({
-          userId,
-          characterId,
-          userText: text,
-          character: getCharacterDefinition(characterId),
-          llmClient: getLLMClient(),
-          voiceClient: getVoiceClient(),
-          messageRepository: getMessageRepository(),
-          safetyEventRepository: getSafetyEventRepository(),
-          moderationClient: getModerationClient(),
-          topicRetriever: getTopicRetriever(),
-          characterStateRepository: getCharacterStateRepository(),
-          lifecycleRepository: getLifecycleRepository(),
-          studyTopicRepository: getStudyTopicRepository(),
-          noteRepository: getNoteRepository(),
-          consolidationCursorRepository: getConsolidationCursorRepository(),
-        });
-
-        for await (const event of eventGenerator) {
-          write(event);
+    if (
+      limitPerMinResult !== null &&
+      limitPerHourResult !== null &&
+      (limitPerMinResult.count > CHAT_RATE_LIMIT_PER_MINUTE ||
+        limitPerHourResult.count > CHAT_RATE_LIMIT_PER_HOUR)
+    ) {
+      // レート超過時はロックを解放してから 429 を返す
+      if (lockAcquired) {
+        try {
+          await chatGuardRepository.releaseLock(userId, ownerToken);
+        } catch (releaseErr) {
+          console.warn('[POST /api/chat] レート超過時のロック解放に失敗しました。', releaseErr);
+          await reportSwallowedError(
+            'Web API: チャットのロック解放エラー (レート超過時)',
+            releaseErr
+          );
         }
-      } catch (err) {
-        console.error('[POST /api/chat] ストリーミング中にエラーが発生しました', err);
-        write({ type: 'error', message: CHAT_ERROR_MESSAGES.INTERNAL_ERROR });
-      } finally {
-        // lockAcquired が true のときだけ解放する（DB 障害でバイパスした場合は呼ばない）
-        if (lockAcquired) {
-          try {
-            await chatGuardRepository.releaseLock(userId, ownerToken);
-          } catch (releaseErr) {
-            // ロック解放失敗は警告のみ（フェイルオープン方針に合わせて握りつぶす）
-            console.warn('[POST /api/chat] ロック解放に失敗しました。', releaseErr);
+      }
+      return NextResponse.json(
+        { error: 'RATE_LIMIT_EXCEEDED', message: CHAT_ERROR_MESSAGES.RATE_LIMIT_EXCEEDED },
+        {
+          status: 429,
+          headers: {
+            // 1 分窓が超過している場合は次の分までの秒数、それ以外は次の時間までの秒数
+            'Retry-After':
+              limitPerMinResult.count > CHAT_RATE_LIMIT_PER_MINUTE
+                ? String(60 - Math.floor((nowMs % 60_000) / 1000))
+                : String(3600 - Math.floor((nowMs % 3_600_000) / 1000)),
+          },
+        }
+      );
+    }
+
+    const encoder = new TextEncoder();
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        const write = (event: object) => {
+          controller.enqueue(encoder.encode(JSON.stringify(event) + '\n'));
+        };
+
+        try {
+          const eventGenerator = runChatUseCase({
+            userId,
+            characterId,
+            userText: text,
+            character: getCharacterDefinition(characterId),
+            llmClient: getLLMClient(),
+            voiceClient: getVoiceClient(),
+            messageRepository: getMessageRepository(),
+            safetyEventRepository: getSafetyEventRepository(),
+            moderationClient: getModerationClient(),
+            topicRetriever: getTopicRetriever(),
+            characterStateRepository: getCharacterStateRepository(),
+            lifecycleRepository: getLifecycleRepository(),
+            studyTopicRepository: getStudyTopicRepository(),
+            noteRepository: getNoteRepository(),
+            consolidationCursorRepository: getConsolidationCursorRepository(),
+          });
+
+          for await (const event of eventGenerator) {
+            write(event);
           }
+        } catch (err) {
+          console.error('[POST /api/chat] ストリーミング中にエラーが発生しました', err);
+          await reportSwallowedError('Web API: チャットのストリーミングエラー', err);
+          write({ type: 'error', message: CHAT_ERROR_MESSAGES.INTERNAL_ERROR });
+        } finally {
+          // lockAcquired が true のときだけ解放する（DB 障害でバイパスした場合は呼ばない）
+          if (lockAcquired) {
+            try {
+              await chatGuardRepository.releaseLock(userId, ownerToken);
+            } catch (releaseErr) {
+              // ロック解放失敗は警告のみ（フェイルオープン方針に合わせて握りつぶす）
+              console.warn('[POST /api/chat] ロック解放に失敗しました。', releaseErr);
+              await reportSwallowedError('Web API: チャットのロック解放エラー', releaseErr);
+            }
+          }
+          controller.close();
         }
-        controller.close();
-      }
-    },
-  });
+      },
+    });
 
-  return new NextResponse(stream, {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/x-ndjson',
-      'Cache-Control': 'no-store',
-      'X-Content-Type-Options': 'nosniff',
-    },
-  });
-});
+    return new NextResponse(stream, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/x-ndjson',
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff',
+      },
+    });
+  })
+);
