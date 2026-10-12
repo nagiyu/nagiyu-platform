@@ -5,16 +5,13 @@ import {
   type GroupOperationDependencies,
   type MembershipRepository,
 } from '@nagiyu/share-together-core';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { NextResponse } from 'next/server';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createGroupRepository, createMembershipRepository } from '@nagiyu/share-together-core';
-import {
-  createValidationErrorResponse,
-  createNotFoundErrorResponse,
-  createInternalServerErrorResponse,
-} from '@/lib/api/responses';
+import { createValidationErrorResponse, createNotFoundErrorResponse } from '@/lib/api/responses';
 import { createErrorResponse } from '@nagiyu/nextjs';
 
 function createNoContentResponse(): NextResponse {
@@ -33,58 +30,60 @@ function createDependencies(tableName: string): GroupOperationDependencies & {
   };
 }
 
-export async function DELETE(
-  _request: Request,
-  { params }: { params: Promise<{ groupId: string; userId: string }> }
-): Promise<NextResponse> {
-  try {
-    const sessionOrUnauthorized = await getSessionOrUnauthorized();
-    if ('status' in sessionOrUnauthorized) {
-      return sessionOrUnauthorized;
-    }
+export const DELETE = withApiErrorReporting(
+  'Web API: グループメンバー除外・脱退エラー',
+  async (
+    _request: Request,
+    { params }: { params: Promise<{ groupId: string; userId: string }> }
+  ): Promise<NextResponse> => {
+    try {
+      const sessionOrUnauthorized = await getSessionOrUnauthorized();
+      if ('status' in sessionOrUnauthorized) {
+        return sessionOrUnauthorized;
+      }
 
-    const { groupId, userId } = await params;
-    if (!groupId || !userId) {
-      return createValidationErrorResponse();
-    }
+      const { groupId, userId } = await params;
+      if (!groupId || !userId) {
+        return createValidationErrorResponse();
+      }
 
-    const tableName = process.env.DYNAMODB_TABLE_NAME;
-    if (!tableName) {
-      throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
-    }
+      const tableName = process.env.DYNAMODB_TABLE_NAME;
+      if (!tableName) {
+        throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
+      }
 
-    const userIdFromSession = sessionOrUnauthorized.user.id;
-    if (typeof userIdFromSession !== 'string' || userIdFromSession.length === 0) {
-      return createValidationErrorResponse();
-    }
+      const userIdFromSession = sessionOrUnauthorized.user.id;
+      if (typeof userIdFromSession !== 'string' || userIdFromSession.length === 0) {
+        return createValidationErrorResponse();
+      }
 
-    const dependencies = createDependencies(tableName);
+      const dependencies = createDependencies(tableName);
 
-    if (userIdFromSession === userId) {
-      await leaveGroup({ groupId, userId }, dependencies);
+      if (userIdFromSession === userId) {
+        await leaveGroup({ groupId, userId }, dependencies);
+        return createNoContentResponse();
+      }
+
+      const requesterMembership = await dependencies.membershipRepository.getById(
+        groupId,
+        userIdFromSession
+      );
+      if (requesterMembership?.role !== 'OWNER') {
+        return createErrorResponse(403, 'OWNER_ONLY', ERROR_MESSAGES.OWNER_ONLY);
+      }
+
+      await removeMember(groupId, userId, dependencies);
       return createNoContentResponse();
-    }
+    } catch (error) {
+      if (error instanceof Error && error.message === GROUP_ERROR_MESSAGES.MEMBERSHIP_NOT_FOUND) {
+        return createNotFoundErrorResponse();
+      }
 
-    const requesterMembership = await dependencies.membershipRepository.getById(
-      groupId,
-      userIdFromSession
-    );
-    if (requesterMembership?.role !== 'OWNER') {
-      return createErrorResponse(403, 'OWNER_ONLY', ERROR_MESSAGES.OWNER_ONLY);
-    }
+      if (error instanceof Error && error.message === GROUP_ERROR_MESSAGES.OWNER_CANNOT_LEAVE) {
+        return createErrorResponse(403, 'OWNER_CANNOT_LEAVE', ERROR_MESSAGES.OWNER_CANNOT_LEAVE);
+      }
 
-    await removeMember(groupId, userId, dependencies);
-    return createNoContentResponse();
-  } catch (error) {
-    if (error instanceof Error && error.message === GROUP_ERROR_MESSAGES.MEMBERSHIP_NOT_FOUND) {
-      return createNotFoundErrorResponse();
+      throw error;
     }
-
-    if (error instanceof Error && error.message === GROUP_ERROR_MESSAGES.OWNER_CANNOT_LEAVE) {
-      return createErrorResponse(403, 'OWNER_CANNOT_LEAVE', ERROR_MESSAGES.OWNER_CANNOT_LEAVE);
-    }
-
-    console.error('グループメンバー除外・脱退 API の実行に失敗しました', { error });
-    return createInternalServerErrorResponse();
   }
-}
+);

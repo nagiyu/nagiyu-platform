@@ -1,4 +1,5 @@
 import { ListService, TodoService } from '@nagiyu/share-together-core';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { NextResponse } from 'next/server';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import type { TodoResponse, TodosResponse } from '@/types';
@@ -6,11 +7,7 @@ import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createListRepository, createTodoRepository } from '@nagiyu/share-together-core';
-import {
-  createValidationErrorResponse,
-  createNotFoundErrorResponse,
-  createInternalServerErrorResponse,
-} from '@/lib/api/responses';
+import { createValidationErrorResponse, createNotFoundErrorResponse } from '@/lib/api/responses';
 import { isNonEmptyString, isValidationError, isNotFoundError } from '@/lib/api/validation';
 
 interface RouteContext {
@@ -50,113 +47,97 @@ function createServices(): { listService: ListService; todoService: TodoService 
   };
 }
 
-export async function GET(_request: Request, { params }: RouteContext): Promise<NextResponse> {
-  let requestedUserId: string | undefined;
-  let requestedListId: string | undefined;
+export const GET = withApiErrorReporting(
+  'Web API: ToDo 一覧取得エラー',
+  async (_request: Request, { params }: RouteContext): Promise<NextResponse> => {
+    try {
+      const sessionOrUnauthorized = await getSessionOrUnauthorized();
+      if ('status' in sessionOrUnauthorized) {
+        return sessionOrUnauthorized;
+      }
 
-  try {
-    const sessionOrUnauthorized = await getSessionOrUnauthorized();
-    if ('status' in sessionOrUnauthorized) {
-      return sessionOrUnauthorized;
+      const userId = sessionOrUnauthorized.user.id;
+      if (!isNonEmptyString(userId)) {
+        return createValidationErrorResponse();
+      }
+
+      const { listId } = await params;
+      if (!isNonEmptyString(listId)) {
+        return createValidationErrorResponse();
+      }
+
+      const { listService, todoService } = createServices();
+      await listService.getPersonalListById(userId, listId);
+      const todos = await todoService.getTodosByListId(listId);
+
+      const response: TodosResponse = {
+        data: {
+          todos,
+        },
+      };
+
+      return NextResponse.json(response);
+    } catch (error) {
+      if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
+        return createValidationErrorResponse();
+      }
+
+      if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
+        return createNotFoundErrorResponse();
+      }
+
+      throw error;
     }
-
-    const userId = sessionOrUnauthorized.user.id;
-    if (!isNonEmptyString(userId)) {
-      return createValidationErrorResponse();
-    }
-
-    const { listId } = await params;
-    if (!isNonEmptyString(listId)) {
-      return createValidationErrorResponse();
-    }
-
-    requestedUserId = userId;
-    requestedListId = listId;
-
-    const { listService, todoService } = createServices();
-    await listService.getPersonalListById(userId, listId);
-    const todos = await todoService.getTodosByListId(listId);
-
-    const response: TodosResponse = {
-      data: {
-        todos,
-      },
-    };
-
-    return NextResponse.json(response);
-  } catch (error) {
-    if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
-      return createValidationErrorResponse();
-    }
-
-    if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
-      return createNotFoundErrorResponse();
-    }
-
-    console.error('ToDo 一覧取得 API の実行に失敗しました', {
-      userId: requestedUserId,
-      listId: requestedListId,
-      error,
-    });
-    return createInternalServerErrorResponse();
   }
-}
+);
 
-export async function POST(request: Request, { params }: RouteContext): Promise<NextResponse> {
-  let requestedUserId: string | undefined;
-  let requestedListId: string | undefined;
+export const POST = withApiErrorReporting(
+  'Web API: ToDo 作成エラー',
+  async (request: Request, { params }: RouteContext): Promise<NextResponse> => {
+    try {
+      const sessionOrUnauthorized = await getSessionOrUnauthorized();
+      if ('status' in sessionOrUnauthorized) {
+        return sessionOrUnauthorized;
+      }
 
-  try {
-    const sessionOrUnauthorized = await getSessionOrUnauthorized();
-    if ('status' in sessionOrUnauthorized) {
-      return sessionOrUnauthorized;
+      const userId = sessionOrUnauthorized.user.id;
+      if (!isNonEmptyString(userId)) {
+        return createValidationErrorResponse();
+      }
+
+      const { listId } = await params;
+      if (!isNonEmptyString(listId)) {
+        return createValidationErrorResponse();
+      }
+
+      const bodyResult = await readJsonObjectBody(request);
+      if (!bodyResult.ok) {
+        return createValidationErrorResponse();
+      }
+      const { body } = bodyResult;
+      if (!isNonEmptyString(body.title)) {
+        return createValidationErrorResponse();
+      }
+
+      const { listService, todoService } = createServices();
+      await listService.getPersonalListById(userId, listId);
+      const todo = await todoService.createTodo(listId, body.title, userId);
+
+      const response: TodoResponse = {
+        data: todo,
+      };
+
+      return NextResponse.json(response, { status: 201 });
+    } catch (error) {
+      if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
+        return createValidationErrorResponse();
+      }
+
+      if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
+        return createNotFoundErrorResponse();
+      }
+
+      throw error;
     }
-
-    const userId = sessionOrUnauthorized.user.id;
-    if (!isNonEmptyString(userId)) {
-      return createValidationErrorResponse();
-    }
-
-    const { listId } = await params;
-    if (!isNonEmptyString(listId)) {
-      return createValidationErrorResponse();
-    }
-
-    requestedUserId = userId;
-    requestedListId = listId;
-
-    const bodyResult = await readJsonObjectBody(request);
-    if (!bodyResult.ok) {
-      return createValidationErrorResponse();
-    }
-    const { body } = bodyResult;
-    if (!isNonEmptyString(body.title)) {
-      return createValidationErrorResponse();
-    }
-
-    const { listService, todoService } = createServices();
-    await listService.getPersonalListById(userId, listId);
-    const todo = await todoService.createTodo(listId, body.title, userId);
-
-    const response: TodoResponse = {
-      data: todo,
-    };
-
-    return NextResponse.json(response, { status: 201 });
-  } catch (error) {
-    if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
-      return createValidationErrorResponse();
-    }
-
-    if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
-      return createNotFoundErrorResponse();
-    }
-
-    console.error('ToDo 作成 API の実行に失敗しました', {
-      userId: requestedUserId,
-      listId: requestedListId,
-      error,
-    });
-    return createInternalServerErrorResponse();
   }
-}
+);

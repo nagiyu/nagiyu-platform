@@ -8,6 +8,7 @@ jest.mock('next/server', () => ({
 }));
 
 jest.mock('@nagiyu/nextjs', () => ({
+  ...jest.requireActual('@nagiyu/nextjs'),
   withAuth:
     (
       authFn: () => Promise<Session | null>,
@@ -54,6 +55,7 @@ jest.mock('@/lib/auth/session', () => ({
 
 jest.mock('@nagiyu/aws', () => ({
   getDynamoDBDocumentClient: jest.fn(),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock('@nagiyu/share-together-core', () => ({
@@ -64,7 +66,7 @@ jest.mock('@nagiyu/share-together-core', () => ({
 import { POST } from '@/app/api/users/route';
 import type { Session } from 'next-auth';
 import { getSession } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
 import { createListRepository, createUserRepository } from '@nagiyu/share-together-core';
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
@@ -214,5 +216,29 @@ describe('POST /api/users', () => {
         defaultListId: 'list-99',
       }),
     });
+  });
+
+  it('想定外の例外は500レスポンスを返し reportErrorEvent を呼ぶ', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-1', email: 'user@example.com', name: 'ユーザー' },
+    } as Session);
+    mockGetById.mockRejectedValue(new Error('DB 障害'));
+
+    const response = await POST();
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'INTERNAL_SERVER_ERROR',
+      message: 'サーバーエラーが発生しました',
+    });
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'share-together',
+        severity: 'error',
+        title: 'Web API: ユーザー登録エラー',
+        message: 'DB 障害',
+      })
+    );
   });
 });
