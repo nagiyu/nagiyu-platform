@@ -8,6 +8,7 @@ import {
 import { PAGINATION_ERROR_CODES, PaginationValidationError, parsePagination } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { createWithApiErrorReportingBody } from '@/lib/api-error-reporting';
 
 /**
  * 動画一覧取得 API
@@ -19,151 +20,153 @@ import { ERROR_MESSAGES } from '@/lib/constants/errors';
  * @param request - Next.js リクエストオブジェクト
  * @returns 動画一覧レスポンス
  */
-export async function GET(request: NextRequest) {
-  try {
-    // 認証チェック
-    const session = await getSession();
-    if (!session?.user) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'UNAUTHORIZED',
-            message: ERROR_MESSAGES.UNAUTHORIZED,
+const withApiErrorReporting = createWithApiErrorReportingBody('動画一覧取得エラー:', {
+  error: {
+    code: 'DATABASE_ERROR',
+    message: 'データベースへのアクセスに失敗しました',
+  },
+});
+
+export const GET = withApiErrorReporting(
+  'Web API: 動画一覧取得エラー',
+  async (request: NextRequest) => {
+    try {
+      // 認証チェック
+      const session = await getSession();
+      if (!session?.user) {
+        return NextResponse.json(
+          {
+            error: {
+              code: 'UNAUTHORIZED',
+              message: ERROR_MESSAGES.UNAUTHORIZED,
+            },
           },
-        },
-        { status: 401 }
-      );
-    }
+          { status: 401 }
+        );
+      }
 
-    // クエリパラメータの取得
-    const searchParams = request.nextUrl.searchParams;
-    const offsetParam = searchParams.get('offset');
-    const isFavoriteParam = searchParams.get('isFavorite');
-    const isSkipParam = searchParams.get('isSkip');
-    const searchKeyword = searchParams.get('search')?.trim() || undefined;
+      // クエリパラメータの取得
+      const searchParams = request.nextUrl.searchParams;
+      const offsetParam = searchParams.get('offset');
+      const isFavoriteParam = searchParams.get('isFavorite');
+      const isSkipParam = searchParams.get('isSkip');
+      const searchKeyword = searchParams.get('search')?.trim() || undefined;
 
-    // パラメータのパース
-    const { limit } = parsePagination(request);
-    const offset = offsetParam ? parseInt(offsetParam, 10) : 0;
+      // パラメータのパース
+      const { limit } = parsePagination(request);
+      const offset = offsetParam ? parseInt(offsetParam, 10) : 0;
 
-    // バリデーション: offset
-    if (isNaN(offset) || offset < 0) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'INVALID_REQUEST',
-            message: COMMON_ERROR_MESSAGES.BAD_REQUEST,
-            details: 'offset は 0 以上である必要があります',
-          },
-        },
-        { status: 400 }
-      );
-    }
-
-    // フィルタパラメータのパース
-    let isFavorite: boolean | undefined;
-    if (isFavoriteParam !== null) {
-      if (isFavoriteParam === 'true') {
-        isFavorite = true;
-      } else if (isFavoriteParam === 'false') {
-        isFavorite = false;
-      } else {
+      // バリデーション: offset
+      if (isNaN(offset) || offset < 0) {
         return NextResponse.json(
           {
             error: {
               code: 'INVALID_REQUEST',
               message: COMMON_ERROR_MESSAGES.BAD_REQUEST,
-              details: 'isFavorite は true または false である必要があります',
+              details: 'offset は 0 以上である必要があります',
             },
           },
           { status: 400 }
         );
       }
-    }
 
-    let isSkip: boolean | undefined;
-    if (isSkipParam !== null) {
-      if (isSkipParam === 'true') {
-        isSkip = true;
-      } else if (isSkipParam === 'false') {
-        isSkip = false;
-      } else {
+      // フィルタパラメータのパース
+      let isFavorite: boolean | undefined;
+      if (isFavoriteParam !== null) {
+        if (isFavoriteParam === 'true') {
+          isFavorite = true;
+        } else if (isFavoriteParam === 'false') {
+          isFavorite = false;
+        } else {
+          return NextResponse.json(
+            {
+              error: {
+                code: 'INVALID_REQUEST',
+                message: COMMON_ERROR_MESSAGES.BAD_REQUEST,
+                details: 'isFavorite は true または false である必要があります',
+              },
+            },
+            { status: 400 }
+          );
+        }
+      }
+
+      let isSkip: boolean | undefined;
+      if (isSkipParam !== null) {
+        if (isSkipParam === 'true') {
+          isSkip = true;
+        } else if (isSkipParam === 'false') {
+          isSkip = false;
+        } else {
+          return NextResponse.json(
+            {
+              error: {
+                code: 'INVALID_REQUEST',
+                message: COMMON_ERROR_MESSAGES.BAD_REQUEST,
+                details: 'isSkip は true または false である必要があります',
+              },
+            },
+            { status: 400 }
+          );
+        }
+      }
+
+      // 動画一覧を取得
+      const { videos: rawVideos, total } = await listVideosWithSettings(session.user.id, {
+        limit,
+        offset,
+        isFavorite,
+        isSkip,
+        searchKeyword,
+      });
+
+      // レスポンス形式に変換
+      const videos: VideoData[] = rawVideos.map((video) => ({
+        videoId: video.videoId,
+        title: video.title,
+        thumbnailUrl: video.thumbnailUrl,
+        length: video.length,
+        createdAt: video.CreatedAt,
+        userSetting: video.userSetting
+          ? {
+              videoId: video.videoId,
+              isFavorite: video.userSetting.isFavorite,
+              isSkip: video.userSetting.isSkip,
+              memo: video.userSetting.memo,
+              createdAt: video.userSetting.CreatedAt,
+              updatedAt: video.userSetting.UpdatedAt,
+            }
+          : undefined,
+      }));
+
+      // レスポンス
+      const response: VideosListResponse = {
+        videos,
+        total,
+        limit,
+        offset,
+      };
+
+      return NextResponse.json(response);
+    } catch (error) {
+      if (
+        error instanceof PaginationValidationError &&
+        error.code === PAGINATION_ERROR_CODES.INVALID_LIMIT
+      ) {
         return NextResponse.json(
           {
             error: {
               code: 'INVALID_REQUEST',
               message: COMMON_ERROR_MESSAGES.BAD_REQUEST,
-              details: 'isSkip は true または false である必要があります',
+              details: error.message,
             },
           },
           { status: 400 }
         );
       }
+
+      // 想定外の例外はラッパーが 500 に変換して報告する
+      throw error;
     }
-
-    // 動画一覧を取得
-    const { videos: rawVideos, total } = await listVideosWithSettings(session.user.id, {
-      limit,
-      offset,
-      isFavorite,
-      isSkip,
-      searchKeyword,
-    });
-
-    // レスポンス形式に変換
-    const videos: VideoData[] = rawVideos.map((video) => ({
-      videoId: video.videoId,
-      title: video.title,
-      thumbnailUrl: video.thumbnailUrl,
-      length: video.length,
-      createdAt: video.CreatedAt,
-      userSetting: video.userSetting
-        ? {
-            videoId: video.videoId,
-            isFavorite: video.userSetting.isFavorite,
-            isSkip: video.userSetting.isSkip,
-            memo: video.userSetting.memo,
-            createdAt: video.userSetting.CreatedAt,
-            updatedAt: video.userSetting.UpdatedAt,
-          }
-        : undefined,
-    }));
-
-    // レスポンス
-    const response: VideosListResponse = {
-      videos,
-      total,
-      limit,
-      offset,
-    };
-
-    return NextResponse.json(response);
-  } catch (error) {
-    if (
-      error instanceof PaginationValidationError &&
-      error.code === PAGINATION_ERROR_CODES.INVALID_LIMIT
-    ) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'INVALID_REQUEST',
-            message: COMMON_ERROR_MESSAGES.BAD_REQUEST,
-            details: error.message,
-          },
-        },
-        { status: 400 }
-      );
-    }
-
-    console.error('動画一覧取得エラー:', error);
-    return NextResponse.json(
-      {
-        error: {
-          code: 'DATABASE_ERROR',
-          message: 'データベースへのアクセスに失敗しました',
-        },
-      },
-      { status: 500 }
-    );
   }
-}
+);

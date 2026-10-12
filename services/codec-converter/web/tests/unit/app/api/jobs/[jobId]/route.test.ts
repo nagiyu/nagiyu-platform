@@ -1,17 +1,20 @@
 import { NextRequest } from 'next/server';
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
-import { getAwsClients, createPresignedDownloadUrl } from '@nagiyu/aws';
+import { getAwsClients, createPresignedDownloadUrl, reportErrorEvent } from '@nagiyu/aws';
 import { GET } from '@/app/api/jobs/[jobId]/route';
 
 jest.mock('@nagiyu/aws', () => ({
   getAwsClients: jest.fn(),
   createPresignedDownloadUrl: jest.fn(),
+  reportErrorEvent: jest.fn(),
 }));
 
 const mockedGetAwsClients = getAwsClients as jest.MockedFunction<typeof getAwsClients>;
 const mockedCreatePresignedDownloadUrl = createPresignedDownloadUrl as jest.MockedFunction<
   typeof createPresignedDownloadUrl
 >;
+
+const mockedReportErrorEvent = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
 
 const callGet = () =>
   GET(new NextRequest('http://localhost/api/jobs/job-1'), {
@@ -24,6 +27,7 @@ describe('GET /api/jobs/[jobId]', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedReportErrorEvent.mockResolvedValue(undefined as never);
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockedGetAwsClients.mockReturnValue({
       docClient: { send: dynamoSend },
@@ -82,12 +86,19 @@ describe('GET /api/jobs/[jobId]', () => {
     expect(mockedCreatePresignedDownloadUrl).not.toHaveBeenCalled();
   });
 
-  it('DynamoDB でエラーが起きた場合は 500 を返す', async () => {
+  it('DynamoDB でエラーが起きた場合は 500 を返しエラーイベントを送る', async () => {
     dynamoSend.mockRejectedValue(new Error('DynamoDB error'));
 
     const response = await callGet();
 
     expect(response.status).toBe(500);
     expect((await response.json()).error).toBe('INTERNAL_SERVER_ERROR');
+    expect(mockedReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'codec-converter',
+        title: 'Web API: ジョブ取得エラー',
+        message: 'DynamoDB error',
+      })
+    );
   });
 });

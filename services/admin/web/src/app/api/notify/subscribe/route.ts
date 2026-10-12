@@ -4,6 +4,7 @@ import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { createErrorResponse, readJsonObjectBody, validatePushSubscription } from '@nagiyu/nextjs';
 import { createPushSubscriptionRepository } from '@nagiyu/admin-core';
 import { getSession } from '@/lib/auth/session';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 
 const ERROR_MESSAGES = {
   UNAUTHORIZED: 'ログインが必要です',
@@ -30,8 +31,9 @@ function getRepository() {
   return createPushSubscriptionRepository(docClient, tableName);
 }
 
-export async function POST(request: Request): Promise<NextResponse> {
-  try {
+export const POST = withApiErrorReporting(
+  'Web API: プッシュサブスクリプション登録エラー',
+  async (request: Request) => {
     const session = await getSession();
     if (!session) {
       return createErrorResponse(401, 'UNAUTHORIZED', ERROR_MESSAGES.UNAUTHORIZED);
@@ -62,14 +64,13 @@ export async function POST(request: Request): Promise<NextResponse> {
       { success: true, subscriptionId: saved.subscriptionId },
       { status: 200 }
     );
-  } catch (error) {
-    console.error('プッシュサブスクリプション登録 API の実行に失敗しました', { error });
-    return createErrorResponse(500, 'INTERNAL_ERROR', ERROR_MESSAGES.INTERNAL_ERROR);
-  }
-}
+  },
+  ERROR_MESSAGES.INTERNAL_ERROR
+);
 
-export async function DELETE(request: Request): Promise<NextResponse> {
-  try {
+export const DELETE = withApiErrorReporting(
+  'Web API: プッシュサブスクリプション削除エラー',
+  async (request: Request) => {
     const session = await getSession();
     if (!session) {
       return createErrorResponse(401, 'UNAUTHORIZED', ERROR_MESSAGES.UNAUTHORIZED);
@@ -94,8 +95,6 @@ export async function DELETE(request: Request): Promise<NextResponse> {
     const deletedCount = await repository.deleteByEndpoint(body.endpoint);
 
     return NextResponse.json({ success: true, deletedCount }, { status: 200 });
-  } catch (error) {
-    console.error('プッシュサブスクリプション削除 API の実行に失敗しました', { error });
-    return createErrorResponse(500, 'INTERNAL_ERROR', ERROR_MESSAGES.INTERNAL_ERROR);
-  }
-}
+  },
+  ERROR_MESSAGES.INTERNAL_ERROR
+);
