@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import { POST } from '@/app/api/notify/sns/route';
+import { reportErrorEvent } from '@nagiyu/aws';
 import {
   createPushSubscriptionRepository,
   validateSnsMessage,
@@ -10,6 +11,7 @@ import {
 
 jest.mock('@nagiyu/aws', () => ({
   getDynamoDBDocumentClient: jest.fn(),
+  reportErrorEvent: jest.fn(),
 }));
 
 jest.mock(
@@ -237,5 +239,21 @@ describe('POST /api/notify/sns', () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(sendAll).not.toHaveBeenCalled();
     expect(mockCreateRepository).not.toHaveBeenCalled();
+  });
+
+  it('想定外の例外は 500 を返し、自己監視の経路なので報告しない', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockValidateSnsMessage.mockResolvedValue(notification(ALLOWED_TOPIC_ARN) as never);
+    sendAll.mockRejectedValue(new Error('送信失敗'));
+
+    const response = await POST(createRequest({}));
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: 'INTERNAL_ERROR',
+      message: 'SNS 通知処理に失敗しました',
+    });
+    expect(reportErrorEvent).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 });

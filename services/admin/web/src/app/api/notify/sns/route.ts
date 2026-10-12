@@ -27,7 +27,6 @@ import {
 } from '@nagiyu/admin-core';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { createErrorResponse, readJsonObjectBody } from '@nagiyu/nextjs';
-import { withApiErrorReporting } from '@/lib/api-error-reporting';
 
 const ERROR_MESSAGES = {
   INVALID_REQUEST: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
@@ -97,9 +96,12 @@ function createNotificationPayload(subject?: string, rawMessage?: string): PushN
   };
 }
 
-export const POST = withApiErrorReporting(
-  'Web API: SNS 通知受信エラー',
-  async (request: Request) => {
+/**
+ * 自己監視の経路であり、error-events テーブルや stream-handler の障害を、それらを通らずに通知するために使う。
+ * ここから reportErrorEvent で報告すると監視対象に依存し、SNS の再送で重複もするため報告しない。
+ */
+export async function POST(request: Request): Promise<NextResponse> {
+  try {
     const bodyResult = await readJsonObjectBody(request);
     if (!bodyResult.ok) {
       return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
@@ -149,6 +151,8 @@ export const POST = withApiErrorReporting(
     const sendResult = await sender.sendAll(payload);
 
     return NextResponse.json({ success: true, ...sendResult }, { status: 200 });
-  },
-  ERROR_MESSAGES.INTERNAL_ERROR
-);
+  } catch (error) {
+    console.error('SNS 通知受信 API の実行に失敗しました', { error });
+    return createErrorResponse(500, 'INTERNAL_ERROR', ERROR_MESSAGES.INTERNAL_ERROR);
+  }
+}

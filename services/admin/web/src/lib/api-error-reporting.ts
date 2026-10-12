@@ -4,6 +4,10 @@ import { createApiErrorReporting, createErrorResponse } from '@nagiyu/nextjs';
 
 const SERVICE_ID = 'admin';
 
+const ERROR_MESSAGES = {
+  REPORT_FAILED: '[createRouteErrorReporter] エラー報告に失敗しました',
+} as const;
+
 /**
  * ルートハンドラを包み、想定外の例外を報告して 500 を返す。
  *
@@ -41,7 +45,7 @@ export function createRouteErrorReporter(title: string) {
         context: { errorStack: error instanceof Error ? error.stack : undefined },
       });
     } catch (reportError) {
-      console.error('[createRouteErrorReporter] エラー報告に失敗しました', reportError);
+      console.error(ERROR_MESSAGES.REPORT_FAILED, reportError);
     }
   };
 }
