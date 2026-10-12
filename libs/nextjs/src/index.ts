@@ -56,6 +56,10 @@ export type { PaginationParams, PaginationErrorCode } from './pagination.js';
 // Error module - Error handling helpers
 export { handleApiError, createErrorResponse } from './error.js';
 
+// Error reporting module - Web API ルートのエラー報告ラッパー
+export { createApiErrorReporting } from './error-reporting.js';
+export type { ApiErrorReportInput, CreateApiErrorReportingOptions } from './error-reporting.js';
+
 // Request body module - Safe JSON body reader
 export { readJsonObjectBody } from './request-body.js';
 export type { JsonObjectBodyResult } from './request-body.js';
@@ -71,4 +75,8 @@ export {
   validatePushSubscription,
   createSubscriptionId,
 } from './push.js';
-export type { CreatePushSubscribeRouteOptions } from './push.js';
+export type {
+  CreatePushSubscribeRouteOptions,
+  CreateVapidPublicKeyRouteOptions,
+  PushRouteErrorHandler,
+} from './push.js';

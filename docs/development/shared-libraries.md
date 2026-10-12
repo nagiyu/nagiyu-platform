@@ -224,6 +224,7 @@ Next.js に依存するユーティリティ。
 - リポジトリ初期化ヘルパー
 - ページネーション
 - APIエラーレスポンス生成（`handleApiError`・`createErrorResponse`）
+- API ルートのエラー報告ラッパー (`createApiErrorReporting`)
 - リクエストボディの読み取り（`readJsonObjectBody`）
 - NextAuth 設定ファクトリ（`createAuthConfig`・`createServiceAuthConfig`）
 - Health ルートファクトリ（`createHealthRoute`）
@@ -241,6 +242,37 @@ Next.js に依存するユーティリティ。
 - Next.js API Route 専用
 - `@nagiyu/common` のみに依存
 - テスト容易性（モック化しやすい設計）
+
+### API ルートのエラー報告
+
+`createApiErrorReporting` は、ルートハンドラを包んで、500 以上になる例外だけを Admin へ報告するラッパー (`withApiErrorReporting`) を作る。報告をどの層で行うかの規約は [コーディング規約](./rules.md) の「3.3 エラーハンドリング」に従う。
+
+- **報告関数は注入する**: `@nagiyu/nextjs` は `@nagiyu/aws` に依存しないため、`reportErrorEvent` は各サービスが渡す。
+- **組み立ては 1 回だけ**: サービスの `lib/` で `serviceId` と報告関数を渡して作り、各ルートで使い回す。
+- **レスポンスの形を保つ**: 既定は `handleApiError`。サービス固有のエラー形式があるときは `toErrorResponse` で差し替える。報告するかどうかは、変換後の status で決まる。
+- **AWS SDK の例外は包んでから投げる**: `handleApiError` は例外の名前に `NotFound` / `Invalid` / `AlreadyExists` を含むと 404 / 400 を返すので、報告されない。SDK の `ResourceNotFoundException` (テーブルが無いなどの設定ミス) や `InvalidSignatureException` (認証情報の異常) を素のまま投げると、障害が利用者の誤りとして扱われて埋もれる。リポジトリ等でサービスのエラーに包んでから投げる。
+- **ハンドラ自身が返したレスポンスは報告しない**: 4xx / 5xx を返り値で返した場合は想定内として扱う。
+- **`withAuth` と合成するときはラッパーを外側に置く**: `withApiErrorReporting(title, withAuth(...))`。`withAuth` は認証エラー (401 / 403) だけを返し、例外は握らず投げ直す。内側で 500 に変換すると、ラッパーに届かず報告されないため。
+- **Push 系ファクトリは `onError` で報告を渡す**: `createVapidPublicKeyRoute` と `createPushSubscribeRoute` は内部で例外を握って 500 を返すので、ラッパーでは包めない。500 を返すときに呼ばれる `onError` に報告を渡す。`onError` の失敗はレスポンスに影響しない。
+
+```typescript
+// lib/api-error-reporting.ts
+import { reportErrorEvent } from '@nagiyu/aws';
+import { createApiErrorReporting } from '@nagiyu/nextjs';
+
+export const withApiErrorReporting = createApiErrorReporting({
+  serviceId: 'my-service',
+  report: reportErrorEvent,
+});
+
+// app/api/items/[id]/route.ts
+export const GET = withApiErrorReporting(
+  'GET /api/items/[id]',
+  async (request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+    // 例外は握らずに throw する
+  }
+);
+```
 
 ### NextAuth 設定の共通化
 
