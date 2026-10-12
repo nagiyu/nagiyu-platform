@@ -224,6 +224,7 @@ Next.js に依存するユーティリティ。
 - リポジトリ初期化ヘルパー
 - ページネーション
 - APIエラーレスポンス生成（`handleApiError`・`createErrorResponse`）
+- APIルートのエラー報告ラッパー（`createApiErrorReporting`）
 - リクエストボディの読み取り（`readJsonObjectBody`）
 - NextAuth 設定ファクトリ（`createAuthConfig`・`createServiceAuthConfig`）
 - Health ルートファクトリ（`createHealthRoute`）
@@ -241,6 +242,34 @@ Next.js に依存するユーティリティ。
 - Next.js API Route 専用
 - `@nagiyu/common` のみに依存
 - テスト容易性（モック化しやすい設計）
+
+### API ルートのエラー報告
+
+`createApiErrorReporting` は、ルートハンドラを包んで、500 以上になる例外だけを Admin へ報告するラッパー (`withApiErrorReporting`) を作る。報告をどの層で行うかの規約は [コーディング規約](./rules.md) の「3.3 エラーハンドリング」に従う。
+
+- **報告関数は注入する**: `@nagiyu/nextjs` は `@nagiyu/aws` に依存しないため、`reportErrorEvent` は各サービスが渡す。
+- **組み立ては 1 回だけ**: サービスの `lib/` で `serviceId` と報告関数を渡して作り、各ルートで使い回す。
+- **レスポンスの形を保つ**: 既定は `handleApiError`。サービス固有のエラー形式があるときは `toErrorResponse` で差し替える。報告するかどうかは、変換後の status で決まる。
+- **ハンドラ自身が返したレスポンスは報告しない**: 4xx / 5xx を返り値で返した場合は想定内として扱う。
+
+```typescript
+// lib/api-error-reporting.ts
+import { reportErrorEvent } from '@nagiyu/aws';
+import { createApiErrorReporting } from '@nagiyu/nextjs';
+
+export const withApiErrorReporting = createApiErrorReporting({
+  serviceId: 'my-service',
+  report: reportErrorEvent,
+});
+
+// app/api/items/[id]/route.ts
+export const GET = withApiErrorReporting(
+  'GET /api/items/[id]',
+  async (request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+    // 例外は握らずに throw する
+  }
+);
+```
 
 ### NextAuth 設定の共通化
 
