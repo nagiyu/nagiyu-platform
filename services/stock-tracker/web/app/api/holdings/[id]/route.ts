@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
-import { withAuth, handleApiError } from '@nagiyu/nextjs';
+import { withAuth, handleApiError, readJsonObjectBody } from '@nagiyu/nextjs';
 import {
   createHoldingRepository,
   createTickerRepository,
@@ -48,6 +48,21 @@ interface HoldingResponse {
 interface DeleteResponse {
   success: boolean;
   deletedHoldingId: string;
+}
+
+/**
+ * 項目の型が不正なときの 400 レスポンス
+ *
+ * 型違いの値を DB の更新へ渡さないために、保存前に弾く。
+ */
+function invalidFieldTypeResponse(): NextResponse {
+  return NextResponse.json(
+    {
+      error: 'INVALID_REQUEST',
+      message: ERROR_MESSAGES.VALIDATION_ERROR,
+    },
+    { status: 400 }
+  );
 }
 
 /**
@@ -131,10 +146,8 @@ export const PUT = withAuth(
       }
 
       // リクエストボディの取得
-      let body;
-      try {
-        body = await request.json();
-      } catch {
+      const bodyResult = await readJsonObjectBody(request);
+      if (!bodyResult.ok) {
         return NextResponse.json(
           {
             error: 'INVALID_REQUEST',
@@ -143,20 +156,30 @@ export const PUT = withAuth(
           { status: 400 }
         );
       }
+      const { quantity, averagePrice, currency } = bodyResult.body;
 
       // 更新可能なフィールドのみ抽出
       const updates: Partial<Pick<Holding, 'Quantity' | 'AveragePrice' | 'Currency'>> = {};
 
-      if (body.quantity !== undefined) {
-        updates.Quantity = body.quantity;
+      if (quantity !== undefined) {
+        if (typeof quantity !== 'number') {
+          return invalidFieldTypeResponse();
+        }
+        updates.Quantity = quantity;
       }
 
-      if (body.averagePrice !== undefined) {
-        updates.AveragePrice = body.averagePrice;
+      if (averagePrice !== undefined) {
+        if (typeof averagePrice !== 'number') {
+          return invalidFieldTypeResponse();
+        }
+        updates.AveragePrice = averagePrice;
       }
 
-      if (body.currency !== undefined) {
-        updates.Currency = body.currency;
+      if (currency !== undefined) {
+        if (typeof currency !== 'string') {
+          return invalidFieldTypeResponse();
+        }
+        updates.Currency = currency;
       }
 
       // 更新するフィールドがない場合はエラー

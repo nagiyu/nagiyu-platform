@@ -16,7 +16,7 @@ import {
   validateTickerCreateData,
   type TickerEntity,
 } from '@nagiyu/stock-tracker-core';
-import { withAuth, handleApiError } from '@nagiyu/nextjs';
+import { withAuth, handleApiError, readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '../../../lib/auth';
 import { createTickerRepository, createExchangeRepository } from '../../../lib/repository-factory';
 
@@ -43,15 +43,6 @@ interface TickerResponse {
 
 interface TickersListResponse {
   tickers: TickerResponse[];
-}
-
-/**
- * POST リクエストボディ型定義
- */
-interface CreateTickerRequest {
-  symbol: string;
-  name: string;
-  exchangeId: string;
 }
 
 /**
@@ -114,10 +105,8 @@ export const POST = withAuth(
   async (_session, request: NextRequest) => {
     try {
       // リクエストボディの取得
-      let body: CreateTickerRequest;
-      try {
-        body = await request.json();
-      } catch {
+      const bodyResult = await readJsonObjectBody(request);
+      if (!bodyResult.ok) {
         return NextResponse.json(
           {
             error: 'INVALID_REQUEST',
@@ -126,10 +115,17 @@ export const POST = withAuth(
           { status: 400 }
         );
       }
+      const { symbol, name, exchangeId } = bodyResult.body;
 
       // バリデーション
-      const validationResult = validateTickerCreateData(body);
-      if (!validationResult.valid) {
+      // 型の絞り込みも兼ねる (検証を通った値は文字列だが、型システムには伝わらないため)
+      const validationResult = validateTickerCreateData(bodyResult.body);
+      if (
+        !validationResult.valid ||
+        typeof symbol !== 'string' ||
+        typeof name !== 'string' ||
+        typeof exchangeId !== 'string'
+      ) {
         return NextResponse.json(
           {
             error: 'INVALID_REQUEST',
@@ -144,7 +140,7 @@ export const POST = withAuth(
       const tickerRepo = createTickerRepository();
 
       // 取引所の存在確認と Key 取得
-      const exchange = await exchangeRepo.getById(body.exchangeId);
+      const exchange = await exchangeRepo.getById(exchangeId);
       if (!exchange) {
         return NextResponse.json(
           {
@@ -159,10 +155,10 @@ export const POST = withAuth(
       // ティッカー作成（TickerID は自動生成: {Exchange.Key}:{Symbol}）
       try {
         const createdTicker = await tickerRepo.create({
-          TickerID: `${exchangeKey}:${body.symbol}`,
-          Symbol: body.symbol,
-          Name: body.name,
-          ExchangeID: body.exchangeId,
+          TickerID: `${exchangeKey}:${symbol}`,
+          Symbol: symbol,
+          Name: name,
+          ExchangeID: exchangeId,
         });
 
         // レスポンス形式に変換
