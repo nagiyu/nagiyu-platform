@@ -228,6 +228,10 @@ describe('POST /api/users', () => {
     const response = await POST();
 
     expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'INTERNAL_SERVER_ERROR',
+      message: 'サーバーエラーが発生しました',
+    });
     expect(reportErrorEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         serviceId: 'share-together',
