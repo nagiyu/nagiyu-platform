@@ -25,7 +25,7 @@ import { withApiErrorReporting } from '../../../lib/api-error-reporting';
 import { parseAlertConditionList } from '../../../lib/alert-condition';
 import { isOptionalString, isRecord } from '../../../lib/request-guards';
 import type { AlertEntity, CreateAlertInput } from '@nagiyu/stock-tracker-core';
-import type { ErrorResponse, Session } from '@nagiyu/common';
+import type { ErrorResponse } from '@nagiyu/common';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 
 /**
@@ -117,12 +117,12 @@ function mapAlertToResponse(
  * GET /api/alerts
  * アラート一覧取得
  */
-export const GET = withAuth(
-  getSession,
-  'stocks:read',
-  withApiErrorReporting(
-    'Web API: アラート一覧取得エラー',
-    async (session: Session, request: NextRequest): Promise<NextResponse> => {
+export const GET = withApiErrorReporting(
+  'Web API: アラート一覧取得エラー',
+  withAuth(
+    getSession,
+    'stocks:read',
+    async (session, request: NextRequest): Promise<NextResponse> => {
       // リポジトリの初期化
       const alertRepo = createAlertRepository();
       const tickerRepo = createTickerRepository();
@@ -167,15 +167,12 @@ export const GET = withAuth(
  * POST /api/alerts
  * アラート作成（Web Push サブスクリプション含む）
  */
-export const POST = withAuth(
-  getSession,
-  'stocks:write-own',
-  withApiErrorReporting(
-    'Web API: アラート作成エラー',
-    async (
-      session: Session,
-      request: NextRequest
-    ): Promise<NextResponse<AlertResponse | ErrorResponse>> => {
+export const POST = withApiErrorReporting(
+  'Web API: アラート作成エラー',
+  withAuth(
+    getSession,
+    'stocks:write-own',
+    async (session, request: NextRequest): Promise<NextResponse<AlertResponse | ErrorResponse>> => {
       // リクエストボディの取得
       const bodyResult = await readJsonObjectBody(request);
       if (!bodyResult.ok) {

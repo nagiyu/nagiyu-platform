@@ -12,7 +12,6 @@ import {
   createAlertRepository,
   createTickerRepository,
 } from '../../../../../lib/repository-factory';
-import type { Session } from '@nagiyu/common';
 import { getSession } from '../../../../../lib/auth';
 import { withApiErrorReporting } from '../../../../../lib/api-error-reporting';
 import { MAX_ALERTS_PER_USER } from '../../../../../lib/constants';
@@ -76,13 +75,13 @@ function mapAlertToResponse(
   return response;
 }
 
-export const GET = withAuth(
-  getSession,
-  'stocks:read',
-  withApiErrorReporting(
-    'Web API: ティッカー単位のアラート一覧取得エラー',
+export const GET = withApiErrorReporting(
+  'Web API: ティッカー単位のアラート一覧取得エラー',
+  withAuth(
+    getSession,
+    'stocks:read',
     async (
-      session: Session,
+      session,
       _request: NextRequest,
       { params }: { params: Promise<{ tickerId: string }> }
     ): Promise<NextResponse> => {

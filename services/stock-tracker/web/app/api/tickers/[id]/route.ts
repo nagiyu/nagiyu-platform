@@ -49,11 +49,11 @@ interface DeleteTickerResponse {
  * PUT /api/tickers/{id}
  * ティッカー更新（stock-admin のみ）
  */
-export const PUT = withAuth(
-  getSession,
-  'stocks:manage-data',
-  withApiErrorReporting(
-    'Web API: ティッカー更新エラー',
+export const PUT = withApiErrorReporting(
+  'Web API: ティッカー更新エラー',
+  withAuth(
+    getSession,
+    'stocks:manage-data',
     async (_session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
       // パスパラメータの取得
       const { id: tickerId } = await params;
@@ -124,11 +124,11 @@ export const PUT = withAuth(
  * DELETE /api/tickers/{id}
  * ティッカー削除（stock-admin のみ）
  */
-export const DELETE = withAuth(
-  getSession,
-  'stocks:manage-data',
-  withApiErrorReporting(
-    'Web API: ティッカー削除エラー',
+export const DELETE = withApiErrorReporting(
+  'Web API: ティッカー削除エラー',
+  withAuth(
+    getSession,
+    'stocks:manage-data',
     async (_session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
       // パスパラメータの取得
       const { id: tickerId } = await params;

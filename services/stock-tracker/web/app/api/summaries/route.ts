@@ -6,7 +6,7 @@ import {
   type ForecastEntity,
   type TickerEntity,
 } from '@nagiyu/stock-tracker-core';
-import type { ErrorResponse, Session } from '@nagiyu/common';
+import type { ErrorResponse } from '@nagiyu/common';
 import { withAuth } from '@nagiyu/nextjs';
 import { getSession } from '../../../lib/auth';
 import {
@@ -271,13 +271,13 @@ async function buildExchangeSummaryGroup(
   };
 }
 
-export const GET = withAuth(
-  getSession,
-  'stocks:read',
-  withInternalErrorReporting(
-    'Web API: サマリー一覧取得エラー',
+export const GET = withInternalErrorReporting(
+  'Web API: サマリー一覧取得エラー',
+  withAuth(
+    getSession,
+    'stocks:read',
     async (
-      session: Session,
+      session,
       request: NextRequest
     ): Promise<NextResponse<SummariesResponse | ErrorResponse>> => {
       const { searchParams } = new URL(request.url);

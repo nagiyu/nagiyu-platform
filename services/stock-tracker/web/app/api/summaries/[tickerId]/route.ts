@@ -15,7 +15,7 @@ import {
 } from '../../../../lib/repository-factory';
 import { MAX_ALERTS_PER_USER } from '../../../../lib/constants';
 import { toTickerForecastSummary } from '../../../../lib/forecast/ticker-forecast';
-import type { ErrorResponse, Session } from '@nagiyu/common';
+import type { ErrorResponse } from '@nagiyu/common';
 
 const ERROR_MESSAGES = {
   INVALID_TICKER_ID: 'ティッカーIDが不正です',
@@ -45,13 +45,13 @@ async function fetchForecastSummary(tickerId: string, date: string) {
   }
 }
 
-export const GET = withAuth(
-  getSession,
-  'stocks:read',
-  withInternalErrorReporting(
-    'Web API: サマリー取得エラー',
+export const GET = withInternalErrorReporting(
+  'Web API: サマリー取得エラー',
+  withAuth(
+    getSession,
+    'stocks:read',
     async (
-      session: Session,
+      session,
       _request: Request,
       { params }: { params: Promise<{ tickerId: string }> }
     ): Promise<NextResponse> => {

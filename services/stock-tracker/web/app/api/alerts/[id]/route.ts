@@ -20,7 +20,7 @@ import { withApiErrorReporting } from '../../../../lib/api-error-reporting';
 import { parseAlertConditionList } from '../../../../lib/alert-condition';
 import { isRecord } from '../../../../lib/request-guards';
 import type { AlertEntity } from '@nagiyu/stock-tracker-core';
-import type { ErrorResponse, Session } from '@nagiyu/common';
+import type { ErrorResponse } from '@nagiyu/common';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 
 /**
@@ -119,13 +119,13 @@ function mapAlertToResponse(
  * PUT /api/alerts/{id}
  * アラート更新
  */
-export const PUT = withAuth(
-  getSession,
-  'stocks:write-own',
-  withApiErrorReporting(
-    'Web API: アラート更新エラー',
+export const PUT = withApiErrorReporting(
+  'Web API: アラート更新エラー',
+  withAuth(
+    getSession,
+    'stocks:write-own',
     async (
-      session: Session,
+      session,
       request: NextRequest,
       { params }: { params: Promise<{ id: string }> }
     ): Promise<NextResponse<AlertResponse | ErrorResponse>> => {
@@ -327,13 +327,13 @@ export const PUT = withAuth(
  * DELETE /api/alerts/{id}
  * アラート削除
  */
-export const DELETE = withAuth(
-  getSession,
-  'stocks:write-own',
-  withApiErrorReporting(
-    'Web API: アラート削除エラー',
+export const DELETE = withApiErrorReporting(
+  'Web API: アラート削除エラー',
+  withAuth(
+    getSession,
+    'stocks:write-own',
     async (
-      session: Session,
+      session,
       _request: NextRequest,
       { params }: { params: Promise<{ id: string }> }
     ): Promise<NextResponse<DeleteResponse | ErrorResponse>> => {

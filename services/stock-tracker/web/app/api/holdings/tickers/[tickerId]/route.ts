@@ -12,7 +12,6 @@ import {
   createHoldingRepository,
   createTickerRepository,
 } from '../../../../../lib/repository-factory';
-import type { Session } from '@nagiyu/common';
 import { getSession } from '../../../../../lib/auth';
 import { withApiErrorReporting } from '../../../../../lib/api-error-reporting';
 import type { Holding } from '@nagiyu/stock-tracker-core';
@@ -34,13 +33,13 @@ interface HoldingResponse {
   updatedAt: string;
 }
 
-export const GET = withAuth(
-  getSession,
-  'stocks:read',
-  withApiErrorReporting(
-    'Web API: 保有株式取得エラー',
+export const GET = withApiErrorReporting(
+  'Web API: 保有株式取得エラー',
+  withAuth(
+    getSession,
+    'stocks:read',
     async (
-      session: Session,
+      session,
       _request: NextRequest,
       { params }: { params: Promise<{ tickerId: string }> }
     ): Promise<NextResponse> => {

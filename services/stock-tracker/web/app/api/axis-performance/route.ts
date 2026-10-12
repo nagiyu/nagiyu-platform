@@ -25,11 +25,11 @@ const ERROR_MESSAGES = {
 
 const withInternalErrorReporting = createInternalErrorReporting(ERROR_MESSAGES.INTERNAL_ERROR);
 
-export const GET = withAuth(
-  getSession,
-  'stocks:read',
-  withInternalErrorReporting(
-    'Web API: 軸ごとの成績取得エラー',
+export const GET = withInternalErrorReporting(
+  'Web API: 軸ごとの成績取得エラー',
+  withAuth(
+    getSession,
+    'stocks:read',
     async (_session, request: NextRequest): Promise<NextResponse> => {
       const parsed = parseAxisPerformanceQuery(new URL(request.url).searchParams);
       if (!parsed.ok) {

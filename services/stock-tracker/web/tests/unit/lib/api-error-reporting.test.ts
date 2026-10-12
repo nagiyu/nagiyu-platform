@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { reportErrorEvent } from '@nagiyu/aws';
 import {
   createInternalErrorReporting,
+  createRouteErrorReporter,
   reportSwallowedError,
   withApiErrorReporting,
 } from '../../../lib/api-error-reporting';
@@ -190,6 +191,22 @@ describe('api-error-reporting', () => {
         expect.objectContaining({
           message: 'plain failure',
           context: { errorName: 'string', errorStack: undefined },
+        })
+      );
+    });
+  });
+
+  describe('createRouteErrorReporter', () => {
+    it('渡したタイトルで報告する', async () => {
+      const reporter = createRouteErrorReporter('Web API: テスト');
+
+      await reporter(new Error('route failed'));
+
+      expect(mockedReportErrorEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          serviceId: 'stock-tracker',
+          title: 'Web API: テスト',
+          message: 'route failed',
         })
       );
     });

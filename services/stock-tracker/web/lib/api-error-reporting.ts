@@ -20,23 +20,12 @@ const INTERNAL_ERROR_CODE = 'INTERNAL_ERROR';
 const DEFAULT_LOG_LABEL = 'API Error:';
 
 /**
- * ルートハンドラを包む関数の型
- *
- * 変換後のレスポンスは常に NextResponse だが、ライブラリの型は Response 止まり。
- * withAuth など NextResponse を要求する関数と合成できるよう、戻り値を NextResponse に揃える。
- */
-export type WithApiErrorReporting = <Args extends unknown[], R extends Response>(
-  title: string,
-  handler: (...args: Args) => Promise<R>
-) => (...args: Args) => Promise<R | NextResponse>;
-
-/**
  * handleApiError 形式のエラーレスポンスを返すルート用のラッパー
  */
-export const withApiErrorReporting: WithApiErrorReporting = createApiErrorReporting({
+export const withApiErrorReporting = createApiErrorReporting({
   serviceId: SERVICE_ID,
   report: reportErrorEvent,
-}) as WithApiErrorReporting;
+});
 
 /**
  * 例外の種類によらず 500 と固定メッセージを返すルート用のラッパーを作る
@@ -49,7 +38,7 @@ export const withApiErrorReporting: WithApiErrorReporting = createApiErrorReport
 export function createInternalErrorReporting(
   message: string,
   logLabel: string = DEFAULT_LOG_LABEL
-): WithApiErrorReporting {
+): ReturnType<typeof createApiErrorReporting> {
   return createApiErrorReporting({
     serviceId: SERVICE_ID,
     report: reportErrorEvent,
@@ -59,7 +48,7 @@ export function createInternalErrorReporting(
         status: 500,
       });
     },
-  }) as WithApiErrorReporting;
+  });
 }
 
 /**
@@ -87,4 +76,15 @@ export async function reportSwallowedError(
       errorStack: error instanceof Error ? error.stack : undefined,
     },
   });
+}
+
+/**
+ * 工場関数で作るルート (Push 購読・VAPID 公開鍵) の onError に渡す報告関数を作る
+ *
+ * 工場関数のルートは内部で例外を握って 500 を返すため、入口のラッパーでは拾えない。
+ *
+ * @param title - 報告のタイトル
+ */
+export function createRouteErrorReporter(title: string): (error: unknown) => Promise<void> {
+  return (error) => reportSwallowedError(title, error);
 }

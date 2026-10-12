@@ -14,7 +14,6 @@ import {
   createHoldingRepository,
   createTickerRepository,
 } from '../../../../lib/repository-factory';
-import type { Session } from '@nagiyu/common';
 import { getSession } from '../../../../lib/auth';
 import { withApiErrorReporting } from '../../../../lib/api-error-reporting';
 import type { Holding } from '@nagiyu/stock-tracker-core';
@@ -112,16 +111,12 @@ function parseHoldingId(holdingId: string): { userId: string; tickerId: string }
  * PUT /api/holdings/[id]
  * 保有株式更新
  */
-export const PUT = withAuth(
-  getSession,
-  'stocks:write-own',
-  withApiErrorReporting(
-    'Web API: 保有株式更新エラー',
-    async (
-      session: Session,
-      request: NextRequest,
-      { params }: { params: Promise<{ id: string }> }
-    ) => {
+export const PUT = withApiErrorReporting(
+  'Web API: 保有株式更新エラー',
+  withAuth(
+    getSession,
+    'stocks:write-own',
+    async (session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
       // paramsを await で取得 (Next.js 15+)
       const resolvedParams = await params;
 
@@ -241,16 +236,12 @@ export const PUT = withAuth(
  * DELETE /api/holdings/[id]
  * 保有株式削除
  */
-export const DELETE = withAuth(
-  getSession,
-  'stocks:write-own',
-  withApiErrorReporting(
-    'Web API: 保有株式削除エラー',
-    async (
-      session: Session,
-      request: NextRequest,
-      { params }: { params: Promise<{ id: string }> }
-    ) => {
+export const DELETE = withApiErrorReporting(
+  'Web API: 保有株式削除エラー',
+  withAuth(
+    getSession,
+    'stocks:write-own',
+    async (session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
       // paramsを await で取得 (Next.js 15+)
       const resolvedParams = await params;
 

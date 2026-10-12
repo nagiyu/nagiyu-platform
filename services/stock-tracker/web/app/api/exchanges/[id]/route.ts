@@ -54,11 +54,11 @@ function invalidRequestBodyResponse(): NextResponse {
  * @returns 取引所が見つからない (404 Not Found)
  * @returns サーバーエラー (500 Internal Server Error)
  */
-export const GET = withAuth(
-  getSession,
-  'stocks:read',
-  withApiErrorReporting(
-    'Web API: 取引所取得エラー',
+export const GET = withApiErrorReporting(
+  'Web API: 取引所取得エラー',
+  withAuth(
+    getSession,
+    'stocks:read',
     async (_session, _request: Request, { params }: { params: Promise<{ id: string }> }) => {
       const { id: exchangeId } = await params;
 
@@ -113,11 +113,11 @@ export const GET = withAuth(
  * @returns リクエスト不正 (400 Bad Request)
  * @returns サーバーエラー (500 Internal Server Error)
  */
-export const PUT = withAuth(
-  getSession,
-  'stocks:manage-data',
-  withApiErrorReporting(
-    'Web API: 取引所更新エラー',
+export const PUT = withApiErrorReporting(
+  'Web API: 取引所更新エラー',
+  withAuth(
+    getSession,
+    'stocks:manage-data',
     async (_session, request: Request, { params }: { params: Promise<{ id: string }> }) => {
       const { id: exchangeId } = await params;
 
@@ -276,11 +276,11 @@ export const PUT = withAuth(
  * @returns 関連ティッカーあり (400 Bad Request)
  * @returns サーバーエラー (500 Internal Server Error)
  */
-export const DELETE = withAuth(
-  getSession,
-  'stocks:manage-data',
-  withApiErrorReporting(
-    'Web API: 取引所削除エラー',
+export const DELETE = withApiErrorReporting(
+  'Web API: 取引所削除エラー',
+  withAuth(
+    getSession,
+    'stocks:manage-data',
     async (_session, _request: Request, { params }: { params: Promise<{ id: string }> }) => {
       const { id: exchangeId } = await params;
 

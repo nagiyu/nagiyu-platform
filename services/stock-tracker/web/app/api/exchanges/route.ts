@@ -51,10 +51,9 @@ function invalidRequestBodyResponse(): NextResponse {
  * @returns 権限エラー (403 Forbidden)
  * @returns サーバーエラー (500 Internal Server Error)
  */
-export const GET = withAuth(
-  getSession,
-  'stocks:read',
-  withApiErrorReporting('Web API: 取引所一覧取得エラー', async () => {
+export const GET = withApiErrorReporting(
+  'Web API: 取引所一覧取得エラー',
+  withAuth(getSession, 'stocks:read', async () => {
     // Exchange リポジトリを初期化
     const exchangeRepo = createExchangeRepository();
 
@@ -92,10 +91,9 @@ export const GET = withAuth(
  * @returns リクエスト不正 (400 Bad Request)
  * @returns サーバーエラー (500 Internal Server Error)
  */
-export const POST = withAuth(
-  getSession,
-  'stocks:manage-data',
-  withApiErrorReporting('Web API: 取引所作成エラー', async (_session, request: Request) => {
+export const POST = withApiErrorReporting(
+  'Web API: 取引所作成エラー',
+  withAuth(getSession, 'stocks:manage-data', async (_session, request: Request) => {
     // リクエストボディをパース
     const bodyResult = await readJsonObjectBody(request);
     if (!bodyResult.ok) {

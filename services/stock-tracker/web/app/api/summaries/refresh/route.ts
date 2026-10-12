@@ -19,10 +19,9 @@ const getSummaryBatchFunctionName = (): string => {
   return `nagiyu-stock-tracker-batch-summary-${envName}`;
 };
 
-export const POST = withAuth(
-  getSession,
-  'stocks:manage-data',
-  withInternalErrorReporting('Web API: サマリーバッチ実行エラー', async () => {
+export const POST = withInternalErrorReporting(
+  'Web API: サマリーバッチ実行エラー',
+  withAuth(getSession, 'stocks:manage-data', async () => {
     const lambdaClient = new LambdaClient({});
     await lambdaClient.send(
       new InvokeCommand({

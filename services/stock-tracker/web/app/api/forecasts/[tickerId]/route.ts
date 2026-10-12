@@ -30,11 +30,11 @@ function errorResponse(
   return NextResponse.json({ error, message } satisfies ErrorResponse, { status });
 }
 
-export const GET = withAuth(
-  getSession,
-  'stocks:read',
-  withInternalErrorReporting(
-    'Web API: 確度取得エラー',
+export const GET = withInternalErrorReporting(
+  'Web API: 確度取得エラー',
+  withAuth(
+    getSession,
+    'stocks:read',
     async (
       _session,
       request: NextRequest,

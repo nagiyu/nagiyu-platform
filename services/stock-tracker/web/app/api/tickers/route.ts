@@ -61,52 +61,47 @@ interface CreateTickerResponse {
  * GET /api/tickers
  * ティッカー一覧取得
  */
-export const GET = withAuth(
-  getSession,
-  'stocks:read',
-  withApiErrorReporting(
-    'Web API: ティッカー一覧取得エラー',
-    async (_session, request: NextRequest) => {
-      // クエリパラメータの取得
-      const { searchParams } = new URL(request.url);
-      const exchangeId = searchParams.get('exchangeId');
+export const GET = withApiErrorReporting(
+  'Web API: ティッカー一覧取得エラー',
+  withAuth(getSession, 'stocks:read', async (_session, request: NextRequest) => {
+    // クエリパラメータの取得
+    const { searchParams } = new URL(request.url);
+    const exchangeId = searchParams.get('exchangeId');
 
-      // リポジトリを初期化
-      const tickerRepo = createTickerRepository();
+    // リポジトリを初期化
+    const tickerRepo = createTickerRepository();
 
-      // ティッカー一覧取得（全件返却契約）
-      let tickers: TickerEntity[];
-      if (exchangeId) {
-        // 取引所IDが指定されている場合は該当取引所のティッカーのみ取得
-        tickers = await tickerRepo.getByExchange(exchangeId);
-      } else {
-        // 全ティッカー取得
-        tickers = (await tickerRepo.getAll()).items;
-      }
-
-      // レスポンス形式に変換
-      const response: TickersListResponse = {
-        tickers: tickers.map((ticker: TickerEntity) => ({
-          tickerId: ticker.TickerID,
-          symbol: ticker.Symbol,
-          name: ticker.Name,
-          exchangeId: ticker.ExchangeID,
-        })),
-      };
-
-      return NextResponse.json(response, { status: 200 });
+    // ティッカー一覧取得（全件返却契約）
+    let tickers: TickerEntity[];
+    if (exchangeId) {
+      // 取引所IDが指定されている場合は該当取引所のティッカーのみ取得
+      tickers = await tickerRepo.getByExchange(exchangeId);
+    } else {
+      // 全ティッカー取得
+      tickers = (await tickerRepo.getAll()).items;
     }
-  )
+
+    // レスポンス形式に変換
+    const response: TickersListResponse = {
+      tickers: tickers.map((ticker: TickerEntity) => ({
+        tickerId: ticker.TickerID,
+        symbol: ticker.Symbol,
+        name: ticker.Name,
+        exchangeId: ticker.ExchangeID,
+      })),
+    };
+
+    return NextResponse.json(response, { status: 200 });
+  })
 );
 
 /**
  * POST /api/tickers
  * ティッカー作成（stock-admin のみ）
  */
-export const POST = withAuth(
-  getSession,
-  'stocks:manage-data',
-  withApiErrorReporting('Web API: ティッカー作成エラー', async (_session, request: NextRequest) => {
+export const POST = withApiErrorReporting(
+  'Web API: ティッカー作成エラー',
+  withAuth(getSession, 'stocks:manage-data', async (_session, request: NextRequest) => {
     // リクエストボディの取得
     const bodyResult = await readJsonObjectBody(request);
     if (!bodyResult.ok) {
