@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { getAwsClients, createPresignedDownloadUrl } from '@nagiyu/aws';
 import { type Job } from '@nagiyu/codec-converter-core';
-import type { ErrorResponse } from '@nagiyu/common';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 
 // Presigned URLの有効期限（24時間 = 86400秒）
 const PRESIGNED_URL_EXPIRES_IN = 86400;
@@ -30,11 +30,9 @@ interface GetJobResponse extends Job {
  * GET /api/jobs/{jobId}
  * ジョブステータスとダウンロードURL（COMPLETED時のみ）を取得
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ jobId: string }> }
-): Promise<NextResponse<GetJobResponse | ErrorResponse>> {
-  try {
+export const GET = withApiErrorReporting(
+  'Web API: ジョブ取得エラー',
+  async (request: NextRequest, { params }: { params: Promise<{ jobId: string }> }) => {
     // パスパラメータの取得
     const { jobId } = await params;
 
@@ -76,21 +74,11 @@ export async function GET(
     }
 
     // レスポンスを返却
-    return NextResponse.json(
-      {
-        ...job,
-        ...(downloadUrl && { downloadUrl }),
-      },
-      { status: 200 }
-    );
-  } catch (error) {
-    console.error('Error getting job:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_SERVER_ERROR',
-        message: ERROR_MESSAGES.JOB_FETCH_FAILED,
-      },
-      { status: 500 }
-    );
-  }
-}
+    const response: GetJobResponse = {
+      ...job,
+      ...(downloadUrl && { downloadUrl }),
+    };
+    return NextResponse.json(response, { status: 200 });
+  },
+  ERROR_MESSAGES.JOB_FETCH_FAILED
+);

@@ -8,13 +8,19 @@ import {
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { createWithApiErrorReportingBody } from '@/lib/api-error-reporting';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-export async function PUT(request: NextRequest, { params }: RouteParams) {
-  try {
+const withApiErrorReporting = createWithApiErrorReportingBody('Update video settings error:', {
+  error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+});
+
+export const PUT = withApiErrorReporting(
+  'Web API: 動画設定更新エラー',
+  async (request: NextRequest, { params }: RouteParams) => {
     const { id } = await params;
 
     // 認証チェック
@@ -92,8 +98,5 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     };
 
     return NextResponse.json({ video });
-  } catch (error) {
-    console.error('Update video settings error:', error);
-    return NextResponse.json({ error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR }, { status: 500 });
   }
-}
+);

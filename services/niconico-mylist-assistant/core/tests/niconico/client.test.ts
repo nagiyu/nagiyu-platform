@@ -1,5 +1,10 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { reportErrorEvent } from '@nagiyu/aws';
 import { getVideoInfo, NiconicoAPIError } from '../../src/niconico/client';
+
+jest.mock('@nagiyu/aws', () => ({
+  reportErrorEvent: jest.fn(),
+}));
 
 describe('getVideoInfo', () => {
   let fetchMock: jest.Mock;
@@ -83,6 +88,8 @@ describe('getVideoInfo', () => {
 
     expect(error).toBeInstanceOf(NiconicoAPIError);
     expect(error.message).toBe('動画が見つかりませんでした');
+    // 報告は例外を握る呼び出し側 / 最上位の責務
+    expect(reportErrorEvent).not.toHaveBeenCalled();
   });
 
   it('should parse duration correctly for mm:ss format', async () => {
