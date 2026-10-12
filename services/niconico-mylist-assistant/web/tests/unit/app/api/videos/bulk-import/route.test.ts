@@ -27,7 +27,7 @@ jest.mock('@nagiyu/niconico-mylist-assistant-core', () => ({
   upsertUserVideoSetting: jest.fn(),
 }));
 
-// モック：@nagiyu/aws（エラー報告）
+// モック: @nagiyu/aws (エラー報告)
 jest.mock('@nagiyu/aws', () => ({
   reportErrorEvent: jest.fn(),
 }));

@@ -20,7 +20,7 @@ jest.mock('@nagiyu/niconico-mylist-assistant-core', () => ({
   TWO_FACTOR_AUTH_CODE_REGEX: /^\d{6}$/,
 }));
 
-// モック：@nagiyu/aws（エラー報告）
+// モック: @nagiyu/aws (エラー報告)
 jest.mock('@nagiyu/aws', () => ({
   reportErrorEvent: jest.fn(),
 }));
