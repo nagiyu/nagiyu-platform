@@ -986,4 +986,13 @@ describe('InMemorySingleTableStore: キーオブジェクト経由の操作', ()
     item.Name = '改変';
     expect(store.getByKey({ userId: 'u1' })).toMatchObject({ Name: '太郎' });
   });
+
+  it('{ id: 1 } と { id: "1" } を別のアイテムとして扱う', () => {
+    const store = new InMemorySingleTableStore();
+    store.putByKey({ id: 1 }, { id: 1, Name: '数値' });
+    store.putByKey({ id: '1' }, { id: '1', Name: '文字列' });
+    expect(store.getByKey({ id: 1 })).toMatchObject({ Name: '数値' });
+    expect(store.getByKey({ id: '1' })).toMatchObject({ Name: '文字列' });
+    expect(store.size()).toBe(2);
+  });
 });

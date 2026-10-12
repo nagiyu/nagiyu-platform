@@ -4,6 +4,7 @@ import type { EntityMapper } from '../../../../src/dynamodb/mapper/entity-mapper
 import { noteMapper, profileMapper, type Note } from './entity-store-fixtures.js';
 import {
   NOW,
+  defineMapperGuardScenarios,
   defineNoteScenarios,
   defineProfileScenarios,
   type Harness,
@@ -25,6 +26,10 @@ describe('InMemoryEntityStore', () => {
 
   describe('共通シナリオ (単一キー)', () => {
     defineProfileScenarios(() => createHarness(profileMapper));
+  });
+
+  describe('mapper の不具合の扱い', () => {
+    defineMapperGuardScenarios((mapper) => createHarness(mapper));
   });
 
   it('InMemorySingleTableStore の get(pk, sk) からも同じ Item が見える', async () => {

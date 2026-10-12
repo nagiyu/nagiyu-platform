@@ -5,6 +5,14 @@ export type DynamoDBKey = Record<string, string | number>;
 export type DynamoDBAttributes = Record<string, unknown>;
 
 /**
+ * update に渡す Entity の部分。
+ *
+ * 値の意味は全 mapper で共通: `undefined` は変更しない、`null` は属性を削除する、
+ * それ以外は新しい値。
+ */
+export type EntityPatch<TEntity> = { [K in keyof TEntity]?: TEntity[K] | null };
+
+/**
  * Entity ↔ DynamoDB Item の変換を担当する Mapper
  *
  * 変換をすべてここに集約し、CRUD の骨格は `EntityStore` が受け持つ。
@@ -39,6 +47,16 @@ export interface EntityMapper<TEntity, TKey> {
 
   /** キー・Type・タイムスタンプを含む完全な Item に変換する */
   toItem(entity: TEntity): DynamoDBAttributes;
+
+  /**
+   * `EntityPatch` を保存用の属性名・形式に変換する。
+   *
+   * ミリ秒・TTL の秒への換算や GSI 属性の再計算など、保存形式への変換はここで行う。
+   * patch の値が `null` の項目は `REMOVE_ATTRIBUTE` にし、`undefined` の項目は含めない。
+   * キー属性と `UpdatedAt` は store が管理するため、キー属性を含めると store が
+   * `InvalidEntityDataError` にする (`UpdatedAt` は無視される)。
+   */
+  toUpdateAttributes(changes: EntityPatch<TEntity>): DynamoDBAttributes;
 
   /**
    * Item を検証しつつ Entity に変換する。旧形式 (旧属性名・ISO 文字列・エポック秒) も受け付ける。

@@ -281,7 +281,7 @@ export class InMemorySingleTableStore {
    *
    * @param key - DynamoDB の `Key` と同じ形のキーオブジェクト
    */
-  getByKey(key: DynamoDBKey): Record<string, unknown> | undefined {
+  public getByKey(key: DynamoDBKey): Record<string, unknown> | undefined {
     return this.store.get(this.buildKeyFromObject(key));
   }
 
@@ -294,15 +294,15 @@ export class InMemorySingleTableStore {
    * @param key - 保存先のキー
    * @param item - 保存する Item
    */
-  putByKey(key: DynamoDBKey, item: Record<string, unknown>): void {
+  public putByKey(key: DynamoDBKey, item: Record<string, unknown>): void {
     const stored: Record<string, unknown> = {};
     for (const [name, value] of Object.entries(item)) {
       if (value !== undefined) {
         stored[name] = value;
       }
     }
-    // 呼び出し側が渡した参照を後から書き換えられても、ストアの中身が変わらないようにする
-    this.store.set(this.buildKeyFromObject(key), { ...stored } as DynamoDBItem);
+    // stored は新しいオブジェクトなので、呼び出し側が渡した参照を後から書き換えてもストアの中身は変わらない
+    this.store.set(this.buildKeyFromObject(key), stored as DynamoDBItem);
   }
 
   /**
@@ -310,7 +310,7 @@ export class InMemorySingleTableStore {
    *
    * @param key - 削除対象のキー
    */
-  deleteByKey(key: DynamoDBKey): void {
+  public deleteByKey(key: DynamoDBKey): void {
     this.store.delete(this.buildKeyFromObject(key));
   }
 
@@ -339,11 +339,17 @@ export class InMemorySingleTableStore {
    * キーオブジェクトから内部キーを構築する。
    *
    * キー属性の並び順 (パーティションキー先頭) に従って `#` で連結する。
-   * `{ PK, SK }` は `get(pk, sk)` / `put` の内部キーと同じ文字列になるため、
+   * 値がすべて文字列なら `{ PK, SK }` は `get(pk, sk)` / `put` の内部キーと同じ文字列になるため、
    * 両方の経路で同じアイテムを指せる。
+   * 数値を含むキーは `{ id: 1 }` と `{ id: '1' }` を区別するため、型を保つ JSON 形式にし、
+   * 文字列キーと衝突しないよう先頭に制御文字を付ける。
    */
   private buildKeyFromObject(key: DynamoDBKey): string {
-    return Object.values(key).map(String).join('#');
+    const values = Object.values(key);
+    if (values.every((value) => typeof value === 'string')) {
+      return values.join('#');
+    }
+    return `\u0000${JSON.stringify(values)}`;
   }
 
   /**

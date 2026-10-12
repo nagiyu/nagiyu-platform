@@ -13,11 +13,13 @@ import {
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import { InvalidEntityDataError } from '../../../../src/dynamodb/errors.js';
+import { REMOVE_ATTRIBUTE } from '../../../../src/dynamodb/helpers.js';
 import { readAttribute, readTimestamp } from '../../../../src/dynamodb/validators.js';
 import type {
   DynamoDBAttributes,
   DynamoDBKey,
   EntityMapper,
+  EntityPatch,
 } from '../../../../src/dynamodb/mapper/entity-mapper.interface.js';
 
 export interface Note {
@@ -49,6 +51,13 @@ export const noteMapper: EntityMapper<Note, { id: string }> = {
     CreatedAt: entity.createdAt,
     UpdatedAt: entity.updatedAt,
   }),
+  toUpdateAttributes: (changes) => ({
+    Title: changes.title === null ? REMOVE_ATTRIBUTE : changes.title,
+    Memo: changes.memo === null ? REMOVE_ATTRIBUTE : changes.memo,
+    CreatedAt: changes.createdAt === null ? REMOVE_ATTRIBUTE : changes.createdAt,
+    // store が管理する属性。指定しても無視されることの確認用
+    UpdatedAt: changes.updatedAt ?? undefined,
+  }),
   toEntity: (item) => {
     const title = readAttribute(item, 'Title', ['title']);
     if (typeof title !== 'string') {
@@ -64,6 +73,8 @@ export const noteMapper: EntityMapper<Note, { id: string }> = {
     };
   },
 };
+
+export type NotePatch = EntityPatch<Note>;
 
 export interface Profile {
   userId: string;
@@ -82,6 +93,7 @@ export const profileMapper: EntityMapper<Profile, { userId: string }> = {
     Name: entity.name,
     UpdatedAt: entity.updatedAt,
   }),
+  toUpdateAttributes: (changes) => ({ Name: changes.name ?? undefined }),
   toEntity: (item) => ({
     userId: String(item.userId),
     name: String(item.Name),
@@ -103,6 +115,7 @@ export function createFakeDocClient(): {
 
   const checkCondition = (
     input: {
+      ReturnValuesOnConditionCheckFailure?: string;
       ConditionExpression?: string;
       ExpressionAttributeNames?: Record<string, string>;
       ExpressionAttributeValues?: Record<string, unknown>;
@@ -116,7 +129,12 @@ export function createFakeDocClient(): {
     const names = input.ExpressionAttributeNames ?? {};
     const values = input.ExpressionAttributeValues ?? {};
     const failed = (): never => {
-      throw new ConditionalCheckFailedException({ message: 'failed', $metadata: {} });
+      // ALL_OLD を要求したときだけ、実 DynamoDB と同じく旧 Item (生の AttributeValue 形式) が付く
+      const Item =
+        existing && input.ReturnValuesOnConditionCheckFailure === 'ALL_OLD'
+          ? Object.fromEntries(Object.entries(existing).map(([k, v]) => [k, { S: String(v) }]))
+          : undefined;
+      throw new ConditionalCheckFailedException({ message: 'failed', $metadata: {}, Item });
     };
     for (const clause of expression.split(' AND ')) {
       const notExists = clause.match(/^attribute_not_exists\((#\w+)\)$/);
@@ -135,6 +153,7 @@ export function createFakeDocClient(): {
   };
 
   const applyUpdate = (
+    keyAttributes: string[],
     base: DynamoDBAttributes,
     expression: string,
     names: Record<string, string>,
@@ -143,14 +162,53 @@ export function createFakeDocClient(): {
     const result = { ...base };
     const match = expression.match(/^(?:SET (.+?))?(?: ?REMOVE (.+))?$/);
     if (!match) throw new Error(`未対応の更新式: ${expression}`);
+    const touched = new Set<string>();
+    const touch = (attribute: string): void => {
+      if (keyAttributes.includes(attribute))
+        throw new Error(`キー属性は更新できない: ${attribute}`);
+      // 同じパスを SET と REMOVE の両方、または複数回で指定すると DynamoDB は拒否する
+      if (touched.has(attribute)) throw new Error(`更新パスが重複: ${attribute}`);
+      touched.add(attribute);
+    };
     for (const assignment of match[1]?.split(', ') ?? []) {
       const [name, value] = assignment.split(' = ');
+      touch(names[name]);
       result[names[name]] = values[value];
     }
     for (const name of match[2]?.split(', ') ?? []) {
+      touch(names[name]);
       delete result[names[name]];
     }
     return result;
+  };
+
+  /** DynamoDB が拒否する式の不備 (未使用/未定義のプレースホルダ、空の値マップ) を検出する */
+  const validateExpressions = (input: {
+    UpdateExpression?: string;
+    ConditionExpression?: string;
+    ExpressionAttributeNames?: Record<string, string>;
+    ExpressionAttributeValues?: Record<string, unknown>;
+  }): void => {
+    const text = `${input.UpdateExpression ?? ''} ${input.ConditionExpression ?? ''}`;
+    const usedNames = new Set(text.match(/#\w+/g) ?? []);
+    const usedValues = new Set(text.match(/:\w+/g) ?? []);
+    const names = input.ExpressionAttributeNames;
+    const values = input.ExpressionAttributeValues;
+    if (names && Object.keys(names).length === 0) throw new Error('空の ExpressionAttributeNames');
+    if (values && Object.keys(values).length === 0)
+      throw new Error('空の ExpressionAttributeValues');
+    for (const used of usedNames) {
+      if (!names || !(used in names)) throw new Error(`未定義の名前プレースホルダ: ${used}`);
+    }
+    for (const declared of Object.keys(names ?? {})) {
+      if (!usedNames.has(declared)) throw new Error(`未使用の名前プレースホルダ: ${declared}`);
+    }
+    for (const used of usedValues) {
+      if (!values || !(used in values)) throw new Error(`未定義の値プレースホルダ: ${used}`);
+    }
+    for (const declared of Object.keys(values ?? {})) {
+      if (!usedValues.has(declared)) throw new Error(`未使用の値プレースホルダ: ${declared}`);
+    }
   };
 
   const send = jest.fn(async (command: unknown) => {
@@ -163,6 +221,7 @@ export function createFakeDocClient(): {
       // 実クライアントは undefined の属性を落とす
       const stored = Object.fromEntries(Object.entries(item).filter(([, v]) => v !== undefined));
       const key = noteOrProfileKey(stored);
+      validateExpressions(command.input);
       checkCondition(command.input, table.get(key));
       table.set(key, stored);
       return {};
@@ -170,8 +229,10 @@ export function createFakeDocClient(): {
     if (command instanceof UpdateCommand) {
       const key = keyString(command.input.Key as DynamoDBKey);
       const existing = table.get(key);
+      validateExpressions(command.input);
       checkCondition(command.input, existing);
       const updated = applyUpdate(
+        Object.keys(command.input.Key as DynamoDBKey),
         existing ?? { ...(command.input.Key as DynamoDBKey) },
         command.input.UpdateExpression as string,
         command.input.ExpressionAttributeNames ?? {},
@@ -182,6 +243,7 @@ export function createFakeDocClient(): {
     }
     if (command instanceof DeleteCommand) {
       const key = keyString(command.input.Key as DynamoDBKey);
+      validateExpressions(command.input);
       checkCondition(command.input, table.get(key));
       table.delete(key);
       return {};

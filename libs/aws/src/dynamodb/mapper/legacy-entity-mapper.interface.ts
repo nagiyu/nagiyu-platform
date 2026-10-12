@@ -5,7 +5,7 @@ import type { DynamoDBItem } from '../types.js';
  *
  * @template TEntity - ビジネスオブジェクト（PK/SKを持たない）
  * @template TKey - エンティティを一意に識別するキー
- * @deprecated キー形式が `{ pk, sk }` で `AbstractDynamoDBRepository` 専用のため、新規実装は `EntityMapper` と `EntityStore` を使う
+ * @deprecated キーが `{ pk, sk }` 固定で単一キーのテーブルを表せないため、`EntityMapper` を使う
  */
 export interface LegacyEntityMapper<TEntity, TKey> {
   /**

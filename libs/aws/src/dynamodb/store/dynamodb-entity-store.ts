@@ -14,19 +14,21 @@ import {
   toDatabaseError,
 } from '../errors.js';
 import { buildUpdateExpression } from '../helpers.js';
-import type { EntityMapper } from '../mapper/entity-mapper.interface.js';
+import type { DynamoDBKey, EntityMapper, EntityPatch } from '../mapper/entity-mapper.interface.js';
 import type {
+  EntityReadOptions,
   EntityStore,
-  EntityUpdateAttributes,
   EntityWriteOptions,
 } from './entity-store.interface.js';
 import {
   ENTITY_STORE_ERROR_MESSAGES,
   UPDATED_AT_ATTRIBUTE,
-  buildUpdateFields,
   convertToEntity,
   describeKey,
   getPartitionKeyName,
+  planUpdate,
+  prepareWriteItem,
+  resolveKeys,
 } from './entity-store-support.js';
 
 /** DynamoDBEntityStore のオプション */
@@ -38,25 +40,36 @@ export interface DynamoDBEntityStoreOptions {
 /**
  * DynamoDB 上の EntityStore 実装。
  *
- * `create` / `put` は `toItem` の結果をそのまま書く。タイムスタンプは Entity 側で
- * 呼び出し側が決める前提で、store は上書きしない。`update` だけは `UpdatedAt` を管理する。
+ * `UpdatedAt` は create / put / update のすべてで store が `now()` で設定する。
+ * `CreatedAt` などその他のタイムスタンプは `toItem` の結果のまま書く。
  */
 export class DynamoDBEntityStore<TEntity, TKey> implements EntityStore<TEntity, TKey> {
+  private readonly docClient: DynamoDBDocumentClient;
+  private readonly tableName: string;
+  private readonly mapper: EntityMapper<TEntity, TKey>;
   private readonly now: () => number;
 
   constructor(
-    private readonly docClient: DynamoDBDocumentClient,
-    private readonly tableName: string,
-    private readonly mapper: EntityMapper<TEntity, TKey>,
+    docClient: DynamoDBDocumentClient,
+    tableName: string,
+    mapper: EntityMapper<TEntity, TKey>,
     options: DynamoDBEntityStoreOptions = {}
   ) {
+    this.docClient = docClient;
+    this.tableName = tableName;
+    this.mapper = mapper;
     this.now = options.now ?? Date.now;
   }
 
-  async get(key: TKey): Promise<TEntity | null> {
+  public async get(key: TKey, options: EntityReadOptions = {}): Promise<TEntity | null> {
+    const keys = resolveKeys(this.mapper, key);
     try {
       const result = await this.docClient.send(
-        new GetCommand({ TableName: this.tableName, Key: this.mapper.buildKeys(key) })
+        new GetCommand({
+          TableName: this.tableName,
+          Key: keys,
+          ConsistentRead: options.consistentRead,
+        })
       );
       if (!result.Item) {
         return null;
@@ -67,52 +80,49 @@ export class DynamoDBEntityStore<TEntity, TKey> implements EntityStore<TEntity, 
     }
   }
 
-  async create(entity: TEntity): Promise<TEntity> {
-    const keys = this.mapper.buildKeys(this.mapper.getKey(entity));
+  public async create(entity: TEntity): Promise<TEntity> {
+    const { keys, item } = prepareWriteItem(this.mapper, entity, this.now());
     try {
       await this.docClient.send(
         new PutCommand({
           TableName: this.tableName,
-          Item: this.mapper.toItem(entity),
+          Item: item,
           ConditionExpression: 'attribute_not_exists(#pk)',
           ExpressionAttributeNames: { '#pk': getPartitionKeyName(keys) },
         })
       );
-      return entity;
     } catch (error) {
       if (isConditionalCheckFailed(error)) {
         throw new EntityAlreadyExistsError(this.mapper.entityType, describeKey(keys));
       }
       throw toDatabaseError(error);
     }
+    return convertToEntity(this.mapper, item);
   }
 
-  async put(entity: TEntity, options: EntityWriteOptions = {}): Promise<TEntity> {
-    const keys = this.mapper.buildKeys(this.mapper.getKey(entity));
+  public async put(entity: TEntity, options: EntityWriteOptions = {}): Promise<TEntity> {
+    const { keys, item } = prepareWriteItem(this.mapper, entity, this.now());
     try {
       await this.docClient.send(
         new PutCommand({
           TableName: this.tableName,
-          Item: this.mapper.toItem(entity),
-          ...this.buildLockCondition(getPartitionKeyName(keys), options.expectedUpdatedAt, false),
+          Item: item,
+          ...this.buildCondition(getPartitionKeyName(keys), options.expectedUpdatedAt, false),
         })
       );
-      return entity;
     } catch (error) {
-      if (isConditionalCheckFailed(error)) {
-        throw new OptimisticLockError(this.mapper.entityType, describeKey(keys));
-      }
-      throw toDatabaseError(error);
+      throw this.mapLockFailure(error, keys);
     }
+    return convertToEntity(this.mapper, item);
   }
 
-  async update(
+  public async update(
     key: TKey,
-    attributes: EntityUpdateAttributes,
+    changes: EntityPatch<TEntity>,
     options: EntityWriteOptions = {}
   ): Promise<TEntity> {
-    const keys = this.mapper.buildKeys(key);
-    const parts = buildUpdateExpression(buildUpdateFields(this.mapper, attributes), {
+    const { keys, fields } = planUpdate(this.mapper, key, changes);
+    const parts = buildUpdateExpression(fields, {
       timestamp: { attributeName: UPDATED_AT_ATTRIBUTE, value: this.now() },
       updateTimestampWhenEmpty: true,
     });
@@ -121,27 +131,26 @@ export class DynamoDBEntityStore<TEntity, TKey> implements EntityStore<TEntity, 
       throw new InvalidEntityDataError(ENTITY_STORE_ERROR_MESSAGES.UPDATE_RESULT_MISSING);
     }
 
-    const lock = this.buildLockCondition(
+    const condition = this.buildCondition(
       getPartitionKeyName(keys),
       options.expectedUpdatedAt,
       true
     );
+    const values = { ...parts.ExpressionAttributeValues, ...condition.ExpressionAttributeValues };
     try {
       const result = await this.docClient.send(
         new UpdateCommand({
           TableName: this.tableName,
           Key: keys,
           UpdateExpression: parts.UpdateExpression,
-          ConditionExpression: lock.ConditionExpression,
+          ConditionExpression: condition.ConditionExpression,
           ExpressionAttributeNames: {
             ...parts.ExpressionAttributeNames,
-            ...lock.ExpressionAttributeNames,
+            ...condition.ExpressionAttributeNames,
           },
-          ExpressionAttributeValues:
-            parts.ExpressionAttributeValues || lock.ExpressionAttributeValues
-              ? { ...parts.ExpressionAttributeValues, ...lock.ExpressionAttributeValues }
-              : undefined,
+          ExpressionAttributeValues: Object.keys(values).length > 0 ? values : undefined,
           ReturnValues: 'ALL_NEW',
+          ReturnValuesOnConditionCheckFailure: condition.ReturnValuesOnConditionCheckFailure,
         })
       );
       if (!result.Attributes) {
@@ -149,19 +158,12 @@ export class DynamoDBEntityStore<TEntity, TKey> implements EntityStore<TEntity, 
       }
       return convertToEntity(this.mapper, result.Attributes);
     } catch (error) {
-      if (isConditionalCheckFailed(error)) {
-        // expectedUpdatedAt があるときは不在と不一致を区別できないため、不一致側に寄せる
-        if (options.expectedUpdatedAt !== undefined) {
-          throw new OptimisticLockError(this.mapper.entityType, describeKey(keys));
-        }
-        throw new EntityNotFoundError(this.mapper.entityType, describeKey(keys));
-      }
-      throw toDatabaseError(error);
+      throw this.mapLockFailure(error, keys);
     }
   }
 
-  async delete(key: TKey): Promise<void> {
-    const keys = this.mapper.buildKeys(key);
+  public async delete(key: TKey): Promise<void> {
+    const keys = resolveKeys(this.mapper, key);
     try {
       await this.docClient.send(
         new DeleteCommand({
@@ -179,23 +181,25 @@ export class DynamoDBEntityStore<TEntity, TKey> implements EntityStore<TEntity, 
     }
   }
 
-  async deleteIfExists(key: TKey): Promise<void> {
+  public async deleteIfExists(key: TKey): Promise<void> {
+    const keys = resolveKeys(this.mapper, key);
     try {
-      await this.docClient.send(
-        new DeleteCommand({ TableName: this.tableName, Key: this.mapper.buildKeys(key) })
-      );
+      await this.docClient.send(new DeleteCommand({ TableName: this.tableName, Key: keys }));
     } catch (error) {
       throw toDatabaseError(error);
     }
   }
 
   /**
-   * 書き込みの条件式を組み立てる。
+   * put / update の条件式を組み立てる。
    *
    * @param requireExists - 楽観ロックなしでも「存在すること」を条件にするか (update 用)。
    *   put は条件なし (upsert) にするため false。
+   *
+   * 楽観ロックありのときだけ `ALL_OLD` を要求する。条件失敗の例外に旧 Item が付くかどうかで、
+   * 不在 (付かない) と UpdatedAt の不一致 (付く) を見分けるため。
    */
-  private buildLockCondition(
+  private buildCondition(
     partitionKeyName: string,
     expectedUpdatedAt: number | undefined,
     requireExists: boolean
@@ -203,12 +207,14 @@ export class DynamoDBEntityStore<TEntity, TKey> implements EntityStore<TEntity, 
     ConditionExpression?: string;
     ExpressionAttributeNames?: Record<string, string>;
     ExpressionAttributeValues?: Record<string, unknown>;
+    ReturnValuesOnConditionCheckFailure?: 'ALL_OLD';
   } {
     if (expectedUpdatedAt !== undefined) {
       return {
         ConditionExpression: 'attribute_exists(#pk) AND #updatedAt = :expectedUpdatedAt',
         ExpressionAttributeNames: { '#pk': partitionKeyName, '#updatedAt': UPDATED_AT_ATTRIBUTE },
         ExpressionAttributeValues: { ':expectedUpdatedAt': expectedUpdatedAt },
+        ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
       };
     }
     if (requireExists) {
@@ -218,5 +224,23 @@ export class DynamoDBEntityStore<TEntity, TKey> implements EntityStore<TEntity, 
       };
     }
     return {};
+  }
+
+  /**
+   * put / update の失敗を Entity 例外に変換する。
+   *
+   * 条件失敗の例外の `Item` は SDK が unmarshall しない生の AttributeValue 形式だが、
+   * ここでは旧 Item があるかどうかだけを見るため中身は読まない。
+   */
+  private mapLockFailure(error: unknown, keys: DynamoDBKey): Error {
+    if (isConditionalCheckFailed(error)) {
+      const oldItem = (error as { Item?: Record<string, unknown> }).Item;
+      const identifier = describeKey(keys);
+      if (oldItem && Object.keys(oldItem).length > 0) {
+        return new OptimisticLockError(this.mapper.entityType, identifier);
+      }
+      return new EntityNotFoundError(this.mapper.entityType, identifier);
+    }
+    return toDatabaseError(error);
   }
 }

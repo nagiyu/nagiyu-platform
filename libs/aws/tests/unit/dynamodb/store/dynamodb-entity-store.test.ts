@@ -3,10 +3,10 @@ import { UpdateCommand, PutCommand, DeleteCommand, GetCommand } from '@aws-sdk/l
 import { DynamoDBEntityStore } from '../../../../src/dynamodb/store/dynamodb-entity-store.js';
 import {
   DatabaseError,
+  EntityNotFoundError,
   InvalidEntityDataError,
   OptimisticLockError,
 } from '../../../../src/dynamodb/errors.js';
-import { REMOVE_ATTRIBUTE } from '../../../../src/dynamodb/helpers.js';
 import type { EntityMapper } from '../../../../src/dynamodb/mapper/entity-mapper.interface.js';
 import {
   createFakeDocClient,
@@ -17,6 +17,7 @@ import {
 } from './entity-store-fixtures.js';
 import {
   NOW,
+  defineMapperGuardScenarios,
   defineNoteScenarios,
   defineProfileScenarios,
   type Harness,
@@ -43,6 +44,10 @@ describe('DynamoDBEntityStore', () => {
     defineProfileScenarios(() => createHarness(profileMapper));
   });
 
+  describe('mapper の不具合の扱い', () => {
+    defineMapperGuardScenarios((mapper) => createHarness(mapper));
+  });
+
   describe('送信するコマンド', () => {
     const note: Note = {
       id: 'n1',
@@ -64,36 +69,41 @@ describe('DynamoDBEntityStore', () => {
       });
     });
 
+    it('get は consistentRead を ConsistentRead に渡す', async () => {
+      await h.store.get({ id: 'n1' }, { consistentRead: true });
+      expect((h.send.mock.calls[0][0] as GetCommand).input.ConsistentRead).toBe(true);
+    });
+
     it('create は先頭のキー属性で attribute_not_exists を条件にする', async () => {
       await h.store.create(note);
       const command = h.send.mock.calls[0][0] as PutCommand;
       expect(command.input.ConditionExpression).toBe('attribute_not_exists(#pk)');
       expect(command.input.ExpressionAttributeNames).toEqual({ '#pk': 'PK' });
-      expect(command.input.Item).toMatchObject({
-        CreatedAt: 1_700_000_000_000,
-        UpdatedAt: 1_700_000_100_000,
-      });
+      expect(command.input.Item).toMatchObject({ CreatedAt: 1_700_000_000_000, UpdatedAt: NOW });
     });
 
     it('put は条件なし。expectedUpdatedAt があれば存在と UpdatedAt 一致を条件にする', async () => {
       await h.store.put(note);
       expect((h.send.mock.calls[0][0] as PutCommand).input.ConditionExpression).toBeUndefined();
 
-      await h.store.put(note, { expectedUpdatedAt: 1_700_000_100_000 });
+      await h.store.put(note, { expectedUpdatedAt: NOW });
       const input = (h.send.mock.calls[1][0] as PutCommand).input;
       expect(input.ConditionExpression).toBe(
         'attribute_exists(#pk) AND #updatedAt = :expectedUpdatedAt'
       );
       expect(input.ExpressionAttributeNames).toEqual({ '#pk': 'PK', '#updatedAt': 'UpdatedAt' });
-      expect(input.ExpressionAttributeValues).toEqual({ ':expectedUpdatedAt': 1_700_000_100_000 });
+      expect(input.ExpressionAttributeValues).toEqual({ ':expectedUpdatedAt': NOW });
+      expect(input.ReturnValuesOnConditionCheckFailure).toBe('ALL_OLD');
     });
 
     it('update は SET / REMOVE と旧名 REMOVE、UpdatedAt の SET を 1 式で送る', async () => {
       await h.store.create(note);
-      await h.store.update({ id: 'n1' }, { Title: '新', Memo: REMOVE_ATTRIBUTE });
+      await h.store.update({ id: 'n1' }, { title: '新', memo: null });
       const input = (h.send.mock.calls[1][0] as UpdateCommand).input;
       expect(input.ReturnValues).toBe('ALL_NEW');
       expect(input.ConditionExpression).toBe('attribute_exists(#pk)');
+      // ロックなしの update は旧 Item を要求しない
+      expect(input.ReturnValuesOnConditionCheckFailure).toBeUndefined();
 
       const names = input.ExpressionAttributeNames as Record<string, string>;
       const values = input.ExpressionAttributeValues as Record<string, unknown>;
@@ -109,13 +119,13 @@ describe('DynamoDBEntityStore', () => {
 
     it('update に expectedUpdatedAt があれば条件に UpdatedAt の一致を加える', async () => {
       await h.store.create(note);
-      await h.store.update({ id: 'n1' }, { Title: '新' }, { expectedUpdatedAt: 1_700_000_100_000 });
+      await h.store.update({ id: 'n1' }, { title: '新' }, { expectedUpdatedAt: NOW });
       const input = (h.send.mock.calls[1][0] as UpdateCommand).input;
       expect(input.ConditionExpression).toBe(
         'attribute_exists(#pk) AND #updatedAt = :expectedUpdatedAt'
       );
       expect(input.ExpressionAttributeValues).toMatchObject({
-        ':expectedUpdatedAt': 1_700_000_100_000,
+        ':expectedUpdatedAt': NOW,
       });
     });
 
@@ -166,10 +176,29 @@ describe('DynamoDBEntityStore', () => {
       await expect(store.deleteIfExists({ id: 'n1' })).rejects.toBeInstanceOf(DatabaseError);
     });
 
-    it('put の条件失敗 (楽観ロック) は OptimisticLockError にする', async () => {
-      const store = failing(new ConditionalCheckFailedException({ message: 'x', $metadata: {} }));
-      await expect(store.put(note, { expectedUpdatedAt: 1 })).rejects.toBeInstanceOf(
+    it('条件失敗に旧 Item が付いていれば OptimisticLockError、なければ EntityNotFoundError', async () => {
+      const withItem = failing(
+        new ConditionalCheckFailedException({
+          message: 'x',
+          $metadata: {},
+          Item: { PK: { S: 'NOTE#n1' } },
+        })
+      );
+      await expect(withItem.put(note, { expectedUpdatedAt: 1 })).rejects.toBeInstanceOf(
         OptimisticLockError
+      );
+      await expect(
+        withItem.update({ id: 'n1' }, {}, { expectedUpdatedAt: 1 })
+      ).rejects.toBeInstanceOf(OptimisticLockError);
+
+      const withoutItem = failing(
+        new ConditionalCheckFailedException({ message: 'x', $metadata: {} })
+      );
+      await expect(withoutItem.put(note, { expectedUpdatedAt: 1 })).rejects.toBeInstanceOf(
+        EntityNotFoundError
+      );
+      await expect(withoutItem.update({ id: 'n1' }, {})).rejects.toBeInstanceOf(
+        EntityNotFoundError
       );
     });
 

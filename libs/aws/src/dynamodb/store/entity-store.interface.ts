@@ -1,14 +1,16 @@
-/**
- * update で書き換える属性。キーは DynamoDB 上の属性名、値は新しい値。
- * 値が `REMOVE_ATTRIBUTE` なら属性を削除し、`undefined` の項目は無視する。
- */
-export type EntityUpdateAttributes = Record<string, unknown>;
+import type { EntityPatch } from '../mapper/entity-mapper.interface.js';
+
+/** get のオプション */
+export interface EntityReadOptions {
+  /** 強い整合性で読む。DynamoDB 版は ConsistentRead に渡し、InMemory 版は無視する */
+  consistentRead?: boolean;
+}
 
 /** put / update の楽観ロックオプション */
 export interface EntityWriteOptions {
   /**
-   * 指定すると、保存済みの `UpdatedAt` がこの値と一致する場合だけ書き込む。
-   * 一致しなければ `OptimisticLockError`。
+   * 指定すると、既存の Item があり、保存済みの `UpdatedAt` がこの値と一致する場合だけ書き込む。
+   * Item はあるが一致しなければ `OptimisticLockError`、Item がなければ `EntityNotFoundError`。
    *
    * 比較は保存されている値そのもの (数値ミリ秒) に対して行うため、
    * 旧形式 (ISO 文字列・エポック秒) のまま残っている Item は一致せず
@@ -28,36 +30,36 @@ export interface EntityStore<TEntity, TKey> {
    *
    * @throws InvalidEntityDataError 読めないデータのとき
    */
-  get(key: TKey): Promise<TEntity | null>;
+  get(key: TKey, options?: EntityReadOptions): Promise<TEntity | null>;
 
   /**
-   * 新規作成する。作成した Entity を返す。
+   * 新規作成する。実際に書いた Item を Entity に変換して返す。
+   * `UpdatedAt` は store が現在時刻で設定する (`CreatedAt` は Entity の値のまま)。
    *
    * @throws EntityAlreadyExistsError 既に存在するとき
    */
   create(entity: TEntity): Promise<TEntity>;
 
   /**
-   * 無ければ作り、あれば置き換える。Entity を返す。
+   * 無ければ作り、あれば置き換える。実際に書いた Item を Entity に変換して返す。
+   * `UpdatedAt` は store が現在時刻で設定する (`CreatedAt` は Entity の値のまま)。
    *
-   * @throws OptimisticLockError `expectedUpdatedAt` を指定し、既存がない、または一致しないとき
+   * @throws EntityNotFoundError `expectedUpdatedAt` を指定して既存がないとき
+   * @throws OptimisticLockError `expectedUpdatedAt` を指定して一致しないとき
    */
   put(entity: TEntity, options?: EntityWriteOptions): Promise<TEntity>;
 
   /**
-   * 指定した属性だけを更新し、更新後の Entity を返す。`UpdatedAt` は store が現在時刻で更新する。
-   * 更新項目が 1 件もなければ `UpdatedAt` だけを更新する。
+   * Entity の部分 (camelCase) で更新し、更新後の Entity を返す。
+   * 値の意味は `EntityPatch` の規約に従う (undefined は変更なし、null は属性削除)。
+   * `UpdatedAt` は store が現在時刻で更新し、更新項目が 1 件もなければ `UpdatedAt` だけを更新する。
    *
    * @throws EntityNotFoundError 存在しないとき
-   * @throws OptimisticLockError `expectedUpdatedAt` を指定して条件を満たさないとき。
-   *   DynamoDB は条件失敗の理由 (不在か不一致か) を区別できないため、
-   *   この場合は不在も `OptimisticLockError` に寄せる
+   * @throws OptimisticLockError `expectedUpdatedAt` を指定し、Item はあるが一致しないとき。
+   *   DynamoDB の条件失敗は `ALL_OLD` で旧 Item の有無を返すため、不在と不一致を区別できる
+   * @throws InvalidEntityDataError `toUpdateAttributes` の結果にキー属性が含まれるとき
    */
-  update(
-    key: TKey,
-    attributes: EntityUpdateAttributes,
-    options?: EntityWriteOptions
-  ): Promise<TEntity>;
+  update(key: TKey, changes: EntityPatch<TEntity>, options?: EntityWriteOptions): Promise<TEntity>;
 
   /**
    * 存在を条件に削除する。

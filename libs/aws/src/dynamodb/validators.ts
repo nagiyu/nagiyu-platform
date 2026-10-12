@@ -224,11 +224,10 @@ export function readAttribute(
  */
 const EPOCH_SECONDS_THRESHOLD = 1e11;
 
-function normalizeTimestamp(value: unknown, name: string): number {
-  if (typeof value === 'number' && value < EPOCH_SECONDS_THRESHOLD) {
-    return validateTimestampField(value * 1000, name);
-  }
-  return validateTimestampField(value, name);
+function normalizeTimestamp(value: unknown, name: string, allowFuture: boolean): number {
+  const normalized =
+    typeof value === 'number' && value < EPOCH_SECONDS_THRESHOLD ? value * 1000 : value;
+  return validateTimestampField(normalized, name, { allowFuture });
 }
 
 /**
@@ -244,12 +243,11 @@ export function readTimestamp(
   legacyNames: readonly string[] = [],
   options: { allowFuture?: boolean } = {}
 ): number {
-  const value = readAttribute(item, name, legacyNames);
-  const timestamp = normalizeTimestamp(value, name);
-  if (options.allowFuture === false && timestamp > Date.now()) {
-    throw new InvalidEntityDataError(`フィールド "${name}" が未来のタイムスタンプです`);
-  }
-  return timestamp;
+  return normalizeTimestamp(
+    readAttribute(item, name, legacyNames),
+    name,
+    options.allowFuture ?? true
+  );
 }
 
 /**

@@ -67,6 +67,7 @@ export { AbstractDynamoDBRepository } from './abstract-repository.js';
 // Mapper インターフェース
 export type {
   EntityMapper,
+  EntityPatch,
   DynamoDBKey,
   DynamoDBAttributes,
 } from './mapper/entity-mapper.interface.js';
@@ -76,7 +77,7 @@ export type { LegacyEntityMapper } from './mapper/legacy-entity-mapper.interface
 // EntityStore (CRUD の骨格)
 export type {
   EntityStore,
-  EntityUpdateAttributes,
+  EntityReadOptions,
   EntityWriteOptions,
 } from './store/entity-store.interface.js';
 export {
