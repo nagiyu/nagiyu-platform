@@ -5,10 +5,13 @@ import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/push/subscribe/route';
 import { getSession } from '@/lib/server/session';
 import { getPushSubscriptionRepository } from '@/lib/server/repositories';
+import { reportErrorEvent } from '@nagiyu/aws';
 
 jest.mock('@/lib/server/session', () => ({
   getSession: jest.fn(),
 }));
+
+jest.mock('@nagiyu/aws', () => ({ reportErrorEvent: jest.fn().mockResolvedValue(null) }));
 
 jest.mock('@/lib/server/repositories', () => ({
   getPushSubscriptionRepository: jest.fn(),
@@ -78,5 +81,27 @@ describe('POST /api/push/subscribe', () => {
       P256dhKey: 'p256dh-key',
       AuthKey: 'auth-key',
     });
+  });
+
+  it('保存に失敗した場合は 500 を返し、Push 購読登録エラーとして報告する', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockGetSession.mockResolvedValue({
+      user: { id: 'u1', email: 'u@example.com', name: 'U', roles: ['livetalk-user'] },
+      expires: new Date(Date.now() + 60_000).toISOString(),
+    });
+    put.mockRejectedValueOnce(new Error('db down'));
+    mockGetRepo.mockReturnValue({ put } as never);
+
+    const res = await POST(createRequest({ subscription: validSubscription }));
+
+    expect(res.status).toBe(500);
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'livetalk',
+        title: 'Web API: Push 購読登録エラー',
+        message: 'db down',
+      })
+    );
+    jest.restoreAllMocks();
   });
 });

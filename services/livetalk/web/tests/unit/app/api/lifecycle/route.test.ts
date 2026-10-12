@@ -5,6 +5,7 @@ import { GET } from '@/app/api/lifecycle/route';
 import { getSession } from '@/lib/server/session';
 import { getLifecycleRepository } from '@/lib/server/repositories';
 import type { LifecycleEntity, LifecycleRepository } from '@nagiyu/livetalk-core';
+import { reportErrorEvent } from '@nagiyu/aws';
 
 jest.mock('@/lib/server/session', () => ({
   getSession: jest.fn(),
@@ -13,6 +14,10 @@ jest.mock('@/lib/server/session', () => ({
 jest.mock('@/lib/server/repositories', () => ({
   getLifecycleRepository: jest.fn(),
 }));
+
+jest.mock('@nagiyu/aws', () => ({ reportErrorEvent: jest.fn().mockResolvedValue(null) }));
+
+const mockReportErrorEvent = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
 const mockGetLifecycleRepo = getLifecycleRepository as jest.MockedFunction<
@@ -105,6 +110,13 @@ describe('GET /api/lifecycle', () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.state).toBe('awake');
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'livetalk',
+        title: 'Web API: 生活サイクル状態取得エラー',
+        message: 'db error',
+      })
+    );
     consoleSpy.mockRestore();
   });
 

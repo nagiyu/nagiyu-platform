@@ -6,10 +6,13 @@ import { getSession } from '@/lib/server/session';
 import { getAccountDeletionRepository } from '@/lib/server/repositories';
 import type { AccountDeletionRepository } from '@nagiyu/livetalk-core';
 import { ACCOUNT_ERROR_MESSAGES } from '@/app/api/account/constants';
+import { reportErrorEvent } from '@nagiyu/aws';
 
 jest.mock('@/lib/server/session', () => ({ getSession: jest.fn() }));
 jest.mock('@/lib/server/repositories', () => ({ getAccountDeletionRepository: jest.fn() }));
+jest.mock('@nagiyu/aws', () => ({ reportErrorEvent: jest.fn().mockResolvedValue(null) }));
 
+const mockReportErrorEvent = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
 const mockGetRepo = getAccountDeletionRepository as jest.MockedFunction<
   typeof getAccountDeletionRepository
@@ -85,7 +88,9 @@ describe('DELETE /api/account', () => {
     });
     mockGetRepo.mockReturnValue(repo);
 
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     const res = await DELETE();
+    consoleSpy.mockRestore();
 
     expect(res.status).toBe(500);
     const json = await res.json();
@@ -93,5 +98,14 @@ describe('DELETE /api/account', () => {
       error: 'DELETE_FAILED',
       message: ACCOUNT_ERROR_MESSAGES.DELETE_FAILED,
     });
+    expect(mockReportErrorEvent).toHaveBeenCalledTimes(1);
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'livetalk',
+        severity: 'error',
+        title: 'Web API: アカウント削除エラー',
+        message: 'DynamoDB エラー',
+      })
+    );
   });
 });

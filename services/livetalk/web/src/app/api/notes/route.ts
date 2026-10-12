@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
 import { DEFAULT_CHARACTER_ID } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
+import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import { getNoteRepository } from '@/lib/server/repositories';
 import { sortNotes, toNoteListItem } from '@/lib/notes/serializer';
 import { hasCharacter } from '@/lib/characters/registry';
@@ -16,28 +17,24 @@ import { NOTE_ERROR_MESSAGES } from './constants';
  * Query パラメータ：
  * - `characterId`（任意、未指定なら DEFAULT_CHARACTER_ID）。選択中のキャラクター ID。
  */
-export const GET = withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
-  const url = new URL(request.url);
-  const characterId = url.searchParams.get('characterId') || DEFAULT_CHARACTER_ID;
-  if (!hasCharacter(characterId)) {
-    return NextResponse.json(
-      { error: 'INVALID_CHARACTER', message: NOTE_ERROR_MESSAGES.INVALID_CHARACTER },
-      { status: 400 }
-    );
-  }
+export const GET = withApiErrorReporting(
+  'Web API: ノート一覧取得エラー',
+  withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
+    const url = new URL(request.url);
+    const characterId = url.searchParams.get('characterId') || DEFAULT_CHARACTER_ID;
+    if (!hasCharacter(characterId)) {
+      return NextResponse.json(
+        { error: 'INVALID_CHARACTER', message: NOTE_ERROR_MESSAGES.INVALID_CHARACTER },
+        { status: 400 }
+      );
+    }
 
-  const userId = session.user.id;
-  const repo = getNoteRepository();
+    const userId = session.user.id;
+    const repo = getNoteRepository();
 
-  try {
     const items = await repo.listAll(userId, characterId);
     const notes = sortNotes(items.map(toNoteListItem));
     return NextResponse.json({ notes });
-  } catch (error) {
-    console.error('[GET /api/notes] ノート一覧の取得に失敗しました', error);
-    return NextResponse.json(
-      { error: 'FETCH_FAILED', message: NOTE_ERROR_MESSAGES.FETCH_FAILED },
-      { status: 500 }
-    );
-  }
-});
+  }),
+  { error: 'FETCH_FAILED', message: NOTE_ERROR_MESSAGES.FETCH_FAILED }
+);

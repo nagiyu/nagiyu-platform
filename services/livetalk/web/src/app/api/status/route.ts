@@ -33,6 +33,7 @@ import {
   type NotificationEventEntity,
 } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
+import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import {
   getLifecycleRepository,
   getNotificationEventRepository,
@@ -71,14 +72,15 @@ function computeNextEarliestAt(
   return referenceTime + baseIntervalMs * Math.pow(NOTIFY_BACKOFF_BASE, missedCount);
 }
 
-export const GET = withAuth(getSession, 'livetalk:admin', async (session, request: Request) => {
-  const userId = session.user.id;
-  const url = new URL(request.url);
-  const queriedId = url.searchParams.get('characterId');
-  const characterId = queriedId && hasCharacter(queriedId) ? queriedId : DEFAULT_CHARACTER_ID;
-  const now = new Date();
+export const GET = withApiErrorReporting(
+  'Web API: ステータス情報取得エラー',
+  withAuth(getSession, 'livetalk:admin', async (session, request: Request) => {
+    const userId = session.user.id;
+    const url = new URL(request.url);
+    const queriedId = url.searchParams.get('characterId');
+    const characterId = queriedId && hasCharacter(queriedId) ? queriedId : DEFAULT_CHARACTER_ID;
+    const now = new Date();
 
-  try {
     const [lifecycle, notificationEvents, allMessages, studyPending] = await Promise.all([
       getLifecycleRepository().get({ userId, characterId }),
       getNotificationEventRepository().listByUser(userId, 10),
@@ -134,11 +136,6 @@ export const GET = withAuth(getSession, 'livetalk:admin', async (session, reques
       },
       studyTopicPendingCount: studyPending.length,
     });
-  } catch (error) {
-    console.error('[GET /api/status] ステータス情報の取得に失敗しました', error);
-    return NextResponse.json(
-      { error: 'FETCH_FAILED', message: STATUS_ERROR_MESSAGES.FETCH_FAILED },
-      { status: 500 }
-    );
-  }
-});
+  }),
+  { error: 'FETCH_FAILED', message: STATUS_ERROR_MESSAGES.FETCH_FAILED }
+);

@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { readJsonObjectBody, withAuth } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/server/session';
+import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import { getNotificationEventRepository } from '@/lib/server/repositories';
 
 const ERROR_MESSAGES = {
@@ -15,10 +16,9 @@ const ERROR_MESSAGES = {
   INTERNAL_ERROR: '消化済みマークの更新に失敗しました',
 } as const;
 
-export const PATCH = withAuth(
-  getSession,
-  'livetalk:chat',
-  async (session, request: NextRequest) => {
+export const PATCH = withApiErrorReporting(
+  'Web API: 通知消化済みマークエラー',
+  withAuth(getSession, 'livetalk:chat', async (session, request: NextRequest) => {
     const bodyResult = await readJsonObjectBody(request);
     const notifId = bodyResult.ok ? bodyResult.body.notifId : undefined;
     if (typeof notifId !== 'string') {
@@ -34,5 +34,5 @@ export const PATCH = withAuth(
     await repo.markConsumed({ userId, notifId }, Date.now());
 
     return NextResponse.json({ success: true }, { status: 200 });
-  }
+  })
 );

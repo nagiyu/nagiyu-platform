@@ -9,6 +9,7 @@ import type { NextRequest } from 'next/server';
 import { readJsonObjectBody, withAuth } from '@nagiyu/nextjs';
 import { reportErrorEvent } from '@nagiyu/aws';
 import { getSession } from '@/lib/server/session';
+import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import {
   CLIENT_LOG_ALLOWED_SEVERITIES,
   CLIENT_LOG_ERROR_MESSAGES,
@@ -48,28 +49,31 @@ function isValidBody(b: Record<string, unknown>): b is Record<string, unknown> &
   );
 }
 
-export const POST = withAuth(getSession, 'livetalk:chat', async (session, request: NextRequest) => {
-  const bodyResult = await readJsonObjectBody(request);
-  if (!bodyResult.ok || !isValidBody(bodyResult.body)) {
-    return NextResponse.json(
-      { error: 'INVALID_REQUEST', message: CLIENT_LOG_ERROR_MESSAGES.INVALID_REQUEST },
-      { status: 400 }
-    );
-  }
+export const POST = withApiErrorReporting(
+  'Web API: クライアントログ受信エラー',
+  withAuth(getSession, 'livetalk:chat', async (session, request: NextRequest) => {
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok || !isValidBody(bodyResult.body)) {
+      return NextResponse.json(
+        { error: 'INVALID_REQUEST', message: CLIENT_LOG_ERROR_MESSAGES.INVALID_REQUEST },
+        { status: 400 }
+      );
+    }
 
-  const body = bodyResult.body;
+    const body = bodyResult.body;
 
-  await reportErrorEvent({
-    serviceId: 'livetalk',
-    severity: body.severity,
-    title: body.title,
-    message: body.message,
-    context: {
-      userId: session.user.id,
-      ...(body.context ?? {}),
-    },
-    occurredAt: body.occurredAt,
-  });
+    await reportErrorEvent({
+      serviceId: 'livetalk',
+      severity: body.severity,
+      title: body.title,
+      message: body.message,
+      context: {
+        userId: session.user.id,
+        ...(body.context ?? {}),
+      },
+      occurredAt: body.occurredAt,
+    });
 
-  return new NextResponse(null, { status: 204 });
-});
+    return new NextResponse(null, { status: 204 });
+  })
+);
