@@ -5,21 +5,8 @@ import { getBatchClient, reportErrorEvent } from '@nagiyu/aws';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { getEncryptedUserSessionBlob } from '@/lib/niconico-session';
-import { toErrorMessage, type ErrorResponse, type PushSubscription } from '@nagiyu/common';
-import { validatePushSubscription } from '@nagiyu/nextjs';
-
-/**
- * リクエストボディの型定義
- *
- * user_session はボディから受け取らず、サーバー保存済みのものを使用する（Phase 2）。
- */
-interface RegisterMylistRequest {
-  maxCount: number;
-  favoriteOnly?: boolean;
-  excludeSkip?: boolean;
-  mylistName: string;
-  pushSubscription?: PushSubscription;
-}
+import { toErrorMessage, type ErrorResponse } from '@nagiyu/common';
+import { readJsonObjectBody, validatePushSubscription } from '@nagiyu/nextjs';
 
 /**
  * レスポンスの型定義
@@ -95,10 +82,21 @@ export async function POST(
     }
 
     // リクエストボディのパース
-    const body = (await request.json()) as RegisterMylistRequest;
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
+        },
+        { status: 400 }
+      );
+    }
+
+    const { maxCount, favoriteOnly, excludeSkip, mylistName, pushSubscription } = bodyResult.body;
 
     // バリデーション: maxCount
-    if (typeof body.maxCount !== 'number') {
+    if (typeof maxCount !== 'number') {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -108,7 +106,7 @@ export async function POST(
       );
     }
 
-    if (!Number.isInteger(body.maxCount)) {
+    if (!Number.isInteger(maxCount)) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -118,7 +116,7 @@ export async function POST(
       );
     }
 
-    if (body.maxCount < 1 || body.maxCount > 100) {
+    if (maxCount < 1 || maxCount > 100) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -129,7 +127,7 @@ export async function POST(
     }
 
     // バリデーション: mylistName
-    if (!body.mylistName) {
+    if (!mylistName) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -139,7 +137,7 @@ export async function POST(
       );
     }
 
-    if (typeof body.mylistName !== 'string') {
+    if (typeof mylistName !== 'string') {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -149,8 +147,29 @@ export async function POST(
       );
     }
 
+    // バリデーション: favoriteOnly・excludeSkip（任意。指定時は真偽値のみ受け付ける）
+    if (favoriteOnly !== undefined && typeof favoriteOnly !== 'boolean') {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.FAVORITE_ONLY_MUST_BE_BOOLEAN,
+        },
+        { status: 400 }
+      );
+    }
+
+    if (excludeSkip !== undefined && typeof excludeSkip !== 'boolean') {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.EXCLUDE_SKIP_MUST_BE_BOOLEAN,
+        },
+        { status: 400 }
+      );
+    }
+
     // バリデーション: pushSubscription（任意。指定時のみ検証する）
-    if (body.pushSubscription !== undefined && !validatePushSubscription(body.pushSubscription)) {
+    if (pushSubscription !== undefined && !validatePushSubscription(pushSubscription)) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -178,9 +197,9 @@ export async function POST(
     try {
       selectedVideos = await selectRandomVideos({
         userId: session.user.id,
-        maxCount: body.maxCount,
-        favoriteOnly: body.favoriteOnly,
-        skipExclude: body.excludeSkip,
+        maxCount,
+        favoriteOnly,
+        skipExclude: excludeSkip,
       });
     } catch (error) {
       if (isDynamoDbError(error)) {
@@ -223,7 +242,7 @@ export async function POST(
           environment: [
             { name: 'USER_ID', value: session.user.id },
             { name: 'VIDEO_IDS', value: JSON.stringify(videoIds) },
-            { name: 'MYLIST_NAME', value: body.mylistName },
+            { name: 'MYLIST_NAME', value: mylistName },
             { name: 'ENCRYPTED_USER_SESSION', value: encryptedUserSessionBlob },
             { name: 'DYNAMODB_TABLE_NAME', value: DYNAMODB_TABLE_NAME },
             { name: 'AWS_REGION', value: AWS_REGION },
@@ -262,7 +281,7 @@ export async function POST(
         jobId: submitResult.jobId,
         userId: session.user.id,
         status: 'SUBMITTED',
-        pushSubscription: body.pushSubscription,
+        pushSubscription,
       });
       console.log(`バッチジョブレコードを作成しました: ${submitResult.jobId}`);
     } catch (error) {

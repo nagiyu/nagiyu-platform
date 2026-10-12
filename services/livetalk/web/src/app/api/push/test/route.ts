@@ -11,7 +11,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { withAuth } from '@nagiyu/nextjs';
+import { readJsonObjectBody, withAuth } from '@nagiyu/nextjs';
 import { logger, toErrorMessage } from '@nagiyu/common';
 import { sendWebPushNotifications, getVapidConfig } from '@nagiyu/common/push';
 import { defaultUlidFactory, NOTIFICATION_EVENT_TTL_SECONDS } from '@nagiyu/livetalk-core';
@@ -39,10 +39,8 @@ export const POST = withAuth(getSession, 'livetalk:admin', async (session, reque
   const userId = session.user.id;
 
   // リクエストボディを解析する
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
+  const bodyResult = await readJsonObjectBody(request);
+  if (!bodyResult.ok) {
     return NextResponse.json(
       { error: 'INVALID_REQUEST', message: TEST_PUSH_ERROR_MESSAGES.INVALID_REQUEST_BODY },
       { status: 400 }
@@ -50,14 +48,7 @@ export const POST = withAuth(getSession, 'livetalk:admin', async (session, reque
   }
 
   // characterId バリデーション
-  if (!body || typeof body !== 'object' || !('characterId' in body)) {
-    return NextResponse.json(
-      { error: 'INVALID_REQUEST', message: TEST_PUSH_ERROR_MESSAGES.MISSING_CHARACTER_ID },
-      { status: 400 }
-    );
-  }
-
-  const { characterId } = body as { characterId: unknown };
+  const { characterId } = bodyResult.body;
 
   if (typeof characterId !== 'string' || characterId.trim() === '') {
     return NextResponse.json(

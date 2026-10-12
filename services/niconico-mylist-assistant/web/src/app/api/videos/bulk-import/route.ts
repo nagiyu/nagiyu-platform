@@ -6,12 +6,16 @@ import {
   upsertUserVideoSetting,
   BulkImportResponse,
 } from '@nagiyu/niconico-mylist-assistant-core';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
-interface BulkImportRequest {
-  videoIds: string[];
-}
+/**
+ * 動画 ID (英字接頭辞 + 数字) の形式かを判定する
+ *
+ * 正規表現は引数を文字列へ変換して判定するため、文字列以外 (例: ['sm1']) を通さないよう型を先に確かめる。
+ */
+const isVideoId = (id: unknown): id is string => typeof id === 'string' && /^[a-z]+\d+$/.test(id);
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,22 +26,27 @@ export async function POST(request: NextRequest) {
     }
 
     // リクエストボディのバリデーション
-    const body: BulkImportRequest = await request.json();
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return NextResponse.json({ error: ERROR_MESSAGES.INVALID_REQUEST_BODY }, { status: 400 });
+    }
 
-    if (!Array.isArray(body.videoIds)) {
+    const { videoIds } = bodyResult.body;
+
+    if (!Array.isArray(videoIds)) {
       return NextResponse.json({ error: ERROR_MESSAGES.VIDEO_IDS_MUST_BE_ARRAY }, { status: 400 });
     }
 
-    if (body.videoIds.length === 0) {
+    if (videoIds.length === 0) {
       return NextResponse.json({ error: ERROR_MESSAGES.VIDEO_IDS_EMPTY }, { status: 400 });
     }
 
-    if (body.videoIds.length > 100) {
+    if (videoIds.length > 100) {
       return NextResponse.json({ error: ERROR_MESSAGES.VIDEO_IDS_TOO_MANY }, { status: 400 });
     }
 
     // 動画 ID のバリデーション（英字接頭辞 + 数字 形式）
-    const invalidIds = body.videoIds.filter((id) => !/^[a-z]+\d+$/.test(id));
+    const invalidIds = videoIds.filter((id) => !isVideoId(id));
 
     if (invalidIds.length > 0) {
       return NextResponse.json(
@@ -50,14 +59,15 @@ export async function POST(request: NextRequest) {
     }
 
     // 重複チェック（ユーザー設定の存在を確認）
+    const validVideoIds = videoIds.filter(isVideoId);
     const existingSettings = await Promise.all(
-      body.videoIds.map((id) => getUserVideoSetting(session.user.id, id))
+      validVideoIds.map((id) => getUserVideoSetting(session.user.id, id))
     );
 
     let skippedCount = 0;
     const videoIdsToImport: string[] = [];
 
-    body.videoIds.forEach((id, index) => {
+    validVideoIds.forEach((id, index) => {
       if (existingSettings[index]) {
         skippedCount++;
       } else {
@@ -117,7 +127,7 @@ export async function POST(request: NextRequest) {
       success: successCount,
       failed: apiFailed.length + dbFailedCount,
       skipped: skippedCount,
-      total: body.videoIds.length,
+      total: validVideoIds.length,
       failedDetails: apiFailed.length > 0 ? apiFailed : undefined,
     };
 

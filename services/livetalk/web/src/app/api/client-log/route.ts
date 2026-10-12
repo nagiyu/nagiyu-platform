@@ -6,7 +6,7 @@
  */
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { withAuth } from '@nagiyu/nextjs';
+import { readJsonObjectBody, withAuth } from '@nagiyu/nextjs';
 import { reportErrorEvent } from '@nagiyu/aws';
 import { getSession } from '@/lib/server/session';
 import {
@@ -33,9 +33,7 @@ function isAllowedSeverity(value: unknown): value is AllowedSeverity {
   );
 }
 
-function isValidBody(body: unknown): body is ClientLogRequest {
-  if (!body || typeof body !== 'object') return false;
-  const b = body as Record<string, unknown>;
+function isValidBody(b: Record<string, unknown>): b is Record<string, unknown> & ClientLogRequest {
   return (
     isAllowedSeverity(b.severity) &&
     typeof b.title === 'string' &&
@@ -51,22 +49,15 @@ function isValidBody(body: unknown): body is ClientLogRequest {
 }
 
 export const POST = withAuth(getSession, 'livetalk:chat', async (session, request: NextRequest) => {
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
+  const bodyResult = await readJsonObjectBody(request);
+  if (!bodyResult.ok || !isValidBody(bodyResult.body)) {
     return NextResponse.json(
       { error: 'INVALID_REQUEST', message: CLIENT_LOG_ERROR_MESSAGES.INVALID_REQUEST },
       { status: 400 }
     );
   }
 
-  if (!isValidBody(body)) {
-    return NextResponse.json(
-      { error: 'INVALID_REQUEST', message: CLIENT_LOG_ERROR_MESSAGES.INVALID_REQUEST },
-      { status: 400 }
-    );
-  }
+  const body = bodyResult.body;
 
   await reportErrorEvent({
     serviceId: 'livetalk',

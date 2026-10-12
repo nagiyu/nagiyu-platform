@@ -208,6 +208,44 @@ describe('POST /api/push/test', () => {
       expect(json.error).toBe('INVALID_REQUEST');
     });
 
+    it.each([
+      ['null', 'null'],
+      ['配列', '[{"characterId":"hiyori"}]'],
+      ['文字列', '"hiyori"'],
+    ])('リクエストボディが %s → 400 で下流を呼ばない', async (_label, rawBody) => {
+      mockGetSession.mockResolvedValue(adminSession);
+      const req = new Request('http://localhost/api/push/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: rawBody,
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toBe('INVALID_REQUEST');
+      expect(json.message).toBe('リクエストボディが不正です');
+      expect(mockHasCharacter).not.toHaveBeenCalled();
+      expect(mockGetPushSubscriptionRepo).not.toHaveBeenCalled();
+      expect(mockSendWebPushNotification).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['数値', 1],
+      ['配列', ['hiyori']],
+      ['null', null],
+      ['オブジェクト', { id: 'hiyori' }],
+    ])('characterId が %s → 400 で下流を呼ばない', async (_label, characterId) => {
+      mockGetSession.mockResolvedValue(adminSession);
+      const res = await POST(buildPostRequest({ characterId }));
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toBe('INVALID_REQUEST');
+      expect(json.message).toContain('characterId');
+      expect(mockHasCharacter).not.toHaveBeenCalled();
+      expect(mockGetPushSubscriptionRepo).not.toHaveBeenCalled();
+      expect(mockSendWebPushNotification).not.toHaveBeenCalled();
+    });
+
     it('characterId が欠落 → 400', async () => {
       mockGetSession.mockResolvedValue(adminSession);
       const res = await POST(buildPostRequest({}));

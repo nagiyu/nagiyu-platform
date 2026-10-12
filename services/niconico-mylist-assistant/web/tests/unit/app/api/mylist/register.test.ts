@@ -35,7 +35,7 @@ import { POST } from '../../../../../src/app/api/mylist/register/route';
 import { getSession } from '../../../../../src/lib/auth/session';
 import { getEncryptedUserSessionBlob } from '../../../../../src/lib/niconico-session';
 import { selectRandomVideos, createBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
-import { getBatchClient } from '@nagiyu/aws';
+import { getBatchClient, reportErrorEvent } from '@nagiyu/aws';
 import type { VideoBasicInfo, UserVideoSetting } from '@nagiyu/niconico-mylist-assistant-core';
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
@@ -45,6 +45,7 @@ const mockGetEncryptedUserSessionBlob = getEncryptedUserSessionBlob as jest.Mock
 const mockSelectRandomVideos = selectRandomVideos as jest.MockedFunction<typeof selectRandomVideos>;
 const mockCreateBatchJob = createBatchJob as jest.MockedFunction<typeof createBatchJob>;
 const mockGetBatchClient = getBatchClient as jest.MockedFunction<typeof getBatchClient>;
+const mockReportErrorEvent = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
 
 /** 認証済みセッションのモック */
 const MOCK_SESSION = {
@@ -87,6 +88,15 @@ function makePostRequest(body: unknown): NextRequest {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+  });
+}
+
+/** 本文の文字列をそのまま持つ NextRequest を生成するヘルパー */
+function makeRawRequest(rawBody: string): NextRequest {
+  return new NextRequest('http://localhost/api/mylist/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: rawBody,
   });
 }
 
@@ -355,5 +365,71 @@ describe('POST /api/mylist/register', () => {
     const env = sendCallArgs.input.containerOverrides.environment;
     const encryptedEnv = env.find((e) => e.name === 'ENCRYPTED_USER_SESSION');
     expect(encryptedEnv?.value).toBe(SAMPLE_ENCRYPTED_BLOB);
+  });
+});
+
+describe('POST /api/mylist/register の不正なリクエストボディ', () => {
+  it.each([
+    ['壊れた JSON', 'this is not json{'],
+    ['空の本文', ''],
+    ['null', 'null'],
+    ['配列', '[{"maxCount":10,"mylistName":"a"}]'],
+  ])('本文が %s の場合は 400 を返し、下流を呼ばず通報もしない', async (_label, rawBody) => {
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+
+    const response = await POST(makeRawRequest(rawBody));
+    expect(response.status).toBe(400);
+
+    const json = await response.json();
+    expect(json.error).toBe('INVALID_REQUEST');
+    expect(json.message).toBe('リクエストボディが不正です');
+    expect(mockGetEncryptedUserSessionBlob).not.toHaveBeenCalled();
+    expect(mockSelectRandomVideos).not.toHaveBeenCalled();
+    expect(mockGetBatchClient).not.toHaveBeenCalled();
+    expect(mockReportErrorEvent).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['favoriteOnly', 'favoriteOnly は真偽値である必要があります', 'true'],
+    ['favoriteOnly', 'favoriteOnly は真偽値である必要があります', 1],
+    ['favoriteOnly', 'favoriteOnly は真偽値である必要があります', null],
+    ['excludeSkip', 'excludeSkip は真偽値である必要があります', 'false'],
+    ['excludeSkip', 'excludeSkip は真偽値である必要があります', {}],
+  ])('%s が真偽値でない場合は 400 を返し、下流を呼ばない', async (key, message, value) => {
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+
+    const response = await POST(
+      makePostRequest({ maxCount: 10, mylistName: 'テストマイリスト', [key]: value })
+    );
+    expect(response.status).toBe(400);
+
+    const json = await response.json();
+    expect(json.error).toBe('INVALID_REQUEST');
+    expect(json.message).toBe(message);
+    expect(mockGetEncryptedUserSessionBlob).not.toHaveBeenCalled();
+    expect(mockSelectRandomVideos).not.toHaveBeenCalled();
+    expect(mockReportErrorEvent).not.toHaveBeenCalled();
+  });
+
+  it('favoriteOnly・excludeSkip が真偽値の場合は動画選択へそのまま渡す', async () => {
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+    mockGetEncryptedUserSessionBlob.mockResolvedValue(SAMPLE_ENCRYPTED_BLOB);
+    mockSelectRandomVideos.mockResolvedValue([]);
+
+    await POST(
+      makePostRequest({
+        maxCount: 10,
+        mylistName: 'テストマイリスト',
+        favoriteOnly: true,
+        excludeSkip: false,
+      })
+    );
+
+    expect(mockSelectRandomVideos).toHaveBeenCalledWith({
+      userId: 'user123',
+      maxCount: 10,
+      favoriteOnly: true,
+      skipExclude: false,
+    });
   });
 });
