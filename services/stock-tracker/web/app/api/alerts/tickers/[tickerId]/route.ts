@@ -51,25 +51,25 @@ function mapAlertToResponse(
   tickerName: string
 ): AlertResponse {
   const response: AlertResponse = {
-    alertId: alert.AlertID,
-    tickerId: alert.TickerID,
+    alertId: alert.alertId,
+    tickerId: alert.tickerId,
     symbol: tickerSymbol,
     name: tickerName,
-    mode: alert.Mode,
-    frequency: alert.Frequency,
-    conditions: alert.ConditionList,
-    enabled: alert.Enabled,
-    temporary: alert.Temporary,
-    temporaryExpireDate: alert.TemporaryExpireDate,
-    createdAt: new Date(alert.CreatedAt).toISOString(),
-    updatedAt: new Date(alert.UpdatedAt).toISOString(),
+    mode: alert.mode,
+    frequency: alert.frequency,
+    conditions: alert.conditionList,
+    enabled: alert.enabled,
+    temporary: alert.temporary,
+    temporaryExpireDate: alert.temporaryExpireDate,
+    createdAt: new Date(alert.createdAt).toISOString(),
+    updatedAt: new Date(alert.updatedAt).toISOString(),
   };
 
-  if (alert.LogicalOperator) {
-    response.logicalOperator = alert.LogicalOperator;
+  if (alert.logicalOperator) {
+    response.logicalOperator = alert.logicalOperator;
   }
-  if (alert.CustomMessage) {
-    response.customMessage = alert.CustomMessage;
+  if (alert.customMessage) {
+    response.customMessage = alert.customMessage;
   }
 
   return response;
@@ -101,7 +101,7 @@ export const GET = withApiErrorReporting(
       const userId = session.user.id;
 
       const result = await alertRepo.getByUserId(userId, { limit: MAX_ALERTS_PER_USER });
-      const targetAlerts = result.items.filter((alert) => alert.TickerID === tickerId);
+      const targetAlerts = result.items.filter((alert) => alert.tickerId === tickerId);
       const ticker = await tickerRepo.getById(tickerId);
       const tickerSymbol = ticker?.symbol || tickerId.split(':')[1] || '';
       const tickerName = ticker?.name || '';

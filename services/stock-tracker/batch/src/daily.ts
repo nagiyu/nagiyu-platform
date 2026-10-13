@@ -6,8 +6,7 @@
 
 import { logger } from '@nagiyu/common';
 import { createScheduledHandler, getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
-import { ScanCommand } from '@aws-sdk/lib-dynamodb';
-import type { Alert } from '@nagiyu/stock-tracker-core';
+import { DynamoDBAlertRepository, type AlertEntity } from '@nagiyu/stock-tracker-core';
 
 /**
  * バッチ処理の統計情報
@@ -16,7 +15,7 @@ interface BatchStatistics {
   totalAlerts: number;
   validSubscriptions: number;
   invalidSubscriptions: number;
-  invalidAlerts: Alert[];
+  invalidAlerts: AlertEntity[];
 }
 
 /**
@@ -25,7 +24,7 @@ interface BatchStatistics {
  * @param alert - 検証するアラート
  * @returns サブスクリプションが有効な場合は true、無効な場合は false
  */
-function isValidSubscription(alert: Alert): boolean {
+function isValidSubscription(alert: AlertEntity): boolean {
   // SubscriptionEndpoint が空または不正な形式の場合は無効
   if (!alert.subscription.endpoint || alert.subscription.endpoint.trim() === '') {
     return false;
@@ -70,21 +69,14 @@ export const handler = createScheduledHandler(
     const docClient = getDynamoDBDocumentClient();
     const tableName = getTableName();
 
-    // 全アラートを取得（ScanCommand を使用）
-    const result = await docClient.send(
-      new ScanCommand({
-        TableName: tableName,
-        FilterExpression: '#type = :type',
-        ExpressionAttributeNames: {
-          '#type': 'Type',
-        },
-        ExpressionAttributeValues: {
-          ':type': 'Alert',
-        },
-      })
-    );
-
-    const alerts = (result.Items || []) as Alert[];
+    // 全アラートを取得する。頻度は 2 値のみで、頻度ごとの取得は全ページを辿るため、
+    // 両方を合わせれば全アラートになる。
+    const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
+    const [minuteAlerts, hourlyAlerts] = await Promise.all([
+      alertRepo.getByFrequency('MINUTE_LEVEL'),
+      alertRepo.getByFrequency('HOURLY_LEVEL'),
+    ]);
+    const alerts = [...minuteAlerts, ...hourlyAlerts];
     stats.totalAlerts = alerts.length;
 
     logger.info('アラートを取得しました', {
@@ -100,9 +92,9 @@ export const handler = createScheduledHandler(
         stats.invalidAlerts.push(alert);
 
         logger.warn('無効な Web Push サブスクリプションを検出しました', {
-          alertId: alert.AlertID,
-          userId: alert.UserID,
-          tickerId: alert.TickerID,
+          alertId: alert.alertId,
+          userId: alert.userId,
+          tickerId: alert.tickerId,
           subscriptionEndpoint: alert.subscription.endpoint || '(empty)',
         });
       }
@@ -123,8 +115,8 @@ export const handler = createScheduledHandler(
       logger.info('無効なサブスクリプションの手動削除が必要です', {
         invalidCount: stats.invalidSubscriptions,
         invalidAlertIds: stats.invalidAlerts.map((a) => ({
-          alertId: a.AlertID,
-          userId: a.UserID,
+          alertId: a.alertId,
+          userId: a.userId,
         })),
       });
     }

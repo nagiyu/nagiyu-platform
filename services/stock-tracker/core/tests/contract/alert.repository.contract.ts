@@ -42,17 +42,21 @@ export interface AlertRepositoryContractHooks {
   reset: () => Promise<void>;
   /** 全テスト終了後の後始末（テーブル削除等） */
   teardown?: () => Promise<void>;
+  /** 保存形式を直接指定して Item を書き込む（旧形式のデータを再現するために使う） */
+  putRawItem: (item: Record<string, unknown>) => Promise<void>;
+  /** 保存されている Item を保存形式のまま読む */
+  getRawItem: (pk: string, sk: string) => Promise<Record<string, unknown> | undefined>;
 }
 
 function buildAlertInput(overrides: Partial<CreateAlertInput> = {}): CreateAlertInput {
   return {
-    UserID: 'user-1',
-    TickerID: 'NSDQ:AAPL',
-    ExchangeID: 'NASDAQ',
-    Mode: 'Buy',
-    Frequency: 'MINUTE_LEVEL',
-    Enabled: true,
-    ConditionList: [{ field: 'price', operator: 'gte', value: 100 }],
+    userId: 'user-1',
+    tickerId: 'NSDQ:AAPL',
+    exchangeId: 'NASDAQ',
+    mode: 'Buy',
+    frequency: 'MINUTE_LEVEL',
+    enabled: true,
+    conditionList: [{ field: 'price', operator: 'gte', value: 100 }],
     subscription: {
       endpoint: 'https://push.example.com/endpoint',
       keys: { p256dh: 'p256dh-key', auth: 'auth-key' },
@@ -95,19 +99,92 @@ export function defineAlertRepositoryContract(
 
       const created = await repository.create(input);
       expect(created).toMatchObject(input);
-      expect(created.AlertID).toBeTruthy();
+      expect(created.alertId).toBeTruthy();
 
-      const fetched = await repository.getById(created.UserID, created.AlertID);
+      const fetched = await repository.getById(created.userId, created.alertId);
       expect(fetched).toEqual(created);
 
-      const updated = await repository.update(created.UserID, created.AlertID, {
-        Enabled: false,
+      const updated = await repository.update(created.userId, created.alertId, {
+        enabled: false,
       });
-      expect(updated.Enabled).toBe(false);
+      expect(updated.enabled).toBe(false);
 
-      await repository.delete(created.UserID, created.AlertID);
-      const afterDelete = await repository.getById(created.UserID, created.AlertID);
+      await repository.delete(created.userId, created.alertId);
+      const afterDelete = await repository.getById(created.userId, created.alertId);
       expect(afterDelete).toBeNull();
+    });
+
+    it('空の変更で update しても成功し、更新日時だけが進む', async () => {
+      const created = await repository.create(buildAlertInput());
+      // 同じミリ秒内に収まらないよう、更新日時が進む時間だけ待つ
+      await new Promise((resolve) => setTimeout(resolve, 5));
+
+      const updated = await repository.update(created.userId, created.alertId, {});
+
+      expect(updated).toEqual({ ...created, updatedAt: updated.updatedAt });
+      expect(updated.updatedAt).toBeGreaterThan(created.updatedAt);
+    });
+
+    it('update で logicalOperator が保存される', async () => {
+      const created = await repository.create(
+        buildAlertInput({
+          conditionList: [
+            { field: 'price', operator: 'gte', value: 100 },
+            { field: 'price', operator: 'lte', value: 200 },
+          ],
+        })
+      );
+
+      const updated = await repository.update(created.userId, created.alertId, {
+        logicalOperator: 'OR',
+      });
+
+      expect(updated.logicalOperator).toBe('OR');
+      expect((await repository.getById(created.userId, created.alertId))?.logicalOperator).toBe(
+        'OR'
+      );
+    });
+
+    it('update で null を渡した任意項目は未設定に戻る', async () => {
+      const created = await repository.create(
+        buildAlertInput({
+          customMessage: 'メモ',
+          temporary: true,
+          temporaryExpireDate: '2024-01-02',
+        })
+      );
+
+      await repository.update(created.userId, created.alertId, {
+        customMessage: null,
+        temporary: false,
+        temporaryExpireDate: null,
+      });
+
+      const fetched = await repository.getById(created.userId, created.alertId);
+      expect(fetched).not.toHaveProperty('customMessage');
+      expect(fetched).not.toHaveProperty('temporaryExpireDate');
+      expect(fetched?.temporary).toBeUndefined();
+    });
+
+    it('update で frequency を変えると、新しい頻度の getByFrequency に移る', async () => {
+      const created = await repository.create(buildAlertInput({ frequency: 'MINUTE_LEVEL' }));
+
+      await repository.update(created.userId, created.alertId, { frequency: 'HOURLY_LEVEL' });
+
+      expect(await repository.getByFrequency('MINUTE_LEVEL')).toEqual([]);
+      expect((await repository.getByFrequency('HOURLY_LEVEL')).map((item) => item.alertId)).toEqual(
+        [created.alertId]
+      );
+    });
+
+    it('作成後に変えられない項目を update に含めると InvalidEntityDataError をスローする', async () => {
+      const created = await repository.create(buildAlertInput());
+
+      await expect(
+        repository.update(created.userId, created.alertId, {
+          tickerId: 'NSDQ:NVDA',
+        } as never)
+      ).rejects.toThrow(expect.objectContaining({ name: 'InvalidEntityDataError' }));
     });
 
     it('getById は未登録のアラートに対してnullを返す', async () => {
@@ -116,7 +193,7 @@ export function defineAlertRepositoryContract(
 
     it('存在しない対象へのupdateはEntityNotFoundErrorをスローする', async () => {
       await expect(
-        repository.update('no-such-user', 'no-such-alert', { Enabled: false })
+        repository.update('no-such-user', 'no-such-alert', { enabled: false })
       ).rejects.toThrow(expect.objectContaining({ name: 'EntityNotFoundError' }));
     });
 
@@ -137,24 +214,157 @@ export function defineAlertRepositoryContract(
       // ここでは「TTL属性が付与された時点でgetByUserIdの結果から除外される」ことのみを検証し、
       // 実際にアイテムが物理削除されることまでは検証しない（対象外）。
       const userId = 'user-ttl';
-      const kept = await repository.create(buildAlertInput({ UserID: userId, Temporary: false }));
+      const kept = await repository.create(buildAlertInput({ userId: userId, temporary: false }));
       const expiring = await repository.create(
         buildAlertInput({
-          UserID: userId,
-          Temporary: true,
-          TemporaryExpireDate: '2024-01-02',
+          userId: userId,
+          temporary: true,
+          temporaryExpireDate: '2024-01-02',
         })
       );
 
-      await repository.markTemporaryAsExpired(
-        expiring.UserID,
-        expiring.AlertID,
-        Math.floor(Date.now() / 1000)
-      );
+      await repository.markTemporaryAsExpired(expiring.userId, expiring.alertId, Date.now());
 
       const result = await repository.getByUserId(userId);
 
-      expect(result.items.map((item) => item.AlertID)).toEqual([kept.AlertID]);
+      expect(result.items.map((item) => item.alertId)).toEqual([kept.alertId]);
+    });
+
+    describe('旧属性名 subscription で保存されたデータ', () => {
+      const legacyItem = (alertId: string): Record<string, unknown> => ({
+        PK: 'USER#user-legacy',
+        SK: `ALERT#${alertId}`,
+        Type: 'Alert',
+        GSI1PK: 'user-legacy',
+        GSI1SK: `Alert#${alertId}`,
+        GSI2PK: 'ALERT#MINUTE_LEVEL',
+        GSI2SK: `user-legacy#${alertId}`,
+        AlertID: alertId,
+        UserID: 'user-legacy',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'gte', value: 100 }],
+        subscription: {
+          endpoint: 'https://push.example.com/legacy',
+          keys: { p256dh: 'legacy-p256dh', auth: 'legacy-auth' },
+        },
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      });
+
+      it('getById・getByUserId・getByFrequency のいずれでも読める', async () => {
+        await hooks.putRawItem(legacyItem('legacy-1'));
+        const expected = {
+          endpoint: 'https://push.example.com/legacy',
+          keys: { p256dh: 'legacy-p256dh', auth: 'legacy-auth' },
+        };
+
+        expect((await repository.getById('user-legacy', 'legacy-1'))?.subscription).toEqual(
+          expected
+        );
+        expect((await repository.getByUserId('user-legacy')).items[0]?.subscription).toEqual(
+          expected
+        );
+        expect((await repository.getByFrequency('MINUTE_LEVEL'))[0]?.subscription).toEqual(
+          expected
+        );
+      });
+
+      it('サブスクリプション以外を update しても、旧属性名のまま読み続けられる', async () => {
+        await hooks.putRawItem(legacyItem('legacy-1'));
+
+        await repository.update('user-legacy', 'legacy-1', { enabled: false });
+
+        const raw = await hooks.getRawItem('USER#user-legacy', 'ALERT#legacy-1');
+        expect(raw).toHaveProperty('subscription');
+        expect((await repository.getById('user-legacy', 'legacy-1'))?.subscription.endpoint).toBe(
+          'https://push.example.com/legacy'
+        );
+      });
+
+      it('サブスクリプションを update すると新属性名 Subscription に書き換わり、旧属性名は残らない', async () => {
+        await hooks.putRawItem(legacyItem('legacy-1'));
+        const subscription = {
+          endpoint: 'https://push.example.com/new',
+          keys: { p256dh: 'new-p256dh', auth: 'new-auth' },
+        };
+
+        const updated = await repository.update('user-legacy', 'legacy-1', { subscription });
+
+        expect(updated.subscription).toEqual(subscription);
+        const raw = await hooks.getRawItem('USER#user-legacy', 'ALERT#legacy-1');
+        expect(raw?.Subscription).toEqual(subscription);
+        expect(raw).not.toHaveProperty('subscription');
+      });
+
+      it('markTemporaryAsExpired は旧属性名のままのアラートにも書き込める', async () => {
+        await hooks.putRawItem({
+          ...legacyItem('legacy-1'),
+          Temporary: true,
+          TemporaryExpireDate: '2024-01-02',
+        });
+
+        await repository.markTemporaryAsExpired('user-legacy', 'legacy-1', 1704067200000);
+
+        const raw = await hooks.getRawItem('USER#user-legacy', 'ALERT#legacy-1');
+        expect(raw?.Enabled).toBe(false);
+        expect(raw?.TTL).toBe(1704067200);
+      });
+    });
+
+    describe('markTemporaryAsExpired', () => {
+      it('enabled を false にし、expiresAt を TTL 属性 (エポック秒) に保存して、Entity ではミリ秒で読める', async () => {
+        const created = await repository.create(
+          buildAlertInput({ temporary: true, temporaryExpireDate: '2024-01-02' })
+        );
+
+        await repository.markTemporaryAsExpired(created.userId, created.alertId, 1704067200999);
+
+        const fetched = await repository.getById(created.userId, created.alertId);
+        expect(fetched?.enabled).toBe(false);
+        expect(fetched?.expiresAt).toBe(1704067200000);
+        const raw = await hooks.getRawItem(`USER#${created.userId}`, `ALERT#${created.alertId}`);
+        expect(raw?.TTL).toBe(1704067200);
+      });
+
+      it('markTemporaryAsExpired のあとに update しても TTL が残り、論理削除待ちのままになる', async () => {
+        const userId = 'user-ttl-update';
+        const created = await repository.create(
+          buildAlertInput({ userId, temporary: true, temporaryExpireDate: '2024-01-02' })
+        );
+        await repository.markTemporaryAsExpired(userId, created.alertId, 1704067200000);
+
+        await repository.update(userId, created.alertId, { customMessage: 'メモ' });
+
+        const fetched = await repository.getById(userId, created.alertId);
+        expect(fetched?.expiresAt).toBe(1704067200000);
+        expect((await repository.getByUserId(userId)).items).toEqual([]);
+        const raw = await hooks.getRawItem(`USER#${userId}`, `ALERT#${created.alertId}`);
+        expect(raw?.TTL).toBe(1704067200);
+      });
+
+      it('サブスクリプションが壊れたアラートでも失効でき、候補から外れる', async () => {
+        const created = await repository.create(
+          buildAlertInput({
+            userId: 'user-broken',
+            temporary: true,
+            temporaryExpireDate: '2024-01-02',
+          })
+        );
+        const pk = `USER#${created.userId}`;
+        const sk = `ALERT#${created.alertId}`;
+        const raw = await hooks.getRawItem(pk, sk);
+        await hooks.putRawItem({ ...raw, Subscription: 'broken' });
+
+        await repository.markTemporaryAsExpired(created.userId, created.alertId, 1704067200000);
+
+        expect((await hooks.getRawItem(pk, sk))?.TTL).toBe(1704067200);
+        const candidates = await repository.getTemporaryCandidatesByFrequency('MINUTE_LEVEL');
+        expect(candidates.items).toEqual([]);
+      });
     });
 
     it('getByUserIdはoptions未指定時、既定で50件に制限される（実DynamoDB実装の既定limit=50との乖離防止）', async () => {
@@ -164,7 +374,7 @@ export function defineAlertRepositoryContract(
       const userId = 'user-bulk';
       const total = 130;
       for (let i = 0; i < total; i += 1) {
-        await repository.create(buildAlertInput({ UserID: userId }));
+        await repository.create(buildAlertInput({ userId: userId }));
       }
 
       const result = await repository.getByUserId(userId);
@@ -174,14 +384,14 @@ export function defineAlertRepositoryContract(
     });
 
     it('getByFrequencyは指定頻度のアラートだけを返す（GSI2パーティション分離）', async () => {
-      await repository.create(buildAlertInput({ UserID: 'user-a', Frequency: 'MINUTE_LEVEL' }));
-      await repository.create(buildAlertInput({ UserID: 'user-b', Frequency: 'MINUTE_LEVEL' }));
-      await repository.create(buildAlertInput({ UserID: 'user-c', Frequency: 'HOURLY_LEVEL' }));
+      await repository.create(buildAlertInput({ userId: 'user-a', frequency: 'MINUTE_LEVEL' }));
+      await repository.create(buildAlertInput({ userId: 'user-b', frequency: 'MINUTE_LEVEL' }));
+      await repository.create(buildAlertInput({ userId: 'user-c', frequency: 'HOURLY_LEVEL' }));
 
       const result = await repository.getByFrequency('MINUTE_LEVEL');
 
       expect(result).toHaveLength(2);
-      expect(result.every((item) => item.Frequency === 'MINUTE_LEVEL')).toBe(true);
+      expect(result.every((item) => item.frequency === 'MINUTE_LEVEL')).toBe(true);
     });
 
     it('getByFrequencyは挿入順ではなくソートキー（GSI2SK=UserID#AlertID）のUserID昇順で返す', async () => {
@@ -196,14 +406,14 @@ export function defineAlertRepositoryContract(
       const total = 10;
       for (let i = total - 1; i >= 0; i -= 1) {
         await repository.create(
-          buildAlertInput({ UserID: paddedUserId(i), Frequency: 'MINUTE_LEVEL' })
+          buildAlertInput({ userId: paddedUserId(i), frequency: 'MINUTE_LEVEL' })
         );
       }
 
       const result = await repository.getByFrequency('MINUTE_LEVEL');
 
       const expected = Array.from({ length: total }, (_, i) => paddedUserId(i));
-      expect(result.map((item) => item.UserID)).toEqual(expected);
+      expect(result.map((item) => item.userId)).toEqual(expected);
     });
 
     it('getByFrequencyは同一UserID内ではAlertIDの昇順で返す（GSI2SKの第2段階の順序契約）', async () => {
@@ -215,23 +425,23 @@ export function defineAlertRepositoryContract(
       const created = [];
       for (let i = 0; i < 5; i += 1) {
         created.push(
-          await repository.create(buildAlertInput({ UserID: userId, Frequency: 'MINUTE_LEVEL' }))
+          await repository.create(buildAlertInput({ userId: userId, frequency: 'MINUTE_LEVEL' }))
         );
       }
 
       const result = await repository.getByFrequency('MINUTE_LEVEL');
 
       const expectedAlertIdOrder = created
-        .map((alert) => alert.AlertID)
+        .map((alert) => alert.alertId)
         .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-      expect(result.map((item) => item.AlertID)).toEqual(expectedAlertIdOrder);
+      expect(result.map((item) => item.alertId)).toEqual(expectedAlertIdOrder);
     });
 
     it('getByFrequencyはちょうど50件（旧既定limitの境界）でも打ち切られず全件返る', async () => {
       const total = 50;
       for (let i = 0; i < total; i += 1) {
         await repository.create(
-          buildAlertInput({ UserID: paddedUserId(i), Frequency: 'MINUTE_LEVEL' })
+          buildAlertInput({ userId: paddedUserId(i), frequency: 'MINUTE_LEVEL' })
         );
       }
 
@@ -239,14 +449,14 @@ export function defineAlertRepositoryContract(
 
       expect(result).toHaveLength(total);
       const expected = Array.from({ length: total }, (_, i) => paddedUserId(i));
-      expect(result.map((item) => item.UserID)).toEqual(expected);
+      expect(result.map((item) => item.userId)).toEqual(expected);
     });
 
     it('getByFrequencyは51件（旧既定limitの境界+1）でも打ち切られず全件返る（Issue #3801の主眼）', async () => {
       const total = 51;
       for (let i = 0; i < total; i += 1) {
         await repository.create(
-          buildAlertInput({ UserID: paddedUserId(i), Frequency: 'MINUTE_LEVEL' })
+          buildAlertInput({ userId: paddedUserId(i), frequency: 'MINUTE_LEVEL' })
         );
       }
 
@@ -254,7 +464,7 @@ export function defineAlertRepositoryContract(
 
       expect(result).toHaveLength(total);
       const expected = Array.from({ length: total }, (_, i) => paddedUserId(i));
-      expect(result.map((item) => item.UserID)).toEqual(expected);
+      expect(result.map((item) => item.userId)).toEqual(expected);
     });
 
     it('getByFrequencyは100件超（130件）でも打ち切られず、ソートキー昇順のまま全件返る', async () => {
@@ -263,54 +473,50 @@ export function defineAlertRepositoryContract(
       const total = 130;
       for (let i = total - 1; i >= 0; i -= 1) {
         await repository.create(
-          buildAlertInput({ UserID: paddedUserId(i), Frequency: 'MINUTE_LEVEL' })
+          buildAlertInput({ userId: paddedUserId(i), frequency: 'MINUTE_LEVEL' })
         );
       }
 
       const result = await repository.getByFrequency('MINUTE_LEVEL');
 
       const expected = Array.from({ length: total }, (_, i) => paddedUserId(i));
-      expect(result.map((item) => item.UserID)).toEqual(expected);
+      expect(result.map((item) => item.userId)).toEqual(expected);
     });
 
     it('getTemporaryCandidatesByFrequencyはTemporary=falseのアラートを候補に含めない', async () => {
       const frequency = 'MINUTE_LEVEL';
       const candidate = await repository.create(
         buildAlertInput({
-          UserID: 'user-true',
-          Frequency: frequency,
-          Temporary: true,
-          TemporaryExpireDate: '2024-01-02',
+          userId: 'user-true',
+          frequency: frequency,
+          temporary: true,
+          temporaryExpireDate: '2024-01-02',
         })
       );
       await repository.create(
-        buildAlertInput({ UserID: 'user-false', Frequency: frequency, Temporary: false })
+        buildAlertInput({ userId: 'user-false', frequency: frequency, temporary: false })
       );
 
       const result = await repository.getTemporaryCandidatesByFrequency(frequency);
 
-      expect(result.items.map((item) => item.AlertID)).toEqual([candidate.AlertID]);
+      expect(result.items.map((item) => item.alertId)).toEqual([candidate.alertId]);
     });
 
     it('markTemporaryAsExpiredを実行したアラートはgetTemporaryCandidatesByFrequencyの候補から外れる（再処理防止）', async () => {
       const frequency = 'HOURLY_LEVEL';
       const alert = await repository.create(
         buildAlertInput({
-          UserID: 'user-expiring',
-          Frequency: frequency,
-          Temporary: true,
-          TemporaryExpireDate: '2024-01-02',
+          userId: 'user-expiring',
+          frequency: frequency,
+          temporary: true,
+          temporaryExpireDate: '2024-01-02',
         })
       );
 
       const beforeExpire = await repository.getTemporaryCandidatesByFrequency(frequency);
-      expect(beforeExpire.items.map((item) => item.AlertID)).toEqual([alert.AlertID]);
+      expect(beforeExpire.items.map((item) => item.alertId)).toEqual([alert.alertId]);
 
-      await repository.markTemporaryAsExpired(
-        alert.UserID,
-        alert.AlertID,
-        Math.floor(Date.now() / 1000)
-      );
+      await repository.markTemporaryAsExpired(alert.userId, alert.alertId, Date.now());
 
       const afterExpire = await repository.getTemporaryCandidatesByFrequency(frequency);
       expect(afterExpire.items).toHaveLength(0);
@@ -321,10 +527,10 @@ export function defineAlertRepositoryContract(
       for (let i = 0; i < total; i += 1) {
         await repository.create(
           buildAlertInput({
-            UserID: paddedUserId(i),
-            Frequency: 'MINUTE_LEVEL',
-            Temporary: true,
-            TemporaryExpireDate: '2024-01-02',
+            userId: paddedUserId(i),
+            frequency: 'MINUTE_LEVEL',
+            temporary: true,
+            temporaryExpireDate: '2024-01-02',
           })
         );
       }
@@ -347,10 +553,10 @@ export function defineAlertRepositoryContract(
         const isCandidate = i % 2 === 0;
         await repository.create(
           buildAlertInput({
-            UserID: paddedUserId(i),
-            Frequency: 'MINUTE_LEVEL',
-            Temporary: isCandidate,
-            ...(isCandidate ? { TemporaryExpireDate: '2024-01-02' } : {}),
+            userId: paddedUserId(i),
+            frequency: 'MINUTE_LEVEL',
+            temporary: isCandidate,
+            ...(isCandidate ? { temporaryExpireDate: '2024-01-02' } : {}),
           })
         );
       }
@@ -363,7 +569,7 @@ export function defineAlertRepositoryContract(
           limit: 15,
           cursor,
         });
-        collected.push(...page.items.map((item) => item.UserID));
+        collected.push(...page.items.map((item) => item.userId));
         cursor = page.nextCursor;
       } while (cursor);
 
@@ -382,10 +588,10 @@ export function defineAlertRepositoryContract(
     it('TemporaryAlertCandidateはGSI2の射影だけで復元できる', async () => {
       const alert = await repository.create(
         buildAlertInput({
-          UserID: 'user-projection',
-          Frequency: 'MINUTE_LEVEL',
-          Temporary: true,
-          TemporaryExpireDate: '2024-01-02',
+          userId: 'user-projection',
+          frequency: 'MINUTE_LEVEL',
+          temporary: true,
+          temporaryExpireDate: '2024-01-02',
         })
       );
 
@@ -393,13 +599,13 @@ export function defineAlertRepositoryContract(
 
       expect(result.items).toEqual([
         {
-          AlertID: alert.AlertID,
-          UserID: alert.UserID,
-          ExchangeID: alert.ExchangeID,
-          Frequency: alert.Frequency,
-          Enabled: alert.Enabled,
-          Temporary: true,
-          TemporaryExpireDate: alert.TemporaryExpireDate,
+          alertId: alert.alertId,
+          userId: alert.userId,
+          exchangeId: alert.exchangeId,
+          frequency: alert.frequency,
+          enabled: alert.enabled,
+          temporary: true,
+          temporaryExpireDate: alert.temporaryExpireDate,
         },
       ]);
     });

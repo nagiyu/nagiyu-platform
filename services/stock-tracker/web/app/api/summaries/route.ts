@@ -178,19 +178,19 @@ async function fetchAlertCountMap(userId: string): Promise<Map<string, TickerAle
     const alertCountMap = new Map<string, TickerAlertCountResponse>();
 
     for (const alert of alertsResult.items) {
-      const currentCount = alertCountMap.get(alert.TickerID) ?? {
+      const currentCount = alertCountMap.get(alert.tickerId) ?? {
         buy: { enabled: 0, disabled: 0 },
         sell: { enabled: 0, disabled: 0 },
       };
-      const modeCount = alert.Mode === 'Buy' ? currentCount.buy : currentCount.sell;
+      const modeCount = alert.mode === 'Buy' ? currentCount.buy : currentCount.sell;
 
-      if (alert.Enabled) {
+      if (alert.enabled) {
         modeCount.enabled += 1;
       } else {
         modeCount.disabled += 1;
       }
 
-      alertCountMap.set(alert.TickerID, currentCount);
+      alertCountMap.set(alert.tickerId, currentCount);
     }
 
     return alertCountMap;

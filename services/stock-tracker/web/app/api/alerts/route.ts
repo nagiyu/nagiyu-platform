@@ -88,26 +88,26 @@ function mapAlertToResponse(
   tickerName: string
 ): AlertResponse {
   const response: AlertResponse = {
-    alertId: alert.AlertID,
-    tickerId: alert.TickerID,
+    alertId: alert.alertId,
+    tickerId: alert.tickerId,
     symbol: tickerSymbol,
     name: tickerName,
-    mode: alert.Mode,
-    frequency: alert.Frequency,
-    conditions: alert.ConditionList,
-    enabled: alert.Enabled,
-    temporary: alert.Temporary,
-    temporaryExpireDate: alert.TemporaryExpireDate,
-    createdAt: new Date(alert.CreatedAt).toISOString(),
-    updatedAt: new Date(alert.UpdatedAt).toISOString(),
+    mode: alert.mode,
+    frequency: alert.frequency,
+    conditions: alert.conditionList,
+    enabled: alert.enabled,
+    temporary: alert.temporary,
+    temporaryExpireDate: alert.temporaryExpireDate,
+    createdAt: new Date(alert.createdAt).toISOString(),
+    updatedAt: new Date(alert.updatedAt).toISOString(),
   };
 
-  // LogicalOperator が存在する場合のみ追加
-  if (alert.LogicalOperator) {
-    response.logicalOperator = alert.LogicalOperator;
+  // logicalOperator が存在する場合のみ追加
+  if (alert.logicalOperator) {
+    response.logicalOperator = alert.logicalOperator;
   }
-  if (alert.CustomMessage) {
-    response.customMessage = alert.CustomMessage;
+  if (alert.customMessage) {
+    response.customMessage = alert.customMessage;
   }
 
   return response;
@@ -138,11 +138,11 @@ export const GET = withApiErrorReporting(
 
       const alerts: AlertResponse[] = [];
       for (const alert of result.items) {
-        const ticker = await tickerRepo.getById(alert.TickerID);
+        const ticker = await tickerRepo.getById(alert.tickerId);
         alerts.push(
           mapAlertToResponse(
             alert,
-            ticker?.symbol || alert.TickerID.split(':')[1] || '',
+            ticker?.symbol || alert.tickerId.split(':')[1] || '',
             ticker?.name || ''
           )
         );
@@ -217,7 +217,7 @@ export const POST = withApiErrorReporting(
         );
       }
 
-      // ExchangeID の自動取得（tickerId から）
+      // exchangeId の自動取得（tickerId から）
       const exchangeId = requestedExchangeId || tickerId?.split(':')[0] || '';
 
       // 条件は想定外の項目を取り込まずに取り出す。
@@ -227,22 +227,22 @@ export const POST = withApiErrorReporting(
         : null;
 
       // リクエストボディから Alert オブジェクトを構築
-      // Note: AlertID, CreatedAt, UpdatedAt はリポジトリで自動生成される
+      // Note: alertId, createdAt, updatedAt はリポジトリで自動生成される
       // バリデーション用プレースホルダー（実際のIDはリポジトリで生成）
       const VALIDATION_PLACEHOLDER_UUID = '00000000-0000-4000-8000-000000000000';
 
       const alertCandidate = {
-        UserID: userId,
-        TickerID: tickerId,
-        ExchangeID: exchangeId,
-        Mode: mode,
-        Frequency: frequency,
-        Enabled: enabled !== undefined ? enabled : true,
-        ConditionList: parsedConditions ?? (conditions || []),
-        LogicalOperator: logicalOperator,
-        Temporary: temporary === true ? true : undefined,
-        TemporaryExpireDate: undefined,
-        CustomMessage:
+        userId,
+        tickerId,
+        exchangeId,
+        mode,
+        frequency,
+        enabled: enabled !== undefined ? enabled : true,
+        conditionList: parsedConditions ?? (conditions || []),
+        logicalOperator,
+        temporary: temporary === true ? true : undefined,
+        temporaryExpireDate: undefined,
+        customMessage:
           typeof customMessage === 'string' && customMessage.trim().length > 0
             ? customMessage.trim()
             : undefined,
@@ -253,10 +253,10 @@ export const POST = withApiErrorReporting(
             auth: subscription.keys.auth,
           },
         },
-        // AlertID は UUID v4 でリポジトリが自動生成
-        AlertID: VALIDATION_PLACEHOLDER_UUID,
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+        // alertId は UUID v4 でリポジトリが自動生成
+        alertId: VALIDATION_PLACEHOLDER_UUID,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       // バリデーション
@@ -282,12 +282,12 @@ export const POST = withApiErrorReporting(
 
       const alertData: AlertEntity = {
         ...alertCandidate,
-        TickerID: tickerId,
-        ExchangeID: exchangeId,
-        Mode: mode,
-        Frequency: frequency,
-        ConditionList: parsedConditions,
-        LogicalOperator: logicalOperator,
+        tickerId,
+        exchangeId,
+        mode,
+        frequency,
+        conditionList: parsedConditions,
+        logicalOperator,
       };
 
       // リポジトリの初期化
@@ -297,7 +297,7 @@ export const POST = withApiErrorReporting(
 
       // アラートを作成（新しいリポジトリの形式に合わせる）
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { AlertID, CreatedAt, UpdatedAt, ...alertDataForCreate } = alertData;
+      const { alertId, createdAt, updatedAt, ...alertDataForCreate } = alertData;
       const createInput: CreateAlertInput = { ...alertDataForCreate };
 
       if (temporary === true) {
@@ -311,19 +311,19 @@ export const POST = withApiErrorReporting(
             { status: 400 }
           );
         }
-        createInput.Temporary = true;
-        createInput.TemporaryExpireDate = calculateTemporaryExpireDate(exchange, Date.now());
+        createInput.temporary = true;
+        createInput.temporaryExpireDate = calculateTemporaryExpireDate(exchange, Date.now());
       }
 
       const createdAlert = await alertRepo.create(createInput);
 
       // TickerリポジトリでSymbolとNameを取得
-      const ticker = await tickerRepo.getById(createdAlert.TickerID);
+      const ticker = await tickerRepo.getById(createdAlert.tickerId);
 
       // レスポンス形式に変換
       const response = mapAlertToResponse(
         createdAlert,
-        ticker?.symbol || createdAlert.TickerID.split(':')[1] || '',
+        ticker?.symbol || createdAlert.tickerId.split(':')[1] || '',
         ticker?.name || ''
       );
 

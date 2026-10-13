@@ -2,22 +2,29 @@
  * Stock Tracker Core - DynamoDB Alert Repository Unit Tests
  *
  * DynamoDBAlertRepositoryのユニットテスト
+ *
+ * 単一アイテムの CRUD の振る舞い (エラー変換など) は EntityStore の責務のため、
+ * ここでは正しいキーと保存形式で委譲していることと、GSI の Query や
+ * 失効の書き込みといったリポジトリ独自の部分を検証する。
  */
 
 import { DynamoDBAlertRepository } from '../../../src/repositories/dynamodb-alert.repository.js';
-import { parseUpdateExpression } from '../../helpers/update-expression.js';
-import {
-  EntityAlreadyExistsError,
-  EntityNotFoundError,
-  DatabaseError,
-  InvalidEntityDataError,
-} from '@nagiyu/aws';
-import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import type { CreateAlertInput } from '../../../src/entities/alert.entity.js';
 import { AlertMapper } from '../../../src/mappers/alert.mapper.js';
+import { parseUpdateExpression } from '../../helpers/update-expression.js';
+import { DatabaseError, EntityNotFoundError } from '@nagiyu/aws';
+import {
+  DeleteCommand,
+  GetCommand,
+  PutCommand,
+  QueryCommand,
+  UpdateCommand,
+  type DynamoDBDocumentClient,
+} from '@aws-sdk/lib-dynamodb';
+import type { CreateAlertInput } from '../../../src/entities/alert.entity.js';
 import { logger } from '@nagiyu/common';
 
-const INVALID_ENTITY_DATA_ERROR_NAME = 'InvalidEntityDataError';
+const NOW = 1704067300000;
+const CREATED_AT = 1704067200000;
 
 jest.mock('@nagiyu/common', () => ({
   ...jest.requireActual('@nagiyu/common'),
@@ -29,13 +36,50 @@ jest.mock('@nagiyu/common', () => ({
   },
 }));
 
+const SUBSCRIPTION = {
+  endpoint: 'https://example.com/push',
+  keys: { p256dh: 'p256dh-key', auth: 'auth-secret' },
+};
+
+function buildItem(alertId: string, overrides: Record<string, unknown> = {}) {
+  return {
+    PK: 'USER#user-123',
+    SK: `ALERT#${alertId}`,
+    Type: 'Alert',
+    GSI1PK: 'user-123',
+    GSI1SK: `Alert#${alertId}`,
+    GSI2PK: 'ALERT#MINUTE_LEVEL',
+    GSI2SK: `user-123#${alertId}`,
+    AlertID: alertId,
+    UserID: 'user-123',
+    TickerID: 'NSDQ:AAPL',
+    ExchangeID: 'NASDAQ',
+    Mode: 'Buy',
+    Frequency: 'MINUTE_LEVEL',
+    Enabled: true,
+    ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+    Subscription: SUBSCRIPTION,
+    CreatedAt: CREATED_AT,
+    UpdatedAt: CREATED_AT,
+    ...overrides,
+  };
+}
+
+function conditionalCheckFailed(): Error {
+  const error = new Error('Conditional check failed');
+  error.name = 'ConditionalCheckFailedException';
+  return error;
+}
+
 describe('DynamoDBAlertRepository', () => {
   let repository: DynamoDBAlertRepository;
   let mockDocClient: jest.Mocked<DynamoDBDocumentClient>;
   const TABLE_NAME = 'test-stock-tracker-table';
 
   beforeEach(() => {
-    // DynamoDBDocumentClient のモック
+    // UpdatedAt は EntityStore が現在時刻で書くため、時刻を固定して検証する
+    jest.useFakeTimers().setSystemTime(NOW);
+
     mockDocClient = {
       send: jest.fn(),
     } as unknown as jest.Mocked<DynamoDBDocumentClient>;
@@ -44,1066 +88,445 @@ describe('DynamoDBAlertRepository', () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     jest.clearAllMocks();
   });
 
   describe('create', () => {
-    it('新しいアラートを作成できる', async () => {
-      const input: CreateAlertInput = {
-        UserID: 'user-123',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Buy',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        subscription: {
-          endpoint: 'https://example.com/push',
-          keys: {
-            p256dh: 'p256dh-key',
-            auth: 'auth-secret',
-          },
-        },
-      };
+    const input: CreateAlertInput = {
+      userId: 'user-123',
+      tickerId: 'NSDQ:AAPL',
+      exchangeId: 'NASDAQ',
+      mode: 'Buy',
+      frequency: 'MINUTE_LEVEL',
+      enabled: true,
+      conditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+      subscription: SUBSCRIPTION,
+    };
 
+    it('UUID のアラートIDを採番し、保存形式の Item として書き込み、Entity を返す', async () => {
       mockDocClient.send.mockResolvedValueOnce({ $metadata: {} });
 
       const result = await repository.create(input);
 
-      expect(result).toMatchObject(input);
-      expect(result.AlertID).toBeDefined();
-      expect(result.CreatedAt).toBeDefined();
-      expect(result.UpdatedAt).toBeDefined();
-      expect(result.CreatedAt).toBe(result.UpdatedAt);
+      expect(result.alertId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+      );
+      expect(result).toEqual({ ...input, alertId: result.alertId, createdAt: NOW, updatedAt: NOW });
       expect(mockDocClient.send).toHaveBeenCalledTimes(1);
-    });
-
-    it('同じPK/SKのアラートが既に存在する場合はEntityAlreadyExistsErrorをスローする', async () => {
-      const input: CreateAlertInput = {
-        UserID: 'user-123',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Buy',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        subscription: {
-          endpoint: 'https://example.com/push',
-          keys: {
-            p256dh: 'p256dh-key',
-            auth: 'auth-secret',
-          },
+      const command = mockDocClient.send.mock.calls[0][0] as PutCommand;
+      expect(command).toBeInstanceOf(PutCommand);
+      expect(command.input).toMatchObject({
+        TableName: TABLE_NAME,
+        Item: {
+          PK: 'USER#user-123',
+          SK: `ALERT#${result.alertId}`,
+          Type: 'Alert',
+          GSI1PK: 'user-123',
+          GSI1SK: `Alert#${result.alertId}`,
+          GSI2PK: 'ALERT#MINUTE_LEVEL',
+          GSI2SK: `user-123#${result.alertId}`,
+          AlertID: result.alertId,
+          UserID: 'user-123',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Mode: 'Buy',
+          Frequency: 'MINUTE_LEVEL',
+          Enabled: true,
+          ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+          Subscription: SUBSCRIPTION,
+          CreatedAt: NOW,
+          UpdatedAt: NOW,
         },
-      };
-
-      const conditionalCheckError = new Error('Conditional check failed');
-      conditionalCheckError.name = 'ConditionalCheckFailedException';
-      mockDocClient.send.mockRejectedValueOnce(conditionalCheckError);
-
-      await expect(repository.create(input)).rejects.toThrow(EntityAlreadyExistsError);
-    });
-
-    it('データベースエラー時にDatabaseErrorをスローする', async () => {
-      const input: CreateAlertInput = {
-        UserID: 'user-123',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Buy',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        subscription: {
-          endpoint: 'https://example.com/push',
-          keys: {
-            p256dh: 'p256dh-key',
-            auth: 'auth-secret',
-          },
-        },
-      };
-
-      const dbError = new Error('Database connection failed');
-      mockDocClient.send.mockRejectedValueOnce(dbError);
-
-      await expect(repository.create(input)).rejects.toThrow(DatabaseError);
+      });
+      expect(command.input.Item).not.toHaveProperty('subscription');
     });
   });
 
   describe('getById', () => {
-    it('存在するアラートを取得できる', async () => {
-      const mockItem = {
-        PK: 'USER#user-123',
-        SK: 'ALERT#alert-123',
-        Type: 'Alert',
-        GSI1PK: 'user-123',
-        GSI1SK: 'Alert#alert-123',
-        GSI2PK: 'ALERT#MINUTE_LEVEL',
-        GSI2SK: 'user-123#alert-123',
-        AlertID: 'alert-123',
-        UserID: 'user-123',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Buy',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        subscription: {
-          endpoint: 'https://example.com/push',
-          keys: {
-            p256dh: 'p256dh-key',
-            auth: 'auth-secret',
-          },
-        },
-        CreatedAt: 1704067200000,
-        UpdatedAt: 1704067200000,
-      };
+    it('存在するアラートを Entity として取得できる', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Item: buildItem('alert-1') });
 
-      mockDocClient.send.mockResolvedValueOnce({ Item: mockItem });
+      const result = await repository.getById('user-123', 'alert-1');
 
-      const result = await repository.getById('user-123', 'alert-123');
-
-      expect(result).toMatchObject({
-        AlertID: 'alert-123',
-        UserID: 'user-123',
-        TickerID: 'NSDQ:AAPL',
-        Mode: 'Buy',
+      expect(result).toEqual({
+        alertId: 'alert-1',
+        userId: 'user-123',
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        mode: 'Buy',
+        frequency: 'MINUTE_LEVEL',
+        enabled: true,
+        conditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+        subscription: SUBSCRIPTION,
+        createdAt: CREATED_AT,
+        updatedAt: CREATED_AT,
       });
-      expect(mockDocClient.send).toHaveBeenCalledTimes(1);
+      const command = mockDocClient.send.mock.calls[0][0] as GetCommand;
+      expect(command).toBeInstanceOf(GetCommand);
+      expect(command.input.Key).toEqual({ PK: 'USER#user-123', SK: 'ALERT#alert-1' });
     });
 
-    it('存在しないアラートの場合はnullを返す', async () => {
-      mockDocClient.send.mockResolvedValueOnce({ Item: undefined });
+    it('旧属性名 subscription で保存されたアラートも取得できる', async () => {
+      const item = buildItem('alert-1');
+      const { Subscription, ...withoutNew } = item;
+      mockDocClient.send.mockResolvedValueOnce({
+        Item: { ...withoutNew, subscription: Subscription },
+      });
 
-      const result = await repository.getById('user-123', 'alert-notfound');
+      const result = await repository.getById('user-123', 'alert-1');
 
-      expect(result).toBeNull();
-      expect(mockDocClient.send).toHaveBeenCalledTimes(1);
-    });
-
-    it('データベースエラー時にDatabaseErrorをスローする', async () => {
-      const dbError = new Error('Database connection failed');
-      mockDocClient.send.mockRejectedValueOnce(dbError);
-
-      await expect(repository.getById('user-123', 'alert-123')).rejects.toThrow(DatabaseError);
+      expect(result?.subscription).toEqual(SUBSCRIPTION);
     });
   });
 
   describe('getByUserId', () => {
-    it('ユーザーのアラート一覧を取得できる', async () => {
-      const mockItems = [
-        {
-          PK: 'USER#user-123',
-          SK: 'ALERT#alert-1',
-          Type: 'Alert',
-          GSI1PK: 'user-123',
-          GSI1SK: 'Alert#alert-1',
-          GSI2PK: 'ALERT#MINUTE_LEVEL',
-          GSI2SK: 'user-123#alert-1',
-          AlertID: 'alert-1',
-          UserID: 'user-123',
-          TickerID: 'NSDQ:AAPL',
-          ExchangeID: 'NASDAQ',
-          Mode: 'Buy',
-          Frequency: 'MINUTE_LEVEL',
-          Enabled: true,
-          ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-          subscription: {
-            endpoint: 'https://example.com/push',
-            keys: {
-              p256dh: 'p256dh-key',
-              auth: 'auth-secret',
-            },
-          },
-          CreatedAt: 1704067200000,
-          UpdatedAt: 1704067200000,
-        },
-        {
-          PK: 'USER#user-123',
-          SK: 'ALERT#alert-2',
-          Type: 'Alert',
-          GSI1PK: 'user-123',
-          GSI1SK: 'Alert#alert-2',
-          GSI2PK: 'ALERT#HOURLY_LEVEL',
-          GSI2SK: 'user-123#alert-2',
-          AlertID: 'alert-2',
-          UserID: 'user-123',
-          TickerID: 'NSDQ:NVDA',
-          ExchangeID: 'NASDAQ',
-          Mode: 'Sell',
-          Frequency: 'HOURLY_LEVEL',
-          Enabled: true,
-          ConditionList: [{ field: 'price', operator: 'gte', value: 500.0 }],
-          subscription: {
-            endpoint: 'https://example.com/push',
-            keys: {
-              p256dh: 'p256dh-key',
-              auth: 'auth-secret',
-            },
-          },
-          CreatedAt: 1704067200000,
-          UpdatedAt: 1704067200000,
-        },
-      ];
-
+    it('UserIndex の Query でユーザーのアラート一覧を取得できる', async () => {
       mockDocClient.send.mockResolvedValueOnce({
-        Items: mockItems,
+        Items: [buildItem('alert-1'), buildItem('alert-2')],
         Count: 2,
       });
 
       const result = await repository.getByUserId('user-123');
 
-      expect(result.items).toHaveLength(2);
-      expect(result.items[0].UserID).toBe('user-123');
-      expect(result.items[1].UserID).toBe('user-123');
+      expect(result.items.map((alert) => alert.alertId)).toEqual(['alert-1', 'alert-2']);
+      expect(result.count).toBe(2);
       expect(mockDocClient.send).toHaveBeenCalledTimes(1);
-    });
-
-    it('該当するアラートがない場合は空配列を返す', async () => {
-      mockDocClient.send.mockResolvedValueOnce({
-        Items: [],
-        Count: 0,
+      const command = mockDocClient.send.mock.calls[0][0] as QueryCommand;
+      expect(command).toBeInstanceOf(QueryCommand);
+      expect(command.input).toMatchObject({
+        TableName: TABLE_NAME,
+        IndexName: 'UserIndex',
+        KeyConditionExpression: '#gsi1pk = :userId AND begins_with(#gsi1sk, :prefix)',
+        ExpressionAttributeValues: { ':userId': 'user-123', ':prefix': 'Alert#' },
       });
-
-      const result = await repository.getByUserId('user-notfound');
-
-      expect(result.items).toHaveLength(0);
     });
 
-    it('データベースエラー時にDatabaseErrorをスローする', async () => {
-      const dbError = new Error('Database connection failed');
-      mockDocClient.send.mockRejectedValueOnce(dbError);
-
-      await expect(repository.getByUserId('user-123')).rejects.toThrow(DatabaseError);
-    });
-
-    it('論理削除待ち（TTL 設定済み）アラートを除外する FilterExpression が常に付与される', async () => {
+    it('論理削除待ち (TTL 設定済み) のアラートを除外する FilterExpression が常に付与される', async () => {
       mockDocClient.send.mockResolvedValueOnce({ Items: [], Count: 0 });
 
       await repository.getByUserId('user-123');
 
-      const sendCall = mockDocClient.send.mock.calls[0][0] as {
-        input: {
-          FilterExpression?: string;
-          ExpressionAttributeNames?: Record<string, string>;
-        };
+      const command = mockDocClient.send.mock.calls[0][0] as QueryCommand;
+      expect(command.input.FilterExpression).toBe('attribute_not_exists(#ttl)');
+      expect(command.input.ExpressionAttributeNames).toMatchObject({
+        '#gsi1pk': 'GSI1PK',
+        '#gsi1sk': 'GSI1SK',
+        '#ttl': 'TTL',
+      });
+    });
+
+    it('limit 未指定時は既定の 50 件を Limit に指定する', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Items: [], Count: 0 });
+
+      await repository.getByUserId('user-123');
+
+      const command = mockDocClient.send.mock.calls[0][0] as QueryCommand;
+      expect(command.input.Limit).toBe(50);
+    });
+
+    it('limit を指定するとその値を Limit に指定する', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Items: [], Count: 0 });
+
+      await repository.getByUserId('user-123', { limit: 2 });
+
+      const command = mockDocClient.send.mock.calls[0][0] as QueryCommand;
+      expect(command.input.Limit).toBe(2);
+    });
+
+    it('該当するアラートがない場合は空配列を返す', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Items: [], Count: 0 });
+
+      const result = await repository.getByUserId('user-123');
+
+      expect(result.items).toEqual([]);
+      expect(result.nextCursor).toBeUndefined();
+    });
+
+    it('LastEvaluatedKey を nextCursor として返し、次の呼び出しで ExclusiveStartKey に渡す', async () => {
+      const lastEvaluatedKey = {
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-1',
+        GSI1PK: 'user-123',
+        GSI1SK: 'Alert#alert-1',
       };
-      expect(sendCall.input.FilterExpression).toBe('attribute_not_exists(#ttl)');
-      expect(sendCall.input.ExpressionAttributeNames?.['#ttl']).toBe('TTL');
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Items: [buildItem('alert-1')],
+          Count: 1,
+          LastEvaluatedKey: lastEvaluatedKey,
+        })
+        .mockResolvedValueOnce({ Items: [buildItem('alert-2')], Count: 1 });
+
+      const first = await repository.getByUserId('user-123', { limit: 1 });
+      const second = await repository.getByUserId('user-123', {
+        limit: 1,
+        cursor: first.nextCursor,
+      });
+
+      expect(first.nextCursor).toBe(
+        Buffer.from(JSON.stringify(lastEvaluatedKey)).toString('base64')
+      );
+      expect(second.items.map((alert) => alert.alertId)).toEqual(['alert-2']);
+      expect(second.nextCursor).toBeUndefined();
+      const secondQuery = mockDocClient.send.mock.calls[1][0] as QueryCommand;
+      expect(secondQuery.input.ExclusiveStartKey).toEqual(lastEvaluatedKey);
+    });
+
+    it('データベースエラー時に DatabaseError をスローする', async () => {
+      mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
+
+      await expect(repository.getByUserId('user-123')).rejects.toThrow(DatabaseError);
     });
 
     it('無効なアラートデータをスキップし、有効なデータのみ返す', async () => {
-      const validItem = {
-        PK: 'USER#user-123',
-        SK: 'ALERT#alert-1',
-        Type: 'Alert',
-        GSI1PK: 'user-123',
-        GSI1SK: 'Alert#alert-1',
-        GSI2PK: 'ALERT#MINUTE_LEVEL',
-        GSI2SK: 'user-123#alert-1',
-        AlertID: 'alert-1',
-        UserID: 'user-123',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Buy',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        subscription: {
-          endpoint: 'https://example.com/push',
-          keys: {
-            p256dh: 'p256dh-key',
-            auth: 'auth-secret',
-          },
-        },
-        CreatedAt: 1704067200000,
-        UpdatedAt: 1704067200000,
-      };
-      const invalidItem = {
-        ...validItem,
-        PK: 'USER#user-123',
-        SK: 'ALERT#invalid-alert',
-        AlertID: 'invalid-alert',
-        subscription: undefined,
-        SubscriptionEndpoint: undefined,
-      };
-
+      const invalidItem = buildItem('invalid-alert', { Subscription: undefined });
       mockDocClient.send.mockResolvedValueOnce({
-        Items: [validItem, invalidItem],
+        Items: [buildItem('alert-1'), invalidItem],
         Count: 2,
       });
 
       const result = await repository.getByUserId('user-123');
 
-      expect(result.items).toHaveLength(1);
-      expect(result.items[0]?.AlertID).toBe('alert-1');
+      expect(result.items.map((alert) => alert.alertId)).toEqual(['alert-1']);
       expect(logger.warn).toHaveBeenCalledWith(
         '無効なアラートデータをスキップしました',
-        expect.objectContaining({
-          pk: 'USER#user-123',
-          sk: 'ALERT#invalid-alert',
-        })
+        expect.objectContaining({ pk: 'USER#user-123', sk: 'ALERT#invalid-alert' })
       );
-    });
-
-    it('モジュールインスタンス差異がある環境でも無効データをスキップし、有効なデータのみ返す', async () => {
-      const validItem = {
-        PK: 'USER#user-123',
-        SK: 'ALERT#alert-1',
-        Type: 'Alert',
-        GSI1PK: 'user-123',
-        GSI1SK: 'Alert#alert-1',
-        GSI2PK: 'ALERT#MINUTE_LEVEL',
-        GSI2SK: 'user-123#alert-1',
-        AlertID: 'alert-1',
-        UserID: 'user-123',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Buy',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        subscription: {
-          endpoint: 'https://example.com/push',
-          keys: {
-            p256dh: 'p256dh-key',
-            auth: 'auth-secret',
-          },
-        },
-        CreatedAt: 1704067200000,
-        UpdatedAt: 1704067200000,
-      };
-      const invalidItem = {
-        ...validItem,
-        SK: 'ALERT#invalid-alert',
-        AlertID: 'invalid-alert',
-      };
-
-      const mapperSpy = jest.spyOn(AlertMapper.prototype, 'toEntity').mockImplementation((item) => {
-        const record = item as unknown as { AlertID?: string };
-        if (record.AlertID === 'invalid-alert') {
-          const baseError = new InvalidEntityDataError(
-            'フィールド "SubscriptionEndpoint" が文字列ではありません'
-          );
-          const duplicatedModuleError = new Error(baseError.message);
-          duplicatedModuleError.name = INVALID_ENTITY_DATA_ERROR_NAME;
-          throw duplicatedModuleError;
-        }
-
-        return {
-          ...validItem,
-          AlertID: record.AlertID || validItem.AlertID,
-        } as unknown as ReturnType<AlertMapper['toEntity']>;
-      });
-
-      mockDocClient.send.mockResolvedValueOnce({
-        Items: [invalidItem, validItem],
-        Count: 2,
-      });
-
-      const result = await repository.getByFrequency('MINUTE_LEVEL');
-
-      expect(result).toHaveLength(1);
-      expect(result[0]?.AlertID).toBe('alert-1');
-      expect(logger.warn).toHaveBeenCalledWith(
-        '無効なアラートデータをスキップしました',
-        expect.objectContaining({
-          sk: 'ALERT#invalid-alert',
-        })
-      );
-      mapperSpy.mockRestore();
-    });
-
-    it('name が異なるエラーでもメッセージが無効データ形式ならスキップする', async () => {
-      const validItem = {
-        PK: 'USER#user-123',
-        SK: 'ALERT#alert-1',
-        Type: 'Alert',
-        GSI1PK: 'user-123',
-        GSI1SK: 'Alert#alert-1',
-        GSI2PK: 'ALERT#MINUTE_LEVEL',
-        GSI2SK: 'user-123#alert-1',
-        AlertID: 'alert-1',
-        UserID: 'user-123',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Buy',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        subscription: {
-          endpoint: 'https://example.com/push',
-          keys: {
-            p256dh: 'p256dh-key',
-            auth: 'auth-secret',
-          },
-        },
-        CreatedAt: 1704067200000,
-        UpdatedAt: 1704067200000,
-      };
-      const invalidItem = {
-        ...validItem,
-        SK: 'ALERT#invalid-alert',
-        AlertID: 'invalid-alert',
-      };
-
-      const mapperSpy = jest.spyOn(AlertMapper.prototype, 'toEntity').mockImplementation((item) => {
-        const record = item as unknown as { AlertID?: string };
-        if (record.AlertID === 'invalid-alert') {
-          throw new Error(
-            'エンティティデータが無効です: フィールド "SubscriptionEndpoint" が文字列ではありません'
-          );
-        }
-
-        return {
-          ...validItem,
-          AlertID: record.AlertID || validItem.AlertID,
-        } as unknown as ReturnType<AlertMapper['toEntity']>;
-      });
-
-      mockDocClient.send.mockResolvedValueOnce({
-        Items: [invalidItem, validItem],
-        Count: 2,
-      });
-
-      const result = await repository.getByFrequency('MINUTE_LEVEL');
-
-      expect(result).toHaveLength(1);
-      expect(result[0]?.AlertID).toBe('alert-1');
-      expect(logger.warn).toHaveBeenCalledWith(
-        '無効なアラートデータをスキップしました',
-        expect.objectContaining({
-          sk: 'ALERT#invalid-alert',
-        })
-      );
-      mapperSpy.mockRestore();
     });
   });
 
   describe('getByFrequency', () => {
-    it('頻度ごとのアラート一覧を取得できる', async () => {
-      const mockItems = [
-        {
-          PK: 'USER#user-123',
-          SK: 'ALERT#alert-1',
-          Type: 'Alert',
-          GSI1PK: 'user-123',
-          GSI1SK: 'Alert#alert-1',
-          GSI2PK: 'ALERT#MINUTE_LEVEL',
-          GSI2SK: 'user-123#alert-1',
-          AlertID: 'alert-1',
-          UserID: 'user-123',
-          TickerID: 'NSDQ:AAPL',
-          ExchangeID: 'NASDAQ',
-          Mode: 'Buy',
-          Frequency: 'MINUTE_LEVEL',
-          Enabled: true,
-          ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-          subscription: {
-            endpoint: 'https://example.com/push',
-            keys: {
-              p256dh: 'p256dh-key',
-              auth: 'auth-secret',
-            },
-          },
-          CreatedAt: 1704067200000,
-          UpdatedAt: 1704067200000,
-        },
-      ];
-
+    it('AlertIndex の Query で頻度ごとのアラート一覧を取得できる', async () => {
       mockDocClient.send.mockResolvedValueOnce({
-        Items: mockItems,
-        Count: 1,
+        Items: [buildItem('alert-1'), buildItem('alert-2')],
+        Count: 2,
       });
 
       const result = await repository.getByFrequency('MINUTE_LEVEL');
 
-      expect(result).toHaveLength(1);
-      expect(result[0].Frequency).toBe('MINUTE_LEVEL');
-      expect(mockDocClient.send).toHaveBeenCalledTimes(1);
+      expect(result.map((alert) => alert.alertId)).toEqual(['alert-1', 'alert-2']);
+      const command = mockDocClient.send.mock.calls[0][0] as QueryCommand;
+      expect(command).toBeInstanceOf(QueryCommand);
+      expect(command.input).toMatchObject({
+        TableName: TABLE_NAME,
+        IndexName: 'AlertIndex',
+        KeyConditionExpression: '#gsi2pk = :pk',
+        ExpressionAttributeNames: { '#gsi2pk': 'GSI2PK' },
+        ExpressionAttributeValues: { ':pk': 'ALERT#MINUTE_LEVEL' },
+      });
+      // 全件を返す契約のため Limit は指定しない
+      expect(command.input.Limit).toBeUndefined();
     });
 
     it('該当するアラートがない場合は空配列を返す', async () => {
-      mockDocClient.send.mockResolvedValueOnce({
-        Items: [],
-        Count: 0,
-      });
+      mockDocClient.send.mockResolvedValueOnce({ Items: [], Count: 0 });
+
+      expect(await repository.getByFrequency('HOURLY_LEVEL')).toEqual([]);
+    });
+
+    it('LastEvaluatedKey が返る限り Query をループし、複数ページの全件を集約する', async () => {
+      const lastEvaluatedKey = {
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-1',
+        GSI2PK: 'ALERT#MINUTE_LEVEL',
+        GSI2SK: 'user-123#alert-1',
+      };
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Items: [buildItem('alert-1')],
+          Count: 1,
+          LastEvaluatedKey: lastEvaluatedKey,
+        })
+        .mockResolvedValueOnce({ Items: [buildItem('alert-2')], Count: 1 });
 
       const result = await repository.getByFrequency('MINUTE_LEVEL');
 
-      expect(result).toHaveLength(0);
+      expect(result.map((alert) => alert.alertId)).toEqual(['alert-1', 'alert-2']);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
+      const secondQuery = mockDocClient.send.mock.calls[1][0] as QueryCommand;
+      expect(secondQuery.input.ExclusiveStartKey).toEqual(lastEvaluatedKey);
     });
 
-    it('データベースエラー時にDatabaseErrorをスローする', async () => {
-      const dbError = new Error('Database connection failed');
-      mockDocClient.send.mockRejectedValueOnce(dbError);
+    it('データベースエラー時に DatabaseError をスローする', async () => {
+      mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
 
       await expect(repository.getByFrequency('MINUTE_LEVEL')).rejects.toThrow(DatabaseError);
     });
 
-    it('無効なアラートデータをスキップし、有効なデータのみ返す', async () => {
-      const validItem = {
-        PK: 'USER#user-123',
-        SK: 'ALERT#alert-1',
-        Type: 'Alert',
-        GSI1PK: 'user-123',
-        GSI1SK: 'Alert#alert-1',
-        GSI2PK: 'ALERT#MINUTE_LEVEL',
-        GSI2SK: 'user-123#alert-1',
-        AlertID: 'alert-1',
-        UserID: 'user-123',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Buy',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        subscription: {
-          endpoint: 'https://example.com/push',
-          keys: {
-            p256dh: 'p256dh-key',
-            auth: 'auth-secret',
-          },
-        },
-        CreatedAt: 1704067200000,
-        UpdatedAt: 1704067200000,
-      };
-      const invalidItem = {
-        ...validItem,
-        PK: 'USER#user-123',
-        SK: 'ALERT#invalid-alert',
-        AlertID: 'invalid-alert',
-        subscription: undefined,
-        SubscriptionEndpoint: undefined,
-      };
-
-      mockDocClient.send.mockResolvedValueOnce({
-        Items: [invalidItem, validItem],
-        Count: 2,
-      });
-
-      const result = await repository.getByFrequency('MINUTE_LEVEL');
-
-      expect(result).toHaveLength(1);
-      expect(result[0]?.AlertID).toBe('alert-1');
-      expect(logger.warn).toHaveBeenCalledWith(
-        '無効なアラートデータをスキップしました',
-        expect.objectContaining({
-          pk: 'USER#user-123',
-          sk: 'ALERT#invalid-alert',
-        })
-      );
-    });
-
-    it('toEntity から InvalidEntityDataError 以外のエラーが投げられても、バッチ全体を壊さずにスキップする', async () => {
-      const validItem = {
-        PK: 'USER#user-123',
-        SK: 'ALERT#alert-1',
-        AlertID: 'alert-1',
-        UserID: 'user-123',
-      };
-      const invalidItem = {
-        ...validItem,
-        SK: 'ALERT#invalid-alert',
-        AlertID: 'invalid-alert',
-      };
-
-      const mapperSpy = jest.spyOn(AlertMapper.prototype, 'toEntity').mockImplementation((item) => {
-        const record = item as unknown as { AlertID?: string };
-        if (record.AlertID === 'invalid-alert') {
-          // モジュールインスタンス差異など想定外の経路で `InvalidEntityDataError` 判定が
-          // すり抜けたケースをシミュレート: 名前/メッセージともに合致しない TypeError
-          throw new TypeError('Cannot read properties of undefined');
-        }
-
-        return {
-          AlertID: record.AlertID,
-          UserID: 'user-123',
-        } as unknown as ReturnType<AlertMapper['toEntity']>;
-      });
-
-      mockDocClient.send.mockResolvedValueOnce({
-        Items: [invalidItem, validItem],
-        Count: 2,
-      });
-
-      const result = await repository.getByFrequency('MINUTE_LEVEL');
-
-      expect(result).toHaveLength(1);
-      expect(result[0]?.AlertID).toBe('alert-1');
-      expect(logger.warn).toHaveBeenCalledWith(
-        '無効なアラートデータをスキップしました',
-        expect.objectContaining({
-          sk: 'ALERT#invalid-alert',
-          error: 'Cannot read properties of undefined',
-        })
-      );
-      mapperSpy.mockRestore();
-    });
-
-    it('toEntity が DatabaseError でラップされたエラーを投げても、バッチを壊さずにスキップする', async () => {
-      // 本番再現: 何らかの理由で toEntity から DatabaseError 形式のエラーが投げられても
-      // 外側 catch で再ラップされて totalAlerts: 0 でクラッシュすることがあってはならない
-      const validItem = {
-        PK: 'USER#user-123',
-        SK: 'ALERT#alert-1',
-        AlertID: 'alert-1',
-        UserID: 'user-123',
-      };
-      const invalidItem = {
-        ...validItem,
-        SK: 'ALERT#invalid-alert',
-        AlertID: 'invalid-alert',
-      };
-
-      const mapperSpy = jest.spyOn(AlertMapper.prototype, 'toEntity').mockImplementation((item) => {
-        const record = item as unknown as { AlertID?: string };
-        if (record.AlertID === 'invalid-alert') {
-          // すでに DatabaseError 形式に再ラップされたメッセージを持つエラーを擬似的に投げる
-          const wrapped = new Error(
-            'データベースエラーが発生しました: エンティティデータが無効です: フィールド "SubscriptionEndpoint" が文字列ではありません'
-          );
-          wrapped.name = 'DatabaseError';
-          throw wrapped;
-        }
-
-        return {
-          AlertID: record.AlertID,
-          UserID: 'user-123',
-        } as unknown as ReturnType<AlertMapper['toEntity']>;
-      });
-
-      mockDocClient.send.mockResolvedValueOnce({
-        Items: [invalidItem, validItem],
-        Count: 2,
-      });
-
-      const result = await repository.getByFrequency('MINUTE_LEVEL');
-
-      expect(result).toHaveLength(1);
-      expect(result[0]?.AlertID).toBe('alert-1');
-      expect(logger.warn).toHaveBeenCalledWith(
-        '無効なアラートデータをスキップしました',
-        expect.objectContaining({ sk: 'ALERT#invalid-alert' })
-      );
-      mapperSpy.mockRestore();
-    });
-
-    it('LastEvaluatedKeyが返る限りQueryをループし、複数ページの全件を集約する（Issue #3801: 51件目以降の打ち切り防止）', async () => {
-      const buildItem = (id: string) => ({
-        PK: `USER#user-123`,
-        SK: `ALERT#${id}`,
-        Type: 'Alert',
-        GSI1PK: 'user-123',
-        GSI1SK: `Alert#${id}`,
-        GSI2PK: 'ALERT#MINUTE_LEVEL',
-        GSI2SK: `user-123#${id}`,
-        AlertID: id,
-        UserID: 'user-123',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Buy',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        subscription: {
-          endpoint: 'https://example.com/push',
-          keys: { p256dh: 'p256dh-key', auth: 'auth-secret' },
-        },
-        CreatedAt: 1704067200000,
-        UpdatedAt: 1704067200000,
-      });
-
-      // 3ページに分けて返す（1ページ目・2ページ目はLastEvaluatedKeyあり、3ページ目でループ終了）
+    it('2 ページ目の Query でデータベースエラーが発生した場合も DatabaseError をスローする', async () => {
       mockDocClient.send
         .mockResolvedValueOnce({
-          Items: [buildItem('alert-1'), buildItem('alert-2')],
-          Count: 2,
-          LastEvaluatedKey: { PK: 'USER#user-123', SK: 'ALERT#alert-2' },
-        })
-        .mockResolvedValueOnce({
-          Items: [buildItem('alert-3')],
-          Count: 1,
-          LastEvaluatedKey: { PK: 'USER#user-123', SK: 'ALERT#alert-3' },
-        })
-        .mockResolvedValueOnce({
-          Items: [buildItem('alert-4')],
-          Count: 1,
-        });
-
-      const result = await repository.getByFrequency('MINUTE_LEVEL');
-
-      expect(result.map((item) => item.AlertID)).toEqual([
-        'alert-1',
-        'alert-2',
-        'alert-3',
-        'alert-4',
-      ]);
-      expect(mockDocClient.send).toHaveBeenCalledTimes(3);
-
-      // 2回目・3回目のQueryにはExclusiveStartKeyとして前ページのLastEvaluatedKeyが渡される
-      const secondCall = mockDocClient.send.mock.calls[1][0] as {
-        input: { ExclusiveStartKey?: Record<string, unknown> };
-      };
-      const thirdCall = mockDocClient.send.mock.calls[2][0] as {
-        input: { ExclusiveStartKey?: Record<string, unknown> };
-      };
-      expect(secondCall.input.ExclusiveStartKey).toEqual({
-        PK: 'USER#user-123',
-        SK: 'ALERT#alert-2',
-      });
-      expect(thirdCall.input.ExclusiveStartKey).toEqual({
-        PK: 'USER#user-123',
-        SK: 'ALERT#alert-3',
-      });
-
-      // Limitは指定しない（DynamoDBの1MBページ単位でよい契約のため）
-      const firstCall = mockDocClient.send.mock.calls[0][0] as {
-        input: { Limit?: number };
-      };
-      expect(firstCall.input.Limit).toBeUndefined();
-    });
-
-    it('2ページ目のQueryでデータベースエラーが発生した場合もDatabaseErrorをスローする', async () => {
-      mockDocClient.send
-        .mockResolvedValueOnce({
-          Items: [],
-          Count: 0,
+          Items: [buildItem('alert-1')],
           LastEvaluatedKey: { PK: 'USER#user-123', SK: 'ALERT#alert-1' },
         })
         .mockRejectedValueOnce(new Error('Database connection failed'));
 
       await expect(repository.getByFrequency('MINUTE_LEVEL')).rejects.toThrow(DatabaseError);
-      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
+    });
+
+    it('無効なアラートデータをスキップし、バッチ全体は壊さずに有効なデータのみ返す', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Items: [buildItem('invalid-alert', { Subscription: undefined }), buildItem('alert-1')],
+        Count: 2,
+      });
+
+      const result = await repository.getByFrequency('MINUTE_LEVEL');
+
+      expect(result.map((alert) => alert.alertId)).toEqual(['alert-1']);
+      expect(logger.warn).toHaveBeenCalledWith(
+        '無効なアラートデータをスキップしました',
+        expect.objectContaining({ sk: 'ALERT#invalid-alert' })
+      );
+    });
+
+    it('mapper が InvalidEntityDataError 以外のエラーを投げても、バッチを壊さずにスキップする', async () => {
+      const spy = jest.spyOn(AlertMapper.prototype, 'toEntity').mockImplementationOnce(() => {
+        throw new TypeError('想定外のエラー');
+      });
+      mockDocClient.send.mockResolvedValueOnce({ Items: [buildItem('alert-1')], Count: 1 });
+
+      const result = await repository.getByFrequency('MINUTE_LEVEL');
+
+      expect(result).toEqual([]);
+      expect(logger.warn).toHaveBeenCalled();
+      spy.mockRestore();
     });
   });
 
   describe('update', () => {
-    it('アラートを更新できる', async () => {
-      const mockUpdatedItem = {
-        PK: 'USER#user-123',
-        SK: 'ALERT#alert-123',
-        Type: 'Alert',
-        GSI1PK: 'user-123',
-        GSI1SK: 'Alert#alert-123',
-        GSI2PK: 'ALERT#MINUTE_LEVEL',
-        GSI2SK: 'user-123#alert-123',
-        AlertID: 'alert-123',
-        UserID: 'user-123',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Buy',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: false,
-        ConditionList: [{ field: 'price', operator: 'lte', value: 140.0 }],
-        subscription: {
-          endpoint: 'https://example.com/push',
-          keys: {
-            p256dh: 'p256dh-key',
-            auth: 'auth-secret',
-          },
-        },
-        CreatedAt: 1704067200000,
-        UpdatedAt: 1704067300000,
-      };
-
+    it('アラートを更新し、更新後の Entity を返す', async () => {
       mockDocClient.send.mockResolvedValueOnce({
-        Attributes: mockUpdatedItem,
+        Attributes: buildItem('alert-1', { Enabled: false, UpdatedAt: NOW }),
       });
 
-      const result = await repository.update('user-123', 'alert-123', {
+      const result = await repository.update('user-123', 'alert-1', { enabled: false });
+
+      expect(result.enabled).toBe(false);
+      expect(result.updatedAt).toBe(NOW);
+      const command = mockDocClient.send.mock.calls[0][0] as UpdateCommand;
+      expect(command).toBeInstanceOf(UpdateCommand);
+      expect(command.input.Key).toEqual({ PK: 'USER#user-123', SK: 'ALERT#alert-1' });
+      expect(parseUpdateExpression(command.input).set).toEqual({
+        GSI1PK: 'user-123',
+        GSI1SK: 'Alert#alert-1',
+        GSI2SK: 'user-123#alert-1',
         Enabled: false,
-        ConditionList: [{ field: 'price', operator: 'lte', value: 140.0 }],
+        UpdatedAt: NOW,
       });
-
-      expect(result.Enabled).toBe(false);
-      expect(result.ConditionList[0].value).toBe(140.0);
-      expect(mockDocClient.send).toHaveBeenCalledTimes(1);
     });
 
-    it('カスタムメッセージを更新式に含めて更新できる', async () => {
-      const mockUpdatedItem = {
-        PK: 'USER#user-123',
-        SK: 'ALERT#alert-123',
-        Type: 'Alert',
-        GSI1PK: 'user-123',
-        GSI1SK: 'Alert#alert-123',
-        GSI2PK: 'ALERT#MINUTE_LEVEL',
-        GSI2SK: 'user-123#alert-123',
-        AlertID: 'alert-123',
-        UserID: 'user-123',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Buy',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [{ field: 'price', operator: 'lte', value: 140.0 }],
-        CustomMessage: '戦略メモ',
-        subscription: {
-          endpoint: 'https://example.com/push',
-          keys: {
-            p256dh: 'p256dh-key',
-            auth: 'auth-secret',
-          },
-        },
-        CreatedAt: 1704067200000,
-        UpdatedAt: 1704067300000,
-      };
-
+    it('logicalOperator を保存する', async () => {
       mockDocClient.send.mockResolvedValueOnce({
-        Attributes: mockUpdatedItem,
+        Attributes: buildItem('alert-1', { LogicalOperator: 'OR' }),
       });
 
-      await repository.update('user-123', 'alert-123', {
-        CustomMessage: '戦略メモ',
-      });
+      await repository.update('user-123', 'alert-1', { logicalOperator: 'OR' });
 
-      const command = mockDocClient.send.mock.calls[0]?.[0] as {
-        input: {
-          UpdateExpression: string;
-          ExpressionAttributeNames: Record<string, string>;
-          ExpressionAttributeValues: Record<string, unknown>;
-        };
-      };
-
-      const parsed = parseUpdateExpression(command.input);
-      expect(parsed.set).toMatchObject({ CustomMessage: '戦略メモ' });
-      expect(parsed.remove).toEqual([]);
+      const command = mockDocClient.send.mock.calls[0][0] as UpdateCommand;
+      expect(parseUpdateExpression(command.input).set).toMatchObject({ LogicalOperator: 'OR' });
     });
 
-    it('Frequency を更新するとGSI2PKも付け直し、UpdatedAtを付与する', async () => {
+    it('frequency を更新すると GSI2PK も付け直す', async () => {
       mockDocClient.send.mockResolvedValueOnce({
-        Attributes: {
-          PK: 'USER#user-123',
-          SK: 'ALERT#alert-123',
-          Type: 'Alert',
-          GSI1PK: 'user-123',
-          GSI1SK: 'Alert#alert-123',
-          GSI2PK: 'ALERT#HOURLY_LEVEL',
-          GSI2SK: 'user-123#alert-123',
-          AlertID: 'alert-123',
-          UserID: 'user-123',
-          TickerID: 'NSDQ:AAPL',
-          ExchangeID: 'NASDAQ',
-          Mode: 'Buy',
+        Attributes: buildItem('alert-1', {
           Frequency: 'HOURLY_LEVEL',
-          Enabled: true,
-          ConditionList: [{ field: 'price', operator: 'lte', value: 140.0 }],
-          subscription: { endpoint: 'https://example.com/push', keys: { p256dh: 'p', auth: 'a' } },
-          CreatedAt: 1704067200000,
-          UpdatedAt: 1704067300000,
-        },
+          GSI2PK: 'ALERT#HOURLY_LEVEL',
+        }),
       });
 
-      await repository.update('user-123', 'alert-123', { Frequency: 'HOURLY_LEVEL' });
+      await repository.update('user-123', 'alert-1', { frequency: 'HOURLY_LEVEL' });
 
-      const command = mockDocClient.send.mock.calls[0]?.[0] as {
-        input: Parameters<typeof parseUpdateExpression>[0];
-      };
-      const parsed = parseUpdateExpression(command.input);
-      expect(parsed.set).toMatchObject({
+      const command = mockDocClient.send.mock.calls[0][0] as UpdateCommand;
+      expect(parseUpdateExpression(command.input).set).toMatchObject({
         Frequency: 'HOURLY_LEVEL',
         GSI2PK: 'ALERT#HOURLY_LEVEL',
-        UpdatedAt: expect.any(Number),
       });
     });
 
-    it('更新フィールドがすべて undefined の場合は UpdatedAt のみ更新する', async () => {
-      mockDocClient.send.mockResolvedValueOnce({
-        Attributes: {
-          PK: 'USER#user-123',
-          SK: 'ALERT#alert-123',
-          Type: 'Alert',
-          GSI1PK: 'user-123',
-          GSI1SK: 'Alert#alert-123',
-          GSI2PK: 'ALERT#HOURLY_LEVEL',
-          GSI2SK: 'user-123#alert-123',
-          AlertID: 'alert-123',
-          UserID: 'user-123',
-          TickerID: 'NSDQ:AAPL',
-          ExchangeID: 'NASDAQ',
-          Mode: 'Buy',
-          Frequency: 'HOURLY_LEVEL',
-          Enabled: true,
-          ConditionList: [{ field: 'price', operator: 'lte', value: 140.0 }],
-          subscription: { endpoint: 'https://example.com/push', keys: { p256dh: 'p', auth: 'a' } },
-          CreatedAt: 1704067200000,
-          UpdatedAt: 1704067300000,
-        },
-      });
+    it('サブスクリプションを新属性名で書き、旧属性名を削除する', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Attributes: buildItem('alert-1') });
 
-      await repository.update('user-123', 'alert-123', { Enabled: undefined });
+      await repository.update('user-123', 'alert-1', { subscription: SUBSCRIPTION });
 
-      const command = mockDocClient.send.mock.calls[0]?.[0] as {
-        input: Parameters<typeof parseUpdateExpression>[0];
-      };
+      const command = mockDocClient.send.mock.calls[0][0] as UpdateCommand;
       const parsed = parseUpdateExpression(command.input);
-      expect(Object.keys(parsed.set)).toEqual(['UpdatedAt']);
-      expect(parsed.remove).toEqual([]);
+      expect(parsed.set).toMatchObject({ Subscription: SUBSCRIPTION });
+      expect(parsed.remove).toEqual(['subscription']);
     });
 
-    it('存在しないアラートを更新しようとするとEntityNotFoundErrorをスローする', async () => {
-      const conditionalCheckError = new Error('Conditional check failed');
-      conditionalCheckError.name = 'ConditionalCheckFailedException';
-      mockDocClient.send.mockRejectedValueOnce(conditionalCheckError);
+    it('null を渡した任意項目は属性を削除する', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Attributes: buildItem('alert-1') });
 
-      await expect(
-        repository.update('user-123', 'alert-notfound', { Enabled: false })
-      ).rejects.toThrow(EntityNotFoundError);
+      await repository.update('user-123', 'alert-1', {
+        customMessage: null,
+        temporaryExpireDate: null,
+        logicalOperator: null,
+      });
+
+      const command = mockDocClient.send.mock.calls[0][0] as UpdateCommand;
+      expect(parseUpdateExpression(command.input).remove).toEqual([
+        'TemporaryExpireDate',
+        'LogicalOperator',
+        'CustomMessage',
+      ]);
     });
 
-    it('更新するフィールドがない場合はDatabaseErrorをスローする', async () => {
-      await expect(repository.update('user-123', 'alert-123', {})).rejects.toThrow(DatabaseError);
-    });
-
-    it('更新するフィールドがない場合はエラーメッセージの接頭辞が二重にならない', async () => {
-      const error = await repository.update('user-123', 'alert-123', {}).catch((e: unknown) => e);
-
-      expect(error).toBeInstanceOf(DatabaseError);
-      const message = (error as DatabaseError).message;
-      expect(message).toContain('更新するフィールドが指定されていません');
-      expect(message.split('データベースエラーが発生しました').length - 1).toBe(1);
-    });
-
-    it('Error 以外が投げられた場合は文字列化して DatabaseError にする', async () => {
-      mockDocClient.send.mockRejectedValueOnce('文字列エラー');
-
-      const error = await repository
-        .update('user-123', 'alert-123', { Enabled: false })
-        .catch((e: unknown) => e);
-
-      expect(error).toBeInstanceOf(DatabaseError);
-      expect((error as DatabaseError).message).toContain('文字列エラー');
-    });
-
-    it('データベースエラー時にDatabaseErrorをスローする', async () => {
-      const dbError = new Error('Database connection failed');
-      mockDocClient.send.mockRejectedValueOnce(dbError);
-
-      await expect(repository.update('user-123', 'alert-123', { Enabled: false })).rejects.toThrow(
-        DatabaseError
-      );
-    });
-
-    it('複数のフィールドを同時に更新できる', async () => {
-      const mockUpdatedItem = {
-        PK: 'USER#user-123',
-        SK: 'ALERT#alert-123',
-        Type: 'Alert',
-        GSI1PK: 'user-123',
-        GSI1SK: 'Alert#alert-123',
-        GSI2PK: 'ALERT#HOURLY_LEVEL',
-        GSI2SK: 'user-123#alert-123',
-        AlertID: 'alert-123',
-        UserID: 'user-123',
-        TickerID: 'NSDQ:NVDA',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Sell',
-        Frequency: 'HOURLY_LEVEL',
-        Enabled: true,
-        ConditionList: [{ field: 'price', operator: 'gte', value: 500.0 }],
-        subscription: {
-          endpoint: 'https://new.example.com/push',
-          keys: {
-            p256dh: 'new-p256dh-key',
-            auth: 'new-auth-secret',
-          },
-        },
-        CreatedAt: 1704067200000,
-        UpdatedAt: 1704067400000,
-      };
-
+    it('変更が空でも更新日時だけを更新して成功する', async () => {
       mockDocClient.send.mockResolvedValueOnce({
-        Attributes: mockUpdatedItem,
+        Attributes: buildItem('alert-1', { UpdatedAt: NOW }),
       });
 
-      const result = await repository.update('user-123', 'alert-123', {
-        TickerID: 'NSDQ:NVDA',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Sell',
-        Frequency: 'HOURLY_LEVEL',
-        subscription: {
-          endpoint: 'https://new.example.com/push',
-          keys: {
-            p256dh: 'new-p256dh-key',
-            auth: 'new-auth-secret',
-          },
-        },
-      });
+      const result = await repository.update('user-123', 'alert-1', {});
 
-      expect(result.TickerID).toBe('NSDQ:NVDA');
-      expect(result.Mode).toBe('Sell');
-      expect(result.Frequency).toBe('HOURLY_LEVEL');
-      expect(result.subscription.endpoint).toBe('https://new.example.com/push');
-      expect(mockDocClient.send).toHaveBeenCalledTimes(1);
-    });
-
-    it('Attributesが存在しない場合はEntityNotFoundErrorをスローする', async () => {
-      mockDocClient.send.mockResolvedValueOnce({
-        Attributes: undefined,
-      });
-
-      await expect(repository.update('user-123', 'alert-123', { Enabled: false })).rejects.toThrow(
-        EntityNotFoundError
-      );
+      expect(result.updatedAt).toBe(NOW);
+      const command = mockDocClient.send.mock.calls[0][0] as UpdateCommand;
+      expect(parseUpdateExpression(command.input).set).toMatchObject({ UpdatedAt: NOW });
     });
   });
 
   describe('delete', () => {
-    it('アラートを削除できる', async () => {
+    it('ユーザーIDとアラートIDから組み立てたキーで削除する', async () => {
       mockDocClient.send.mockResolvedValueOnce({ $metadata: {} });
 
-      await repository.delete('user-123', 'alert-123');
+      await repository.delete('user-123', 'alert-1');
 
       expect(mockDocClient.send).toHaveBeenCalledTimes(1);
-    });
-
-    it('存在しないアラートを削除しようとするとEntityNotFoundErrorをスローする', async () => {
-      const conditionalCheckError = new Error('Conditional check failed');
-      conditionalCheckError.name = 'ConditionalCheckFailedException';
-      mockDocClient.send.mockRejectedValueOnce(conditionalCheckError);
-
-      await expect(repository.delete('user-123', 'alert-notfound')).rejects.toThrow(
-        EntityNotFoundError
-      );
-    });
-
-    it('データベースエラー時にDatabaseErrorをスローする', async () => {
-      const dbError = new Error('Database connection failed');
-      mockDocClient.send.mockRejectedValueOnce(dbError);
-
-      await expect(repository.delete('user-123', 'alert-123')).rejects.toThrow(DatabaseError);
+      const command = mockDocClient.send.mock.calls[0][0] as DeleteCommand;
+      expect(command).toBeInstanceOf(DeleteCommand);
+      expect(command.input.Key).toEqual({ PK: 'USER#user-123', SK: 'ALERT#alert-1' });
     });
   });
 
   describe('getTemporaryCandidatesByFrequency', () => {
-    it('Temporary かつ Enabled な候補を軽量エンティティで返す', async () => {
-      const mockItems = [
-        {
-          PK: 'USER#user-1',
-          SK: 'ALERT#alert-1',
-          AlertID: 'alert-1',
-          UserID: 'user-1',
-          ExchangeID: 'NASDAQ',
-          Frequency: 'MINUTE_LEVEL',
-          Enabled: true,
-          Temporary: true,
-          TemporaryExpireDate: '2026-03-04',
-        },
-      ];
+    const candidateItem = {
+      PK: 'USER#user-1',
+      SK: 'ALERT#alert-1',
+      AlertID: 'alert-1',
+      UserID: 'user-1',
+      ExchangeID: 'NASDAQ',
+      Frequency: 'MINUTE_LEVEL',
+      Enabled: true,
+      Temporary: true,
+      TemporaryExpireDate: '2026-03-04',
+    };
 
-      mockDocClient.send.mockResolvedValueOnce({ Items: mockItems, Count: 1 });
+    it('Temporary かつ Enabled な候補を軽量エンティティで返す', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Items: [candidateItem], Count: 1 });
 
       const result = await repository.getTemporaryCandidatesByFrequency('MINUTE_LEVEL');
 
-      expect(result.items).toHaveLength(1);
-      expect(result.items[0]).toMatchObject({
-        AlertID: 'alert-1',
-        UserID: 'user-1',
-        ExchangeID: 'NASDAQ',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        Temporary: true,
-        TemporaryExpireDate: '2026-03-04',
-      });
+      expect(result.items).toEqual([
+        {
+          alertId: 'alert-1',
+          userId: 'user-1',
+          exchangeId: 'NASDAQ',
+          frequency: 'MINUTE_LEVEL',
+          enabled: true,
+          temporary: true,
+          temporaryExpireDate: '2026-03-04',
+        },
+      ]);
     });
 
     it('Query には Temporary=true AND TTL 未設定 の FilterExpression と ProjectionExpression が指定される', async () => {
@@ -1111,42 +534,28 @@ describe('DynamoDBAlertRepository', () => {
 
       await repository.getTemporaryCandidatesByFrequency('HOURLY_LEVEL');
 
-      const sendCall = mockDocClient.send.mock.calls[0][0] as {
-        input: {
-          FilterExpression?: string;
-          ProjectionExpression?: string;
-          ExpressionAttributeNames?: Record<string, string>;
-          ExpressionAttributeValues?: Record<string, unknown>;
-        };
-      };
-      expect(sendCall.input.FilterExpression).toBe(
+      const command = mockDocClient.send.mock.calls[0][0] as QueryCommand;
+      expect(command.input.FilterExpression).toBe(
         '#temporary = :true AND attribute_not_exists(#ttl)'
       );
-      expect(sendCall.input.ExpressionAttributeNames?.['#ttl']).toBe('TTL');
-      expect(sendCall.input.ProjectionExpression).toContain('#alertId');
-      // subscription 関連の属性は ProjectionExpression に含めない
-      expect(sendCall.input.ProjectionExpression).not.toContain('subscription');
-      expect(sendCall.input.ExpressionAttributeValues?.[':true']).toBe(true);
+      expect(command.input.ExpressionAttributeNames?.['#ttl']).toBe('TTL');
+      expect(command.input.ExpressionAttributeValues).toEqual({
+        ':pk': 'ALERT#HOURLY_LEVEL',
+        ':true': true,
+      });
+      // 失効判定に不要なサブスクリプションは、新旧どちらの属性名も射影しない
+      const projectedNames = Object.values(command.input.ExpressionAttributeNames ?? {}).map(
+        (name) => name.toLowerCase()
+      );
+      expect(projectedNames).not.toContain('subscription');
+      expect(command.input.ProjectionExpression).toContain('#alertId');
     });
 
-    it('subscription を含む不正データでも例外を投げず、必要属性さえ揃っていれば返す', async () => {
-      const mockItems = [
-        {
-          PK: 'USER#user-1',
-          SK: 'ALERT#alert-1',
-          AlertID: 'alert-1',
-          UserID: 'user-1',
-          ExchangeID: 'NASDAQ',
-          Frequency: 'MINUTE_LEVEL',
-          Enabled: true,
-          Temporary: true,
-          TemporaryExpireDate: '2026-03-04',
-          // subscription が無効でも軽量取得経路では参照しない
-          subscription: undefined,
-        },
-      ];
-
-      mockDocClient.send.mockResolvedValueOnce({ Items: mockItems, Count: 1 });
+    it('サブスクリプションが壊れていても、必要属性さえ揃っていれば返す', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Items: [{ ...candidateItem, Subscription: 'broken' }],
+        Count: 1,
+      });
 
       const result = await repository.getTemporaryCandidatesByFrequency('MINUTE_LEVEL');
 
@@ -1154,32 +563,48 @@ describe('DynamoDBAlertRepository', () => {
     });
 
     it('必須属性が欠損したアイテムはスキップして警告ログを出す', async () => {
-      const mockItems = [
-        {
-          PK: 'USER#user-1',
-          SK: 'ALERT#alert-broken',
-          // AlertID が欠損
-          UserID: 'user-1',
-          ExchangeID: 'NASDAQ',
-          Frequency: 'MINUTE_LEVEL',
-          Enabled: true,
-          Temporary: true,
-          TemporaryExpireDate: '2026-03-04',
-        },
-      ];
-
-      mockDocClient.send.mockResolvedValueOnce({ Items: mockItems, Count: 1 });
+      const { AlertID: _alertId, ...broken } = candidateItem;
+      void _alertId;
+      mockDocClient.send.mockResolvedValueOnce({ Items: [broken], Count: 1 });
 
       const result = await repository.getTemporaryCandidatesByFrequency('MINUTE_LEVEL');
 
       expect(result.items).toHaveLength(0);
       expect(logger.warn).toHaveBeenCalledWith(
         '無効な一時アラート候補をスキップしました',
-        expect.objectContaining({ pk: 'USER#user-1', sk: 'ALERT#alert-broken' })
+        expect.objectContaining({ pk: 'USER#user-1', sk: 'ALERT#alert-1' })
       );
     });
 
-    it('データベースエラー時にDatabaseErrorをスローする', async () => {
+    it('limit と cursor を Query に渡し、LastEvaluatedKey を nextCursor として返す', async () => {
+      const lastEvaluatedKey = { PK: 'USER#user-1', SK: 'ALERT#alert-1' };
+      mockDocClient.send.mockResolvedValueOnce({
+        Items: [candidateItem],
+        Count: 1,
+        LastEvaluatedKey: lastEvaluatedKey,
+      });
+
+      const result = await repository.getTemporaryCandidatesByFrequency('MINUTE_LEVEL', {
+        limit: 10,
+      });
+
+      expect(result.nextCursor).toBe(
+        Buffer.from(JSON.stringify(lastEvaluatedKey)).toString('base64')
+      );
+      const command = mockDocClient.send.mock.calls[0][0] as QueryCommand;
+      expect(command.input.Limit).toBe(10);
+    });
+
+    it('limit 未指定時は既定の 50 件を Limit に指定する', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Items: [], Count: 0 });
+
+      await repository.getTemporaryCandidatesByFrequency('MINUTE_LEVEL');
+
+      const command = mockDocClient.send.mock.calls[0][0] as QueryCommand;
+      expect(command.input.Limit).toBe(50);
+    });
+
+    it('データベースエラー時に DatabaseError をスローする', async () => {
       mockDocClient.send.mockRejectedValueOnce(new Error('DB down'));
 
       await expect(repository.getTemporaryCandidatesByFrequency('MINUTE_LEVEL')).rejects.toThrow(
@@ -1189,44 +614,45 @@ describe('DynamoDBAlertRepository', () => {
   });
 
   describe('markTemporaryAsExpired', () => {
-    it('Enabled=false, TTL, UpdatedAt を SET する UpdateItem を送信する', async () => {
-      mockDocClient.send.mockResolvedValueOnce({ $metadata: {} });
+    it('Enabled=false と TTL (エポック秒) を、サブスクリプションに触れずに SET する', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Attributes: buildItem('alert-1', { Enabled: false, TTL: 1704067200 }),
+      });
 
-      await repository.markTemporaryAsExpired('user-1', 'alert-1', 1234567890);
+      await repository.markTemporaryAsExpired('user-123', 'alert-1', 1704067200999);
 
-      const sendCall = mockDocClient.send.mock.calls[0][0] as {
-        input: {
-          UpdateExpression?: string;
-          ExpressionAttributeNames?: Record<string, string>;
-          ExpressionAttributeValues?: Record<string, unknown>;
-          ConditionExpression?: string;
-          Key?: Record<string, unknown>;
-        };
-      };
-      expect(sendCall.input.UpdateExpression).toBe(
-        'SET #enabled = :enabled, #ttl = :ttl, #updatedAt = :updatedAt'
-      );
-      expect(sendCall.input.ExpressionAttributeNames?.['#ttl']).toBe('TTL');
-      expect(sendCall.input.ExpressionAttributeValues?.[':enabled']).toBe(false);
-      expect(sendCall.input.ExpressionAttributeValues?.[':ttl']).toBe(1234567890);
-      expect(sendCall.input.ConditionExpression).toBe('attribute_exists(PK)');
-      expect(sendCall.input.Key).toEqual({ PK: 'USER#user-1', SK: 'ALERT#alert-1' });
+      expect(mockDocClient.send).toHaveBeenCalledTimes(1);
+      const command = mockDocClient.send.mock.calls[0][0] as UpdateCommand;
+      expect(command).toBeInstanceOf(UpdateCommand);
+      expect(command.input.Key).toEqual({ PK: 'USER#user-123', SK: 'ALERT#alert-1' });
+      const parsed = parseUpdateExpression(command.input);
+      expect(parsed.set).toMatchObject({ Enabled: false, TTL: 1704067200, UpdatedAt: NOW });
+      expect(Object.keys(parsed.set)).not.toContain('Subscription');
+      expect(parsed.remove).toEqual([]);
     });
 
     it('対象アラートが存在しない場合は EntityNotFoundError', async () => {
-      const conditionalCheckError = new Error('Conditional check failed');
-      conditionalCheckError.name = 'ConditionalCheckFailedException';
-      mockDocClient.send.mockRejectedValueOnce(conditionalCheckError);
+      mockDocClient.send.mockRejectedValueOnce(conditionalCheckFailed());
 
-      await expect(repository.markTemporaryAsExpired('user-1', 'alert-missing', 1)).rejects.toThrow(
-        EntityNotFoundError
-      );
+      await expect(
+        repository.markTemporaryAsExpired('user-123', 'alert-missing', 1)
+      ).rejects.toThrow(EntityNotFoundError);
+    });
+
+    it('更新後の Entity への変換がサブスクリプションの不正で失敗しても、例外にしない', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Attributes: buildItem('alert-1', { Subscription: 'broken' }),
+      });
+
+      await expect(
+        repository.markTemporaryAsExpired('user-123', 'alert-1', 1704067200999)
+      ).resolves.toBeUndefined();
     });
 
     it('その他のエラーは DatabaseError にラップされる', async () => {
       mockDocClient.send.mockRejectedValueOnce(new Error('boom'));
 
-      await expect(repository.markTemporaryAsExpired('user-1', 'alert-1', 1)).rejects.toThrow(
+      await expect(repository.markTemporaryAsExpired('user-123', 'alert-1', 1)).rejects.toThrow(
         DatabaseError
       );
     });

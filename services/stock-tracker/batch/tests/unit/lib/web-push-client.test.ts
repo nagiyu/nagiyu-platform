@@ -14,14 +14,14 @@ describe('web-push-client', () => {
 
     // Mock alert
     mockAlert = {
-      AlertID: 'alert-1',
-      UserID: 'user-1',
-      TickerID: 'NSDQ:AAPL',
-      ExchangeID: 'NASDAQ',
-      Mode: 'Sell',
-      Frequency: 'MINUTE_LEVEL',
-      Enabled: true,
-      ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
+      alertId: 'alert-1',
+      userId: 'user-1',
+      tickerId: 'NSDQ:AAPL',
+      exchangeId: 'NASDAQ',
+      mode: 'Sell',
+      frequency: 'MINUTE_LEVEL',
+      enabled: true,
+      conditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
       subscription: {
         endpoint: 'https://fcm.googleapis.com/fcm/send/test',
         keys: {
@@ -29,8 +29,8 @@ describe('web-push-client', () => {
           auth: 'test-auth',
         },
       },
-      CreatedAt: Date.now(),
-      UpdatedAt: Date.now(),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     };
   });
 
@@ -63,8 +63,8 @@ describe('web-push-client', () => {
       // Arrange
       const buyAlert: Alert = {
         ...mockAlert,
-        Mode: 'Buy',
-        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+        mode: 'Buy',
+        conditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
       };
       const currentPrice = 145.25;
 
@@ -93,7 +93,7 @@ describe('web-push-client', () => {
       const currentPrice = 123.456;
       const alert: Alert = {
         ...mockAlert,
-        ConditionList: [{ field: 'price', operator: 'gte', value: 123.45 }],
+        conditionList: [{ field: 'price', operator: 'gte', value: 123.45 }],
       };
 
       // Act
@@ -108,11 +108,11 @@ describe('web-push-client', () => {
       // Arrange
       const rangeAlert: Alert = {
         ...mockAlert,
-        ConditionList: [
+        conditionList: [
           { field: 'price', operator: 'gte', value: 100.0 },
           { field: 'price', operator: 'lte', value: 110.0 },
         ],
-        LogicalOperator: 'AND',
+        logicalOperator: 'AND',
       };
       const currentPrice = 105.0;
 
@@ -140,11 +140,11 @@ describe('web-push-client', () => {
       // Arrange
       const rangeAlert: Alert = {
         ...mockAlert,
-        ConditionList: [
+        conditionList: [
           { field: 'price', operator: 'lte', value: 90.0 },
           { field: 'price', operator: 'gte', value: 120.0 },
         ],
-        LogicalOperator: 'OR',
+        logicalOperator: 'OR',
       };
       const currentPrice = 85.0;
 
@@ -172,11 +172,11 @@ describe('web-push-client', () => {
       // Arrange
       const invalidAlert: Alert = {
         ...mockAlert,
-        ConditionList: [
+        conditionList: [
           { field: 'price', operator: 'lte', value: 100.0 },
           { field: 'price', operator: 'lte', value: 110.0 },
         ],
-        LogicalOperator: 'AND',
+        logicalOperator: 'AND',
       };
       const currentPrice = 105.0;
 
@@ -190,11 +190,11 @@ describe('web-push-client', () => {
       // Arrange
       const invalidAlert: Alert = {
         ...mockAlert,
-        ConditionList: [
+        conditionList: [
           { field: 'price', operator: 'gte', value: 100.0 },
           { field: 'price', operator: 'gte', value: 110.0 },
         ],
-        LogicalOperator: 'AND',
+        logicalOperator: 'AND',
       };
       const currentPrice = 105.0;
 
@@ -208,11 +208,11 @@ describe('web-push-client', () => {
       // Arrange
       const alertWithoutOperator: Alert = {
         ...mockAlert,
-        ConditionList: [
+        conditionList: [
           { field: 'price', operator: 'gte', value: 100.0 },
           { field: 'price', operator: 'lte', value: 110.0 },
         ],
-        LogicalOperator: undefined,
+        logicalOperator: undefined,
       };
       const currentPrice = 105.0;
 
@@ -240,7 +240,7 @@ describe('web-push-client', () => {
       // Arrange
       const customAlert: Alert = {
         ...mockAlert,
-        CustomMessage: '戦略メモ: ブレイクアウト狙い',
+        customMessage: '戦略メモ: ブレイクアウト狙い',
       };
       const currentPrice = 205.5;
 
@@ -270,11 +270,11 @@ describe('web-push-client', () => {
       // Arrange
       const invalidAlert: Alert = {
         ...mockAlert,
-        ConditionList: [
+        conditionList: [
           { field: 'price', operator: 'gte', value: 100.0 },
           { field: 'price', operator: 'lte', value: 110.0 },
         ],
-        LogicalOperator: 'INVALID' as 'AND' | 'OR',
+        logicalOperator: 'INVALID' as 'AND' | 'OR',
       };
       const currentPrice = 105.0;
 
@@ -288,7 +288,7 @@ describe('web-push-client', () => {
       // Arrange
       const invalidAlert: Alert = {
         ...mockAlert,
-        ConditionList: [],
+        conditionList: [],
       };
       const currentPrice = 105.0;
 
@@ -302,12 +302,12 @@ describe('web-push-client', () => {
       // Arrange
       const invalidAlert: Alert = {
         ...mockAlert,
-        ConditionList: [
+        conditionList: [
           { field: 'price', operator: 'gte', value: 100.0 },
           { field: 'price', operator: 'lte', value: 110.0 },
           { field: 'price', operator: 'gte', value: 120.0 },
         ],
-        LogicalOperator: 'AND',
+        logicalOperator: 'AND',
       };
       const currentPrice = 105.0;
 

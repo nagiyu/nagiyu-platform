@@ -15,7 +15,7 @@ import {
   validateTickerCreateData,
   validateTickerUpdateData,
 } from '../../../src/validation';
-import type { Alert } from '../../../src/types';
+import type { AlertEntity } from '../../../src/entities/alert.entity';
 import type { HoldingEntity } from '../../../src/entities/holding.entity';
 import type { ExchangeEntity } from '../../../src/entities/exchange.entity';
 import type { TickerEntity } from '../../../src/entities/ticker.entity';
@@ -664,15 +664,15 @@ describe('validateHolding', () => {
 });
 
 describe('validateAlert', () => {
-  const validAlert: Alert = {
-    AlertID: '550e8400-e29b-41d4-a716-446655440000',
-    UserID: 'user-123',
-    TickerID: 'NSDQ:AAPL',
-    ExchangeID: 'NASDAQ',
-    Mode: 'Sell',
-    Frequency: 'MINUTE_LEVEL',
-    Enabled: true,
-    ConditionList: [
+  const validAlert: AlertEntity = {
+    alertId: '550e8400-e29b-41d4-a716-446655440000',
+    userId: 'user-123',
+    tickerId: 'NSDQ:AAPL',
+    exchangeId: 'NASDAQ',
+    mode: 'Sell',
+    frequency: 'MINUTE_LEVEL',
+    enabled: true,
+    conditionList: [
       {
         field: 'price',
         operator: 'gte',
@@ -686,8 +686,8 @@ describe('validateAlert', () => {
         auth: 'Abc...',
       },
     },
-    CreatedAt: Date.now(),
-    UpdatedAt: Date.now(),
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
   };
 
   describe('正常系', () => {
@@ -698,45 +698,45 @@ describe('validateAlert', () => {
     });
 
     it('Mode="Buy"でもバリデーションに成功する', () => {
-      const alert: Alert = { ...validAlert, Mode: 'Buy' };
+      const alert: AlertEntity = { ...validAlert, mode: 'Buy' };
       const result = validateAlert(alert);
       expect(result.valid).toBe(true);
     });
 
     it('Frequency="HOURLY_LEVEL"でもバリデーションに成功する', () => {
-      const alert: Alert = { ...validAlert, Frequency: 'HOURLY_LEVEL' };
+      const alert: AlertEntity = { ...validAlert, frequency: 'HOURLY_LEVEL' };
       const result = validateAlert(alert);
       expect(result.valid).toBe(true);
     });
 
     it('Enabled=falseでもバリデーションに成功する', () => {
-      const alert: Alert = { ...validAlert, Enabled: false };
+      const alert: AlertEntity = { ...validAlert, enabled: false };
       const result = validateAlert(alert);
       expect(result.valid).toBe(true);
     });
 
     it('operator="lte"でもバリデーションに成功する', () => {
-      const alert: Alert = {
+      const alert: AlertEntity = {
         ...validAlert,
-        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+        conditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
       };
       const result = validateAlert(alert);
       expect(result.valid).toBe(true);
     });
 
     it('条件値が0.01でもバリデーションに成功する', () => {
-      const alert: Alert = {
+      const alert: AlertEntity = {
         ...validAlert,
-        ConditionList: [{ field: 'price', operator: 'gte', value: 0.01 }],
+        conditionList: [{ field: 'price', operator: 'gte', value: 0.01 }],
       };
       const result = validateAlert(alert);
       expect(result.valid).toBe(true);
     });
 
     it('条件値が1,000,000でもバリデーションに成功する', () => {
-      const alert: Alert = {
+      const alert: AlertEntity = {
         ...validAlert,
-        ConditionList: [{ field: 'price', operator: 'gte', value: 1_000_000 }],
+        conditionList: [{ field: 'price', operator: 'gte', value: 1_000_000 }],
       };
       const result = validateAlert(alert);
       expect(result.valid).toBe(true);
@@ -762,53 +762,53 @@ describe('validateAlert', () => {
       expect(result.errors).toContain('アラートデータが不正です');
     });
 
-    it('AlertIDが空文字の場合はバリデーションに失敗する', () => {
-      const alert: Alert = { ...validAlert, AlertID: '' };
+    it('alertIdが空文字の場合はバリデーションに失敗する', () => {
+      const alert: AlertEntity = { ...validAlert, alertId: '' };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('アラートIDは必須です');
     });
 
-    it('AlertIDがUUID v4形式でない場合はバリデーションに失敗する', () => {
-      const alert: Alert = {
+    it('alertIdがUUID v4形式でない場合はバリデーションに失敗する', () => {
+      const alert: AlertEntity = {
         ...validAlert,
-        AlertID: '550e8400-e29b-31d4-a716-446655440000',
+        alertId: '550e8400-e29b-31d4-a716-446655440000',
       }; // v3
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('アラートIDはUUID v4形式で入力してください');
     });
 
-    it('UserIDが空文字の場合はバリデーションに失敗する', () => {
-      const alert: Alert = { ...validAlert, UserID: '' };
+    it('userIdが空文字の場合はバリデーションに失敗する', () => {
+      const alert: AlertEntity = { ...validAlert, userId: '' };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('ユーザーIDは必須です');
     });
 
-    it('TickerIDが空文字の場合はバリデーションに失敗する', () => {
-      const alert: Alert = { ...validAlert, TickerID: '' };
+    it('tickerIdが空文字の場合はバリデーションに失敗する', () => {
+      const alert: AlertEntity = { ...validAlert, tickerId: '' };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('ティッカーIDは必須です');
     });
 
-    it('ExchangeIDが空文字の場合はバリデーションに失敗する', () => {
-      const alert: Alert = { ...validAlert, ExchangeID: '' };
+    it('exchangeIdが空文字の場合はバリデーションに失敗する', () => {
+      const alert: AlertEntity = { ...validAlert, exchangeId: '' };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('取引所IDは必須です');
     });
 
     it('Modeが不正な値の場合はバリデーションに失敗する', () => {
-      const alert = { ...validAlert, Mode: 'Hold' };
+      const alert = { ...validAlert, mode: 'Hold' };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('モードは"Buy"または"Sell"を指定してください');
     });
 
     it('Frequencyが不正な値の場合はバリデーションに失敗する', () => {
-      const alert = { ...validAlert, Frequency: 'DAILY_LEVEL' };
+      const alert = { ...validAlert, frequency: 'DAILY_LEVEL' };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
@@ -816,17 +816,17 @@ describe('validateAlert', () => {
       );
     });
 
-    it('ConditionListが空配列の場合はバリデーションに失敗する', () => {
-      const alert: Alert = { ...validAlert, ConditionList: [] };
+    it('conditionListが空配列の場合はバリデーションに失敗する', () => {
+      const alert: AlertEntity = { ...validAlert, conditionList: [] };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('アラート条件は1つ以上指定してください');
     });
 
-    it('ConditionListが2つ以上でLogicalOperatorがない場合はバリデーションに失敗する', () => {
-      const alert: Alert = {
+    it('conditionListが2つ以上でLogicalOperatorがない場合はバリデーションに失敗する', () => {
+      const alert: AlertEntity = {
         ...validAlert,
-        ConditionList: [
+        conditionList: [
           { field: 'price', operator: 'gte', value: 200.0 },
           { field: 'price', operator: 'lte', value: 100.0 },
         ],
@@ -839,7 +839,7 @@ describe('validateAlert', () => {
     it('条件のfieldが"price"以外の場合はバリデーションに失敗する', () => {
       const alert = {
         ...validAlert,
-        ConditionList: [{ field: 'volume', operator: 'gte', value: 200.0 }],
+        conditionList: [{ field: 'volume', operator: 'gte', value: 200.0 }],
       };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
@@ -849,7 +849,7 @@ describe('validateAlert', () => {
     it('条件のoperatorが"eq"の場合はバリデーションに失敗する', () => {
       const alert = {
         ...validAlert,
-        ConditionList: [{ field: 'price', operator: 'eq', value: 200.0 }],
+        conditionList: [{ field: 'price', operator: 'eq', value: 200.0 }],
       };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
@@ -857,9 +857,9 @@ describe('validateAlert', () => {
     });
 
     it('条件値が0.009の場合はバリデーションに失敗する', () => {
-      const alert: Alert = {
+      const alert: AlertEntity = {
         ...validAlert,
-        ConditionList: [{ field: 'price', operator: 'gte', value: 0.009 }],
+        conditionList: [{ field: 'price', operator: 'gte', value: 0.009 }],
       };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
@@ -867,9 +867,9 @@ describe('validateAlert', () => {
     });
 
     it('条件値が1,000,001の場合はバリデーションに失敗する', () => {
-      const alert: Alert = {
+      const alert: AlertEntity = {
         ...validAlert,
-        ConditionList: [{ field: 'price', operator: 'gte', value: 1_000_001 }],
+        conditionList: [{ field: 'price', operator: 'gte', value: 1_000_001 }],
       };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
@@ -877,7 +877,7 @@ describe('validateAlert', () => {
     });
 
     it('subscription.endpointが空文字の場合はバリデーションに失敗する', () => {
-      const alert: Alert = {
+      const alert: AlertEntity = {
         ...validAlert,
         subscription: { ...validAlert.subscription, endpoint: '' },
       };
@@ -887,7 +887,7 @@ describe('validateAlert', () => {
     });
 
     it('subscription.keys.p256dhが空文字の場合はバリデーションに失敗する', () => {
-      const alert: Alert = {
+      const alert: AlertEntity = {
         ...validAlert,
         subscription: {
           ...validAlert.subscription,
@@ -900,7 +900,7 @@ describe('validateAlert', () => {
     });
 
     it('subscription.keys.authが空文字の場合はバリデーションに失敗する', () => {
-      const alert: Alert = {
+      const alert: AlertEntity = {
         ...validAlert,
         subscription: {
           ...validAlert.subscription,
@@ -912,8 +912,8 @@ describe('validateAlert', () => {
       expect(result.errors).toContain('Web Push認証シークレットは必須です');
     });
 
-    it('CustomMessageが501文字の場合はバリデーションに失敗する', () => {
-      const alert: Alert = { ...validAlert, CustomMessage: 'a'.repeat(501) };
+    it('customMessageが501文字の場合はバリデーションに失敗する', () => {
+      const alert: AlertEntity = { ...validAlert, customMessage: 'a'.repeat(501) };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('カスタムメッセージは500文字以内で入力してください');
@@ -922,18 +922,18 @@ describe('validateAlert', () => {
 
   describe('境界値テスト', () => {
     it('条件値が境界値の下限（0.01）でバリデーションに成功する', () => {
-      const alert: Alert = {
+      const alert: AlertEntity = {
         ...validAlert,
-        ConditionList: [{ field: 'price', operator: 'gte', value: 0.01 }],
+        conditionList: [{ field: 'price', operator: 'gte', value: 0.01 }],
       };
       const result = validateAlert(alert);
       expect(result.valid).toBe(true);
     });
 
     it('条件値が境界値の上限（1,000,000）でバリデーションに成功する', () => {
-      const alert: Alert = {
+      const alert: AlertEntity = {
         ...validAlert,
-        ConditionList: [{ field: 'price', operator: 'gte', value: 1_000_000 }],
+        conditionList: [{ field: 'price', operator: 'gte', value: 1_000_000 }],
       };
       const result = validateAlert(alert);
       expect(result.valid).toBe(true);
@@ -941,20 +941,20 @@ describe('validateAlert', () => {
   });
 
   describe('無効なタイムスタンプのテスト', () => {
-    it('CreatedAtが無効な値の場合はバリデーションに失敗する', () => {
+    it('createdAtが無効な値の場合はバリデーションに失敗する', () => {
       const alert = {
         ...validAlert,
-        CreatedAt: 'invalid' as unknown,
+        createdAt: 'invalid' as unknown,
       };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('作成日時が無効です');
     });
 
-    it('UpdatedAtが無効な値の場合はバリデーションに失敗する', () => {
+    it('updatedAtが無効な値の場合はバリデーションに失敗する', () => {
       const alert = {
         ...validAlert,
-        UpdatedAt: 'invalid' as unknown,
+        updatedAt: 'invalid' as unknown,
       };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
@@ -965,10 +965,10 @@ describe('validateAlert', () => {
   describe('2条件のバリデーション', () => {
     describe('正常系', () => {
       it('範囲内アラート(AND): 有効な2条件でバリデーションに成功する', () => {
-        const alert: Alert = {
+        const alert: AlertEntity = {
           ...validAlert,
-          LogicalOperator: 'AND',
-          ConditionList: [
+          logicalOperator: 'AND',
+          conditionList: [
             { field: 'price', operator: 'gte', value: 100.0 },
             { field: 'price', operator: 'lte', value: 200.0 },
           ],
@@ -979,10 +979,10 @@ describe('validateAlert', () => {
       });
 
       it('範囲外アラート(OR): 有効な2条件でバリデーションに成功する', () => {
-        const alert: Alert = {
+        const alert: AlertEntity = {
           ...validAlert,
-          LogicalOperator: 'OR',
-          ConditionList: [
+          logicalOperator: 'OR',
+          conditionList: [
             { field: 'price', operator: 'lte', value: 90.0 },
             { field: 'price', operator: 'gte', value: 120.0 },
           ],
@@ -993,10 +993,10 @@ describe('validateAlert', () => {
       });
 
       it('範囲内アラート(AND): 条件の順序が逆でもバリデーションに成功する', () => {
-        const alert: Alert = {
+        const alert: AlertEntity = {
           ...validAlert,
-          LogicalOperator: 'AND',
-          ConditionList: [
+          logicalOperator: 'AND',
+          conditionList: [
             { field: 'price', operator: 'lte', value: 200.0 },
             { field: 'price', operator: 'gte', value: 100.0 },
           ],
@@ -1007,10 +1007,10 @@ describe('validateAlert', () => {
       });
 
       it('範囲内アラート(AND): 境界値ぎりぎりでバリデーションに成功する', () => {
-        const alert: Alert = {
+        const alert: AlertEntity = {
           ...validAlert,
-          LogicalOperator: 'AND',
-          ConditionList: [
+          logicalOperator: 'AND',
+          conditionList: [
             { field: 'price', operator: 'gte', value: 100.0 },
             { field: 'price', operator: 'lte', value: 100.01 },
           ],
@@ -1021,12 +1021,12 @@ describe('validateAlert', () => {
       });
     });
 
-    describe('LogicalOperatorのバリデーション', () => {
+    describe('logicalOperatorのバリデーション', () => {
       it('2条件の場合にLogicalOperatorが未定義だとバリデーションに失敗する', () => {
         const alert = {
           ...validAlert,
-          LogicalOperator: undefined,
-          ConditionList: [
+          logicalOperator: undefined,
+          conditionList: [
             { field: 'price', operator: 'gte', value: 100.0 },
             { field: 'price', operator: 'lte', value: 200.0 },
           ],
@@ -1039,8 +1039,8 @@ describe('validateAlert', () => {
       it('2条件の場合にLogicalOperatorが不正な値だとバリデーションに失敗する', () => {
         const alert = {
           ...validAlert,
-          LogicalOperator: 'XOR' as unknown as 'AND' | 'OR',
-          ConditionList: [
+          logicalOperator: 'XOR' as unknown as 'AND' | 'OR',
+          conditionList: [
             { field: 'price', operator: 'gte', value: 100.0 },
             { field: 'price', operator: 'lte', value: 200.0 },
           ],
@@ -1051,10 +1051,10 @@ describe('validateAlert', () => {
       });
 
       it('単一条件の場合にLogicalOperatorが設定されているとバリデーションに失敗する', () => {
-        const alert: Alert = {
+        const alert: AlertEntity = {
           ...validAlert,
-          LogicalOperator: 'AND',
-          ConditionList: [{ field: 'price', operator: 'gte', value: 100.0 }],
+          logicalOperator: 'AND',
+          conditionList: [{ field: 'price', operator: 'gte', value: 100.0 }],
         };
         const result = validateAlert(alert);
         expect(result.valid).toBe(false);
@@ -1064,10 +1064,10 @@ describe('validateAlert', () => {
 
     describe('operator組み合わせのバリデーション', () => {
       it('同じoperator(gte)が重複するとバリデーションに失敗する', () => {
-        const alert: Alert = {
+        const alert: AlertEntity = {
           ...validAlert,
-          LogicalOperator: 'AND',
-          ConditionList: [
+          logicalOperator: 'AND',
+          conditionList: [
             { field: 'price', operator: 'gte', value: 100.0 },
             { field: 'price', operator: 'gte', value: 200.0 },
           ],
@@ -1078,10 +1078,10 @@ describe('validateAlert', () => {
       });
 
       it('同じoperator(lte)が重複するとバリデーションに失敗する', () => {
-        const alert: Alert = {
+        const alert: AlertEntity = {
           ...validAlert,
-          LogicalOperator: 'OR',
-          ConditionList: [
+          logicalOperator: 'OR',
+          conditionList: [
             { field: 'price', operator: 'lte', value: 100.0 },
             { field: 'price', operator: 'lte', value: 200.0 },
           ],
@@ -1094,8 +1094,8 @@ describe('validateAlert', () => {
       it('2条件の場合、一方がgte、もう一方がlteでない組み合わせは失敗する', () => {
         const alert = {
           ...validAlert,
-          LogicalOperator: 'AND' as const,
-          ConditionList: [
+          logicalOperator: 'AND' as const,
+          conditionList: [
             { field: 'price', operator: 'gte' as const, value: 100.0 },
             { field: 'price', operator: 'gte' as const, value: 200.0 },
           ],
@@ -1108,10 +1108,10 @@ describe('validateAlert', () => {
 
     describe('範囲の妥当性チェック', () => {
       it('範囲内アラート(AND): 下限 >= 上限の場合バリデーションに失敗する', () => {
-        const alert: Alert = {
+        const alert: AlertEntity = {
           ...validAlert,
-          LogicalOperator: 'AND',
-          ConditionList: [
+          logicalOperator: 'AND',
+          conditionList: [
             { field: 'price', operator: 'gte', value: 200.0 },
             { field: 'price', operator: 'lte', value: 200.0 },
           ],
@@ -1124,10 +1124,10 @@ describe('validateAlert', () => {
       });
 
       it('範囲内アラート(AND): 下限 > 上限の場合バリデーションに失敗する', () => {
-        const alert: Alert = {
+        const alert: AlertEntity = {
           ...validAlert,
-          LogicalOperator: 'AND',
-          ConditionList: [
+          logicalOperator: 'AND',
+          conditionList: [
             { field: 'price', operator: 'gte', value: 250.0 },
             { field: 'price', operator: 'lte', value: 200.0 },
           ],
@@ -1140,10 +1140,10 @@ describe('validateAlert', () => {
       });
 
       it('範囲外アラート(OR): 下限 <= 上限の場合バリデーションに失敗する', () => {
-        const alert: Alert = {
+        const alert: AlertEntity = {
           ...validAlert,
-          LogicalOperator: 'OR',
-          ConditionList: [
+          logicalOperator: 'OR',
+          conditionList: [
             { field: 'price', operator: 'lte', value: 90.0 },
             { field: 'price', operator: 'gte', value: 90.0 },
           ],
@@ -1156,10 +1156,10 @@ describe('validateAlert', () => {
       });
 
       it('範囲外アラート(OR): 下限 < 上限の場合は正しい範囲外設定なのでバリデーションに成功する', () => {
-        const alert: Alert = {
+        const alert: AlertEntity = {
           ...validAlert,
-          LogicalOperator: 'OR',
-          ConditionList: [
+          logicalOperator: 'OR',
+          conditionList: [
             { field: 'price', operator: 'lte', value: 80.0 },
             { field: 'price', operator: 'gte', value: 120.0 },
           ],
@@ -1174,8 +1174,8 @@ describe('validateAlert', () => {
       it('2条件のうち一方のfieldが"price"以外だとバリデーションに失敗する', () => {
         const alert = {
           ...validAlert,
-          LogicalOperator: 'AND' as const,
-          ConditionList: [
+          logicalOperator: 'AND' as const,
+          conditionList: [
             { field: 'volume' as unknown as 'price', operator: 'gte' as const, value: 100.0 },
             { field: 'price' as const, operator: 'lte' as const, value: 200.0 },
           ],
@@ -1188,8 +1188,8 @@ describe('validateAlert', () => {
       it('2条件のうち一方のoperatorが不正だとバリデーションに失敗する', () => {
         const alert = {
           ...validAlert,
-          LogicalOperator: 'AND' as const,
-          ConditionList: [
+          logicalOperator: 'AND' as const,
+          conditionList: [
             { field: 'price' as const, operator: 'eq' as unknown as 'gte' | 'lte', value: 100.0 },
             { field: 'price' as const, operator: 'lte' as const, value: 200.0 },
           ],
@@ -1200,10 +1200,10 @@ describe('validateAlert', () => {
       });
 
       it('2条件のうち一方のvalueが無効だとバリデーションに失敗する', () => {
-        const alert: Alert = {
+        const alert: AlertEntity = {
           ...validAlert,
-          LogicalOperator: 'AND',
-          ConditionList: [
+          logicalOperator: 'AND',
+          conditionList: [
             { field: 'price', operator: 'gte', value: 0.009 },
             { field: 'price', operator: 'lte', value: 200.0 },
           ],
@@ -1214,10 +1214,10 @@ describe('validateAlert', () => {
       });
 
       it('2条件のうち両方のvalueが無効だとバリデーションに失敗する', () => {
-        const alert: Alert = {
+        const alert: AlertEntity = {
           ...validAlert,
-          LogicalOperator: 'AND',
-          ConditionList: [
+          logicalOperator: 'AND',
+          conditionList: [
             { field: 'price', operator: 'gte', value: 0.009 },
             { field: 'price', operator: 'lte', value: 1_000_001 },
           ],
@@ -1232,8 +1232,8 @@ describe('validateAlert', () => {
       it('3条件の場合はバリデーションに失敗する', () => {
         const alert = {
           ...validAlert,
-          LogicalOperator: 'AND' as const,
-          ConditionList: [
+          logicalOperator: 'AND' as const,
+          conditionList: [
             { field: 'price' as const, operator: 'gte' as const, value: 100.0 },
             { field: 'price' as const, operator: 'lte' as const, value: 200.0 },
             { field: 'price' as const, operator: 'gte' as const, value: 150.0 },

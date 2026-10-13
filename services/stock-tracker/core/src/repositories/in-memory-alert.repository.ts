@@ -5,23 +5,29 @@
  */
 
 import {
-  InMemorySingleTableStore,
-  EntityNotFoundError,
-  EntityAlreadyExistsError,
-  DatabaseError,
+  InMemoryEntityStore,
+  InvalidEntityDataError,
+  TTL_ATTRIBUTE_NAME,
+  type EntityStore,
+  type InMemorySingleTableStore,
   type PaginationOptions,
   type PaginatedResult,
 } from '@nagiyu/aws';
 import type { AlertRepository, GetByUserIdOptions } from './alert.repository.interface.js';
-import type { AlertEntity, CreateAlertInput, UpdateAlertInput } from '../entities/alert.entity.js';
+import type {
+  AlertEntity,
+  AlertKey,
+  CreateAlertInput,
+  UpdateAlertInput,
+} from '../entities/alert.entity.js';
 import type { TemporaryAlertCandidate } from '../entities/temporary-alert-candidate.entity.js';
-import { AlertMapper } from '../mappers/alert.mapper.js';
+import {
+  AlertMapper,
+  ALERT_GSI1_SK_PREFIX,
+  buildAlertGsi1Pk,
+  buildAlertGsi2Pk,
+} from '../mappers/alert.mapper.js';
 import { randomUUID } from 'crypto';
-
-// エラーメッセージ定数
-const ERROR_MESSAGES = {
-  NO_UPDATES_SPECIFIED: '更新するフィールドが指定されていません',
-} as const;
 
 // 実DynamoDB実装（dynamodb-alert.repository.ts）はgetByUserId/
 // getTemporaryCandidatesByFrequencyのlimit未指定時に50件を既定とするため、
@@ -35,37 +41,30 @@ const ERROR_MESSAGES = {
 // （この契約テストが潰そうとしている「store既定100件との乖離」がlimit: 0の経路にだけ
 // 温存される）ため、ここは`||`で揃える。
 const DEFAULT_PAGE_LIMIT = 50;
-// getByFrequency（全件返却）の内部走査ページサイズ。DEFAULT_PAGE_LIMITとは独立した
-// 実装都合の値のため、in-memory-ticker.repository.tsのFULL_SCAN_PAGE_SIZEに揃える。
+// getByFrequency（全件返却）の内部走査ページサイズ。DEFAULT_PAGE_LIMITとは独立した実装都合の値。
 const FULL_SCAN_PAGE_SIZE = 100;
 
 /**
  * InMemory Alert Repository
  *
- * InMemorySingleTableStoreを使用したアラートリポジトリの実装
+ * 単一アイテムの CRUD は EntityStore に任せ、GSI の近似クエリだけを自前で持つ。
  * テスト環境で使用
  */
 export class InMemoryAlertRepository implements AlertRepository {
-  private readonly mapper: AlertMapper;
   private readonly store: InMemorySingleTableStore;
+  private readonly mapper = new AlertMapper();
+  private readonly entityStore: EntityStore<AlertEntity, AlertKey>;
 
   constructor(store: InMemorySingleTableStore) {
     this.store = store;
-    this.mapper = new AlertMapper();
+    this.entityStore = new InMemoryEntityStore(store, this.mapper);
   }
 
   /**
    * ユーザーIDとアラートIDで単一のアラートを取得
    */
   public async getById(userId: string, alertId: string): Promise<AlertEntity | null> {
-    const { pk, sk } = this.mapper.buildKeys({ userId, alertId });
-    const item = this.store.get(pk, sk);
-
-    if (!item) {
-      return null;
-    }
-
-    return this.mapper.toEntity(item);
+    return this.entityStore.get({ userId, alertId });
   }
 
   /**
@@ -80,11 +79,11 @@ export class InMemoryAlertRepository implements AlertRepository {
     const result = this.store.queryByAttribute(
       {
         attributeName: 'GSI1PK',
-        attributeValue: userId,
+        attributeValue: buildAlertGsi1Pk(userId),
         sk: {
           attributeName: 'GSI1SK',
           operator: 'begins_with',
-          value: 'Alert#',
+          value: ALERT_GSI1_SK_PREFIX,
         },
       },
       {
@@ -93,10 +92,9 @@ export class InMemoryAlertRepository implements AlertRepository {
       }
     );
 
-    const filteredRawItems = result.items.filter(
-      (item) => (item as Record<string, unknown>).TTL === undefined
-    );
-    const items = filteredRawItems.map((item) => this.mapper.toEntity(item));
+    const items = result.items
+      .filter((item) => item[TTL_ATTRIBUTE_NAME] === undefined)
+      .map((item) => this.mapper.toEntity(item));
 
     return {
       items,
@@ -118,7 +116,7 @@ export class InMemoryAlertRepository implements AlertRepository {
       const page = this.store.queryByAttribute(
         {
           attributeName: 'GSI2PK',
-          attributeValue: `ALERT#${frequency}`,
+          attributeValue: buildAlertGsi2Pk(frequency),
           // sk条件を指定しないため、実DynamoDBのGSI2 Queryと同様にGSI2SK昇順で返すよう明示する
           gsiSortKeyAttributeName: 'GSI2SK',
         },
@@ -139,26 +137,13 @@ export class InMemoryAlertRepository implements AlertRepository {
    */
   public async create(input: CreateAlertInput): Promise<AlertEntity> {
     const now = Date.now();
-    const alertId = randomUUID();
-    const entity: AlertEntity = {
+    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
+    return this.entityStore.create({
       ...input,
-      AlertID: alertId,
-      CreatedAt: now,
-      UpdatedAt: now,
-    };
-
-    const item = this.mapper.toItem(entity);
-
-    try {
-      this.store.put(item, { attributeNotExists: true });
-      return entity;
-    } catch (error) {
-      // EntityAlreadyExistsError はそのまま投げる
-      if (error instanceof EntityAlreadyExistsError) {
-        throw error;
-      }
-      throw error;
-    }
+      alertId: randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+    });
   }
 
   /**
@@ -169,49 +154,14 @@ export class InMemoryAlertRepository implements AlertRepository {
     alertId: string,
     updates: UpdateAlertInput
   ): Promise<AlertEntity> {
-    // 更新するフィールドがない場合はエラー
-    if (Object.keys(updates).length === 0) {
-      throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
-    }
-
-    const { pk, sk } = this.mapper.buildKeys({ userId, alertId });
-    const existingItem = this.store.get(pk, sk);
-
-    if (!existingItem) {
-      throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
-    }
-
-    const existingEntity = this.mapper.toEntity(existingItem);
-    const now = Date.now();
-
-    // 更新を適用
-    const updatedEntity: AlertEntity = {
-      ...existingEntity,
-      ...updates,
-      UpdatedAt: now,
-    };
-
-    const updatedItem = this.mapper.toItem(updatedEntity);
-    this.store.put(updatedItem);
-
-    return updatedEntity;
+    return this.entityStore.update({ userId, alertId }, updates);
   }
 
   /**
    * アラートを削除
    */
   public async delete(userId: string, alertId: string): Promise<void> {
-    const { pk, sk } = this.mapper.buildKeys({ userId, alertId });
-
-    try {
-      this.store.delete(pk, sk, { attributeExists: true });
-    } catch (error) {
-      // EntityNotFoundError はそのまま投げる
-      if (error instanceof EntityNotFoundError) {
-        throw error;
-      }
-      throw error;
-    }
+    await this.entityStore.delete({ userId, alertId });
   }
 
   /**
@@ -227,7 +177,7 @@ export class InMemoryAlertRepository implements AlertRepository {
     const result = this.store.queryByAttribute(
       {
         attributeName: 'GSI2PK',
-        attributeValue: `ALERT#${frequency}`,
+        attributeValue: buildAlertGsi2Pk(frequency),
         // sk条件を指定しないため、実DynamoDBのGSI2 Queryと同様にGSI2SK昇順で返すよう明示する
         gsiSortKeyAttributeName: 'GSI2SK',
       },
@@ -242,7 +192,7 @@ export class InMemoryAlertRepository implements AlertRepository {
       if (item.Temporary !== true) {
         continue;
       }
-      if ((item as Record<string, unknown>).TTL !== undefined) {
+      if (item[TTL_ATTRIBUTE_NAME] !== undefined) {
         continue;
       }
       try {
@@ -261,26 +211,23 @@ export class InMemoryAlertRepository implements AlertRepository {
   }
 
   /**
-   * 一時アラートを失効状態にする（Enabled=false + TTL 設定）
+   * 一時アラートを失効状態にする（Enabled=false + 物理削除時刻の設定）。
+   *
+   * 更新後の Entity への変換は subscription を検証するが、その時点で失効の書き込みは
+   * 完了しているため、変換の失敗は握りつぶす。DynamoDB 実装と揃えている。
    */
   public async markTemporaryAsExpired(
     userId: string,
     alertId: string,
-    ttlSeconds: number
+    expiresAt: number
   ): Promise<void> {
-    const { pk, sk } = this.mapper.buildKeys({ userId, alertId });
-    const existing = this.store.get(pk, sk);
-    if (!existing) {
-      throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
+    try {
+      await this.entityStore.update({ userId, alertId }, { enabled: false, expiresAt });
+    } catch (error) {
+      if (error instanceof InvalidEntityDataError) {
+        return;
+      }
+      throw error;
     }
-
-    const updated = {
-      ...existing,
-      Enabled: false,
-      TTL: ttlSeconds,
-      UpdatedAt: Date.now(),
-    };
-
-    this.store.put(updated);
   }
 }

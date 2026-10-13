@@ -78,7 +78,7 @@ describe('GET /api/summaries/[tickerId]', () => {
     mockGetById.mockResolvedValue({ tickerId: 'NASDAQ:NVDA', symbol: 'NVDA', name: 'NVIDIA' });
     mockGetHoldingById.mockResolvedValue({ quantity: 5, averagePrice: 98 });
     mockGetAlertsByUserId.mockResolvedValue({
-      items: [{ TickerID: 'NASDAQ:NVDA', Mode: 'Buy', Enabled: true }],
+      items: [{ tickerId: 'NASDAQ:NVDA', mode: 'Buy', enabled: true }],
     });
 
     const response = await GET(new Request('http://localhost/api/summaries/NASDAQ:NVDA'), {

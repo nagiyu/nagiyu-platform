@@ -53,13 +53,13 @@ const NASDAQ: ExchangeEntity = {
 
 function buildCandidate(overrides: Partial<TemporaryAlertCandidate> = {}): TemporaryAlertCandidate {
   return {
-    AlertID: 'a1',
-    UserID: 'u1',
-    ExchangeID: 'NASDAQ',
-    Frequency: 'MINUTE_LEVEL',
-    Enabled: true,
-    Temporary: true,
-    TemporaryExpireDate: '2026-03-04',
+    alertId: 'a1',
+    userId: 'u1',
+    exchangeId: 'NASDAQ',
+    frequency: 'MINUTE_LEVEL',
+    enabled: true,
+    temporary: true,
+    temporaryExpireDate: '2026-03-04',
     ...overrides,
   };
 }
@@ -112,7 +112,7 @@ describe('temporary alert expiry batch handler', () => {
   });
 
   it('期限切れ一時通知は markTemporaryAsExpired で無効化＋TTL 設定される', async () => {
-    const candidate = buildCandidate({ Frequency: 'HOURLY_LEVEL' });
+    const candidate = buildCandidate({ frequency: 'HOURLY_LEVEL' });
 
     mockAlertRepo.getTemporaryCandidatesByFrequency
       .mockResolvedValueOnce({ items: [] })
@@ -128,20 +128,19 @@ describe('temporary alert expiry batch handler', () => {
     expect(mockAlertRepo.delete).not.toHaveBeenCalled();
     expect(mockAlertRepo.markTemporaryAsExpired).toHaveBeenCalledTimes(1);
 
-    const [userId, alertId, ttlSeconds] = mockAlertRepo.markTemporaryAsExpired.mock.calls[0];
+    const [userId, alertId, expiresAt] = mockAlertRepo.markTemporaryAsExpired.mock.calls[0];
     expect(userId).toBe('u1');
     expect(alertId).toBe('a1');
-    // 7 日後の Unix 秒（多少のテスト実行ラグを許容）
-    const nowSeconds = Math.floor(Date.now() / 1000);
-    const sevenDaysSeconds = 7 * 24 * 60 * 60;
-    expect(ttlSeconds).toBeGreaterThanOrEqual(nowSeconds + sevenDaysSeconds - 5);
-    expect(ttlSeconds).toBeLessThanOrEqual(nowSeconds + sevenDaysSeconds + 5);
+    // 7 日後のミリ秒（多少のテスト実行ラグを許容）
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+    expect(expiresAt).toBeGreaterThanOrEqual(Date.now() + sevenDaysMs - 5000);
+    expect(expiresAt).toBeLessThanOrEqual(Date.now() + sevenDaysMs + 5000);
 
     expect(body.statistics.deactivated).toBe(1);
   });
 
   it('TemporaryExpireDate がない候補は無効データとしてスキップする', async () => {
-    const candidate = buildCandidate({ TemporaryExpireDate: '' });
+    const candidate = buildCandidate({ temporaryExpireDate: '' });
 
     mockAlertRepo.getTemporaryCandidatesByFrequency
       .mockResolvedValueOnce({ items: [candidate] })
@@ -186,7 +185,7 @@ describe('temporary alert expiry batch handler', () => {
 
   it('まだ期限切れでない場合はスキップする', async () => {
     mockAlertRepo.getTemporaryCandidatesByFrequency
-      .mockResolvedValueOnce({ items: [buildCandidate({ TemporaryExpireDate: '2026-03-05' })] })
+      .mockResolvedValueOnce({ items: [buildCandidate({ temporaryExpireDate: '2026-03-05' })] })
       .mockResolvedValueOnce({ items: [] });
     mockExchangeRepo.getById.mockResolvedValue(NASDAQ);
     (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(false);
@@ -201,7 +200,7 @@ describe('temporary alert expiry batch handler', () => {
   });
 
   it('手動無効化された一時アラートは取引時間外であれば期限到来を待たず即時 TTL 付与される', async () => {
-    const userDisabled = buildCandidate({ Enabled: false, TemporaryExpireDate: '2099-12-31' });
+    const userDisabled = buildCandidate({ enabled: false, temporaryExpireDate: '2099-12-31' });
 
     mockAlertRepo.getTemporaryCandidatesByFrequency
       .mockResolvedValueOnce({ items: [userDisabled] })
@@ -222,7 +221,7 @@ describe('temporary alert expiry batch handler', () => {
   });
 
   it('手動無効化された一時アラートは取引時間中であればスキップされる', async () => {
-    const userDisabled = buildCandidate({ Enabled: false });
+    const userDisabled = buildCandidate({ enabled: false });
 
     mockAlertRepo.getTemporaryCandidatesByFrequency
       .mockResolvedValueOnce({ items: [userDisabled] })
@@ -240,7 +239,7 @@ describe('temporary alert expiry batch handler', () => {
   });
 
   it('手動無効化された一時アラートで取引所情報が見つからない場合は errors を加算する', async () => {
-    const userDisabled = buildCandidate({ Enabled: false });
+    const userDisabled = buildCandidate({ enabled: false });
 
     mockAlertRepo.getTemporaryCandidatesByFrequency
       .mockResolvedValueOnce({ items: [userDisabled] })
@@ -256,8 +255,8 @@ describe('temporary alert expiry batch handler', () => {
   });
 
   it('markTemporaryAsExpired が失敗しても errors を加算して処理を継続する', async () => {
-    const a1 = buildCandidate({ AlertID: 'a1' });
-    const a2 = buildCandidate({ AlertID: 'a2' });
+    const a1 = buildCandidate({ alertId: 'a1' });
+    const a2 = buildCandidate({ alertId: 'a2' });
 
     mockAlertRepo.getTemporaryCandidatesByFrequency
       .mockResolvedValueOnce({ items: [a1, a2] })
@@ -299,11 +298,11 @@ describe('temporary alert expiry batch handler', () => {
 
   it('ページ上限到達時にワーニングログを出し、HOURLY_LEVEL の処理を継続する', async () => {
     const minute = buildCandidate();
-    const hourly = buildCandidate({ AlertID: 'h1', Frequency: 'HOURLY_LEVEL' });
+    const hourly = buildCandidate({ alertId: 'h1', frequency: 'HOURLY_LEVEL' });
 
     for (let i = 0; i < 20; i++) {
       mockAlertRepo.getTemporaryCandidatesByFrequency.mockResolvedValueOnce({
-        items: [{ ...minute, AlertID: `m-${i}` }],
+        items: [{ ...minute, alertId: `m-${i}` }],
         nextCursor: `cursor-${i}`,
         count: 1,
       });

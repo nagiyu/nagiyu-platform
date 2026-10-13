@@ -5,78 +5,61 @@
  */
 
 import {
-  GetCommand,
-  PutCommand,
-  UpdateCommand,
-  DeleteCommand,
   QueryCommand,
   type DynamoDBDocumentClient,
   type QueryCommandOutput,
 } from '@aws-sdk/lib-dynamodb';
 import {
-  EntityNotFoundError,
-  EntityAlreadyExistsError,
-  DatabaseError,
-  mapConditionalCheckFailed,
+  DynamoDBEntityStore,
+  InvalidEntityDataError,
+  TTL_ATTRIBUTE_NAME,
   toDatabaseError,
-  buildUpdateExpression,
   queryAllItems,
   encodeCursor,
   decodeCursor,
+  type EntityStore,
   type PaginationOptions,
   type PaginatedResult,
-  type DynamoDBItem,
 } from '@nagiyu/aws';
 import { logger, toErrorMessage } from '@nagiyu/common';
 import type { AlertRepository, GetByUserIdOptions } from './alert.repository.interface.js';
-import type { AlertEntity, CreateAlertInput, UpdateAlertInput } from '../entities/alert.entity.js';
+import type {
+  AlertEntity,
+  AlertKey,
+  CreateAlertInput,
+  UpdateAlertInput,
+} from '../entities/alert.entity.js';
 import type { TemporaryAlertCandidate } from '../entities/temporary-alert-candidate.entity.js';
-import { AlertMapper } from '../mappers/alert.mapper.js';
+import {
+  AlertMapper,
+  ALERT_GSI1_SK_PREFIX,
+  buildAlertGsi1Pk,
+  buildAlertGsi2Pk,
+} from '../mappers/alert.mapper.js';
 import { randomUUID } from 'crypto';
-
-// エラーメッセージ定数
-const ERROR_MESSAGES = {
-  NO_UPDATES_SPECIFIED: '更新するフィールドが指定されていません',
-} as const;
 
 /**
  * DynamoDB Alert Repository
  *
- * DynamoDBを使用したアラートリポジトリの実装
+ * 単一アイテムの CRUD は EntityStore に任せ、GSI の Query だけを自前で持つ
  */
 export class DynamoDBAlertRepository implements AlertRepository {
-  private readonly mapper: AlertMapper;
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
+  private readonly mapper = new AlertMapper();
+  private readonly entityStore: EntityStore<AlertEntity, AlertKey>;
 
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
     this.docClient = docClient;
     this.tableName = tableName;
-    this.mapper = new AlertMapper();
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper);
   }
 
   /**
    * ユーザーIDとアラートIDで単一のアラートを取得
    */
   public async getById(userId: string, alertId: string): Promise<AlertEntity | null> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys({ userId, alertId });
-
-      const result = await this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-        })
-      );
-
-      if (!result.Item) {
-        return null;
-      }
-
-      return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.get({ userId, alertId });
   }
 
   /**
@@ -95,24 +78,21 @@ export class DynamoDBAlertRepository implements AlertRepository {
       const limit = options?.limit || 50;
       const exclusiveStartKey = decodeCursor(options?.cursor);
 
-      const expressionAttributeNames: Record<string, string> = {
-        '#gsi1pk': 'GSI1PK',
-        '#gsi1sk': 'GSI1SK',
-        '#ttl': 'TTL',
-      };
-      const expressionAttributeValues: Record<string, unknown> = {
-        ':userId': userId,
-        ':prefix': 'Alert#',
-      };
-
       result = await this.docClient.send(
         new QueryCommand({
           TableName: this.tableName,
           IndexName: 'UserIndex',
           KeyConditionExpression: '#gsi1pk = :userId AND begins_with(#gsi1sk, :prefix)',
           FilterExpression: 'attribute_not_exists(#ttl)',
-          ExpressionAttributeNames: expressionAttributeNames,
-          ExpressionAttributeValues: expressionAttributeValues,
+          ExpressionAttributeNames: {
+            '#gsi1pk': 'GSI1PK',
+            '#gsi1sk': 'GSI1SK',
+            '#ttl': TTL_ATTRIBUTE_NAME,
+          },
+          ExpressionAttributeValues: {
+            ':userId': buildAlertGsi1Pk(userId),
+            ':prefix': ALERT_GSI1_SK_PREFIX,
+          },
           Limit: limit,
           ExclusiveStartKey: exclusiveStartKey,
         })
@@ -127,12 +107,11 @@ export class DynamoDBAlertRepository implements AlertRepository {
     const items: AlertEntity[] = [];
     for (const item of result.Items || []) {
       try {
-        items.push(this.mapper.toEntity(item as unknown as DynamoDBItem));
+        items.push(this.mapper.toEntity(item));
       } catch (error) {
-        const record = item as Record<string, unknown>;
         logger.warn('無効なアラートデータをスキップしました', {
-          pk: record.PK,
-          sk: record.SK,
+          pk: item.PK,
+          sk: item.SK,
           error: toErrorMessage(error),
         });
       }
@@ -150,8 +129,8 @@ export class DynamoDBAlertRepository implements AlertRepository {
   /**
    * 頻度ごとのアラート一覧を取得（GSI2=AlertIndexを使用、バッチ処理用）。
    *
-   * GSI2SK（`${UserID}#${AlertID}`）昇順のQueryで、インタフェース契約のUserID昇順・
-   * 同一UserID内はAlertID昇順を実現する。LastEvaluatedKeyがなくなるまでQueryを
+   * GSI2SK（`${userId}#${alertId}`）昇順のQueryで、インタフェース契約のuserId昇順・
+   * 同一userId内はalertId昇順を実現する。LastEvaluatedKeyがなくなるまでQueryを
    * ループして全件を集約する契約のため、Limitは指定しない（DynamoDBの1MBページ単位）。
    */
   public async getByFrequency(frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL'): Promise<AlertEntity[]> {
@@ -164,7 +143,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
           '#gsi2pk': 'GSI2PK',
         },
         ExpressionAttributeValues: {
-          ':pk': `ALERT#${frequency}`,
+          ':pk': buildAlertGsi2Pk(frequency),
         },
       });
 
@@ -192,8 +171,8 @@ export class DynamoDBAlertRepository implements AlertRepository {
   /**
    * 一時アラート失効バッチ用の軽量取得（GSI2=AlertIndexを使用）。
    *
-   * - GSI2SK（`${UserID}#${AlertID}`）昇順のQueryで、インタフェース契約のUserID昇順・
-   *   同一UserID内はAlertID昇順を実現する
+   * - GSI2SK（`${userId}#${alertId}`）昇順のQueryで、インタフェース契約のuserId昇順・
+   *   同一userId内はalertId昇順を実現する
    * - ProjectionExpression で失効判定に必要な属性のみ取得し、subscription は読み込まない
    * - FilterExpression で `Temporary = true AND TTL 未設定` のアラートのみに絞る
    *   （`markTemporaryAsExpired` 済みのものを再処理しない。Enabled=false でも
@@ -225,7 +204,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
             '#gsi2pk': 'GSI2PK',
             '#temporary': 'Temporary',
             '#enabled': 'Enabled',
-            '#ttl': 'TTL',
+            '#ttl': TTL_ATTRIBUTE_NAME,
             '#pk': 'PK',
             '#sk': 'SK',
             '#alertId': 'AlertID',
@@ -235,7 +214,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
             '#temporaryExpireDate': 'TemporaryExpireDate',
           },
           ExpressionAttributeValues: {
-            ':pk': `ALERT#${frequency}`,
+            ':pk': buildAlertGsi2Pk(frequency),
             ':true': true,
           },
           Limit: limit,
@@ -249,12 +228,11 @@ export class DynamoDBAlertRepository implements AlertRepository {
     const items: TemporaryAlertCandidate[] = [];
     for (const item of result.Items || []) {
       try {
-        items.push(this.mapper.toTemporaryCandidate(item as unknown as DynamoDBItem));
+        items.push(this.mapper.toTemporaryCandidate(item));
       } catch (error) {
-        const record = item as Record<string, unknown>;
         logger.warn('無効な一時アラート候補をスキップしました', {
-          pk: record.PK,
-          sk: record.SK,
+          pk: item.PK,
+          sk: item.SK,
           error: toErrorMessage(error),
         });
       }
@@ -273,35 +251,14 @@ export class DynamoDBAlertRepository implements AlertRepository {
    * 新しいアラートを作成
    */
   public async create(input: CreateAlertInput): Promise<AlertEntity> {
-    try {
-      const now = Date.now();
-      const alertId = randomUUID();
-      const entity: AlertEntity = {
-        ...input,
-        AlertID: alertId,
-        CreatedAt: now,
-        UpdatedAt: now,
-      };
-
-      const item = this.mapper.toItem(entity);
-
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: item,
-          ConditionExpression: 'attribute_not_exists(PK)',
-        })
-      );
-
-      return entity;
-    } catch (error) {
-      mapConditionalCheckFailed(error, {
-        onExists: () => {
-          throw new EntityAlreadyExistsError('Alert', `${input.UserID}#(generated)`);
-        },
-      });
-      throw toDatabaseError(error);
-    }
+    const now = Date.now();
+    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
+    return this.entityStore.create({
+      ...input,
+      alertId: randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+    });
   }
 
   /**
@@ -312,126 +269,35 @@ export class DynamoDBAlertRepository implements AlertRepository {
     alertId: string,
     updates: UpdateAlertInput
   ): Promise<AlertEntity> {
-    try {
-      // 更新するフィールドがない場合はエラー
-      if (Object.keys(updates).length === 0) {
-        throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
-      }
-
-      const { pk, sk } = this.mapper.buildKeys({ userId, alertId });
-      const fields: Record<string, unknown> = {
-        TickerID: updates.TickerID,
-        ExchangeID: updates.ExchangeID,
-        Mode: updates.Mode,
-        Frequency: updates.Frequency,
-        Enabled: updates.Enabled,
-        Temporary: updates.Temporary,
-        TemporaryExpireDate: updates.TemporaryExpireDate,
-        ConditionList: updates.ConditionList,
-        subscription: updates.subscription,
-        CustomMessage: updates.CustomMessage,
-      };
-      // GSI2PK は Frequency から導出するため、Frequency の更新に合わせて付け直す
-      if (updates.Frequency !== undefined) {
-        fields.GSI2PK = `ALERT#${updates.Frequency}`;
-      }
-      const updateParts = buildUpdateExpression(fields, {
-        timestamp: { attributeName: 'UpdatedAt', value: Date.now() },
-        updateTimestampWhenEmpty: true,
-      });
-      if (!updateParts) {
-        throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
-      }
-
-      const result = await this.docClient.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-          ...updateParts,
-          ConditionExpression: 'attribute_exists(PK)',
-          ReturnValues: 'ALL_NEW',
-        })
-      );
-
-      if (!result.Attributes) {
-        throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
-      }
-
-      return this.mapper.toEntity(result.Attributes as unknown as DynamoDBItem);
-    } catch (error) {
-      mapConditionalCheckFailed(error, {
-        onMissing: () => {
-          throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
-        },
-      });
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.update({ userId, alertId }, updates);
   }
 
   /**
    * アラートを削除
    */
   public async delete(userId: string, alertId: string): Promise<void> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys({ userId, alertId });
-
-      await this.docClient.send(
-        new DeleteCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-          ConditionExpression: 'attribute_exists(PK)',
-        })
-      );
-    } catch (error) {
-      mapConditionalCheckFailed(error, {
-        onMissing: () => {
-          throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
-        },
-      });
-      throw toDatabaseError(error);
-    }
+    await this.entityStore.delete({ userId, alertId });
   }
 
   /**
-   * 一時アラートを失効状態にする（無効化 + TTL 設定）。
+   * 一時アラートを失効状態にする（無効化 + 物理削除時刻の設定）。
    *
-   * subscription / ConditionList を読み書きせず、Enabled を false にしつつ
-   * DynamoDB TTL 属性をセットすることで、TTL 発火時に物理削除される。
+   * 書き込みは subscription に触れない。更新後の Entity への変換は subscription を検証するが、
+   * その時点で失効の書き込みは完了しているため、変換の失敗は握りつぶす。
+   * subscription が壊れたアラートでも失効できるようにするため。
    */
   public async markTemporaryAsExpired(
     userId: string,
     alertId: string,
-    ttlSeconds: number
+    expiresAt: number
   ): Promise<void> {
     try {
-      const { pk, sk } = this.mapper.buildKeys({ userId, alertId });
-      const now = Date.now();
-
-      await this.docClient.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-          UpdateExpression: 'SET #enabled = :enabled, #ttl = :ttl, #updatedAt = :updatedAt',
-          ExpressionAttributeNames: {
-            '#enabled': 'Enabled',
-            '#ttl': 'TTL',
-            '#updatedAt': 'UpdatedAt',
-          },
-          ExpressionAttributeValues: {
-            ':enabled': false,
-            ':ttl': ttlSeconds,
-            ':updatedAt': now,
-          },
-          ConditionExpression: 'attribute_exists(PK)',
-        })
-      );
+      await this.entityStore.update({ userId, alertId }, { enabled: false, expiresAt });
     } catch (error) {
-      mapConditionalCheckFailed(error, {
-        onMissing: () => {
-          throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
-        },
-      });
-      throw toDatabaseError(error);
+      if (error instanceof InvalidEntityDataError) {
+        return;
+      }
+      throw error;
     }
   }
 }
