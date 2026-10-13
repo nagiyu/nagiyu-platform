@@ -157,6 +157,12 @@ GSI を使う一覧などの独自のクエリは、各 Repository が DocumentC
 
 **理由**: 呼び出し側に保存用の属性名を書かせると、属性名の打ち間違いが黙って新しい属性を作り、ミリ秒と秒の取り違えも防げない。変換を Mapper に集約するという 1 の方針を update にも通す。
 
+update の変更の扱いは、次の 3 点を全 Mapper で揃える。
+
+- **必須項目に `null` を渡すと `InvalidEntityDataError` にする**: 黙って消すと、読み出しで検証に落ちる (読めない) アイテムが残る。任意項目の `null` だけを属性の削除として扱う。
+- **作成後に変えられない項目を patch に含めると `InvalidEntityDataError` にする**: 対象は、キーの値を写した属性や `createdAt` など。キー属性の更新を拒否するのと同じ理由で、キーと食い違うアイテムを作らないため。値が同じでも拒否する (変わらないことの判定を呼び出し側に持ち込まない)。
+- **キーから作る属性 (GSI のキーなど) は、`toUpdateAttributes` が受け取るキーから組み立てる**: patch に識別子を混ぜて渡させない。patch に混ぜると、呼び出し側が更新対象とは別の値を渡せてしまい、GSI がキーと食い違う。ただし、キー属性そのものは返さない (store が拒否する)。
+
 ### 10. InMemory 実装は DynamoDB 実装と同じ振る舞い・同じエラーにする
 
 **決定**: EntityStore の InMemory 版は、DynamoDB 版と同じ条件で同じエラーを投げる。DynamoDB が拒否する書き込み (Item にキー属性がない、キー属性を更新するなど) も、InMemory 版で同じように拒否する。
@@ -223,7 +229,7 @@ GSI を使う一覧などの独自のクエリは、各 Repository が DocumentC
 ### 新規エンティティの実装順序
 
 1. **Entity**: DynamoDB 固有の属性を含まない、camelCase のビジネスオブジェクト。`createdAt` / `updatedAt` を数値ミリ秒で持つ
-2. **Mapper**: キーの組み立て、保存形式への変換 (PascalCase・ミリ秒・TTL の秒)、読み出し時の検証。保存形式を変えた場合は旧属性名も宣言する
+2. **Mapper**: キーの組み立て、保存形式への変換 (PascalCase・ミリ秒・TTL の秒)、読み出し時の検証。保存形式を変えた場合は旧属性名も宣言する。`toUpdateAttributes` の patch の値は、`requiredPatchValue` (必須項目)・`optionalPatchValue` (任意項目)・`immutablePatchValue` (作成後に変えられない項目) で変換し、9 の扱いを Mapper ごとに書き写さない
 3. **Repository Interface**: ビジネスキーでの CRUD と、意味のある名前のクエリ
 4. **DynamoDB 実装と InMemory 実装**: 単一アイテムの CRUD は EntityStore に任せ、独自のクエリだけを書く
 5. **テスト**: Mapper の変換 (旧形式の読み取りを含む)、Repository、E2E の各層

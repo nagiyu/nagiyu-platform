@@ -55,8 +55,13 @@ export interface EntityMapper<TEntity, TKey> {
    * patch の値が `null` の項目は `REMOVE_ATTRIBUTE` にし、`undefined` の項目は含めない。
    * キー属性と `UpdatedAt` は store が管理するため、キー属性を含めると store が
    * `InvalidEntityDataError` にする (`UpdatedAt` は無視される)。
+   *
+   * `key` は更新対象のビジネスキー。キーから作る属性 (GSI のキーなど) を付け直すために使う。
+   * patch に識別子を混ぜなくても、更新で GSI 属性を保てる。ただし `key` から作った値でも、
+   * キー属性そのもの (`buildKeys` の結果) は返してはいけない。
+   * キー属性を使わない mapper は第 2 引数を省略して実装してよい。
    */
-  toUpdateAttributes(changes: EntityPatch<TEntity>): DynamoDBAttributes;
+  toUpdateAttributes(changes: EntityPatch<TEntity>, key: TKey): DynamoDBAttributes;
 
   /**
    * Item を検証しつつ Entity に変換する。旧形式 (旧属性名・ISO 文字列・エポック秒) も受け付ける。
