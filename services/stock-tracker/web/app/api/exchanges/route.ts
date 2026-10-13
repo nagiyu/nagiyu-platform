@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { EntityAlreadyExistsError } from '@nagiyu/aws';
 import {
   validateExchange,
   type ExchangeEntity,
@@ -63,16 +64,16 @@ export const GET = withApiErrorReporting(
     // レスポンスを返す (API仕様に従った形式)
     return NextResponse.json({
       exchanges: exchanges.map((exchange: ExchangeEntity) => ({
-        exchangeId: exchange.ExchangeID,
-        name: exchange.Name,
-        key: exchange.Key,
-        timezone: exchange.Timezone,
+        exchangeId: exchange.exchangeId,
+        name: exchange.name,
+        key: exchange.key,
+        timezone: exchange.timezone,
         tradingHours: {
-          start: exchange.Start,
-          end: exchange.End,
+          start: exchange.start,
+          end: exchange.end,
         },
-        priceSource: exchange.PriceSource,
-        market: exchange.Market,
+        priceSource: exchange.priceSource,
+        market: exchange.market,
       })),
     });
   })
@@ -88,7 +89,7 @@ export const GET = withApiErrorReporting(
  * @returns 作成された取引所 (201 Created)
  * @returns 認証エラー (401 Unauthorized)
  * @returns 権限エラー (403 Forbidden)
- * @returns リクエスト不正 (400 Bad Request)
+ * @returns リクエスト不正、または同じ取引所IDが既に存在する (400 Bad Request)
  * @returns サーバーエラー (500 Internal Server Error)
  */
 export const POST = withApiErrorReporting(
@@ -142,16 +143,16 @@ export const POST = withApiErrorReporting(
 
     // バリデーション用の一時的な Exchange オブジェクトを作成
     const exchangeToValidate = {
-      ExchangeID: exchangeId,
-      Name: name,
-      Key: key,
-      Timezone: timezone,
-      Start: start,
-      End: end,
-      PriceSource: resolvedPriceSource,
-      Market: market,
-      CreatedAt: Date.now(), // バリデーション用の仮値
-      UpdatedAt: Date.now(), // バリデーション用の仮値
+      exchangeId,
+      name,
+      key,
+      timezone,
+      start,
+      end,
+      priceSource: resolvedPriceSource,
+      market,
+      createdAt: Date.now(), // バリデーション用の仮値
+      updatedAt: Date.now(), // バリデーション用の仮値
     };
 
     // バリデーション実行
@@ -180,33 +181,44 @@ export const POST = withApiErrorReporting(
     const exchangeRepo = createExchangeRepository();
 
     // 取引所を作成
-    const newExchange = await exchangeRepo.create({
-      ExchangeID: exchangeId,
-      Name: name,
-      Key: key,
-      Timezone: timezone,
-      Start: start,
-      End: end,
-      PriceSource: resolvedPriceSource,
-      Market: market,
-    });
+    try {
+      const newExchange = await exchangeRepo.create({
+        exchangeId,
+        name,
+        key,
+        timezone,
+        start,
+        end,
+        priceSource: resolvedPriceSource,
+        market,
+      });
 
-    // レスポンスを返す (API仕様に従った形式)
-    return NextResponse.json(
-      {
-        exchangeId: newExchange.ExchangeID,
-        name: newExchange.Name,
-        key: newExchange.Key,
-        timezone: newExchange.Timezone,
-        tradingHours: {
-          start: newExchange.Start,
-          end: newExchange.End,
+      // レスポンスを返す (API仕様に従った形式)
+      return NextResponse.json(
+        {
+          exchangeId: newExchange.exchangeId,
+          name: newExchange.name,
+          key: newExchange.key,
+          timezone: newExchange.timezone,
+          tradingHours: {
+            start: newExchange.start,
+            end: newExchange.end,
+          },
+          priceSource: newExchange.priceSource,
+          market: newExchange.market,
+          createdAt: new Date(newExchange.createdAt).toISOString(),
         },
-        priceSource: newExchange.PriceSource,
-        market: newExchange.Market,
-        createdAt: new Date(newExchange.CreatedAt).toISOString(),
-      },
-      { status: 201 }
-    );
+        { status: 201 }
+      );
+    } catch (error) {
+      // 同じ取引所IDが既に存在する場合
+      if (error instanceof EntityAlreadyExistsError) {
+        return NextResponse.json(
+          { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.EXCHANGE_ALREADY_EXISTS },
+          { status: 400 }
+        );
+      }
+      throw error;
+    }
   })
 );

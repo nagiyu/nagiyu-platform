@@ -9,7 +9,6 @@ import {
   InMemorySingleTableStore,
   EntityAlreadyExistsError,
   EntityNotFoundError,
-  DatabaseError,
 } from '@nagiyu/aws';
 import type { CreateTickerInput } from '../../../src/entities/ticker.entity.js';
 
@@ -27,26 +26,27 @@ describe('InMemoryTickerRepository', () => {
   describe('create', () => {
     it('新しいティッカーを作成できる', async () => {
       const input: CreateTickerInput = {
-        TickerID: 'NSDQ:AAPL',
-        Symbol: 'AAPL',
-        Name: 'Apple Inc.',
-        ExchangeID: 'NASDAQ',
+        tickerId: 'NSDQ:AAPL',
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        exchangeId: 'NASDAQ',
       };
 
       const result = await repository.create(input);
 
       expect(result).toMatchObject(input);
-      expect(result.CreatedAt).toBeDefined();
-      expect(result.UpdatedAt).toBeDefined();
-      expect(result.CreatedAt).toBe(result.UpdatedAt);
+      expect(result.createdAt).toBeDefined();
+      expect(result.updatedAt).toBeDefined();
+      // updatedAt は EntityStore が書き込み時に採番するため、createdAt と同一ミリ秒とは限らない
+      expect(result.updatedAt).toBeGreaterThanOrEqual(result.createdAt);
     });
 
     it('同じTickerIDのティッカーが既に存在する場合はEntityAlreadyExistsErrorをスローする', async () => {
       const input: CreateTickerInput = {
-        TickerID: 'NSDQ:AAPL',
-        Symbol: 'AAPL',
-        Name: 'Apple Inc.',
-        ExchangeID: 'NASDAQ',
+        tickerId: 'NSDQ:AAPL',
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        exchangeId: 'NASDAQ',
       };
 
       await repository.create(input);
@@ -56,34 +56,34 @@ describe('InMemoryTickerRepository', () => {
 
     it('異なるTickerIDで複数作成できる', async () => {
       const input1: CreateTickerInput = {
-        TickerID: 'NSDQ:AAPL',
-        Symbol: 'AAPL',
-        Name: 'Apple Inc.',
-        ExchangeID: 'NASDAQ',
+        tickerId: 'NSDQ:AAPL',
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        exchangeId: 'NASDAQ',
       };
 
       const input2: CreateTickerInput = {
-        TickerID: 'NSDQ:NVDA',
-        Symbol: 'NVDA',
-        Name: 'NVIDIA Corporation',
-        ExchangeID: 'NASDAQ',
+        tickerId: 'NSDQ:NVDA',
+        symbol: 'NVDA',
+        name: 'NVIDIA Corporation',
+        exchangeId: 'NASDAQ',
       };
 
       const result1 = await repository.create(input1);
       const result2 = await repository.create(input2);
 
-      expect(result1.TickerID).toBe('NSDQ:AAPL');
-      expect(result2.TickerID).toBe('NSDQ:NVDA');
+      expect(result1.tickerId).toBe('NSDQ:AAPL');
+      expect(result2.tickerId).toBe('NSDQ:NVDA');
     });
   });
 
   describe('getById', () => {
     it('存在するティッカーを取得できる', async () => {
       const input: CreateTickerInput = {
-        TickerID: 'NSDQ:AAPL',
-        Symbol: 'AAPL',
-        Name: 'Apple Inc.',
-        ExchangeID: 'NASDAQ',
+        tickerId: 'NSDQ:AAPL',
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        exchangeId: 'NASDAQ',
       };
 
       const created = await repository.create(input);
@@ -102,24 +102,24 @@ describe('InMemoryTickerRepository', () => {
   describe('getByExchange', () => {
     it('取引所ごとのティッカー一覧を取得できる', async () => {
       const ticker1: CreateTickerInput = {
-        TickerID: 'NSDQ:AAPL',
-        Symbol: 'AAPL',
-        Name: 'Apple Inc.',
-        ExchangeID: 'NASDAQ',
+        tickerId: 'NSDQ:AAPL',
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        exchangeId: 'NASDAQ',
       };
 
       const ticker2: CreateTickerInput = {
-        TickerID: 'NSDQ:NVDA',
-        Symbol: 'NVDA',
-        Name: 'NVIDIA Corporation',
-        ExchangeID: 'NASDAQ',
+        tickerId: 'NSDQ:NVDA',
+        symbol: 'NVDA',
+        name: 'NVIDIA Corporation',
+        exchangeId: 'NASDAQ',
       };
 
       const ticker3: CreateTickerInput = {
-        TickerID: 'NYSE:IBM',
-        Symbol: 'IBM',
-        Name: 'IBM',
-        ExchangeID: 'NYSE',
+        tickerId: 'NYSE:IBM',
+        symbol: 'IBM',
+        name: 'IBM',
+        exchangeId: 'NYSE',
       };
 
       await repository.create(ticker1);
@@ -129,8 +129,8 @@ describe('InMemoryTickerRepository', () => {
       const nasdaqResult = await repository.getByExchange('NASDAQ');
 
       expect(nasdaqResult).toHaveLength(2);
-      expect(nasdaqResult[0].ExchangeID).toBe('NASDAQ');
-      expect(nasdaqResult[1].ExchangeID).toBe('NASDAQ');
+      expect(nasdaqResult[0].exchangeId).toBe('NASDAQ');
+      expect(nasdaqResult[1].exchangeId).toBe('NASDAQ');
     });
 
     it('該当する取引所のティッカーがない場合は空配列を返す', async () => {
@@ -143,10 +143,10 @@ describe('InMemoryTickerRepository', () => {
       const total = 130;
       for (let i = 0; i < total; i += 1) {
         await repository.create({
-          TickerID: `NSDQ:T${String(i).padStart(4, '0')}`,
-          Symbol: `T${String(i).padStart(4, '0')}`,
-          Name: `Test ${i}`,
-          ExchangeID: 'NASDAQ',
+          tickerId: `NSDQ:T${String(i).padStart(4, '0')}`,
+          symbol: `T${String(i).padStart(4, '0')}`,
+          name: `Test ${i}`,
+          exchangeId: 'NASDAQ',
         });
       }
 
@@ -159,17 +159,17 @@ describe('InMemoryTickerRepository', () => {
   describe('getAll', () => {
     it('全てのティッカーを取得できる', async () => {
       await repository.create({
-        TickerID: 'NSDQ:AAPL',
-        Symbol: 'AAPL',
-        Name: 'Apple Inc.',
-        ExchangeID: 'NASDAQ',
+        tickerId: 'NSDQ:AAPL',
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        exchangeId: 'NASDAQ',
       });
 
       await repository.create({
-        TickerID: 'NYSE:IBM',
-        Symbol: 'IBM',
-        Name: 'IBM',
-        ExchangeID: 'NYSE',
+        tickerId: 'NYSE:IBM',
+        symbol: 'IBM',
+        name: 'IBM',
+        exchangeId: 'NYSE',
       });
 
       const result = await repository.getAll();
@@ -187,10 +187,10 @@ describe('InMemoryTickerRepository', () => {
       const totalCount = ITEMS_EXCEEDING_DEFAULT_LIMIT;
       for (let i = 0; i < totalCount; i++) {
         await repository.create({
-          TickerID: `NSDQ:TEST${i}`,
-          Symbol: `TEST${i}`,
-          Name: `Test ${i}`,
-          ExchangeID: 'NASDAQ',
+          tickerId: `NSDQ:TEST${i}`,
+          symbol: `TEST${i}`,
+          name: `Test ${i}`,
+          exchangeId: 'NASDAQ',
         });
       }
 
@@ -204,10 +204,10 @@ describe('InMemoryTickerRepository', () => {
     it('options指定時はページネーションを維持する', async () => {
       for (let i = 0; i < 5; i++) {
         await repository.create({
-          TickerID: `NSDQ:PAGED${i}`,
-          Symbol: `PAGED${i}`,
-          Name: `Paged ${i}`,
-          ExchangeID: 'NASDAQ',
+          tickerId: `NSDQ:PAGED${i}`,
+          symbol: `PAGED${i}`,
+          name: `Paged ${i}`,
+          exchangeId: 'NASDAQ',
         });
       }
 
@@ -223,10 +223,10 @@ describe('InMemoryTickerRepository', () => {
   describe('update', () => {
     it('ティッカーを更新できる', async () => {
       const input: CreateTickerInput = {
-        TickerID: 'NSDQ:AAPL',
-        Symbol: 'AAPL',
-        Name: 'Apple Inc.',
-        ExchangeID: 'NASDAQ',
+        tickerId: 'NSDQ:AAPL',
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        exchangeId: 'NASDAQ',
       };
 
       await repository.create(input);
@@ -234,41 +234,43 @@ describe('InMemoryTickerRepository', () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
 
       const result = await repository.update('NSDQ:AAPL', {
-        Name: 'Apple Inc. (Updated)',
+        name: 'Apple Inc. (Updated)',
       });
 
-      expect(result.Name).toBe('Apple Inc. (Updated)');
-      expect(result.Symbol).toBe('AAPL'); // 更新されていないフィールド
-      expect(result.UpdatedAt).toBeGreaterThan(result.CreatedAt);
+      expect(result.name).toBe('Apple Inc. (Updated)');
+      expect(result.symbol).toBe('AAPL'); // 更新されていないフィールド
+      expect(result.updatedAt).toBeGreaterThan(result.createdAt);
     });
 
     it('存在しないティッカーを更新しようとするとEntityNotFoundErrorをスローする', async () => {
-      await expect(repository.update('NSDQ:NOTFOUND', { Name: 'Updated' })).rejects.toThrow(
+      await expect(repository.update('NSDQ:NOTFOUND', { name: 'Updated' })).rejects.toThrow(
         EntityNotFoundError
       );
     });
 
-    it('更新するフィールドがない場合はDatabaseErrorをスローする', async () => {
-      const input: CreateTickerInput = {
-        TickerID: 'NSDQ:AAPL',
-        Symbol: 'AAPL',
-        Name: 'Apple Inc.',
-        ExchangeID: 'NASDAQ',
-      };
+    it('更新するフィールドがなくても成功し、更新日時だけが進む', async () => {
+      const created = await repository.create({
+        tickerId: 'NSDQ:AAPL',
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        exchangeId: 'NASDAQ',
+      });
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
-      await repository.create(input);
+      const updated = await repository.update('NSDQ:AAPL', {});
 
-      await expect(repository.update('NSDQ:AAPL', {})).rejects.toThrow(DatabaseError);
+      expect(updated).toEqual({ ...created, updatedAt: updated.updatedAt });
+      expect(updated.updatedAt).toBeGreaterThan(created.updatedAt);
     });
   });
 
   describe('delete', () => {
     it('ティッカーを削除できる', async () => {
       const input: CreateTickerInput = {
-        TickerID: 'NSDQ:AAPL',
-        Symbol: 'AAPL',
-        Name: 'Apple Inc.',
-        ExchangeID: 'NASDAQ',
+        tickerId: 'NSDQ:AAPL',
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        exchangeId: 'NASDAQ',
       };
 
       await repository.create(input);
@@ -284,15 +286,15 @@ describe('InMemoryTickerRepository', () => {
 
     it('削除時に予期しないエラーが発生した場合は再スローする', async () => {
       const unexpectedError = new Error('Unexpected store error');
-      jest.spyOn(store, 'delete').mockImplementationOnce(() => {
+      jest.spyOn(store, 'deleteByKey').mockImplementationOnce(() => {
         throw unexpectedError;
       });
 
       const input: CreateTickerInput = {
-        TickerID: 'NSDQ:AAPL',
-        Symbol: 'AAPL',
-        Name: 'Apple Inc.',
-        ExchangeID: 'NASDAQ',
+        tickerId: 'NSDQ:AAPL',
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        exchangeId: 'NASDAQ',
       };
 
       await repository.create(input);

@@ -37,12 +37,6 @@ export { EntityNotFoundError as HoldingNotFoundError };
 export { EntityAlreadyExistsError as HoldingAlreadyExistsError };
 export { InvalidEntityDataError as InvalidHoldingDataError };
 
-export { EntityNotFoundError as TickerNotFoundError };
-export { EntityAlreadyExistsError as TickerAlreadyExistsError };
-export { InvalidEntityDataError as InvalidTickerDataError };
-
-export { EntityNotFoundError as ExchangeNotFoundError };
-
 // Repository Interfaces
 export type { AlertRepository } from './repositories/alert.repository.interface.js';
 export type { HoldingRepository } from './repositories/holding.repository.interface.js';

@@ -5,7 +5,7 @@ import { logger } from '@nagiyu/common';
 import type { ExchangeRepository, TemporaryAlertCandidate } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import * as tradingHoursChecker from '@nagiyu/stock-tracker-core';
-import type { Exchange } from '@nagiyu/stock-tracker-core';
+import type { ExchangeEntity } from '@nagiyu/stock-tracker-core';
 
 jest.mock('@nagiyu/common', () => ({
   ...jest.requireActual('@nagiyu/common'),
@@ -39,15 +39,16 @@ jest.mock('@nagiyu/stock-tracker-core', () => ({
   getLastTradingDate: jest.fn(),
 }));
 
-const NASDAQ: Exchange = {
-  ExchangeID: 'NASDAQ',
-  Name: 'NASDAQ',
-  Key: 'NSDQ',
-  Timezone: 'America/New_York',
-  Start: '04:00',
-  End: '20:00',
-  CreatedAt: 1,
-  UpdatedAt: 1,
+const NASDAQ: ExchangeEntity = {
+  exchangeId: 'NASDAQ',
+  name: 'NASDAQ',
+  key: 'NSDQ',
+  timezone: 'America/New_York',
+  start: '04:00',
+  end: '20:00',
+  priceSource: 'tradingview',
+  createdAt: 1,
+  updatedAt: 1,
 };
 
 function buildCandidate(overrides: Partial<TemporaryAlertCandidate> = {}): TemporaryAlertCandidate {

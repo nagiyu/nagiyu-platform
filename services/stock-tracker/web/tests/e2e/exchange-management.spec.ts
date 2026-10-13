@@ -87,13 +87,13 @@ const EXCHANGE_NAME = 'E2E Exchange Base Test';
 /** 前提となる取引所（編集・削除対象）の Exchange エンティティ */
 function baseExchangeEntity() {
   return {
-    ExchangeID: EXCHANGE_ID,
-    Name: EXCHANGE_NAME,
-    Key: EXCHANGE_KEY,
-    Timezone: 'America/New_York',
-    Start: '09:30',
-    End: '16:00',
-    PriceSource: 'tradingview',
+    exchangeId: EXCHANGE_ID,
+    name: EXCHANGE_NAME,
+    key: EXCHANGE_KEY,
+    timezone: 'America/New_York',
+    start: '09:30',
+    end: '16:00',
+    priceSource: 'tradingview',
   };
 }
 
@@ -291,7 +291,7 @@ test.describe('取引所管理画面 (E2E-006)', () => {
 
     test('設定済みの市場を未設定に戻せる', async ({ page, request }) => {
       // 市場を JP に設定済みの状態から始める
-      await resetState(request, { exchanges: [{ ...baseExchangeEntity(), Market: 'JP' }] });
+      await resetState(request, { exchanges: [{ ...baseExchangeEntity(), market: 'JP' }] });
       await page.goto('/exchanges');
       await page.waitForLoadState('networkidle');
 

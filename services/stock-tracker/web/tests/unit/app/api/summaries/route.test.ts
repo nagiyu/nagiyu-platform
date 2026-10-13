@@ -57,9 +57,9 @@ describe('GET /api/summaries', () => {
   const mockGetTickersByExchange = jest.fn();
   const mockGetAllTickers = jest.fn();
   // 取引所ごとの getByExchange が、その取引所の銘柄だけを返す挙動に揃える
-  const setTickers = (tickers: Array<{ ExchangeID: string }>): void => {
+  const setTickers = (tickers: Array<{ exchangeId: string }>): void => {
     mockGetTickersByExchange.mockImplementation(async (exchangeId: string) =>
-      tickers.filter((ticker) => ticker.ExchangeID === exchangeId)
+      tickers.filter((ticker) => ticker.exchangeId === exchangeId)
     );
   };
   const mockGetByExchange = jest.fn();
@@ -112,23 +112,23 @@ describe('GET /api/summaries', () => {
   it('正常系: 取引所ごとにサマリーを返す', async () => {
     mockGetAllExchanges.mockResolvedValue([
       {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
       },
       {
-        ExchangeID: 'NYSE',
-        Name: 'NYSE',
+        exchangeId: 'NYSE',
+        name: 'NYSE',
       },
     ]);
 
     setTickers([
       {
-        TickerID: 'NSDQ:AAPL',
-        Symbol: 'AAPL',
-        Name: 'Apple Inc.',
-        ExchangeID: 'NASDAQ',
-        CreatedAt: 1,
-        UpdatedAt: 1,
+        tickerId: 'NSDQ:AAPL',
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        exchangeId: 'NASDAQ',
+        createdAt: 1,
+        updatedAt: 1,
       },
     ]);
 
@@ -210,19 +210,19 @@ describe('GET /api/summaries', () => {
   it('正常系: PatternResults がある場合はパターン情報を返す', async () => {
     mockGetAllExchanges.mockResolvedValue([
       {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
       },
     ]);
 
     setTickers([
       {
-        TickerID: 'NSDQ:AAPL',
-        Symbol: 'AAPL',
-        Name: 'Apple Inc.',
-        ExchangeID: 'NASDAQ',
-        CreatedAt: 1,
-        UpdatedAt: 1,
+        tickerId: 'NSDQ:AAPL',
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        exchangeId: 'NASDAQ',
+        createdAt: 1,
+        updatedAt: 1,
       },
     ]);
 
@@ -269,9 +269,9 @@ describe('GET /api/summaries', () => {
   });
 
   it('正常系: 銘柄ごとの買い/売りアラート件数を返す', async () => {
-    mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
+    mockGetAllExchanges.mockResolvedValue([{ exchangeId: 'NASDAQ', name: 'NASDAQ' }]);
     setTickers([
-      { TickerID: 'NSDQ:AAPL', Symbol: 'AAPL', Name: 'Apple Inc.', ExchangeID: 'NASDAQ' },
+      { tickerId: 'NSDQ:AAPL', symbol: 'AAPL', name: 'Apple Inc.', exchangeId: 'NASDAQ' },
     ]);
     mockGetByExchange.mockResolvedValue([
       {
@@ -311,19 +311,19 @@ describe('GET /api/summaries', () => {
   it('正常系: PatternResults がない場合はパターン情報のデフォルト値を返す', async () => {
     mockGetAllExchanges.mockResolvedValue([
       {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
       },
     ]);
 
     setTickers([
       {
-        TickerID: 'NSDQ:MSFT',
-        Symbol: 'MSFT',
-        Name: 'Microsoft Corporation',
-        ExchangeID: 'NASDAQ',
-        CreatedAt: 1,
-        UpdatedAt: 1,
+        tickerId: 'NSDQ:MSFT',
+        symbol: 'MSFT',
+        name: 'Microsoft Corporation',
+        exchangeId: 'NASDAQ',
+        createdAt: 1,
+        updatedAt: 1,
       },
     ]);
 
@@ -355,7 +355,7 @@ describe('GET /api/summaries', () => {
   });
 
   it('正常系: パターン詳細は返さない', async () => {
-    mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
+    mockGetAllExchanges.mockResolvedValue([{ exchangeId: 'NASDAQ', name: 'NASDAQ' }]);
     setTickers([]);
     mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
     mockGetByExchange.mockResolvedValue([
@@ -411,12 +411,12 @@ describe('GET /api/summaries', () => {
   it('正常系: date パラメータ指定時は全取引所に同じ日付で問い合わせる', async () => {
     mockGetAllExchanges.mockResolvedValue([
       {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
       },
       {
-        ExchangeID: 'NYSE',
-        Name: 'NYSE',
+        exchangeId: 'NYSE',
+        name: 'NYSE',
       },
     ]);
     setTickers([]);
@@ -473,7 +473,7 @@ describe('GET /api/summaries', () => {
   });
 
   it('正常系: 保有株式情報がある場合は summaries に holding を含める', async () => {
-    mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
+    mockGetAllExchanges.mockResolvedValue([{ exchangeId: 'NASDAQ', name: 'NASDAQ' }]);
     setTickers([]);
     mockGetByExchange.mockResolvedValue([
       {
@@ -518,7 +518,7 @@ describe('GET /api/summaries', () => {
   });
 
   it('正常系: 保有株式情報の取得に失敗してもサマリー取得を継続する', async () => {
-    mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
+    mockGetAllExchanges.mockResolvedValue([{ exchangeId: 'NASDAQ', name: 'NASDAQ' }]);
     setTickers([]);
     mockGetByExchange.mockResolvedValue([
       {
@@ -569,8 +569,8 @@ describe('GET /api/summaries', () => {
 
     it('正常系: 取引所ごとに 1 回だけ Forecast を引いて銘柄へ結合する', async () => {
       mockGetAllExchanges.mockResolvedValue([
-        { ExchangeID: 'NASDAQ', Name: 'NASDAQ', Market: 'US' },
-        { ExchangeID: 'TSE', Name: 'TSE', Market: 'JP' },
+        { exchangeId: 'NASDAQ', name: 'NASDAQ', market: 'US' },
+        { exchangeId: 'TSE', name: 'TSE', market: 'JP' },
       ]);
       setTickers([]);
       mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
@@ -651,7 +651,7 @@ describe('GET /api/summaries', () => {
 
     it('正常系: Forecast の取得に失敗しても一覧を返す', async () => {
       mockGetAllExchanges.mockResolvedValue([
-        { ExchangeID: 'NASDAQ', Name: 'NASDAQ', Market: 'US' },
+        { exchangeId: 'NASDAQ', name: 'NASDAQ', market: 'US' },
       ]);
       setTickers([]);
       mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
@@ -676,7 +676,7 @@ describe('GET /api/summaries', () => {
 
     it('正常系: 市場の荒れ予報の取得に失敗しても一覧を返し、JP・US を null で返す', async () => {
       mockGetAllExchanges.mockResolvedValue([
-        { ExchangeID: 'NASDAQ', Name: 'NASDAQ', Market: 'US' },
+        { exchangeId: 'NASDAQ', name: 'NASDAQ', market: 'US' },
       ]);
       setTickers([]);
       mockGetHoldingsByUserId.mockResolvedValue({ items: [] });

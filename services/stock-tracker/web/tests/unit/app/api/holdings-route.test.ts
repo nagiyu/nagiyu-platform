@@ -123,7 +123,7 @@ describe('GET /api/holdings', () => {
       ],
       nextCursor: 'next-cursor',
     });
-    mockGetTickerById.mockResolvedValue({ Symbol: 'NVDA', Name: 'NVIDIA' });
+    mockGetTickerById.mockResolvedValue({ symbol: 'NVDA', name: 'NVIDIA' });
 
     const response = await GET(new NextRequest('http://localhost/api/holdings'));
     const body = await response.json();
@@ -177,7 +177,7 @@ describe('POST /api/holdings', () => {
       CreatedAt: 1704067200000,
       UpdatedAt: 1704067200000,
     });
-    mockGetTickerById.mockResolvedValue({ Symbol: 'AAPL', Name: 'Apple Inc.' });
+    mockGetTickerById.mockResolvedValue({ symbol: 'AAPL', name: 'Apple Inc.' });
 
     const response = await POST(
       createRequest(JSON.stringify({ ...validBody, userId: 'other-user' }))

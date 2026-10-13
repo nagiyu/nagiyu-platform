@@ -13,7 +13,7 @@ import type { ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import * as alertEvaluator from '@nagiyu/stock-tracker-core';
 import * as tradingHoursChecker from '@nagiyu/stock-tracker-core';
-import type { Alert, Exchange } from '@nagiyu/stock-tracker-core';
+import type { Alert, ExchangeEntity } from '@nagiyu/stock-tracker-core';
 
 // TradingViewQuoteProvider / FinnhubQuoteProvider のモックインスタンス
 let mockTradingViewGetCurrentPrice: jest.Mock;
@@ -139,16 +139,16 @@ describe('hourly batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      const mockExchange: Exchange = {
-        ExchangeID: 'TSE',
-        Name: '東京証券取引所',
-        Key: 'TSE',
-        Timezone: 'Asia/Tokyo',
-        Start: '09:00',
-        End: '15:30',
-        PriceSource: 'tradingview',
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+      const mockExchange: ExchangeEntity = {
+        exchangeId: 'TSE',
+        name: '東京証券取引所',
+        key: 'TSE',
+        timezone: 'Asia/Tokyo',
+        start: '09:00',
+        end: '15:30',
+        priceSource: 'tradingview',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
@@ -204,16 +204,16 @@ describe('hourly batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      const mockExchange: Exchange = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'finnhub',
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+      const mockExchange: ExchangeEntity = {
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'finnhub',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
@@ -269,16 +269,17 @@ describe('hourly batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      const mockExchange: Exchange = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
+      const mockExchange: ExchangeEntity = {
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview',
         // PriceSource を意図的に未設定（undefined）
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
@@ -361,16 +362,16 @@ describe('hourly batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      const mockExchange: Exchange = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview',
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+      const mockExchange: ExchangeEntity = {
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
@@ -412,16 +413,16 @@ describe('hourly batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      const mockExchange: Exchange = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview',
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+      const mockExchange: ExchangeEntity = {
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
@@ -484,16 +485,16 @@ describe('hourly batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      const mockExchange: Exchange = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'finnhub',
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+      const mockExchange: ExchangeEntity = {
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'finnhub',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
@@ -615,28 +616,28 @@ describe('hourly batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      const exchangeNasdaq: Exchange = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'finnhub',
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+      const exchangeNasdaq: ExchangeEntity = {
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'finnhub',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
-      const exchangeTse: Exchange = {
-        ExchangeID: 'TSE',
-        Name: '東京証券取引所',
-        Key: 'TSE',
-        Timezone: 'Asia/Tokyo',
-        Start: '09:00',
-        End: '15:30',
-        PriceSource: 'tradingview',
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+      const exchangeTse: ExchangeEntity = {
+        exchangeId: 'TSE',
+        name: '東京証券取引所',
+        key: 'TSE',
+        timezone: 'Asia/Tokyo',
+        start: '09:00',
+        end: '15:30',
+        priceSource: 'tradingview',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       mockAlertRepo.getByFrequency.mockResolvedValue([alertFinnhub, alertTradingView]);
@@ -698,16 +699,16 @@ describe('hourly batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      const mockExchange: Exchange = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview',
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+      const mockExchange: ExchangeEntity = {
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);

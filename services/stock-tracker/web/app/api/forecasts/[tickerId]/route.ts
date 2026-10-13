@@ -58,7 +58,7 @@ export const GET = withInternalErrorReporting(
 
       const date =
         requestedDate ??
-        (await createDailySummaryRepository().getByExchange(ticker.ExchangeID))[0]?.Date;
+        (await createDailySummaryRepository().getByExchange(ticker.exchangeId))[0]?.Date;
       if (!date) {
         return errorResponse('NOT_FOUND', ERROR_MESSAGES.FORECAST_NOT_FOUND, 404);
       }

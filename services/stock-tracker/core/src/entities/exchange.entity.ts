@@ -44,54 +44,54 @@ export const EXCHANGE_MARKET_LABELS: Record<ExchangeMarket, string> = {
  * DynamoDBの実装詳細（PK/SK）を含まない純粋なビジネスオブジェクト
  */
 export interface ExchangeEntity {
-  /** 取引所ID */
-  ExchangeID: string;
-  /** 取引所名 */
-  Name: string;
-  /** TradingView API用キー */
-  Key: string;
+  /** 取引所ID。1-50文字、英数字とハイフン、作成後変更不可 */
+  exchangeId: string;
+  /** 取引所名。1-200文字 */
+  name: string;
+  /** TradingView API用キー。1-20文字、英大文字と数字のみ、作成後変更不可 (TickerID の生成に使う) */
+  key: string;
   /** タイムゾーン (IANA形式) */
-  Timezone: string;
-  /** 取引開始時刻 (HH:MM形式) */
-  Start: string;
-  /** 取引終了時刻 (HH:MM形式) */
-  End: string;
+  timezone: string;
+  /** 取引開始時刻 (HH:MM形式)。時間外取引を含む */
+  start: string;
+  /** 取引終了時刻 (HH:MM形式)。時間外取引を含む */
+  end: string;
   /**
    * 現在価格の取得元。既定 tradingview
    *
    * - tradingview: TradingView API（東証など全市場対応）
    * - finnhub: Finnhub API（米国株専用: NASDAQ/NYSE/AMEX）
    */
-  PriceSource: PriceSource;
+  priceSource: PriceSource;
   /**
    * 市場（省略可能。未設定の取引所は確度算出の対象外）
    *
    * - JP: 日本
    * - US: 米国
    */
-  Market?: ExchangeMarket;
-  /** 作成日時 (Unix timestamp) */
-  CreatedAt: number;
-  /** 更新日時 (Unix timestamp) */
-  UpdatedAt: number;
+  market?: ExchangeMarket;
+  /** 作成日時 (Unix timestamp ミリ秒) */
+  createdAt: number;
+  /** 更新日時 (Unix timestamp ミリ秒) */
+  updatedAt: number;
 }
 
 /**
- * Exchange作成時の入力データ（CreatedAt/UpdatedAtを含まない）
+ * Exchange作成時の入力データ（createdAt/updatedAtを含まない）
  */
-export type CreateExchangeInput = Omit<ExchangeEntity, 'CreatedAt' | 'UpdatedAt'>;
+export type CreateExchangeInput = Omit<ExchangeEntity, 'createdAt' | 'updatedAt'>;
 
 /**
  * Exchange更新時の入力データ（更新可能なフィールドのみ）
  *
- * Market は他の省略可能フィールドと異なりデフォルト値を持たないため、
+ * market は他の省略可能フィールドと異なりデフォルト値を持たないため、
  * `undefined`（更新しない）と `null`（未設定に戻す）を区別する。
  */
 export type UpdateExchangeInput = Partial<
-  Pick<ExchangeEntity, 'Name' | 'Timezone' | 'Start' | 'End' | 'PriceSource'>
+  Pick<ExchangeEntity, 'name' | 'timezone' | 'start' | 'end' | 'priceSource'>
 > & {
   /** 市場。undefined: 更新しない、null: 未設定に戻す、値: その市場に設定する */
-  Market?: ExchangeMarket | null;
+  market?: ExchangeMarket | null;
 };
 
 /**

@@ -57,6 +57,8 @@ export interface ExchangeRepository {
   /**
    * 取引所を更新
    *
+   * `updates` が空でも成功し、更新日時だけが更新される。
+   *
    * @param exchangeId - 取引所ID
    * @param updates - 更新するフィールド
    * @returns 更新された取引所

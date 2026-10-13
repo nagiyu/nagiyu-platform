@@ -4,71 +4,49 @@
  * DynamoDBを使用したTickerRepositoryの実装
  */
 
-import { UpdateCommand, ScanCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { ScanCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
-  AbstractDynamoDBRepository,
-  EntityNotFoundError,
-  DatabaseError,
-  mapConditionalCheckFailed,
+  DynamoDBEntityStore,
   toDatabaseError,
-  buildUpdateExpression,
   queryAllItems,
   scanAllItems,
   encodeCursor,
   decodeCursor,
+  type EntityStore,
   type PaginationOptions,
   type PaginatedResult,
-  type DynamoDBItem,
 } from '@nagiyu/aws';
 import type { TickerRepository } from './ticker.repository.interface.js';
-import type { TickerEntity, UpdateTickerInput } from '../entities/ticker.entity.js';
+import type {
+  TickerEntity,
+  TickerKey,
+  CreateTickerInput,
+  UpdateTickerInput,
+} from '../entities/ticker.entity.js';
 import { TickerMapper } from '../mappers/ticker.mapper.js';
-
-// エラーメッセージ定数
-const ERROR_MESSAGES = {
-  NO_UPDATES_SPECIFIED: '更新するフィールドが指定されていません',
-} as const;
 
 /**
  * DynamoDB Ticker Repository
  *
- * DynamoDBを使用したティッカーリポジトリの実装
+ * 単一アイテムの CRUD は EntityStore に任せ、GSI の Query と Scan だけを自前で持つ
  */
-export class DynamoDBTickerRepository
-  extends AbstractDynamoDBRepository<TickerEntity, string>
-  implements TickerRepository
-{
-  private readonly mapper: TickerMapper;
+export class DynamoDBTickerRepository implements TickerRepository {
+  private readonly docClient: DynamoDBDocumentClient;
+  private readonly tableName: string;
+  private readonly mapper = new TickerMapper();
+  private readonly entityStore: EntityStore<TickerEntity, TickerKey>;
 
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
-    super(docClient, { tableName, entityType: 'Ticker' });
-    this.mapper = new TickerMapper();
+    this.docClient = docClient;
+    this.tableName = tableName;
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper);
   }
 
-  protected buildKeys(tickerId: string): { PK: string; SK: string } {
-    const { pk, sk } = this.mapper.buildKeys({ tickerId });
-    return { PK: pk, SK: sk };
-  }
-
-  protected mapToEntity(item: Record<string, unknown>): TickerEntity {
-    return this.mapper.toEntity(item as DynamoDBItem);
-  }
-
-  protected mapToItem(
-    entity: Omit<TickerEntity, 'CreatedAt' | 'UpdatedAt'>
-  ): Omit<DynamoDBItem, 'CreatedAt' | 'UpdatedAt'> {
-    const { pk, sk } = this.mapper.buildKeys({ tickerId: entity.TickerID });
-    return {
-      PK: pk,
-      SK: sk,
-      Type: 'Ticker',
-      GSI3PK: entity.ExchangeID,
-      GSI3SK: `TICKER#${entity.TickerID}`,
-      TickerID: entity.TickerID,
-      Symbol: entity.Symbol,
-      Name: entity.Name,
-      ExchangeID: entity.ExchangeID,
-    };
+  /**
+   * ティッカーIDで単一のティッカーを取得
+   */
+  public async getById(tickerId: string): Promise<TickerEntity | null> {
+    return this.entityStore.get({ tickerId });
   }
 
   /**
@@ -81,7 +59,7 @@ export class DynamoDBTickerRepository
   public async getByExchange(exchangeId: string): Promise<TickerEntity[]> {
     try {
       const items = await queryAllItems(this.docClient, {
-        TableName: this.config.tableName,
+        TableName: this.tableName,
         IndexName: 'ExchangeTickerIndex',
         KeyConditionExpression: '#gsi3pk = :exchangeId',
         ExpressionAttributeNames: {
@@ -109,13 +87,13 @@ export class DynamoDBTickerRepository
 
       if (!usePagination) {
         const items = await scanAllItems(this.docClient, {
-          TableName: this.config.tableName,
+          TableName: this.tableName,
           FilterExpression: '#type = :type',
           ExpressionAttributeNames: {
             '#type': 'Type',
           },
           ExpressionAttributeValues: {
-            ':type': 'Ticker',
+            ':type': this.mapper.entityType,
           },
         });
         const allItems = items.map((item) => this.mapper.toEntity(item));
@@ -132,22 +110,20 @@ export class DynamoDBTickerRepository
 
       const result = await this.docClient.send(
         new ScanCommand({
-          TableName: this.config.tableName,
+          TableName: this.tableName,
           FilterExpression: '#type = :type',
           ExpressionAttributeNames: {
             '#type': 'Type',
           },
           ExpressionAttributeValues: {
-            ':type': 'Ticker',
+            ':type': this.mapper.entityType,
           },
           Limit: limit,
           ExclusiveStartKey: exclusiveStartKey,
         })
       );
 
-      const items = (result.Items || []).map((item) =>
-        this.mapper.toEntity(item as unknown as DynamoDBItem)
-      );
+      const items = (result.Items || []).map((item) => this.mapper.toEntity(item));
       const nextCursor = encodeCursor(result.LastEvaluatedKey);
 
       return {
@@ -161,50 +137,24 @@ export class DynamoDBTickerRepository
   }
 
   /**
+   * 新しいティッカーを作成
+   */
+  public async create(input: CreateTickerInput): Promise<TickerEntity> {
+    const now = Date.now();
+    return this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
+  }
+
+  /**
    * ティッカーを更新
    */
   public async update(tickerId: string, updates: UpdateTickerInput): Promise<TickerEntity> {
-    try {
-      // 更新するフィールドがない場合はエラー
-      if (Object.keys(updates).length === 0) {
-        throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
-      }
+    return this.entityStore.update({ tickerId }, updates);
+  }
 
-      const { pk, sk } = this.mapper.buildKeys({ tickerId });
-      const fields = {
-        Symbol: updates.Symbol,
-        Name: updates.Name,
-      };
-      const updateParts = buildUpdateExpression(fields, {
-        timestamp: { attributeName: 'UpdatedAt', value: Date.now() },
-        updateTimestampWhenEmpty: true,
-      });
-      if (!updateParts) {
-        throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
-      }
-
-      const result = await this.docClient.send(
-        new UpdateCommand({
-          TableName: this.config.tableName,
-          Key: { PK: pk, SK: sk },
-          ...updateParts,
-          ConditionExpression: 'attribute_exists(PK)',
-          ReturnValues: 'ALL_NEW',
-        })
-      );
-
-      if (!result.Attributes) {
-        throw new EntityNotFoundError('Ticker', tickerId);
-      }
-
-      return this.mapper.toEntity(result.Attributes as unknown as DynamoDBItem);
-    } catch (error) {
-      mapConditionalCheckFailed(error, {
-        onMissing: () => {
-          throw new EntityNotFoundError('Ticker', tickerId);
-        },
-      });
-      throw toDatabaseError(error);
-    }
+  /**
+   * ティッカーを削除
+   */
+  public async delete(tickerId: string): Promise<void> {
+    await this.entityStore.delete({ tickerId });
   }
 }

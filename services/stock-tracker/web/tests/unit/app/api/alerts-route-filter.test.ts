@@ -28,7 +28,7 @@ describe('GET /api/alerts/tickers/[tickerId]', () => {
     jest.clearAllMocks();
     (createAlertRepository as jest.Mock).mockReturnValue({ getByUserId: mockGetByUserId });
     (createTickerRepository as jest.Mock).mockReturnValue({ getById: mockGetTickerById });
-    mockGetTickerById.mockResolvedValue({ Symbol: 'NVDA', Name: 'NVIDIA' });
+    mockGetTickerById.mockResolvedValue({ symbol: 'NVDA', name: 'NVIDIA' });
   });
 
   it('正常系: tickerId 指定時に該当アラートのみ返す', async () => {

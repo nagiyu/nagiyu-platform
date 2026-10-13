@@ -142,8 +142,8 @@ export const GET = withApiErrorReporting(
         alerts.push(
           mapAlertToResponse(
             alert,
-            ticker?.Symbol || alert.TickerID.split(':')[1] || '',
-            ticker?.Name || ''
+            ticker?.symbol || alert.TickerID.split(':')[1] || '',
+            ticker?.name || ''
           )
         );
       }
@@ -323,8 +323,8 @@ export const POST = withApiErrorReporting(
       // レスポンス形式に変換
       const response = mapAlertToResponse(
         createdAlert,
-        ticker?.Symbol || createdAlert.TickerID.split(':')[1] || '',
-        ticker?.Name || ''
+        ticker?.symbol || createdAlert.TickerID.split(':')[1] || '',
+        ticker?.name || ''
       );
 
       return NextResponse.json(response, { status: 201 });

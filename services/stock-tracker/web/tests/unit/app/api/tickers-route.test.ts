@@ -4,6 +4,7 @@ import {
   createExchangeRepository,
   createTickerRepository,
 } from '../../../../lib/repository-factory';
+import { EntityAlreadyExistsError } from '@nagiyu/aws';
 import { MALFORMED_BODY_CASES } from './invalidBodyCases';
 
 jest.mock('../../../../lib/repository-factory', () => ({
@@ -25,12 +26,12 @@ jest.mock('@nagiyu/nextjs', () => ({
 
 function buildTicker(tickerId: string, exchangeId: string) {
   return {
-    TickerID: tickerId,
-    Symbol: tickerId,
-    Name: tickerId,
-    ExchangeID: exchangeId,
-    CreatedAt: 1704067200000,
-    UpdatedAt: 1704067200000,
+    tickerId,
+    symbol: tickerId,
+    name: tickerId,
+    exchangeId,
+    createdAt: 1704067200000,
+    updatedAt: 1704067200000,
   };
 }
 
@@ -113,13 +114,13 @@ describe('POST /api/tickers', () => {
   });
 
   it('正しいボディでティッカーを作成する', async () => {
-    mockExchangeGetById.mockResolvedValue({ Key: 'NSDQ' });
+    mockExchangeGetById.mockResolvedValue({ key: 'NSDQ' });
     mockCreate.mockResolvedValue({
-      TickerID: 'NSDQ:AAPL',
-      Symbol: 'AAPL',
-      Name: 'Apple Inc.',
-      ExchangeID: 'NASDAQ',
-      CreatedAt: 1704067200000,
+      tickerId: 'NSDQ:AAPL',
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      exchangeId: 'NASDAQ',
+      createdAt: 1704067200000,
     });
 
     const response = await POST(createRequest(JSON.stringify(validBody)));
@@ -128,11 +129,34 @@ describe('POST /api/tickers', () => {
     expect(response.status).toBe(201);
     expect(body.tickerId).toBe('NSDQ:AAPL');
     expect(mockCreate).toHaveBeenCalledWith({
-      TickerID: 'NSDQ:AAPL',
-      Symbol: 'AAPL',
-      Name: 'Apple Inc.',
-      ExchangeID: 'NASDAQ',
+      tickerId: 'NSDQ:AAPL',
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      exchangeId: 'NASDAQ',
     });
+  });
+
+  it('同じティッカーが既に存在する場合は 400 を返す', async () => {
+    mockExchangeGetById.mockResolvedValue({ key: 'NSDQ' });
+    mockCreate.mockRejectedValue(new EntityAlreadyExistsError('Ticker', 'NSDQ:AAPL'));
+
+    const response = await POST(createRequest(JSON.stringify(validBody)));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('INVALID_REQUEST');
+    expect(body.message).toBe('ティッカーは既に存在します');
+  });
+
+  it('取引所が存在しない場合は 400 を返し、ティッカーを作成しない', async () => {
+    mockExchangeGetById.mockResolvedValue(null);
+
+    const response = await POST(createRequest(JSON.stringify(validBody)));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.message).toBe('取引所が見つかりません');
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 
   it('必須項目が欠けている場合はバリデーションの指摘を 400 で返す', async () => {

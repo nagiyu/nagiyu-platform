@@ -75,7 +75,7 @@ describe('GET /api/summaries/[tickerId]', () => {
         UpdatedAt: 1000,
       },
     ]);
-    mockGetById.mockResolvedValue({ TickerID: 'NASDAQ:NVDA', Symbol: 'NVDA', Name: 'NVIDIA' });
+    mockGetById.mockResolvedValue({ tickerId: 'NASDAQ:NVDA', symbol: 'NVDA', name: 'NVIDIA' });
     mockGetHoldingById.mockResolvedValue({ Quantity: 5, AveragePrice: 98 });
     mockGetAlertsByUserId.mockResolvedValue({
       items: [{ TickerID: 'NASDAQ:NVDA', Mode: 'Buy', Enabled: true }],
@@ -108,7 +108,7 @@ describe('GET /api/summaries/[tickerId]', () => {
         UpdatedAt: 1000,
       },
     ]);
-    mockGetById.mockResolvedValue({ TickerID: 'NASDAQ:NVDA', Symbol: 'NVDA', Name: 'NVIDIA' });
+    mockGetById.mockResolvedValue({ tickerId: 'NASDAQ:NVDA', symbol: 'NVDA', name: 'NVIDIA' });
     mockGetHoldingById.mockResolvedValue(null);
     mockGetAlertsByUserId.mockResolvedValue({ items: [] });
     mockGetForecast.mockResolvedValue({

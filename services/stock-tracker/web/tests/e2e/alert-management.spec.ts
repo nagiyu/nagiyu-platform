@@ -81,21 +81,21 @@ function baseSeed(): ResetSeedData {
   return {
     exchanges: [
       {
-        ExchangeID: EXCHANGE_ID,
-        Name: EXCHANGE_NAME,
-        Key: EXCHANGE_KEY,
-        Timezone: 'America/New_York',
-        Start: '09:30',
-        End: '16:00',
-        PriceSource: 'tradingview',
+        exchangeId: EXCHANGE_ID,
+        name: EXCHANGE_NAME,
+        key: EXCHANGE_KEY,
+        timezone: 'America/New_York',
+        start: '09:30',
+        end: '16:00',
+        priceSource: 'tradingview',
       },
     ],
     tickers: [
       {
-        TickerID: TICKER_ID,
-        Symbol: TICKER_SYMBOL,
-        Name: TICKER_NAME,
-        ExchangeID: EXCHANGE_ID,
+        tickerId: TICKER_ID,
+        symbol: TICKER_SYMBOL,
+        name: TICKER_NAME,
+        exchangeId: EXCHANGE_ID,
       },
     ],
   };

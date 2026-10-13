@@ -4,76 +4,40 @@
  * DynamoDBを使用したExchangeRepositoryの実装
  */
 
-import { UpdateCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import {
-  AbstractDynamoDBRepository,
-  EntityNotFoundError,
-  DatabaseError,
-  mapConditionalCheckFailed,
-  toDatabaseError,
-  buildUpdateExpression,
-  REMOVE_ATTRIBUTE,
-  scanAllItems,
-  type DynamoDBItem,
-} from '@nagiyu/aws';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBEntityStore, toDatabaseError, scanAllItems, type EntityStore } from '@nagiyu/aws';
 import type { ExchangeRepository } from './exchange.repository.interface.js';
-import type { ExchangeEntity, UpdateExchangeInput } from '../entities/exchange.entity.js';
-import {
-  ExchangeMapper,
-  EXCHANGE_GSI3_PK,
-  buildExchangeGsi3Sk,
-} from '../mappers/exchange.mapper.js';
+import type {
+  ExchangeEntity,
+  ExchangeKey,
+  CreateExchangeInput,
+  UpdateExchangeInput,
+} from '../entities/exchange.entity.js';
+import { ExchangeMapper } from '../mappers/exchange.mapper.js';
 import { queryExchangeItems } from './query-exchange-index.js';
-
-// エラーメッセージ定数
-const ERROR_MESSAGES = {
-  NO_UPDATES_SPECIFIED: '更新するフィールドが指定されていません',
-} as const;
 
 /**
  * DynamoDB Exchange Repository
  *
- * DynamoDBを使用した取引所リポジトリの実装
+ * 単一アイテムの CRUD は EntityStore に任せ、Scan と GSI の Query だけを自前で持つ
  */
-export class DynamoDBExchangeRepository
-  extends AbstractDynamoDBRepository<ExchangeEntity, string>
-  implements ExchangeRepository
-{
-  private readonly mapper: ExchangeMapper;
+export class DynamoDBExchangeRepository implements ExchangeRepository {
+  private readonly docClient: DynamoDBDocumentClient;
+  private readonly tableName: string;
+  private readonly mapper = new ExchangeMapper();
+  private readonly entityStore: EntityStore<ExchangeEntity, ExchangeKey>;
 
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
-    super(docClient, { tableName, entityType: 'Exchange' });
-    this.mapper = new ExchangeMapper();
+    this.docClient = docClient;
+    this.tableName = tableName;
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper);
   }
 
-  protected buildKeys(exchangeId: string): { PK: string; SK: string } {
-    const { pk, sk } = this.mapper.buildKeys({ exchangeId });
-    return { PK: pk, SK: sk };
-  }
-
-  protected mapToEntity(item: Record<string, unknown>): ExchangeEntity {
-    return this.mapper.toEntity(item as DynamoDBItem);
-  }
-
-  protected mapToItem(
-    entity: Omit<ExchangeEntity, 'CreatedAt' | 'UpdatedAt'>
-  ): Omit<DynamoDBItem, 'CreatedAt' | 'UpdatedAt'> {
-    const { pk, sk } = this.mapper.buildKeys({ exchangeId: entity.ExchangeID });
-    return {
-      PK: pk,
-      SK: sk,
-      Type: 'Exchange',
-      GSI3PK: EXCHANGE_GSI3_PK,
-      GSI3SK: buildExchangeGsi3Sk(entity.ExchangeID),
-      ExchangeID: entity.ExchangeID,
-      Name: entity.Name,
-      Key: entity.Key,
-      Timezone: entity.Timezone,
-      Start: entity.Start,
-      End: entity.End,
-      PriceSource: entity.PriceSource,
-      ...(entity.Market !== undefined ? { Market: entity.Market } : {}),
-    };
+  /**
+   * 取引所IDで単一の取引所を取得
+   */
+  public async getById(exchangeId: string): Promise<ExchangeEntity | null> {
+    return this.entityStore.get({ exchangeId });
   }
 
   /**
@@ -101,7 +65,7 @@ export class DynamoDBExchangeRepository
    */
   public async getAllIndexed(): Promise<ExchangeEntity[]> {
     try {
-      const indexed = await queryExchangeItems(this.docClient, this.config.tableName);
+      const indexed = await queryExchangeItems(this.docClient, this.tableName);
       if (indexed.length > 0) {
         return indexed.map((item) => this.mapper.toEntity(item));
       }
@@ -112,75 +76,43 @@ export class DynamoDBExchangeRepository
   }
 
   /**
-   * Type フィルタ付き Scan で全取引所を取得する
+   * 新しい取引所を作成
    */
-  private async scanAll(): Promise<ExchangeEntity[]> {
-    const items = await scanAllItems(this.docClient, {
-      TableName: this.config.tableName,
-      FilterExpression: '#type = :type',
-      ExpressionAttributeNames: {
-        '#type': 'Type',
-      },
-      ExpressionAttributeValues: {
-        ':type': 'Exchange',
-      },
-    });
-    return items.map((item) => this.mapper.toEntity(item));
+  public async create(input: CreateExchangeInput): Promise<ExchangeEntity> {
+    const now = Date.now();
+    return this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
   }
 
   /**
    * 取引所を更新
    */
   public async update(exchangeId: string, updates: UpdateExchangeInput): Promise<ExchangeEntity> {
-    try {
-      // 更新するフィールドがない場合はエラー
-      if (Object.keys(updates).length === 0) {
-        throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
-      }
+    // GSI3SK は exchangeId から作られるため、patch に含めて更新のたびに GSI3 キーを付け直す。
+    // キー導入前に作られたアイテムも、更新されると getAllIndexed の Query 対象になる。
+    return this.entityStore.update({ exchangeId }, { ...updates, exchangeId });
+  }
 
-      const { pk, sk } = this.mapper.buildKeys({ exchangeId });
-      const fields = {
-        Name: updates.Name,
-        Timezone: updates.Timezone,
-        Start: updates.Start,
-        End: updates.End,
-        PriceSource: updates.PriceSource,
-        // Market は undefined (更新しない)・null (未設定に戻す = REMOVE)・値 (SET) の 3 値を区別する
-        Market: updates.Market === null ? REMOVE_ATTRIBUTE : updates.Market,
-        // 更新のたびに GSI3 キーを付け直す。キー導入前に作られた既存アイテムは、
-        // 画面から保存し直すことで getAllIndexed の Query 対象になる。
-        GSI3PK: EXCHANGE_GSI3_PK,
-        GSI3SK: buildExchangeGsi3Sk(exchangeId),
-      };
-      const updateParts = buildUpdateExpression(fields, {
-        timestamp: { attributeName: 'UpdatedAt', value: Date.now() },
-      });
-      if (!updateParts) {
-        throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
-      }
+  /**
+   * 取引所を削除
+   */
+  public async delete(exchangeId: string): Promise<void> {
+    await this.entityStore.delete({ exchangeId });
+  }
 
-      const result = await this.docClient.send(
-        new UpdateCommand({
-          TableName: this.config.tableName,
-          Key: { PK: pk, SK: sk },
-          ...updateParts,
-          ConditionExpression: 'attribute_exists(PK)',
-          ReturnValues: 'ALL_NEW',
-        })
-      );
-
-      if (!result.Attributes) {
-        throw new EntityNotFoundError('Exchange', exchangeId);
-      }
-
-      return this.mapper.toEntity(result.Attributes as unknown as DynamoDBItem);
-    } catch (error) {
-      mapConditionalCheckFailed(error, {
-        onMissing: () => {
-          throw new EntityNotFoundError('Exchange', exchangeId);
-        },
-      });
-      throw toDatabaseError(error);
-    }
+  /**
+   * Type フィルタ付き Scan で全取引所を取得する
+   */
+  private async scanAll(): Promise<ExchangeEntity[]> {
+    const items = await scanAllItems(this.docClient, {
+      TableName: this.tableName,
+      FilterExpression: '#type = :type',
+      ExpressionAttributeNames: {
+        '#type': 'Type',
+      },
+      ExpressionAttributeValues: {
+        ':type': this.mapper.entityType,
+      },
+    });
+    return items.map((item) => this.mapper.toEntity(item));
   }
 }

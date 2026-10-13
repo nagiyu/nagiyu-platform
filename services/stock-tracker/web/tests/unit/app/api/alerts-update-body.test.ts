@@ -71,7 +71,7 @@ describe('PUT /api/alerts/[id] のリクエストボディ', () => {
       update: mockUpdate,
     });
     (createTickerRepository as jest.Mock).mockReturnValue({
-      getById: jest.fn().mockResolvedValue({ Symbol: 'AAPL', Name: 'Apple Inc.' }),
+      getById: jest.fn().mockResolvedValue({ symbol: 'AAPL', name: 'Apple Inc.' }),
     });
     (createExchangeRepository as jest.Mock).mockReturnValue({ getById: mockGetExchangeById });
   });

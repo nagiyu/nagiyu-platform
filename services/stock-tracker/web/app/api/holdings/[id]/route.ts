@@ -223,8 +223,8 @@ export const PUT = withApiErrorReporting(
       // レスポンス形式に変換
       const response = mapHoldingToResponse(
         updatedHolding,
-        ticker?.Symbol || updatedHolding.TickerID.split(':')[1] || '',
-        ticker?.Name || ''
+        ticker?.symbol || updatedHolding.TickerID.split(':')[1] || '',
+        ticker?.name || ''
       );
 
       return NextResponse.json(response, { status: 200 });

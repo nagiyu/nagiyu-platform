@@ -190,16 +190,16 @@ function toSessionInfos(exchanges: readonly ExchangeEntity[]): {
   const known: ExchangeSessionInfo[] = [];
   const skippedExchangeIds: string[] = [];
   for (const exchange of exchanges) {
-    if (exchange.Market === undefined) {
-      skippedExchangeIds.push(exchange.ExchangeID);
+    if (exchange.market === undefined) {
+      skippedExchangeIds.push(exchange.exchangeId);
       continue;
     }
     known.push({
-      exchangeId: exchange.ExchangeID,
-      market: exchange.Market,
-      timezone: exchange.Timezone,
-      start: exchange.Start,
-      end: exchange.End,
+      exchangeId: exchange.exchangeId,
+      market: exchange.market,
+      timezone: exchange.timezone,
+      start: exchange.start,
+      end: exchange.end,
     });
   }
   return { known, skippedExchangeIds };

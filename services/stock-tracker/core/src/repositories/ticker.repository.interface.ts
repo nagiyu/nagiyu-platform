@@ -65,6 +65,8 @@ export interface TickerRepository {
   /**
    * ティッカーを更新
    *
+   * `updates` が空でも成功し、更新日時だけが更新される。
+   *
    * @param tickerId - ティッカーID
    * @param updates - 更新するフィールド
    * @returns 更新されたティッカー

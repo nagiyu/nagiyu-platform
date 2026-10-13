@@ -118,8 +118,8 @@ export const GET = withApiErrorReporting(
       holdings.push(
         mapHoldingToResponse(
           holding,
-          ticker?.Symbol || holding.TickerID.split(':')[1] || '',
-          ticker?.Name || ''
+          ticker?.symbol || holding.TickerID.split(':')[1] || '',
+          ticker?.name || ''
         )
       );
     }
@@ -252,8 +252,8 @@ export const POST = withApiErrorReporting(
     // レスポンス形式に変換
     const response = mapHoldingToResponse(
       createdHolding,
-      ticker?.Symbol || createdHolding.TickerID.split(':')[1] || '',
-      ticker?.Name || ''
+      ticker?.symbol || createdHolding.TickerID.split(':')[1] || '',
+      ticker?.name || ''
     );
 
     return NextResponse.json(response, { status: 201 });

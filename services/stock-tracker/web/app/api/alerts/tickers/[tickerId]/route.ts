@@ -103,8 +103,8 @@ export const GET = withApiErrorReporting(
       const result = await alertRepo.getByUserId(userId, { limit: MAX_ALERTS_PER_USER });
       const targetAlerts = result.items.filter((alert) => alert.TickerID === tickerId);
       const ticker = await tickerRepo.getById(tickerId);
-      const tickerSymbol = ticker?.Symbol || tickerId.split(':')[1] || '';
-      const tickerName = ticker?.Name || '';
+      const tickerSymbol = ticker?.symbol || tickerId.split(':')[1] || '';
+      const tickerName = ticker?.name || '';
 
       const alerts = targetAlerts.map((alert) =>
         mapAlertToResponse(alert, tickerSymbol, tickerName)
