@@ -118,8 +118,8 @@ export const GET = withInternalErrorReporting(
           sellAlertCount,
           holding: holding
             ? {
-                quantity: holding.Quantity,
-                averagePrice: holding.AveragePrice,
+                quantity: holding.quantity,
+                averagePrice: holding.averagePrice,
               }
             : null,
           forecast,

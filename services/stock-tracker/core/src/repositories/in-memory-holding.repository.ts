@@ -5,25 +5,24 @@
  */
 
 import {
-  InMemorySingleTableStore,
-  EntityNotFoundError,
-  EntityAlreadyExistsError,
-  DatabaseError,
+  InMemoryEntityStore,
+  type EntityStore,
+  type InMemorySingleTableStore,
   type PaginationOptions,
   type PaginatedResult,
 } from '@nagiyu/aws';
 import type { HoldingRepository } from './holding.repository.interface.js';
 import type {
   HoldingEntity,
+  HoldingKey,
   CreateHoldingInput,
   UpdateHoldingInput,
 } from '../entities/holding.entity.js';
-import { HoldingMapper } from '../mappers/holding.mapper.js';
-
-// エラーメッセージ定数
-const ERROR_MESSAGES = {
-  NO_UPDATES_SPECIFIED: '更新するフィールドが指定されていません',
-} as const;
+import {
+  HoldingMapper,
+  HOLDING_GSI1_SK_PREFIX,
+  buildHoldingGsi1Pk,
+} from '../mappers/holding.mapper.js';
 
 // 実DynamoDB実装（dynamodb-holding.repository.ts）はgetByUserIdのlimit未指定時に
 // 50件を既定とするため、InMemory実装もこれに合わせる（store既定の100件のままだと乖離する）。
@@ -36,30 +35,24 @@ const DEFAULT_GET_BY_USER_ID_LIMIT = 50;
 /**
  * InMemory Holding Repository
  *
- * InMemorySingleTableStoreを使用した保有株式リポジトリの実装
+ * 単一アイテムの CRUD は EntityStore に任せ、GSI の近似クエリだけを自前で持つ。
  * テスト環境で使用
  */
 export class InMemoryHoldingRepository implements HoldingRepository {
-  private readonly mapper: HoldingMapper;
   private readonly store: InMemorySingleTableStore;
+  private readonly mapper = new HoldingMapper();
+  private readonly entityStore: EntityStore<HoldingEntity, HoldingKey>;
 
   constructor(store: InMemorySingleTableStore) {
     this.store = store;
-    this.mapper = new HoldingMapper();
+    this.entityStore = new InMemoryEntityStore(store, this.mapper);
   }
 
   /**
    * ユーザーIDとティッカーIDで単一の保有株式を取得
    */
   public async getById(userId: string, tickerId: string): Promise<HoldingEntity | null> {
-    const { pk, sk } = this.mapper.buildKeys({ userId, tickerId });
-    const item = this.store.get(pk, sk);
-
-    if (!item) {
-      return null;
-    }
-
-    return this.mapper.toEntity(item);
+    return this.entityStore.get({ userId, tickerId });
   }
 
   /**
@@ -72,11 +65,11 @@ export class InMemoryHoldingRepository implements HoldingRepository {
     const result = this.store.queryByAttribute(
       {
         attributeName: 'GSI1PK',
-        attributeValue: userId,
+        attributeValue: buildHoldingGsi1Pk(userId),
         sk: {
           attributeName: 'GSI1SK',
           operator: 'begins_with',
-          value: 'Holding#',
+          value: HOLDING_GSI1_SK_PREFIX,
         },
       },
       {
@@ -99,24 +92,8 @@ export class InMemoryHoldingRepository implements HoldingRepository {
    */
   public async create(input: CreateHoldingInput): Promise<HoldingEntity> {
     const now = Date.now();
-    const entity: HoldingEntity = {
-      ...input,
-      CreatedAt: now,
-      UpdatedAt: now,
-    };
-
-    const item = this.mapper.toItem(entity);
-
-    try {
-      this.store.put(item, { attributeNotExists: true });
-      return entity;
-    } catch (error) {
-      // EntityAlreadyExistsError はそのまま投げる
-      if (error instanceof EntityAlreadyExistsError) {
-        throw error;
-      }
-      throw error;
-    }
+    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
+    return this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
   }
 
   /**
@@ -127,48 +104,13 @@ export class InMemoryHoldingRepository implements HoldingRepository {
     tickerId: string,
     updates: UpdateHoldingInput
   ): Promise<HoldingEntity> {
-    // 更新するフィールドがない場合はエラー
-    if (Object.keys(updates).length === 0) {
-      throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
-    }
-
-    const { pk, sk } = this.mapper.buildKeys({ userId, tickerId });
-    const existingItem = this.store.get(pk, sk);
-
-    if (!existingItem) {
-      throw new EntityNotFoundError('Holding', `${userId}#${tickerId}`);
-    }
-
-    const existingEntity = this.mapper.toEntity(existingItem);
-    const now = Date.now();
-
-    // 更新を適用
-    const updatedEntity: HoldingEntity = {
-      ...existingEntity,
-      ...updates,
-      UpdatedAt: now,
-    };
-
-    const updatedItem = this.mapper.toItem(updatedEntity);
-    this.store.put(updatedItem);
-
-    return updatedEntity;
+    return this.entityStore.update({ userId, tickerId }, updates);
   }
 
   /**
    * 保有株式を削除
    */
   public async delete(userId: string, tickerId: string): Promise<void> {
-    const { pk, sk } = this.mapper.buildKeys({ userId, tickerId });
-
-    try {
-      this.store.delete(pk, sk, { attributeExists: true });
-    } catch (error) {
-      // EntityNotFoundError はそのまま投げる
-      if (error instanceof EntityNotFoundError) {
-        throw error;
-      }
-      throw error;
-    }
+    await this.entityStore.delete({ userId, tickerId });
   }
 }

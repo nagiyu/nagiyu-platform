@@ -9,13 +9,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { EntityAlreadyExistsError } from '@nagiyu/aws';
 import { validateHolding } from '@nagiyu/stock-tracker-core';
 import { withAuth, parsePagination, readJsonObjectBody } from '@nagiyu/nextjs';
 import { createHoldingRepository, createTickerRepository } from '../../../lib/repository-factory';
 import { getSession } from '../../../lib/auth';
 import { withApiErrorReporting, reportSwallowedError } from '../../../lib/api-error-reporting';
 import { isOptionalString } from '../../../lib/request-guards';
-import type { Holding } from '@nagiyu/stock-tracker-core';
+import type { HoldingEntity } from '@nagiyu/stock-tracker-core';
 
 /**
  * エラーメッセージ定数
@@ -62,23 +63,23 @@ interface HoldingsListResponse {
  * Holding エンティティをレスポンス形式に変換
  */
 function mapHoldingToResponse(
-  holding: Holding,
+  holding: HoldingEntity,
   tickerSymbol: string,
   tickerName: string
 ): HoldingResponse {
   // HoldingID は UserID と TickerID の組み合わせ
-  const holdingId = `${holding.UserID}#${holding.TickerID}`;
+  const holdingId = `${holding.userId}#${holding.tickerId}`;
 
   return {
     holdingId,
-    tickerId: holding.TickerID,
+    tickerId: holding.tickerId,
     symbol: tickerSymbol,
     name: tickerName,
-    quantity: holding.Quantity,
-    averagePrice: holding.AveragePrice,
-    currency: holding.Currency,
-    createdAt: new Date(holding.CreatedAt).toISOString(),
-    updatedAt: new Date(holding.UpdatedAt).toISOString(),
+    quantity: holding.quantity,
+    averagePrice: holding.averagePrice,
+    currency: holding.currency,
+    createdAt: new Date(holding.createdAt).toISOString(),
+    updatedAt: new Date(holding.updatedAt).toISOString(),
   };
 }
 
@@ -107,18 +108,18 @@ export const GET = withApiErrorReporting(
       // ティッカーが見つからない場合はデフォルト値を使用
       let ticker;
       try {
-        ticker = await tickerRepo.getById(holding.TickerID);
+        ticker = await tickerRepo.getById(holding.tickerId);
       } catch (error) {
         // 銘柄名は付加情報のため、取得に失敗しても一覧は返す。握りつぶすので上位のラッパーでは拾えない
         await reportSwallowedError(REPORT_TITLES.TICKER_LOOKUP, error, {
-          tickerId: holding.TickerID,
+          tickerId: holding.tickerId,
         });
         ticker = null;
       }
       holdings.push(
         mapHoldingToResponse(
           holding,
-          ticker?.symbol || holding.TickerID.split(':')[1] || '',
+          ticker?.symbol || holding.tickerId.split(':')[1] || '',
           ticker?.name || ''
         )
       );
@@ -187,14 +188,14 @@ export const POST = withApiErrorReporting(
 
     // リクエストボディから Holding オブジェクトを構築
     const holdingData = {
-      UserID: userId,
-      TickerID: tickerId,
-      ExchangeID: exchangeId,
-      Quantity: quantity,
-      AveragePrice: averagePrice,
-      Currency: currency,
-      CreatedAt: Date.now(),
-      UpdatedAt: Date.now(),
+      userId,
+      tickerId,
+      exchangeId,
+      quantity,
+      averagePrice,
+      currency,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     };
 
     // バリデーション
@@ -221,19 +222,19 @@ export const POST = withApiErrorReporting(
     const holdingRepo = createHoldingRepository();
 
     // 保有株式を作成
-    let createdHolding: Holding;
+    let createdHolding: HoldingEntity;
     try {
       createdHolding = await holdingRepo.create({
-        UserID: userId,
-        TickerID: tickerId,
-        ExchangeID: exchangeId,
-        Quantity: quantity,
-        AveragePrice: averagePrice,
-        Currency: currency,
+        userId,
+        tickerId,
+        exchangeId,
+        quantity,
+        averagePrice,
+        currency,
       });
     } catch (error) {
-      // HoldingAlreadyExistsError のチェック
-      if (error instanceof Error && error.name === 'HoldingAlreadyExistsError') {
+      // 同じ銘柄が既に保有株式として登録されている場合
+      if (error instanceof EntityAlreadyExistsError) {
         return NextResponse.json(
           {
             error: 'INVALID_REQUEST',
@@ -247,12 +248,12 @@ export const POST = withApiErrorReporting(
 
     // TickerリポジトリでSymbolとNameを取得
     const tickerRepo = createTickerRepository();
-    const ticker = await tickerRepo.getById(createdHolding.TickerID);
+    const ticker = await tickerRepo.getById(createdHolding.tickerId);
 
     // レスポンス形式に変換
     const response = mapHoldingToResponse(
       createdHolding,
-      ticker?.symbol || createdHolding.TickerID.split(':')[1] || '',
+      ticker?.symbol || createdHolding.tickerId.split(':')[1] || '',
       ticker?.name || ''
     );
 

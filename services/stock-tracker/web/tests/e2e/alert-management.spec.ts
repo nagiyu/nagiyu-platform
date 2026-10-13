@@ -104,12 +104,12 @@ function baseSeed(): ResetSeedData {
 /** 保有株式 seed データ（basePrice = averagePrice はパーセンテージ選択機能の前提条件） */
 function holdingSeed(averagePrice: number) {
   return {
-    UserID: TEST_USER_ID,
-    TickerID: TICKER_ID,
-    ExchangeID: EXCHANGE_ID,
-    Quantity: 100,
-    AveragePrice: averagePrice,
-    Currency: 'USD',
+    userId: TEST_USER_ID,
+    tickerId: TICKER_ID,
+    exchangeId: EXCHANGE_ID,
+    quantity: 100,
+    averagePrice,
+    currency: 'USD',
   };
 }
 

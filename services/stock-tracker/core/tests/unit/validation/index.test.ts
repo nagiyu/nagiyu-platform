@@ -15,7 +15,8 @@ import {
   validateTickerCreateData,
   validateTickerUpdateData,
 } from '../../../src/validation';
-import type { Holding, Alert } from '../../../src/types';
+import type { Alert } from '../../../src/types';
+import type { HoldingEntity } from '../../../src/entities/holding.entity';
 import type { ExchangeEntity } from '../../../src/entities/exchange.entity';
 import type { TickerEntity } from '../../../src/entities/ticker.entity';
 
@@ -483,15 +484,15 @@ describe('validateTicker', () => {
 });
 
 describe('validateHolding', () => {
-  const validHolding: Holding = {
-    UserID: 'user-123',
-    TickerID: 'NSDQ:AAPL',
-    ExchangeID: 'NASDAQ',
-    Quantity: 100,
-    AveragePrice: 150.5,
-    Currency: 'USD',
-    CreatedAt: Date.now(),
-    UpdatedAt: Date.now(),
+  const validHolding: HoldingEntity = {
+    userId: 'user-123',
+    tickerId: 'NSDQ:AAPL',
+    exchangeId: 'NASDAQ',
+    quantity: 100,
+    averagePrice: 150.5,
+    currency: 'USD',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
   };
 
   describe('正常系', () => {
@@ -502,31 +503,31 @@ describe('validateHolding', () => {
     });
 
     it('Quantityが0.0001でもバリデーションに成功する', () => {
-      const holding: Holding = { ...validHolding, Quantity: 0.0001 };
+      const holding: HoldingEntity = { ...validHolding, quantity: 0.0001 };
       const result = validateHolding(holding);
       expect(result.valid).toBe(true);
     });
 
     it('Quantityが1,000,000,000でもバリデーションに成功する', () => {
-      const holding: Holding = { ...validHolding, Quantity: 1_000_000_000 };
+      const holding: HoldingEntity = { ...validHolding, quantity: 1_000_000_000 };
       const result = validateHolding(holding);
       expect(result.valid).toBe(true);
     });
 
     it('AveragePriceが0.01でもバリデーションに成功する', () => {
-      const holding: Holding = { ...validHolding, AveragePrice: 0.01 };
+      const holding: HoldingEntity = { ...validHolding, averagePrice: 0.01 };
       const result = validateHolding(holding);
       expect(result.valid).toBe(true);
     });
 
     it('AveragePriceが1,000,000でもバリデーションに成功する', () => {
-      const holding: Holding = { ...validHolding, AveragePrice: 1_000_000 };
+      const holding: HoldingEntity = { ...validHolding, averagePrice: 1_000_000 };
       const result = validateHolding(holding);
       expect(result.valid).toBe(true);
     });
 
     it('Currencyが"JPY"でもバリデーションに成功する', () => {
-      const holding: Holding = { ...validHolding, Currency: 'JPY' };
+      const holding: HoldingEntity = { ...validHolding, currency: 'JPY' };
       const result = validateHolding(holding);
       expect(result.valid).toBe(true);
     });
@@ -552,63 +553,63 @@ describe('validateHolding', () => {
     });
 
     it('UserIDが空文字の場合はバリデーションに失敗する', () => {
-      const holding: Holding = { ...validHolding, UserID: '' };
+      const holding: HoldingEntity = { ...validHolding, userId: '' };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('ユーザーIDは必須です');
     });
 
     it('TickerIDが空文字の場合はバリデーションに失敗する', () => {
-      const holding: Holding = { ...validHolding, TickerID: '' };
+      const holding: HoldingEntity = { ...validHolding, tickerId: '' };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('ティッカーIDは必須です');
     });
 
     it('ExchangeIDが空文字の場合はバリデーションに失敗する', () => {
-      const holding: Holding = { ...validHolding, ExchangeID: '' };
+      const holding: HoldingEntity = { ...validHolding, exchangeId: '' };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('取引所IDは必須です');
     });
 
     it('Quantityが0.00009の場合はバリデーションに失敗する', () => {
-      const holding: Holding = { ...validHolding, Quantity: 0.00009 };
+      const holding: HoldingEntity = { ...validHolding, quantity: 0.00009 };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('保有数は0.0001〜1,000,000,000の範囲で入力してください');
     });
 
     it('Quantityが1,000,000,001の場合はバリデーションに失敗する', () => {
-      const holding: Holding = { ...validHolding, Quantity: 1_000_000_001 };
+      const holding: HoldingEntity = { ...validHolding, quantity: 1_000_000_001 };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('保有数は0.0001〜1,000,000,000の範囲で入力してください');
     });
 
     it('AveragePriceが0.009の場合はバリデーションに失敗する', () => {
-      const holding: Holding = { ...validHolding, AveragePrice: 0.009 };
+      const holding: HoldingEntity = { ...validHolding, averagePrice: 0.009 };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('平均取得価格は0.01〜1,000,000の範囲で入力してください');
     });
 
     it('AveragePriceが1,000,001の場合はバリデーションに失敗する', () => {
-      const holding: Holding = { ...validHolding, AveragePrice: 1_000_001 };
+      const holding: HoldingEntity = { ...validHolding, averagePrice: 1_000_001 };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('平均取得価格は0.01〜1,000,000の範囲で入力してください');
     });
 
     it('Currencyが空文字の場合はバリデーションに失敗する', () => {
-      const holding: Holding = { ...validHolding, Currency: '' };
+      const holding: HoldingEntity = { ...validHolding, currency: '' };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('通貨コードは必須です');
     });
 
     it('Currencyが2文字の場合はバリデーションに失敗する', () => {
-      const holding: Holding = { ...validHolding, Currency: 'US' };
+      const holding: HoldingEntity = { ...validHolding, currency: 'US' };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
@@ -617,7 +618,7 @@ describe('validateHolding', () => {
     });
 
     it('Currencyが4文字の場合はバリデーションに失敗する', () => {
-      const holding: Holding = { ...validHolding, Currency: 'USDA' };
+      const holding: HoldingEntity = { ...validHolding, currency: 'USDA' };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
@@ -626,7 +627,7 @@ describe('validateHolding', () => {
     });
 
     it('Currencyに小文字が含まれる場合はバリデーションに失敗する', () => {
-      const holding: Holding = { ...validHolding, Currency: 'Usd' };
+      const holding: HoldingEntity = { ...validHolding, currency: 'Usd' };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
@@ -637,25 +638,25 @@ describe('validateHolding', () => {
 
   describe('境界値テスト', () => {
     it('Quantityが境界値の下限（0.0001）でバリデーションに成功する', () => {
-      const holding: Holding = { ...validHolding, Quantity: 0.0001 };
+      const holding: HoldingEntity = { ...validHolding, quantity: 0.0001 };
       const result = validateHolding(holding);
       expect(result.valid).toBe(true);
     });
 
     it('Quantityが境界値の上限（1,000,000,000）でバリデーションに成功する', () => {
-      const holding: Holding = { ...validHolding, Quantity: 1_000_000_000 };
+      const holding: HoldingEntity = { ...validHolding, quantity: 1_000_000_000 };
       const result = validateHolding(holding);
       expect(result.valid).toBe(true);
     });
 
     it('AveragePriceが境界値の下限（0.01）でバリデーションに成功する', () => {
-      const holding: Holding = { ...validHolding, AveragePrice: 0.01 };
+      const holding: HoldingEntity = { ...validHolding, averagePrice: 0.01 };
       const result = validateHolding(holding);
       expect(result.valid).toBe(true);
     });
 
     it('AveragePriceが境界値の上限（1,000,000）でバリデーションに成功する', () => {
-      const holding: Holding = { ...validHolding, AveragePrice: 1_000_000 };
+      const holding: HoldingEntity = { ...validHolding, averagePrice: 1_000_000 };
       const result = validateHolding(holding);
       expect(result.valid).toBe(true);
     });
@@ -1317,20 +1318,20 @@ describe('validateTicker', () => {
 describe('validateHolding', () => {
   describe('無効な値のテスト', () => {
     const validHolding = {
-      UserID: 'user-123',
-      TickerID: 'NSDQ:AAPL',
-      ExchangeID: 'NASDAQ',
-      Quantity: 10.5,
-      AveragePrice: 150.25,
-      Currency: 'USD',
-      CreatedAt: 1704067200000,
-      UpdatedAt: 1704067200000,
+      userId: 'user-123',
+      tickerId: 'NSDQ:AAPL',
+      exchangeId: 'NASDAQ',
+      quantity: 10.5,
+      averagePrice: 150.25,
+      currency: 'USD',
+      createdAt: 1704067200000,
+      updatedAt: 1704067200000,
     };
 
     it('Quantityが無効な値の場合はバリデーションに失敗する', () => {
       const holding = {
         ...validHolding,
-        Quantity: 'invalid' as unknown,
+        quantity: 'invalid' as unknown,
       };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
@@ -1340,7 +1341,7 @@ describe('validateHolding', () => {
     it('AveragePriceが無効な値の場合はバリデーションに失敗する', () => {
       const holding = {
         ...validHolding,
-        AveragePrice: null as unknown,
+        averagePrice: null as unknown,
       };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
@@ -1350,7 +1351,7 @@ describe('validateHolding', () => {
     it('CreatedAtが無効な値の場合はバリデーションに失敗する', () => {
       const holding = {
         ...validHolding,
-        CreatedAt: false as unknown,
+        createdAt: false as unknown,
       };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
@@ -1360,7 +1361,7 @@ describe('validateHolding', () => {
     it('UpdatedAtが無効な値の場合はバリデーションに失敗する', () => {
       const holding = {
         ...validHolding,
-        UpdatedAt: [] as unknown,
+        updatedAt: [] as unknown,
       };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);

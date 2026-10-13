@@ -105,12 +105,12 @@ function baseSeed(): ResetSeedData {
 /** 保有株式 seed データ */
 function holdingSeed(overrides: { quantity?: number; averagePrice?: number } = {}) {
   return {
-    UserID: TEST_USER_ID,
-    TickerID: TICKER_ID,
-    ExchangeID: EXCHANGE_ID,
-    Quantity: overrides.quantity ?? 50,
-    AveragePrice: overrides.averagePrice ?? 120,
-    Currency: 'USD',
+    userId: TEST_USER_ID,
+    tickerId: TICKER_ID,
+    exchangeId: EXCHANGE_ID,
+    quantity: overrides.quantity ?? 50,
+    averagePrice: overrides.averagePrice ?? 120,
+    currency: 'USD',
   };
 }
 
