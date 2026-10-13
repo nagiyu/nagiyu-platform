@@ -49,8 +49,8 @@ export interface ExchangeRepository {
    * 新しい取引所を作成
    *
    * @param input - 取引所データ
-   * @returns 作成された取引所（CreatedAt, UpdatedAtを含む）
-   * @throws {EntityAlreadyExistsError} 既に同じExchangeIDの取引所が存在する場合
+   * @returns 作成された取引所 (createdAt, updatedAtを含む)
+   * @throws {EntityAlreadyExistsError} 既に同じexchangeIdの取引所が存在する場合
    */
   create(input: CreateExchangeInput): Promise<ExchangeEntity>;
 

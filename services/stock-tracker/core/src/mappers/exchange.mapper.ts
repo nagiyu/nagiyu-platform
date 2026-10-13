@@ -5,7 +5,10 @@
  */
 
 import {
+  immutablePatchValue,
+  optionalPatchValue,
   readTimestamp,
+  requiredPatchValue,
   validateStringField,
   type DynamoDBAttributes,
   type DynamoDBKey,
@@ -19,7 +22,6 @@ import {
   EXCHANGE_MARKETS,
 } from '../entities/exchange.entity.js';
 import type { PriceSource, ExchangeMarket } from '../entities/exchange.entity.js';
-import { optionalPatchValue, requiredPatchValue } from './patch-support.js';
 
 /**
  * 全取引所を ExchangeTickerIndex(GSI3) から一括取得するための固定パーティションキー。
@@ -93,31 +95,32 @@ export class ExchangeMapper implements EntityMapper<ExchangeEntity, ExchangeKey>
   /**
    * Entity の部分を保存用の属性に変換
    *
-   * `exchangeId` を含めると ExchangeID と GSI3 キーを書く。GSI3SK が ExchangeID から
-   * 作られるため、更新のたびに付け直すには呼び出し側が key と同じ値を渡す必要がある。
-   * キー導入前に作られたアイテムは、更新されることで getAllIndexed の Query 対象になる。
-   * PK/SK は変えられないので、key と異なる値を渡してはならない。
+   * GSI3 のキーは更新のたびに `key` から付け直す。キー導入前に作られたアイテムも、
+   * 更新されることで getAllIndexed の Query 対象になる。
+   * exchangeId・key・createdAt は作成後に変えられないため、含めると拒否する。
    *
    * @param changes - 変更する項目 (undefined は変更なし、null は属性削除)
+   * @param key - 更新対象のビジネスキー
    * @returns 保存用の属性
+   * @throws InvalidEntityDataError 必須項目が null のとき、または変更不可の項目を含むとき
    */
-  public toUpdateAttributes(changes: EntityPatch<ExchangeEntity>): DynamoDBAttributes {
-    const attributes: DynamoDBAttributes = {
-      ExchangeID: requiredPatchValue(changes.exchangeId, 'ExchangeID'),
+  public toUpdateAttributes(
+    changes: EntityPatch<ExchangeEntity>,
+    key: ExchangeKey
+  ): DynamoDBAttributes {
+    return {
+      ExchangeID: immutablePatchValue(changes.exchangeId, 'ExchangeID'),
+      Key: immutablePatchValue(changes.key, 'Key'),
+      CreatedAt: immutablePatchValue(changes.createdAt, 'CreatedAt'),
+      GSI3PK: EXCHANGE_GSI3_PK,
+      GSI3SK: buildExchangeGsi3Sk(key.exchangeId),
       Name: requiredPatchValue(changes.name, 'Name'),
-      Key: requiredPatchValue(changes.key, 'Key'),
       Timezone: requiredPatchValue(changes.timezone, 'Timezone'),
       Start: requiredPatchValue(changes.start, 'Start'),
       End: requiredPatchValue(changes.end, 'End'),
       PriceSource: requiredPatchValue(changes.priceSource, 'PriceSource'),
       Market: optionalPatchValue(changes.market),
-      CreatedAt: requiredPatchValue(changes.createdAt, 'CreatedAt'),
     };
-    if (typeof changes.exchangeId === 'string') {
-      attributes.GSI3PK = EXCHANGE_GSI3_PK;
-      attributes.GSI3SK = buildExchangeGsi3Sk(changes.exchangeId);
-    }
-    return attributes;
   }
 
   /**

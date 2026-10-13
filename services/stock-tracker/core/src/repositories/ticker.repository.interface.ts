@@ -31,17 +31,17 @@ export interface TickerRepository {
    * 全件を返す契約（内部でページを辿り切る）。呼び出し側はページネーションを
    * 意識する必要がなく、cursorループも不要。
    *
-   * 返却順序は TickerID の昇順を契約とする。
+   * 返却順序は tickerId の昇順を契約とする。
    *
    * @param exchangeId - 取引所ID
-   * @returns 指定取引所の全ティッカー（TickerID昇順）
+   * @returns 指定取引所の全ティッカー (tickerId昇順)
    */
   getByExchange(exchangeId: string): Promise<TickerEntity[]>;
 
   /**
    * 全ティッカー取得
    *
-   * 返却順序は保証しない（`getByExchange` のTickerID昇順とは異なる）。呼び出し側は
+   * 返却順序は保証しない (`getByExchange` のtickerId昇順とは異なる)。呼び出し側は
    * 順序に依存しないこと。
    *
    * `options` を省略した場合（`limit`/`cursor` とも未指定）は全件を1回の呼び出しで返し、
@@ -57,8 +57,8 @@ export interface TickerRepository {
    * 新しいティッカーを作成
    *
    * @param input - ティッカーデータ
-   * @returns 作成されたティッカー（CreatedAt, UpdatedAtを含む）
-   * @throws {EntityAlreadyExistsError} 既に同じTickerIDのティッカーが存在する場合
+   * @returns 作成されたティッカー (createdAt, updatedAtを含む)
+   * @throws {EntityAlreadyExistsError} 既に同じtickerIdのティッカーが存在する場合
    */
   create(input: CreateTickerInput): Promise<TickerEntity>;
 

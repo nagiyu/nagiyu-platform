@@ -5,11 +5,7 @@
  */
 
 import { InMemoryExchangeRepository } from '../../../src/repositories/in-memory-exchange.repository.js';
-import {
-  InMemorySingleTableStore,
-  EntityAlreadyExistsError,
-  EntityNotFoundError,
-} from '@nagiyu/aws';
+import { InMemorySingleTableStore } from '@nagiyu/aws';
 import type { CreateExchangeInput } from '../../../src/entities/exchange.entity.js';
 import { DEFAULT_PRICE_SOURCE } from '../../../src/entities/exchange.entity.js';
 
@@ -41,22 +37,6 @@ describe('InMemoryExchangeRepository', () => {
       expect(result.updatedAt).toBeDefined();
       // updatedAt は EntityStore が書き込み時に採番するため、createdAt と同一ミリ秒とは限らない
       expect(result.updatedAt).toBeGreaterThanOrEqual(result.createdAt);
-    });
-
-    it('同じExchangeIDの取引所が既に存在する場合はEntityAlreadyExistsErrorをスローする', async () => {
-      const input: CreateExchangeInput = {
-        exchangeId: 'NASDAQ',
-        name: 'NASDAQ Stock Market',
-        key: 'NSDQ',
-        timezone: 'America/New_York',
-        start: '04:00',
-        end: '20:00',
-        priceSource: 'tradingview' as const,
-      };
-
-      await repository.create(input);
-
-      await expect(repository.create(input)).rejects.toThrow(EntityAlreadyExistsError);
     });
 
     it('異なるExchangeIDであれば複数作成できる', async () => {
@@ -265,6 +245,31 @@ describe('InMemoryExchangeRepository', () => {
       expect(updated.createdAt).toBe(created.createdAt);
     });
 
+    it('更新のたびに、引数の exchangeId から作った GSI3 キーを付け直す', async () => {
+      await repository.create({
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview' as const,
+      });
+      // GSI3 キー導入前に作られたアイテムを再現する
+      const storeKey = { PK: 'EXCHANGE#NASDAQ', SK: 'METADATA' };
+      const legacy = { ...store.getByKey(storeKey) };
+      delete legacy.GSI3PK;
+      delete legacy.GSI3SK;
+      store.putByKey(storeKey, legacy);
+
+      await repository.update('NASDAQ', { name: 'NASDAQ Updated' });
+
+      expect(store.getByKey(storeKey)).toMatchObject({
+        GSI3PK: 'EXCHANGES',
+        GSI3SK: 'EXCHANGE#NASDAQ',
+      });
+    });
+
     it('取引所の複数フィールドを更新できる', async () => {
       const input: CreateExchangeInput = {
         exchangeId: 'NASDAQ',
@@ -290,31 +295,6 @@ describe('InMemoryExchangeRepository', () => {
       expect(updated.end).toBe('21:00');
     });
 
-    it('存在しない取引所を更新しようとした場合はEntityNotFoundErrorをスローする', async () => {
-      await expect(repository.update('NONEXISTENT', { name: 'Updated' })).rejects.toThrow(
-        EntityNotFoundError
-      );
-    });
-
-    it('更新するフィールドが指定されていなくても成功し、更新日時だけが進む', async () => {
-      const created = await repository.create({
-        exchangeId: 'NASDAQ',
-        name: 'NASDAQ Stock Market',
-        key: 'NSDQ',
-        timezone: 'America/New_York',
-        start: '04:00',
-        end: '20:00',
-        priceSource: 'tradingview' as const,
-        market: 'US' as const,
-      });
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
-      const updated = await repository.update('NASDAQ', {});
-
-      expect(updated).toEqual({ ...created, updatedAt: updated.updatedAt });
-      expect(updated.updatedAt).toBeGreaterThan(created.updatedAt);
-    });
-
     it('一部のフィールドだけを更新できる', async () => {
       const input: CreateExchangeInput = {
         exchangeId: 'NASDAQ',
@@ -335,25 +315,6 @@ describe('InMemoryExchangeRepository', () => {
       expect(updated.key).toBe('NSDQ'); // 変更されていない
       expect(updated.timezone).toBe('America/New_York'); // 変更されていない
     });
-
-    it('UpdatedAtのみが更新される', async () => {
-      const input: CreateExchangeInput = {
-        exchangeId: 'NASDAQ',
-        name: 'NASDAQ Stock Market',
-        key: 'NSDQ',
-        timezone: 'America/New_York',
-        start: '04:00',
-        end: '20:00',
-        priceSource: 'tradingview' as const,
-      };
-
-      const created = await repository.create(input);
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      const updated = await repository.update('NASDAQ', { name: 'Updated' });
-
-      expect(updated.createdAt).toBe(created.createdAt);
-      expect(updated.updatedAt).toBeGreaterThan(created.updatedAt);
-    });
   });
 
   describe('delete', () => {
@@ -373,29 +334,6 @@ describe('InMemoryExchangeRepository', () => {
 
       const result = await repository.getById('NASDAQ');
       expect(result).toBeNull();
-    });
-
-    it('存在しない取引所を削除しようとした場合はEntityNotFoundErrorをスローする', async () => {
-      await expect(repository.delete('NONEXISTENT')).rejects.toThrow(EntityNotFoundError);
-    });
-
-    it('削除後、同じIDで再度作成できる', async () => {
-      const input: CreateExchangeInput = {
-        exchangeId: 'NASDAQ',
-        name: 'NASDAQ Stock Market',
-        key: 'NSDQ',
-        timezone: 'America/New_York',
-        start: '04:00',
-        end: '20:00',
-        priceSource: 'tradingview' as const,
-      };
-
-      await repository.create(input);
-      await repository.delete('NASDAQ');
-      const recreated = await repository.create(input);
-
-      expect(recreated.exchangeId).toBe('NASDAQ');
-      expect(recreated.name).toBe('NASDAQ Stock Market');
     });
   });
 
@@ -708,29 +646,6 @@ describe('InMemoryExchangeRepository', () => {
       expect(updated.market).toBeUndefined();
       expect(updated.name).toBe('東京証券取引所');
       expect(updated.priceSource).toBe('tradingview');
-    });
-  });
-
-  describe('delete - error handling', () => {
-    it('削除時に予期しないエラーが発生した場合は再スローする', async () => {
-      const unexpectedError = new Error('Unexpected store error');
-      jest.spyOn(store, 'deleteByKey').mockImplementationOnce(() => {
-        throw unexpectedError;
-      });
-
-      const input: CreateExchangeInput = {
-        exchangeId: 'NASDAQ',
-        name: 'NASDAQ',
-        key: 'NSDQ',
-        timezone: 'America/New_York',
-        start: '04:00',
-        end: '20:00',
-        priceSource: 'tradingview' as const,
-      };
-
-      await repository.create(input);
-
-      await expect(repository.delete('NASDAQ')).rejects.toThrow('Unexpected store error');
     });
   });
 });

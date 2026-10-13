@@ -77,7 +77,7 @@ export interface ExchangeEntity {
 }
 
 /**
- * Exchange作成時の入力データ（createdAt/updatedAtを含まない）
+ * Exchange作成時の入力データ (createdAt/updatedAtを含まない)
  */
 export type CreateExchangeInput = Omit<ExchangeEntity, 'createdAt' | 'updatedAt'>;
 

@@ -23,7 +23,7 @@ import type {
   CreateTickerInput,
   UpdateTickerInput,
 } from '../entities/ticker.entity.js';
-import { TickerMapper } from '../mappers/ticker.mapper.js';
+import { TickerMapper, buildTickerGsi3Pk } from '../mappers/ticker.mapper.js';
 
 /**
  * DynamoDB Ticker Repository
@@ -66,7 +66,7 @@ export class DynamoDBTickerRepository implements TickerRepository {
           '#gsi3pk': 'GSI3PK',
         },
         ExpressionAttributeValues: {
-          ':exchangeId': exchangeId,
+          ':exchangeId': buildTickerGsi3Pk(exchangeId),
         },
       });
       return items.map((item) => this.mapper.toEntity(item));
@@ -141,6 +141,7 @@ export class DynamoDBTickerRepository implements TickerRepository {
    */
   public async create(input: CreateTickerInput): Promise<TickerEntity> {
     const now = Date.now();
+    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
     return this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
   }
 

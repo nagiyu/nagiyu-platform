@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
-import { EntityAlreadyExistsError } from '@nagiyu/aws';
 import {
   validateExchange,
   type ExchangeEntity,
@@ -181,44 +180,35 @@ export const POST = withApiErrorReporting(
     const exchangeRepo = createExchangeRepository();
 
     // 取引所を作成
-    try {
-      const newExchange = await exchangeRepo.create({
-        exchangeId,
-        name,
-        key,
-        timezone,
-        start,
-        end,
-        priceSource: resolvedPriceSource,
-        market,
-      });
+    // 同じ取引所IDが既に存在すると EntityAlreadyExistsError が上に届き、
+    // ルート入口のラッパーが ALREADY_EXISTS の 400 に変換する。
+    const newExchange = await exchangeRepo.create({
+      exchangeId,
+      name,
+      key,
+      timezone,
+      start,
+      end,
+      priceSource: resolvedPriceSource,
+      market,
+    });
 
-      // レスポンスを返す (API仕様に従った形式)
-      return NextResponse.json(
-        {
-          exchangeId: newExchange.exchangeId,
-          name: newExchange.name,
-          key: newExchange.key,
-          timezone: newExchange.timezone,
-          tradingHours: {
-            start: newExchange.start,
-            end: newExchange.end,
-          },
-          priceSource: newExchange.priceSource,
-          market: newExchange.market,
-          createdAt: new Date(newExchange.createdAt).toISOString(),
+    // レスポンスを返す (API仕様に従った形式)
+    return NextResponse.json(
+      {
+        exchangeId: newExchange.exchangeId,
+        name: newExchange.name,
+        key: newExchange.key,
+        timezone: newExchange.timezone,
+        tradingHours: {
+          start: newExchange.start,
+          end: newExchange.end,
         },
-        { status: 201 }
-      );
-    } catch (error) {
-      // 同じ取引所IDが既に存在する場合
-      if (error instanceof EntityAlreadyExistsError) {
-        return NextResponse.json(
-          { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.EXCHANGE_ALREADY_EXISTS },
-          { status: 400 }
-        );
-      }
-      throw error;
-    }
+        priceSource: newExchange.priceSource,
+        market: newExchange.market,
+        createdAt: new Date(newExchange.createdAt).toISOString(),
+      },
+      { status: 201 }
+    );
   })
 );

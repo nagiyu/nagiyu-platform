@@ -5,7 +5,9 @@
  */
 
 import {
+  immutablePatchValue,
   readTimestamp,
+  requiredPatchValue,
   validateStringField,
   type DynamoDBAttributes,
   type DynamoDBKey,
@@ -13,16 +15,31 @@ import {
   type EntityPatch,
 } from '@nagiyu/aws';
 import type { TickerEntity, TickerKey } from '../entities/ticker.entity.js';
-import { requiredPatchValue } from './patch-support.js';
+
+/** 銘柄アイテムの GSI3SK の接頭辞 */
+export const TICKER_GSI3_SK_PREFIX = 'TICKER#';
 
 /**
- * 銘柄アイテムの GSI3SK を構築する
+ * 取引所 ID から銘柄アイテムの GSI3PK を構築する
+ *
+ * 銘柄は取引所ごとに一覧するため、取引所 ID がそのままパーティションキーになる。
+ * 取引所アイテム側の固定値 (`EXCHANGE_GSI3_PK`) と衝突しないことが前提。
+ *
+ * @param exchangeId - 取引所ID
+ * @returns GSI3PK
+ */
+export function buildTickerGsi3Pk(exchangeId: string): string {
+  return exchangeId;
+}
+
+/**
+ * ティッカー ID から銘柄アイテムの GSI3SK を構築する
  *
  * @param tickerId - ティッカーID
  * @returns GSI3SK
  */
-function buildTickerGsi3Sk(tickerId: string): string {
-  return `TICKER#${tickerId}`;
+export function buildTickerGsi3Sk(tickerId: string): string {
+  return `${TICKER_GSI3_SK_PREFIX}${tickerId}`;
 }
 
 /**
@@ -60,7 +77,7 @@ export class TickerMapper implements EntityMapper<TickerEntity, TickerKey> {
     return {
       ...this.buildKeys(this.getKey(entity)),
       Type: this.entityType,
-      GSI3PK: entity.exchangeId,
+      GSI3PK: buildTickerGsi3Pk(entity.exchangeId),
       GSI3SK: buildTickerGsi3Sk(entity.tickerId),
       TickerID: entity.tickerId,
       Symbol: entity.symbol,
@@ -74,26 +91,21 @@ export class TickerMapper implements EntityMapper<TickerEntity, TickerKey> {
   /**
    * Entity の部分を保存用の属性に変換
    *
-   * GSI3 の値は exchangeId / tickerId から作られるため、それらを変えるときは同時に付け直す。
+   * tickerId・exchangeId・createdAt は作成後に変えられないため、含めると拒否する。
+   * GSI3 の値は tickerId と exchangeId だけから作られるので、更新では付け直さない。
    *
    * @param changes - 変更する項目 (undefined は変更なし)
    * @returns 保存用の属性
+   * @throws InvalidEntityDataError 必須項目が null のとき、または変更不可の項目を含むとき
    */
   public toUpdateAttributes(changes: EntityPatch<TickerEntity>): DynamoDBAttributes {
-    const attributes: DynamoDBAttributes = {
-      TickerID: requiredPatchValue(changes.tickerId, 'TickerID'),
+    return {
+      TickerID: immutablePatchValue(changes.tickerId, 'TickerID'),
+      ExchangeID: immutablePatchValue(changes.exchangeId, 'ExchangeID'),
+      CreatedAt: immutablePatchValue(changes.createdAt, 'CreatedAt'),
       Symbol: requiredPatchValue(changes.symbol, 'Symbol'),
       Name: requiredPatchValue(changes.name, 'Name'),
-      ExchangeID: requiredPatchValue(changes.exchangeId, 'ExchangeID'),
-      CreatedAt: requiredPatchValue(changes.createdAt, 'CreatedAt'),
     };
-    if (typeof changes.exchangeId === 'string') {
-      attributes.GSI3PK = changes.exchangeId;
-    }
-    if (typeof changes.tickerId === 'string') {
-      attributes.GSI3SK = buildTickerGsi3Sk(changes.tickerId);
-    }
-    return attributes;
   }
 
   /**

@@ -170,14 +170,14 @@ export function validateExchange(exchange: unknown): ValidationResult {
     errors.push(ERROR_MESSAGES.EXCHANGE_END_INVALID_FORMAT);
   }
 
-  // priceSource（省略可能。指定される場合は有効値のみ許可）
+  // priceSource (省略可能。指定される場合は有効値のみ許可)
   if (ex.priceSource !== undefined) {
     if (!(PRICE_SOURCES as readonly string[]).includes(ex.priceSource as string)) {
       errors.push(ERROR_MESSAGES.EXCHANGE_PRICE_SOURCE_INVALID);
     }
   }
 
-  // market（省略可能。未設定に戻す null も許可し、指定される場合は有効値のみ許可）
+  // market (省略可能。未設定に戻す null も許可し、指定される場合は有効値のみ許可)
   if (ex.market !== undefined && ex.market !== null) {
     if (!(EXCHANGE_MARKETS as readonly string[]).includes(ex.market as string)) {
       errors.push(ERROR_MESSAGES.EXCHANGE_MARKET_INVALID);

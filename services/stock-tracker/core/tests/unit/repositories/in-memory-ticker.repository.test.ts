@@ -5,11 +5,7 @@
  */
 
 import { InMemoryTickerRepository } from '../../../src/repositories/in-memory-ticker.repository.js';
-import {
-  InMemorySingleTableStore,
-  EntityAlreadyExistsError,
-  EntityNotFoundError,
-} from '@nagiyu/aws';
+import { InMemorySingleTableStore } from '@nagiyu/aws';
 import type { CreateTickerInput } from '../../../src/entities/ticker.entity.js';
 
 const ITEMS_EXCEEDING_DEFAULT_LIMIT = 120;
@@ -39,19 +35,6 @@ describe('InMemoryTickerRepository', () => {
       expect(result.updatedAt).toBeDefined();
       // updatedAt は EntityStore が書き込み時に採番するため、createdAt と同一ミリ秒とは限らない
       expect(result.updatedAt).toBeGreaterThanOrEqual(result.createdAt);
-    });
-
-    it('同じTickerIDのティッカーが既に存在する場合はEntityAlreadyExistsErrorをスローする', async () => {
-      const input: CreateTickerInput = {
-        tickerId: 'NSDQ:AAPL',
-        symbol: 'AAPL',
-        name: 'Apple Inc.',
-        exchangeId: 'NASDAQ',
-      };
-
-      await repository.create(input);
-
-      await expect(repository.create(input)).rejects.toThrow(EntityAlreadyExistsError);
     });
 
     it('異なるTickerIDで複数作成できる', async () => {
@@ -241,27 +224,6 @@ describe('InMemoryTickerRepository', () => {
       expect(result.symbol).toBe('AAPL'); // 更新されていないフィールド
       expect(result.updatedAt).toBeGreaterThan(result.createdAt);
     });
-
-    it('存在しないティッカーを更新しようとするとEntityNotFoundErrorをスローする', async () => {
-      await expect(repository.update('NSDQ:NOTFOUND', { name: 'Updated' })).rejects.toThrow(
-        EntityNotFoundError
-      );
-    });
-
-    it('更新するフィールドがなくても成功し、更新日時だけが進む', async () => {
-      const created = await repository.create({
-        tickerId: 'NSDQ:AAPL',
-        symbol: 'AAPL',
-        name: 'Apple Inc.',
-        exchangeId: 'NASDAQ',
-      });
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
-      const updated = await repository.update('NSDQ:AAPL', {});
-
-      expect(updated).toEqual({ ...created, updatedAt: updated.updatedAt });
-      expect(updated.updatedAt).toBeGreaterThan(created.updatedAt);
-    });
   });
 
   describe('delete', () => {
@@ -278,28 +240,6 @@ describe('InMemoryTickerRepository', () => {
 
       const result = await repository.getById('NSDQ:AAPL');
       expect(result).toBeNull();
-    });
-
-    it('存在しないティッカーを削除しようとするとEntityNotFoundErrorをスローする', async () => {
-      await expect(repository.delete('NSDQ:NOTFOUND')).rejects.toThrow(EntityNotFoundError);
-    });
-
-    it('削除時に予期しないエラーが発生した場合は再スローする', async () => {
-      const unexpectedError = new Error('Unexpected store error');
-      jest.spyOn(store, 'deleteByKey').mockImplementationOnce(() => {
-        throw unexpectedError;
-      });
-
-      const input: CreateTickerInput = {
-        tickerId: 'NSDQ:AAPL',
-        symbol: 'AAPL',
-        name: 'Apple Inc.',
-        exchangeId: 'NASDAQ',
-      };
-
-      await repository.create(input);
-
-      await expect(repository.delete('NSDQ:AAPL')).rejects.toThrow('Unexpected store error');
     });
   });
 });

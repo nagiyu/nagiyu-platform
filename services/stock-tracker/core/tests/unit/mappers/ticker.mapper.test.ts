@@ -5,7 +5,11 @@
  */
 
 import { InvalidEntityDataError } from '@nagiyu/aws';
-import { TickerMapper } from '../../../src/mappers/ticker.mapper.js';
+import {
+  TickerMapper,
+  buildTickerGsi3Pk,
+  buildTickerGsi3Sk,
+} from '../../../src/mappers/ticker.mapper.js';
 import type { TickerEntity } from '../../../src/entities/ticker.entity.js';
 
 const TIMESTAMP = 1704067200000;
@@ -117,30 +121,50 @@ describe('TickerMapper', () => {
       expect(attributes.Symbol).toBe('X');
     });
 
-    it('exchangeId を変えるときは GSI3PK も付け直す', () => {
-      expect(mapper.toUpdateAttributes({ exchangeId: 'NYSE' })).toEqual({
-        ExchangeID: 'NYSE',
-        GSI3PK: 'NYSE',
-      });
-    });
-
-    it('tickerId を含めるときは GSI3SK も付け直す', () => {
-      expect(mapper.toUpdateAttributes({ tickerId: 'NSDQ:NVDA' })).toEqual({
-        TickerID: 'NSDQ:NVDA',
-        GSI3SK: 'TICKER#NSDQ:NVDA',
-      });
-    });
-
-    it('exchangeId と tickerId を含めなければ GSI3 キーには触れない', () => {
-      const attributes = mapper.toUpdateAttributes({ name: 'X', createdAt: 1 });
+    it('GSI3 のキーは付け直さない (tickerId と exchangeId は変えられないため)', () => {
+      const attributes = mapper.toUpdateAttributes({ name: 'X' });
 
       expect(attributes).not.toHaveProperty('GSI3PK');
       expect(attributes).not.toHaveProperty('GSI3SK');
-      expect(attributes.CreatedAt).toBe(1);
     });
 
-    it('必須項目を null にすると InvalidEntityDataError をスローする', () => {
-      expect(() => mapper.toUpdateAttributes({ name: null })).toThrow(InvalidEntityDataError);
+    it.each(['symbol', 'name'] as const)(
+      '必須項目 %s を null にすると InvalidEntityDataError をスローする',
+      (field) => {
+        expect(() => mapper.toUpdateAttributes({ [field]: null })).toThrow(InvalidEntityDataError);
+      }
+    );
+
+    it.each([
+      ['tickerId', { tickerId: 'NSDQ:AAPL' }],
+      ['exchangeId', { exchangeId: 'NASDAQ' }],
+      ['createdAt', { createdAt: TIMESTAMP }],
+    ] as const)(
+      '変更不可の項目 %s を含めると、値が同じでも InvalidEntityDataError をスローする',
+      (_field, changes) => {
+        expect(() => mapper.toUpdateAttributes(changes)).toThrow(InvalidEntityDataError);
+      }
+    );
+
+    it('変更不可の項目を null にしても InvalidEntityDataError をスローする', () => {
+      expect(() => mapper.toUpdateAttributes({ exchangeId: null })).toThrow(InvalidEntityDataError);
+    });
+  });
+
+  describe('GSI3 のキー', () => {
+    it('buildTickerGsi3Pk は取引所 ID をそのまま返す', () => {
+      expect(buildTickerGsi3Pk('NASDAQ')).toBe('NASDAQ');
+    });
+
+    it('buildTickerGsi3Sk は TICKER# を前置したティッカー ID を返す', () => {
+      expect(buildTickerGsi3Sk('NSDQ:AAPL')).toBe('TICKER#NSDQ:AAPL');
+    });
+
+    it('toItem の GSI3 属性はヘルパーの結果と一致する', () => {
+      const item = mapper.toItem(buildEntity());
+
+      expect(item.GSI3PK).toBe(buildTickerGsi3Pk('NASDAQ'));
+      expect(item.GSI3SK).toBe(buildTickerGsi3Sk('NSDQ:AAPL'));
     });
   });
 

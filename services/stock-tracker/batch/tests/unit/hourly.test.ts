@@ -85,10 +85,11 @@ describe('hourly batch handler', () => {
     mockExchangeRepo = {
       getById: jest.fn(),
       getAll: jest.fn(),
+      getAllIndexed: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
-    } as unknown as jest.Mocked<ExchangeRepository>;
+    };
 
     (DynamoDBAlertRepository as jest.Mock).mockImplementation(() => mockAlertRepo);
     (DynamoDBExchangeRepository as jest.Mock).mockImplementation(() => mockExchangeRepo);

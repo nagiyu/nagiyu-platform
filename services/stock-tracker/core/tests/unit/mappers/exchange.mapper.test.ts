@@ -133,52 +133,81 @@ describe('ExchangeMapper', () => {
   });
 
   describe('toUpdateAttributes', () => {
-    it('指定した項目だけを保存用の属性名に変換する', () => {
-      expect(mapper.toUpdateAttributes({ name: '新名称', timezone: 'Asia/Tokyo' })).toEqual({
+    const KEY = { exchangeId: 'NASDAQ' };
+
+    it('指定した項目に加えて、キーから作った GSI3 の属性を返す', () => {
+      expect(mapper.toUpdateAttributes({ name: '新名称', timezone: 'Asia/Tokyo' }, KEY)).toEqual({
         Name: '新名称',
         Timezone: 'Asia/Tokyo',
+        GSI3PK: 'EXCHANGES',
+        GSI3SK: 'EXCHANGE#NASDAQ',
       });
     });
 
+    it('changes が空でも GSI3 の属性を付け直す', () => {
+      const attributes = mapper.toUpdateAttributes({}, { exchangeId: 'TSE' });
+
+      expect(attributes.GSI3PK).toBe('EXCHANGES');
+      expect(attributes.GSI3SK).toBe('EXCHANGE#TSE');
+    });
+
+    it('GSI3 の属性は changes ではなく key の exchangeId から作る', () => {
+      expect(mapper.toUpdateAttributes({ name: 'X' }, { exchangeId: 'NYSE' }).GSI3SK).toBe(
+        'EXCHANGE#NYSE'
+      );
+    });
+
+    it('キー属性 (PK/SK) は返さない', () => {
+      const attributes = mapper.toUpdateAttributes({ name: 'X' }, KEY);
+
+      for (const name of Object.keys(mapper.buildKeys(KEY))) {
+        expect(attributes).not.toHaveProperty(name);
+      }
+    });
+
     it('undefined の項目は変更しない (属性に含めても値は undefined)', () => {
-      const attributes = mapper.toUpdateAttributes({ name: undefined, start: '09:00' });
+      const attributes = mapper.toUpdateAttributes({ name: undefined, start: '09:00' }, KEY);
 
       expect(attributes.Name).toBeUndefined();
       expect(attributes.Start).toBe('09:00');
     });
 
     it('market が null のときは属性を削除する', () => {
-      expect(mapper.toUpdateAttributes({ market: null }).Market).toBe(REMOVE_ATTRIBUTE);
+      expect(mapper.toUpdateAttributes({ market: null }, KEY).Market).toBe(REMOVE_ATTRIBUTE);
     });
 
     it('market に値があるときは設定する', () => {
-      expect(mapper.toUpdateAttributes({ market: 'US' }).Market).toBe('US');
+      expect(mapper.toUpdateAttributes({ market: 'US' }, KEY).Market).toBe('US');
     });
 
-    it('exchangeId を含めると ExchangeID と GSI3 キーを付け直す', () => {
-      expect(mapper.toUpdateAttributes({ exchangeId: 'TSE' })).toEqual({
-        ExchangeID: 'TSE',
-        GSI3PK: 'EXCHANGES',
-        GSI3SK: 'EXCHANGE#TSE',
-      });
+    it('priceSource も変換する', () => {
+      expect(mapper.toUpdateAttributes({ priceSource: 'finnhub' }, KEY).PriceSource).toBe(
+        'finnhub'
+      );
     });
 
-    it('exchangeId を含めなければ GSI3 キーには触れない', () => {
-      const attributes = mapper.toUpdateAttributes({ name: 'X' });
+    it.each(['name', 'timezone', 'start', 'end', 'priceSource'] as const)(
+      '必須項目 %s を null にすると InvalidEntityDataError をスローする',
+      (field) => {
+        expect(() => mapper.toUpdateAttributes({ [field]: null }, KEY)).toThrow(
+          InvalidEntityDataError
+        );
+      }
+    );
 
-      expect(attributes).not.toHaveProperty('GSI3PK');
-      expect(attributes).not.toHaveProperty('GSI3SK');
-    });
+    it.each([
+      ['exchangeId', { exchangeId: 'NASDAQ' }],
+      ['key', { key: 'NSDQ' }],
+      ['createdAt', { createdAt: TIMESTAMP }],
+    ] as const)(
+      '変更不可の項目 %s を含めると、値が同じでも InvalidEntityDataError をスローする',
+      (_field, changes) => {
+        expect(() => mapper.toUpdateAttributes(changes, KEY)).toThrow(InvalidEntityDataError);
+      }
+    );
 
-    it('priceSource と createdAt も変換する', () => {
-      expect(mapper.toUpdateAttributes({ priceSource: 'finnhub', createdAt: 123 })).toEqual({
-        PriceSource: 'finnhub',
-        CreatedAt: 123,
-      });
-    });
-
-    it('必須項目を null にすると InvalidEntityDataError をスローする', () => {
-      expect(() => mapper.toUpdateAttributes({ name: null })).toThrow(InvalidEntityDataError);
+    it('変更不可の項目を null にしても InvalidEntityDataError をスローする', () => {
+      expect(() => mapper.toUpdateAttributes({ key: null }, KEY)).toThrow(InvalidEntityDataError);
     });
   });
 

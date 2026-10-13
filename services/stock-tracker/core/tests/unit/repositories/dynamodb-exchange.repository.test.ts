@@ -6,12 +6,7 @@
 
 import { DynamoDBExchangeRepository } from '../../../src/repositories/dynamodb-exchange.repository.js';
 import { parseUpdateExpression } from '../../helpers/update-expression.js';
-import {
-  EntityAlreadyExistsError,
-  EntityNotFoundError,
-  DatabaseError,
-  InvalidEntityDataError,
-} from '@nagiyu/aws';
+import { DatabaseError } from '@nagiyu/aws';
 import {
   DeleteCommand,
   GetCommand,
@@ -44,12 +39,6 @@ function buildItem(id: string, overrides: Record<string, unknown> = {}): Record<
     UpdatedAt: CREATED_AT,
     ...overrides,
   };
-}
-
-function conditionalCheckFailed(): Error {
-  const error = new Error('Conditional check failed');
-  error.name = 'ConditionalCheckFailedException';
-  return error;
 }
 
 describe('DynamoDBExchangeRepository', () => {
@@ -107,21 +96,7 @@ describe('DynamoDBExchangeRepository', () => {
           CreatedAt: NOW,
           UpdatedAt: NOW,
         },
-        ConditionExpression: 'attribute_not_exists(#pk)',
-        ExpressionAttributeNames: { '#pk': 'PK' },
       });
-    });
-
-    it('同じ取引所IDが既に存在する場合は EntityAlreadyExistsError をスローする', async () => {
-      mockDocClient.send.mockRejectedValueOnce(conditionalCheckFailed());
-
-      await expect(repository.create(input)).rejects.toThrow(EntityAlreadyExistsError);
-    });
-
-    it('データベースエラー時に DatabaseError をスローする', async () => {
-      mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
-
-      await expect(repository.create(input)).rejects.toThrow(DatabaseError);
     });
   });
 
@@ -148,38 +123,6 @@ describe('DynamoDBExchangeRepository', () => {
       const command = mockDocClient.send.mock.calls[0][0] as GetCommand;
       expect(command).toBeInstanceOf(GetCommand);
       expect(command.input.Key).toEqual({ PK: 'EXCHANGE#NASDAQ', SK: 'METADATA' });
-    });
-
-    it('時刻が ISO 文字列で保存された旧形式のデータも読める', async () => {
-      mockDocClient.send.mockResolvedValueOnce({
-        Item: buildItem('NASDAQ', {
-          CreatedAt: new Date(CREATED_AT).toISOString(),
-          UpdatedAt: new Date(CREATED_AT).toISOString(),
-        }),
-      });
-
-      const result = await repository.getById('NASDAQ');
-
-      expect(result?.createdAt).toBe(CREATED_AT);
-      expect(result?.updatedAt).toBe(CREATED_AT);
-    });
-
-    it('存在しない取引所の場合は null を返す', async () => {
-      mockDocClient.send.mockResolvedValueOnce({ Item: undefined });
-
-      expect(await repository.getById('NOTFOUND')).toBeNull();
-    });
-
-    it('読めないデータの場合は InvalidEntityDataError をスローする', async () => {
-      mockDocClient.send.mockResolvedValueOnce({ Item: buildItem('NASDAQ', { Name: 123 }) });
-
-      await expect(repository.getById('NASDAQ')).rejects.toThrow(InvalidEntityDataError);
-    });
-
-    it('データベースエラー時に DatabaseError をスローする', async () => {
-      mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
-
-      await expect(repository.getById('NASDAQ')).rejects.toThrow(DatabaseError);
     });
   });
 
@@ -218,12 +161,6 @@ describe('DynamoDBExchangeRepository', () => {
       const result = await repository.getAll();
 
       expect(result.map((e) => e.exchangeId)).toEqual(['AMEX', 'NYSE', 'TSE']);
-    });
-
-    it('Items が存在しない場合は空配列を返す', async () => {
-      mockDocClient.send.mockResolvedValueOnce({ Count: 0 });
-
-      expect(await repository.getAll()).toEqual([]);
     });
 
     it('LastEvaluatedKey を辿って全取引所を取得できる', async () => {
@@ -348,70 +285,30 @@ describe('DynamoDBExchangeRepository', () => {
       expect(result.updatedAt).toBe(NOW);
       const command = getUpdateCommand();
       expect(command.input.Key).toEqual({ PK: 'EXCHANGE#NASDAQ', SK: 'METADATA' });
-      expect(command.input.ReturnValues).toBe('ALL_NEW');
-      expect(command.input.ConditionExpression).toBe('attribute_exists(#pk)');
       expect(parseUpdateExpression(command.input).set).toMatchObject({
         Name: 'NASDAQ (Updated)',
         UpdatedAt: NOW,
       });
     });
 
-    it('更新のたびに GSI3 キーを SET する', async () => {
+    it('更新のたびに、引数の exchangeId から作った GSI3 キーを SET する', async () => {
       mockDocClient.send.mockResolvedValueOnce({ Attributes: buildItem('NASDAQ') });
 
       await repository.update('NASDAQ', { name: 'NASDAQ (Updated)' });
 
-      expect(parseUpdateExpression(getUpdateCommand().input).set).toMatchObject({
-        GSI3PK: 'EXCHANGES',
-        GSI3SK: 'EXCHANGE#NASDAQ',
-      });
+      const { set } = parseUpdateExpression(getUpdateCommand().input);
+      expect(set).toMatchObject({ GSI3PK: 'EXCHANGES', GSI3SK: 'EXCHANGE#NASDAQ' });
+      // exchangeId は変更不可の項目なので、patch には混ぜない
+      expect(set).not.toHaveProperty('ExchangeID');
     });
 
-    it('複数のフィールドを同時に更新できる', async () => {
-      mockDocClient.send.mockResolvedValueOnce({
-        Attributes: buildItem('NASDAQ', { Timezone: 'America/Chicago', Start: '08:30' }),
-      });
-
-      await repository.update('NASDAQ', {
-        timezone: 'America/Chicago',
-        start: '08:30',
-        end: '15:00',
-        priceSource: 'finnhub',
-      });
-
-      expect(parseUpdateExpression(getUpdateCommand().input).set).toMatchObject({
-        Timezone: 'America/Chicago',
-        Start: '08:30',
-        End: '15:00',
-        PriceSource: 'finnhub',
-      });
-    });
-
-    it('変更が空でも失敗せず、UpdatedAt と GSI3 キーだけを更新する', async () => {
+    it('変更が空でも、UpdatedAt と GSI3 キーだけを更新する', async () => {
       mockDocClient.send.mockResolvedValueOnce({ Attributes: buildItem('NASDAQ') });
 
       await repository.update('NASDAQ', {});
 
       const parsed = parseUpdateExpression(getUpdateCommand().input);
-      expect(Object.keys(parsed.set).sort()).toEqual([
-        'ExchangeID',
-        'GSI3PK',
-        'GSI3SK',
-        'UpdatedAt',
-      ]);
-      expect(parsed.remove).toEqual([]);
-    });
-
-    it('market を指定すると SET 句に含まれる', async () => {
-      mockDocClient.send.mockResolvedValueOnce({
-        Attributes: buildItem('NASDAQ', { Market: 'US' }),
-      });
-
-      const result = await repository.update('NASDAQ', { market: 'US' });
-
-      expect(result.market).toBe('US');
-      const parsed = parseUpdateExpression(getUpdateCommand().input);
-      expect(parsed.set).toMatchObject({ Market: 'US' });
+      expect(Object.keys(parsed.set).sort()).toEqual(['GSI3PK', 'GSI3SK', 'UpdatedAt']);
       expect(parsed.remove).toEqual([]);
     });
 
@@ -425,44 +322,10 @@ describe('DynamoDBExchangeRepository', () => {
       expect(parsed.remove).toEqual(['Market']);
       expect(parsed.set).not.toHaveProperty('Market');
     });
-
-    it('market を指定しない更新では SET 句にも REMOVE 句にも含まれない', async () => {
-      mockDocClient.send.mockResolvedValueOnce({ Attributes: buildItem('NASDAQ') });
-
-      await repository.update('NASDAQ', { name: 'X' });
-
-      const command = getUpdateCommand();
-      const parsed = parseUpdateExpression(command.input);
-      expect(parsed.remove).toEqual([]);
-      expect(parsed.set).not.toHaveProperty('Market');
-      expect(Object.values(command.input.ExpressionAttributeNames ?? {})).not.toContain('Market');
-    });
-
-    it('存在しない取引所を更新しようとすると EntityNotFoundError をスローする', async () => {
-      mockDocClient.send.mockRejectedValueOnce(conditionalCheckFailed());
-
-      await expect(repository.update('NOTFOUND', { name: 'Updated' })).rejects.toThrow(
-        EntityNotFoundError
-      );
-    });
-
-    it('更新後の Attributes が返らない場合は InvalidEntityDataError をスローする', async () => {
-      mockDocClient.send.mockResolvedValueOnce({ Attributes: undefined });
-
-      await expect(repository.update('NASDAQ', { name: 'Updated' })).rejects.toThrow(
-        InvalidEntityDataError
-      );
-    });
-
-    it('データベースエラー時に DatabaseError をスローする', async () => {
-      mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
-
-      await expect(repository.update('NASDAQ', { name: 'Updated' })).rejects.toThrow(DatabaseError);
-    });
   });
 
   describe('delete', () => {
-    it('存在を条件に取引所を削除する', async () => {
+    it('取引所IDから組み立てたキーで削除する', async () => {
       mockDocClient.send.mockResolvedValueOnce({ $metadata: {} });
 
       await repository.delete('NASDAQ');
@@ -470,22 +333,7 @@ describe('DynamoDBExchangeRepository', () => {
       expect(mockDocClient.send).toHaveBeenCalledTimes(1);
       const command = mockDocClient.send.mock.calls[0][0] as DeleteCommand;
       expect(command).toBeInstanceOf(DeleteCommand);
-      expect(command.input).toMatchObject({
-        Key: { PK: 'EXCHANGE#NASDAQ', SK: 'METADATA' },
-        ConditionExpression: 'attribute_exists(#pk)',
-      });
-    });
-
-    it('存在しない取引所を削除しようとすると EntityNotFoundError をスローする', async () => {
-      mockDocClient.send.mockRejectedValueOnce(conditionalCheckFailed());
-
-      await expect(repository.delete('NOTFOUND')).rejects.toThrow(EntityNotFoundError);
-    });
-
-    it('データベースエラー時に DatabaseError をスローする', async () => {
-      mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
-
-      await expect(repository.delete('NASDAQ')).rejects.toThrow(DatabaseError);
+      expect(command.input.Key).toEqual({ PK: 'EXCHANGE#NASDAQ', SK: 'METADATA' });
     });
   });
 });

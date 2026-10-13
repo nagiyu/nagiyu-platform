@@ -1162,40 +1162,40 @@ describe('summary batch handler', () => {
 
   describe('取引所処理レベルのエラー', () => {
     it('取引所内処理で例外が発生してもレスポンスは200で処理継続する', async () => {
+      await exchangeRepository.create({
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '09:00',
+        end: '17:00',
+        priceSource: 'tradingview',
+      });
+      const getByExchange = jest
+        .spyOn(tickerRepository, 'getByExchange')
+        .mockRejectedValue('ticker fetch failed');
+
       const response = await handler(mockEvent, {
-        exchangeRepository: {
-          getAll: jest.fn().mockResolvedValue([
-            {
-              ExchangeID: 'NASDAQ',
-              Name: 'NASDAQ',
-              Key: 'NSDQ',
-              Timezone: 'America/New_York',
-              Start: '09:00',
-              End: '17:00',
-            },
-          ]),
-        } as unknown as InMemoryExchangeRepository,
-        tickerRepository: {
-          getByExchange: jest.fn().mockRejectedValue('ticker fetch failed'),
-        } as unknown as InMemoryTickerRepository,
-        dailySummaryRepository: dailySummaryRepository as InMemoryDailySummaryRepository,
+        exchangeRepository,
+        tickerRepository,
+        dailySummaryRepository,
         getChartDataFn: jest.fn(),
         nowFn: jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0)),
       });
 
       expect(response.statusCode).toBe(200);
+      expect(getByExchange).toHaveBeenCalledWith('NASDAQ');
     });
   });
 
   describe('ハンドラーレベルのエラー', () => {
     it('取引所一覧取得で例外が発生した場合は元の例外を再送出する', async () => {
+      jest.spyOn(exchangeRepository, 'getAll').mockRejectedValue('exchange fetch failed');
       await expect(
         handler(mockEvent, {
-          exchangeRepository: {
-            getAll: jest.fn().mockRejectedValue('exchange fetch failed'),
-          } as unknown as InMemoryExchangeRepository,
-          tickerRepository: tickerRepository as InMemoryTickerRepository,
-          dailySummaryRepository: dailySummaryRepository as InMemoryDailySummaryRepository,
+          exchangeRepository,
+          tickerRepository,
+          dailySummaryRepository,
         })
       ).rejects.toBe('exchange fetch failed');
     });
@@ -1217,11 +1217,9 @@ describe('summary batch handler', () => {
 
   describe('forecast バッチの非同期起動', () => {
     const emptyDependencies = () => ({
-      exchangeRepository: {
-        getAll: jest.fn().mockResolvedValue([]),
-      } as unknown as InMemoryExchangeRepository,
-      tickerRepository: tickerRepository as InMemoryTickerRepository,
-      dailySummaryRepository: dailySummaryRepository as InMemoryDailySummaryRepository,
+      exchangeRepository,
+      tickerRepository,
+      dailySummaryRepository,
     });
 
     /** 取引所1件・ティッカー1件の最小構成で、サマリーを1件保存する依存関係を組み立てる */
@@ -1315,13 +1313,13 @@ describe('summary batch handler', () => {
     it('取引所一覧取得で例外が発生した場合は forecast バッチを起動しない', async () => {
       const invokeForecastBatchFn = jest.fn().mockResolvedValue(undefined);
 
+      jest.spyOn(exchangeRepository, 'getAll').mockRejectedValue('exchange fetch failed');
+
       await expect(
         handler(mockEvent, {
-          exchangeRepository: {
-            getAll: jest.fn().mockRejectedValue('exchange fetch failed'),
-          } as unknown as InMemoryExchangeRepository,
-          tickerRepository: tickerRepository as InMemoryTickerRepository,
-          dailySummaryRepository: dailySummaryRepository as InMemoryDailySummaryRepository,
+          exchangeRepository,
+          tickerRepository,
+          dailySummaryRepository,
           invokeForecastBatchFn,
         })
       ).rejects.toBe('exchange fetch failed');

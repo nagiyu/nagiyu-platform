@@ -99,7 +99,7 @@ async function processAlert(
       return true;
     }
 
-    // 4. ExchangeEntity.priceSource で解決した provider で現在価格取得（リトライ付き）
+    // 4. ExchangeEntity.priceSource で解決した provider で現在価格取得 (リトライ付き)
     const priceSource = exchange.priceSource ?? DEFAULT_PRICE_SOURCE;
     const provider = resolveQuoteProvider(priceSource, providers);
     const currentPrice = await withRetry<number>(() => provider.getCurrentPrice(alert.TickerID), {

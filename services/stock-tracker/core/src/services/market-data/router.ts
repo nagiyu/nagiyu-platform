@@ -22,7 +22,7 @@ export type QuoteProviderMap = {
  * 'finnhub' の場合は Finnhub provider を返す。
  * それ以外（'tradingview' および安全側デフォルト）は TradingView provider を返す。
  *
- * @param priceSource - 取引所の価格取得元（ExchangeEntity.priceSource）
+ * @param priceSource - 取引所の価格取得元 (ExchangeEntity.priceSource)
  * @param providers - 選択肢となる QuoteProvider のマップ
  * @returns 選択された QuoteProvider
  */

@@ -80,6 +80,7 @@ export class DynamoDBExchangeRepository implements ExchangeRepository {
    */
   public async create(input: CreateExchangeInput): Promise<ExchangeEntity> {
     const now = Date.now();
+    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
     return this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
   }
 
@@ -87,9 +88,7 @@ export class DynamoDBExchangeRepository implements ExchangeRepository {
    * 取引所を更新
    */
   public async update(exchangeId: string, updates: UpdateExchangeInput): Promise<ExchangeEntity> {
-    // GSI3SK は exchangeId から作られるため、patch に含めて更新のたびに GSI3 キーを付け直す。
-    // キー導入前に作られたアイテムも、更新されると getAllIndexed の Query 対象になる。
-    return this.entityStore.update({ exchangeId }, { ...updates, exchangeId });
+    return this.entityStore.update({ exchangeId }, updates);
   }
 
   /**

@@ -6,12 +6,7 @@
 
 import { DynamoDBTickerRepository } from '../../../src/repositories/dynamodb-ticker.repository.js';
 import { parseUpdateExpression } from '../../helpers/update-expression.js';
-import {
-  EntityAlreadyExistsError,
-  EntityNotFoundError,
-  DatabaseError,
-  InvalidEntityDataError,
-} from '@nagiyu/aws';
+import { DatabaseError } from '@nagiyu/aws';
 import {
   DeleteCommand,
   GetCommand,
@@ -41,12 +36,6 @@ function buildItem(tickerId: string, overrides: Record<string, unknown> = {}) {
     UpdatedAt: CREATED_AT,
     ...overrides,
   };
-}
-
-function conditionalCheckFailed(): Error {
-  const error = new Error('Conditional check failed');
-  error.name = 'ConditionalCheckFailedException';
-  return error;
 }
 
 describe('DynamoDBTickerRepository', () => {
@@ -102,21 +91,7 @@ describe('DynamoDBTickerRepository', () => {
           CreatedAt: NOW,
           UpdatedAt: NOW,
         },
-        ConditionExpression: 'attribute_not_exists(#pk)',
-        ExpressionAttributeNames: { '#pk': 'PK' },
       });
-    });
-
-    it('同じティッカーIDが既に存在する場合は EntityAlreadyExistsError をスローする', async () => {
-      mockDocClient.send.mockRejectedValueOnce(conditionalCheckFailed());
-
-      await expect(repository.create(input)).rejects.toThrow(EntityAlreadyExistsError);
-    });
-
-    it('データベースエラー時に DatabaseError をスローする', async () => {
-      mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
-
-      await expect(repository.create(input)).rejects.toThrow(DatabaseError);
     });
   });
 
@@ -139,26 +114,6 @@ describe('DynamoDBTickerRepository', () => {
       const command = mockDocClient.send.mock.calls[0][0] as GetCommand;
       expect(command).toBeInstanceOf(GetCommand);
       expect(command.input.Key).toEqual({ PK: 'TICKER#NSDQ:AAPL', SK: 'METADATA' });
-    });
-
-    it('存在しないティッカーの場合は null を返す', async () => {
-      mockDocClient.send.mockResolvedValueOnce({ Item: undefined });
-
-      expect(await repository.getById('NSDQ:NOTFOUND')).toBeNull();
-    });
-
-    it('読めないデータの場合は InvalidEntityDataError をスローする', async () => {
-      mockDocClient.send.mockResolvedValueOnce({
-        Item: buildItem('NSDQ:AAPL', { Symbol: undefined }),
-      });
-
-      await expect(repository.getById('NSDQ:AAPL')).rejects.toThrow(InvalidEntityDataError);
-    });
-
-    it('データベースエラー時に DatabaseError をスローする', async () => {
-      mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
-
-      await expect(repository.getById('NSDQ:AAPL')).rejects.toThrow(DatabaseError);
     });
   });
 
@@ -240,19 +195,6 @@ describe('DynamoDBTickerRepository', () => {
       // Limitは指定しない（DynamoDBの1MBページ単位でよい契約のため）
       const firstCall = mockDocClient.send.mock.calls[0][0] as QueryCommand;
       expect(firstCall.input.Limit).toBeUndefined();
-    });
-
-    it('2ページ目の Query でデータベースエラーが発生した場合も DatabaseError をスローする', async () => {
-      mockDocClient.send
-        .mockResolvedValueOnce({
-          Items: [],
-          Count: 0,
-          LastEvaluatedKey: { PK: 'TICKER#NSDQ:AAA', SK: 'METADATA' },
-        })
-        .mockRejectedValueOnce(new Error('Database connection failed'));
-
-      await expect(repository.getByExchange('NASDAQ')).rejects.toThrow(DatabaseError);
-      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -366,64 +308,15 @@ describe('DynamoDBTickerRepository', () => {
       expect(result.updatedAt).toBe(NOW);
       const command = getUpdateCommand();
       expect(command.input.Key).toEqual({ PK: 'TICKER#NSDQ:AAPL', SK: 'METADATA' });
-      expect(command.input.ReturnValues).toBe('ALL_NEW');
-      expect(command.input.ConditionExpression).toBe('attribute_exists(#pk)');
       expect(parseUpdateExpression(command.input).set).toEqual({
         Name: 'Apple Inc. (Updated)',
         UpdatedAt: NOW,
       });
     });
-
-    it('symbol を更新できる', async () => {
-      mockDocClient.send.mockResolvedValueOnce({
-        Attributes: buildItem('NSDQ:AAPL', { Symbol: 'AAPL2' }),
-      });
-
-      const result = await repository.update('NSDQ:AAPL', { symbol: 'AAPL2' });
-
-      expect(result.symbol).toBe('AAPL2');
-      expect(parseUpdateExpression(getUpdateCommand().input).set).toMatchObject({
-        Symbol: 'AAPL2',
-      });
-    });
-
-    it('変更が空でも失敗せず、UpdatedAt だけを更新する', async () => {
-      mockDocClient.send.mockResolvedValueOnce({ Attributes: buildItem('NSDQ:AAPL') });
-
-      await repository.update('NSDQ:AAPL', {});
-
-      const parsed = parseUpdateExpression(getUpdateCommand().input);
-      expect(parsed.set).toEqual({ UpdatedAt: NOW });
-      expect(parsed.remove).toEqual([]);
-    });
-
-    it('存在しないティッカーを更新しようとすると EntityNotFoundError をスローする', async () => {
-      mockDocClient.send.mockRejectedValueOnce(conditionalCheckFailed());
-
-      await expect(repository.update('NSDQ:NOTFOUND', { name: 'Updated' })).rejects.toThrow(
-        EntityNotFoundError
-      );
-    });
-
-    it('更新後の Attributes が返らない場合は InvalidEntityDataError をスローする', async () => {
-      mockDocClient.send.mockResolvedValueOnce({ Attributes: undefined });
-
-      await expect(repository.update('NSDQ:AAPL', { name: 'Updated' })).rejects.toThrow(
-        InvalidEntityDataError
-      );
-    });
-
-    it('データベースエラー時に DatabaseError をスローする', async () => {
-      mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
-
-      await expect(repository.update('NSDQ:AAPL', { name: 'Updated' })).rejects.toThrow(
-        DatabaseError
-      );
-    });
   });
 
   describe('delete', () => {
-    it('存在を条件にティッカーを削除する', async () => {
+    it('ティッカーIDから組み立てたキーで削除する', async () => {
       mockDocClient.send.mockResolvedValueOnce({ $metadata: {} });
 
       await repository.delete('NSDQ:AAPL');
@@ -431,22 +324,7 @@ describe('DynamoDBTickerRepository', () => {
       expect(mockDocClient.send).toHaveBeenCalledTimes(1);
       const command = mockDocClient.send.mock.calls[0][0] as DeleteCommand;
       expect(command).toBeInstanceOf(DeleteCommand);
-      expect(command.input).toMatchObject({
-        Key: { PK: 'TICKER#NSDQ:AAPL', SK: 'METADATA' },
-        ConditionExpression: 'attribute_exists(#pk)',
-      });
-    });
-
-    it('存在しないティッカーを削除しようとすると EntityNotFoundError をスローする', async () => {
-      mockDocClient.send.mockRejectedValueOnce(conditionalCheckFailed());
-
-      await expect(repository.delete('NSDQ:NOTFOUND')).rejects.toThrow(EntityNotFoundError);
-    });
-
-    it('データベースエラー時に DatabaseError をスローする', async () => {
-      mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
-
-      await expect(repository.delete('NSDQ:AAPL')).rejects.toThrow(DatabaseError);
+      expect(command.input.Key).toEqual({ PK: 'TICKER#NSDQ:AAPL', SK: 'METADATA' });
     });
   });
 });

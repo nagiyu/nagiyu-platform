@@ -18,7 +18,7 @@ import type {
   CreateTickerInput,
   UpdateTickerInput,
 } from '../entities/ticker.entity.js';
-import { TickerMapper } from '../mappers/ticker.mapper.js';
+import { TickerMapper, buildTickerGsi3Pk } from '../mappers/ticker.mapper.js';
 
 const FULL_SCAN_PAGE_SIZE = 100;
 
@@ -60,7 +60,7 @@ export class InMemoryTickerRepository implements TickerRepository {
       const page = this.store.queryByAttribute(
         {
           attributeName: 'GSI3PK',
-          attributeValue: exchangeId,
+          attributeValue: buildTickerGsi3Pk(exchangeId),
           // sk条件を指定しないため、実DynamoDBのGSI3 Queryと同様にGSI3SK昇順で返すよう明示する
           gsiSortKeyAttributeName: 'GSI3SK',
         },
@@ -134,6 +134,7 @@ export class InMemoryTickerRepository implements TickerRepository {
    */
   public async create(input: CreateTickerInput): Promise<TickerEntity> {
     const now = Date.now();
+    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
     return this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
   }
 

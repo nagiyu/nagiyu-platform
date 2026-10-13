@@ -25,7 +25,7 @@ export interface TickerEntity {
 }
 
 /**
- * Ticker作成時の入力データ（createdAt/updatedAtを含まない）
+ * Ticker作成時の入力データ (createdAt/updatedAtを含まない)
  */
 export type CreateTickerInput = Omit<TickerEntity, 'createdAt' | 'updatedAt'>;
 

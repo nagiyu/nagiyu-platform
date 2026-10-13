@@ -288,8 +288,8 @@ describe('POST /api/exchanges', () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.error).toBe('INVALID_REQUEST');
-    expect(body.message).toBe('取引所は既に存在します');
+    expect(body.error).toBe('ALREADY_EXISTS');
+    expect(body.message).toContain('Exchange=TSE');
     expect(awsModule.reportErrorEvent).not.toHaveBeenCalled();
   });
 

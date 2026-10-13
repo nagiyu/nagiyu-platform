@@ -147,7 +147,7 @@ export const POST = withApiErrorReporting(
     }
     const exchangeKey = exchange.key;
 
-    // ティッカー作成（TickerID は自動生成: {Exchange.key}:{symbol}）
+    // ティッカー作成 (TickerID は自動生成: {Exchange.key}:{symbol})
     try {
       const createdTicker = await tickerRepo.create({
         tickerId: `${exchangeKey}:${symbol}`,

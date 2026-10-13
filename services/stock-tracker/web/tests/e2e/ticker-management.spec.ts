@@ -21,7 +21,7 @@ test.use({ serviceWorkers: 'block' });
  *
  * このテストは以下を検証します:
  * - ティッカーのCRUD操作（作成、編集、削除）
- * - ティッカーIDの自動生成（{Exchange.key}:{symbol} 形式）
+ * - ティッカーIDの自動生成 ({Exchange.key}:{symbol} 形式)
  * - 取引所フィルタ機能
  * - 権限チェック（書き込み系操作は stock-admin のみ許可）
  * - バリデーションエラーの表示
