@@ -12,13 +12,13 @@
  * getByFrequency にはTTLフィルタの契約を書かない（実装のKeyConditionExpressionは
  * `#gsi2pk = :pk` のみでFilterExpressionが無いため。getByUserIdとは異なる）。
  *
- * getByFrequency は「全件を返す」契約（#3801でページネーション付き口を廃止）。
+ * getByFrequency は「全件を返す」契約。
  * 実DynamoDB実装はページ境界が1MB単位のため、フィクスチャの件数ではページ分割は
  * 起きない（複数ページ走査はDynamoDB実装の単体テストでLastEvaluatedKeyループを担保する）。
  * この契約テストでは境界（50件ちょうど・51件・130件）で全件・順序どおり返ることのみを
  * 検証する。
  *
- * `PaginatedResult.count` は契約対象外（#3802で別途検討）。型定義上は「総件数」だが、
+ * `PaginatedResult.count` は契約対象外。型定義上は「総件数」だが、
  * getTemporaryCandidatesByFrequency等ではInMemoryが総件数・DynamoDBがページ件数を返すなど
  * 実装間でセマンティクスが食い違っている。共有型の意味を決め直す話のため、この契約テストの
  * 範囲では揃えず・assertもしない（検証し忘れではなく意図的な対象外）。
@@ -346,7 +346,7 @@ export function defineAlertRepositoryContract(
         expect(raw?.TTL).toBe(1704067200);
       });
 
-      it('サブスクリプションが壊れたアラートでも失効でき、候補から外れる', async () => {
+      it('サブスクリプションが壊れたアラートは、失効の書き込みは完了したうえで InvalidEntityDataError になり、候補から外れる', async () => {
         const created = await repository.create(
           buildAlertInput({
             userId: 'user-broken',
@@ -359,11 +359,51 @@ export function defineAlertRepositoryContract(
         const raw = await hooks.getRawItem(pk, sk);
         await hooks.putRawItem({ ...raw, Subscription: 'broken' });
 
-        await repository.markTemporaryAsExpired(created.userId, created.alertId, 1704067200000);
+        await expect(
+          repository.markTemporaryAsExpired(created.userId, created.alertId, 1704067200000)
+        ).rejects.toThrow(expect.objectContaining({ name: 'InvalidEntityDataError' }));
 
-        expect((await hooks.getRawItem(pk, sk))?.TTL).toBe(1704067200);
+        const written = await hooks.getRawItem(pk, sk);
+        expect(written?.TTL).toBe(1704067200);
+        expect(written?.Enabled).toBe(false);
         const candidates = await repository.getTemporaryCandidatesByFrequency('MINUTE_LEVEL');
         expect(candidates.items).toEqual([]);
+      });
+    });
+
+    describe('getAllForSubscriptionAudit', () => {
+      it('両方の頻度の読めたアラートと、読めなかったアイテムを併せて返す', async () => {
+        const minute = await repository.create(
+          buildAlertInput({ userId: 'user-a', frequency: 'MINUTE_LEVEL' })
+        );
+        const hourly = await repository.create(
+          buildAlertInput({ userId: 'user-b', frequency: 'HOURLY_LEVEL' })
+        );
+        const broken = await repository.create(
+          buildAlertInput({ userId: 'user-c', frequency: 'HOURLY_LEVEL' })
+        );
+        const pk = `USER#${broken.userId}`;
+        const sk = `ALERT#${broken.alertId}`;
+        const raw = await hooks.getRawItem(pk, sk);
+        await hooks.putRawItem({
+          ...raw,
+          Subscription: { endpoint: '', keys: { p256dh: 'p256dh-key', auth: 'auth-key' } },
+        });
+
+        const result = await repository.getAllForSubscriptionAudit();
+
+        expect(result.alerts.map((alert) => alert.alertId).sort()).toEqual(
+          [minute.alertId, hourly.alertId].sort()
+        );
+        expect(result.unreadable).toEqual([
+          {
+            userId: broken.userId,
+            alertId: broken.alertId,
+            pk,
+            sk,
+            reason: expect.any(String),
+          },
+        ]);
       });
     });
 

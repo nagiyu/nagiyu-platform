@@ -22,8 +22,9 @@ import {
   type EntityMapper,
   type EntityPatch,
 } from '@nagiyu/aws';
-import type { PushSubscription } from '@nagiyu/common';
+import { toErrorMessage, type PushSubscription } from '@nagiyu/common';
 import type { AlertEntity, AlertKey } from '../entities/alert.entity.js';
+import type { AlertAuditResult } from '../repositories/alert.repository.interface.js';
 import type { TemporaryAlertCandidate } from '../entities/temporary-alert-candidate.entity.js';
 
 /** アラートアイテムの GSI1SK の接頭辞 */
@@ -81,7 +82,11 @@ export function buildAlertGsi2Sk(userId: string, alertId: string): string {
 
 const FREQUENCIES = ['MINUTE_LEVEL', 'HOURLY_LEVEL'] as const;
 
-/** サブスクリプションの保存属性名。改名前は小文字始まりの `subscription` で保存されていた */
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0;
+}
+
+/** サブスクリプションの保存属性名。旧データは小文字始まりの `subscription` で保存されている */
 const SUBSCRIPTION_ATTRIBUTE = 'Subscription';
 const LEGACY_SUBSCRIPTION_ATTRIBUTE = 'subscription';
 
@@ -244,6 +249,34 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
   }
 
   /**
+   * DynamoDB Item の一覧を、読めたアラートと読めなかったアイテムに分ける。
+   *
+   * 読めないアイテムを捨てずに返すのは、購読の点検で壊れたアラートを見つけるため。
+   * 読めない理由はアイテム単位の検証失敗に限られるため、エラーの種類を問わず
+   * 読めなかったアイテムとして扱う。
+   *
+   * @param items - DynamoDB Item の一覧
+   * @returns 読めたアラートと、読めなかったアイテム
+   */
+  public splitReadable(items: DynamoDBAttributes[]): AlertAuditResult {
+    const result: AlertAuditResult = { alerts: [], unreadable: [] };
+    for (const item of items) {
+      try {
+        result.alerts.push(this.toEntity(item));
+      } catch (error) {
+        result.unreadable.push({
+          ...(isNonEmptyString(item.UserID) ? { userId: item.UserID } : {}),
+          ...(isNonEmptyString(item.AlertID) ? { alertId: item.AlertID } : {}),
+          ...(typeof item.PK === 'string' ? { pk: item.PK } : {}),
+          ...(typeof item.SK === 'string' ? { sk: item.SK } : {}),
+          reason: toErrorMessage(error),
+        });
+      }
+    }
+    return result;
+  }
+
+  /**
    * DynamoDB Item を一時アラート失効バッチ用の軽量候補オブジェクトに変換する。
    *
    * 失効判定に必要な属性のみを検証し、subscription / conditionList 等の
@@ -280,10 +313,10 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
   /**
    * Alert の Web Push サブスクリプション情報を検証する。
    *
-   * 新名 `Subscription` を優先し、改名前の `subscription` を読む。それより前の形式
-   * (`SubscriptionEndpoint` / `SubscriptionKeysP256dh` / `SubscriptionKeysAuth`) は
-   * 後方互換のフォールバックとして読み取る。
-   * 旧形式データのバックフィル完了後はフォールバック削除を想定する。
+   * 新名 `Subscription` を優先し、旧データの `subscription` も読む。さらに古いデータは
+   * 平坦な属性 (`SubscriptionEndpoint` / `SubscriptionKeysP256dh` / `SubscriptionKeysAuth`) で
+   * 保存されているため、それも読む。書き込みは新形式のみで、書き込まれないアイテムは
+   * 旧形式のまま残るため、読み取りの互換処理は残し続ける。
    */
   private validateSubscription(item: DynamoDBAttributes): PushSubscription {
     const stored = readAttribute(item, SUBSCRIPTION_ATTRIBUTE, [LEGACY_SUBSCRIPTION_ATTRIBUTE]);
@@ -303,8 +336,7 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
       };
     }
 
-    // 平坦な旧形式のフォールバック:
-    // 「旧形式データのバックフィルタスク完了」かつ「本番テーブルで旧形式項目が残っていないことを確認」後に削除する。
+    // 平坦な旧形式。一括移行をしないため、旧形式のまま残るアイテムを読めるようにここで受ける。
     return {
       endpoint: validateStringField(item.SubscriptionEndpoint, 'SubscriptionEndpoint'),
       keys: {

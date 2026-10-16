@@ -11,18 +11,22 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import {
   DynamoDBEntityStore,
-  InvalidEntityDataError,
   TTL_ATTRIBUTE_NAME,
   toDatabaseError,
   queryAllItems,
   encodeCursor,
   decodeCursor,
+  type DynamoDBAttributes,
   type EntityStore,
   type PaginationOptions,
   type PaginatedResult,
 } from '@nagiyu/aws';
 import { logger, toErrorMessage } from '@nagiyu/common';
-import type { AlertRepository, GetByUserIdOptions } from './alert.repository.interface.js';
+import type {
+  AlertAuditResult,
+  AlertRepository,
+  GetByUserIdOptions,
+} from './alert.repository.interface.js';
 import type {
   AlertEntity,
   AlertKey,
@@ -169,6 +173,42 @@ export class DynamoDBAlertRepository implements AlertRepository {
   }
 
   /**
+   * 全頻度のアラートを、読めないアイテムも含めて取得する (GSI2=AlertIndex を使用、購読の点検用)。
+   *
+   * 読めないアイテムは警告ログで捨てずに、`unreadable` として返す。購読の点検では
+   * 壊れたアラートこそ見つけて手動で直す対象のため。頻度は 2 値のみで、
+   * 両頻度を全ページ辿れば全アラートになる。
+   */
+  public async getAllForSubscriptionAudit(): Promise<AlertAuditResult> {
+    const result: AlertAuditResult = { alerts: [], unreadable: [] };
+
+    for (const frequency of ['MINUTE_LEVEL', 'HOURLY_LEVEL'] as const) {
+      let rawItems: DynamoDBAttributes[];
+      try {
+        rawItems = await queryAllItems(this.docClient, {
+          TableName: this.tableName,
+          IndexName: 'AlertIndex',
+          KeyConditionExpression: '#gsi2pk = :pk',
+          ExpressionAttributeNames: {
+            '#gsi2pk': 'GSI2PK',
+          },
+          ExpressionAttributeValues: {
+            ':pk': buildAlertGsi2Pk(frequency),
+          },
+        });
+      } catch (error) {
+        throw toDatabaseError(error);
+      }
+
+      const split = this.mapper.splitReadable(rawItems);
+      result.alerts.push(...split.alerts);
+      result.unreadable.push(...split.unreadable);
+    }
+
+    return result;
+  }
+
+  /**
    * 一時アラート失効バッチ用の軽量取得（GSI2=AlertIndexを使用）。
    *
    * - GSI2SK（`${userId}#${alertId}`）昇順のQueryで、インタフェース契約のuserId昇順・
@@ -282,22 +322,15 @@ export class DynamoDBAlertRepository implements AlertRepository {
   /**
    * 一時アラートを失効状態にする（無効化 + 物理削除時刻の設定）。
    *
-   * 書き込みは subscription に触れない。更新後の Entity への変換は subscription を検証するが、
-   * その時点で失効の書き込みは完了しているため、変換の失敗は握りつぶす。
-   * subscription が壊れたアラートでも失効できるようにするため。
+   * 書き込みは subscription に触れないため、subscription が壊れたアラートでも失効の書き込みは
+   * 完了する。更新後の Entity への変換で壊れたデータが分かった場合は、書き込み後に
+   * `InvalidEntityDataError` が上がる。壊れたデータを黙って成功扱いにしない。
    */
   public async markTemporaryAsExpired(
     userId: string,
     alertId: string,
     expiresAt: number
   ): Promise<void> {
-    try {
-      await this.entityStore.update({ userId, alertId }, { enabled: false, expiresAt });
-    } catch (error) {
-      if (error instanceof InvalidEntityDataError) {
-        return;
-      }
-      throw error;
-    }
+    await this.entityStore.update({ userId, alertId }, { enabled: false, expiresAt });
   }
 }

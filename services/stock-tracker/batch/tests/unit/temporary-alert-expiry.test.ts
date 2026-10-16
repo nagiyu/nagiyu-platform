@@ -280,6 +280,36 @@ describe('temporary alert expiry batch handler', () => {
     );
   });
 
+  it('壊れたアラートの失効で InvalidEntityDataError が上がっても、errors に数えて他のアラートの処理を止めない', async () => {
+    // @nagiyu/aws は自動モックのため、エラークラスは実体を使う
+    const { InvalidEntityDataError } =
+      jest.requireActual<typeof import('@nagiyu/aws')>('@nagiyu/aws');
+    const broken = buildCandidate({ alertId: 'broken' });
+    const normal = buildCandidate({ alertId: 'normal' });
+
+    mockAlertRepo.getTemporaryCandidatesByFrequency
+      .mockResolvedValueOnce({ items: [broken, normal] })
+      .mockResolvedValueOnce({ items: [] });
+    mockExchangeRepo.getById.mockResolvedValue(NASDAQ);
+    (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(false);
+    (tradingHoursChecker.getLastTradingDate as jest.Mock).mockReturnValue('2026-03-04');
+    mockAlertRepo.markTemporaryAsExpired
+      .mockRejectedValueOnce(new InvalidEntityDataError('フィールド "Subscription" が不正です'))
+      .mockResolvedValueOnce(undefined);
+
+    const response = await handler(mockEvent);
+    const body = JSON.parse(response.body);
+
+    expect(response.statusCode).toBe(200);
+    expect(mockAlertRepo.markTemporaryAsExpired).toHaveBeenCalledTimes(2);
+    expect(body.statistics.errors).toBe(1);
+    expect(body.statistics.deactivated).toBe(1);
+    expect(logger.error).toHaveBeenCalledWith(
+      '一時通知アラートの失効処理でエラーが発生しました',
+      expect.objectContaining({ alertId: 'broken', userId: 'u1' })
+    );
+  });
+
   it('getTemporaryCandidatesByFrequency でエラーが発生した場合はエラー報告したうえで例外を再送出する', async () => {
     const dbError = new Error('DynamoDB 接続エラー');
     mockAlertRepo.getTemporaryCandidatesByFrequency.mockRejectedValue(dbError);

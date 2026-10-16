@@ -8,8 +8,19 @@
  */
 
 import { InMemoryAlertRepository } from '../../../src/repositories/in-memory-alert.repository.js';
-import { InMemorySingleTableStore, EntityNotFoundError } from '@nagiyu/aws';
+import { InMemorySingleTableStore, EntityNotFoundError, InvalidEntityDataError } from '@nagiyu/aws';
+import { logger } from '@nagiyu/common';
 import type { CreateAlertInput } from '../../../src/entities/alert.entity.js';
+
+jest.mock('@nagiyu/common', () => ({
+  ...jest.requireActual('@nagiyu/common'),
+  logger: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+  },
+}));
 
 function buildInput(overrides: Partial<CreateAlertInput> = {}): CreateAlertInput {
   return {
@@ -32,7 +43,17 @@ describe('InMemoryAlertRepository', () => {
   let repository: InMemoryAlertRepository;
   let store: InMemorySingleTableStore;
 
+  /** 保存済みのアラートの Subscription を壊す */
+  function breakSubscription(userId: string, alertId: string): void {
+    const pk = `USER#${userId}`;
+    const sk = `ALERT#${alertId}`;
+    store.put({ ...(store.get(pk, sk) ?? {}), Subscription: 'broken' } as Parameters<
+      typeof store.put
+    >[0]);
+  }
+
   beforeEach(() => {
+    jest.clearAllMocks();
     store = new InMemorySingleTableStore();
     repository = new InMemoryAlertRepository(store);
   });
@@ -93,6 +114,21 @@ describe('InMemoryAlertRepository', () => {
 
       expect(result.items).toHaveLength(2);
       expect(result.items.every((alert) => alert.userId === 'user-123')).toBe(true);
+    });
+
+    it('読めないアイテムは警告ログを出して読み飛ばし、他のアラートは返す', async () => {
+      const normal = await repository.create(buildInput({ tickerId: 'NSDQ:AAPL' }));
+      const broken = await repository.create(buildInput({ tickerId: 'NSDQ:NVDA' }));
+      breakSubscription('user-123', broken.alertId);
+
+      const result = await repository.getByUserId('user-123');
+
+      expect(result.items.map((alert) => alert.alertId)).toEqual([normal.alertId]);
+      expect(result.count).toBe(1);
+      expect(logger.warn).toHaveBeenCalledWith(
+        '無効なアラートデータをスキップしました',
+        expect.objectContaining({ sk: `ALERT#${broken.alertId}` })
+      );
     });
 
     it('該当するユーザーのアラートがない場合は空配列を返す', async () => {
@@ -184,6 +220,20 @@ describe('InMemoryAlertRepository', () => {
       expect(result.every((alert) => alert.frequency === 'MINUTE_LEVEL')).toBe(true);
     });
 
+    it('読めないアイテムは警告ログを出して読み飛ばし、他のアラートは返す', async () => {
+      const normal = await repository.create(buildInput({ userId: 'user-a' }));
+      const broken = await repository.create(buildInput({ userId: 'user-b' }));
+      breakSubscription('user-b', broken.alertId);
+
+      const result = await repository.getByFrequency('MINUTE_LEVEL');
+
+      expect(result.map((alert) => alert.alertId)).toEqual([normal.alertId]);
+      expect(logger.warn).toHaveBeenCalledWith(
+        '無効なアラートデータをスキップしました',
+        expect.objectContaining({ sk: `ALERT#${broken.alertId}` })
+      );
+    });
+
     it('該当する頻度のアラートがない場合は空配列を返す', async () => {
       expect(await repository.getByFrequency('HOURLY_LEVEL')).toEqual([]);
     });
@@ -207,6 +257,63 @@ describe('InMemoryAlertRepository', () => {
       expect((await repository.getByFrequency('HOURLY_LEVEL')).map((item) => item.alertId)).toEqual(
         [alert.alertId]
       );
+    });
+  });
+
+  describe('getAllForSubscriptionAudit', () => {
+    it('両方の頻度のアラートを、ページを辿り切って全件返す', async () => {
+      for (let i = 0; i < 130; i++) {
+        await repository.create(buildInput({ userId: `user-${String(i).padStart(4, '0')}` }));
+      }
+      await repository.create(buildInput({ userId: 'user-h', frequency: 'HOURLY_LEVEL' }));
+
+      const result = await repository.getAllForSubscriptionAudit();
+
+      expect(result.alerts).toHaveLength(131);
+      expect(result.unreadable).toEqual([]);
+    });
+
+    it('読めないアイテムは捨てずに、userId / alertId と保存キー、理由を付けて返す', async () => {
+      const normal = await repository.create(buildInput({ userId: 'user-a' }));
+      const broken = await repository.create(
+        buildInput({ userId: 'user-b', frequency: 'HOURLY_LEVEL' })
+      );
+      breakSubscription('user-b', broken.alertId);
+
+      const result = await repository.getAllForSubscriptionAudit();
+
+      expect(result.alerts.map((alert) => alert.alertId)).toEqual([normal.alertId]);
+      expect(result.unreadable).toEqual([
+        {
+          userId: 'user-b',
+          alertId: broken.alertId,
+          pk: 'USER#user-b',
+          sk: `ALERT#${broken.alertId}`,
+          reason: expect.any(String),
+        },
+      ]);
+    });
+
+    it('userId / alertId が取れないアイテムは、保存キーだけで特定できるようにして返す', async () => {
+      const alert = await repository.create(buildInput());
+      const pk = 'USER#user-123';
+      const sk = `ALERT#${alert.alertId}`;
+      const raw = { ...(store.get(pk, sk) ?? {}) };
+      delete raw.AlertID;
+      delete raw.UserID;
+      store.put(raw as Parameters<typeof store.put>[0]);
+
+      const result = await repository.getAllForSubscriptionAudit();
+
+      expect(result.alerts).toEqual([]);
+      expect(result.unreadable).toEqual([{ pk, sk, reason: expect.any(String) }]);
+    });
+
+    it('該当するアラートがない場合は空の結果を返す', async () => {
+      expect(await repository.getAllForSubscriptionAudit()).toEqual({
+        alerts: [],
+        unreadable: [],
+      });
     });
   });
 
@@ -376,18 +483,15 @@ describe('InMemoryAlertRepository', () => {
       );
     });
 
-    it('サブスクリプションが壊れたアラートでも失効の書き込みは完了し、例外にならない', async () => {
+    it('サブスクリプションが壊れたアラートは、失効の書き込みは完了したうえで InvalidEntityDataError を投げる', async () => {
       const created = await repository.create(buildInput({ temporary: true }));
-      const pk = 'USER#user-123';
-      const sk = `ALERT#${created.alertId}`;
-      const raw = { ...(store.get(pk, sk) ?? {}), Subscription: 'broken' };
-      store.put(raw as Parameters<typeof store.put>[0]);
+      breakSubscription('user-123', created.alertId);
 
       await expect(
         repository.markTemporaryAsExpired('user-123', created.alertId, 1700000000000)
-      ).resolves.toBeUndefined();
+      ).rejects.toThrow(InvalidEntityDataError);
 
-      const stored = store.get(pk, sk);
+      const stored = store.get('USER#user-123', `ALERT#${created.alertId}`);
       expect(stored?.Enabled).toBe(false);
       expect(stored?.TTL).toBe(1700000000);
     });

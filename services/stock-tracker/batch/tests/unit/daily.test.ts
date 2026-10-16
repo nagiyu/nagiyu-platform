@@ -9,6 +9,7 @@ import { handler } from '../../src/daily.js';
 import type { ScheduledEvent } from '@nagiyu/aws';
 import * as awsClients from '@nagiyu/aws';
 import { QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { logger } from '@nagiyu/common';
 import { AlertMapper } from '@nagiyu/stock-tracker-core';
 import type { AlertEntity } from '@nagiyu/stock-tracker-core';
 
@@ -227,7 +228,9 @@ describe('daily batch handler', () => {
       expect(body.statistics.invalidSubscriptions).toBe(2);
     });
 
-    it('Mapper が読めないアラート (endpoint が空文字など) は、件数に含めず警告ログだけを残す', async () => {
+    it('Mapper が読めないアラート (endpoint が空文字など) も、無効に数えて手動削除のログに含める', async () => {
+      const infoSpy = jest.spyOn(logger, 'info');
+      const warnSpy = jest.spyOn(logger, 'warn');
       respondWithPages({
         'ALERT#MINUTE_LEVEL': [
           [
@@ -242,13 +245,61 @@ describe('daily batch handler', () => {
             ),
           ],
         ],
+        'ALERT#HOURLY_LEVEL': [
+          [
+            toItem(
+              buildAlert('alert-3', {
+                frequency: 'HOURLY_LEVEL',
+                subscription: {
+                  endpoint: 'https://fcm.googleapis.com/fcm/send/test',
+                  keys: { p256dh: '', auth: 'test-auth' },
+                },
+              })
+            ),
+          ],
+        ],
       });
 
       const response = await handler(mockEvent);
 
       const body = JSON.parse(response.body);
+      expect(body.statistics.totalAlerts).toBe(3);
+      expect(body.statistics.validSubscriptions).toBe(1);
+      expect(body.statistics.invalidSubscriptions).toBe(2);
+      expect(warnSpy).toHaveBeenCalledWith(
+        '読めないアラートを検出しました',
+        expect.objectContaining({ alertId: 'alert-2', userId: 'user-alert-2' })
+      );
+      expect(infoSpy).toHaveBeenCalledWith(
+        '無効なサブスクリプションの手動削除が必要です',
+        expect.objectContaining({
+          invalidCount: 2,
+          invalidAlertIds: [
+            expect.objectContaining({ alertId: 'alert-2', userId: 'user-alert-2' }),
+            expect.objectContaining({ alertId: 'alert-3', userId: 'user-alert-3' }),
+          ],
+        })
+      );
+    });
+
+    it('alertId や userId が取れない読めないアイテムは、保存キーで特定できるようログに残す', async () => {
+      const infoSpy = jest.spyOn(logger, 'info');
+      const broken = toItem(buildAlert('alert-1'));
+      delete broken.AlertID;
+      delete broken.UserID;
+      respondWithPages({ 'ALERT#MINUTE_LEVEL': [[broken]] });
+
+      const response = await handler(mockEvent);
+
+      const body = JSON.parse(response.body);
       expect(body.statistics.totalAlerts).toBe(1);
-      expect(body.statistics.invalidSubscriptions).toBe(0);
+      expect(body.statistics.invalidSubscriptions).toBe(1);
+      expect(infoSpy).toHaveBeenCalledWith(
+        '無効なサブスクリプションの手動削除が必要です',
+        expect.objectContaining({
+          invalidAlertIds: [{ pk: 'USER#user-alert-1', sk: 'ALERT#alert-1' }],
+        })
+      );
     });
   });
 

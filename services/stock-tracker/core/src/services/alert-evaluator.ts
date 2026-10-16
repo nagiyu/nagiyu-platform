@@ -3,10 +3,9 @@
  *
  * アラート条件を評価するビジネスロジック
  *
- * Phase 1 仕様:
- * - conditionList[0] のみ評価（複数条件は Phase 2）
- * - operator は `gte` (>=) と `lte` (<=) のみ対応
- * - field は `price` 固定
+ * 対応する条件:
+ * - operator は `gte` (>=) と `lte` (<=) のみ
+ * - field は `price` のみ
  */
 
 import type { AlertCondition, AlertEntity } from '../entities/alert.entity.js';
@@ -45,7 +44,7 @@ export function evaluateCondition(condition: AlertCondition, currentPrice: numbe
     throw new Error(ERROR_MESSAGES.INVALID_PRICE);
   }
 
-  // フィールドのチェック（Phase 1 は price 固定）
+  // フィールドのチェック (price のみ対応)
   if (condition.field !== 'price') {
     throw new Error(ERROR_MESSAGES.INVALID_FIELD);
   }

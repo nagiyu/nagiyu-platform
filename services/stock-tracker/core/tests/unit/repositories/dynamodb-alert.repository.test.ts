@@ -11,7 +11,7 @@
 import { DynamoDBAlertRepository } from '../../../src/repositories/dynamodb-alert.repository.js';
 import { AlertMapper } from '../../../src/mappers/alert.mapper.js';
 import { parseUpdateExpression } from '../../helpers/update-expression.js';
-import { DatabaseError, EntityNotFoundError } from '@nagiyu/aws';
+import { DatabaseError, EntityNotFoundError, InvalidEntityDataError } from '@nagiyu/aws';
 import {
   DeleteCommand,
   GetCommand,
@@ -394,6 +394,91 @@ describe('DynamoDBAlertRepository', () => {
     });
   });
 
+  describe('getAllForSubscriptionAudit', () => {
+    it('両方の頻度の AlertIndex を全ページ辿り、読めたアラートを返す', async () => {
+      const lastEvaluatedKey = { PK: 'USER#user-123', SK: 'ALERT#alert-1' };
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Items: [buildItem('alert-1')],
+          LastEvaluatedKey: lastEvaluatedKey,
+        })
+        .mockResolvedValueOnce({ Items: [buildItem('alert-2')] })
+        .mockResolvedValueOnce({
+          Items: [
+            buildItem('alert-3', { Frequency: 'HOURLY_LEVEL', GSI2PK: 'ALERT#HOURLY_LEVEL' }),
+          ],
+        });
+
+      const result = await repository.getAllForSubscriptionAudit();
+
+      expect(result.alerts.map((alert) => alert.alertId)).toEqual([
+        'alert-1',
+        'alert-2',
+        'alert-3',
+      ]);
+      expect(result.unreadable).toEqual([]);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(3);
+      const commands = mockDocClient.send.mock.calls.map(([command]) => command as QueryCommand);
+      expect(commands.map((command) => command.input.ExpressionAttributeValues?.[':pk'])).toEqual([
+        'ALERT#MINUTE_LEVEL',
+        'ALERT#MINUTE_LEVEL',
+        'ALERT#HOURLY_LEVEL',
+      ]);
+      expect(commands[1].input.ExclusiveStartKey).toEqual(lastEvaluatedKey);
+      for (const command of commands) {
+        expect(command.input).toMatchObject({ TableName: TABLE_NAME, IndexName: 'AlertIndex' });
+      }
+    });
+
+    it('読めないアイテムは捨てずに、userId / alertId と保存キー、理由を付けて返す', async () => {
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Items: [
+            buildItem('alert-1'),
+            buildItem('alert-empty', { Subscription: { ...SUBSCRIPTION, endpoint: '' } }),
+          ],
+        })
+        .mockResolvedValueOnce({ Items: [] });
+
+      const result = await repository.getAllForSubscriptionAudit();
+
+      expect(result.alerts.map((alert) => alert.alertId)).toEqual(['alert-1']);
+      expect(result.unreadable).toEqual([
+        {
+          userId: 'user-123',
+          alertId: 'alert-empty',
+          pk: 'USER#user-123',
+          sk: 'ALERT#alert-empty',
+          reason: expect.stringContaining('Subscription.endpoint'),
+        },
+      ]);
+    });
+
+    it('userId / alertId が取れないアイテムは、保存キーだけで特定できるようにして返す', async () => {
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Items: [buildItem('alert-x', { AlertID: undefined, UserID: '' })],
+        })
+        .mockResolvedValueOnce({ Items: [] });
+
+      const result = await repository.getAllForSubscriptionAudit();
+
+      expect(result.unreadable).toEqual([
+        {
+          pk: 'USER#user-123',
+          sk: 'ALERT#alert-x',
+          reason: expect.any(String),
+        },
+      ]);
+    });
+
+    it('データベースエラー時に DatabaseError をスローする', async () => {
+      mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
+
+      await expect(repository.getAllForSubscriptionAudit()).rejects.toThrow(DatabaseError);
+    });
+  });
+
   describe('update', () => {
     it('アラートを更新し、更新後の Entity を返す', async () => {
       mockDocClient.send.mockResolvedValueOnce({
@@ -639,14 +724,21 @@ describe('DynamoDBAlertRepository', () => {
       ).rejects.toThrow(EntityNotFoundError);
     });
 
-    it('更新後の Entity への変換がサブスクリプションの不正で失敗しても、例外にしない', async () => {
+    it('更新後の Entity への変換がサブスクリプションの不正で失敗したら、書き込み後に InvalidEntityDataError を投げる', async () => {
       mockDocClient.send.mockResolvedValueOnce({
         Attributes: buildItem('alert-1', { Subscription: 'broken' }),
       });
 
       await expect(
         repository.markTemporaryAsExpired('user-123', 'alert-1', 1704067200999)
-      ).resolves.toBeUndefined();
+      ).rejects.toThrow(InvalidEntityDataError);
+
+      expect(mockDocClient.send).toHaveBeenCalledTimes(1);
+      const command = mockDocClient.send.mock.calls[0][0] as UpdateCommand;
+      expect(parseUpdateExpression(command.input).set).toMatchObject({
+        Enabled: false,
+        TTL: 1704067200,
+      });
     });
 
     it('その他のエラーは DatabaseError にラップされる', async () => {

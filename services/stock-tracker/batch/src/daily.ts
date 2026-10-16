@@ -6,7 +6,17 @@
 
 import { logger } from '@nagiyu/common';
 import { createScheduledHandler, getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
-import { DynamoDBAlertRepository, type AlertEntity } from '@nagiyu/stock-tracker-core';
+import {
+  DynamoDBAlertRepository,
+  type AlertEntity,
+  type UnreadableAlertItem,
+} from '@nagiyu/stock-tracker-core';
+
+/**
+ * 手動削除の対象として記録する、無効なアラートの識別情報。
+ * 読めなかったアイテムは alertId / userId が取れないことがあるため、保存キーも持つ。
+ */
+type InvalidAlertRef = Pick<UnreadableAlertItem, 'alertId' | 'userId' | 'pk' | 'sk'>;
 
 /**
  * バッチ処理の統計情報
@@ -15,7 +25,7 @@ interface BatchStatistics {
   totalAlerts: number;
   validSubscriptions: number;
   invalidSubscriptions: number;
-  invalidAlerts: AlertEntity[];
+  invalidAlerts: InvalidAlertRef[];
 }
 
 /**
@@ -25,24 +35,24 @@ interface BatchStatistics {
  * @returns サブスクリプションが有効な場合は true、無効な場合は false
  */
 function isValidSubscription(alert: AlertEntity): boolean {
-  // SubscriptionEndpoint が空または不正な形式の場合は無効
+  // endpoint が空の場合は無効
   if (!alert.subscription.endpoint || alert.subscription.endpoint.trim() === '') {
     return false;
   }
 
-  // SubscriptionEndpoint が URL 形式であることを確認
+  // endpoint が URL 形式であることを確認
   try {
     new URL(alert.subscription.endpoint);
   } catch {
     return false;
   }
 
-  // SubscriptionKeysP256dh が空の場合は無効
+  // keys.p256dh が空の場合は無効
   if (!alert.subscription.keys.p256dh || alert.subscription.keys.p256dh.trim() === '') {
     return false;
   }
 
-  // SubscriptionKeysAuth が空の場合は無効
+  // keys.auth が空の場合は無効
   if (!alert.subscription.keys.auth || alert.subscription.keys.auth.trim() === '') {
     return false;
   }
@@ -69,18 +79,16 @@ export const handler = createScheduledHandler(
     const docClient = getDynamoDBDocumentClient();
     const tableName = getTableName();
 
-    // 全アラートを取得する。頻度は 2 値のみで、頻度ごとの取得は全ページを辿るため、
-    // 両方を合わせれば全アラートになる。
+    // 全アラートを、読めないアイテムも含めて取得する。
+    // 頻度ごとの取得は読めないアイテムを捨てるため、endpoint や鍵が空のように
+    // 保存データが壊れたアラートが、点検の対象から消えてしまう。
     const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
-    const [minuteAlerts, hourlyAlerts] = await Promise.all([
-      alertRepo.getByFrequency('MINUTE_LEVEL'),
-      alertRepo.getByFrequency('HOURLY_LEVEL'),
-    ]);
-    const alerts = [...minuteAlerts, ...hourlyAlerts];
-    stats.totalAlerts = alerts.length;
+    const { alerts, unreadable } = await alertRepo.getAllForSubscriptionAudit();
+    stats.totalAlerts = alerts.length + unreadable.length;
 
     logger.info('アラートを取得しました', {
-      count: alerts.length,
+      count: stats.totalAlerts,
+      unreadableCount: unreadable.length,
     });
 
     // 各アラートの Web Push サブスクリプションを検証
@@ -89,7 +97,7 @@ export const handler = createScheduledHandler(
         stats.validSubscriptions++;
       } else {
         stats.invalidSubscriptions++;
-        stats.invalidAlerts.push(alert);
+        stats.invalidAlerts.push({ alertId: alert.alertId, userId: alert.userId });
 
         logger.warn('無効な Web Push サブスクリプションを検出しました', {
           alertId: alert.alertId,
@@ -98,6 +106,25 @@ export const handler = createScheduledHandler(
           subscriptionEndpoint: alert.subscription.endpoint || '(empty)',
         });
       }
+    }
+
+    // 読めなかったアイテムは、購読の検証以前に保存データが壊れているため無効に数える
+    for (const item of unreadable) {
+      stats.invalidSubscriptions++;
+      stats.invalidAlerts.push({
+        alertId: item.alertId,
+        userId: item.userId,
+        pk: item.pk,
+        sk: item.sk,
+      });
+
+      logger.warn('読めないアラートを検出しました', {
+        alertId: item.alertId,
+        userId: item.userId,
+        pk: item.pk,
+        sk: item.sk,
+        reason: item.reason,
+      });
     }
 
     // 最終統計をログ出力
@@ -110,14 +137,11 @@ export const handler = createScheduledHandler(
       },
     });
 
-    // Phase 1 では無効なサブスクリプションの情報を返すのみ（手動削除用）
+    // 自動では削除せず、手動で削除できるよう識別情報をログに出す
     if (stats.invalidSubscriptions > 0) {
       logger.info('無効なサブスクリプションの手動削除が必要です', {
         invalidCount: stats.invalidSubscriptions,
-        invalidAlertIds: stats.invalidAlerts.map((a) => ({
-          alertId: a.alertId,
-          userId: a.userId,
-        })),
+        invalidAlertIds: stats.invalidAlerts,
       });
     }
 

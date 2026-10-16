@@ -6,14 +6,19 @@
 
 import {
   InMemoryEntityStore,
-  InvalidEntityDataError,
   TTL_ATTRIBUTE_NAME,
+  type DynamoDBAttributes,
   type EntityStore,
   type InMemorySingleTableStore,
   type PaginationOptions,
   type PaginatedResult,
 } from '@nagiyu/aws';
-import type { AlertRepository, GetByUserIdOptions } from './alert.repository.interface.js';
+import { logger, toErrorMessage } from '@nagiyu/common';
+import type {
+  AlertAuditResult,
+  AlertRepository,
+  GetByUserIdOptions,
+} from './alert.repository.interface.js';
 import type {
   AlertEntity,
   AlertKey,
@@ -92,9 +97,9 @@ export class InMemoryAlertRepository implements AlertRepository {
       }
     );
 
-    const items = result.items
-      .filter((item) => item[TTL_ATTRIBUTE_NAME] === undefined)
-      .map((item) => this.mapper.toEntity(item));
+    const items = this.toReadableEntities(
+      result.items.filter((item) => item[TTL_ATTRIBUTE_NAME] === undefined)
+    );
 
     return {
       items,
@@ -125,10 +130,62 @@ export class InMemoryAlertRepository implements AlertRepository {
           cursor,
         }
       );
-      items.push(...page.items.map((item) => this.mapper.toEntity(item)));
+      items.push(...this.toReadableEntities(page.items));
       cursor = page.nextCursor;
     } while (cursor);
 
+    return items;
+  }
+
+  /**
+   * 全頻度のアラートを、読めないアイテムも含めて取得する (購読の点検用)。
+   *
+   * 読めないアイテムは警告ログで捨てずに、`unreadable` として返す。
+   */
+  public async getAllForSubscriptionAudit(): Promise<AlertAuditResult> {
+    const result: AlertAuditResult = { alerts: [], unreadable: [] };
+
+    for (const frequency of ['MINUTE_LEVEL', 'HOURLY_LEVEL'] as const) {
+      let cursor: string | undefined;
+      do {
+        const page = this.store.queryByAttribute(
+          {
+            attributeName: 'GSI2PK',
+            attributeValue: buildAlertGsi2Pk(frequency),
+            gsiSortKeyAttributeName: 'GSI2SK',
+          },
+          {
+            limit: FULL_SCAN_PAGE_SIZE,
+            cursor,
+          }
+        );
+        const split = this.mapper.splitReadable(page.items);
+        result.alerts.push(...split.alerts);
+        result.unreadable.push(...split.unreadable);
+        cursor = page.nextCursor;
+      } while (cursor);
+    }
+
+    return result;
+  }
+
+  /**
+   * 読めないアイテムは警告ログを出して読み飛ばす。一覧の取得を、1 件の壊れたデータで
+   * 失敗させないため (DynamoDB 実装と揃える)。
+   */
+  private toReadableEntities(rawItems: DynamoDBAttributes[]): AlertEntity[] {
+    const items: AlertEntity[] = [];
+    for (const item of rawItems) {
+      try {
+        items.push(this.mapper.toEntity(item));
+      } catch (error) {
+        logger.warn('無効なアラートデータをスキップしました', {
+          pk: item.PK,
+          sk: item.SK,
+          error: toErrorMessage(error),
+        });
+      }
+    }
     return items;
   }
 
@@ -197,9 +254,12 @@ export class InMemoryAlertRepository implements AlertRepository {
       }
       try {
         items.push(this.mapper.toTemporaryCandidate(item));
-      } catch {
-        // InMemory 実装では検証失敗時もテストの意図を壊さないようスキップ
-        continue;
+      } catch (error) {
+        logger.warn('無効な一時アラート候補をスキップしました', {
+          pk: item.PK,
+          sk: item.SK,
+          error: toErrorMessage(error),
+        });
       }
     }
 
@@ -213,21 +273,15 @@ export class InMemoryAlertRepository implements AlertRepository {
   /**
    * 一時アラートを失効状態にする（Enabled=false + 物理削除時刻の設定）。
    *
-   * 更新後の Entity への変換は subscription を検証するが、その時点で失効の書き込みは
-   * 完了しているため、変換の失敗は握りつぶす。DynamoDB 実装と揃えている。
+   * subscription が壊れたアラートでも失効の書き込みは完了する。更新後の Entity への変換で
+   * 壊れたデータが分かった場合は、書き込み後に `InvalidEntityDataError` が上がる
+   * (DynamoDB 実装と揃える)。
    */
   public async markTemporaryAsExpired(
     userId: string,
     alertId: string,
     expiresAt: number
   ): Promise<void> {
-    try {
-      await this.entityStore.update({ userId, alertId }, { enabled: false, expiresAt });
-    } catch (error) {
-      if (error instanceof InvalidEntityDataError) {
-        return;
-      }
-      throw error;
-    }
+    await this.entityStore.update({ userId, alertId }, { enabled: false, expiresAt });
   }
 }

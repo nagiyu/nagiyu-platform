@@ -26,7 +26,11 @@ export { RisingDoubleBottom } from './patterns/rising-double-bottom.js';
 export { RisingWedge } from './patterns/rising-wedge.js';
 
 // Repository Interfaces
-export type { AlertRepository } from './repositories/alert.repository.interface.js';
+export type {
+  AlertRepository,
+  AlertAuditResult,
+  UnreadableAlertItem,
+} from './repositories/alert.repository.interface.js';
 export type { HoldingRepository } from './repositories/holding.repository.interface.js';
 export type { TickerRepository } from './repositories/ticker.repository.interface.js';
 export type { ExchangeRepository } from './repositories/exchange.repository.interface.js';

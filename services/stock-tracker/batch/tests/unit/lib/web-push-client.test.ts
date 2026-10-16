@@ -4,10 +4,10 @@
 
 import { createAlertNotificationPayload } from '../../../src/lib/web-push-client.js';
 import { normalizeVapidKey } from '@nagiyu/common';
-import type { Alert } from '@nagiyu/stock-tracker-core';
+import type { AlertEntity } from '@nagiyu/stock-tracker-core';
 
 describe('web-push-client', () => {
-  let mockAlert: Alert;
+  let mockAlert: AlertEntity;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -61,7 +61,7 @@ describe('web-push-client', () => {
 
     it('買いアラートの通知ペイロードを生成する (lte)', () => {
       // Arrange
-      const buyAlert: Alert = {
+      const buyAlert: AlertEntity = {
         ...mockAlert,
         mode: 'Buy',
         conditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
@@ -91,7 +91,7 @@ describe('web-push-client', () => {
     it('小数点以下の価格を正しくフォーマットする', () => {
       // Arrange
       const currentPrice = 123.456;
-      const alert: Alert = {
+      const alert: AlertEntity = {
         ...mockAlert,
         conditionList: [{ field: 'price', operator: 'gte', value: 123.45 }],
       };
@@ -106,7 +106,7 @@ describe('web-push-client', () => {
 
     it('範囲内アラート（AND）の通知ペイロードを生成する', () => {
       // Arrange
-      const rangeAlert: Alert = {
+      const rangeAlert: AlertEntity = {
         ...mockAlert,
         conditionList: [
           { field: 'price', operator: 'gte', value: 100.0 },
@@ -138,7 +138,7 @@ describe('web-push-client', () => {
 
     it('範囲外アラート（OR）の通知ペイロードを生成する', () => {
       // Arrange
-      const rangeAlert: Alert = {
+      const rangeAlert: AlertEntity = {
         ...mockAlert,
         conditionList: [
           { field: 'price', operator: 'lte', value: 90.0 },
@@ -170,7 +170,7 @@ describe('web-push-client', () => {
 
     it('複数条件で gte がない場合はエラーをスローする', () => {
       // Arrange
-      const invalidAlert: Alert = {
+      const invalidAlert: AlertEntity = {
         ...mockAlert,
         conditionList: [
           { field: 'price', operator: 'lte', value: 100.0 },
@@ -188,7 +188,7 @@ describe('web-push-client', () => {
 
     it('複数条件で lte がない場合はエラーをスローする', () => {
       // Arrange
-      const invalidAlert: Alert = {
+      const invalidAlert: AlertEntity = {
         ...mockAlert,
         conditionList: [
           { field: 'price', operator: 'gte', value: 100.0 },
@@ -206,7 +206,7 @@ describe('web-push-client', () => {
 
     it('LogicalOperator が undefined の場合、デフォルトで AND として扱う', () => {
       // Arrange
-      const alertWithoutOperator: Alert = {
+      const alertWithoutOperator: AlertEntity = {
         ...mockAlert,
         conditionList: [
           { field: 'price', operator: 'gte', value: 100.0 },
@@ -238,7 +238,7 @@ describe('web-push-client', () => {
 
     it('CustomMessage が指定されている場合は本文の末尾に改行して追記する', () => {
       // Arrange
-      const customAlert: Alert = {
+      const customAlert: AlertEntity = {
         ...mockAlert,
         customMessage: '戦略メモ: ブレイクアウト狙い',
       };
@@ -268,7 +268,7 @@ describe('web-push-client', () => {
 
     it('無効な LogicalOperator の場合はエラーをスローする', () => {
       // Arrange
-      const invalidAlert: Alert = {
+      const invalidAlert: AlertEntity = {
         ...mockAlert,
         conditionList: [
           { field: 'price', operator: 'gte', value: 100.0 },
@@ -286,7 +286,7 @@ describe('web-push-client', () => {
 
     it('条件が0個の場合はエラーをスローする', () => {
       // Arrange
-      const invalidAlert: Alert = {
+      const invalidAlert: AlertEntity = {
         ...mockAlert,
         conditionList: [],
       };
@@ -300,7 +300,7 @@ describe('web-push-client', () => {
 
     it('条件が3個以上の場合はエラーをスローする', () => {
       // Arrange
-      const invalidAlert: Alert = {
+      const invalidAlert: AlertEntity = {
         ...mockAlert,
         conditionList: [
           { field: 'price', operator: 'gte', value: 100.0 },

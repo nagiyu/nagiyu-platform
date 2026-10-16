@@ -502,6 +502,43 @@ describe('AlertMapper', () => {
     });
   });
 
+  describe('splitReadable', () => {
+    it('読めたアラートと、読めなかったアイテム (識別情報と理由つき) に分ける', () => {
+      const broken = buildItem({
+        AlertID: 'alert-broken',
+        SK: 'ALERT#alert-broken',
+        Subscription: { ...SUBSCRIPTION, keys: { p256dh: '', auth: 'auth-secret' } },
+      });
+
+      const result = mapper.splitReadable([buildItem(), broken]);
+
+      expect(result.alerts.map((alert) => alert.alertId)).toEqual(['alert-123']);
+      expect(result.unreadable).toEqual([
+        {
+          userId: 'user-123',
+          alertId: 'alert-broken',
+          pk: 'USER#user-123',
+          sk: 'ALERT#alert-broken',
+          reason: expect.stringContaining('Subscription.keys.p256dh'),
+        },
+      ]);
+    });
+
+    it('userId / alertId が空や欠落のときは含めず、保存キーだけを返す', () => {
+      const result = mapper.splitReadable([buildItem({ UserID: '', AlertID: undefined })]);
+
+      expect(result.unreadable).toEqual([
+        { pk: 'USER#user-123', sk: 'ALERT#alert-123', reason: expect.any(String) },
+      ]);
+    });
+
+    it('PK / SK も無いアイテムは、理由だけを返す', () => {
+      const result = mapper.splitReadable([{}]);
+
+      expect(result.unreadable).toEqual([{ reason: expect.any(String) }]);
+    });
+  });
+
   describe('toTemporaryCandidate', () => {
     const candidateItem = {
       AlertID: 'alert-1',
