@@ -71,6 +71,12 @@ export type {
   DynamoDBKey,
   DynamoDBAttributes,
 } from './mapper/entity-mapper.interface.js';
+export {
+  requiredPatchValue,
+  optionalPatchValue,
+  immutablePatchValue,
+  PATCH_VALUE_ERROR_MESSAGES,
+} from './mapper/patch-values.js';
 /** @deprecated 新規実装は `EntityMapper` を使う */
 export type { LegacyEntityMapper } from './mapper/legacy-entity-mapper.interface.js';
 

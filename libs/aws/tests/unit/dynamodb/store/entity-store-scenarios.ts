@@ -244,6 +244,21 @@ export function defineMapperGuardScenarios(
     expect(h.peek(noteKeys)).toMatchObject({ SK: 'META' });
   });
 
+  it('update: toUpdateAttributes にビジネスキーが渡り、キーから作る属性を付け直せる', async () => {
+    const received: unknown[] = [];
+    const h = create({
+      ...noteMapper,
+      toUpdateAttributes: (changes, key) => {
+        received.push(key);
+        return { ...noteMapper.toUpdateAttributes(changes, key), GSI1SK: `NOTE#${key.id}` };
+      },
+    });
+    await h.store.create(note);
+    await h.store.update({ id: 'n1' }, { title: '新題名' });
+    expect(received).toEqual([{ id: 'n1' }]);
+    expect(h.peek(noteKeys)).toMatchObject({ Title: '新題名', GSI1SK: 'NOTE#n1' });
+  });
+
   it('create / put: toItem のキーが buildKeys と食い違えば DatabaseError', async () => {
     const h = create({ ...noteMapper, toItem: (e) => ({ ...noteMapper.toItem(e), SK: 'OTHER' }) });
     await expect(h.store.create(note)).rejects.toBeInstanceOf(DatabaseError);

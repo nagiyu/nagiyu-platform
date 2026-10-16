@@ -109,7 +109,7 @@ export function planUpdate<TEntity, TKey>(
 ): { keys: DynamoDBKey; fields: Record<string, unknown> } {
   const keys = resolveKeys(mapper, key);
   const attributes = runMapper(
-    () => mapper.toUpdateAttributes(changes),
+    () => mapper.toUpdateAttributes(changes, key),
     ENTITY_STORE_ERROR_MESSAGES.MAPPER_FAILED
   );
 
