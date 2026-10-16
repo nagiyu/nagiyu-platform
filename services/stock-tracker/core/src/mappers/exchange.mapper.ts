@@ -1,12 +1,20 @@
 /**
  * Stock Tracker Core - Exchange Mapper
  *
- * ExchangeEntity ↔ DynamoDBItem の変換を担当
+ * ExchangeEntity ↔ DynamoDB Item の変換を担当
  */
 
-import type { DynamoDBItem } from '@nagiyu/aws';
-import { validateStringField, validateTimestampField } from '@nagiyu/aws';
-import type { LegacyEntityMapper } from '@nagiyu/aws';
+import {
+  immutablePatchValue,
+  optionalPatchValue,
+  readTimestamp,
+  requiredPatchValue,
+  validateStringField,
+  type DynamoDBAttributes,
+  type DynamoDBKey,
+  type EntityMapper,
+  type EntityPatch,
+} from '@nagiyu/aws';
 import type { ExchangeEntity, ExchangeKey } from '../entities/exchange.entity.js';
 import {
   PRICE_SOURCES,
@@ -39,8 +47,25 @@ export function buildExchangeGsi3Sk(exchangeId: string): string {
  *
  * ExchangeEntity と DynamoDB Item 間の変換を行う
  */
-export class ExchangeMapper implements LegacyEntityMapper<ExchangeEntity, ExchangeKey> {
-  private readonly entityType = 'Exchange';
+export class ExchangeMapper implements EntityMapper<ExchangeEntity, ExchangeKey> {
+  public readonly entityType = 'Exchange';
+
+  /**
+   * ビジネスキーから PK/SK を構築
+   *
+   * @param key - Exchange Key
+   * @returns DynamoDB の Key
+   */
+  public buildKeys(key: ExchangeKey): DynamoDBKey {
+    return {
+      PK: `EXCHANGE#${key.exchangeId}`,
+      SK: 'METADATA',
+    };
+  }
+
+  public getKey(entity: ExchangeEntity): ExchangeKey {
+    return { exchangeId: entity.exchangeId };
+  }
 
   /**
    * Entity を DynamoDB Item に変換
@@ -48,27 +73,53 @@ export class ExchangeMapper implements LegacyEntityMapper<ExchangeEntity, Exchan
    * @param entity - Exchange Entity
    * @returns DynamoDB Item
    */
-  public toItem(entity: ExchangeEntity): DynamoDBItem {
-    const { pk, sk } = this.buildKeys({
-      exchangeId: entity.ExchangeID,
-    });
-
+  public toItem(entity: ExchangeEntity): DynamoDBAttributes {
     return {
-      PK: pk,
-      SK: sk,
+      ...this.buildKeys(this.getKey(entity)),
       Type: this.entityType,
       GSI3PK: EXCHANGE_GSI3_PK,
-      GSI3SK: buildExchangeGsi3Sk(entity.ExchangeID),
-      ExchangeID: entity.ExchangeID,
-      Name: entity.Name,
-      Key: entity.Key,
-      Timezone: entity.Timezone,
-      Start: entity.Start,
-      End: entity.End,
-      PriceSource: entity.PriceSource,
-      ...(entity.Market !== undefined ? { Market: entity.Market } : {}),
-      CreatedAt: entity.CreatedAt,
-      UpdatedAt: entity.UpdatedAt,
+      GSI3SK: buildExchangeGsi3Sk(entity.exchangeId),
+      ExchangeID: entity.exchangeId,
+      Name: entity.name,
+      Key: entity.key,
+      Timezone: entity.timezone,
+      Start: entity.start,
+      End: entity.end,
+      PriceSource: entity.priceSource,
+      ...(entity.market !== undefined ? { Market: entity.market } : {}),
+      CreatedAt: entity.createdAt,
+      UpdatedAt: entity.updatedAt,
+    };
+  }
+
+  /**
+   * Entity の部分を保存用の属性に変換
+   *
+   * GSI3 のキーは更新のたびに `key` から付け直す。キー導入前に作られたアイテムも、
+   * 更新されることで getAllIndexed の Query 対象になる。
+   * exchangeId・key・createdAt は作成後に変えられないため、含めると拒否する。
+   *
+   * @param changes - 変更する項目 (undefined は変更なし、null は属性削除)
+   * @param key - 更新対象のビジネスキー
+   * @returns 保存用の属性
+   * @throws InvalidEntityDataError 必須項目が null のとき、または変更不可の項目を含むとき
+   */
+  public toUpdateAttributes(
+    changes: EntityPatch<ExchangeEntity>,
+    key: ExchangeKey
+  ): DynamoDBAttributes {
+    return {
+      ExchangeID: immutablePatchValue(changes.exchangeId, 'ExchangeID'),
+      Key: immutablePatchValue(changes.key, 'Key'),
+      CreatedAt: immutablePatchValue(changes.createdAt, 'CreatedAt'),
+      GSI3PK: EXCHANGE_GSI3_PK,
+      GSI3SK: buildExchangeGsi3Sk(key.exchangeId),
+      Name: requiredPatchValue(changes.name, 'Name'),
+      Timezone: requiredPatchValue(changes.timezone, 'Timezone'),
+      Start: requiredPatchValue(changes.start, 'Start'),
+      End: requiredPatchValue(changes.end, 'End'),
+      PriceSource: requiredPatchValue(changes.priceSource, 'PriceSource'),
+      Market: optionalPatchValue(changes.market),
     };
   }
 
@@ -78,18 +129,18 @@ export class ExchangeMapper implements LegacyEntityMapper<ExchangeEntity, Exchan
    * @param item - DynamoDB Item
    * @returns Exchange Entity
    */
-  public toEntity(item: DynamoDBItem): ExchangeEntity {
+  public toEntity(item: DynamoDBAttributes): ExchangeEntity {
     return {
-      ExchangeID: validateStringField(item.ExchangeID, 'ExchangeID'),
-      Name: validateStringField(item.Name, 'Name'),
-      Key: validateStringField(item.Key, 'Key'),
-      Timezone: validateStringField(item.Timezone, 'Timezone'),
-      Start: validateStringField(item.Start, 'Start'),
-      End: validateStringField(item.End, 'End'),
-      PriceSource: this.resolvePriceSource(item.PriceSource),
-      Market: this.resolveMarket(item.Market),
-      CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
-      UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
+      exchangeId: validateStringField(item.ExchangeID, 'ExchangeID'),
+      name: validateStringField(item.Name, 'Name'),
+      key: validateStringField(item.Key, 'Key'),
+      timezone: validateStringField(item.Timezone, 'Timezone'),
+      start: validateStringField(item.Start, 'Start'),
+      end: validateStringField(item.End, 'End'),
+      priceSource: this.resolvePriceSource(item.PriceSource),
+      market: this.resolveMarket(item.Market),
+      createdAt: readTimestamp(item, 'CreatedAt'),
+      updatedAt: readTimestamp(item, 'UpdatedAt'),
     };
   }
 
@@ -111,7 +162,7 @@ export class ExchangeMapper implements LegacyEntityMapper<ExchangeEntity, Exchan
   /**
    * DynamoDB Item から Market を解決する
    *
-   * Market はデフォルト値を持たない（design.md §1.1）。属性が存在しない場合や無効な値の
+   * Market はデフォルト値を持たない。属性が存在しない場合や無効な値の
    * 場合は undefined（未設定）を返す。
    *
    * @param value - DynamoDB から取得した生の値
@@ -122,18 +173,5 @@ export class ExchangeMapper implements LegacyEntityMapper<ExchangeEntity, Exchan
       return value as ExchangeMarket;
     }
     return undefined;
-  }
-
-  /**
-   * ビジネスキーから PK/SK を構築
-   *
-   * @param key - Exchange Key
-   * @returns PK と SK
-   */
-  public buildKeys(key: ExchangeKey): { pk: string; sk: string } {
-    return {
-      pk: `EXCHANGE#${key.exchangeId}`,
-      sk: 'METADATA',
-    };
   }
 }

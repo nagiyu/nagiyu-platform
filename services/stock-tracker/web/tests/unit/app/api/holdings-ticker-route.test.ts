@@ -41,7 +41,7 @@ describe('GET /api/holdings/tickers/[tickerId]', () => {
       CreatedAt: 1,
       UpdatedAt: 2,
     });
-    mockGetTickerById.mockResolvedValue({ Symbol: 'NVDA', Name: 'NVIDIA' });
+    mockGetTickerById.mockResolvedValue({ symbol: 'NVDA', name: 'NVIDIA' });
 
     const response = await GET(
       new NextRequest('http://localhost/api/holdings/tickers/NASDAQ:NVDA'),

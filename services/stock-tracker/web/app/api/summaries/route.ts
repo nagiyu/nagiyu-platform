@@ -132,8 +132,8 @@ function toTickerSummaryResponse(
   return {
     tickerId: summary.TickerID,
     date: summary.Date,
-    symbol: ticker?.Symbol ?? summary.TickerID.split(':')[1] ?? summary.TickerID,
-    name: ticker?.Name ?? summary.TickerID,
+    symbol: ticker?.symbol ?? summary.TickerID.split(':')[1] ?? summary.TickerID,
+    name: ticker?.name ?? summary.TickerID,
     open: summary.Open,
     high: summary.High,
     low: summary.Low,
@@ -235,7 +235,7 @@ async function fetchMarketForecasts(
       },
       requestedDate,
       exchanges.map((exchange, index) => ({
-        market: exchange.Market,
+        market: exchange.market,
         date: groups[index]?.date ?? null,
       }))
     );
@@ -255,15 +255,15 @@ async function buildExchangeSummaryGroup(
 ): Promise<ExchangeSummaryGroupResponse> {
   const dailySummaryRepository = createDailySummaryRepository();
   const summaries = await dailySummaryRepository.getByExchange(
-    exchange.ExchangeID,
+    exchange.exchangeId,
     date || undefined
   );
   const resolvedDate = date ?? summaries[0]?.Date ?? null;
-  const forecastMap = await fetchForecastMap(exchange.ExchangeID, resolvedDate);
+  const forecastMap = await fetchForecastMap(exchange.exchangeId, resolvedDate);
 
   return {
-    exchangeId: exchange.ExchangeID,
-    exchangeName: exchange.Name,
+    exchangeId: exchange.exchangeId,
+    exchangeName: exchange.name,
     date: resolvedDate,
     summaries: summaries.map((summary) =>
       toTickerSummaryResponse(summary, tickerMap, holdingMap, alertCountMap, forecastMap)
@@ -299,7 +299,7 @@ export const GET = withInternalErrorReporting(
       // 一覧表示専用のため、テーブル全体を走査しない速い経路(GSI Query)で取引所と銘柄を集める
       const exchanges = await exchangeRepository.getAllIndexed();
       const tickersByExchange = await Promise.all(
-        exchanges.map((exchange) => tickerRepository.getByExchange(exchange.ExchangeID))
+        exchanges.map((exchange) => tickerRepository.getByExchange(exchange.exchangeId))
       );
       const [holdingMap, alertCountMap] = await Promise.all([
         fetchHoldingMap(session.user.id),
@@ -307,7 +307,7 @@ export const GET = withInternalErrorReporting(
       ]);
 
       const tickerMap = new Map(
-        tickersByExchange.flat().map((ticker) => [ticker.TickerID, ticker])
+        tickersByExchange.flat().map((ticker) => [ticker.tickerId, ticker])
       );
       const exchangeSummaryGroups = await Promise.all(
         exchanges.map((exchange) =>

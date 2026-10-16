@@ -12,31 +12,33 @@ import {
   getNextWeekday,
   TRADING_HOURS_ERROR_MESSAGES,
 } from '../../../src/services/trading-hours-checker.js';
-import type { Exchange } from '../../../src/types.js';
+import type { ExchangeEntity } from '../../../src/entities/exchange.entity.js';
 
 describe('Trading Hours Checker Service', () => {
   // NASDAQ (America/New_York, 04:00-20:00)
-  const nasdaq: Exchange = {
-    ExchangeID: 'NASDAQ',
-    Name: 'NASDAQ',
-    Key: 'NSDQ',
-    Timezone: 'America/New_York',
-    Start: '04:00', // プレマーケット開始時刻
-    End: '20:00', // アフターマーケット終了時刻
-    CreatedAt: Date.now(),
-    UpdatedAt: Date.now(),
+  const nasdaq: ExchangeEntity = {
+    exchangeId: 'NASDAQ',
+    name: 'NASDAQ',
+    key: 'NSDQ',
+    timezone: 'America/New_York',
+    start: '04:00', // プレマーケット開始時刻
+    end: '20:00', // アフターマーケット終了時刻
+    priceSource: 'tradingview',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
   };
 
   // 東京証券取引所 (Asia/Tokyo, 09:00-15:00)
-  const tse: Exchange = {
-    ExchangeID: 'TSE',
-    Name: '東京証券取引所',
-    Key: 'TSE',
-    Timezone: 'Asia/Tokyo',
-    Start: '09:00',
-    End: '15:00',
-    CreatedAt: Date.now(),
-    UpdatedAt: Date.now(),
+  const tse: ExchangeEntity = {
+    exchangeId: 'TSE',
+    name: '東京証券取引所',
+    key: 'TSE',
+    timezone: 'Asia/Tokyo',
+    start: '09:00',
+    end: '15:00',
+    priceSource: 'tradingview',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
   };
 
   describe('NASDAQ (America/New_York, 04:00-20:00)', () => {
@@ -231,10 +233,10 @@ describe('Trading Hours Checker Service', () => {
 
   describe('エッジケース', () => {
     it('開始時刻と終了時刻が同じ場合、false を返す', () => {
-      const exchange: Exchange = {
+      const exchange: ExchangeEntity = {
         ...nasdaq,
-        Start: '09:00',
-        End: '09:00',
+        start: '09:00',
+        end: '09:00',
       };
 
       // 2024-01-15 (月曜日) 09:00 EST = 2024-01-15 14:00 UTC
@@ -408,9 +410,9 @@ describe('Trading Hours Checker Service', () => {
   describe('エラーハンドリング', () => {
     describe('無効なタイムゾーン', () => {
       it('無効なタイムゾーンの場合、エラーをスローする', () => {
-        const invalidExchange: Exchange = {
+        const invalidExchange: ExchangeEntity = {
           ...nasdaq,
-          Timezone: 'Invalid/Timezone',
+          timezone: 'Invalid/Timezone',
         };
 
         const currentTime = new Date('2024-01-15T14:00:00Z');
@@ -422,9 +424,9 @@ describe('Trading Hours Checker Service', () => {
 
     describe('無効な時刻形式', () => {
       it('Start が無効な形式の場合、エラーをスローする', () => {
-        const invalidExchange: Exchange = {
+        const invalidExchange: ExchangeEntity = {
           ...nasdaq,
-          Start: '9:00', // 1桁の時間
+          start: '9:00', // 1桁の時間
         };
 
         const currentTime = new Date('2024-01-15T14:00:00Z');
@@ -434,9 +436,9 @@ describe('Trading Hours Checker Service', () => {
       });
 
       it('End が無効な形式の場合、エラーをスローする', () => {
-        const invalidExchange: Exchange = {
+        const invalidExchange: ExchangeEntity = {
           ...nasdaq,
-          End: '25:00', // 24時間を超える
+          end: '25:00', // 24時間を超える
         };
 
         const currentTime = new Date('2024-01-15T14:00:00Z');
@@ -446,9 +448,9 @@ describe('Trading Hours Checker Service', () => {
       });
 
       it('Start が HH:MM 形式でない場合、エラーをスローする', () => {
-        const invalidExchange: Exchange = {
+        const invalidExchange: ExchangeEntity = {
           ...nasdaq,
-          Start: 'invalid',
+          start: 'invalid',
         };
 
         const currentTime = new Date('2024-01-15T14:00:00Z');

@@ -314,8 +314,8 @@ export const PUT = withApiErrorReporting(
       // レスポンス形式に変換
       const response = mapAlertToResponse(
         updatedAlert,
-        ticker?.Symbol || updatedAlert.TickerID.split(':')[1] || '',
-        ticker?.Name || ''
+        ticker?.symbol || updatedAlert.TickerID.split(':')[1] || '',
+        ticker?.name || ''
       );
 
       return NextResponse.json(response, { status: 200 });

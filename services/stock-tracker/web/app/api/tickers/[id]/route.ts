@@ -9,7 +9,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
-import { TickerNotFoundError, validateTickerUpdateData } from '@nagiyu/stock-tracker-core';
+import { EntityNotFoundError } from '@nagiyu/aws';
+import { validateTickerUpdateData } from '@nagiyu/stock-tracker-core';
 import { withAuth, readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
 import { withApiErrorReporting } from '../../../../lib/api-error-reporting';
@@ -90,22 +91,22 @@ export const PUT = withApiErrorReporting(
       // ティッカー更新
       try {
         const updatedTicker = await tickerRepo.update(tickerId, {
-          Name: name,
+          name,
         });
 
         // レスポンス形式に変換
         const response: UpdateTickerResponse = {
-          tickerId: updatedTicker.TickerID,
-          symbol: updatedTicker.Symbol,
-          name: updatedTicker.Name,
-          exchangeId: updatedTicker.ExchangeID,
-          updatedAt: new Date(updatedTicker.UpdatedAt).toISOString(),
+          tickerId: updatedTicker.tickerId,
+          symbol: updatedTicker.symbol,
+          name: updatedTicker.name,
+          exchangeId: updatedTicker.exchangeId,
+          updatedAt: new Date(updatedTicker.updatedAt).toISOString(),
         };
 
         return NextResponse.json(response, { status: 200 });
       } catch (error) {
         // ティッカーが見つからない場合
-        if (error instanceof TickerNotFoundError) {
+        if (error instanceof EntityNotFoundError) {
           return NextResponse.json(
             {
               error: 'NOT_FOUND',
@@ -149,7 +150,7 @@ export const DELETE = withApiErrorReporting(
         return NextResponse.json(response, { status: 200 });
       } catch (error) {
         // ティッカーが見つからない場合
-        if (error instanceof TickerNotFoundError) {
+        if (error instanceof EntityNotFoundError) {
           return NextResponse.json(
             {
               error: 'NOT_FOUND',

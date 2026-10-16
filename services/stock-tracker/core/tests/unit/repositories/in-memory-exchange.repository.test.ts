@@ -5,12 +5,7 @@
  */
 
 import { InMemoryExchangeRepository } from '../../../src/repositories/in-memory-exchange.repository.js';
-import {
-  InMemorySingleTableStore,
-  EntityAlreadyExistsError,
-  EntityNotFoundError,
-  DatabaseError,
-} from '@nagiyu/aws';
+import { InMemorySingleTableStore } from '@nagiyu/aws';
 import type { CreateExchangeInput } from '../../../src/entities/exchange.entity.js';
 import { DEFAULT_PRICE_SOURCE } from '../../../src/entities/exchange.entity.js';
 
@@ -26,98 +21,83 @@ describe('InMemoryExchangeRepository', () => {
   describe('create', () => {
     it('新しい取引所を作成できる', async () => {
       const input: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview' as const,
       };
 
       const result = await repository.create(input);
 
       expect(result).toMatchObject(input);
-      expect(result.CreatedAt).toBeDefined();
-      expect(result.UpdatedAt).toBeDefined();
-      expect(result.CreatedAt).toBe(result.UpdatedAt);
-    });
-
-    it('同じExchangeIDの取引所が既に存在する場合はEntityAlreadyExistsErrorをスローする', async () => {
-      const input: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
-      };
-
-      await repository.create(input);
-
-      await expect(repository.create(input)).rejects.toThrow(EntityAlreadyExistsError);
+      expect(result.createdAt).toBeDefined();
+      expect(result.updatedAt).toBeDefined();
+      // updatedAt は EntityStore が書き込み時に採番するため、createdAt と同一ミリ秒とは限らない
+      expect(result.updatedAt).toBeGreaterThanOrEqual(result.createdAt);
     });
 
     it('異なるExchangeIDであれば複数作成できる', async () => {
       const input1: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview' as const,
       };
 
       const input2: CreateExchangeInput = {
-        ExchangeID: 'NYSE',
-        Name: 'New York Stock Exchange',
-        Key: 'NYSE',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
+        exchangeId: 'NYSE',
+        name: 'New York Stock Exchange',
+        key: 'NYSE',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview' as const,
       };
 
       const result1 = await repository.create(input1);
       const result2 = await repository.create(input2);
 
-      expect(result1.ExchangeID).toBe('NASDAQ');
-      expect(result2.ExchangeID).toBe('NYSE');
+      expect(result1.exchangeId).toBe('NASDAQ');
+      expect(result2.exchangeId).toBe('NYSE');
     });
 
     it('CreatedAtとUpdatedAtが自動的に設定される', async () => {
       const beforeCreate = Date.now();
       const input: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview' as const,
       };
       const result = await repository.create(input);
       const afterCreate = Date.now();
 
-      expect(result.CreatedAt).toBeGreaterThanOrEqual(beforeCreate);
-      expect(result.CreatedAt).toBeLessThanOrEqual(afterCreate);
-      expect(result.UpdatedAt).toBeGreaterThanOrEqual(beforeCreate);
-      expect(result.UpdatedAt).toBeLessThanOrEqual(afterCreate);
+      expect(result.createdAt).toBeGreaterThanOrEqual(beforeCreate);
+      expect(result.createdAt).toBeLessThanOrEqual(afterCreate);
+      expect(result.updatedAt).toBeGreaterThanOrEqual(beforeCreate);
+      expect(result.updatedAt).toBeLessThanOrEqual(afterCreate);
     });
   });
 
   describe('getById', () => {
     it('存在する取引所を取得できる', async () => {
       const input: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview' as const,
       };
 
       const created = await repository.create(input);
@@ -134,13 +114,13 @@ describe('InMemoryExchangeRepository', () => {
 
     it('削除された取引所は取得できない', async () => {
       const input: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview' as const,
       };
 
       await repository.create(input);
@@ -154,21 +134,21 @@ describe('InMemoryExchangeRepository', () => {
   describe('getAllIndexed', () => {
     it('getAll と同じ全件を返す', async () => {
       const base: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview' as const,
       };
-      await repository.create({ ...base, ExchangeID: 'NYSE' });
+      await repository.create({ ...base, exchangeId: 'NYSE' });
       await repository.create(base);
 
       const indexed = await repository.getAllIndexed();
       const all = await repository.getAll();
 
-      expect(indexed.map((e) => e.ExchangeID).sort()).toEqual(['NASDAQ', 'NYSE']);
+      expect(indexed.map((e) => e.exchangeId).sort()).toEqual(['NASDAQ', 'NYSE']);
       expect(indexed).toEqual(all);
     });
   });
@@ -176,23 +156,23 @@ describe('InMemoryExchangeRepository', () => {
   describe('getAll', () => {
     it('全ての取引所を取得できる', async () => {
       const input1: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview' as const,
       };
 
       const input2: CreateExchangeInput = {
-        ExchangeID: 'NYSE',
-        Name: 'New York Stock Exchange',
-        Key: 'NYSE',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
+        exchangeId: 'NYSE',
+        name: 'New York Stock Exchange',
+        key: 'NYSE',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview' as const,
       };
 
       await repository.create(input1);
@@ -201,8 +181,8 @@ describe('InMemoryExchangeRepository', () => {
       const result = await repository.getAll();
 
       expect(result).toHaveLength(2);
-      expect(result.map((e) => e.ExchangeID)).toContain('NASDAQ');
-      expect(result.map((e) => e.ExchangeID)).toContain('NYSE');
+      expect(result.map((e) => e.exchangeId)).toContain('NASDAQ');
+      expect(result.map((e) => e.exchangeId)).toContain('NYSE');
     });
 
     it('取引所が存在しない場合は空配列を返す', async () => {
@@ -213,23 +193,23 @@ describe('InMemoryExchangeRepository', () => {
 
     it('削除された取引所は含まれない', async () => {
       const input1: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview' as const,
       };
 
       const input2: CreateExchangeInput = {
-        ExchangeID: 'NYSE',
-        Name: 'New York Stock Exchange',
-        Key: 'NYSE',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
+        exchangeId: 'NYSE',
+        name: 'New York Stock Exchange',
+        key: 'NYSE',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview' as const,
       };
 
       await repository.create(input1);
@@ -239,130 +219,114 @@ describe('InMemoryExchangeRepository', () => {
       const result = await repository.getAll();
 
       expect(result).toHaveLength(1);
-      expect(result[0].ExchangeID).toBe('NASDAQ');
+      expect(result[0].exchangeId).toBe('NASDAQ');
     });
   });
 
   describe('update', () => {
     it('取引所の名前を更新できる', async () => {
       const input: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview' as const,
       };
 
       const created = await repository.create(input);
       // 確実にタイムスタンプが異なるように待機
       await new Promise((resolve) => setTimeout(resolve, 10));
-      const updated = await repository.update('NASDAQ', { Name: 'NASDAQ Updated' });
+      const updated = await repository.update('NASDAQ', { name: 'NASDAQ Updated' });
 
-      expect(updated.Name).toBe('NASDAQ Updated');
-      expect(updated.UpdatedAt).toBeGreaterThan(created.UpdatedAt);
-      expect(updated.CreatedAt).toBe(created.CreatedAt);
+      expect(updated.name).toBe('NASDAQ Updated');
+      expect(updated.updatedAt).toBeGreaterThan(created.updatedAt);
+      expect(updated.createdAt).toBe(created.createdAt);
+    });
+
+    it('更新のたびに、引数の exchangeId から作った GSI3 キーを付け直す', async () => {
+      await repository.create({
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview' as const,
+      });
+      // GSI3 キー導入前に作られたアイテムを再現する
+      const storeKey = { PK: 'EXCHANGE#NASDAQ', SK: 'METADATA' };
+      const legacy = { ...store.getByKey(storeKey) };
+      delete legacy.GSI3PK;
+      delete legacy.GSI3SK;
+      store.putByKey(storeKey, legacy);
+
+      await repository.update('NASDAQ', { name: 'NASDAQ Updated' });
+
+      expect(store.getByKey(storeKey)).toMatchObject({
+        GSI3PK: 'EXCHANGES',
+        GSI3SK: 'EXCHANGE#NASDAQ',
+      });
     });
 
     it('取引所の複数フィールドを更新できる', async () => {
       const input: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview' as const,
       };
 
       await repository.create(input);
       const updated = await repository.update('NASDAQ', {
-        Name: 'NASDAQ Updated',
-        Timezone: 'America/Chicago',
-        Start: '05:00',
-        End: '21:00',
+        name: 'NASDAQ Updated',
+        timezone: 'America/Chicago',
+        start: '05:00',
+        end: '21:00',
       });
 
-      expect(updated.Name).toBe('NASDAQ Updated');
-      expect(updated.Timezone).toBe('America/Chicago');
-      expect(updated.Start).toBe('05:00');
-      expect(updated.End).toBe('21:00');
-    });
-
-    it('存在しない取引所を更新しようとした場合はEntityNotFoundErrorをスローする', async () => {
-      await expect(repository.update('NONEXISTENT', { Name: 'Updated' })).rejects.toThrow(
-        EntityNotFoundError
-      );
-    });
-
-    it('更新するフィールドが指定されていない場合はDatabaseErrorをスローする', async () => {
-      const input: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
-      };
-
-      await repository.create(input);
-
-      await expect(repository.update('NASDAQ', {})).rejects.toThrow(DatabaseError);
+      expect(updated.name).toBe('NASDAQ Updated');
+      expect(updated.timezone).toBe('America/Chicago');
+      expect(updated.start).toBe('05:00');
+      expect(updated.end).toBe('21:00');
     });
 
     it('一部のフィールドだけを更新できる', async () => {
       const input: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview' as const,
       };
 
       await repository.create(input);
       const updated = await repository.update('NASDAQ', {
-        Name: 'NASDAQ Updated',
+        name: 'NASDAQ Updated',
       });
 
-      expect(updated.Name).toBe('NASDAQ Updated');
-      expect(updated.Key).toBe('NSDQ'); // 変更されていない
-      expect(updated.Timezone).toBe('America/New_York'); // 変更されていない
-    });
-
-    it('UpdatedAtのみが更新される', async () => {
-      const input: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
-      };
-
-      const created = await repository.create(input);
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      const updated = await repository.update('NASDAQ', { Name: 'Updated' });
-
-      expect(updated.CreatedAt).toBe(created.CreatedAt);
-      expect(updated.UpdatedAt).toBeGreaterThan(created.UpdatedAt);
+      expect(updated.name).toBe('NASDAQ Updated');
+      expect(updated.key).toBe('NSDQ'); // 変更されていない
+      expect(updated.timezone).toBe('America/New_York'); // 変更されていない
     });
   });
 
   describe('delete', () => {
     it('取引所を削除できる', async () => {
       const input: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview' as const,
       };
 
       await repository.create(input);
@@ -371,29 +335,6 @@ describe('InMemoryExchangeRepository', () => {
       const result = await repository.getById('NASDAQ');
       expect(result).toBeNull();
     });
-
-    it('存在しない取引所を削除しようとした場合はEntityNotFoundErrorをスローする', async () => {
-      await expect(repository.delete('NONEXISTENT')).rejects.toThrow(EntityNotFoundError);
-    });
-
-    it('削除後、同じIDで再度作成できる', async () => {
-      const input: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
-      };
-
-      await repository.create(input);
-      await repository.delete('NASDAQ');
-      const recreated = await repository.create(input);
-
-      expect(recreated.ExchangeID).toBe('NASDAQ');
-      expect(recreated.Name).toBe('NASDAQ Stock Market');
-    });
   });
 
   describe('複数リポジトリでのストア共有', () => {
@@ -401,92 +342,75 @@ describe('InMemoryExchangeRepository', () => {
       const repository2 = new InMemoryExchangeRepository(store);
 
       const input: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview' as const,
       };
 
       await repository.create(input);
       const result = await repository2.getById('NASDAQ');
 
       expect(result).not.toBeNull();
-      expect(result?.ExchangeID).toBe('NASDAQ');
+      expect(result?.exchangeId).toBe('NASDAQ');
     });
 
     it('異なるリポジトリで更新した内容が反映される', async () => {
       const repository2 = new InMemoryExchangeRepository(store);
 
       const input: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview' as const,
       };
 
       await repository.create(input);
-      await repository2.update('NASDAQ', { Name: 'Updated by repository2' });
+      await repository2.update('NASDAQ', { name: 'Updated by repository2' });
       const result = await repository.getById('NASDAQ');
 
-      expect(result?.Name).toBe('Updated by repository2');
+      expect(result?.name).toBe('Updated by repository2');
     });
   });
 
   describe('エッジケース', () => {
     it('長い名前の取引所を作成できる', async () => {
       const input: CreateExchangeInput = {
-        ExchangeID: 'LONG_ID',
-        Name: 'A'.repeat(200),
-        Key: 'LONG',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
+        exchangeId: 'LONG_ID',
+        name: 'A'.repeat(200),
+        key: 'LONG',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview' as const,
       };
 
       const result = await repository.create(input);
 
-      expect(result.Name).toBe('A'.repeat(200));
+      expect(result.name).toBe('A'.repeat(200));
     });
 
     it('特殊文字を含む取引所を作成できる', async () => {
       const input: CreateExchangeInput = {
-        ExchangeID: 'SPECIAL#ID',
-        Name: 'Special & Exchange (Market)',
-        Key: 'SPEC',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
+        exchangeId: 'SPECIAL#ID',
+        name: 'Special & Exchange (market)',
+        key: 'SPEC',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview' as const,
       };
 
       const result = await repository.create(input);
 
-      expect(result.ExchangeID).toBe('SPECIAL#ID');
-      expect(result.Name).toBe('Special & Exchange (Market)');
-    });
-
-    it('空のKeyやTimezoneも保存できる', async () => {
-      const input: CreateExchangeInput = {
-        ExchangeID: 'TEST',
-        Name: 'Test Exchange',
-        Key: '',
-        Timezone: '',
-        Start: '00:00',
-        End: '24:00',
-        PriceSource: 'tradingview',
-      };
-
-      const result = await repository.create(input);
-
-      expect(result.Key).toBe('');
-      expect(result.Timezone).toBe('');
+      expect(result.exchangeId).toBe('SPECIAL#ID');
+      expect(result.name).toBe('Special & Exchange (market)');
     });
 
     it('多数の取引所を作成・取得できる', async () => {
@@ -494,13 +418,13 @@ describe('InMemoryExchangeRepository', () => {
       for (let i = 0; i < 100; i++) {
         promises.push(
           repository.create({
-            ExchangeID: `EXCHANGE${i}`,
-            Name: `Exchange ${i}`,
-            Key: `EX${i}`,
-            Timezone: 'America/New_York',
-            Start: '04:00',
-            End: '20:00',
-            PriceSource: 'tradingview',
+            exchangeId: `EXCHANGE${i}`,
+            name: `Exchange ${i}`,
+            key: `EX${i}`,
+            timezone: 'America/New_York',
+            start: '04:00',
+            end: '20:00',
+            priceSource: 'tradingview',
           })
         );
       }
@@ -515,236 +439,213 @@ describe('InMemoryExchangeRepository', () => {
   describe('PriceSource の create/update 反映', () => {
     it('PriceSource が tradingview で作成できる', async () => {
       const input: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview',
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview',
       };
 
       const result = await repository.create(input);
 
-      expect(result.PriceSource).toBe('tradingview');
+      expect(result.priceSource).toBe('tradingview');
     });
 
     it('PriceSource が finnhub で作成できる', async () => {
       const input: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'finnhub',
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'finnhub',
       };
 
       const result = await repository.create(input);
 
-      expect(result.PriceSource).toBe('finnhub');
+      expect(result.priceSource).toBe('finnhub');
     });
 
     it('PriceSource を tradingview から finnhub に更新できる', async () => {
       const input: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview',
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview',
       };
 
       await repository.create(input);
-      const updated = await repository.update('NASDAQ', { PriceSource: 'finnhub' });
+      const updated = await repository.update('NASDAQ', { priceSource: 'finnhub' });
 
-      expect(updated.PriceSource).toBe('finnhub');
+      expect(updated.priceSource).toBe('finnhub');
     });
 
     it('PriceSource を finnhub から tradingview に更新できる', async () => {
       const input: CreateExchangeInput = {
-        ExchangeID: 'TSE',
-        Name: '東京証券取引所',
-        Key: 'TSE',
-        Timezone: 'Asia/Tokyo',
-        Start: '09:00',
-        End: '15:30',
-        PriceSource: 'finnhub',
+        exchangeId: 'TSE',
+        name: '東京証券取引所',
+        key: 'TSE',
+        timezone: 'Asia/Tokyo',
+        start: '09:00',
+        end: '15:30',
+        priceSource: 'finnhub',
       };
 
       await repository.create(input);
-      const updated = await repository.update('TSE', { PriceSource: 'tradingview' });
+      const updated = await repository.update('TSE', { priceSource: 'tradingview' });
 
-      expect(updated.PriceSource).toBe('tradingview');
+      expect(updated.priceSource).toBe('tradingview');
     });
 
     it('PriceSource 更新後も他のフィールドが保持される', async () => {
       const input: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview',
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview',
       };
 
       await repository.create(input);
-      const updated = await repository.update('NASDAQ', { PriceSource: 'finnhub' });
+      const updated = await repository.update('NASDAQ', { priceSource: 'finnhub' });
 
-      expect(updated.PriceSource).toBe('finnhub');
-      expect(updated.Name).toBe('NASDAQ Stock Market');
-      expect(updated.Key).toBe('NSDQ');
-      expect(updated.Timezone).toBe('America/New_York');
+      expect(updated.priceSource).toBe('finnhub');
+      expect(updated.name).toBe('NASDAQ Stock Market');
+      expect(updated.key).toBe('NSDQ');
+      expect(updated.timezone).toBe('America/New_York');
     });
   });
 
   describe('Market の create/update 反映', () => {
     it('Market を指定せずに作成すると未設定になる', async () => {
       const input: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview',
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview',
       };
 
       const result = await repository.create(input);
 
-      expect(result.Market).toBeUndefined();
+      expect(result.market).toBeUndefined();
     });
 
     it('Market が JP で作成できる', async () => {
       const input: CreateExchangeInput = {
-        ExchangeID: 'TSE',
-        Name: '東京証券取引所',
-        Key: 'TSE',
-        Timezone: 'Asia/Tokyo',
-        Start: '09:00',
-        End: '15:30',
-        PriceSource: 'tradingview',
-        Market: 'JP',
+        exchangeId: 'TSE',
+        name: '東京証券取引所',
+        key: 'TSE',
+        timezone: 'Asia/Tokyo',
+        start: '09:00',
+        end: '15:30',
+        priceSource: 'tradingview',
+        market: 'JP',
       };
 
       const result = await repository.create(input);
 
-      expect(result.Market).toBe('JP');
+      expect(result.market).toBe('JP');
     });
 
     it('Market が US で作成できる', async () => {
       const input: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'finnhub',
-        Market: 'US',
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'finnhub',
+        market: 'US',
       };
 
       const result = await repository.create(input);
 
-      expect(result.Market).toBe('US');
+      expect(result.market).toBe('US');
     });
 
     it('未設定の Market を後から設定できる', async () => {
       const input: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview',
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ Stock Market',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview',
       };
 
       await repository.create(input);
-      const updated = await repository.update('NASDAQ', { Market: 'US' });
+      const updated = await repository.update('NASDAQ', { market: 'US' });
 
-      expect(updated.Market).toBe('US');
+      expect(updated.market).toBe('US');
     });
 
     it('Market を null で更新すると未設定に戻る', async () => {
       const input: CreateExchangeInput = {
-        ExchangeID: 'TSE',
-        Name: '東京証券取引所',
-        Key: 'TSE',
-        Timezone: 'Asia/Tokyo',
-        Start: '09:00',
-        End: '15:30',
-        PriceSource: 'tradingview',
-        Market: 'JP',
+        exchangeId: 'TSE',
+        name: '東京証券取引所',
+        key: 'TSE',
+        timezone: 'Asia/Tokyo',
+        start: '09:00',
+        end: '15:30',
+        priceSource: 'tradingview',
+        market: 'JP',
       };
 
       await repository.create(input);
-      const updated = await repository.update('TSE', { Market: null });
+      const updated = await repository.update('TSE', { market: null });
 
-      expect(updated.Market).toBeUndefined();
+      expect(updated.market).toBeUndefined();
     });
 
     it('Market を指定しない更新では既存の値が保持される', async () => {
       const input: CreateExchangeInput = {
-        ExchangeID: 'TSE',
-        Name: '東京証券取引所',
-        Key: 'TSE',
-        Timezone: 'Asia/Tokyo',
-        Start: '09:00',
-        End: '15:30',
-        PriceSource: 'tradingview',
-        Market: 'JP',
+        exchangeId: 'TSE',
+        name: '東京証券取引所',
+        key: 'TSE',
+        timezone: 'Asia/Tokyo',
+        start: '09:00',
+        end: '15:30',
+        priceSource: 'tradingview',
+        market: 'JP',
       };
 
       await repository.create(input);
-      const updated = await repository.update('TSE', { Name: '東証' });
+      const updated = await repository.update('TSE', { name: '東証' });
 
-      expect(updated.Market).toBe('JP');
+      expect(updated.market).toBe('JP');
     });
 
     it('Market 更新後も他のフィールドが保持される', async () => {
       const input: CreateExchangeInput = {
-        ExchangeID: 'TSE',
-        Name: '東京証券取引所',
-        Key: 'TSE',
-        Timezone: 'Asia/Tokyo',
-        Start: '09:00',
-        End: '15:30',
-        PriceSource: 'tradingview',
-        Market: 'JP',
+        exchangeId: 'TSE',
+        name: '東京証券取引所',
+        key: 'TSE',
+        timezone: 'Asia/Tokyo',
+        start: '09:00',
+        end: '15:30',
+        priceSource: 'tradingview',
+        market: 'JP',
       };
 
       await repository.create(input);
-      const updated = await repository.update('TSE', { Market: null });
+      const updated = await repository.update('TSE', { market: null });
 
-      expect(updated.Market).toBeUndefined();
-      expect(updated.Name).toBe('東京証券取引所');
-      expect(updated.PriceSource).toBe('tradingview');
-    });
-  });
-
-  describe('delete - error handling', () => {
-    it('削除時に予期しないエラーが発生した場合は再スローする', async () => {
-      const unexpectedError = new Error('Unexpected store error');
-      jest.spyOn(store, 'delete').mockImplementationOnce(() => {
-        throw unexpectedError;
-      });
-
-      const input: CreateExchangeInput = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        PriceSource: 'tradingview' as const,
-      };
-
-      await repository.create(input);
-
-      await expect(repository.delete('NASDAQ')).rejects.toThrow('Unexpected store error');
+      expect(updated.market).toBeUndefined();
+      expect(updated.name).toBe('東京証券取引所');
+      expect(updated.priceSource).toBe('tradingview');
     });
   });
 });

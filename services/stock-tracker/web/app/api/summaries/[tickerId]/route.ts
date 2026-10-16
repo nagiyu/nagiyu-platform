@@ -106,8 +106,8 @@ export const GET = withInternalErrorReporting(
         {
           tickerId: latestSummary.TickerID,
           date: latestSummary.Date,
-          symbol: ticker?.Symbol ?? latestSummary.TickerID.split(':')[1] ?? latestSummary.TickerID,
-          name: ticker?.Name ?? latestSummary.TickerID,
+          symbol: ticker?.symbol ?? latestSummary.TickerID.split(':')[1] ?? latestSummary.TickerID,
+          name: ticker?.name ?? latestSummary.TickerID,
           open: latestSummary.Open,
           high: latestSummary.High,
           low: latestSummary.Low,

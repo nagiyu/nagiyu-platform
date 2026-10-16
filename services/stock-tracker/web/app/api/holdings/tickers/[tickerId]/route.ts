@@ -74,8 +74,8 @@ export const GET = withApiErrorReporting(
       return NextResponse.json(
         mapHoldingToResponse(
           holding,
-          ticker?.Symbol || holding.TickerID.split(':')[1] || '',
-          ticker?.Name || ''
+          ticker?.symbol || holding.TickerID.split(':')[1] || '',
+          ticker?.name || ''
         ),
         { status: 200 }
       );

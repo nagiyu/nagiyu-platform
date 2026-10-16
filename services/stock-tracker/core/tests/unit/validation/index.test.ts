@@ -15,18 +15,21 @@ import {
   validateTickerCreateData,
   validateTickerUpdateData,
 } from '../../../src/validation';
-import type { Exchange, Ticker, Holding, Alert } from '../../../src/types';
+import type { Holding, Alert } from '../../../src/types';
+import type { ExchangeEntity } from '../../../src/entities/exchange.entity';
+import type { TickerEntity } from '../../../src/entities/ticker.entity';
 
 describe('validateExchange', () => {
-  const validExchange: Exchange = {
-    ExchangeID: 'NASDAQ',
-    Name: 'NASDAQ Stock Market',
-    Key: 'NSDQ',
-    Timezone: 'America/New_York',
-    Start: '04:00',
-    End: '20:00',
-    CreatedAt: Date.now(),
-    UpdatedAt: Date.now(),
+  const validExchange: ExchangeEntity = {
+    exchangeId: 'NASDAQ',
+    name: 'NASDAQ Stock Market',
+    key: 'NSDQ',
+    timezone: 'America/New_York',
+    start: '04:00',
+    end: '20:00',
+    priceSource: 'tradingview',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
   };
 
   describe('正常系', () => {
@@ -37,27 +40,27 @@ describe('validateExchange', () => {
     });
 
     it('ExchangeIDが50文字ちょうどでもバリデーションに成功する', () => {
-      const exchange: Exchange = {
+      const exchange: ExchangeEntity = {
         ...validExchange,
-        ExchangeID: 'a'.repeat(50),
+        exchangeId: 'a'.repeat(50),
       };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(true);
     });
 
     it('Nameが200文字ちょうどでもバリデーションに成功する', () => {
-      const exchange: Exchange = {
+      const exchange: ExchangeEntity = {
         ...validExchange,
-        Name: 'a'.repeat(200),
+        name: 'a'.repeat(200),
       };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(true);
     });
 
     it('Keyが20文字ちょうどでもバリデーションに成功する', () => {
-      const exchange: Exchange = {
+      const exchange: ExchangeEntity = {
         ...validExchange,
-        Key: 'A'.repeat(20),
+        key: 'A'.repeat(20),
       };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(true);
@@ -84,16 +87,16 @@ describe('validateExchange', () => {
     });
 
     it('ExchangeIDが空文字の場合はバリデーションに失敗する', () => {
-      const exchange: Exchange = { ...validExchange, ExchangeID: '' };
+      const exchange: ExchangeEntity = { ...validExchange, exchangeId: '' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('取引所IDは必須です');
     });
 
     it('ExchangeIDが51文字の場合はバリデーションに失敗する', () => {
-      const exchange: Exchange = {
+      const exchange: ExchangeEntity = {
         ...validExchange,
-        ExchangeID: 'a'.repeat(51),
+        exchangeId: 'a'.repeat(51),
       };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
@@ -101,23 +104,23 @@ describe('validateExchange', () => {
     });
 
     it('ExchangeIDに不正な文字が含まれる場合はバリデーションに失敗する', () => {
-      const exchange: Exchange = { ...validExchange, ExchangeID: 'NASDAQ_' };
+      const exchange: ExchangeEntity = { ...validExchange, exchangeId: 'NASDAQ_' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('取引所IDは1-50文字の英数字とハイフンのみ使用できます');
     });
 
     it('Nameが空文字の場合はバリデーションに失敗する', () => {
-      const exchange: Exchange = { ...validExchange, Name: '' };
+      const exchange: ExchangeEntity = { ...validExchange, name: '' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('取引所名は必須です');
     });
 
     it('Nameが201文字の場合はバリデーションに失敗する', () => {
-      const exchange: Exchange = {
+      const exchange: ExchangeEntity = {
         ...validExchange,
-        Name: 'a'.repeat(201),
+        name: 'a'.repeat(201),
       };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
@@ -125,14 +128,14 @@ describe('validateExchange', () => {
     });
 
     it('Keyが空文字の場合はバリデーションに失敗する', () => {
-      const exchange: Exchange = { ...validExchange, Key: '' };
+      const exchange: ExchangeEntity = { ...validExchange, key: '' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('TradingView APIキーは必須です');
     });
 
     it('Keyに小文字が含まれる場合はバリデーションに失敗する', () => {
-      const exchange: Exchange = { ...validExchange, Key: 'NSDq' };
+      const exchange: ExchangeEntity = { ...validExchange, key: 'NSDq' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
@@ -141,14 +144,14 @@ describe('validateExchange', () => {
     });
 
     it('Timezoneが空文字の場合はバリデーションに失敗する', () => {
-      const exchange: Exchange = { ...validExchange, Timezone: '' };
+      const exchange: ExchangeEntity = { ...validExchange, timezone: '' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('タイムゾーンは必須です');
     });
 
     it('Timezoneが不正な形式の場合はバリデーションに失敗する', () => {
-      const exchange: Exchange = { ...validExchange, Timezone: 'EST' };
+      const exchange: ExchangeEntity = { ...validExchange, timezone: 'EST' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
@@ -157,37 +160,37 @@ describe('validateExchange', () => {
     });
 
     it('Startが空文字の場合はバリデーションに失敗する', () => {
-      const exchange: Exchange = { ...validExchange, Start: '' };
+      const exchange: ExchangeEntity = { ...validExchange, start: '' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('取引開始時刻は必須です');
     });
 
     it('Startが不正な形式の場合はバリデーションに失敗する', () => {
-      const exchange: Exchange = { ...validExchange, Start: '4:00' };
+      const exchange: ExchangeEntity = { ...validExchange, start: '4:00' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('取引開始時刻はHH:MM形式（例: 04:00）で入力してください');
     });
 
     it('Endが空文字の場合はバリデーションに失敗する', () => {
-      const exchange: Exchange = { ...validExchange, End: '' };
+      const exchange: ExchangeEntity = { ...validExchange, end: '' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('取引終了時刻は必須です');
     });
 
     it('Endが不正な形式の場合はバリデーションに失敗する', () => {
-      const exchange: Exchange = { ...validExchange, End: '24:00' };
+      const exchange: ExchangeEntity = { ...validExchange, end: '24:00' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('取引終了時刻はHH:MM形式（例: 20:00）で入力してください');
     });
 
     it('CreatedAtが未来すぎる場合はバリデーションに失敗する', () => {
-      const exchange: Exchange = {
+      const exchange: ExchangeEntity = {
         ...validExchange,
-        CreatedAt: Date.now() + 86400000 * 2,
+        createdAt: Date.now() + 86400000 * 2,
       };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
@@ -195,9 +198,9 @@ describe('validateExchange', () => {
     });
 
     it('UpdatedAtが未来すぎる場合はバリデーションに失敗する', () => {
-      const exchange: Exchange = {
+      const exchange: ExchangeEntity = {
         ...validExchange,
-        UpdatedAt: Date.now() + 86400000 * 2,
+        updatedAt: Date.now() + 86400000 * 2,
       };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
@@ -207,38 +210,38 @@ describe('validateExchange', () => {
 
   describe('境界値テスト', () => {
     it('ExchangeIDが1文字でもバリデーションに成功する', () => {
-      const exchange: Exchange = { ...validExchange, ExchangeID: 'A' };
+      const exchange: ExchangeEntity = { ...validExchange, exchangeId: 'A' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(true);
     });
 
     it('Nameが1文字でもバリデーションに成功する', () => {
-      const exchange: Exchange = { ...validExchange, Name: 'A' };
+      const exchange: ExchangeEntity = { ...validExchange, name: 'A' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(true);
     });
 
     it('Keyが1文字でもバリデーションに成功する', () => {
-      const exchange: Exchange = { ...validExchange, Key: 'A' };
+      const exchange: ExchangeEntity = { ...validExchange, key: 'A' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(true);
     });
 
     it('Start/Endが00:00でもバリデーションに成功する', () => {
-      const exchange: Exchange = {
+      const exchange: ExchangeEntity = {
         ...validExchange,
-        Start: '00:00',
-        End: '00:00',
+        start: '00:00',
+        end: '00:00',
       };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(true);
     });
 
     it('Start/Endが23:59でもバリデーションに成功する', () => {
-      const exchange: Exchange = {
+      const exchange: ExchangeEntity = {
         ...validExchange,
-        Start: '23:59',
-        End: '23:59',
+        start: '23:59',
+        end: '23:59',
       };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(true);
@@ -247,25 +250,25 @@ describe('validateExchange', () => {
 
   describe('PriceSource バリデーション', () => {
     it('PriceSource が tradingview の場合はバリデーションに成功する', () => {
-      const exchange: Exchange = { ...validExchange, PriceSource: 'tradingview' };
+      const exchange: ExchangeEntity = { ...validExchange, priceSource: 'tradingview' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(true);
     });
 
     it('PriceSource が finnhub の場合はバリデーションに成功する', () => {
-      const exchange: Exchange = { ...validExchange, PriceSource: 'finnhub' };
+      const exchange: ExchangeEntity = { ...validExchange, priceSource: 'finnhub' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(true);
     });
 
     it('PriceSource が undefined の場合はバリデーションに成功する（省略可能）', () => {
-      const { PriceSource: _, ...exchangeWithoutPriceSource } = { ...validExchange };
+      const { priceSource: _, ...exchangeWithoutPriceSource } = { ...validExchange };
       const result = validateExchange(exchangeWithoutPriceSource);
       expect(result.valid).toBe(true);
     });
 
     it('PriceSource が不正な値の場合はバリデーションに失敗する', () => {
-      const exchange = { ...validExchange, PriceSource: 'invalid-source' };
+      const exchange = { ...validExchange, priceSource: 'invalid-source' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
@@ -274,7 +277,7 @@ describe('validateExchange', () => {
     });
 
     it('PriceSource が空文字の場合はバリデーションに失敗する', () => {
-      const exchange = { ...validExchange, PriceSource: '' };
+      const exchange = { ...validExchange, priceSource: '' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
@@ -285,38 +288,38 @@ describe('validateExchange', () => {
 
   describe('Market バリデーション', () => {
     it('Market が JP の場合はバリデーションに成功する', () => {
-      const exchange: Exchange = { ...validExchange, Market: 'JP' };
+      const exchange: ExchangeEntity = { ...validExchange, market: 'JP' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(true);
     });
 
     it('Market が US の場合はバリデーションに成功する', () => {
-      const exchange: Exchange = { ...validExchange, Market: 'US' };
+      const exchange: ExchangeEntity = { ...validExchange, market: 'US' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(true);
     });
 
     it('Market が undefined の場合はバリデーションに成功する（省略可能）', () => {
-      const { Market: _, ...exchangeWithoutMarket } = { ...validExchange };
+      const { market: _, ...exchangeWithoutMarket } = { ...validExchange };
       const result = validateExchange(exchangeWithoutMarket);
       expect(result.valid).toBe(true);
     });
 
     it('Market が null の場合はバリデーションに成功する（未設定に戻す更新を許容）', () => {
-      const exchange = { ...validExchange, Market: null };
+      const exchange = { ...validExchange, market: null };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(true);
     });
 
     it('Market が不正な値の場合はバリデーションに失敗する', () => {
-      const exchange = { ...validExchange, Market: 'EU' };
+      const exchange = { ...validExchange, market: 'EU' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('市場は "JP" または "US" のいずれかを指定してください');
     });
 
     it('Market が空文字の場合はバリデーションに失敗する', () => {
-      const exchange = { ...validExchange, Market: '' };
+      const exchange = { ...validExchange, market: '' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('市場は "JP" または "US" のいずれかを指定してください');
@@ -325,13 +328,13 @@ describe('validateExchange', () => {
 });
 
 describe('validateTicker', () => {
-  const validTicker: Ticker = {
-    TickerID: 'NSDQ:AAPL',
-    Symbol: 'AAPL',
-    Name: 'Apple Inc.',
-    ExchangeID: 'NASDAQ',
-    CreatedAt: Date.now(),
-    UpdatedAt: Date.now(),
+  const validTicker: TickerEntity = {
+    tickerId: 'NSDQ:AAPL',
+    symbol: 'AAPL',
+    name: 'Apple Inc.',
+    exchangeId: 'NASDAQ',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
   };
 
   describe('正常系', () => {
@@ -342,25 +345,25 @@ describe('validateTicker', () => {
     });
 
     it('TickerIDが{Key}:{Symbol}形式でもバリデーションに成功する', () => {
-      const ticker: Ticker = { ...validTicker, TickerID: 'NYSE:TSLA' };
+      const ticker: TickerEntity = { ...validTicker, tickerId: 'NYSE:TSLA' };
       const result = validateTicker(ticker);
       expect(result.valid).toBe(true);
     });
 
     it('Symbolが20文字ちょうどでもバリデーションに成功する', () => {
-      const ticker: Ticker = {
+      const ticker: TickerEntity = {
         ...validTicker,
-        Symbol: 'A'.repeat(20),
-        TickerID: `NSDQ:${'A'.repeat(20)}`,
+        symbol: 'A'.repeat(20),
+        tickerId: `NSDQ:${'A'.repeat(20)}`,
       };
       const result = validateTicker(ticker);
       expect(result.valid).toBe(true);
     });
 
     it('Nameが200文字ちょうどでもバリデーションに成功する', () => {
-      const ticker: Ticker = {
+      const ticker: TickerEntity = {
         ...validTicker,
-        Name: 'a'.repeat(200),
+        name: 'a'.repeat(200),
       };
       const result = validateTicker(ticker);
       expect(result.valid).toBe(true);
@@ -387,14 +390,14 @@ describe('validateTicker', () => {
     });
 
     it('TickerIDが空文字の場合はバリデーションに失敗する', () => {
-      const ticker: Ticker = { ...validTicker, TickerID: '' };
+      const ticker: TickerEntity = { ...validTicker, tickerId: '' };
       const result = validateTicker(ticker);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('ティッカーIDは必須です');
     });
 
     it('TickerIDにコロンがない場合はバリデーションに失敗する', () => {
-      const ticker: Ticker = { ...validTicker, TickerID: 'NASDAQAAPL' };
+      const ticker: TickerEntity = { ...validTicker, tickerId: 'NASDAQAAPL' };
       const result = validateTicker(ticker);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
@@ -403,7 +406,7 @@ describe('validateTicker', () => {
     });
 
     it('TickerIDに小文字が含まれる場合はバリデーションに失敗する', () => {
-      const ticker: Ticker = { ...validTicker, TickerID: 'NSDQ:aapl' };
+      const ticker: TickerEntity = { ...validTicker, tickerId: 'NSDQ:aapl' };
       const result = validateTicker(ticker);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
@@ -412,23 +415,23 @@ describe('validateTicker', () => {
     });
 
     it('Symbolが空文字の場合はバリデーションに失敗する', () => {
-      const ticker: Ticker = { ...validTicker, Symbol: '' };
+      const ticker: TickerEntity = { ...validTicker, symbol: '' };
       const result = validateTicker(ticker);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('シンボルは必須です');
     });
 
     it('Symbolに小文字が含まれる場合はバリデーションに失敗する', () => {
-      const ticker: Ticker = { ...validTicker, Symbol: 'Aapl' };
+      const ticker: TickerEntity = { ...validTicker, symbol: 'Aapl' };
       const result = validateTicker(ticker);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('シンボルは1-20文字の英大文字と数字のみ使用できます');
     });
 
     it('Symbolが21文字の場合はバリデーションに失敗する', () => {
-      const ticker: Ticker = {
+      const ticker: TickerEntity = {
         ...validTicker,
-        Symbol: 'A'.repeat(21),
+        symbol: 'A'.repeat(21),
       };
       const result = validateTicker(ticker);
       expect(result.valid).toBe(false);
@@ -436,16 +439,16 @@ describe('validateTicker', () => {
     });
 
     it('Nameが空文字の場合はバリデーションに失敗する', () => {
-      const ticker: Ticker = { ...validTicker, Name: '' };
+      const ticker: TickerEntity = { ...validTicker, name: '' };
       const result = validateTicker(ticker);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('銘柄名は必須です');
     });
 
     it('Nameが201文字の場合はバリデーションに失敗する', () => {
-      const ticker: Ticker = {
+      const ticker: TickerEntity = {
         ...validTicker,
-        Name: 'a'.repeat(201),
+        name: 'a'.repeat(201),
       };
       const result = validateTicker(ticker);
       expect(result.valid).toBe(false);
@@ -453,7 +456,7 @@ describe('validateTicker', () => {
     });
 
     it('ExchangeIDが空文字の場合はバリデーションに失敗する', () => {
-      const ticker: Ticker = { ...validTicker, ExchangeID: '' };
+      const ticker: TickerEntity = { ...validTicker, exchangeId: '' };
       const result = validateTicker(ticker);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('取引所IDは必須です');
@@ -462,17 +465,17 @@ describe('validateTicker', () => {
 
   describe('境界値テスト', () => {
     it('Symbolが1文字でもバリデーションに成功する', () => {
-      const ticker: Ticker = {
+      const ticker: TickerEntity = {
         ...validTicker,
-        Symbol: 'A',
-        TickerID: 'NSDQ:A',
+        symbol: 'A',
+        tickerId: 'NSDQ:A',
       };
       const result = validateTicker(ticker);
       expect(result.valid).toBe(true);
     });
 
     it('Nameが1文字でもバリデーションに成功する', () => {
-      const ticker: Ticker = { ...validTicker, Name: 'A' };
+      const ticker: TickerEntity = { ...validTicker, name: 'A' };
       const result = validateTicker(ticker);
       expect(result.valid).toBe(true);
     });
@@ -1246,20 +1249,20 @@ describe('validateAlert', () => {
 describe('validateExchange', () => {
   describe('無効なタイムスタンプのテスト', () => {
     const validExchange = {
-      ExchangeID: 'NASDAQ',
-      Name: 'NASDAQ Stock Market',
-      Key: 'NSDQ',
-      Timezone: 'America/New_York',
-      Start: '04:00',
-      End: '20:00',
-      CreatedAt: 1704067200000,
-      UpdatedAt: 1704067200000,
+      exchangeId: 'NASDAQ',
+      name: 'NASDAQ Stock Market',
+      key: 'NSDQ',
+      timezone: 'America/New_York',
+      start: '04:00',
+      end: '20:00',
+      createdAt: 1704067200000,
+      updatedAt: 1704067200000,
     };
 
     it('CreatedAtが無効な値の場合はバリデーションに失敗する', () => {
       const exchange = {
         ...validExchange,
-        CreatedAt: 'invalid' as unknown,
+        createdAt: 'invalid' as unknown,
       };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
@@ -1269,7 +1272,7 @@ describe('validateExchange', () => {
     it('UpdatedAtが無効な値の場合はバリデーションに失敗する', () => {
       const exchange = {
         ...validExchange,
-        UpdatedAt: null as unknown,
+        updatedAt: null as unknown,
       };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
@@ -1281,18 +1284,18 @@ describe('validateExchange', () => {
 describe('validateTicker', () => {
   describe('無効なタイムスタンプのテスト', () => {
     const validTicker = {
-      TickerID: 'NSDQ:AAPL',
-      Symbol: 'AAPL',
-      Name: 'Apple Inc.',
-      ExchangeID: 'NASDAQ',
-      CreatedAt: 1704067200000,
-      UpdatedAt: 1704067200000,
+      tickerId: 'NSDQ:AAPL',
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      exchangeId: 'NASDAQ',
+      createdAt: 1704067200000,
+      updatedAt: 1704067200000,
     };
 
     it('CreatedAtが無効な値の場合はバリデーションに失敗する', () => {
       const ticker = {
         ...validTicker,
-        CreatedAt: -1 as unknown,
+        createdAt: -1 as unknown,
       };
       const result = validateTicker(ticker);
       expect(result.valid).toBe(false);
@@ -1302,7 +1305,7 @@ describe('validateTicker', () => {
     it('UpdatedAtが無効な値の場合はバリデーションに失敗する', () => {
       const ticker = {
         ...validTicker,
-        UpdatedAt: 'string' as unknown,
+        updatedAt: 'string' as unknown,
       };
       const result = validateTicker(ticker);
       expect(result.valid).toBe(false);

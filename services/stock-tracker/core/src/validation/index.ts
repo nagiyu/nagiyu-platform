@@ -7,9 +7,11 @@
 
 import type { ValidationResult } from '@nagiyu/common';
 import { isNonEmptyString, isValidTimestamp } from '@nagiyu/common';
-import type { Exchange, Ticker, Holding, Alert } from '../types.js';
+import type { Holding, Alert } from '../types.js';
 import { isValidPrice, isValidQuantity } from './helpers.js';
 import { PRICE_SOURCES, EXCHANGE_MARKETS } from '../entities/exchange.entity.js';
+import type { ExchangeEntity } from '../entities/exchange.entity.js';
+import type { TickerEntity } from '../entities/ticker.entity.js';
 
 /**
  * バリデーションエラーメッセージ定数
@@ -124,75 +126,75 @@ export function validateExchange(exchange: unknown): ValidationResult {
     return { valid: false, errors: ['取引所データが不正です'] };
   }
 
-  const ex = exchange as Partial<Exchange>;
+  const ex = exchange as Partial<ExchangeEntity>;
 
-  // ExchangeID
-  if (!ex.ExchangeID || !isNonEmptyString(ex.ExchangeID)) {
+  // exchangeId
+  if (!ex.exchangeId || !isNonEmptyString(ex.exchangeId)) {
     errors.push(ERROR_MESSAGES.EXCHANGE_ID_REQUIRED);
-  } else if (!/^[a-zA-Z0-9-]{1,50}$/.test(ex.ExchangeID)) {
+  } else if (!/^[a-zA-Z0-9-]{1,50}$/.test(ex.exchangeId)) {
     errors.push(ERROR_MESSAGES.EXCHANGE_ID_INVALID_FORMAT);
   }
 
-  // Name
-  if (!ex.Name || !isNonEmptyString(ex.Name)) {
+  // name
+  if (!ex.name || !isNonEmptyString(ex.name)) {
     errors.push(ERROR_MESSAGES.EXCHANGE_NAME_REQUIRED);
-  } else if (ex.Name.length > 200) {
+  } else if (ex.name.length > 200) {
     errors.push(ERROR_MESSAGES.EXCHANGE_NAME_TOO_LONG);
   }
 
-  // Key
-  if (!ex.Key || !isNonEmptyString(ex.Key)) {
+  // key
+  if (!ex.key || !isNonEmptyString(ex.key)) {
     errors.push(ERROR_MESSAGES.EXCHANGE_KEY_REQUIRED);
-  } else if (!/^[A-Z0-9]{1,20}$/.test(ex.Key)) {
+  } else if (!/^[A-Z0-9]{1,20}$/.test(ex.key)) {
     errors.push(ERROR_MESSAGES.EXCHANGE_KEY_INVALID_FORMAT);
   }
 
-  // Timezone
-  if (!ex.Timezone || !isNonEmptyString(ex.Timezone)) {
+  // timezone
+  if (!ex.timezone || !isNonEmptyString(ex.timezone)) {
     errors.push(ERROR_MESSAGES.EXCHANGE_TIMEZONE_REQUIRED);
-  } else if (!/^[A-Za-z]+\/[A-Za-z_]+$/.test(ex.Timezone)) {
+  } else if (!/^[A-Za-z]+\/[A-Za-z_]+$/.test(ex.timezone)) {
     errors.push(ERROR_MESSAGES.EXCHANGE_TIMEZONE_INVALID_FORMAT);
   }
 
-  // Start
-  if (!ex.Start || !isNonEmptyString(ex.Start)) {
+  // start
+  if (!ex.start || !isNonEmptyString(ex.start)) {
     errors.push(ERROR_MESSAGES.EXCHANGE_START_REQUIRED);
-  } else if (!/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(ex.Start)) {
+  } else if (!/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(ex.start)) {
     errors.push(ERROR_MESSAGES.EXCHANGE_START_INVALID_FORMAT);
   }
 
-  // End
-  if (!ex.End || !isNonEmptyString(ex.End)) {
+  // end
+  if (!ex.end || !isNonEmptyString(ex.end)) {
     errors.push(ERROR_MESSAGES.EXCHANGE_END_REQUIRED);
-  } else if (!/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(ex.End)) {
+  } else if (!/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(ex.end)) {
     errors.push(ERROR_MESSAGES.EXCHANGE_END_INVALID_FORMAT);
   }
 
-  // PriceSource（省略可能。指定される場合は有効値のみ許可）
-  if (ex.PriceSource !== undefined) {
-    if (!(PRICE_SOURCES as readonly string[]).includes(ex.PriceSource as string)) {
+  // priceSource (省略可能。指定される場合は有効値のみ許可)
+  if (ex.priceSource !== undefined) {
+    if (!(PRICE_SOURCES as readonly string[]).includes(ex.priceSource as string)) {
       errors.push(ERROR_MESSAGES.EXCHANGE_PRICE_SOURCE_INVALID);
     }
   }
 
-  // Market（省略可能。未設定に戻す null も許可し、指定される場合は有効値のみ許可）
-  if (ex.Market !== undefined && ex.Market !== null) {
-    if (!(EXCHANGE_MARKETS as readonly string[]).includes(ex.Market as string)) {
+  // market (省略可能。未設定に戻す null も許可し、指定される場合は有効値のみ許可)
+  if (ex.market !== undefined && ex.market !== null) {
+    if (!(EXCHANGE_MARKETS as readonly string[]).includes(ex.market as string)) {
       errors.push(ERROR_MESSAGES.EXCHANGE_MARKET_INVALID);
     }
   }
 
-  // CreatedAt
-  if (ex.CreatedAt === undefined || ex.CreatedAt === null) {
+  // createdAt
+  if (ex.createdAt === undefined || ex.createdAt === null) {
     errors.push(ERROR_MESSAGES.EXCHANGE_CREATED_AT_REQUIRED);
-  } else if (!isValidTimestamp(ex.CreatedAt)) {
+  } else if (!isValidTimestamp(ex.createdAt)) {
     errors.push(ERROR_MESSAGES.EXCHANGE_CREATED_AT_INVALID);
   }
 
-  // UpdatedAt
-  if (ex.UpdatedAt === undefined || ex.UpdatedAt === null) {
+  // updatedAt
+  if (ex.updatedAt === undefined || ex.updatedAt === null) {
     errors.push(ERROR_MESSAGES.EXCHANGE_UPDATED_AT_REQUIRED);
-  } else if (!isValidTimestamp(ex.UpdatedAt)) {
+  } else if (!isValidTimestamp(ex.updatedAt)) {
     errors.push(ERROR_MESSAGES.EXCHANGE_UPDATED_AT_INVALID);
   }
 
@@ -218,45 +220,45 @@ export function validateTicker(ticker: unknown): ValidationResult {
     return { valid: false, errors: ['ティッカーデータが不正です'] };
   }
 
-  const tk = ticker as Partial<Ticker>;
+  const tk = ticker as Partial<TickerEntity>;
 
-  // TickerID
-  if (!tk.TickerID || !isNonEmptyString(tk.TickerID)) {
+  // tickerId
+  if (!tk.tickerId || !isNonEmptyString(tk.tickerId)) {
     errors.push(ERROR_MESSAGES.TICKER_ID_REQUIRED);
-  } else if (!/^[A-Z0-9]{1,20}:[A-Z0-9]{1,20}$/.test(tk.TickerID)) {
+  } else if (!/^[A-Z0-9]{1,20}:[A-Z0-9]{1,20}$/.test(tk.tickerId)) {
     errors.push(ERROR_MESSAGES.TICKER_ID_INVALID_FORMAT);
   }
 
-  // Symbol
-  if (!tk.Symbol || !isNonEmptyString(tk.Symbol)) {
+  // symbol
+  if (!tk.symbol || !isNonEmptyString(tk.symbol)) {
     errors.push(ERROR_MESSAGES.TICKER_SYMBOL_REQUIRED);
-  } else if (!/^[A-Z0-9]{1,20}$/.test(tk.Symbol)) {
+  } else if (!/^[A-Z0-9]{1,20}$/.test(tk.symbol)) {
     errors.push(ERROR_MESSAGES.TICKER_SYMBOL_INVALID_FORMAT);
   }
 
-  // Name
-  if (!tk.Name || !isNonEmptyString(tk.Name)) {
+  // name
+  if (!tk.name || !isNonEmptyString(tk.name)) {
     errors.push(ERROR_MESSAGES.TICKER_NAME_REQUIRED);
-  } else if (tk.Name.length > 200) {
+  } else if (tk.name.length > 200) {
     errors.push(ERROR_MESSAGES.TICKER_NAME_TOO_LONG);
   }
 
-  // ExchangeID
-  if (!tk.ExchangeID || !isNonEmptyString(tk.ExchangeID)) {
+  // exchangeId
+  if (!tk.exchangeId || !isNonEmptyString(tk.exchangeId)) {
     errors.push(ERROR_MESSAGES.TICKER_EXCHANGE_ID_REQUIRED);
   }
 
-  // CreatedAt
-  if (tk.CreatedAt === undefined || tk.CreatedAt === null) {
+  // createdAt
+  if (tk.createdAt === undefined || tk.createdAt === null) {
     errors.push(ERROR_MESSAGES.TICKER_CREATED_AT_REQUIRED);
-  } else if (!isValidTimestamp(tk.CreatedAt)) {
+  } else if (!isValidTimestamp(tk.createdAt)) {
     errors.push(ERROR_MESSAGES.TICKER_CREATED_AT_INVALID);
   }
 
-  // UpdatedAt
-  if (tk.UpdatedAt === undefined || tk.UpdatedAt === null) {
+  // updatedAt
+  if (tk.updatedAt === undefined || tk.updatedAt === null) {
     errors.push(ERROR_MESSAGES.TICKER_UPDATED_AT_REQUIRED);
-  } else if (!isValidTimestamp(tk.UpdatedAt)) {
+  } else if (!isValidTimestamp(tk.updatedAt)) {
     errors.push(ERROR_MESSAGES.TICKER_UPDATED_AT_INVALID);
   }
 

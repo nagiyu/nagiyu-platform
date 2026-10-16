@@ -71,7 +71,7 @@ describe('POST /api/alerts のリクエストボディ', () => {
       CreatedAt: 1704067200000,
       UpdatedAt: 1704067200000,
     }));
-    mockGetTickerById.mockResolvedValue({ Symbol: 'AAPL', Name: 'Apple Inc.' });
+    mockGetTickerById.mockResolvedValue({ symbol: 'AAPL', name: 'Apple Inc.' });
   });
 
   it('取引所 ID をティッカー ID から補い、想定外の項目を取り込まずに作成する', async () => {

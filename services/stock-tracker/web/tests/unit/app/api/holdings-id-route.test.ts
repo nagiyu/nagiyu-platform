@@ -55,7 +55,7 @@ describe('PUT /api/holdings/[id]', () => {
       CreatedAt: 1704067200000,
       UpdatedAt: 1704067200000,
     });
-    mockGetTickerById.mockResolvedValue({ Symbol: 'AAPL', Name: 'Apple Inc.' });
+    mockGetTickerById.mockResolvedValue({ symbol: 'AAPL', name: 'Apple Inc.' });
 
     const response = await PUT(
       createRequest(

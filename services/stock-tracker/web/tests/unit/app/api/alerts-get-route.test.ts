@@ -118,7 +118,7 @@ describe('GET /api/alerts', () => {
         },
       ],
     });
-    mockTickerGetById.mockResolvedValue({ Symbol: 'X', Name: 'X' });
+    mockTickerGetById.mockResolvedValue({ symbol: 'X', name: 'X' });
 
     const response = await GET(new NextRequest('http://localhost/api/alerts'));
     const body = await response.json();

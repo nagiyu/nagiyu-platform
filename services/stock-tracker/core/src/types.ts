@@ -7,91 +7,6 @@
 import type { PushSubscription } from '@nagiyu/common';
 
 /**
- * 取引所 (Exchange)
- *
- * 取引所マスタデータ
- *
- * バリデーションルール:
- * - ExchangeID: 1-50文字、英数字とハイフン、作成後変更不可
- * - Name: 1-200文字、必須
- * - Key: 1-20文字、英大文字と数字のみ、作成後変更不可（TickerID生成に使用）
- * - Timezone: IANA形式（例: America/New_York）
- * - Start: HH:MM形式（例: 04:00）、時間外取引込みの開始時刻
- * - End: HH:MM形式（例: 20:00）、時間外取引込みの終了時刻
- * - PriceSource: 'tradingview' または 'finnhub'（省略時は 'tradingview'）
- * - Market: 'JP' または 'US'（省略可能。デフォルト値はなく、未設定の取引所は確度算出の対象外）
- * - CreatedAt: Unix timestamp、作成後変更不可
- * - UpdatedAt: Unix timestamp、更新時に自動更新
- *
- * データ整合性:
- * - 削除時、関連するHolding/Alertが存在する場合は削除不可
- */
-export type Exchange = {
-  /** 取引所ID (PK: EXCHANGE#{ExchangeID}) - 1-50文字、英数字とハイフン、変更不可 */
-  ExchangeID: string;
-  /** 取引所名 (例: NASDAQ, NYSE) - 1-200文字 */
-  Name: string;
-  /** TradingView API用キー (例: NSDQ, NYSE) - 1-20文字、英大文字と数字のみ、変更不可 */
-  Key: string;
-  /** タイムゾーン (IANA形式, 例: America/New_York) */
-  Timezone: string;
-  /** 取引開始時刻 (HH:MM形式, 例: 04:00) - 時間外取引込み */
-  Start: string;
-  /** 取引終了時刻 (HH:MM形式, 例: 20:00) - 時間外取引込み */
-  End: string;
-  /**
-   * 現在価格の取得元（省略時は 'tradingview'）
-   *
-   * - tradingview: TradingView API（東証など全市場対応）
-   * - finnhub: Finnhub API（米国株専用: NASDAQ/NYSE/AMEX）
-   */
-  PriceSource?: 'tradingview' | 'finnhub';
-  /**
-   * 市場（省略可能。デフォルト値はなく、未設定の場合は確度算出の対象外）
-   *
-   * - JP: 日本
-   * - US: 米国
-   */
-  Market?: 'JP' | 'US';
-  /** 作成日時 (Unix timestamp) - 変更不可 */
-  CreatedAt: number;
-  /** 更新日時 (Unix timestamp) - 自動更新 */
-  UpdatedAt: number;
-};
-
-/**
- * ティッカー (Ticker)
- *
- * 銘柄マスタデータ
- *
- * バリデーションルール:
- * - TickerID: {Exchange.Key}:{Symbol} 形式で自動生成（例: NSDQ:AAPL）、変更不可
- * - Symbol: 1-20文字、英大文字と数字のみ、変更時は削除→再作成を推奨
- * - Name: 1-200文字、必須
- * - ExchangeID: 有効な取引所ID、変更不可
- * - CreatedAt: Unix timestamp、作成後変更不可
- * - UpdatedAt: Unix timestamp、更新時に自動更新
- *
- * データ整合性:
- * - 削除時、関連するHolding/Alertが存在する場合は削除不可
- * - TickerIDはExchange.Keyから生成されるため、Exchange.Keyの変更不可制約に依存
- */
-export type Ticker = {
-  /** ティッカーID (PK: TICKER#{TickerID}, 自動生成: {Exchange.Key}:{Symbol}, 例: NSDQ:AAPL) - 変更不可 */
-  TickerID: string;
-  /** シンボル (例: AAPL, NVDA) - 1-20文字、英大文字と数字のみ */
-  Symbol: string;
-  /** 銘柄名 (例: Apple Inc., NVIDIA Corporation) - 1-200文字 */
-  Name: string;
-  /** 取引所ID - 有効な取引所ID、変更不可 */
-  ExchangeID: string;
-  /** 作成日時 (Unix timestamp) - 変更不可 */
-  CreatedAt: number;
-  /** 更新日時 (Unix timestamp) - 自動更新 */
-  UpdatedAt: number;
-};
-
-/**
  * 日次サマリー (DailySummary)
  *
  * 特定ティッカーの特定日における OHLCV（始値・高値・安値・終値・出来高）の日次集計データ
@@ -344,9 +259,9 @@ export type DynamoDBItem = {
   GSI2PK?: string;
   /** GSI2 ソートキー - Alertのみ使用 */
   GSI2SK?: string;
-  /** GSI3 パーティションキー (取引所ごとのティッカー一覧用) - Tickerのみ使用 */
+  /** GSI3 パーティションキー (取引所ごとのティッカー一覧用) - Exchange(固定値)/Tickerで使用 */
   GSI3PK?: string;
-  /** GSI3 ソートキー - Tickerのみ使用 */
+  /** GSI3 ソートキー - Exchange/Tickerで使用 */
   GSI3SK?: string;
   /** GSI4 パーティションキー (取引所ごとの日次サマリー取得用) - DailySummaryのみ使用 */
   GSI4PK?: string;

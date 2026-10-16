@@ -93,14 +93,14 @@ async function processAlert(
       logger.debug('取引時間外のためアラートをスキップします', {
         alertId: alert.AlertID,
         exchangeId: alert.ExchangeID,
-        timezone: exchange.Timezone,
+        timezone: exchange.timezone,
       });
       stats.skippedOffHours++;
       return true;
     }
 
-    // 4. Exchange.PriceSource で解決した provider で現在価格取得（リトライ付き）
-    const priceSource = exchange.PriceSource ?? DEFAULT_PRICE_SOURCE;
+    // 4. ExchangeEntity.priceSource で解決した provider で現在価格取得 (リトライ付き)
+    const priceSource = exchange.priceSource ?? DEFAULT_PRICE_SOURCE;
     const provider = resolveQuoteProvider(priceSource, providers);
     const currentPrice = await withRetry<number>(() => provider.getCurrentPrice(alert.TickerID), {
       maxRetries: 2,

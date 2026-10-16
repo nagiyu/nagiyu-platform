@@ -106,14 +106,14 @@ async function seedExchanges(
 ): Promise<void> {
   for (const session of sessions) {
     await exchangeRepository.create({
-      ExchangeID: session.exchangeId,
-      Name: session.name,
-      Key: session.key,
-      Timezone: session.timezone,
-      Start: session.start,
-      End: session.end,
-      PriceSource: 'tradingview',
-      Market: session.market as 'JP' | 'US',
+      exchangeId: session.exchangeId,
+      name: session.name,
+      key: session.key,
+      timezone: session.timezone,
+      start: session.start,
+      end: session.end,
+      priceSource: 'tradingview',
+      market: session.market as 'JP' | 'US',
     });
   }
 }
@@ -176,13 +176,13 @@ describe('forecast batch handler（通常モード）', () => {
 
     // 市場未設定の取引所（対象外・ログに出すだけ）が紛れ込んでも壊れないことも兼ねて確認する
     await exchangeRepository.create({
-      ExchangeID: 'UNSET',
-      Name: '市場未設定取引所',
-      Key: 'UNSET',
-      Timezone: 'UTC',
-      Start: '00:00',
-      End: '00:00',
-      PriceSource: 'tradingview',
+      exchangeId: 'UNSET',
+      name: '市場未設定取引所',
+      key: 'UNSET',
+      timezone: 'UTC',
+      start: '00:00',
+      end: '00:00',
+      priceSource: 'tradingview',
     });
     await seedExchanges(exchangeRepository, [TSE]);
   });

@@ -186,7 +186,7 @@ async function processExchange(
   try {
     const now = dependencies.nowFn();
     // 全件、内部でページを辿り切る（Issue #3788: 51件目以降の打ち切り防止）
-    const tickers = await dependencies.tickerRepository.getByExchange(exchange.ExchangeID);
+    const tickers = await dependencies.tickerRepository.getByExchange(exchange.exchangeId);
     stats.totalTickers += tickers.length;
     const summaryDate = getLastTradingDate(exchange, now);
     const patternAnalyzer = new PatternAnalyzer();
@@ -197,19 +197,19 @@ async function processExchange(
     for (const ticker of tickers) {
       try {
         const existingSummary = await dependencies.dailySummaryRepository.getByTickerAndDate(
-          ticker.TickerID,
+          ticker.tickerId,
           summaryDate
         );
         if (needsStaticAnalysis(existingSummary)) {
-          const chartData = await dependencies.getChartDataFn(ticker.TickerID, 'D', {
+          const chartData = await dependencies.getChartDataFn(ticker.tickerId, 'D', {
             count: REQUIRED_CHART_DATA_COUNT + CHART_DATA_FETCH_MARGIN,
             session: 'extended',
           });
 
           if (chartData.length === 0) {
             logger.warn('チャートデータが0件のためティッカーをスキップします', {
-              exchangeId: exchange.ExchangeID,
-              tickerId: ticker.TickerID,
+              exchangeId: exchange.exchangeId,
+              tickerId: ticker.tickerId,
             });
             continue;
           }
@@ -217,24 +217,24 @@ async function processExchange(
           // summaryDate より後（翌営業日の進行中の足 等）を除外し、summaryDate 以前の足だけを対象にする
           const onOrBeforeSummaryDate = filterChartDataOnOrBefore(
             chartData,
-            exchange.Timezone,
+            exchange.timezone,
             summaryDate
           );
 
           if (
             onOrBeforeSummaryDate.length === 0 ||
-            formatDateInTimezone(onOrBeforeSummaryDate[0].time, exchange.Timezone) !== summaryDate
+            formatDateInTimezone(onOrBeforeSummaryDate[0].time, exchange.timezone) !== summaryDate
           ) {
             // 休場日（祝日等）、またはまだ当日分のデータが反映されていない
             const latestBarDate =
               onOrBeforeSummaryDate.length > 0
-                ? formatDateInTimezone(onOrBeforeSummaryDate[0].time, exchange.Timezone)
+                ? formatDateInTimezone(onOrBeforeSummaryDate[0].time, exchange.timezone)
                 : undefined;
             logger.info(
               'summaryDate に一致する取引日の足が見つからないためサマリー生成をスキップします',
               {
-                exchangeId: exchange.ExchangeID,
-                tickerId: ticker.TickerID,
+                exchangeId: exchange.exchangeId,
+                tickerId: ticker.tickerId,
                 summaryDate,
                 latestBarDate,
               }
@@ -251,7 +251,7 @@ async function processExchange(
                 logger.info(
                   '先頭から連続して summaryDate の足が見つからないため、取引所を休場日とみなし残りのティッカー処理を打ち切ります',
                   {
-                    exchangeId: exchange.ExchangeID,
+                    exchangeId: exchange.exchangeId,
                     summaryDate,
                     consecutiveMisses: consecutiveNoBarMisses,
                   }
@@ -282,8 +282,8 @@ async function processExchange(
               : patternAnalyzer.analyze(patternCandles);
 
           const summaryInput: CreateDailySummaryInput = {
-            TickerID: ticker.TickerID,
-            ExchangeID: exchange.ExchangeID,
+            TickerID: ticker.tickerId,
+            ExchangeID: exchange.exchangeId,
             Date: summaryDate,
             Open: latest.open,
             High: latest.high,
@@ -300,8 +300,8 @@ async function processExchange(
       } catch (error) {
         const errorMessage = toErrorMessage(error);
         logger.warn('ティッカーの日足データ取得に失敗したため、前回結果を維持します', {
-          exchangeId: exchange.ExchangeID,
-          tickerId: ticker.TickerID,
+          exchangeId: exchange.exchangeId,
+          tickerId: ticker.tickerId,
           executionTime: new Date(now).toISOString(),
           reason: errorMessage,
         });
@@ -311,8 +311,8 @@ async function processExchange(
           title: 'サマリーバッチ: ティッカー日足データ取得失敗',
           message: errorMessage,
           context: {
-            exchangeId: exchange.ExchangeID,
-            tickerId: ticker.TickerID,
+            exchangeId: exchange.exchangeId,
+            tickerId: ticker.tickerId,
             errorStack: error instanceof Error ? error.stack : undefined,
           },
         });
@@ -324,7 +324,7 @@ async function processExchange(
   } catch (error) {
     const errorMessage = toErrorMessage(error);
     logger.error('取引所の日次サマリー処理に失敗しました', {
-      exchangeId: exchange.ExchangeID,
+      exchangeId: exchange.exchangeId,
       error: errorMessage,
     });
     await reportErrorEvent({
@@ -333,7 +333,7 @@ async function processExchange(
       title: 'サマリーバッチ: 取引所サマリー処理失敗',
       message: errorMessage,
       context: {
-        exchangeId: exchange.ExchangeID,
+        exchangeId: exchange.exchangeId,
         errorStack: error instanceof Error ? error.stack : undefined,
       },
     });

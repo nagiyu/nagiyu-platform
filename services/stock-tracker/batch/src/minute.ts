@@ -94,16 +94,16 @@ async function processAlert(
       logger.debug('取引時間外のためアラートをスキップします', {
         alertId: alert.AlertID,
         exchangeId: alert.ExchangeID,
-        timezone: exchange.Timezone,
+        timezone: exchange.timezone,
       });
       stats.skippedOffHours++;
       return true;
     }
 
-    // 4. Exchange.PriceSource に応じて現在価格取得経路を選択
+    // 4. ExchangeEntity.priceSource に応じて現在価格取得経路を選択
     // - finnhub: Finnhub API への単発リクエスト（fresh-WS リトライなし）
     // - tradingview（デフォルト）: 共有セッション再利用 → 失敗時に fresh-WS 再試行
-    const priceSource = exchange.PriceSource ?? DEFAULT_PRICE_SOURCE;
+    const priceSource = exchange.priceSource ?? DEFAULT_PRICE_SOURCE;
     let currentPrice: number;
 
     if (priceSource === 'finnhub') {
