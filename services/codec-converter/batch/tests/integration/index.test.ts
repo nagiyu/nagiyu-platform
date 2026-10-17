@@ -24,7 +24,7 @@ jest.mock('@nagiyu/aws', () => ({
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
-import { reportErrorEvent } from '@nagiyu/aws';
+import { EntityNotFoundError, reportErrorEvent } from '@nagiyu/aws';
 import { parseUpdateExpression } from '../helpers/update-expression.js';
 const reportErrorEventMock = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
 
@@ -37,6 +37,21 @@ const createMockDynamoDBClient = () => {
   // DynamoDBDocumentClient.from() を使わず、直接モックを返す
   return dynamodbMock as unknown as DynamoDBDocumentClient;
 };
+
+/** UpdateCommand (ReturnValues: ALL_NEW) の応答に使う、保存形式のジョブアイテム */
+const buildJobItem = (overrides: Record<string, unknown> = {}) => ({
+  jobId: 'test-job-id',
+  Type: 'Job',
+  Status: 'PROCESSING',
+  InputFile: 'uploads/test-job-id/input.mp4',
+  OutputCodec: 'h264',
+  FileName: 'movie.mp4',
+  FileSize: 1024,
+  CreatedAt: 1704067200000,
+  UpdatedAt: 1704067200000,
+  TTL: 1704153600,
+  ...overrides,
+});
 
 // child_process.spawn のモック
 jest.mock('child_process');
@@ -269,12 +284,19 @@ describe('uploadToS3', () => {
 });
 
 describe('updateJobStatus', () => {
+  /** 旧属性名と更新日時を除いた、SET される属性 */
+  const setAttributes = (input: Parameters<typeof parseUpdateExpression>[0]) => {
+    const attributes = { ...parseUpdateExpression(input).set };
+    delete attributes.UpdatedAt;
+    return attributes;
+  };
+
   beforeEach(() => {
     dynamodbMock.reset();
   });
 
   it('ステータスをPROCESSINGに更新できる', async () => {
-    dynamodbMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({ Attributes: buildJobItem() });
 
     const dynamodbClient = createMockDynamoDBClient();
 
@@ -287,24 +309,34 @@ describe('updateJobStatus', () => {
       Key: { jobId: 'test-job-id' },
     });
     expect(parseUpdateExpression(call.args[0].input).set).toEqual({
-      status: 'PROCESSING',
-      updatedAt: expect.any(Number),
+      Status: 'PROCESSING',
+      UpdatedAt: expect.any(Number),
     });
   });
 
-  it('updatedAt を秒単位のエポック値で設定する', async () => {
-    dynamodbMock.on(UpdateCommand).resolves({});
-    const before = Math.floor(Date.now() / 1000);
+  it('旧属性名を削除して、新形式で書き換える', async () => {
+    dynamodbMock.on(UpdateCommand).resolves({ Attributes: buildJobItem() });
 
     await updateJobStatus(createMockDynamoDBClient(), 'test-table', 'test-job-id', 'PROCESSING');
 
-    const { updatedAt } = parseUpdateExpression(dynamodbMock.call(0).args[0].input).set;
-    expect(updatedAt).toBeGreaterThanOrEqual(before);
-    expect(updatedAt).toBeLessThan(before + 10);
+    expect(parseUpdateExpression(dynamodbMock.call(0).args[0].input).remove).toEqual(
+      expect.arrayContaining(['status', 'updatedAt'])
+    );
+  });
+
+  it('UpdatedAt をミリ秒のエポック値で設定する', async () => {
+    dynamodbMock.on(UpdateCommand).resolves({ Attributes: buildJobItem() });
+    const before = Date.now();
+
+    await updateJobStatus(createMockDynamoDBClient(), 'test-table', 'test-job-id', 'PROCESSING');
+
+    const { UpdatedAt } = parseUpdateExpression(dynamodbMock.call(0).args[0].input).set;
+    expect(UpdatedAt).toBeGreaterThanOrEqual(before);
+    expect(UpdatedAt).toBeLessThan(before + 10000);
   });
 
   it('ステータスをCOMPLETEDに更新し、outputFileを設定できる', async () => {
-    dynamodbMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({ Attributes: buildJobItem() });
 
     const dynamodbClient = createMockDynamoDBClient();
 
@@ -318,15 +350,14 @@ describe('updateJobStatus', () => {
 
     expect(dynamodbMock.calls()).toHaveLength(1);
     const call = dynamodbMock.call(0);
-    expect(parseUpdateExpression(call.args[0].input).set).toEqual({
-      status: 'COMPLETED',
-      outputFile: 'outputs/test-job-id/output.mp4',
-      updatedAt: expect.any(Number),
+    expect(setAttributes(call.args[0].input)).toEqual({
+      Status: 'COMPLETED',
+      OutputFile: 'outputs/test-job-id/output.mp4',
     });
   });
 
   it('ステータスをFAILEDに更新し、errorMessageを設定できる', async () => {
-    dynamodbMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({ Attributes: buildJobItem() });
 
     const dynamodbClient = createMockDynamoDBClient();
 
@@ -341,15 +372,14 @@ describe('updateJobStatus', () => {
 
     expect(dynamodbMock.calls()).toHaveLength(1);
     const call = dynamodbMock.call(0);
-    expect(parseUpdateExpression(call.args[0].input).set).toEqual({
-      status: 'FAILED',
-      errorMessage: 'Test error',
-      updatedAt: expect.any(Number),
+    expect(setAttributes(call.args[0].input)).toEqual({
+      Status: 'FAILED',
+      ErrorMessage: 'Test error',
     });
   });
 
   it('outputFile と errorMessage を同時に指定すると両方を保存する', async () => {
-    dynamodbMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({ Attributes: buildJobItem() });
 
     await updateJobStatus(
       createMockDynamoDBClient(),
@@ -361,24 +391,16 @@ describe('updateJobStatus', () => {
     );
 
     const input = dynamodbMock.call(0).args[0].input;
-    expect(parseUpdateExpression(input).set).toEqual({
-      status: 'FAILED',
-      outputFile: 'outputs/test-job-id/output.mp4',
-      errorMessage: 'Test error',
-      updatedAt: expect.any(Number),
+    expect(setAttributes(input)).toEqual({
+      Status: 'FAILED',
+      OutputFile: 'outputs/test-job-id/output.mp4',
+      ErrorMessage: 'Test error',
     });
-    // 式に使われないプレースホルダが残ると DynamoDB がエラーにする
-    const expression = (input as { UpdateExpression: string }).UpdateExpression;
-    for (const placeholder of Object.keys(input.ExpressionAttributeNames ?? {})) {
-      expect(expression).toContain(placeholder);
-    }
-    for (const placeholder of Object.keys(input.ExpressionAttributeValues ?? {})) {
-      expect(expression).toContain(placeholder);
-    }
+    // 式に使われないプレースホルダの検査は parseUpdateExpression が行う
   });
 
   it('空文字の outputFile / errorMessage は保存しない', async () => {
-    dynamodbMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({ Attributes: buildJobItem() });
 
     await updateJobStatus(
       createMockDynamoDBClient(),
@@ -389,10 +411,7 @@ describe('updateJobStatus', () => {
       ''
     );
 
-    expect(parseUpdateExpression(dynamodbMock.call(0).args[0].input).set).toEqual({
-      status: 'COMPLETED',
-      updatedAt: expect.any(Number),
-    });
+    expect(setAttributes(dynamodbMock.call(0).args[0].input)).toEqual({ Status: 'COMPLETED' });
   });
 
   it('DynamoDBエラーが発生した場合はエラー', async () => {
@@ -403,6 +422,22 @@ describe('updateJobStatus', () => {
     await expect(
       updateJobStatus(dynamodbClient, 'test-table', 'test-job-id', 'PROCESSING')
     ).rejects.toThrow('DynamoDBの更新に失敗しました');
+  });
+
+  it('対象のジョブがなければ DynamoDBの更新に失敗しました として投げる', async () => {
+    const conditionFailed = new Error('Conditional check failed');
+    conditionFailed.name = 'ConditionalCheckFailedException';
+    dynamodbMock.on(UpdateCommand).rejects(conditionFailed);
+
+    const error = await updateJobStatus(
+      createMockDynamoDBClient(),
+      'test-table',
+      'missing-job',
+      'PROCESSING'
+    ).catch((e: unknown) => e as Error);
+
+    expect(error.message).toContain('DynamoDBの更新に失敗しました');
+    expect(error.cause).toBeInstanceOf(EntityNotFoundError);
   });
 });
 
@@ -579,7 +614,7 @@ describe('processJob', () => {
 
   it('S3ダウンロード失敗時に reportErrorEvent が critical で呼ばれる', async () => {
     s3Mock.on(GetObjectCommand).rejects(new Error('S3 download error'));
-    dynamodbMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({ Attributes: buildJobItem() });
 
     const env = {
       S3_BUCKET: 'test-bucket',
@@ -606,7 +641,7 @@ describe('processJob', () => {
   it('FFmpeg失敗時に reportErrorEvent が critical で呼ばれる', async () => {
     const mockBody = Readable.from(['test content']);
     s3Mock.on(GetObjectCommand).resolves({ Body: mockBody as SdkStream<Readable> });
-    dynamodbMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({ Attributes: buildJobItem() });
 
     const mockFFmpeg = {
       stdout: { on: jest.fn() },
@@ -650,7 +685,7 @@ describe('processJob', () => {
     dynamodbMock.on(UpdateCommand).callsFake(() => {
       callCount++;
       if (callCount === 2) throw new Error('DynamoDB update failed');
-      return {};
+      return { Attributes: buildJobItem() };
     });
 
     const env = {
@@ -677,7 +712,7 @@ describe('processJob', () => {
 
   it('エラー後のクリーンアップ失敗時に reportErrorEvent が warning で呼ばれる', async () => {
     s3Mock.on(GetObjectCommand).rejects(new Error('S3 error'));
-    dynamodbMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({ Attributes: buildJobItem() });
     // FAILED ステータス更新後にクリーンアップが失敗するようにモックを設定
     const permissionError = new Error('Permission denied');
     (permissionError as NodeJS.ErrnoException).code = 'EACCES';
@@ -709,7 +744,7 @@ describe('processJob', () => {
     s3Mock.on(PutObjectCommand).resolves({});
 
     // DynamoDB更新をモック
-    dynamodbMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({ Attributes: buildJobItem() });
 
     // FFmpegをモック
     const mockFFmpeg = {
@@ -740,7 +775,7 @@ describe('processJob', () => {
 
   it.skip('エラーが発生した場合はステータスをFAILEDに更新', async () => {
     s3Mock.on(GetObjectCommand).rejects(new Error('S3 Error'));
-    dynamodbMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({ Attributes: buildJobItem() });
 
     const env = {
       S3_BUCKET: 'test-bucket',
@@ -806,7 +841,7 @@ describe('main', () => {
     const mockBody = Readable.from(['test content']);
     s3Mock.on(GetObjectCommand).resolves({ Body: mockBody as SdkStream<Readable> });
     s3Mock.on(PutObjectCommand).resolves({});
-    dynamodbMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({ Attributes: buildJobItem() });
 
     const mockFFmpeg = {
       stdout: { on: jest.fn() },
@@ -843,7 +878,7 @@ describe('main', () => {
     const mockBody = Readable.from(['test content']);
     s3Mock.on(GetObjectCommand).resolves({ Body: mockBody as SdkStream<Readable> });
     s3Mock.on(PutObjectCommand).resolves({});
-    dynamodbMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({ Attributes: buildJobItem() });
 
     const mockFFmpeg = {
       stdout: { on: jest.fn() },
@@ -890,7 +925,7 @@ describe('main', () => {
     const mockBody = Readable.from(['test content']);
     s3Mock.on(GetObjectCommand).resolves({ Body: mockBody as SdkStream<Readable> });
     s3Mock.on(PutObjectCommand).resolves({});
-    dynamodbMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({ Attributes: buildJobItem() });
 
     const mockFFmpeg = {
       stdout: { on: jest.fn() },
@@ -925,7 +960,7 @@ describe('main', () => {
     const mockBody = Readable.from(['test content']);
     s3Mock.on(GetObjectCommand).resolves({ Body: mockBody as SdkStream<Readable> });
     s3Mock.on(PutObjectCommand).resolves({});
-    dynamodbMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({ Attributes: buildJobItem() });
 
     const mockFFmpeg = {
       stdout: { on: jest.fn() },
@@ -957,7 +992,7 @@ describe('main', () => {
     });
 
     s3Mock.on(PutObjectCommand).resolves({});
-    dynamodbMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({ Attributes: buildJobItem() });
 
     const mockFFmpeg = {
       stdout: { on: jest.fn() },
@@ -980,7 +1015,7 @@ describe('main', () => {
     process.env.OUTPUT_CODEC = 'h264';
 
     s3Mock.on(GetObjectCommand).rejects(new Error('S3 Error'));
-    dynamodbMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({ Attributes: buildJobItem() });
 
     await expect(main()).rejects.toThrow();
   });
