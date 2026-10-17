@@ -70,6 +70,12 @@ describe('TodoItemMapper', () => {
     expect(mapper.toItem(buildTodo())).toEqual(buildItem());
   });
 
+  it('toItem は completedBy がないとき CompletedBy のキー自体を持たない', () => {
+    expect(Object.prototype.hasOwnProperty.call(mapper.toItem(buildTodo()), 'CompletedBy')).toBe(
+      false
+    );
+  });
+
   it('toItem は completedBy を CompletedBy に変換する', () => {
     expect(mapper.toItem(buildTodo({ isCompleted: true, completedBy: 'user-2' }))).toEqual(
       buildItem({ IsCompleted: true, CompletedBy: 'user-2' })
