@@ -1,219 +1,91 @@
-import {
-  DeleteCommand,
-  GetCommand,
-  PutCommand,
-  QueryCommand,
-  UpdateCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
-import { buildUpdateExpression, mapConditionalCheckFailed, toDatabaseError } from '@nagiyu/aws';
-import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBEntityStore, batchGetAll, toDatabaseError, type EntityStore } from '@nagiyu/aws';
 import type { CreateUserInput, UpdateUserInput, User } from '../../types/index.js';
 import type { UserRepository } from './user-repository.interface.js';
-import { withDatabaseError } from '../with-database-error.js';
+import {
+  UserMapper,
+  USER_EMAIL_INDEX_NAME,
+  buildUserEmailGsi2Pk,
+  type UserKey,
+} from './user-mapper.js';
 
-const USER_META_SK = '#META#';
-const GSI2_INDEX_NAME = 'GSI2';
-
-const ERROR_MESSAGES = {
-  INVALID_USER_DATA: 'ユーザー情報の形式が不正です',
-  USER_ALREADY_EXISTS: 'ユーザーは既に存在します',
-  USER_NOT_FOUND: COMMON_ERROR_MESSAGES.USER_NOT_FOUND,
-  UPDATE_EXPRESSION_EMPTY: '更新式を生成できませんでした',
-} as const;
-
+/**
+ * DynamoDB User Repository
+ *
+ * 単一アイテムの CRUD は EntityStore に任せ、GSI の Query とバッチ取得だけを自前で持つ。
+ */
 export class DynamoDBUserRepository implements UserRepository {
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
+  private readonly mapper = new UserMapper();
+  private readonly entityStore: EntityStore<User, UserKey>;
 
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
     this.docClient = docClient;
     this.tableName = tableName;
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper);
   }
 
   public async getById(userId: string): Promise<User | null> {
-    const result = await withDatabaseError(() =>
-      this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: this.buildUserPk(userId),
-            SK: USER_META_SK,
-          },
-        })
-      )
-    );
-
-    if (!result.Item) {
-      return null;
-    }
-
-    return this.toUser(result.Item as Record<string, unknown>);
+    return this.entityStore.get({ userId });
   }
 
   public async getByEmail(email: string): Promise<User | null> {
-    const result = await withDatabaseError(() =>
-      this.docClient.send(
+    let items: Record<string, unknown>[];
+    try {
+      const result = await this.docClient.send(
         new QueryCommand({
           TableName: this.tableName,
-          IndexName: GSI2_INDEX_NAME,
+          IndexName: USER_EMAIL_INDEX_NAME,
           KeyConditionExpression: '#gsi2pk = :gsi2pk',
           ExpressionAttributeNames: {
             '#gsi2pk': 'GSI2PK',
           },
           ExpressionAttributeValues: {
-            ':gsi2pk': this.buildEmailGsiPk(email),
+            ':gsi2pk': buildUserEmailGsi2Pk(email),
           },
           Limit: 1,
         })
-      )
-    );
-
-    if (!result.Items || result.Items.length === 0) {
-      return null;
+      );
+      items = result.Items ?? [];
+    } catch (error) {
+      throw toDatabaseError(error);
     }
 
-    return this.toUser(result.Items[0] as Record<string, unknown>);
+    return items.length === 0 ? null : this.mapper.toEntity(items[0]);
+  }
+
+  public async batchGetByIds(userIds: string[]): Promise<User[]> {
+    const uniqueUserIds = [...new Set(userIds)];
+    if (uniqueUserIds.length === 0) {
+      return [];
+    }
+
+    let items: Record<string, unknown>[];
+    try {
+      items = await batchGetAll(
+        this.docClient,
+        this.tableName,
+        uniqueUserIds.map((userId) => this.mapper.buildKeys({ userId }))
+      );
+    } catch (error) {
+      throw toDatabaseError(error);
+    }
+
+    return items.map((item) => this.mapper.toEntity(item));
   }
 
   public async create(input: CreateUserInput): Promise<User> {
-    const now = new Date().toISOString();
-    const item = {
-      PK: this.buildUserPk(input.userId),
-      SK: USER_META_SK,
-      GSI2PK: this.buildEmailGsiPk(input.email),
-      userId: input.userId,
-      email: input.email,
-      name: input.name,
-      image: input.image,
-      defaultListId: input.defaultListId,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    try {
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: item,
-          ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
-        })
-      );
-    } catch (error) {
-      mapConditionalCheckFailed(error, {
-        onExists: () => {
-          throw new Error(ERROR_MESSAGES.USER_ALREADY_EXISTS);
-        },
-      });
-      throw toDatabaseError(error);
-    }
-
-    return this.toUser(item);
+    const now = Date.now();
+    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
+    return this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
   }
 
   public async update(userId: string, updates: UpdateUserInput): Promise<User> {
-    const updateParts = buildUpdateExpression(
-      {
-        email: updates.email,
-        // GSI2PK は email から導出するため、email の更新に合わせて付け直す
-        GSI2PK: updates.email !== undefined ? this.buildEmailGsiPk(updates.email) : undefined,
-        name: updates.name,
-        image: updates.image,
-        defaultListId: updates.defaultListId,
-      },
-      {
-        timestamp: { attributeName: 'updatedAt', value: new Date().toISOString() },
-        updateTimestampWhenEmpty: true,
-      }
-    );
-    if (!updateParts) {
-      throw new Error(ERROR_MESSAGES.UPDATE_EXPRESSION_EMPTY);
-    }
-
-    let result;
-    try {
-      result = await this.docClient.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: this.buildUserPk(userId),
-            SK: USER_META_SK,
-          },
-          ...updateParts,
-          ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
-          ReturnValues: 'ALL_NEW',
-        })
-      );
-    } catch (error) {
-      mapConditionalCheckFailed(error, {
-        onMissing: () => {
-          throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
-        },
-      });
-      throw toDatabaseError(error);
-    }
-
-    if (!result.Attributes) {
-      throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
-    }
-
-    return this.toUser(result.Attributes as Record<string, unknown>);
+    return this.entityStore.update({ userId }, updates);
   }
 
   public async delete(userId: string): Promise<void> {
-    await withDatabaseError(() =>
-      this.docClient.send(
-        new DeleteCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: this.buildUserPk(userId),
-            SK: USER_META_SK,
-          },
-        })
-      )
-    );
-  }
-
-  private buildUserPk(userId: string): string {
-    return `USER#${userId}`;
-  }
-
-  private buildEmailGsiPk(email: string): string {
-    return `EMAIL#${email}`;
-  }
-
-  private toUser(item: Record<string, unknown>): User {
-    const userId = item['userId'];
-    const email = item['email'];
-    const name = item['name'];
-    const defaultListId = item['defaultListId'];
-    const createdAt = item['createdAt'];
-    const updatedAt = item['updatedAt'];
-    const image = item['image'];
-
-    if (
-      typeof userId !== 'string' ||
-      typeof email !== 'string' ||
-      typeof name !== 'string' ||
-      typeof defaultListId !== 'string' ||
-      typeof createdAt !== 'string' ||
-      typeof updatedAt !== 'string'
-    ) {
-      throw new Error(ERROR_MESSAGES.INVALID_USER_DATA);
-    }
-
-    if (image !== undefined && typeof image !== 'string') {
-      throw new Error(ERROR_MESSAGES.INVALID_USER_DATA);
-    }
-
-    return {
-      userId,
-      email,
-      name,
-      image,
-      defaultListId,
-      createdAt,
-      updatedAt,
-    };
+    await this.entityStore.delete({ userId });
   }
 }
