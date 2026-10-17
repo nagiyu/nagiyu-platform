@@ -15,13 +15,13 @@ const mockFetch = jest.fn((input: string | URL | Request, init?: RequestInit) =>
               groupId: 'group-1',
               groupName: '週末の買い出し',
               inviterName: '田中さん',
-              createdAt: '2026-02-20 19:30',
+              createdAt: Date.UTC(2026, 1, 20, 10, 30),
             },
             {
               groupId: 'group-2',
               groupName: '旅行準備リスト',
               inviterName: '佐藤さん',
-              createdAt: '2026-02-21 08:15',
+              createdAt: Date.UTC(2026, 1, 20, 23, 15),
             },
           ],
         },
@@ -54,6 +54,14 @@ describe('InvitationsPage', () => {
     expect(screen.getByText('旅行準備リスト')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: '承認' })).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: '拒否' })).toHaveLength(2);
+  });
+
+  it('招待日時を JST の年/月/日 時:分で表示する', async () => {
+    render(<InvitationsPage />);
+
+    expect(await screen.findByText('招待日時: 2026/02/20 19:30')).toBeInTheDocument();
+    // UTC では 2/20 のうちでも、JST では翌日になる
+    expect(screen.getByText('招待日時: 2026/02/21 08:15')).toBeInTheDocument();
   });
 
   it('承認ボタンをクリックすると招待が削除される', async () => {

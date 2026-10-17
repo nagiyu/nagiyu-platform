@@ -86,7 +86,7 @@ export async function DELETE() {
 
   try {
     const repo = createNiconicoCredentialRepository();
-    await repo.delete(session.user.id);
+    await repo.deleteIfExists(session.user.id);
 
     return NextResponse.json({ success: true });
   } catch (error) {

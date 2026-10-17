@@ -304,23 +304,18 @@ Cookie 名・domain の環境ごとの値は [4.3 のクッキー設定](#43-セ
 
 #### 属性
 
-| 属性名 | 型 | 必須 | 説明 |
-|--------|---|------|------|
-| userId | String | ✅ | プラットフォーム共通ユーザーID (UUID v4) |
-| googleId | String | ✅ | Google OAuth ID (sub claim) |
-| email | String | ✅ | メールアドレス |
-| name | String | ✅ | 表示名 |
-| roles | String[] | ✅ | ロールID配列 (例: ["admin", "user-manager"]) |
-| createdAt | String | ✅ | 作成日時 (ISO 8601) |
-| updatedAt | String | ✅ | 更新日時 (ISO 8601) |
-| lastLoginAt | String | - | 最終ログイン日時 (ISO 8601) |
+属性の名前と形式は、プラットフォーム共通の標準 ([データアクセス層](../../development/data-access-layer.md)) に従う。
+
+- **キー属性は camelCase のまま据え置く**: テーブルのキー `userId` と GSI のキー `googleId` は、名前を変えるとテーブルの作り直しとデータの移し替えが要るため、標準の PascalCase に揃えない。
+- **それ以外は PascalCase**: メールアドレス・表示名・プロフィール画像・ロール・各時刻を保存する。
+- **時刻は数値のミリ秒**: 作成・更新・最終ログインの日時をエポックミリ秒で持つ。API の応答も同じ形にする。
+- **旧形式も読める**: 以前の形式 (camelCase の属性名、ISO 8601 文字列の時刻) で書かれたユーザーも読める。更新で書き込むと、触った属性から新形式に置き換わる。
 
 #### 設計方針
 
 - **Single Table Design**: 将来的に拡張可能
 - **GSI による高速検索**: googleId → userId の変換
 - **ロール配列**: 複数ロール対応 (例: `["admin", "user-manager"]`)
-- **ISO 8601 日時**: タイムゾーン非依存、ソート可能
 
 ### 5.2 ユーザーライフサイクル
 
@@ -352,7 +347,7 @@ JWT 発行 (roles: [])
 API Route: PUT /api/users/{userId}
     ↓
 DynamoDB UpdateItem
-    - name, roles, updatedAt を更新
+    - 変更した項目と更新日時だけを書く (読んでから全体を書き直さない)
     ↓
 次回ログイン時に新しい roles が JWT に反映
 ```

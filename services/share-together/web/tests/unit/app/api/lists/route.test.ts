@@ -110,8 +110,8 @@ describe('/api/lists route handlers', () => {
         userId: 'user-1',
         name: 'デフォルトリスト',
         isDefault: true,
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       },
     ]);
 
@@ -127,8 +127,8 @@ describe('/api/lists route handlers', () => {
             userId: 'user-1',
             name: 'デフォルトリスト',
             isDefault: true,
-            createdAt: '2026-01-01T00:00:00.000Z',
-            updatedAt: '2026-01-01T00:00:00.000Z',
+            createdAt: 1767225600000,
+            updatedAt: 1767225600000,
           },
         ],
       },
@@ -146,8 +146,8 @@ describe('/api/lists route handlers', () => {
       userId: 'user-1',
       name: '買い物',
       isDefault: false,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     const response = await POST(createRequest({ name: '買い物' }));
@@ -160,8 +160,8 @@ describe('/api/lists route handlers', () => {
         userId: 'user-1',
         name: '買い物',
         isDefault: false,
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       },
     });
   });

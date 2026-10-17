@@ -148,9 +148,9 @@
     - 出力コーデック
     - ファイル名
     - ファイルサイズ
-    - 作成日時（Unix timestamp）
-    - 更新日時（Unix timestamp）
-    - 有効期限（Unix timestamp、作成日時 + 24時間）
+    - 作成日時（Unix timestamp ミリ秒）
+    - 更新日時（Unix timestamp ミリ秒）
+    - 有効期限（作成日時 + 24時間。TTL 属性にはエポック秒で保存する）
     - エラーメッセージ（FAILED時のみ）
 
 - **TTL設定**: ジョブ作成から24時間後に自動削除

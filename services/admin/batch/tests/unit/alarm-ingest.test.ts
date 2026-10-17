@@ -62,7 +62,7 @@ describe('buildErrorEventFromSns', () => {
     expect(event!.message).toBe('Threshold Crossed: 0.6 > 0.05');
     expect(event!.context).toBe(record.Sns.Message);
     expect(event!.eventId).toBeTruthy();
-    expect(event!.occurredAt).toBe('2026-05-06T01:32:11.123Z');
+    expect(event!.occurredAt).toBe(Date.parse('2026-05-06T01:32:11.123Z'));
   });
 
   it('OK 遷移は null を返す', () => {
@@ -106,7 +106,7 @@ describe('buildErrorEventFromSns', () => {
       NewStateReason: 'reason',
     });
     const event = buildErrorEventFromSns(record);
-    expect(event!.occurredAt).toBe('2026-05-06T01:00:00.000Z');
+    expect(event!.occurredAt).toBe(Date.parse('2026-05-06T01:00:00.000Z'));
   });
 
   describe('AWS Batch Job State Change イベント', () => {
@@ -149,7 +149,7 @@ describe('buildErrorEventFromSns', () => {
       expect(event!.message).toBe('Job attempt duration exceeded timeout');
       expect(event!.context).toBe(record.Sns.Message);
       expect(event!.eventId).toBeTruthy();
-      expect(event!.occurredAt).toBe('2026-07-03T13:19:38.000Z');
+      expect(event!.occurredAt).toBe(Date.parse('2026-07-03T13:19:38.000Z'));
     });
 
     it('status=SUCCEEDED の Batch イベントは null を返す', () => {
@@ -169,7 +169,7 @@ describe('buildErrorEventFromSns', () => {
 
       const event = buildErrorEventFromSns(record);
 
-      expect(event!.occurredAt).toBe('2026-05-06T01:00:00.000Z');
+      expect(event!.occurredAt).toBe(Date.parse('2026-05-06T01:00:00.000Z'));
     });
 
     it('jobName が無いときは serviceId が unknown になり例外を投げない', () => {

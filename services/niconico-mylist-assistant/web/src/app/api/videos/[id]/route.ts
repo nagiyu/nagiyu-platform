@@ -48,15 +48,15 @@ export const GET = withGetErrorReporting(
       title: basicInfo.title,
       thumbnailUrl: basicInfo.thumbnailUrl,
       length: basicInfo.length,
-      createdAt: setting?.CreatedAt ?? basicInfo.CreatedAt,
+      createdAt: setting?.createdAt ?? basicInfo.createdAt,
       userSetting: setting
         ? {
             videoId: setting.videoId,
             isFavorite: setting.isFavorite,
             isSkip: setting.isSkip,
             memo: setting.memo,
-            createdAt: setting.CreatedAt,
-            updatedAt: setting.UpdatedAt,
+            createdAt: setting.createdAt,
+            updatedAt: setting.updatedAt,
           }
         : undefined,
     };

@@ -247,25 +247,14 @@ API仕様の詳細については、[api-spec.md](./api-spec.md) を参照して
 
 **主キー**: `jobId` (String)
 
-**属性**:
+保存形式はプラットフォームのデータアクセス層の標準に従う。
 
-```typescript
-{
-    jobId: string;              // UUID v4
-    status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
-    inputFile: string;          // S3キー: uploads/{jobId}/input.mp4
-    outputFile?: string;        // S3キー: outputs/{jobId}/output.{ext}
-    outputCodec: "h264" | "vp9" | "av1";
-    fileName: string;           // 元ファイル名
-    fileSize: number;           // バイト
-    createdAt: number;          // Unix timestamp (秒)
-    updatedAt: number;          // Unix timestamp (秒)
-    expiresAt: number;          // Unix timestamp (秒), TTL用
-    errorMessage?: string;      // FAILED時のエラー内容
-}
-```
+- 主キーの `jobId` だけは camelCase のまま据え置く。キー属性の名前は、テーブルを作り直さないと変えられないため。
+- ほかの属性は PascalCase で保存する (`Status`、`InputFile`、`CreatedAt` など)。
+- 時刻は数値のミリ秒で保存する。TTL だけは DynamoDB の仕様に従い、エポック秒で `TTL` 属性に保存する。
+- 以前の形式 (camelCase の属性名・エポック秒の時刻・TTL 属性 `expiresAt`) のアイテムも読める。書き込むたびに、書いた項目から新しい形式に置き換わる。
 
-**TTL設定**: `expiresAt` フィールド（ジョブ作成時に `createdAt + 86400` をセット）
+**TTL設定**: `TTL` 属性 (ジョブ作成から 24 時間後)
 
 ### S3バケット: `codec-converter-storage-{env}`
 
@@ -912,7 +901,7 @@ Lambda関数は以前のバージョンへ即座にロールバック可能:
 
 **削除タイミングの詳細**:
 
-- ジョブ作成時に `expiresAt = createdAt + 86400` を設定
+- ジョブ作成時に、作成から 24 時間後を `TTL` 属性に設定
 - DynamoDB TTLは遅延する可能性があるが、ユーザー影響は軽微（ダウンロード期限は別途Presigned URLの有効期限で制御）
 
 ### コスト管理

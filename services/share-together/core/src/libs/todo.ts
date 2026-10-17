@@ -1,3 +1,4 @@
+import { EntityNotFoundError } from '@nagiyu/aws';
 import type { TodoRepository } from '../repositories/todo/todo-repository.interface.js';
 import type { TodoItem, UpdateTodoItemInput } from '../types/index.js';
 
@@ -9,8 +10,6 @@ const ERROR_MESSAGES = {
   UPDATE_FIELDS_REQUIRED: '更新するフィールドが指定されていません',
   TODO_NOT_FOUND: 'ToDoが見つかりません',
 } as const;
-
-const TODO_NOT_FOUND_MESSAGES = new Set(['ToDoが見つかりません', '指定されたToDoは存在しません']);
 
 export interface UpdateTodoInput {
   title?: string;
@@ -65,7 +64,7 @@ export class TodoService {
     }
     if (hasCompletedUpdate) {
       repositoryUpdates.isCompleted = updates.isCompleted;
-      repositoryUpdates.completedBy = updates.isCompleted ? userId : undefined;
+      repositoryUpdates.completedBy = updates.isCompleted ? userId : null;
     }
 
     try {
@@ -103,7 +102,7 @@ export class TodoService {
   }
 
   private rethrowTodoNotFoundError(error: unknown): void {
-    if (error instanceof Error && TODO_NOT_FOUND_MESSAGES.has(error.message)) {
+    if (error instanceof EntityNotFoundError) {
       throw new Error(ERROR_MESSAGES.TODO_NOT_FOUND);
     }
   }

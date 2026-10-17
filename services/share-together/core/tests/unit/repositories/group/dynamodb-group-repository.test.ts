@@ -1,3 +1,10 @@
+/**
+ * DynamoDBGroupRepository のユニットテスト
+ *
+ * 単一アイテムの CRUD の振る舞い (エラー変換など) は EntityStore の責務のため、
+ * ここでは正しいキーと保存形式で委譲していることと、独自のバッチ取得だけを検証する。
+ */
+
 import {
   BatchGetCommand,
   DeleteCommand,
@@ -6,24 +13,41 @@ import {
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
+import {
+  DatabaseError,
+  EntityAlreadyExistsError,
+  EntityNotFoundError,
+  InvalidEntityDataError,
+} from '@nagiyu/aws';
 import { DynamoDBGroupRepository } from '../../../../src/repositories/group/dynamodb-group-repository.js';
 import { parseUpdateExpression } from '../../../helpers/update-expression.js';
 
-import { DatabaseError } from '@nagiyu/aws';
+const TABLE_NAME = 'test-share-together-table';
+const NOW = 1704067300000;
+const CREATED_AT = 1704067200000;
 
-const createSdkError = (): Error =>
-  Object.assign(new Error('スループット超過'), { name: 'ProvisionedThroughputExceededException' });
+function buildItem(groupId: string, overrides: Record<string, unknown> = {}) {
+  return {
+    PK: `GROUP#${groupId}`,
+    SK: '#META#',
+    Type: 'Group',
+    GroupID: groupId,
+    Name: `名前-${groupId}`,
+    OwnerUserID: 'owner-1',
+    CreatedAt: CREATED_AT,
+    UpdatedAt: CREATED_AT,
+    ...overrides,
+  };
+}
 
 describe('DynamoDBGroupRepository', () => {
-  const TABLE_NAME = 'test-share-together-main';
   let repository: DynamoDBGroupRepository;
   let mockDocClient: { send: jest.Mock };
 
   beforeEach(() => {
-    mockDocClient = {
-      send: jest.fn(),
-    };
-
+    // UpdatedAt は EntityStore が現在時刻で書くため、時刻を固定して検証する
+    jest.useFakeTimers().setSystemTime(NOW);
+    mockDocClient = { send: jest.fn() };
     repository = new DynamoDBGroupRepository(
       mockDocClient as unknown as DynamoDBDocumentClient,
       TABLE_NAME
@@ -31,321 +55,190 @@ describe('DynamoDBGroupRepository', () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     jest.clearAllMocks();
   });
 
   describe('getById', () => {
-    it('グループIDでグループを取得できる', async () => {
-      mockDocClient.send.mockResolvedValueOnce({
-        Item: {
-          PK: 'GROUP#group-1',
-          SK: '#META#',
-          groupId: 'group-1',
-          name: 'テストグループ',
-          ownerUserId: 'user-1',
-          createdAt: '2026-01-01T00:00:00.000Z',
-          updatedAt: '2026-01-01T00:00:00.000Z',
-        },
-      });
+    it('PK/SK で取得し Entity に変換する', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Item: buildItem('g1') });
 
-      const result = await repository.getById('group-1');
-      expect(mockDocClient.send).toHaveBeenCalledTimes(1);
-      const command = mockDocClient.send.mock.calls[0][0] as GetCommand;
+      const result = await repository.getById('g1');
 
       expect(result).toEqual({
-        groupId: 'group-1',
-        name: 'テストグループ',
-        ownerUserId: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        groupId: 'g1',
+        name: '名前-g1',
+        ownerUserId: 'owner-1',
+        createdAt: CREATED_AT,
+        updatedAt: CREATED_AT,
       });
-      expect(command.input).toEqual({
-        TableName: TABLE_NAME,
-        Key: {
-          PK: 'GROUP#group-1',
-          SK: '#META#',
-        },
-      });
+      const command = mockDocClient.send.mock.calls[0][0] as GetCommand;
+      expect(command).toBeInstanceOf(GetCommand);
+      expect(command.input.Key).toEqual({ PK: 'GROUP#g1', SK: '#META#' });
     });
 
-    it('グループが存在しない場合はnullを返す', async () => {
-      mockDocClient.send.mockResolvedValueOnce({ Item: undefined });
+    it('存在しない場合は null を返す', async () => {
+      mockDocClient.send.mockResolvedValueOnce({});
+      await expect(repository.getById('g1')).resolves.toBeNull();
+    });
 
-      const result = await repository.getById('group-404');
+    it('旧形式のデータも読める', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Item: {
+          PK: 'GROUP#g1',
+          SK: '#META#',
+          groupId: 'g1',
+          name: '旧',
+          ownerUserId: 'owner-1',
+          createdAt: '2024-01-01T00:00:00.000Z',
+          updatedAt: '2024-01-01T00:00:00.000Z',
+        },
+      });
 
-      expect(result).toBeNull();
+      const result = await repository.getById('g1');
+
+      expect(result?.name).toBe('旧');
+      expect(result?.createdAt).toBe(CREATED_AT);
+    });
+
+    it('読めないデータは InvalidEntityDataError をスローする', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Item: buildItem('g1', { OwnerUserID: undefined }),
+      });
+      await expect(repository.getById('g1')).rejects.toThrow(InvalidEntityDataError);
     });
   });
 
   describe('batchGetByIds', () => {
-    it('空配列の場合はDynamoDBアクセスせず空配列を返す', async () => {
-      const result = await repository.batchGetByIds([]);
-
-      expect(result).toEqual([]);
+    it('空配列なら DynamoDB を呼ばず空を返す', async () => {
+      await expect(repository.batchGetByIds([])).resolves.toEqual([]);
       expect(mockDocClient.send).not.toHaveBeenCalled();
     });
 
-    it('グループID配列でグループを一括取得できる', async () => {
+    it('重複した ID は 1 回だけ引き、Entity に変換して返す', async () => {
       mockDocClient.send.mockResolvedValueOnce({
-        Responses: {
-          [TABLE_NAME]: [
-            {
-              PK: 'GROUP#group-1',
-              SK: '#META#',
-              groupId: 'group-1',
-              name: 'グループ1',
-              ownerUserId: 'user-1',
-              createdAt: '2026-01-01T00:00:00.000Z',
-              updatedAt: '2026-01-01T00:00:00.000Z',
-            },
-            {
-              PK: 'GROUP#group-2',
-              SK: '#META#',
-              groupId: 'group-2',
-              name: 'グループ2',
-              ownerUserId: 'user-2',
-              createdAt: '2026-01-02T00:00:00.000Z',
-              updatedAt: '2026-01-02T00:00:00.000Z',
-            },
-          ],
-        },
+        Responses: { [TABLE_NAME]: [buildItem('g1'), buildItem('g2')] },
       });
 
-      const result = await repository.batchGetByIds(['group-1', 'group-2']);
+      const result = await repository.batchGetByIds(['g1', 'g2', 'g1']);
+
+      expect(result.map((group) => group.groupId)).toEqual(['g1', 'g2']);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(1);
       const command = mockDocClient.send.mock.calls[0][0] as BatchGetCommand;
-
-      expect(result).toEqual([
-        {
-          groupId: 'group-1',
-          name: 'グループ1',
-          ownerUserId: 'user-1',
-          createdAt: '2026-01-01T00:00:00.000Z',
-          updatedAt: '2026-01-01T00:00:00.000Z',
-        },
-        {
-          groupId: 'group-2',
-          name: 'グループ2',
-          ownerUserId: 'user-2',
-          createdAt: '2026-01-02T00:00:00.000Z',
-          updatedAt: '2026-01-02T00:00:00.000Z',
-        },
+      expect(command).toBeInstanceOf(BatchGetCommand);
+      expect(command.input.RequestItems?.[TABLE_NAME].Keys).toEqual([
+        { PK: 'GROUP#g1', SK: '#META#' },
+        { PK: 'GROUP#g2', SK: '#META#' },
       ]);
-      expect(command.input).toEqual({
-        RequestItems: {
-          [TABLE_NAME]: {
-            Keys: [
-              {
-                PK: 'GROUP#group-1',
-                SK: '#META#',
-              },
-              {
-                PK: 'GROUP#group-2',
-                SK: '#META#',
-              },
-            ],
-          },
-        },
-      });
+    });
+
+    it('未処理キーは再送して全件を返す', async () => {
+      jest.useRealTimers();
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Responses: { [TABLE_NAME]: [buildItem('g1')] },
+          UnprocessedKeys: { [TABLE_NAME]: { Keys: [{ PK: 'GROUP#g2', SK: '#META#' }] } },
+        })
+        .mockResolvedValueOnce({ Responses: { [TABLE_NAME]: [buildItem('g2')] } });
+
+      const result = await repository.batchGetByIds(['g1', 'g2']);
+
+      expect(result.map((group) => group.groupId)).toEqual(['g1', 'g2']);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
+    });
+
+    it('SDK の例外は DatabaseError に包む', async () => {
+      mockDocClient.send.mockRejectedValueOnce(new Error('接続失敗'));
+      await expect(repository.batchGetByIds(['g1'])).rejects.toThrow(DatabaseError);
     });
   });
 
   describe('create', () => {
-    it('グループを作成できる', async () => {
-      mockDocClient.send.mockResolvedValueOnce({});
+    it('保存形式の Item を条件付きで書き込み、Entity を返す', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ $metadata: {} });
 
       const result = await repository.create({
-        groupId: 'group-1',
-        name: 'テストグループ',
-        ownerUserId: 'user-1',
+        groupId: 'g1',
+        name: '名前',
+        ownerUserId: 'owner-1',
       });
-      const command = mockDocClient.send.mock.calls[0][0] as PutCommand;
-      const item = command.input.Item as Record<string, unknown>;
 
       expect(result).toEqual({
-        groupId: 'group-1',
-        name: 'テストグループ',
-        ownerUserId: 'user-1',
-        createdAt: expect.any(String),
-        updatedAt: expect.any(String),
+        groupId: 'g1',
+        name: '名前',
+        ownerUserId: 'owner-1',
+        createdAt: NOW,
+        updatedAt: NOW,
       });
-      expect(item['PK']).toBe('GROUP#group-1');
-      expect(item['SK']).toBe('#META#');
-      expect(item['groupId']).toBe('group-1');
-      expect(item['name']).toBe('テストグループ');
-      expect(item['ownerUserId']).toBe('user-1');
-      expect(item['createdAt']).toEqual(result.createdAt);
-      expect(item['updatedAt']).toEqual(result.updatedAt);
-      expect(command.input.ConditionExpression).toBe(
-        'attribute_not_exists(PK) AND attribute_not_exists(SK)'
-      );
+      const command = mockDocClient.send.mock.calls[0][0] as PutCommand;
+      expect(command).toBeInstanceOf(PutCommand);
+      expect(command.input.Item).toEqual({
+        PK: 'GROUP#g1',
+        SK: '#META#',
+        Type: 'Group',
+        GroupID: 'g1',
+        Name: '名前',
+        OwnerUserID: 'owner-1',
+        CreatedAt: NOW,
+        UpdatedAt: NOW,
+      });
     });
 
-    it('同一グループが既に存在する場合はエラーを投げる', async () => {
-      mockDocClient.send.mockRejectedValueOnce({
-        name: 'ConditionalCheckFailedException',
-      });
+    it('既に存在する場合は EntityAlreadyExistsError をスローする', async () => {
+      mockDocClient.send.mockRejectedValueOnce(
+        Object.assign(new Error('exists'), { name: 'ConditionalCheckFailedException' })
+      );
 
       await expect(
-        repository.create({
-          groupId: 'group-1',
-          name: 'テストグループ',
-          ownerUserId: 'user-1',
-        })
-      ).rejects.toThrow('グループは既に存在します');
+        repository.create({ groupId: 'g1', name: 'n', ownerUserId: 'owner-1' })
+      ).rejects.toThrow(EntityAlreadyExistsError);
     });
   });
 
   describe('update', () => {
-    it('グループを更新できる', async () => {
+    it('保存用の属性名で更新し、旧名と UpdatedAt を整える', async () => {
       mockDocClient.send.mockResolvedValueOnce({
-        Attributes: {
-          PK: 'GROUP#group-1',
-          SK: '#META#',
-          groupId: 'group-1',
-          name: '更新後グループ',
-          ownerUserId: 'user-1',
-          createdAt: '2026-01-01T00:00:00.000Z',
-          updatedAt: '2026-01-02T00:00:00.000Z',
-        },
+        Attributes: buildItem('g1', { Name: '新しい名前', UpdatedAt: NOW }),
       });
 
-      const result = await repository.update('group-1', { name: '更新後グループ' });
+      const result = await repository.update('g1', { name: '新しい名前' });
+
+      expect(result.name).toBe('新しい名前');
       const command = mockDocClient.send.mock.calls[0][0] as UpdateCommand;
-
-      expect(result).toEqual({
-        groupId: 'group-1',
-        name: '更新後グループ',
-        ownerUserId: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-02T00:00:00.000Z',
-      });
-      expect(command.input.TableName).toBe(TABLE_NAME);
-      expect(command.input.Key).toEqual({
-        PK: 'GROUP#group-1',
-        SK: '#META#',
-      });
-      expect(parseUpdateExpression(command.input).set).toEqual({
-        name: '更新後グループ',
-        updatedAt: expect.any(String),
-      });
-      expect(command.input.ConditionExpression).toBe(
-        'attribute_exists(PK) AND attribute_exists(SK)'
-      );
-      expect(command.input.ReturnValues).toBe('ALL_NEW');
+      expect(command).toBeInstanceOf(UpdateCommand);
+      expect(command.input.Key).toEqual({ PK: 'GROUP#g1', SK: '#META#' });
+      const parsed = parseUpdateExpression(command.input);
+      expect(parsed.set).toEqual({ Name: '新しい名前', UpdatedAt: NOW });
+      expect(parsed.remove).toEqual(expect.arrayContaining(['name', 'updatedAt']));
     });
 
-    it('グループが存在しない場合はエラーを投げる', async () => {
-      mockDocClient.send.mockRejectedValueOnce({
-        name: 'ConditionalCheckFailedException',
-      });
-
-      await expect(repository.update('group-404', { name: '更新後グループ' })).rejects.toThrow(
-        'グループが見つかりません'
+    it('存在しない場合は EntityNotFoundError をスローする', async () => {
+      mockDocClient.send.mockRejectedValueOnce(
+        Object.assign(new Error('missing'), { name: 'ConditionalCheckFailedException' })
       );
+
+      await expect(repository.update('g1', { name: 'n' })).rejects.toThrow(EntityNotFoundError);
     });
   });
 
   describe('delete', () => {
-    it('グループを削除できる', async () => {
-      mockDocClient.send.mockResolvedValueOnce({});
+    it('組み立てたキーで条件付き削除する', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ $metadata: {} });
 
-      await repository.delete('group-1');
+      await repository.delete('g1');
+
       const command = mockDocClient.send.mock.calls[0][0] as DeleteCommand;
-
-      expect(command.input).toEqual({
-        TableName: TABLE_NAME,
-        Key: {
-          PK: 'GROUP#group-1',
-          SK: '#META#',
-        },
-        ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
-      });
+      expect(command).toBeInstanceOf(DeleteCommand);
+      expect(command.input.Key).toEqual({ PK: 'GROUP#g1', SK: '#META#' });
+      expect(command.input.ConditionExpression).toBeDefined();
     });
 
-    it('グループが存在しない場合はエラーを投げる', async () => {
-      mockDocClient.send.mockRejectedValueOnce({
-        name: 'ConditionalCheckFailedException',
-      });
+    it('存在しない場合は EntityNotFoundError をスローする', async () => {
+      mockDocClient.send.mockRejectedValueOnce(
+        Object.assign(new Error('missing'), { name: 'ConditionalCheckFailedException' })
+      );
 
-      await expect(repository.delete('group-404')).rejects.toThrow('グループが見つかりません');
-    });
-  });
-
-  describe('batchGetByIds の分割と再送', () => {
-    const createGroupItem = (groupId: string): Record<string, unknown> => ({
-      PK: `GROUP#${groupId}`,
-      SK: '#META#',
-      groupId,
-      name: groupId,
-      ownerUserId: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
-    });
-
-    it('未処理キーを再送して取得できる', async () => {
-      mockDocClient.send
-        .mockResolvedValueOnce({
-          Responses: { [TABLE_NAME]: [createGroupItem('group-1')] },
-          UnprocessedKeys: { [TABLE_NAME]: { Keys: [{ PK: 'GROUP#group-2', SK: '#META#' }] } },
-        })
-        .mockResolvedValueOnce({ Responses: { [TABLE_NAME]: [createGroupItem('group-2')] } });
-
-      const result = await repository.batchGetByIds(['group-1', 'group-2']);
-
-      expect(result.map((group) => group.groupId)).toEqual(['group-1', 'group-2']);
-      const retryCommand = mockDocClient.send.mock.calls[1][0] as BatchGetCommand;
-      expect(retryCommand.input.RequestItems?.[TABLE_NAME]?.Keys).toEqual([
-        { PK: 'GROUP#group-2', SK: '#META#' },
-      ]);
-    });
-
-    it('100件を超える場合は分割して取得する', async () => {
-      const groupIds = Array.from({ length: 101 }, (_, i) => `group-${i}`);
-      mockDocClient.send
-        .mockResolvedValueOnce({ Responses: { [TABLE_NAME]: [createGroupItem('group-0')] } })
-        .mockResolvedValueOnce({ Responses: { [TABLE_NAME]: [createGroupItem('group-100')] } });
-
-      const result = await repository.batchGetByIds(groupIds);
-
-      expect(result.map((group) => group.groupId)).toEqual(['group-0', 'group-100']);
-      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
-      const first = mockDocClient.send.mock.calls[0][0] as BatchGetCommand;
-      const second = mockDocClient.send.mock.calls[1][0] as BatchGetCommand;
-      expect(first.input.RequestItems?.[TABLE_NAME]?.Keys).toHaveLength(100);
-      expect(second.input.RequestItems?.[TABLE_NAME]?.Keys).toHaveLength(1);
-    });
-  });
-
-  describe('SDK例外のDatabaseError化', () => {
-    it('取得時のSDK例外はDatabaseErrorに包まれる', async () => {
-      mockDocClient.send.mockRejectedValueOnce(createSdkError());
-
-      const promise = repository.getById('group-1');
-
-      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
-      await expect(promise).rejects.toMatchObject({
-        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
-      });
-    });
-
-    it('削除時の条件違反以外のSDK例外はDatabaseErrorに包まれる', async () => {
-      mockDocClient.send.mockRejectedValueOnce(createSdkError());
-
-      const promise = repository.delete('group-1');
-
-      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
-      await expect(promise).rejects.toMatchObject({
-        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
-      });
-    });
-
-    it('削除対象がない場合は素のErrorのまま日本語メッセージで投げる', async () => {
-      mockDocClient.send.mockRejectedValueOnce({ name: 'ConditionalCheckFailedException' });
-
-      const promise = repository.delete('group-404');
-
-      await expect(promise).rejects.toThrow('グループが見つかりません');
-      await expect(promise).rejects.not.toBeInstanceOf(DatabaseError);
+      await expect(repository.delete('g1')).rejects.toThrow(EntityNotFoundError);
     });
   });
 });

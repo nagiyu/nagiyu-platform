@@ -141,8 +141,8 @@ describe('/api/lists/[listId]/todos route handlers', () => {
       userId: 'user-1',
       name: '個人リスト',
       isDefault: true,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockGetTodosByListId.mockResolvedValue([
       {
@@ -151,8 +151,8 @@ describe('/api/lists/[listId]/todos route handlers', () => {
         title: '牛乳を買う',
         isCompleted: false,
         createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       },
     ]);
 
@@ -170,8 +170,8 @@ describe('/api/lists/[listId]/todos route handlers', () => {
             title: '牛乳を買う',
             isCompleted: false,
             createdBy: 'user-1',
-            createdAt: '2026-01-01T00:00:00.000Z',
-            updatedAt: '2026-01-01T00:00:00.000Z',
+            createdAt: 1767225600000,
+            updatedAt: 1767225600000,
           },
         ],
       },
@@ -208,8 +208,8 @@ describe('/api/lists/[listId]/todos route handlers', () => {
       userId: 'user-1',
       name: '個人リスト',
       isDefault: true,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockCreateTodo.mockResolvedValue({
       todoId: 'todo-2',
@@ -217,8 +217,8 @@ describe('/api/lists/[listId]/todos route handlers', () => {
       title: '卵を買う',
       isCompleted: false,
       createdBy: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     const response = await POST(createRequest({ title: '卵を買う' }), createContext('list-1'));
@@ -233,8 +233,8 @@ describe('/api/lists/[listId]/todos route handlers', () => {
         title: '卵を買う',
         isCompleted: false,
         createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       },
     });
   });

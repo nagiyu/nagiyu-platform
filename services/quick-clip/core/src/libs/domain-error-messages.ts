@@ -11,5 +11,4 @@ export const DOMAIN_ERROR_MESSAGES = {
   SECOND_VALUE_INVALID: '開始時刻と終了時刻は0以上で指定してください',
   RANGE_INVALID: '開始時刻は終了時刻より小さくしてください',
   HIGHLIGHT_NOT_FOUND: '見どころが見つかりません',
-  HIGHLIGHT_UPDATED_FETCH_FAILED: '見どころの更新後の取得に失敗しました',
 } as const;

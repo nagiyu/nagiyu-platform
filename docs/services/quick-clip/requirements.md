@@ -195,7 +195,7 @@ AWS サービスの可用性に依存する。個別の稼働率・RTO・RPO 目
 
 ### 3.5 その他の非機能要件
 
-- **ファイル保持期間**: アップロードファイル・生成クリップともに1日（S3 Lifecycle Policy および DynamoDB TTL で自動削除）。Highlight レコードにも Job の `expiresAt` と同値の TTL を設定し、Job と同じタイミングで自動削除される
+- **ファイル保持期間**: アップロードファイル・生成クリップともに1日（S3 Lifecycle Policy および DynamoDB TTL で自動削除）。Highlight レコードにも Job と同じ期限の TTL を設定し、Job と同じタイミングで自動削除される
 - **文字起こしデータの保持**: 文字起こしを実施したジョブでは、結果を `outputs/{jobId}/transcript.json` として S3 に保存し、見どころ画面表示・ZIP 同梱に再利用する。保持期間は生成クリップと同じ1日
 - **対応ブラウザ**: Chrome・Edge（最新版）
 - **対応デバイス**: PC（デスクトップ）のみ。スマートフォン対応・PWA 対応は行わない（codec-converter と同方針）
