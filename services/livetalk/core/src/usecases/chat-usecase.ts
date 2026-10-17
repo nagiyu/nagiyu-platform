@@ -380,15 +380,14 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
               classification.normalizedTopic
             );
             if (!existingTopic) {
-              const ttlUnixSec = Math.floor(Date.now() / 1000) + STUDY_TOPIC_TTL_SECONDS;
               await studyTopicRepository.put({
-                UserID: userId,
-                CharacterID: characterId,
-                TopicID: ulidFactory(),
-                Topic: classification.normalizedTopic,
-                Priority: STUDY_TOPIC_GATE_PRIORITY,
-                Status: 'pending',
-                Ttl: ttlUnixSec,
+                userId,
+                characterId,
+                topicId: ulidFactory(),
+                topic: classification.normalizedTopic,
+                priority: STUDY_TOPIC_GATE_PRIORITY,
+                status: 'pending',
+                expiresAt: Date.now() + STUDY_TOPIC_TTL_SECONDS * 1000,
               });
             }
           } catch (err) {

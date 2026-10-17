@@ -79,16 +79,16 @@ describe('lib/server/repositories', () => {
     mod.resetRepositoriesForTesting();
     const repo = mod.getStudyTopicRepository();
     await repo.put({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'tp1',
-      Topic: 'モンスターハンター',
-      Priority: 10,
-      Status: 'pending',
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'tp1',
+      topic: 'モンスターハンター',
+      priority: 10,
+      status: 'pending',
     });
     const pending = await repo.listByStatus('u1', 'hiyori', 'pending');
     expect(pending).toHaveLength(1);
-    expect(pending[0].Topic).toBe('モンスターハンター');
+    expect(pending[0].topic).toBe('モンスターハンター');
     mod.resetRepositoriesForTesting();
   });
 

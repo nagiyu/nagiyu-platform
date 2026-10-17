@@ -42,15 +42,16 @@ const validSession = {
 /** 通知イベントエンティティのファクトリ */
 function makeEvent(overrides: Partial<NotificationEventEntity> = {}): NotificationEventEntity {
   return {
-    UserID: 'u1',
-    NotifID: 'n1',
-    CharacterID: 'hiyori',
-    Kind: 'normal',
-    Title: 'ひよりより',
-    Body: 'テスト本文',
-    ConsumedAt: undefined,
-    CreatedAt: Date.now(),
-    Ttl: Date.now() + 30 * 24 * 60 * 60 * 1000,
+    userId: 'u1',
+    notifId: 'n1',
+    characterId: 'hiyori',
+    kind: 'normal',
+    title: 'ひよりより',
+    body: 'テスト本文',
+    consumedAt: undefined,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
     ...overrides,
   };
 }
@@ -92,14 +93,14 @@ describe('GET /api/push/first-word', () => {
   it('指定キャラクターの未消化最新通知を返す（characterId フィルタ）', async () => {
     mockGetSession.mockResolvedValue(validSession);
     const hiyoriEvent = makeEvent({
-      NotifID: 'n-hiyori',
-      CharacterID: 'hiyori',
-      Body: 'ひよりの本文',
+      notifId: 'n-hiyori',
+      characterId: 'hiyori',
+      body: 'ひよりの本文',
     });
     const agehaEvent = makeEvent({
-      NotifID: 'n-ageha',
-      CharacterID: 'ageha',
-      Body: 'アゲハの本文',
+      notifId: 'n-ageha',
+      characterId: 'ageha',
+      body: 'アゲハの本文',
     });
     // listByUser は降順で返すため、最初が最新
     mockGetNotificationEventRepo.mockReturnValue(makeRepo([hiyoriEvent, agehaEvent]));
@@ -118,9 +119,9 @@ describe('GET /api/push/first-word', () => {
   it('他キャラクター(ageha)のみ未消化の場合、hiyori を指定すると 204 を返す', async () => {
     mockGetSession.mockResolvedValue(validSession);
     const agehaEvent = makeEvent({
-      NotifID: 'n-ageha',
-      CharacterID: 'ageha',
-      Body: 'アゲハの本文',
+      notifId: 'n-ageha',
+      characterId: 'ageha',
+      body: 'アゲハの本文',
     });
     mockGetNotificationEventRepo.mockReturnValue(makeRepo([agehaEvent]));
 
@@ -131,8 +132,8 @@ describe('GET /api/push/first-word', () => {
   it('全通知が消化済みの場合は 204 を返す', async () => {
     mockGetSession.mockResolvedValue(validSession);
     const consumedEvent = makeEvent({
-      CharacterID: 'hiyori',
-      ConsumedAt: Date.now() - 1000,
+      characterId: 'hiyori',
+      consumedAt: Date.now() - 1000,
     });
     mockGetNotificationEventRepo.mockReturnValue(makeRepo([consumedEvent]));
 
@@ -152,14 +153,14 @@ describe('GET /api/push/first-word', () => {
     mockGetSession.mockResolvedValue(validSession);
     // 降順: 最新が先頭（消化済み）、次が未消化
     const consumedEvent = makeEvent({
-      NotifID: 'n-consumed',
-      CharacterID: 'hiyori',
-      ConsumedAt: Date.now() - 500,
+      notifId: 'n-consumed',
+      characterId: 'hiyori',
+      consumedAt: Date.now() - 500,
     });
     const unconsumedEvent = makeEvent({
-      NotifID: 'n-unconsumed',
-      CharacterID: 'hiyori',
-      Body: '未消化の本文',
+      notifId: 'n-unconsumed',
+      characterId: 'hiyori',
+      body: '未消化の本文',
     });
     mockGetNotificationEventRepo.mockReturnValue(makeRepo([consumedEvent, unconsumedEvent]));
 
@@ -174,9 +175,9 @@ describe('GET /api/push/first-word', () => {
   it('ageha 指定時は ageha の未消化通知を返す', async () => {
     mockGetSession.mockResolvedValue(validSession);
     const agehaEvent = makeEvent({
-      NotifID: 'n-ageha',
-      CharacterID: 'ageha',
-      Body: 'アゲハの本文',
+      notifId: 'n-ageha',
+      characterId: 'ageha',
+      body: 'アゲハの本文',
     });
     mockGetNotificationEventRepo.mockReturnValue(makeRepo([agehaEvent]));
 
@@ -188,11 +189,11 @@ describe('GET /api/push/first-word', () => {
   });
 
   describe('suggestedReply フィールド', () => {
-    it('SuggestedReply がある通知は suggestedReply を返す', async () => {
+    it('suggestedReply がある通知は suggestedReply を返す', async () => {
       mockGetSession.mockResolvedValue(validSession);
       const event = makeEvent({
-        CharacterID: 'hiyori',
-        SuggestedReply: 'TypeScriptについて教えて',
+        characterId: 'hiyori',
+        suggestedReply: 'TypeScriptについて教えて',
       });
       mockGetNotificationEventRepo.mockReturnValue(makeRepo([event]));
 
@@ -202,11 +203,11 @@ describe('GET /api/push/first-word', () => {
       expect(json.suggestedReply).toBe('TypeScriptについて教えて');
     });
 
-    it('SuggestedReply がない通知は suggestedReply が null を返す', async () => {
+    it('suggestedReply がない通知は suggestedReply が null を返す', async () => {
       mockGetSession.mockResolvedValue(validSession);
       const event = makeEvent({
-        CharacterID: 'hiyori',
-        // SuggestedReply は意図的に省略
+        characterId: 'hiyori',
+        // suggestedReply は意図的に省略
       });
       mockGetNotificationEventRepo.mockReturnValue(makeRepo([event]));
 
@@ -219,8 +220,8 @@ describe('GET /api/push/first-word', () => {
     it('汎用 suggestedReply（topic なし）でも正しく返す', async () => {
       mockGetSession.mockResolvedValue(validSession);
       const event = makeEvent({
-        CharacterID: 'hiyori',
-        SuggestedReply: '話したいことってなに？',
+        characterId: 'hiyori',
+        suggestedReply: '話したいことってなに？',
       });
       mockGetNotificationEventRepo.mockReturnValue(makeRepo([event]));
 

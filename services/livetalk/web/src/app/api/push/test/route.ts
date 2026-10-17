@@ -136,15 +136,14 @@ export const POST = withApiErrorReporting(
 
     // 1 件以上送信成功した場合、NotificationEvent を記録する（first-word/pending 検証のため）
     if (sentCount > 0) {
-      const ttl = Math.floor(Date.now() / 1000) + NOTIFICATION_EVENT_TTL_SECONDS;
       await getNotificationEventRepository().put({
-        UserID: userId,
-        NotifID: defaultUlidFactory(),
-        CharacterID: characterId,
-        Kind: 'normal',
-        Title: title,
-        Body: bodyText,
-        Ttl: ttl,
+        userId,
+        notifId: defaultUlidFactory(),
+        characterId,
+        kind: 'normal',
+        title,
+        body: bodyText,
+        expiresAt: Date.now() + NOTIFICATION_EVENT_TTL_SECONDS * 1000,
       });
 
       logger.info('[POST /api/push/test] テスト通知送信完了', {

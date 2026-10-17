@@ -1,4 +1,4 @@
-import { InMemorySingleTableStore } from '@nagiyu/aws';
+import { EntityNotFoundError, InMemorySingleTableStore } from '@nagiyu/aws';
 import {
   acquireForUser,
   shouldAcquireNow,
@@ -155,12 +155,12 @@ describe('acquireForUser', () => {
 
   it('依頼（StudyTopic pending）を消費し done に遷移する', async () => {
     const studyTopic = await studyTopicRepo.put({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'req-1',
-      Topic: '最新アニメ情報',
-      Priority: 10,
-      Status: 'pending',
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'req-1',
+      topic: '最新アニメ情報',
+      priority: 10,
+      status: 'pending',
     });
 
     const researchClient = makeResearchClient();
@@ -183,7 +183,7 @@ describe('acquireForUser', () => {
 
     const topics = await studyTopicRepo.listByStatus('u1', 'hiyori', 'done');
     expect(topics).toHaveLength(1);
-    expect(topics[0].TopicID).toBe('req-1');
+    expect(topics[0].topicId).toBe('req-1');
 
     const webraws = await webRawRepo.listSince('u1', 'hiyori', 0);
     expect(webraws).toHaveLength(1);
@@ -191,7 +191,7 @@ describe('acquireForUser', () => {
     // 依頼消費（§1）は Origin='request' + 依頼文・依頼日を StudyTopic から引き継ぐ（甲-1）
     expect(webraws[0].Origin).toBe('request');
     expect(webraws[0].RequestText).toBe('最新アニメ情報');
-    expect(webraws[0].RequestedAt).toBe(studyTopic.CreatedAt);
+    expect(webraws[0].RequestedAt).toBe(studyTopic.createdAt);
   });
 
   it('鮮度切れ fact が変化ありの場合、WEBRAW を書き NextReview を前方更新する', async () => {
@@ -953,12 +953,12 @@ describe('acquireForUser', () => {
     });
 
     await studyTopicRepo.put({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'req-1',
-      Topic: '依頼トピック',
-      Priority: 10,
-      Status: 'pending',
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'req-1',
+      topic: '依頼トピック',
+      priority: 10,
+      status: 'pending',
     });
     await topicRepo.putTopic({
       UserID: 'u1',
@@ -1015,12 +1015,12 @@ describe('acquireForUser', () => {
   it('maxQueriesPerRun 上限を 3 ソース合算で消費する', async () => {
     for (let i = 0; i < 3; i++) {
       await studyTopicRepo.put({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: `req-${i}`,
-        Topic: `依頼トピック${i}`,
-        Priority: 10,
-        Status: 'pending',
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: `req-${i}`,
+        topic: `依頼トピック${i}`,
+        priority: 10,
+        status: 'pending',
       });
     }
     await topicRepo.putTopic({
@@ -1057,12 +1057,12 @@ describe('acquireForUser', () => {
 
   it('依頼のリサーチ失敗は pending へ戻され、次回バッチで再試行できる', async () => {
     await studyTopicRepo.put({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'req-fail',
-      Topic: '失敗トピック',
-      Priority: 10,
-      Status: 'pending',
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'req-fail',
+      topic: '失敗トピック',
+      priority: 10,
+      status: 'pending',
     });
 
     const researchClient: IResearchClient = {
@@ -1087,7 +1087,79 @@ describe('acquireForUser', () => {
     expect(stuck).toHaveLength(0);
     const pending = await studyTopicRepo.listByStatus('u1', 'hiyori', 'pending');
     expect(pending).toHaveLength(1);
-    expect(pending[0].TopicID).toBe('req-fail');
+    expect(pending[0].topicId).toBe('req-fail');
+  });
+
+  it('依頼が処理前に削除されていたら、その依頼だけスキップして次の依頼を処理する', async () => {
+    await studyTopicRepo.put({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'req-gone',
+      topic: '消えた依頼',
+      priority: 10,
+      status: 'pending',
+    });
+    await studyTopicRepo.put({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'req-alive',
+      topic: '残っている依頼',
+      priority: 5,
+      status: 'pending',
+    });
+    const updateStatus = jest.spyOn(studyTopicRepo, 'updateStatus');
+    updateStatus.mockRejectedValueOnce(new EntityNotFoundError('StudyTopic', 'req-gone'));
+
+    const researchClient = makeResearchClient();
+
+    const result = await acquireForUser('u1', 'hiyori', {
+      topicRepo,
+      webRawRepo,
+      studyTopicRepo,
+      researchClient,
+      changeDetector: makeChangeDetector(),
+      character,
+      lifecycle: makeLifecycle(),
+      now: () => awakeNonPeak,
+    });
+
+    expect(researchClient.research).toHaveBeenCalledTimes(1);
+    expect(researchClient.research).toHaveBeenCalledWith('残っている依頼', character);
+    expect(result.requestsProcessed).toBe(1);
+    const done = await studyTopicRepo.listByStatus('u1', 'hiyori', 'done');
+    expect(done.map((t) => t.topicId)).toEqual(['req-alive']);
+  });
+
+  it('リサーチ後に依頼が削除されていても、pending へ戻そうとせず次へ進む', async () => {
+    await studyTopicRepo.put({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'req-gone',
+      topic: '消えた依頼',
+      priority: 10,
+      status: 'pending',
+    });
+    const original = studyTopicRepo.updateStatus.bind(studyTopicRepo);
+    const updateStatus = jest.spyOn(studyTopicRepo, 'updateStatus');
+    // in_progress への更新は通し、done への更新で消えていた状況を再現する
+    updateStatus
+      .mockImplementationOnce(original)
+      .mockRejectedValueOnce(new EntityNotFoundError('StudyTopic', 'req-gone'));
+
+    const result = await acquireForUser('u1', 'hiyori', {
+      topicRepo,
+      webRawRepo,
+      studyTopicRepo,
+      researchClient: makeResearchClient(),
+      changeDetector: makeChangeDetector(),
+      character,
+      lifecycle: makeLifecycle(),
+      now: () => awakeNonPeak,
+    });
+
+    expect(result.outcome).toBe('acquired');
+    expect(result.requestsProcessed).toBe(0);
+    expect(updateStatus).toHaveBeenCalledTimes(2);
   });
 
   it('鮮度切れの再取得が失敗しても他の処理を継続する（fail-warn）', async () => {

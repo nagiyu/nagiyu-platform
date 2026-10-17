@@ -355,7 +355,7 @@ describe('notifyAllUsers', () => {
     expect(result.failedUserIds).toContain('u2');
   });
 
-  it('normal 通知で Topic の TopicID が notifEvent に保存される', async () => {
+  it('normal 通知で Topic の topicId が notifEvent に保存される', async () => {
     mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
     mockShouldNotifyNow.mockReturnValue({
       notify: true,
@@ -369,7 +369,29 @@ describe('notifyAllUsers', () => {
     const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
     await notifyAllUsers(makeParams({ notifEventRepo: notifEventRepo as never }));
 
-    expect(notifEventRepo.put).toHaveBeenCalledWith(expect.objectContaining({ TopicID: 't1' }));
+    expect(notifEventRepo.put).toHaveBeenCalledWith(expect.objectContaining({ topicId: 't1' }));
+  });
+
+  it('notifEvent の expiresAt は通知時刻の 30 日後 (ミリ秒) になる', async () => {
+    mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
+    mockShouldNotifyNow.mockReturnValue({
+      notify: true,
+      kind: 'normal',
+      toneBucket: 'normal',
+      elapsedMs: DAY,
+    });
+    mockSendWebPush.mockResolvedValue(true);
+
+    const fixedNow = new Date('2026-06-01T05:00:00Z');
+    const notifEventRepo = makeNotifEventRepo();
+    const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+    await notifyAllUsers(
+      makeParams({ notifEventRepo: notifEventRepo as never, now: () => fixedNow })
+    );
+
+    expect(notifEventRepo.put).toHaveBeenCalledWith(
+      expect.objectContaining({ expiresAt: fixedNow.getTime() + 30 * DAY })
+    );
   });
 
   describe('Phase B: 全キャラ走査', () => {
@@ -420,7 +442,7 @@ describe('notifyAllUsers', () => {
       // put は 1 回（ageha 分のみ）
       expect(notifEventRepo.put).toHaveBeenCalledTimes(1);
       expect(notifEventRepo.put).toHaveBeenCalledWith(
-        expect.objectContaining({ CharacterID: 'ageha' })
+        expect.objectContaining({ characterId: 'ageha' })
       );
       // push も 1 回
       expect(mockSendWebPush).toHaveBeenCalledTimes(1);
@@ -448,10 +470,10 @@ describe('notifyAllUsers', () => {
       // 2 キャラ分の put が呼ばれる
       expect(notifEventRepo.put).toHaveBeenCalledTimes(2);
       expect(notifEventRepo.put).toHaveBeenCalledWith(
-        expect.objectContaining({ CharacterID: 'hiyori' })
+        expect.objectContaining({ characterId: 'hiyori' })
       );
       expect(notifEventRepo.put).toHaveBeenCalledWith(
-        expect.objectContaining({ CharacterID: 'ageha' })
+        expect.objectContaining({ characterId: 'ageha' })
       );
     });
 
@@ -520,24 +542,26 @@ describe('notifyAllUsers', () => {
       const notifEventRepo = {
         listByUser: jest.fn().mockResolvedValue([
           {
-            UserID: 'u1',
-            NotifID: 'n1',
-            CharacterID: 'hiyori',
-            Kind: 'normal',
-            Title: 'x',
-            Body: 'x',
-            CreatedAt: Date.now() - DAY,
-            Ttl: 0,
+            userId: 'u1',
+            notifId: 'n1',
+            characterId: 'hiyori',
+            kind: 'normal',
+            title: 'x',
+            body: 'x',
+            createdAt: Date.now() - DAY,
+            updatedAt: 0,
+            expiresAt: 0,
           },
           {
-            UserID: 'u1',
-            NotifID: 'n2',
-            CharacterID: 'ageha',
-            Kind: 'normal',
-            Title: 'x',
-            Body: 'x',
-            CreatedAt: Date.now() - 2 * DAY,
-            Ttl: 0,
+            userId: 'u1',
+            notifId: 'n2',
+            characterId: 'ageha',
+            kind: 'normal',
+            title: 'x',
+            body: 'x',
+            createdAt: Date.now() - 2 * DAY,
+            updatedAt: 0,
+            expiresAt: 0,
           },
         ]),
         put: jest.fn().mockResolvedValue({}),
@@ -569,7 +593,7 @@ describe('notifyAllUsers', () => {
       expect(hiyoriEvents).toBeDefined();
       if (hiyoriEvents) {
         expect(
-          hiyoriEvents.every((e) => (e as { CharacterID: string }).CharacterID === 'hiyori')
+          hiyoriEvents.every((e) => (e as { characterId: string }).characterId === 'hiyori')
         ).toBe(true);
         expect(hiyoriEvents).toHaveLength(1);
       }
@@ -602,7 +626,7 @@ describe('notifyAllUsers', () => {
       });
     });
 
-    it('notifEvent の put に CharacterID が含まれる', async () => {
+    it('notifEvent の put に characterId が含まれる', async () => {
       mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
       mockShouldNotifyNow.mockReturnValue({
         notify: true,
@@ -621,7 +645,7 @@ describe('notifyAllUsers', () => {
       await notifyAllUsers(makeParams({ notifEventRepo: notifEventRepo as never }));
 
       expect(notifEventRepo.put).toHaveBeenCalledWith(
-        expect.objectContaining({ CharacterID: 'hiyori' })
+        expect.objectContaining({ characterId: 'hiyori' })
       );
     });
   });
@@ -637,15 +661,16 @@ describe('notifyAllUsers', () => {
       const notifEventRepo = {
         listByUser: jest.fn().mockResolvedValue([
           {
-            TopicID: 't1',
-            Kind: 'normal',
-            CharacterID: 'hiyori',
-            CreatedAt: Date.now() - DAY,
-            UserID: 'u1',
-            NotifID: 'n1',
-            Title: 'x',
-            Body: 'x',
-            Ttl: 0,
+            topicId: 't1',
+            kind: 'normal',
+            characterId: 'hiyori',
+            createdAt: Date.now() - DAY,
+            userId: 'u1',
+            notifId: 'n1',
+            title: 'x',
+            body: 'x',
+            updatedAt: 0,
+            expiresAt: 0,
           },
         ]),
         put: jest.fn().mockResolvedValue({}),
@@ -675,8 +700,8 @@ describe('notifyAllUsers', () => {
         expect.objectContaining({ knowledgeTopic: 'React' }),
         expect.any(Number)
       );
-      // 保存される TopicID も t2
-      expect(notifEventRepo.put).toHaveBeenCalledWith(expect.objectContaining({ TopicID: 't2' }));
+      // 保存される topicId も t2
+      expect(notifEventRepo.put).toHaveBeenCalledWith(expect.objectContaining({ topicId: 't2' }));
     });
 
     it('全 Topic が使用済みの場合は care 最上位（先頭）にフォールバックする', async () => {
@@ -688,26 +713,28 @@ describe('notifyAllUsers', () => {
       const notifEventRepo = {
         listByUser: jest.fn().mockResolvedValue([
           {
-            TopicID: 't1',
-            Kind: 'normal',
-            CharacterID: 'hiyori',
-            CreatedAt: Date.now() - DAY,
-            UserID: 'u1',
-            NotifID: 'n1',
-            Title: 'x',
-            Body: 'x',
-            Ttl: 0,
+            topicId: 't1',
+            kind: 'normal',
+            characterId: 'hiyori',
+            createdAt: Date.now() - DAY,
+            userId: 'u1',
+            notifId: 'n1',
+            title: 'x',
+            body: 'x',
+            updatedAt: 0,
+            expiresAt: 0,
           },
           {
-            TopicID: 't2',
-            Kind: 'normal',
-            CharacterID: 'hiyori',
-            CreatedAt: Date.now() - 2 * DAY,
-            UserID: 'u1',
-            NotifID: 'n2',
-            Title: 'x',
-            Body: 'x',
-            Ttl: 0,
+            topicId: 't2',
+            kind: 'normal',
+            characterId: 'hiyori',
+            createdAt: Date.now() - 2 * DAY,
+            userId: 'u1',
+            notifId: 'n2',
+            title: 'x',
+            body: 'x',
+            updatedAt: 0,
+            expiresAt: 0,
           },
         ]),
         put: jest.fn().mockResolvedValue({}),
@@ -737,7 +764,7 @@ describe('notifyAllUsers', () => {
         expect.objectContaining({ knowledgeTopic: 'TypeScript' }),
         expect.any(Number)
       );
-      expect(notifEventRepo.put).toHaveBeenCalledWith(expect.objectContaining({ TopicID: 't1' }));
+      expect(notifEventRepo.put).toHaveBeenCalledWith(expect.objectContaining({ topicId: 't1' }));
     });
 
     it('Topic が皆無の場合は Topic-less（汎用文言）でフォールバックする', async () => {
@@ -764,9 +791,9 @@ describe('notifyAllUsers', () => {
         expect.objectContaining({ knowledgeTopic: undefined }),
         expect.any(Number)
       );
-      // TopicID は保存されない
+      // topicId は保存されない
       expect(notifEventRepo.put).toHaveBeenCalledWith(
-        expect.objectContaining({ TopicID: undefined })
+        expect.objectContaining({ topicId: undefined })
       );
     });
 
@@ -780,15 +807,16 @@ describe('notifyAllUsers', () => {
       const notifEventRepo = {
         listByUser: jest.fn().mockResolvedValue([
           {
-            TopicID: 't1',
-            Kind: 'normal',
-            CharacterID: 'hiyori',
-            CreatedAt: Date.now() - DAY,
-            UserID: 'u1',
-            NotifID: 'n1',
-            Title: 'x',
-            Body: 'x',
-            Ttl: 0,
+            topicId: 't1',
+            kind: 'normal',
+            characterId: 'hiyori',
+            createdAt: Date.now() - DAY,
+            userId: 'u1',
+            notifId: 'n1',
+            title: 'x',
+            body: 'x',
+            updatedAt: 0,
+            expiresAt: 0,
           },
         ]),
         put: jest.fn().mockResolvedValue({}),
@@ -911,7 +939,7 @@ describe('notifyAllUsers', () => {
 
       // Topic の Subject は 'TypeScript'（makeTopicRepo のデフォルト）
       expect(notifEventRepo.put).toHaveBeenCalledWith(
-        expect.objectContaining({ SuggestedReply: 'TypeScriptについて教えて' })
+        expect.objectContaining({ suggestedReply: 'TypeScriptについて教えて' })
       );
     });
 
@@ -936,7 +964,7 @@ describe('notifyAllUsers', () => {
       );
 
       expect(notifEventRepo.put).toHaveBeenCalledWith(
-        expect.objectContaining({ SuggestedReply: '話したいことってなに？' })
+        expect.objectContaining({ suggestedReply: '話したいことってなに？' })
       );
     });
 
@@ -954,7 +982,7 @@ describe('notifyAllUsers', () => {
       await notifyAllUsers(makeParams({ notifEventRepo: notifEventRepo as never }));
 
       expect(notifEventRepo.put).toHaveBeenCalledWith(
-        expect.objectContaining({ SuggestedReply: 'TypeScriptについて教えて' })
+        expect.objectContaining({ suggestedReply: 'TypeScriptについて教えて' })
       );
     });
   });

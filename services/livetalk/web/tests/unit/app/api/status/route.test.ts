@@ -189,13 +189,15 @@ describe('GET /api/status', () => {
 
     const longBody = 'a'.repeat(200);
     const events = Array.from({ length: 7 }, (_, i) => ({
-      UserID: 'u1',
-      NotifID: `notif-${i}`,
-      Kind: 'normal' as const,
-      Title: 'タイトル',
-      Body: longBody,
-      CreatedAt: 1000 * (i + 1),
-      Ttl: 9999999,
+      userId: 'u1',
+      notifId: `notif-${i}`,
+      characterId: 'hiyori',
+      kind: 'normal' as const,
+      title: 'タイトル',
+      body: longBody,
+      createdAt: 1000 * (i + 1),
+      updatedAt: 1000 * (i + 1),
+      expiresAt: 9_999_999_000,
     }));
     mockGetNotifEventRepo.mockReturnValue({
       listByUser: jest.fn(async () => events),

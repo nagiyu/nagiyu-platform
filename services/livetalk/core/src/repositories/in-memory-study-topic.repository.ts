@@ -1,7 +1,8 @@
-import { InMemorySingleTableStore } from '@nagiyu/aws';
+import { InMemoryEntityStore, type EntityStore, type InMemorySingleTableStore } from '@nagiyu/aws';
 import type {
   CreateStudyTopicInput,
   StudyTopicEntity,
+  StudyTopicKey,
   UpdateStudyTopicInput,
 } from '../entities/study-topic.entity.js';
 import { StudyTopicMapper } from '../mappers/study-topic.mapper.js';
@@ -12,58 +13,40 @@ export class InMemoryStudyTopicRepository implements StudyTopicRepository {
   private readonly mapper: StudyTopicMapper;
   private readonly store: InMemorySingleTableStore;
   private readonly nowMs: () => number;
+  private readonly entityStore: EntityStore<StudyTopicEntity, StudyTopicKey>;
 
   constructor(store: InMemorySingleTableStore, nowMs: () => number = () => Date.now()) {
     this.store = store;
     this.nowMs = nowMs;
     this.mapper = new StudyTopicMapper();
+    this.entityStore = new InMemoryEntityStore(store, this.mapper, { now: nowMs });
   }
 
   public async put(input: CreateStudyTopicInput): Promise<StudyTopicEntity> {
     const now = this.nowMs();
-    const entity: StudyTopicEntity = { ...input, CreatedAt: now, UpdatedAt: now };
-    this.store.put(this.mapper.toItem(entity));
-    return entity;
+    return this.entityStore.put({ ...input, createdAt: now, updatedAt: now });
   }
 
   public async listByStatus(
     userId: string,
     characterId: string,
-    status?: StudyTopicEntity['Status']
+    status?: StudyTopicEntity['status']
   ): Promise<StudyTopicEntity[]> {
     const pk = buildUserPK(userId);
     const prefix = buildStudyTopicSKPrefix(characterId);
     const result = this.store.query({ pk, sk: { operator: 'begins_with', value: prefix } });
     const items = result.items
       .map((item) => this.mapper.toEntity(item))
-      .filter((e) => status === undefined || e.Status === status)
-      .sort((a, b) => b.Priority - a.Priority || a.CreatedAt - b.CreatedAt);
+      .filter((e) => status === undefined || e.status === status)
+      .sort((a, b) => b.priority - a.priority || a.createdAt - b.createdAt);
     return items;
   }
 
   public async updateStatus(input: UpdateStudyTopicInput): Promise<StudyTopicEntity> {
-    const pk = buildUserPK(input.UserID);
-    const prefix = buildStudyTopicSKPrefix(input.CharacterID);
-    const result = this.store.query({ pk, sk: { operator: 'begins_with', value: prefix } });
-    const found = result.items
-      .map((item) => this.mapper.toEntity(item))
-      .find((e) => e.TopicID === input.TopicID);
-
-    if (!found) {
-      throw new Error(`StudyTopic not found: ${input.TopicID}`);
-    }
-
-    const updated: StudyTopicEntity = {
-      ...found,
-      Status: input.Status,
-      Priority: input.Priority,
-      UpdatedAt: this.nowMs(),
-    };
-    if (input.Ttl !== undefined) {
-      updated.Ttl = input.Ttl;
-    }
-    this.store.put(this.mapper.toItem(updated));
-    return updated;
+    return this.entityStore.update(
+      { userId: input.userId, characterId: input.characterId, topicId: input.topicId },
+      { status: input.status, priority: input.priority, expiresAt: input.expiresAt }
+    );
   }
 
   public async findPendingByTopic(
@@ -76,8 +59,8 @@ export class InMemoryStudyTopicRepository implements StudyTopicRepository {
     return (
       all.find(
         (e) =>
-          (e.Status === 'pending' || e.Status === 'in_progress') &&
-          e.Topic.toLowerCase() === normalizedTopic
+          (e.status === 'pending' || e.status === 'in_progress') &&
+          e.topic.toLowerCase() === normalizedTopic
       ) ?? null
     );
   }

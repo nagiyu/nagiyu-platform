@@ -1,3 +1,4 @@
+import { EntityNotFoundError } from '@nagiyu/aws';
 import { logger, toErrorMessage } from '@nagiyu/common';
 import type { CharacterDefinition } from '../characters/types.js';
 import {
@@ -206,44 +207,55 @@ export async function acquireForUser(
 
       try {
         await studyTopicRepo.updateStatus({
-          UserID: userId,
-          CharacterID: characterId,
-          TopicID: studyTopic.TopicID,
-          Status: 'in_progress',
-          Priority: studyTopic.Priority,
+          userId,
+          characterId,
+          topicId: studyTopic.topicId,
+          status: 'in_progress',
+          priority: studyTopic.priority,
         });
 
-        const result = await researchClient.research(studyTopic.Topic, character);
+        const result = await researchClient.research(studyTopic.topic, character);
 
         await webRawRepo.put({
           UserID: userId,
           CharacterID: characterId,
-          Query: studyTopic.Topic,
+          Query: studyTopic.topic,
           RawText: result.summary,
           SourceUrls: result.sourceUrls,
           Origin: 'request',
-          RequestText: studyTopic.Topic,
-          RequestedAt: studyTopic.CreatedAt,
+          RequestText: studyTopic.topic,
+          RequestedAt: studyTopic.createdAt,
         });
         webRawWritten++;
 
         await studyTopicRepo.updateStatus({
-          UserID: userId,
-          CharacterID: characterId,
-          TopicID: studyTopic.TopicID,
-          Status: 'done',
-          Priority: studyTopic.Priority,
+          userId,
+          characterId,
+          topicId: studyTopic.topicId,
+          status: 'done',
+          priority: studyTopic.priority,
         });
 
         requestsProcessed++;
         budget--;
       } catch (err) {
+        // 取得から更新までの間にアカウント削除などでトピックが消えた場合は、
+        // 復帰させる対象もないため、バッチ全体を止めずに次の依頼へ進む。
+        if (err instanceof EntityNotFoundError) {
+          logger.warn('[acquire] 依頼（StudyTopic）が削除されていたためスキップしました', {
+            userId,
+            characterId,
+            topic: studyTopic.topic,
+            err: toErrorMessage(err),
+          });
+          continue;
+        }
         logger.warn(
           '[acquire] 依頼（StudyTopic）のリサーチに失敗しました（pending へ戻して次回再試行）',
           {
             userId,
             characterId,
-            topic: studyTopic.Topic,
+            topic: studyTopic.topic,
             err: toErrorMessage(err),
           }
         );
@@ -252,17 +264,17 @@ export async function acquireForUser(
         // 沈黙のうちに失われるため、確実に次回バッチで再試行できるようにする。
         try {
           await studyTopicRepo.updateStatus({
-            UserID: userId,
-            CharacterID: characterId,
-            TopicID: studyTopic.TopicID,
-            Status: 'pending',
-            Priority: studyTopic.Priority,
+            userId,
+            characterId,
+            topicId: studyTopic.topicId,
+            status: 'pending',
+            priority: studyTopic.priority,
           });
         } catch (revertErr) {
           logger.warn('[acquire] 依頼（StudyTopic）の pending 復帰に失敗しました', {
             userId,
             characterId,
-            topic: studyTopic.Topic,
+            topic: studyTopic.topic,
             err: toErrorMessage(revertErr),
           });
         }

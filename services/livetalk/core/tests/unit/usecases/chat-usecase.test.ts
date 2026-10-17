@@ -1050,6 +1050,7 @@ describe('runChatUseCase', () => {
       });
       const voice = makeVoiceClient();
       const repo = makeRepo();
+      const startedAt = Date.now();
 
       const events = await collectEvents(
         runChatUseCase({
@@ -1071,21 +1072,27 @@ describe('runChatUseCase', () => {
       expect(events[events.length - 1]).toEqual({ type: 'done' });
       // STUDY_TOPIC が登録される
       expect(studyTopicRepo.put).toHaveBeenCalledWith(
-        expect.objectContaining({ Topic: '最新アニメ', Status: 'pending' })
+        expect.objectContaining({ topic: '最新アニメ', status: 'pending' })
       );
+      // 30 日後に期限切れになる時刻 (ミリ秒) を渡す
+      const putArg = (studyTopicRepo.put as jest.Mock).mock.calls[0][0] as {
+        expiresAt: number;
+      };
+      expect(putArg.expiresAt).toBeGreaterThanOrEqual(startedAt + 30 * 24 * 60 * 60 * 1000);
+      expect(putArg.expiresAt).toBeLessThanOrEqual(Date.now() + 30 * 24 * 60 * 60 * 1000);
     });
 
     it('needsStudy=true + 既存 pending → 重複登録しない', async () => {
       const studyTopicRepo = makeStudyTopicRepo();
       (studyTopicRepo.findPendingByTopic as jest.Mock).mockResolvedValue({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'tp-existing',
-        Topic: '最新アニメ',
-        Priority: 10,
-        Status: 'pending',
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'tp-existing',
+        topic: '最新アニメ',
+        priority: 10,
+        status: 'pending',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       });
       const llm = makeLLMClient(['応答']);
       (llm.chatStructured as jest.Mock).mockResolvedValue({
@@ -1299,7 +1306,7 @@ describe('runChatUseCase', () => {
       // 通常 LLM（chatStream）は呼ばれず、study 分岐でテンプレ応答になる
       expect(llm.chatStream).not.toHaveBeenCalled();
       expect(studyTopicRepo.put).toHaveBeenCalledWith(
-        expect.objectContaining({ Topic: 'コーヒー', Status: 'pending' })
+        expect.objectContaining({ topic: 'コーヒー', status: 'pending' })
       );
       expect(events[events.length - 1]).toEqual({ type: 'done' });
     });

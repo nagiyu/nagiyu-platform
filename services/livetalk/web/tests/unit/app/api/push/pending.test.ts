@@ -41,15 +41,16 @@ const validSession = {
 /** 通知イベントエンティティのファクトリ */
 function makeEvent(overrides: Partial<NotificationEventEntity> = {}): NotificationEventEntity {
   return {
-    UserID: 'u1',
-    NotifID: 'n1',
-    CharacterID: 'hiyori',
-    Kind: 'normal',
-    Title: 'ひよりより',
-    Body: 'テスト本文',
-    ConsumedAt: undefined,
-    CreatedAt: Date.now(),
-    Ttl: Date.now() + 30 * 24 * 60 * 60 * 1000,
+    userId: 'u1',
+    notifId: 'n1',
+    characterId: 'hiyori',
+    kind: 'normal',
+    title: 'ひよりより',
+    body: 'テスト本文',
+    consumedAt: undefined,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
     ...overrides,
   };
 }
@@ -93,14 +94,14 @@ describe('GET /api/push/pending', () => {
 
     // 集約済み結果（各キャラの最新未消化 1 件）
     const hiyoriEvent = makeEvent({
-      NotifID: 'n-hiyori-1',
-      CharacterID: 'hiyori',
-      Body: 'ひよりの最新本文',
+      notifId: 'n-hiyori-1',
+      characterId: 'hiyori',
+      body: 'ひよりの最新本文',
     });
     const agehaEvent = makeEvent({
-      NotifID: 'n-ageha',
-      CharacterID: 'ageha',
-      Body: 'アゲハの本文',
+      notifId: 'n-ageha',
+      characterId: 'ageha',
+      body: 'アゲハの本文',
     });
 
     mockGetNotificationEventRepo.mockReturnValue(makeRepo([hiyoriEvent, agehaEvent]));
@@ -145,9 +146,9 @@ describe('GET /api/push/pending', () => {
 
     // 100 件より後ろにある未消化通知がリポジトリ層で拾われ、集約済み結果として返るシナリオ
     const lateUnconsumed = makeEvent({
-      NotifID: 'n-late-unconsumed',
-      CharacterID: 'hiyori',
-      Body: '101 件目の未消化通知',
+      notifId: 'n-late-unconsumed',
+      characterId: 'hiyori',
+      body: '101 件目の未消化通知',
     });
     mockGetNotificationEventRepo.mockReturnValue(makeRepo([lateUnconsumed]));
 
@@ -164,9 +165,9 @@ describe('GET /api/push/pending', () => {
   it('レスポンスの各エントリに characterId, notifId, body が含まれる', async () => {
     mockGetSession.mockResolvedValue(validSession);
     const event = makeEvent({
-      NotifID: 'n1',
-      CharacterID: 'hiyori',
-      Body: '本文テスト',
+      notifId: 'n1',
+      characterId: 'hiyori',
+      body: '本文テスト',
     });
     mockGetNotificationEventRepo.mockReturnValue(makeRepo([event]));
 
@@ -183,8 +184,8 @@ describe('GET /api/push/pending', () => {
 
   it('複数キャラクター全員未消化の場合、全キャラ分を返す', async () => {
     mockGetSession.mockResolvedValue(validSession);
-    const hiyoriEvent = makeEvent({ NotifID: 'n-h', CharacterID: 'hiyori' });
-    const agehaEvent = makeEvent({ NotifID: 'n-a', CharacterID: 'ageha' });
+    const hiyoriEvent = makeEvent({ notifId: 'n-h', characterId: 'hiyori' });
+    const agehaEvent = makeEvent({ notifId: 'n-a', characterId: 'ageha' });
     mockGetNotificationEventRepo.mockReturnValue(makeRepo([hiyoriEvent, agehaEvent]));
 
     const res = await GET();

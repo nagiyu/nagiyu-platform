@@ -9,7 +9,7 @@
  *   - 不正 / 欠落 characterId → 400
  *   - 購読 0 件 → 200 `{ sent: 0 }`、push 未送信・NotificationEvent 未記録
  *   - 正常系 → 各サブスクへ送信、payload に data.characterId / data.url が入る、
- *     成功時 NotificationEvent が CharacterID 付きで記録、`{ sent }` を返す
+ *     成功時 NotificationEvent が characterId 付きで記録、`{ sent }` を返す
  *   - 無効サブスク（false 戻り）→ delete される
  */
 import { logger } from '@nagiyu/common';
@@ -359,20 +359,24 @@ describe('POST /api/push/test', () => {
       expect(json.characterId).toBe('hiyori');
     });
 
-    it('成功時に NotificationEvent が CharacterID 付きで記録される', async () => {
+    it('成功時に NotificationEvent が characterId 付きで記録される', async () => {
       mockGetSession.mockResolvedValue(adminSession);
       mockGetPushSubscriptionRepo.mockReturnValue(makePushRepo([makeSubscription()]));
       const notifRepo = makeNotifEventRepo();
       mockGetNotifEventRepo.mockReturnValue(notifRepo);
       mockSendWebPushNotification.mockResolvedValue(true);
 
+      const startedAt = Date.now();
       await POST(buildPostRequest({ characterId: 'hiyori' }));
 
       expect(notifRepo.put).toHaveBeenCalledTimes(1);
       const putArg = (notifRepo.put as jest.Mock).mock.calls[0][0];
-      expect(putArg.CharacterID).toBe('hiyori');
-      expect(putArg.UserID).toBe('u1');
-      expect(putArg.Kind).toBe('normal');
+      expect(putArg.characterId).toBe('hiyori');
+      expect(putArg.userId).toBe('u1');
+      expect(putArg.kind).toBe('normal');
+      // 30 日後に期限切れになる時刻 (ミリ秒) を渡す
+      expect(putArg.expiresAt).toBeGreaterThanOrEqual(startedAt + 30 * 24 * 60 * 60 * 1000);
+      expect(putArg.expiresAt).toBeLessThanOrEqual(Date.now() + 30 * 24 * 60 * 60 * 1000);
     });
 
     it('テストと分かる文面（title/body）で送信される', async () => {
