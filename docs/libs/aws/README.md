@@ -55,7 +55,7 @@ Error
 
 #### 設計上の注意
 
-- **TTL は `occurredAt` を起点に SDK 側で自動算出される**ため、呼び出し側で `ttl` 属性を手で詰める必要はありません。保持期間は `ERROR_EVENT_TTL_DAYS` 定数で参照できます。
+- **TTL は `occurredAt` を起点に SDK 側で自動算出される**ため、呼び出し側で TTL 属性 (`TTL`) を手で詰める必要はありません。保持期間は `ERROR_EVENT_TTL_DAYS` 定数で参照できます。
 - **アプリケーション例外を直接記録する経路を実装する場合、PII 等の機密情報を sanitize するのは呼び出し側の責任**です。Phase 1 では呼び出し元が CloudWatch Alarm 由来のみで PII リスクが無いため SDK 側は sanitize を行いません。
 
 ---
