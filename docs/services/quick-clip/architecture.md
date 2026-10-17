@@ -269,7 +269,7 @@ Job レコードの `status` フィールドを DynamoDB から削除し、代�
 
 Batch コンテナは `status` を更新せず、処理ステップ開始前に `batchStage`（`downloading` / `analyzing` / `aggregating`）を更新し、失敗時のみ `errorMessage` を書き込む。Web API の GET リクエストは DynamoDB への書き込みを行わない（read-only）。
 
-DynamoDB に保存していた `batchStage` フィールドは引き続き保持し、`RUNNING` 状態のジョブに対してのみクライアントへ添付する。Highlight レコードには Job の `expiresAt` を同値で設定し、Job と同時に TTL 削除されるようにする。
+DynamoDB に保存していた `batchStage` フィールドは引き続き保持し、`RUNNING` 状態のジョブに対してのみクライアントへ添付する。Highlight レコードの TTL には Job と同じ期限を設定し、Job と同時に TTL 削除されるようにする。
 
 **根拠・トレードオフ**
 
