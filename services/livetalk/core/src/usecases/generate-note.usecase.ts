@@ -79,24 +79,24 @@ export async function generateNotesForUser(
   for (const topic of candidates) {
     if (generatedCount >= maxPerRun) break;
     // care 降順スキャンのため、閾値未満に達したら以降の候補も満たさない
-    if (topic.Care < careThreshold) break;
-    if (notedTopicIds.has(topic.TopicID)) continue;
+    if (topic.care < careThreshold) break;
+    if (notedTopicIds.has(topic.topicId)) continue;
 
     try {
       const bundle = await topicRepo.getTopicBundle({
         userId,
         characterId,
-        topicId: topic.TopicID,
+        topicId: topic.topicId,
       });
       // WEB fact が無ければ贈る中身が無いのでスキップ
       if (bundle.webFacts.length === 0) continue;
 
       const promptMessages = buildGenerateNotePrompt({
         characterName,
-        subject: topic.Subject,
-        canonicalSummary: topic.CanonicalSummary,
-        selfFacts: bundle.selfFacts.map((f) => ({ text: f.Text, provenance: f.Provenance })),
-        webFacts: bundle.webFacts.map((f) => ({ text: f.Text, sourceUrls: f.SourceUrls })),
+        subject: topic.subject,
+        canonicalSummary: topic.canonicalSummary,
+        selfFacts: bundle.selfFacts.map((f) => ({ text: f.text, provenance: f.provenance })),
+        webFacts: bundle.webFacts.map((f) => ({ text: f.text, sourceUrls: f.sourceUrls })),
       });
 
       const result = await llmClient.chatStructured(promptMessages, NoteLetterSchema, {
@@ -109,8 +109,8 @@ export async function generateNotesForUser(
         userId,
         characterId,
         noteId: ulidFactory(now()),
-        topicId: topic.TopicID,
-        subject: topic.Subject,
+        topicId: topic.topicId,
+        subject: topic.subject,
         headline: result.headline,
       };
       await noteRepo.put(input);
@@ -119,7 +119,7 @@ export async function generateNotesForUser(
       logger.warn('[generate-note] ノート生成に失敗しました（スキップして継続）', {
         userId,
         characterId,
-        topicId: topic.TopicID,
+        topicId: topic.topicId,
         err,
       });
     }

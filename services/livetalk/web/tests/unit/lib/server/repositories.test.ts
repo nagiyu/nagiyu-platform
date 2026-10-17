@@ -145,27 +145,27 @@ describe('lib/server/repositories', () => {
     mod.resetRepositoriesForTesting();
     const repo = mod.getTopicRepository();
     const topic = await repo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-1',
-      Subject: '好きな食べ物',
-      CanonicalSummary: '',
-      Category: 'preference',
-      Care: 1,
-      Embedding: [],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-1',
+      subject: '好きな食べ物',
+      canonicalSummary: '',
+      category: 'preference',
+      care: 1,
+      embedding: [],
     });
     await repo.putSelfFact({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: topic.TopicID,
-      Text: 'カレーが好き',
-      Provenance: '',
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: topic.topicId,
+      text: 'カレーが好き',
+      provenance: '',
     });
     const headers = await repo.listTopicHeaders('u1', 'hiyori');
     expect(headers).toHaveLength(1);
-    const facts = await repo.listSelfFacts('u1', 'hiyori', topic.TopicID);
+    const facts = await repo.listSelfFacts('u1', 'hiyori', topic.topicId);
     expect(facts).toHaveLength(1);
-    expect(facts[0].Text).toBe('カレーが好き');
+    expect(facts[0].text).toBe('カレーが好き');
     mod.resetRepositoriesForTesting();
   });
 });

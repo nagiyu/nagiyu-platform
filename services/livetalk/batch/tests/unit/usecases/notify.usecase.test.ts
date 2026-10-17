@@ -106,8 +106,8 @@ function makeMessageRepo(messages = [{ role: 'user', createdAt: 1000 }]) {
 
 /** デフォルトの Topic ヘッダ（care 降順を模擬した 1 件）。 */
 function makeTopicRepo(
-  topics: Array<{ TopicID: string; Subject: string; Care: number }> = [
-    { TopicID: 't1', Subject: 'TypeScript', Care: 5 },
+  topics: Array<{ topicId: string; subject: string; care: number }> = [
+    { topicId: 't1', subject: 'TypeScript', care: 5 },
   ]
 ) {
   return {
@@ -654,8 +654,8 @@ describe('notifyAllUsers', () => {
     it('直近通知で使用済みの TopicID を避けて未使用の Topic が選ばれる', async () => {
       // t1 は使用済み、t2 は未使用 → t2 が選ばれること
       const topicRepo = makeTopicRepo([
-        { TopicID: 't1', Subject: 'TypeScript', Care: 5 },
-        { TopicID: 't2', Subject: 'React', Care: 4 },
+        { topicId: 't1', subject: 'TypeScript', care: 5 },
+        { topicId: 't2', subject: 'React', care: 4 },
       ]);
       // 直近 60 件の通知イベントに t1 が含まれる（hiyori の履歴として）
       const notifEventRepo = {
@@ -707,8 +707,8 @@ describe('notifyAllUsers', () => {
     it('全 Topic が使用済みの場合は care 最上位（先頭）にフォールバックする', async () => {
       // t1, t2 どちらも使用済み → t1（先頭 = care 最上位）にフォールバック
       const topicRepo = makeTopicRepo([
-        { TopicID: 't1', Subject: 'TypeScript', Care: 5 },
-        { TopicID: 't2', Subject: 'React', Care: 4 },
+        { topicId: 't1', subject: 'TypeScript', care: 5 },
+        { topicId: 't2', subject: 'React', care: 4 },
       ]);
       const notifEventRepo = {
         listByUser: jest.fn().mockResolvedValue([
@@ -800,8 +800,8 @@ describe('notifyAllUsers', () => {
     it('クリティカル通知の content 選択はネタ抑制に影響されない', async () => {
       // critical は Topic が決まっているので topics の中から該当 Topic をそのまま使う
       const topicRepo = makeTopicRepo([
-        { TopicID: 't1', Subject: 'TypeScript', Care: 5 },
-        { TopicID: 't2', Subject: 'React', Care: 4 },
+        { topicId: 't1', subject: 'TypeScript', care: 5 },
+        { topicId: 't2', subject: 'React', care: 4 },
       ]);
       // t1 は使用済みだが critical は影響を受けない
       const notifEventRepo = {
@@ -851,8 +851,8 @@ describe('notifyAllUsers', () => {
   describe('critical 候補の絞り込み（care 事前フィルタ）', () => {
     it('listWebFacts は care 閾値（NOTIFY_CRITICAL_CARE_THRESHOLD=3）以上の Topic にのみ呼ばれる', async () => {
       const topics = [
-        { TopicID: 't1', Subject: 'High', Care: 5 }, // >= 3 → 対象
-        { TopicID: 't2', Subject: 'Low', Care: 2 }, // < 3 → 対象外
+        { topicId: 't1', subject: 'High', care: 5 }, // >= 3 → 対象
+        { topicId: 't2', subject: 'Low', care: 2 }, // < 3 → 対象外
       ];
       const topicRepo = makeTopicRepo(topics);
 
@@ -875,10 +875,10 @@ describe('notifyAllUsers', () => {
     it('detectCriticalTopic に渡る candidates は care 上位から CRITICAL_CANDIDATE_TOPIC_LIMIT(3) 件に絞られる', async () => {
       // 4 件とも care 閾値以上（care 降順で repo から返る想定）
       const topics = [
-        { TopicID: 't1', Subject: 'A', Care: 10 },
-        { TopicID: 't2', Subject: 'B', Care: 9 },
-        { TopicID: 't3', Subject: 'C', Care: 8 },
-        { TopicID: 't4', Subject: 'D', Care: 7 },
+        { topicId: 't1', subject: 'A', care: 10 },
+        { topicId: 't2', subject: 'B', care: 9 },
+        { topicId: 't3', subject: 'C', care: 8 },
+        { topicId: 't4', subject: 'D', care: 7 },
       ];
       const topicRepo = makeTopicRepo(topics);
 
@@ -894,11 +894,11 @@ describe('notifyAllUsers', () => {
 
       expect(mockDetectCriticalTopic).toHaveBeenCalledTimes(1);
       const passedInput = mockDetectCriticalTopic.mock.calls[0][0] as {
-        candidates: Array<{ topic: { TopicID: string }; webFacts: unknown[] }>;
+        candidates: Array<{ topic: { topicId: string }; webFacts: unknown[] }>;
       };
       // 上位 3 件（t4 は絞り落とされる）
       expect(passedInput.candidates).toHaveLength(3);
-      expect(passedInput.candidates.map((c) => c.topic.TopicID)).toEqual(['t1', 't2', 't3']);
+      expect(passedInput.candidates.map((c) => c.topic.topicId)).toEqual(['t1', 't2', 't3']);
       // 各候補は topic + webFacts の組で構成される
       expect(passedInput.candidates[0]).toHaveProperty('webFacts');
       // t4 分の listWebFacts は呼ばれない

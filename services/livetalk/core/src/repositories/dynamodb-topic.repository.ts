@@ -1,17 +1,15 @@
-import {
-  DeleteCommand,
-  GetCommand,
-  PutCommand,
-  UpdateCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
+import { type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { logger } from '@nagiyu/common';
 import {
-  isConditionalCheckFailed,
+  DynamoDBEntityStore,
+  EntityAlreadyExistsError,
+  EntityNotFoundError,
+  OptimisticLockError,
   queryAllItems,
   queryPages,
   toDatabaseError,
-  type DynamoDBItem,
+  type DynamoDBAttributes,
+  type EntityStore,
 } from '@nagiyu/aws';
 import type {
   CreateSelfFactInput,
@@ -34,12 +32,13 @@ import {
   STALE_GSI_INDEX_NAME,
   TOPIC_GSI_INDEX_NAME,
 } from '../mappers/keys.js';
-import { OptimisticLockError } from './optimistic-lock.error.js';
 import type { TopicBundle, TopicRepository } from './topic.repository.interface.js';
 
 /**
- * Topic（ヘッダ・META）+ SELF fact + WEB fact を扱う統合リポジトリの DynamoDB 実装
- * （リブトーク知識再設計 P1 / #3697）。
+ * Topic（ヘッダ・META）+ SELF fact + WEB fact を扱う統合リポジトリの DynamoDB 実装。
+ *
+ * 単一アイテムの CRUD はエンティティごとの EntityStore に任せ、
+ * bundle の 1 Query 取得や GSI3 / GSI4 の走査だけを自前で持つ。
  */
 export class DynamoDBTopicRepository implements TopicRepository {
   private readonly topicMapper = new TopicMapper();
@@ -49,6 +48,9 @@ export class DynamoDBTopicRepository implements TopicRepository {
   private readonly tableName: string;
   private readonly ulidFactory: UlidFactory;
   private readonly nowMs: () => number;
+  private readonly topicStore: EntityStore<TopicEntity, TopicKey>;
+  private readonly selfFactStore: EntityStore<SelfFactEntity, SelfFactKey>;
+  private readonly webFactStore: EntityStore<WebFactEntity, WebFactKey>;
 
   constructor(
     docClient: DynamoDBDocumentClient,
@@ -60,6 +62,15 @@ export class DynamoDBTopicRepository implements TopicRepository {
     this.tableName = tableName;
     this.ulidFactory = ulidFactory;
     this.nowMs = nowMs;
+    this.topicStore = new DynamoDBEntityStore(docClient, tableName, this.topicMapper, {
+      now: nowMs,
+    });
+    this.selfFactStore = new DynamoDBEntityStore(docClient, tableName, this.selfFactMapper, {
+      now: nowMs,
+    });
+    this.webFactStore = new DynamoDBEntityStore(docClient, tableName, this.webFactMapper, {
+      now: nowMs,
+    });
   }
 
   public async putTopic(
@@ -67,66 +78,34 @@ export class DynamoDBTopicRepository implements TopicRepository {
     opts: { expectedUpdatedAt?: number } = {}
   ): Promise<TopicEntity> {
     const now = this.nowMs();
-    let createdAt = now;
-
-    // 更新（楽観ロック）の場合のみ、既存の CreatedAt を維持するために事前取得する。
-    // 実際の競合検知は Put の ConditionExpression（UpdatedAt = :expected）で行うため、
-    // ここでの取得結果はあくまで CreatedAt 保持のためのベストエフォート。
-    if (opts.expectedUpdatedAt !== undefined) {
-      const existing = await this.getTopic({
-        userId: input.UserID,
-        characterId: input.CharacterID,
-        topicId: input.TopicID,
-      });
-      if (existing) {
-        createdAt = existing.CreatedAt;
-      }
-    }
-
-    const entity: TopicEntity = {
-      ...input,
-      CreatedAt: createdAt,
-      UpdatedAt: now,
+    const key: TopicKey = {
+      userId: input.userId,
+      characterId: input.characterId,
+      topicId: input.topicId,
     };
 
-    const isUpdate = opts.expectedUpdatedAt !== undefined;
-
-    try {
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: this.topicMapper.toItem(entity),
-          ConditionExpression: isUpdate
-            ? 'UpdatedAt = :expectedUpdatedAt'
-            : 'attribute_not_exists(PK)',
-          ...(isUpdate
-            ? { ExpressionAttributeValues: { ':expectedUpdatedAt': opts.expectedUpdatedAt } }
-            : {}),
-        })
-      );
-      return entity;
-    } catch (error) {
-      if (isConditionalCheckFailed(error)) {
-        throw new OptimisticLockError(
-          'Topic',
-          `${entity.UserID}#${entity.CharacterID}#${entity.TopicID}`
-        );
+    if (opts.expectedUpdatedAt === undefined) {
+      try {
+        return await this.topicStore.create({ ...input, createdAt: now, updatedAt: now });
+      } catch (error) {
+        // 新規作成の衝突も呼び出し側が楽観ロック競合として扱えるよう、同じエラーに揃える
+        if (error instanceof EntityAlreadyExistsError) {
+          throw new OptimisticLockError('Topic', `${key.userId}#${key.characterId}#${key.topicId}`);
+        }
+        throw error;
       }
-      throw toDatabaseError(error);
     }
+
+    // 競合の検知は put の楽観ロックが行う。ここでの読み取りは createdAt を保つためのもの
+    const existing = await this.getTopic(key);
+    return this.topicStore.put(
+      { ...input, createdAt: existing?.createdAt ?? now, updatedAt: now },
+      { expectedUpdatedAt: opts.expectedUpdatedAt }
+    );
   }
 
   public async getTopic(key: TopicKey): Promise<TopicEntity | null> {
-    try {
-      const { pk, sk } = this.topicMapper.buildKeys(key);
-      const result = await this.docClient.send(
-        new GetCommand({ TableName: this.tableName, Key: { PK: pk, SK: sk } })
-      );
-      if (!result.Item) return null;
-      return this.topicMapper.toEntity(result.Item as unknown as DynamoDBItem);
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.topicStore.get(key);
   }
 
   public async getTopicBundle(key: TopicKey): Promise<TopicBundle> {
@@ -210,17 +189,11 @@ export class DynamoDBTopicRepository implements TopicRepository {
 
   public async putSelfFact(input: CreateSelfFactInput): Promise<SelfFactEntity> {
     const now = this.nowMs();
-    const factId = input.FactID ?? this.ulidFactory(now);
-    const entity: SelfFactEntity = { ...input, FactID: factId, CreatedAt: now };
-
-    try {
-      await this.docClient.send(
-        new PutCommand({ TableName: this.tableName, Item: this.selfFactMapper.toItem(entity) })
-      );
-      return entity;
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.selfFactStore.put({
+      ...input,
+      factId: input.factId ?? this.ulidFactory(now),
+      createdAt: now,
+    });
   }
 
   public async listSelfFacts(
@@ -234,29 +207,16 @@ export class DynamoDBTopicRepository implements TopicRepository {
   }
 
   public async deleteSelfFact(key: SelfFactKey): Promise<void> {
-    try {
-      const { pk, sk } = this.selfFactMapper.buildKeys(key);
-      await this.docClient.send(
-        new DeleteCommand({ TableName: this.tableName, Key: { PK: pk, SK: sk } })
-      );
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    await this.selfFactStore.delete(key);
   }
 
   public async putWebFact(input: CreateWebFactInput): Promise<WebFactEntity> {
     const now = this.nowMs();
-    const factId = input.FactID ?? this.ulidFactory(now);
-    const entity: WebFactEntity = { ...input, FactID: factId, CreatedAt: now };
-
-    try {
-      await this.docClient.send(
-        new PutCommand({ TableName: this.tableName, Item: this.webFactMapper.toItem(entity) })
-      );
-      return entity;
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.webFactStore.put({
+      ...input,
+      factId: input.factId ?? this.ulidFactory(now),
+      createdAt: now,
+    });
   }
 
   public async listWebFacts(
@@ -304,37 +264,24 @@ export class DynamoDBTopicRepository implements TopicRepository {
   }
 
   public async updateWebFactNextReview(key: WebFactKey, nextReview: number): Promise<void> {
-    const { pk, sk } = this.webFactMapper.buildKeys(key);
-    const gsi4pk = buildTopicStaleGSI4PK(key.characterId, key.userId);
-
     try {
-      await this.docClient.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-          ConditionExpression: 'attribute_exists(PK)',
-          UpdateExpression: 'SET NextReview = :nextReview, GSI4PK = :gsi4pk, GSI4SK = :nextReview',
-          ExpressionAttributeValues: { ':nextReview': nextReview, ':gsi4pk': gsi4pk },
-        })
-      );
+      await this.webFactStore.update(key, { nextReview });
     } catch (error) {
-      if (isConditionalCheckFailed(error)) {
+      if (error instanceof EntityNotFoundError) {
         logger.warn(
           '[DynamoDBTopicRepository] updateWebFactNextReview: 対象 WEB fact が存在しません',
-          {
-            key,
-          }
+          { key }
         );
         return;
       }
-      throw toDatabaseError(error);
+      throw error;
     }
   }
 
   private async queryByPrefix<T>(
     pk: string,
     skPrefix: string,
-    mapper: { toEntity(item: DynamoDBItem): T }
+    mapper: { toEntity(item: DynamoDBAttributes): T }
   ): Promise<T[]> {
     try {
       const items = await queryAllItems(this.docClient, {

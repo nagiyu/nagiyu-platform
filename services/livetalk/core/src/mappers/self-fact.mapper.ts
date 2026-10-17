@@ -1,60 +1,76 @@
 import {
+  immutablePatchValue,
+  readTimestamp,
+  requiredPatchValue,
   validateStringField,
-  validateTimestampField,
-  type DynamoDBItem,
-  type LegacyEntityMapper,
+  type DynamoDBAttributes,
+  type DynamoDBKey,
+  type EntityMapper,
+  type EntityPatch,
 } from '@nagiyu/aws';
 import type { SelfFactEntity, SelfFactKey } from '../entities/self-fact.entity.js';
 import { buildSelfFactSK, buildUserPK } from './keys.js';
 
 /**
  * `SelfFactEntity ↔ DynamoDB Item` の変換と PK/SK 組み立てを担当する Mapper。
+ *
+ * Entity は更新日時を持たないため、`UpdatedAt` は store が書く値だけを保存する。
  */
-export class SelfFactMapper implements LegacyEntityMapper<SelfFactEntity, SelfFactKey> {
+export class SelfFactMapper implements EntityMapper<SelfFactEntity, SelfFactKey> {
   public readonly entityType = 'SelfFact';
 
-  public toItem(entity: SelfFactEntity): DynamoDBItem {
-    const { pk, sk } = this.buildKeys({
-      userId: entity.UserID,
-      characterId: entity.CharacterID,
-      topicId: entity.TopicID,
-      factId: entity.FactID,
-    });
-
+  public buildKeys(key: SelfFactKey): DynamoDBKey {
     return {
-      PK: pk,
-      SK: sk,
+      PK: buildUserPK(key.userId),
+      SK: buildSelfFactSK(key.characterId, key.topicId, key.factId),
+    };
+  }
+
+  public getKey(entity: SelfFactEntity): SelfFactKey {
+    return {
+      userId: entity.userId,
+      characterId: entity.characterId,
+      topicId: entity.topicId,
+      factId: entity.factId,
+    };
+  }
+
+  public toItem(entity: SelfFactEntity): DynamoDBAttributes {
+    return {
+      ...this.buildKeys(this.getKey(entity)),
       Type: this.entityType,
-      UserID: entity.UserID,
-      CharacterID: entity.CharacterID,
-      TopicID: entity.TopicID,
-      FactID: entity.FactID,
-      Text: entity.Text,
-      Provenance: entity.Provenance,
-      CreatedAt: entity.CreatedAt,
-      // SelfFact に UpdatedAt は無いが、DynamoDBItem 型は必須のため CreatedAt を複製する
-      // （既存の NotificationEventMapper 等と同じ方針）。
-      UpdatedAt: entity.CreatedAt,
+      UserID: entity.userId,
+      CharacterID: entity.characterId,
+      TopicID: entity.topicId,
+      FactID: entity.factId,
+      Text: entity.text,
+      Provenance: entity.provenance,
+      CreatedAt: entity.createdAt,
     };
   }
 
-  public toEntity(item: DynamoDBItem): SelfFactEntity {
+  public toUpdateAttributes(changes: EntityPatch<SelfFactEntity>): DynamoDBAttributes {
     return {
-      UserID: validateStringField(item.UserID, 'UserID'),
-      CharacterID: validateStringField(item.CharacterID, 'CharacterID'),
-      TopicID: validateStringField(item.TopicID, 'TopicID'),
-      FactID: validateStringField(item.FactID, 'FactID'),
-      Text: validateStringField(item.Text, 'Text'),
+      UserID: immutablePatchValue(changes.userId, 'UserID'),
+      CharacterID: immutablePatchValue(changes.characterId, 'CharacterID'),
+      TopicID: immutablePatchValue(changes.topicId, 'TopicID'),
+      FactID: immutablePatchValue(changes.factId, 'FactID'),
+      CreatedAt: immutablePatchValue(changes.createdAt, 'CreatedAt'),
+      Text: requiredPatchValue(changes.text, 'Text'),
+      Provenance: requiredPatchValue(changes.provenance, 'Provenance'),
+    };
+  }
+
+  public toEntity(item: DynamoDBAttributes): SelfFactEntity {
+    return {
+      userId: validateStringField(item.UserID, 'UserID'),
+      characterId: validateStringField(item.CharacterID, 'CharacterID'),
+      topicId: validateStringField(item.TopicID, 'TopicID'),
+      factId: validateStringField(item.FactID, 'FactID'),
+      text: validateStringField(item.Text, 'Text'),
       // 出所が特定できない場合を考慮し空文字を許可する
-      Provenance: validateStringField(item.Provenance, 'Provenance', { allowEmpty: true }),
-      CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
-    };
-  }
-
-  public buildKeys(key: SelfFactKey): { pk: string; sk: string } {
-    return {
-      pk: buildUserPK(key.userId),
-      sk: buildSelfFactSK(key.characterId, key.topicId, key.factId),
+      provenance: validateStringField(item.Provenance, 'Provenance', { allowEmpty: true }),
+      createdAt: readTimestamp(item, 'CreatedAt'),
     };
   }
 }

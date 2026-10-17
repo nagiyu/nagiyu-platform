@@ -36,10 +36,10 @@ export function toNoteDetail(entity: NoteEntity, bundle: TopicBundle | null): No
     return item;
   }
 
-  item.webFacts = bundle.webFacts.map((fact) => fact.Text);
+  item.webFacts = bundle.webFacts.map((fact) => fact.text);
   // 出典はリンク化するため、http(s) スキームのみ許可する（`javascript:` 等を弾く）。
   // SourceUrls はリサーチ結果由来でユーザー入力ではないが、詳細画面で href に渡すため念のため防御する。
-  item.sources = Array.from(new Set(bundle.webFacts.flatMap((fact) => fact.SourceUrls))).filter(
+  item.sources = Array.from(new Set(bundle.webFacts.flatMap((fact) => fact.sourceUrls))).filter(
     (url) => /^https?:\/\//i.test(url)
   );
   return item;

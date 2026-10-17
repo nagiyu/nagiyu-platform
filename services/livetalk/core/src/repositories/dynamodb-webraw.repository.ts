@@ -1,16 +1,16 @@
-import { PutCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { queryAllItems, toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBEntityStore, queryAllItems, toDatabaseError, type EntityStore } from '@nagiyu/aws';
 import { logger } from '@nagiyu/common';
 import { WEBRAW_TTL_SECONDS } from '../constants.js';
-import type { CreateWebRawInput, WebRawEntity } from '../entities/webraw.entity.js';
+import type { CreateWebRawInput, WebRawEntity, WebRawKey } from '../entities/webraw.entity.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
 import { WebRawMapper } from '../mappers/webraw.mapper.js';
 import { buildUserPK, buildWebRawSKPrefix } from '../mappers/keys.js';
 import type { WebRawRepository } from './webraw.repository.interface.js';
 
 /**
- * WebRaw リポジトリの DynamoDB 実装（リブトーク知識再設計 P1 / #3697）。
- * `listSince` は `DynamoDBMessageRepository.listSince` と同じ実装方針
+ * WebRaw リポジトリの DynamoDB 実装。
+ * 単一アイテムの書き込みは EntityStore に任せ、範囲クエリの `listSince` だけを自前で持つ
  * （begins_with + CreatedAt フィルタ + ページング）。
  */
 export class DynamoDBWebRawRepository implements WebRawRepository {
@@ -19,6 +19,7 @@ export class DynamoDBWebRawRepository implements WebRawRepository {
   private readonly tableName: string;
   private readonly ulidFactory: UlidFactory;
   private readonly nowMs: () => number;
+  private readonly entityStore: EntityStore<WebRawEntity, WebRawKey>;
 
   constructor(
     docClient: DynamoDBDocumentClient,
@@ -31,30 +32,18 @@ export class DynamoDBWebRawRepository implements WebRawRepository {
     this.ulidFactory = ulidFactory;
     this.nowMs = nowMs;
     this.mapper = new WebRawMapper();
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper, { now: nowMs });
   }
 
   public async put(input: CreateWebRawInput): Promise<WebRawEntity> {
     const now = this.nowMs();
-    const rawId = input.RawID ?? this.ulidFactory(now);
-
-    const entity: WebRawEntity = {
+    return this.entityStore.put({
       ...input,
-      RawID: rawId,
-      CreatedAt: now,
-    };
-
-    const item: DynamoDBItem & { TTL: number } = {
-      ...this.mapper.toItem(entity),
-      // TTL は Unix 秒。WebRaw は 90 日後に DynamoDB が自動削除する。
-      TTL: Math.floor(now / 1000) + WEBRAW_TTL_SECONDS,
-    };
-
-    try {
-      await this.docClient.send(new PutCommand({ TableName: this.tableName, Item: item }));
-      return entity;
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+      rawId: input.rawId ?? this.ulidFactory(now),
+      createdAt: now,
+      // 90 日後に DynamoDB が自動削除する
+      expiresAt: now + WEBRAW_TTL_SECONDS * 1000,
+    });
   }
 
   public async listSince(

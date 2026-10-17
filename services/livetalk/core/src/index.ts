@@ -394,8 +394,6 @@ export type { ConsolidationCursorRepository } from './repositories/consolidation
 export { DynamoDBConsolidationCursorRepository } from './repositories/dynamodb-consolidation-cursor.repository.js';
 export { InMemoryConsolidationCursorRepository } from './repositories/in-memory-consolidation-cursor.repository.js';
 
-export { OptimisticLockError } from './repositories/optimistic-lock.error.js';
-
 export { WEBRAW_TTL_SECONDS } from './constants.js';
 
 // consolidation（集約バッチ）（リブトーク知識再設計 P1 / #3697、shadow build）

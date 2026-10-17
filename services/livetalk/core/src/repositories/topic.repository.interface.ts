@@ -16,19 +16,16 @@ export interface TopicBundle {
 }
 
 /**
- * Topic（ヘッダ・META）+ SELF fact + WEB fact を扱う統合リポジトリ
- * （リブトーク知識再設計 P1 / #3697）。
- *
- * P1 は「影で構築」するのみで、既存の想起・memory 画面には接続しない。
+ * Topic（ヘッダ・META）+ SELF fact + WEB fact を扱う統合リポジトリ。
  */
 export interface TopicRepository {
   /**
    * Topic ヘッダ(META) を保存する。
    *
-   * - 新規作成時（`opts.expectedUpdatedAt` 未指定）: `attribute_not_exists(PK)` で保護する。
-   * - 更新時（`opts.expectedUpdatedAt` 指定）: `UpdatedAt = :expected` の楽観ロックで保護する
+   * - 新規作成時（`opts.expectedUpdatedAt` 未指定）: 既に存在すれば `OptimisticLockError` を投げる。
+   * - 更新時（`opts.expectedUpdatedAt` 指定）: 保存済みの `updatedAt` と一致するときだけ書き込む
    *   （忘却の要約再生成と consolidation の書き込み競合を検知するため）。
-   * - 条件不一致の場合は `OptimisticLockError` を投げる。
+   *   一致しなければ `OptimisticLockError`、Topic が存在しなければ `EntityNotFoundError` を投げる。
    */
   putTopic(input: CreateTopicInput, opts?: { expectedUpdatedAt?: number }): Promise<TopicEntity>;
 
@@ -48,7 +45,6 @@ export interface TopicRepository {
 
   /**
    * キャラ単位の Topic ヘッダを care 降順で取得する（GSI3 経由、acquire 用）。
-   * P1 では未使用だが、acquire 実装（次タスク）に備えて用意しておく。
    */
   listTopicHeadersByCareDesc(
     userId: string,
@@ -56,24 +52,28 @@ export interface TopicRepository {
     limit: number
   ): Promise<TopicEntity[]>;
 
-  /** SELF fact を保存する。`FactID` 未指定なら ULID を自動採番する。 */
+  /** SELF fact を保存する。`factId` 未指定なら ULID を自動採番する。 */
   putSelfFact(input: CreateSelfFactInput): Promise<SelfFactEntity>;
 
   /** Topic 配下の SELF fact を全件返す。 */
   listSelfFacts(userId: string, characterId: string, topicId: string): Promise<SelfFactEntity[]>;
 
-  /** SELF fact を削除する（P2 忘却で使用）。 */
+  /**
+   * SELF fact を削除する。
+   *
+   * @throws EntityNotFoundError 対象の SELF fact が存在しないとき
+   */
   deleteSelfFact(key: SelfFactKey): Promise<void>;
 
-  /** WEB fact を保存する。`FactID` 未指定なら ULID を自動採番する。 */
+  /** WEB fact を保存する。`factId` 未指定なら ULID を自動採番する。 */
   putWebFact(input: CreateWebFactInput): Promise<WebFactEntity>;
 
   /** Topic 配下の WEB fact を全件返す。 */
   listWebFacts(userId: string, characterId: string, topicId: string): Promise<WebFactEntity[]>;
 
   /**
-   * 鮮度切れの揮発 WEB fact を GSI4（GSI-STALE）で窓走査し、`nextReview（NextReview）<= nowMs`
-   * のものを期限が古い順（昇順）に最大 `limit` 件返す（acquire 用、リブトーク知識再設計 P3 / #3699）。
+   * 鮮度切れの揮発 WEB fact を GSI4（GSI-STALE）で窓走査し、`nextReview <= nowMs`
+   * のものを期限が古い順（昇順）に最大 `limit` 件返す（acquire 用）。
    *
    * stable fact（NextReview 未設定）は GSI4 に一切現れないため、掃引対象に含まれない。
    */
@@ -85,7 +85,7 @@ export interface TopicRepository {
   ): Promise<WebFactEntity[]>;
 
   /**
-   * 既存 WEB fact の `NextReview` を前方更新する（acquire の鮮度掃引用）。
+   * 既存 WEB fact の `nextReview` を前方更新する（acquire の鮮度掃引用）。
    * GSI4SK も追随させ、次回掃引の窓から外す。対象が存在しなければ no-op。
    */
   updateWebFactNextReview(key: WebFactKey, nextReview: number): Promise<void>;

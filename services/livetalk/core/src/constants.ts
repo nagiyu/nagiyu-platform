@@ -194,7 +194,7 @@ export const NOTIFY_ACTIVE_WINDOW_MINUTES = 90;
 export const NOTIFICATION_EVENT_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 /**
- * critical 通知に必要な Topic.Care の下限（リブトーク知識・記憶再設計 P5）。
+ * critical 通知に必要な Topic.care の下限。
  *
  * care は「ユーザー起点の fold」（SELF fact を伴う集約）でのみ上昇する（新規 Topic は 1、既存
  * Topic 更新・名寄せは +1）。キャラの自発リサーチ（WEB only の fold）では上がらないため、値が

@@ -39,12 +39,12 @@ function buildTopicsSection(retrievedTopics: RetrievedTopic[]): string {
   const topicBlocks = retrievedTopics
     .filter((rt) => rt.selfFacts.length > 0 || rt.webFacts.length > 0)
     .map((rt) => {
-      const lines: string[] = [`■ ${rt.topic.Subject}`];
+      const lines: string[] = [`■ ${rt.topic.subject}`];
       for (const selfFact of rt.selfFacts) {
-        lines.push(`- （あなたが聞いたこと）${selfFact.Text}`);
+        lines.push(`- （あなたが聞いたこと）${selfFact.text}`);
       }
       for (const webFact of rt.webFacts) {
-        lines.push(`- （あなたが調べたこと）${webFact.Text}`);
+        lines.push(`- （あなたが調べたこと）${webFact.text}`);
       }
       return lines.join('\n');
     });

@@ -136,7 +136,7 @@ export class TopicRetriever implements ITopicRetriever {
     // 3. direct 選抜: 発話 embedding との cosine が閾値以上を降順ソート → 上位 topK
     const scored: ScoredHeader[] = headers.map((header) => ({
       header,
-      similarity: cosineSimilarity(queryEmbedding, header.Embedding),
+      similarity: cosineSimilarity(queryEmbedding, header.embedding),
     }));
 
     const direct = scored
@@ -144,17 +144,17 @@ export class TopicRetriever implements ITopicRetriever {
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, topK);
 
-    const directTopicIds = new Set(direct.map((s) => s.header.TopicID));
+    const directTopicIds = new Set(direct.map((s) => s.header.topicId));
 
     // 4. related 選抜: direct に含まれないヘッダについて、direct 集合との cosine 最大値を計算し
     //    閾値以上のものを上位 relatedMax 件まで追加（1 ホップ関連展開）
     const relatedCandidates: ScoredHeader[] = [];
     if (direct.length > 0) {
       for (const s of scored) {
-        if (directTopicIds.has(s.header.TopicID)) continue;
+        if (directTopicIds.has(s.header.topicId)) continue;
         let maxSimilarity = -Infinity;
         for (const d of direct) {
-          const sim = cosineSimilarity(d.header.Embedding, s.header.Embedding);
+          const sim = cosineSimilarity(d.header.embedding, s.header.embedding);
           if (sim > maxSimilarity) maxSimilarity = sim;
         }
         if (maxSimilarity >= relatedThreshold) {
@@ -169,12 +169,12 @@ export class TopicRetriever implements ITopicRetriever {
     // 5. 選抜 Topic（direct → related の順）の SELF/WEB fact を束ねて返す
     const results: RetrievedTopic[] = [];
     for (const { header, similarity } of [...direct, ...related]) {
-      const via: 'direct' | 'related' = directTopicIds.has(header.TopicID) ? 'direct' : 'related';
+      const via: 'direct' | 'related' = directTopicIds.has(header.topicId) ? 'direct' : 'related';
       try {
         const bundle = await this.topicRepository.getTopicBundle({
           userId,
           characterId,
-          topicId: header.TopicID,
+          topicId: header.topicId,
         });
         results.push({
           topic: bundle.topic ?? header,
@@ -188,12 +188,12 @@ export class TopicRetriever implements ITopicRetriever {
           '[topic-retrieval] Topic バンドルの取得に失敗しました（この Topic をスキップ）',
           {
             err,
-            topicId: header.TopicID,
+            topicId: header.topicId,
           }
         );
         await reportRetrievalFailure('Topic 想起のバンドル取得エラー', err, 'warning', {
           characterId,
-          topicId: header.TopicID,
+          topicId: header.topicId,
         });
       }
     }

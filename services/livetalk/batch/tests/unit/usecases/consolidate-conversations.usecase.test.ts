@@ -367,23 +367,23 @@ describe('consolidateAllConversations', () => {
       topicRepo: ReturnType<typeof makeRepos>['topicRepo']
     ): Promise<void> => {
       await topicRepo.putTopic({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-preseed',
-        Subject: 'コーヒー',
-        CanonicalSummary: 'ユーザーはコーヒーが好き',
-        Category: '飲み物',
-        Care: 3,
-        Embedding: [1, 0],
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-preseed',
+        subject: 'コーヒー',
+        canonicalSummary: 'ユーザーはコーヒーが好き',
+        category: '飲み物',
+        care: 3,
+        embedding: [1, 0],
       });
       await topicRepo.putWebFact({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-preseed',
-        Text: 'コーヒーには覚醒作用がある',
-        SourceUrls: ['https://example.com'],
-        Volatility: 'stable',
-        ObservedAt: fixedNow,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-preseed',
+        text: 'コーヒーには覚醒作用がある',
+        sourceUrls: ['https://example.com'],
+        volatility: 'stable',
+        observedAt: fixedNow,
       });
     };
 
