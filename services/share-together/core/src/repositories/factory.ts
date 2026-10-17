@@ -28,7 +28,7 @@ const repositoryRegistry = registerDynamoRepositories<
 >(
   {
     group: {
-      createInMemoryRepository: () => new InMemoryGroupRepository(),
+      createInMemoryRepository: (store) => new InMemoryGroupRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBGroupRepository(docClient, tableName),
     },

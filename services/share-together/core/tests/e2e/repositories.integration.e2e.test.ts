@@ -1,3 +1,4 @@
+import { EntityNotFoundError } from '@nagiyu/aws';
 import {
   createGroupRepository,
   createListRepository,
@@ -65,6 +66,18 @@ describe('Repository Layer E2E with InMemory repositories', () => {
     resetInMemoryRepositories();
 
     await expect(createUserRepository().getById('user-reset')).resolves.toBeNull();
+  });
+
+  it('resetInMemoryRepositories で共有ストアのグループも破棄される', async () => {
+    await groupRepository.create({
+      groupId: 'group-reset',
+      name: 'Reset',
+      ownerUserId: 'owner-reset',
+    });
+
+    resetInMemoryRepositories();
+
+    await expect(createGroupRepository().getById('group-reset')).resolves.toBeNull();
   });
 
   it('個人リストとToDoの作成・取得・更新・削除を一連で実行できる', async () => {
@@ -144,7 +157,9 @@ describe('Repository Layer E2E with InMemory repositories', () => {
       name: '週次共有タスク',
       ownerUserId: 'owner-001',
     });
-    expectValidIsoTimestamp(group.createdAt);
+    expectValidEpochMillis(group.createdAt);
+    expectValidEpochMillis(group.updatedAt);
+    await expect(groupRepository.batchGetByIds([group.groupId, 'none'])).resolves.toEqual([group]);
 
     await membershipRepository.create({
       groupId: group.groupId,
@@ -212,5 +227,6 @@ describe('Repository Layer E2E with InMemory repositories', () => {
     await expect(listRepository.getGroupListsByGroupId(group.groupId)).resolves.toEqual([]);
     await expect(membershipRepository.getByGroupId(group.groupId)).resolves.toEqual([]);
     await expect(groupRepository.getById(group.groupId)).resolves.toBeNull();
+    await expect(groupRepository.delete(group.groupId)).rejects.toThrow(EntityNotFoundError);
   });
 });
