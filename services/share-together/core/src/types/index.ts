@@ -8,8 +8,10 @@ export interface User {
   name: string;
   image?: string;
   defaultListId: string;
-  createdAt: string;
-  updatedAt: string;
+  /** 作成日時 (エポックミリ秒) */
+  createdAt: number;
+  /** 更新日時 (エポックミリ秒) */
+  updatedAt: number;
 }
 
 export interface PersonalList {
@@ -25,8 +27,10 @@ export interface Group {
   groupId: string;
   name: string;
   ownerUserId: string;
-  createdAt: string;
-  updatedAt: string;
+  /** 作成日時 (エポックミリ秒) */
+  createdAt: number;
+  /** 更新日時 (エポックミリ秒) */
+  updatedAt: number;
 }
 
 export interface GroupMembership {
