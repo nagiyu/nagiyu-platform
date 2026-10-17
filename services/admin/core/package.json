@@ -12,7 +12,8 @@
     "test:coverage": "jest --coverage",
     "lint": "eslint src/**/*.ts tests/**/*.ts",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:contract": "jest --config jest.contract.config.ts"
   },
   "dependencies": {
     "@aws-sdk/lib-dynamodb": "^3.1063.0",
@@ -22,6 +23,7 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1063.0",
     "@types/sns-validator": "^0.3.3"
   }
 }
