@@ -1,16 +1,5 @@
-import {
-  DeleteCommand,
-  GetCommand,
-  PutCommand,
-  UpdateCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
-import {
-  buildUpdateExpression,
-  mapConditionalCheckFailed,
-  queryAllItems,
-  toDatabaseError,
-} from '@nagiyu/aws';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBEntityStore, queryAllItems, type EntityStore } from '@nagiyu/aws';
 import type {
   CreateGroupListInput,
   CreatePersonalListInput,
@@ -20,101 +9,53 @@ import type {
   UpdatePersonalListInput,
 } from '../../types/index.js';
 import type { ListRepository } from './list-repository.interface.js';
+import {
+  PersonalListMapper,
+  PERSONAL_LIST_SK_PREFIX,
+  buildPersonalListPk,
+  type PersonalListKey,
+} from './personal-list-mapper.js';
+import {
+  GroupListMapper,
+  GROUP_LIST_SK_PREFIX,
+  buildGroupListPk,
+  type GroupListKey,
+} from './group-list-mapper.js';
 import { withDatabaseError } from '../with-database-error.js';
 
-const PERSONAL_LIST_SK_PREFIX = 'PLIST#';
-const GROUP_LIST_SK_PREFIX = 'GLIST#';
-
-const ERROR_MESSAGES = {
-  INVALID_PERSONAL_LIST_DATA: '個人リスト情報の形式が不正です',
-  INVALID_GROUP_LIST_DATA: 'グループリスト情報の形式が不正です',
-  PERSONAL_LIST_ALREADY_EXISTS: '個人リストは既に存在します',
-  GROUP_LIST_ALREADY_EXISTS: 'グループリストは既に存在します',
-  PERSONAL_LIST_NOT_FOUND: '個人リストが見つかりません',
-  GROUP_LIST_NOT_FOUND: 'グループリストが見つかりません',
-  DEFAULT_PERSONAL_LIST_NOT_DELETABLE: 'デフォルトリストは削除できません',
-  UPDATE_EXPRESSION_EMPTY: '更新式を生成できませんでした',
-} as const;
-
+/**
+ * DynamoDB List Repository
+ *
+ * 単一アイテムの CRUD は EntityStore に任せ、PK + SK 接頭辞の一覧 Query だけを自前で持つ。
+ */
 export class DynamoDBListRepository implements ListRepository {
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
+  private readonly personalMapper = new PersonalListMapper();
+  private readonly groupMapper = new GroupListMapper();
+  private readonly personalStore: EntityStore<PersonalList, PersonalListKey>;
+  private readonly groupStore: EntityStore<GroupList, GroupListKey>;
 
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
     this.docClient = docClient;
     this.tableName = tableName;
+    this.personalStore = new DynamoDBEntityStore(docClient, tableName, this.personalMapper);
+    this.groupStore = new DynamoDBEntityStore(docClient, tableName, this.groupMapper);
   }
 
   public async getPersonalListsByUserId(userId: string): Promise<PersonalList[]> {
-    const items = await withDatabaseError(() =>
-      queryAllItems(this.docClient, {
-        TableName: this.tableName,
-        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
-        ExpressionAttributeNames: {
-          '#pk': 'PK',
-          '#sk': 'SK',
-        },
-        ExpressionAttributeValues: {
-          ':pk': this.buildUserPk(userId),
-          ':skPrefix': PERSONAL_LIST_SK_PREFIX,
-        },
-      })
-    );
-
-    return items.map((item) => this.toPersonalList(item as Record<string, unknown>));
+    const items = await this.queryByPrefix(buildPersonalListPk(userId), PERSONAL_LIST_SK_PREFIX);
+    return items.map((item) => this.personalMapper.toEntity(item));
   }
 
   public async getPersonalListById(userId: string, listId: string): Promise<PersonalList | null> {
-    const result = await withDatabaseError(() =>
-      this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: this.buildUserPk(userId),
-            SK: this.buildPersonalListSk(listId),
-          },
-        })
-      )
-    );
-
-    if (!result.Item) {
-      return null;
-    }
-
-    return this.toPersonalList(result.Item as Record<string, unknown>);
+    return this.personalStore.get({ userId, listId });
   }
 
   public async createPersonalList(input: CreatePersonalListInput): Promise<PersonalList> {
-    const now = new Date().toISOString();
-    const item = {
-      PK: this.buildUserPk(input.userId),
-      SK: this.buildPersonalListSk(input.listId),
-      listId: input.listId,
-      userId: input.userId,
-      name: input.name,
-      isDefault: input.isDefault,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    try {
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: item,
-          ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
-        })
-      );
-    } catch (error) {
-      mapConditionalCheckFailed(error, {
-        onExists: () => {
-          throw new Error(ERROR_MESSAGES.PERSONAL_LIST_ALREADY_EXISTS);
-        },
-      });
-      throw toDatabaseError(error);
-    }
-
-    return this.toPersonalList(item);
+    const now = Date.now();
+    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
+    return this.personalStore.create({ ...input, createdAt: now, updatedAt: now });
   }
 
   public async updatePersonalList(
@@ -122,72 +63,40 @@ export class DynamoDBListRepository implements ListRepository {
     listId: string,
     updates: UpdatePersonalListInput
   ): Promise<PersonalList> {
-    const updateParts = buildUpdateExpression(
-      { name: updates.name },
-      {
-        timestamp: { attributeName: 'updatedAt', value: new Date().toISOString() },
-        updateTimestampWhenEmpty: true,
-      }
-    );
-    if (!updateParts) {
-      throw new Error(ERROR_MESSAGES.UPDATE_EXPRESSION_EMPTY);
-    }
-
-    let result;
-    try {
-      result = await this.docClient.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: this.buildUserPk(userId),
-            SK: this.buildPersonalListSk(listId),
-          },
-          ...updateParts,
-          ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
-          ReturnValues: 'ALL_NEW',
-        })
-      );
-    } catch (error: unknown) {
-      mapConditionalCheckFailed(error, {
-        onMissing: () => {
-          throw new Error(ERROR_MESSAGES.PERSONAL_LIST_NOT_FOUND);
-        },
-      });
-      throw toDatabaseError(error);
-    }
-
-    if (!result.Attributes) {
-      throw new Error(ERROR_MESSAGES.PERSONAL_LIST_NOT_FOUND);
-    }
-
-    return this.toPersonalList(result.Attributes as Record<string, unknown>);
+    return this.personalStore.update({ userId, listId }, updates);
   }
 
   public async deletePersonalList(userId: string, listId: string): Promise<void> {
-    const item = await this.getPersonalListById(userId, listId);
-
-    if (!item) {
-      return;
-    }
-
-    if (item.isDefault) {
-      throw new Error(ERROR_MESSAGES.DEFAULT_PERSONAL_LIST_NOT_DELETABLE);
-    }
-
-    await withDatabaseError(() =>
-      this.docClient.send(
-        new DeleteCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: this.buildUserPk(userId),
-            SK: this.buildPersonalListSk(listId),
-          },
-        })
-      )
-    );
+    await this.personalStore.deleteIfExists({ userId, listId });
   }
 
   public async getGroupListsByGroupId(groupId: string): Promise<GroupList[]> {
+    const items = await this.queryByPrefix(buildGroupListPk(groupId), GROUP_LIST_SK_PREFIX);
+    return items.map((item) => this.groupMapper.toEntity(item));
+  }
+
+  public async getGroupListById(groupId: string, listId: string): Promise<GroupList | null> {
+    return this.groupStore.get({ groupId, listId });
+  }
+
+  public async createGroupList(input: CreateGroupListInput): Promise<GroupList> {
+    const now = Date.now();
+    return this.groupStore.create({ ...input, createdAt: now, updatedAt: now });
+  }
+
+  public async updateGroupList(
+    groupId: string,
+    listId: string,
+    updates: UpdateGroupListInput
+  ): Promise<GroupList> {
+    return this.groupStore.update({ groupId, listId }, updates);
+  }
+
+  public async deleteGroupList(groupId: string, listId: string): Promise<void> {
+    await this.groupStore.deleteIfExists({ groupId, listId });
+  }
+
+  private async queryByPrefix(pk: string, skPrefix: string): Promise<Record<string, unknown>[]> {
     const items = await withDatabaseError(() =>
       queryAllItems(this.docClient, {
         TableName: this.tableName,
@@ -197,199 +106,11 @@ export class DynamoDBListRepository implements ListRepository {
           '#sk': 'SK',
         },
         ExpressionAttributeValues: {
-          ':pk': this.buildGroupPk(groupId),
-          ':skPrefix': GROUP_LIST_SK_PREFIX,
+          ':pk': pk,
+          ':skPrefix': skPrefix,
         },
       })
     );
-
-    return items.map((item) => this.toGroupList(item as Record<string, unknown>));
-  }
-
-  public async getGroupListById(groupId: string, listId: string): Promise<GroupList | null> {
-    const result = await withDatabaseError(() =>
-      this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: this.buildGroupPk(groupId),
-            SK: this.buildGroupListSk(listId),
-          },
-        })
-      )
-    );
-
-    if (!result.Item) {
-      return null;
-    }
-
-    return this.toGroupList(result.Item as Record<string, unknown>);
-  }
-
-  public async createGroupList(input: CreateGroupListInput): Promise<GroupList> {
-    const now = new Date().toISOString();
-    const item = {
-      PK: this.buildGroupPk(input.groupId),
-      SK: this.buildGroupListSk(input.listId),
-      listId: input.listId,
-      groupId: input.groupId,
-      name: input.name,
-      createdBy: input.createdBy,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    try {
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: item,
-          ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
-        })
-      );
-    } catch (error) {
-      mapConditionalCheckFailed(error, {
-        onExists: () => {
-          throw new Error(ERROR_MESSAGES.GROUP_LIST_ALREADY_EXISTS);
-        },
-      });
-      throw toDatabaseError(error);
-    }
-
-    return this.toGroupList(item);
-  }
-
-  public async updateGroupList(
-    groupId: string,
-    listId: string,
-    updates: UpdateGroupListInput
-  ): Promise<GroupList> {
-    const updateParts = buildUpdateExpression(
-      { name: updates.name },
-      {
-        timestamp: { attributeName: 'updatedAt', value: new Date().toISOString() },
-        updateTimestampWhenEmpty: true,
-      }
-    );
-    if (!updateParts) {
-      throw new Error(ERROR_MESSAGES.UPDATE_EXPRESSION_EMPTY);
-    }
-
-    let result;
-    try {
-      result = await this.docClient.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: this.buildGroupPk(groupId),
-            SK: this.buildGroupListSk(listId),
-          },
-          ...updateParts,
-          ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
-          ReturnValues: 'ALL_NEW',
-        })
-      );
-    } catch (error: unknown) {
-      mapConditionalCheckFailed(error, {
-        onMissing: () => {
-          throw new Error(ERROR_MESSAGES.GROUP_LIST_NOT_FOUND);
-        },
-      });
-      throw toDatabaseError(error);
-    }
-
-    if (!result.Attributes) {
-      throw new Error(ERROR_MESSAGES.GROUP_LIST_NOT_FOUND);
-    }
-
-    return this.toGroupList(result.Attributes as Record<string, unknown>);
-  }
-
-  public async deleteGroupList(groupId: string, listId: string): Promise<void> {
-    await withDatabaseError(() =>
-      this.docClient.send(
-        new DeleteCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: this.buildGroupPk(groupId),
-            SK: this.buildGroupListSk(listId),
-          },
-        })
-      )
-    );
-  }
-
-  private buildUserPk(userId: string): string {
-    return `USER#${userId}`;
-  }
-
-  private buildPersonalListSk(listId: string): string {
-    return `${PERSONAL_LIST_SK_PREFIX}${listId}`;
-  }
-
-  private buildGroupPk(groupId: string): string {
-    return `GROUP#${groupId}`;
-  }
-
-  private buildGroupListSk(listId: string): string {
-    return `${GROUP_LIST_SK_PREFIX}${listId}`;
-  }
-
-  private toPersonalList(item: Record<string, unknown>): PersonalList {
-    const listId = item['listId'];
-    const userId = item['userId'];
-    const name = item['name'];
-    const isDefault = item['isDefault'];
-    const createdAt = item['createdAt'];
-    const updatedAt = item['updatedAt'];
-
-    if (
-      typeof listId !== 'string' ||
-      typeof userId !== 'string' ||
-      typeof name !== 'string' ||
-      typeof isDefault !== 'boolean' ||
-      typeof createdAt !== 'string' ||
-      typeof updatedAt !== 'string'
-    ) {
-      throw new Error(ERROR_MESSAGES.INVALID_PERSONAL_LIST_DATA);
-    }
-
-    return {
-      listId,
-      userId,
-      name,
-      isDefault,
-      createdAt,
-      updatedAt,
-    };
-  }
-
-  private toGroupList(item: Record<string, unknown>): GroupList {
-    const listId = item['listId'];
-    const groupId = item['groupId'];
-    const name = item['name'];
-    const createdBy = item['createdBy'];
-    const createdAt = item['createdAt'];
-    const updatedAt = item['updatedAt'];
-
-    if (
-      typeof listId !== 'string' ||
-      typeof groupId !== 'string' ||
-      typeof name !== 'string' ||
-      typeof createdBy !== 'string' ||
-      typeof createdAt !== 'string' ||
-      typeof updatedAt !== 'string'
-    ) {
-      throw new Error(ERROR_MESSAGES.INVALID_GROUP_LIST_DATA);
-    }
-
-    return {
-      listId,
-      groupId,
-      name,
-      createdBy,
-      createdAt,
-      updatedAt,
-    };
+    return items as Record<string, unknown>[];
   }
 }

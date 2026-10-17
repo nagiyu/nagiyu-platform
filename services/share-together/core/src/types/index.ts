@@ -19,8 +19,10 @@ export interface PersonalList {
   userId: string;
   name: string;
   isDefault: boolean;
-  createdAt: string;
-  updatedAt: string;
+  /** 作成日時 (エポックミリ秒) */
+  createdAt: number;
+  /** 更新日時 (エポックミリ秒) */
+  updatedAt: number;
 }
 
 export interface Group {
@@ -51,8 +53,10 @@ export interface GroupList {
   groupId: string;
   name: string;
   createdBy: string;
-  createdAt: string;
-  updatedAt: string;
+  /** 作成日時 (エポックミリ秒) */
+  createdAt: number;
+  /** 更新日時 (エポックミリ秒) */
+  updatedAt: number;
 }
 
 export interface TodoItem {

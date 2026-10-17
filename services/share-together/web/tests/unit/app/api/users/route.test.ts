@@ -190,8 +190,8 @@ describe('POST /api/users', () => {
       userId: 'user-new',
       name: 'デフォルトリスト',
       isDefault: true,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     const response = await POST();

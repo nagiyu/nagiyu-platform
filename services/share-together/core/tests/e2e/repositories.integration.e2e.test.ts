@@ -115,6 +115,7 @@ describe('Repository Layer E2E with InMemory repositories', () => {
     });
     expectValidIsoTimestamp(createdTodo.createdAt);
 
+    expectValidEpochMillis(personalList.createdAt);
     const updatedList = await listRepository.updatePersonalList('user-001', personalList.listId, {
       name: '週末の買い物リスト',
     });
@@ -189,7 +190,7 @@ describe('Repository Layer E2E with InMemory repositories', () => {
       name: 'リリース準備',
       createdBy: 'owner-001',
     });
-    expectValidIsoTimestamp(groupList.createdAt);
+    expectValidEpochMillis(groupList.createdAt);
 
     const createdSharedTodo = await todoRepository.create({
       todoId: 'group-todo-001',
