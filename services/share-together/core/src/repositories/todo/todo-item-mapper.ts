@@ -73,7 +73,8 @@ export class TodoItemMapper implements EntityMapper<TodoItem, TodoItemKey> {
       Title: entity.title,
       IsCompleted: entity.isCompleted,
       CreatedBy: entity.createdBy,
-      CompletedBy: entity.completedBy,
+      // DocumentClient の設定によっては undefined を含む Item が拒否されるため、未完了のときは属性ごと省く
+      ...(entity.completedBy !== undefined ? { CompletedBy: entity.completedBy } : {}),
       CreatedAt: entity.createdAt,
       UpdatedAt: entity.updatedAt,
     };
