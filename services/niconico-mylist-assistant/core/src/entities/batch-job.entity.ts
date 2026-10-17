@@ -6,8 +6,9 @@
  * @see api-spec.md Section 5.4
  */
 
-import { BatchStatus, BatchResult } from '../types/index.js';
+import type { EntityPatch } from '@nagiyu/aws';
 import type { PushSubscription } from '@nagiyu/common';
+import type { BatchStatus, BatchResult } from '../types/index.js';
 
 /**
  * BatchJob Entity
@@ -38,19 +39,19 @@ export interface BatchJobEntity {
   result?: BatchResult;
 
   /**
-   * ジョブ作成日時 (Unix timestamp)
+   * ジョブ作成日時 (Unix timestamp, ミリ秒)
    */
-  CreatedAt: number;
+  createdAt: number;
 
   /**
-   * ジョブ更新日時 (Unix timestamp)
+   * ジョブ更新日時 (Unix timestamp, ミリ秒)
    */
-  UpdatedAt: number;
+  updatedAt: number;
 
   /**
-   * ジョブ完了日時 (Unix timestamp, 完了時のみ)
+   * ジョブ完了日時 (Unix timestamp, ミリ秒, 完了時のみ)
    */
-  CompletedAt?: number;
+  completedAt?: number;
 
   /**
    * 二段階認証コード（Web から入力される、一時的なデータ）
@@ -68,17 +69,20 @@ export interface BatchJobEntity {
 /**
  * BatchJob 作成用入力型
  */
-export type CreateBatchJobInput = Omit<BatchJobEntity, 'CreatedAt' | 'UpdatedAt' | 'CompletedAt'>;
+export type CreateBatchJobInput = Omit<BatchJobEntity, 'createdAt' | 'updatedAt' | 'completedAt'>;
 
 /**
  * BatchJob 更新用入力型
+ *
+ * 値の意味は EntityPatch に従う (undefined は変更なし、null は属性削除)。
+ * 識別子と作成日時は作成後に変えられないため含めない。
  */
-export interface UpdateBatchJobInput {
-  status: BatchStatus;
-  result?: BatchResult;
-  completedAt?: number;
-  twoFactorAuthCode?: string;
-}
+export type UpdateBatchJobInput = EntityPatch<
+  Pick<
+    BatchJobEntity,
+    'status' | 'result' | 'completedAt' | 'twoFactorAuthCode' | 'pushSubscription'
+  >
+>;
 
 /**
  * BatchJob キー（PK/SK 情報）
