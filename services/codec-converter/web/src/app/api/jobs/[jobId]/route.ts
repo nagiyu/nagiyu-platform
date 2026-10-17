@@ -39,7 +39,6 @@ export const GET = withApiErrorReporting(
     const { DYNAMODB_TABLE, S3_BUCKET, AWS_REGION } = getEnvVars();
     const { docClient, s3Client } = getAwsClients(AWS_REGION);
 
-    // DynamoDBでジョブを取得
     const job = await new DynamoDBJobRepository(docClient, DYNAMODB_TABLE).getById(jobId);
 
     if (!job) {

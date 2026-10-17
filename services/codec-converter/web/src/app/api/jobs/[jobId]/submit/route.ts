@@ -47,7 +47,7 @@ export const POST = withApiErrorReporting(
       getEnvVars();
     const { docClient, s3Client, batchClient } = getAwsClients(AWS_REGION);
 
-    // 1. DynamoDBでジョブの存在確認
+    // 1. ジョブの存在確認
     const job = await new DynamoDBJobRepository(docClient, DYNAMODB_TABLE).getById(jobId);
 
     if (!job) {
