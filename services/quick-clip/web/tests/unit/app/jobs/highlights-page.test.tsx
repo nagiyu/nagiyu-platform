@@ -1257,7 +1257,7 @@ describe('HighlightsPage', () => {
           json: async () => ({
             jobId: 'job-1',
             status: 'COMPLETED',
-            expiresAt: 1700000000,
+            expiresAt: 1700000000000,
           }),
         };
       }
@@ -1284,6 +1284,12 @@ describe('HighlightsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/データの有効期限:/)).toBeInTheDocument();
+      // expiresAt はミリ秒として扱う (秒として 1000 倍すると遠い未来の日付になる)
+      expect(
+        screen.getByText(
+          new RegExp(new Date(1700000000000).toLocaleString('ja-JP').replace(/\//g, '\\/'))
+        )
+      ).toBeInTheDocument();
     });
   });
 });

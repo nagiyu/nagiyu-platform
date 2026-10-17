@@ -1,18 +1,16 @@
-import { type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { NextResponse } from 'next/server';
 import type { InvitationSummary, InvitationsResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { batchGetAll, getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import {
   createGroupRepository,
   createMembershipRepository,
   createUserRepository,
+  type UserRepository,
 } from '@nagiyu/share-together-core';
 import { createValidationErrorResponse } from '@/lib/api/responses';
-
-const USER_META_SK = '#META#';
 
 export const GET = withApiErrorReporting(
   'Web API: 招待一覧取得エラー',
@@ -36,6 +34,7 @@ export const GET = withApiErrorReporting(
       process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
     const membershipRepository = createMembershipRepository(docClient, tableName);
     const groupRepository = createGroupRepository(docClient, tableName);
+    const userRepository = createUserRepository(docClient, tableName);
 
     const pendingInvitations = await membershipRepository.getPendingInvitationsByUserId(userId);
     if (pendingInvitations.length === 0) {
@@ -59,7 +58,7 @@ export const GET = withApiErrorReporting(
 
     const [groups, inviterNames] = await Promise.all([
       groupRepository.batchGetByIds(groupIds),
-      getInviterNames(docClient, tableName, inviterUserIds),
+      getInviterNames(userRepository, inviterUserIds),
     ]);
 
     const groupNameById = new Map(groups.map((group) => [group.groupId, group.name]));
@@ -83,47 +82,9 @@ export const GET = withApiErrorReporting(
 );
 
 async function getInviterNames(
-  docClient: DynamoDBDocumentClient | undefined,
-  tableName: string,
+  userRepository: UserRepository,
   inviterUserIds: string[]
 ): Promise<Map<string, string>> {
-  if (inviterUserIds.length === 0) {
-    return new Map();
-  }
-
-  if (process.env.USE_IN_MEMORY_DB === 'true') {
-    const userRepository = createUserRepository();
-    const inviterNames = new Map<string, string>();
-    for (const inviterUserId of inviterUserIds) {
-      const user = await userRepository.getById(inviterUserId);
-      if (user) {
-        inviterNames.set(inviterUserId, user.name);
-      }
-    }
-    return inviterNames;
-  }
-
-  if (!docClient) {
-    throw new Error(ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
-  }
-
-  const items = await batchGetAll(
-    docClient,
-    tableName,
-    inviterUserIds.map((inviterUserId) => ({
-      PK: `USER#${inviterUserId}`,
-      SK: USER_META_SK,
-    }))
-  );
-
-  const inviterNames = new Map<string, string>();
-  for (const item of items) {
-    const userId = item['userId'];
-    const name = item['name'];
-    if (typeof userId === 'string' && typeof name === 'string') {
-      inviterNames.set(userId, name);
-    }
-  }
-
-  return inviterNames;
+  const users = await userRepository.batchGetByIds(inviterUserIds);
+  return new Map(users.map((user) => [user.userId, user.name]));
 }

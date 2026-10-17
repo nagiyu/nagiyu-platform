@@ -86,14 +86,14 @@ export const PUT = withApiErrorReporting(
       title: basicInfo?.title || '',
       thumbnailUrl: basicInfo?.thumbnailUrl || '',
       length: basicInfo?.length || '',
-      createdAt: updatedSetting.CreatedAt,
+      createdAt: updatedSetting.createdAt,
       userSetting: {
         videoId: updatedSetting.videoId,
         isFavorite: updatedSetting.isFavorite,
         isSkip: updatedSetting.isSkip,
         memo: updatedSetting.memo,
-        createdAt: updatedSetting.CreatedAt,
-        updatedAt: updatedSetting.UpdatedAt,
+        createdAt: updatedSetting.createdAt,
+        updatedAt: updatedSetting.updatedAt,
       },
     };
 

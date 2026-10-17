@@ -27,14 +27,15 @@ jest.mock('@nagiyu/niconico-mylist-assistant-core', () => ({
   upsertUserVideoSetting: jest.fn(),
 }));
 
-// モック: @nagiyu/aws (エラー報告)
+// モック: @nagiyu/aws (エラー報告)。EntityAlreadyExistsError は instanceof 判定のため実物を使う
 jest.mock('@nagiyu/aws', () => ({
+  EntityAlreadyExistsError: jest.requireActual('@nagiyu/aws').EntityAlreadyExistsError,
   reportErrorEvent: jest.fn(),
 }));
 
 import { NextRequest } from 'next/server';
 import { POST } from '../../../../../../src/app/api/videos/bulk-import/route';
-import { reportErrorEvent } from '@nagiyu/aws';
+import { EntityAlreadyExistsError, reportErrorEvent } from '@nagiyu/aws';
 import { getSession } from '../../../../../../src/lib/auth/session';
 import {
   getVideoInfoBatch,
@@ -94,7 +95,7 @@ function makeVideoBasicInfo(
     title: `動画 ${videoId}`,
     thumbnailUrl: `https://example.com/${videoId}.jpg`,
     length: '3:00',
-    CreatedAt: 1700000000000,
+    createdAt: 1700000000000,
   };
 }
 
@@ -104,8 +105,8 @@ function makeUserVideoSetting(videoId: string): UserVideoSetting {
     videoId,
     isFavorite: false,
     isSkip: false,
-    CreatedAt: 1700000000000,
-    UpdatedAt: 1700000000000,
+    createdAt: 1700000000000,
+    updatedAt: 1700000000000,
   };
 }
 
@@ -246,7 +247,7 @@ describe('POST /api/videos/bulk-import', () => {
     mockGetSession.mockResolvedValue(MOCK_SESSION);
     mockGetUserVideoSetting.mockResolvedValue(null);
     mockGetVideoInfoBatch.mockResolvedValue({ success: [makeVideoInfo('sm1')], failed: [] });
-    mockCreateVideoBasicInfo.mockRejectedValue(new Error('ConditionalCheckFailedException'));
+    mockCreateVideoBasicInfo.mockRejectedValue(new EntityAlreadyExistsError('VIDEO', 'sm1'));
     mockUpsertUserVideoSetting.mockImplementation(async (input) =>
       makeUserVideoSetting(input.videoId)
     );
@@ -257,6 +258,21 @@ describe('POST /api/videos/bulk-import', () => {
     const json = await response.json();
     expect(json.success).toBe(1);
     expect(reportErrorEvent).not.toHaveBeenCalled();
+  });
+
+  it('既存以外の動画基本情報の作成失敗は失敗件数に数える', async () => {
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+    mockGetUserVideoSetting.mockResolvedValue(null);
+    mockGetVideoInfoBatch.mockResolvedValue({ success: [makeVideoInfo('sm1')], failed: [] });
+    // メッセージに ConditionalCheckFailed を含んでも、既存衝突のエラー型でなければ握りつぶさない
+    mockCreateVideoBasicInfo.mockRejectedValue(new Error('ConditionalCheckFailedException'));
+
+    const response = await POST(makePostRequest({ videoIds: ['sm1'] }));
+    expect(response.status).toBe(200);
+
+    const json = await response.json();
+    expect(json.success).toBe(0);
+    expect(mockUpsertUserVideoSetting).not.toHaveBeenCalled();
   });
 
   it('DB 保存に失敗した動画は失敗件数に数えて 200 を返し、失敗ごとに報告する', async () => {

@@ -96,7 +96,7 @@ test.describe('グループ管理', () => {
           userId: OWNER_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
       ],
     });
@@ -120,7 +120,7 @@ test.describe('グループ管理', () => {
           userId: OWNER_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
       ],
     });
@@ -144,7 +144,7 @@ test.describe('グループ管理', () => {
     request,
   }) => {
     const groupId = 'group-member-limit-disabled';
-    const now = new Date().toISOString();
+    const now = Date.now();
     await resetTestData(request, {
       users: [OWNER_USER, ...LIMIT_MEMBER_USERS],
       groups: [{ groupId, name: 'メンバー上限グループ', ownerUserId: OWNER_USER.userId }],
@@ -188,7 +188,7 @@ test.describe('グループ管理', () => {
           userId: OWNER_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
       ],
     });
@@ -196,7 +196,7 @@ test.describe('グループ管理', () => {
     await page.goto('/groups');
     await page.getByRole('heading', { level: 2, name: 'メンバー上限APIグループ' }).click();
 
-    const now = new Date().toISOString();
+    const now = Date.now();
     await resetTestData(request, {
       users: [OWNER_USER, INVITEE_USER, ...LIMIT_MEMBER_USERS],
       groups: [{ groupId, name: 'メンバー上限APIグループ', ownerUserId: OWNER_USER.userId }],
@@ -248,7 +248,7 @@ test.describe('グループ管理', () => {
           userId: OTHER_OWNER_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
         {
           groupId: 'group-accept',
@@ -256,7 +256,7 @@ test.describe('グループ管理', () => {
           role: 'MEMBER',
           status: 'PENDING',
           invitedBy: OTHER_OWNER_USER.userId,
-          invitedAt: new Date().toISOString(),
+          invitedAt: Date.now(),
         },
       ],
     });
@@ -282,7 +282,7 @@ test.describe('グループ管理', () => {
           userId: OTHER_OWNER_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
         {
           groupId: 'group-reject',
@@ -290,7 +290,7 @@ test.describe('グループ管理', () => {
           role: 'MEMBER',
           status: 'PENDING',
           invitedBy: OTHER_OWNER_USER.userId,
-          invitedAt: new Date().toISOString(),
+          invitedAt: Date.now(),
         },
       ],
     });
@@ -317,7 +317,7 @@ test.describe('グループ管理', () => {
           userId: OTHER_OWNER_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
         {
           groupId: 'group-member',
@@ -325,8 +325,8 @@ test.describe('グループ管理', () => {
           role: 'MEMBER',
           status: 'ACCEPTED',
           invitedBy: OTHER_OWNER_USER.userId,
-          invitedAt: new Date().toISOString(),
-          respondedAt: new Date().toISOString(),
+          invitedAt: Date.now(),
+          respondedAt: Date.now(),
         },
       ],
     });
@@ -353,7 +353,7 @@ test.describe('グループ管理', () => {
           userId: OWNER_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
         {
           groupId,
@@ -361,8 +361,8 @@ test.describe('グループ管理', () => {
           role: 'MEMBER',
           status: 'ACCEPTED',
           invitedBy: OWNER_USER.userId,
-          invitedAt: new Date().toISOString(),
-          respondedAt: new Date().toISOString(),
+          invitedAt: Date.now(),
+          respondedAt: Date.now(),
         },
       ],
       groupLists: [
@@ -413,7 +413,7 @@ test.describe('グループ管理', () => {
           userId: OWNER_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
       ],
     });
@@ -449,7 +449,7 @@ test.describe('グループ管理', () => {
           userId: OTHER_OWNER_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
         {
           groupId: nonOwnerGroupId,
@@ -457,8 +457,8 @@ test.describe('グループ管理', () => {
           role: 'MEMBER',
           status: 'ACCEPTED',
           invitedBy: OTHER_OWNER_USER.userId,
-          invitedAt: new Date().toISOString(),
-          respondedAt: new Date().toISOString(),
+          invitedAt: Date.now(),
+          respondedAt: Date.now(),
         },
       ],
     });
@@ -492,7 +492,7 @@ test.describe('グループ管理', () => {
           userId: OWNER_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
       ],
     });
@@ -513,7 +513,7 @@ test.describe('グループ管理', () => {
           userId: OWNER_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
         {
           groupId: 'group-owner',
@@ -521,8 +521,8 @@ test.describe('グループ管理', () => {
           role: 'MEMBER',
           status: 'ACCEPTED',
           invitedBy: OWNER_USER.userId,
-          invitedAt: new Date().toISOString(),
-          respondedAt: new Date().toISOString(),
+          invitedAt: Date.now(),
+          respondedAt: Date.now(),
         },
       ],
     });

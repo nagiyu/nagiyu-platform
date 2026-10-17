@@ -157,7 +157,7 @@ export async function saveNiconicoSession(
  */
 export async function deleteNiconicoSession(userId: string): Promise<void> {
   const repo = createNiconicoCredentialRepository();
-  await repo.delete(userId);
+  await repo.deleteIfExists(userId);
 }
 
 /**

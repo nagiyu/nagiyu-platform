@@ -1,4 +1,5 @@
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
   getDynamoDBDocumentClient: jest.fn().mockReturnValue({}),
   getTableName: jest.fn().mockReturnValue('test-table'),
   reportErrorEvent: jest.fn().mockResolvedValue(null),

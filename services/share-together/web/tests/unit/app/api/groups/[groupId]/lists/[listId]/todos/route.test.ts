@@ -175,8 +175,8 @@ describe('/api/groups/[groupId]/lists/[listId]/todos route', () => {
       groupId: 'group-1',
       name: '共有リスト',
       createdBy: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockGetByListId.mockResolvedValue([
       {
@@ -185,8 +185,8 @@ describe('/api/groups/[groupId]/lists/[listId]/todos route', () => {
         title: '牛乳を買う',
         isCompleted: false,
         createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       },
     ]);
 
@@ -205,8 +205,8 @@ describe('/api/groups/[groupId]/lists/[listId]/todos route', () => {
             title: '牛乳を買う',
             isCompleted: false,
             createdBy: 'user-1',
-            createdAt: '2026-01-01T00:00:00.000Z',
-            updatedAt: '2026-01-01T00:00:00.000Z',
+            createdAt: 1767225600000,
+            updatedAt: 1767225600000,
           },
         ],
       },
@@ -246,8 +246,8 @@ describe('/api/groups/[groupId]/lists/[listId]/todos route', () => {
       groupId: 'group-1',
       name: '共有リスト',
       createdBy: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockCreateTodo.mockResolvedValue({
       todoId: 'todo-9',
@@ -255,8 +255,8 @@ describe('/api/groups/[groupId]/lists/[listId]/todos route', () => {
       title: '卵を買う',
       isCompleted: false,
       createdBy: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     const response = await POST({ json: async () => ({ title: '  卵を買う  ' }) } as Request, {
@@ -278,8 +278,8 @@ describe('/api/groups/[groupId]/lists/[listId]/todos route', () => {
         title: '卵を買う',
         isCompleted: false,
         createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       },
     });
   });

@@ -20,8 +20,20 @@ const sampleEvent: ErrorEvent = {
   title: 'sample-alarm (ALARM)',
   message: 'Threshold Crossed',
   context: '{}',
-  occurredAt: '2026-05-06T01:00:00.000Z',
+  occurredAt: Date.parse('2026-05-06T01:00:00.000Z'),
 };
+
+/** 新形式 (PascalCase・ミリ秒) の保存属性にする */
+const toStoredItem = (event: ErrorEvent) => ({
+  EventID: event.eventId,
+  ServiceID: event.serviceId,
+  Source: event.source,
+  Severity: event.severity,
+  Title: event.title,
+  Message: event.message,
+  Context: event.context,
+  OccurredAt: event.occurredAt,
+});
 
 const buildStreamRecord = (
   errorEvent: ErrorEvent | null,
@@ -31,10 +43,10 @@ const buildStreamRecord = (
   dynamodb: errorEvent
     ? {
         NewImage: marshall({
-          ...errorEvent,
+          ...toStoredItem(errorEvent),
           PK: `ERROR_EVENT#${errorEvent.serviceId}`,
-          SK: `OCCURRED#${errorEvent.occurredAt}#${errorEvent.eventId}`,
-          ttl: 1234567890,
+          SK: `OCCURRED#${new Date(errorEvent.occurredAt).toISOString()}#${errorEvent.eventId}`,
+          TTL: 1234567890,
         }),
       }
     : undefined,
@@ -43,7 +55,7 @@ const buildStreamRecord = (
 describe('unmarshallErrorEvent', () => {
   it('正常な NewImage を ErrorEvent に変換する', () => {
     const newImage = marshall({
-      ...sampleEvent,
+      ...toStoredItem(sampleEvent),
       PK: 'ERROR_EVENT#stock-tracker',
       SK: 'OCCURRED#2026-05-06T01:00:00.000Z#evt-1',
     });
@@ -53,25 +65,35 @@ describe('unmarshallErrorEvent', () => {
     expect(result).toEqual(sampleEvent);
   });
 
+  it('旧形式 (小文字属性・ISO 文字列の occurredAt) の NewImage も ErrorEvent に変換する', () => {
+    const newImage = marshall({
+      ...sampleEvent,
+      occurredAt: '2026-05-06T01:00:00.000Z',
+      PK: 'ERROR_EVENT#stock-tracker',
+      SK: 'OCCURRED#2026-05-06T01:00:00.000Z#evt-1',
+      ttl: 1234567890,
+    });
+
+    expect(unmarshallErrorEvent(newImage as Record<string, unknown>)).toEqual(sampleEvent);
+  });
+
   it('必須フィールドが無いと例外', () => {
     const newImage = marshall({ eventId: 'x' });
-    expect(() => unmarshallErrorEvent(newImage as Record<string, unknown>)).toThrow(
-      'エラーイベントの保存データのフィールドが不正です'
-    );
+    expect(() => unmarshallErrorEvent(newImage as Record<string, unknown>)).toThrow('ServiceID');
   });
 
   it('severity が不正なら例外', () => {
-    const newImage = marshall({ ...sampleEvent, severity: 'unknown-severity' });
-    expect(() => unmarshallErrorEvent(newImage as Record<string, unknown>)).toThrow('severity');
+    const newImage = marshall({ ...toStoredItem(sampleEvent), Severity: 'unknown-severity' });
+    expect(() => unmarshallErrorEvent(newImage as Record<string, unknown>)).toThrow('Severity');
   });
 
   it('source が不正なら例外', () => {
-    const newImage = marshall({ ...sampleEvent, source: 'invalid-source' });
-    expect(() => unmarshallErrorEvent(newImage as Record<string, unknown>)).toThrow('source');
+    const newImage = marshall({ ...toStoredItem(sampleEvent), Source: 'invalid-source' });
+    expect(() => unmarshallErrorEvent(newImage as Record<string, unknown>)).toThrow('Source');
   });
 
   it('source が batch-event でも ErrorEvent に変換する', () => {
-    const newImage = marshall({ ...sampleEvent, source: 'batch-event' });
+    const newImage = marshall({ ...toStoredItem(sampleEvent), Source: 'batch-event' });
     const result = unmarshallErrorEvent(newImage as Record<string, unknown>);
     expect(result.source).toBe('batch-event');
   });
@@ -85,7 +107,7 @@ describe('buildPushPayload', () => {
     expect(payload.body).toBe(sampleEvent.message);
     expect(payload.icon).toBe('/icon-192x192.png');
     expect(payload.data?.url).toBe(
-      'https://admin.example.com/errors/evt-1?at=2026-05-06T01%3A00%3A00.000Z&serviceId=stock-tracker'
+      'https://admin.example.com/errors/evt-1?at=1778029200000&serviceId=stock-tracker'
     );
     expect(payload.data?.eventId).toBe('evt-1');
     expect(payload.data?.tag).toBe('evt-1');
@@ -93,9 +115,7 @@ describe('buildPushPayload', () => {
 
   it('appUrl が空文字なら相対パスで data.url を生成する', () => {
     const payload = buildPushPayload(sampleEvent, '');
-    expect(payload.data?.url).toBe(
-      '/errors/evt-1?at=2026-05-06T01%3A00%3A00.000Z&serviceId=stock-tracker'
-    );
+    expect(payload.data?.url).toBe('/errors/evt-1?at=1778029200000&serviceId=stock-tracker');
   });
 
   it('message が空でもデフォルト本文を入れる', () => {
@@ -162,11 +182,13 @@ describe('handler', () => {
       Records: [
         {
           eventName: 'INSERT',
-          dynamodb: { NewImage: marshall({ ...sampleEvent, severity: 'unknown-severity' }) },
+          dynamodb: {
+            NewImage: marshall({ ...toStoredItem(sampleEvent), Severity: 'unknown-severity' }),
+          },
         },
       ],
     };
-    await expect(handler(invalid)).rejects.toThrow('severity');
+    await expect(handler(invalid)).rejects.toThrow('Severity');
   });
 
   it('VAPID キー未設定で例外', async () => {

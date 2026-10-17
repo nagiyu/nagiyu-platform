@@ -5,7 +5,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { UserNotFoundError } from '@nagiyu/auth-core';
+import { EntityNotFoundError } from '@nagiyu/aws';
 import { POST } from '../../../../../src/app/api/users/[userId]/roles/route';
 import { USER_VALIDATION_ERROR_MESSAGES } from '../../../../../src/app/api/users/schemas';
 
@@ -19,12 +19,6 @@ jest.mock('@nagiyu/auth-core', () => ({
   createUserRepository: jest.fn(() => ({
     assignRoles: (...args: unknown[]) => mockAssignRoles(...args),
   })),
-  UserNotFoundError: class UserNotFoundError extends Error {
-    constructor(userId: string) {
-      super(`ユーザーが見つかりません: ${userId}`);
-      this.name = 'UserNotFoundError';
-    }
-  },
 }));
 
 jest.mock('@nagiyu/aws', () => ({
@@ -126,7 +120,7 @@ describe('POST /api/users/[userId]/roles', () => {
         email: 'user@example.com',
         name: 'Test User',
         roles: ['admin', 'user-manager'],
-        updatedAt: '2024-01-15T12:00:00Z',
+        updatedAt: 1705320000000,
       });
 
       const request = new NextRequest('http://localhost/api/users/user-456/roles', {
@@ -148,7 +142,7 @@ describe('POST /api/users/[userId]/roles', () => {
         email: 'user@example.com',
         name: 'Test User',
         roles: [],
-        updatedAt: '2024-01-15T12:00:00Z',
+        updatedAt: 1705320000000,
       });
 
       const request = new NextRequest('http://localhost/api/users/user-456/roles', {
@@ -177,7 +171,7 @@ describe('POST /api/users/[userId]/roles', () => {
     });
 
     it('ユーザーが見つからない場合は 404 を返す', async () => {
-      mockAssignRoles.mockRejectedValue(new UserNotFoundError('user-999'));
+      mockAssignRoles.mockRejectedValue(new EntityNotFoundError('User', 'user-999'));
 
       const request = new NextRequest('http://localhost/api/users/user-999/roles', {
         method: 'POST',
@@ -211,7 +205,7 @@ describe('POST /api/users/[userId]/roles', () => {
         email: 'user@example.com',
         name: 'Test User',
         roles: ['admin'],
-        updatedAt: '2024-01-15T12:00:00Z',
+        updatedAt: 1705320000000,
       };
 
       mockAssignRoles.mockResolvedValue(mockUpdatedUser);
