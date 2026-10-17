@@ -33,7 +33,8 @@ export class ErrorEventsTableStack extends cdk.Stack {
       },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       pointInTimeRecovery: true,
-      timeToLiveAttribute: 'TTL',
+      // TTL の属性名は、有効なまま CloudFormation で変えられない。
+      // いったん TTL を外して無効化し、無効化が終わってから新しい名前で有効化する。
       stream: dynamodb.StreamViewType.NEW_IMAGE,
       removalPolicy:
         environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
