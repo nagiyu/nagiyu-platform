@@ -88,19 +88,19 @@ export const GET = withApiErrorReporting(
       getStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
     ]);
 
-    const bedtime = lifecycle?.Bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
-    const wakeUpTime = lifecycle?.WakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME;
+    const bedtime = lifecycle?.bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
+    const wakeUpTime = lifecycle?.wakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME;
     const state = resolveLifecycleState(now, bedtime, wakeUpTime);
 
     const userMessages = allMessages.filter((m) => m.Role === 'user');
 
     const lifecycleForDecision = lifecycle ?? {
-      UserID: userId,
-      CharacterID: characterId,
-      Bedtime: LIFECYCLE_DEFAULT_BEDTIME,
-      WakeUpTime: LIFECYCLE_DEFAULT_WAKE_UP_TIME,
-      CreatedAt: 0,
-      UpdatedAt: 0,
+      userId,
+      characterId,
+      bedtime: LIFECYCLE_DEFAULT_BEDTIME,
+      wakeUpTime: LIFECYCLE_DEFAULT_WAKE_UP_TIME,
+      createdAt: 0,
+      updatedAt: 0,
     };
 
     const notifyDecision = shouldNotifyNow({
@@ -120,7 +120,7 @@ export const GET = withApiErrorReporting(
         state,
         bedtime,
         wakeUpTime,
-        userActivityProfile: lifecycle?.UserActivityProfile ?? null,
+        userActivityProfile: lifecycle?.userActivityProfile ?? null,
       },
       recentNotifications: notificationEvents.slice(0, 5).map((e) => ({
         notifId: e.NotifID,

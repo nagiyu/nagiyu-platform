@@ -1,5 +1,5 @@
-import { GetCommand, PutCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBEntityStore, type EntityStore } from '@nagiyu/aws';
 import { updateAffectionLevel } from '../affection/calculator.js';
 import type {
   CharacterStateEntity,
@@ -11,36 +11,22 @@ import { CharacterStateMapper } from '../mappers/character-state.mapper.js';
 import type { CharacterStateRepository } from './character-state.repository.interface.js';
 
 export class DynamoDBCharacterStateRepository implements CharacterStateRepository {
-  private readonly mapper: CharacterStateMapper;
-  private readonly docClient: DynamoDBDocumentClient;
-  private readonly tableName: string;
   private readonly nowMs: () => number;
+  private readonly entityStore: EntityStore<CharacterStateEntity, CharacterStateKey>;
 
   constructor(
     docClient: DynamoDBDocumentClient,
     tableName: string,
     nowMs: () => number = () => Date.now()
   ) {
-    this.docClient = docClient;
-    this.tableName = tableName;
     this.nowMs = nowMs;
-    this.mapper = new CharacterStateMapper();
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, new CharacterStateMapper(), {
+      now: nowMs,
+    });
   }
 
   public async getById(key: CharacterStateKey): Promise<CharacterStateEntity | null> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys(key);
-      const result = await this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-        })
-      );
-      if (!result.Item) return null;
-      return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.get(key);
   }
 
   public async upsert(
@@ -49,31 +35,19 @@ export class DynamoDBCharacterStateRepository implements CharacterStateRepositor
   ): Promise<CharacterStateEntity> {
     const now = this.nowMs();
     const existing = await this.getById({
-      userId: input.UserID,
-      characterId: input.CharacterID,
+      userId: input.userId,
+      characterId: input.characterId,
     });
-
     const merged: CharacterStateEntity = {
-      UserID: input.UserID,
-      CharacterID: input.CharacterID,
-      LastInteractionAt: updates.LastInteractionAt ?? input.LastInteractionAt,
-      AffectionLevel:
-        updates.AffectionLevel ?? input.AffectionLevel ?? existing?.AffectionLevel ?? 0,
-      CreatedAt: existing?.CreatedAt ?? now,
-      UpdatedAt: now,
+      userId: input.userId,
+      characterId: input.characterId,
+      lastInteractionAt: updates.lastInteractionAt ?? input.lastInteractionAt,
+      affectionLevel:
+        updates.affectionLevel ?? input.affectionLevel ?? existing?.affectionLevel ?? 0,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
     };
-
-    try {
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: this.mapper.toItem(merged),
-        })
-      );
-      return merged;
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.put(merged);
   }
 
   public async updateAffection(
@@ -83,17 +57,17 @@ export class DynamoDBCharacterStateRepository implements CharacterStateRepositor
   ): Promise<CharacterStateEntity> {
     const now = this.nowMs();
     const existing = await this.getById({ userId, characterId });
-    const currentLevel = existing?.AffectionLevel ?? 0;
+    const currentLevel = existing?.affectionLevel ?? 0;
     const newLevel = updateAffectionLevel(currentLevel, delta);
 
     return this.upsert(
       {
-        UserID: userId,
-        CharacterID: characterId,
-        LastInteractionAt: existing?.LastInteractionAt ?? now,
-        AffectionLevel: newLevel,
+        userId,
+        characterId,
+        lastInteractionAt: existing?.lastInteractionAt ?? now,
+        affectionLevel: newLevel,
       },
-      { LastInteractionAt: now, AffectionLevel: newLevel }
+      { lastInteractionAt: now, affectionLevel: newLevel }
     );
   }
 }

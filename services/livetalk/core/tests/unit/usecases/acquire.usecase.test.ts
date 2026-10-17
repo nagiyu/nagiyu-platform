@@ -18,12 +18,12 @@ import {
 } from '../../../src/constants.js';
 
 const makeLifecycle = (overrides: Partial<LifecycleEntity> = {}): LifecycleEntity => ({
-  UserID: 'u1',
-  CharacterID: 'hiyori',
-  Bedtime: '01:30',
-  WakeUpTime: '09:30',
-  CreatedAt: 1_700_000_000_000,
-  UpdatedAt: 1_700_000_000_000,
+  userId: 'u1',
+  characterId: 'hiyori',
+  bedtime: '01:30',
+  wakeUpTime: '09:30',
+  createdAt: 1_700_000_000_000,
+  updatedAt: 1_700_000_000_000,
   ...overrides,
 });
 
@@ -80,7 +80,7 @@ describe('shouldAcquireNow', () => {
 
   it('ピーク活動時間帯は awake=true だが skipSelfStudy=true', () => {
     const lifecycle = makeLifecycle({
-      UserActivityProfile: {
+      userActivityProfile: {
         morningPeak: '14:00',
         eveningPeak: '21:00',
         sampleSize: 10,
@@ -944,7 +944,7 @@ describe('acquireForUser', () => {
 
   it('ピーク時は care 自発をスキップするが依頼・鮮度切れは実施する', async () => {
     const lifecycle = makeLifecycle({
-      UserActivityProfile: {
+      userActivityProfile: {
         morningPeak: '14:00',
         eveningPeak: '21:00',
         sampleSize: 10,

@@ -6,17 +6,17 @@
  * subscriptionId = SHA-256(endpoint) の先頭 32 文字に `sub_` プレフィックス。
  */
 export interface PushSubscriptionEntity {
-  UserID: string;
+  userId: string;
   /** endpoint の SHA-256 ハッシュ由来の ID（`sub_<hex32>`） */
-  SubscriptionID: string;
+  subscriptionId: string;
   /** Web Push endpoint URL */
-  Endpoint: string;
+  endpoint: string;
   /** ECDH 公開鍵 */
-  P256dhKey: string;
+  p256dhKey: string;
   /** 認証シークレット */
-  AuthKey: string;
-  CreatedAt: number;
-  UpdatedAt: number;
+  authKey: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface PushSubscriptionKey {
@@ -24,4 +24,4 @@ export interface PushSubscriptionKey {
   subscriptionId: string;
 }
 
-export type CreatePushSubscriptionInput = Omit<PushSubscriptionEntity, 'CreatedAt' | 'UpdatedAt'>;
+export type CreatePushSubscriptionInput = Omit<PushSubscriptionEntity, 'createdAt' | 'updatedAt'>;

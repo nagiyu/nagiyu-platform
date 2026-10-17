@@ -75,11 +75,11 @@ describe('POST /api/push/subscribe', () => {
     expect(response.status).toBe(201);
     expect(body.subscriptionId).toMatch(/^sub_[a-f0-9]{32}$/);
     expect(put).toHaveBeenCalledWith({
-      UserID: 'u1',
-      SubscriptionID: body.subscriptionId,
-      Endpoint: validSubscription.endpoint,
-      P256dhKey: 'p256dh-key',
-      AuthKey: 'auth-key',
+      userId: 'u1',
+      subscriptionId: body.subscriptionId,
+      endpoint: validSubscription.endpoint,
+      p256dhKey: 'p256dh-key',
+      authKey: 'auth-key',
     });
   });
 

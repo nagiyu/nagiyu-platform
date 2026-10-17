@@ -17,12 +17,12 @@ describe('DynamoDBLifecycleRepository', () => {
     const repo = new DynamoDBLifecycleRepository(client as never, tableName);
     const before = Date.now();
     const result = await repo.upsert({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Bedtime: '01:30',
-      WakeUpTime: '09:30',
+      userId: 'u1',
+      characterId: 'hiyori',
+      bedtime: '01:30',
+      wakeUpTime: '09:30',
     });
-    expect(result.CreatedAt).toBeGreaterThanOrEqual(before);
+    expect(result.createdAt).toBeGreaterThanOrEqual(before);
   });
 
   it('get は未登録時 null を返す', async () => {
@@ -60,17 +60,17 @@ describe('DynamoDBLifecycleRepository', () => {
     });
     const repo = new DynamoDBLifecycleRepository(client as never, tableName, () => now);
     const result = await repo.upsert({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Bedtime: '01:30',
-      WakeUpTime: '09:30',
+      userId: 'u1',
+      characterId: 'hiyori',
+      bedtime: '01:30',
+      wakeUpTime: '09:30',
     });
     const put = (sent[1] as PutCommand).input;
     expect(put.Item?.PK).toBe('USER#u1');
     expect(put.Item?.SK).toBe('CHAR#hiyori#LIFECYCLE');
     expect(put.Item?.Bedtime).toBe('01:30');
     expect(put.Item?.WakeUpTime).toBe('09:30');
-    expect(result.CreatedAt).toBe(now);
+    expect(result.createdAt).toBe(now);
   });
 
   it('既存があれば CreatedAt は既存値を保持する', async () => {
@@ -91,12 +91,12 @@ describe('DynamoDBLifecycleRepository', () => {
     });
     const repo = new DynamoDBLifecycleRepository(client as never, tableName, () => now);
     const result = await repo.upsert(
-      { UserID: 'u1', CharacterID: 'hiyori', Bedtime: '02:00', WakeUpTime: '10:00' },
-      { Bedtime: '02:00', WakeUpTime: '10:00' }
+      { userId: 'u1', characterId: 'hiyori', bedtime: '02:00', wakeUpTime: '10:00' },
+      { bedtime: '02:00', wakeUpTime: '10:00' }
     );
-    expect(result.CreatedAt).toBe(1_600_000_000_000);
-    expect(result.UpdatedAt).toBe(now);
-    expect(result.Bedtime).toBe('02:00');
+    expect(result.createdAt).toBe(1_600_000_000_000);
+    expect(result.updatedAt).toBe(now);
+    expect(result.bedtime).toBe('02:00');
   });
 
   it('upsert の Put エラーは DatabaseError でラップする', async () => {
@@ -106,7 +106,7 @@ describe('DynamoDBLifecycleRepository', () => {
     });
     const repo = new DynamoDBLifecycleRepository(client as never, tableName, () => now);
     await expect(
-      repo.upsert({ UserID: 'u1', CharacterID: 'hiyori', Bedtime: '01:30', WakeUpTime: '09:30' })
+      repo.upsert({ userId: 'u1', characterId: 'hiyori', bedtime: '01:30', wakeUpTime: '09:30' })
     ).rejects.toBeInstanceOf(DatabaseError);
   });
 
@@ -130,8 +130,8 @@ describe('DynamoDBLifecycleRepository', () => {
         { userId: 'u1', characterId: 'hiyori' },
         profile
       );
-      expect(result.UserActivityProfile).toEqual(profile);
-      expect(result.CreatedAt).toBe(now);
+      expect(result.userActivityProfile).toEqual(profile);
+      expect(result.createdAt).toBe(now);
       const put = (sent[1] as PutCommand).input;
       expect(put.Item?.UserActivityProfile).toEqual(profile);
     });
@@ -157,10 +157,10 @@ describe('DynamoDBLifecycleRepository', () => {
         { userId: 'u1', characterId: 'hiyori' },
         profile
       );
-      expect(result.Bedtime).toBe('02:00');
-      expect(result.WakeUpTime).toBe('10:00');
-      expect(result.CreatedAt).toBe(1_600_000_000_000);
-      expect(result.UserActivityProfile).toEqual(profile);
+      expect(result.bedtime).toBe('02:00');
+      expect(result.wakeUpTime).toBe('10:00');
+      expect(result.createdAt).toBe(1_600_000_000_000);
+      expect(result.userActivityProfile).toEqual(profile);
     });
 
     it('Put エラーは DatabaseError でラップする', async () => {
@@ -189,8 +189,8 @@ describe('DynamoDBLifecycleRepository', () => {
         { bedtime: '23:48', wakeUpTime: '08:54' }
       );
 
-      expect(result.Bedtime).toBe('23:48');
-      expect(result.WakeUpTime).toBe('08:54');
+      expect(result.bedtime).toBe('23:48');
+      expect(result.wakeUpTime).toBe('08:54');
       const put = (sent[1] as PutCommand).input;
       expect(put.Item?.Bedtime).toBe('23:48');
       expect(put.Item?.WakeUpTime).toBe('08:54');
@@ -227,7 +227,7 @@ describe('DynamoDBLifecycleRepository', () => {
         { bedtime: '23:48', wakeUpTime: '08:54' }
       );
 
-      expect(result.UserActivityProfile).toEqual(existingProfile);
+      expect(result.userActivityProfile).toEqual(existingProfile);
       const put = (sent[1] as PutCommand).input;
       expect(put.Item?.UserActivityProfile).toEqual(existingProfile);
     });

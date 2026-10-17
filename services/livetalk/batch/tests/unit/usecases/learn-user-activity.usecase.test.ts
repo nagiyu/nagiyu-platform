@@ -33,7 +33,7 @@ const makeProfileRepoWithUsers = async (userIds: string[]): Promise<InMemoryProf
   const nowMs = () => fixedNow;
   const profileRepo = new InMemoryProfileRepository(store, nowMs);
   for (const id of userIds) {
-    await profileRepo.upsert({ UserID: id });
+    await profileRepo.upsert({ userId: id });
   }
   return profileRepo;
 };
@@ -87,8 +87,8 @@ describe('learnAllUserActivities', () => {
       });
     }
     // u1, u2 を Profile として登録（u2 はメッセージなし）
-    await profileRepo.upsert({ UserID: 'u1' });
-    await profileRepo.upsert({ UserID: 'u2' });
+    await profileRepo.upsert({ userId: 'u1' });
+    await profileRepo.upsert({ userId: 'u2' });
 
     const result = await learnAllUserActivities({
       profileRepo,
@@ -121,7 +121,7 @@ describe('learnAllUserActivities', () => {
         Text: `ageha msg ${i}`,
       });
     }
-    await profileRepo.upsert({ UserID: 'u1' });
+    await profileRepo.upsert({ userId: 'u1' });
 
     const result = await learnAllUserActivities({
       profileRepo,
@@ -163,7 +163,7 @@ describe('learnAllUserActivities', () => {
         Text: `ageha msg ${i}`,
       });
     }
-    await profileRepo.upsert({ UserID: 'u1' });
+    await profileRepo.upsert({ userId: 'u1' });
 
     const result = await learnAllUserActivities({
       profileRepo,
@@ -204,8 +204,8 @@ describe('learnAllUserActivities', () => {
         Text: `msg ${i}`,
       });
     }
-    await profileRepo.upsert({ UserID: 'u1' });
-    await profileRepo.upsert({ UserID: 'u2' });
+    await profileRepo.upsert({ userId: 'u1' });
+    await profileRepo.upsert({ userId: 'u2' });
 
     const result = await learnAllUserActivities({
       profileRepo,
@@ -263,7 +263,7 @@ describe('learnAllUserActivities', () => {
         });
       }
     }
-    await profileRepo.upsert({ UserID: 'u1' });
+    await profileRepo.upsert({ userId: 'u1' });
 
     const result = await learnAllUserActivities({
       profileRepo,

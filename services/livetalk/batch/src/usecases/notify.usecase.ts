@@ -268,7 +268,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
     // 全サブスクリプションに送信（失敗はログのみ、無効は削除）
     const result = await sendWebPushNotifications(
       subscriptions,
-      (sub) => ({ endpoint: sub.Endpoint, keys: { p256dh: sub.P256dhKey, auth: sub.AuthKey } }),
+      (sub) => ({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dhKey, auth: sub.authKey } }),
       payload,
       vapidConfig
     );
@@ -276,12 +276,12 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
     // 無効なサブスクリプション（404/410）を削除する。削除の失敗で配信履歴の記録を止めないよう継続する
     for (const sub of result.invalid) {
       try {
-        await pushSubscriptionRepo.delete({ userId, subscriptionId: sub.SubscriptionID });
+        await pushSubscriptionRepo.delete({ userId, subscriptionId: sub.subscriptionId });
       } catch (error) {
         logger.warn('[notifyAllUsers] 無効なサブスクリプションの削除失敗（継続）', {
           userId,
           characterId,
-          subscriptionId: sub.SubscriptionID,
+          subscriptionId: sub.subscriptionId,
           error: toErrorMessage(error),
         });
       }
@@ -291,7 +291,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
       logger.warn('[notifyAllUsers] Push 送信失敗（継続）', {
         userId,
         characterId,
-        subscriptionId: target.SubscriptionID,
+        subscriptionId: target.subscriptionId,
         error: toErrorMessage(error),
       });
     }

@@ -270,8 +270,8 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   // Lifecycle 状態を解決（fail-warn: 取得失敗時はデフォルト値）
   const lifecycleState = resolveLifecycleState(
     new Date(),
-    fetchedLifecycle?.Bedtime ?? LIFECYCLE_DEFAULT_BEDTIME,
-    fetchedLifecycle?.WakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME
+    fetchedLifecycle?.bedtime ?? LIFECYCLE_DEFAULT_BEDTIME,
+    fetchedLifecycle?.wakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME
   );
 
   // 2. ユーザーメッセージを保存
@@ -617,7 +617,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   // （日次の再訪ボーナス）のみで上昇する。体験活用は別ロードマップ（R1）のスコープ。
   if (characterStateRepository) {
     const now = Date.now();
-    const newActiveDay = isNewActiveDay(prevCharacterState?.LastInteractionAt, now);
+    const newActiveDay = isNewActiveDay(prevCharacterState?.lastInteractionAt, now);
     const delta = calculateAffectionDelta({
       infoDisclosure: 0,
       isNewActiveDay: newActiveDay,

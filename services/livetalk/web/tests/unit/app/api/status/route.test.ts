@@ -62,12 +62,12 @@ const adminSession = {
 const makeLifecycleRepo = () =>
   ({
     get: jest.fn(async () => ({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Bedtime: '01:30',
-      WakeUpTime: '09:30',
-      CreatedAt: 0,
-      UpdatedAt: 0,
+      userId: 'u1',
+      characterId: 'hiyori',
+      bedtime: '01:30',
+      wakeUpTime: '09:30',
+      createdAt: 0,
+      updatedAt: 0,
     })),
   }) as unknown as LifecycleRepository;
 
@@ -162,13 +162,13 @@ describe('GET /api/status', () => {
     mockGetSession.mockResolvedValueOnce(adminSession);
     mockGetLifecycleRepo.mockReturnValue({
       get: jest.fn(async () => ({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Bedtime: '01:30',
-        WakeUpTime: '09:30',
-        UserActivityProfile: profile,
-        CreatedAt: 0,
-        UpdatedAt: 0,
+        userId: 'u1',
+        characterId: 'hiyori',
+        bedtime: '01:30',
+        wakeUpTime: '09:30',
+        userActivityProfile: profile,
+        createdAt: 0,
+        updatedAt: 0,
       })),
     } as unknown as LifecycleRepository);
     mockGetNotifEventRepo.mockReturnValue(makeNotifEventRepo());
@@ -250,12 +250,12 @@ describe('GET /api/status', () => {
   it('characterId クエリで指定したキャラの characterId でリポジトリを呼び出す', async () => {
     mockGetSession.mockResolvedValueOnce(adminSession);
     const mockGet = jest.fn(async () => ({
-      UserID: 'u1',
-      CharacterID: 'ageha',
-      Bedtime: '01:30',
-      WakeUpTime: '09:30',
-      CreatedAt: 0,
-      UpdatedAt: 0,
+      userId: 'u1',
+      characterId: 'ageha',
+      bedtime: '01:30',
+      wakeUpTime: '09:30',
+      createdAt: 0,
+      updatedAt: 0,
     }));
     mockGetLifecycleRepo.mockReturnValue({ get: mockGet } as unknown as LifecycleRepository);
     mockGetNotifEventRepo.mockReturnValue(makeNotifEventRepo());
@@ -271,12 +271,12 @@ describe('GET /api/status', () => {
   it('不正な characterId は DEFAULT_CHARACTER_ID にフォールバックする', async () => {
     mockGetSession.mockResolvedValueOnce(adminSession);
     const mockGet = jest.fn(async () => ({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Bedtime: '01:30',
-      WakeUpTime: '09:30',
-      CreatedAt: 0,
-      UpdatedAt: 0,
+      userId: 'u1',
+      characterId: 'hiyori',
+      bedtime: '01:30',
+      wakeUpTime: '09:30',
+      createdAt: 0,
+      updatedAt: 0,
     }));
     mockGetLifecycleRepo.mockReturnValue({ get: mockGet } as unknown as LifecycleRepository);
     mockGetNotifEventRepo.mockReturnValue(makeNotifEventRepo());

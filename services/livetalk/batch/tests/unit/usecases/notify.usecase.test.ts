@@ -87,12 +87,12 @@ const mockSelectNotificationsToSend = core.selectNotificationsToSend as jest.Moc
 
 function makeLifecycleRepo(
   lifecycle = {
-    UserID: 'u1',
-    CharacterID: 'hiyori',
-    Bedtime: '01:30',
-    WakeUpTime: '09:30',
-    CreatedAt: 0,
-    UpdatedAt: 0,
+    userId: 'u1',
+    characterId: 'hiyori',
+    bedtime: '01:30',
+    wakeUpTime: '09:30',
+    createdAt: 0,
+    updatedAt: 0,
   }
 ) {
   return { get: jest.fn().mockResolvedValue(lifecycle) };
@@ -119,10 +119,10 @@ function makeTopicRepo(
 function makePushSubscriptionRepo(
   subscriptions = [
     {
-      SubscriptionID: 'sub_1',
-      Endpoint: 'https://push.example.com/1',
-      P256dhKey: 'p',
-      AuthKey: 'a',
+      subscriptionId: 'sub_1',
+      endpoint: 'https://push.example.com/1',
+      p256dhKey: 'p',
+      authKey: 'a',
     },
   ]
 ) {
@@ -284,16 +284,16 @@ describe('notifyAllUsers', () => {
 
     const pushSubscriptionRepo = makePushSubscriptionRepo([
       {
-        SubscriptionID: 'sub_1',
-        Endpoint: 'https://push.example.com/1',
-        P256dhKey: 'p',
-        AuthKey: 'a',
+        subscriptionId: 'sub_1',
+        endpoint: 'https://push.example.com/1',
+        p256dhKey: 'p',
+        authKey: 'a',
       },
       {
-        SubscriptionID: 'sub_2',
-        Endpoint: 'https://push.example.com/2',
-        P256dhKey: 'p',
-        AuthKey: 'a',
+        subscriptionId: 'sub_2',
+        endpoint: 'https://push.example.com/2',
+        p256dhKey: 'p',
+        authKey: 'a',
       },
     ]);
     pushSubscriptionRepo.delete.mockRejectedValue(new Error('delete failed'));
@@ -462,12 +462,12 @@ describe('notifyAllUsers', () => {
         get: jest.fn().mockImplementation(({ characterId }: { characterId: string }) => {
           if (characterId === 'hiyori') {
             return Promise.resolve({
-              UserID: 'u1',
-              CharacterID: 'hiyori',
-              Bedtime: '01:30',
-              WakeUpTime: '09:30',
-              CreatedAt: 0,
-              UpdatedAt: 0,
+              userId: 'u1',
+              characterId: 'hiyori',
+              bedtime: '01:30',
+              wakeUpTime: '09:30',
+              createdAt: 0,
+              updatedAt: 0,
             });
           }
           return Promise.resolve(null);
@@ -503,10 +503,10 @@ describe('notifyAllUsers', () => {
       mockShouldNotifyNow.mockImplementation(
         (input: {
           notificationEvents: unknown[];
-          lifecycle: { CharacterID?: string };
+          lifecycle: { characterId?: string };
           [key: string]: unknown;
         }) => {
-          const charId = input.lifecycle?.CharacterID ?? 'unknown';
+          const charId = input.lifecycle?.characterId ?? 'unknown';
           capturedEventsByCharacter[charId] = input.notificationEvents;
           return { notify: false, reason: 'not_due' };
         }
@@ -546,12 +546,12 @@ describe('notifyAllUsers', () => {
       const lifecycleRepo = {
         get: jest.fn().mockImplementation(({ characterId }: { characterId: string }) => {
           return Promise.resolve({
-            UserID: 'u1',
-            CharacterID: characterId,
-            Bedtime: '01:30',
-            WakeUpTime: '09:30',
-            CreatedAt: 0,
-            UpdatedAt: 0,
+            userId: 'u1',
+            characterId,
+            bedtime: '01:30',
+            wakeUpTime: '09:30',
+            createdAt: 0,
+            updatedAt: 0,
           });
         }),
       };

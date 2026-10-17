@@ -195,8 +195,8 @@ export function shouldNotifyNow(input: NotifyDecisionInput): NotifyDecision {
   const { userMessages, lifecycle, notificationEvents, criticalTopicId, now } = input;
 
   // 1. 睡眠帯チェック（クリティカル・平常問わず最優先）
-  const bedtime = lifecycle.Bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
-  const wakeUpTime = lifecycle.WakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME;
+  const bedtime = lifecycle.bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
+  const wakeUpTime = lifecycle.wakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME;
   const lifecycleState = resolveLifecycleState(now, bedtime, wakeUpTime);
   if (lifecycleState === 'sleeping') {
     return { notify: false, reason: 'sleeping' };
@@ -249,7 +249,7 @@ export function shouldNotifyNow(input: NotifyDecisionInput): NotifyDecision {
   }
 
   // 5. 活動時間帯チェック
-  const activityProfile = lifecycle.UserActivityProfile;
+  const activityProfile = lifecycle.userActivityProfile;
   if (activityProfile) {
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
     const morningPeakMins = peakToMinutes(activityProfile.morningPeak);
