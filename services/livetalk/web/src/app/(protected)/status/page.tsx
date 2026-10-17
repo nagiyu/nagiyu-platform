@@ -61,13 +61,13 @@ function computeNextEarliestAt(
   const intensityFactor = computeIntensityFactor(sessionStarts, now);
   const baseIntervalMs = computeBaseIntervalMs(intervals, intensityFactor);
 
-  const lastNormalAt = notificationEvents.find((e) => e.Kind === 'normal')?.CreatedAt ?? 0;
+  const lastNormalAt = notificationEvents.find((e) => e.kind === 'normal')?.createdAt ?? 0;
   const lastInteractionAt =
     userMessages.length > 0 ? Math.max(...userMessages.map((m) => m.createdAt)) : 0;
   const referenceTime = Math.max(lastInteractionAt, lastNormalAt);
 
   const missedCount = notificationEvents.filter(
-    (e) => e.Kind === 'normal' && e.CreatedAt > lastInteractionAt
+    (e) => e.kind === 'normal' && e.createdAt > lastInteractionAt
   ).length;
 
   return referenceTime + baseIntervalMs * Math.pow(NOTIFY_BACKOFF_BASE, missedCount);
@@ -236,15 +236,15 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
         <Box sx={{ mb: 1 }}>
           {recentNotifications.map((e) => (
             <Box
-              key={e.NotifID}
+              key={e.notifId}
               sx={{ mb: 1, pl: 1, borderLeft: '2px solid', borderColor: 'divider' }}
             >
               <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                {formatJst(e.CreatedAt)} | {e.Kind} |{' '}
-                {e.ConsumedAt ? `消化済み ${formatJst(e.ConsumedAt)}` : '未消化'}
+                {formatJst(e.createdAt)} | {e.kind} |{' '}
+                {e.consumedAt ? `消化済み ${formatJst(e.consumedAt)}` : '未消化'}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                {e.Body.slice(0, 100)}
+                {e.body.slice(0, 100)}
               </Typography>
             </Box>
           ))}

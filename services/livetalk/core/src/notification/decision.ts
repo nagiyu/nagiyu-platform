@@ -174,7 +174,7 @@ export function countTodayNotifications(
   todayStart.setHours(0, 0, 0, 0);
   const todayStartMs = todayStart.getTime();
 
-  return events.filter((e) => e.Kind === kind && e.CreatedAt >= todayStartMs).length;
+  return events.filter((e) => e.kind === kind && e.createdAt >= todayStartMs).length;
 }
 
 /**
@@ -222,15 +222,15 @@ export function shouldNotifyNow(input: NotifyDecisionInput): NotifyDecision {
   const baseIntervalMs = computeBaseIntervalMs(intervals, intensityFactor);
 
   // 直近の平常通知と最終会話時刻の後ろ側を基準時刻とする
-  const lastNormalEvent = notificationEvents.find((e) => e.Kind === 'normal');
-  const lastNormalAt = lastNormalEvent?.CreatedAt ?? 0;
+  const lastNormalEvent = notificationEvents.find((e) => e.kind === 'normal');
+  const lastNormalAt = lastNormalEvent?.createdAt ?? 0;
   const lastInteractionAt =
     userMessages.length > 0 ? Math.max(...userMessages.map((m) => m.createdAt)) : 0;
   const referenceTime = Math.max(lastInteractionAt, lastNormalAt);
 
   // missedCount = lastInteractionAt 以降に送った平常通知の件数
   const missedCount = notificationEvents.filter(
-    (e) => e.Kind === 'normal' && e.CreatedAt > lastInteractionAt
+    (e) => e.kind === 'normal' && e.createdAt > lastInteractionAt
   ).length;
 
   const effectiveIntervalMs = baseIntervalMs * Math.pow(NOTIFY_BACKOFF_BASE, missedCount);

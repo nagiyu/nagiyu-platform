@@ -1,12 +1,13 @@
-import { PutCommand, UpdateCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { queryAllItems, toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBEntityStore, queryAllItems, toDatabaseError, type EntityStore } from '@nagiyu/aws';
 import type {
   CreateStudyTopicInput,
   StudyTopicEntity,
+  StudyTopicKey,
   UpdateStudyTopicInput,
 } from '../entities/study-topic.entity.js';
 import { StudyTopicMapper } from '../mappers/study-topic.mapper.js';
-import { buildStudyTopicSK, buildStudyTopicSKPrefix, buildUserPK } from '../mappers/keys.js';
+import { buildStudyTopicSKPrefix, buildUserPK } from '../mappers/keys.js';
 import type { StudyTopicRepository } from './study-topic.repository.interface.js';
 
 export class DynamoDBStudyTopicRepository implements StudyTopicRepository {
@@ -14,6 +15,7 @@ export class DynamoDBStudyTopicRepository implements StudyTopicRepository {
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
   private readonly nowMs: () => number;
+  private readonly entityStore: EntityStore<StudyTopicEntity, StudyTopicKey>;
 
   constructor(
     docClient: DynamoDBDocumentClient,
@@ -24,25 +26,18 @@ export class DynamoDBStudyTopicRepository implements StudyTopicRepository {
     this.tableName = tableName;
     this.nowMs = nowMs;
     this.mapper = new StudyTopicMapper();
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper, { now: nowMs });
   }
 
   public async put(input: CreateStudyTopicInput): Promise<StudyTopicEntity> {
     const now = this.nowMs();
-    const entity: StudyTopicEntity = { ...input, CreatedAt: now, UpdatedAt: now };
-    try {
-      await this.docClient.send(
-        new PutCommand({ TableName: this.tableName, Item: this.mapper.toItem(entity) })
-      );
-      return entity;
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.put({ ...input, createdAt: now, updatedAt: now });
   }
 
   public async listByStatus(
     userId: string,
     characterId: string,
-    status?: StudyTopicEntity['Status']
+    status?: StudyTopicEntity['status']
   ): Promise<StudyTopicEntity[]> {
     const pk = buildUserPK(userId);
     const prefix = buildStudyTopicSKPrefix(characterId);
@@ -57,7 +52,7 @@ export class DynamoDBStudyTopicRepository implements StudyTopicRepository {
       });
       for (const raw of items) {
         const entity = this.mapper.toEntity(raw);
-        if (status === undefined || entity.Status === status) {
+        if (status === undefined || entity.status === status) {
           results.push(entity);
         }
       }
@@ -65,51 +60,14 @@ export class DynamoDBStudyTopicRepository implements StudyTopicRepository {
       throw toDatabaseError(error);
     }
 
-    return results.sort((a, b) => b.Priority - a.Priority || a.CreatedAt - b.CreatedAt);
+    return results.sort((a, b) => b.priority - a.priority || a.createdAt - b.createdAt);
   }
 
   public async updateStatus(input: UpdateStudyTopicInput): Promise<StudyTopicEntity> {
-    const pk = buildUserPK(input.UserID);
-    const sk = buildStudyTopicSK(input.CharacterID, input.TopicID);
-    const now = this.nowMs();
-
-    const expressionParts = [
-      '#status = :status',
-      '#priority = :priority',
-      '#updatedAt = :updatedAt',
-    ];
-    const expressionAttributeNames: Record<string, string> = {
-      '#status': 'Status',
-      '#priority': 'Priority',
-      '#updatedAt': 'UpdatedAt',
-    };
-    const expressionAttributeValues: Record<string, unknown> = {
-      ':status': input.Status,
-      ':priority': input.Priority,
-      ':updatedAt': now,
-    };
-
-    if (input.Ttl !== undefined) {
-      expressionParts.push('#ttl = :ttl');
-      expressionAttributeNames['#ttl'] = 'Ttl';
-      expressionAttributeValues[':ttl'] = input.Ttl;
-    }
-
-    try {
-      const result = await this.docClient.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-          UpdateExpression: `SET ${expressionParts.join(', ')}`,
-          ExpressionAttributeNames: expressionAttributeNames,
-          ExpressionAttributeValues: expressionAttributeValues,
-          ReturnValues: 'ALL_NEW',
-        })
-      );
-      return this.mapper.toEntity(result.Attributes as unknown as DynamoDBItem);
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.update(
+      { userId: input.userId, characterId: input.characterId, topicId: input.topicId },
+      { status: input.status, priority: input.priority, expiresAt: input.expiresAt }
+    );
   }
 
   public async findPendingByTopic(
@@ -122,8 +80,8 @@ export class DynamoDBStudyTopicRepository implements StudyTopicRepository {
     return (
       all.find(
         (e) =>
-          (e.Status === 'pending' || e.Status === 'in_progress') &&
-          e.Topic.toLowerCase() === normalizedTopic
+          (e.status === 'pending' || e.status === 'in_progress') &&
+          e.topic.toLowerCase() === normalizedTopic
       ) ?? null
     );
   }

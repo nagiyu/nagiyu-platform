@@ -248,7 +248,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
     return false;
   }
 
-  const ttl = Math.floor(currentNow.getTime() / 1000) + NOTIFICATION_EVENT_TTL_SECONDS;
+  const expiresAt = currentNow.getTime() + NOTIFICATION_EVENT_TTL_SECONDS * 1000;
   let anySent = false;
 
   // 送ると決まった各通知について push 送信 → 履歴記録
@@ -301,15 +301,15 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
 
     // 配信履歴を記録（CharacterID・SuggestedReply を付与）
     await notifEventRepo.put({
-      UserID: userId,
-      NotifID: ulidFactory(),
-      CharacterID: characterId,
-      Kind: kind,
-      Title: title,
-      Body: body,
-      TopicID: topicId,
-      SuggestedReply: suggestedReply,
-      Ttl: ttl,
+      userId,
+      notifId: ulidFactory(),
+      characterId,
+      kind,
+      title,
+      body,
+      topicId,
+      suggestedReply,
+      expiresAt,
     });
 
     anySent = true;
@@ -363,7 +363,7 @@ async function evaluateCharacter(params: {
   const userMessages = recentMessages.filter((m) => m.role === 'user');
 
   // 通知履歴をこのキャラ単位でフィルタ（他キャラの通知が interval/cap/missedCount に混入しない）
-  const charNotifEvents = allUserEvents.filter((e) => e.CharacterID === characterId);
+  const charNotifEvents = allUserEvents.filter((e) => e.characterId === characterId);
 
   // care 降順で Topic ヘッダを取得（ネタ源・critical 判定の候補）
   const topics = await topicRepo.listTopicHeadersByCareDesc(userId, characterId, 10);
@@ -408,8 +408,8 @@ async function evaluateCharacter(params: {
   }
 
   // このキャラの直近 normal 通知時刻（総量調停の公平性選抜に使用）
-  const lastNormalEvent = charNotifEvents.find((e) => e.Kind === 'normal');
-  const lastNormalAt = lastNormalEvent?.CreatedAt ?? 0;
+  const lastNormalEvent = charNotifEvents.find((e) => e.kind === 'normal');
+  const lastNormalAt = lastNormalEvent?.createdAt ?? 0;
 
   // 通知文面生成
   let title: string;
@@ -432,7 +432,7 @@ async function evaluateCharacter(params: {
     // このキャラの履歴から使用済み TopicID を収集する
     const usedTopicIds = new Set(
       charNotifEvents
-        .map((e: { TopicID?: string }) => e.TopicID)
+        .map((e) => e.topicId)
         .filter((id: string | undefined): id is string => id !== undefined)
     );
     // 未使用の care 最上位を選ぶ。無ければ care 最上位（無条件）にフォールバック。

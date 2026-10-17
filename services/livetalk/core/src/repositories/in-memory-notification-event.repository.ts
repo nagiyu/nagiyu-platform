@@ -1,28 +1,29 @@
-import { InMemorySingleTableStore } from '@nagiyu/aws';
+import { InMemoryEntityStore, type EntityStore, type InMemorySingleTableStore } from '@nagiyu/aws';
 import type {
   CreateNotificationEventInput,
   NotificationEventEntity,
   NotificationEventKey,
 } from '../entities/notification-event.entity.js';
 import { NotificationEventMapper } from '../mappers/notification-event.mapper.js';
-import { buildNotifSK, buildNotifSKPrefix, buildUserPK } from '../mappers/keys.js';
+import { buildNotifSKPrefix, buildUserPK } from '../mappers/keys.js';
 import type { NotificationEventRepository } from './notification-event.repository.interface.js';
 
 export class InMemoryNotificationEventRepository implements NotificationEventRepository {
   private readonly mapper: NotificationEventMapper;
   private readonly store: InMemorySingleTableStore;
   private readonly nowMs: () => number;
+  private readonly entityStore: EntityStore<NotificationEventEntity, NotificationEventKey>;
 
   constructor(store: InMemorySingleTableStore, nowMs: () => number = () => Date.now()) {
     this.store = store;
     this.nowMs = nowMs;
     this.mapper = new NotificationEventMapper();
+    this.entityStore = new InMemoryEntityStore(store, this.mapper, { now: nowMs });
   }
 
   public async put(input: CreateNotificationEventInput): Promise<NotificationEventEntity> {
-    const entity: NotificationEventEntity = { ...input, CreatedAt: this.nowMs() };
-    this.store.put(this.mapper.toItem(entity));
-    return entity;
+    const now = this.nowMs();
+    return this.entityStore.put({ ...input, createdAt: now, updatedAt: now });
   }
 
   public async listByUser(userId: string, limit = 100): Promise<NotificationEventEntity[]> {
@@ -31,7 +32,7 @@ export class InMemoryNotificationEventRepository implements NotificationEventRep
     const result = this.store.query({ pk, sk: { operator: 'begins_with', value: prefix } });
     return result.items
       .map((item) => this.mapper.toEntity(item))
-      .sort((a, b) => b.CreatedAt - a.CreatedAt)
+      .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, limit);
   }
 
@@ -50,17 +51,17 @@ export class InMemoryNotificationEventRepository implements NotificationEventRep
     );
     const sorted = result.items
       .map((item) => this.mapper.toEntity(item))
-      .sort((a, b) => b.CreatedAt - a.CreatedAt);
+      .sort((a, b) => b.createdAt - a.createdAt);
 
     const target = new Set(characterIds);
     const map = new Map<string, NotificationEventEntity>();
     for (const entity of sorted) {
       if (
-        target.has(entity.CharacterID) &&
-        entity.ConsumedAt === undefined &&
-        !map.has(entity.CharacterID)
+        target.has(entity.characterId) &&
+        entity.consumedAt === undefined &&
+        !map.has(entity.characterId)
       ) {
-        map.set(entity.CharacterID, entity);
+        map.set(entity.characterId, entity);
       }
     }
 
@@ -68,18 +69,10 @@ export class InMemoryNotificationEventRepository implements NotificationEventRep
   }
 
   public async get(key: NotificationEventKey): Promise<NotificationEventEntity | null> {
-    const pk = buildUserPK(key.userId);
-    const sk = buildNotifSK(key.notifId);
-    const item = this.store.get(pk, sk);
-    if (!item) return null;
-    return this.mapper.toEntity(item);
+    return this.entityStore.get(key);
   }
 
   public async markConsumed(key: NotificationEventKey, consumedAt: number): Promise<void> {
-    const pk = buildUserPK(key.userId);
-    const sk = buildNotifSK(key.notifId);
-    const item = this.store.get(pk, sk);
-    if (!item) return;
-    this.store.put({ ...item, ConsumedAt: consumedAt });
+    await this.entityStore.update(key, { consumedAt });
   }
 }

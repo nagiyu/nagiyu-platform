@@ -10,9 +10,12 @@ export interface StudyTopicRepository {
   listByStatus(
     userId: string,
     characterId: string,
-    status?: StudyTopicEntity['Status']
+    status?: StudyTopicEntity['status']
   ): Promise<StudyTopicEntity[]>;
-  /** Status / Priority を更新する */
+  /**
+   * status / priority を更新する。
+   * @throws EntityNotFoundError 対象のトピックが存在しないとき
+   */
   updateStatus(input: UpdateStudyTopicInput): Promise<StudyTopicEntity>;
   /** 同じ Topic が pending / in_progress で既に存在するか確認する（重複登録防止） */
   findPendingByTopic(

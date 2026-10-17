@@ -53,14 +53,15 @@ function makeNotifEvent(
   overrides: Partial<NotificationEventEntity> = {}
 ): NotificationEventEntity {
   return {
-    UserID: 'u1',
-    NotifID: `notif-${createdAt}`,
-    CharacterID: 'hiyori',
-    Kind: kind,
-    Title: 'test',
-    Body: 'test',
-    CreatedAt: createdAt,
-    Ttl: Math.floor(createdAt / 1000) + 86400,
+    userId: 'u1',
+    notifId: `notif-${createdAt}`,
+    characterId: 'hiyori',
+    kind,
+    title: 'test',
+    body: 'test',
+    createdAt,
+    updatedAt: createdAt,
+    expiresAt: createdAt + 86_400_000,
     ...overrides,
   };
 }
@@ -340,7 +341,7 @@ describe('shouldNotifyNow', () => {
   describe('inactive_stopped', () => {
     it('missedCount 7 以上 → effectiveInterval > 14 日 → inactive_stopped', () => {
       // 24h * 1.5^7 ≈ 17.09 日 > 14 日 → stopped
-      // lastInteractionAt=0 なので CreatedAt > 0 の normal イベントはすべて missedCount に加算
+      // lastInteractionAt=0 なので createdAt > 0 の normal イベントはすべて missedCount に加算
       const events = Array.from({ length: 7 }, (_, i) => makeNotifEvent('normal', (i + 1) * DAY));
       const result = shouldNotifyNow({
         ...baseInput(),
@@ -486,7 +487,7 @@ describe('shouldNotifyNow', () => {
       // メッセージなし（lastInteractionAt=0）、通知イベントが missedCount に加算される
       const missedEvents = Array.from({ length: 3 }, (_, i) =>
         makeNotifEvent('normal', (i + 1) * DAY)
-      ); // CreatedAt > 0 なので missedCount に加算
+      ); // createdAt > 0 なので missedCount に加算
       const result = shouldNotifyNow({
         ...baseInput(),
         userMessages: [],

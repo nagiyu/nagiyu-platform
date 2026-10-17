@@ -41,9 +41,9 @@ export const GET = withApiErrorReporting(
     const events = await repo.listLatestUnconsumedByCharacter(userId, characterIds);
 
     const result: PendingNotification[] = events.map((e) => ({
-      characterId: e.CharacterID,
-      notifId: e.NotifID,
-      body: e.Body,
+      characterId: e.characterId,
+      notifId: e.notifId,
+      body: e.body,
     }));
 
     return NextResponse.json(result, { status: 200 });
