@@ -1,3 +1,4 @@
+import { InMemoryEntityStore, InMemorySingleTableStore, type EntityStore } from '@nagiyu/aws';
 import type {
   CreateGroupListInput,
   CreatePersonalListInput,
@@ -7,38 +8,52 @@ import type {
   UpdatePersonalListInput,
 } from '../../types/index.js';
 import type { ListRepository } from './list-repository.interface.js';
+import {
+  PersonalListMapper,
+  PERSONAL_LIST_SK_PREFIX,
+  buildPersonalListPk,
+  type PersonalListKey,
+} from './personal-list-mapper.js';
+import {
+  GroupListMapper,
+  GROUP_LIST_SK_PREFIX,
+  buildGroupListPk,
+  type GroupListKey,
+} from './group-list-mapper.js';
 
-const ERROR_MESSAGES = {
-  PERSONAL_LIST_NOT_FOUND: '個人リストが見つかりません',
-  GROUP_LIST_NOT_FOUND: 'グループリストが見つかりません',
-} as const;
-
+/**
+ * InMemory List Repository
+ *
+ * 単一アイテムの CRUD は EntityStore に任せ、一覧の Query だけを自前で持つ。
+ * テスト環境で使用する。
+ */
 export class InMemoryListRepository implements ListRepository {
-  private readonly personalLists = new Map<string, PersonalList[]>();
-  private readonly groupLists = new Map<string, GroupList[]>();
+  private readonly store: InMemorySingleTableStore;
+  private readonly personalMapper = new PersonalListMapper();
+  private readonly groupMapper = new GroupListMapper();
+  private readonly personalStore: EntityStore<PersonalList, PersonalListKey>;
+  private readonly groupStore: EntityStore<GroupList, GroupListKey>;
+
+  constructor(store: InMemorySingleTableStore = new InMemorySingleTableStore()) {
+    this.store = store;
+    this.personalStore = new InMemoryEntityStore(store, this.personalMapper);
+    this.groupStore = new InMemoryEntityStore(store, this.groupMapper);
+  }
 
   public async getPersonalListsByUserId(userId: string): Promise<PersonalList[]> {
-    const lists = this.personalLists.get(userId) ?? [];
-    return lists.map((list) => ({ ...list }));
+    return this.queryByPrefix(buildPersonalListPk(userId), PERSONAL_LIST_SK_PREFIX).map((item) =>
+      this.personalMapper.toEntity(item)
+    );
   }
 
   public async getPersonalListById(userId: string, listId: string): Promise<PersonalList | null> {
-    const list = (this.personalLists.get(userId) ?? []).find((item) => item.listId === listId);
-    return list ? { ...list } : null;
+    return this.personalStore.get({ userId, listId });
   }
 
   public async createPersonalList(input: CreatePersonalListInput): Promise<PersonalList> {
-    const now = new Date().toISOString();
-    const list: PersonalList = {
-      ...input,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    const lists = this.personalLists.get(input.userId) ?? [];
-    this.personalLists.set(input.userId, [...lists, list]);
-
-    return { ...list };
+    const now = Date.now();
+    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
+    return this.personalStore.create({ ...input, createdAt: now, updatedAt: now });
   }
 
   public async updatePersonalList(
@@ -46,54 +61,26 @@ export class InMemoryListRepository implements ListRepository {
     listId: string,
     updates: UpdatePersonalListInput
   ): Promise<PersonalList> {
-    const lists = this.personalLists.get(userId) ?? [];
-    const targetIndex = lists.findIndex((item) => item.listId === listId);
-
-    if (targetIndex === -1) {
-      throw new Error(ERROR_MESSAGES.PERSONAL_LIST_NOT_FOUND);
-    }
-
-    const updatedList: PersonalList = {
-      ...lists[targetIndex],
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    };
-
-    const updatedLists = [...lists];
-    updatedLists[targetIndex] = updatedList;
-    this.personalLists.set(userId, updatedLists);
-
-    return { ...updatedList };
+    return this.personalStore.update({ userId, listId }, updates);
   }
 
   public async deletePersonalList(userId: string, listId: string): Promise<void> {
-    const lists = this.personalLists.get(userId) ?? [];
-    const remainingLists = lists.filter((item) => item.listId !== listId);
-    this.personalLists.set(userId, remainingLists);
+    await this.personalStore.deleteIfExists({ userId, listId });
   }
 
   public async getGroupListsByGroupId(groupId: string): Promise<GroupList[]> {
-    const lists = this.groupLists.get(groupId) ?? [];
-    return lists.map((list) => ({ ...list }));
+    return this.queryByPrefix(buildGroupListPk(groupId), GROUP_LIST_SK_PREFIX).map((item) =>
+      this.groupMapper.toEntity(item)
+    );
   }
 
   public async getGroupListById(groupId: string, listId: string): Promise<GroupList | null> {
-    const list = (this.groupLists.get(groupId) ?? []).find((item) => item.listId === listId);
-    return list ? { ...list } : null;
+    return this.groupStore.get({ groupId, listId });
   }
 
   public async createGroupList(input: CreateGroupListInput): Promise<GroupList> {
-    const now = new Date().toISOString();
-    const list: GroupList = {
-      ...input,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    const lists = this.groupLists.get(input.groupId) ?? [];
-    this.groupLists.set(input.groupId, [...lists, list]);
-
-    return { ...list };
+    const now = Date.now();
+    return this.groupStore.create({ ...input, createdAt: now, updatedAt: now });
   }
 
   public async updateGroupList(
@@ -101,29 +88,19 @@ export class InMemoryListRepository implements ListRepository {
     listId: string,
     updates: UpdateGroupListInput
   ): Promise<GroupList> {
-    const lists = this.groupLists.get(groupId) ?? [];
-    const targetIndex = lists.findIndex((item) => item.listId === listId);
-
-    if (targetIndex === -1) {
-      throw new Error(ERROR_MESSAGES.GROUP_LIST_NOT_FOUND);
-    }
-
-    const updatedList: GroupList = {
-      ...lists[targetIndex],
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    };
-
-    const updatedLists = [...lists];
-    updatedLists[targetIndex] = updatedList;
-    this.groupLists.set(groupId, updatedLists);
-
-    return { ...updatedList };
+    return this.groupStore.update({ groupId, listId }, updates);
   }
 
   public async deleteGroupList(groupId: string, listId: string): Promise<void> {
-    const lists = this.groupLists.get(groupId) ?? [];
-    const remainingLists = lists.filter((item) => item.listId !== listId);
-    this.groupLists.set(groupId, remainingLists);
+    await this.groupStore.deleteIfExists({ groupId, listId });
+  }
+
+  private queryByPrefix(pk: string, skPrefix: string): Record<string, unknown>[] {
+    // 既定の件数上限で打ち切られないよう、実 DynamoDB の全ページ取得に合わせて上限を外す
+    const { items } = this.store.query(
+      { pk, sk: { operator: 'begins_with', value: skPrefix } },
+      { limit: Number.MAX_SAFE_INTEGER }
+    );
+    return items;
   }
 }

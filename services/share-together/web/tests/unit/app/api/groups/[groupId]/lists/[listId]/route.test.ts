@@ -204,16 +204,16 @@ describe('/api/groups/[groupId]/lists/[listId] route', () => {
       groupId: 'group-1',
       name: '更新前',
       createdBy: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockUpdateGroupList.mockResolvedValue({
       listId: 'list-1',
       groupId: 'group-1',
       name: '更新後',
       createdBy: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-02T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767312000000,
     });
 
     const response = await PUT({ json: async () => ({ name: '  更新後  ' }) } as Request, {
@@ -228,8 +228,8 @@ describe('/api/groups/[groupId]/lists/[listId] route', () => {
         groupId: 'group-1',
         name: '更新後',
         createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-02T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767312000000,
       },
     });
   });
@@ -248,8 +248,8 @@ describe('/api/groups/[groupId]/lists/[listId] route', () => {
       groupId: 'group-1',
       name: '共有リスト',
       createdBy: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     const response = await DELETE({} as Request, {

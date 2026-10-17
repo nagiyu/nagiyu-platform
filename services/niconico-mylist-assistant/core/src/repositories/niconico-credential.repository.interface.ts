@@ -12,7 +12,7 @@ import type {
 /**
  * NiconicoCredential Repository インターフェース
  *
- * per-user に 1 件だけ保存する設計のため、getByUserId / upsert / delete のみ提供する。
+ * per-user に 1 件だけ保存する設計のため、getByUserId / upsert / delete / deleteIfExists のみ提供する。
  */
 export interface NiconicoCredentialRepository {
   /**
@@ -37,6 +37,14 @@ export interface NiconicoCredentialRepository {
    * ニコニコ資格情報を削除
    *
    * @param userId - ユーザーID
+   * @throws {EntityNotFoundError} 資格情報が存在しない場合
    */
   delete(userId: string): Promise<void>;
+
+  /**
+   * ニコニコ資格情報を削除する。対象がなくても成功する
+   *
+   * @param userId - ユーザーID
+   */
+  deleteIfExists(userId: string): Promise<void>;
 }

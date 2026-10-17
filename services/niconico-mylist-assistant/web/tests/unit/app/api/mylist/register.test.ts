@@ -69,7 +69,7 @@ function makeMockVideos(ids: string[]): SelectRandomVideosResult {
     title: `動画 ${videoId}`,
     thumbnailUrl: 'https://example.com/thumb.jpg',
     length: '5:00',
-    CreatedAt: 1700000000000,
+    createdAt: 1700000000000,
   }));
 }
 
@@ -78,8 +78,8 @@ const MOCK_BATCH_JOB_ENTITY = {
   jobId: 'job-001',
   userId: 'user123',
   status: 'SUBMITTED' as const,
-  CreatedAt: 1700000000000,
-  UpdatedAt: 1700000000000,
+  createdAt: 1700000000000,
+  updatedAt: 1700000000000,
 };
 
 /** JSON ボディ付き NextRequest を生成するヘルパー */

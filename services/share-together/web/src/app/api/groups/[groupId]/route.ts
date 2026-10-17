@@ -7,16 +7,12 @@ import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { NextResponse, type NextRequest } from 'next/server';
 import type { GroupResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { EntityNotFoundError, getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createGroupRepository, createMembershipRepository } from '@nagiyu/share-together-core';
 import { createValidationErrorResponse, createNotFoundErrorResponse } from '@/lib/api/responses';
 import { normalizeGroupName } from '@/lib/api/validation';
 import { createErrorResponse, readJsonObjectBody } from '@nagiyu/nextjs';
-
-const CORE_ERROR_MESSAGES = {
-  GROUP_NOT_FOUND: 'グループが見つかりません',
-} as const;
 
 interface RouteParams {
   params: Promise<{
@@ -25,7 +21,7 @@ interface RouteParams {
 }
 
 function toNotFoundIfGroupMissing(error: unknown): NextResponse | null {
-  if (error instanceof Error && error.message === CORE_ERROR_MESSAGES.GROUP_NOT_FOUND) {
+  if (error instanceof EntityNotFoundError) {
     return createNotFoundErrorResponse();
   }
 

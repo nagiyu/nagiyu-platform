@@ -126,15 +126,15 @@ describe('/api/groups route', () => {
         groupId: 'group-1',
         name: 'オーナーグループ',
         ownerUserId: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       },
       {
         groupId: 'group-2',
         name: '参加中グループ',
         ownerUserId: 'user-2',
-        createdAt: '2026-01-02T00:00:00.000Z',
-        updatedAt: '2026-01-02T00:00:00.000Z',
+        createdAt: 1767312000000,
+        updatedAt: 1767312000000,
       },
     ]);
 
@@ -163,8 +163,8 @@ describe('/api/groups route', () => {
         groupId: 'group-99',
         name: '新規グループ',
         ownerUserId: 'owner-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       },
       ownerMembership: {
         groupId: 'group-99',

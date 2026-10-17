@@ -1,42 +1,40 @@
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
-  GetCommand,
-  QueryCommand,
-  UpdateCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
-import type { ClipStatus, Highlight, HighlightStatus, UpdateHighlightInput } from '../types.js';
-import type { EmotionLabel, HighlightSource } from '../libs/highlight-extractor.service.js';
+  DynamoDBEntityStore,
+  queryAllItems,
+  toDatabaseError,
+  type DynamoDBAttributes,
+  type EntityStore,
+} from '@nagiyu/aws';
+import type { Highlight, HighlightKey, UpdateHighlightInput } from '../types.js';
 import type { HighlightRepository } from './highlight.repository.interface.js';
-import { DOMAIN_ERROR_MESSAGES } from '../libs/domain-error-messages.js';
+import {
+  HIGHLIGHT_SK_PREFIX,
+  HighlightMapper,
+  buildHighlightPk,
+} from '../mappers/highlight.mapper.js';
 
-type HighlightItem = {
-  PK: string;
-  SK: string;
-  Type: 'HIGHLIGHT';
-  highlightId: string;
-  jobId: string;
-  order: number;
-  startSec: number;
-  endSec: number;
-  source: HighlightSource;
-  status: HighlightStatus;
-  clipStatus: ClipStatus;
-  dominantEmotion?: string;
-  expiresAt: number;
-};
-
+/**
+ * DynamoDB Highlight Repository
+ *
+ * 単一アイテムの CRUD は EntityStore に任せ、ジョブ単位の一覧 Query だけを自前で持つ
+ */
 export class DynamoDBHighlightRepository implements HighlightRepository {
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
+  private readonly mapper = new HighlightMapper();
+  private readonly entityStore: EntityStore<Highlight, HighlightKey>;
 
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
     this.docClient = docClient;
     this.tableName = tableName;
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper);
   }
 
   public async getByJobId(jobId: string): Promise<Highlight[]> {
-    const response = await this.docClient.send(
-      new QueryCommand({
+    let rawItems: DynamoDBAttributes[];
+    try {
+      rawItems = await queryAllItems(this.docClient, {
         TableName: this.tableName,
         KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :highlightPrefix)',
         ExpressionAttributeNames: {
@@ -44,29 +42,19 @@ export class DynamoDBHighlightRepository implements HighlightRepository {
           '#sk': 'SK',
         },
         ExpressionAttributeValues: {
-          ':pk': `JOB#${jobId}`,
-          ':highlightPrefix': 'HIGHLIGHT#',
+          ':pk': buildHighlightPk(jobId),
+          ':highlightPrefix': HIGHLIGHT_SK_PREFIX,
         },
-      })
-    );
+      });
+    } catch (error) {
+      throw toDatabaseError(error);
+    }
 
-    return (response.Items ?? [])
-      .map((item) => this.mapToEntity(item as HighlightItem))
-      .sort((a, b) => a.order - b.order);
+    return rawItems.map((item) => this.mapper.toEntity(item)).sort((a, b) => a.order - b.order);
   }
 
   public async getById(jobId: string, highlightId: string): Promise<Highlight | null> {
-    const key = this.buildKeys(jobId, highlightId);
-    const response = await this.docClient.send(
-      new GetCommand({
-        TableName: this.tableName,
-        Key: key,
-      })
-    );
-    if (!response.Item) {
-      return null;
-    }
-    return this.mapToEntity(response.Item as HighlightItem);
+    return this.entityStore.get({ jobId, highlightId });
   }
 
   public async update(
@@ -74,136 +62,11 @@ export class DynamoDBHighlightRepository implements HighlightRepository {
     highlightId: string,
     updates: UpdateHighlightInput
   ): Promise<Highlight> {
-    const key = this.buildKeys(jobId, highlightId);
-    const expressions: string[] = [];
-    const names: Record<string, string> = {};
-    const values: Record<string, number | string> = {};
-
-    if (typeof updates.startSec === 'number') {
-      expressions.push('#startSec = :startSec');
-      names['#startSec'] = 'startSec';
-      values[':startSec'] = updates.startSec;
-    }
-    if (typeof updates.endSec === 'number') {
-      expressions.push('#endSec = :endSec');
-      names['#endSec'] = 'endSec';
-      values[':endSec'] = updates.endSec;
-    }
-    if (typeof updates.status === 'string') {
-      expressions.push('#status = :status');
-      names['#status'] = 'status';
-      values[':status'] = updates.status;
-    }
-    if (typeof updates.clipStatus === 'string') {
-      expressions.push('#clipStatus = :clipStatus');
-      names['#clipStatus'] = 'clipStatus';
-      values[':clipStatus'] = updates.clipStatus;
-    }
-
-    if (expressions.length === 0) {
-      const current = await this.getById(jobId, highlightId);
-      if (!current) {
-        throw new Error(DOMAIN_ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND);
-      }
-      return current;
-    }
-
-    await this.docClient.send(
-      new UpdateCommand({
-        TableName: this.tableName,
-        Key: key,
-        UpdateExpression: `SET ${expressions.join(', ')}`,
-        ExpressionAttributeNames: names,
-        ExpressionAttributeValues: values,
-      })
-    );
-
-    const updated = await this.getById(jobId, highlightId);
-    if (!updated) {
-      throw new Error(DOMAIN_ERROR_MESSAGES.HIGHLIGHT_UPDATED_FETCH_FAILED);
-    }
-    return updated;
+    return this.entityStore.update({ jobId, highlightId }, updates);
   }
 
   public async createMany(highlights: Highlight[]): Promise<void> {
-    // 既存データとの差分適用を許容するため、Phase 4 では UpdateCommand で upsert として扱う。
-    await Promise.all(
-      highlights.map((highlight) => {
-        const expressionParts = [
-          '#type = :type',
-          '#highlightId = :highlightId',
-          '#jobId = :jobId',
-          '#order = :order',
-          '#startSec = :startSec',
-          '#endSec = :endSec',
-          '#source = :source',
-          '#status = :status',
-          '#clipStatus = :clipStatus',
-          '#expiresAt = :expiresAt',
-        ];
-        const names: Record<string, string> = {
-          '#type': 'Type',
-          '#highlightId': 'highlightId',
-          '#jobId': 'jobId',
-          '#order': 'order',
-          '#startSec': 'startSec',
-          '#endSec': 'endSec',
-          '#source': 'source',
-          '#status': 'status',
-          '#clipStatus': 'clipStatus',
-          '#expiresAt': 'expiresAt',
-        };
-        const values: Record<string, unknown> = {
-          ':type': 'HIGHLIGHT',
-          ':highlightId': highlight.highlightId,
-          ':jobId': highlight.jobId,
-          ':order': highlight.order,
-          ':startSec': highlight.startSec,
-          ':endSec': highlight.endSec,
-          ':source': highlight.source,
-          ':status': highlight.status,
-          ':clipStatus': highlight.clipStatus,
-          ':expiresAt': highlight.expiresAt,
-        };
-
-        if (highlight.dominantEmotion !== undefined) {
-          expressionParts.push('#dominantEmotion = :dominantEmotion');
-          names['#dominantEmotion'] = 'dominantEmotion';
-          values[':dominantEmotion'] = highlight.dominantEmotion;
-        }
-
-        return this.docClient.send(
-          new UpdateCommand({
-            TableName: this.tableName,
-            Key: this.buildKeys(highlight.jobId, highlight.highlightId),
-            UpdateExpression: `SET ${expressionParts.join(', ')}`,
-            ExpressionAttributeNames: names,
-            ExpressionAttributeValues: values,
-          })
-        );
-      })
-    );
-  }
-
-  private buildKeys(jobId: string, highlightId: string): { PK: string; SK: string } {
-    return {
-      PK: `JOB#${jobId}`,
-      SK: `HIGHLIGHT#${highlightId}`,
-    };
-  }
-
-  private mapToEntity(item: HighlightItem): Highlight {
-    return {
-      highlightId: item.highlightId,
-      jobId: item.jobId,
-      order: item.order,
-      startSec: item.startSec,
-      endSec: item.endSec,
-      source: item.source,
-      status: item.status,
-      clipStatus: item.clipStatus,
-      dominantEmotion: item.dominantEmotion as EmotionLabel | undefined,
-      expiresAt: item.expiresAt,
-    };
+    // 既存データとの差分適用を許容するため、upsert (put) で書く。
+    await Promise.all(highlights.map((highlight) => this.entityStore.put(highlight)));
   }
 }

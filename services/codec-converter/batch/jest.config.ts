@@ -13,6 +13,7 @@ const config: Config.InitialOptions = {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
+    '^@nagiyu/codec-converter-core$': '<rootDir>/../core/src/index.ts',
   },
   transform: {
     '^.+\\.ts$': [

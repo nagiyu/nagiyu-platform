@@ -190,8 +190,8 @@ describe('/api/groups/[groupId]/members route', () => {
       name: 'オーナー',
       image: undefined,
       defaultListId: 'list-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     const response = await GET({} as Request, { params: Promise.resolve({ groupId: 'group-1' }) });
@@ -263,8 +263,8 @@ describe('/api/groups/[groupId]/members route', () => {
       email: 'invitee@example.com',
       name: '招待対象',
       defaultListId: 'list-2',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockInviteMember.mockResolvedValue({
       groupId: 'group-1',
@@ -317,8 +317,8 @@ describe('/api/groups/[groupId]/members route', () => {
       email: 'invitee@example.com',
       name: '招待対象',
       defaultListId: 'list-2',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockInviteMember.mockRejectedValue(new Error(GROUP_CORE_ERROR_MESSAGES.DUPLICATE_INVITATION));
 
@@ -355,8 +355,8 @@ describe('/api/groups/[groupId]/members route', () => {
       email: 'invitee@example.com',
       name: '招待対象',
       defaultListId: 'list-2',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockInviteMember.mockRejectedValue(new Error(GROUP_CORE_ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED));
 

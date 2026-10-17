@@ -1,141 +1,187 @@
 /**
- * NiconicoCredentialMapper のユニットテスト
+ * NiconicoCredential Mapper のテスト
  */
 
 import { describe, it, expect, beforeEach } from '@jest/globals';
+import { InvalidEntityDataError } from '@nagiyu/aws';
 import { NiconicoCredentialMapper } from '../../../src/mappers/niconico-credential.mapper.js';
-import type { NiconicoCredentialEntity } from '../../../src/entities/niconico-credential.entity.js';
-import { NICONICO_CREDENTIAL_SK } from '../../../src/entities/niconico-credential.entity.js';
+import {
+  NICONICO_CREDENTIAL_SK,
+  type NiconicoCredentialEntity,
+} from '../../../src/entities/niconico-credential.entity.js';
+
+const ACQUIRED_AT = 1700000000000;
+const EXPIRES_AT = 1702592000000;
+const KEY = { userId: 'user-1' };
+const BLOB = JSON.stringify({ ciphertext: 'c', iv: 'i', authTag: 'a' });
+
+function buildEntity(overrides: Partial<NiconicoCredentialEntity> = {}): NiconicoCredentialEntity {
+  return {
+    userId: 'user-1',
+    encryptedUserSession: BLOB,
+    acquiredAt: ACQUIRED_AT,
+    estimatedExpiresAt: EXPIRES_AT,
+    ...overrides,
+  };
+}
+
+function buildItem(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    PK: 'USER#user-1',
+    SK: NICONICO_CREDENTIAL_SK,
+    Type: 'NICONICO_CREDENTIAL',
+    UserID: 'user-1',
+    EncryptedUserSession: BLOB,
+    AcquiredAt: ACQUIRED_AT,
+    EstimatedExpiresAt: EXPIRES_AT,
+    CreatedAt: ACQUIRED_AT,
+    UpdatedAt: ACQUIRED_AT,
+    ...overrides,
+  };
+}
 
 describe('NiconicoCredentialMapper', () => {
   let mapper: NiconicoCredentialMapper;
-
-  const sampleEntity: NiconicoCredentialEntity = {
-    userId: 'user123',
-    encryptedUserSession: JSON.stringify({
-      ciphertext: 'dummyCiphertext',
-      iv: 'dummyIv',
-      authTag: 'dummyAuthTag',
-    }),
-    acquiredAt: 1700000000000,
-    estimatedExpiresAt: 1702592000000, // +30日
-  };
 
   beforeEach(() => {
     mapper = new NiconicoCredentialMapper();
   });
 
+  it('entityType は NICONICO_CREDENTIAL になる', () => {
+    expect(mapper.entityType).toBe('NICONICO_CREDENTIAL');
+  });
+
+  it('新属性名に対する旧属性名 (camelCase) を宣言する', () => {
+    expect(mapper.legacyAttributeNames).toEqual({
+      UserID: ['userId'],
+      EncryptedUserSession: ['encryptedUserSession'],
+      AcquiredAt: ['acquiredAt'],
+      EstimatedExpiresAt: ['estimatedExpiresAt'],
+    });
+  });
+
+  describe('buildKeys / getKey', () => {
+    it('ビジネスキーから PK/SK を構築できる', () => {
+      expect(mapper.buildKeys(KEY)).toEqual({ PK: 'USER#user-1', SK: 'CREDENTIAL#niconico' });
+    });
+
+    it('PK が先頭のキー属性になる', () => {
+      expect(Object.keys(mapper.buildKeys(KEY))).toEqual(['PK', 'SK']);
+    });
+
+    it('Entity からビジネスキーを取り出せる', () => {
+      expect(mapper.getKey(buildEntity())).toEqual(KEY);
+    });
+  });
+
   describe('toItem', () => {
-    it('Entity を DynamoDB Item に変換できる', () => {
-      const item = mapper.toItem(sampleEntity);
+    it('Entity を PascalCase の属性名の Item に変換し、CreatedAt に acquiredAt を書く', () => {
+      const item = mapper.toItem(buildEntity());
 
-      expect(item.PK).toBe('USER#user123');
-      expect(item.SK).toBe(NICONICO_CREDENTIAL_SK);
-      expect(item.Type).toBe('NICONICO_CREDENTIAL');
-      expect(item.userId).toBe('user123');
-      expect(item.encryptedUserSession).toBe(sampleEntity.encryptedUserSession);
-      expect(item.acquiredAt).toBe(1700000000000);
-      expect(item.estimatedExpiresAt).toBe(1702592000000);
+      expect(item).toEqual({
+        PK: 'USER#user-1',
+        SK: NICONICO_CREDENTIAL_SK,
+        Type: 'NICONICO_CREDENTIAL',
+        UserID: 'user-1',
+        EncryptedUserSession: BLOB,
+        AcquiredAt: ACQUIRED_AT,
+        EstimatedExpiresAt: EXPIRES_AT,
+        CreatedAt: ACQUIRED_AT,
+      });
     });
 
-    it('PK が USER#{userId} 形式になる', () => {
-      const item = mapper.toItem(sampleEntity);
-      expect(item.PK).toBe('USER#user123');
+    it('旧属性名は書かない', () => {
+      const item = mapper.toItem(buildEntity());
+
+      for (const legacyName of [
+        'userId',
+        'encryptedUserSession',
+        'acquiredAt',
+        'estimatedExpiresAt',
+      ]) {
+        expect(item).not.toHaveProperty(legacyName);
+      }
     });
 
-    it('SK が CREDENTIAL#niconico 固定になる', () => {
-      const item = mapper.toItem(sampleEntity);
-      expect(item.SK).toBe('CREDENTIAL#niconico');
+    it('toItem のキー属性は buildKeys の結果と一致する', () => {
+      const item = mapper.toItem(buildEntity());
+
+      for (const [name, value] of Object.entries(mapper.buildKeys(KEY))) {
+        expect(item[name]).toBe(value);
+      }
     });
   });
 
   describe('toEntity', () => {
-    it('DynamoDB Item を Entity に変換できる', () => {
-      const item = {
-        PK: 'USER#user123',
-        SK: NICONICO_CREDENTIAL_SK,
-        Type: 'NICONICO_CREDENTIAL',
-        userId: 'user123',
-        encryptedUserSession: sampleEntity.encryptedUserSession,
-        acquiredAt: 1700000000000,
-        estimatedExpiresAt: 1702592000000,
-      };
-
-      const entity = mapper.toEntity(item);
-
-      expect(entity.userId).toBe('user123');
-      expect(entity.encryptedUserSession).toBe(sampleEntity.encryptedUserSession);
-      expect(entity.acquiredAt).toBe(1700000000000);
-      expect(entity.estimatedExpiresAt).toBe(1702592000000);
+    it('新属性名の Item を Entity に変換できる', () => {
+      expect(mapper.toEntity(buildItem())).toEqual(buildEntity());
     });
 
-    it('userId が欠けている場合にエラーを投げる', () => {
-      const item = {
-        PK: 'USER#user123',
+    it('旧属性名 (camelCase) の Item も読める', () => {
+      const entity = mapper.toEntity({
+        PK: 'USER#user-1',
         SK: NICONICO_CREDENTIAL_SK,
         Type: 'NICONICO_CREDENTIAL',
-        encryptedUserSession: sampleEntity.encryptedUserSession,
-        acquiredAt: 1700000000000,
-        estimatedExpiresAt: 1702592000000,
-      };
+        userId: 'user-1',
+        encryptedUserSession: BLOB,
+        acquiredAt: ACQUIRED_AT,
+        estimatedExpiresAt: EXPIRES_AT,
+        CreatedAt: ACQUIRED_AT,
+        UpdatedAt: ACQUIRED_AT,
+      });
 
-      expect(() => mapper.toEntity(item)).toThrow();
+      expect(entity).toEqual(buildEntity());
     });
 
-    it('encryptedUserSession が欠けている場合にエラーを投げる', () => {
-      const item = {
-        PK: 'USER#user123',
-        SK: NICONICO_CREDENTIAL_SK,
-        Type: 'NICONICO_CREDENTIAL',
-        userId: 'user123',
-        acquiredAt: 1700000000000,
-        estimatedExpiresAt: 1702592000000,
-      };
+    it('新旧の属性名が併存するときは新名を優先する', () => {
+      const entity = mapper.toEntity(
+        buildItem({
+          EncryptedUserSession: 'new-blob',
+          encryptedUserSession: 'old-blob',
+          AcquiredAt: ACQUIRED_AT + 1,
+          acquiredAt: ACQUIRED_AT,
+        })
+      );
 
-      expect(() => mapper.toEntity(item)).toThrow();
+      expect(entity.encryptedUserSession).toBe('new-blob');
+      expect(entity.acquiredAt).toBe(ACQUIRED_AT + 1);
     });
 
-    it('acquiredAt が欠けている場合にエラーを投げる', () => {
-      const item = {
-        PK: 'USER#user123',
-        SK: NICONICO_CREDENTIAL_SK,
-        Type: 'NICONICO_CREDENTIAL',
-        userId: 'user123',
-        encryptedUserSession: sampleEntity.encryptedUserSession,
-        estimatedExpiresAt: 1702592000000,
-      };
+    it.each(['UserID', 'EncryptedUserSession', 'AcquiredAt', 'EstimatedExpiresAt'])(
+      '必須属性 %s が欠けていると InvalidEntityDataError になる',
+      (name) => {
+        const item = buildItem();
+        delete item[name];
 
-      expect(() => mapper.toEntity(item)).toThrow();
+        expect(() => mapper.toEntity(item)).toThrow(InvalidEntityDataError);
+      }
+    );
+
+    it('不正なタイムスタンプは InvalidEntityDataError になる', () => {
+      expect(() => mapper.toEntity(buildItem({ AcquiredAt: 'invalid' }))).toThrow(
+        InvalidEntityDataError
+      );
     });
   });
 
-  describe('buildKeys', () => {
-    it('userId から PK/SK を構築できる', () => {
-      const keys = mapper.buildKeys({ userId: 'user123' });
+  describe('toUpdateAttributes', () => {
+    it('変更された項目だけを保存用の属性名で返す', () => {
+      const attributes = mapper.toUpdateAttributes({ estimatedExpiresAt: EXPIRES_AT + 1 });
 
-      expect(keys.pk).toBe('USER#user123');
-      expect(keys.sk).toBe(NICONICO_CREDENTIAL_SK);
+      expect(attributes.EstimatedExpiresAt).toBe(EXPIRES_AT + 1);
+      expect(attributes.EncryptedUserSession).toBeUndefined();
+      expect(attributes.AcquiredAt).toBeUndefined();
     });
 
-    it('PK と SK が動画設定と重複しない形式になる', () => {
-      const credentialKeys = mapper.buildKeys({ userId: 'user123' });
+    it.each(['encryptedUserSession', 'acquiredAt', 'estimatedExpiresAt'] as const)(
+      '必須項目 %s に null を渡すと InvalidEntityDataError になる',
+      (field) => {
+        expect(() => mapper.toUpdateAttributes({ [field]: null })).toThrow(InvalidEntityDataError);
+      }
+    );
 
-      // 動画設定の SK は VIDEO#{videoId} 形式
-      // 資格情報の SK は CREDENTIAL#niconico 形式で混在しない
-      expect(credentialKeys.sk).not.toMatch(/^VIDEO#/);
-      expect(credentialKeys.sk).toBe('CREDENTIAL#niconico');
-    });
-  });
-
-  describe('往復変換（toItem → toEntity）', () => {
-    it('Entity を Item に変換して再び Entity に変換すると同じ値になる', () => {
-      const item = mapper.toItem(sampleEntity);
-      const restored = mapper.toEntity(item);
-
-      expect(restored.userId).toBe(sampleEntity.userId);
-      expect(restored.encryptedUserSession).toBe(sampleEntity.encryptedUserSession);
-      expect(restored.acquiredAt).toBe(sampleEntity.acquiredAt);
-      expect(restored.estimatedExpiresAt).toBe(sampleEntity.estimatedExpiresAt);
+    it('変更できない項目 userId を含めると InvalidEntityDataError になる', () => {
+      expect(() => mapper.toUpdateAttributes({ userId: 'user-2' })).toThrow(InvalidEntityDataError);
     });
   });
 });

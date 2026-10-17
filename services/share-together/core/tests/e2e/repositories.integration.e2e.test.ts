@@ -1,3 +1,4 @@
+import { EntityNotFoundError } from '@nagiyu/aws';
 import {
   createGroupRepository,
   createListRepository,
@@ -12,10 +13,9 @@ import type { MembershipRepository } from '../../src/repositories/membership/mem
 import type { TodoRepository } from '../../src/repositories/todo/todo-repository.interface.js';
 import type { UserRepository } from '../../src/repositories/user/user-repository.interface.js';
 
-function expectValidIsoTimestamp(value: string): void {
-  const timestamp = new Date(value).getTime();
-  expect(Number.isNaN(timestamp)).toBe(false);
-  expect(timestamp).toBeLessThanOrEqual(Date.now());
+function expectValidEpochMillis(value: number): void {
+  expect(Number.isInteger(value)).toBe(true);
+  expect(value).toBeLessThanOrEqual(Date.now());
 }
 
 describe('Repository Layer E2E with InMemory repositories', () => {
@@ -49,13 +49,41 @@ describe('Repository Layer E2E with InMemory repositories', () => {
     todoRepository = createTodoRepository();
   });
 
-  it('個人リストとToDoの作成・取得・更新・削除を一連で実行できる', async () => {
+  it('resetInMemoryRepositories で共有ストアのユーザーも破棄される', async () => {
     await userRepository.create({
+      userId: 'user-reset',
+      email: 'reset@example.com',
+      name: 'Reset',
+      defaultListId: 'list-reset',
+    });
+
+    resetInMemoryRepositories();
+
+    await expect(createUserRepository().getById('user-reset')).resolves.toBeNull();
+  });
+
+  it('resetInMemoryRepositories で共有ストアのグループも破棄される', async () => {
+    await groupRepository.create({
+      groupId: 'group-reset',
+      name: 'Reset',
+      ownerUserId: 'owner-reset',
+    });
+
+    resetInMemoryRepositories();
+
+    await expect(createGroupRepository().getById('group-reset')).resolves.toBeNull();
+  });
+
+  it('個人リストとToDoの作成・取得・更新・削除を一連で実行できる', async () => {
+    const createdUser = await userRepository.create({
       userId: 'user-001',
       email: 'user-001@example.com',
       name: 'User 001',
       defaultListId: 'list-default-user-001',
     });
+    expectValidEpochMillis(createdUser.createdAt);
+    expectValidEpochMillis(createdUser.updatedAt);
+    await expect(userRepository.getByEmail('user-001@example.com')).resolves.toEqual(createdUser);
 
     const personalList = await listRepository.createPersonalList({
       listId: 'list-personal-001',
@@ -79,8 +107,9 @@ describe('Repository Layer E2E with InMemory repositories', () => {
       title: '牛乳を買う',
       isCompleted: false,
     });
-    expectValidIsoTimestamp(createdTodo.createdAt);
+    expectValidEpochMillis(createdTodo.createdAt);
 
+    expectValidEpochMillis(personalList.createdAt);
     const updatedList = await listRepository.updatePersonalList('user-001', personalList.listId, {
       name: '週末の買い物リスト',
     });
@@ -97,7 +126,17 @@ describe('Repository Layer E2E with InMemory repositories', () => {
       completedBy: 'user-001',
     });
 
+    const reopenedTodo = await todoRepository.update(personalList.listId, createdTodo.todoId, {
+      isCompleted: false,
+      completedBy: null,
+    });
+    expect(reopenedTodo.isCompleted).toBe(false);
+    expect(reopenedTodo).not.toHaveProperty('completedBy');
+
     await todoRepository.delete(personalList.listId, createdTodo.todoId);
+    await expect(todoRepository.delete(personalList.listId, createdTodo.todoId)).rejects.toThrow(
+      EntityNotFoundError
+    );
     await expect(todoRepository.getByListId(personalList.listId)).resolves.toEqual([]);
 
     await listRepository.deletePersonalList('user-001', personalList.listId);
@@ -123,7 +162,9 @@ describe('Repository Layer E2E with InMemory repositories', () => {
       name: '週次共有タスク',
       ownerUserId: 'owner-001',
     });
-    expectValidIsoTimestamp(group.createdAt);
+    expectValidEpochMillis(group.createdAt);
+    expectValidEpochMillis(group.updatedAt);
+    await expect(groupRepository.batchGetByIds([group.groupId, 'none'])).resolves.toEqual([group]);
 
     await membershipRepository.create({
       groupId: group.groupId,
@@ -153,7 +194,7 @@ describe('Repository Layer E2E with InMemory repositories', () => {
       name: 'リリース準備',
       createdBy: 'owner-001',
     });
-    expectValidIsoTimestamp(groupList.createdAt);
+    expectValidEpochMillis(groupList.createdAt);
 
     const createdSharedTodo = await todoRepository.create({
       todoId: 'group-todo-001',
@@ -163,7 +204,7 @@ describe('Repository Layer E2E with InMemory repositories', () => {
       createdBy: 'owner-001',
     });
     expect(createdSharedTodo.listId).toBe(groupList.listId);
-    expectValidIsoTimestamp(createdSharedTodo.createdAt);
+    expectValidEpochMillis(createdSharedTodo.createdAt);
 
     const completedSharedTodo = await todoRepository.update(
       groupList.listId,
@@ -191,5 +232,6 @@ describe('Repository Layer E2E with InMemory repositories', () => {
     await expect(listRepository.getGroupListsByGroupId(group.groupId)).resolves.toEqual([]);
     await expect(membershipRepository.getByGroupId(group.groupId)).resolves.toEqual([]);
     await expect(groupRepository.getById(group.groupId)).resolves.toBeNull();
+    await expect(groupRepository.delete(group.groupId)).rejects.toThrow(EntityNotFoundError);
   });
 });
