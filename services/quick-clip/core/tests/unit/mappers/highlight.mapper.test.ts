@@ -135,6 +135,12 @@ describe('HighlightMapper', () => {
       });
     });
 
+    it('新名と旧名が両方あれば新名を優先する', () => {
+      const entity = mapper.toEntity(buildItem({ startSec: 99, status: 'rejected', order: 9 }));
+
+      expect(entity).toMatchObject({ startSec: 10, status: 'unconfirmed', order: 1 });
+    });
+
     it.each([
       ['HighlightID', undefined],
       ['JobID', 1],

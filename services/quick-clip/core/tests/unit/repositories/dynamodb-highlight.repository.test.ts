@@ -225,6 +225,30 @@ describe('DynamoDBHighlightRepository', () => {
       expect(result).toEqual(buildHighlight({ startSec: 15, status: 'accepted' }));
     });
 
+    it('Attributes に新名と旧名が混在していても Entity に変換できる', async () => {
+      mockSend.mockResolvedValue({
+        Attributes: {
+          PK: 'JOB#job-1',
+          SK: 'HIGHLIGHT#h-1',
+          Type: 'HIGHLIGHT',
+          highlightId: 'h-1',
+          jobId: 'job-1',
+          order: 3,
+          startSec: 10,
+          endSec: 20,
+          source: 'volume',
+          Status: 'accepted',
+          clipStatus: 'PENDING',
+          expiresAt: EXPIRES_AT / 1000,
+          UpdatedAt: NOW,
+        },
+      });
+
+      const result = await repository.update('job-1', 'h-1', { status: 'accepted' });
+
+      expect(result).toEqual(buildHighlight({ order: 3, source: 'volume', status: 'accepted' }));
+    });
+
     it('対象がなければ EntityNotFoundError を投げる', async () => {
       mockSend.mockRejectedValue(conditionalCheckFailed());
 

@@ -87,6 +87,33 @@ describe('InMemoryJobRepository', () => {
     );
   });
 
+  it('旧形式のアイテムを update すると、更新した項目の旧名が消えて新名だけが残る', async () => {
+    const key = { PK: 'JOB#job-9', SK: 'JOB#job-9' };
+    store.putByKey(key, {
+      ...key,
+      Type: 'JOB',
+      jobId: 'job-9',
+      batchStage: 'downloading',
+      originalFileName: 'old.mp4',
+      fileSize: 1,
+      createdAt: CREATED_AT / 1000,
+      expiresAt: EXPIRES_AT / 1000,
+    });
+
+    await repository.updateBatchStage('job-9', 'clipping');
+
+    const item = store.getByKey(key)!;
+    expect(item.BatchStage).toBe('clipping');
+    expect(item).not.toHaveProperty('batchStage');
+    // 更新していない項目は旧名のまま残り、読み取りでは引き続き受け付ける
+    expect(item).toHaveProperty('jobId', 'job-9');
+    expect(await repository.getById('job-9')).toMatchObject({
+      jobId: 'job-9',
+      batchStage: 'clipping',
+      createdAt: CREATED_AT,
+    });
+  });
+
   it('存在しないジョブの update は EntityNotFoundError を投げ、アイテムを作らない', async () => {
     await expect(repository.updateBatchStage('missing', 'clipping')).rejects.toBeInstanceOf(
       EntityNotFoundError
@@ -192,6 +219,31 @@ describe('InMemoryHighlightRepository', () => {
       buildHighlight({ startSec: 12, status: 'accepted', clipStatus: 'GENERATED' })
     );
     expect(await repository.getById('job-1', 'h-1')).toEqual(result);
+  });
+
+  it('旧形式のアイテムを update すると、更新した項目の旧名が消えて新名だけが残る', async () => {
+    const key = { PK: 'JOB#job-1', SK: 'HIGHLIGHT#h-old' };
+    store.putByKey(key, {
+      ...key,
+      Type: 'HIGHLIGHT',
+      highlightId: 'h-old',
+      jobId: 'job-1',
+      order: 1,
+      startSec: 10,
+      endSec: 20,
+      source: 'motion',
+      status: 'unconfirmed',
+      clipStatus: 'PENDING',
+      expiresAt: EXPIRES_AT / 1000,
+    });
+
+    const result = await repository.update('job-1', 'h-old', { status: 'accepted' });
+
+    const item = store.getByKey(key)!;
+    expect(item.Status).toBe('accepted');
+    expect(item).not.toHaveProperty('status');
+    expect(item).toHaveProperty('startSec', 10);
+    expect(result).toEqual(buildHighlight({ highlightId: 'h-old', status: 'accepted' }));
   });
 
   it('存在しない見どころの update は EntityNotFoundError を投げる', async () => {

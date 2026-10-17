@@ -179,6 +179,25 @@ describe('DynamoDBJobRepository', () => {
     expect(parsed.remove).toEqual(remove);
   });
 
+  it('Attributes に新名と旧名が混在していても Entity に変換できる', async () => {
+    mockSend.mockResolvedValue({
+      Attributes: {
+        PK: 'JOB#job-1',
+        SK: 'JOB#job-1',
+        Type: 'JOB',
+        jobId: 'job-1',
+        originalFileName: 'movie.mp4',
+        fileSize: 1024,
+        createdAt: CREATED_AT / 1000,
+        expiresAt: EXPIRES_AT / 1000,
+        BatchStage: 'clipping',
+        UpdatedAt: NOW,
+      },
+    });
+
+    await expect(repository.updateBatchStage('job-1', 'clipping')).resolves.toBeUndefined();
+  });
+
   it('更新対象のジョブがなければ EntityNotFoundError を投げる', async () => {
     mockSend.mockRejectedValue(conditionalCheckFailed());
 
