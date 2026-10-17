@@ -71,8 +71,7 @@ export function getReportsBucketName(accountScope: AccountScope): string {
  * 対象は、手動で実行する場面がある「スケジュール起動のバッチ」に絞っている。
  * - Web 系（Function URL 経由で画面から呼ばれる）や、画面からの操作で呼ばれるハンドラ
  *   （quick-clip の clip-regenerate / zip-generator 等）は、手動で実行する場面がないため含めない。
- * - 外部送信（Web Push 等）を伴う関数（livetalk-batch-notify 等）と、一回きりの移行用
- *   （livetalk-batch-migrate）は含めない。
+ * - 外部送信（Web Push 等）を伴う関数（livetalk-batch-notify 等）は含めない。
  * - dev-sync（prod テーブルを読んで dev テーブルへ書く）は、dev に過去データを埋め直す場面があるため含める。
  *   読める prod テーブルはマニフェストの複製元に限られ、いずれも Claude の prod 閲覧ロールで元から読めるため、
  *   実行を許しても閲覧できる範囲は広がらない。書き込みもマニフェストの `-dev` テーブルに限られる。
