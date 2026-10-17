@@ -21,7 +21,7 @@ type InvitationAction = 'ACCEPT' | 'REJECT';
 type InvitationUpdateResponse = {
   groupId: string;
   status: 'ACCEPTED' | 'REJECTED';
-  updatedAt: string;
+  updatedAt: number;
 };
 
 function isInvitationAction(action: unknown): action is InvitationAction {
@@ -77,7 +77,7 @@ export const PUT = withApiErrorReporting(
           groupId,
           userId,
           response: body.action,
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
         { groupRepository, membershipRepository }
       );

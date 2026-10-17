@@ -161,7 +161,7 @@ export const POST = withApiErrorReporting(
         return createNotFoundErrorResponse();
       }
 
-      const now = new Date().toISOString();
+      const now = Date.now();
       const membership = await inviteMember(
         {
           groupId: resolvedGroupId,

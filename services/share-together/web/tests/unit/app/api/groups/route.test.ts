@@ -171,8 +171,8 @@ describe('/api/groups route', () => {
         userId: 'owner-1',
         role: 'OWNER',
         status: 'ACCEPTED',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       },
     });
 
