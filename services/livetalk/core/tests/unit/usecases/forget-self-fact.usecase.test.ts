@@ -174,16 +174,52 @@ describe('forgetSelfFact', () => {
     ).rejects.toThrow('別のエラー');
   });
 
-  it('対象の SELF fact が存在しなければ EntityNotFoundError を投げ、要約を再生成しない', async () => {
-    await seedTopic();
+  it('SELF fact が既に消えていても Topic があれば要約を作り直して成功する', async () => {
+    const { fact1 } = await seedTopic();
+    const llmClient = makeLLMClient('押し直しで作り直した要約');
+    const key = { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-1', factId: fact1.factId };
+    // 1 回目は要約の保存で失敗し、SELF fact だけが消えた状態を作る
+    jest.spyOn(repo, 'putTopic').mockRejectedValueOnce(new Error('LLM 後の保存に失敗'));
+    await expect(forgetSelfFact(key, { topicRepository: repo, llmClient })).rejects.toThrow(
+      'LLM 後の保存に失敗'
+    );
+
+    await expect(
+      forgetSelfFact(key, { topicRepository: repo, llmClient })
+    ).resolves.toBeUndefined();
+
+    const bundle = await repo.getTopicBundle({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'TOPIC-1',
+    });
+    expect(bundle.topic?.canonicalSummary).toBe('押し直しで作り直した要約');
+    expect(bundle.selfFacts.map((f) => f.factId)).not.toContain(fact1.factId);
+  });
+
+  it('SELF fact も Topic もなければ EntityNotFoundError を投げ、要約を再生成しない', async () => {
     const llmClient = makeLLMClient();
 
     await expect(
       forgetSelfFact(
-        { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-1', factId: 'missing' },
+        { userId: 'u1', characterId: 'hiyori', topicId: 'MISSING-TOPIC', factId: 'missing' },
         { topicRepository: repo, llmClient }
       )
     ).rejects.toBeInstanceOf(EntityNotFoundError);
+    expect(llmClient.chatStructured).not.toHaveBeenCalled();
+  });
+
+  it('SELF fact の削除で EntityNotFoundError 以外が起きたらそのまま投げる', async () => {
+    const { fact1 } = await seedTopic();
+    jest.spyOn(repo, 'deleteSelfFact').mockRejectedValueOnce(new Error('DB 障害'));
+    const llmClient = makeLLMClient();
+
+    await expect(
+      forgetSelfFact(
+        { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-1', factId: fact1.factId },
+        { topicRepository: repo, llmClient }
+      )
+    ).rejects.toThrow('DB 障害');
     expect(llmClient.chatStructured).not.toHaveBeenCalled();
   });
 

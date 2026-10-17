@@ -5,6 +5,8 @@ import type { TopicRepository } from '../repositories/topic.repository.interface
 import { RegenerateSummarySchema } from '../llm-client/schemas/regenerate-summary.schema.js';
 import { buildRegenerateSummaryPrompt } from './regenerate-summary.prompt.js';
 
+const SELF_FACT_ENTITY_TYPE = 'SelfFact';
+
 export interface ForgetSelfFactDeps {
   topicRepository: TopicRepository;
   llmClient: ILLMClient;
@@ -17,7 +19,8 @@ export interface ForgetSelfFactDeps {
  *
  * フロー:
  *   1. `deleteSelfFact` で対象 SELF fact を決定的に削除する（まず消す）。
- *      対象が存在しなければ `EntityNotFoundError` をそのまま伝播させる。
+ *      対象が既にない場合も止めずに 2 へ進む。前回の呼び出しで消したあと要約の再生成に
+ *      失敗し、同じ SELF fact で押し直されたときに、要約を作り直せるようにするため。
  *   2. 残った SELF/WEB fact と Topic.subject から canonicalSummary を LLM で再生成し、
  *      `putTopic`（`expectedUpdatedAt` 楽観ロック）で Topic META を更新する。
  *      Embedding/Care/Category/Subject は読み取った Topic の値を維持する
@@ -27,8 +30,9 @@ export interface ForgetSelfFactDeps {
  *      最大 `maxRetries` 回試行し、尽きたら最後のエラーを throw する
  *      （呼び出し元 route で 500 として扱う）。
  *
- * 途中で Topic 自体が消えている（`bundle.topic === null`）場合は、Topic ごと
- * 削除済みとみなして何も再生成せず終了する。
+ * Topic が見つからない（`bundle.topic === null`）場合は、何も再生成しない。
+ * SELF fact を消せていれば成功で終える。SELF fact もなかった場合は、指している先が
+ * 何もないため `EntityNotFoundError` を投げる（呼び出し元 route で 404 として扱う）。
  *
  * 残 fact（SELF + WEB）が 0 件の場合、空入力で LLM が不定な出力を返すのを避けるため
  * LLM を呼ばず canonicalSummary を空文字にして putTopic する（コスト削減）。
@@ -37,19 +41,29 @@ export async function forgetSelfFact(key: SelfFactKey, deps: ForgetSelfFactDeps)
   const { topicRepository, llmClient, maxRetries = 3 } = deps;
 
   // 1. 決定的削除（まず消す）
-  await topicRepository.deleteSelfFact(key);
+  let selfFactDeleted = true;
+  try {
+    await topicRepository.deleteSelfFact(key);
+  } catch (err) {
+    if (!(err instanceof EntityNotFoundError)) throw err;
+    selfFactDeleted = false;
+  }
 
   const topicKey = { userId: key.userId, characterId: key.characterId, topicId: key.topicId };
 
   let lastError: unknown;
+  // ループ内の catch は EntityNotFoundError を再試行に回すため、Topic の不在はループの外で扱う
+  let topicMissing = false;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       // 2a. re-read（初回・リトライ時とも同じ経路で読み直す）
       const bundle = await topicRepository.getTopicBundle(topicKey);
       const { topic } = bundle;
 
-      // Topic ごと消えている場合は何も再生成しない
-      if (topic === null) return;
+      if (topic === null) {
+        topicMissing = true;
+        break;
+      }
 
       let canonicalSummary: string;
       if (bundle.selfFacts.length === 0 && bundle.webFacts.length === 0) {
@@ -91,6 +105,14 @@ export async function forgetSelfFact(key: SelfFactKey, deps: ForgetSelfFactDeps)
       }
       throw err;
     }
+  }
+
+  if (topicMissing) {
+    if (selfFactDeleted) return;
+    throw new EntityNotFoundError(
+      SELF_FACT_ENTITY_TYPE,
+      `${key.userId}#${key.characterId}#${key.topicId}#${key.factId}`
+    );
   }
 
   throw lastError;

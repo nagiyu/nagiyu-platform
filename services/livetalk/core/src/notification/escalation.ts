@@ -94,8 +94,7 @@ function isUrgent(eventDate: string | null, now: Date): boolean {
 }
 
 /**
- * Topic 候補リストから時間帯外でも配信すべきクリティカル情報を判定する
- * （リブトーク知識・記憶再設計 P5: 通知の critical/ネタ源を Topic.care + WEB fact へ移行）。
+ * Topic 候補リストから時間帯外でも配信すべきクリティカル情報を判定する。
  *
  * 判定ロジック（AND ゲート）:
  *   critical = isHighCare AND isUrgent

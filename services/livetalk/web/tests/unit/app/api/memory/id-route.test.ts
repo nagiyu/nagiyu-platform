@@ -78,7 +78,7 @@ describe('DELETE /api/memory/:id', () => {
     expect(mockForgetSelfFact).not.toHaveBeenCalled();
   });
 
-  it('対象の SELF fact が存在しない場合は 404 NOT_FOUND を返す', async () => {
+  it('forgetSelfFact が EntityNotFoundError を投げた場合 (SELF fact も Topic もない) は 404 NOT_FOUND を返す', async () => {
     mockGetSession.mockResolvedValue(session);
     mockForgetSelfFact.mockRejectedValue(new EntityNotFoundError('SelfFact', 'f1'));
 

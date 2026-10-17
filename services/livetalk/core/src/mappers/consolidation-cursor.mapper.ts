@@ -44,7 +44,8 @@ export class ConsolidationCursorMapper implements EntityMapper<
       MsgCursor: entity.msgCursor,
       WebrawCursor: entity.webrawCursor,
       UpdatedAt: entity.updatedAt,
-      // Entity に作成日時は無いが、保存済みアイテムの属性構成を変えないため更新日時を複製する
+      // Entity に作成日時は無いが、保存済みアイテムの属性構成を変えないため CreatedAt も書く。
+      // UpdatedAt は store が書き直すので、両者は数ミリ秒ずれることがある
       CreatedAt: entity.updatedAt,
     };
   }
