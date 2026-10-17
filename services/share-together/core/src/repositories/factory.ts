@@ -43,7 +43,7 @@ const repositoryRegistry = registerDynamoRepositories<
         new DynamoDBMembershipRepository(docClient, tableName),
     },
     list: {
-      createInMemoryRepository: () => new InMemoryListRepository(),
+      createInMemoryRepository: (store) => new InMemoryListRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBListRepository(docClient, tableName),
     },
