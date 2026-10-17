@@ -15,6 +15,7 @@ import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { createErrorEventReader } from '@nagiyu/admin-core';
 import { notFound, redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth/session';
+import { parseOccurredAtParam } from '@/lib/errors/occurred-at';
 
 const ERROR_MESSAGES = {
   ERROR_EVENTS_TABLE_NAME_REQUIRED: 'ERROR_EVENTS_TABLE_NAME が設定されていません',
@@ -43,8 +44,8 @@ function getReader() {
   return createErrorEventReader(docClient, tableName);
 }
 
-function formatJst(iso: string): string {
-  const date = new Date(iso);
+function formatJst(millis: number): string {
+  const date = new Date(millis);
   return new Intl.DateTimeFormat('ja-JP', {
     timeZone: 'Asia/Tokyo',
     year: 'numeric',
@@ -95,10 +96,10 @@ export default async function ErrorDetailPage({
 
   const { eventId } = await params;
   const sp = (await searchParams) ?? {};
-  const occurredAt = sp.at;
+  const occurredAt = parseOccurredAtParam(sp.at);
   const serviceId = sp.serviceId;
 
-  if (!occurredAt || !serviceId) {
+  if (occurredAt === null || !serviceId) {
     notFound();
   }
 
@@ -160,7 +161,7 @@ export default async function ErrorDetailPage({
               <Typography variant="body2" color="text.secondary" sx={{ minWidth: 120 }}>
                 発生時刻 (UTC)
               </Typography>
-              <Typography variant="body2">{event.occurredAt}</Typography>
+              <Typography variant="body2">{new Date(event.occurredAt).toISOString()}</Typography>
             </Box>
           </Box>
         </CardContent>

@@ -20,7 +20,7 @@ import {
   InMemoryPushSubscriptionRepository,
 } from '../../src/notify/subscription-repository.js';
 import { defineSubscriptionRepositoryContract } from './subscription.repository.contract.js';
-import { createTable } from './helpers/dynamodb-local.js';
+import { createAdminTable } from './helpers/dynamodb-local.js';
 
 // --- InMemory 実装 ---
 
@@ -48,7 +48,7 @@ function ensureTable(): Promise<void> {
   if (!tableReady) {
     rawClient = createLocalRawClient();
     docClient = createLocalDocClient();
-    tableReady = createTable(rawClient, tableName);
+    tableReady = createAdminTable(rawClient, tableName);
   }
   return tableReady;
 }

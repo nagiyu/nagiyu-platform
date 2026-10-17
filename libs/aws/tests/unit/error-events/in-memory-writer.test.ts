@@ -3,6 +3,8 @@
  */
 
 import type { ErrorEvent } from '@nagiyu/common';
+import { EntityAlreadyExistsError } from '../../../src/dynamodb/errors.js';
+import { InMemorySingleTableStore } from '../../../src/dynamodb/in-memory/single-table-store.js';
 import { InMemoryErrorEventWriter } from '../../../src/error-events/in-memory-writer.js';
 
 const sampleEvent = (overrides: Partial<ErrorEvent> = {}): ErrorEvent => ({
@@ -13,7 +15,7 @@ const sampleEvent = (overrides: Partial<ErrorEvent> = {}): ErrorEvent => ({
   title: 'sample',
   message: 'sample message',
   context: '{}',
-  occurredAt: '2026-05-06T00:00:00.000Z',
+  occurredAt: Date.parse('2026-05-06T00:00:00.000Z'),
   ...overrides,
 });
 
@@ -59,6 +61,45 @@ describe('InMemoryErrorEventWriter', () => {
     event.title = 'mutated';
 
     expect(writer.getRecords()[0].title).toBe('sample');
+  });
+
+  it('同じ eventId・serviceId・occurredAt を再投入すると拒否する', async () => {
+    await writer.put(sampleEvent());
+
+    await expect(writer.put(sampleEvent())).rejects.toThrow(EntityAlreadyExistsError);
+  });
+
+  it('必須項目が空のイベントは拒否する', async () => {
+    await expect(writer.put(sampleEvent({ eventId: '' }))).rejects.toThrow(
+      'eventId は空文字にできません'
+    );
+    await expect(writer.put(sampleEvent({ occurredAt: Number.NaN }))).rejects.toThrow(
+      'occurredAt は有限の数値'
+    );
+    expect(writer.getRecords()).toHaveLength(0);
+  });
+
+  it('共有ストアには新形式の Item を書く', async () => {
+    const store = new InMemorySingleTableStore();
+    await new InMemoryErrorEventWriter(store).put(sampleEvent());
+
+    const item = store.get('ERROR_EVENT#stock-tracker', 'OCCURRED#2026-05-06T00:00:00.000Z#evt-1');
+    expect(item).toMatchObject({
+      EventID: 'evt-1',
+      OccurredAt: Date.parse('2026-05-06T00:00:00.000Z'),
+    });
+    expect(item).not.toHaveProperty('ttl');
+  });
+
+  it('reset は共有ストア上の他の Item を消さない', async () => {
+    const store = new InMemorySingleTableStore();
+    store.putByKey({ PK: 'OTHER', SK: 'x' }, { PK: 'OTHER', SK: 'x' });
+    const own = new InMemoryErrorEventWriter(store);
+    await own.put(sampleEvent());
+
+    own.reset();
+
+    expect(store.size()).toBe(1);
   });
 
   it('reset で内部状態をクリアできる', async () => {
