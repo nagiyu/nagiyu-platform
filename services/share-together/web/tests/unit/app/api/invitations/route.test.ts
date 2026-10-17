@@ -138,8 +138,8 @@ describe('GET /api/invitations', () => {
         groupId: 'group-1',
         name: '買い物グループ',
         ownerUserId: 'owner-1',
-        createdAt: '2026-03-01T00:00:00.000Z',
-        updatedAt: '2026-03-01T00:00:00.000Z',
+        createdAt: 1772323200000,
+        updatedAt: 1772323200000,
       },
     ]);
     mockBatchGetUsersByIds.mockResolvedValue([

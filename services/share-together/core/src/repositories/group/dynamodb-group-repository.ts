@@ -1,196 +1,61 @@
-import {
-  DeleteCommand,
-  GetCommand,
-  PutCommand,
-  UpdateCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
-import {
-  batchGetAll,
-  buildUpdateExpression,
-  mapConditionalCheckFailed,
-  toDatabaseError,
-} from '@nagiyu/aws';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBEntityStore, batchGetAll, toDatabaseError, type EntityStore } from '@nagiyu/aws';
 import type { CreateGroupInput, Group, UpdateGroupInput } from '../../types/index.js';
 import type { GroupRepository } from './group-repository.interface.js';
-import { withDatabaseError } from '../with-database-error.js';
+import { GroupMapper, type GroupKey } from './group-mapper.js';
 
-const GROUP_META_SK = '#META#';
-
-const ERROR_MESSAGES = {
-  INVALID_GROUP_DATA: 'グループ情報の形式が不正です',
-  GROUP_ALREADY_EXISTS: 'グループは既に存在します',
-  GROUP_NOT_FOUND: 'グループが見つかりません',
-  UPDATE_EXPRESSION_EMPTY: '更新式を生成できませんでした',
-} as const;
-
+/**
+ * DynamoDB Group Repository
+ *
+ * 単一アイテムの CRUD は EntityStore に任せ、バッチ取得だけを自前で持つ。
+ */
 export class DynamoDBGroupRepository implements GroupRepository {
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
+  private readonly mapper = new GroupMapper();
+  private readonly entityStore: EntityStore<Group, GroupKey>;
 
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
     this.docClient = docClient;
     this.tableName = tableName;
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper);
   }
 
   public async getById(groupId: string): Promise<Group | null> {
-    const result = await withDatabaseError(() =>
-      this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: this.buildGroupPk(groupId),
-            SK: GROUP_META_SK,
-          },
-        })
-      )
-    );
-
-    if (!result.Item) {
-      return null;
-    }
-
-    return this.toGroup(result.Item as Record<string, unknown>);
+    return this.entityStore.get({ groupId });
   }
 
   public async batchGetByIds(groupIds: string[]): Promise<Group[]> {
-    if (groupIds.length === 0) {
+    const uniqueGroupIds = [...new Set(groupIds)];
+    if (uniqueGroupIds.length === 0) {
       return [];
     }
 
-    const items = await withDatabaseError(() =>
-      batchGetAll(
+    let items: Record<string, unknown>[];
+    try {
+      items = await batchGetAll(
         this.docClient,
         this.tableName,
-        groupIds.map((groupId) => ({
-          PK: this.buildGroupPk(groupId),
-          SK: GROUP_META_SK,
-        }))
-      )
-    );
+        uniqueGroupIds.map((groupId) => this.mapper.buildKeys({ groupId }))
+      );
+    } catch (error) {
+      throw toDatabaseError(error);
+    }
 
-    return items.map((item) => this.toGroup(item as Record<string, unknown>));
+    return items.map((item) => this.mapper.toEntity(item));
   }
 
   public async create(input: CreateGroupInput): Promise<Group> {
-    const now = new Date().toISOString();
-    const group: Group = {
-      ...input,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    try {
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: {
-            PK: this.buildGroupPk(input.groupId),
-            SK: GROUP_META_SK,
-            ...group,
-          },
-          ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
-        })
-      );
-    } catch (error: unknown) {
-      mapConditionalCheckFailed(error, {
-        onExists: () => {
-          throw new Error(ERROR_MESSAGES.GROUP_ALREADY_EXISTS);
-        },
-      });
-      throw toDatabaseError(error);
-    }
-
-    return group;
+    const now = Date.now();
+    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
+    return this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
   }
 
   public async update(groupId: string, updates: UpdateGroupInput): Promise<Group> {
-    const updateParts = buildUpdateExpression(
-      { name: updates.name },
-      {
-        timestamp: { attributeName: 'updatedAt', value: new Date().toISOString() },
-        updateTimestampWhenEmpty: true,
-      }
-    );
-    if (!updateParts) {
-      throw new Error(ERROR_MESSAGES.UPDATE_EXPRESSION_EMPTY);
-    }
-
-    let result;
-    try {
-      result = await this.docClient.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: this.buildGroupPk(groupId),
-            SK: GROUP_META_SK,
-          },
-          ...updateParts,
-          ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
-          ReturnValues: 'ALL_NEW',
-        })
-      );
-    } catch (error: unknown) {
-      mapConditionalCheckFailed(error, {
-        onMissing: () => {
-          throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND);
-        },
-      });
-      throw toDatabaseError(error);
-    }
-
-    return this.toGroup((result.Attributes ?? {}) as Record<string, unknown>);
+    return this.entityStore.update({ groupId }, updates);
   }
 
   public async delete(groupId: string): Promise<void> {
-    try {
-      await this.docClient.send(
-        new DeleteCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: this.buildGroupPk(groupId),
-            SK: GROUP_META_SK,
-          },
-          ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
-        })
-      );
-    } catch (error: unknown) {
-      mapConditionalCheckFailed(error, {
-        onMissing: () => {
-          throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND);
-        },
-      });
-      throw toDatabaseError(error);
-    }
-  }
-
-  private buildGroupPk(groupId: string): string {
-    return `GROUP#${groupId}`;
-  }
-
-  private toGroup(item: Record<string, unknown>): Group {
-    const groupId = item['groupId'];
-    const name = item['name'];
-    const ownerUserId = item['ownerUserId'];
-    const createdAt = item['createdAt'];
-    const updatedAt = item['updatedAt'];
-
-    if (
-      typeof groupId !== 'string' ||
-      typeof name !== 'string' ||
-      typeof ownerUserId !== 'string' ||
-      typeof createdAt !== 'string' ||
-      typeof updatedAt !== 'string'
-    ) {
-      throw new Error(ERROR_MESSAGES.INVALID_GROUP_DATA);
-    }
-
-    return {
-      groupId,
-      name,
-      ownerUserId,
-      createdAt,
-      updatedAt,
-    };
+    await this.entityStore.delete({ groupId });
   }
 }

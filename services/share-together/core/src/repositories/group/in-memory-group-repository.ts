@@ -1,59 +1,50 @@
+import { InMemoryEntityStore, InMemorySingleTableStore, type EntityStore } from '@nagiyu/aws';
 import type { CreateGroupInput, Group, UpdateGroupInput } from '../../types/index.js';
 import type { GroupRepository } from './group-repository.interface.js';
+import { GroupMapper, type GroupKey } from './group-mapper.js';
 
-const ERROR_MESSAGES = {
-  GROUP_NOT_FOUND: 'グループが見つかりません',
-  GROUP_ALREADY_EXISTS: 'グループは既に存在します',
-} as const;
-
+/**
+ * InMemory Group Repository
+ *
+ * 単一アイテムの CRUD は EntityStore に任せ、バッチ取得だけを自前で持つ。
+ * テスト環境で使用する。
+ */
 export class InMemoryGroupRepository implements GroupRepository {
-  private readonly groups = new Map<string, Group>();
+  private readonly store: InMemorySingleTableStore;
+  private readonly mapper = new GroupMapper();
+  private readonly entityStore: EntityStore<Group, GroupKey>;
+
+  constructor(store: InMemorySingleTableStore = new InMemorySingleTableStore()) {
+    this.store = store;
+    this.entityStore = new InMemoryEntityStore(store, this.mapper);
+  }
 
   public async getById(groupId: string): Promise<Group | null> {
-    const group = this.groups.get(groupId);
-    return group ? { ...group } : null;
+    return this.entityStore.get({ groupId });
   }
 
   public async batchGetByIds(groupIds: string[]): Promise<Group[]> {
-    return groupIds
-      .map((groupId) => this.groups.get(groupId))
-      .filter((group): group is Group => group !== undefined)
-      .map((group) => ({ ...group }));
+    const groups: Group[] = [];
+    for (const groupId of new Set(groupIds)) {
+      const item = this.store.getByKey(this.mapper.buildKeys({ groupId }));
+      if (item) {
+        groups.push(this.mapper.toEntity(item));
+      }
+    }
+    return groups;
   }
 
   public async create(input: CreateGroupInput): Promise<Group> {
-    if (this.groups.has(input.groupId)) {
-      throw new Error(ERROR_MESSAGES.GROUP_ALREADY_EXISTS);
-    }
-
-    const now = new Date().toISOString();
-    const group: Group = {
-      ...input,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    this.groups.set(group.groupId, group);
-    return { ...group };
+    const now = Date.now();
+    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
+    return this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
   }
 
   public async update(groupId: string, updates: UpdateGroupInput): Promise<Group> {
-    const existingGroup = this.groups.get(groupId);
-    if (!existingGroup) {
-      throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND);
-    }
-
-    const updatedGroup: Group = {
-      ...existingGroup,
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    };
-
-    this.groups.set(groupId, updatedGroup);
-    return { ...updatedGroup };
+    return this.entityStore.update({ groupId }, updates);
   }
 
   public async delete(groupId: string): Promise<void> {
-    this.groups.delete(groupId);
+    await this.entityStore.delete({ groupId });
   }
 }
