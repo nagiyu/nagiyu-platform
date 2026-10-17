@@ -12,7 +12,6 @@ jest.mock('@/lib/auth/session', () => ({
 }));
 
 jest.mock('@nagiyu/aws', () => ({
-  batchGetAll: jest.requireActual('@nagiyu/aws').batchGetAll,
   getDynamoDBDocumentClient: jest.fn(),
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
@@ -22,10 +21,15 @@ jest.mock('@nagiyu/share-together-core', () => ({
   createMembershipRepository: jest.fn(),
   DynamoDBGroupRepository: jest.fn(),
   createGroupRepository: jest.fn(),
+  DynamoDBUserRepository: jest.fn(),
+  createUserRepository: jest.fn(),
 }));
 
-import { BatchGetCommand } from '@aws-sdk/lib-dynamodb';
-import { DynamoDBGroupRepository, DynamoDBMembershipRepository } from '@nagiyu/share-together-core';
+import {
+  DynamoDBGroupRepository,
+  DynamoDBMembershipRepository,
+  DynamoDBUserRepository,
+} from '@nagiyu/share-together-core';
 import { GET } from '@/app/api/invitations/route';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
@@ -53,12 +57,21 @@ const mockDynamoDBGroupRepository = DynamoDBGroupRepository as jest.MockedClass<
 ).createGroupRepository.mockImplementation((...args: unknown[]) =>
   mockDynamoDBGroupRepository(...args)
 );
+const mockDynamoDBUserRepository = DynamoDBUserRepository as jest.MockedClass<
+  typeof DynamoDBUserRepository
+>;
+(
+  jest.requireMock('@nagiyu/share-together-core') as { createUserRepository: jest.Mock }
+).createUserRepository.mockImplementation((...args: unknown[]) =>
+  mockDynamoDBUserRepository(...args)
+);
 type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 
 describe('GET /api/invitations', () => {
   const mockSend = jest.fn();
   const mockGetPendingInvitationsByUserId = jest.fn();
   const mockBatchGetByIds = jest.fn();
+  const mockBatchGetUsersByIds = jest.fn();
 
   beforeEach(() => {
     process.env.DYNAMODB_TABLE_NAME = 'test-share-together-main';
@@ -76,6 +89,12 @@ describe('GET /api/invitations', () => {
         ({
           batchGetByIds: mockBatchGetByIds,
         }) as InstanceType<typeof DynamoDBGroupRepository>
+    );
+    mockDynamoDBUserRepository.mockImplementation(
+      () =>
+        ({
+          batchGetByIds: mockBatchGetUsersByIds,
+        }) as InstanceType<typeof DynamoDBUserRepository>
     );
   });
 
@@ -123,22 +142,21 @@ describe('GET /api/invitations', () => {
         updatedAt: '2026-03-01T00:00:00.000Z',
       },
     ]);
-    mockSend.mockResolvedValue({
-      Responses: {
-        'test-share-together-main': [
-          {
-            userId: 'inviter-1',
-            name: '招待者ユーザー',
-          },
-        ],
+    mockBatchGetUsersByIds.mockResolvedValue([
+      {
+        userId: 'inviter-1',
+        email: 'inviter-1@example.com',
+        name: '招待者ユーザー',
+        defaultListId: 'list-1',
+        createdAt: 1772323200000,
+        updatedAt: 1772323200000,
       },
-    });
+    ]);
 
     const response = await GET();
-    const command = mockSend.mock.calls[0]?.[0] as BatchGetCommand;
 
     expect(response.status).toBe(200);
-    expect(command).toBeInstanceOf(BatchGetCommand);
+    expect(mockBatchGetUsersByIds).toHaveBeenCalledWith(['inviter-1']);
     await expect(response.json()).resolves.toEqual({
       data: {
         invitations: [
@@ -154,12 +172,12 @@ describe('GET /api/invitations', () => {
     });
   });
 
-  it('招待者名の未処理キーを再送して取得する', async () => {
+  it('同じ招待者は 1 回だけ引き、見つからない招待者の名前は空文字になる', async () => {
     mockGetSessionOrUnauthorized.mockResolvedValue({
       user: { id: 'user-1' },
     } as SessionOrUnauthorized);
     mockGetPendingInvitationsByUserId.mockResolvedValue(
-      ['inviter-1', 'inviter-2'].map((invitedBy, index) => ({
+      ['inviter-1', 'inviter-1', 'inviter-2'].map((invitedBy, index) => ({
         groupId: `group-${index}`,
         userId: 'user-1',
         role: 'MEMBER',
@@ -170,16 +188,16 @@ describe('GET /api/invitations', () => {
       }))
     );
     mockBatchGetByIds.mockResolvedValue([]);
-    mockSend
-      .mockResolvedValueOnce({
-        Responses: { 'test-share-together-main': [{ userId: 'inviter-1', name: '招待者1' }] },
-        UnprocessedKeys: {
-          'test-share-together-main': { Keys: [{ PK: 'USER#inviter-2', SK: '#META#' }] },
-        },
-      })
-      .mockResolvedValueOnce({
-        Responses: { 'test-share-together-main': [{ userId: 'inviter-2', name: '招待者2' }] },
-      });
+    mockBatchGetUsersByIds.mockResolvedValue([
+      {
+        userId: 'inviter-1',
+        email: 'inviter-1@example.com',
+        name: '招待者1',
+        defaultListId: 'list-1',
+        createdAt: 1772323200000,
+        updatedAt: 1772323200000,
+      },
+    ]);
 
     const response = await GET();
     const body = (await response.json()) as {
@@ -187,10 +205,11 @@ describe('GET /api/invitations', () => {
     };
 
     expect(response.status).toBe(200);
-    expect(mockSend).toHaveBeenCalledTimes(2);
+    expect(mockBatchGetUsersByIds).toHaveBeenCalledWith(['inviter-1', 'inviter-2']);
     expect(body.data.invitations.map((invitation) => invitation.inviterName)).toEqual([
       '招待者1',
-      '招待者2',
+      '招待者1',
+      '',
     ]);
   });
 

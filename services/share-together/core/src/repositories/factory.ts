@@ -1,5 +1,5 @@
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { registerDynamoRepositories } from '@nagiyu/aws';
+import { InMemorySingleTableStore, registerDynamoRepositories } from '@nagiyu/aws';
 import type { GroupRepository } from './group/group-repository.interface.js';
 import { DynamoDBGroupRepository } from './group/dynamodb-group-repository.js';
 import { InMemoryGroupRepository } from './group/in-memory-group-repository.js';
@@ -16,13 +16,16 @@ import type { TodoRepository } from './todo/todo-repository.interface.js';
 import { DynamoDBTodoRepository } from './todo/dynamodb-todo-repository.js';
 import { InMemoryTodoRepository } from './todo/in-memory-todo-repository.js';
 
-const repositoryRegistry = registerDynamoRepositories<{
-  group: GroupRepository;
-  user: UserRepository;
-  membership: MembershipRepository;
-  list: ListRepository;
-  todo: TodoRepository;
-}>(
+const repositoryRegistry = registerDynamoRepositories<
+  {
+    group: GroupRepository;
+    user: UserRepository;
+    membership: MembershipRepository;
+    list: ListRepository;
+    todo: TodoRepository;
+  },
+  InMemorySingleTableStore
+>(
   {
     group: {
       createInMemoryRepository: () => new InMemoryGroupRepository(),
@@ -30,7 +33,7 @@ const repositoryRegistry = registerDynamoRepositories<{
         new DynamoDBGroupRepository(docClient, tableName),
     },
     user: {
-      createInMemoryRepository: () => new InMemoryUserRepository(),
+      createInMemoryRepository: (store) => new InMemoryUserRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBUserRepository(docClient, tableName),
     },
@@ -50,7 +53,11 @@ const repositoryRegistry = registerDynamoRepositories<{
         new DynamoDBTodoRepository(docClient, tableName),
     },
   },
-  { keyPrefix: 'share-together' }
+  {
+    keyPrefix: 'share-together',
+    // 移行済みのリポジトリだけがこの共有ストアを使う。残りは自前の Map を使い続ける
+    createSharedStore: () => new InMemorySingleTableStore(),
+  }
 );
 
 export function resetInMemoryRepositories(): void {

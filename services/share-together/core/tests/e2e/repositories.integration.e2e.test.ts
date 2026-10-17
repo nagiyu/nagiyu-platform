@@ -12,6 +12,11 @@ import type { MembershipRepository } from '../../src/repositories/membership/mem
 import type { TodoRepository } from '../../src/repositories/todo/todo-repository.interface.js';
 import type { UserRepository } from '../../src/repositories/user/user-repository.interface.js';
 
+function expectValidEpochMillis(value: number): void {
+  expect(Number.isInteger(value)).toBe(true);
+  expect(value).toBeLessThanOrEqual(Date.now());
+}
+
 function expectValidIsoTimestamp(value: string): void {
   const timestamp = new Date(value).getTime();
   expect(Number.isNaN(timestamp)).toBe(false);
@@ -49,13 +54,29 @@ describe('Repository Layer E2E with InMemory repositories', () => {
     todoRepository = createTodoRepository();
   });
 
-  it('個人リストとToDoの作成・取得・更新・削除を一連で実行できる', async () => {
+  it('resetInMemoryRepositories で共有ストアのユーザーも破棄される', async () => {
     await userRepository.create({
+      userId: 'user-reset',
+      email: 'reset@example.com',
+      name: 'Reset',
+      defaultListId: 'list-reset',
+    });
+
+    resetInMemoryRepositories();
+
+    await expect(createUserRepository().getById('user-reset')).resolves.toBeNull();
+  });
+
+  it('個人リストとToDoの作成・取得・更新・削除を一連で実行できる', async () => {
+    const createdUser = await userRepository.create({
       userId: 'user-001',
       email: 'user-001@example.com',
       name: 'User 001',
       defaultListId: 'list-default-user-001',
     });
+    expectValidEpochMillis(createdUser.createdAt);
+    expectValidEpochMillis(createdUser.updatedAt);
+    await expect(userRepository.getByEmail('user-001@example.com')).resolves.toEqual(createdUser);
 
     const personalList = await listRepository.createPersonalList({
       listId: 'list-personal-001',
