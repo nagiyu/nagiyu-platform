@@ -18,12 +18,6 @@ function expectValidEpochMillis(value: number): void {
   expect(value).toBeLessThanOrEqual(Date.now());
 }
 
-function expectValidIsoTimestamp(value: string): void {
-  const timestamp = new Date(value).getTime();
-  expect(Number.isNaN(timestamp)).toBe(false);
-  expect(timestamp).toBeLessThanOrEqual(Date.now());
-}
-
 describe('Repository Layer E2E with InMemory repositories', () => {
   const previousUseInMemoryDb = process.env.USE_IN_MEMORY_DB;
 
@@ -113,7 +107,7 @@ describe('Repository Layer E2E with InMemory repositories', () => {
       title: '牛乳を買う',
       isCompleted: false,
     });
-    expectValidIsoTimestamp(createdTodo.createdAt);
+    expectValidEpochMillis(createdTodo.createdAt);
 
     expectValidEpochMillis(personalList.createdAt);
     const updatedList = await listRepository.updatePersonalList('user-001', personalList.listId, {
@@ -132,7 +126,17 @@ describe('Repository Layer E2E with InMemory repositories', () => {
       completedBy: 'user-001',
     });
 
+    const reopenedTodo = await todoRepository.update(personalList.listId, createdTodo.todoId, {
+      isCompleted: false,
+      completedBy: null,
+    });
+    expect(reopenedTodo.isCompleted).toBe(false);
+    expect(reopenedTodo).not.toHaveProperty('completedBy');
+
     await todoRepository.delete(personalList.listId, createdTodo.todoId);
+    await expect(todoRepository.delete(personalList.listId, createdTodo.todoId)).rejects.toThrow(
+      EntityNotFoundError
+    );
     await expect(todoRepository.getByListId(personalList.listId)).resolves.toEqual([]);
 
     await listRepository.deletePersonalList('user-001', personalList.listId);
@@ -200,7 +204,7 @@ describe('Repository Layer E2E with InMemory repositories', () => {
       createdBy: 'owner-001',
     });
     expect(createdSharedTodo.listId).toBe(groupList.listId);
-    expectValidIsoTimestamp(createdSharedTodo.createdAt);
+    expectValidEpochMillis(createdSharedTodo.createdAt);
 
     const completedSharedTodo = await todoRepository.update(
       groupList.listId,

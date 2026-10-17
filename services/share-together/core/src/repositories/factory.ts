@@ -48,7 +48,7 @@ const repositoryRegistry = registerDynamoRepositories<
         new DynamoDBListRepository(docClient, tableName),
     },
     todo: {
-      createInMemoryRepository: () => new InMemoryTodoRepository(),
+      createInMemoryRepository: (store) => new InMemoryTodoRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBTodoRepository(docClient, tableName),
     },
