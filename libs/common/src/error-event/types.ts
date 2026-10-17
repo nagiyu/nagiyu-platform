@@ -66,6 +66,6 @@ export type ErrorEvent = {
   message: string;
   /** 生ペイロードを保持する JSON 文字列 */
   context: string;
-  /** 発生時刻（ISO-8601 UTC） */
-  occurredAt: string;
+  /** 発生時刻（epoch ミリ秒） */
+  occurredAt: number;
 };
