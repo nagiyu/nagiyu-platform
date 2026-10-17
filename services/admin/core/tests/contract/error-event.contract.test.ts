@@ -24,7 +24,7 @@ import {
 import { DynamoDBErrorEventReader } from '../../src/errors/dynamodb-reader.js';
 import { InMemoryErrorEventReader } from '../../src/errors/in-memory-reader.js';
 import { defineErrorEventContract } from './error-event.contract.js';
-import { createTable } from './helpers/dynamodb-local.js';
+import { createErrorEventsTable } from './helpers/dynamodb-local.js';
 
 // --- InMemory 実装 ---
 
@@ -55,7 +55,10 @@ function ensureDynamoDbLocalTable(): Promise<void> {
   if (!dynamoDbLocalTableReady) {
     dynamoDbLocalRawClient = createLocalRawClient();
     dynamoDbLocalDocClient = createLocalDocClient();
-    dynamoDbLocalTableReady = createTable(dynamoDbLocalRawClient, dynamoDbLocalTableName);
+    dynamoDbLocalTableReady = createErrorEventsTable(
+      dynamoDbLocalRawClient,
+      dynamoDbLocalTableName
+    );
   }
   return dynamoDbLocalTableReady;
 }

@@ -13,7 +13,8 @@
     "test:contract": "jest --config jest.contract.config.ts",
     "lint": "eslint src/**/*.ts tests/**/*.ts",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:contract": "jest --config jest.contract.config.ts"
   },
   "dependencies": {
     "@aws-sdk/lib-dynamodb": "^3.1063.0",
