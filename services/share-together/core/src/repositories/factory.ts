@@ -38,7 +38,7 @@ const repositoryRegistry = registerDynamoRepositories<
         new DynamoDBUserRepository(docClient, tableName),
     },
     membership: {
-      createInMemoryRepository: () => new InMemoryMembershipRepository(),
+      createInMemoryRepository: (store) => new InMemoryMembershipRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBMembershipRepository(docClient, tableName),
     },
@@ -55,7 +55,6 @@ const repositoryRegistry = registerDynamoRepositories<
   },
   {
     keyPrefix: 'share-together',
-    // 移行済みのリポジトリだけがこの共有ストアを使う。残りは自前の Map を使い続ける
     createSharedStore: () => new InMemorySingleTableStore(),
   }
 );

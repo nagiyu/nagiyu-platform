@@ -26,9 +26,9 @@ type ResetSeedData = {
     role: 'OWNER' | 'MEMBER';
     status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
     invitedBy?: string;
-    invitedAt?: string;
-    respondedAt?: string;
-    ttl?: number;
+    invitedAt?: number;
+    respondedAt?: number;
+    expiresAt?: number;
   }>;
   personalLists?: Array<{
     listId: string;

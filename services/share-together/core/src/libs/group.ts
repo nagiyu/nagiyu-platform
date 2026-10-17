@@ -1,3 +1,4 @@
+import { EntityNotFoundError } from '@nagiyu/aws';
 import type { Group, GroupMembership } from '../types/index.js';
 import type { GroupRepository } from '../repositories/group/group-repository.interface.js';
 import type { ListRepository } from '../repositories/list/list-repository.interface.js';
@@ -42,14 +43,16 @@ export interface InviteMemberInput {
   groupId: string;
   userId: string;
   invitedBy: string;
-  invitedAt: string;
+  /** 招待日時 (エポックミリ秒) */
+  invitedAt: number;
 }
 
 export interface RespondInvitationInput {
   groupId: string;
   userId: string;
   response: 'ACCEPT' | 'REJECT';
-  respondedAt: string;
+  /** 応答日時 (エポックミリ秒) */
+  respondedAt: number;
 }
 
 export interface LeaveGroupInput {
@@ -82,8 +85,20 @@ export function validateNoDuplicateInvitation(existingMembership: GroupMembershi
   }
 }
 
-export function calculateInvitationTtl(invitedAt: string): number {
-  return Math.floor(new Date(invitedAt).getTime() / 1000) + GROUP_RULES.INVITATION_TTL_SECONDS;
+/**
+ * 招待の有効期限をエポックミリ秒で返す
+ *
+ * @param invitedAt - 招待日時 (エポックミリ秒)
+ */
+export function calculateInvitationExpiresAt(invitedAt: number): number {
+  return invitedAt + GROUP_RULES.INVITATION_TTL_SECONDS * 1000;
+}
+
+/**
+ * リポジトリの不在エラーを業務エラーに変換する。それ以外のエラーはそのまま返す。
+ */
+function toBusinessError(error: unknown, notFoundMessage: string): unknown {
+  return error instanceof EntityNotFoundError ? new Error(notFoundMessage) : error;
 }
 
 export async function createGroup(
@@ -121,14 +136,15 @@ export async function inviteMember(
     throw new Error(ERROR_MESSAGES.ALREADY_GROUP_MEMBER);
   }
 
-  const ttl = calculateInvitationTtl(input.invitedAt);
+  const expiresAt = calculateInvitationExpiresAt(input.invitedAt);
   if (existingMembership?.status === 'REJECTED') {
     return dependencies.membershipRepository.update(input.groupId, input.userId, {
       status: 'PENDING',
       invitedBy: input.invitedBy,
       invitedAt: input.invitedAt,
-      respondedAt: undefined,
-      ttl,
+      // 拒否時の応答日時を残すと、再び応答待ちになった招待が応答済みに見える
+      respondedAt: null,
+      expiresAt,
     });
   }
 
@@ -139,7 +155,7 @@ export async function inviteMember(
     status: 'PENDING',
     invitedBy: input.invitedBy,
     invitedAt: input.invitedAt,
-    ttl,
+    expiresAt,
   });
 }
 
@@ -155,11 +171,17 @@ export async function respondToInvitation(
     throw new Error(ERROR_MESSAGES.INVITATION_ALREADY_RESPONDED);
   }
 
-  return dependencies.membershipRepository.update(input.groupId, input.userId, {
-    status: input.response === 'ACCEPT' ? 'ACCEPTED' : 'REJECTED',
-    respondedAt: input.respondedAt,
-    ttl: undefined,
-  });
+  try {
+    return await dependencies.membershipRepository.update(input.groupId, input.userId, {
+      status: input.response === 'ACCEPT' ? 'ACCEPTED' : 'REJECTED',
+      respondedAt: input.respondedAt,
+      // 応答済みの招待は期限切れで消えないよう、TTL を外す
+      expiresAt: null,
+    });
+  } catch (error) {
+    // 存在確認から更新までの間に招待が消えた場合
+    throw toBusinessError(error, ERROR_MESSAGES.INVITATION_NOT_FOUND);
+  }
 }
 
 export async function leaveGroup(
@@ -172,7 +194,12 @@ export async function leaveGroup(
   }
 
   validateOwnerCanLeave(membership);
-  await dependencies.membershipRepository.delete(input.groupId, input.userId);
+  try {
+    await dependencies.membershipRepository.delete(input.groupId, input.userId);
+  } catch (error) {
+    // 存在確認から削除までの間にメンバーシップが消えた場合
+    throw toBusinessError(error, ERROR_MESSAGES.MEMBERSHIP_NOT_FOUND);
+  }
 }
 
 export async function removeMember(
@@ -186,7 +213,12 @@ export async function removeMember(
   }
 
   validateOwnerCanBeRemoved(membership);
-  await dependencies.membershipRepository.delete(groupId, userId);
+  try {
+    await dependencies.membershipRepository.delete(groupId, userId);
+  } catch (error) {
+    // 存在確認から削除までの間にメンバーシップが消えた場合
+    throw toBusinessError(error, ERROR_MESSAGES.MEMBERSHIP_NOT_FOUND);
+  }
 }
 
 export async function deleteGroupWithCascade(

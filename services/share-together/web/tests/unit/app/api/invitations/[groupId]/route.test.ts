@@ -140,10 +140,10 @@ describe('PUT /api/invitations/[groupId]', () => {
       role: 'MEMBER',
       status: 'ACCEPTED',
       invitedBy: 'owner-1',
-      invitedAt: '2026-03-01T00:00:00.000Z',
-      respondedAt: '2026-03-02T00:00:00.000Z',
-      createdAt: '2026-03-01T00:00:00.000Z',
-      updatedAt: '2026-03-02T00:00:00.000Z',
+      invitedAt: 1772323200000,
+      respondedAt: 1772409600000,
+      createdAt: 1772323200000,
+      updatedAt: 1772409600000,
     });
 
     const request = {
@@ -157,6 +157,8 @@ describe('PUT /api/invitations/[groupId]', () => {
         groupId: 'group-1',
         userId: 'user-1',
         response: 'ACCEPT',
+        // 応答日時は ISO 文字列ではなくエポックミリ秒で渡す
+        respondedAt: expect.any(Number),
       }),
       expect.any(Object)
     );
@@ -164,7 +166,7 @@ describe('PUT /api/invitations/[groupId]', () => {
       data: {
         groupId: 'group-1',
         status: 'ACCEPTED',
-        updatedAt: '2026-03-02T00:00:00.000Z',
+        updatedAt: 1772409600000,
       },
     });
   });
@@ -199,10 +201,10 @@ describe('PUT /api/invitations/[groupId]', () => {
       role: 'MEMBER',
       status: 'REJECTED',
       invitedBy: 'owner-1',
-      invitedAt: '2026-03-01T00:00:00.000Z',
-      respondedAt: '2026-03-02T00:00:00.000Z',
-      createdAt: '2026-03-01T00:00:00.000Z',
-      updatedAt: '2026-03-02T00:00:00.000Z',
+      invitedAt: 1772323200000,
+      respondedAt: 1772409600000,
+      createdAt: 1772323200000,
+      updatedAt: 1772409600000,
     });
 
     const request = {
@@ -215,7 +217,7 @@ describe('PUT /api/invitations/[groupId]', () => {
       data: {
         groupId: 'group-1',
         status: 'REJECTED',
-        updatedAt: '2026-03-02T00:00:00.000Z',
+        updatedAt: 1772409600000,
       },
     });
   });

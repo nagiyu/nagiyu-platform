@@ -32,7 +32,8 @@ export type InvitationSummary = {
   groupName: string;
   inviterUserId: string;
   inviterName: string;
-  createdAt: string;
+  /** 招待日時 (エポックミリ秒) */
+  createdAt: number;
 };
 
 export type InvitationsResponse = ApiSuccessResponse<{ invitations: InvitationSummary[] }>;

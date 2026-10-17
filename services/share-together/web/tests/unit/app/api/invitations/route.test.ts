@@ -129,8 +129,8 @@ describe('GET /api/invitations', () => {
         role: 'MEMBER',
         status: 'PENDING',
         invitedBy: 'inviter-1',
-        createdAt: '2026-03-01T00:00:00.000Z',
-        updatedAt: '2026-03-01T00:00:00.000Z',
+        createdAt: 1772323200000,
+        updatedAt: 1772323200000,
       },
     ]);
     mockBatchGetByIds.mockResolvedValue([
@@ -165,7 +165,7 @@ describe('GET /api/invitations', () => {
             groupName: '買い物グループ',
             inviterUserId: 'inviter-1',
             inviterName: '招待者ユーザー',
-            createdAt: '2026-03-01T00:00:00.000Z',
+            createdAt: 1772323200000,
           },
         ],
       },
@@ -183,8 +183,8 @@ describe('GET /api/invitations', () => {
         role: 'MEMBER',
         status: 'PENDING',
         invitedBy,
-        createdAt: '2026-03-01T00:00:00.000Z',
-        updatedAt: '2026-03-01T00:00:00.000Z',
+        createdAt: 1772323200000,
+        updatedAt: 1772323200000,
       }))
     );
     mockBatchGetByIds.mockResolvedValue([]);

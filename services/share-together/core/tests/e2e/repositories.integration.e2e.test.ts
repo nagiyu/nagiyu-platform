@@ -178,15 +178,19 @@ describe('Repository Layer E2E with InMemory repositories', () => {
       role: 'MEMBER',
       status: 'PENDING',
       invitedBy: 'owner-001',
-      invitedAt: new Date().toISOString(),
-      ttl: Math.floor(Date.now() / 1000) + 86400,
+      invitedAt: Date.now(),
+      expiresAt: Date.now() + 86400 * 1000,
     });
 
     const acceptedMembership = await membershipRepository.update(group.groupId, 'member-001', {
       status: 'ACCEPTED',
-      respondedAt: new Date().toISOString(),
+      respondedAt: Date.now(),
+      expiresAt: null,
     });
     expect(acceptedMembership.status).toBe('ACCEPTED');
+    expectValidEpochMillis(acceptedMembership.createdAt);
+    expectValidEpochMillis(acceptedMembership.respondedAt as number);
+    expect(acceptedMembership).not.toHaveProperty('expiresAt');
 
     const groupList = await listRepository.createGroupList({
       listId: 'group-list-001',
