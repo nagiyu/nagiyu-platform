@@ -252,7 +252,7 @@ export default function JobPage({ params }: JobPageProps) {
 
             <Typography variant="body2" color="text.secondary">
               {INFO_MESSAGES.EXPIRES_AT_PREFIX}
-              {new Date(job.expiresAt * 1000).toLocaleString('ja-JP')}
+              {new Date(job.expiresAt).toLocaleString('ja-JP')}
             </Typography>
 
             {job.status === 'FAILED' && (
