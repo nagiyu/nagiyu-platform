@@ -1,13 +1,13 @@
 /**
  * NiconicoMylistAssistant Core - Video Entity
  *
- * 動画基本情報のビジネスオブジェクト（PK/SKを持たない純粋なエンティティ）
+ * 動画基本情報のビジネスオブジェクト (PK/SKを持たない純粋なエンティティ)
  */
 
 /**
  * 動画エンティティ
  *
- * DynamoDBの実装詳細（PK/SK）を含まない純粋なビジネスオブジェクト
+ * DynamoDBの実装詳細 (PK/SK) を含まない純粋なビジネスオブジェクト
  */
 export interface VideoEntity {
   /** 動画ID */
@@ -16,7 +16,7 @@ export interface VideoEntity {
   title: string;
   /** サムネイルURL */
   thumbnailUrl: string;
-  /** 長さ（MM:SS形式） */
+  /** 長さ (MM:SS形式) */
   length: string;
   /** 作成日時 (Unix timestamp) */
   createdAt: number;
@@ -25,7 +25,7 @@ export interface VideoEntity {
 }
 
 /**
- * Video作成時の入力データ（createdAtを含まない）
+ * Video作成時の入力データ (createdAtを含まない)
  */
 export type CreateVideoInput = Omit<VideoEntity, 'createdAt'>;
 

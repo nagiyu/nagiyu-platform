@@ -659,6 +659,16 @@ describe('DynamoDBUserSettingRepository', () => {
       await expect(repository.delete('user-123', 'video-456')).rejects.toThrow(EntityNotFoundError);
     });
 
+    it('deleteIfExists は対象がなくても成功し、存在を条件にしない', async () => {
+      ddbMock.on(DeleteCommand).resolves({});
+
+      await expect(repository.deleteIfExists('user-123', 'video-456')).resolves.toBeUndefined();
+
+      const input = ddbMock.commandCalls(DeleteCommand)[0].args[0].input;
+      expect(input.Key).toEqual({ PK: 'USER#user-123', SK: 'VIDEO#video-456' });
+      expect(input).not.toHaveProperty('ConditionExpression');
+    });
+
     it('DynamoDBエラーの場合はDatabaseErrorをスローする', async () => {
       ddbMock.on(DeleteCommand).rejects(new Error('DynamoDB error'));
 

@@ -95,4 +95,12 @@ export interface UserSettingRepository {
    * @throws {EntityNotFoundError} 設定が存在しない場合
    */
   delete(userId: string, videoId: string): Promise<void>;
+
+  /**
+   * ユーザー設定を削除する。対象がなくても成功する
+   *
+   * @param userId - ユーザーID
+   * @param videoId - 動画ID
+   */
+  deleteIfExists(userId: string, videoId: string): Promise<void>;
 }

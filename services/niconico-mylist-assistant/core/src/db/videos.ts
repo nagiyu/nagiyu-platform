@@ -58,10 +58,10 @@ export async function getVideoBasicInfo(videoId: string): Promise<VideoBasicInfo
 
 /**
  * 動画基本情報を削除
- * @throws EntityNotFoundError - 動画が存在しない場合
+ * 対象がなくても成功する
  */
 export async function deleteVideoBasicInfo(videoId: string): Promise<void> {
-  await getVideoRepository().delete(videoId);
+  await getVideoRepository().deleteIfExists(videoId);
 }
 
 /**
@@ -158,10 +158,10 @@ export async function listUserVideoSettings(
 
 /**
  * ユーザー設定を削除
- * @throws EntityNotFoundError - 設定が存在しない場合
+ * 対象がなくても成功する
  */
 export async function deleteUserVideoSetting(userId: string, videoId: string): Promise<void> {
-  await getUserSettingRepository().delete(userId, videoId);
+  await getUserSettingRepository().deleteIfExists(userId, videoId);
 }
 
 /**

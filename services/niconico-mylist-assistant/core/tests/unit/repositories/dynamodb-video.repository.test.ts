@@ -365,6 +365,16 @@ describe('DynamoDBVideoRepository', () => {
       await expect(repository.delete('sm99999')).rejects.toThrow(EntityNotFoundError);
     });
 
+    it('deleteIfExists は対象がなくても成功し、存在を条件にしない', async () => {
+      ddbMock.on(DeleteCommand).resolves({});
+
+      await expect(repository.deleteIfExists('sm99999')).resolves.toBeUndefined();
+
+      const input = ddbMock.commandCalls(DeleteCommand)[0].args[0].input;
+      expect(input.Key).toEqual({ PK: 'VIDEO#sm99999', SK: 'VIDEO#sm99999' });
+      expect(input).not.toHaveProperty('ConditionExpression');
+    });
+
     it('DynamoDBエラーの場合はDatabaseErrorをスローする', async () => {
       ddbMock.on(DeleteCommand).rejects(new Error('DynamoDB error'));
 

@@ -89,4 +89,11 @@ export class InMemoryVideoRepository implements VideoRepository {
   public async delete(videoId: string): Promise<void> {
     await this.entityStore.delete({ videoId });
   }
+
+  /**
+   * 動画を削除する。対象がなくても成功する
+   */
+  public async deleteIfExists(videoId: string): Promise<void> {
+    await this.entityStore.deleteIfExists({ videoId });
+  }
 }

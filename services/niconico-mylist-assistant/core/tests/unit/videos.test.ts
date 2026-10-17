@@ -26,6 +26,7 @@ import {
   updateUserVideoSetting,
   listUserVideoSettings,
   deleteUserVideoSetting,
+  deleteVideoBasicInfo,
 } from '../../src/db/videos';
 import { reportErrorEvent } from '@nagiyu/aws';
 import { parseUpdateExpression } from '../helpers/update-expression.js';
@@ -541,7 +542,29 @@ describe('videos', () => {
       });
     });
 
+    describe('deleteVideoBasicInfo', () => {
+      it('対象がなくても成功し、存在を条件にしない削除を送る', async () => {
+        ddbMock.on(DeleteCommand).resolves({});
+
+        await expect(deleteVideoBasicInfo('sm99999999')).resolves.toBeUndefined();
+
+        const input = ddbMock.call(0).args[0].input;
+        expect(input).toMatchObject({
+          Key: { PK: 'VIDEO#sm99999999', SK: 'VIDEO#sm99999999' },
+        });
+        expect(input).not.toHaveProperty('ConditionExpression');
+      });
+    });
+
     describe('deleteUserVideoSetting', () => {
+      it('対象がなくても成功し、存在を条件にしない削除を送る', async () => {
+        ddbMock.on(DeleteCommand).resolves({});
+
+        await expect(deleteUserVideoSetting('user123', 'sm99999999')).resolves.toBeUndefined();
+
+        expect(ddbMock.call(0).args[0].input).not.toHaveProperty('ConditionExpression');
+      });
+
       it('ユーザー設定を削除できる', async () => {
         ddbMock.on(DeleteCommand).resolves({});
 

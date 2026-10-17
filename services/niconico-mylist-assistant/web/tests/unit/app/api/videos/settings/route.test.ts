@@ -137,6 +137,23 @@ describe('PUT /api/videos/[id]/settings', () => {
     expect(json.video.userSetting.isFavorite).toBe(true);
   });
 
+  it('設定が既にある動画へ項目が空のボディを送ると 200 を返す', async () => {
+    // 変更が空の更新は更新日時だけを更新する扱いになり、エラーにしない
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+    mockGetVideoBasicInfo.mockResolvedValue(BASIC_INFO);
+    mockGetUserVideoSetting.mockResolvedValue(SETTING);
+    mockUpdateUserVideoSetting.mockResolvedValue(SETTING);
+
+    const response = await PUT(makePutRequest({}), ROUTE_PARAMS);
+
+    expect(response.status).toBe(200);
+    expect(mockUpdateUserVideoSetting).toHaveBeenCalledWith('user123', 'sm1', {
+      isFavorite: undefined,
+      isSkip: undefined,
+      memo: undefined,
+    });
+  });
+
   it('設定が未作成の場合は省略した真偽値を false として新規作成する', async () => {
     mockGetSession.mockResolvedValue(MOCK_SESSION);
     mockGetVideoBasicInfo.mockResolvedValue(BASIC_INFO);

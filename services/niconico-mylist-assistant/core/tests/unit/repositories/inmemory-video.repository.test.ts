@@ -193,6 +193,25 @@ describe('InMemoryVideoRepository', () => {
     });
   });
 
+  describe('deleteIfExists', () => {
+    it('存在する動画を削除できる', async () => {
+      await repository.create({
+        videoId: 'sm12345',
+        title: 'テスト動画',
+        thumbnailUrl: 'https://example.com/thumb.jpg',
+        length: '5:00',
+      });
+
+      await repository.deleteIfExists('sm12345');
+
+      expect(await repository.getById('sm12345')).toBeNull();
+    });
+
+    it('存在しない動画でも成功する', async () => {
+      await expect(repository.deleteIfExists('sm99999')).resolves.toBeUndefined();
+    });
+  });
+
   describe('保存形式', () => {
     it('PascalCase の属性名で保存する', async () => {
       await repository.create({

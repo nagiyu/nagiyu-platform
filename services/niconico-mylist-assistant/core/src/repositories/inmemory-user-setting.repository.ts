@@ -164,4 +164,11 @@ export class InMemoryUserSettingRepository implements UserSettingRepository {
   public async delete(userId: string, videoId: string): Promise<void> {
     await this.entityStore.delete({ userId, videoId });
   }
+
+  /**
+   * ユーザー設定を削除する。対象がなくても成功する
+   */
+  public async deleteIfExists(userId: string, videoId: string): Promise<void> {
+    await this.entityStore.deleteIfExists({ userId, videoId });
+  }
 }

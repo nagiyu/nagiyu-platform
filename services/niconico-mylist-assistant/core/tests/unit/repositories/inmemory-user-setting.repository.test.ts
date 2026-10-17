@@ -351,6 +351,25 @@ describe('InMemoryUserSettingRepository', () => {
     });
   });
 
+  describe('deleteIfExists', () => {
+    it('存在する設定を削除できる', async () => {
+      await repository.create({
+        userId: 'user1',
+        videoId: 'sm12345',
+        isFavorite: false,
+        isSkip: false,
+      });
+
+      await repository.deleteIfExists('user1', 'sm12345');
+
+      expect(await repository.getById('user1', 'sm12345')).toBeNull();
+    });
+
+    it('存在しない設定でも成功する', async () => {
+      await expect(repository.deleteIfExists('user99', 'sm99999')).resolves.toBeUndefined();
+    });
+  });
+
   describe('保存形式', () => {
     const legacyItem = {
       PK: 'USER#user1',
