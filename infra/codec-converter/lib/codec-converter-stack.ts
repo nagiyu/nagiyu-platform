@@ -76,8 +76,7 @@ export class CodecConverterStack extends cdk.Stack {
         type: dynamodb.AttributeType.STRING,
       },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      // TTL 属性名は有効なままでは変えられないため、いったん指定を外して無効化する。
-      // 無効化が反映されたあとの別のデプロイで、新しい属性名 TTL で有効化する。
+      timeToLiveAttribute: 'TTL',
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
