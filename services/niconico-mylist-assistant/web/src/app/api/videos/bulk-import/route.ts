@@ -6,7 +6,7 @@ import {
   upsertUserVideoSetting,
   BulkImportResponse,
 } from '@nagiyu/niconico-mylist-assistant-core';
-import { reportErrorEvent } from '@nagiyu/aws';
+import { EntityAlreadyExistsError, reportErrorEvent } from '@nagiyu/aws';
 import { toErrorMessage } from '@nagiyu/common';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
@@ -103,9 +103,9 @@ export const POST = withApiErrorReporting(
               : '0:00',
           });
         } catch (error) {
-          // ConditionalCheckFailedException の場合は既に存在するのでOK
+          // 既に存在する場合はOK
           // その他のエラーは throw
-          if (error instanceof Error && !error.message.includes('ConditionalCheckFailed')) {
+          if (!(error instanceof EntityAlreadyExistsError)) {
             throw error;
           }
         }

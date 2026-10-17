@@ -19,15 +19,15 @@ export interface VideoEntity {
   /** 長さ（MM:SS形式） */
   length: string;
   /** 作成日時 (Unix timestamp) */
-  CreatedAt: number;
+  createdAt: number;
   /** 動画更新日時 (Unix timestamp, オプション) */
   videoUpdatedAt?: number;
 }
 
 /**
- * Video作成時の入力データ（CreatedAtを含まない）
+ * Video作成時の入力データ（createdAtを含まない）
  */
-export type CreateVideoInput = Omit<VideoEntity, 'CreatedAt'>;
+export type CreateVideoInput = Omit<VideoEntity, 'createdAt'>;
 
 /**
  * Videoのビジネスキー

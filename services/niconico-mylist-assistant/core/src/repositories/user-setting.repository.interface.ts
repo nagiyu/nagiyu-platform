@@ -77,7 +77,7 @@ export interface UserSettingRepository {
    *
    * @param userId - ユーザーID
    * @param videoId - 動画ID
-   * @param updates - 更新するフィールド
+   * @param updates - 更新するフィールド (memo は null で削除。変更が空のときは updatedAt だけを更新する)
    * @returns 更新されたユーザー設定エンティティ
    * @throws {EntityNotFoundError} 設定が存在しない場合
    */
@@ -92,6 +92,7 @@ export interface UserSettingRepository {
    *
    * @param userId - ユーザーID
    * @param videoId - 動画ID
+   * @throws {EntityNotFoundError} 設定が存在しない場合
    */
   delete(userId: string, videoId: string): Promise<void>;
 }

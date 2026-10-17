@@ -69,7 +69,7 @@ function makeMockVideos(ids: string[]): SelectRandomVideosResult {
     title: `動画 ${videoId}`,
     thumbnailUrl: 'https://example.com/thumb.jpg',
     length: '5:00',
-    CreatedAt: 1700000000000,
+    createdAt: 1700000000000,
   }));
 }
 

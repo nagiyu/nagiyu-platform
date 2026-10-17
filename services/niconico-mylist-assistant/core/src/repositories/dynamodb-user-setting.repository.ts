@@ -4,77 +4,47 @@
  * DynamoDBを使用したUserSettingRepositoryの実装
  */
 
+import { QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
-  GetCommand,
-  PutCommand,
-  UpdateCommand,
-  DeleteCommand,
-  QueryCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
-import {
-  EntityNotFoundError,
-  EntityAlreadyExistsError,
+  DynamoDBEntityStore,
   toDatabaseError,
-  mapConditionalCheckFailed,
-  buildUpdateExpression,
   encodeCursor,
   decodeCursor,
+  type EntityStore,
   type PaginationOptions,
   type PaginatedResult,
-  type DynamoDBItem,
 } from '@nagiyu/aws';
 import type { UserSettingRepository } from './user-setting.repository.interface.js';
 import type {
   UserSettingEntity,
+  UserSettingKey,
   CreateUserSettingInput,
   UpdateUserSettingInput,
 } from '../entities/user-setting.entity.js';
 import { UserSettingMapper } from '../mappers/user-setting.mapper.js';
 
-// エラーメッセージ定数
-const ERROR_MESSAGES = {
-  NO_UPDATES_SPECIFIED: '更新するフィールドが指定されていません',
-} as const;
-
 /**
  * DynamoDB UserSetting Repository
  *
- * DynamoDBを使用したユーザー設定リポジトリの実装
+ * 単一アイテムの CRUD は EntityStore に任せ、ユーザー単位の Query だけを自前で持つ
  */
 export class DynamoDBUserSettingRepository implements UserSettingRepository {
-  private readonly mapper: UserSettingMapper;
+  private readonly mapper = new UserSettingMapper();
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
+  private readonly entityStore: EntityStore<UserSettingEntity, UserSettingKey>;
 
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
     this.docClient = docClient;
     this.tableName = tableName;
-    this.mapper = new UserSettingMapper();
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper);
   }
 
   /**
    * ユーザーIDと動画IDで単一の設定を取得
    */
   public async getById(userId: string, videoId: string): Promise<UserSettingEntity | null> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys({ userId, videoId });
-
-      const result = await this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-        })
-      );
-
-      if (!result.Item) {
-        return null;
-      }
-
-      return this.mapper.toEntity(result.Item as DynamoDBItem);
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.get({ userId, videoId });
   }
 
   /**
@@ -101,7 +71,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
         })
       );
 
-      const items = (result.Items || []).map((item) => this.mapper.toEntity(item as DynamoDBItem));
+      const items = (result.Items || []).map((item) => this.mapper.toEntity(item));
 
       const nextCursor = encodeCursor(result.LastEvaluatedKey);
 
@@ -173,35 +143,8 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
    */
   public async create(input: CreateUserSettingInput): Promise<UserSettingEntity> {
     const now = Date.now();
-    const entity: UserSettingEntity = {
-      ...input,
-      CreatedAt: now,
-      UpdatedAt: now,
-    };
-
-    try {
-      const item = this.mapper.toItem(entity);
-
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: item,
-          ConditionExpression: 'attribute_not_exists(PK)',
-        })
-      );
-
-      return entity;
-    } catch (error) {
-      mapConditionalCheckFailed(error, {
-        onExists: () => {
-          throw new EntityAlreadyExistsError(
-            'UserSetting',
-            `userId=${input.userId}, videoId=${input.videoId}`
-          );
-        },
-      });
-      throw toDatabaseError(error);
-    }
+    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
+    return this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
   }
 
   /**
@@ -210,29 +153,14 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
   public async upsert(input: CreateUserSettingInput): Promise<UserSettingEntity> {
     const now = Date.now();
 
-    // 既存レコードの取得（CreatedAt を保持するため）
+    // 既存レコードの createdAt を保つため先に読む
     const existing = await this.getById(input.userId, input.videoId);
 
-    const entity: UserSettingEntity = {
+    return this.entityStore.put({
       ...input,
-      CreatedAt: existing?.CreatedAt || now,
-      UpdatedAt: now,
-    };
-
-    try {
-      const item = this.mapper.toItem(entity);
-
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: item,
-        })
-      );
-
-      return entity;
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    });
   }
 
   /**
@@ -243,61 +171,13 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
     videoId: string,
     updates: UpdateUserSettingInput
   ): Promise<UserSettingEntity> {
-    const updateParts = buildUpdateExpression(
-      {
-        isFavorite: updates.isFavorite,
-        isSkip: updates.isSkip,
-        memo: updates.memo,
-      },
-      { timestamp: { attributeName: 'UpdatedAt', value: Date.now() } }
-    );
-
-    if (!updateParts) {
-      throw new Error(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
-    }
-
-    try {
-      const { pk, sk } = this.mapper.buildKeys({ userId, videoId });
-
-      const result = await this.docClient.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: pk,
-            SK: sk,
-          },
-          ...updateParts,
-          ConditionExpression: 'attribute_exists(PK)',
-          ReturnValues: 'ALL_NEW',
-        })
-      );
-
-      return this.mapper.toEntity(result.Attributes as DynamoDBItem);
-    } catch (error) {
-      mapConditionalCheckFailed(error, {
-        onMissing: () => {
-          throw new EntityNotFoundError('UserSetting', `userId=${userId}, videoId=${videoId}`);
-        },
-      });
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.update({ userId, videoId }, updates);
   }
 
   /**
    * ユーザー設定を削除
    */
   public async delete(userId: string, videoId: string): Promise<void> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys({ userId, videoId });
-
-      await this.docClient.send(
-        new DeleteCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-        })
-      );
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    await this.entityStore.delete({ userId, videoId });
   }
 }

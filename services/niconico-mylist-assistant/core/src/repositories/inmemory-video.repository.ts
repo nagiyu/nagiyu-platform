@@ -4,23 +4,29 @@
  * テスト用のインメモリ実装
  */
 
-import { InMemorySingleTableStore, type DynamoDBItem } from '@nagiyu/aws';
+import {
+  InMemoryEntityStore,
+  type DynamoDBItem,
+  type EntityStore,
+  type InMemorySingleTableStore,
+} from '@nagiyu/aws';
 import type { VideoRepository } from './video.repository.interface.js';
-import type { VideoEntity, CreateVideoInput } from '../entities/video.entity.js';
+import type { VideoEntity, VideoKey, CreateVideoInput } from '../entities/video.entity.js';
 import { VideoMapper } from '../mappers/video.mapper.js';
 
 /**
  * InMemory Video Repository
  *
- * テスト用のインメモリ動画リポジトリの実装
+ * 単一アイテムの CRUD は EntityStore に任せ、全件取得と一括取得だけを自前で持つ
  */
 export class InMemoryVideoRepository implements VideoRepository {
-  private readonly mapper: VideoMapper;
+  private readonly mapper = new VideoMapper();
   private readonly store: InMemorySingleTableStore;
+  private readonly entityStore: EntityStore<VideoEntity, VideoKey>;
 
   constructor(store: InMemorySingleTableStore) {
     this.store = store;
-    this.mapper = new VideoMapper();
+    this.entityStore = new InMemoryEntityStore(store, this.mapper);
   }
 
   /**
@@ -51,24 +57,13 @@ export class InMemoryVideoRepository implements VideoRepository {
    * 動画IDで単一の動画を取得
    */
   public async getById(videoId: string): Promise<VideoEntity | null> {
-    const { pk, sk } = this.mapper.buildKeys({ videoId });
-    const item = this.store.get(pk, sk);
-
-    if (!item) {
-      return null;
-    }
-
-    return this.mapper.toEntity(item);
+    return this.entityStore.get({ videoId });
   }
 
   /**
    * 複数の動画を一括取得
    */
   public async batchGet(videoIds: string[]): Promise<VideoEntity[]> {
-    if (videoIds.length === 0) {
-      return [];
-    }
-
     const entities: VideoEntity[] = [];
 
     for (const videoId of videoIds) {
@@ -85,26 +80,13 @@ export class InMemoryVideoRepository implements VideoRepository {
    * 新しい動画を作成
    */
   public async create(input: CreateVideoInput): Promise<VideoEntity> {
-    const now = Date.now();
-    const entity: VideoEntity = {
-      ...input,
-      CreatedAt: now,
-    };
-
-    const item = this.mapper.toItem(entity);
-
-    // DynamoDB と同じエラーを投げる（attributeNotExists 条件）
-    // InMemorySingleTableStore が投げた EntityAlreadyExistsError をそのまま伝播
-    this.store.put(item, { attributeNotExists: true });
-
-    return entity;
+    return this.entityStore.create({ ...input, createdAt: Date.now() });
   }
 
   /**
    * 動画を削除
    */
   public async delete(videoId: string): Promise<void> {
-    const { pk, sk } = this.mapper.buildKeys({ videoId });
-    this.store.delete(pk, sk);
+    await this.entityStore.delete({ videoId });
   }
 }

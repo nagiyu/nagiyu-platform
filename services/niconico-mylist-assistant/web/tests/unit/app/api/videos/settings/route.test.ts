@@ -61,7 +61,7 @@ const BASIC_INFO: VideoBasicInfo = {
   title: '動画 sm1',
   thumbnailUrl: 'https://example.com/sm1.jpg',
   length: '3:00',
-  CreatedAt: 1700000000000,
+  createdAt: 1700000000000,
 };
 
 const SETTING: UserVideoSetting = {
@@ -70,8 +70,8 @@ const SETTING: UserVideoSetting = {
   isFavorite: true,
   isSkip: false,
   memo: 'メモ',
-  CreatedAt: 1700000000000,
-  UpdatedAt: 1700000001000,
+  createdAt: 1700000000000,
+  updatedAt: 1700000001000,
 };
 
 /** 本文の文字列をそのまま持つ NextRequest を生成するヘルパー */

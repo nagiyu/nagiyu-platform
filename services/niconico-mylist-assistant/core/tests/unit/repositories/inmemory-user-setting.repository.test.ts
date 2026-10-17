@@ -35,8 +35,8 @@ describe('InMemoryUserSettingRepository', () => {
       expect(result.videoId).toBe(input.videoId);
       expect(result.isFavorite).toBe(input.isFavorite);
       expect(result.isSkip).toBe(input.isSkip);
-      expect(result.CreatedAt).toBeGreaterThan(0);
-      expect(result.UpdatedAt).toBeGreaterThan(0);
+      expect(result.createdAt).toBeGreaterThan(0);
+      expect(result.updatedAt).toBeGreaterThan(0);
     });
 
     it('同じキーで2回作成するとEntityAlreadyExistsErrorを投げる', async () => {
@@ -259,8 +259,8 @@ describe('InMemoryUserSettingRepository', () => {
       });
 
       expect(updated.isFavorite).toBe(true);
-      expect(updated.CreatedAt).toBe(created.CreatedAt);
-      expect(updated.UpdatedAt).toBeGreaterThanOrEqual(created.UpdatedAt);
+      expect(updated.createdAt).toBe(created.createdAt);
+      expect(updated.updatedAt).toBeGreaterThanOrEqual(created.updatedAt);
     });
   });
 
@@ -276,7 +276,7 @@ describe('InMemoryUserSettingRepository', () => {
       const result = await repository.update('user1', 'sm12345', { isFavorite: true });
 
       expect(result.isFavorite).toBe(true);
-      expect(result.UpdatedAt).toBeGreaterThan(0);
+      expect(result.updatedAt).toBeGreaterThan(0);
     });
 
     it('存在しない設定を更新するとEntityNotFoundErrorを投げる', async () => {
@@ -285,17 +285,35 @@ describe('InMemoryUserSettingRepository', () => {
       );
     });
 
-    it('更新フィールドが指定されていないとエラーを投げる', async () => {
+    it('更新フィールドが指定されていないときは更新日時だけを更新する', async () => {
+      const created = await repository.create({
+        userId: 'user1',
+        videoId: 'sm12345',
+        isFavorite: true,
+        isSkip: false,
+        memo: 'メモ',
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      const result = await repository.update('user1', 'sm12345', {});
+
+      expect(result).toEqual({ ...created, updatedAt: expect.any(Number) });
+      expect(result.updatedAt).toBeGreaterThan(created.updatedAt);
+    });
+
+    it('memoをnullで削除できる', async () => {
       await repository.create({
         userId: 'user1',
         videoId: 'sm12345',
         isFavorite: false,
         isSkip: false,
+        memo: '古いメモ',
       });
 
-      await expect(repository.update('user1', 'sm12345', {})).rejects.toThrow(
-        '更新するフィールドが指定されていません'
-      );
+      const result = await repository.update('user1', 'sm12345', { memo: null });
+
+      expect(result.memo).toBeUndefined();
+      expect(store.get('USER#user1', 'VIDEO#sm12345')).not.toHaveProperty('Memo');
     });
 
     it('memoを更新できる', async () => {
@@ -328,8 +346,96 @@ describe('InMemoryUserSettingRepository', () => {
       expect(result).toBeNull();
     });
 
-    it('存在しない設定を削除してもエラーにならない', async () => {
-      await expect(repository.delete('user99', 'sm99999')).resolves.not.toThrow();
+    it('存在しない設定を削除するとEntityNotFoundErrorを投げる', async () => {
+      await expect(repository.delete('user99', 'sm99999')).rejects.toThrow(EntityNotFoundError);
+    });
+  });
+
+  describe('保存形式', () => {
+    const legacyItem = {
+      PK: 'USER#user1',
+      SK: 'VIDEO#sm12345',
+      Type: 'USER_SETTING',
+      userId: 'user1',
+      videoId: 'sm12345',
+      isFavorite: true,
+      isSkip: false,
+      memo: '旧メモ',
+      CreatedAt: 1704067200000,
+      UpdatedAt: 1704067200000,
+    };
+
+    it('PascalCase の属性名で保存する', async () => {
+      await repository.create({
+        userId: 'user1',
+        videoId: 'sm12345',
+        isFavorite: true,
+        isSkip: false,
+        memo: 'メモ',
+      });
+
+      const item = store.get('USER#user1', 'VIDEO#sm12345');
+
+      expect(item).toMatchObject({
+        Type: 'USER_SETTING',
+        UserID: 'user1',
+        VideoID: 'sm12345',
+        IsFavorite: true,
+        IsSkip: false,
+        Memo: 'メモ',
+      });
+      expect(item).not.toHaveProperty('userId');
+      expect(item).not.toHaveProperty('isFavorite');
+    });
+
+    it('旧属性名 (camelCase) で保存されたアイテムを読める', async () => {
+      store.put(legacyItem);
+
+      expect(await repository.getById('user1', 'sm12345')).toEqual({
+        userId: 'user1',
+        videoId: 'sm12345',
+        isFavorite: true,
+        isSkip: false,
+        memo: '旧メモ',
+        createdAt: 1704067200000,
+        updatedAt: 1704067200000,
+      });
+      expect((await repository.getByUserId('user1')).items).toHaveLength(1);
+    });
+
+    it('旧属性名のアイテムを更新すると、更新した項目の旧名が消えて新名だけが残る', async () => {
+      store.put(legacyItem);
+
+      const result = await repository.update('user1', 'sm12345', { isFavorite: false, memo: null });
+
+      expect(result.isFavorite).toBe(false);
+      expect(result.memo).toBeUndefined();
+      const item = store.get('USER#user1', 'VIDEO#sm12345');
+      expect(item).toMatchObject({ IsFavorite: false });
+      expect(item).not.toHaveProperty('isFavorite');
+      expect(item).not.toHaveProperty('memo');
+      expect(item).not.toHaveProperty('Memo');
+      // 更新していない項目は旧名のまま残り、読み取りは引き続き成功する
+      expect(item).toMatchObject({ isSkip: false });
+      expect(result.isSkip).toBe(false);
+    });
+
+    it('旧属性名のアイテムを upsert すると新名だけで置き換わり、createdAt を保つ', async () => {
+      store.put(legacyItem);
+
+      const result = await repository.upsert({
+        userId: 'user1',
+        videoId: 'sm12345',
+        isFavorite: false,
+        isSkip: true,
+      });
+
+      expect(result.createdAt).toBe(1704067200000);
+      const item = store.get('USER#user1', 'VIDEO#sm12345');
+      expect(item).toMatchObject({ UserID: 'user1', IsFavorite: false, IsSkip: true });
+      for (const legacyName of ['userId', 'videoId', 'isFavorite', 'isSkip', 'memo']) {
+        expect(item).not.toHaveProperty(legacyName);
+      }
     });
   });
 

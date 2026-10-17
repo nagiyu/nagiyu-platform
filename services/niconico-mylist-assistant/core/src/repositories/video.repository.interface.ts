@@ -48,6 +48,7 @@ export interface VideoRepository {
    * 動画を削除
    *
    * @param videoId - 動画ID
+   * @throws {EntityNotFoundError} 動画が存在しない場合
    */
   delete(videoId: string): Promise<void>;
 }

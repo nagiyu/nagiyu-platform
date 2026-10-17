@@ -21,22 +21,23 @@ export interface UserSettingEntity {
   /** メモ */
   memo?: string;
   /** 作成日時 (Unix timestamp) */
-  CreatedAt: number;
+  createdAt: number;
   /** 更新日時 (Unix timestamp) */
-  UpdatedAt: number;
+  updatedAt: number;
 }
 
 /**
- * UserSetting作成時の入力データ（CreatedAt/UpdatedAtを含まない）
+ * UserSetting作成時の入力データ（createdAt/updatedAtを含まない）
  */
-export type CreateUserSettingInput = Omit<UserSettingEntity, 'CreatedAt' | 'UpdatedAt'>;
+export type CreateUserSettingInput = Omit<UserSettingEntity, 'createdAt' | 'updatedAt'>;
 
 /**
  * UserSetting更新時の入力データ（更新可能なフィールドのみ）
  */
-export type UpdateUserSettingInput = Partial<
-  Pick<UserSettingEntity, 'isFavorite' | 'isSkip' | 'memo'>
->;
+export type UpdateUserSettingInput = Partial<Pick<UserSettingEntity, 'isFavorite' | 'isSkip'>> & {
+  /** メモ (null で削除) */
+  memo?: string | null;
+};
 
 /**
  * UserSettingのビジネスキー

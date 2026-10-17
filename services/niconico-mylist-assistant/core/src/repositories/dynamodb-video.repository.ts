@@ -4,38 +4,33 @@
  * DynamoDBを使用したVideoRepositoryの実装
  */
 
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
-  GetCommand,
-  PutCommand,
-  DeleteCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
-import {
+  DynamoDBEntityStore,
   batchGetAll,
-  EntityAlreadyExistsError,
   toDatabaseError,
-  mapConditionalCheckFailed,
   scanAllItems,
-  type DynamoDBItem,
+  type EntityStore,
 } from '@nagiyu/aws';
 import type { VideoRepository } from './video.repository.interface.js';
-import type { VideoEntity, CreateVideoInput } from '../entities/video.entity.js';
+import type { VideoEntity, VideoKey, CreateVideoInput } from '../entities/video.entity.js';
 import { VideoMapper } from '../mappers/video.mapper.js';
 
 /**
  * DynamoDB Video Repository
  *
- * DynamoDBを使用した動画リポジトリの実装
+ * 単一アイテムの CRUD は EntityStore に任せ、Scan と BatchGet だけを自前で持つ
  */
 export class DynamoDBVideoRepository implements VideoRepository {
-  private readonly mapper: VideoMapper;
+  private readonly mapper = new VideoMapper();
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
+  private readonly entityStore: EntityStore<VideoEntity, VideoKey>;
 
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
     this.docClient = docClient;
     this.tableName = tableName;
-    this.mapper = new VideoMapper();
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper);
   }
 
   /**
@@ -61,24 +56,7 @@ export class DynamoDBVideoRepository implements VideoRepository {
    * 動画IDで単一の動画を取得
    */
   public async getById(videoId: string): Promise<VideoEntity | null> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys({ videoId });
-
-      const result = await this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-        })
-      );
-
-      if (!result.Item) {
-        return null;
-      }
-
-      return this.mapper.toEntity(result.Item as DynamoDBItem);
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.get({ videoId });
   }
 
   /**
@@ -93,10 +71,7 @@ export class DynamoDBVideoRepository implements VideoRepository {
       const items = await batchGetAll(
         this.docClient,
         this.tableName,
-        videoIds.map((videoId) => {
-          const { pk, sk } = this.mapper.buildKeys({ videoId });
-          return { PK: pk, SK: sk };
-        })
+        videoIds.map((videoId) => this.mapper.buildKeys({ videoId }))
       );
       return items.map((item) => this.mapper.toEntity(item));
     } catch (error) {
@@ -108,49 +83,13 @@ export class DynamoDBVideoRepository implements VideoRepository {
    * 新しい動画を作成
    */
   public async create(input: CreateVideoInput): Promise<VideoEntity> {
-    const now = Date.now();
-    const entity: VideoEntity = {
-      ...input,
-      CreatedAt: now,
-    };
-
-    try {
-      const item = this.mapper.toItem(entity);
-
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: item,
-          ConditionExpression: 'attribute_not_exists(PK)',
-        })
-      );
-
-      return entity;
-    } catch (error) {
-      mapConditionalCheckFailed(error, {
-        onExists: () => {
-          throw new EntityAlreadyExistsError('Video', input.videoId);
-        },
-      });
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.create({ ...input, createdAt: Date.now() });
   }
 
   /**
    * 動画を削除
    */
   public async delete(videoId: string): Promise<void> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys({ videoId });
-
-      await this.docClient.send(
-        new DeleteCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-        })
-      );
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    await this.entityStore.delete({ videoId });
   }
 }
