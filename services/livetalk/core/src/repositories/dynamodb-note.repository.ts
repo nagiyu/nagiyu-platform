@@ -5,7 +5,7 @@ import {
   queryAllItems,
   queryPages,
   toDatabaseError,
-  type DynamoDBItem,
+  type DynamoDBAttributes,
   type EntityStore,
 } from '@nagiyu/aws';
 import type { CreateNoteInput, NoteEntity, NoteKey } from '../entities/note.entity.js';
@@ -95,7 +95,7 @@ export class DynamoDBNoteRepository implements NoteRepository {
    */
   private pushMappedEntity(
     results: NoteEntity[],
-    raw: DynamoDBItem,
+    raw: DynamoDBAttributes,
     userId: string,
     characterId: string
   ): void {

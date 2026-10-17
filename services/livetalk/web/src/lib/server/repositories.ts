@@ -7,12 +7,7 @@
  * 各リポジトリはシングルトンとして再利用される。
  */
 
-import {
-  InMemorySingleTableStore,
-  registerDynamoRepositories,
-  getDynamoDBDocumentClient,
-  getTableName,
-} from '@nagiyu/aws';
+import { InMemorySingleTableStore, registerDynamoRepositories } from '@nagiyu/aws';
 import type {
   AccountDeletionRepository,
   CharacterStateRepository,
@@ -57,6 +52,7 @@ import {
 const registry = registerDynamoRepositories<
   {
     accountDeletion: AccountDeletionRepository;
+    chatGuard: ChatGuardRepository;
     message: MessageRepository;
     profile: ProfileRepository;
     characterState: CharacterStateRepository;
@@ -75,6 +71,11 @@ const registry = registerDynamoRepositories<
       createInMemoryRepository: (store) => new InMemoryAccountDeletionRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBAccountDeletionRepository(docClient, tableName),
+    },
+    chatGuard: {
+      createInMemoryRepository: (store) => new InMemoryChatGuardRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBChatGuardRepository(docClient, tableName),
     },
     message: {
       createInMemoryRepository: (store) => new InMemoryMessageRepository(store),
@@ -137,6 +138,10 @@ export function getAccountDeletionRepository(): AccountDeletionRepository {
   return registry.accountDeletion.createRepository();
 }
 
+export function getChatGuardRepository(): ChatGuardRepository {
+  return registry.chatGuard.createRepository();
+}
+
 export function getMessageRepository(): MessageRepository {
   return registry.message.createRepository();
 }
@@ -182,33 +187,4 @@ export function getConsolidationCursorRepository(): ConsolidationCursorRepositor
  */
 export function resetRepositoriesForTesting(): void {
   registry.resetAll();
-  chatGuardRepositorySingleton = null;
-}
-
-// ---- ChatGuardRepository のシングルトン管理 ----
-//
-// InMemoryChatGuardRepository は InMemorySingleTableStore を使わず内部 Map で管理するため、
-// registerDynamoRepositories の型パターンには合わない。
-// シンプルなシングルトン変数で管理する。
-
-let chatGuardRepositorySingleton: ChatGuardRepository | null = null;
-
-/**
- * ChatGuardRepository のシングルトンを返す。
- * - `USE_IN_MEMORY_DB=true` の場合は InMemory 実装
- * - それ以外は DynamoDB 実装
- *   メインテーブルに相乗りするため、docClient / tableName の解決は既存パターン同様。
- */
-export function getChatGuardRepository(): ChatGuardRepository {
-  if (chatGuardRepositorySingleton) return chatGuardRepositorySingleton;
-
-  if (process.env['USE_IN_MEMORY_DB'] === 'true') {
-    chatGuardRepositorySingleton = new InMemoryChatGuardRepository();
-  } else {
-    // registerDynamoRepositories と同じ方法で docClient / tableName を解決する。
-    const docClient = getDynamoDBDocumentClient();
-    const tableName = getTableName();
-    chatGuardRepositorySingleton = new DynamoDBChatGuardRepository(docClient, tableName);
-  }
-  return chatGuardRepositorySingleton;
 }

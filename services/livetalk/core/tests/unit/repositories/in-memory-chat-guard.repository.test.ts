@@ -1,19 +1,16 @@
 /**
- * InMemoryChatGuardRepository のユニットテスト（Issue #3528）。
+ * InMemoryChatGuardRepository のユニットテスト。
  *
  * テスト観点:
  * - レート制限: ウィンドウ内カウントアップ、上限ちょうど/超過判定
  * - レート制限: ウィンドウ跨ぎでリセット（新バケット = count 1 に戻る）
  * - 並行制御: ロック取得成功 / 2 本目拒否 / ExpiresAt 失効後の奪取
  * - ロック解放: ownerToken 一致時のみ削除、不一致時はスキップ
- * - computeBucket / computeWindowExpiresAtSec の純粋ロジック
+ * - 共有ストアへ DynamoDB 実装と同じキー・属性名で保存される
  */
 
-import {
-  InMemoryChatGuardRepository,
-  computeBucket,
-  computeWindowExpiresAtSec,
-} from '../../../src/repositories/in-memory-chat-guard.repository.js';
+import { InMemorySingleTableStore } from '@nagiyu/aws';
+import { InMemoryChatGuardRepository } from '../../../src/repositories/in-memory-chat-guard.repository.js';
 import type { RateLimitResult } from '../../../src/repositories/chat-guard.repository.interface.js';
 
 // テスト用に固定時刻を使う。
@@ -25,64 +22,14 @@ const BASE_HOUR_START_MS = 473_696 * 3_600_000; // 時間の開始ミリ秒
 const BASE_NOW_MS = BASE_HOUR_START_MS + 1_000; // 時間の開始から 1 秒後
 // 1 分バケット
 const BASE_MINUTE_BUCKET = String(Math.floor(BASE_NOW_MS / 60_000));
-// 1 時間バケット
-const BASE_HOUR_BUCKET = String(Math.floor(BASE_NOW_MS / 3_600_000));
-
-describe('computeBucket()', () => {
-  it('1m: エポック分を返す', () => {
-    expect(computeBucket('1m', BASE_NOW_MS)).toBe(BASE_MINUTE_BUCKET);
-  });
-
-  it('1h: エポック時を返す', () => {
-    expect(computeBucket('1h', BASE_NOW_MS)).toBe(BASE_HOUR_BUCKET);
-  });
-
-  it('1m: 分の境界直前は同じバケット', () => {
-    // 現在の分バケットの終了直前（次の分の開始 - 1ms）
-    const nextMinuteStartMs = (Math.floor(BASE_NOW_MS / 60_000) + 1) * 60_000;
-    const justBeforeNextMinute = nextMinuteStartMs - 1;
-    expect(computeBucket('1m', justBeforeNextMinute)).toBe(BASE_MINUTE_BUCKET);
-  });
-
-  it('1m: 次の分の開始は新しいバケット', () => {
-    const nextMinuteStartMs = (Math.floor(BASE_NOW_MS / 60_000) + 1) * 60_000;
-    expect(computeBucket('1m', nextMinuteStartMs)).toBe(
-      String(Math.floor(BASE_NOW_MS / 60_000) + 1)
-    );
-  });
-
-  it('1h: 時間の境界直前は同じバケット', () => {
-    // 現在の時間バケットの終了直前（次の時間の開始 - 1ms）
-    const nextHourStartMs = (Math.floor(BASE_NOW_MS / 3_600_000) + 1) * 3_600_000;
-    const justBeforeNextHour = nextHourStartMs - 1;
-    expect(computeBucket('1h', justBeforeNextHour)).toBe(BASE_HOUR_BUCKET);
-  });
-
-  it('1h: 次の時間の開始は新しいバケット', () => {
-    const nextHourStartMs = (Math.floor(BASE_NOW_MS / 3_600_000) + 1) * 3_600_000;
-    expect(computeBucket('1h', nextHourStartMs)).toBe(
-      String(Math.floor(BASE_NOW_MS / 3_600_000) + 1)
-    );
-  });
-});
-
-describe('computeWindowExpiresAtSec()', () => {
-  it('1m: 次の分の開始 Unix 秒を返す', () => {
-    const expected = (Math.floor(BASE_NOW_MS / 60_000) + 1) * 60;
-    expect(computeWindowExpiresAtSec('1m', BASE_NOW_MS)).toBe(expected);
-  });
-
-  it('1h: 次の時間の開始 Unix 秒を返す', () => {
-    const expected = (Math.floor(BASE_NOW_MS / 3_600_000) + 1) * 3_600;
-    expect(computeWindowExpiresAtSec('1h', BASE_NOW_MS)).toBe(expected);
-  });
-});
 
 describe('InMemoryChatGuardRepository - レート制限', () => {
+  let store: InMemorySingleTableStore;
   let repo: InMemoryChatGuardRepository;
 
   beforeEach(() => {
-    repo = new InMemoryChatGuardRepository();
+    store = new InMemorySingleTableStore();
+    repo = new InMemoryChatGuardRepository(store);
   });
 
   it('初回インクリメントは count=1 を返す', async () => {
@@ -143,41 +90,28 @@ describe('InMemoryChatGuardRepository - レート制限', () => {
     expect(u2Result.count).toBe(1);
   });
 
-  it('TTL 切れのエントリは新規扱いになる', async () => {
-    // 現在のウィンドウでインクリメント（expiresAt は nextMinute）
-    const nowSec = Math.floor(BASE_NOW_MS / 1000);
-    // 現在のウィンドウの expiresAt = (floor(nowMs/60000) + 1) * 60
-    const windowExpiresSec = (Math.floor(BASE_NOW_MS / 60_000) + 1) * 60;
-    // TTL 切れ後の時刻（windowExpiresSec + 1 秒後）
-    const expiredMs = (windowExpiresSec + 1) * 1000;
+  it('カウンタは DynamoDB 実装と同じキー・属性名で保存し、TTL は初回の値を保つ', async () => {
+    await repo.incrementRateLimit('u1', '1m', BASE_NOW_MS);
+    // 同じウィンドウの後続の呼び出しでは TTL を書き換えない
+    await repo.incrementRateLimit('u1', '1m', BASE_NOW_MS + 30_000);
 
-    // まず現在のバケットでカウントをためる
-    for (let i = 0; i < 5; i++) {
-      await repo.incrementRateLimit('u1', '1m', BASE_NOW_MS);
-    }
-
-    // TTL 切れ後は同バケット文字列でも期限切れ扱いで count=1 に戻る
-    // （InMemory 実装は nowSec > expiresAt で判定する）
-    // expiredMs のバケット = floor(expiredMs / 60000)
-    // これは BASE_NOW_MS のバケット +1 以上になる（60 秒以上経過している）
-    const result = await repo.incrementRateLimit('u1', '1m', expiredMs);
-    // 新しいバケットなので count=1
-    expect(result.count).toBe(1);
-    expect(result.count).toBeLessThan(6);
-
-    // nowSec が expiresAt を超えている場合のリセット確認（同一バケットキーのシミュレーション）
-    // InMemory 実装では nowSec <= expiresAt の場合は継続カウント、
-    // nowSec > expiresAt の場合は count=1 にリセットする
-    void nowSec;
+    expect(store.get('USER#u1', `RATELIMIT#1m#${BASE_MINUTE_BUCKET}`)).toEqual({
+      PK: 'USER#u1',
+      SK: `RATELIMIT#1m#${BASE_MINUTE_BUCKET}`,
+      Count: 2,
+      TTL: (Number(BASE_MINUTE_BUCKET) + 1) * 60 + 120,
+    });
   });
 });
 
 describe('InMemoryChatGuardRepository - ロック', () => {
+  let store: InMemorySingleTableStore;
   let repo: InMemoryChatGuardRepository;
   const LOCK_TTL_MS = 120_000;
 
   beforeEach(() => {
-    repo = new InMemoryChatGuardRepository();
+    store = new InMemorySingleTableStore();
+    repo = new InMemoryChatGuardRepository(store);
   });
 
   it('初回取得は acquired=true', async () => {
@@ -240,13 +174,29 @@ describe('InMemoryChatGuardRepository - ロック', () => {
     await expect(repo.releaseLock('u1', 'nonexistent-token')).resolves.toBeUndefined();
   });
 
-  it('clear() で全エントリが削除される', async () => {
+  it('ロックは DynamoDB 実装と同じキー・属性名で保存する', async () => {
     await repo.acquireLock('u1', 'token-a', LOCK_TTL_MS, BASE_NOW_MS);
-    await repo.incrementRateLimit('u1', '1m', BASE_NOW_MS);
-    repo.clear();
-    const lockResult = await repo.acquireLock('u1', 'token-b', LOCK_TTL_MS, BASE_NOW_MS);
-    const rateResult = await repo.incrementRateLimit('u1', '1m', BASE_NOW_MS);
-    expect(lockResult.acquired).toBe(true);
-    expect(rateResult.count).toBe(1);
+
+    const expiresAt = BASE_NOW_MS + LOCK_TTL_MS;
+    expect(store.get('USER#u1', 'CHATLOCK')).toEqual({
+      PK: 'USER#u1',
+      SK: 'CHATLOCK',
+      OwnerToken: 'token-a',
+      ExpiresAt: expiresAt,
+      TTL: Math.floor(expiresAt / 1000) + 300,
+    });
+  });
+
+  it('期限切れロックを奪取すると所有者と期限が置き換わる', async () => {
+    await repo.acquireLock('u1', 'token-a', 1, BASE_NOW_MS);
+    await repo.acquireLock('u1', 'token-b', LOCK_TTL_MS, BASE_NOW_MS + 2);
+
+    expect(store.get('USER#u1', 'CHATLOCK')).toMatchObject({
+      OwnerToken: 'token-b',
+      ExpiresAt: BASE_NOW_MS + 2 + LOCK_TTL_MS,
+    });
+    // 旧所有者の解放は新しいロックを消さない
+    await repo.releaseLock('u1', 'token-a');
+    expect(store.get('USER#u1', 'CHATLOCK')).toBeDefined();
   });
 });

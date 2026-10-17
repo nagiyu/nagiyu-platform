@@ -1,6 +1,6 @@
 import {
   InMemoryEntityStore,
-  type DynamoDBItem,
+  type DynamoDBAttributes,
   type EntityStore,
   type InMemorySingleTableStore,
 } from '@nagiyu/aws';
@@ -51,7 +51,7 @@ export class InMemorySafetyEventRepository implements SafetyEventRepository {
     // GSI2PK='SAFETY' のアイテムを全件取得してから GSI2SK（EventID / ULID）の降順でソートし、
     // limit 件返す。queryByAttribute は既定 limit=100 でページングするため、cursor ループで
     // 全件集約しないと「最近の検出」を取り落とす（in-memory-profile.repository の listAllUserIds と同パターン）。
-    const items: DynamoDBItem[] = [];
+    const items: DynamoDBAttributes[] = [];
     let cursor: string | undefined;
     do {
       const result = this.store.queryByAttribute(
