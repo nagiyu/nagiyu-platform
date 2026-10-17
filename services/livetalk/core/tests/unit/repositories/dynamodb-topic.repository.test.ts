@@ -1,13 +1,7 @@
-import {
-  DeleteCommand,
-  GetCommand,
-  PutCommand,
-  QueryCommand,
-  UpdateCommand,
-} from '@aws-sdk/lib-dynamodb';
-import { DatabaseError } from '@nagiyu/aws';
+import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { DatabaseError, EntityNotFoundError, OptimisticLockError } from '@nagiyu/aws';
+import { logger } from '@nagiyu/common';
 import { DynamoDBTopicRepository } from '../../../src/repositories/dynamodb-topic.repository.js';
-import { OptimisticLockError } from '../../../src/repositories/optimistic-lock.error.js';
 
 const TABLE = 'nagiyu-livetalk-test';
 const FIXED_NOW = 1_700_000_000_000;
@@ -19,16 +13,26 @@ function makeRepo(handler: SendHandler, ulid = () => 'ULID-FIXED') {
   return new DynamoDBTopicRepository(makeClient(handler) as never, TABLE, ulid, () => FIXED_NOW);
 }
 
+/** 条件失敗の例外。旧 Item が付くかどうかで不在と不一致が分かれる */
+function conditionalFailure(withOldItem: boolean) {
+  return Object.assign(new Error('conditional check failed'), {
+    name: 'ConditionalCheckFailedException',
+    ...(withOldItem && { Item: { PK: { S: 'USER#u1' } } }),
+  });
+}
+
 const baseTopicInput = {
-  UserID: 'u1',
-  CharacterID: 'hiyori',
-  TopicID: 'TOPIC-001',
-  Subject: 'コーヒー',
-  CanonicalSummary: 'コーヒーが好き',
-  Category: '飲み物',
-  Care: 3,
-  Embedding: [0.1, 0.2],
+  userId: 'u1',
+  characterId: 'hiyori',
+  topicId: 'TOPIC-001',
+  subject: 'コーヒー',
+  canonicalSummary: 'コーヒーが好き',
+  category: '飲み物',
+  care: 3,
+  embedding: [0.1, 0.2],
 };
+
+const topicKey = { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-001' };
 
 const topicItem = {
   PK: 'USER#u1',
@@ -48,9 +52,11 @@ const topicItem = {
   UpdatedAt: FIXED_NOW - 10_000,
 };
 
+const webFactKey = { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-001', factId: 'F1' };
+
 describe('DynamoDBTopicRepository', () => {
   describe('putTopic', () => {
-    it('新規作成は attribute_not_exists(PK) を条件に Put する', async () => {
+    it('新規作成は存在しないことを条件に Put し、GSI3 属性を付ける', async () => {
       const sent: unknown[] = [];
       const repo = makeRepo(async (cmd) => {
         sent.push(cmd);
@@ -58,97 +64,85 @@ describe('DynamoDBTopicRepository', () => {
       });
 
       const topic = await repo.putTopic(baseTopicInput);
-      expect(topic.CreatedAt).toBe(FIXED_NOW);
-      expect(topic.UpdatedAt).toBe(FIXED_NOW);
+
+      expect(topic.createdAt).toBe(FIXED_NOW);
+      expect(topic.updatedAt).toBe(FIXED_NOW);
       expect(sent).toHaveLength(1);
-      expect(sent[0]).toBeInstanceOf(PutCommand);
       const input = (sent[0] as PutCommand).input;
-      expect(input.ConditionExpression).toBe('attribute_not_exists(PK)');
-      expect(input.ExpressionAttributeValues).toBeUndefined();
+      expect(input.ConditionExpression).toBe('attribute_not_exists(#pk)');
+      expect(input.Item?.GSI3PK).toBe('hiyori#TOPICS#u1');
       expect(input.Item?.GSI3SK).toBe(3);
     });
 
-    it('更新（expectedUpdatedAt 指定）は既存 Get → CreatedAt 維持 → 条件付き Put する', async () => {
-      const sent: unknown[] = [];
-      const repo = makeRepo(async (cmd) => {
-        sent.push(cmd);
-        if (cmd instanceof GetCommand) {
-          return { Item: topicItem };
-        }
-        return {};
-      });
-
-      const updated = await repo.putTopic(
-        { ...baseTopicInput, Care: 8 },
-        { expectedUpdatedAt: topicItem.UpdatedAt }
-      );
-
-      expect(updated.CreatedAt).toBe(topicItem.CreatedAt);
-      expect(updated.UpdatedAt).toBe(FIXED_NOW);
-      expect(sent[0]).toBeInstanceOf(GetCommand);
-      expect(sent[1]).toBeInstanceOf(PutCommand);
-      const putInput = (sent[1] as PutCommand).input;
-      expect(putInput.ConditionExpression).toBe('UpdatedAt = :expectedUpdatedAt');
-      expect(putInput.ExpressionAttributeValues).toEqual({
-        ':expectedUpdatedAt': topicItem.UpdatedAt,
-      });
-    });
-
-    it('ConditionalCheckFailedException は OptimisticLockError に変換する（error.name を保持）', async () => {
-      const error = Object.assign(new Error('conflict'), {
-        name: 'ConditionalCheckFailedException',
-      });
+    it('新規作成の衝突は OptimisticLockError に揃える', async () => {
       const repo = makeRepo(async () => {
-        throw error;
+        throw conditionalFailure(false);
       });
 
       await expect(repo.putTopic(baseTopicInput)).rejects.toBeInstanceOf(OptimisticLockError);
-      await expect(repo.putTopic(baseTopicInput)).rejects.toMatchObject({
-        name: 'OptimisticLockError',
+    });
+
+    it('更新は既存を読んで createdAt を維持し、expectedUpdatedAt を条件に Put する', async () => {
+      const sent: unknown[] = [];
+      const repo = makeRepo(async (cmd) => {
+        sent.push(cmd);
+        return cmd instanceof GetCommand ? { Item: topicItem } : {};
       });
+
+      const updated = await repo.putTopic(
+        { ...baseTopicInput, care: 8 },
+        { expectedUpdatedAt: topicItem.UpdatedAt }
+      );
+
+      expect(updated.createdAt).toBe(topicItem.CreatedAt);
+      expect(updated.updatedAt).toBe(FIXED_NOW);
+      expect(sent[0]).toBeInstanceOf(GetCommand);
+      const putInput = (sent[1] as PutCommand).input;
+      expect(putInput.ConditionExpression).toContain('#updatedAt = :expectedUpdatedAt');
+      expect(putInput.ExpressionAttributeValues).toEqual({
+        ':expectedUpdatedAt': topicItem.UpdatedAt,
+      });
+      expect(putInput.Item?.GSI3SK).toBe(8);
+    });
+
+    it('更新で UpdatedAt が一致しなければ OptimisticLockError を投げる', async () => {
+      const repo = makeRepo(async (cmd) => {
+        if (cmd instanceof GetCommand) return { Item: topicItem };
+        throw conditionalFailure(true);
+      });
+
+      await expect(repo.putTopic(baseTopicInput, { expectedUpdatedAt: 1 })).rejects.toBeInstanceOf(
+        OptimisticLockError
+      );
+    });
+
+    it('更新で Topic が存在しなければ EntityNotFoundError を投げる', async () => {
+      const repo = makeRepo(async (cmd) => {
+        if (cmd instanceof GetCommand) return {};
+        throw conditionalFailure(false);
+      });
+
+      await expect(repo.putTopic(baseTopicInput, { expectedUpdatedAt: 1 })).rejects.toBeInstanceOf(
+        EntityNotFoundError
+      );
     });
 
     it('その他のエラーは DatabaseError でラップする', async () => {
       const repo = makeRepo(async () => {
         throw new Error('DB down');
       });
+
       await expect(repo.putTopic(baseTopicInput)).rejects.toBeInstanceOf(DatabaseError);
     });
   });
 
   describe('getTopic', () => {
-    it('GetCommand を送り、見つからなければ null', async () => {
-      const sent: unknown[] = [];
-      const repo = makeRepo(async (cmd) => {
-        sent.push(cmd);
-        return { Item: undefined };
-      });
-      const result = await repo.getTopic({
-        userId: 'u1',
-        characterId: 'hiyori',
-        topicId: 'TOPIC-001',
-      });
-      expect(result).toBeNull();
-      expect(sent[0]).toBeInstanceOf(GetCommand);
-    });
+    it('Item がなければ null、あれば camelCase のエンティティを返す', async () => {
+      const missing = makeRepo(async () => ({}));
+      expect(await missing.getTopic(topicKey)).toBeNull();
 
-    it('Item があればエンティティを返す', async () => {
-      const repo = makeRepo(async () => ({ Item: topicItem }));
-      const result = await repo.getTopic({
-        userId: 'u1',
-        characterId: 'hiyori',
-        topicId: 'TOPIC-001',
-      });
-      expect(result?.Subject).toBe('コーヒー');
-    });
-
-    it('DynamoDB エラーは DatabaseError でラップ', async () => {
-      const repo = makeRepo(async () => {
-        throw new Error('timeout');
-      });
-      await expect(
-        repo.getTopic({ userId: 'u1', characterId: 'hiyori', topicId: 'x' })
-      ).rejects.toBeInstanceOf(DatabaseError);
+      const found = makeRepo(async () => ({ Item: topicItem }));
+      expect((await found.getTopic(topicKey))?.subject).toBe('コーヒー');
     });
   });
 
@@ -165,6 +159,7 @@ describe('DynamoDBTopicRepository', () => {
         Text: 'self fact',
         Provenance: '',
         CreatedAt: FIXED_NOW,
+        UpdatedAt: FIXED_NOW,
       };
       const webFactItem = {
         PK: 'USER#u1',
@@ -179,114 +174,85 @@ describe('DynamoDBTopicRepository', () => {
         Volatility: 'stable',
         ObservedAt: FIXED_NOW,
         CreatedAt: FIXED_NOW,
+        UpdatedAt: FIXED_NOW,
       };
-
       const sent: unknown[] = [];
       const repo = makeRepo(async (cmd) => {
         sent.push(cmd);
         return { Items: [topicItem, selfFactItem, webFactItem] };
       });
 
-      const bundle = await repo.getTopicBundle({
-        userId: 'u1',
-        characterId: 'hiyori',
-        topicId: 'TOPIC-001',
-      });
+      const bundle = await repo.getTopicBundle(topicKey);
 
-      expect(sent[0]).toBeInstanceOf(QueryCommand);
+      expect(sent).toHaveLength(1);
       const input = (sent[0] as QueryCommand).input;
       expect(input.KeyConditionExpression).toContain('begins_with');
       expect(input.ExpressionAttributeValues?.[':prefix']).toBe('CHAR#hiyori#TOPIC#TOPIC-001#');
-
-      expect(bundle.topic?.TopicID).toBe('TOPIC-001');
-      expect(bundle.selfFacts).toHaveLength(1);
-      expect(bundle.webFacts).toHaveLength(1);
+      expect(bundle.topic?.topicId).toBe('TOPIC-001');
+      expect(bundle.selfFacts.map((f) => f.factId)).toEqual(['F1']);
+      expect(bundle.webFacts.map((f) => f.factId)).toEqual(['F2']);
     });
 
-    it('ページネーション: LastEvaluatedKey があれば再クエリする', async () => {
+    it('LastEvaluatedKey があれば続きを取得する', async () => {
       let call = 0;
       const repo = makeRepo(async () => {
         call++;
-        if (call === 1) return { Items: [topicItem], LastEvaluatedKey: { PK: 'x' } };
-        return { Items: [] };
+        return call === 1 ? { Items: [topicItem], LastEvaluatedKey: { PK: 'x' } } : { Items: [] };
       });
-      const bundle = await repo.getTopicBundle({
-        userId: 'u1',
-        characterId: 'hiyori',
-        topicId: 'TOPIC-001',
-      });
+
+      const bundle = await repo.getTopicBundle(topicKey);
+
       expect(call).toBe(2);
-      expect(bundle.topic?.TopicID).toBe('TOPIC-001');
+      expect(bundle.topic?.topicId).toBe('TOPIC-001');
     });
 
-    it('Topic が無い場合 topic は null', async () => {
+    it('Topic がなければ topic は null', async () => {
       const repo = makeRepo(async () => ({ Items: [] }));
-      const bundle = await repo.getTopicBundle({
-        userId: 'u1',
-        characterId: 'hiyori',
-        topicId: 'missing',
-      });
-      expect(bundle.topic).toBeNull();
+
+      expect((await repo.getTopicBundle(topicKey)).topic).toBeNull();
     });
 
-    it('DynamoDB エラーは DatabaseError でラップ', async () => {
+    it('エラーは DatabaseError でラップする', async () => {
       const repo = makeRepo(async () => {
         throw new Error('boom');
       });
-      await expect(
-        repo.getTopicBundle({ userId: 'u1', characterId: 'hiyori', topicId: 'x' })
-      ).rejects.toBeInstanceOf(DatabaseError);
+
+      await expect(repo.getTopicBundle(topicKey)).rejects.toBeInstanceOf(DatabaseError);
     });
   });
 
-  describe('listTopicHeaders', () => {
-    it('GSI3 を ScanIndexForward=true で Query する', async () => {
+  describe('listTopicHeaders / listTopicHeadersByCareDesc', () => {
+    it('GSI3 を昇順で Query し、LastEvaluatedKey があれば続きを取得する', async () => {
       const sent: unknown[] = [];
       const repo = makeRepo(async (cmd) => {
         sent.push(cmd);
-        return { Items: [topicItem] };
+        return sent.length === 1
+          ? { Items: [topicItem], LastEvaluatedKey: { PK: 'x' } }
+          : { Items: [] };
       });
+
       const result = await repo.listTopicHeaders('u1', 'hiyori');
-      expect(sent[0]).toBeInstanceOf(QueryCommand);
+
       const input = (sent[0] as QueryCommand).input;
       expect(input.IndexName).toBe('GSI3');
       expect(input.ScanIndexForward).toBe(true);
       expect(input.ExpressionAttributeValues?.[':pk']).toBe('hiyori#TOPICS#u1');
+      expect(sent).toHaveLength(2);
       expect(result).toHaveLength(1);
     });
 
-    it('ページネーション: LastEvaluatedKey があれば再クエリする', async () => {
-      let call = 0;
-      const repo = makeRepo(async () => {
-        call++;
-        if (call === 1) return { Items: [topicItem], LastEvaluatedKey: { PK: 'x' } };
-        return { Items: [] };
-      });
-      const result = await repo.listTopicHeaders('u1', 'hiyori');
-      expect(call).toBe(2);
-      expect(result).toHaveLength(1);
-    });
-
-    it('DynamoDB エラーは DatabaseError でラップ', async () => {
-      const repo = makeRepo(async () => {
-        throw new Error('boom');
-      });
-      await expect(repo.listTopicHeaders('u1', 'hiyori')).rejects.toBeInstanceOf(DatabaseError);
-    });
-  });
-
-  describe('listTopicHeadersByCareDesc', () => {
-    it('GSI3 を ScanIndexForward=false + Limit で Query する', async () => {
+    it('care 降順は ScanIndexForward=false と Limit で Query する', async () => {
       const sent: unknown[] = [];
       const repo = makeRepo(async (cmd) => {
         sent.push(cmd);
         return { Items: [topicItem] };
       });
-      const result = await repo.listTopicHeadersByCareDesc('u1', 'hiyori', 5);
+
+      await repo.listTopicHeadersByCareDesc('u1', 'hiyori', 5);
+
       const input = (sent[0] as QueryCommand).input;
       expect(input.ScanIndexForward).toBe(false);
       expect(input.Limit).toBe(5);
-      expect(result).toHaveLength(1);
     });
 
     it('limit に到達したら以降のページを取得せず打ち切る', async () => {
@@ -301,81 +267,63 @@ describe('DynamoDBTopicRepository', () => {
           LastEvaluatedKey: { PK: 'x' },
         };
       });
+
       const result = await repo.listTopicHeadersByCareDesc('u1', 'hiyori', 1);
+
       expect(call).toBe(1);
-      expect(result).toHaveLength(1);
+      expect(result.map((t) => t.topicId)).toEqual(['A']);
+    });
+
+    it('エラーは DatabaseError でラップする', async () => {
+      const repo = makeRepo(async () => {
+        throw new Error('boom');
+      });
+
+      await expect(repo.listTopicHeaders('u1', 'hiyori')).rejects.toBeInstanceOf(DatabaseError);
     });
   });
 
   describe('SELF fact', () => {
-    it('putSelfFact は FactID 未指定なら ULID を採番して Put する', async () => {
+    it('putSelfFact は factId 未指定なら ULID を採番した SK で Put する', async () => {
       const sent: unknown[] = [];
       const repo = makeRepo(async (cmd) => {
         sent.push(cmd);
         return {};
       });
+
       const fact = await repo.putSelfFact({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'TOPIC-001',
-        Text: 'fact',
-        Provenance: '',
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'TOPIC-001',
+        text: 'fact',
+        provenance: '',
       });
-      expect(fact.FactID).toBe('ULID-FIXED');
-      expect(sent[0]).toBeInstanceOf(PutCommand);
+
+      expect(fact.factId).toBe('ULID-FIXED');
       expect((sent[0] as PutCommand).input.Item?.SK).toBe(
         'CHAR#hiyori#TOPIC#TOPIC-001#SELF#ULID-FIXED'
       );
     });
 
-    it('listSelfFacts は begins_with で Query する', async () => {
+    it('listSelfFacts は SELF の SK プレフィックスで Query する', async () => {
       const sent: unknown[] = [];
       const repo = makeRepo(async (cmd) => {
         sent.push(cmd);
         return { Items: [] };
       });
+
       await repo.listSelfFacts('u1', 'hiyori', 'TOPIC-001');
-      const input = (sent[0] as QueryCommand).input;
-      expect(input.ExpressionAttributeValues?.[':prefix']).toBe(
+
+      expect((sent[0] as QueryCommand).input.ExpressionAttributeValues?.[':prefix']).toBe(
         'CHAR#hiyori#TOPIC#TOPIC-001#SELF#'
       );
     });
 
-    it('deleteSelfFact は DeleteCommand を送る', async () => {
-      const sent: unknown[] = [];
-      const repo = makeRepo(async (cmd) => {
-        sent.push(cmd);
-        return {};
-      });
-      await repo.deleteSelfFact({
-        userId: 'u1',
-        characterId: 'hiyori',
-        topicId: 'TOPIC-001',
-        factId: 'F1',
-      });
-      expect(sent[0]).toBeInstanceOf(DeleteCommand);
-      expect((sent[0] as DeleteCommand).input.Key).toEqual({
-        PK: 'USER#u1',
-        SK: 'CHAR#hiyori#TOPIC#TOPIC-001#SELF#F1',
-      });
-    });
-
-    it('putSelfFact / listSelfFacts / deleteSelfFact のエラーは DatabaseError でラップ', async () => {
+    it('deleteSelfFact は対象がなければ EntityNotFoundError を投げる', async () => {
       const repo = makeRepo(async () => {
-        throw new Error('boom');
+        throw conditionalFailure(false);
       });
-      await expect(
-        repo.putSelfFact({
-          UserID: 'u1',
-          CharacterID: 'hiyori',
-          TopicID: 'TOPIC-001',
-          Text: 'x',
-          Provenance: '',
-        })
-      ).rejects.toBeInstanceOf(DatabaseError);
-      await expect(repo.listSelfFacts('u1', 'hiyori', 'TOPIC-001')).rejects.toBeInstanceOf(
-        DatabaseError
-      );
+
       await expect(
         repo.deleteSelfFact({
           userId: 'u1',
@@ -383,63 +331,63 @@ describe('DynamoDBTopicRepository', () => {
           topicId: 'TOPIC-001',
           factId: 'F1',
         })
-      ).rejects.toBeInstanceOf(DatabaseError);
-    });
-  });
-
-  describe('WEB fact', () => {
-    it('putWebFact は FactID 未指定なら ULID を採番して Put する', async () => {
-      const sent: unknown[] = [];
-      const repo = makeRepo(async (cmd) => {
-        sent.push(cmd);
-        return {};
-      });
-      const fact = await repo.putWebFact({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'TOPIC-001',
-        Text: 'web fact',
-        SourceUrls: [],
-        Volatility: 'low',
-        ObservedAt: FIXED_NOW,
-      });
-      expect(fact.FactID).toBe('ULID-FIXED');
-      expect(sent[0]).toBeInstanceOf(PutCommand);
+      ).rejects.toBeInstanceOf(EntityNotFoundError);
     });
 
-    it('listWebFacts は begins_with で Query する', async () => {
-      const sent: unknown[] = [];
-      const repo = makeRepo(async (cmd) => {
-        sent.push(cmd);
-        return { Items: [] };
-      });
-      await repo.listWebFacts('u1', 'hiyori', 'TOPIC-001');
-      const input = (sent[0] as QueryCommand).input;
-      expect(input.ExpressionAttributeValues?.[':prefix']).toBe('CHAR#hiyori#TOPIC#TOPIC-001#WEB#');
-    });
-
-    it('putWebFact / listWebFacts のエラーは DatabaseError でラップ', async () => {
+    it('listSelfFacts のエラーは DatabaseError でラップする', async () => {
       const repo = makeRepo(async () => {
         throw new Error('boom');
       });
-      await expect(
-        repo.putWebFact({
-          UserID: 'u1',
-          CharacterID: 'hiyori',
-          TopicID: 'TOPIC-001',
-          Text: 'x',
-          SourceUrls: [],
-          Volatility: 'stable',
-          ObservedAt: FIXED_NOW,
-        })
-      ).rejects.toBeInstanceOf(DatabaseError);
-      await expect(repo.listWebFacts('u1', 'hiyori', 'TOPIC-001')).rejects.toBeInstanceOf(
+
+      await expect(repo.listSelfFacts('u1', 'hiyori', 'TOPIC-001')).rejects.toBeInstanceOf(
         DatabaseError
       );
     });
   });
 
-  describe('listStaleWebFacts（GSI4/GSI-STALE の窓走査）', () => {
+  describe('WEB fact', () => {
+    it('putWebFact は nextReview があるときだけ GSI4 属性を付けて Put する', async () => {
+      const sent: unknown[] = [];
+      const repo = makeRepo(async (cmd) => {
+        sent.push(cmd);
+        return {};
+      });
+      const base = {
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'TOPIC-001',
+        text: 'web fact',
+        sourceUrls: [],
+        volatility: 'low' as const,
+        observedAt: FIXED_NOW,
+      };
+
+      const fact = await repo.putWebFact({ ...base, nextReview: FIXED_NOW + 1 });
+      await repo.putWebFact(base);
+
+      expect(fact.factId).toBe('ULID-FIXED');
+      const withReview = (sent[0] as PutCommand).input.Item;
+      expect(withReview?.GSI4PK).toBe('hiyori#STALE#u1');
+      expect(withReview?.GSI4SK).toBe(FIXED_NOW + 1);
+      expect((sent[1] as PutCommand).input.Item).not.toHaveProperty('GSI4PK');
+    });
+
+    it('listWebFacts は WEB の SK プレフィックスで Query する', async () => {
+      const sent: unknown[] = [];
+      const repo = makeRepo(async (cmd) => {
+        sent.push(cmd);
+        return { Items: [] };
+      });
+
+      await repo.listWebFacts('u1', 'hiyori', 'TOPIC-001');
+
+      expect((sent[0] as QueryCommand).input.ExpressionAttributeValues?.[':prefix']).toBe(
+        'CHAR#hiyori#TOPIC#TOPIC-001#WEB#'
+      );
+    });
+  });
+
+  describe('listStaleWebFacts（GSI4 の窓走査）', () => {
     const staleFactItem = {
       PK: 'USER#u1',
       SK: 'CHAR#hiyori#TOPIC#TOPIC-001#WEB#F1',
@@ -452,14 +400,12 @@ describe('DynamoDBTopicRepository', () => {
       SourceUrls: [],
       Volatility: 'high',
       ObservedAt: FIXED_NOW - 100_000,
-      NextReview: FIXED_NOW - 1000,
       GSI4PK: 'hiyori#STALE#u1',
       GSI4SK: FIXED_NOW - 1000,
       CreatedAt: FIXED_NOW - 100_000,
-      UpdatedAt: FIXED_NOW - 100_000,
     };
 
-    it('GSI4 を GSI4SK<=now・ScanIndexForward=true で Query する', async () => {
+    it('GSI4 を GSI4SK<=now の昇順で Query し、GSI4SK から nextReview を復元する', async () => {
       const sent: unknown[] = [];
       const repo = makeRepo(async (cmd) => {
         sent.push(cmd);
@@ -468,14 +414,13 @@ describe('DynamoDBTopicRepository', () => {
 
       const result = await repo.listStaleWebFacts('u1', 'hiyori', FIXED_NOW, 10);
 
-      expect(sent[0]).toBeInstanceOf(QueryCommand);
       const input = (sent[0] as QueryCommand).input;
       expect(input.IndexName).toBe('GSI4');
       expect(input.ExpressionAttributeValues?.[':pk']).toBe('hiyori#STALE#u1');
       expect(input.ExpressionAttributeValues?.[':now']).toBe(FIXED_NOW);
       expect(input.ScanIndexForward).toBe(true);
-      expect(result).toHaveLength(1);
-      expect(result[0].FactID).toBe('F1');
+      expect(result[0].factId).toBe('F1');
+      expect(result[0].nextReview).toBe(FIXED_NOW - 1000);
     });
 
     it('limit に到達したら以降のページを取得せず打ち切る', async () => {
@@ -490,7 +435,9 @@ describe('DynamoDBTopicRepository', () => {
           LastEvaluatedKey: { PK: 'x' },
         };
       });
+
       const result = await repo.listStaleWebFacts('u1', 'hiyori', FIXED_NOW, 1);
+
       expect(call).toBe(1);
       expect(result).toHaveLength(1);
     });
@@ -499,6 +446,7 @@ describe('DynamoDBTopicRepository', () => {
       const repo = makeRepo(async () => {
         throw new Error('boom');
       });
+
       await expect(repo.listStaleWebFacts('u1', 'hiyori', FIXED_NOW, 10)).rejects.toBeInstanceOf(
         DatabaseError
       );
@@ -506,49 +454,57 @@ describe('DynamoDBTopicRepository', () => {
   });
 
   describe('updateWebFactNextReview', () => {
-    it('NextReview と GSI4PK/GSI4SK を UpdateCommand で更新する', async () => {
+    it('nextReview と GSI4PK/GSI4SK だけを UpdateCommand で更新する', async () => {
       const sent: unknown[] = [];
       const repo = makeRepo(async (cmd) => {
         sent.push(cmd);
-        return {};
+        return {
+          Attributes: {
+            PK: 'USER#u1',
+            SK: 'CHAR#hiyori#TOPIC#TOPIC-001#WEB#F1',
+            UserID: 'u1',
+            CharacterID: 'hiyori',
+            TopicID: 'TOPIC-001',
+            FactID: 'F1',
+            Text: 't',
+            SourceUrls: [],
+            Volatility: 'high',
+            ObservedAt: FIXED_NOW,
+            CreatedAt: FIXED_NOW,
+          },
+        };
       });
 
-      await repo.updateWebFactNextReview(
-        { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-001', factId: 'F1' },
-        FIXED_NOW + 100_000
-      );
+      await repo.updateWebFactNextReview(webFactKey, FIXED_NOW + 100_000);
 
-      expect(sent[0]).toBeInstanceOf(UpdateCommand);
       const input = (sent[0] as UpdateCommand).input;
       expect(input.Key).toEqual({ PK: 'USER#u1', SK: 'CHAR#hiyori#TOPIC#TOPIC-001#WEB#F1' });
-      expect(input.ExpressionAttributeValues?.[':nextReview']).toBe(FIXED_NOW + 100_000);
-      expect(input.ExpressionAttributeValues?.[':gsi4pk']).toBe('hiyori#STALE#u1');
+      const values = Object.values(input.ExpressionAttributeValues ?? {});
+      expect(values).toEqual(
+        expect.arrayContaining([FIXED_NOW + 100_000, 'hiyori#STALE#u1', FIXED_NOW])
+      );
     });
 
-    it('対象が存在しない場合（ConditionalCheckFailedException）は例外を投げず no-op', async () => {
+    it('対象が存在しなければ warn を出して何もしない', async () => {
+      const warn = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
       const repo = makeRepo(async () => {
-        const err = new Error('conditional check failed');
-        err.name = 'ConditionalCheckFailedException';
-        throw err;
+        throw conditionalFailure(false);
       });
 
       await expect(
-        repo.updateWebFactNextReview(
-          { userId: 'u1', characterId: 'hiyori', topicId: 'missing', factId: 'missing' },
-          FIXED_NOW + 1000
-        )
+        repo.updateWebFactNextReview(webFactKey, FIXED_NOW + 1000)
       ).resolves.toBeUndefined();
+      expect(warn).toHaveBeenCalledTimes(1);
+      warn.mockRestore();
     });
 
     it('その他のエラーは DatabaseError でラップする', async () => {
       const repo = makeRepo(async () => {
         throw new Error('boom');
       });
+
       await expect(
-        repo.updateWebFactNextReview(
-          { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-001', factId: 'F1' },
-          FIXED_NOW + 1000
-        )
+        repo.updateWebFactNextReview(webFactKey, FIXED_NOW + 1000)
       ).rejects.toBeInstanceOf(DatabaseError);
     });
   });

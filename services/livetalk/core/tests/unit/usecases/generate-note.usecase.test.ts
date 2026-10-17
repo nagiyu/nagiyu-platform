@@ -56,41 +56,41 @@ describe('generateNotesForUser', () => {
 
   const putTopic = async (overrides: Record<string, unknown> = {}) =>
     topicRepo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-001',
-      Subject: 'コーヒーの効能',
-      CanonicalSummary: 'ユーザーはコーヒーが好き',
-      Category: '飲み物',
-      Care: 3,
-      Embedding: [1, 0],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-001',
+      subject: 'コーヒーの効能',
+      canonicalSummary: 'ユーザーはコーヒーが好き',
+      category: '飲み物',
+      care: 3,
+      embedding: [1, 0],
       ...overrides,
     });
 
   const putWebFact = async (topicId: string, overrides: Record<string, unknown> = {}) =>
     topicRepo.putWebFact({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: topicId,
-      Text: 'コーヒーには覚醒作用がある',
-      SourceUrls: ['https://example.com'],
-      Volatility: 'stable',
-      ObservedAt: fixedNow,
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: topicId,
+      text: 'コーヒーには覚醒作用がある',
+      sourceUrls: ['https://example.com'],
+      volatility: 'stable',
+      observedAt: fixedNow,
       ...overrides,
     });
 
   const putSelfFact = async (topicId: string, overrides: Record<string, unknown> = {}) =>
     topicRepo.putSelfFact({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: topicId,
-      Text: 'ユーザーはコーヒーが好き',
-      Provenance: '「コーヒー好きなんだ」という発話より',
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: topicId,
+      text: 'ユーザーはコーヒーが好き',
+      provenance: '「コーヒー好きなんだ」という発話より',
       ...overrides,
     });
 
   it('care 閾値以上・WEB あり・skip=false ならノートを生成する', async () => {
-    await putTopic({ Care: 3 });
+    await putTopic({ care: 3 });
     await putWebFact('topic-001');
     await putSelfFact('topic-001');
     const llmClient = makeLLMClient([makeLetter()]);
@@ -113,7 +113,7 @@ describe('generateNotesForUser', () => {
   });
 
   it('care が閾値未満の Topic は生成しない', async () => {
-    await putTopic({ Care: 2 });
+    await putTopic({ care: 2 });
     await putWebFact('topic-001');
     const llmClient = makeLLMClient([makeLetter()]);
 
@@ -131,7 +131,7 @@ describe('generateNotesForUser', () => {
   });
 
   it('既にノート化済みの Topic は重複生成しない（1 Topic 1 ノート）', async () => {
-    await putTopic({ Care: 3 });
+    await putTopic({ care: 3 });
     await putWebFact('topic-001');
     await noteRepo.put({
       userId: 'u1',
@@ -156,7 +156,7 @@ describe('generateNotesForUser', () => {
   });
 
   it('WEB fact が 0 件の Topic はスキップする（贈る中身が無い）', async () => {
-    await putTopic({ Care: 3 });
+    await putTopic({ care: 3 });
     const llmClient = makeLLMClient([makeLetter()]);
 
     const result = await generateNotesForUser('u1', 'hiyori', {
@@ -172,7 +172,7 @@ describe('generateNotesForUser', () => {
   });
 
   it('LLM が skip=true を返した場合は生成しない', async () => {
-    await putTopic({ Care: 3 });
+    await putTopic({ care: 3 });
     await putWebFact('topic-001');
     const llmClient = makeLLMClient([makeLetter({ skip: true })]);
 
@@ -190,7 +190,7 @@ describe('generateNotesForUser', () => {
   });
 
   it('usedSelfHook=false（自発トーン）でも headline があればノートを生成する', async () => {
-    await putTopic({ Care: 3 });
+    await putTopic({ care: 3 });
     await putWebFact('topic-001');
     // SELF fact なし（センシティブ等で使えない想定）でも WEB があれば自発トーンで贈る
     const llmClient = makeLLMClient([makeLetter({ usedSelfHook: false })]);
@@ -208,7 +208,7 @@ describe('generateNotesForUser', () => {
 
   it('maxPerRun を超えてノートを生成しない', async () => {
     for (let i = 0; i < 5; i++) {
-      await putTopic({ TopicID: `topic-00${i}`, Care: 3 });
+      await putTopic({ topicId: `topic-00${i}`, care: 3 });
       await putWebFact(`topic-00${i}`);
     }
     const llmClient = makeLLMClient(() => makeLetter());
@@ -238,9 +238,9 @@ describe('generateNotesForUser', () => {
   });
 
   it('1 件の生成が失敗してもスキップして継続する（fail-warn）', async () => {
-    await putTopic({ TopicID: 'topic-001', Care: 3 });
+    await putTopic({ topicId: 'topic-001', care: 3 });
     await putWebFact('topic-001');
-    await putTopic({ TopicID: 'topic-002', Care: 3 });
+    await putTopic({ topicId: 'topic-002', care: 3 });
     await putWebFact('topic-002');
 
     let callCount = 0;
@@ -272,7 +272,7 @@ describe('generateNotesForUser', () => {
   });
 
   it('noteRepo.put が失敗してもスキップして件数に数えない', async () => {
-    await putTopic({ Care: 3 });
+    await putTopic({ care: 3 });
     await putWebFact('topic-001');
     jest.spyOn(noteRepo, 'put').mockRejectedValueOnce(new Error('boom'));
     const llmClient = makeLLMClient([makeLetter()]);
@@ -290,7 +290,7 @@ describe('generateNotesForUser', () => {
 
   it('candidateLimit で care 降順スキャン件数を絞れる', async () => {
     for (let i = 0; i < 3; i++) {
-      await putTopic({ TopicID: `topic-00${i}`, Care: 3 });
+      await putTopic({ topicId: `topic-00${i}`, care: 3 });
       await putWebFact(`topic-00${i}`);
     }
     const llmClient = makeLLMClient(() => makeLetter());

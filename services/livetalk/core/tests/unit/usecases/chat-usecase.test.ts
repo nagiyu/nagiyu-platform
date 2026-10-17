@@ -90,7 +90,7 @@ function makeConsolidationCursorRepo(
 ): ConsolidationCursorRepository {
   return {
     get: jest.fn(async () => cursor),
-    put: jest.fn(async (input) => ({ ...input, UpdatedAt: Date.now() })),
+    put: jest.fn(async (input) => ({ ...input, updatedAt: Date.now() })),
     ...overrides,
   };
 }
@@ -151,38 +151,38 @@ function makeRetrievedTopic(
   webFactTexts: string[] = []
 ): RetrievedTopic {
   const topic: TopicEntity = {
-    UserID: 'u1',
-    CharacterID: 'hiyori',
-    TopicID: 'topic-1',
-    Subject: subject,
-    CanonicalSummary: `${subject} の要約`,
-    Category: 'カテゴリ',
-    Care: 1,
-    Embedding: [0.1, 0.2],
-    CreatedAt: 1_700_000_000_000,
-    UpdatedAt: 1_700_000_000_000,
+    userId: 'u1',
+    characterId: 'hiyori',
+    topicId: 'topic-1',
+    subject: subject,
+    canonicalSummary: `${subject} の要約`,
+    category: 'カテゴリ',
+    care: 1,
+    embedding: [0.1, 0.2],
+    createdAt: 1_700_000_000_000,
+    updatedAt: 1_700_000_000_000,
   };
   const webFacts: WebFactEntity[] = webFactTexts.map((text, i) => ({
-    UserID: 'u1',
-    CharacterID: 'hiyori',
-    TopicID: 'topic-1',
-    FactID: `web-fact-${i}`,
-    Text: text,
-    SourceUrls: [],
-    Volatility: 'stable',
-    ObservedAt: 1_700_000_000_000,
-    CreatedAt: 1_700_000_000_000,
+    userId: 'u1',
+    characterId: 'hiyori',
+    topicId: 'topic-1',
+    factId: `web-fact-${i}`,
+    text: text,
+    sourceUrls: [],
+    volatility: 'stable',
+    observedAt: 1_700_000_000_000,
+    createdAt: 1_700_000_000_000,
   }));
   return {
     topic,
     selfFacts: selfFactTexts.map((text, i) => ({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-1',
-      FactID: `fact-${i}`,
-      Text: text,
-      Provenance: '',
-      CreatedAt: 1_700_000_000_000,
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-1',
+      factId: `fact-${i}`,
+      text: text,
+      provenance: '',
+      createdAt: 1_700_000_000_000,
     })),
     webFacts,
     similarity: 0.9,
@@ -1030,12 +1030,12 @@ describe('runChatUseCase', () => {
   describe('知識ゲート（classifyTopic）', () => {
     function makeStudyTopicRepo(): StudyTopicRepository {
       return {
-        put: jest.fn(async (input) => ({ ...input, CreatedAt: Date.now(), UpdatedAt: Date.now() })),
+        put: jest.fn(async (input) => ({ ...input, createdAt: Date.now(), updatedAt: Date.now() })),
         listByStatus: jest.fn(async () => []),
         updateStatus: jest.fn(async (input) => ({
           ...input,
-          CreatedAt: Date.now(),
-          UpdatedAt: Date.now(),
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
         })),
         findPendingByTopic: jest.fn(async () => null),
       } as unknown as StudyTopicRepository;
@@ -1496,11 +1496,11 @@ describe('runChatUseCase', () => {
       const voice = makeVoiceClient();
       const repo = makeRepo();
       const cursorRepo = makeConsolidationCursorRepo({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        MsgCursor: 1_700_000_500_000,
-        WebrawCursor: 0,
-        UpdatedAt: 1_700_000_500_000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        msgCursor: 1_700_000_500_000,
+        webrawCursor: 0,
+        updatedAt: 1_700_000_500_000,
       });
 
       await collectEvents(
@@ -1583,15 +1583,15 @@ describe('runChatUseCase', () => {
       const oldMessage = makeMessage('user', '集約済みの古い話', 'old-1');
       const recentMessage = makeMessage('assistant', '未集約の最近の話', 'recent-1');
       const cursor: ConsolidationCursorEntity = {
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        MsgCursor: 1_700_000_500_000,
-        WebrawCursor: 0,
-        UpdatedAt: 1_700_000_500_000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        msgCursor: 1_700_000_500_000,
+        webrawCursor: 0,
+        updatedAt: 1_700_000_500_000,
       };
       const repo = makeRepo([], {
         listSince: jest.fn(async (_userId, _characterId, sinceMs) =>
-          sinceMs >= cursor.MsgCursor ? [recentMessage] : [oldMessage, recentMessage]
+          sinceMs >= cursor.msgCursor ? [recentMessage] : [oldMessage, recentMessage]
         ),
       });
       const llm = makeLLMClient(['うん']);

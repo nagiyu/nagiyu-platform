@@ -1,6 +1,6 @@
-import { InMemorySingleTableStore, type DynamoDBItem } from '@nagiyu/aws';
+import { InMemoryEntityStore, type EntityStore, type InMemorySingleTableStore } from '@nagiyu/aws';
 import { WEBRAW_TTL_SECONDS } from '../constants.js';
-import type { CreateWebRawInput, WebRawEntity } from '../entities/webraw.entity.js';
+import type { CreateWebRawInput, WebRawEntity, WebRawKey } from '../entities/webraw.entity.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
 import { WebRawMapper } from '../mappers/webraw.mapper.js';
 import { buildUserPK, buildWebRawSKPrefix } from '../mappers/keys.js';
@@ -11,6 +11,7 @@ export class InMemoryWebRawRepository implements WebRawRepository {
   private readonly store: InMemorySingleTableStore;
   private readonly ulidFactory: UlidFactory;
   private readonly nowMs: () => number;
+  private readonly entityStore: EntityStore<WebRawEntity, WebRawKey>;
 
   constructor(
     store: InMemorySingleTableStore,
@@ -21,25 +22,17 @@ export class InMemoryWebRawRepository implements WebRawRepository {
     this.ulidFactory = ulidFactory;
     this.nowMs = nowMs;
     this.mapper = new WebRawMapper();
+    this.entityStore = new InMemoryEntityStore(store, this.mapper, { now: nowMs });
   }
 
   public async put(input: CreateWebRawInput): Promise<WebRawEntity> {
     const now = this.nowMs();
-    const rawId = input.RawID ?? this.ulidFactory(now);
-
-    const entity: WebRawEntity = {
+    return this.entityStore.put({
       ...input,
-      RawID: rawId,
-      CreatedAt: now,
-    };
-
-    const item: DynamoDBItem & { TTL: number } = {
-      ...this.mapper.toItem(entity),
-      TTL: Math.floor(now / 1000) + WEBRAW_TTL_SECONDS,
-    };
-
-    this.store.put(item);
-    return entity;
+      rawId: input.rawId ?? this.ulidFactory(now),
+      createdAt: now,
+      expiresAt: now + WEBRAW_TTL_SECONDS * 1000,
+    });
   }
 
   public async listSince(

@@ -36,7 +36,7 @@ export interface ConsolidateParams {
 }
 
 /**
- * 揮発性区分から次回再検証予定時刻（NextReview）を計算する。
+ * 揮発性区分から次回再検証予定時刻（nextReview）を計算する。
  * `stable` は再検証不要のため undefined を返す。
  */
 function computeNextReview(volatility: WebFactVolatility, readAt: number): number | undefined {
@@ -57,7 +57,7 @@ function truncateRoutingText(text: string): string {
  * 依頼由来 provenance を index 参照方式で紐付けるための、request-origin かつ
  * 依頼文・依頼日時が揃った WebRaw（甲-1）。
  */
-type RequestWebRaw = WebRawEntity & { RequestText: string; RequestedAt: number };
+type RequestWebRaw = WebRawEntity & { requestText: string; requestedAt: number };
 
 /**
  * 今回バッチの request-origin WebRaw のうち、依頼文・依頼日時が揃ったものだけを
@@ -68,7 +68,7 @@ type RequestWebRaw = WebRawEntity & { RequestText: string; RequestedAt: number }
 function buildRequestWebRaws(webraws: WebRawEntity[]): RequestWebRaw[] {
   return webraws.filter(
     (w): w is RequestWebRaw =>
-      w.Origin === 'request' && w.RequestText !== undefined && w.RequestedAt !== undefined
+      w.origin === 'request' && w.requestText !== undefined && w.requestedAt !== undefined
   );
 }
 
@@ -77,22 +77,22 @@ type TopicResult = ConsolidationRaw['topics'][number];
 /**
  * LLM が返した `sourceRequestIndices`（[依頼 #N] の N の配列）から依頼フックを解決する
  * （甲-1: 依頼由来 provenance、index 参照方式）。日時・原文は必ずコード側（`requestWebRaws`、
- * WebRaw.RequestText/RequestedAt 由来）から取り、LLM は番号を返すだけにする（verbatim
+ * WebRaw.requestText/requestedAt 由来）から取り、LLM は番号を返すだけにする（verbatim
  * エコー＋文字列突合は LLM の整形でずれて不安定だったため廃止）。
  * 範囲外・非整数の index（LLM の捏造・取り違え）は無視する。複数 index が解決できた場合は
- * 最新の RequestedAt を採用する。
+ * 最新の requestedAt を採用する。
  */
 function resolveRequestHookByIndices(
   indices: number[],
   requestWebRaws: RequestWebRaw[]
-): { RequestText: string; RequestedAt: number } | undefined {
+): { requestText: string; requestedAt: number } | undefined {
   let best: RequestWebRaw | undefined;
   for (const idx of indices) {
     if (!Number.isInteger(idx) || idx < 0 || idx >= requestWebRaws.length) continue;
     const w = requestWebRaws[idx];
-    if (best === undefined || w.RequestedAt > best.RequestedAt) best = w;
+    if (best === undefined || w.requestedAt > best.requestedAt) best = w;
   }
-  return best ? { RequestText: best.RequestText, RequestedAt: best.RequestedAt } : undefined;
+  return best ? { requestText: best.requestText, requestedAt: best.requestedAt } : undefined;
 }
 
 /**
@@ -103,7 +103,7 @@ function resolveRequestHookByIndices(
 function resolveGroupRequestHook(
   entries: TopicResult[],
   requestWebRaws: RequestWebRaw[]
-): { RequestText: string; RequestedAt: number } | undefined {
+): { requestText: string; requestedAt: number } | undefined {
   const allIndices = entries.flatMap((e) => e.sourceRequestIndices);
   return resolveRequestHookByIndices(allIndices, requestWebRaws);
 }
@@ -121,7 +121,7 @@ type ResolvedTopicGroup =
 
 /**
  * `result.topics` を解決先（既存 Topic / 新規）でグルーピングする。
- * 挿入順（LLM が返した順）を維持したまま、同一の既存 TopicID を指す
+ * 挿入順（LLM が返した順）を維持したまま、同一の既存 topicId を指す
  * エントリだけを 1 グループへ畳む。
  */
 function groupTopicResults(
@@ -140,10 +140,10 @@ function groupTopicResults(
       continue;
     }
 
-    const index = existingGroupIndex.get(existing.TopicID);
+    const index = existingGroupIndex.get(existing.topicId);
     if (index === undefined) {
-      existingGroupIndex.set(existing.TopicID, groups.length);
-      groups.push({ kind: 'existing', topicId: existing.TopicID, entries: [topicResult] });
+      existingGroupIndex.set(existing.topicId, groups.length);
+      groups.push({ kind: 'existing', topicId: existing.topicId, entries: [topicResult] });
       continue;
     }
 
@@ -182,25 +182,25 @@ async function appendTopicFacts(
   for (const entry of entries) {
     for (const sf of entry.selfFacts) {
       await topicRepo.putSelfFact({
-        UserID: userId,
-        CharacterID: characterId,
-        TopicID: topicId,
-        Text: sf.text,
-        Provenance: sf.provenance,
+        userId,
+        characterId,
+        topicId,
+        text: sf.text,
+        provenance: sf.provenance,
       });
       selfFactCount++;
     }
 
     for (const wf of entry.webFacts) {
       await topicRepo.putWebFact({
-        UserID: userId,
-        CharacterID: characterId,
-        TopicID: topicId,
-        Text: wf.text,
-        SourceUrls: wf.sourceUrls,
-        Volatility: wf.volatility,
-        ObservedAt: readAt,
-        NextReview: computeNextReview(wf.volatility, readAt),
+        userId,
+        characterId,
+        topicId,
+        text: wf.text,
+        sourceUrls: wf.sourceUrls,
+        volatility: wf.volatility,
+        observedAt: readAt,
+        nextReview: computeNextReview(wf.volatility, readAt),
       });
       webFactCount++;
     }
@@ -214,7 +214,7 @@ async function appendTopicFacts(
  * （リブトーク知識再設計 P1 / #3697）。
  *
  * 処理フロー：
- * 1. CURSOR から前回集約済み位置（MsgCursor / WebrawCursor）を取得
+ * 1. CURSOR から前回集約済み位置（msgCursor / webrawCursor）を取得
  * 2. カーソル以降の Message / WebRaw を listSince で取得。両方 0 件なら 'skipped'
  * 3. 新規データ（会話 + Web 生データ）から「ルーティング用テキスト」を作り、埋め込みで
  *    既存 Topic ヘッダ（GSI3 経由で全件列挙）との cosine similarity を計算し、閾値以上・
@@ -258,9 +258,9 @@ export async function consolidate(
   const batchStart = performance.now();
 
   const cursor = await cursorRepo.get(userId, characterId);
-  const msgCursor = cursor?.MsgCursor ?? 0;
-  const webrawCursor = cursor?.WebrawCursor ?? 0;
-  const cursorUpdatedAt = cursor?.UpdatedAt;
+  const msgCursor = cursor?.msgCursor ?? 0;
+  const webrawCursor = cursor?.webrawCursor ?? 0;
+  const cursorUpdatedAt = cursor?.updatedAt;
 
   const messages = await messageRepo.listSince(userId, characterId, msgCursor);
   const webraws = await webRawRepo.listSince(userId, characterId, webrawCursor);
@@ -284,7 +284,7 @@ export async function consolidate(
   // ---- ルーティング候補の算出 ----
   const routingTextRaw = [
     ...messages.map((m) => `${m.role}: ${m.text}`),
-    ...webraws.map((w) => w.RawText),
+    ...webraws.map((w) => w.rawText),
   ].join('\n');
   const routingText = truncateRoutingText(routingTextRaw);
 
@@ -292,40 +292,40 @@ export async function consolidate(
   const headers = await topicRepo.listTopicHeaders(userId, characterId);
 
   const scored = headers
-    .map((header) => ({ header, similarity: cosineSimilarity(queryEmbedding, header.Embedding) }))
+    .map((header) => ({ header, similarity: cosineSimilarity(queryEmbedding, header.embedding) }))
     .filter((s) => s.similarity >= TOPIC_ROUTING_SIMILARITY_THRESHOLD)
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, TOPIC_ROUTING_MAX_CANDIDATES);
 
   const candidateMap = new Map<string, TopicEntity>(
-    scored.map((s) => [s.header.TopicID, s.header])
+    scored.map((s) => [s.header.topicId, s.header])
   );
 
   // ---- LLM 呼び出し ----
   // 今回バッチの request-origin WebRaw から、index 参照方式で使う「採用可能な依頼 WebRaw」の
   // 順序付きリストを作る（甲-1: 依頼由来 provenance）。この配列の添字が LLM に見せる
-  // `[依頼 #N]` の N になる。LLM には番号だけを返させ、権威ある依頼文・RequestedAt は
+  // `[依頼 #N]` の N になる。LLM には番号だけを返させ、権威ある依頼文・requestedAt は
   // 必ずこのリスト（コード側）から取る。
   const requestWebRaws = buildRequestWebRaws(webraws);
-  const requestIndexByRawId = new Map<string, number>(requestWebRaws.map((w, i) => [w.RawID, i]));
+  const requestIndexByRawId = new Map<string, number>(requestWebRaws.map((w, i) => [w.rawId, i]));
 
   const promptMessages = buildConsolidatePrompt({
     characterName,
     candidateTopics: scored.map((s) => ({
-      topicId: s.header.TopicID,
-      subject: s.header.Subject,
-      category: s.header.Category,
-      canonicalSummary: s.header.CanonicalSummary,
+      topicId: s.header.topicId,
+      subject: s.header.subject,
+      category: s.header.category,
+      canonicalSummary: s.header.canonicalSummary,
     })),
     newMessages: messages.map((m) => ({ role: m.role, text: m.text })),
     webRaws: webraws.map((w) => ({
-      query: w.Query,
-      rawText: w.RawText,
-      sourceUrls: w.SourceUrls,
-      origin: w.Origin,
-      requestText: w.RequestText,
-      requestedAtLabel: w.RequestedAt !== undefined ? formatJstMonthDay(w.RequestedAt) : undefined,
-      requestIndex: requestIndexByRawId.get(w.RawID),
+      query: w.query,
+      rawText: w.rawText,
+      sourceUrls: w.sourceUrls,
+      origin: w.origin,
+      requestText: w.requestText,
+      requestedAtLabel: w.requestedAt !== undefined ? formatJstMonthDay(w.requestedAt) : undefined,
+      requestIndex: requestIndexByRawId.get(w.rawId),
     })),
   });
 
@@ -358,14 +358,14 @@ export async function consolidate(
         requestWebRaws
       );
       await topicRepo.putTopic({
-        UserID: userId,
-        CharacterID: characterId,
-        TopicID: topicId,
-        Subject: topicResult.subject,
-        CanonicalSummary: topicResult.canonicalSummary,
-        Category: topicResult.category,
-        Care: countSelfFacts([topicResult]) > 0 ? 1 : 0,
-        Embedding: topicEmbedding,
+        userId,
+        characterId,
+        topicId,
+        subject: topicResult.subject,
+        canonicalSummary: topicResult.canonicalSummary,
+        category: topicResult.category,
+        care: countSelfFacts([topicResult]) > 0 ? 1 : 0,
+        embedding: topicEmbedding,
         ...(requestHook ?? {}),
       });
       newTopicCount++;
@@ -402,27 +402,27 @@ export async function consolidate(
 
     let topicId: string;
     if (current) {
-      topicId = current.TopicID;
+      topicId = current.topicId;
       // 今回依頼フックが解決できればそれで上書きし、できなければ既存の依頼フックを引き継ぐ
       // （既存 Topic の依頼フックを非依頼 consolidation で消さないため）。
       const inheritedHook =
         requestHook ??
-        (current.RequestText !== undefined && current.RequestedAt !== undefined
-          ? { RequestText: current.RequestText, RequestedAt: current.RequestedAt }
+        (current.requestText !== undefined && current.requestedAt !== undefined
+          ? { requestText: current.requestText, requestedAt: current.requestedAt }
           : undefined);
       await topicRepo.putTopic(
         {
-          UserID: userId,
-          CharacterID: characterId,
-          TopicID: topicId,
-          Subject: last.subject,
-          CanonicalSummary: last.canonicalSummary,
-          Category: last.category,
-          Care: groupSelfFactCount > 0 ? current.Care + 1 : current.Care,
-          Embedding: topicEmbedding,
+          userId,
+          characterId,
+          topicId,
+          subject: last.subject,
+          canonicalSummary: last.canonicalSummary,
+          category: last.category,
+          care: groupSelfFactCount > 0 ? current.care + 1 : current.care,
+          embedding: topicEmbedding,
           ...(inheritedHook ?? {}),
         },
-        { expectedUpdatedAt: current.UpdatedAt }
+        { expectedUpdatedAt: current.updatedAt }
       );
       updatedTopicCount++;
     } else {
@@ -430,14 +430,14 @@ export async function consolidate(
       // 既に消えていた（本来あり得ないが、念のため新規 Topic 作成にフォールバックする）
       topicId = ulidFactory();
       await topicRepo.putTopic({
-        UserID: userId,
-        CharacterID: characterId,
-        TopicID: topicId,
-        Subject: last.subject,
-        CanonicalSummary: last.canonicalSummary,
-        Category: last.category,
-        Care: groupSelfFactCount > 0 ? 1 : 0,
-        Embedding: topicEmbedding,
+        userId,
+        characterId,
+        topicId,
+        subject: last.subject,
+        canonicalSummary: last.canonicalSummary,
+        category: last.category,
+        care: groupSelfFactCount > 0 ? 1 : 0,
+        embedding: topicEmbedding,
         ...(requestHook ?? {}),
       });
       newTopicCount++;
@@ -458,15 +458,15 @@ export async function consolidate(
   // ---- カーソル前進（ストリーム別・条件付き。空ストリームは据え置き）----
   const newMsgCursor = messages.length ? Math.max(...messages.map((m) => m.createdAt)) : msgCursor;
   const newWebrawCursor = webraws.length
-    ? Math.max(...webraws.map((w) => w.CreatedAt))
+    ? Math.max(...webraws.map((w) => w.createdAt))
     : webrawCursor;
 
   await cursorRepo.put(
     {
-      UserID: userId,
-      CharacterID: characterId,
-      MsgCursor: newMsgCursor,
-      WebrawCursor: newWebrawCursor,
+      userId,
+      characterId,
+      msgCursor: newMsgCursor,
+      webrawCursor: newWebrawCursor,
     },
     { expectedUpdatedAt: cursorUpdatedAt }
   );

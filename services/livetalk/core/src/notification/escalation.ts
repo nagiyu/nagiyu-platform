@@ -31,7 +31,7 @@ export interface DetectCriticalCandidate {
 export interface DetectCriticalInput {
   /** care 降順などで並べた Topic 候補（WEB fact 込み）。先頭から順に評価する。 */
   candidates: DetectCriticalCandidate[];
-  /** この値以上の Topic.Care を「高 care」とみなす閾値。 */
+  /** この値以上の Topic.care を「高 care」とみなす閾値。 */
   careThreshold: number;
   llmClient: ILLMClient;
   /** 判定基準時刻（today 計算・LLM プロンプトの今日日付注入に使用） */
@@ -95,12 +95,12 @@ function isUrgent(eventDate: string | null, now: Date): boolean {
 
 /**
  * Topic 候補リストから時間帯外でも配信すべきクリティカル情報を判定する
- * （リブトーク知識・記憶再設計 P5: 通知の critical/ネタ源を Topic.Care + WEB fact へ移行）。
+ * （リブトーク知識・記憶再設計 P5: 通知の critical/ネタ源を Topic.care + WEB fact へ移行）。
  *
  * 判定ロジック（AND ゲート）:
  *   critical = isHighCare AND isUrgent
  *
- * - isHighCare: `topic.Care >= careThreshold` か
+ * - isHighCare: `topic.care >= careThreshold` か
  * - isUrgent: LLM で抽出した eventDate が今日以降 NOTIFY_CRITICAL_EVENT_HORIZON_DAYS 以内か
  *
  * LLM 呼び出しは isHighCare=true の Topic の WEB fact のみに行い、コストを節約する。
@@ -119,10 +119,10 @@ export async function detectCriticalTopic(input: DetectCriticalInput): Promise<E
     const { topic, webFacts } = candidate;
 
     // isHighCare=false の Topic は LLM を呼ばずスキップ
-    if (topic.Care < careThreshold) continue;
+    if (topic.care < careThreshold) continue;
 
     const recentWebFacts = [...webFacts]
-      .sort((a, b) => b.ObservedAt - a.ObservedAt)
+      .sort((a, b) => b.observedAt - a.observedAt)
       .slice(0, ESCALATION_RECENT_WEB_FACTS_LIMIT);
 
     for (const webFact of recentWebFacts) {
@@ -132,7 +132,7 @@ export async function detectCriticalTopic(input: DetectCriticalInput): Promise<E
             { role: 'system', content: buildEscalationPrompt(todayStr) },
             {
               role: 'user',
-              content: `トピック: ${topic.Subject}\n内容: ${webFact.Text}`,
+              content: `トピック: ${topic.subject}\n内容: ${webFact.text}`,
             },
           ],
           EscalationSchema,
@@ -140,7 +140,7 @@ export async function detectCriticalTopic(input: DetectCriticalInput): Promise<E
         );
 
         if (isUrgent(result.eventDate, now)) {
-          return { isCritical: true, topicId: topic.TopicID, factId: webFact.FactID };
+          return { isCritical: true, topicId: topic.topicId, factId: webFact.factId };
         }
       } catch {
         // best-effort: LLM 呼び出し失敗は無視して次の候補へ

@@ -372,12 +372,12 @@ async function evaluateCharacter(params: {
   // care 閾値未満は detectCriticalTopic 側でも LLM をスキップするため、
   // ここで先に絞り込んで無駄な listWebFacts（DynamoDB Query）を避ける。
   const criticalCandidateTopics = topics
-    .filter((t) => t.Care >= NOTIFY_CRITICAL_CARE_THRESHOLD)
+    .filter((t) => t.care >= NOTIFY_CRITICAL_CARE_THRESHOLD)
     .slice(0, CRITICAL_CANDIDATE_TOPIC_LIMIT);
   const criticalCandidates = await Promise.all(
     criticalCandidateTopics.map(async (topic) => ({
       topic,
-      webFacts: await topicRepo.listWebFacts(userId, characterId, topic.TopicID),
+      webFacts: await topicRepo.listWebFacts(userId, characterId, topic.topicId),
     }))
   );
 
@@ -418,15 +418,15 @@ async function evaluateCharacter(params: {
   let suggestedReply: string;
 
   if (decision.kind === 'critical') {
-    const topic = topics.find((t) => t.TopicID === decision.topicId);
+    const topic = topics.find((t) => t.topicId === decision.topicId);
     const msg = buildCriticalNotificationMessage(
-      topic?.Subject ?? '大事なこと',
+      topic?.subject ?? '大事なこと',
       characterNotificationName
     );
     title = msg.title;
     body = msg.body;
     topicId = decision.topicId;
-    suggestedReply = buildSuggestedReply(topic?.Subject);
+    suggestedReply = buildSuggestedReply(topic?.subject);
   } else {
     // 直近で使用済みの TopicID を避けてネタを選ぶ（同じ話題の連発を抑制）
     // このキャラの履歴から使用済み TopicID を収集する
@@ -438,19 +438,19 @@ async function evaluateCharacter(params: {
     // 未使用の care 最上位を選ぶ。無ければ care 最上位（無条件）にフォールバック。
     // Topic が皆無なら freshTopic は undefined のまま（Topic-less フォールバック）。
     const freshTopic: TopicEntity | undefined =
-      topics.find((t) => !usedTopicIds.has(t.TopicID)) ?? topics[0];
+      topics.find((t) => !usedTopicIds.has(t.topicId)) ?? topics[0];
     const msg = buildNotificationMessage(
       {
         toneBucket: decision.toneBucket,
-        knowledgeTopic: freshTopic?.Subject,
+        knowledgeTopic: freshTopic?.subject,
         characterDisplayName: characterNotificationName,
       },
       now.getTime()
     );
     title = msg.title;
     body = msg.body;
-    topicId = freshTopic?.TopicID;
-    suggestedReply = buildSuggestedReply(freshTopic?.Subject);
+    topicId = freshTopic?.topicId;
+    suggestedReply = buildSuggestedReply(freshTopic?.subject);
   }
 
   return {

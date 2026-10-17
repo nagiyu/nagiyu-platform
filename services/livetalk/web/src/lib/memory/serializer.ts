@@ -12,15 +12,15 @@ import type { SelfFactListItem } from './types';
 export function toSelfFactListItem(entity: SelfFactEntity, subject: string): SelfFactListItem {
   return {
     id: encodeSelfFactId({
-      userId: entity.UserID,
-      characterId: entity.CharacterID,
-      topicId: entity.TopicID,
-      factId: entity.FactID,
+      userId: entity.userId,
+      characterId: entity.characterId,
+      topicId: entity.topicId,
+      factId: entity.factId,
     }),
-    topicId: entity.TopicID,
+    topicId: entity.topicId,
     subject,
-    text: entity.Text,
-    createdAt: entity.CreatedAt,
+    text: entity.text,
+    createdAt: entity.createdAt,
   };
 }
 

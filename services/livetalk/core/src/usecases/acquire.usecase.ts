@@ -148,7 +148,7 @@ export function buildLatestInfoQuery(subject: string): string {
  * 何度も発行してしまうため、**research はトピックにつき 1 回**（= budget 1 消費）とし、
  * そのトピックの期限切れ fact 全部（窓で拾えなかった分も `listWebFacts` で取り直して含める）
  * の `NextReview` をまとめて前方更新する。トピックが既に存在しない場合（`getTopic` が null）
- * は束ねられないため、従来どおり fact 単位で `fact.Text` をクエリにして処理する。
+ * は束ねられないため、従来どおり fact 単位で `fact.text` をクエリにして処理する。
  *
  * 鮮度切れ再取得は、変化検知（`changeDetector`）で「変化があった時だけ」WEBRAW を書く
  * （陳腐な再要約を止める）。変化の有無に関わらず対象 fact 全部の `NextReview` は前方更新し、
@@ -217,14 +217,14 @@ export async function acquireForUser(
         const result = await researchClient.research(studyTopic.topic, character);
 
         await webRawRepo.put({
-          UserID: userId,
-          CharacterID: characterId,
-          Query: studyTopic.topic,
-          RawText: result.summary,
-          SourceUrls: result.sourceUrls,
-          Origin: 'request',
-          RequestText: studyTopic.topic,
-          RequestedAt: studyTopic.createdAt,
+          userId,
+          characterId,
+          query: studyTopic.topic,
+          rawText: result.summary,
+          sourceUrls: result.sourceUrls,
+          origin: 'request',
+          requestText: studyTopic.topic,
+          requestedAt: studyTopic.createdAt,
         });
         webRawWritten++;
 
@@ -299,21 +299,21 @@ export async function acquireForUser(
     const topicIdOrder: string[] = [];
     const windowFactsByTopicId = new Map<string, WebFactEntity[]>();
     for (const fact of staleFacts) {
-      if (fact.Volatility === 'stable') {
+      if (fact.volatility === 'stable') {
         // stable fact は NextReview を持たないため GSI4 に現れないはずだが、念のため防御的にスキップ
         logger.warn('[acquire] stable fact が鮮度掃引の対象に含まれていました（スキップ）', {
           userId,
           characterId,
-          topicId: fact.TopicID,
-          factId: fact.FactID,
+          topicId: fact.topicId,
+          factId: fact.factId,
         });
         continue;
       }
-      if (!windowFactsByTopicId.has(fact.TopicID)) {
-        topicIdOrder.push(fact.TopicID);
-        windowFactsByTopicId.set(fact.TopicID, []);
+      if (!windowFactsByTopicId.has(fact.topicId)) {
+        topicIdOrder.push(fact.topicId);
+        windowFactsByTopicId.set(fact.topicId, []);
       }
-      windowFactsByTopicId.get(fact.TopicID)?.push(fact);
+      windowFactsByTopicId.get(fact.topicId)?.push(fact);
     }
 
     for (const topicId of topicIdOrder) {
@@ -330,18 +330,18 @@ export async function acquireForUser(
           if (budget <= 0) break;
 
           try {
-            const query = fact.Text;
+            const query = fact.text;
             const result = await researchClient.research(query, character);
-            const changed = await changeDetector.hasChanged(fact.Text, result);
+            const changed = await changeDetector.hasChanged(fact.text, result);
 
             if (changed) {
               await webRawRepo.put({
-                UserID: userId,
-                CharacterID: characterId,
-                Query: query,
-                RawText: result.summary,
-                SourceUrls: result.sourceUrls,
-                Origin: 'stale',
+                userId,
+                characterId,
+                query,
+                rawText: result.summary,
+                sourceUrls: result.sourceUrls,
+                origin: 'stale',
               });
               webRawWritten++;
               staleChanged++;
@@ -350,8 +350,8 @@ export async function acquireForUser(
             // 変化の有無に関わらず NextReview を前方更新し、次回掃引の窓から外す
             // （毎時再掃引の無限ループを防ぐ）。
             await topicRepo.updateWebFactNextReview(
-              { userId, characterId, topicId: fact.TopicID, factId: fact.FactID },
-              computeNextReview(fact.Volatility as 'low' | 'medium' | 'high', nowMs)
+              { userId, characterId, topicId: fact.topicId, factId: fact.factId },
+              computeNextReview(fact.volatility as 'low' | 'medium' | 'high', nowMs)
             );
             staleFactsReviewed++;
 
@@ -363,8 +363,8 @@ export async function acquireForUser(
               {
                 userId,
                 characterId,
-                topicId: fact.TopicID,
-                factId: fact.FactID,
+                topicId: fact.topicId,
+                factId: fact.factId,
                 err: toErrorMessage(err),
               }
             );
@@ -377,16 +377,16 @@ export async function acquireForUser(
             // （stable は上部で除外済みのため、ここは常に low/medium/high）。
             try {
               await topicRepo.updateWebFactNextReview(
-                { userId, characterId, topicId: fact.TopicID, factId: fact.FactID },
-                computeNextReview(fact.Volatility as 'low' | 'medium' | 'high', nowMs)
+                { userId, characterId, topicId: fact.topicId, factId: fact.factId },
+                computeNextReview(fact.volatility as 'low' | 'medium' | 'high', nowMs)
               );
               staleFactsReviewed++;
             } catch (bumpErr) {
               logger.warn('[acquire] 鮮度切れ fact の NextReview 前進に失敗しました', {
                 userId,
                 characterId,
-                topicId: fact.TopicID,
-                factId: fact.FactID,
+                topicId: fact.topicId,
+                factId: fact.factId,
                 err: toErrorMessage(bumpErr),
               });
             }
@@ -402,7 +402,7 @@ export async function acquireForUser(
       try {
         const webFacts = await topicRepo.listWebFacts(userId, characterId, topicId);
         targetFacts = webFacts.filter(
-          (f) => f.Volatility !== 'stable' && f.NextReview !== undefined && f.NextReview <= nowMs
+          (f) => f.volatility !== 'stable' && f.nextReview !== undefined && f.nextReview <= nowMs
         );
       } catch (err) {
         logger.warn(
@@ -417,25 +417,25 @@ export async function acquireForUser(
         continue;
       }
 
-      const query = buildLatestInfoQuery(topic.Subject);
+      const query = buildLatestInfoQuery(topic.subject);
       // 変化検知の existingText は対象 fact 全部の Text を改行区切りで連結する
       // （インターフェース `hasChanged(existingText, fresh)` は変更しない）。
-      const existingText = targetFacts.map((f) => f.Text).join('\n');
+      const existingText = targetFacts.map((f) => f.text).join('\n');
 
       const bumpAllNextReview = async (): Promise<void> => {
         for (const fact of targetFacts) {
           try {
             await topicRepo.updateWebFactNextReview(
-              { userId, characterId, topicId: fact.TopicID, factId: fact.FactID },
-              computeNextReview(fact.Volatility as 'low' | 'medium' | 'high', nowMs)
+              { userId, characterId, topicId: fact.topicId, factId: fact.factId },
+              computeNextReview(fact.volatility as 'low' | 'medium' | 'high', nowMs)
             );
             staleFactsReviewed++;
           } catch (bumpErr) {
             logger.warn('[acquire] 鮮度切れ fact の NextReview 前進に失敗しました', {
               userId,
               characterId,
-              topicId: fact.TopicID,
-              factId: fact.FactID,
+              topicId: fact.topicId,
+              factId: fact.factId,
               err: toErrorMessage(bumpErr),
             });
           }
@@ -448,12 +448,12 @@ export async function acquireForUser(
 
         if (changed) {
           await webRawRepo.put({
-            UserID: userId,
-            CharacterID: characterId,
-            Query: query,
-            RawText: result.summary,
-            SourceUrls: result.sourceUrls,
-            Origin: 'stale',
+            userId,
+            characterId,
+            query,
+            rawText: result.summary,
+            sourceUrls: result.sourceUrls,
+            origin: 'stale',
           });
           webRawWritten++;
           staleChanged++;
@@ -503,8 +503,8 @@ export async function acquireForUser(
       // now - ACQUIRE_SELF_STUDY_COOLDOWN_MS 以降）なら自発リサーチをスキップする。
       // 揮発 fact の鮮度追随は GSI-STALE 経路が別途担うため、ここでは穴埋めに限定する。
       try {
-        const webFacts = await topicRepo.listWebFacts(userId, characterId, header.TopicID);
-        const latestObservedAt = webFacts.reduce((max, f) => Math.max(max, f.ObservedAt), 0);
+        const webFacts = await topicRepo.listWebFacts(userId, characterId, header.topicId);
+        const latestObservedAt = webFacts.reduce((max, f) => Math.max(max, f.observedAt), 0);
         if (latestObservedAt > 0 && nowMs - latestObservedAt < ACQUIRE_SELF_STUDY_COOLDOWN_MS) {
           continue;
         }
@@ -513,22 +513,22 @@ export async function acquireForUser(
         logger.warn('[acquire] care 自発リサーチのクールダウン判定に失敗しました（続行）', {
           userId,
           characterId,
-          topicId: header.TopicID,
+          topicId: header.topicId,
           err: toErrorMessage(err),
         });
       }
 
       try {
-        const query = buildLatestInfoQuery(header.Subject);
+        const query = buildLatestInfoQuery(header.subject);
         const result = await researchClient.research(query, character);
 
         await webRawRepo.put({
-          UserID: userId,
-          CharacterID: characterId,
-          Query: query,
-          RawText: result.summary,
-          SourceUrls: result.sourceUrls,
-          Origin: 'auto',
+          userId,
+          characterId,
+          query,
+          rawText: result.summary,
+          sourceUrls: result.sourceUrls,
+          origin: 'auto',
         });
         webRawWritten++;
         selfStudied++;
@@ -537,8 +537,8 @@ export async function acquireForUser(
         logger.warn('[acquire] care 自発リサーチに失敗しました（スキップして継続）', {
           userId,
           characterId,
-          topicId: header.TopicID,
-          subject: header.Subject,
+          topicId: header.topicId,
+          subject: header.subject,
           err: toErrorMessage(err),
         });
       }

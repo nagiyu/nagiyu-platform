@@ -264,7 +264,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
 
   // 1b. 会話履歴取得：集約カーソル（MsgCursor）以降のみ（未集約分＝ライブ文脈）
   //     カーソル不在（未指定・初回未集約・取得失敗）の場合は sinceMs=0 で全件取得（fallback）
-  const sinceMs = cursor?.MsgCursor ?? 0;
+  const sinceMs = cursor?.msgCursor ?? 0;
   const history = await messageRepository.listSince(userId, characterId, sinceMs);
 
   // Lifecycle 状態を解決（fail-warn: 取得失敗時はデフォルト値）
@@ -457,8 +457,8 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     const retrievalTokens = retrievedTopics.reduce(
       (sum, rt) =>
         sum +
-        rt.selfFacts.reduce((s, f) => s + counter.countTokens(f.Text), 0) +
-        rt.webFacts.reduce((s, f) => s + counter.countTokens(f.Text), 0),
+        rt.selfFacts.reduce((s, f) => s + counter.countTokens(f.text), 0) +
+        rt.webFacts.reduce((s, f) => s + counter.countTokens(f.text), 0),
       0
     );
     const messageTokens =

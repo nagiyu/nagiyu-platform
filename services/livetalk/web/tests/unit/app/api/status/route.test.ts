@@ -83,7 +83,7 @@ const makeNotifEventRepo = () =>
 
 const makeStudyTopicRepo = (pendingCount = 0) =>
   ({
-    listByStatus: jest.fn(async () => Array(pendingCount).fill({ TopicID: 't1' })),
+    listByStatus: jest.fn(async () => Array(pendingCount).fill({ topicId: 't1' })),
   }) as unknown as StudyTopicRepository;
 
 const makeMessageRepo = () =>
