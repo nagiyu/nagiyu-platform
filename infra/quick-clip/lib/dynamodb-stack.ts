@@ -18,7 +18,8 @@ export class DynamoDBStack extends cdk.Stack {
       partitionKey: { name: 'PK', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'SK', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      timeToLiveAttribute: 'TTL',
+      // TTL 属性名は有効なままでは変えられないため、いったん指定を外して無効化する。
+      // 無効化が反映されたあとの別のデプロイで、新しい属性名 TTL で有効化する。
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
