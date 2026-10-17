@@ -6,12 +6,12 @@
  *
  * - MODIFY / REMOVE は無視
  * - Push 送信は既存の WebPushSender を流用（購読は admin の DynamoDB にある）
- * - data.url は `/errors/{eventId}?at={occurredAt}&serviceId={serviceId}` を指す
+ * - data.url は `/errors/{eventId}?at={occurredAt (epoch ミリ秒)}&serviceId={serviceId}` を指す
  */
 
 import { unmarshall } from '@aws-sdk/util-dynamodb';
 import type { ErrorEvent } from '@nagiyu/common';
-import { getDynamoDBDocumentClient, parseErrorEventItem } from '@nagiyu/aws';
+import { ErrorEventMapper, getDynamoDBDocumentClient } from '@nagiyu/aws';
 import {
   createPushSubscriptionRepository,
   WebPushSender,
@@ -42,6 +42,8 @@ export type HandlerResponse = {
   skipped: number;
 };
 
+const errorEventMapper = new ErrorEventMapper();
+
 function getSubscriptionRepository() {
   const tableName = process.env.DYNAMODB_TABLE_NAME;
   if (!tableName) {
@@ -63,7 +65,7 @@ function getWebPushSender(): WebPushSender {
  *   例外にして Lambda の Errors アラームで検知できるようにする。
  */
 export function unmarshallErrorEvent(newImage: Record<string, unknown>): ErrorEvent {
-  return parseErrorEventItem(unmarshall(newImage as Parameters<typeof unmarshall>[0]));
+  return errorEventMapper.toEntity(unmarshall(newImage as Parameters<typeof unmarshall>[0]));
 }
 
 /**
@@ -71,7 +73,7 @@ export function unmarshallErrorEvent(newImage: Record<string, unknown>): ErrorEv
  */
 export function buildPushPayload(event: ErrorEvent, appUrl: string): PushNotificationPayload {
   const params = new URLSearchParams({
-    at: event.occurredAt,
+    at: String(event.occurredAt),
     serviceId: event.serviceId,
   });
   const detailPath = `/errors/${encodeURIComponent(event.eventId)}?${params.toString()}`;

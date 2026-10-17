@@ -5,6 +5,7 @@
  */
 
 import { NextRequest } from 'next/server';
+import { EntityNotFoundError } from '@nagiyu/aws';
 import { DELETE, GET } from '../../../../../src/app/api/users/[userId]/route';
 
 const mockGetSession = jest.fn();
@@ -19,7 +20,6 @@ jest.mock('@nagiyu/auth-core', () => ({
     getUserById: (...args: unknown[]) => mockGetUserById(...args),
     deleteUser: (...args: unknown[]) => mockDeleteUser(...args),
   })),
-  UserNotFoundError: class UserNotFoundError extends Error {},
 }));
 
 jest.mock('@nagiyu/aws', () => ({
@@ -136,6 +136,15 @@ describe('DELETE /api/users/[userId]', () => {
 
     expect(response.status).toBe(200);
     expect(mockDeleteUser).toHaveBeenCalledWith('user-456');
+  });
+
+  it('削除対象のユーザーが存在しない場合は 404 を返す', async () => {
+    mockDeleteUser.mockRejectedValue(new EntityNotFoundError('User', 'user-456'));
+
+    const response = await DELETE(createRequest('DELETE'), context);
+
+    expect(response.status).toBe(404);
+    expect(mockReportErrorEvent).not.toHaveBeenCalled();
   });
 
   it('リポジトリでエラーが起きた場合は 500 を返しエラーイベントを送る', async () => {

@@ -126,15 +126,15 @@ export const GET = withApiErrorReporting(
         title: video.title,
         thumbnailUrl: video.thumbnailUrl,
         length: video.length,
-        createdAt: video.CreatedAt,
+        createdAt: video.createdAt,
         userSetting: video.userSetting
           ? {
               videoId: video.videoId,
               isFavorite: video.userSetting.isFavorite,
               isSkip: video.userSetting.isSkip,
               memo: video.userSetting.memo,
-              createdAt: video.userSetting.CreatedAt,
-              updatedAt: video.userSetting.UpdatedAt,
+              createdAt: video.userSetting.createdAt,
+              updatedAt: video.userSetting.updatedAt,
             }
           : undefined,
       }));

@@ -67,7 +67,7 @@ export interface VideoBasicInfo {
   title: string;
   thumbnailUrl: string;
   length: string;
-  CreatedAt: number;
+  createdAt: number;
   videoUpdatedAt?: number;
 }
 
@@ -81,8 +81,8 @@ export interface UserVideoSetting {
   isFavorite: boolean;
   isSkip: boolean;
   memo?: string;
-  CreatedAt: number;
-  UpdatedAt: number;
+  createdAt: number;
+  updatedAt: number;
 }
 
 /**
@@ -117,12 +117,12 @@ export interface VideoSettingUpdate {
 /**
  * 動画基本情報作成用型（createdAt を除く）
  */
-export type CreateVideoBasicInfoInput = Omit<VideoBasicInfo, 'CreatedAt'>;
+export type CreateVideoBasicInfoInput = Omit<VideoBasicInfo, 'createdAt'>;
 
 /**
  * ユーザー設定作成用型（createdAt/updatedAt を除く）
  */
-export type CreateUserSettingInput = Omit<UserVideoSetting, 'CreatedAt' | 'UpdatedAt'>;
+export type CreateUserSettingInput = Omit<UserVideoSetting, 'createdAt' | 'updatedAt'>;
 
 /**
  * バッチジョブステータス

@@ -1,3 +1,4 @@
+import { EntityNotFoundError } from '@nagiyu/aws';
 import type { ListRepository } from '../repositories/list/list-repository.interface.js';
 import type { TodoRepository } from '../repositories/todo/todo-repository.interface.js';
 import type { PersonalList } from '../types/index.js';
@@ -10,11 +11,6 @@ const ERROR_MESSAGES = {
   PERSONAL_LIST_NOT_FOUND: '個人リストが見つかりません',
   DEFAULT_LIST_NOT_DELETABLE: 'デフォルトリストは削除できません',
 } as const;
-
-const PERSONAL_LIST_NOT_FOUND_MESSAGES = new Set([
-  '個人リストが見つかりません',
-  '指定された個人リストは存在しません',
-]);
 
 export class ListService {
   private readonly listRepository: ListRepository;
@@ -122,7 +118,7 @@ export class ListService {
   }
 
   private rethrowPersonalListNotFoundError(error: unknown): void {
-    if (error instanceof Error && PERSONAL_LIST_NOT_FOUND_MESSAGES.has(error.message)) {
+    if (error instanceof EntityNotFoundError) {
       throw new Error(ERROR_MESSAGES.PERSONAL_LIST_NOT_FOUND);
     }
   }

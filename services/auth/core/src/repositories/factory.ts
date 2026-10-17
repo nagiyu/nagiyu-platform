@@ -1,20 +1,23 @@
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { registerDynamoRepositories } from '@nagiyu/aws';
+import { InMemorySingleTableStore, registerDynamoRepositories } from '@nagiyu/aws';
 import { DynamoDBUserRepository } from './dynamodb-user-repository';
 import { InMemoryUserRepository } from './in-memory-user-repository';
 import type { UserRepository } from './user-repository';
 
-const userRegistry = registerDynamoRepositories<{
-  user: UserRepository;
-}>(
+const userRegistry = registerDynamoRepositories<
+  {
+    user: UserRepository;
+  },
+  InMemorySingleTableStore
+>(
   {
     user: {
-      createInMemoryRepository: () => new InMemoryUserRepository(),
+      createInMemoryRepository: (store) => new InMemoryUserRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBUserRepository(docClient, tableName),
     },
   },
-  { keyPrefix: 'auth' }
+  { keyPrefix: 'auth', createSharedStore: () => new InMemorySingleTableStore() }
 );
 
 /**

@@ -12,9 +12,9 @@ import type { ErrorEvent } from '@nagiyu/common';
 export type ListErrorEventsQuery = {
   /** サービス ID で絞り込み（未指定なら全サービス） */
   serviceId?: string;
-  /** 開始時刻（ISO-8601、含む） */
+  /** 開始時刻（ISO-8601、含む）。SK の範囲比較に使うため ISO 文字列で受ける */
   from?: string;
-  /** 終了時刻（ISO-8601、含む） */
+  /** 終了時刻（ISO-8601、含む）。SK の範囲比較に使うため ISO 文字列で受ける */
   to?: string;
   /** 1 ページの最大件数（既定 50、最大 100） */
   limit?: number;
@@ -41,10 +41,12 @@ export interface ErrorEventReader {
   list(query: ListErrorEventsQuery): Promise<ListErrorEventsResult>;
 
   /**
-   * eventId と occurredAt を指定して 1 件取得する。
+   * eventId と occurredAt (epoch ミリ秒) を指定して 1 件取得する。
    * 該当が無い、もしくは TTL で削除済みの場合は null を返す。
+   *
+   * @throws InvalidEntityDataError 保存データが読めないとき
    */
-  findById(eventId: string, occurredAt: string, serviceId: string): Promise<ErrorEvent | null>;
+  findById(eventId: string, occurredAt: number, serviceId: string): Promise<ErrorEvent | null>;
 }
 
 /**
@@ -59,7 +61,21 @@ export const MAX_LIST_LIMIT = 100;
 
 const ERROR_MESSAGES = {
   INVALID_CURSOR: 'cursor が不正な形式です',
+  INVALID_RANGE: 'from は to よりも前の時刻である必要があります',
 } as const;
+
+/**
+ * from が to より後の範囲指定を拒否する。
+ *
+ * 実装ごとに判定がずれないよう、DynamoDB 版と in-memory 版で共有する。
+ *
+ * @throws Error from が to より後のとき
+ */
+export function assertValidRange(query: Pick<ListErrorEventsQuery, 'from' | 'to'>): void {
+  if (query.from && query.to && Date.parse(query.from) > Date.parse(query.to)) {
+    throw new Error(ERROR_MESSAGES.INVALID_RANGE);
+  }
+}
 
 /**
  * 不透明な cursor 文字列に DynamoDB の LastEvaluatedKey をエンコードする。

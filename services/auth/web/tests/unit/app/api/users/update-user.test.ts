@@ -4,7 +4,7 @@
  * @jest-environment node
  */
 
-import { UserNotFoundError } from '@nagiyu/auth-core';
+import { EntityNotFoundError } from '@nagiyu/aws';
 import { PATCH } from '../../../../../src/app/api/users/[userId]/route';
 import { USER_VALIDATION_ERROR_MESSAGES } from '../../../../../src/app/api/users/schemas';
 
@@ -18,12 +18,6 @@ jest.mock('@nagiyu/auth-core', () => ({
   createUserRepository: jest.fn(() => ({
     updateUser: (...args: unknown[]) => mockUpdateUser(...args),
   })),
-  UserNotFoundError: class UserNotFoundError extends Error {
-    constructor(userId: string) {
-      super(`ユーザーが見つかりません: ${userId}`);
-      this.name = 'UserNotFoundError';
-    }
-  },
 }));
 
 jest.mock('@nagiyu/aws', () => ({
@@ -106,7 +100,7 @@ describe('PATCH /api/users/[userId]', () => {
     });
 
     it('ユーザーが存在しない場合は 404 を返す', async () => {
-      mockUpdateUser.mockRejectedValue(new UserNotFoundError('user-456'));
+      mockUpdateUser.mockRejectedValue(new EntityNotFoundError('User', 'user-456'));
 
       const response = await patchJson({ name: '新しい名前' });
 

@@ -116,8 +116,8 @@ describe('/api/lists/[listId] route handlers', () => {
       userId: 'user-1',
       name: '買い物',
       isDefault: false,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-02T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767312000000,
     });
 
     const response = await GET({} as Request, createContext());
@@ -130,8 +130,8 @@ describe('/api/lists/[listId] route handlers', () => {
         userId: 'user-1',
         name: '買い物',
         isDefault: false,
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-02T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767312000000,
       },
     });
   });
@@ -145,8 +145,8 @@ describe('/api/lists/[listId] route handlers', () => {
       userId: 'user-1',
       name: '仕事',
       isDefault: false,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-02T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767312000000,
     });
 
     const response = await PUT(createRequest({ name: '仕事' }), createContext());
@@ -159,8 +159,8 @@ describe('/api/lists/[listId] route handlers', () => {
         userId: 'user-1',
         name: '仕事',
         isDefault: false,
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-02T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767312000000,
       },
     });
   });
