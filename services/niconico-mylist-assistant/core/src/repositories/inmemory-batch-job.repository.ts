@@ -4,14 +4,11 @@
  * テスト用のインメモリ実装
  */
 
-import {
-  InMemorySingleTableStore,
-  EntityAlreadyExistsError,
-  EntityNotFoundError,
-} from '@nagiyu/aws';
+import { InMemoryEntityStore, type EntityStore, type InMemorySingleTableStore } from '@nagiyu/aws';
 import type { BatchJobRepository } from './batch-job.repository.interface.js';
 import type {
   BatchJobEntity,
+  BatchJobKey,
   CreateBatchJobInput,
   UpdateBatchJobInput,
 } from '../entities/batch-job.entity.js';
@@ -20,29 +17,21 @@ import { BatchJobMapper } from '../mappers/batch-job.mapper.js';
 /**
  * InMemory BatchJob Repository
  *
- * テスト用のインメモリバッチジョブリポジトリの実装
+ * 単一アイテムの CRUD をすべて EntityStore に任せる。
+ * テスト環境で使用
  */
 export class InMemoryBatchJobRepository implements BatchJobRepository {
-  private readonly mapper: BatchJobMapper;
-  private readonly store: InMemorySingleTableStore;
+  private readonly entityStore: EntityStore<BatchJobEntity, BatchJobKey>;
 
   constructor(store: InMemorySingleTableStore) {
-    this.store = store;
-    this.mapper = new BatchJobMapper();
+    this.entityStore = new InMemoryEntityStore(store, new BatchJobMapper());
   }
 
   /**
    * ジョブIDとユーザーIDで単一のバッチジョブを取得
    */
   public async getById(jobId: string, userId: string): Promise<BatchJobEntity | null> {
-    const { pk, sk } = this.mapper.buildKeys({ jobId, userId });
-    const item = this.store.get(pk, sk);
-
-    if (!item) {
-      return null;
-    }
-
-    return this.mapper.toEntity(item);
+    return this.entityStore.get({ jobId, userId });
   }
 
   /**
@@ -50,76 +39,32 @@ export class InMemoryBatchJobRepository implements BatchJobRepository {
    */
   public async create(input: CreateBatchJobInput): Promise<BatchJobEntity> {
     const now = Date.now();
-    const entity: BatchJobEntity = {
-      ...input,
-      CreatedAt: now,
-      UpdatedAt: now,
-    };
-
-    const item = this.mapper.toItem(entity);
-    const { pk, sk } = this.mapper.buildKeys({ jobId: input.jobId, userId: input.userId });
-
-    // 既存チェック
-    const existingItem = this.store.get(pk, sk);
-    if (existingItem) {
-      throw new EntityAlreadyExistsError('BatchJob', `${input.jobId}#${input.userId}`);
-    }
-
-    this.store.put(item);
-    return entity;
+    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
+    return this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
   }
 
   /**
-   * バッチジョブのステータスを更新
+   * バッチジョブを更新
    */
   public async update(
     jobId: string,
     userId: string,
     input: UpdateBatchJobInput
   ): Promise<BatchJobEntity> {
-    const { pk, sk } = this.mapper.buildKeys({ jobId, userId });
-    const existingItem = this.store.get(pk, sk);
-
-    if (!existingItem) {
-      throw new EntityNotFoundError('BatchJob', `${jobId}#${userId}`);
-    }
-
-    const existingEntity = this.mapper.toEntity(existingItem);
-    const attributes = this.mapper.buildUpdateAttributes(input);
-
-    // 更新されたエンティティを構築
-    const updatedEntity: BatchJobEntity = {
-      ...existingEntity,
-      status: attributes.status as BatchJobEntity['status'],
-      UpdatedAt: attributes.UpdatedAt as number,
-    };
-
-    if (attributes.result !== undefined) {
-      updatedEntity.result = attributes.result as BatchJobEntity['result'];
-    }
-
-    if (attributes.CompletedAt !== undefined) {
-      updatedEntity.CompletedAt = attributes.CompletedAt as number;
-    }
-
-    if (attributes.twoFactorAuthCode !== undefined) {
-      updatedEntity.twoFactorAuthCode = attributes.twoFactorAuthCode as string;
-    } else if (input.twoFactorAuthCode === undefined && existingEntity.twoFactorAuthCode) {
-      // twoFactorAuthCode が明示的に undefined で渡された場合、削除する
-      delete updatedEntity.twoFactorAuthCode;
-    }
-
-    const updatedItem = this.mapper.toItem(updatedEntity);
-    this.store.put(updatedItem);
-
-    return updatedEntity;
+    return this.entityStore.update({ jobId, userId }, input);
   }
 
   /**
    * バッチジョブを削除
    */
   public async delete(jobId: string, userId: string): Promise<void> {
-    const { pk, sk } = this.mapper.buildKeys({ jobId, userId });
-    this.store.delete(pk, sk);
+    await this.entityStore.delete({ jobId, userId });
+  }
+
+  /**
+   * バッチジョブを削除する。対象がなくても成功する
+   */
+  public async deleteIfExists(jobId: string, userId: string): Promise<void> {
+    await this.entityStore.deleteIfExists({ jobId, userId });
   }
 }

@@ -29,7 +29,7 @@ describe('JobService', () => {
     expect(createdJob.batchJobId).toBeUndefined();
     expect(createdJob.batchStage).toBeUndefined();
     expect(createdJob.fileSize).toBe(1024);
-    expect(createdJob.expiresAt).toBe(createdJob.createdAt + 24 * 60 * 60);
+    expect(createdJob.expiresAt).toBe(createdJob.createdAt + 24 * 60 * 60 * 1000);
 
     expect(result).toEqual(createdJob);
   });

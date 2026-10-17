@@ -1,3 +1,4 @@
+import { EntityNotFoundError } from '@nagiyu/aws';
 import { TodoService } from '../../../src/libs/todo.js';
 import type { TodoRepository } from '../../../src/repositories/todo/todo-repository.interface.js';
 import type { TodoItem } from '../../../src/types/index.js';
@@ -22,8 +23,8 @@ describe('TodoService', () => {
     todoRepository.create.mockImplementation(async (input) => {
       return {
         ...input,
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       };
     });
 
@@ -74,8 +75,8 @@ describe('TodoService', () => {
       isCompleted: true,
       createdBy: 'user-1',
       completedBy: 'user-2',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     };
     todoRepository.update.mockResolvedValue(updatedTodo);
 
@@ -88,22 +89,22 @@ describe('TodoService', () => {
     });
   });
 
-  it('ToDo未完了化時はcompletedByを削除する', async () => {
+  it('ToDo未完了化時はcompletedByにnullを渡して削除を指示する', async () => {
     todoRepository.update.mockResolvedValue({
       todoId: 'todo-1',
       listId: 'list-1',
       title: '牛乳を買う',
       isCompleted: false,
       createdBy: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     await todoService.updateTodo('list-1', 'todo-1', { isCompleted: false }, 'user-2');
 
     expect(todoRepository.update).toHaveBeenCalledWith('list-1', 'todo-1', {
       isCompleted: false,
-      completedBy: undefined,
+      completedBy: null,
     });
   });
 
@@ -115,11 +116,19 @@ describe('TodoService', () => {
   });
 
   it('存在しないToDo更新エラーを統一メッセージに変換する', async () => {
-    todoRepository.update.mockRejectedValue(new Error('指定されたToDoは存在しません'));
+    todoRepository.update.mockRejectedValue(new EntityNotFoundError('TodoItem', 'list-1/todo-404'));
 
     await expect(
       todoService.updateTodo('list-1', 'todo-404', { title: '更新後' }, 'user-1')
     ).rejects.toThrow('ToDoが見つかりません');
+  });
+
+  it('メッセージが同じでも EntityNotFoundError 以外は変換しない', async () => {
+    todoRepository.update.mockRejectedValue(new Error('指定されたToDoは存在しません'));
+
+    await expect(
+      todoService.updateTodo('list-1', 'todo-404', { title: '更新後' }, 'user-1')
+    ).rejects.toThrow('指定されたToDoは存在しません');
   });
 
   it('存在しないToDo以外の更新エラーはそのまま送出する', async () => {
@@ -130,7 +139,7 @@ describe('TodoService', () => {
   });
 
   it('存在しないToDo削除エラーを統一メッセージに変換する', async () => {
-    todoRepository.delete.mockRejectedValue(new Error('指定されたToDoは存在しません'));
+    todoRepository.delete.mockRejectedValue(new EntityNotFoundError('TodoItem', 'list-1/todo-404'));
 
     await expect(todoService.deleteTodo('list-1', 'todo-404')).rejects.toThrow(
       'ToDoが見つかりません'
@@ -152,8 +161,8 @@ describe('TodoService', () => {
         title: '牛乳を買う',
         isCompleted: false,
         createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       },
     ];
     todoRepository.getByListId.mockResolvedValue(todos);

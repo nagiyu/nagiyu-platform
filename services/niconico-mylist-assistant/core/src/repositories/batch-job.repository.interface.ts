@@ -29,17 +29,17 @@ export interface BatchJobRepository {
    * 新しいバッチジョブを作成
    *
    * @param input - バッチジョブデータ
-   * @returns 作成されたバッチジョブエンティティ（CreatedAt/UpdatedAtを含む）
+   * @returns 作成されたバッチジョブエンティティ（createdAt/updatedAtを含む）
    * @throws {EntityAlreadyExistsError} 既に同じjobIdのジョブが存在する場合
    */
   create(input: CreateBatchJobInput): Promise<BatchJobEntity>;
 
   /**
-   * バッチジョブのステータスを更新
+   * バッチジョブを更新
    *
    * @param jobId - ジョブID
    * @param userId - ユーザーID
-   * @param input - 更新データ
+   * @param input - 更新データ (undefined は変更なし、null は属性削除)
    * @returns 更新されたバッチジョブエンティティ
    * @throws {EntityNotFoundError} ジョブが存在しない場合
    */
@@ -50,6 +50,15 @@ export interface BatchJobRepository {
    *
    * @param jobId - ジョブID
    * @param userId - ユーザーID
+   * @throws {EntityNotFoundError} ジョブが存在しない場合
    */
   delete(jobId: string, userId: string): Promise<void>;
+
+  /**
+   * バッチジョブを削除する。対象がなくても成功する
+   *
+   * @param jobId - ジョブID
+   * @param userId - ユーザーID
+   */
+  deleteIfExists(jobId: string, userId: string): Promise<void>;
 }

@@ -1,44 +1,41 @@
+import { InMemoryEntityStore, InMemorySingleTableStore, type EntityStore } from '@nagiyu/aws';
 import type { CreateTodoItemInput, TodoItem, UpdateTodoItemInput } from '../../types/index.js';
 import type { TodoRepository } from './todo-repository.interface.js';
+import {
+  TodoItemMapper,
+  TODO_SK_PREFIX,
+  buildTodoPk,
+  type TodoItemKey,
+} from './todo-item-mapper.js';
 
-const ERROR_MESSAGES = {
-  TODO_NOT_FOUND: 'ToDoが見つかりません',
-  TODO_ALREADY_EXISTS: 'ToDoは既に存在します',
-} as const;
-
+/**
+ * InMemory Todo Repository
+ *
+ * 単一アイテムの CRUD は EntityStore に任せ、一覧の Query と一括削除だけを自前で持つ。
+ * テスト環境で使用する。
+ */
 export class InMemoryTodoRepository implements TodoRepository {
-  private readonly todosByListId = new Map<string, Map<string, TodoItem>>();
+  private readonly tableStore: InMemorySingleTableStore;
+  private readonly mapper = new TodoItemMapper();
+  private readonly store: EntityStore<TodoItem, TodoItemKey>;
+
+  constructor(store: InMemorySingleTableStore = new InMemorySingleTableStore()) {
+    this.tableStore = store;
+    this.store = new InMemoryEntityStore(store, this.mapper);
+  }
 
   public async getByListId(listId: string): Promise<TodoItem[]> {
-    const todosInList = this.todosByListId.get(listId);
-    if (!todosInList) {
-      return [];
-    }
-
-    return Array.from(todosInList.values(), (todo) => ({ ...todo }));
+    return this.queryByListId(listId).map((item) => this.mapper.toEntity(item));
   }
 
   public async getById(listId: string, todoId: string): Promise<TodoItem | null> {
-    const todo = this.todosByListId.get(listId)?.get(todoId);
-    return todo ? { ...todo } : null;
+    return this.store.get({ listId, todoId });
   }
 
   public async create(input: CreateTodoItemInput): Promise<TodoItem> {
-    const todosInList = this.getOrCreateList(input.listId);
-
-    if (todosInList.has(input.todoId)) {
-      throw new Error(ERROR_MESSAGES.TODO_ALREADY_EXISTS);
-    }
-
-    const now = new Date().toISOString();
-    const todo: TodoItem = {
-      ...input,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    todosInList.set(todo.todoId, todo);
-    return { ...todo };
+    const now = Date.now();
+    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
+    return this.store.create({ ...input, createdAt: now, updatedAt: now });
   }
 
   public async update(
@@ -46,50 +43,25 @@ export class InMemoryTodoRepository implements TodoRepository {
     todoId: string,
     updates: UpdateTodoItemInput
   ): Promise<TodoItem> {
-    const todosInList = this.todosByListId.get(listId);
-    if (!todosInList) {
-      throw new Error(ERROR_MESSAGES.TODO_NOT_FOUND);
-    }
-
-    const existingTodo = todosInList.get(todoId);
-    if (!existingTodo) {
-      throw new Error(ERROR_MESSAGES.TODO_NOT_FOUND);
-    }
-
-    const updatedTodo: TodoItem = {
-      ...existingTodo,
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    };
-
-    todosInList.set(todoId, updatedTodo);
-    return { ...updatedTodo };
+    return this.store.update({ listId, todoId }, updates);
   }
 
   public async delete(listId: string, todoId: string): Promise<void> {
-    const todosInList = this.todosByListId.get(listId);
-    if (!todosInList) {
-      return;
-    }
-
-    todosInList.delete(todoId);
-    if (todosInList.size === 0) {
-      this.todosByListId.delete(listId);
-    }
+    await this.store.delete({ listId, todoId });
   }
 
   public async deleteByListId(listId: string): Promise<void> {
-    this.todosByListId.delete(listId);
+    for (const item of this.queryByListId(listId)) {
+      this.tableStore.delete(String(item['PK']), String(item['SK']));
+    }
   }
 
-  private getOrCreateList(listId: string): Map<string, TodoItem> {
-    const existingTodosInList = this.todosByListId.get(listId);
-    if (existingTodosInList) {
-      return existingTodosInList;
-    }
-
-    const newTodosInList = new Map<string, TodoItem>();
-    this.todosByListId.set(listId, newTodosInList);
-    return newTodosInList;
+  private queryByListId(listId: string): Record<string, unknown>[] {
+    // 既定の件数上限で打ち切られないよう、実 DynamoDB の全ページ取得に合わせて上限を外す
+    const { items } = this.tableStore.query(
+      { pk: buildTodoPk(listId), sk: { operator: 'begins_with', value: TODO_SK_PREFIX } },
+      { limit: Number.MAX_SAFE_INTEGER }
+    );
+    return items;
   }
 }

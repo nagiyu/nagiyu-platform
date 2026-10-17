@@ -7,6 +7,7 @@ jest.mock('uuid', () => ({
 }));
 
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
   getAwsClients: jest.fn(),
   reportErrorEvent: jest.fn(),
   createPresignedUploadUrl: jest.fn(),
@@ -17,6 +18,8 @@ const mockedReportErrorEvent = reportErrorEvent as jest.MockedFunction<typeof re
 const mockedCreatePresignedUploadUrl = createPresignedUploadUrl as jest.MockedFunction<
   typeof createPresignedUploadUrl
 >;
+
+const NOW = 1704067200000;
 
 const validBody = {
   fileName: 'movie.mp4',
@@ -45,6 +48,7 @@ describe('POST /api/jobs', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] }).setSystemTime(NOW);
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockedGetAwsClients.mockReturnValue({
       docClient: { send: dynamoSend },
@@ -56,6 +60,7 @@ describe('POST /api/jobs', () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     consoleErrorSpy.mockRestore();
   });
 
@@ -69,7 +74,21 @@ describe('POST /api/jobs', () => {
       expiresIn: 3600,
     });
     expect(dynamoSend).toHaveBeenCalledTimes(1);
-    expect(dynamoSend.mock.calls[0][0]).toBeInstanceOf(PutCommand);
+    const putCommand = dynamoSend.mock.calls[0][0] as PutCommand;
+    expect(putCommand).toBeInstanceOf(PutCommand);
+    // 保存形式: PascalCase の属性、時刻はミリ秒、TTL はエポック秒
+    expect(putCommand.input.Item).toMatchObject({
+      jobId: 'job-uuid-1',
+      Type: 'Job',
+      Status: 'PENDING',
+      InputFile: 'uploads/job-uuid-1/input.mp4',
+      OutputCodec: 'h264',
+      FileName: 'movie.mp4',
+      FileSize: 1024,
+      CreatedAt: NOW,
+      UpdatedAt: NOW,
+      TTL: Math.floor(NOW / 1000) + 86400,
+    });
     expect(mockedCreatePresignedUploadUrl).toHaveBeenCalledTimes(1);
     expect(mockedReportErrorEvent).not.toHaveBeenCalled();
   });

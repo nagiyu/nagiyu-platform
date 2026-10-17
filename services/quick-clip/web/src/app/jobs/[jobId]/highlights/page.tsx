@@ -445,7 +445,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
         {expiresAt !== null && (
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             {INFO_MESSAGES.EXPIRES_AT_PREFIX}
-            {new Date(expiresAt * 1000).toLocaleString('ja-JP')}
+            {new Date(expiresAt).toLocaleString('ja-JP')}
           </Typography>
         )}
 

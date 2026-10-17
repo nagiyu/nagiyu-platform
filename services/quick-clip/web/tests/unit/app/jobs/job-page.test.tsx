@@ -28,7 +28,7 @@ describe('JobPage', () => {
         status: 'COMPLETED',
         originalFileName: 'movie.mp4',
         fileSize: 1024,
-        createdAt: 1,
+        createdAt: 1700000000000 - 86400000,
         expiresAt: 2,
       }),
     }) as jest.Mock;
@@ -52,7 +52,7 @@ describe('JobPage', () => {
         status: 'COMPLETED',
         originalFileName: 'movie.mp4',
         fileSize: 1024,
-        createdAt: 1,
+        createdAt: 1700000000000 - 86400000,
         expiresAt: 2,
       }),
     }) as jest.Mock;
@@ -78,7 +78,7 @@ describe('JobPage', () => {
         status: 'FAILED',
         originalFileName: 'movie.mp4',
         fileSize: 1024,
-        createdAt: 1,
+        createdAt: 1700000000000 - 86400000,
         expiresAt: 2,
         errorMessage: '処理に失敗しました',
       }),
@@ -102,8 +102,8 @@ describe('JobPage', () => {
         status: 'COMPLETED',
         originalFileName: 'movie.mp4',
         fileSize: 1024,
-        createdAt: 1,
-        expiresAt: 1700000000,
+        createdAt: 1700000000000 - 86400000,
+        expiresAt: 1700000000000,
       }),
     }) as jest.Mock;
 
@@ -125,8 +125,8 @@ describe('JobPage', () => {
         status: 'PROCESSING',
         originalFileName: 'movie.mp4',
         fileSize: 1024,
-        createdAt: 1,
-        expiresAt: 1700000000,
+        createdAt: 1700000000000 - 86400000,
+        expiresAt: 1700000000000,
         batchStage: 'analyzing',
       }),
     }) as jest.Mock;
@@ -147,8 +147,8 @@ describe('JobPage', () => {
         status: 'PROCESSING',
         originalFileName: 'movie.mp4',
         fileSize: 1024,
-        createdAt: 1,
-        expiresAt: 1700000000,
+        createdAt: 1700000000000 - 86400000,
+        expiresAt: 1700000000000,
       }),
     }) as jest.Mock;
 
@@ -156,6 +156,12 @@ describe('JobPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/データの有効期限:/)).toBeInTheDocument();
+      // expiresAt はミリ秒として扱う (秒として 1000 倍すると遠い未来の日付になる)
+      expect(
+        screen.getByText(
+          new RegExp(new Date(1700000000000).toLocaleString('ja-JP').replace(/\//g, '\\/'))
+        )
+      ).toBeInTheDocument();
     });
   });
 
@@ -168,8 +174,8 @@ describe('JobPage', () => {
         status: 'PROCESSING',
         originalFileName: 'movie.mp4',
         fileSize: 1024,
-        createdAt: 1,
-        expiresAt: 1700000000,
+        createdAt: 1700000000000 - 86400000,
+        expiresAt: 1700000000000,
       }),
     }) as jest.Mock;
 
@@ -191,8 +197,8 @@ describe('JobPage', () => {
         status: 'PROCESSING',
         originalFileName: 'movie.mp4',
         fileSize: 1024,
-        createdAt: 1,
-        expiresAt: 1700000000,
+        createdAt: 1700000000000 - 86400000,
+        expiresAt: 1700000000000,
         batchStage: 'analyzing',
         analysisProgress: {
           motion: { status: 'done' },
@@ -220,8 +226,8 @@ describe('JobPage', () => {
         status: 'PROCESSING',
         originalFileName: 'movie.mp4',
         fileSize: 1024,
-        createdAt: 1,
-        expiresAt: 1700000000,
+        createdAt: 1700000000000 - 86400000,
+        expiresAt: 1700000000000,
         batchStage: 'analyzing',
         analysisProgress: {
           motion: { status: 'done' },
@@ -248,8 +254,8 @@ describe('JobPage', () => {
         status: 'PROCESSING',
         originalFileName: 'movie.mp4',
         fileSize: 1024,
-        createdAt: 1,
-        expiresAt: 1700000000,
+        createdAt: 1700000000000 - 86400000,
+        expiresAt: 1700000000000,
         batchStage: 'analyzing',
         analysisProgress: {
           motion: { status: 'done' },

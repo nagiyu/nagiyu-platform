@@ -4,49 +4,27 @@
  * Single Table Design の規約に従い、エラーイベントを既定のキー設計で書き込む。
  */
 
-import { PutCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { ErrorEvent } from '@nagiyu/common';
-import { toErrorEventItem } from './item.js';
-import type { ErrorEventWriter } from './writer.js';
-
-const ERROR_MESSAGES = {
-  INVALID_EVENT_ID: 'eventId は空文字にできません',
-  INVALID_SERVICE_ID: 'serviceId は空文字にできません',
-  INVALID_OCCURRED_AT: 'occurredAt は空文字にできません',
-  INVALID_TITLE: 'title は空文字にできません',
-} as const;
+import { DynamoDBEntityStore } from '../dynamodb/store/dynamodb-entity-store.js';
+import type { EntityStore } from '../dynamodb/store/entity-store.interface.js';
+import { ErrorEventMapper } from './mapper.js';
+import { assertWritableErrorEvent } from './validation.js';
+import type { ErrorEventKey, ErrorEventWriter } from './writer.js';
 
 /**
  * DynamoDB をバックエンドとする ErrorEventWriter 実装。
  */
 export class DynamoDBErrorEventWriter implements ErrorEventWriter {
-  private readonly docClient: DynamoDBDocumentClient;
-  private readonly tableName: string;
+  private readonly entityStore: EntityStore<ErrorEvent, ErrorEventKey>;
 
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
-    this.docClient = docClient;
-    this.tableName = tableName;
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, new ErrorEventMapper());
   }
 
   public async put(event: ErrorEvent): Promise<void> {
-    if (!event.eventId) {
-      throw new Error(ERROR_MESSAGES.INVALID_EVENT_ID);
-    }
-    if (!event.serviceId) {
-      throw new Error(ERROR_MESSAGES.INVALID_SERVICE_ID);
-    }
-    if (!event.occurredAt) {
-      throw new Error(ERROR_MESSAGES.INVALID_OCCURRED_AT);
-    }
-    if (!event.title) {
-      throw new Error(ERROR_MESSAGES.INVALID_TITLE);
-    }
-
-    await this.docClient.send(
-      new PutCommand({
-        TableName: this.tableName,
-        Item: toErrorEventItem(event, Date.now()),
-      })
-    );
+    assertWritableErrorEvent(event);
+    // eventId は UUID で衝突しないため create で書く。同じ eventId の再投入は上書きせず拒否する
+    await this.entityStore.create(event);
   }
 }

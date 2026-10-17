@@ -233,7 +233,7 @@ test.describe('個人リスト管理', () => {
           userId: TEST_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
         {
           groupId: 'scope-switch-group',
@@ -241,8 +241,8 @@ test.describe('個人リスト管理', () => {
           role: 'MEMBER',
           status: 'ACCEPTED',
           invitedBy: TEST_USER.userId,
-          invitedAt: new Date().toISOString(),
-          respondedAt: new Date().toISOString(),
+          invitedAt: Date.now(),
+          respondedAt: Date.now(),
         },
       ],
       groupLists: [
@@ -319,7 +319,7 @@ test.describe('個人リスト管理', () => {
           userId: TEST_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
         {
           groupId: 'scope-switch-group',
@@ -327,8 +327,8 @@ test.describe('個人リスト管理', () => {
           role: 'MEMBER',
           status: 'ACCEPTED',
           invitedBy: TEST_USER.userId,
-          invitedAt: new Date().toISOString(),
-          respondedAt: new Date().toISOString(),
+          invitedAt: Date.now(),
+          respondedAt: Date.now(),
         },
       ],
       groupLists: [
@@ -391,7 +391,7 @@ test.describe('個人リスト管理', () => {
           userId: TEST_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
       ],
       groupLists: [

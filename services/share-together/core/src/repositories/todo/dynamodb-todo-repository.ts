@@ -1,38 +1,31 @@
-import {
-  DeleteCommand,
-  GetCommand,
-  PutCommand,
-  UpdateCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
-import {
-  batchWriteAll,
-  buildUpdateExpression,
-  mapConditionalCheckFailed,
-  queryAllItems,
-  REMOVE_ATTRIBUTE,
-  toDatabaseError,
-} from '@nagiyu/aws';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { batchWriteAll, DynamoDBEntityStore, queryAllItems, type EntityStore } from '@nagiyu/aws';
 import type { CreateTodoItemInput, TodoItem, UpdateTodoItemInput } from '../../types/index.js';
 import type { TodoRepository } from './todo-repository.interface.js';
+import {
+  TodoItemMapper,
+  TODO_SK_PREFIX,
+  buildTodoPk,
+  type TodoItemKey,
+} from './todo-item-mapper.js';
 import { withDatabaseError } from '../with-database-error.js';
 
-const TODO_SK_PREFIX = 'TODO#';
-
-const ERROR_MESSAGES = {
-  INVALID_TODO_DATA: 'ToDo情報の形式が不正です',
-  TODO_ALREADY_EXISTS: '指定されたToDoは既に存在します',
-  TODO_NOT_FOUND: '指定されたToDoは存在しません',
-  UPDATE_EXPRESSION_EMPTY: '更新式を生成できませんでした',
-} as const;
-
+/**
+ * DynamoDB Todo Repository
+ *
+ * 単一アイテムの CRUD は EntityStore に任せ、PK + SK 接頭辞の一覧 Query と
+ * リスト単位の一括削除だけを自前で持つ。
+ */
 export class DynamoDBTodoRepository implements TodoRepository {
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
+  private readonly mapper = new TodoItemMapper();
+  private readonly store: EntityStore<TodoItem, TodoItemKey>;
 
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
     this.docClient = docClient;
     this.tableName = tableName;
+    this.store = new DynamoDBEntityStore(docClient, tableName, this.mapper);
   }
 
   public async getByListId(listId: string): Promise<TodoItem[]> {
@@ -45,67 +38,23 @@ export class DynamoDBTodoRepository implements TodoRepository {
           '#sk': 'SK',
         },
         ExpressionAttributeValues: {
-          ':pk': this.buildListPk(listId),
+          ':pk': buildTodoPk(listId),
           ':skPrefix': TODO_SK_PREFIX,
         },
       })
     );
 
-    return items.map((item) => this.toTodoItem(item as Record<string, unknown>));
+    return items.map((item) => this.mapper.toEntity(item as Record<string, unknown>));
   }
 
   public async getById(listId: string, todoId: string): Promise<TodoItem | null> {
-    const result = await withDatabaseError(() =>
-      this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: this.buildListPk(listId),
-            SK: this.buildTodoSk(todoId),
-          },
-        })
-      )
-    );
-
-    if (!result.Item) {
-      return null;
-    }
-
-    return this.toTodoItem(result.Item as Record<string, unknown>);
+    return this.store.get({ listId, todoId });
   }
 
   public async create(input: CreateTodoItemInput): Promise<TodoItem> {
-    const now = new Date().toISOString();
-    const item = {
-      PK: this.buildListPk(input.listId),
-      SK: this.buildTodoSk(input.todoId),
-      ...input,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    try {
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: item,
-          ConditionExpression: 'attribute_not_exists(#pk) AND attribute_not_exists(#sk)',
-          ExpressionAttributeNames: {
-            '#pk': 'PK',
-            '#sk': 'SK',
-          },
-        })
-      );
-    } catch (error) {
-      mapConditionalCheckFailed(error, {
-        onExists: () => {
-          throw new Error(ERROR_MESSAGES.TODO_ALREADY_EXISTS);
-        },
-      });
-      throw toDatabaseError(error);
-    }
-
-    return this.toTodoItem(item as Record<string, unknown>);
+    const now = Date.now();
+    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
+    return this.store.create({ ...input, createdAt: now, updatedAt: now });
   }
 
   public async update(
@@ -113,91 +62,14 @@ export class DynamoDBTodoRepository implements TodoRepository {
     todoId: string,
     updates: UpdateTodoItemInput
   ): Promise<TodoItem> {
-    const updateParts = buildUpdateExpression(
-      {
-        title: updates.title,
-        isCompleted: updates.isCompleted,
-        // completedBy は、キーが存在して値が undefined のときだけ属性を削除する
-        completedBy:
-          'completedBy' in updates && updates.completedBy === undefined
-            ? REMOVE_ATTRIBUTE
-            : updates.completedBy,
-      },
-      {
-        timestamp: { attributeName: 'updatedAt', value: new Date().toISOString() },
-        updateTimestampWhenEmpty: true,
-      }
-    );
-    if (!updateParts) {
-      throw new Error(ERROR_MESSAGES.UPDATE_EXPRESSION_EMPTY);
-    }
-
-    let result;
-    try {
-      result = await this.docClient.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: this.buildListPk(listId),
-            SK: this.buildTodoSk(todoId),
-          },
-          ...updateParts,
-          ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
-          // 条件式用の #pk / #sk は共通関数が採番する名前と衝突しない
-          ExpressionAttributeNames: {
-            ...updateParts.ExpressionAttributeNames,
-            '#pk': 'PK',
-            '#sk': 'SK',
-          },
-          ReturnValues: 'ALL_NEW',
-        })
-      );
-    } catch (error) {
-      mapConditionalCheckFailed(error, {
-        onMissing: () => {
-          throw new Error(ERROR_MESSAGES.TODO_NOT_FOUND);
-        },
-      });
-      throw toDatabaseError(error);
-    }
-
-    if (!result.Attributes) {
-      throw new Error(ERROR_MESSAGES.TODO_NOT_FOUND);
-    }
-
-    return this.toTodoItem(result.Attributes as Record<string, unknown>);
+    return this.store.update({ listId, todoId }, updates);
   }
 
   public async delete(listId: string, todoId: string): Promise<void> {
-    try {
-      await this.docClient.send(
-        new DeleteCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: this.buildListPk(listId),
-            SK: this.buildTodoSk(todoId),
-          },
-          ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
-          ExpressionAttributeNames: {
-            '#pk': 'PK',
-            '#sk': 'SK',
-          },
-        })
-      );
-    } catch (error) {
-      mapConditionalCheckFailed(error, {
-        onMissing: () => {
-          throw new Error(ERROR_MESSAGES.TODO_NOT_FOUND);
-        },
-      });
-      throw toDatabaseError(error);
-    }
+    await this.store.delete({ listId, todoId });
   }
 
   public async deleteByListId(listId: string): Promise<void> {
-    const listPk = this.buildListPk(listId);
-    const keys: Array<{ PK: string; SK: string }> = [];
-
     const items = await withDatabaseError(() =>
       queryAllItems(this.docClient, {
         TableName: this.tableName,
@@ -207,22 +79,15 @@ export class DynamoDBTodoRepository implements TodoRepository {
           '#sk': 'SK',
         },
         ExpressionAttributeValues: {
-          ':pk': listPk,
+          ':pk': buildTodoPk(listId),
           ':skPrefix': TODO_SK_PREFIX,
         },
+        // 削除にはキーだけが要るため、本文を転送しない
         ProjectionExpression: '#pk, #sk',
       })
     );
 
-    for (const item of items) {
-      const pk = item['PK'];
-      const sk = item['SK'];
-      if (typeof pk === 'string' && typeof sk === 'string') {
-        keys.push({ PK: pk, SK: sk });
-      }
-    }
-
-    if (keys.length === 0) {
+    if (items.length === 0) {
       return;
     }
 
@@ -230,54 +95,8 @@ export class DynamoDBTodoRepository implements TodoRepository {
       batchWriteAll(
         this.docClient,
         this.tableName,
-        keys.map((key) => ({ DeleteRequest: { Key: key } }))
+        items.map((item) => ({ DeleteRequest: { Key: { PK: item['PK'], SK: item['SK'] } } }))
       )
     );
-  }
-
-  private buildListPk(listId: string): string {
-    return `LIST#${listId}`;
-  }
-
-  private buildTodoSk(todoId: string): string {
-    return `${TODO_SK_PREFIX}${todoId}`;
-  }
-
-  private toTodoItem(item: Record<string, unknown>): TodoItem {
-    const todoId = item['todoId'];
-    const listId = item['listId'];
-    const title = item['title'];
-    const isCompleted = item['isCompleted'];
-    const createdBy = item['createdBy'];
-    const completedBy = item['completedBy'];
-    const createdAt = item['createdAt'];
-    const updatedAt = item['updatedAt'];
-
-    if (
-      typeof todoId !== 'string' ||
-      typeof listId !== 'string' ||
-      typeof title !== 'string' ||
-      typeof isCompleted !== 'boolean' ||
-      typeof createdBy !== 'string' ||
-      typeof createdAt !== 'string' ||
-      typeof updatedAt !== 'string'
-    ) {
-      throw new Error(ERROR_MESSAGES.INVALID_TODO_DATA);
-    }
-
-    if (completedBy !== undefined && typeof completedBy !== 'string') {
-      throw new Error(ERROR_MESSAGES.INVALID_TODO_DATA);
-    }
-
-    return {
-      todoId,
-      listId,
-      title,
-      isCompleted,
-      createdBy,
-      completedBy,
-      createdAt,
-      updatedAt,
-    };
   }
 }

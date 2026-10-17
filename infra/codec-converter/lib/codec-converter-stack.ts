@@ -76,7 +76,7 @@ export class CodecConverterStack extends cdk.Stack {
         type: dynamodb.AttributeType.STRING,
       },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      timeToLiveAttribute: 'expiresAt',
+      timeToLiveAttribute: 'TTL',
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
