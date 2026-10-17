@@ -33,7 +33,7 @@ export class ErrorEventsTableStack extends cdk.Stack {
       },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       pointInTimeRecovery: true,
-      timeToLiveAttribute: 'ttl',
+      timeToLiveAttribute: 'TTL',
       stream: dynamodb.StreamViewType.NEW_IMAGE,
       removalPolicy:
         environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
