@@ -115,20 +115,20 @@ describe('summary batch handler', () => {
       const summaries = await dailySummaryRepository.getByExchange('NASDAQ', '2026-02-27');
       expect(summaries).toHaveLength(1);
       expect(summaries[0]).toMatchObject({
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-02-27',
-        Open: 100,
-        High: 110,
-        Low: 95,
-        Close: 108,
-        Volume: 1000,
-        PatternResults: {
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        date: '2026-02-27',
+        open: 100,
+        high: 110,
+        low: 95,
+        close: 108,
+        volume: 1000,
+        patternResults: {
           'morning-star': 'MATCHED',
           'evening-star': 'NOT_MATCHED',
         },
-        BuyPatternCount: 1,
-        SellPatternCount: 0,
+        buyPatternCount: 1,
+        sellPatternCount: 0,
       });
     });
   });
@@ -178,11 +178,11 @@ describe('summary batch handler', () => {
       const summary = await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27');
       expect(summary).not.toBeNull();
       expect(summary).toMatchObject({
-        PatternResults: Object.fromEntries(
+        patternResults: Object.fromEntries(
           PATTERN_REGISTRY.map((pattern) => [pattern.definition.patternId, 'INSUFFICIENT_DATA'])
         ),
-        BuyPatternCount: 0,
-        SellPatternCount: 0,
+        buyPatternCount: 0,
+        sellPatternCount: 0,
       });
     });
   });
@@ -205,19 +205,19 @@ describe('summary batch handler', () => {
         exchangeId: 'NASDAQ',
       });
       await dailySummaryRepository.upsert({
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-02-26',
-        Open: 100,
-        High: 110,
-        Low: 95,
-        Close: 108,
-        PatternResults: {
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        date: '2026-02-26',
+        open: 100,
+        high: 110,
+        low: 95,
+        close: 108,
+        patternResults: {
           'morning-star': 'MATCHED',
           'evening-star': 'NOT_MATCHED',
         },
-        BuyPatternCount: 1,
-        SellPatternCount: 0,
+        buyPatternCount: 1,
+        sellPatternCount: 0,
       });
 
       const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
@@ -255,16 +255,16 @@ describe('summary batch handler', () => {
 
       const summary = await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-26');
       expect(summary).toMatchObject({
-        Open: 100,
-        High: 110,
-        Low: 95,
-        Close: 108,
-        PatternResults: {
+        open: 100,
+        high: 110,
+        low: 95,
+        close: 108,
+        patternResults: {
           'morning-star': 'MATCHED',
           'evening-star': 'NOT_MATCHED',
         },
-        BuyPatternCount: 1,
-        SellPatternCount: 0,
+        buyPatternCount: 1,
+        sellPatternCount: 0,
       });
       expect(await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27')).toBeNull();
     });
@@ -317,7 +317,7 @@ describe('summary batch handler', () => {
   });
 
   describe('シナリオ3: 既存サマリーがある場合は更新をスキップする', () => {
-    it('同一TickerID+Dateの再実行で更新せずAPI呼び出しをスキップする', async () => {
+    it('同一tickerId+dateの再実行で更新せずAPI呼び出しをスキップする', async () => {
       await exchangeRepository.create({
         exchangeId: 'NASDAQ',
         name: 'NASDAQ',
@@ -375,14 +375,14 @@ describe('summary batch handler', () => {
 
       const summaries = await dailySummaryRepository.getByExchange('NASDAQ', '2026-02-27');
       expect(summaries).toHaveLength(1);
-      expect(summaries[0].Open).toBe(100);
-      expect(summaries[0].Close).toBe(108);
+      expect(summaries[0].open).toBe(100);
+      expect(summaries[0].close).toBe(108);
       expect(getChartDataFn).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('シナリオ3a: 既存サマリーにパターン分析結果がない場合は更新する', () => {
-    it('同一TickerID+Dateでもパターン分析未保存なら再生成して保存する', async () => {
+    it('同一tickerId+dateでもパターン分析未保存なら再生成して保存する', async () => {
       await exchangeRepository.create({
         exchangeId: 'NASDAQ',
         name: 'NASDAQ',
@@ -399,13 +399,13 @@ describe('summary batch handler', () => {
         exchangeId: 'NASDAQ',
       });
       await dailySummaryRepository.upsert({
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-02-27',
-        Open: 90,
-        High: 95,
-        Low: 88,
-        Close: 92,
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        date: '2026-02-27',
+        open: 90,
+        high: 95,
+        low: 88,
+        close: 92,
       });
 
       const analyzeSpy = jest.spyOn(PatternAnalyzer.prototype, 'analyze').mockReturnValue({
@@ -442,16 +442,16 @@ describe('summary batch handler', () => {
       expect(
         await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27')
       ).toMatchObject({
-        Open: 100,
-        High: 110,
-        Low: 95,
-        Close: 108,
-        PatternResults: {
+        open: 100,
+        high: 110,
+        low: 95,
+        close: 108,
+        patternResults: {
           'morning-star': 'MATCHED',
           'evening-star': 'NOT_MATCHED',
         },
-        BuyPatternCount: 1,
-        SellPatternCount: 0,
+        buyPatternCount: 1,
+        sellPatternCount: 0,
       });
     });
   });
@@ -482,16 +482,16 @@ describe('summary batch handler', () => {
         ])
       );
       await dailySummaryRepository.upsert({
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-02-27',
-        Open: 90,
-        High: 95,
-        Low: 88,
-        Close: 92,
-        PatternResults: incompletePatternResults,
-        BuyPatternCount: 0,
-        SellPatternCount: 0,
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        date: '2026-02-27',
+        open: 90,
+        high: 95,
+        low: 88,
+        close: 92,
+        patternResults: incompletePatternResults,
+        buyPatternCount: 0,
+        sellPatternCount: 0,
       });
 
       const analyzeSpy = jest.spyOn(PatternAnalyzer.prototype, 'analyze').mockReturnValue({
@@ -526,7 +526,7 @@ describe('summary batch handler', () => {
       expect(
         await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27')
       ).toMatchObject({
-        PatternResults: Object.fromEntries(
+        patternResults: Object.fromEntries(
           PATTERN_REGISTRY.map((pattern) => [pattern.definition.patternId, 'NOT_MATCHED'])
         ),
       });
@@ -581,8 +581,8 @@ describe('summary batch handler', () => {
       // 金曜のサマリーが1件のみ、2回目はスキップされている
       const summaries = await dailySummaryRepository.getByExchange('NASDAQ', '2026-02-27');
       expect(summaries).toHaveLength(1);
-      expect(summaries[0].Open).toBe(100);
-      expect(summaries[0].Close).toBe(108);
+      expect(summaries[0].open).toBe(100);
+      expect(summaries[0].close).toBe(108);
       expect(getChartDataFn).toHaveBeenCalledTimes(1);
     });
   });
@@ -647,12 +647,12 @@ describe('summary batch handler', () => {
       expect(aapl).toBeNull();
       expect(nvda).not.toBeNull();
       expect(nvda).toMatchObject({
-        TickerID: 'NSDQ:NVDA',
-        ExchangeID: 'NASDAQ',
-        Open: 200,
-        High: 220,
-        Low: 190,
-        Close: 210,
+        tickerId: 'NSDQ:NVDA',
+        exchangeId: 'NASDAQ',
+        open: 200,
+        high: 220,
+        low: 190,
+        close: 210,
       });
     });
   });
@@ -870,11 +870,11 @@ describe('summary batch handler', () => {
 
       const summary = await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27');
       expect(summary).toMatchObject({
-        Open: settledBars[0].open,
-        High: settledBars[0].high,
-        Low: settledBars[0].low,
-        Close: settledBars[0].close,
-        Volume: settledBars[0].volume,
+        open: settledBars[0].open,
+        high: settledBars[0].high,
+        low: settledBars[0].low,
+        close: settledBars[0].close,
+        volume: settledBars[0].volume,
       });
     });
   });
@@ -1026,18 +1026,18 @@ describe('summary batch handler', () => {
       await setupExchangeWithTickers(5);
       // T1 は既存サマリーが完備しているためチャート取得をスキップする（打ち切り判定の対象外）
       await dailySummaryRepository.upsert({
-        TickerID: 'NSDQ:T1',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-02-27',
-        Open: 90,
-        High: 95,
-        Low: 88,
-        Close: 92,
-        PatternResults: Object.fromEntries(
+        tickerId: 'NSDQ:T1',
+        exchangeId: 'NASDAQ',
+        date: '2026-02-27',
+        open: 90,
+        high: 95,
+        low: 88,
+        close: 92,
+        patternResults: Object.fromEntries(
           PATTERN_REGISTRY.map((pattern) => [pattern.definition.patternId, 'NOT_MATCHED'])
         ),
-        BuyPatternCount: 0,
-        SellPatternCount: 0,
+        buyPatternCount: 0,
+        sellPatternCount: 0,
       });
 
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest
@@ -1151,11 +1151,11 @@ describe('summary batch handler', () => {
       expect(response.statusCode).toBe(200);
       const summary = await dailySummaryRepository.getByTickerAndDate('TSE:7203', '2026-02-27');
       expect(summary).toMatchObject({
-        Open: 3010,
-        High: 3060,
-        Low: 2990,
-        Close: 3040,
-        Volume: 520000,
+        open: 3010,
+        high: 3060,
+        low: 2990,
+        close: 3040,
+        volume: 520000,
       });
     });
   });

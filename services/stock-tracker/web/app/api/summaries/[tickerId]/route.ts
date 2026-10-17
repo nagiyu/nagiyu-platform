@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
-import { DailySummaryMapper } from '@nagiyu/stock-tracker-core';
 import { getSession } from '../../../../lib/auth';
 import {
   createInternalErrorReporting,
@@ -15,6 +14,7 @@ import {
 } from '../../../../lib/repository-factory';
 import { MAX_ALERTS_PER_USER } from '../../../../lib/constants';
 import { toTickerForecastSummary } from '../../../../lib/forecast/ticker-forecast';
+import { toPatternSummary } from '../../../../lib/summary/pattern-summary';
 import type { ErrorResponse } from '@nagiyu/common';
 
 const ERROR_MESSAGES = {
@@ -29,8 +29,6 @@ const REPORT_TITLES = {
 } as const;
 
 const withInternalErrorReporting = createInternalErrorReporting(ERROR_MESSAGES.INTERNAL_ERROR);
-
-const dailySummaryMapper = new DailySummaryMapper();
 
 /** 確度は付加情報のため、取得に失敗してもサマリー自体は返す */
 async function fetchForecastSummary(tickerId: string, date: string) {
@@ -75,7 +73,7 @@ export const GET = withInternalErrorReporting(
         createAlertRepository().getByUserId(session.user.id, { limit: MAX_ALERTS_PER_USER }),
       ]);
 
-      const latestSummary = summaries.find((summary) => summary.TickerID === tickerId);
+      const latestSummary = summaries.find((summary) => summary.tickerId === tickerId);
       if (!latestSummary) {
         return NextResponse.json(
           {
@@ -86,8 +84,8 @@ export const GET = withInternalErrorReporting(
         );
       }
 
-      const forecast = await fetchForecastSummary(tickerId, latestSummary.Date);
-      const patternCounts = dailySummaryMapper.toTickerSummaryResponse(latestSummary);
+      const forecast = await fetchForecastSummary(tickerId, latestSummary.date);
+      const patternCounts = toPatternSummary(latestSummary);
 
       const alerts = alertsResult.items.filter((alert) => alert.tickerId === tickerId);
       const buyAlertCount = { enabled: 0, disabled: 0 };
@@ -104,16 +102,16 @@ export const GET = withInternalErrorReporting(
 
       return NextResponse.json(
         {
-          tickerId: latestSummary.TickerID,
-          date: latestSummary.Date,
-          symbol: ticker?.symbol ?? latestSummary.TickerID.split(':')[1] ?? latestSummary.TickerID,
-          name: ticker?.name ?? latestSummary.TickerID,
-          open: latestSummary.Open,
-          high: latestSummary.High,
-          low: latestSummary.Low,
-          close: latestSummary.Close,
-          volume: latestSummary.Volume,
-          updatedAt: new Date(latestSummary.UpdatedAt).toISOString(),
+          tickerId: latestSummary.tickerId,
+          date: latestSummary.date,
+          symbol: ticker?.symbol ?? latestSummary.tickerId.split(':')[1] ?? latestSummary.tickerId,
+          name: ticker?.name ?? latestSummary.tickerId,
+          open: latestSummary.open,
+          high: latestSummary.high,
+          low: latestSummary.low,
+          close: latestSummary.close,
+          volume: latestSummary.volume,
+          updatedAt: new Date(latestSummary.updatedAt).toISOString(),
           buyAlertCount,
           sellAlertCount,
           holding: holding

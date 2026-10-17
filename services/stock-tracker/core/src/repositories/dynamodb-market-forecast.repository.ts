@@ -3,19 +3,17 @@
  *
  * DynamoDBを使用したMarketForecastRepositoryの実装
  */
-import {
-  GetCommand,
-  PutCommand,
-  UpdateCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
+import { UpdateCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
   DatabaseError,
-  isConditionalCheckFailed,
-  toDatabaseError,
-  queryAllItems,
+  DynamoDBEntityStore,
+  EntityAlreadyExistsError,
   EntityNotFoundError,
-  type DynamoDBItem,
+  buildUpdateExpression,
+  isConditionalCheckFailed,
+  queryAllItems,
+  toDatabaseError,
+  type EntityStore,
 } from '@nagiyu/aws';
 import type {
   AppendMarketForecastOutcomeResult,
@@ -28,91 +26,109 @@ import type {
   MarketForecastKey,
 } from '../entities/market-forecast.entity.js';
 import type { Market, MarketOutcome, MarketSample } from '../forecast/index.js';
-import { MarketForecastMapper } from '../mappers/market-forecast.mapper.js';
+import {
+  MarketForecastMapper,
+  MARKET_FORECAST_OUTCOME_ATTRIBUTE,
+  buildMarketForecastPk,
+  buildMarketForecastSk,
+  buildMarketForecastSkUpperBound,
+} from '../mappers/market-forecast.mapper.js';
 
 /**
  * DynamoDB MarketForecast Repository
  *
- * DynamoDBを使用した確度（市場×日）リポジトリの実装
+ * 単一アイテムの作成・取得は EntityStore に任せ、条件付きの Outcome 追記と
+ * 市場の期間 Query だけを自前で持つ
  */
 export class DynamoDBMarketForecastRepository implements MarketForecastRepository {
-  private readonly mapper: MarketForecastMapper;
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
+  private readonly mapper = new MarketForecastMapper();
+  private readonly entityStore: EntityStore<MarketForecastEntity, MarketForecastKey>;
 
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
     this.docClient = docClient;
     this.tableName = tableName;
-    this.mapper = new MarketForecastMapper();
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper);
   }
 
   /**
-   * MarketForecast を条件付きで新規作成する（`attribute_not_exists(PK)`）
+   * MarketForecast を新規作成する。既に存在する場合は書き込まず、既存のアイテムを返す
    */
   public async createIfAbsent(
     input: CreateMarketForecastInput
   ): Promise<CreateMarketForecastResult> {
+    const now = Date.now();
     try {
-      const now = Date.now();
-      const item = this.mapper.toCreateItem(input, now);
-
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: item,
-          ConditionExpression: 'attribute_not_exists(PK)',
-        })
-      );
-
-      return { item: this.mapper.toEntity(item), created: true };
+      // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
+      const item = await this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
+      return { item, created: true };
     } catch (error) {
-      if (isConditionalCheckFailed(error)) {
-        const existing = await this.getByMarketAndDate(input.Market, input.Date);
+      if (error instanceof EntityAlreadyExistsError) {
+        const existing = await this.entityStore.get({ market: input.market, date: input.date });
         if (!existing) {
           throw new DatabaseError(
-            'MarketForecast の作成に失敗しましたが、既存アイテムが見つかりません'
+            'MarketForecast の作成に失敗しましたが、既存アイテムが見つかりません',
+            error
           );
         }
         return { item: existing, created: false };
       }
-      throw toDatabaseError(error);
+      throw error;
     }
   }
 
   /**
    * 既存 MarketForecast に採点結果（Outcome）を条件付きで追記する
+   * (アイテムが存在し、かつ Outcome が未設定のときだけ書く)
+   *
+   * 「Outcome が未設定」の条件は EntityStore の update では表せないため自前で書く。
+   * 属性の変換は Mapper の `toUpdateAttributes` に任せ、updatedAt は他の書き込みと同じく現在時刻で書く。
    */
   public async appendOutcome(
     key: MarketForecastKey,
     outcome: MarketOutcome
   ): Promise<AppendMarketForecastOutcomeResult> {
     try {
-      const { pk, sk } = this.mapper.buildKeys(key);
-      const now = Date.now();
-      const outcomeAttr = this.mapper.toOutcomeAttribute(outcome);
+      const keys = this.mapper.buildKeys(key);
+      const attributes = this.mapper.toUpdateAttributes({
+        outcome: this.mapper.toOutcomeAttribute(outcome),
+      });
+      const parts = buildUpdateExpression(attributes, {
+        timestamp: { attributeName: 'UpdatedAt', value: Date.now() },
+      });
+      if (!parts) {
+        // timestamp を渡しているため到達しない。型の絞り込みのために明示する
+        throw new DatabaseError('Outcome の更新式を組み立てられませんでした');
+      }
 
       const result = await this.docClient.send(
         new UpdateCommand({
           TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-          UpdateExpression: 'SET #outcome = :outcome, #updatedAt = :updatedAt',
-          ExpressionAttributeNames: { '#outcome': 'Outcome', '#updatedAt': 'UpdatedAt' },
-          ExpressionAttributeValues: { ':outcome': outcomeAttr, ':updatedAt': now },
-          ConditionExpression: 'attribute_exists(PK) AND attribute_not_exists(Outcome)',
+          Key: keys,
+          UpdateExpression: parts.UpdateExpression,
+          ConditionExpression: 'attribute_exists(#pk) AND attribute_not_exists(#outcome)',
+          ExpressionAttributeNames: {
+            ...parts.ExpressionAttributeNames,
+            '#pk': Object.keys(keys)[0],
+            '#outcome': MARKET_FORECAST_OUTCOME_ATTRIBUTE,
+          },
+          ExpressionAttributeValues: parts.ExpressionAttributeValues,
           ReturnValues: 'ALL_NEW',
         })
       );
 
-      return {
-        item: this.mapper.toEntity(result.Attributes as unknown as DynamoDBItem),
-        updated: true,
-      };
+      if (!result.Attributes) {
+        throw new DatabaseError('Outcome の追記後のデータを取得できませんでした');
+      }
+      return { item: this.mapper.toEntity(result.Attributes), updated: true };
     } catch (error) {
       if (isConditionalCheckFailed(error)) {
-        const existing = await this.getByMarketAndDate(key.market, key.date);
+        const existing = await this.entityStore.get(key);
         if (!existing) {
-          throw new EntityNotFoundError('MarketForecast', `${key.market}#${key.date}`);
+          throw new EntityNotFoundError(this.mapper.entityType, `${key.market}#${key.date}`);
         }
+        // 既存アイテムはあるが条件不成立 → 既に Outcome がある (冪等な再実行)
         return { item: existing, updated: false };
       }
       throw toDatabaseError(error);
@@ -126,24 +142,7 @@ export class DynamoDBMarketForecastRepository implements MarketForecastRepositor
     market: Market,
     date: string
   ): Promise<MarketForecastEntity | null> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys({ market, date });
-
-      const result = await this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-        })
-      );
-
-      if (!result.Item) {
-        return null;
-      }
-
-      return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.get({ market, date });
   }
 
   /**
@@ -165,7 +164,7 @@ export class DynamoDBMarketForecastRepository implements MarketForecastRepositor
         KeyConditionExpression: condition.expression,
         ExpressionAttributeNames: { '#pk': 'PK', ...condition.names },
         ExpressionAttributeValues: {
-          ':pk': this.mapper.buildPk(market),
+          ':pk': buildMarketForecastPk(market),
           ...condition.values,
         },
       });
@@ -192,21 +191,24 @@ function buildSkCondition(
     return {
       expression: '#pk = :pk AND #sk BETWEEN :from AND :to',
       names: skName,
-      values: { ':from': `DATE#${fromDate}`, ':to': `DATE#${toDate}#~` },
+      values: {
+        ':from': buildMarketForecastSk(fromDate),
+        ':to': buildMarketForecastSkUpperBound(toDate),
+      },
     };
   }
   if (fromDate !== undefined) {
     return {
       expression: '#pk = :pk AND #sk >= :from',
       names: skName,
-      values: { ':from': `DATE#${fromDate}` },
+      values: { ':from': buildMarketForecastSk(fromDate) },
     };
   }
   if (toDate !== undefined) {
     return {
       expression: '#pk = :pk AND #sk <= :to',
       names: skName,
-      values: { ':to': `DATE#${toDate}#~` },
+      values: { ':to': buildMarketForecastSkUpperBound(toDate) },
     };
   }
   return { expression: '#pk = :pk', names: {}, values: {} };

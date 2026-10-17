@@ -55,9 +55,9 @@ describe('GET /api/forecasts/[tickerId]', () => {
     (createModelSnapshotRepository as jest.Mock).mockReturnValue({ getByDate: mockGetSnapshot });
 
     mockGetTickerById.mockResolvedValue({ tickerId: 'NSDQ:AAPL', exchangeId: 'NASDAQ-ID' });
-    mockGetByExchange.mockResolvedValue([{ TickerID: 'NSDQ:AAPL', Date: '2026-05-01' }]);
+    mockGetByExchange.mockResolvedValue([{ tickerId: 'NSDQ:AAPL', date: '2026-05-01' }]);
     mockGetForecast.mockResolvedValue(
-      forecastEntity({ Probabilities: { DIR: probabilityRecord() } })
+      forecastEntity({ probabilities: { DIR: probabilityRecord() } })
     );
     mockGetSnapshot.mockResolvedValue(snapshot());
   });

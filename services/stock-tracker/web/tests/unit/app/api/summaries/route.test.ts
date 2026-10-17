@@ -135,16 +135,16 @@ describe('GET /api/summaries', () => {
     mockGetByExchange
       .mockResolvedValueOnce([
         {
-          TickerID: 'NSDQ:AAPL',
-          ExchangeID: 'NASDAQ',
-          Date: '2024-01-15',
-          Open: 182.15,
-          High: 183.92,
-          Low: 181.44,
-          Close: 183.31,
-          Volume: 1234567,
-          CreatedAt: 1705276800000,
-          UpdatedAt: 1705352400000,
+          tickerId: 'NSDQ:AAPL',
+          exchangeId: 'NASDAQ',
+          date: '2024-01-15',
+          open: 182.15,
+          high: 183.92,
+          low: 181.44,
+          close: 183.31,
+          volume: 1234567,
+          createdAt: 1705276800000,
+          updatedAt: 1705352400000,
         },
       ])
       .mockResolvedValueOnce([]);
@@ -207,7 +207,7 @@ describe('GET /api/summaries', () => {
     });
   });
 
-  it('正常系: PatternResults がある場合はパターン情報を返す', async () => {
+  it('正常系: patternResults がある場合はパターン情報を返す', async () => {
     mockGetAllExchanges.mockResolvedValue([
       {
         exchangeId: 'NASDAQ',
@@ -228,21 +228,21 @@ describe('GET /api/summaries', () => {
 
     mockGetByExchange.mockResolvedValue([
       {
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2024-01-15',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        PatternResults: {
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        date: '2024-01-15',
+        open: 182.15,
+        high: 183.92,
+        low: 181.44,
+        close: 183.31,
+        patternResults: {
           'morning-star': 'MATCHED',
           'evening-star': 'NOT_MATCHED',
         },
-        BuyPatternCount: 1,
-        SellPatternCount: 0,
-        CreatedAt: 1705276800000,
-        UpdatedAt: 1705352400000,
+        buyPatternCount: 1,
+        sellPatternCount: 0,
+        createdAt: 1705276800000,
+        updatedAt: 1705352400000,
       },
     ]);
     mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
@@ -275,15 +275,15 @@ describe('GET /api/summaries', () => {
     ]);
     mockGetByExchange.mockResolvedValue([
       {
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2024-01-15',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        CreatedAt: 1705276800000,
-        UpdatedAt: 1705352400000,
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        date: '2024-01-15',
+        open: 182.15,
+        high: 183.92,
+        low: 181.44,
+        close: 183.31,
+        createdAt: 1705276800000,
+        updatedAt: 1705352400000,
       },
     ]);
     mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
@@ -308,7 +308,7 @@ describe('GET /api/summaries', () => {
     );
   });
 
-  it('正常系: PatternResults がない場合はパターン情報のデフォルト値を返す', async () => {
+  it('正常系: patternResults がない場合はパターン情報のデフォルト値を返す', async () => {
     mockGetAllExchanges.mockResolvedValue([
       {
         exchangeId: 'NASDAQ',
@@ -329,15 +329,15 @@ describe('GET /api/summaries', () => {
 
     mockGetByExchange.mockResolvedValue([
       {
-        TickerID: 'NSDQ:MSFT',
-        ExchangeID: 'NASDAQ',
-        Date: '2024-01-15',
-        Open: 401.01,
-        High: 406.25,
-        Low: 399.1,
-        Close: 404.88,
-        CreatedAt: 1705276800000,
-        UpdatedAt: 1705352400000,
+        tickerId: 'NSDQ:MSFT',
+        exchangeId: 'NASDAQ',
+        date: '2024-01-15',
+        open: 401.01,
+        high: 406.25,
+        low: 399.1,
+        close: 404.88,
+        createdAt: 1705276800000,
+        updatedAt: 1705352400000,
       },
     ]);
     mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
@@ -360,18 +360,18 @@ describe('GET /api/summaries', () => {
     mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
     mockGetByExchange.mockResolvedValue([
       {
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2024-01-15',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        CreatedAt: 1705276800000,
-        UpdatedAt: 1705352400000,
-        PatternResults: { 'morning-star': 'MATCHED' },
-        BuyPatternCount: 1,
-        SellPatternCount: 0,
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        date: '2024-01-15',
+        open: 182.15,
+        high: 183.92,
+        low: 181.44,
+        close: 183.31,
+        createdAt: 1705276800000,
+        updatedAt: 1705352400000,
+        patternResults: { 'morning-star': 'MATCHED' },
+        buyPatternCount: 1,
+        sellPatternCount: 0,
       },
     ]);
 
@@ -477,15 +477,15 @@ describe('GET /api/summaries', () => {
     setTickers([]);
     mockGetByExchange.mockResolvedValue([
       {
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2024-01-15',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        CreatedAt: 1705276800000,
-        UpdatedAt: 1705352400000,
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        date: '2024-01-15',
+        open: 182.15,
+        high: 183.92,
+        low: 181.44,
+        close: 183.31,
+        createdAt: 1705276800000,
+        updatedAt: 1705352400000,
       },
     ]);
     mockGetHoldingsByUserId.mockResolvedValue({
@@ -522,15 +522,15 @@ describe('GET /api/summaries', () => {
     setTickers([]);
     mockGetByExchange.mockResolvedValue([
       {
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2024-01-15',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        CreatedAt: 1705276800000,
-        UpdatedAt: 1705352400000,
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        date: '2024-01-15',
+        open: 182.15,
+        high: 183.92,
+        low: 181.44,
+        close: 183.31,
+        createdAt: 1705276800000,
+        updatedAt: 1705352400000,
       },
     ]);
     mockGetHoldingsByUserId.mockRejectedValue(new Error('holding db error'));
@@ -556,15 +556,15 @@ describe('GET /api/summaries', () => {
 
   describe('確度の結合', () => {
     const summary = (tickerId: string, exchangeId: string, date: string) => ({
-      TickerID: tickerId,
-      ExchangeID: exchangeId,
-      Date: date,
-      Open: 1,
-      High: 2,
-      Low: 1,
-      Close: 2,
-      CreatedAt: 1,
-      UpdatedAt: 1,
+      tickerId: tickerId,
+      exchangeId: exchangeId,
+      date: date,
+      open: 1,
+      high: 2,
+      low: 1,
+      close: 2,
+      createdAt: 1,
+      updatedAt: 1,
     });
 
     it('正常系: 取引所ごとに 1 回だけ Forecast を引いて銘柄へ結合する', async () => {
@@ -584,9 +584,9 @@ describe('GET /api/summaries', () => {
         exchangeId === 'NASDAQ'
           ? [
               {
-                TickerID: 'NSDQ:AAPL',
-                AxisValues: { 'morning-star': true, 'bearish-engulfing': 1 },
-                Probabilities: {
+                tickerId: 'NSDQ:AAPL',
+                axisValues: { 'morning-star': true, 'bearish-engulfing': 1 },
+                probabilities: {
                   DIR: {
                     probability: 0.56,
                     baseline: 0.5,
@@ -604,7 +604,7 @@ describe('GET /api/summaries', () => {
       mockGetMarketForecast.mockImplementation(async (market: string) =>
         market === 'JP'
           ? {
-              Probabilities: {
+              probabilities: {
                 MKT: {
                   probability: 0.4,
                   baseline: 0.3,

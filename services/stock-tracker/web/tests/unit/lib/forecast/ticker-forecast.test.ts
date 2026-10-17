@@ -55,8 +55,8 @@ describe('toTickerForecastSummary', () => {
   it('DIR・VOL の有無を個別に反映する', () => {
     const summary = toTickerForecastSummary(
       forecastEntity({
-        AxisValues: { [buyId]: true },
-        Probabilities: { VOL: probabilityRecord({ lean: 'HIGH' }) },
+        axisValues: { [buyId]: true },
+        probabilities: { VOL: probabilityRecord({ lean: 'HIGH' }) },
       })
     );
     expect(summary).toEqual({
@@ -69,7 +69,7 @@ describe('toTickerForecastSummary', () => {
 
 describe('indexForecastsByTicker', () => {
   it('銘柄 ID で引ける', () => {
-    const forecast = forecastEntity({ TickerID: 'NSDQ:MSFT' });
+    const forecast = forecastEntity({ tickerId: 'NSDQ:MSFT' });
     expect(indexForecastsByTicker([forecast]).get('NSDQ:MSFT')).toBe(forecast);
   });
 });
