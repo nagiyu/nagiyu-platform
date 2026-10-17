@@ -1,86 +1,172 @@
 /**
  * Stock Tracker Core - MarketForecast Mapper
  *
- * MarketForecastEntity ↔ DynamoDBItem の変換に加えて、保存済みアイテムを core の学習入力
- * （`MarketSample`）へ直接変換する `toSample` を持つ（forecast.mapper.ts の市場版）。
+ * MarketForecastEntity ↔ DynamoDB Item の変換に加えて、保存済みアイテムを core の学習入力
+ * (`MarketSample`) へ直接変換する `toSample` を持つ (銘柄×日の Forecast の市場版)。
  */
-import type { DynamoDBItem } from '@nagiyu/aws';
 import {
   InvalidEntityDataError,
+  immutablePatchValue,
+  optionalPatchValue,
+  readTimestamp,
+  requiredPatchValue,
   validateEnumField,
   validateStringField,
-  validateTimestampField,
-  type LegacyEntityMapper,
+  type DynamoDBAttributes,
+  type DynamoDBKey,
+  type EntityMapper,
+  type EntityPatch,
 } from '@nagiyu/aws';
 import type {
-  CreateMarketForecastInput,
   MarketForecastEntity,
   MarketForecastKey,
   MarketForecastOutcome,
 } from '../entities/market-forecast.entity.js';
 import type { Market, MarketOutcome, MarketSample } from '../forecast/index.js';
 
-export class MarketForecastMapper implements LegacyEntityMapper<
-  MarketForecastEntity,
-  MarketForecastKey
-> {
-  private readonly entityType = 'MarketForecast';
+/** 採点結果を保存する属性の名前。条件付きの追記が存在判定に使う */
+export const MARKET_FORECAST_OUTCOME_ATTRIBUTE = 'Outcome';
+
+/**
+ * 市場から MarketForecast アイテムの PK を構築する
+ *
+ * 市場の期間 Query がパーティションキーに指定する。
+ *
+ * @param market - 市場
+ * @returns PK
+ */
+export function buildMarketForecastPk(market: Market): string {
+  return `MARKETFORECAST#${market}`;
+}
+
+/**
+ * 日付から MarketForecast アイテムの SK を構築する
+ *
+ * @param date - 基準日 (YYYY-MM-DD)
+ * @returns SK
+ */
+export function buildMarketForecastSk(date: string): string {
+  return `DATE#${date}`;
+}
+
+/**
+ * ある日付までを含む範囲検索の上限となる SK を構築する。
+ *
+ * `DATE#{date}` の末尾に ASCII 印字可能文字でほぼ最大の `~` (0x7E) を付け、
+ * 同じ日付の SK が必ず範囲に入るようにする。
+ *
+ * @param date - 基準日 (YYYY-MM-DD)
+ * @returns 範囲の上限となる SK
+ */
+export function buildMarketForecastSkUpperBound(date: string): string {
+  return `${buildMarketForecastSk(date)}#~`;
+}
+
+/**
+ * MarketForecast Mapper
+ *
+ * MarketForecastEntity と DynamoDB Item 間の変換を行う
+ */
+export class MarketForecastMapper implements EntityMapper<MarketForecastEntity, MarketForecastKey> {
+  public readonly entityType = 'MarketForecast';
+
+  /**
+   * ビジネスキーから PK/SK を構築
+   *
+   * @param key - MarketForecast Key
+   * @returns DynamoDB の Key
+   */
+  public buildKeys(key: MarketForecastKey): DynamoDBKey {
+    return {
+      PK: buildMarketForecastPk(key.market),
+      SK: buildMarketForecastSk(key.date),
+    };
+  }
+
+  public getKey(entity: MarketForecastEntity): MarketForecastKey {
+    return { market: entity.market, date: entity.date };
+  }
 
   /**
    * Entity を DynamoDB Item に変換
+   *
+   * @param entity - MarketForecast Entity
+   * @returns DynamoDB Item
    */
-  public toItem(entity: MarketForecastEntity): DynamoDBItem {
-    const { pk, sk } = this.buildKeys({ market: entity.Market, date: entity.Date });
-
+  public toItem(entity: MarketForecastEntity): DynamoDBAttributes {
     return {
-      PK: pk,
-      SK: sk,
+      ...this.buildKeys(this.getKey(entity)),
       Type: this.entityType,
-      Market: entity.Market,
-      Date: entity.Date,
-      AxisValues: entity.AxisValues,
-      Probabilities: entity.Probabilities,
-      ModelVersion: entity.ModelVersion,
-      Source: entity.Source,
-      ...(entity.BackfilledAxes !== undefined ? { BackfilledAxes: entity.BackfilledAxes } : {}),
-      ...(entity.Outcome !== undefined ? { Outcome: entity.Outcome } : {}),
-      CreatedAt: entity.CreatedAt,
-      UpdatedAt: entity.UpdatedAt,
+      Market: entity.market,
+      Date: entity.date,
+      AxisValues: entity.axisValues,
+      Probabilities: entity.probabilities,
+      ModelVersion: entity.modelVersion,
+      Source: entity.source,
+      ...(entity.backfilledAxes !== undefined ? { BackfilledAxes: entity.backfilledAxes } : {}),
+      ...(entity.outcome !== undefined
+        ? { [MARKET_FORECAST_OUTCOME_ATTRIBUTE]: entity.outcome }
+        : {}),
+      CreatedAt: entity.createdAt,
+      UpdatedAt: entity.updatedAt,
     };
   }
 
   /**
-   * 作成入力（Outcome を持たない）から、条件付き PutItem に渡す Item を組み立てる
+   * Entity の部分を保存用の属性に変換
+   *
+   * GSI を持たないため、キーから作る属性はない。
+   * market・date・createdAt は作成後に変えられないため、含めると拒否する。
+   *
+   * @param changes - 変更する項目 (undefined は変更なし、null は属性削除)
+   * @returns 保存用の属性
+   * @throws InvalidEntityDataError 必須項目が null のとき、または変更不可の項目を含むとき
    */
-  public toCreateItem(input: CreateMarketForecastInput, createdAt: number): DynamoDBItem {
-    return this.toItem({ ...input, CreatedAt: createdAt, UpdatedAt: createdAt });
+  public toUpdateAttributes(changes: EntityPatch<MarketForecastEntity>): DynamoDBAttributes {
+    return {
+      Market: immutablePatchValue(changes.market, 'Market'),
+      Date: immutablePatchValue(changes.date, 'Date'),
+      CreatedAt: immutablePatchValue(changes.createdAt, 'CreatedAt'),
+      AxisValues: requiredPatchValue(changes.axisValues, 'AxisValues'),
+      Probabilities: requiredPatchValue(changes.probabilities, 'Probabilities'),
+      ModelVersion: requiredPatchValue(changes.modelVersion, 'ModelVersion'),
+      Source: requiredPatchValue(changes.source, 'Source'),
+      BackfilledAxes: optionalPatchValue(changes.backfilledAxes),
+      [MARKET_FORECAST_OUTCOME_ATTRIBUTE]: optionalPatchValue(changes.outcome),
+    };
   }
 
   /**
    * DynamoDB Item を Entity に変換
+   *
+   * @param item - DynamoDB Item
+   * @returns MarketForecast Entity
    */
-  public toEntity(item: DynamoDBItem): MarketForecastEntity {
+  public toEntity(item: DynamoDBAttributes): MarketForecastEntity {
     const entity: MarketForecastEntity = {
-      Market: validateStringField(item.Market, 'Market'),
-      Date: validateStringField(item.Date, 'Date'),
-      AxisValues: toPlainObject<MarketForecastEntity['AxisValues']>(item.AxisValues, 'AxisValues'),
-      Probabilities: toPlainObject<MarketForecastEntity['Probabilities']>(
+      market: validateStringField(item.Market, 'Market'),
+      date: validateStringField(item.Date, 'Date'),
+      axisValues: toPlainObject<MarketForecastEntity['axisValues']>(item.AxisValues, 'AxisValues'),
+      probabilities: toPlainObject<MarketForecastEntity['probabilities']>(
         item.Probabilities,
         'Probabilities'
       ),
-      ModelVersion: validateStringField(item.ModelVersion, 'ModelVersion'),
-      Source: validateEnumField(item.Source, 'Source', ['REPLAY', 'LIVE'] as const),
-      CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
-      UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
+      modelVersion: validateStringField(item.ModelVersion, 'ModelVersion'),
+      source: validateEnumField(item.Source, 'Source', ['REPLAY', 'LIVE'] as const),
+      createdAt: readTimestamp(item, 'CreatedAt'),
+      updatedAt: readTimestamp(item, 'UpdatedAt'),
     };
     if (item.BackfilledAxes !== undefined) {
-      entity.BackfilledAxes = toPlainObject<NonNullable<MarketForecastEntity['BackfilledAxes']>>(
+      entity.backfilledAxes = toPlainObject<NonNullable<MarketForecastEntity['backfilledAxes']>>(
         item.BackfilledAxes,
         'BackfilledAxes'
       );
     }
-    if (item.Outcome !== undefined) {
-      entity.Outcome = toPlainObject<MarketForecastOutcome>(item.Outcome, 'Outcome');
+    if (item[MARKET_FORECAST_OUTCOME_ATTRIBUTE] !== undefined) {
+      entity.outcome = toPlainObject<MarketForecastOutcome>(
+        item[MARKET_FORECAST_OUTCOME_ATTRIBUTE],
+        MARKET_FORECAST_OUTCOME_ATTRIBUTE
+      );
     }
     return entity;
   }
@@ -89,15 +175,18 @@ export class MarketForecastMapper implements LegacyEntityMapper<
    * 保存済みアイテムを、学習・基準値・中立帯の入力（{@link MarketSample}）へ直接変換する。
    * `Outcome`・`Probabilities` は無ければ省略する（`toEntity` のように例外を投げない）。
    */
-  public toSample(item: Record<string, unknown>): MarketSample {
+  public toSample(item: DynamoDBAttributes): MarketSample {
     const sample: MarketSample = {
       market: validateStringField(item.Market, 'Market'),
       date: validateStringField(item.Date, 'Date'),
       axisValues: toPlainObject<MarketSample['axisValues']>(item.AxisValues, 'AxisValues'),
     };
 
-    if (item.Outcome !== undefined) {
-      const outcome = toPlainObject<MarketForecastOutcome>(item.Outcome, 'Outcome');
+    if (item[MARKET_FORECAST_OUTCOME_ATTRIBUTE] !== undefined) {
+      const outcome = toPlainObject<MarketForecastOutcome>(
+        item[MARKET_FORECAST_OUTCOME_ATTRIBUTE],
+        MARKET_FORECAST_OUTCOME_ATTRIBUTE
+      );
       sample.outcome = {
         nextDate: validateStringField(outcome.nextDate, 'Outcome.nextDate'),
         hit: outcome.hit ?? {},
@@ -105,7 +194,7 @@ export class MarketForecastMapper implements LegacyEntityMapper<
     }
 
     if (item.Probabilities !== undefined) {
-      const probabilities = toPlainObject<MarketForecastEntity['Probabilities']>(
+      const probabilities = toPlainObject<MarketForecastEntity['probabilities']>(
         item.Probabilities,
         'Probabilities'
       );
@@ -118,21 +207,6 @@ export class MarketForecastMapper implements LegacyEntityMapper<
     }
 
     return sample;
-  }
-
-  /**
-   * ビジネスキーから PK/SK を構築
-   */
-  public buildKeys(key: MarketForecastKey): { pk: string; sk: string } {
-    return {
-      pk: this.buildPk(key.market),
-      sk: `DATE#${key.date}`,
-    };
-  }
-
-  /** 市場から PK を構築（期間 Query の KeyConditionExpression 用） */
-  public buildPk(market: Market): string {
-    return `MARKETFORECAST#${market}`;
   }
 
   /**

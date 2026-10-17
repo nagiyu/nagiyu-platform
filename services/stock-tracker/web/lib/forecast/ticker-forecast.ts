@@ -24,7 +24,7 @@ export function toProbabilityView(record: ProbabilityRecord | undefined): Probab
  * 点灯した単一パターンの数を買い・売りに分けて数える。
  * 複合軸（合致数2以上）は単一パターンの重複になるため数えない。
  */
-export function countLitPatterns(axisValues: ForecastEntity['AxisValues']): {
+export function countLitPatterns(axisValues: ForecastEntity['axisValues']): {
   total: number;
   buy: number;
   sell: number;
@@ -53,9 +53,9 @@ export function toTickerForecastSummary(
     return null;
   }
   return {
-    dir: toProbabilityView(forecast.Probabilities.DIR),
-    vol: toProbabilityView(forecast.Probabilities.VOL),
-    lit: countLitPatterns(forecast.AxisValues),
+    dir: toProbabilityView(forecast.probabilities.DIR),
+    vol: toProbabilityView(forecast.probabilities.VOL),
+    lit: countLitPatterns(forecast.axisValues),
   };
 }
 
@@ -63,5 +63,5 @@ export function toTickerForecastSummary(
 export function indexForecastsByTicker(
   forecasts: readonly ForecastEntity[]
 ): Map<string, ForecastEntity> {
-  return new Map(forecasts.map((forecast) => [forecast.TickerID, forecast]));
+  return new Map(forecasts.map((forecast) => [forecast.tickerId, forecast]));
 }

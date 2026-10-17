@@ -88,14 +88,14 @@ interface TestBar {
 
 async function seedBar(repo: DailySummaryRepository, bar: TestBar): Promise<void> {
   const input: CreateDailySummaryInput = {
-    TickerID: bar.tickerId,
-    ExchangeID: bar.exchangeId,
-    Date: bar.date,
-    Open: bar.open,
-    High: bar.high,
-    Low: bar.low,
-    Close: bar.close,
-    Volume: bar.volume,
+    tickerId: bar.tickerId,
+    exchangeId: bar.exchangeId,
+    date: bar.date,
+    open: bar.open,
+    high: bar.high,
+    low: bar.low,
+    close: bar.close,
+    volume: bar.volume,
   };
   await repo.upsert(input);
 }
@@ -336,9 +336,9 @@ describe('forecast batch handler（通常モード）', () => {
     const forecastBbbD0 = await forecastRepository.getByTickerAndDate('TSE:BBB', d0);
     expect(forecastAaaD0).not.toBeNull();
     expect(forecastBbbD0).not.toBeNull();
-    expect(forecastAaaD0?.Source).toBe('LIVE');
-    expect(forecastAaaD0?.Probabilities).toEqual({}); // バーンイン未達
-    expect(forecastAaaD0?.Outcome).toBeUndefined();
+    expect(forecastAaaD0?.source).toBe('LIVE');
+    expect(forecastAaaD0?.probabilities).toEqual({}); // バーンイン未達
+    expect(forecastAaaD0?.outcome).toBeUndefined();
 
     // CCC は D0 の確度算出（Run1）が終わった後にサマリーが届く（本来 D0 時点に存在すべきだった
     // データの遅延到着を模す）。D0 の Forecast は既に打ち切られているため、後から D0・D1 の両方の
@@ -386,7 +386,7 @@ describe('forecast batch handler（通常モード）', () => {
     expect(stats2.waitingForData).toBe(1);
     expect(stats2.processedDates).toBe(0);
     expect(await marketForecastRepository.getByMarketAndDate('JP', d1)).toBeNull();
-    expect((await forecastRepository.getByTickerAndDate('TSE:AAA', d0))?.Outcome).toBeUndefined();
+    expect((await forecastRepository.getByTickerAndDate('TSE:AAA', d0))?.outcome).toBeUndefined();
 
     // --- Run3: 打ち切り時刻を過ぎた → 揃っている AAA・CCC だけで確度を算出し、D0 を採点する ---
     const run3 = await handler(mockScheduledEvent(), {
@@ -405,11 +405,11 @@ describe('forecast batch handler（通常モード）', () => {
 
     // 段階1: D0 の採点（AAA は D1 の実績があるので採点され、BBB は無いので採点されない）
     const scoredAaaD0 = await forecastRepository.getByTickerAndDate('TSE:AAA', d0);
-    expect(scoredAaaD0?.Outcome).toBeDefined();
-    expect(scoredAaaD0?.Outcome?.nextDate).toBe(d1);
-    expect(scoredAaaD0?.Outcome?.hit.DIR).toBeDefined();
+    expect(scoredAaaD0?.outcome).toBeDefined();
+    expect(scoredAaaD0?.outcome?.nextDate).toBe(d1);
+    expect(scoredAaaD0?.outcome?.hit.DIR).toBeDefined();
     const scoredBbbD0 = await forecastRepository.getByTickerAndDate('TSE:BBB', d0);
-    expect(scoredBbbD0?.Outcome).toBeUndefined();
+    expect(scoredBbbD0?.outcome).toBeUndefined();
     // CCC は D1 の確度算出には加わるが、D0 の Forecast 自体が存在しないため
     // 採点（Outcome の追記）はスキップされる（例外を投げずに継続する）
     expect(await forecastRepository.getByTickerAndDate('TSE:CCC', d0)).toBeNull();
@@ -422,7 +422,7 @@ describe('forecast batch handler（通常モード）', () => {
     expect(snapshotD1?.trainingSize).toBe(2);
 
     // 段階3: D1 の確度算出（学習件数がまだ少なくバーンイン未達のため確率は出さない）
-    expect((await forecastRepository.getByTickerAndDate('TSE:AAA', d1))?.Probabilities).toEqual({});
+    expect((await forecastRepository.getByTickerAndDate('TSE:AAA', d1))?.probabilities).toEqual({});
 
     // --- 冪等性: 同じ入力で再実行しても書き換わらず、何もしなかったと報告される ---
     const beforeAaaD0 = await forecastRepository.getByTickerAndDate('TSE:AAA', d0);
@@ -544,7 +544,7 @@ describe('forecast batch handler（リプレイモード）', () => {
   let performanceDailyRepository: InMemoryPerformanceDailyRepository;
   let dependencies: Omit<HandlerDependencies, 'nowFn'>;
 
-  // 過去データ除外の判定は CreatedAt（テスト実行時の実時刻）と翌営業日の取引開始時刻を比較するため、
+  // 過去データ除外の判定は createdAt (テスト実行時の実時刻) と翌営業日の取引開始時刻を比較するため、
   // テスト実行時刻より確実に先の日付を使う（過去日付だと常に除外に該当してしまう）。
   const d1 = '2030-01-07';
   const d2 = '2030-01-08'; // 重複 OHLC。legacyExclusionBefore より前なので除外される
@@ -770,7 +770,7 @@ describe('forecast batch handler（リプレイモード）', () => {
     // legacyExclusionBefore 以降の重複 OHLC は除外されず、そのまま確度が作られる
     const dup2AtD5 = await forecastRepository.getByTickerAndDate('TSE:DUP2', d5);
     expect(dup2AtD5).not.toBeNull();
-    expect(dup2AtD5?.Source).toBe('REPLAY');
+    expect(dup2AtD5?.source).toBe('REPLAY');
 
     const body2 = JSON.parse(run2.body);
     expect(body2.snapshotSummary.date).toBe(d6);
@@ -975,7 +975,7 @@ describe('forecast batch handler（リプレイモード）', () => {
     const expectedAnchor = expected.tickers.find((t) => t.tickerId === 'TSE:ANCHOR');
     const actualAnchor = await forecastRepository.getByTickerAndDate('TSE:ANCHOR', d6);
 
-    expect(actualAnchor?.AxisValues).toEqual(expectedAnchor?.axisValues);
+    expect(actualAnchor?.axisValues).toEqual(expectedAnchor?.axisValues);
 
     const expectedSnapshot = expected.modelSnapshots.DIR;
     const actualSnapshot = await modelSnapshotRepository.getByDate('DIR', 'JP', d6);
@@ -1055,7 +1055,7 @@ describe('forecast batch handler（リプレイモード）', () => {
 
     expect(fullSnapshot?.trainingSize).toBe(baselineSnapshot?.trainingSize);
     expect(fullSnapshot?.baseline).toBeCloseTo(baselineSnapshot?.baseline ?? NaN, 8);
-    expect(fullForecast?.AxisValues).toEqual(baselineForecast?.AxisValues);
+    expect(fullForecast?.axisValues).toEqual(baselineForecast?.axisValues);
   });
 
   it('バーンインを超えた日数分のデータがあれば確率が算出される', async () => {
@@ -1113,6 +1113,6 @@ describe('forecast batch handler（リプレイモード）', () => {
 
     const lastDate = burnInDates[burnInDates.length - 1];
     const lastForecast = await forecastRepo2.getByTickerAndDate('TSE:UP', lastDate);
-    expect(lastForecast?.Probabilities.DIR).toBeDefined();
+    expect(lastForecast?.probabilities.DIR).toBeDefined();
   });
 });

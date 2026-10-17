@@ -5,34 +5,6 @@
  */
 
 /**
- * 日次サマリー (DailySummary)
- *
- * 特定ティッカーの特定日における OHLCV（始値・高値・安値・終値・出来高）の日次集計データ
- */
-export type DailySummary = {
-  /** ティッカーID (PK: SUMMARY#{TickerID}) */
-  TickerID: string;
-  /** 取引所ID */
-  ExchangeID: string;
-  /** 取引日 (YYYY-MM-DD 形式, UTC基準) */
-  Date: string;
-  /** 始値 */
-  Open: number;
-  /** 高値 */
-  High: number;
-  /** 安値 */
-  Low: number;
-  /** 終値 */
-  Close: number;
-  /** 出来高 */
-  Volume?: number;
-  /** 作成日時 (Unix timestamp ms) */
-  CreatedAt: number;
-  /** 更新日時 (Unix timestamp ms) */
-  UpdatedAt: number;
-};
-
-/**
  * パターン判定状態
  */
 export type PatternStatus = 'MATCHED' | 'NOT_MATCHED' | 'INSUFFICIENT_DATA';

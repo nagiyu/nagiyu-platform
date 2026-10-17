@@ -160,15 +160,15 @@ function needsStaticAnalysis(
   }
 
   const hasOhlc =
-    existingSummary.Open !== undefined &&
-    existingSummary.High !== undefined &&
-    existingSummary.Low !== undefined &&
-    existingSummary.Close !== undefined;
+    existingSummary.open !== undefined &&
+    existingSummary.high !== undefined &&
+    existingSummary.low !== undefined &&
+    existingSummary.close !== undefined;
   if (!hasOhlc) {
     return true;
   }
 
-  const patternResults = existingSummary.PatternResults;
+  const patternResults = existingSummary.patternResults;
   if (!patternResults) {
     return true;
   }
@@ -282,17 +282,17 @@ async function processExchange(
               : patternAnalyzer.analyze(patternCandles);
 
           const summaryInput: CreateDailySummaryInput = {
-            TickerID: ticker.tickerId,
-            ExchangeID: exchange.exchangeId,
-            Date: summaryDate,
-            Open: latest.open,
-            High: latest.high,
-            Low: latest.low,
-            Close: latest.close,
-            Volume: latest.volume,
-            PatternResults: patternAnalysis.patternResults,
-            BuyPatternCount: patternAnalysis.buyPatternCount,
-            SellPatternCount: patternAnalysis.sellPatternCount,
+            tickerId: ticker.tickerId,
+            exchangeId: exchange.exchangeId,
+            date: summaryDate,
+            open: latest.open,
+            high: latest.high,
+            low: latest.low,
+            close: latest.close,
+            volume: latest.volume,
+            patternResults: patternAnalysis.patternResults,
+            buyPatternCount: patternAnalysis.buyPatternCount,
+            sellPatternCount: patternAnalysis.sellPatternCount,
           };
           await dependencies.dailySummaryRepository.upsert(summaryInput);
           stats.summariesSaved++;

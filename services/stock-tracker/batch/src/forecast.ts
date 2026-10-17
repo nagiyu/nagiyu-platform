@@ -207,16 +207,16 @@ function toSessionInfos(exchanges: readonly ExchangeEntity[]): {
 
 function toDailyBarInput(summary: DailySummaryForecastFields): DailyBarInput {
   return {
-    tickerId: summary.TickerID,
-    exchangeId: summary.ExchangeID,
-    date: summary.Date,
-    open: summary.Open,
-    high: summary.High,
-    low: summary.Low,
-    close: summary.Close,
-    volume: summary.Volume,
-    patternResults: summary.PatternResults,
-    createdAt: summary.CreatedAt,
+    tickerId: summary.tickerId,
+    exchangeId: summary.exchangeId,
+    date: summary.date,
+    open: summary.open,
+    high: summary.high,
+    low: summary.low,
+    close: summary.close,
+    volume: summary.volume,
+    patternResults: summary.patternResults,
+    createdAt: summary.createdAt,
   };
 }
 
@@ -596,15 +596,15 @@ export async function processMarketDate(
 
   const tickerCreateTasks = tickerCreations.map(({ ticker, probabilities }) => async () => {
     const created = await deps.forecastRepository.createIfAbsent({
-      TickerID: ticker.tickerId,
-      ExchangeID: ticker.exchangeId,
-      Market: ticker.market,
-      Date: ticker.date,
-      AxisValues: ticker.axisValues,
-      Normal: ticker.normal,
-      Probabilities: probabilities,
-      ModelVersion: FORECAST_MODEL_VERSION,
-      Source: source,
+      tickerId: ticker.tickerId,
+      exchangeId: ticker.exchangeId,
+      market: ticker.market,
+      date: ticker.date,
+      axisValues: ticker.axisValues,
+      normal: ticker.normal,
+      probabilities,
+      modelVersion: FORECAST_MODEL_VERSION,
+      source,
     });
     return created.created;
   });
@@ -633,12 +633,12 @@ export async function processMarketDate(
       );
     }
     const created = await deps.marketForecastRepository.createIfAbsent({
-      Market: axisValues.market.market,
-      Date: axisValues.market.date,
-      AxisValues: axisValues.market.axisValues,
-      Probabilities: probabilities,
-      ModelVersion: FORECAST_MODEL_VERSION,
-      Source: source,
+      market: axisValues.market.market,
+      date: axisValues.market.date,
+      axisValues: axisValues.market.axisValues,
+      probabilities,
+      modelVersion: FORECAST_MODEL_VERSION,
+      source,
     });
     if (created.created) result.createdMarketForecast = true;
     sampleAccess.onMarketForecastCreated({
