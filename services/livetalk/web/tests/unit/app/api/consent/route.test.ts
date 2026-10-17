@@ -29,14 +29,14 @@ const validSession = {
 };
 
 const consentedProfile = {
-  UserID: 'u1',
-  LastActiveAt: 0,
-  CreatedAt: 0,
-  UpdatedAt: 0,
-  Consents: {
-    TermsAgreed: { Version: '1.0.0', AgreedAt: 0 },
-    PrivacyAgreed: { Version: '1.0.0', AgreedAt: 0 },
-    AgeVerified: { Value: true, VerifiedAt: 0 },
+  userId: 'u1',
+  lastActiveAt: 0,
+  createdAt: 0,
+  updatedAt: 0,
+  consents: {
+    termsAgreed: { version: '1.0.0', agreedAt: 0 },
+    privacyAgreed: { version: '1.0.0', agreedAt: 0 },
+    ageVerified: { value: true, verifiedAt: 0 },
   },
 };
 
@@ -72,6 +72,8 @@ describe('GET /api/consent', () => {
     const json = await res.json();
     expect(json.consented).toBe(true);
     expect(json.requiredVersions).toEqual({ terms: '1.0.0', privacy: '1.0.0' });
+    // current はエンティティの camelCase のまま返す
+    expect(json.current).toEqual(consentedProfile.consents);
   });
 
   it('プロファイルがなければ consented: false を返す', async () => {
@@ -88,9 +90,9 @@ describe('GET /api/consent', () => {
     mockGetSession.mockResolvedValue(validSession);
     const oldProfile = {
       ...consentedProfile,
-      Consents: {
-        ...consentedProfile.Consents,
-        TermsAgreed: { Version: '0.9.0', AgreedAt: 0 },
+      consents: {
+        ...consentedProfile.consents,
+        termsAgreed: { version: '0.9.0', agreedAt: 0 },
       },
     };
     mockGetProfileRepo.mockReturnValue(makeProfileRepo(oldProfile));
@@ -194,12 +196,12 @@ describe('POST /api/consent', () => {
     const json = await res.json();
     expect(json.consented).toBe(true);
     expect(repo.upsert).toHaveBeenCalledWith(
-      { UserID: 'u1' },
+      { userId: 'u1' },
       expect.objectContaining({
-        Consents: expect.objectContaining({
-          TermsAgreed: expect.objectContaining({ Version: '1.0.0' }),
-          PrivacyAgreed: expect.objectContaining({ Version: '1.0.0' }),
-          AgeVerified: { Value: true, VerifiedAt: expect.any(Number) },
+        consents: expect.objectContaining({
+          termsAgreed: expect.objectContaining({ version: '1.0.0' }),
+          privacyAgreed: expect.objectContaining({ version: '1.0.0' }),
+          ageVerified: { value: true, verifiedAt: expect.any(Number) },
         }),
       })
     );

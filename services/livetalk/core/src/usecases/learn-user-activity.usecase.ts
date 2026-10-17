@@ -67,8 +67,8 @@ export async function learnUserActivity(
 
   // Phase 4d: 学習結果を元にキャラのスケジュールを緩やかに適応
   const adapted = adaptCharacterSchedule(
-    { bedtime: lifecycle.Bedtime, wakeUpTime: lifecycle.WakeUpTime },
-    lifecycle.UserActivityProfile
+    { bedtime: lifecycle.bedtime, wakeUpTime: lifecycle.wakeUpTime },
+    lifecycle.userActivityProfile
   );
   await lifecycleRepo.updateSchedule({ userId, characterId }, adapted);
 

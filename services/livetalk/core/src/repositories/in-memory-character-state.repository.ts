@@ -1,4 +1,4 @@
-import { InMemorySingleTableStore } from '@nagiyu/aws';
+import { InMemoryEntityStore, type EntityStore, type InMemorySingleTableStore } from '@nagiyu/aws';
 import { updateAffectionLevel } from '../affection/calculator.js';
 import type {
   CharacterStateEntity,
@@ -10,21 +10,16 @@ import { CharacterStateMapper } from '../mappers/character-state.mapper.js';
 import type { CharacterStateRepository } from './character-state.repository.interface.js';
 
 export class InMemoryCharacterStateRepository implements CharacterStateRepository {
-  private readonly mapper: CharacterStateMapper;
-  private readonly store: InMemorySingleTableStore;
   private readonly nowMs: () => number;
+  private readonly entityStore: EntityStore<CharacterStateEntity, CharacterStateKey>;
 
   constructor(store: InMemorySingleTableStore, nowMs: () => number = () => Date.now()) {
-    this.store = store;
     this.nowMs = nowMs;
-    this.mapper = new CharacterStateMapper();
+    this.entityStore = new InMemoryEntityStore(store, new CharacterStateMapper(), { now: nowMs });
   }
 
   public async getById(key: CharacterStateKey): Promise<CharacterStateEntity | null> {
-    const { pk, sk } = this.mapper.buildKeys(key);
-    const item = this.store.get(pk, sk);
-    if (!item) return null;
-    return this.mapper.toEntity(item);
+    return this.entityStore.get(key);
   }
 
   public async upsert(
@@ -33,20 +28,19 @@ export class InMemoryCharacterStateRepository implements CharacterStateRepositor
   ): Promise<CharacterStateEntity> {
     const now = this.nowMs();
     const existing = await this.getById({
-      userId: input.UserID,
-      characterId: input.CharacterID,
+      userId: input.userId,
+      characterId: input.characterId,
     });
     const merged: CharacterStateEntity = {
-      UserID: input.UserID,
-      CharacterID: input.CharacterID,
-      LastInteractionAt: updates.LastInteractionAt ?? input.LastInteractionAt,
-      AffectionLevel:
-        updates.AffectionLevel ?? input.AffectionLevel ?? existing?.AffectionLevel ?? 0,
-      CreatedAt: existing?.CreatedAt ?? now,
-      UpdatedAt: now,
+      userId: input.userId,
+      characterId: input.characterId,
+      lastInteractionAt: updates.lastInteractionAt ?? input.lastInteractionAt,
+      affectionLevel:
+        updates.affectionLevel ?? input.affectionLevel ?? existing?.affectionLevel ?? 0,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
     };
-    this.store.put(this.mapper.toItem(merged));
-    return merged;
+    return this.entityStore.put(merged);
   }
 
   public async updateAffection(
@@ -56,17 +50,17 @@ export class InMemoryCharacterStateRepository implements CharacterStateRepositor
   ): Promise<CharacterStateEntity> {
     const now = this.nowMs();
     const existing = await this.getById({ userId, characterId });
-    const currentLevel = existing?.AffectionLevel ?? 0;
+    const currentLevel = existing?.affectionLevel ?? 0;
     const newLevel = updateAffectionLevel(currentLevel, delta);
 
     return this.upsert(
       {
-        UserID: userId,
-        CharacterID: characterId,
-        LastInteractionAt: existing?.LastInteractionAt ?? now,
-        AffectionLevel: newLevel,
+        userId,
+        characterId,
+        lastInteractionAt: existing?.lastInteractionAt ?? now,
+        affectionLevel: newLevel,
       },
-      { LastInteractionAt: now, AffectionLevel: newLevel }
+      { lastInteractionAt: now, affectionLevel: newLevel }
     );
   }
 }

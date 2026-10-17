@@ -46,6 +46,7 @@ function createMockRepo() {
     getByUserId: jest.fn(),
     upsert: jest.fn(),
     delete: jest.fn(),
+    deleteIfExists: jest.fn(),
   };
 }
 
@@ -322,16 +323,17 @@ describe('saveNiconicoSession', () => {
 });
 
 describe('deleteNiconicoSession', () => {
-  it('リポジトリの delete を呼び出す', async () => {
+  it('保存済みセッションがなくても成功するよう、リポジトリの deleteIfExists を呼び出す', async () => {
     const mockRepo = createMockRepo();
     mockCreateRepo.mockReturnValue(
       mockRepo as ReturnType<typeof createNiconicoCredentialRepository>
     );
-    mockRepo.delete.mockResolvedValue(undefined);
+    mockRepo.deleteIfExists.mockResolvedValue(undefined);
 
     await deleteNiconicoSession('user123');
 
-    expect(mockRepo.delete).toHaveBeenCalledWith('user123');
+    expect(mockRepo.deleteIfExists).toHaveBeenCalledWith('user123');
+    expect(mockRepo.delete).not.toHaveBeenCalled();
   });
 });
 

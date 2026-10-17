@@ -30,7 +30,7 @@ export interface ProfileRepositoryContractHooks {
 
 function buildProfileInput(overrides: Partial<CreateProfileInput> = {}): CreateProfileInput {
   return {
-    UserID: 'user-001',
+    userId: 'user-001',
     ...overrides,
   };
 }
@@ -63,17 +63,32 @@ export function defineProfileRepositoryContract(
       const input = buildProfileInput();
 
       const created = await repository.upsert(input);
-      expect(created.UserID).toBe(input.UserID);
+      expect(created.userId).toBe(input.userId);
 
-      const fetched = await repository.getById({ userId: input.UserID });
+      const fetched = await repository.getById({ userId: input.userId });
       expect(fetched).toEqual(created);
 
-      const updated = await repository.upsert(input, { LastActiveAt: created.LastActiveAt + 1 });
-      expect(updated.CreatedAt).toBe(created.CreatedAt);
-      expect(updated.LastActiveAt).toBe(created.LastActiveAt + 1);
+      const updated = await repository.upsert(input, { lastActiveAt: created.lastActiveAt + 1 });
+      expect(updated.createdAt).toBe(created.createdAt);
+      expect(updated.lastActiveAt).toBe(created.lastActiveAt + 1);
 
-      const fetchedAfterUpdate = await repository.getById({ userId: input.UserID });
+      const fetchedAfterUpdate = await repository.getById({ userId: input.userId });
       expect(fetchedAfterUpdate).toEqual(updated);
+    });
+
+    it('consents はネストも含めて保存・取得でき、再 upsert で既存の同意を保ったまま追加できる', async () => {
+      const input = buildProfileInput();
+      const termsAgreed = { version: '1.0.0', agreedAt: 1_700_000_000_001 };
+      const ageVerified = { value: true, verifiedAt: 1_700_000_000_002 };
+
+      await repository.upsert(input, { consents: { termsAgreed } });
+      const merged = await repository.upsert(input, { consents: { ageVerified } });
+
+      expect(merged.consents).toEqual({ termsAgreed, ageVerified });
+      expect((await repository.getById({ userId: input.userId }))?.consents).toEqual({
+        termsAgreed,
+        ageVerified,
+      });
     });
 
     it('getById は未登録ユーザーに対して null を返す', async () => {
@@ -81,7 +96,7 @@ export function defineProfileRepositoryContract(
     });
 
     it('listAllUserIds は sparse GSI1 により Profile 以外のエンティティを含めない', async () => {
-      await repository.upsert(buildProfileInput({ UserID: 'profile-user' }));
+      await repository.upsert(buildProfileInput({ userId: 'profile-user' }));
       await hooks.putNonProfileItem('non-profile-user');
 
       const result = await repository.listAllUserIds();
@@ -96,7 +111,7 @@ export function defineProfileRepositoryContract(
         (_, i) => `user-${String(i).padStart(4, '0')}`
       );
       for (const userId of expectedUserIds) {
-        await repository.upsert(buildProfileInput({ UserID: userId }));
+        await repository.upsert(buildProfileInput({ userId: userId }));
       }
 
       const result = await repository.listAllUserIds();

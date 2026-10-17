@@ -3,7 +3,7 @@
  *
  * `docs/services/livetalk/architecture.md` §3「データモデル概要」の SK パターン `CHAR#<id>#LIFECYCLE` に対応。
  *
- * Phase 4b スコープでは Bedtime / WakeUpTime をデフォルト固定で運用する。
+ * Phase 4b スコープでは bedtime / wakeUpTime をデフォルト固定で運用する。
  * ユーザーが自分でスケジュールを変更できる UI は Phase 4c 以降で実装する。
  * Phase 4c 学習バッチで UserActivityProfile が追加される。
  */
@@ -23,16 +23,16 @@ export interface UserActivityProfile {
 }
 
 export interface LifecycleEntity {
-  UserID: string;
-  CharacterID: string;
+  userId: string;
+  characterId: string;
   /** 就寝時刻。"HH:mm" 形式（例: "01:30"） */
-  Bedtime: string;
+  bedtime: string;
   /** 起床時刻。"HH:mm" 形式（例: "09:30"） */
-  WakeUpTime: string;
+  wakeUpTime: string;
   /** ユーザー活動時間学習結果（Phase 4c バッチが書き込むまでは undefined）。 */
-  UserActivityProfile?: UserActivityProfile;
-  CreatedAt: number;
-  UpdatedAt: number;
+  userActivityProfile?: UserActivityProfile;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface LifecycleKey {
@@ -40,5 +40,5 @@ export interface LifecycleKey {
   characterId: string;
 }
 
-export type CreateLifecycleInput = Omit<LifecycleEntity, 'CreatedAt' | 'UpdatedAt'>;
-export type UpdateLifecycleInput = Partial<Pick<LifecycleEntity, 'Bedtime' | 'WakeUpTime'>>;
+export type CreateLifecycleInput = Omit<LifecycleEntity, 'createdAt' | 'updatedAt'>;
+export type UpdateLifecycleInput = Partial<Pick<LifecycleEntity, 'bedtime' | 'wakeUpTime'>>;

@@ -17,11 +17,11 @@ describe('DynamoDBCharacterStateRepository', () => {
     const repo = new DynamoDBCharacterStateRepository(client as never, tableName);
     const before = Date.now();
     const result = await repo.upsert({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      LastInteractionAt: Date.now(),
+      userId: 'u1',
+      characterId: 'hiyori',
+      lastInteractionAt: Date.now(),
     });
-    expect(result.CreatedAt).toBeGreaterThanOrEqual(before);
+    expect(result.createdAt).toBeGreaterThanOrEqual(before);
   });
 
   it('Error 以外の例外も DatabaseError でラップする', async () => {
@@ -43,9 +43,9 @@ describe('DynamoDBCharacterStateRepository', () => {
     });
     const repo = new DynamoDBCharacterStateRepository(client as never, tableName, () => now);
     const result = await repo.upsert({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      LastInteractionAt: now,
+      userId: 'u1',
+      characterId: 'hiyori',
+      lastInteractionAt: now,
     });
     const put = (sent[1] as PutCommand).input;
     expect(put.Item?.PK).toBe('USER#u1');
@@ -55,7 +55,7 @@ describe('DynamoDBCharacterStateRepository', () => {
     expect(put.Item?.AffectionLevel).toBe(0);
     // Onboarded など未定義フィールドは書き出さない
     expect(put.Item?.Onboarded).toBeUndefined();
-    expect(result.CreatedAt).toBe(now);
+    expect(result.createdAt).toBe(now);
   });
 
   it('既存があれば CreatedAt は既存値を保持し、LastInteractionAt 差分を反映する', async () => {
@@ -76,15 +76,15 @@ describe('DynamoDBCharacterStateRepository', () => {
     const repo = new DynamoDBCharacterStateRepository(client as never, tableName, () => now);
     const result = await repo.upsert(
       {
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        LastInteractionAt: now,
+        userId: 'u1',
+        characterId: 'hiyori',
+        lastInteractionAt: now,
       },
-      { LastInteractionAt: now }
+      { lastInteractionAt: now }
     );
-    expect(result.LastInteractionAt).toBe(now);
-    expect(result.CreatedAt).toBe(1_600_000_000_000);
-    expect(result.UpdatedAt).toBe(now);
+    expect(result.lastInteractionAt).toBe(now);
+    expect(result.createdAt).toBe(1_600_000_000_000);
+    expect(result.updatedAt).toBe(now);
   });
 
   it('getById は未登録時 null', async () => {
@@ -110,7 +110,7 @@ describe('DynamoDBCharacterStateRepository', () => {
     });
     const repo = new DynamoDBCharacterStateRepository(client as never, tableName, () => now);
     await expect(
-      repo.upsert({ UserID: 'u1', CharacterID: 'hiyori', LastInteractionAt: now })
+      repo.upsert({ userId: 'u1', characterId: 'hiyori', lastInteractionAt: now })
     ).rejects.toBeInstanceOf(DatabaseError);
   });
 });

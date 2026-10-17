@@ -35,12 +35,12 @@ const validSession = {
 };
 
 const makeEntity = (bedtime: string, wakeUpTime: string): LifecycleEntity => ({
-  UserID: 'u1',
-  CharacterID: 'hiyori',
-  Bedtime: bedtime,
-  WakeUpTime: wakeUpTime,
-  CreatedAt: 0,
-  UpdatedAt: 0,
+  userId: 'u1',
+  characterId: 'hiyori',
+  bedtime: bedtime,
+  wakeUpTime: wakeUpTime,
+  createdAt: 0,
+  updatedAt: 0,
 });
 
 const makeRepo = (entity: LifecycleEntity | null): LifecycleRepository => ({

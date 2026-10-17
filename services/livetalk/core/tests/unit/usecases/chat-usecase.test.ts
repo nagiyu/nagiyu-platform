@@ -1623,17 +1623,17 @@ describe('runChatUseCase', () => {
         getById: jest.fn(async () => prev),
         upsert: jest.fn(async (input) => ({
           ...input,
-          AffectionLevel: 0,
-          CreatedAt: 0,
-          UpdatedAt: 0,
+          affectionLevel: 0,
+          createdAt: 0,
+          updatedAt: 0,
         })) as unknown as CharacterStateRepository['upsert'],
         updateAffection: jest.fn(async (userId, characterId, delta) => ({
-          UserID: userId,
-          CharacterID: characterId,
-          LastInteractionAt: 0,
-          AffectionLevel: delta,
-          CreatedAt: 0,
-          UpdatedAt: 0,
+          userId,
+          characterId,
+          lastInteractionAt: 0,
+          affectionLevel: delta,
+          createdAt: 0,
+          updatedAt: 0,
         })),
       };
     }
@@ -1665,12 +1665,12 @@ describe('runChatUseCase', () => {
       const repo = makeRepo();
       const now = Date.now();
       const characterStateRepository = makeCharacterStateRepo({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        AffectionLevel: 5,
-        LastInteractionAt: now,
-        CreatedAt: 0,
-        UpdatedAt: 0,
+        userId: 'u1',
+        characterId: 'hiyori',
+        affectionLevel: 5,
+        lastInteractionAt: now,
+        createdAt: 0,
+        updatedAt: 0,
       });
 
       await collectEvents(
