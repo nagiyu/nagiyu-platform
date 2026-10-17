@@ -1,4 +1,4 @@
-import { EntityNotFoundError } from '@nagiyu/aws';
+import { EntityAlreadyExistsError, EntityNotFoundError } from '@nagiyu/aws';
 import type { Group, GroupMembership } from '../types/index.js';
 import type { GroupRepository } from '../repositories/group/group-repository.interface.js';
 import type { ListRepository } from '../repositories/list/list-repository.interface.js';
@@ -148,15 +148,23 @@ export async function inviteMember(
     });
   }
 
-  return dependencies.membershipRepository.create({
-    groupId: input.groupId,
-    userId: input.userId,
-    role: 'MEMBER',
-    status: 'PENDING',
-    invitedBy: input.invitedBy,
-    invitedAt: input.invitedAt,
-    expiresAt,
-  });
+  try {
+    return await dependencies.membershipRepository.create({
+      groupId: input.groupId,
+      userId: input.userId,
+      role: 'MEMBER',
+      status: 'PENDING',
+      invitedBy: input.invitedBy,
+      invitedAt: input.invitedAt,
+      expiresAt,
+    });
+  } catch (error) {
+    // 存在確認から作成までの間に、同じ相手への招待が先に作られた場合
+    if (error instanceof EntityAlreadyExistsError) {
+      throw new Error(ERROR_MESSAGES.DUPLICATE_INVITATION, { cause: error });
+    }
+    throw error;
+  }
 }
 
 export async function respondToInvitation(

@@ -1,4 +1,4 @@
-import { EntityNotFoundError } from '@nagiyu/aws';
+import { EntityAlreadyExistsError, EntityNotFoundError } from '@nagiyu/aws';
 import type {
   GroupMembership,
   GroupRepository,
@@ -357,6 +357,39 @@ describe('group library', () => {
     });
     const notFound = (): EntityNotFoundError =>
       new EntityNotFoundError('GroupMembership', 'group-1/user-2');
+
+    it('招待の作成中に同じ相手への招待が先に作られていたら DUPLICATE_INVITATION になる', async () => {
+      const membershipRepository = createMembershipRepository({
+        getById: jest.fn().mockResolvedValue(null),
+        getByGroupId: jest.fn().mockResolvedValue([]),
+        create: jest
+          .fn()
+          .mockRejectedValue(new EntityAlreadyExistsError('GroupMembership', 'group-1/user-2')),
+      });
+
+      await expect(
+        inviteMember(
+          { groupId: 'group-1', userId: 'user-2', invitedBy: 'owner-1', invitedAt: JAN_1 },
+          { groupRepository, membershipRepository }
+        )
+      ).rejects.toThrow(ERROR_MESSAGES.DUPLICATE_INVITATION);
+    });
+
+    it('招待の作成で重複以外のエラーはそのまま投げる', async () => {
+      const failure = new Error('DynamoDB の障害');
+      const membershipRepository = createMembershipRepository({
+        getById: jest.fn().mockResolvedValue(null),
+        getByGroupId: jest.fn().mockResolvedValue([]),
+        create: jest.fn().mockRejectedValue(failure),
+      });
+
+      await expect(
+        inviteMember(
+          { groupId: 'group-1', userId: 'user-2', invitedBy: 'owner-1', invitedAt: JAN_1 },
+          { groupRepository, membershipRepository }
+        )
+      ).rejects.toBe(failure);
+    });
 
     it('招待の応答中に招待が消えていたら INVITATION_NOT_FOUND になる', async () => {
       const membershipRepository = createMembershipRepository({
