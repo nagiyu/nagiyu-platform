@@ -53,17 +53,19 @@ describe('ErrorEventsTableStack', () => {
     });
   });
 
-  it('TTL を指定しない (属性名の切り替えのため一時的に無効化する)', () => {
+  it('TTL 属性 TTL を有効化する', () => {
     const app = new cdk.App();
     const stack = new ErrorEventsTableStack(app, 'TestErrorEventsTable', {
       environment: 'dev',
     });
 
     const template = Template.fromStack(stack);
-    const tables = template.findResources('AWS::DynamoDB::Table');
-    for (const table of Object.values(tables)) {
-      expect(table.Properties.TimeToLiveSpecification).toBeUndefined();
-    }
+    template.hasResourceProperties('AWS::DynamoDB::Table', {
+      TimeToLiveSpecification: {
+        AttributeName: 'TTL',
+        Enabled: true,
+      },
+    });
   });
 
   it('Streams を NEW_IMAGE で有効化する', () => {
