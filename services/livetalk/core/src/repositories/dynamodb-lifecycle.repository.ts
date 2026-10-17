@@ -1,5 +1,5 @@
-import { GetCommand, PutCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBEntityStore, type EntityStore } from '@nagiyu/aws';
 import type {
   CreateLifecycleInput,
   LifecycleEntity,
@@ -12,33 +12,22 @@ import { LifecycleMapper } from '../mappers/lifecycle.mapper.js';
 import type { LifecycleRepository } from './lifecycle.repository.interface.js';
 
 export class DynamoDBLifecycleRepository implements LifecycleRepository {
-  private readonly mapper: LifecycleMapper;
-  private readonly docClient: DynamoDBDocumentClient;
-  private readonly tableName: string;
   private readonly nowMs: () => number;
+  private readonly entityStore: EntityStore<LifecycleEntity, LifecycleKey>;
 
   constructor(
     docClient: DynamoDBDocumentClient,
     tableName: string,
     nowMs: () => number = () => Date.now()
   ) {
-    this.docClient = docClient;
-    this.tableName = tableName;
     this.nowMs = nowMs;
-    this.mapper = new LifecycleMapper();
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, new LifecycleMapper(), {
+      now: nowMs,
+    });
   }
 
   public async get(key: LifecycleKey): Promise<LifecycleEntity | null> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys(key);
-      const result = await this.docClient.send(
-        new GetCommand({ TableName: this.tableName, Key: { PK: pk, SK: sk } })
-      );
-      if (!result.Item) return null;
-      return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.get(key);
   }
 
   public async upsert(
@@ -46,26 +35,18 @@ export class DynamoDBLifecycleRepository implements LifecycleRepository {
     updates: UpdateLifecycleInput = {}
   ): Promise<LifecycleEntity> {
     const now = this.nowMs();
-    const existing = await this.get({ userId: input.UserID, characterId: input.CharacterID });
-    const entity: LifecycleEntity = {
-      UserID: input.UserID,
-      CharacterID: input.CharacterID,
-      Bedtime: updates.Bedtime ?? input.Bedtime,
-      WakeUpTime: updates.WakeUpTime ?? input.WakeUpTime,
-      ...(existing?.UserActivityProfile !== undefined && {
-        UserActivityProfile: existing.UserActivityProfile,
+    const existing = await this.get({ userId: input.userId, characterId: input.characterId });
+    return this.entityStore.put({
+      userId: input.userId,
+      characterId: input.characterId,
+      bedtime: updates.bedtime ?? input.bedtime,
+      wakeUpTime: updates.wakeUpTime ?? input.wakeUpTime,
+      ...(existing?.userActivityProfile !== undefined && {
+        userActivityProfile: existing.userActivityProfile,
       }),
-      CreatedAt: existing?.CreatedAt ?? now,
-      UpdatedAt: now,
-    };
-    try {
-      await this.docClient.send(
-        new PutCommand({ TableName: this.tableName, Item: this.mapper.toItem(entity) })
-      );
-      return entity;
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    });
   }
 
   public async updateUserActivityProfile(
@@ -74,23 +55,15 @@ export class DynamoDBLifecycleRepository implements LifecycleRepository {
   ): Promise<LifecycleEntity> {
     const now = this.nowMs();
     const existing = await this.get(key);
-    const entity: LifecycleEntity = {
-      UserID: key.userId,
-      CharacterID: key.characterId,
-      Bedtime: existing?.Bedtime ?? LIFECYCLE_DEFAULT_BEDTIME,
-      WakeUpTime: existing?.WakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME,
-      UserActivityProfile: profile,
-      CreatedAt: existing?.CreatedAt ?? now,
-      UpdatedAt: now,
-    };
-    try {
-      await this.docClient.send(
-        new PutCommand({ TableName: this.tableName, Item: this.mapper.toItem(entity) })
-      );
-      return entity;
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.put({
+      userId: key.userId,
+      characterId: key.characterId,
+      bedtime: existing?.bedtime ?? LIFECYCLE_DEFAULT_BEDTIME,
+      wakeUpTime: existing?.wakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME,
+      userActivityProfile: profile,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    });
   }
 
   public async updateSchedule(
@@ -99,24 +72,16 @@ export class DynamoDBLifecycleRepository implements LifecycleRepository {
   ): Promise<LifecycleEntity> {
     const now = this.nowMs();
     const existing = await this.get(key);
-    const entity: LifecycleEntity = {
-      UserID: key.userId,
-      CharacterID: key.characterId,
-      Bedtime: schedule.bedtime,
-      WakeUpTime: schedule.wakeUpTime,
-      ...(existing?.UserActivityProfile !== undefined && {
-        UserActivityProfile: existing.UserActivityProfile,
+    return this.entityStore.put({
+      userId: key.userId,
+      characterId: key.characterId,
+      bedtime: schedule.bedtime,
+      wakeUpTime: schedule.wakeUpTime,
+      ...(existing?.userActivityProfile !== undefined && {
+        userActivityProfile: existing.userActivityProfile,
       }),
-      CreatedAt: existing?.CreatedAt ?? now,
-      UpdatedAt: now,
-    };
-    try {
-      await this.docClient.send(
-        new PutCommand({ TableName: this.tableName, Item: this.mapper.toItem(entity) })
-      );
-      return entity;
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    });
   }
 }

@@ -1,8 +1,13 @@
 import {
+  immutablePatchValue,
+  optionalPatchValue,
+  readTimestamp,
+  requiredPatchValue,
   validateStringField,
-  validateTimestampField,
-  type DynamoDBItem,
-  type LegacyEntityMapper,
+  type DynamoDBAttributes,
+  type DynamoDBKey,
+  type EntityMapper,
+  type EntityPatch,
 } from '@nagiyu/aws';
 import type {
   CharacterStateEntity,
@@ -10,45 +15,49 @@ import type {
 } from '../entities/character-state.entity.js';
 import { buildCharacterStateSK, buildUserPK } from './keys.js';
 
-export class CharacterStateMapper implements LegacyEntityMapper<
-  CharacterStateEntity,
-  CharacterStateKey
-> {
+export class CharacterStateMapper implements EntityMapper<CharacterStateEntity, CharacterStateKey> {
   public readonly entityType = 'CharacterState';
 
-  public toItem(entity: CharacterStateEntity): DynamoDBItem {
-    const { pk, sk } = this.buildKeys({
-      userId: entity.UserID,
-      characterId: entity.CharacterID,
-    });
+  public buildKeys(key: CharacterStateKey): DynamoDBKey {
+    return { PK: buildUserPK(key.userId), SK: buildCharacterStateSK(key.characterId) };
+  }
+
+  public getKey(entity: CharacterStateEntity): CharacterStateKey {
+    return { userId: entity.userId, characterId: entity.characterId };
+  }
+
+  public toItem(entity: CharacterStateEntity): DynamoDBAttributes {
     return {
-      PK: pk,
-      SK: sk,
+      ...this.buildKeys(this.getKey(entity)),
       Type: this.entityType,
-      UserID: entity.UserID,
-      CharacterID: entity.CharacterID,
-      LastInteractionAt: entity.LastInteractionAt,
-      AffectionLevel: entity.AffectionLevel ?? 0,
-      CreatedAt: entity.CreatedAt,
-      UpdatedAt: entity.UpdatedAt,
+      UserID: entity.userId,
+      CharacterID: entity.characterId,
+      LastInteractionAt: entity.lastInteractionAt,
+      // 旧データは未設定を 0 として扱うため、書くときも 0 に揃える
+      AffectionLevel: entity.affectionLevel ?? 0,
+      CreatedAt: entity.createdAt,
+      UpdatedAt: entity.updatedAt,
     };
   }
 
-  public toEntity(item: DynamoDBItem): CharacterStateEntity {
+  public toUpdateAttributes(changes: EntityPatch<CharacterStateEntity>): DynamoDBAttributes {
     return {
-      UserID: validateStringField(item.UserID, 'UserID'),
-      CharacterID: validateStringField(item.CharacterID, 'CharacterID'),
-      LastInteractionAt: validateTimestampField(item.LastInteractionAt, 'LastInteractionAt'),
-      AffectionLevel: typeof item.AffectionLevel === 'number' ? item.AffectionLevel : 0,
-      CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
-      UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
+      UserID: immutablePatchValue(changes.userId, 'UserID'),
+      CharacterID: immutablePatchValue(changes.characterId, 'CharacterID'),
+      CreatedAt: immutablePatchValue(changes.createdAt, 'CreatedAt'),
+      LastInteractionAt: requiredPatchValue(changes.lastInteractionAt, 'LastInteractionAt'),
+      AffectionLevel: optionalPatchValue(changes.affectionLevel),
     };
   }
 
-  public buildKeys(key: CharacterStateKey): { pk: string; sk: string } {
+  public toEntity(item: DynamoDBAttributes): CharacterStateEntity {
     return {
-      pk: buildUserPK(key.userId),
-      sk: buildCharacterStateSK(key.characterId),
+      userId: validateStringField(item.UserID, 'UserID'),
+      characterId: validateStringField(item.CharacterID, 'CharacterID'),
+      lastInteractionAt: readTimestamp(item, 'LastInteractionAt'),
+      affectionLevel: typeof item.AffectionLevel === 'number' ? item.AffectionLevel : 0,
+      createdAt: readTimestamp(item, 'CreatedAt'),
+      updatedAt: readTimestamp(item, 'UpdatedAt'),
     };
   }
 }

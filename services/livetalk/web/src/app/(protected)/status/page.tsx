@@ -113,18 +113,18 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
       getSafetyEventRepository().listRecent(SAFETY_REVIEW_DEFAULT_LIMIT),
     ]);
 
-  const bedtime = lifecycle?.Bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
-  const wakeUpTime = lifecycle?.WakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME;
+  const bedtime = lifecycle?.bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
+  const wakeUpTime = lifecycle?.wakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME;
   const state = resolveLifecycleState(now, bedtime, wakeUpTime);
   const userMessages = allMessages.filter((m) => m.Role === 'user');
 
   const lifecycleForDecision = lifecycle ?? {
-    UserID: userId,
-    CharacterID: characterId,
-    Bedtime: LIFECYCLE_DEFAULT_BEDTIME,
-    WakeUpTime: LIFECYCLE_DEFAULT_WAKE_UP_TIME,
-    CreatedAt: 0,
-    UpdatedAt: 0,
+    userId,
+    characterId,
+    bedtime: LIFECYCLE_DEFAULT_BEDTIME,
+    wakeUpTime: LIFECYCLE_DEFAULT_WAKE_UP_TIME,
+    createdAt: 0,
+    updatedAt: 0,
   };
 
   const notifyDecision = shouldNotifyNow({
@@ -169,15 +169,15 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
       <Typography variant="body2" sx={{ mb: 0.5 }}>
         就寝: {bedtime} / 起床: {wakeUpTime}
       </Typography>
-      {lifecycle?.UserActivityProfile ? (
+      {lifecycle?.userActivityProfile ? (
         <Box sx={{ mb: 1 }}>
           <Typography variant="body2">
-            活動プロファイル: 朝 {lifecycle.UserActivityProfile.morningPeak} / 夕{' '}
-            {lifecycle.UserActivityProfile.eveningPeak}
+            活動プロファイル: 朝 {lifecycle.userActivityProfile.morningPeak} / 夕{' '}
+            {lifecycle.userActivityProfile.eveningPeak}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            サンプル {lifecycle.UserActivityProfile.sampleSize} 件 / 最終学習:{' '}
-            {lifecycle.UserActivityProfile.lastLearnedAt}
+            サンプル {lifecycle.userActivityProfile.sampleSize} 件 / 最終学習:{' '}
+            {lifecycle.userActivityProfile.lastLearnedAt}
           </Typography>
         </Box>
       ) : (

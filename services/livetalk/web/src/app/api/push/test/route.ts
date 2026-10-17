@@ -95,7 +95,7 @@ export const POST = withApiErrorReporting(
     const pushSubscriptionRepo = getPushSubscriptionRepository();
     const result = await sendWebPushNotifications(
       subscriptions,
-      (sub) => ({ endpoint: sub.Endpoint, keys: { p256dh: sub.P256dhKey, auth: sub.AuthKey } }),
+      (sub) => ({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dhKey, auth: sub.authKey } }),
       payload,
       vapidConfig
     );
@@ -105,19 +105,19 @@ export const POST = withApiErrorReporting(
       try {
         await pushSubscriptionRepo.delete({
           userId,
-          subscriptionId: sub.SubscriptionID,
+          subscriptionId: sub.subscriptionId,
         });
       } catch (error) {
         logger.warn('[POST /api/push/test] 無効なサブスクリプションの削除失敗（継続）', {
           userId,
           characterId,
-          subscriptionId: sub.SubscriptionID,
+          subscriptionId: sub.subscriptionId,
           error: toErrorMessage(error),
         });
         await reportSwallowedError(
           'Web API: 無効なサブスクリプションの削除エラー',
           error,
-          { characterId, subscriptionId: sub.SubscriptionID },
+          { characterId, subscriptionId: sub.subscriptionId },
           'warning'
         );
       }
@@ -127,7 +127,7 @@ export const POST = withApiErrorReporting(
       logger.warn('[POST /api/push/test] Push 送信失敗（継続）', {
         userId,
         characterId,
-        subscriptionId: target.SubscriptionID,
+        subscriptionId: target.subscriptionId,
         error: toErrorMessage(error),
       });
     }

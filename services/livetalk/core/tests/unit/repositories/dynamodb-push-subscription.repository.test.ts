@@ -10,11 +10,11 @@ const fixedNow = 1_750_000_000_000;
 const tableName = 'nagiyu-livetalk-dev';
 
 const baseInput: CreatePushSubscriptionInput = {
-  UserID: 'u1',
-  SubscriptionID: 'sub_abc123',
-  Endpoint: 'https://push.example.com/sub1',
-  P256dhKey: 'p256-key',
-  AuthKey: 'auth-key',
+  userId: 'u1',
+  subscriptionId: 'sub_abc123',
+  endpoint: 'https://push.example.com/sub1',
+  p256dhKey: 'p256-key',
+  authKey: 'auth-key',
 };
 
 const baseItem = {
@@ -45,8 +45,8 @@ describe('DynamoDBPushSubscriptionRepository', () => {
       );
 
       const entity = await repo.put(baseInput);
-      expect(entity.CreatedAt).toBe(fixedNow);
-      expect(entity.UpdatedAt).toBe(fixedNow);
+      expect(entity.createdAt).toBe(fixedNow);
+      expect(entity.updatedAt).toBe(fixedNow);
       expect(sent[0]).toBeInstanceOf(PutCommand);
     });
 
@@ -90,7 +90,7 @@ describe('DynamoDBPushSubscriptionRepository', () => {
 
       const list = await repo.listByUser('u1');
       expect(list).toHaveLength(1);
-      expect(list[0].SubscriptionID).toBe('sub_abc123');
+      expect(list[0].subscriptionId).toBe('sub_abc123');
       expect(sent[0]).toBeInstanceOf(QueryCommand);
     });
 
@@ -153,7 +153,7 @@ describe('DynamoDBPushSubscriptionRepository', () => {
       );
 
       const found = await repo.get({ userId: 'u1', subscriptionId: 'sub_abc123' });
-      expect(found?.Endpoint).toBe('https://push.example.com/sub1');
+      expect(found?.endpoint).toBe('https://push.example.com/sub1');
       expect(sent[0]).toBeInstanceOf(GetCommand);
     });
 
@@ -222,7 +222,7 @@ describe('DynamoDBPushSubscriptionRepository', () => {
       const repo = new DynamoDBPushSubscriptionRepository(client as never, tableName);
       const before = Date.now();
       const entity = await repo.put(baseInput);
-      expect(entity.CreatedAt).toBeGreaterThanOrEqual(before);
+      expect(entity.createdAt).toBeGreaterThanOrEqual(before);
     });
   });
 });

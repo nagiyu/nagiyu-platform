@@ -74,12 +74,12 @@ interface ShouldAcquireDecision {
  *   （依頼・鮮度切れの再取得はユーザー起点/期限起点のため awake なら実施する）。
  */
 export function shouldAcquireNow(lifecycle: LifecycleEntity, now: Date): ShouldAcquireDecision {
-  const state = resolveLifecycleState(now, lifecycle.Bedtime, lifecycle.WakeUpTime);
+  const state = resolveLifecycleState(now, lifecycle.bedtime, lifecycle.wakeUpTime);
   if (state !== 'awake') {
     return { awake: false, skipSelfStudy: true, reason: 'キャラが就寝中' };
   }
 
-  const profile = lifecycle.UserActivityProfile;
+  const profile = lifecycle.userActivityProfile;
   if (profile) {
     const currentHour = now.getHours();
     if (
