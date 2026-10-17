@@ -61,7 +61,7 @@ const BASIC_INFO: VideoBasicInfo = {
   title: '動画 sm1',
   thumbnailUrl: 'https://example.com/sm1.jpg',
   length: '3:00',
-  CreatedAt: 1700000000000,
+  createdAt: 1700000000000,
 };
 
 const SETTING: UserVideoSetting = {
@@ -70,8 +70,8 @@ const SETTING: UserVideoSetting = {
   isFavorite: true,
   isSkip: false,
   memo: 'メモ',
-  CreatedAt: 1700000000000,
-  UpdatedAt: 1700000001000,
+  createdAt: 1700000000000,
+  updatedAt: 1700000001000,
 };
 
 /** 本文の文字列をそのまま持つ NextRequest を生成するヘルパー */
@@ -135,6 +135,23 @@ describe('PUT /api/videos/[id]/settings', () => {
     const json = await response.json();
     expect(json.video.videoId).toBe('sm1');
     expect(json.video.userSetting.isFavorite).toBe(true);
+  });
+
+  it('設定が既にある動画へ項目が空のボディを送ると 200 を返す', async () => {
+    // 変更が空の更新は更新日時だけを更新する扱いになり、エラーにしない
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+    mockGetVideoBasicInfo.mockResolvedValue(BASIC_INFO);
+    mockGetUserVideoSetting.mockResolvedValue(SETTING);
+    mockUpdateUserVideoSetting.mockResolvedValue(SETTING);
+
+    const response = await PUT(makePutRequest({}), ROUTE_PARAMS);
+
+    expect(response.status).toBe(200);
+    expect(mockUpdateUserVideoSetting).toHaveBeenCalledWith('user123', 'sm1', {
+      isFavorite: undefined,
+      isSkip: undefined,
+      memo: undefined,
+    });
   });
 
   it('設定が未作成の場合は省略した真偽値を false として新規作成する', async () => {

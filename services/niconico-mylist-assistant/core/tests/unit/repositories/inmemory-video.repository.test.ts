@@ -3,7 +3,11 @@
  */
 
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { InMemorySingleTableStore, EntityAlreadyExistsError } from '@nagiyu/aws';
+import {
+  InMemorySingleTableStore,
+  EntityAlreadyExistsError,
+  EntityNotFoundError,
+} from '@nagiyu/aws';
 import { InMemoryVideoRepository } from '../../../src/repositories/inmemory-video.repository';
 import type { CreateVideoInput } from '../../../src/entities/video.entity';
 
@@ -31,7 +35,7 @@ describe('InMemoryVideoRepository', () => {
       expect(result.title).toBe(input.title);
       expect(result.thumbnailUrl).toBe(input.thumbnailUrl);
       expect(result.length).toBe(input.length);
-      expect(result.CreatedAt).toBeGreaterThan(0);
+      expect(result.createdAt).toBeGreaterThan(0);
     });
 
     it('同じvideoIdで2回作成するとEntityAlreadyExistsErrorを投げる', async () => {
@@ -53,7 +57,7 @@ describe('InMemoryVideoRepository', () => {
         title: 'テスト動画',
         thumbnailUrl: 'https://example.com/thumb.jpg',
         length: '5:00',
-        videoUpdatedAt: 1234567890,
+        videoUpdatedAt: 1234567890000,
       };
 
       const result = await repository.create(input);
@@ -184,8 +188,80 @@ describe('InMemoryVideoRepository', () => {
       expect(result).toBeNull();
     });
 
-    it('存在しない動画を削除してもエラーにならない', async () => {
-      await expect(repository.delete('sm99999')).resolves.not.toThrow();
+    it('存在しない動画を削除するとEntityNotFoundErrorを投げる', async () => {
+      await expect(repository.delete('sm99999')).rejects.toThrow(EntityNotFoundError);
+    });
+  });
+
+  describe('deleteIfExists', () => {
+    it('存在する動画を削除できる', async () => {
+      await repository.create({
+        videoId: 'sm12345',
+        title: 'テスト動画',
+        thumbnailUrl: 'https://example.com/thumb.jpg',
+        length: '5:00',
+      });
+
+      await repository.deleteIfExists('sm12345');
+
+      expect(await repository.getById('sm12345')).toBeNull();
+    });
+
+    it('存在しない動画でも成功する', async () => {
+      await expect(repository.deleteIfExists('sm99999')).resolves.toBeUndefined();
+    });
+  });
+
+  describe('保存形式', () => {
+    it('PascalCase の属性名で保存する', async () => {
+      await repository.create({
+        videoId: 'sm12345',
+        title: 'テスト動画',
+        thumbnailUrl: 'https://example.com/thumb.jpg',
+        length: '5:00',
+        videoUpdatedAt: 1234567890000,
+      });
+
+      const item = store.get('VIDEO#sm12345', 'VIDEO#sm12345');
+
+      expect(item).toMatchObject({
+        Type: 'VIDEO',
+        VideoID: 'sm12345',
+        Title: 'テスト動画',
+        ThumbnailURL: 'https://example.com/thumb.jpg',
+        Length: '5:00',
+        VideoUpdatedAt: 1234567890000,
+        CreatedAt: expect.any(Number),
+        UpdatedAt: expect.any(Number),
+      });
+      expect(item).not.toHaveProperty('videoId');
+      expect(item).not.toHaveProperty('title');
+    });
+
+    it('旧属性名 (camelCase) で保存されたアイテムを読める', async () => {
+      store.put({
+        PK: 'VIDEO#sm1',
+        SK: 'VIDEO#sm1',
+        Type: 'VIDEO',
+        videoId: 'sm1',
+        title: '旧形式',
+        thumbnailUrl: 'https://example.com/legacy.jpg',
+        length: '1:00',
+        videoUpdatedAt: 1234567890000,
+        CreatedAt: 1234567890000,
+        UpdatedAt: 1234567890000,
+      });
+
+      expect(await repository.getById('sm1')).toEqual({
+        videoId: 'sm1',
+        title: '旧形式',
+        thumbnailUrl: 'https://example.com/legacy.jpg',
+        length: '1:00',
+        videoUpdatedAt: 1234567890000,
+        createdAt: 1234567890000,
+      });
+      expect(await repository.listAll()).toHaveLength(1);
+      expect(await repository.batchGet(['sm1'])).toHaveLength(1);
     });
   });
 

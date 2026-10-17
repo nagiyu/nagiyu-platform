@@ -38,7 +38,7 @@ function getUserSettingRepository(): UserSettingRepository {
 
 /**
  * 動画基本情報を作成
- * @throws ConditionalCheckFailedException (AWS SDK) - 既に同じ videoId の動画が存在する場合
+ * @throws EntityAlreadyExistsError - 既に同じ videoId の動画が存在する場合
  */
 export async function createVideoBasicInfo(
   input: CreateVideoBasicInfoInput
@@ -58,9 +58,10 @@ export async function getVideoBasicInfo(videoId: string): Promise<VideoBasicInfo
 
 /**
  * 動画基本情報を削除
+ * 対象がなくても成功する
  */
 export async function deleteVideoBasicInfo(videoId: string): Promise<void> {
-  await getVideoRepository().delete(videoId);
+  await getVideoRepository().deleteIfExists(videoId);
 }
 
 /**
@@ -79,7 +80,7 @@ export async function batchGetVideoBasicInfo(videoIds: string[]): Promise<VideoB
 
 /**
  * ユーザー設定を作成
- * @throws ConditionalCheckFailedException (AWS SDK) - 既に存在する場合
+ * @throws EntityAlreadyExistsError - 既に同じ動画のユーザー設定が存在する場合
  */
 export async function createUserVideoSetting(
   input: CreateUserSettingInput
@@ -114,8 +115,8 @@ export async function getUserVideoSetting(
 
 /**
  * ユーザー設定を更新
- * @throws Error - 更新する項目が指定されていない場合
- * @throws ConditionalCheckFailedException (AWS SDK) - 設定が存在しない場合
+ * 更新する項目が 1 つもないときは更新日時だけを更新する
+ * @throws EntityNotFoundError - 設定が存在しない場合
  */
 export async function updateUserVideoSetting(
   userId: string,
@@ -157,9 +158,10 @@ export async function listUserVideoSettings(
 
 /**
  * ユーザー設定を削除
+ * 対象がなくても成功する
  */
 export async function deleteUserVideoSetting(userId: string, videoId: string): Promise<void> {
-  await getUserSettingRepository().delete(userId, videoId);
+  await getUserSettingRepository().deleteIfExists(userId, videoId);
 }
 
 /**
@@ -200,7 +202,7 @@ export async function listVideosWithSettings(
 
   // 全動画基本情報を取得（全ユーザー共通データ）
   const allVideos = await getVideoRepository().listAll();
-  const sortedVideos = [...allVideos].sort((a, b) => b.CreatedAt - a.CreatedAt);
+  const sortedVideos = [...allVideos].sort((a, b) => b.createdAt - a.createdAt);
 
   // DynamoDBからユーザーの全設定を取得
   // フィルタリングのため、全件取得が必要
