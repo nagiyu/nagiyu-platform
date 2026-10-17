@@ -11,24 +11,24 @@
  * DynamoDB SK: `CHAR#<charId>#NOTE#<ulid>`
  */
 export interface NoteEntity {
-  UserID: string;
-  CharacterID: string;
+  userId: string;
+  characterId: string;
   /** ULID（時系列ソート可能） */
-  NoteID: string;
+  noteId: string;
   /** 参照する Topic の ID */
-  TopicID: string;
+  topicId: string;
   /**
    * 贈った瞬間の Topic subject スナップショット（一覧「△△を調べたよ」用）。
    * Topic が後で削除・改名されてもノート一覧の表示が壊れないようにするための複製。
    */
-  Subject: string;
+  subject: string;
   /** SELF フック＋WEB を合成した不変の手紙文面 */
-  Headline: string;
+  headline: string;
   /** 感想連携（任意・後から付与）。ユーザーの感想をキャラが憶えておくための保存先 */
-  Reaction?: string;
+  reaction?: string;
   /** = 贈った瞬間（sharedAt）。不変・新着順ソート基準 */
-  CreatedAt: number;
-  UpdatedAt: number;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface NoteKey {
@@ -38,7 +38,7 @@ export interface NoteKey {
 }
 
 /**
- * ノート作成入力。`CreatedAt`/`UpdatedAt` はリポジトリ側で付与する。
- * `Reaction` は生成時には付けない（感想連携で後から `updateReaction` により設定する）。
+ * ノート作成入力。`createdAt`/`updatedAt` はリポジトリ側で付与する。
+ * `reaction` は生成時には付けない（感想連携で後から `updateReaction` により設定する）。
  */
-export type CreateNoteInput = Omit<NoteEntity, 'CreatedAt' | 'UpdatedAt' | 'Reaction'>;
+export type CreateNoteInput = Omit<NoteEntity, 'createdAt' | 'updatedAt' | 'reaction'>;

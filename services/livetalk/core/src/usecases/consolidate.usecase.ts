@@ -283,7 +283,7 @@ export async function consolidate(
 
   // ---- ルーティング候補の算出 ----
   const routingTextRaw = [
-    ...messages.map((m) => `${m.Role}: ${m.Text}`),
+    ...messages.map((m) => `${m.role}: ${m.text}`),
     ...webraws.map((w) => w.RawText),
   ].join('\n');
   const routingText = truncateRoutingText(routingTextRaw);
@@ -317,7 +317,7 @@ export async function consolidate(
       category: s.header.Category,
       canonicalSummary: s.header.CanonicalSummary,
     })),
-    newMessages: messages.map((m) => ({ role: m.Role, text: m.Text })),
+    newMessages: messages.map((m) => ({ role: m.role, text: m.text })),
     webRaws: webraws.map((w) => ({
       query: w.Query,
       rawText: w.RawText,
@@ -456,7 +456,7 @@ export async function consolidate(
   }
 
   // ---- カーソル前進（ストリーム別・条件付き。空ストリームは据え置き）----
-  const newMsgCursor = messages.length ? Math.max(...messages.map((m) => m.CreatedAt)) : msgCursor;
+  const newMsgCursor = messages.length ? Math.max(...messages.map((m) => m.createdAt)) : msgCursor;
   const newWebrawCursor = webraws.length
     ? Math.max(...webraws.map((w) => w.CreatedAt))
     : webrawCursor;

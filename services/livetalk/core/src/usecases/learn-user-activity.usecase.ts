@@ -43,7 +43,7 @@ export async function learnUserActivity(
   const sinceMs = nowDate.getTime() - lookbackDays * 24 * 60 * 60 * 1000;
 
   const allMessages = await messageRepo.listSince(userId, characterId, sinceMs);
-  const userMessages = allMessages.filter((m) => m.Role === 'user');
+  const userMessages = allMessages.filter((m) => m.role === 'user');
 
   if (userMessages.length < sampleSizeThreshold) {
     return 'skipped';

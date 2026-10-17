@@ -11,13 +11,13 @@ import type { SelfFactEntity } from '../../../src/entities/self-fact.entity.js';
 import type { WebFactEntity } from '../../../src/entities/web-fact.entity.js';
 
 const makeMsg = (role: 'user' | 'assistant', text: string, id = 'id1'): MessageEntity => ({
-  UserID: 'u1',
-  CharacterID: 'hiyori',
-  MessageID: id,
-  Role: role,
-  Text: text,
-  CreatedAt: 1_700_000_000_000,
-  UpdatedAt: 1_700_000_000_000,
+  userId: 'u1',
+  characterId: 'hiyori',
+  messageId: id,
+  role: role,
+  text: text,
+  createdAt: 1_700_000_000_000,
+  updatedAt: 1_700_000_000_000,
 });
 
 describe('getTimeOfDay', () => {
@@ -151,14 +151,14 @@ describe('buildChatMessages（lifecycleState）', () => {
 
 describe('buildSystemPrompt（recentNotes / 感想連携）', () => {
   const makeNote = (subject: string, id = 'note-1') => ({
-    UserID: 'u1',
-    CharacterID: 'hiyori',
-    NoteID: id,
-    TopicID: 'topic-1',
-    Subject: subject,
-    Headline: '本文',
-    CreatedAt: 1_700_000_000_000,
-    UpdatedAt: 1_700_000_000_000,
+    userId: 'u1',
+    characterId: 'hiyori',
+    noteId: id,
+    topicId: 'topic-1',
+    subject: subject,
+    headline: '本文',
+    createdAt: 1_700_000_000_000,
+    updatedAt: 1_700_000_000_000,
   });
 
   it('recentNotes がある場合はノートのタイトルと感想連携の指示が含まれる', () => {
@@ -291,14 +291,14 @@ describe('buildSystemPrompt（retrievedTopics）', () => {
   it('recentNotes セクションと共存できる', () => {
     const notes = [
       {
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        NoteID: 'note-1',
-        TopicID: 'topic-1',
-        Subject: 'ケーキの話',
-        Headline: '本文',
-        CreatedAt: 1_700_000_000_000,
-        UpdatedAt: 1_700_000_000_000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        noteId: 'note-1',
+        topicId: 'topic-1',
+        subject: 'ケーキの話',
+        headline: '本文',
+        createdAt: 1_700_000_000_000,
+        updatedAt: 1_700_000_000_000,
       },
     ];
     const topics = [makeRetrievedTopic('コーヒー', ['朝コーヒーを飲む'])];

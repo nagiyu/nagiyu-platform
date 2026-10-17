@@ -60,16 +60,16 @@ describe('lib/server/repositories', () => {
     mod.resetRepositoriesForTesting();
     const repo = mod.getNoteRepository();
     await repo.put({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      NoteID: 'note-1',
-      TopicID: 'topic-1',
-      Subject: 'コーヒーの効能',
-      Headline: 'この前の話、気になって調べてみたよ。覚醒効果があるみたい！',
+      userId: 'u1',
+      characterId: 'hiyori',
+      noteId: 'note-1',
+      topicId: 'topic-1',
+      subject: 'コーヒーの効能',
+      headline: 'この前の話、気になって調べてみたよ。覚醒効果があるみたい！',
     });
     const list = await repo.list('u1', 'hiyori');
     expect(list).toHaveLength(1);
-    expect(list[0].Subject).toBe('コーヒーの効能');
+    expect(list[0].subject).toBe('コーヒーの効能');
     mod.resetRepositoriesForTesting();
   });
 
@@ -98,17 +98,17 @@ describe('lib/server/repositories', () => {
     mod.resetRepositoriesForTesting();
     const repo = mod.getMessageRepository();
     const saved = await repo.create({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Role: 'user',
-      Text: 'hi',
+      userId: 'u1',
+      characterId: 'hiyori',
+      role: 'user',
+      text: 'hi',
     });
     const got = await repo.getById({
       userId: 'u1',
       characterId: 'hiyori',
-      messageId: saved.MessageID,
+      messageId: saved.messageId,
     });
-    expect(got?.Text).toBe('hi');
+    expect(got?.text).toBe('hi');
     mod.resetRepositoriesForTesting();
   });
 

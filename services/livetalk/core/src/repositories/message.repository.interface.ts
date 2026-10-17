@@ -49,7 +49,7 @@ export interface RecentMessagesResult {
  */
 export interface MessageRepository {
   /**
-   * メッセージを保存する。`MessageID` 未指定時は ULID を自動採番する。
+   * メッセージを保存する。`messageId` 未指定時は ULID を自動採番する。
    * TTL（90 日）はリポジトリ側で自動付与する。
    */
   create(input: CreateMessageInput): Promise<MessageEntity>;

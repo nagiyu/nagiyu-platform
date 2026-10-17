@@ -34,15 +34,15 @@ describe('DynamoDBSafetyEventRepository', () => {
       const repo = makeRepoDefault(mockSend);
       // create 呼び出しで EventID が ULID として自動生成される
       const entity = await repo.create({
-        UserID: 'u-default',
-        CharacterID: 'hiyori',
-        Trigger: 'input_keyword',
-        DetectedPattern: 'test',
-        InputText: 'input',
-        ResponseText: 'response',
+        userId: 'u-default',
+        characterId: 'hiyori',
+        trigger: 'input_keyword',
+        detectedPattern: 'test',
+        inputText: 'input',
+        responseText: 'response',
       });
-      expect(entity.EventID).toBeTruthy();
-      expect(entity.CreatedAt).toBeGreaterThan(0);
+      expect(entity.eventId).toBeTruthy();
+      expect(entity.createdAt).toBeGreaterThan(0);
     });
   });
 
@@ -52,20 +52,20 @@ describe('DynamoDBSafetyEventRepository', () => {
       const repo = makeRepo(mockSend);
 
       const entity = await repo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Trigger: 'input_keyword',
-        DetectedPattern: '[自殺念慮] 死にたい',
-        InputText: '死にたい',
-        ResponseText: 'ねえ、今すごく心配しちゃった…',
+        userId: 'u1',
+        characterId: 'hiyori',
+        trigger: 'input_keyword',
+        detectedPattern: '[自殺念慮] 死にたい',
+        inputText: '死にたい',
+        responseText: 'ねえ、今すごく心配しちゃった…',
       });
 
       expect(mockSend).toHaveBeenCalledTimes(1);
-      expect(entity.UserID).toBe('u1');
-      expect(entity.CharacterID).toBe('hiyori');
-      expect(entity.EventID).toBe(FIXED_ULID);
-      expect(entity.Trigger).toBe('input_keyword');
-      expect(entity.CreatedAt).toBe(FIXED_NOW);
+      expect(entity.userId).toBe('u1');
+      expect(entity.characterId).toBe('hiyori');
+      expect(entity.eventId).toBe(FIXED_ULID);
+      expect(entity.trigger).toBe('input_keyword');
+      expect(entity.createdAt).toBe(FIXED_NOW);
 
       // sparse GSI2 属性が書き込まれていること（これが欠けると横断 Query が空になる）
       const putItem = mockSend.mock.calls[0][0].input.Item;
@@ -81,16 +81,16 @@ describe('DynamoDBSafetyEventRepository', () => {
       const repo = makeRepo(mockSend);
 
       const entity = await repo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Trigger: 'output_moderation',
-        DetectedPattern: 'Moderation flagged',
-        InputText: 'test',
-        ResponseText: 'response',
-        EventID: 'explicit-id',
+        userId: 'u1',
+        characterId: 'hiyori',
+        trigger: 'output_moderation',
+        detectedPattern: 'Moderation flagged',
+        inputText: 'test',
+        responseText: 'response',
+        eventId: 'explicit-id',
       });
 
-      expect(entity.EventID).toBe('explicit-id');
+      expect(entity.eventId).toBe('explicit-id');
     });
 
     it('ConditionalCheckFailedException → EntityAlreadyExistsError', async () => {
@@ -102,13 +102,13 @@ describe('DynamoDBSafetyEventRepository', () => {
 
       await expect(
         repo.create({
-          UserID: 'u1',
-          CharacterID: 'hiyori',
-          Trigger: 'input_keyword',
-          DetectedPattern: 'test',
-          InputText: 'test',
-          ResponseText: 'response',
-          EventID: 'dup-id',
+          userId: 'u1',
+          characterId: 'hiyori',
+          trigger: 'input_keyword',
+          detectedPattern: 'test',
+          inputText: 'test',
+          responseText: 'response',
+          eventId: 'dup-id',
         })
       ).rejects.toMatchObject({ name: 'EntityAlreadyExistsError' });
     });
@@ -119,12 +119,12 @@ describe('DynamoDBSafetyEventRepository', () => {
 
       await expect(
         repo.create({
-          UserID: 'u1',
-          CharacterID: 'hiyori',
-          Trigger: 'input_keyword',
-          DetectedPattern: 'test',
-          InputText: 'test',
-          ResponseText: 'response',
+          userId: 'u1',
+          characterId: 'hiyori',
+          trigger: 'input_keyword',
+          detectedPattern: 'test',
+          inputText: 'test',
+          responseText: 'response',
         })
       ).rejects.toMatchObject({ name: 'DatabaseError' });
     });
@@ -136,12 +136,12 @@ describe('DynamoDBSafetyEventRepository', () => {
 
       await expect(
         repo.create({
-          UserID: 'u1',
-          CharacterID: 'hiyori',
-          Trigger: 'input_keyword',
-          DetectedPattern: 'test',
-          InputText: 'test',
-          ResponseText: 'response',
+          userId: 'u1',
+          characterId: 'hiyori',
+          trigger: 'input_keyword',
+          detectedPattern: 'test',
+          inputText: 'test',
+          responseText: 'response',
         })
       ).rejects.toMatchObject({ name: 'DatabaseError' });
     });
@@ -169,9 +169,9 @@ describe('DynamoDBSafetyEventRepository', () => {
 
       const result = await repo.getById({ userId: 'u1', eventId: 'TEST_ULID' });
       expect(result).not.toBeNull();
-      expect(result?.EventID).toBe('TEST_ULID');
-      expect(result?.CharacterID).toBe('hiyori');
-      expect(result?.Trigger).toBe('input_keyword');
+      expect(result?.eventId).toBe('TEST_ULID');
+      expect(result?.characterId).toBe('hiyori');
+      expect(result?.trigger).toBe('input_keyword');
     });
 
     it('アイテムが存在しない場合 null を返す', async () => {
@@ -206,32 +206,32 @@ describe('DynamoDBSafetyEventRepository', () => {
     it('GSI2 クエリを ScanIndexForward=false で発行する', async () => {
       const items: SafetyEventSummary[] = [
         {
-          UserID: 'u1',
-          EventID: 'ULID2',
-          CharacterID: 'hiyori',
-          Trigger: 'input_keyword',
-          DetectedPattern: 'test',
-          CreatedAt: FIXED_NOW + 1000,
+          userId: 'u1',
+          eventId: 'ULID2',
+          characterId: 'hiyori',
+          trigger: 'input_keyword',
+          detectedPattern: 'test',
+          createdAt: FIXED_NOW + 1000,
         },
         {
-          UserID: 'u2',
-          EventID: 'ULID1',
-          Trigger: 'output_moderation',
-          DetectedPattern: 'Moderation',
-          CreatedAt: FIXED_NOW,
+          userId: 'u2',
+          eventId: 'ULID1',
+          trigger: 'output_moderation',
+          detectedPattern: 'Moderation',
+          createdAt: FIXED_NOW,
         },
       ];
 
       const mockSend = jest.fn().mockResolvedValue({
         Items: items.map((s) => ({
           GSI2PK: 'SAFETY',
-          GSI2SK: s.EventID,
-          UserID: s.UserID,
-          EventID: s.EventID,
-          ...(s.CharacterID !== undefined ? { CharacterID: s.CharacterID } : {}),
-          Trigger: s.Trigger,
-          DetectedPattern: s.DetectedPattern,
-          CreatedAt: s.CreatedAt,
+          GSI2SK: s.eventId,
+          UserID: s.userId,
+          EventID: s.eventId,
+          ...(s.characterId !== undefined ? { CharacterID: s.characterId } : {}),
+          Trigger: s.trigger,
+          DetectedPattern: s.detectedPattern,
+          CreatedAt: s.createdAt,
         })),
       });
       const repo = makeRepo(mockSend);
@@ -246,12 +246,12 @@ describe('DynamoDBSafetyEventRepository', () => {
       expect(call.input.Limit).toBe(10);
 
       expect(result).toHaveLength(2);
-      expect(result[0].EventID).toBe('ULID2');
-      expect(result[0].CharacterID).toBe('hiyori');
-      expect(result[1].EventID).toBe('ULID1');
+      expect(result[0].eventId).toBe('ULID2');
+      expect(result[0].characterId).toBe('hiyori');
+      expect(result[1].eventId).toBe('ULID1');
       // PII が含まれないことを確認
-      expect((result[0] as unknown as Record<string, unknown>).InputText).toBeUndefined();
-      expect((result[0] as unknown as Record<string, unknown>).ResponseText).toBeUndefined();
+      expect((result[0] as unknown as Record<string, unknown>).inputText).toBeUndefined();
+      expect((result[0] as unknown as Record<string, unknown>).responseText).toBeUndefined();
     });
 
     it('アイテムが 0 件の場合は空配列を返す', async () => {

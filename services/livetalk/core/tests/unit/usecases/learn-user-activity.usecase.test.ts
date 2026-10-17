@@ -33,10 +33,10 @@ function makeJstMessages(store: InMemorySingleTableStore, jstHour: number, count
     tick = utcBase + i * 60000;
     msgs.push(
       messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: `msg ${i}`,
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'user',
+        text: `msg ${i}`,
       })
     );
   }
@@ -53,10 +53,10 @@ describe('learnUserActivity', () => {
     for (let i = 0; i < 4; i++) {
       tick = BASE_NOW_MS + i * 1000;
       await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: 'hi',
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'user',
+        text: 'hi',
       });
     }
 
@@ -81,19 +81,19 @@ describe('learnUserActivity', () => {
     for (let i = 0; i < 10; i++) {
       tick = BASE_NOW_MS + i * 1000;
       await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'assistant',
-        Text: 'hello',
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'assistant',
+        text: 'hello',
       });
     }
     for (let i = 0; i < 3; i++) {
       tick = BASE_NOW_MS + 10000 + i * 1000;
       await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: 'user msg',
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'user',
+        text: 'user msg',
       });
     }
 
@@ -160,10 +160,10 @@ describe('learnUserActivity', () => {
     for (let i = 0; i < 5; i++) {
       tick = utc14 + i * 60000;
       await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: `msg ${i}`,
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'user',
+        text: `msg ${i}`,
       });
     }
 
@@ -275,10 +275,10 @@ describe('learnUserActivity', () => {
     for (let i = 0; i < 5; i++) {
       tick = oldMs + i * 1000;
       await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: 'old msg',
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'user',
+        text: 'old msg',
       });
     }
 

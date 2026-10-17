@@ -49,7 +49,7 @@ import { hasCharacter } from '@/lib/characters/registry';
  * 活動時間帯ゲート・睡眠帯は考慮しないため、あくまで「インターバル解除の目安」。
  */
 function computeNextEarliestAt(
-  userMessages: Pick<MessageEntity, 'CreatedAt'>[],
+  userMessages: Pick<MessageEntity, 'createdAt'>[],
   notificationEvents: NotificationEventEntity[],
   now: Date
 ): number {
@@ -62,7 +62,7 @@ function computeNextEarliestAt(
 
   const lastNormalAt = notificationEvents.find((e) => e.Kind === 'normal')?.CreatedAt ?? 0;
   const lastInteractionAt =
-    userMessages.length > 0 ? Math.max(...userMessages.map((m) => m.CreatedAt)) : 0;
+    userMessages.length > 0 ? Math.max(...userMessages.map((m) => m.createdAt)) : 0;
   const referenceTime = Math.max(lastInteractionAt, lastNormalAt);
 
   const missedCount = notificationEvents.filter(
@@ -92,7 +92,7 @@ export const GET = withApiErrorReporting(
     const wakeUpTime = lifecycle?.wakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME;
     const state = resolveLifecycleState(now, bedtime, wakeUpTime);
 
-    const userMessages = allMessages.filter((m) => m.Role === 'user');
+    const userMessages = allMessages.filter((m) => m.role === 'user');
 
     const lifecycleForDecision = lifecycle ?? {
       userId,
