@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createUserRepository, UserNotFoundError } from '@nagiyu/auth-core';
+import { createUserRepository } from '@nagiyu/auth-core';
+import { EntityNotFoundError } from '@nagiyu/aws';
 import { COMMON_ERROR_MESSAGES, VALID_ROLES, hasPermission } from '@nagiyu/common';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { z } from 'zod';
@@ -104,8 +105,8 @@ export const POST = withApiErrorReporting(
         );
       }
 
-      // リポジトリ層からのユーザー不存在エラー
-      if (error instanceof UserNotFoundError) {
+      // ユーザー不存在 (リポジトリ層の EntityNotFoundError)
+      if (error instanceof EntityNotFoundError) {
         return NextResponse.json({ error: ERROR_MESSAGES.USER_NOT_FOUND }, { status: 404 });
       }
 
