@@ -136,6 +136,25 @@ describe('lib/server/repositories', () => {
     expect(() => mod.getPushSubscriptionRepository()).not.toThrow();
     expect(() => mod.getNotificationEventRepository()).not.toThrow();
     expect(() => mod.getAccountDeletionRepository()).not.toThrow();
+    expect(() => mod.getChatGuardRepository()).not.toThrow();
+    mod.resetRepositoriesForTesting();
+  });
+
+  it('InMemory 実装ではアカウント削除がチャットガードのカウンタとロックも消す（共有 store 検証）', async () => {
+    process.env.USE_IN_MEMORY_DB = 'true';
+    const mod = await import('@/lib/server/repositories');
+    mod.resetRepositoriesForTesting();
+    const guard = mod.getChatGuardRepository();
+    expect(mod.getChatGuardRepository()).toBe(guard);
+
+    const nowMs = Date.now();
+    await guard.incrementRateLimit('u1', '1m', nowMs);
+    await guard.acquireLock('u1', 'token-a', 60_000, nowMs);
+
+    await mod.getAccountDeletionRepository().deleteAccount('u1');
+
+    expect((await guard.incrementRateLimit('u1', '1m', nowMs)).count).toBe(1);
+    expect((await guard.acquireLock('u1', 'token-b', 60_000, nowMs)).acquired).toBe(true);
     mod.resetRepositoriesForTesting();
   });
 
