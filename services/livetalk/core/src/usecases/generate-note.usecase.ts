@@ -73,7 +73,7 @@ export async function generateNotesForUser(
   ]);
 
   // 既にノート化済みの Topic 集合（1 Topic につき既存ノートがあれば作らない＝乱発防止）
-  const notedTopicIds = new Set(existingNotes.map((note) => note.TopicID));
+  const notedTopicIds = new Set(existingNotes.map((note) => note.topicId));
 
   let generatedCount = 0;
   for (const topic of candidates) {
@@ -106,12 +106,12 @@ export async function generateNotesForUser(
       if (result.skip) continue;
 
       const input: CreateNoteInput = {
-        UserID: userId,
-        CharacterID: characterId,
-        NoteID: ulidFactory(now()),
-        TopicID: topic.TopicID,
-        Subject: topic.Subject,
-        Headline: result.headline,
+        userId,
+        characterId,
+        noteId: ulidFactory(now()),
+        topicId: topic.TopicID,
+        subject: topic.Subject,
+        headline: result.headline,
       };
       await noteRepo.put(input);
       generatedCount++;

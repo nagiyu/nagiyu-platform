@@ -98,7 +98,7 @@ function makeLifecycleRepo(
   return { get: jest.fn().mockResolvedValue(lifecycle) };
 }
 
-function makeMessageRepo(messages = [{ Role: 'user', CreatedAt: 1000 }]) {
+function makeMessageRepo(messages = [{ role: 'user', createdAt: 1000 }]) {
   return {
     listSince: jest.fn().mockResolvedValue(messages),
   };

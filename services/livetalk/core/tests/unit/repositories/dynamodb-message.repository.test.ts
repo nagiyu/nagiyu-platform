@@ -18,7 +18,7 @@ describe('DynamoDBMessageRepository', () => {
   const now = 1_700_000_000_000;
   const ulidFactory = () => 'ULID-FIXED';
 
-  it('create は PutCommand を attribute_not_exists(PK) 条件で送り、TTL を 90 日後に設定する', async () => {
+  it('create は PutCommand を attribute_not_exists(#pk) 条件で送り、TTL を 90 日後に設定する', async () => {
     const sent: unknown[] = [];
     const client = makeClient(async (cmd) => {
       sent.push(cmd);
@@ -27,18 +27,18 @@ describe('DynamoDBMessageRepository', () => {
     const repo = new DynamoDBMessageRepository(client as never, tableName, ulidFactory, () => now);
 
     const entity = await repo.create({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Role: 'user',
-      Text: 'hello',
+      userId: 'u1',
+      characterId: 'hiyori',
+      role: 'user',
+      text: 'hello',
     });
 
-    expect(entity.MessageID).toBe('ULID-FIXED');
+    expect(entity.messageId).toBe('ULID-FIXED');
     expect(sent).toHaveLength(1);
     expect(sent[0]).toBeInstanceOf(PutCommand);
     const input = (sent[0] as PutCommand).input;
     expect(input.TableName).toBe(tableName);
-    expect(input.ConditionExpression).toBe('attribute_not_exists(PK)');
+    expect(input.ConditionExpression).toBe('attribute_not_exists(#pk)');
     expect(input.Item?.PK).toBe('USER#u1');
     expect(input.Item?.SK).toBe('CHAR#hiyori#MSG#ULID-FIXED');
     expect(input.Item?.Type).toBe('Message');
@@ -50,13 +50,13 @@ describe('DynamoDBMessageRepository', () => {
     const repo = new DynamoDBMessageRepository(client as never, tableName);
     const before = Date.now();
     const entity = await repo.create({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Role: 'user',
-      Text: 'x',
+      userId: 'u1',
+      characterId: 'hiyori',
+      role: 'user',
+      text: 'x',
     });
-    expect(entity.CreatedAt).toBeGreaterThanOrEqual(before);
-    expect(entity.MessageID).toMatch(/^[0-9A-Z]{26}$/);
+    expect(entity.createdAt).toBeGreaterThanOrEqual(before);
+    expect(entity.messageId).toMatch(/^[0-9A-Z]{26}$/);
   });
 
   it('Error 以外の例外（文字列等）も DatabaseError でラップする', async () => {
@@ -73,13 +73,13 @@ describe('DynamoDBMessageRepository', () => {
     const client = makeClient(async () => ({}));
     const repo = new DynamoDBMessageRepository(client as never, tableName, ulidFactory, () => now);
     const entity = await repo.create({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Role: 'assistant',
-      Text: 'hi',
-      MessageID: 'manual-id',
+      userId: 'u1',
+      characterId: 'hiyori',
+      role: 'assistant',
+      text: 'hi',
+      messageId: 'manual-id',
     });
-    expect(entity.MessageID).toBe('manual-id');
+    expect(entity.messageId).toBe('manual-id');
   });
 
   it('create は ConditionalCheckFailedException を EntityAlreadyExistsError に変換する', async () => {
@@ -90,7 +90,7 @@ describe('DynamoDBMessageRepository', () => {
     });
     const repo = new DynamoDBMessageRepository(client as never, tableName, ulidFactory, () => now);
     await expect(
-      repo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'x' })
+      repo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: 'x' })
     ).rejects.toBeInstanceOf(EntityAlreadyExistsError);
   });
 
@@ -100,7 +100,7 @@ describe('DynamoDBMessageRepository', () => {
     });
     const repo = new DynamoDBMessageRepository(client as never, tableName, ulidFactory, () => now);
     await expect(
-      repo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'x' })
+      repo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: 'x' })
     ).rejects.toBeInstanceOf(DatabaseError);
   });
 
@@ -145,7 +145,7 @@ describe('DynamoDBMessageRepository', () => {
       characterId: 'hiyori',
       messageId: 'm1',
     });
-    expect(result?.Text).toBe('hello');
+    expect(result?.text).toBe('hello');
   });
 
   describe('getRecentByTokenBudget', () => {
@@ -193,7 +193,7 @@ describe('DynamoDBMessageRepository', () => {
       expect(input.ExpressionAttributeValues?.[':prefix']).toBe('CHAR#hiyori#MSG#');
 
       // 返却順は昇順
-      expect(result.messages.map((m) => m.MessageID)).toEqual(['m1', 'm2', 'm3']);
+      expect(result.messages.map((m) => m.messageId)).toEqual(['m1', 'm2', 'm3']);
       expect(result.totalTokens).toBe(6);
       expect(result.truncated).toBe(false);
     });
@@ -223,7 +223,7 @@ describe('DynamoDBMessageRepository', () => {
         tokenLimit: 100,
       });
       expect(call).toBe(2);
-      expect(result.messages.map((m) => m.MessageID)).toEqual(['m1', 'm2']);
+      expect(result.messages.map((m) => m.messageId)).toEqual(['m1', 'm2']);
       expect(result.truncated).toBe(false);
     });
 
@@ -249,7 +249,7 @@ describe('DynamoDBMessageRepository', () => {
         tokenLimit: 3,
       });
       // d(1) + cc(2) = 3 で次の bbb(3) は超過
-      expect(result.messages.map((m) => m.MessageID)).toEqual(['m3', 'm4']);
+      expect(result.messages.map((m) => m.messageId)).toEqual(['m3', 'm4']);
       expect(result.totalTokens).toBe(3);
       expect(result.truncated).toBe(true);
     });
@@ -271,7 +271,7 @@ describe('DynamoDBMessageRepository', () => {
         tokenCounter: fixedCounter,
         tokenLimit: 100,
       });
-      expect(result.messages.map((m) => m.MessageID)).toEqual(['m2']);
+      expect(result.messages.map((m) => m.messageId)).toEqual(['m2']);
     });
 
     it('DynamoDB エラーは DatabaseError でラップ', async () => {
@@ -371,7 +371,7 @@ describe('DynamoDBMessageRepository', () => {
       );
       const result = await repo.listSince('u1', 'hiyori', 0);
       expect(result).toHaveLength(1);
-      expect(result[0].Text).toBe('こんにちは');
+      expect(result[0].text).toBe('こんにちは');
     });
 
     it('ページネーション: LastEvaluatedKey があれば再クエリする', async () => {

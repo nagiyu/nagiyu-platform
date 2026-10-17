@@ -106,10 +106,10 @@ describe('generateNotesForUser', () => {
     expect(result.generatedCount).toBe(1);
     const notes = await noteRepo.list('u1', 'hiyori');
     expect(notes).toHaveLength(1);
-    expect(notes[0].TopicID).toBe('topic-001');
-    expect(notes[0].Subject).toBe('コーヒーの効能');
-    expect(notes[0].Headline).toBe(makeLetter().headline);
-    expect(notes[0].Reaction).toBeUndefined();
+    expect(notes[0].topicId).toBe('topic-001');
+    expect(notes[0].subject).toBe('コーヒーの効能');
+    expect(notes[0].headline).toBe(makeLetter().headline);
+    expect(notes[0].reaction).toBeUndefined();
   });
 
   it('care が閾値未満の Topic は生成しない', async () => {
@@ -134,12 +134,12 @@ describe('generateNotesForUser', () => {
     await putTopic({ Care: 3 });
     await putWebFact('topic-001');
     await noteRepo.put({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      NoteID: 'existing-note',
-      TopicID: 'topic-001',
-      Subject: '既存',
-      Headline: '既存の手紙',
+      userId: 'u1',
+      characterId: 'hiyori',
+      noteId: 'existing-note',
+      topicId: 'topic-001',
+      subject: '既存',
+      headline: '既存の手紙',
     });
     const llmClient = makeLLMClient([makeLetter()]);
 

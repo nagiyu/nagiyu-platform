@@ -50,7 +50,7 @@ function formatJst(ms: number): string {
 }
 
 function computeNextEarliestAt(
-  userMessages: Pick<MessageEntity, 'CreatedAt'>[],
+  userMessages: Pick<MessageEntity, 'createdAt'>[],
   notificationEvents: NotificationEventEntity[],
   now: Date
 ): number {
@@ -63,7 +63,7 @@ function computeNextEarliestAt(
 
   const lastNormalAt = notificationEvents.find((e) => e.Kind === 'normal')?.CreatedAt ?? 0;
   const lastInteractionAt =
-    userMessages.length > 0 ? Math.max(...userMessages.map((m) => m.CreatedAt)) : 0;
+    userMessages.length > 0 ? Math.max(...userMessages.map((m) => m.createdAt)) : 0;
   const referenceTime = Math.max(lastInteractionAt, lastNormalAt);
 
   const missedCount = notificationEvents.filter(
@@ -116,7 +116,7 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
   const bedtime = lifecycle?.bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
   const wakeUpTime = lifecycle?.wakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME;
   const state = resolveLifecycleState(now, bedtime, wakeUpTime);
-  const userMessages = allMessages.filter((m) => m.Role === 'user');
+  const userMessages = allMessages.filter((m) => m.role === 'user');
 
   const lifecycleForDecision = lifecycle ?? {
     userId,
@@ -286,30 +286,30 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
       ) : (
         <Box sx={{ mb: 1 }}>
           {recentSafetyEvents.map((e: SafetyEventSummary) => {
-            const characterDisplay = e.CharacterID
+            const characterDisplay = e.characterId
               ? (() => {
                   try {
-                    return getCharacterDisplay(e.CharacterID).displayName;
+                    return getCharacterDisplay(e.characterId).displayName;
                   } catch {
-                    return e.CharacterID;
+                    return e.characterId;
                   }
                 })()
               : '—';
 
             return (
               <Box
-                key={e.EventID}
+                key={e.eventId}
                 sx={{ mb: 1, pl: 1, borderLeft: '2px solid', borderColor: 'divider' }}
               >
                 <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                  {formatJst(e.CreatedAt)} | {SAFETY_TRIGGER_LABELS[e.Trigger] ?? e.Trigger} |
+                  {formatJst(e.createdAt)} | {SAFETY_TRIGGER_LABELS[e.trigger] ?? e.trigger} |
                   キャラ: {characterDisplay}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                  {e.DetectedPattern}
+                  {e.detectedPattern}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                  ユーザー: {e.UserID}
+                  ユーザー: {e.userId}
                 </Typography>
               </Box>
             );

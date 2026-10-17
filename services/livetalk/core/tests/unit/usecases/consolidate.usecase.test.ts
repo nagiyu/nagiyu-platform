@@ -148,10 +148,10 @@ describe('consolidate', () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
     tick = fixedNow;
     await messageRepo.create({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Role: 'user',
-      Text: 'コーヒーが好き',
+      userId: 'u1',
+      characterId: 'hiyori',
+      role: 'user',
+      text: 'コーヒーが好き',
     });
 
     const llmClient = makeLLMClient([makeTopicResult()]);
@@ -236,10 +236,10 @@ describe('consolidate', () => {
 
     tick = fixedNow;
     await messageRepo.create({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Role: 'user',
-      Text: '今日もコーヒーを飲んだ',
+      userId: 'u1',
+      characterId: 'hiyori',
+      role: 'user',
+      text: '今日もコーヒーを飲んだ',
     });
 
     const llmClient = makeLLMClient([
@@ -341,10 +341,10 @@ describe('consolidate', () => {
 
     tick = fixedNow;
     await messageRepo.create({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Role: 'user',
-      Text: 'コーヒー好きなんだ',
+      userId: 'u1',
+      characterId: 'hiyori',
+      role: 'user',
+      text: 'コーヒー好きなんだ',
     });
     await webRawRepo.put({
       UserID: 'u1',
@@ -414,10 +414,10 @@ describe('consolidate', () => {
 
     tick = fixedNow;
     await messageRepo.create({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Role: 'user',
-      Text: '今日もコーヒーを飲んだ。あと豆も買った',
+      userId: 'u1',
+      characterId: 'hiyori',
+      role: 'user',
+      text: '今日もコーヒーを飲んだ。あと豆も買った',
     });
 
     const putTopicSpy = jest.spyOn(topicRepo, 'putTopic');
@@ -496,10 +496,10 @@ describe('consolidate', () => {
 
     tick = fixedNow;
     await messageRepo.create({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Role: 'user',
-      Text: '今日もコーヒーを飲んだ',
+      userId: 'u1',
+      characterId: 'hiyori',
+      role: 'user',
+      text: '今日もコーヒーを飲んだ',
     });
 
     const getTopicSpy = jest.spyOn(topicRepo, 'getTopic');
@@ -551,10 +551,10 @@ describe('consolidate', () => {
 
     tick = fixedNow;
     await messageRepo.create({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Role: 'user',
-      Text: '新しい話題',
+      userId: 'u1',
+      characterId: 'hiyori',
+      role: 'user',
+      text: '新しい話題',
     });
 
     const llmClient = makeLLMClient([
@@ -643,10 +643,10 @@ describe('consolidate', () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
 
     tick = fixedNow;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: '1件目' });
+    await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: '1件目' });
     const firstMsgCreatedAt = tick - 1;
     tick += 100;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: '2件目' });
+    await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: '2件目' });
     const secondMsgCreatedAt = tick - 1;
     expect(secondMsgCreatedAt).toBeGreaterThan(firstMsgCreatedAt);
 
@@ -702,7 +702,7 @@ describe('consolidate', () => {
   it('webFact の NextReview が volatility 別に設定される（stable は undefined）', async () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
     tick = fixedNow;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'テスト' });
+    await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: 'テスト' });
 
     const readAt = fixedNow + 5_000;
     const llmClient = makeLLMClient([
@@ -741,7 +741,7 @@ describe('consolidate', () => {
   it('at-least-once: putSelfFact が失敗すると例外が伝播し、カーソルは前進しない', async () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
     tick = fixedNow;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'テスト' });
+    await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: 'テスト' });
 
     const llmClient = makeLLMClient([makeTopicResult()]);
     const failingTopicRepo = withFailingPutSelfFact(topicRepo);
@@ -767,7 +767,7 @@ describe('consolidate', () => {
     const putSpy = jest.spyOn(cursorRepo, 'put');
 
     tick = fixedNow;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: '1回目' });
+    await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: '1回目' });
 
     const llmClient1 = makeLLMClient([makeTopicResult()]);
     await consolidate('u1', 'hiyori', {
@@ -791,7 +791,7 @@ describe('consolidate', () => {
     const firstCursor = await cursorRepo.get('u1', 'hiyori');
 
     tick += 1000;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: '2回目' });
+    await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: '2回目' });
 
     const llmClient2 = makeLLMClient([makeTopicResult()]);
     await consolidate('u1', 'hiyori', {
@@ -816,7 +816,7 @@ describe('consolidate', () => {
   it('完全成功後の再実行は "skipped" になり重複集約しない', async () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
     tick = fixedNow;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'テスト' });
+    await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: 'テスト' });
 
     const llmClient1 = makeLLMClient([makeTopicResult()]);
     const outcome1 = await consolidate('u1', 'hiyori', {
@@ -854,10 +854,10 @@ describe('consolidate', () => {
     const longText = 'あ'.repeat(3000) + '末尾マーカー';
     tick = fixedNow;
     await messageRepo.create({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Role: 'user',
-      Text: longText,
+      userId: 'u1',
+      characterId: 'hiyori',
+      role: 'user',
+      text: longText,
     });
 
     const embedCalls: string[] = [];
@@ -902,7 +902,7 @@ describe('consolidate', () => {
     }
 
     tick = fixedNow;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'テスト' });
+    await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: 'テスト' });
 
     let capturedUserContent = '';
     const llmClient: ILLMClient = {
@@ -1015,10 +1015,10 @@ describe('consolidate', () => {
       const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
       tick = fixedNow;
       await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: 'コーヒーが好き',
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'user',
+        text: 'コーヒーが好き',
       });
 
       const llmClient = makeLLMClient([makeTopicResult({ sourceRequestIndices: [] })]);
@@ -1059,10 +1059,10 @@ describe('consolidate', () => {
 
       tick = fixedNow;
       await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: '今日もコーヒーを飲んだ',
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'user',
+        text: '今日もコーヒーを飲んだ',
       });
 
       const llmClient = makeLLMClient([

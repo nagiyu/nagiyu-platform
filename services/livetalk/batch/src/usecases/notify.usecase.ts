@@ -360,7 +360,7 @@ async function evaluateCharacter(params: {
   const intensityWindowMs = NOTIFY_INTENSITY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
   const sinceMs = now.getTime() - intensityWindowMs;
   const recentMessages = await messageRepo.listSince(userId, characterId, sinceMs);
-  const userMessages = recentMessages.filter((m) => m.Role === 'user');
+  const userMessages = recentMessages.filter((m) => m.role === 'user');
 
   // 通知履歴をこのキャラ単位でフィルタ（他キャラの通知が interval/cap/missedCount に混入しない）
   const charNotifEvents = allUserEvents.filter((e) => e.CharacterID === characterId);
@@ -488,7 +488,7 @@ async function computeUserDailyNormalCap(params: {
   for (const characterId of allCharacterIds) {
     try {
       const messages = await messageRepo.listSince(userId, characterId, sinceMs);
-      const userMessages = messages.filter((m) => m.Role === 'user');
+      const userMessages = messages.filter((m) => m.role === 'user');
       const sessionStarts = extractSessionStartTimes(userMessages, sessionGapMs);
       const factor = computeIntensityFactor(sessionStarts, now);
       if (factor > maxFactor) {

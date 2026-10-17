@@ -1,17 +1,9 @@
 import {
-  GetCommand,
-  PutCommand,
   QueryCommand,
   type DynamoDBDocumentClient,
   type QueryCommandOutput,
 } from '@aws-sdk/lib-dynamodb';
-import {
-  EntityAlreadyExistsError,
-  isConditionalCheckFailed,
-  queryAllItems,
-  toDatabaseError,
-  type DynamoDBItem,
-} from '@nagiyu/aws';
+import { DynamoDBEntityStore, queryAllItems, toDatabaseError, type EntityStore } from '@nagiyu/aws';
 import { logger } from '@nagiyu/common';
 import { MESSAGE_TTL_SECONDS, TOKEN_BUDGETED_QUERY_PAGE_SIZE } from '../constants.js';
 import type { CreateMessageInput, MessageEntity, MessageKey } from '../entities/message.entity.js';
@@ -28,11 +20,12 @@ import type {
 const DEFAULT_HARD_LIMIT = 500;
 
 export class DynamoDBMessageRepository implements MessageRepository {
-  private readonly mapper: MessageMapper;
+  private readonly mapper = new MessageMapper();
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
   private readonly ulidFactory: UlidFactory;
   private readonly nowMs: () => number;
+  private readonly entityStore: EntityStore<MessageEntity, MessageKey>;
 
   constructor(
     docClient: DynamoDBDocumentClient,
@@ -44,60 +37,23 @@ export class DynamoDBMessageRepository implements MessageRepository {
     this.tableName = tableName;
     this.ulidFactory = ulidFactory;
     this.nowMs = nowMs;
-    this.mapper = new MessageMapper();
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper, { now: nowMs });
   }
 
   public async create(input: CreateMessageInput): Promise<MessageEntity> {
     const now = this.nowMs();
-    const messageId = input.MessageID ?? this.ulidFactory(now);
-
-    const entity: MessageEntity = {
+    return this.entityStore.create({
       ...input,
-      MessageID: messageId,
-      CreatedAt: now,
-      UpdatedAt: now,
-    };
-
-    const item: DynamoDBItem & { TTL: number } = {
-      ...this.mapper.toItem(entity),
-      // TTL は Unix 秒。Message は 90 日後に DynamoDB が自動削除する。
-      TTL: Math.floor(now / 1000) + MESSAGE_TTL_SECONDS,
-    };
-
-    try {
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: item,
-          ConditionExpression: 'attribute_not_exists(PK)',
-        })
-      );
-      return entity;
-    } catch (error) {
-      if (isConditionalCheckFailed(error)) {
-        throw new EntityAlreadyExistsError(
-          this.mapper.entityType,
-          `${entity.UserID}#${entity.CharacterID}#${messageId}`
-        );
-      }
-      throw toDatabaseError(error);
-    }
+      messageId: input.messageId ?? this.ulidFactory(now),
+      createdAt: now,
+      updatedAt: now,
+      // 90 日後に DynamoDB が自動削除する
+      expiresAt: now + MESSAGE_TTL_SECONDS * 1000,
+    });
   }
 
   public async getById(key: MessageKey): Promise<MessageEntity | null> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys(key);
-      const result = await this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-        })
-      );
-      if (!result.Item) return null;
-      return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.get(key);
   }
 
   public async listSince(
@@ -190,7 +146,7 @@ export class DynamoDBMessageRepository implements MessageRepository {
       for (const raw of items) {
         let entity: MessageEntity;
         try {
-          entity = this.mapper.toEntity(raw as unknown as DynamoDBItem);
+          entity = this.mapper.toEntity(raw);
         } catch (error) {
           // 単一アイテムの破損で全体を壊さない（既存リポジトリと同様の運用）。
           const record = raw as Record<string, unknown>;
@@ -202,7 +158,7 @@ export class DynamoDBMessageRepository implements MessageRepository {
           continue;
         }
 
-        const cost = tokenCounter.countTokensForMessage(entity.Text);
+        const cost = tokenCounter.countTokensForMessage(entity.text);
         // 既に 1 件以上拾った後で上限超過なら、今のメッセージは含めずに打ち切る。
         // まだ 0 件ならコンテキスト皆無を避けるため最初の 1 件は強制的に採用する。
         if (collected.length > 0 && totalTokens + cost > tokenLimit) {

@@ -276,10 +276,10 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
 
   // 2. ユーザーメッセージを保存
   await messageRepository.create({
-    UserID: userId,
-    CharacterID: characterId,
-    Role: 'user',
-    Text: userText,
+    userId,
+    characterId,
+    role: 'user',
+    text: userText,
   });
 
   // 3. キーワード検出
@@ -292,12 +292,12 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     if (safetyEventRepository) {
       try {
         await safetyEventRepository.create({
-          UserID: userId,
-          CharacterID: characterId,
-          Trigger: 'input_keyword',
-          DetectedPattern: detectedPattern,
-          InputText: userText,
-          ResponseText: safetyMessage,
+          userId,
+          characterId,
+          trigger: 'input_keyword',
+          detectedPattern,
+          inputText: userText,
+          responseText: safetyMessage,
         });
       } catch (err) {
         logger.error('[chat-usecase] SafetyEvent の保存に失敗しました', { err });
@@ -313,10 +313,10 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     // アシスタントメッセージとして保存
     try {
       await messageRepository.create({
-        UserID: userId,
-        CharacterID: characterId,
-        Role: 'assistant',
-        Text: safetyMessage,
+        userId,
+        characterId,
+        role: 'assistant',
+        text: safetyMessage,
       });
     } catch (err) {
       logger.error('[chat-usecase] セーフティ応答メッセージの保存に失敗しました', { err });
@@ -405,10 +405,10 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
         // アシスタントメッセージとして保存
         try {
           await messageRepository.create({
-            UserID: userId,
-            CharacterID: characterId,
-            Role: 'assistant',
-            Text: studyMessage,
+            userId,
+            characterId,
+            role: 'assistant',
+            text: studyMessage,
           });
         } catch (err) {
           logger.error('[chat-usecase] 勉強応答メッセージの保存に失敗しました', { err });
@@ -463,7 +463,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
       0
     );
     const messageTokens =
-      history.reduce((sum, m) => sum + counter.countTokensForMessage(m.Text), 0) +
+      history.reduce((sum, m) => sum + counter.countTokensForMessage(m.text), 0) +
       counter.countTokensForMessage(userText);
     metrics.promptTokens = {
       system: systemTokens,
@@ -530,13 +530,13 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
         if (safetyEventRepository) {
           try {
             await safetyEventRepository.create({
-              UserID: userId,
-              CharacterID: characterId,
-              Trigger: 'output_moderation',
-              DetectedPattern: `Moderation flagged: ${flaggedCategories.join(', ')}`,
-              InputText: userText,
-              ResponseText: fullResponseText,
-              ModerationCategories: JSON.stringify(modResult.categories),
+              userId,
+              characterId,
+              trigger: 'output_moderation',
+              detectedPattern: `Moderation flagged: ${flaggedCategories.join(', ')}`,
+              inputText: userText,
+              responseText: fullResponseText,
+              moderationCategories: JSON.stringify(modResult.categories),
             });
           } catch (err) {
             logger.error('[chat-usecase] Moderation SafetyEvent の保存に失敗しました', { err });
@@ -602,10 +602,10 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   if (assistantText) {
     try {
       await messageRepository.create({
-        UserID: userId,
-        CharacterID: characterId,
-        Role: 'assistant',
-        Text: assistantText,
+        userId,
+        characterId,
+        role: 'assistant',
+        text: assistantText,
       });
     } catch (err) {
       logger.error('[chat-usecase] アシスタントメッセージの保存に失敗しました', { err });

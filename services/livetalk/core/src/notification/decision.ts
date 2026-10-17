@@ -38,8 +38,8 @@ export type NotifyDecision =
     };
 
 export interface NotifyDecisionInput {
-  /** ユーザー発話メッセージ（role='user'）の履歴。CreatedAt 昇順を推奨。 */
-  userMessages: Pick<MessageEntity, 'CreatedAt'>[];
+  /** ユーザー発話メッセージ（role='user'）の履歴。createdAt 昇順を推奨。 */
+  userMessages: Pick<MessageEntity, 'createdAt'>[];
   lifecycle: LifecycleEntity;
   /** ユーザーの通知履歴（CreatedAt 降順）。直近のものから判定に使う。 */
   notificationEvents: NotificationEventEntity[];
@@ -65,17 +65,17 @@ function isNearPeak(nowMinutes: number, peakMinutes: number, windowMinutes: numb
  * `NOTIFY_SESSION_GAP_MINUTES` 以上の空きがあれば新セッション。
  */
 export function extractSessionStartTimes(
-  userMessages: Pick<MessageEntity, 'CreatedAt'>[],
+  userMessages: Pick<MessageEntity, 'createdAt'>[],
   sessionGapMs: number
 ): number[] {
   if (userMessages.length === 0) return [];
 
-  const sorted = [...userMessages].sort((a, b) => a.CreatedAt - b.CreatedAt);
-  const starts: number[] = [sorted[0].CreatedAt];
+  const sorted = [...userMessages].sort((a, b) => a.createdAt - b.createdAt);
+  const starts: number[] = [sorted[0].createdAt];
 
   for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i].CreatedAt - sorted[i - 1].CreatedAt >= sessionGapMs) {
-      starts.push(sorted[i].CreatedAt);
+    if (sorted[i].createdAt - sorted[i - 1].createdAt >= sessionGapMs) {
+      starts.push(sorted[i].createdAt);
     }
   }
 
@@ -225,7 +225,7 @@ export function shouldNotifyNow(input: NotifyDecisionInput): NotifyDecision {
   const lastNormalEvent = notificationEvents.find((e) => e.Kind === 'normal');
   const lastNormalAt = lastNormalEvent?.CreatedAt ?? 0;
   const lastInteractionAt =
-    userMessages.length > 0 ? Math.max(...userMessages.map((m) => m.CreatedAt)) : 0;
+    userMessages.length > 0 ? Math.max(...userMessages.map((m) => m.createdAt)) : 0;
   const referenceTime = Math.max(lastInteractionAt, lastNormalAt);
 
   // missedCount = lastInteractionAt 以降に送った平常通知の件数

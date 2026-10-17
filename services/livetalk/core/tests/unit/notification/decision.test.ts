@@ -43,8 +43,8 @@ const SLEEPING_LIFECYCLE: LifecycleEntity = {
   updatedAt: 0,
 };
 
-function makeMsg(createdAt: number): Pick<MessageEntity, 'CreatedAt'> {
-  return { CreatedAt: createdAt };
+function makeMsg(createdAt: number): Pick<MessageEntity, 'createdAt'> {
+  return { createdAt };
 }
 
 function makeNotifEvent(
