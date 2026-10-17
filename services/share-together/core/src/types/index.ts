@@ -66,8 +66,10 @@ export interface TodoItem {
   isCompleted: boolean;
   createdBy: string;
   completedBy?: string;
-  createdAt: string;
-  updatedAt: string;
+  /** 作成日時 (エポックミリ秒) */
+  createdAt: number;
+  /** 更新日時 (エポックミリ秒) */
+  updatedAt: number;
 }
 
 export type CreateUserInput = Omit<User, 'createdAt' | 'updatedAt'>;
@@ -88,4 +90,7 @@ export type CreateGroupListInput = Omit<GroupList, 'createdAt' | 'updatedAt'>;
 export type UpdateGroupListInput = Partial<Pick<GroupList, 'name'>>;
 
 export type CreateTodoItemInput = Omit<TodoItem, 'createdAt' | 'updatedAt'>;
-export type UpdateTodoItemInput = Partial<Pick<TodoItem, 'title' | 'isCompleted' | 'completedBy'>>;
+/** completedBy に null を渡すと完了者の属性を削除する (undefined は変更なし) */
+export type UpdateTodoItemInput = Partial<Pick<TodoItem, 'title' | 'isCompleted'>> & {
+  completedBy?: string | null;
+};
