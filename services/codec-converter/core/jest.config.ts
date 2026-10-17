@@ -6,6 +6,8 @@ const config: Config = {
   extensionsToTreatAsEsm: ['.ts'],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
+    '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
   },
   transform: {
     '^.+\\.tsx?$': [
@@ -16,7 +18,7 @@ const config: Config = {
     ],
   },
   testMatch: ['**/tests/**/*.test.ts'],
-  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
+  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', '!src/index.ts'],
   coverageDirectory: 'coverage',
   coverageThreshold: {
     global: {

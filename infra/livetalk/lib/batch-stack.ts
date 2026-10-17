@@ -31,14 +31,9 @@ export interface LiveTalkBatchStackProps extends cdk.StackProps {
  * - notify: 毎時 30 分
  * - consolidate: 毎時 15 分（リブトーク知識再設計 P1 / Issue #3697、shadow build）
  * - acquire: 毎時 45 分（リブトーク知識再設計 P3 / Issue #3699。Web「取得だけ」バッチ）
- * - migrate: 手動 invoke 専用（EventBridge 無し）。旧知識資材（Memory/Knowledge/
- *   InterestCategory）→ 新 Topic モデルへの一回性マイグレーションバッチ（throwaway）。
  * - 旧 compress（圧縮要約）・study（勉強）バッチはリブトーク知識・記憶再設計 P5 で撤去済み
  *   （consolidate・acquire が後継）。
- * - DLQ / IAM Role は Lambda ごとに独立（障害切り分け・権限最小化）。migrate は
- *   DLQ を持たない代わりに、非同期 invoke の既定リトライ（2 回）を明示的に 0 へ設定している
- *   （Issue #3814）。手動の非同期 invoke でも Lambda はデフォルトで最大 2 回リトライするため、
- *   移行処理が冪等でないこのバッチでは無指定のままだと重複実行されうる。
+ * - DLQ / IAM Role は Lambda ごとに独立（障害切り分け・権限最小化）。
  */
 export class LiveTalkBatchStack extends cdk.Stack {
   public readonly learnActivityFunction: lambda.Function;
@@ -340,54 +335,6 @@ export class LiveTalkBatchStack extends cdk.Stack {
       })
     );
 
-    // ---- 一回性マイグレーションバッチ（旧知識資材 → 新 Topic モデル、手動 invoke 専用）----
-    //
-    // 旧 Memory/Knowledge/InterestCategory を新 Topic モデルへ変換する throwaway バッチ。
-    // 手動発火専用のため EventBridge Rule は付けない（DLQ もスケジュール起因の非同期リトライを
-    // 前提とした仕組みのため、他バッチと異なり付与しない。代わりに Lambda 自体の非同期 invoke
-    // リトライを 0 に設定する。下記 MigrateFunction の retryAttempts を参照）。
-
-    // 一回性マイグレーションバッチ専用 IAM Role（OpenAI 権限が必要。GSI3 Query は dynamoTable の
-    // globalIndexes 宣言（本ファイル冒頭）に含めているため、ここでは grantReadWriteData だけでよい）
-    const migrateRole = new iam.Role(this, 'MigrateExecutionRole', {
-      roleName: `nagiyu-livetalk-migrate-role-${environment}`,
-      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
-      ],
-    });
-    dynamoTable.grantReadWriteData(migrateRole);
-    grantErrorEventsWrite(this, migrateRole, environment);
-
-    // 一回性マイグレーションバッチ Lambda（手動 invoke 専用）
-    const migrateFunction = new lambda.Function(this, 'MigrateFunction', {
-      functionName: `nagiyu-livetalk-batch-migrate-${environment}`,
-      runtime: lambda.Runtime.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(batchRepository, {
-        tagOrDigest: 'latest',
-        cmd: ['services/livetalk/batch/dist/src/handlers/migrate.handler'],
-      }),
-      handler: lambda.Handler.FROM_IMAGE,
-      role: migrateRole,
-      memorySize: 512,
-      timeout: cdk.Duration.minutes(15),
-      environment: {
-        NODE_ENV: environment,
-        LIVETALK_ENV: environment,
-        DYNAMODB_TABLE_NAME: dynamoTableName,
-        OPENAI_API_KEY: openAiApiKey,
-        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
-        TZ: 'Asia/Tokyo',
-      },
-      tracing: lambda.Tracing.ACTIVE,
-      logRetention: logs.RetentionDays.ONE_MONTH,
-      // 非同期 invoke（InvocationType=Event）の既定リトライ回数（2 回）を明示的に 0 にする
-      // （Issue #3814）。移行処理は冪等でないため、1 スコープがタイムアウトした際の自動リトライで
-      // 重複実行されるのを防ぐ。チャンク分割実行（chunkStart/chunkEnd）と組み合わせて使う。
-      retryAttempts: 0,
-    });
-    // EventBridge Rule は意図的に付けない（手動 invoke 専用）
-
     // タグ
     cdk.Tags.of(this).add('Application', 'nagiyu');
     cdk.Tags.of(this).add('Service', 'livetalk');
@@ -433,12 +380,6 @@ export class LiveTalkBatchStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'AcquireDlqUrl', {
       value: acquireDlq.queueUrl,
       description: 'LiveTalk Acquire DLQ URL',
-    });
-
-    new cdk.CfnOutput(this, 'MigrateFunctionArn', {
-      value: migrateFunction.functionArn,
-      description:
-        'LiveTalk 一回性マイグレーション（旧知識資材 → 新 Topic モデル）Lambda Function ARN（手動 invoke 専用）',
     });
   }
 }

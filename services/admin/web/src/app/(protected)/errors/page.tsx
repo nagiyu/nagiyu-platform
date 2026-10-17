@@ -89,8 +89,8 @@ function buildQueryFromSearchParams(searchParams: {
   return query;
 }
 
-function formatJst(iso: string): string {
-  const date = new Date(iso);
+function formatJst(millis: number): string {
+  const date = new Date(millis);
   return new Intl.DateTimeFormat('ja-JP', {
     timeZone: 'Asia/Tokyo',
     year: 'numeric',
@@ -112,7 +112,7 @@ function truncateMessage(message: string): string {
 
 function buildDetailHref(event: ErrorEvent): string {
   const params = new URLSearchParams({
-    at: event.occurredAt,
+    at: String(event.occurredAt),
     serviceId: event.serviceId,
   });
   return `/errors/${encodeURIComponent(event.eventId)}?${params.toString()}`;

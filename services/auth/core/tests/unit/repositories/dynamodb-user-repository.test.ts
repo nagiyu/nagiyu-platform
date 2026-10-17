@@ -1,24 +1,50 @@
 import {
-  DynamoDBUserRepository,
-  UserNotFoundError,
-} from '../../../src/repositories/dynamodb-user-repository';
-import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import type { User } from '@nagiyu/common';
-import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
+  DeleteCommand,
+  GetCommand,
+  PutCommand,
+  QueryCommand,
+  ScanCommand,
+  UpdateCommand,
+  type DynamoDBDocumentClient,
+} from '@aws-sdk/lib-dynamodb';
+import {
+  DatabaseError,
+  EntityNotFoundError,
+  getDynamoDBDocumentClient,
+  getTableName,
+} from '@nagiyu/aws';
+import { DynamoDBUserRepository } from '../../../src/repositories/dynamodb-user-repository';
 
 const USERS_TABLE_NAME = 'test-users-table';
+const NOW = 1706745600000;
 
-// Mock @nagiyu/aws to test default constructor parameter fallback
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
   getDynamoDBDocumentClient: jest.fn(),
   getTableName: jest.fn(),
-  reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
-// Mock crypto.randomUUID
-jest.mock('crypto', () => ({
+jest.mock('node:crypto', () => ({
   randomUUID: jest.fn(() => 'test-uuid-12345'),
 }));
+
+function buildStoredUser(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    userId: 'user-123',
+    googleId: 'google-123',
+    Type: 'User',
+    Email: 'test@example.com',
+    Name: 'テストユーザー',
+    Roles: [],
+    CreatedAt: NOW,
+    UpdatedAt: NOW,
+    ...overrides,
+  };
+}
+
+function conditionalCheckFailed(): Error {
+  return Object.assign(new Error('conditional'), { name: 'ConditionalCheckFailedException' });
+}
 
 describe('DynamoDBUserRepository', () => {
   let repository: DynamoDBUserRepository;
@@ -26,526 +52,258 @@ describe('DynamoDBUserRepository', () => {
 
   beforeEach(() => {
     mockSend = jest.fn();
-    const mockDynamoDb = { send: mockSend } as unknown as DynamoDBDocumentClient;
-    repository = new DynamoDBUserRepository(mockDynamoDb, USERS_TABLE_NAME);
+    repository = new DynamoDBUserRepository(
+      { send: mockSend } as unknown as DynamoDBDocumentClient,
+      USERS_TABLE_NAME
+    );
+  });
+
+  describe('コンストラクタ', () => {
+    it('引数を省略すると共通クライアントとテーブル名を使う', () => {
+      (getDynamoDBDocumentClient as jest.Mock).mockReturnValue({ send: mockSend });
+      (getTableName as jest.Mock).mockReturnValue('resolved-table');
+      mockSend.mockResolvedValueOnce({});
+
+      const defaultRepository = new DynamoDBUserRepository();
+      void defaultRepository.getUserById('user-123');
+
+      expect(getTableName).toHaveBeenCalledWith('nagiyu-auth-users-dev');
+      expect(mockSend.mock.calls[0][0]).toBeInstanceOf(GetCommand);
+      expect((mockSend.mock.calls[0][0] as GetCommand).input.TableName).toBe('resolved-table');
+    });
   });
 
   describe('getUserByGoogleId', () => {
-    it('Google ID が存在する場合はユーザーを返す', async () => {
-      const mockUser: User = {
+    it('GSI を Query して Entity に変換する', async () => {
+      mockSend.mockResolvedValueOnce({ Items: [buildStoredUser()] });
+
+      const result = await repository.getUserByGoogleId('google-123');
+
+      expect(result).toEqual({
         userId: 'user-123',
         googleId: 'google-123',
         email: 'test@example.com',
         name: 'テストユーザー',
         roles: [],
-        createdAt: '2024-01-01T00:00:00.000Z',
-        updatedAt: '2024-01-01T00:00:00.000Z',
-      };
-
-      mockSend.mockResolvedValueOnce({
-        Items: [mockUser],
-        $metadata: {},
+        createdAt: NOW,
+        updatedAt: NOW,
       });
+      const command = mockSend.mock.calls[0][0] as QueryCommand;
+      expect(command).toBeInstanceOf(QueryCommand);
+      expect(command.input).toMatchObject({
+        TableName: USERS_TABLE_NAME,
+        IndexName: 'googleId-index',
+        KeyConditionExpression: 'googleId = :googleId',
+        ExpressionAttributeValues: { ':googleId': 'google-123' },
+      });
+    });
 
-      const result = await repository.getUserByGoogleId('google-123');
+    it('該当がなければ null を返す', async () => {
+      mockSend.mockResolvedValueOnce({ Items: [] });
 
-      expect(result).toEqual(mockUser);
-      expect(mockSend).toHaveBeenCalledWith(
-        expect.objectContaining({
-          input: expect.objectContaining({
-            TableName: USERS_TABLE_NAME,
-            IndexName: 'googleId-index',
-            KeyConditionExpression: 'googleId = :googleId',
-            ExpressionAttributeValues: {
-              ':googleId': 'google-123',
-            },
-          }),
-        })
+      expect(await repository.getUserByGoogleId('google-none')).toBeNull();
+    });
+
+    it('Items がなくても null を返す', async () => {
+      mockSend.mockResolvedValueOnce({});
+
+      expect(await repository.getUserByGoogleId('google-none')).toBeNull();
+    });
+
+    it('DynamoDB のエラーは DatabaseError にする', async () => {
+      mockSend.mockRejectedValueOnce(new Error('boom'));
+
+      await expect(repository.getUserByGoogleId('google-123')).rejects.toBeInstanceOf(
+        DatabaseError
       );
-    });
-
-    it('Google ID が存在しない場合は null を返す', async () => {
-      mockSend.mockResolvedValueOnce({
-        Items: [],
-        $metadata: {},
-      });
-
-      const result = await repository.getUserByGoogleId('nonexistent');
-
-      expect(result).toBeNull();
-    });
-
-    it('Items が undefined の場合は null を返す', async () => {
-      mockSend.mockResolvedValueOnce({
-        $metadata: {},
-      });
-
-      const result = await repository.getUserByGoogleId('google-123');
-
-      expect(result).toBeNull();
-    });
-
-    it('DynamoDB エラー時は報告せずそのまま再スローする', async () => {
-      const dbError = new Error('DynamoDB connection failed');
-      mockSend.mockRejectedValueOnce(dbError);
-
-      await expect(repository.getUserByGoogleId('google-123')).rejects.toThrow(dbError);
-
-      expect(reportErrorEvent).not.toHaveBeenCalled();
     });
   });
 
   describe('getUserById', () => {
-    it('ユーザー ID が存在する場合はユーザーを返す', async () => {
-      const mockUser: User = {
-        userId: 'user-123',
-        googleId: 'google-123',
-        email: 'test@example.com',
-        name: 'テストユーザー',
-        roles: [],
-        createdAt: '2024-01-01T00:00:00.000Z',
-        updatedAt: '2024-01-01T00:00:00.000Z',
-      };
-
+    it('GetItem の結果を Entity に変換する', async () => {
       mockSend.mockResolvedValueOnce({
-        Item: mockUser,
-        $metadata: {},
+        Item: buildStoredUser({ Picture: 'https://example.com/a.png' }),
       });
 
       const result = await repository.getUserById('user-123');
 
-      expect(result).toEqual(mockUser);
-      expect(mockSend).toHaveBeenCalledWith(
-        expect.objectContaining({
-          input: expect.objectContaining({
-            TableName: USERS_TABLE_NAME,
-            Key: { userId: 'user-123' },
-          }),
-        })
-      );
+      expect(result?.picture).toBe('https://example.com/a.png');
+      const command = mockSend.mock.calls[0][0] as GetCommand;
+      expect(command).toBeInstanceOf(GetCommand);
+      expect(command.input.Key).toEqual({ userId: 'user-123' });
     });
 
-    it('ユーザー ID が存在しない場合は null を返す', async () => {
-      mockSend.mockResolvedValueOnce({
-        $metadata: {},
-      });
+    it('存在しなければ null を返す', async () => {
+      mockSend.mockResolvedValueOnce({});
 
-      const result = await repository.getUserById('nonexistent');
-
-      expect(result).toBeNull();
+      expect(await repository.getUserById('none')).toBeNull();
     });
   });
 
   describe('listUsers', () => {
-    it('ユーザー一覧を返す', async () => {
-      const mockUsers: User[] = [
-        {
-          userId: 'user-1',
-          googleId: 'google-1',
-          email: 'user1@example.com',
-          name: 'ユーザー1',
-          roles: [],
-          createdAt: '2024-01-01T00:00:00.000Z',
-          updatedAt: '2024-01-01T00:00:00.000Z',
-        },
-        {
-          userId: 'user-2',
-          googleId: 'google-2',
-          email: 'user2@example.com',
-          name: 'ユーザー2',
-          roles: ['admin'],
-          createdAt: '2024-01-02T00:00:00.000Z',
-          updatedAt: '2024-01-02T00:00:00.000Z',
-        },
-      ];
-
+    it('Scan の結果を Entity に変換し、LastEvaluatedKey を返す', async () => {
       mockSend.mockResolvedValueOnce({
-        Items: mockUsers,
-        $metadata: {},
+        Items: [buildStoredUser(), buildStoredUser({ userId: 'user-456', googleId: 'g-456' })],
+        LastEvaluatedKey: { userId: 'user-456' },
       });
+
+      const result = await repository.listUsers(2, { userId: 'user-000' });
+
+      expect(result.users.map((user) => user.userId)).toEqual(['user-123', 'user-456']);
+      expect(result.lastEvaluatedKey).toEqual({ userId: 'user-456' });
+      const command = mockSend.mock.calls[0][0] as ScanCommand;
+      expect(command).toBeInstanceOf(ScanCommand);
+      expect(command.input).toMatchObject({
+        TableName: USERS_TABLE_NAME,
+        Limit: 2,
+        ExclusiveStartKey: { userId: 'user-000' },
+      });
+    });
+
+    it('引数を省略すると limit は 100 になり、最終ページでは lastEvaluatedKey がない', async () => {
+      mockSend.mockResolvedValueOnce({});
 
       const result = await repository.listUsers();
 
-      expect(result.users).toEqual(mockUsers);
-      expect(result.lastEvaluatedKey).toBeUndefined();
-      expect(mockSend).toHaveBeenCalledWith(
-        expect.objectContaining({
-          input: expect.objectContaining({
-            TableName: USERS_TABLE_NAME,
-            Limit: 100,
-          }),
-        })
-      );
+      expect(result).toEqual({ users: [], lastEvaluatedKey: undefined });
+      expect((mockSend.mock.calls[0][0] as ScanCommand).input.Limit).toBe(100);
     });
 
-    it('ページネーションパラメータを正しく渡す', async () => {
-      const lastKey = { userId: 'user-50' };
-      mockSend.mockResolvedValueOnce({
-        Items: [],
-        LastEvaluatedKey: lastKey,
-        $metadata: {},
-      });
+    it('DynamoDB のエラーは DatabaseError にする', async () => {
+      mockSend.mockRejectedValueOnce(new Error('boom'));
 
-      const result = await repository.listUsers(50, lastKey);
-
-      expect(result.lastEvaluatedKey).toEqual(lastKey);
-      expect(mockSend).toHaveBeenCalledWith(
-        expect.objectContaining({
-          input: expect.objectContaining({
-            Limit: 50,
-            ExclusiveStartKey: lastKey,
-          }),
-        })
-      );
-    });
-
-    it('Items が undefined の場合は空配列を返す', async () => {
-      mockSend.mockResolvedValueOnce({
-        $metadata: {},
-      });
-
-      const result = await repository.listUsers();
-
-      expect(result.users).toEqual([]);
+      await expect(repository.listUsers()).rejects.toBeInstanceOf(DatabaseError);
     });
   });
 
   describe('upsertUser', () => {
-    beforeEach(() => {
-      // Mock Date.now() for consistent timestamps
-      jest.spyOn(Date.prototype, 'toISOString').mockReturnValue('2024-01-15T12:00:00.000Z');
-    });
+    it('既存ユーザーがいなければ roles 空で作成する', async () => {
+      mockSend.mockResolvedValueOnce({ Items: [] }).mockResolvedValueOnce({});
 
-    afterEach(() => {
-      jest.restoreAllMocks();
-    });
-
-    it('新規ユーザーを作成する', async () => {
-      // getUserByGoogleId returns null (user doesn't exist)
-      mockSend.mockResolvedValueOnce({
-        Items: [],
-        $metadata: {},
-      });
-
-      // PutCommand succeeds
-      mockSend.mockResolvedValueOnce({
-        $metadata: {},
-      });
-
-      const input = {
+      const result = await repository.upsertUser({
         googleId: 'google-new',
         email: 'new@example.com',
-        name: '新規ユーザー',
-        picture: 'https://example.com/pic.jpg',
-      };
+        name: '新規',
+        picture: 'https://example.com/new.png',
+      });
 
-      const result = await repository.upsertUser(input);
-
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         userId: 'test-uuid-12345',
         googleId: 'google-new',
         email: 'new@example.com',
-        name: '新規ユーザー',
-        picture: 'https://example.com/pic.jpg',
+        name: '新規',
+        picture: 'https://example.com/new.png',
         roles: [],
-        createdAt: '2024-01-15T12:00:00.000Z',
-        updatedAt: '2024-01-15T12:00:00.000Z',
       });
-
-      expect(mockSend).toHaveBeenCalledTimes(2);
-      expect(mockSend).toHaveBeenNthCalledWith(
-        2,
-        expect.objectContaining({
-          input: expect.objectContaining({
-            TableName: USERS_TABLE_NAME,
-            Item: expect.objectContaining({
-              userId: 'test-uuid-12345',
-              googleId: 'google-new',
-              email: 'new@example.com',
-              roles: [],
-            }),
-          }),
-        })
-      );
+      const command = mockSend.mock.calls[1][0] as PutCommand;
+      expect(command).toBeInstanceOf(PutCommand);
+      expect(command.input.Item).toMatchObject({
+        userId: 'test-uuid-12345',
+        Type: 'User',
+        Email: 'new@example.com',
+        Picture: 'https://example.com/new.png',
+      });
     });
 
-    it('既存ユーザーを更新する', async () => {
-      const existingUser: User = {
-        userId: 'user-existing',
-        googleId: 'google-existing',
-        email: 'old@example.com',
-        name: '古い名前',
-        roles: ['admin'],
-        createdAt: '2024-01-01T00:00:00.000Z',
-        updatedAt: '2024-01-01T00:00:00.000Z',
-      };
+    it('picture がなければ picture を持たない状態で作成する', async () => {
+      mockSend.mockResolvedValueOnce({ Items: [] }).mockResolvedValueOnce({});
 
-      // getUserByGoogleId returns existing user
-      mockSend.mockResolvedValueOnce({
-        Items: [existingUser],
-        $metadata: {},
-      });
-
-      // PutCommand succeeds
-      mockSend.mockResolvedValueOnce({
-        $metadata: {},
-      });
-
-      const input = {
-        googleId: 'google-existing',
+      const result = await repository.upsertUser({
+        googleId: 'google-new',
         email: 'new@example.com',
-        name: '新しい名前',
-        picture: 'https://example.com/new.jpg',
-      };
-
-      const result = await repository.upsertUser(input);
-
-      expect(result).toEqual({
-        userId: 'user-existing',
-        googleId: 'google-existing',
-        email: 'old@example.com', // Email should not be updated
-        name: '新しい名前',
-        picture: 'https://example.com/new.jpg',
-        roles: ['admin'], // Roles should be preserved
-        createdAt: '2024-01-01T00:00:00.000Z',
-        updatedAt: '2024-01-15T12:00:00.000Z',
+        name: '新規',
       });
 
-      expect(mockSend).toHaveBeenCalledTimes(2);
+      expect(result).not.toHaveProperty('picture');
     });
 
-    it('新規ユーザー作成時に DynamoDB エラーが発生した場合は報告せずそのまま再スローする', async () => {
-      const dbError = new Error('DynamoDB put failed');
-
-      // getUserByGoogleId returns null (new user)
-      mockSend.mockResolvedValueOnce({ Items: [], $metadata: {} });
-      // PutCommand fails
-      mockSend.mockRejectedValueOnce(dbError);
-
-      await expect(
-        repository.upsertUser({ googleId: 'google-new', email: 'new@example.com', name: '新規' })
-      ).rejects.toThrow(dbError);
-
-      expect(reportErrorEvent).not.toHaveBeenCalled();
-    });
-
-    it('既存ユーザー更新時に DynamoDB エラーが発生した場合は報告せずそのまま再スローする', async () => {
-      const existingUser: User = {
-        userId: 'user-existing',
-        googleId: 'google-existing',
-        email: 'old@example.com',
-        name: '古い名前',
-        roles: ['admin'],
-        createdAt: '2024-01-01T00:00:00.000Z',
-        updatedAt: '2024-01-01T00:00:00.000Z',
-      };
-      const dbError = new Error('DynamoDB put failed');
-
-      // getUserByGoogleId returns existing user
-      mockSend.mockResolvedValueOnce({ Items: [existingUser], $metadata: {} });
-      // PutCommand fails
-      mockSend.mockRejectedValueOnce(dbError);
-
-      await expect(
-        repository.upsertUser({
-          googleId: 'google-existing',
-          email: 'old@example.com',
-          name: '新しい名前',
+    it('既存ユーザーがいれば name を更新し、picture がなければ picture を削除する', async () => {
+      mockSend
+        .mockResolvedValueOnce({
+          Items: [buildStoredUser({ Picture: 'https://example.com/old.png' })],
         })
-      ).rejects.toThrow(dbError);
+        .mockResolvedValueOnce({ Attributes: buildStoredUser({ Name: '更新後' }) });
 
-      expect(reportErrorEvent).not.toHaveBeenCalled();
+      const result = await repository.upsertUser({
+        googleId: 'google-123',
+        email: 'test@example.com',
+        name: '更新後',
+      });
+
+      expect(result.name).toBe('更新後');
+      const command = mockSend.mock.calls[1][0] as UpdateCommand;
+      expect(command).toBeInstanceOf(UpdateCommand);
+      expect(command.input.Key).toEqual({ userId: 'user-123' });
+      expect(command.input.UpdateExpression).toMatch(/^SET .*REMOVE /);
+      expect(Object.values(command.input.ExpressionAttributeNames ?? {})).toEqual(
+        expect.arrayContaining(['Name', 'Picture', 'picture', 'name'])
+      );
     });
   });
 
-  describe('updateUser', () => {
-    beforeEach(() => {
-      jest.spyOn(Date.prototype, 'toISOString').mockReturnValue('2024-01-15T12:00:00.000Z');
+  describe('updateUser / assignRoles / updateLastLogin', () => {
+    it('updateUser は UpdateItem で更新後の Entity を返す', async () => {
+      mockSend.mockResolvedValueOnce({ Attributes: buildStoredUser({ Name: '変更後' }) });
+
+      const result = await repository.updateUser('user-123', { name: '変更後' });
+
+      expect(result.name).toBe('変更後');
+      expect(mockSend.mock.calls[0][0]).toBeInstanceOf(UpdateCommand);
     });
 
-    afterEach(() => {
-      jest.restoreAllMocks();
+    it('assignRoles はロールを更新する', async () => {
+      mockSend.mockResolvedValueOnce({ Attributes: buildStoredUser({ Roles: ['admin'] }) });
+
+      const result = await repository.assignRoles('user-123', ['admin']);
+
+      expect(result.roles).toEqual(['admin']);
+      const command = mockSend.mock.calls[0][0] as UpdateCommand;
+      expect(Object.values(command.input.ExpressionAttributeValues ?? {})).toContainEqual([
+        'admin',
+      ]);
     });
 
-    it('ユーザー情報を更新する', async () => {
-      const existingUser: User = {
-        userId: 'user-123',
-        googleId: 'google-123',
-        email: 'test@example.com',
-        name: '古い名前',
-        roles: [],
-        createdAt: '2024-01-01T00:00:00.000Z',
-        updatedAt: '2024-01-01T00:00:00.000Z',
-      };
+    it('updateLastLogin は LastLoginAt を数値ミリ秒で書く', async () => {
+      mockSend.mockResolvedValueOnce({ Attributes: buildStoredUser({ LastLoginAt: NOW }) });
+      const before = Date.now();
 
-      // getUserById returns existing user
-      mockSend.mockResolvedValueOnce({
-        Item: existingUser,
-        $metadata: {},
-      });
+      await repository.updateLastLogin('user-123');
 
-      // PutCommand succeeds
-      mockSend.mockResolvedValueOnce({
-        $metadata: {},
-      });
-
-      const result = await repository.updateUser('user-123', {
-        name: '新しい名前',
-        roles: ['admin'],
-      });
-
-      expect(result).toEqual({
-        ...existingUser,
-        name: '新しい名前',
-        roles: ['admin'],
-        updatedAt: '2024-01-15T12:00:00.000Z',
-      });
-
-      expect(mockSend).toHaveBeenCalledTimes(2);
-    });
-
-    it('ユーザーが存在しない場合はエラーを投げる', async () => {
-      // getUserById returns null
-      mockSend.mockResolvedValueOnce({
-        $metadata: {},
-      });
-
-      await expect(repository.updateUser('nonexistent', { name: '新しい名前' })).rejects.toThrow(
-        UserNotFoundError
+      const command = mockSend.mock.calls[0][0] as UpdateCommand;
+      const written = Object.values(command.input.ExpressionAttributeValues ?? {}).filter(
+        (value): value is number => typeof value === 'number'
       );
+      expect(written.length).toBeGreaterThan(0);
+      expect(written.every((value) => value >= before)).toBe(true);
+    });
 
-      expect(mockSend).toHaveBeenCalledTimes(1);
+    it.each([
+      ['updateUser', (repo: DynamoDBUserRepository) => repo.updateUser('none', { name: 'x' })],
+      ['assignRoles', (repo: DynamoDBUserRepository) => repo.assignRoles('none', [])],
+      ['updateLastLogin', (repo: DynamoDBUserRepository) => repo.updateLastLogin('none')],
+    ])('%s は対象がいなければ EntityNotFoundError になる', async (_name, action) => {
+      mockSend.mockRejectedValueOnce(conditionalCheckFailed());
+
+      await expect(action(repository)).rejects.toBeInstanceOf(EntityNotFoundError);
     });
   });
 
   describe('deleteUser', () => {
-    it('ユーザーを削除する', async () => {
-      mockSend.mockResolvedValueOnce({
-        $metadata: {},
-      });
+    it('存在を条件に DeleteItem する', async () => {
+      mockSend.mockResolvedValueOnce({});
 
       await repository.deleteUser('user-123');
 
-      expect(mockSend).toHaveBeenCalledWith(
-        expect.objectContaining({
-          input: expect.objectContaining({
-            TableName: USERS_TABLE_NAME,
-            Key: { userId: 'user-123' },
-          }),
-        })
-      );
-    });
-  });
-
-  describe('assignRoles', () => {
-    beforeEach(() => {
-      jest.spyOn(Date.prototype, 'toISOString').mockReturnValue('2024-01-15T12:00:00.000Z');
+      const command = mockSend.mock.calls[0][0] as DeleteCommand;
+      expect(command).toBeInstanceOf(DeleteCommand);
+      expect(command.input.Key).toEqual({ userId: 'user-123' });
+      expect(command.input.ConditionExpression).toBeDefined();
     });
 
-    afterEach(() => {
-      jest.restoreAllMocks();
-    });
+    it('対象がいなければ EntityNotFoundError になる', async () => {
+      mockSend.mockRejectedValueOnce(conditionalCheckFailed());
 
-    it('ユーザーにロールを割り当てる', async () => {
-      const existingUser: User = {
-        userId: 'user-123',
-        googleId: 'google-123',
-        email: 'test@example.com',
-        name: 'テストユーザー',
-        roles: [],
-        createdAt: '2024-01-01T00:00:00.000Z',
-        updatedAt: '2024-01-01T00:00:00.000Z',
-      };
-
-      // getUserById returns existing user
-      mockSend.mockResolvedValueOnce({
-        Item: existingUser,
-        $metadata: {},
-      });
-
-      // PutCommand succeeds
-      mockSend.mockResolvedValueOnce({
-        $metadata: {},
-      });
-
-      const result = await repository.assignRoles('user-123', ['admin', 'user-manager']);
-
-      expect(result.roles).toEqual(['admin', 'user-manager']);
-      expect(mockSend).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  describe('updateLastLogin', () => {
-    beforeEach(() => {
-      jest.spyOn(Date.prototype, 'toISOString').mockReturnValue('2024-01-15T12:00:00.000Z');
-    });
-
-    afterEach(() => {
-      jest.restoreAllMocks();
-    });
-
-    it('最終ログイン日時を更新する', async () => {
-      const existingUser: User = {
-        userId: 'user-123',
-        googleId: 'google-123',
-        email: 'test@example.com',
-        name: 'テストユーザー',
-        roles: [],
-        createdAt: '2024-01-01T00:00:00.000Z',
-        updatedAt: '2024-01-01T00:00:00.000Z',
-      };
-
-      // getUserById returns existing user
-      mockSend.mockResolvedValueOnce({
-        Item: existingUser,
-        $metadata: {},
-      });
-
-      // PutCommand succeeds
-      mockSend.mockResolvedValueOnce({
-        $metadata: {},
-      });
-
-      await repository.updateLastLogin('user-123');
-
-      expect(mockSend).toHaveBeenCalledTimes(2);
-      expect(mockSend).toHaveBeenNthCalledWith(
-        2,
-        expect.objectContaining({
-          input: expect.objectContaining({
-            Item: expect.objectContaining({
-              lastLoginAt: '2024-01-15T12:00:00.000Z',
-              updatedAt: '2024-01-15T12:00:00.000Z',
-            }),
-          }),
-        })
-      );
-    });
-
-    it('ユーザーが存在しない場合はエラーを投げる', async () => {
-      // getUserById returns null
-      mockSend.mockResolvedValueOnce({
-        $metadata: {},
-      });
-
-      await expect(repository.updateLastLogin('nonexistent')).rejects.toThrow(UserNotFoundError);
-
-      expect(mockSend).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe('コンストラクタのデフォルト引数', () => {
-    it('引数なしで生成した場合、getDynamoDBDocumentClient と getTableName が呼び出される', () => {
-      const mockDefaultSend = jest.fn();
-      const mockDefaultDynamoDb = { send: mockDefaultSend } as unknown as DynamoDBDocumentClient;
-      (getDynamoDBDocumentClient as jest.Mock).mockReturnValue(mockDefaultDynamoDb);
-      (getTableName as jest.Mock).mockReturnValue('default-table');
-
-      const defaultRepo = new DynamoDBUserRepository();
-
-      expect(getDynamoDBDocumentClient).toHaveBeenCalledWith();
-      expect(getTableName).toHaveBeenCalledWith('nagiyu-auth-users-dev');
-      expect(defaultRepo).toBeInstanceOf(DynamoDBUserRepository);
+      await expect(repository.deleteUser('none')).rejects.toBeInstanceOf(EntityNotFoundError);
     });
   });
 });

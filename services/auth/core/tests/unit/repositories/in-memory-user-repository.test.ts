@@ -1,238 +1,139 @@
+import { EntityNotFoundError, InMemorySingleTableStore } from '@nagiyu/aws';
 import { InMemoryUserRepository } from '../../../src/repositories/in-memory-user-repository';
-import { UserNotFoundError, type UpsertUserInput } from '../../../src/repositories/user-repository';
 
 describe('InMemoryUserRepository', () => {
+  let store: InMemorySingleTableStore;
   let repository: InMemoryUserRepository;
 
   beforeEach(() => {
-    repository = new InMemoryUserRepository();
+    store = new InMemorySingleTableStore();
+    repository = new InMemoryUserRepository(store);
   });
 
-  describe('getUserByGoogleId', () => {
-    it('存在しないGoogle IDの場合はnullを返す', async () => {
-      const result = await repository.getUserByGoogleId('non-existent');
-      expect(result).toBeNull();
+  it('ストアを省略しても動作する', async () => {
+    const standalone = new InMemoryUserRepository();
+
+    const created = await standalone.upsertUser({
+      googleId: 'google-1',
+      email: 'a@example.com',
+      name: 'A',
     });
 
-    it('存在するGoogle IDの場合はユーザーを返す', async () => {
-      const input: UpsertUserInput = {
-        googleId: 'google123',
-        email: 'test@example.com',
-        name: 'Test User',
-      };
-      await repository.upsertUser(input);
-
-      const result = await repository.getUserByGoogleId('google123');
-      expect(result).not.toBeNull();
-      expect(result?.googleId).toBe('google123');
-      expect(result?.email).toBe('test@example.com');
-    });
+    expect(await standalone.getUserById(created.userId)).toEqual(created);
   });
 
-  describe('getUserById', () => {
-    it('存在しないユーザーIDの場合はnullを返す', async () => {
-      const result = await repository.getUserById('non-existent');
-      expect(result).toBeNull();
+  it('ユーザーを保存形式 (PascalCase・数値ミリ秒) でストアに書く', async () => {
+    const created = await repository.upsertUser({
+      googleId: 'google-1',
+      email: 'a@example.com',
+      name: 'A',
+      picture: 'https://example.com/a.png',
     });
 
-    it('存在するユーザーIDの場合はユーザーを返す', async () => {
-      const input: UpsertUserInput = {
-        googleId: 'google123',
-        email: 'test@example.com',
-        name: 'Test User',
-      };
-      const user = await repository.upsertUser(input);
-
-      const result = await repository.getUserById(user.userId);
-      expect(result).not.toBeNull();
-      expect(result?.userId).toBe(user.userId);
+    expect(store.getByKey({ userId: created.userId })).toMatchObject({
+      userId: created.userId,
+      googleId: 'google-1',
+      Type: 'User',
+      Email: 'a@example.com',
+      Name: 'A',
+      Picture: 'https://example.com/a.png',
+      Roles: [],
+      CreatedAt: created.createdAt,
+      UpdatedAt: created.updatedAt,
     });
   });
 
-  describe('upsertUser', () => {
-    it('新規ユーザーを作成する', async () => {
-      const input: UpsertUserInput = {
-        googleId: 'google123',
-        email: 'test@example.com',
-        name: 'Test User',
-        picture: 'https://example.com/avatar.jpg',
-      };
-
-      const result = await repository.upsertUser(input);
-
-      expect(result.userId).toBeDefined();
-      expect(result.googleId).toBe('google123');
-      expect(result.email).toBe('test@example.com');
-      expect(result.name).toBe('Test User');
-      expect(result.picture).toBe('https://example.com/avatar.jpg');
-      expect(result.roles).toEqual([]);
-      expect(result.createdAt).toBeDefined();
-      expect(result.updatedAt).toBeDefined();
+  it('Google ID で引き当て、なければ null を返す', async () => {
+    const created = await repository.upsertUser({
+      googleId: 'google-1',
+      email: 'a@example.com',
+      name: 'A',
     });
 
-    it('既存ユーザーを更新する', async () => {
-      const input: UpsertUserInput = {
-        googleId: 'google123',
-        email: 'test@example.com',
-        name: 'Test User',
-      };
-      const user = await repository.upsertUser(input);
-
-      // Wait a bit to ensure timestamp difference
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
-      const updateInput: UpsertUserInput = {
-        googleId: 'google123',
-        email: 'updated@example.com',
-        name: 'Updated Name',
-      };
-      const updatedUser = await repository.upsertUser(updateInput);
-
-      expect(updatedUser.userId).toBe(user.userId);
-      expect(updatedUser.email).toBe('updated@example.com');
-      expect(updatedUser.name).toBe('Updated Name');
-      expect(updatedUser.createdAt).toBe(user.createdAt);
-      expect(updatedUser.updatedAt).not.toBe(user.updatedAt);
-    });
+    expect(await repository.getUserByGoogleId('google-1')).toEqual(created);
+    expect(await repository.getUserByGoogleId('google-none')).toBeNull();
   });
 
-  describe('updateLastLogin', () => {
-    it('最終ログイン日時を更新する', async () => {
-      const input: UpsertUserInput = {
-        googleId: 'google123',
-        email: 'test@example.com',
-        name: 'Test User',
-      };
-      const user = await repository.upsertUser(input);
-
-      expect(user.lastLoginAt).toBeUndefined();
-
-      await repository.updateLastLogin(user.userId);
-
-      const updatedUser = await repository.getUserById(user.userId);
-      expect(updatedUser?.lastLoginAt).toBeDefined();
+  it('既存の Google ID で upsert すると新規作成せず name と picture を更新する', async () => {
+    const created = await repository.upsertUser({
+      googleId: 'google-1',
+      email: 'a@example.com',
+      name: 'A',
+      picture: 'https://example.com/a.png',
     });
 
-    it('存在しないユーザーIDの場合は何もしない', async () => {
-      await expect(repository.updateLastLogin('non-existent')).resolves.not.toThrow();
+    const updated = await repository.upsertUser({
+      googleId: 'google-1',
+      email: 'a@example.com',
+      name: 'A2',
     });
+
+    expect(updated.userId).toBe(created.userId);
+    expect(updated.name).toBe('A2');
+    expect(updated).not.toHaveProperty('picture');
+    expect(store.size()).toBe(1);
   });
 
-  describe('listUsers', () => {
-    const seedUsers = async (count: number) => {
-      const created: { userId: string; googleId: string }[] = [];
-      for (let i = 0; i < count; i += 1) {
-        const user = await repository.upsertUser({
-          googleId: `google-${i}`,
-          email: `user${i}@example.com`,
-          name: `User ${i}`,
-        });
-        created.push({ userId: user.userId, googleId: user.googleId });
-      }
-      return created;
-    };
-
-    it('ユーザーがいない場合は空配列と undefined の lastEvaluatedKey を返す', async () => {
-      const result = await repository.listUsers();
-      expect(result.users).toEqual([]);
-      expect(result.lastEvaluatedKey).toBeUndefined();
-    });
-
-    it('全ユーザーを返し、最終ページでは lastEvaluatedKey が undefined になる', async () => {
-      await seedUsers(3);
-      const result = await repository.listUsers();
-      expect(result.users).toHaveLength(3);
-      expect(result.lastEvaluatedKey).toBeUndefined();
-    });
-
-    it('limit を超える場合は lastEvaluatedKey が返り、次ページで残りを取得できる', async () => {
-      const seeded = await seedUsers(5);
-      const first = await repository.listUsers(2);
-      expect(first.users).toHaveLength(2);
-      expect(first.lastEvaluatedKey).toEqual({ userId: seeded[1].userId });
-
-      const second = await repository.listUsers(2, first.lastEvaluatedKey);
-      expect(second.users).toHaveLength(2);
-      expect(second.lastEvaluatedKey).toEqual({ userId: seeded[3].userId });
-
-      const third = await repository.listUsers(2, second.lastEvaluatedKey);
-      expect(third.users).toHaveLength(1);
-      expect(third.lastEvaluatedKey).toBeUndefined();
-    });
-  });
-
-  describe('updateUser', () => {
-    it('指定ユーザーの name を更新する', async () => {
-      const user = await repository.upsertUser({
-        googleId: 'google123',
-        email: 'test@example.com',
-        name: 'Test User',
+  it('listUsers は limit と lastEvaluatedKey でページングする', async () => {
+    for (const suffix of ['1', '2', '3']) {
+      await repository.upsertUser({
+        googleId: `google-${suffix}`,
+        email: `${suffix}@example.com`,
+        name: suffix,
       });
+    }
 
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      const updated = await repository.updateUser(user.userId, { name: 'Updated' });
+    const first = await repository.listUsers(2);
+    expect(first.users).toHaveLength(2);
+    expect(first.lastEvaluatedKey).toBeDefined();
 
-      expect(updated.userId).toBe(user.userId);
-      expect(updated.name).toBe('Updated');
-      expect(updated.updatedAt).not.toBe(user.updatedAt);
-    });
-
-    it('roles のみを更新できる', async () => {
-      const user = await repository.upsertUser({
-        googleId: 'google123',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
-
-      const updated = await repository.updateUser(user.userId, { roles: ['admin'] });
-
-      expect(updated.roles).toEqual(['admin']);
-      expect(updated.name).toBe('Test User');
-    });
-
-    it('存在しない userId の場合は UserNotFoundError を投げる', async () => {
-      await expect(repository.updateUser('non-existent', { name: 'X' })).rejects.toBeInstanceOf(
-        UserNotFoundError
-      );
-    });
+    const second = await repository.listUsers(2, first.lastEvaluatedKey);
+    expect(second.users).toHaveLength(1);
+    expect(second.lastEvaluatedKey).toBeUndefined();
   });
 
-  describe('deleteUser', () => {
-    it('ユーザーを削除し getUserById で null を返す', async () => {
-      const user = await repository.upsertUser({
-        googleId: 'google123',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
+  it('listUsers は引数を省略すると全件を返す', async () => {
+    await repository.upsertUser({ googleId: 'google-1', email: 'a@example.com', name: 'A' });
 
-      await repository.deleteUser(user.userId);
+    const result = await repository.listUsers();
 
-      expect(await repository.getUserById(user.userId)).toBeNull();
-      expect(await repository.getUserByGoogleId('google123')).toBeNull();
-    });
-
-    it('存在しないユーザーIDでも例外を投げない', async () => {
-      await expect(repository.deleteUser('non-existent')).resolves.not.toThrow();
-    });
+    expect(result.users).toHaveLength(1);
+    expect(result.lastEvaluatedKey).toBeUndefined();
   });
 
-  describe('assignRoles', () => {
-    it('指定ユーザーにロールを割り当てる', async () => {
-      const user = await repository.upsertUser({
-        googleId: 'google123',
-        email: 'test@example.com',
-        name: 'Test User',
-      });
-
-      const updated = await repository.assignRoles(user.userId, ['admin', 'editor']);
-
-      expect(updated.roles).toEqual(['admin', 'editor']);
+  it('assignRoles と updateLastLogin で更新できる', async () => {
+    const created = await repository.upsertUser({
+      googleId: 'google-1',
+      email: 'a@example.com',
+      name: 'A',
     });
 
-    it('存在しない userId の場合は UserNotFoundError を投げる', async () => {
-      await expect(repository.assignRoles('non-existent', ['admin'])).rejects.toBeInstanceOf(
-        UserNotFoundError
-      );
+    const assigned = await repository.assignRoles(created.userId, ['admin']);
+    await repository.updateLastLogin(created.userId);
+
+    expect(assigned.roles).toEqual(['admin']);
+    expect((await repository.getUserById(created.userId))?.lastLoginAt).toEqual(expect.any(Number));
+  });
+
+  it('deleteUser で削除でき、GSI の引き当てからも消える', async () => {
+    const created = await repository.upsertUser({
+      googleId: 'google-1',
+      email: 'a@example.com',
+      name: 'A',
     });
+
+    await repository.deleteUser(created.userId);
+
+    expect(await repository.getUserById(created.userId)).toBeNull();
+    expect(await repository.getUserByGoogleId('google-1')).toBeNull();
+  });
+
+  it('存在しないユーザーの更新・削除は EntityNotFoundError になる', async () => {
+    await expect(repository.updateUser('none', { name: 'x' })).rejects.toBeInstanceOf(
+      EntityNotFoundError
+    );
+    await expect(repository.assignRoles('none', [])).rejects.toBeInstanceOf(EntityNotFoundError);
+    await expect(repository.updateLastLogin('none')).rejects.toBeInstanceOf(EntityNotFoundError);
+    await expect(repository.deleteUser('none')).rejects.toBeInstanceOf(EntityNotFoundError);
   });
 });
