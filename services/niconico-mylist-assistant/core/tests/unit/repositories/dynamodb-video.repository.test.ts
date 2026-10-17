@@ -13,7 +13,7 @@ import {
   ScanCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBVideoRepository } from '../../../src/repositories/dynamodb-video.repository.js';
-import { EntityAlreadyExistsError, DatabaseError } from '@nagiyu/aws';
+import { EntityAlreadyExistsError, EntityNotFoundError, DatabaseError } from '@nagiyu/aws';
 import type { CreateVideoInput } from '../../../src/entities/video.entity.js';
 
 const ddbMock = mockClient(DynamoDBDocumentClient);
@@ -34,10 +34,10 @@ describe('DynamoDBVideoRepository', () => {
         PK: 'VIDEO#sm12345',
         SK: 'VIDEO#sm12345',
         Type: 'VIDEO',
-        videoId: 'sm12345',
-        title: 'Test Video',
-        thumbnailUrl: 'https://example.com/thumb.jpg',
-        length: '5:00',
+        VideoID: 'sm12345',
+        Title: 'Test Video',
+        ThumbnailURL: 'https://example.com/thumb.jpg',
+        Length: '5:00',
         CreatedAt: 1234567890000,
         UpdatedAt: 1234567890000,
       };
@@ -52,6 +52,32 @@ describe('DynamoDBVideoRepository', () => {
       expect(result?.videoId).toBe('sm12345');
       expect(result?.title).toBe('Test Video');
       expect(result?.length).toBe('5:00');
+    });
+
+    it('旧属性名 (camelCase) のアイテムも取得できる', async () => {
+      ddbMock.on(GetCommand).resolves({
+        Item: {
+          PK: 'VIDEO#sm12345',
+          SK: 'VIDEO#sm12345',
+          Type: 'VIDEO',
+          videoId: 'sm12345',
+          title: 'Legacy Video',
+          thumbnailUrl: 'https://example.com/legacy.jpg',
+          length: '1:00',
+          CreatedAt: 1234567890000,
+          UpdatedAt: 1234567890000,
+        },
+      });
+
+      const result = await repository.getById('sm12345');
+
+      expect(result).toEqual({
+        videoId: 'sm12345',
+        title: 'Legacy Video',
+        thumbnailUrl: 'https://example.com/legacy.jpg',
+        length: '1:00',
+        createdAt: 1234567890000,
+      });
     });
 
     it('存在しない動画はnullを返す', async () => {
@@ -77,10 +103,10 @@ describe('DynamoDBVideoRepository', () => {
             PK: 'VIDEO#sm12345',
             SK: 'VIDEO#sm12345',
             Type: 'VIDEO',
-            videoId: 'sm12345',
-            title: 'Video 1',
-            thumbnailUrl: 'https://example.com/thumb1.jpg',
-            length: '5:00',
+            VideoID: 'sm12345',
+            Title: 'Video 1',
+            ThumbnailURL: 'https://example.com/thumb1.jpg',
+            Length: '5:00',
             CreatedAt: 1234567890000,
             UpdatedAt: 1234567890000,
           },
@@ -98,10 +124,10 @@ describe('DynamoDBVideoRepository', () => {
         PK: `VIDEO#${videoId}`,
         SK: `VIDEO#${videoId}`,
         Type: 'VIDEO',
-        videoId,
-        title: `Title ${videoId}`,
-        thumbnailUrl: `https://example.com/${videoId}.jpg`,
-        length: '5:00',
+        VideoID: videoId,
+        Title: `Title ${videoId}`,
+        ThumbnailURL: `https://example.com/${videoId}.jpg`,
+        Length: '5:00',
         CreatedAt: 1234567890000,
         UpdatedAt: 1234567890000,
       });
@@ -128,10 +154,10 @@ describe('DynamoDBVideoRepository', () => {
           PK: 'VIDEO#sm12345',
           SK: 'VIDEO#sm12345',
           Type: 'VIDEO',
-          videoId: 'sm12345',
-          title: 'Video 1',
-          thumbnailUrl: 'https://example.com/thumb1.jpg',
-          length: '5:00',
+          VideoID: 'sm12345',
+          Title: 'Video 1',
+          ThumbnailURL: 'https://example.com/thumb1.jpg',
+          Length: '5:00',
           CreatedAt: 1234567890000,
           UpdatedAt: 1234567890000,
         },
@@ -139,10 +165,10 @@ describe('DynamoDBVideoRepository', () => {
           PK: 'VIDEO#sm67890',
           SK: 'VIDEO#sm67890',
           Type: 'VIDEO',
-          videoId: 'sm67890',
-          title: 'Video 2',
-          thumbnailUrl: 'https://example.com/thumb2.jpg',
-          length: '3:20',
+          VideoID: 'sm67890',
+          Title: 'Video 2',
+          ThumbnailURL: 'https://example.com/thumb2.jpg',
+          Length: '3:20',
           CreatedAt: 1234567890000,
           UpdatedAt: 1234567890000,
         },
@@ -178,10 +204,10 @@ describe('DynamoDBVideoRepository', () => {
                 PK: 'VIDEO#sm0',
                 SK: 'VIDEO#sm0',
                 Type: 'VIDEO',
-                videoId: 'sm0',
-                title: 'Video 0',
-                thumbnailUrl: 'https://example.com/thumb0.jpg',
-                length: '5:00',
+                VideoID: 'sm0',
+                Title: 'Video 0',
+                ThumbnailURL: 'https://example.com/thumb0.jpg',
+                Length: '5:00',
                 CreatedAt: 1234567890000,
                 UpdatedAt: 1234567890000,
               },
@@ -195,10 +221,10 @@ describe('DynamoDBVideoRepository', () => {
                 PK: 'VIDEO#sm100',
                 SK: 'VIDEO#sm100',
                 Type: 'VIDEO',
-                videoId: 'sm100',
-                title: 'Video 100',
-                thumbnailUrl: 'https://example.com/thumb100.jpg',
-                length: '5:00',
+                VideoID: 'sm100',
+                Title: 'Video 100',
+                ThumbnailURL: 'https://example.com/thumb100.jpg',
+                Length: '5:00',
                 CreatedAt: 1234567890000,
                 UpdatedAt: 1234567890000,
               },
@@ -217,10 +243,10 @@ describe('DynamoDBVideoRepository', () => {
         PK: `VIDEO#${videoId}`,
         SK: `VIDEO#${videoId}`,
         Type: 'VIDEO',
-        videoId,
-        title: videoId,
-        thumbnailUrl: 'https://example.com/thumb.jpg',
-        length: '5:00',
+        VideoID: videoId,
+        Title: videoId,
+        ThumbnailURL: 'https://example.com/thumb.jpg',
+        Length: '5:00',
         CreatedAt: 1234567890000,
         UpdatedAt: 1234567890000,
       });
@@ -279,7 +305,20 @@ describe('DynamoDBVideoRepository', () => {
       expect(result.videoId).toBe(input.videoId);
       expect(result.title).toBe(input.title);
       expect(result.length).toBe(input.length);
-      expect(result.CreatedAt).toBeGreaterThan(0);
+      expect(result.createdAt).toBeGreaterThan(0);
+
+      const putInput = ddbMock.commandCalls(PutCommand)[0].args[0].input;
+      expect(putInput.Item).toEqual({
+        PK: 'VIDEO#sm12345',
+        SK: 'VIDEO#sm12345',
+        Type: 'VIDEO',
+        VideoID: 'sm12345',
+        Title: 'Test Video',
+        ThumbnailURL: 'https://example.com/thumb.jpg',
+        Length: '5:00',
+        CreatedAt: result.createdAt,
+        UpdatedAt: expect.any(Number),
+      });
     });
 
     it('同じvideoIdで重複作成するとEntityAlreadyExistsErrorをスローする', async () => {
@@ -316,6 +355,24 @@ describe('DynamoDBVideoRepository', () => {
       ddbMock.on(DeleteCommand).resolves({});
 
       await expect(repository.delete('sm12345')).resolves.not.toThrow();
+    });
+
+    it('存在しない動画を削除するとEntityNotFoundErrorをスローする', async () => {
+      const error = new Error('ConditionalCheckFailedException');
+      error.name = 'ConditionalCheckFailedException';
+      ddbMock.on(DeleteCommand).rejects(error);
+
+      await expect(repository.delete('sm99999')).rejects.toThrow(EntityNotFoundError);
+    });
+
+    it('deleteIfExists は対象がなくても成功し、存在を条件にしない', async () => {
+      ddbMock.on(DeleteCommand).resolves({});
+
+      await expect(repository.deleteIfExists('sm99999')).resolves.toBeUndefined();
+
+      const input = ddbMock.commandCalls(DeleteCommand)[0].args[0].input;
+      expect(input.Key).toEqual({ PK: 'VIDEO#sm99999', SK: 'VIDEO#sm99999' });
+      expect(input).not.toHaveProperty('ConditionExpression');
     });
 
     it('DynamoDBエラーの場合はDatabaseErrorをスローする', async () => {

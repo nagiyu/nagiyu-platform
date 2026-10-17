@@ -14,6 +14,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBUserSettingRepository } from '../../../src/repositories/dynamodb-user-setting.repository.js';
 import { EntityAlreadyExistsError, EntityNotFoundError, DatabaseError } from '@nagiyu/aws';
+import { parseUpdateExpression } from '../../helpers/update-expression.js';
 import type {
   CreateUserSettingInput,
   UpdateUserSettingInput,
@@ -37,10 +38,10 @@ describe('DynamoDBUserSettingRepository', () => {
         PK: 'USER#user-123',
         SK: 'VIDEO#video-456',
         Type: 'USER_SETTING',
-        userId: 'user-123',
-        videoId: 'video-456',
-        isFavorite: true,
-        isSkip: false,
+        UserID: 'user-123',
+        VideoID: 'video-456',
+        IsFavorite: true,
+        IsSkip: false,
         CreatedAt: 1234567890000,
         UpdatedAt: 1234567890000,
       };
@@ -55,6 +56,35 @@ describe('DynamoDBUserSettingRepository', () => {
       expect(result?.userId).toBe('user-123');
       expect(result?.videoId).toBe('video-456');
       expect(result?.isFavorite).toBe(true);
+    });
+
+    it('旧属性名 (camelCase) のアイテムも取得できる', async () => {
+      ddbMock.on(GetCommand).resolves({
+        Item: {
+          PK: 'USER#user-123',
+          SK: 'VIDEO#video-456',
+          Type: 'USER_SETTING',
+          userId: 'user-123',
+          videoId: 'video-456',
+          isFavorite: true,
+          isSkip: false,
+          memo: '旧メモ',
+          CreatedAt: 1234567890000,
+          UpdatedAt: 1234567890000,
+        },
+      });
+
+      const result = await repository.getById('user-123', 'video-456');
+
+      expect(result).toEqual({
+        userId: 'user-123',
+        videoId: 'video-456',
+        isFavorite: true,
+        isSkip: false,
+        memo: '旧メモ',
+        createdAt: 1234567890000,
+        updatedAt: 1234567890000,
+      });
     });
 
     it('存在しないユーザー設定はnullを返す', async () => {
@@ -79,10 +109,10 @@ describe('DynamoDBUserSettingRepository', () => {
           PK: 'USER#user-123',
           SK: 'VIDEO#video-1',
           Type: 'USER_SETTING',
-          userId: 'user-123',
-          videoId: 'video-1',
-          isFavorite: true,
-          isSkip: false,
+          UserID: 'user-123',
+          VideoID: 'video-1',
+          IsFavorite: true,
+          IsSkip: false,
           CreatedAt: 1234567890000,
           UpdatedAt: 1234567890000,
         },
@@ -90,10 +120,10 @@ describe('DynamoDBUserSettingRepository', () => {
           PK: 'USER#user-123',
           SK: 'VIDEO#video-2',
           Type: 'USER_SETTING',
-          userId: 'user-123',
-          videoId: 'video-2',
-          isFavorite: false,
-          isSkip: true,
+          UserID: 'user-123',
+          VideoID: 'video-2',
+          IsFavorite: false,
+          IsSkip: true,
           CreatedAt: 1234567890000,
           UpdatedAt: 1234567890000,
         },
@@ -141,11 +171,11 @@ describe('DynamoDBUserSettingRepository', () => {
             PK: 'USER#user-123',
             SK: 'VIDEO#video-1',
             Type: 'USER_SETTING',
-            userId: 'user-123',
-            videoId: 'video-1',
-            isFavorite: false,
-            isSkip: false,
-            memo: '',
+            UserID: 'user-123',
+            VideoID: 'video-1',
+            IsFavorite: false,
+            IsSkip: false,
+            Memo: '',
             CreatedAt: 1234567890000,
             UpdatedAt: 1234567890000,
           },
@@ -167,10 +197,10 @@ describe('DynamoDBUserSettingRepository', () => {
           PK: 'USER#user-123',
           SK: 'VIDEO#video-1',
           Type: 'USER_SETTING',
-          userId: 'user-123',
-          videoId: 'video-1',
-          isFavorite: true,
-          isSkip: false,
+          UserID: 'user-123',
+          VideoID: 'video-1',
+          IsFavorite: true,
+          IsSkip: false,
           CreatedAt: 1234567890000,
           UpdatedAt: 1234567890000,
         },
@@ -178,10 +208,10 @@ describe('DynamoDBUserSettingRepository', () => {
           PK: 'USER#user-123',
           SK: 'VIDEO#video-2',
           Type: 'USER_SETTING',
-          userId: 'user-123',
-          videoId: 'video-2',
-          isFavorite: false,
-          isSkip: false,
+          UserID: 'user-123',
+          VideoID: 'video-2',
+          IsFavorite: false,
+          IsSkip: false,
           CreatedAt: 1234567890000,
           UpdatedAt: 1234567890000,
         },
@@ -205,10 +235,10 @@ describe('DynamoDBUserSettingRepository', () => {
           PK: 'USER#user-123',
           SK: 'VIDEO#video-1',
           Type: 'USER_SETTING',
-          userId: 'user-123',
-          videoId: 'video-1',
-          isFavorite: false,
-          isSkip: true,
+          UserID: 'user-123',
+          VideoID: 'video-1',
+          IsFavorite: false,
+          IsSkip: true,
           CreatedAt: 1234567890000,
           UpdatedAt: 1234567890000,
         },
@@ -216,10 +246,10 @@ describe('DynamoDBUserSettingRepository', () => {
           PK: 'USER#user-123',
           SK: 'VIDEO#video-2',
           Type: 'USER_SETTING',
-          userId: 'user-123',
-          videoId: 'video-2',
-          isFavorite: false,
-          isSkip: false,
+          UserID: 'user-123',
+          VideoID: 'video-2',
+          IsFavorite: false,
+          IsSkip: false,
           CreatedAt: 1234567890000,
           UpdatedAt: 1234567890000,
         },
@@ -243,10 +273,10 @@ describe('DynamoDBUserSettingRepository', () => {
           PK: 'USER#user-123',
           SK: 'VIDEO#video-1',
           Type: 'USER_SETTING',
-          userId: 'user-123',
-          videoId: 'video-1',
-          isFavorite: true,
-          isSkip: true,
+          UserID: 'user-123',
+          VideoID: 'video-1',
+          IsFavorite: true,
+          IsSkip: true,
           CreatedAt: 1234567890000,
           UpdatedAt: 1234567890000,
         },
@@ -254,10 +284,10 @@ describe('DynamoDBUserSettingRepository', () => {
           PK: 'USER#user-123',
           SK: 'VIDEO#video-2',
           Type: 'USER_SETTING',
-          userId: 'user-123',
-          videoId: 'video-2',
-          isFavorite: true,
-          isSkip: false,
+          UserID: 'user-123',
+          VideoID: 'video-2',
+          IsFavorite: true,
+          IsSkip: false,
           CreatedAt: 1234567890000,
           UpdatedAt: 1234567890000,
         },
@@ -282,10 +312,10 @@ describe('DynamoDBUserSettingRepository', () => {
         PK: 'USER#user-123',
         SK: `VIDEO#video-${i}`,
         Type: 'USER_SETTING',
-        userId: 'user-123',
-        videoId: `video-${i}`,
-        isFavorite: false,
-        isSkip: false,
+        UserID: 'user-123',
+        VideoID: `video-${i}`,
+        IsFavorite: false,
+        IsSkip: false,
         CreatedAt: 1234567890000,
         UpdatedAt: 1234567890000,
       }));
@@ -317,13 +347,27 @@ describe('DynamoDBUserSettingRepository', () => {
         isSkip: false,
       };
 
-      const result = await repository.create(input);
+      const result = await repository.create({ ...input, memo: 'メモ' });
 
       expect(result.userId).toBe(input.userId);
       expect(result.videoId).toBe(input.videoId);
       expect(result.isFavorite).toBe(input.isFavorite);
-      expect(result.CreatedAt).toBeGreaterThan(0);
-      expect(result.UpdatedAt).toBeGreaterThan(0);
+      expect(result.createdAt).toBeGreaterThan(0);
+      expect(result.updatedAt).toBeGreaterThan(0);
+
+      const putInput = ddbMock.commandCalls(PutCommand)[0].args[0].input;
+      expect(putInput.Item).toEqual({
+        PK: 'USER#user-123',
+        SK: 'VIDEO#video-456',
+        Type: 'USER_SETTING',
+        UserID: 'user-123',
+        VideoID: 'video-456',
+        IsFavorite: true,
+        IsSkip: false,
+        Memo: 'メモ',
+        CreatedAt: result.createdAt,
+        UpdatedAt: result.updatedAt,
+      });
     });
 
     it('同じキーで重複作成するとEntityAlreadyExistsErrorをスローする', async () => {
@@ -381,10 +425,10 @@ describe('DynamoDBUserSettingRepository', () => {
           PK: 'USER#user-123',
           SK: 'VIDEO#video-456',
           Type: 'USER_SETTING',
-          userId: 'user-123',
-          videoId: 'video-456',
-          isFavorite: false,
-          isSkip: false,
+          UserID: 'user-123',
+          VideoID: 'video-456',
+          IsFavorite: false,
+          IsSkip: false,
           CreatedAt: existingCreatedAt,
           UpdatedAt: 1234567890000,
         },
@@ -400,8 +444,12 @@ describe('DynamoDBUserSettingRepository', () => {
 
       const result = await repository.upsert(input);
 
-      expect(result.CreatedAt).toBe(existingCreatedAt);
-      expect(result.UpdatedAt).toBeGreaterThan(existingCreatedAt);
+      expect(result.createdAt).toBe(existingCreatedAt);
+      expect(result.updatedAt).toBeGreaterThan(existingCreatedAt);
+      expect(ddbMock.commandCalls(PutCommand)[0].args[0].input.Item).toMatchObject({
+        CreatedAt: existingCreatedAt,
+        IsFavorite: true,
+      });
     });
 
     it('DynamoDBエラーの場合はDatabaseErrorをスローする', async () => {
@@ -426,10 +474,10 @@ describe('DynamoDBUserSettingRepository', () => {
           PK: 'USER#user-123',
           SK: 'VIDEO#video-456',
           Type: 'USER_SETTING',
-          userId: 'user-123',
-          videoId: 'video-456',
-          isFavorite: true,
-          isSkip: false,
+          UserID: 'user-123',
+          VideoID: 'video-456',
+          IsFavorite: true,
+          IsSkip: false,
           CreatedAt: 1234567890000,
           UpdatedAt: Date.now(),
         },
@@ -442,6 +490,10 @@ describe('DynamoDBUserSettingRepository', () => {
       const result = await repository.update('user-123', 'video-456', updates);
 
       expect(result.isFavorite).toBe(true);
+      // 新名で書き、同時に旧名を削除して二重に残さない
+      const parsed = parseUpdateExpression(ddbMock.commandCalls(UpdateCommand)[0].args[0].input);
+      expect(parsed.set).toEqual({ IsFavorite: true, UpdatedAt: expect.any(Number) });
+      expect(parsed.remove).toEqual(['isFavorite']);
     });
 
     it('isSkipフィールドを更新できる', async () => {
@@ -450,10 +502,10 @@ describe('DynamoDBUserSettingRepository', () => {
           PK: 'USER#user-123',
           SK: 'VIDEO#video-456',
           Type: 'USER_SETTING',
-          userId: 'user-123',
-          videoId: 'video-456',
-          isFavorite: false,
-          isSkip: true,
+          UserID: 'user-123',
+          VideoID: 'video-456',
+          IsFavorite: false,
+          IsSkip: true,
           CreatedAt: 1234567890000,
           UpdatedAt: Date.now(),
         },
@@ -474,11 +526,11 @@ describe('DynamoDBUserSettingRepository', () => {
           PK: 'USER#user-123',
           SK: 'VIDEO#video-456',
           Type: 'USER_SETTING',
-          userId: 'user-123',
-          videoId: 'video-456',
-          isFavorite: false,
-          isSkip: false,
-          memo: 'test memo',
+          UserID: 'user-123',
+          VideoID: 'video-456',
+          IsFavorite: false,
+          IsSkip: false,
+          Memo: 'test memo',
           CreatedAt: 1234567890000,
           UpdatedAt: Date.now(),
         },
@@ -499,11 +551,11 @@ describe('DynamoDBUserSettingRepository', () => {
           PK: 'USER#user-123',
           SK: 'VIDEO#video-456',
           Type: 'USER_SETTING',
-          userId: 'user-123',
-          videoId: 'video-456',
-          isFavorite: true,
-          isSkip: true,
-          memo: 'test memo',
+          UserID: 'user-123',
+          VideoID: 'video-456',
+          IsFavorite: true,
+          IsSkip: true,
+          Memo: 'test memo',
           CreatedAt: 1234567890000,
           UpdatedAt: Date.now(),
         },
@@ -522,12 +574,47 @@ describe('DynamoDBUserSettingRepository', () => {
       expect(result.memo).toBe('test memo');
     });
 
-    it('更新フィールドが指定されていない場合はエラーをスローする', async () => {
-      const updates: UpdateUserSettingInput = {};
+    it('更新フィールドが指定されていない場合は更新日時だけを更新する', async () => {
+      ddbMock.on(UpdateCommand).resolves({
+        Attributes: {
+          PK: 'USER#user-123',
+          SK: 'VIDEO#video-456',
+          Type: 'USER_SETTING',
+          UserID: 'user-123',
+          VideoID: 'video-456',
+          IsFavorite: false,
+          IsSkip: false,
+          CreatedAt: 1234567890000,
+          UpdatedAt: Date.now(),
+        },
+      });
 
-      await expect(repository.update('user-123', 'video-456', updates)).rejects.toThrow(
-        '更新するフィールドが指定されていません'
-      );
+      await repository.update('user-123', 'video-456', {});
+
+      const parsed = parseUpdateExpression(ddbMock.commandCalls(UpdateCommand)[0].args[0].input);
+      expect(parsed.set).toEqual({ UpdatedAt: expect.any(Number) });
+    });
+
+    it('memoをnullにすると属性を削除する', async () => {
+      ddbMock.on(UpdateCommand).resolves({
+        Attributes: {
+          PK: 'USER#user-123',
+          SK: 'VIDEO#video-456',
+          Type: 'USER_SETTING',
+          UserID: 'user-123',
+          VideoID: 'video-456',
+          IsFavorite: false,
+          IsSkip: false,
+          CreatedAt: 1234567890000,
+          UpdatedAt: Date.now(),
+        },
+      });
+
+      const result = await repository.update('user-123', 'video-456', { memo: null });
+
+      expect(result.memo).toBeUndefined();
+      const parsed = parseUpdateExpression(ddbMock.commandCalls(UpdateCommand)[0].args[0].input);
+      expect(parsed.remove).toEqual(expect.arrayContaining(['Memo', 'memo']));
     });
 
     it('存在しない設定を更新するとEntityNotFoundErrorをスローする', async () => {
@@ -562,6 +649,24 @@ describe('DynamoDBUserSettingRepository', () => {
       ddbMock.on(DeleteCommand).resolves({});
 
       await expect(repository.delete('user-123', 'video-456')).resolves.not.toThrow();
+    });
+
+    it('存在しない設定を削除するとEntityNotFoundErrorをスローする', async () => {
+      const error = new Error('ConditionalCheckFailedException');
+      error.name = 'ConditionalCheckFailedException';
+      ddbMock.on(DeleteCommand).rejects(error);
+
+      await expect(repository.delete('user-123', 'video-456')).rejects.toThrow(EntityNotFoundError);
+    });
+
+    it('deleteIfExists は対象がなくても成功し、存在を条件にしない', async () => {
+      ddbMock.on(DeleteCommand).resolves({});
+
+      await expect(repository.deleteIfExists('user-123', 'video-456')).resolves.toBeUndefined();
+
+      const input = ddbMock.commandCalls(DeleteCommand)[0].args[0].input;
+      expect(input.Key).toEqual({ PK: 'USER#user-123', SK: 'VIDEO#video-456' });
+      expect(input).not.toHaveProperty('ConditionExpression');
     });
 
     it('DynamoDBエラーの場合はDatabaseErrorをスローする', async () => {

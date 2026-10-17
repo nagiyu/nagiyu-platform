@@ -137,8 +137,8 @@ function buildErrorEventFromBatchEvent(
   // AlarmName 用の serviceId 推定（先頭 2 セグメント連結）をそのまま流用できる。
   const serviceId = inferServiceIdFromAlarmName(detail.jobName ?? '');
   const occurredAt = payload.time
-    ? new Date(payload.time).toISOString()
-    : new Date(record.Sns.Timestamp).toISOString();
+    ? new Date(payload.time).getTime()
+    : new Date(record.Sns.Timestamp).getTime();
 
   return {
     eventId: generateEventId(),
@@ -186,8 +186,8 @@ export function buildErrorEventFromSns(record: SnsRecord): ErrorEvent | null {
 
   const serviceId = inferServiceIdFromAlarmName(payload.AlarmName);
   const occurredAt = payload.StateChangeTime
-    ? new Date(payload.StateChangeTime).toISOString()
-    : new Date(record.Sns.Timestamp).toISOString();
+    ? new Date(payload.StateChangeTime).getTime()
+    : new Date(record.Sns.Timestamp).getTime();
 
   return {
     eventId: generateEventId(),

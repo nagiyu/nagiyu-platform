@@ -5,6 +5,7 @@ import { createErrorEventReader } from '@nagiyu/admin-core';
 import { createErrorResponse } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
+import { parseOccurredAtParam } from '@/lib/errors/occurred-at';
 
 const ERROR_MESSAGES = {
   UNAUTHORIZED: 'ログインが必要です',
@@ -44,10 +45,10 @@ export const GET = withApiErrorReporting(
 
     const { eventId } = await params;
     const { searchParams } = new URL(request.url);
-    const occurredAt = searchParams.get('at');
+    const occurredAt = parseOccurredAtParam(searchParams.get('at'));
     const serviceId = searchParams.get('serviceId');
 
-    if (!eventId || !occurredAt || !serviceId) {
+    if (!eventId || occurredAt === null || !serviceId) {
       return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
     }
 
