@@ -53,7 +53,7 @@ describe('ErrorEventsTableStack', () => {
     });
   });
 
-  it('TTL 属性 ttl を有効化する', () => {
+  it('TTL 属性 TTL を有効化する', () => {
     const app = new cdk.App();
     const stack = new ErrorEventsTableStack(app, 'TestErrorEventsTable', {
       environment: 'dev',
@@ -62,7 +62,7 @@ describe('ErrorEventsTableStack', () => {
     const template = Template.fromStack(stack);
     template.hasResourceProperties('AWS::DynamoDB::Table', {
       TimeToLiveSpecification: {
-        AttributeName: 'ttl',
+        AttributeName: 'TTL',
         Enabled: true,
       },
     });

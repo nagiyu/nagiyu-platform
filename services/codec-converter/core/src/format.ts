@@ -1,10 +1,10 @@
 /**
  * Unix timestampを日時文字列にフォーマット
- * @param timestamp Unix timestamp（秒）
+ * @param timestamp Unix timestamp（ミリ秒）
  * @returns 日本語ロケールでフォーマットされた日時文字列
  */
 export function formatDateTime(timestamp: number): string {
-  const date = new Date(timestamp * 1000);
+  const date = new Date(timestamp);
   return date.toLocaleString('ja-JP', {
     year: 'numeric',
     month: '2-digit',

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createUserRepository, UserNotFoundError } from '@nagiyu/auth-core';
+import { createUserRepository } from '@nagiyu/auth-core';
+import { EntityNotFoundError } from '@nagiyu/aws';
 import { getSession } from '@/lib/auth/session';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { COMMON_ERROR_MESSAGES, hasPermission } from '@nagiyu/common';
@@ -136,8 +137,8 @@ export const PATCH = withApiErrorReporting(
         );
       }
 
-      // リポジトリ層からのユーザー不存在エラー
-      if (error instanceof UserNotFoundError) {
+      // ユーザー不存在 (リポジトリ層の EntityNotFoundError)
+      if (error instanceof EntityNotFoundError) {
         return NextResponse.json({ error: ERROR_MESSAGES.USER_NOT_FOUND }, { status: 404 });
       }
 
@@ -182,8 +183,15 @@ export const DELETE = withApiErrorReporting(
 
     const repo = createUserRepository();
 
-    // ユーザーを削除（DynamoDB の DeleteCommand は存在しない場合でも成功するため、事前の存在チェックは不要）
-    await repo.deleteUser(userId);
+    try {
+      // 存在しないユーザーの削除は EntityNotFoundError になる
+      await repo.deleteUser(userId);
+    } catch (error) {
+      if (error instanceof EntityNotFoundError) {
+        return NextResponse.json({ error: ERROR_MESSAGES.USER_NOT_FOUND }, { status: 404 });
+      }
+      throw error;
+    }
 
     return NextResponse.json({ message: 'ユーザーが正常に削除されました' });
   },

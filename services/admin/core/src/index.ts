@@ -10,6 +10,7 @@ export {
   createPushSubscriptionRepository,
   resetPushSubscriptionRepository,
   DynamoDBPushSubscriptionRepository,
+  InMemoryPushSubscriptionRepository,
 } from './notify/subscription-repository.js';
 
 export type { PushNotificationPayload, SendAllResult } from './notify/web-push-sender.js';

@@ -5,11 +5,13 @@ import { selectJobDefinition } from '@nagiyu/codec-converter-core';
 import { POST } from '@/app/api/jobs/[jobId]/submit/route';
 
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
   getAwsClients: jest.fn(),
   reportErrorEvent: jest.fn(),
 }));
 
 jest.mock('@nagiyu/codec-converter-core', () => ({
+  ...jest.requireActual('@nagiyu/codec-converter-core'),
   selectJobDefinition: jest.fn(),
 }));
 
@@ -19,12 +21,20 @@ const mockedSelectJobDefinition = selectJobDefinition as jest.MockedFunction<
   typeof selectJobDefinition
 >;
 
+const NOW = 1704067200000;
+
+/** 保存形式 (新形式) のジョブアイテム */
 const pendingJob = {
   jobId: 'job-1',
-  status: 'PENDING',
-  inputFile: 'inputs/job-1.mp4',
-  fileSize: 1024,
-  outputCodec: 'h264',
+  Type: 'Job',
+  Status: 'PENDING',
+  InputFile: 'inputs/job-1.mp4',
+  OutputCodec: 'h264',
+  FileName: 'movie.mp4',
+  FileSize: 1024,
+  CreatedAt: NOW,
+  UpdatedAt: NOW,
+  TTL: NOW / 1000 + 86400,
 };
 
 const callPost = () =>
@@ -72,7 +82,7 @@ describe('POST /api/jobs/[jobId]/submit', () => {
   });
 
   it('PENDING 以外のジョブは 409 を返す', async () => {
-    dynamoSend.mockResolvedValue({ Item: { ...pendingJob, status: 'PROCESSING' } });
+    dynamoSend.mockResolvedValue({ Item: { ...pendingJob, Status: 'PROCESSING' } });
 
     const response = await callPost();
 

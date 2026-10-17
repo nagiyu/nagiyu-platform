@@ -42,7 +42,7 @@ test('DynamoDB Table Created', () => {
   template.hasResourceProperties('AWS::DynamoDB::Table', {
     BillingMode: 'PAY_PER_REQUEST',
     TimeToLiveSpecification: {
-      AttributeName: 'expiresAt',
+      AttributeName: 'TTL',
       Enabled: true,
     },
   });

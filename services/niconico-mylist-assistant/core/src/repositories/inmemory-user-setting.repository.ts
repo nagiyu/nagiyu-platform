@@ -5,50 +5,42 @@
  */
 
 import {
-  InMemorySingleTableStore,
-  EntityNotFoundError,
+  InMemoryEntityStore,
+  type EntityStore,
+  type InMemorySingleTableStore,
   type PaginationOptions,
   type PaginatedResult,
 } from '@nagiyu/aws';
 import type { UserSettingRepository } from './user-setting.repository.interface.js';
 import type {
   UserSettingEntity,
+  UserSettingKey,
   CreateUserSettingInput,
   UpdateUserSettingInput,
 } from '../entities/user-setting.entity.js';
 import { UserSettingMapper } from '../mappers/user-setting.mapper.js';
 
-// エラーメッセージ定数
-const ERROR_MESSAGES = {
-  NO_UPDATES_SPECIFIED: '更新するフィールドが指定されていません',
-} as const;
-
 /**
  * InMemory UserSetting Repository
  *
- * テスト用のインメモリユーザー設定リポジトリの実装
+ * 単一アイテムの CRUD は EntityStore に任せ、ユーザー単位の Query だけを自前で持つ。
+ * テスト環境で使用
  */
 export class InMemoryUserSettingRepository implements UserSettingRepository {
-  private readonly mapper: UserSettingMapper;
+  private readonly mapper = new UserSettingMapper();
   private readonly store: InMemorySingleTableStore;
+  private readonly entityStore: EntityStore<UserSettingEntity, UserSettingKey>;
 
   constructor(store: InMemorySingleTableStore) {
     this.store = store;
-    this.mapper = new UserSettingMapper();
+    this.entityStore = new InMemoryEntityStore(store, this.mapper);
   }
 
   /**
    * ユーザーIDと動画IDで単一の設定を取得
    */
   public async getById(userId: string, videoId: string): Promise<UserSettingEntity | null> {
-    const { pk, sk } = this.mapper.buildKeys({ userId, videoId });
-    const item = this.store.get(pk, sk);
-
-    if (!item) {
-      return null;
-    }
-
-    return this.mapper.toEntity(item);
+    return this.entityStore.get({ userId, videoId });
   }
 
   /**
@@ -135,19 +127,8 @@ export class InMemoryUserSettingRepository implements UserSettingRepository {
    */
   public async create(input: CreateUserSettingInput): Promise<UserSettingEntity> {
     const now = Date.now();
-    const entity: UserSettingEntity = {
-      ...input,
-      CreatedAt: now,
-      UpdatedAt: now,
-    };
-
-    const item = this.mapper.toItem(entity);
-
-    // DynamoDB と同じエラーを投げる（attributeNotExists 条件）
-    // InMemorySingleTableStore が投げた EntityAlreadyExistsError をそのまま伝播
-    this.store.put(item, { attributeNotExists: true });
-
-    return entity;
+    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
+    return this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
   }
 
   /**
@@ -156,21 +137,14 @@ export class InMemoryUserSettingRepository implements UserSettingRepository {
   public async upsert(input: CreateUserSettingInput): Promise<UserSettingEntity> {
     const now = Date.now();
 
-    // 既存レコードの取得（CreatedAt を保持するため）
+    // 既存レコードの createdAt を保つため先に読む
     const existing = await this.getById(input.userId, input.videoId);
 
-    const entity: UserSettingEntity = {
+    return this.entityStore.put({
       ...input,
-      CreatedAt: existing?.CreatedAt || now,
-      UpdatedAt: now,
-    };
-
-    const item = this.mapper.toItem(entity);
-
-    // 条件なし保存（upsert）
-    this.store.put(item);
-
-    return entity;
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    });
   }
 
   /**
@@ -181,45 +155,20 @@ export class InMemoryUserSettingRepository implements UserSettingRepository {
     videoId: string,
     updates: UpdateUserSettingInput
   ): Promise<UserSettingEntity> {
-    // 既存エンティティを取得
-    const existing = await this.getById(userId, videoId);
-
-    if (!existing) {
-      throw new EntityNotFoundError('UserSetting', `userId=${userId}, videoId=${videoId}`);
-    }
-
-    // 更新されたフィールドのチェック
-    const hasUpdates =
-      updates.isFavorite !== undefined ||
-      updates.isSkip !== undefined ||
-      updates.memo !== undefined;
-
-    if (!hasUpdates) {
-      throw new Error(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
-    }
-
-    // エンティティを更新
-    const updatedEntity: UserSettingEntity = {
-      ...existing,
-      ...(updates.isFavorite !== undefined && { isFavorite: updates.isFavorite }),
-      ...(updates.isSkip !== undefined && { isSkip: updates.isSkip }),
-      ...(updates.memo !== undefined && { memo: updates.memo }),
-      UpdatedAt: Date.now(),
-    };
-
-    const item = this.mapper.toItem(updatedEntity);
-
-    // 条件なし保存（既存チェックは済み）
-    this.store.put(item);
-
-    return updatedEntity;
+    return this.entityStore.update({ userId, videoId }, updates);
   }
 
   /**
    * ユーザー設定を削除
    */
   public async delete(userId: string, videoId: string): Promise<void> {
-    const { pk, sk } = this.mapper.buildKeys({ userId, videoId });
-    this.store.delete(pk, sk);
+    await this.entityStore.delete({ userId, videoId });
+  }
+
+  /**
+   * ユーザー設定を削除する。対象がなくても成功する
+   */
+  public async deleteIfExists(userId: string, videoId: string): Promise<void> {
+    await this.entityStore.deleteIfExists({ userId, videoId });
   }
 }

@@ -83,7 +83,7 @@ describe('GET /api/videos/search', () => {
         title: 'レッツゴー!陰陽師',
         thumbnailUrl: 'https://example.com/thumb.jpg',
         length: '2:00',
-        CreatedAt: 1700000000000,
+        createdAt: 1700000000000,
       },
     ]);
 

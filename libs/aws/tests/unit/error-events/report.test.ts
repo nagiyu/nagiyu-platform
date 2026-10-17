@@ -100,15 +100,15 @@ describe('reportErrorEvent', () => {
       );
     });
 
-    it('occurredAt は ISO-8601 UTC 形式で自動設定される', async () => {
-      const before = new Date().toISOString();
+    it('occurredAt は epoch ミリ秒で自動設定される', async () => {
+      const before = Date.now();
       const event = await reportErrorEvent({
         serviceId: 'stock-tracker',
         severity: 'error',
         title: 'テスト',
         message: 'メッセージ',
       });
-      const after = new Date().toISOString();
+      const after = Date.now();
 
       expect(event!.occurredAt >= before).toBe(true);
       expect(event!.occurredAt <= after).toBe(true);
@@ -141,7 +141,7 @@ describe('reportErrorEvent', () => {
       expect(event?.context).toBe(JSON.stringify(ctx));
     });
 
-    it('occurredAt を明示指定できる', async () => {
+    it('ISO 文字列の occurredAt を epoch ミリ秒に変換する', async () => {
       const ts = '2026-05-13T00:00:00.000Z';
       const event = await reportErrorEvent({
         serviceId: 'codec-converter',
@@ -151,7 +151,33 @@ describe('reportErrorEvent', () => {
         occurredAt: ts,
       });
 
-      expect(event?.occurredAt).toBe(ts);
+      expect(event?.occurredAt).toBe(Date.parse(ts));
+    });
+
+    it('数値の occurredAt はそのまま epoch ミリ秒として使う', async () => {
+      const event = await reportErrorEvent({
+        serviceId: 'codec-converter',
+        severity: 'info',
+        title: 'テスト',
+        message: 'メッセージ',
+        occurredAt: 1778630400000,
+      });
+
+      expect(event?.occurredAt).toBe(1778630400000);
+    });
+
+    it('解釈できない occurredAt は null を返し logger.error で警告する', async () => {
+      const event = await reportErrorEvent({
+        serviceId: 'codec-converter',
+        severity: 'info',
+        title: 'テスト',
+        message: 'メッセージ',
+        occurredAt: 'not-a-date',
+      });
+
+      expect(event).toBeNull();
+      expect(loggerErrorSpy).toHaveBeenCalled();
+      expect(getInMemoryWriter().getRecords()).toHaveLength(0);
     });
 
     it('eventId を明示指定できる', async () => {

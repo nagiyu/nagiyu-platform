@@ -288,56 +288,12 @@ describe('LiveTalkBatchStack', () => {
     });
   });
 
-  it('一回性マイグレーションバッチ用 Lambda 関数が存在する', () => {
-    const { template } = synth();
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      FunctionName: Match.stringLikeRegexp('livetalk-batch-migrate'),
-    });
-  });
-
-  it('マイグレーションバッチ Lambda 環境変数に TZ=Asia/Tokyo と OPENAI_API_KEY が含まれる', () => {
-    const { template } = synth();
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      FunctionName: Match.stringLikeRegexp('livetalk-batch-migrate'),
-      Environment: {
-        Variables: Match.objectLike({
-          TZ: 'Asia/Tokyo',
-          OPENAI_API_KEY: 'PLACEHOLDER_KEY',
-        }),
-      },
-    });
-  });
-
-  it('マイグレーションバッチ Lambda のタイムアウトは 15 分、メモリは 512MB', () => {
-    const { template } = synth();
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      FunctionName: Match.stringLikeRegexp('livetalk-batch-migrate'),
-      Timeout: 900,
-      MemorySize: 512,
-    });
-  });
-
-  it('MigrateFunctionArn を Outputs に出力する', () => {
-    const { template } = synth();
-    template.hasOutput('MigrateFunctionArn', Match.anyValue());
-  });
-
-  it('マイグレーションバッチは手動 invoke 専用のため EventBridge ルールは 4 つのまま増えない', () => {
-    // 既存 4 バッチ（学習・通知・集約・acquire）分のみ。migrate 用のルールは作らない。
+  it('EventBridge ルールはスケジュール起動の 4 バッチ分のみ', () => {
     const { template } = synth();
     template.resourceCountIs('AWS::Events::Rule', 4);
   });
 
-  it('マイグレーションバッチ Lambda は非同期 invoke の既定リトライを 0 にする（Issue #3814）', () => {
-    // 手動の非同期 invoke でも Lambda は既定で最大 2 回リトライするため、冪等でない
-    // 移行処理が重複実行されるのを防ぐ目的で明示的に 0 に設定している。
-    const { template } = synth();
-    template.hasResourceProperties('AWS::Lambda::EventInvokeConfig', {
-      MaximumRetryAttempts: 0,
-    });
-  });
-
-  it('マイグレーションバッチは DLQ を持たないため SQS Queue は 4 つのまま増えない', () => {
+  it('SQS Queue は DLQ の 4 つのみ', () => {
     const { template } = synth();
     template.resourceCountIs('AWS::SQS::Queue', 4);
   });

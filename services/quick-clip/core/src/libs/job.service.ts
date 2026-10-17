@@ -3,7 +3,7 @@ import type { JobRepository } from '../repositories/job.repository.interface.js'
 import type { AnalysisProgress, BatchStage, CreateJobInput, Job } from '../types.js';
 import { DOMAIN_ERROR_MESSAGES } from './domain-error-messages.js';
 
-const JOB_TTL_SECONDS = 24 * 60 * 60;
+const JOB_TTL_MS = 24 * 60 * 60 * 1000;
 
 export class JobService {
   private readonly jobRepository: JobRepository;
@@ -27,14 +27,14 @@ export class JobService {
       throw new Error(DOMAIN_ERROR_MESSAGES.DURATION_INVALID);
     }
 
-    const createdAt = Math.floor(Date.now() / 1000);
+    const createdAt = Date.now();
     const job: Job = {
       jobId: randomUUID(),
       originalFileName,
       fileSize: input.fileSize,
       ...(input.durationSec !== undefined ? { durationSec: input.durationSec } : {}),
       createdAt,
-      expiresAt: createdAt + JOB_TTL_SECONDS,
+      expiresAt: createdAt + JOB_TTL_MS,
     };
 
     return this.jobRepository.create(job);
