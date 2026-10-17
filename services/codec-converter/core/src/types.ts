@@ -26,11 +26,11 @@ export interface Job {
   fileName: string;
   /** ファイルサイズ (バイト) */
   fileSize: number;
-  /** 作成日時 (Unix timestamp 秒) */
+  /** 作成日時 (Unix timestamp ミリ秒) */
   createdAt: number;
-  /** 更新日時 (Unix timestamp 秒) */
+  /** 更新日時 (Unix timestamp ミリ秒) */
   updatedAt: number;
-  /** 有効期限 (Unix timestamp 秒, TTL用) */
+  /** 有効期限 (Unix timestamp ミリ秒)。保存時に TTL 属性 (エポック秒) へ変換する */
   expiresAt: number;
   /** エラーメッセージ (FAILED時のみ) */
   errorMessage?: string;

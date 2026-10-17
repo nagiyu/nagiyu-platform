@@ -1,16 +1,15 @@
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { spawn } from 'child_process';
 import { createWriteStream, createReadStream, promises as fs } from 'fs';
 import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
-import type { CodecType } from '@nagiyu/codec-converter-core';
+import { DynamoDBJobRepository, type CodecType } from '@nagiyu/codec-converter-core';
 import {
   reportErrorEvent,
   withErrorReporting,
   getDynamoDBDocumentClient,
   getS3Client,
-  buildUpdateExpression,
 } from '@nagiyu/aws';
 import { requireEnv, toErrorMessage } from '@nagiyu/common';
 
@@ -21,7 +20,6 @@ const ERROR_MESSAGES = {
   S3_DOWNLOAD_FAILED: 'S3からのダウンロードに失敗しました',
   S3_UPLOAD_FAILED: 'S3へのアップロードに失敗しました',
   DYNAMODB_UPDATE_FAILED: 'DynamoDBの更新に失敗しました',
-  UPDATE_EXPRESSION_EMPTY: '更新式を生成できませんでした',
   FFMPEG_EXECUTION_FAILED: 'FFmpegの実行に失敗しました',
   CLEANUP_FAILED: '一時ファイルのクリーンアップに失敗しました',
 } as const;
@@ -172,25 +170,11 @@ export async function updateJobStatus(
 ): Promise<void> {
   try {
     // 空文字は未指定として扱い、保存しない
-    const updateParts = buildUpdateExpression(
-      {
-        status,
-        outputFile: outputFile || undefined,
-        errorMessage: errorMessage || undefined,
-      },
-      { timestamp: { attributeName: 'updatedAt', value: Math.floor(Date.now() / 1000) } }
-    );
-    if (!updateParts) {
-      throw new Error(ERROR_MESSAGES.UPDATE_EXPRESSION_EMPTY);
-    }
-
-    const command = new UpdateCommand({
-      TableName: tableName,
-      Key: { jobId },
-      ...updateParts,
+    await new DynamoDBJobRepository(dynamodbClient, tableName).updateStatus(jobId, {
+      status,
+      outputFile: outputFile || undefined,
+      errorMessage: errorMessage || undefined,
     });
-
-    await dynamodbClient.send(command);
   } catch (error) {
     const message = toErrorMessage(error);
     throw new Error(`${ERROR_MESSAGES.DYNAMODB_UPDATE_FAILED}: ${message}`, { cause: error });

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { getAwsClients, createPresignedDownloadUrl } from '@nagiyu/aws';
-import { type Job } from '@nagiyu/codec-converter-core';
+import { DynamoDBJobRepository, type Job } from '@nagiyu/codec-converter-core';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 
@@ -41,14 +40,9 @@ export const GET = withApiErrorReporting(
     const { docClient, s3Client } = getAwsClients(AWS_REGION);
 
     // DynamoDBでジョブを取得
-    const getResult = await docClient.send(
-      new GetCommand({
-        TableName: DYNAMODB_TABLE,
-        Key: { jobId },
-      })
-    );
+    const job = await new DynamoDBJobRepository(docClient, DYNAMODB_TABLE).getById(jobId);
 
-    if (!getResult.Item) {
+    if (!job) {
       return NextResponse.json(
         {
           error: 'JOB_NOT_FOUND',
@@ -57,8 +51,6 @@ export const GET = withApiErrorReporting(
         { status: 404 }
       );
     }
-
-    const job = getResult.Item as Job;
 
     // ジョブステータスがCOMPLETEDの場合、ダウンロード用Presigned URLを生成
     let downloadUrl: string | undefined;

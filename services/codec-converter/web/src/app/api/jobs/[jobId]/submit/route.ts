@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
 import { getAwsClients, reportErrorEvent } from '@nagiyu/aws';
-import { type Job, type JobStatus, selectJobDefinition } from '@nagiyu/codec-converter-core';
+import {
+  DynamoDBJobRepository,
+  type JobStatus,
+  selectJobDefinition,
+} from '@nagiyu/codec-converter-core';
 import { toErrorMessage } from '@nagiyu/common';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
@@ -45,14 +48,9 @@ export const POST = withApiErrorReporting(
     const { docClient, s3Client, batchClient } = getAwsClients(AWS_REGION);
 
     // 1. DynamoDBでジョブの存在確認
-    const getResult = await docClient.send(
-      new GetCommand({
-        TableName: DYNAMODB_TABLE,
-        Key: { jobId },
-      })
-    );
+    const job = await new DynamoDBJobRepository(docClient, DYNAMODB_TABLE).getById(jobId);
 
-    if (!getResult.Item) {
+    if (!job) {
       return NextResponse.json(
         {
           error: 'JOB_NOT_FOUND',
@@ -61,8 +59,6 @@ export const POST = withApiErrorReporting(
         { status: 404 }
       );
     }
-
-    const job = getResult.Item as Job;
 
     // 2. ジョブステータスの確認（PENDINGのみ許可）
     if (job.status !== 'PENDING') {
