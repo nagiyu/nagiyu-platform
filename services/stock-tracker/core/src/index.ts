@@ -33,10 +33,6 @@ export { EntityNotFoundError as AlertNotFoundError };
 export { EntityAlreadyExistsError as AlertAlreadyExistsError };
 export { InvalidEntityDataError as InvalidAlertDataError };
 
-export { EntityNotFoundError as HoldingNotFoundError };
-export { EntityAlreadyExistsError as HoldingAlreadyExistsError };
-export { InvalidEntityDataError as InvalidHoldingDataError };
-
 // Repository Interfaces
 export type { AlertRepository } from './repositories/alert.repository.interface.js';
 export type { HoldingRepository } from './repositories/holding.repository.interface.js';

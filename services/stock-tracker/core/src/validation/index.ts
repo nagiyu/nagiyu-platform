@@ -7,11 +7,12 @@
 
 import type { ValidationResult } from '@nagiyu/common';
 import { isNonEmptyString, isValidTimestamp } from '@nagiyu/common';
-import type { Holding, Alert } from '../types.js';
+import type { Alert } from '../types.js';
 import { isValidPrice, isValidQuantity } from './helpers.js';
 import { PRICE_SOURCES, EXCHANGE_MARKETS } from '../entities/exchange.entity.js';
 import type { ExchangeEntity } from '../entities/exchange.entity.js';
 import type { TickerEntity } from '../entities/ticker.entity.js';
+import type { HoldingEntity } from '../entities/holding.entity.js';
 
 /**
  * バリデーションエラーメッセージ定数
@@ -284,55 +285,55 @@ export function validateHolding(holding: unknown): ValidationResult {
     return { valid: false, errors: ['保有株式データが不正です'] };
   }
 
-  const hld = holding as Partial<Holding>;
+  const hld = holding as Partial<HoldingEntity>;
 
-  // UserID
-  if (!hld.UserID || !isNonEmptyString(hld.UserID)) {
+  // userId
+  if (!hld.userId || !isNonEmptyString(hld.userId)) {
     errors.push(ERROR_MESSAGES.HOLDING_USER_ID_REQUIRED);
   }
 
-  // TickerID
-  if (!hld.TickerID || !isNonEmptyString(hld.TickerID)) {
+  // tickerId
+  if (!hld.tickerId || !isNonEmptyString(hld.tickerId)) {
     errors.push(ERROR_MESSAGES.HOLDING_TICKER_ID_REQUIRED);
   }
 
-  // ExchangeID
-  if (!hld.ExchangeID || !isNonEmptyString(hld.ExchangeID)) {
+  // exchangeId
+  if (!hld.exchangeId || !isNonEmptyString(hld.exchangeId)) {
     errors.push(ERROR_MESSAGES.HOLDING_EXCHANGE_ID_REQUIRED);
   }
 
-  // Quantity
-  if (hld.Quantity === undefined || hld.Quantity === null) {
+  // quantity
+  if (hld.quantity === undefined || hld.quantity === null) {
     errors.push(ERROR_MESSAGES.HOLDING_QUANTITY_REQUIRED);
-  } else if (!isValidQuantity(hld.Quantity)) {
+  } else if (!isValidQuantity(hld.quantity)) {
     errors.push(ERROR_MESSAGES.HOLDING_QUANTITY_INVALID);
   }
 
-  // AveragePrice
-  if (hld.AveragePrice === undefined || hld.AveragePrice === null) {
+  // averagePrice
+  if (hld.averagePrice === undefined || hld.averagePrice === null) {
     errors.push(ERROR_MESSAGES.HOLDING_AVERAGE_PRICE_REQUIRED);
-  } else if (!isValidPrice(hld.AveragePrice)) {
+  } else if (!isValidPrice(hld.averagePrice)) {
     errors.push(ERROR_MESSAGES.HOLDING_AVERAGE_PRICE_INVALID);
   }
 
-  // Currency
-  if (!hld.Currency || !isNonEmptyString(hld.Currency)) {
+  // currency
+  if (!hld.currency || !isNonEmptyString(hld.currency)) {
     errors.push(ERROR_MESSAGES.HOLDING_CURRENCY_REQUIRED);
-  } else if (!/^[A-Z]{3}$/.test(hld.Currency)) {
+  } else if (!/^[A-Z]{3}$/.test(hld.currency)) {
     errors.push(ERROR_MESSAGES.HOLDING_CURRENCY_INVALID);
   }
 
-  // CreatedAt
-  if (hld.CreatedAt === undefined || hld.CreatedAt === null) {
+  // createdAt
+  if (hld.createdAt === undefined || hld.createdAt === null) {
     errors.push(ERROR_MESSAGES.HOLDING_CREATED_AT_REQUIRED);
-  } else if (!isValidTimestamp(hld.CreatedAt)) {
+  } else if (!isValidTimestamp(hld.createdAt)) {
     errors.push(ERROR_MESSAGES.HOLDING_CREATED_AT_INVALID);
   }
 
-  // UpdatedAt
-  if (hld.UpdatedAt === undefined || hld.UpdatedAt === null) {
+  // updatedAt
+  if (hld.updatedAt === undefined || hld.updatedAt === null) {
     errors.push(ERROR_MESSAGES.HOLDING_UPDATED_AT_REQUIRED);
-  } else if (!isValidTimestamp(hld.UpdatedAt)) {
+  } else if (!isValidTimestamp(hld.updatedAt)) {
     errors.push(ERROR_MESSAGES.HOLDING_UPDATED_AT_INVALID);
   }
 

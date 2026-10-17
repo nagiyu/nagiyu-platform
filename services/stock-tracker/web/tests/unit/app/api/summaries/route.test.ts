@@ -491,14 +491,14 @@ describe('GET /api/summaries', () => {
     mockGetHoldingsByUserId.mockResolvedValue({
       items: [
         {
-          UserID: 'test-user-id',
-          TickerID: 'NSDQ:AAPL',
-          ExchangeID: 'NASDAQ',
-          Quantity: 100,
-          AveragePrice: 170.5,
-          Currency: 'USD',
-          CreatedAt: 1705276800000,
-          UpdatedAt: 1705352400000,
+          userId: 'test-user-id',
+          tickerId: 'NSDQ:AAPL',
+          exchangeId: 'NASDAQ',
+          quantity: 100,
+          averagePrice: 170.5,
+          currency: 'USD',
+          createdAt: 1705276800000,
+          updatedAt: 1705352400000,
         },
       ],
     });

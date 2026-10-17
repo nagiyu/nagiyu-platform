@@ -157,10 +157,10 @@ async function fetchHoldingMap(userId: string): Promise<Map<string, HoldingSumma
     });
     return new Map(
       holdingsResult.items.map((holding) => [
-        holding.TickerID,
+        holding.tickerId,
         {
-          quantity: holding.Quantity,
-          averagePrice: holding.AveragePrice,
+          quantity: holding.quantity,
+          averagePrice: holding.averagePrice,
         },
       ])
     );

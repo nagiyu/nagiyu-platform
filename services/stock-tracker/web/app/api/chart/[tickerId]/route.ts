@@ -208,8 +208,8 @@ export const GET = withInternalErrorReporting(
         const holdingRepository = createHoldingRepository();
         const holding = await holdingRepository.getById(session.user.id, tickerId);
 
-        if (holding && holding.Quantity > 0) {
-          holdingAveragePrice = holding.AveragePrice;
+        if (holding && holding.quantity > 0) {
+          holdingAveragePrice = holding.averagePrice;
         }
       } catch (error) {
         // 保有情報は付加情報のため、取得に失敗してもチャートは返す。握りつぶすので上位のラッパーでは拾えない

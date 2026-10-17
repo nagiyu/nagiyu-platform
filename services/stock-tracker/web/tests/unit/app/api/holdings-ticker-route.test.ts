@@ -33,13 +33,13 @@ describe('GET /api/holdings/tickers/[tickerId]', () => {
 
   it('正常系: ティッカーIDで保有情報を返す', async () => {
     mockGetHoldingById.mockResolvedValue({
-      UserID: 'test-user',
-      TickerID: 'NASDAQ:NVDA',
-      Quantity: 5,
-      AveragePrice: 98,
-      Currency: 'USD',
-      CreatedAt: 1,
-      UpdatedAt: 2,
+      userId: 'test-user',
+      tickerId: 'NASDAQ:NVDA',
+      quantity: 5,
+      averagePrice: 98,
+      currency: 'USD',
+      createdAt: 1,
+      updatedAt: 2,
     });
     mockGetTickerById.mockResolvedValue({ symbol: 'NVDA', name: 'NVIDIA' });
 

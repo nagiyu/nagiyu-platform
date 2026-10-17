@@ -78,40 +78,6 @@ export const DEFAULT_BUY_PATTERN_COUNT = 0;
 export const DEFAULT_SELL_PATTERN_COUNT = 0;
 
 /**
- * 保有株式 (Holding)
- *
- * ユーザーの保有株式情報
- *
- * バリデーションルール:
- * - UserID: 必須、有効なユーザーID
- * - TickerID: 必須、有効なティッカーID
- * - ExchangeID: 必須、有効な取引所ID
- * - Quantity: 0.0001〜1,000,000,000、必須
- * - AveragePrice: 0.01〜1,000,000、必須
- * - Currency: 通貨コード（例: USD, JPY）、必須
- * - CreatedAt: Unix timestamp、作成後変更不可
- * - UpdatedAt: Unix timestamp、更新時に自動更新
- */
-export type Holding = {
-  /** ユーザーID (PK: USER#{UserID}) - 必須 */
-  UserID: string;
-  /** ティッカーID (SK: HOLDING#{TickerID}) - 必須 */
-  TickerID: string;
-  /** 取引所ID - 必須 */
-  ExchangeID: string;
-  /** 保有数 - 範囲: 0.0001〜1,000,000,000 */
-  Quantity: number;
-  /** 平均取得価格 - 範囲: 0.01〜1,000,000 */
-  AveragePrice: number;
-  /** 通貨コード (例: USD, JPY) - 必須 */
-  Currency: string;
-  /** 作成日時 (Unix timestamp) - 変更不可 */
-  CreatedAt: number;
-  /** 更新日時 (Unix timestamp) - 自動更新 */
-  UpdatedAt: number;
-};
-
-/**
  * アラート (Alert)
  *
  * 株価アラート設定と Web Push サブスクリプション情報
