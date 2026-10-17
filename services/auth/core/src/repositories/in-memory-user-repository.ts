@@ -1,110 +1,92 @@
-import type { User } from '@nagiyu/common';
 import {
-  UserNotFoundError,
-  type ListUsersResult,
-  type UpdateUserInput,
-  type UpsertUserInput,
-  type UserRepository,
+  InMemoryEntityStore,
+  InMemorySingleTableStore,
+  decodeCursor,
+  encodeCursor,
+  type EntityStore,
+} from '@nagiyu/aws';
+import type { User } from '@nagiyu/common';
+import { randomUUID } from 'node:crypto';
+import { UserMapper, type UserKey } from '../mappers/user.mapper';
+import type {
+  ListUsersResult,
+  UpdateUserInput,
+  UpsertUserInput,
+  UserRepository,
 } from './user-repository';
 
 /**
- * メモリ内でユーザーデータを管理するモック実装。
+ * InMemory User Repository
+ *
+ * 単一アイテムの CRUD は EntityStore に任せ、GSI の近似クエリと Scan だけを自前で持つ。
  * 開発・テスト環境で使用する。
  */
 export class InMemoryUserRepository implements UserRepository {
-  private users: Map<string, User> = new Map();
-  private googleIdIndex: Map<string, string> = new Map();
+  private readonly store: InMemorySingleTableStore;
+  private readonly mapper = new UserMapper();
+  private readonly entityStore: EntityStore<User, UserKey>;
+
+  constructor(store: InMemorySingleTableStore = new InMemorySingleTableStore()) {
+    this.store = store;
+    this.entityStore = new InMemoryEntityStore(store, this.mapper);
+  }
 
   public async getUserByGoogleId(googleId: string): Promise<User | null> {
-    const userId = this.googleIdIndex.get(googleId);
-    if (!userId) {
-      return null;
-    }
-    return this.users.get(userId) || null;
+    // InMemory は GSI を持たないため、全件スキャンの絞り込みで近似する
+    const result = this.store.queryByAttribute({
+      attributeName: 'googleId',
+      attributeValue: googleId,
+    });
+    const item = result.items[0];
+    return item ? this.mapper.toEntity(item) : null;
   }
 
   public async getUserById(userId: string): Promise<User | null> {
-    return this.users.get(userId) || null;
+    return this.entityStore.get({ userId });
   }
 
   public async listUsers(
     limit: number = 100,
     lastEvaluatedKey?: Record<string, unknown>
   ): Promise<ListUsersResult> {
-    const all = Array.from(this.users.values());
-    const startIndex =
-      lastEvaluatedKey?.userId !== undefined
-        ? all.findIndex((u) => u.userId === lastEvaluatedKey.userId) + 1
-        : 0;
-    const slice = all.slice(startIndex, startIndex + limit);
-    const nextKey =
-      startIndex + slice.length < all.length && slice.length > 0
-        ? { userId: slice[slice.length - 1].userId }
-        : undefined;
+    const result = this.store.scan({ limit, cursor: encodeCursor(lastEvaluatedKey) });
     return {
-      users: slice,
-      lastEvaluatedKey: nextKey,
+      users: result.items.map((item) => this.mapper.toEntity(item)),
+      lastEvaluatedKey: decodeCursor(result.nextCursor),
     };
   }
 
   public async upsertUser(input: UpsertUserInput): Promise<User> {
-    const existingUserId = this.googleIdIndex.get(input.googleId);
-    const now = new Date().toISOString();
+    const existingUser = await this.getUserByGoogleId(input.googleId);
 
-    if (existingUserId) {
-      const existingUser = this.users.get(existingUserId);
-      if (existingUser) {
-        const updatedUser: User = {
-          ...existingUser,
-          email: input.email,
-          name: input.name,
-          picture: input.picture,
-          updatedAt: now,
-        };
-        this.users.set(existingUserId, updatedUser);
-        return updatedUser;
-      }
+    if (existingUser) {
+      // Google が picture を返さなくなったときは、古い画像を残さず消す
+      return this.entityStore.update(
+        { userId: existingUser.userId },
+        { name: input.name, picture: input.picture ?? null }
+      );
     }
 
-    const userId = `user_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const newUser: User = {
-      userId,
+    const now = Date.now();
+    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
+    return this.entityStore.create({
+      userId: randomUUID(),
       googleId: input.googleId,
       email: input.email,
       name: input.name,
-      picture: input.picture,
+      ...(input.picture !== undefined ? { picture: input.picture } : {}),
       roles: [],
       createdAt: now,
       updatedAt: now,
-    };
-
-    this.users.set(userId, newUser);
-    this.googleIdIndex.set(input.googleId, userId);
-
-    return newUser;
+    });
   }
 
   public async updateUser(userId: string, input: UpdateUserInput): Promise<User> {
-    const existing = this.users.get(userId);
-    if (!existing) {
-      throw new UserNotFoundError(userId);
-    }
-    const updated: User = {
-      ...existing,
-      ...input,
-      updatedAt: new Date().toISOString(),
-    };
-    this.users.set(userId, updated);
-    return updated;
+    return this.entityStore.update({ userId }, input);
   }
 
   public async deleteUser(userId: string): Promise<void> {
-    const existing = this.users.get(userId);
-    if (!existing) {
-      return;
-    }
-    this.users.delete(userId);
-    this.googleIdIndex.delete(existing.googleId);
+    await this.entityStore.delete({ userId });
   }
 
   public async assignRoles(userId: string, roles: string[]): Promise<User> {
@@ -112,10 +94,6 @@ export class InMemoryUserRepository implements UserRepository {
   }
 
   public async updateLastLogin(userId: string): Promise<void> {
-    const user = this.users.get(userId);
-    if (user) {
-      const updated: User = { ...user, lastLoginAt: new Date().toISOString() };
-      this.users.set(userId, updated);
-    }
+    await this.entityStore.update({ userId }, { lastLoginAt: Date.now() });
   }
 }
