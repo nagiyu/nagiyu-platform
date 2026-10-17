@@ -4,8 +4,6 @@
  * DynamoDB Single Table Design に基づくエンティティの型定義
  */
 
-import type { PushSubscription } from '@nagiyu/common';
-
 /**
  * 日次サマリー (DailySummary)
  *
@@ -76,91 +74,6 @@ export const DEFAULT_BUY_PATTERN_COUNT = 0;
  * 売りシグナル合致数のデフォルト値
  */
 export const DEFAULT_SELL_PATTERN_COUNT = 0;
-
-/**
- * アラート (Alert)
- *
- * 株価アラート設定と Web Push サブスクリプション情報
- *
- * バリデーションルール:
- * - AlertID: UUID v4形式、自動生成、変更不可
- * - UserID: 必須、有効なユーザーID
- * - TickerID: 必須、有効なティッカーID
- * - ExchangeID: 必須、有効な取引所ID
- * - Mode: "Buy" または "Sell"、必須
- * - Frequency: "MINUTE_LEVEL" または "HOURLY_LEVEL"、必須
- * - Enabled: boolean、必須（アラートの一時無効化に使用）
- * - ConditionList: 配列、Phase 1は1条件のみ、必須
- * - subscription: Web Pushサブスクリプション情報、必須
- * - CreatedAt: Unix timestamp、作成後変更不可
- * - UpdatedAt: Unix timestamp、更新時に自動更新
- *
- * GSI2 (AlertIndex) 設計:
- * - PK: ALERT#{Frequency} (例: ALERT#MINUTE_LEVEL)
- * - SK: {UserID}#{AlertID}
- * - 用途: バッチ処理で頻度ごとのアラート一覧を取得
- *
- * Phase 1 仕様:
- * - ConditionList は1条件のみ（複数条件は Phase 2）
- * - operator は "gte" または "lte" のみ対応（"eq" は Phase 2）
- * - 条件達成時は毎回通知（FirstNotificationSentフラグは不使用）
- */
-export type Alert = {
-  /** アラートID (UUID v4) - 自動生成、変更不可 */
-  AlertID: string;
-  /** ユーザーID (PK: USER#{UserID}) - 必須 */
-  UserID: string;
-  /** ティッカーID (SK: ALERT#{AlertID}) - 必須 */
-  TickerID: string;
-  /** 取引所ID - 必須 */
-  ExchangeID: string;
-  /** モード (Buy: 買いアラート, Sell: 売りアラート) - 必須 */
-  Mode: 'Buy' | 'Sell';
-  /** 通知頻度 (MINUTE_LEVEL: 1分間隔, HOURLY_LEVEL: 1時間間隔) - 必須 */
-  Frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL';
-  /** 有効/無効フラグ - 必須 */
-  Enabled: boolean;
-  /** 一時通知フラグ（true: 取引終了後に自動無効化） */
-  Temporary?: boolean;
-  /** 一時通知の期限取引日（YYYY-MM-DD, 取引所タイムゾーン基準） */
-  TemporaryExpireDate?: string;
-  /** アラート条件リスト (Phase 1は1条件のみ) - 必須 */
-  ConditionList: AlertCondition[];
-  /** 論理演算子 (AND: 範囲内, OR: 範囲外) - 2条件の場合のみ使用。未指定の場合はデフォルトで 'AND' として扱われる */
-  LogicalOperator?: 'AND' | 'OR';
-  /** カスタムメッセージ（通知本文の末尾に追加される任意テキスト） */
-  CustomMessage?: string;
-  /** Web Push サブスクリプション情報 - 必須 */
-  subscription: PushSubscription;
-  /** 作成日時 (Unix timestamp) - 変更不可 */
-  CreatedAt: number;
-  /** 更新日時 (Unix timestamp) - 自動更新 */
-  UpdatedAt: number;
-};
-
-/**
- * アラート条件 (AlertCondition)
- *
- * Phase 1: field は "price" 固定、operator は "gte" または "lte" のみ
- *
- * バリデーションルール:
- * - field: "price" 固定（Phase 1）
- * - operator: "gte" (>=) または "lte" (<=) のみ（Phase 1）
- *   - "eq" (==) は Phase 2 で実装
- * - value: 0.01〜1,000,000、必須
- *
- * 使用例:
- * - 買いアラート: { field: "price", operator: "lte", value: 150.00 } // 150ドル以下で買い
- * - 売りアラート: { field: "price", operator: "gte", value: 200.00 } // 200ドル以上で売り
- */
-export type AlertCondition = {
-  /** フィールド名 (Phase 1: "price" 固定) */
-  field: 'price';
-  /** 比較演算子 (gte: >=, lte: <=) - Phase 1は "eq" 非対応 */
-  operator: 'gte' | 'lte';
-  /** 比較値 - 範囲: 0.01〜1,000,000 */
-  value: number;
-};
 
 /**
  * DynamoDB アイテム型

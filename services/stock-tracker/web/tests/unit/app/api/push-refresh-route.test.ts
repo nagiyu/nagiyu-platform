@@ -55,10 +55,10 @@ describe('POST /api/push/refresh', () => {
     mockGetByUserId.mockResolvedValue({
       items: [
         {
-          AlertID: 'a1',
+          alertId: 'a1',
           subscription: { endpoint: 'https://example.com/old', keys: newSubscription.keys },
         },
-        { AlertID: 'a2', subscription: newSubscription },
+        { alertId: 'a2', subscription: newSubscription },
       ],
     });
 

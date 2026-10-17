@@ -27,15 +27,15 @@ jest.mock('@nagiyu/nextjs', () => ({
 
 describe('PUT /api/alerts/[id] のリクエストボディ', () => {
   const rangeAlert = {
-    AlertID: '550e8400-e29b-41d4-a716-446655440000',
-    UserID: 'test-user',
-    TickerID: 'NASDAQ:AAPL',
-    ExchangeID: 'NASDAQ',
-    Mode: 'Buy',
-    Frequency: 'MINUTE_LEVEL',
-    Enabled: true,
-    LogicalOperator: 'AND',
-    ConditionList: [
+    alertId: '550e8400-e29b-41d4-a716-446655440000',
+    userId: 'test-user',
+    tickerId: 'NASDAQ:AAPL',
+    exchangeId: 'NASDAQ',
+    mode: 'Buy',
+    frequency: 'MINUTE_LEVEL',
+    enabled: true,
+    logicalOperator: 'AND',
+    conditionList: [
       { field: 'price', operator: 'gte', value: 90 },
       { field: 'price', operator: 'lte', value: 110 },
     ],
@@ -43,8 +43,8 @@ describe('PUT /api/alerts/[id] のリクエストボディ', () => {
       endpoint: 'https://example.com/endpoint',
       keys: { p256dh: 'p256dh-key', auth: 'auth-key' },
     },
-    CreatedAt: 1704067200000,
-    UpdatedAt: 1704067200000,
+    createdAt: 1704067200000,
+    updatedAt: 1704067200000,
   };
 
   const mockGetById = jest.fn();
@@ -82,20 +82,20 @@ describe('PUT /api/alerts/[id] のリクエストボディ', () => {
         conditions: [null, { value: 120, extra: 'x', field: null }],
         enabled: false,
         customMessage: ' メモ ',
-        UserID: 'other-user',
-        TickerID: 'OTHER:XXX',
+        userId: 'other-user',
+        tickerId: 'OTHER:XXX',
       }),
       params
     );
 
     expect(response.status).toBe(200);
     expect(mockUpdate).toHaveBeenCalledWith('test-user', 'alert-1', {
-      ConditionList: [
+      conditionList: [
         { field: 'price', operator: 'gte', value: 90 },
         { field: 'price', operator: 'lte', value: 120 },
       ],
-      Enabled: false,
-      CustomMessage: 'メモ',
+      enabled: false,
+      customMessage: 'メモ',
     });
   });
 
@@ -112,7 +112,7 @@ describe('PUT /api/alerts/[id] のリクエストボディ', () => {
 
     expect(response.status).toBe(200);
     expect(mockUpdate).toHaveBeenCalledWith('test-user', 'alert-1', {
-      ConditionList: [
+      conditionList: [
         {
           field: 'price',
           operator: 'gte',
@@ -134,11 +134,11 @@ describe('PUT /api/alerts/[id] のリクエストボディ', () => {
 
     expect(response.status).toBe(200);
     expect(mockUpdate).toHaveBeenCalledWith('test-user', 'alert-1', {
-      ConditionList: [
+      conditionList: [
         { field: 'price', operator: 'gte', value: 120 },
         { field: 'price', operator: 'lte', value: 100 },
       ],
-      LogicalOperator: 'OR',
+      logicalOperator: 'OR',
     });
   });
 
@@ -215,6 +215,6 @@ describe('PUT /api/alerts/[id] のリクエストボディ', () => {
     const response = await PUT(createRequest({ logicalOperator: null, enabled: true }), params);
 
     expect(response.status).toBe(200);
-    expect(mockUpdate).toHaveBeenCalledWith('test-user', 'alert-1', { Enabled: true });
+    expect(mockUpdate).toHaveBeenCalledWith('test-user', 'alert-1', { enabled: true });
   });
 });

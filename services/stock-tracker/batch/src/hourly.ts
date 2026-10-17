@@ -23,7 +23,7 @@ import {
   resolveQuoteProvider,
   DEFAULT_PRICE_SOURCE,
 } from '@nagiyu/stock-tracker-core';
-import type { Alert } from '@nagiyu/stock-tracker-core';
+import type { AlertEntity } from '@nagiyu/stock-tracker-core';
 
 /**
  * バッチ処理の統計情報
@@ -60,28 +60,28 @@ interface ProviderMap {
  * @returns エラーなく処理できた場合は true（購読が無効で通知をスキップした場合も含む）、失敗した場合は false
  */
 async function processAlert(
-  alert: Alert,
+  alert: AlertEntity,
   exchangeRepo: ExchangeRepository,
   providers: ProviderMap,
   stats: BatchStatistics
 ): Promise<boolean> {
   try {
     // 1. Enabled = true かチェック
-    if (!alert.Enabled) {
+    if (!alert.enabled) {
       logger.debug('無効化されたアラートをスキップします', {
-        alertId: alert.AlertID,
-        userId: alert.UserID,
+        alertId: alert.alertId,
+        userId: alert.userId,
       });
       stats.skippedDisabled++;
       return true;
     }
 
     // 2. Exchange 情報を取得
-    const exchange = await exchangeRepo.getById(alert.ExchangeID);
+    const exchange = await exchangeRepo.getById(alert.exchangeId);
     if (!exchange) {
       logger.warn('取引所情報が見つかりません', {
-        alertId: alert.AlertID,
-        exchangeId: alert.ExchangeID,
+        alertId: alert.alertId,
+        exchangeId: alert.exchangeId,
       });
       stats.errors++;
       return false;
@@ -91,8 +91,8 @@ async function processAlert(
     const now = Date.now();
     if (!isTradingHours(exchange, now)) {
       logger.debug('取引時間外のためアラートをスキップします', {
-        alertId: alert.AlertID,
-        exchangeId: alert.ExchangeID,
+        alertId: alert.alertId,
+        exchangeId: alert.exchangeId,
         timezone: exchange.timezone,
       });
       stats.skippedOffHours++;
@@ -102,15 +102,15 @@ async function processAlert(
     // 4. ExchangeEntity.priceSource で解決した provider で現在価格取得 (リトライ付き)
     const priceSource = exchange.priceSource ?? DEFAULT_PRICE_SOURCE;
     const provider = resolveQuoteProvider(priceSource, providers);
-    const currentPrice = await withRetry<number>(() => provider.getCurrentPrice(alert.TickerID), {
+    const currentPrice = await withRetry<number>(() => provider.getCurrentPrice(alert.tickerId), {
       maxRetries: 2,
       initialDelayMs: 500,
       backoffMultiplier: 2,
     });
 
     logger.debug('現在価格を取得しました', {
-      alertId: alert.AlertID,
-      tickerId: alert.TickerID,
+      alertId: alert.alertId,
+      tickerId: alert.tickerId,
       currentPrice,
     });
 
@@ -119,9 +119,9 @@ async function processAlert(
 
     if (!conditionMet) {
       logger.debug('アラート条件が未達成です', {
-        alertId: alert.AlertID,
+        alertId: alert.alertId,
         currentPrice,
-        conditions: alert.ConditionList,
+        conditions: alert.conditionList,
       });
       return true;
     }
@@ -139,20 +139,20 @@ async function processAlert(
     if (notificationSent) {
       stats.notificationsSent++;
       logger.info('アラート通知を送信しました', {
-        alertId: alert.AlertID,
-        userId: alert.UserID,
-        tickerId: alert.TickerID,
+        alertId: alert.alertId,
+        userId: alert.userId,
+        tickerId: alert.tickerId,
         currentPrice,
-        conditions: alert.ConditionList,
+        conditions: alert.conditionList,
       });
     } else {
       // 購読はアラートのフィールドなので、無効だからと消すとユーザーの条件設定ごと失われる。
       // 購読はユーザーが次に画面を開いたときに更新されるため、それまでの空振りは許容する。
       stats.invalidSubscriptions++;
       logger.warn('送信先の Web Push 購読が無効なため通知をスキップしました', {
-        alertId: alert.AlertID,
-        userId: alert.UserID,
-        tickerId: alert.TickerID,
+        alertId: alert.alertId,
+        userId: alert.userId,
+        tickerId: alert.tickerId,
       });
     }
 
@@ -161,8 +161,8 @@ async function processAlert(
   } catch (error) {
     const errorMessage = toErrorMessage(error);
     logger.error('アラート処理中にエラーが発生しました', {
-      alertId: alert.AlertID,
-      userId: alert.UserID,
+      alertId: alert.alertId,
+      userId: alert.userId,
       error: errorMessage,
     });
     await reportErrorEvent({
@@ -171,8 +171,8 @@ async function processAlert(
       title: '時間次バッチ: アラート処理エラー',
       message: errorMessage,
       context: {
-        alertId: alert.AlertID,
-        userId: alert.UserID,
+        alertId: alert.alertId,
+        userId: alert.userId,
         errorStack: error instanceof Error ? error.stack : undefined,
       },
     });

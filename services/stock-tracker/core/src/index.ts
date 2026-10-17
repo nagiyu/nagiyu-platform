@@ -25,16 +25,12 @@ export { PATTERN_REGISTRY } from './patterns/pattern-registry.js';
 export { RisingDoubleBottom } from './patterns/rising-double-bottom.js';
 export { RisingWedge } from './patterns/rising-wedge.js';
 
-// Error Classes (for backward compatibility)
-// Re-export generic error classes from @nagiyu/aws with specific names
-import { EntityNotFoundError, EntityAlreadyExistsError, InvalidEntityDataError } from '@nagiyu/aws';
-
-export { EntityNotFoundError as AlertNotFoundError };
-export { EntityAlreadyExistsError as AlertAlreadyExistsError };
-export { InvalidEntityDataError as InvalidAlertDataError };
-
 // Repository Interfaces
-export type { AlertRepository } from './repositories/alert.repository.interface.js';
+export type {
+  AlertRepository,
+  AlertAuditResult,
+  UnreadableAlertItem,
+} from './repositories/alert.repository.interface.js';
 export type { HoldingRepository } from './repositories/holding.repository.interface.js';
 export type { TickerRepository } from './repositories/ticker.repository.interface.js';
 export type { ExchangeRepository } from './repositories/exchange.repository.interface.js';

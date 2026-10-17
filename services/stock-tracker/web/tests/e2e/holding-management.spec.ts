@@ -117,13 +117,13 @@ function holdingSeed(overrides: { quantity?: number; averagePrice?: number } = {
 /** 売りアラート seed データ */
 function sellAlertSeed(value: number) {
   return {
-    UserID: TEST_USER_ID,
-    TickerID: TICKER_ID,
-    ExchangeID: EXCHANGE_ID,
-    Mode: 'Sell' as const,
-    Frequency: 'MINUTE_LEVEL' as const,
-    Enabled: true,
-    ConditionList: [{ field: 'price' as const, operator: 'gte' as const, value }],
+    userId: TEST_USER_ID,
+    tickerId: TICKER_ID,
+    exchangeId: EXCHANGE_ID,
+    mode: 'Sell' as const,
+    frequency: 'MINUTE_LEVEL' as const,
+    enabled: true,
+    conditionList: [{ field: 'price' as const, operator: 'gte' as const, value }],
     subscription: DUMMY_SUBSCRIPTION,
   };
 }
@@ -131,13 +131,13 @@ function sellAlertSeed(value: number) {
 /** 買いアラート seed データ */
 function buyAlertSeed(value: number) {
   return {
-    UserID: TEST_USER_ID,
-    TickerID: TICKER_ID,
-    ExchangeID: EXCHANGE_ID,
-    Mode: 'Buy' as const,
-    Frequency: 'MINUTE_LEVEL' as const,
-    Enabled: true,
-    ConditionList: [{ field: 'price' as const, operator: 'lte' as const, value }],
+    userId: TEST_USER_ID,
+    tickerId: TICKER_ID,
+    exchangeId: EXCHANGE_ID,
+    mode: 'Buy' as const,
+    frequency: 'MINUTE_LEVEL' as const,
+    enabled: true,
+    conditionList: [{ field: 'price' as const, operator: 'lte' as const, value }],
     subscription: DUMMY_SUBSCRIPTION,
   };
 }

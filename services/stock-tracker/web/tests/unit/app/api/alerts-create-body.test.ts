@@ -67,9 +67,9 @@ describe('POST /api/alerts のリクエストボディ', () => {
     (createExchangeRepository as jest.Mock).mockReturnValue({ getById: mockGetExchangeById });
     mockCreate.mockImplementation(async (input: Record<string, unknown>) => ({
       ...input,
-      AlertID: '550e8400-e29b-41d4-a716-446655440000',
-      CreatedAt: 1704067200000,
-      UpdatedAt: 1704067200000,
+      alertId: '550e8400-e29b-41d4-a716-446655440000',
+      createdAt: 1704067200000,
+      updatedAt: 1704067200000,
     }));
     mockGetTickerById.mockResolvedValue({ symbol: 'AAPL', name: 'Apple Inc.' });
   });
@@ -87,17 +87,17 @@ describe('POST /api/alerts のリクエストボディ', () => {
 
     expect(response.status).toBe(201);
     expect(mockCreate).toHaveBeenCalledWith({
-      UserID: 'test-user',
-      TickerID: 'NASDAQ:AAPL',
-      ExchangeID: 'NASDAQ',
-      Mode: 'Buy',
-      Frequency: 'MINUTE_LEVEL',
-      Enabled: true,
-      ConditionList: [{ field: 'price', operator: 'gte', value: 100 }],
-      LogicalOperator: undefined,
-      Temporary: undefined,
-      TemporaryExpireDate: undefined,
-      CustomMessage: undefined,
+      userId: 'test-user',
+      tickerId: 'NASDAQ:AAPL',
+      exchangeId: 'NASDAQ',
+      mode: 'Buy',
+      frequency: 'MINUTE_LEVEL',
+      enabled: true,
+      conditionList: [{ field: 'price', operator: 'gte', value: 100 }],
+      logicalOperator: undefined,
+      temporary: undefined,
+      temporaryExpireDate: undefined,
+      customMessage: undefined,
       subscription,
     });
   });
@@ -124,8 +124,8 @@ describe('POST /api/alerts のリクエストボディ', () => {
     expect(response.status).toBe(201);
     expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        LogicalOperator: 'AND',
-        ConditionList: [
+        logicalOperator: 'AND',
+        conditionList: [
           {
             field: 'price',
             operator: 'gte',

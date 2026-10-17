@@ -289,10 +289,10 @@ describe('GET /api/summaries', () => {
     mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
     mockGetAlertsByUserId.mockResolvedValue({
       items: [
-        { TickerID: 'NSDQ:AAPL', Mode: 'Buy', Enabled: true },
-        { TickerID: 'NSDQ:AAPL', Mode: 'Buy', Enabled: false },
-        { TickerID: 'NSDQ:AAPL', Mode: 'Sell', Enabled: true },
-        { TickerID: 'NSDQ:MSFT', Mode: 'Buy', Enabled: true },
+        { tickerId: 'NSDQ:AAPL', mode: 'Buy', enabled: true },
+        { tickerId: 'NSDQ:AAPL', mode: 'Buy', enabled: false },
+        { tickerId: 'NSDQ:AAPL', mode: 'Sell', enabled: true },
+        { tickerId: 'NSDQ:MSFT', mode: 'Buy', enabled: true },
       ],
     });
 

@@ -115,7 +115,7 @@ export const POST = withInternalErrorReporting(
         alert.subscription.keys.p256dh !== subscription.keys.p256dh ||
         alert.subscription.keys.auth !== subscription.keys.auth
       ) {
-        await alertRepo.update(userId, alert.AlertID, {
+        await alertRepo.update(userId, alert.alertId, {
           subscription: {
             endpoint: subscription.endpoint,
             keys: {

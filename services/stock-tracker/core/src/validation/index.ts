@@ -7,12 +7,12 @@
 
 import type { ValidationResult } from '@nagiyu/common';
 import { isNonEmptyString, isValidTimestamp } from '@nagiyu/common';
-import type { Alert } from '../types.js';
 import { isValidPrice, isValidQuantity } from './helpers.js';
 import { PRICE_SOURCES, EXCHANGE_MARKETS } from '../entities/exchange.entity.js';
 import type { ExchangeEntity } from '../entities/exchange.entity.js';
 import type { TickerEntity } from '../entities/ticker.entity.js';
 import type { HoldingEntity } from '../entities/holding.entity.js';
+import type { AlertEntity } from '../entities/alert.entity.js';
 
 /**
  * バリデーションエラーメッセージ定数
@@ -359,68 +359,68 @@ export function validateAlert(alert: unknown): ValidationResult {
     return { valid: false, errors: ['アラートデータが不正です'] };
   }
 
-  const alt = alert as Partial<Alert>;
+  const alt = alert as Partial<AlertEntity>;
 
-  // AlertID
-  if (!alt.AlertID || !isNonEmptyString(alt.AlertID)) {
+  // alertId
+  if (!alt.alertId || !isNonEmptyString(alt.alertId)) {
     errors.push(ERROR_MESSAGES.ALERT_ID_REQUIRED);
   } else if (
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(alt.AlertID)
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(alt.alertId)
   ) {
     errors.push(ERROR_MESSAGES.ALERT_ID_INVALID_FORMAT);
   }
 
-  // UserID
-  if (!alt.UserID || !isNonEmptyString(alt.UserID)) {
+  // userId
+  if (!alt.userId || !isNonEmptyString(alt.userId)) {
     errors.push(ERROR_MESSAGES.ALERT_USER_ID_REQUIRED);
   }
 
-  // TickerID
-  if (!alt.TickerID || !isNonEmptyString(alt.TickerID)) {
+  // tickerId
+  if (!alt.tickerId || !isNonEmptyString(alt.tickerId)) {
     errors.push(ERROR_MESSAGES.ALERT_TICKER_ID_REQUIRED);
   }
 
-  // ExchangeID
-  if (!alt.ExchangeID || !isNonEmptyString(alt.ExchangeID)) {
+  // exchangeId
+  if (!alt.exchangeId || !isNonEmptyString(alt.exchangeId)) {
     errors.push(ERROR_MESSAGES.ALERT_EXCHANGE_ID_REQUIRED);
   }
 
-  // Mode
-  if (!alt.Mode) {
+  // mode
+  if (!alt.mode) {
     errors.push(ERROR_MESSAGES.ALERT_MODE_REQUIRED);
-  } else if (alt.Mode !== 'Buy' && alt.Mode !== 'Sell') {
+  } else if (alt.mode !== 'Buy' && alt.mode !== 'Sell') {
     errors.push(ERROR_MESSAGES.ALERT_MODE_INVALID);
   }
 
-  // Frequency
-  if (!alt.Frequency) {
+  // frequency
+  if (!alt.frequency) {
     errors.push(ERROR_MESSAGES.ALERT_FREQUENCY_REQUIRED);
-  } else if (alt.Frequency !== 'MINUTE_LEVEL' && alt.Frequency !== 'HOURLY_LEVEL') {
+  } else if (alt.frequency !== 'MINUTE_LEVEL' && alt.frequency !== 'HOURLY_LEVEL') {
     errors.push(ERROR_MESSAGES.ALERT_FREQUENCY_INVALID);
   }
 
-  // Enabled
-  if (alt.Enabled === undefined || alt.Enabled === null) {
+  // enabled
+  if (alt.enabled === undefined || alt.enabled === null) {
     errors.push(ERROR_MESSAGES.ALERT_ENABLED_REQUIRED);
   }
 
-  // ConditionList
-  if (!alt.ConditionList) {
+  // conditionList
+  if (!alt.conditionList) {
     errors.push(ERROR_MESSAGES.ALERT_CONDITION_LIST_REQUIRED);
-  } else if (!Array.isArray(alt.ConditionList)) {
+  } else if (!Array.isArray(alt.conditionList)) {
     errors.push(ERROR_MESSAGES.ALERT_CONDITION_LIST_REQUIRED);
-  } else if (alt.ConditionList.length === 0) {
+  } else if (alt.conditionList.length === 0) {
     errors.push(ERROR_MESSAGES.ALERT_CONDITION_LIST_EMPTY);
-  } else if (alt.ConditionList.length > 2) {
+  } else if (alt.conditionList.length > 2) {
     errors.push(ERROR_MESSAGES.ALERT_CONDITION_LIST_TOO_MANY);
-  } else if (alt.ConditionList.length === 2) {
+  } else if (alt.conditionList.length === 2) {
     // 2条件の場合のバリデーション
-    const [cond1, cond2] = alt.ConditionList;
+    const [cond1, cond2] = alt.conditionList;
 
-    // LogicalOperator のチェック
-    if (!alt.LogicalOperator) {
+    // logicalOperator のチェック
+    if (!alt.logicalOperator) {
       errors.push(ERROR_MESSAGES.ALERT_LOGICAL_OPERATOR_REQUIRED);
-    } else if (alt.LogicalOperator !== 'AND' && alt.LogicalOperator !== 'OR') {
+    } else if (alt.logicalOperator !== 'AND' && alt.logicalOperator !== 'OR') {
       errors.push(ERROR_MESSAGES.ALERT_LOGICAL_OPERATOR_INVALID);
     }
 
@@ -457,7 +457,7 @@ export function validateAlert(alert: unknown): ValidationResult {
 
     // 範囲の妥当性チェック（AND/OR別）
     if (
-      alt.LogicalOperator &&
+      alt.logicalOperator &&
       cond1.operator !== cond2.operator &&
       cond1.value !== undefined &&
       cond1.value !== null &&
@@ -469,24 +469,24 @@ export function validateAlert(alert: unknown): ValidationResult {
       const gteCondition = cond1.operator === 'gte' ? cond1 : cond2;
       const lteCondition = cond1.operator === 'lte' ? cond1 : cond2;
 
-      if (alt.LogicalOperator === 'AND') {
+      if (alt.logicalOperator === 'AND') {
         // 範囲内: 下限 < 上限
         if (gteCondition.value >= lteCondition.value) {
           errors.push(ERROR_MESSAGES.ALERT_CONDITION_RANGE_INVALID_AND);
         }
-      } else if (alt.LogicalOperator === 'OR') {
+      } else if (alt.logicalOperator === 'OR') {
         // 範囲外: 下限 > 上限（つまり lte < gte）
         if (lteCondition.value >= gteCondition.value) {
           errors.push(ERROR_MESSAGES.ALERT_CONDITION_RANGE_INVALID_OR);
         }
       }
     }
-  } else if (alt.ConditionList.length === 1) {
+  } else if (alt.conditionList.length === 1) {
     // 単一条件の場合のバリデーション
-    const condition = alt.ConditionList[0];
+    const condition = alt.conditionList[0];
 
     // 単一条件の場合、LogicalOperator は未定義であるべき
-    if (alt.LogicalOperator !== undefined) {
+    if (alt.logicalOperator !== undefined) {
       errors.push(ERROR_MESSAGES.ALERT_LOGICAL_OPERATOR_UNEXPECTED);
     }
 
@@ -520,22 +520,22 @@ export function validateAlert(alert: unknown): ValidationResult {
     errors.push(ERROR_MESSAGES.ALERT_SUBSCRIPTION_KEYS_AUTH_REQUIRED);
   }
 
-  // CustomMessage（任意、最大500文字）
-  if (typeof alt.CustomMessage === 'string' && alt.CustomMessage.length > 500) {
+  // customMessage（任意、最大500文字）
+  if (typeof alt.customMessage === 'string' && alt.customMessage.length > 500) {
     errors.push(ERROR_MESSAGES.ALERT_CUSTOM_MESSAGE_TOO_LONG);
   }
 
-  // CreatedAt
-  if (alt.CreatedAt === undefined || alt.CreatedAt === null) {
+  // createdAt
+  if (alt.createdAt === undefined || alt.createdAt === null) {
     errors.push(ERROR_MESSAGES.ALERT_CREATED_AT_REQUIRED);
-  } else if (!isValidTimestamp(alt.CreatedAt)) {
+  } else if (!isValidTimestamp(alt.createdAt)) {
     errors.push(ERROR_MESSAGES.ALERT_CREATED_AT_INVALID);
   }
 
-  // UpdatedAt
-  if (alt.UpdatedAt === undefined || alt.UpdatedAt === null) {
+  // updatedAt
+  if (alt.updatedAt === undefined || alt.updatedAt === null) {
     errors.push(ERROR_MESSAGES.ALERT_UPDATED_AT_REQUIRED);
-  } else if (!isValidTimestamp(alt.UpdatedAt)) {
+  } else if (!isValidTimestamp(alt.updatedAt)) {
     errors.push(ERROR_MESSAGES.ALERT_UPDATED_AT_INVALID);
   }
 

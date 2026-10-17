@@ -89,13 +89,13 @@ export const GET = withInternalErrorReporting(
       const forecast = await fetchForecastSummary(tickerId, latestSummary.Date);
       const patternCounts = dailySummaryMapper.toTickerSummaryResponse(latestSummary);
 
-      const alerts = alertsResult.items.filter((alert) => alert.TickerID === tickerId);
+      const alerts = alertsResult.items.filter((alert) => alert.tickerId === tickerId);
       const buyAlertCount = { enabled: 0, disabled: 0 };
       const sellAlertCount = { enabled: 0, disabled: 0 };
 
       for (const alert of alerts) {
-        const targetCount = alert.Mode === 'Buy' ? buyAlertCount : sellAlertCount;
-        if (alert.Enabled) {
+        const targetCount = alert.mode === 'Buy' ? buyAlertCount : sellAlertCount;
+        if (alert.enabled) {
           targetCount.enabled += 1;
         } else {
           targetCount.disabled += 1;
