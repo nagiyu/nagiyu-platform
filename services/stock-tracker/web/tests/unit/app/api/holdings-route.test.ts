@@ -49,13 +49,13 @@ describe('GET /api/holdings', () => {
     mockGetByUserId.mockResolvedValue({
       items: [
         {
-          UserID: 'test-user',
-          TickerID: 'NSDQ:AAPL',
-          Quantity: 1,
-          AveragePrice: 100,
-          Currency: 'USD',
-          CreatedAt: 1,
-          UpdatedAt: 1,
+          userId: 'test-user',
+          tickerId: 'NSDQ:AAPL',
+          quantity: 1,
+          averagePrice: 100,
+          currency: 'USD',
+          createdAt: 1,
+          updatedAt: 1,
         },
       ],
     });
@@ -112,18 +112,18 @@ describe('GET /api/holdings', () => {
     mockGetByUserId.mockResolvedValue({
       items: [
         {
-          UserID: 'test-user',
-          TickerID: 'NASDAQ:NVDA',
-          Quantity: 5,
-          AveragePrice: 98,
-          Currency: 'USD',
-          CreatedAt: 1,
-          UpdatedAt: 2,
+          userId: 'test-user',
+          tickerId: 'NASDAQ:NVDA',
+          quantity: 5,
+          averagePrice: 98,
+          currency: 'USD',
+          createdAt: 1,
+          updatedAt: 2,
         },
       ],
       nextCursor: 'next-cursor',
     });
-    mockGetTickerById.mockResolvedValue({ Symbol: 'NVDA', Name: 'NVIDIA' });
+    mockGetTickerById.mockResolvedValue({ symbol: 'NVDA', name: 'NVIDIA' });
 
     const response = await GET(new NextRequest('http://localhost/api/holdings'));
     const body = await response.json();
@@ -168,16 +168,16 @@ describe('POST /api/holdings', () => {
 
   it('取引所 ID をティッカー ID から補って保有株式を登録する', async () => {
     mockCreate.mockResolvedValue({
-      UserID: 'test-user',
-      TickerID: 'NSDQ:AAPL',
-      ExchangeID: 'NSDQ',
-      Quantity: 10,
-      AveragePrice: 150.5,
-      Currency: 'USD',
-      CreatedAt: 1704067200000,
-      UpdatedAt: 1704067200000,
+      userId: 'test-user',
+      tickerId: 'NSDQ:AAPL',
+      exchangeId: 'NSDQ',
+      quantity: 10,
+      averagePrice: 150.5,
+      currency: 'USD',
+      createdAt: 1704067200000,
+      updatedAt: 1704067200000,
     });
-    mockGetTickerById.mockResolvedValue({ Symbol: 'AAPL', Name: 'Apple Inc.' });
+    mockGetTickerById.mockResolvedValue({ symbol: 'AAPL', name: 'Apple Inc.' });
 
     const response = await POST(
       createRequest(JSON.stringify({ ...validBody, userId: 'other-user' }))
@@ -187,13 +187,28 @@ describe('POST /api/holdings', () => {
     expect(response.status).toBe(201);
     expect(body.holdingId).toBe('test-user#NSDQ:AAPL');
     expect(mockCreate).toHaveBeenCalledWith({
-      UserID: 'test-user',
-      TickerID: 'NSDQ:AAPL',
-      ExchangeID: 'NSDQ',
-      Quantity: 10,
-      AveragePrice: 150.5,
-      Currency: 'USD',
+      userId: 'test-user',
+      tickerId: 'NSDQ:AAPL',
+      exchangeId: 'NSDQ',
+      quantity: 10,
+      averagePrice: 150.5,
+      currency: 'USD',
     });
+  });
+
+  it('同じ銘柄が既に登録されている場合は 400 を返し、通報しない', async () => {
+    mockCreate.mockRejectedValue(
+      new awsModule.EntityAlreadyExistsError('Holding', 'test-user#NSDQ:AAPL')
+    );
+
+    const response = await POST(createRequest(JSON.stringify(validBody)));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('INVALID_REQUEST');
+    expect(body.message).toBe('指定された銘柄は既に保有株式として登録されています');
+    expect(mockGetTickerById).not.toHaveBeenCalled();
+    expect(awsModule.reportErrorEvent).not.toHaveBeenCalled();
   });
 
   it('必須項目が欠けている場合はバリデーションの指摘を 400 で返す', async () => {

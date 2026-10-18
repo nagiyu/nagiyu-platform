@@ -30,12 +30,12 @@ export interface HoldingRepositoryContractHooks {
 
 function buildHoldingInput(overrides: Partial<CreateHoldingInput> = {}): CreateHoldingInput {
   return {
-    UserID: 'user-001',
-    TickerID: 'NSDQ:AAPL',
-    ExchangeID: 'NASDAQ',
-    Quantity: 100,
-    AveragePrice: 150,
-    Currency: 'USD',
+    userId: 'user-001',
+    tickerId: 'NSDQ:AAPL',
+    exchangeId: 'NASDAQ',
+    quantity: 100,
+    averagePrice: 150,
+    currency: 'USD',
     ...overrides,
   };
 }
@@ -70,43 +70,54 @@ export function defineHoldingRepositoryContract(
       const created = await repository.create(input);
       expect(created).toMatchObject(input);
 
-      const fetched = await repository.getById(input.UserID, input.TickerID);
+      const fetched = await repository.getById(input.userId, input.tickerId);
       expect(fetched).toEqual(created);
 
-      const updated = await repository.update(input.UserID, input.TickerID, { Quantity: 200 });
-      expect(updated.Quantity).toBe(200);
+      const updated = await repository.update(input.userId, input.tickerId, { quantity: 200 });
+      expect(updated.quantity).toBe(200);
 
-      await repository.delete(input.UserID, input.TickerID);
-      const afterDelete = await repository.getById(input.UserID, input.TickerID);
+      await repository.delete(input.userId, input.tickerId);
+      const afterDelete = await repository.getById(input.userId, input.tickerId);
       expect(afterDelete).toBeNull();
     });
 
+    it('空の変更で update しても成功し、更新日時だけが進む', async () => {
+      const created = await repository.create(buildHoldingInput());
+      // 同じミリ秒内に収まらないよう、更新日時が進む時間だけ待つ
+      await new Promise((resolve) => setTimeout(resolve, 5));
+
+      const updated = await repository.update(created.userId, created.tickerId, {});
+
+      expect(updated).toEqual({ ...created, updatedAt: updated.updatedAt });
+      expect(updated.updatedAt).toBeGreaterThan(created.updatedAt);
+    });
+
     it('getByUserId は指定ユーザーのholdingだけを返す（GSIパーティション分離）', async () => {
-      await repository.create(buildHoldingInput({ UserID: 'user-A', TickerID: 'NSDQ:AAPL' }));
-      await repository.create(buildHoldingInput({ UserID: 'user-A', TickerID: 'NSDQ:NVDA' }));
-      await repository.create(buildHoldingInput({ UserID: 'user-B', TickerID: 'NSDQ:TSLA' }));
+      await repository.create(buildHoldingInput({ userId: 'user-A', tickerId: 'NSDQ:AAPL' }));
+      await repository.create(buildHoldingInput({ userId: 'user-A', tickerId: 'NSDQ:NVDA' }));
+      await repository.create(buildHoldingInput({ userId: 'user-B', tickerId: 'NSDQ:TSLA' }));
 
       const result = await repository.getByUserId('user-A');
 
       expect(result.items).toHaveLength(2);
-      expect(result.items.every((item) => item.UserID === 'user-A')).toBe(true);
+      expect(result.items.every((item) => item.userId === 'user-A')).toBe(true);
     });
 
     it('getByUserId は挿入順ではなくソートキー（Holding#TickerID）の昇順で返す', async () => {
       // 意図的に非ソート順（TSLA→AAPL→NVDA）で作成する
-      await repository.create(buildHoldingInput({ UserID: 'user-sort', TickerID: 'TSLA' }));
-      await repository.create(buildHoldingInput({ UserID: 'user-sort', TickerID: 'AAPL' }));
-      await repository.create(buildHoldingInput({ UserID: 'user-sort', TickerID: 'NVDA' }));
+      await repository.create(buildHoldingInput({ userId: 'user-sort', tickerId: 'TSLA' }));
+      await repository.create(buildHoldingInput({ userId: 'user-sort', tickerId: 'AAPL' }));
+      await repository.create(buildHoldingInput({ userId: 'user-sort', tickerId: 'NVDA' }));
 
       const result = await repository.getByUserId('user-sort');
 
-      expect(result.items.map((item) => item.TickerID)).toEqual(['AAPL', 'NVDA', 'TSLA']);
+      expect(result.items.map((item) => item.tickerId)).toEqual(['AAPL', 'NVDA', 'TSLA']);
     });
 
     it('getByUserId はlimit+cursorのページネーションで重複・欠落なく全件をソートキー昇順に走査できる', async () => {
       const tickerIds = ['E', 'C', 'A', 'D', 'B'];
       for (const tickerId of tickerIds) {
-        await repository.create(buildHoldingInput({ UserID: 'user-page', TickerID: tickerId }));
+        await repository.create(buildHoldingInput({ userId: 'user-page', tickerId: tickerId }));
       }
 
       const collected: string[] = [];
@@ -114,7 +125,7 @@ export function defineHoldingRepositoryContract(
 
       do {
         const page = await repository.getByUserId('user-page', { limit: 2, cursor });
-        collected.push(...page.items.map((item) => item.TickerID));
+        collected.push(...page.items.map((item) => item.tickerId));
         cursor = page.nextCursor;
       } while (cursor);
 
@@ -129,7 +140,7 @@ export function defineHoldingRepositoryContract(
       const total = 130;
       for (let i = 0; i < total; i += 1) {
         await repository.create(
-          buildHoldingInput({ UserID: userId, TickerID: `T${String(i).padStart(4, '0')}` })
+          buildHoldingInput({ userId: userId, tickerId: `T${String(i).padStart(4, '0')}` })
         );
       }
 
@@ -149,7 +160,7 @@ export function defineHoldingRepositoryContract(
       const total = 50;
       for (let i = 0; i < total; i += 1) {
         await repository.create(
-          buildHoldingInput({ UserID: userId, TickerID: `T${String(i).padStart(4, '0')}` })
+          buildHoldingInput({ userId: userId, tickerId: `T${String(i).padStart(4, '0')}` })
         );
       }
 
@@ -159,7 +170,7 @@ export function defineHoldingRepositoryContract(
       expect(result.nextCursor).toBeDefined();
     });
 
-    it('同じUserID/TickerIDでcreateを重複させるとEntityAlreadyExistsErrorをスローする', async () => {
+    it('同じuserId/tickerIdでcreateを重複させるとEntityAlreadyExistsErrorをスローする', async () => {
       const input = buildHoldingInput();
       await repository.create(input);
 
@@ -170,7 +181,7 @@ export function defineHoldingRepositoryContract(
 
     it('存在しない対象へのupdateはEntityNotFoundErrorをスローする', async () => {
       await expect(
-        repository.update('no-such-user', 'no-such-ticker', { Quantity: 1 })
+        repository.update('no-such-user', 'no-such-ticker', { quantity: 1 })
       ).rejects.toThrow(expect.objectContaining({ name: 'EntityNotFoundError' }));
     });
 

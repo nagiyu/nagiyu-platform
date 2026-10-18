@@ -24,14 +24,14 @@ const session = {
 };
 
 const makeEntity = (over: Partial<NoteEntity> = {}): NoteEntity => ({
-  UserID: 'u1',
-  CharacterID: 'hiyori',
-  NoteID: 'note-1',
-  TopicID: 'topic-1',
-  Subject: 'コーヒーの効能',
-  Headline: 'この前の話、気になって調べてみたよ。覚醒効果があるみたい！',
-  CreatedAt: 100,
-  UpdatedAt: 100,
+  userId: 'u1',
+  characterId: 'hiyori',
+  noteId: 'note-1',
+  topicId: 'topic-1',
+  subject: 'コーヒーの効能',
+  headline: 'この前の話、気になって調べてみたよ。覚醒効果があるみたい！',
+  createdAt: 100,
+  updatedAt: 100,
   ...over,
 });
 
@@ -60,8 +60,8 @@ describe('GET /api/notes', () => {
   it('一覧を作成日時降順で返す（本文は含めない）', async () => {
     mockGetSession.mockResolvedValue(session);
     const listAll = jest.fn(async () => [
-      makeEntity({ NoteID: 'old', CreatedAt: 100 }),
-      makeEntity({ NoteID: 'new', CreatedAt: 300 }),
+      makeEntity({ noteId: 'old', createdAt: 100 }),
+      makeEntity({ noteId: 'new', createdAt: 300 }),
     ]);
     mockGetRepo.mockReturnValue(makeRepo({ listAll }));
 
@@ -89,7 +89,7 @@ describe('GET /api/notes', () => {
     mockGetSession.mockResolvedValue(session);
     // listAll が 150 件返すシナリオ（全件を打ち切らずに返す）
     const items = Array.from({ length: 150 }, (_, i) =>
-      makeEntity({ NoteID: `note-${i}`, CreatedAt: i })
+      makeEntity({ noteId: `note-${i}`, createdAt: i })
     );
     const listAll = jest.fn(async () => items);
     mockGetRepo.mockReturnValue(makeRepo({ listAll }));
@@ -102,7 +102,7 @@ describe('GET /api/notes', () => {
 
   it('characterId クエリを指定するとそのキャラのノートを取得する', async () => {
     mockGetSession.mockResolvedValue(session);
-    const listAll = jest.fn(async () => [makeEntity({ CharacterID: 'ageha' })]);
+    const listAll = jest.fn(async () => [makeEntity({ characterId: 'ageha' })]);
     mockGetRepo.mockReturnValue(makeRepo({ listAll }));
 
     const req2 = () =>

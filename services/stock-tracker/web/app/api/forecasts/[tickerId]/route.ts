@@ -58,7 +58,7 @@ export const GET = withInternalErrorReporting(
 
       const date =
         requestedDate ??
-        (await createDailySummaryRepository().getByExchange(ticker.ExchangeID))[0]?.Date;
+        (await createDailySummaryRepository().getByExchange(ticker.exchangeId))[0]?.date;
       if (!date) {
         return errorResponse('NOT_FOUND', ERROR_MESSAGES.FORECAST_NOT_FOUND, 404);
       }
@@ -70,8 +70,8 @@ export const GET = withInternalErrorReporting(
 
       const snapshotRepository = createModelSnapshotRepository();
       const [dir, vol] = await Promise.all([
-        snapshotRepository.getByDate('DIR', forecast.Market, date),
-        snapshotRepository.getByDate('VOL', forecast.Market, date),
+        snapshotRepository.getByDate('DIR', forecast.market, date),
+        snapshotRepository.getByDate('VOL', forecast.market, date),
       ]);
 
       return NextResponse.json(buildForecastDetail(forecast, { DIR: dir, VOL: vol }), {

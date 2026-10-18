@@ -63,22 +63,22 @@ describe('GET /api/summaries/[tickerId]', () => {
   it('正常系: 指定ティッカーのサマリーを返す', async () => {
     mockGetByExchange.mockResolvedValue([
       {
-        TickerID: 'NASDAQ:NVDA',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-01-01',
-        Open: 100,
-        High: 120,
-        Low: 90,
-        Close: 110,
-        Volume: 1000,
-        CreatedAt: 1,
-        UpdatedAt: 1000,
+        tickerId: 'NASDAQ:NVDA',
+        exchangeId: 'NASDAQ',
+        date: '2026-01-01',
+        open: 100,
+        high: 120,
+        low: 90,
+        close: 110,
+        volume: 1000,
+        createdAt: 1,
+        updatedAt: 1000,
       },
     ]);
-    mockGetById.mockResolvedValue({ TickerID: 'NASDAQ:NVDA', Symbol: 'NVDA', Name: 'NVIDIA' });
-    mockGetHoldingById.mockResolvedValue({ Quantity: 5, AveragePrice: 98 });
+    mockGetById.mockResolvedValue({ tickerId: 'NASDAQ:NVDA', symbol: 'NVDA', name: 'NVIDIA' });
+    mockGetHoldingById.mockResolvedValue({ quantity: 5, averagePrice: 98 });
     mockGetAlertsByUserId.mockResolvedValue({
-      items: [{ TickerID: 'NASDAQ:NVDA', Mode: 'Buy', Enabled: true }],
+      items: [{ tickerId: 'NASDAQ:NVDA', mode: 'Buy', enabled: true }],
     });
 
     const response = await GET(new Request('http://localhost/api/summaries/NASDAQ:NVDA'), {
@@ -97,24 +97,24 @@ describe('GET /api/summaries/[tickerId]', () => {
   it('正常系: Forecast があれば forecast に要約を含める', async () => {
     mockGetByExchange.mockResolvedValue([
       {
-        TickerID: 'NASDAQ:NVDA',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-01-01',
-        Open: 100,
-        High: 120,
-        Low: 90,
-        Close: 110,
-        CreatedAt: 1,
-        UpdatedAt: 1000,
+        tickerId: 'NASDAQ:NVDA',
+        exchangeId: 'NASDAQ',
+        date: '2026-01-01',
+        open: 100,
+        high: 120,
+        low: 90,
+        close: 110,
+        createdAt: 1,
+        updatedAt: 1000,
       },
     ]);
-    mockGetById.mockResolvedValue({ TickerID: 'NASDAQ:NVDA', Symbol: 'NVDA', Name: 'NVIDIA' });
+    mockGetById.mockResolvedValue({ tickerId: 'NASDAQ:NVDA', symbol: 'NVDA', name: 'NVIDIA' });
     mockGetHoldingById.mockResolvedValue(null);
     mockGetAlertsByUserId.mockResolvedValue({ items: [] });
     mockGetForecast.mockResolvedValue({
-      TickerID: 'NASDAQ:NVDA',
-      AxisValues: { 'morning-star': true },
-      Probabilities: {
+      tickerId: 'NASDAQ:NVDA',
+      axisValues: { 'morning-star': true },
+      probabilities: {
         VOL: {
           probability: 0.6,
           baseline: 0.4,
@@ -143,15 +143,15 @@ describe('GET /api/summaries/[tickerId]', () => {
   it('正常系: Forecast の取得に失敗してもサマリーを返す', async () => {
     mockGetByExchange.mockResolvedValue([
       {
-        TickerID: 'NASDAQ:NVDA',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-01-01',
-        Open: 100,
-        High: 120,
-        Low: 90,
-        Close: 110,
-        CreatedAt: 1,
-        UpdatedAt: 1000,
+        tickerId: 'NASDAQ:NVDA',
+        exchangeId: 'NASDAQ',
+        date: '2026-01-01',
+        open: 100,
+        high: 120,
+        low: 90,
+        close: 110,
+        createdAt: 1,
+        updatedAt: 1000,
       },
     ]);
     mockGetById.mockResolvedValue(null);

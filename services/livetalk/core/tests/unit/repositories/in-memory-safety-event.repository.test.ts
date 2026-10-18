@@ -23,35 +23,35 @@ describe('InMemorySafetyEventRepository', () => {
     it('SafetyEvent を作成して返す', async () => {
       const { repo, fixedNow } = makeRepo();
       const entity = await repo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Trigger: 'input_keyword',
-        DetectedPattern: '[自殺念慮] 死にたい',
-        InputText: '死にたい',
-        ResponseText: 'ねえ、今すごく心配しちゃった…',
+        userId: 'u1',
+        characterId: 'hiyori',
+        trigger: 'input_keyword',
+        detectedPattern: '[自殺念慮] 死にたい',
+        inputText: '死にたい',
+        responseText: 'ねえ、今すごく心配しちゃった…',
       });
-      expect(entity.UserID).toBe('u1');
-      expect(entity.CharacterID).toBe('hiyori');
-      expect(entity.EventID).toBe('FIXED_ULID');
-      expect(entity.Trigger).toBe('input_keyword');
-      expect(entity.CreatedAt).toBe(fixedNow);
-      expect(entity.UpdatedAt).toBe(fixedNow);
+      expect(entity.userId).toBe('u1');
+      expect(entity.characterId).toBe('hiyori');
+      expect(entity.eventId).toBe('FIXED_ULID');
+      expect(entity.trigger).toBe('input_keyword');
+      expect(entity.createdAt).toBe(fixedNow);
+      expect(entity.updatedAt).toBe(fixedNow);
     });
 
-    it('EventID を明示指定できる', async () => {
+    it('eventId を明示指定できる', async () => {
       const { repo } = makeRepo();
       const entity = await repo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Trigger: 'output_moderation',
-        DetectedPattern: 'Moderation flagged: self-harm',
-        InputText: 'test',
-        ResponseText: 'response',
-        EventID: 'custom-id',
-        ModerationCategories: '{"self-harm": true}',
+        userId: 'u1',
+        characterId: 'hiyori',
+        trigger: 'output_moderation',
+        detectedPattern: 'Moderation flagged: self-harm',
+        inputText: 'test',
+        responseText: 'response',
+        eventId: 'custom-id',
+        moderationCategories: '{"self-harm": true}',
       });
-      expect(entity.EventID).toBe('custom-id');
-      expect(entity.ModerationCategories).toBe('{"self-harm": true}');
+      expect(entity.eventId).toBe('custom-id');
+      expect(entity.moderationCategories).toBe('{"self-harm": true}');
     });
   });
 
@@ -59,17 +59,17 @@ describe('InMemorySafetyEventRepository', () => {
     it('存在するイベントを取得できる', async () => {
       const { repo } = makeRepo();
       await repo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Trigger: 'input_keyword',
-        DetectedPattern: 'test',
-        InputText: 'input',
-        ResponseText: 'response',
+        userId: 'u1',
+        characterId: 'hiyori',
+        trigger: 'input_keyword',
+        detectedPattern: 'test',
+        inputText: 'input',
+        responseText: 'response',
       });
       const found = await repo.getById({ userId: 'u1', eventId: 'FIXED_ULID' });
       expect(found).not.toBeNull();
-      expect(found?.EventID).toBe('FIXED_ULID');
-      expect(found?.CharacterID).toBe('hiyori');
+      expect(found?.eventId).toBe('FIXED_ULID');
+      expect(found?.characterId).toBe('hiyori');
     });
 
     it('存在しないイベントは null を返す', async () => {
@@ -92,36 +92,36 @@ describe('InMemorySafetyEventRepository', () => {
 
       // 3 件作成（ULID_A, ULID_B, ULID_C の順）
       await repo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Trigger: 'input_keyword',
-        DetectedPattern: 'pattern1',
-        InputText: 'input1',
-        ResponseText: 'response1',
+        userId: 'u1',
+        characterId: 'hiyori',
+        trigger: 'input_keyword',
+        detectedPattern: 'pattern1',
+        inputText: 'input1',
+        responseText: 'response1',
       });
       await repo.create({
-        UserID: 'u2',
-        CharacterID: 'hiyori',
-        Trigger: 'output_moderation',
-        DetectedPattern: 'pattern2',
-        InputText: 'input2',
-        ResponseText: 'response2',
+        userId: 'u2',
+        characterId: 'hiyori',
+        trigger: 'output_moderation',
+        detectedPattern: 'pattern2',
+        inputText: 'input2',
+        responseText: 'response2',
       });
       await repo.create({
-        UserID: 'u3',
-        CharacterID: 'ageha',
-        Trigger: 'input_keyword',
-        DetectedPattern: 'pattern3',
-        InputText: 'input3',
-        ResponseText: 'response3',
+        userId: 'u3',
+        characterId: 'ageha',
+        trigger: 'input_keyword',
+        detectedPattern: 'pattern3',
+        inputText: 'input3',
+        responseText: 'response3',
       });
 
       const result = await repo.listRecent(10);
       expect(result).toHaveLength(3);
       // ULID_C > ULID_B > ULID_A の降順
-      expect(result[0].EventID).toBe('ULIDC');
-      expect(result[1].EventID).toBe('ULIDB');
-      expect(result[2].EventID).toBe('ULIDA');
+      expect(result[0].eventId).toBe('ULIDC');
+      expect(result[1].eventId).toBe('ULIDB');
+      expect(result[2].eventId).toBe('ULIDA');
     });
 
     it('limit が効く', async () => {
@@ -134,12 +134,12 @@ describe('InMemorySafetyEventRepository', () => {
 
       for (let i = 0; i < 5; i++) {
         await repo.create({
-          UserID: `u${i}`,
-          CharacterID: 'hiyori',
-          Trigger: 'input_keyword',
-          DetectedPattern: `pattern${i}`,
-          InputText: `input${i}`,
-          ResponseText: `response${i}`,
+          userId: `u${i}`,
+          characterId: 'hiyori',
+          trigger: 'input_keyword',
+          detectedPattern: `pattern${i}`,
+          inputText: `input${i}`,
+          responseText: `response${i}`,
         });
       }
 
@@ -147,37 +147,37 @@ describe('InMemorySafetyEventRepository', () => {
       expect(result).toHaveLength(3);
     });
 
-    it('CharacterID がサマリに含まれる', async () => {
+    it('characterId がサマリに含まれる', async () => {
       const { repo } = makeRepo();
       await repo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Trigger: 'input_keyword',
-        DetectedPattern: 'test',
-        InputText: 'input',
-        ResponseText: 'response',
+        userId: 'u1',
+        characterId: 'hiyori',
+        trigger: 'input_keyword',
+        detectedPattern: 'test',
+        inputText: 'input',
+        responseText: 'response',
       });
 
       const result = await repo.listRecent(10);
       expect(result).toHaveLength(1);
-      expect(result[0].CharacterID).toBe('hiyori');
+      expect(result[0].characterId).toBe('hiyori');
     });
 
     it('PII（InputText/ResponseText）はサマリに含まれない', async () => {
       const { repo } = makeRepo();
       await repo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Trigger: 'input_keyword',
-        DetectedPattern: 'test',
-        InputText: 'これは PII データ',
-        ResponseText: 'これも PII データ',
+        userId: 'u1',
+        characterId: 'hiyori',
+        trigger: 'input_keyword',
+        detectedPattern: 'test',
+        inputText: 'これは PII データ',
+        responseText: 'これも PII データ',
       });
 
       const result = await repo.listRecent(10);
       expect(result).toHaveLength(1);
-      expect((result[0] as unknown as Record<string, unknown>).InputText).toBeUndefined();
-      expect((result[0] as unknown as Record<string, unknown>).ResponseText).toBeUndefined();
+      expect((result[0] as unknown as Record<string, unknown>).inputText).toBeUndefined();
+      expect((result[0] as unknown as Record<string, unknown>).responseText).toBeUndefined();
     });
 
     it('0 件のとき空配列を返す', async () => {
@@ -200,20 +200,20 @@ describe('InMemorySafetyEventRepository', () => {
       const total = 150;
       for (let i = 0; i < total; i++) {
         await repo.create({
-          UserID: `u${i}`,
-          CharacterID: 'hiyori',
-          Trigger: 'input_keyword',
-          DetectedPattern: `pattern${i}`,
-          InputText: `input${i}`,
-          ResponseText: `response${i}`,
+          userId: `u${i}`,
+          characterId: 'hiyori',
+          trigger: 'input_keyword',
+          detectedPattern: `pattern${i}`,
+          inputText: `input${i}`,
+          responseText: `response${i}`,
         });
       }
 
       const result = await repo.listRecent(5);
       expect(result).toHaveLength(5);
       // 最後に作成した ULID0149 が先頭に来る（古い側 100 件で切り詰めていたら欠落する）
-      expect(result[0].EventID).toBe('ULID0149');
-      expect(result[4].EventID).toBe('ULID0145');
+      expect(result[0].eventId).toBe('ULID0149');
+      expect(result[4].eventId).toBe('ULID0145');
     });
   });
 });

@@ -196,3 +196,82 @@ export function validateTimestampField(
 
   return timestamp;
 }
+
+/**
+ * 属性を新名優先で読む。新名がなければ旧名を順に探す。
+ *
+ * 旧形式のデータを一括移行せずに読み続けるため、mapper の `toEntity` から使う。
+ *
+ * @returns 見つかった値。どの名前でも見つからなければ undefined
+ */
+export function readAttribute(
+  item: Record<string, unknown>,
+  name: string,
+  legacyNames: readonly string[] = []
+): unknown {
+  for (const candidate of [name, ...legacyNames]) {
+    const value = item[candidate];
+    if (value !== undefined) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * エポック秒とミリ秒を見分ける閾値。
+ * ミリ秒値でこの値を下回るのは 1973 年より前だけなので、これ未満はエポック秒とみなす。
+ */
+const EPOCH_SECONDS_THRESHOLD = 1e11;
+
+function normalizeTimestamp(value: unknown, name: string, allowFuture: boolean): number {
+  const normalized =
+    typeof value === 'number' && value < EPOCH_SECONDS_THRESHOLD ? value * 1000 : value;
+  return validateTimestampField(normalized, name, { allowFuture });
+}
+
+/**
+ * タイムスタンプ属性を読み、ミリ秒で返す (必須)。
+ *
+ * 数値 (1e11 未満はエポック秒とみなして 1000 倍する) と ISO 文字列を受け付ける。
+ *
+ * @throws InvalidEntityDataError 属性がない、または不正なとき
+ */
+export function readTimestamp(
+  item: Record<string, unknown>,
+  name: string,
+  legacyNames: readonly string[] = [],
+  options: { allowFuture?: boolean } = {}
+): number {
+  return normalizeTimestamp(
+    readAttribute(item, name, legacyNames),
+    name,
+    options.allowFuture ?? true
+  );
+}
+
+/**
+ * タイムスタンプ属性を読み、ミリ秒で返す (任意)。
+ * 属性がなければ undefined、あっても不正なら例外にする (欠落と破損を区別するため)。
+ *
+ * @throws InvalidEntityDataError 値があって不正なとき
+ */
+export function readOptionalTimestamp(
+  item: Record<string, unknown>,
+  name: string,
+  legacyNames: readonly string[] = [],
+  options: { allowFuture?: boolean } = {}
+): number | undefined {
+  if (readAttribute(item, name, legacyNames) === undefined) {
+    return undefined;
+  }
+  return readTimestamp(item, name, legacyNames, options);
+}
+
+/** TTL 属性の名前。DynamoDB の TTL はエポック秒しか受け付けないため、他の時刻と単位が異なる */
+export const TTL_ATTRIBUTE_NAME = 'TTL';
+
+/** ミリ秒の時刻を TTL 属性用のエポック秒に変換する (切り捨て) */
+export function toTtlSeconds(ms: number): number {
+  return Math.floor(ms / 1000);
+}

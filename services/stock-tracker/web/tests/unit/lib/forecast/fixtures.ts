@@ -20,17 +20,17 @@ export function probabilityRecord(overrides: Partial<ProbabilityRecord> = {}): P
 
 export function forecastEntity(overrides: Partial<ForecastEntity> = {}): ForecastEntity {
   return {
-    TickerID: 'NSDQ:AAPL',
-    ExchangeID: 'NASDAQ',
-    Market: 'US',
-    Date: '2026-05-01',
-    AxisValues: {},
-    Normal: {},
-    Probabilities: {},
-    ModelVersion: 'test',
-    Source: 'LIVE',
-    CreatedAt: 1,
-    UpdatedAt: 1,
+    tickerId: 'NSDQ:AAPL',
+    exchangeId: 'NASDAQ',
+    market: 'US',
+    date: '2026-05-01',
+    axisValues: {},
+    normal: {},
+    probabilities: {},
+    modelVersion: 'test',
+    source: 'LIVE',
+    createdAt: 1,
+    updatedAt: 1,
     ...overrides,
   };
 }

@@ -25,7 +25,7 @@ export function buildHourlyHistogram(
 ): HourHistogram {
   const histogram: HourHistogram = new Array(24).fill(0) as HourHistogram;
   for (const msg of messages) {
-    const hour = getLocalHour(new Date(msg.CreatedAt), timezone);
+    const hour = getLocalHour(new Date(msg.createdAt), timezone);
     histogram[hour]++;
   }
   return histogram;

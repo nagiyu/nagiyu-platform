@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
-import {
-  validateExchange,
-  type PriceSource,
-  type ExchangeMarket,
-} from '@nagiyu/stock-tracker-core';
+import { EntityNotFoundError } from '@nagiyu/aws';
+import { validateExchange, type UpdateExchangeInput } from '@nagiyu/stock-tracker-core';
 import { withAuth, readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
 import { withApiErrorReporting } from '../../../../lib/api-error-reporting';
@@ -23,7 +20,6 @@ const ERROR_MESSAGES = {
   DELETE_ERROR: '取引所の削除に失敗しました',
   INVALID_REQUEST: COMMON_ERROR_MESSAGES.BAD_REQUEST,
   INVALID_REQUEST_BODY: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
-  RELATED_TICKERS_EXIST: '関連するティッカーが存在するため削除できません',
   INVALID_PRICE_SOURCE:
     'データソースは "tradingview" または "finnhub" のいずれかを指定してください',
   INVALID_MARKET: '市場は "JP" または "US" のいずれかを指定してください',
@@ -80,18 +76,18 @@ export const GET = withApiErrorReporting(
 
       // レスポンスを返す (API仕様に従った形式)
       return NextResponse.json({
-        exchangeId: exchange.ExchangeID,
-        name: exchange.Name,
-        key: exchange.Key,
-        timezone: exchange.Timezone,
+        exchangeId: exchange.exchangeId,
+        name: exchange.name,
+        key: exchange.key,
+        timezone: exchange.timezone,
         tradingHours: {
-          start: exchange.Start,
-          end: exchange.End,
+          start: exchange.start,
+          end: exchange.end,
         },
-        priceSource: exchange.PriceSource,
-        market: exchange.Market,
-        createdAt: new Date(exchange.CreatedAt).toISOString(),
-        updatedAt: new Date(exchange.UpdatedAt).toISOString(),
+        priceSource: exchange.priceSource,
+        market: exchange.market,
+        createdAt: new Date(exchange.createdAt).toISOString(),
+        updatedAt: new Date(exchange.updatedAt).toISOString(),
       });
     }
   )
@@ -175,38 +171,31 @@ export const PUT = withApiErrorReporting(
       }
 
       // 更新可能なフィールドのみ抽出
-      const updates: {
-        Name?: string;
-        Timezone?: string;
-        Start?: string;
-        End?: string;
-        PriceSource?: PriceSource;
-        Market?: ExchangeMarket | null;
-      } = {};
+      const updates: UpdateExchangeInput = {};
 
       if (name !== undefined) {
-        updates.Name = name;
+        updates.name = name;
       }
 
       if (timezone !== undefined) {
-        updates.Timezone = timezone;
+        updates.timezone = timezone;
       }
 
       if (start !== undefined) {
-        updates.Start = start;
+        updates.start = start;
       }
 
       if (end !== undefined) {
-        updates.End = end;
+        updates.end = end;
       }
 
       if (priceSource !== undefined) {
-        updates.PriceSource = priceSource;
+        updates.priceSource = priceSource;
       }
 
       // market は undefined（更新しない）・null（未設定に戻す）・値（設定）の3値を区別する
       if (market !== undefined) {
-        updates.Market = market;
+        updates.market = market;
       }
 
       // 更新フィールドが空の場合はエラー
@@ -244,17 +233,17 @@ export const PUT = withApiErrorReporting(
 
       // レスポンスを返す (API仕様に従った形式)
       return NextResponse.json({
-        exchangeId: updatedExchange.ExchangeID,
-        name: updatedExchange.Name,
-        key: updatedExchange.Key,
-        timezone: updatedExchange.Timezone,
+        exchangeId: updatedExchange.exchangeId,
+        name: updatedExchange.name,
+        key: updatedExchange.key,
+        timezone: updatedExchange.timezone,
         tradingHours: {
-          start: updatedExchange.Start,
-          end: updatedExchange.End,
+          start: updatedExchange.start,
+          end: updatedExchange.end,
         },
-        priceSource: updatedExchange.PriceSource,
-        market: updatedExchange.Market,
-        updatedAt: new Date(updatedExchange.UpdatedAt).toISOString(),
+        priceSource: updatedExchange.priceSource,
+        market: updatedExchange.market,
+        updatedAt: new Date(updatedExchange.updatedAt).toISOString(),
       });
     }
   )
@@ -273,7 +262,6 @@ export const PUT = withApiErrorReporting(
  * @returns 認証エラー (401 Unauthorized)
  * @returns 権限エラー (403 Forbidden)
  * @returns 取引所が見つからない (404 Not Found)
- * @returns 関連ティッカーあり (400 Bad Request)
  * @returns サーバーエラー (500 Internal Server Error)
  */
 export const DELETE = withApiErrorReporting(
@@ -288,7 +276,21 @@ export const DELETE = withApiErrorReporting(
       const exchangeRepo = createExchangeRepository();
 
       // 取引所を削除
-      await exchangeRepo.delete(exchangeId);
+      try {
+        await exchangeRepo.delete(exchangeId);
+      } catch (error) {
+        // 削除対象が存在しない場合
+        if (error instanceof EntityNotFoundError) {
+          return NextResponse.json(
+            {
+              error: 'NOT_FOUND',
+              message: ERROR_MESSAGES.EXCHANGE_NOT_FOUND,
+            },
+            { status: 404 }
+          );
+        }
+        throw error;
+      }
 
       // レスポンスを返す (API仕様に従った形式)
       return NextResponse.json({

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PutCommand } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 import {
   validateFile,
+  DynamoDBJobRepository,
   JOB_EXPIRATION_SECONDS,
   type Job,
   type CodecType,
@@ -119,8 +119,8 @@ export const POST = withApiErrorReporting(
     // ジョブIDの生成 (UUID v4)
     const jobId = uuidv4();
 
-    // 現在時刻（Unix timestamp 秒）
-    const now = Math.floor(Date.now() / 1000);
+    // 現在時刻（Unix timestamp ミリ秒）
+    const now = Date.now();
 
     // S3キーの構築
     const inputFileKey = `uploads/${jobId}/input.mp4`;
@@ -135,15 +135,10 @@ export const POST = withApiErrorReporting(
       fileSize,
       createdAt: now,
       updatedAt: now,
-      expiresAt: now + JOB_EXPIRATION_SECONDS,
+      expiresAt: now + JOB_EXPIRATION_SECONDS * 1000,
     };
 
-    await docClient.send(
-      new PutCommand({
-        TableName: DYNAMODB_TABLE,
-        Item: job,
-      })
-    );
+    await new DynamoDBJobRepository(docClient, DYNAMODB_TABLE).create(job);
 
     // S3 Presigned URLの生成
     const uploadUrl = await createPresignedUploadUrl(

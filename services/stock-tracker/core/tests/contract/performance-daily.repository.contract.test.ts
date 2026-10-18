@@ -4,7 +4,7 @@
  * InMemory実装と実DynamoDB実装（DynamoDB Local）の双方に対して
  * performance-daily.repository.contract.ts の共有スペックを実行する。
  */
-import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, PutCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { InMemorySingleTableStore } from '@nagiyu/aws';
 import {
@@ -27,6 +27,10 @@ definePerformanceDailyRepositoryContract('InMemory', {
   reset: async () => {
     inMemoryStore = new InMemorySingleTableStore();
   },
+  putRawItem: async (item) => {
+    inMemoryStore.put(item as Parameters<InMemorySingleTableStore['put']>[0]);
+  },
+  getRawItem: async (pk, sk) => inMemoryStore.get(pk, sk),
 });
 
 // --- DynamoDB Local 実装 ---
@@ -60,5 +64,22 @@ definePerformanceDailyRepositoryContract('DynamoDB Local', {
   teardown: async () => {
     await ensureDynamoDbLocalTable();
     await deleteTable(dynamoDbLocalRawClient as DynamoDBClient, dynamoDbLocalTableName);
+  },
+  putRawItem: async (item) => {
+    await ensureDynamoDbLocalTable();
+    await (dynamoDbLocalDocClient as DynamoDBDocumentClient).send(
+      new PutCommand({ TableName: dynamoDbLocalTableName, Item: item })
+    );
+  },
+  getRawItem: async (pk, sk) => {
+    await ensureDynamoDbLocalTable();
+    const result = await (dynamoDbLocalDocClient as DynamoDBDocumentClient).send(
+      new GetCommand({
+        TableName: dynamoDbLocalTableName,
+        Key: { PK: pk, SK: sk },
+        ConsistentRead: true,
+      })
+    );
+    return result.Item;
   },
 });

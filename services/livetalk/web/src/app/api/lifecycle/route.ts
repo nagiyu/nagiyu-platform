@@ -43,8 +43,8 @@ export const GET = withApiErrorReporting(
       });
       const state = resolveLifecycleState(
         new Date(),
-        lifecycle?.Bedtime ?? LIFECYCLE_DEFAULT_BEDTIME,
-        lifecycle?.WakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME
+        lifecycle?.bedtime ?? LIFECYCLE_DEFAULT_BEDTIME,
+        lifecycle?.wakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME
       );
       return NextResponse.json({ state });
     } catch (error) {

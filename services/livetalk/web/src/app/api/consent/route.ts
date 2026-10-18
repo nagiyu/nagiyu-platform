@@ -38,7 +38,7 @@ export const GET = withApiErrorReporting(
     const userId = session.user.id;
 
     const profile = await getProfileRepository().getById({ userId });
-    const consented = isConsentValid(profile?.Consents, {
+    const consented = isConsentValid(profile?.consents, {
       termsVersion: LIVETALK_TERMS_VERSION,
       privacyVersion: LIVETALK_PRIVACY_VERSION,
     });
@@ -49,7 +49,7 @@ export const GET = withApiErrorReporting(
         terms: LIVETALK_TERMS_VERSION,
         privacy: LIVETALK_PRIVACY_VERSION,
       },
-      current: profile?.Consents ?? null,
+      current: profile?.consents ?? null,
     });
   }),
   { error: 'FETCH_FAILED', message: CONSENT_ERROR_MESSAGES.FETCH_FAILED }
@@ -85,13 +85,13 @@ export const POST = withApiErrorReporting(
     const userId = session.user.id;
 
     await getProfileRepository().upsert(
-      { UserID: userId },
+      { userId },
       {
-        LastActiveAt: now,
-        Consents: {
-          TermsAgreed: { Version: LIVETALK_TERMS_VERSION, AgreedAt: now },
-          PrivacyAgreed: { Version: LIVETALK_PRIVACY_VERSION, AgreedAt: now },
-          AgeVerified: { Value: true, VerifiedAt: now },
+        lastActiveAt: now,
+        consents: {
+          termsAgreed: { version: LIVETALK_TERMS_VERSION, agreedAt: now },
+          privacyAgreed: { version: LIVETALK_PRIVACY_VERSION, agreedAt: now },
+          ageVerified: { value: true, verifiedAt: now },
         },
       }
     );

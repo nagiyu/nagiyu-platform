@@ -14,7 +14,7 @@ import {
 } from '../../../../../lib/repository-factory';
 import { getSession } from '../../../../../lib/auth';
 import { withApiErrorReporting } from '../../../../../lib/api-error-reporting';
-import type { Holding } from '@nagiyu/stock-tracker-core';
+import type { HoldingEntity } from '@nagiyu/stock-tracker-core';
 
 const ERROR_MESSAGES = {
   INVALID_TICKER_ID: 'ティッカーIDの形式が不正です',
@@ -69,13 +69,13 @@ export const GET = withApiErrorReporting(
       }
 
       const tickerRepo = createTickerRepository();
-      const ticker = await tickerRepo.getById(holding.TickerID);
+      const ticker = await tickerRepo.getById(holding.tickerId);
 
       return NextResponse.json(
         mapHoldingToResponse(
           holding,
-          ticker?.Symbol || holding.TickerID.split(':')[1] || '',
-          ticker?.Name || ''
+          ticker?.symbol || holding.tickerId.split(':')[1] || '',
+          ticker?.name || ''
         ),
         { status: 200 }
       );
@@ -84,21 +84,21 @@ export const GET = withApiErrorReporting(
 );
 
 function mapHoldingToResponse(
-  holding: Holding,
+  holding: HoldingEntity,
   tickerSymbol: string,
   tickerName: string
 ): HoldingResponse {
-  const holdingId = `${holding.UserID}#${holding.TickerID}`;
+  const holdingId = `${holding.userId}#${holding.tickerId}`;
 
   return {
     holdingId,
-    tickerId: holding.TickerID,
+    tickerId: holding.tickerId,
     symbol: tickerSymbol,
     name: tickerName,
-    quantity: holding.Quantity,
-    averagePrice: holding.AveragePrice,
-    currency: holding.Currency,
-    createdAt: new Date(holding.CreatedAt).toISOString(),
-    updatedAt: new Date(holding.UpdatedAt).toISOString(),
+    quantity: holding.quantity,
+    averagePrice: holding.averagePrice,
+    currency: holding.currency,
+    createdAt: new Date(holding.createdAt).toISOString(),
+    updatedAt: new Date(holding.updatedAt).toISOString(),
   };
 }

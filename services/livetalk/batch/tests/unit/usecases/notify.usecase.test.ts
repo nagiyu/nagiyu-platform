@@ -87,18 +87,18 @@ const mockSelectNotificationsToSend = core.selectNotificationsToSend as jest.Moc
 
 function makeLifecycleRepo(
   lifecycle = {
-    UserID: 'u1',
-    CharacterID: 'hiyori',
-    Bedtime: '01:30',
-    WakeUpTime: '09:30',
-    CreatedAt: 0,
-    UpdatedAt: 0,
+    userId: 'u1',
+    characterId: 'hiyori',
+    bedtime: '01:30',
+    wakeUpTime: '09:30',
+    createdAt: 0,
+    updatedAt: 0,
   }
 ) {
   return { get: jest.fn().mockResolvedValue(lifecycle) };
 }
 
-function makeMessageRepo(messages = [{ Role: 'user', CreatedAt: 1000 }]) {
+function makeMessageRepo(messages = [{ role: 'user', createdAt: 1000 }]) {
   return {
     listSince: jest.fn().mockResolvedValue(messages),
   };
@@ -106,8 +106,8 @@ function makeMessageRepo(messages = [{ Role: 'user', CreatedAt: 1000 }]) {
 
 /** デフォルトの Topic ヘッダ（care 降順を模擬した 1 件）。 */
 function makeTopicRepo(
-  topics: Array<{ TopicID: string; Subject: string; Care: number }> = [
-    { TopicID: 't1', Subject: 'TypeScript', Care: 5 },
+  topics: Array<{ topicId: string; subject: string; care: number }> = [
+    { topicId: 't1', subject: 'TypeScript', care: 5 },
   ]
 ) {
   return {
@@ -119,10 +119,10 @@ function makeTopicRepo(
 function makePushSubscriptionRepo(
   subscriptions = [
     {
-      SubscriptionID: 'sub_1',
-      Endpoint: 'https://push.example.com/1',
-      P256dhKey: 'p',
-      AuthKey: 'a',
+      subscriptionId: 'sub_1',
+      endpoint: 'https://push.example.com/1',
+      p256dhKey: 'p',
+      authKey: 'a',
     },
   ]
 ) {
@@ -284,16 +284,16 @@ describe('notifyAllUsers', () => {
 
     const pushSubscriptionRepo = makePushSubscriptionRepo([
       {
-        SubscriptionID: 'sub_1',
-        Endpoint: 'https://push.example.com/1',
-        P256dhKey: 'p',
-        AuthKey: 'a',
+        subscriptionId: 'sub_1',
+        endpoint: 'https://push.example.com/1',
+        p256dhKey: 'p',
+        authKey: 'a',
       },
       {
-        SubscriptionID: 'sub_2',
-        Endpoint: 'https://push.example.com/2',
-        P256dhKey: 'p',
-        AuthKey: 'a',
+        subscriptionId: 'sub_2',
+        endpoint: 'https://push.example.com/2',
+        p256dhKey: 'p',
+        authKey: 'a',
       },
     ]);
     pushSubscriptionRepo.delete.mockRejectedValue(new Error('delete failed'));
@@ -355,7 +355,7 @@ describe('notifyAllUsers', () => {
     expect(result.failedUserIds).toContain('u2');
   });
 
-  it('normal 通知で Topic の TopicID が notifEvent に保存される', async () => {
+  it('normal 通知で Topic の topicId が notifEvent に保存される', async () => {
     mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
     mockShouldNotifyNow.mockReturnValue({
       notify: true,
@@ -369,7 +369,29 @@ describe('notifyAllUsers', () => {
     const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
     await notifyAllUsers(makeParams({ notifEventRepo: notifEventRepo as never }));
 
-    expect(notifEventRepo.put).toHaveBeenCalledWith(expect.objectContaining({ TopicID: 't1' }));
+    expect(notifEventRepo.put).toHaveBeenCalledWith(expect.objectContaining({ topicId: 't1' }));
+  });
+
+  it('notifEvent の expiresAt は通知時刻の 30 日後 (ミリ秒) になる', async () => {
+    mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
+    mockShouldNotifyNow.mockReturnValue({
+      notify: true,
+      kind: 'normal',
+      toneBucket: 'normal',
+      elapsedMs: DAY,
+    });
+    mockSendWebPush.mockResolvedValue(true);
+
+    const fixedNow = new Date('2026-06-01T05:00:00Z');
+    const notifEventRepo = makeNotifEventRepo();
+    const { notifyAllUsers } = await import('../../../src/usecases/notify.usecase.js');
+    await notifyAllUsers(
+      makeParams({ notifEventRepo: notifEventRepo as never, now: () => fixedNow })
+    );
+
+    expect(notifEventRepo.put).toHaveBeenCalledWith(
+      expect.objectContaining({ expiresAt: fixedNow.getTime() + 30 * DAY })
+    );
   });
 
   describe('Phase B: 全キャラ走査', () => {
@@ -420,7 +442,7 @@ describe('notifyAllUsers', () => {
       // put は 1 回（ageha 分のみ）
       expect(notifEventRepo.put).toHaveBeenCalledTimes(1);
       expect(notifEventRepo.put).toHaveBeenCalledWith(
-        expect.objectContaining({ CharacterID: 'ageha' })
+        expect.objectContaining({ characterId: 'ageha' })
       );
       // push も 1 回
       expect(mockSendWebPush).toHaveBeenCalledTimes(1);
@@ -448,10 +470,10 @@ describe('notifyAllUsers', () => {
       // 2 キャラ分の put が呼ばれる
       expect(notifEventRepo.put).toHaveBeenCalledTimes(2);
       expect(notifEventRepo.put).toHaveBeenCalledWith(
-        expect.objectContaining({ CharacterID: 'hiyori' })
+        expect.objectContaining({ characterId: 'hiyori' })
       );
       expect(notifEventRepo.put).toHaveBeenCalledWith(
-        expect.objectContaining({ CharacterID: 'ageha' })
+        expect.objectContaining({ characterId: 'ageha' })
       );
     });
 
@@ -462,12 +484,12 @@ describe('notifyAllUsers', () => {
         get: jest.fn().mockImplementation(({ characterId }: { characterId: string }) => {
           if (characterId === 'hiyori') {
             return Promise.resolve({
-              UserID: 'u1',
-              CharacterID: 'hiyori',
-              Bedtime: '01:30',
-              WakeUpTime: '09:30',
-              CreatedAt: 0,
-              UpdatedAt: 0,
+              userId: 'u1',
+              characterId: 'hiyori',
+              bedtime: '01:30',
+              wakeUpTime: '09:30',
+              createdAt: 0,
+              updatedAt: 0,
             });
           }
           return Promise.resolve(null);
@@ -503,10 +525,10 @@ describe('notifyAllUsers', () => {
       mockShouldNotifyNow.mockImplementation(
         (input: {
           notificationEvents: unknown[];
-          lifecycle: { CharacterID?: string };
+          lifecycle: { characterId?: string };
           [key: string]: unknown;
         }) => {
-          const charId = input.lifecycle?.CharacterID ?? 'unknown';
+          const charId = input.lifecycle?.characterId ?? 'unknown';
           capturedEventsByCharacter[charId] = input.notificationEvents;
           return { notify: false, reason: 'not_due' };
         }
@@ -520,24 +542,26 @@ describe('notifyAllUsers', () => {
       const notifEventRepo = {
         listByUser: jest.fn().mockResolvedValue([
           {
-            UserID: 'u1',
-            NotifID: 'n1',
-            CharacterID: 'hiyori',
-            Kind: 'normal',
-            Title: 'x',
-            Body: 'x',
-            CreatedAt: Date.now() - DAY,
-            Ttl: 0,
+            userId: 'u1',
+            notifId: 'n1',
+            characterId: 'hiyori',
+            kind: 'normal',
+            title: 'x',
+            body: 'x',
+            createdAt: Date.now() - DAY,
+            updatedAt: 0,
+            expiresAt: 0,
           },
           {
-            UserID: 'u1',
-            NotifID: 'n2',
-            CharacterID: 'ageha',
-            Kind: 'normal',
-            Title: 'x',
-            Body: 'x',
-            CreatedAt: Date.now() - 2 * DAY,
-            Ttl: 0,
+            userId: 'u1',
+            notifId: 'n2',
+            characterId: 'ageha',
+            kind: 'normal',
+            title: 'x',
+            body: 'x',
+            createdAt: Date.now() - 2 * DAY,
+            updatedAt: 0,
+            expiresAt: 0,
           },
         ]),
         put: jest.fn().mockResolvedValue({}),
@@ -546,12 +570,12 @@ describe('notifyAllUsers', () => {
       const lifecycleRepo = {
         get: jest.fn().mockImplementation(({ characterId }: { characterId: string }) => {
           return Promise.resolve({
-            UserID: 'u1',
-            CharacterID: characterId,
-            Bedtime: '01:30',
-            WakeUpTime: '09:30',
-            CreatedAt: 0,
-            UpdatedAt: 0,
+            userId: 'u1',
+            characterId,
+            bedtime: '01:30',
+            wakeUpTime: '09:30',
+            createdAt: 0,
+            updatedAt: 0,
           });
         }),
       };
@@ -569,7 +593,7 @@ describe('notifyAllUsers', () => {
       expect(hiyoriEvents).toBeDefined();
       if (hiyoriEvents) {
         expect(
-          hiyoriEvents.every((e) => (e as { CharacterID: string }).CharacterID === 'hiyori')
+          hiyoriEvents.every((e) => (e as { characterId: string }).characterId === 'hiyori')
         ).toBe(true);
         expect(hiyoriEvents).toHaveLength(1);
       }
@@ -602,7 +626,7 @@ describe('notifyAllUsers', () => {
       });
     });
 
-    it('notifEvent の put に CharacterID が含まれる', async () => {
+    it('notifEvent の put に characterId が含まれる', async () => {
       mockDetectCriticalTopic.mockResolvedValue({ isCritical: false, topicId: null, factId: null });
       mockShouldNotifyNow.mockReturnValue({
         notify: true,
@@ -621,7 +645,7 @@ describe('notifyAllUsers', () => {
       await notifyAllUsers(makeParams({ notifEventRepo: notifEventRepo as never }));
 
       expect(notifEventRepo.put).toHaveBeenCalledWith(
-        expect.objectContaining({ CharacterID: 'hiyori' })
+        expect.objectContaining({ characterId: 'hiyori' })
       );
     });
   });
@@ -630,22 +654,23 @@ describe('notifyAllUsers', () => {
     it('直近通知で使用済みの TopicID を避けて未使用の Topic が選ばれる', async () => {
       // t1 は使用済み、t2 は未使用 → t2 が選ばれること
       const topicRepo = makeTopicRepo([
-        { TopicID: 't1', Subject: 'TypeScript', Care: 5 },
-        { TopicID: 't2', Subject: 'React', Care: 4 },
+        { topicId: 't1', subject: 'TypeScript', care: 5 },
+        { topicId: 't2', subject: 'React', care: 4 },
       ]);
       // 直近 60 件の通知イベントに t1 が含まれる（hiyori の履歴として）
       const notifEventRepo = {
         listByUser: jest.fn().mockResolvedValue([
           {
-            TopicID: 't1',
-            Kind: 'normal',
-            CharacterID: 'hiyori',
-            CreatedAt: Date.now() - DAY,
-            UserID: 'u1',
-            NotifID: 'n1',
-            Title: 'x',
-            Body: 'x',
-            Ttl: 0,
+            topicId: 't1',
+            kind: 'normal',
+            characterId: 'hiyori',
+            createdAt: Date.now() - DAY,
+            userId: 'u1',
+            notifId: 'n1',
+            title: 'x',
+            body: 'x',
+            updatedAt: 0,
+            expiresAt: 0,
           },
         ]),
         put: jest.fn().mockResolvedValue({}),
@@ -675,39 +700,41 @@ describe('notifyAllUsers', () => {
         expect.objectContaining({ knowledgeTopic: 'React' }),
         expect.any(Number)
       );
-      // 保存される TopicID も t2
-      expect(notifEventRepo.put).toHaveBeenCalledWith(expect.objectContaining({ TopicID: 't2' }));
+      // 保存される topicId も t2
+      expect(notifEventRepo.put).toHaveBeenCalledWith(expect.objectContaining({ topicId: 't2' }));
     });
 
     it('全 Topic が使用済みの場合は care 最上位（先頭）にフォールバックする', async () => {
       // t1, t2 どちらも使用済み → t1（先頭 = care 最上位）にフォールバック
       const topicRepo = makeTopicRepo([
-        { TopicID: 't1', Subject: 'TypeScript', Care: 5 },
-        { TopicID: 't2', Subject: 'React', Care: 4 },
+        { topicId: 't1', subject: 'TypeScript', care: 5 },
+        { topicId: 't2', subject: 'React', care: 4 },
       ]);
       const notifEventRepo = {
         listByUser: jest.fn().mockResolvedValue([
           {
-            TopicID: 't1',
-            Kind: 'normal',
-            CharacterID: 'hiyori',
-            CreatedAt: Date.now() - DAY,
-            UserID: 'u1',
-            NotifID: 'n1',
-            Title: 'x',
-            Body: 'x',
-            Ttl: 0,
+            topicId: 't1',
+            kind: 'normal',
+            characterId: 'hiyori',
+            createdAt: Date.now() - DAY,
+            userId: 'u1',
+            notifId: 'n1',
+            title: 'x',
+            body: 'x',
+            updatedAt: 0,
+            expiresAt: 0,
           },
           {
-            TopicID: 't2',
-            Kind: 'normal',
-            CharacterID: 'hiyori',
-            CreatedAt: Date.now() - 2 * DAY,
-            UserID: 'u1',
-            NotifID: 'n2',
-            Title: 'x',
-            Body: 'x',
-            Ttl: 0,
+            topicId: 't2',
+            kind: 'normal',
+            characterId: 'hiyori',
+            createdAt: Date.now() - 2 * DAY,
+            userId: 'u1',
+            notifId: 'n2',
+            title: 'x',
+            body: 'x',
+            updatedAt: 0,
+            expiresAt: 0,
           },
         ]),
         put: jest.fn().mockResolvedValue({}),
@@ -737,7 +764,7 @@ describe('notifyAllUsers', () => {
         expect.objectContaining({ knowledgeTopic: 'TypeScript' }),
         expect.any(Number)
       );
-      expect(notifEventRepo.put).toHaveBeenCalledWith(expect.objectContaining({ TopicID: 't1' }));
+      expect(notifEventRepo.put).toHaveBeenCalledWith(expect.objectContaining({ topicId: 't1' }));
     });
 
     it('Topic が皆無の場合は Topic-less（汎用文言）でフォールバックする', async () => {
@@ -764,31 +791,32 @@ describe('notifyAllUsers', () => {
         expect.objectContaining({ knowledgeTopic: undefined }),
         expect.any(Number)
       );
-      // TopicID は保存されない
+      // topicId は保存されない
       expect(notifEventRepo.put).toHaveBeenCalledWith(
-        expect.objectContaining({ TopicID: undefined })
+        expect.objectContaining({ topicId: undefined })
       );
     });
 
     it('クリティカル通知の content 選択はネタ抑制に影響されない', async () => {
       // critical は Topic が決まっているので topics の中から該当 Topic をそのまま使う
       const topicRepo = makeTopicRepo([
-        { TopicID: 't1', Subject: 'TypeScript', Care: 5 },
-        { TopicID: 't2', Subject: 'React', Care: 4 },
+        { topicId: 't1', subject: 'TypeScript', care: 5 },
+        { topicId: 't2', subject: 'React', care: 4 },
       ]);
       // t1 は使用済みだが critical は影響を受けない
       const notifEventRepo = {
         listByUser: jest.fn().mockResolvedValue([
           {
-            TopicID: 't1',
-            Kind: 'normal',
-            CharacterID: 'hiyori',
-            CreatedAt: Date.now() - DAY,
-            UserID: 'u1',
-            NotifID: 'n1',
-            Title: 'x',
-            Body: 'x',
-            Ttl: 0,
+            topicId: 't1',
+            kind: 'normal',
+            characterId: 'hiyori',
+            createdAt: Date.now() - DAY,
+            userId: 'u1',
+            notifId: 'n1',
+            title: 'x',
+            body: 'x',
+            updatedAt: 0,
+            expiresAt: 0,
           },
         ]),
         put: jest.fn().mockResolvedValue({}),
@@ -823,8 +851,8 @@ describe('notifyAllUsers', () => {
   describe('critical 候補の絞り込み（care 事前フィルタ）', () => {
     it('listWebFacts は care 閾値（NOTIFY_CRITICAL_CARE_THRESHOLD=3）以上の Topic にのみ呼ばれる', async () => {
       const topics = [
-        { TopicID: 't1', Subject: 'High', Care: 5 }, // >= 3 → 対象
-        { TopicID: 't2', Subject: 'Low', Care: 2 }, // < 3 → 対象外
+        { topicId: 't1', subject: 'High', care: 5 }, // >= 3 → 対象
+        { topicId: 't2', subject: 'Low', care: 2 }, // < 3 → 対象外
       ];
       const topicRepo = makeTopicRepo(topics);
 
@@ -847,10 +875,10 @@ describe('notifyAllUsers', () => {
     it('detectCriticalTopic に渡る candidates は care 上位から CRITICAL_CANDIDATE_TOPIC_LIMIT(3) 件に絞られる', async () => {
       // 4 件とも care 閾値以上（care 降順で repo から返る想定）
       const topics = [
-        { TopicID: 't1', Subject: 'A', Care: 10 },
-        { TopicID: 't2', Subject: 'B', Care: 9 },
-        { TopicID: 't3', Subject: 'C', Care: 8 },
-        { TopicID: 't4', Subject: 'D', Care: 7 },
+        { topicId: 't1', subject: 'A', care: 10 },
+        { topicId: 't2', subject: 'B', care: 9 },
+        { topicId: 't3', subject: 'C', care: 8 },
+        { topicId: 't4', subject: 'D', care: 7 },
       ];
       const topicRepo = makeTopicRepo(topics);
 
@@ -866,11 +894,11 @@ describe('notifyAllUsers', () => {
 
       expect(mockDetectCriticalTopic).toHaveBeenCalledTimes(1);
       const passedInput = mockDetectCriticalTopic.mock.calls[0][0] as {
-        candidates: Array<{ topic: { TopicID: string }; webFacts: unknown[] }>;
+        candidates: Array<{ topic: { topicId: string }; webFacts: unknown[] }>;
       };
       // 上位 3 件（t4 は絞り落とされる）
       expect(passedInput.candidates).toHaveLength(3);
-      expect(passedInput.candidates.map((c) => c.topic.TopicID)).toEqual(['t1', 't2', 't3']);
+      expect(passedInput.candidates.map((c) => c.topic.topicId)).toEqual(['t1', 't2', 't3']);
       // 各候補は topic + webFacts の組で構成される
       expect(passedInput.candidates[0]).toHaveProperty('webFacts');
       // t4 分の listWebFacts は呼ばれない
@@ -911,7 +939,7 @@ describe('notifyAllUsers', () => {
 
       // Topic の Subject は 'TypeScript'（makeTopicRepo のデフォルト）
       expect(notifEventRepo.put).toHaveBeenCalledWith(
-        expect.objectContaining({ SuggestedReply: 'TypeScriptについて教えて' })
+        expect.objectContaining({ suggestedReply: 'TypeScriptについて教えて' })
       );
     });
 
@@ -936,7 +964,7 @@ describe('notifyAllUsers', () => {
       );
 
       expect(notifEventRepo.put).toHaveBeenCalledWith(
-        expect.objectContaining({ SuggestedReply: '話したいことってなに？' })
+        expect.objectContaining({ suggestedReply: '話したいことってなに？' })
       );
     });
 
@@ -954,7 +982,7 @@ describe('notifyAllUsers', () => {
       await notifyAllUsers(makeParams({ notifEventRepo: notifEventRepo as never }));
 
       expect(notifEventRepo.put).toHaveBeenCalledWith(
-        expect.objectContaining({ SuggestedReply: 'TypeScriptについて教えて' })
+        expect.objectContaining({ suggestedReply: 'TypeScriptについて教えて' })
       );
     });
   });

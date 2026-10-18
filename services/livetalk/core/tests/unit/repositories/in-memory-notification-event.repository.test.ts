@@ -1,4 +1,4 @@
-import { InMemorySingleTableStore } from '@nagiyu/aws';
+import { EntityNotFoundError, InMemorySingleTableStore } from '@nagiyu/aws';
 import { InMemoryNotificationEventRepository } from '../../../src/repositories/in-memory-notification-event.repository.js';
 import type { CreateNotificationEventInput } from '../../../src/entities/notification-event.entity.js';
 
@@ -18,13 +18,13 @@ function makeInput(
 ): CreateNotificationEventInput {
   _notifSeq++;
   return {
-    UserID: 'u1',
-    NotifID: `NOTIF-${_notifSeq}`,
-    CharacterID: 'hiyori',
-    Kind: 'normal',
-    Title: 'テスト通知',
-    Body: 'テスト本文',
-    Ttl: Math.floor(BASE_NOW / 1000) + 86400,
+    userId: 'u1',
+    notifId: `NOTIF-${_notifSeq}`,
+    characterId: 'hiyori',
+    kind: 'normal',
+    title: 'テスト通知',
+    body: 'テスト本文',
+    expiresAt: BASE_NOW + 86_400_000,
     ...overrides,
   };
 }
@@ -35,33 +35,55 @@ beforeEach(() => {
 
 describe('InMemoryNotificationEventRepository', () => {
   describe('put', () => {
-    it('エンティティを保存し CreatedAt を付与する', async () => {
+    it('エンティティを保存し createdAt を付与する', async () => {
       const store = makeStore();
       const repo = makeRepo(store);
       const entity = await repo.put(makeInput());
 
-      expect(entity.UserID).toBe('u1');
-      expect(entity.CreatedAt).toBe(BASE_NOW);
-      expect(entity.Kind).toBe('normal');
+      expect(entity.userId).toBe('u1');
+      expect(entity.createdAt).toBe(BASE_NOW);
+      expect(entity.kind).toBe('normal');
     });
 
     it('critical 種別も保存できる', async () => {
       const store = makeStore();
       const repo = makeRepo(store);
-      const entity = await repo.put(makeInput({ Kind: 'critical' }));
-      expect(entity.Kind).toBe('critical');
+      const entity = await repo.put(makeInput({ kind: 'critical' }));
+      expect(entity.kind).toBe('critical');
     });
   });
 
   describe('get', () => {
+    it('旧属性名 Ttl だけで保存された Item も読める', async () => {
+      const store = makeStore();
+      const repo = makeRepo(store);
+      store.put({
+        PK: 'USER#u1',
+        SK: 'NOTIF#NOTIF-LEGACY',
+        Type: 'NotificationEvent',
+        UserID: 'u1',
+        NotifID: 'NOTIF-LEGACY',
+        CharacterID: 'hiyori',
+        Kind: 'normal',
+        Title: 'テスト通知',
+        Body: 'テスト本文',
+        CreatedAt: BASE_NOW,
+        UpdatedAt: BASE_NOW,
+        Ttl: Math.floor(BASE_NOW / 1000) + 86400,
+      });
+
+      const found = await repo.get({ userId: 'u1', notifId: 'NOTIF-LEGACY' });
+      expect(found?.expiresAt).toBe(Math.floor(BASE_NOW / 1000) * 1000 + 86_400_000);
+    });
+
     it('存在するイベントを取得できる', async () => {
       const store = makeStore();
       const repo = makeRepo(store);
-      const saved = await repo.put(makeInput({ NotifID: 'NOTIF-TEST' }));
+      const saved = await repo.put(makeInput({ notifId: 'NOTIF-TEST' }));
 
-      const found = await repo.get({ userId: 'u1', notifId: saved.NotifID });
+      const found = await repo.get({ userId: 'u1', notifId: saved.notifId });
       expect(found).not.toBeNull();
-      expect(found?.Body).toBe('テスト本文');
+      expect(found?.body).toBe('テスト本文');
     });
 
     it('存在しない場合は null を返す', async () => {
@@ -75,7 +97,7 @@ describe('InMemoryNotificationEventRepository', () => {
     it('別ユーザーのイベントは取得できない', async () => {
       const store = makeStore();
       const repo = makeRepo(store);
-      await repo.put(makeInput({ UserID: 'u2', NotifID: 'NOTIF-U2' }));
+      await repo.put(makeInput({ userId: 'u2', notifId: 'NOTIF-U2' }));
 
       const found = await repo.get({ userId: 'u1', notifId: 'NOTIF-U2' });
       expect(found).toBeNull();
@@ -83,20 +105,20 @@ describe('InMemoryNotificationEventRepository', () => {
   });
 
   describe('listByUser', () => {
-    it('CreatedAt 降順で返す', async () => {
+    it('createdAt 降順で返す', async () => {
       const store = makeStore();
       let now = BASE_NOW;
       const repo = makeRepo(store, () => now);
 
       now = BASE_NOW + 1000;
-      const a = await repo.put(makeInput({ NotifID: 'NOTIF-A' }));
+      const a = await repo.put(makeInput({ notifId: 'NOTIF-A' }));
       now = BASE_NOW + 2000;
-      const b = await repo.put(makeInput({ NotifID: 'NOTIF-B' }));
+      const b = await repo.put(makeInput({ notifId: 'NOTIF-B' }));
       now = BASE_NOW + 3000;
-      const c = await repo.put(makeInput({ NotifID: 'NOTIF-C' }));
+      const c = await repo.put(makeInput({ notifId: 'NOTIF-C' }));
 
       const list = await repo.listByUser('u1');
-      expect(list.map((e) => e.NotifID)).toEqual([c.NotifID, b.NotifID, a.NotifID]);
+      expect(list.map((e) => e.notifId)).toEqual([c.notifId, b.notifId, a.notifId]);
     });
 
     it('limit で件数を絞る', async () => {
@@ -105,7 +127,7 @@ describe('InMemoryNotificationEventRepository', () => {
       const repo = makeRepo(store, () => now);
       for (let i = 0; i < 5; i++) {
         now += 1000;
-        await repo.put(makeInput({ NotifID: `NOTIF-${i}` }));
+        await repo.put(makeInput({ notifId: `NOTIF-${i}` }));
       }
 
       const list = await repo.listByUser('u1', 3);
@@ -122,7 +144,7 @@ describe('InMemoryNotificationEventRepository', () => {
     it('別ユーザーのイベントは混入しない', async () => {
       const store = makeStore();
       const repo = makeRepo(store);
-      await repo.put(makeInput({ UserID: 'u2', NotifID: 'NOTIF-OTHER' }));
+      await repo.put(makeInput({ userId: 'u2', notifId: 'NOTIF-OTHER' }));
 
       expect(await repo.listByUser('u1')).toEqual([]);
     });
@@ -132,22 +154,13 @@ describe('InMemoryNotificationEventRepository', () => {
     it('consumedAt を更新できる', async () => {
       const store = makeStore();
       const repo = makeRepo(store);
-      const saved = await repo.put(makeInput({ NotifID: 'NOTIF-CONSUME' }));
+      const saved = await repo.put(makeInput({ notifId: 'NOTIF-CONSUME' }));
 
       const consumedAt = BASE_NOW + 5000;
-      await repo.markConsumed({ userId: 'u1', notifId: saved.NotifID }, consumedAt);
+      await repo.markConsumed({ userId: 'u1', notifId: saved.notifId }, consumedAt);
 
-      const found = await repo.get({ userId: 'u1', notifId: saved.NotifID });
-      expect(found?.ConsumedAt).toBe(consumedAt);
-    });
-
-    it('存在しないイベントへの markConsumed は例外を投げない', async () => {
-      const store = makeStore();
-      const repo = makeRepo(store);
-
-      await expect(
-        repo.markConsumed({ userId: 'u1', notifId: 'NOTIF-MISSING' }, BASE_NOW)
-      ).resolves.not.toThrow();
+      const found = await repo.get({ userId: 'u1', notifId: saved.notifId });
+      expect(found?.consumedAt).toBe(consumedAt);
     });
   });
 
@@ -155,7 +168,7 @@ describe('InMemoryNotificationEventRepository', () => {
     it('characterIds が空の場合は [] を返す', async () => {
       const store = makeStore();
       const repo = makeRepo(store);
-      await repo.put(makeInput({ NotifID: 'NOTIF-X' }));
+      await repo.put(makeInput({ notifId: 'NOTIF-X' }));
 
       const result = await repo.listLatestUnconsumedByCharacter('u1', []);
       expect(result).toEqual([]);
@@ -167,25 +180,25 @@ describe('InMemoryNotificationEventRepository', () => {
       const repo = makeRepo(store, () => now);
 
       now = BASE_NOW + 1000;
-      await repo.put(makeInput({ NotifID: 'N-HIY-OLD', CharacterID: 'hiyori' }));
+      await repo.put(makeInput({ notifId: 'N-HIY-OLD', characterId: 'hiyori' }));
       now = BASE_NOW + 2000;
-      await repo.put(makeInput({ NotifID: 'N-HIY-NEW', CharacterID: 'hiyori' }));
+      await repo.put(makeInput({ notifId: 'N-HIY-NEW', characterId: 'hiyori' }));
       now = BASE_NOW + 3000;
-      await repo.put(makeInput({ NotifID: 'N-AGE', CharacterID: 'ageha' }));
+      await repo.put(makeInput({ notifId: 'N-AGE', characterId: 'ageha' }));
 
       const result = await repo.listLatestUnconsumedByCharacter('u1', ['hiyori', 'ageha']);
       expect(result).toHaveLength(2);
 
-      const hiyori = result.find((e) => e.CharacterID === 'hiyori');
-      // 最新（CreatedAt が大きい方）が返ること
-      expect(hiyori?.NotifID).toBe('N-HIY-NEW');
+      const hiyori = result.find((e) => e.characterId === 'hiyori');
+      // 最新（createdAt が大きい方）が返ること
+      expect(hiyori?.notifId).toBe('N-HIY-NEW');
     });
 
     it('消化済みイベントはスキップする', async () => {
       const store = makeStore();
       const repo = makeRepo(store);
-      const saved = await repo.put(makeInput({ NotifID: 'NOTIF-CONSUME' }));
-      await repo.markConsumed({ userId: 'u1', notifId: saved.NotifID }, BASE_NOW + 1000);
+      const saved = await repo.put(makeInput({ notifId: 'NOTIF-CONSUME' }));
+      await repo.markConsumed({ userId: 'u1', notifId: saved.notifId }, BASE_NOW + 1000);
 
       const result = await repo.listLatestUnconsumedByCharacter('u1', ['hiyori']);
       expect(result).toHaveLength(0);
@@ -198,16 +211,16 @@ describe('InMemoryNotificationEventRepository', () => {
 
       // 最新: 消化済み
       now = BASE_NOW + 2000;
-      const consumed = await repo.put(makeInput({ NotifID: 'N-CONSUMED' }));
-      await repo.markConsumed({ userId: 'u1', notifId: consumed.NotifID }, now + 100);
+      const consumed = await repo.put(makeInput({ notifId: 'N-CONSUMED' }));
+      await repo.markConsumed({ userId: 'u1', notifId: consumed.notifId }, now + 100);
 
       // 2 番目: 未消化
       now = BASE_NOW + 1000;
-      await repo.put(makeInput({ NotifID: 'N-UNCONSUMED' }));
+      await repo.put(makeInput({ notifId: 'N-UNCONSUMED' }));
 
       const result = await repo.listLatestUnconsumedByCharacter('u1', ['hiyori']);
       expect(result).toHaveLength(1);
-      expect(result[0].NotifID).toBe('N-UNCONSUMED');
+      expect(result[0].notifId).toBe('N-UNCONSUMED');
     });
 
     it('全件走査して未消化を発見する（大量消化済みでも取りこぼさない）', async () => {
@@ -215,30 +228,53 @@ describe('InMemoryNotificationEventRepository', () => {
       let now = BASE_NOW;
       const repo = makeRepo(store, () => now);
 
-      // 多数の消化済みを先に（CreatedAt が新しい順）登録
+      // 多数の消化済みを先に（createdAt が新しい順）登録
       for (let i = 100; i >= 1; i--) {
         now = BASE_NOW + i * 1000;
-        const e = await repo.put(makeInput({ NotifID: `N-CONSUMED-${i}` }));
-        await repo.markConsumed({ userId: 'u1', notifId: e.NotifID }, now + 100);
+        const e = await repo.put(makeInput({ notifId: `N-CONSUMED-${i}` }));
+        await repo.markConsumed({ userId: 'u1', notifId: e.notifId }, now + 100);
       }
 
-      // 最も古い（CreatedAt が最小）の未消化通知
+      // 最も古い（createdAt が最小）の未消化通知
       now = BASE_NOW;
-      await repo.put(makeInput({ NotifID: 'N-OLDEST-UNCONSUMED' }));
+      await repo.put(makeInput({ notifId: 'N-OLDEST-UNCONSUMED' }));
 
       const result = await repo.listLatestUnconsumedByCharacter('u1', ['hiyori']);
       expect(result).toHaveLength(1);
-      expect(result[0].NotifID).toBe('N-OLDEST-UNCONSUMED');
+      expect(result[0].notifId).toBe('N-OLDEST-UNCONSUMED');
     });
 
     it('別ユーザーのイベントは混入しない', async () => {
       const store = makeStore();
       const repo = makeRepo(store);
       // u2 のイベントのみ
-      await repo.put(makeInput({ UserID: 'u2', NotifID: 'N-U2' }));
+      await repo.put(makeInput({ userId: 'u2', notifId: 'N-U2' }));
 
       const result = await repo.listLatestUnconsumedByCharacter('u1', ['hiyori']);
       expect(result).toHaveLength(0);
+    });
+  });
+
+  describe('markConsumed', () => {
+    it('consumedAt を記録し、ほかの項目は変えない', async () => {
+      const store = makeStore();
+      const repo = makeRepo(store);
+      const saved = await repo.put(makeInput({ notifId: 'N-MARK' }));
+
+      await repo.markConsumed({ userId: 'u1', notifId: 'N-MARK' }, BASE_NOW + 1000);
+
+      const found = await repo.get({ userId: 'u1', notifId: 'N-MARK' });
+      expect(found).toEqual({ ...saved, consumedAt: BASE_NOW + 1000 });
+    });
+
+    it('対象が存在しない場合は EntityNotFoundError を投げ、欠けたアイテムを作らない', async () => {
+      const store = makeStore();
+      const repo = makeRepo(store);
+
+      await expect(
+        repo.markConsumed({ userId: 'u1', notifId: 'N-MISSING' }, BASE_NOW)
+      ).rejects.toBeInstanceOf(EntityNotFoundError);
+      expect(await repo.get({ userId: 'u1', notifId: 'N-MISSING' })).toBeNull();
     });
   });
 
@@ -247,8 +283,8 @@ describe('InMemoryNotificationEventRepository', () => {
       const store = makeStore();
       const repo = new InMemoryNotificationEventRepository(store);
       const before = Date.now();
-      const entity = await repo.put(makeInput({ NotifID: 'NOTIF-DEFAULT' }));
-      expect(entity.CreatedAt).toBeGreaterThanOrEqual(before);
+      const entity = await repo.put(makeInput({ notifId: 'NOTIF-DEFAULT' }));
+      expect(entity.createdAt).toBeGreaterThanOrEqual(before);
     });
   });
 });

@@ -248,7 +248,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
     return false;
   }
 
-  const ttl = Math.floor(currentNow.getTime() / 1000) + NOTIFICATION_EVENT_TTL_SECONDS;
+  const expiresAt = currentNow.getTime() + NOTIFICATION_EVENT_TTL_SECONDS * 1000;
   let anySent = false;
 
   // 送ると決まった各通知について push 送信 → 履歴記録
@@ -268,7 +268,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
     // 全サブスクリプションに送信（失敗はログのみ、無効は削除）
     const result = await sendWebPushNotifications(
       subscriptions,
-      (sub) => ({ endpoint: sub.Endpoint, keys: { p256dh: sub.P256dhKey, auth: sub.AuthKey } }),
+      (sub) => ({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dhKey, auth: sub.authKey } }),
       payload,
       vapidConfig
     );
@@ -276,12 +276,12 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
     // 無効なサブスクリプション（404/410）を削除する。削除の失敗で配信履歴の記録を止めないよう継続する
     for (const sub of result.invalid) {
       try {
-        await pushSubscriptionRepo.delete({ userId, subscriptionId: sub.SubscriptionID });
+        await pushSubscriptionRepo.delete({ userId, subscriptionId: sub.subscriptionId });
       } catch (error) {
         logger.warn('[notifyAllUsers] 無効なサブスクリプションの削除失敗（継続）', {
           userId,
           characterId,
-          subscriptionId: sub.SubscriptionID,
+          subscriptionId: sub.subscriptionId,
           error: toErrorMessage(error),
         });
       }
@@ -291,7 +291,7 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
       logger.warn('[notifyAllUsers] Push 送信失敗（継続）', {
         userId,
         characterId,
-        subscriptionId: target.SubscriptionID,
+        subscriptionId: target.subscriptionId,
         error: toErrorMessage(error),
       });
     }
@@ -301,15 +301,15 @@ async function processUser(params: ProcessUserParams): Promise<boolean> {
 
     // 配信履歴を記録（CharacterID・SuggestedReply を付与）
     await notifEventRepo.put({
-      UserID: userId,
-      NotifID: ulidFactory(),
-      CharacterID: characterId,
-      Kind: kind,
-      Title: title,
-      Body: body,
-      TopicID: topicId,
-      SuggestedReply: suggestedReply,
-      Ttl: ttl,
+      userId,
+      notifId: ulidFactory(),
+      characterId,
+      kind,
+      title,
+      body,
+      topicId,
+      suggestedReply,
+      expiresAt,
     });
 
     anySent = true;
@@ -360,10 +360,10 @@ async function evaluateCharacter(params: {
   const intensityWindowMs = NOTIFY_INTENSITY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
   const sinceMs = now.getTime() - intensityWindowMs;
   const recentMessages = await messageRepo.listSince(userId, characterId, sinceMs);
-  const userMessages = recentMessages.filter((m) => m.Role === 'user');
+  const userMessages = recentMessages.filter((m) => m.role === 'user');
 
   // 通知履歴をこのキャラ単位でフィルタ（他キャラの通知が interval/cap/missedCount に混入しない）
-  const charNotifEvents = allUserEvents.filter((e) => e.CharacterID === characterId);
+  const charNotifEvents = allUserEvents.filter((e) => e.characterId === characterId);
 
   // care 降順で Topic ヘッダを取得（ネタ源・critical 判定の候補）
   const topics = await topicRepo.listTopicHeadersByCareDesc(userId, characterId, 10);
@@ -372,12 +372,12 @@ async function evaluateCharacter(params: {
   // care 閾値未満は detectCriticalTopic 側でも LLM をスキップするため、
   // ここで先に絞り込んで無駄な listWebFacts（DynamoDB Query）を避ける。
   const criticalCandidateTopics = topics
-    .filter((t) => t.Care >= NOTIFY_CRITICAL_CARE_THRESHOLD)
+    .filter((t) => t.care >= NOTIFY_CRITICAL_CARE_THRESHOLD)
     .slice(0, CRITICAL_CANDIDATE_TOPIC_LIMIT);
   const criticalCandidates = await Promise.all(
     criticalCandidateTopics.map(async (topic) => ({
       topic,
-      webFacts: await topicRepo.listWebFacts(userId, characterId, topic.TopicID),
+      webFacts: await topicRepo.listWebFacts(userId, characterId, topic.topicId),
     }))
   );
 
@@ -408,8 +408,8 @@ async function evaluateCharacter(params: {
   }
 
   // このキャラの直近 normal 通知時刻（総量調停の公平性選抜に使用）
-  const lastNormalEvent = charNotifEvents.find((e) => e.Kind === 'normal');
-  const lastNormalAt = lastNormalEvent?.CreatedAt ?? 0;
+  const lastNormalEvent = charNotifEvents.find((e) => e.kind === 'normal');
+  const lastNormalAt = lastNormalEvent?.createdAt ?? 0;
 
   // 通知文面生成
   let title: string;
@@ -418,39 +418,39 @@ async function evaluateCharacter(params: {
   let suggestedReply: string;
 
   if (decision.kind === 'critical') {
-    const topic = topics.find((t) => t.TopicID === decision.topicId);
+    const topic = topics.find((t) => t.topicId === decision.topicId);
     const msg = buildCriticalNotificationMessage(
-      topic?.Subject ?? '大事なこと',
+      topic?.subject ?? '大事なこと',
       characterNotificationName
     );
     title = msg.title;
     body = msg.body;
     topicId = decision.topicId;
-    suggestedReply = buildSuggestedReply(topic?.Subject);
+    suggestedReply = buildSuggestedReply(topic?.subject);
   } else {
     // 直近で使用済みの TopicID を避けてネタを選ぶ（同じ話題の連発を抑制）
     // このキャラの履歴から使用済み TopicID を収集する
     const usedTopicIds = new Set(
       charNotifEvents
-        .map((e: { TopicID?: string }) => e.TopicID)
+        .map((e) => e.topicId)
         .filter((id: string | undefined): id is string => id !== undefined)
     );
     // 未使用の care 最上位を選ぶ。無ければ care 最上位（無条件）にフォールバック。
     // Topic が皆無なら freshTopic は undefined のまま（Topic-less フォールバック）。
     const freshTopic: TopicEntity | undefined =
-      topics.find((t) => !usedTopicIds.has(t.TopicID)) ?? topics[0];
+      topics.find((t) => !usedTopicIds.has(t.topicId)) ?? topics[0];
     const msg = buildNotificationMessage(
       {
         toneBucket: decision.toneBucket,
-        knowledgeTopic: freshTopic?.Subject,
+        knowledgeTopic: freshTopic?.subject,
         characterDisplayName: characterNotificationName,
       },
       now.getTime()
     );
     title = msg.title;
     body = msg.body;
-    topicId = freshTopic?.TopicID;
-    suggestedReply = buildSuggestedReply(freshTopic?.Subject);
+    topicId = freshTopic?.topicId;
+    suggestedReply = buildSuggestedReply(freshTopic?.subject);
   }
 
   return {
@@ -488,7 +488,7 @@ async function computeUserDailyNormalCap(params: {
   for (const characterId of allCharacterIds) {
     try {
       const messages = await messageRepo.listSince(userId, characterId, sinceMs);
-      const userMessages = messages.filter((m) => m.Role === 'user');
+      const userMessages = messages.filter((m) => m.role === 'user');
       const sessionStarts = extractSessionStartTimes(userMessages, sessionGapMs);
       const factor = computeIntensityFactor(sessionStarts, now);
       if (factor > maxFactor) {

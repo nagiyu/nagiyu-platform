@@ -1,5 +1,5 @@
 /**
- * ChatGuardRepository の DynamoDB 実装（Issue #3528）。
+ * ChatGuardRepository の DynamoDB 実装。
  *
  * Single Table 設計のメインテーブルに相乗りする。PK は既存の `USER#<userId>` を使用する。
  *
@@ -13,6 +13,7 @@
 
 import { DeleteCommand, UpdateCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { isConditionalCheckFailed, toDatabaseError } from '@nagiyu/aws';
+import { computeBucket, computeLockTtlSec, computeWindowTtlSec } from '../lib/chat-guard-window.js';
 import { buildUserPK, buildChatLockSK, buildChatRateLimitSK } from '../mappers/keys.js';
 import type {
   AcquireLockResult,
@@ -21,28 +22,7 @@ import type {
   RateLimitWindow,
 } from './chat-guard.repository.interface.js';
 
-/**
- * ウィンドウのバケット文字列を算出する。
- * - '1m': エポック分（floor(nowMs / 60000)）
- * - '1h': エポック時（floor(nowMs / 3600000)）
- */
-export function computeBucket(window: RateLimitWindow, nowMs: number): string {
-  if (window === '1m') return String(Math.floor(nowMs / 60_000));
-  return String(Math.floor(nowMs / 3_600_000));
-}
-
-/**
- * ウィンドウ満了 Unix 秒（アイテムの TTL 用）を算出する。
- * バッファを加算してウィンドウ直後に即座に消えないようにする。
- * - '1m': 次の分の開始 Unix 秒 + 120s バッファ
- * - '1h': 次の時間の開始 Unix 秒 + 7200s バッファ
- */
-export function computeWindowTtlSec(window: RateLimitWindow, nowMs: number): number {
-  if (window === '1m') {
-    return (Math.floor(nowMs / 60_000) + 1) * 60 + 120;
-  }
-  return (Math.floor(nowMs / 3_600_000) + 1) * 3_600 + 7_200;
-}
+export { computeBucket, computeWindowTtlSec };
 
 export class DynamoDBChatGuardRepository implements ChatGuardRepository {
   private readonly docClient: DynamoDBDocumentClient;
@@ -104,8 +84,8 @@ export class DynamoDBChatGuardRepository implements ChatGuardRepository {
     const pk = buildUserPK(userId);
     const sk = buildChatLockSK();
     const expiresAt = nowMs + lockTtlMs;
-    // DynamoDB TTL は Unix 秒。ロック満了の少し後に自動削除されるよう余裕を持たせる。
-    const ttlSec = Math.floor(expiresAt / 1000) + 300;
+    // DynamoDB TTL は Unix 秒
+    const ttlSec = computeLockTtlSec(expiresAt);
 
     try {
       await this.docClient.send(
@@ -153,14 +133,10 @@ export class DynamoDBChatGuardRepository implements ChatGuardRepository {
           },
         })
       );
-    } catch (error) {
-      if (isConditionalCheckFailed(error)) {
-        // ownerToken 不一致（期限切れ・奪取済み）は安全に握りつぶす。
-        return;
-      }
+    } catch {
+      // ownerToken 不一致（期限切れ・奪取済み）は安全に握りつぶす。
       // DynamoDB 障害時もフェイルオープン方針に合わせて握りつぶす（警告は route 層で行う）。
       // ロックは TTL（CHAT_LOCK_TTL_MS）で自然失効するため、解放失敗は許容できる。
-      return;
     }
   }
 }

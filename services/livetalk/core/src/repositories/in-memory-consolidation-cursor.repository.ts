@@ -1,57 +1,54 @@
-import { InMemorySingleTableStore } from '@nagiyu/aws';
+import {
+  EntityAlreadyExistsError,
+  InMemoryEntityStore,
+  OptimisticLockError,
+  type EntityStore,
+  type InMemorySingleTableStore,
+} from '@nagiyu/aws';
 import type {
   ConsolidationCursorEntity,
+  ConsolidationCursorKey,
   PutConsolidationCursorInput,
 } from '../entities/consolidation-cursor.entity.js';
 import { ConsolidationCursorMapper } from '../mappers/consolidation-cursor.mapper.js';
-import { OptimisticLockError } from './optimistic-lock.error.js';
 import type { ConsolidationCursorRepository } from './consolidation-cursor.repository.interface.js';
 
 export class InMemoryConsolidationCursorRepository implements ConsolidationCursorRepository {
-  private readonly mapper: ConsolidationCursorMapper;
-  private readonly store: InMemorySingleTableStore;
   private readonly nowMs: () => number;
+  private readonly entityStore: EntityStore<ConsolidationCursorEntity, ConsolidationCursorKey>;
 
   constructor(store: InMemorySingleTableStore, nowMs: () => number = () => Date.now()) {
-    this.store = store;
     this.nowMs = nowMs;
-    this.mapper = new ConsolidationCursorMapper();
+    this.entityStore = new InMemoryEntityStore(store, new ConsolidationCursorMapper(), {
+      now: nowMs,
+    });
   }
 
   public async get(userId: string, characterId: string): Promise<ConsolidationCursorEntity | null> {
-    const { pk, sk } = this.mapper.buildKeys({ userId, characterId });
-    const item = this.store.get(pk, sk);
-    if (!item) return null;
-    return this.mapper.toEntity(item);
+    return this.entityStore.get({ userId, characterId });
   }
 
   public async put(
     entity: PutConsolidationCursorInput,
     opts: { expectedUpdatedAt?: number } = {}
   ): Promise<ConsolidationCursorEntity> {
-    const now = this.nowMs();
-    const { pk, sk } = this.mapper.buildKeys({
-      userId: entity.UserID,
-      characterId: entity.CharacterID,
-    });
-    const existingItem = this.store.get(pk, sk);
-    const identifier = `${entity.UserID}#${entity.CharacterID}`;
+    const merged: ConsolidationCursorEntity = { ...entity, updatedAt: this.nowMs() };
 
-    if (opts.expectedUpdatedAt === undefined) {
-      if (existingItem) {
-        throw new OptimisticLockError('ConsolidationCursor', identifier);
-      }
-    } else {
-      const existingUpdatedAt = existingItem
-        ? this.mapper.toEntity(existingItem).UpdatedAt
-        : undefined;
-      if (existingUpdatedAt !== opts.expectedUpdatedAt) {
-        throw new OptimisticLockError('ConsolidationCursor', identifier);
-      }
+    if (opts.expectedUpdatedAt !== undefined) {
+      return this.entityStore.put(merged, { expectedUpdatedAt: opts.expectedUpdatedAt });
     }
 
-    const merged: ConsolidationCursorEntity = { ...entity, UpdatedAt: now };
-    this.store.put(this.mapper.toItem(merged));
-    return merged;
+    try {
+      return await this.entityStore.create(merged);
+    } catch (error) {
+      // 新規作成の衝突も呼び出し側が楽観ロック競合として扱えるよう、同じエラーに揃える
+      if (error instanceof EntityAlreadyExistsError) {
+        throw new OptimisticLockError(
+          'ConsolidationCursor',
+          `${entity.userId}#${entity.characterId}`
+        );
+      }
+      throw error;
+    }
   }
 }

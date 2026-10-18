@@ -95,7 +95,7 @@ export const POST = withApiErrorReporting(
     const pushSubscriptionRepo = getPushSubscriptionRepository();
     const result = await sendWebPushNotifications(
       subscriptions,
-      (sub) => ({ endpoint: sub.Endpoint, keys: { p256dh: sub.P256dhKey, auth: sub.AuthKey } }),
+      (sub) => ({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dhKey, auth: sub.authKey } }),
       payload,
       vapidConfig
     );
@@ -105,19 +105,19 @@ export const POST = withApiErrorReporting(
       try {
         await pushSubscriptionRepo.delete({
           userId,
-          subscriptionId: sub.SubscriptionID,
+          subscriptionId: sub.subscriptionId,
         });
       } catch (error) {
         logger.warn('[POST /api/push/test] 無効なサブスクリプションの削除失敗（継続）', {
           userId,
           characterId,
-          subscriptionId: sub.SubscriptionID,
+          subscriptionId: sub.subscriptionId,
           error: toErrorMessage(error),
         });
         await reportSwallowedError(
           'Web API: 無効なサブスクリプションの削除エラー',
           error,
-          { characterId, subscriptionId: sub.SubscriptionID },
+          { characterId, subscriptionId: sub.subscriptionId },
           'warning'
         );
       }
@@ -127,7 +127,7 @@ export const POST = withApiErrorReporting(
       logger.warn('[POST /api/push/test] Push 送信失敗（継続）', {
         userId,
         characterId,
-        subscriptionId: target.SubscriptionID,
+        subscriptionId: target.subscriptionId,
         error: toErrorMessage(error),
       });
     }
@@ -136,15 +136,14 @@ export const POST = withApiErrorReporting(
 
     // 1 件以上送信成功した場合、NotificationEvent を記録する（first-word/pending 検証のため）
     if (sentCount > 0) {
-      const ttl = Math.floor(Date.now() / 1000) + NOTIFICATION_EVENT_TTL_SECONDS;
       await getNotificationEventRepository().put({
-        UserID: userId,
-        NotifID: defaultUlidFactory(),
-        CharacterID: characterId,
-        Kind: 'normal',
-        Title: title,
-        Body: bodyText,
-        Ttl: ttl,
+        userId,
+        notifId: defaultUlidFactory(),
+        characterId,
+        kind: 'normal',
+        title,
+        body: bodyText,
+        expiresAt: Date.now() + NOTIFICATION_EVENT_TTL_SECONDS * 1000,
       });
 
       logger.info('[POST /api/push/test] テスト通知送信完了', {

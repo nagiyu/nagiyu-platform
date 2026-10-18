@@ -3,8 +3,8 @@
  * EventBridge Scheduler から rate(1 hour) で実行される
  *
  * 期限切れの一時通知アラートを「無効化 + DynamoDB TTL」によって失効させる。
- * - subscription / ConditionList などバッチ処理に不要な属性は読み込まない
- * - 物理削除は DynamoDB TTL に委ねる（TTL_GRACE_DAYS 後を Unix 秒で TTL 設定）
+ * - subscription / conditionList などバッチ処理に不要な属性は読み込まない
+ * - 物理削除は DynamoDB TTL に委ねる（EXPIRED_ALERT_TTL_GRACE_DAYS 後の時刻を expiresAt に設定）
  */
 
 import { logger, toErrorMessage } from '@nagiyu/common';
@@ -35,8 +35,8 @@ interface BatchStatistics {
 const MAX_PAGES_PER_FREQUENCY = 20;
 
 /**
- * 失効させたアラートに設定する TTL の猶予期間（日数）。
- * バッチ実行時刻 + この日数を Unix 秒に変換して TTL 属性に設定する。
+ * 失効させたアラートの物理削除までの猶予期間（日数）。
+ * バッチ実行時刻 + この日数を expiresAt に設定する。
  * DynamoDB TTL の発火遅延（最大 48 時間）を吸収できる長さを選ぶ。
  */
 const EXPIRED_ALERT_TTL_GRACE_DAYS = 7;
@@ -70,8 +70,8 @@ async function getAllTemporaryCandidatesByFrequency(
   return candidates;
 }
 
-function calculateTtlSeconds(now: number): number {
-  return Math.floor((now + EXPIRED_ALERT_TTL_GRACE_DAYS * 24 * 60 * 60 * 1000) / 1000);
+function calculateExpiresAt(now: number): number {
+  return now + EXPIRED_ALERT_TTL_GRACE_DAYS * 24 * 60 * 60 * 1000;
 }
 
 async function processCandidate(
@@ -82,18 +82,18 @@ async function processCandidate(
   stats: BatchStatistics
 ): Promise<void> {
   try {
-    // getTemporaryCandidatesByFrequency 側で Temporary=true && TTL 未設定 に絞っているが、
+    // getTemporaryCandidatesByFrequency 側で temporary=true && expiresAt 未設定 に絞っているが、
     // InMemory / 将来の実装の差異で漏れた場合の保険として再チェックする。
-    if (!candidate.Temporary) {
+    if (!candidate.temporary) {
       stats.skippedNonTemporary++;
       return;
     }
-    if (!candidate.TemporaryExpireDate) {
+    if (!candidate.temporaryExpireDate) {
       stats.skippedInvalidData++;
       return;
     }
 
-    const exchange = await exchangeRepo.getById(candidate.ExchangeID);
+    const exchange = await exchangeRepo.getById(candidate.exchangeId);
     if (!exchange) {
       stats.errors++;
       return;
@@ -105,27 +105,33 @@ async function processCandidate(
     }
 
     // ユーザーが手動で無効化した一時アラートは、期限到来を待たずに即時 TTL を付与して物理削除予約する。
-    if (!candidate.Enabled) {
-      const ttlSeconds = calculateTtlSeconds(now);
-      await alertRepo.markTemporaryAsExpired(candidate.UserID, candidate.AlertID, ttlSeconds);
+    if (!candidate.enabled) {
+      await alertRepo.markTemporaryAsExpired(
+        candidate.userId,
+        candidate.alertId,
+        calculateExpiresAt(now)
+      );
       stats.deactivatedManually++;
       return;
     }
 
     const lastTradingDate = getLastTradingDate(exchange, now);
-    if (lastTradingDate < candidate.TemporaryExpireDate) {
+    if (lastTradingDate < candidate.temporaryExpireDate) {
       stats.skippedNotExpired++;
       return;
     }
 
-    const ttlSeconds = calculateTtlSeconds(now);
-    await alertRepo.markTemporaryAsExpired(candidate.UserID, candidate.AlertID, ttlSeconds);
+    await alertRepo.markTemporaryAsExpired(
+      candidate.userId,
+      candidate.alertId,
+      calculateExpiresAt(now)
+    );
     stats.deactivated++;
   } catch (error) {
     stats.errors++;
     logger.error('一時通知アラートの失効処理でエラーが発生しました', {
-      alertId: candidate.AlertID,
-      userId: candidate.UserID,
+      alertId: candidate.alertId,
+      userId: candidate.userId,
       error: toErrorMessage(error),
     });
   }

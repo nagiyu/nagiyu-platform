@@ -275,8 +275,8 @@ curl https://codec-converter.nagiyu.com/api/jobs/550e8400-e29b-41d4-a716-4466554
     "fileName": "sample.mp4",
     "fileSize": 52428800,
     "outputCodec": "h264",
-    "createdAt": 1704067200,
-    "updatedAt": 1704067800
+    "createdAt": 1704067200000,
+    "updatedAt": 1704067800000
 }
 ```
 
@@ -289,13 +289,15 @@ curl https://codec-converter.nagiyu.com/api/jobs/550e8400-e29b-41d4-a716-4466554
     "fileName": "sample.mp4",
     "fileSize": 52428800,
     "outputCodec": "h264",
-    "createdAt": 1704067200,
-    "updatedAt": 1704067800,
+    "createdAt": 1704067200000,
+    "updatedAt": 1704067800000,
     "downloadUrl": "https://codec-converter-storage.s3.us-east-1.amazonaws.com/outputs/550e8400-e29b-41d4-a716-446655440000/output.mp4?X-Amz-Algorithm=..."
 }
 ```
 
 ##### レスポンスフィールド
+
+[4.1 Job](#41-job) のすべての項目に、`downloadUrl` を加えて返す。主な項目は次のとおり。
 
 | フィールド   | 型     | 説明                                                     |
 | ------------ | ------ | -------------------------------------------------------- |
@@ -304,8 +306,8 @@ curl https://codec-converter.nagiyu.com/api/jobs/550e8400-e29b-41d4-a716-4466554
 | fileName     | string | 元のファイル名                                           |
 | fileSize     | number | ファイルサイズ（バイト）                                 |
 | outputCodec  | string | 出力コーデック                                           |
-| createdAt    | number | 作成日時（Unix timestamp 秒）                            |
-| updatedAt    | number | 更新日時（Unix timestamp 秒）                            |
+| createdAt    | number | 作成日時（Unix timestamp ミリ秒）                        |
+| updatedAt    | number | 更新日時（Unix timestamp ミリ秒）                        |
 | downloadUrl  | string | ダウンロード用 Presigned URL（`COMPLETED` 時のみ、有効期限24時間） |
 | errorMessage | string | エラーメッセージ（`FAILED` 時のみ）                      |
 
@@ -338,9 +340,9 @@ interface Job {
     outputCodec: "h264" | "vp9" | "av1";
     fileName: string;           // 元ファイル名
     fileSize: number;           // バイト
-    createdAt: number;          // Unix timestamp (秒)
-    updatedAt: number;          // Unix timestamp (秒)
-    expiresAt: number;          // Unix timestamp (秒), TTL用
+    createdAt: number;          // Unix timestamp (ミリ秒)
+    updatedAt: number;          // Unix timestamp (ミリ秒)
+    expiresAt: number;          // Unix timestamp (ミリ秒)。保存時は TTL 属性にエポック秒で書く
     errorMessage?: string;      // FAILED時のエラー内容
 }
 ```
@@ -356,9 +358,9 @@ interface Job {
     "outputCodec": "h264",
     "fileName": "sample.mp4",
     "fileSize": 52428800,
-    "createdAt": 1704067200,
-    "updatedAt": 1704067800,
-    "expiresAt": 1704153600
+    "createdAt": 1704067200000,
+    "updatedAt": 1704067800000,
+    "expiresAt": 1704153600000
 }
 ```
 

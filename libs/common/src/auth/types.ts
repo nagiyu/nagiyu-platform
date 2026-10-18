@@ -23,12 +23,12 @@ export interface User {
   name: string;
   /** Array of role IDs assigned to the user */
   roles: string[];
-  /** ISO 8601 timestamp of user creation */
-  createdAt: string;
-  /** ISO 8601 timestamp of last update */
-  updatedAt: string;
-  /** ISO 8601 timestamp of last login (optional) */
-  lastLoginAt?: string;
+  /** Unix timestamp (milliseconds) of user creation */
+  createdAt: number;
+  /** Unix timestamp (milliseconds) of last update */
+  updatedAt: number;
+  /** Unix timestamp (milliseconds) of last login (optional) */
+  lastLoginAt?: number;
   /** Profile picture URL (optional, from OAuth provider) */
   picture?: string;
 }

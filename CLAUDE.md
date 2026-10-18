@@ -321,6 +321,7 @@ Claude Code on the web で本リポジトリを扱う際の環境固有の事情
 
 - **環境構築の 2 系統**：claude.ai/code の Setup Script（約 7 日キャッシュ、UI 設定）と `.claude/settings.json` の SessionStart hook（毎セッション）は別物。本リポジトリは前者のみ使い、後者は使わない方針
 - **Playwright**：素の `npx playwright install` はベースイメージ同梱の global（1.56.1）を呼んでしまうため使わない。プロジェクトローカル CLI（`node_modules/.bin/playwright`）か `npx playwright@<project-version>` を使う
+- **AWS CLI**: 毎回 `--profile nagiyu-dev` / `--profile nagiyu-prod` を付ける (`AWS_PROFILE` では切り替わらない)。付けないと AccessDenied になるが、権限不足ではなく呼び方の誤り。読み取りを諦めて人に頼む前に [`docs/infra/shared/iam.md`](docs/infra/shared/iam.md) を確かめる
 - **WebKit の E2E は on-demand**：Full CI 相当の確認が必要なセッションでのみ `playwright install --with-deps webkit` を実行する
 - **shared libs のビルド**：`next dev` や E2E を回す前に `@nagiyu/common → browser → ui → nextjs` の順で `dist/` をビルドする（`npm ci` だけでは作られない）
 

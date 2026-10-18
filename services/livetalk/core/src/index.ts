@@ -394,8 +394,6 @@ export type { ConsolidationCursorRepository } from './repositories/consolidation
 export { DynamoDBConsolidationCursorRepository } from './repositories/dynamodb-consolidation-cursor.repository.js';
 export { InMemoryConsolidationCursorRepository } from './repositories/in-memory-consolidation-cursor.repository.js';
 
-export { OptimisticLockError } from './repositories/optimistic-lock.error.js';
-
 export { WEBRAW_TTL_SECONDS } from './constants.js';
 
 // consolidation（集約バッチ）（リブトーク知識再設計 P1 / #3697、shadow build）
@@ -432,42 +430,3 @@ export {
   TOPIC_RECALL_RELATED_THRESHOLD,
   TOPIC_RECALL_RELATED_MAX,
 } from './constants.js';
-
-// ---- 一回性マイグレーション（旧知識資材 → 新 Topic モデル、throwaway）----
-// 移行完了・Issue クローズ後は `migration/` ディレクトリごと削除してよい。
-export {
-  MIGRATION_CHUNK_SIZE,
-  MIGRATION_CARE_SEED_MAX_PER_TOPIC,
-  MIGRATION_CARE_ASSIGN_SIMILARITY_THRESHOLD,
-  MIGRATION_SELF_FACT_PROVENANCE_SUFFIX,
-} from './constants.js';
-export type {
-  LegacyMemoryEntity,
-  LegacyKnowledgeEntity,
-  LegacyInterestCategoryEntity,
-  LegacyReadResult,
-} from './migration/index.js';
-export {
-  readLegacyData,
-  buildPseudoMessages,
-  buildPseudoWebRaws,
-  chunkPseudoSources,
-  createChunkRepos,
-  computeCareBoosts,
-  applyCareBoosts,
-  classifySchemaItem,
-  findSchemaItems,
-  deleteSchemaItems,
-  findSchemaItemsCreatedAfter,
-  deleteSchemaItemsCreatedAfter,
-  queryItemsByPrefix,
-  batchDeleteItems,
-  MIGRATION_ERROR_MESSAGES,
-} from './migration/index.js';
-export type {
-  PseudoSourceChunk,
-  ChunkRepos,
-  ApplyCareBoostsResult,
-  SchemaTarget,
-  DeleteSchemaItemsResult,
-} from './migration/index.js';

@@ -9,7 +9,7 @@ import {
   evaluateAlert,
   ERROR_MESSAGES,
 } from '../../../src/services/alert-evaluator.js';
-import type { Alert, AlertCondition } from '../../../src/types.js';
+import type { AlertCondition, AlertEntity } from '../../../src/entities/alert.entity.js';
 
 describe('Alert Evaluator Service', () => {
   describe('evaluateCondition', () => {
@@ -194,16 +194,16 @@ describe('Alert Evaluator Service', () => {
   });
 
   describe('evaluateAlert', () => {
-    const createMockAlert = (operator: 'gte' | 'lte', value: number): Alert => ({
-      AlertID: 'test-alert-id',
-      UserID: 'user-123',
-      TickerID: 'NSDQ:AAPL',
-      ExchangeID: 'NASDAQ',
+    const createMockAlert = (operator: 'gte' | 'lte', value: number): AlertEntity => ({
+      alertId: 'test-alert-id',
+      userId: 'user-123',
+      tickerId: 'NSDQ:AAPL',
+      exchangeId: 'NASDAQ',
       // Mode と operator の対応: gte (>=) は売りアラート、lte (<=) は買いアラート
-      Mode: operator === 'gte' ? 'Sell' : 'Buy',
-      Frequency: 'MINUTE_LEVEL',
-      Enabled: true,
-      ConditionList: [
+      mode: operator === 'gte' ? 'Sell' : 'Buy',
+      frequency: 'MINUTE_LEVEL',
+      enabled: true,
+      conditionList: [
         {
           field: 'price',
           operator: operator,
@@ -217,8 +217,8 @@ describe('Alert Evaluator Service', () => {
           auth: 'test-auth-key',
         },
       },
-      CreatedAt: Date.now(),
-      UpdatedAt: Date.now(),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     });
 
     it('売りアラート (gte): 条件を満たす場合、true を返す', () => {
@@ -252,15 +252,15 @@ describe('Alert Evaluator Service', () => {
     });
 
     describe('複数条件 AND 評価（範囲内）', () => {
-      const createAndAlert = (minValue: number, maxValue: number): Alert => ({
-        AlertID: 'test-alert-and',
-        UserID: 'user-123',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Sell',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [
+      const createAndAlert = (minValue: number, maxValue: number): AlertEntity => ({
+        alertId: 'test-alert-and',
+        userId: 'user-123',
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        mode: 'Sell',
+        frequency: 'MINUTE_LEVEL',
+        enabled: true,
+        conditionList: [
           {
             field: 'price',
             operator: 'gte',
@@ -272,7 +272,7 @@ describe('Alert Evaluator Service', () => {
             value: maxValue,
           },
         ],
-        LogicalOperator: 'AND',
+        logicalOperator: 'AND',
         subscription: {
           endpoint: 'https://example.com/push',
           keys: {
@@ -280,8 +280,8 @@ describe('Alert Evaluator Service', () => {
             auth: 'test-auth-key',
           },
         },
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       });
 
       it('範囲内の価格の場合、true を返す', () => {
@@ -321,15 +321,15 @@ describe('Alert Evaluator Service', () => {
     });
 
     describe('複数条件 OR 評価（範囲外）', () => {
-      const createOrAlert = (lowerBound: number, upperBound: number): Alert => ({
-        AlertID: 'test-alert-or',
-        UserID: 'user-123',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Sell',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [
+      const createOrAlert = (lowerBound: number, upperBound: number): AlertEntity => ({
+        alertId: 'test-alert-or',
+        userId: 'user-123',
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        mode: 'Sell',
+        frequency: 'MINUTE_LEVEL',
+        enabled: true,
+        conditionList: [
           {
             field: 'price',
             operator: 'lte',
@@ -341,7 +341,7 @@ describe('Alert Evaluator Service', () => {
             value: upperBound,
           },
         ],
-        LogicalOperator: 'OR',
+        logicalOperator: 'OR',
         subscription: {
           endpoint: 'https://example.com/push',
           keys: {
@@ -349,8 +349,8 @@ describe('Alert Evaluator Service', () => {
             auth: 'test-auth-key',
           },
         },
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       });
 
       it('下限以下の価格の場合、true を返す', () => {
@@ -402,10 +402,10 @@ describe('Alert Evaluator Service', () => {
         expect(evaluateAlert(alert, 155.0)).toBe(false);
       });
 
-      it('複数条件があるが LogicalOperator が未指定の場合、AND として評価される', () => {
+      it('複数条件があるが logicalOperator が未指定の場合、AND として評価される', () => {
         const alert: Alert = {
           ...createMockAlert('gte', 100.0),
-          ConditionList: [
+          conditionList: [
             {
               field: 'price',
               operator: 'gte',
@@ -417,7 +417,7 @@ describe('Alert Evaluator Service', () => {
               value: 200.0,
             },
           ],
-          // LogicalOperator は未指定（デフォルトは AND）
+          // logicalOperator は未指定（デフォルトは AND）
         };
 
         expect(evaluateAlert(alert, 150.0)).toBe(true); // 範囲内
@@ -427,19 +427,19 @@ describe('Alert Evaluator Service', () => {
     });
 
     describe('エラーハンドリング', () => {
-      it('ConditionList が空の場合、エラーをスローする', () => {
+      it('conditionList が空の場合、エラーをスローする', () => {
         const alert: Alert = {
           ...createMockAlert('gte', 200.0),
-          ConditionList: [],
+          conditionList: [],
         };
 
         expect(() => evaluateAlert(alert, 205.0)).toThrow(ERROR_MESSAGES.EMPTY_CONDITION_LIST);
       });
 
-      it('ConditionList が undefined の場合、エラーをスローする', () => {
+      it('conditionList が undefined の場合、エラーをスローする', () => {
         const alert = {
           ...createMockAlert('gte', 200.0),
-          ConditionList: undefined,
+          conditionList: undefined,
         } as unknown as Alert;
 
         expect(() => evaluateAlert(alert, 205.0)).toThrow(ERROR_MESSAGES.EMPTY_CONDITION_LIST);
@@ -448,7 +448,7 @@ describe('Alert Evaluator Service', () => {
       it('無効な条件が含まれる場合、evaluateCondition のエラーが伝播する', () => {
         const alert: Alert = {
           ...createMockAlert('gte', 200.0),
-          ConditionList: [
+          conditionList: [
             {
               field: 'volume',
               operator: 'gte',
@@ -463,7 +463,7 @@ describe('Alert Evaluator Service', () => {
       it('無効な LogicalOperator の場合、エラーをスローする', () => {
         const alert: Alert = {
           ...createMockAlert('gte', 200.0),
-          ConditionList: [
+          conditionList: [
             {
               field: 'price',
               operator: 'gte',
@@ -475,7 +475,7 @@ describe('Alert Evaluator Service', () => {
               value: 200.0,
             },
           ],
-          LogicalOperator: 'INVALID' as 'AND' | 'OR',
+          logicalOperator: 'INVALID' as 'AND' | 'OR',
         };
 
         expect(() => evaluateAlert(alert, 150.0)).toThrow(ERROR_MESSAGES.INVALID_LOGICAL_OPERATOR);

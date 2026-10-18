@@ -187,8 +187,8 @@ describe('/api/groups/[groupId]/lists/[listId]/todos/[todoId] route', () => {
       groupId: 'group-1',
       name: '共有リスト',
       createdBy: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockUpdateTodo.mockResolvedValue({
       todoId: 'todo-1',
@@ -197,8 +197,8 @@ describe('/api/groups/[groupId]/lists/[listId]/todos/[todoId] route', () => {
       isCompleted: true,
       createdBy: 'user-1',
       completedBy: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T01:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767229200000,
     });
 
     const response = await PUT(
@@ -221,8 +221,8 @@ describe('/api/groups/[groupId]/lists/[listId]/todos/[todoId] route', () => {
         isCompleted: true,
         createdBy: 'user-1',
         completedBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T01:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767229200000,
       },
     });
   });
@@ -241,8 +241,8 @@ describe('/api/groups/[groupId]/lists/[listId]/todos/[todoId] route', () => {
       groupId: 'group-1',
       name: '共有リスト',
       createdBy: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     const response = await DELETE({} as Request, createContext());
@@ -266,8 +266,8 @@ describe('/api/groups/[groupId]/lists/[listId]/todos/[todoId] route', () => {
       groupId: 'group-1',
       name: '共有リスト',
       createdBy: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockDeleteTodo.mockRejectedValue(new Error(ERROR_MESSAGES.TODO_NOT_FOUND));
 

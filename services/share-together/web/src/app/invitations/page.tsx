@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import { Button, Chip } from '@nagiyu/ui';
 import type { InvitationSummary, InvitationsResponse } from '@/types';
+import { formatDateTimeJst } from '@/lib/format-date-time';
 
 export default function InvitationsPage() {
   const [invitations, setInvitations] = useState<InvitationSummary[]>([]);
@@ -126,7 +127,7 @@ export default function InvitationsPage() {
                     招待者: {invitation.inviterName}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    招待日時: {invitation.createdAt}
+                    招待日時: {formatDateTimeJst(invitation.createdAt)}
                   </Typography>
                 </CardContent>
                 <CardActions sx={{ px: 2, pb: 2 }}>

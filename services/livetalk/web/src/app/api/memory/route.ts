@@ -40,8 +40,8 @@ export const GET = withApiErrorReporting(
 
     const perTopicItems = await Promise.all(
       topicHeaders.map(async (topic) => {
-        const selfFacts = await topicRepository.listSelfFacts(userId, characterId, topic.TopicID);
-        return selfFacts.map((fact) => toSelfFactListItem(fact, topic.Subject));
+        const selfFacts = await topicRepository.listSelfFacts(userId, characterId, topic.topicId);
+        return selfFacts.map((fact) => toSelfFactListItem(fact, topic.subject));
       })
     );
 

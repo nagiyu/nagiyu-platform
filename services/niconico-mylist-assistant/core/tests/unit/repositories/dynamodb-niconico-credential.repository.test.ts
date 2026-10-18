@@ -11,7 +11,7 @@ import {
   DeleteCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBNiconicoCredentialRepository } from '../../../src/repositories/dynamodb-niconico-credential.repository.js';
-import { DatabaseError } from '@nagiyu/aws';
+import { DatabaseError, EntityNotFoundError } from '@nagiyu/aws';
 import type { CreateNiconicoCredentialInput } from '../../../src/entities/niconico-credential.entity.js';
 import { NICONICO_CREDENTIAL_SK } from '../../../src/entities/niconico-credential.entity.js';
 
@@ -31,10 +31,12 @@ describe('DynamoDBNiconicoCredentialRepository', () => {
     PK: 'USER#user-123',
     SK: NICONICO_CREDENTIAL_SK,
     Type: 'NICONICO_CREDENTIAL',
-    userId: 'user-123',
-    encryptedUserSession: sampleEncryptedBlob,
-    acquiredAt: 1700000000000,
-    estimatedExpiresAt: 1702592000000,
+    UserID: 'user-123',
+    EncryptedUserSession: sampleEncryptedBlob,
+    AcquiredAt: 1700000000000,
+    EstimatedExpiresAt: 1702592000000,
+    CreatedAt: 1700000000000,
+    UpdatedAt: 1700000000000,
   };
 
   const sampleInput: CreateNiconicoCredentialInput = {
@@ -46,29 +48,41 @@ describe('DynamoDBNiconicoCredentialRepository', () => {
 
   beforeEach(() => {
     ddbMock.reset();
-    const docClient = ddbMock as unknown as DynamoDBDocumentClient;
-    repository = new DynamoDBNiconicoCredentialRepository(docClient, tableName);
+    repository = new DynamoDBNiconicoCredentialRepository(
+      ddbMock as unknown as DynamoDBDocumentClient,
+      tableName
+    );
   });
 
   describe('getByUserId', () => {
     it('保存済み資格情報を取得できる', async () => {
       ddbMock.on(GetCommand).resolves({ Item: sampleItem });
 
-      const result = await repository.getByUserId('user-123');
+      expect(await repository.getByUserId('user-123')).toEqual(sampleInput);
+    });
 
-      expect(result).not.toBeNull();
-      expect(result?.userId).toBe('user-123');
-      expect(result?.encryptedUserSession).toBe(sampleEncryptedBlob);
-      expect(result?.acquiredAt).toBe(1700000000000);
-      expect(result?.estimatedExpiresAt).toBe(1702592000000);
+    it('旧属性名 (camelCase) のアイテムも取得できる', async () => {
+      ddbMock.on(GetCommand).resolves({
+        Item: {
+          PK: 'USER#user-123',
+          SK: NICONICO_CREDENTIAL_SK,
+          Type: 'NICONICO_CREDENTIAL',
+          userId: 'user-123',
+          encryptedUserSession: sampleEncryptedBlob,
+          acquiredAt: 1700000000000,
+          estimatedExpiresAt: 1702592000000,
+          CreatedAt: 1700000000000,
+          UpdatedAt: 1700000000000,
+        },
+      });
+
+      expect(await repository.getByUserId('user-123')).toEqual(sampleInput);
     });
 
     it('存在しない場合は null を返す', async () => {
       ddbMock.on(GetCommand).resolves({});
 
-      const result = await repository.getByUserId('user-nonexistent');
-
-      expect(result).toBeNull();
+      expect(await repository.getByUserId('user-nonexistent')).toBeNull();
     });
 
     it('正しい PK/SK で GetCommand を呼び出す', async () => {
@@ -95,15 +109,10 @@ describe('DynamoDBNiconicoCredentialRepository', () => {
     it('資格情報を保存できる', async () => {
       ddbMock.on(PutCommand).resolves({});
 
-      const result = await repository.upsert(sampleInput);
-
-      expect(result.userId).toBe('user-123');
-      expect(result.encryptedUserSession).toBe(sampleEncryptedBlob);
-      expect(result.acquiredAt).toBe(1700000000000);
-      expect(result.estimatedExpiresAt).toBe(1702592000000);
+      expect(await repository.upsert(sampleInput)).toEqual(sampleInput);
     });
 
-    it('正しいテーブルと Item で PutCommand を呼び出す', async () => {
+    it('PascalCase の属性名で保存し、CreatedAt には acquiredAt を書く', async () => {
       ddbMock.on(PutCommand).resolves({});
 
       await repository.upsert(sampleInput);
@@ -113,18 +122,28 @@ describe('DynamoDBNiconicoCredentialRepository', () => {
 
       const putInput = calls[0].args[0].input;
       expect(putInput.TableName).toBe(tableName);
-      expect(putInput.Item?.PK).toBe('USER#user-123');
-      expect(putInput.Item?.SK).toBe(NICONICO_CREDENTIAL_SK);
-      expect(putInput.Item?.encryptedUserSession).toBe(sampleEncryptedBlob);
+      expect(putInput.Item).toMatchObject({
+        PK: 'USER#user-123',
+        SK: NICONICO_CREDENTIAL_SK,
+        Type: 'NICONICO_CREDENTIAL',
+        UserID: 'user-123',
+        EncryptedUserSession: sampleEncryptedBlob,
+        AcquiredAt: 1700000000000,
+        EstimatedExpiresAt: 1702592000000,
+        CreatedAt: 1700000000000,
+        UpdatedAt: expect.any(Number),
+      });
+      for (const legacyName of ['userId', 'encryptedUserSession', 'acquiredAt']) {
+        expect(putInput.Item).not.toHaveProperty(legacyName);
+      }
     });
 
-    it('条件式なしで upsert する（ConditionalExpression が設定されない）', async () => {
+    it('条件式なしで upsert する', async () => {
       ddbMock.on(PutCommand).resolves({});
 
       await repository.upsert(sampleInput);
 
-      const calls = ddbMock.commandCalls(PutCommand);
-      expect(calls[0].args[0].input.ConditionExpression).toBeUndefined();
+      expect(ddbMock.commandCalls(PutCommand)[0].args[0].input.ConditionExpression).toBeUndefined();
     });
 
     it('DynamoDB エラーの場合は DatabaseError をスローする', async () => {
@@ -135,29 +154,46 @@ describe('DynamoDBNiconicoCredentialRepository', () => {
   });
 
   describe('delete', () => {
-    it('資格情報を削除できる', async () => {
+    it('存在を条件に資格情報を削除できる', async () => {
       ddbMock.on(DeleteCommand).resolves({});
 
-      await expect(repository.delete('user-123')).resolves.not.toThrow();
+      await expect(repository.delete('user-123')).resolves.toBeUndefined();
+
+      const input = ddbMock.commandCalls(DeleteCommand)[0].args[0].input;
+      expect(input.Key).toEqual({ PK: 'USER#user-123', SK: NICONICO_CREDENTIAL_SK });
+      expect(input.ConditionExpression).toContain('attribute_exists');
     });
 
-    it('正しい PK/SK で DeleteCommand を呼び出す', async () => {
-      ddbMock.on(DeleteCommand).resolves({});
+    it('存在しない資格情報を削除すると EntityNotFoundError をスローする', async () => {
+      const error = new Error('ConditionalCheckFailedException');
+      error.name = 'ConditionalCheckFailedException';
+      ddbMock.on(DeleteCommand).rejects(error);
 
-      await repository.delete('user-123');
-
-      const calls = ddbMock.commandCalls(DeleteCommand);
-      expect(calls).toHaveLength(1);
-      expect(calls[0].args[0].input.Key).toEqual({
-        PK: 'USER#user-123',
-        SK: NICONICO_CREDENTIAL_SK,
-      });
+      await expect(repository.delete('user-123')).rejects.toThrow(EntityNotFoundError);
     });
 
     it('DynamoDB エラーの場合は DatabaseError をスローする', async () => {
       ddbMock.on(DeleteCommand).rejects(new Error('DynamoDB error'));
 
       await expect(repository.delete('user-123')).rejects.toThrow(DatabaseError);
+    });
+  });
+
+  describe('deleteIfExists', () => {
+    it('対象がなくても成功し、存在を条件にしない', async () => {
+      ddbMock.on(DeleteCommand).resolves({});
+
+      await expect(repository.deleteIfExists('user-123')).resolves.toBeUndefined();
+
+      const input = ddbMock.commandCalls(DeleteCommand)[0].args[0].input;
+      expect(input.Key).toEqual({ PK: 'USER#user-123', SK: NICONICO_CREDENTIAL_SK });
+      expect(input).not.toHaveProperty('ConditionExpression');
+    });
+
+    it('DynamoDB エラーの場合は DatabaseError をスローする', async () => {
+      ddbMock.on(DeleteCommand).rejects(new Error('DynamoDB error'));
+
+      await expect(repository.deleteIfExists('user-123')).rejects.toThrow(DatabaseError);
     });
   });
 });

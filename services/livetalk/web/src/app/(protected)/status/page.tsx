@@ -50,7 +50,7 @@ function formatJst(ms: number): string {
 }
 
 function computeNextEarliestAt(
-  userMessages: Pick<MessageEntity, 'CreatedAt'>[],
+  userMessages: Pick<MessageEntity, 'createdAt'>[],
   notificationEvents: NotificationEventEntity[],
   now: Date
 ): number {
@@ -61,13 +61,13 @@ function computeNextEarliestAt(
   const intensityFactor = computeIntensityFactor(sessionStarts, now);
   const baseIntervalMs = computeBaseIntervalMs(intervals, intensityFactor);
 
-  const lastNormalAt = notificationEvents.find((e) => e.Kind === 'normal')?.CreatedAt ?? 0;
+  const lastNormalAt = notificationEvents.find((e) => e.kind === 'normal')?.createdAt ?? 0;
   const lastInteractionAt =
-    userMessages.length > 0 ? Math.max(...userMessages.map((m) => m.CreatedAt)) : 0;
+    userMessages.length > 0 ? Math.max(...userMessages.map((m) => m.createdAt)) : 0;
   const referenceTime = Math.max(lastInteractionAt, lastNormalAt);
 
   const missedCount = notificationEvents.filter(
-    (e) => e.Kind === 'normal' && e.CreatedAt > lastInteractionAt
+    (e) => e.kind === 'normal' && e.createdAt > lastInteractionAt
   ).length;
 
   return referenceTime + baseIntervalMs * Math.pow(NOTIFY_BACKOFF_BASE, missedCount);
@@ -113,18 +113,18 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
       getSafetyEventRepository().listRecent(SAFETY_REVIEW_DEFAULT_LIMIT),
     ]);
 
-  const bedtime = lifecycle?.Bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
-  const wakeUpTime = lifecycle?.WakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME;
+  const bedtime = lifecycle?.bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
+  const wakeUpTime = lifecycle?.wakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME;
   const state = resolveLifecycleState(now, bedtime, wakeUpTime);
-  const userMessages = allMessages.filter((m) => m.Role === 'user');
+  const userMessages = allMessages.filter((m) => m.role === 'user');
 
   const lifecycleForDecision = lifecycle ?? {
-    UserID: userId,
-    CharacterID: characterId,
-    Bedtime: LIFECYCLE_DEFAULT_BEDTIME,
-    WakeUpTime: LIFECYCLE_DEFAULT_WAKE_UP_TIME,
-    CreatedAt: 0,
-    UpdatedAt: 0,
+    userId,
+    characterId,
+    bedtime: LIFECYCLE_DEFAULT_BEDTIME,
+    wakeUpTime: LIFECYCLE_DEFAULT_WAKE_UP_TIME,
+    createdAt: 0,
+    updatedAt: 0,
   };
 
   const notifyDecision = shouldNotifyNow({
@@ -169,15 +169,15 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
       <Typography variant="body2" sx={{ mb: 0.5 }}>
         就寝: {bedtime} / 起床: {wakeUpTime}
       </Typography>
-      {lifecycle?.UserActivityProfile ? (
+      {lifecycle?.userActivityProfile ? (
         <Box sx={{ mb: 1 }}>
           <Typography variant="body2">
-            活動プロファイル: 朝 {lifecycle.UserActivityProfile.morningPeak} / 夕{' '}
-            {lifecycle.UserActivityProfile.eveningPeak}
+            活動プロファイル: 朝 {lifecycle.userActivityProfile.morningPeak} / 夕{' '}
+            {lifecycle.userActivityProfile.eveningPeak}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            サンプル {lifecycle.UserActivityProfile.sampleSize} 件 / 最終学習:{' '}
-            {lifecycle.UserActivityProfile.lastLearnedAt}
+            サンプル {lifecycle.userActivityProfile.sampleSize} 件 / 最終学習:{' '}
+            {lifecycle.userActivityProfile.lastLearnedAt}
           </Typography>
         </Box>
       ) : (
@@ -236,15 +236,15 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
         <Box sx={{ mb: 1 }}>
           {recentNotifications.map((e) => (
             <Box
-              key={e.NotifID}
+              key={e.notifId}
               sx={{ mb: 1, pl: 1, borderLeft: '2px solid', borderColor: 'divider' }}
             >
               <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                {formatJst(e.CreatedAt)} | {e.Kind} |{' '}
-                {e.ConsumedAt ? `消化済み ${formatJst(e.ConsumedAt)}` : '未消化'}
+                {formatJst(e.createdAt)} | {e.kind} |{' '}
+                {e.consumedAt ? `消化済み ${formatJst(e.consumedAt)}` : '未消化'}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                {e.Body.slice(0, 100)}
+                {e.body.slice(0, 100)}
               </Typography>
             </Box>
           ))}
@@ -286,30 +286,30 @@ export default async function StatusPage({ searchParams }: StatusPageProps) {
       ) : (
         <Box sx={{ mb: 1 }}>
           {recentSafetyEvents.map((e: SafetyEventSummary) => {
-            const characterDisplay = e.CharacterID
+            const characterDisplay = e.characterId
               ? (() => {
                   try {
-                    return getCharacterDisplay(e.CharacterID).displayName;
+                    return getCharacterDisplay(e.characterId).displayName;
                   } catch {
-                    return e.CharacterID;
+                    return e.characterId;
                   }
                 })()
               : '—';
 
             return (
               <Box
-                key={e.EventID}
+                key={e.eventId}
                 sx={{ mb: 1, pl: 1, borderLeft: '2px solid', borderColor: 'divider' }}
               >
                 <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                  {formatJst(e.CreatedAt)} | {SAFETY_TRIGGER_LABELS[e.Trigger] ?? e.Trigger} |
+                  {formatJst(e.createdAt)} | {SAFETY_TRIGGER_LABELS[e.trigger] ?? e.trigger} |
                   キャラ: {characterDisplay}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                  {e.DetectedPattern}
+                  {e.detectedPattern}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                  ユーザー: {e.UserID}
+                  ユーザー: {e.userId}
                 </Typography>
               </Box>
             );

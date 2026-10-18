@@ -15,11 +15,11 @@ export const POST = createPushSubscribeRoute({
   onError: createPushRouteErrorReporter('Web API: Push 購読登録エラー'),
   onSubscribe: async ({ session, subscription, subscriptionId }) => {
     await getPushSubscriptionRepository().put({
-      UserID: session.user.id,
-      SubscriptionID: subscriptionId,
-      Endpoint: subscription.endpoint,
-      P256dhKey: subscription.keys.p256dh,
-      AuthKey: subscription.keys.auth,
+      userId: session.user.id,
+      subscriptionId,
+      endpoint: subscription.endpoint,
+      p256dhKey: subscription.keys.p256dh,
+      authKey: subscription.keys.auth,
     });
   },
 });

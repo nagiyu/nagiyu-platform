@@ -49,7 +49,7 @@ import { hasCharacter } from '@/lib/characters/registry';
  * 活動時間帯ゲート・睡眠帯は考慮しないため、あくまで「インターバル解除の目安」。
  */
 function computeNextEarliestAt(
-  userMessages: Pick<MessageEntity, 'CreatedAt'>[],
+  userMessages: Pick<MessageEntity, 'createdAt'>[],
   notificationEvents: NotificationEventEntity[],
   now: Date
 ): number {
@@ -60,13 +60,13 @@ function computeNextEarliestAt(
   const intensityFactor = computeIntensityFactor(sessionStarts, now);
   const baseIntervalMs = computeBaseIntervalMs(intervals, intensityFactor);
 
-  const lastNormalAt = notificationEvents.find((e) => e.Kind === 'normal')?.CreatedAt ?? 0;
+  const lastNormalAt = notificationEvents.find((e) => e.kind === 'normal')?.createdAt ?? 0;
   const lastInteractionAt =
-    userMessages.length > 0 ? Math.max(...userMessages.map((m) => m.CreatedAt)) : 0;
+    userMessages.length > 0 ? Math.max(...userMessages.map((m) => m.createdAt)) : 0;
   const referenceTime = Math.max(lastInteractionAt, lastNormalAt);
 
   const missedCount = notificationEvents.filter(
-    (e) => e.Kind === 'normal' && e.CreatedAt > lastInteractionAt
+    (e) => e.kind === 'normal' && e.createdAt > lastInteractionAt
   ).length;
 
   return referenceTime + baseIntervalMs * Math.pow(NOTIFY_BACKOFF_BASE, missedCount);
@@ -88,19 +88,19 @@ export const GET = withApiErrorReporting(
       getStudyTopicRepository().listByStatus(userId, characterId, 'pending'),
     ]);
 
-    const bedtime = lifecycle?.Bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
-    const wakeUpTime = lifecycle?.WakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME;
+    const bedtime = lifecycle?.bedtime ?? LIFECYCLE_DEFAULT_BEDTIME;
+    const wakeUpTime = lifecycle?.wakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME;
     const state = resolveLifecycleState(now, bedtime, wakeUpTime);
 
-    const userMessages = allMessages.filter((m) => m.Role === 'user');
+    const userMessages = allMessages.filter((m) => m.role === 'user');
 
     const lifecycleForDecision = lifecycle ?? {
-      UserID: userId,
-      CharacterID: characterId,
-      Bedtime: LIFECYCLE_DEFAULT_BEDTIME,
-      WakeUpTime: LIFECYCLE_DEFAULT_WAKE_UP_TIME,
-      CreatedAt: 0,
-      UpdatedAt: 0,
+      userId,
+      characterId,
+      bedtime: LIFECYCLE_DEFAULT_BEDTIME,
+      wakeUpTime: LIFECYCLE_DEFAULT_WAKE_UP_TIME,
+      createdAt: 0,
+      updatedAt: 0,
     };
 
     const notifyDecision = shouldNotifyNow({
@@ -120,15 +120,15 @@ export const GET = withApiErrorReporting(
         state,
         bedtime,
         wakeUpTime,
-        userActivityProfile: lifecycle?.UserActivityProfile ?? null,
+        userActivityProfile: lifecycle?.userActivityProfile ?? null,
       },
       recentNotifications: notificationEvents.slice(0, 5).map((e) => ({
-        notifId: e.NotifID,
-        kind: e.Kind,
-        title: e.Title,
-        body: e.Body.slice(0, 100),
-        createdAt: e.CreatedAt,
-        consumedAt: e.ConsumedAt ?? null,
+        notifId: e.notifId,
+        kind: e.kind,
+        title: e.title,
+        body: e.body.slice(0, 100),
+        createdAt: e.createdAt,
+        consumedAt: e.consumedAt ?? null,
       })),
       notifyDecision: {
         ...notifyDecision,

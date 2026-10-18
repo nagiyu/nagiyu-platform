@@ -11,11 +11,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
-import {
-  TickerAlreadyExistsError,
-  validateTickerCreateData,
-  type TickerEntity,
-} from '@nagiyu/stock-tracker-core';
+import { EntityAlreadyExistsError } from '@nagiyu/aws';
+import { validateTickerCreateData, type TickerEntity } from '@nagiyu/stock-tracker-core';
 import { withAuth, readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '../../../lib/auth';
 import { withApiErrorReporting } from '../../../lib/api-error-reporting';
@@ -84,10 +81,10 @@ export const GET = withApiErrorReporting(
     // レスポンス形式に変換
     const response: TickersListResponse = {
       tickers: tickers.map((ticker: TickerEntity) => ({
-        tickerId: ticker.TickerID,
-        symbol: ticker.Symbol,
-        name: ticker.Name,
-        exchangeId: ticker.ExchangeID,
+        tickerId: ticker.tickerId,
+        symbol: ticker.symbol,
+        name: ticker.name,
+        exchangeId: ticker.exchangeId,
       })),
     };
 
@@ -148,30 +145,30 @@ export const POST = withApiErrorReporting(
         { status: 400 }
       );
     }
-    const exchangeKey = exchange.Key;
+    const exchangeKey = exchange.key;
 
-    // ティッカー作成（TickerID は自動生成: {Exchange.Key}:{Symbol}）
+    // ティッカー作成 (TickerID は自動生成: {Exchange.key}:{symbol})
     try {
       const createdTicker = await tickerRepo.create({
-        TickerID: `${exchangeKey}:${symbol}`,
-        Symbol: symbol,
-        Name: name,
-        ExchangeID: exchangeId,
+        tickerId: `${exchangeKey}:${symbol}`,
+        symbol,
+        name,
+        exchangeId,
       });
 
       // レスポンス形式に変換
       const response: CreateTickerResponse = {
-        tickerId: createdTicker.TickerID,
-        symbol: createdTicker.Symbol,
-        name: createdTicker.Name,
-        exchangeId: createdTicker.ExchangeID,
-        createdAt: new Date(createdTicker.CreatedAt).toISOString(),
+        tickerId: createdTicker.tickerId,
+        symbol: createdTicker.symbol,
+        name: createdTicker.name,
+        exchangeId: createdTicker.exchangeId,
+        createdAt: new Date(createdTicker.createdAt).toISOString(),
       };
 
       return NextResponse.json(response, { status: 201 });
     } catch (error) {
       // ティッカーが既に存在する場合
-      if (error instanceof TickerAlreadyExistsError) {
+      if (error instanceof EntityAlreadyExistsError) {
         return NextResponse.json(
           {
             error: 'INVALID_REQUEST',

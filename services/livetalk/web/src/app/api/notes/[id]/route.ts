@@ -47,7 +47,7 @@ export const GET = withApiErrorReporting(
         bundle = await getTopicRepository().getTopicBundle({
           userId: key.userId,
           characterId: key.characterId,
-          topicId: note.TopicID,
+          topicId: note.topicId,
         });
       } catch (error) {
         // fail-soft: Topic 取得に失敗しても headline のみで詳細を返す

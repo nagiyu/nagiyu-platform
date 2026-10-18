@@ -8,37 +8,38 @@
 export type WebRawOrigin = 'request' | 'auto' | 'stale';
 
 /**
- * Web 取得生データ（consolidation が Topic/WEB fact へ集約する前の元データ）
- * （リブトーク知識再設計 P1 / #3697）。
+ * Web 取得生データ（consolidation が Topic/WEB fact へ集約する前の元データ）。
  *
  * 90 日 TTL で自動削除する（`WEBRAW_TTL_SECONDS`）。
  *
  * DynamoDB SK: `CHAR#<charId>#WEBRAW#<rawId>`
  */
 export interface WebRawEntity {
-  UserID: string;
-  CharacterID: string;
+  userId: string;
+  characterId: string;
   /** Raw ID（ULID、時系列ソート可能） */
-  RawID: string;
+  rawId: string;
   /** 検索クエリ */
-  Query: string;
+  query: string;
   /** 取得した生テキスト */
-  RawText: string;
+  rawText: string;
   /** 参照した URL 一覧 */
-  SourceUrls: string[];
-  /** 由来区分（依頼／自発／鮮度切れ）（甲-1: 依頼由来 provenance） */
-  Origin: WebRawOrigin;
+  sourceUrls: string[];
+  /** 由来区分（依頼／自発／鮮度切れ） */
+  origin: WebRawOrigin;
   /**
-   * 依頼文（`Origin === 'request'` のときのみ設定）。
-   * StudyTopic.Topic をそのまま引き継ぐ（甲-1: 依頼由来 provenance）。
+   * 依頼文（`origin === 'request'` のときのみ設定）。
+   * StudyTopic.topic をそのまま引き継ぐ。
    */
-  RequestText?: string;
+  requestText?: string;
   /**
-   * 依頼日時（Unix ms。`Origin === 'request'` のときのみ設定）。
-   * StudyTopic.CreatedAt をそのまま引き継ぐ（甲-1: 依頼由来 provenance）。
+   * 依頼日時（Unix ms。`origin === 'request'` のときのみ設定）。
+   * StudyTopic.createdAt をそのまま引き継ぐ。
    */
-  RequestedAt?: number;
-  CreatedAt: number;
+  requestedAt?: number;
+  createdAt: number;
+  /** 自動削除する時刻 (Unix ms)。保存時は TTL 属性のエポック秒になる */
+  expiresAt?: number;
 }
 
 /**
@@ -51,10 +52,10 @@ export interface WebRawKey {
 }
 
 /**
- * WebRaw 作成入力（`CreatedAt` はリポジトリ側で付与）。
- * RawID も省略可能：未指定なら ULID を自動採番する。
+ * WebRaw 作成入力（`createdAt` / `expiresAt` はリポジトリ側で付与）。
+ * rawId も省略可能：未指定なら ULID を自動採番する。
  */
-export type CreateWebRawInput = Omit<WebRawEntity, 'RawID' | 'CreatedAt'> & {
+export type CreateWebRawInput = Omit<WebRawEntity, 'rawId' | 'createdAt' | 'expiresAt'> & {
   /** 明示的に ULID を指定したい場合のみ渡す（テスト用途） */
-  RawID?: string;
+  rawId?: string;
 };

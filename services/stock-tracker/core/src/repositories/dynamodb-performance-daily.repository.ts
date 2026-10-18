@@ -3,46 +3,40 @@
  *
  * DynamoDBを使用したPerformanceDailyRepositoryの実装
  */
-import { GetCommand, PutCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { queryAllItems, toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBEntityStore, queryAllItems, toDatabaseError, type EntityStore } from '@nagiyu/aws';
 import type { PerformanceDailyRepository } from './performance-daily.repository.interface.js';
+import type { PerformanceDailyKey } from '../entities/performance-daily.entity.js';
 import type { Market, PerformanceDailyItem, Question } from '../forecast/index.js';
-import { PerformanceDailyMapper } from '../mappers/performance-daily.mapper.js';
+import {
+  PerformanceDailyMapper,
+  buildPerformanceDailyPk,
+  buildPerformanceDailySk,
+  buildPerformanceDailySkUpperBound,
+} from '../mappers/performance-daily.mapper.js';
 
 /**
  * DynamoDB PerformanceDaily Repository
  *
- * DynamoDBを使用した予測日ごとの採点済み件数の集計リポジトリの実装
+ * 単一アイテムの保存・取得は EntityStore に任せ、期間の Query だけを自前で持つ
  */
 export class DynamoDBPerformanceDailyRepository implements PerformanceDailyRepository {
-  private readonly mapper: PerformanceDailyMapper;
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
+  private readonly mapper = new PerformanceDailyMapper();
+  private readonly entityStore: EntityStore<PerformanceDailyItem, PerformanceDailyKey>;
 
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
     this.docClient = docClient;
     this.tableName = tableName;
-    this.mapper = new PerformanceDailyMapper();
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper);
   }
 
   /**
    * PerformanceDaily を保存する（既存の場合は無条件で置き換える。冪等な再計算）
    */
   public async save(item: PerformanceDailyItem): Promise<PerformanceDailyItem> {
-    try {
-      const dbItem = this.mapper.toItem(item);
-
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: dbItem,
-        })
-      );
-
-      return item;
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.put(item);
   }
 
   /**
@@ -53,24 +47,7 @@ export class DynamoDBPerformanceDailyRepository implements PerformanceDailyRepos
     market: Market,
     date: string
   ): Promise<PerformanceDailyItem | null> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys({ question, market, date });
-
-      const result = await this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-        })
-      );
-
-      if (!result.Item) {
-        return null;
-      }
-
-      return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.get({ question, market, date });
   }
 
   /**
@@ -83,16 +60,14 @@ export class DynamoDBPerformanceDailyRepository implements PerformanceDailyRepos
     toDate?: string
   ): Promise<PerformanceDailyItem[]> {
     try {
-      const { pk } = this.mapper.buildKeys({ question, market, date: fromDate });
-
       const keyConditionExpression =
         toDate !== undefined
           ? '#pk = :pk AND #sk BETWEEN :from AND :to'
           : '#pk = :pk AND #sk >= :from';
       const expressionAttributeValues: Record<string, unknown> = {
-        ':pk': pk,
-        ':from': `DATE#${fromDate}`,
-        ...(toDate !== undefined ? { ':to': `DATE#${toDate}#~` } : {}),
+        ':pk': buildPerformanceDailyPk(question, market),
+        ':from': buildPerformanceDailySk(fromDate),
+        ...(toDate !== undefined ? { ':to': buildPerformanceDailySkUpperBound(toDate) } : {}),
       };
 
       const items = await queryAllItems(this.docClient, {

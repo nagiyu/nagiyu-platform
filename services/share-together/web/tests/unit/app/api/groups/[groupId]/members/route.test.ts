@@ -163,8 +163,8 @@ describe('/api/groups/[groupId]/members route', () => {
       userId: 'owner-1',
       role: 'OWNER',
       status: 'ACCEPTED',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockGetMembershipsByGroupId.mockResolvedValue([
       {
@@ -172,16 +172,16 @@ describe('/api/groups/[groupId]/members route', () => {
         userId: 'owner-1',
         role: 'OWNER',
         status: 'ACCEPTED',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       },
       {
         groupId: 'group-1',
         userId: 'user-2',
         role: 'MEMBER',
         status: 'PENDING',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       },
     ]);
     mockGetUserById.mockResolvedValue({
@@ -190,8 +190,8 @@ describe('/api/groups/[groupId]/members route', () => {
       name: 'オーナー',
       image: undefined,
       defaultListId: 'list-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     const response = await GET({} as Request, { params: Promise.resolve({ groupId: 'group-1' }) });
@@ -206,7 +206,7 @@ describe('/api/groups/[groupId]/members route', () => {
             email: 'owner@example.com',
             image: null,
             role: 'OWNER',
-            joinedAt: '2026-01-01T00:00:00.000Z',
+            joinedAt: 1767225600000,
           },
         ],
       },
@@ -226,8 +226,8 @@ describe('/api/groups/[groupId]/members route', () => {
       userId: 'member-1',
       role: 'MEMBER',
       status: 'ACCEPTED',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     const request = {
@@ -255,16 +255,16 @@ describe('/api/groups/[groupId]/members route', () => {
       userId: 'owner-1',
       role: 'OWNER',
       status: 'ACCEPTED',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockGetUserByEmail.mockResolvedValue({
       userId: 'user-2',
       email: 'invitee@example.com',
       name: '招待対象',
       defaultListId: 'list-2',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockInviteMember.mockResolvedValue({
       groupId: 'group-1',
@@ -272,10 +272,10 @@ describe('/api/groups/[groupId]/members route', () => {
       role: 'MEMBER',
       status: 'PENDING',
       invitedBy: 'owner-1',
-      invitedAt: '2026-01-02T00:00:00.000Z',
-      ttl: 1767312000,
-      createdAt: '2026-01-02T00:00:00.000Z',
-      updatedAt: '2026-01-02T00:00:00.000Z',
+      invitedAt: 1767312000000,
+      expiresAt: 1767312000000,
+      createdAt: 1767312000000,
+      updatedAt: 1767312000000,
     });
 
     const request = {
@@ -284,14 +284,18 @@ describe('/api/groups/[groupId]/members route', () => {
     const response = await POST(request, { params: Promise.resolve({ groupId: 'group-1' }) });
 
     expect(response.status).toBe(201);
-    expect(mockInviteMember).toHaveBeenCalled();
+    // 招待日時は ISO 文字列ではなくエポックミリ秒で渡す
+    expect(mockInviteMember).toHaveBeenCalledWith(
+      expect.objectContaining({ invitedAt: expect.any(Number) }),
+      expect.any(Object)
+    );
     await expect(response.json()).resolves.toEqual({
       data: {
         groupId: 'group-1',
         inviteeUserId: 'user-2',
         inviteeName: '招待対象',
         status: 'PENDING',
-        createdAt: '2026-01-02T00:00:00.000Z',
+        createdAt: 1767312000000,
       },
     });
   });
@@ -309,16 +313,16 @@ describe('/api/groups/[groupId]/members route', () => {
       userId: 'owner-1',
       role: 'OWNER',
       status: 'ACCEPTED',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockGetUserByEmail.mockResolvedValue({
       userId: 'user-2',
       email: 'invitee@example.com',
       name: '招待対象',
       defaultListId: 'list-2',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockInviteMember.mockRejectedValue(new Error(GROUP_CORE_ERROR_MESSAGES.DUPLICATE_INVITATION));
 
@@ -347,16 +351,16 @@ describe('/api/groups/[groupId]/members route', () => {
       userId: 'owner-1',
       role: 'OWNER',
       status: 'ACCEPTED',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockGetUserByEmail.mockResolvedValue({
       userId: 'user-2',
       email: 'invitee@example.com',
       name: '招待対象',
       defaultListId: 'list-2',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockInviteMember.mockRejectedValue(new Error(GROUP_CORE_ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED));
 

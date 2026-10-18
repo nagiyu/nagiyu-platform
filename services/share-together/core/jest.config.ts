@@ -5,6 +5,8 @@ const config: Config = {
   testEnvironment: 'node',
   roots: ['<rootDir>/src', '<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
+  // 契約テストは DynamoDB Local を前提とするため、`npm run test:contract` からのみ実行する
+  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/tests/contract/'],
   moduleNameMapper: {
     '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',

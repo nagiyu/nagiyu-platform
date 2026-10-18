@@ -1,13 +1,54 @@
 /**
- * Stock Tracker Core - Daily Summary Mapper Unit Tests
+ * Stock Tracker Core - DailySummary Mapper Unit Tests
  *
  * DailySummaryMapperのユニットテスト
  */
 
-import { DailySummaryMapper } from '../../../src/mappers/daily-summary.mapper.js';
+import { InvalidEntityDataError, REMOVE_ATTRIBUTE } from '@nagiyu/aws';
+import {
+  DailySummaryMapper,
+  DAILY_SUMMARY_FORECAST_FIELD_ATTRIBUTES,
+  buildDailySummaryGsi4Pk,
+} from '../../../src/mappers/daily-summary.mapper.js';
 import type { DailySummaryEntity } from '../../../src/entities/daily-summary.entity.js';
-import type { DynamoDBItem } from '@nagiyu/aws';
-import { PATTERN_REGISTRY } from '../../../src/patterns/pattern-registry.js';
+
+const TIMESTAMP = 1708992000000;
+const KEY = { tickerId: 'NSDQ:AAPL', date: '2026-02-27' };
+
+function buildEntity(overrides: Partial<DailySummaryEntity> = {}): DailySummaryEntity {
+  return {
+    tickerId: 'NSDQ:AAPL',
+    exchangeId: 'NASDAQ',
+    date: '2026-02-27',
+    open: 182.15,
+    high: 183.92,
+    low: 181.44,
+    close: 183.31,
+    createdAt: TIMESTAMP,
+    updatedAt: TIMESTAMP,
+    ...overrides,
+  };
+}
+
+function buildItem(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    PK: 'SUMMARY#NSDQ:AAPL',
+    SK: 'DATE#2026-02-27',
+    Type: 'DailySummary',
+    GSI4PK: 'NASDAQ',
+    GSI4SK: 'DATE#2026-02-27#NSDQ:AAPL',
+    TickerID: 'NSDQ:AAPL',
+    ExchangeID: 'NASDAQ',
+    Date: '2026-02-27',
+    Open: 182.15,
+    High: 183.92,
+    Low: 181.44,
+    Close: 183.31,
+    CreatedAt: TIMESTAMP,
+    UpdatedAt: TIMESTAMP,
+    ...overrides,
+  };
+}
 
 describe('DailySummaryMapper', () => {
   let mapper: DailySummaryMapper;
@@ -16,372 +57,325 @@ describe('DailySummaryMapper', () => {
     mapper = new DailySummaryMapper();
   });
 
-  describe('toItem', () => {
-    it('DailySummaryEntity を DynamoDBItem に正しく変換する', () => {
-      const entity: DailySummaryEntity = {
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-02-27',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        Volume: 1234567,
-        CreatedAt: 1708992000000,
-        UpdatedAt: 1708992000000,
-      };
+  it('entityType は DailySummary になる', () => {
+    expect(mapper.entityType).toBe('DailySummary');
+  });
 
-      const item = mapper.toItem(entity);
-
-      expect(item).toEqual({
-        PK: 'SUMMARY#NSDQ:AAPL',
-        SK: 'DATE#2026-02-27',
-        Type: 'DailySummary',
-        GSI4PK: 'NASDAQ',
-        GSI4SK: 'DATE#2026-02-27#NSDQ:AAPL',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-02-27',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        Volume: 1234567,
-        CreatedAt: 1708992000000,
-        UpdatedAt: 1708992000000,
-      });
+  describe('buildKeys / getKey', () => {
+    it('tickerId と date から PK/SK を構築する', () => {
+      expect(mapper.buildKeys(KEY)).toEqual({ PK: 'SUMMARY#NSDQ:AAPL', SK: 'DATE#2026-02-27' });
     });
 
-    it('パターン関連フィールドを含む DailySummaryEntity を DynamoDBItem に変換する', () => {
-      const entity: DailySummaryEntity = {
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-02-27',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        PatternResults: {
-          'morning-star': 'MATCHED',
-          'evening-star': 'NOT_MATCHED',
-        },
-        BuyPatternCount: 1,
-        SellPatternCount: 0,
-        CreatedAt: 1708992000000,
-        UpdatedAt: 1708992000000,
-      };
+    it('PK が先頭のキー属性になる (条件付き書き込みの存在判定に使われる)', () => {
+      expect(Object.keys(mapper.buildKeys(KEY))).toEqual(['PK', 'SK']);
+    });
 
-      const item = mapper.toItem(entity);
+    it('Entity からビジネスキーを取り出す', () => {
+      expect(mapper.getKey(buildEntity())).toEqual(KEY);
+    });
+  });
+
+  describe('buildDailySummaryGsi4Pk', () => {
+    it('GSI4PK は取引所IDそのものになる', () => {
+      expect(buildDailySummaryGsi4Pk('NASDAQ')).toBe('NASDAQ');
+    });
+  });
+
+  describe('toItem', () => {
+    it('Entity を保存形式 (PascalCase・キー・Type・GSI4) の Item に変換する', () => {
+      expect(mapper.toItem(buildEntity())).toEqual(buildItem());
+    });
+
+    it('任意項目があれば属性として保存する', () => {
+      const item = mapper.toItem(
+        buildEntity({
+          volume: 1234567,
+          patternResults: { 'morning-star': 'MATCHED' },
+          buyPatternCount: 1,
+          sellPatternCount: 0,
+        })
+      );
 
       expect(item).toMatchObject({
-        PatternResults: {
-          'morning-star': 'MATCHED',
-          'evening-star': 'NOT_MATCHED',
-        },
+        Volume: 1234567,
+        PatternResults: { 'morning-star': 'MATCHED' },
         BuyPatternCount: 1,
         SellPatternCount: 0,
       });
     });
+
+    it('件数が 0 でも属性として保存する', () => {
+      const item = mapper.toItem(buildEntity({ buyPatternCount: 0, sellPatternCount: 0 }));
+
+      expect(item.BuyPatternCount).toBe(0);
+      expect(item.SellPatternCount).toBe(0);
+    });
+
+    it('任意項目が未設定なら属性を含めない', () => {
+      const item = mapper.toItem(buildEntity());
+
+      for (const name of ['Volume', 'PatternResults', 'BuyPatternCount', 'SellPatternCount']) {
+        expect(item).not.toHaveProperty(name);
+      }
+    });
+
+    it('時刻は数値ミリ秒のまま保存する', () => {
+      const item = mapper.toItem(buildEntity());
+
+      expect(item.CreatedAt).toBe(TIMESTAMP);
+      expect(item.UpdatedAt).toBe(TIMESTAMP);
+    });
+
+    it('toItem のキー属性は buildKeys の結果と一致する', () => {
+      const entity = buildEntity({ tickerId: 'TSE:7203', date: '2026-03-02' });
+      const item = mapper.toItem(entity);
+
+      for (const [name, value] of Object.entries(mapper.buildKeys(mapper.getKey(entity)))) {
+        expect(item[name]).toBe(value);
+      }
+    });
+  });
+
+  describe('toUpdateAttributes', () => {
+    it('指定した項目に加えて、キーから作った GSI4SK を返す', () => {
+      expect(mapper.toUpdateAttributes({ close: 190, volume: 500 }, KEY)).toEqual({
+        GSI4SK: 'DATE#2026-02-27#NSDQ:AAPL',
+        Close: 190,
+        Volume: 500,
+      });
+    });
+
+    it('GSI4SK は changes ではなく key から作る', () => {
+      expect(
+        mapper.toUpdateAttributes({}, { tickerId: 'TSE:7203', date: '2026-03-02' }).GSI4SK
+      ).toBe('DATE#2026-03-02#TSE:7203');
+    });
+
+    it('exchangeId を変えるときだけ GSI4PK を付け直す', () => {
+      const withExchange = mapper.toUpdateAttributes({ exchangeId: 'NYSE' }, KEY);
+      const withoutExchange = mapper.toUpdateAttributes({ close: 190 }, KEY);
+
+      expect(withExchange.ExchangeID).toBe('NYSE');
+      expect(withExchange.GSI4PK).toBe('NYSE');
+      expect(withoutExchange.GSI4PK).toBeUndefined();
+    });
+
+    it('キー属性 (PK/SK) は返さない', () => {
+      const attributes = mapper.toUpdateAttributes({ close: 190 }, KEY);
+
+      for (const name of Object.keys(mapper.buildKeys(KEY))) {
+        expect(attributes).not.toHaveProperty(name);
+      }
+    });
+
+    it('undefined の項目は変更しない (属性に含めても値は undefined)', () => {
+      const attributes = mapper.toUpdateAttributes({ open: undefined, high: 200 }, KEY);
+
+      expect(attributes.Open).toBeUndefined();
+      expect(attributes.High).toBe(200);
+    });
+
+    it.each([
+      ['volume', 'Volume'],
+      ['patternResults', 'PatternResults'],
+      ['buyPatternCount', 'BuyPatternCount'],
+      ['sellPatternCount', 'SellPatternCount'],
+    ] as const)('任意項目 %s を null にすると属性を削除する', (field, attribute) => {
+      expect(mapper.toUpdateAttributes({ [field]: null }, KEY)[attribute]).toBe(REMOVE_ATTRIBUTE);
+    });
+
+    it.each(['exchangeId', 'open', 'high', 'low', 'close'] as const)(
+      '必須項目 %s を null にすると InvalidEntityDataError をスローする',
+      (field) => {
+        expect(() => mapper.toUpdateAttributes({ [field]: null }, KEY)).toThrow(
+          InvalidEntityDataError
+        );
+      }
+    );
+
+    it.each([
+      ['tickerId', { tickerId: 'NSDQ:AAPL' }],
+      ['date', { date: '2026-02-27' }],
+      ['createdAt', { createdAt: TIMESTAMP }],
+    ] as const)(
+      '変更不可の項目 %s を含めると、値が同じでも InvalidEntityDataError をスローする',
+      (_field, changes) => {
+        expect(() => mapper.toUpdateAttributes(changes, KEY)).toThrow(InvalidEntityDataError);
+      }
+    );
   });
 
   describe('toEntity', () => {
-    it('DynamoDBItem を DailySummaryEntity に正しく変換する', () => {
-      const item: DynamoDBItem = {
-        PK: 'SUMMARY#NSDQ:AAPL',
-        SK: 'DATE#2026-02-27',
-        Type: 'DailySummary',
-        GSI4PK: 'NASDAQ',
-        GSI4SK: 'DATE#2026-02-27#NSDQ:AAPL',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-02-27',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        Volume: 1234567,
-        CreatedAt: 1708992000000,
-        UpdatedAt: 1708992000000,
-      };
+    it('Item を camelCase の Entity に変換する', () => {
+      expect(mapper.toEntity(buildItem())).toEqual(buildEntity());
+    });
 
-      const entity = mapper.toEntity(item);
+    it('PK/SK/Type/GSI4 などの保存用の属性を Entity に含めない', () => {
+      const entity = mapper.toEntity(buildItem());
 
-      expect(entity).toEqual({
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-02-27',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        Volume: 1234567,
-        CreatedAt: 1708992000000,
-        UpdatedAt: 1708992000000,
+      for (const name of ['PK', 'SK', 'Type', 'GSI4PK', 'GSI4SK']) {
+        expect(entity).not.toHaveProperty(name);
+      }
+    });
+
+    it('任意項目を含む Item を変換する', () => {
+      const entity = mapper.toEntity(
+        buildItem({
+          Volume: 1234567,
+          PatternResults: { 'morning-star': 'MATCHED' },
+          BuyPatternCount: 1,
+          SellPatternCount: 0,
+        })
+      );
+
+      expect(entity).toMatchObject({
+        volume: 1234567,
+        patternResults: { 'morning-star': 'MATCHED' },
+        buyPatternCount: 1,
+        sellPatternCount: 0,
       });
     });
 
-    it('PatternResults をそのまま保持して DailySummaryEntity に変換する', () => {
-      const item: DynamoDBItem = {
-        PK: 'SUMMARY#NSDQ:AAPL',
-        SK: 'DATE#2026-02-27',
-        Type: 'DailySummary',
-        GSI4PK: 'NASDAQ',
-        GSI4SK: 'DATE#2026-02-27#NSDQ:AAPL',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-02-27',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        PatternResults: {
-          'morning-star': 'MATCHED',
-          unknown: 'NOT_MATCHED',
-        },
-        BuyPatternCount: 1,
-        SellPatternCount: 0,
-        CreatedAt: 1708992000000,
-        UpdatedAt: 1708992000000,
-      } as DynamoDBItem;
+    it('任意項目が無ければ undefined になる', () => {
+      const entity = mapper.toEntity(buildItem());
 
-      const entity = mapper.toEntity(item);
-
-      expect(entity.PatternResults).toEqual({
-        'morning-star': 'MATCHED',
-        unknown: 'NOT_MATCHED',
-      });
-      expect(entity.BuyPatternCount).toBe(1);
-      expect(entity.SellPatternCount).toBe(0);
+      expect(entity.volume).toBeUndefined();
+      expect(entity.patternResults).toBeUndefined();
+      expect(entity.buyPatternCount).toBeUndefined();
+      expect(entity.sellPatternCount).toBeUndefined();
     });
 
-    it('必須フィールドが欠けている場合はエラーをスローする', () => {
-      const item: DynamoDBItem = {
-        PK: 'SUMMARY#NSDQ:AAPL',
-        SK: 'DATE#2026-02-27',
-        Type: 'DailySummary',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-02-27',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        Volume: 1234567,
-        CreatedAt: 1708992000000,
-        UpdatedAt: 1708992000000,
-      };
-
-      expect(() => mapper.toEntity(item)).toThrow();
+    it.each([
+      ['配列', ['a']],
+      ['文字列', 'MATCHED'],
+      ['null', null],
+    ])('PatternResults が%sのときは未設定として扱う', (_label, value) => {
+      expect(mapper.toEntity(buildItem({ PatternResults: value })).patternResults).toBeUndefined();
     });
 
-    it('数値フィールドの型が不正な場合はエラーをスローする', () => {
-      const item = {
-        PK: 'SUMMARY#NSDQ:AAPL',
-        SK: 'DATE#2026-02-27',
-        Type: 'DailySummary',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-02-27',
-        Open: '182.15',
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        CreatedAt: 1708992000000,
-        UpdatedAt: 1708992000000,
-      } as DynamoDBItem;
+    it.each(['TickerID', 'ExchangeID', 'Date', 'Open', 'High', 'Low', 'Close', 'CreatedAt'])(
+      '必須フィールド %s が欠けている場合は InvalidEntityDataError をスローする',
+      (attribute) => {
+        const item = buildItem();
+        delete item[attribute];
 
-      expect(() => mapper.toEntity(item)).toThrow();
+        expect(() => mapper.toEntity(item)).toThrow(InvalidEntityDataError);
+      }
+    );
+
+    it('UpdatedAt が欠けている場合は InvalidEntityDataError をスローする', () => {
+      const item = buildItem();
+      delete item.UpdatedAt;
+
+      expect(() => mapper.toEntity(item)).toThrow(InvalidEntityDataError);
     });
 
-    it('境界値（負のタイムスタンプ）の場合はエラーをスローする', () => {
-      const item: DynamoDBItem = {
-        PK: 'SUMMARY#NSDQ:AAPL',
-        SK: 'DATE#2026-02-27',
-        Type: 'DailySummary',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-02-27',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        CreatedAt: -1,
-        UpdatedAt: 1708992000000,
-      };
-
-      expect(() => mapper.toEntity(item)).toThrow();
+    it('数値項目が数値でない場合は InvalidEntityDataError をスローする', () => {
+      expect(() => mapper.toEntity(buildItem({ Open: '100' }))).toThrow(InvalidEntityDataError);
+      expect(() => mapper.toEntity(buildItem({ Volume: 'many' }))).toThrow(InvalidEntityDataError);
+      expect(() => mapper.toEntity(buildItem({ BuyPatternCount: 'one' }))).toThrow(
+        InvalidEntityDataError
+      );
     });
-  });
 
-  describe('toForecastFields', () => {
-    it('OHLCV・パターン結果・CreatedAt だけを持つ射影に変換し、UpdatedAt を含まない', () => {
-      const item: DynamoDBItem = {
-        PK: 'SUMMARY#NSDQ:AAPL',
-        SK: 'DATE#2026-02-27',
-        Type: 'DailySummary',
-        GSI4PK: 'NASDAQ',
-        GSI4SK: 'DATE#2026-02-27#NSDQ:AAPL',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-02-27',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        Volume: 1234567,
-        BuyPatternCount: 3,
-        SellPatternCount: 1,
-        CreatedAt: 1708992000000,
-        // ProjectionExpression で絞った読み出しを模し、UpdatedAt を含めない
-      };
+    it('時刻が ISO 文字列で保存された旧形式のデータもミリ秒で読める', () => {
+      const entity = mapper.toEntity(
+        buildItem({
+          CreatedAt: new Date(TIMESTAMP).toISOString(),
+          UpdatedAt: new Date(TIMESTAMP).toISOString(),
+        })
+      );
 
-      const fields = mapper.toForecastFields(item);
+      expect(entity.createdAt).toBe(TIMESTAMP);
+      expect(entity.updatedAt).toBe(TIMESTAMP);
+    });
 
-      expect(fields).toEqual({
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-02-27',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        Volume: 1234567,
-        PatternResults: undefined,
-        BuyPatternCount: 3,
-        SellPatternCount: 1,
-        CreatedAt: 1708992000000,
-      });
+    it('時刻がエポック秒で保存された旧形式のデータもミリ秒で読める', () => {
+      const entity = mapper.toEntity(
+        buildItem({ CreatedAt: TIMESTAMP / 1000, UpdatedAt: TIMESTAMP / 1000 })
+      );
+
+      expect(entity.createdAt).toBe(TIMESTAMP);
+      expect(entity.updatedAt).toBe(TIMESTAMP);
+    });
+
+    it('AI 由来の属性が残った既存アイテムも、その属性を読み飛ばして変換する', () => {
+      const entity = mapper.toEntity(
+        buildItem({
+          AiAnalysisResult: '{"unexpected":true}',
+          AiAnalysisError: 'timeout',
+          EvaluatedAt: 1709078400000,
+          Hit: 'true',
+        })
+      );
+
+      expect(entity).not.toHaveProperty('AiAnalysisResult');
+      expect(entity).not.toHaveProperty('EvaluatedAt');
+      expect(entity.close).toBe(183.31);
     });
   });
 
   describe('変換の往復', () => {
-    it('toItem と toEntity で往復変換できる', () => {
-      const entity: DailySummaryEntity = {
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-02-27',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        CreatedAt: 1708992000000,
-        UpdatedAt: 1708992000000,
-      };
-
-      const item = mapper.toItem(entity);
-      const convertedEntity = mapper.toEntity(item);
-
-      expect(convertedEntity).toEqual(entity);
+    it.each([
+      ['必須項目のみ', buildEntity()],
+      [
+        '任意項目あり',
+        buildEntity({
+          volume: 1234567,
+          patternResults: { 'morning-star': 'MATCHED', 'evening-star': 'NOT_MATCHED' },
+          buyPatternCount: 1,
+          sellPatternCount: 0,
+        }),
+      ],
+    ])('Entity -> Item -> Entity の変換で元に戻る (%s)', (_label, original) => {
+      expect(mapper.toEntity(mapper.toItem(original))).toEqual(original);
     });
   });
 
-  describe('toTickerSummaryResponse', () => {
-    it('PatternResults がある場合は PATTERN_REGISTRY に存在するパターンのみ patternDetails に含める', () => {
-      const patternResults = Object.fromEntries(
-        PATTERN_REGISTRY.map((pattern) => [pattern.definition.patternId, 'NOT_MATCHED'])
+  describe('toForecastFields', () => {
+    it('確度算出に使う属性だけを camelCase で返し、updatedAt を含めない', () => {
+      const fields = mapper.toForecastFields(
+        buildItem({
+          Volume: 1000,
+          PatternResults: { 'morning-star': 'MATCHED' },
+          BuyPatternCount: 1,
+          SellPatternCount: 0,
+        })
       );
-      const response = mapper.toTickerSummaryResponse({
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-02-27',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        PatternResults: {
-          ...patternResults,
-          'morning-star': 'MATCHED',
-          unknown: 'MATCHED',
-        },
-        BuyPatternCount: 1,
-        SellPatternCount: 0,
-        CreatedAt: 1708992000000,
-        UpdatedAt: 1708992000000,
-      });
 
-      expect(response.buyPatternCount).toBe(1);
-      expect(response.sellPatternCount).toBe(0);
-      expect(response.patternDetails).toHaveLength(PATTERN_REGISTRY.length);
-      expect(response.patternDetails).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            patternId: 'morning-star',
-            status: 'MATCHED',
-          }),
-          expect.objectContaining({
-            patternId: 'evening-star',
-            status: 'NOT_MATCHED',
-          }),
-          expect.objectContaining({
-            patternId: 'red-three-soldiers-hesitation',
-            status: 'NOT_MATCHED',
-          }),
-          expect.objectContaining({
-            patternId: 'three-white-soldiers',
-            status: 'NOT_MATCHED',
-          }),
-        ])
-      );
-      expect(response.patternDetails.some((detail) => detail.patternId === 'unknown')).toBe(false);
-    });
-
-    it('PatternResults が未設定の場合はデフォルト値を返す', () => {
-      const response = mapper.toTickerSummaryResponse({
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-02-27',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        CreatedAt: 1708992000000,
-        UpdatedAt: 1708992000000,
-      });
-
-      expect(response).toEqual({
-        buyPatternCount: 0,
+      expect(fields).toEqual({
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        date: '2026-02-27',
+        open: 182.15,
+        high: 183.92,
+        low: 181.44,
+        close: 183.31,
+        volume: 1000,
+        patternResults: { 'morning-star': 'MATCHED' },
+        buyPatternCount: 1,
         sellPatternCount: 0,
-        patternDetails: [],
+        createdAt: TIMESTAMP,
       });
+      expect(fields).not.toHaveProperty('updatedAt');
     });
-  });
 
-  describe('buildKeys', () => {
-    it('tickerId と date から PK/SK を正しく構築する', () => {
-      const keys = mapper.buildKeys({ tickerId: 'NSDQ:AAPL', date: '2026-02-27' });
+    it('射影した属性だけの Item (UpdatedAt なし) でも変換できる', () => {
+      const projected: Record<string, unknown> = {};
+      const item = buildItem();
+      for (const name of DAILY_SUMMARY_FORECAST_FIELD_ATTRIBUTES) {
+        if (item[name] !== undefined) {
+          projected[name] = item[name];
+        }
+      }
 
-      expect(keys).toEqual({
-        pk: 'SUMMARY#NSDQ:AAPL',
-        sk: 'DATE#2026-02-27',
-      });
+      expect(projected).not.toHaveProperty('UpdatedAt');
+      expect(mapper.toForecastFields(projected).close).toBe(183.31);
     });
-  });
 
-  describe('AI 由来の属性が残った既存アイテム', () => {
-    it('toEntity は AiAnalysisResult・Evaluation* が残っていても読み飛ばして変換する', () => {
-      const item = {
-        PK: 'SUMMARY#NSDQ:AAPL',
-        SK: 'DATE#2026-02-27',
-        Type: 'DailySummary',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-02-27',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        AiAnalysisResult: '{"unexpected":true}',
-        AiAnalysisError: 'timeout',
-        EvaluatedAt: 1709078400000,
-        Hit: 'true',
-        CreatedAt: 1708992000000,
-        UpdatedAt: 1708992000000,
-      } as DynamoDBItem;
-
-      const entity = mapper.toEntity(item);
-
-      expect(entity).not.toHaveProperty('AiAnalysisResult');
-      expect(entity).not.toHaveProperty('EvaluatedAt');
-      expect(entity.Close).toBe(183.31);
+    it('射影の属性一覧に UpdatedAt とキー属性を含めない', () => {
+      expect(DAILY_SUMMARY_FORECAST_FIELD_ATTRIBUTES).not.toContain('UpdatedAt');
+      expect(DAILY_SUMMARY_FORECAST_FIELD_ATTRIBUTES).not.toContain('PK');
     });
   });
 });

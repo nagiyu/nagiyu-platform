@@ -14,9 +14,9 @@ import { performanceDaily, probabilityRecord } from './fixtures';
 
 const marketEntity = (lean: 'HIGH' | 'NEUTRAL' = 'HIGH') =>
   ({
-    Market: 'JP',
-    Date: '2026-05-01',
-    Probabilities: { MKT: probabilityRecord({ probability: 0.4, baseline: 0.3, lean }) },
+    market: 'JP',
+    date: '2026-05-01',
+    probabilities: { MKT: probabilityRecord({ probability: 0.4, baseline: 0.3, lean }) },
   }) as never;
 
 describe('resolveMarketDate', () => {
@@ -51,7 +51,7 @@ describe('toMarketForecastResponse', () => {
   });
 
   it('確度が空なら forecast は null', () => {
-    const entity = { Probabilities: {} } as never;
+    const entity = { probabilities: {} } as never;
     expect(toMarketForecastResponse('US', '2026-05-01', entity, 0).forecast).toBeNull();
   });
 

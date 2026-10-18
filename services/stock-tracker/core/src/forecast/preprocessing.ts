@@ -192,7 +192,7 @@ export function buildObservationCalendar(
  * 両方とも作られなくなった日付以降には使わない（現在のバー生成では発生しないため）。
  *
  * 除外1: 休場日コピー足の日付、または前レコードと OHLC が完全一致
- * 除外2: CreatedAt が翌営業日の取引開始時刻以降（途中足）
+ * 除外2: createdAt が翌営業日の取引開始時刻以降 (途中足)
  *
  * 除外1適用後の観測カレンダーで除外2の翌営業日を決める。
  * 除外2の「翌営業日の取引開始」は、その取引所（銘柄の ExchangeID）の Start。
@@ -236,7 +236,7 @@ export function excludeLegacyBackfillRows(
   // 除外1後の観測カレンダーで翌営業日を決める
   const calendar = buildObservationCalendar(afterFirstExclusion, exchanges);
 
-  // 除外2: 途中足（CreatedAt がその取引所の翌営業日の取引開始（Start）以降）
+  // 除外2: 途中足 (createdAt がその取引所の翌営業日の取引開始 (Start) 以降)
   const afterSecondExclusion = afterFirstExclusion.filter((bar) => {
     const market = tryGetMarketForExchange(bar.exchangeId, exchanges);
     if (market === undefined) return false;

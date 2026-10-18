@@ -38,14 +38,14 @@ const session = {
 };
 
 const entity: NoteEntity = {
-  UserID: 'u1',
-  CharacterID: 'hiyori',
-  NoteID: 'note-1',
-  TopicID: 'topic-1',
-  Subject: 'コーヒーの効能',
-  Headline: 'この前の話、気になって調べてみたよ。覚醒効果があるみたい！',
-  CreatedAt: 100,
-  UpdatedAt: 100,
+  userId: 'u1',
+  characterId: 'hiyori',
+  noteId: 'note-1',
+  topicId: 'topic-1',
+  subject: 'コーヒーの効能',
+  headline: 'この前の話、気になって調べてみたよ。覚醒効果があるみたい！',
+  createdAt: 100,
+  updatedAt: 100,
 };
 
 const makeBundle = (): TopicBundle => ({
@@ -53,15 +53,15 @@ const makeBundle = (): TopicBundle => ({
   selfFacts: [],
   webFacts: [
     {
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-1',
-      FactID: 'fact-1',
-      Text: 'コーヒーには覚醒作用がある',
-      SourceUrls: ['https://example.com'],
-      Volatility: 'stable',
-      ObservedAt: 100,
-      CreatedAt: 100,
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-1',
+      factId: 'fact-1',
+      text: 'コーヒーには覚醒作用がある',
+      sourceUrls: ['https://example.com'],
+      volatility: 'stable',
+      observedAt: 100,
+      createdAt: 100,
     },
   ],
 });
@@ -133,7 +133,7 @@ describe('GET /api/notes/:id', () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.note.subject).toBe('コーヒーの効能');
-    expect(json.note.headline).toBe(entity.Headline);
+    expect(json.note.headline).toBe(entity.headline);
     expect(json.note.webFacts).toEqual(['コーヒーには覚醒作用がある']);
     expect(json.note.sources).toEqual(['https://example.com']);
     // userId は SK ではなくセッションから（PK はクライアント入力を信用しない）
@@ -155,7 +155,7 @@ describe('GET /api/notes/:id', () => {
     const res = await GET(req(), ctx(validId));
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.note.headline).toBe(entity.Headline);
+    expect(json.note.headline).toBe(entity.headline);
     expect(json.note.webFacts).toBeUndefined();
     expect(json.note.sources).toBeUndefined();
     expect(mockReportErrorEvent).toHaveBeenCalledTimes(1);

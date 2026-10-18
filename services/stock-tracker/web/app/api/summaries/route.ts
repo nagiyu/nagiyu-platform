@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  DailySummaryMapper,
   type DailySummaryEntity,
   type ExchangeEntity,
   type ForecastEntity,
@@ -25,6 +24,7 @@ import {
 } from '../../../lib/repository-factory';
 import { isValidDateFormat } from '../../../lib/forecast/date';
 import { buildMarketForecasts } from '../../../lib/forecast/market-forecast';
+import { toPatternSummary } from '../../../lib/summary/pattern-summary';
 import {
   indexForecastsByTicker,
   toTickerForecastSummary,
@@ -109,10 +109,8 @@ function resolveTicker(
   summary: DailySummaryEntity,
   tickerMap: Map<string, TickerEntity>
 ): TickerEntity | null {
-  return tickerMap.get(summary.TickerID) ?? null;
+  return tickerMap.get(summary.tickerId) ?? null;
 }
-
-const dailySummaryMapper = new DailySummaryMapper();
 
 function toTickerSummaryResponse(
   summary: DailySummaryEntity,
@@ -122,28 +120,28 @@ function toTickerSummaryResponse(
   forecastMap: Map<string, ForecastEntity>
 ): TickerSummaryResponse {
   const ticker = resolveTicker(summary, tickerMap);
-  const holding = holdingMap.get(summary.TickerID) ?? null;
-  const patternCounts = dailySummaryMapper.toTickerSummaryResponse(summary);
-  const alertCount = alertCountMap.get(summary.TickerID) ?? {
+  const holding = holdingMap.get(summary.tickerId) ?? null;
+  const patternCounts = toPatternSummary(summary);
+  const alertCount = alertCountMap.get(summary.tickerId) ?? {
     buy: { enabled: 0, disabled: 0 },
     sell: { enabled: 0, disabled: 0 },
   };
 
   return {
-    tickerId: summary.TickerID,
-    date: summary.Date,
-    symbol: ticker?.Symbol ?? summary.TickerID.split(':')[1] ?? summary.TickerID,
-    name: ticker?.Name ?? summary.TickerID,
-    open: summary.Open,
-    high: summary.High,
-    low: summary.Low,
-    close: summary.Close,
-    volume: summary.Volume,
-    updatedAt: new Date(summary.UpdatedAt).toISOString(),
+    tickerId: summary.tickerId,
+    date: summary.date,
+    symbol: ticker?.symbol ?? summary.tickerId.split(':')[1] ?? summary.tickerId,
+    name: ticker?.name ?? summary.tickerId,
+    open: summary.open,
+    high: summary.high,
+    low: summary.low,
+    close: summary.close,
+    volume: summary.volume,
+    updatedAt: new Date(summary.updatedAt).toISOString(),
     holding,
     buyAlertCount: alertCount.buy,
     sellAlertCount: alertCount.sell,
-    forecast: toTickerForecastSummary(forecastMap.get(summary.TickerID)),
+    forecast: toTickerForecastSummary(forecastMap.get(summary.tickerId)),
     buyPatternCount: patternCounts.buyPatternCount,
     sellPatternCount: patternCounts.sellPatternCount,
   };
@@ -157,10 +155,10 @@ async function fetchHoldingMap(userId: string): Promise<Map<string, HoldingSumma
     });
     return new Map(
       holdingsResult.items.map((holding) => [
-        holding.TickerID,
+        holding.tickerId,
         {
-          quantity: holding.Quantity,
-          averagePrice: holding.AveragePrice,
+          quantity: holding.quantity,
+          averagePrice: holding.averagePrice,
         },
       ])
     );
@@ -178,19 +176,19 @@ async function fetchAlertCountMap(userId: string): Promise<Map<string, TickerAle
     const alertCountMap = new Map<string, TickerAlertCountResponse>();
 
     for (const alert of alertsResult.items) {
-      const currentCount = alertCountMap.get(alert.TickerID) ?? {
+      const currentCount = alertCountMap.get(alert.tickerId) ?? {
         buy: { enabled: 0, disabled: 0 },
         sell: { enabled: 0, disabled: 0 },
       };
-      const modeCount = alert.Mode === 'Buy' ? currentCount.buy : currentCount.sell;
+      const modeCount = alert.mode === 'Buy' ? currentCount.buy : currentCount.sell;
 
-      if (alert.Enabled) {
+      if (alert.enabled) {
         modeCount.enabled += 1;
       } else {
         modeCount.disabled += 1;
       }
 
-      alertCountMap.set(alert.TickerID, currentCount);
+      alertCountMap.set(alert.tickerId, currentCount);
     }
 
     return alertCountMap;
@@ -235,7 +233,7 @@ async function fetchMarketForecasts(
       },
       requestedDate,
       exchanges.map((exchange, index) => ({
-        market: exchange.Market,
+        market: exchange.market,
         date: groups[index]?.date ?? null,
       }))
     );
@@ -255,15 +253,15 @@ async function buildExchangeSummaryGroup(
 ): Promise<ExchangeSummaryGroupResponse> {
   const dailySummaryRepository = createDailySummaryRepository();
   const summaries = await dailySummaryRepository.getByExchange(
-    exchange.ExchangeID,
+    exchange.exchangeId,
     date || undefined
   );
-  const resolvedDate = date ?? summaries[0]?.Date ?? null;
-  const forecastMap = await fetchForecastMap(exchange.ExchangeID, resolvedDate);
+  const resolvedDate = date ?? summaries[0]?.date ?? null;
+  const forecastMap = await fetchForecastMap(exchange.exchangeId, resolvedDate);
 
   return {
-    exchangeId: exchange.ExchangeID,
-    exchangeName: exchange.Name,
+    exchangeId: exchange.exchangeId,
+    exchangeName: exchange.name,
     date: resolvedDate,
     summaries: summaries.map((summary) =>
       toTickerSummaryResponse(summary, tickerMap, holdingMap, alertCountMap, forecastMap)
@@ -299,7 +297,7 @@ export const GET = withInternalErrorReporting(
       // 一覧表示専用のため、テーブル全体を走査しない速い経路(GSI Query)で取引所と銘柄を集める
       const exchanges = await exchangeRepository.getAllIndexed();
       const tickersByExchange = await Promise.all(
-        exchanges.map((exchange) => tickerRepository.getByExchange(exchange.ExchangeID))
+        exchanges.map((exchange) => tickerRepository.getByExchange(exchange.exchangeId))
       );
       const [holdingMap, alertCountMap] = await Promise.all([
         fetchHoldingMap(session.user.id),
@@ -307,7 +305,7 @@ export const GET = withInternalErrorReporting(
       ]);
 
       const tickerMap = new Map(
-        tickersByExchange.flat().map((ticker) => [ticker.TickerID, ticker])
+        tickersByExchange.flat().map((ticker) => [ticker.tickerId, ticker])
       );
       const exchangeSummaryGroups = await Promise.all(
         exchanges.map((exchange) =>

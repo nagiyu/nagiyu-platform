@@ -3,13 +3,13 @@ import { buildHourlyHistogram, findPeakInRange } from '../../../src/lifecycle/hi
 
 function makeUserMessage(createdAt: number): MessageEntity {
   return {
-    UserID: 'u1',
-    CharacterID: 'hiyori',
-    MessageID: `msg-${createdAt}`,
-    Role: 'user',
-    Text: 'hello',
-    CreatedAt: createdAt,
-    UpdatedAt: createdAt,
+    userId: 'u1',
+    characterId: 'hiyori',
+    messageId: `msg-${createdAt}`,
+    role: 'user',
+    text: 'hello',
+    createdAt: createdAt,
+    updatedAt: createdAt,
   };
 }
 

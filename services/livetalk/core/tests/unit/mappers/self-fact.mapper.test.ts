@@ -2,70 +2,117 @@ import { InvalidEntityDataError } from '@nagiyu/aws';
 import { SelfFactMapper } from '../../../src/mappers/self-fact.mapper.js';
 import type { SelfFactEntity } from '../../../src/entities/self-fact.entity.js';
 
-const baseEntity: SelfFactEntity = {
-  UserID: 'user1',
-  CharacterID: 'hiyori',
-  TopicID: 'TOPIC-001',
-  FactID: 'FACT-001',
-  Text: 'ユーザーはコーヒーが好き',
-  Provenance: 'MSG-123 から抽出',
-  CreatedAt: 1_750_000_000_000,
-};
+const TIMESTAMP = 1_700_000_000_000;
+const KEY = { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-001', factId: 'F1' };
+
+function buildEntity(overrides: Partial<SelfFactEntity> = {}): SelfFactEntity {
+  return {
+    userId: 'u1',
+    characterId: 'hiyori',
+    topicId: 'TOPIC-001',
+    factId: 'F1',
+    text: 'ユーザーはコーヒーが好き',
+    provenance: 'MSG-1',
+    createdAt: TIMESTAMP,
+    ...overrides,
+  };
+}
+
+function buildItem(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    PK: 'USER#u1',
+    SK: 'CHAR#hiyori#TOPIC#TOPIC-001#SELF#F1',
+    Type: 'SelfFact',
+    UserID: 'u1',
+    CharacterID: 'hiyori',
+    TopicID: 'TOPIC-001',
+    FactID: 'F1',
+    Text: 'ユーザーはコーヒーが好き',
+    Provenance: 'MSG-1',
+    CreatedAt: TIMESTAMP,
+    ...overrides,
+  };
+}
 
 describe('SelfFactMapper', () => {
-  let mapper: SelfFactMapper;
+  const mapper = new SelfFactMapper();
 
-  beforeEach(() => {
-    mapper = new SelfFactMapper();
+  it('entityType は SelfFact になる', () => {
+    expect(mapper.entityType).toBe('SelfFact');
   });
 
-  describe('toItem', () => {
-    it('エンティティを DynamoDB Item に変換する', () => {
-      const item = mapper.toItem(baseEntity);
-      expect(item.PK).toBe('USER#user1');
-      expect(item.SK).toBe('CHAR#hiyori#TOPIC#TOPIC-001#SELF#FACT-001');
-      expect(item.Type).toBe('SelfFact');
-      expect(item.Text).toBe('ユーザーはコーヒーが好き');
-      expect(item.Provenance).toBe('MSG-123 から抽出');
+  it('buildKeys は PK=USER#<userId> / SK=CHAR#<charId>#TOPIC#<topicId>#SELF#<factId> を返す', () => {
+    const keys = mapper.buildKeys(KEY);
+
+    expect(keys).toEqual({ PK: 'USER#u1', SK: 'CHAR#hiyori#TOPIC#TOPIC-001#SELF#F1' });
+    expect(Object.keys(keys)).toEqual(['PK', 'SK']);
+  });
+
+  it('getKey は Entity からビジネスキーを取り出す', () => {
+    expect(mapper.getKey(buildEntity())).toEqual(KEY);
+  });
+
+  it('toItem は保存形式の Item に変換し、UpdatedAt は store に任せて書かない', () => {
+    const item = mapper.toItem(buildEntity());
+
+    expect(item).toEqual(buildItem());
+    expect(item).not.toHaveProperty('UpdatedAt');
+  });
+
+  describe('toUpdateAttributes', () => {
+    it('指定した項目だけを保存用の属性名に変換する', () => {
+      expect(mapper.toUpdateAttributes({ text: '更新' })).toEqual({ Text: '更新' });
     });
 
-    it('GSI3PK/GSI3SK を付与しない（sparse GSI-TOPIC は META のみ）', () => {
-      const item = mapper.toItem(baseEntity);
-      expect(item.GSI3PK).toBeUndefined();
-      expect(item.GSI3SK).toBeUndefined();
-    });
+    it.each(['text', 'provenance'] as const)(
+      '必須項目 %s を null にすると InvalidEntityDataError をスローする',
+      (field) => {
+        expect(() => mapper.toUpdateAttributes({ [field]: null })).toThrow(InvalidEntityDataError);
+      }
+    );
+
+    it.each([
+      ['userId', { userId: 'u1' }],
+      ['characterId', { characterId: 'hiyori' }],
+      ['topicId', { topicId: 'TOPIC-001' }],
+      ['factId', { factId: 'F1' }],
+      ['createdAt', { createdAt: TIMESTAMP }],
+    ] as const)(
+      '変更不可の項目 %s を含めると、値が同じでも InvalidEntityDataError をスローする',
+      (_field, changes) => {
+        expect(() => mapper.toUpdateAttributes(changes)).toThrow(InvalidEntityDataError);
+      }
+    );
   });
 
   describe('toEntity', () => {
-    it('DynamoDB Item をエンティティに復元する', () => {
-      const item = mapper.toItem(baseEntity);
-      const entity = mapper.toEntity(item);
-      expect(entity).toEqual(baseEntity);
+    it('Item を camelCase の Entity に変換する', () => {
+      expect(mapper.toEntity(buildItem())).toEqual(buildEntity());
     });
 
-    it('Provenance の空文字を許可する（出所不明時）', () => {
-      const item = mapper.toItem({ ...baseEntity, Provenance: '' });
-      const entity = mapper.toEntity(item);
-      expect(entity.Provenance).toBe('');
+    it('provenance は空文字を許可する', () => {
+      expect(mapper.toEntity(buildItem({ Provenance: '' })).provenance).toBe('');
     });
 
-    it('必須フィールド欠落で InvalidEntityDataError を投げる', () => {
-      const item = mapper.toItem(baseEntity);
-      delete (item as Record<string, unknown>).Text;
-      expect(() => mapper.toEntity(item)).toThrow(InvalidEntityDataError);
+    it('旧形式の時刻 (ISO 文字列・エポック秒) をミリ秒で読む', () => {
+      expect(
+        mapper.toEntity(buildItem({ CreatedAt: new Date(TIMESTAMP).toISOString() })).createdAt
+      ).toBe(TIMESTAMP);
+      expect(mapper.toEntity(buildItem({ CreatedAt: TIMESTAMP / 1000 })).createdAt).toBe(TIMESTAMP);
     });
+
+    it.each(['UserID', 'CharacterID', 'TopicID', 'FactID', 'Text', 'Provenance', 'CreatedAt'])(
+      '必須フィールド %s が欠けている場合は InvalidEntityDataError をスローする',
+      (field) => {
+        const item = buildItem();
+        delete item[field];
+
+        expect(() => mapper.toEntity(item)).toThrow(InvalidEntityDataError);
+      }
+    );
   });
 
-  describe('buildKeys', () => {
-    it('PK / SK を組み立てる', () => {
-      const { pk, sk } = mapper.buildKeys({
-        userId: 'user1',
-        characterId: 'hiyori',
-        topicId: 'TOPIC-001',
-        factId: 'FACT-001',
-      });
-      expect(pk).toBe('USER#user1');
-      expect(sk).toBe('CHAR#hiyori#TOPIC#TOPIC-001#SELF#FACT-001');
-    });
+  it('Entity -> Item -> Entity の変換で元に戻る', () => {
+    expect(mapper.toEntity(mapper.toItem(buildEntity()))).toEqual(buildEntity());
   });
 });

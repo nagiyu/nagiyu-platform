@@ -20,21 +20,22 @@ function makeRepo(handler: SendHandler) {
 
 describe('DynamoDBWebRawRepository', () => {
   describe('put', () => {
-    it('PutCommand を送り、TTL を 90 日後に設定する', async () => {
+    it('PutCommand を送り、TTL を作成から 90 日後のエポック秒で書く', async () => {
       const sent: unknown[] = [];
       const repo = makeRepo(async (cmd) => {
         sent.push(cmd);
         return {};
       });
       const raw = await repo.put({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Query: 'コーヒー',
-        RawText: 'コーヒーの効能',
-        SourceUrls: ['https://example.com'],
-        Origin: 'auto',
+        userId: 'u1',
+        characterId: 'hiyori',
+        query: 'コーヒー',
+        rawText: 'コーヒーの効能',
+        sourceUrls: ['https://example.com'],
+        origin: 'auto',
       });
-      expect(raw.RawID).toBe('RAW-FIXED');
+      expect(raw.rawId).toBe('RAW-FIXED');
+      expect(raw.expiresAt).toBe(FIXED_NOW + WEBRAW_TTL_SECONDS * 1000);
       expect(sent[0]).toBeInstanceOf(PutCommand);
       const input = (sent[0] as PutCommand).input;
       expect(input.Item?.PK).toBe('USER#u1');
@@ -42,35 +43,35 @@ describe('DynamoDBWebRawRepository', () => {
       expect(input.Item?.TTL).toBe(Math.floor(FIXED_NOW / 1000) + WEBRAW_TTL_SECONDS);
     });
 
-    it('明示的な RawID を尊重する', async () => {
+    it('明示的な rawId を尊重する', async () => {
       const repo = makeRepo(async () => ({}));
       const raw = await repo.put({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Query: 'q',
-        RawText: 't',
-        SourceUrls: [],
-        Origin: 'auto',
-        RawID: 'custom-raw',
+        userId: 'u1',
+        characterId: 'hiyori',
+        query: 'q',
+        rawText: 't',
+        sourceUrls: [],
+        origin: 'auto',
+        rawId: 'custom-raw',
       });
-      expect(raw.RawID).toBe('custom-raw');
+      expect(raw.rawId).toBe('custom-raw');
     });
 
-    it('Origin/RequestText/RequestedAt を Item に書き込む（甲-1）', async () => {
+    it('origin/requestText/requestedAt を Item に書き込む', async () => {
       const sent: unknown[] = [];
       const repo = makeRepo(async (cmd) => {
         sent.push(cmd);
         return {};
       });
       await repo.put({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Query: '最新アニメ情報',
-        RawText: '今期は〇〇が人気です',
-        SourceUrls: [],
-        Origin: 'request',
-        RequestText: '最新アニメ情報を調べて',
-        RequestedAt: FIXED_NOW - 1000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        query: '最新アニメ情報',
+        rawText: '今期は〇〇が人気です',
+        sourceUrls: [],
+        origin: 'request',
+        requestText: '最新アニメ情報を調べて',
+        requestedAt: FIXED_NOW - 1000,
       });
       const input = (sent[0] as PutCommand).input;
       expect(input.Item?.Origin).toBe('request');
@@ -84,12 +85,12 @@ describe('DynamoDBWebRawRepository', () => {
       });
       await expect(
         repo.put({
-          UserID: 'u1',
-          CharacterID: 'hiyori',
-          Query: 'q',
-          RawText: 't',
-          SourceUrls: [],
-          Origin: 'auto',
+          userId: 'u1',
+          characterId: 'hiyori',
+          query: 'q',
+          rawText: 't',
+          sourceUrls: [],
+          origin: 'auto',
         })
       ).rejects.toBeInstanceOf(DatabaseError);
     });
@@ -136,10 +137,10 @@ describe('DynamoDBWebRawRepository', () => {
       const repo = makeRepo(async () => ({ Items: [item] }));
       const result = await repo.listSince('u1', 'hiyori', 0);
       expect(result).toHaveLength(1);
-      expect(result[0].RawID).toBe('RAW-FIXED');
+      expect(result[0].rawId).toBe('RAW-FIXED');
     });
 
-    it('Origin が無い既存 item は "auto" にフォールバックする（甲-1 導入前の後方互換）', async () => {
+    it('Origin が無い既存 item は "auto" にフォールバックする', async () => {
       const item = {
         PK: 'USER#u1',
         SK: 'CHAR#hiyori#WEBRAW#RAW-FIXED',
@@ -155,7 +156,7 @@ describe('DynamoDBWebRawRepository', () => {
       };
       const repo = makeRepo(async () => ({ Items: [item] }));
       const result = await repo.listSince('u1', 'hiyori', 0);
-      expect(result[0].Origin).toBe('auto');
+      expect(result[0].origin).toBe('auto');
     });
 
     it('壊れた item はログ警告でスキップして処理を続行する', async () => {
@@ -175,7 +176,7 @@ describe('DynamoDBWebRawRepository', () => {
       const repo = makeRepo(async () => ({ Items: [broken, ok] }));
       const result = await repo.listSince('u1', 'hiyori', 0);
       expect(result).toHaveLength(1);
-      expect(result[0].RawID).toBe('ok');
+      expect(result[0].rawId).toBe('ok');
     });
 
     it('ページネーション: LastEvaluatedKey があれば再クエリする', async () => {

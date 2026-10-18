@@ -7,7 +7,7 @@
  * DynamoDB Local（DYNAMODB_ENDPOINT、未設定時は http://localhost:8000）への接続を前提とし、
  * 接続できない環境では自己スキップせずテストを失敗させる（決定的に検知するため）。
  */
-import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, PutCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { InMemorySingleTableStore } from '@nagiyu/aws';
 import {
@@ -30,6 +30,10 @@ defineForecastRepositoryContract('InMemory', {
   reset: async () => {
     inMemoryStore = new InMemorySingleTableStore();
   },
+  putRawItem: async (item) => {
+    inMemoryStore.put(item as Parameters<InMemorySingleTableStore['put']>[0]);
+  },
+  getRawItem: async (pk, sk) => inMemoryStore.get(pk, sk),
 });
 
 // --- DynamoDB Local 実装 ---
@@ -63,5 +67,22 @@ defineForecastRepositoryContract('DynamoDB Local', {
   teardown: async () => {
     await ensureDynamoDbLocalTable();
     await deleteTable(dynamoDbLocalRawClient as DynamoDBClient, dynamoDbLocalTableName);
+  },
+  putRawItem: async (item) => {
+    await ensureDynamoDbLocalTable();
+    await (dynamoDbLocalDocClient as DynamoDBDocumentClient).send(
+      new PutCommand({ TableName: dynamoDbLocalTableName, Item: item })
+    );
+  },
+  getRawItem: async (pk, sk) => {
+    await ensureDynamoDbLocalTable();
+    const result = await (dynamoDbLocalDocClient as DynamoDBDocumentClient).send(
+      new GetCommand({
+        TableName: dynamoDbLocalTableName,
+        Key: { PK: pk, SK: sk },
+        ConsistentRead: true,
+      })
+    );
+    return result.Item;
   },
 });

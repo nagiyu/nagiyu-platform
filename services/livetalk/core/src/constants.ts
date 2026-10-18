@@ -194,7 +194,7 @@ export const NOTIFY_ACTIVE_WINDOW_MINUTES = 90;
 export const NOTIFICATION_EVENT_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 /**
- * critical 通知に必要な Topic.Care の下限（リブトーク知識・記憶再設計 P5）。
+ * critical 通知に必要な Topic.care の下限。
  *
  * care は「ユーザー起点の fold」（SELF fact を伴う集約）でのみ上昇する（新規 Topic は 1、既存
  * Topic 更新・名寄せは +1）。キャラの自発リサーチ（WEB only の fold）では上がらないため、値が
@@ -330,36 +330,3 @@ export const TOPIC_RECALL_RELATED_THRESHOLD = 0.8;
 
 /** 1ホップ関連展開で追加する Topic の最大件数（暴発防止、要調整・要観測）。 */
 export const TOPIC_RECALL_RELATED_MAX = 2;
-
-// ---- 一回性マイグレーション（旧知識資材 → 新 Topic モデル、throwaway）----
-//
-// 手動発火バッチ専用の定数。移行完了・Issue クローズ後は関連コード一式
-// （`migration/` ディレクトリ）ごと削除してよい。
-
-/**
- * 擬似メッセージ・擬似 webraw の結合ストリームを consolidate() へ流し込む際の
- * 1 チャンクあたりの件数。実 topicRepo をチャンク間で共有し、後続チャンクが
- * 前チャンク生成の Topic に merge（名寄せ）できるようにする。
- */
-export const MIGRATION_CHUNK_SIZE = 20;
-
-/**
- * care シード: 1 Topic あたりに加算する care の上限（乱発防止）。
- * 正規化済みシグナル重みの合計を丸めた値をこの上限で cap する。
- */
-export const MIGRATION_CARE_SEED_MAX_PER_TOPIC = 5;
-
-/**
- * care シード: シグナル（InterestCategory / Memory）を Topic へ割り当てる際の
- * cosine similarity 下限閾値（embedding 最寄り Topic とのスコアがこれ未満なら drop）。
- * 旧カテゴリ語の埋め込みと、言い換えられた新 Topic（Subject＋要約）の埋め込みの
- * cosine は、一致していても中程度（〜0.3-0.6）に留まるため、「対応 Topic が存在するか」
- * を判定する緩めのゲートとして 0.3 とする。要調整・要観測。
- */
-export const MIGRATION_CARE_ASSIGN_SIMILARITY_THRESHOLD = 0.3;
-
-/**
- * consolidate() の `selfFactProvenanceSuffix` に渡す固定文言。
- * 旧 Memory 由来の SELF fact の Provenance に「どこから移行されたか」を残す。
- */
-export const MIGRATION_SELF_FACT_PROVENANCE_SUFFIX = '旧Memory移行';

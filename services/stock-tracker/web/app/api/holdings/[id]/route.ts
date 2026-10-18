@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { EntityNotFoundError } from '@nagiyu/aws';
 import { withAuth, readJsonObjectBody } from '@nagiyu/nextjs';
 import {
   createHoldingRepository,
@@ -16,7 +17,7 @@ import {
 } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
 import { withApiErrorReporting } from '../../../../lib/api-error-reporting';
-import type { Holding } from '@nagiyu/stock-tracker-core';
+import type { HoldingEntity, UpdateHoldingInput } from '@nagiyu/stock-tracker-core';
 
 /**
  * エラーメッセージ定数
@@ -70,23 +71,23 @@ function invalidFieldTypeResponse(): NextResponse {
  * Holding エンティティをレスポンス形式に変換
  */
 function mapHoldingToResponse(
-  holding: Holding,
+  holding: HoldingEntity,
   tickerSymbol: string,
   tickerName: string
 ): HoldingResponse {
   // HoldingID は UserID と TickerID の組み合わせ
-  const holdingId = `${holding.UserID}#${holding.TickerID}`;
+  const holdingId = `${holding.userId}#${holding.tickerId}`;
 
   return {
     holdingId,
-    tickerId: holding.TickerID,
+    tickerId: holding.tickerId,
     symbol: tickerSymbol,
     name: tickerName,
-    quantity: holding.Quantity,
-    averagePrice: holding.AveragePrice,
-    currency: holding.Currency,
-    createdAt: new Date(holding.CreatedAt).toISOString(),
-    updatedAt: new Date(holding.UpdatedAt).toISOString(),
+    quantity: holding.quantity,
+    averagePrice: holding.averagePrice,
+    currency: holding.currency,
+    createdAt: new Date(holding.createdAt).toISOString(),
+    updatedAt: new Date(holding.updatedAt).toISOString(),
   };
 }
 
@@ -161,27 +162,27 @@ export const PUT = withApiErrorReporting(
       const { quantity, averagePrice, currency } = bodyResult.body;
 
       // 更新可能なフィールドのみ抽出
-      const updates: Partial<Pick<Holding, 'Quantity' | 'AveragePrice' | 'Currency'>> = {};
+      const updates: UpdateHoldingInput = {};
 
       if (quantity !== undefined) {
         if (typeof quantity !== 'number') {
           return invalidFieldTypeResponse();
         }
-        updates.Quantity = quantity;
+        updates.quantity = quantity;
       }
 
       if (averagePrice !== undefined) {
         if (typeof averagePrice !== 'number') {
           return invalidFieldTypeResponse();
         }
-        updates.AveragePrice = averagePrice;
+        updates.averagePrice = averagePrice;
       }
 
       if (currency !== undefined) {
         if (typeof currency !== 'string') {
           return invalidFieldTypeResponse();
         }
-        updates.Currency = currency;
+        updates.currency = currency;
       }
 
       // 更新するフィールドがない場合はエラー
@@ -199,12 +200,12 @@ export const PUT = withApiErrorReporting(
       const holdingRepo = createHoldingRepository();
 
       // 保有株式を更新
-      let updatedHolding: Holding;
+      let updatedHolding: HoldingEntity;
       try {
         updatedHolding = await holdingRepo.update(currentUserId, tickerId, updates);
       } catch (error) {
-        // HoldingNotFoundError のチェック
-        if (error instanceof Error && error.name === 'HoldingNotFoundError') {
+        // 保有株式が見つからない場合
+        if (error instanceof EntityNotFoundError) {
           return NextResponse.json(
             {
               error: 'NOT_FOUND',
@@ -218,13 +219,13 @@ export const PUT = withApiErrorReporting(
 
       // TickerリポジトリでSymbolとNameを取得
       const tickerRepo = createTickerRepository();
-      const ticker = await tickerRepo.getById(updatedHolding.TickerID);
+      const ticker = await tickerRepo.getById(updatedHolding.tickerId);
 
       // レスポンス形式に変換
       const response = mapHoldingToResponse(
         updatedHolding,
-        ticker?.Symbol || updatedHolding.TickerID.split(':')[1] || '',
-        ticker?.Name || ''
+        ticker?.symbol || updatedHolding.tickerId.split(':')[1] || '',
+        ticker?.name || ''
       );
 
       return NextResponse.json(response, { status: 200 });
@@ -279,8 +280,8 @@ export const DELETE = withApiErrorReporting(
       try {
         await holdingRepo.delete(currentUserId, tickerId);
       } catch (error) {
-        // HoldingNotFoundError のチェック
-        if (error instanceof Error && error.name === 'HoldingNotFoundError') {
+        // 保有株式が見つからない場合
+        if (error instanceof EntityNotFoundError) {
           return NextResponse.json(
             {
               error: 'NOT_FOUND',

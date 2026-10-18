@@ -4,12 +4,6 @@
  * DynamoDB操作を簡略化するヘルパー関数を提供
  */
 
-import type {
-  PutCommandInput,
-  UpdateCommandInput,
-  DeleteCommandInput,
-} from '@aws-sdk/lib-dynamodb';
-
 /** 属性を削除 (REMOVE 句) することを示すマーカー */
 export const REMOVE_ATTRIBUTE: unique symbol = Symbol('REMOVE_ATTRIBUTE');
 
@@ -115,73 +109,4 @@ export function buildUpdateExpression(
     parts.ExpressionAttributeValues = values;
   }
   return parts;
-}
-
-/**
- * 条件付きPUT（存在しない場合のみ作成）の設定を生成
- *
- * @param input - PutCommand の基本設定
- * @returns attribute_not_exists 条件を追加した PutCommandInput
- *
- * @example
- * ```typescript
- * const input = conditionalPut({
- *   TableName: 'MyTable',
- *   Item: { PK: 'USER#123', SK: 'PROFILE', Name: 'John' }
- * });
- * // input.ConditionExpression: 'attribute_not_exists(PK)'
- * ```
- */
-export function conditionalPut(input: PutCommandInput): PutCommandInput {
-  return {
-    ...input,
-    ConditionExpression: 'attribute_not_exists(PK)',
-  };
-}
-
-/**
- * 条件付きUPDATE（存在する場合のみ更新）の設定を生成
- *
- * @param input - UpdateCommand の基本設定
- * @returns attribute_exists 条件を追加した UpdateCommandInput
- *
- * @example
- * ```typescript
- * const input = conditionalUpdate({
- *   TableName: 'MyTable',
- *   Key: { PK: 'USER#123', SK: 'PROFILE' },
- *   UpdateExpression: 'SET #name = :name',
- *   ExpressionAttributeNames: { '#name': 'Name' },
- *   ExpressionAttributeValues: { ':name': 'John' }
- * });
- * // input.ConditionExpression: 'attribute_exists(PK)'
- * ```
- */
-export function conditionalUpdate(input: UpdateCommandInput): UpdateCommandInput {
-  return {
-    ...input,
-    ConditionExpression: 'attribute_exists(PK)',
-  };
-}
-
-/**
- * 条件付きDELETE（存在する場合のみ削除）の設定を生成
- *
- * @param input - DeleteCommand の基本設定
- * @returns attribute_exists 条件を追加した DeleteCommandInput
- *
- * @example
- * ```typescript
- * const input = conditionalDelete({
- *   TableName: 'MyTable',
- *   Key: { PK: 'USER#123', SK: 'PROFILE' }
- * });
- * // input.ConditionExpression: 'attribute_exists(PK)'
- * ```
- */
-export function conditionalDelete(input: DeleteCommandInput): DeleteCommandInput {
-  return {
-    ...input,
-    ConditionExpression: 'attribute_exists(PK)',
-  };
 }

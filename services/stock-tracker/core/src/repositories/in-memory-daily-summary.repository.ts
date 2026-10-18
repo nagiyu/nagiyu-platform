@@ -5,36 +5,44 @@
  */
 
 import {
-  InMemorySingleTableStore,
+  InMemoryEntityStore,
   type AttributeQueryCondition,
-  type DynamoDBItem,
+  type DynamoDBAttributes,
+  type EntityStore,
+  type InMemorySingleTableStore,
 } from '@nagiyu/aws';
 import type { DailySummaryRepository } from './daily-summary.repository.interface.js';
 import type {
   DailySummaryEntity,
   DailySummaryForecastFields,
+  DailySummaryKey,
   CreateDailySummaryInput,
 } from '../entities/daily-summary.entity.js';
-import { DailySummaryMapper } from '../mappers/daily-summary.mapper.js';
+import { DailySummaryMapper, buildDailySummaryGsi4Pk } from '../mappers/daily-summary.mapper.js';
+import {
+  buildExchangeSummaryGsi4DatePrefix,
+  buildExchangeSummaryGsi4DateUpperBound,
+} from '../mappers/exchange-summary-index.js';
 
-// store既定のqueryByAttribute limit（100件）で打ち切られると、GSI4SK昇順の先頭ページ
-// （＝最古側）だけが返り「最新日」の算出などが壊れるため、in-memory-ticker.repository.ts の
-// getAllと同じ流儀でcursorループにより全件集約する（ページサイズ自体は任意）。
+// store既定のqueryByAttribute limit (100件) で打ち切られると、GSI4SK昇順の先頭ページ
+// (最古側) だけが返り「最新日」の算出などが壊れるため、cursorループにより全件集約する
+// (ページサイズ自体は任意)。
 const GSI4_FULL_AGGREGATION_PAGE_SIZE = 100;
 
 /**
  * InMemory Daily Summary Repository
  *
- * InMemorySingleTableStoreを使用した日次サマリーリポジトリの実装
+ * 単一アイテムの CRUD は EntityStore に任せ、GSI4 の近似クエリだけを自前で持つ。
  * テスト環境で使用
  */
 export class InMemoryDailySummaryRepository implements DailySummaryRepository {
-  private readonly mapper: DailySummaryMapper;
   private readonly store: InMemorySingleTableStore;
+  private readonly mapper = new DailySummaryMapper();
+  private readonly entityStore: EntityStore<DailySummaryEntity, DailySummaryKey>;
 
   constructor(store: InMemorySingleTableStore) {
     this.store = store;
-    this.mapper = new DailySummaryMapper();
+    this.entityStore = new InMemoryEntityStore(store, this.mapper);
   }
 
   /**
@@ -44,14 +52,7 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
     tickerId: string,
     date: string
   ): Promise<DailySummaryEntity | null> {
-    const { pk, sk } = this.mapper.buildKeys({ tickerId, date });
-    const item = this.store.get(pk, sk);
-
-    if (!item) {
-      return null;
-    }
-
-    return this.mapper.toEntity(item);
+    return this.entityStore.get({ tickerId, date });
   }
 
   /**
@@ -65,7 +66,7 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
   public async getByExchange(exchangeId: string, date?: string): Promise<DailySummaryEntity[]> {
     const summaries = this.queryAllByGsi4({
       attributeName: 'GSI4PK',
-      attributeValue: exchangeId,
+      attributeValue: buildDailySummaryGsi4Pk(exchangeId),
       // date省略時（sk条件なし）でも、実DynamoDBのGSI4 Queryと同様にGSI4SK昇順で返すよう明示する。
       // date指定時はsk条件のattributeNameが優先されるため、このフィールドは無視される。
       gsiSortKeyAttributeName: 'GSI4SK',
@@ -74,7 +75,7 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
             sk: {
               attributeName: 'GSI4SK',
               operator: 'begins_with' as const,
-              value: `DATE#${date}`,
+              value: buildExchangeSummaryGsi4DatePrefix(date),
             },
           }
         : {}),
@@ -85,18 +86,18 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
     }
 
     const latestDate = summaries.reduce((latest, summary) => {
-      return summary.Date > latest ? summary.Date : latest;
-    }, summaries[0].Date);
+      return summary.date > latest ? summary.date : latest;
+    }, summaries[0].date);
 
-    return summaries.filter((summary) => summary.Date === latestDate);
+    return summaries.filter((summary) => summary.date === latestDate);
   }
 
   /**
    * 取引所IDと日付範囲でサマリーを取得（GSI4 をシミュレート、両端含む）
    *
-   * `DATE#{toDate}#~` のセンチネル（dynamodb-daily-summary.repository.tsと同じ方式）は、
-   * TickerIDに `~`（0x7E）より大きいコードポイントの文字が含まれる場合、`toDate` 分の
-   * その項目を取りこぼす前提がある。現行のTickerID体系（`NSDQ:AAPL` 形式）では起きない。
+   * 上限は DynamoDB 実装と同じく、`DATE#{toDate}#~` にする。TickerID に `~` (0x7E) より大きい
+   * コードポイントの文字が含まれると `toDate` 分のその項目を取りこぼすが、現行の TickerID 体系
+   * (`NSDQ:AAPL` 形式) では起こらない。
    */
   public async getByExchangeAndDateRange(
     exchangeId: string,
@@ -105,11 +106,14 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
   ): Promise<DailySummaryEntity[]> {
     return this.queryAllByGsi4({
       attributeName: 'GSI4PK',
-      attributeValue: exchangeId,
+      attributeValue: buildDailySummaryGsi4Pk(exchangeId),
       sk: {
         attributeName: 'GSI4SK',
         operator: 'between' as const,
-        value: [`DATE#${fromDate}`, `DATE#${toDate}#~`],
+        value: [
+          buildExchangeSummaryGsi4DatePrefix(fromDate),
+          buildExchangeSummaryGsi4DateUpperBound(toDate),
+        ],
       },
     });
   }
@@ -128,11 +132,14 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
   ): Promise<DailySummaryForecastFields[]> {
     const items = this.queryRawByGsi4({
       attributeName: 'GSI4PK',
-      attributeValue: exchangeId,
+      attributeValue: buildDailySummaryGsi4Pk(exchangeId),
       sk: {
         attributeName: 'GSI4SK',
         operator: 'between' as const,
-        value: [`DATE#${fromDate}`, `DATE#${toDate}#~`],
+        value: [
+          buildExchangeSummaryGsi4DatePrefix(fromDate),
+          buildExchangeSummaryGsi4DateUpperBound(toDate),
+        ],
       },
     });
     return items.map((item) => this.mapper.toForecastFields(item));
@@ -148,12 +155,12 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
   }
 
   /**
-   * GSI4条件に一致する全アイテム（DynamoDBItem のまま）をcursorループで集約する。
+   * GSI4条件に一致する全アイテム (生の Item のまま) をcursorループで集約する。
    * Entity への変換方法が呼び出し側で異なる（`toEntity` / `toForecastFields`）ため、
    * 変換前の生アイテム集約だけをここに切り出す。
    */
-  private queryRawByGsi4(condition: AttributeQueryCondition): DynamoDBItem[] {
-    const items: DynamoDBItem[] = [];
+  private queryRawByGsi4(condition: AttributeQueryCondition): DynamoDBAttributes[] {
+    const items: DynamoDBAttributes[] = [];
     let cursor: string | undefined;
 
     do {
@@ -170,17 +177,17 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
 
   /**
    * サマリーを保存（既存の場合は上書き）
+   *
+   * 上書きしても作成日時は最初の値を保つため、先に既存を読んで引き継ぐ。
+   * updatedAt は store が書き込み時に現在時刻で上書きする。
    */
   public async upsert(input: CreateDailySummaryInput): Promise<DailySummaryEntity> {
-    const existing = await this.getByTickerAndDate(input.TickerID, input.Date);
+    const existing = await this.entityStore.get({ tickerId: input.tickerId, date: input.date });
     const now = Date.now();
-    const entity: DailySummaryEntity = {
+    return this.entityStore.put({
       ...input,
-      CreatedAt: existing?.CreatedAt ?? now,
-      UpdatedAt: now,
-    };
-
-    this.store.put(this.mapper.toItem(entity));
-    return entity;
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    });
   }
 }

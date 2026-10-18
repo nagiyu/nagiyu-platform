@@ -33,7 +33,7 @@ const makeProfileRepoWithUsers = async (userIds: string[]): Promise<InMemoryProf
   const nowMs = () => fixedNow;
   const profileRepo = new InMemoryProfileRepository(store, nowMs);
   for (const id of userIds) {
-    await profileRepo.upsert({ UserID: id });
+    await profileRepo.upsert({ userId: id });
   }
   return profileRepo;
 };
@@ -80,15 +80,15 @@ describe('learnAllUserActivities', () => {
     for (let i = 0; i < 5; i++) {
       tick = recentBase + i * 3600 * 1000;
       await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: `msg ${i}`,
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'user',
+        text: `msg ${i}`,
       });
     }
     // u1, u2 を Profile として登録（u2 はメッセージなし）
-    await profileRepo.upsert({ UserID: 'u1' });
-    await profileRepo.upsert({ UserID: 'u2' });
+    await profileRepo.upsert({ userId: 'u1' });
+    await profileRepo.upsert({ userId: 'u2' });
 
     const result = await learnAllUserActivities({
       profileRepo,
@@ -115,13 +115,13 @@ describe('learnAllUserActivities', () => {
     for (let i = 0; i < 5; i++) {
       tick = recentBase + i * 3600 * 1000;
       await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'ageha',
-        Role: 'user',
-        Text: `ageha msg ${i}`,
+        userId: 'u1',
+        characterId: 'ageha',
+        role: 'user',
+        text: `ageha msg ${i}`,
       });
     }
-    await profileRepo.upsert({ UserID: 'u1' });
+    await profileRepo.upsert({ userId: 'u1' });
 
     const result = await learnAllUserActivities({
       profileRepo,
@@ -148,22 +148,22 @@ describe('learnAllUserActivities', () => {
     for (let i = 0; i < 5; i++) {
       tick = recentBase + i * 3600 * 1000;
       await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: `hiyori msg ${i}`,
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'user',
+        text: `hiyori msg ${i}`,
       });
     }
     for (let i = 0; i < 5; i++) {
       tick = recentBase + (i + 5) * 3600 * 1000;
       await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'ageha',
-        Role: 'user',
-        Text: `ageha msg ${i}`,
+        userId: 'u1',
+        characterId: 'ageha',
+        role: 'user',
+        text: `ageha msg ${i}`,
       });
     }
-    await profileRepo.upsert({ UserID: 'u1' });
+    await profileRepo.upsert({ userId: 'u1' });
 
     const result = await learnAllUserActivities({
       profileRepo,
@@ -198,14 +198,14 @@ describe('learnAllUserActivities', () => {
     for (let i = 0; i < 5; i++) {
       tick = recentBase + i * 3600 * 1000;
       await failingMessageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: `msg ${i}`,
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'user',
+        text: `msg ${i}`,
       });
     }
-    await profileRepo.upsert({ UserID: 'u1' });
-    await profileRepo.upsert({ UserID: 'u2' });
+    await profileRepo.upsert({ userId: 'u1' });
+    await profileRepo.upsert({ userId: 'u2' });
 
     const result = await learnAllUserActivities({
       profileRepo,
@@ -256,14 +256,14 @@ describe('learnAllUserActivities', () => {
       for (let i = 0; i < 5; i++) {
         tick = recentBase + i * 3600 * 1000;
         await messageRepo.create({
-          UserID: 'u1',
-          CharacterID: characterId,
-          Role: 'user',
-          Text: `msg ${i}`,
+          userId: 'u1',
+          characterId: characterId,
+          role: 'user',
+          text: `msg ${i}`,
         });
       }
     }
-    await profileRepo.upsert({ UserID: 'u1' });
+    await profileRepo.upsert({ userId: 'u1' });
 
     const result = await learnAllUserActivities({
       profileRepo,

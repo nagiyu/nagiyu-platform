@@ -63,16 +63,16 @@ export const GET = withApiErrorReporting(
     // レスポンスを返す (API仕様に従った形式)
     return NextResponse.json({
       exchanges: exchanges.map((exchange: ExchangeEntity) => ({
-        exchangeId: exchange.ExchangeID,
-        name: exchange.Name,
-        key: exchange.Key,
-        timezone: exchange.Timezone,
+        exchangeId: exchange.exchangeId,
+        name: exchange.name,
+        key: exchange.key,
+        timezone: exchange.timezone,
         tradingHours: {
-          start: exchange.Start,
-          end: exchange.End,
+          start: exchange.start,
+          end: exchange.end,
         },
-        priceSource: exchange.PriceSource,
-        market: exchange.Market,
+        priceSource: exchange.priceSource,
+        market: exchange.market,
       })),
     });
   })
@@ -88,7 +88,7 @@ export const GET = withApiErrorReporting(
  * @returns 作成された取引所 (201 Created)
  * @returns 認証エラー (401 Unauthorized)
  * @returns 権限エラー (403 Forbidden)
- * @returns リクエスト不正 (400 Bad Request)
+ * @returns リクエスト不正、または同じ取引所IDが既に存在する (400 Bad Request)
  * @returns サーバーエラー (500 Internal Server Error)
  */
 export const POST = withApiErrorReporting(
@@ -142,16 +142,16 @@ export const POST = withApiErrorReporting(
 
     // バリデーション用の一時的な Exchange オブジェクトを作成
     const exchangeToValidate = {
-      ExchangeID: exchangeId,
-      Name: name,
-      Key: key,
-      Timezone: timezone,
-      Start: start,
-      End: end,
-      PriceSource: resolvedPriceSource,
-      Market: market,
-      CreatedAt: Date.now(), // バリデーション用の仮値
-      UpdatedAt: Date.now(), // バリデーション用の仮値
+      exchangeId,
+      name,
+      key,
+      timezone,
+      start,
+      end,
+      priceSource: resolvedPriceSource,
+      market,
+      createdAt: Date.now(), // バリデーション用の仮値
+      updatedAt: Date.now(), // バリデーション用の仮値
     };
 
     // バリデーション実行
@@ -180,31 +180,33 @@ export const POST = withApiErrorReporting(
     const exchangeRepo = createExchangeRepository();
 
     // 取引所を作成
+    // 同じ取引所IDが既に存在すると EntityAlreadyExistsError が上に届き、
+    // ルート入口のラッパーが ALREADY_EXISTS の 400 に変換する。
     const newExchange = await exchangeRepo.create({
-      ExchangeID: exchangeId,
-      Name: name,
-      Key: key,
-      Timezone: timezone,
-      Start: start,
-      End: end,
-      PriceSource: resolvedPriceSource,
-      Market: market,
+      exchangeId,
+      name,
+      key,
+      timezone,
+      start,
+      end,
+      priceSource: resolvedPriceSource,
+      market,
     });
 
     // レスポンスを返す (API仕様に従った形式)
     return NextResponse.json(
       {
-        exchangeId: newExchange.ExchangeID,
-        name: newExchange.Name,
-        key: newExchange.Key,
-        timezone: newExchange.Timezone,
+        exchangeId: newExchange.exchangeId,
+        name: newExchange.name,
+        key: newExchange.key,
+        timezone: newExchange.timezone,
         tradingHours: {
-          start: newExchange.Start,
-          end: newExchange.End,
+          start: newExchange.start,
+          end: newExchange.end,
         },
-        priceSource: newExchange.PriceSource,
-        market: newExchange.Market,
-        createdAt: new Date(newExchange.CreatedAt).toISOString(),
+        priceSource: newExchange.priceSource,
+        market: newExchange.market,
+        createdAt: new Date(newExchange.createdAt).toISOString(),
       },
       { status: 201 }
     );

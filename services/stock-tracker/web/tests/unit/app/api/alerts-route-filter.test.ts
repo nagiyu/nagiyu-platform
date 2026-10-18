@@ -28,31 +28,31 @@ describe('GET /api/alerts/tickers/[tickerId]', () => {
     jest.clearAllMocks();
     (createAlertRepository as jest.Mock).mockReturnValue({ getByUserId: mockGetByUserId });
     (createTickerRepository as jest.Mock).mockReturnValue({ getById: mockGetTickerById });
-    mockGetTickerById.mockResolvedValue({ Symbol: 'NVDA', Name: 'NVIDIA' });
+    mockGetTickerById.mockResolvedValue({ symbol: 'NVDA', name: 'NVIDIA' });
   });
 
   it('正常系: tickerId 指定時に該当アラートのみ返す', async () => {
     mockGetByUserId.mockResolvedValue({
       items: [
         {
-          AlertID: '1',
-          TickerID: 'NASDAQ:NVDA',
-          Mode: 'Buy',
-          Frequency: 'MINUTE_LEVEL',
-          ConditionList: [{ field: 'price', operator: 'gte', value: 120 }],
-          Enabled: true,
-          CreatedAt: 1,
-          UpdatedAt: 1,
+          alertId: '1',
+          tickerId: 'NASDAQ:NVDA',
+          mode: 'Buy',
+          frequency: 'MINUTE_LEVEL',
+          conditionList: [{ field: 'price', operator: 'gte', value: 120 }],
+          enabled: true,
+          createdAt: 1,
+          updatedAt: 1,
         },
         {
-          AlertID: '2',
-          TickerID: 'NASDAQ:AAPL',
-          Mode: 'Sell',
-          Frequency: 'MINUTE_LEVEL',
-          ConditionList: [{ field: 'price', operator: 'lte', value: 100 }],
-          Enabled: true,
-          CreatedAt: 1,
-          UpdatedAt: 1,
+          alertId: '2',
+          tickerId: 'NASDAQ:AAPL',
+          mode: 'Sell',
+          frequency: 'MINUTE_LEVEL',
+          conditionList: [{ field: 'price', operator: 'lte', value: 100 }],
+          enabled: true,
+          createdAt: 1,
+          updatedAt: 1,
         },
       ],
     });

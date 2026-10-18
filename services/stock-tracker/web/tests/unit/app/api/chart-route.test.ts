@@ -62,7 +62,7 @@ describe('/api/chart/[tickerId] GET', () => {
 
   it('保有がある場合は holdingAveragePrice を返す', async () => {
     mockedCreateHoldingRepository.mockReturnValue({
-      getById: jest.fn().mockResolvedValue({ Quantity: 10, AveragePrice: 200 }),
+      getById: jest.fn().mockResolvedValue({ quantity: 10, averagePrice: 200 }),
     } as never);
 
     const response = await GET(

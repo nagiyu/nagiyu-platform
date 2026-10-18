@@ -264,22 +264,22 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
 
   // 1b. 会話履歴取得：集約カーソル（MsgCursor）以降のみ（未集約分＝ライブ文脈）
   //     カーソル不在（未指定・初回未集約・取得失敗）の場合は sinceMs=0 で全件取得（fallback）
-  const sinceMs = cursor?.MsgCursor ?? 0;
+  const sinceMs = cursor?.msgCursor ?? 0;
   const history = await messageRepository.listSince(userId, characterId, sinceMs);
 
   // Lifecycle 状態を解決（fail-warn: 取得失敗時はデフォルト値）
   const lifecycleState = resolveLifecycleState(
     new Date(),
-    fetchedLifecycle?.Bedtime ?? LIFECYCLE_DEFAULT_BEDTIME,
-    fetchedLifecycle?.WakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME
+    fetchedLifecycle?.bedtime ?? LIFECYCLE_DEFAULT_BEDTIME,
+    fetchedLifecycle?.wakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME
   );
 
   // 2. ユーザーメッセージを保存
   await messageRepository.create({
-    UserID: userId,
-    CharacterID: characterId,
-    Role: 'user',
-    Text: userText,
+    userId,
+    characterId,
+    role: 'user',
+    text: userText,
   });
 
   // 3. キーワード検出
@@ -292,12 +292,12 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     if (safetyEventRepository) {
       try {
         await safetyEventRepository.create({
-          UserID: userId,
-          CharacterID: characterId,
-          Trigger: 'input_keyword',
-          DetectedPattern: detectedPattern,
-          InputText: userText,
-          ResponseText: safetyMessage,
+          userId,
+          characterId,
+          trigger: 'input_keyword',
+          detectedPattern,
+          inputText: userText,
+          responseText: safetyMessage,
         });
       } catch (err) {
         logger.error('[chat-usecase] SafetyEvent の保存に失敗しました', { err });
@@ -313,10 +313,10 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     // アシスタントメッセージとして保存
     try {
       await messageRepository.create({
-        UserID: userId,
-        CharacterID: characterId,
-        Role: 'assistant',
-        Text: safetyMessage,
+        userId,
+        characterId,
+        role: 'assistant',
+        text: safetyMessage,
       });
     } catch (err) {
       logger.error('[chat-usecase] セーフティ応答メッセージの保存に失敗しました', { err });
@@ -380,15 +380,14 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
               classification.normalizedTopic
             );
             if (!existingTopic) {
-              const ttlUnixSec = Math.floor(Date.now() / 1000) + STUDY_TOPIC_TTL_SECONDS;
               await studyTopicRepository.put({
-                UserID: userId,
-                CharacterID: characterId,
-                TopicID: ulidFactory(),
-                Topic: classification.normalizedTopic,
-                Priority: STUDY_TOPIC_GATE_PRIORITY,
-                Status: 'pending',
-                Ttl: ttlUnixSec,
+                userId,
+                characterId,
+                topicId: ulidFactory(),
+                topic: classification.normalizedTopic,
+                priority: STUDY_TOPIC_GATE_PRIORITY,
+                status: 'pending',
+                expiresAt: Date.now() + STUDY_TOPIC_TTL_SECONDS * 1000,
               });
             }
           } catch (err) {
@@ -405,10 +404,10 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
         // アシスタントメッセージとして保存
         try {
           await messageRepository.create({
-            UserID: userId,
-            CharacterID: characterId,
-            Role: 'assistant',
-            Text: studyMessage,
+            userId,
+            characterId,
+            role: 'assistant',
+            text: studyMessage,
           });
         } catch (err) {
           logger.error('[chat-usecase] 勉強応答メッセージの保存に失敗しました', { err });
@@ -458,12 +457,12 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
     const retrievalTokens = retrievedTopics.reduce(
       (sum, rt) =>
         sum +
-        rt.selfFacts.reduce((s, f) => s + counter.countTokens(f.Text), 0) +
-        rt.webFacts.reduce((s, f) => s + counter.countTokens(f.Text), 0),
+        rt.selfFacts.reduce((s, f) => s + counter.countTokens(f.text), 0) +
+        rt.webFacts.reduce((s, f) => s + counter.countTokens(f.text), 0),
       0
     );
     const messageTokens =
-      history.reduce((sum, m) => sum + counter.countTokensForMessage(m.Text), 0) +
+      history.reduce((sum, m) => sum + counter.countTokensForMessage(m.text), 0) +
       counter.countTokensForMessage(userText);
     metrics.promptTokens = {
       system: systemTokens,
@@ -530,13 +529,13 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
         if (safetyEventRepository) {
           try {
             await safetyEventRepository.create({
-              UserID: userId,
-              CharacterID: characterId,
-              Trigger: 'output_moderation',
-              DetectedPattern: `Moderation flagged: ${flaggedCategories.join(', ')}`,
-              InputText: userText,
-              ResponseText: fullResponseText,
-              ModerationCategories: JSON.stringify(modResult.categories),
+              userId,
+              characterId,
+              trigger: 'output_moderation',
+              detectedPattern: `Moderation flagged: ${flaggedCategories.join(', ')}`,
+              inputText: userText,
+              responseText: fullResponseText,
+              moderationCategories: JSON.stringify(modResult.categories),
             });
           } catch (err) {
             logger.error('[chat-usecase] Moderation SafetyEvent の保存に失敗しました', { err });
@@ -602,10 +601,10 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   if (assistantText) {
     try {
       await messageRepository.create({
-        UserID: userId,
-        CharacterID: characterId,
-        Role: 'assistant',
-        Text: assistantText,
+        userId,
+        characterId,
+        role: 'assistant',
+        text: assistantText,
       });
     } catch (err) {
       logger.error('[chat-usecase] アシスタントメッセージの保存に失敗しました', { err });
@@ -617,7 +616,7 @@ export async function* runChatUseCase(params: ChatUseCaseParams): AsyncGenerator
   // （日次の再訪ボーナス）のみで上昇する。体験活用は別ロードマップ（R1）のスコープ。
   if (characterStateRepository) {
     const now = Date.now();
-    const newActiveDay = isNewActiveDay(prevCharacterState?.LastInteractionAt, now);
+    const newActiveDay = isNewActiveDay(prevCharacterState?.lastInteractionAt, now);
     const delta = calculateAffectionDelta({
       infoDisclosure: 0,
       isNewActiveDay: newActiveDay,

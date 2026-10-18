@@ -9,6 +9,7 @@ export {
   EntityAlreadyExistsError,
   InvalidEntityDataError,
   DatabaseError,
+  OptimisticLockError,
   mapConditionalCheckFailed,
   isConditionalCheckFailed,
   toDatabaseError,
@@ -18,12 +19,7 @@ export {
 export { encodeCursor, decodeCursor } from './cursor.js';
 
 // 型定義
-export type {
-  DynamoDBItem,
-  PaginatedResult,
-  PaginationOptions,
-  RepositoryConfig,
-} from './types.js';
+export type { DynamoDBItem, PaginatedResult, PaginationOptions } from './types.js';
 
 // バリデーション関数
 export {
@@ -32,16 +28,15 @@ export {
   validateEnumField,
   validateBooleanField,
   validateTimestampField,
+  readAttribute,
+  readTimestamp,
+  readOptionalTimestamp,
+  TTL_ATTRIBUTE_NAME,
+  toTtlSeconds,
 } from './validators.js';
 
 // ヘルパー関数
-export {
-  REMOVE_ATTRIBUTE,
-  buildUpdateExpression,
-  conditionalPut,
-  conditionalUpdate,
-  conditionalDelete,
-} from './helpers.js';
+export { REMOVE_ATTRIBUTE, buildUpdateExpression } from './helpers.js';
 export type { UpdateExpressionParts, BuildUpdateExpressionOptions } from './helpers.js';
 export { getDynamoDBDocumentClient, getTableName, clearDynamoDBClientCache } from './client.js';
 export { createRepositoryFactory } from './repository-factory.js';
@@ -55,11 +50,34 @@ export {
   type RegisterDynamoRepositoriesOptions,
 } from './repository-registry.js';
 
-// 抽象基底クラス
-export { AbstractDynamoDBRepository } from './abstract-repository.js';
-
 // Mapper インターフェース
-export type { EntityMapper } from './mapper/entity-mapper.interface.js';
+export type {
+  EntityMapper,
+  EntityPatch,
+  DynamoDBKey,
+  DynamoDBAttributes,
+} from './mapper/entity-mapper.interface.js';
+export {
+  requiredPatchValue,
+  optionalPatchValue,
+  immutablePatchValue,
+  PATCH_VALUE_ERROR_MESSAGES,
+} from './mapper/patch-values.js';
+
+// EntityStore (CRUD の骨格)
+export type {
+  EntityStore,
+  EntityReadOptions,
+  EntityWriteOptions,
+} from './store/entity-store.interface.js';
+export {
+  DynamoDBEntityStore,
+  type DynamoDBEntityStoreOptions,
+} from './store/dynamodb-entity-store.js';
+export {
+  InMemoryEntityStore,
+  type InMemoryEntityStoreOptions,
+} from './store/in-memory-entity-store.js';
 
 // InMemory 実装
 export {

@@ -35,7 +35,7 @@ export const GET = withApiErrorReporting(
 
     // 指定キャラクターの未消化最新を返す
     const unconsumed = events.find(
-      (e) => e.CharacterID === characterId && e.ConsumedAt === undefined
+      (e) => e.characterId === characterId && e.consumedAt === undefined
     );
     if (!unconsumed) {
       return new NextResponse(null, { status: 204 });
@@ -43,10 +43,10 @@ export const GET = withApiErrorReporting(
 
     return NextResponse.json(
       {
-        notifId: unconsumed.NotifID,
-        body: unconsumed.Body,
-        characterId: unconsumed.CharacterID,
-        suggestedReply: unconsumed.SuggestedReply ?? null,
+        notifId: unconsumed.notifId,
+        body: unconsumed.body,
+        characterId: unconsumed.characterId,
+        suggestedReply: unconsumed.suggestedReply ?? null,
       },
       { status: 200 }
     );

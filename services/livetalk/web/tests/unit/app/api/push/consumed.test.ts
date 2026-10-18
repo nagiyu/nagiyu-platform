@@ -6,10 +6,12 @@
  *
  * テスト観点:
  *   - 未認証は 401
- *   - notifId が文字列で渡されたときだけ ConsumedAt を記録する
+ *   - notifId が文字列で渡されたときだけ consumedAt を記録する
+ *   - 対象の通知が存在しなければ 404 を返す
  *   - 壊れた JSON・null・配列・notifId の欠落や型違いは 400 で、記録しない
  */
 import { NextRequest } from 'next/server';
+import { EntityNotFoundError } from '@nagiyu/aws';
 import { PATCH } from '@/app/api/push/consumed/route';
 import { getSession } from '@/lib/server/session';
 import { getNotificationEventRepository } from '@/lib/server/repositories';
@@ -83,6 +85,32 @@ describe('PATCH /api/push/consumed', () => {
       { userId: 'u1', notifId: 'n1' },
       expect.any(Number)
     );
+  });
+
+  it('対象の通知が存在しない場合は 404 を返す', async () => {
+    mockGetSession.mockResolvedValue(validSession);
+    const repo = makeRepo();
+    (repo.markConsumed as jest.Mock).mockRejectedValueOnce(
+      new EntityNotFoundError('NotificationEvent', 'USER#u1#NOTIF#missing')
+    );
+    mockGetNotificationEventRepo.mockReturnValue(repo);
+
+    const res = await PATCH(buildPatchRequest({ notifId: 'missing' }));
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({
+      error: 'NOT_FOUND',
+      message: '指定された通知が見つかりません',
+    });
+  });
+
+  it('存在しない以外の失敗は 404 にせず、そのまま失敗させる', async () => {
+    mockGetSession.mockResolvedValue(validSession);
+    const repo = makeRepo();
+    (repo.markConsumed as jest.Mock).mockRejectedValueOnce(new Error('DB 障害'));
+    mockGetNotificationEventRepo.mockReturnValue(repo);
+
+    const res = await PATCH(buildPatchRequest({ notifId: 'n1' }));
+    expect(res.status).toBe(500);
   });
 
   it.each([

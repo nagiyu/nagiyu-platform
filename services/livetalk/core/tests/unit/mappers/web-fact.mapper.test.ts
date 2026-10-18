@@ -1,110 +1,184 @@
-import { InvalidEntityDataError } from '@nagiyu/aws';
+import { InvalidEntityDataError, REMOVE_ATTRIBUTE } from '@nagiyu/aws';
 import { WebFactMapper } from '../../../src/mappers/web-fact.mapper.js';
 import type { WebFactEntity } from '../../../src/entities/web-fact.entity.js';
 
-const baseEntity: WebFactEntity = {
-  UserID: 'user1',
-  CharacterID: 'hiyori',
-  TopicID: 'TOPIC-001',
-  FactID: 'FACT-001',
-  Text: '2026年の新作アニメが発表された',
-  SourceUrls: ['https://example.com/news'],
-  Volatility: 'medium',
-  ObservedAt: 1_749_999_000_000,
-  CreatedAt: 1_750_000_000_000,
-};
+const TIMESTAMP = 1_700_000_000_000;
+const KEY = { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-001', factId: 'F1' };
+
+function buildEntity(overrides: Partial<WebFactEntity> = {}): WebFactEntity {
+  return {
+    userId: 'u1',
+    characterId: 'hiyori',
+    topicId: 'TOPIC-001',
+    factId: 'F1',
+    text: '新作コーヒーが発売された',
+    sourceUrls: ['https://example.com'],
+    volatility: 'high',
+    observedAt: TIMESTAMP,
+    createdAt: TIMESTAMP,
+    ...overrides,
+  };
+}
+
+function buildItem(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    PK: 'USER#u1',
+    SK: 'CHAR#hiyori#TOPIC#TOPIC-001#WEB#F1',
+    Type: 'WebFact',
+    UserID: 'u1',
+    CharacterID: 'hiyori',
+    TopicID: 'TOPIC-001',
+    FactID: 'F1',
+    Text: '新作コーヒーが発売された',
+    SourceUrls: ['https://example.com'],
+    Volatility: 'high',
+    ObservedAt: TIMESTAMP,
+    CreatedAt: TIMESTAMP,
+    ...overrides,
+  };
+}
 
 describe('WebFactMapper', () => {
-  let mapper: WebFactMapper;
+  const mapper = new WebFactMapper();
 
-  beforeEach(() => {
-    mapper = new WebFactMapper();
+  it('entityType は WebFact になる', () => {
+    expect(mapper.entityType).toBe('WebFact');
+  });
+
+  it('buildKeys は PK=USER#<userId> / SK=CHAR#<charId>#TOPIC#<topicId>#WEB#<factId> を返す', () => {
+    const keys = mapper.buildKeys(KEY);
+
+    expect(keys).toEqual({ PK: 'USER#u1', SK: 'CHAR#hiyori#TOPIC#TOPIC-001#WEB#F1' });
+    expect(Object.keys(keys)).toEqual(['PK', 'SK']);
+  });
+
+  it('getKey は Entity からビジネスキーを取り出す', () => {
+    expect(mapper.getKey(buildEntity())).toEqual(KEY);
   });
 
   describe('toItem', () => {
-    it('エンティティを DynamoDB Item に変換する', () => {
-      const item = mapper.toItem(baseEntity);
-      expect(item.PK).toBe('USER#user1');
-      expect(item.SK).toBe('CHAR#hiyori#TOPIC#TOPIC-001#WEB#FACT-001');
-      expect(item.Type).toBe('WebFact');
-      expect(item.SourceUrls).toEqual(['https://example.com/news']);
-      expect(item.Volatility).toBe('medium');
-      expect(item.ObservedAt).toBe(1_749_999_000_000);
+    it('nextReview がなければ GSI4 属性を付けない (sparse)', () => {
+      const item = mapper.toItem(buildEntity({ volatility: 'stable' }));
+
+      expect(item).toEqual(buildItem({ Volatility: 'stable' }));
+      expect(item).not.toHaveProperty('NextReview');
+      expect(item).not.toHaveProperty('GSI4PK');
+      expect(item).not.toHaveProperty('GSI4SK');
+      expect(item).not.toHaveProperty('UpdatedAt');
     });
 
-    it('NextReview 未設定時は Item に含めない', () => {
-      const item = mapper.toItem(baseEntity);
-      expect('NextReview' in item).toBe(false);
+    it('nextReview があれば NextReview と GSI4PK / GSI4SK を付ける', () => {
+      expect(mapper.toItem(buildEntity({ nextReview: TIMESTAMP + 5 }))).toEqual(
+        buildItem({
+          NextReview: TIMESTAMP + 5,
+          GSI4PK: 'hiyori#STALE#u1',
+          GSI4SK: TIMESTAMP + 5,
+        })
+      );
+    });
+  });
+
+  describe('toUpdateAttributes', () => {
+    it('nextReview を変えるときは NextReview と GSI4PK / GSI4SK を key から付け直す', () => {
+      expect(mapper.toUpdateAttributes({ nextReview: TIMESTAMP + 9 }, KEY)).toEqual({
+        NextReview: TIMESTAMP + 9,
+        GSI4PK: 'hiyori#STALE#u1',
+        GSI4SK: TIMESTAMP + 9,
+      });
     });
 
-    it('NextReview 設定時は Item に含める', () => {
-      const item = mapper.toItem({ ...baseEntity, NextReview: 1_750_500_000_000 });
-      expect(item.NextReview).toBe(1_750_500_000_000);
+    it('nextReview を null にすると NextReview と GSI4 属性を削除する', () => {
+      expect(mapper.toUpdateAttributes({ nextReview: null }, KEY)).toEqual({
+        NextReview: REMOVE_ATTRIBUTE,
+        GSI4PK: REMOVE_ATTRIBUTE,
+        GSI4SK: REMOVE_ATTRIBUTE,
+      });
     });
 
-    it('NextReview 未設定時は GSI4PK/GSI4SK を付与しない（sparse GSI）', () => {
-      const item = mapper.toItem(baseEntity);
-      expect('GSI4PK' in item).toBe(false);
-      expect('GSI4SK' in item).toBe(false);
+    it('nextReview を変えないときは GSI4 属性に触れない', () => {
+      const attributes = mapper.toUpdateAttributes({ text: '更新' }, KEY);
+
+      expect(attributes.Text).toBe('更新');
+      expect(attributes.NextReview).toBeUndefined();
+      expect(attributes.GSI4PK).toBeUndefined();
+      expect(attributes.GSI4SK).toBeUndefined();
     });
 
-    it('NextReview 設定時は GSI4PK/GSI4SK を付与する（GSI-STALE）', () => {
-      const item = mapper.toItem({ ...baseEntity, NextReview: 1_750_500_000_000 });
-      expect(item.GSI4PK).toBe('hiyori#STALE#user1');
-      expect(item.GSI4SK).toBe(1_750_500_000_000);
-    });
+    it.each(['text', 'sourceUrls', 'volatility', 'observedAt'] as const)(
+      '必須項目 %s を null にすると InvalidEntityDataError をスローする',
+      (field) => {
+        expect(() => mapper.toUpdateAttributes({ [field]: null }, KEY)).toThrow(
+          InvalidEntityDataError
+        );
+      }
+    );
+
+    it.each([
+      ['userId', { userId: 'u1' }],
+      ['characterId', { characterId: 'hiyori' }],
+      ['topicId', { topicId: 'TOPIC-001' }],
+      ['factId', { factId: 'F1' }],
+      ['createdAt', { createdAt: TIMESTAMP }],
+    ] as const)(
+      '変更不可の項目 %s を含めると、値が同じでも InvalidEntityDataError をスローする',
+      (_field, changes) => {
+        expect(() => mapper.toUpdateAttributes(changes, KEY)).toThrow(InvalidEntityDataError);
+      }
+    );
   });
 
   describe('toEntity', () => {
-    it('DynamoDB Item をエンティティに復元する', () => {
-      const item = mapper.toItem(baseEntity);
-      const entity = mapper.toEntity(item);
-      expect(entity).toEqual(baseEntity);
+    it('Item を camelCase の Entity に変換する', () => {
+      expect(mapper.toEntity(buildItem({ NextReview: 5 }))).toEqual(buildEntity({ nextReview: 5 }));
     });
 
-    it('NextReview を復元する', () => {
-      const item = mapper.toItem({ ...baseEntity, NextReview: 1_750_500_000_000 });
-      const entity = mapper.toEntity(item);
-      expect(entity.NextReview).toBe(1_750_500_000_000);
+    it('NextReview がなければ nextReview を持たない', () => {
+      expect(mapper.toEntity(buildItem())).not.toHaveProperty('nextReview');
     });
 
-    it('NextReview が欠落していても GSI4SK から復元できる（GSI4 の Query 結果を想定）', () => {
-      const item = mapper.toItem({ ...baseEntity, NextReview: 1_750_500_000_000 });
-      delete (item as Record<string, unknown>).NextReview;
-      const entity = mapper.toEntity(item);
-      expect(entity.NextReview).toBe(1_750_500_000_000);
+    it('GSI4 の射影には NextReview が無いため GSI4SK から復元する', () => {
+      expect(mapper.toEntity(buildItem({ GSI4PK: 'hiyori#STALE#u1', GSI4SK: 7 })).nextReview).toBe(
+        7
+      );
     });
 
-    it('SourceUrls が配列でない場合は空配列にする', () => {
-      const item = mapper.toItem(baseEntity);
-      delete (item as Record<string, unknown>).SourceUrls;
-      const entity = mapper.toEntity(item);
-      expect(entity.SourceUrls).toEqual([]);
+    it('sourceUrls が配列でなければ空配列にする', () => {
+      expect(mapper.toEntity(buildItem({ SourceUrls: undefined })).sourceUrls).toEqual([]);
     });
 
-    it('不正な Volatility は InvalidEntityDataError を投げる', () => {
-      const item = mapper.toItem(baseEntity);
-      (item as Record<string, unknown>).Volatility = 'invalid';
-      expect(() => mapper.toEntity(item)).toThrow(InvalidEntityDataError);
+    it('旧形式の createdAt (ISO 文字列・エポック秒) をミリ秒で読む', () => {
+      expect(
+        mapper.toEntity(buildItem({ CreatedAt: new Date(TIMESTAMP).toISOString() })).createdAt
+      ).toBe(TIMESTAMP);
+      expect(mapper.toEntity(buildItem({ CreatedAt: TIMESTAMP / 1000 })).createdAt).toBe(TIMESTAMP);
     });
 
-    it('必須フィールド欠落で InvalidEntityDataError を投げる', () => {
-      const item = mapper.toItem(baseEntity);
-      delete (item as Record<string, unknown>).Text;
+    it('Volatility が不正な場合は InvalidEntityDataError をスローする', () => {
+      expect(() => mapper.toEntity(buildItem({ Volatility: 'unknown' }))).toThrow(
+        InvalidEntityDataError
+      );
+    });
+
+    it.each([
+      'UserID',
+      'CharacterID',
+      'TopicID',
+      'FactID',
+      'Text',
+      'Volatility',
+      'ObservedAt',
+      'CreatedAt',
+    ])('必須フィールド %s が欠けている場合は InvalidEntityDataError をスローする', (field) => {
+      const item = buildItem();
+      delete item[field];
+
       expect(() => mapper.toEntity(item)).toThrow(InvalidEntityDataError);
     });
   });
 
-  describe('buildKeys', () => {
-    it('PK / SK を組み立てる', () => {
-      const { pk, sk } = mapper.buildKeys({
-        userId: 'user1',
-        characterId: 'hiyori',
-        topicId: 'TOPIC-001',
-        factId: 'FACT-001',
-      });
-      expect(pk).toBe('USER#user1');
-      expect(sk).toBe('CHAR#hiyori#TOPIC#TOPIC-001#WEB#FACT-001');
-    });
+  it('Entity -> Item -> Entity の変換で元に戻る', () => {
+    const original = buildEntity({ nextReview: TIMESTAMP + 5 });
+
+    expect(mapper.toEntity(mapper.toItem(original))).toEqual(original);
   });
 });

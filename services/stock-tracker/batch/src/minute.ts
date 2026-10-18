@@ -23,7 +23,7 @@ import {
   FinnhubQuoteProvider,
   DEFAULT_PRICE_SOURCE,
 } from '@nagiyu/stock-tracker-core';
-import type { Alert } from '@nagiyu/stock-tracker-core';
+import type { AlertEntity } from '@nagiyu/stock-tracker-core';
 
 /**
  * バッチ処理の統計情報
@@ -57,7 +57,7 @@ interface BatchStatistics {
  * @returns エラーなく処理できた場合は true（購読が無効で通知をスキップした場合も含む）、失敗した場合は false
  */
 async function processAlert(
-  alert: Alert,
+  alert: AlertEntity,
   exchangeRepo: ExchangeRepository,
   session: TradingViewSession,
   finnhubProvider: FinnhubQuoteProvider,
@@ -68,21 +68,21 @@ async function processAlert(
 ): Promise<boolean> {
   try {
     // 1. Enabled = true かチェック
-    if (!alert.Enabled) {
+    if (!alert.enabled) {
       logger.debug('無効化されたアラートをスキップします', {
-        alertId: alert.AlertID,
-        userId: alert.UserID,
+        alertId: alert.alertId,
+        userId: alert.userId,
       });
       stats.skippedDisabled++;
       return true;
     }
 
     // 2. Exchange 情報を取得
-    const exchange = await exchangeRepo.getById(alert.ExchangeID);
+    const exchange = await exchangeRepo.getById(alert.exchangeId);
     if (!exchange) {
       logger.warn('取引所情報が見つかりません', {
-        alertId: alert.AlertID,
-        exchangeId: alert.ExchangeID,
+        alertId: alert.alertId,
+        exchangeId: alert.exchangeId,
       });
       stats.errors++;
       return false;
@@ -92,23 +92,23 @@ async function processAlert(
     const now = Date.now();
     if (!isTradingHours(exchange, now)) {
       logger.debug('取引時間外のためアラートをスキップします', {
-        alertId: alert.AlertID,
-        exchangeId: alert.ExchangeID,
-        timezone: exchange.Timezone,
+        alertId: alert.alertId,
+        exchangeId: alert.exchangeId,
+        timezone: exchange.timezone,
       });
       stats.skippedOffHours++;
       return true;
     }
 
-    // 4. Exchange.PriceSource に応じて現在価格取得経路を選択
+    // 4. ExchangeEntity.priceSource に応じて現在価格取得経路を選択
     // - finnhub: Finnhub API への単発リクエスト（fresh-WS リトライなし）
     // - tradingview（デフォルト）: 共有セッション再利用 → 失敗時に fresh-WS 再試行
-    const priceSource = exchange.PriceSource ?? DEFAULT_PRICE_SOURCE;
+    const priceSource = exchange.priceSource ?? DEFAULT_PRICE_SOURCE;
     let currentPrice: number;
 
     if (priceSource === 'finnhub') {
       // Finnhub 経路: 単発リクエスト。失敗は外側 catch へ伝播し stats.errors++ となる
-      currentPrice = await finnhubProvider.getCurrentPrice(alert.TickerID, {
+      currentPrice = await finnhubProvider.getCurrentPrice(alert.tickerId, {
         timeout: firstAttemptTimeoutMs,
       });
     } else {
@@ -116,26 +116,26 @@ async function processAlert(
       // 1 回目: 共有セッションを再利用（healthy 時の handshake 削減）
       // 失敗時: 独立した新規 WS で 1 回だけ再試行（死んだ共有接続を完全にバイパス）
       try {
-        currentPrice = await session.getCurrentPrice(alert.TickerID, {
+        currentPrice = await session.getCurrentPrice(alert.tickerId, {
           timeout: firstAttemptTimeoutMs,
         });
       } catch (firstError) {
         stats.freshSessionRetries++;
         logger.warn('共有セッションでの価格取得に失敗。新規 WS で再試行します', {
-          alertId: alert.AlertID,
-          tickerId: alert.TickerID,
+          alertId: alert.alertId,
+          tickerId: alert.tickerId,
           sessionId: session.getSessionId(),
           firstError: toErrorMessage(firstError),
         });
         await sleep(retryDelayMs);
         // 失敗時は外側 catch へ伝播させてエラー扱いとする
-        currentPrice = await getCurrentPrice(alert.TickerID, { timeout: retryTimeoutMs });
+        currentPrice = await getCurrentPrice(alert.tickerId, { timeout: retryTimeoutMs });
       }
     }
 
     logger.debug('現在価格を取得しました', {
-      alertId: alert.AlertID,
-      tickerId: alert.TickerID,
+      alertId: alert.alertId,
+      tickerId: alert.tickerId,
       currentPrice,
     });
 
@@ -144,9 +144,9 @@ async function processAlert(
 
     if (!conditionMet) {
       logger.debug('アラート条件が未達成です', {
-        alertId: alert.AlertID,
+        alertId: alert.alertId,
         currentPrice,
-        conditions: alert.ConditionList,
+        conditions: alert.conditionList,
       });
       return true;
     }
@@ -164,20 +164,20 @@ async function processAlert(
     if (notificationSent) {
       stats.notificationsSent++;
       logger.info('アラート通知を送信しました', {
-        alertId: alert.AlertID,
-        userId: alert.UserID,
-        tickerId: alert.TickerID,
+        alertId: alert.alertId,
+        userId: alert.userId,
+        tickerId: alert.tickerId,
         currentPrice,
-        conditions: alert.ConditionList,
+        conditions: alert.conditionList,
       });
     } else {
       // 購読はアラートのフィールドなので、無効だからと消すとユーザーの条件設定ごと失われる。
       // 購読はユーザーが次に画面を開いたときに更新されるため、それまでの空振りは許容する。
       stats.invalidSubscriptions++;
       logger.warn('送信先の Web Push 購読が無効なため通知をスキップしました', {
-        alertId: alert.AlertID,
-        userId: alert.UserID,
-        tickerId: alert.TickerID,
+        alertId: alert.alertId,
+        userId: alert.userId,
+        tickerId: alert.tickerId,
       });
     }
 
@@ -186,8 +186,8 @@ async function processAlert(
   } catch (error) {
     const errorMessage = toErrorMessage(error);
     logger.error('アラート処理中にエラーが発生しました', {
-      alertId: alert.AlertID,
-      userId: alert.UserID,
+      alertId: alert.alertId,
+      userId: alert.userId,
       error: errorMessage,
     });
     await reportErrorEvent({
@@ -196,8 +196,8 @@ async function processAlert(
       title: '分次バッチ: アラート処理エラー',
       message: errorMessage,
       context: {
-        alertId: alert.AlertID,
-        userId: alert.UserID,
+        alertId: alert.alertId,
+        userId: alert.userId,
         errorStack: error instanceof Error ? error.stack : undefined,
       },
     });

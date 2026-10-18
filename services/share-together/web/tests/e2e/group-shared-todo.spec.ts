@@ -25,7 +25,7 @@ test.describe('グループ共有 ToDo 管理', () => {
           userId: TEST_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
         {
           groupId: GROUP_ID,
@@ -33,8 +33,8 @@ test.describe('グループ共有 ToDo 管理', () => {
           role: 'MEMBER',
           status: 'ACCEPTED',
           invitedBy: TEST_USER.userId,
-          invitedAt: new Date().toISOString(),
-          respondedAt: new Date().toISOString(),
+          invitedAt: Date.now(),
+          respondedAt: Date.now(),
         },
       ],
       groupLists: [
@@ -171,7 +171,7 @@ test.describe('グループ共有 ToDo 管理', () => {
           userId: 'owner-user',
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
       ],
       groupLists: [

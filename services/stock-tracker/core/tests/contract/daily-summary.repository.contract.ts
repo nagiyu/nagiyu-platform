@@ -27,19 +27,23 @@ export interface DailySummaryRepositoryContractHooks {
   reset: () => Promise<void>;
   /** 全テスト終了後の後始末（テーブル削除等） */
   teardown?: () => Promise<void>;
+  /** 保存形式を直接指定して Item を書き込む (旧形式や壊れたデータを再現するために使う) */
+  putRawItem: (item: Record<string, unknown>) => Promise<void>;
+  /** 保存されている Item を保存形式のまま読む */
+  getRawItem: (pk: string, sk: string) => Promise<Record<string, unknown> | undefined>;
 }
 
 function buildDailySummaryInput(
   overrides: Partial<CreateDailySummaryInput> = {}
 ): CreateDailySummaryInput {
   return {
-    TickerID: 'NSDQ:AAPL',
-    ExchangeID: 'NASDAQ',
-    Date: '2024-01-02',
-    Open: 100,
-    High: 110,
-    Low: 95,
-    Close: 105,
+    tickerId: 'NSDQ:AAPL',
+    exchangeId: 'NASDAQ',
+    date: '2024-01-02',
+    open: 100,
+    high: 110,
+    low: 95,
+    close: 105,
     ...overrides,
   };
 }
@@ -87,50 +91,50 @@ export function defineDailySummaryRepositoryContract(
 
       const created = await repository.upsert(input);
       expect(created).toMatchObject(input);
-      expect(created.CreatedAt).toBeGreaterThan(0);
-      expect(created.UpdatedAt).toBeGreaterThan(0);
+      expect(created.createdAt).toBeGreaterThan(0);
+      expect(created.updatedAt).toBeGreaterThan(0);
 
-      const fetched = await repository.getByTickerAndDate(input.TickerID, input.Date);
+      const fetched = await repository.getByTickerAndDate(input.tickerId, input.date);
       expect(fetched).toEqual(created);
     });
 
     it('upsertは既存のサマリーを上書きし、CreatedAtは維持したままフィールドが更新される', async () => {
-      const created = await repository.upsert(buildDailySummaryInput({ Close: 105 }));
+      const created = await repository.upsert(buildDailySummaryInput({ close: 105 }));
 
       const overwritten = await repository.upsert(
-        buildDailySummaryInput({ Close: 120, High: 125 })
+        buildDailySummaryInput({ close: 120, high: 125 })
       );
 
-      expect(overwritten.Close).toBe(120);
-      expect(overwritten.High).toBe(125);
-      expect(overwritten.CreatedAt).toBe(created.CreatedAt);
+      expect(overwritten.close).toBe(120);
+      expect(overwritten.high).toBe(125);
+      expect(overwritten.createdAt).toBe(created.createdAt);
 
-      const fetched = await repository.getByTickerAndDate(created.TickerID, created.Date);
-      expect(fetched?.Close).toBe(120);
-      expect(fetched?.CreatedAt).toBe(created.CreatedAt);
+      const fetched = await repository.getByTickerAndDate(created.tickerId, created.date);
+      expect(fetched?.close).toBe(120);
+      expect(fetched?.createdAt).toBe(created.createdAt);
     });
 
     it('getByExchangeはdate指定時、begins_withで対象取引所・対象日のサマリーだけをGSI4SK昇順で返す', async () => {
       // 意図的に非ソート順（C→Bの順）で作成し、他日・他取引所のノイズも混ぜる
       await repository.upsert(
-        buildDailySummaryInput({ TickerID: 'C', ExchangeID: 'EX-A', Date: '2024-01-02' })
+        buildDailySummaryInput({ tickerId: 'C', exchangeId: 'EX-A', date: '2024-01-02' })
       );
       await repository.upsert(
-        buildDailySummaryInput({ TickerID: 'B', ExchangeID: 'EX-A', Date: '2024-01-02' })
+        buildDailySummaryInput({ tickerId: 'B', exchangeId: 'EX-A', date: '2024-01-02' })
       );
       // 他日（対象外）
       await repository.upsert(
-        buildDailySummaryInput({ TickerID: 'A', ExchangeID: 'EX-A', Date: '2024-01-01' })
+        buildDailySummaryInput({ tickerId: 'A', exchangeId: 'EX-A', date: '2024-01-01' })
       );
       // 他取引所（対象外、パーティション分離の確認）
       await repository.upsert(
-        buildDailySummaryInput({ TickerID: 'D', ExchangeID: 'EX-B', Date: '2024-01-02' })
+        buildDailySummaryInput({ tickerId: 'D', exchangeId: 'EX-B', date: '2024-01-02' })
       );
 
       const result = await repository.getByExchange('EX-A', '2024-01-02');
 
-      expect(result.map((item) => item.TickerID)).toEqual(['B', 'C']);
-      expect(result.every((item) => item.ExchangeID === 'EX-A' && item.Date === '2024-01-02')).toBe(
+      expect(result.map((item) => item.tickerId)).toEqual(['B', 'C']);
+      expect(result.every((item) => item.exchangeId === 'EX-A' && item.date === '2024-01-02')).toBe(
         true
       );
     });
@@ -138,21 +142,21 @@ export function defineDailySummaryRepositoryContract(
     it('getByExchangeはdate省略時、取引所内で最も新しい日付の全サマリーのみをGSI4SK昇順で返す', async () => {
       // 意図的に非時系列順で作成する
       await repository.upsert(
-        buildDailySummaryInput({ TickerID: 'B', ExchangeID: 'EX-A', Date: '2024-01-03' })
+        buildDailySummaryInput({ tickerId: 'B', exchangeId: 'EX-A', date: '2024-01-03' })
       );
       await repository.upsert(
-        buildDailySummaryInput({ TickerID: 'A', ExchangeID: 'EX-A', Date: '2024-01-01' })
+        buildDailySummaryInput({ tickerId: 'A', exchangeId: 'EX-A', date: '2024-01-01' })
       );
       await repository.upsert(
-        buildDailySummaryInput({ TickerID: 'A', ExchangeID: 'EX-A', Date: '2024-01-03' })
+        buildDailySummaryInput({ tickerId: 'A', exchangeId: 'EX-A', date: '2024-01-03' })
       );
       await repository.upsert(
-        buildDailySummaryInput({ TickerID: 'B', ExchangeID: 'EX-A', Date: '2024-01-02' })
+        buildDailySummaryInput({ tickerId: 'B', exchangeId: 'EX-A', date: '2024-01-02' })
       );
 
       const result = await repository.getByExchange('EX-A');
 
-      expect(result.map((item) => `${item.TickerID}#${item.Date}`)).toEqual([
+      expect(result.map((item) => `${item.tickerId}#${item.date}`)).toEqual([
         'A#2024-01-03',
         'B#2024-01-03',
       ]);
@@ -160,36 +164,36 @@ export function defineDailySummaryRepositoryContract(
 
     it('getByExchangeAndDateRangeは境界日（fromDate/toDateちょうど）を含み、範囲外の日付を除く', async () => {
       await repository.upsert(
-        buildDailySummaryInput({ TickerID: 'T1', ExchangeID: 'EX-A', Date: '2024-01-01' })
+        buildDailySummaryInput({ tickerId: 'T1', exchangeId: 'EX-A', date: '2024-01-01' })
       );
       await repository.upsert(
-        buildDailySummaryInput({ TickerID: 'T2', ExchangeID: 'EX-A', Date: '2024-01-02' })
+        buildDailySummaryInput({ tickerId: 'T2', exchangeId: 'EX-A', date: '2024-01-02' })
       );
       await repository.upsert(
-        buildDailySummaryInput({ TickerID: 'T3', ExchangeID: 'EX-A', Date: '2024-01-03' })
+        buildDailySummaryInput({ tickerId: 'T3', exchangeId: 'EX-A', date: '2024-01-03' })
       );
       await repository.upsert(
-        buildDailySummaryInput({ TickerID: 'T4', ExchangeID: 'EX-A', Date: '2024-01-05' })
+        buildDailySummaryInput({ tickerId: 'T4', exchangeId: 'EX-A', date: '2024-01-05' })
       );
       await repository.upsert(
-        buildDailySummaryInput({ TickerID: 'T5', ExchangeID: 'EX-A', Date: '2024-01-06' })
+        buildDailySummaryInput({ tickerId: 'T5', exchangeId: 'EX-A', date: '2024-01-06' })
       );
 
       const result = await repository.getByExchangeAndDateRange('EX-A', '2024-01-02', '2024-01-05');
 
-      expect(result.map((item) => item.Date)).toEqual(['2024-01-02', '2024-01-03', '2024-01-05']);
-      expect(result.map((item) => item.TickerID)).toEqual(['T2', 'T3', 'T4']);
+      expect(result.map((item) => item.date)).toEqual(['2024-01-02', '2024-01-03', '2024-01-05']);
+      expect(result.map((item) => item.tickerId)).toEqual(['T2', 'T3', 'T4']);
     });
 
     it('getForecastFieldsByExchangeAndDateRangeはOHLCV・パターン結果・CreatedAtを持ちUpdatedAtを持たない', async () => {
       await repository.upsert(
         buildDailySummaryInput({
-          TickerID: 'T1',
-          ExchangeID: 'EX-A',
-          Date: '2024-01-02',
-          Volume: 12345,
-          BuyPatternCount: 2,
-          SellPatternCount: 0,
+          tickerId: 'T1',
+          exchangeId: 'EX-A',
+          date: '2024-01-02',
+          volume: 12345,
+          buyPatternCount: 2,
+          sellPatternCount: 0,
         })
       );
 
@@ -201,30 +205,30 @@ export function defineDailySummaryRepositoryContract(
 
       expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({
-        TickerID: 'T1',
-        ExchangeID: 'EX-A',
-        Date: '2024-01-02',
-        Open: 100,
-        High: 110,
-        Low: 95,
-        Close: 105,
-        Volume: 12345,
-        BuyPatternCount: 2,
-        SellPatternCount: 0,
+        tickerId: 'T1',
+        exchangeId: 'EX-A',
+        date: '2024-01-02',
+        open: 100,
+        high: 110,
+        low: 95,
+        close: 105,
+        volume: 12345,
+        buyPatternCount: 2,
+        sellPatternCount: 0,
       });
-      expect(typeof result[0].CreatedAt).toBe('number');
+      expect(typeof result[0].createdAt).toBe('number');
       expect(result[0]).not.toHaveProperty('UpdatedAt');
     });
 
     it('getForecastFieldsByExchangeAndDateRangeは境界日を含み範囲外の日付を除く', async () => {
       await repository.upsert(
-        buildDailySummaryInput({ TickerID: 'T1', ExchangeID: 'EX-A', Date: '2024-01-01' })
+        buildDailySummaryInput({ tickerId: 'T1', exchangeId: 'EX-A', date: '2024-01-01' })
       );
       await repository.upsert(
-        buildDailySummaryInput({ TickerID: 'T2', ExchangeID: 'EX-A', Date: '2024-01-02' })
+        buildDailySummaryInput({ tickerId: 'T2', exchangeId: 'EX-A', date: '2024-01-02' })
       );
       await repository.upsert(
-        buildDailySummaryInput({ TickerID: 'T3', ExchangeID: 'EX-A', Date: '2024-01-05' })
+        buildDailySummaryInput({ tickerId: 'T3', exchangeId: 'EX-A', date: '2024-01-05' })
       );
 
       const result = await repository.getForecastFieldsByExchangeAndDateRange(
@@ -233,21 +237,21 @@ export function defineDailySummaryRepositoryContract(
         '2024-01-04'
       );
 
-      expect(result.map((item) => item.TickerID)).toEqual(['T2']);
+      expect(result.map((item) => item.tickerId)).toEqual(['T2']);
     });
 
     it('getByExchangeAndDateRangeは他取引所のサマリーを含まない（パーティション分離）', async () => {
       await repository.upsert(
-        buildDailySummaryInput({ TickerID: 'T1', ExchangeID: 'EX-A', Date: '2024-01-02' })
+        buildDailySummaryInput({ tickerId: 'T1', exchangeId: 'EX-A', date: '2024-01-02' })
       );
       await repository.upsert(
-        buildDailySummaryInput({ TickerID: 'T2', ExchangeID: 'EX-B', Date: '2024-01-02' })
+        buildDailySummaryInput({ tickerId: 'T2', exchangeId: 'EX-B', date: '2024-01-02' })
       );
 
       const result = await repository.getByExchangeAndDateRange('EX-A', '2024-01-01', '2024-01-03');
 
       expect(result).toHaveLength(1);
-      expect(result[0].ExchangeID).toBe('EX-A');
+      expect(result[0].exchangeId).toBe('EX-A');
     });
 
     it('getByExchangeはdate省略時、100件超のサマリーがあってもページ境界をまたいで正しい最新日を算出する（打ち切りの回帰防止）', async () => {
@@ -259,9 +263,9 @@ export function defineDailySummaryRepositoryContract(
       for (let i = 0; i < total; i += 1) {
         await repository.upsert(
           buildDailySummaryInput({
-            TickerID: `T${String(i).padStart(4, '0')}`,
-            ExchangeID: 'EX-BULK',
-            Date: addDays(baseDate, i),
+            tickerId: `T${String(i).padStart(4, '0')}`,
+            exchangeId: 'EX-BULK',
+            date: addDays(baseDate, i),
           })
         );
       }
@@ -270,8 +274,8 @@ export function defineDailySummaryRepositoryContract(
 
       expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({
-        TickerID: `T${String(total - 1).padStart(4, '0')}`,
-        Date: addDays(baseDate, total - 1),
+        tickerId: `T${String(total - 1).padStart(4, '0')}`,
+        date: addDays(baseDate, total - 1),
       });
     });
 
@@ -283,9 +287,9 @@ export function defineDailySummaryRepositoryContract(
       for (let i = 0; i < total; i += 1) {
         await repository.upsert(
           buildDailySummaryInput({
-            TickerID: `T${String(i).padStart(4, '0')}`,
-            ExchangeID: 'EX-RANGE',
-            Date: addDays(baseDate, i),
+            tickerId: `T${String(i).padStart(4, '0')}`,
+            exchangeId: 'EX-RANGE',
+            date: addDays(baseDate, i),
           })
         );
       }
@@ -296,9 +300,156 @@ export function defineDailySummaryRepositoryContract(
       const result = await repository.getByExchangeAndDateRange('EX-RANGE', fromDate, toDate);
 
       expect(result).toHaveLength(120);
-      expect(result[0].Date).toBe(fromDate);
-      expect(result[result.length - 1].Date).toBe(toDate);
-      expect(new Set(result.map((item) => item.Date)).size).toBe(120);
+      expect(result[0].date).toBe(fromDate);
+      expect(result[result.length - 1].date).toBe(toDate);
+      expect(new Set(result.map((item) => item.date)).size).toBe(120);
+    });
+
+    it('保存形式（PascalCase の属性名・キー・GSI4・数値ミリ秒の時刻）で書き込む', async () => {
+      const created = await repository.upsert(
+        buildDailySummaryInput({
+          volume: 12345,
+          patternResults: { 'morning-star': 'MATCHED' },
+          buyPatternCount: 1,
+          sellPatternCount: 0,
+        })
+      );
+
+      expect(await hooks.getRawItem('SUMMARY#NSDQ:AAPL', 'DATE#2024-01-02')).toEqual({
+        PK: 'SUMMARY#NSDQ:AAPL',
+        SK: 'DATE#2024-01-02',
+        Type: 'DailySummary',
+        GSI4PK: 'NASDAQ',
+        GSI4SK: 'DATE#2024-01-02#NSDQ:AAPL',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2024-01-02',
+        Open: 100,
+        High: 110,
+        Low: 95,
+        Close: 105,
+        Volume: 12345,
+        PatternResults: { 'morning-star': 'MATCHED' },
+        BuyPatternCount: 1,
+        SellPatternCount: 0,
+        CreatedAt: created.createdAt,
+        UpdatedAt: created.updatedAt,
+      });
+    });
+
+    it('upsertで任意項目を省くと、上書き後のサマリーにその項目は残らない', async () => {
+      await repository.upsert(buildDailySummaryInput({ volume: 12345, buyPatternCount: 1 }));
+
+      await repository.upsert(buildDailySummaryInput());
+
+      const fetched = await repository.getByTickerAndDate('NSDQ:AAPL', '2024-01-02');
+      expect(fetched?.volume).toBeUndefined();
+      expect(fetched?.buyPatternCount).toBeUndefined();
+      const raw = await hooks.getRawItem('SUMMARY#NSDQ:AAPL', 'DATE#2024-01-02');
+      expect(raw).not.toHaveProperty('Volume');
+      expect(raw).not.toHaveProperty('BuyPatternCount');
+    });
+
+    describe('旧形式のデータ', () => {
+      const LEGACY_CREATED_AT = '2024-01-02T10:00:00.000Z';
+
+      async function putLegacyItem(): Promise<void> {
+        await hooks.putRawItem({
+          PK: 'SUMMARY#NSDQ:AAPL',
+          SK: 'DATE#2024-01-02',
+          Type: 'DailySummary',
+          GSI4PK: 'NASDAQ',
+          GSI4SK: 'DATE#2024-01-02#NSDQ:AAPL',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Date: '2024-01-02',
+          Open: 100,
+          High: 110,
+          Low: 95,
+          Close: 105,
+          CreatedAt: LEGACY_CREATED_AT,
+          UpdatedAt: '2024-01-03T10:00:00.000Z',
+        });
+      }
+
+      it('時刻が ISO 文字列のサマリーも、ミリ秒で読める', async () => {
+        await putLegacyItem();
+
+        const fetched = await repository.getByTickerAndDate('NSDQ:AAPL', '2024-01-02');
+
+        expect(fetched?.createdAt).toBe(Date.parse(LEGACY_CREATED_AT));
+        expect(fetched?.updatedAt).toBe(Date.parse('2024-01-03T10:00:00.000Z'));
+      });
+
+      it('getByExchange でも読める', async () => {
+        await putLegacyItem();
+
+        const result = await repository.getByExchange('NASDAQ', '2024-01-02');
+
+        expect(result.map((item) => item.tickerId)).toEqual(['NSDQ:AAPL']);
+      });
+
+      it('upsert すると作成日時を引き継ぎ、時刻が数値ミリ秒に置き換わる', async () => {
+        await putLegacyItem();
+
+        const overwritten = await repository.upsert(buildDailySummaryInput({ close: 120 }));
+
+        expect(overwritten.createdAt).toBe(Date.parse(LEGACY_CREATED_AT));
+        const raw = await hooks.getRawItem('SUMMARY#NSDQ:AAPL', 'DATE#2024-01-02');
+        expect(raw?.CreatedAt).toBe(Date.parse(LEGACY_CREATED_AT));
+        expect(typeof raw?.UpdatedAt).toBe('number');
+      });
+    });
+
+    describe('読めないサマリー', () => {
+      async function putBrokenItem(): Promise<void> {
+        await hooks.putRawItem({
+          PK: 'SUMMARY#NSDQ:AAPL',
+          SK: 'DATE#2024-01-02',
+          Type: 'DailySummary',
+          GSI4PK: 'NASDAQ',
+          GSI4SK: 'DATE#2024-01-02#NSDQ:AAPL',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Date: '2024-01-02',
+          Open: 100,
+          High: 110,
+          Low: 95,
+          Close: 'broken',
+          CreatedAt: 1_700_000_000_000,
+          UpdatedAt: 1_700_000_000_000,
+        });
+      }
+
+      it('getByTickerAndDate は InvalidEntityDataError をスローする', async () => {
+        await putBrokenItem();
+
+        await expect(repository.getByTickerAndDate('NSDQ:AAPL', '2024-01-02')).rejects.toThrow(
+          expect.objectContaining({ name: 'InvalidEntityDataError' })
+        );
+      });
+
+      it.each([
+        [
+          'getByExchange（date 指定）',
+          (repo: DailySummaryRepository) => repo.getByExchange('NASDAQ', '2024-01-02'),
+        ],
+        [
+          'getByExchange（date 省略）',
+          (repo: DailySummaryRepository) => repo.getByExchange('NASDAQ'),
+        ],
+        [
+          'getByExchangeAndDateRange',
+          (repo: DailySummaryRepository) =>
+            repo.getByExchangeAndDateRange('NASDAQ', '2024-01-01', '2024-01-03'),
+        ],
+      ])('%s は、読み飛ばさず InvalidEntityDataError をスローする', async (_label, query) => {
+        await putBrokenItem();
+
+        await expect(query(repository)).rejects.toThrow(
+          expect.objectContaining({ name: 'InvalidEntityDataError' })
+        );
+      });
     });
   });
 }

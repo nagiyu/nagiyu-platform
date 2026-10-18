@@ -1,4 +1,4 @@
-import { InMemorySingleTableStore } from '@nagiyu/aws';
+import { EntityNotFoundError, InMemorySingleTableStore } from '@nagiyu/aws';
 import {
   acquireForUser,
   shouldAcquireNow,
@@ -18,12 +18,12 @@ import {
 } from '../../../src/constants.js';
 
 const makeLifecycle = (overrides: Partial<LifecycleEntity> = {}): LifecycleEntity => ({
-  UserID: 'u1',
-  CharacterID: 'hiyori',
-  Bedtime: '01:30',
-  WakeUpTime: '09:30',
-  CreatedAt: 1_700_000_000_000,
-  UpdatedAt: 1_700_000_000_000,
+  userId: 'u1',
+  characterId: 'hiyori',
+  bedtime: '01:30',
+  wakeUpTime: '09:30',
+  createdAt: 1_700_000_000_000,
+  updatedAt: 1_700_000_000_000,
   ...overrides,
 });
 
@@ -80,7 +80,7 @@ describe('shouldAcquireNow', () => {
 
   it('ピーク活動時間帯は awake=true だが skipSelfStudy=true', () => {
     const lifecycle = makeLifecycle({
-      UserActivityProfile: {
+      userActivityProfile: {
         morningPeak: '14:00',
         eveningPeak: '21:00',
         sampleSize: 10,
@@ -155,12 +155,12 @@ describe('acquireForUser', () => {
 
   it('依頼（StudyTopic pending）を消費し done に遷移する', async () => {
     const studyTopic = await studyTopicRepo.put({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'req-1',
-      Topic: '最新アニメ情報',
-      Priority: 10,
-      Status: 'pending',
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'req-1',
+      topic: '最新アニメ情報',
+      priority: 10,
+      status: 'pending',
     });
 
     const researchClient = makeResearchClient();
@@ -183,37 +183,37 @@ describe('acquireForUser', () => {
 
     const topics = await studyTopicRepo.listByStatus('u1', 'hiyori', 'done');
     expect(topics).toHaveLength(1);
-    expect(topics[0].TopicID).toBe('req-1');
+    expect(topics[0].topicId).toBe('req-1');
 
     const webraws = await webRawRepo.listSince('u1', 'hiyori', 0);
     expect(webraws).toHaveLength(1);
-    expect(webraws[0].Query).toBe('最新アニメ情報');
+    expect(webraws[0].query).toBe('最新アニメ情報');
     // 依頼消費（§1）は Origin='request' + 依頼文・依頼日を StudyTopic から引き継ぐ（甲-1）
-    expect(webraws[0].Origin).toBe('request');
-    expect(webraws[0].RequestText).toBe('最新アニメ情報');
-    expect(webraws[0].RequestedAt).toBe(studyTopic.CreatedAt);
+    expect(webraws[0].origin).toBe('request');
+    expect(webraws[0].requestText).toBe('最新アニメ情報');
+    expect(webraws[0].requestedAt).toBe(studyTopic.createdAt);
   });
 
   it('鮮度切れ fact が変化ありの場合、WEBRAW を書き NextReview を前方更新する', async () => {
     await topicRepo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-1',
-      Subject: '桜まつり',
-      CanonicalSummary: '桜まつりの話題',
-      Category: 'イベント',
-      Care: 1,
-      Embedding: [0.1],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-1',
+      subject: '桜まつり',
+      canonicalSummary: '桜まつりの話題',
+      category: 'イベント',
+      care: 1,
+      embedding: [0.1],
     });
     const fact = await topicRepo.putWebFact({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-1',
-      Text: '去年の桜まつりは3月下旬でした。',
-      SourceUrls: [],
-      Volatility: 'high',
-      ObservedAt: NOW_MS - 100_000,
-      NextReview: NOW_MS - 1000,
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-1',
+      text: '去年の桜まつりは3月下旬でした。',
+      sourceUrls: [],
+      volatility: 'high',
+      observedAt: NOW_MS - 100_000,
+      nextReview: NOW_MS - 1000,
     });
 
     const researchClient = makeResearchClient(async () =>
@@ -241,34 +241,34 @@ describe('acquireForUser', () => {
     const webraws = await webRawRepo.listSince('u1', 'hiyori', 0);
     expect(webraws).toHaveLength(1);
     // 鮮度切れ再取得（§2）は Origin='stale' で書く（甲-1）
-    expect(webraws[0].Origin).toBe('stale');
-    expect(webraws[0].RequestText).toBeUndefined();
+    expect(webraws[0].origin).toBe('stale');
+    expect(webraws[0].requestText).toBeUndefined();
 
     const updatedFacts = await topicRepo.listWebFacts('u1', 'hiyori', 'topic-1');
-    const updated = updatedFacts.find((f) => f.FactID === fact.FactID);
-    expect(updated?.NextReview).toBeGreaterThan(NOW_MS);
+    const updated = updatedFacts.find((f) => f.factId === fact.factId);
+    expect(updated?.nextReview).toBeGreaterThan(NOW_MS);
   });
 
   it('鮮度切れ fact が変化なしの場合、WEBRAW は書かないが NextReview は前方更新する', async () => {
     await topicRepo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-1',
-      Subject: '桜まつり',
-      CanonicalSummary: '桜まつりの話題',
-      Category: 'イベント',
-      Care: 1,
-      Embedding: [0.1],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-1',
+      subject: '桜まつり',
+      canonicalSummary: '桜まつりの話題',
+      category: 'イベント',
+      care: 1,
+      embedding: [0.1],
     });
     const fact = await topicRepo.putWebFact({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-1',
-      Text: '今年の桜まつりは4月上旬に開催される予定です。',
-      SourceUrls: [],
-      Volatility: 'high',
-      ObservedAt: NOW_MS - 100_000,
-      NextReview: NOW_MS - 1000,
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-1',
+      text: '今年の桜まつりは4月上旬に開催される予定です。',
+      sourceUrls: [],
+      volatility: 'high',
+      observedAt: NOW_MS - 100_000,
+      nextReview: NOW_MS - 1000,
     });
 
     const researchClient = makeResearchClient();
@@ -295,43 +295,43 @@ describe('acquireForUser', () => {
     expect(webraws).toHaveLength(0);
 
     const updatedFacts = await topicRepo.listWebFacts('u1', 'hiyori', 'topic-1');
-    const updated = updatedFacts.find((f) => f.FactID === fact.FactID);
-    expect(updated?.NextReview).toBeGreaterThan(NOW_MS);
+    const updated = updatedFacts.find((f) => f.factId === fact.factId);
+    expect(updated?.nextReview).toBeGreaterThan(NOW_MS);
   });
 
   describe('鮮度切れ再取得のトピック単位集約（#3781）', () => {
     it('同一トピックの複数期限切れ fact をまとめて research 1 回にする', async () => {
       await topicRepo.putTopic({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-1',
-        Subject: '桜まつり',
-        CanonicalSummary: '桜まつりの話題',
-        Category: 'イベント',
-        Care: 1,
-        Embedding: [0.1],
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        subject: '桜まつり',
+        canonicalSummary: '桜まつりの話題',
+        category: 'イベント',
+        care: 1,
+        embedding: [0.1],
       });
       await topicRepo.putWebFact({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-1',
-        FactID: 'fact-a',
-        Text: '去年の桜まつりは3月下旬でした。',
-        SourceUrls: [],
-        Volatility: 'high',
-        ObservedAt: NOW_MS - 100_000,
-        NextReview: NOW_MS - 1000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        factId: 'fact-a',
+        text: '去年の桜まつりは3月下旬でした。',
+        sourceUrls: [],
+        volatility: 'high',
+        observedAt: NOW_MS - 100_000,
+        nextReview: NOW_MS - 1000,
       });
       await topicRepo.putWebFact({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-1',
-        FactID: 'fact-b',
-        Text: '会場は毎年同じ公園です。',
-        SourceUrls: [],
-        Volatility: 'medium',
-        ObservedAt: NOW_MS - 100_000,
-        NextReview: NOW_MS - 2000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        factId: 'fact-b',
+        text: '会場は毎年同じ公園です。',
+        sourceUrls: [],
+        volatility: 'medium',
+        observedAt: NOW_MS - 100_000,
+        nextReview: NOW_MS - 2000,
       });
 
       const researchClient = makeResearchClient();
@@ -363,36 +363,36 @@ describe('acquireForUser', () => {
 
     it('対象 fact 全部の NextReview を Volatility ごとに前進させる', async () => {
       await topicRepo.putTopic({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-1',
-        Subject: '桜まつり',
-        CanonicalSummary: '桜まつりの話題',
-        Category: 'イベント',
-        Care: 1,
-        Embedding: [0.1],
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        subject: '桜まつり',
+        canonicalSummary: '桜まつりの話題',
+        category: 'イベント',
+        care: 1,
+        embedding: [0.1],
       });
       await topicRepo.putWebFact({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-1',
-        FactID: 'fact-a',
-        Text: '去年の桜まつりは3月下旬でした。',
-        SourceUrls: [],
-        Volatility: 'high',
-        ObservedAt: NOW_MS - 100_000,
-        NextReview: NOW_MS - 1000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        factId: 'fact-a',
+        text: '去年の桜まつりは3月下旬でした。',
+        sourceUrls: [],
+        volatility: 'high',
+        observedAt: NOW_MS - 100_000,
+        nextReview: NOW_MS - 1000,
       });
       await topicRepo.putWebFact({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-1',
-        FactID: 'fact-b',
-        Text: '会場は毎年同じ公園です。',
-        SourceUrls: [],
-        Volatility: 'medium',
-        ObservedAt: NOW_MS - 100_000,
-        NextReview: NOW_MS - 2000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        factId: 'fact-b',
+        text: '会場は毎年同じ公園です。',
+        sourceUrls: [],
+        volatility: 'medium',
+        observedAt: NOW_MS - 100_000,
+        nextReview: NOW_MS - 2000,
       });
 
       const researchClient = makeResearchClient();
@@ -413,44 +413,44 @@ describe('acquireForUser', () => {
       expect(result.staleFactsReviewed).toBe(2);
 
       const facts = await topicRepo.listWebFacts('u1', 'hiyori', 'topic-1');
-      const factA = facts.find((f) => f.FactID === 'fact-a');
-      const factB = facts.find((f) => f.FactID === 'fact-b');
-      expect(factA?.NextReview).toBe(NOW_MS + WEBFACT_REVIEW_INTERVAL_MS.high);
-      expect(factB?.NextReview).toBe(NOW_MS + WEBFACT_REVIEW_INTERVAL_MS.medium);
+      const factA = facts.find((f) => f.factId === 'fact-a');
+      const factB = facts.find((f) => f.factId === 'fact-b');
+      expect(factA?.nextReview).toBe(NOW_MS + WEBFACT_REVIEW_INTERVAL_MS.high);
+      expect(factB?.nextReview).toBe(NOW_MS + WEBFACT_REVIEW_INTERVAL_MS.medium);
     });
 
     it('複数 fact があっても変化なしなら WEBRAW を書かない', async () => {
       await topicRepo.putTopic({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-1',
-        Subject: '桜まつり',
-        CanonicalSummary: '桜まつりの話題',
-        Category: 'イベント',
-        Care: 1,
-        Embedding: [0.1],
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        subject: '桜まつり',
+        canonicalSummary: '桜まつりの話題',
+        category: 'イベント',
+        care: 1,
+        embedding: [0.1],
       });
       await topicRepo.putWebFact({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-1',
-        FactID: 'fact-a',
-        Text: '去年の桜まつりは3月下旬でした。',
-        SourceUrls: [],
-        Volatility: 'high',
-        ObservedAt: NOW_MS - 100_000,
-        NextReview: NOW_MS - 1000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        factId: 'fact-a',
+        text: '去年の桜まつりは3月下旬でした。',
+        sourceUrls: [],
+        volatility: 'high',
+        observedAt: NOW_MS - 100_000,
+        nextReview: NOW_MS - 1000,
       });
       await topicRepo.putWebFact({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-1',
-        FactID: 'fact-b',
-        Text: '会場は毎年同じ公園です。',
-        SourceUrls: [],
-        Volatility: 'medium',
-        ObservedAt: NOW_MS - 100_000,
-        NextReview: NOW_MS - 2000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        factId: 'fact-b',
+        text: '会場は毎年同じ公園です。',
+        sourceUrls: [],
+        volatility: 'medium',
+        observedAt: NOW_MS - 100_000,
+        nextReview: NOW_MS - 2000,
       });
 
       const researchClient = makeResearchClient();
@@ -480,51 +480,51 @@ describe('acquireForUser', () => {
       // トピックヘッダは置かず、getTopic=null のフォールバック経路で単純に消費させる。
       for (let i = 0; i < ACQUIRE_STALE_SWEEP_LIMIT - 1; i++) {
         await topicRepo.putWebFact({
-          UserID: 'u1',
-          CharacterID: 'hiyori',
-          TopicID: `filler-${i}`,
-          FactID: `filler-fact-${i}`,
-          Text: `ダミー事実${i}`,
-          SourceUrls: [],
-          Volatility: 'high',
-          ObservedAt: NOW_MS - 900_000,
-          NextReview: NOW_MS - 900_000 - i,
+          userId: 'u1',
+          characterId: 'hiyori',
+          topicId: `filler-${i}`,
+          factId: `filler-fact-${i}`,
+          text: `ダミー事実${i}`,
+          sourceUrls: [],
+          volatility: 'high',
+          observedAt: NOW_MS - 900_000,
+          nextReview: NOW_MS - 900_000 - i,
         });
       }
 
       await topicRepo.putTopic({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-1',
-        Subject: '桜まつり',
-        CanonicalSummary: '桜まつりの話題',
-        Category: 'イベント',
-        Care: 1,
-        Embedding: [0.1],
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        subject: '桜まつり',
+        canonicalSummary: '桜まつりの話題',
+        category: 'イベント',
+        care: 1,
+        embedding: [0.1],
       });
       // 窓（上位 ACQUIRE_STALE_SWEEP_LIMIT 件）にちょうど収まる古さの fact
       await topicRepo.putWebFact({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-1',
-        FactID: 'fact-in-window',
-        Text: '窓内の事実。',
-        SourceUrls: [],
-        Volatility: 'high',
-        ObservedAt: NOW_MS - 100_000,
-        NextReview: NOW_MS - 800_000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        factId: 'fact-in-window',
+        text: '窓内の事実。',
+        sourceUrls: [],
+        volatility: 'high',
+        observedAt: NOW_MS - 100_000,
+        nextReview: NOW_MS - 800_000,
       });
       // 窓には収まらないが、期限切れではある（NextReview<=nowMs）同一トピックの fact
       await topicRepo.putWebFact({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-1',
-        FactID: 'fact-out-of-window',
-        Text: '窓外の事実。',
-        SourceUrls: [],
-        Volatility: 'medium',
-        ObservedAt: NOW_MS - 100_000,
-        NextReview: NOW_MS - 1000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        factId: 'fact-out-of-window',
+        text: '窓外の事実。',
+        sourceUrls: [],
+        volatility: 'medium',
+        observedAt: NOW_MS - 100_000,
+        nextReview: NOW_MS - 1000,
       });
 
       // 窓には確かに fact-in-window までしか含まれず、fact-out-of-window は含まれないことを確認
@@ -534,8 +534,8 @@ describe('acquireForUser', () => {
         NOW_MS,
         ACQUIRE_STALE_SWEEP_LIMIT
       );
-      expect(window.some((f) => f.FactID === 'fact-out-of-window')).toBe(false);
-      expect(window.some((f) => f.FactID === 'fact-in-window')).toBe(true);
+      expect(window.some((f) => f.factId === 'fact-out-of-window')).toBe(false);
+      expect(window.some((f) => f.factId === 'fact-in-window')).toBe(true);
 
       const researchClient = makeResearchClient();
       const changeDetector = makeChangeDetector(false);
@@ -556,68 +556,68 @@ describe('acquireForUser', () => {
       expect(result.staleRefreshed).toBe(ACQUIRE_STALE_SWEEP_LIMIT);
 
       const facts = await topicRepo.listWebFacts('u1', 'hiyori', 'topic-1');
-      const inWindow = facts.find((f) => f.FactID === 'fact-in-window');
-      const outOfWindow = facts.find((f) => f.FactID === 'fact-out-of-window');
+      const inWindow = facts.find((f) => f.factId === 'fact-in-window');
+      const outOfWindow = facts.find((f) => f.factId === 'fact-out-of-window');
       // 窓外だった fact-out-of-window も、topic-1 の research 実行時に
       // listWebFacts で取り直されて NextReview が前進する
-      expect(inWindow?.NextReview).toBeGreaterThan(NOW_MS);
-      expect(outOfWindow?.NextReview).toBeGreaterThan(NOW_MS);
+      expect(inWindow?.nextReview).toBeGreaterThan(NOW_MS);
+      expect(outOfWindow?.nextReview).toBeGreaterThan(NOW_MS);
     });
 
     it('budget はトピック単位で消費される（fact 数ではなく research 回数）', async () => {
       await topicRepo.putTopic({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-1',
-        Subject: '話題1',
-        CanonicalSummary: '',
-        Category: 'テスト',
-        Care: 1,
-        Embedding: [0.1],
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        subject: '話題1',
+        canonicalSummary: '',
+        category: 'テスト',
+        care: 1,
+        embedding: [0.1],
       });
       await topicRepo.putWebFact({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-1',
-        FactID: 'fact-1-a',
-        Text: 'テキストA',
-        SourceUrls: [],
-        Volatility: 'high',
-        ObservedAt: NOW_MS - 100_000,
-        NextReview: NOW_MS - 3000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        factId: 'fact-1-a',
+        text: 'テキストA',
+        sourceUrls: [],
+        volatility: 'high',
+        observedAt: NOW_MS - 100_000,
+        nextReview: NOW_MS - 3000,
       });
       await topicRepo.putWebFact({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-1',
-        FactID: 'fact-1-b',
-        Text: 'テキストB',
-        SourceUrls: [],
-        Volatility: 'medium',
-        ObservedAt: NOW_MS - 100_000,
-        NextReview: NOW_MS - 2000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        factId: 'fact-1-b',
+        text: 'テキストB',
+        sourceUrls: [],
+        volatility: 'medium',
+        observedAt: NOW_MS - 100_000,
+        nextReview: NOW_MS - 2000,
       });
 
       await topicRepo.putTopic({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-2',
-        Subject: '話題2',
-        CanonicalSummary: '',
-        Category: 'テスト',
-        Care: 1,
-        Embedding: [0.1],
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-2',
+        subject: '話題2',
+        canonicalSummary: '',
+        category: 'テスト',
+        care: 1,
+        embedding: [0.1],
       });
       await topicRepo.putWebFact({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-2',
-        FactID: 'fact-2-a',
-        Text: 'テキストC',
-        SourceUrls: [],
-        Volatility: 'high',
-        ObservedAt: NOW_MS - 100_000,
-        NextReview: NOW_MS - 1000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-2',
+        factId: 'fact-2-a',
+        text: 'テキストC',
+        sourceUrls: [],
+        volatility: 'high',
+        observedAt: NOW_MS - 100_000,
+        nextReview: NOW_MS - 1000,
       });
 
       const researchClient = makeResearchClient();
@@ -644,26 +644,26 @@ describe('acquireForUser', () => {
     it('トピック欠落（getTopic が null）時は fact 単位でフォールバックする（束ねない）', async () => {
       // Topic ヘッダを作らず WEB fact だけ 2 件用意する（トピック欠落を模す）
       await topicRepo.putWebFact({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'missing-topic',
-        FactID: 'fact-a',
-        Text: '欠落トピックの事実A',
-        SourceUrls: [],
-        Volatility: 'high',
-        ObservedAt: NOW_MS - 100_000,
-        NextReview: NOW_MS - 2000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'missing-topic',
+        factId: 'fact-a',
+        text: '欠落トピックの事実A',
+        sourceUrls: [],
+        volatility: 'high',
+        observedAt: NOW_MS - 100_000,
+        nextReview: NOW_MS - 2000,
       });
       await topicRepo.putWebFact({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'missing-topic',
-        FactID: 'fact-b',
-        Text: '欠落トピックの事実B',
-        SourceUrls: [],
-        Volatility: 'medium',
-        ObservedAt: NOW_MS - 100_000,
-        NextReview: NOW_MS - 1000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'missing-topic',
+        factId: 'fact-b',
+        text: '欠落トピックの事実B',
+        sourceUrls: [],
+        volatility: 'medium',
+        observedAt: NOW_MS - 100_000,
+        nextReview: NOW_MS - 1000,
       });
 
       const researchClient = makeResearchClient();
@@ -689,41 +689,41 @@ describe('acquireForUser', () => {
       expect(result.staleFactsReviewed).toBe(2);
 
       const facts = await topicRepo.listWebFacts('u1', 'hiyori', 'missing-topic');
-      expect(facts.every((f) => (f.NextReview ?? 0) > NOW_MS)).toBe(true);
+      expect(facts.every((f) => (f.nextReview ?? 0) > NOW_MS)).toBe(true);
     });
 
     it('失敗時（research 例外）でも対象 fact 全部の NextReview を前進させる', async () => {
       await topicRepo.putTopic({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-1',
-        Subject: '失敗トピック',
-        CanonicalSummary: '',
-        Category: 'テスト',
-        Care: 1,
-        Embedding: [0.1],
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        subject: '失敗トピック',
+        canonicalSummary: '',
+        category: 'テスト',
+        care: 1,
+        embedding: [0.1],
       });
       await topicRepo.putWebFact({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-1',
-        FactID: 'fact-a',
-        Text: '既知の事実A',
-        SourceUrls: [],
-        Volatility: 'high',
-        ObservedAt: NOW_MS - 100_000,
-        NextReview: NOW_MS - 2000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        factId: 'fact-a',
+        text: '既知の事実A',
+        sourceUrls: [],
+        volatility: 'high',
+        observedAt: NOW_MS - 100_000,
+        nextReview: NOW_MS - 2000,
       });
       await topicRepo.putWebFact({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-1',
-        FactID: 'fact-b',
-        Text: '既知の事実B',
-        SourceUrls: [],
-        Volatility: 'medium',
-        ObservedAt: NOW_MS - 100_000,
-        NextReview: NOW_MS - 1000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        factId: 'fact-b',
+        text: '既知の事実B',
+        sourceUrls: [],
+        volatility: 'medium',
+        observedAt: NOW_MS - 100_000,
+        nextReview: NOW_MS - 1000,
       });
 
       const researchClient: IResearchClient = {
@@ -750,33 +750,33 @@ describe('acquireForUser', () => {
       expect(result.staleFactsReviewed).toBe(2);
 
       const facts = await topicRepo.listWebFacts('u1', 'hiyori', 'topic-1');
-      const factA = facts.find((f) => f.FactID === 'fact-a');
-      const factB = facts.find((f) => f.FactID === 'fact-b');
-      expect(factA?.NextReview).toBe(NOW_MS + WEBFACT_REVIEW_INTERVAL_MS.high);
-      expect(factB?.NextReview).toBe(NOW_MS + WEBFACT_REVIEW_INTERVAL_MS.medium);
+      const factA = facts.find((f) => f.factId === 'fact-a');
+      const factB = facts.find((f) => f.factId === 'fact-b');
+      expect(factA?.nextReview).toBe(NOW_MS + WEBFACT_REVIEW_INTERVAL_MS.high);
+      expect(factB?.nextReview).toBe(NOW_MS + WEBFACT_REVIEW_INTERVAL_MS.medium);
     });
 
     it('research が失敗し続けても試行回数は budget で頭打ちになる', async () => {
       for (let i = 0; i < 5; i++) {
         await topicRepo.putTopic({
-          UserID: 'u1',
-          CharacterID: 'hiyori',
-          TopicID: `topic-${i}`,
-          Subject: `話題${i}`,
-          CanonicalSummary: '',
-          Category: 'テスト',
-          Care: 1,
-          Embedding: [0.1],
+          userId: 'u1',
+          characterId: 'hiyori',
+          topicId: `topic-${i}`,
+          subject: `話題${i}`,
+          canonicalSummary: '',
+          category: 'テスト',
+          care: 1,
+          embedding: [0.1],
         });
         await topicRepo.putWebFact({
-          UserID: 'u1',
-          CharacterID: 'hiyori',
-          TopicID: `topic-${i}`,
-          Text: `事実${i}`,
-          SourceUrls: [],
-          Volatility: 'high',
-          ObservedAt: NOW_MS - 100_000,
-          NextReview: NOW_MS - 1000 - i,
+          userId: 'u1',
+          characterId: 'hiyori',
+          topicId: `topic-${i}`,
+          text: `事実${i}`,
+          sourceUrls: [],
+          volatility: 'high',
+          observedAt: NOW_MS - 100_000,
+          nextReview: NOW_MS - 1000 - i,
         });
       }
 
@@ -802,25 +802,25 @@ describe('acquireForUser', () => {
 
     it('Subject が既に「最新情報」で終わる場合はクエリを二重付与しない', async () => {
       await topicRepo.putTopic({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-1',
-        Subject: '芸能人の最新情報',
-        CanonicalSummary: '',
-        Category: 'テスト',
-        Care: 1,
-        Embedding: [0.1],
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        subject: '芸能人の最新情報',
+        canonicalSummary: '',
+        category: 'テスト',
+        care: 1,
+        embedding: [0.1],
       });
       await topicRepo.putWebFact({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-1',
-        FactID: 'fact-a',
-        Text: '既知の事実',
-        SourceUrls: [],
-        Volatility: 'high',
-        ObservedAt: NOW_MS - 100_000,
-        NextReview: NOW_MS - 1000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-1',
+        factId: 'fact-a',
+        text: '既知の事実',
+        sourceUrls: [],
+        volatility: 'high',
+        observedAt: NOW_MS - 100_000,
+        nextReview: NOW_MS - 1000,
       });
 
       const researchClient = makeResearchClient();
@@ -844,24 +844,24 @@ describe('acquireForUser', () => {
 
   it('care 降順の自発リサーチを行い WEBRAW を書く', async () => {
     await topicRepo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-low',
-      Subject: '低 care トピック',
-      CanonicalSummary: '',
-      Category: 'テスト',
-      Care: 1,
-      Embedding: [0.1],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-low',
+      subject: '低 care トピック',
+      canonicalSummary: '',
+      category: 'テスト',
+      care: 1,
+      embedding: [0.1],
     });
     await topicRepo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-high',
-      Subject: '高 care トピック',
-      CanonicalSummary: '',
-      Category: 'テスト',
-      Care: 9,
-      Embedding: [0.1],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-high',
+      subject: '高 care トピック',
+      canonicalSummary: '',
+      category: 'テスト',
+      care: 9,
+      embedding: [0.1],
     });
 
     const researchClient = makeResearchClient();
@@ -882,43 +882,43 @@ describe('acquireForUser', () => {
     expect(result.selfStudied).toBe(1);
     const webraws = await webRawRepo.listSince('u1', 'hiyori', 0);
     expect(webraws).toHaveLength(1);
-    expect(webraws[0].Query).toContain('高 care トピック');
+    expect(webraws[0].query).toContain('高 care トピック');
     // care 自発リサーチ（§3）は Origin='auto' で書く（甲-1）
-    expect(webraws[0].Origin).toBe('auto');
-    expect(webraws[0].RequestText).toBeUndefined();
+    expect(webraws[0].origin).toBe('auto');
+    expect(webraws[0].requestText).toBeUndefined();
   });
 
   it('直近取得済み（クールダウン中）の care 上位 Topic はスキップし、未取得の下位 Topic を研究する', async () => {
     // 高 care だが直近取得済み（stable fact で ObservedAt が新しい）→ スキップ対象
     await topicRepo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-recent',
-      Subject: '直近取得済みトピック',
-      CanonicalSummary: '',
-      Category: 'テスト',
-      Care: 9,
-      Embedding: [0.1],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-recent',
+      subject: '直近取得済みトピック',
+      canonicalSummary: '',
+      category: 'テスト',
+      care: 9,
+      embedding: [0.1],
     });
     await topicRepo.putWebFact({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-recent',
-      Text: '既知',
-      SourceUrls: [],
-      Volatility: 'stable', // NextReview 無し → 鮮度掃引には出ない
-      ObservedAt: NOW_MS - 1000, // クールダウン（24h）内
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-recent',
+      text: '既知',
+      sourceUrls: [],
+      volatility: 'stable', // NextReview 無し → 鮮度掃引には出ない
+      observedAt: NOW_MS - 1000, // クールダウン（24h）内
     });
     // 低 care だが未取得 → 研究対象
     await topicRepo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-cold',
-      Subject: '未取得トピック',
-      CanonicalSummary: '',
-      Category: 'テスト',
-      Care: 3,
-      Embedding: [0.1],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-cold',
+      subject: '未取得トピック',
+      canonicalSummary: '',
+      category: 'テスト',
+      care: 3,
+      embedding: [0.1],
     });
 
     const researchClient = makeResearchClient();
@@ -939,12 +939,12 @@ describe('acquireForUser', () => {
     expect(result.selfStudied).toBe(1);
     const webraws = await webRawRepo.listSince('u1', 'hiyori', 0);
     expect(webraws).toHaveLength(1);
-    expect(webraws[0].Query).toContain('未取得トピック');
+    expect(webraws[0].query).toContain('未取得トピック');
   });
 
   it('ピーク時は care 自発をスキップするが依頼・鮮度切れは実施する', async () => {
     const lifecycle = makeLifecycle({
-      UserActivityProfile: {
+      userActivityProfile: {
         morningPeak: '14:00',
         eveningPeak: '21:00',
         sampleSize: 10,
@@ -953,43 +953,43 @@ describe('acquireForUser', () => {
     });
 
     await studyTopicRepo.put({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'req-1',
-      Topic: '依頼トピック',
-      Priority: 10,
-      Status: 'pending',
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'req-1',
+      topic: '依頼トピック',
+      priority: 10,
+      status: 'pending',
     });
     await topicRepo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-1',
-      Subject: '鮮度切れトピック',
-      CanonicalSummary: '',
-      Category: 'テスト',
-      Care: 1,
-      Embedding: [0.1],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-1',
+      subject: '鮮度切れトピック',
+      canonicalSummary: '',
+      category: 'テスト',
+      care: 1,
+      embedding: [0.1],
     });
     await topicRepo.putWebFact({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-1',
-      Text: '既知の事実',
-      SourceUrls: [],
-      Volatility: 'high',
-      ObservedAt: NOW_MS - 100_000,
-      NextReview: NOW_MS - 1000,
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-1',
+      text: '既知の事実',
+      sourceUrls: [],
+      volatility: 'high',
+      observedAt: NOW_MS - 100_000,
+      nextReview: NOW_MS - 1000,
     });
     // care 自発の対象になり得る、別 Topic（鮮度切れ fact は無い）
     await topicRepo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-care',
-      Subject: 'care 自発対象',
-      CanonicalSummary: '',
-      Category: 'テスト',
-      Care: 100,
-      Embedding: [0.1],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-care',
+      subject: 'care 自発対象',
+      canonicalSummary: '',
+      category: 'テスト',
+      care: 100,
+      embedding: [0.1],
     });
 
     const researchClient = makeResearchClient();
@@ -1015,23 +1015,23 @@ describe('acquireForUser', () => {
   it('maxQueriesPerRun 上限を 3 ソース合算で消費する', async () => {
     for (let i = 0; i < 3; i++) {
       await studyTopicRepo.put({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: `req-${i}`,
-        Topic: `依頼トピック${i}`,
-        Priority: 10,
-        Status: 'pending',
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: `req-${i}`,
+        topic: `依頼トピック${i}`,
+        priority: 10,
+        status: 'pending',
       });
     }
     await topicRepo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-care',
-      Subject: 'care 自発対象',
-      CanonicalSummary: '',
-      Category: 'テスト',
-      Care: 100,
-      Embedding: [0.1],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-care',
+      subject: 'care 自発対象',
+      canonicalSummary: '',
+      category: 'テスト',
+      care: 100,
+      embedding: [0.1],
     });
 
     const researchClient = makeResearchClient();
@@ -1057,12 +1057,12 @@ describe('acquireForUser', () => {
 
   it('依頼のリサーチ失敗は pending へ戻され、次回バッチで再試行できる', async () => {
     await studyTopicRepo.put({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'req-fail',
-      Topic: '失敗トピック',
-      Priority: 10,
-      Status: 'pending',
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'req-fail',
+      topic: '失敗トピック',
+      priority: 10,
+      status: 'pending',
     });
 
     const researchClient: IResearchClient = {
@@ -1087,29 +1087,101 @@ describe('acquireForUser', () => {
     expect(stuck).toHaveLength(0);
     const pending = await studyTopicRepo.listByStatus('u1', 'hiyori', 'pending');
     expect(pending).toHaveLength(1);
-    expect(pending[0].TopicID).toBe('req-fail');
+    expect(pending[0].topicId).toBe('req-fail');
+  });
+
+  it('依頼が処理前に削除されていたら、その依頼だけスキップして次の依頼を処理する', async () => {
+    await studyTopicRepo.put({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'req-gone',
+      topic: '消えた依頼',
+      priority: 10,
+      status: 'pending',
+    });
+    await studyTopicRepo.put({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'req-alive',
+      topic: '残っている依頼',
+      priority: 5,
+      status: 'pending',
+    });
+    const updateStatus = jest.spyOn(studyTopicRepo, 'updateStatus');
+    updateStatus.mockRejectedValueOnce(new EntityNotFoundError('StudyTopic', 'req-gone'));
+
+    const researchClient = makeResearchClient();
+
+    const result = await acquireForUser('u1', 'hiyori', {
+      topicRepo,
+      webRawRepo,
+      studyTopicRepo,
+      researchClient,
+      changeDetector: makeChangeDetector(),
+      character,
+      lifecycle: makeLifecycle(),
+      now: () => awakeNonPeak,
+    });
+
+    expect(researchClient.research).toHaveBeenCalledTimes(1);
+    expect(researchClient.research).toHaveBeenCalledWith('残っている依頼', character);
+    expect(result.requestsProcessed).toBe(1);
+    const done = await studyTopicRepo.listByStatus('u1', 'hiyori', 'done');
+    expect(done.map((t) => t.topicId)).toEqual(['req-alive']);
+  });
+
+  it('リサーチ後に依頼が削除されていても、pending へ戻そうとせず次へ進む', async () => {
+    await studyTopicRepo.put({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'req-gone',
+      topic: '消えた依頼',
+      priority: 10,
+      status: 'pending',
+    });
+    const original = studyTopicRepo.updateStatus.bind(studyTopicRepo);
+    const updateStatus = jest.spyOn(studyTopicRepo, 'updateStatus');
+    // in_progress への更新は通し、done への更新で消えていた状況を再現する
+    updateStatus
+      .mockImplementationOnce(original)
+      .mockRejectedValueOnce(new EntityNotFoundError('StudyTopic', 'req-gone'));
+
+    const result = await acquireForUser('u1', 'hiyori', {
+      topicRepo,
+      webRawRepo,
+      studyTopicRepo,
+      researchClient: makeResearchClient(),
+      changeDetector: makeChangeDetector(),
+      character,
+      lifecycle: makeLifecycle(),
+      now: () => awakeNonPeak,
+    });
+
+    expect(result.outcome).toBe('acquired');
+    expect(result.requestsProcessed).toBe(0);
+    expect(updateStatus).toHaveBeenCalledTimes(2);
   });
 
   it('鮮度切れの再取得が失敗しても他の処理を継続する（fail-warn）', async () => {
     await topicRepo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-1',
-      Subject: '失敗トピック',
-      CanonicalSummary: '',
-      Category: 'テスト',
-      Care: 1,
-      Embedding: [0.1],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-1',
+      subject: '失敗トピック',
+      canonicalSummary: '',
+      category: 'テスト',
+      care: 1,
+      embedding: [0.1],
     });
     await topicRepo.putWebFact({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-1',
-      Text: '既知の事実',
-      SourceUrls: [],
-      Volatility: 'high',
-      ObservedAt: NOW_MS - 100_000,
-      NextReview: NOW_MS - 1000,
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-1',
+      text: '既知の事実',
+      sourceUrls: [],
+      volatility: 'high',
+      observedAt: NOW_MS - 100_000,
+      nextReview: NOW_MS - 1000,
     });
 
     const researchClient: IResearchClient = {
@@ -1135,29 +1207,29 @@ describe('acquireForUser', () => {
     // 再取得失敗でも NextReview は前方更新する（poison pill による budget starvation を防ぐ）。
     // high の再検証間隔（1 日）だけ前進し、掃引窓から外れる。
     const facts = await topicRepo.listWebFacts('u1', 'hiyori', 'topic-1');
-    expect(facts[0].NextReview).toBe(NOW_MS + 24 * 60 * 60 * 1000);
+    expect(facts[0].nextReview).toBe(NOW_MS + 24 * 60 * 60 * 1000);
   });
 
   it('care 自発リサーチの失敗は握って他の Topic を継続する（fail-warn）', async () => {
     await topicRepo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-fail',
-      Subject: '失敗する話題',
-      CanonicalSummary: '',
-      Category: 'テスト',
-      Care: 9,
-      Embedding: [0.1],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-fail',
+      subject: '失敗する話題',
+      canonicalSummary: '',
+      category: 'テスト',
+      care: 9,
+      embedding: [0.1],
     });
     await topicRepo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-ok',
-      Subject: '成功する話題',
-      CanonicalSummary: '',
-      Category: 'テスト',
-      Care: 1,
-      Embedding: [0.1],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-ok',
+      subject: '成功する話題',
+      canonicalSummary: '',
+      category: 'テスト',
+      care: 1,
+      embedding: [0.1],
     });
 
     const researchClient: IResearchClient = {

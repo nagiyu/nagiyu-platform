@@ -52,11 +52,11 @@ export const GET = withApiErrorReporting(
     });
     return NextResponse.json({
       messages: result.messages.map((m) => ({
-        messageId: m.MessageID,
-        characterId: m.CharacterID,
-        role: m.Role,
-        text: m.Text,
-        createdAt: m.CreatedAt,
+        messageId: m.messageId,
+        characterId: m.characterId,
+        role: m.role,
+        text: m.text,
+        createdAt: m.createdAt,
       })),
       totalTokens: result.totalTokens,
       truncated: result.truncated,

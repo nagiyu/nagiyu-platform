@@ -9,7 +9,7 @@
  *   - 不正 / 欠落 characterId → 400
  *   - 購読 0 件 → 200 `{ sent: 0 }`、push 未送信・NotificationEvent 未記録
  *   - 正常系 → 各サブスクへ送信、payload に data.characterId / data.url が入る、
- *     成功時 NotificationEvent が CharacterID 付きで記録、`{ sent }` を返す
+ *     成功時 NotificationEvent が characterId 付きで記録、`{ sent }` を返す
  *   - 無効サブスク（false 戻り）→ delete される
  */
 import { logger } from '@nagiyu/common';
@@ -126,13 +126,13 @@ const adminSession = {
 /** サブスクリプションエンティティのファクトリ */
 function makeSubscription(overrides: Partial<PushSubscriptionEntity> = {}): PushSubscriptionEntity {
   return {
-    UserID: 'u1',
-    SubscriptionID: 'sub-1',
-    Endpoint: 'https://push.example.com/sub-1',
-    P256dhKey: 'p256dh-key',
-    AuthKey: 'auth-key',
-    CreatedAt: Date.now(),
-    UpdatedAt: Date.now(),
+    userId: 'u1',
+    subscriptionId: 'sub-1',
+    endpoint: 'https://push.example.com/sub-1',
+    p256dhKey: 'p256dh-key',
+    authKey: 'auth-key',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
     ...overrides,
   };
 }
@@ -311,10 +311,10 @@ describe('POST /api/push/test', () => {
   describe('正常系（送信成功）', () => {
     it('各サブスクリプションへ sendWebPushNotification を呼ぶ', async () => {
       mockGetSession.mockResolvedValue(adminSession);
-      const sub1 = makeSubscription({ SubscriptionID: 'sub-1' });
+      const sub1 = makeSubscription({ subscriptionId: 'sub-1' });
       const sub2 = makeSubscription({
-        SubscriptionID: 'sub-2',
-        Endpoint: 'https://push.example.com/sub-2',
+        subscriptionId: 'sub-2',
+        endpoint: 'https://push.example.com/sub-2',
       });
       mockGetPushSubscriptionRepo.mockReturnValue(makePushRepo([sub1, sub2]));
       mockGetNotifEventRepo.mockReturnValue(makeNotifEventRepo());
@@ -343,10 +343,10 @@ describe('POST /api/push/test', () => {
 
     it('送信成功時に { sent: <成功数>, characterId } を返す', async () => {
       mockGetSession.mockResolvedValue(adminSession);
-      const sub1 = makeSubscription({ SubscriptionID: 'sub-1' });
+      const sub1 = makeSubscription({ subscriptionId: 'sub-1' });
       const sub2 = makeSubscription({
-        SubscriptionID: 'sub-2',
-        Endpoint: 'https://push.example.com/sub-2',
+        subscriptionId: 'sub-2',
+        endpoint: 'https://push.example.com/sub-2',
       });
       mockGetPushSubscriptionRepo.mockReturnValue(makePushRepo([sub1, sub2]));
       mockGetNotifEventRepo.mockReturnValue(makeNotifEventRepo());
@@ -359,20 +359,24 @@ describe('POST /api/push/test', () => {
       expect(json.characterId).toBe('hiyori');
     });
 
-    it('成功時に NotificationEvent が CharacterID 付きで記録される', async () => {
+    it('成功時に NotificationEvent が characterId 付きで記録される', async () => {
       mockGetSession.mockResolvedValue(adminSession);
       mockGetPushSubscriptionRepo.mockReturnValue(makePushRepo([makeSubscription()]));
       const notifRepo = makeNotifEventRepo();
       mockGetNotifEventRepo.mockReturnValue(notifRepo);
       mockSendWebPushNotification.mockResolvedValue(true);
 
+      const startedAt = Date.now();
       await POST(buildPostRequest({ characterId: 'hiyori' }));
 
       expect(notifRepo.put).toHaveBeenCalledTimes(1);
       const putArg = (notifRepo.put as jest.Mock).mock.calls[0][0];
-      expect(putArg.CharacterID).toBe('hiyori');
-      expect(putArg.UserID).toBe('u1');
-      expect(putArg.Kind).toBe('normal');
+      expect(putArg.characterId).toBe('hiyori');
+      expect(putArg.userId).toBe('u1');
+      expect(putArg.kind).toBe('normal');
+      // 30 日後に期限切れになる時刻 (ミリ秒) を渡す
+      expect(putArg.expiresAt).toBeGreaterThanOrEqual(startedAt + 30 * 24 * 60 * 60 * 1000);
+      expect(putArg.expiresAt).toBeLessThanOrEqual(Date.now() + 30 * 24 * 60 * 60 * 1000);
     });
 
     it('テストと分かる文面（title/body）で送信される', async () => {
@@ -396,10 +400,10 @@ describe('POST /api/push/test', () => {
   describe('無効サブスクリプションの処理', () => {
     it('false を返すサブスクリプションは delete される', async () => {
       mockGetSession.mockResolvedValue(adminSession);
-      const validSub = makeSubscription({ SubscriptionID: 'sub-valid' });
+      const validSub = makeSubscription({ subscriptionId: 'sub-valid' });
       const invalidSub = makeSubscription({
-        SubscriptionID: 'sub-invalid',
-        Endpoint: 'https://push.example.com/sub-invalid',
+        subscriptionId: 'sub-invalid',
+        endpoint: 'https://push.example.com/sub-invalid',
       });
       const pushRepo = makePushRepo([validSub, invalidSub]);
       mockGetPushSubscriptionRepo.mockReturnValue(pushRepo);
@@ -424,10 +428,10 @@ describe('POST /api/push/test', () => {
 
     it('無効サブスクの削除に失敗しても 200 を返し NotificationEvent を記録する', async () => {
       mockGetSession.mockResolvedValue(adminSession);
-      const validSub = makeSubscription({ SubscriptionID: 'sub-valid' });
+      const validSub = makeSubscription({ subscriptionId: 'sub-valid' });
       const invalidSub = makeSubscription({
-        SubscriptionID: 'sub-invalid',
-        Endpoint: 'https://push.example.com/sub-invalid',
+        subscriptionId: 'sub-invalid',
+        endpoint: 'https://push.example.com/sub-invalid',
       });
       const pushRepo = makePushRepo([validSub, invalidSub]);
       (pushRepo.delete as jest.Mock).mockRejectedValue(new Error('delete failed'));
@@ -478,10 +482,10 @@ describe('POST /api/push/test', () => {
   describe('送信例外の処理', () => {
     it('一部サブスクで例外が発生しても他を送信し続ける', async () => {
       mockGetSession.mockResolvedValue(adminSession);
-      const sub1 = makeSubscription({ SubscriptionID: 'sub-1' });
+      const sub1 = makeSubscription({ subscriptionId: 'sub-1' });
       const sub2 = makeSubscription({
-        SubscriptionID: 'sub-2',
-        Endpoint: 'https://push.example.com/sub-2',
+        subscriptionId: 'sub-2',
+        endpoint: 'https://push.example.com/sub-2',
       });
       mockGetPushSubscriptionRepo.mockReturnValue(makePushRepo([sub1, sub2]));
       const notifRepo = makeNotifEventRepo();

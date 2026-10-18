@@ -4,13 +4,13 @@ import { decodeSelfFactId } from '@/lib/memory/memory-id';
 import type { SelfFactListItem } from '@/lib/memory/types';
 
 const entity: SelfFactEntity = {
-  UserID: 'user-1',
-  CharacterID: 'hiyori',
-  TopicID: 'topic-1',
-  FactID: 'fact-1',
-  Text: 'コーヒーが好き',
-  Provenance: '',
-  CreatedAt: 500,
+  userId: 'user-1',
+  characterId: 'hiyori',
+  topicId: 'topic-1',
+  factId: 'fact-1',
+  text: 'コーヒーが好き',
+  provenance: '',
+  createdAt: 500,
 };
 
 describe('toSelfFactListItem', () => {

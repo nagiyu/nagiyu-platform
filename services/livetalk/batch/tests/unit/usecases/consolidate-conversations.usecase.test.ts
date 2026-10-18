@@ -94,7 +94,7 @@ const makeProfileRepoWithUsers = async (userIds: string[]): Promise<InMemoryProf
   const nowMs = () => fixedNow;
   const profileRepo = new InMemoryProfileRepository(store, nowMs);
   for (const id of userIds) {
-    await profileRepo.upsert({ UserID: id });
+    await profileRepo.upsert({ userId: id });
   }
   return profileRepo;
 };
@@ -140,9 +140,9 @@ describe('consolidateAllConversations', () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } =
       makeRepos(store);
     tick = fixedNow;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'hello' });
-    await profileRepo.upsert({ UserID: 'u1' });
-    await profileRepo.upsert({ UserID: 'u2' });
+    await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: 'hello' });
+    await profileRepo.upsert({ userId: 'u1' });
+    await profileRepo.upsert({ userId: 'u2' });
 
     const result = await consolidateAllConversations({
       profileRepo,
@@ -184,11 +184,11 @@ describe('consolidateAllConversations', () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } =
       makeRepos(store);
     tick = fixedNow;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'hi' });
+    await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: 'hi' });
     tick++;
-    await messageRepo.create({ UserID: 'u2', CharacterID: 'hiyori', Role: 'user', Text: 'hi2' });
-    await profileRepo.upsert({ UserID: 'u1' });
-    await profileRepo.upsert({ UserID: 'u2' });
+    await messageRepo.create({ userId: 'u2', characterId: 'hiyori', role: 'user', text: 'hi2' });
+    await profileRepo.upsert({ userId: 'u1' });
+    await profileRepo.upsert({ userId: 'u2' });
 
     const result = await consolidateAllConversations({
       profileRepo,
@@ -230,10 +230,10 @@ describe('consolidateAllConversations', () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } =
       makeRepos(store);
     tick = fixedNow;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'hi' });
+    await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: 'hi' });
     tick++;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'ageha', Role: 'user', Text: 'hi2' });
-    await profileRepo.upsert({ UserID: 'u1' });
+    await messageRepo.create({ userId: 'u1', characterId: 'ageha', role: 'user', text: 'hi2' });
+    await profileRepo.upsert({ userId: 'u1' });
 
     const result = await consolidateAllConversations({
       profileRepo,
@@ -259,19 +259,19 @@ describe('consolidateAllConversations', () => {
       makeRepos(store);
     tick = fixedNow;
     await messageRepo.create({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Role: 'user',
-      Text: 'hiyori msg',
+      userId: 'u1',
+      characterId: 'hiyori',
+      role: 'user',
+      text: 'hiyori msg',
     });
     tick++;
     await messageRepo.create({
-      UserID: 'u1',
-      CharacterID: 'ageha',
-      Role: 'user',
-      Text: 'ageha msg',
+      userId: 'u1',
+      characterId: 'ageha',
+      role: 'user',
+      text: 'ageha msg',
     });
-    await profileRepo.upsert({ UserID: 'u1' });
+    await profileRepo.upsert({ userId: 'u1' });
 
     const result = await consolidateAllConversations({
       profileRepo,
@@ -312,10 +312,10 @@ describe('consolidateAllConversations', () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } =
       makeRepos(store);
     tick = fixedNow;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'hello' });
+    await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: 'hello' });
     tick++;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'ageha', Role: 'user', Text: 'hey' });
-    await profileRepo.upsert({ UserID: 'u1' });
+    await messageRepo.create({ userId: 'u1', characterId: 'ageha', role: 'user', text: 'hey' });
+    await profileRepo.upsert({ userId: 'u1' });
 
     await consolidateAllConversations({
       profileRepo,
@@ -338,9 +338,9 @@ describe('consolidateAllConversations', () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo, profileRepo, noteRepo } =
       makeRepos(store);
     tick = fixedNow;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'hello' });
-    await profileRepo.upsert({ UserID: 'u1' });
-    await profileRepo.upsert({ UserID: 'u2' });
+    await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: 'hello' });
+    await profileRepo.upsert({ userId: 'u1' });
+    await profileRepo.upsert({ userId: 'u2' });
 
     const result = await consolidateAllConversations({
       profileRepo,
@@ -367,23 +367,23 @@ describe('consolidateAllConversations', () => {
       topicRepo: ReturnType<typeof makeRepos>['topicRepo']
     ): Promise<void> => {
       await topicRepo.putTopic({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-preseed',
-        Subject: 'コーヒー',
-        CanonicalSummary: 'ユーザーはコーヒーが好き',
-        Category: '飲み物',
-        Care: 3,
-        Embedding: [1, 0],
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-preseed',
+        subject: 'コーヒー',
+        canonicalSummary: 'ユーザーはコーヒーが好き',
+        category: '飲み物',
+        care: 3,
+        embedding: [1, 0],
       });
       await topicRepo.putWebFact({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'topic-preseed',
-        Text: 'コーヒーには覚醒作用がある',
-        SourceUrls: ['https://example.com'],
-        Volatility: 'stable',
-        ObservedAt: fixedNow,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'topic-preseed',
+        text: 'コーヒーには覚醒作用がある',
+        sourceUrls: ['https://example.com'],
+        volatility: 'stable',
+        observedAt: fixedNow,
       });
     };
 
@@ -420,12 +420,12 @@ describe('consolidateAllConversations', () => {
       tick = fixedNow;
       await preseedTopic(topicRepo);
       await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: 'コーヒーについてもっと教えて',
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'user',
+        text: 'コーヒーについてもっと教えて',
       });
-      await profileRepo.upsert({ UserID: 'u1' });
+      await profileRepo.upsert({ userId: 'u1' });
 
       const llmClient = makeMergeAndLetterClient({
         skip: false,
@@ -448,7 +448,7 @@ describe('consolidateAllConversations', () => {
       expect(result.processedUsers).toBe(1);
       const notes = await noteRepo.listAll('u1', 'hiyori');
       expect(notes).toHaveLength(1);
-      expect(notes[0].TopicID).toBe('topic-preseed');
+      expect(notes[0].topicId).toBe('topic-preseed');
     });
 
     it('ノート生成が失敗しても集約バッチ全体は継続する（fail-warn）', async () => {
@@ -458,12 +458,12 @@ describe('consolidateAllConversations', () => {
       tick = fixedNow;
       await preseedTopic(topicRepo);
       await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: 'コーヒーについてもっと教えて',
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'user',
+        text: 'コーヒーについてもっと教えて',
       });
-      await profileRepo.upsert({ UserID: 'u1' });
+      await profileRepo.upsert({ userId: 'u1' });
 
       jest.spyOn(noteRepo, 'put').mockRejectedValueOnce(new Error('note put failed'));
 

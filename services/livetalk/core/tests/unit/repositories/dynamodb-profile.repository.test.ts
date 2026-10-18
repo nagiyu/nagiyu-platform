@@ -16,8 +16,8 @@ describe('DynamoDBProfileRepository', () => {
     });
     const repo = new DynamoDBProfileRepository(client as never, tableName);
     const before = Date.now();
-    const result = await repo.upsert({ UserID: 'u1' });
-    expect(result.CreatedAt).toBeGreaterThanOrEqual(before);
+    const result = await repo.upsert({ userId: 'u1' });
+    expect(result.createdAt).toBeGreaterThanOrEqual(before);
   });
 
   it('Error 以外の例外も DatabaseError でラップする', async () => {
@@ -37,7 +37,7 @@ describe('DynamoDBProfileRepository', () => {
     });
     const repo = new DynamoDBProfileRepository(client as never, tableName, () => now);
 
-    const result = await repo.upsert({ UserID: 'u1' });
+    const result = await repo.upsert({ userId: 'u1' });
 
     expect(sent[0]).toBeInstanceOf(GetCommand);
     expect(sent[1]).toBeInstanceOf(PutCommand);
@@ -50,7 +50,7 @@ describe('DynamoDBProfileRepository', () => {
     expect(put.Item?.DisplayName).toBeUndefined();
     expect(put.Item?.Email).toBeUndefined();
     expect(put.Item?.GoogleID).toBeUndefined();
-    expect(result.CreatedAt).toBe(now);
+    expect(result.createdAt).toBe(now);
   });
 
   it('既存があれば CreatedAt は維持しつつ LastActiveAt と UpdatedAt を反映する', async () => {
@@ -69,11 +69,11 @@ describe('DynamoDBProfileRepository', () => {
     });
     const repo = new DynamoDBProfileRepository(client as never, tableName, () => now);
 
-    const result = await repo.upsert({ UserID: 'u1' }, { LastActiveAt: now });
+    const result = await repo.upsert({ userId: 'u1' }, { lastActiveAt: now });
 
-    expect(result.CreatedAt).toBe(1_600_000_000_000);
-    expect(result.UpdatedAt).toBe(now);
-    expect(result.LastActiveAt).toBe(now);
+    expect(result.createdAt).toBe(1_600_000_000_000);
+    expect(result.updatedAt).toBe(now);
+    expect(result.lastActiveAt).toBe(now);
   });
 
   it('getById は未登録時に null を返す', async () => {
@@ -96,7 +96,7 @@ describe('DynamoDBProfileRepository', () => {
       throw new Error('put failure');
     });
     const repo = new DynamoDBProfileRepository(client as never, tableName, () => now);
-    await expect(repo.upsert({ UserID: 'u1' })).rejects.toBeInstanceOf(DatabaseError);
+    await expect(repo.upsert({ userId: 'u1' })).rejects.toBeInstanceOf(DatabaseError);
   });
 
   it('upsert に Consents を渡すと PutCommand に Consents が含まれる', async () => {
@@ -108,13 +108,18 @@ describe('DynamoDBProfileRepository', () => {
     });
     const repo = new DynamoDBProfileRepository(client as never, tableName, () => now);
     const consents = {
+      termsAgreed: { version: '1.0.0', agreedAt: now },
+      privacyAgreed: { version: '1.0.0', agreedAt: now },
+      ageVerified: { value: true, verifiedAt: now },
+    };
+    await repo.upsert({ userId: 'u1' }, { consents });
+    const put = (sent[1] as PutCommand).input;
+    // 保存の形は PascalCase のまま
+    expect(put.Item?.Consents).toEqual({
       TermsAgreed: { Version: '1.0.0', AgreedAt: now },
       PrivacyAgreed: { Version: '1.0.0', AgreedAt: now },
       AgeVerified: { Value: true, VerifiedAt: now },
-    };
-    await repo.upsert({ UserID: 'u1' }, { Consents: consents });
-    const put = (sent[1] as PutCommand).input;
-    expect(put.Item?.Consents).toEqual(consents);
+    });
   });
 
   describe('listAllUserIds', () => {

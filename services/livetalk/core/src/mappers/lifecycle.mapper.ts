@@ -1,8 +1,14 @@
 import {
+  immutablePatchValue,
+  InvalidEntityDataError,
+  optionalPatchValue,
+  readTimestamp,
+  requiredPatchValue,
   validateStringField,
-  validateTimestampField,
-  type DynamoDBItem,
+  type DynamoDBAttributes,
+  type DynamoDBKey,
   type EntityMapper,
+  type EntityPatch,
 } from '@nagiyu/aws';
 import type {
   LifecycleEntity,
@@ -11,9 +17,13 @@ import type {
 } from '../entities/lifecycle.entity.js';
 import { buildLifecycleSK, buildUserPK } from './keys.js';
 
+const ERROR_MESSAGES = {
+  INVALID_USER_ACTIVITY_PROFILE: 'UserActivityProfile が不正です',
+} as const;
+
 function toUserActivityProfile(raw: unknown): UserActivityProfile {
   if (typeof raw !== 'object' || raw === null) {
-    throw new Error('UserActivityProfile が不正です');
+    throw new InvalidEntityDataError(ERROR_MESSAGES.INVALID_USER_ACTIVITY_PROFILE);
   }
   const obj = raw as Record<string, unknown>;
   return {
@@ -27,45 +37,52 @@ function toUserActivityProfile(raw: unknown): UserActivityProfile {
 export class LifecycleMapper implements EntityMapper<LifecycleEntity, LifecycleKey> {
   public readonly entityType = 'Lifecycle';
 
-  public toItem(entity: LifecycleEntity): DynamoDBItem {
-    const { pk, sk } = this.buildKeys({
-      userId: entity.UserID,
-      characterId: entity.CharacterID,
-    });
+  public buildKeys(key: LifecycleKey): DynamoDBKey {
+    return { PK: buildUserPK(key.userId), SK: buildLifecycleSK(key.characterId) };
+  }
+
+  public getKey(entity: LifecycleEntity): LifecycleKey {
+    return { userId: entity.userId, characterId: entity.characterId };
+  }
+
+  public toItem(entity: LifecycleEntity): DynamoDBAttributes {
     return {
-      PK: pk,
-      SK: sk,
+      ...this.buildKeys(this.getKey(entity)),
       Type: this.entityType,
-      UserID: entity.UserID,
-      CharacterID: entity.CharacterID,
-      Bedtime: entity.Bedtime,
-      WakeUpTime: entity.WakeUpTime,
-      ...(entity.UserActivityProfile !== undefined && {
-        UserActivityProfile: entity.UserActivityProfile,
+      UserID: entity.userId,
+      CharacterID: entity.characterId,
+      Bedtime: entity.bedtime,
+      WakeUpTime: entity.wakeUpTime,
+      ...(entity.userActivityProfile !== undefined && {
+        UserActivityProfile: entity.userActivityProfile,
       }),
-      CreatedAt: entity.CreatedAt,
-      UpdatedAt: entity.UpdatedAt,
+      CreatedAt: entity.createdAt,
+      UpdatedAt: entity.updatedAt,
     };
   }
 
-  public toEntity(item: DynamoDBItem): LifecycleEntity {
+  public toUpdateAttributes(changes: EntityPatch<LifecycleEntity>): DynamoDBAttributes {
     return {
-      UserID: validateStringField(item.UserID, 'UserID'),
-      CharacterID: validateStringField(item.CharacterID, 'CharacterID'),
-      Bedtime: validateStringField(item.Bedtime, 'Bedtime'),
-      WakeUpTime: validateStringField(item.WakeUpTime, 'WakeUpTime'),
+      UserID: immutablePatchValue(changes.userId, 'UserID'),
+      CharacterID: immutablePatchValue(changes.characterId, 'CharacterID'),
+      CreatedAt: immutablePatchValue(changes.createdAt, 'CreatedAt'),
+      Bedtime: requiredPatchValue(changes.bedtime, 'Bedtime'),
+      WakeUpTime: requiredPatchValue(changes.wakeUpTime, 'WakeUpTime'),
+      UserActivityProfile: optionalPatchValue(changes.userActivityProfile),
+    };
+  }
+
+  public toEntity(item: DynamoDBAttributes): LifecycleEntity {
+    return {
+      userId: validateStringField(item.UserID, 'UserID'),
+      characterId: validateStringField(item.CharacterID, 'CharacterID'),
+      bedtime: validateStringField(item.Bedtime, 'Bedtime'),
+      wakeUpTime: validateStringField(item.WakeUpTime, 'WakeUpTime'),
       ...(item.UserActivityProfile !== undefined && {
-        UserActivityProfile: toUserActivityProfile(item.UserActivityProfile),
+        userActivityProfile: toUserActivityProfile(item.UserActivityProfile),
       }),
-      CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
-      UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
-    };
-  }
-
-  public buildKeys(key: LifecycleKey): { pk: string; sk: string } {
-    return {
-      pk: buildUserPK(key.userId),
-      sk: buildLifecycleSK(key.characterId),
+      createdAt: readTimestamp(item, 'CreatedAt'),
+      updatedAt: readTimestamp(item, 'UpdatedAt'),
     };
   }
 }

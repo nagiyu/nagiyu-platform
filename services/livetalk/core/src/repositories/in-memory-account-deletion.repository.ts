@@ -1,19 +1,19 @@
 /**
- * アカウント削除リポジトリの InMemory 実装（退会・データ削除 / Issue #3579）。
+ * アカウント削除リポジトリの InMemory 実装。
  *
  * DynamoDB 実装と同一セマンティクスで動作する。
  * USE_IN_MEMORY_DB の E2E / ユニットテスト環境で使用する。
  *
  * ADR-2.21 の要件:
  * - `PK = USER#<userId>` 配下の全アイテムをカーソルで全件取得する。
- * - SafetyEvent 以外: `store.delete(pk, sk)` でハード削除する。
+ * - SafetyEvent 以外: ストアからハード削除する。
  * - SafetyEvent: 匿名トークン（`ANON#<ulid>`）を 1 つ発行し、
- *   `store.put(新item)` + `store.delete(旧pk, 旧sk)` で re-key する。
+ *   新 PK への書き込みと旧 PK の削除で re-key する。
  *
  * @see docs/services/livetalk/architecture.md §2.21（ADR-2.21）
  */
 
-import { InMemorySingleTableStore, type DynamoDBItem } from '@nagiyu/aws';
+import { InMemorySingleTableStore, type DynamoDBAttributes } from '@nagiyu/aws';
 import type { AccountDeletionResult } from '../entities/account-deletion.entity.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
 import { buildSafetyEventGSI2PK, buildSafetyEventSKPrefix, buildUserPK } from '../mappers/keys.js';
@@ -42,8 +42,8 @@ export class InMemoryAccountDeletionRepository implements AccountDeletionReposit
     const allItems = await this.queryAll(pk);
 
     // 2. SafetyEvent と それ以外に分割する
-    const safetyItems: DynamoDBItem[] = [];
-    const deleteItems: DynamoDBItem[] = [];
+    const safetyItems: DynamoDBAttributes[] = [];
+    const deleteItems: DynamoDBAttributes[] = [];
 
     for (const item of allItems) {
       const sk = String(item['SK'] ?? '');
@@ -56,7 +56,7 @@ export class InMemoryAccountDeletionRepository implements AccountDeletionReposit
 
     // 3. SafetyEvent 以外をハード削除する
     for (const item of deleteItems) {
-      this.store.delete(String(item['PK']), String(item['SK']));
+      this.store.deleteByKey({ PK: String(item['PK']), SK: String(item['SK']) });
     }
     const deletedCount = deleteItems.length;
 
@@ -69,8 +69,8 @@ export class InMemoryAccountDeletionRepository implements AccountDeletionReposit
   /**
    * PK 配下の全アイテムをカーソルループで取得する。
    */
-  private async queryAll(pk: string): Promise<DynamoDBItem[]> {
-    const items: DynamoDBItem[] = [];
+  private async queryAll(pk: string): Promise<DynamoDBAttributes[]> {
+    const items: DynamoDBAttributes[] = [];
     let cursor: string | undefined;
 
     do {
@@ -90,11 +90,11 @@ export class InMemoryAccountDeletionRepository implements AccountDeletionReposit
    * googleId に紐づかない（ADR-2.21「個人識別子を切り離す」を優先）。部分失敗後の再実行では
    * 残件に別トークンが振られうる（グルーピングはベストエフォート）。
    *
-   * 各アイテムは `store.put(新item)` + `store.delete(旧pk, 旧sk)` で re-key する。
+   * 各アイテムは新 PK への書き込みと旧 PK の削除で re-key する。
    *
    * @returns 匿名化件数
    */
-  private anonymizeSafetyEvents(originalPk: string, items: DynamoDBItem[]): number {
+  private anonymizeSafetyEvents(originalPk: string, items: DynamoDBAttributes[]): number {
     if (items.length === 0) return 0;
 
     const now = this.nowMs();
@@ -103,7 +103,7 @@ export class InMemoryAccountDeletionRepository implements AccountDeletionReposit
     const nowIso = new Date(now).toISOString();
 
     for (const item of items) {
-      const newItem: DynamoDBItem = {
+      const newItem: DynamoDBAttributes = {
         ...item,
         PK: newPk,
         // UserID を匿名トークンに置換する（mapper が非空文字列でバリデートするため空にできない）
@@ -111,15 +111,16 @@ export class InMemoryAccountDeletionRepository implements AccountDeletionReposit
         // GSI2 は維持する（匿名化後も横断 Query に残す）
         GSI2PK: buildSafetyEventGSI2PK(),
         // GSI2SK は既存値を維持し、欠落時は EventID（= 定義上の GSI2SK 値）で補完する。
-        // #3580 以前の legacy item で GSI2SK が欠落していても確実に横断索引へ残す。
+        // GSI2SK を持たない旧形式の item でも確実に横断索引へ残す。
         GSI2SK: item['GSI2SK'] ?? (item['EventID'] as string),
         UpdatedAt: now,
         AnonymizedAt: nowIso,
       };
 
-      // 原子的に re-key（InMemory は単スレッドなので順序保証される）
-      this.store.put(newItem);
-      this.store.delete(originalPk, String(item['SK']));
+      // 原子的に re-key（InMemory は単スレッドなので順序保証される）。
+      // putByKey は undefined の属性を落とし、DocumentClient の removeUndefinedValues と揃う。
+      this.store.putByKey({ PK: newPk, SK: String(item['SK']) }, newItem);
+      this.store.deleteByKey({ PK: originalPk, SK: String(item['SK']) });
     }
 
     return items.length;

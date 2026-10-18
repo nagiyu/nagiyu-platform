@@ -1,6 +1,6 @@
 import { DEFAULT_NOTIFICATION_ICON } from '@nagiyu/common/push';
 import type { NotificationPayload } from '@nagiyu/common';
-import type { Alert } from '@nagiyu/stock-tracker-core';
+import type { AlertEntity } from '@nagiyu/stock-tracker-core';
 
 /**
  * アラート通知のペイロードを生成する
@@ -10,36 +10,36 @@ import type { Alert } from '@nagiyu/stock-tracker-core';
  * @returns 通知ペイロード
  */
 export function createAlertNotificationPayload(
-  alert: Alert,
+  alert: AlertEntity,
   currentPrice: number
 ): NotificationPayload {
-  const mode = alert.Mode === 'Buy' ? '買い' : '売り';
-  const title = `${mode}アラート: ${alert.TickerID}`;
-  const customMessage = alert.CustomMessage?.trim();
-  const url = `/?exchangeId=${encodeURIComponent(alert.ExchangeID)}&tickerId=${encodeURIComponent(
-    alert.TickerID
+  const mode = alert.mode === 'Buy' ? '買い' : '売り';
+  const title = `${mode}アラート: ${alert.tickerId}`;
+  const customMessage = alert.customMessage?.trim();
+  const url = `/?exchangeId=${encodeURIComponent(alert.exchangeId)}&tickerId=${encodeURIComponent(
+    alert.tickerId
   )}`;
 
   let body: string;
   let targetPrice: number;
 
-  if (alert.ConditionList.length === 1) {
+  if (alert.conditionList.length === 1) {
     // 単一条件の場合（従来通り）
-    const condition = alert.ConditionList[0];
+    const condition = alert.conditionList[0];
     const operatorText = condition.operator === 'gte' ? '以上' : '以下';
     body = `現在価格 $${currentPrice.toFixed(2)} が目標価格 $${condition.value.toFixed(2)} ${operatorText}になりました`;
     targetPrice = condition.value;
-  } else if (alert.ConditionList.length === 2) {
+  } else if (alert.conditionList.length === 2) {
     // 複数条件の場合
-    const gteCondition = alert.ConditionList.find((c) => c.operator === 'gte');
-    const lteCondition = alert.ConditionList.find((c) => c.operator === 'lte');
+    const gteCondition = alert.conditionList.find((c) => c.operator === 'gte');
+    const lteCondition = alert.conditionList.find((c) => c.operator === 'lte');
 
     if (!gteCondition || !lteCondition) {
       throw new Error('複数条件のアラートには gte と lte が必要です');
     }
 
-    // LogicalOperator が未指定の場合はデフォルトで 'AND' とする（evaluateAlert の動作と一致）
-    const logicalOp = alert.LogicalOperator || 'AND';
+    // logicalOperator が未指定の場合はデフォルトで 'AND' とする（evaluateAlert の動作と一致）
+    const logicalOp = alert.logicalOperator || 'AND';
 
     if (logicalOp === 'AND') {
       // 範囲内アラート
@@ -53,7 +53,7 @@ export function createAlertNotificationPayload(
       throw new Error('無効な LogicalOperator です');
     }
   } else {
-    throw new Error(`サポートされていない条件数です: ${alert.ConditionList.length}`);
+    throw new Error(`サポートされていない条件数です: ${alert.conditionList.length}`);
   }
 
   return {
@@ -61,10 +61,10 @@ export function createAlertNotificationPayload(
     body: customMessage ? `${body}\n${customMessage}` : body,
     icon: DEFAULT_NOTIFICATION_ICON,
     data: {
-      alertId: alert.AlertID,
-      exchangeId: alert.ExchangeID,
-      tickerId: alert.TickerID,
-      mode: alert.Mode,
+      alertId: alert.alertId,
+      exchangeId: alert.exchangeId,
+      tickerId: alert.tickerId,
+      mode: alert.mode,
       currentPrice,
       targetPrice,
       url,
