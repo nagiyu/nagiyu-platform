@@ -66,13 +66,3 @@ export interface PaginatedResult<T> {
   /** 総件数（取得可能な場合） */
   count?: number;
 }
-
-/**
- * リポジトリ設定
- */
-export interface RepositoryConfig {
-  /** DynamoDBテーブル名 */
-  tableName: string;
-  /** エンティティタイプ（Type フィールドの値） */
-  entityType: string;
-}

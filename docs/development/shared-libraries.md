@@ -457,8 +457,6 @@ AWS SDK 補助・拡張ライブラリ。DynamoDB Repository パターン実装�
 
 DynamoDB リポジトリは、`EntityMapper` で変換を担い、単一アイテムの CRUD を `EntityStore` に任せる (継承ではなく合成)。GSI を使う一覧などの独自のクエリだけを各リポジトリに書く。キー・属性名・時刻の形式・操作の振る舞いの標準と、その理由は [データアクセス層](./data-access-layer.md) を参照。
 
-- **`AbstractDynamoDBRepository` と `LegacyEntityMapper` は移行中の旧方式**: 全サービスが標準の書き方へ移り終わった時点で削除する。新規のリポジトリでは使わない。
-
 ### DynamoDB クライアントファクトリ
 
 サービス間で共通の DynamoDB クライアント初期化パターンを `@nagiyu/aws` のファクトリ関数として提供する。

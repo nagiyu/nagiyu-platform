@@ -140,6 +140,8 @@ GSI を使う一覧などの独自のクエリは、各 Repository が DocumentC
 
 エラーはすべて共通のリポジトリエラー (`RepositoryError` の派生) で表す。素の `Error` や、メッセージ文字列で判定させる形は使わない。
 
+**update の読み戻し**: update は書き込んだあと、更新後のアイテムを Mapper で Entity に変換して返す。そのため、読めないアイテムに対する update は、書き込みが成功したあとで `InvalidEntityDataError` になる。呼び出し側はこのエラーを握りつぶさず、エラーとして扱う (壊れたアイテムの無効化などで、書き込みは済んでいても、読めないデータが残っていることを知らせるため)。
+
 ### 7. `UpdatedAt` は EntityStore が書く
 
 **決定**: create / put / update のいずれでも、`UpdatedAt` は EntityStore が現在時刻で設定する。`CreatedAt` は Entity の値を使う。
