@@ -19,12 +19,7 @@ export {
 export { encodeCursor, decodeCursor } from './cursor.js';
 
 // 型定義
-export type {
-  DynamoDBItem,
-  PaginatedResult,
-  PaginationOptions,
-  RepositoryConfig,
-} from './types.js';
+export type { DynamoDBItem, PaginatedResult, PaginationOptions } from './types.js';
 
 // バリデーション関数
 export {
@@ -41,13 +36,7 @@ export {
 } from './validators.js';
 
 // ヘルパー関数
-export {
-  REMOVE_ATTRIBUTE,
-  buildUpdateExpression,
-  conditionalPut,
-  conditionalUpdate,
-  conditionalDelete,
-} from './helpers.js';
+export { REMOVE_ATTRIBUTE, buildUpdateExpression } from './helpers.js';
 export type { UpdateExpressionParts, BuildUpdateExpressionOptions } from './helpers.js';
 export { getDynamoDBDocumentClient, getTableName, clearDynamoDBClientCache } from './client.js';
 export { createRepositoryFactory } from './repository-factory.js';
@@ -60,9 +49,6 @@ export {
   type DynamoRepositoryRegistry,
   type RegisterDynamoRepositoriesOptions,
 } from './repository-registry.js';
-
-// 抽象基底クラス
-export { AbstractDynamoDBRepository } from './abstract-repository.js';
 
 // Mapper インターフェース
 export type {
@@ -77,8 +63,6 @@ export {
   immutablePatchValue,
   PATCH_VALUE_ERROR_MESSAGES,
 } from './mapper/patch-values.js';
-/** @deprecated 新規実装は `EntityMapper` を使う */
-export type { LegacyEntityMapper } from './mapper/legacy-entity-mapper.interface.js';
 
 // EntityStore (CRUD の骨格)
 export type {
