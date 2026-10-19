@@ -21,7 +21,7 @@ import {
   TextField,
   Snackbar,
 } from '@mui/material';
-import { Button, ErrorAlert, Select } from '@nagiyu/ui';
+import { Button, ConfirmDialog, ErrorAlert, Select } from '@nagiyu/ui';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { useEnterSubmit } from '@nagiyu/react';
 import {
@@ -913,23 +913,18 @@ export default function ExchangesPage() {
       </Dialog>
 
       {/* 削除確認ダイアログ */}
-      <Dialog open={deleteDialogOpen} onClose={handleCloseModals} maxWidth="xs" fullWidth>
-        <DialogTitle>取引所削除</DialogTitle>
-        <DialogContent>
-          <Typography>取引所「{selectedExchange?.name}」を削除してもよろしいですか？</Typography>
-          <Typography variant="body2" color="error" sx={{ mt: 2 }}>
-            ※ この操作は取り消せません
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button onClick={handleCloseModals} disabled={submitting} variant="ghost">
-            キャンセル
-          </Button>
-          <Button variant="solid" color="danger" onClick={handleDelete} loading={submitting}>
-            削除
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title="取引所削除"
+        loading={submitting}
+        onConfirm={handleDelete}
+        onCancel={handleCloseModals}
+      >
+        <Typography>取引所「{selectedExchange?.name}」を削除してもよろしいですか？</Typography>
+        <Typography variant="body2" color="error" sx={{ mt: 2 }}>
+          ※ この操作は取り消せません
+        </Typography>
+      </ConfirmDialog>
 
       {/* 成功メッセージ（スナックバー） */}
       <Snackbar
