@@ -7,7 +7,6 @@
 import { InMemoryExchangeRepository } from '../../../src/repositories/in-memory-exchange.repository.js';
 import { InMemorySingleTableStore } from '@nagiyu/aws';
 import type { CreateExchangeInput } from '../../../src/entities/exchange.entity.js';
-import { DEFAULT_PRICE_SOURCE } from '../../../src/entities/exchange.entity.js';
 
 describe('InMemoryExchangeRepository', () => {
   let repository: InMemoryExchangeRepository;

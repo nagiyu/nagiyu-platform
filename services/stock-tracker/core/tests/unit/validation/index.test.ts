@@ -263,6 +263,8 @@ describe('validateExchange', () => {
     });
 
     it('PriceSource が undefined の場合はバリデーションに成功する（省略可能）', () => {
+      // 分割代入で対象プロパティを除外するためだけの束縛で、値は使わない
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { priceSource: _, ...exchangeWithoutPriceSource } = { ...validExchange };
       const result = validateExchange(exchangeWithoutPriceSource);
       expect(result.valid).toBe(true);
@@ -301,6 +303,8 @@ describe('validateExchange', () => {
     });
 
     it('Market が undefined の場合はバリデーションに成功する（省略可能）', () => {
+      // 分割代入で対象プロパティを除外するためだけの束縛で、値は使わない
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { market: _, ...exchangeWithoutMarket } = { ...validExchange };
       const result = validateExchange(exchangeWithoutMarket);
       expect(result.valid).toBe(true);

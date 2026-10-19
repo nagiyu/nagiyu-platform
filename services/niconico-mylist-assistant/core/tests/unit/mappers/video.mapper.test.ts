@@ -73,6 +73,8 @@ describe('VideoMapper', () => {
 
   describe('toItem', () => {
     it('Entity を PascalCase の属性名の Item に変換する (UpdatedAt は store が書く)', () => {
+      // 分割代入で対象プロパティを除外するためだけの束縛で、値は使わない
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { UpdatedAt: _updatedAt, ...expected } = buildItem();
 
       expect(mapper.toItem(buildEntity())).toEqual(expected);
