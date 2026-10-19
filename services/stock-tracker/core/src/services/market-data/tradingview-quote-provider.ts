@@ -44,7 +44,10 @@ export class TradingViewQuoteProvider implements QuoteProvider {
    * @param options - 取得オプション
    * @returns 現在価格
    */
-  async getCurrentPrice(tickerId: string, options?: GetCurrentPriceOptions): Promise<number> {
+  public async getCurrentPrice(
+    tickerId: string,
+    options?: GetCurrentPriceOptions
+  ): Promise<number> {
     return this.getPrice(tickerId, options);
   }
 }
