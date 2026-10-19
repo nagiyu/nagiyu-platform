@@ -61,11 +61,11 @@ function getJobParameters(): MylistRegistrationJobParams {
   // AWS Batch が自動的に設定する環境変数からジョブIDを取得
   const jobId = process.env.AWS_BATCH_JOB_ID || '';
 
-  let videoIds: string[] = [];
+  let videoIds: string[];
   try {
     videoIds = JSON.parse(videoIdsJson);
-  } catch {
-    throw new Error(`${ERROR_MESSAGES.INVALID_PARAMETERS}: VIDEO_IDS`);
+  } catch (error) {
+    throw new Error(`${ERROR_MESSAGES.INVALID_PARAMETERS}: VIDEO_IDS`, { cause: error });
   }
 
   if (!userId || !encryptedUserSession || videoIds.length === 0) {
@@ -109,7 +109,8 @@ async function decryptUserSession(encryptedData: string, config: CryptoConfig): 
       encrypted = JSON.parse(encryptedData);
     } catch (parseError) {
       throw new Error(
-        `暗号化 user_session の JSON 形式が不正です: ${parseError instanceof Error ? parseError.message : String(parseError)}`
+        `暗号化 user_session の JSON 形式が不正です: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+        { cause: parseError }
       );
     }
 
@@ -130,7 +131,9 @@ async function decryptUserSession(encryptedData: string, config: CryptoConfig): 
         stack: error instanceof Error ? error.stack : undefined,
       },
     });
-    throw new Error(`${ERROR_MESSAGES.DECRYPTION_FAILED}: ${toErrorMessage(error)}`);
+    throw new Error(`${ERROR_MESSAGES.DECRYPTION_FAILED}: ${toErrorMessage(error)}`, {
+      cause: error,
+    });
   }
 }
 
