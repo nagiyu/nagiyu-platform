@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import type { ReactNode } from 'react';
 import {
   Dialog,
@@ -32,8 +33,6 @@ export interface ConfirmDialogProps {
   onCancel: () => void;
 }
 
-const TITLE_ID = 'confirm-dialog-title';
-
 /**
  * 確認ダイアログ。
  *
@@ -53,6 +52,8 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const titleId = useId();
+
   // 処理中に閉じると進行中の処理と画面状態が食い違うため、閉じる操作を無視する。
   const handleClose = () => {
     if (loading) return;
@@ -60,8 +61,8 @@ export default function ConfirmDialog({
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth aria-labelledby={TITLE_ID}>
-      <DialogTitle id={TITLE_ID}>{title}</DialogTitle>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth aria-labelledby={titleId}>
+      <DialogTitle id={titleId}>{title}</DialogTitle>
       <DialogContent>
         {description !== undefined && (
           <DialogContentText sx={children ? { mb: 2 } : undefined}>{description}</DialogContentText>
