@@ -20,7 +20,7 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import { Button, ErrorAlert, Select, TextField } from '@nagiyu/ui';
+import { Button, ConfirmDialog, ErrorAlert, Select, TextField } from '@nagiyu/ui';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { useEnterSubmit } from '@nagiyu/react';
 
@@ -82,6 +82,7 @@ export default function TickersPage() {
   const [createModalOpen, setCreateModalOpen] = useState<boolean>(false);
   const [editModalOpen, setEditModalOpen] = useState<boolean>(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
+  const [deleting, setDeleting] = useState<boolean>(false);
 
   // フォームデータ
   const [formData, setFormData] = useState<TickerFormData>({
@@ -292,6 +293,7 @@ export default function TickersPage() {
 
   // ティッカー削除
   const handleDelete = async () => {
+    setDeleting(true);
     setError('');
     setSuccess('');
 
@@ -312,6 +314,8 @@ export default function TickersPage() {
     } catch (err) {
       console.error('Error deleting ticker:', err);
       setError(ERROR_MESSAGES.DELETE_TICKER_ERROR);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -519,26 +523,21 @@ export default function TickersPage() {
       </Dialog>
 
       {/* 削除確認ダイアログ */}
-      <Dialog open={deleteDialogOpen} onClose={closeModals}>
-        <DialogTitle>ティッカー削除</DialogTitle>
-        <DialogContent>
-          <Typography>本当にこのティッカーを削除しますか？</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            ティッカーID: {deletingTickerId}
-          </Typography>
-          <Alert severity="warning" sx={{ mt: 2 }}>
-            この操作は取り消せません
-          </Alert>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeModals} variant="ghost">
-            キャンセル
-          </Button>
-          <Button onClick={handleDelete} variant="solid" color="danger">
-            削除
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title="ティッカー削除"
+        loading={deleting}
+        onConfirm={handleDelete}
+        onCancel={closeModals}
+      >
+        <Typography>本当にこのティッカーを削除しますか？</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          ティッカーID: {deletingTickerId}
+        </Typography>
+        <Alert severity="warning" sx={{ mt: 2 }}>
+          この操作は取り消せません
+        </Alert>
+      </ConfirmDialog>
     </Container>
   );
 }

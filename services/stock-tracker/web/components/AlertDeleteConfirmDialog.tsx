@@ -1,7 +1,7 @@
 'use client';
 
-import { Dialog, DialogTitle, DialogContent, DialogActions, Typography, Box } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Typography, Box } from '@mui/material';
+import { ConfirmDialog } from '@nagiyu/ui';
 import type { AlertResponse } from '../types/alert';
 
 interface AlertDeleteConfirmDialogProps {
@@ -59,42 +59,37 @@ export default function AlertDeleteConfirmDialog({
   onConfirm,
 }: AlertDeleteConfirmDialogProps) {
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>アラートの削除</DialogTitle>
-      <DialogContent>
-        <Typography>
-          以下のアラートを削除してもよろしいですか？
-          <br />
-          この操作は取り消せません。
-        </Typography>
-        {alert && (
-          <Box sx={{ mt: 2, p: 2, backgroundColor: 'grey.100', borderRadius: 1 }}>
-            <Typography variant="body2">
-              <strong>モード:</strong> {MODE_LABELS[alert.mode] || alert.mode}
-            </Typography>
-            <Typography variant="body2">
-              <strong>ティッカー:</strong> {alert.symbol} - {alert.name}
-            </Typography>
-            <Typography variant="body2">
-              <strong>条件:</strong> {getConditionText(alert)}
-            </Typography>
-            <Typography variant="body2">
-              <strong>頻度:</strong> {FREQUENCY_LABELS[alert.frequency] || alert.frequency}
-            </Typography>
-            <Typography variant="body2">
-              <strong>状態:</strong> {alert.enabled ? '有効' : '無効'}
-            </Typography>
-          </Box>
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={submitting} variant="ghost">
-          キャンセル
-        </Button>
-        <Button onClick={onConfirm} variant="solid" color="danger" loading={submitting}>
-          削除
-        </Button>
-      </DialogActions>
-    </Dialog>
+    <ConfirmDialog
+      open={open}
+      title="アラートの削除"
+      loading={submitting}
+      onConfirm={onConfirm}
+      onCancel={onClose}
+    >
+      <Typography>
+        以下のアラートを削除してもよろしいですか？
+        <br />
+        この操作は取り消せません。
+      </Typography>
+      {alert && (
+        <Box sx={{ mt: 2, p: 2, backgroundColor: 'grey.100', borderRadius: 1 }}>
+          <Typography variant="body2">
+            <strong>モード:</strong> {MODE_LABELS[alert.mode] || alert.mode}
+          </Typography>
+          <Typography variant="body2">
+            <strong>ティッカー:</strong> {alert.symbol} - {alert.name}
+          </Typography>
+          <Typography variant="body2">
+            <strong>条件:</strong> {getConditionText(alert)}
+          </Typography>
+          <Typography variant="body2">
+            <strong>頻度:</strong> {FREQUENCY_LABELS[alert.frequency] || alert.frequency}
+          </Typography>
+          <Typography variant="body2">
+            <strong>状態:</strong> {alert.enabled ? '有効' : '無効'}
+          </Typography>
+        </Box>
+      )}
+    </ConfirmDialog>
   );
 }
