@@ -116,12 +116,14 @@ services/{service-name}/
         "test": "jest",
         "test:watch": "jest --watch",
         "test:coverage": "jest --coverage",
-        "lint": "eslint src/**/*.ts tests/**/*.ts",
+        "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts'",
         "format": "prettier --write .",
         "format:check": "prettier --check ."
     }
 }
 ```
+
+lint の glob はクォートして eslint に解釈させる。`npm run` は `sh` でスクリプトを実行し、`sh` は `**` を 1 階層分としか展開しないため、クォートしないと直下や深い階層のファイルが検査から漏れる。
 
 #### web パッケージのスクリプト標準
 
@@ -156,7 +158,7 @@ services/{service-name}/
         "test": "jest",
         "test:watch": "jest --watch",
         "test:coverage": "jest --coverage",
-        "lint": "eslint src/**/*.ts tests/**/*.ts",
+        "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts'",
         "format": "prettier --write .",
         "format:check": "prettier --check ."
     }
