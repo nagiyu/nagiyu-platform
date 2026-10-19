@@ -109,7 +109,7 @@ const DEV_ZONE_DELEGATION = {
  *   避けるため、acm-stack.ts は変更せず既存検証値を手動で複製する方針）
  */
 export class Route53RecordsStack extends cdk.Stack {
-  public constructor(scope: Construct, id: string, props: Route53RecordsStackProps) {
+  constructor(scope: Construct, id: string, props: Route53RecordsStackProps) {
     super(scope, id, props);
 
     const hostedZoneId = ssm.StringParameter.valueForStringParameter(

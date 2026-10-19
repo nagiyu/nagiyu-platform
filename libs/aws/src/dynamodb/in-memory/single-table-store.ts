@@ -97,7 +97,7 @@ export class InMemorySingleTableStore {
    * @param sk - ソートキー
    * @returns DynamoDB Item または undefined
    */
-  get(pk: string, sk: string): DynamoDBItem | undefined {
+  public get(pk: string, sk: string): DynamoDBItem | undefined {
     const key = this.buildKey(pk, sk);
     return this.store.get(key);
   }
@@ -109,7 +109,7 @@ export class InMemorySingleTableStore {
    * @param condition - 条件（オプション）
    * @throws {EntityAlreadyExistsError} 条件付き保存で既存アイテムが存在する場合
    */
-  put(item: DynamoDBItem, condition?: { attributeNotExists: boolean }): void {
+  public put(item: DynamoDBItem, condition?: { attributeNotExists: boolean }): void {
     const key = this.buildKey(item.PK, item.SK);
 
     // 条件付き保存の処理
@@ -130,7 +130,7 @@ export class InMemorySingleTableStore {
    * @param condition - 条件（オプション）
    * @throws {EntityNotFoundError} 条件付き削除で既存アイテムが存在しない場合
    */
-  delete(pk: string, sk: string, condition?: { attributeExists: boolean }): void {
+  public delete(pk: string, sk: string, condition?: { attributeExists: boolean }): void {
     const key = this.buildKey(pk, sk);
 
     // 条件付き削除の処理
@@ -150,7 +150,10 @@ export class InMemorySingleTableStore {
    * @param options - ページネーションオプション
    * @returns ページネーション結果
    */
-  query(condition: QueryCondition, options?: PaginationOptions): PaginatedResult<DynamoDBItem> {
+  public query(
+    condition: QueryCondition,
+    options?: PaginationOptions
+  ): PaginatedResult<DynamoDBItem> {
     const { pk, sk } = condition;
     const limit = options?.limit || 100;
 
@@ -199,7 +202,7 @@ export class InMemorySingleTableStore {
    * @param options - ページネーションオプション
    * @returns ページネーション結果
    */
-  queryByAttribute(
+  public queryByAttribute(
     condition: AttributeQueryCondition,
     options?: PaginationOptions
   ): PaginatedResult<DynamoDBItem> {
@@ -250,7 +253,7 @@ export class InMemorySingleTableStore {
    * @param options - ページネーションオプション
    * @returns ページネーション結果
    */
-  scan(options?: PaginationOptions): PaginatedResult<DynamoDBItem> {
+  public scan(options?: PaginationOptions): PaginatedResult<DynamoDBItem> {
     const limit = options?.limit || 100;
     const items = Array.from(this.store.values());
 
@@ -317,14 +320,14 @@ export class InMemorySingleTableStore {
   /**
    * ストアをクリア（テスト用）
    */
-  clear(): void {
+  public clear(): void {
     this.store.clear();
   }
 
   /**
    * ストア内のアイテム数を取得（テスト用）
    */
-  size(): number {
+  public size(): number {
     return this.store.size;
   }
 
