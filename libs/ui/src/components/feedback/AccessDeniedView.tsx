@@ -29,7 +29,8 @@ export interface AccessDeniedViewProps {
   authUrl: string;
   /**
    * 更新・再ログイン後のリダイレクト先 URL。
-   * 未指定時は callbackUrl クエリパラメータを付与しない。
+   * 未指定時はボタン押下時点の `window.location.href` を使う。
+   * 権限なし画面は URL を変えずにその場で表示する前提のため、現在の URL がそのまま戻り先になる。
    */
   callbackUrl?: string;
   /**
@@ -42,13 +43,13 @@ export interface AccessDeniedViewProps {
   description?: string;
   /**
    * 「アクセスを更新」ボタン押下時の遷移処理。
-   * デフォルトは `window.location.assign(buildRefreshUrl(authUrl, callbackUrl))`。
+   * デフォルトは `window.location.assign(buildRefreshUrl(authUrl, callbackUrl ?? window.location.href))`。
    * テストや特殊なナビゲーション要件がある場合に上書き可能。
    */
   onRefresh?: (url: string) => void;
   /**
    * 「再ログイン」ボタン押下時の遷移処理。
-   * デフォルトは `window.location.assign(buildSignOutUrl(authUrl, callbackUrl))`。
+   * デフォルトは `window.location.assign(buildSignOutUrl(authUrl, callbackUrl ?? window.location.href))`。
    * テストや特殊なナビゲーション要件がある場合に上書き可能。
    */
   onSignOut?: (url: string) => void;
@@ -58,7 +59,7 @@ export interface AccessDeniedViewProps {
  * アクセス権限なし（403）時の導線付き画面コンポーネント。
  *
  * - 「アクセスを更新」ボタン: auth サービスの /refresh エンドポイントへリダイレクトし、
- *   セッションを更新後に callbackUrl へ戻る（管理者によるロール付与後の利用を想定）。
+ *   セッションを更新後に callbackUrl（未指定時は現在の URL）へ戻る（管理者によるロール付与後の利用を想定）。
  * - 「再ログイン」ボタン: auth サービスのサインアウトエンドポイントへリダイレクトし、
  *   再ログインを促す。
  *
@@ -72,8 +73,12 @@ export default function AccessDeniedView({
   onRefresh,
   onSignOut,
 }: AccessDeniedViewProps) {
+  // 戻り先は押下時に解決する。サーバーレンダリング時には window が無く、
+  // クライアントでの遷移後に URL が変わっていても最新の URL を使うため。
+  const resolveCallbackUrl = () => callbackUrl ?? window.location.href;
+
   const handleRefresh = () => {
-    const url = buildRefreshUrl(authUrl, callbackUrl);
+    const url = buildRefreshUrl(authUrl, resolveCallbackUrl());
     if (onRefresh) {
       onRefresh(url);
     } else {
@@ -82,7 +87,7 @@ export default function AccessDeniedView({
   };
 
   const handleSignOut = () => {
-    const url = buildSignOutUrl(authUrl, callbackUrl);
+    const url = buildSignOutUrl(authUrl, resolveCallbackUrl());
     if (onSignOut) {
       onSignOut(url);
     } else {

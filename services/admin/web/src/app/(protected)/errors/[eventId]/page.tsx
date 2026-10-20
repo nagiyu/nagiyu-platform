@@ -10,6 +10,7 @@ import {
   Typography,
 } from '@mui/material';
 import { hasPermission } from '@nagiyu/common';
+import { AccessDeniedView } from '@nagiyu/ui';
 import type { ErrorSeverity } from '@nagiyu/common';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { createErrorEventReader } from '@nagiyu/admin-core';
@@ -85,12 +86,9 @@ export default async function ErrorDetailPage({
 
   if (!hasPermission(session.user.roles, 'errors:read')) {
     return (
-      <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          エラー詳細
-        </Typography>
-        <Typography color="error">この画面を表示する権限がありません</Typography>
-      </Box>
+      <AccessDeniedView
+        authUrl={process.env.NEXT_PUBLIC_AUTH_URL || process.env.NEXTAUTH_URL || ''}
+      />
     );
   }
 
