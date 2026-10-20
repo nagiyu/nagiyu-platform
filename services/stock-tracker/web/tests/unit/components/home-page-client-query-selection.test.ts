@@ -28,6 +28,7 @@ jest.mock('@nagiyu/ui', () => ({
   __esModule: true,
   ErrorAlert: ({ message }: { message: string }) =>
     React.createElement('div', { role: 'alert' }, message),
+  ConfirmDialog: () => null,
   Button: ({
     children,
     onClick,
