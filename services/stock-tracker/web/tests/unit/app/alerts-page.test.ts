@@ -21,6 +21,7 @@ jest.mock('@nagiyu/ui', () => ({
   Button: ({ children }: Record<string, unknown>) => React.createElement('button', null, children),
   Chip: ({ children }: Record<string, unknown>) => React.createElement('span', null, children),
   ErrorAlert: () => React.createElement('div', null, 'ErrorAlertMock'),
+  LoadingState: () => React.createElement('span', null, '読み込み中...'),
   Select: ({ label }: Record<string, unknown>) => React.createElement('select', null, label),
 }));
 
@@ -31,8 +32,6 @@ jest.mock('@mui/material', () => {
     MockComponent.displayName = `Mock${tag}`;
     return MockComponent;
   };
-  const CircularProgress = () => React.createElement('span', null, '読み込み中...');
-  CircularProgress.displayName = 'MockCircularProgress';
   return {
     Container: create('div'),
     Box: create('div'),
@@ -45,7 +44,6 @@ jest.mock('@mui/material', () => {
     TableRow: create('tr'),
     Paper: create('div'),
     Alert: create('div'),
-    CircularProgress,
   };
 });
 

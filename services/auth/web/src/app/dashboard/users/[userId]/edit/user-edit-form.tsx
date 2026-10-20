@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Box, Typography, Paper, FormGroup, CircularProgress } from '@mui/material';
-import { Button, Checkbox, ErrorAlert } from '@nagiyu/ui';
+import { Box, Typography, Paper, FormGroup } from '@mui/material';
+import { Button, Checkbox, ErrorAlert, LoadingState } from '@nagiyu/ui';
 import { VALID_ROLES } from '@nagiyu/common';
 import type { User } from '@nagiyu/common';
 
@@ -75,11 +75,7 @@ export function UserEditForm({ userId }: UserEditFormProps) {
   };
 
   if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <LoadingState variant="inline" />;
   }
 
   if (error && !user) {

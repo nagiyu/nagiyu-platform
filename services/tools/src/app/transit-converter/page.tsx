@@ -7,10 +7,9 @@ import {
   Box,
   Snackbar,
   Alert,
-  CircularProgress,
   Stack,
 } from '@mui/material';
-import { Button, TextField } from '@nagiyu/ui';
+import { Button, LoadingState, TextField } from '@nagiyu/ui';
 import ClearIcon from '@mui/icons-material/Clear';
 import SyncIcon from '@mui/icons-material/Sync';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
@@ -324,9 +323,8 @@ export default function TransitConverterPage() {
   return (
     <Suspense
       fallback={
-        <Container maxWidth="md" sx={{ py: 4, textAlign: 'center' }}>
-          <CircularProgress aria-label="ページ読み込み中" />
-          <Typography sx={{ mt: 2 }}>読み込み中...</Typography>
+        <Container maxWidth="md" sx={{ py: 4 }}>
+          <LoadingState />
         </Container>
       }
     >
