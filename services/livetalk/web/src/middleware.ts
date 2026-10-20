@@ -7,7 +7,8 @@ import { createAuthMiddleware } from '@nagiyu/nextjs/middleware';
  * Auth サービスから発行された JWT を検証し、`livetalk:chat` permission を持つ
  * ユーザーのみアクセスを許可する。未認証ユーザーは Auth サービスのサインインへ
  * リダイレクトする。認証済みでも permission がない場合、ページは URL を変えずに
- * /forbidden へ rewrite し、`/api` は JSON 403 を返す（createAuthMiddleware の既定）。
+ * /forbidden へ rewrite する (createAuthMiddleware の既定)。`/api` は matcher で除外しており、
+ * 各 API ルートが自身で権限を判定する。
  *
  * 開発・テスト環境では、SKIP_AUTH_CHECK=true を設定することで
  * 認証チェックをスキップできます。

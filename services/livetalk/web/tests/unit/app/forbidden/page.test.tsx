@@ -5,9 +5,9 @@ import ForbiddenPage from '@/app/forbidden/page';
 /**
  * /forbidden ページのユニットテスト。
  *
- * AccessDeniedView は @nagiyu/ui からモック化する（UI ロジックと戻り先の解決は libs/ui 側でテスト済み）。
+ * AccessDeniedView は @nagiyu/ui からモック化し、UI ロジックと戻り先の解決は対象外とする。
  * ここでは authUrl をランタイム env から渡していること、callbackUrl を渡さず
- * AccessDeniedView の既定（現在の URL）に任せていることを検証する。
+ * AccessDeniedView の既定 (現在の URL) に任せていることを検証する。
  */
 
 jest.mock('@nagiyu/ui', () => ({

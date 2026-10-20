@@ -22,7 +22,7 @@ export interface CreateAuthMiddlewareOptions {
   /**
    * 認証済みユーザーに対して追加で要求する権限。
    * 指定された場合、`request.auth.user.roles` に当該 permission を含む role が
-   * 1 つでもあれば通過、なければ権限なしとして扱う（既定の挙動は `onForbidden` / `forbiddenPath` を参照）。
+   * 1 つでもあれば通過、なければ権限なしとして扱う。既定の挙動は `onForbidden` / `forbiddenPath` を参照。
    */
   requiredPermission?: Permission;
   /**
@@ -30,7 +30,7 @@ export interface CreateAuthMiddlewareOptions {
    * 指定した場合は `forbiddenPath` よりも優先する。
    * 未指定時の既定は次のとおり。
    * - `/api` 配下: `{ error: 'FORBIDDEN', message: 'この操作を実行する権限がありません' }` を 403 で返す
-   * - それ以外（ページ）: `forbiddenPath` へ rewrite する（ブラウザ上の URL は変わらない）
+   * - それ以外 (ページ): `forbiddenPath` へ rewrite する (ブラウザ上の URL は変わらない)
    */
   onForbidden?: (request: AuthMiddlewareRequest) => NextResponse;
   /**
@@ -50,7 +50,7 @@ const DEFAULT_FORBIDDEN_PATH = '/forbidden';
 const API_PATH_PREFIX = '/api';
 
 /**
- * API ルート（`/api` または `/api/` 配下）かどうかを判定する。
+ * API ルート (`/api` または `/api/` 配下) かどうかを判定する。
  * `/apixyz` のような接頭辞だけが一致するページを API と誤判定しないよう、区切りまで見る。
  */
 function isApiPath(pathname: string): boolean {

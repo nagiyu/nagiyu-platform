@@ -4,7 +4,7 @@
  * `services/livetalk/web/src/middleware.ts` は `auth()` でラップされており、
  * `NextResponse` は Edge Runtime API に依存するため、jsdom 環境では直接テストできない。
  * そのため、`createAuthMiddleware` に渡している `isPublicPath` を同じ仕様で個別にテストする。
- * 権限なし時の rewrite / JSON 403 の分岐は `createAuthMiddleware` 側（libs/nextjs）でテストしている。
+ * 権限なし時の rewrite / JSON 403 の分岐は `createAuthMiddleware` の責務のため対象外とする。
  */
 
 // next/server を直接 import すると Edge Runtime API（Request 等）が必要になるため、

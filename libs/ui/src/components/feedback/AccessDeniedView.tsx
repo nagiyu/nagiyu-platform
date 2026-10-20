@@ -24,7 +24,8 @@ export const ACCESS_DENIED_VIEW_MESSAGES = {
  */
 export interface AccessDeniedViewProps {
   /**
-   * auth サービスのベース URL（例: "https://auth.nagiyu.com"）
+   * auth サービスのベース URL (例: "https://auth.nagiyu.com")。
+   * auth サービス自身で使うときは空文字を渡し、`/refresh` などを同一オリジンの相対 URL にする。
    */
   authUrl: string;
   /**
@@ -59,7 +60,7 @@ export interface AccessDeniedViewProps {
  * アクセス権限なし（403）時の導線付き画面コンポーネント。
  *
  * - 「アクセスを更新」ボタン: auth サービスの /refresh エンドポイントへリダイレクトし、
- *   セッションを更新後に callbackUrl（未指定時は現在の URL）へ戻る（管理者によるロール付与後の利用を想定）。
+ *   セッションを更新後に callbackUrl (未指定時は現在の URL) へ戻る。管理者によるロール付与後の利用を想定する。
  * - 「再ログイン」ボタン: auth サービスのサインアウトエンドポイントへリダイレクトし、
  *   再ログインを促す。
  *

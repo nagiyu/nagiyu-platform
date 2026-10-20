@@ -13,7 +13,7 @@ import { AccessDeniedView } from '@nagiyu/ui';
 export const dynamic = 'force-dynamic';
 
 /**
- * 権限なし時の導線付きページ（/forbidden）。サーバーコンポーネント。
+ * 権限なし時の導線付きページ (/forbidden)。サーバーコンポーネント。
  *
  * ミドルウェアが認証済みユーザーの権限不足を検出したとき、URL を変えずにこのページへ
  * rewrite する。戻り先は AccessDeniedView がボタン押下時の現在の URL から解決する。

@@ -51,11 +51,15 @@ Auth の `/refresh?callbackUrl=...` は `useSession().update()` で jwt callback
 
 ログイン済みだが権限が無いユーザーには、URL を変えずにその場で `@nagiyu/ui` の `AccessDeniedView` を表示する。別ページへのリダイレクトや、権限が無い旨の 1 行表示にはしない。
 
-1. 権限の見方は 2 通りある
-   - ミドルウェアで権限を見るサービス: `createAuthMiddleware` の `requiredPermission` を満たさないと、`/forbidden` へ rewrite する (URL はブラウザ上で変わらない)。rewrite 先は `forbiddenPath` で変えられる
-   - ページ内で権限を見る場合: そのページが `AccessDeniedView` を返す
-2. `AccessDeniedView` は「アクセスを更新」「再ログイン」の 2 導線を出す
-3. 「アクセスを更新」→ Auth の `/refresh` で最新ロールを取得 → 元ページへ復帰
+権限の見方は 2 通りある。
+
+- ミドルウェアで権限を見るサービス: `createAuthMiddleware` の `requiredPermission` を満たさないと、`/forbidden` へ rewrite する (URL はブラウザ上で変わらない)。rewrite 先は `forbiddenPath` で変えられる
+- ページ内で権限を見る場合: そのページが `AccessDeniedView` を返す
+
+権限が付与されたあとの流れは次のとおり。
+
+1. `AccessDeniedView` は「アクセスを更新」「再ログイン」の 2 導線を出す
+2. 「アクセスを更新」→ Auth の `/refresh` で最新ロールを取得 → 元ページへ復帰
 
 戻り先は、ボタンを押した時点の現在の URL になる。URL が変わらないため、元のパスを別途受け渡す必要はない。
 
@@ -65,7 +69,7 @@ Auth の `/refresh?callbackUrl=...` は `useSession().update()` で jwt callback
 
 ### 既知の制約: ロール降格（剥奪）の反映遅延
 
-上記フローは**ロール付与**を即時化するが、**降格（剥奪）は即時反映されない**。降格ユーザーは Cookie 上まだ権限を持つため 403 が出ず、権限なし画面も表示されない。かつ Consumer はロールを再取得しない。したがって降格の反映は次のいずれかまで遅延する:
+上記フローは**ロール付与**を即時化するが、**降格 (剥奪) は即時反映されない**。降格ユーザーは Cookie 上まだ権限を持つため 403 が出ず、権限なし画面も表示されない。かつ Consumer はロールを再取得しない。したがって降格の反映は次のいずれかまで遅延する:
 
 - ユーザーが Auth ドメインを通過したとき（`/refresh` 経由、または TTL 経過後の Auth ドメインへのリクエスト）
 - セッション期限（現状 30 日）
