@@ -30,12 +30,12 @@ export interface CreateAuthMiddlewareOptions {
    * 指定した場合は `forbiddenPath` よりも優先する。
    * 未指定時の既定は次のとおり。
    * - `/api` 配下: `{ error: 'FORBIDDEN', message: 'この操作を実行する権限がありません' }` を 403 で返す
-   * - それ以外 (ページ): `forbiddenPath` へ rewrite する (ブラウザ上の URL は変わらない)
+   * - それ以外 (ページ): `forbiddenPath` へリダイレクトする。元のパスと検索文字列は `from` クエリに入れる
    */
   onForbidden?: (request: AuthMiddlewareRequest) => NextResponse;
   /**
-   * ページへの権限なしアクセスを rewrite する先のパス。既定は `/forbidden`。
-   * rewrite のため URL は元のまま保たれ、リロードや戻り先の URL がそのまま使える。
+   * ページへの権限なしアクセスをリダイレクトする先のパス。既定は `/forbidden`。
+   * リダイレクト先のページは `from` クエリから戻り先を組み立てる。
    */
   forbiddenPath?: string;
 }
@@ -55,6 +55,14 @@ const API_PATH_PREFIX = '/api';
  */
 function isApiPath(pathname: string): boolean {
   return pathname === API_PATH_PREFIX || pathname.startsWith(`${API_PATH_PREFIX}/`);
+}
+
+/**
+ * 権限なしページへのリダイレクトに使うオリジン。
+ * ECS 配下では request.url が内部ホストになりうるため、公開 URL の APP_URL を優先する。
+ */
+function getForbiddenBaseUrl(request: AuthMiddlewareRequest): string {
+  return process.env.APP_URL ?? new URL(request.url).origin;
 }
 
 interface SessionWithRoles {
@@ -112,8 +120,7 @@ export function createAuthMiddleware(options: CreateAuthMiddlewareOptions = {}) 
           if (onForbidden) {
             return onForbidden(request);
           }
-          // API は呼び出し側がステータスで分岐するため JSON 403 を返し、
-          // ページは URL を変えずに権限なし画面を見せるため rewrite する。
+          // API は呼び出し側がステータスで分岐するため JSON 403 を返す。
           if (isApiPath(pathname)) {
             return NextResponse.json(
               {
@@ -123,7 +130,12 @@ export function createAuthMiddleware(options: CreateAuthMiddlewareOptions = {}) 
               { status: 403 }
             );
           }
-          return NextResponse.rewrite(new URL(forbiddenPath, request.url));
+          // rewrite は使わない。next-auth が request.url のオリジンを AUTH_URL に書き換えるため、
+          // rewrite 先が自身と一致せず外部プロキシとして扱われる。
+          // 公開 URL へのリダイレクトにし、戻り先は from クエリで渡す。
+          const forbiddenUrl = new URL(forbiddenPath, getForbiddenBaseUrl(request));
+          forbiddenUrl.searchParams.set('from', `${pathname}${request.nextUrl.search}`);
+          return NextResponse.redirect(forbiddenUrl);
         }
       }
       return NextResponse.next();

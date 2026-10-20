@@ -49,19 +49,19 @@ Auth の `/refresh?callbackUrl=...` は `useSession().update()` で jwt callback
 
 ### 初回 403 の導線（権限付与の反映フロー）
 
-ログイン済みだが権限が無いユーザーには、URL を変えずにその場で `@nagiyu/ui` の `AccessDeniedView` を表示する。別ページへのリダイレクトや、権限が無い旨の 1 行表示にはしない。
+ログイン済みだが権限が無いユーザーには、`@nagiyu/ui` の `AccessDeniedView` を表示する。権限が無い旨の 1 行表示や、無関係なページへのリダイレクトにはしない。
 
-権限の見方は 2 通りある。
+権限の見方によって、表示のしかたが 2 通りある。
 
-- ミドルウェアで権限を見るサービス: `createAuthMiddleware` の `requiredPermission` を満たさないと、`/forbidden` へ rewrite する (URL はブラウザ上で変わらない)。rewrite 先は `forbiddenPath` で変えられる
-- ページ内で権限を見る場合: そのページが `AccessDeniedView` を返す
+- ミドルウェアで権限を見るサービス: `createAuthMiddleware` の `requiredPermission` を満たさないと、`/forbidden?from=<元のパス>` へリダイレクトする。リダイレクト先は `forbiddenPath` で変えられる。`/forbidden` ページは公開パスにし、`from` から戻り先を組み立てて `AccessDeniedView` に渡す
+- ページ内で権限を見る場合: URL を変えず、そのページが `AccessDeniedView` を返す。戻り先は、ボタンを押した時点の現在の URL になる
+
+ミドルウェアで rewrite (URL を変えずに `/forbidden` の中身を返す) を使わないのは、ECS 配下で外部プロキシになるため。next-auth は middleware に渡す `request.url` のオリジンを `AUTH_URL` (公開 URL) に書き換える。一方、Next.js はサーバー自身を内部ホスト名で認識しているので、公開 URL 宛ての rewrite を自身と一致しない宛先とみなし、HTTP で取りに行く。リダイレクト先のオリジンも同じ理由で、`request.url` ではなく `APP_URL` を優先する。
 
 権限が付与されたあとの流れは次のとおり。
 
 1. `AccessDeniedView` は「アクセスを更新」「再ログイン」の 2 導線を出す
 2. 「アクセスを更新」→ Auth の `/refresh` で最新ロールを取得 → 元ページへ復帰
-
-戻り先は、ボタンを押した時点の現在の URL になる。URL が変わらないため、元のパスを別途受け渡す必要はない。
 
 `/api` 配下は画面を出さず、従来どおり JSON の 403 を返す。呼び出し側がステータスで分岐できるようにするため。
 

@@ -1,4 +1,4 @@
-import { AccessDeniedView } from '@nagiyu/ui';
+import { ForbiddenView } from './ForbiddenContent';
 
 /**
  * このページを動的レンダリングに強制する。
@@ -13,15 +13,16 @@ import { AccessDeniedView } from '@nagiyu/ui';
 export const dynamic = 'force-dynamic';
 
 /**
- * 権限なし時の導線付きページ (/forbidden)。サーバーコンポーネント。
+ * 403（権限なし）時の導線付きページ（/forbidden）。サーバーコンポーネント。
  *
- * ミドルウェアが認証済みユーザーの権限不足を検出したとき、URL を変えずにこのページへ
- * rewrite する。戻り先は AccessDeniedView がボタン押下時の現在の URL から解決する。
+ * ミドルウェアが認証済みユーザーの権限不足を検出したとき、このページへリダイレクトする。
+ * `from` クエリパラメータには元のパス（pathname + search）が格納される。
+ * ユーザーは「アクセスを更新」または「再ログイン」で権限取得後の利用再開が可能。
  *
- * NEXT_PUBLIC_AUTH_URL はサーバーのランタイム env から解決して渡す。client component 内で
- * 参照するとビルド時インライン化で空文字になり、AccessDeniedView の導線が相対 URL になって
- * 失敗するため。
+ * NEXT_PUBLIC_AUTH_URL はサーバーのランタイム env から解決し、client の ForbiddenView へ
+ * prop として渡す。client component 内で参照するとビルド時インライン化で空文字になり、
+ * AccessDeniedView の導線が相対 URL になって失敗するため（admin の server component と同方式）。
  */
 export default function ForbiddenPage() {
-  return <AccessDeniedView authUrl={process.env.NEXT_PUBLIC_AUTH_URL ?? ''} />;
+  return <ForbiddenView authUrl={process.env.NEXT_PUBLIC_AUTH_URL ?? ''} />;
 }

@@ -5,7 +5,6 @@ jest.mock('next/server', () => ({
   NextResponse: {
     next: () => ({ type: 'next' }),
     redirect: (url: URL) => ({ type: 'redirect', url: url.toString() }),
-    rewrite: (url: URL) => ({ type: 'rewrite', url: url.toString() }),
     json: (body: unknown, init?: { status?: number }) => ({
       type: 'json',
       status: init?.status ?? 200,
@@ -119,7 +118,7 @@ describe('createAuthMiddleware', () => {
       expect(response).toEqual({ type: 'next' });
     });
 
-    it('認証済みでも permission がなければページは /forbidden へ rewrite する', () => {
+    it('認証済みでも permission がなければページは元のパスを from に付けて /forbidden へリダイレクトする', () => {
       const middleware = createAuthMiddleware({
         requiredPermission: 'livetalk:chat',
       });
@@ -128,20 +127,42 @@ describe('createAuthMiddleware', () => {
         createRequest('https://example.com/chat?tab=1', createSession(['stock-viewer']))
       );
 
-      expect(response).toEqual({ type: 'rewrite', url: 'https://example.com/forbidden' });
+      expect(response).toEqual({
+        type: 'redirect',
+        url: 'https://example.com/forbidden?from=%2Fchat%3Ftab%3D1',
+      });
     });
 
-    it('roles が空配列でもページは /forbidden へ rewrite する', () => {
+    it('APP_URL があればそのオリジンへリダイレクトする', () => {
+      process.env.APP_URL = 'https://app.example.com';
+      const middleware = createAuthMiddleware({
+        requiredPermission: 'livetalk:chat',
+      });
+
+      const response = middleware(
+        createRequest('http://ip-10-0-0-1.ec2.internal:3000/chat', createSession(['stock-viewer']))
+      );
+
+      expect(response).toEqual({
+        type: 'redirect',
+        url: 'https://app.example.com/forbidden?from=%2Fchat',
+      });
+    });
+
+    it('roles が空配列でもページは /forbidden へリダイレクトする', () => {
       const middleware = createAuthMiddleware({
         requiredPermission: 'livetalk:chat',
       });
 
       const response = middleware(createRequest('https://example.com/chat', createSession([])));
 
-      expect(response).toEqual({ type: 'rewrite', url: 'https://example.com/forbidden' });
+      expect(response).toEqual({
+        type: 'redirect',
+        url: 'https://example.com/forbidden?from=%2Fchat',
+      });
     });
 
-    it('forbiddenPath を指定すればその path へ rewrite する', () => {
+    it('forbiddenPath を指定すればその path へリダイレクトする', () => {
       const middleware = createAuthMiddleware({
         requiredPermission: 'livetalk:chat',
         forbiddenPath: '/denied',
@@ -151,7 +172,10 @@ describe('createAuthMiddleware', () => {
         createRequest('https://example.com/chat', createSession(['stock-viewer']))
       );
 
-      expect(response).toEqual({ type: 'rewrite', url: 'https://example.com/denied' });
+      expect(response).toEqual({
+        type: 'redirect',
+        url: 'https://example.com/denied?from=%2Fchat',
+      });
     });
 
     it.each(['/api', '/api/', '/api/chat', '/api/notes/1'])(
@@ -173,7 +197,7 @@ describe('createAuthMiddleware', () => {
       }
     );
 
-    it('/api で始まるだけのページ path は API として扱わず rewrite する', () => {
+    it('/api で始まるだけのページ path は API として扱わずリダイレクトする', () => {
       const middleware = createAuthMiddleware({
         requiredPermission: 'livetalk:chat',
       });
@@ -182,7 +206,10 @@ describe('createAuthMiddleware', () => {
         createRequest('https://example.com/apiary', createSession(['stock-viewer']))
       );
 
-      expect(response).toEqual({ type: 'rewrite', url: 'https://example.com/forbidden' });
+      expect(response).toEqual({
+        type: 'redirect',
+        url: 'https://example.com/forbidden?from=%2Fapiary',
+      });
     });
 
     it('onForbidden を指定すればその戻り値を返す', () => {
