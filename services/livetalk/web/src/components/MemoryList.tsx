@@ -1,6 +1,7 @@
 'use client';
 
-import { Box, CircularProgress, Stack, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
+import { LoadingState } from '@nagiyu/ui';
 import type { SelfFactListItem } from '@/lib/memory/types';
 import MemoryItem from './MemoryItem';
 
@@ -43,11 +44,7 @@ function groupBySubject(items: SelfFactListItem[]): TopicGroup[] {
  */
 export default function MemoryList({ items, loading, onDelete }: MemoryListProps) {
   if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }} data-testid="memory-loading">
-        <CircularProgress />
-      </Box>
-    );
+    return <LoadingState variant="inline" data-testid="memory-loading" />;
   }
 
   if (items.length === 0) {

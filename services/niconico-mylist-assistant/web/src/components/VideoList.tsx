@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Grid, Box, Typography, CircularProgress } from '@mui/material';
-import { ErrorAlert } from '@nagiyu/ui';
+import { Grid, Box, Typography } from '@mui/material';
+import { ErrorAlert, LoadingState } from '@nagiyu/ui';
 import type { VideosListResponse } from '@nagiyu/niconico-mylist-assistant-core';
 import VideoCard from './VideoCard';
 import VideoListFilters from './VideoListFilters';
@@ -249,11 +249,7 @@ export default function VideoList() {
   };
 
   if (loading && !videos) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <LoadingState />;
   }
 
   return (

@@ -18,9 +18,8 @@ import {
   DialogContent,
   DialogActions,
   Alert,
-  CircularProgress,
 } from '@mui/material';
-import { Button, ConfirmDialog, ErrorAlert, Select, TextField } from '@nagiyu/ui';
+import { Button, ConfirmDialog, ErrorAlert, LoadingState, Select, TextField } from '@nagiyu/ui';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { useEnterSubmit } from '@nagiyu/react';
 
@@ -376,8 +375,8 @@ export default function TickersPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
-                  <CircularProgress />
+                <TableCell colSpan={5} align="center">
+                  <LoadingState variant="inline" />
                 </TableCell>
               </TableRow>
             ) : filteredTickers.length === 0 ? (

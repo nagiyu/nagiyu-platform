@@ -17,7 +17,7 @@ import {
   // eslint-disable-next-line no-restricted-imports -- 数値入力の HTML 制約 step/min/max（slotProps.htmlInput）が必要なため、@nagiyu/ui ではなく MUI の TextField をそのまま利用する
   TextField,
 } from '@mui/material';
-import { Button, ErrorAlert, Select } from '@nagiyu/ui';
+import { Button, ErrorAlert, LoadingState, Select } from '@nagiyu/ui';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -612,14 +612,7 @@ export default function HoldingsPage() {
 
       {/* ローディング表示 */}
       {loading ? (
-        <Box
-          sx={{ display: 'flex', justifyContent: 'center', py: 8 }}
-          role="status"
-          aria-live="polite"
-          aria-busy="true"
-        >
-          <CircularProgress aria-label="保有株式を読み込んでいます" />
-        </Box>
+        <LoadingState message="保有株式を読み込んでいます" />
       ) : (
         // 保有株式一覧テーブル
         <TableContainer component={Paper} elevation={2}>

@@ -8,10 +8,9 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  CircularProgress,
   Box,
 } from '@mui/material';
-import { Button, Chip, ErrorAlert } from '@nagiyu/ui';
+import { Button, Chip, ErrorAlert, LoadingState } from '@nagiyu/ui';
 import Link from 'next/link';
 import type { User } from '@nagiyu/common';
 
@@ -49,11 +48,7 @@ export function UsersTable({ canAssignRoles }: UsersTableProps) {
   }, []);
 
   if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <LoadingState variant="inline" />;
   }
 
   if (error) {
