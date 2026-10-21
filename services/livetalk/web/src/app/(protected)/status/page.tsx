@@ -7,7 +7,7 @@
 
 import { redirect } from 'next/navigation';
 import { Box, Container, Divider, Typography } from '@mui/material';
-import { Chip } from '@nagiyu/ui';
+import { AccessDeniedView, Chip } from '@nagiyu/ui';
 import { hasPermission } from '@nagiyu/common';
 import {
   DEFAULT_CHARACTER_ID,
@@ -95,8 +95,13 @@ interface StatusPageProps {
 export default async function StatusPage({ searchParams }: StatusPageProps) {
   const session = await getSession();
 
-  if (!session || !hasPermission(session.user.roles, 'livetalk:admin')) {
+  if (!session) {
     redirect('/');
+  }
+
+  // NEXT_PUBLIC_AUTH_URL はビルド時インライン化を避けるため、サーバーのランタイム env から渡す
+  if (!hasPermission(session.user.roles, 'livetalk:admin')) {
+    return <AccessDeniedView authUrl={process.env.NEXT_PUBLIC_AUTH_URL ?? ''} />;
   }
 
   const { characterId: queriedId } = await searchParams;

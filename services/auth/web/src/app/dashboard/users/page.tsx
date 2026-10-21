@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { hasPermission } from '@nagiyu/common';
 import { Box, Container, Typography, Paper } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { AccessDeniedView, Button } from '@nagiyu/ui';
 import Link from 'next/link';
 import { UsersTable } from './users-table';
 import { getSession } from '@/lib/auth/session';
@@ -13,9 +13,10 @@ export default async function UsersListPage() {
     redirect('/signin');
   }
 
-  // users:read 権限がない場合はダッシュボードにリダイレクト
+  // users:read 権限がない場合は URL を変えずに権限なし画面を表示する。
+  // auth 自身が auth サービスのため authUrl は空文字とし、/refresh 等を同一オリジンの相対 URL にする。
   if (!hasPermission(session.user.roles, 'users:read')) {
-    redirect('/dashboard');
+    return <AccessDeniedView authUrl="" />;
   }
 
   return (
