@@ -283,7 +283,8 @@ jobs:
 
   e2e-test-chromium-mobile:
     name: Run E2E Tests (chromium-mobile)
-    runs-on: ubuntu-latest
+    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
+    runs-on: ubuntu-24.04
     needs: [unit-test]
 
     permissions:
@@ -349,7 +350,8 @@ jobs:
 
   e2e-test-chromium-desktop:
     name: Run E2E Tests (chromium-desktop)
-    runs-on: ubuntu-latest
+    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
+    runs-on: ubuntu-24.04
     needs: [unit-test]
     if: github.base_ref == 'develop'
 
@@ -416,7 +418,8 @@ jobs:
 
   e2e-test-webkit-mobile:
     name: Run E2E Tests (webkit-mobile)
-    runs-on: ubuntu-latest
+    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
+    runs-on: ubuntu-24.04
     needs: [unit-test]
     if: github.base_ref == 'develop'
 
