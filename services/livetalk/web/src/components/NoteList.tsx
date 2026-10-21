@@ -1,6 +1,7 @@
 'use client';
 
-import { Box, CircularProgress, Stack, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
+import { LoadingState } from '@nagiyu/ui';
 import type { NoteListItem } from '@/lib/notes/types';
 import { getNoteEmptyMessage } from '@/lib/notes/messages';
 import NoteCard from './NoteCard';
@@ -17,11 +18,7 @@ export interface NoteListProps {
  */
 export default function NoteList({ notes, loading, characterId }: NoteListProps) {
   if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }} data-testid="note-loading">
-        <CircularProgress />
-      </Box>
-    );
+    return <LoadingState variant="inline" data-testid="note-loading" />;
   }
 
   if (notes.length === 0) {

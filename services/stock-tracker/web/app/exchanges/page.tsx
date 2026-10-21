@@ -12,7 +12,6 @@ import {
   TableHead,
   TableRow,
   Typography,
-  CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -21,7 +20,7 @@ import {
   TextField,
   Snackbar,
 } from '@mui/material';
-import { Button, ConfirmDialog, ErrorAlert, Select } from '@nagiyu/ui';
+import { Button, ConfirmDialog, ErrorAlert, LoadingState, Select } from '@nagiyu/ui';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { useEnterSubmit } from '@nagiyu/react';
 import {
@@ -463,9 +462,7 @@ export default function ExchangesPage() {
       </Typography>
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
-          <CircularProgress />
-        </Box>
+        <LoadingState variant="inline" />
       ) : (
         <TableContainer component={Paper}>
           <Table>
