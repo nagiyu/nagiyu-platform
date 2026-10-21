@@ -118,23 +118,38 @@ describe('createAuthMiddleware', () => {
       expect(response).toEqual({ type: 'next' });
     });
 
-    it('認証済みでも permission がなければ 403 を返す', () => {
+    it('認証済みでも permission がなければページは元のパスを from に付けて /forbidden へリダイレクトする', () => {
       const middleware = createAuthMiddleware({
         requiredPermission: 'livetalk:chat',
       });
 
       const response = middleware(
-        createRequest('https://example.com/chat', createSession(['stock-viewer']))
+        createRequest('https://example.com/chat?tab=1', createSession(['stock-viewer']))
       );
 
       expect(response).toEqual({
-        type: 'json',
-        status: 403,
-        body: { error: 'FORBIDDEN', message: 'この操作を実行する権限がありません' },
+        type: 'redirect',
+        url: 'https://example.com/forbidden?from=%2Fchat%3Ftab%3D1',
       });
     });
 
-    it('roles が空配列でも 403 を返す', () => {
+    it('APP_URL があればそのオリジンへリダイレクトする', () => {
+      process.env.APP_URL = 'https://app.example.com';
+      const middleware = createAuthMiddleware({
+        requiredPermission: 'livetalk:chat',
+      });
+
+      const response = middleware(
+        createRequest('http://ip-10-0-0-1.ec2.internal:3000/chat', createSession(['stock-viewer']))
+      );
+
+      expect(response).toEqual({
+        type: 'redirect',
+        url: 'https://app.example.com/forbidden?from=%2Fchat',
+      });
+    });
+
+    it('roles が空配列でもページは /forbidden へリダイレクトする', () => {
       const middleware = createAuthMiddleware({
         requiredPermission: 'livetalk:chat',
       });
@@ -142,9 +157,58 @@ describe('createAuthMiddleware', () => {
       const response = middleware(createRequest('https://example.com/chat', createSession([])));
 
       expect(response).toEqual({
-        type: 'json',
-        status: 403,
-        body: { error: 'FORBIDDEN', message: 'この操作を実行する権限がありません' },
+        type: 'redirect',
+        url: 'https://example.com/forbidden?from=%2Fchat',
+      });
+    });
+
+    it('forbiddenPath を指定すればその path へリダイレクトする', () => {
+      const middleware = createAuthMiddleware({
+        requiredPermission: 'livetalk:chat',
+        forbiddenPath: '/denied',
+      });
+
+      const response = middleware(
+        createRequest('https://example.com/chat', createSession(['stock-viewer']))
+      );
+
+      expect(response).toEqual({
+        type: 'redirect',
+        url: 'https://example.com/denied?from=%2Fchat',
+      });
+    });
+
+    it.each(['/api', '/api/', '/api/chat', '/api/notes/1'])(
+      '%s は permission がなければ JSON 403 を返す',
+      (pathname) => {
+        const middleware = createAuthMiddleware({
+          requiredPermission: 'livetalk:chat',
+        });
+
+        const response = middleware(
+          createRequest(`https://example.com${pathname}`, createSession(['stock-viewer']))
+        );
+
+        expect(response).toEqual({
+          type: 'json',
+          status: 403,
+          body: { error: 'FORBIDDEN', message: 'この操作を実行する権限がありません' },
+        });
+      }
+    );
+
+    it('/api で始まるだけのページ path は API として扱わずリダイレクトする', () => {
+      const middleware = createAuthMiddleware({
+        requiredPermission: 'livetalk:chat',
+      });
+
+      const response = middleware(
+        createRequest('https://example.com/apiary', createSession(['stock-viewer']))
+      );
+
+      expect(response).toEqual({
+        type: 'redirect',
+        url: 'https://example.com/forbidden?from=%2Fapiary',
       });
     });
 
@@ -164,6 +228,20 @@ describe('createAuthMiddleware', () => {
         type: 'redirect',
         url: 'https://auth.example.com/signin',
       });
+    });
+
+    it('onForbidden は API パスでも forbiddenPath より優先される', () => {
+      const middleware = createAuthMiddleware({
+        requiredPermission: 'livetalk:chat',
+        forbiddenPath: '/denied',
+        onForbidden: () => ({ type: 'custom' }) as unknown as never,
+      });
+
+      const response = middleware(
+        createRequest('https://example.com/api/chat', createSession(['stock-viewer']))
+      );
+
+      expect(response).toEqual({ type: 'custom' });
     });
 
     it('未認証の場合は permission チェックを経由せずサインインへリダイレクトする', () => {
