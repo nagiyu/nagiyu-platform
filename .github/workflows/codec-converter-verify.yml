@@ -131,7 +131,8 @@ jobs:
 
   integration-test-chromium-mobile:
     name: Run Integration Tests (chromium-mobile)
-    runs-on: ubuntu-latest
+    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
+    runs-on: ubuntu-24.04
     needs: [test]
 
     permissions:
@@ -203,7 +204,8 @@ jobs:
 
   integration-test-chromium-desktop:
     name: Run Integration Tests (chromium-desktop)
-    runs-on: ubuntu-latest
+    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
+    runs-on: ubuntu-24.04
     needs: [test]
     if: github.base_ref == 'develop' || github.base_ref == 'master'
 
@@ -276,7 +278,8 @@ jobs:
 
   integration-test-webkit-mobile:
     name: Run Integration Tests (webkit-mobile)
-    runs-on: ubuntu-latest
+    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
+    runs-on: ubuntu-24.04
     needs: [test]
     if: github.base_ref == 'develop' || github.base_ref == 'master'
 
