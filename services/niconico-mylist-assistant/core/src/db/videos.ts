@@ -1,10 +1,4 @@
-import {
-  getDynamoDBDocumentClient,
-  getTableName,
-  reportErrorEvent,
-  encodeCursor,
-  decodeCursor,
-} from '@nagiyu/aws';
+import { getDynamoDBDocumentClient, getTableName, encodeCursor, decodeCursor } from '@nagiyu/aws';
 import { createVideoRepository, createUserSettingRepository } from '../repositories/factory.js';
 import type { VideoRepository } from '../repositories/video.repository.interface.js';
 import type { UserSettingRepository } from '../repositories/user-setting.repository.interface.js';
@@ -15,7 +9,6 @@ import type {
   CreateUserSettingInput,
   VideoSettingUpdate,
 } from '../types/index.js';
-import { toErrorMessage } from '@nagiyu/common';
 
 // Repository インスタンスの遅延作成
 // 環境変数 USE_IN_MEMORY_DB により、DynamoDB または InMemory 実装を切り替える
@@ -45,28 +38,13 @@ function getUserSettingRepository(): UserSettingRepository {
 
 /**
  * 動画基本情報を作成
- * @throws ConditionalCheckFailedException (AWS SDK) - 既に同じ videoId の動画が存在する場合
+ * @throws EntityAlreadyExistsError - 既に同じ videoId の動画が存在する場合
  */
 export async function createVideoBasicInfo(
   input: CreateVideoBasicInfoInput
 ): Promise<VideoBasicInfo> {
-  try {
-    const entity = await getVideoRepository().create(input);
-    return entity as VideoBasicInfo;
-  } catch (error) {
-    await reportErrorEvent({
-      serviceId: 'niconico-mylist-assistant',
-      severity: 'error',
-      title: 'DynamoDB 動画基本情報書き込み失敗',
-      message: toErrorMessage(error),
-      context: {
-        videoId: input.videoId,
-        operation: 'createVideoBasicInfo',
-        error: toErrorMessage(error),
-      },
-    });
-    throw error;
-  }
+  const entity = await getVideoRepository().create(input);
+  return entity as VideoBasicInfo;
 }
 
 /**
@@ -80,9 +58,10 @@ export async function getVideoBasicInfo(videoId: string): Promise<VideoBasicInfo
 
 /**
  * 動画基本情報を削除
+ * 対象がなくても成功する
  */
 export async function deleteVideoBasicInfo(videoId: string): Promise<void> {
-  await getVideoRepository().delete(videoId);
+  await getVideoRepository().deleteIfExists(videoId);
 }
 
 /**
@@ -101,7 +80,7 @@ export async function batchGetVideoBasicInfo(videoIds: string[]): Promise<VideoB
 
 /**
  * ユーザー設定を作成
- * @throws ConditionalCheckFailedException (AWS SDK) - 既に存在する場合
+ * @throws EntityAlreadyExistsError - 既に同じ動画のユーザー設定が存在する場合
  */
 export async function createUserVideoSetting(
   input: CreateUserSettingInput
@@ -118,24 +97,8 @@ export async function createUserVideoSetting(
 export async function upsertUserVideoSetting(
   input: CreateUserSettingInput
 ): Promise<UserVideoSetting> {
-  try {
-    const entity = await getUserSettingRepository().upsert(input);
-    return entity as UserVideoSetting;
-  } catch (error) {
-    await reportErrorEvent({
-      serviceId: 'niconico-mylist-assistant',
-      severity: 'error',
-      title: 'DynamoDB ユーザー設定書き込み失敗',
-      message: toErrorMessage(error),
-      context: {
-        userId: input.userId,
-        videoId: input.videoId,
-        operation: 'upsertUserVideoSetting',
-        error: toErrorMessage(error),
-      },
-    });
-    throw error;
-  }
+  const entity = await getUserSettingRepository().upsert(input);
+  return entity as UserVideoSetting;
 }
 
 /**
@@ -152,32 +115,16 @@ export async function getUserVideoSetting(
 
 /**
  * ユーザー設定を更新
- * @throws Error - 更新する項目が指定されていない場合
- * @throws ConditionalCheckFailedException (AWS SDK) - 設定が存在しない場合
+ * 更新する項目が 1 つもないときは更新日時だけを更新する
+ * @throws EntityNotFoundError - 設定が存在しない場合
  */
 export async function updateUserVideoSetting(
   userId: string,
   videoId: string,
   update: VideoSettingUpdate
 ): Promise<UserVideoSetting> {
-  try {
-    const entity = await getUserSettingRepository().update(userId, videoId, update);
-    return entity as UserVideoSetting;
-  } catch (error) {
-    await reportErrorEvent({
-      serviceId: 'niconico-mylist-assistant',
-      severity: 'error',
-      title: 'DynamoDB ユーザー設定更新失敗',
-      message: toErrorMessage(error),
-      context: {
-        userId,
-        videoId,
-        operation: 'updateUserVideoSetting',
-        error: toErrorMessage(error),
-      },
-    });
-    throw error;
-  }
+  const entity = await getUserSettingRepository().update(userId, videoId, update);
+  return entity as UserVideoSetting;
 }
 
 /**
@@ -211,9 +158,10 @@ export async function listUserVideoSettings(
 
 /**
  * ユーザー設定を削除
+ * 対象がなくても成功する
  */
 export async function deleteUserVideoSetting(userId: string, videoId: string): Promise<void> {
-  await getUserSettingRepository().delete(userId, videoId);
+  await getUserSettingRepository().deleteIfExists(userId, videoId);
 }
 
 /**
@@ -254,7 +202,7 @@ export async function listVideosWithSettings(
 
   // 全動画基本情報を取得（全ユーザー共通データ）
   const allVideos = await getVideoRepository().listAll();
-  const sortedVideos = [...allVideos].sort((a, b) => b.CreatedAt - a.CreatedAt);
+  const sortedVideos = [...allVideos].sort((a, b) => b.createdAt - a.createdAt);
 
   // DynamoDBからユーザーの全設定を取得
   // フィルタリングのため、全件取得が必要

@@ -1,3 +1,4 @@
+import { reportErrorEvent } from '@nagiyu/aws';
 import { PATCH } from '@/app/api/jobs/[jobId]/highlights/[highlightId]/route';
 import type { HighlightRepository } from '@nagiyu/quick-clip-core';
 import {
@@ -30,6 +31,11 @@ jest.mock('next/server', () => ({
       json: async () => body,
     }),
   },
+}));
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock('@/lib/server/aws', () => ({
@@ -232,7 +238,6 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
     const response = await PATCH(request, {
       params: Promise.resolve({ jobId: 'job-1', highlightId: 'h1' }),
     });
-    const body = await response.json();
 
     expect(response.status).toBe(200);
     expect(mockUpdate).toHaveBeenCalledWith(
@@ -330,6 +335,35 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
       '[PATCH /api/jobs/[jobId]/highlights/[highlightId]] クリップ再生成の起動に失敗しました',
       expect.objectContaining({ jobId: 'job-1', highlightId: 'h1', error: expect.any(Error) })
     );
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'quick-clip',
+        severity: 'error',
+        title: 'Web API: クリップ再生成起動エラー',
+      })
+    );
+  });
+
+  it('異常系: 想定外のエラーは500を返し報告する', async () => {
+    mockGetById.mockRejectedValueOnce(new Error('db failed'));
+
+    const response = await PATCH(createRequest({ startSec: 11, endSec: 21 }), {
+      params: Promise.resolve({ jobId: 'job-1', highlightId: 'h1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: 'INTERNAL_SERVER_ERROR',
+      message: '見どころの更新に失敗しました',
+    });
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'quick-clip',
+        severity: 'error',
+        title: 'Web API: 見どころ更新エラー',
+      })
+    );
   });
 
   it('異常系: 不正なレンジは400を返す', async () => {
@@ -364,6 +398,62 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
     expect(body).toEqual({
       error: 'HIGHLIGHT_NOT_FOUND',
       message: '指定された見どころが見つかりません',
+    });
+  });
+
+  const createBrokenJsonRequest = (): Request =>
+    ({
+      json: async () => {
+        throw new SyntaxError('Unexpected token');
+      },
+    }) as unknown as Request;
+
+  describe('不正なリクエストボディ', () => {
+    it.each([
+      ['壊れた JSON', () => createBrokenJsonRequest()],
+      ['null', () => createRequest(null)],
+      ['配列', () => createRequest([{ startSec: 1 }])],
+      ['文字列', () => createRequest('accepted')],
+      ['startSec が文字列', () => createRequest({ startSec: '10' })],
+      ['endSec が null', () => createRequest({ endSec: null })],
+      ['status が範囲外の値', () => createRequest({ status: 'unknown' })],
+      ['status が数値', () => createRequest({ status: 1 })],
+    ])(
+      '異常系: %s の場合は 400 を返し、更新も Lambda 起動もしない',
+      async (_label, buildRequest) => {
+        const response = await PATCH(buildRequest(), {
+          params: Promise.resolve({ jobId: 'job-1', highlightId: 'h1' }),
+        });
+        const body = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(body).toEqual({
+          error: 'INVALID_REQUEST',
+          message: '更新内容が不正です',
+        });
+        expect(mockGetById).not.toHaveBeenCalled();
+        expect(mockUpdate).not.toHaveBeenCalled();
+        expect(mockLambdaSend).not.toHaveBeenCalled();
+      }
+    );
+
+    it('更新対象外の項目 (clipStatus など) は更新内容に含めない', async () => {
+      mockGetById.mockResolvedValue({
+        jobId: 'job-1',
+        highlightId: 'h1',
+        startSec: 10,
+        endSec: 20,
+        status: 'unconfirmed',
+        clipStatus: 'GENERATED',
+      });
+      mockUpdate.mockResolvedValue({ highlightId: 'h1', status: 'accepted' });
+
+      const response = await PATCH(createRequest({ status: 'accepted', clipStatus: 'FAILED' }), {
+        params: Promise.resolve({ jobId: 'job-1', highlightId: 'h1' }),
+      });
+
+      expect(response.status).toBe(200);
+      expect(mockUpdate).toHaveBeenCalledWith('job-1', 'h1', { status: 'accepted' });
     });
   });
 });

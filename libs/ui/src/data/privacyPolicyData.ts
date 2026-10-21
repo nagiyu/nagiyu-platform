@@ -3,23 +3,9 @@
  * Used by both PrivacyPolicyDialog and Privacy Policy page
  */
 
-export interface PolicySubContent {
-  subContent: string;
-  subItems?: string[];
-}
+import type { LegalSection } from '../types/legal';
 
-export interface PolicyContent {
-  mainContent: string;
-  subContents?: PolicySubContent[];
-  link?: string;
-}
-
-export interface PolicySection {
-  title: string;
-  contents: PolicyContent[];
-}
-
-export const privacyPolicySections: PolicySection[] = [
+export const privacyPolicySections: LegalSection[] = [
   {
     title: '広告の配信について',
     contents: [

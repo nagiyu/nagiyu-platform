@@ -1,4 +1,7 @@
 import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
+import { reportErrorEvent } from '@nagiyu/aws';
+import { toErrorMessage } from '@nagiyu/common';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { NextResponse } from 'next/server';
 import { InvokeCommand } from '@aws-sdk/client-lambda';
 import {
@@ -7,6 +10,7 @@ import {
   getLambdaClient,
   getTableName,
 } from '@/lib/server/aws';
+import { SERVICE_ID, withApiErrorReporting } from '@/lib/api-error-reporting';
 import {
   DOMAIN_ERROR_MESSAGES,
   HighlightDomainService,
@@ -40,17 +44,28 @@ const VALIDATION_ERROR_MESSAGES: ReadonlySet<string> = new Set([
   DOMAIN_ERROR_MESSAGES.RANGE_INVALID,
 ]);
 
-const isUpdateRequest = (body: unknown): body is UpdateHighlightRequest => {
-  if (typeof body !== 'object' || body === null) {
-    return false;
+/**
+ * リクエストボディから更新内容を取り出す
+ *
+ * 型が不正な場合は null を返す。更新対象外の項目は後段へ渡さない。
+ */
+const parseUpdateRequest = (body: Record<string, unknown>): UpdateHighlightRequest | null => {
+  const { startSec, endSec, status } = body;
+  if (startSec !== undefined && typeof startSec !== 'number') {
+    return null;
+  }
+  if (endSec !== undefined && typeof endSec !== 'number') {
+    return null;
+  }
+  if (status !== undefined && !isHighlightStatus(status)) {
+    return null;
   }
 
-  const request = body as UpdateHighlightRequest;
-  const hasStart = request.startSec === undefined || typeof request.startSec === 'number';
-  const hasEnd = request.endSec === undefined || typeof request.endSec === 'number';
-  const hasStatus = request.status === undefined || isHighlightStatus(request.status);
-
-  return hasStart && hasEnd && hasStatus;
+  return {
+    ...(startSec !== undefined ? { startSec } : {}),
+    ...(endSec !== undefined ? { endSec } : {}),
+    ...(status !== undefined ? { status } : {}),
+  };
 };
 
 const invokeClipRegenerate = async (jobId: string, highlight: Highlight): Promise<void> => {
@@ -70,15 +85,18 @@ const invokeClipRegenerate = async (jobId: string, highlight: Highlight): Promis
   );
 };
 
-export async function PATCH(request: Request, { params }: RouteParams): Promise<NextResponse> {
-  const { jobId, highlightId } = await params;
-  const highlightService = new HighlightDomainService(
-    new DynamoDBHighlightRepository(getDynamoDBDocumentClient(), getTableName())
-  );
+export const PATCH = withApiErrorReporting(
+  'Web API: 見どころ更新エラー',
+  ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+  async (request: Request, { params }: RouteParams): Promise<NextResponse> => {
+    const { jobId, highlightId } = await params;
+    const highlightService = new HighlightDomainService(
+      new DynamoDBHighlightRepository(getDynamoDBDocumentClient(), getTableName())
+    );
 
-  try {
-    const body = await request.json();
-    if (!isUpdateRequest(body)) {
+    const bodyResult = await readJsonObjectBody(request);
+    const body = bodyResult.ok ? parseUpdateRequest(bodyResult.body) : null;
+    if (body === null) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -145,6 +163,20 @@ export async function PATCH(request: Request, { params }: RouteParams): Promise<
             error: invokeError,
           }
         );
+        // 再生成の起動に失敗しても更新結果を 200 で返すため、例外が上に届かない。ここで報告する
+        await reportErrorEvent({
+          serviceId: SERVICE_ID,
+          severity: 'error',
+          title: 'Web API: クリップ再生成起動エラー',
+          message: toErrorMessage(invokeError),
+          context: {
+            jobId,
+            highlightId,
+            errorName: invokeError instanceof Error ? invokeError.name : typeof invokeError,
+            errorMessage: toErrorMessage(invokeError),
+            errorStack: invokeError instanceof Error ? invokeError.stack : undefined,
+          },
+        });
       }
 
       return NextResponse.json(updated);
@@ -169,21 +201,7 @@ export async function PATCH(request: Request, { params }: RouteParams): Promise<
         );
       }
 
-      return NextResponse.json(
-        {
-          error: 'INTERNAL_SERVER_ERROR',
-          message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-        },
-        { status: 500 }
-      );
+      throw error;
     }
-  } catch {
-    return NextResponse.json(
-      {
-        error: 'INVALID_REQUEST',
-        message: ERROR_MESSAGES.INVALID_REQUEST,
-      },
-      { status: 400 }
-    );
   }
-}
+);

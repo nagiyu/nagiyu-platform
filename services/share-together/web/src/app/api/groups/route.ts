@@ -1,22 +1,22 @@
 import { createGroup, type Group } from '@nagiyu/share-together-core';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { NextResponse } from 'next/server';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import type { ApiSuccessResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
+import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createGroupRepository, createMembershipRepository } from '@nagiyu/share-together-core';
-import { toErrorMessage } from '@nagiyu/common';
-import {
-  createValidationErrorResponse,
-  createInternalServerErrorResponse,
-} from '@/lib/api/responses';
+import { createValidationErrorResponse } from '@/lib/api/responses';
+import { normalizeGroupName } from '@/lib/api/validation';
 
 interface GroupSummary extends Group {
   isOwner: boolean;
 }
 
-export async function GET(): Promise<NextResponse> {
-  try {
+export const GET = withApiErrorReporting(
+  'Web API: グループ一覧取得エラー',
+  async (): Promise<NextResponse> => {
     const sessionOrUnauthorized = await getSessionOrUnauthorized();
     if ('status' in sessionOrUnauthorized) {
       return sessionOrUnauthorized;
@@ -54,22 +54,12 @@ export async function GET(): Promise<NextResponse> {
       data: { groups: groupSummaries, currentUserId: userId },
     };
     return NextResponse.json(response);
-  } catch (error) {
-    const errorMessage = toErrorMessage(error);
-    console.error('グループ一覧取得 API の実行に失敗しました', { error });
-    await reportErrorEvent({
-      serviceId: 'share-together',
-      severity: 'error',
-      title: 'Web API: グループ一覧取得エラー',
-      message: errorMessage,
-      context: { errorStack: error instanceof Error ? error.stack : undefined },
-    });
-    return createInternalServerErrorResponse();
   }
-}
+);
 
-export async function POST(request: Request): Promise<NextResponse> {
-  try {
+export const POST = withApiErrorReporting(
+  'Web API: グループ作成エラー',
+  async (request: Request): Promise<NextResponse> => {
     const sessionOrUnauthorized = await getSessionOrUnauthorized();
     if ('status' in sessionOrUnauthorized) {
       return sessionOrUnauthorized;
@@ -77,9 +67,13 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const userId = sessionOrUnauthorized.user.id;
 
-    const body = (await request.json()) as { name?: unknown };
-    const name = typeof body.name === 'string' ? body.name.trim() : '';
-    if (name.length === 0 || name.length > 100) {
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return createValidationErrorResponse();
+    }
+    const { body } = bodyResult;
+    const name = normalizeGroupName(body.name);
+    if (name === null) {
       return createValidationErrorResponse();
     }
 
@@ -104,16 +98,5 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const response: ApiSuccessResponse<Group> = { data: group };
     return NextResponse.json(response, { status: 201 });
-  } catch (error) {
-    const errorMessage = toErrorMessage(error);
-    console.error('グループ作成 API の実行に失敗しました', { error });
-    await reportErrorEvent({
-      serviceId: 'share-together',
-      severity: 'error',
-      title: 'Web API: グループ作成エラー',
-      message: errorMessage,
-      context: { errorStack: error instanceof Error ? error.stack : undefined },
-    });
-    return createInternalServerErrorResponse();
   }
-}
+);

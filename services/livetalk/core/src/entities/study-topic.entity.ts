@@ -6,22 +6,22 @@
  * DynamoDB SK: `CHAR#<charId>#STUDY#<ulid>`
  */
 export interface StudyTopicEntity {
-  UserID: string;
-  CharacterID: string;
+  userId: string;
+  characterId: string;
   /** ULID（時系列ソート可能） */
-  TopicID: string;
+  topicId: string;
   /** 勉強が必要と判定されたトピック名 */
-  Topic: string;
+  topic: string;
   /**
    * 優先度（高いほど先に処理）。
    * 強制ゲート経由は priority=10、通常勉強は 1。
    */
-  Priority: number;
-  Status: 'pending' | 'in_progress' | 'done';
-  CreatedAt: number;
-  UpdatedAt: number;
-  /** TTL（Unix 秒）。30 日後に自動削除 */
-  Ttl?: number;
+  priority: number;
+  status: 'pending' | 'in_progress' | 'done';
+  createdAt: number;
+  updatedAt: number;
+  /** 自動削除する時刻 (Unix ms)。保存時は TTL 属性のエポック秒になる */
+  expiresAt?: number;
 }
 
 export interface StudyTopicKey {
@@ -30,9 +30,9 @@ export interface StudyTopicKey {
   topicId: string;
 }
 
-export type CreateStudyTopicInput = Omit<StudyTopicEntity, 'CreatedAt' | 'UpdatedAt'>;
+export type CreateStudyTopicInput = Omit<StudyTopicEntity, 'createdAt' | 'updatedAt'>;
 export type UpdateStudyTopicInput = Pick<
   StudyTopicEntity,
-  'UserID' | 'CharacterID' | 'TopicID' | 'Status' | 'Priority'
+  'userId' | 'characterId' | 'topicId' | 'status' | 'priority'
 > &
-  Partial<Pick<StudyTopicEntity, 'Ttl'>>;
+  Partial<Pick<StudyTopicEntity, 'expiresAt'>>;

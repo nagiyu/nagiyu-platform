@@ -60,16 +60,16 @@ describe('lib/server/repositories', () => {
     mod.resetRepositoriesForTesting();
     const repo = mod.getNoteRepository();
     await repo.put({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      NoteID: 'note-1',
-      TopicID: 'topic-1',
-      Subject: 'コーヒーの効能',
-      Headline: 'この前の話、気になって調べてみたよ。覚醒効果があるみたい！',
+      userId: 'u1',
+      characterId: 'hiyori',
+      noteId: 'note-1',
+      topicId: 'topic-1',
+      subject: 'コーヒーの効能',
+      headline: 'この前の話、気になって調べてみたよ。覚醒効果があるみたい！',
     });
     const list = await repo.list('u1', 'hiyori');
     expect(list).toHaveLength(1);
-    expect(list[0].Subject).toBe('コーヒーの効能');
+    expect(list[0].subject).toBe('コーヒーの効能');
     mod.resetRepositoriesForTesting();
   });
 
@@ -79,16 +79,16 @@ describe('lib/server/repositories', () => {
     mod.resetRepositoriesForTesting();
     const repo = mod.getStudyTopicRepository();
     await repo.put({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'tp1',
-      Topic: 'モンスターハンター',
-      Priority: 10,
-      Status: 'pending',
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'tp1',
+      topic: 'モンスターハンター',
+      priority: 10,
+      status: 'pending',
     });
     const pending = await repo.listByStatus('u1', 'hiyori', 'pending');
     expect(pending).toHaveLength(1);
-    expect(pending[0].Topic).toBe('モンスターハンター');
+    expect(pending[0].topic).toBe('モンスターハンター');
     mod.resetRepositoriesForTesting();
   });
 
@@ -98,17 +98,17 @@ describe('lib/server/repositories', () => {
     mod.resetRepositoriesForTesting();
     const repo = mod.getMessageRepository();
     const saved = await repo.create({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Role: 'user',
-      Text: 'hi',
+      userId: 'u1',
+      characterId: 'hiyori',
+      role: 'user',
+      text: 'hi',
     });
     const got = await repo.getById({
       userId: 'u1',
       characterId: 'hiyori',
-      messageId: saved.MessageID,
+      messageId: saved.messageId,
     });
-    expect(got?.Text).toBe('hi');
+    expect(got?.text).toBe('hi');
     mod.resetRepositoriesForTesting();
   });
 
@@ -136,6 +136,25 @@ describe('lib/server/repositories', () => {
     expect(() => mod.getPushSubscriptionRepository()).not.toThrow();
     expect(() => mod.getNotificationEventRepository()).not.toThrow();
     expect(() => mod.getAccountDeletionRepository()).not.toThrow();
+    expect(() => mod.getChatGuardRepository()).not.toThrow();
+    mod.resetRepositoriesForTesting();
+  });
+
+  it('InMemory 実装ではアカウント削除がチャットガードのカウンタとロックも消す（共有 store 検証）', async () => {
+    process.env.USE_IN_MEMORY_DB = 'true';
+    const mod = await import('@/lib/server/repositories');
+    mod.resetRepositoriesForTesting();
+    const guard = mod.getChatGuardRepository();
+    expect(mod.getChatGuardRepository()).toBe(guard);
+
+    const nowMs = Date.now();
+    await guard.incrementRateLimit('u1', '1m', nowMs);
+    await guard.acquireLock('u1', 'token-a', 60_000, nowMs);
+
+    await mod.getAccountDeletionRepository().deleteAccount('u1');
+
+    expect((await guard.incrementRateLimit('u1', '1m', nowMs)).count).toBe(1);
+    expect((await guard.acquireLock('u1', 'token-b', 60_000, nowMs)).acquired).toBe(true);
     mod.resetRepositoriesForTesting();
   });
 
@@ -145,27 +164,27 @@ describe('lib/server/repositories', () => {
     mod.resetRepositoriesForTesting();
     const repo = mod.getTopicRepository();
     const topic = await repo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-1',
-      Subject: '好きな食べ物',
-      CanonicalSummary: '',
-      Category: 'preference',
-      Care: 1,
-      Embedding: [],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-1',
+      subject: '好きな食べ物',
+      canonicalSummary: '',
+      category: 'preference',
+      care: 1,
+      embedding: [],
     });
     await repo.putSelfFact({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: topic.TopicID,
-      Text: 'カレーが好き',
-      Provenance: '',
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: topic.topicId,
+      text: 'カレーが好き',
+      provenance: '',
     });
     const headers = await repo.listTopicHeaders('u1', 'hiyori');
     expect(headers).toHaveLength(1);
-    const facts = await repo.listSelfFacts('u1', 'hiyori', topic.TopicID);
+    const facts = await repo.listSelfFacts('u1', 'hiyori', topic.topicId);
     expect(facts).toHaveLength(1);
-    expect(facts[0].Text).toBe('カレーが好き');
+    expect(facts[0].text).toBe('カレーが好き');
     mod.resetRepositoriesForTesting();
   });
 });

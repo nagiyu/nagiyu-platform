@@ -260,6 +260,197 @@ describe('ListWorkspace', () => {
     });
   });
 
+  it('共有スコープから入って個人に切り替えると、デフォルト個人リストのToDoを取得する', async () => {
+    render(
+      <ListWorkspace initialScope="shared" initialGroupId="group-1" initialListId="group-list-1" />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('会議用の議題を共有する')).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'personal' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('API個人ToDo')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('会議用の議題を共有する')).not.toBeInTheDocument();
+    expect(screen.queryByText('ToDo一覧の取得に失敗しました。')).not.toBeInTheDocument();
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/lists/api-personal-list-1/todos',
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
+    expect(globalThis.fetch).not.toHaveBeenCalledWith(
+      '/api/lists/group-list-1/todos',
+      expect.anything()
+    );
+  });
+
+  it('共有スコープから入った場合はデフォルトリストがなければ先頭の個人リストを使う', async () => {
+    const baseFetch = globalThis.fetch as jest.Mock;
+    const fetchMock = jest
+      .fn()
+      .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+        if (input === '/api/lists') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              data: {
+                lists: [{ listId: 'api-personal-list-1', name: 'API個人リスト', isDefault: false }],
+              },
+            }),
+          } as Response);
+        }
+        return baseFetch(input, init);
+      });
+    Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+    Object.defineProperty(window, 'fetch', { writable: true, value: fetchMock });
+
+    render(
+      <ListWorkspace initialScope="shared" initialGroupId="group-1" initialListId="group-list-1" />
+    );
+    await waitFor(() => {
+      expect(screen.getByText('会議用の議題を共有する')).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'personal' } });
+    await waitFor(() => {
+      expect(screen.getByText('API個人ToDo')).toBeInTheDocument();
+    });
+  });
+
+  it('個人リスト一覧の取得が未完了のまま個人に切り替えた場合、取得完了後にToDoを表示する', async () => {
+    const baseFetch = globalThis.fetch as jest.Mock;
+    // ListWorkspace と個人スコープのサイドバーの双方が /api/lists を取得するため、全て保留して後でまとめて解決する。
+    const pendingPersonalListsResolvers: Array<(value: Response) => void> = [];
+    const fetchMock = jest
+      .fn()
+      .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+        if (input === '/api/lists') {
+          return new Promise<Response>((resolve) => {
+            pendingPersonalListsResolvers.push(resolve);
+          });
+        }
+        return baseFetch(input, init);
+      });
+    Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+    Object.defineProperty(window, 'fetch', { writable: true, value: fetchMock });
+
+    render(
+      <ListWorkspace initialScope="shared" initialGroupId="group-1" initialListId="group-list-1" />
+    );
+    await waitFor(() => {
+      expect(screen.getByText('会議用の議題を共有する')).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'personal' } });
+    expect(screen.queryByRole('heading', { name: 'ToDo' })).not.toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/lists/group-list-1/todos', expect.anything());
+
+    pendingPersonalListsResolvers.forEach((resolve) =>
+      resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          data: {
+            lists: [{ listId: 'api-personal-list-1', name: 'API個人リスト', isDefault: true }],
+          },
+        }),
+      } as Response)
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('API個人ToDo')).toBeInTheDocument();
+    });
+  });
+
+  it('個人リスト一覧の取得に失敗した場合は console.error を出し、ToDo は描画しない', async () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const baseFetch = globalThis.fetch as jest.Mock;
+    const fetchMock = jest
+      .fn()
+      .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+        if (input === '/api/lists') {
+          return Promise.resolve({ ok: false, status: 500, json: async () => ({}) } as Response);
+        }
+        return baseFetch(input, init);
+      });
+    Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+    Object.defineProperty(window, 'fetch', { writable: true, value: fetchMock });
+
+    render(
+      <ListWorkspace initialScope="shared" initialGroupId="group-1" initialListId="group-list-1" />
+    );
+    await waitFor(() => {
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        '個人リスト一覧の取得に失敗しました',
+        expect.anything()
+      );
+    });
+
+    fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'personal' } });
+    expect(screen.queryByRole('heading', { name: 'ToDo' })).not.toBeInTheDocument();
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('個人→共有→個人と往復すると、個人スコープで最後に選んだ個人リストに戻る', async () => {
+    const baseFetch = globalThis.fetch as jest.Mock;
+    const fetchMock = jest
+      .fn()
+      .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+        if (input === '/api/lists') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              data: {
+                lists: [
+                  { listId: 'api-personal-list-1', name: 'API個人リスト', isDefault: true },
+                  { listId: 'api-personal-list-2', name: '2つ目の個人リスト', isDefault: false },
+                ],
+              },
+            }),
+          } as Response);
+        }
+        if (input === '/api/lists/api-personal-list-2/todos') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              data: {
+                todos: [
+                  { todoId: 'personal-todo-2', title: '2つ目の個人ToDo', isCompleted: false },
+                ],
+              },
+            }),
+          } as Response);
+        }
+        return baseFetch(input, init);
+      });
+    Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+    Object.defineProperty(window, 'fetch', { writable: true, value: fetchMock });
+
+    render(<ListWorkspace initialListId="api-personal-list-1" />);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '2つ目の個人リスト' })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: '2つ目の個人リスト' }));
+    await waitFor(() => {
+      expect(screen.getByText('2つ目の個人ToDo')).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'shared' } });
+    await waitFor(() => {
+      expect(screen.getByText('会議用の議題を共有する')).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'personal' } });
+    await waitFor(() => {
+      expect(screen.getByText('2つ目の個人ToDo')).toBeInTheDocument();
+    });
+  });
+
   it('共有スコープへ切り替えると選択グループの共有リストを表示できる', async () => {
     render(<ListWorkspace initialListId="group-list-2" />);
 

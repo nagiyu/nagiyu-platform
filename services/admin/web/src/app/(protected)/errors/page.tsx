@@ -16,6 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import { hasPermission } from '@nagiyu/common';
+import { AccessDeniedView } from '@nagiyu/ui';
 import type { ErrorEvent, ErrorSeverity } from '@nagiyu/common';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { createErrorEventReader, type ListErrorEventsQuery } from '@nagiyu/admin-core';
@@ -89,8 +90,8 @@ function buildQueryFromSearchParams(searchParams: {
   return query;
 }
 
-function formatJst(iso: string): string {
-  const date = new Date(iso);
+function formatJst(millis: number): string {
+  const date = new Date(millis);
   return new Intl.DateTimeFormat('ja-JP', {
     timeZone: 'Asia/Tokyo',
     year: 'numeric',
@@ -112,7 +113,7 @@ function truncateMessage(message: string): string {
 
 function buildDetailHref(event: ErrorEvent): string {
   const params = new URLSearchParams({
-    at: event.occurredAt,
+    at: String(event.occurredAt),
     serviceId: event.serviceId,
   });
   return `/errors/${encodeURIComponent(event.eventId)}?${params.toString()}`;
@@ -137,12 +138,9 @@ export default async function ErrorsListPage({
 
   if (!hasPermission(session.user.roles, 'errors:read')) {
     return (
-      <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          エラー履歴
-        </Typography>
-        <Typography color="error">この画面を表示する権限がありません</Typography>
-      </Box>
+      <AccessDeniedView
+        authUrl={process.env.NEXT_PUBLIC_AUTH_URL || process.env.NEXTAUTH_URL || ''}
+      />
     );
   }
 

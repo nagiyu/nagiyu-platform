@@ -60,6 +60,12 @@ const mockListService = ListService as jest.MockedClass<typeof ListService>;
 const mockTodoService = TodoService as jest.MockedClass<typeof TodoService>;
 type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 
+import {
+  createRequestWithJson,
+  MALFORMED_BODY_CASES,
+  type InvalidBodyCase,
+} from '../../../invalidBodyCases';
+
 describe('/api/lists/[listId]/todos route handlers', () => {
   const mockGetPersonalListById = jest.fn();
   const mockGetTodosByListId = jest.fn();
@@ -135,8 +141,8 @@ describe('/api/lists/[listId]/todos route handlers', () => {
       userId: 'user-1',
       name: '個人リスト',
       isDefault: true,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockGetTodosByListId.mockResolvedValue([
       {
@@ -145,8 +151,8 @@ describe('/api/lists/[listId]/todos route handlers', () => {
         title: '牛乳を買う',
         isCompleted: false,
         createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       },
     ]);
 
@@ -164,8 +170,8 @@ describe('/api/lists/[listId]/todos route handlers', () => {
             title: '牛乳を買う',
             isCompleted: false,
             createdBy: 'user-1',
-            createdAt: '2026-01-01T00:00:00.000Z',
-            updatedAt: '2026-01-01T00:00:00.000Z',
+            createdAt: 1767225600000,
+            updatedAt: 1767225600000,
           },
         ],
       },
@@ -202,8 +208,8 @@ describe('/api/lists/[listId]/todos route handlers', () => {
       userId: 'user-1',
       name: '個人リスト',
       isDefault: true,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockCreateTodo.mockResolvedValue({
       todoId: 'todo-2',
@@ -211,8 +217,8 @@ describe('/api/lists/[listId]/todos route handlers', () => {
       title: '卵を買う',
       isCompleted: false,
       createdBy: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     const response = await POST(createRequest({ title: '卵を買う' }), createContext('list-1'));
@@ -227,8 +233,8 @@ describe('/api/lists/[listId]/todos route handlers', () => {
         title: '卵を買う',
         isCompleted: false,
         createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       },
     });
   });
@@ -241,6 +247,20 @@ describe('/api/lists/[listId]/todos route handlers', () => {
     } as SessionOrUnauthorized);
 
     const response = await POST(createRequest({}), createContext('list-1'));
+
+    expect(response.status).toBe(400);
+    expect(mockCreateTodo).not.toHaveBeenCalled();
+  });
+
+  it.each<InvalidBodyCase>([
+    ...MALFORMED_BODY_CASES,
+    ['title が数値', async () => ({ title: 123 })],
+  ])('POST: リクエストボディが不正な場合 (%s) は400を返す', async (_label, json) => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrUnauthorized);
+
+    const response = await POST(createRequestWithJson(json), createContext('list-1'));
 
     expect(response.status).toBe(400);
     expect(mockCreateTodo).not.toHaveBeenCalled();

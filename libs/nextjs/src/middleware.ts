@@ -22,14 +22,22 @@ export interface CreateAuthMiddlewareOptions {
   /**
    * 認証済みユーザーに対して追加で要求する権限。
    * 指定された場合、`request.auth.user.roles` に当該 permission を含む role が
-   * 1 つでもあれば通過、なければ 403 を返す（または `onForbidden` の戻り値）。
+   * 1 つでもあれば通過、なければ権限なしとして扱う。既定の挙動は `onForbidden` / `forbiddenPath` を参照。
    */
   requiredPermission?: Permission;
   /**
    * `requiredPermission` を満たさなかった場合に返すレスポンス。
-   * 未指定時は `{ error: 'FORBIDDEN', message: 'この操作を実行する権限がありません' }` を 403 で返す。
+   * 指定した場合は `forbiddenPath` よりも優先する。
+   * 未指定時の既定は次のとおり。
+   * - `/api` 配下: `{ error: 'FORBIDDEN', message: 'この操作を実行する権限がありません' }` を 403 で返す
+   * - それ以外 (ページ): `forbiddenPath` へリダイレクトする。元のパスと検索文字列は `from` クエリに入れる
    */
   onForbidden?: (request: AuthMiddlewareRequest) => NextResponse;
+  /**
+   * ページへの権限なしアクセスをリダイレクトする先のパス。既定は `/forbidden`。
+   * リダイレクト先のページは `from` クエリから戻り先を組み立てる。
+   */
+  forbiddenPath?: string;
 }
 
 const MIDDLEWARE_ERROR_MESSAGES = {
@@ -37,6 +45,25 @@ const MIDDLEWARE_ERROR_MESSAGES = {
   AUTH_CONFIGURATION_ERROR: 'Authentication configuration error',
   FORBIDDEN: 'この操作を実行する権限がありません',
 } as const;
+
+const DEFAULT_FORBIDDEN_PATH = '/forbidden';
+const API_PATH_PREFIX = '/api';
+
+/**
+ * API ルート (`/api` または `/api/` 配下) かどうかを判定する。
+ * `/apixyz` のような接頭辞だけが一致するページを API と誤判定しないよう、区切りまで見る。
+ */
+function isApiPath(pathname: string): boolean {
+  return pathname === API_PATH_PREFIX || pathname.startsWith(`${API_PATH_PREFIX}/`);
+}
+
+/**
+ * 権限なしページへのリダイレクトに使うオリジン。
+ * ECS 配下では request.url が内部ホストになりうるため、公開 URL の APP_URL を優先する。
+ */
+function getForbiddenBaseUrl(request: AuthMiddlewareRequest): string {
+  return process.env.APP_URL ?? new URL(request.url).origin;
+}
 
 interface SessionWithRoles {
   user?: {
@@ -71,6 +98,7 @@ export function createAuthMiddleware(options: CreateAuthMiddlewareOptions = {}) 
     onAuthConfigError,
     requiredPermission,
     onForbidden,
+    forbiddenPath = DEFAULT_FORBIDDEN_PATH,
   } = options;
 
   const publicPathSet = new Set(publicPaths);
@@ -89,16 +117,25 @@ export function createAuthMiddleware(options: CreateAuthMiddlewareOptions = {}) 
       if (requiredPermission) {
         const roles = extractRoles(request.auth);
         if (!hasPermission(roles, requiredPermission)) {
-          return (
-            onForbidden?.(request) ??
-            NextResponse.json(
+          if (onForbidden) {
+            return onForbidden(request);
+          }
+          // API は呼び出し側がステータスで分岐するため JSON 403 を返す。
+          if (isApiPath(pathname)) {
+            return NextResponse.json(
               {
                 error: ERROR_CODES.FORBIDDEN,
                 message: MIDDLEWARE_ERROR_MESSAGES.FORBIDDEN,
               },
               { status: 403 }
-            )
-          );
+            );
+          }
+          // rewrite は使わない。next-auth が request.url のオリジンを AUTH_URL に書き換えるため、
+          // rewrite 先が自身と一致せず外部プロキシとして扱われる。
+          // 公開 URL へのリダイレクトにし、戻り先は from クエリで渡す。
+          const forbiddenUrl = new URL(forbiddenPath, getForbiddenBaseUrl(request));
+          forbiddenUrl.searchParams.set('from', `${pathname}${request.nextUrl.search}`);
+          return NextResponse.redirect(forbiddenUrl);
         }
       }
       return NextResponse.next();

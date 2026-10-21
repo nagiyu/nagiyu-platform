@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import * as awsModule from '@nagiyu/aws';
 import { GET } from '../../../../app/api/forecasts/[tickerId]/route';
 import {
   createDailySummaryRepository,
@@ -7,6 +8,11 @@ import {
   createTickerRepository,
 } from '../../../../lib/repository-factory';
 import { forecastEntity, probabilityRecord, snapshot } from '../../lib/forecast/fixtures';
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
 
 jest.mock('../../../../lib/repository-factory', () => ({
   createDailySummaryRepository: jest.fn(),
@@ -20,8 +26,9 @@ jest.mock('../../../../lib/auth', () => ({
 }));
 
 jest.mock('@nagiyu/nextjs', () => ({
+  createApiErrorReporting: jest.requireActual('@nagiyu/nextjs').createApiErrorReporting,
   withAuth: jest.fn((_auth, _permission, handler) => {
-    return async (...args: unknown[]) => handler({ user: { userId: 'test-user' } }, ...args);
+    return async (...args: unknown[]) => handler({ user: { id: 'test-user' } }, ...args);
   }),
 }));
 
@@ -47,10 +54,10 @@ describe('GET /api/forecasts/[tickerId]', () => {
     });
     (createModelSnapshotRepository as jest.Mock).mockReturnValue({ getByDate: mockGetSnapshot });
 
-    mockGetTickerById.mockResolvedValue({ TickerID: 'NSDQ:AAPL', ExchangeID: 'NASDAQ-ID' });
-    mockGetByExchange.mockResolvedValue([{ TickerID: 'NSDQ:AAPL', Date: '2026-05-01' }]);
+    mockGetTickerById.mockResolvedValue({ tickerId: 'NSDQ:AAPL', exchangeId: 'NASDAQ-ID' });
+    mockGetByExchange.mockResolvedValue([{ tickerId: 'NSDQ:AAPL', date: '2026-05-01' }]);
     mockGetForecast.mockResolvedValue(
-      forecastEntity({ Probabilities: { DIR: probabilityRecord() } })
+      forecastEntity({ probabilities: { DIR: probabilityRecord() } })
     );
     mockGetSnapshot.mockResolvedValue(snapshot());
   });
@@ -123,5 +130,13 @@ describe('GET /api/forecasts/[tickerId]', () => {
 
     expect(response.status).toBe(500);
     expect(body).toEqual({ error: 'INTERNAL_ERROR', message: '確度の取得に失敗しました' });
+    expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: 確度取得エラー',
+        message: 'db error',
+      })
+    );
   });
 });

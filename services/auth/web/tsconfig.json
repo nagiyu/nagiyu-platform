@@ -1,28 +1,16 @@
 {
-  "extends": "../../../configs/tsconfig.base.json",
+  "extends": "../../../configs/tsconfig.web.json",
   "compilerOptions": {
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
-    "noEmit": true,
-    "jsx": "react-jsx",
-    "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
     "paths": {
-      "@/*": ["./src/*"],
-      "@nagiyu/auth-core": ["../core/src"]
+      "@/*": ["./src/*"]
     }
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "../core/src/types/**/*.d.ts"
-  ],
-  "exclude": ["node_modules", "playwright.config.ts", "tests"]
+  "references": [
+    { "path": "../../../libs/common" },
+    { "path": "../../../libs/aws" },
+    { "path": "../../../libs/browser" },
+    { "path": "../../../libs/nextjs" },
+    { "path": "../../../libs/ui" },
+    { "path": "../core" }
+  ]
 }

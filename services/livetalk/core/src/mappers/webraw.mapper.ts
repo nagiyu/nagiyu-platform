@@ -1,83 +1,102 @@
 import {
+  TTL_ATTRIBUTE_NAME,
+  immutablePatchValue,
+  optionalPatchValue,
+  readOptionalTimestamp,
+  readTimestamp,
+  requiredPatchValue,
+  toTtlSeconds,
   validateNumberField,
   validateStringField,
-  validateTimestampField,
-  type DynamoDBItem,
+  type DynamoDBAttributes,
+  type DynamoDBKey,
   type EntityMapper,
+  type EntityPatch,
 } from '@nagiyu/aws';
 import type { WebRawEntity, WebRawKey, WebRawOrigin } from '../entities/webraw.entity.js';
 import { buildUserPK, buildWebRawSK } from './keys.js';
 
 /**
  * `WebRawEntity ↔ DynamoDB Item` の変換と PK/SK 組み立てを担当する Mapper。
- * TTL 属性の付与はリポジトリ側の責務とする（既存 Message と同じ方針）。
+ * Entity は更新日時を持たないため、`UpdatedAt` は store が書く値だけを保存する。
  */
 export class WebRawMapper implements EntityMapper<WebRawEntity, WebRawKey> {
   public readonly entityType = 'WebRaw';
 
-  public toItem(entity: WebRawEntity): DynamoDBItem {
-    const { pk, sk } = this.buildKeys({
-      userId: entity.UserID,
-      characterId: entity.CharacterID,
-      rawId: entity.RawID,
-    });
-
-    const item: DynamoDBItem = {
-      PK: pk,
-      SK: sk,
-      Type: this.entityType,
-      UserID: entity.UserID,
-      CharacterID: entity.CharacterID,
-      RawID: entity.RawID,
-      Query: entity.Query,
-      RawText: entity.RawText,
-      SourceUrls: entity.SourceUrls,
-      Origin: entity.Origin,
-      CreatedAt: entity.CreatedAt,
-      // WebRaw に UpdatedAt は無いが、DynamoDBItem 型は必須のため CreatedAt を複製する
-      // （既存の NotificationEventMapper 等と同じ方針）。
-      UpdatedAt: entity.CreatedAt,
+  public buildKeys(key: WebRawKey): DynamoDBKey {
+    return {
+      PK: buildUserPK(key.userId),
+      SK: buildWebRawSK(key.characterId, key.rawId),
     };
-    if (entity.RequestText !== undefined) {
-      item.RequestText = entity.RequestText;
-    }
-    if (entity.RequestedAt !== undefined) {
-      item.RequestedAt = entity.RequestedAt;
-    }
-    return item;
   }
 
-  public toEntity(item: DynamoDBItem): WebRawEntity {
-    // 既存 dev の WebRaw item には Origin が無いため、後方互換として 'auto' にフォールバックする
-    // （甲-1 導入前に書かれた item を壊さないため）。
+  public getKey(entity: WebRawEntity): WebRawKey {
+    return { userId: entity.userId, characterId: entity.characterId, rawId: entity.rawId };
+  }
+
+  public toItem(entity: WebRawEntity): DynamoDBAttributes {
+    return {
+      ...this.buildKeys(this.getKey(entity)),
+      Type: this.entityType,
+      UserID: entity.userId,
+      CharacterID: entity.characterId,
+      RawID: entity.rawId,
+      Query: entity.query,
+      RawText: entity.rawText,
+      SourceUrls: entity.sourceUrls,
+      Origin: entity.origin,
+      CreatedAt: entity.createdAt,
+      ...(entity.requestText !== undefined && { RequestText: entity.requestText }),
+      ...(entity.requestedAt !== undefined && { RequestedAt: entity.requestedAt }),
+      ...(entity.expiresAt !== undefined && {
+        [TTL_ATTRIBUTE_NAME]: toTtlSeconds(entity.expiresAt),
+      }),
+    };
+  }
+
+  public toUpdateAttributes(changes: EntityPatch<WebRawEntity>): DynamoDBAttributes {
+    return {
+      UserID: immutablePatchValue(changes.userId, 'UserID'),
+      CharacterID: immutablePatchValue(changes.characterId, 'CharacterID'),
+      RawID: immutablePatchValue(changes.rawId, 'RawID'),
+      CreatedAt: immutablePatchValue(changes.createdAt, 'CreatedAt'),
+      Query: requiredPatchValue(changes.query, 'Query'),
+      RawText: requiredPatchValue(changes.rawText, 'RawText'),
+      SourceUrls: requiredPatchValue(changes.sourceUrls, 'SourceUrls'),
+      Origin: requiredPatchValue(changes.origin, 'Origin'),
+      RequestText: optionalPatchValue(changes.requestText),
+      RequestedAt: optionalPatchValue(changes.requestedAt),
+      [TTL_ATTRIBUTE_NAME]:
+        typeof changes.expiresAt === 'number'
+          ? toTtlSeconds(changes.expiresAt)
+          : optionalPatchValue(changes.expiresAt),
+    };
+  }
+
+  public toEntity(item: DynamoDBAttributes): WebRawEntity {
+    // Origin を持たない旧データは自発リサーチ由来として扱う
     const origin: WebRawOrigin =
       item.Origin !== undefined
         ? (validateStringField(item.Origin, 'Origin') as WebRawOrigin)
         : 'auto';
+    const expiresAt = readOptionalTimestamp(item, TTL_ATTRIBUTE_NAME);
 
-    const entity: WebRawEntity = {
-      UserID: validateStringField(item.UserID, 'UserID'),
-      CharacterID: validateStringField(item.CharacterID, 'CharacterID'),
-      RawID: validateStringField(item.RawID, 'RawID'),
-      Query: validateStringField(item.Query, 'Query'),
-      RawText: validateStringField(item.RawText, 'RawText', { allowEmpty: true }),
-      SourceUrls: Array.isArray(item.SourceUrls) ? (item.SourceUrls as string[]) : [],
-      Origin: origin,
-      CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
-    };
-    if (item.RequestText !== undefined) {
-      entity.RequestText = validateStringField(item.RequestText, 'RequestText');
-    }
-    if (item.RequestedAt !== undefined) {
-      entity.RequestedAt = validateNumberField(item.RequestedAt, 'RequestedAt');
-    }
-    return entity;
-  }
-
-  public buildKeys(key: WebRawKey): { pk: string; sk: string } {
     return {
-      pk: buildUserPK(key.userId),
-      sk: buildWebRawSK(key.characterId, key.rawId),
+      userId: validateStringField(item.UserID, 'UserID'),
+      characterId: validateStringField(item.CharacterID, 'CharacterID'),
+      rawId: validateStringField(item.RawID, 'RawID'),
+      query: validateStringField(item.Query, 'Query'),
+      rawText: validateStringField(item.RawText, 'RawText', { allowEmpty: true }),
+      sourceUrls: Array.isArray(item.SourceUrls) ? (item.SourceUrls as string[]) : [],
+      origin,
+      createdAt: readTimestamp(item, 'CreatedAt'),
+      ...(item.RequestText !== undefined && {
+        requestText: validateStringField(item.RequestText, 'RequestText'),
+      }),
+      ...(item.RequestedAt !== undefined && {
+        requestedAt: validateNumberField(item.RequestedAt, 'RequestedAt'),
+      }),
+      ...(expiresAt !== undefined && { expiresAt }),
     };
   }
 }

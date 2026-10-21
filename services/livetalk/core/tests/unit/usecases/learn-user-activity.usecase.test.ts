@@ -33,10 +33,10 @@ function makeJstMessages(store: InMemorySingleTableStore, jstHour: number, count
     tick = utcBase + i * 60000;
     msgs.push(
       messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: `msg ${i}`,
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'user',
+        text: `msg ${i}`,
       })
     );
   }
@@ -53,10 +53,10 @@ describe('learnUserActivity', () => {
     for (let i = 0; i < 4; i++) {
       tick = BASE_NOW_MS + i * 1000;
       await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: 'hi',
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'user',
+        text: 'hi',
       });
     }
 
@@ -81,19 +81,19 @@ describe('learnUserActivity', () => {
     for (let i = 0; i < 10; i++) {
       tick = BASE_NOW_MS + i * 1000;
       await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'assistant',
-        Text: 'hello',
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'assistant',
+        text: 'hello',
       });
     }
     for (let i = 0; i < 3; i++) {
       tick = BASE_NOW_MS + 10000 + i * 1000;
       await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: 'user msg',
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'user',
+        text: 'user msg',
       });
     }
 
@@ -124,10 +124,10 @@ describe('learnUserActivity', () => {
 
     expect(result).toBe('learned');
     const lc = await lifecycleRepo.get({ userId: 'u1', characterId: 'hiyori' });
-    expect(lc?.UserActivityProfile).toBeDefined();
-    expect(lc?.UserActivityProfile?.eveningPeak).toBe('21:00');
-    expect(lc?.UserActivityProfile?.sampleSize).toBe(5);
-    expect(lc?.UserActivityProfile?.lastLearnedAt).toBe(nowDate.toISOString());
+    expect(lc?.userActivityProfile).toBeDefined();
+    expect(lc?.userActivityProfile?.eveningPeak).toBe('21:00');
+    expect(lc?.userActivityProfile?.sampleSize).toBe(5);
+    expect(lc?.userActivityProfile?.lastLearnedAt).toBe(nowDate.toISOString());
   });
 
   it('morning peak が 5〜12 の範囲で推定される', async () => {
@@ -146,7 +146,7 @@ describe('learnUserActivity', () => {
     });
 
     const lc = await lifecycleRepo.get({ userId: 'u1', characterId: 'hiyori' });
-    expect(lc?.UserActivityProfile?.morningPeak).toBe('08:00');
+    expect(lc?.userActivityProfile?.morningPeak).toBe('08:00');
   });
 
   it('範囲内データなしの場合はデフォルト値（08:00 / 21:00）にフォールバックする', async () => {
@@ -160,10 +160,10 @@ describe('learnUserActivity', () => {
     for (let i = 0; i < 5; i++) {
       tick = utc14 + i * 60000;
       await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: `msg ${i}`,
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'user',
+        text: `msg ${i}`,
       });
     }
 
@@ -176,8 +176,8 @@ describe('learnUserActivity', () => {
     });
 
     const lc = await lifecycleRepo.get({ userId: 'u1', characterId: 'hiyori' });
-    expect(lc?.UserActivityProfile?.morningPeak).toBe('08:00');
-    expect(lc?.UserActivityProfile?.eveningPeak).toBe('21:00');
+    expect(lc?.userActivityProfile?.morningPeak).toBe('08:00');
+    expect(lc?.userActivityProfile?.eveningPeak).toBe('21:00');
   });
 
   it('既存 LIFECYCLE の Bedtime/WakeUpTime は適応方向に shift される（Phase 4d）', async () => {
@@ -186,10 +186,10 @@ describe('learnUserActivity', () => {
 
     tick = BASE_NOW_MS;
     await lifecycleRepo.upsert({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Bedtime: '02:00',
-      WakeUpTime: '10:00',
+      userId: 'u1',
+      characterId: 'hiyori',
+      bedtime: '02:00',
+      wakeUpTime: '10:00',
     });
 
     // JST 21 時に集中 → eveningPeak=21:00、morningPeak=デフォルト 08:00
@@ -206,10 +206,10 @@ describe('learnUserActivity', () => {
     const lc = await lifecycleRepo.get({ userId: 'u1', characterId: 'hiyori' });
     // targetBedtime = 22:30、smoothing=0.3 なので 02:00 → 22:30 方向に shift
     // current=02:00(120min)、diff の最短路は後方向(-210min) → 00:57 付近
-    expect(lc?.Bedtime).not.toBe('02:00'); // 変化している
+    expect(lc?.bedtime).not.toBe('02:00'); // 変化している
     // UserActivityProfile は保持される
-    expect(lc?.UserActivityProfile).toBeDefined();
-    expect(lc?.UserActivityProfile?.eveningPeak).toBe('21:00');
+    expect(lc?.userActivityProfile).toBeDefined();
+    expect(lc?.userActivityProfile?.eveningPeak).toBe('21:00');
   });
 
   describe('Phase 4d: スケジュール適応', () => {
@@ -220,10 +220,10 @@ describe('learnUserActivity', () => {
       // 事前に既存ライフサイクルを作成
       tick = BASE_NOW_MS;
       await lifecycleRepo.upsert({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Bedtime: '01:30',
-        WakeUpTime: '09:30',
+        userId: 'u1',
+        characterId: 'hiyori',
+        bedtime: '01:30',
+        wakeUpTime: '09:30',
       });
 
       // morningPeak=09:00 に集中するメッセージを作成（JST 9時 = UTC 0時）
@@ -239,10 +239,9 @@ describe('learnUserActivity', () => {
 
       const lc = await lifecycleRepo.get({ userId: 'u1', characterId: 'hiyori' });
       // target wakeUpTime = 09:00 - 1h = 08:00; 09:30 より早くなっているはず
-      const wakeUpMin = lc!.WakeUpTime.split(':').reduce(
-        (h, m, i) => (i === 0 ? Number(m) * 60 : Number(m) + h),
-        0
-      );
+      const wakeUpMin = lc!.wakeUpTime
+        .split(':')
+        .reduce((h, m, i) => (i === 0 ? Number(m) * 60 : Number(m) + h), 0);
       expect(wakeUpMin).toBeLessThan(9 * 60 + 30);
     });
 
@@ -261,8 +260,8 @@ describe('learnUserActivity', () => {
       });
 
       const lc = await lifecycleRepo.get({ userId: 'u1', characterId: 'hiyori' });
-      expect(lc?.UserActivityProfile).toBeDefined();
-      expect(lc?.UserActivityProfile?.eveningPeak).toBe('21:00');
+      expect(lc?.userActivityProfile).toBeDefined();
+      expect(lc?.userActivityProfile?.eveningPeak).toBe('21:00');
     });
   });
 
@@ -276,10 +275,10 @@ describe('learnUserActivity', () => {
     for (let i = 0; i < 5; i++) {
       tick = oldMs + i * 1000;
       await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: 'old msg',
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'user',
+        text: 'old msg',
       });
     }
 

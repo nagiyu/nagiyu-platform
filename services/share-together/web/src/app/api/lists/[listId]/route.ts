@@ -1,17 +1,14 @@
 import { ListService } from '@nagiyu/share-together-core';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { NextResponse } from 'next/server';
 import type { PersonalListResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createListRepository, createTodoRepository } from '@nagiyu/share-together-core';
-import {
-  createValidationErrorResponse,
-  createNotFoundErrorResponse,
-  createInternalServerErrorResponse,
-} from '@/lib/api/responses';
+import { createValidationErrorResponse, createNotFoundErrorResponse } from '@/lib/api/responses';
 import { isNonEmptyString, isValidationError, isNotFoundError } from '@/lib/api/validation';
-import { createErrorResponse } from '@nagiyu/nextjs';
+import { createErrorResponse, readJsonObjectBody } from '@nagiyu/nextjs';
 
 interface RouteContext {
   params: Promise<{ listId: string }>;
@@ -49,136 +46,116 @@ function isDefaultListNotDeletableError(error: unknown): boolean {
   return error instanceof Error && error.message === ERROR_MESSAGES.DEFAULT_LIST_NOT_DELETABLE;
 }
 
-export async function GET(_request: Request, { params }: RouteContext): Promise<NextResponse> {
-  let requestedUserId: string | undefined;
-  let requestedListId: string | undefined;
+export const GET = withApiErrorReporting(
+  'Web API: 個人リスト取得エラー',
+  async (_request: Request, { params }: RouteContext): Promise<NextResponse> => {
+    try {
+      const sessionOrUnauthorized = await getSessionOrUnauthorized();
+      if ('status' in sessionOrUnauthorized) {
+        return sessionOrUnauthorized;
+      }
 
-  try {
-    const sessionOrUnauthorized = await getSessionOrUnauthorized();
-    if ('status' in sessionOrUnauthorized) {
-      return sessionOrUnauthorized;
+      const userId = sessionOrUnauthorized.user.id;
+      const { listId } = await params;
+      if (!isNonEmptyString(userId) || !isNonEmptyString(listId)) {
+        return createValidationErrorResponse();
+      }
+
+      const listService = createListService();
+      const list = await listService.getPersonalListById(userId, listId);
+      const response: PersonalListResponse = {
+        data: list,
+      };
+
+      return NextResponse.json(response);
+    } catch (error) {
+      if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
+        return createValidationErrorResponse();
+      }
+      if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
+        return createNotFoundErrorResponse();
+      }
+
+      throw error;
     }
-
-    const userId = sessionOrUnauthorized.user.id;
-    const { listId } = await params;
-    if (!isNonEmptyString(userId) || !isNonEmptyString(listId)) {
-      return createValidationErrorResponse();
-    }
-
-    requestedUserId = userId;
-    requestedListId = listId;
-
-    const listService = createListService();
-    const list = await listService.getPersonalListById(userId, listId);
-    const response: PersonalListResponse = {
-      data: list,
-    };
-
-    return NextResponse.json(response);
-  } catch (error) {
-    if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
-      return createValidationErrorResponse();
-    }
-    if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
-      return createNotFoundErrorResponse();
-    }
-
-    console.error('個人リスト取得 API の実行に失敗しました', {
-      userId: requestedUserId,
-      listId: requestedListId,
-      error,
-    });
-    return createInternalServerErrorResponse();
   }
-}
+);
 
-export async function PUT(request: Request, { params }: RouteContext): Promise<NextResponse> {
-  let requestedUserId: string | undefined;
-  let requestedListId: string | undefined;
+export const PUT = withApiErrorReporting(
+  'Web API: 個人リスト更新エラー',
+  async (request: Request, { params }: RouteContext): Promise<NextResponse> => {
+    try {
+      const sessionOrUnauthorized = await getSessionOrUnauthorized();
+      if ('status' in sessionOrUnauthorized) {
+        return sessionOrUnauthorized;
+      }
 
-  try {
-    const sessionOrUnauthorized = await getSessionOrUnauthorized();
-    if ('status' in sessionOrUnauthorized) {
-      return sessionOrUnauthorized;
+      const userId = sessionOrUnauthorized.user.id;
+      const { listId } = await params;
+      if (!isNonEmptyString(userId) || !isNonEmptyString(listId)) {
+        return createValidationErrorResponse();
+      }
+
+      const bodyResult = await readJsonObjectBody(request);
+      if (!bodyResult.ok) {
+        return createValidationErrorResponse();
+      }
+      const { body } = bodyResult;
+      if (!isNonEmptyString(body.name)) {
+        return createValidationErrorResponse();
+      }
+
+      const listService = createListService();
+      const list = await listService.updatePersonalList(userId, listId, body.name);
+      const response: PersonalListResponse = {
+        data: list,
+      };
+
+      return NextResponse.json(response);
+    } catch (error) {
+      if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
+        return createValidationErrorResponse();
+      }
+      if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
+        return createNotFoundErrorResponse();
+      }
+
+      throw error;
     }
-
-    const userId = sessionOrUnauthorized.user.id;
-    const { listId } = await params;
-    if (!isNonEmptyString(userId) || !isNonEmptyString(listId)) {
-      return createValidationErrorResponse();
-    }
-
-    requestedUserId = userId;
-    requestedListId = listId;
-
-    const body = (await request.json()) as { name?: unknown };
-    if (!isNonEmptyString(body.name)) {
-      return createValidationErrorResponse();
-    }
-
-    const listService = createListService();
-    const list = await listService.updatePersonalList(userId, listId, body.name);
-    const response: PersonalListResponse = {
-      data: list,
-    };
-
-    return NextResponse.json(response);
-  } catch (error) {
-    if (isValidationError(error, VALIDATION_ERROR_MESSAGES) || error instanceof SyntaxError) {
-      return createValidationErrorResponse();
-    }
-    if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
-      return createNotFoundErrorResponse();
-    }
-
-    console.error('個人リスト更新 API の実行に失敗しました', {
-      userId: requestedUserId,
-      listId: requestedListId,
-      error,
-    });
-    return createInternalServerErrorResponse();
   }
-}
+);
 
-export async function DELETE(_request: Request, { params }: RouteContext): Promise<NextResponse> {
-  let requestedUserId: string | undefined;
-  let requestedListId: string | undefined;
+export const DELETE = withApiErrorReporting(
+  'Web API: 個人リスト削除エラー',
+  async (_request: Request, { params }: RouteContext): Promise<NextResponse> => {
+    try {
+      const sessionOrUnauthorized = await getSessionOrUnauthorized();
+      if ('status' in sessionOrUnauthorized) {
+        return sessionOrUnauthorized;
+      }
 
-  try {
-    const sessionOrUnauthorized = await getSessionOrUnauthorized();
-    if ('status' in sessionOrUnauthorized) {
-      return sessionOrUnauthorized;
+      const userId = sessionOrUnauthorized.user.id;
+      const { listId } = await params;
+      if (!isNonEmptyString(userId) || !isNonEmptyString(listId)) {
+        return createValidationErrorResponse();
+      }
+
+      const listService = createListService();
+      await listService.deletePersonalList(userId, listId);
+
+      return new NextResponse(null, { status: 204 });
+    } catch (error) {
+      if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
+        return createValidationErrorResponse();
+      }
+      if (isDefaultListNotDeletableError(error)) {
+        return createDefaultListNotDeletableResponse();
+      }
+      if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
+        return createNotFoundErrorResponse();
+      }
+
+      throw error;
     }
-
-    const userId = sessionOrUnauthorized.user.id;
-    const { listId } = await params;
-    if (!isNonEmptyString(userId) || !isNonEmptyString(listId)) {
-      return createValidationErrorResponse();
-    }
-
-    requestedUserId = userId;
-    requestedListId = listId;
-
-    const listService = createListService();
-    await listService.deletePersonalList(userId, listId);
-
-    return new NextResponse(null, { status: 204 });
-  } catch (error) {
-    if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
-      return createValidationErrorResponse();
-    }
-    if (isDefaultListNotDeletableError(error)) {
-      return createDefaultListNotDeletableResponse();
-    }
-    if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
-      return createNotFoundErrorResponse();
-    }
-
-    console.error('個人リスト削除 API の実行に失敗しました', {
-      userId: requestedUserId,
-      listId: requestedListId,
-      error,
-    });
-    return createInternalServerErrorResponse();
   }
-}
+);

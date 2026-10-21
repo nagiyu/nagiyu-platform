@@ -15,11 +15,9 @@ jest.mock('../../../../lib/auth', () => ({
 }));
 
 jest.mock('@nagiyu/nextjs', () => ({
+  createApiErrorReporting: jest.requireActual('@nagiyu/nextjs').createApiErrorReporting,
   withAuth: jest.fn((_auth, _permission, handler) => {
-    return async (...args: unknown[]) => handler({ user: { userId: 'test-user' } }, ...args);
-  }),
-  handleApiError: jest.fn((error) => {
-    throw error;
+    return async (...args: unknown[]) => handler({ user: { id: 'test-user' } }, ...args);
   }),
 }));
 
@@ -35,15 +33,15 @@ describe('GET /api/holdings/tickers/[tickerId]', () => {
 
   it('正常系: ティッカーIDで保有情報を返す', async () => {
     mockGetHoldingById.mockResolvedValue({
-      UserID: 'test-user',
-      TickerID: 'NASDAQ:NVDA',
-      Quantity: 5,
-      AveragePrice: 98,
-      Currency: 'USD',
-      CreatedAt: 1,
-      UpdatedAt: 2,
+      userId: 'test-user',
+      tickerId: 'NASDAQ:NVDA',
+      quantity: 5,
+      averagePrice: 98,
+      currency: 'USD',
+      createdAt: 1,
+      updatedAt: 2,
     });
-    mockGetTickerById.mockResolvedValue({ Symbol: 'NVDA', Name: 'NVIDIA' });
+    mockGetTickerById.mockResolvedValue({ symbol: 'NVDA', name: 'NVIDIA' });
 
     const response = await GET(
       new NextRequest('http://localhost/api/holdings/tickers/NASDAQ:NVDA'),

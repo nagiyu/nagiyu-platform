@@ -166,7 +166,10 @@ describe('TermsOfServiceDialog', () => {
         title: 'カスタム規約タイトル',
         contents: [
           { mainContent: 'カスタム本文です。' },
-          { mainContent: 'サブアイテム付き本文', subItems: ['アイテム1', 'アイテム2'] },
+          {
+            mainContent: 'サブアイテム付き本文',
+            subContents: [{ subContent: 'アイテム1' }, { subContent: 'アイテム2' }],
+          },
         ],
       },
       {

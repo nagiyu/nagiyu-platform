@@ -17,10 +17,13 @@
 ```
 configs/
 ├── tsconfig.base.json      # TypeScript基本設定
+├── tsconfig.web.json       # Next.js web パッケージ共通の TypeScript 設定
 ├── eslint.config.base.mjs  # ESLint基本設定
+├── eslint.config.core.mjs  # core パッケージ用 ESLint 設定 (UI/Browser への依存禁止)
+├── eslint.config.web.mjs   # Next.js web パッケージ共通の ESLint 設定
+├── eslint.config.no-restricted-mui.mjs # MUI の共通ラップ済みコンポーネントの直接 import 禁止
 └── samples/                # サンプル設定ファイル
     ├── tsconfig.core.json  # core パッケージ用サンプル
-    ├── tsconfig.web.json   # web パッケージ用サンプル
     └── tsconfig.batch.json # batch パッケージ用サンプル
 ```
 
@@ -39,14 +42,11 @@ configs/
 # Core パッケージ
 cp configs/samples/tsconfig.core.json services/myservice/core/tsconfig.json
 
-# Web パッケージ
-cp configs/samples/tsconfig.web.json services/myservice/web/tsconfig.json
-
 # Batch パッケージ
 cp configs/samples/tsconfig.batch.json services/myservice/batch/tsconfig.json
 ```
 
-**注意**: サンプルファイルの相対パスは `services/{service}/core`, `services/{service}/web`, `services/{service}/batch` に配置されることを前提としている。
+**注意**: サンプルファイルの相対パスは `services/{service}/core`, `services/{service}/batch` に配置されることを前提としている。web パッケージはサンプルを複製せず、`configs/tsconfig.web.json` を extends する (→ 下記)。
 
 ## TypeScript設定
 
@@ -73,6 +73,28 @@ cp configs/samples/tsconfig.batch.json services/myservice/batch/tsconfig.json
     }
 }
 ```
+
+### configs/tsconfig.web.json
+
+Next.js web パッケージ (`services/*/web`, `services/tools`) 共通の土台。`tsconfig.base.json` を extends し、`lib`・`jsx`・`include`・`exclude` などを持つ。
+
+web パッケージの tsconfig.json は、これを extends して固有の差分だけを書く。`@/*` の `paths` は共通側に置けないため、各パッケージで書く。
+
+```json
+{
+    "extends": "../../../configs/tsconfig.web.json",
+    "compilerOptions": {
+        "paths": {
+            "@/*": ["./src/*"]
+        }
+    }
+}
+```
+
+- `paths`・`include`・`exclude`・`references` は extends でマージされず、子で書くと丸ごと上書きになる。`paths` に別名を足すときも `@/*` を書き直す。
+- `paths` を共通側に置かないのは、Turbopack が `${configDir}` を解決できず、`@/*` が引けなくなるため。相対パスで共通側に置くと、継承した設定の置き場所 (configs/) 基準で解決されてしまう。
+- 共通側の `include` / `exclude` は `${configDir}` (TypeScript 5.5+) でパッケージのディレクトリを指す。
+- テストを型チェック対象から外すパッケージは、`exclude` を子で上書きする。ts-jest がテストを `include` の外から読む場合は、`rootDir` も指定する。
 
 #### 各ライブラリでの使用
 
@@ -124,9 +146,9 @@ cp configs/samples/tsconfig.batch.json services/myservice/batch/tsconfig.json
 #### 含まれる設定
 
 - ESLint v9 Flat Config形式
-- Next.js公式ルールセット
-- TypeScript対応
-- PWA生成ファイルの除外
+- `@eslint/js` と typescript-eslint の推奨ルール
+- ビルド出力の除外
+- クラスのフィールド定義とアクセス修飾子のルール
 
 #### 各サービスでの使用
 
@@ -152,6 +174,43 @@ export default [
 
 - サービス固有のルール追加
 - 特定ファイルの除外
+
+### configs/eslint.config.web.mjs
+
+Next.js の web パッケージ (`services/*/web`、`services/tools`) が共通で使う設定。各サービスはこれを読み込み、固有の差分だけを書く。
+
+#### 含まれる設定
+
+- `eslint.config.base.mjs`
+- `eslint-config-next/core-web-vitals` (`next/typescript` を除く。TypeScript のルールは base の typescript-eslint で管理する)
+- typescript-eslint のパーサー
+- eslint-config-next 16.2.3 で追加された react-hooks の一部ルールの無効化 (既存コードへの影響が大きいため別途対応する)
+- `eslint.config.no-restricted-mui.mjs`
+
+E2E テスト (`tests/e2e/`) も lint 対象に含める。
+
+#### 各サービスでの使用
+
+```javascript
+// services/{service}/web/eslint.config.mjs
+import webConfig from '../../../configs/eslint.config.web.mjs';
+
+export default webConfig;
+```
+
+固有の除外やルールがある場合だけ追記する。
+
+```javascript
+// services/tools/eslint.config.mjs
+import { defineConfig, globalIgnores } from 'eslint/config';
+import webConfig from '../../configs/eslint.config.web.mjs';
+
+export default defineConfig([
+  ...webConfig,
+  // next-pwa が生成するファイルは lint 対象外
+  globalIgnores(['public/sw.js', 'public/workbox-*.js']),
+]);
+```
 
 ## Jest設定
 

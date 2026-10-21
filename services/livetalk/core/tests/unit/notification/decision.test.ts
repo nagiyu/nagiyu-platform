@@ -24,27 +24,27 @@ const DAY = 24 * HOUR;
 // UTC 12:00 で awake になるライフサイクル（睡眠帯: 23:00–09:00、夜明けに起きる）
 // bed=1380, wake=540, bed>=wake: sleeping = m>=1380 || m<540 → 720>=1380=false || 720<540=false → awake
 const AWAKE_LIFECYCLE: LifecycleEntity = {
-  UserID: 'u1',
-  CharacterID: 'hiyori',
-  Bedtime: '23:00',
-  WakeUpTime: '09:00',
-  CreatedAt: 0,
-  UpdatedAt: 0,
+  userId: 'u1',
+  characterId: 'hiyori',
+  bedtime: '23:00',
+  wakeUpTime: '09:00',
+  createdAt: 0,
+  updatedAt: 0,
 };
 
 // UTC 12:00 で sleeping になるライフサイクル（睡眠帯: 11:00–13:00）
 // bed=660, wake=780, bed<wake: sleeping = m>=660 && m<780 → 720>=660=true && 720<780=true → sleeping
 const SLEEPING_LIFECYCLE: LifecycleEntity = {
-  UserID: 'u1',
-  CharacterID: 'hiyori',
-  Bedtime: '11:00',
-  WakeUpTime: '13:00',
-  CreatedAt: 0,
-  UpdatedAt: 0,
+  userId: 'u1',
+  characterId: 'hiyori',
+  bedtime: '11:00',
+  wakeUpTime: '13:00',
+  createdAt: 0,
+  updatedAt: 0,
 };
 
-function makeMsg(createdAt: number): Pick<MessageEntity, 'CreatedAt'> {
-  return { CreatedAt: createdAt };
+function makeMsg(createdAt: number): Pick<MessageEntity, 'createdAt'> {
+  return { createdAt };
 }
 
 function makeNotifEvent(
@@ -53,14 +53,15 @@ function makeNotifEvent(
   overrides: Partial<NotificationEventEntity> = {}
 ): NotificationEventEntity {
   return {
-    UserID: 'u1',
-    NotifID: `notif-${createdAt}`,
-    CharacterID: 'hiyori',
-    Kind: kind,
-    Title: 'test',
-    Body: 'test',
-    CreatedAt: createdAt,
-    Ttl: Math.floor(createdAt / 1000) + 86400,
+    userId: 'u1',
+    notifId: `notif-${createdAt}`,
+    characterId: 'hiyori',
+    kind,
+    title: 'test',
+    body: 'test',
+    createdAt,
+    updatedAt: createdAt,
+    expiresAt: createdAt + 86_400_000,
     ...overrides,
   };
 }
@@ -340,7 +341,7 @@ describe('shouldNotifyNow', () => {
   describe('inactive_stopped', () => {
     it('missedCount 7 以上 → effectiveInterval > 14 日 → inactive_stopped', () => {
       // 24h * 1.5^7 ≈ 17.09 日 > 14 日 → stopped
-      // lastInteractionAt=0 なので CreatedAt > 0 の normal イベントはすべて missedCount に加算
+      // lastInteractionAt=0 なので createdAt > 0 の normal イベントはすべて missedCount に加算
       const events = Array.from({ length: 7 }, (_, i) => makeNotifEvent('normal', (i + 1) * DAY));
       const result = shouldNotifyNow({
         ...baseInput(),
@@ -379,7 +380,7 @@ describe('shouldNotifyNow', () => {
       // eveningPeak='20:00'(1200): diff=480 > 90 → outside
       const lifecycleWithProfile: LifecycleEntity = {
         ...AWAKE_LIFECYCLE,
-        UserActivityProfile: {
+        userActivityProfile: {
           morningPeak: '05:00',
           eveningPeak: '20:00',
           sampleSize: 100,
@@ -398,7 +399,7 @@ describe('shouldNotifyNow', () => {
       // eveningPeak='12:00'(720): |720-720|=0 ≤ 90 → inWindow
       const lifecycleWithProfile: LifecycleEntity = {
         ...AWAKE_LIFECYCLE,
-        UserActivityProfile: {
+        userActivityProfile: {
           morningPeak: '05:00',
           eveningPeak: '12:00',
           sampleSize: 100,
@@ -486,7 +487,7 @@ describe('shouldNotifyNow', () => {
       // メッセージなし（lastInteractionAt=0）、通知イベントが missedCount に加算される
       const missedEvents = Array.from({ length: 3 }, (_, i) =>
         makeNotifEvent('normal', (i + 1) * DAY)
-      ); // CreatedAt > 0 なので missedCount に加算
+      ); // createdAt > 0 なので missedCount に加算
       const result = shouldNotifyNow({
         ...baseInput(),
         userMessages: [],

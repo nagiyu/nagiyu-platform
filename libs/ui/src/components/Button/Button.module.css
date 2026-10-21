@@ -65,6 +65,7 @@
  *
  * 色は CSS カスタムプロパティ `--btn-*` に解決し、各 variant でその値を使う。
  * これにより色追加時は `.color-*` を 1 つ書けばよい構成にする。
+ * `--btn-text` / `--btn-text-active` は背景を塗らない outline / ghost の文字色。
  * ========================================================================= */
 
 .color-primary {
@@ -73,6 +74,8 @@
   --btn-bg-active: var(--color-action-primary-active);
   --btn-fg: var(--color-action-primary-fg);
   --btn-border: var(--color-action-primary);
+  --btn-text: var(--btn-bg);
+  --btn-text-active: var(--btn-bg-active);
 }
 
 .color-secondary {
@@ -81,6 +84,8 @@
   --btn-bg-active: var(--color-action-secondary-active);
   --btn-fg: var(--color-action-secondary-fg);
   --btn-border: var(--color-action-secondary);
+  --btn-text: var(--btn-bg);
+  --btn-text-active: var(--btn-bg-active);
 }
 
 .color-danger {
@@ -89,6 +94,8 @@
   --btn-bg-active: var(--color-action-danger-active);
   --btn-fg: var(--color-action-danger-fg);
   --btn-border: var(--color-action-danger);
+  --btn-text: var(--btn-bg);
+  --btn-text-active: var(--btn-bg-active);
 }
 
 .color-success {
@@ -97,6 +104,8 @@
   --btn-bg-active: var(--color-action-success-active);
   --btn-fg: var(--color-action-success-fg);
   --btn-border: var(--color-action-success);
+  --btn-text: var(--btn-bg);
+  --btn-text-active: var(--btn-bg-active);
 }
 
 .color-warning {
@@ -105,6 +114,8 @@
   --btn-bg-active: var(--color-action-warning-active);
   --btn-fg: var(--color-action-warning-fg);
   --btn-border: var(--color-action-warning);
+  --btn-text: var(--btn-bg);
+  --btn-text-active: var(--btn-bg-active);
 }
 
 .color-neutral {
@@ -113,6 +124,9 @@
   --btn-bg-active: var(--color-action-neutral-active);
   --btn-fg: var(--color-action-neutral-fg);
   --btn-border: var(--color-border-default);
+  /* neutral の --btn-bg は背景に近い淡色のため、outline / ghost の文字には使えない */
+  --btn-text: var(--color-action-neutral-fg);
+  --btn-text-active: var(--color-action-neutral-fg);
 }
 
 /* solid: 塗りつぶし */
@@ -135,7 +149,7 @@
 /* outline: 枠線のみ */
 .variant-outline {
   background-color: transparent;
-  color: var(--btn-bg);
+  color: var(--btn-text);
   border-color: var(--btn-border);
 }
 
@@ -153,7 +167,7 @@
 /* ghost: 背景なし */
 .variant-ghost {
   background-color: transparent;
-  color: var(--btn-bg);
+  color: var(--btn-text);
   border-color: transparent;
 }
 
@@ -163,7 +177,7 @@
 
 .variant-ghost:active:not([aria-disabled='true']):not(:disabled) {
   background-color: var(--color-bg-subtle);
-  color: var(--btn-bg-active);
+  color: var(--btn-text-active);
 }
 
 /* =========================================================================

@@ -101,10 +101,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/aws
+        run: npm run build:libs
 
       - name: Build core library
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
@@ -152,7 +149,7 @@ jobs:
           DYNAMODB_TABLE_NAME: dummy-table
         with:
           workspace: '@nagiyu/niconico-mylist-assistant-web'
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/aws,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/niconico-mylist-assistant-core'
+          shared-workspaces: '@nagiyu/niconico-mylist-assistant-core'
 
   build-batch:
     name: Build Batch Package
@@ -173,10 +170,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/aws
+        run: npm run build:libs
 
       - name: Build core library
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
@@ -203,10 +197,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/aws
+        run: npm run build:libs
 
       - name: Build core library
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
@@ -233,13 +224,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/react
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
+        run: npm run build:libs
 
       - name: Build core library
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
@@ -267,13 +252,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/react
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
+        run: npm run build:libs
 
       - name: Build core library
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
@@ -369,10 +348,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/aws
+        run: npm run build:libs
 
       - name: Build core library
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
@@ -385,7 +361,8 @@ jobs:
 
   e2e-test-web-chromium-mobile:
     name: E2E Tests (chromium-mobile)
-    runs-on: ubuntu-latest
+    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
+    runs-on: ubuntu-24.04
     needs: [build-web]
 
     permissions:
@@ -403,13 +380,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/react
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
+        run: npm run build:libs
 
       - name: Build core library
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
@@ -464,7 +435,8 @@ jobs:
 
   e2e-test-web-chromium-desktop:
     name: E2E Tests (chromium-desktop)
-    runs-on: ubuntu-latest
+    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
+    runs-on: ubuntu-24.04
     needs: [build-web]
     if: github.base_ref == 'develop'
 
@@ -483,13 +455,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/react
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
+        run: npm run build:libs
 
       - name: Build core library
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
@@ -544,7 +510,8 @@ jobs:
 
   e2e-test-web-webkit-mobile:
     name: E2E Tests (webkit-mobile)
-    runs-on: ubuntu-latest
+    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
+    runs-on: ubuntu-24.04
     needs: [build-web]
     if: github.base_ref == 'develop'
 
@@ -563,13 +530,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/react
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
+        run: npm run build:libs
 
       - name: Build core library
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
@@ -642,10 +603,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/aws
+        run: npm run build:libs
 
       - name: Build core library
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core

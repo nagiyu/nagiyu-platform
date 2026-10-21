@@ -2,7 +2,7 @@
  * Single Table 設計の PK / SK を組み立てるための共通ヘルパー。
  *
  * 設計は `docs/services/livetalk/architecture.md` §3「データモデル概要」の SK パターンに準拠する。
- * PK は全エンティティで `USER#<googleId>` に統一する。
+ * PK は全エンティティで `USER#<userId>` に統一する。
  *
  * GSI1: Profile 列挙用 sparse GSI（#3527）
  * - GSI1PK='PROFILE' の Profile アイテムのみを索引化する

@@ -1,7 +1,6 @@
 import { GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError } from '@nagiyu/aws';
+import { DatabaseError, EntityNotFoundError, OptimisticLockError } from '@nagiyu/aws';
 import { DynamoDBConsolidationCursorRepository } from '../../../src/repositories/dynamodb-consolidation-cursor.repository.js';
-import { OptimisticLockError } from '../../../src/repositories/optimistic-lock.error.js';
 
 const TABLE = 'nagiyu-livetalk-test';
 const FIXED_NOW = 1_700_000_000_000;
@@ -47,7 +46,7 @@ describe('DynamoDBConsolidationCursorRepository', () => {
       };
       const repo = makeRepo(async () => ({ Item: item }));
       const result = await repo.get('u1', 'hiyori');
-      expect(result?.MsgCursor).toBe(100);
+      expect(result?.msgCursor).toBe(100);
     });
 
     it('DynamoDB エラーは DatabaseError でラップ', async () => {
@@ -59,22 +58,22 @@ describe('DynamoDBConsolidationCursorRepository', () => {
   });
 
   describe('put', () => {
-    it('新規作成は attribute_not_exists(PK) を条件に Put する', async () => {
+    it('新規作成は存在しないことを条件に Put する', async () => {
       const sent: unknown[] = [];
       const repo = makeRepo(async (cmd) => {
         sent.push(cmd);
         return {};
       });
       const cursor = await repo.put({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        MsgCursor: 100,
-        WebrawCursor: 50,
+        userId: 'u1',
+        characterId: 'hiyori',
+        msgCursor: 100,
+        webrawCursor: 50,
       });
-      expect(cursor.UpdatedAt).toBe(FIXED_NOW);
+      expect(cursor.updatedAt).toBe(FIXED_NOW);
       expect(sent[0]).toBeInstanceOf(PutCommand);
       const input = (sent[0] as PutCommand).input;
-      expect(input.ConditionExpression).toBe('attribute_not_exists(PK)');
+      expect(input.ConditionExpression).toBe('attribute_not_exists(#pk)');
       expect(input.ExpressionAttributeValues).toBeUndefined();
     });
 
@@ -85,17 +84,17 @@ describe('DynamoDBConsolidationCursorRepository', () => {
         return {};
       });
       await repo.put(
-        { UserID: 'u1', CharacterID: 'hiyori', MsgCursor: 200, WebrawCursor: 60 },
+        { userId: 'u1', characterId: 'hiyori', msgCursor: 200, webrawCursor: 60 },
         { expectedUpdatedAt: FIXED_NOW - 1000 }
       );
       const input = (sent[0] as PutCommand).input;
-      expect(input.ConditionExpression).toBe('UpdatedAt = :expectedUpdatedAt');
+      expect(input.ConditionExpression).toContain('#updatedAt = :expectedUpdatedAt');
       expect(input.ExpressionAttributeValues).toEqual({
         ':expectedUpdatedAt': FIXED_NOW - 1000,
       });
     });
 
-    it('ConditionalCheckFailedException は OptimisticLockError に変換する', async () => {
+    it('新規作成の衝突は OptimisticLockError に揃える', async () => {
       const error = Object.assign(new Error('conflict'), {
         name: 'ConditionalCheckFailedException',
       });
@@ -103,8 +102,39 @@ describe('DynamoDBConsolidationCursorRepository', () => {
         throw error;
       });
       await expect(
-        repo.put({ UserID: 'u1', CharacterID: 'hiyori', MsgCursor: 100, WebrawCursor: 50 })
+        repo.put({ userId: 'u1', characterId: 'hiyori', msgCursor: 100, webrawCursor: 50 })
       ).rejects.toBeInstanceOf(OptimisticLockError);
+    });
+
+    it('更新で UpdatedAt が一致しなければ OptimisticLockError を投げる', async () => {
+      const error = Object.assign(new Error('conflict'), {
+        name: 'ConditionalCheckFailedException',
+        Item: { PK: { S: 'USER#u1' } },
+      });
+      const repo = makeRepo(async () => {
+        throw error;
+      });
+      await expect(
+        repo.put(
+          { userId: 'u1', characterId: 'hiyori', msgCursor: 100, webrawCursor: 50 },
+          { expectedUpdatedAt: 1 }
+        )
+      ).rejects.toBeInstanceOf(OptimisticLockError);
+    });
+
+    it('更新でカーソルが存在しなければ EntityNotFoundError を投げる', async () => {
+      const error = Object.assign(new Error('conflict'), {
+        name: 'ConditionalCheckFailedException',
+      });
+      const repo = makeRepo(async () => {
+        throw error;
+      });
+      await expect(
+        repo.put(
+          { userId: 'u1', characterId: 'hiyori', msgCursor: 100, webrawCursor: 50 },
+          { expectedUpdatedAt: 1 }
+        )
+      ).rejects.toBeInstanceOf(EntityNotFoundError);
     });
 
     it('その他のエラーは DatabaseError でラップする', async () => {
@@ -112,7 +142,7 @@ describe('DynamoDBConsolidationCursorRepository', () => {
         throw new Error('DB down');
       });
       await expect(
-        repo.put({ UserID: 'u1', CharacterID: 'hiyori', MsgCursor: 100, WebrawCursor: 50 })
+        repo.put({ userId: 'u1', characterId: 'hiyori', msgCursor: 100, webrawCursor: 50 })
       ).rejects.toBeInstanceOf(DatabaseError);
     });
   });

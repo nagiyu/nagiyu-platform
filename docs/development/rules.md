@@ -490,6 +490,28 @@ throw new Error(ERROR_MESSAGES.EMPTY_INPUT);
 **理由**: メッセージの一元管理、変更の容易性
 **違反時の影響**: メッセージの不一致、メンテナンス性の低下
 
+#### MUST: エラーの報告は、例外を最後に受け止める層だけが行う
+
+- Web API はルート入口のラッパー (`@nagiyu/nextjs` の `createApiErrorReporting`)、Lambda / Batch は `withErrorReporting` が報告する
+- core・リポジトリは報告せず throw する
+- 例外を握りつぶして処理を続ける箇所は、上に届かないためその場で報告する
+
+```typescript
+// ❌ NG: 報告して再 throw すると、入口でも報告されて二重になる
+try {
+  await repository.save(item);
+} catch (error) {
+  await reportErrorEvent({ /* ... */ });
+  throw error;
+}
+
+// ✅ OK: core は throw するだけ。入口のラッパーが 1 回だけ報告する
+await repository.save(item);
+```
+
+**理由**: 例外は呼び出し元をたどって最後の層に必ず届くので、そこで報告すれば漏れも重複もなくなる。途中の層が報告すると、同じ障害が複数件の ErrorEvent になる
+**違反時の影響**: 同一障害の二重報告、握りつぶした例外の報告漏れ
+
 #### SHOULD: 技術的な詳細より対処方法を優先
 
 ```typescript
@@ -854,10 +876,7 @@ it('should calculate total', () => {
 
 ```yaml
 - name: Build shared libraries
-  run: |
-    npm run build --workspace @nagiyu/common
-    npm run build --workspace @nagiyu/browser
-    npm run build --workspace @nagiyu/ui
+  run: npm run build:libs
 
 - name: Build Next.js application
   run: npm run build --workspace <service-name>
@@ -1105,18 +1124,15 @@ concurrency:
 ```yaml
 # ✅ OK
 - name: Build shared libraries
-  run: |
-    npm run build --workspace @nagiyu/common
-    npm run build --workspace @nagiyu/browser
-    npm run build --workspace @nagiyu/ui
+  run: npm run build:libs
 
 # ❌ NG: 並列実行のため依存関係が保証されない
 - run: npm run build --workspaces
 ```
 
-#### MUST: 依存関係順にビルド (common → browser → ui)
+#### MUST: 依存関係順にビルド (libs は `npm run build:libs` を使う)
 
-#### MUST: npm run build --workspace @nagiyu/common のように個別ビルド
+#### MUST: libs 以外は npm run build --workspace @nagiyu/hoge のように個別ビルド
 
 #### MUST NOT: npm run build --workspaces を使用しない (並列実行のため)
 
@@ -1371,7 +1387,7 @@ Docker・CI・DevContainer・`package.json` の `engines.node` を含む全環�
 {
   "scripts": {
     "dev": "next dev",
-    "build": "next build --webpack",
+    "build": "next build",
     "lint": "eslint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -1387,6 +1403,21 @@ Docker・CI・DevContainer・`package.json` の `engines.node` を含む全環�
 #### MUST: tsconfig.json で共通設定を継承
 
 #### MUST: next.config.ts を作成
+
+`configs/next.config.base.ts` の `createNextConfig` を使い、サービス側には固有の設定だけを書く。
+
+```typescript
+// services/*/web/next.config.ts
+import { createNextConfig } from '../../../configs/next.config.base';
+
+export default createNextConfig(__dirname, {
+  // redirects / headers など、そのサービス固有の設定のみ
+});
+```
+
+`output` / `outputFileTracingRoot` / `transpilePackages` は共通の土台が決める。サービス側で書き直さない。
+
+**理由**: 設定をサービスごとに書き写すと、トレースの起点を誤る (standalone の配置が変わる)、依存の増減に `transpilePackages` が追従しない、といった食い違いが静かに生まれる。
 
 #### MUST: jest.config.ts を作成
 
@@ -1405,20 +1436,27 @@ import baseConfig from '../../configs/eslint.config.base.mjs';
 export default baseConfig;
 ```
 
+#### MUST: Next.js の web パッケージは configs/eslint.config.web.mjs を継承
+
+```javascript
+// services/{service}/web/eslint.config.mjs
+import webConfig from '../../../configs/eslint.config.web.mjs';
+
+export default webConfig;
+```
+
 #### MAY: サービス固有の要件がある場合のみ追加設定
 
 ```javascript
-// services/tools/eslint.config.mjs (Next.js の場合)
-import baseConfig from '../../configs/eslint.config.base.mjs';
-import nextVitals from 'eslint-config-next/core-web-vitals';
-import nextTs from 'eslint-config-next/typescript';
+// services/tools/eslint.config.mjs
+import { defineConfig, globalIgnores } from 'eslint/config';
+import webConfig from '../../configs/eslint.config.web.mjs';
 
-export default [
-  ...baseConfig,
-  ...nextVitals,
-  ...nextTs,
+export default defineConfig([
+  ...webConfig,
   // 必要に応じて ignores などをカスタマイズ
-];
+  globalIgnores(['public/sw.js', 'public/workbox-*.js']),
+]);
 ```
 
 ### 8.5 Prettier
@@ -1517,16 +1555,10 @@ web (フロントエンド) や batch (バッチ処理) パッケージは、UI/
 
 ```javascript
 // services/{service}/web/eslint.config.mjs
-import baseConfig from '../../../configs/eslint.config.base.mjs';
-import nextVitals from 'eslint-config-next/core-web-vitals';
-import nextTs from 'eslint-config-next/typescript';
+// UI/Browser ライブラリのインポート制限なし
+import webConfig from '../../../configs/eslint.config.web.mjs';
 
-export default [
-  ...baseConfig,
-  ...nextVitals,
-  ...nextTs,
-  // UI/Browser ライブラリのインポート制限なし
-];
+export default webConfig;
 ```
 
 ### 9.3 パスエイリアス

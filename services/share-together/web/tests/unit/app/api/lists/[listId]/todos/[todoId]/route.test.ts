@@ -75,6 +75,12 @@ const mockDynamoDBTodoRepository = DynamoDBTodoRepository as jest.MockedClass<
 const mockTodoService = TodoService as jest.MockedClass<typeof TodoService>;
 type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 
+import {
+  createRequestWithJson,
+  MALFORMED_BODY_CASES,
+  type InvalidBodyCase,
+} from '../../../../invalidBodyCases';
+
 describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
   const mockGetPersonalListById = jest.fn();
   const mockUpdateTodo = jest.fn();
@@ -111,8 +117,8 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
       userId: 'user-1',
       name: '個人リスト',
       isDefault: true,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     mockTodoService.mockImplementation(
@@ -142,8 +148,8 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
       isCompleted: true,
       createdBy: 'user-1',
       completedBy: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T01:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767229200000,
     });
 
     const response = await PUT(
@@ -167,8 +173,8 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
         isCompleted: true,
         createdBy: 'user-1',
         completedBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T01:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767229200000,
       },
     });
   });
@@ -261,5 +267,20 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
       message: ERROR_MESSAGES.FORBIDDEN,
     });
     expect(mockDeleteTodo).not.toHaveBeenCalled();
+  });
+
+  it.each<InvalidBodyCase>([
+    ...MALFORMED_BODY_CASES,
+    ['title が数値', async () => ({ title: 123 })],
+    ['isCompleted が文字列', async () => ({ isCompleted: 'true' })],
+  ])('PUT: リクエストボディが不正な場合 (%s) は400を返す', async (_label, json) => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrUnauthorized);
+
+    const response = await PUT(createRequestWithJson(json), createContext());
+
+    expect(response.status).toBe(400);
+    expect(mockUpdateTodo).not.toHaveBeenCalled();
   });
 });

@@ -1,149 +1,95 @@
-import {
-  DeleteCommand,
-  GetCommand,
-  PutCommand,
-  UpdateCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
-import { buildUpdateExpression, queryAllItems, REMOVE_ATTRIBUTE } from '@nagiyu/aws';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { batchWriteAll, DynamoDBEntityStore, queryAllItems, type EntityStore } from '@nagiyu/aws';
 import type {
   CreateGroupMembershipInput,
   GroupMembership,
-  GroupMembershipStatus,
-  GroupRole,
   UpdateGroupMembershipInput,
 } from '../../types/index.js';
 import type { MembershipRepository } from './membership-repository.interface.js';
+import {
+  GroupMembershipMapper,
+  MEMBER_SK_PREFIX,
+  MEMBERSHIP_GSI1_INDEX_NAME,
+  buildMembershipGsi1Pk,
+  buildMembershipPk,
+  type MembershipKey,
+} from './membership-mapper.js';
 import { withDatabaseError } from '../with-database-error.js';
 
-const MEMBER_SK_PREFIX = 'MEMBER#';
-const GSI1_INDEX_NAME = 'GSI1';
-
-const ERROR_MESSAGES = {
-  INVALID_MEMBERSHIP_DATA: 'メンバーシップ情報の形式が不正です',
-  MEMBERSHIP_NOT_FOUND: 'メンバーシップが見つかりません',
-  UPDATE_EXPRESSION_EMPTY: '更新式を生成できませんでした',
-} as const;
-
 /**
- * キーが存在して値が undefined のときだけ属性の削除を表す。
- * キーが存在しない場合は更新対象に含めない (undefined のまま返す)。
+ * DynamoDB Membership Repository
+ *
+ * 単一アイテムの CRUD は EntityStore に任せ、グループ単位とユーザー単位 (GSI1) の
+ * 一覧 Query とグループ単位の一括削除だけを自前で持つ。
  */
-function toRemovableField<K extends keyof UpdateGroupMembershipInput>(
-  updates: UpdateGroupMembershipInput,
-  key: K
-): UpdateGroupMembershipInput[K] | typeof REMOVE_ATTRIBUTE {
-  if (Object.prototype.hasOwnProperty.call(updates, key) && updates[key] === undefined) {
-    return REMOVE_ATTRIBUTE;
-  }
-  return updates[key];
-}
-
 export class DynamoDBMembershipRepository implements MembershipRepository {
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
+  private readonly mapper = new GroupMembershipMapper();
+  private readonly store: EntityStore<GroupMembership, MembershipKey>;
 
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
     this.docClient = docClient;
     this.tableName = tableName;
+    this.store = new DynamoDBEntityStore(docClient, tableName, this.mapper);
   }
 
   public async getById(groupId: string, userId: string): Promise<GroupMembership | null> {
-    const result = await withDatabaseError(() =>
-      this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: this.buildGroupPk(groupId),
-            SK: this.buildMemberSk(userId),
-          },
-        })
-      )
-    );
-
-    if (!result.Item) {
-      return null;
-    }
-
-    return this.toMembership(result.Item as Record<string, unknown>);
+    return this.store.get({ groupId, userId });
   }
 
   public async getByGroupId(groupId: string): Promise<GroupMembership[]> {
-    const items = await withDatabaseError(() =>
-      queryAllItems(this.docClient, {
-        TableName: this.tableName,
-        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :memberSkPrefix)',
-        ExpressionAttributeNames: {
-          '#pk': 'PK',
-          '#sk': 'SK',
-        },
-        ExpressionAttributeValues: {
-          ':pk': this.buildGroupPk(groupId),
-          ':memberSkPrefix': MEMBER_SK_PREFIX,
-        },
-      })
-    );
-
-    return items.map((item) => this.toMembership(item as Record<string, unknown>));
+    const items = await this.queryByGroupId(groupId);
+    return items.map((item) => this.mapper.toEntity(item));
   }
 
   public async getByUserId(userId: string): Promise<GroupMembership[]> {
     const items = await withDatabaseError(() =>
       queryAllItems(this.docClient, {
         TableName: this.tableName,
-        IndexName: GSI1_INDEX_NAME,
+        IndexName: MEMBERSHIP_GSI1_INDEX_NAME,
         KeyConditionExpression: '#gsi1pk = :gsi1pk',
         ExpressionAttributeNames: {
           '#gsi1pk': 'GSI1PK',
         },
         ExpressionAttributeValues: {
-          ':gsi1pk': this.buildUserGsiPk(userId),
+          ':gsi1pk': buildMembershipGsi1Pk(userId),
         },
       })
     );
 
-    return items.map((item) => this.toMembership(item as Record<string, unknown>));
+    return items.map((item) => this.mapper.toEntity(item as Record<string, unknown>));
   }
 
   public async getPendingInvitationsByUserId(userId: string): Promise<GroupMembership[]> {
     const items = await withDatabaseError(() =>
       queryAllItems(this.docClient, {
         TableName: this.tableName,
-        IndexName: GSI1_INDEX_NAME,
+        IndexName: MEMBERSHIP_GSI1_INDEX_NAME,
         KeyConditionExpression: '#gsi1pk = :gsi1pk',
-        FilterExpression: '#status = :pending',
+        // 書き込まれないまま残る旧形式のアイテムは小文字の status を持つため、両方を見る
+        FilterExpression: '#status = :pending OR #legacyStatus = :pending',
         ExpressionAttributeNames: {
           '#gsi1pk': 'GSI1PK',
-          '#status': 'status',
+          '#status': 'Status',
+          '#legacyStatus': 'status',
         },
         ExpressionAttributeValues: {
-          ':gsi1pk': this.buildUserGsiPk(userId),
+          ':gsi1pk': buildMembershipGsi1Pk(userId),
           ':pending': 'PENDING',
         },
       })
     );
 
-    return items.map((item) => this.toMembership(item as Record<string, unknown>));
+    return items
+      .map((item) => this.mapper.toEntity(item as Record<string, unknown>))
+      .filter((membership) => membership.status === 'PENDING');
   }
 
   public async create(input: CreateGroupMembershipInput): Promise<GroupMembership> {
-    const now = new Date().toISOString();
-    const membership: GroupMembership = {
-      ...input,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    await withDatabaseError(() =>
-      this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: this.toItem(membership),
-        })
-      )
-    );
-
-    return membership;
+    const now = Date.now();
+    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
+    return this.store.create({ ...input, createdAt: now, updatedAt: now });
   }
 
   public async update(
@@ -151,158 +97,49 @@ export class DynamoDBMembershipRepository implements MembershipRepository {
     userId: string,
     updates: UpdateGroupMembershipInput
   ): Promise<GroupMembership> {
-    const updateParts = buildUpdateExpression(
-      {
-        role: updates.role,
-        status: updates.status,
-        invitedBy: toRemovableField(updates, 'invitedBy'),
-        invitedAt: toRemovableField(updates, 'invitedAt'),
-        respondedAt: toRemovableField(updates, 'respondedAt'),
-        TTL: toRemovableField(updates, 'ttl'),
-      },
-      {
-        timestamp: { attributeName: 'updatedAt', value: new Date().toISOString() },
-        updateTimestampWhenEmpty: true,
-      }
-    );
-    if (!updateParts) {
-      throw new Error(ERROR_MESSAGES.UPDATE_EXPRESSION_EMPTY);
-    }
-
-    const result = await withDatabaseError(() =>
-      this.docClient.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: this.buildGroupPk(groupId),
-            SK: this.buildMemberSk(userId),
-          },
-          ...updateParts,
-          ReturnValues: 'ALL_NEW',
-        })
-      )
-    );
-
-    if (!result.Attributes) {
-      throw new Error(ERROR_MESSAGES.MEMBERSHIP_NOT_FOUND);
-    }
-
-    return this.toMembership(result.Attributes as Record<string, unknown>);
+    return this.store.update({ groupId, userId }, updates);
   }
 
   public async delete(groupId: string, userId: string): Promise<void> {
+    await this.store.delete({ groupId, userId });
+  }
+
+  public async deleteByGroupId(groupId: string): Promise<void> {
+    const items = await this.queryByGroupId(groupId, { keysOnly: true });
+    if (items.length === 0) {
+      return;
+    }
+
+    // 並行した削除で一部が先になくなっても途中で止まらないよう、条件なしの一括削除にする
     await withDatabaseError(() =>
-      this.docClient.send(
-        new DeleteCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: this.buildGroupPk(groupId),
-            SK: this.buildMemberSk(userId),
-          },
-        })
+      batchWriteAll(
+        this.docClient,
+        this.tableName,
+        items.map((item) => ({ DeleteRequest: { Key: { PK: item['PK'], SK: item['SK'] } } }))
       )
     );
   }
 
-  public async deleteByGroupId(groupId: string): Promise<void> {
-    const memberships = await this.getByGroupId(groupId);
-
-    await Promise.all(
-      memberships.map((membership) => this.delete(membership.groupId, membership.userId))
+  private async queryByGroupId(
+    groupId: string,
+    options: { keysOnly?: boolean } = {}
+  ): Promise<Record<string, unknown>[]> {
+    const items = await withDatabaseError(() =>
+      queryAllItems(this.docClient, {
+        TableName: this.tableName,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+        ExpressionAttributeNames: {
+          '#pk': 'PK',
+          '#sk': 'SK',
+        },
+        ExpressionAttributeValues: {
+          ':pk': buildMembershipPk(groupId),
+          ':skPrefix': MEMBER_SK_PREFIX,
+        },
+        // 削除にはキーだけが要るため、本文を転送しない
+        ...(options.keysOnly ? { ProjectionExpression: '#pk, #sk' } : {}),
+      })
     );
-  }
-
-  private buildGroupPk(groupId: string): string {
-    return `GROUP#${groupId}`;
-  }
-
-  private buildMemberSk(userId: string): string {
-    return `${MEMBER_SK_PREFIX}${userId}`;
-  }
-
-  private buildUserGsiPk(userId: string): string {
-    return `USER#${userId}`;
-  }
-
-  private toItem(membership: GroupMembership): Record<string, unknown> {
-    return {
-      PK: this.buildGroupPk(membership.groupId),
-      SK: this.buildMemberSk(membership.userId),
-      GSI1PK: this.buildUserGsiPk(membership.userId),
-      GSI1SK: this.buildGroupPk(membership.groupId),
-      groupId: membership.groupId,
-      userId: membership.userId,
-      role: membership.role,
-      status: membership.status,
-      invitedBy: membership.invitedBy,
-      invitedAt: membership.invitedAt,
-      respondedAt: membership.respondedAt,
-      TTL: membership.ttl,
-      createdAt: membership.createdAt,
-      updatedAt: membership.updatedAt,
-    };
-  }
-
-  private toMembership(item: Record<string, unknown>): GroupMembership {
-    const groupId = item['groupId'];
-    const userId = item['userId'];
-    const role = item['role'];
-    const status = item['status'];
-    const invitedBy = item['invitedBy'];
-    const invitedAt = item['invitedAt'];
-    const respondedAt = item['respondedAt'];
-    const ttl = item['TTL'];
-    const createdAt = item['createdAt'];
-    const updatedAt = item['updatedAt'];
-
-    if (
-      typeof groupId !== 'string' ||
-      typeof userId !== 'string' ||
-      typeof createdAt !== 'string' ||
-      typeof updatedAt !== 'string'
-    ) {
-      throw new Error(ERROR_MESSAGES.INVALID_MEMBERSHIP_DATA);
-    }
-
-    if (
-      (invitedBy !== undefined && typeof invitedBy !== 'string') ||
-      (invitedAt !== undefined && typeof invitedAt !== 'string') ||
-      (respondedAt !== undefined && typeof respondedAt !== 'string') ||
-      (ttl !== undefined && typeof ttl !== 'number')
-    ) {
-      throw new Error(ERROR_MESSAGES.INVALID_MEMBERSHIP_DATA);
-    }
-
-    const groupRole = this.toGroupRole(role);
-    const membershipStatus = this.toGroupMembershipStatus(status);
-
-    return {
-      groupId,
-      userId,
-      role: groupRole,
-      status: membershipStatus,
-      invitedBy,
-      invitedAt,
-      respondedAt,
-      ttl,
-      createdAt,
-      updatedAt,
-    };
-  }
-
-  private toGroupRole(value: unknown): GroupRole {
-    if (value === 'OWNER' || value === 'MEMBER') {
-      return value;
-    }
-
-    throw new Error(ERROR_MESSAGES.INVALID_MEMBERSHIP_DATA);
-  }
-
-  private toGroupMembershipStatus(value: unknown): GroupMembershipStatus {
-    if (value === 'PENDING' || value === 'ACCEPTED' || value === 'REJECTED') {
-      return value;
-    }
-
-    throw new Error(ERROR_MESSAGES.INVALID_MEMBERSHIP_DATA);
+    return items as Record<string, unknown>[];
   }
 }

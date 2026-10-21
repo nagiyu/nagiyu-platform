@@ -35,7 +35,7 @@ import { POST } from '../../../../../src/app/api/mylist/register/route';
 import { getSession } from '../../../../../src/lib/auth/session';
 import { getEncryptedUserSessionBlob } from '../../../../../src/lib/niconico-session';
 import { selectRandomVideos, createBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
-import { getBatchClient } from '@nagiyu/aws';
+import { getBatchClient, reportErrorEvent } from '@nagiyu/aws';
 import type { VideoBasicInfo, UserVideoSetting } from '@nagiyu/niconico-mylist-assistant-core';
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
@@ -45,10 +45,11 @@ const mockGetEncryptedUserSessionBlob = getEncryptedUserSessionBlob as jest.Mock
 const mockSelectRandomVideos = selectRandomVideos as jest.MockedFunction<typeof selectRandomVideos>;
 const mockCreateBatchJob = createBatchJob as jest.MockedFunction<typeof createBatchJob>;
 const mockGetBatchClient = getBatchClient as jest.MockedFunction<typeof getBatchClient>;
+const mockReportErrorEvent = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
 
 /** 認証済みセッションのモック */
 const MOCK_SESSION = {
-  user: { userId: 'user123', email: 'test@example.com', name: 'テストユーザー', roles: [] },
+  user: { id: 'user123', email: 'test@example.com', name: 'テストユーザー', roles: [] },
   expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
 };
 
@@ -68,7 +69,7 @@ function makeMockVideos(ids: string[]): SelectRandomVideosResult {
     title: `動画 ${videoId}`,
     thumbnailUrl: 'https://example.com/thumb.jpg',
     length: '5:00',
-    CreatedAt: 1700000000000,
+    createdAt: 1700000000000,
   }));
 }
 
@@ -77,8 +78,8 @@ const MOCK_BATCH_JOB_ENTITY = {
   jobId: 'job-001',
   userId: 'user123',
   status: 'SUBMITTED' as const,
-  CreatedAt: 1700000000000,
-  UpdatedAt: 1700000000000,
+  createdAt: 1700000000000,
+  updatedAt: 1700000000000,
 };
 
 /** JSON ボディ付き NextRequest を生成するヘルパー */
@@ -87,6 +88,15 @@ function makePostRequest(body: unknown): NextRequest {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+  });
+}
+
+/** 本文の文字列をそのまま持つ NextRequest を生成するヘルパー */
+function makeRawRequest(rawBody: string): NextRequest {
+  return new NextRequest('http://localhost/api/mylist/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: rawBody,
   });
 }
 
@@ -271,6 +281,13 @@ describe('POST /api/mylist/register', () => {
 
     const json = await response.json();
     expect(json.error).toBe('DATABASE_ERROR');
+    expect(mockReportErrorEvent).toHaveBeenCalledTimes(1);
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'DynamoDB 動画取得失敗',
+        context: expect.objectContaining({ userId: 'user123' }),
+      })
+    );
   });
 
   it('Batch jobId が返らない場合は 500 を返す', async () => {
@@ -290,6 +307,10 @@ describe('POST /api/mylist/register', () => {
 
     const json = await response.json();
     expect(json.error).toBe('BATCH_ERROR');
+    expect(mockReportErrorEvent).toHaveBeenCalledTimes(1);
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Batch ジョブ ID 未取得' })
+    );
   });
 
   it('createBatchJob が失敗した場合は 500 を返す', async () => {
@@ -309,6 +330,11 @@ describe('POST /api/mylist/register', () => {
 
     const json = await response.json();
     expect(json.error).toBe('DATABASE_ERROR');
+    // 例外を握って 500 を返すため、この場で報告する
+    expect(mockReportErrorEvent).toHaveBeenCalledTimes(1);
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'DynamoDB バッチジョブレコード作成失敗' })
+    );
   });
 
   it('Batch 投入で予期しない例外が発生した場合は 500 を返す', async () => {
@@ -331,6 +357,15 @@ describe('POST /api/mylist/register', () => {
 
     const json = await response.json();
     expect(json.error).toBe('BATCH_ERROR');
+    // 想定外の例外はラッパーが 1 回だけ報告する
+    expect(mockReportErrorEvent).toHaveBeenCalledTimes(1);
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'niconico-mylist-assistant',
+        title: 'Batch ジョブ投入エラー',
+        context: expect.objectContaining({ errorMessage: 'Batch 接続エラー' }),
+      })
+    );
   });
 
   it('ENCRYPTED_USER_SESSION ブロブが containerOverrides に渡される', async () => {
@@ -355,5 +390,71 @@ describe('POST /api/mylist/register', () => {
     const env = sendCallArgs.input.containerOverrides.environment;
     const encryptedEnv = env.find((e) => e.name === 'ENCRYPTED_USER_SESSION');
     expect(encryptedEnv?.value).toBe(SAMPLE_ENCRYPTED_BLOB);
+  });
+});
+
+describe('POST /api/mylist/register の不正なリクエストボディ', () => {
+  it.each([
+    ['壊れた JSON', 'this is not json{'],
+    ['空の本文', ''],
+    ['null', 'null'],
+    ['配列', '[{"maxCount":10,"mylistName":"a"}]'],
+  ])('本文が %s の場合は 400 を返し、下流を呼ばず通報もしない', async (_label, rawBody) => {
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+
+    const response = await POST(makeRawRequest(rawBody));
+    expect(response.status).toBe(400);
+
+    const json = await response.json();
+    expect(json.error).toBe('INVALID_REQUEST');
+    expect(json.message).toBe('リクエストボディが不正です');
+    expect(mockGetEncryptedUserSessionBlob).not.toHaveBeenCalled();
+    expect(mockSelectRandomVideos).not.toHaveBeenCalled();
+    expect(mockGetBatchClient).not.toHaveBeenCalled();
+    expect(mockReportErrorEvent).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['favoriteOnly', 'favoriteOnly は真偽値である必要があります', 'true'],
+    ['favoriteOnly', 'favoriteOnly は真偽値である必要があります', 1],
+    ['favoriteOnly', 'favoriteOnly は真偽値である必要があります', null],
+    ['excludeSkip', 'excludeSkip は真偽値である必要があります', 'false'],
+    ['excludeSkip', 'excludeSkip は真偽値である必要があります', {}],
+  ])('%s が真偽値でない場合は 400 を返し、下流を呼ばない', async (key, message, value) => {
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+
+    const response = await POST(
+      makePostRequest({ maxCount: 10, mylistName: 'テストマイリスト', [key]: value })
+    );
+    expect(response.status).toBe(400);
+
+    const json = await response.json();
+    expect(json.error).toBe('INVALID_REQUEST');
+    expect(json.message).toBe(message);
+    expect(mockGetEncryptedUserSessionBlob).not.toHaveBeenCalled();
+    expect(mockSelectRandomVideos).not.toHaveBeenCalled();
+    expect(mockReportErrorEvent).not.toHaveBeenCalled();
+  });
+
+  it('favoriteOnly・excludeSkip が真偽値の場合は動画選択へそのまま渡す', async () => {
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+    mockGetEncryptedUserSessionBlob.mockResolvedValue(SAMPLE_ENCRYPTED_BLOB);
+    mockSelectRandomVideos.mockResolvedValue([]);
+
+    await POST(
+      makePostRequest({
+        maxCount: 10,
+        mylistName: 'テストマイリスト',
+        favoriteOnly: true,
+        excludeSkip: false,
+      })
+    );
+
+    expect(mockSelectRandomVideos).toHaveBeenCalledWith({
+      userId: 'user123',
+      maxCount: 10,
+      favoriteOnly: true,
+      skipExclude: false,
+    });
   });
 });

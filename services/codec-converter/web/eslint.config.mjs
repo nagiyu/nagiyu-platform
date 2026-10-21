@@ -1,11 +1,22 @@
-import { fixupConfigRules } from '@eslint/compat';
-import nextConfig from 'eslint-config-next';
+import baseConfig from '../../../configs/eslint.config.base.mjs';
 import noRestrictedMui from '../../../configs/eslint.config.no-restricted-mui.mjs';
+import { defineConfig, globalIgnores } from 'eslint/config';
+import { fixupConfigRules } from '@eslint/compat';
+import nextVitals from 'eslint-config-next/core-web-vitals';
 import tseslint from 'typescript-eslint';
 
-const eslintConfig = [
-  ...fixupConfigRules(nextConfig.filter((c) => c.name !== 'next/typescript')),
+const eslintConfig = defineConfig([
+  ...baseConfig,
+  ...fixupConfigRules(nextVitals.filter((c) => c.name !== 'next/typescript')),
   { languageOptions: { parser: tseslint.parser } },
+  // Override default ignores of eslint-config-next.
+  globalIgnores([
+    // Default ignores of eslint-config-next:
+    '.next/**',
+    'out/**',
+    'build/**',
+    'next-env.d.ts',
+  ]),
   {
     rules: {
       // eslint-config-next 16.2.3で追加。既存コードへの影響が大きいため別途対応
@@ -14,6 +25,6 @@ const eslintConfig = [
     },
   },
   noRestrictedMui,
-];
+]);
 
 export default eslintConfig;

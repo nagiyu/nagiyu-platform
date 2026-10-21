@@ -20,26 +20,23 @@ const mockGetProfileRepo = getProfileRepository as jest.MockedFunction<typeof ge
 
 const validSession = {
   user: {
-    userId: 'u1',
-    googleId: 'g1',
+    id: 'u1',
     email: 'u@example.com',
     name: 'U',
     roles: ['livetalk-user'],
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
   },
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
 
 const consentedProfile = {
-  UserID: 'g1',
-  LastActiveAt: 0,
-  CreatedAt: 0,
-  UpdatedAt: 0,
-  Consents: {
-    TermsAgreed: { Version: '1.0.0', AgreedAt: 0 },
-    PrivacyAgreed: { Version: '1.0.0', AgreedAt: 0 },
-    AgeVerified: { Value: true, VerifiedAt: 0 },
+  userId: 'u1',
+  lastActiveAt: 0,
+  createdAt: 0,
+  updatedAt: 0,
+  consents: {
+    termsAgreed: { version: '1.0.0', agreedAt: 0 },
+    privacyAgreed: { version: '1.0.0', agreedAt: 0 },
+    ageVerified: { value: true, verifiedAt: 0 },
   },
 };
 
@@ -75,6 +72,8 @@ describe('GET /api/consent', () => {
     const json = await res.json();
     expect(json.consented).toBe(true);
     expect(json.requiredVersions).toEqual({ terms: '1.0.0', privacy: '1.0.0' });
+    // current はエンティティの camelCase のまま返す
+    expect(json.current).toEqual(consentedProfile.consents);
   });
 
   it('プロファイルがなければ consented: false を返す', async () => {
@@ -91,9 +90,9 @@ describe('GET /api/consent', () => {
     mockGetSession.mockResolvedValue(validSession);
     const oldProfile = {
       ...consentedProfile,
-      Consents: {
-        ...consentedProfile.Consents,
-        TermsAgreed: { Version: '0.9.0', AgreedAt: 0 },
+      consents: {
+        ...consentedProfile.consents,
+        termsAgreed: { version: '0.9.0', agreedAt: 0 },
       },
     };
     mockGetProfileRepo.mockReturnValue(makeProfileRepo(oldProfile));
@@ -147,6 +146,25 @@ describe('POST /api/consent', () => {
     expect(res.status).toBe(400);
   });
 
+  it.each([
+    ['null', 'null'],
+    ['配列', '[{"termsAgreed":true,"privacyAgreed":true,"ageVerified":true}]'],
+    ['文字列', '"true"'],
+    ['privacyAgreed が文字列', { termsAgreed: true, privacyAgreed: 'true', ageVerified: true }],
+    ['ageVerified が数値', { termsAgreed: true, privacyAgreed: true, ageVerified: 1 }],
+    ['ageVerified が欠落', { termsAgreed: true, privacyAgreed: true }],
+  ])('body が %s の場合は 400 で保存しない', async (_label, body) => {
+    mockGetSession.mockResolvedValue(validSession);
+    const repo = makeProfileRepo();
+    mockGetProfileRepo.mockReturnValue(repo);
+
+    const res = await POST(buildPostRequest(body));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.message).toBe(CONSENT_ERROR_MESSAGES.INVALID_REQUEST);
+    expect(repo.upsert).not.toHaveBeenCalled();
+  });
+
   it('termsAgreed が false なら 400 ALL_CONSENTS_REQUIRED', async () => {
     mockGetSession.mockResolvedValue(validSession);
     const res = await POST(
@@ -178,12 +196,12 @@ describe('POST /api/consent', () => {
     const json = await res.json();
     expect(json.consented).toBe(true);
     expect(repo.upsert).toHaveBeenCalledWith(
-      { UserID: 'g1' },
+      { userId: 'u1' },
       expect.objectContaining({
-        Consents: expect.objectContaining({
-          TermsAgreed: expect.objectContaining({ Version: '1.0.0' }),
-          PrivacyAgreed: expect.objectContaining({ Version: '1.0.0' }),
-          AgeVerified: { Value: true, VerifiedAt: expect.any(Number) },
+        consents: expect.objectContaining({
+          termsAgreed: expect.objectContaining({ version: '1.0.0' }),
+          privacyAgreed: expect.objectContaining({ version: '1.0.0' }),
+          ageVerified: { value: true, verifiedAt: expect.any(Number) },
         }),
       })
     );

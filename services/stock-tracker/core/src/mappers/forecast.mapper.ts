@@ -1,26 +1,31 @@
 /**
  * Stock Tracker Core - Forecast Mapper
  *
- * ForecastEntity ↔ DynamoDBItem の変換に加えて、保存済みアイテムを core の学習入力
+ * ForecastEntity ↔ DynamoDB Item の変換に加えて、保存済みアイテムを core の学習入力
  * （`TickerSample`）へ直接変換する `toSample` を持つ。`toSample` は ProjectionExpression で
  * 一部属性（寄与など）を落とした軽量読み出しの結果でも動くよう、無い属性は省く。
  */
-import type { DynamoDBItem } from '@nagiyu/aws';
 import {
   InvalidEntityDataError,
+  immutablePatchValue,
+  optionalPatchValue,
+  readTimestamp,
+  requiredPatchValue,
   validateEnumField,
   validateStringField,
-  validateTimestampField,
+  type DynamoDBAttributes,
+  type DynamoDBKey,
   type EntityMapper,
+  type EntityPatch,
 } from '@nagiyu/aws';
 import type {
-  CreateForecastInput,
   ForecastEntity,
   ForecastKey,
   ForecastNormal,
   ForecastOutcome,
 } from '../entities/forecast.entity.js';
 import type { ProbabilityRecord, TickerOutcome, TickerSample } from '../forecast/index.js';
+import { buildExchangeSummaryGsi4Sk } from './exchange-summary-index.js';
 
 /**
  * GSI4PK に付ける接頭辞。
@@ -30,72 +35,164 @@ import type { ProbabilityRecord, TickerOutcome, TickerSample } from '../forecast
  */
 const GSI4PK_PREFIX = 'FORECAST#';
 
+/**
+ * 取引所IDから Forecast アイテムの GSI4PK を構築する
+ *
+ * @param exchangeId - 取引所ID
+ * @returns GSI4PK
+ */
+export function buildForecastGsi4Pk(exchangeId: string): string {
+  return `${GSI4PK_PREFIX}${exchangeId}`;
+}
+
+/** 採点結果を保存する属性の名前。条件付きの追記が存在判定に使う */
+export const FORECAST_OUTCOME_ATTRIBUTE = 'Outcome';
+
+/** サンプルが確率を取り出す問い */
+const FORECAST_SAMPLE_QUESTIONS = ['DIR', 'VOL'] as const;
+
+/**
+ * `toSample` が読む保存属性のパス。
+ *
+ * 寄与 (contributions)・確率帯実績 (bandHistory)・中立帯 (neutralBand) 等、学習・基準値・
+ * 中立帯の算出に使わない属性を含めない。全期間読み出し時の転送量を抑える射影は、この一覧から作る。
+ */
+export const FORECAST_SAMPLE_ATTRIBUTE_PATHS: readonly (readonly string[])[] = [
+  ['TickerID'],
+  ['ExchangeID'],
+  ['Market'],
+  ['Date'],
+  ['AxisValues'],
+  ['Normal'],
+  [FORECAST_OUTCOME_ATTRIBUTE],
+  ...FORECAST_SAMPLE_QUESTIONS.flatMap((question) => [
+    ['Probabilities', question, 'probability'],
+    ['Probabilities', question, 'baseline'],
+  ]),
+];
+
+/**
+ * Forecast Mapper
+ *
+ * ForecastEntity と DynamoDB Item 間の変換を行う
+ */
 export class ForecastMapper implements EntityMapper<ForecastEntity, ForecastKey> {
-  private readonly entityType = 'Forecast';
+  public readonly entityType = 'Forecast';
+
+  /**
+   * ビジネスキーから PK/SK を構築
+   *
+   * @param key - Forecast Key
+   * @returns DynamoDB の Key
+   */
+  public buildKeys(key: ForecastKey): DynamoDBKey {
+    return {
+      PK: `FORECAST#${key.tickerId}`,
+      SK: `DATE#${key.date}`,
+    };
+  }
+
+  public getKey(entity: ForecastEntity): ForecastKey {
+    return { tickerId: entity.tickerId, date: entity.date };
+  }
 
   /**
    * Entity を DynamoDB Item に変換
+   *
+   * @param entity - Forecast Entity
+   * @returns DynamoDB Item
    */
-  public toItem(entity: ForecastEntity): DynamoDBItem {
-    const { pk, sk } = this.buildKeys({ tickerId: entity.TickerID, date: entity.Date });
-
+  public toItem(entity: ForecastEntity): DynamoDBAttributes {
     return {
-      PK: pk,
-      SK: sk,
+      ...this.buildKeys(this.getKey(entity)),
       Type: this.entityType,
-      GSI4PK: `${GSI4PK_PREFIX}${entity.ExchangeID}`,
-      GSI4SK: `DATE#${entity.Date}#${entity.TickerID}`,
-      TickerID: entity.TickerID,
-      ExchangeID: entity.ExchangeID,
-      Market: entity.Market,
-      Date: entity.Date,
-      AxisValues: entity.AxisValues,
-      Normal: entity.Normal,
-      Probabilities: entity.Probabilities,
-      ModelVersion: entity.ModelVersion,
-      Source: entity.Source,
-      ...(entity.BackfilledAxes !== undefined ? { BackfilledAxes: entity.BackfilledAxes } : {}),
-      ...(entity.Outcome !== undefined ? { Outcome: entity.Outcome } : {}),
-      CreatedAt: entity.CreatedAt,
-      UpdatedAt: entity.UpdatedAt,
+      GSI4PK: buildForecastGsi4Pk(entity.exchangeId),
+      GSI4SK: buildExchangeSummaryGsi4Sk(entity.date, entity.tickerId),
+      TickerID: entity.tickerId,
+      ExchangeID: entity.exchangeId,
+      Market: entity.market,
+      Date: entity.date,
+      AxisValues: entity.axisValues,
+      Normal: entity.normal,
+      Probabilities: entity.probabilities,
+      ModelVersion: entity.modelVersion,
+      Source: entity.source,
+      ...(entity.backfilledAxes !== undefined ? { BackfilledAxes: entity.backfilledAxes } : {}),
+      ...(entity.outcome !== undefined ? { [FORECAST_OUTCOME_ATTRIBUTE]: entity.outcome } : {}),
+      CreatedAt: entity.createdAt,
+      UpdatedAt: entity.updatedAt,
     };
   }
 
   /**
-   * 作成入力（Outcome を持たない）から、条件付き PutItem に渡す Item を組み立てる
+   * Entity の部分を保存用の属性に変換
+   *
+   * GSI4SK は更新のたびに `key` から付け直す。GSI4PK は exchangeId から作られるため、
+   * exchangeId を変えるときだけ付け直す。
+   * tickerId・date・createdAt は作成後に変えられないため、含めると拒否する。
+   *
+   * @param changes - 変更する項目 (undefined は変更なし、null は属性削除)
+   * @param key - 更新対象のビジネスキー
+   * @returns 保存用の属性
+   * @throws InvalidEntityDataError 必須項目が null のとき、または変更不可の項目を含むとき
    */
-  public toCreateItem(input: CreateForecastInput, createdAt: number): DynamoDBItem {
-    return this.toItem({ ...input, CreatedAt: createdAt, UpdatedAt: createdAt });
+  public toUpdateAttributes(
+    changes: EntityPatch<ForecastEntity>,
+    key: ForecastKey
+  ): DynamoDBAttributes {
+    const exchangeId = requiredPatchValue(changes.exchangeId, 'ExchangeID');
+    return {
+      TickerID: immutablePatchValue(changes.tickerId, 'TickerID'),
+      Date: immutablePatchValue(changes.date, 'Date'),
+      CreatedAt: immutablePatchValue(changes.createdAt, 'CreatedAt'),
+      GSI4PK: exchangeId === undefined ? undefined : buildForecastGsi4Pk(exchangeId),
+      GSI4SK: buildExchangeSummaryGsi4Sk(key.date, key.tickerId),
+      ExchangeID: exchangeId,
+      Market: requiredPatchValue(changes.market, 'Market'),
+      AxisValues: requiredPatchValue(changes.axisValues, 'AxisValues'),
+      Normal: requiredPatchValue(changes.normal, 'Normal'),
+      Probabilities: requiredPatchValue(changes.probabilities, 'Probabilities'),
+      ModelVersion: requiredPatchValue(changes.modelVersion, 'ModelVersion'),
+      Source: requiredPatchValue(changes.source, 'Source'),
+      BackfilledAxes: optionalPatchValue(changes.backfilledAxes),
+      [FORECAST_OUTCOME_ATTRIBUTE]: optionalPatchValue(changes.outcome),
+    };
   }
 
   /**
    * DynamoDB Item を Entity に変換
+   *
+   * @param item - DynamoDB Item
+   * @returns Forecast Entity
    */
-  public toEntity(item: DynamoDBItem): ForecastEntity {
+  public toEntity(item: DynamoDBAttributes): ForecastEntity {
     const entity: ForecastEntity = {
-      TickerID: validateStringField(item.TickerID, 'TickerID'),
-      ExchangeID: validateStringField(item.ExchangeID, 'ExchangeID'),
-      Market: validateStringField(item.Market, 'Market'),
-      Date: validateStringField(item.Date, 'Date'),
-      AxisValues: toPlainObject<ForecastEntity['AxisValues']>(item.AxisValues, 'AxisValues'),
-      Normal: toPlainObject<ForecastNormal>(item.Normal, 'Normal'),
-      Probabilities: toPlainObject<ForecastEntity['Probabilities']>(
+      tickerId: validateStringField(item.TickerID, 'TickerID'),
+      exchangeId: validateStringField(item.ExchangeID, 'ExchangeID'),
+      market: validateStringField(item.Market, 'Market'),
+      date: validateStringField(item.Date, 'Date'),
+      axisValues: toPlainObject<ForecastEntity['axisValues']>(item.AxisValues, 'AxisValues'),
+      normal: toPlainObject<ForecastNormal>(item.Normal, 'Normal'),
+      probabilities: toPlainObject<ForecastEntity['probabilities']>(
         item.Probabilities,
         'Probabilities'
       ),
-      ModelVersion: validateStringField(item.ModelVersion, 'ModelVersion'),
-      Source: validateEnumField(item.Source, 'Source', ['REPLAY', 'LIVE'] as const),
-      CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
-      UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
+      modelVersion: validateStringField(item.ModelVersion, 'ModelVersion'),
+      source: validateEnumField(item.Source, 'Source', ['REPLAY', 'LIVE'] as const),
+      createdAt: readTimestamp(item, 'CreatedAt'),
+      updatedAt: readTimestamp(item, 'UpdatedAt'),
     };
     if (item.BackfilledAxes !== undefined) {
-      entity.BackfilledAxes = toPlainObject<NonNullable<ForecastEntity['BackfilledAxes']>>(
+      entity.backfilledAxes = toPlainObject<NonNullable<ForecastEntity['backfilledAxes']>>(
         item.BackfilledAxes,
         'BackfilledAxes'
       );
     }
-    if (item.Outcome !== undefined) {
-      entity.Outcome = toPlainObject<ForecastOutcome>(item.Outcome, 'Outcome');
+    if (item[FORECAST_OUTCOME_ATTRIBUTE] !== undefined) {
+      entity.outcome = toPlainObject<ForecastOutcome>(
+        item[FORECAST_OUTCOME_ATTRIBUTE],
+        FORECAST_OUTCOME_ATTRIBUTE
+      );
     }
     return entity;
   }
@@ -107,7 +204,7 @@ export class ForecastMapper implements EntityMapper<ForecastEntity, ForecastKey>
    * `toEntity` と異なり必須フィールドを絞る: `Normal`・`Outcome`・`Probabilities` は
    * 無ければ省略する（`toEntity` のように例外を投げない）。
    */
-  public toSample(item: Record<string, unknown>): TickerSample {
+  public toSample(item: DynamoDBAttributes): TickerSample {
     const sample: TickerSample = {
       tickerId: validateStringField(item.TickerID, 'TickerID'),
       exchangeId: validateStringField(item.ExchangeID, 'ExchangeID'),
@@ -120,8 +217,11 @@ export class ForecastMapper implements EntityMapper<ForecastEntity, ForecastKey>
       sample.normal = toPlainObject<NonNullable<TickerSample['normal']>>(item.Normal, 'Normal');
     }
 
-    if (item.Outcome !== undefined) {
-      const outcome = toPlainObject<ForecastOutcome>(item.Outcome, 'Outcome');
+    if (item[FORECAST_OUTCOME_ATTRIBUTE] !== undefined) {
+      const outcome = toPlainObject<ForecastOutcome>(
+        item[FORECAST_OUTCOME_ATTRIBUTE],
+        FORECAST_OUTCOME_ATTRIBUTE
+      );
       const sampleOutcome: NonNullable<TickerSample['outcome']> = {
         nextDate: validateStringField(outcome.nextDate, 'Outcome.nextDate'),
         hit: outcome.hit ?? {},
@@ -139,7 +239,7 @@ export class ForecastMapper implements EntityMapper<ForecastEntity, ForecastKey>
         'Probabilities'
       );
       const picked: NonNullable<TickerSample['probabilities']> = {};
-      for (const question of ['DIR', 'VOL'] as const) {
+      for (const question of FORECAST_SAMPLE_QUESTIONS) {
         const record = probabilities[question];
         if (record !== undefined) {
           picked[question] = { probability: record.probability, baseline: record.baseline };
@@ -151,23 +251,6 @@ export class ForecastMapper implements EntityMapper<ForecastEntity, ForecastKey>
     }
 
     return sample;
-  }
-
-  /**
-   * ビジネスキーから PK/SK を構築
-   */
-  public buildKeys(key: ForecastKey): { pk: string; sk: string } {
-    return {
-      pk: `FORECAST#${key.tickerId}`,
-      sk: `DATE#${key.date}`,
-    };
-  }
-
-  /**
-   * 取引所IDから GSI4PK を構築（GSI4 Query 用）
-   */
-  public buildGsi4Pk(exchangeId: string): string {
-    return `${GSI4PK_PREFIX}${exchangeId}`;
   }
 
   /**

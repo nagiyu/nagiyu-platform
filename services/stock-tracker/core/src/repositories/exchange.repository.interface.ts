@@ -49,13 +49,15 @@ export interface ExchangeRepository {
    * 新しい取引所を作成
    *
    * @param input - 取引所データ
-   * @returns 作成された取引所（CreatedAt, UpdatedAtを含む）
-   * @throws {EntityAlreadyExistsError} 既に同じExchangeIDの取引所が存在する場合
+   * @returns 作成された取引所 (createdAt, updatedAtを含む)
+   * @throws {EntityAlreadyExistsError} 既に同じexchangeIdの取引所が存在する場合
    */
   create(input: CreateExchangeInput): Promise<ExchangeEntity>;
 
   /**
    * 取引所を更新
+   *
+   * `updates` が空でも成功し、更新日時だけが更新される。
    *
    * @param exchangeId - 取引所ID
    * @param updates - 更新するフィールド

@@ -1,5 +1,5 @@
 import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError } from '@nagiyu/aws';
+import { DatabaseError, EntityNotFoundError } from '@nagiyu/aws';
 import { DynamoDBNotificationEventRepository } from '../../../src/repositories/dynamodb-notification-event.repository.js';
 import type { CreateNotificationEventInput } from '../../../src/entities/notification-event.entity.js';
 
@@ -10,13 +10,13 @@ const fixedNow = 1_750_000_000_000;
 const tableName = 'nagiyu-livetalk-dev';
 
 const baseInput: CreateNotificationEventInput = {
-  UserID: 'u1',
-  NotifID: 'NOTIF-001',
-  CharacterID: 'hiyori',
-  Kind: 'normal',
-  Title: 'テスト通知',
-  Body: 'テスト本文',
-  Ttl: Math.floor(fixedNow / 1000) + 86400,
+  userId: 'u1',
+  notifId: 'NOTIF-001',
+  characterId: 'hiyori',
+  kind: 'normal',
+  title: 'テスト通知',
+  body: 'テスト本文',
+  expiresAt: fixedNow + 86_400_000,
 };
 
 const baseItem = {
@@ -31,12 +31,12 @@ const baseItem = {
   Body: 'テスト本文',
   CreatedAt: fixedNow,
   UpdatedAt: fixedNow,
-  Ttl: Math.floor(fixedNow / 1000) + 86400,
+  TTL: Math.floor(fixedNow / 1000) + 86400,
 };
 
 describe('DynamoDBNotificationEventRepository', () => {
   describe('put', () => {
-    it('PutCommand を送り CreatedAt を付与する', async () => {
+    it('PutCommand を送り createdAt / updatedAt を付与し、expiresAt を TTL 属性のエポック秒で保存する', async () => {
       const sent: unknown[] = [];
       const client = makeClient(async (cmd) => {
         sent.push(cmd);
@@ -49,8 +49,12 @@ describe('DynamoDBNotificationEventRepository', () => {
       );
 
       const entity = await repo.put(baseInput);
-      expect(entity.CreatedAt).toBe(fixedNow);
+      expect(entity.createdAt).toBe(fixedNow);
+      expect(entity.updatedAt).toBe(fixedNow);
       expect(sent[0]).toBeInstanceOf(PutCommand);
+      const item = (sent[0] as PutCommand).input.Item;
+      expect(item?.TTL).toBe(Math.floor(fixedNow / 1000) + 86400);
+      expect(item).not.toHaveProperty('Ttl');
     });
 
     it('critical 種別を保存できる', async () => {
@@ -61,8 +65,8 @@ describe('DynamoDBNotificationEventRepository', () => {
         () => fixedNow
       );
 
-      const entity = await repo.put({ ...baseInput, Kind: 'critical' });
-      expect(entity.Kind).toBe('critical');
+      const entity = await repo.put({ ...baseInput, kind: 'critical' });
+      expect(entity.kind).toBe('critical');
     });
 
     it('エラー時は DatabaseError を投げる', async () => {
@@ -105,7 +109,7 @@ describe('DynamoDBNotificationEventRepository', () => {
 
       const list = await repo.listByUser('u1');
       expect(list).toHaveLength(1);
-      expect(list[0].NotifID).toBe('NOTIF-001');
+      expect(list[0].notifId).toBe('NOTIF-001');
       expect(sent[0]).toBeInstanceOf(QueryCommand);
       expect((sent[0] as QueryCommand).input.ScanIndexForward).toBe(false);
     });
@@ -162,6 +166,32 @@ describe('DynamoDBNotificationEventRepository', () => {
       expect(callCount).toBe(1);
     });
 
+    it('1 ページ目が limit 未満で次ページへ進んでも limit 件で打ち切る', async () => {
+      let callCount = 0;
+      const client = makeClient(async () => {
+        callCount++;
+        // 1MB 上限で 1 ページ目が limit 未満になり、2 ページ目で limit を超える状況を再現する
+        const items =
+          callCount === 1
+            ? [{ ...baseItem, NotifID: 'NOTIF-1' }]
+            : [
+                { ...baseItem, NotifID: 'NOTIF-2' },
+                { ...baseItem, NotifID: 'NOTIF-3' },
+                { ...baseItem, NotifID: 'NOTIF-4' },
+              ];
+        return { Items: items, LastEvaluatedKey: { PK: 'USER#u1', SK: 'last' } };
+      });
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
+
+      const list = await repo.listByUser('u1', 3);
+      expect(list.map((e) => e.notifId)).toEqual(['NOTIF-1', 'NOTIF-2', 'NOTIF-3']);
+      expect(callCount).toBe(2);
+    });
+
     it('エラー時は DatabaseError を投げる', async () => {
       const client = makeClient(async () => {
         throw new Error('query 失敗');
@@ -204,7 +234,7 @@ describe('DynamoDBNotificationEventRepository', () => {
 
       const result = await repo.listLatestUnconsumedByCharacter('u1', ['hiyori', 'ageha']);
       expect(result).toHaveLength(2);
-      const charIds = result.map((e) => e.CharacterID);
+      const charIds = result.map((e) => e.characterId);
       expect(charIds).toContain('hiyori');
       expect(charIds).toContain('ageha');
     });
@@ -265,7 +295,7 @@ describe('DynamoDBNotificationEventRepository', () => {
       const result = await repo.listLatestUnconsumedByCharacter('u1', ['hiyori']);
       // 2 ページ目にある未消化を正しく発見できること
       expect(result).toHaveLength(1);
-      expect(result[0].NotifID).toBe('N-LATE-UNCONSUMED');
+      expect(result[0].notifId).toBe('N-LATE-UNCONSUMED');
       expect(callCount).toBe(2);
     });
 
@@ -348,8 +378,8 @@ describe('DynamoDBNotificationEventRepository', () => {
       expect(callCount).toBe(3);
       // hiyori の未消化のみ返る
       expect(result).toHaveLength(1);
-      expect(result[0].CharacterID).toBe('hiyori');
-      expect(result[0].NotifID).toBe('N-HIY');
+      expect(result[0].characterId).toBe('hiyori');
+      expect(result[0].notifId).toBe('N-HIY');
     });
 
     it('エラー時は DatabaseError を投げる', async () => {
@@ -381,7 +411,7 @@ describe('DynamoDBNotificationEventRepository', () => {
       );
 
       const found = await repo.get({ userId: 'u1', notifId: 'NOTIF-001' });
-      expect(found?.Body).toBe('テスト本文');
+      expect(found?.body).toBe('テスト本文');
       expect(sent[0]).toBeInstanceOf(GetCommand);
     });
 
@@ -398,7 +428,21 @@ describe('DynamoDBNotificationEventRepository', () => {
       );
 
       const found = await repo.get({ userId: 'u1', notifId: 'NOTIF-001' });
-      expect(found?.ConsumedAt).toBe(fixedNow + 5000);
+      expect(found?.consumedAt).toBe(fixedNow + 5000);
+    });
+
+    it('旧属性名 Ttl だけで保存された Item も読める', async () => {
+      const legacyItem: Record<string, unknown> = { ...baseItem, Ttl: 1_750_086_400 };
+      delete legacyItem.TTL;
+      const client = makeClient(async () => ({ Item: legacyItem }));
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
+
+      const found = await repo.get({ userId: 'u1', notifId: 'NOTIF-001' });
+      expect(found?.expiresAt).toBe(1_750_086_400_000);
     });
 
     it('Item がない場合は null を返す', async () => {
@@ -429,11 +473,13 @@ describe('DynamoDBNotificationEventRepository', () => {
   });
 
   describe('markConsumed', () => {
-    it('UpdateCommand を送る', async () => {
+    const key = { userId: 'u1', notifId: 'NOTIF-001' };
+
+    it('UpdateCommand で consumedAt と UpdatedAt だけを更新する', async () => {
       const sent: unknown[] = [];
       const client = makeClient(async (cmd) => {
         sent.push(cmd);
-        return {};
+        return { Attributes: { ...baseItem, ConsumedAt: fixedNow + 5000 } };
       });
       const repo = new DynamoDBNotificationEventRepository(
         client as never,
@@ -441,13 +487,34 @@ describe('DynamoDBNotificationEventRepository', () => {
         () => fixedNow
       );
 
-      await repo.markConsumed({ userId: 'u1', notifId: 'NOTIF-001' }, fixedNow + 5000);
+      await repo.markConsumed(key, fixedNow + 5000);
+
       expect(sent[0]).toBeInstanceOf(UpdateCommand);
       const input = (sent[0] as UpdateCommand).input;
-      expect(input.ExpressionAttributeValues?.[':consumedAt']).toBe(fixedNow + 5000);
+      expect(input.Key).toEqual({ PK: 'USER#u1', SK: 'NOTIF#NOTIF-001' });
+      expect(Object.values(input.ExpressionAttributeValues ?? {})).toEqual(
+        expect.arrayContaining([fixedNow + 5000, fixedNow])
+      );
     });
 
-    it('エラー時は DatabaseError を投げる', async () => {
+    it('対象が存在しない場合は EntityNotFoundError を投げる', async () => {
+      const client = makeClient(async () => {
+        const error = new Error('conditional check failed');
+        error.name = 'ConditionalCheckFailedException';
+        throw error;
+      });
+      const repo = new DynamoDBNotificationEventRepository(
+        client as never,
+        tableName,
+        () => fixedNow
+      );
+
+      await expect(
+        repo.markConsumed({ ...key, notifId: 'missing' }, fixedNow)
+      ).rejects.toBeInstanceOf(EntityNotFoundError);
+    });
+
+    it('その他の失敗は DatabaseError を投げる', async () => {
       const client = makeClient(async () => {
         throw new Error('update 失敗');
       });
@@ -456,9 +523,7 @@ describe('DynamoDBNotificationEventRepository', () => {
         tableName,
         () => fixedNow
       );
-      await expect(
-        repo.markConsumed({ userId: 'u1', notifId: 'NOTIF-001' }, fixedNow)
-      ).rejects.toBeInstanceOf(DatabaseError);
+      await expect(repo.markConsumed(key, fixedNow)).rejects.toBeInstanceOf(DatabaseError);
     });
   });
 
@@ -468,7 +533,7 @@ describe('DynamoDBNotificationEventRepository', () => {
       const repo = new DynamoDBNotificationEventRepository(client as never, tableName);
       const before = Date.now();
       const entity = await repo.put(baseInput);
-      expect(entity.CreatedAt).toBeGreaterThanOrEqual(before);
+      expect(entity.createdAt).toBeGreaterThanOrEqual(before);
     });
   });
 });

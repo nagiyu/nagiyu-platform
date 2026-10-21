@@ -30,7 +30,7 @@ export interface AppendForecastOutcomeResult {
  * Forecast Repository インターフェース
  *
  * DynamoDB実装とInMemory実装が共通で実装するインターフェース。
- * 画面に出した値を後から検証できるよう、予測部分（AxisValues〜BackfilledAxes）と Outcome は、
+ * 画面に出した値を後から検証できるよう、予測部分 (axisValues〜backfilledAxes) と outcome は、
  * それぞれ一度きりの条件付き書き込みで作成・追記する。再実行しても既存の値を上書きしないため、
  * いずれも例外を投げず「書き込んだかどうか」を結果で返す（バッチが素直に再実行できるようにする）。
  */
@@ -39,7 +39,7 @@ export interface ForecastRepository {
    * Forecast を条件付きで新規作成する（`attribute_not_exists(PK)`）。
    * 既に存在する場合は書き込まず、既存のアイテムを `created: false` で返す。
    *
-   * @param input - 予測部分の入力（Outcome は持てない）
+   * @param input - 予測部分の入力 (outcome は持てない)
    */
   createIfAbsent(input: CreateForecastInput): Promise<CreateForecastResult>;
 
@@ -47,7 +47,7 @@ export interface ForecastRepository {
    * 既存 Forecast に採点結果（Outcome）を条件付きで追記する
    * （`attribute_exists(PK) AND attribute_not_exists(Outcome)`）。
    * 既に Outcome がある場合は書き込まず、既存のアイテムを `updated: false` で返す。
-   * 予測部分（AxisValues〜BackfilledAxes）は一切変更しない。
+   * 予測部分 (axisValues〜backfilledAxes) は一切変更しない。
    *
    * @param key - 対象 Forecast のキー
    * @param outcome - 採点結果（{@link TickerOutcome}。識別子フィールドは無視する）
@@ -56,7 +56,7 @@ export interface ForecastRepository {
   appendOutcome(key: ForecastKey, outcome: TickerOutcome): Promise<AppendForecastOutcomeResult>;
 
   /**
-   * TickerID と Date で単一の Forecast を取得（詳細ダイアログ用）
+   * tickerId と date で単一の Forecast を取得 (詳細ダイアログ用)
    *
    * @returns Forecast（存在しない場合は null）
    */
@@ -65,7 +65,7 @@ export interface ForecastRepository {
   /**
    * 取引所IDと Date で同一取引所・同一日の Forecast 一覧を取得（サマリー一覧 API 用）
    *
-   * GSI4（ExchangeSummaryIndex）を Query する。返却順序は TickerID 昇順を契約とする。
+   * GSI4 (ExchangeSummaryIndex) を Query する。返却順序は tickerId 昇順を契約とする。
    */
   getByExchangeAndDate(exchangeId: string, date: string): Promise<ForecastEntity[]>;
 

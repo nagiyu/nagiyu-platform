@@ -5,6 +5,7 @@ import { GET } from '@/app/api/lifecycle/route';
 import { getSession } from '@/lib/server/session';
 import { getLifecycleRepository } from '@/lib/server/repositories';
 import type { LifecycleEntity, LifecycleRepository } from '@nagiyu/livetalk-core';
+import { reportErrorEvent } from '@nagiyu/aws';
 
 jest.mock('@/lib/server/session', () => ({
   getSession: jest.fn(),
@@ -14,6 +15,10 @@ jest.mock('@/lib/server/repositories', () => ({
   getLifecycleRepository: jest.fn(),
 }));
 
+jest.mock('@nagiyu/aws', () => ({ reportErrorEvent: jest.fn().mockResolvedValue(null) }));
+
+const mockReportErrorEvent = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
+
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
 const mockGetLifecycleRepo = getLifecycleRepository as jest.MockedFunction<
   typeof getLifecycleRepository
@@ -21,24 +26,21 @@ const mockGetLifecycleRepo = getLifecycleRepository as jest.MockedFunction<
 
 const validSession = {
   user: {
-    userId: 'u1',
-    googleId: 'g1',
+    id: 'u1',
     email: 'u@example.com',
     name: 'U',
     roles: ['livetalk-user'],
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
   },
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
 
 const makeEntity = (bedtime: string, wakeUpTime: string): LifecycleEntity => ({
-  UserID: 'g1',
-  CharacterID: 'hiyori',
-  Bedtime: bedtime,
-  WakeUpTime: wakeUpTime,
-  CreatedAt: 0,
-  UpdatedAt: 0,
+  userId: 'u1',
+  characterId: 'hiyori',
+  bedtime: bedtime,
+  wakeUpTime: wakeUpTime,
+  createdAt: 0,
+  updatedAt: 0,
 });
 
 const makeRepo = (entity: LifecycleEntity | null): LifecycleRepository => ({
@@ -108,6 +110,13 @@ describe('GET /api/lifecycle', () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.state).toBe('awake');
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'livetalk',
+        title: 'Web API: 生活サイクル状態取得エラー',
+        message: 'db error',
+      })
+    );
     consoleSpy.mockRestore();
   });
 

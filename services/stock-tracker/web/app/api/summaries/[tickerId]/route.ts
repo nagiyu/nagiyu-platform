@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
-import { DailySummaryMapper } from '@nagiyu/stock-tracker-core';
 import { getSession } from '../../../../lib/auth';
+import {
+  createInternalErrorReporting,
+  reportSwallowedError,
+} from '../../../../lib/api-error-reporting';
 import {
   createAlertRepository,
   createDailySummaryRepository,
@@ -11,6 +14,7 @@ import {
 } from '../../../../lib/repository-factory';
 import { MAX_ALERTS_PER_USER } from '../../../../lib/constants';
 import { toTickerForecastSummary } from '../../../../lib/forecast/ticker-forecast';
+import { toPatternSummary } from '../../../../lib/summary/pattern-summary';
 import type { ErrorResponse } from '@nagiyu/common';
 
 const ERROR_MESSAGES = {
@@ -20,7 +24,11 @@ const ERROR_MESSAGES = {
   FETCH_FORECAST_FAILED: '確度情報の取得に失敗しました',
 } as const;
 
-const dailySummaryMapper = new DailySummaryMapper();
+const REPORT_TITLES = {
+  FETCH_FORECAST_FAILED: 'Web API: サマリーの確度取得エラー',
+} as const;
+
+const withInternalErrorReporting = createInternalErrorReporting(ERROR_MESSAGES.INTERNAL_ERROR);
 
 /** 確度は付加情報のため、取得に失敗してもサマリー自体は返す */
 async function fetchForecastSummary(tickerId: string, date: string) {
@@ -30,19 +38,21 @@ async function fetchForecastSummary(tickerId: string, date: string) {
     );
   } catch (error) {
     console.error(ERROR_MESSAGES.FETCH_FORECAST_FAILED, error);
+    await reportSwallowedError(REPORT_TITLES.FETCH_FORECAST_FAILED, error, { tickerId });
     return null;
   }
 }
 
-export const GET = withAuth(
-  getSession,
-  'stocks:read',
-  async (
-    session,
-    _request: Request,
-    { params }: { params: Promise<{ tickerId: string }> }
-  ): Promise<NextResponse> => {
-    try {
+export const GET = withInternalErrorReporting(
+  'Web API: サマリー取得エラー',
+  withAuth(
+    getSession,
+    'stocks:read',
+    async (
+      session,
+      _request: Request,
+      { params }: { params: Promise<{ tickerId: string }> }
+    ): Promise<NextResponse> => {
       const { tickerId } = await params;
 
       if (!tickerId || !tickerId.includes(':')) {
@@ -59,11 +69,11 @@ export const GET = withAuth(
       const [ticker, summaries, holding, alertsResult] = await Promise.all([
         createTickerRepository().getById(tickerId),
         createDailySummaryRepository().getByExchange(exchangeId),
-        createHoldingRepository().getById(session.user.userId, tickerId),
-        createAlertRepository().getByUserId(session.user.userId, { limit: MAX_ALERTS_PER_USER }),
+        createHoldingRepository().getById(session.user.id, tickerId),
+        createAlertRepository().getByUserId(session.user.id, { limit: MAX_ALERTS_PER_USER }),
       ]);
 
-      const latestSummary = summaries.find((summary) => summary.TickerID === tickerId);
+      const latestSummary = summaries.find((summary) => summary.tickerId === tickerId);
       if (!latestSummary) {
         return NextResponse.json(
           {
@@ -74,16 +84,16 @@ export const GET = withAuth(
         );
       }
 
-      const forecast = await fetchForecastSummary(tickerId, latestSummary.Date);
-      const patternCounts = dailySummaryMapper.toTickerSummaryResponse(latestSummary);
+      const forecast = await fetchForecastSummary(tickerId, latestSummary.date);
+      const patternCounts = toPatternSummary(latestSummary);
 
-      const alerts = alertsResult.items.filter((alert) => alert.TickerID === tickerId);
+      const alerts = alertsResult.items.filter((alert) => alert.tickerId === tickerId);
       const buyAlertCount = { enabled: 0, disabled: 0 };
       const sellAlertCount = { enabled: 0, disabled: 0 };
 
       for (const alert of alerts) {
-        const targetCount = alert.Mode === 'Buy' ? buyAlertCount : sellAlertCount;
-        if (alert.Enabled) {
+        const targetCount = alert.mode === 'Buy' ? buyAlertCount : sellAlertCount;
+        if (alert.enabled) {
           targetCount.enabled += 1;
         } else {
           targetCount.disabled += 1;
@@ -92,22 +102,22 @@ export const GET = withAuth(
 
       return NextResponse.json(
         {
-          tickerId: latestSummary.TickerID,
-          date: latestSummary.Date,
-          symbol: ticker?.Symbol ?? latestSummary.TickerID.split(':')[1] ?? latestSummary.TickerID,
-          name: ticker?.Name ?? latestSummary.TickerID,
-          open: latestSummary.Open,
-          high: latestSummary.High,
-          low: latestSummary.Low,
-          close: latestSummary.Close,
-          volume: latestSummary.Volume,
-          updatedAt: new Date(latestSummary.UpdatedAt).toISOString(),
+          tickerId: latestSummary.tickerId,
+          date: latestSummary.date,
+          symbol: ticker?.symbol ?? latestSummary.tickerId.split(':')[1] ?? latestSummary.tickerId,
+          name: ticker?.name ?? latestSummary.tickerId,
+          open: latestSummary.open,
+          high: latestSummary.high,
+          low: latestSummary.low,
+          close: latestSummary.close,
+          volume: latestSummary.volume,
+          updatedAt: new Date(latestSummary.updatedAt).toISOString(),
           buyAlertCount,
           sellAlertCount,
           holding: holding
             ? {
-                quantity: holding.Quantity,
-                averagePrice: holding.AveragePrice,
+                quantity: holding.quantity,
+                averagePrice: holding.averagePrice,
               }
             : null,
           forecast,
@@ -116,14 +126,6 @@ export const GET = withAuth(
         },
         { status: 200 }
       );
-    } catch {
-      return NextResponse.json(
-        {
-          error: 'INTERNAL_ERROR',
-          message: ERROR_MESSAGES.INTERNAL_ERROR,
-        } satisfies ErrorResponse,
-        { status: 500 }
-      );
     }
-  }
+  )
 );

@@ -1,3 +1,3 @@
-import { handlers } from '@nagiyu/auth-core';
+import { handlers } from '@/lib/auth/auth';
 
 export const { GET, POST } = handlers;

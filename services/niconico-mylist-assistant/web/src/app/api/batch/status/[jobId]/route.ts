@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
-import { withAuth, withRepository, handleApiError } from '@nagiyu/nextjs';
-import type { BatchJobRepository } from '@nagiyu/niconico-mylist-assistant-core';
-import { DynamoDBBatchJobRepository } from '@nagiyu/niconico-mylist-assistant-core';
+import { withAuth } from '@nagiyu/nextjs';
+import { getBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
 import type { BatchJobStatusResponse } from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 
 interface RouteParams {
   params: Promise<{ jobId: string }>;
@@ -14,27 +13,19 @@ interface RouteParams {
  * バッチジョブステータス取得 API
  *
  * ジョブIDで指定されたバッチジョブのステータスと結果を取得します。
+ * リポジトリは core の db 関数経由で取得するため、USE_IN_MEMORY_DB の切り替えが効きます。
  *
  * @see api-spec.md Section 4.2
  * @param request - Next.js リクエストオブジェクト
  * @param params - ルートパラメータ（jobId）
  * @returns バッチジョブステータスレスポンス
  */
-const getDynamoDBClient = () => getDynamoDBDocumentClient(process.env.AWS_REGION || 'us-east-1');
-
-const withBatchJobRepository = withRepository(
-  getDynamoDBClient,
-  getTableName,
-  DynamoDBBatchJobRepository,
-  async (
-    batchJobRepository: BatchJobRepository,
-    _request: NextRequest,
-    { params }: RouteParams,
-    session: NonNullable<Awaited<ReturnType<typeof getSession>>>
-  ) => {
+export const GET = withApiErrorReporting(
+  'Web API: バッチジョブステータス取得エラー',
+  withAuth(getSession, null, async (session, _request: NextRequest, { params }: RouteParams) => {
     const { jobId } = await params;
     // バッチジョブを取得
-    const batchJob = await batchJobRepository.getById(jobId, session.user.userId);
+    const batchJob = await getBatchJob(jobId, session.user.id);
 
     if (!batchJob) {
       return NextResponse.json(
@@ -52,30 +43,18 @@ const withBatchJobRepository = withRepository(
     const response: BatchJobStatusResponse = {
       jobId: batchJob.jobId,
       status: batchJob.status,
-      createdAt: new Date(batchJob.CreatedAt).toISOString(),
-      updatedAt: new Date(batchJob.UpdatedAt).toISOString(),
+      createdAt: new Date(batchJob.createdAt).toISOString(),
+      updatedAt: new Date(batchJob.updatedAt).toISOString(),
     };
 
     if (batchJob.result !== undefined) {
       response.result = batchJob.result;
     }
 
-    if (batchJob.CompletedAt !== undefined) {
-      response.completedAt = new Date(batchJob.CompletedAt).toISOString();
+    if (batchJob.completedAt !== undefined) {
+      response.completedAt = new Date(batchJob.completedAt).toISOString();
     }
 
     return NextResponse.json(response);
-  }
-);
-
-export const GET = withAuth(
-  getSession,
-  null,
-  async (session, request: NextRequest, context: RouteParams) => {
-    try {
-      return await withBatchJobRepository(request, context, session);
-    } catch (error) {
-      return handleApiError(error);
-    }
-  }
+  })
 );

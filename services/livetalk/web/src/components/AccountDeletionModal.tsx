@@ -1,16 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  Alert,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Typography,
-} from '@mui/material';
-import { Button, Checkbox } from '@nagiyu/ui';
+import { Alert, Typography } from '@mui/material';
+import { Checkbox, ConfirmDialog } from '@nagiyu/ui';
 
 export interface AccountDeletionModalProps {
   /** モーダルの開閉状態 */
@@ -49,62 +41,39 @@ export default function AccountDeletionModal({
   };
 
   return (
-    <Dialog
+    <ConfirmDialog
       open={open}
-      onClose={handleCancel}
-      maxWidth="sm"
-      fullWidth
-      aria-labelledby="account-deletion-modal-title"
+      title="退会・データ削除"
+      description="退会すると、以下のデータがすべて削除されます。この操作は取り消せません。"
+      confirmLabel="退会・削除する"
+      confirmDisabled={!confirmed}
+      confirmTestId="deletion-confirm"
+      loading={loading}
+      onConfirm={onConfirm}
+      onCancel={handleCancel}
     >
-      <DialogTitle id="account-deletion-modal-title">退会・データ削除</DialogTitle>
-      <DialogContent>
-        <DialogContentText sx={{ mb: 2 }}>
-          退会すると、以下のデータがすべて削除されます。この操作は取り消せません。
-        </DialogContentText>
-        <Typography variant="body2" component="ul" sx={{ mb: 2, pl: 2 }}>
-          <li>会話履歴</li>
-          <li>記憶データ</li>
-          <li>親密度</li>
-          <li>ノート</li>
-          <li>その他すべての個人データ</li>
-        </Typography>
-        <Alert severity="info" data-testid="safety-log-notice" sx={{ mb: 2 }}>
-          安全のため、自傷・自殺に関する検出ログのみ、匿名化したうえで一定期間保持します。
-          保持期間が過ぎた後は自動的に削除されます。
+      <Typography variant="body2" component="ul" sx={{ mb: 2, pl: 2 }}>
+        <li>会話履歴</li>
+        <li>記憶データ</li>
+        <li>親密度</li>
+        <li>ノート</li>
+        <li>その他すべての個人データ</li>
+      </Typography>
+      <Alert severity="info" data-testid="safety-log-notice" sx={{ mb: 2 }}>
+        安全のため、自傷・自殺に関する検出ログのみ、匿名化したうえで一定期間保持します。
+        保持期間が過ぎた後は自動的に削除されます。
+      </Alert>
+      <Checkbox
+        checked={confirmed}
+        onChange={(e) => setConfirmed(e.target.checked)}
+        disabled={loading}
+        label="削除範囲を理解し、復元できないことに同意します"
+      />
+      {error && (
+        <Alert severity="error" sx={{ mt: 2 }} role="alert" data-testid="deletion-error">
+          {error}
         </Alert>
-        <Checkbox
-          checked={confirmed}
-          onChange={(e) => setConfirmed(e.target.checked)}
-          disabled={loading}
-          label="削除範囲を理解し、復元できないことに同意します"
-        />
-        {error && (
-          <Alert severity="error" sx={{ mt: 2 }} role="alert" data-testid="deletion-error">
-            {error}
-          </Alert>
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button
-          variant="ghost"
-          color="neutral"
-          onClick={handleCancel}
-          disabled={loading}
-          data-testid="deletion-cancel"
-        >
-          キャンセル
-        </Button>
-        <Button
-          variant="solid"
-          color="danger"
-          onClick={onConfirm}
-          loading={loading}
-          disabled={!confirmed || loading}
-          data-testid="deletion-confirm"
-        >
-          退会・削除する
-        </Button>
-      </DialogActions>
-    </Dialog>
+      )}
+    </ConfirmDialog>
   );
 }

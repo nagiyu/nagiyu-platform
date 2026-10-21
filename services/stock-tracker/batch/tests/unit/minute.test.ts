@@ -14,7 +14,7 @@ import type { ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import * as alertEvaluator from '@nagiyu/stock-tracker-core';
 import * as tradingHoursChecker from '@nagiyu/stock-tracker-core';
-import type { Alert, Exchange } from '@nagiyu/stock-tracker-core';
+import type { AlertEntity, ExchangeEntity } from '@nagiyu/stock-tracker-core';
 
 // TradingViewSession モックインスタンス（beforeEach で再生成）
 let mockSession: { getCurrentPrice: jest.Mock; close: jest.Mock; getSessionId: jest.Mock };
@@ -59,37 +59,37 @@ jest.mock('@nagiyu/stock-tracker-core', () => ({
 }));
 
 /** テスト用アラートファクトリ */
-function makeAlert(overrides: Partial<Alert> = {}): Alert {
+function makeAlert(overrides: Partial<AlertEntity> = {}): AlertEntity {
   return {
-    AlertID: 'alert-1',
-    UserID: 'user-1',
-    TickerID: 'NSDQ:AAPL',
-    ExchangeID: 'NASDAQ',
-    Mode: 'Sell',
-    Frequency: 'MINUTE_LEVEL',
-    Enabled: true,
-    ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
+    alertId: 'alert-1',
+    userId: 'user-1',
+    tickerId: 'NSDQ:AAPL',
+    exchangeId: 'NASDAQ',
+    mode: 'Sell',
+    frequency: 'MINUTE_LEVEL',
+    enabled: true,
+    conditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
     subscription: {
       endpoint: 'https://fcm.googleapis.com/fcm/send/test',
       keys: { p256dh: 'test-p256dh', auth: 'test-auth' },
     },
-    CreatedAt: Date.now(),
-    UpdatedAt: Date.now(),
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
     ...overrides,
   };
 }
 
 /** tradingview 用デフォルト取引所（PriceSource=tradingview） */
-const mockExchange: Exchange = {
-  ExchangeID: 'NASDAQ',
-  Name: 'NASDAQ',
-  Key: 'NSDQ',
-  Timezone: 'America/New_York',
-  Start: '04:00',
-  End: '20:00',
-  PriceSource: 'tradingview',
-  CreatedAt: Date.now(),
-  UpdatedAt: Date.now(),
+const mockExchange: ExchangeEntity = {
+  exchangeId: 'NASDAQ',
+  name: 'NASDAQ',
+  key: 'NSDQ',
+  timezone: 'America/New_York',
+  start: '04:00',
+  end: '20:00',
+  priceSource: 'tradingview',
+  createdAt: Date.now(),
+  updatedAt: Date.now(),
 };
 
 describe('minute batch handler', () => {
@@ -133,10 +133,11 @@ describe('minute batch handler', () => {
     mockExchangeRepo = {
       getById: jest.fn(),
       getAll: jest.fn(),
+      getAllIndexed: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
-    } as unknown as jest.Mocked<ExchangeRepository>;
+    };
 
     (DynamoDBAlertRepository as jest.Mock).mockImplementation(() => mockAlertRepo);
     (DynamoDBExchangeRepository as jest.Mock).mockImplementation(() => mockExchangeRepo);
@@ -168,15 +169,15 @@ describe('minute batch handler', () => {
   describe('正常系: アラート条件達成時に通知を送信', () => {
     it('有効なアラートの条件が達成された場合、Web Push 通知を送信する', async () => {
       // Arrange
-      const mockAlert: Alert = {
-        AlertID: 'alert-1',
-        UserID: 'user-1',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Sell',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
+      const mockAlert: AlertEntity = {
+        alertId: 'alert-1',
+        userId: 'user-1',
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        mode: 'Sell',
+        frequency: 'MINUTE_LEVEL',
+        enabled: true,
+        conditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
         subscription: {
           endpoint: 'https://fcm.googleapis.com/fcm/send/test',
           keys: {
@@ -184,19 +185,20 @@ describe('minute batch handler', () => {
             auth: 'test-auth',
           },
         },
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
-      const mockExchange: Exchange = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+      const mockExchange: ExchangeEntity = {
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
@@ -254,15 +256,15 @@ describe('minute batch handler', () => {
   describe('正常系: Enabled=false のアラートをスキップ', () => {
     it('無効化されたアラートは処理をスキップする', async () => {
       // Arrange
-      const mockAlert: Alert = {
-        AlertID: 'alert-1',
-        UserID: 'user-1',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Sell',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: false, // 無効化
-        ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
+      const mockAlert: AlertEntity = {
+        alertId: 'alert-1',
+        userId: 'user-1',
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        mode: 'Sell',
+        frequency: 'MINUTE_LEVEL',
+        enabled: false, // 無効化
+        conditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
         subscription: {
           endpoint: 'https://fcm.googleapis.com/fcm/send/test',
           keys: {
@@ -270,8 +272,8 @@ describe('minute batch handler', () => {
             auth: 'test-auth',
           },
         },
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
@@ -296,15 +298,15 @@ describe('minute batch handler', () => {
   describe('正常系: 取引時間外はアラートを抑制', () => {
     it('取引時間外の場合は通知を送信しない', async () => {
       // Arrange
-      const mockAlert: Alert = {
-        AlertID: 'alert-1',
-        UserID: 'user-1',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Sell',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
+      const mockAlert: AlertEntity = {
+        alertId: 'alert-1',
+        userId: 'user-1',
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        mode: 'Sell',
+        frequency: 'MINUTE_LEVEL',
+        enabled: true,
+        conditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
         subscription: {
           endpoint: 'https://fcm.googleapis.com/fcm/send/test',
           keys: {
@@ -312,19 +314,20 @@ describe('minute batch handler', () => {
             auth: 'test-auth',
           },
         },
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
-      const mockExchange: Exchange = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+      const mockExchange: ExchangeEntity = {
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
@@ -348,15 +351,15 @@ describe('minute batch handler', () => {
   describe('正常系: 条件未達成の場合は通知しない', () => {
     it('アラート条件が未達成の場合は通知を送信しない', async () => {
       // Arrange
-      const mockAlert: Alert = {
-        AlertID: 'alert-1',
-        UserID: 'user-1',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Sell',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
+      const mockAlert: AlertEntity = {
+        alertId: 'alert-1',
+        userId: 'user-1',
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        mode: 'Sell',
+        frequency: 'MINUTE_LEVEL',
+        enabled: true,
+        conditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
         subscription: {
           endpoint: 'https://fcm.googleapis.com/fcm/send/test',
           keys: {
@@ -364,19 +367,20 @@ describe('minute batch handler', () => {
             auth: 'test-auth',
           },
         },
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
-      const mockExchange: Exchange = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+      const mockExchange: ExchangeEntity = {
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
@@ -421,15 +425,15 @@ describe('minute batch handler', () => {
   describe('異常系: TradingView API エラー', () => {
     it('TradingView API がエラーを返した場合、エラーをログに記録して継続', async () => {
       // Arrange
-      const mockAlert: Alert = {
-        AlertID: 'alert-1',
-        UserID: 'user-1',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Sell',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
+      const mockAlert: AlertEntity = {
+        alertId: 'alert-1',
+        userId: 'user-1',
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        mode: 'Sell',
+        frequency: 'MINUTE_LEVEL',
+        enabled: true,
+        conditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
         subscription: {
           endpoint: 'https://fcm.googleapis.com/fcm/send/test',
           keys: {
@@ -437,19 +441,20 @@ describe('minute batch handler', () => {
             auth: 'test-auth',
           },
         },
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
-      const mockExchange: Exchange = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+      const mockExchange: ExchangeEntity = {
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
@@ -482,15 +487,15 @@ describe('minute batch handler', () => {
   describe('異常系: Exchange が存在しない', () => {
     it('Exchange が見つからない場合、エラーをログに記録して継続', async () => {
       // Arrange
-      const mockAlert: Alert = {
-        AlertID: 'alert-1',
-        UserID: 'user-1',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'INVALID',
-        Mode: 'Sell',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
+      const mockAlert: AlertEntity = {
+        alertId: 'alert-1',
+        userId: 'user-1',
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'INVALID',
+        mode: 'Sell',
+        frequency: 'MINUTE_LEVEL',
+        enabled: true,
+        conditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
         subscription: {
           endpoint: 'https://fcm.googleapis.com/fcm/send/test',
           keys: {
@@ -498,8 +503,8 @@ describe('minute batch handler', () => {
             auth: 'test-auth',
           },
         },
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
@@ -541,15 +546,15 @@ describe('minute batch handler', () => {
   describe('異常系: 複数アラートの混在ケース', () => {
     it('一部のアラートでエラーが発生しても、他のアラートの処理を継続する', async () => {
       // Arrange
-      const mockAlert1: Alert = {
-        AlertID: 'alert-1',
-        UserID: 'user-1',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Sell',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
+      const mockAlert1: AlertEntity = {
+        alertId: 'alert-1',
+        userId: 'user-1',
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        mode: 'Sell',
+        frequency: 'MINUTE_LEVEL',
+        enabled: true,
+        conditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
         subscription: {
           endpoint: 'https://fcm.googleapis.com/fcm/send/test1',
           keys: {
@@ -557,19 +562,19 @@ describe('minute batch handler', () => {
             auth: 'test-auth-1',
           },
         },
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
-      const mockAlert2: Alert = {
-        AlertID: 'alert-2',
-        UserID: 'user-2',
-        TickerID: 'NYSE:TSLA',
-        ExchangeID: 'NYSE',
-        Mode: 'Buy',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+      const mockAlert2: AlertEntity = {
+        alertId: 'alert-2',
+        userId: 'user-2',
+        tickerId: 'NYSE:TSLA',
+        exchangeId: 'NYSE',
+        mode: 'Buy',
+        frequency: 'MINUTE_LEVEL',
+        enabled: true,
+        conditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
         subscription: {
           endpoint: 'https://fcm.googleapis.com/fcm/send/test2',
           keys: {
@@ -577,19 +582,20 @@ describe('minute batch handler', () => {
             auth: 'test-auth-2',
           },
         },
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
-      const mockExchange: Exchange = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+      const mockExchange: ExchangeEntity = {
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert1, mockAlert2]);
@@ -630,19 +636,19 @@ describe('minute batch handler', () => {
   describe('正常系: 複数条件（範囲内）アラート', () => {
     it('範囲内アラート（AND）の条件が達成された場合、Web Push 通知を送信する', async () => {
       // Arrange
-      const mockAlert: Alert = {
-        AlertID: 'alert-1',
-        UserID: 'user-1',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Sell',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [
+      const mockAlert: AlertEntity = {
+        alertId: 'alert-1',
+        userId: 'user-1',
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        mode: 'Sell',
+        frequency: 'MINUTE_LEVEL',
+        enabled: true,
+        conditionList: [
           { field: 'price', operator: 'gte', value: 100.0 },
           { field: 'price', operator: 'lte', value: 110.0 },
         ],
-        LogicalOperator: 'AND',
+        logicalOperator: 'AND',
         subscription: {
           endpoint: 'https://fcm.googleapis.com/fcm/send/test',
           keys: {
@@ -650,19 +656,20 @@ describe('minute batch handler', () => {
             auth: 'test-auth',
           },
         },
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
-      const mockExchange: Exchange = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+      const mockExchange: ExchangeEntity = {
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
@@ -701,15 +708,15 @@ describe('minute batch handler', () => {
   describe('正常系: 複数条件（LogicalOperator が undefined）アラート', () => {
     it('LogicalOperator が未指定の場合、デフォルトで AND として扱い通知を送信する', async () => {
       // Arrange
-      const mockAlert: Alert = {
-        AlertID: 'alert-1',
-        UserID: 'user-1',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Sell',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [
+      const mockAlert: AlertEntity = {
+        alertId: 'alert-1',
+        userId: 'user-1',
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        mode: 'Sell',
+        frequency: 'MINUTE_LEVEL',
+        enabled: true,
+        conditionList: [
           { field: 'price', operator: 'gte', value: 100.0 },
           { field: 'price', operator: 'lte', value: 110.0 },
         ],
@@ -721,19 +728,20 @@ describe('minute batch handler', () => {
             auth: 'test-auth',
           },
         },
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
-      const mockExchange: Exchange = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+      const mockExchange: ExchangeEntity = {
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
@@ -772,19 +780,19 @@ describe('minute batch handler', () => {
   describe('正常系: 複数条件（範囲外）アラート', () => {
     it('範囲外アラート（OR）の条件が達成された場合、Web Push 通知を送信する', async () => {
       // Arrange
-      const mockAlert: Alert = {
-        AlertID: 'alert-1',
-        UserID: 'user-1',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Sell',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [
+      const mockAlert: AlertEntity = {
+        alertId: 'alert-1',
+        userId: 'user-1',
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        mode: 'Sell',
+        frequency: 'MINUTE_LEVEL',
+        enabled: true,
+        conditionList: [
           { field: 'price', operator: 'lte', value: 90.0 },
           { field: 'price', operator: 'gte', value: 120.0 },
         ],
-        LogicalOperator: 'OR',
+        logicalOperator: 'OR',
         subscription: {
           endpoint: 'https://fcm.googleapis.com/fcm/send/test',
           keys: {
@@ -792,19 +800,20 @@ describe('minute batch handler', () => {
             auth: 'test-auth',
           },
         },
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
-      const mockExchange: Exchange = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+      const mockExchange: ExchangeEntity = {
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
+        key: 'NSDQ',
+        timezone: 'America/New_York',
+        start: '04:00',
+        end: '20:00',
+        priceSource: 'tradingview',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
@@ -853,7 +862,7 @@ describe('minute batch handler', () => {
     });
 
     it('時間予算超過後のアラートは skippedTimeBudget としてカウントされる', async () => {
-      const alerts = Array.from({ length: 5 }, (_, i) => makeAlert({ AlertID: `alert-${i}` }));
+      const alerts = Array.from({ length: 5 }, (_, i) => makeAlert({ alertId: `alert-${i}` }));
 
       mockAlertRepo.getByFrequency.mockResolvedValue(alerts);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
@@ -874,7 +883,7 @@ describe('minute batch handler', () => {
     it('時間予算超過があっても statusCode 200 で正常終了する', async () => {
       mockAlertRepo.getByFrequency.mockResolvedValue([
         makeAlert(),
-        makeAlert({ AlertID: 'alert-2' }),
+        makeAlert({ alertId: 'alert-2' }),
       ]);
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(false);
@@ -896,7 +905,7 @@ describe('minute batch handler', () => {
 
     it('複数アラートを並列処理し全件の統計が集計される', async () => {
       const alerts = Array.from({ length: 6 }, (_, i) =>
-        makeAlert({ AlertID: `alert-${i}`, Enabled: false })
+        makeAlert({ alertId: `alert-${i}`, enabled: false })
       );
 
       mockAlertRepo.getByFrequency.mockResolvedValue(alerts);
@@ -916,7 +925,7 @@ describe('minute batch handler', () => {
     it('51件のアラートがすべて処理対象になり、totalAlertsに全件数が入る', async () => {
       const total = 51;
       const alerts = Array.from({ length: total }, (_, i) =>
-        makeAlert({ AlertID: `alert-${i}`, Enabled: false })
+        makeAlert({ alertId: `alert-${i}`, enabled: false })
       );
 
       mockAlertRepo.getByFrequency.mockResolvedValue(alerts);
@@ -963,7 +972,7 @@ describe('minute batch handler', () => {
 
     it('errors が閾値未満の場合、process.exit を呼ばない', async () => {
       // Arrange: 閾値 1 に対して errors = 0 になるケース（Enabled=false はエラー扱いしない）
-      const alert = makeAlert({ Enabled: false });
+      const alert = makeAlert({ enabled: false });
       mockAlertRepo.getByFrequency.mockResolvedValue([alert]);
 
       // Act
@@ -1123,16 +1132,16 @@ describe('minute batch handler', () => {
   });
 
   describe('Finnhub 経路（PriceSource = finnhub）', () => {
-    const finnhubExchange: Exchange = {
-      ExchangeID: 'NASDAQ',
-      Name: 'NASDAQ',
-      Key: 'NSDQ',
-      Timezone: 'America/New_York',
-      Start: '04:00',
-      End: '20:00',
-      PriceSource: 'finnhub',
-      CreatedAt: Date.now(),
-      UpdatedAt: Date.now(),
+    const finnhubExchange: ExchangeEntity = {
+      exchangeId: 'NASDAQ',
+      name: 'NASDAQ',
+      key: 'NSDQ',
+      timezone: 'America/New_York',
+      start: '04:00',
+      end: '20:00',
+      priceSource: 'finnhub',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     };
 
     it('PriceSource=finnhub の場合、FinnhubQuoteProvider が呼ばれ共有セッションは使わない', async () => {

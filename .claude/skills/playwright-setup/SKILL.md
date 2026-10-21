@@ -40,7 +40,7 @@ sudo -E npx --yes playwright@<version> install --with-deps chromium
 
 ```bash
 npm ci
-.claude/skills/build-shared-libs/scripts/build.sh   # 共通ライブラリのビルド（先に必要）
+npm run build:libs                                  # 共通ライブラリのビルド（先に必要）
 .claude/skills/playwright-setup/scripts/install.sh  # chromium
 cd services/<svc>/web
 ../../../node_modules/.bin/playwright test --project=chromium-mobile

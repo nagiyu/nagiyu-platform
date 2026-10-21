@@ -9,6 +9,7 @@ on:
     paths:
       - 'services/admin/**'
       - 'libs/**'
+      - 'configs/**'
       - 'infra/admin/**'
       - 'infra/common/**'
       - 'package.json'
@@ -150,7 +151,7 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/admin'
-          shared-workspaces: '@nagiyu/common,@nagiyu/aws,@nagiyu/browser,@nagiyu/react,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/admin-core'
+          shared-workspaces: '@nagiyu/admin-core'
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

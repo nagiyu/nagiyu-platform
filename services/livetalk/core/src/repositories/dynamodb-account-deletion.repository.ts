@@ -1,5 +1,5 @@
 /**
- * アカウント削除リポジトリの DynamoDB 実装（退会・データ削除 / Issue #3579）。
+ * アカウント削除リポジトリの DynamoDB 実装。
  *
  * ADR-2.21 の要件:
  * - `PK = USER#<userId>` 配下の全アイテムをページネーションで全件取得する。
@@ -11,7 +11,7 @@
  */
 
 import { TransactWriteCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { batchWriteAll, DatabaseError, queryAllItems, type DynamoDBItem } from '@nagiyu/aws';
+import { batchWriteAll, DatabaseError, queryAllItems, type DynamoDBAttributes } from '@nagiyu/aws';
 import { sleep } from '@nagiyu/common';
 import type { AccountDeletionResult } from '../entities/account-deletion.entity.js';
 import { defaultUlidFactory, type UlidFactory } from '../lib/ulid.js';
@@ -60,8 +60,8 @@ export class DynamoDBAccountDeletionRepository implements AccountDeletionReposit
     const allItems = await this.queryAll(pk);
 
     // 2. SafetyEvent と それ以外に分割する
-    const safetyItems: DynamoDBItem[] = [];
-    const deleteItems: DynamoDBItem[] = [];
+    const safetyItems: DynamoDBAttributes[] = [];
+    const deleteItems: DynamoDBAttributes[] = [];
 
     for (const item of allItems) {
       const sk = String(item['SK'] ?? '');
@@ -84,7 +84,7 @@ export class DynamoDBAccountDeletionRepository implements AccountDeletionReposit
   /**
    * PK 配下の全アイテムをページネーションで取得する。
    */
-  private async queryAll(pk: string): Promise<DynamoDBItem[]> {
+  private async queryAll(pk: string): Promise<DynamoDBAttributes[]> {
     try {
       return await queryAllItems(this.docClient, {
         TableName: this.tableName,
@@ -109,7 +109,7 @@ export class DynamoDBAccountDeletionRepository implements AccountDeletionReposit
    *
    * @returns 削除件数（リトライ後の最終成功数）
    */
-  private async batchDelete(items: DynamoDBItem[]): Promise<number> {
+  private async batchDelete(items: DynamoDBAttributes[]): Promise<number> {
     try {
       return await batchWriteAll(
         this.docClient,
@@ -142,7 +142,10 @@ export class DynamoDBAccountDeletionRepository implements AccountDeletionReposit
    *
    * @returns 匿名化件数
    */
-  private async anonymizeSafetyEvents(originalPk: string, items: DynamoDBItem[]): Promise<number> {
+  private async anonymizeSafetyEvents(
+    originalPk: string,
+    items: DynamoDBAttributes[]
+  ): Promise<number> {
     if (items.length === 0) return 0;
 
     const now = this.nowMs();
@@ -153,7 +156,7 @@ export class DynamoDBAccountDeletionRepository implements AccountDeletionReposit
     let anonymizedCount = 0;
 
     for (const item of items) {
-      const newItem: DynamoDBItem = {
+      const newItem: DynamoDBAttributes = {
         ...item,
         PK: newPk,
         // UserID を匿名トークンに置換する（mapper が非空文字列でバリデートするため空にできない）
@@ -161,7 +164,7 @@ export class DynamoDBAccountDeletionRepository implements AccountDeletionReposit
         // GSI2 は維持する（匿名化後も横断 Query に残す）
         GSI2PK: buildSafetyEventGSI2PK(),
         // GSI2SK は既存値を維持し、欠落時は EventID（= 定義上の GSI2SK 値）で補完する。
-        // #3580 以前の legacy item で GSI2SK が欠落していても確実に横断索引へ残す。
+        // GSI2SK を持たない旧形式の item でも確実に横断索引へ残す。
         GSI2SK: item['GSI2SK'] ?? (item['EventID'] as string),
         UpdatedAt: now,
         AnonymizedAt: nowIso,

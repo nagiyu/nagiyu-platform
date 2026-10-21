@@ -4,72 +4,34 @@
  * DynamoDBを使用したBatchJobRepositoryの実装
  */
 
-import {
-  GetCommand,
-  PutCommand,
-  DeleteCommand,
-  UpdateCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
-import {
-  DatabaseError,
-  EntityAlreadyExistsError,
-  EntityNotFoundError,
-  buildUpdateExpression,
-  toDatabaseError,
-  mapConditionalCheckFailed,
-  type DynamoDBItem,
-} from '@nagiyu/aws';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBEntityStore, type EntityStore } from '@nagiyu/aws';
 import type { BatchJobRepository } from './batch-job.repository.interface.js';
 import type {
   BatchJobEntity,
+  BatchJobKey,
   CreateBatchJobInput,
   UpdateBatchJobInput,
 } from '../entities/batch-job.entity.js';
 import { BatchJobMapper } from '../mappers/batch-job.mapper.js';
 
-const ERROR_MESSAGES = {
-  NO_UPDATES_SPECIFIED: '更新するフィールドが指定されていません',
-} as const;
-
 /**
  * DynamoDB BatchJob Repository
  *
- * DynamoDBを使用したバッチジョブリポジトリの実装
+ * 単一アイテムの CRUD をすべて EntityStore に任せる
  */
 export class DynamoDBBatchJobRepository implements BatchJobRepository {
-  private readonly mapper: BatchJobMapper;
-  private readonly docClient: DynamoDBDocumentClient;
-  private readonly tableName: string;
+  private readonly entityStore: EntityStore<BatchJobEntity, BatchJobKey>;
 
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
-    this.docClient = docClient;
-    this.tableName = tableName;
-    this.mapper = new BatchJobMapper();
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, new BatchJobMapper());
   }
 
   /**
    * ジョブIDとユーザーIDで単一のバッチジョブを取得
    */
   public async getById(jobId: string, userId: string): Promise<BatchJobEntity | null> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys({ jobId, userId });
-
-      const result = await this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-        })
-      );
-
-      if (!result.Item) {
-        return null;
-      }
-
-      return this.mapper.toEntity(result.Item as DynamoDBItem);
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.get({ jobId, userId });
   }
 
   /**
@@ -77,92 +39,32 @@ export class DynamoDBBatchJobRepository implements BatchJobRepository {
    */
   public async create(input: CreateBatchJobInput): Promise<BatchJobEntity> {
     const now = Date.now();
-    const entity: BatchJobEntity = {
-      ...input,
-      CreatedAt: now,
-      UpdatedAt: now,
-    };
-
-    const item = this.mapper.toItem(entity);
-
-    try {
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: item,
-          ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
-        })
-      );
-
-      return entity;
-    } catch (error) {
-      mapConditionalCheckFailed(error, {
-        onExists: () => {
-          throw new EntityAlreadyExistsError('BatchJob', `${input.jobId}#${input.userId}`);
-        },
-      });
-      throw toDatabaseError(error);
-    }
+    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
+    return this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
   }
 
   /**
-   * バッチジョブのステータスを更新
+   * バッチジョブを更新
    */
   public async update(
     jobId: string,
     userId: string,
     input: UpdateBatchJobInput
   ): Promise<BatchJobEntity> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys({ jobId, userId });
-      const attributes = this.mapper.buildUpdateAttributes(input);
-
-      // mapper が status と UpdatedAt を常に返すため null にはならない。型を絞るための分岐
-      const updateParts = buildUpdateExpression(attributes);
-      if (!updateParts) {
-        throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
-      }
-
-      const result = await this.docClient.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-          ...updateParts,
-          ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
-          ReturnValues: 'ALL_NEW',
-        })
-      );
-
-      if (!result.Attributes) {
-        throw new EntityNotFoundError('BatchJob', `${jobId}#${userId}`);
-      }
-
-      return this.mapper.toEntity(result.Attributes as DynamoDBItem);
-    } catch (error) {
-      mapConditionalCheckFailed(error, {
-        onMissing: () => {
-          throw new EntityNotFoundError('BatchJob', `${jobId}#${userId}`);
-        },
-      });
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.update({ jobId, userId }, input);
   }
 
   /**
    * バッチジョブを削除
    */
   public async delete(jobId: string, userId: string): Promise<void> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys({ jobId, userId });
+    await this.entityStore.delete({ jobId, userId });
+  }
 
-      await this.docClient.send(
-        new DeleteCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-        })
-      );
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+  /**
+   * バッチジョブを削除する。対象がなくても成功する
+   */
+  public async deleteIfExists(jobId: string, userId: string): Promise<void> {
+    await this.entityStore.deleteIfExists({ jobId, userId });
   }
 }

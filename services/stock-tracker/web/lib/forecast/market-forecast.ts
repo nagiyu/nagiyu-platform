@@ -44,7 +44,7 @@ export function toMarketForecastResponse(
   entity: MarketForecastEntity | null,
   evaluatedDays: number
 ): MarketForecastResponse {
-  const record = entity?.Probabilities.MKT;
+  const record = entity?.probabilities.MKT;
   if (!record) {
     return { market, date, forecast: null };
   }
@@ -106,7 +106,7 @@ export async function buildMarketForecasts(
         return toMarketForecastResponse(market, null, null, 0);
       }
       const entity = await repositories.marketForecastRepository.getByMarketAndDate(market, date);
-      const evaluatedDays = entity?.Probabilities.MKT
+      const evaluatedDays = entity?.probabilities.MKT
         ? await countEvaluatedDays(repositories.performanceDailyRepository, market, date)
         : 0;
       return toMarketForecastResponse(market, date, entity, evaluatedDays);

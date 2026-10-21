@@ -13,6 +13,10 @@ import AccessDeniedView, {
  */
 
 describe('AccessDeniedView', () => {
+  afterEach(() => {
+    window.history.pushState({}, '', '/');
+  });
+
   describe('デフォルト表示', () => {
     it('デフォルトのタイトルが表示される', () => {
       render(<AccessDeniedView authUrl="https://auth.nagiyu.com" />);
@@ -56,14 +60,32 @@ describe('AccessDeniedView', () => {
   });
 
   describe('「アクセスを更新」ボタンの遷移（onRefresh）', () => {
-    it('callbackUrl なしのとき /refresh エンドポイント URL で onRefresh が呼ばれる', () => {
+    it('callbackUrl なしのとき現在の URL を戻り先にした /refresh URL で onRefresh が呼ばれる', () => {
+      window.history.pushState({}, '', '/notes?tab=1');
       const mockOnRefresh = jest.fn();
       render(<AccessDeniedView authUrl="https://auth.nagiyu.com" onRefresh={mockOnRefresh} />);
       fireEvent.click(
         screen.getByRole('button', { name: ACCESS_DENIED_VIEW_MESSAGES.REFRESH_BUTTON })
       );
       expect(mockOnRefresh).toHaveBeenCalledTimes(1);
-      expect(mockOnRefresh).toHaveBeenCalledWith('https://auth.nagiyu.com/refresh');
+      expect(mockOnRefresh).toHaveBeenCalledWith(
+        `https://auth.nagiyu.com/refresh?callbackUrl=${encodeURIComponent(window.location.href)}`
+      );
+      expect(window.location.href).toContain('/notes?tab=1');
+    });
+
+    it('callbackUrl なしでも押下時点の最新 URL を戻り先にする', () => {
+      window.history.pushState({}, '', '/before');
+      const mockOnRefresh = jest.fn();
+      render(<AccessDeniedView authUrl="https://auth.nagiyu.com" onRefresh={mockOnRefresh} />);
+      window.history.pushState({}, '', '/after');
+      fireEvent.click(
+        screen.getByRole('button', { name: ACCESS_DENIED_VIEW_MESSAGES.REFRESH_BUTTON })
+      );
+      expect(mockOnRefresh).toHaveBeenCalledWith(
+        `https://auth.nagiyu.com/refresh?callbackUrl=${encodeURIComponent(window.location.href)}`
+      );
+      expect(window.location.href).toContain('/after');
     });
 
     it('callbackUrl あり のとき encodeURIComponent 済みクエリ付き URL で onRefresh が呼ばれる', () => {
@@ -102,23 +124,34 @@ describe('AccessDeniedView', () => {
 
     it('authUrl の末尾スラッシュを正規化した URL で onRefresh が呼ばれる', () => {
       const mockOnRefresh = jest.fn();
-      render(<AccessDeniedView authUrl="https://auth.nagiyu.com/" onRefresh={mockOnRefresh} />);
+      render(
+        <AccessDeniedView
+          authUrl="https://auth.nagiyu.com/"
+          callbackUrl="https://live-talk.nagiyu.com"
+          onRefresh={mockOnRefresh}
+        />
+      );
       fireEvent.click(
         screen.getByRole('button', { name: ACCESS_DENIED_VIEW_MESSAGES.REFRESH_BUTTON })
       );
-      expect(mockOnRefresh).toHaveBeenCalledWith('https://auth.nagiyu.com/refresh');
+      expect(mockOnRefresh).toHaveBeenCalledWith(
+        'https://auth.nagiyu.com/refresh?callbackUrl=https%3A%2F%2Flive-talk.nagiyu.com'
+      );
     });
   });
 
   describe('「再ログイン」ボタンの遷移（onSignOut）', () => {
-    it('callbackUrl なしのとき /api/auth/signout エンドポイント URL で onSignOut が呼ばれる', () => {
+    it('callbackUrl なしのとき現在の URL を戻り先にした signout URL で onSignOut が呼ばれる', () => {
+      window.history.pushState({}, '', '/notes?tab=1');
       const mockOnSignOut = jest.fn();
       render(<AccessDeniedView authUrl="https://auth.nagiyu.com" onSignOut={mockOnSignOut} />);
       fireEvent.click(
         screen.getByRole('button', { name: ACCESS_DENIED_VIEW_MESSAGES.SIGN_OUT_BUTTON })
       );
       expect(mockOnSignOut).toHaveBeenCalledTimes(1);
-      expect(mockOnSignOut).toHaveBeenCalledWith('https://auth.nagiyu.com/api/auth/signout');
+      expect(mockOnSignOut).toHaveBeenCalledWith(
+        `https://auth.nagiyu.com/api/auth/signout?callbackUrl=${encodeURIComponent(window.location.href)}`
+      );
     });
 
     it('callbackUrl あり のとき encodeURIComponent 済みクエリ付き URL で onSignOut が呼ばれる', () => {
@@ -157,11 +190,19 @@ describe('AccessDeniedView', () => {
 
     it('authUrl の末尾スラッシュを正規化した URL で onSignOut が呼ばれる', () => {
       const mockOnSignOut = jest.fn();
-      render(<AccessDeniedView authUrl="https://auth.nagiyu.com/" onSignOut={mockOnSignOut} />);
+      render(
+        <AccessDeniedView
+          authUrl="https://auth.nagiyu.com/"
+          callbackUrl="https://live-talk.nagiyu.com"
+          onSignOut={mockOnSignOut}
+        />
+      );
       fireEvent.click(
         screen.getByRole('button', { name: ACCESS_DENIED_VIEW_MESSAGES.SIGN_OUT_BUTTON })
       );
-      expect(mockOnSignOut).toHaveBeenCalledWith('https://auth.nagiyu.com/api/auth/signout');
+      expect(mockOnSignOut).toHaveBeenCalledWith(
+        'https://auth.nagiyu.com/api/auth/signout?callbackUrl=https%3A%2F%2Flive-talk.nagiyu.com'
+      );
     });
   });
 

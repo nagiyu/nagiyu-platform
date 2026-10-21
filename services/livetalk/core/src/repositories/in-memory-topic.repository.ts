@@ -1,4 +1,13 @@
-import { InMemorySingleTableStore, type DynamoDBItem } from '@nagiyu/aws';
+import { logger } from '@nagiyu/common';
+import {
+  EntityAlreadyExistsError,
+  EntityNotFoundError,
+  InMemoryEntityStore,
+  OptimisticLockError,
+  type DynamoDBAttributes,
+  type EntityStore,
+  type InMemorySingleTableStore,
+} from '@nagiyu/aws';
 import type {
   CreateSelfFactInput,
   SelfFactEntity,
@@ -20,12 +29,11 @@ import {
   STALE_GSI_PROJECTION,
   TOPIC_GSI_PROJECTION,
 } from '../mappers/keys.js';
-import { OptimisticLockError } from './optimistic-lock.error.js';
 import type { TopicBundle, TopicRepository } from './topic.repository.interface.js';
 
 /**
- * Topic（ヘッダ・META）+ SELF fact + WEB fact を扱う統合リポジトリの InMemory 実装
- * （リブトーク知識再設計 P1 / #3697）。GSI3（GSI-TOPIC）相当は配列フィルタで再現する。
+ * Topic（ヘッダ・META）+ SELF fact + WEB fact を扱う統合リポジトリの InMemory 実装。
+ * GSI3（GSI-TOPIC）・GSI4（GSI-STALE）相当は属性の配列フィルタで再現する。
  */
 export class InMemoryTopicRepository implements TopicRepository {
   private readonly topicMapper = new TopicMapper();
@@ -34,6 +42,9 @@ export class InMemoryTopicRepository implements TopicRepository {
   private readonly store: InMemorySingleTableStore;
   private readonly ulidFactory: UlidFactory;
   private readonly nowMs: () => number;
+  private readonly topicStore: EntityStore<TopicEntity, TopicKey>;
+  private readonly selfFactStore: EntityStore<SelfFactEntity, SelfFactKey>;
+  private readonly webFactStore: EntityStore<WebFactEntity, WebFactKey>;
 
   constructor(
     store: InMemorySingleTableStore,
@@ -43,6 +54,9 @@ export class InMemoryTopicRepository implements TopicRepository {
     this.store = store;
     this.ulidFactory = ulidFactory;
     this.nowMs = nowMs;
+    this.topicStore = new InMemoryEntityStore(store, this.topicMapper, { now: nowMs });
+    this.selfFactStore = new InMemoryEntityStore(store, this.selfFactMapper, { now: nowMs });
+    this.webFactStore = new InMemoryEntityStore(store, this.webFactMapper, { now: nowMs });
   }
 
   public async putTopic(
@@ -50,38 +64,33 @@ export class InMemoryTopicRepository implements TopicRepository {
     opts: { expectedUpdatedAt?: number } = {}
   ): Promise<TopicEntity> {
     const now = this.nowMs();
-    const { pk, sk } = this.topicMapper.buildKeys({
-      userId: input.UserID,
-      characterId: input.CharacterID,
-      topicId: input.TopicID,
-    });
-    const existingItem = this.store.get(pk, sk);
-    const identifier = `${input.UserID}#${input.CharacterID}#${input.TopicID}`;
+    const key: TopicKey = {
+      userId: input.userId,
+      characterId: input.characterId,
+      topicId: input.topicId,
+    };
 
     if (opts.expectedUpdatedAt === undefined) {
-      if (existingItem) {
-        throw new OptimisticLockError('Topic', identifier);
-      }
-    } else {
-      const existingUpdatedAt = existingItem
-        ? this.topicMapper.toEntity(existingItem).UpdatedAt
-        : undefined;
-      if (existingUpdatedAt !== opts.expectedUpdatedAt) {
-        throw new OptimisticLockError('Topic', identifier);
+      try {
+        return await this.topicStore.create({ ...input, createdAt: now, updatedAt: now });
+      } catch (error) {
+        // 新規作成の衝突も呼び出し側が楽観ロック競合として扱えるよう、同じエラーに揃える
+        if (error instanceof EntityAlreadyExistsError) {
+          throw new OptimisticLockError('Topic', `${key.userId}#${key.characterId}#${key.topicId}`);
+        }
+        throw error;
       }
     }
 
-    const createdAt = existingItem ? this.topicMapper.toEntity(existingItem).CreatedAt : now;
-    const entity: TopicEntity = { ...input, CreatedAt: createdAt, UpdatedAt: now };
-    this.store.put(this.topicMapper.toItem(entity));
-    return entity;
+    const existing = await this.getTopic(key);
+    return this.topicStore.put(
+      { ...input, createdAt: existing?.createdAt ?? now, updatedAt: now },
+      { expectedUpdatedAt: opts.expectedUpdatedAt }
+    );
   }
 
   public async getTopic(key: TopicKey): Promise<TopicEntity | null> {
-    const { pk, sk } = this.topicMapper.buildKeys(key);
-    const item = this.store.get(pk, sk);
-    if (!item) return null;
-    return this.topicMapper.toEntity(item);
+    return this.topicStore.get(key);
   }
 
   public async getTopicBundle(key: TopicKey): Promise<TopicBundle> {
@@ -121,7 +130,7 @@ export class InMemoryTopicRepository implements TopicRepository {
     limit: number
   ): Promise<TopicEntity[]> {
     const all = await this.queryGsi3(userId, characterId);
-    return [...all].sort((a, b) => b.Care - a.Care).slice(0, limit);
+    return [...all].sort((a, b) => b.care - a.care).slice(0, limit);
   }
 
   /** GSI3（GSI-TOPIC）相当を `GSI3PK` 属性の配列フィルタで再現する。 */
@@ -153,10 +162,11 @@ export class InMemoryTopicRepository implements TopicRepository {
 
   public async putSelfFact(input: CreateSelfFactInput): Promise<SelfFactEntity> {
     const now = this.nowMs();
-    const factId = input.FactID ?? this.ulidFactory(now);
-    const entity: SelfFactEntity = { ...input, FactID: factId, CreatedAt: now };
-    this.store.put(this.selfFactMapper.toItem(entity));
-    return entity;
+    return this.selfFactStore.put({
+      ...input,
+      factId: input.factId ?? this.ulidFactory(now),
+      createdAt: now,
+    });
   }
 
   public async listSelfFacts(
@@ -170,20 +180,20 @@ export class InMemoryTopicRepository implements TopicRepository {
       { pk, sk: { operator: 'begins_with', value: prefix } },
       { limit: Number.MAX_SAFE_INTEGER }
     );
-    return items.map((item: DynamoDBItem) => this.selfFactMapper.toEntity(item));
+    return items.map((item: DynamoDBAttributes) => this.selfFactMapper.toEntity(item));
   }
 
   public async deleteSelfFact(key: SelfFactKey): Promise<void> {
-    const { pk, sk } = this.selfFactMapper.buildKeys(key);
-    this.store.delete(pk, sk);
+    await this.selfFactStore.delete(key);
   }
 
   public async putWebFact(input: CreateWebFactInput): Promise<WebFactEntity> {
     const now = this.nowMs();
-    const factId = input.FactID ?? this.ulidFactory(now);
-    const entity: WebFactEntity = { ...input, FactID: factId, CreatedAt: now };
-    this.store.put(this.webFactMapper.toItem(entity));
-    return entity;
+    return this.webFactStore.put({
+      ...input,
+      factId: input.factId ?? this.ulidFactory(now),
+      createdAt: now,
+    });
   }
 
   public async listWebFacts(
@@ -197,7 +207,7 @@ export class InMemoryTopicRepository implements TopicRepository {
       { pk, sk: { operator: 'begins_with', value: prefix } },
       { limit: Number.MAX_SAFE_INTEGER }
     );
-    return items.map((item: DynamoDBItem) => this.webFactMapper.toEntity(item));
+    return items.map((item: DynamoDBAttributes) => this.webFactMapper.toEntity(item));
   }
 
   public async listStaleWebFacts(
@@ -233,18 +243,23 @@ export class InMemoryTopicRepository implements TopicRepository {
     } while (cursor !== undefined);
 
     return results
-      .filter((fact) => fact.NextReview !== undefined && fact.NextReview <= nowMs)
-      .sort((a, b) => (a.NextReview ?? 0) - (b.NextReview ?? 0))
+      .filter((fact) => fact.nextReview !== undefined && fact.nextReview <= nowMs)
+      .sort((a, b) => (a.nextReview ?? 0) - (b.nextReview ?? 0))
       .slice(0, limit);
   }
 
   public async updateWebFactNextReview(key: WebFactKey, nextReview: number): Promise<void> {
-    const { pk, sk } = this.webFactMapper.buildKeys(key);
-    const item = this.store.get(pk, sk);
-    if (!item) return;
-
-    const entity = this.webFactMapper.toEntity(item);
-    const updated: WebFactEntity = { ...entity, NextReview: nextReview };
-    this.store.put(this.webFactMapper.toItem(updated));
+    try {
+      await this.webFactStore.update(key, { nextReview });
+    } catch (error) {
+      if (error instanceof EntityNotFoundError) {
+        logger.warn(
+          '[InMemoryTopicRepository] updateWebFactNextReview: 対象 WEB fact が存在しません',
+          { key }
+        );
+        return;
+      }
+      throw error;
+    }
   }
 }

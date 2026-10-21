@@ -8,10 +8,9 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  CircularProgress,
   Box,
 } from '@mui/material';
-import { Button, Chip, ErrorAlert } from '@nagiyu/ui';
+import { Button, Chip, ErrorAlert, LoadingState } from '@nagiyu/ui';
 import Link from 'next/link';
 import type { User } from '@nagiyu/common';
 
@@ -27,7 +26,8 @@ export function UsersTable({ canAssignRoles }: UsersTableProps) {
   useEffect(() => {
     async function fetchUsers() {
       try {
-        const response = await fetch('/api/users');
+        // 次ページを取得する UI が無いため、1 回で取れる上限まで取得する
+        const response = await fetch('/api/users?limit=100');
         if (!response.ok) {
           throw new Error('ユーザー一覧の取得に失敗しました');
         }
@@ -48,11 +48,7 @@ export function UsersTable({ canAssignRoles }: UsersTableProps) {
   }, []);
 
   if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <LoadingState variant="inline" />;
   }
 
   if (error) {

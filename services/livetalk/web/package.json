@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build --webpack",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "format": "prettier --write .",
@@ -23,6 +23,7 @@
     "@nagiyu/common": "*",
     "@nagiyu/livetalk-core": "*",
     "@nagiyu/nextjs": "*",
+    "@nagiyu/react": "*",
     "@nagiyu/ui": "*",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",

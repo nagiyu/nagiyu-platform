@@ -1,28 +1,19 @@
 import type { User } from '@nagiyu/share-together-core';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { withAuth } from '@nagiyu/nextjs';
-import type { Session } from 'next-auth';
+import type { Session } from '@nagiyu/common';
 import { NextResponse } from 'next/server';
 import type { UserResponse } from '@/types';
 import { getSession } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createListRepository, createUserRepository } from '@nagiyu/share-together-core';
-import {
-  createValidationErrorResponse,
-  createInternalServerErrorResponse,
-} from '@/lib/api/responses';
+import { createValidationErrorResponse } from '@/lib/api/responses';
 
 const DEFAULT_LIST_NAME = 'デフォルトリスト';
 const DEFAULT_ROLES: string[] = [];
 
-type UsersRouteSession = Session & {
-  user: Session['user'] & {
-    id: string;
-    roles: string[];
-  };
-};
-
-async function getSessionWithRoles(): Promise<UsersRouteSession | null> {
+async function getSessionWithRoles(): Promise<Session | null> {
   const session = await getSession();
   if (!session) {
     return null;
@@ -32,17 +23,14 @@ async function getSessionWithRoles(): Promise<UsersRouteSession | null> {
     ...session,
     user: {
       ...session.user,
-      id: session.user.id,
       roles: DEFAULT_ROLES,
     },
   };
 }
 
-export const POST = withAuth(getSessionWithRoles, null, async (session): Promise<NextResponse> => {
-  let requestedUserId: string | undefined;
-  let operation: 'create' | 'update' | 'unknown' = 'unknown';
-
-  try {
+export const POST = withApiErrorReporting(
+  'Web API: ユーザー登録エラー',
+  withAuth(getSessionWithRoles, null, async (session): Promise<NextResponse> => {
     const userId = session.user.id;
     const email = session.user.email;
     const name = session.user.name;
@@ -59,8 +47,6 @@ export const POST = withAuth(getSessionWithRoles, null, async (session): Promise
       return createValidationErrorResponse();
     }
 
-    requestedUserId = userId;
-
     const tableName = process.env.DYNAMODB_TABLE_NAME;
     if (!tableName) {
       throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
@@ -75,14 +61,12 @@ export const POST = withAuth(getSessionWithRoles, null, async (session): Promise
     let responseUser: User;
 
     if (existingUser) {
-      operation = 'update';
       responseUser = await userRepository.update(userId, {
         email,
         name,
         image,
       });
     } else {
-      operation = 'create';
       const defaultListId = crypto.randomUUID();
       responseUser = await userRepository.create({
         userId,
@@ -102,12 +86,5 @@ export const POST = withAuth(getSessionWithRoles, null, async (session): Promise
 
     const response: UserResponse = { data: responseUser };
     return NextResponse.json(response);
-  } catch (error) {
-    console.error('ユーザー登録 API の実行に失敗しました', {
-      userId: requestedUserId,
-      operation,
-      error,
-    });
-    return createInternalServerErrorResponse();
-  }
-});
+  })
+);

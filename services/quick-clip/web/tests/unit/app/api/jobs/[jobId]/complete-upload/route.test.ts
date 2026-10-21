@@ -1,3 +1,4 @@
+import { reportErrorEvent } from '@nagiyu/aws';
 import type { JobRepository } from '@nagiyu/quick-clip-core';
 import { getBatchClient, getS3Client } from '@/lib/server/aws';
 import { POST } from '@/app/api/jobs/[jobId]/complete-upload/route';
@@ -15,6 +16,11 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
         updateBatchJobId: mockUpdateBatchJobId,
       }) as unknown as JobRepository
   ),
+}));
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock('@/lib/server/aws', () => ({
@@ -256,8 +262,15 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
       message: 'アップロード完了処理に失敗しました',
     });
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '[POST /api/jobs/[jobId]/complete-upload] アップロード完了処理に失敗しました',
+      '[Web API: アップロード完了処理エラー]',
       multipartError
+    );
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'quick-clip',
+        severity: 'error',
+        title: 'Web API: アップロード完了処理エラー',
+      })
     );
   });
 
@@ -325,6 +338,50 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
     expect(body).toEqual({
       error: 'INVALID_REQUEST',
       message: 'リクエストが不正です',
+    });
+  });
+
+  const createBrokenJsonRequest = (): Request =>
+    ({
+      json: async () => {
+        throw new SyntaxError('Unexpected token');
+      },
+    }) as unknown as Request;
+
+  describe('不正なリクエストボディ', () => {
+    const validBody = { uploadId: 'upload-1', parts: [{ PartNumber: 1, ETag: 'etag-1' }] };
+
+    it.each([
+      ['壊れた JSON', () => createBrokenJsonRequest()],
+      ['null', () => createRequest(null)],
+      ['配列', () => createRequest([validBody])],
+      ['文字列', () => createRequest('upload-1')],
+      ['uploadId が数値', () => createRequest({ ...validBody, uploadId: 1 })],
+      ['parts が配列でない', () => createRequest({ ...validBody, parts: 'etag-1' })],
+      ['parts の要素が null', () => createRequest({ ...validBody, parts: [null] })],
+      [
+        'PartNumber が文字列',
+        () => createRequest({ ...validBody, parts: [{ PartNumber: '1', ETag: 'etag-1' }] }),
+      ],
+      ['ETag が数値', () => createRequest({ ...validBody, parts: [{ PartNumber: 1, ETag: 1 }] })],
+      ['emotionFilter が数値', () => createRequest({ ...validBody, emotionFilter: 1 })],
+      ['emotionFilter が null', () => createRequest({ ...validBody, emotionFilter: null })],
+    ])('異常系: %s の場合は 400 を返し、下流を呼ばない', async (_label, buildRequest) => {
+      const response = await POST(buildRequest(), {
+        params: Promise.resolve({ jobId: 'job-1' }),
+      });
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body).toEqual({
+        error: 'INVALID_REQUEST',
+        message: 'リクエストが不正です',
+      });
+      expect(mockGetById).not.toHaveBeenCalled();
+      expect(s3Send).not.toHaveBeenCalled();
+      expect(batchSend).not.toHaveBeenCalled();
+      expect(mockUpdateBatchJobId).not.toHaveBeenCalled();
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
   });
 });

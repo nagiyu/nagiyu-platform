@@ -16,6 +16,7 @@ import { NextResponse } from 'next/server';
 import { withAuth } from '@nagiyu/nextjs';
 import { getAllCharacterIds } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
+import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import { getNotificationEventRepository } from '@/lib/server/repositories';
 
 /**
@@ -30,18 +31,21 @@ export interface PendingNotification {
   body: string;
 }
 
-export const GET = withAuth(getSession, 'livetalk:chat', async (session) => {
-  const userId = session.user.googleId;
-  const repo = getNotificationEventRepository();
-  const characterIds = getAllCharacterIds();
+export const GET = withApiErrorReporting(
+  'Web API: 未消化通知取得エラー',
+  withAuth(getSession, 'livetalk:chat', async (session) => {
+    const userId = session.user.id;
+    const repo = getNotificationEventRepository();
+    const characterIds = getAllCharacterIds();
 
-  const events = await repo.listLatestUnconsumedByCharacter(userId, characterIds);
+    const events = await repo.listLatestUnconsumedByCharacter(userId, characterIds);
 
-  const result: PendingNotification[] = events.map((e) => ({
-    characterId: e.CharacterID,
-    notifId: e.NotifID,
-    body: e.Body,
-  }));
+    const result: PendingNotification[] = events.map((e) => ({
+      characterId: e.characterId,
+      notifId: e.notifId,
+      body: e.body,
+    }));
 
-  return NextResponse.json(result, { status: 200 });
-});
+    return NextResponse.json(result, { status: 200 });
+  })
+);

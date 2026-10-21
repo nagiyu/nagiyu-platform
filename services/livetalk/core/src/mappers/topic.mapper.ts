@@ -1,21 +1,30 @@
 import {
   InvalidEntityDataError,
+  immutablePatchValue,
+  optionalPatchValue,
+  readTimestamp,
+  requiredPatchValue,
   validateNumberField,
   validateStringField,
-  validateTimestampField,
-  type DynamoDBItem,
+  type DynamoDBAttributes,
+  type DynamoDBKey,
   type EntityMapper,
+  type EntityPatch,
 } from '@nagiyu/aws';
 import type { TopicEntity, TopicKey } from '../entities/topic.entity.js';
 import { buildTopicGSI3PK, buildTopicMetaSK, buildUserPK } from './keys.js';
 
+const ERROR_MESSAGES = {
+  INVALID_NUMBER_ARRAY: 'フィールドが数値配列ではありません',
+} as const;
+
 /**
- * 数値配列フィールドをバリデーションする（Embedding 用の最小限チェック）。
+ * 数値配列フィールドをバリデーションする（embedding 用の最小限チェック）。
  * `@nagiyu/aws` には数値配列専用のバリデータが無いため、ここで自前実装する。
  */
 function validateNumberArrayField(value: unknown, fieldName: string): number[] {
   if (!Array.isArray(value) || !value.every((v) => typeof v === 'number')) {
-    throw new InvalidEntityDataError(`フィールド "${fieldName}" が数値配列ではありません`);
+    throw new InvalidEntityDataError(`${ERROR_MESSAGES.INVALID_NUMBER_ARRAY}: ${fieldName}`);
   }
   return value as number[];
 }
@@ -32,78 +41,91 @@ function validateNumberArrayField(value: unknown, fieldName: string): number[] {
 export class TopicMapper implements EntityMapper<TopicEntity, TopicKey> {
   public readonly entityType = 'Topic';
 
-  public toItem(entity: TopicEntity): DynamoDBItem {
-    const { pk, sk } = this.buildKeys({
-      userId: entity.UserID,
-      characterId: entity.CharacterID,
-      topicId: entity.TopicID,
-    });
-
-    const item: DynamoDBItem = {
-      PK: pk,
-      SK: sk,
-      Type: this.entityType,
-      UserID: entity.UserID,
-      CharacterID: entity.CharacterID,
-      TopicID: entity.TopicID,
-      Subject: entity.Subject,
-      CanonicalSummary: entity.CanonicalSummary,
-      Category: entity.Category,
-      Care: entity.Care,
-      Embedding: entity.Embedding,
-      CreatedAt: entity.CreatedAt,
-      UpdatedAt: entity.UpdatedAt,
-      // GSI3（GSI-TOPIC）: Topic ヘッダ(META) のみを sparse 索引化する（#3697）
-      // 全 Topic META に必ず付与することで、GSI3 クエリで列挙・care 降順取得できるようにする
-      GSI3PK: buildTopicGSI3PK(entity.CharacterID, entity.UserID),
-      GSI3SK: entity.Care,
+  public buildKeys(key: TopicKey): DynamoDBKey {
+    return {
+      PK: buildUserPK(key.userId),
+      SK: buildTopicMetaSK(key.characterId, key.topicId),
     };
-    // RequestText/RequestedAt は GSI3 に投影しない（依頼フックは generate-note がベーステーブル
-    // 読み（getTopicBundle）で参照するのみで、Topic ヘッダ列挙・care 降順取得には使わないため）。
-    if (entity.RequestText !== undefined) {
-      item.RequestText = entity.RequestText;
-    }
-    if (entity.RequestedAt !== undefined) {
-      item.RequestedAt = entity.RequestedAt;
-    }
-    return item;
   }
 
-  public toEntity(item: DynamoDBItem): TopicEntity {
+  public getKey(entity: TopicEntity): TopicKey {
+    return { userId: entity.userId, characterId: entity.characterId, topicId: entity.topicId };
+  }
+
+  public toItem(entity: TopicEntity): DynamoDBAttributes {
+    return {
+      ...this.buildKeys(this.getKey(entity)),
+      Type: this.entityType,
+      UserID: entity.userId,
+      CharacterID: entity.characterId,
+      TopicID: entity.topicId,
+      Subject: entity.subject,
+      CanonicalSummary: entity.canonicalSummary,
+      Category: entity.category,
+      Care: entity.care,
+      Embedding: entity.embedding,
+      CreatedAt: entity.createdAt,
+      UpdatedAt: entity.updatedAt,
+      // 全 Topic META に必ず付与し、GSI3 の Query で列挙・care 降順取得できるようにする
+      GSI3PK: buildTopicGSI3PK(entity.characterId, entity.userId),
+      GSI3SK: entity.care,
+      // requestText / requestedAt は GSI3 に投影しない。依頼フックはベーステーブル読みでのみ使い、
+      // Topic ヘッダの列挙・care 降順取得には使わないため
+      ...(entity.requestText !== undefined && { RequestText: entity.requestText }),
+      ...(entity.requestedAt !== undefined && { RequestedAt: entity.requestedAt }),
+    };
+  }
+
+  /**
+   * GSI3PK は key から付け直し、GSI3SK は Care と同値のため care を変えるときだけ付け直す。
+   * これにより patch に識別子を混ぜさせず、care の更新で GSI3 の並びが食い違わない。
+   */
+  public toUpdateAttributes(changes: EntityPatch<TopicEntity>, key: TopicKey): DynamoDBAttributes {
+    const care = requiredPatchValue(changes.care, 'Care');
+    return {
+      UserID: immutablePatchValue(changes.userId, 'UserID'),
+      CharacterID: immutablePatchValue(changes.characterId, 'CharacterID'),
+      TopicID: immutablePatchValue(changes.topicId, 'TopicID'),
+      CreatedAt: immutablePatchValue(changes.createdAt, 'CreatedAt'),
+      Subject: requiredPatchValue(changes.subject, 'Subject'),
+      CanonicalSummary: requiredPatchValue(changes.canonicalSummary, 'CanonicalSummary'),
+      Category: requiredPatchValue(changes.category, 'Category'),
+      Care: care,
+      Embedding: requiredPatchValue(changes.embedding, 'Embedding'),
+      RequestText: optionalPatchValue(changes.requestText),
+      RequestedAt: optionalPatchValue(changes.requestedAt),
+      GSI3PK: buildTopicGSI3PK(key.characterId, key.userId),
+      GSI3SK: care,
+    };
+  }
+
+  public toEntity(item: DynamoDBAttributes): TopicEntity {
     // GSI3 の Query 結果は `Care` を投影しないため、重複値である `GSI3SK` から復元する。
     const care =
       item.Care !== undefined
         ? validateNumberField(item.Care, 'Care')
         : validateNumberField(item.GSI3SK, 'GSI3SK');
 
-    const entity: TopicEntity = {
-      UserID: validateStringField(item.UserID, 'UserID'),
-      CharacterID: validateStringField(item.CharacterID, 'CharacterID'),
-      TopicID: validateStringField(item.TopicID, 'TopicID'),
-      Subject: validateStringField(item.Subject, 'Subject'),
-      CanonicalSummary: validateStringField(item.CanonicalSummary, 'CanonicalSummary', {
+    return {
+      userId: validateStringField(item.UserID, 'UserID'),
+      characterId: validateStringField(item.CharacterID, 'CharacterID'),
+      topicId: validateStringField(item.TopicID, 'TopicID'),
+      subject: validateStringField(item.Subject, 'Subject'),
+      canonicalSummary: validateStringField(item.CanonicalSummary, 'CanonicalSummary', {
         allowEmpty: true,
       }),
-      Category: validateStringField(item.Category, 'Category'),
-      Care: care,
-      Embedding: validateNumberArrayField(item.Embedding, 'Embedding'),
-      CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
-      UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
-    };
-    // GSI3 の Query 結果には投影されないため、ベーステーブル読み（getTopicBundle 等）のときのみ present
-    if (item.RequestText !== undefined) {
-      entity.RequestText = validateStringField(item.RequestText, 'RequestText');
-    }
-    if (item.RequestedAt !== undefined) {
-      entity.RequestedAt = validateNumberField(item.RequestedAt, 'RequestedAt');
-    }
-    return entity;
-  }
-
-  public buildKeys(key: TopicKey): { pk: string; sk: string } {
-    return {
-      pk: buildUserPK(key.userId),
-      sk: buildTopicMetaSK(key.characterId, key.topicId),
+      category: validateStringField(item.Category, 'Category'),
+      care,
+      embedding: validateNumberArrayField(item.Embedding, 'Embedding'),
+      createdAt: readTimestamp(item, 'CreatedAt'),
+      updatedAt: readTimestamp(item, 'UpdatedAt'),
+      // GSI3 の Query 結果には投影されないため、ベーステーブル読みのときのみ present
+      ...(item.RequestText !== undefined && {
+        requestText: validateStringField(item.RequestText, 'RequestText'),
+      }),
+      ...(item.RequestedAt !== undefined && {
+        requestedAt: validateNumberField(item.RequestedAt, 'RequestedAt'),
+      }),
     };
   }
 }

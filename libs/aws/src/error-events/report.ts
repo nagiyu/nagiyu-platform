@@ -24,6 +24,7 @@ const ERROR_MESSAGES = {
   CONTEXT_SERIALIZE_FAILED:
     '[reportErrorEvent] context のシリアライズに失敗したため代替値で報告します',
   WRITE_FAILED: '[reportErrorEvent] DynamoDB 書き込みに失敗しました',
+  INVALID_OCCURRED_AT: 'occurredAt が日時として解釈できません',
 } as const;
 
 export interface ReportErrorEventInput {
@@ -35,8 +36,8 @@ export interface ReportErrorEventInput {
   source?: ErrorSource;
   /** 任意の補足情報。JSON にシリアライズして保存する */
   context?: Record<string, unknown>;
-  /** デフォルト: 呼び出し時点の UTC ISO-8601 */
-  occurredAt?: string;
+  /** ISO-8601 文字列または epoch ミリ秒。デフォルト: 呼び出し時点 */
+  occurredAt?: string | number;
   /** デフォルト: UUID v4 自動採番 */
   eventId?: string;
 }
@@ -68,7 +69,7 @@ export async function reportErrorEvent(input: ReportErrorEventInput): Promise<Er
       title: input.title,
       message: input.message,
       context: serializeContext(input.context),
-      occurredAt: input.occurredAt ?? new Date().toISOString(),
+      occurredAt: resolveOccurredAt(input.occurredAt),
     };
 
     await writer.put(event);
@@ -79,6 +80,24 @@ export async function reportErrorEvent(input: ReportErrorEventInput): Promise<Er
     });
     return null;
   }
+}
+
+/**
+ * 呼び出し側が渡した発生時刻を epoch ミリ秒にする。
+ *
+ * 呼び出し側 (別サービス) は ISO 文字列で渡すため、保存形式のミリ秒への変換はここで行う。
+ *
+ * @throws Error 日時として解釈できないとき
+ */
+function resolveOccurredAt(occurredAt: string | number | undefined): number {
+  if (occurredAt === undefined) {
+    return Date.now();
+  }
+  const millis = typeof occurredAt === 'number' ? occurredAt : Date.parse(occurredAt);
+  if (Number.isNaN(new Date(millis).getTime())) {
+    throw new Error(`${ERROR_MESSAGES.INVALID_OCCURRED_AT}: ${occurredAt}`);
+  }
+  return millis;
 }
 
 /**

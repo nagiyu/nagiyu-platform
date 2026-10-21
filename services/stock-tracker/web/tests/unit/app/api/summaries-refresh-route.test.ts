@@ -1,11 +1,18 @@
 import { POST } from '../../../../app/api/summaries/refresh/route';
+import * as awsModule from '@nagiyu/aws';
 import { InvokeCommand, LambdaClient } from '@aws-sdk/client-lambda';
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
 
 jest.mock('../../../../lib/auth', () => ({
   getSession: jest.fn(),
 }));
 
 jest.mock('@nagiyu/nextjs', () => ({
+  createApiErrorReporting: jest.requireActual('@nagiyu/nextjs').createApiErrorReporting,
   withAuth: jest.fn((_auth, _permission, handler) => {
     return async (...args: unknown[]) => handler({ user: { roles: ['stock-admin'] } }, ...args);
   }),
@@ -77,5 +84,13 @@ describe('POST /api/summaries/refresh', () => {
       error: 'INTERNAL_ERROR',
       message: 'サマリーバッチの実行に失敗しました',
     });
+    expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: サマリーバッチ実行エラー',
+        message: 'invoke failed',
+      })
+    );
   });
 });

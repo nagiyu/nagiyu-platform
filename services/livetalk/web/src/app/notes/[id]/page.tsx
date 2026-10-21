@@ -1,8 +1,8 @@
 'use client';
 
 import { use, useCallback, useEffect, useState } from 'react';
-import { Box, CircularProgress, Container, Stack, Typography } from '@mui/material';
-import { Link } from '@nagiyu/ui';
+import { Box, Container, Stack, Typography } from '@mui/material';
+import { Link, LoadingState } from '@nagiyu/ui';
 import type { NoteListItem } from '@/lib/notes/types';
 import { fetchNote } from '@/lib/notes/api-client';
 import { formatNoteDate } from '@/lib/notes/messages';
@@ -50,14 +50,7 @@ export default function NoteDetailPage({ params }: NoteDetailPageProps) {
         <Link href="/notes">← ノート一覧へ</Link>
       </Box>
 
-      {loading && (
-        <Box
-          sx={{ display: 'flex', justifyContent: 'center', py: 4 }}
-          data-testid="note-detail-loading"
-        >
-          <CircularProgress />
-        </Box>
-      )}
+      {loading && <LoadingState variant="inline" data-testid="note-detail-loading" />}
 
       {!loading && error && (
         <Typography color="error" variant="body2" role="alert">

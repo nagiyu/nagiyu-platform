@@ -20,13 +20,10 @@ describe('getAuthError', () => {
   it('権限がない場合、403エラーを返す', () => {
     const session: Session = {
       user: {
-        userId: 'user-1',
-        googleId: 'google-1',
+        id: 'user-1',
         email: 'test@example.com',
         name: 'Test User',
         roles: ['user'],
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z',
       },
       expires: '2024-12-31T23:59:59Z',
     };
@@ -40,13 +37,10 @@ describe('getAuthError', () => {
   it('権限がある場合、nullを返す', () => {
     const session: Session = {
       user: {
-        userId: 'user-1',
-        googleId: 'google-1',
+        id: 'user-1',
         email: 'test@example.com',
         name: 'Test User',
         roles: ['stock-admin'],
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z',
       },
       expires: '2024-12-31T23:59:59Z',
     };
@@ -57,13 +51,10 @@ describe('getAuthError', () => {
   it('stocks:readの権限がある場合、nullを返す', () => {
     const session: Session = {
       user: {
-        userId: 'user-1',
-        googleId: 'google-1',
+        id: 'user-1',
         email: 'test@example.com',
         name: 'Test User',
         roles: ['stock-user'],
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z',
       },
       expires: '2024-12-31T23:59:59Z',
     };
@@ -74,13 +65,10 @@ describe('getAuthError', () => {
   it('stocks:write-ownの権限がある場合、nullを返す', () => {
     const session: Session = {
       user: {
-        userId: 'user-1',
-        googleId: 'google-1',
+        id: 'user-1',
         email: 'test@example.com',
         name: 'Test User',
         roles: ['stock-user'],
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z',
       },
       expires: '2024-12-31T23:59:59Z',
     };
@@ -91,13 +79,10 @@ describe('getAuthError', () => {
   it('権限指定がない場合、nullを返す', () => {
     const session: Session = {
       user: {
-        userId: 'user-1',
-        googleId: 'google-1',
+        id: 'user-1',
         email: 'test@example.com',
         name: 'Test User',
         roles: [],
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z',
       },
       expires: '2024-12-31T23:59:59Z',
     };
@@ -110,13 +95,10 @@ describe('getSessionOrThrow', () => {
   it('セッションがある場合、セッションを返す', async () => {
     const mockSession: Session = {
       user: {
-        userId: 'user-1',
-        googleId: 'google-1',
+        id: 'user-1',
         email: 'test@example.com',
         name: 'Test User',
         roles: ['stock-user'],
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z',
       },
       expires: '2024-12-31T23:59:59Z',
     };
@@ -136,13 +118,10 @@ describe('getOptionalSession', () => {
   it('セッションがある場合、セッションを返す', async () => {
     const mockSession: Session = {
       user: {
-        userId: 'user-1',
-        googleId: 'google-1',
+        id: 'user-1',
         email: 'test@example.com',
         name: 'Test User',
         roles: ['stock-user'],
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z',
       },
       expires: '2024-12-31T23:59:59Z',
     };
@@ -173,13 +152,10 @@ describe('withAuth', () => {
   it('認証済みユーザーの場合、ハンドラーを実行する', async () => {
     const mockSession: Session = {
       user: {
-        userId: 'user-1',
-        googleId: 'google-1',
+        id: 'user-1',
         email: 'test@example.com',
         name: 'Test User',
         roles: ['stock-user'],
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z',
       },
       expires: '2024-12-31T23:59:59Z',
     };
@@ -213,13 +189,10 @@ describe('withAuth', () => {
   it('権限がない場合、403エラーを返す', async () => {
     const mockSession: Session = {
       user: {
-        userId: 'user-1',
-        googleId: 'google-1',
+        id: 'user-1',
         email: 'test@example.com',
         name: 'Test User',
         roles: ['user'],
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z',
       },
       expires: '2024-12-31T23:59:59Z',
     };
@@ -234,43 +207,49 @@ describe('withAuth', () => {
     expect(response.status).toBe(403);
   });
 
-  it('ハンドラーでエラーが発生した場合、500エラーを返す', async () => {
+  it('ハンドラーの例外は握らず投げ直す', async () => {
     const mockSession: Session = {
       user: {
-        userId: 'user-1',
-        googleId: 'google-1',
+        id: 'user-1',
         email: 'test@example.com',
         name: 'Test User',
         roles: ['stock-user'],
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z',
       },
       expires: '2024-12-31T23:59:59Z',
     };
 
     const mockAuth: AuthFunction = jest.fn(async () => mockSession);
+    const failure = new Error('Handler error');
     const handler = jest
       .fn<(session: Session, request: NextRequest) => Promise<NextResponse>>()
-      .mockRejectedValue(new Error('Handler error'));
+      .mockRejectedValue(failure);
     const wrappedHandler = withAuth(mockAuth, 'stocks:read', handler);
     const request = new NextRequest('http://localhost/api/test');
-    const response = await wrappedHandler(request);
 
+    await expect(wrappedHandler(request)).rejects.toBe(failure);
     expect(handler).toHaveBeenCalled();
-    expect(response.status).toBe(500);
-    expect(consoleErrorSpy).toHaveBeenCalled();
+  });
+
+  it('auth() の例外は握らず投げ直し、ハンドラーを実行しない', async () => {
+    const failure = new Error('Auth error');
+    const mockAuth: AuthFunction = jest.fn(async () => {
+      throw failure;
+    });
+    const handler = jest.fn<(session: Session, request: NextRequest) => Promise<NextResponse>>();
+    const wrappedHandler = withAuth(mockAuth, 'stocks:read', handler);
+    const request = new NextRequest('http://localhost/api/test');
+
+    await expect(wrappedHandler(request)).rejects.toBe(failure);
+    expect(handler).not.toHaveBeenCalled();
   });
 
   it('権限指定なしの場合、roles が空でもハンドラーを実行する', async () => {
     const mockSession: Session = {
       user: {
-        userId: 'user-1',
-        googleId: 'google-1',
+        id: 'user-1',
         email: 'test@example.com',
         name: 'Test User',
         roles: [],
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z',
       },
       expires: '2024-12-31T23:59:59Z',
     };

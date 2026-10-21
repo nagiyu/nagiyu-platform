@@ -1,7 +1,7 @@
 /**
  * resolveQuoteProvider ルーター ユニットテスト
  *
- * Exchange.PriceSource に基づいた provider 選択ロジックを検証する。
+ * ExchangeEntity.priceSource に基づいた provider 選択ロジックを検証する。
  */
 
 import { resolveQuoteProvider } from '../../../../src/services/market-data/router';

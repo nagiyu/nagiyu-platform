@@ -952,3 +952,47 @@ describe('InMemorySingleTableStore', () => {
     });
   });
 });
+
+describe('InMemorySingleTableStore: キーオブジェクト経由の操作', () => {
+  it('単一キーのアイテムを保存・取得・削除できる', () => {
+    const store = new InMemorySingleTableStore();
+    store.putByKey({ userId: 'u1' }, { userId: 'u1', Name: '太郎', Skip: undefined });
+
+    expect(store.getByKey({ userId: 'u1' })).toEqual({ userId: 'u1', Name: '太郎' });
+    expect(store.getByKey({ userId: 'u2' })).toBeUndefined();
+    expect(store.size()).toBe(1);
+
+    store.deleteByKey({ userId: 'u1' });
+    store.deleteByKey({ userId: 'u1' });
+    expect(store.getByKey({ userId: 'u1' })).toBeUndefined();
+  });
+
+  it('{ PK, SK } は get(pk, sk) / put と同じアイテムを指す', () => {
+    const store = new InMemorySingleTableStore();
+    store.putByKey(
+      { PK: 'A', SK: 'B' },
+      { PK: 'A', SK: 'B', Type: 'T', CreatedAt: 1, UpdatedAt: 1 }
+    );
+    expect(store.get('A', 'B')).toMatchObject({ Type: 'T' });
+
+    store.put({ PK: 'C', SK: 'D', Type: 'T', CreatedAt: 1, UpdatedAt: 1 });
+    expect(store.getByKey({ PK: 'C', SK: 'D' })).toMatchObject({ Type: 'T' });
+  });
+
+  it('保存後に元のオブジェクトを書き換えてもストアの中身は変わらない', () => {
+    const store = new InMemorySingleTableStore();
+    const item = { userId: 'u1', Name: '太郎' };
+    store.putByKey({ userId: 'u1' }, item);
+    item.Name = '改変';
+    expect(store.getByKey({ userId: 'u1' })).toMatchObject({ Name: '太郎' });
+  });
+
+  it('{ id: 1 } と { id: "1" } を別のアイテムとして扱う', () => {
+    const store = new InMemorySingleTableStore();
+    store.putByKey({ id: 1 }, { id: 1, Name: '数値' });
+    store.putByKey({ id: '1' }, { id: '1', Name: '文字列' });
+    expect(store.getByKey({ id: 1 })).toMatchObject({ Name: '数値' });
+    expect(store.getByKey({ id: '1' })).toMatchObject({ Name: '文字列' });
+    expect(store.size()).toBe(2);
+  });
+});

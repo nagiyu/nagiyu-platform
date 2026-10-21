@@ -4,13 +4,10 @@ import type { Session } from '../../../src/auth/types';
 
 const makeSession = (roles: string[]): Session => ({
   user: {
-    userId: 'user-1',
-    googleId: 'google-1',
+    id: 'user-1',
     email: 'test@example.com',
     name: 'テストユーザー',
     roles,
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
   },
   expires: '2099-01-01T00:00:00Z',
 });

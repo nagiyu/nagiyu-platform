@@ -26,6 +26,7 @@ import {
   updateUserVideoSetting,
   listUserVideoSettings,
   deleteUserVideoSetting,
+  deleteVideoBasicInfo,
 } from '../../src/db/videos';
 import { reportErrorEvent } from '@nagiyu/aws';
 import { parseUpdateExpression } from '../helpers/update-expression.js';
@@ -59,7 +60,7 @@ describe('videos', () => {
 
         expect(result.videoId).toBe('sm12345678');
         expect(result.title).toBe('テスト動画');
-        expect(result.CreatedAt).toBeDefined();
+        expect(result.createdAt).toBeDefined();
 
         expect(ddbMock.calls()).toHaveLength(1);
         const call = ddbMock.call(0);
@@ -69,10 +70,11 @@ describe('videos', () => {
             PK: 'VIDEO#sm12345678',
             SK: 'VIDEO#sm12345678',
             Type: 'VIDEO',
-            videoId: 'sm12345678',
-            title: 'テスト動画',
+            VideoID: 'sm12345678',
+            Title: 'テスト動画',
           },
-          ConditionExpression: 'attribute_not_exists(PK)',
+          ConditionExpression: 'attribute_not_exists(#pk)',
+          ExpressionAttributeNames: { '#pk': 'PK' },
         });
       });
 
@@ -90,14 +92,8 @@ describe('videos', () => {
 
         await expect(createVideoBasicInfo(input)).rejects.toThrow('エンティティは既に存在します');
 
-        expect(jest.mocked(reportErrorEvent)).toHaveBeenCalledWith(
-          expect.objectContaining({
-            serviceId: 'niconico-mylist-assistant',
-            severity: 'error',
-            title: 'DynamoDB 動画基本情報書き込み失敗',
-            context: expect.objectContaining({ videoId: 'sm12345678' }),
-          })
-        );
+        // 報告は例外を受け止める上位層の責務なので、リポジトリ呼び出し側では報告しない
+        expect(jest.mocked(reportErrorEvent)).not.toHaveBeenCalled();
       });
     });
 
@@ -107,10 +103,10 @@ describe('videos', () => {
           PK: 'VIDEO#sm12345678',
           SK: 'VIDEO#sm12345678',
           Type: 'VIDEO',
-          videoId: 'sm12345678',
-          title: 'テスト動画',
-          thumbnailUrl: 'https://example.com/thumb.jpg',
-          length: '5:30',
+          VideoID: 'sm12345678',
+          Title: 'テスト動画',
+          ThumbnailURL: 'https://example.com/thumb.jpg',
+          Length: '5:30',
           CreatedAt: 1704067200000,
         };
 
@@ -142,20 +138,20 @@ describe('videos', () => {
             PK: 'VIDEO#sm1',
             SK: 'VIDEO#sm1',
             Type: 'VIDEO',
-            videoId: 'sm1',
-            title: '動画1',
-            thumbnailUrl: 'https://example.com/1.jpg',
-            length: '3:00',
+            VideoID: 'sm1',
+            Title: '動画1',
+            ThumbnailURL: 'https://example.com/1.jpg',
+            Length: '3:00',
             CreatedAt: 1704067200000,
           },
           {
             PK: 'VIDEO#sm2',
             SK: 'VIDEO#sm2',
             Type: 'VIDEO',
-            videoId: 'sm2',
-            title: '動画2',
-            thumbnailUrl: 'https://example.com/2.jpg',
-            length: '4:00',
+            VideoID: 'sm2',
+            Title: '動画2',
+            ThumbnailURL: 'https://example.com/2.jpg',
+            Length: '4:00',
             CreatedAt: 1704067200000,
           },
         ];
@@ -190,10 +186,10 @@ describe('videos', () => {
                   PK: 'VIDEO#sm0',
                   SK: 'VIDEO#sm0',
                   Type: 'VIDEO',
-                  videoId: 'sm0',
-                  title: '動画0',
-                  thumbnailUrl: 'https://example.com/0.jpg',
-                  length: '3:00',
+                  VideoID: 'sm0',
+                  Title: '動画0',
+                  ThumbnailURL: 'https://example.com/0.jpg',
+                  Length: '3:00',
                   CreatedAt: 1704067200000,
                 },
               ],
@@ -206,10 +202,10 @@ describe('videos', () => {
                   PK: 'VIDEO#sm100',
                   SK: 'VIDEO#sm100',
                   Type: 'VIDEO',
-                  videoId: 'sm100',
-                  title: '動画100',
-                  thumbnailUrl: 'https://example.com/100.jpg',
-                  length: '3:00',
+                  VideoID: 'sm100',
+                  Title: '動画100',
+                  ThumbnailURL: 'https://example.com/100.jpg',
+                  Length: '3:00',
                   CreatedAt: 1704067200000,
                 },
               ],
@@ -242,8 +238,8 @@ describe('videos', () => {
         expect(result.videoId).toBe('sm12345678');
         expect(result.isFavorite).toBe(true);
         expect(result.isSkip).toBe(false);
-        expect(result.CreatedAt).toBeDefined();
-        expect(result.UpdatedAt).toBeDefined();
+        expect(result.createdAt).toBeDefined();
+        expect(result.updatedAt).toBeDefined();
 
         expect(ddbMock.calls()).toHaveLength(1);
         const call = ddbMock.call(0);
@@ -253,12 +249,13 @@ describe('videos', () => {
             PK: 'USER#user123',
             SK: 'VIDEO#sm12345678',
             Type: 'USER_SETTING',
-            userId: 'user123',
-            videoId: 'sm12345678',
-            isFavorite: true,
-            isSkip: false,
+            UserID: 'user123',
+            VideoID: 'sm12345678',
+            IsFavorite: true,
+            IsSkip: false,
           },
-          ConditionExpression: 'attribute_not_exists(PK)',
+          ConditionExpression: 'attribute_not_exists(#pk)',
+          ExpressionAttributeNames: { '#pk': 'PK' },
         });
       });
 
@@ -296,8 +293,8 @@ describe('videos', () => {
         expect(result.videoId).toBe('sm12345678');
         expect(result.isFavorite).toBe(true);
         expect(result.isSkip).toBe(false);
-        expect(result.CreatedAt).toBeDefined();
-        expect(result.UpdatedAt).toBeDefined();
+        expect(result.createdAt).toBeDefined();
+        expect(result.updatedAt).toBeDefined();
 
         expect(ddbMock.calls()).toHaveLength(2); // Get + Put
         const putCall = ddbMock.calls()[1];
@@ -307,10 +304,10 @@ describe('videos', () => {
             PK: 'USER#user123',
             SK: 'VIDEO#sm12345678',
             Type: 'USER_SETTING',
-            userId: 'user123',
-            videoId: 'sm12345678',
-            isFavorite: true,
-            isSkip: false,
+            UserID: 'user123',
+            VideoID: 'sm12345678',
+            IsFavorite: true,
+            IsSkip: false,
           },
         });
       });
@@ -322,10 +319,10 @@ describe('videos', () => {
             PK: 'USER#user123',
             SK: 'VIDEO#sm12345678',
             Type: 'USER_SETTING',
-            userId: 'user123',
-            videoId: 'sm12345678',
-            isFavorite: false,
-            isSkip: false,
+            UserID: 'user123',
+            VideoID: 'sm12345678',
+            IsFavorite: false,
+            IsSkip: false,
             CreatedAt: existingCreatedAt,
             UpdatedAt: 1704067200000,
           },
@@ -342,8 +339,8 @@ describe('videos', () => {
 
         const result = await upsertUserVideoSetting(input);
 
-        expect(result.CreatedAt).toBe(existingCreatedAt);
-        expect(result.UpdatedAt).not.toBe(existingCreatedAt);
+        expect(result.createdAt).toBe(existingCreatedAt);
+        expect(result.updatedAt).not.toBe(existingCreatedAt);
         expect(result.isFavorite).toBe(true);
         expect(result.memo).toBe('テストメモ');
       });
@@ -355,11 +352,11 @@ describe('videos', () => {
           PK: 'USER#user123',
           SK: 'VIDEO#sm12345678',
           Type: 'USER_SETTING',
-          userId: 'user123',
-          videoId: 'sm12345678',
-          isFavorite: true,
-          isSkip: false,
-          memo: 'テストメモ',
+          UserID: 'user123',
+          VideoID: 'sm12345678',
+          IsFavorite: true,
+          IsSkip: false,
+          Memo: 'テストメモ',
           CreatedAt: 1704067200000,
           UpdatedAt: 1704067200000,
         };
@@ -394,10 +391,10 @@ describe('videos', () => {
             PK: 'USER#user123',
             SK: 'VIDEO#sm12345678',
             Type: 'USER_SETTING',
-            userId: 'user123',
-            videoId: 'sm12345678',
-            isFavorite: true,
-            isSkip: false,
+            UserID: 'user123',
+            VideoID: 'sm12345678',
+            IsFavorite: true,
+            IsSkip: false,
             CreatedAt: 1704067200000,
             UpdatedAt: 1704067200000,
           },
@@ -412,11 +409,14 @@ describe('videos', () => {
         expect(result.isFavorite).toBe(true);
         expect(ddbMock.calls()).toHaveLength(1);
         const call = ddbMock.call(0);
-        expect(parseUpdateExpression(call.args[0].input).set).toEqual({
-          isFavorite: true,
+        const parsed = parseUpdateExpression(call.args[0].input);
+        expect(parsed.set).toEqual({
+          IsFavorite: true,
           UpdatedAt: expect.any(Number),
         });
-        expect(call.args[0].input.ConditionExpression).toBe('attribute_exists(PK)');
+        // 旧属性名が残らないよう同時に削除する
+        expect(parsed.remove).toEqual(['isFavorite']);
+        expect(call.args[0].input.ConditionExpression).toBe('attribute_exists(#pk)');
       });
 
       it('複数の設定を同時に更新できる', async () => {
@@ -425,11 +425,11 @@ describe('videos', () => {
             PK: 'USER#user123',
             SK: 'VIDEO#sm12345678',
             Type: 'USER_SETTING',
-            userId: 'user123',
-            videoId: 'sm12345678',
-            isFavorite: true,
-            isSkip: true,
-            memo: 'テストメモ',
+            UserID: 'user123',
+            VideoID: 'sm12345678',
+            IsFavorite: true,
+            IsSkip: true,
+            Memo: 'テストメモ',
             CreatedAt: 1704067200000,
             UpdatedAt: 1704067200000,
           },
@@ -446,17 +446,33 @@ describe('videos', () => {
         expect(ddbMock.calls()).toHaveLength(1);
         const call = ddbMock.call(0);
         expect(parseUpdateExpression(call.args[0].input).set).toEqual({
-          isFavorite: true,
-          isSkip: true,
-          memo: 'テストメモ',
+          IsFavorite: true,
+          IsSkip: true,
+          Memo: 'テストメモ',
           UpdatedAt: expect.any(Number),
         });
       });
 
-      it('更新する項目が指定されていない場合はエラーを返す', async () => {
-        await expect(updateUserVideoSetting('user123', 'sm12345678', {})).rejects.toThrow(
-          '更新するフィールドが指定されていません'
-        );
+      it('更新する項目が指定されていない場合は更新日時だけを更新する', async () => {
+        ddbMock.on(UpdateCommand).resolves({
+          Attributes: {
+            PK: 'USER#user123',
+            SK: 'VIDEO#sm12345678',
+            Type: 'USER_SETTING',
+            UserID: 'user123',
+            VideoID: 'sm12345678',
+            IsFavorite: false,
+            IsSkip: false,
+            CreatedAt: 1704067200000,
+            UpdatedAt: 1704067300000,
+          },
+        });
+
+        await updateUserVideoSetting('user123', 'sm12345678', {});
+
+        expect(ddbMock.calls()).toHaveLength(1);
+        const parsed = parseUpdateExpression(ddbMock.call(0).args[0].input);
+        expect(parsed.set).toEqual({ UpdatedAt: expect.any(Number) });
       });
 
       it('存在しない設定を更新しようとするとエラーになる', async () => {
@@ -472,14 +488,8 @@ describe('videos', () => {
           'エンティティが見つかりません'
         );
 
-        expect(jest.mocked(reportErrorEvent)).toHaveBeenCalledWith(
-          expect.objectContaining({
-            serviceId: 'niconico-mylist-assistant',
-            severity: 'error',
-            title: 'DynamoDB ユーザー設定更新失敗',
-            context: expect.objectContaining({ userId: 'user123', videoId: 'sm99999999' }),
-          })
-        );
+        // 報告は例外を受け止める上位層の責務なので、リポジトリ呼び出し側では報告しない
+        expect(jest.mocked(reportErrorEvent)).not.toHaveBeenCalled();
       });
     });
 
@@ -490,10 +500,10 @@ describe('videos', () => {
             PK: 'USER#user123',
             SK: 'VIDEO#sm1',
             Type: 'USER_SETTING',
-            userId: 'user123',
-            videoId: 'sm1',
-            isFavorite: true,
-            isSkip: false,
+            UserID: 'user123',
+            VideoID: 'sm1',
+            IsFavorite: true,
+            IsSkip: false,
             CreatedAt: 1704067200000,
             UpdatedAt: 1704067200000,
           },
@@ -501,10 +511,10 @@ describe('videos', () => {
             PK: 'USER#user123',
             SK: 'VIDEO#sm2',
             Type: 'USER_SETTING',
-            userId: 'user123',
-            videoId: 'sm2',
-            isFavorite: false,
-            isSkip: true,
+            UserID: 'user123',
+            VideoID: 'sm2',
+            IsFavorite: false,
+            IsSkip: true,
             CreatedAt: 1704067200000,
             UpdatedAt: 1704067200000,
           },
@@ -532,7 +542,29 @@ describe('videos', () => {
       });
     });
 
+    describe('deleteVideoBasicInfo', () => {
+      it('対象がなくても成功し、存在を条件にしない削除を送る', async () => {
+        ddbMock.on(DeleteCommand).resolves({});
+
+        await expect(deleteVideoBasicInfo('sm99999999')).resolves.toBeUndefined();
+
+        const input = ddbMock.call(0).args[0].input;
+        expect(input).toMatchObject({
+          Key: { PK: 'VIDEO#sm99999999', SK: 'VIDEO#sm99999999' },
+        });
+        expect(input).not.toHaveProperty('ConditionExpression');
+      });
+    });
+
     describe('deleteUserVideoSetting', () => {
+      it('対象がなくても成功し、存在を条件にしない削除を送る', async () => {
+        ddbMock.on(DeleteCommand).resolves({});
+
+        await expect(deleteUserVideoSetting('user123', 'sm99999999')).resolves.toBeUndefined();
+
+        expect(ddbMock.call(0).args[0].input).not.toHaveProperty('ConditionExpression');
+      });
+
       it('ユーザー設定を削除できる', async () => {
         ddbMock.on(DeleteCommand).resolves({});
 

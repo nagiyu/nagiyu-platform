@@ -1,3 +1,4 @@
+import { reportErrorEvent } from '@nagiyu/aws';
 import { GET } from '@/app/api/jobs/[jobId]/highlights/route';
 import type { HighlightRepository, JobRepository } from '@nagiyu/quick-clip-core';
 import { getDynamoDBDocumentClient, getS3Client } from '@/lib/server/aws';
@@ -10,6 +11,11 @@ jest.mock('next/server', () => ({
       json: async () => body,
     }),
   },
+}));
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock('@/lib/server/aws', () => ({
@@ -237,5 +243,12 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
       error: 'INTERNAL_SERVER_ERROR',
       message: '見どころ一覧の取得に失敗しました',
     });
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'quick-clip',
+        severity: 'error',
+        title: 'Web API: 見どころ一覧取得エラー',
+      })
+    );
   });
 });

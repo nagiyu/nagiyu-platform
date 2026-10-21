@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Badge } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+// eslint-disable-next-line no-restricted-imports -- primary 色のツールバー上に置くため、Header のナビ項目と同じ color="inherit" による文字色の継承が必要で、@nagiyu/ui の Button では代替できない
+import { Badge, Button } from '@mui/material';
 import type { InvitationsResponse } from '@/types';
 
 const ERROR_MESSAGES = {
@@ -38,12 +38,10 @@ export function InvitationBadge() {
   }, []);
 
   return (
-    <Button asChild variant="ghost" color="neutral">
-      <Link href="/invitations">
-        <Badge badgeContent={pendingInvitations} color="secondary" showZero>
-          招待
-        </Badge>
-      </Link>
+    <Button color="inherit" component={Link} href="/invitations" sx={{ mx: 0.5 }}>
+      <Badge badgeContent={pendingInvitations} color="secondary" showZero>
+        招待
+      </Badge>
     </Button>
   );
 }

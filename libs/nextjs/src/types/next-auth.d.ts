@@ -1,14 +1,9 @@
 import 'next-auth';
+import type { SessionUser } from '@nagiyu/common';
 
 declare module 'next-auth' {
   interface Session {
-    user: {
-      id: string;
-      email: string;
-      name: string;
-      image?: string;
-      roles: string[];
-    };
+    user: SessionUser;
   }
 
   interface User {

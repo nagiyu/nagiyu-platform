@@ -11,13 +11,13 @@ import type { SelfFactEntity } from '../../../src/entities/self-fact.entity.js';
 import type { WebFactEntity } from '../../../src/entities/web-fact.entity.js';
 
 const makeMsg = (role: 'user' | 'assistant', text: string, id = 'id1'): MessageEntity => ({
-  UserID: 'u1',
-  CharacterID: 'hiyori',
-  MessageID: id,
-  Role: role,
-  Text: text,
-  CreatedAt: 1_700_000_000_000,
-  UpdatedAt: 1_700_000_000_000,
+  userId: 'u1',
+  characterId: 'hiyori',
+  messageId: id,
+  role: role,
+  text: text,
+  createdAt: 1_700_000_000_000,
+  updatedAt: 1_700_000_000_000,
 });
 
 describe('getTimeOfDay', () => {
@@ -151,14 +151,14 @@ describe('buildChatMessages（lifecycleState）', () => {
 
 describe('buildSystemPrompt（recentNotes / 感想連携）', () => {
   const makeNote = (subject: string, id = 'note-1') => ({
-    UserID: 'u1',
-    CharacterID: 'hiyori',
-    NoteID: id,
-    TopicID: 'topic-1',
-    Subject: subject,
-    Headline: '本文',
-    CreatedAt: 1_700_000_000_000,
-    UpdatedAt: 1_700_000_000_000,
+    userId: 'u1',
+    characterId: 'hiyori',
+    noteId: id,
+    topicId: 'topic-1',
+    subject: subject,
+    headline: '本文',
+    createdAt: 1_700_000_000_000,
+    updatedAt: 1_700_000_000_000,
   });
 
   it('recentNotes がある場合はノートのタイトルと感想連携の指示が含まれる', () => {
@@ -188,42 +188,42 @@ describe('buildSystemPrompt（recentNotes / 感想連携）', () => {
 
 function makeTopic(subject: string, id = 'topic-1'): TopicEntity {
   return {
-    UserID: 'u1',
-    CharacterID: 'hiyori',
-    TopicID: id,
-    Subject: subject,
-    CanonicalSummary: `${subject} の要約`,
-    Category: 'カテゴリ',
-    Care: 1,
-    Embedding: [0.1, 0.2],
-    CreatedAt: 1_700_000_000_000,
-    UpdatedAt: 1_700_000_000_000,
+    userId: 'u1',
+    characterId: 'hiyori',
+    topicId: id,
+    subject: subject,
+    canonicalSummary: `${subject} の要約`,
+    category: 'カテゴリ',
+    care: 1,
+    embedding: [0.1, 0.2],
+    createdAt: 1_700_000_000_000,
+    updatedAt: 1_700_000_000_000,
   };
 }
 
 function makeSelfFact(text: string, topicId = 'topic-1'): SelfFactEntity {
   return {
-    UserID: 'u1',
-    CharacterID: 'hiyori',
-    TopicID: topicId,
-    FactID: 'fact-1',
-    Text: text,
-    Provenance: '',
-    CreatedAt: 1_700_000_000_000,
+    userId: 'u1',
+    characterId: 'hiyori',
+    topicId: topicId,
+    factId: 'fact-1',
+    text: text,
+    provenance: '',
+    createdAt: 1_700_000_000_000,
   };
 }
 
 function makeWebFact(text: string, topicId = 'topic-1'): WebFactEntity {
   return {
-    UserID: 'u1',
-    CharacterID: 'hiyori',
-    TopicID: topicId,
-    FactID: 'wfact-1',
-    Text: text,
-    SourceUrls: [],
-    Volatility: 'stable',
-    ObservedAt: 1_700_000_000_000,
-    CreatedAt: 1_700_000_000_000,
+    userId: 'u1',
+    characterId: 'hiyori',
+    topicId: topicId,
+    factId: 'wfact-1',
+    text: text,
+    sourceUrls: [],
+    volatility: 'stable',
+    observedAt: 1_700_000_000_000,
+    createdAt: 1_700_000_000_000,
   };
 }
 
@@ -282,7 +282,7 @@ describe('buildSystemPrompt（retrievedTopics）', () => {
       makeRetrievedTopic('コーヒー', ['朝コーヒーを飲む']),
       makeRetrievedTopic('ゲーム', ['RPGが好き']),
     ];
-    topics[1].topic.TopicID = 'topic-2';
+    topics[1].topic.topicId = 'topic-2';
     const prompt = buildSystemPrompt(hiyori, new Date(), undefined, undefined, topics);
     expect(prompt).toContain('■ コーヒー');
     expect(prompt).toContain('■ ゲーム');
@@ -291,14 +291,14 @@ describe('buildSystemPrompt（retrievedTopics）', () => {
   it('recentNotes セクションと共存できる', () => {
     const notes = [
       {
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        NoteID: 'note-1',
-        TopicID: 'topic-1',
-        Subject: 'ケーキの話',
-        Headline: '本文',
-        CreatedAt: 1_700_000_000_000,
-        UpdatedAt: 1_700_000_000_000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        noteId: 'note-1',
+        topicId: 'topic-1',
+        subject: 'ケーキの話',
+        headline: '本文',
+        createdAt: 1_700_000_000_000,
+        updatedAt: 1_700_000_000_000,
       },
     ];
     const topics = [makeRetrievedTopic('コーヒー', ['朝コーヒーを飲む'])];
@@ -313,7 +313,7 @@ describe('buildSystemPrompt（retrievedTopics）', () => {
       makeRetrievedTopic('コーヒー', ['朝コーヒーを飲む']),
       makeRetrievedTopic('空の話題', [], []),
     ];
-    topics[1].topic.TopicID = 'topic-2';
+    topics[1].topic.topicId = 'topic-2';
     const prompt = buildSystemPrompt(hiyori, new Date(), undefined, undefined, topics);
     expect(prompt).toContain('■ コーヒー');
     expect(prompt).not.toContain('■ 空の話題');
@@ -325,8 +325,8 @@ describe('buildSystemPrompt（retrievedTopics）', () => {
       makeRetrievedTopic('コーヒー', [], ['カフェインは覚醒作用がある']),
       makeRetrievedTopic('空の話題2', [], []),
     ];
-    topics[1].topic.TopicID = 'topic-2';
-    topics[2].topic.TopicID = 'topic-3';
+    topics[1].topic.topicId = 'topic-2';
+    topics[2].topic.topicId = 'topic-3';
     const prompt = buildSystemPrompt(hiyori, new Date(), undefined, undefined, topics);
     expect(prompt).toContain('今の話題に関連');
     expect(prompt).toContain('■ コーヒー');
@@ -339,7 +339,7 @@ describe('buildSystemPrompt（retrievedTopics）', () => {
       makeRetrievedTopic('空の話題1', [], []),
       makeRetrievedTopic('空の話題2', [], []),
     ];
-    topics[1].topic.TopicID = 'topic-2';
+    topics[1].topic.topicId = 'topic-2';
     const prompt = buildSystemPrompt(hiyori, new Date(), undefined, undefined, topics);
     expect(prompt).not.toContain('今の話題に関連');
     expect(prompt).not.toContain('■ 空の話題1');

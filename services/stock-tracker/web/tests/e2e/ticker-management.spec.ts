@@ -3,7 +3,7 @@ import { test, expect, resetState, type ResetSeedData } from './fixtures';
 /**
  * webkit-mobile 対応: 実 Service Worker（/sw.js）を無効化する。
  *
- * 本アプリは libs/ui の ServiceWorkerRegistration が全ページで /sw.js を登録するため、
+ * 本アプリは libs/react の ServiceWorkerRegistration が全ページで /sw.js を登録するため、
  * webkit では SW がページを制御し、API 応答を仲介・キャッシュしてしまう。Playwright は
  * 「Service Worker 経由のリクエストは Chromium 以外では page.route で捕捉できない」
  * という既知の制約があるため、モックが素通りしたり、UI が古い応答を表示したりして
@@ -21,7 +21,7 @@ test.use({ serviceWorkers: 'block' });
  *
  * このテストは以下を検証します:
  * - ティッカーのCRUD操作（作成、編集、削除）
- * - ティッカーIDの自動生成（{Exchange.Key}:{Symbol} 形式）
+ * - ティッカーIDの自動生成 ({Exchange.key}:{symbol} 形式)
  * - 取引所フィルタ機能
  * - 権限チェック（書き込み系操作は stock-admin のみ許可）
  * - バリデーションエラーの表示
@@ -74,13 +74,13 @@ const SECOND_TICKER_ID = `${SECOND_EXCHANGE_KEY}:${SECOND_TICKER_SYMBOL}`;
 /** メイン取引所の Exchange エンティティ */
 function mainExchangeEntity() {
   return {
-    ExchangeID: EXCHANGE_ID,
-    Name: EXCHANGE_NAME,
-    Key: EXCHANGE_KEY,
-    Timezone: 'America/New_York',
-    Start: '09:30',
-    End: '16:00',
-    PriceSource: 'tradingview',
+    exchangeId: EXCHANGE_ID,
+    name: EXCHANGE_NAME,
+    key: EXCHANGE_KEY,
+    timezone: 'America/New_York',
+    start: '09:30',
+    end: '16:00',
+    priceSource: 'tradingview',
   };
 }
 
@@ -94,10 +94,10 @@ function exchangeSeed(): ResetSeedData {
 /** メイン取引所に紐づくティッカーの seed データ */
 function tickerEntity() {
   return {
-    TickerID: TICKER_ID,
-    Symbol: TICKER_SYMBOL,
-    Name: TICKER_NAME,
-    ExchangeID: EXCHANGE_ID,
+    tickerId: TICKER_ID,
+    symbol: TICKER_SYMBOL,
+    name: TICKER_NAME,
+    exchangeId: EXCHANGE_ID,
   };
 }
 
@@ -245,22 +245,22 @@ test.describe('ティッカー管理 (E2E-007)', () => {
         exchanges: [
           mainExchangeEntity(),
           {
-            ExchangeID: SECOND_EXCHANGE_ID,
-            Name: SECOND_EXCHANGE_NAME,
-            Key: SECOND_EXCHANGE_KEY,
-            Timezone: 'Asia/Tokyo',
-            Start: '09:00',
-            End: '15:00',
-            PriceSource: 'tradingview',
+            exchangeId: SECOND_EXCHANGE_ID,
+            name: SECOND_EXCHANGE_NAME,
+            key: SECOND_EXCHANGE_KEY,
+            timezone: 'Asia/Tokyo',
+            start: '09:00',
+            end: '15:00',
+            priceSource: 'tradingview',
           },
         ],
         tickers: [
           tickerEntity(),
           {
-            TickerID: SECOND_TICKER_ID,
-            Symbol: SECOND_TICKER_SYMBOL,
-            Name: 'Other Exchange Ticker',
-            ExchangeID: SECOND_EXCHANGE_ID,
+            tickerId: SECOND_TICKER_ID,
+            symbol: SECOND_TICKER_SYMBOL,
+            name: 'Other Exchange Ticker',
+            exchangeId: SECOND_EXCHANGE_ID,
           },
         ],
       });

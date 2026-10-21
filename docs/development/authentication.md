@@ -49,17 +49,27 @@ Auth の `/refresh?callbackUrl=...` は `useSession().update()` で jwt callback
 
 ### 初回 403 の導線（権限付与の反映フロー）
 
-権限未付与ユーザーが保護ページにアクセスした場合の UX:
+ログイン済みだが権限が無いユーザーには、`@nagiyu/ui` の `AccessDeniedView` を表示する。権限が無い旨の 1 行表示や、無関係なページへのリダイレクトにはしない。
 
-1. Consumer ミドルウェアが権限不足を検出 → `/forbidden?from=<元パス>` へリダイレクト
-2. `/forbidden` は `@nagiyu/ui` の `AccessDeniedView` を表示（「アクセスを更新」「再ログイン」の2導線）
-3. 「アクセスを更新」→ Auth の `/refresh` で最新ロールを取得 → 元ページへ復帰
+権限の見方によって、表示のしかたが 2 通りある。
+
+- ミドルウェアで権限を見るサービス: `createAuthMiddleware` の `requiredPermission` を満たさないと、`/forbidden?from=<元のパス>` へリダイレクトする。リダイレクト先は `forbiddenPath` で変えられる。`/forbidden` ページは公開パスにし、`from` から戻り先を組み立てて `AccessDeniedView` に渡す
+- ページ内で権限を見る場合: URL を変えず、そのページが `AccessDeniedView` を返す。戻り先は、ボタンを押した時点の現在の URL になる
+
+ミドルウェアで rewrite (URL を変えずに `/forbidden` の中身を返す) を使わないのは、ECS 配下で外部プロキシになるため。next-auth は middleware に渡す `request.url` のオリジンを `AUTH_URL` (公開 URL) に書き換える。一方、Next.js はサーバー自身を内部ホスト名で認識しているので、公開 URL 宛ての rewrite を自身と一致しない宛先とみなし、HTTP で取りに行く。リダイレクト先のオリジンも同じ理由で、`request.url` ではなく `APP_URL` を優先する。
+
+権限が付与されたあとの流れは次のとおり。
+
+1. `AccessDeniedView` は「アクセスを更新」「再ログイン」の 2 導線を出す
+2. 「アクセスを更新」→ Auth の `/refresh` で最新ロールを取得 → 元ページへ復帰
+
+`/api` 配下は画面を出さず、従来どおり JSON の 403 を返す。呼び出し側がステータスで分岐できるようにするため。
 
 これにより「管理者がロールを付与 → ユーザーはサインアウトせず “アクセスを更新” で反映」が成立する。
 
 ### 既知の制約: ロール降格（剥奪）の反映遅延
 
-上記フローは**ロール付与**を即時化するが、**降格（剥奪）は即時反映されない**。降格ユーザーは Cookie 上まだ権限を持つため 403 が出ず、`/forbidden` へのバウンスも起きない。かつ Consumer はロールを再取得しない。したがって降格の反映は次のいずれかまで遅延する:
+上記フローは**ロール付与**を即時化するが、**降格 (剥奪) は即時反映されない**。降格ユーザーは Cookie 上まだ権限を持つため 403 が出ず、権限なし画面も表示されない。かつ Consumer はロールを再取得しない。したがって降格の反映は次のいずれかまで遅延する:
 
 - ユーザーが Auth ドメインを通過したとき（`/refresh` 経由、または TTL 経過後の Auth ドメインへのリクエスト）
 - セッション期限（現状 30 日）
@@ -193,15 +203,17 @@ CDK でスタックを個別にデプロイする際、依存するスタック�
 
 ## セッション型の設計方針
 
-プラットフォームでは、用途が異なる2種類の Session 型を明確に分離する。
+`@nagiyu/common` には、似て非なる 2 種類のユーザー型がある。混同しないよう用途で分ける。
 
-### DynamoDB エンティティ用（サーバーサイドのみ）
+### User (DB 上のユーザー)
 
-`@nagiyu/common` の `Session` 型は、DynamoDB に永続化された完全なユーザーエンティティを表す。`createdAt`/`updatedAt`/`lastLoginAt` 等を含む。サーバーサイドのリポジトリ層・バッチ処理のみが参照し、フロントエンドや API ルートの `getSession()` 戻り値には使用しない。
+DynamoDB に永続化されたユーザーエンティティ。`userId` / `googleId` / `createdAt` / `updatedAt` / `lastLoginAt` 等を持つ。Auth サービスのリポジトリ層やバッチ処理など、DB を直接読み書きする箇所で使う。API ルートや画面が受け取るセッションの型には使わない。
 
-### Web セッション用（フロントエンド・API ルート）
+### Session / SessionUser (セッション)
 
-`@nagiyu/nextjs` の `types/next-auth.d.ts` で定義した NextAuth の `Session` 拡張型を使用する。JWT/セッショントークンから復元される軽量な表現（`id`, `email`, `name`, `roles` 等のみ）であり、全 Consumer サービスで統一する。`createdAt`/`updatedAt` が必要なサーバーサイド処理は DynamoDB を直接参照する。
+JWT から復元される、リクエスト時点の認証済みユーザーを表す。`SessionUser` は `id` / `email` / `name` / `image?` / `roles` だけを持ち、DB にしかない値 (`googleId` や作成日時) は含まない。`@nagiyu/nextjs` の `types/next-auth.d.ts` は next-auth の `Session['user']` をこの `SessionUser` で拡張しているため、サーバー側の `getSession()` が返す値とクライアントの `useSession()` が返す値は同じ形になる。
+
+DB の値が必要なサーバー側の処理は、セッションの `user.id` をキーに DynamoDB を参照する。サービスごとに独自のセッション型を定義したり、存在しない値を埋めて変換したりしない。
 
 ---
 
@@ -224,11 +236,12 @@ Cookie オプション（`domain`, `secure`, `sameSite`, `httpOnly` 等）・セ
 
 ## セッション取得の統一パターン
 
-全 Consumer サービスのセッション取得は `@nagiyu/nextjs` の `createSessionGetter()` を使用する。
+全 Consumer サービスのセッション取得は `@nagiyu/nextjs` の `createSessionGetter()` を使用する。戻り値は全サービスで `@nagiyu/common` の `Session | null` に揃う。
 
-- `auth`: サービスの auth 関数を渡す
-- `createTestSession`: `SKIP_AUTH_CHECK` が有効な場合に返すモックセッションの生成関数を渡す
-- `mapSession`: NextAuth セッションをサービス固有のセッション型に変換する関数を渡す（**省略可**）。省略時は NextAuth セッションをそのままパススルーする。`createAuthCallbacks` でセッション形状が正規化済みの場合は省略してよい
+- `auth`: サービスの auth 関数を `auth as () => Promise<Session | null>` として渡す
+- `defaultRoles`: `SKIP_AUTH_CHECK` が有効なときのテストセッションで、ロールが未指定の場合に使う既定ロールを渡す (**省略可**)
+
+テストセッションはライブラリが組み立てる。ロールはヘッダ `x-test-user-roles`、`TEST_USER_ROLES`、`defaultRoles` の順に解決する。サービス側にセッションの変換やテストセッションの生成は持たない。
 
 セッション取得ロジックをサービス側で個別実装しない。
 

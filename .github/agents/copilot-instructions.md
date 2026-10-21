@@ -45,12 +45,8 @@ npm run lint --workspace @nagiyu/{package}
 npm run format:check --workspace @nagiyu/{package}
 npm run format --workspace @nagiyu/{package}
 
-# ビルド（依存順序厳守）
-npm run build --workspace @nagiyu/common
-npm run build --workspace @nagiyu/aws
-npm run build --workspace @nagiyu/react
-npm run build --workspace @nagiyu/browser
-npm run build --workspace @nagiyu/ui
+# ビルド（libs は依存順を持つ build:libs で一括、その後にサービス）
+npm run build:libs
 npm run build --workspace {service-web}
 ```
 

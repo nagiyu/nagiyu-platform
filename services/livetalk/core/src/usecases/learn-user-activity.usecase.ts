@@ -43,7 +43,7 @@ export async function learnUserActivity(
   const sinceMs = nowDate.getTime() - lookbackDays * 24 * 60 * 60 * 1000;
 
   const allMessages = await messageRepo.listSince(userId, characterId, sinceMs);
-  const userMessages = allMessages.filter((m) => m.Role === 'user');
+  const userMessages = allMessages.filter((m) => m.role === 'user');
 
   if (userMessages.length < sampleSizeThreshold) {
     return 'skipped';
@@ -67,8 +67,8 @@ export async function learnUserActivity(
 
   // Phase 4d: 学習結果を元にキャラのスケジュールを緩やかに適応
   const adapted = adaptCharacterSchedule(
-    { bedtime: lifecycle.Bedtime, wakeUpTime: lifecycle.WakeUpTime },
-    lifecycle.UserActivityProfile
+    { bedtime: lifecycle.bedtime, wakeUpTime: lifecycle.wakeUpTime },
+    lifecycle.userActivityProfile
   );
   await lifecycleRepo.updateSchedule({ userId, characterId }, adapted);
 

@@ -2,19 +2,15 @@ import {
   ERROR_MESSAGES as GROUP_ERROR_MESSAGES,
   respondToInvitation,
 } from '@nagiyu/share-together-core';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { NextResponse } from 'next/server';
 import type { ApiSuccessResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
+import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createGroupRepository, createMembershipRepository } from '@nagiyu/share-together-core';
-import { toErrorMessage } from '@nagiyu/common';
-import {
-  createValidationErrorResponse,
-  createNotFoundErrorResponse,
-  createInternalServerErrorResponse,
-} from '@/lib/api/responses';
-import { createErrorResponse } from '@nagiyu/nextjs';
+import { createValidationErrorResponse, createNotFoundErrorResponse } from '@/lib/api/responses';
+import { createErrorResponse, readJsonObjectBody } from '@nagiyu/nextjs';
 
 type RouteParams = {
   params: Promise<{ groupId: string }>;
@@ -22,14 +18,10 @@ type RouteParams = {
 
 type InvitationAction = 'ACCEPT' | 'REJECT';
 
-type InvitationResponseBody = {
-  action?: unknown;
-};
-
 type InvitationUpdateResponse = {
   groupId: string;
   status: 'ACCEPTED' | 'REJECTED';
-  updatedAt: string;
+  updatedAt: number;
 };
 
 function isInvitationAction(action: unknown): action is InvitationAction {
@@ -43,86 +35,72 @@ function toInvitationStatus(status: string): InvitationUpdateResponse['status'] 
   throw new Error(ERROR_MESSAGES.INVALID_INVITATION_STATUS);
 }
 
-export async function PUT(request: Request, { params }: RouteParams): Promise<NextResponse> {
-  let requestedGroupId: string | undefined;
-  let requestedAction: InvitationAction | undefined;
-  try {
-    const sessionOrUnauthorized = await getSessionOrUnauthorized();
-    if ('status' in sessionOrUnauthorized) {
-      return sessionOrUnauthorized;
-    }
-
-    const { groupId } = await params;
-    if (typeof groupId !== 'string' || groupId.length === 0) {
-      return createValidationErrorResponse();
-    }
-    requestedGroupId = groupId;
-
-    const userId = sessionOrUnauthorized.user.id;
-    if (typeof userId !== 'string' || userId.length === 0) {
-      return createValidationErrorResponse();
-    }
-
-    const body = (await request.json()) as InvitationResponseBody;
-    if (!isInvitationAction(body.action)) {
-      return createValidationErrorResponse();
-    }
-    requestedAction = body.action;
-
-    const tableName = process.env.DYNAMODB_TABLE_NAME;
-    if (!tableName) {
-      throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
-    }
-
-    const docClient =
-      process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
-    const membershipRepository = createMembershipRepository(docClient, tableName);
-    const groupRepository = createGroupRepository(docClient, tableName);
-    const updatedMembership = await respondToInvitation(
-      {
-        groupId,
-        userId,
-        response: body.action,
-        respondedAt: new Date().toISOString(),
-      },
-      { groupRepository, membershipRepository }
-    );
-
-    const response: ApiSuccessResponse<InvitationUpdateResponse> = {
-      data: {
-        groupId: updatedMembership.groupId,
-        status: toInvitationStatus(updatedMembership.status),
-        updatedAt: updatedMembership.updatedAt,
-      },
-    };
-    return NextResponse.json(response);
-  } catch (error) {
-    if (error instanceof Error) {
-      if (error.message === GROUP_ERROR_MESSAGES.INVITATION_NOT_FOUND) {
-        return createNotFoundErrorResponse();
+export const PUT = withApiErrorReporting(
+  'Web API: 招待承認・拒否エラー',
+  async (request: Request, { params }: RouteParams): Promise<NextResponse> => {
+    try {
+      const sessionOrUnauthorized = await getSessionOrUnauthorized();
+      if ('status' in sessionOrUnauthorized) {
+        return sessionOrUnauthorized;
       }
-      if (error.message === GROUP_ERROR_MESSAGES.INVITATION_ALREADY_RESPONDED) {
-        return createErrorResponse(409, 'ALREADY_RESPONDED', ERROR_MESSAGES.ALREADY_RESPONDED);
-      }
-    }
 
-    const errorMessage = toErrorMessage(error);
-    console.error('招待承認・拒否 API の実行に失敗しました', {
-      groupId: requestedGroupId,
-      action: requestedAction,
-      error,
-    });
-    await reportErrorEvent({
-      serviceId: 'share-together',
-      severity: 'error',
-      title: 'Web API: 招待承認・拒否エラー',
-      message: errorMessage,
-      context: {
-        groupId: requestedGroupId,
-        action: requestedAction,
-        errorStack: error instanceof Error ? error.stack : undefined,
-      },
-    });
-    return createInternalServerErrorResponse();
+      const { groupId } = await params;
+      if (typeof groupId !== 'string' || groupId.length === 0) {
+        return createValidationErrorResponse();
+      }
+
+      const userId = sessionOrUnauthorized.user.id;
+      if (typeof userId !== 'string' || userId.length === 0) {
+        return createValidationErrorResponse();
+      }
+
+      const bodyResult = await readJsonObjectBody(request);
+      if (!bodyResult.ok) {
+        return createValidationErrorResponse();
+      }
+      const { body } = bodyResult;
+      if (!isInvitationAction(body.action)) {
+        return createValidationErrorResponse();
+      }
+
+      const tableName = process.env.DYNAMODB_TABLE_NAME;
+      if (!tableName) {
+        throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
+      }
+
+      const docClient =
+        process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
+      const membershipRepository = createMembershipRepository(docClient, tableName);
+      const groupRepository = createGroupRepository(docClient, tableName);
+      const updatedMembership = await respondToInvitation(
+        {
+          groupId,
+          userId,
+          response: body.action,
+          respondedAt: Date.now(),
+        },
+        { groupRepository, membershipRepository }
+      );
+
+      const response: ApiSuccessResponse<InvitationUpdateResponse> = {
+        data: {
+          groupId: updatedMembership.groupId,
+          status: toInvitationStatus(updatedMembership.status),
+          updatedAt: updatedMembership.updatedAt,
+        },
+      };
+      return NextResponse.json(response);
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === GROUP_ERROR_MESSAGES.INVITATION_NOT_FOUND) {
+          return createNotFoundErrorResponse();
+        }
+        if (error.message === GROUP_ERROR_MESSAGES.INVITATION_ALREADY_RESPONDED) {
+          return createErrorResponse(409, 'ALREADY_RESPONDED', ERROR_MESSAGES.ALREADY_RESPONDED);
+        }
+      }
+
+      throw error;
+    }
   }
-}
+);

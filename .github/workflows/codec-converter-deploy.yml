@@ -11,6 +11,7 @@ on:
       - 'infra/codec-converter/**'
       - 'infra/common/**'
       - 'libs/**'
+      - 'configs/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/codec-converter-deploy.yml'
@@ -157,7 +158,7 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/codec-converter-web'
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/aws,@nagiyu/codec-converter-core'
+          shared-workspaces: '@nagiyu/codec-converter-core'
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

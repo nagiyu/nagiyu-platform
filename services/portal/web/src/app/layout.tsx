@@ -14,14 +14,14 @@ import InfoIcon from '@mui/icons-material/Info';
 import '@nagiyu/ui/tokens.css';
 import './globals.css';
 import { shouldLoadAdsense } from '@/lib/adsense';
+import { SITE } from '@/lib/author';
 
 export const metadata: Metadata = {
   title: {
     default: 'nagiyu - AWS と個人開発の実運用ノート',
     template: '%s - nagiyu',
   },
-  description:
-    '個人で複数の Web サービスを AWS 上で開発・運用する中で、実際に踏んだ失敗と、その場で下した判断を記録している技術メディアです。',
+  description: SITE.description,
   keywords: ['nagiyu', '技術記事', 'AWS', '個人開発', '実運用', 'CI/CD', 'テスト', 'AI 開発'],
   authors: [{ name: 'nagiyu' }],
   creator: 'nagiyu',

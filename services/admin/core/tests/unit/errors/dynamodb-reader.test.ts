@@ -2,9 +2,9 @@
  * DynamoDBErrorEventReader の単体テスト
  */
 
-import { QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { ErrorEvent } from '@nagiyu/common';
-import { buildErrorEventPK, buildErrorEventSK, ERROR_EVENT_GSI1_PK } from '@nagiyu/aws';
+import { ErrorEventMapper, ERROR_EVENT_GSI1_PK } from '@nagiyu/aws';
 import { DynamoDBErrorEventReader } from '../../../src/errors/dynamodb-reader.js';
 import { encodeCursor } from '../../../src/errors/reader.js';
 
@@ -16,14 +16,12 @@ const sampleEvent: ErrorEvent = {
   title: 'sample',
   message: 'sample',
   context: '{}',
-  occurredAt: '2026-05-06T00:00:00.000Z',
+  occurredAt: Date.parse('2026-05-06T00:00:00.000Z'),
 };
 
-const itemFor = (event: ErrorEvent): Record<string, unknown> => ({
-  PK: buildErrorEventPK(event.serviceId),
-  SK: buildErrorEventSK(event.occurredAt, event.eventId),
-  ...event,
-});
+const mapper = new ErrorEventMapper();
+
+const itemFor = (event: ErrorEvent): Record<string, unknown> => mapper.toItem(event);
 
 describe('DynamoDBErrorEventReader', () => {
   let mockDocClient: jest.Mocked<DynamoDBDocumentClient>;
@@ -89,6 +87,52 @@ describe('DynamoDBErrorEventReader', () => {
       expect(cmd.input.KeyConditionExpression).toContain('<=');
     });
 
+    it('from / to は SK に埋め込まれる固定長の ISO 文字列に揃えて比較する', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Items: [] } as never);
+
+      await reader.list({ from: '2026-05-01T00:00:00Z', to: '2026-05-31T23:59:59Z' });
+
+      const cmd = mockDocClient.send.mock.calls[0][0] as QueryCommand;
+      expect(cmd.input.ExpressionAttributeValues?.[':from']).toBe(
+        'OCCURRED#2026-05-01T00:00:00.000Z'
+      );
+      expect(cmd.input.ExpressionAttributeValues?.[':to']).toBe(
+        'OCCURRED#2026-05-31T23:59:59.000Z\uffff'
+      );
+    });
+
+    it('解釈できない from はそのまま比較に使う', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Items: [] } as never);
+
+      await reader.list({ from: 'x' });
+
+      const cmd = mockDocClient.send.mock.calls[0][0] as QueryCommand;
+      expect(cmd.input.ExpressionAttributeValues?.[':from']).toBe('OCCURRED#x');
+    });
+
+    it('旧形式の Item も読める', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Items: [
+          {
+            PK: 'ERROR_EVENT#stock-tracker',
+            SK: 'OCCURRED#2026-05-06T00:00:00.000Z#evt-1',
+            eventId: 'evt-1',
+            serviceId: 'stock-tracker',
+            source: 'cloudwatch-alarm',
+            severity: 'error',
+            title: 'sample',
+            message: 'sample',
+            context: '{}',
+            occurredAt: '2026-05-06T00:00:00.000Z',
+            ttl: 1,
+          },
+        ],
+      } as never);
+
+      const result = await reader.list({});
+      expect(result.items).toEqual([sampleEvent]);
+    });
+
     it('from > to のとき例外', async () => {
       await expect(
         reader.list({ from: '2026-05-31T00:00:00Z', to: '2026-05-01T00:00:00Z' })
@@ -116,11 +160,19 @@ describe('DynamoDBErrorEventReader', () => {
       const cmd = mockDocClient.send.mock.calls[0][0] as QueryCommand;
       expect(cmd.input.ExclusiveStartKey).toEqual(lastKey);
     });
+
+    it('不正な Item が含まれる場合は除外せず例外を伝える', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Items: [itemFor(sampleEvent), { ...itemFor(sampleEvent), Severity: 'unknown' }],
+      } as never);
+
+      await expect(reader.list({})).rejects.toThrow('Severity');
+    });
   });
 
   describe('findById', () => {
     it('PK + SK で 1 件取得できる', async () => {
-      mockDocClient.send.mockResolvedValueOnce({ Items: [itemFor(sampleEvent)] } as never);
+      mockDocClient.send.mockResolvedValueOnce({ Item: itemFor(sampleEvent) } as never);
 
       const result = await reader.findById(
         sampleEvent.eventId,
@@ -128,16 +180,29 @@ describe('DynamoDBErrorEventReader', () => {
         sampleEvent.serviceId
       );
 
-      const cmd = mockDocClient.send.mock.calls[0][0] as QueryCommand;
-      expect(cmd.input.KeyConditionExpression).toBe('#pk = :pk AND #sk = :sk');
-      expect(cmd.input.ExpressionAttributeValues?.[':pk']).toBe('ERROR_EVENT#stock-tracker');
+      const cmd = mockDocClient.send.mock.calls[0][0] as GetCommand;
+      expect(cmd).toBeInstanceOf(GetCommand);
+      expect(cmd.input.Key).toEqual({
+        PK: 'ERROR_EVENT#stock-tracker',
+        SK: 'OCCURRED#2026-05-06T00:00:00.000Z#evt-1',
+      });
       expect(result).toEqual(sampleEvent);
     });
 
     it('該当無しなら null', async () => {
-      mockDocClient.send.mockResolvedValueOnce({ Items: [] } as never);
-      const result = await reader.findById('x', '2026-05-06T00:00:00Z', 'stock-tracker');
+      mockDocClient.send.mockResolvedValueOnce({} as never);
+      const result = await reader.findById('x', sampleEvent.occurredAt, 'stock-tracker');
       expect(result).toBeNull();
+    });
+
+    it('不正な Item なら例外を伝える', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Item: { ...itemFor(sampleEvent), Source: 'unknown' },
+      } as never);
+
+      await expect(
+        reader.findById(sampleEvent.eventId, sampleEvent.occurredAt, sampleEvent.serviceId)
+      ).rejects.toThrow('Source');
     });
   });
 });

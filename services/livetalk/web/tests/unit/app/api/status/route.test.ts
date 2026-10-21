@@ -41,26 +41,20 @@ const mockGetMessageRepo = getMessageRepository as jest.MockedFunction<typeof ge
 
 const livetalkUserSession = {
   user: {
-    userId: 'u1',
-    googleId: 'g1',
+    id: 'u1',
     email: 'user@example.com',
     name: 'User',
     roles: ['livetalk-user'],
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
   },
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
 
 const adminSession = {
   user: {
-    userId: 'u1',
-    googleId: 'g1',
+    id: 'u1',
     email: 'admin@example.com',
     name: 'Admin',
     roles: ['livetalk-admin'],
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
   },
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
@@ -68,12 +62,12 @@ const adminSession = {
 const makeLifecycleRepo = () =>
   ({
     get: jest.fn(async () => ({
-      UserID: 'g1',
-      CharacterID: 'hiyori',
-      Bedtime: '01:30',
-      WakeUpTime: '09:30',
-      CreatedAt: 0,
-      UpdatedAt: 0,
+      userId: 'u1',
+      characterId: 'hiyori',
+      bedtime: '01:30',
+      wakeUpTime: '09:30',
+      createdAt: 0,
+      updatedAt: 0,
     })),
   }) as unknown as LifecycleRepository;
 
@@ -89,7 +83,7 @@ const makeNotifEventRepo = () =>
 
 const makeStudyTopicRepo = (pendingCount = 0) =>
   ({
-    listByStatus: jest.fn(async () => Array(pendingCount).fill({ TopicID: 't1' })),
+    listByStatus: jest.fn(async () => Array(pendingCount).fill({ topicId: 't1' })),
   }) as unknown as StudyTopicRepository;
 
 const makeMessageRepo = () =>
@@ -168,13 +162,13 @@ describe('GET /api/status', () => {
     mockGetSession.mockResolvedValueOnce(adminSession);
     mockGetLifecycleRepo.mockReturnValue({
       get: jest.fn(async () => ({
-        UserID: 'g1',
-        CharacterID: 'hiyori',
-        Bedtime: '01:30',
-        WakeUpTime: '09:30',
-        UserActivityProfile: profile,
-        CreatedAt: 0,
-        UpdatedAt: 0,
+        userId: 'u1',
+        characterId: 'hiyori',
+        bedtime: '01:30',
+        wakeUpTime: '09:30',
+        userActivityProfile: profile,
+        createdAt: 0,
+        updatedAt: 0,
       })),
     } as unknown as LifecycleRepository);
     mockGetNotifEventRepo.mockReturnValue(makeNotifEventRepo());
@@ -195,13 +189,15 @@ describe('GET /api/status', () => {
 
     const longBody = 'a'.repeat(200);
     const events = Array.from({ length: 7 }, (_, i) => ({
-      UserID: 'g1',
-      NotifID: `notif-${i}`,
-      Kind: 'normal' as const,
-      Title: 'タイトル',
-      Body: longBody,
-      CreatedAt: 1000 * (i + 1),
-      Ttl: 9999999,
+      userId: 'u1',
+      notifId: `notif-${i}`,
+      characterId: 'hiyori',
+      kind: 'normal' as const,
+      title: 'タイトル',
+      body: longBody,
+      createdAt: 1000 * (i + 1),
+      updatedAt: 1000 * (i + 1),
+      expiresAt: 9_999_999_000,
     }));
     mockGetNotifEventRepo.mockReturnValue({
       listByUser: jest.fn(async () => events),
@@ -256,12 +252,12 @@ describe('GET /api/status', () => {
   it('characterId クエリで指定したキャラの characterId でリポジトリを呼び出す', async () => {
     mockGetSession.mockResolvedValueOnce(adminSession);
     const mockGet = jest.fn(async () => ({
-      UserID: 'g1',
-      CharacterID: 'ageha',
-      Bedtime: '01:30',
-      WakeUpTime: '09:30',
-      CreatedAt: 0,
-      UpdatedAt: 0,
+      userId: 'u1',
+      characterId: 'ageha',
+      bedtime: '01:30',
+      wakeUpTime: '09:30',
+      createdAt: 0,
+      updatedAt: 0,
     }));
     mockGetLifecycleRepo.mockReturnValue({ get: mockGet } as unknown as LifecycleRepository);
     mockGetNotifEventRepo.mockReturnValue(makeNotifEventRepo());
@@ -277,12 +273,12 @@ describe('GET /api/status', () => {
   it('不正な characterId は DEFAULT_CHARACTER_ID にフォールバックする', async () => {
     mockGetSession.mockResolvedValueOnce(adminSession);
     const mockGet = jest.fn(async () => ({
-      UserID: 'g1',
-      CharacterID: 'hiyori',
-      Bedtime: '01:30',
-      WakeUpTime: '09:30',
-      CreatedAt: 0,
-      UpdatedAt: 0,
+      userId: 'u1',
+      characterId: 'hiyori',
+      bedtime: '01:30',
+      wakeUpTime: '09:30',
+      createdAt: 0,
+      updatedAt: 0,
     }));
     mockGetLifecycleRepo.mockReturnValue({ get: mockGet } as unknown as LifecycleRepository);
     mockGetNotifEventRepo.mockReturnValue(makeNotifEventRepo());

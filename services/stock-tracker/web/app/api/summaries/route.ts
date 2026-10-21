@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  DailySummaryMapper,
   type DailySummaryEntity,
   type ExchangeEntity,
   type ForecastEntity,
@@ -9,6 +8,10 @@ import {
 import type { ErrorResponse } from '@nagiyu/common';
 import { withAuth } from '@nagiyu/nextjs';
 import { getSession } from '../../../lib/auth';
+import {
+  createInternalErrorReporting,
+  reportSwallowedError,
+} from '../../../lib/api-error-reporting';
 import {
   createAlertRepository,
   createDailySummaryRepository,
@@ -21,6 +24,7 @@ import {
 } from '../../../lib/repository-factory';
 import { isValidDateFormat } from '../../../lib/forecast/date';
 import { buildMarketForecasts } from '../../../lib/forecast/market-forecast';
+import { toPatternSummary } from '../../../lib/summary/pattern-summary';
 import {
   indexForecastsByTicker,
   toTickerForecastSummary,
@@ -35,6 +39,16 @@ const ERROR_MESSAGES = {
   FETCH_FORECASTS_FAILED: '確度情報の取得に失敗しました',
   FETCH_MARKET_FORECASTS_FAILED: '市場の荒れ予報の取得に失敗しました',
 } as const;
+
+// 付加情報の取得失敗は握りつぶして一覧を返すため、上位のラッパーでは拾えない。その場で報告する
+const REPORT_TITLES = {
+  FETCH_HOLDINGS_FAILED: 'Web API: サマリーの保有株式取得エラー',
+  FETCH_ALERTS_FAILED: 'Web API: サマリーのアラート取得エラー',
+  FETCH_FORECASTS_FAILED: 'Web API: サマリーの確度取得エラー',
+  FETCH_MARKET_FORECASTS_FAILED: 'Web API: サマリーの市場の荒れ予報取得エラー',
+} as const;
+
+const withInternalErrorReporting = createInternalErrorReporting(ERROR_MESSAGES.INTERNAL_ERROR);
 // サマリーAPIでは保有情報取得を1回のレスポンスで完結させるため、初期実装は100件を上限とする。
 // getByUserId の limit で先頭100件のみ取得し、典型的な利用の保有銘柄数を満たしつつ
 // レスポンス遅延や過剰なDBアクセスを抑制する。
@@ -95,10 +109,8 @@ function resolveTicker(
   summary: DailySummaryEntity,
   tickerMap: Map<string, TickerEntity>
 ): TickerEntity | null {
-  return tickerMap.get(summary.TickerID) ?? null;
+  return tickerMap.get(summary.tickerId) ?? null;
 }
-
-const dailySummaryMapper = new DailySummaryMapper();
 
 function toTickerSummaryResponse(
   summary: DailySummaryEntity,
@@ -108,28 +120,28 @@ function toTickerSummaryResponse(
   forecastMap: Map<string, ForecastEntity>
 ): TickerSummaryResponse {
   const ticker = resolveTicker(summary, tickerMap);
-  const holding = holdingMap.get(summary.TickerID) ?? null;
-  const patternCounts = dailySummaryMapper.toTickerSummaryResponse(summary);
-  const alertCount = alertCountMap.get(summary.TickerID) ?? {
+  const holding = holdingMap.get(summary.tickerId) ?? null;
+  const patternCounts = toPatternSummary(summary);
+  const alertCount = alertCountMap.get(summary.tickerId) ?? {
     buy: { enabled: 0, disabled: 0 },
     sell: { enabled: 0, disabled: 0 },
   };
 
   return {
-    tickerId: summary.TickerID,
-    date: summary.Date,
-    symbol: ticker?.Symbol ?? summary.TickerID.split(':')[1] ?? summary.TickerID,
-    name: ticker?.Name ?? summary.TickerID,
-    open: summary.Open,
-    high: summary.High,
-    low: summary.Low,
-    close: summary.Close,
-    volume: summary.Volume,
-    updatedAt: new Date(summary.UpdatedAt).toISOString(),
+    tickerId: summary.tickerId,
+    date: summary.date,
+    symbol: ticker?.symbol ?? summary.tickerId.split(':')[1] ?? summary.tickerId,
+    name: ticker?.name ?? summary.tickerId,
+    open: summary.open,
+    high: summary.high,
+    low: summary.low,
+    close: summary.close,
+    volume: summary.volume,
+    updatedAt: new Date(summary.updatedAt).toISOString(),
     holding,
     buyAlertCount: alertCount.buy,
     sellAlertCount: alertCount.sell,
-    forecast: toTickerForecastSummary(forecastMap.get(summary.TickerID)),
+    forecast: toTickerForecastSummary(forecastMap.get(summary.tickerId)),
     buyPatternCount: patternCounts.buyPatternCount,
     sellPatternCount: patternCounts.sellPatternCount,
   };
@@ -143,15 +155,16 @@ async function fetchHoldingMap(userId: string): Promise<Map<string, HoldingSumma
     });
     return new Map(
       holdingsResult.items.map((holding) => [
-        holding.TickerID,
+        holding.tickerId,
         {
-          quantity: holding.Quantity,
-          averagePrice: holding.AveragePrice,
+          quantity: holding.quantity,
+          averagePrice: holding.averagePrice,
         },
       ])
     );
   } catch (error) {
     console.error(ERROR_MESSAGES.FETCH_HOLDINGS_FAILED, error);
+    await reportSwallowedError(REPORT_TITLES.FETCH_HOLDINGS_FAILED, error);
     return new Map<string, HoldingSummaryResponse>();
   }
 }
@@ -163,24 +176,25 @@ async function fetchAlertCountMap(userId: string): Promise<Map<string, TickerAle
     const alertCountMap = new Map<string, TickerAlertCountResponse>();
 
     for (const alert of alertsResult.items) {
-      const currentCount = alertCountMap.get(alert.TickerID) ?? {
+      const currentCount = alertCountMap.get(alert.tickerId) ?? {
         buy: { enabled: 0, disabled: 0 },
         sell: { enabled: 0, disabled: 0 },
       };
-      const modeCount = alert.Mode === 'Buy' ? currentCount.buy : currentCount.sell;
+      const modeCount = alert.mode === 'Buy' ? currentCount.buy : currentCount.sell;
 
-      if (alert.Enabled) {
+      if (alert.enabled) {
         modeCount.enabled += 1;
       } else {
         modeCount.disabled += 1;
       }
 
-      alertCountMap.set(alert.TickerID, currentCount);
+      alertCountMap.set(alert.tickerId, currentCount);
     }
 
     return alertCountMap;
   } catch (error) {
     console.error(ERROR_MESSAGES.FETCH_ALERTS_FAILED, error);
+    await reportSwallowedError(REPORT_TITLES.FETCH_ALERTS_FAILED, error);
     return new Map<string, TickerAlertCountResponse>();
   }
 }
@@ -201,6 +215,7 @@ async function fetchForecastMap(
     return indexForecastsByTicker(forecasts);
   } catch (error) {
     console.error(ERROR_MESSAGES.FETCH_FORECASTS_FAILED, error);
+    await reportSwallowedError(REPORT_TITLES.FETCH_FORECASTS_FAILED, error);
     return new Map<string, ForecastEntity>();
   }
 }
@@ -218,12 +233,13 @@ async function fetchMarketForecasts(
       },
       requestedDate,
       exchanges.map((exchange, index) => ({
-        market: exchange.Market,
+        market: exchange.market,
         date: groups[index]?.date ?? null,
       }))
     );
   } catch (error) {
     console.error(ERROR_MESSAGES.FETCH_MARKET_FORECASTS_FAILED, error);
+    await reportSwallowedError(REPORT_TITLES.FETCH_MARKET_FORECASTS_FAILED, error);
     return (['JP', 'US'] as const).map((market) => ({ market, date: null, forecast: null }));
   }
 }
@@ -237,15 +253,15 @@ async function buildExchangeSummaryGroup(
 ): Promise<ExchangeSummaryGroupResponse> {
   const dailySummaryRepository = createDailySummaryRepository();
   const summaries = await dailySummaryRepository.getByExchange(
-    exchange.ExchangeID,
+    exchange.exchangeId,
     date || undefined
   );
-  const resolvedDate = date ?? summaries[0]?.Date ?? null;
-  const forecastMap = await fetchForecastMap(exchange.ExchangeID, resolvedDate);
+  const resolvedDate = date ?? summaries[0]?.date ?? null;
+  const forecastMap = await fetchForecastMap(exchange.exchangeId, resolvedDate);
 
   return {
-    exchangeId: exchange.ExchangeID,
-    exchangeName: exchange.Name,
+    exchangeId: exchange.exchangeId,
+    exchangeName: exchange.name,
     date: resolvedDate,
     summaries: summaries.map((summary) =>
       toTickerSummaryResponse(summary, tickerMap, holdingMap, alertCountMap, forecastMap)
@@ -253,14 +269,15 @@ async function buildExchangeSummaryGroup(
   };
 }
 
-export const GET = withAuth(
-  getSession,
-  'stocks:read',
-  async (
-    session,
-    request: NextRequest
-  ): Promise<NextResponse<SummariesResponse | ErrorResponse>> => {
-    try {
+export const GET = withInternalErrorReporting(
+  'Web API: サマリー一覧取得エラー',
+  withAuth(
+    getSession,
+    'stocks:read',
+    async (
+      session,
+      request: NextRequest
+    ): Promise<NextResponse<SummariesResponse | ErrorResponse>> => {
       const { searchParams } = new URL(request.url);
       const date = searchParams.get('date');
 
@@ -280,15 +297,15 @@ export const GET = withAuth(
       // 一覧表示専用のため、テーブル全体を走査しない速い経路(GSI Query)で取引所と銘柄を集める
       const exchanges = await exchangeRepository.getAllIndexed();
       const tickersByExchange = await Promise.all(
-        exchanges.map((exchange) => tickerRepository.getByExchange(exchange.ExchangeID))
+        exchanges.map((exchange) => tickerRepository.getByExchange(exchange.exchangeId))
       );
       const [holdingMap, alertCountMap] = await Promise.all([
-        fetchHoldingMap(session.user.userId),
-        fetchAlertCountMap(session.user.userId),
+        fetchHoldingMap(session.user.id),
+        fetchAlertCountMap(session.user.id),
       ]);
 
       const tickerMap = new Map(
-        tickersByExchange.flat().map((ticker) => [ticker.TickerID, ticker])
+        tickersByExchange.flat().map((ticker) => [ticker.tickerId, ticker])
       );
       const exchangeSummaryGroups = await Promise.all(
         exchanges.map((exchange) =>
@@ -302,14 +319,6 @@ export const GET = withAuth(
         { exchanges: exchangeSummaryGroups, marketForecasts },
         { status: 200 }
       );
-    } catch {
-      return NextResponse.json(
-        {
-          error: 'INTERNAL_ERROR',
-          message: ERROR_MESSAGES.INTERNAL_ERROR,
-        },
-        { status: 500 }
-      );
     }
-  }
+  )
 );

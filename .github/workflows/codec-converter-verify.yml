@@ -46,7 +46,7 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/codec-converter-web'
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/aws,@nagiyu/codec-converter-core'
+          shared-workspaces: '@nagiyu/codec-converter-core'
 
   docker-build:
     name: Docker Build Verification
@@ -114,11 +114,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/aws
+        run: npm run build:libs
 
       - name: Build codec-converter-core library
         run: npm run build --workspace=@nagiyu/codec-converter-core
@@ -129,9 +125,13 @@ jobs:
       - name: Run batch tests
         run: npm run test --workspace=@nagiyu/codec-converter-batch
 
+      - name: Run web tests
+        run: npm run test --workspace=@nagiyu/codec-converter-web
+
   integration-test-chromium-mobile:
     name: Run Integration Tests (chromium-mobile)
-    runs-on: ubuntu-latest
+    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
+    runs-on: ubuntu-24.04
     needs: [test]
 
     permissions:
@@ -149,11 +149,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/aws
+        run: npm run build:libs
 
       - name: Build codec-converter-core library
         run: npm run build --workspace=@nagiyu/codec-converter-core
@@ -203,7 +199,8 @@ jobs:
 
   integration-test-chromium-desktop:
     name: Run Integration Tests (chromium-desktop)
-    runs-on: ubuntu-latest
+    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
+    runs-on: ubuntu-24.04
     needs: [test]
     if: github.base_ref == 'develop' || github.base_ref == 'master'
 
@@ -222,11 +219,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/aws
+        run: npm run build:libs
 
       - name: Build codec-converter-core library
         run: npm run build --workspace=@nagiyu/codec-converter-core
@@ -276,7 +269,8 @@ jobs:
 
   integration-test-webkit-mobile:
     name: Run Integration Tests (webkit-mobile)
-    runs-on: ubuntu-latest
+    # Playwright 1.60.0 は Ubuntu 26.04 (ubuntu-latest) に対応しておらず、ブラウザを入れられないため固定する。
+    runs-on: ubuntu-24.04
     needs: [test]
     if: github.base_ref == 'develop' || github.base_ref == 'master'
 
@@ -295,11 +289,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/aws
+        run: npm run build:libs
 
       - name: Build codec-converter-core library
         run: npm run build --workspace=@nagiyu/codec-converter-core

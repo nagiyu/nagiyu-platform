@@ -1,5 +1,5 @@
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { registerDynamoRepositories } from '@nagiyu/aws';
+import { InMemorySingleTableStore, registerDynamoRepositories } from '@nagiyu/aws';
 import type { GroupRepository } from './group/group-repository.interface.js';
 import { DynamoDBGroupRepository } from './group/dynamodb-group-repository.js';
 import { InMemoryGroupRepository } from './group/in-memory-group-repository.js';
@@ -16,41 +16,47 @@ import type { TodoRepository } from './todo/todo-repository.interface.js';
 import { DynamoDBTodoRepository } from './todo/dynamodb-todo-repository.js';
 import { InMemoryTodoRepository } from './todo/in-memory-todo-repository.js';
 
-const repositoryRegistry = registerDynamoRepositories<{
-  group: GroupRepository;
-  user: UserRepository;
-  membership: MembershipRepository;
-  list: ListRepository;
-  todo: TodoRepository;
-}>(
+const repositoryRegistry = registerDynamoRepositories<
+  {
+    group: GroupRepository;
+    user: UserRepository;
+    membership: MembershipRepository;
+    list: ListRepository;
+    todo: TodoRepository;
+  },
+  InMemorySingleTableStore
+>(
   {
     group: {
-      createInMemoryRepository: () => new InMemoryGroupRepository(),
+      createInMemoryRepository: (store) => new InMemoryGroupRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBGroupRepository(docClient, tableName),
     },
     user: {
-      createInMemoryRepository: () => new InMemoryUserRepository(),
+      createInMemoryRepository: (store) => new InMemoryUserRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBUserRepository(docClient, tableName),
     },
     membership: {
-      createInMemoryRepository: () => new InMemoryMembershipRepository(),
+      createInMemoryRepository: (store) => new InMemoryMembershipRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBMembershipRepository(docClient, tableName),
     },
     list: {
-      createInMemoryRepository: () => new InMemoryListRepository(),
+      createInMemoryRepository: (store) => new InMemoryListRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBListRepository(docClient, tableName),
     },
     todo: {
-      createInMemoryRepository: () => new InMemoryTodoRepository(),
+      createInMemoryRepository: (store) => new InMemoryTodoRepository(store),
       createDynamoDBRepository: ({ docClient, tableName }) =>
         new DynamoDBTodoRepository(docClient, tableName),
     },
   },
-  { keyPrefix: 'share-together' }
+  {
+    keyPrefix: 'share-together',
+    createSharedStore: () => new InMemorySingleTableStore(),
+  }
 );
 
 export function resetInMemoryRepositories(): void {

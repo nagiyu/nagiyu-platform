@@ -3,14 +3,14 @@
  *
  * 確度（市場×日）のビジネスオブジェクト（PK/SKを持たない純粋なエンティティ）。
  * Forecast（銘柄×日）と同じ性質を持つ（予測部分は一度書いたら書き換えず、
- * Outcome は採点バッチが後から追記する）。
+ * outcome は採点バッチが後から追記する)。
  */
 import type { AxisId, Market, MarketOutcome, ProbabilityRecord } from '../forecast/index.js';
 
 /**
  * 採点結果（採点バッチが後から追記する）。
  *
- * 市場・基準日は親アイテム（Market/Date）と重複するため持たない
+ * 市場・基準日は親アイテム (market/date) と重複するため持たない
  * （`MarketOutcome` から識別子フィールドを除いた形）。
  */
 export type MarketForecastOutcome = Omit<MarketOutcome, 'market' | 'date'>;
@@ -22,33 +22,33 @@ export type MarketForecastOutcome = Omit<MarketOutcome, 'market' | 'date'>;
  */
 export interface MarketForecastEntity {
   /** 市場 */
-  Market: Market;
+  market: Market;
   /** 基準日 (YYYY-MM-DD) */
-  Date: string;
+  date: string;
   /** 市場レベル軸の値（予測時点） */
-  AxisValues: Partial<Record<AxisId, number>>;
+  axisValues: Partial<Record<AxisId, number>>;
   /** Q-MKT の確度（予測時点の値。書き換えない） */
-  Probabilities: Partial<Record<'MKT', ProbabilityRecord>>;
+  probabilities: Partial<Record<'MKT', ProbabilityRecord>>;
   /** 算出ロジックの版 */
-  ModelVersion: string;
+  modelVersion: string;
   /** 初期値算出で作ったか、稼働後に作ったか */
-  Source: 'REPLAY' | 'LIVE';
+  source: 'REPLAY' | 'LIVE';
   /** 初期値算出で後から追記した軸と追記日（予測時点の値ではない） */
-  BackfilledAxes?: Partial<Record<AxisId, string>>;
+  backfilledAxes?: Partial<Record<AxisId, string>>;
   /** 採点結果（採点バッチが翌営業日の到着後に追記する） */
-  Outcome?: MarketForecastOutcome;
+  outcome?: MarketForecastOutcome;
   /** 作成日時 (Unix timestamp ms) */
-  CreatedAt: number;
+  createdAt: number;
   /** 更新日時 (Unix timestamp ms) */
-  UpdatedAt: number;
+  updatedAt: number;
 }
 
 /**
- * MarketForecast 作成時の入力データ（Outcome・CreatedAt・UpdatedAt を含まない）
+ * MarketForecast 作成時の入力データ (outcome・createdAt・updatedAt を含まない)
  */
 export type CreateMarketForecastInput = Omit<
   MarketForecastEntity,
-  'Outcome' | 'CreatedAt' | 'UpdatedAt'
+  'outcome' | 'createdAt' | 'updatedAt'
 >;
 
 /**

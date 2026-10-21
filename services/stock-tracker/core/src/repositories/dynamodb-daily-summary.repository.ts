@@ -4,35 +4,41 @@
  * DynamoDBを使用したDailySummaryRepositoryの実装
  */
 
-import {
-  GetCommand,
-  PutCommand,
-  QueryCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
-import { queryAllItems, toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBEntityStore, queryAllItems, toDatabaseError, type EntityStore } from '@nagiyu/aws';
 import type { DailySummaryRepository } from './daily-summary.repository.interface.js';
 import type {
   DailySummaryEntity,
   DailySummaryForecastFields,
+  DailySummaryKey,
   CreateDailySummaryInput,
 } from '../entities/daily-summary.entity.js';
-import { DailySummaryMapper } from '../mappers/daily-summary.mapper.js';
+import {
+  DailySummaryMapper,
+  DAILY_SUMMARY_FORECAST_FIELD_ATTRIBUTES,
+  buildDailySummaryGsi4Pk,
+} from '../mappers/daily-summary.mapper.js';
+import {
+  buildExchangeSummaryGsi4DatePrefix,
+  buildExchangeSummaryGsi4DateUpperBound,
+} from '../mappers/exchange-summary-index.js';
+import { buildProjection } from './projection.js';
 
 /**
  * DynamoDB Daily Summary Repository
  *
- * DynamoDBを使用した日次サマリーリポジトリの実装
+ * 単一アイテムの CRUD は EntityStore に任せ、GSI4 の Query だけを自前で持つ
  */
 export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
-  private readonly mapper: DailySummaryMapper;
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
+  private readonly mapper = new DailySummaryMapper();
+  private readonly entityStore: EntityStore<DailySummaryEntity, DailySummaryKey>;
 
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
     this.docClient = docClient;
     this.tableName = tableName;
-    this.mapper = new DailySummaryMapper();
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper);
   }
 
   /**
@@ -42,24 +48,7 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
     tickerId: string,
     date: string
   ): Promise<DailySummaryEntity | null> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys({ tickerId, date });
-
-      const result = await this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-        })
-      );
-
-      if (!result.Item) {
-        return null;
-      }
-
-      return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.get({ tickerId, date });
   }
 
   /**
@@ -86,8 +75,8 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
           '#gsi4sk': 'GSI4SK',
         },
         ExpressionAttributeValues: {
-          ':exchangeId': exchangeId,
-          ':datePrefix': `DATE#${targetDate}`,
+          ':exchangeId': buildDailySummaryGsi4Pk(exchangeId),
+          ':datePrefix': buildExchangeSummaryGsi4DatePrefix(targetDate),
         },
       });
 
@@ -112,28 +101,24 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
           '#gsi4pk': 'GSI4PK',
         },
         ExpressionAttributeValues: {
-          ':exchangeId': exchangeId,
+          ':exchangeId': buildDailySummaryGsi4Pk(exchangeId),
         },
         ScanIndexForward: false,
         Limit: 1,
       })
     );
 
-    const latest = result.Items?.[0] as DynamoDBItem | undefined;
-    return latest ? this.mapper.toEntity(latest).Date : undefined;
+    const latest = result.Items?.[0];
+    return latest ? this.mapper.toEntity(latest).date : undefined;
   }
 
   /**
    * 取引所IDと日付範囲でサマリーを取得（GSI4使用、両端含む）
    *
-   * GSI4SK は `DATE#{Date}#{TickerID}` 形式のため、`DATE#{toDate}` の prefix だけでは
-   * `toDate` の項目を漏らしてしまう。よって ASCII でほぼ最大の `~`（0x7E）を末尾に付けて
-   * `DATE#{toDate}#~` まで含める。
-   *
-   * 前提（現行のTickerID体系では成立する）: TickerIDに `~`（0x7E）より大きいコードポイントの
-   * 文字が含まれると、`DATE#{toDate}#{TickerID}` が `DATE#{toDate}#~` より辞書順で大きくなり、
-   * between の上限を超えて `toDate` 分のその項目が漏れる。現行のTickerID体系
-   * （`NSDQ:AAPL` 形式、ASCII印字可能文字の範囲）ではこれは起こらない。
+   * GSI4SK は `DATE#{Date}#{TickerID}` 形式のため、`DATE#{toDate}` を上限にすると
+   * `toDate` の項目が漏れる。ASCII でほぼ最大の `~` (0x7E) を末尾に付けた値を上限にする。
+   * TickerID に `~` より大きいコードポイントの文字が含まれると `toDate` 分のその項目が漏れるが、
+   * 現行の TickerID 体系 (`NSDQ:AAPL` 形式、ASCII 印字可能文字) では起こらない。
    */
   public async getByExchangeAndDateRange(
     exchangeId: string,
@@ -150,9 +135,9 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
           '#gsi4sk': 'GSI4SK',
         },
         ExpressionAttributeValues: {
-          ':exchangeId': exchangeId,
-          ':from': `DATE#${fromDate}`,
-          ':to': `DATE#${toDate}#~`,
+          ':exchangeId': buildDailySummaryGsi4Pk(exchangeId),
+          ':from': buildExchangeSummaryGsi4DatePrefix(fromDate),
+          ':to': buildExchangeSummaryGsi4DateUpperBound(toDate),
         },
       });
 
@@ -172,33 +157,23 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
     toDate: string
   ): Promise<DailySummaryForecastFields[]> {
     try {
+      const projection = buildProjection(
+        DAILY_SUMMARY_FORECAST_FIELD_ATTRIBUTES.map((attribute) => [attribute])
+      );
       const items = await queryAllItems(this.docClient, {
         TableName: this.tableName,
         IndexName: 'ExchangeSummaryIndex',
         KeyConditionExpression: '#gsi4pk = :exchangeId AND #gsi4sk BETWEEN :from AND :to',
-        ProjectionExpression:
-          '#tickerId, #exchangeId, #date, #open, #high, #low, #close, #volume, ' +
-          '#patternResults, #buyPatternCount, #sellPatternCount, #createdAt',
+        ProjectionExpression: projection.ProjectionExpression,
         ExpressionAttributeNames: {
           '#gsi4pk': 'GSI4PK',
           '#gsi4sk': 'GSI4SK',
-          '#tickerId': 'TickerID',
-          '#exchangeId': 'ExchangeID',
-          '#date': 'Date',
-          '#open': 'Open',
-          '#high': 'High',
-          '#low': 'Low',
-          '#close': 'Close',
-          '#volume': 'Volume',
-          '#patternResults': 'PatternResults',
-          '#buyPatternCount': 'BuyPatternCount',
-          '#sellPatternCount': 'SellPatternCount',
-          '#createdAt': 'CreatedAt',
+          ...projection.ExpressionAttributeNames,
         },
         ExpressionAttributeValues: {
-          ':exchangeId': exchangeId,
-          ':from': `DATE#${fromDate}`,
-          ':to': `DATE#${toDate}#~`,
+          ':exchangeId': buildDailySummaryGsi4Pk(exchangeId),
+          ':from': buildExchangeSummaryGsi4DatePrefix(fromDate),
+          ':to': buildExchangeSummaryGsi4DateUpperBound(toDate),
         },
       });
 
@@ -210,27 +185,17 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
 
   /**
    * サマリーを保存（既存の場合は上書き）
+   *
+   * 上書きしても作成日時は最初の値を保つため、先に既存を読んで引き継ぐ。
+   * updatedAt は store が書き込み時に現在時刻で上書きする。
    */
   public async upsert(input: CreateDailySummaryInput): Promise<DailySummaryEntity> {
-    try {
-      const existing = await this.getByTickerAndDate(input.TickerID, input.Date);
-      const now = Date.now();
-      const entity: DailySummaryEntity = {
-        ...input,
-        CreatedAt: existing?.CreatedAt ?? now,
-        UpdatedAt: now,
-      };
-
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: this.mapper.toItem(entity),
-        })
-      );
-
-      return entity;
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    const existing = await this.entityStore.get({ tickerId: input.tickerId, date: input.date });
+    const now = Date.now();
+    return this.entityStore.put({
+      ...input,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    });
   }
 }

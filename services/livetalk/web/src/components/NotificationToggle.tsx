@@ -1,24 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import { Box, Typography } from '@mui/material';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import { Button } from '@nagiyu/ui';
-import {
-  subscribePush,
-  fetchVapidPublicKey,
-  isPushSupported,
-  postPushSubscription,
-} from '@nagiyu/browser';
+import { usePushSubscription } from '@nagiyu/react';
 import { getCharacterDisplay } from '@/lib/characters/client-profiles';
 
 /**
  * キャラからのプッシュ通知を購読するためのトグル UI。
- *
- * - 初回の通知許可リクエスト → SW 登録 → push 購読 → サーバ登録までを
- *   `subscribePush`（@nagiyu/browser）に委譲する。
- * - 許可済みユーザーの再購読は layout の ServiceWorkerRegistration が担うため、
- *   ここでは「まだ許可していないユーザー」への導線に専念する。
+ * 購読の手続きは `usePushSubscription` に委譲し、ここは表示の出し分けだけを持つ。
  */
 
 const { shortName } = getCharacterDisplay();
@@ -31,49 +22,26 @@ export const NOTIFICATION_TOGGLE_MESSAGES = {
   ERROR: '通知の設定に失敗しちゃった。あとでもう一度試してね',
 } as const;
 
-type ToggleState = 'idle' | 'subscribing' | 'subscribed' | 'denied' | 'error';
-
 export default function NotificationToggle() {
-  const [supported, setSupported] = useState(false);
-  const [state, setState] = useState<ToggleState>('idle');
-
-  // 対応状況・許可状況は client でのみ確定する（SSR でのハイドレーション差異を避ける）。
-  useEffect(() => {
-    if (!isPushSupported()) {
-      return;
-    }
-    setSupported(true);
-    if (window.Notification.permission === 'granted') {
-      setState('subscribed');
-    } else if (window.Notification.permission === 'denied') {
-      setState('denied');
-    }
-  }, []);
+  const { supported, ready, permission, subscribed, loading, error, subscribe } =
+    usePushSubscription();
 
   const handleSubscribe = useCallback(async () => {
-    setState('subscribing');
     try {
-      await subscribePush({
-        vapidPublicKey: fetchVapidPublicKey,
-        onSubscribed: (subscription) => postPushSubscription(subscription),
-      });
-      setState('subscribed');
+      await subscribe();
     } catch {
-      // 許可が拒否された場合と、その他の失敗を区別して案内する
-      const denied =
-        typeof window !== 'undefined' &&
-        typeof window.Notification !== 'undefined' &&
-        window.Notification.permission === 'denied';
-      setState(denied ? 'denied' : 'error');
+      // 失敗の内容は hook の error / permission に反映されるため、ここでは握りつぶす
     }
-  }, []);
+  }, [subscribe]);
 
-  // 非対応ブラウザでは何も表示しない
-  if (!supported) {
+  // 対応状況は client でのみ確定するため、確定するまでと非対応ブラウザでは何も表示しない
+  if (!ready || !supported) {
     return null;
   }
 
-  if (state === 'subscribed') {
+  const denied = permission === 'denied';
+
+  if (subscribed) {
     return (
       <Box sx={{ textAlign: 'center' }}>
         <Typography variant="body2" color="success.main">
@@ -87,20 +55,18 @@ export default function NotificationToggle() {
     <Box sx={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 0.5 }}>
       <Button
         onClick={handleSubscribe}
-        disabled={state === 'subscribing'}
+        disabled={loading}
         variant="ghost"
         startIcon={<NotificationsActiveIcon fontSize="small" />}
       >
-        {state === 'subscribing'
-          ? NOTIFICATION_TOGGLE_MESSAGES.SUBSCRIBING
-          : NOTIFICATION_TOGGLE_MESSAGES.PROMPT}
+        {loading ? NOTIFICATION_TOGGLE_MESSAGES.SUBSCRIBING : NOTIFICATION_TOGGLE_MESSAGES.PROMPT}
       </Button>
-      {state === 'denied' && (
+      {denied && (
         <Typography variant="caption" color="text.secondary">
           {NOTIFICATION_TOGGLE_MESSAGES.DENIED}
         </Typography>
       )}
-      {state === 'error' && (
+      {error && !denied && (
         <Typography variant="caption" color="error.main" role="alert">
           {NOTIFICATION_TOGGLE_MESSAGES.ERROR}
         </Typography>

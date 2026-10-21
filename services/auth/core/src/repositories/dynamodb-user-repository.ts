@@ -1,30 +1,37 @@
-import {
-  GetCommand,
-  PutCommand,
-  DeleteCommand,
-  QueryCommand,
-  ScanCommand,
-} from '@aws-sdk/lib-dynamodb';
+import { QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
-import { toErrorMessage } from '@nagiyu/common';
+import {
+  DynamoDBEntityStore,
+  getDynamoDBDocumentClient,
+  getTableName,
+  toDatabaseError,
+  type EntityStore,
+} from '@nagiyu/aws';
 import type { User } from '@nagiyu/common';
 import { randomUUID } from 'node:crypto';
-import {
-  UserNotFoundError,
-  type ListUsersResult,
-  type UpdateUserInput,
-  type UpsertUserInput,
-  type UserRepository,
+import { UserMapper, type UserKey } from '../mappers/user.mapper';
+import type {
+  ListUsersResult,
+  UpdateUserInput,
+  UpsertUserInput,
+  UserRepository,
 } from './user-repository';
 
+/**
+ * DynamoDB User Repository
+ *
+ * 単一アイテムの CRUD は EntityStore に任せ、GSI の Query と Scan だけを自前で持つ
+ */
 export class DynamoDBUserRepository implements UserRepository {
   private readonly dynamoDb: DynamoDBDocumentClient;
   private readonly tableName: string;
+  private readonly mapper = new UserMapper();
+  private readonly entityStore: EntityStore<User, UserKey>;
 
   constructor(docClient?: DynamoDBDocumentClient, tableName?: string) {
     this.dynamoDb = docClient ?? getDynamoDBDocumentClient();
     this.tableName = tableName ?? getTableName('nagiyu-auth-users-dev');
+    this.entityStore = new DynamoDBEntityStore(this.dynamoDb, this.tableName, this.mapper);
   }
 
   public async getUserByGoogleId(googleId: string): Promise<User | null> {
@@ -39,154 +46,70 @@ export class DynamoDBUserRepository implements UserRepository {
           },
         })
       );
-      return (result.Items?.[0] as User) || null;
+      const item = result.Items?.[0];
+      return item ? this.mapper.toEntity(item) : null;
     } catch (error) {
-      const errorMessage = toErrorMessage(error);
-      await reportErrorEvent({
-        serviceId: 'auth',
-        severity: 'error',
-        title: 'DB: getUserByGoogleId エラー',
-        message: errorMessage,
-        context: {
-          step: 'getUserByGoogleId',
-          errorStack: error instanceof Error ? error.stack : undefined,
-        },
-      });
-      throw error;
+      throw toDatabaseError(error);
     }
   }
 
   public async getUserById(userId: string): Promise<User | null> {
-    const result = await this.dynamoDb.send(
-      new GetCommand({
-        TableName: this.tableName,
-        Key: { userId },
-      })
-    );
-
-    return (result.Item as User) || null;
+    return this.entityStore.get({ userId });
   }
 
   public async listUsers(
     limit: number = 100,
     lastEvaluatedKey?: Record<string, unknown>
   ): Promise<ListUsersResult> {
-    const result = await this.dynamoDb.send(
-      new ScanCommand({
-        TableName: this.tableName,
-        Limit: limit,
-        ExclusiveStartKey: lastEvaluatedKey,
-      })
-    );
+    try {
+      const result = await this.dynamoDb.send(
+        new ScanCommand({
+          TableName: this.tableName,
+          Limit: limit,
+          ExclusiveStartKey: lastEvaluatedKey,
+        })
+      );
 
-    return {
-      users: (result.Items as User[]) || [],
-      lastEvaluatedKey: result.LastEvaluatedKey,
-    };
+      return {
+        users: (result.Items ?? []).map((item) => this.mapper.toEntity(item)),
+        lastEvaluatedKey: result.LastEvaluatedKey,
+      };
+    } catch (error) {
+      throw toDatabaseError(error);
+    }
   }
 
   public async upsertUser(input: UpsertUserInput): Promise<User> {
     const existingUser = await this.getUserByGoogleId(input.googleId);
 
     if (existingUser) {
-      const updatedUser: User = {
-        ...existingUser,
-        name: input.name,
-        picture: input.picture,
-        updatedAt: new Date().toISOString(),
-      };
-
-      try {
-        await this.dynamoDb.send(
-          new PutCommand({
-            TableName: this.tableName,
-            Item: updatedUser,
-          })
-        );
-      } catch (error) {
-        const errorMessage = toErrorMessage(error);
-        await reportErrorEvent({
-          serviceId: 'auth',
-          severity: 'error',
-          title: 'DB: upsertUser (既存ユーザー更新) エラー',
-          message: errorMessage,
-          context: {
-            step: 'upsertUser',
-            userId: existingUser.userId,
-            errorStack: error instanceof Error ? error.stack : undefined,
-          },
-        });
-        throw error;
-      }
-
-      return updatedUser;
+      // Google が picture を返さなくなったときは、古い画像を残さず消す
+      return this.entityStore.update(
+        { userId: existingUser.userId },
+        { name: input.name, picture: input.picture ?? null }
+      );
     }
 
-    const newUser: User = {
+    const now = Date.now();
+    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
+    return this.entityStore.create({
       userId: randomUUID(),
       googleId: input.googleId,
       email: input.email,
       name: input.name,
-      picture: input.picture,
+      ...(input.picture !== undefined ? { picture: input.picture } : {}),
       roles: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    try {
-      await this.dynamoDb.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: newUser,
-        })
-      );
-    } catch (error) {
-      const errorMessage = toErrorMessage(error);
-      await reportErrorEvent({
-        serviceId: 'auth',
-        severity: 'error',
-        title: 'DB: upsertUser (新規ユーザー作成) エラー',
-        message: errorMessage,
-        context: {
-          step: 'upsertUser',
-          errorStack: error instanceof Error ? error.stack : undefined,
-        },
-      });
-      throw error;
-    }
-
-    return newUser;
+      createdAt: now,
+      updatedAt: now,
+    });
   }
 
   public async updateUser(userId: string, input: UpdateUserInput): Promise<User> {
-    const existingUser = await this.getUserById(userId);
-    if (!existingUser) {
-      throw new UserNotFoundError(userId);
-    }
-
-    const updatedUser: User = {
-      ...existingUser,
-      ...input,
-      updatedAt: new Date().toISOString(),
-    };
-
-    await this.dynamoDb.send(
-      new PutCommand({
-        TableName: this.tableName,
-        Item: updatedUser,
-      })
-    );
-
-    return updatedUser;
+    return this.entityStore.update({ userId }, input);
   }
 
   public async deleteUser(userId: string): Promise<void> {
-    await this.dynamoDb.send(
-      new DeleteCommand({
-        TableName: this.tableName,
-        Key: { userId },
-      })
-    );
+    await this.entityStore.delete({ userId });
   }
 
   public async assignRoles(userId: string, roles: string[]): Promise<User> {
@@ -194,22 +117,6 @@ export class DynamoDBUserRepository implements UserRepository {
   }
 
   public async updateLastLogin(userId: string): Promise<void> {
-    const existingUser = await this.getUserById(userId);
-    if (!existingUser) {
-      throw new UserNotFoundError(userId);
-    }
-
-    const updatedUser: User = {
-      ...existingUser,
-      lastLoginAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    await this.dynamoDb.send(
-      new PutCommand({
-        TableName: this.tableName,
-        Item: updatedUser,
-      })
-    );
+    await this.entityStore.update({ userId }, { lastLoginAt: Date.now() });
   }
 }

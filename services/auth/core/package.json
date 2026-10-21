@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/src/index.d.ts",
       "import": "./dist/src/index.js"
     }
   },
@@ -14,17 +16,15 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "lint": "eslint src/**/*.ts tests/**/*.ts",
+    "test:contract": "jest --config jest.contract.config.ts",
+    "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts'",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@auth/core": "^0.41.3",
     "@aws-sdk/client-dynamodb": "^3.1063.0",
     "@aws-sdk/lib-dynamodb": "^3.1063.0",
     "@nagiyu/aws": "*",
-    "@nagiyu/common": "*",
-    "@nagiyu/nextjs": "*",
-    "next-auth": "^5.0.0-beta.32"
+    "@nagiyu/common": "*"
   }
 }

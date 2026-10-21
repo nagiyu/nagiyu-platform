@@ -20,13 +20,10 @@ const mockReportErrorEvent = reportErrorEvent as jest.MockedFunction<typeof repo
 
 const validSession = {
   user: {
-    userId: 'u1',
-    googleId: 'g1',
+    id: 'u1',
     email: 'u@example.com',
     name: 'U',
     roles: ['livetalk-user'],
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
   },
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
@@ -54,6 +51,25 @@ describe('POST /api/client-log', () => {
   it('JSON でない body は 400', async () => {
     mockGetSession.mockResolvedValue(validSession);
     const res = await POST(buildRequest('invalid-json'));
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as Record<string, string>;
+    expect(json.message).toBe(CLIENT_LOG_ERROR_MESSAGES.INVALID_REQUEST);
+    expect(mockReportErrorEvent).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['null', 'null'],
+    ['配列', '[{"severity":"error","title":"T","message":"M"}]'],
+    ['文字列', '"error"'],
+    ['title が数値', { severity: 'error', title: 1, message: 'M' }],
+    ['message が配列', { severity: 'error', title: 'T', message: ['M'] }],
+    ['severity が数値', { severity: 1, title: 'T', message: 'M' }],
+    ['context が文字列', { severity: 'error', title: 'T', message: 'M', context: 'x' }],
+    ['context が null', { severity: 'error', title: 'T', message: 'M', context: null }],
+    ['occurredAt が数値', { severity: 'error', title: 'T', message: 'M', occurredAt: 1 }],
+  ])('body が %s のとき 400 で通報しない', async (_label, body) => {
+    mockGetSession.mockResolvedValue(validSession);
+    const res = await POST(buildRequest(body));
     expect(res.status).toBe(400);
     const json = (await res.json()) as Record<string, string>;
     expect(json.message).toBe(CLIENT_LOG_ERROR_MESSAGES.INVALID_REQUEST);
@@ -125,7 +141,7 @@ describe('POST /api/client-log', () => {
         severity: 'warning',
         title: 'T',
         message: 'M',
-        context: expect.objectContaining({ userId: 'g1' }),
+        context: expect.objectContaining({ userId: 'u1' }),
       })
     );
   });
@@ -159,7 +175,7 @@ describe('POST /api/client-log', () => {
     expect(mockReportErrorEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         context: {
-          userId: 'g1',
+          userId: 'u1',
           screen: 'chat',
           audioContextState: 'suspended',
         },

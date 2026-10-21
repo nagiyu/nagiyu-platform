@@ -19,14 +19,9 @@ COPY services/admin/web ./services/admin/web/
 # 依存関係をインストール（ソースコード存在下で実行）
 RUN npm ci
 
-# モノレポのルートからビルド（共通ライブラリも含めて）
+# 共通ライブラリ、core、web の順にビルドする
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build --workspace=libs/common
-RUN npm run build --workspace=libs/aws
-RUN npm run build --workspace=libs/browser
-RUN npm run build --workspace=libs/react
-RUN npm run build --workspace=libs/ui
-RUN npm run build --workspace=libs/nextjs
+RUN npm run build:libs
 RUN npm run build --workspace=@nagiyu/admin-core
 RUN npm run build --workspace=@nagiyu/admin
 
@@ -45,10 +40,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 
 # Next.js が生成した standalone ビルドをコピー
-# standaloneには必要な依存関係とserver.jsが全て含まれている
+# standalone には必要な依存関係と server.js が全て含まれている
 COPY --from=builder /app/services/admin/web/.next/standalone ./
 
-# publicとstaticは別途コピーが必要
+# public と static は別途コピーが必要
 COPY --from=builder /app/services/admin/web/public ./services/admin/web/public
 COPY --from=builder /app/services/admin/web/.next/static ./services/admin/web/.next/static
 

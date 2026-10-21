@@ -1,7 +1,7 @@
 /**
  * Stock Tracker Core - MarketForecast Repository Interface
  *
- * 確度（市場×日）データの操作インターフェース（forecast.repository.interface.ts の市場版）
+ * 確度 (市場×日) データの操作インターフェース (銘柄×日の Forecast の市場版)
  */
 import type {
   CreateMarketForecastInput,
@@ -61,7 +61,7 @@ export interface MarketForecastRepository {
    * @param market - 対象の市場
    * @param fromDate - 開始日 (YYYY-MM-DD、含む)。省略時は全期間
    * @param toDate - 終了日 (YYYY-MM-DD、含む)。省略時は fromDate 以降の全期間
-   * @returns サンプル列（Date 昇順）
+   * @returns サンプル列 (date 昇順)
    */
   getSamplesByDateRange(
     market: Market,

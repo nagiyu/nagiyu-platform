@@ -35,31 +35,31 @@ const CARE_THRESHOLD = 3;
 
 function makeTopic(overrides: Partial<TopicEntity> = {}): TopicEntity {
   return {
-    UserID: 'u1',
-    CharacterID: 'hiyori',
-    TopicID: 't1',
-    Subject: 'テストトピック',
-    CanonicalSummary: 'テスト要約',
-    Category: 'ゲーム',
-    Care: CARE_THRESHOLD,
-    Embedding: [],
-    CreatedAt: 1000,
-    UpdatedAt: 1000,
+    userId: 'u1',
+    characterId: 'hiyori',
+    topicId: 't1',
+    subject: 'テストトピック',
+    canonicalSummary: 'テスト要約',
+    category: 'ゲーム',
+    care: CARE_THRESHOLD,
+    embedding: [],
+    createdAt: 1000,
+    updatedAt: 1000,
     ...overrides,
   };
 }
 
 function makeWebFact(overrides: Partial<WebFactEntity> = {}): WebFactEntity {
   return {
-    UserID: 'u1',
-    CharacterID: 'hiyori',
-    TopicID: 't1',
-    FactID: 'f1',
-    Text: 'テスト内容',
-    SourceUrls: [],
-    Volatility: 'medium',
-    ObservedAt: 1000,
-    CreatedAt: 1000,
+    userId: 'u1',
+    characterId: 'hiyori',
+    topicId: 't1',
+    factId: 'f1',
+    text: 'テスト内容',
+    sourceUrls: [],
+    volatility: 'medium',
+    observedAt: 1000,
+    createdAt: 1000,
     ...overrides,
   };
 }
@@ -112,7 +112,7 @@ describe('detectCriticalTopic - AND ゲート', () => {
     const llmClient = makeLlmClient(NEAR_FUTURE_DATE);
     const result = await detectCriticalTopic(
       makeInput({
-        candidates: [makeCandidate({ Care: CARE_THRESHOLD - 1 })],
+        candidates: [makeCandidate({ care: CARE_THRESHOLD - 1 })],
         llmClient,
       })
     );
@@ -123,7 +123,7 @@ describe('detectCriticalTopic - AND ゲート', () => {
   it('どちらも無し（care 閾値未満＋ eventDate=null）→ 非 critical', async () => {
     const result = await detectCriticalTopic(
       makeInput({
-        candidates: [makeCandidate({ Care: CARE_THRESHOLD - 1 })],
+        candidates: [makeCandidate({ care: CARE_THRESHOLD - 1 })],
         llmClient: makeLlmClient(null),
       })
     );
@@ -139,7 +139,7 @@ describe('detectCriticalTopic - care 閾値境界', () => {
   it(`care が閾値（${CARE_THRESHOLD}）以上 → isHighCare=true → critical になりうる`, async () => {
     const result = await detectCriticalTopic(
       makeInput({
-        candidates: [makeCandidate({ Care: CARE_THRESHOLD })],
+        candidates: [makeCandidate({ care: CARE_THRESHOLD })],
         llmClient: makeLlmClient(NEAR_FUTURE_DATE),
       })
     );
@@ -149,7 +149,7 @@ describe('detectCriticalTopic - care 閾値境界', () => {
   it('care が閾値未満（閾値-1）→ isHighCare=false → 非 critical', async () => {
     const result = await detectCriticalTopic(
       makeInput({
-        candidates: [makeCandidate({ Care: CARE_THRESHOLD - 1 })],
+        candidates: [makeCandidate({ care: CARE_THRESHOLD - 1 })],
         llmClient: makeLlmClient(NEAR_FUTURE_DATE),
       })
     );
@@ -159,7 +159,7 @@ describe('detectCriticalTopic - care 閾値境界', () => {
   it('care が閾値を大きく上回る → critical になりうる', async () => {
     const result = await detectCriticalTopic(
       makeInput({
-        candidates: [makeCandidate({ Care: CARE_THRESHOLD + 10 })],
+        candidates: [makeCandidate({ care: CARE_THRESHOLD + 10 })],
         llmClient: makeLlmClient(NEAR_FUTURE_DATE),
       })
     );
@@ -236,11 +236,11 @@ describe('detectCriticalTopic - エラーハンドリング', () => {
     };
 
     const candidates = [
-      makeCandidate({ TopicID: 't1', Care: CARE_THRESHOLD }, [
-        makeWebFact({ TopicID: 't1', FactID: 'f1' }),
+      makeCandidate({ topicId: 't1', care: CARE_THRESHOLD }, [
+        makeWebFact({ topicId: 't1', factId: 'f1' }),
       ]),
-      makeCandidate({ TopicID: 't2', Care: CARE_THRESHOLD }, [
-        makeWebFact({ TopicID: 't2', FactID: 'f2' }),
+      makeCandidate({ topicId: 't2', care: CARE_THRESHOLD }, [
+        makeWebFact({ topicId: 't2', factId: 'f2' }),
       ]),
     ];
 
@@ -271,11 +271,11 @@ describe('detectCriticalTopic - エラーハンドリング', () => {
 describe('detectCriticalTopic - 複数 Topic', () => {
   it('複数の候補があっても最初の critical を返す', async () => {
     const candidates = [
-      makeCandidate({ TopicID: 't1', Care: CARE_THRESHOLD }, [
-        makeWebFact({ TopicID: 't1', FactID: 'f1' }),
+      makeCandidate({ topicId: 't1', care: CARE_THRESHOLD }, [
+        makeWebFact({ topicId: 't1', factId: 'f1' }),
       ]),
-      makeCandidate({ TopicID: 't2', Care: CARE_THRESHOLD }, [
-        makeWebFact({ TopicID: 't2', FactID: 'f2' }),
+      makeCandidate({ topicId: 't2', care: CARE_THRESHOLD }, [
+        makeWebFact({ topicId: 't2', factId: 'f2' }),
       ]),
     ];
 
@@ -298,11 +298,11 @@ describe('detectCriticalTopic - 複数 Topic', () => {
     };
 
     const candidates = [
-      makeCandidate({ TopicID: 't1', Care: CARE_THRESHOLD }, [
-        makeWebFact({ TopicID: 't1', FactID: 'f1' }),
+      makeCandidate({ topicId: 't1', care: CARE_THRESHOLD }, [
+        makeWebFact({ topicId: 't1', factId: 'f1' }),
       ]),
-      makeCandidate({ TopicID: 't2', Care: CARE_THRESHOLD }, [
-        makeWebFact({ TopicID: 't2', FactID: 'f2' }),
+      makeCandidate({ topicId: 't2', care: CARE_THRESHOLD }, [
+        makeWebFact({ topicId: 't2', factId: 'f2' }),
       ]),
     ];
 
@@ -321,7 +321,7 @@ describe('detectCriticalTopic - 複数 Topic', () => {
     const llmClient = makeLlmClient(NEAR_FUTURE_DATE);
     const result = await detectCriticalTopic(
       makeInput({
-        candidates: [makeCandidate({ Care: CARE_THRESHOLD }, [])],
+        candidates: [makeCandidate({ care: CARE_THRESHOLD }, [])],
         llmClient,
       })
     );
@@ -336,12 +336,12 @@ describe('detectCriticalTopic - 複数 Topic', () => {
       chatStructured: jest.fn().mockResolvedValue({ eventDate: NEAR_FUTURE_DATE, reason: 'ok' }),
     };
 
-    const olderFact = makeWebFact({ FactID: 'f-old', ObservedAt: 1000 });
-    const newerFact = makeWebFact({ FactID: 'f-new', ObservedAt: 5000 });
+    const olderFact = makeWebFact({ factId: 'f-old', observedAt: 1000 });
+    const newerFact = makeWebFact({ factId: 'f-new', observedAt: 5000 });
 
     const result = await detectCriticalTopic(
       makeInput({
-        candidates: [makeCandidate({ Care: CARE_THRESHOLD }, [olderFact, newerFact])],
+        candidates: [makeCandidate({ care: CARE_THRESHOLD }, [olderFact, newerFact])],
         llmClient,
       })
     );
@@ -357,10 +357,10 @@ describe('detectCriticalTopic - 複数 Topic', () => {
     // 4 件の WEB fact。最も古い fact（4 件目 = ObservedAt 最小）にのみ緊急日付を仕込むが、
     // ObservedAt 降順で上位 3 件しか評価対象に入らないため critical にはならないはず
     const facts = [
-      makeWebFact({ FactID: 'f1', ObservedAt: 4000 }),
-      makeWebFact({ FactID: 'f2', ObservedAt: 3000 }),
-      makeWebFact({ FactID: 'f3', ObservedAt: 2000 }),
-      makeWebFact({ FactID: 'f4-oldest', ObservedAt: 1000 }),
+      makeWebFact({ factId: 'f1', observedAt: 4000 }),
+      makeWebFact({ factId: 'f2', observedAt: 3000 }),
+      makeWebFact({ factId: 'f3', observedAt: 2000 }),
+      makeWebFact({ factId: 'f4-oldest', observedAt: 1000 }),
     ];
 
     // LLM は基本 eventDate=null を返すが、f4-oldest だけが評価されたら urgent になるよう
@@ -375,12 +375,12 @@ describe('detectCriticalTopic - 複数 Topic', () => {
     llmClient.chatStructured = chatStructured as unknown as ILLMClient['chatStructured'];
 
     const factsWithMarker = facts.map((f) =>
-      f.FactID === 'f4-oldest' ? { ...f, Text: 'f4-oldest 用テキスト' } : f
+      f.factId === 'f4-oldest' ? { ...f, text: 'f4-oldest 用テキスト' } : f
     );
 
     const result = await detectCriticalTopic(
       makeInput({
-        candidates: [makeCandidate({ Care: CARE_THRESHOLD }, factsWithMarker)],
+        candidates: [makeCandidate({ care: CARE_THRESHOLD }, factsWithMarker)],
         llmClient,
       })
     );

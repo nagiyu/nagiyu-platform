@@ -81,6 +81,12 @@ const mockDynamoDBTodoRepository = DynamoDBTodoRepository as jest.MockedClass<
 const mockTodoService = TodoService as jest.MockedClass<typeof TodoService>;
 type SessionOrErrorResponse = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 
+import {
+  createRequestWithJson,
+  MALFORMED_BODY_CASES,
+  type InvalidBodyCase,
+} from '../../../../../../invalidBodyCases';
+
 describe('/api/groups/[groupId]/lists/[listId]/todos/[todoId] route', () => {
   const mockGetMembershipById = jest.fn();
   const mockGetGroupListById = jest.fn();
@@ -181,8 +187,8 @@ describe('/api/groups/[groupId]/lists/[listId]/todos/[todoId] route', () => {
       groupId: 'group-1',
       name: '共有リスト',
       createdBy: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockUpdateTodo.mockResolvedValue({
       todoId: 'todo-1',
@@ -191,8 +197,8 @@ describe('/api/groups/[groupId]/lists/[listId]/todos/[todoId] route', () => {
       isCompleted: true,
       createdBy: 'user-1',
       completedBy: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T01:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767229200000,
     });
 
     const response = await PUT(
@@ -215,8 +221,8 @@ describe('/api/groups/[groupId]/lists/[listId]/todos/[todoId] route', () => {
         isCompleted: true,
         createdBy: 'user-1',
         completedBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T01:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767229200000,
       },
     });
   });
@@ -235,8 +241,8 @@ describe('/api/groups/[groupId]/lists/[listId]/todos/[todoId] route', () => {
       groupId: 'group-1',
       name: '共有リスト',
       createdBy: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     const response = await DELETE({} as Request, createContext());
@@ -260,8 +266,8 @@ describe('/api/groups/[groupId]/lists/[listId]/todos/[todoId] route', () => {
       groupId: 'group-1',
       name: '共有リスト',
       createdBy: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockDeleteTodo.mockRejectedValue(new Error(ERROR_MESSAGES.TODO_NOT_FOUND));
 
@@ -272,5 +278,25 @@ describe('/api/groups/[groupId]/lists/[listId]/todos/[todoId] route', () => {
       error: 'NOT_FOUND',
       message: '対象のデータが見つかりません',
     });
+  });
+
+  it.each<InvalidBodyCase>([
+    ...MALFORMED_BODY_CASES,
+    ['title が数値', async () => ({ title: 123 })],
+    ['isCompleted が文字列', async () => ({ isCompleted: 'true' })],
+  ])('PUT: リクエストボディが不正な場合 (%s) は400を返す', async (_label, json) => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrErrorResponse);
+    mockGetMembershipById.mockResolvedValue({
+      groupId: 'group-1',
+      userId: 'user-1',
+      status: 'ACCEPTED',
+    });
+
+    const response = await PUT(createRequestWithJson(json), createContext());
+
+    expect(response.status).toBe(400);
+    expect(mockUpdateTodo).not.toHaveBeenCalled();
   });
 });

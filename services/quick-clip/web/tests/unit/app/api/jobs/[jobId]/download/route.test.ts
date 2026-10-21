@@ -1,3 +1,4 @@
+import { reportErrorEvent } from '@nagiyu/aws';
 import type { HighlightRepository } from '@nagiyu/quick-clip-core';
 import { getLambdaClient, getS3Client } from '@/lib/server/aws';
 import { GET, POST } from '@/app/api/jobs/[jobId]/download/route';
@@ -22,6 +23,11 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
         update: jest.fn(),
       }) as unknown as HighlightRepository
   ),
+}));
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock('@/lib/server/aws', () => ({
@@ -98,6 +104,24 @@ describe('GET /api/jobs/[jobId]/download', () => {
     });
 
     expect(response.status).toBe(500);
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'quick-clip',
+        severity: 'error',
+        title: 'Web API: ZIP 確認エラー',
+      })
+    );
+  });
+
+  it('異常系: NoSuchKey / NotFound の場合は報告しない', async () => {
+    s3Send.mockRejectedValue(Object.assign(new Error('NotFound'), { name: 'NotFound' }));
+
+    const response = await GET(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+
+    expect(response.status).toBe(202);
+    expect(reportErrorEvent).not.toHaveBeenCalled();
   });
 });
 
@@ -237,6 +261,68 @@ describe('POST /api/jobs/[jobId]/download', () => {
     expect(response.status).toBe(202);
     expect(body).toEqual({ status: 'PROCESSING' });
     expect(lambdaSend).toHaveBeenCalledTimes(1);
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'quick-clip',
+        severity: 'warning',
+        title: 'Web API: 旧 ZIP 削除エラー',
+      })
+    );
+  });
+
+  it('異常系: Lambda の Invoke に失敗した場合は500を返し報告する', async () => {
+    mockGetByJobId.mockResolvedValue([
+      {
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        status: 'accepted',
+        clipStatus: 'GENERATED',
+      },
+    ]);
+    lambdaSend.mockRejectedValue(new Error('invoke failed'));
+
+    const response = await POST(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: 'INTERNAL_SERVER_ERROR',
+      message: 'ダウンロードの準備に失敗しました',
+    });
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'quick-clip',
+        severity: 'error',
+        title: 'Web API: ダウンロード準備エラー',
+      })
+    );
+  });
+
+  it('異常系: 旧 ZIP が存在しない場合の削除エラーは報告しない', async () => {
+    mockGetByJobId.mockResolvedValue([
+      {
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        status: 'accepted',
+        clipStatus: 'GENERATED',
+      },
+    ]);
+    s3Send.mockRejectedValue(Object.assign(new Error('NoSuchKey'), { name: 'NoSuchKey' }));
+
+    const response = await POST(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+
+    expect(response.status).toBe(202);
+    expect(reportErrorEvent).not.toHaveBeenCalled();
   });
 
   it('異常系: 採用見どころがない場合は400を返す', async () => {

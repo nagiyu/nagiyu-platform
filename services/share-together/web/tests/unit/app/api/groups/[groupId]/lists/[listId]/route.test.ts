@@ -77,6 +77,12 @@ const mockDynamoDBTodoRepository = DynamoDBTodoRepository as jest.MockedClass<
 );
 type SessionOrErrorResponse = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 
+import {
+  createRequestWithJson,
+  MALFORMED_BODY_CASES,
+  type InvalidBodyCase,
+} from '../../../../invalidBodyCases';
+
 describe('/api/groups/[groupId]/lists/[listId] route', () => {
   const mockGetMembershipById = jest.fn();
   const mockGetGroupListById = jest.fn();
@@ -198,16 +204,16 @@ describe('/api/groups/[groupId]/lists/[listId] route', () => {
       groupId: 'group-1',
       name: '更新前',
       createdBy: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockUpdateGroupList.mockResolvedValue({
       listId: 'list-1',
       groupId: 'group-1',
       name: '更新後',
       createdBy: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-02T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767312000000,
     });
 
     const response = await PUT({ json: async () => ({ name: '  更新後  ' }) } as Request, {
@@ -222,8 +228,8 @@ describe('/api/groups/[groupId]/lists/[listId] route', () => {
         groupId: 'group-1',
         name: '更新後',
         createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-02T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767312000000,
       },
     });
   });
@@ -242,8 +248,8 @@ describe('/api/groups/[groupId]/lists/[listId] route', () => {
       groupId: 'group-1',
       name: '共有リスト',
       createdBy: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     const response = await DELETE({} as Request, {
@@ -275,4 +281,25 @@ describe('/api/groups/[groupId]/lists/[listId] route', () => {
     expect(mockDeleteByListId).not.toHaveBeenCalled();
     expect(mockDeleteGroupList).not.toHaveBeenCalled();
   });
+
+  it.each<InvalidBodyCase>([...MALFORMED_BODY_CASES, ['name が数値', async () => ({ name: 123 })]])(
+    'PUT: リクエストボディが不正な場合 (%s) は400を返す',
+    async (_label, json) => {
+      mockGetSessionOrUnauthorized.mockResolvedValue({
+        user: { id: 'user-1' },
+      } as SessionOrErrorResponse);
+      mockGetMembershipById.mockResolvedValue({
+        groupId: 'group-1',
+        userId: 'user-1',
+        status: 'ACCEPTED',
+      });
+
+      const response = await PUT(createRequestWithJson(json), {
+        params: Promise.resolve({ groupId: 'group-1', listId: 'list-1' }),
+      });
+
+      expect(response.status).toBe(400);
+      expect(mockUpdateGroupList).not.toHaveBeenCalled();
+    }
+  );
 });

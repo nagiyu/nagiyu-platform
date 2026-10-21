@@ -6,9 +6,10 @@
  */
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { withAuth } from '@nagiyu/nextjs';
+import { readJsonObjectBody, withAuth } from '@nagiyu/nextjs';
 import { reportErrorEvent } from '@nagiyu/aws';
 import { getSession } from '@/lib/server/session';
+import { withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import {
   CLIENT_LOG_ALLOWED_SEVERITIES,
   CLIENT_LOG_ERROR_MESSAGES,
@@ -33,9 +34,7 @@ function isAllowedSeverity(value: unknown): value is AllowedSeverity {
   );
 }
 
-function isValidBody(body: unknown): body is ClientLogRequest {
-  if (!body || typeof body !== 'object') return false;
-  const b = body as Record<string, unknown>;
+function isValidBody(b: Record<string, unknown>): b is Record<string, unknown> & ClientLogRequest {
   return (
     isAllowedSeverity(b.severity) &&
     typeof b.title === 'string' &&
@@ -50,35 +49,31 @@ function isValidBody(body: unknown): body is ClientLogRequest {
   );
 }
 
-export const POST = withAuth(getSession, 'livetalk:chat', async (session, request: NextRequest) => {
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(
-      { error: 'INVALID_REQUEST', message: CLIENT_LOG_ERROR_MESSAGES.INVALID_REQUEST },
-      { status: 400 }
-    );
-  }
+export const POST = withApiErrorReporting(
+  'Web API: クライアントログ受信エラー',
+  withAuth(getSession, 'livetalk:chat', async (session, request: NextRequest) => {
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok || !isValidBody(bodyResult.body)) {
+      return NextResponse.json(
+        { error: 'INVALID_REQUEST', message: CLIENT_LOG_ERROR_MESSAGES.INVALID_REQUEST },
+        { status: 400 }
+      );
+    }
 
-  if (!isValidBody(body)) {
-    return NextResponse.json(
-      { error: 'INVALID_REQUEST', message: CLIENT_LOG_ERROR_MESSAGES.INVALID_REQUEST },
-      { status: 400 }
-    );
-  }
+    const body = bodyResult.body;
 
-  await reportErrorEvent({
-    serviceId: 'livetalk',
-    severity: body.severity,
-    title: body.title,
-    message: body.message,
-    context: {
-      userId: session.user.googleId,
-      ...(body.context ?? {}),
-    },
-    occurredAt: body.occurredAt,
-  });
+    await reportErrorEvent({
+      serviceId: 'livetalk',
+      severity: body.severity,
+      title: body.title,
+      message: body.message,
+      context: {
+        userId: session.user.id,
+        ...(body.context ?? {}),
+      },
+      occurredAt: body.occurredAt,
+    });
 
-  return new NextResponse(null, { status: 204 });
-});
+    return new NextResponse(null, { status: 204 });
+  })
+);

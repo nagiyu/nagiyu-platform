@@ -36,12 +36,12 @@ defineProfileRepositoryContract('InMemory', {
   putNonProfileItem: async (userId: string) => {
     const safetyEventRepo = new InMemorySafetyEventRepository(inMemoryStore);
     await safetyEventRepo.create({
-      UserID: userId,
-      CharacterID: 'hiyori',
-      Trigger: 'input_keyword',
-      DetectedPattern: 'contract-test',
-      InputText: 'x',
-      ResponseText: 'y',
+      userId: userId,
+      characterId: 'hiyori',
+      trigger: 'input_keyword',
+      detectedPattern: 'contract-test',
+      inputText: 'x',
+      responseText: 'y',
     });
   },
 });
@@ -85,12 +85,12 @@ defineProfileRepositoryContract('DynamoDB Local', {
       dynamoDbLocalTableName
     );
     await safetyEventRepo.create({
-      UserID: userId,
-      CharacterID: 'hiyori',
-      Trigger: 'input_keyword',
-      DetectedPattern: 'contract-test',
-      InputText: 'x',
-      ResponseText: 'y',
+      userId: userId,
+      characterId: 'hiyori',
+      trigger: 'input_keyword',
+      detectedPattern: 'contract-test',
+      inputText: 'x',
+      responseText: 'y',
     });
   },
 });

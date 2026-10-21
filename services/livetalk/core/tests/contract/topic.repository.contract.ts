@@ -25,27 +25,27 @@ export interface TopicRepositoryContractHooks {
 
 function buildTopicInput(overrides: Partial<CreateTopicInput> = {}): CreateTopicInput {
   return {
-    UserID: 'u1',
-    CharacterID: 'hiyori',
-    TopicID: 'TOPIC-001',
-    Subject: 'コーヒー',
-    CanonicalSummary: 'コーヒーが好き',
-    Category: '飲み物',
-    Care: 3,
-    Embedding: [0.1, 0.2],
+    userId: 'u1',
+    characterId: 'hiyori',
+    topicId: 'TOPIC-001',
+    subject: 'コーヒー',
+    canonicalSummary: 'コーヒーが好き',
+    category: '飲み物',
+    care: 3,
+    embedding: [0.1, 0.2],
     ...overrides,
   };
 }
 
 function buildWebFactInput(overrides: Partial<CreateWebFactInput> = {}): CreateWebFactInput {
   return {
-    UserID: 'u1',
-    CharacterID: 'hiyori',
-    TopicID: 'TOPIC-001',
-    Text: 'コーヒーの適量は1日3〜4杯まで',
-    SourceUrls: ['https://example.com/coffee'],
-    Volatility: 'medium',
-    ObservedAt: 1_700_000_000_000,
+    userId: 'u1',
+    characterId: 'hiyori',
+    topicId: 'TOPIC-001',
+    text: 'コーヒーの適量は1日3〜4杯まで',
+    sourceUrls: ['https://example.com/coffee'],
+    volatility: 'medium',
+    observedAt: 1_700_000_000_000,
     ...overrides,
   };
 }
@@ -79,9 +79,9 @@ export function defineTopicRepositoryContract(
       const created = await repository.putTopic(input);
 
       const fetched = await repository.getTopic({
-        userId: input.UserID,
-        characterId: input.CharacterID,
-        topicId: input.TopicID,
+        userId: input.userId,
+        characterId: input.characterId,
+        topicId: input.topicId,
       });
 
       expect(fetched).toEqual(created);
@@ -89,28 +89,28 @@ export function defineTopicRepositoryContract(
 
     describe('listTopicHeaders（GSI3）', () => {
       it('指定ユーザー・キャラの Topic ヘッダのみを列挙する（SelfFact/WebFact・他ユーザーは含まない）', async () => {
-        await repository.putTopic(buildTopicInput({ TopicID: 'TOPIC-A' }));
-        await repository.putTopic(buildTopicInput({ TopicID: 'TOPIC-B' }));
+        await repository.putTopic(buildTopicInput({ topicId: 'TOPIC-A' }));
+        await repository.putTopic(buildTopicInput({ topicId: 'TOPIC-B' }));
         // 別ユーザー・別キャラの Topic は対象外
         await repository.putTopic(
-          buildTopicInput({ UserID: 'other-user', TopicID: 'TOPIC-OTHER-USER' })
+          buildTopicInput({ userId: 'other-user', topicId: 'TOPIC-OTHER-USER' })
         );
         await repository.putTopic(
-          buildTopicInput({ CharacterID: 'ageha', TopicID: 'TOPIC-OTHER-CHAR' })
+          buildTopicInput({ characterId: 'ageha', topicId: 'TOPIC-OTHER-CHAR' })
         );
         // 同じ Topic 配下の SELF/WEB fact は META（Topic ヘッダ）ではないため対象外
         await repository.putSelfFact({
-          UserID: 'u1',
-          CharacterID: 'hiyori',
-          TopicID: 'TOPIC-A',
-          Text: 'ユーザーは猫を飼っている',
-          Provenance: 'chat-001',
+          userId: 'u1',
+          characterId: 'hiyori',
+          topicId: 'TOPIC-A',
+          text: 'ユーザーは猫を飼っている',
+          provenance: 'chat-001',
         });
-        await repository.putWebFact(buildWebFactInput({ TopicID: 'TOPIC-A' }));
+        await repository.putWebFact(buildWebFactInput({ topicId: 'TOPIC-A' }));
 
         const headers = await repository.listTopicHeaders('u1', 'hiyori');
 
-        expect(headers.map((h) => h.TopicID).sort()).toEqual(['TOPIC-A', 'TOPIC-B']);
+        expect(headers.map((h) => h.topicId).sort()).toEqual(['TOPIC-A', 'TOPIC-B']);
       });
 
       it('Topic が0件のとき空配列を返す', async () => {
@@ -124,39 +124,39 @@ export function defineTopicRepositoryContract(
         // Topic ヘッダ列挙はベーステーブルではなく GSI3 経由で行われるため、
         // 依頼フック（RequestText/RequestedAt）はこの経路では取得できない、という契約を検証する。
         const input = buildTopicInput({
-          TopicID: 'TOPIC-REQUEST',
-          RequestText: '〇〇について調べて',
-          RequestedAt: 1_700_000_050_000,
+          topicId: 'TOPIC-REQUEST',
+          requestText: '〇〇について調べて',
+          requestedAt: 1_700_000_050_000,
         });
         await repository.putTopic(input);
 
         const fetched = await repository.getTopic({
-          userId: input.UserID,
-          characterId: input.CharacterID,
-          topicId: input.TopicID,
+          userId: input.userId,
+          characterId: input.characterId,
+          topicId: input.topicId,
         });
-        expect(fetched?.RequestText).toBe(input.RequestText);
-        expect(fetched?.RequestedAt).toBe(input.RequestedAt);
+        expect(fetched?.requestText).toBe(input.requestText);
+        expect(fetched?.requestedAt).toBe(input.requestedAt);
 
         const headers = await repository.listTopicHeaders('u1', 'hiyori');
-        const header = headers.find((h) => h.TopicID === 'TOPIC-REQUEST');
+        const header = headers.find((h) => h.topicId === 'TOPIC-REQUEST');
 
         expect(header).toBeDefined();
-        expect(header?.RequestText).toBeUndefined();
-        expect(header?.RequestedAt).toBeUndefined();
+        expect(header?.requestText).toBeUndefined();
+        expect(header?.requestedAt).toBeUndefined();
       });
 
       it('GSI3 の射影だけで TopicEntity を復元できる（射影に含まれない RequestText/RequestedAt を除く）', async () => {
-        const input = buildTopicInput({ TopicID: 'TOPIC-RESTORE', Care: 4 });
+        const input = buildTopicInput({ topicId: 'TOPIC-RESTORE', care: 4 });
         const created = await repository.putTopic(input);
 
         const headers = await repository.listTopicHeaders('u1', 'hiyori');
-        const restored = headers.find((h) => h.TopicID === 'TOPIC-RESTORE');
+        const restored = headers.find((h) => h.topicId === 'TOPIC-RESTORE');
 
         // RequestText/RequestedAt は GSI3 の射影に含まれないため、比較対象から除く
         const expected: Record<string, unknown> = { ...created };
-        delete expected.RequestText;
-        delete expected.RequestedAt;
+        delete expected.requestText;
+        delete expected.requestedAt;
 
         expect(restored).toEqual(expected);
       });
@@ -174,20 +174,51 @@ export function defineTopicRepositoryContract(
       it('更新時（expectedUpdatedAt指定）は現在のUpdatedAtと一致すれば成功し、CreatedAtを維持する', async () => {
         const created = await repository.putTopic(buildTopicInput());
 
-        const updated = await repository.putTopic(buildTopicInput({ Care: 7 }), {
-          expectedUpdatedAt: created.UpdatedAt,
+        const updated = await repository.putTopic(buildTopicInput({ care: 7 }), {
+          expectedUpdatedAt: created.updatedAt,
         });
 
-        expect(updated.Care).toBe(7);
-        expect(updated.CreatedAt).toBe(created.CreatedAt);
+        expect(updated.care).toBe(7);
+        expect(updated.createdAt).toBe(created.createdAt);
+      });
+
+      it('更新時（expectedUpdatedAt指定）に対象の Topic が存在しないと EntityNotFoundError を投げる', async () => {
+        await expect(
+          repository.putTopic(buildTopicInput(), { expectedUpdatedAt: 1 })
+        ).rejects.toThrow(expect.objectContaining({ name: 'EntityNotFoundError' }));
       });
 
       it('更新時（expectedUpdatedAt指定）に実際のUpdatedAtと不一致だとOptimisticLockErrorを投げる', async () => {
         await repository.putTopic(buildTopicInput());
 
         await expect(
-          repository.putTopic(buildTopicInput({ Care: 7 }), { expectedUpdatedAt: -1 })
+          repository.putTopic(buildTopicInput({ care: 7 }), { expectedUpdatedAt: -1 })
         ).rejects.toThrow(expect.objectContaining({ name: 'OptimisticLockError' }));
+      });
+    });
+
+    describe('deleteSelfFact', () => {
+      it('SELF fact を削除し、同じ fact をもう一度削除すると EntityNotFoundError を投げる', async () => {
+        const fact = await repository.putSelfFact({
+          userId: 'u1',
+          characterId: 'hiyori',
+          topicId: 'TOPIC-001',
+          text: 'ユーザーは猫を飼っている',
+          provenance: 'chat-001',
+        });
+        const key = {
+          userId: fact.userId,
+          characterId: fact.characterId,
+          topicId: fact.topicId,
+          factId: fact.factId,
+        };
+
+        await repository.deleteSelfFact(key);
+
+        expect(await repository.listSelfFacts('u1', 'hiyori', 'TOPIC-001')).toEqual([]);
+        await expect(repository.deleteSelfFact(key)).rejects.toThrow(
+          expect.objectContaining({ name: 'EntityNotFoundError' })
+        );
       });
     });
 
@@ -195,23 +226,23 @@ export function defineTopicRepositoryContract(
       it('Care 降順で返し、limit で件数を絞る（数値順と辞書順で結果が変わる値で検証する）', async () => {
         // GSI3SK（Care）は NUMBER 型で、実DynamoDBは数値順にソートする。
         // 現状の InMemoryTopicRepository.listTopicHeadersByCareDesc は取得後に
-        // JS 側で `b.Care - a.Care` の数値ソートを明示的に行っており、
+        // JS 側で `b.care - a.care` の数値ソートを明示的に行っており、
         // InMemorySingleTableStore.queryByAttribute の sk 条件（String()比較の辞書順）には
         // 依存していないため、このテストは現状どちらの実装でも数値順どおりに通る。
         // それでも桁数の異なる値（2 / 9 / 10）を混ぜているのは、この経路が将来
         // store の GSI ソートキー経由のソート（sk 条件付き queryByAttribute）に
         // 乗せ替えられた場合に、辞書順ソートへ退行したことを検知するガードとして
         // 機能させるため（数値降順: 10, 9, 2 / 辞書降順: "9", "2", "10"）。
-        await repository.putTopic(buildTopicInput({ TopicID: 'TOPIC-LOW', Care: 2 }));
-        await repository.putTopic(buildTopicInput({ TopicID: 'TOPIC-HIGH', Care: 10 }));
-        await repository.putTopic(buildTopicInput({ TopicID: 'TOPIC-MID', Care: 9 }));
+        await repository.putTopic(buildTopicInput({ topicId: 'TOPIC-LOW', care: 2 }));
+        await repository.putTopic(buildTopicInput({ topicId: 'TOPIC-HIGH', care: 10 }));
+        await repository.putTopic(buildTopicInput({ topicId: 'TOPIC-MID', care: 9 }));
 
         const result = await repository.listTopicHeadersByCareDesc('u1', 'hiyori', 2);
 
         // 数値降順なら TOPIC-HIGH(10), TOPIC-MID(9) が上位2件。
         // 辞書順（"9" > "2" > "10"）だと TOPIC-MID, TOPIC-LOW になり、この期待値とは一致しない。
-        expect(result.map((t) => t.TopicID)).toEqual(['TOPIC-HIGH', 'TOPIC-MID']);
-        expect(result.map((t) => t.Care)).toEqual([10, 9]);
+        expect(result.map((t) => t.topicId)).toEqual(['TOPIC-HIGH', 'TOPIC-MID']);
+        expect(result.map((t) => t.care)).toEqual([10, 9]);
       });
     });
 
@@ -233,43 +264,43 @@ export function defineTopicRepositoryContract(
         // 数値昇順: 2, 20, 100。辞書昇順だと "100" < "2" < "20" になり順序が入れ替わる。
         await repository.putWebFact(
           buildWebFactInput({
-            FactID: 'FACT-100',
-            Volatility: 'high',
-            NextReview: 100,
-            ObservedAt: OBSERVED_AT_MS,
+            factId: 'FACT-100',
+            volatility: 'high',
+            nextReview: 100,
+            observedAt: OBSERVED_AT_MS,
           })
         );
         await repository.putWebFact(
           buildWebFactInput({
-            FactID: 'FACT-2',
-            Volatility: 'high',
-            NextReview: 2,
-            ObservedAt: OBSERVED_AT_MS,
+            factId: 'FACT-2',
+            volatility: 'high',
+            nextReview: 2,
+            observedAt: OBSERVED_AT_MS,
           })
         );
         await repository.putWebFact(
           buildWebFactInput({
-            FactID: 'FACT-20',
-            Volatility: 'medium',
-            NextReview: 20,
-            ObservedAt: OBSERVED_AT_MS,
+            factId: 'FACT-20',
+            volatility: 'medium',
+            nextReview: 20,
+            observedAt: OBSERVED_AT_MS,
           })
         );
         // 未来（まだ再検証不要）は対象外
         await repository.putWebFact(
           buildWebFactInput({
-            FactID: 'FACT-FUTURE',
-            Volatility: 'low',
-            NextReview: nowMs + 10_000,
-            ObservedAt: OBSERVED_AT_MS,
+            factId: 'FACT-FUTURE',
+            volatility: 'low',
+            nextReview: nowMs + 10_000,
+            observedAt: OBSERVED_AT_MS,
           })
         );
         // stable（NextReview未設定）は対象外
         await repository.putWebFact(
           buildWebFactInput({
-            FactID: 'FACT-STABLE',
-            Volatility: 'stable',
-            ObservedAt: OBSERVED_AT_MS,
+            factId: 'FACT-STABLE',
+            volatility: 'stable',
+            observedAt: OBSERVED_AT_MS,
           })
         );
 
@@ -277,7 +308,7 @@ export function defineTopicRepositoryContract(
 
         // 数値昇順（期限が古い順）：FACT-2(2) → FACT-20(20) → FACT-100(100)。
         // 辞書昇順だと FACT-100, FACT-2, FACT-20 になり、この期待値とは一致しない。
-        expect(result.map((f) => f.FactID)).toEqual(['FACT-2', 'FACT-20', 'FACT-100']);
+        expect(result.map((f) => f.factId)).toEqual(['FACT-2', 'FACT-20', 'FACT-100']);
       });
 
       it('limit で件数を絞る（古い順の先頭からlimit件、数値順と辞書順で結果が変わる値で検証する）', async () => {
@@ -287,10 +318,10 @@ export function defineTopicRepositoryContract(
         for (const value of nextReviews) {
           await repository.putWebFact(
             buildWebFactInput({
-              FactID: `FACT-${value}`,
-              Volatility: 'high',
-              NextReview: value,
-              ObservedAt: OBSERVED_AT_MS,
+              factId: `FACT-${value}`,
+              volatility: 'high',
+              nextReview: value,
+              observedAt: OBSERVED_AT_MS,
             })
           );
         }
@@ -299,17 +330,17 @@ export function defineTopicRepositoryContract(
 
         // 数値順なら先頭2件は FACT-7(7), FACT-8(8)。
         // 辞書順だと FACT-10("10"), FACT-11("11") になり、この期待値とは一致しない。
-        expect(result.map((f) => f.FactID)).toEqual(['FACT-7', 'FACT-8']);
+        expect(result.map((f) => f.factId)).toEqual(['FACT-7', 'FACT-8']);
       });
 
       it('GSI4 の射影だけで WebFactEntity を完全に復元できる', async () => {
         const input = buildWebFactInput({
-          FactID: 'FACT-RESTORE',
-          Text: '復元確認用のfact本文',
-          SourceUrls: ['https://example.com/a', 'https://example.com/b'],
-          Volatility: 'high',
-          NextReview: nowMs - 1_000,
-          ObservedAt: OBSERVED_AT_MS,
+          factId: 'FACT-RESTORE',
+          text: '復元確認用のfact本文',
+          sourceUrls: ['https://example.com/a', 'https://example.com/b'],
+          volatility: 'high',
+          nextReview: nowMs - 1_000,
+          observedAt: OBSERVED_AT_MS,
         });
         const created = await repository.putWebFact(input);
 
@@ -319,60 +350,69 @@ export function defineTopicRepositoryContract(
       });
 
       describe('updateWebFactNextReview（GSI4SKの追従）', () => {
+        it('存在しない WEB fact は何もせず成功する', async () => {
+          await expect(
+            repository.updateWebFactNextReview(
+              { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-001', factId: 'missing' },
+              nowMs
+            )
+          ).resolves.toBeUndefined();
+        });
+
         it('NextReviewを窓の外（未来）から窓の中に更新すると、GSI4SKが追従しlistStaleWebFactsの結果に現れる', async () => {
           const created = await repository.putWebFact(
             buildWebFactInput({
-              FactID: 'FACT-FOLLOW-IN',
-              Volatility: 'high',
-              NextReview: nowMs + 10_000,
-              ObservedAt: OBSERVED_AT_MS,
+              factId: 'FACT-FOLLOW-IN',
+              volatility: 'high',
+              nextReview: nowMs + 10_000,
+              observedAt: OBSERVED_AT_MS,
             })
           );
 
           // 更新前は窓の外（未来）のため対象外
           const before = await repository.listStaleWebFacts('u1', 'hiyori', nowMs, 10);
-          expect(before.map((f) => f.FactID)).not.toContain('FACT-FOLLOW-IN');
+          expect(before.map((f) => f.factId)).not.toContain('FACT-FOLLOW-IN');
 
           await repository.updateWebFactNextReview(
             {
-              userId: created.UserID,
-              characterId: created.CharacterID,
-              topicId: created.TopicID,
-              factId: created.FactID,
+              userId: created.userId,
+              characterId: created.characterId,
+              topicId: created.topicId,
+              factId: created.factId,
             },
             nowMs - 1_000
           );
 
           const after = await repository.listStaleWebFacts('u1', 'hiyori', nowMs, 10);
-          expect(after.map((f) => f.FactID)).toContain('FACT-FOLLOW-IN');
+          expect(after.map((f) => f.factId)).toContain('FACT-FOLLOW-IN');
         });
 
         it('NextReviewを窓の中から窓の外（未来）に更新すると、GSI4SKが追従しlistStaleWebFactsの結果から消える', async () => {
           const created = await repository.putWebFact(
             buildWebFactInput({
-              FactID: 'FACT-FOLLOW-OUT',
-              Volatility: 'high',
-              NextReview: nowMs - 1_000,
-              ObservedAt: OBSERVED_AT_MS,
+              factId: 'FACT-FOLLOW-OUT',
+              volatility: 'high',
+              nextReview: nowMs - 1_000,
+              observedAt: OBSERVED_AT_MS,
             })
           );
 
           // 更新前は窓の中のため対象に含まれる
           const before = await repository.listStaleWebFacts('u1', 'hiyori', nowMs, 10);
-          expect(before.map((f) => f.FactID)).toContain('FACT-FOLLOW-OUT');
+          expect(before.map((f) => f.factId)).toContain('FACT-FOLLOW-OUT');
 
           await repository.updateWebFactNextReview(
             {
-              userId: created.UserID,
-              characterId: created.CharacterID,
-              topicId: created.TopicID,
-              factId: created.FactID,
+              userId: created.userId,
+              characterId: created.characterId,
+              topicId: created.topicId,
+              factId: created.factId,
             },
             nowMs + 10_000
           );
 
           const after = await repository.listStaleWebFacts('u1', 'hiyori', nowMs, 10);
-          expect(after.map((f) => f.FactID)).not.toContain('FACT-FOLLOW-OUT');
+          expect(after.map((f) => f.factId)).not.toContain('FACT-FOLLOW-OUT');
         });
       });
     });

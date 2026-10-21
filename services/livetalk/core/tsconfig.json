@@ -10,5 +10,5 @@
   },
   "include": ["src/**/*", "tests/**/*"],
   "exclude": ["node_modules", "dist", "tests/contract"],
-  "references": [{ "path": "../../../libs/common" }, { "path": "../../../libs/aws" }]
+  "references": [{ "path": "../../../libs/aws" }, { "path": "../../../libs/common" }]
 }

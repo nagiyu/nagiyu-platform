@@ -12,6 +12,7 @@ on:
       - 'infra/common/**'
       - 'infra/tsconfig.json'
       - 'libs/**'
+      - 'configs/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/livetalk-deploy.yml'
@@ -134,7 +135,7 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/livetalk-web'
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/aws,@nagiyu/livetalk-core'
+          shared-workspaces: '@nagiyu/livetalk-core'
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -422,8 +423,7 @@ jobs:
             "nagiyu-livetalk-batch-learn-user-activity-$ENVIRONMENT" \
             "nagiyu-livetalk-batch-notify-$ENVIRONMENT" \
             "nagiyu-livetalk-batch-consolidate-$ENVIRONMENT" \
-            "nagiyu-livetalk-batch-acquire-$ENVIRONMENT" \
-            "nagiyu-livetalk-batch-migrate-$ENVIRONMENT"; do
+            "nagiyu-livetalk-batch-acquire-$ENVIRONMENT"; do
 
             aws lambda update-function-code \
               --function-name "$FN" \
@@ -530,7 +530,6 @@ jobs:
             echo "- **Batch Lambda（通知）**: \`nagiyu-livetalk-batch-notify-$ENVIRONMENT\`（EventBridge 毎時:30）"
             echo "- **Batch Lambda（集約）**: \`nagiyu-livetalk-batch-consolidate-$ENVIRONMENT\`（EventBridge 毎時:15）"
             echo "- **Batch Lambda（取得）**: \`nagiyu-livetalk-batch-acquire-$ENVIRONMENT\`（EventBridge 毎時:45）"
-            echo "- **Batch Lambda（一回性移行）**: \`nagiyu-livetalk-batch-migrate-$ENVIRONMENT\`（手動発火専用・スケジュール無し）"
             echo "- **ALB DNS**: \`$ALB_DNS\`"
             echo "- **Custom Domain**: https://$CUSTOM_DOMAIN"
             echo ""

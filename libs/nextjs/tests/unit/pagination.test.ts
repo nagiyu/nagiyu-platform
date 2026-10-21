@@ -17,7 +17,7 @@ describe('parsePagination', () => {
     const result = parsePagination(request);
     expect(result).toEqual({
       limit: 50,
-      lastKey: undefined,
+      cursor: undefined,
     });
   });
 
@@ -26,29 +26,45 @@ describe('parsePagination', () => {
     const result = parsePagination(request);
     expect(result).toEqual({
       limit: 10,
-      lastKey: undefined,
+      cursor: undefined,
     });
   });
 
-  it('lastKeyパラメータをデコードする', () => {
-    const lastKey = { id: '123', timestamp: 1234567890 };
-    const encodedLastKey = Buffer.from(JSON.stringify(lastKey)).toString('base64');
-    const request = new NextRequest(`http://localhost/api/test?lastKey=${encodedLastKey}`);
+  it('lastKeyパラメータをデコードせず生の文字列のまま cursor として返す', () => {
+    const encodedLastKey = Buffer.from(
+      JSON.stringify({ id: '123', timestamp: 1234567890 })
+    ).toString('base64');
+    const request = new NextRequest(
+      `http://localhost/api/test?lastKey=${encodeURIComponent(encodedLastKey)}`
+    );
     const result = parsePagination(request);
     expect(result).toEqual({
       limit: 50,
-      lastKey,
+      cursor: encodedLastKey,
     });
   });
 
+  it('不正な形式の lastKey でも解釈せずそのまま cursor として返す', () => {
+    const request = new NextRequest('http://localhost/api/test?lastKey=invalid-base64');
+    const result = parsePagination(request);
+    expect(result).toEqual({
+      limit: 50,
+      cursor: 'invalid-base64',
+    });
+  });
+
+  it('lastKeyが空文字の場合 cursor は undefined になる', () => {
+    const request = new NextRequest('http://localhost/api/test?lastKey=');
+    const result = parsePagination(request);
+    expect(result.cursor).toBeUndefined();
+  });
+
   it('limitとlastKeyの両方をパースする', () => {
-    const lastKey = { id: '456' };
-    const encodedLastKey = Buffer.from(JSON.stringify(lastKey)).toString('base64');
-    const request = new NextRequest(`http://localhost/api/test?limit=20&lastKey=${encodedLastKey}`);
+    const request = new NextRequest('http://localhost/api/test?limit=20&lastKey=abc');
     const result = parsePagination(request);
     expect(result).toEqual({
       limit: 20,
-      lastKey,
+      cursor: 'abc',
     });
   });
 
@@ -79,34 +95,29 @@ describe('parsePagination', () => {
     const request = new NextRequest('http://localhost/api/test?limit=abc');
     expect(() => parsePagination(request)).toThrow('limit は 1 から 100 の間で指定してください');
   });
-
-  it('無効なlastKeyは無視される', () => {
-    const request = new NextRequest('http://localhost/api/test?lastKey=invalid-base64');
-    const result = parsePagination(request);
-    expect(result).toEqual({
-      limit: 50,
-      lastKey: undefined,
-    });
-  });
 });
 
 describe('createPaginatedResponse', () => {
-  it('lastKeyなしでレスポンスを作成する', () => {
+  it('lastKeyなしの場合 pagination に lastKey を含めない', async () => {
     const items = [{ id: '1' }, { id: '2' }];
     const response = createPaginatedResponse(items);
     expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ items, pagination: { count: 2 } });
   });
 
-  it('lastKeyありでレスポンスを作成する', () => {
+  it('lastKeyを再エンコードせずそのまま pagination.lastKey に入れる', async () => {
     const items = [{ id: '1' }, { id: '2' }];
-    const lastKey = { id: '2', timestamp: 1234567890 };
-    const response = createPaginatedResponse(items, lastKey);
+    const response = createPaginatedResponse(items, 'encoded-cursor');
     expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      items,
+      pagination: { count: 2, lastKey: 'encoded-cursor' },
+    });
   });
 
-  it('空の配列でレスポンスを作成する', () => {
-    const items: string[] = [];
-    const response = createPaginatedResponse(items);
+  it('空の配列でレスポンスを作成する', async () => {
+    const response = createPaginatedResponse<string>([]);
     expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ items: [], pagination: { count: 0 } });
   });
 });

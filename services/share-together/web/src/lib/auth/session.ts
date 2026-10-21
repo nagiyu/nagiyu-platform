@@ -1,31 +1,12 @@
 import { NextResponse } from 'next/server';
-import type { Session } from 'next-auth';
-import {
-  createSessionGetter,
-  createTestSessionExpires,
-  resolveTestUser,
-} from '@nagiyu/nextjs/session';
+import type { Session } from '@nagiyu/common';
+import { createSessionGetter } from '@nagiyu/nextjs/session';
 import { auth } from '../../../auth';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
-const getSessionFromAuth = createSessionGetter({
+export const getSession = createSessionGetter({
   auth: auth as () => Promise<Session | null>,
-  createTestSession: (overrides) => {
-    const u = resolveTestUser({ defaultRoles: [], roles: overrides?.roles });
-    return {
-      user: {
-        id: u.id,
-        email: u.email,
-        name: u.name,
-        image: u.image,
-        roles: u.roles,
-      },
-      expires: createTestSessionExpires(),
-    };
-  },
 });
-
-export const getSession = getSessionFromAuth;
 
 export function createUnauthorizedResponse(): NextResponse {
   return NextResponse.json(

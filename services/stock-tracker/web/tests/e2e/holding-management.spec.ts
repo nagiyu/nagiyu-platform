@@ -3,7 +3,7 @@ import { test, expect, resetState, type ResetSeedData } from './fixtures';
 /**
  * webkit-mobile 対応: 実 Service Worker（/sw.js）を無効化する。
  *
- * 本アプリは libs/ui の ServiceWorkerRegistration が全ページで /sw.js を登録するため、
+ * 本アプリは libs/react の ServiceWorkerRegistration が全ページで /sw.js を登録するため、
  * webkit では SW がページを制御し、API 応答を仲介・キャッシュしてしまう。Playwright は
  * 「Service Worker 経由のリクエストは Chromium 以外では page.route で捕捉できない」
  * という既知の制約があるため、モックが素通りしたり、UI が古い応答を表示したりして
@@ -82,21 +82,21 @@ function baseSeed(): ResetSeedData {
   return {
     exchanges: [
       {
-        ExchangeID: EXCHANGE_ID,
-        Name: EXCHANGE_NAME,
-        Key: EXCHANGE_KEY,
-        Timezone: 'America/New_York',
-        Start: '09:30',
-        End: '16:00',
-        PriceSource: 'tradingview',
+        exchangeId: EXCHANGE_ID,
+        name: EXCHANGE_NAME,
+        key: EXCHANGE_KEY,
+        timezone: 'America/New_York',
+        start: '09:30',
+        end: '16:00',
+        priceSource: 'tradingview',
       },
     ],
     tickers: [
       {
-        TickerID: TICKER_ID,
-        Symbol: TICKER_SYMBOL,
-        Name: TICKER_NAME,
-        ExchangeID: EXCHANGE_ID,
+        tickerId: TICKER_ID,
+        symbol: TICKER_SYMBOL,
+        name: TICKER_NAME,
+        exchangeId: EXCHANGE_ID,
       },
     ],
   };
@@ -105,25 +105,25 @@ function baseSeed(): ResetSeedData {
 /** 保有株式 seed データ */
 function holdingSeed(overrides: { quantity?: number; averagePrice?: number } = {}) {
   return {
-    UserID: TEST_USER_ID,
-    TickerID: TICKER_ID,
-    ExchangeID: EXCHANGE_ID,
-    Quantity: overrides.quantity ?? 50,
-    AveragePrice: overrides.averagePrice ?? 120,
-    Currency: 'USD',
+    userId: TEST_USER_ID,
+    tickerId: TICKER_ID,
+    exchangeId: EXCHANGE_ID,
+    quantity: overrides.quantity ?? 50,
+    averagePrice: overrides.averagePrice ?? 120,
+    currency: 'USD',
   };
 }
 
 /** 売りアラート seed データ */
 function sellAlertSeed(value: number) {
   return {
-    UserID: TEST_USER_ID,
-    TickerID: TICKER_ID,
-    ExchangeID: EXCHANGE_ID,
-    Mode: 'Sell' as const,
-    Frequency: 'MINUTE_LEVEL' as const,
-    Enabled: true,
-    ConditionList: [{ field: 'price' as const, operator: 'gte' as const, value }],
+    userId: TEST_USER_ID,
+    tickerId: TICKER_ID,
+    exchangeId: EXCHANGE_ID,
+    mode: 'Sell' as const,
+    frequency: 'MINUTE_LEVEL' as const,
+    enabled: true,
+    conditionList: [{ field: 'price' as const, operator: 'gte' as const, value }],
     subscription: DUMMY_SUBSCRIPTION,
   };
 }
@@ -131,13 +131,13 @@ function sellAlertSeed(value: number) {
 /** 買いアラート seed データ */
 function buyAlertSeed(value: number) {
   return {
-    UserID: TEST_USER_ID,
-    TickerID: TICKER_ID,
-    ExchangeID: EXCHANGE_ID,
-    Mode: 'Buy' as const,
-    Frequency: 'MINUTE_LEVEL' as const,
-    Enabled: true,
-    ConditionList: [{ field: 'price' as const, operator: 'lte' as const, value }],
+    userId: TEST_USER_ID,
+    tickerId: TICKER_ID,
+    exchangeId: EXCHANGE_ID,
+    mode: 'Buy' as const,
+    frequency: 'MINUTE_LEVEL' as const,
+    enabled: true,
+    conditionList: [{ field: 'price' as const, operator: 'lte' as const, value }],
     subscription: DUMMY_SUBSCRIPTION,
   };
 }

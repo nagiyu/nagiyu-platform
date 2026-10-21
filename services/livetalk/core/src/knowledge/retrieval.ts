@@ -1,10 +1,39 @@
-import { logger } from '@nagiyu/common';
+import { logger, toErrorMessage, type ErrorSeverity } from '@nagiyu/common';
+import { reportErrorEvent } from '@nagiyu/aws';
 import type { IEmbeddingClient } from '../llm-client/types.js';
 import type { TopicRepository } from '../repositories/topic.repository.interface.js';
 import type { TopicEntity } from '../entities/topic.entity.js';
 import type { SelfFactEntity } from '../entities/self-fact.entity.js';
 import type { WebFactEntity } from '../entities/web-fact.entity.js';
 import { cosineSimilarity } from '../memory/embedding.js';
+
+/**
+ * 想起の失敗は会話を止めずに「想起なし」で続行するため、握りつぶす箇所でその場で報告する。
+ * 報告の失敗で会話を止めないよう、reportErrorEvent の失敗は握る。
+ */
+async function reportRetrievalFailure(
+  title: string,
+  error: unknown,
+  severity: ErrorSeverity,
+  context: Record<string, unknown>
+): Promise<void> {
+  try {
+    await reportErrorEvent({
+      serviceId: 'livetalk',
+      severity,
+      title,
+      message: toErrorMessage(error),
+      context: {
+        ...context,
+        errorName: error instanceof Error ? error.name : typeof error,
+        errorMessage: toErrorMessage(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
+    });
+  } catch (reportError) {
+    logger.warn('[topic-retrieval] エラー報告に失敗しました', { err: reportError });
+  }
+}
 
 /**
  * 想起（関連度 only）で選抜された Topic 1 件分（リブトーク知識再設計 P2 / #3698）。
@@ -87,6 +116,9 @@ export class TopicRetriever implements ITopicRetriever {
       queryEmbedding = await this.embeddingClient.embed(userInput);
     } catch (err) {
       logger.warn('[topic-retrieval] embedding 生成に失敗しました（想起なしで継続）', { err });
+      await reportRetrievalFailure('Topic 想起の embedding 生成エラー', err, 'error', {
+        characterId,
+      });
       return [];
     }
 
@@ -96,6 +128,7 @@ export class TopicRetriever implements ITopicRetriever {
       headers = await this.topicRepository.listTopicHeaders(userId, characterId);
     } catch (err) {
       logger.warn('[topic-retrieval] Topic ヘッダの列挙に失敗しました（想起なしで継続）', { err });
+      await reportRetrievalFailure('Topic 想起のヘッダ列挙エラー', err, 'error', { characterId });
       return [];
     }
     if (headers.length === 0) return [];
@@ -103,7 +136,7 @@ export class TopicRetriever implements ITopicRetriever {
     // 3. direct 選抜: 発話 embedding との cosine が閾値以上を降順ソート → 上位 topK
     const scored: ScoredHeader[] = headers.map((header) => ({
       header,
-      similarity: cosineSimilarity(queryEmbedding, header.Embedding),
+      similarity: cosineSimilarity(queryEmbedding, header.embedding),
     }));
 
     const direct = scored
@@ -111,17 +144,17 @@ export class TopicRetriever implements ITopicRetriever {
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, topK);
 
-    const directTopicIds = new Set(direct.map((s) => s.header.TopicID));
+    const directTopicIds = new Set(direct.map((s) => s.header.topicId));
 
     // 4. related 選抜: direct に含まれないヘッダについて、direct 集合との cosine 最大値を計算し
     //    閾値以上のものを上位 relatedMax 件まで追加（1 ホップ関連展開）
     const relatedCandidates: ScoredHeader[] = [];
     if (direct.length > 0) {
       for (const s of scored) {
-        if (directTopicIds.has(s.header.TopicID)) continue;
+        if (directTopicIds.has(s.header.topicId)) continue;
         let maxSimilarity = -Infinity;
         for (const d of direct) {
-          const sim = cosineSimilarity(d.header.Embedding, s.header.Embedding);
+          const sim = cosineSimilarity(d.header.embedding, s.header.embedding);
           if (sim > maxSimilarity) maxSimilarity = sim;
         }
         if (maxSimilarity >= relatedThreshold) {
@@ -136,12 +169,12 @@ export class TopicRetriever implements ITopicRetriever {
     // 5. 選抜 Topic（direct → related の順）の SELF/WEB fact を束ねて返す
     const results: RetrievedTopic[] = [];
     for (const { header, similarity } of [...direct, ...related]) {
-      const via: 'direct' | 'related' = directTopicIds.has(header.TopicID) ? 'direct' : 'related';
+      const via: 'direct' | 'related' = directTopicIds.has(header.topicId) ? 'direct' : 'related';
       try {
         const bundle = await this.topicRepository.getTopicBundle({
           userId,
           characterId,
-          topicId: header.TopicID,
+          topicId: header.topicId,
         });
         results.push({
           topic: bundle.topic ?? header,
@@ -155,9 +188,13 @@ export class TopicRetriever implements ITopicRetriever {
           '[topic-retrieval] Topic バンドルの取得に失敗しました（この Topic をスキップ）',
           {
             err,
-            topicId: header.TopicID,
+            topicId: header.topicId,
           }
         );
+        await reportRetrievalFailure('Topic 想起のバンドル取得エラー', err, 'warning', {
+          characterId,
+          topicId: header.topicId,
+        });
       }
     }
 

@@ -21,14 +21,15 @@ function makeEvent(
   characterId = 'hiyori'
 ): NotificationEventEntity {
   return {
-    UserID: 'u1',
-    NotifID: `notif-${createdAt}-${characterId}`,
-    CharacterID: characterId,
-    Kind: kind,
-    Title: 'テスト',
-    Body: '本文',
-    CreatedAt: createdAt,
-    Ttl: Math.floor(createdAt / 1000) + 86400,
+    userId: 'u1',
+    notifId: `notif-${createdAt}-${characterId}`,
+    characterId,
+    kind,
+    title: 'テスト',
+    body: '本文',
+    createdAt,
+    updatedAt: createdAt,
+    expiresAt: createdAt + 86_400_000,
   };
 }
 

@@ -1,8 +1,12 @@
 import {
+  immutablePatchValue,
+  readTimestamp,
+  requiredPatchValue,
   validateStringField,
-  validateTimestampField,
-  type DynamoDBItem,
+  type DynamoDBAttributes,
+  type DynamoDBKey,
   type EntityMapper,
+  type EntityPatch,
 } from '@nagiyu/aws';
 import type {
   PushSubscriptionEntity,
@@ -16,41 +20,48 @@ export class PushSubscriptionMapper implements EntityMapper<
 > {
   public readonly entityType = 'PushSubscription';
 
-  public toItem(entity: PushSubscriptionEntity): DynamoDBItem {
-    const { pk, sk } = this.buildKeys({
-      userId: entity.UserID,
-      subscriptionId: entity.SubscriptionID,
-    });
+  public buildKeys(key: PushSubscriptionKey): DynamoDBKey {
+    return { PK: buildUserPK(key.userId), SK: buildPushSubscriptionSK(key.subscriptionId) };
+  }
+
+  public getKey(entity: PushSubscriptionEntity): PushSubscriptionKey {
+    return { userId: entity.userId, subscriptionId: entity.subscriptionId };
+  }
+
+  public toItem(entity: PushSubscriptionEntity): DynamoDBAttributes {
     return {
-      PK: pk,
-      SK: sk,
+      ...this.buildKeys(this.getKey(entity)),
       Type: this.entityType,
-      UserID: entity.UserID,
-      SubscriptionID: entity.SubscriptionID,
-      Endpoint: entity.Endpoint,
-      P256dhKey: entity.P256dhKey,
-      AuthKey: entity.AuthKey,
-      CreatedAt: entity.CreatedAt,
-      UpdatedAt: entity.UpdatedAt,
+      UserID: entity.userId,
+      SubscriptionID: entity.subscriptionId,
+      Endpoint: entity.endpoint,
+      P256dhKey: entity.p256dhKey,
+      AuthKey: entity.authKey,
+      CreatedAt: entity.createdAt,
+      UpdatedAt: entity.updatedAt,
     };
   }
 
-  public toEntity(item: DynamoDBItem): PushSubscriptionEntity {
+  public toUpdateAttributes(changes: EntityPatch<PushSubscriptionEntity>): DynamoDBAttributes {
     return {
-      UserID: validateStringField(item.UserID, 'UserID'),
-      SubscriptionID: validateStringField(item.SubscriptionID, 'SubscriptionID'),
-      Endpoint: validateStringField(item.Endpoint, 'Endpoint'),
-      P256dhKey: validateStringField(item.P256dhKey, 'P256dhKey'),
-      AuthKey: validateStringField(item.AuthKey, 'AuthKey'),
-      CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
-      UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
+      UserID: immutablePatchValue(changes.userId, 'UserID'),
+      SubscriptionID: immutablePatchValue(changes.subscriptionId, 'SubscriptionID'),
+      CreatedAt: immutablePatchValue(changes.createdAt, 'CreatedAt'),
+      Endpoint: requiredPatchValue(changes.endpoint, 'Endpoint'),
+      P256dhKey: requiredPatchValue(changes.p256dhKey, 'P256dhKey'),
+      AuthKey: requiredPatchValue(changes.authKey, 'AuthKey'),
     };
   }
 
-  public buildKeys(key: PushSubscriptionKey): { pk: string; sk: string } {
+  public toEntity(item: DynamoDBAttributes): PushSubscriptionEntity {
     return {
-      pk: buildUserPK(key.userId),
-      sk: buildPushSubscriptionSK(key.subscriptionId),
+      userId: validateStringField(item.UserID, 'UserID'),
+      subscriptionId: validateStringField(item.SubscriptionID, 'SubscriptionID'),
+      endpoint: validateStringField(item.Endpoint, 'Endpoint'),
+      p256dhKey: validateStringField(item.P256dhKey, 'P256dhKey'),
+      authKey: validateStringField(item.AuthKey, 'AuthKey'),
+      createdAt: readTimestamp(item, 'CreatedAt'),
+      updatedAt: readTimestamp(item, 'UpdatedAt'),
     };
   }
 }

@@ -4,82 +4,55 @@
  * DynamoDBを使用したHoldingRepositoryの実装
  */
 
+import { QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
-  GetCommand,
-  PutCommand,
-  UpdateCommand,
-  DeleteCommand,
-  QueryCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
-import {
-  EntityNotFoundError,
-  EntityAlreadyExistsError,
-  DatabaseError,
-  mapConditionalCheckFailed,
+  DynamoDBEntityStore,
   toDatabaseError,
-  buildUpdateExpression,
   encodeCursor,
   decodeCursor,
+  type EntityStore,
   type PaginationOptions,
   type PaginatedResult,
-  type DynamoDBItem,
 } from '@nagiyu/aws';
 import type { HoldingRepository } from './holding.repository.interface.js';
 import type {
   HoldingEntity,
+  HoldingKey,
   CreateHoldingInput,
   UpdateHoldingInput,
 } from '../entities/holding.entity.js';
-import { HoldingMapper } from '../mappers/holding.mapper.js';
-
-// エラーメッセージ定数
-const ERROR_MESSAGES = {
-  NO_UPDATES_SPECIFIED: '更新するフィールドが指定されていません',
-} as const;
+import {
+  HoldingMapper,
+  HOLDING_GSI1_SK_PREFIX,
+  buildHoldingGsi1Pk,
+} from '../mappers/holding.mapper.js';
 
 /**
  * DynamoDB Holding Repository
  *
- * DynamoDBを使用した保有株式リポジトリの実装
+ * 単一アイテムの CRUD は EntityStore に任せ、GSI の Query だけを自前で持つ
  */
 export class DynamoDBHoldingRepository implements HoldingRepository {
-  private readonly mapper: HoldingMapper;
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
+  private readonly mapper = new HoldingMapper();
+  private readonly entityStore: EntityStore<HoldingEntity, HoldingKey>;
 
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
     this.docClient = docClient;
     this.tableName = tableName;
-    this.mapper = new HoldingMapper();
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper);
   }
 
   /**
    * ユーザーIDとティッカーIDで単一の保有株式を取得
    */
   public async getById(userId: string, tickerId: string): Promise<HoldingEntity | null> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys({ userId, tickerId });
-
-      const result = await this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-        })
-      );
-
-      if (!result.Item) {
-        return null;
-      }
-
-      return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.get({ userId, tickerId });
   }
 
   /**
-   * ユーザーの保有株式一覧を取得（GSI1使用）
+   * ユーザーの保有株式一覧を取得（GSI1=UserIndexを使用）
    */
   public async getByUserId(
     userId: string,
@@ -99,17 +72,15 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
             '#gsi1sk': 'GSI1SK',
           },
           ExpressionAttributeValues: {
-            ':userId': userId,
-            ':prefix': 'Holding#',
+            ':userId': buildHoldingGsi1Pk(userId),
+            ':prefix': HOLDING_GSI1_SK_PREFIX,
           },
           Limit: limit,
           ExclusiveStartKey: exclusiveStartKey,
         })
       );
 
-      const items = (result.Items || []).map((item) =>
-        this.mapper.toEntity(item as unknown as DynamoDBItem)
-      );
+      const items = (result.Items || []).map((item) => this.mapper.toEntity(item));
       const nextCursor = encodeCursor(result.LastEvaluatedKey);
 
       return {
@@ -126,33 +97,9 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
    * 新しい保有株式を作成
    */
   public async create(input: CreateHoldingInput): Promise<HoldingEntity> {
-    try {
-      const now = Date.now();
-      const entity: HoldingEntity = {
-        ...input,
-        CreatedAt: now,
-        UpdatedAt: now,
-      };
-
-      const item = this.mapper.toItem(entity);
-
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: item,
-          ConditionExpression: 'attribute_not_exists(PK)',
-        })
-      );
-
-      return entity;
-    } catch (error) {
-      mapConditionalCheckFailed(error, {
-        onExists: () => {
-          throw new EntityAlreadyExistsError('Holding', `${input.UserID}#${input.TickerID}`);
-        },
-      });
-      throw toDatabaseError(error);
-    }
+    const now = Date.now();
+    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
+    return this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
   }
 
   /**
@@ -163,72 +110,13 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
     tickerId: string,
     updates: UpdateHoldingInput
   ): Promise<HoldingEntity> {
-    try {
-      // 更新するフィールドがない場合はエラー
-      if (Object.keys(updates).length === 0) {
-        throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
-      }
-
-      const { pk, sk } = this.mapper.buildKeys({ userId, tickerId });
-      const fields = {
-        Quantity: updates.Quantity,
-        AveragePrice: updates.AveragePrice,
-        Currency: updates.Currency,
-      };
-      const updateParts = buildUpdateExpression(fields, {
-        timestamp: { attributeName: 'UpdatedAt', value: Date.now() },
-        updateTimestampWhenEmpty: true,
-      });
-      if (!updateParts) {
-        throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
-      }
-
-      const result = await this.docClient.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-          ...updateParts,
-          ConditionExpression: 'attribute_exists(PK)',
-          ReturnValues: 'ALL_NEW',
-        })
-      );
-
-      if (!result.Attributes) {
-        throw new EntityNotFoundError('Holding', `${userId}#${tickerId}`);
-      }
-
-      return this.mapper.toEntity(result.Attributes as unknown as DynamoDBItem);
-    } catch (error) {
-      mapConditionalCheckFailed(error, {
-        onMissing: () => {
-          throw new EntityNotFoundError('Holding', `${userId}#${tickerId}`);
-        },
-      });
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.update({ userId, tickerId }, updates);
   }
 
   /**
    * 保有株式を削除
    */
   public async delete(userId: string, tickerId: string): Promise<void> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys({ userId, tickerId });
-
-      await this.docClient.send(
-        new DeleteCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-          ConditionExpression: 'attribute_exists(PK)',
-        })
-      );
-    } catch (error) {
-      mapConditionalCheckFailed(error, {
-        onMissing: () => {
-          throw new EntityNotFoundError('Holding', `${userId}#${tickerId}`);
-        },
-      });
-      throw toDatabaseError(error);
-    }
+    await this.entityStore.delete({ userId, tickerId });
   }
 }

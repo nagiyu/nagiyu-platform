@@ -1,76 +1,64 @@
-import { GetCommand, PutCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { isConditionalCheckFailed, toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import {
+  DynamoDBEntityStore,
+  EntityAlreadyExistsError,
+  OptimisticLockError,
+  type EntityStore,
+} from '@nagiyu/aws';
 import type {
   ConsolidationCursorEntity,
+  ConsolidationCursorKey,
   PutConsolidationCursorInput,
 } from '../entities/consolidation-cursor.entity.js';
 import { ConsolidationCursorMapper } from '../mappers/consolidation-cursor.mapper.js';
-import { OptimisticLockError } from './optimistic-lock.error.js';
 import type { ConsolidationCursorRepository } from './consolidation-cursor.repository.interface.js';
 
 /**
- * 集約（consolidation）カーソルリポジトリの DynamoDB 実装（リブトーク知識再設計 P1 / #3697）。
+ * 集約（consolidation）カーソルリポジトリの DynamoDB 実装。
  */
 export class DynamoDBConsolidationCursorRepository implements ConsolidationCursorRepository {
-  private readonly mapper: ConsolidationCursorMapper;
-  private readonly docClient: DynamoDBDocumentClient;
-  private readonly tableName: string;
   private readonly nowMs: () => number;
+  private readonly entityStore: EntityStore<ConsolidationCursorEntity, ConsolidationCursorKey>;
 
   constructor(
     docClient: DynamoDBDocumentClient,
     tableName: string,
     nowMs: () => number = () => Date.now()
   ) {
-    this.docClient = docClient;
-    this.tableName = tableName;
     this.nowMs = nowMs;
-    this.mapper = new ConsolidationCursorMapper();
+    this.entityStore = new DynamoDBEntityStore(
+      docClient,
+      tableName,
+      new ConsolidationCursorMapper(),
+      { now: nowMs }
+    );
   }
 
   public async get(userId: string, characterId: string): Promise<ConsolidationCursorEntity | null> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys({ userId, characterId });
-      const result = await this.docClient.send(
-        new GetCommand({ TableName: this.tableName, Key: { PK: pk, SK: sk } })
-      );
-      if (!result.Item) return null;
-      return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.get({ userId, characterId });
   }
 
   public async put(
     entity: PutConsolidationCursorInput,
     opts: { expectedUpdatedAt?: number } = {}
   ): Promise<ConsolidationCursorEntity> {
-    const now = this.nowMs();
-    const merged: ConsolidationCursorEntity = { ...entity, UpdatedAt: now };
-    const isUpdate = opts.expectedUpdatedAt !== undefined;
+    const merged: ConsolidationCursorEntity = { ...entity, updatedAt: this.nowMs() };
+
+    if (opts.expectedUpdatedAt !== undefined) {
+      return this.entityStore.put(merged, { expectedUpdatedAt: opts.expectedUpdatedAt });
+    }
 
     try {
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: this.mapper.toItem(merged),
-          ConditionExpression: isUpdate
-            ? 'UpdatedAt = :expectedUpdatedAt'
-            : 'attribute_not_exists(PK)',
-          ...(isUpdate
-            ? { ExpressionAttributeValues: { ':expectedUpdatedAt': opts.expectedUpdatedAt } }
-            : {}),
-        })
-      );
-      return merged;
+      return await this.entityStore.create(merged);
     } catch (error) {
-      if (isConditionalCheckFailed(error)) {
+      // 新規作成の衝突も呼び出し側が楽観ロック競合として扱えるよう、同じエラーに揃える
+      if (error instanceof EntityAlreadyExistsError) {
         throw new OptimisticLockError(
           'ConsolidationCursor',
-          `${merged.UserID}#${merged.CharacterID}`
+          `${entity.userId}#${entity.characterId}`
         );
       }
-      throw toDatabaseError(error);
+      throw error;
     }
   }
 }

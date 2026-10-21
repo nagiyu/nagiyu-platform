@@ -44,7 +44,7 @@ Live2D アバター（桃瀬ひより）と AI（OpenAI LLM + VOICEVOX TTS）を
 
 **決定**
 
-PK = `USER#<googleId>`、SK = `CHAR#<charId>#MSG#<ulid>` 等で、メッセージは個別 item として保存する。Single Table 設計の標準パターンに従う。
+PK = `USER#<userId>`、SK = `CHAR#<charId>#MSG#<ulid>` 等で、メッセージは個別 item として保存する。Single Table 設計の標準パターンに従う。
 
 **根拠・トレードオフ**
 
@@ -432,8 +432,8 @@ Profile item のみを索引化する sparse GSI（`GSI1`）を追加し、バ�
 
 **決定**
 
-- **退会 = 即時ハード削除**。`PK=USER#<googleId>` 配下の全 item（Profile / Message / Memory / Summary / Affection / Knowledge / Note / Notification / PushSubscription 等）を一括削除する。論理削除＋猶予期間は本サービスの規模に対して過剰なため採らない。
-- **例外: SafetyEvent は残す**。自傷・希死念慮の検出ログは、Character.AI / OpenAI の訴訟事例（ADR-009 の動機）を踏まえ、開発者防御の証跡として保持する。ただし退会時に **googleId 等の個人識別子を切り離した匿名化レコード**へ移し、横断レビュー用領域（ADR-2.22 の GSI 配下）でのみ参照できるようにする。保持期限は公開フェーズの法務レビューで確定する（暫定 3 年）。
+- **退会 = 即時ハード削除**。`PK=USER#<userId>` 配下の全 item（Profile / Message / Memory / Summary / Affection / Knowledge / Note / Notification / PushSubscription 等）を一括削除する。論理削除＋猶予期間は本サービスの規模に対して過剰なため採らない。
+- **例外: SafetyEvent は残す**。自傷・希死念慮の検出ログは、Character.AI / OpenAI の訴訟事例（ADR-009 の動機）を踏まえ、開発者防御の証跡として保持する。ただし退会時に **ユーザー ID 等の個人識別子を切り離した匿名化レコード**へ移し、横断レビュー用領域（ADR-2.22 の GSI 配下）でのみ参照できるようにする。保持期限は公開フェーズの法務レビューで確定する（暫定 3 年）。
 - **退会のスコープは livetalk サービスのデータのみ**。プラットフォームの Google アカウント自体や他サービスのデータは対象外。RBAC role（`livetalk-user`）の剥奪は運用（人力）で行う。
 - **データエクスポート（セルフサービスのポータビリティ）は作らない**。国内法（個人情報保護法）で必須なのは開示請求への対応であり、これは運用（問い合わせ対応での手動開示）で代替する。セルフサービス化は将来検討（roadmap）。
 
@@ -447,9 +447,9 @@ Profile item のみを索引化する sparse GSI（`GSI1`）を追加し、バ�
 
 上記「別途整備」のうち、退会の実装で確定した設計判断（コードからは読み取れない「なぜ」）を残す。
 
-- **削除は生 item 走査で実装**。`PK=USER#<googleId>` を Query で全件取得し、SK が `SAFETY#` 以外を `BatchWriteItem` で削除する。SK 種別を列挙せず走査するため、将来の item 種別追加に自動で追従する。
-- **1 PK スコープ・冪等。完全原子性は持たない**。DynamoDB に「PK 一括削除」がないため `BatchWriteItem` ＋ 未処理リトライで進め、リトライ上限後も残存すれば例外を返して再実行に委ねる（途中失敗は再実行で収束）。退会は本人セッションの `googleId` のみを対象とし、他ユーザーには波及しない（dev 実地検証で 1 PK スコープを確認）。
-- **匿名化 = SafetyEvent の re-key**。`TransactWrite` で `PK=USER#ANON#<ulid>` へ移し、`UserID` を **不可逆なランダム匿名トークン**へ置換する。googleId から決定論的に導出する擬似匿名化（pseudonymization）は採らない —— 横断グルーピングの利便より「個人識別子を切り離す」真の匿名化を優先したため。`InputText`/`ResponseText` は開発者防御の証跡として保持し、`GSI2PK`/`GSI2SK` を維持して横断レビュー（ADR-2.22 / Issue #3580）に残す。
+- **削除は生 item 走査で実装**。`PK=USER#<userId>` を Query で全件取得し、SK が `SAFETY#` 以外を `BatchWriteItem` で削除する。SK 種別を列挙せず走査するため、将来の item 種別追加に自動で追従する。
+- **1 PK スコープ・冪等。完全原子性は持たない**。DynamoDB に「PK 一括削除」がないため `BatchWriteItem` ＋ 未処理リトライで進め、リトライ上限後も残存すれば例外を返して再実行に委ねる（途中失敗は再実行で収束）。退会は本人セッションのユーザー ID のみを対象とし、他ユーザーには波及しない（dev 実地検証で 1 PK スコープを確認）。
+- **匿名化 = SafetyEvent の re-key**。`TransactWrite` で `PK=USER#ANON#<ulid>` へ移し、`UserID` を **不可逆なランダム匿名トークン**へ置換する。ユーザー ID から決定論的に導出する擬似匿名化（pseudonymization）は採らない —— 横断グルーピングの利便より「個人識別子を切り離す」真の匿名化を優先したため。`InputText`/`ResponseText` は開発者防御の証跡として保持し、`GSI2PK`/`GSI2SK` を維持して横断レビュー（ADR-2.22 / Issue #3580）に残す。
 - **退会後の遷移**。サインアウトは Cookie 発行元の auth サービスに集約しており、livetalk は `/api/auth/signout` への POST を受け付けない。そのため `next-auth/react` の `signOut` は使わず、ヘッダーのサインアウトと同じく auth サービスのサインアウト URL へ遷移し、callbackUrl に公開オリジンを渡してトップへ戻す。
 
 ### 2.22 セーフティイベントの横断レビューは sparse GSI + 管理画面（ADR / Issue #3532）
@@ -464,7 +464,7 @@ requirements 3.2 はセーフティ検出ログを「別領域・人間レビュ
   - `GSI2PK='SAFETY'` を SafetyEvent item にのみ付与（sparse）。`GSI2SK` = 検出時刻ベースの ULID（時系列降順で「最近の検出」を取得）。
   - 射影は一覧表示に必要なメタデータを `INCLUDE`。実装で確定した属性は `UserID`（匿名化済みユーザー参照）/ `EventID` / `CharacterID`（キャラ）/ `Trigger`（応答種別）/ `DetectedPattern`（検出パターン）/ `CreatedAt`（検出時刻）。**PII（`InputText` / `ResponseText`）は射影しない**（横断レビューはメタデータのみ。フル本文が要る場合だけベーステーブルの `getById` 経由）。なお `CharacterID` は本対応で SafetyEvent に追加した（既存レコードには無いため optional）。
 - **`livetalk:admin` 権限の管理画面**で時系列一覧を提供する。SCR-009（ステータス画面）の拡張とし、新規ページは増やさない。
-- ユーザーが在籍中は SafetyEvent に googleId を保持し、退会時に匿名化する（ADR-2.21）。GSI2 はどちらの状態でも横断 Query できる。
+- ユーザーが在籍中は SafetyEvent にユーザー ID を保持し、退会時に匿名化する（ADR-2.21）。GSI2 はどちらの状態でも横断 Query できる。
 
 **根拠・トレードオフ**
 
@@ -517,7 +517,7 @@ ADR-007 で作った「Memory Tier A–D ＋信頼度＋cooldown ＋関連度フ
 - ✅ 集約により勉強成果が無限に溜まらず、同一話題で SELF/WEB が融合した応答（「二郎系好きだったよね、新店できたよ」）ができる。揮発情報だけ賢く追随し、安定情報の無駄な再調査をやめられる。
 - ✅ 忘却が構造的に確実になり（削除＝即再生成）、想起も関連度 only で「湧いてくる」副作用を断てる。
 - ⚠️ **Topic ルーティング / マージ品質が律速**。近い素材を 1 つの Topic に畳みきれず割れる（過分割）リスクがあるため、生断片の provenance を保持して誤マージを可逆化し、条件付き書込・人手削除を最優先の是正手段とする。
-- ⚠️ **旧データは一回性マイグレーションで畳み直す**（クリーンスタートではない）。破壊的 one-shot 処理のため多重起動を避ける運用が要る（後述「既知の制約」）。
+- ⚠️ **旧データは一回性マイグレーションで畳み直した**（クリーンスタートではない）。移行は dev・prod とも完了し、旧スキーマのアイテムも削除済みのため、移行用のコードと Lambda は撤去した。
 - ⚠️ care はユーザー起点でのみ上げる（下記）。この分岐が無いと自己強化ループに陥る。
 - ⚠️ グラフ DB・ベクトル DB は導入しない。関連は事前計算せず、想起時に埋め込み近傍でその場算出する。
 
@@ -534,11 +534,6 @@ care は「ユーザーがその話題をどれだけ気にしているか」の
 - **所見C: ルーティング / マージ品質（過分割）**: consolidation の埋め込み近傍 ＋ LLM のマージ判断が近似重複を吸収しきれず、近い話題が複数 Topic に割れることがある（dev 実測。冗長な旧データほど顕在化し care も分散する）。移行固有ではなく consolidation 本体の性質。prod は旧データが小さく影響は軽い見込みで、現状は静観。将来はルーティング/マージ閾値の改善、または近似 Topic の merge/dedup パスで対処する。
 - **所見D: 想起が汎用発話に弱い**: 現状の想起は「今の 1 発話だけ」を埋め込み、care を使わない（関連度 only）。そのため「いいゲームないかな」のような汎用発話は具体名の Topic と類似度が閾値に届かず想起されない（語が一致する「ラーメン食べたい」等は想起される）。前者は要件（発話＋直近文脈を埋め込む）との実装乖離＝直せるギャップ、care 不使用は “コーヒー病” 回避のための意図的な選択。将来は「想起クエリに直近数ターンを含める」／「類似度がニアミス帯のときだけ care で後押しする」で改善余地があるが、過剰想起の再来に注意し現状は静観。
 - **所見E: 鮮度追随の「変化時のみ更新」が実質機能していない**: 変化判定は既存の WEB fact 1 件（狭い単一の主張）と、再取得した Topic 全体の要約を比べているため、ほぼ常に「変化あり」になる（dev 実測で 9 割超。突き合わせたペアに fact が実際に更新・否定された例は無かった）。加えて consolidation は WEB fact を追記するだけで置き換えないため、fact は減らずに増え続け、再確認のバックログに処理が追いつかない。モデルや推論設定を変えても率は変わらず、判定と集約の構造に起因する。コストは取得の上限で頭打ちになるため青天井ではないが、ADR の根拠に挙げた「揮発情報だけ賢く追随する」は現状成立していない。
-- **移行運用（一回性 Lambda）**: 旧データの移行は throwaway の one-shot Lambda で行う。旧興味の重みを新 Topic の care へ載せる際はカテゴリ名の文字列一致では拾えない（移行後に Subject が LLM で言い換わるため）ので、埋め込み近傍でマッチする。移行処理は**冪等ではない**（処理済みチャンクを飛ばさず、毎回先頭から畳み直す）ため、以下の運用で多重実行と打ち切りを避ける（#3814）。
-    - **非同期に 1 回だけ発火し、ログで完走を確認する**。同期呼び出しはブラウザが待てず失敗表示になるが本体は裏で完走するため、それを見て再発火すると交錯して壊れる。
-    - **Lambda の非同期リトライは 0 回に固定している**。手動の非同期起動でも既定では失敗時に最大 2 回リトライされ、prod 初回移行ではタイムアウトしたスコープが計 3 回実行されて重複が残った。
-    - **1 スコープ（ユーザー×キャラ）の中でもチャンク範囲を区切って分割実行する**。スコープ単位に絞っても旧データの多いスコープは実行時間上限（15 分）を超えうる（prod 初回移行の 1 スコープは 26 チャンク・約 22 分）。care の引き継ぎと集約カーソルの前進は、最終チャンクまで処理した実行でのみ行う。分割はチャンク境界が毎回同じ（旧データの読み取り順が決定的）であることを前提にしている。
-    - **やり直しは「作成時刻を基準にした新スキーマ削除」で行う**。新スキーマの全削除は、移行前から定期 consolidation が実会話から作っていた Topic まで消してしまう。ただし集約カーソルは書き込みのたびに作成時刻が更新されるため削除対象から外している（消えると定期 consolidation が実メッセージを最初から畳み直し、重複 Topic を作る）。移行で既存 Topic にマージされた要約・埋め込みは元に戻せないため許容する。
 
 **将来拡張（レバー2・未実装）: care を「累計回数」から「最近のユーザー興味」へ**
 
@@ -550,7 +545,7 @@ care は「ユーザーがその話題をどれだけ気にしているか」の
 
 DynamoDB Single Table（`nagiyu-livetalk-dynamodb-{env}`）。
 
-- PK = `USER#<googleId>`
+- PK = `USER#<userId>`
 - SK 階層パターン（例）:
   - `PROFILE`
   - `CHAR#<charId>#STATE` / `#LIFECYCLE` / `#AFFECTION`
@@ -563,7 +558,7 @@ DynamoDB Single Table（`nagiyu-livetalk-dynamodb-{env}`）。
   - `CHAR#<charId>#WEBRAW#<ulid>`（Web 取得生。未集約の元データ、TTL 90 日）
   - `CHAR#<charId>#CURSOR`（集約カーソル。会話生・Web 取得生のストリーム別に、どこまで畳んだかを条件付きで前進させる状態）
   - `SAFETY#<ulid>`（SafetyEvent、TTL なし＝無期限保持。退会時も削除せず匿名化して残す、ADR-2.21 / 2.22）
-  - `NOTIF#<ulid>`（NotificationEvent）/ `PUSH_SUBSCRIPTION#<id>`
+  - `NOTIF#<ulid>`（NotificationEvent、TTL 30 日）/ `PUSH_SUBSCRIPTION#<id>`
   - `RATELIMIT#<window>#<bucket>`（チャットのレート制限カウンタ。window=`1m`/`1h`、`Count` をアトミック加算・TTL で自動掃除、ADR-2.20）
   - `CHATLOCK`（チャットの in-flight ロック。実行中のみ存在し `OwnerToken` / `ExpiresAt` / `TTL` 付き、ADR-2.20）
 - GSI1（Profile 列挙用 sparse GSI、ADR-2.19）:
@@ -578,7 +573,7 @@ DynamoDB Single Table（`nagiyu-livetalk-dynamodb-{env}`）。
   - **鮮度掃引用 GSI**: 揮発 WEB fact のみを再確認期限で索引化し、期限到来分だけをまとめて走査する（安定 fact は載せない）。現状 1 ユーザー規模のため時間バケットのシャーディングは行わない
   - ⚠️ 増設した GSI を Query する各ロールにも、GSI2 と同じく `fromTableAttributes` + `globalIndexes` の grant が要る（ADR-2.22 の教訓）
 
-**保持・削除ポリシー（ADR-2.21 / 2.24）**: 元データ（Message・Web 取得生）は TTL 90 日、Topic 配下（ヘッダ・SELF fact・WEB fact）と共有ログ Note は恒久、Affection は在籍中は無期限。退会時は `PK=USER#<googleId>` 配下を即時ハード削除するが、SafetyEvent のみ匿名化（個人識別子を切り離す）して保持する（暫定保持期限 3 年、法務レビューで確定）。SELF fact のユーザー削除は物理削除で、当該 Topic 要約を即時再生成する（決定的忘却、ADR-2.24）。
+**保持・削除ポリシー（ADR-2.21 / 2.24）**: 元データ（Message・Web 取得生）は TTL 90 日、通知履歴（NotificationEvent）と勉強の依頼（StudyTopic）は TTL 30 日、Topic 配下（ヘッダ・SELF fact・WEB fact）と共有ログ Note は恒久、Affection は在籍中は無期限。退会時は `PK=USER#<userId>` 配下を即時ハード削除するが、SafetyEvent のみ匿名化（個人識別子を切り離す）して保持する（暫定保持期限 3 年、法務レビューで確定）。SELF fact のユーザー削除は物理削除で、当該 Topic 要約を即時再生成する（決定的忘却、ADR-2.24）。削除は「消す → 要約を再生成する」の順で行うため、再生成だけが失敗すると SELF fact は消えて要約が古いまま残る。これを押し直しで直せるよう、SELF fact が既にない削除要求でも Topic があれば要約を再生成して成功を返し、SELF fact も Topic もないときだけ 404 にする。
 
 詳細な SK 定義・属性は実装（`services/livetalk/core/src/mappers/keys.ts`、`entities/`）を参照。概念モデルは [external-design.md](./external-design.md) を参照。
 

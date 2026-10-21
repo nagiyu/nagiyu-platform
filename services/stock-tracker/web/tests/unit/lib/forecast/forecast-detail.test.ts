@@ -36,8 +36,8 @@ describe('buildForecastDetail', () => {
 
   it('DIR: 全軸を返し、点灯・成績・寄与・件数不足を結合する', () => {
     const forecast = forecastEntity({
-      AxisValues: { 'morning-star': true, 'evening-star': false },
-      Probabilities: {
+      axisValues: { 'morning-star': true, 'evening-star': false },
+      probabilities: {
         DIR: probabilityRecord({
           bandHistory: { lower: 0.55, upper: 0.6, count: 40, hitRate: 0.58 },
           contributions: { 'morning-star': 0.03 },
@@ -83,8 +83,8 @@ describe('buildForecastDetail', () => {
 
   it('VOL: 数値型軸は自然対数を平常比へ戻し、値が無ければ ratio を省略する。meanExcessReturn は付けない', () => {
     const forecast = forecastEntity({
-      AxisValues: { 'parkinson-5d': Math.log(1.4) },
-      Probabilities: { VOL: probabilityRecord({ lean: 'HIGH' }) },
+      axisValues: { 'parkinson-5d': Math.log(1.4) },
+      probabilities: { VOL: probabilityRecord({ lean: 'HIGH' }) },
     });
     const detail = buildForecastDetail(forecast, {
       DIR: null,
@@ -113,7 +113,7 @@ describe('buildForecastDetail', () => {
   });
 
   it('スナップショットが無くても成績はゼロ値で返す', () => {
-    const forecast = forecastEntity({ Probabilities: { DIR: probabilityRecord() } });
+    const forecast = forecastEntity({ probabilities: { DIR: probabilityRecord() } });
     const detail = buildForecastDetail(forecast, { DIR: null, VOL: null });
     expect(detail.questions.DIR!.axes.every((a) => a.performance.count === 0)).toBe(true);
   });

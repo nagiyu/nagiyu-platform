@@ -28,7 +28,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "lint": "eslint src/**/*.{ts,tsx} tests/**/*.{ts,tsx}",
+    "lint": "eslint 'src/**/*.{ts,tsx}' 'tests/**/*.{ts,tsx}'",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "storybook": "storybook dev -p 6006 --no-open",
@@ -46,7 +46,6 @@
     "react-dom": ">=19.0.0"
   },
   "dependencies": {
-    "@nagiyu/browser": "*",
     "@nagiyu/common": "*",
     "@radix-ui/react-slot": "^1.2.4"
   },

@@ -89,12 +89,7 @@ export function VideoAd({ onAdFinished }: VideoAdProps) {
           }
         );
 
-        adsLoader.addEventListener(
-          ima.AdErrorEvent.Type.AD_ERROR,
-          (_event: google.ima.AdErrorEvent) => {
-            finish();
-          }
-        );
+        adsLoader.addEventListener(ima.AdErrorEvent.Type.AD_ERROR, finish);
 
         const adsRequest = new ima.AdsRequest();
         adsRequest.adTagUrl = vastTagUrl;

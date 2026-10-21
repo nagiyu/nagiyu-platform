@@ -116,12 +116,14 @@ services/{service-name}/
         "test": "jest",
         "test:watch": "jest --watch",
         "test:coverage": "jest --coverage",
-        "lint": "eslint src/**/*.ts tests/**/*.ts",
+        "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts'",
         "format": "prettier --write .",
         "format:check": "prettier --check ."
     }
 }
 ```
+
+lint の glob はクォートして eslint に解釈させる。`npm run` は `sh` でスクリプトを実行し、`sh` は `**` を 1 階層分としか展開しないため、クォートしないと直下や深い階層のファイルが検査から漏れる。
 
 #### web パッケージのスクリプト標準
 
@@ -132,7 +134,7 @@ services/{service-name}/
     "private": true,
     "scripts": {
         "dev": "next dev",
-        "build": "next build --webpack",
+        "build": "next build",
         "start": "next start",
         "lint": "eslint",
         "format": "prettier --write .",
@@ -156,7 +158,7 @@ services/{service-name}/
         "test": "jest",
         "test:watch": "jest --watch",
         "test:coverage": "jest --coverage",
-        "lint": "eslint src/**/*.ts tests/**/*.ts",
+        "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts'",
         "format": "prettier --write .",
         "format:check": "prettier --check ."
     }
@@ -193,16 +195,12 @@ services/{service-name}/
 
 ```json
 {
-    "extends": "../../../configs/tsconfig.base.json",
+    "extends": "../../../configs/tsconfig.web.json",
     "compilerOptions": {
-        "lib": ["DOM", "DOM.Iterable", "ES2020"],
-        "jsx": "preserve",
         "paths": {
-        "@/*": ["./src/*"]
+            "@/*": ["./src/*"]
         }
     },
-    "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-    "exclude": ["node_modules"],
     "references": [
         { "path": "../core" },
         { "path": "../../../libs/ui" },
@@ -214,8 +212,9 @@ services/{service-name}/
 
 **ポイント**:
 
+- `lib`・`jsx`・`include`・`exclude` は `configs/tsconfig.web.json` が持つため、固有の差分だけを書く
+- `paths` は extends でマージされず共通側にも置けないため、`@/*` を各パッケージで書く
 - `composite` は設定しない（Next.jsが独自にビルド）
-- path alias (`@/*`) の使用可能
 - 依存するすべてのパッケージを `references` に記載
 
 #### batch パッケージの tsconfig.json
@@ -281,10 +280,19 @@ export default [
 ];
 ```
 
-#### web パッケージと batch パッケージ
+#### web パッケージ
 
 ```javascript
-// web/eslint.config.mjs または batch/eslint.config.mjs
+// web/eslint.config.mjs
+import webConfig from '../../../configs/eslint.config.web.mjs';
+
+export default webConfig;
+```
+
+#### batch パッケージ
+
+```javascript
+// batch/eslint.config.mjs
 import baseConfig from '../../../configs/eslint.config.base.mjs';
 
 export default baseConfig;
@@ -383,37 +391,25 @@ services/{service}/batch/
 
 **順序**:
 
-1. **共通ライブラリ（依存なし）**
+1. **共通ライブラリ（全 libs を依存順にビルド）**
 
     ```bash
-    npm run build --workspace @nagiyu/common
+    npm run build:libs
     ```
 
-2. **ブラウザライブラリ（common に依存）**
-
-    ```bash
-    npm run build --workspace @nagiyu/browser
-    ```
-
-3. **UI ライブラリ（browser に依存）**
-
-    ```bash
-    npm run build --workspace @nagiyu/ui
-    ```
-
-4. **サービス core（common に依存）**
+2. **サービス core（common に依存）**
 
     ```bash
     npm run build --workspace {service-name}-core
     ```
 
-5. **サービス batch（core に依存）**
+3. **サービス batch（core に依存）**
 
     ```bash
     npm run build --workspace {service-name}-batch
     ```
 
-6. **サービス web（Next.js ビルド、任意）**
+4. **サービス web（Next.js ビルド、任意）**
     ```bash
     npm run build --workspace {service-name}-web
     ```
@@ -421,7 +417,8 @@ services/{service}/batch/
 **重要な注意点**:
 
 - 並列ビルド（`npm run build --workspaces`）は禁止（依存関係の順序が保証されない）
-- 順次ビルドを実施（`&&` で連結）
+- libs は `npm run build:libs` を使う。複数の `--workspace` を指定した `npm run` は指定順に 1 つずつ実行するため、並びがそのままビルド順になる
+- libs 以外は 1 パッケージずつ順次ビルドする（`&&` で連結）
 
 詳細は [monorepo-structure.md](./monorepo-structure.md) の「ビルド戦略」セクションを参照。
 
@@ -547,7 +544,7 @@ services/{service}/
     - [ ] `public/` ディレクトリ作成
     - [ ] `package.json` 作成（`{service-name}-web`）
     - [ ] `tsconfig.json` 作成（references 設定）
-    - [ ] `next.config.ts` 作成
+    - [ ] `next.config.ts` 作成 (`configs/next.config.base.ts` の `createNextConfig` を使い、固有の設定だけ書く)
     - [ ] `playwright.config.ts` 作成
     - [ ] `eslint.config.mjs` 作成
 
@@ -562,8 +559,8 @@ services/{service}/
 ### Phase 2: 設定ファイルの整備
 
 - [ ] `configs/` の共通設定を extends
-    - [ ] `tsconfig.base.json` を extends
-    - [ ] `eslint.config.base.mjs` を extends
+    - [ ] `tsconfig.base.json` を extends（web は `tsconfig.web.json` を extends）
+    - [ ] `eslint.config.base.mjs` を extends (web は `eslint.config.web.mjs` を extends)
     - [ ] `.prettierrc` を継承
 
 - [ ] TypeScript Project References を設定

@@ -1,7 +1,6 @@
 import { auth } from '@/auth';
-import { createSessionGetter, createTestSessionExpires, resolveTestUser } from '@nagiyu/nextjs';
+import { createSessionGetter } from '@nagiyu/nextjs';
 import type { Session } from '@nagiyu/common';
-import type { Session as NextAuthSession } from 'next-auth';
 
 /**
  * セッション情報を取得する関数。
@@ -10,37 +9,7 @@ import type { Session as NextAuthSession } from 'next-auth';
  * - `SKIP_AUTH_CHECK=true` の場合はテスト用モックセッションを返す（dev / E2E 向け）
  * - middleware ではなく API Route 側の `withAuth` 用にも利用する
  */
-const getSessionFromAuth = createSessionGetter({
-  auth,
-  createTestSession: (overrides) => {
-    const u = resolveTestUser({ defaultRoles: ['livetalk-user'], roles: overrides?.roles });
-    return {
-      user: {
-        userId: u.id,
-        googleId: 'test-google-id',
-        email: u.email,
-        name: u.name,
-        roles: u.roles,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      expires: createTestSessionExpires(),
-    };
-  },
-  mapSession: (session: NextAuthSession): Session => ({
-    user: {
-      userId: session.user.id || '',
-      googleId: session.user.id || '',
-      email: session.user.email || '',
-      name: session.user.name || '',
-      roles: session.user.roles || [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    expires: session.expires || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-  }),
+export const getSession = createSessionGetter({
+  auth: auth as () => Promise<Session | null>,
+  defaultRoles: ['livetalk-user'],
 });
-
-export async function getSession(): Promise<Session | null> {
-  return getSessionFromAuth();
-}

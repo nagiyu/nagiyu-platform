@@ -2,7 +2,7 @@
  * セーフティ検出イベント（Phase 2d / Issue #3250）。
  *
  * DynamoDB Single Table:
- *   PK = USER#<googleId>
+ *   PK = USER#<userId>
  *   SK = SAFETY#<ulid>
  *
  * TTL なし（人間レビュー用途のため永続保持）。
@@ -19,30 +19,30 @@ import type { SafetyTrigger } from '../safety/types.js';
 
 export interface SafetyEventEntity {
   /** ユーザー識別子 */
-  UserID: string;
+  userId: string;
   /** イベント ID（ULID、時系列ソート可能） */
-  EventID: string;
+  eventId: string;
   /**
    * 横断レビュー用キャラクター識別子（ADR-2.22 / #3580）。
    * チャット文脈で記録。既存レコードには無いため optional。
    */
-  CharacterID?: string;
+  characterId?: string;
   /** 発生源（入力キーワード検出 or 応答後 Moderation） */
-  Trigger: SafetyTrigger;
+  trigger: SafetyTrigger;
   /** 検出パターンの説明（カテゴリ名 + 一致テキスト） */
-  DetectedPattern: string;
+  detectedPattern: string;
   /** 検出時のユーザー入力全文（PII を含む） */
-  InputText: string;
+  inputText: string;
   /** キャラが返した応答テキスト（または Moderation フラグの場合は LLM の原文） */
-  ResponseText: string;
+  responseText: string;
   /** 作成 / 更新時刻（Unix ms） */
-  CreatedAt: number;
-  UpdatedAt: number;
+  createdAt: number;
+  updatedAt: number;
   /**
    * Moderation API がフラグを立てたカテゴリ（JSON 文字列）。
    * Trigger=output_moderation の場合のみ設定される。
    */
-  ModerationCategories?: string;
+  moderationCategories?: string;
 }
 
 export interface SafetyEventKey {
@@ -51,17 +51,17 @@ export interface SafetyEventKey {
 }
 
 /**
- * SafetyEvent 作成入力（`EventID` / `CreatedAt` / `UpdatedAt` はリポジトリ側で付与）。
- * CharacterID は横断レビュー用に作成時に必須とする（ADR-2.22 / #3580）。
+ * SafetyEvent 作成入力（`eventId` / `createdAt` / `updatedAt` はリポジトリ側で付与）。
+ * characterId は横断レビュー用に作成時に必須とする（ADR-2.22 / #3580）。
  */
 export type CreateSafetyEventInput = Omit<
   SafetyEventEntity,
-  'EventID' | 'CreatedAt' | 'UpdatedAt'
+  'eventId' | 'createdAt' | 'updatedAt'
 > & {
   /** 明示的に ULID を指定したい場合のみ渡す（テスト用途） */
-  EventID?: string;
+  eventId?: string;
   /** 横断レビュー用キャラクター識別子（作成時必須） */
-  CharacterID: string;
+  characterId: string;
 };
 
 /**
@@ -70,11 +70,11 @@ export type CreateSafetyEventInput = Omit<
  * PII（InputText / ResponseText）は含まない。
  */
 export interface SafetyEventSummary {
-  UserID: string;
-  EventID: string;
+  userId: string;
+  eventId: string;
   /** 横断レビュー用キャラクター識別子。既存レコードには無いため optional */
-  CharacterID?: string;
-  Trigger: SafetyTrigger;
-  DetectedPattern: string;
-  CreatedAt: number;
+  characterId?: string;
+  trigger: SafetyTrigger;
+  detectedPattern: string;
+  createdAt: number;
 }

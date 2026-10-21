@@ -1,11 +1,11 @@
 import type { CreateWebRawInput, WebRawEntity } from '../entities/webraw.entity.js';
 
 /**
- * Web 取得生データ（WebRaw）のリポジトリ（リブトーク知識再設計 P1 / #3697）。
+ * Web 取得生データ（WebRaw）のリポジトリ。
  * consolidation バッチが Topic/WEB fact へ集約する前の元データを保持する。
  */
 export interface WebRawRepository {
-  /** WebRaw を保存する。`RawID` 未指定なら ULID を自動採番する。TTL（90 日）はリポジトリ側で自動付与する。 */
+  /** WebRaw を保存する。`rawId` 未指定なら ULID を自動採番する。TTL（90 日）はリポジトリ側で自動付与する。 */
   put(input: CreateWebRawInput): Promise<WebRawEntity>;
 
   /**

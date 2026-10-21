@@ -1,9 +1,15 @@
-import { NextResponse } from 'next/server';
-import { COMMON_ERROR_MESSAGES, hasPermission, toErrorMessage } from '@nagiyu/common';
-import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
+import type { NextRequest } from 'next/server';
+import { COMMON_ERROR_MESSAGES, hasPermission } from '@nagiyu/common';
+import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { createErrorEventReader, type ListErrorEventsQuery } from '@nagiyu/admin-core';
-import { createErrorResponse } from '@nagiyu/nextjs';
+import {
+  createErrorResponse,
+  createPaginatedResponse,
+  PaginationValidationError,
+  parsePagination,
+} from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 
 const ERROR_MESSAGES = {
   UNAUTHORIZED: 'ログインが必要です',
@@ -29,85 +35,69 @@ function getReader() {
   return createErrorEventReader(docClient, tableName);
 }
 
-function parseLimit(value: string | null): number | undefined {
-  if (value === null) {
-    return undefined;
-  }
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-
 function isValidIsoString(value: string): boolean {
   return !Number.isNaN(Date.parse(value));
 }
 
-export async function GET(request: Request): Promise<NextResponse> {
-  try {
-    const session = await getSession();
-    if (!session?.user) {
-      return createErrorResponse(401, 'UNAUTHORIZED', ERROR_MESSAGES.UNAUTHORIZED);
-    }
-    if (!hasPermission(session.user.roles, 'errors:read')) {
-      return createErrorResponse(403, 'FORBIDDEN', ERROR_MESSAGES.FORBIDDEN);
-    }
-
-    const { searchParams } = new URL(request.url);
-    const query: ListErrorEventsQuery = {};
-
-    const serviceId = searchParams.get('serviceId');
-    if (serviceId) {
-      query.serviceId = serviceId;
-    }
-
-    const from = searchParams.get('from');
-    if (from !== null) {
-      if (!isValidIsoString(from)) {
-        return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
+export const GET = withApiErrorReporting(
+  'エラー一覧取得 API の実行に失敗しました',
+  async (request: NextRequest) => {
+    try {
+      const session = await getSession();
+      if (!session?.user) {
+        return createErrorResponse(401, 'UNAUTHORIZED', ERROR_MESSAGES.UNAUTHORIZED);
       }
-      query.from = from;
-    }
-
-    const to = searchParams.get('to');
-    if (to !== null) {
-      if (!isValidIsoString(to)) {
-        return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
+      if (!hasPermission(session.user.roles, 'errors:read')) {
+        return createErrorResponse(403, 'FORBIDDEN', ERROR_MESSAGES.FORBIDDEN);
       }
-      query.to = to;
-    }
 
-    const limit = parseLimit(searchParams.get('limit'));
-    if (limit !== undefined) {
+      const { searchParams } = new URL(request.url);
+      const query: ListErrorEventsQuery = {};
+
+      const serviceId = searchParams.get('serviceId');
+      if (serviceId) {
+        query.serviceId = serviceId;
+      }
+
+      const from = searchParams.get('from');
+      if (from !== null) {
+        if (!isValidIsoString(from)) {
+          return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
+        }
+        query.from = from;
+      }
+
+      const to = searchParams.get('to');
+      if (to !== null) {
+        if (!isValidIsoString(to)) {
+          return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
+        }
+        query.to = to;
+      }
+
+      const { limit, cursor } = parsePagination(request);
       query.limit = limit;
-    }
+      if (cursor) {
+        query.cursor = cursor;
+      }
 
-    const cursor = searchParams.get('cursor');
-    if (cursor) {
-      query.cursor = cursor;
-    }
+      const reader = getReader();
+      const result = await reader.list(query);
 
-    const reader = getReader();
-    const result = await reader.list(query);
+      return createPaginatedResponse(result.items, result.nextCursor ?? undefined);
+    } catch (error) {
+      if (error instanceof PaginationValidationError) {
+        return createErrorResponse(400, 'INVALID_REQUEST', error.message);
+      }
+      if (error instanceof Error && error.message.includes('cursor')) {
+        return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
+      }
+      if (error instanceof Error && error.message.includes('from は to')) {
+        return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
+      }
 
-    return NextResponse.json(result, { status: 200 });
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('cursor')) {
-      return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
+      throw error;
     }
-    if (error instanceof Error && error.message.includes('from は to')) {
-      return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
-    }
-
-    console.error('エラー一覧取得 API の実行に失敗しました', { error });
-    await reportErrorEvent({
-      serviceId: 'admin',
-      severity: 'error',
-      title: 'エラー一覧取得 API の実行に失敗しました',
-      message: toErrorMessage(error),
-      context: {
-        endpoint: 'GET /api/errors',
-        errorStack: error instanceof Error ? error.stack : undefined,
-      },
-    });
-    return createErrorResponse(500, 'INTERNAL_ERROR', ERROR_MESSAGES.INTERNAL_ERROR);
-  }
-}
+  },
+  ERROR_MESSAGES.INTERNAL_ERROR
+);

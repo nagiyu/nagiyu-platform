@@ -204,6 +204,85 @@ describe('TodoList', () => {
       });
     });
     expect(screen.getByText('APIで追加したToDo')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: 'タイトル' })).toHaveValue('');
+    });
+  });
+
+  it('ToDo 追加失敗時は Snackbar で通知し、入力を残す', async () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: { todos: [] } }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({}),
+      } as Response);
+    Object.defineProperty(globalThis, 'fetch', {
+      writable: true,
+      value: fetchMock,
+    });
+    Object.defineProperty(window, 'fetch', {
+      writable: true,
+      value: fetchMock,
+    });
+
+    render(<TodoList listId="api-list" />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    const input = screen.getByRole('textbox', { name: 'タイトル' });
+    fireEvent.change(input, { target: { value: '失敗するToDo' } });
+    fireEvent.click(screen.getByRole('button', { name: '追加' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('ToDoの追加に失敗しました。')).toBeInTheDocument();
+    });
+    expect(input).toHaveValue('失敗するToDo');
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('ネットワークエラーで ToDo 追加に失敗した場合も入力を残す', async () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: { todos: [] } }),
+      } as Response)
+      .mockRejectedValueOnce(new Error('network'));
+    Object.defineProperty(globalThis, 'fetch', {
+      writable: true,
+      value: fetchMock,
+    });
+    Object.defineProperty(window, 'fetch', {
+      writable: true,
+      value: fetchMock,
+    });
+
+    render(<TodoList listId="api-list" />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    const input = screen.getByRole('textbox', { name: 'タイトル' });
+    fireEvent.change(input, { target: { value: '通信失敗ToDo' } });
+    fireEvent.click(screen.getByRole('button', { name: '追加' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('ToDoの追加に失敗しました。')).toBeInTheDocument();
+    });
+    expect(input).toHaveValue('通信失敗ToDo');
+    consoleErrorSpy.mockRestore();
   });
 
   it('ToDo 削除成功後に一覧へ反映する', async () => {
