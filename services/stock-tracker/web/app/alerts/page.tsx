@@ -13,9 +13,8 @@ import {
   TableRow,
   Paper,
   Alert,
-  CircularProgress,
 } from '@mui/material';
-import { Button, Chip, ErrorAlert, Select } from '@nagiyu/ui';
+import { Button, Chip, ErrorAlert, LoadingState, Select } from '@nagiyu/ui';
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
@@ -337,9 +336,7 @@ function AlertsPageContent() {
 
       {/* ローディング表示 */}
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
+        <LoadingState />
       ) : (
         // アラート一覧テーブル
         <TableContainer component={Paper} elevation={2}>
@@ -487,9 +484,7 @@ export default function AlertsPage() {
     <Suspense
       fallback={
         <Container maxWidth="xl" sx={{ py: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-            <CircularProgress />
-          </Box>
+          <LoadingState />
         </Container>
       }
     >
