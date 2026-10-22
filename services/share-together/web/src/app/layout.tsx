@@ -6,6 +6,7 @@ import { InvitationBadge } from '@/components/InvitationBadge';
 import LastVisitedPathController from '@/components/LastVisitedPathController';
 import UserRegistrationInitializer from '@/components/UserRegistrationInitializer';
 import '@nagiyu/ui/tokens.css';
+import '@nagiyu/ui/base.css';
 
 /**
  * layout 全体を動的レンダリングに強制する。

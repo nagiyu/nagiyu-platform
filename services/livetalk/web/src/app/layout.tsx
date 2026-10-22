@@ -8,6 +8,7 @@ import CharacterLicenseText from '@/components/CharacterLicenseText';
 import LiveTalkHeader from '@/components/LiveTalkHeader';
 import { CharacterProvider } from '@/lib/characters/CharacterContext';
 import '@nagiyu/ui/tokens.css';
+import '@nagiyu/ui/base.css';
 import { liveTalkTermsSections } from '@/lib/legal/terms-data';
 import { liveTalkPrivacySections } from '@/lib/legal/privacy-data';
 
