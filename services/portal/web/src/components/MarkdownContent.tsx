@@ -9,7 +9,7 @@ const DEFAULT_CONTENT_SX: SxProps<Theme> = {
   '& p': { mb: 2 },
   '& ul, & ol': { pl: 3, mb: 2 },
   '& li': { mb: 0.5 },
-  // globals.css がリンクの色と下線を消しているため、本文中では戻して地の文と区別する
+  // 共通のリセットがリンクの色と下線を消しているため、本文中では戻して地の文と区別する
   '& a': {
     color: 'primary.main',
     textDecoration: 'underline',

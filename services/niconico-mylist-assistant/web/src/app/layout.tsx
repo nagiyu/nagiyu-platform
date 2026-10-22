@@ -3,7 +3,7 @@ import { ServiceWorkerRegistration } from '@nagiyu/react';
 import { ServiceLayout, type NavigationItem } from '@nagiyu/ui';
 import { SessionHeader, SessionProviderWrapper } from '@nagiyu/ui/session-provider';
 import '@nagiyu/ui/tokens.css';
-import './globals.css';
+import '@nagiyu/ui/base.css';
 
 /**
  * layout 全体を動的レンダリングに強制する。

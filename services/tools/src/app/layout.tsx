@@ -4,6 +4,7 @@ import { AppThemeProvider, Header, Footer, type NavigationItem } from '@nagiyu/u
 import HomeIcon from '@mui/icons-material/Home';
 import MigrationDialog from '@/components/dialogs/MigrationDialog';
 import '@nagiyu/ui/tokens.css';
+import '@nagiyu/ui/base.css';
 import './globals.css';
 
 export const metadata: Metadata = {

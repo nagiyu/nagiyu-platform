@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { ServiceLayout } from '@nagiyu/ui';
 import '@nagiyu/ui/tokens.css';
-import './globals.css';
+import '@nagiyu/ui/base.css';
 
 export const metadata: Metadata = {
   title: 'Auth - Nagiyu Platform',
