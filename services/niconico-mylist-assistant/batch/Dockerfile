@@ -1,6 +1,29 @@
 # ベースイメージ: Playwright公式イメージ（ブラウザ含む）
 FROM mcr.microsoft.com/playwright:v1.60.0-jammy AS base
 
+# このイメージ同梱の Node は 24.15.0 で固定されており、セキュリティ修正の入った版を含む
+# Playwright のイメージがまだ無い。Node だけ公式バイナリに差し替える。
+# sha256 は https://nodejs.org/dist/v24.22.1/SHASUMS256.txt (署名付き) の値。
+# xz が入っていないため .tar.gz を使う。
+# CI は BuildKit を使わずビルドするため TARGETARCH が空になる。アーキテクチャは dpkg で判定する。
+ARG NODE_VERSION=24.22.1
+ARG NODE_SHA256_X64=eb6728e77c576a35162c122c45ccadf224d89ff00abc8dae46cc2897c6002d7c
+ARG NODE_SHA256_ARM64=33c37be234ba8bee041961047b19160f4d7d0f164e8e246f78bdd10feff148b3
+RUN set -eux; \
+    case "$(dpkg --print-architecture)" in \
+      amd64) node_arch=x64; node_sha256="${NODE_SHA256_X64}" ;; \
+      arm64) node_arch=arm64; node_sha256="${NODE_SHA256_ARM64}" ;; \
+      *) echo "未対応のアーキテクチャです: $(dpkg --print-architecture)" >&2; exit 1 ;; \
+    esac; \
+    tarball="node-v${NODE_VERSION}-linux-${node_arch}.tar.gz"; \
+    curl -fsSL -o "/tmp/${tarball}" "https://nodejs.org/dist/v${NODE_VERSION}/${tarball}"; \
+    echo "${node_sha256}  /tmp/${tarball}" | sha256sum -c -; \
+    apt-get purge -y nodejs; \
+    tar -xzf "/tmp/${tarball}" -C /usr/local --strip-components=1 --no-same-owner; \
+    rm "/tmp/${tarball}"; \
+    test "$(node --version)" = "v${NODE_VERSION}"; \
+    npm --version
+
 # ビルドステージ
 FROM base AS builder
 WORKDIR /app
