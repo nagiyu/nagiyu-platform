@@ -238,11 +238,19 @@ type Props = {
 
 ### サービス側での読み込み
 
-サービスのルートレイアウト（`app/layout.tsx`）で `@nagiyu/ui/tokens.css` を import すること。これによりトークンが `:root` レベルで利用可能になる。
+サービスのルートレイアウト（`app/layout.tsx`）で `@nagiyu/ui/tokens.css` と `@nagiyu/ui/base.css` をこの順に import すること。tokens はトークンを `:root` レベルで利用可能にし、base はプラットフォーム共通のリセット (全要素の box-sizing・margin・padding と、リンクの色・下線) を当てる。
 
 ```tsx
 import '@nagiyu/ui/tokens.css';
+import '@nagiyu/ui/base.css';
 ```
+
+### グローバル CSS の置き場所
+
+- 全サービスに当てるグローバル CSS は libs/ui の base に置き、サービス側でリセットを書き直さない。サービスごとにリセットがばらばらだと、同じ部品でも余白やリンクの見た目がサービスによって変わるためである。
+- フォント・背景色・文字色・ダークモードの切り替えは、グローバル CSS では扱わず、MUI テーマと `CssBaseline` に任せる。body への指定はグローバル CSS より `CssBaseline` が後から当たって上書きするので、グローバル CSS に書いても効かない。
+- サービス側のグローバル CSS には、そのサービス固有の指定だけを置き、base の後に import する。
+- CSS フレームワーク (Tailwind 等) のグローバルなリセットは持ち込まない。base と二重にリセットが当たり、フォーム部品の見た目などがサービスごとに食い違う。
 
 ### テーマ切替
 
@@ -264,6 +272,7 @@ libs/ui/
 │   │       └── index.ts                  # 再エクスポート
 │   ├── styles/
 │   │   ├── tokens.css                    # CSS 変数定義
+│   │   ├── base.css                      # プラットフォーム共通のリセット
 │   │   ├── tokens.ts                     # TS 参照ヘルパー・型
 │   │   └── theme.ts                      # MUI Theme（CSS 変数参照）
 │   └── index.ts
