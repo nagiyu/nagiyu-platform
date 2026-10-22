@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { ServiceWorkerRegistration } from '@nagiyu/react';
 import ThemeRegistry from '@/components/ThemeRegistry';
 import '@nagiyu/ui/tokens.css';
-import './globals.css';
+import '@nagiyu/ui/base.css';
 
 /**
  * layout 全体を動的レンダリングに強制する。

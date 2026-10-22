@@ -12,6 +12,7 @@ import HomeIcon from '@mui/icons-material/Home';
 import ArticleIcon from '@mui/icons-material/Article';
 import InfoIcon from '@mui/icons-material/Info';
 import '@nagiyu/ui/tokens.css';
+import '@nagiyu/ui/base.css';
 import './globals.css';
 import { shouldLoadAdsense } from '@/lib/adsense';
 import { SITE } from '@/lib/author';

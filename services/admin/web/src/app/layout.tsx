@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { ServiceLayout } from '@nagiyu/ui';
 import { SessionHeader, SessionProviderWrapper } from '@nagiyu/ui/session-provider';
 import '@nagiyu/ui/tokens.css';
+import '@nagiyu/ui/base.css';
 import './globals.css';
 
 /**

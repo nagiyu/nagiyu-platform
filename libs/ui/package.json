@@ -21,7 +21,8 @@
       "types": "./dist/src/styles/tokens.d.ts",
       "import": "./dist/src/styles/tokens.js"
     },
-    "./tokens.css": "./dist/src/styles/tokens.css"
+    "./tokens.css": "./dist/src/styles/tokens.css",
+    "./base.css": "./dist/src/styles/base.css"
   },
   "scripts": {
     "build": "tsc && node ./scripts/copy-assets.mjs",
