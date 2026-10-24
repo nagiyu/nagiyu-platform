@@ -5,8 +5,6 @@ export {
   getLambdaClient,
 } from '@nagiyu/aws';
 
-const DEFAULT_REGION = 'us-east-1';
-
 const ERROR_MESSAGES = {
   MISSING_DYNAMODB_TABLE_NAME: '環境変数 DYNAMODB_TABLE_NAME が設定されていません',
   MISSING_S3_BUCKET: '環境変数 S3_BUCKET が設定されていません',
@@ -51,5 +49,3 @@ export const getZipGeneratorFunctionName = (): string =>
     process.env.ZIP_GENERATOR_FUNCTION_NAME,
     ERROR_MESSAGES.MISSING_ZIP_GENERATOR_FUNCTION_NAME
   );
-
-export const getAwsRegion = (): string => process.env.AWS_REGION || DEFAULT_REGION;

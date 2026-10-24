@@ -24,7 +24,6 @@ jest.mock('@aws-sdk/s3-request-presigner', () => ({
 }));
 
 jest.mock('@/lib/server/aws', () => ({
-  getAwsRegion: jest.fn(() => 'us-east-1'),
   getBatchClient: jest.fn(),
   getBatchJobDefinitionPrefix: jest.fn(() => 'nagiyu-quick-clip-dev'),
   getBatchJobQueueArn: jest.fn(() => 'arn:aws:batch:us-east-1:123456789012:job-queue/quick-clip'),
@@ -320,6 +319,25 @@ describe('POST /api/jobs', () => {
         }),
       })
     );
+  });
+
+  it('正常系: Batch envには起動ごとの値だけを渡し、ジョブ定義の値は上書きしない', async () => {
+    const request = createRequest({
+      fileName: 'movie.mp4',
+      fileSize: 1024,
+      contentType: 'video/mp4',
+    });
+
+    await POST(request);
+
+    const command = batchSend.mock.calls[0][0] as {
+      input: { containerOverrides: { environment: { name: string }[] } };
+    };
+    expect(command.input.containerOverrides.environment.map((entry) => entry.name)).toEqual([
+      'BATCH_COMMAND',
+      'JOB_ID',
+      'EMOTION_FILTER',
+    ]);
   });
 
   it('異常系: 不正なemotionFilterは400を返す', async () => {
