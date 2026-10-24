@@ -1,17 +1,12 @@
-import { DynamoDBJobRepository, selectJobDefinition } from '@nagiyu/quick-clip-core';
+import { DynamoDBJobRepository } from '@nagiyu/quick-clip-core';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import type { EmotionFilter } from '@nagiyu/quick-clip-core';
 import { CreateMultipartUploadCommand, UploadPartCommand } from '@aws-sdk/client-s3';
-import { SubmitJobCommand } from '@aws-sdk/client-batch';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createPresignedUploadUrl } from '@nagiyu/aws';
 import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { NextResponse } from 'next/server';
 import {
-  getAwsRegion,
-  getBatchClient,
-  getBatchJobDefinitionPrefix,
-  getBatchJobQueueArn,
   getBucketName,
   getDynamoDBDocumentClient,
   getS3Client,
@@ -20,6 +15,7 @@ import {
 import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { VALID_EMOTION_FILTERS } from '@/lib/server/emotion-filter';
 import { JobDomainService } from '@/lib/server/domain-services';
+import { submitExtractJob } from '@/lib/server/submit-extract-job';
 
 const ERROR_MESSAGES = {
   INVALID_REQUEST: COMMON_ERROR_MESSAGES.BAD_REQUEST,
@@ -196,25 +192,14 @@ export const POST = withApiErrorReporting(
       getS3Client()
     );
 
-    const submitResponse = await getBatchClient().send(
-      new SubmitJobCommand({
-        jobName: `quick-clip-extract-${job.jobId}`.slice(0, 128),
-        jobQueue: getBatchJobQueueArn(),
-        jobDefinition: `${getBatchJobDefinitionPrefix()}-${selectJobDefinition(body.fileSize, body.durationSec)}`,
-        containerOverrides: {
-          environment: [
-            { name: 'BATCH_COMMAND', value: 'extract' },
-            { name: 'JOB_ID', value: job.jobId },
-            { name: 'DYNAMODB_TABLE_NAME', value: getTableName() },
-            { name: 'S3_BUCKET', value: bucketName },
-            { name: 'AWS_REGION', value: getAwsRegion() },
-            { name: 'EMOTION_FILTER', value: body.emotionFilter ?? 'any' },
-          ],
-        },
-      })
-    );
+    const batchJobId = await submitExtractJob({
+      jobId: job.jobId,
+      fileSize: body.fileSize,
+      durationSec: body.durationSec,
+      emotionFilter: body.emotionFilter,
+    });
 
-    await jobService.updateBatchJobId(job.jobId, submitResponse.jobId!);
+    await jobService.updateBatchJobId(job.jobId, batchJobId);
 
     return NextResponse.json(
       {

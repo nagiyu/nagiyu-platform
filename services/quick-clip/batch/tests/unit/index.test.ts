@@ -1,4 +1,4 @@
-import { main } from '../../src/index.js';
+import { main, validateEnvironment } from '../../src/index.js';
 import * as quickClipCore from '@nagiyu/quick-clip-core';
 import * as batchEnvironment from '../../src/lib/environment.js';
 
@@ -29,6 +29,10 @@ describe('quick-clip batch', () => {
   beforeEach(() => {
     envMocks.validateEnvironment.mockClear();
     coreMocks.runQuickClipBatch.mockClear();
+  });
+
+  it('validateEnvironment を再エクスポートしている', () => {
+    expect(validateEnvironment).toBe(envMocks.validateEnvironment);
   });
 
   it('main: batch の validateEnvironment と core の runQuickClipBatch を呼び出す', async () => {

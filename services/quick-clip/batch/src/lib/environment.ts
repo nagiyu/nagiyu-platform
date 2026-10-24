@@ -1,75 +1,32 @@
-import type {
-  EmotionFilter,
-  QuickClipBatchCommand,
-  QuickClipBatchRunInput,
-} from '@nagiyu/quick-clip-core';
+import { BATCH_JOB_ENV_NAMES, readBatchJobInput } from '@nagiyu/quick-clip-core';
+import type { QuickClipBatchRunInput } from '@nagiyu/quick-clip-core';
 import { requireEnv } from '@nagiyu/common';
 
-const ERROR_MESSAGES = {
-  MISSING_ENV: '必要な環境変数が設定されていません',
-  INVALID_JOB_ID: 'ジョブIDが不正です',
-  INVALID_EMOTION_FILTER: 'EMOTION_FILTER の値が不正です',
-} as const;
-
-const VALID_EMOTION_FILTERS: readonly string[] = ['any', 'laugh', 'excite', 'touch', 'tension'];
-
-const toBatchCommand = (value: string | undefined): QuickClipBatchCommand | null => {
-  if (value === 'extract') {
-    return value;
-  }
-  return null;
-};
-
-const toEmotionFilter = (value: string | undefined): EmotionFilter => {
-  if (value === undefined) {
-    return 'any';
-  }
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    return 'any';
-  }
-  if (!VALID_EMOTION_FILTERS.includes(trimmed)) {
-    throw new Error(ERROR_MESSAGES.INVALID_EMOTION_FILTER);
-  }
-  return trimmed as EmotionFilter;
-};
-
+/**
+ * 環境変数を読み取り、batch 実行の入力にする。
+ *
+ * 起動ごとの値 (コマンド・ジョブID・感情フィルター) は web が渡し、読み取りと検証は core が持つ。
+ * テーブル名・バケット名・リージョンはジョブ定義が与える。
+ */
 export const validateEnvironment = (): QuickClipBatchRunInput => {
+  // 不足している変数を 1 回のエラーにまとめて報告するため、起動ごとの値も含めて先に存在確認する
   const env = requireEnv([
-    'BATCH_COMMAND',
-    'JOB_ID',
+    BATCH_JOB_ENV_NAMES.COMMAND,
+    BATCH_JOB_ENV_NAMES.JOB_ID,
     'DYNAMODB_TABLE_NAME',
     'S3_BUCKET',
     'AWS_REGION',
   ]);
 
-  // BATCH_COMMAND は存在チェック済みのうえで値の妥当性を検証する
-  const command = toBatchCommand(env.BATCH_COMMAND);
-  if (!command) {
-    throw new Error(`${ERROR_MESSAGES.MISSING_ENV}: BATCH_COMMAND`);
-  }
-
-  const {
-    JOB_ID: jobId,
-    DYNAMODB_TABLE_NAME: tableName,
-    S3_BUCKET: bucketName,
-    AWS_REGION: awsRegion,
-  } = env;
-
-  // 英数字・アンダースコア・ハイフンのみ許可し、S3キー/パス生成で安全に扱える形式に制限する。
-  if (!/^[A-Za-z0-9_-]+$/.test(jobId)) {
-    throw new Error(ERROR_MESSAGES.INVALID_JOB_ID);
-  }
-
+  const { command, jobId, emotionFilter } = readBatchJobInput(process.env);
   const openAiApiKey = process.env.OPENAI_API_KEY?.trim() || undefined;
-  const emotionFilter = toEmotionFilter(process.env.EMOTION_FILTER);
 
   return {
     command,
     jobId,
-    tableName,
-    bucketName,
-    awsRegion,
+    tableName: env.DYNAMODB_TABLE_NAME,
+    bucketName: env.S3_BUCKET,
+    awsRegion: env.AWS_REGION,
     openAiApiKey,
     emotionFilter,
   };
