@@ -26,12 +26,15 @@ import type { Highlight, TranscriptSegment } from '@/types/quick-clip';
 import { ColumnVisibilityButton } from '@/components/highlights/ColumnVisibilityButton';
 import { HIGHLIGHT_TABLE_COLUMNS } from '@/constants/highlightTableColumns';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { isClipEditLocked } from '@/lib/highlight-edit-lock';
 
 const ERROR_MESSAGES = {
   LOAD_FAILED: '見どころ一覧の取得に失敗しました',
   UPDATE_FAILED: '見どころの更新に失敗しました',
   RANGE_INVALID: '開始時刻は終了時刻より小さくしてください',
   REGENERATE_FAILED: 'クリップの再生成に失敗しました',
+  CLIP_GENERATING: 'クリップを作り直している最中のため、変更できません',
+  RECOVER_FAILED: '作り直しが止まった見どころの復旧に失敗しました',
   DOWNLOAD_FAILED: 'ダウンロードの開始に失敗しました',
   NO_HIGHLIGHTS: '見どころが検出されませんでした',
 } as const;
@@ -83,14 +86,16 @@ const COLUMN_DEFINITIONS = [...HIGHLIGHT_TABLE_COLUMNS];
 const OPTIONAL_COLUMNS = HIGHLIGHT_TABLE_COLUMNS.filter((col) => !col.fixed);
 
 class RangeInvalidError extends Error {}
+class ClipGeneratingError extends Error {}
 
 type TimeInputProps = {
   value: number;
   min?: number;
+  disabled?: boolean;
   onCommit: (value: number) => Promise<void>;
 };
 
-function TimeInput({ value, min = 0, onCommit }: TimeInputProps) {
+function TimeInput({ value, min = 0, disabled = false, onCommit }: TimeInputProps) {
   const [draft, setDraft] = useState(String(value));
 
   useEffect(() => {
@@ -101,6 +106,10 @@ function TimeInput({ value, min = 0, onCommit }: TimeInputProps) {
     const parsed = Number(draft);
     if (!Number.isFinite(parsed) || parsed < min) {
       setDraft(String(value));
+      return;
+    }
+    // 値が変わっていなければ送らない。送ると不要な作り直しが走り、入力も止まってしまう
+    if (parsed === value) {
       return;
     }
 
@@ -115,6 +124,7 @@ function TimeInput({ value, min = 0, onCommit }: TimeInputProps) {
     <TextField
       size="sm"
       type="number"
+      disabled={disabled}
       value={draft}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={() => void handleBlur()}
@@ -129,6 +139,8 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
+  // 更新・作り直しを送信中の見どころ。サーバーの応答で clipStatus が変わるまでの間も入力を止める
+  const [submittingIds, setSubmittingIds] = useState<ReadonlySet<string>>(new Set());
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [transcriptSegments, setTranscriptSegments] = useState<TranscriptSegment[]>([]);
@@ -160,6 +172,19 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
       }
       isFetchingRef.current = true;
       try {
+        // 強制終了などで GENERATING のまま止まった見どころを FAILED にしてから一覧を取る。
+        // 復旧に失敗しても一覧は表示できるので止めない
+        try {
+          const recoverResponse = await fetch(`/api/jobs/${jobId}/highlights/recover`, {
+            method: 'POST',
+          });
+          if (!recoverResponse.ok) {
+            console.warn(ERROR_MESSAGES.RECOVER_FAILED, recoverResponse.status);
+          }
+        } catch (error) {
+          console.warn(ERROR_MESSAGES.RECOVER_FAILED, error);
+        }
+
         const response = await fetch(`/api/jobs/${jobId}/highlights`);
         if (!response.ok) {
           setErrorMessage(ERROR_MESSAGES.LOAD_FAILED);
@@ -269,6 +294,13 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
     };
   }, [fetchHighlights, hasPendingOrGenerating, jobId]);
 
+  const isSelectedClipEditLocked = selectedHighlight
+    ? isClipEditLocked(
+        selectedHighlight.clipStatus,
+        submittingIds.has(selectedHighlight.highlightId)
+      )
+    : false;
+
   const acceptedCount = useMemo(
     () => highlights.filter((highlight) => highlight.status === 'accepted').length,
     [highlights]
@@ -284,6 +316,27 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
       ),
     [highlights]
   );
+
+  const setSubmitting = (highlightId: string, isSubmitting: boolean): void => {
+    setSubmittingIds((current) => {
+      if (current.has(highlightId) === isSubmitting) {
+        return current;
+      }
+      const next = new Set(current);
+      if (isSubmitting) {
+        next.add(highlightId);
+      } else {
+        next.delete(highlightId);
+      }
+      return next;
+    });
+  };
+
+  // 画面の状態が古く、サーバー側ではすでに作り直し中だった場合に、画面を実際の状態に合わせる
+  const onClipGeneratingConflict = async (): Promise<void> => {
+    await fetchHighlights();
+    setErrorMessage(ERROR_MESSAGES.CLIP_GENERATING);
+  };
 
   const updateHighlight = async (
     highlightId: string,
@@ -301,6 +354,9 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
       body: JSON.stringify(values),
     });
 
+    if (response.status === 409) {
+      throw new ClipGeneratingError(ERROR_MESSAGES.CLIP_GENERATING);
+    }
     if (!response.ok) {
       throw new Error(ERROR_MESSAGES.UPDATE_FAILED);
     }
@@ -348,6 +404,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
       throw new RangeInvalidError(ERROR_MESSAGES.RANGE_INVALID);
     }
 
+    setSubmitting(highlight.highlightId, true);
     try {
       await updateHighlight(highlight.highlightId, {
         startSec,
@@ -355,14 +412,19 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
       });
       setErrorMessage(null);
     } catch (error) {
-      if (!(error instanceof RangeInvalidError)) {
+      if (error instanceof ClipGeneratingError) {
+        await onClipGeneratingConflict();
+      } else {
         setErrorMessage(ERROR_MESSAGES.UPDATE_FAILED);
       }
       throw error;
+    } finally {
+      setSubmitting(highlight.highlightId, false);
     }
   };
 
   const onRegenerate = async (highlight: Highlight): Promise<void> => {
+    setSubmitting(highlight.highlightId, true);
     try {
       const response = await fetch(
         `/api/jobs/${jobId}/highlights/${highlight.highlightId}/regenerate`,
@@ -370,6 +432,9 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
           method: 'POST',
         }
       );
+      if (response.status === 409) {
+        throw new ClipGeneratingError(ERROR_MESSAGES.CLIP_GENERATING);
+      }
       if (!response.ok) {
         throw new Error(ERROR_MESSAGES.REGENERATE_FAILED);
       }
@@ -378,8 +443,14 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
         current.map((item) => (item.highlightId === updated.highlightId ? updated : item))
       );
       setErrorMessage(null);
-    } catch {
-      setErrorMessage(ERROR_MESSAGES.REGENERATE_FAILED);
+    } catch (error) {
+      if (error instanceof ClipGeneratingError) {
+        await onClipGeneratingConflict();
+      } else {
+        setErrorMessage(ERROR_MESSAGES.REGENERATE_FAILED);
+      }
+    } finally {
+      setSubmitting(highlight.highlightId, false);
     }
   };
 
@@ -601,7 +672,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                     </RadioGroup>
                   </Box>
 
-                  {/* 時間調整 */}
+                  {/* 時間調整。作り直しの間は入力を止める */}
                   <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
                     <Box>
                       <Typography variant="body2" sx={{ mb: 0.5 }}>
@@ -610,6 +681,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                       <TimeInput
                         value={selectedHighlight.startSec}
                         min={0}
+                        disabled={isSelectedClipEditLocked}
                         onCommit={(value) => onUpdateRange(selectedHighlight, 'startSec', value)}
                       />
                     </Box>
@@ -620,6 +692,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                       <TimeInput
                         value={selectedHighlight.endSec}
                         min={1}
+                        disabled={isSelectedClipEditLocked}
                         onCommit={(value) => onUpdateRange(selectedHighlight, 'endSec', value)}
                       />
                     </Box>
@@ -631,6 +704,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                       variant="outline"
                       color="danger"
                       startIcon={<ReplayIcon />}
+                      disabled={isSelectedClipEditLocked}
                       onClick={() => void onRegenerate(selectedHighlight)}
                     >
                       リトライ

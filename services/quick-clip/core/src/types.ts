@@ -44,6 +44,9 @@ export type Highlight = {
   source: HighlightSource;
   status: HighlightStatus;
   clipStatus: ClipStatus;
+  // clipStatus を GENERATING にした時刻 (ミリ秒)。Lambda が強制終了されて GENERATING のまま
+  // 残った見どころを、経過時間で見分けるために使う。この項目の導入前のデータには無い
+  clipGeneratingStartedAt?: number;
   dominantEmotion?: EmotionLabel;
   // 削除予定時刻 (ミリ秒)。保存時に TTL 属性 (エポック秒) へ変換される
   expiresAt: number;
@@ -69,4 +72,5 @@ export type UpdateHighlightInput = {
   endSec?: number;
   status?: HighlightStatus;
   clipStatus?: ClipStatus;
+  clipGeneratingStartedAt?: number;
 };

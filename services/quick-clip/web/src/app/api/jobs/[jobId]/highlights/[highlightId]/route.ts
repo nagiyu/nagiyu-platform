@@ -23,6 +23,7 @@ const ERROR_MESSAGES = {
   HIGHLIGHT_NOT_FOUND: '指定された見どころが見つかりません',
   INTERNAL_SERVER_ERROR: '見どころの更新に失敗しました',
   CLIP_REGENERATE_INVOKE_FAILED: 'クリップ再生成の起動に失敗しました',
+  CLIP_GENERATING: 'クリップを作り直している最中のため、変更できません',
 } as const;
 
 type UpdateHighlightRequest = {
@@ -139,6 +140,17 @@ export const PATCH = withApiErrorReporting(
         );
       }
 
+      // 作り直しが重なると同じ S3 キーへの書き込みが競合し、古い内容が最後に残りうる
+      if (currentHighlight.clipStatus === 'GENERATING') {
+        return NextResponse.json(
+          {
+            error: 'CLIP_GENERATING',
+            message: ERROR_MESSAGES.CLIP_GENERATING,
+          },
+          { status: 409 }
+        );
+      }
+
       const statusReset =
         currentHighlight.status === 'accepted' || currentHighlight.status === 'rejected'
           ? { status: 'unconfirmed' as const }
@@ -148,9 +160,10 @@ export const PATCH = withApiErrorReporting(
         ...body,
         ...statusReset,
         clipStatus: 'GENERATING' as const,
+        clipGeneratingStartedAt: Date.now(),
       };
 
-      const updated = await highlightService.updateHighlight(jobId, highlightId, updates);
+      let updated = await highlightService.updateHighlight(jobId, highlightId, updates);
 
       try {
         await invokeClipRegenerate(jobId, updated);
@@ -163,7 +176,7 @@ export const PATCH = withApiErrorReporting(
             error: invokeError,
           }
         );
-        // 再生成の起動に失敗しても更新結果を 200 で返すため、例外が上に届かない。ここで報告する
+        // 起動に失敗しても更新結果を 200 で返すため、例外が上に届かない。ここで報告する
         await reportErrorEvent({
           serviceId: SERVICE_ID,
           severity: 'error',
@@ -176,6 +189,10 @@ export const PATCH = withApiErrorReporting(
             errorMessage: toErrorMessage(invokeError),
             errorStack: invokeError instanceof Error ? invokeError.stack : undefined,
           },
+        });
+        // 起動されていない以上、GENERATING のまま残すと誰も完了させず、以降の変更も 409 で受け付けられなくなる
+        updated = await highlightService.updateHighlight(jobId, highlightId, {
+          clipStatus: 'FAILED',
         });
       }
 

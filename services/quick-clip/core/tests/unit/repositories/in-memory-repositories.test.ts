@@ -246,6 +246,20 @@ describe('InMemoryHighlightRepository', () => {
     expect(result).toEqual(buildHighlight({ highlightId: 'h-old', status: 'accepted' }));
   });
 
+  it('clipGeneratingStartedAt を update で保存して読み戻せる', async () => {
+    await repository.createMany([buildHighlight()]);
+
+    const result = await repository.update('job-1', 'h-1', {
+      clipStatus: 'GENERATING',
+      clipGeneratingStartedAt: 1700000000000,
+    });
+
+    expect(result).toEqual(
+      buildHighlight({ clipStatus: 'GENERATING', clipGeneratingStartedAt: 1700000000000 })
+    );
+    expect(await repository.getById('job-1', 'h-1')).toEqual(result);
+  });
+
   it('存在しない見どころの update は EntityNotFoundError を投げる', async () => {
     await expect(repository.update('job-1', 'missing', { startSec: 1 })).rejects.toBeInstanceOf(
       EntityNotFoundError
