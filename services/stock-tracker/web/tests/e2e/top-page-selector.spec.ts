@@ -227,8 +227,10 @@ test.describe('取引所・ティッカーセレクタのアクセシビリテ�
   test('キーボードナビゲーションが機能する', async ({ page }) => {
     await page.goto('/');
 
-    // 取引所セレクトボックスにフォーカスを移動
+    // 取引所一覧の読み込み中はセレクトが disabled で、その間に当てたフォーカスは外れたまま戻らない。
+    // 有効になってからフォーカスを移動する
     const exchangeSelect = page.locator('#exchange-select');
+    await expect(exchangeSelect).toBeEnabled();
     await exchangeSelect.focus();
 
     // フォーカスされていることを確認
