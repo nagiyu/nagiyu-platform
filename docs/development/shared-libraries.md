@@ -154,6 +154,7 @@ Next.jsとMaterial-UIに依存するUIコンポーネント。
 - ErrorBoundary（React エラーキャッチ用クラスコンポーネント）
 - ErrorAlert（MUI Alert ラッパー。アクセシビリティ対応済みのエラー表示）
 - LoadingState（MUI CircularProgress ラッパー。ローディング表示）
+- NotFoundView / ErrorView（404 ページ・エラーページの表示。後述の「404・エラー画面」を参照）
 - ConfirmDialog（汎用確認ダイアログ。削除系操作の確認に利用。Props: `open / title / description / confirmLabel / cancelLabel / loading / onConfirm / onCancel`）
 
 ### パッケージ名
@@ -173,6 +174,18 @@ Next.jsとMaterial-UIに依存するUIコンポーネント。
 - **`LoadingState`**: MUI `CircularProgress` をラップしたローディング表示コンポーネント。`'use client'` コンポーネント。
 
 各コンポーネントのインポート元は `@nagiyu/ui`（ルートインデックス）。
+
+### 404・エラー画面
+
+存在しない URL を開いたときや、画面の表示中に例外が起きたときに、Next.js 既定の英語の画面を出さない。既定の画面にはサービスのヘッダーもナビゲーションも無く、利用者が戻る手段を失うためである。
+
+- 各サービスは、ルートの app ディレクトリ直下に `not-found.tsx` と `error.tsx` を置き、`NotFoundView` / `ErrorView` を描く。新しいサービスを足すときも置く
+    - ルート直下に置くと、ルートレイアウト (ヘッダー・フッター・テーマ) の内側に描かれ、全ルートの未一致 URL と、レイアウト配下の例外を受けられる
+- `ErrorView` には、Next.js が `error.tsx` に渡す再試行の関数を渡す
+- 例外の内容 (message / digest) は画面に出さない。本番では Next.js が詳細を伏せるうえ、利用者に見せる情報ではないためである
+- 例外のログ出力は、部品ではなく各サービスの `error.tsx` で行う。サーバーへ例外を報告する仕組みを持つサービスは、そこにも送る。エラーバウンダリが捕捉した例外は window のエラーイベントにならず、window を監視する報告の仕組みでは拾えないためである
+- 両部品は main ランドマークを持たない。各サービスのレイアウトが main を持ち、その内側に描かれるため、持たせると二重になる
+- ルートレイアウト自身の例外を受ける `global-error.tsx` は置いていない
 
 ## libs/react/
 
