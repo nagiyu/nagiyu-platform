@@ -2,7 +2,7 @@ import { reportErrorEvent } from '@nagiyu/aws';
 import { POST } from '@/app/api/jobs/[jobId]/highlights/recover/route';
 import type { HighlightRepository, JobRepository } from '@nagiyu/quick-clip-core';
 import { getDynamoDBDocumentClient } from '@/lib/server/aws';
-import { CLIP_REGENERATE_TIMEOUT_MS } from '@/lib/server/highlight-recovery';
+import { CLIP_GENERATING_STALE_MS } from '@/lib/server/highlight-recovery';
 
 jest.mock('next/server', () => ({
   NextResponse: {
@@ -86,15 +86,15 @@ describe('POST /api/jobs/[jobId]/highlights/recover', () => {
 
   const callPost = (jobId = 'job-1') => POST({} as Request, { params: Promise.resolve({ jobId }) });
 
-  it('正常系: 300 秒を過ぎた GENERATING だけを FAILED にし、その ID を返す', async () => {
+  it('正常系: 360 秒を過ぎた GENERATING だけを FAILED にし、その ID を返す', async () => {
     mockGetHighlights.mockResolvedValue([
-      buildHighlight('stuck', { clipGeneratingStartedAt: NOW - CLIP_REGENERATE_TIMEOUT_MS - 1 }),
-      buildHighlight('boundary', { clipGeneratingStartedAt: NOW - CLIP_REGENERATE_TIMEOUT_MS }),
+      buildHighlight('stuck', { clipGeneratingStartedAt: NOW - CLIP_GENERATING_STALE_MS - 1 }),
+      buildHighlight('boundary', { clipGeneratingStartedAt: NOW - CLIP_GENERATING_STALE_MS }),
       buildHighlight('running', { clipGeneratingStartedAt: NOW - 1000 }),
       buildHighlight('legacy'),
       buildHighlight('done', {
         clipStatus: 'GENERATED',
-        clipGeneratingStartedAt: NOW - CLIP_REGENERATE_TIMEOUT_MS * 2,
+        clipGeneratingStartedAt: NOW - CLIP_GENERATING_STALE_MS * 2,
       }),
     ]);
 

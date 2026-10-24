@@ -31,8 +31,8 @@ const buildHighlight = (
 });
 
 type RoutedFetchOptions = {
-  // 一覧の応答。取得のたびに先頭から順に消費し、最後の要素は繰り返す
-  lists: HighlightFixture[][];
+  // 一覧の応答。取得のたびに先頭から順に消費し、最後の要素は繰り返す。null は取得失敗
+  lists: Array<HighlightFixture[] | null>;
   recover?: () => Promise<unknown>;
   // 見どころの更新 (PATCH)・作り直し (POST) の応答
   mutate?: () => Promise<unknown>;
@@ -60,6 +60,9 @@ const installRoutedFetch = ({ lists, recover, mutate }: RoutedFetchOptions) => {
       calls.push('list');
       const highlights = lists[Math.min(listIndex, lists.length - 1)];
       listIndex += 1;
+      if (highlights === null) {
+        return { ok: false, status: 500 };
+      }
       return { ok: true, json: async () => ({ highlights }) };
     }
     if (url.endsWith('/transcript')) {
@@ -255,6 +258,72 @@ describe('HighlightsPage 作り直し中の操作制御と復旧', () => {
       expect(screen.queryByText('見どころの更新に失敗しました')).not.toBeInTheDocument();
       await waitFor(() => {
         screen.getAllByRole('spinbutton').forEach((input) => expect(input).toBeDisabled());
+      });
+    });
+
+    it('409 の表示は、後から終わる定期の一覧取得に消されない', async () => {
+      jest.useFakeTimers();
+      const { calls } = installRoutedFetch({
+        lists: [[buildHighlight(1, 'GENERATED')], [buildHighlight(1, 'GENERATING')]],
+        mutate: async () => ({ ok: false, status: 409, json: async () => ({}) }),
+      });
+
+      await renderAndSelect(1);
+      const inputs = await screen.findAllByRole('spinbutton');
+      fireEvent.change(inputs[0], { target: { value: '11' } });
+      fireEvent.blur(inputs[0]);
+      await waitFor(() => {
+        expect(screen.getByText(CLIP_GENERATING_MESSAGE)).toBeInTheDocument();
+      });
+      const callsBeforePoll = calls.length;
+
+      act(() => {
+        jest.advanceTimersByTime(3000);
+      });
+      await waitFor(() => {
+        expect(calls.length).toBe(callsBeforePoll + 2);
+      });
+
+      expect(screen.getByText(CLIP_GENERATING_MESSAGE)).toBeInTheDocument();
+    });
+
+    it('409 のあとの一覧の取得に失敗したときは、一覧の取得失敗のメッセージを残す', async () => {
+      installRoutedFetch({
+        lists: [[buildHighlight(1, 'GENERATED')], null],
+        mutate: async () => ({ ok: false, status: 409, json: async () => ({}) }),
+      });
+
+      await renderAndSelect(1);
+      const inputs = await screen.findAllByRole('spinbutton');
+      fireEvent.change(inputs[0], { target: { value: '11' } });
+      fireEvent.blur(inputs[0]);
+
+      await waitFor(() => {
+        expect(screen.getByText('見どころ一覧の取得に失敗しました')).toBeInTheDocument();
+      });
+      expect(screen.queryByText(CLIP_GENERATING_MESSAGE)).not.toBeInTheDocument();
+    });
+
+    it('一覧の取得失敗のメッセージは、次の取得に成功すると消える', async () => {
+      jest.useFakeTimers();
+      installRoutedFetch({
+        lists: [[buildHighlight(1, 'GENERATING')], null, [buildHighlight(1, 'GENERATING')]],
+      });
+
+      await renderAndSelect(1);
+
+      act(() => {
+        jest.advanceTimersByTime(3000);
+      });
+      await waitFor(() => {
+        expect(screen.getByText('見どころ一覧の取得に失敗しました')).toBeInTheDocument();
+      });
+
+      act(() => {
+        jest.advanceTimersByTime(3000);
+      });
+      await waitFor(() => {
+        expect(screen.queryByText('見どころ一覧の取得に失敗しました')).not.toBeInTheDocument();
       });
     });
 

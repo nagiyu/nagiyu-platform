@@ -161,14 +161,14 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
   }, [params]);
 
   const fetchHighlights = useCallback(
-    async (options?: { isInitialLoad?: boolean; skipIfFetching?: boolean }) => {
+    async (options?: { isInitialLoad?: boolean; skipIfFetching?: boolean }): Promise<boolean> => {
       const isInitialLoad = options?.isInitialLoad ?? false;
       const skipIfFetching = options?.skipIfFetching ?? false;
       if (!jobId) {
-        return;
+        return false;
       }
       if (skipIfFetching && isFetchingRef.current) {
-        return;
+        return false;
       }
       isFetchingRef.current = true;
       try {
@@ -188,7 +188,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
         const response = await fetch(`/api/jobs/${jobId}/highlights`);
         if (!response.ok) {
           setErrorMessage(ERROR_MESSAGES.LOAD_FAILED);
-          return;
+          return false;
         }
 
         const data = (await response.json()) as HighlightsResponse;
@@ -211,9 +211,12 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
           });
           return changed ? updated : current;
         });
-        setErrorMessage(null);
+        // 一覧の取得は他の操作と並んで走る。取得に成功しても、その操作が出したメッセージは消さない
+        setErrorMessage((current) => (current === ERROR_MESSAGES.LOAD_FAILED ? null : current));
+        return true;
       } catch {
         setErrorMessage(ERROR_MESSAGES.LOAD_FAILED);
+        return false;
       } finally {
         isFetchingRef.current = false;
         if (isInitialLoad) {
@@ -334,8 +337,11 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
 
   // 画面の状態が古く、サーバー側ではすでに作り直し中だった場合に、画面を実際の状態に合わせる
   const onClipGeneratingConflict = async (): Promise<void> => {
-    await fetchHighlights();
-    setErrorMessage(ERROR_MESSAGES.CLIP_GENERATING);
+    const isSynced = await fetchHighlights();
+    // 一覧の取得に失敗したときは、その失敗のメッセージを残す
+    if (isSynced) {
+      setErrorMessage(ERROR_MESSAGES.CLIP_GENERATING);
+    }
   };
 
   const updateHighlight = async (

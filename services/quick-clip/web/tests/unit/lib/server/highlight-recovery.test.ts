@@ -1,5 +1,5 @@
 import {
-  CLIP_REGENERATE_TIMEOUT_MS,
+  CLIP_GENERATING_STALE_MS,
   findStuckGeneratingHighlights,
 } from '@/lib/server/highlight-recovery';
 import type { Highlight } from '@/types/quick-clip';
@@ -20,27 +20,27 @@ const buildHighlight = (overrides: Partial<Highlight> = {}): Highlight => ({
 });
 
 describe('findStuckGeneratingHighlights', () => {
-  it('タイムアウトは作り直しの Lambda に合わせた 300 秒', () => {
-    expect(CLIP_REGENERATE_TIMEOUT_MS).toBe(300000);
+  it('止まったとみなす時間は、Lambda のタイムアウト 300 秒に余裕 60 秒を足した 360 秒', () => {
+    expect(CLIP_GENERATING_STALE_MS).toBe(360000);
   });
 
-  it('GENERATING にしてから 300 秒を過ぎたものを返す', () => {
+  it('GENERATING にしてから 360 秒を過ぎたものを返す', () => {
     const stuck = buildHighlight({
-      clipGeneratingStartedAt: NOW - CLIP_REGENERATE_TIMEOUT_MS - 1,
+      clipGeneratingStartedAt: NOW - CLIP_GENERATING_STALE_MS - 1,
     });
 
     expect(findStuckGeneratingHighlights([stuck], NOW)).toEqual([stuck]);
   });
 
-  it('ちょうど 300 秒の見どころはまだ対象にしない', () => {
+  it('ちょうど 360 秒の見どころはまだ対象にしない', () => {
     const boundary = buildHighlight({
-      clipGeneratingStartedAt: NOW - CLIP_REGENERATE_TIMEOUT_MS,
+      clipGeneratingStartedAt: NOW - CLIP_GENERATING_STALE_MS,
     });
 
     expect(findStuckGeneratingHighlights([boundary], NOW)).toEqual([]);
   });
 
-  it('300 秒に満たない作り直し中の見どころは対象にしない', () => {
+  it('360 秒に満たない作り直し中の見どころは対象にしない', () => {
     const running = buildHighlight({ clipGeneratingStartedAt: NOW - 1000 });
 
     expect(findStuckGeneratingHighlights([running], NOW)).toEqual([]);
@@ -55,7 +55,7 @@ describe('findStuckGeneratingHighlights', () => {
       buildHighlight({
         highlightId: `h${index}`,
         clipStatus,
-        clipGeneratingStartedAt: NOW - CLIP_REGENERATE_TIMEOUT_MS * 10,
+        clipGeneratingStartedAt: NOW - CLIP_GENERATING_STALE_MS * 10,
       })
     );
 
@@ -65,7 +65,7 @@ describe('findStuckGeneratingHighlights', () => {
   it('複数の見どころから該当するものだけを選ぶ', () => {
     const stuck = buildHighlight({
       highlightId: 'stuck',
-      clipGeneratingStartedAt: NOW - CLIP_REGENERATE_TIMEOUT_MS - 1,
+      clipGeneratingStartedAt: NOW - CLIP_GENERATING_STALE_MS - 1,
     });
     const running = buildHighlight({
       highlightId: 'running',
