@@ -108,6 +108,15 @@ test.describe('QuickClip Highlights Page', () => {
       });
     });
 
+    // 上の `highlights/**` にも一致するため、後から登録して優先させる (Playwright は後に登録したルートが先に効く)
+    await page.route('**/api/jobs/e2e-job-highlights/highlights/recover', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ recoveredHighlightIds: [] }),
+      });
+    });
+
     await page.route('**/api/jobs/e2e-job-highlights/download', async (route) => {
       await route.fulfill({
         status: 200,

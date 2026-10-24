@@ -100,6 +100,19 @@ describe('HighlightMapper', () => {
       expect(mapper.toEntity(item)).toEqual(entity);
     });
 
+    it('clipGeneratingStartedAt は値があるときだけ ClipGeneratingStartedAt に保存し、往復できる', () => {
+      expect(mapper.toItem(buildEntity())).not.toHaveProperty('ClipGeneratingStartedAt');
+
+      const entity = buildEntity({
+        clipStatus: 'GENERATING',
+        clipGeneratingStartedAt: 1704153000000,
+      });
+      const item = mapper.toItem(entity);
+
+      expect(item.ClipGeneratingStartedAt).toBe(1704153000000);
+      expect(mapper.toEntity(item)).toEqual(entity);
+    });
+
     it('TTL はミリ秒の expiresAt をエポック秒 (切り捨て) で保存する', () => {
       expect(mapper.toItem(buildEntity({ expiresAt: 1704153600999 })).TTL).toBe(1704153600);
     });
@@ -151,6 +164,7 @@ describe('HighlightMapper', () => {
       ['Status', 'unknown'],
       ['ClipStatus', 'unknown'],
       ['DominantEmotion', 'unknown'],
+      ['ClipGeneratingStartedAt', 'x'],
       ['TTL', undefined],
     ])('%s が不正なら InvalidEntityDataError にする (%p)', (field, value) => {
       expect(() => mapper.toEntity(buildItem({ [field]: value }))).toThrow(InvalidEntityDataError);
@@ -167,6 +181,7 @@ describe('HighlightMapper', () => {
           source: 'volume',
           status: 'accepted',
           clipStatus: 'GENERATED',
+          clipGeneratingStartedAt: 1704153000000,
           dominantEmotion: 'excite',
           expiresAt: 1704153600999,
         })
@@ -177,6 +192,7 @@ describe('HighlightMapper', () => {
         Source: 'volume',
         Status: 'accepted',
         ClipStatus: 'GENERATED',
+        ClipGeneratingStartedAt: 1704153000000,
         DominantEmotion: 'excite',
         TTL: 1704153600,
       });
@@ -186,6 +202,12 @@ describe('HighlightMapper', () => {
       const attributes = mapper.toUpdateAttributes({});
 
       expect(Object.values(attributes).every((value) => value === undefined)).toBe(true);
+    });
+
+    it('clipGeneratingStartedAt の null は属性の削除になる', () => {
+      expect(
+        mapper.toUpdateAttributes({ clipGeneratingStartedAt: null }).ClipGeneratingStartedAt
+      ).toBe(REMOVE_ATTRIBUTE);
     });
 
     it('dominantEmotion の null は属性の削除になる', () => {
