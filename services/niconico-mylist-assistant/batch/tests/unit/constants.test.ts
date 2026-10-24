@@ -34,7 +34,6 @@ describe('constants', () => {
 
     it('パラメータ関連のエラーメッセージが定義されている', () => {
       expect(ERROR_MESSAGES.MISSING_ENV_VARS).toBeDefined();
-      expect(ERROR_MESSAGES.INVALID_PARAMETERS).toBeDefined();
     });
 
     it('暗号化関連のエラーメッセージが定義されている', () => {

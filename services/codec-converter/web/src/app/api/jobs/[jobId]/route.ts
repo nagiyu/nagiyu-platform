@@ -12,7 +12,7 @@ const PRESIGNED_URL_EXPIRES_IN = 86400;
  */
 function getEnvVars() {
   return {
-    DYNAMODB_TABLE: process.env.DYNAMODB_TABLE || '',
+    DYNAMODB_TABLE_NAME: process.env.DYNAMODB_TABLE_NAME || '',
     S3_BUCKET: process.env.S3_BUCKET || '',
     AWS_REGION: process.env.AWS_REGION || 'us-east-1',
   };
@@ -36,10 +36,10 @@ export const GET = withApiErrorReporting(
     const { jobId } = await params;
 
     // AWS クライアントと環境変数の取得
-    const { DYNAMODB_TABLE, S3_BUCKET, AWS_REGION } = getEnvVars();
+    const { DYNAMODB_TABLE_NAME, S3_BUCKET, AWS_REGION } = getEnvVars();
     const { docClient, s3Client } = getAwsClients(AWS_REGION);
 
-    const job = await new DynamoDBJobRepository(docClient, DYNAMODB_TABLE).getById(jobId);
+    const job = await new DynamoDBJobRepository(docClient, DYNAMODB_TABLE_NAME).getById(jobId);
 
     if (!job) {
       return NextResponse.json(

@@ -161,7 +161,7 @@ Lambda と Batch Worker には以下の環境変数が自動設定されます:
 
 | 環境変数                      | 説明                                                          | 例                                   |
 | ----------------------------- | ------------------------------------------------------------- | ------------------------------------ |
-| `DYNAMODB_TABLE`              | DynamoDB テーブル名                                           | `nagiyu-codec-converter-jobs-dev`    |
+| `DYNAMODB_TABLE_NAME`         | DynamoDB テーブル名                                           | `nagiyu-codec-converter-jobs-dev`    |
 | `S3_BUCKET`                   | S3 バケット名                                                 | `nagiyu-codec-converter-storage-dev` |
 | `BATCH_JOB_QUEUE`             | Batch Job Queue 名                                            | `codec-converter-dev`                |
 | `BATCH_JOB_DEFINITION_PREFIX` | Batch Job Definition 名のプレフィックス（動的リソース配分用） | `codec-converter-dev`                |

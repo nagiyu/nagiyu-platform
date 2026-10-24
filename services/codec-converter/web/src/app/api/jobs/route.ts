@@ -23,7 +23,7 @@ const VALID_CODECS: CodecType[] = ['h264', 'vp9', 'av1'];
  */
 function getEnvVars() {
   return {
-    DYNAMODB_TABLE: process.env.DYNAMODB_TABLE || '',
+    DYNAMODB_TABLE_NAME: process.env.DYNAMODB_TABLE_NAME || '',
     S3_BUCKET: process.env.S3_BUCKET || '',
   };
 }
@@ -55,7 +55,7 @@ export const POST = withApiErrorReporting(
   async (request: NextRequest) => {
     // AWS クライアントと環境変数の取得
     const { docClient, s3Client } = getAwsClients();
-    const { DYNAMODB_TABLE, S3_BUCKET } = getEnvVars();
+    const { DYNAMODB_TABLE_NAME, S3_BUCKET } = getEnvVars();
 
     // リクエストボディの取得とパース
     const bodyResult = await readJsonObjectBody(request);
@@ -138,7 +138,7 @@ export const POST = withApiErrorReporting(
       expiresAt: now + JOB_EXPIRATION_SECONDS * 1000,
     };
 
-    await new DynamoDBJobRepository(docClient, DYNAMODB_TABLE).create(job);
+    await new DynamoDBJobRepository(docClient, DYNAMODB_TABLE_NAME).create(job);
 
     // S3 Presigned URLの生成
     const uploadUrl = await createPresignedUploadUrl(

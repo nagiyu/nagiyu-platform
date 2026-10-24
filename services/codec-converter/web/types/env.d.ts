@@ -3,7 +3,7 @@ declare global {
     interface ProcessEnv {
       // AWS環境変数
       readonly AWS_REGION: string;
-      readonly DYNAMODB_TABLE: string;
+      readonly DYNAMODB_TABLE_NAME: string;
       readonly S3_BUCKET: string;
       readonly BATCH_JOB_QUEUE: string;
       readonly BATCH_JOB_DEFINITION_PREFIX: string;

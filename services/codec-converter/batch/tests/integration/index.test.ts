@@ -83,7 +83,7 @@ describe('validateEnvironment', () => {
 
   it('すべての環境変数が設定されている場合は成功', () => {
     process.env.S3_BUCKET = 'test-bucket';
-    process.env.DYNAMODB_TABLE = 'test-table';
+    process.env.DYNAMODB_TABLE_NAME = 'test-table';
     process.env.AWS_REGION = 'ap-northeast-1';
     process.env.JOB_ID = 'test-job-id';
     process.env.OUTPUT_CODEC = 'h264';
@@ -93,7 +93,7 @@ describe('validateEnvironment', () => {
 
     expect(result).toEqual({
       S3_BUCKET: 'test-bucket',
-      DYNAMODB_TABLE: 'test-table',
+      DYNAMODB_TABLE_NAME: 'test-table',
       AWS_REGION: 'ap-northeast-1',
       JOB_ID: 'test-job-id',
       OUTPUT_CODEC: 'h264',
@@ -103,7 +103,7 @@ describe('validateEnvironment', () => {
 
   it('JOB_DEFINITION_NAMEが未設定でも成功する', () => {
     process.env.S3_BUCKET = 'test-bucket';
-    process.env.DYNAMODB_TABLE = 'test-table';
+    process.env.DYNAMODB_TABLE_NAME = 'test-table';
     process.env.AWS_REGION = 'ap-northeast-1';
     process.env.JOB_ID = 'test-job-id';
     process.env.OUTPUT_CODEC = 'h264';
@@ -113,7 +113,7 @@ describe('validateEnvironment', () => {
 
     expect(result).toEqual({
       S3_BUCKET: 'test-bucket',
-      DYNAMODB_TABLE: 'test-table',
+      DYNAMODB_TABLE_NAME: 'test-table',
       AWS_REGION: 'ap-northeast-1',
       JOB_ID: 'test-job-id',
       OUTPUT_CODEC: 'h264',
@@ -130,7 +130,7 @@ describe('validateEnvironment', () => {
 
   it('OUTPUT_CODECが不正な場合はエラー', () => {
     process.env.S3_BUCKET = 'test-bucket';
-    process.env.DYNAMODB_TABLE = 'test-table';
+    process.env.DYNAMODB_TABLE_NAME = 'test-table';
     process.env.AWS_REGION = 'ap-northeast-1';
     process.env.JOB_ID = 'test-job-id';
     process.env.OUTPUT_CODEC = 'invalid';
@@ -143,7 +143,7 @@ describe('validateEnvironment', () => {
 
     codecs.forEach((codec) => {
       process.env.S3_BUCKET = 'test-bucket';
-      process.env.DYNAMODB_TABLE = 'test-table';
+      process.env.DYNAMODB_TABLE_NAME = 'test-table';
       process.env.AWS_REGION = 'ap-northeast-1';
       process.env.JOB_ID = 'test-job-id';
       process.env.OUTPUT_CODEC = codec;
@@ -618,7 +618,7 @@ describe('processJob', () => {
 
     const env = {
       S3_BUCKET: 'test-bucket',
-      DYNAMODB_TABLE: 'test-table',
+      DYNAMODB_TABLE_NAME: 'test-table',
       AWS_REGION: 'ap-northeast-1',
       JOB_ID: 'test-job-id',
       OUTPUT_CODEC: 'h264' as CodecType,
@@ -658,7 +658,7 @@ describe('processJob', () => {
 
     const env = {
       S3_BUCKET: 'test-bucket',
-      DYNAMODB_TABLE: 'test-table',
+      DYNAMODB_TABLE_NAME: 'test-table',
       AWS_REGION: 'ap-northeast-1',
       JOB_ID: 'test-job-ffmpeg',
       OUTPUT_CODEC: 'h264' as CodecType,
@@ -690,7 +690,7 @@ describe('processJob', () => {
 
     const env = {
       S3_BUCKET: 'test-bucket',
-      DYNAMODB_TABLE: 'test-table',
+      DYNAMODB_TABLE_NAME: 'test-table',
       AWS_REGION: 'ap-northeast-1',
       JOB_ID: 'test-job-status',
       OUTPUT_CODEC: 'vp9' as CodecType,
@@ -721,7 +721,7 @@ describe('processJob', () => {
 
     const env = {
       S3_BUCKET: 'test-bucket',
-      DYNAMODB_TABLE: 'test-table',
+      DYNAMODB_TABLE_NAME: 'test-table',
       AWS_REGION: 'ap-northeast-1',
       JOB_ID: 'test-job-cleanup',
       OUTPUT_CODEC: 'h264' as CodecType,
@@ -758,7 +758,7 @@ describe('processJob', () => {
 
     const env = {
       S3_BUCKET: 'test-bucket',
-      DYNAMODB_TABLE: 'test-table',
+      DYNAMODB_TABLE_NAME: 'test-table',
       AWS_REGION: 'ap-northeast-1',
       JOB_ID: 'test-job-id',
       OUTPUT_CODEC: 'h264' as CodecType,
@@ -779,7 +779,7 @@ describe('processJob', () => {
 
     const env = {
       S3_BUCKET: 'test-bucket',
-      DYNAMODB_TABLE: 'test-table',
+      DYNAMODB_TABLE_NAME: 'test-table',
       AWS_REGION: 'ap-northeast-1',
       JOB_ID: 'test-job-id',
       OUTPUT_CODEC: 'h264' as CodecType,
@@ -820,7 +820,7 @@ describe('main', () => {
 
   it('Worker起動時にリソース情報をログ出力する', async () => {
     process.env.S3_BUCKET = 'test-bucket';
-    process.env.DYNAMODB_TABLE = 'test-table';
+    process.env.DYNAMODB_TABLE_NAME = 'test-table';
     process.env.AWS_REGION = 'ap-northeast-1';
     process.env.JOB_ID = 'test-job-id';
     process.env.OUTPUT_CODEC = 'h264';
@@ -868,7 +868,7 @@ describe('main', () => {
 
   it('JOB_DEFINITION_NAMEが未設定の場合はunknownと表示', async () => {
     process.env.S3_BUCKET = 'test-bucket';
-    process.env.DYNAMODB_TABLE = 'test-table';
+    process.env.DYNAMODB_TABLE_NAME = 'test-table';
     process.env.AWS_REGION = 'ap-northeast-1';
     process.env.JOB_ID = 'test-job-id';
     process.env.OUTPUT_CODEC = 'vp9';
@@ -905,7 +905,7 @@ describe('main', () => {
 
   it('ECSメタデータのLimitsが存在するがCPU/Memoryが未定義の場合', async () => {
     process.env.S3_BUCKET = 'test-bucket';
-    process.env.DYNAMODB_TABLE = 'test-table';
+    process.env.DYNAMODB_TABLE_NAME = 'test-table';
     process.env.AWS_REGION = 'ap-northeast-1';
     process.env.JOB_ID = 'test-job-id-2';
     process.env.OUTPUT_CODEC = 'av1';
@@ -952,7 +952,7 @@ describe('main', () => {
 
   it.skip('メイン処理が成功する', async () => {
     process.env.S3_BUCKET = 'test-bucket';
-    process.env.DYNAMODB_TABLE = 'test-table';
+    process.env.DYNAMODB_TABLE_NAME = 'test-table';
     process.env.AWS_REGION = 'ap-northeast-1';
     process.env.JOB_ID = 'test-job-id';
     process.env.OUTPUT_CODEC = 'h264';
@@ -976,7 +976,7 @@ describe('main', () => {
 
   it.skip('リトライ後に成功する', async () => {
     process.env.S3_BUCKET = 'test-bucket';
-    process.env.DYNAMODB_TABLE = 'test-table';
+    process.env.DYNAMODB_TABLE_NAME = 'test-table';
     process.env.AWS_REGION = 'ap-northeast-1';
     process.env.JOB_ID = 'test-job-id';
     process.env.OUTPUT_CODEC = 'h264';
@@ -1009,7 +1009,7 @@ describe('main', () => {
 
   it.skip('最大リトライ回数後も失敗した場合はエラー', async () => {
     process.env.S3_BUCKET = 'test-bucket';
-    process.env.DYNAMODB_TABLE = 'test-table';
+    process.env.DYNAMODB_TABLE_NAME = 'test-table';
     process.env.AWS_REGION = 'ap-northeast-1';
     process.env.JOB_ID = 'test-job-id';
     process.env.OUTPUT_CODEC = 'h264';

@@ -24,7 +24,6 @@ jest.mock('@nagiyu/aws', () => ({
 }));
 
 jest.mock('@/lib/server/aws', () => ({
-  getAwsRegion: jest.fn(() => 'us-east-1'),
   getBatchClient: jest.fn(),
   getBatchJobDefinitionPrefix: jest.fn(() => 'nagiyu-quick-clip-dev'),
   getBatchJobQueueArn: jest.fn(() => 'arn:aws:batch:us-east-1:123456789012:job-queue/quick-clip'),
@@ -319,6 +318,27 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
         }),
       })
     );
+  });
+
+  it('正常系: Batch envには起動ごとの値だけを渡し、ジョブ定義の値は上書きしない', async () => {
+    await POST(
+      createRequest({
+        uploadId: 'upload-1',
+        parts: [{ PartNumber: 1, ETag: '"etag-1"' }],
+      }),
+      {
+        params: Promise.resolve({ jobId: 'job-1' }),
+      }
+    );
+
+    const command = batchSend.mock.calls[0][0] as {
+      input: { containerOverrides: { environment: { name: string }[] } };
+    };
+    expect(command.input.containerOverrides.environment.map((entry) => entry.name)).toEqual([
+      'BATCH_COMMAND',
+      'JOB_ID',
+      'EMOTION_FILTER',
+    ]);
   });
 
   it('異常系: 不正なemotionFilterは400を返す', async () => {

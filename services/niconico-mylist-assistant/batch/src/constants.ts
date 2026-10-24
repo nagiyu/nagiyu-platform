@@ -17,7 +17,6 @@ export const ERROR_MESSAGES = {
 
   // パラメータ関連
   MISSING_ENV_VARS: '必要な環境変数が設定されていません',
-  INVALID_PARAMETERS: 'ジョブパラメータが不正です',
 
   // 暗号化関連
   DECRYPTION_FAILED: 'user_session の復号化に失敗しました',

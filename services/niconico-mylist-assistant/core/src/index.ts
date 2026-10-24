@@ -29,6 +29,9 @@ export * from './mappers/index.js';
 // DynamoDB アクセス層（後方互換性のため残す）
 export * from './db/index.js';
 
+// Batch ジョブの入力定義 (web と batch で共有)
+export * from './job-input/index.js';
+
 // ニコニコ動画 API クライアント
 export * from './niconico/index.js';
 

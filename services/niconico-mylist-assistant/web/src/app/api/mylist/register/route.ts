@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
-import { selectRandomVideos, createBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
+import {
+  selectRandomVideos,
+  createBatchJob,
+  toJobEnvironment,
+} from '@nagiyu/niconico-mylist-assistant-core';
 import { getBatchClient, reportErrorEvent } from '@nagiyu/aws';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
@@ -47,7 +51,6 @@ function getEnvVars() {
   return {
     BATCH_JOB_QUEUE: process.env.BATCH_JOB_QUEUE || '',
     BATCH_JOB_DEFINITION: process.env.BATCH_JOB_DEFINITION || '',
-    DYNAMODB_TABLE_NAME: process.env.DYNAMODB_TABLE_NAME || '',
     AWS_REGION: process.env.AWS_REGION || 'us-east-1',
     AWS_REGION_FOR_SDK: process.env.AWS_REGION_FOR_SDK || process.env.AWS_REGION || 'us-east-1',
   };
@@ -243,7 +246,7 @@ export const POST = withApiErrorReporting(
     }
 
     // AWS Batch ジョブを投入
-    const { BATCH_JOB_QUEUE, BATCH_JOB_DEFINITION, DYNAMODB_TABLE_NAME, AWS_REGION } = getEnvVars();
+    const { BATCH_JOB_QUEUE, BATCH_JOB_DEFINITION, AWS_REGION } = getEnvVars();
     const batchClient = getBatchClient(AWS_REGION);
 
     const jobName = `niconico-mylist-${session.user.id}-${Date.now()}`;
@@ -256,14 +259,13 @@ export const POST = withApiErrorReporting(
         jobQueue: BATCH_JOB_QUEUE,
         jobDefinition: BATCH_JOB_DEFINITION,
         containerOverrides: {
-          environment: [
-            { name: 'USER_ID', value: session.user.id },
-            { name: 'VIDEO_IDS', value: JSON.stringify(videoIds) },
-            { name: 'MYLIST_NAME', value: mylistName },
-            { name: 'ENCRYPTED_USER_SESSION', value: encryptedUserSessionBlob },
-            { name: 'DYNAMODB_TABLE_NAME', value: DYNAMODB_TABLE_NAME },
-            { name: 'AWS_REGION', value: AWS_REGION },
-          ],
+          // テーブル名・リージョンはジョブ定義で設定済みのため、起動ごとの入力だけを渡す
+          environment: toJobEnvironment({
+            userId: session.user.id,
+            videoIds,
+            mylistName,
+            encryptedUserSession: encryptedUserSessionBlob,
+          }),
         },
       })
     );

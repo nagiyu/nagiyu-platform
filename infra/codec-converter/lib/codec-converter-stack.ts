@@ -251,7 +251,7 @@ export class CodecConverterStack extends cdk.Stack {
             },
             environment: [
               {
-                name: 'DYNAMODB_TABLE',
+                name: 'DYNAMODB_TABLE_NAME',
                 value: jobsTable.tableName,
               },
               {
@@ -314,7 +314,7 @@ export class CodecConverterStack extends cdk.Stack {
         logGroup: lambdaLogGroup,
         environment: {
           APP_VERSION: appVersion,
-          DYNAMODB_TABLE: jobsTable.tableName,
+          DYNAMODB_TABLE_NAME: jobsTable.tableName,
           S3_BUCKET: storageBucket.bucketName,
           BATCH_JOB_QUEUE: jobQueue.jobQueueName || `nagiyu-codec-converter-${envName}`,
           BATCH_JOB_DEFINITION_PREFIX: `nagiyu-codec-converter-${envName}`, // Prefix for all job definitions (e.g., nagiyu-codec-converter-dev-small)
