@@ -53,7 +53,7 @@ export function ListWorkspace({
   initialGroupId = '',
 }: ListWorkspaceProps) {
   const searchParams = useSearchParams();
-  const currentQuery = searchParams.toString();
+  const currentQuery = searchParams?.toString() ?? '';
   const [scope, setScope] = useState<'personal' | 'shared'>(initialScope);
   const [sharedGroups, setSharedGroups] = useState<readonly SharedGroup[]>([]);
   const [sharedListsByGroup, setSharedListsByGroup] = useState<
@@ -66,6 +66,12 @@ export function ListWorkspace({
   const [personalListId, setPersonalListId] = useState(
     initialScope === 'personal' ? initialListId : ''
   );
+  // 共有グループと共有リストの取得が終わるまで、リストが 0 件なのか未取得なのかを区別するために持つ。
+  const [isSharedDataLoaded, setIsSharedDataLoaded] = useState(false);
+  // 読み込み後の補正 (デフォルトの選択、無効な groupId の修正など) では URL を書き換えない。
+  // history.replaceState は実行待ちのナビゲーションを捨てるため、読み込み中にヘッダーから
+  // 別の画面へ移ろうとした人の操作を黙って潰してしまう。人が選び直したあとだけ書き戻す。
+  const [hasUserSelected, setHasUserSelected] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
@@ -118,6 +124,7 @@ export function ListWorkspace({
         );
 
         setSharedListsByGroup(Object.fromEntries(sharedListEntries));
+        setIsSharedDataLoaded(true);
       } catch (error: unknown) {
         if (error instanceof Error && error.name === 'AbortError') {
           return;
@@ -205,11 +212,25 @@ export function ListWorkspace({
     currentListId = personalListId;
   }
 
-  // リロード・URL 共有・前回表示の復元で選択を引き継げるよう、表示中のリストを URL に反映する。
+  // リロード・URL 共有・前回表示の復元で選択を引き継げるよう、人が選び直したあとに表示中の選択を URL へ反映する。
   // router.replace はクエリが変わるたびにサーバーへ RSC を取りに行くため、useSearchParams と同期する
-  // history.replaceState で書き換える。履歴は増やさず、表示中のリストが決まるまで (読み込み中など) は書き換えない。
+  // history.replaceState で書き換える。履歴は増やさない。
   useEffect(() => {
-    if (!currentListId || (scope === 'shared' && !selectedGroupId)) {
+    if (!hasUserSelected) {
+      return;
+    }
+
+    if (scope === 'personal' && !currentListId) {
+      return;
+    }
+
+    // 共有は、取得が終わって groupId が確定するまで書き換えない。
+    // 確定後にリストが無ければ listId を省き、groupId までの URL にする。
+    const isSharedSelectionSettled =
+      isSharedDataLoaded &&
+      (sharedGroups.length === 0 ||
+        sharedGroups.some((group) => group.groupId === selectedGroupId));
+    if (scope === 'shared' && !isSharedSelectionSettled) {
       return;
     }
 
@@ -223,7 +244,15 @@ export function ListWorkspace({
     }
 
     window.history.replaceState(null, '', `${LISTS_PATH}?${nextQuery}`);
-  }, [scope, selectedGroupId, currentListId, currentQuery]);
+  }, [
+    hasUserSelected,
+    scope,
+    selectedGroupId,
+    currentListId,
+    currentQuery,
+    isSharedDataLoaded,
+    sharedGroups,
+  ]);
 
   const handleCreateList = async (name: string) => {
     if (scope !== 'shared') {
@@ -260,6 +289,7 @@ export function ListWorkspace({
         [targetGroupId]: [...(previous[targetGroupId] ?? []), createdList],
       }));
       setSelectedListId(createdList.listId);
+      setHasUserSelected(true);
       setSnackbarMessage(`共有リスト「${createdList.name}」を作成しました。`);
     } catch (error) {
       setSnackbarMessage(
@@ -321,6 +351,7 @@ export function ListWorkspace({
         throw new Error(await getErrorMessage(response));
       }
 
+      setHasUserSelected(true);
       setSharedListsByGroup((previous) => {
         const updated = (previous[targetGroupId] ?? []).filter(
           (target) => target.listId !== list.listId
@@ -352,6 +383,7 @@ export function ListWorkspace({
             value={scope}
             onChange={(nextValue) => {
               const nextScope = nextValue as 'personal' | 'shared';
+              setHasUserSelected(true);
               setScope(nextScope);
               let nextLists: readonly { listId: string; name: string }[] = [];
               if (nextScope === 'shared') {
@@ -375,6 +407,7 @@ export function ListWorkspace({
               value={selectedGroupId}
               onChange={(nextGroupId) => {
                 const nextLists = sharedListsByGroup[nextGroupId] ?? [];
+                setHasUserSelected(true);
                 setSelectedGroupId(nextGroupId);
                 if (nextLists.length > 0) {
                   setSelectedListId(nextLists[0].listId);
@@ -393,9 +426,14 @@ export function ListWorkspace({
             lists={scope === 'personal' ? undefined : sidebarLists}
             hrefPrefix={scope === 'personal' ? '/lists' : `/groups/${selectedGroupId}/lists`}
             onCreateList={scope === 'shared' ? () => setCreateDialogOpen(true) : undefined}
-            onListSelect={(listId) =>
-              scope === 'personal' ? setPersonalListId(listId) : setSelectedListId(listId)
-            }
+            onListSelect={(listId) => {
+              setHasUserSelected(true);
+              if (scope === 'personal') {
+                setPersonalListId(listId);
+              } else {
+                setSelectedListId(listId);
+              }
+            }}
             onRenameList={scope === 'shared' ? handleRenameSharedList : undefined}
             onDeleteList={scope === 'shared' ? handleDeleteSharedList : undefined}
           />

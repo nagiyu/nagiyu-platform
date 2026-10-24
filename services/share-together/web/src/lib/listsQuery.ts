@@ -1,6 +1,6 @@
-export type ListsScope = 'personal' | 'shared';
+type ListsScope = 'personal' | 'shared';
 
-export type ListsSelection = {
+type ListsSelection = {
   scope: ListsScope;
   groupId: string;
   listId: string;
@@ -26,23 +26,24 @@ export function parseListsQuery(params: QueryReader): ListsSelection {
 /**
  * 選択状態をクエリ文字列 (先頭の `?` なし) にする。
  * 個人は scope と groupId を付けず、parseListsQuery が個人と解釈する形に揃える。
+ * 共有は、リストが 0 件のグループやグループが無い状態も表せるよう、空の groupId と listId を省く。
  */
 export function buildListsQuery(selection: ListsSelection): string {
   const query = new URLSearchParams();
   if (selection.scope === 'shared') {
     query.set('scope', 'shared');
-    query.set('groupId', selection.groupId);
+    if (selection.groupId) {
+      query.set('groupId', selection.groupId);
+    }
   }
-  query.set('listId', selection.listId);
+  if (selection.listId) {
+    query.set('listId', selection.listId);
+  }
   return query.toString();
 }
 
-/** 選択状態を表すリスト画面の URL (パスとクエリ) を返す。 */
-export function buildListsHref(selection: ListsSelection): string {
-  return `${LISTS_PATH}?${buildListsQuery(selection)}`;
-}
-
-/** 共有リストを開くリスト画面の URL を返す。 */
+/** 共有リストを開くリスト画面の URL (パスとクエリ) を返す。 */
 export function buildSharedListHref(groupId: string, listId: string): string {
-  return buildListsHref({ scope: 'shared', groupId, listId });
+  const query = buildListsQuery({ scope: 'shared', groupId, listId });
+  return `${LISTS_PATH}?${query}`;
 }

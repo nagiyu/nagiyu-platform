@@ -160,6 +160,141 @@ test.describe('個人リスト管理', () => {
     );
   });
 
+  test('削除済みの個人リストの URL を開くと、デフォルトの個人リストを開く', async ({ page }) => {
+    await page.goto('/lists?listId=list-deleted-elsewhere');
+
+    await expect(page.getByRole('button', { name: 'デフォルトリスト' }).first()).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+    await expect(page.getByText('ToDo一覧の取得に失敗しました。')).not.toBeVisible();
+  });
+
+  test('共有リストを選んだあと、新しいセッションでトップに来ると選んだ共有リストが開く', async ({
+    page,
+    request,
+  }) => {
+    await resetTestData(request, {
+      users: [TEST_USER],
+      personalLists: [
+        {
+          listId: 'list-default',
+          userId: TEST_USER.userId,
+          name: 'デフォルトリスト',
+          isDefault: true,
+        },
+      ],
+      groups: [
+        {
+          groupId: 'restore-group',
+          name: '復元検証グループ',
+          ownerUserId: TEST_USER.userId,
+        },
+      ],
+      memberships: [
+        {
+          groupId: 'restore-group',
+          userId: TEST_USER.userId,
+          role: 'OWNER',
+          status: 'ACCEPTED',
+          respondedAt: Date.now(),
+        },
+      ],
+      groupLists: [
+        {
+          listId: 'restore-list-a',
+          groupId: 'restore-group',
+          name: '復元リストA',
+          createdBy: TEST_USER.userId,
+        },
+        {
+          listId: 'restore-list-b',
+          groupId: 'restore-group',
+          name: '復元リストB',
+          createdBy: TEST_USER.userId,
+        },
+      ],
+    });
+
+    await page.goto('/lists?listId=list-default');
+    await page.getByLabel('表示範囲').first().selectOption('shared');
+    await page.getByRole('button', { name: '復元リストB', exact: true }).click();
+    await expect(page).toHaveURL(/scope=shared&groupId=restore-group&listId=restore-list-b$/);
+
+    // localStorage は共有し、sessionStorage は共有しない新しいタブで「新しいセッション」を再現する。
+    const newTab = await page.context().newPage();
+    await newTab.goto('/');
+
+    await expect(newTab).toHaveURL(/scope=shared&groupId=restore-group&listId=restore-list-b$/);
+    await expect(newTab.getByRole('button', { name: '復元リストB', exact: true })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+  });
+
+  test('リストが 0 件のグループを選ぶと、リロード後もそのグループが選ばれている', async ({
+    page,
+    request,
+  }) => {
+    await resetTestData(request, {
+      users: [TEST_USER],
+      personalLists: [
+        {
+          listId: 'list-default',
+          userId: TEST_USER.userId,
+          name: 'デフォルトリスト',
+          isDefault: true,
+        },
+      ],
+      groups: [
+        { groupId: 'group-a', name: 'グループA', ownerUserId: TEST_USER.userId },
+        { groupId: 'group-empty', name: '空のグループ', ownerUserId: TEST_USER.userId },
+      ],
+      memberships: [
+        {
+          groupId: 'group-a',
+          userId: TEST_USER.userId,
+          role: 'OWNER',
+          status: 'ACCEPTED',
+          respondedAt: Date.now(),
+        },
+        {
+          groupId: 'group-empty',
+          userId: TEST_USER.userId,
+          role: 'OWNER',
+          status: 'ACCEPTED',
+          respondedAt: Date.now(),
+        },
+      ],
+      groupLists: [
+        {
+          listId: 'group-a-list',
+          groupId: 'group-a',
+          name: 'グループAのリスト',
+          createdBy: TEST_USER.userId,
+        },
+      ],
+    });
+
+    await page.goto('/lists?listId=list-default');
+    await page.getByLabel('表示範囲').first().selectOption('shared');
+    await expect(
+      page.getByRole('button', { name: 'グループAのリスト', exact: true })
+    ).toBeVisible();
+    await page
+      .getByRole('main')
+      .getByLabel('グループ', { exact: true })
+      .selectOption('group-empty');
+    await expect(page).toHaveURL(/\/lists\?scope=shared&groupId=group-empty$/);
+
+    await page.reload();
+
+    await expect(page.getByLabel('表示範囲').first()).toHaveValue('shared');
+    await expect(page.getByRole('main').getByLabel('グループ', { exact: true })).toHaveValue(
+      'group-empty'
+    );
+  });
+
   test('個人リスト名を変更できる', async ({ page }) => {
     page.once('dialog', async (dialog) => {
       expect(dialog.type()).toBe('prompt');
@@ -236,8 +371,12 @@ test.describe('個人リスト管理', () => {
     );
     expect(forbiddenResponse.status()).toBe(403);
 
+    // 自分の個人リストに無い listId は開かず、自分のデフォルトリストを開く。
     await page.goto('/lists?listId=other-default-list');
-    await expect(page.getByText('ToDo一覧の取得に失敗しました。')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'デフォルトリスト' }).first()).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
     await expect(page.getByText('他ユーザー専用ToDo')).toHaveCount(0);
   });
 

@@ -127,4 +127,87 @@ describe('ListsPage', () => {
     expect(screen.getByText('ListWorkspace: group-list-2:shared:group-2')).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  describe('個人リストの listId が指定されたとき', () => {
+    const mockPersonalLists = () => {
+      const fetchMock = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          data: {
+            lists: [
+              { listId: 'work-list', name: '仕事', isDefault: false },
+              { listId: 'default-list', name: 'デフォルトリスト', isDefault: true },
+            ],
+          },
+        }),
+      } as Response);
+      Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+      return fetchMock;
+    };
+
+    it('一覧に存在するならその listId を開く', async () => {
+      mockPersonalLists();
+      mockUseSearchParams.mockReturnValue(new URLSearchParams('listId=work-list'));
+
+      render(<ListsPage />);
+
+      expect(await screen.findByText('ListWorkspace: work-list:personal:')).toBeInTheDocument();
+    });
+
+    it('一覧に無い (別の端末で削除された) ならデフォルトの個人リストを開く', async () => {
+      mockPersonalLists();
+      mockUseSearchParams.mockReturnValue(new URLSearchParams('listId=deleted-list'));
+
+      render(<ListsPage />);
+
+      expect(await screen.findByText('ListWorkspace: default-list:personal:')).toBeInTheDocument();
+    });
+
+    it('一覧の取得に失敗したときは、指定された listId をそのまま開く', async () => {
+      const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const fetchMock = jest.fn().mockResolvedValue({ ok: false, status: 500 } as Response);
+      Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+      mockUseSearchParams.mockReturnValue(new URLSearchParams('listId=work-list'));
+
+      render(<ListsPage />);
+
+      expect(await screen.findByText('ListWorkspace: work-list:personal:')).toBeInTheDocument();
+      consoleError.mockRestore();
+    });
+  });
+
+  it('listId の無い共有スコープ (リストが 0 件のグループなど) は、デフォルト個人リストを解決して groupId を引き継ぐ', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: { lists: [{ listId: 'default-list', name: 'デフォルトリスト', isDefault: true }] },
+      }),
+    } as Response);
+    Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('scope=shared&groupId=group-3'));
+
+    render(<ListsPage />);
+
+    expect(
+      await screen.findByText('ListWorkspace: default-list:shared:group-3')
+    ).toBeInTheDocument();
+  });
+
+  it('グループも無い scope=shared だけのクエリでも開ける', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: { lists: [{ listId: 'default-list', name: 'デフォルトリスト', isDefault: true }] },
+      }),
+    } as Response);
+    Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('scope=shared'));
+
+    render(<ListsPage />);
+
+    expect(await screen.findByText('ListWorkspace: default-list:shared:')).toBeInTheDocument();
+  });
 });

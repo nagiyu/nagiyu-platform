@@ -42,11 +42,16 @@ function ListsPageContent() {
   const [initialSelection] = useState(() => parseListsQuery(searchParams));
   const { scope, groupId: initialGroupId, listId: listIdFromQuery } = initialSelection;
   const hasListIdFromQuery = listIdFromQuery.length > 0;
-  const [defaultListId, setDefaultListId] = useState<string>('');
-  const [isListLoading, setIsListLoading] = useState(!hasListIdFromQuery);
+  // 共有リストの ID は ListWorkspace が共有リスト一覧と突き合わせて補正するので、個人リストの一覧は要らない。
+  // 個人リストの ID は、別の端末で削除された可能性があるため一覧と突き合わせる。
+  const needsPersonalLists = scope === 'personal' || !hasListIdFromQuery;
+  const [resolvedListId, setResolvedListId] = useState<string>(
+    needsPersonalLists ? '' : listIdFromQuery
+  );
+  const [isLoading, setIsLoading] = useState(needsPersonalLists);
 
   useEffect(() => {
-    if (hasListIdFromQuery) {
+    if (!needsPersonalLists) {
       return;
     }
 
@@ -60,29 +65,37 @@ function ListsPageContent() {
         }
 
         const result = (await response.json()) as PersonalListsResponse;
-        const defaultList = result.data.lists.find((list) => list.isDefault);
+        const { lists } = result.data;
+        if (scope === 'personal' && lists.some((list) => list.listId === listIdFromQuery)) {
+          setResolvedListId(listIdFromQuery);
+          return;
+        }
+
+        const defaultList = lists.find((list) => list.isDefault);
         if (!defaultList) {
           throw new Error(LISTS_PAGE_MESSAGES.DEFAULT_LIST_NOT_FOUND);
         }
-        setDefaultListId(defaultList.listId);
+        setResolvedListId(defaultList.listId);
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') {
           return;
         }
         console.error(LISTS_PAGE_MESSAGES.PERSONAL_LISTS_FETCH_FAILED, { error });
+        // 一覧を取れなくても、クエリで指定されたリストはそのまま開く。
+        // 存在しない場合は ToDo 取得のエラーとして画面に出る。
+        if (hasListIdFromQuery) {
+          setResolvedListId(listIdFromQuery);
+        }
       })
       .finally(() => {
-        setIsListLoading(false);
+        setIsLoading(false);
       });
 
     return () => {
       controller.abort();
     };
-  }, [hasListIdFromQuery]);
-
-  const isLoading = hasListIdFromQuery ? false : isListLoading;
-  const resolvedListId = hasListIdFromQuery ? listIdFromQuery : defaultListId;
+  }, [needsPersonalLists, scope, listIdFromQuery, hasListIdFromQuery]);
 
   if (isLoading) {
     return (

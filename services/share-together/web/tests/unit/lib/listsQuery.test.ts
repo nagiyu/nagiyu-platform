@@ -1,9 +1,4 @@
-import {
-  buildListsHref,
-  buildListsQuery,
-  buildSharedListHref,
-  parseListsQuery,
-} from '@/lib/listsQuery';
+import { buildListsQuery, buildSharedListHref, parseListsQuery } from '@/lib/listsQuery';
 
 describe('listsQuery', () => {
   describe('parseListsQuery', () => {
@@ -36,33 +31,48 @@ describe('listsQuery', () => {
     });
   });
 
-  describe('buildListsQuery / buildListsHref', () => {
+  describe('buildListsQuery', () => {
     it('個人は scope と groupId を付けず listId だけにする', () => {
       const selection = { scope: 'personal', groupId: 'group-1', listId: 'list-1' } as const;
 
       expect(buildListsQuery(selection)).toBe('listId=list-1');
-      expect(buildListsHref(selection)).toBe('/lists?listId=list-1');
     });
 
     it('共有は scope, groupId, listId をこの順で付ける', () => {
       const selection = { scope: 'shared', groupId: 'group-1', listId: 'list-1' } as const;
 
       expect(buildListsQuery(selection)).toBe('scope=shared&groupId=group-1&listId=list-1');
-      expect(buildListsHref(selection)).toBe('/lists?scope=shared&groupId=group-1&listId=list-1');
+    });
+
+    it('共有でリストが決まらないときは listId を省き、groupId までにする', () => {
+      const selection = { scope: 'shared', groupId: 'group-1', listId: '' } as const;
+
+      expect(buildListsQuery(selection)).toBe('scope=shared&groupId=group-1');
+    });
+
+    it('共有でグループも無いときは scope だけにする', () => {
+      const selection = { scope: 'shared', groupId: '', listId: '' } as const;
+
+      expect(buildListsQuery(selection)).toBe('scope=shared');
     });
 
     it('ID に含まれる記号をエスケープする', () => {
-      const href = buildListsHref({ scope: 'personal', groupId: '', listId: 'a&b=c' });
+      const query = buildListsQuery({ scope: 'personal', groupId: '', listId: 'a&b=c' });
 
-      expect(href).toBe('/lists?listId=a%26b%3Dc');
+      expect(query).toBe('listId=a%26b%3Dc');
     });
 
     it('組み立てた結果を parseListsQuery で元の選択状態に戻せる', () => {
-      const personal = { scope: 'personal', groupId: '', listId: 'list-1' } as const;
-      const shared = { scope: 'shared', groupId: 'group-1', listId: 'list-2' } as const;
+      const selections = [
+        { scope: 'personal', groupId: '', listId: 'list-1' },
+        { scope: 'shared', groupId: 'group-1', listId: 'list-2' },
+        { scope: 'shared', groupId: 'group-1', listId: '' },
+        { scope: 'shared', groupId: '', listId: '' },
+      ] as const;
 
-      expect(parseListsQuery(new URLSearchParams(buildListsQuery(personal)))).toEqual(personal);
-      expect(parseListsQuery(new URLSearchParams(buildListsQuery(shared)))).toEqual(shared);
+      for (const selection of selections) {
+        expect(parseListsQuery(new URLSearchParams(buildListsQuery(selection)))).toEqual(selection);
+      }
     });
   });
 

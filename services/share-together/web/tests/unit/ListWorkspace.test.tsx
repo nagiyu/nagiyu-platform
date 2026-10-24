@@ -675,11 +675,38 @@ describe('ListWorkspace', () => {
       Object.defineProperty(window, 'fetch', { writable: true, value: fetchMock });
     };
 
-    it('個人リストを表示すると listId だけのクエリへ書き換える', async () => {
+    it('人が選び直すまでは、表示しただけでは URL を書き換えない', async () => {
       render(<ListWorkspace initialListId="api-personal-list-1" />);
 
       await waitFor(() => {
-        expect(replaceStateSpy).toHaveBeenCalledWith(null, '', '/lists?listId=api-personal-list-1');
+        expect(screen.getByText('API個人ToDo')).toBeInTheDocument();
+      });
+      expect(replaceStateSpy).not.toHaveBeenCalled();
+    });
+
+    it('読み込み後の補正 (無効な groupId の修正、先頭リストの選択) では URL を書き換えない', async () => {
+      render(
+        <ListWorkspace
+          initialScope="shared"
+          initialGroupId="no-such-group"
+          initialListId="no-such-list"
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('会議用の議題を共有する')).toBeInTheDocument();
+      });
+      expect(replaceStateSpy).not.toHaveBeenCalled();
+    });
+
+    it('個人リストの選択では履歴を増やさず、ルーターも使わない', async () => {
+      installPersonalListsFetch();
+      render(<ListWorkspace initialListId="api-personal-list-1" />);
+
+      fireEvent.click(await screen.findByRole('button', { name: '2つ目の個人リスト' }));
+
+      await waitFor(() => {
+        expect(replaceStateSpy).toHaveBeenCalledTimes(1);
       });
       expect(mockPush).not.toHaveBeenCalled();
     });
@@ -717,9 +744,10 @@ describe('ListWorkspace', () => {
       });
     });
 
-    it('すでに URL が選択状態と同じなら 書き換えない', async () => {
+    it('すでに URL が選択状態と同じなら書き換えない', async () => {
       mockUseSearchParams.mockReturnValue(new URLSearchParams('listId=api-personal-list-1'));
       render(<ListWorkspace initialListId="api-personal-list-1" />);
+      fireEvent.click(await screen.findByRole('button', { name: 'API個人リスト' }));
       await waitFor(() => {
         expect(screen.getByText('API個人ToDo')).toBeInTheDocument();
       });
@@ -886,11 +914,8 @@ describe('ListWorkspace', () => {
       await screen.findByText('買い物リスト（共有）');
     });
 
-    it('リストが空になった共有スコープでは書き戻さない', async () => {
+    it('共有リストを全部削除すると、listId を省いた groupId までの URL へ書き換える', async () => {
       confirmSpy.mockReturnValue(true);
-      mockUseSearchParams.mockReturnValue(
-        new URLSearchParams('scope=shared&groupId=group-1&listId=group-list-1')
-      );
       render(
         <ListWorkspace
           initialScope="shared"
@@ -903,12 +928,97 @@ describe('ListWorkspace', () => {
       fireEvent.click(screen.getByRole('button', { name: '買い物リスト（共有）を削除' }));
       await screen.findByText('共有リストを削除しました。');
 
+      await waitFor(() => {
+        expect(replaceStateSpy).toHaveBeenLastCalledWith(
+          null,
+          '',
+          '/lists?scope=shared&groupId=group-1'
+        );
+      });
+    });
+
+    it('リストが 0 件のグループへ切り替えると、groupId までの URL へ書き換える', async () => {
+      const baseFetch = globalThis.fetch as jest.Mock;
+      const fetchMock = jest
+        .fn()
+        .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+          if (input === '/api/groups/group-2/lists') {
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: async () => ({ data: { lists: [] } }),
+            } as Response);
+          }
+          return baseFetch(input, init);
+        });
+      Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+      Object.defineProperty(window, 'fetch', { writable: true, value: fetchMock });
+      render(<ListWorkspace initialListId="mock-default-list" />);
+      fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'shared' } });
+      await screen.findByText('買い物リスト（共有）');
+
+      fireEvent.change(screen.getByLabelText('グループ'), { target: { value: 'group-2' } });
+
+      await waitFor(() => {
+        expect(replaceStateSpy).toHaveBeenLastCalledWith(
+          null,
+          '',
+          '/lists?scope=shared&groupId=group-2'
+        );
+      });
+    });
+
+    it('共有グループが無いまま共有へ切り替えると、scope だけの URL へ書き換える', async () => {
+      const baseFetch = globalThis.fetch as jest.Mock;
+      const fetchMock = jest
+        .fn()
+        .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+          if (input === '/api/groups') {
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: async () => ({ data: { groups: [] } }),
+            } as Response);
+          }
+          return baseFetch(input, init);
+        });
+      Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+      Object.defineProperty(window, 'fetch', { writable: true, value: fetchMock });
+      render(<ListWorkspace initialListId="mock-default-list" />);
+
+      fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'shared' } });
+
+      await waitFor(() => {
+        expect(replaceStateSpy).toHaveBeenLastCalledWith(null, '', '/lists?scope=shared');
+      });
+    });
+
+    it('共有の取得が終わる前に共有へ切り替えても、取得が終わるまでは書き換えない', async () => {
+      const baseFetch = globalThis.fetch as jest.Mock;
+      const fetchMock = jest
+        .fn()
+        .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+          if (input === '/api/groups') {
+            return new Promise<Response>(() => {});
+          }
+          return baseFetch(input, init);
+        });
+      Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+      Object.defineProperty(window, 'fetch', { writable: true, value: fetchMock });
+      render(<ListWorkspace initialListId="mock-default-list" />);
+
+      fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'shared' } });
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('表示範囲')).toHaveValue('shared');
+      });
       expect(replaceStateSpy).not.toHaveBeenCalled();
     });
 
-    it('外部のナビゲーションでクエリが外れたら、現在の選択状態で URL を書き戻す', async () => {
+    it('人が選び直したあとに外部のナビゲーションでクエリが外れたら、現在の選択状態で URL を書き戻す', async () => {
       mockUseSearchParams.mockReturnValue(new URLSearchParams('listId=api-personal-list-1'));
       const { rerender } = render(<ListWorkspace initialListId="api-personal-list-1" />);
+      fireEvent.click(await screen.findByRole('button', { name: 'API個人リスト' }));
       await waitFor(() => {
         expect(screen.getByText('API個人ToDo')).toBeInTheDocument();
       });
@@ -920,6 +1030,19 @@ describe('ListWorkspace', () => {
       await waitFor(() => {
         expect(replaceStateSpy).toHaveBeenCalledWith(null, '', '/lists?listId=api-personal-list-1');
       });
+    });
+
+    it('人が選び直す前に外部のナビゲーションでクエリが外れても、書き戻さない', async () => {
+      mockUseSearchParams.mockReturnValue(new URLSearchParams('listId=api-personal-list-1'));
+      const { rerender } = render(<ListWorkspace initialListId="api-personal-list-1" />);
+      await waitFor(() => {
+        expect(screen.getByText('API個人ToDo')).toBeInTheDocument();
+      });
+
+      mockUseSearchParams.mockReturnValue(new URLSearchParams());
+      rerender(<ListWorkspace initialListId="api-personal-list-1" />);
+
+      expect(replaceStateSpy).not.toHaveBeenCalled();
     });
   });
 });
