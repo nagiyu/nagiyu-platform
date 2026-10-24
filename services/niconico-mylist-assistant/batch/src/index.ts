@@ -16,81 +16,11 @@ import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import { executeMylistRegistration } from './playwright-automation.js';
 import { createBatchCompletionPayload } from './lib/web-push-client.js';
 import { determineBatchJobStatus } from './lib/job-status.js';
-import { formatLocalDateTime, getTimestamp, toErrorMessage } from '@nagiyu/common';
+import { getTimestamp, toErrorMessage } from '@nagiyu/common';
 import type { PushSubscription } from '@nagiyu/common';
-import { DEFAULT_MYLIST_NAME_PREFIX, ERROR_MESSAGES } from './constants.js';
+import { ERROR_MESSAGES } from './constants.js';
+import { getJobParameters, readEnvironmentVariables } from './lib/job-environment.js';
 import { MylistRegistrationJobParams } from './types.js';
-
-/**
- * 環境変数を読み取る
- */
-function readEnvironmentVariables(): {
-  dynamodbTableName: string;
-  encryptionSecretName: string;
-  awsRegion: string;
-  nodeEnv: string;
-} {
-  const dynamodbTableName = process.env.DYNAMODB_TABLE_NAME || '';
-  const encryptionSecretName =
-    process.env.ENCRYPTION_SECRET_NAME || process.env.SHARED_SECRET_KEY || '';
-  const awsRegion = process.env.AWS_REGION || 'us-east-1';
-  const nodeEnv = process.env.NODE_ENV || 'development';
-
-  console.log('=== 環境変数 ===');
-  console.log(`DYNAMODB_TABLE_NAME: ${dynamodbTableName || '(not set)'}`);
-  console.log(
-    `ENCRYPTION_SECRET_NAME: ${encryptionSecretName ? encryptionSecretName : '(not set)'}`
-  );
-  console.log(`AWS_REGION: ${awsRegion}`);
-  console.log(`NODE_ENV: ${nodeEnv}`);
-  console.log('================');
-
-  return { dynamodbTableName, encryptionSecretName, awsRegion, nodeEnv };
-}
-
-/**
- * ジョブパラメータを環境変数から取得する
- * 注: 本来はAWS Batchのジョブパラメータとして渡される
- */
-function getJobParameters(): MylistRegistrationJobParams {
-  const userId = process.env.USER_ID || '';
-  const encryptedUserSession = process.env.ENCRYPTED_USER_SESSION || '';
-  const mylistName =
-    process.env.MYLIST_NAME || `${DEFAULT_MYLIST_NAME_PREFIX} ${formatLocalDateTime()}`;
-  const videoIdsJson = process.env.VIDEO_IDS || '[]';
-  // AWS Batch が自動的に設定する環境変数からジョブIDを取得
-  const jobId = process.env.AWS_BATCH_JOB_ID || '';
-
-  let videoIds: string[];
-  try {
-    videoIds = JSON.parse(videoIdsJson);
-  } catch (error) {
-    throw new Error(`${ERROR_MESSAGES.INVALID_PARAMETERS}: VIDEO_IDS`, { cause: error });
-  }
-
-  if (!userId || !encryptedUserSession || videoIds.length === 0) {
-    throw new Error(ERROR_MESSAGES.INVALID_PARAMETERS);
-  }
-
-  if (!jobId) {
-    console.warn('警告: AWS_BATCH_JOB_ID が設定されていません');
-  }
-
-  console.log('=== ジョブパラメータ ===');
-  console.log(`ジョブID: ${jobId || '(not set)'}`);
-  console.log(`ユーザーID: ${userId}`);
-  console.log(`マイリスト名: ${mylistName}`);
-  console.log(`動画数: ${videoIds.length}`);
-  console.log('========================');
-
-  return {
-    jobId,
-    userId,
-    encryptedUserSession,
-    mylistName,
-    videoIds,
-  };
-}
 
 /**
  * user_session を復号化する
