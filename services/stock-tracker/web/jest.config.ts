@@ -26,6 +26,7 @@ const config: Config = {
     'lib/repository-factory.ts',
     'lib/api-error-reporting.ts',
     'lib/percentage-helper.ts',
+    'lib/home-query.ts',
     'lib/axis-performance-view/**/*.ts',
     'lib/forecast/**/*.ts',
     'lib/forecast-view/**/*.ts',

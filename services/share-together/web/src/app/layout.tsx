@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { ServiceWorkerRegistration } from '@nagiyu/react';
 import { ServiceLayout, type NavigationItem } from '@nagiyu/ui';
@@ -47,7 +48,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ServiceWorkerRegistration />
         <UserRegistrationInitializer />
-        <LastVisitedPathController />
+        {/* useSearchParams を使うため、クエリが決まるまで描画を保留する境界が要る */}
+        <Suspense fallback={null}>
+          <LastVisitedPathController />
+        </Suspense>
         {/* SessionHeader は useSession を使うため、SessionProvider の内側に置く */}
         <SessionProviderWrapper>
           <ServiceLayout

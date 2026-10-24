@@ -135,6 +135,38 @@ test.describe('取引所・ティッカーセレクタ機能', () => {
     expect(newTickerCount).toBeGreaterThanOrEqual(2);
   });
 
+  test('選んだ取引所・銘柄・時間枠がリロード後も残る', async ({ page }) => {
+    const exchangeSelect = page.locator('#exchange-select');
+    const tickerSelect = page.locator('#ticker-select');
+    const timeframeSelect = page.locator('#timeframe-select');
+
+    const exchangeValue =
+      (await exchangeSelect.locator('option').nth(1).getAttribute('value')) ?? '';
+    expect(exchangeValue).not.toBe('');
+    await exchangeSelect.selectOption(exchangeValue);
+
+    await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
+    await page.waitForLoadState('networkidle');
+    const tickerValue = (await tickerSelect.locator('option').nth(1).getAttribute('value')) ?? '';
+    expect(tickerValue).not.toBe('');
+    await tickerSelect.selectOption(tickerValue);
+    await timeframeSelect.selectOption('D');
+
+    // 選択が URL に反映される (時間枠が既定値以外のときだけ載る)
+    await expect
+      .poll(() => {
+        const params = new URL(page.url()).searchParams;
+        return [params.get('exchangeId'), params.get('tickerId'), params.get('timeframe')];
+      })
+      .toEqual([exchangeValue, tickerValue, 'D']);
+
+    await page.reload();
+
+    await expect(exchangeSelect).toHaveValue(exchangeValue);
+    await expect(tickerSelect).toHaveValue(tickerValue);
+    await expect(timeframeSelect).toHaveValue('D');
+  });
+
   test('ローディング状態が表示される', async ({ page }) => {
     // ページロード時に取引所ローディングが表示される可能性がある
     // （高速な場合は表示されない可能性もある）
@@ -195,8 +227,10 @@ test.describe('取引所・ティッカーセレクタのアクセシビリテ�
   test('キーボードナビゲーションが機能する', async ({ page }) => {
     await page.goto('/');
 
-    // 取引所セレクトボックスにフォーカスを移動
+    // 取引所一覧の読み込み中はセレクトが disabled で、その間に当てたフォーカスは外れたまま戻らない。
+    // 有効になってからフォーカスを移動する
     const exchangeSelect = page.locator('#exchange-select');
+    await expect(exchangeSelect).toBeEnabled();
     await exchangeSelect.focus();
 
     // フォーカスされていることを確認
