@@ -76,6 +76,9 @@ export default function HomePageClient({ children }: HomePageClientProps) {
   // 初回のクエリ反映が終わるまで URL への書き戻しを止める。
   // 取引所・ティッカーは非同期に取得されるため、反映前は state が空で、書き戻すとクエリを消してしまう
   const [initialSyncDone, setInitialSyncDone] = useState<boolean>(!queryExchangeId);
+  // 人が選択を変えたかどうか。読み込みや補正だけで URL を書き換えると、API の一時的な失敗で
+  // 共有 URL のクエリを消してしまうため、書き戻しは人の操作に限る
+  const [selectionChangedByUser, setSelectionChangedByUser] = useState<boolean>(false);
   const [barCount, setBarCount] = useState<ChartBarCount>(DEFAULT_CHART_BAR_COUNT);
   const [autoRefresh, setAutoRefresh] = useState<boolean>(false);
 
@@ -325,11 +328,13 @@ export default function HomePageClient({ children }: HomePageClientProps) {
     setInitialSyncDone(true);
   }, [exchange, tickers, tickersFetchedFor, queryTickerId]);
 
-  // 選択状態を URL に書き戻す。履歴を積まないよう replace 相当で更新する。
+  // 人が選択を変えたあと、初回反映が済んでいれば選択状態を URL に書き戻す。
+  // 反映の待機中に変えた分は、反映が済んだ時点で最新の状態ごと書き戻される。
+  // 履歴を積まないよう replace 相当で更新する。
   // router.replace は動的レンダリングのレイアウトごとサーバーへ RSC を取りに行くため、
   // 選択のたびに往復が発生する。history API なら往復なしで useSearchParams に同期される
   useEffect(() => {
-    if (!initialSyncDone) {
+    if (!initialSyncDone || !selectionChangedByUser) {
       return;
     }
 
@@ -341,13 +346,22 @@ export default function HomePageClient({ children }: HomePageClientProps) {
     if (nextUrl !== null) {
       window.history.replaceState(null, '', nextUrl);
     }
-  }, [initialSyncDone, exchange, ticker, timeframe, pathname, searchParams]);
+  }, [
+    initialSyncDone,
+    selectionChangedByUser,
+    exchange,
+    ticker,
+    timeframe,
+    pathname,
+    searchParams,
+  ]);
 
   // イベントハンドラー
   // 初回反映の待機中に人が選んだ場合は、その選択を優先してクエリの反映を取りやめる
   const abandonInitialSelection = () => {
     initialSelectionAppliedRef.current = { exchange: true, ticker: true };
     setInitialSyncDone(true);
+    setSelectionChangedByUser(true);
   };
 
   const handleExchangeChange = (value: string) => {
@@ -364,6 +378,7 @@ export default function HomePageClient({ children }: HomePageClientProps) {
 
   const handleTimeframeChange = (value: string) => {
     setTimeframe(value as Timeframe);
+    setSelectionChangedByUser(true);
   };
 
   const handleBarCountChange = (value: string) => {

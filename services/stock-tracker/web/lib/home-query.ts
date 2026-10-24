@@ -1,14 +1,12 @@
-import { TIMEFRAME_LABELS, type Timeframe } from '../types/stock';
-
 /**
  * トップ画面の選択状態を URL クエリと相互変換する。
  *
  * 選択を URL に載せることで、リロードや共有・ブックマークで同じ画面を再現できる。
  * 対象は取引所・銘柄・時間枠のみで、それ以外のクエリは触らない。
+ * 時間枠が既定値のときは URL に載せず、URL を短く保つ。
  */
 
-/** 時間枠の既定値。既定値のときは URL に載せず、URL を短く保つ */
-export const DEFAULT_TIMEFRAME: Timeframe = '60';
+import { DEFAULT_TIMEFRAME, TIMEFRAME_LABELS, type Timeframe } from '../types/stock';
 
 const QUERY_KEYS = {
   EXCHANGE_ID: 'exchangeId',

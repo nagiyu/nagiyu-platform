@@ -24,6 +24,11 @@ export const TIMEFRAME_LABELS: Record<Timeframe, string> = {
 } as const;
 
 /**
+ * 時間枠のデフォルト値
+ */
+export const DEFAULT_TIMEFRAME: Timeframe = '60';
+
+/**
  * チャート表示本数の型定義
  */
 export type ChartBarCount = 10 | 30 | 50 | 100;

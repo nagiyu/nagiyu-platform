@@ -1,4 +1,5 @@
-import { DEFAULT_TIMEFRAME, buildHomeUrl, parseTimeframe } from '../../../lib/home-query';
+import { buildHomeUrl, parseTimeframe } from '../../../lib/home-query';
+import { DEFAULT_TIMEFRAME } from '../../../types/stock';
 import type { HomeSelection } from '../../../lib/home-query';
 
 const EMPTY_SELECTION: HomeSelection = {
