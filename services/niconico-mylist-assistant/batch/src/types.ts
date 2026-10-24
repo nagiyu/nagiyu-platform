@@ -2,20 +2,16 @@
  * Playwright 自動化スクリプトの型定義
  */
 
+import type { MylistRegistrationJobInput } from '@nagiyu/niconico-mylist-assistant-core';
+
 /**
  * マイリスト登録ジョブのパラメータ
+ *
+ * web からの入力 (core と共有) に、AWS Batch が実行時に割り当てるジョブ ID を足したもの。
  */
-export interface MylistRegistrationJobParams {
+export interface MylistRegistrationJobParams extends MylistRegistrationJobInput {
   /** バッチジョブID (AWS Batch Job ID) */
   jobId: string;
-  /** ユーザーID */
-  userId: string;
-  /** ニコニコ動画の user_session クッキー値（暗号化済み） */
-  encryptedUserSession: string;
-  /** マイリスト名 */
-  mylistName: string;
-  /** 登録する動画IDのリスト */
-  videoIds: string[];
 }
 
 /**

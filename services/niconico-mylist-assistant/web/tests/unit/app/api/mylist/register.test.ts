@@ -19,7 +19,12 @@ jest.mock('../../../../../src/lib/niconico-session', () => ({
 }));
 
 // モック：niconico-mylist-assistant-core（動画選択・バッチジョブ作成）
+// ジョブ入力の変換 (toJobEnvironment) は純粋関数なので実物を使い、渡す環境変数の形まで検証する。
+// core 全体を requireActual すると、モック済みの @nagiyu/aws に依存するリポジトリ層まで読み込まれるため、
+// 入力定義のモジュールだけを読む。
 jest.mock('@nagiyu/niconico-mylist-assistant-core', () => ({
+  toJobEnvironment: jest.requireActual('../../../../../../core/src/job-input/job-input')
+    .toJobEnvironment,
   selectRandomVideos: jest.fn(),
   createBatchJob: jest.fn(),
 }));
@@ -390,6 +395,27 @@ describe('POST /api/mylist/register', () => {
     const env = sendCallArgs.input.containerOverrides.environment;
     const encryptedEnv = env.find((e) => e.name === 'ENCRYPTED_USER_SESSION');
     expect(encryptedEnv?.value).toBe(SAMPLE_ENCRYPTED_BLOB);
+  });
+
+  it('起動ごとの入力だけを環境変数で渡し、ジョブ定義で設定する値は渡さない', async () => {
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+    mockGetEncryptedUserSessionBlob.mockResolvedValue(SAMPLE_ENCRYPTED_BLOB);
+    mockSelectRandomVideos.mockResolvedValue(makeMockVideos(['sm1', 'sm2']));
+    const mockSend = setupBatchClientMock({ jobId: 'job-003' });
+    mockCreateBatchJob.mockResolvedValue({ ...MOCK_BATCH_JOB_ENTITY, jobId: 'job-003' });
+
+    const response = await POST(makePostRequest({ maxCount: 5, mylistName: '環境変数検証' }));
+    expect(response.status).toBe(200);
+
+    const sendCallArgs = mockSend.mock.calls[0][0] as {
+      input: { containerOverrides: { environment: Array<{ name: string; value: string }> } };
+    };
+    expect(sendCallArgs.input.containerOverrides.environment).toEqual([
+      { name: 'USER_ID', value: 'user123' },
+      { name: 'VIDEO_IDS', value: '["sm1","sm2"]' },
+      { name: 'MYLIST_NAME', value: '環境変数検証' },
+      { name: 'ENCRYPTED_USER_SESSION', value: SAMPLE_ENCRYPTED_BLOB },
+    ]);
   });
 });
 
