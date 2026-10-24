@@ -125,7 +125,7 @@
     AWS_ACCESS_KEY_ID=fakekey
     AWS_SECRET_ACCESS_KEY=fakesecret
     AWS_REGION=us-east-1
-    DYNAMODB_TABLE=ダミー  S3_BUCKET=ダミー  BATCH_JOB_QUEUE=ダミー  BATCH_JOB_DEFINITION_PREFIX=ダミー
+    DYNAMODB_TABLE_NAME=ダミー  S3_BUCKET=ダミー  BATCH_JOB_QUEUE=ダミー  BATCH_JOB_DEFINITION_PREFIX=ダミー
     ```
 
 - ブラウザから署名付き URL へ直接 PUT するので、偽のサーバーは CORS に応える。

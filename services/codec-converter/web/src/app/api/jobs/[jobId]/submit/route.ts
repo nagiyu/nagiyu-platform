@@ -6,6 +6,7 @@ import {
   DynamoDBJobRepository,
   type JobStatus,
   selectJobDefinition,
+  toBatchEnvironment,
 } from '@nagiyu/codec-converter-core';
 import { toErrorMessage } from '@nagiyu/common';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
@@ -16,7 +17,7 @@ import { withApiErrorReporting } from '@/lib/api-error-reporting';
  */
 function getEnvVars() {
   return {
-    DYNAMODB_TABLE: process.env.DYNAMODB_TABLE || '',
+    DYNAMODB_TABLE_NAME: process.env.DYNAMODB_TABLE_NAME || '',
     S3_BUCKET: process.env.S3_BUCKET || '',
     BATCH_JOB_QUEUE: process.env.BATCH_JOB_QUEUE || '',
     BATCH_JOB_DEFINITION_PREFIX: process.env.BATCH_JOB_DEFINITION_PREFIX || '',
@@ -43,12 +44,17 @@ export const POST = withApiErrorReporting(
     const { jobId } = await params;
 
     // AWS クライアントと環境変数の取得
-    const { DYNAMODB_TABLE, S3_BUCKET, BATCH_JOB_QUEUE, BATCH_JOB_DEFINITION_PREFIX, AWS_REGION } =
-      getEnvVars();
+    const {
+      DYNAMODB_TABLE_NAME,
+      S3_BUCKET,
+      BATCH_JOB_QUEUE,
+      BATCH_JOB_DEFINITION_PREFIX,
+      AWS_REGION,
+    } = getEnvVars();
     const { docClient, s3Client, batchClient } = getAwsClients(AWS_REGION);
 
     // 1. ジョブの存在確認
-    const job = await new DynamoDBJobRepository(docClient, DYNAMODB_TABLE).getById(jobId);
+    const job = await new DynamoDBJobRepository(docClient, DYNAMODB_TABLE_NAME).getById(jobId);
 
     if (!job) {
       return NextResponse.json(
@@ -132,6 +138,12 @@ export const POST = withApiErrorReporting(
       `Submitting job ${jobId} with definition ${jobDefinitionName} (fileSize: ${job.fileSize}, codec: ${job.outputCodec})`
     );
 
+    // テーブル名などジョブ定義が持つ値は渡さず、起動ごとの値だけを渡す
+    const batchEnvironment = toBatchEnvironment({
+      jobId,
+      outputCodec: job.outputCodec,
+    });
+
     try {
       await batchClient.send(
         new SubmitJobCommand({
@@ -139,13 +151,7 @@ export const POST = withApiErrorReporting(
           jobQueue: BATCH_JOB_QUEUE,
           jobDefinition: jobDefinitionName,
           containerOverrides: {
-            environment: [
-              { name: 'JOB_ID', value: jobId },
-              { name: 'OUTPUT_CODEC', value: job.outputCodec },
-              { name: 'DYNAMODB_TABLE', value: DYNAMODB_TABLE },
-              { name: 'S3_BUCKET', value: S3_BUCKET },
-              { name: 'AWS_REGION', value: AWS_REGION },
-            ],
+            environment: batchEnvironment,
           },
         })
       );
@@ -176,13 +182,7 @@ export const POST = withApiErrorReporting(
             jobQueue: BATCH_JOB_QUEUE,
             jobDefinition: fallbackJobDefinitionName,
             containerOverrides: {
-              environment: [
-                { name: 'JOB_ID', value: jobId },
-                { name: 'OUTPUT_CODEC', value: job.outputCodec },
-                { name: 'DYNAMODB_TABLE', value: DYNAMODB_TABLE },
-                { name: 'S3_BUCKET', value: S3_BUCKET },
-                { name: 'AWS_REGION', value: AWS_REGION },
-              ],
+              environment: batchEnvironment,
             },
           })
         );
