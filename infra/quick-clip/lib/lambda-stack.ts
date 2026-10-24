@@ -163,6 +163,9 @@ export class LambdaStack extends LambdaStackBase {
       memorySize: 2048,
       timeout: cdk.Duration.seconds(300),
       ephemeralStorageSize: cdk.Size.mebibytes(10240),
+      // 再試行は起動時の古い開始・終了で走り、後から変えた内容を上書きしうるため行わない。
+      // 失敗したクリップは画面の作り直しの操作で再開する
+      retryAttempts: 0,
       environment: {
         NODE_ENV: environment === 'prod' ? 'production' : 'development',
         DEPLOY_ENV: environment,
