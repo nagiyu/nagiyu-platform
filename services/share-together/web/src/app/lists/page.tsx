@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { Box, Typography } from '@mui/material';
 import { useSearchParams } from 'next/navigation';
 import { ListWorkspace } from '@/components/ListWorkspace';
+import { parseListsQuery } from '@/lib/listsQuery';
 import type { PersonalListsResponse } from '@/types';
 
 const LISTS_PAGE_MESSAGES = {
@@ -36,9 +37,10 @@ export default function ListsPage() {
 
 function ListsPageContent() {
   const searchParams = useSearchParams();
-  const scope = searchParams.get('scope') === 'shared' ? 'shared' : 'personal';
-  const initialGroupId = searchParams.get('groupId') ?? '';
-  const listIdFromQuery = searchParams.get('listId') ?? '';
+  // ListWorkspace が選択を URL へ書き戻すと searchParams が変わる。初回のクエリだけを取り込み、
+  // 書き戻しで ListWorkspace の初期値が差し替わって状態や取得が作り直されるのを防ぐ。
+  const [initialSelection] = useState(() => parseListsQuery(searchParams));
+  const { scope, groupId: initialGroupId, listId: listIdFromQuery } = initialSelection;
   const hasListIdFromQuery = listIdFromQuery.length > 0;
   const [defaultListId, setDefaultListId] = useState<string>('');
   const [isListLoading, setIsListLoading] = useState(!hasListIdFromQuery);

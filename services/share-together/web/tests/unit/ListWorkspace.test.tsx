@@ -2,18 +2,27 @@ import '@testing-library/jest-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ListWorkspace } from '@/components/ListWorkspace';
 
+const mockPush = jest.fn();
+const mockRouter = { push: mockPush };
+const mockUseSearchParams = jest.fn<URLSearchParams, []>();
+
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: jest.fn(),
-  }),
+  useRouter: () => mockRouter,
+  useSearchParams: () => mockUseSearchParams(),
 }));
 
 describe('ListWorkspace', () => {
   let originalFetch: typeof globalThis.fetch | undefined;
   let promptSpy: jest.SpyInstance;
   let confirmSpy: jest.SpyInstance;
+  let replaceStateSpy: jest.SpyInstance;
 
   beforeEach(() => {
+    mockPush.mockClear();
+    // Next.js のルーターを介さず URL を書き換えるため、history を直接観測する。
+    replaceStateSpy = jest.spyOn(window.history, 'replaceState').mockImplementation(() => {});
+    mockUseSearchParams.mockReset();
+    mockUseSearchParams.mockReturnValue(new URLSearchParams());
     originalFetch = globalThis.fetch;
     promptSpy = jest.spyOn(window, 'prompt');
     confirmSpy = jest.spyOn(window, 'confirm');
@@ -228,6 +237,7 @@ describe('ListWorkspace', () => {
     });
     promptSpy.mockRestore();
     confirmSpy.mockRestore();
+    replaceStateSpy.mockRestore();
   });
 
   it('個人と共有を切り替えると共有グループと共有ToDoをAPIから表示する', async () => {
@@ -482,7 +492,7 @@ describe('ListWorkspace', () => {
     );
   });
 
-  it('共有リスト選択時は URL を変更せず ToDo を切り替える', async () => {
+  it('共有リスト選択時は ToDo を切り替える', async () => {
     render(<ListWorkspace initialListId="group-list-2" />);
 
     fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'shared' } });
@@ -617,6 +627,299 @@ describe('ListWorkspace', () => {
     expect(screen.getByLabelText('表示範囲')).toHaveValue('personal');
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: /を編集$/ })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('選択状態の URL への書き戻し', () => {
+    const installPersonalListsFetch = () => {
+      const baseFetch = globalThis.fetch as jest.Mock;
+      const fetchMock = jest
+        .fn()
+        .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+          if (input === '/api/lists' && init?.method === 'POST') {
+            return Promise.resolve({
+              ok: true,
+              status: 201,
+              json: async () => ({
+                data: { listId: 'created-personal-list', name: '作成した個人リスト' },
+              }),
+            } as Response);
+          }
+          if (input === '/api/lists') {
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: async () => ({
+                data: {
+                  lists: [
+                    { listId: 'api-personal-list-1', name: 'API個人リスト', isDefault: true },
+                    { listId: 'api-personal-list-2', name: '2つ目の個人リスト', isDefault: false },
+                  ],
+                },
+              }),
+            } as Response);
+          }
+          if (
+            input === '/api/lists/api-personal-list-2/todos' ||
+            input === '/api/lists/created-personal-list/todos'
+          ) {
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: async () => ({ data: { todos: [] } }),
+            } as Response);
+          }
+          return baseFetch(input, init);
+        });
+      Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+      Object.defineProperty(window, 'fetch', { writable: true, value: fetchMock });
+    };
+
+    it('個人リストを表示すると listId だけのクエリへ書き換える', async () => {
+      render(<ListWorkspace initialListId="api-personal-list-1" />);
+
+      await waitFor(() => {
+        expect(replaceStateSpy).toHaveBeenCalledWith(null, '', '/lists?listId=api-personal-list-1');
+      });
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    it('個人リストを選び直すと、選んだリストの listId へ書き換える', async () => {
+      installPersonalListsFetch();
+      render(<ListWorkspace initialListId="api-personal-list-1" />);
+      const secondList = await screen.findByRole('button', { name: '2つ目の個人リスト' });
+
+      fireEvent.click(secondList);
+
+      await waitFor(() => {
+        expect(replaceStateSpy).toHaveBeenLastCalledWith(
+          null,
+          '',
+          '/lists?listId=api-personal-list-2'
+        );
+      });
+    });
+
+    it('個人リストを作成すると、作成したリストの listId へ書き換える', async () => {
+      installPersonalListsFetch();
+      promptSpy.mockReturnValue('作成した個人リスト');
+      render(<ListWorkspace initialListId="api-personal-list-1" />);
+      await screen.findByRole('button', { name: '2つ目の個人リスト' });
+
+      fireEvent.click(screen.getByRole('button', { name: '個人リストを作成' }));
+
+      await waitFor(() => {
+        expect(replaceStateSpy).toHaveBeenLastCalledWith(
+          null,
+          '',
+          '/lists?listId=created-personal-list'
+        );
+      });
+    });
+
+    it('すでに URL が選択状態と同じなら 書き換えない', async () => {
+      mockUseSearchParams.mockReturnValue(new URLSearchParams('listId=api-personal-list-1'));
+      render(<ListWorkspace initialListId="api-personal-list-1" />);
+      await waitFor(() => {
+        expect(screen.getByText('API個人ToDo')).toBeInTheDocument();
+      });
+
+      expect(replaceStateSpy).not.toHaveBeenCalled();
+    });
+
+    it('表示範囲を共有へ切り替えると、scope・groupId・共有リストの listId へ書き換える', async () => {
+      render(<ListWorkspace initialListId="mock-default-list" />);
+
+      fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'shared' } });
+
+      await waitFor(() => {
+        expect(replaceStateSpy).toHaveBeenLastCalledWith(
+          null,
+          '',
+          '/lists?scope=shared&groupId=group-1&listId=group-list-1'
+        );
+      });
+    });
+
+    it('共有から個人へ戻すと、scope と groupId を外して個人リストの listId へ書き換える', async () => {
+      render(<ListWorkspace initialListId="mock-default-list" />);
+      fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'shared' } });
+      await waitFor(() => {
+        expect(replaceStateSpy).toHaveBeenLastCalledWith(
+          null,
+          '',
+          '/lists?scope=shared&groupId=group-1&listId=group-list-1'
+        );
+      });
+
+      fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'personal' } });
+
+      await waitFor(() => {
+        expect(replaceStateSpy).toHaveBeenLastCalledWith(
+          null,
+          '',
+          '/lists?listId=mock-default-list'
+        );
+      });
+    });
+
+    it('グループを切り替えると、切り替え先グループの先頭の共有リストへ書き換える', async () => {
+      render(<ListWorkspace initialListId="mock-default-list" />);
+      fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'shared' } });
+      await screen.findByText('買い物リスト（共有）');
+
+      fireEvent.change(screen.getByLabelText('グループ'), { target: { value: 'group-2' } });
+
+      await waitFor(() => {
+        expect(replaceStateSpy).toHaveBeenLastCalledWith(
+          null,
+          '',
+          '/lists?scope=shared&groupId=group-2&listId=group-list-2'
+        );
+      });
+    });
+
+    it('共有リストを選び直すと、選んだリストの listId へ書き換える', async () => {
+      const baseFetch = globalThis.fetch as jest.Mock;
+      const fetchMock = jest
+        .fn()
+        .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+          if (input === '/api/groups/group-1/lists' && init?.method === undefined) {
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: async () => ({
+                data: {
+                  lists: [
+                    { listId: 'group-list-1', name: '買い物リスト（共有）' },
+                    { listId: 'group-list-3', name: '旅行リスト（共有）' },
+                  ],
+                },
+              }),
+            } as Response);
+          }
+          if (input === '/api/groups/group-1/lists/group-list-3/todos') {
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: async () => ({ data: { todos: [] } }),
+            } as Response);
+          }
+          return baseFetch(input, init);
+        });
+      Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+      Object.defineProperty(window, 'fetch', { writable: true, value: fetchMock });
+
+      render(
+        <ListWorkspace
+          initialScope="shared"
+          initialGroupId="group-1"
+          initialListId="group-list-1"
+        />
+      );
+      const travelList = await screen.findByRole('button', { name: '旅行リスト（共有）' });
+
+      fireEvent.click(travelList);
+
+      await waitFor(() => {
+        expect(replaceStateSpy).toHaveBeenLastCalledWith(
+          null,
+          '',
+          '/lists?scope=shared&groupId=group-1&listId=group-list-3'
+        );
+      });
+    });
+
+    it('共有リストを作成すると、作成したリストの listId へ書き換える', async () => {
+      render(
+        <ListWorkspace
+          initialScope="shared"
+          initialGroupId="group-1"
+          initialListId="group-list-1"
+        />
+      );
+      await screen.findByText('買い物リスト（共有）');
+
+      fireEvent.click(screen.getByRole('button', { name: '共有リストを作成' }));
+      fireEvent.change(screen.getByRole('textbox', { name: 'リスト名' }), {
+        target: { value: '新しい共有リスト' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: '作成' }));
+
+      await waitFor(() => {
+        expect(replaceStateSpy).toHaveBeenLastCalledWith(
+          null,
+          '',
+          '/lists?scope=shared&groupId=group-1&listId=created-shared-list'
+        );
+      });
+    });
+
+    it('共有スコープの直リンクで開くと、URL が同じなので書き換えない', async () => {
+      mockUseSearchParams.mockReturnValue(
+        new URLSearchParams('scope=shared&groupId=group-2&listId=group-list-2')
+      );
+      render(
+        <ListWorkspace
+          initialScope="shared"
+          initialGroupId="group-2"
+          initialListId="group-list-2"
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('ゴミ出し当番を確認する')).toBeInTheDocument();
+      });
+      expect(replaceStateSpy).not.toHaveBeenCalled();
+    });
+
+    it('共有リストの取得が終わるまでは書き戻さない', async () => {
+      render(
+        <ListWorkspace
+          initialScope="shared"
+          initialGroupId="group-1"
+          initialListId="group-list-1"
+        />
+      );
+
+      expect(replaceStateSpy).not.toHaveBeenCalled();
+      await screen.findByText('買い物リスト（共有）');
+    });
+
+    it('リストが空になった共有スコープでは書き戻さない', async () => {
+      confirmSpy.mockReturnValue(true);
+      mockUseSearchParams.mockReturnValue(
+        new URLSearchParams('scope=shared&groupId=group-1&listId=group-list-1')
+      );
+      render(
+        <ListWorkspace
+          initialScope="shared"
+          initialGroupId="group-1"
+          initialListId="group-list-1"
+        />
+      );
+      await screen.findByRole('button', { name: '買い物リスト（共有）を削除' });
+
+      fireEvent.click(screen.getByRole('button', { name: '買い物リスト（共有）を削除' }));
+      await screen.findByText('共有リストを削除しました。');
+
+      expect(replaceStateSpy).not.toHaveBeenCalled();
+    });
+
+    it('外部のナビゲーションでクエリが外れたら、現在の選択状態で URL を書き戻す', async () => {
+      mockUseSearchParams.mockReturnValue(new URLSearchParams('listId=api-personal-list-1'));
+      const { rerender } = render(<ListWorkspace initialListId="api-personal-list-1" />);
+      await waitFor(() => {
+        expect(screen.getByText('API個人ToDo')).toBeInTheDocument();
+      });
+      expect(replaceStateSpy).not.toHaveBeenCalled();
+
+      mockUseSearchParams.mockReturnValue(new URLSearchParams());
+      rerender(<ListWorkspace initialListId="api-personal-list-1" />);
+
+      await waitFor(() => {
+        expect(replaceStateSpy).toHaveBeenCalledWith(null, '', '/lists?listId=api-personal-list-1');
+      });
     });
   });
 });

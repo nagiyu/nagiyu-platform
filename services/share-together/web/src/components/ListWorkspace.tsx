@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Box, Snackbar, Stack } from '@mui/material';
 import { Select, type SelectOption } from '@nagiyu/ui';
 import { CreateItemDialog } from '@/components/CreateItemDialog';
 import { ListSidebar } from '@/components/ListSidebar';
 import { TodoList } from '@/components/TodoList';
+import { LISTS_PATH, buildListsQuery } from '@/lib/listsQuery';
 import type {
   GroupListResponse,
   GroupListsResponse,
@@ -50,6 +52,8 @@ export function ListWorkspace({
   initialScope = 'personal',
   initialGroupId = '',
 }: ListWorkspaceProps) {
+  const searchParams = useSearchParams();
+  const currentQuery = searchParams.toString();
   const [scope, setScope] = useState<'personal' | 'shared'>(initialScope);
   const [sharedGroups, setSharedGroups] = useState<readonly SharedGroup[]>([]);
   const [sharedListsByGroup, setSharedListsByGroup] = useState<
@@ -200,6 +204,26 @@ export function ListWorkspace({
   } else {
     currentListId = personalListId;
   }
+
+  // リロード・URL 共有・前回表示の復元で選択を引き継げるよう、表示中のリストを URL に反映する。
+  // router.replace はクエリが変わるたびにサーバーへ RSC を取りに行くため、useSearchParams と同期する
+  // history.replaceState で書き換える。履歴は増やさず、表示中のリストが決まるまで (読み込み中など) は書き換えない。
+  useEffect(() => {
+    if (!currentListId || (scope === 'shared' && !selectedGroupId)) {
+      return;
+    }
+
+    const nextQuery = buildListsQuery({
+      scope,
+      groupId: selectedGroupId,
+      listId: currentListId,
+    });
+    if (nextQuery === currentQuery) {
+      return;
+    }
+
+    window.history.replaceState(null, '', `${LISTS_PATH}?${nextQuery}`);
+  }, [scope, selectedGroupId, currentListId, currentQuery]);
 
   const handleCreateList = async (name: string) => {
     if (scope !== 'shared') {

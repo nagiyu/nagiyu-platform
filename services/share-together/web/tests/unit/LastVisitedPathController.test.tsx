@@ -8,11 +8,14 @@ import {
 } from '@/lib/lastVisitedPath';
 
 const mockUsePathname = jest.fn<string | null, []>();
+const mockUseSearchParams = jest.fn<URLSearchParams | null, []>();
 const mockReplace = jest.fn();
+const mockRouter = { replace: mockReplace };
 
 jest.mock('next/navigation', () => ({
   usePathname: () => mockUsePathname(),
-  useRouter: () => ({ replace: mockReplace }),
+  useSearchParams: () => mockUseSearchParams(),
+  useRouter: () => mockRouter,
 }));
 
 describe('LastVisitedPathController', () => {
@@ -21,6 +24,8 @@ describe('LastVisitedPathController', () => {
     window.sessionStorage.clear();
     mockUsePathname.mockReset();
     mockReplace.mockReset();
+    mockUseSearchParams.mockReset();
+    mockUseSearchParams.mockReturnValue(new URLSearchParams());
   });
 
   describe('セッション初回 effect の挙動', () => {
@@ -88,6 +93,58 @@ describe('LastVisitedPathController', () => {
 
       expect(mockReplace).not.toHaveBeenCalled();
       expect(window.localStorage.getItem(LAST_VISITED_PATH_STORAGE_KEY)).toBe('/groups/abc');
+    });
+  });
+
+  describe('クエリ付きの保存と復元', () => {
+    it('クエリ付きのパスはクエリ込みで保存する', () => {
+      window.sessionStorage.setItem(SESSION_BOOTSTRAP_STORAGE_KEY, '1');
+      mockUsePathname.mockReturnValue('/lists');
+      mockUseSearchParams.mockReturnValue(
+        new URLSearchParams('scope=shared&groupId=group-1&listId=list-1')
+      );
+
+      render(<LastVisitedPathController />);
+
+      expect(window.localStorage.getItem(LAST_VISITED_PATH_STORAGE_KEY)).toBe(
+        '/lists?scope=shared&groupId=group-1&listId=list-1'
+      );
+    });
+
+    it('クエリが変わったら保存し直す', () => {
+      window.sessionStorage.setItem(SESSION_BOOTSTRAP_STORAGE_KEY, '1');
+      mockUsePathname.mockReturnValue('/lists');
+      mockUseSearchParams.mockReturnValue(new URLSearchParams('listId=list-1'));
+      const { rerender } = render(<LastVisitedPathController />);
+      expect(window.localStorage.getItem(LAST_VISITED_PATH_STORAGE_KEY)).toBe(
+        '/lists?listId=list-1'
+      );
+
+      mockUseSearchParams.mockReturnValue(new URLSearchParams('listId=list-2'));
+      rerender(<LastVisitedPathController />);
+
+      expect(window.localStorage.getItem(LAST_VISITED_PATH_STORAGE_KEY)).toBe(
+        '/lists?listId=list-2'
+      );
+    });
+
+    it('トップ "/" 着地で前回値がクエリ付きなら、クエリ込みで復元 redirect する', () => {
+      saveLastVisitedPath('/lists?scope=shared&groupId=group-1&listId=list-1');
+      mockUsePathname.mockReturnValue('/');
+
+      render(<LastVisitedPathController />);
+
+      expect(mockReplace).toHaveBeenCalledWith('/lists?scope=shared&groupId=group-1&listId=list-1');
+    });
+
+    it('useSearchParams が null を返してもパスだけを保存する', () => {
+      window.sessionStorage.setItem(SESSION_BOOTSTRAP_STORAGE_KEY, '1');
+      mockUsePathname.mockReturnValue('/groups');
+      mockUseSearchParams.mockReturnValue(null);
+
+      render(<LastVisitedPathController />);
+
+      expect(window.localStorage.getItem(LAST_VISITED_PATH_STORAGE_KEY)).toBe('/groups');
     });
   });
 

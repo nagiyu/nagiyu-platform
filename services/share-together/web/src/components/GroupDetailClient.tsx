@@ -19,6 +19,7 @@ import { Button, TextField } from '@nagiyu/ui';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { ConfirmDialog } from '@nagiyu/ui';
 import { InviteForm } from '@/components/InviteForm';
+import { buildSharedListHref } from '@/lib/listsQuery';
 
 type Member = {
   userId: string;
@@ -63,14 +64,7 @@ export function GroupDetailClient({
   const [deleted, setDeleted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreatingList, setIsCreatingList] = useState(false);
-  const createSharedListHref = (listId: string) => {
-    const query = new URLSearchParams({
-      scope: 'shared',
-      groupId,
-      listId,
-    });
-    return `/lists?${query.toString()}`;
-  };
+  const createSharedListHref = (listId: string) => buildSharedListHref(groupId, listId);
 
   const getErrorMessage = async (response: Response): Promise<string> => {
     try {

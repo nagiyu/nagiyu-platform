@@ -108,4 +108,23 @@ describe('ListsPage', () => {
     });
     expect(fetchMock).not.toHaveBeenCalledWith('/api/lists', expect.anything());
   });
+
+  it('表示後にクエリが書き換わっても、初回のクエリを ListWorkspace の初期値に使い続け API も再取得しない', async () => {
+    const fetchMock = jest.fn();
+    Object.defineProperty(globalThis, 'fetch', {
+      writable: true,
+      value: fetchMock,
+    });
+    mockUseSearchParams.mockReturnValue(
+      new URLSearchParams('scope=shared&groupId=group-2&listId=group-list-2')
+    );
+    const { rerender } = render(<ListsPage />);
+    await screen.findByText('ListWorkspace: group-list-2:shared:group-2');
+
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('listId=personal-list'));
+    rerender(<ListsPage />);
+
+    expect(screen.getByText('ListWorkspace: group-list-2:shared:group-2')).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

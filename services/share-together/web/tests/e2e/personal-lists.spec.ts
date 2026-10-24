@@ -67,6 +67,99 @@ test.describe('個人リスト管理', () => {
     );
   });
 
+  test('選んだ個人リストが URL に反映され、リロード後も残る', async ({ page }) => {
+    await page.getByRole('button', { name: '仕事リスト' }).first().click();
+    await expect(page).toHaveURL(/\/lists\?listId=list-work$/);
+
+    await page.reload();
+
+    await expect(page.getByRole('button', { name: '仕事リスト' }).first()).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+    await expect(
+      page.getByRole('button', { name: 'デフォルトリスト' }).first()
+    ).not.toHaveAttribute('aria-current', 'page');
+  });
+
+  test('作成した個人リストがリロード後も選択されている', async ({ page }) => {
+    await createPersonalListByPrompt(page, '旅行リスト');
+    await expect(page).toHaveURL(/\/lists\?listId=(?!list-default$)(?!list-work$)[^&]+$/);
+
+    await page.reload();
+
+    await expect(page.getByRole('button', { name: '旅行リスト' }).first()).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+  });
+
+  test('選んだ共有リストが URL に反映され、リロード後も残る', async ({ page, request }) => {
+    await resetTestData(request, {
+      users: [TEST_USER],
+      personalLists: [
+        {
+          listId: 'list-default',
+          userId: TEST_USER.userId,
+          name: 'デフォルトリスト',
+          isDefault: true,
+        },
+      ],
+      groups: [
+        {
+          groupId: 'reload-group',
+          name: 'リロード検証グループ',
+          ownerUserId: TEST_USER.userId,
+        },
+      ],
+      memberships: [
+        {
+          groupId: 'reload-group',
+          userId: TEST_USER.userId,
+          role: 'OWNER',
+          status: 'ACCEPTED',
+          respondedAt: Date.now(),
+        },
+      ],
+      groupLists: [
+        {
+          listId: 'reload-list-a',
+          groupId: 'reload-group',
+          name: '共有リストA',
+          createdBy: TEST_USER.userId,
+        },
+        {
+          listId: 'reload-list-b',
+          groupId: 'reload-group',
+          name: '共有リストB',
+          createdBy: TEST_USER.userId,
+        },
+      ],
+    });
+
+    await page.goto('/lists?listId=list-default');
+    await page.getByLabel('表示範囲').first().selectOption('shared');
+    await page.getByRole('button', { name: '共有リストB', exact: true }).click();
+    await expect(page).toHaveURL(
+      /\/lists\?scope=shared&groupId=reload-group&listId=reload-list-b$/
+    );
+
+    // 前回表示したページの復元にも選択が引き継がれる (useSearchParams が書き換えに追従している)。
+    await expect
+      .poll(() =>
+        page.evaluate(() => window.localStorage.getItem('share-together:last-visited-path'))
+      )
+      .toBe('/lists?scope=shared&groupId=reload-group&listId=reload-list-b');
+
+    await page.reload();
+
+    await expect(page.getByLabel('表示範囲').first()).toHaveValue('shared');
+    await expect(page.getByRole('button', { name: '共有リストB', exact: true })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+  });
+
   test('個人リスト名を変更できる', async ({ page }) => {
     page.once('dialog', async (dialog) => {
       expect(dialog.type()).toBe('prompt');
