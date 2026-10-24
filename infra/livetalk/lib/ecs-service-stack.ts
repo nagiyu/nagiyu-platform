@@ -251,9 +251,15 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
     //   → 起動短縮に効くのは startPeriod ではなく pull 時間（下記の ECR ミラー化）。
     //     値そのものの見直しは別途。
     // - 公式イメージは Docker Hub から直接 pull（ECR ミラー化は将来課題）
+    // - イメージは digest で固定する。タグは外部で別のイメージに差し替えられることがあり、
+    //   そのときデプロイしていなくてもタスクの作り直しで新しいイメージを取得してしまう。
+    //   版を上げるときは、ヘルスチェックが通ることを dev で確かめてから digest を差し替える。
+    //   タグは版を読み取るためだけに併記している（digest があると pull ではタグを見ない）。
     const voicevoxContainer = this.taskDefinition.addContainer('voicevox', {
       containerName: 'voicevox',
-      image: ecs.ContainerImage.fromRegistry('voicevox/voicevox_engine:cpu-latest'),
+      image: ecs.ContainerImage.fromRegistry(
+        'voicevox/voicevox_engine:cpu-0.25.2@sha256:eb8c7f46a7d01217d1ff2b6f018261faedeceded3cc756b4fbbf371791ad6c90'
+      ),
       // VV_CPU_NUM_THREADS で並列合成リクエストを処理できるようにする（Issue #3356）。
       // 当初は command で --cpu_num_threads を渡したが Docker CMD 上書きの影響で
       // コンテナが exit 2 で起動失敗したため、公式が明示的にサポートする
