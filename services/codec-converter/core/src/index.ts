@@ -27,6 +27,14 @@ export { formatDateTime, formatJobId } from './format.js';
 export type { JobDefinitionSize } from './resource-selector.js';
 export { selectJobDefinition } from './resource-selector.js';
 
+// Batch ジョブの入力
+export type { BatchJobInput, BatchEnvironmentVariable } from './batch-job-input.js';
+export {
+  BATCH_JOB_INPUT_ENV_NAMES,
+  toBatchEnvironment,
+  readBatchJobInput,
+} from './batch-job-input.js';
+
 // Mapper
 export { JobMapper } from './mappers/job.mapper.js';
 export type { JobKey } from './mappers/job.mapper.js';

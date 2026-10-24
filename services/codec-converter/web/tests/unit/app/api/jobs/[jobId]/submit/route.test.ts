@@ -114,6 +114,11 @@ describe('POST /api/jobs/[jobId]/submit', () => {
     expect(command).toBeInstanceOf(SubmitJobCommand);
     expect(command.input.jobDefinition).toBe('codec-small');
     expect(command.input.jobName).toBe('codec-converter-job-1');
+    // テーブル名などはジョブ定義が持つため、起動ごとの値だけを渡す
+    expect(command.input.containerOverrides?.environment).toEqual([
+      { name: 'JOB_ID', value: 'job-1' },
+      { name: 'OUTPUT_CODEC', value: 'h264' },
+    ]);
   });
 
   it('ジョブ定義の選択に失敗した場合は medium で投入する', async () => {
@@ -145,8 +150,10 @@ describe('POST /api/jobs/[jobId]/submit', () => {
 
     expect(response.status).toBe(200);
     expect(batchSend).toHaveBeenCalledTimes(2);
-    expect((batchSend.mock.calls[1][0] as SubmitJobCommand).input.jobDefinition).toBe(
-      'codec-medium'
+    const fallbackCommand = batchSend.mock.calls[1][0] as SubmitJobCommand;
+    expect(fallbackCommand.input.jobDefinition).toBe('codec-medium');
+    expect(fallbackCommand.input.containerOverrides?.environment).toEqual(
+      (batchSend.mock.calls[0][0] as SubmitJobCommand).input.containerOverrides?.environment
     );
     expect(mockedReportErrorEvent).toHaveBeenCalledTimes(1);
     expect(mockedReportErrorEvent).toHaveBeenCalledWith(
