@@ -9,6 +9,14 @@ export function isRecordablePath(path: string): boolean {
   return path.startsWith('/');
 }
 
+/**
+ * パスとクエリを保存・復元に使う 1 つの文字列にする。
+ * リスト画面は表示中のリストをクエリで表すため、パスだけでは前回の状態に戻れない。
+ */
+export function buildVisitedPath(pathname: string, search: string): string {
+  return search ? `${pathname}?${search}` : pathname;
+}
+
 export function loadLastVisitedPath(): string | null {
   return getItem<string>(LAST_VISITED_PATH_STORAGE_KEY);
 }
