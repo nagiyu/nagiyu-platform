@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { Container, Box, Paper, IconButton, Tooltip } from '@mui/material';
 import PauseIcon from '@mui/icons-material/Pause';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -58,7 +58,6 @@ interface HomePageClientProps {
 
 export default function HomePageClient({ children }: HomePageClientProps) {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const pathname = usePathname();
   const initialSelectionAppliedRef = useRef<{ exchange: boolean; ticker: boolean }>({
     exchange: false,
@@ -326,7 +325,9 @@ export default function HomePageClient({ children }: HomePageClientProps) {
     setInitialSyncDone(true);
   }, [exchange, tickers, tickersFetchedFor, queryTickerId]);
 
-  // 選択状態を URL に書き戻す。履歴を積まないよう replace を使う
+  // 選択状態を URL に書き戻す。履歴を積まないよう replace 相当で更新する。
+  // router.replace は動的レンダリングのレイアウトごとサーバーへ RSC を取りに行くため、
+  // 選択のたびに往復が発生する。history API なら往復なしで useSearchParams に同期される
   useEffect(() => {
     if (!initialSyncDone) {
       return;
@@ -338,9 +339,9 @@ export default function HomePageClient({ children }: HomePageClientProps) {
       timeframe,
     });
     if (nextUrl !== null) {
-      router.replace(nextUrl, { scroll: false });
+      window.history.replaceState(null, '', nextUrl);
     }
-  }, [initialSyncDone, exchange, ticker, timeframe, pathname, searchParams, router]);
+  }, [initialSyncDone, exchange, ticker, timeframe, pathname, searchParams]);
 
   // イベントハンドラー
   // 初回反映の待機中に人が選んだ場合は、その選択を優先してクエリの反映を取りやめる
