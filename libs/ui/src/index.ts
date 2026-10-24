@@ -52,3 +52,10 @@ export { buildSignOutUrl, buildRefreshUrl } from './utils/auth';
 // Export feedback components
 export { default as AccessDeniedView } from './components/feedback/AccessDeniedView';
 export type { AccessDeniedViewProps } from './components/feedback/AccessDeniedView';
+export {
+  default as NotFoundView,
+  NOT_FOUND_VIEW_MESSAGES,
+} from './components/feedback/NotFoundView';
+export type { NotFoundViewProps } from './components/feedback/NotFoundView';
+export { default as ErrorView, ERROR_VIEW_MESSAGES } from './components/feedback/ErrorView';
+export type { ErrorViewProps } from './components/feedback/ErrorView';
