@@ -57,7 +57,8 @@ describe('LiveTalkEcsServiceStack', () => {
       ContainerDefinitions: Match.arrayWith([
         Match.objectLike({
           Name: 'voicevox',
-          Image: 'voicevox/voicevox_engine:cpu-latest',
+          Image:
+            'voicevox/voicevox_engine:cpu-0.25.2@sha256:eb8c7f46a7d01217d1ff2b6f018261faedeceded3cc756b4fbbf371791ad6c90',
           Essential: true,
           PortMappings: Match.arrayWith([Match.objectLike({ ContainerPort: 50021 })]),
           HealthCheck: Match.objectLike({
