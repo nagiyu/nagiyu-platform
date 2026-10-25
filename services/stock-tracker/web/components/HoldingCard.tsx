@@ -46,6 +46,8 @@ interface HoldingCardProps {
   tickerId: string;
   symbol: string;
   exchangeId: string;
+  /** 新規登録時の通貨の初期値。取引所の市場が決められないときは空文字 */
+  defaultCurrency: string;
   loading: boolean;
   error: string;
   onChanged: () => Promise<void>;
@@ -56,6 +58,7 @@ export default function HoldingCard({
   tickerId,
   symbol,
   exchangeId,
+  defaultCurrency,
   loading,
   error,
   onChanged,
@@ -73,7 +76,7 @@ export default function HoldingCard({
   const [formData, setFormData] = useState<HoldingFormData>({
     quantity: '',
     averagePrice: '',
-    currency: 'USD',
+    currency: defaultCurrency,
   });
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof HoldingFormData, string>>>({});
   const canAddHolding = !loading && !holding;
@@ -115,7 +118,7 @@ export default function HoldingCard({
     setFormData({
       quantity: '',
       averagePrice: '',
-      currency: 'USD',
+      currency: defaultCurrency,
     });
     setCreateModalOpen(true);
   };

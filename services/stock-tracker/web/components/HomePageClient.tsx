@@ -17,6 +17,8 @@ import {
 } from '@/types/stock';
 import { computeAlertLines } from '@/lib/chart-overlay-lines';
 import { buildHomeUrl, parseTimeframe } from '@/lib/home-query';
+import { resolveInitialCurrency } from '@/lib/holding-currency';
+import type { ExchangeMarket } from '@nagiyu/stock-tracker-core';
 import StockChart from './StockChart';
 import EmptyState from './EmptyState';
 import TickerSummaryCard from './TickerSummaryCard';
@@ -34,6 +36,8 @@ interface Exchange {
     start: string;
     end: string;
   };
+  /** 市場。未設定の取引所では省略される */
+  market?: ExchangeMarket | null;
 }
 
 interface Ticker {
@@ -537,6 +541,7 @@ export default function HomePageClient({ children }: HomePageClientProps) {
             tickerId={ticker}
             symbol={selectedTickerSymbol}
             exchangeId={exchange}
+            defaultCurrency={resolveInitialCurrency(exchanges, exchange)}
             loading={holdingLoading}
             error={holdingError}
             onChanged={refreshHoldingAndAlerts}
