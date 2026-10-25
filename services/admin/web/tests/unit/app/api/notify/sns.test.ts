@@ -18,6 +18,9 @@ jest.mock(
   '@nagiyu/admin-core',
   () => ({
     createPushSubscriptionRepository: jest.fn(),
+    // 判定は純粋関数なので、モックせず実装そのものを使う
+    isSnsSubscribeUrl: jest.requireActual('../../../../../../core/src/notify/sns-validator')
+      .isSnsSubscribeUrl,
     validateSnsMessage: jest.fn(),
     WebPushSender: jest.fn(),
   }),
@@ -97,8 +100,62 @@ describe('POST /api/notify/sns', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ success: true });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledWith(SUBSCRIBE_URL);
+    expect(fetchMock).toHaveBeenCalledWith(SUBSCRIBE_URL, { redirect: 'error' });
     expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['AWS SNS 以外のホスト', 'https://evil.example/?Action=ConfirmSubscription'],
+    ['http', 'http://sns.us-east-1.amazonaws.com/?Action=ConfirmSubscription'],
+    ['不正な文字列', 'not a url'],
+    ['非文字列', 12345],
+  ])(
+    'SubscribeURL が %s の場合は 400 を返し、fetch せず警告を出す',
+    async (_label, subscribeUrl) => {
+      mockValidateSnsMessage.mockResolvedValue({
+        ...subscriptionConfirmation(ALLOWED_TOPIC_ARN),
+        SubscribeURL: subscribeUrl as string,
+      });
+
+      const response = await POST(createRequest({}));
+
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toBe('INVALID_REQUEST');
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ topicArn: ALLOWED_TOPIC_ARN })
+      );
+    }
+  );
+
+  it('SubscribeURL の警告ログには Token を含む URL 全体を載せずホストのみを載せる', async () => {
+    mockValidateSnsMessage.mockResolvedValue({
+      ...subscriptionConfirmation(ALLOWED_TOPIC_ARN),
+      SubscribeURL: 'https://evil.example/?Token=secret',
+    });
+
+    await POST(createRequest({}));
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ host: 'evil.example' })
+    );
+    expect(JSON.stringify(warnSpy.mock.calls)).not.toContain('secret');
+  });
+
+  it('SubscribeURL が無い SubscriptionConfirmation は 400 を返し、fetch しない', async () => {
+    mockValidateSnsMessage.mockResolvedValue({
+      Type: 'SubscriptionConfirmation',
+      TopicArn: ALLOWED_TOPIC_ARN,
+    });
+
+    const response = await POST(createRequest({}));
+
+    expect(response.status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 
   it('許可トピックの Notification は 200 を返し、sendAll を呼ぶ', async () => {
