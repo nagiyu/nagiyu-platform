@@ -1,5 +1,5 @@
 export type { SnsMessage, SnsMessageType } from './notify/sns-validator.js';
-export { validateSnsMessage } from './notify/sns-validator.js';
+export { isSnsSubscribeUrl, validateSnsMessage } from './notify/sns-validator.js';
 
 export type {
   PushSubscriptionRecord,

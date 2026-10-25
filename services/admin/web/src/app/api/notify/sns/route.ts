@@ -14,6 +14,7 @@
  * - 永続化はしない。Push のみ送信する（自己監視は履歴を残す対象ではない）
  * - 本流の CloudWatch Alarm は届かない（Topic が分離されているため）
  * - 署名が正しくても送信元 Topic は任意のため、`SNS_ALLOWED_TOPIC_ARN` 以外の Topic からのメッセージは 403 で拒否する
+ * - SubscriptionConfirmation の SubscribeURL は AWS SNS の確認用 URL (https かつ sns.{region}.amazonaws.com) のときだけ取得し、それ以外は 400 で拒否する
  * - 関連設計: `tasks/persist-error-notifications/design.md` セクション 4
  */
 
@@ -21,6 +22,7 @@ import { NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import {
   createPushSubscriptionRepository,
+  isSnsSubscribeUrl,
   validateSnsMessage,
   WebPushSender,
   type PushNotificationPayload,
@@ -34,6 +36,7 @@ const ERROR_MESSAGES = {
   TOPIC_NOT_ALLOWED: '許可されていない SNS トピックからのメッセージです',
   ALLOWED_TOPIC_NOT_CONFIGURED:
     'SNS_ALLOWED_TOPIC_ARN が設定されていないため、メッセージを拒否しました',
+  INVALID_SUBSCRIBE_URL: 'SubscribeURL が AWS SNS の確認用 URL ではないため、取得を拒否しました',
   INTERNAL_ERROR: 'SNS 通知処理に失敗しました',
   DYNAMODB_TABLE_NAME_REQUIRED: 'DYNAMODB_TABLE_NAME が設定されていません',
 } as const;
@@ -43,6 +46,18 @@ type SnsNotificationMessage = {
   NewStateValue?: string;
   NewStateReason?: string;
 };
+
+function getUrlHost(url: unknown): string | undefined {
+  if (typeof url !== 'string') {
+    return undefined;
+  }
+
+  try {
+    return new URL(url).host;
+  } catch {
+    return undefined;
+  }
+}
 
 function getRepository() {
   const docClient =
@@ -133,9 +148,17 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     if (message.Type === 'SubscriptionConfirmation') {
-      if (typeof message.SubscribeURL === 'string') {
-        await fetch(message.SubscribeURL);
+      if (!isSnsSubscribeUrl(message.SubscribeURL)) {
+        // URL 全体には確認用 Token が含まれるため、ログにはホストのみを載せる
+        console.warn(ERROR_MESSAGES.INVALID_SUBSCRIBE_URL, {
+          topicArn: message.TopicArn,
+          host: getUrlHost(message.SubscribeURL),
+        });
+        return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_SUBSCRIBE_URL);
       }
+
+      // リダイレクトで AWS SNS 以外の宛先へ飛ばされないようにする
+      await fetch(message.SubscribeURL, { redirect: 'error' });
 
       return NextResponse.json({ success: true }, { status: 200 });
     }
