@@ -76,6 +76,43 @@ describe('InvitationsPage', () => {
     expect(screen.getByText('旅行準備リスト')).toBeInTheDocument();
   });
 
+  it('承認が人数上限で失敗した場合は上限の文言を表示し、招待は残る', async () => {
+    render(<InvitationsPage />);
+    await screen.findByText('週末の買い出し');
+
+    mockFetch.mockImplementationOnce(() =>
+      Promise.resolve({
+        ok: false,
+        status: 409,
+        json: async () => ({
+          error: 'MEMBER_LIMIT_EXCEEDED',
+          message: 'グループメンバーは最大5名です',
+        }),
+      } as Response)
+    );
+    fireEvent.click(screen.getAllByRole('button', { name: '承認' })[0]);
+
+    expect(await screen.findByText('グループメンバーは最大5名です')).toBeInTheDocument();
+    expect(screen.getByText('週末の買い出し')).toBeInTheDocument();
+  });
+
+  it('承認がそれ以外の理由で失敗した場合は既定の文言を表示する', async () => {
+    render(<InvitationsPage />);
+    await screen.findByText('週末の買い出し');
+
+    mockFetch.mockImplementationOnce(() =>
+      Promise.resolve({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: 'INTERNAL_SERVER_ERROR', message: 'x' }),
+      } as Response)
+    );
+    fireEvent.click(screen.getAllByRole('button', { name: '承認' })[0]);
+
+    expect(await screen.findByText('招待の承認に失敗しました。')).toBeInTheDocument();
+    expect(screen.getByText('週末の買い出し')).toBeInTheDocument();
+  });
+
   it('拒否ボタンをクリックすると確認ダイアログを表示する', async () => {
     render(<InvitationsPage />);
 

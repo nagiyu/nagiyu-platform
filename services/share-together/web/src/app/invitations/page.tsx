@@ -15,6 +15,7 @@ import {
 import { Button, Chip } from '@nagiyu/ui';
 import type { InvitationSummary, InvitationsResponse } from '@/types';
 import { formatDateTimeJst } from '@/lib/format-date-time';
+import { ACCEPT_FAILURE_MESSAGE, resolveAcceptFailureMessage } from '@/lib/invitation-errors';
 
 export default function InvitationsPage() {
   const [invitations, setInvitations] = useState<InvitationSummary[]>([]);
@@ -52,14 +53,16 @@ export default function InvitationsPage() {
           body: JSON.stringify({ action: 'ACCEPT' }),
         });
         if (!response.ok) {
-          throw new Error(`status: ${response.status}`);
+          console.error('招待の承認に失敗しました', { groupId, status: response.status });
+          setSnackbarMessage(await resolveAcceptFailureMessage(response));
+          return;
         }
 
         setInvitations((prev) => prev.filter((inv) => inv.groupId !== groupId));
         setSnackbarMessage(`「${groupName}」への参加を承認しました。`);
       } catch (error: unknown) {
         console.error('招待の承認に失敗しました', { groupId, error });
-        setSnackbarMessage('招待の承認に失敗しました。');
+        setSnackbarMessage(ACCEPT_FAILURE_MESSAGE);
       }
     })();
   };
