@@ -15,6 +15,7 @@ import '@nagiyu/ui/tokens.css';
 import '@nagiyu/ui/base.css';
 import { shouldLoadAdsense } from '@/lib/adsense';
 import { SITE } from '@/lib/author';
+import { OG_DEFAULTS } from '@/lib/pageMetadata';
 
 export const metadata: Metadata = {
   title: {
@@ -29,17 +30,17 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://nagiyu.com'),
   openGraph: {
     type: 'website',
-    locale: 'ja_JP',
-    url: 'https://nagiyu.com',
+    locale: OG_DEFAULTS.locale,
+    url: SITE.url,
     title: 'nagiyu - AWS と個人開発の実運用ノート',
     description:
       '個人で複数の Web サービスを AWS 上で運用する中で踏んだ失敗と、その場で下した判断の記録。',
-    siteName: 'nagiyu',
+    siteName: SITE.name,
     images: [
       {
-        url: '/og-default.png',
-        width: 1200,
-        height: 630,
+        url: OG_DEFAULTS.imagePath,
+        width: OG_DEFAULTS.imageWidth,
+        height: OG_DEFAULTS.imageHeight,
         alt: 'nagiyu - AWS と個人開発の実運用ノート',
       },
     ],
@@ -49,7 +50,7 @@ export const metadata: Metadata = {
     title: 'nagiyu - AWS と個人開発の実運用ノート',
     description:
       '個人で複数の Web サービスを AWS 上で運用する中で踏んだ失敗と、その場で下した判断の記録。',
-    images: ['/og-default.png'],
+    images: [OG_DEFAULTS.imagePath],
   },
 };
 

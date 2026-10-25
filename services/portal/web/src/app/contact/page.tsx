@@ -7,15 +7,13 @@ import {
   CONTACT_USE_CASES,
   CONTACT_NOTES,
 } from '@/lib/contact';
+import { buildPageMetadata } from '@/lib/pageMetadata';
 
-export const metadata: Metadata = {
-  title: 'お問い合わせ',
-  description:
-    'nagiyu へのお問い合わせは Google フォームからお気軽にどうぞ。技術記事への誤り指摘・ご質問、サイトの不具合報告など、幅広くお受けしています。',
-  alternates: {
-    canonical: 'https://nagiyu.com/contact',
-  },
-};
+export const metadata: Metadata = buildPageMetadata(
+  'お問い合わせ',
+  'nagiyu へのお問い合わせは Google フォームからお気軽にどうぞ。技術記事への誤り指摘・ご質問、サイトの不具合報告など、幅広くお受けしています。',
+  '/contact'
+);
 
 export default function ContactPage() {
   return (
