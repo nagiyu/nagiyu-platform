@@ -6,19 +6,13 @@ import { Button } from '@nagiyu/ui';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import Link from 'next/link';
 import { Suspense } from 'react';
-
-const ERROR_MESSAGES: Record<string, string> = {
-  Configuration: 'サーバー設定に問題があります。管理者にお問い合わせください。',
-  AccessDenied: 'アクセスが拒否されました。',
-  Verification: '認証トークンの有効期限が切れています。',
-  Default: '認証中にエラーが発生しました。もう一度お試しください。',
-};
+import { resolveAuthErrorMessage } from '@/lib/auth-error-message';
 
 function ErrorContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
 
-  const errorMessage = ERROR_MESSAGES[error || ''] || ERROR_MESSAGES.Default;
+  const errorMessage = resolveAuthErrorMessage(error);
 
   return (
     <Container maxWidth="sm">

@@ -25,6 +25,33 @@ describe('UsersTable', () => {
     });
   });
 
+  describe('ロールの表示', () => {
+    it('ROLES に無い ID は ID のまま表示し、ID 自体は表示しない', async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          users: [
+            {
+              userId: 'user-1',
+              name: 'テストユーザー',
+              email: 'user@example.com',
+              roles: ['legacy-role', 'constructor', 'admin'],
+            },
+          ],
+        }),
+      });
+
+      render(<UsersTable canAssignRoles={false} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('legacy-role')).toBeInTheDocument();
+      });
+      expect(screen.getByText('constructor')).toBeInTheDocument();
+      expect(screen.getByText('管理者')).toBeInTheDocument();
+      expect(screen.queryByText('admin')).not.toBeInTheDocument();
+    });
+  });
+
   describe('ユーザー一覧の取得', () => {
     it('ユーザー一覧を正しく表示する', async () => {
       const mockUsers = [
@@ -56,8 +83,8 @@ describe('UsersTable', () => {
       expect(screen.getByText('user1@example.com')).toBeInTheDocument();
       expect(screen.getByText('テストユーザー2')).toBeInTheDocument();
       expect(screen.getByText('user2@example.com')).toBeInTheDocument();
-      expect(screen.getByText('admin')).toBeInTheDocument();
-      expect(screen.getByText('user-manager')).toBeInTheDocument();
+      expect(screen.getByText('管理者')).toBeInTheDocument();
+      expect(screen.getByText('ユーザー管理者')).toBeInTheDocument();
     });
 
     it('ロールがない場合は「なし」を表示する', async () => {
