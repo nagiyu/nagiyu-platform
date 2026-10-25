@@ -58,7 +58,7 @@ describe('POST /api/jobs/[jobId]/highlights/[highlightId]/regenerate', () => {
     } as unknown as ReturnType<typeof getLambdaClient>);
   });
 
-  it('正常系: Lambda 非同期実行後に clipStatus を GENERATING へ更新して返す', async () => {
+  it('正常系: Lambda 非同期実行の前に clipStatus を GENERATING (と開始時刻) へ更新して返す', async () => {
     mockGetById.mockResolvedValue({
       highlightId: 'h1',
       jobId: 'job-1',
@@ -78,12 +78,25 @@ describe('POST /api/jobs/[jobId]/highlights/[highlightId]/regenerate', () => {
       clipStatus: 'GENERATING',
     });
 
-    const response = await POST({} as Request, {
-      params: Promise.resolve({ jobId: 'job-1', highlightId: 'h1' }),
-    });
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1700000123456);
+    let response: Awaited<ReturnType<typeof POST>>;
+    try {
+      response = await POST({} as Request, {
+        params: Promise.resolve({ jobId: 'job-1', highlightId: 'h1' }),
+      });
+    } finally {
+      nowSpy.mockRestore();
+    }
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledWith('job-1', 'h1', {
+      clipStatus: 'GENERATING',
+      clipGeneratingStartedAt: 1700000123456,
+    });
+    expect(mockUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+      lambdaSend.mock.invocationCallOrder[0]
+    );
     expect(lambdaSend).toHaveBeenCalledTimes(1);
     expect(body).toEqual(
       expect.objectContaining({
@@ -119,6 +132,9 @@ describe('POST /api/jobs/[jobId]/highlights/[highlightId]/regenerate', () => {
       status: 'accepted',
       clipStatus: 'PENDING',
     });
+    mockUpdate
+      .mockResolvedValueOnce({ highlightId: 'h1', clipStatus: 'GENERATING' })
+      .mockResolvedValueOnce({ highlightId: 'h1', clipStatus: 'FAILED' });
     lambdaSend.mockRejectedValueOnce(new Error('invoke failed'));
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -140,5 +156,57 @@ describe('POST /api/jobs/[jobId]/highlights/[highlightId]/regenerate', () => {
       })
     );
     consoleErrorSpy.mockRestore();
+  });
+
+  it('異常系: Lambda 起動に失敗したら FAILED に戻してから 500 を返す', async () => {
+    mockGetById.mockResolvedValue({
+      highlightId: 'h1',
+      jobId: 'job-1',
+      order: 1,
+      startSec: 10,
+      endSec: 20,
+      status: 'accepted',
+      clipStatus: 'FAILED',
+    });
+    mockUpdate
+      .mockResolvedValueOnce({ highlightId: 'h1', clipStatus: 'GENERATING' })
+      .mockResolvedValueOnce({ highlightId: 'h1', clipStatus: 'FAILED' });
+    lambdaSend.mockRejectedValueOnce(new Error('invoke failed'));
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    const response = await POST({} as Request, {
+      params: Promise.resolve({ jobId: 'job-1', highlightId: 'h1' }),
+    });
+
+    expect(response.status).toBe(500);
+    expect(mockUpdate).toHaveBeenCalledTimes(2);
+    expect(mockUpdate).toHaveBeenLastCalledWith('job-1', 'h1', { clipStatus: 'FAILED' });
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('異常系: GENERATING の見どころは 409 を返し、更新も Lambda 起動もしない', async () => {
+    mockGetById.mockResolvedValue({
+      highlightId: 'h1',
+      jobId: 'job-1',
+      order: 1,
+      startSec: 10,
+      endSec: 20,
+      status: 'accepted',
+      clipStatus: 'GENERATING',
+      clipGeneratingStartedAt: 1700000000000,
+    });
+
+    const response = await POST({} as Request, {
+      params: Promise.resolve({ jobId: 'job-1', highlightId: 'h1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body).toEqual({
+      error: 'CLIP_GENERATING',
+      message: 'クリップを作り直している最中のため、変更できません',
+    });
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(lambdaSend).not.toHaveBeenCalled();
   });
 });

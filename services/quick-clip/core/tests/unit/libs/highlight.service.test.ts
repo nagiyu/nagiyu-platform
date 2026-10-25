@@ -138,4 +138,27 @@ describe('HighlightService', () => {
     });
     expect(result).toEqual(updated);
   });
+
+  it('clipStatus と一緒に clipGeneratingStartedAt を渡すと、そのまま保存する', async () => {
+    const repository = createRepositoryMock();
+    const service = new HighlightService(repository);
+    const updated: Highlight = {
+      ...baseHighlight,
+      clipStatus: 'GENERATING',
+      clipGeneratingStartedAt: 1700000000000,
+    };
+    repository.getById.mockResolvedValue(baseHighlight);
+    repository.update.mockResolvedValue(updated);
+
+    const result = await service.updateHighlight('job-1', 'h1', {
+      clipStatus: 'GENERATING',
+      clipGeneratingStartedAt: 1700000000000,
+    });
+
+    expect(repository.update).toHaveBeenCalledWith('job-1', 'h1', {
+      clipStatus: 'GENERATING',
+      clipGeneratingStartedAt: 1700000000000,
+    });
+    expect(result).toEqual(updated);
+  });
 });

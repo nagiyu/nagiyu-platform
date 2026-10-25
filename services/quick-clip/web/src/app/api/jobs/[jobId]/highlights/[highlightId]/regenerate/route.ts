@@ -12,6 +12,7 @@ import { DOMAIN_ERROR_MESSAGES, HighlightDomainService } from '@/lib/server/doma
 
 const ERROR_MESSAGES = {
   HIGHLIGHT_NOT_FOUND: '指定された見どころが見つかりません',
+  CLIP_GENERATING: 'クリップを作り直している最中のため、変更できません',
   INTERNAL_SERVER_ERROR: 'クリップ再生成の開始に失敗しました',
 } as const;
 
@@ -42,24 +43,45 @@ export const POST = withApiErrorReporting(
         );
       }
 
-      await getLambdaClient().send(
-        new InvokeCommand({
-          FunctionName: getClipRegenerateFunctionName(),
-          InvocationType: 'Event',
-          Payload: Buffer.from(
-            JSON.stringify({
-              jobId,
-              highlightId,
-              startSec: current.startSec,
-              endSec: current.endSec,
-            })
-          ),
-        })
-      );
+      // 作り直しが重なると同じ S3 キーへの書き込みが競合し、古い内容が最後に残りうる
+      if (current.clipStatus === 'GENERATING') {
+        return NextResponse.json(
+          {
+            error: 'CLIP_GENERATING',
+            message: ERROR_MESSAGES.CLIP_GENERATING,
+          },
+          { status: 409 }
+        );
+      }
 
+      // Lambda は完了時に GENERATED へ更新するため、起動より先に GENERATING にしておく。
+      // 起動後に更新すると、短い作り直しでは Lambda の完了を GENERATING で上書きしかねない
       const updated = await highlightService.updateHighlight(jobId, highlightId, {
         clipStatus: 'GENERATING',
+        clipGeneratingStartedAt: Date.now(),
       });
+
+      try {
+        await getLambdaClient().send(
+          new InvokeCommand({
+            FunctionName: getClipRegenerateFunctionName(),
+            InvocationType: 'Event',
+            Payload: Buffer.from(
+              JSON.stringify({
+                jobId,
+                highlightId,
+                startSec: current.startSec,
+                endSec: current.endSec,
+              })
+            ),
+          })
+        );
+      } catch (invokeError) {
+        // 起動されていない以上、GENERATING のまま残すと誰も完了させない
+        await highlightService.updateHighlight(jobId, highlightId, { clipStatus: 'FAILED' });
+        throw invokeError;
+      }
+
       return NextResponse.json(updated);
     } catch (error) {
       if (error instanceof Error && error.message === DOMAIN_ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND) {

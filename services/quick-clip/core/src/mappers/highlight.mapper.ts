@@ -85,6 +85,10 @@ export class HighlightMapper implements EntityMapper<Highlight, HighlightKey> {
       [TTL_ATTRIBUTE_NAME]: toTtlSeconds(entity.expiresAt),
     };
 
+    if (entity.clipGeneratingStartedAt !== undefined) {
+      item.ClipGeneratingStartedAt = entity.clipGeneratingStartedAt;
+    }
+
     if (entity.dominantEmotion !== undefined) {
       item.DominantEmotion = entity.dominantEmotion;
     }
@@ -112,6 +116,7 @@ export class HighlightMapper implements EntityMapper<Highlight, HighlightKey> {
       Source: requiredPatchValue(changes.source, 'Source'),
       Status: requiredPatchValue(changes.status, 'Status'),
       ClipStatus: requiredPatchValue(changes.clipStatus, 'ClipStatus'),
+      ClipGeneratingStartedAt: optionalPatchValue(changes.clipGeneratingStartedAt),
       DominantEmotion: optionalPatchValue(changes.dominantEmotion),
       [TTL_ATTRIBUTE_NAME]:
         typeof changes.expiresAt === 'number'
@@ -156,6 +161,14 @@ export class HighlightMapper implements EntityMapper<Highlight, HighlightKey> {
       ),
       expiresAt: readTimestamp(item, TTL_ATTRIBUTE_NAME, ['expiresAt']),
     };
+
+    const clipGeneratingStartedAt = readAttribute(item, 'ClipGeneratingStartedAt');
+    if (clipGeneratingStartedAt !== undefined) {
+      entity.clipGeneratingStartedAt = validateNumberField(
+        clipGeneratingStartedAt,
+        'ClipGeneratingStartedAt'
+      );
+    }
 
     const dominantEmotion = readAttribute(item, 'DominantEmotion', ['dominantEmotion']);
     if (dominantEmotion !== undefined) {
