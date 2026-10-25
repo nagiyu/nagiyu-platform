@@ -12,13 +12,13 @@ export const OG_DEFAULTS = {
 /**
  * 固定ページ用のメタデータを組み立てる。
  *
- * Next.js はページで openGraph / twitter を書くと layout の同キーを丸ごと置き換える（浅いマージ）ため、
+ * Next.js はページで openGraph / twitter を書くと layout の同キーを丸ごと置き換える (浅いマージ) ため、
  * title と url だけ書くと siteName・locale・images が消える。そのためここで全項目を揃えて返す。
  * OGP のタイトルにはサイト名のサフィックスを付けず、ページ名のみとする。
  *
  * @param title ページ名
  * @param description ページの説明文
- * @param path 先頭が `/` のページパス（例: `/about`）
+ * @param path 先頭が `/` のページパス (例: `/about`)
  */
 export function buildPageMetadata(title: string, description: string, path: string): Metadata {
   const url = `${SITE.url}${path}`;

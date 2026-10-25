@@ -13,7 +13,7 @@ import { metadata as contactMetadata } from '@/app/contact/page';
 import { metadata as privacyMetadata } from '@/app/privacy/page';
 import { metadata as termsMetadata } from '@/app/terms/page';
 
-// content モジュールをモック化する（ファイルシステムアクセスを回避）
+// content モジュールをモック化する (ファイルシステムアクセスを回避)
 jest.mock('@/lib/content', () => ({
   getAllArticles: jest.fn(() => []),
   getCategoryLabel: jest.fn((category: string) => category),
