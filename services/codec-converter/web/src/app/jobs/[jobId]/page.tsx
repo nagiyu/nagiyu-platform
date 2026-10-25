@@ -241,7 +241,7 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
 
           <Stack spacing={1.5}>
             <Box>
-              <Typography component="span" sx={{ fontWeight: 'bold', mr: 1 }}>
+              <Typography component="span" sx={{ fontWeight: 'bold', mr: 1, whiteSpace: 'nowrap' }}>
                 ジョブID:
               </Typography>
               <Typography component="span" sx={{ fontFamily: 'monospace' }}>
@@ -250,28 +250,30 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
             </Box>
 
             <Box>
-              <Typography component="span" sx={{ fontWeight: 'bold', mr: 1 }}>
+              <Typography component="span" sx={{ fontWeight: 'bold', mr: 1, whiteSpace: 'nowrap' }}>
                 ファイル名:
               </Typography>
-              <Typography component="span">{job.fileName}</Typography>
+              <Typography component="span" sx={{ overflowWrap: 'anywhere' }}>
+                {job.fileName}
+              </Typography>
             </Box>
 
             <Box>
-              <Typography component="span" sx={{ fontWeight: 'bold', mr: 1 }}>
+              <Typography component="span" sx={{ fontWeight: 'bold', mr: 1, whiteSpace: 'nowrap' }}>
                 ファイルサイズ:
               </Typography>
               <Typography component="span">{formatFileSize(job.fileSize)}</Typography>
             </Box>
 
             <Box>
-              <Typography component="span" sx={{ fontWeight: 'bold', mr: 1 }}>
+              <Typography component="span" sx={{ fontWeight: 'bold', mr: 1, whiteSpace: 'nowrap' }}>
                 出力コーデック:
               </Typography>
               <Typography component="span">{CODEC_DISPLAY_NAME[job.outputCodec]}</Typography>
             </Box>
 
             <Box>
-              <Typography component="span" sx={{ fontWeight: 'bold', mr: 1 }}>
+              <Typography component="span" sx={{ fontWeight: 'bold', mr: 1, whiteSpace: 'nowrap' }}>
                 作成日時:
               </Typography>
               <Typography component="span">{formatDateTime(job.createdAt)}</Typography>

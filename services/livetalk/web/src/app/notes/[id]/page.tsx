@@ -59,7 +59,7 @@ export default function NoteDetailPage({ params }: NoteDetailPageProps) {
       )}
 
       {!loading && !error && note && (
-        <Box component="article">
+        <Box component="article" sx={{ overflowWrap: 'anywhere' }}>
           <Typography variant="h6" component="h1" sx={{ mb: 0.5 }}>
             {note.subject}
           </Typography>

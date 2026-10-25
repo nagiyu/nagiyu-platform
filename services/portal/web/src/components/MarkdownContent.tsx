@@ -36,6 +36,12 @@ const DEFAULT_CONTENT_SX: SxProps<Theme> = {
     borderRadius: 0.5,
     fontFamily: 'monospace',
   },
+  // 本文中の長いインラインコードが画面幅を越えて、ページ全体を横に広げるのを防ぐ
+  '& :not(pre) > code': { overflowWrap: 'anywhere' },
+  // 表の中のコードは単語の途中で割れると読めないため、折り返さず表の横スクロールに任せる
+  '& td > code, & th > code': { overflowWrap: 'normal' },
+  // 表は表の中で横スクロールさせ、ページ幅を広げない
+  '& table': { display: 'block', maxWidth: '100%', overflowX: 'auto', mb: 2 },
   '& pre': {
     bgcolor: 'grey.100',
     p: 2,
