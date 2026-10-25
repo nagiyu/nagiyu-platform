@@ -158,7 +158,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       }
 
       // リダイレクトで AWS SNS 以外の宛先へ飛ばされないようにする
-      await fetch(message.SubscribeURL as string, { redirect: 'error' });
+      await fetch(message.SubscribeURL, { redirect: 'error' });
 
       return NextResponse.json({ success: true }, { status: 200 });
     }

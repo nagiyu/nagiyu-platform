@@ -51,7 +51,7 @@ const SNS_HOSTNAME_PATTERN = /^sns\.[a-z0-9-]+\.amazonaws\.com$/;
  * ホスト名の完全一致に加え、`@` を使ったホスト偽装やポート指定を排除するため
  * ユーザー情報とポートの有無も確かめる。
  */
-export function isSnsSubscribeUrl(url: unknown): boolean {
+export function isSnsSubscribeUrl(url: unknown): url is string {
   if (typeof url !== 'string') {
     return false;
   }
