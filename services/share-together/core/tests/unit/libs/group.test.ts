@@ -15,7 +15,8 @@ import {
   leaveGroup,
   removeMember,
   respondToInvitation,
-  validateMemberLimit,
+  validateAcceptLimit,
+  validateInviteLimit,
   validateNoDuplicateInvitation,
   validateOwnerCanBeRemoved,
   validateOwnerCanLeave,
@@ -35,24 +36,69 @@ describe('group library', () => {
     ...overrides,
   });
 
-  it('承認済みメンバーが5名以上の場合は上限エラーになる', () => {
-    const memberships = [1, 2, 3, 4, 5].map((index) =>
-      createMembership({ userId: `user-${index}` })
+  const createAcceptedMembers = (count: number): GroupMembership[] =>
+    Array.from({ length: count }, (_, index) =>
+      createMembership({ userId: `accepted-${index + 1}`, status: 'ACCEPTED' })
     );
 
-    expect(() => validateMemberLimit(memberships)).toThrow(ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED);
+  describe('validateAcceptLimit', () => {
+    it('承認済みメンバーが5名以上の場合は上限エラーになる', () => {
+      expect(() => validateAcceptLimit(createAcceptedMembers(5))).toThrow(
+        ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED
+      );
+    });
+
+    it('承認待ちを数えず、承認済みメンバーが4名以下なら上限エラーにならない', () => {
+      const memberships = [
+        ...createAcceptedMembers(4),
+        createMembership({ userId: 'pending-1', status: 'PENDING', expiresAt: JAN_2 }),
+      ];
+
+      expect(() => validateAcceptLimit(memberships)).not.toThrow();
+    });
   });
 
-  it('PENDINGを含んでも承認済みメンバーが4名以下なら上限エラーにならない', () => {
-    const memberships = [
-      createMembership({ userId: 'user-1', status: 'ACCEPTED' }),
-      createMembership({ userId: 'user-2', status: 'ACCEPTED' }),
-      createMembership({ userId: 'user-3', status: 'ACCEPTED' }),
-      createMembership({ userId: 'user-4', status: 'ACCEPTED' }),
-      createMembership({ userId: 'user-5', status: 'PENDING' }),
-    ];
+  describe('validateInviteLimit', () => {
+    it('承認済みと承認待ちの合計が5名以上の場合は上限エラーになる', () => {
+      const memberships = [
+        ...createAcceptedMembers(3),
+        createMembership({ userId: 'pending-1', status: 'PENDING', expiresAt: JAN_2 }),
+        createMembership({ userId: 'pending-2', status: 'PENDING' }),
+      ];
 
-    expect(() => validateMemberLimit(memberships)).not.toThrow();
+      expect(() => validateInviteLimit(memberships, JAN_1)).toThrow(
+        ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED
+      );
+    });
+
+    it('合計が4名以下なら上限エラーにならない', () => {
+      const memberships = [
+        ...createAcceptedMembers(3),
+        createMembership({ userId: 'pending-1', status: 'PENDING', expiresAt: JAN_2 }),
+      ];
+
+      expect(() => validateInviteLimit(memberships, JAN_1)).not.toThrow();
+    });
+
+    it('期限切れの承認待ちは数えない', () => {
+      const memberships = [
+        ...createAcceptedMembers(3),
+        createMembership({ userId: 'pending-1', status: 'PENDING', expiresAt: JAN_2 }),
+        // 期限と同時刻の招待も、すでに無効として扱う
+        createMembership({ userId: 'pending-2', status: 'PENDING', expiresAt: JAN_2 }),
+      ];
+
+      expect(() => validateInviteLimit(memberships, JAN_2)).not.toThrow();
+    });
+
+    it('拒否済みは数えない', () => {
+      const memberships = [
+        ...createAcceptedMembers(4),
+        createMembership({ userId: 'rejected-1', status: 'REJECTED' }),
+      ];
+
+      expect(() => validateInviteLimit(memberships, JAN_1)).not.toThrow();
+    });
   });
 
   it('オーナーが脱退しようとした場合はエラーになる', () => {
@@ -200,7 +246,9 @@ describe('group library', () => {
       getById: jest
         .fn()
         .mockResolvedValue(createMembership({ status: 'PENDING', userId: 'user-2', expiresAt: 1 })),
-      getByGroupId: jest.fn(),
+      getByGroupId: jest
+        .fn()
+        .mockResolvedValue([createMembership({ role: 'OWNER', userId: 'owner-1' })]),
       getByUserId: jest.fn(),
       getPendingInvitationsByUserId: jest.fn(),
       create: jest.fn(),
@@ -225,6 +273,134 @@ describe('group library', () => {
       status: 'ACCEPTED',
       respondedAt: JAN_2,
       expiresAt: null,
+    });
+  });
+
+  describe('招待時の人数上限', () => {
+    const groupRepository: GroupRepository = {
+      getById: jest.fn(),
+      batchGetByIds: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    };
+    const createRepository = (memberships: GroupMembership[]): MembershipRepository => ({
+      getById: jest.fn().mockResolvedValue(null),
+      getByGroupId: jest.fn().mockResolvedValue(memberships),
+      getByUserId: jest.fn(),
+      getPendingInvitationsByUserId: jest.fn(),
+      create: jest
+        .fn()
+        .mockResolvedValue(createMembership({ status: 'PENDING', userId: 'user-9' })),
+      update: jest.fn(),
+      delete: jest.fn(),
+      deleteByGroupId: jest.fn(),
+    });
+    const invite = (membershipRepository: MembershipRepository): Promise<GroupMembership> =>
+      inviteMember(
+        { groupId: 'group-1', userId: 'user-9', invitedBy: 'owner-1', invitedAt: JAN_1 },
+        { groupRepository, membershipRepository }
+      );
+
+    it('承認済み3名と承認待ち2名がいる場合は招待に失敗する', async () => {
+      const membershipRepository = createRepository([
+        ...createAcceptedMembers(3),
+        createMembership({ userId: 'pending-1', status: 'PENDING', expiresAt: JAN_2 }),
+        createMembership({ userId: 'pending-2', status: 'PENDING', expiresAt: JAN_2 }),
+      ]);
+
+      await expect(invite(membershipRepository)).rejects.toThrow(
+        ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED
+      );
+      expect(membershipRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('期限切れの承認待ちと拒否済みは数えずに招待できる', async () => {
+      const membershipRepository = createRepository([
+        ...createAcceptedMembers(3),
+        createMembership({ userId: 'expired-1', status: 'PENDING', expiresAt: JAN_1 }),
+        createMembership({ userId: 'rejected-1', status: 'REJECTED' }),
+      ]);
+
+      await expect(invite(membershipRepository)).resolves.toMatchObject({ status: 'PENDING' });
+    });
+  });
+
+  describe('招待の応答時の人数上限', () => {
+    const groupRepository: GroupRepository = {
+      getById: jest.fn(),
+      batchGetByIds: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    };
+    const createRepository = (memberships: GroupMembership[]): MembershipRepository => ({
+      getById: jest
+        .fn()
+        .mockResolvedValue(createMembership({ status: 'PENDING', userId: 'user-9', expiresAt: 1 })),
+      getByGroupId: jest.fn().mockResolvedValue(memberships),
+      getByUserId: jest.fn(),
+      getPendingInvitationsByUserId: jest.fn(),
+      create: jest.fn(),
+      update: jest
+        .fn()
+        .mockImplementation(async (_groupId, userId, updates) =>
+          createMembership({ userId, ...updates, status: updates.status ?? 'PENDING' })
+        ),
+      delete: jest.fn(),
+      deleteByGroupId: jest.fn(),
+    });
+    const respond = (
+      membershipRepository: MembershipRepository,
+      response: 'ACCEPT' | 'REJECT'
+    ): Promise<GroupMembership> =>
+      respondToInvitation(
+        { groupId: 'group-1', userId: 'user-9', response, respondedAt: JAN_2 },
+        { groupRepository, membershipRepository }
+      );
+
+    it('承認済みが5名のグループでは承認に失敗し、招待は更新されない', async () => {
+      const membershipRepository = createRepository([
+        ...createAcceptedMembers(5),
+        createMembership({ userId: 'user-9', status: 'PENDING' }),
+      ]);
+
+      await expect(respond(membershipRepository, 'ACCEPT')).rejects.toThrow(
+        ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED
+      );
+      expect(membershipRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('承認済みが4名のグループでは承認できる', async () => {
+      const membershipRepository = createRepository([
+        ...createAcceptedMembers(4),
+        createMembership({ userId: 'user-9', status: 'PENDING' }),
+      ]);
+
+      await expect(respond(membershipRepository, 'ACCEPT')).resolves.toMatchObject({
+        status: 'ACCEPTED',
+      });
+    });
+
+    it('承認済みが5名でも拒否はできる', async () => {
+      const membershipRepository = createRepository([
+        ...createAcceptedMembers(5),
+        createMembership({ userId: 'user-9', status: 'PENDING' }),
+      ]);
+
+      await expect(respond(membershipRepository, 'REJECT')).resolves.toMatchObject({
+        status: 'REJECTED',
+      });
+      expect(membershipRepository.getByGroupId).not.toHaveBeenCalled();
+    });
+
+    it('招待がない場合は人数を確認する前に INVITATION_NOT_FOUND になる', async () => {
+      const membershipRepository = createRepository(createAcceptedMembers(5));
+      (membershipRepository.getById as jest.Mock).mockResolvedValue(null);
+
+      await expect(respond(membershipRepository, 'ACCEPT')).rejects.toThrow(
+        ERROR_MESSAGES.INVITATION_NOT_FOUND
+      );
     });
   });
 
@@ -434,6 +610,7 @@ describe('group library', () => {
       const failure = new Error('接続エラー');
       const membershipRepository = createMembershipRepository({
         getById: jest.fn().mockResolvedValue(createMembership({ status: 'PENDING' })),
+        getByGroupId: jest.fn().mockResolvedValue([]),
         update: jest.fn().mockRejectedValue(failure),
         delete: jest.fn().mockRejectedValue(failure),
       });
