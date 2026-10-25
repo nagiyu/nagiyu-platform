@@ -33,8 +33,6 @@ import { useRouter } from 'next/navigation';
 // core パッケージから型のみを取り込む（値のimportにするとクライアントバンドルに
 // @nagiyu/aws 経由の node:crypto 依存が引き込まれ、webpack のクライアントビルドが失敗するため）
 import type { PriceSource, ExchangeMarket } from '@nagiyu/stock-tracker-core';
-// 値は core のルートではなくサブパスから取り込む（ルートはクライアントビルドで失敗するため）
-import { SUPPORTED_TIMEZONES, TIMEZONE_LABELS } from '@nagiyu/stock-tracker-core/supported-values';
 
 // API レスポンス型定義
 interface Exchange {
@@ -102,11 +100,11 @@ const MARKET_LABELS: Record<ExchangeMarket, string> = {
   US: '米国',
 };
 
-// タイムゾーンオプション（サポート対象の日本・米国のみ。core の定義から作る）
-const TIMEZONE_OPTIONS = SUPPORTED_TIMEZONES.map((timezone) => ({
-  value: timezone,
-  label: TIMEZONE_LABELS[timezone],
-}));
+// タイムゾーンオプション（サポート対象の日本・米国のみ。core の検証と一致させる）
+const TIMEZONE_OPTIONS = [
+  { value: 'America/New_York', label: 'America/New_York (NYSE, NASDAQ)' },
+  { value: 'Asia/Tokyo', label: 'Asia/Tokyo (TSE)' },
+] as const;
 
 // 時間と分の選択肢を生成
 const HOURS = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));

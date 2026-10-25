@@ -6,6 +6,7 @@ describe('resolveInitialCurrency', () => {
     { exchangeId: 'NASDAQ', market: 'US' as const },
     { exchangeId: 'NOMARKET' },
     { exchangeId: 'NULLMARKET', market: null },
+    { exchangeId: 'UNKNOWNMARKET', market: 'XX' as unknown as 'JP' },
   ];
 
   it('日本市場の取引所では JPY を返す', () => {
@@ -30,5 +31,9 @@ describe('resolveInitialCurrency', () => {
 
   it('一覧に無い取引所の場合は空文字を返す', () => {
     expect(resolveInitialCurrency(exchanges, 'UNKNOWN')).toBe('');
+  });
+
+  it('未知の市場コードの取引所では空文字を返す', () => {
+    expect(resolveInitialCurrency(exchanges, 'UNKNOWNMARKET')).toBe('');
   });
 });

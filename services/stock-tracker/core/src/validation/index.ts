@@ -9,11 +9,21 @@ import type { ValidationResult } from '@nagiyu/common';
 import { isNonEmptyString, isValidTimestamp } from '@nagiyu/common';
 import { isValidPrice, isValidQuantity } from './helpers.js';
 import { PRICE_SOURCES, EXCHANGE_MARKETS } from '../entities/exchange.entity.js';
-import { SUPPORTED_CURRENCIES, SUPPORTED_TIMEZONES } from '../supported-values.js';
 import type { ExchangeEntity } from '../entities/exchange.entity.js';
 import type { TickerEntity } from '../entities/ticker.entity.js';
 import type { HoldingEntity } from '../entities/holding.entity.js';
 import type { AlertEntity } from '../entities/alert.entity.js';
+
+/**
+ * サポートするタイムゾーン (IANA 形式)
+ *
+ * 扱う市場 (日本・米国) に対応する値だけを許可する。他の値を許すと、存在しない
+ * タイムゾーンの取引所が登録され、取引時間の判定で例外になる。
+ */
+const SUPPORTED_TIMEZONES: readonly string[] = ['America/New_York', 'Asia/Tokyo'];
+
+/** サポートする通貨 (ISO 4217)。扱う市場 (日本・米国) の通貨だけを許可する */
+const SUPPORTED_CURRENCIES: readonly string[] = ['USD', 'JPY'];
 
 /**
  * バリデーションエラーメッセージ定数
@@ -153,7 +163,7 @@ export function validateExchange(exchange: unknown): ValidationResult {
   // timezone
   if (!ex.timezone || !isNonEmptyString(ex.timezone)) {
     errors.push(ERROR_MESSAGES.EXCHANGE_TIMEZONE_REQUIRED);
-  } else if (!(SUPPORTED_TIMEZONES as readonly string[]).includes(ex.timezone)) {
+  } else if (!SUPPORTED_TIMEZONES.includes(ex.timezone)) {
     errors.push(ERROR_MESSAGES.EXCHANGE_TIMEZONE_NOT_SUPPORTED);
   }
 
@@ -319,7 +329,7 @@ export function validateHolding(holding: unknown): ValidationResult {
   // currency
   if (!hld.currency || !isNonEmptyString(hld.currency)) {
     errors.push(ERROR_MESSAGES.HOLDING_CURRENCY_REQUIRED);
-  } else if (!(SUPPORTED_CURRENCIES as readonly string[]).includes(hld.currency)) {
+  } else if (!SUPPORTED_CURRENCIES.includes(hld.currency)) {
     errors.push(ERROR_MESSAGES.HOLDING_CURRENCY_NOT_SUPPORTED);
   }
 

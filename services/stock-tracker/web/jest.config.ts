@@ -10,7 +10,6 @@ const config: Config = {
     '\\.module\\.css$': 'identity-obj-proxy',
     '^@/(.*)$': '<rootDir>/$1',
     '^@nagiyu/stock-tracker-core$': '<rootDir>/../core/src/index.ts',
-    '^@nagiyu/stock-tracker-core/supported-values$': '<rootDir>/../core/src/supported-values.ts',
     '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
     '^@nagiyu/nextjs$': '<rootDir>/../../../libs/nextjs/src/index.ts',

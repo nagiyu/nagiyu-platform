@@ -7,10 +7,6 @@
   "exports": {
     ".": {
       "import": "./dist/src/index.js"
-    },
-    "./supported-values": {
-      "types": "./dist/src/supported-values.d.ts",
-      "import": "./dist/src/supported-values.js"
     }
   },
   "scripts": {

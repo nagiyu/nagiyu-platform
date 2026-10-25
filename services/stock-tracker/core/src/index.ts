@@ -11,7 +11,6 @@
 export * from './types.js';
 export * from './validation/helpers.js';
 export * from './validation/index.js';
-export * from './supported-values.js';
 export { CandlestickPattern } from './patterns/candlestick-pattern.js';
 export { AscendingTriangle } from './patterns/ascending-triangle.js';
 export { BearFlag } from './patterns/bear-flag.js';
