@@ -464,40 +464,51 @@ export default function ExchangesPage() {
       {loading ? (
         <LoadingState variant="inline" />
       ) : (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ backgroundColor: '#f57c00' }}>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>取引所ID</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>取引所名</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>APIキー</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>タイムゾーン</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>取引時間</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>データソース</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>市場</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">
-                  操作
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {exchanges.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 5 }}>
-                    <Typography variant="body1" color="text.secondary">
-                      取引所が登録されていません
-                    </Typography>
+        <Paper>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ backgroundColor: '#f57c00' }}>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    取引所ID
+                  </TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    取引所名
+                  </TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    APIキー
+                  </TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    タイムゾーン
+                  </TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    取引時間
+                  </TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    データソース
+                  </TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    市場
+                  </TableCell>
+                  <TableCell
+                    sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}
+                    align="center"
+                  >
+                    操作
                   </TableCell>
                 </TableRow>
-              ) : (
-                exchanges.map((exchange) => (
+              </TableHead>
+              <TableBody>
+                {exchanges.map((exchange) => (
                   <TableRow key={exchange.exchangeId} hover>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                         {exchange.exchangeId}
                       </Typography>
                     </TableCell>
-                    <TableCell>{exchange.name}</TableCell>
+                    <TableCell sx={{ minWidth: '12em', overflowWrap: 'anywhere' }}>
+                      {exchange.name}
+                    </TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                         {exchange.key}
@@ -514,13 +525,20 @@ export default function ExchangesPage() {
                         {exchange.priceSource ?? 'tradingview'}
                       </Typography>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
                       <Typography variant="body2">
                         {exchange.market ? MARKET_LABELS[exchange.market] : '未設定'}
                       </Typography>
                     </TableCell>
                     <TableCell align="center">
-                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          flexWrap: 'nowrap',
+                          gap: 1,
+                          justifyContent: 'center',
+                        }}
+                      >
                         <Button
                           variant="solid"
                           color="warning"
@@ -542,11 +560,19 @@ export default function ExchangesPage() {
                       </Box>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          {/* 0 件の表示を表の中に置くと表の幅の中央（狭い画面では画面外）に置かれて切れるため、表の外に置く */}
+          {exchanges.length === 0 && (
+            <Box sx={{ py: 5, textAlign: 'center' }}>
+              <Typography variant="body1" color="text.secondary">
+                取引所が登録されていません
+              </Typography>
+            </Box>
+          )}
+        </Paper>
       )}
 
       {/* 新規作成モーダル */}
