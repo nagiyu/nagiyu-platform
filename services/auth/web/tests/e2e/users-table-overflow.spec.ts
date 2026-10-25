@@ -88,13 +88,14 @@ test.describe('ユーザー一覧の長い文字列', () => {
     }
   });
 
-  test('名前の列が最小幅を保つ', async ({ page }) => {
+  test('名前の列が最小幅を保ち、短い名前は 1 行に収まる', async ({ page }) => {
     const nameCell = page.getByRole('cell', { name: '山田太郎' });
     const { width, fontSize } = await nameCell.evaluate((element) => ({
       width: element.getBoundingClientRect().width,
       fontSize: parseFloat(getComputedStyle(element).fontSize),
     }));
     // 最小幅が無いと、他の列に幅を取られて名前が 1 文字ずつ割れるほど潰される
-    expect(width).toBeGreaterThanOrEqual(fontSize * 6);
+    expect(width).toBeGreaterThanOrEqual(fontSize * 8);
+    expect(await countTextLines(nameCell)).toBe(1);
   });
 });

@@ -24,8 +24,8 @@ const NO_WRAP_CELL_SX = { whiteSpace: 'nowrap' } as const;
 // 長いメールアドレスは折り返す。最小幅が無いと他の列に幅を取られて、短いアドレスまで割れる
 const EMAIL_CELL_SX = { minWidth: 200, overflowWrap: 'anywhere' } as const;
 
-// 最小幅が無いと名前が 1 文字ずつ割れるほど潰される
-const NAME_CELL_SX = { minWidth: '6em' } as const;
+// 最小幅が無いと名前が 1 文字ずつ割れるほど潰される。セルの余白を含むため、4〜5 文字の名前が 1 行に収まる幅にする
+const NAME_CELL_SX = { minWidth: '8em' } as const;
 
 export function UsersTable({ canAssignRoles }: UsersTableProps) {
   const [users, setUsers] = useState<User[]>([]);
