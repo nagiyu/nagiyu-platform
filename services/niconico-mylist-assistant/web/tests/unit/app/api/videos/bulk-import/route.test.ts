@@ -219,6 +219,52 @@ describe('POST /api/videos/bulk-import', () => {
     expect(mockGetVideoInfoBatch).toHaveBeenCalledWith(['sm2']);
   });
 
+  it('同じ動画IDが重複しても 1 回だけ扱い、success と total は重複を除いた件数になる', async () => {
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+    mockGetUserVideoSetting.mockResolvedValue(null);
+    mockGetVideoInfoBatch.mockResolvedValue({ success: [makeVideoInfo('sm1')], failed: [] });
+    mockCreateVideoBasicInfo.mockResolvedValue(makeVideoBasicInfo('sm1'));
+    mockUpsertUserVideoSetting.mockResolvedValue(makeUserVideoSetting('sm1'));
+
+    const response = await POST(makePostRequest({ videoIds: ['sm1', 'sm1'] }));
+    expect(response.status).toBe(200);
+
+    const json = await response.json();
+    expect(json.success).toBe(1);
+    expect(json.total).toBe(1);
+    expect(mockGetUserVideoSetting).toHaveBeenCalledTimes(1);
+    expect(mockGetUserVideoSetting).toHaveBeenCalledWith('user123', 'sm1');
+    expect(mockGetVideoInfoBatch).toHaveBeenCalledWith(['sm1']);
+  });
+
+  it('重複を除く際に元の順序を保つ', async () => {
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+    mockGetUserVideoSetting.mockResolvedValue(null);
+    mockGetVideoInfoBatch.mockResolvedValue({ success: [], failed: [] });
+
+    const response = await POST(makePostRequest({ videoIds: ['sm3', 'sm1', 'sm3', 'sm2', 'sm1'] }));
+    expect(response.status).toBe(200);
+
+    const json = await response.json();
+    expect(json.total).toBe(3);
+    expect(mockGetVideoInfoBatch).toHaveBeenCalledWith(['sm3', 'sm1', 'sm2']);
+  });
+
+  it('既にユーザー設定がある動画IDが重複した場合は 1 件だけスキップに数える', async () => {
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+    mockGetUserVideoSetting.mockResolvedValue(makeUserVideoSetting('sm1'));
+    mockGetVideoInfoBatch.mockResolvedValue({ success: [], failed: [] });
+
+    const response = await POST(makePostRequest({ videoIds: ['sm1', 'sm1'] }));
+    expect(response.status).toBe(200);
+
+    const json = await response.json();
+    expect(json.skipped).toBe(1);
+    expect(json.success).toBe(0);
+    expect(json.total).toBe(1);
+    expect(mockGetUserVideoSetting).toHaveBeenCalledTimes(1);
+  });
+
   it('動画情報の取得とDB保存に成功した場合、success カウントが返る', async () => {
     mockGetSession.mockResolvedValue(MOCK_SESSION);
     mockGetUserVideoSetting.mockResolvedValue(null);

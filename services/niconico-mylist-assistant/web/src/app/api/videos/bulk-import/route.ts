@@ -66,8 +66,11 @@ export const POST = withApiErrorReporting(
       );
     }
 
+    // 同じ ID が複数あっても 1 本しか追加されないため、件数と API 呼び出しが実態からずれないよう
+    // 元の順序を保ったまま重複を除く。上限・形式の検証は入力そのものに対して済んでいる
+    const validVideoIds = Array.from(new Set(videoIds.filter(isVideoId)));
+
     // 重複チェック（ユーザー設定の存在を確認）
-    const validVideoIds = videoIds.filter(isVideoId);
     const existingSettings = await Promise.all(
       validVideoIds.map((id) => getUserVideoSetting(session.user.id, id))
     );
