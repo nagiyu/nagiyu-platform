@@ -171,6 +171,9 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let lineBuffer = '';
+        // done / error を受けずにストリームが閉じると、再生キューが完了待ちのまま残り
+        // 入力欄が無効のままになる。終端イベントの受信有無を追って、読み取り終了時に補う。
+        let streamDoneMarked = false;
 
         const handleEvent = async (event: ChatStreamEvent) => {
           if (event.type === 'text') {
@@ -209,10 +212,12 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
             setSafetyOpen(true);
           } else if (event.type === 'done') {
             // ストリーム完了をマーク（キューと current が空なら onDrained → setPhase('idle')）
+            streamDoneMarked = true;
             markStreamDone();
           } else if (event.type === 'error') {
             setErrorMessage(event.message ?? '内部エラーが発生しました。');
             // ストリームエラー時もストリーム完了扱い（advance のみ hook に委譲）
+            streamDoneMarked = true;
             markStreamDone();
             reportClientError(
               'error',
@@ -255,6 +260,10 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
           } catch {
             // skip
           }
+        }
+
+        if (!streamDoneMarked) {
+          markStreamDone();
         }
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') return;
