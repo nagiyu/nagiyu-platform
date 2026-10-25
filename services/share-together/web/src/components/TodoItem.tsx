@@ -69,6 +69,8 @@ export function TodoItem({ todo, onToggleComplete, onDelete, onUpdate }: TodoIte
             component="span"
             sx={{
               flexGrow: 1,
+              // 空白の無い長いタイトルが編集・削除ボタンを押し出さないよう、任意の位置で折り返す
+              overflowWrap: 'anywhere',
               textDecoration: todo.isCompleted ? 'line-through' : 'none',
               color: todo.isCompleted ? 'text.secondary' : 'text.primary',
             }}

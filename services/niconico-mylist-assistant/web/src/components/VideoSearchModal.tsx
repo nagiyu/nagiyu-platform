@@ -168,30 +168,46 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
 
                 return (
                   <Card key={video.videoId}>
-                    <CardContent sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+                    <CardContent
+                      sx={{
+                        display: 'flex',
+                        // 狭い画面ではボタンを 2 段目に回し、長いタイトルでもカードから溢れさせない
+                        flexWrap: { xs: 'wrap', sm: 'nowrap' },
+                        gap: 2,
+                        alignItems: 'flex-start',
+                      }}
+                    >
                       <CardMedia
                         component="img"
                         image={video.thumbnailUrl}
                         alt={video.title}
-                        sx={{ width: 120, height: 68 }}
+                        sx={{ width: 120, height: 68, flexShrink: 0 }}
                       />
-                      <Box sx={{ flexGrow: 1 }}>
+                      <Box sx={{ flex: '1 1 0', minWidth: 0, overflowWrap: 'anywhere' }}>
                         <Typography variant="subtitle2">{video.title}</Typography>
                         <Typography variant="caption" color="text.secondary">
                           {video.videoId}
                         </Typography>
                       </Box>
-                      <Button
-                        variant={addStatus ? 'outline' : 'solid'}
-                        disabled={Boolean(addStatus)}
-                        onClick={() => handleAddVideo(video.videoId)}
+                      {/* 共通 Button は幅の指定手段が className のみのため、狭い画面での全幅化は包む Box 側から子の button に当てる */}
+                      <Box
+                        sx={{
+                          width: { xs: '100%', sm: 'auto' },
+                          '& > button': { width: { xs: '100%', sm: 'auto' } },
+                        }}
                       >
-                        {addStatus === 'already-added'
-                          ? '追加済み（登録済）'
-                          : addStatus === 'added'
-                            ? '追加済み'
-                            : '追加'}
-                      </Button>
+                        <Button
+                          variant={addStatus ? 'outline' : 'solid'}
+                          disabled={Boolean(addStatus)}
+                          onClick={() => handleAddVideo(video.videoId)}
+                        >
+                          {addStatus === 'already-added'
+                            ? '追加済み（登録済）'
+                            : addStatus === 'added'
+                              ? '追加済み'
+                              : '追加'}
+                        </Button>
+                      </Box>
                     </CardContent>
                   </Card>
                 );
