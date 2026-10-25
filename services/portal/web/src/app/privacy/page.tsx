@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
 import { Container, Typography } from '@mui/material';
 import { LegalSections, privacyPolicySections } from '@nagiyu/ui';
+import { buildPageMetadata } from '@/lib/pageMetadata';
 
-export const metadata: Metadata = {
-  title: 'プライバシーポリシー',
-  description:
-    'nagiyu のプライバシーポリシーです。Cookie の取り扱い・アクセスログ収集・個人情報の保護方針について説明します。',
-  alternates: { canonical: 'https://nagiyu.com/privacy' },
-};
+export const metadata: Metadata = buildPageMetadata(
+  'プライバシーポリシー',
+  'nagiyu のプライバシーポリシーです。Cookie の取り扱い・アクセスログ収集・個人情報の保護方針について説明します。',
+  '/privacy'
+);
 
 export default function PrivacyPage() {
   return (

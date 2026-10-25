@@ -4,15 +4,13 @@ import { Link } from '@nagiyu/ui';
 import AboutProfile from '@/components/AboutProfile';
 import AboutTimeline from '@/components/AboutTimeline';
 import AboutPolicy from '@/components/AboutPolicy';
+import { buildPageMetadata } from '@/lib/pageMetadata';
 
-export const metadata: Metadata = {
-  title: 'nagiyu について',
-  description:
-    'nagiyu は、個人で複数の Web サービスを AWS 上で運用する中で得た経験を一次情報として発信する技術メディアです。運営者プロフィール・運営方針・編集ポリシー・お問い合わせをご紹介します。',
-  alternates: {
-    canonical: 'https://nagiyu.com/about',
-  },
-};
+export const metadata: Metadata = buildPageMetadata(
+  'nagiyu について',
+  'nagiyu は、個人で複数の Web サービスを AWS 上で運用する中で得た経験を一次情報として発信する技術メディアです。運営者プロフィール・運営方針・編集ポリシー・お問い合わせをご紹介します。',
+  '/about'
+);
 
 export default function AboutPage() {
   return (
