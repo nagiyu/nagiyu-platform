@@ -33,6 +33,8 @@ import { useRouter } from 'next/navigation';
 // core パッケージから型のみを取り込む（値のimportにするとクライアントバンドルに
 // @nagiyu/aws 経由の node:crypto 依存が引き込まれ、webpack のクライアントビルドが失敗するため）
 import type { PriceSource, ExchangeMarket } from '@nagiyu/stock-tracker-core';
+// 値は core のルートではなくサブパスから取り込む（ルートはクライアントビルドで失敗するため）
+import { SUPPORTED_TIMEZONES, TIMEZONE_LABELS } from '@nagiyu/stock-tracker-core/supported-values';
 
 // API レスポンス型定義
 interface Exchange {
@@ -100,19 +102,11 @@ const MARKET_LABELS: Record<ExchangeMarket, string> = {
   US: '米国',
 };
 
-// タイムゾーンオプション（主要な取引所のタイムゾーン）
-const TIMEZONE_OPTIONS = [
-  { value: 'America/New_York', label: 'America/New_York (NYSE, NASDAQ)' },
-  { value: 'America/Chicago', label: 'America/Chicago (CME)' },
-  { value: 'Europe/London', label: 'Europe/London (LSE)' },
-  { value: 'Europe/Paris', label: 'Europe/Paris (Euronext)' },
-  { value: 'Europe/Frankfurt', label: 'Europe/Frankfurt (FWB)' },
-  { value: 'Asia/Tokyo', label: 'Asia/Tokyo (TSE)' },
-  { value: 'Asia/Hong_Kong', label: 'Asia/Hong_Kong (HKEX)' },
-  { value: 'Asia/Shanghai', label: 'Asia/Shanghai (SSE)' },
-  { value: 'Asia/Singapore', label: 'Asia/Singapore (SGX)' },
-  { value: 'Australia/Sydney', label: 'Australia/Sydney (ASX)' },
-] as const;
+// タイムゾーンオプション（サポート対象の日本・米国のみ。core の定義から作る）
+const TIMEZONE_OPTIONS = SUPPORTED_TIMEZONES.map((timezone) => ({
+  value: timezone,
+  label: TIMEZONE_LABELS[timezone],
+}));
 
 // 時間と分の選択肢を生成
 const HOURS = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
@@ -642,7 +636,7 @@ export default function ExchangesPage() {
                 options={TIMEZONE_OPTIONS.map((tz) => ({ value: tz.value, label: tz.label }))}
               />
               <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                ※ 主要な取引所のタイムゾーン
+                ※ 日本（Asia/Tokyo）と米国（America/New_York）のタイムゾーンのみ選択できます
               </Typography>
             </Box>
 
@@ -817,7 +811,7 @@ export default function ExchangesPage() {
                 options={TIMEZONE_OPTIONS.map((tz) => ({ value: tz.value, label: tz.label }))}
               />
               <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                ※ 主要な取引所のタイムゾーン
+                ※ 日本（Asia/Tokyo）と米国（America/New_York）のタイムゾーンのみ選択できます
               </Typography>
             </Box>
 

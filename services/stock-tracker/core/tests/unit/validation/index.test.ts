@@ -151,14 +151,26 @@ describe('validateExchange', () => {
       expect(result.errors).toContain('タイムゾーンは必須です');
     });
 
-    it('Timezoneが不正な形式の場合はバリデーションに失敗する', () => {
-      const exchange: ExchangeEntity = { ...validExchange, timezone: 'EST' };
-      const result = validateExchange(exchange);
-      expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        'タイムゾーンはIANA形式（例: America/New_York）で入力してください'
-      );
-    });
+    it.each(['EST', 'Foo/Bar', 'Europe/Frankfurt', 'Europe/London', 'America/Chicago'])(
+      'Timezoneがサポート対象外の「%s」の場合はバリデーションに失敗する',
+      (timezone) => {
+        const exchange: ExchangeEntity = { ...validExchange, timezone };
+        const result = validateExchange(exchange);
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain(
+          'タイムゾーンは "America/New_York" または "Asia/Tokyo" のいずれかを指定してください'
+        );
+      }
+    );
+
+    it.each(['America/New_York', 'Asia/Tokyo'])(
+      'Timezoneがサポート対象の「%s」の場合はバリデーションに成功する',
+      (timezone) => {
+        const exchange: ExchangeEntity = { ...validExchange, timezone };
+        const result = validateExchange(exchange);
+        expect(result.valid).toBe(true);
+      }
+    );
 
     it('Startが空文字の場合はバリデーションに失敗する', () => {
       const exchange: ExchangeEntity = { ...validExchange, start: '' };
@@ -612,32 +624,17 @@ describe('validateHolding', () => {
       expect(result.errors).toContain('通貨コードは必須です');
     });
 
-    it('Currencyが2文字の場合はバリデーションに失敗する', () => {
-      const holding: HoldingEntity = { ...validHolding, currency: 'US' };
-      const result = validateHolding(holding);
-      expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        '通貨コードは3文字の英大文字で入力してください（例: USD, JPY）'
-      );
-    });
-
-    it('Currencyが4文字の場合はバリデーションに失敗する', () => {
-      const holding: HoldingEntity = { ...validHolding, currency: 'USDA' };
-      const result = validateHolding(holding);
-      expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        '通貨コードは3文字の英大文字で入力してください（例: USD, JPY）'
-      );
-    });
-
-    it('Currencyに小文字が含まれる場合はバリデーションに失敗する', () => {
-      const holding: HoldingEntity = { ...validHolding, currency: 'Usd' };
-      const result = validateHolding(holding);
-      expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        '通貨コードは3文字の英大文字で入力してください（例: USD, JPY）'
-      );
-    });
+    it.each(['EUR', 'GBP', 'US', 'USDA', 'Usd'])(
+      'Currencyがサポート対象外の「%s」の場合はバリデーションに失敗する',
+      (currency) => {
+        const holding: HoldingEntity = { ...validHolding, currency };
+        const result = validateHolding(holding);
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain(
+          '通貨コードは "USD" または "JPY" のいずれかを指定してください'
+        );
+      }
+    );
   });
 
   describe('境界値テスト', () => {

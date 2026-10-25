@@ -9,6 +9,7 @@ import type { ValidationResult } from '@nagiyu/common';
 import { isNonEmptyString, isValidTimestamp } from '@nagiyu/common';
 import { isValidPrice, isValidQuantity } from './helpers.js';
 import { PRICE_SOURCES, EXCHANGE_MARKETS } from '../entities/exchange.entity.js';
+import { SUPPORTED_CURRENCIES, SUPPORTED_TIMEZONES } from '../supported-values.js';
 import type { ExchangeEntity } from '../entities/exchange.entity.js';
 import type { TickerEntity } from '../entities/ticker.entity.js';
 import type { HoldingEntity } from '../entities/holding.entity.js';
@@ -26,8 +27,7 @@ const ERROR_MESSAGES = {
   EXCHANGE_KEY_REQUIRED: 'TradingView APIキーは必須です',
   EXCHANGE_KEY_INVALID_FORMAT: 'TradingView APIキーは1-20文字の英大文字と数字のみ使用できます',
   EXCHANGE_TIMEZONE_REQUIRED: 'タイムゾーンは必須です',
-  EXCHANGE_TIMEZONE_INVALID_FORMAT:
-    'タイムゾーンはIANA形式（例: America/New_York）で入力してください',
+  EXCHANGE_TIMEZONE_NOT_SUPPORTED: `タイムゾーンは ${SUPPORTED_TIMEZONES.map((tz) => `"${tz}"`).join(' または ')} のいずれかを指定してください`,
   EXCHANGE_START_REQUIRED: '取引開始時刻は必須です',
   EXCHANGE_START_INVALID_FORMAT: '取引開始時刻はHH:MM形式（例: 04:00）で入力してください',
   EXCHANGE_END_REQUIRED: '取引終了時刻は必須です',
@@ -63,7 +63,7 @@ const ERROR_MESSAGES = {
   HOLDING_AVERAGE_PRICE_REQUIRED: '平均取得価格は必須です',
   HOLDING_AVERAGE_PRICE_INVALID: '平均取得価格は0.01〜1,000,000の範囲で入力してください',
   HOLDING_CURRENCY_REQUIRED: '通貨コードは必須です',
-  HOLDING_CURRENCY_INVALID: '通貨コードは3文字の英大文字で入力してください（例: USD, JPY）',
+  HOLDING_CURRENCY_NOT_SUPPORTED: `通貨コードは ${SUPPORTED_CURRENCIES.map((c) => `"${c}"`).join(' または ')} のいずれかを指定してください`,
   HOLDING_CREATED_AT_REQUIRED: '作成日時は必須です',
   HOLDING_CREATED_AT_INVALID: '作成日時が無効です',
   HOLDING_UPDATED_AT_REQUIRED: '更新日時は必須です',
@@ -153,8 +153,8 @@ export function validateExchange(exchange: unknown): ValidationResult {
   // timezone
   if (!ex.timezone || !isNonEmptyString(ex.timezone)) {
     errors.push(ERROR_MESSAGES.EXCHANGE_TIMEZONE_REQUIRED);
-  } else if (!/^[A-Za-z]+\/[A-Za-z_]+$/.test(ex.timezone)) {
-    errors.push(ERROR_MESSAGES.EXCHANGE_TIMEZONE_INVALID_FORMAT);
+  } else if (!(SUPPORTED_TIMEZONES as readonly string[]).includes(ex.timezone)) {
+    errors.push(ERROR_MESSAGES.EXCHANGE_TIMEZONE_NOT_SUPPORTED);
   }
 
   // start
@@ -319,8 +319,8 @@ export function validateHolding(holding: unknown): ValidationResult {
   // currency
   if (!hld.currency || !isNonEmptyString(hld.currency)) {
     errors.push(ERROR_MESSAGES.HOLDING_CURRENCY_REQUIRED);
-  } else if (!/^[A-Z]{3}$/.test(hld.currency)) {
-    errors.push(ERROR_MESSAGES.HOLDING_CURRENCY_INVALID);
+  } else if (!(SUPPORTED_CURRENCIES as readonly string[]).includes(hld.currency)) {
+    errors.push(ERROR_MESSAGES.HOLDING_CURRENCY_NOT_SUPPORTED);
   }
 
   // createdAt

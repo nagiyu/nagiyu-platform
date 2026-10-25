@@ -118,6 +118,7 @@ describe('チャート画面カードコンポーネント', () => {
         tickerId: 'NASDAQ:NVDA',
         symbol: 'NVDA',
         exchangeId: 'NASDAQ',
+        defaultCurrency: 'USD',
         loading: false,
         error: '',
         onChanged: jest.fn(async () => undefined),

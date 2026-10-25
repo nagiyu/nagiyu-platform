@@ -12,6 +12,8 @@ import {
 } from '@mui/material';
 import { Button, Select } from '@nagiyu/ui';
 import { useEnterSubmit } from '@nagiyu/react';
+// 値は core のルートではなくサブパスから取り込む（ルートはクライアントビルドで失敗するため）
+import { SUPPORTED_CURRENCIES } from '@nagiyu/stock-tracker-core/supported-values';
 
 export type HoldingFormField = 'quantity' | 'averagePrice' | 'currency';
 
@@ -42,8 +44,6 @@ export interface HoldingFormDialogProps {
   onSubmit: () => void;
   onClose: () => void;
 }
-
-const CURRENCIES = ['USD', 'JPY', 'EUR', 'GBP'] as const;
 
 /**
  * 保有株式の登録・編集フォームダイアログ。
@@ -117,7 +117,11 @@ export default function HoldingFormDialog({
               onChange={(value) => onChange('currency', value)}
               error={!!errors.currency}
               helperText={errors.currency}
-              options={CURRENCIES.map((currency) => ({ value: currency, label: currency }))}
+              placeholder="選択してください"
+              options={SUPPORTED_CURRENCIES.map((currency) => ({
+                value: currency,
+                label: currency,
+              }))}
             />
           ) : (
             <TextField
