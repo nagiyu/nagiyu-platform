@@ -4,7 +4,6 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { Box, Container, CircularProgress, Typography } from '@mui/material';
-import { SessionProviderWrapper } from '@nagiyu/ui/session-provider';
 import { resolveRefreshCallbackUrl } from '../../lib/refresh-callback';
 import { navigateTo } from '../../lib/navigate';
 
@@ -95,10 +94,8 @@ export default function RefreshPage() {
   // useSearchParams を使う RefreshContent は Suspense 境界の内側に置く
   // （App Router の prerender 要件。境界が無いと next build が失敗する）。
   return (
-    <SessionProviderWrapper>
-      <Suspense fallback={null}>
-        <RefreshContent />
-      </Suspense>
-    </SessionProviderWrapper>
+    <Suspense fallback={null}>
+      <RefreshContent />
+    </Suspense>
   );
 }
