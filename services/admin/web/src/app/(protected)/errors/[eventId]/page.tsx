@@ -118,7 +118,7 @@ export default async function ErrorDetailPage({
 
       <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 2, mb: 2 }}>
         <Chip label={event.severity} size="small" color={SEVERITY_COLORS[event.severity]} />
-        <Typography variant="h5" component="h1">
+        <Typography variant="h5" component="h1" sx={{ minWidth: 0, overflowWrap: 'anywhere' }}>
           {event.title}
         </Typography>
       </Box>
@@ -141,13 +141,17 @@ export default async function ErrorDetailPage({
               <Typography variant="body2" color="text.secondary" sx={{ minWidth: 120 }}>
                 serviceId
               </Typography>
-              <Typography variant="body2">{event.serviceId}</Typography>
+              <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+                {event.serviceId}
+              </Typography>
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'row', gap: 2 }}>
               <Typography variant="body2" color="text.secondary" sx={{ minWidth: 120 }}>
                 source
               </Typography>
-              <Typography variant="body2">{event.source}</Typography>
+              <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+                {event.source}
+              </Typography>
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'row', gap: 2 }}>
               <Typography variant="body2" color="text.secondary" sx={{ minWidth: 120 }}>
@@ -173,7 +177,7 @@ export default async function ErrorDetailPage({
           <Typography
             variant="body2"
             component="pre"
-            sx={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', m: 0 }}
+            sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontFamily: 'inherit', m: 0 }}
           >
             {event.message}
           </Typography>

@@ -103,6 +103,13 @@ function formatJst(millis: number): string {
   }).format(date);
 }
 
+// 空白の無い長い概要で表が広がって操作列が押し出されないよう、概要の列だけ折り返す。
+// 最小幅が無いと他の列に幅を取られて極端に潰れる
+const SUMMARY_CELL_SX = { minWidth: 240, overflowWrap: 'anywhere' } as const;
+
+// 日時や操作ボタンは、列が狭いときに途中で改行されると読みにくい
+const NO_WRAP_CELL_SX = { whiteSpace: 'nowrap' } as const;
+
 function truncateMessage(message: string): string {
   const max = 80;
   if (message.length <= max) {
@@ -209,17 +216,19 @@ export default async function ErrorsListPage({
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>発生時刻 (JST)</TableCell>
-                <TableCell>サービス</TableCell>
-                <TableCell>重大度</TableCell>
-                <TableCell>タイトル / 概要</TableCell>
-                <TableCell></TableCell>
+                <TableCell sx={NO_WRAP_CELL_SX}>発生時刻 (JST)</TableCell>
+                <TableCell sx={NO_WRAP_CELL_SX}>サービス</TableCell>
+                <TableCell sx={NO_WRAP_CELL_SX}>重大度</TableCell>
+                <TableCell sx={{ ...NO_WRAP_CELL_SX, ...SUMMARY_CELL_SX }}>
+                  タイトル / 概要
+                </TableCell>
+                <TableCell sx={NO_WRAP_CELL_SX}></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {items.map((event) => (
                 <TableRow key={`${event.serviceId}#${event.occurredAt}#${event.eventId}`} hover>
-                  <TableCell>{formatJst(event.occurredAt)}</TableCell>
+                  <TableCell sx={NO_WRAP_CELL_SX}>{formatJst(event.occurredAt)}</TableCell>
                   <TableCell>
                     <Chip label={event.serviceId} size="small" />
                   </TableCell>
@@ -230,7 +239,7 @@ export default async function ErrorsListPage({
                       color={SEVERITY_COLORS[event.severity]}
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={SUMMARY_CELL_SX}>
                     <Typography variant="body2" component="div" sx={{ fontWeight: 'bold' }}>
                       {event.title}
                     </Typography>
@@ -238,7 +247,7 @@ export default async function ErrorsListPage({
                       {truncateMessage(event.message)}
                     </Typography>
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={NO_WRAP_CELL_SX}>
                     <Button href={buildDetailHref(event)} size="small" variant="text">
                       詳細
                     </Button>
