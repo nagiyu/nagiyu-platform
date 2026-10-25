@@ -18,6 +18,15 @@ interface UsersTableProps {
   canAssignRoles: boolean;
 }
 
+// 見出しと操作列は、列が狭いときに途中で改行されると読みにくい
+const NO_WRAP_CELL_SX = { whiteSpace: 'nowrap' } as const;
+
+// 長いメールアドレスは折り返す。最小幅が無いと他の列に幅を取られて、短いアドレスまで割れる
+const EMAIL_CELL_SX = { minWidth: 200, overflowWrap: 'anywhere' } as const;
+
+// 最小幅が無いと名前が 1 文字ずつ割れるほど潰される
+const NAME_CELL_SX = { minWidth: '6em' } as const;
+
 export function UsersTable({ canAssignRoles }: UsersTableProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,17 +69,19 @@ export function UsersTable({ canAssignRoles }: UsersTableProps) {
       <Table>
         <TableHead>
           <TableRow>
-            <TableCell>名前</TableCell>
-            <TableCell>メールアドレス</TableCell>
-            <TableCell>ロール</TableCell>
-            <TableCell align="right">アクション</TableCell>
+            <TableCell sx={NO_WRAP_CELL_SX}>名前</TableCell>
+            <TableCell sx={NO_WRAP_CELL_SX}>メールアドレス</TableCell>
+            <TableCell sx={NO_WRAP_CELL_SX}>ロール</TableCell>
+            <TableCell align="right" sx={NO_WRAP_CELL_SX}>
+              アクション
+            </TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {users.map((user) => (
             <TableRow key={user.userId}>
-              <TableCell>{user.name}</TableCell>
-              <TableCell>{user.email}</TableCell>
+              <TableCell sx={NAME_CELL_SX}>{user.name}</TableCell>
+              <TableCell sx={EMAIL_CELL_SX}>{user.email}</TableCell>
               <TableCell>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                   {user.roles.length > 0 ? (
@@ -84,7 +95,7 @@ export function UsersTable({ canAssignRoles }: UsersTableProps) {
                   )}
                 </Box>
               </TableCell>
-              <TableCell align="right">
+              <TableCell align="right" sx={NO_WRAP_CELL_SX}>
                 {canAssignRoles && (
                   <Button asChild variant="outline" size="sm">
                     <Link href={`/dashboard/users/${user.userId}/edit`}>編集</Link>
