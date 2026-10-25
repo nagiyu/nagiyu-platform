@@ -16,11 +16,16 @@ import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { VALID_EMOTION_FILTERS } from '@/lib/server/emotion-filter';
 import { JobDomainService } from '@/lib/server/domain-services';
 import { submitExtractJob } from '@/lib/server/submit-extract-job';
+import {
+  UPLOAD_VALIDATION_ERROR_MESSAGES,
+  isValidFileSize,
+  isValidMp4File,
+} from '@/lib/upload-validation';
 
 const ERROR_MESSAGES = {
   INVALID_REQUEST: COMMON_ERROR_MESSAGES.BAD_REQUEST,
-  INVALID_FILE_TYPE: 'MP4 形式の動画ファイルのみアップロードできます',
-  INVALID_FILE_SIZE: 'ファイルサイズが不正です',
+  INVALID_FILE_TYPE: UPLOAD_VALIDATION_ERROR_MESSAGES.INVALID_FILE_TYPE,
+  INVALID_FILE_SIZE: UPLOAD_VALIDATION_ERROR_MESSAGES.INVALID_FILE_SIZE,
   INVALID_DURATION: '動画の再生時間が不正です',
   MULTIPART_UPLOAD_ID_NOT_FOUND: 'マルチパートアップロード ID の取得に失敗しました',
   INTERNAL_SERVER_ERROR: 'ジョブの作成に失敗しました',
@@ -36,7 +41,6 @@ type CreateJobRequest = {
 
 const UPLOAD_URL_EXPIRES_IN = 3600;
 const MULTIPART_UPLOAD_URL_EXPIRES_IN = 24 * 60 * 60;
-const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024 * 1024;
 const MULTIPART_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
 const MULTIPART_CHUNK_SIZE_BYTES = 50 * 1024 * 1024;
 const MAX_DURATION_SEC = 24 * 60 * 60;
@@ -77,10 +81,7 @@ export const POST = withApiErrorReporting(
     const body = bodyResult.body;
 
     const normalizedFileName = body.fileName.trim();
-    if (
-      !normalizedFileName.toLowerCase().endsWith('.mp4') ||
-      (typeof body.contentType === 'string' && body.contentType !== 'video/mp4')
-    ) {
+    if (!isValidMp4File(normalizedFileName, body.contentType)) {
       return NextResponse.json(
         {
           error: 'INVALID_FILE_TYPE',
@@ -90,11 +91,7 @@ export const POST = withApiErrorReporting(
       );
     }
 
-    if (
-      !Number.isFinite(body.fileSize) ||
-      body.fileSize <= 0 ||
-      body.fileSize > MAX_FILE_SIZE_BYTES
-    ) {
+    if (!isValidFileSize(body.fileSize)) {
       return NextResponse.json(
         {
           error: 'INVALID_FILE_SIZE',

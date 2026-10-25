@@ -413,4 +413,115 @@ describe('VideoAd', () => {
 
     jest.restoreAllMocks();
   });
+  describe('IMA SDK 読み込みの時間切れ', () => {
+    type MockScript = {
+      src: string;
+      async: boolean;
+      onload: (() => void) | null;
+      onerror: ((error?: unknown) => void) | null;
+    };
+
+    const setupScript = (): MockScript => {
+      const origCreateElement = document.createElement.bind(document);
+      const mockScript: MockScript = { src: '', async: false, onload: null, onerror: null };
+      jest.spyOn(document, 'createElement').mockImplementation((tagName: string) => {
+        if (tagName === 'script') return mockScript as unknown as HTMLElement;
+        return origCreateElement(tagName);
+      });
+      // 読み込みが完了も失敗もしない状態を再現するため、追加しても何も起こさない
+      jest.spyOn(document.body, 'appendChild').mockImplementation((node) => node);
+      return mockScript;
+    };
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      process.env.NEXT_PUBLIC_VAST_TAG_URL = 'https://example.com/vast';
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+      jest.restoreAllMocks();
+    });
+
+    it('10 秒応答がなければ onAdFinished を呼ぶ', async () => {
+      setupScript();
+      const onAdFinished = jest.fn();
+
+      await act(async () => {
+        render(<VideoAd onAdFinished={onAdFinished} />);
+      });
+
+      await act(async () => {
+        jest.advanceTimersByTime(9_999);
+      });
+      expect(onAdFinished).not.toHaveBeenCalled();
+
+      await act(async () => {
+        jest.advanceTimersByTime(1);
+      });
+      expect(onAdFinished).toHaveBeenCalledTimes(1);
+    });
+
+    it('時間内に onload が来れば時間切れにならず広告リクエストへ進む', async () => {
+      const mockScript = setupScript();
+      const onAdFinished = jest.fn();
+      const { ima, mockAdsLoader } = buildMockIma();
+
+      await act(async () => {
+        render(<VideoAd onAdFinished={onAdFinished} />);
+      });
+
+      await act(async () => {
+        (window as unknown as Window & { google?: { ima: MockIma } }).google = { ima };
+        mockScript.onload?.();
+      });
+      expect(mockAdsLoader.requestAds).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        jest.advanceTimersByTime(10_000);
+      });
+      expect(onAdFinished).not.toHaveBeenCalled();
+    });
+
+    it('時間内に onerror が来れば即座に onAdFinished を呼び、時間切れで重複しない', async () => {
+      const mockScript = setupScript();
+      const onAdFinished = jest.fn();
+
+      await act(async () => {
+        render(<VideoAd onAdFinished={onAdFinished} />);
+      });
+
+      await act(async () => {
+        mockScript.onerror?.(new Error('load error'));
+      });
+      expect(onAdFinished).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        jest.advanceTimersByTime(10_000);
+      });
+      expect(onAdFinished).toHaveBeenCalledTimes(1);
+    });
+
+    it('時間切れ後に遅れて onload が来ても広告リクエストは行わない', async () => {
+      const mockScript = setupScript();
+      const onAdFinished = jest.fn();
+      const { ima, mockAdsLoader } = buildMockIma();
+
+      await act(async () => {
+        render(<VideoAd onAdFinished={onAdFinished} />);
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(10_000);
+      });
+      expect(onAdFinished).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        (window as unknown as Window & { google?: { ima: MockIma } }).google = { ima };
+        mockScript.onload?.();
+      });
+
+      expect(mockAdsLoader.requestAds).not.toHaveBeenCalled();
+      expect(onAdFinished).toHaveBeenCalledTimes(1);
+    });
+  });
 });
