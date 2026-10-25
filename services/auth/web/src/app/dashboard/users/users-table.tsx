@@ -13,6 +13,7 @@ import {
 import { Button, Chip, ErrorAlert, LoadingState } from '@nagiyu/ui';
 import Link from 'next/link';
 import type { User } from '@nagiyu/common';
+import { getRoleName } from '@/lib/role-display';
 
 interface UsersTableProps {
   canAssignRoles: boolean;
@@ -87,7 +88,7 @@ export function UsersTable({ canAssignRoles }: UsersTableProps) {
                   {user.roles.length > 0 ? (
                     user.roles.map((role) => (
                       <Chip key={role} size="sm">
-                        {role}
+                        {getRoleName(role)}
                       </Chip>
                     ))
                   ) : (
