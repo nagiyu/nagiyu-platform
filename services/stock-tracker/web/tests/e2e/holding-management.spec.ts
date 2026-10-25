@@ -89,6 +89,8 @@ function baseSeed(): ResetSeedData {
         start: '09:30',
         end: '16:00',
         priceSource: 'tradingview',
+        // 保有株式の通貨の初期値は市場から決まるため、登録テストが通貨を選ばずに済むよう指定する
+        market: 'US',
       },
     ],
     tickers: [
@@ -196,7 +198,8 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
 
       await page.locator('#create-quantity').fill('100');
       await page.locator('#create-average-price').fill('150.50');
-      // 通貨はデフォルトの USD のまま
+      // 通貨は取引所の市場 (US) から USD が初期値になる
+      await expect(page.locator('#create-currency')).toHaveValue('USD');
 
       await page.getByRole('button', { name: '保存' }).click();
 
