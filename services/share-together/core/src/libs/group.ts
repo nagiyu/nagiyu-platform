@@ -60,9 +60,36 @@ export interface LeaveGroupInput {
   userId: string;
 }
 
-export function validateMemberLimit(memberships: GroupMembership[]): void {
+/**
+ * 承認済みメンバー数が上限に達していないことを検証する
+ *
+ * 承認時は、承認待ちの招待が他にあっても承認済みの人数だけで判定する。
+ * 承認待ちを数えると、上限ちょうどまで招待した全員が承認できなくなる。
+ */
+export function validateAcceptLimit(memberships: GroupMembership[]): void {
   const acceptedCount = memberships.filter((membership) => membership.status === 'ACCEPTED').length;
   if (acceptedCount >= GROUP_RULES.MAX_MEMBER_COUNT) {
+    throw new Error(ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED);
+  }
+}
+
+/**
+ * 承認済みメンバーと有効な承認待ちの招待の合計が上限に達していないことを検証する
+ *
+ * 承認待ちを数えないと、上限を超える人数へ招待を送れてしまい、承認の段階で初めて失敗する。
+ * 期限切れでも TTL による削除は遅れて行われるため、期限は招待日時と比較して除外する。
+ *
+ * @param memberships - グループのメンバーシップ一覧
+ * @param now - 承認待ちの期限判定に使う日時 (エポックミリ秒)
+ */
+export function validateInviteLimit(memberships: GroupMembership[], now: number): void {
+  const occupiedCount = memberships.filter(
+    (membership) =>
+      membership.status === 'ACCEPTED' ||
+      (membership.status === 'PENDING' &&
+        (membership.expiresAt === undefined || membership.expiresAt > now))
+  ).length;
+  if (occupiedCount >= GROUP_RULES.MAX_MEMBER_COUNT) {
     throw new Error(ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED);
   }
 }
@@ -125,7 +152,7 @@ export async function inviteMember(
   dependencies: GroupOperationDependencies
 ): Promise<GroupMembership> {
   const memberships = await dependencies.membershipRepository.getByGroupId(input.groupId);
-  validateMemberLimit(memberships);
+  validateInviteLimit(memberships, input.invitedAt);
 
   const existingMembership = await dependencies.membershipRepository.getById(
     input.groupId,
@@ -177,6 +204,11 @@ export async function respondToInvitation(
   }
   if (membership.status !== 'PENDING') {
     throw new Error(ERROR_MESSAGES.INVITATION_ALREADY_RESPONDED);
+  }
+
+  if (input.response === 'ACCEPT') {
+    const memberships = await dependencies.membershipRepository.getByGroupId(input.groupId);
+    validateAcceptLimit(memberships);
   }
 
   try {

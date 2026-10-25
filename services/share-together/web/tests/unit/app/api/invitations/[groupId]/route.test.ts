@@ -31,6 +31,7 @@ jest.mock('@nagiyu/share-together-core', () => {
     ERROR_MESSAGES: {
       INVITATION_NOT_FOUND: actualCore.ERROR_MESSAGES.INVITATION_NOT_FOUND,
       INVITATION_ALREADY_RESPONDED: actualCore.ERROR_MESSAGES.INVITATION_ALREADY_RESPONDED,
+      MEMBER_LIMIT_EXCEEDED: actualCore.ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED,
     },
   };
 });
@@ -240,6 +241,27 @@ describe('PUT /api/invitations/[groupId]', () => {
       error: 'ALREADY_RESPONDED',
       message: 'この招待には既に応答済みです',
     });
+  });
+
+  it('グループが上限人数に達している場合は409レスポンスを返す', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrUnauthorized);
+    mockRespondToInvitation.mockRejectedValue(
+      new Error(GROUP_CORE_ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED)
+    );
+
+    const request = {
+      json: jest.fn().mockResolvedValue({ action: 'ACCEPT' }),
+    } as unknown as Request;
+    const response = await PUT(request, { params: Promise.resolve({ groupId: 'group-1' }) });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: 'MEMBER_LIMIT_EXCEEDED',
+      message: 'グループメンバーは最大5名です',
+    });
+    expect(mockReportErrorEvent).not.toHaveBeenCalled();
   });
 
   it('予期しない例外発生時は500レスポンスを返し reportErrorEvent を呼ぶ', async () => {

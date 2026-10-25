@@ -9,8 +9,12 @@ import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createGroupRepository, createMembershipRepository } from '@nagiyu/share-together-core';
-import { createValidationErrorResponse, createNotFoundErrorResponse } from '@/lib/api/responses';
-import { createErrorResponse, readJsonObjectBody } from '@nagiyu/nextjs';
+import {
+  createConflictErrorResponse,
+  createNotFoundErrorResponse,
+  createValidationErrorResponse,
+} from '@/lib/api/responses';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 
 type RouteParams = {
   params: Promise<{ groupId: string }>;
@@ -96,7 +100,13 @@ export const PUT = withApiErrorReporting(
           return createNotFoundErrorResponse();
         }
         if (error.message === GROUP_ERROR_MESSAGES.INVITATION_ALREADY_RESPONDED) {
-          return createErrorResponse(409, 'ALREADY_RESPONDED', ERROR_MESSAGES.ALREADY_RESPONDED);
+          return createConflictErrorResponse('ALREADY_RESPONDED', ERROR_MESSAGES.ALREADY_RESPONDED);
+        }
+        if (error.message === GROUP_ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED) {
+          return createConflictErrorResponse(
+            'MEMBER_LIMIT_EXCEEDED',
+            ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED
+          );
         }
       }
 
