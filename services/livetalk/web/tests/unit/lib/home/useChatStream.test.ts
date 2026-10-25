@@ -476,6 +476,94 @@ describe('useChatStream', () => {
     });
   });
 
+  describe('handleSubmit: done / error を受けずにストリームが終わる場合', () => {
+    it('done イベント無しで読み取りが終わると markStreamDone が 1 回呼ばれる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        body: makeNdjsonStream([{ type: 'text', delta: 'こんにちは' }]),
+        status: 200,
+      });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(deps.markStreamDone).toHaveBeenCalledTimes(1);
+    });
+
+    it('イベントが 1 件も無いストリームでも markStreamDone が 1 回呼ばれる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        body: makeNdjsonStream([]),
+        status: 200,
+      });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(deps.markStreamDone).toHaveBeenCalledTimes(1);
+    });
+
+    it('done が改行無しの残余行で届いても markStreamDone は 1 回だけ呼ばれる', async () => {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' })));
+          controller.close();
+        },
+      });
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, body: stream, status: 200 });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(deps.markStreamDone).toHaveBeenCalledTimes(1);
+    });
+
+    it('error イベントを受けた場合は markStreamDone が 1 回だけ呼ばれる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        body: makeNdjsonStream([{ type: 'error', message: 'サーバーエラーです' }]),
+        status: 200,
+      });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(deps.markStreamDone).toHaveBeenCalledTimes(1);
+    });
+
+    it('読み取り中に AbortError で抜けた場合は markStreamDone を呼ばない', async () => {
+      const abortError = new Error('AbortError');
+      abortError.name = 'AbortError';
+      const stream = new ReadableStream({
+        pull(controller) {
+          controller.error(abortError);
+        },
+      });
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, body: stream, status: 200 });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(deps.markStreamDone).not.toHaveBeenCalled();
+    });
+  });
+
   describe('handleSubmit: error イベント', () => {
     it('error イベントで errorMessage が設定され markStreamDone と reportClientError が呼ばれる', async () => {
       global.fetch = jest.fn().mockResolvedValue({
@@ -491,7 +579,7 @@ describe('useChatStream', () => {
       });
 
       expect(result.current.errorMessage).toBe('サーバーエラーです');
-      expect(deps.markStreamDone).toHaveBeenCalled();
+      expect(deps.markStreamDone).toHaveBeenCalledTimes(1);
       expect(mockReportClientError).toHaveBeenCalledWith(
         'error',
         'チャット stream エラー',
