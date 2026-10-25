@@ -101,22 +101,4 @@ describe('SignOutForm', () => {
     );
     expect(screen.getByRole('button', { name: 'サインアウト' })).toBeDisabled();
   });
-
-  it('取得完了前にアンマウントされても状態更新しない', async () => {
-    let resolveToken: (token: string) => void = () => {};
-    mockGetCsrfToken.mockReturnValue(
-      new Promise<string>((resolve) => {
-        resolveToken = resolve;
-      })
-    );
-    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-
-    const { unmount } = renderForm();
-    unmount();
-    resolveToken('token');
-    await Promise.resolve();
-
-    expect(errorSpy).not.toHaveBeenCalled();
-    errorSpy.mockRestore();
-  });
 });

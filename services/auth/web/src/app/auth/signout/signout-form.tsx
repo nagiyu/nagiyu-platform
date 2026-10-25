@@ -31,22 +31,15 @@ export default function SignOutForm({ cancelUrl }: SignOutFormProps) {
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
     getCsrfToken()
       .then((token) => {
-        if (cancelled) return;
         if (token) {
           setCsrfToken(token);
         } else {
           setHasError(true);
         }
       })
-      .catch(() => {
-        if (!cancelled) setHasError(true);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .catch(() => setHasError(true));
   }, []);
 
   return (

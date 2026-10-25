@@ -12,7 +12,8 @@ export const DEFAULT_CANCEL_URL = '/dashboard';
 
 /**
  * authConfig に Cookie 名の指定が無いときの next-auth 既定の名前。
- * ローカル開発では共通設定が Cookie 名を上書きしないため、この名前が実際に使われる。
+ * 実際の名前は共通の認証設定がローカルを含む全環境で決めており、この値は
+ * authConfig 側の指定が外れたときに備える保険として使う。
  */
 export const FALLBACK_CALLBACK_URL_COOKIE_NAME = 'authjs.callback-url';
 
@@ -30,15 +31,30 @@ export interface HeaderReader {
 }
 
 /**
- * リクエストヘッダーから自サービスの Origin を組み立てる。
+ * 自サービスの Origin を解決する。
  *
- * ALB / CloudFront 配下では Host が内部ホストになりうるため、転送ヘッダーを優先する。
- * 同一オリジン判定にしか使わないので、ヘッダーが無ければ判定が成立しない値に倒す。
+ * next-auth が callbackUrl Cookie を検証した基準は AUTH_URL (無ければ NEXTAUTH_URL) の
+ * origin なので、再検証も同じ基準に揃える。CloudFront 配下では Host が Lambda Function URL
+ * などの内部ホストになりうるため、環境変数を優先し、無いときだけヘッダーから組み立てる。
+ * 同一オリジン判定にしか使わないので、ヘッダーも無ければ判定が成立しない値に倒す。
  *
  * @param headers - リクエストヘッダー
+ * @param env - 環境変数。テストで差し替えるために受け取る
  * @returns `https://auth.nagiyu.com` のような Origin
  */
-export function resolveBaseUrl(headers: HeaderReader): string {
+export function resolveBaseUrl(
+  headers: HeaderReader,
+  env: Record<string, string | undefined> = process.env
+): string {
+  const configuredUrl = env.AUTH_URL || env.NEXTAUTH_URL;
+  if (configuredUrl) {
+    try {
+      return new URL(configuredUrl).origin;
+    } catch {
+      // 不正な値は無視してヘッダーからの組み立てにフォールバックする
+    }
+  }
+
   const host = headers.get('x-forwarded-host') ?? headers.get('host');
   if (!host) {
     return FALLBACK_BASE_URL;
@@ -75,13 +91,15 @@ export function resolveCancelUrl(
  * @param cookies - リクエストの Cookie
  * @param headers - リクエストのヘッダー
  * @param cookieName - callbackUrl Cookie の名前。環境ごとに異なるため authConfig の値を渡す
+ * @param env - 環境変数。テストで差し替えるために受け取る
  * @returns キャンセル時の戻り先 URL
  */
 export function resolveCancelUrlFromRequest(
   cookies: CookieReader,
   headers: HeaderReader,
-  cookieName: string | undefined
+  cookieName: string | undefined,
+  env: Record<string, string | undefined> = process.env
 ): string {
   const name = cookieName ?? FALLBACK_CALLBACK_URL_COOKIE_NAME;
-  return resolveCancelUrl(cookies.get(name)?.value, resolveBaseUrl(headers));
+  return resolveCancelUrl(cookies.get(name)?.value, resolveBaseUrl(headers, env));
 }
