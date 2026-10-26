@@ -22,6 +22,7 @@ export default function MemoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<SelfFactListItem | null>(null);
   const [deletePending, setDeletePending] = useState(false);
 
@@ -52,17 +53,33 @@ export default function MemoryPage() {
   const handleDeleteConfirm = useCallback(async () => {
     if (!deleting) return;
     setDeletePending(true);
-    setError(null);
+    setDeleteError(null);
     try {
       await deleteSelfFact(deleting.id, characterId);
+    } catch (e) {
+      // ダイアログが開いたままなので、失敗はダイアログ内に出す
+      setDeleteError(e instanceof Error ? e.message : '記憶の削除に失敗しました');
+      setDeletePending(false);
+      return;
+    }
+    try {
+      // 再取得の失敗は一覧のエラーとして出すため、ダイアログは閉じる
       setDeleting(null);
       await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '記憶の削除に失敗しました');
     } finally {
       setDeletePending(false);
     }
   }, [deleting, load, characterId]);
+
+  const handleDeleteOpen = useCallback((item: SelfFactListItem) => {
+    setDeleteError(null);
+    setDeleting(item);
+  }, []);
+
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteError(null);
+    setDeleting(null);
+  }, []);
 
   return (
     <Container maxWidth="sm" sx={{ py: 2 }}>
@@ -75,18 +92,30 @@ export default function MemoryPage() {
 
       <Box sx={{ mt: 2 }}>
         {error && (
-          <Typography color="error" variant="body2" role="alert" sx={{ mb: 1 }}>
+          <Typography
+            color="error"
+            variant="body2"
+            role="alert"
+            sx={{ mb: 1 }}
+            data-testid="memory-error"
+          >
             {error}
           </Typography>
         )}
-        <MemoryList items={items} loading={loading} onDelete={setDeleting} />
+        <MemoryList
+          items={items}
+          loading={loading}
+          hasError={error !== null}
+          onDelete={handleDeleteOpen}
+        />
       </Box>
 
       <MemoryDeleteDialog
         item={deleting}
         loading={deletePending}
         onConfirm={handleDeleteConfirm}
-        onCancel={() => setDeleting(null)}
+        onCancel={handleDeleteCancel}
+        error={deleteError}
         characterId={characterId}
       />
     </Container>

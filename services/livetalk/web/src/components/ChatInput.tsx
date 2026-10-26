@@ -7,8 +7,10 @@ import { Button, TextField } from '@nagiyu/ui';
 export interface ChatInputProps {
   /**
    * 送信時に呼ばれるコールバック。テキストは trim 済みの非空文字列。
+   * false を返す(または resolve する)と送信失敗として入力を残す。
+   * それ以外(true / void)は成功として入力をクリアする。
    */
-  onSubmit: (text: string) => Promise<void> | void;
+  onSubmit: (text: string) => Promise<boolean | void> | boolean | void;
   /**
    * 送信処理中・音声再生中など、入力を無効化したい状態。
    */
@@ -17,7 +19,7 @@ export interface ChatInputProps {
    * 通知タップ起動時などに入力欄へプリフィルするテキスト。
    * 変化したとき（非空）に内部 text state へ反映する。
    * ユーザーの編集は上書きしない（prefillText が再変化しない限り再適用されない）。
-   * 送信時は既存どおり setText('') でクリアされる。
+   * 送信が失敗(onSubmit が false)したときは入力を残し、それ以外はクリアする。
    */
   prefillText?: string;
 }
@@ -44,7 +46,11 @@ export default function ChatInput({ onSubmit, disabled, prefillText }: ChatInput
     if (!trimmed) {
       return;
     }
-    await onSubmit(trimmed);
+    const succeeded = await onSubmit(trimmed);
+    // 失敗時に消すと、長い文を打ち直すことになる
+    if (succeeded === false) {
+      return;
+    }
     setText('');
   };
 

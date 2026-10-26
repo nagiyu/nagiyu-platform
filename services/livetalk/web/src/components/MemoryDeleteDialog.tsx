@@ -10,6 +10,8 @@ export interface MemoryDeleteDialogProps {
   loading?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  /** 削除の失敗メッセージ。ダイアログの裏に隠れないよう、ダイアログ内に表示する。 */
+  error?: string | null;
   /** 選択中のキャラクター ID。省略時は既定キャラクターを使用する。 */
   characterId?: string;
 }
@@ -26,6 +28,7 @@ export default function MemoryDeleteDialog({
   onConfirm,
   onCancel,
   characterId,
+  error,
 }: MemoryDeleteDialogProps) {
   return (
     <ConfirmDialog
@@ -37,6 +40,11 @@ export default function MemoryDeleteDialog({
       onConfirm={onConfirm}
       onCancel={onCancel}
     >
+      {error && (
+        <Alert severity="error" role="alert" data-testid="delete-error" sx={{ mb: 1 }}>
+          {error}
+        </Alert>
+      )}
       <Alert severity="warning" data-testid="delete-annotation">
         {getMemoryDeleteAnnotation(characterId)}
       </Alert>
