@@ -44,6 +44,15 @@ describe('lib/api/responses', () => {
     });
   });
 
+  it('createNotFoundErrorResponse は code と message を指定できる', async () => {
+    const response = createNotFoundErrorResponse('USER_NOT_FOUND', '見つかりません');
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      error: 'USER_NOT_FOUND',
+      message: '見つかりません',
+    });
+  });
+
   it('createForbiddenErrorResponse は既定で FORBIDDEN を返す', async () => {
     const response = createForbiddenErrorResponse();
     expect(response.status).toBe(403);

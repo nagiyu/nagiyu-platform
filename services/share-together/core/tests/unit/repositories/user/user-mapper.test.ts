@@ -1,5 +1,5 @@
 import { InvalidEntityDataError, REMOVE_ATTRIBUTE } from '@nagiyu/aws';
-import { UserMapper } from '../../../../src/repositories/user/user-mapper.js';
+import { UserMapper, buildUserEmailGsi2Pk } from '../../../../src/repositories/user/user-mapper.js';
 import type { User } from '../../../../src/types/index.js';
 
 const CREATED_AT = 1704067200000;
@@ -51,6 +51,13 @@ function buildLegacyItem(overrides: Record<string, unknown> = {}): Record<string
   };
 }
 
+describe('buildUserEmailGsi2Pk', () => {
+  it('大文字小文字の違うメールアドレスから同じキーを作る', () => {
+    expect(buildUserEmailGsi2Pk('Foo@Example.com')).toBe('EMAIL#foo@example.com');
+    expect(buildUserEmailGsi2Pk('foo@example.com')).toBe('EMAIL#foo@example.com');
+  });
+});
+
 describe('UserMapper', () => {
   const mapper = new UserMapper();
 
@@ -71,6 +78,12 @@ describe('UserMapper', () => {
   describe('toItem', () => {
     it('保存形式 (PascalCase・数値ミリ秒・Type・GSI2PK) の Item に変換する', () => {
       expect(mapper.toItem(buildUser())).toEqual(buildItem());
+    });
+
+    it('GSI2PK は小文字に正規化し、Email は元の表記のまま保存する', () => {
+      const item = mapper.toItem(buildUser({ email: 'User@Example.COM' }));
+      expect(item.GSI2PK).toBe('EMAIL#user@example.com');
+      expect(item.Email).toBe('User@Example.COM');
     });
 
     it('image がないときは Image 属性を含めない', () => {

@@ -13,6 +13,7 @@ type InviteFormProps = {
 };
 
 const MAX_GROUP_MEMBERS = 5;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function InviteForm({ groupId, isOwner, memberCount }: InviteFormProps) {
   const [email, setEmail] = useState('');
@@ -23,7 +24,12 @@ export function InviteForm({ groupId, isOwner, memberCount }: InviteFormProps) {
 
   const handleSubmit = async () => {
     const trimmedEmail = email.trim();
-    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) return;
+    if (!trimmedEmail) return;
+    if (!EMAIL_PATTERN.test(trimmedEmail)) {
+      setSubmitted(false);
+      setErrorMessage(ERROR_MESSAGES.INVALID_EMAIL_FORMAT);
+      return;
+    }
 
     setIsSubmitting(true);
     setErrorMessage(null);
