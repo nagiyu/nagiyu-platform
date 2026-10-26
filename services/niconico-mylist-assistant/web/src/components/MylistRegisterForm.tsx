@@ -175,6 +175,7 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
             <TextField
               label="登録する最大動画数"
               type="number"
+              inputMode="numeric"
               value={maxCountInput}
               onChange={(e) => setMaxCountInput(e.target.value)}
               fullWidth
