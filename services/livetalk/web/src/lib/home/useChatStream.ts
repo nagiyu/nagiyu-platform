@@ -62,6 +62,8 @@ export interface UseChatStreamDeps {
   clearFirstWordText: () => void;
   /** オンボーディングテキストをクリアする関数 */
   clearOnboardingText: () => void;
+  /** オンボーディングの案内を閉じる関数 (応答の最初の text を受けた時点で呼ぶ) */
+  dismissOnboarding: () => void;
   /** ライフサイクル状態を更新する setter */
   setLifecycleState: Dispatch<SetStateAction<LifecycleState>>;
 }
@@ -110,6 +112,7 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
     advanceOnError,
     clearFirstWordText,
     clearOnboardingText,
+    dismissOnboarding,
     setLifecycleState,
   } = deps;
 
@@ -182,9 +185,15 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
         let streamDoneMarked = false;
         // error イベントを受けたら送信失敗として扱い、入力欄を残す
         let streamFailed = false;
+        // 案内は応答の先頭で 1 回だけ閉じる (以降の text で毎回 state を更新しない)
+        let onboardingDismissed = false;
 
         const handleEvent = async (event: ChatStreamEvent) => {
           if (event.type === 'text') {
+            if (!onboardingDismissed) {
+              onboardingDismissed = true;
+              dismissOnboarding();
+            }
             setResponseText((prev) => (prev ?? '') + event.delta);
           } else if (event.type === 'sentence' && event.audio) {
             sentenceReceivedRef.current++;
@@ -305,6 +314,7 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
       characterId,
       clearFirstWordText,
       clearOnboardingText,
+      dismissOnboarding,
       setLifecycleState,
       setPhase,
     ]

@@ -212,5 +212,46 @@ describe('useOnboarding', () => {
       // onboardingPhase はそのまま
       expect(result.current.onboardingPhase).toBe('install');
     });
+
+    it('dismissOnboarding でホーム画面追加の案内が閉じ、スヌーズは記録されない', async () => {
+      (isStandalone as jest.Mock).mockReturnValue(false);
+      (shouldShowInstallGuide as jest.Mock).mockReturnValue(true);
+      const setItemSpy = jest.spyOn(Storage.prototype, 'setItem');
+
+      const { result, rerender } = renderHook(() => useOnboarding('done'));
+      await waitFor(() => expect(result.current.onboardingPhase).toBe('install'));
+
+      act(() => {
+        result.current.dismissOnboarding();
+      });
+
+      expect(result.current.onboardingPhase).toBeNull();
+      expect(result.current.onboardingText).toBeNull();
+      // 再描画しても案内は戻らない
+      rerender();
+      expect(result.current.onboardingPhase).toBeNull();
+      expect(setItemSpy).not.toHaveBeenCalled();
+      setItemSpy.mockRestore();
+    });
+
+    it('dismissOnboarding で通知許可の案内も閉じる', async () => {
+      (isStandalone as jest.Mock).mockReturnValue(true);
+      (isPushSupported as jest.Mock).mockReturnValue(true);
+      (shouldShowNotificationPermission as jest.Mock).mockReturnValue(true);
+      Object.defineProperty(window, 'Notification', {
+        configurable: true,
+        value: { permission: 'default' },
+      });
+
+      const { result } = renderHook(() => useOnboarding('done'));
+      await waitFor(() => expect(result.current.onboardingPhase).toBe('notification'));
+
+      act(() => {
+        result.current.dismissOnboarding();
+      });
+
+      expect(result.current.onboardingPhase).toBeNull();
+      expect(result.current.onboardingText).toBeNull();
+    });
   });
 });

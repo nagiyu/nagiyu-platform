@@ -79,6 +79,7 @@ function HomePageInner() {
     onboardingPhase,
     onboardingText,
     clearOnboardingText,
+    dismissOnboarding,
     handleInstallSkip,
     handleNotificationGranted,
     handleNotificationSkip,
@@ -114,6 +115,7 @@ function HomePageInner() {
     advanceOnError,
     clearFirstWordText,
     clearOnboardingText,
+    dismissOnboarding,
     setLifecycleState,
   });
 

@@ -64,22 +64,12 @@ const MOCK_CHAT_RESPONSE =
 
 const MOCK_REPLY_TAIL = 'ゆっくり聞かせてね。';
 
-/** ホーム画面追加ガイドを後回し済みにする localStorage キー (useOnboarding が参照する) */
+/** ホーム画面追加ガイドの後回しを記録する localStorage キー */
 const INSTALL_SNOOZE_KEY = 'livetalk-install-snoozed-at';
 
 /** 同意済み・チャット応答をモックした状態でチャット画面を開く */
-async function openChat(
-  page: Page,
-  viewport: { width: number; height: number },
-  options: { snoozeInstallGuide: boolean }
-) {
+async function openChat(page: Page, viewport: { width: number; height: number }) {
   await page.setViewportSize({ width: viewport.width, height: viewport.height });
-  if (options.snoozeInstallGuide) {
-    await page.addInitScript(
-      (key) => window.localStorage.setItem(key, String(Date.now())),
-      INSTALL_SNOOZE_KEY
-    );
-  }
   // 同意モーダルが送信を塞がないよう、同意済みとして扱う
   await page.route('**/api/consent', (route) => route.fulfill({ json: { consented: true } }));
   await page.route('**/api/chat', (route) =>
@@ -102,8 +92,8 @@ test.describe('LiveTalk - 縦の短いスマホでの会話表示', () => {
   for (const viewport of SHORT_MOBILE_VIEWPORTS) {
     test.describe(viewport.name, () => {
       test('会話の領域に高さがあり、ページが画面の高さを超えない', async ({ page }) => {
-        // 初回訪問で出るホーム画面追加ガイドが最も縦を使うため、後回しにせずそのまま確かめる
-        await openChat(page, viewport, { snoozeInstallGuide: false });
+        // 初回訪問で出るホーム画面追加ガイドが最も縦を使うため、そのまま確かめる
+        await openChat(page, viewport);
 
         // 実寸の測定は hydration 後に行うため、SSR の HTML が見えている間は待つ
         await expect.poll(() => pageOverflow(page)).toBeLessThanOrEqual(0);
@@ -113,8 +103,12 @@ test.describe('LiveTalk - 縦の短いスマホでの会話表示', () => {
         expect(box!.height).toBeGreaterThanOrEqual(100);
       });
 
-      test('メッセージを送ると、キャラの返答が画面内に見える', async ({ page }) => {
-        await openChat(page, viewport, { snoozeInstallGuide: true });
+      test('初回訪問でも、メッセージを送るとキャラの返答が画面内に見え、案内は閉じる', async ({
+        page,
+      }) => {
+        await openChat(page, viewport);
+        const installGuide = page.getByRole('button', { name: 'ホーム画面に追加する' });
+        await expect(installGuide).toBeVisible();
 
         // 送信ボタンの click は開発サーバーのエラー表示が覆うことがあるため、Enter で送る
         await page.getByPlaceholder('メッセージを入力').fill('こんにちは');
@@ -138,6 +132,15 @@ test.describe('LiveTalk - 縦の短いスマホでの会話表示', () => {
             );
           })
           .toBe(true);
+
+        // 案内が会話の末尾に残ると返答が押し出されるため、返答が届いたら閉じる。
+        // 閉じるのはその場の表示だけで、次回訪問で出せるよう後回しは記録しない
+        await expect(installGuide).toBeHidden();
+        const snoozed = await page.evaluate(
+          (key) => window.localStorage.getItem(key),
+          INSTALL_SNOOZE_KEY
+        );
+        expect(snoozed).toBeNull();
 
         await expect.poll(() => pageOverflow(page)).toBeLessThanOrEqual(0);
       });
