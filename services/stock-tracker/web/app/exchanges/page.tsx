@@ -21,7 +21,8 @@ import {
   Snackbar,
 } from '@mui/material';
 import { Button, ConfirmDialog, ErrorAlert, LoadingState, Select } from '@nagiyu/ui';
-import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES, hasUserPermission } from '@nagiyu/common';
+import { useSession } from 'next-auth/react';
 import { useEnterSubmit } from '@nagiyu/react';
 import {
   Add as AddIcon,
@@ -72,6 +73,7 @@ const ERROR_MESSAGES = {
   UNAUTHORIZED: COMMON_ERROR_MESSAGES.UNAUTHORIZED,
   FORBIDDEN: COMMON_ERROR_MESSAGES.FORBIDDEN,
   VALIDATION_ERROR: '入力内容を確認してください',
+  NO_MANAGE_PERMISSION: '取引所を管理する権限がありません。',
 } as const;
 
 // 成功メッセージ定数
@@ -124,7 +126,7 @@ const formatTime = (hour: string, minute: string): string => {
   return `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
 };
 
-export default function ExchangesPage() {
+function ExchangesPageContent() {
   const router = useRouter();
 
   // データ状態の管理
@@ -951,4 +953,25 @@ export default function ExchangesPage() {
       />
     </Container>
   );
+}
+
+/**
+ * 権限が確認できるまで一覧取得を始めないため、権限判定は内容コンポーネントの外で行う。
+ */
+export default function ExchangesPage() {
+  const { data: session, status } = useSession();
+
+  if (status === 'loading') {
+    return <LoadingState message="セッション情報を確認中..." />;
+  }
+
+  if (!hasUserPermission(session?.user, 'stocks:manage-data')) {
+    return (
+      <Container maxWidth="md" sx={{ py: 4 }} role="main">
+        <ErrorAlert message={ERROR_MESSAGES.NO_MANAGE_PERMISSION} title="権限エラー" />
+      </Container>
+    );
+  }
+
+  return <ExchangesPageContent />;
 }

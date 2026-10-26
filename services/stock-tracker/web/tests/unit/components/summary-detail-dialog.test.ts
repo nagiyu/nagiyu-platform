@@ -10,6 +10,18 @@ import SummaryDetailDialog from '../../../components/SummaryDetailDialog';
 import type { TickerSummary } from '../../../types/stock';
 import type { ForecastDetailResponse, QuestionDetail } from '../../../types/forecast';
 
+// 権限は useSession のロールから判定されるため、ロールごとに差し替えられるようにする
+const mockUseSession = jest.fn();
+jest.mock('next-auth/react', () => ({
+  useSession: () => mockUseSession(),
+}));
+
+const sessionWithRoles = (roles: string[]) => ({
+  data: { user: { name: 'u', roles }, expires: '2099-01-01' },
+  status: 'authenticated',
+  update: jest.fn(),
+});
+
 jest.mock('../../../components/StockChart', () => ({
   __esModule: true,
   default: () => React.createElement('div', null, 'StockChartMock'),
@@ -119,6 +131,29 @@ const renderDialog = () =>
   render(React.createElement(SummaryDetailDialog, { open: true, summary, onClose: jest.fn() }));
 
 describe('SummaryDetailDialog', () => {
+  beforeEach(() => {
+    mockUseSession.mockReturnValue(sessionWithRoles(['stock-user']));
+  });
+
+  it('stocks:write-own が無いとアラート設定ボタンを出さない', async () => {
+    mockUseSession.mockReturnValue(sessionWithRoles(['stock-viewer']));
+    mockFetch({ ok: true, status: 200, body: detailResponse() });
+    renderDialog();
+
+    await screen.findByTestId('forecast-label-DIR');
+    expect(screen.queryByRole('button', { name: '買いアラート設定' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '売りアラート設定' })).toBeNull();
+  });
+
+  it('セッション読み込み中はアラート設定ボタンを出さない', async () => {
+    mockUseSession.mockReturnValue({ data: undefined, status: 'loading', update: jest.fn() });
+    mockFetch({ ok: true, status: 200, body: detailResponse() });
+    renderDialog();
+
+    await screen.findByTestId('forecast-label-DIR');
+    expect(screen.queryByRole('button', { name: '買いアラート設定' })).toBeNull();
+  });
+
   it('開いたときに基準日つきで確度を取得する', async () => {
     mockFetch({ ok: true, status: 200, body: detailResponse() });
     renderDialog();

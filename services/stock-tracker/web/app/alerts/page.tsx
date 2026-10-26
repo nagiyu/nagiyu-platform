@@ -21,6 +21,8 @@ import {
   ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { hasUserPermission } from '@nagiyu/common';
 import AlertSettingsModal from '../../components/AlertSettingsModal';
 import AlertDeleteConfirmDialog from '../../components/AlertDeleteConfirmDialog';
 import type { AlertResponse } from '../../types/alert';
@@ -64,6 +66,9 @@ const MODE_LABELS: Record<string, string> = {
 
 // メインコンテンツコンポーネント（useSearchParams を使用）
 function AlertsPageContent() {
+  const { data: session } = useSession();
+  // 権限が確認できたときだけ操作を出す。読み込み中は session が無く false になる
+  const canWrite = hasUserPermission(session?.user, 'stocks:write-own');
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -371,12 +376,14 @@ function AlertsPageContent() {
                   >
                     一時通知
                   </TableCell>
-                  <TableCell
-                    sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}
-                    align="center"
-                  >
-                    操作
-                  </TableCell>
+                  {canWrite && (
+                    <TableCell
+                      sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}
+                      align="center"
+                    >
+                      操作
+                    </TableCell>
+                  )}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -432,35 +439,37 @@ function AlertsPageContent() {
                           {alert.temporary ? '一時' : '常設'}
                         </Chip>
                       </TableCell>
-                      <TableCell align="center">
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            flexWrap: 'nowrap',
-                            gap: 1,
-                            justifyContent: 'center',
-                          }}
-                        >
-                          <Button
-                            variant="solid"
-                            color="warning"
-                            size="sm"
-                            startIcon={<EditIcon />}
-                            onClick={() => handleOpenEditModal(alert)}
+                      {canWrite && (
+                        <TableCell align="center">
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              flexWrap: 'nowrap',
+                              gap: 1,
+                              justifyContent: 'center',
+                            }}
                           >
-                            編集
-                          </Button>
-                          <Button
-                            variant="solid"
-                            color="danger"
-                            size="sm"
-                            startIcon={<DeleteIcon />}
-                            onClick={() => handleOpenDeleteDialog(alert)}
-                          >
-                            削除
-                          </Button>
-                        </Box>
-                      </TableCell>
+                            <Button
+                              variant="solid"
+                              color="warning"
+                              size="sm"
+                              startIcon={<EditIcon />}
+                              onClick={() => handleOpenEditModal(alert)}
+                            >
+                              編集
+                            </Button>
+                            <Button
+                              variant="solid"
+                              color="danger"
+                              size="sm"
+                              startIcon={<DeleteIcon />}
+                              onClick={() => handleOpenDeleteDialog(alert)}
+                            >
+                              削除
+                            </Button>
+                          </Box>
+                        </TableCell>
+                      )}
                     </TableRow>
                   );
                 })}

@@ -2,6 +2,18 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import AlertsPage from '../../../app/alerts/page';
 
+// 権限は useSession のロールから判定されるため、ロールごとに差し替えられるようにする
+const mockUseSession = jest.fn();
+jest.mock('next-auth/react', () => ({
+  useSession: () => mockUseSession(),
+}));
+
+const sessionWithRoles = (roles: string[]) => ({
+  data: { user: { name: 'u', roles }, expires: '2099-01-01' },
+  status: 'authenticated',
+  update: jest.fn(),
+});
+
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(() => ({ back: jest.fn(), push: jest.fn() })),
   useSearchParams: jest.fn(() => ({ get: jest.fn(() => null) })),
@@ -57,6 +69,7 @@ describe('AlertsPage', () => {
   let html: string;
 
   beforeAll(() => {
+    mockUseSession.mockReturnValue(sessionWithRoles(['stock-admin']));
     html = renderToStaticMarkup(React.createElement(AlertsPage));
   });
 
