@@ -101,6 +101,10 @@ test.describe('個人 ToDo 管理', () => {
   });
 
   test.describe('API エラー時の通知', () => {
+    // Service Worker 経由の fetch は page.route で捕捉できず、モックが素通りする。
+    // chromium-mobile 以外のプロジェクトは Service Worker を止めていないため、ここで止める。
+    test.use({ serviceWorkers: 'block' });
+
     test.beforeEach(async ({ page }) => {
       // GET (一覧取得) は通し、更新 (PUT)・削除 (DELETE) だけを失敗させる
       await page.route('**/api/lists/list-default/todos/*', async (route) => {
