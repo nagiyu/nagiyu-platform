@@ -22,7 +22,15 @@ import { usePendingNotifications } from '@/lib/home/usePendingNotifications';
 import { useLifecycle } from '@/lib/home/useLifecycle';
 import { useCharacterQuerySync } from '@/lib/home/useCharacterQuerySync';
 import { useChatStream } from '@/lib/home/useChatStream';
+import { useChatViewportHeight } from '@/lib/home/useChatViewportHeight';
+import { useAutoScrollToEnd } from '@/lib/home/useAutoScrollToEnd';
 import type { ChatPhase } from '@/lib/home/types';
+
+/**
+ * 会話の領域 (スクロール領域) の最小の高さ (px)。
+ * 自分の吹き出しとキャラの応答の吹き出しが一緒に見える高さを下限にして、短い画面でも潰さない。
+ */
+const CONVERSATION_MIN_HEIGHT = 140;
 
 /**
  * Phase 2c のチャット画面（Phase 2f で Web Audio 再生に切替）。
@@ -109,6 +117,11 @@ function HomePageInner() {
     setLifecycleState,
   });
 
+  // ヘッダー・フッターの実寸を引いた画面の高さ。決め打ちだと、折り返しで高さが変わるフッターや
+  // モバイルのアドレスバーとずれて、ページ全体が画面より高くなる。
+  const chatHeight = useChatViewportHeight();
+  const scrollAreaRef = useAutoScrollToEnd<HTMLDivElement>();
+
   const statusText =
     phase === 'loading' ? '考え中…' : phase === 'streaming' ? '話している' : '待機中';
 
@@ -121,14 +134,15 @@ function HomePageInner() {
         sx={{
           display: 'flex',
           flexDirection: 'column',
-          height: 'calc(100vh - 128px)',
+          height: chatHeight,
           py: 1,
         }}
       >
         <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 0.5 }}>
           <CharacterSelectButton disabled={phase !== 'idle'} />
         </Box>
-        <Box sx={{ flex: '0 1 60%', minHeight: 240, mb: 1 }}>
+        {/* 縦の短い画面ではキャラ側を縮めて、会話の領域 (下の minHeight) を優先して確保する。 */}
+        <Box sx={{ flex: '0 1 60%', minHeight: 0, mb: 1 }}>
           <CharacterCanvas
             characterId={characterId}
             audioBuffer={audioBuffer}
@@ -143,19 +157,24 @@ function HomePageInner() {
           sx={{
             display: 'flex',
             flexDirection: 'column',
-            flex: '1 1 auto',
-            minHeight: 0,
+            // 基準を 0 にして、キャラ側の縮み量が会話の領域の中身の量に左右されないようにする。
+            // min-content は、下のスクロール領域の minHeight と固定領域の合計になる。
+            flex: '1 1 0',
+            minHeight: 'min-content',
             width: '100%',
             maxWidth: '100%',
           }}
         >
           {/* スクロール領域：応答・エラー・onboarding・pending 通知はここに収める。
-              minHeight: 0 は flex column 内の子で overflow スクロールを機能させるために必須。
-              長文応答でもこの Box 内でスクロールし、下の固定領域（入力欄・通知トグル）を押し出さない。 */}
+              flex の基準を 0 にして中身の量から切り離すことで、長文応答でもこの Box 内でスクロールし、
+              下の固定領域（入力欄・通知トグル）を押し出さない。
+              中身が変わるたびに末尾までスクロールし、新しい発言が画面外に残らないようにする。 */}
           <Box
+            ref={scrollAreaRef}
+            data-testid="chat-scroll-area"
             sx={{
-              flex: '1 1 auto',
-              minHeight: 0,
+              flex: '1 1 0',
+              minHeight: CONVERSATION_MIN_HEIGHT,
               overflowY: 'auto',
               display: 'flex',
               flexDirection: 'column',

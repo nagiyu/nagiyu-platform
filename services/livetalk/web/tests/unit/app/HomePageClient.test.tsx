@@ -191,4 +191,32 @@ describe('HomePageClient の基本動作', () => {
     await waitFor(() => expect(screen.getByTestId('response-display-mock')).toBeInTheDocument());
     expect(screen.getByPlaceholderText('メッセージを入力')).toBeInTheDocument();
   });
+
+  it('チャット画面の高さは、ヘッダー・フッターの実寸を引いた画面の高さになる', async () => {
+    setupMinimalFetchMocks();
+    const header = document.createElement('header');
+    const footer = document.createElement('footer');
+    header.getBoundingClientRect = () => ({ height: 56 }) as DOMRect;
+    footer.getBoundingClientRect = () => ({ height: 100 }) as DOMRect;
+    document.body.append(header, footer);
+    const originalInnerHeight = window.innerHeight;
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 568 });
+
+    try {
+      render(<HomePageClient />);
+      const scrollArea = await screen.findByTestId('chat-scroll-area');
+
+      const container = scrollArea.closest('.MuiContainer-root');
+      expect(container).not.toBeNull();
+      const computed = window.getComputedStyle(container as HTMLElement);
+      expect(computed.height).toBe('412px');
+    } finally {
+      Object.defineProperty(window, 'innerHeight', {
+        configurable: true,
+        value: originalInnerHeight,
+      });
+      header.remove();
+      footer.remove();
+    }
+  });
 });
