@@ -235,15 +235,18 @@ export async function listVideosWithSettings(
   // フィルタリング適用（ユーザー設定が存在する動画のみ条件判定）
   let filteredVideos = mergedVideos;
   if (isFavorite !== undefined) {
-    // お気に入りフィルタ: 明示的に isFavorite=true のものだけを対象にする（設定なし＝お気に入り未設定として除外）
-    // isFavorite は能動的なブックマーク機能のため、設定なしは「お気に入りでない」と解釈することが仕様上の意図
-    filteredVideos = filteredVideos.filter((video) => video.userSetting?.isFavorite === isFavorite);
+    // お気に入りフィルタ: 設定なしの動画は「お気に入りでない」として扱う
+    // USER_SETTING は画面で操作したときにしか作られず、取り込んだだけの動画は設定を持たない。
+    // 設定なしを除外すると、isFavorite=false のとき取り込んだだけの動画が一覧から消えてしまう。
+    filteredVideos = filteredVideos.filter(
+      (video) => (video.userSetting?.isFavorite ?? false) === isFavorite
+    );
   }
   if (isSkip === false) {
     // スキップ除外: 明示的に isSkip=true のものだけを除外し、設定なしの動画は候補に含める
     // スキップ設定は UI 操作時のみ USER_SETTING レコードが作成されるため、
     // 設定レコードを持たない動画の大多数はスキップ指定していない（＝候補に含めるべき）動画である。
-    // お気に入りと異なり「設定なし＝スキップ指定なし」と解釈するのが正しい。
+    // お気に入りと同じく「設定なし＝スキップ指定なし」として扱う。
     filteredVideos = filteredVideos.filter((video) => video.userSetting?.isSkip !== true);
   } else if (isSkip === true) {
     // スキップのみ: 明示的に isSkip=true のものだけを返す（一覧 API の isSkip=true 相当）
