@@ -158,7 +158,13 @@ export const POST = withApiErrorReporting(
         ? await userRepository.getById(userIdInput)
         : await userRepository.getByEmail(emailInput);
       if (!invitee) {
-        return createNotFoundErrorResponse();
+        // グループの不存在と区別し、入力した招待先が原因だと利用者に伝える
+        return createNotFoundErrorResponse(
+          'USER_NOT_FOUND',
+          hasEmail
+            ? ERROR_MESSAGES.INVITEE_EMAIL_NOT_REGISTERED
+            : ERROR_MESSAGES.INVITEE_USER_NOT_FOUND
+        );
       }
 
       const now = Date.now();

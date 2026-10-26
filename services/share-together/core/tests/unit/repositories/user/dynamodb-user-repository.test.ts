@@ -132,6 +132,17 @@ describe('DynamoDBUserRepository', () => {
       });
     });
 
+    it('大文字を含むメールアドレスは小文字の GSI2PK で Query する', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Items: [buildItem('u1')] });
+
+      await repository.getByEmail('U1@Example.COM');
+
+      const command = mockDocClient.send.mock.calls[0][0] as QueryCommand;
+      expect(command.input.ExpressionAttributeValues).toEqual({
+        ':gsi2pk': 'EMAIL#u1@example.com',
+      });
+    });
+
     it('該当がなければ null を返す', async () => {
       mockDocClient.send.mockResolvedValueOnce({ Items: [] });
       await expect(repository.getByEmail('none@example.com')).resolves.toBeNull();
@@ -260,6 +271,21 @@ describe('DynamoDBUserRepository', () => {
         UpdatedAt: NOW,
       });
       expect(parsed.remove).toEqual(expect.arrayContaining(['email', 'updatedAt']));
+    });
+
+    it('大文字を含む email への変更でも GSI2PK は小文字にし、Email は元の表記で保存する', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Attributes: buildItem('u1', { Email: 'New@Example.com', UpdatedAt: NOW }),
+      });
+
+      await repository.update('u1', { email: 'New@Example.com' });
+
+      const command = mockDocClient.send.mock.calls[0][0] as UpdateCommand;
+      const parsed = parseUpdateExpression(command.input);
+      expect(parsed.set).toMatchObject({
+        Email: 'New@Example.com',
+        GSI2PK: 'EMAIL#new@example.com',
+      });
     });
 
     it('image が null のときは Image と旧名 image を削除する', async () => {

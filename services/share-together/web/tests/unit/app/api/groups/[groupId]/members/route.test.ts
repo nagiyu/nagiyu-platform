@@ -300,6 +300,51 @@ describe('/api/groups/[groupId]/members route', () => {
     });
   });
 
+  it.each([
+    ['email', { email: 'unknown@example.com' }, 'このメールアドレスのユーザーは登録されていません'],
+    ['userId', { userId: 'unknown-user' }, '招待先のユーザーが見つかりません'],
+  ])(
+    'POST: 招待先が見つからない場合は %s 指定でも専用の404を返す',
+    async (_label, body, message) => {
+      mockGetSessionOrUnauthorized.mockResolvedValue({
+        user: { id: 'owner-1' },
+      } as SessionOrUnauthorized);
+      mockGetGroupById.mockResolvedValue({ groupId: 'group-1', ownerUserId: 'owner-1' });
+      mockGetMembershipById.mockResolvedValue({
+        groupId: 'group-1',
+        userId: 'owner-1',
+        role: 'OWNER',
+        status: 'ACCEPTED',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
+      });
+      mockGetUserByEmail.mockResolvedValue(null);
+      mockGetUserById.mockResolvedValue(null);
+
+      const request = { json: jest.fn().mockResolvedValue(body) } as unknown as Request;
+      const response = await POST(request, { params: Promise.resolve({ groupId: 'group-1' }) });
+
+      expect(response.status).toBe(404);
+      await expect(response.json()).resolves.toEqual({ error: 'USER_NOT_FOUND', message });
+      expect(mockInviteMember).not.toHaveBeenCalled();
+    }
+  );
+
+  it('POST: グループが見つからない場合は共通の NOT_FOUND を返す', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'owner-1' },
+    } as SessionOrUnauthorized);
+    mockGetGroupById.mockResolvedValue(null);
+
+    const request = {
+      json: jest.fn().mockResolvedValue({ email: 'invitee@example.com' }),
+    } as unknown as Request;
+    const response = await POST(request, { params: Promise.resolve({ groupId: 'group-1' }) });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ error: 'NOT_FOUND' });
+  });
+
   it('POST: 重複招待エラーは409を返す', async () => {
     mockGetSessionOrUnauthorized.mockResolvedValue({
       user: { id: 'owner-1' },

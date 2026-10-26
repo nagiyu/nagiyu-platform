@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import InvitationsPage from '@/app/invitations/page';
+import { INVITATIONS_CHANGED_EVENT } from '@/lib/invitation-events';
 
 const mockFetch = jest.fn((input: string | URL | Request, init?: RequestInit) => {
   const url = input.toString();
@@ -147,6 +148,145 @@ describe('InvitationsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('招待はありません。')).toBeInTheDocument();
+    });
+  });
+
+  describe('処理中の制御', () => {
+    /** PUT の応答を任意のタイミングで返せるようにする */
+    function holdNextPut() {
+      let resolvePut: (response: Response) => void = () => {};
+      mockFetch.mockImplementationOnce(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolvePut = resolve;
+          })
+      );
+      return {
+        resolve: (response: Response) => resolvePut(response),
+      };
+    }
+
+    it('承認の処理中はそのカードの承認・拒否を無効にし、他のカードは操作できる', async () => {
+      render(<InvitationsPage />);
+      await screen.findByText('週末の買い出し');
+
+      const pending = holdNextPut();
+      fireEvent.click(screen.getAllByRole('button', { name: '承認' })[0]);
+
+      await waitFor(() => {
+        expect(screen.getAllByRole('button', { name: '承認' })[0]).toBeDisabled();
+      });
+      expect(screen.getAllByRole('button', { name: '拒否' })[0]).toBeDisabled();
+      expect(screen.getAllByRole('button', { name: '承認' })[1]).toBeEnabled();
+      expect(screen.getAllByRole('button', { name: '拒否' })[1]).toBeEnabled();
+
+      const putCalls = () =>
+        mockFetch.mock.calls.filter(
+          ([, init]) => (init as RequestInit | undefined)?.method === 'PUT'
+        );
+      fireEvent.click(screen.getAllByRole('button', { name: '承認' })[0]);
+      expect(putCalls()).toHaveLength(1);
+
+      pending.resolve({ ok: true, json: async () => ({ data: {} }) } as Response);
+      await waitFor(() => {
+        expect(screen.queryByText('週末の買い出し')).not.toBeInTheDocument();
+      });
+    });
+
+    it('承認が失敗したらボタンの無効化を解除する', async () => {
+      render(<InvitationsPage />);
+      await screen.findByText('週末の買い出し');
+
+      const pending = holdNextPut();
+      fireEvent.click(screen.getAllByRole('button', { name: '承認' })[0]);
+      await waitFor(() => {
+        expect(screen.getAllByRole('button', { name: '承認' })[0]).toBeDisabled();
+      });
+
+      pending.resolve({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: 'INTERNAL_SERVER_ERROR', message: 'x' }),
+      } as Response);
+
+      expect(await screen.findByText('招待の承認に失敗しました。')).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: '承認' })[0]).toBeEnabled();
+      expect(screen.getAllByRole('button', { name: '拒否' })[0]).toBeEnabled();
+    });
+
+    it('拒否の確定後はそのカードの承認・拒否を無効にし、終わったら解除する', async () => {
+      render(<InvitationsPage />);
+      await screen.findByText('週末の買い出し');
+
+      fireEvent.click(screen.getAllByRole('button', { name: '拒否' })[0]);
+      // 確認ダイアログを出しただけでは処理中にしない (ダイアログ表示中は背面が aria-hidden になる)
+      expect(screen.getAllByRole('button', { name: '承認', hidden: true })[0]).toBeEnabled();
+
+      const pending = holdNextPut();
+      fireEvent.click(screen.getByRole('button', { name: '拒否' }));
+      // 処理中は確認ダイアログが開いたままで、背面が aria-hidden になる
+      await waitFor(() => {
+        expect(screen.getAllByRole('button', { name: '承認', hidden: true })[0]).toBeDisabled();
+      });
+
+      pending.resolve({ ok: false, status: 500 } as Response);
+
+      expect(await screen.findByText('招待の拒否に失敗しました。')).toBeInTheDocument();
+      // ダイアログの終了アニメーション中は背面が aria-hidden のまま残る
+      expect(screen.getAllByRole('button', { name: '承認', hidden: true })[0]).toBeEnabled();
+    });
+  });
+
+  describe('ヘッダーのバッジへの通知', () => {
+    it('承認に成功すると招待数の変更を通知する', async () => {
+      const listener = jest.fn();
+      window.addEventListener(INVITATIONS_CHANGED_EVENT, listener);
+      try {
+        render(<InvitationsPage />);
+        await screen.findByText('週末の買い出し');
+        fireEvent.click(screen.getAllByRole('button', { name: '承認' })[0]);
+
+        await waitFor(() => {
+          expect(listener).toHaveBeenCalledTimes(1);
+        });
+      } finally {
+        window.removeEventListener(INVITATIONS_CHANGED_EVENT, listener);
+      }
+    });
+
+    it('拒否に成功すると招待数の変更を通知する', async () => {
+      const listener = jest.fn();
+      window.addEventListener(INVITATIONS_CHANGED_EVENT, listener);
+      try {
+        render(<InvitationsPage />);
+        await screen.findByText('週末の買い出し');
+        fireEvent.click(screen.getAllByRole('button', { name: '拒否' })[0]);
+        fireEvent.click(screen.getByRole('button', { name: '拒否' }));
+
+        await waitFor(() => {
+          expect(listener).toHaveBeenCalledTimes(1);
+        });
+      } finally {
+        window.removeEventListener(INVITATIONS_CHANGED_EVENT, listener);
+      }
+    });
+
+    it('承認に失敗したときは通知しない', async () => {
+      const listener = jest.fn();
+      window.addEventListener(INVITATIONS_CHANGED_EVENT, listener);
+      try {
+        render(<InvitationsPage />);
+        await screen.findByText('週末の買い出し');
+        mockFetch.mockImplementationOnce(() =>
+          Promise.resolve({ ok: false, status: 500, json: async () => ({}) } as Response)
+        );
+        fireEvent.click(screen.getAllByRole('button', { name: '承認' })[0]);
+
+        await screen.findByText('招待の承認に失敗しました。');
+        expect(listener).not.toHaveBeenCalled();
+      } finally {
+        window.removeEventListener(INVITATIONS_CHANGED_EVENT, listener);
+      }
     });
   });
 });

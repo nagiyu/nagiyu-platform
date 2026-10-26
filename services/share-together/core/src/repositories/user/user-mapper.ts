@@ -35,10 +35,14 @@ export function buildUserPk(userId: string): string {
 /**
  * メールアドレスからユーザーアイテムの GSI2PK を構築する
  *
+ * メールアドレスの大文字小文字は同一視されるため、キーは小文字に正規化する。
+ * 入力の表記ゆれ (Foo@Example.com 等) でも同じユーザーを引けるようにするためで、
+ * 保存する Email 属性は元の表記のまま残す。
+ *
  * @param email - メールアドレス
  */
 export function buildUserEmailGsi2Pk(email: string): string {
-  return `EMAIL#${email}`;
+  return `EMAIL#${email.toLowerCase()}`;
 }
 
 /**

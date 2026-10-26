@@ -66,6 +66,23 @@ describe('InMemoryUserRepository', () => {
       expect(user?.userId).toBe('user-2');
     });
 
+    it('大文字小文字を区別せずに取得でき、email は保存時の表記のまま返す', async () => {
+      await repository.create(buildInput({ userId: 'user-2', email: 'User-2@Example.com' }));
+
+      const user = await repository.getByEmail('USER-2@EXAMPLE.COM');
+
+      expect(user?.userId).toBe('user-2');
+      expect(user?.email).toBe('User-2@Example.com');
+    });
+
+    it('email を大文字を含む表記へ更新しても小文字の入力で引ける', async () => {
+      await repository.create(buildInput());
+
+      await repository.update('user-1', { email: 'New@Example.com' });
+
+      expect((await repository.getByEmail('new@example.com'))?.userId).toBe('user-1');
+    });
+
     it('該当がなければ null を返す', async () => {
       await expect(repository.getByEmail('none@example.com')).resolves.toBeNull();
     });
