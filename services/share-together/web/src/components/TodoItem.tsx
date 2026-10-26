@@ -6,11 +6,15 @@ import { Button, Checkbox, TextField } from '@nagiyu/ui';
 import { useEnterSubmit } from '@nagiyu/react';
 import type { TodoItem as TodoItemType } from '@/types';
 
+/** サーバー側 (core の ToDo タイトル検証) の上限と同じ値。超過分は API で拒否されるため入力時点で制限する。 */
+const TODO_TITLE_MAX_LENGTH = 200;
+
 type TodoItemProps = {
   todo: Pick<TodoItemType, 'todoId' | 'title' | 'isCompleted'>;
   onToggleComplete?: (todoId: string) => void;
   onDelete?: (todoId: string) => void;
-  onUpdate?: (todoId: string, title: string) => void;
+  /** 更新の成否を返す。失敗 (false) のときは編集欄を開いたまま入力を残して再試行できるようにする。 */
+  onUpdate?: (todoId: string, title: string) => Promise<boolean> | boolean;
 };
 
 export function TodoItem({ todo, onToggleComplete, onDelete, onUpdate }: TodoItemProps) {
@@ -28,20 +32,22 @@ export function TodoItem({ todo, onToggleComplete, onDelete, onUpdate }: TodoIte
     setIsEditing(false);
   };
 
-  const handleEditSave = () => {
+  const handleEditSave = async () => {
     if (isEditingTitleEmpty) {
       return;
     }
 
-    onUpdate?.(todo.todoId, editingTitle.trim());
-    setIsEditing(false);
+    const succeeded = (await onUpdate?.(todo.todoId, editingTitle.trim())) !== false;
+    if (succeeded) {
+      setIsEditing(false);
+    }
   };
 
   // タイトル編集入力でエンターキーを押したときに保存を実行するハンドラ
   // TextField の onKeyDown は HTMLInputElement | HTMLTextAreaElement 型を受け取るため型引数を明示する
   // 編集中でないときも hook はトップレベルで呼ぶが、ハンドラは編集中の TextField にのみ渡す
   const handleEditEnterDown = useEnterSubmit<HTMLInputElement | HTMLTextAreaElement>(
-    handleEditSave,
+    () => void handleEditSave(),
     { disabled: isEditingTitleEmpty }
   );
 
@@ -61,6 +67,7 @@ export function TodoItem({ todo, onToggleComplete, onDelete, onUpdate }: TodoIte
             value={editingTitle}
             onChange={(event) => setEditingTitle(event.target.value)}
             size="sm"
+            maxLength={TODO_TITLE_MAX_LENGTH}
             fullWidth
             onKeyDown={handleEditEnterDown}
           />
@@ -83,7 +90,11 @@ export function TodoItem({ todo, onToggleComplete, onDelete, onUpdate }: TodoIte
             <Button variant="ghost" onClick={handleEditCancel}>
               キャンセル
             </Button>
-            <Button variant="solid" onClick={handleEditSave} disabled={isEditingTitleEmpty}>
+            <Button
+              variant="solid"
+              onClick={() => void handleEditSave()}
+              disabled={isEditingTitleEmpty}
+            >
               保存
             </Button>
           </>

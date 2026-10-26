@@ -451,4 +451,123 @@ describe('TodoList', () => {
     expect(screen.getByText('API ToDo 1')).toBeInTheDocument();
     expect(screen.getByText('API ToDo 2')).toBeInTheDocument();
   });
+
+  describe('操作失敗時の通知', () => {
+    const mockFetch = (fetchMock: jest.Mock) => {
+      Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+      Object.defineProperty(window, 'fetch', { writable: true, value: fetchMock });
+    };
+    const listResponse = {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: { todos: [{ todoId: 'api-todo-1', title: 'API ToDo 1', isCompleted: false }] },
+      }),
+    } as Response;
+    let consoleErrorSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('完了切り替えが失敗したときは Snackbar で通知し、チェック状態を変えない', async () => {
+      mockFetch(
+        jest
+          .fn()
+          .mockResolvedValueOnce(listResponse)
+          .mockResolvedValueOnce({ ok: false, status: 500 } as Response)
+      );
+
+      render(<TodoList listId="api-list" />);
+      await waitFor(() => {
+        expect(screen.getByText('API ToDo 1')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'API ToDo 1の完了チェック' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('ToDoの更新に失敗しました。')).toBeInTheDocument();
+      });
+      expect(screen.getByRole('checkbox', { name: 'API ToDo 1の完了チェック' })).not.toBeChecked();
+      expect(consoleErrorSpy).toHaveBeenCalled();
+    });
+
+    it('編集が失敗したときは Snackbar で通知し、編集欄と入力を残す', async () => {
+      mockFetch(
+        jest
+          .fn()
+          .mockResolvedValueOnce(listResponse)
+          .mockResolvedValueOnce({ ok: false, status: 500 } as Response)
+      );
+
+      render(<TodoList listId="api-list" />);
+      await waitFor(() => {
+        expect(screen.getByText('API ToDo 1')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: '編集' }));
+      fireEvent.change(screen.getByRole('textbox', { name: 'タイトルを編集' }), {
+        target: { value: '失敗する編集' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: '保存' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('ToDoの更新に失敗しました。')).toBeInTheDocument();
+      });
+      expect(screen.getByRole('textbox', { name: 'タイトルを編集' })).toHaveValue('失敗する編集');
+      expect(consoleErrorSpy).toHaveBeenCalled();
+    });
+
+    it('ネットワークエラーで編集が失敗した場合も編集欄と入力を残す', async () => {
+      mockFetch(
+        jest.fn().mockResolvedValueOnce(listResponse).mockRejectedValueOnce(new Error('network'))
+      );
+
+      render(<TodoList listId="api-list" />);
+      await waitFor(() => {
+        expect(screen.getByText('API ToDo 1')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: '編集' }));
+      fireEvent.change(screen.getByRole('textbox', { name: 'タイトルを編集' }), {
+        target: { value: '通信失敗の編集' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: '保存' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('ToDoの更新に失敗しました。')).toBeInTheDocument();
+      });
+      expect(screen.getByRole('textbox', { name: 'タイトルを編集' })).toHaveValue('通信失敗の編集');
+    });
+
+    it('削除が失敗したときは Snackbar で通知し、ダイアログを閉じて ToDo を残す', async () => {
+      mockFetch(
+        jest
+          .fn()
+          .mockResolvedValueOnce(listResponse)
+          .mockResolvedValueOnce({ ok: false, status: 500 } as Response)
+      );
+
+      render(<TodoList listId="api-list" />);
+      await waitFor(() => {
+        expect(screen.getByText('API ToDo 1')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: '削除' }));
+      fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '削除' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('ToDoの削除に失敗しました。')).toBeInTheDocument();
+      });
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      });
+      expect(screen.getByText('API ToDo 1')).toBeInTheDocument();
+      expect(consoleErrorSpy).toHaveBeenCalled();
+    });
+  });
 });
