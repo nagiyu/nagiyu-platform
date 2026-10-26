@@ -27,6 +27,7 @@ const config: Config = {
     'lib/api-error-reporting.ts',
     'lib/percentage-helper.ts',
     'lib/home-query.ts',
+    'lib/holding-currency.ts',
     'lib/axis-performance-view/**/*.ts',
     'lib/forecast/**/*.ts',
     'lib/forecast-view/**/*.ts',

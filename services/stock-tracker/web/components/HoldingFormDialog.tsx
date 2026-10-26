@@ -43,7 +43,8 @@ export interface HoldingFormDialogProps {
   onClose: () => void;
 }
 
-const CURRENCIES = ['USD', 'JPY', 'EUR', 'GBP'] as const;
+// サポート対象の通貨（日本・米国のみ。core の検証と一致させる）
+const CURRENCIES = ['USD', 'JPY'] as const;
 
 /**
  * 保有株式の登録・編集フォームダイアログ。
@@ -117,7 +118,11 @@ export default function HoldingFormDialog({
               onChange={(value) => onChange('currency', value)}
               error={!!errors.currency}
               helperText={errors.currency}
-              options={CURRENCIES.map((currency) => ({ value: currency, label: currency }))}
+              placeholder="選択してください"
+              options={CURRENCIES.map((currency) => ({
+                value: currency,
+                label: currency,
+              }))}
             />
           ) : (
             <TextField

@@ -31,6 +31,8 @@ import AlertSettingsModal from '../../components/AlertSettingsModal';
 import HoldingDeleteDialog from '../../components/HoldingDeleteDialog';
 import HoldingFormDialog from '../../components/HoldingFormDialog';
 import type { AlertResponse } from '../../types/alert';
+import { resolveInitialCurrency } from '../../lib/holding-currency';
+import type { ExchangeMarket } from '@nagiyu/stock-tracker-core';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -73,6 +75,8 @@ interface Exchange {
   exchangeId: string;
   name: string;
   key: string;
+  /** 市場。未設定の取引所では省略される */
+  market?: ExchangeMarket | null;
 }
 
 interface Ticker {
@@ -96,13 +100,13 @@ interface HoldingFormData {
   currency: string;
 }
 
-// 初期フォームデータ
+// 初期フォームデータ（通貨は取引所の市場から決めるため、取引所を選ぶまで空）
 const INITIAL_FORM_DATA: HoldingFormData = {
   exchangeId: '',
   tickerId: '',
   quantity: '',
   averagePrice: '',
-  currency: 'USD',
+  currency: '',
 };
 
 export default function HoldingsPage() {
@@ -378,6 +382,12 @@ export default function HoldingsPage() {
         return newErrors;
       });
     }
+  };
+
+  // 取引所を選んだとき、その市場の通貨を初期値にする（市場が未設定なら空にして選ばせる）
+  const handleExchangeChange = (value: string) => {
+    handleFormChange('exchangeId', value);
+    handleFormChange('currency', resolveInitialCurrency(exchanges, value));
   };
 
   // 保有株式を作成
@@ -733,7 +743,7 @@ export default function HoldingsPage() {
             label="取引所"
             disabled={exchangesLoading}
             value={formData.exchangeId}
-            onChange={(value) => handleFormChange('exchangeId', value)}
+            onChange={handleExchangeChange}
             error={!!formErrors.exchangeId}
             helperText={formErrors.exchangeId}
             placeholder="選択してください"
