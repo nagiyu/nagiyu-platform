@@ -36,6 +36,8 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addStatusById, setAddStatusById] = useState<Record<string, AddStatus>>({});
+  // 追加リクエスト中の動画。二重送信の防止と処理中表示に使う
+  const [addingVideoId, setAddingVideoId] = useState<string | null>(null);
   // 検索が一度でも実行されたかを管理する（未検索と検索済み0件を区別するため）
   const [hasSearched, setHasSearched] = useState(false);
 
@@ -47,6 +49,7 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
       setVideos([]);
       setError(null);
       setAddStatusById({});
+      setAddingVideoId(null);
       setHasSearched(false);
     }
   }, [open]);
@@ -106,6 +109,7 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
 
   const handleAddVideo = async (videoId: string) => {
     setError(null);
+    setAddingVideoId(videoId);
     try {
       const response = await fetch('/api/videos/bulk-import', {
         method: 'POST',
@@ -117,10 +121,19 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
         throw new Error(data.error || ERROR_MESSAGES.VIDEO_ADD_FAILED);
       }
 
-      const status: AddStatus = data.skipped > 0 ? 'already-added' : 'added';
-      setAddStatusById((prev) => ({ ...prev, [videoId]: status }));
+      // 応答は 1 件分の集計なので、success / skipped のどちらでもなければ失敗扱いにする。
+      // 状態を付けないことで、ボタンを「追加」のまま残して再試行できるようにする
+      if (data.success > 0) {
+        setAddStatusById((prev) => ({ ...prev, [videoId]: 'added' }));
+      } else if (data.skipped > 0) {
+        setAddStatusById((prev) => ({ ...prev, [videoId]: 'already-added' }));
+      } else {
+        setError(ERROR_MESSAGES.VIDEO_ADD_FAILED);
+      }
     } catch (addError) {
       setError(addError instanceof Error ? addError.message : ERROR_MESSAGES.VIDEO_ADD_FAILED);
+    } finally {
+      setAddingVideoId(null);
     }
   };
 
@@ -165,6 +178,7 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
             <Stack spacing={2}>
               {videos.map((video) => {
                 const addStatus = addStatusById[video.videoId];
+                const isAdding = addingVideoId === video.videoId;
 
                 return (
                   <Card key={video.videoId}>
@@ -198,7 +212,8 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
                       >
                         <Button
                           variant={addStatus ? 'outline' : 'solid'}
-                          disabled={Boolean(addStatus)}
+                          disabled={Boolean(addStatus) || isAdding}
+                          loading={isAdding}
                           onClick={() => handleAddVideo(video.videoId)}
                         >
                           {addStatus === 'already-added'
