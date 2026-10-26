@@ -355,23 +355,13 @@ test.describe('ティッカー管理 (E2E-007)', () => {
         await page.waitForLoadState('networkidle');
       });
 
-      test('stock-viewer ロールでは新規作成が拒否される', async ({ page }) => {
-        // stock-viewer は stocks:read のみ保持するため画面閲覧自体はできるが、
-        // 新規作成（POST /api/tickers、要 stocks:manage-data）は拒否される
-        await expect(page.getByRole('heading', { name: 'ティッカー管理' })).toBeVisible();
-
-        await page.getByRole('button', { name: '新規作成' }).click();
-        await expect(page.getByRole('dialog')).toBeVisible();
-
-        await page.getByRole('textbox', { name: /シンボル/ }).fill('DENYTK');
-        await page.getByRole('textbox', { name: /銘柄名/ }).fill('Denied Ticker');
-        await page.locator('#create-exchange').selectOption({ label: EXCHANGE_NAME });
-
-        await page.getByRole('button', { name: '作成' }).click();
-
-        await expect(page.getByText('アクセスが拒否されました')).toBeVisible({ timeout: 10000 });
-        // 作成に失敗しているため、モーダルは開いたままとなる
-        await expect(page.getByRole('dialog')).toBeVisible();
+      test('stock-viewer ロールでは権限エラーになり、新規作成の操作を出さない', async ({
+        page,
+      }) => {
+        // 管理画面は stocks:manage-data が無いと一覧も操作も出さない
+        await expect(page.getByText('ティッカーを管理する権限がありません。')).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'ティッカー管理' })).toHaveCount(0);
+        await expect(page.getByRole('button', { name: '新規作成' })).toHaveCount(0);
       });
     });
 

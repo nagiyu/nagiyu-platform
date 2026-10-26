@@ -25,6 +25,8 @@ import AlertSettingsModal from './AlertSettingsModal';
 import AxisBreakdownTable from './AxisBreakdownTable';
 import ForecastLabelChip from './ForecastLabelChip';
 import StockChart from './StockChart';
+import { useSession } from 'next-auth/react';
+import { hasUserPermission } from '@nagiyu/common';
 import type { TickerSummary } from '@/types/stock';
 import type { AlertMode } from '@/types/alert';
 import type { ForecastDetailResponse, QuestionDetail } from '@/types/forecast';
@@ -126,6 +128,9 @@ export default function SummaryDetailDialog({
   onClose,
   onAlertChanged,
 }: SummaryDetailDialogProps) {
+  const { data: session } = useSession();
+  // 権限が確認できたときだけアラート追加を出す。読み込み中は session が無く false になる
+  const canWrite = hasUserPermission(session?.user, 'stocks:write-own');
   const [alertModalState, setAlertModalState] = useState<{
     open: boolean;
     tradeMode: AlertMode;
@@ -395,17 +400,24 @@ export default function SummaryDetailDialog({
                   </TableBody>
                 </Table>
               </TableContainer>
-              <Divider />
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                <Button variant="outline" onClick={() => openAlertModal('Buy', summary.close)}>
-                  買いアラート設定
-                </Button>
-                {summary.holding && (
-                  <Button variant="outline" onClick={() => openAlertModal('Sell', summary.close)}>
-                    売りアラート設定
-                  </Button>
-                )}
-              </Box>
+              {canWrite && (
+                <>
+                  <Divider />
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    <Button variant="outline" onClick={() => openAlertModal('Buy', summary.close)}>
+                      買いアラート設定
+                    </Button>
+                    {summary.holding && (
+                      <Button
+                        variant="outline"
+                        onClick={() => openAlertModal('Sell', summary.close)}
+                      >
+                        売りアラート設定
+                      </Button>
+                    )}
+                  </Box>
+                </>
+              )}
             </Box>
           )}
         </DialogContent>

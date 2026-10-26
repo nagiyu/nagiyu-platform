@@ -4,6 +4,18 @@ import { render, screen, waitFor, cleanup, fireEvent, act } from '@testing-libra
 import HomePageClient from '../../../components/HomePageClient';
 import type { StockChartProps } from '../../../components/StockChart';
 
+// 権限は useSession のロールから判定されるため、ロールごとに差し替えられるようにする
+const mockUseSession = jest.fn();
+jest.mock('next-auth/react', () => ({
+  useSession: () => mockUseSession(),
+}));
+
+const sessionWithRoles = (roles: string[]) => ({
+  data: { user: { name: 'u', roles }, expires: '2099-01-01' },
+  status: 'authenticated',
+  update: jest.fn(),
+});
+
 let currentSearchParams = new URLSearchParams();
 // jsdom では history.replaceState が useSearchParams に同期されないため、書き戻し先の URL だけを記録する。
 // 実ブラウザでの同期は E2E で確かめる
@@ -153,6 +165,7 @@ describe('HomePageClient クエリ初期選択', () => {
   const fetchMock = jest.fn() as jest.MockedFunction<typeof fetch>;
 
   beforeEach(() => {
+    mockUseSession.mockReturnValue(sessionWithRoles(['stock-user']));
     replaceStateSpy = jest
       .spyOn(window.history, 'replaceState')
       .mockImplementation((_data, _unused, url) => {

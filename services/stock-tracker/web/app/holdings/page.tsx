@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { hasUserPermission } from '@nagiyu/common';
 import {
   Container,
   Box,
@@ -111,6 +113,9 @@ const INITIAL_FORM_DATA: HoldingFormData = {
 
 export default function HoldingsPage() {
   const router = useRouter();
+  const { data: session } = useSession();
+  // 権限が確認できたときだけ操作を出す。読み込み中は session が無く false になる
+  const canWrite = hasUserPermission(session?.user, 'stocks:write-own');
 
   // データ状態
   const [holdings, setHoldings] = useState<HoldingResponse[]>([]);
@@ -591,14 +596,16 @@ export default function HoldingsPage() {
             保有株式管理
           </Typography>
         </Box>
-        <Button
-          startIcon={<AddIcon />}
-          variant="solid"
-          color="primary"
-          onClick={handleOpenCreateModal}
-        >
-          新規登録
-        </Button>
+        {canWrite && (
+          <Button
+            startIcon={<AddIcon />}
+            variant="solid"
+            color="primary"
+            onClick={handleOpenCreateModal}
+          >
+            新規登録
+          </Button>
+        )}
       </Box>
 
       {deleteDialogLoading && (
@@ -638,18 +645,26 @@ export default function HoldingsPage() {
                   平均取得価格
                 </TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>通貨</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">
-                  アラート
-                </TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">
-                  操作
-                </TableCell>
+                {canWrite && (
+                  <>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">
+                      アラート
+                    </TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">
+                      操作
+                    </TableCell>
+                  </>
+                )}
               </TableRow>
             </TableHead>
             <TableBody>
               {holdings.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 8, color: 'text.secondary' }}>
+                  <TableCell
+                    colSpan={canWrite ? 7 : 5}
+                    align="center"
+                    sx={{ py: 8, color: 'text.secondary' }}
+                  >
                     保有株式がありません
                   </TableCell>
                 </TableRow>
@@ -679,40 +694,44 @@ export default function HoldingsPage() {
                         {holding.averagePrice.toLocaleString()} {holding.currency}
                       </TableCell>
                       <TableCell>{holding.currency}</TableCell>
-                      <TableCell align="center">
-                        <Button
-                          variant="solid"
-                          color={hasAlert ? 'primary' : 'success'}
-                          size="sm"
-                          startIcon={hasAlert ? <CheckCircleIcon /> : <NotificationsNoneIcon />}
-                          onClick={() => handleOpenAlertModal(holding)}
-                        >
-                          {hasAlert ? 'アラート設定済' : '売りアラート'}
-                        </Button>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                          <Button
-                            variant="solid"
-                            color="warning"
-                            size="sm"
-                            startIcon={<EditIcon />}
-                            onClick={() => handleOpenEditModal(holding)}
-                          >
-                            編集
-                          </Button>
-                          <Button
-                            variant="solid"
-                            color="danger"
-                            size="sm"
-                            startIcon={<DeleteIcon />}
-                            onClick={() => handleOpenDeleteDialog(holding)}
-                            disabled={submitting || deleteDialogLoading}
-                          >
-                            削除
-                          </Button>
-                        </Box>
-                      </TableCell>
+                      {canWrite && (
+                        <>
+                          <TableCell align="center">
+                            <Button
+                              variant="solid"
+                              color={hasAlert ? 'primary' : 'success'}
+                              size="sm"
+                              startIcon={hasAlert ? <CheckCircleIcon /> : <NotificationsNoneIcon />}
+                              onClick={() => handleOpenAlertModal(holding)}
+                            >
+                              {hasAlert ? 'アラート設定済' : '売りアラート'}
+                            </Button>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                              <Button
+                                variant="solid"
+                                color="warning"
+                                size="sm"
+                                startIcon={<EditIcon />}
+                                onClick={() => handleOpenEditModal(holding)}
+                              >
+                                編集
+                              </Button>
+                              <Button
+                                variant="solid"
+                                color="danger"
+                                size="sm"
+                                startIcon={<DeleteIcon />}
+                                onClick={() => handleOpenDeleteDialog(holding)}
+                                disabled={submitting || deleteDialogLoading}
+                              >
+                                削除
+                              </Button>
+                            </Box>
+                          </TableCell>
+                        </>
+                      )}
                     </TableRow>
                   );
                 })
