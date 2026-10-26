@@ -54,6 +54,33 @@ describe('ChatInput', () => {
       expect(input).toHaveValue('');
     });
 
+    it('onSubmit が false を返したら入力を残す', async () => {
+      const onSubmit = jest.fn().mockResolvedValue(false);
+      const user = userEvent.setup();
+
+      render(<ChatInput onSubmit={onSubmit} />);
+      const input = screen.getByPlaceholderText('メッセージを入力');
+
+      await user.type(input, 'テスト');
+      await user.click(screen.getByRole('button', { name: '送信' }));
+
+      expect(onSubmit).toHaveBeenCalled();
+      expect(input).toHaveValue('テスト');
+    });
+
+    it('onSubmit が true を返したら入力をクリアする', async () => {
+      const onSubmit = jest.fn().mockResolvedValue(true);
+      const user = userEvent.setup();
+
+      render(<ChatInput onSubmit={onSubmit} />);
+      const input = screen.getByPlaceholderText('メッセージを入力');
+
+      await user.type(input, 'テスト');
+      await user.click(screen.getByRole('button', { name: '送信' }));
+
+      await waitFor(() => expect(input).toHaveValue(''));
+    });
+
     it('disabled が true のとき入力欄と送信ボタンが無効化される', () => {
       const onSubmit = jest.fn().mockResolvedValue(undefined);
 

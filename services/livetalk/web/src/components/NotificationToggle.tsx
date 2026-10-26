@@ -5,17 +5,15 @@ import { Box, Typography } from '@mui/material';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import { Button } from '@nagiyu/ui';
 import { usePushSubscription } from '@nagiyu/react';
-import { getCharacterDisplay } from '@/lib/characters/client-profiles';
 
 /**
- * キャラからのプッシュ通知を購読するためのトグル UI。
+ * プッシュ通知を購読するためのトグル UI。
  * 購読の手続きは `usePushSubscription` に委譲し、ここは表示の出し分けだけを持つ。
  */
 
-const { shortName } = getCharacterDisplay();
-
 export const NOTIFICATION_TOGGLE_MESSAGES = {
-  PROMPT: `${shortName}からのお知らせを受け取る`,
+  // 通知は全キャラから届くため、特定キャラの名前は入れない
+  PROMPT: 'お知らせを受け取る',
   SUBSCRIBED: 'お知らせを受け取る設定になっているよ',
   SUBSCRIBING: '設定中…',
   DENIED: 'ブラウザの設定から通知を許可してね',

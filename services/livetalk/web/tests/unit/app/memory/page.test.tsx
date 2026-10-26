@@ -4,6 +4,8 @@ import MemoryPage from '@/app/memory/page';
 import { fetchSelfFacts, deleteSelfFact } from '@/lib/memory/api-client';
 import { useCharacter } from '@/lib/characters/CharacterContext';
 import MemoryList from '@/components/MemoryList';
+import MemoryDeleteDialog from '@/components/MemoryDeleteDialog';
+import { act } from '@testing-library/react';
 
 // api-client をモック
 jest.mock('@/lib/memory/api-client', () => ({
@@ -42,6 +44,7 @@ const mockFetchSelfFacts = fetchSelfFacts as jest.MockedFunction<typeof fetchSel
 const mockDeleteSelfFact = deleteSelfFact as jest.MockedFunction<typeof deleteSelfFact>;
 const mockUseCharacter = useCharacter as jest.MockedFunction<typeof useCharacter>;
 const mockMemoryList = jest.mocked(MemoryList);
+const mockDeleteDialog = jest.mocked(MemoryDeleteDialog);
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -106,6 +109,87 @@ describe('MemoryPage（characterId 連携）', () => {
     await waitFor(() => {
       expect(screen.queryByTestId(/tier-tab/)).not.toBeInTheDocument();
     });
+  });
+});
+
+const sampleItem = { id: 'a', topicId: 't', subject: 's', text: 'x', createdAt: 1 };
+
+function lastProps<T extends (...args: never[]) => unknown>(m: jest.MockedFunction<T>) {
+  return m.mock.calls[m.mock.calls.length - 1][0] as Record<string, unknown> &
+    Record<'onDelete' | 'onConfirm' | 'onCancel', (...args: unknown[]) => unknown>;
+}
+
+describe('MemoryPage 削除エラーと一覧エラーの分離', () => {
+  beforeEach(() => {
+    mockFetchSelfFacts.mockResolvedValue([sampleItem]);
+  });
+
+  it('削除失敗はダイアログへ渡し、一覧エラーには出さない', async () => {
+    mockDeleteSelfFact.mockRejectedValueOnce(new Error('記憶の削除に失敗しました'));
+    render(<MemoryPage />);
+    await waitFor(() => expect(mockFetchSelfFacts).toHaveBeenCalled());
+
+    act(() => lastProps(mockMemoryList).onDelete(sampleItem));
+    await act(async () => {
+      await lastProps(mockDeleteDialog).onConfirm();
+    });
+
+    expect(lastProps(mockDeleteDialog).error).toBe('記憶の削除に失敗しました');
+    expect(lastProps(mockDeleteDialog).item).toEqual(sampleItem);
+    expect(screen.queryByText('記憶の削除に失敗しました')).not.toBeInTheDocument();
+  });
+
+  it('キャンセルで削除エラーをクリアする', async () => {
+    mockDeleteSelfFact.mockRejectedValueOnce(new Error('失敗'));
+    render(<MemoryPage />);
+    await waitFor(() => expect(mockFetchSelfFacts).toHaveBeenCalled());
+
+    act(() => lastProps(mockMemoryList).onDelete(sampleItem));
+    await act(async () => {
+      await lastProps(mockDeleteDialog).onConfirm();
+    });
+    act(() => lastProps(mockDeleteDialog).onCancel());
+
+    expect(lastProps(mockDeleteDialog).error).toBeNull();
+    expect(lastProps(mockDeleteDialog).item).toBeNull();
+  });
+
+  it('別の項目で開き直すと削除エラーをクリアする', async () => {
+    mockDeleteSelfFact.mockRejectedValueOnce(new Error('失敗'));
+    render(<MemoryPage />);
+    await waitFor(() => expect(mockFetchSelfFacts).toHaveBeenCalled());
+
+    act(() => lastProps(mockMemoryList).onDelete(sampleItem));
+    await act(async () => {
+      await lastProps(mockDeleteDialog).onConfirm();
+    });
+    act(() => lastProps(mockMemoryList).onDelete({ ...sampleItem, id: 'b' }));
+
+    expect(lastProps(mockDeleteDialog).error).toBeNull();
+  });
+
+  it('削除成功後の再取得が失敗したらダイアログを閉じて一覧エラーを出す', async () => {
+    mockDeleteSelfFact.mockResolvedValueOnce(undefined);
+    render(<MemoryPage />);
+    await waitFor(() => expect(mockFetchSelfFacts).toHaveBeenCalled());
+
+    act(() => lastProps(mockMemoryList).onDelete(sampleItem));
+    mockFetchSelfFacts.mockRejectedValueOnce(new Error('覚えていることの取得に失敗しました'));
+    await act(async () => {
+      await lastProps(mockDeleteDialog).onConfirm();
+    });
+
+    expect(lastProps(mockDeleteDialog).item).toBeNull();
+    expect(lastProps(mockDeleteDialog).error).toBeNull();
+    expect(screen.getByText('覚えていることの取得に失敗しました')).toBeInTheDocument();
+  });
+
+  it('一覧取得エラーのとき MemoryList に hasError を渡す', async () => {
+    mockFetchSelfFacts.mockReset();
+    mockFetchSelfFacts.mockRejectedValue(new Error('取得失敗'));
+    render(<MemoryPage />);
+
+    await waitFor(() => expect(lastProps(mockMemoryList).hasError).toBe(true));
   });
 });
 

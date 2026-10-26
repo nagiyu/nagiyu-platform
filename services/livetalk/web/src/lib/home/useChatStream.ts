@@ -4,6 +4,7 @@ import { type Dispatch, type SetStateAction, useCallback, useRef, useState } fro
 import type { LifecycleState, SafetyResource } from '@nagiyu/livetalk-core';
 import { reportClientError } from '../client-logger';
 import type { ChatPhase } from './types';
+import { CHAT_ERROR_MESSAGES, getChatErrorMessage, readChatErrorCode } from './chat-error-messages';
 
 /**
  * NDJSON ストリームのイベント型。
@@ -81,8 +82,11 @@ export interface UseChatStreamResult {
   safetyResources: SafetyResource[];
   /** セーフティモーダルを閉じる関数 */
   closeSafety: () => void;
-  /** チャット送信ハンドラ */
-  handleSubmit: (text: string) => Promise<void>;
+  /**
+   * チャット送信ハンドラ。成功なら true、失敗(HTTP / 通信 / ストリーム中のエラー)や
+   * 新しい送信に置き換えられた場合は false を返す。入力欄を消してよいかの判断に使う。
+   */
+  handleSubmit: (text: string) => Promise<boolean>;
   /** 音声再生エラーハンドラ（CharacterCanvas の onPlaybackError に渡す） */
   handlePlaybackError: (error: Error) => void;
 }
@@ -157,13 +161,15 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
         });
 
         if (!response.ok || !response.body) {
-          setErrorMessage('応答の取得に失敗しました。時間を置いて再度お試しください。');
+          const errorCode = await readChatErrorCode(response);
+          setErrorMessage(getChatErrorMessage(errorCode));
           setPhase('idle');
           reportClientError('error', 'チャット fetch 失敗', `HTTP ${response.status}`, {
             screen: 'chat',
             audioContextState: getContext()?.state,
+            errorCode: errorCode ?? undefined,
           });
-          return;
+          return false;
         }
 
         setPhase('streaming');
@@ -174,6 +180,8 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
         // done / error を受けずにストリームが閉じると、再生キューが完了待ちのまま残り
         // 入力欄が無効のままになる。終端イベントの受信有無を追って、読み取り終了時に補う。
         let streamDoneMarked = false;
+        // error イベントを受けたら送信失敗として扱い、入力欄を残す
+        let streamFailed = false;
 
         const handleEvent = async (event: ChatStreamEvent) => {
           if (event.type === 'text') {
@@ -215,7 +223,9 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
             streamDoneMarked = true;
             markStreamDone();
           } else if (event.type === 'error') {
-            setErrorMessage(event.message ?? '内部エラーが発生しました。');
+            // サーバーの固定文言は画面に出さず、共通文言にする
+            setErrorMessage(CHAT_ERROR_MESSAGES.GENERIC);
+            streamFailed = true;
             // ストリームエラー時もストリーム完了扱い（advance のみ hook に委譲）
             streamDoneMarked = true;
             markStreamDone();
@@ -265,10 +275,12 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
         if (!streamDoneMarked) {
           markStreamDone();
         }
+        return !streamFailed;
       } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') return;
+        // 新しい送信に置き換えられた場合。入力欄は新しい送信側が扱うので触らせない
+        if (error instanceof Error && error.name === 'AbortError') return false;
         console.error('[LiveTalk] チャット応答の取得に失敗しました', error);
-        setErrorMessage('エラーが発生しました。時間を置いて再度お試しください。');
+        setErrorMessage(CHAT_ERROR_MESSAGES.GENERIC);
         setPhase('idle');
         reportClientError(
           'error',
@@ -281,6 +293,7 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
             stack: error instanceof Error ? error.stack : undefined,
           }
         );
+        return false;
       }
     },
     [
