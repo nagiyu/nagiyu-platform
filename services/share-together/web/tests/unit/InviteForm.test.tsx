@@ -62,6 +62,40 @@ describe('InviteForm', () => {
     expect(screen.queryByText('招待を送信しました。')).not.toBeInTheDocument();
   });
 
+  it('形式が不正なメールアドレスで送信すると形式エラーを表示し、入力を直すと消える', () => {
+    global.fetch = jest.fn();
+    render(<InviteForm groupId="group-1" isOwner={true} memberCount={1} />);
+
+    const input = screen.getByRole('textbox', { name: 'メールアドレス' });
+    fireEvent.change(input, { target: { value: 'invalid-email' } });
+    fireEvent.click(screen.getByRole('button', { name: '招待を送信' }));
+
+    expect(screen.getByText('メールアドレスの形式が正しくありません')).toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: 'valid@example.com' } });
+    expect(screen.queryByText('メールアドレスの形式が正しくありません')).not.toBeInTheDocument();
+  });
+
+  it('存在しないユーザーの場合は API の文言をそのまま表示する', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({
+        error: 'USER_NOT_FOUND',
+        message: 'このメールアドレスのユーザーは登録されていません',
+      }),
+    } as Response);
+    render(<InviteForm groupId="group-1" isOwner={true} memberCount={1} />);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'メールアドレス' }), {
+      target: { value: 'unknown@example.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '招待を送信' }));
+
+    expect(
+      await screen.findByText('このメールアドレスのユーザーは登録されていません')
+    ).toBeInTheDocument();
+  });
+
   it('無効なメールアドレスで送信すると完了メッセージを表示しない', () => {
     global.fetch = jest.fn();
     render(<InviteForm groupId="group-1" isOwner={true} memberCount={1} />);
