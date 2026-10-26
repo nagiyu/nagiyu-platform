@@ -79,4 +79,10 @@ describe('TodoForm', () => {
     fireEvent.change(input, { target: { value: '   ' } });
     expect(submitButton).toBeDisabled();
   });
+
+  it('タイトル入力欄に 200 文字の上限 (maxlength) を設定する', () => {
+    render(<TodoForm />);
+
+    expect(screen.getByRole('textbox', { name: 'タイトル' })).toHaveAttribute('maxlength', '200');
+  });
 });

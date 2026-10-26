@@ -4,6 +4,9 @@ import { useState } from 'react';
 import { Box } from '@mui/material';
 import { Button, TextField } from '@nagiyu/ui';
 
+/** サーバー側 (core の ToDo タイトル検証) の上限と同じ値。超過分は API で拒否されるため入力時点で制限する。 */
+const TODO_TITLE_MAX_LENGTH = 200;
+
 type TodoFormProps = {
   /** 追加の成否を返す。失敗 (false) のときは入力を残して再試行できるようにする。 */
   onAdd?: (title: string) => Promise<boolean> | boolean;
@@ -37,6 +40,7 @@ export function TodoForm({ onAdd }: TodoFormProps) {
         value={title}
         onChange={(event) => setTitle(event.target.value)}
         size="sm"
+        maxLength={TODO_TITLE_MAX_LENGTH}
         fullWidth
       />
       <Button type="submit" variant="solid" disabled={isTitleEmpty}>
