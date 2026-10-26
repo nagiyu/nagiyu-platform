@@ -45,7 +45,7 @@ async function mockSearchAndImport(page: Page): Promise<void> {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ imported: 1, skipped: 0, failed: 0 }),
+      body: JSON.stringify({ success: 1, skipped: 0, failed: 0, total: 1 }),
     });
   });
 }
