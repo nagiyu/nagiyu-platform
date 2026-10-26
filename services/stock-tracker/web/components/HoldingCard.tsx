@@ -16,6 +16,8 @@ import {
 } from '@mui/material';
 import { Button, ErrorAlert } from '@nagiyu/ui';
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
+import { useSession } from 'next-auth/react';
+import { hasUserPermission } from '@nagiyu/common';
 import type { HoldingResponse } from '@/types/holding';
 import type { AlertResponse } from '@/types/alert';
 import HoldingDeleteDialog from './HoldingDeleteDialog';
@@ -79,6 +81,9 @@ export default function HoldingCard({
     currency: defaultCurrency,
   });
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof HoldingFormData, string>>>({});
+  const { data: session } = useSession();
+  // 権限が確認できたときだけ操作を出す。読み込み中は session が無く false になる
+  const canWrite = hasUserPermission(session?.user, 'stocks:write-own');
   const canAddHolding = !loading && !holding;
   const displaySymbol = symbol || tickerId;
 
@@ -304,15 +309,17 @@ export default function HoldingCard({
           <Typography variant="h6" component="h2">
             保有株式
           </Typography>
-          <Button
-            variant="solid"
-            size="sm"
-            startIcon={<AddIcon />}
-            onClick={handleOpenCreateModal}
-            disabled={!canAddHolding}
-          >
-            追加
-          </Button>
+          {canWrite && (
+            <Button
+              variant="solid"
+              size="sm"
+              startIcon={<AddIcon />}
+              onClick={handleOpenCreateModal}
+              disabled={!canAddHolding}
+            >
+              追加
+            </Button>
+          )}
         </Stack>
         {localError && <ErrorAlert message={localError} onClose={() => setLocalError('')} />}
         {localSuccess && (
@@ -338,30 +345,32 @@ export default function HoldingCard({
               平均取得価格: {holding.averagePrice.toLocaleString()}
             </Typography>
             <Typography variant="body2">通貨: {holding.currency}</Typography>
-            <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
-              <Tooltip title="編集">
-                <IconButton
-                  size="small"
-                  color="warning"
-                  aria-label="編集"
-                  sx={{ border: (theme) => `1px solid ${theme.palette.warning.main}` }}
-                  onClick={handleOpenEditModal}
-                >
-                  <EditIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="削除">
-                <IconButton
-                  size="small"
-                  color="error"
-                  aria-label="削除"
-                  sx={{ border: (theme) => `1px solid ${theme.palette.error.main}` }}
-                  onClick={() => void handleOpenDeleteDialog()}
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </Box>
+            {canWrite && (
+              <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                <Tooltip title="編集">
+                  <IconButton
+                    size="small"
+                    color="warning"
+                    aria-label="編集"
+                    sx={{ border: (theme) => `1px solid ${theme.palette.warning.main}` }}
+                    onClick={handleOpenEditModal}
+                  >
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="削除">
+                  <IconButton
+                    size="small"
+                    color="error"
+                    aria-label="削除"
+                    sx={{ border: (theme) => `1px solid ${theme.palette.error.main}` }}
+                    onClick={() => void handleOpenDeleteDialog()}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            )}
           </>
         )}
       </CardContent>

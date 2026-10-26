@@ -22,6 +22,8 @@ import {
 import { Button, ConfirmDialog, ErrorAlert, LoadingState, Select, TextField } from '@nagiyu/ui';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { useEnterSubmit } from '@nagiyu/react';
+import { hasUserPermission } from '@nagiyu/common';
+import { useSession } from 'next-auth/react';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -32,6 +34,7 @@ const ERROR_MESSAGES = {
   DELETE_TICKER_ERROR: 'ティッカーの削除に失敗しました',
   UNAUTHORIZED: 'この操作を実行する権限がありません',
   FORBIDDEN: 'アクセスが拒否されました',
+  NO_MANAGE_PERMISSION: 'ティッカーを管理する権限がありません。',
 } as const;
 
 // 成功メッセージ定数
@@ -61,7 +64,7 @@ interface TickerFormData {
   exchangeId: string;
 }
 
-export default function TickersPage() {
+function TickersPageContent() {
   // データ状態
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const [filteredTickers, setFilteredTickers] = useState<Ticker[]>([]);
@@ -539,4 +542,25 @@ export default function TickersPage() {
       </ConfirmDialog>
     </Container>
   );
+}
+
+/**
+ * 権限が確認できるまで一覧取得を始めないため、権限判定は内容コンポーネントの外で行う。
+ */
+export default function TickersPage() {
+  const { data: session, status } = useSession();
+
+  if (status === 'loading') {
+    return <LoadingState message="セッション情報を確認中..." />;
+  }
+
+  if (!hasUserPermission(session?.user, 'stocks:manage-data')) {
+    return (
+      <Container maxWidth="md" sx={{ py: 4 }} role="main">
+        <ErrorAlert message={ERROR_MESSAGES.NO_MANAGE_PERMISSION} title="権限エラー" />
+      </Container>
+    );
+  }
+
+  return <TickersPageContent />;
 }
