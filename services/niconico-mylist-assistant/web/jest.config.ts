@@ -30,6 +30,7 @@ const config: Config = {
     'src/app/api/auth/[...nextauth]/route.ts',
     'src/components/HomePageClient.tsx',
     'src/components/NiconicoSessionManager.tsx',
+    'src/components/VideoList.tsx',
     'src/components/VideoSearchModal.tsx',
     'src/lib/niconico-session/index.ts',
     'src/lib/constants/errors.ts',
