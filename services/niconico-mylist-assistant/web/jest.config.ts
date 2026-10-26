@@ -32,6 +32,7 @@ const config: Config = {
     'src/components/NiconicoSessionManager.tsx',
     'src/components/VideoList.tsx',
     'src/components/VideoSearchModal.tsx',
+    'src/components/VideoDetailModal.tsx',
     'src/lib/niconico-session/index.ts',
     'src/lib/constants/errors.ts',
     'src/app/api/niconico/session/route.ts',

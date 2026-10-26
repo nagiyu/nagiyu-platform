@@ -56,7 +56,9 @@ export default function VideoDetailModal({
 }: VideoDetailModalProps) {
   const [video, setVideo] = useState<VideoData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // 取得失敗は本体を表示できないので本体の代わりに出す。操作失敗は本体と編集中のメモを残すため別に持つ
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [memo, setMemo] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -67,14 +69,16 @@ export default function VideoDetailModal({
     if (!open || !videoId) {
       setVideo(null);
       setMemo('');
-      setError(null);
+      setFetchError(null);
+      setActionError(null);
       setShowDeleteConfirm(false);
       return;
     }
 
     const fetchVideo = async () => {
       setLoading(true);
-      setError(null);
+      setFetchError(null);
+      setActionError(null);
 
       try {
         const response = await fetch(`/api/videos/${videoId}`);
@@ -88,7 +92,7 @@ export default function VideoDetailModal({
         setMemo(data.video.userSetting?.memo || '');
       } catch (err) {
         console.error('動画情報取得エラー:', err);
-        setError(err instanceof Error ? err.message : ERROR_MESSAGES.NETWORK_ERROR);
+        setFetchError(err instanceof Error ? err.message : ERROR_MESSAGES.NETWORK_ERROR);
       } finally {
         setLoading(false);
       }
@@ -103,7 +107,7 @@ export default function VideoDetailModal({
 
     const newValue = !video.userSetting?.isFavorite;
     setIsSaving(true);
-    setError(null);
+    setActionError(null);
 
     try {
       const response = await fetch(`/api/videos/${videoId}/settings`, {
@@ -123,7 +127,7 @@ export default function VideoDetailModal({
       onUpdate?.();
     } catch (err) {
       console.error('お気に入り更新エラー:', err);
-      setError(err instanceof Error ? err.message : ERROR_MESSAGES.NETWORK_ERROR);
+      setActionError(err instanceof Error ? err.message : ERROR_MESSAGES.NETWORK_ERROR);
     } finally {
       setIsSaving(false);
     }
@@ -135,7 +139,7 @@ export default function VideoDetailModal({
 
     const newValue = !video.userSetting?.isSkip;
     setIsSaving(true);
-    setError(null);
+    setActionError(null);
 
     try {
       const response = await fetch(`/api/videos/${videoId}/settings`, {
@@ -155,7 +159,7 @@ export default function VideoDetailModal({
       onUpdate?.();
     } catch (err) {
       console.error('スキップ更新エラー:', err);
-      setError(err instanceof Error ? err.message : ERROR_MESSAGES.NETWORK_ERROR);
+      setActionError(err instanceof Error ? err.message : ERROR_MESSAGES.NETWORK_ERROR);
     } finally {
       setIsSaving(false);
     }
@@ -166,12 +170,12 @@ export default function VideoDetailModal({
     if (!video) return;
 
     if (memo.length > 1000) {
-      setError(ERROR_MESSAGES.MEMO_TOO_LONG);
+      setActionError(ERROR_MESSAGES.MEMO_TOO_LONG);
       return;
     }
 
     setIsSaving(true);
-    setError(null);
+    setActionError(null);
 
     try {
       const response = await fetch(`/api/videos/${videoId}/settings`, {
@@ -191,7 +195,7 @@ export default function VideoDetailModal({
       onUpdate?.();
     } catch (err) {
       console.error('メモ更新エラー:', err);
-      setError(err instanceof Error ? err.message : ERROR_MESSAGES.NETWORK_ERROR);
+      setActionError(err instanceof Error ? err.message : ERROR_MESSAGES.NETWORK_ERROR);
     } finally {
       setIsSaving(false);
     }
@@ -202,7 +206,7 @@ export default function VideoDetailModal({
     if (!video) return;
 
     setIsDeleting(true);
-    setError(null);
+    setActionError(null);
 
     try {
       const response = await fetch(`/api/videos/${videoId}`, {
@@ -217,7 +221,7 @@ export default function VideoDetailModal({
       onClose();
     } catch (err) {
       console.error('動画削除エラー:', err);
-      setError(err instanceof Error ? err.message : ERROR_MESSAGES.NETWORK_ERROR);
+      setActionError(err instanceof Error ? err.message : ERROR_MESSAGES.NETWORK_ERROR);
     } finally {
       setIsDeleting(false);
       setShowDeleteConfirm(false);
@@ -258,10 +262,16 @@ export default function VideoDetailModal({
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
-        ) : error ? (
-          <ErrorAlert message={error} />
+        ) : fetchError ? (
+          <ErrorAlert message={fetchError} />
         ) : video ? (
           <Box>
+            {actionError && (
+              <Box sx={{ mb: 2 }}>
+                <ErrorAlert message={actionError} />
+              </Box>
+            )}
+
             {/* サムネイル */}
             <Box
               component="img"

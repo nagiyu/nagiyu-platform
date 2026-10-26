@@ -195,7 +195,7 @@ export default function ImportPage() {
                 )}
 
                 <Box sx={{ mt: 2 }}>
-                  <Button variant="outline" onClick={() => router.push('/')}>
+                  <Button variant="outline" onClick={() => router.push('/mylist')}>
                     動画一覧を見る
                   </Button>
                 </Box>
