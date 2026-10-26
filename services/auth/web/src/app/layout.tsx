@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { ServiceLayout } from '@nagiyu/ui';
+import { SessionHeader, SessionProviderWrapper } from '@nagiyu/ui/session-provider';
 import '@nagiyu/ui/tokens.css';
 import '@nagiyu/ui/base.css';
 
@@ -21,12 +22,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ja">
       <body>
-        <ServiceLayout
-          headerProps={{ title: 'Auth', ariaLabel: 'Auth ホームページに戻る' }}
-          footerProps={{ version }}
-        >
-          {children}
-        </ServiceLayout>
+        {/* SessionHeader は useSession を使うため、SessionProvider の内側に置く */}
+        <SessionProviderWrapper>
+          <ServiceLayout
+            headerSlot={
+              // auth 自身がサインアウトの提供元なので、同一オリジンの相対 URL になるよう空文字を渡す
+              <SessionHeader title="Auth" ariaLabel="Auth ホームページに戻る" authUrl="" />
+            }
+            footerProps={{ version }}
+          >
+            {children}
+          </ServiceLayout>
+        </SessionProviderWrapper>
       </body>
     </html>
   );

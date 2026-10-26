@@ -35,13 +35,6 @@ jest.mock('next/navigation', () => ({
   useSearchParams: jest.fn(() => ({ get: mockGet })),
 }));
 
-// @nagiyu/ui/session-provider の SessionProviderWrapper のモック（実体の SessionProvider 依存を回避）
-jest.mock('@nagiyu/ui/session-provider', () => ({
-  __esModule: true,
-  SessionProviderWrapper: ({ children }: { children: React.ReactNode }) =>
-    React.createElement(React.Fragment, null, children),
-}));
-
 // MUI コンポーネントのモック（jsdom でのレンダリングを簡略化）
 jest.mock('@mui/material', () => ({
   Box: ({ children }: { children: React.ReactNode }) => React.createElement('div', null, children),
