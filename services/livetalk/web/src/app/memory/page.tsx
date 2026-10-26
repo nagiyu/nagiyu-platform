@@ -92,7 +92,13 @@ export default function MemoryPage() {
 
       <Box sx={{ mt: 2 }}>
         {error && (
-          <Typography color="error" variant="body2" role="alert" sx={{ mb: 1 }}>
+          <Typography
+            color="error"
+            variant="body2"
+            role="alert"
+            sx={{ mb: 1 }}
+            data-testid="memory-error"
+          >
             {error}
           </Typography>
         )}
