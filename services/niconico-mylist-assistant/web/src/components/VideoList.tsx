@@ -30,13 +30,18 @@ export default function VideoList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // フィルター状態
-  const [favoriteFilter, setFavoriteFilter] = useState<string>('all');
-  const [skipFilter, setSkipFilter] = useState<string>('all');
-  const [searchKeyword, setSearchKeyword] = useState<string>('');
-
-  // ページネーション状態
-  const [offset, setOffset] = useState(0);
+  // フィルター・ページネーション状態
+  // 既定値で始めると、URL 同期の前に絞り込み無しの取得が一度走り、
+  // その応答が正しい取得の結果より遅れて届くと表示が食い違う。
+  // 初回から URL の値で始めて、その取得を無くす。
+  const [favoriteFilter, setFavoriteFilter] = useState<string>(
+    () => searchParams.get('favorite') || 'all'
+  );
+  const [skipFilter, setSkipFilter] = useState<string>(() => searchParams.get('skip') || 'all');
+  const [searchKeyword, setSearchKeyword] = useState<string>(
+    () => searchParams.get('search') || ''
+  );
+  const [offset, setOffset] = useState(() => parseInt(searchParams.get('offset') || '0', 10));
   const limit = 20;
 
   // モーダル状態
@@ -44,7 +49,7 @@ export default function VideoList() {
   const [modalOpen, setModalOpen] = useState(false);
 
   // 現在の状態を追跡するref（stale closureを回避）
-  // 初期値は state のデフォルト値で、URL同期 useEffect が実行されると自動的に更新される
+  // 初期値は URL から決めた state の初期値と同じ
   const stateRef = useRef({ favoriteFilter, skipFilter, searchKeyword, offset });
   useEffect(() => {
     stateRef.current = { favoriteFilter, skipFilter, searchKeyword, offset };
@@ -85,8 +90,21 @@ export default function VideoList() {
     [router]
   );
 
+  // 実行中の取得を中止するための AbortController
+  // 取得が重なると応答の到着順で表示が決まってしまうため、最新の取得の結果だけを反映する。
+  const abortControllerRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
   // 動画一覧を取得
   const fetchVideos = useCallback(async () => {
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     setError(null);
 
@@ -108,19 +126,32 @@ export default function VideoList() {
         params.append('search', searchKeyword.trim());
       }
 
-      const response = await fetch(`/api/videos?${params.toString()}`);
+      const response = await fetch(`/api/videos?${params.toString()}`, {
+        signal: controller.signal,
+      });
 
       if (!response.ok) {
         throw new Error(ERROR_MESSAGES.FETCH_FAILED);
       }
 
       const data: VideosListResponse = await response.json();
+      // signal を無視する経路 (応答の読み取り中など) でも古い結果を反映しない
+      if (controller.signal.aborted) {
+        return;
+      }
       setVideos(data);
     } catch (err) {
+      // 中止された取得は新しい取得に置き換わったもので、エラーではない
+      if (controller.signal.aborted) {
+        return;
+      }
       console.error('動画一覧取得エラー:', err);
       setError(err instanceof Error ? err.message : ERROR_MESSAGES.NETWORK_ERROR);
     } finally {
-      setLoading(false);
+      // 中止後に loading を戻すと、後続の取得中の表示が消える
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
     }
   }, [offset, favoriteFilter, skipFilter, searchKeyword]);
 
