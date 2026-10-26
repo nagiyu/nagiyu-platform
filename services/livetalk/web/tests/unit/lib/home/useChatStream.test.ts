@@ -158,7 +158,7 @@ describe('useChatStream', () => {
       expect(deps.dismissOnboarding).toHaveBeenCalledTimes(1);
     });
 
-    it('text を受ける前 (HTTP エラー) には、オンボーディングの案内を閉じない', async () => {
+    it('HTTP エラーでエラーを表示するとき、オンボーディングの案内を閉じる', async () => {
       global.fetch = jest.fn().mockResolvedValue({ ok: false, body: null, status: 500 });
       const deps = makeDeps();
       const { result } = renderHook(() => useChatStream(deps));
@@ -167,7 +167,59 @@ describe('useChatStream', () => {
         await result.current.handleSubmit('テスト');
       });
 
-      expect(deps.dismissOnboarding).not.toHaveBeenCalled();
+      expect(result.current.errorMessage).not.toBeNull();
+      expect(deps.dismissOnboarding).toHaveBeenCalledTimes(1);
+    });
+
+    it('error イベントでエラーを表示するとき、オンボーディングの案内を閉じる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        body: makeNdjsonStream([{ type: 'error', message: '失敗' }]),
+        status: 200,
+      });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(result.current.errorMessage).toBe(CHAT_ERROR_MESSAGES.GENERIC);
+      expect(deps.dismissOnboarding).toHaveBeenCalledTimes(1);
+    });
+
+    it('text のあとに error イベントが来ても、案内を閉じるのは 1 回だけ', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        body: makeNdjsonStream([
+          { type: 'text', delta: 'こん' },
+          { type: 'error', message: '失敗' },
+        ]),
+        status: 200,
+      });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(deps.dismissOnboarding).toHaveBeenCalledTimes(1);
+    });
+
+    it('fetch 自体が失敗してエラーを表示するとき、オンボーディングの案内を閉じる', async () => {
+      jest.spyOn(console, 'error').mockImplementation(() => {});
+      global.fetch = jest.fn().mockRejectedValue(new Error('network'));
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(result.current.errorMessage).toBe(CHAT_ERROR_MESSAGES.GENERIC);
+      expect(deps.dismissOnboarding).toHaveBeenCalledTimes(1);
+      (console.error as jest.Mock).mockRestore();
     });
 
     it('次の送信でも、最初の text でオンボーディングの案内を閉じる呼び出しが走る', async () => {

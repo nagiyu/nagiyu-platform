@@ -30,13 +30,16 @@ class MockResizeObserver {
   }
 }
 
-/** 指定した高さを返す header / footer を body に追加する */
+/** 共通レイアウトと同じく、main の兄弟として header / footer を並べて body に追加する */
 function mountHeaderAndFooter(sizes: { header: number; footer: number }) {
+  const layout = document.createElement('div');
   const header = document.createElement('header');
+  const main = document.createElement('main');
   const footer = document.createElement('footer');
   header.getBoundingClientRect = () => ({ height: sizes.header }) as DOMRect;
   footer.getBoundingClientRect = () => ({ height: sizes.footer }) as DOMRect;
-  document.body.append(header, footer);
+  layout.append(header, main, footer);
+  document.body.append(layout);
   return { header, footer };
 }
 
@@ -81,17 +84,37 @@ describe('measureChatViewportHeight', () => {
   });
 
   it('ヘッダーが無いときは測れないので null を返す', () => {
-    const footer = document.createElement('footer');
-    document.body.append(footer);
+    const layout = document.createElement('div');
+    layout.append(document.createElement('main'), document.createElement('footer'));
+    document.body.append(layout);
 
     expect(measureChatViewportHeight()).toBeNull();
   });
 
   it('フッターが無いときは測れないので null を返す', () => {
-    const header = document.createElement('header');
-    document.body.append(header);
+    const layout = document.createElement('div');
+    layout.append(document.createElement('header'), document.createElement('main'));
+    document.body.append(layout);
 
     expect(measureChatViewportHeight()).toBeNull();
+  });
+
+  it('main が無いときは測れないので null を返す', () => {
+    document.body.append(document.createElement('header'), document.createElement('footer'));
+
+    expect(measureChatViewportHeight()).toBeNull();
+  });
+
+  it('レイアウト外の header / footer は拾わず、main の兄弟だけを使う', () => {
+    setInnerHeight(667);
+    const strayHeader = document.createElement('header');
+    const strayFooter = document.createElement('footer');
+    strayHeader.getBoundingClientRect = () => ({ height: 999 }) as DOMRect;
+    strayFooter.getBoundingClientRect = () => ({ height: 999 }) as DOMRect;
+    document.body.append(strayHeader, strayFooter);
+    mountHeaderAndFooter({ header: 56, footer: 80 });
+
+    expect(measureChatViewportHeight()).toBe(531);
   });
 });
 

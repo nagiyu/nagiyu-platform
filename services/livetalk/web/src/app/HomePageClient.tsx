@@ -28,7 +28,7 @@ import type { ChatPhase } from '@/lib/home/types';
 
 /**
  * 会話の領域 (スクロール領域) の最小の高さ (px)。
- * 自分の吹き出しとキャラの応答の吹き出しが一緒に見える高さを下限にして、短い画面でも潰さない。
+ * 最新の応答の吹き出しが入る高さを下限にして、短い画面でも潰さない。
  */
 const CONVERSATION_MIN_HEIGHT = 140;
 
@@ -122,7 +122,13 @@ function HomePageInner() {
   // ヘッダー・フッターの実寸を引いた画面の高さ。決め打ちだと、折り返しで高さが変わるフッターや
   // モバイルのアドレスバーとずれて、ページ全体が画面より高くなる。
   const chatHeight = useChatViewportHeight();
-  const scrollAreaRef = useAutoScrollToEnd<HTMLDivElement>();
+  const { ref: scrollAreaRef, stickToEnd } = useAutoScrollToEnd<HTMLDivElement>();
+
+  // 自分が送ったときは、読み返している最中でも新しい発言の位置へ移る
+  const handleSend = (text: string) => {
+    stickToEnd();
+    return handleSubmit(text);
+  };
 
   const statusText =
     phase === 'loading' ? '考え中…' : phase === 'streaming' ? '話している' : '待機中';
@@ -232,7 +238,7 @@ function HomePageInner() {
           {/* 固定領域：入力欄・通知トグルは常に下端に表示する（長文応答でスクロールしても位置が変わらない）。 */}
           <Box sx={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: 1, pt: 1 }}>
             <ChatInput
-              onSubmit={handleSubmit}
+              onSubmit={handleSend}
               disabled={phase !== 'idle' || consentPhase !== 'done'}
               prefillText={prefillText ?? undefined}
             />

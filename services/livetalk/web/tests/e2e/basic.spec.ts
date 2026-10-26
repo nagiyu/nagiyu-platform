@@ -89,6 +89,10 @@ async function pageOverflow(page: Page): Promise<number> {
 }
 
 test.describe('LiveTalk - 縦の短いスマホでの会話表示', () => {
+  // Service Worker が制御するページの fetch は page.route を素通りして実サーバーへ届くため、
+  // モックが効くよう Service Worker を止める (WebKit は既定で有効)
+  test.use({ serviceWorkers: 'block' });
+
   for (const viewport of SHORT_MOBILE_VIEWPORTS) {
     test.describe(viewport.name, () => {
       test('会話の領域に高さがあり、ページが画面の高さを超えない', async ({ page }) => {
@@ -100,14 +104,16 @@ test.describe('LiveTalk - 縦の短いスマホでの会話表示', () => {
 
         const box = await page.getByTestId('chat-scroll-area').boundingBox();
         expect(box).not.toBeNull();
-        expect(box!.height).toBeGreaterThanOrEqual(100);
+        // 実装の最小の高さ (CONVERSATION_MIN_HEIGHT) と揃える
+        expect(box!.height).toBeGreaterThanOrEqual(140);
       });
 
       test('初回訪問でも、メッセージを送るとキャラの返答が画面内に見え、案内は閉じる', async ({
         page,
       }) => {
         await openChat(page, viewport);
-        const installGuide = page.getByRole('button', { name: 'ホーム画面に追加する' });
+        // iOS ではインストールボタンが出ないため、どちらの案内にもある「あとでね」を目印にする
+        const installGuide = page.getByRole('button', { name: 'あとでね' });
         await expect(installGuide).toBeVisible();
 
         // 送信ボタンの click は開発サーバーのエラー表示が覆うことがあるため、Enter で送る
@@ -143,6 +149,56 @@ test.describe('LiveTalk - 縦の短いスマホでの会話表示', () => {
         expect(snoozed).toBeNull();
 
         await expect.poll(() => pageOverflow(page)).toBeLessThanOrEqual(0);
+      });
+
+      test('読み返している間は引き戻さず、自分が送ったときは末尾へ移る', async ({ page }) => {
+        await openChat(page, viewport);
+        const input = page.getByPlaceholder('メッセージを入力');
+        const scrollArea = page.getByTestId('chat-scroll-area');
+        const reply = page.getByText(MOCK_REPLY_TAIL);
+
+        /** 末尾からの距離 (px)。0 付近なら末尾にいる */
+        const distanceFromEnd = () =>
+          scrollArea.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight);
+
+        await input.fill('こんにちは');
+        await input.press('Enter');
+        await expect(reply).toBeVisible();
+        // 読み返せるよう、中身が領域より長いことを前提にする
+        await expect
+          .poll(() => scrollArea.evaluate((el) => el.scrollHeight > el.clientHeight))
+          .toBe(true);
+        await expect.poll(distanceFromEnd).toBeLessThanOrEqual(1);
+
+        // 上へスクロールして読み返す。scroll イベントが処理されてから次の操作に進む
+        await scrollArea.evaluate(async (el) => {
+          el.scrollTop = 0;
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        });
+
+        // ストリーミングの追記の代わりに、領域へ中身を足す。読み返している間は動かない
+        await scrollArea.evaluate(async (el) => {
+          const extra = document.createElement('p');
+          extra.textContent = '追記';
+          el.appendChild(extra);
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        });
+        expect(await scrollArea.evaluate((el) => el.scrollTop)).toBe(0);
+
+        // 自分が送ったときは、読み返していても新しい返答が見える位置へ移る
+        await input.fill('もう一度');
+        await input.press('Enter');
+        await expect
+          .poll(async () => {
+            const replyBox = await reply.last().boundingBox();
+            const areaBox = await scrollArea.boundingBox();
+            if (!replyBox || !areaBox) return false;
+            return (
+              replyBox.y >= areaBox.y - 1 &&
+              replyBox.y + replyBox.height <= areaBox.y + areaBox.height + 1
+            );
+          })
+          .toBe(true);
       });
     });
   }

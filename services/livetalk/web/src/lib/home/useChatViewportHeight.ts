@@ -10,14 +10,28 @@ import { useLayoutEffect, useState } from 'react';
 export const CHAT_VIEWPORT_FALLBACK_HEIGHT = 'calc(100dvh - 128px)';
 
 /**
+ * ページを包む共通レイアウトのヘッダーとフッターを取る。
+ *
+ * 文書中で最初の `header` / `footer` を取ると、ページ内や将来の部品が持つ同名の要素を
+ * 拾って寸法がずれる。共通レイアウトは `main` の兄弟としてヘッダー・フッターを並べるため、
+ * `main` を起点に兄弟へ絞って取る。この構造が崩れたときは見つからず、測れない扱い (フォールバック) になる。
+ */
+function findLayoutChrome(): { header: Element | null; footer: Element | null } {
+  const layout = document.querySelector('main')?.parentElement;
+  return {
+    header: layout?.querySelector(':scope > header') ?? null,
+    footer: layout?.querySelector(':scope > footer') ?? null,
+  };
+}
+
+/**
  * アドレスバーを除いた画面の高さから、ヘッダーとフッターの実寸を引いた高さ (px) を測る。
  *
  * ヘッダー・フッターの高さは、フッターのライセンス表記の折り返しなどで画面幅ごとに変わるため、
  * 固定値で見積もらず実際の要素から取る。要素が見つからないときは測れないものとして null を返す。
  */
 export function measureChatViewportHeight(): number | null {
-  const header = document.querySelector('header');
-  const footer = document.querySelector('footer');
+  const { header, footer } = findLayoutChrome();
   if (!header || !footer) {
     return null;
   }
@@ -51,8 +65,7 @@ export function useChatViewportHeight(): string {
     // ヘッダー・フッターは画面サイズ以外の理由 (表記の折り返し・内容の差し替え) でも高さが変わる
     const observer =
       typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => update());
-    const header = document.querySelector('header');
-    const footer = document.querySelector('footer');
+    const { header, footer } = findLayoutChrome();
     if (header) observer?.observe(header);
     if (footer) observer?.observe(footer);
 
