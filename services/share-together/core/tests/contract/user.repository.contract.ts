@@ -196,6 +196,15 @@ export function defineUserRepositoryContract(
         expect(await repository.getByEmail('b@example.com')).toEqual(target);
       });
 
+      it('大文字小文字の表記が違っても同じユーザーを返し、Email は登録時の表記のまま', async () => {
+        const target = await repository.create(
+          buildUserInput({ userId: 'user-1', email: 'Dave@Example.com' })
+        );
+
+        expect(await repository.getByEmail('DAVE@EXAMPLE.COM')).toEqual(target);
+        expect(target.email).toBe('Dave@Example.com');
+      });
+
       it('一致するユーザーがいなければ null を返す', async () => {
         await repository.create(buildUserInput({ email: 'a@example.com' }));
 
