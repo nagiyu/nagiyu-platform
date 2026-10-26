@@ -9,17 +9,39 @@ type CreateItemDialogProps = {
   open: boolean;
   title: string;
   label: string;
+  /** 開くたびに入力欄へ入れる値。名前変更で現在名を見せるときに使う。 */
+  initialValue?: string;
+  /** 確定ボタンの文言。 */
+  submitLabel?: string;
   onClose: () => void;
   onCreate: (name: string) => void;
 };
 
-export function CreateItemDialog({ open, title, label, onClose, onCreate }: CreateItemDialogProps) {
-  const [name, setName] = useState('');
+export function CreateItemDialog({
+  open,
+  title,
+  label,
+  initialValue = '',
+  submitLabel = '作成',
+  onClose,
+  onCreate,
+}: CreateItemDialogProps) {
+  const [name, setName] = useState(initialValue);
+  const [wasOpen, setWasOpen] = useState(open);
+
+  // 閉じても親が同じインスタンスを使い回すため、開くたびに初期値へ戻す。
+  // effect で戻すと、開いた直後の 1 フレームだけ前回の入力が見えてしまう。
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setName(initialValue);
+    }
+  }
 
   const handleCreate = () => {
     if (!name.trim()) return;
     onCreate(name.trim());
-    setName('');
+    setName(initialValue);
     onClose();
   };
 
@@ -30,7 +52,7 @@ export function CreateItemDialog({ open, title, label, onClose, onCreate }: Crea
   });
 
   const handleClose = () => {
-    setName('');
+    setName(initialValue);
     onClose();
   };
 
@@ -55,7 +77,7 @@ export function CreateItemDialog({ open, title, label, onClose, onCreate }: Crea
           キャンセル
         </Button>
         <Button onClick={handleCreate} variant="solid" disabled={!name.trim()}>
-          作成
+          {submitLabel}
         </Button>
       </DialogActions>
     </Dialog>

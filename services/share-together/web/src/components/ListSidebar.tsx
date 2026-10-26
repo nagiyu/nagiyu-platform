@@ -17,7 +17,8 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Button, ConfirmDialog } from '@nagiyu/ui';
+import { CreateItemDialog } from '@/components/CreateItemDialog';
 import type { ApiErrorResponse, PersonalListResponse, PersonalListsResponse } from '@/types';
 import { ERROR_MESSAGES as COMMON_ERROR_MESSAGES } from '@/lib/constants/errors';
 
@@ -78,6 +79,9 @@ export function ListSidebar({
   const router = useRouter();
   const [apiLists, setApiLists] = useState<readonly SidebarList[]>([]);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<SidebarList | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SidebarList | null>(null);
   const hasExternalLists = lists !== undefined;
   const displayedLists = lists ?? apiLists;
   const isPersonalListLimitReached = !hasExternalLists && displayedLists.length >= 100;
@@ -122,22 +126,21 @@ export function ListSidebar({
     };
   }, [hasExternalLists]);
 
-  const handleCreateList = () => {
+  const handleCreateListClick = () => {
     if (hasExternalLists) {
       onCreateList?.();
       return;
     }
 
-    const name = globalThis.prompt('新しい個人リスト名を入力してください。');
-    if (!name?.trim()) {
-      return;
-    }
+    setCreateDialogOpen(true);
+  };
 
+  const handleCreateList = (name: string) => {
     void globalThis
       .fetch('/api/lists', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim() }),
+        body: JSON.stringify({ name }),
       })
       .then(async (response) => {
         if (!response.ok) {
@@ -156,9 +159,8 @@ export function ListSidebar({
       });
   };
 
-  const handleRenameList = (list: SidebarList) => {
-    const name = globalThis.prompt('個人リスト名を入力してください。', list.name);
-    if (!name?.trim() || name.trim() === list.name) {
+  const handleRenameList = (list: SidebarList, nextName: string) => {
+    if (nextName === list.name) {
       return;
     }
 
@@ -166,7 +168,7 @@ export function ListSidebar({
       .fetch(`/api/lists/${encodeURIComponent(list.listId)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim() }),
+        body: JSON.stringify({ name: nextName }),
       })
       .then(async (response) => {
         if (!response.ok) {
@@ -187,10 +189,6 @@ export function ListSidebar({
   };
 
   const handleDeleteList = (list: SidebarList) => {
-    if (!globalThis.confirm(`「${list.name}」を削除しますか？`)) {
-      return;
-    }
-
     void globalThis
       .fetch(`/api/lists/${encodeURIComponent(list.listId)}`, {
         method: 'DELETE',
@@ -222,7 +220,11 @@ export function ListSidebar({
         {heading}
       </Typography>
       <Box sx={{ mb: 2, '& > button': { width: '100%' } }}>
-        <Button variant="solid" onClick={handleCreateList} disabled={isPersonalListLimitReached}>
+        <Button
+          variant="solid"
+          onClick={handleCreateListClick}
+          disabled={isPersonalListLimitReached}
+        >
           {createButtonLabel}
         </Button>
         {isPersonalListLimitReached ? (
@@ -248,7 +250,7 @@ export function ListSidebar({
                       if (onRenameList) {
                         onRenameList(list);
                       } else {
-                        handleRenameList(list);
+                        setRenameTarget(list);
                       }
                     }}
                   >
@@ -264,7 +266,7 @@ export function ListSidebar({
                       if (onDeleteList) {
                         onDeleteList(list);
                       } else {
-                        handleDeleteList(list);
+                        setDeleteTarget(list);
                       }
                     }}
                   >
@@ -297,6 +299,38 @@ export function ListSidebar({
           </ListItem>
         ))}
       </List>
+      <CreateItemDialog
+        open={createDialogOpen}
+        title={createButtonLabel}
+        label="リスト名"
+        onClose={() => setCreateDialogOpen(false)}
+        onCreate={handleCreateList}
+      />
+      <CreateItemDialog
+        open={renameTarget !== null}
+        title="個人リスト名を変更"
+        label="リスト名"
+        initialValue={renameTarget?.name ?? ''}
+        submitLabel="保存"
+        onClose={() => setRenameTarget(null)}
+        onCreate={(name) => {
+          if (renameTarget) {
+            handleRenameList(renameTarget, name);
+          }
+        }}
+      />
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="個人リストを削除"
+        description={`「${deleteTarget?.name ?? ''}」を削除しますか？`}
+        onConfirm={() => {
+          if (deleteTarget) {
+            handleDeleteList(deleteTarget);
+          }
+          setDeleteTarget(null);
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
       <Snackbar
         open={snackbarMessage !== null}
         autoHideDuration={3000}

@@ -21,6 +21,7 @@ describe('GroupDetailClient', () => {
     render(
       <GroupDetailClient
         groupId="mock-family-group"
+        groupName="家族"
         isOwner={true}
         currentUserId="user-owner"
         members={MOCK_MEMBERS}
@@ -35,6 +36,22 @@ describe('GroupDetailClient', () => {
     expect(screen.getByRole('heading', { name: 'メンバー招待フォーム' })).toBeInTheDocument();
   });
 
+  it('グループ名を見出しとして表示し、グループ ID は表示しない', () => {
+    render(
+      <GroupDetailClient
+        groupId="mock-family-group"
+        groupName="我が家"
+        isOwner={true}
+        currentUserId="user-owner"
+        members={MOCK_MEMBERS}
+      />
+    );
+
+    expect(screen.getByRole('heading', { level: 2, name: '我が家' })).toBeInTheDocument();
+    expect(screen.queryByText(/mock-family-group/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/グループID/)).not.toBeInTheDocument();
+  });
+
   it('共有リスト作成フォームでAPIから新しい共有リストを追加できる', async () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
@@ -44,6 +61,7 @@ describe('GroupDetailClient', () => {
     render(
       <GroupDetailClient
         groupId="mock-family-group"
+        groupName="家族"
         isOwner={true}
         currentUserId="user-owner"
         members={MOCK_MEMBERS}
@@ -70,6 +88,7 @@ describe('GroupDetailClient', () => {
     render(
       <GroupDetailClient
         groupId="mock-family-group"
+        groupName="家族"
         isOwner={true}
         currentUserId="user-owner"
         members={MOCK_MEMBERS}
@@ -85,6 +104,7 @@ describe('GroupDetailClient', () => {
     const { rerender } = render(
       <GroupDetailClient
         groupId="mock-family-group"
+        groupName="家族"
         isOwner={true}
         currentUserId="user-owner"
         members={MOCK_MEMBERS}
@@ -96,6 +116,7 @@ describe('GroupDetailClient', () => {
     rerender(
       <GroupDetailClient
         groupId="mock-roommate-group"
+        groupName="家族"
         isOwner={false}
         currentUserId="user-owner"
         members={MOCK_MEMBERS}
@@ -109,6 +130,7 @@ describe('GroupDetailClient', () => {
     render(
       <GroupDetailClient
         groupId="mock-roommate-group"
+        groupName="家族"
         isOwner={false}
         currentUserId="user-owner"
         members={MOCK_MEMBERS}
@@ -123,6 +145,7 @@ describe('GroupDetailClient', () => {
     render(
       <GroupDetailClient
         groupId="mock-family-group"
+        groupName="家族"
         isOwner={true}
         currentUserId="user-owner"
         members={MOCK_MEMBERS}
@@ -138,6 +161,7 @@ describe('GroupDetailClient', () => {
     render(
       <GroupDetailClient
         groupId="mock-family-group"
+        groupName="家族"
         isOwner={true}
         currentUserId="user-owner"
         members={MOCK_MEMBERS}
@@ -158,6 +182,7 @@ describe('GroupDetailClient', () => {
     render(
       <GroupDetailClient
         groupId="mock-family-group"
+        groupName="家族"
         isOwner={true}
         currentUserId="user-owner"
         members={MOCK_MEMBERS}
@@ -179,6 +204,7 @@ describe('GroupDetailClient', () => {
     render(
       <GroupDetailClient
         groupId="mock-family-group"
+        groupName="家族"
         isOwner={true}
         currentUserId="user-owner"
         members={MOCK_MEMBERS}
@@ -198,6 +224,7 @@ describe('GroupDetailClient', () => {
     render(
       <GroupDetailClient
         groupId="mock-family-group"
+        groupName="家族"
         isOwner={true}
         currentUserId="user-owner"
         members={MOCK_MEMBERS}
@@ -220,6 +247,7 @@ describe('GroupDetailClient', () => {
     render(
       <GroupDetailClient
         groupId="mock-roommate-group"
+        groupName="家族"
         isOwner={false}
         currentUserId="user-owner"
         members={MOCK_MEMBERS}

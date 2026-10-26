@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { ListWorkspace } from '@/components/ListWorkspace';
 
 const mockPush = jest.fn();
@@ -13,8 +13,6 @@ jest.mock('next/navigation', () => ({
 
 describe('ListWorkspace', () => {
   let originalFetch: typeof globalThis.fetch | undefined;
-  let promptSpy: jest.SpyInstance;
-  let confirmSpy: jest.SpyInstance;
   let replaceStateSpy: jest.SpyInstance;
 
   beforeEach(() => {
@@ -24,8 +22,6 @@ describe('ListWorkspace', () => {
     mockUseSearchParams.mockReset();
     mockUseSearchParams.mockReturnValue(new URLSearchParams());
     originalFetch = globalThis.fetch;
-    promptSpy = jest.spyOn(window, 'prompt');
-    confirmSpy = jest.spyOn(window, 'confirm');
     const fetchMock = jest
       .fn()
       .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
@@ -235,8 +231,6 @@ describe('ListWorkspace', () => {
       writable: true,
       value: originalFetch,
     });
-    promptSpy.mockRestore();
-    confirmSpy.mockRestore();
     replaceStateSpy.mockRestore();
   });
 
@@ -559,8 +553,6 @@ describe('ListWorkspace', () => {
   });
 
   it('共有スコープで編集ボタンをクリックすると共有リスト名を更新できる', async () => {
-    promptSpy.mockReturnValue('買い物リスト（更新）');
-
     render(<ListWorkspace initialListId="mock-default-list" />);
 
     fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'shared' } });
@@ -571,6 +563,11 @@ describe('ListWorkspace', () => {
       ).toBeInTheDocument();
     });
     fireEvent.click(screen.getByRole('button', { name: '買い物リスト（共有）を編集' }));
+    const renameDialog = screen.getByRole('dialog');
+    const renameInput = within(renameDialog).getByRole('textbox', { name: 'リスト名' });
+    expect(renameInput).toHaveValue('買い物リスト（共有）');
+    fireEvent.change(renameInput, { target: { value: '買い物リスト（更新）' } });
+    fireEvent.click(within(renameDialog).getByRole('button', { name: '保存' }));
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
@@ -592,8 +589,6 @@ describe('ListWorkspace', () => {
   });
 
   it('共有スコープで削除ボタンをクリックすると共有リストを削除できる', async () => {
-    confirmSpy.mockReturnValue(true);
-
     render(<ListWorkspace initialListId="mock-default-list" />);
 
     fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'shared' } });
@@ -604,6 +599,15 @@ describe('ListWorkspace', () => {
       ).toBeInTheDocument();
     });
     fireEvent.click(screen.getByRole('button', { name: '買い物リスト（共有）を削除' }));
+    const deleteDialog = screen.getByRole('dialog');
+    expect(
+      within(deleteDialog).getByText('「買い物リスト（共有）」を削除しますか？')
+    ).toBeInTheDocument();
+    expect(globalThis.fetch).not.toHaveBeenCalledWith(
+      '/api/groups/group-1/lists/group-list-1',
+      expect.objectContaining({ method: 'DELETE' })
+    );
+    fireEvent.click(within(deleteDialog).getByRole('button', { name: '削除' }));
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith(
@@ -618,6 +622,116 @@ describe('ListWorkspace', () => {
     });
     await waitFor(() => {
       expect(screen.getByText('共有リストを削除しました。')).toBeInTheDocument();
+    });
+  });
+
+  it('共有リストの名前を変えずに保存しても API を呼ばない', async () => {
+    render(<ListWorkspace initialListId="mock-default-list" />);
+    fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'shared' } });
+    fireEvent.click(await screen.findByRole('button', { name: '買い物リスト（共有）を編集' }));
+
+    const dialog = screen.getByRole('dialog');
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'リスト名' }), {
+      target: { value: ' 買い物リスト（共有） ' },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: '保存' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+    expect(globalThis.fetch).not.toHaveBeenCalledWith(
+      '/api/groups/group-1/lists/group-list-1',
+      expect.objectContaining({ method: 'PUT' })
+    );
+  });
+
+  it('共有リストの削除確認でキャンセルすると削除しない', async () => {
+    render(<ListWorkspace initialListId="mock-default-list" />);
+    fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'shared' } });
+    fireEvent.click(await screen.findByRole('button', { name: '買い物リスト（共有）を削除' }));
+
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'キャンセル' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+    expect(globalThis.fetch).not.toHaveBeenCalledWith(
+      '/api/groups/group-1/lists/group-list-1',
+      expect.objectContaining({ method: 'DELETE' })
+    );
+    expect(screen.getByRole('button', { name: '買い物リスト（共有）' })).toBeInTheDocument();
+  });
+
+  describe('共有リストが 0 件のときの空状態', () => {
+    const EMPTY_MESSAGE = '共有リストはまだありません。「共有リストを作成」から追加できます。';
+
+    const installFetch = (options: { groupsPending?: boolean } = {}) => {
+      const baseFetch = globalThis.fetch as jest.Mock;
+      const fetchMock = jest
+        .fn()
+        .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+          if (input === '/api/groups' && options.groupsPending) {
+            return new Promise<Response>(() => {});
+          }
+          if (input === '/api/groups/group-2/lists') {
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: async () => ({ data: { lists: [] } }),
+            } as Response);
+          }
+          return baseFetch(input, init);
+        });
+      Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+      Object.defineProperty(window, 'fetch', { writable: true, value: fetchMock });
+    };
+
+    it('リストが 0 件のグループを選ぶと、右側に案内を出す', async () => {
+      installFetch();
+      render(<ListWorkspace initialListId="mock-default-list" />);
+      fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'shared' } });
+      await screen.findByText('買い物リスト（共有）');
+      expect(screen.queryByText(EMPTY_MESSAGE)).not.toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText('グループ'), { target: { value: 'group-2' } });
+
+      expect(await screen.findByText(EMPTY_MESSAGE)).toBeInTheDocument();
+    });
+
+    it('共有の取得が終わる前は、0 件か未取得か区別できないので出さない', async () => {
+      installFetch({ groupsPending: true });
+      render(<ListWorkspace initialScope="shared" initialGroupId="group-2" initialListId="x" />);
+
+      await screen.findByRole('button', { name: '共有リストを作成' });
+
+      expect(screen.queryByText(EMPTY_MESSAGE)).not.toBeInTheDocument();
+    });
+
+    it('個人スコープでは出さない', async () => {
+      installFetch();
+      render(<ListWorkspace initialListId="mock-default-list" />);
+      await waitFor(() => {
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+          '/api/groups/group-2/lists',
+          expect.anything()
+        );
+      });
+
+      expect(screen.queryByText(EMPTY_MESSAGE)).not.toBeInTheDocument();
+    });
+
+    it('共有リストを全部削除すると、案内に切り替わる', async () => {
+      render(
+        <ListWorkspace
+          initialScope="shared"
+          initialGroupId="group-1"
+          initialListId="group-list-1"
+        />
+      );
+      fireEvent.click(await screen.findByRole('button', { name: '買い物リスト（共有）を削除' }));
+      fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '削除' }));
+
+      expect(await screen.findByText(EMPTY_MESSAGE)).toBeInTheDocument();
     });
   });
 
@@ -729,11 +843,14 @@ describe('ListWorkspace', () => {
 
     it('個人リストを作成すると、作成したリストの listId へ書き換える', async () => {
       installPersonalListsFetch();
-      promptSpy.mockReturnValue('作成した個人リスト');
       render(<ListWorkspace initialListId="api-personal-list-1" />);
       await screen.findByRole('button', { name: '2つ目の個人リスト' });
 
       fireEvent.click(screen.getByRole('button', { name: '個人リストを作成' }));
+      fireEvent.change(screen.getByRole('textbox', { name: 'リスト名' }), {
+        target: { value: '作成した個人リスト' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: '作成' }));
 
       await waitFor(() => {
         expect(replaceStateSpy).toHaveBeenLastCalledWith(
@@ -915,7 +1032,6 @@ describe('ListWorkspace', () => {
     });
 
     it('共有リストを全部削除すると、listId を省いた groupId までの URL へ書き換える', async () => {
-      confirmSpy.mockReturnValue(true);
       render(
         <ListWorkspace
           initialScope="shared"
@@ -926,6 +1042,7 @@ describe('ListWorkspace', () => {
       await screen.findByRole('button', { name: '買い物リスト（共有）を削除' });
 
       fireEvent.click(screen.getByRole('button', { name: '買い物リスト（共有）を削除' }));
+      fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '削除' }));
       await screen.findByText('共有リストを削除しました。');
 
       await waitFor(() => {

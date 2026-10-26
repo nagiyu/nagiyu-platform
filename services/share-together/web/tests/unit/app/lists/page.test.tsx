@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom';
-import { render, screen, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import ListsPage from '@/app/lists/page';
 
 const mockUseSearchParams = jest.fn(() => new URLSearchParams());
@@ -126,6 +127,51 @@ describe('ListsPage', () => {
 
     expect(screen.getByText('ListWorkspace: group-list-2:shared:group-2')).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('開発時の Strict Mode で取得が中断されても、再取得が終わるまでエラー文言を出さず読み込み中のままにする', async () => {
+    // 1 回目の取得は effect の後始末で中断され (AbortError)、2 回目が少し遅れて解決する状況を作る。
+    const resolvers: Array<() => void> = [];
+    const fetchMock = jest.fn().mockImplementation(
+      (_url: string, init: { signal: AbortSignal }) =>
+        new Promise<Response>((resolve, reject) => {
+          init.signal.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError'))
+          );
+          resolvers.push(() =>
+            resolve({
+              ok: true,
+              status: 200,
+              json: async () => ({
+                data: { lists: [{ listId: 'default-list', name: 'デフォルト', isDefault: true }] },
+              }),
+            } as Response)
+          );
+        })
+    );
+    Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+
+    render(
+      <StrictMode>
+        <ListsPage />
+      </StrictMode>
+    );
+    // 中断された 1 回目の finally が走り終わるまで待つ。
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('リストを読み込み中です...')).toBeInTheDocument();
+    expect(
+      screen.queryByText('デフォルト個人リストの取得に失敗しました。')
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolvers[1]();
+    });
+
+    expect(await screen.findByText('ListWorkspace: default-list:personal:')).toBeInTheDocument();
   });
 
   describe('個人リストの listId が指定されたとき', () => {

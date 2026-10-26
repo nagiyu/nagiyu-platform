@@ -570,4 +570,89 @@ describe('TodoList', () => {
       expect(consoleErrorSpy).toHaveBeenCalled();
     });
   });
+
+  describe('ToDo が 0 件のときの空状態', () => {
+    const EMPTY_MESSAGE = 'ToDoはまだありません。';
+    const mockFetch = (fetchMock: jest.Mock) => {
+      Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+      Object.defineProperty(window, 'fetch', { writable: true, value: fetchMock });
+    };
+
+    it('取得が終わって 0 件だったときに案内を出す', async () => {
+      mockFetch(
+        jest.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({ data: { todos: [] } }),
+        } as Response)
+      );
+
+      render(<TodoList listId="api-list" />);
+
+      expect(await screen.findByText(EMPTY_MESSAGE)).toBeInTheDocument();
+    });
+
+    it('読み込み中は出さない', () => {
+      mockFetch(jest.fn().mockImplementation(() => new Promise<Response>(() => {})));
+
+      render(<TodoList listId="api-list" />);
+
+      expect(screen.queryByText(EMPTY_MESSAGE)).not.toBeInTheDocument();
+    });
+
+    it('取得に失敗したときは出さない', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      mockFetch(jest.fn().mockResolvedValue({ ok: false, status: 500 } as Response));
+
+      render(<TodoList listId="api-list" />);
+
+      expect(await screen.findByText('ToDo一覧の取得に失敗しました。')).toBeInTheDocument();
+      expect(screen.queryByText(EMPTY_MESSAGE)).not.toBeInTheDocument();
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('ToDo があるときは出さない', async () => {
+      mockFetch(
+        jest.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: { todos: [{ todoId: 'api-todo-1', title: 'API ToDo', isCompleted: false }] },
+          }),
+        } as Response)
+      );
+
+      render(<TodoList listId="api-list" />);
+
+      await screen.findByText('API ToDo');
+      expect(screen.queryByText(EMPTY_MESSAGE)).not.toBeInTheDocument();
+    });
+
+    it('ToDo を追加すると案内が消える', async () => {
+      mockFetch(
+        jest
+          .fn()
+          .mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({ data: { todos: [] } }),
+          } as Response)
+          .mockResolvedValueOnce({
+            ok: true,
+            status: 201,
+            json: async () => ({
+              data: { todoId: 'new-todo', title: '新しいToDo', isCompleted: false },
+            }),
+          } as Response)
+      );
+      render(<TodoList listId="api-list" />);
+      await screen.findByText(EMPTY_MESSAGE);
+
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: '新しいToDo' } });
+      fireEvent.click(screen.getByRole('button', { name: '追加' }));
+
+      expect(await screen.findByText('新しいToDo')).toBeInTheDocument();
+      expect(screen.queryByText(EMPTY_MESSAGE)).not.toBeInTheDocument();
+    });
+  });
 });

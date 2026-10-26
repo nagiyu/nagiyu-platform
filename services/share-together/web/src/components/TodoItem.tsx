@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type KeyboardEvent } from 'react';
 import { Box, ListItem, Typography } from '@mui/material';
 import { Button, Checkbox, TextField } from '@nagiyu/ui';
 import { useEnterSubmit } from '@nagiyu/react';
@@ -37,6 +37,12 @@ export function TodoItem({ todo, onToggleComplete, onDelete, onUpdate }: TodoIte
       return;
     }
 
+    // 変更が無いのに更新 API を呼ぶと、無意味な通信と「ToDoを更新しました。」の通知が出てしまう。
+    if (editingTitle.trim() === todo.title.trim()) {
+      setIsEditing(false);
+      return;
+    }
+
     const succeeded = (await onUpdate?.(todo.todoId, editingTitle.trim())) !== false;
     if (succeeded) {
       setIsEditing(false);
@@ -50,6 +56,19 @@ export function TodoItem({ todo, onToggleComplete, onDelete, onUpdate }: TodoIte
     () => void handleEditSave(),
     { disabled: isEditingTitleEmpty }
   );
+
+  // Escape で編集をキャンセルする。IME の変換取り消しとしても Escape が使われるため、変換中は編集まで閉じない。
+  const handleEditKeyDown = (event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (event.key === 'Escape') {
+      if (event.nativeEvent.isComposing || event.keyCode === 229) {
+        return;
+      }
+      event.preventDefault();
+      handleEditCancel();
+      return;
+    }
+    handleEditEnterDown(event);
+  };
 
   return (
     <ListItem disablePadding>
@@ -69,7 +88,7 @@ export function TodoItem({ todo, onToggleComplete, onDelete, onUpdate }: TodoIte
             size="sm"
             maxLength={TODO_TITLE_MAX_LENGTH}
             fullWidth
-            onKeyDown={handleEditEnterDown}
+            onKeyDown={handleEditKeyDown}
           />
         ) : (
           <Typography

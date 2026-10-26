@@ -1,12 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { resetTestData, TEST_USER } from './helpers/test-data';
 
-const createPersonalListByPrompt = async (page: import('@playwright/test').Page, name: string) => {
-  page.once('dialog', async (dialog) => {
-    expect(dialog.type()).toBe('prompt');
-    await dialog.accept(name);
-  });
+const createPersonalListByDialog = async (page: import('@playwright/test').Page, name: string) => {
   await page.getByRole('button', { name: '個人リストを作成' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('textbox', { name: 'リスト名' }).fill(name);
+  await dialog.getByRole('button', { name: '作成' }).click();
   await expect(page.getByText('個人リストを作成しました。')).toBeVisible();
 };
 
@@ -55,7 +54,7 @@ test.describe('個人リスト管理', () => {
   });
 
   test('個人リストを作成できる', async ({ page }) => {
-    await createPersonalListByPrompt(page, '旅行リスト');
+    await createPersonalListByDialog(page, '旅行リスト');
     await expect(page.getByText('旅行リスト')).toBeVisible();
   });
 
@@ -83,7 +82,7 @@ test.describe('個人リスト管理', () => {
   });
 
   test('作成した個人リストがリロード後も選択されている', async ({ page }) => {
-    await createPersonalListByPrompt(page, '旅行リスト');
+    await createPersonalListByDialog(page, '旅行リスト');
     await expect(page).toHaveURL(/\/lists\?listId=(?!list-default$)(?!list-work$)[^&]+$/);
 
     await page.reload();
@@ -158,6 +157,76 @@ test.describe('個人リスト管理', () => {
       'aria-current',
       'page'
     );
+  });
+
+  test('共有リストを表示した状態からヘッダーの「リスト」で戻っても、エラー文言を経由せず個人リストを開く', async ({
+    page,
+    request,
+  }) => {
+    await resetTestData(request, {
+      users: [TEST_USER],
+      personalLists: [
+        {
+          listId: 'list-default',
+          userId: TEST_USER.userId,
+          name: 'デフォルトリスト',
+          isDefault: true,
+        },
+      ],
+      groups: [{ groupId: 'back-group', name: '戻り検証グループ', ownerUserId: TEST_USER.userId }],
+      memberships: [
+        {
+          groupId: 'back-group',
+          userId: TEST_USER.userId,
+          role: 'OWNER',
+          status: 'ACCEPTED',
+          respondedAt: Date.now(),
+        },
+      ],
+      groupLists: [
+        {
+          listId: 'back-list',
+          groupId: 'back-group',
+          name: '戻り検証リスト',
+          createdBy: TEST_USER.userId,
+        },
+      ],
+    });
+
+    await page.goto('/lists?scope=shared&groupId=back-group&listId=back-list');
+    await expect(page.getByRole('button', { name: '戻り検証リスト', exact: true })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+
+    // 一瞬しか出ないエラー文言を、描画のたびに DOM を見て取りこぼさず記録する。
+    // ヘッダーのリンクは通常のリンクで文書ごと読み込み直すため、読み込みのたびに仕掛け直す。
+    await page.addInitScript(() => {
+      const target = window as unknown as { __sawListLoadError: boolean };
+      target.__sawListLoadError = false;
+      new MutationObserver(() => {
+        if (document.body?.textContent?.includes('デフォルト個人リストの取得に失敗しました。')) {
+          target.__sawListLoadError = true;
+        }
+      }).observe(document, { childList: true, subtree: true, characterData: true });
+    });
+
+    // モバイル幅ではナビゲーションがメニューに畳まれているので、開いてからリンクを押す。
+    const menuButton = page.getByRole('button', { name: 'メニューを開く' });
+    if (await menuButton.isVisible()) {
+      await menuButton.click();
+    }
+    await page.getByRole('link', { name: 'リスト', exact: true }).click();
+
+    await expect(page.getByRole('button', { name: 'デフォルトリスト' }).first()).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+    expect(
+      await page.evaluate(
+        () => (window as unknown as { __sawListLoadError: boolean }).__sawListLoadError
+      )
+    ).toBe(false);
   });
 
   test('削除済みの個人リストの URL を開くと、デフォルトの個人リストを開く', async ({ page }) => {
@@ -296,23 +365,19 @@ test.describe('個人リスト管理', () => {
   });
 
   test('個人リスト名を変更できる', async ({ page }) => {
-    page.once('dialog', async (dialog) => {
-      expect(dialog.type()).toBe('prompt');
-      await dialog.accept('仕事（更新）');
-    });
-
     await page.getByRole('button', { name: '仕事リストを編集' }).first().click();
+    const dialog = page.getByRole('dialog');
+    // 名前変更では現在の名前が入力済みで開く。
+    await expect(dialog.getByRole('textbox', { name: 'リスト名' })).toHaveValue('仕事リスト');
+    await dialog.getByRole('textbox', { name: 'リスト名' }).fill('仕事（更新）');
+    await dialog.getByRole('button', { name: '保存' }).click();
     await expect(page.getByText('仕事（更新）')).toBeVisible();
     await expect(page.getByText('個人リスト名を更新しました。')).toBeVisible();
   });
 
   test('デフォルト以外の個人リストを削除できる', async ({ page }) => {
-    page.once('dialog', async (dialog) => {
-      expect(dialog.type()).toBe('confirm');
-      await dialog.accept();
-    });
-
     await page.getByRole('button', { name: '仕事リストを削除' }).first().click();
+    await page.getByRole('dialog').getByRole('button', { name: '削除' }).click();
     await expect(page.getByText('個人リストを削除しました。')).toBeVisible();
   });
 
@@ -414,15 +479,13 @@ test.describe('個人リスト管理', () => {
     });
     await expect(page.getByRole('button', { name: '個人リストを作成' })).toBeEnabled();
 
-    page.once('dialog', async (dialog) => {
-      expect(dialog.type()).toBe('prompt');
-      await dialog.accept('追加できないリスト');
-    });
-
     const createListResponsePromise = page.waitForResponse(
       (response) => response.request().method() === 'POST' && response.url().endsWith('/api/lists')
     );
     await page.getByRole('button', { name: '個人リストを作成' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('textbox', { name: 'リスト名' }).fill('追加できないリスト');
+    await dialog.getByRole('button', { name: '作成' }).click();
     const createListResponse = await createListResponsePromise;
     expect(createListResponse.status()).toBe(409);
     await expect(
