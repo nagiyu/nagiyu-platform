@@ -62,6 +62,8 @@ export interface UseChatStreamDeps {
   clearFirstWordText: () => void;
   /** オンボーディングテキストをクリアする関数 */
   clearOnboardingText: () => void;
+  /** オンボーディングの案内を閉じる関数 (応答の最初の text を受けた時点で呼ぶ) */
+  dismissOnboarding: () => void;
   /** ライフサイクル状態を更新する setter */
   setLifecycleState: Dispatch<SetStateAction<LifecycleState>>;
 }
@@ -110,6 +112,7 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
     advanceOnError,
     clearFirstWordText,
     clearOnboardingText,
+    dismissOnboarding,
     setLifecycleState,
   } = deps;
 
@@ -147,6 +150,15 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
       resetAudioQueue();
       sentenceReceivedRef.current = 0;
 
+      // 応答かエラーが画面に出た時点で案内を閉じる。案内が会話の領域の末尾に残ると、
+      // 末尾までのスクロールで応答やエラーが押し出される。1 回の送信で何度も state を更新しない。
+      let onboardingDismissed = false;
+      const dismissOnboardingOnce = () => {
+        if (onboardingDismissed) return;
+        onboardingDismissed = true;
+        dismissOnboarding();
+      };
+
       try {
         const chatBody: { text: string; characterId?: string } = {
           text,
@@ -163,6 +175,7 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
         if (!response.ok || !response.body) {
           const errorCode = await readChatErrorCode(response);
           setErrorMessage(getChatErrorMessage(errorCode));
+          dismissOnboardingOnce();
           setPhase('idle');
           reportClientError('error', 'チャット fetch 失敗', `HTTP ${response.status}`, {
             screen: 'chat',
@@ -185,6 +198,7 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
 
         const handleEvent = async (event: ChatStreamEvent) => {
           if (event.type === 'text') {
+            dismissOnboardingOnce();
             setResponseText((prev) => (prev ?? '') + event.delta);
           } else if (event.type === 'sentence' && event.audio) {
             sentenceReceivedRef.current++;
@@ -225,6 +239,7 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
           } else if (event.type === 'error') {
             // サーバーの固定文言は画面に出さず、共通文言にする
             setErrorMessage(CHAT_ERROR_MESSAGES.GENERIC);
+            dismissOnboardingOnce();
             streamFailed = true;
             // ストリームエラー時もストリーム完了扱い（advance のみ hook に委譲）
             streamDoneMarked = true;
@@ -281,6 +296,7 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
         if (error instanceof Error && error.name === 'AbortError') return false;
         console.error('[LiveTalk] チャット応答の取得に失敗しました', error);
         setErrorMessage(CHAT_ERROR_MESSAGES.GENERIC);
+        dismissOnboardingOnce();
         setPhase('idle');
         reportClientError(
           'error',
@@ -305,6 +321,7 @@ export function useChatStream(deps: UseChatStreamDeps): UseChatStreamResult {
       characterId,
       clearFirstWordText,
       clearOnboardingText,
+      dismissOnboarding,
       setLifecycleState,
       setPhase,
     ]

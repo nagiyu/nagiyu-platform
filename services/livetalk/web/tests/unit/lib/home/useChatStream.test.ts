@@ -45,6 +45,7 @@ function makeDeps(overrides: Partial<UseChatStreamDeps> = {}): UseChatStreamDeps
     advanceOnError: jest.fn() as () => void,
     clearFirstWordText: jest.fn() as () => void,
     clearOnboardingText: jest.fn() as () => void,
+    dismissOnboarding: jest.fn() as () => void,
     setLifecycleState: jest.fn() as unknown as Dispatch<SetStateAction<LifecycleState>>,
     ...overrides,
   };
@@ -135,6 +136,116 @@ describe('useChatStream', () => {
 
       expect(deps.clearFirstWordText).toHaveBeenCalled();
       expect(deps.clearOnboardingText).toHaveBeenCalled();
+    });
+
+    it('応答の最初の text を受けた時点で、オンボーディングの案内を 1 回だけ閉じる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        body: makeNdjsonStream([
+          { type: 'text', delta: 'こん' },
+          { type: 'text', delta: 'にちは' },
+          { type: 'done' },
+        ]),
+        status: 200,
+      });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(deps.dismissOnboarding).toHaveBeenCalledTimes(1);
+    });
+
+    it('HTTP エラーでエラーを表示するとき、オンボーディングの案内を閉じる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, body: null, status: 500 });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(result.current.errorMessage).not.toBeNull();
+      expect(deps.dismissOnboarding).toHaveBeenCalledTimes(1);
+    });
+
+    it('error イベントでエラーを表示するとき、オンボーディングの案内を閉じる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        body: makeNdjsonStream([{ type: 'error', message: '失敗' }]),
+        status: 200,
+      });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(result.current.errorMessage).toBe(CHAT_ERROR_MESSAGES.GENERIC);
+      expect(deps.dismissOnboarding).toHaveBeenCalledTimes(1);
+    });
+
+    it('text のあとに error イベントが来ても、案内を閉じるのは 1 回だけ', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        body: makeNdjsonStream([
+          { type: 'text', delta: 'こん' },
+          { type: 'error', message: '失敗' },
+        ]),
+        status: 200,
+      });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(deps.dismissOnboarding).toHaveBeenCalledTimes(1);
+    });
+
+    it('fetch 自体が失敗してエラーを表示するとき、オンボーディングの案内を閉じる', async () => {
+      jest.spyOn(console, 'error').mockImplementation(() => {});
+      global.fetch = jest.fn().mockRejectedValue(new Error('network'));
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(result.current.errorMessage).toBe(CHAT_ERROR_MESSAGES.GENERIC);
+      expect(deps.dismissOnboarding).toHaveBeenCalledTimes(1);
+      (console.error as jest.Mock).mockRestore();
+    });
+
+    it('次の送信でも、最初の text でオンボーディングの案内を閉じる呼び出しが走る', async () => {
+      global.fetch = jest
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          body: makeNdjsonStream([{ type: 'text', delta: 'a' }, { type: 'done' }]),
+          status: 200,
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          body: makeNdjsonStream([{ type: 'text', delta: 'b' }, { type: 'done' }]),
+          status: 200,
+        });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('1');
+      });
+      await act(async () => {
+        await result.current.handleSubmit('2');
+      });
+
+      expect(deps.dismissOnboarding).toHaveBeenCalledTimes(2);
     });
 
     it('送信時に resetAudioQueue が呼ばれる', async () => {
