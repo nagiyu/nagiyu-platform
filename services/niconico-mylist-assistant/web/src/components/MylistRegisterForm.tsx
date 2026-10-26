@@ -12,6 +12,7 @@ import {
 } from '@/types/mylist';
 import { getPushSubscription } from '@nagiyu/browser';
 import { extractErrorMessage } from '@nagiyu/common';
+import { validateMaxCountInput } from '@/lib/mylist-register-validation';
 import NiconicoSessionManager from './NiconicoSessionManager';
 
 interface MylistRegisterFormProps {
@@ -28,6 +29,10 @@ interface MylistRegisterFormProps {
 export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProps) {
   const [formData, setFormData] = useState<MylistRegisterFormData>(
     DEFAULT_MYLIST_REGISTER_FORM_DATA
+  );
+  // 入力中は書き換えず文字列のまま持ち、送信時にだけ検証して数値化する
+  const [maxCountInput, setMaxCountInput] = useState(
+    String(DEFAULT_MYLIST_REGISTER_FORM_DATA.maxCount)
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,9 +74,16 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
         return;
       }
 
+      const maxCountResult = validateMaxCountInput(maxCountInput);
+      if (!maxCountResult.valid) {
+        setError(maxCountResult.message);
+        setLoading(false);
+        return;
+      }
+
       // APIリクエストの構築（user_session はリクエストボディに含めない）
       const requestBody: MylistRegisterRequest = {
-        maxCount: formData.maxCount,
+        maxCount: maxCountResult.value,
         favoriteOnly: formData.favoriteOnly,
         excludeSkip: formData.excludeSkip,
         mylistName: formData.mylistName,
@@ -163,26 +175,8 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
             <TextField
               label="登録する最大動画数"
               type="number"
-              value={String(formData.maxCount)}
-              onChange={(e) => {
-                const value = e.target.value;
-                // 空文字の場合はそのまま許可（入力中）
-                if (value === '') {
-                  setFormData({
-                    ...formData,
-                    maxCount: 1, // デフォルト値を保持
-                  });
-                  return;
-                }
-                // 数値に変換して範囲内にクランプ
-                const numValue = Number(value);
-                if (!isNaN(numValue)) {
-                  setFormData({
-                    ...formData,
-                    maxCount: Math.max(1, Math.min(100, numValue)),
-                  });
-                }
-              }}
+              value={maxCountInput}
+              onChange={(e) => setMaxCountInput(e.target.value)}
               fullWidth
               required
               helperText="1〜100の範囲で指定してください"
