@@ -99,4 +99,59 @@ test.describe('個人 ToDo 管理', () => {
 
     await expect(page.getByText(todoTitle)).not.toBeVisible();
   });
+
+  test.describe('API エラー時の通知', () => {
+    test.beforeEach(async ({ page }) => {
+      // GET (一覧取得) は通し、更新 (PUT)・削除 (DELETE) だけを失敗させる
+      await page.route('**/api/lists/list-default/todos/*', async (route) => {
+        const method = route.request().method();
+        if (method === 'PUT' || method === 'DELETE') {
+          await route.fulfill({ status: 500, json: { error: 'テスト用の失敗' } });
+          return;
+        }
+        await route.fallback();
+      });
+    });
+
+    test('完了切り替えに失敗すると通知を表示し、チェックは元のまま', async ({ page }) => {
+      const checkbox = page
+        .getByRole('listitem')
+        .filter({ hasText: 'E2E 未完了 ToDo' })
+        .getByRole('checkbox');
+      await checkbox.click();
+
+      await expect(page.getByText('ToDoの更新に失敗しました。')).toBeVisible();
+      await expect(checkbox).not.toBeChecked();
+    });
+
+    test('編集に失敗すると通知を表示し、編集欄と入力を残す', async ({ page }) => {
+      const failingTitle = `E2E 失敗する編集 ${Date.now()}`;
+
+      const todoRow = page.getByRole('listitem').filter({ hasText: 'E2E 未完了 ToDo' });
+      await todoRow.getByRole('button', { name: '編集' }).click();
+      await page.getByRole('textbox', { name: 'タイトルを編集' }).fill(failingTitle);
+      await page.getByRole('button', { name: '保存' }).click();
+
+      await expect(page.getByText('ToDoの更新に失敗しました。')).toBeVisible();
+      await expect(page.getByRole('textbox', { name: 'タイトルを編集' })).toHaveValue(failingTitle);
+    });
+
+    test('削除に失敗すると通知を表示し、ToDo は一覧に残る', async ({ page }) => {
+      const todoRow = page.getByRole('listitem').filter({ hasText: 'E2E 未完了 ToDo' });
+      await todoRow.getByRole('button', { name: '削除' }).click();
+      await page.getByRole('dialog').getByRole('button', { name: '削除' }).click();
+
+      await expect(page.getByText('ToDoの削除に失敗しました。')).toBeVisible();
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+      await expect(page.getByText('E2E 未完了 ToDo')).toBeVisible();
+    });
+  });
+
+  test('タイトル入力欄は 200 文字までしか入力できない', async ({ page }) => {
+    const input = page.getByRole('textbox', { name: 'タイトル' });
+    await input.pressSequentially('あ'.repeat(10));
+    await expect(input).toHaveAttribute('maxlength', '200');
+    await input.fill('い'.repeat(250));
+    await expect(input).toHaveValue('い'.repeat(200));
+  });
 });
