@@ -39,6 +39,12 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
+describe('NOTIFICATION_TOGGLE_MESSAGES', () => {
+  it('PROMPT は特定キャラの名前を含まない固定文言', () => {
+    expect(NOTIFICATION_TOGGLE_MESSAGES.PROMPT).toBe('お知らせを受け取る');
+  });
+});
+
 describe('NotificationToggle', () => {
   it('対応状況が確定するまでは何も表示しない', () => {
     setupHook({ ready: false, supported: false });

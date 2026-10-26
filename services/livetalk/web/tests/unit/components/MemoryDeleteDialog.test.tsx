@@ -63,4 +63,25 @@ describe('MemoryDeleteDialog', () => {
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
     expect(onCancel).not.toHaveBeenCalled();
   });
+
+  it('error があるときダイアログ内に role=alert で表示する', () => {
+    render(
+      <MemoryDeleteDialog
+        item={item}
+        error="記憶の削除に失敗しました"
+        onConfirm={jest.fn()}
+        onCancel={jest.fn()}
+      />
+    );
+    const dialog = screen.getByRole('dialog');
+    const error = screen.getByTestId('delete-error');
+    expect(dialog).toContainElement(error);
+    expect(error).toHaveAttribute('role', 'alert');
+    expect(error).toHaveTextContent('記憶の削除に失敗しました');
+  });
+
+  it('error が無いときはエラー表示を出さない', () => {
+    render(<MemoryDeleteDialog item={item} onConfirm={jest.fn()} onCancel={jest.fn()} />);
+    expect(screen.queryByTestId('delete-error')).not.toBeInTheDocument();
+  });
 });
