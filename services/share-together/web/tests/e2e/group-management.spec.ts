@@ -468,7 +468,8 @@ test.describe('グループ管理', () => {
     expect(ownerUpdateData.data.name).toBe('更新後グループ名');
 
     await page.goto('/groups');
-    await expect(page.getByText('更新後グループ名')).toBeVisible();
+    // 選択中のグループ名は一覧のカードと詳細の見出しの両方に出るため、一覧のカードで確かめる。
+    await expect(page.getByRole('button', { name: /更新後グループ名/ })).toBeVisible();
     await expect(page.getByText('更新前グループ名')).toHaveCount(0);
   });
 
