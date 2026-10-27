@@ -86,6 +86,31 @@ test.describe('個人 ToDo 管理', () => {
     await expect(page.getByText('ToDoを更新しました。')).toBeVisible();
   });
 
+  test('編集中に Escape キーで編集をキャンセルできる', async ({ page }) => {
+    const currentTitle = 'E2E 未完了 ToDo';
+    const todoRow = page.getByRole('listitem').filter({ hasText: currentTitle });
+    await todoRow.getByRole('button', { name: '編集' }).click();
+    const input = page.getByRole('textbox', { name: 'タイトルを編集' });
+    await input.fill('書きかけのタイトル');
+
+    await input.press('Escape');
+
+    await expect(input).toHaveCount(0);
+    await expect(page.getByText(currentTitle)).toBeVisible();
+    await expect(page.getByText('書きかけのタイトル')).toHaveCount(0);
+  });
+
+  test('タイトルを変えずに保存しても更新通知を出さずに編集を閉じる', async ({ page }) => {
+    const currentTitle = 'E2E 未完了 ToDo';
+    const todoRow = page.getByRole('listitem').filter({ hasText: currentTitle });
+    await todoRow.getByRole('button', { name: '編集' }).click();
+
+    await page.getByRole('button', { name: '保存' }).click();
+
+    await expect(page.getByRole('textbox', { name: 'タイトルを編集' })).toHaveCount(0);
+    await expect(page.getByText('ToDoを更新しました。')).toHaveCount(0);
+  });
+
   test('ToDo を削除できる', async ({ page }) => {
     const todoTitle = `E2E 削除テスト ${Date.now()}`;
 
