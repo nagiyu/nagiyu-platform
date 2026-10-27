@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 import { reportErrorEvent } from '@nagiyu/aws';
 import type { HighlightRepository } from '@nagiyu/quick-clip-core';
 import { getLambdaClient, getS3Client } from '@/lib/server/aws';

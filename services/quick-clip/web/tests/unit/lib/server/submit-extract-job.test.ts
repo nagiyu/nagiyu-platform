@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 import { getBatchClient } from '@/lib/server/aws';
 import { submitExtractJob } from '@/lib/server/submit-extract-job';
 
