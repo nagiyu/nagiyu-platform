@@ -3,7 +3,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <style>
-/* 鉄道の閉塞信号に見立てる: dev 環境の各デプロイ先を「閉塞区間」とし、占有/待ち/解放を信号色で示す。上から 判断 → 区間 → 進行中 → 待ち行列 */
+/* 鉄道の閉塞信号に見立てる: dev 環境の各デプロイ先を「閉塞区間」とし、空き / 占有 / 待ちを信号色で示す。上から 次にやること → 区間 → 進行中 → 待ち行列 */
 :root {
   --bg: #f3f5f4; --surface: #ffffff; --fg: #1d2523; --muted: #5f6b68; --line: #d5dbd9;
   --accent: #1f6f78;
@@ -55,10 +55,10 @@ table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: .88
 th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
 th { font-size: .74rem; letter-spacing: .05em; color: var(--muted); font-weight: 400; background: var(--bg); }
 tr:last-child td { border-bottom: 0; }
-tr.base td { background: var(--red-bg); }
+tr.base td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 td.n { text-align: right; }
 
-.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 12px; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; display: grid; gap: 10px; align-content: start; min-width: 0; }
 .card h3 { margin: 0; font-size: .98rem; line-height: 1.45; }
 .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: .84rem; }
@@ -69,9 +69,9 @@ td.n { text-align: right; }
 .steps .now::before { content: "▶"; color: var(--amber); }
 .steps .now { font-weight: 700; }
 .steps .todo::before { content: "·"; color: var(--muted); }
-.kv { font-size: .8rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.kv { font-size: .8rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 14px; overflow-wrap: anywhere; }
 
-.queue { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.queue { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 12px; }
 .qgroup { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 12px 16px; display: grid; gap: 8px; align-content: start; min-width: 0; }
 .qgroup h3 { margin: 0; font-size: .9rem; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
 .qgroup ol, .qgroup ul { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 5px; font-size: .84rem; }
@@ -172,7 +172,7 @@ td.n { text-align: right; }
 <!-- 末尾の区画: release スキルへ渡すメモと判断ルールの要約。段落を足して使う -->
 <div class="rule">
   <p><b>本番で気を付けること</b> (release スキルへ渡すメモ) 進行中に見つかったもの。例: &lt;テーブル名&gt; の GSI は本番で 1 つずつ段階的に反映する。時間で変わる本番の状態 (動いているジョブなど) の確認は、マージ直前に行う。</p>
-  <p><b>判断ルール</b> dev へデプロイする対応を並べるのは、片方が dev に何も出さない (docs だけなど) か、デプロイ先のサービスが重ならない場合だけ。libs を触る対応どうしは、動作確認の有無に関係なく 1 本ずつ。コードが重なるなら待つ。どの対応も、マージ後の反映確認 (デプロイの成功と資材が載ったこと) は必ず行う。</p>
+  <p><b>判断ルール</b> dev へデプロイする対応を並べるのは、片方が dev に何も出さない (docs だけなど) か、デプロイ先のサービスが重ならない場合だけ。libs を触る対応どうしは、動作確認の有無に関係なく 1 本ずつ。コードが重なるなら、デプロイ先が違っても待つ。反映確認だけの対応は、ほかの対応を待たせる理由にならない。どの対応も、マージ後の反映確認 (デプロイが成功し、資材が dev に載って各サービスが応答すること) は必ず行う。</p>
 </div>
 
 </div>
