@@ -7,9 +7,13 @@ import { getSession } from '@/lib/server/session';
 import { getLLMClient } from '@/lib/server/llm';
 import { getVoiceClient } from '@/lib/server/voice';
 import { getMessageRepository, getChatGuardRepository } from '@/lib/server/repositories';
-import { DatabaseError } from '@nagiyu/aws';
+import { DatabaseError, reportErrorEvent } from '@nagiyu/aws';
 
 jest.mock('@/lib/server/session', () => ({ getSession: jest.fn() }));
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
 jest.mock('@/lib/server/llm', () => ({ getLLMClient: jest.fn() }));
 jest.mock('@/lib/server/voice', () => ({ getVoiceClient: jest.fn() }));
 jest.mock('@/lib/server/repositories', () => ({
@@ -50,13 +54,10 @@ const makeDefaultGuardMock = () => ({
 
 const validSession = {
   user: {
-    userId: 'u1',
-    googleId: 'g1',
+    id: 'u1',
     email: 'u@example.com',
     name: 'U',
     roles: ['livetalk-user'],
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
   },
   expires: new Date(Date.now() + 60 * 1000).toISOString(),
 };
@@ -114,6 +115,25 @@ describe('POST /api/chat', () => {
       expect(res.status).toBe(400);
       const json = await res.json();
       expect(json.message).toBe(CHAT_ERROR_MESSAGES.INVALID_REQUEST);
+    });
+
+    it.each([
+      ['null', 'null'],
+      ['配列', '[{"text":"hello"}]'],
+      ['文字列', '"hello"'],
+      ['text が数値', { text: 1 }],
+      ['text が配列', { text: ['hello'] }],
+    ])('body が %s の場合は 400 INVALID_REQUEST で下流を呼ばない', async (_label, body) => {
+      const guard = makeDefaultGuardMock();
+      mockGetChatGuardRepository.mockReturnValue(guard);
+
+      const res = await POST(buildRequest(body));
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.message).toBe(CHAT_ERROR_MESSAGES.INVALID_REQUEST);
+      expect(guard.acquireLock).not.toHaveBeenCalled();
+      expect(guard.incrementRateLimit).not.toHaveBeenCalled();
+      expect(mockRunChatUseCase).not.toHaveBeenCalled();
     });
 
     it('text フィールドがない場合は 400 INVALID_REQUEST', async () => {
@@ -190,6 +210,13 @@ describe('POST /api/chat', () => {
       expect(res.status).toBe(200);
       const events = await readNDJSONStream(res);
       expect(events[0]).toMatchObject({ type: 'error' });
+      expect(reportErrorEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          serviceId: 'livetalk',
+          title: 'Web API: チャットのストリーミングエラー',
+          message: 'usecase error',
+        })
+      );
     });
 
     it('runChatUseCase に userId と userText が渡される', async () => {
@@ -200,7 +227,7 @@ describe('POST /api/chat', () => {
       await POST(buildRequest({ text: '  テスト  ' }));
 
       expect(mockRunChatUseCase).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: 'g1', userText: 'テスト' })
+        expect.objectContaining({ userId: 'u1', userText: 'テスト' })
       );
     });
 
@@ -383,6 +410,9 @@ describe('POST /api/chat', () => {
       // フェイルオープン: 障害でもリクエストを通す
       expect(res.status).toBe(200);
       expect(mockRunChatUseCase).toHaveBeenCalled();
+      expect(reportErrorEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Web API: チャットのロック取得エラー (バイパス)' })
+      );
     });
 
     it('ロック取得が DatabaseError の場合は releaseLock が呼ばれない', async () => {
@@ -408,6 +438,11 @@ describe('POST /api/chat', () => {
       // フェイルオープン: 障害でもリクエストを通す
       expect(res.status).toBe(200);
       expect(mockRunChatUseCase).toHaveBeenCalled();
+      expect(reportErrorEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Web API: チャットのレートリミット確認エラー (バイパス)',
+        })
+      );
     });
 
     // ---- ロック解放 ----
@@ -461,7 +496,7 @@ describe('POST /api/chat', () => {
 
       // acquireLock に渡されたトークンが releaseLock にも渡されることを確認する
       expect(capturedOwnerToken).toBeDefined();
-      expect(guardMock.releaseLock).toHaveBeenCalledWith('g1', capturedOwnerToken);
+      expect(guardMock.releaseLock).toHaveBeenCalledWith('u1', capturedOwnerToken);
     });
   });
 });

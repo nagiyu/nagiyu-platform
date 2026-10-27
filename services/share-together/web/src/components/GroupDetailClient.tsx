@@ -19,6 +19,7 @@ import { Button, TextField } from '@nagiyu/ui';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { ConfirmDialog } from '@nagiyu/ui';
 import { InviteForm } from '@/components/InviteForm';
+import { buildSharedListHref } from '@/lib/listsQuery';
 
 type Member = {
   userId: string;
@@ -27,6 +28,7 @@ type Member = {
 
 type GroupDetailClientProps = {
   groupId: string;
+  groupName: string;
   isOwner: boolean;
   currentUserId: string;
   members: readonly Member[];
@@ -42,6 +44,7 @@ const ERROR_MESSAGES = {
 
 export function GroupDetailClient({
   groupId,
+  groupName,
   isOwner,
   currentUserId,
   members: initialMembers,
@@ -63,14 +66,7 @@ export function GroupDetailClient({
   const [deleted, setDeleted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreatingList, setIsCreatingList] = useState(false);
-  const createSharedListHref = (listId: string) => {
-    const query = new URLSearchParams({
-      scope: 'shared',
-      groupId,
-      listId,
-    });
-    return `/lists?${query.toString()}`;
-  };
+  const createSharedListHref = (listId: string) => buildSharedListHref(groupId, listId);
 
   const getErrorMessage = async (response: Response): Promise<string> => {
     try {
@@ -212,14 +208,14 @@ export function GroupDetailClient({
 
   return (
     <>
-      <Typography variant="body2" color="text.secondary">
-        グループID: {groupId}
+      <Typography variant="h5" component="h2">
+        {groupName}
       </Typography>
 
       <Stack spacing={3} sx={{ mt: 3 }}>
         <Card>
           <CardContent>
-            <Typography variant="h6" component="h2" gutterBottom>
+            <Typography variant="h6" component="h3" gutterBottom>
               メンバー一覧
             </Typography>
             <List>
@@ -260,7 +256,7 @@ export function GroupDetailClient({
 
         <Card>
           <CardContent>
-            <Typography variant="h6" component="h2" gutterBottom>
+            <Typography variant="h6" component="h3" gutterBottom>
               共有リスト
             </Typography>
             <List>
@@ -300,7 +296,7 @@ export function GroupDetailClient({
 
         <Card>
           <CardContent>
-            <Typography variant="h6" component="h2" gutterBottom>
+            <Typography variant="h6" component="h3" gutterBottom>
               メンバー招待フォーム
             </Typography>
             <InviteForm groupId={groupId} isOwner={isOwner} memberCount={members.length} />

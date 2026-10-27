@@ -176,7 +176,7 @@ export async function deleteAllMylists(page: Page): Promise<void> {
     console.log(`${deletedCount}件のマイリストを削除しました`);
   } catch (error) {
     console.error('マイリスト削除失敗:', error);
-    throw new Error(ERROR_MESSAGES.MYLIST_DELETE_FAILED);
+    throw new Error(ERROR_MESSAGES.MYLIST_DELETE_FAILED, { cause: error });
   }
 }
 
@@ -284,7 +284,7 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
     } catch (debugError) {
       console.error('[DEBUG] デバッグ情報の取得に失敗:', debugError);
     }
-    throw new Error(ERROR_MESSAGES.MYLIST_CREATE_FAILED);
+    throw new Error(ERROR_MESSAGES.MYLIST_CREATE_FAILED, { cause: error });
   }
 }
 
@@ -331,7 +331,7 @@ export async function registerVideoToMylist(
     console.log(`動画 ${videoId} を登録しました`);
   } catch (error) {
     console.error(`動画 ${videoId} の登録失敗:`, error);
-    throw new Error(`${ERROR_MESSAGES.VIDEO_REGISTRATION_FAILED}: ${videoId}`);
+    throw new Error(`${ERROR_MESSAGES.VIDEO_REGISTRATION_FAILED}: ${videoId}`, { cause: error });
   }
 }
 
@@ -509,7 +509,7 @@ export async function launchBrowser(): Promise<Browser> {
     return browser;
   } catch (error) {
     console.error('ブラウザ起動失敗:', error);
-    throw new Error(ERROR_MESSAGES.BROWSER_LAUNCH_FAILED);
+    throw new Error(ERROR_MESSAGES.BROWSER_LAUNCH_FAILED, { cause: error });
   }
 }
 
@@ -547,7 +547,7 @@ export async function createContextWithSession(
     return context;
   } catch (error) {
     console.error('クッキー注入失敗:', error);
-    throw new Error(ERROR_MESSAGES.SESSION_COOKIE_INJECTION_FAILED);
+    throw new Error(ERROR_MESSAGES.SESSION_COOKIE_INJECTION_FAILED, { cause: error });
   }
 }
 

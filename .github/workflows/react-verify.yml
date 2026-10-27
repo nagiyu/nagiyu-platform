@@ -37,11 +37,8 @@ jobs:
           node-version: '24'
           cache-dependency-path: './package-lock.json'
 
-      - name: Build @nagiyu/common (dependency)
-        run: npm run build --workspace=@nagiyu/common
-
-      - name: Build @nagiyu/browser (dependency)
-        run: npm run build --workspace=@nagiyu/browser
+      - name: Build shared libraries
+        run: npm run build:libs
 
       - name: Build library
         run: npm run build --workspace=@nagiyu/react
@@ -60,11 +57,8 @@ jobs:
           node-version: '24'
           cache-dependency-path: './package-lock.json'
 
-      - name: Build @nagiyu/common (dependency)
-        run: npm run build --workspace=@nagiyu/common
-
-      - name: Build @nagiyu/browser (dependency)
-        run: npm run build --workspace=@nagiyu/browser
+      - name: Build shared libraries
+        run: npm run build:libs
 
       - name: Run tests
         run: npm run test --workspace=@nagiyu/react
@@ -83,11 +77,8 @@ jobs:
           node-version: '24'
           cache-dependency-path: './package-lock.json'
 
-      - name: Build @nagiyu/common (dependency)
-        run: npm run build --workspace=@nagiyu/common
-
-      - name: Build @nagiyu/browser (dependency)
-        run: npm run build --workspace=@nagiyu/browser
+      - name: Build shared libraries
+        run: npm run build:libs
 
       - name: Run tests with coverage
         run: npm run test:coverage --workspace=@nagiyu/react

@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { Container, Typography, Box } from '@mui/material';
 import { Button } from '@nagiyu/ui';
 import { usePushSubscription } from '@nagiyu/react';
-import { fetchVapidPublicKey, postPushSubscription } from '@nagiyu/browser';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import NotificationPermissionDialog from './NotificationPermissionButton';
 
@@ -24,12 +23,8 @@ export default function HomePageClient({
   authUrl,
 }: HomePageClientProps) {
   const [openNotificationDialog, setOpenNotificationDialog] = useState(false);
-  const canUseNotificationApi = typeof window !== 'undefined' && 'Notification' in window;
 
-  const { subscribed, subscribe } = usePushSubscription({
-    getVapidPublicKey: fetchVapidPublicKey,
-    onSubscribed: (subscription) => postPushSubscription(subscription),
-  });
+  const { supported, subscribed, subscribe } = usePushSubscription();
 
   const handleOpenNotificationDialog = () => {
     setOpenNotificationDialog(true);
@@ -75,7 +70,7 @@ export default function HomePageClient({
             <Button asChild variant="outline" color="primary">
               <Link href="/mylist">動画管理</Link>
             </Button>
-            {canUseNotificationApi && (
+            {supported && (
               <>
                 <Button
                   variant="outline"

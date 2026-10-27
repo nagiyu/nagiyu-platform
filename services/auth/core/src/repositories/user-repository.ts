@@ -1,12 +1,4 @@
 import type { User } from '@nagiyu/common';
-import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
-
-export class UserNotFoundError extends Error {
-  constructor(userId: string) {
-    super(`${COMMON_ERROR_MESSAGES.USER_NOT_FOUND}: ${userId}`);
-    this.name = 'UserNotFoundError';
-  }
-}
 
 /**
  * ユーザーを upsert する際の入力。
@@ -46,6 +38,8 @@ export type ListUsersResult = {
  *
  * DynamoDB / InMemory 双方の実装が `@nagiyu/aws` の `registerDynamoRepositories`
  * 経由で切り替えられるように設計している。
+ *
+ * 対象のユーザーがいない更新・削除は、どちらの実装も `EntityNotFoundError` を投げる。
  */
 export interface UserRepository {
   getUserByGoogleId(googleId: string): Promise<User | null>;

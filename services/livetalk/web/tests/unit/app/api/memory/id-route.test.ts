@@ -1,11 +1,13 @@
 /**
  * @jest-environment node
  */
+import { EntityNotFoundError } from '@nagiyu/aws';
 import { DELETE } from '@/app/api/memory/[id]/route';
 import { getSession } from '@/lib/server/session';
 import { getTopicRepository } from '@/lib/server/repositories';
 import { getLLMClient } from '@/lib/server/llm';
 import { encodeSelfFactId } from '@/lib/memory/memory-id';
+import { MEMORY_ERROR_MESSAGES } from '@/app/api/memory/constants';
 
 jest.mock('@/lib/server/session', () => ({ getSession: jest.fn() }));
 jest.mock('@/lib/server/repositories', () => ({ getTopicRepository: jest.fn() }));
@@ -26,19 +28,16 @@ const mockForgetSelfFact = forgetSelfFact as jest.Mock;
 
 const session = {
   user: {
-    userId: 'u1',
-    googleId: 'g1',
+    id: 'u1',
     email: 'u@example.com',
     name: 'U',
     roles: ['livetalk-user'],
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
   },
   expires: new Date(Date.now() + 60_000).toISOString(),
 };
 
 const validId = encodeSelfFactId({
-  userId: 'g1',
+  userId: 'u1',
   characterId: 'hiyori',
   topicId: 't1',
   factId: 'f1',
@@ -67,7 +66,7 @@ describe('DELETE /api/memory/:id', () => {
     const json = await res.json();
     expect(json).toEqual({ deleted: true });
     expect(mockForgetSelfFact).toHaveBeenCalledWith(
-      { userId: 'g1', characterId: 'hiyori', topicId: 't1', factId: 'f1' },
+      { userId: 'u1', characterId: 'hiyori', topicId: 't1', factId: 'f1' },
       expect.objectContaining({ topicRepository: expect.anything(), llmClient: expect.anything() })
     );
   });
@@ -77,6 +76,19 @@ describe('DELETE /api/memory/:id', () => {
     const res = await DELETE(new Request('http://localhost'), ctx('bad'));
     expect(res.status).toBe(400);
     expect(mockForgetSelfFact).not.toHaveBeenCalled();
+  });
+
+  it('forgetSelfFact が EntityNotFoundError を投げた場合 (SELF fact も Topic もない) は 404 NOT_FOUND を返す', async () => {
+    mockGetSession.mockResolvedValue(session);
+    mockForgetSelfFact.mockRejectedValue(new EntityNotFoundError('SelfFact', 'f1'));
+
+    const res = await DELETE(new Request('http://localhost'), ctx(validId));
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({
+      error: 'NOT_FOUND',
+      message: MEMORY_ERROR_MESSAGES.NOT_FOUND,
+    });
   });
 
   it('forgetSelfFact が例外を投げた場合は 500', async () => {

@@ -111,7 +111,7 @@ export default function ImportPage() {
           />
         </Box>
 
-        <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
+        <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
           <Button variant="outline" size="lg" onClick={() => setSearchModalOpen(true)}>
             動画を検索して追加
           </Button>
@@ -195,7 +195,7 @@ export default function ImportPage() {
                 )}
 
                 <Box sx={{ mt: 2 }}>
-                  <Button variant="outline" onClick={() => router.push('/')}>
+                  <Button variant="outline" onClick={() => router.push('/mylist')}>
                     動画一覧を見る
                   </Button>
                 </Box>

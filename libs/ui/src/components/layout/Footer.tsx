@@ -3,8 +3,9 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Box, Container, Typography, Link, Grid, Stack } from '@mui/material';
-import PrivacyPolicyDialog, { type PolicySection } from '../dialogs/PrivacyPolicyDialog';
-import TermsOfServiceDialog, { type TermSection } from '../dialogs/TermsOfServiceDialog';
+import PrivacyPolicyDialog from '../dialogs/PrivacyPolicyDialog';
+import TermsOfServiceDialog from '../dialogs/TermsOfServiceDialog';
+import type { LegalSection } from '../../types/legal';
 
 /** フッターに表示するリンク項目 */
 export interface FooterLinkItem {
@@ -38,12 +39,12 @@ export interface FooterProps {
   /**
    * 差し替え利用規約データ（省略時はグローバル termSections を使用）
    */
-  termsContent?: TermSection[];
+  termsContent?: LegalSection[];
 
   /**
    * 差し替えプライバシーポリシーデータ（省略時はグローバル privacyPolicySections を使用）
    */
-  privacyContent?: PolicySection[];
+  privacyContent?: LegalSection[];
 
   /**
    * フッター本体に常時表示するライセンス表記（バージョンと同列）

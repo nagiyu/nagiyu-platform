@@ -209,7 +209,7 @@ export default function Home() {
             <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
               選択されたファイル:
             </Typography>
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
               {file.name} ({formatFileSize(file.size)})
             </Typography>
           </Paper>

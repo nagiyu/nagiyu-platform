@@ -81,16 +81,50 @@ jobs:
 
       - name: Build shared libraries
         run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/react
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
+          npm run build:libs
           npm run build --workspace @nagiyu/admin-core
 
       - name: Run unit tests
         run: npm run test --workspace @nagiyu/admin
+
+  contract-test:
+    name: Run Contract Tests (DynamoDB Local)
+    runs-on: ubuntu-latest
+    needs: [build]
+
+    services:
+      dynamodb-local:
+        image: amazon/dynamodb-local
+        ports:
+          - 8000:8000
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Build shared libraries
+        run: npm run build:libs
+
+      - name: Wait for DynamoDB Local
+        run: |
+          for i in $(seq 1 30); do
+            curl -s http://localhost:8000 >/dev/null 2>&1 && break
+            sleep 1
+          done
+
+      - name: Run contract tests
+        env:
+          DYNAMODB_ENDPOINT: http://localhost:8000
+          AWS_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+        run: npm run test:contract --workspace @nagiyu/admin-core
 
   coverage:
     name: Test Coverage Check
@@ -110,12 +144,7 @@ jobs:
 
       - name: Build shared libraries
         run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/react
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
+          npm run build:libs
           npm run build --workspace @nagiyu/admin-core
 
       - name: Run tests with coverage
@@ -160,12 +189,7 @@ jobs:
 
       - name: Build shared libraries
         run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/react
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
+          npm run build:libs
           npm run build --workspace @nagiyu/admin-core
 
       - name: Build web application
@@ -238,12 +262,7 @@ jobs:
 
       - name: Build shared libraries
         run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/react
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
+          npm run build:libs
           npm run build --workspace @nagiyu/admin-core
 
       - name: Build web application
@@ -316,12 +335,7 @@ jobs:
 
       - name: Build shared libraries
         run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/react
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
+          npm run build:libs
           npm run build --workspace @nagiyu/admin-core
 
       - name: Build web application
@@ -384,7 +398,7 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/admin'
-          shared-workspaces: '@nagiyu/common,@nagiyu/aws,@nagiyu/browser,@nagiyu/react,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/admin-core'
+          shared-workspaces: '@nagiyu/admin-core'
 
   docker-build:
     name: Docker Build Verification
@@ -428,6 +442,7 @@ jobs:
         lint,
         format-check,
         unit-test,
+        contract-test,
         coverage,
         e2e-test-chromium-mobile,
         e2e-test-chromium-desktop,
@@ -450,6 +465,7 @@ jobs:
               'Lint': '${{ needs.lint.result }}',
               'Format Check': '${{ needs.format-check.result }}',
               'Unit Tests': '${{ needs.unit-test.result }}',
+              'Contract Tests': '${{ needs.contract-test.result }}',
               'Coverage Check': '${{ needs.coverage.result }}',
               'E2E Tests (chromium-mobile)': '${{ needs.e2e-test-chromium-mobile.result }}',
               'E2E Tests (chromium-desktop)': '${{ needs.e2e-test-chromium-desktop.result }}',

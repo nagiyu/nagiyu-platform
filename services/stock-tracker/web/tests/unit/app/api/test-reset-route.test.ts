@@ -73,16 +73,16 @@ describe('POST /api/test/reset', () => {
     const seed = {
       exchanges: [
         {
-          ExchangeID: 'TEST-EX',
-          Name: 'Test Exchange',
-          Key: 'TEST',
-          Timezone: 'America/New_York',
-          Start: '09:30',
-          End: '16:00',
-          PriceSource: 'tradingview',
+          exchangeId: 'TEST-EX',
+          name: 'Test Exchange',
+          key: 'TEST',
+          timezone: 'America/New_York',
+          start: '09:30',
+          end: '16:00',
+          priceSource: 'tradingview',
         },
       ],
-      tickers: [{ TickerID: 'TEST-EX:AAPL', Symbol: 'AAPL', Name: 'Apple', ExchangeID: 'TEST-EX' }],
+      tickers: [{ tickerId: 'TEST-EX:AAPL', symbol: 'AAPL', name: 'Apple', exchangeId: 'TEST-EX' }],
     };
 
     const response = await POST(createRequest('100', seed));

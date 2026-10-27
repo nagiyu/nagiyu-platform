@@ -2,50 +2,44 @@
 
 ## 目的
 
-本ドキュメントは、DynamoDB を使用するサービスにおけるデータアクセス層の設計思想と実装パターンを定義する。
+本ドキュメントは、DynamoDB を使用するサービスにおけるデータアクセス層の設計思想と、プラットフォーム共通の標準の書き方を定義する。すべてのサービスのリポジトリは、この標準に従う。
 
 ## 設計思想
 
 ### なぜ抽象化が必要なのか
 
-従来の実装では、テスト（特にE2E）で実際のDynamoDBを使用していたため、以下の課題があった：
+テスト (特に E2E) で実際の DynamoDB を使うと、次の課題がある。
 
 - **外部依存**: テスト結果が実データの状態に影響される
-- **環境依存**: ローカル環境での完全なテストが困難
-- **実行速度**: 外部アクセスによるテスト実行の遅延
-- **独立性の欠如**: 複数テストの同時実行時の干渉
+- **環境依存**: ローカル環境での完全なテストが難しい
+- **実行速度**: 外部アクセスでテストが遅くなる
+- **独立性の欠如**: 複数のテストを同時に実行すると干渉する
 
-これらを解決するため、データアクセスを抽象化し、テスト環境ではインメモリ実装を使用する方式を採用した。
+これを解決するため、データアクセスを抽象化し、テスト環境ではインメモリ実装を使う。
 
 ### 抽象化レベルの選択
 
-DynamoDBの抽象化には複数のアプローチが考えられる：
+DynamoDB の抽象化には、次のアプローチが考えられる。
 
-1. **低レベル抽象化**: DynamoDB APIを直接ラップ（GetItem, PutItem等）
-2. **高レベル抽象化**: 完全にDynamoDB非依存の汎用データアクセスAPI
-3. **ハイブリッド**: ビジネスに近いメソッド名 + DynamoDBの強みを活かす設計
+1. **低レベル抽象化**: DynamoDB API を直接ラップする (GetItem、PutItem など)
+2. **高レベル抽象化**: DynamoDB に依存しない汎用のデータアクセス API
+3. **ハイブリッド**: ビジネスに近いメソッド名 + DynamoDB の強みを活かす設計
 
-本プラットフォームでは**ハイブリッドアプローチ**を採用：
+本プラットフォームは**ハイブリッド**を採用する。
 
-- **基本CRUD**: ビジネスキーで操作（`getById(userId, tickerId)`）
-- **クエリ操作**: 意味のあるメソッド名（`getByUserId(userId, options)`）
-- **ページネーション**: 実装の詳細を隠蔽した不透明トークン
+- **基本 CRUD**: ビジネスキーで操作する (`getById(userId, tickerId)`)
+- **クエリ操作**: 意味のあるメソッド名にする (`getByUserId(userId, options)`)
+- **ページネーション**: 実装の詳細を隠した不透明トークンにする
 
-**選択理由**:
-- よく使う操作はシンプルに記述できる
-- 複雑なクエリは意味を明確にする
-- DynamoDBの特性（GSI、ページネーション等）を活かせる
-- 将来的な他DBへの移行も視野に入れつつ、現実的な実装
+よく使う操作は簡潔に書け、複雑なクエリは意味が明確になる。GSI やページネーションといった DynamoDB の特性も活かせる。
 
 ### Single Table Design への対応
 
-DynamoDBのSingle Table Designパターンを採用する場合、複数のエンティティタイプが1つのテーブルに混在する。このパターンに対応するため、以下の設計を採用：
+Single Table Design では、1 つのテーブルに複数のエンティティ種別が混在する。これに対応するため、次の設計にする。
 
-- **InMemorySingleTableStore**: 全リポジトリで共有する共通ストア
-- **PK/SK管理**: Mapperが一元的に管理
-- **Type属性**: エンティティタイプを自動付与
-
-これにより、実際のDynamoDBと同じアクセスパターンをテスト環境で再現できる。
+- **InMemorySingleTableStore**: 全リポジトリで共有するインメモリのストア
+- **キーの組み立て**: Mapper が一元的に担う
+- **Type 属性**: エンティティ種別を Mapper が付与する
 
 ## アーキテクチャ構成
 
@@ -54,435 +48,208 @@ DynamoDBのSingle Table Designパターンを採用する場合、複数のエ�
 ```
 [ビジネスロジック層]
         ↓
-[Repository Interface] ← ビジネスに近い抽象化
+[Repository Interface]   ← ビジネスに近い抽象化
         ↓
    ┌────┴────┐
    ↓         ↓
 [DynamoDB   [InMemory
  Repository] Repository]
    ↓         ↓
-[Mapper]    [Mapper]      ← Entity ↔ DynamoDBItem 変換
+[EntityStore (DynamoDB 版 / InMemory 版)]   ← 単一アイテムの CRUD の骨格
    ↓         ↓
-[DynamoDB   [InMemory
- Item]       Item]
+[Mapper (両方で同じもの)]                    ← Entity ↔ Item の変換
    ↓         ↓
-[DocumentClient] [SingleTableStore]
+[DocumentClient] [InMemorySingleTableStore]
 ```
+
+GSI を使う一覧などの独自のクエリは、各 Repository が DocumentClient / InMemorySingleTableStore に直接書き、変換だけ Mapper を使う。
 
 ### 各コンポーネントの責務
 
-#### Entity（エンティティ）
+| コンポーネント | 責務 |
+|---|---|
+| Entity | ビジネスロジックで扱う純粋なドメインオブジェクト。PK/SK・Type・GSI 属性など、DynamoDB 固有の属性を持たない |
+| Mapper | Entity と Item の相互変換。キーの組み立て、Type と GSI 属性の付与、保存形式 (属性名・時刻の形式) への変換、読み出し時の検証を一手に担う |
+| EntityStore | 単一アイテムの get / create / put / update / delete の骨格。条件付き書き込み、エラー変換、`UpdatedAt` の管理、旧属性名の削除を担う |
+| Repository Interface | ビジネスキーでの CRUD と、意味のある名前のクエリを定義する。DynamoDB の詳細を含めない |
+| Repository 実装 | DynamoDB 版と InMemory 版。同じ Mapper と同じ EntityStore の振る舞いを使い、同じエラーを投げる |
+| InMemorySingleTableStore | Single Table Design をインメモリで再現する共通ストア |
 
-**目的**: ビジネスロジックで扱う純粋なドメインオブジェクト
+## 標準の書き方
 
-**設計方針**:
-- PK/SK等のDynamoDB固有の属性を持たない
-- ビジネス的に意味のある属性のみを持つ
-- 将来的に別のデータストアに移行してもEntityは変わらない
+### 1. 変換は Mapper に一本化し、CRUD の骨格は合成で持つ
 
-**なぜPK/SKを含めないのか**:
-- ビジネスロジックはストレージの実装詳細に依存すべきでない
-- テストコードがDynamoDBの知識を必要としない
-- 他のデータストア（RDS等）への移行が容易
+**決定**: Entity と Item の変換はすべて Mapper が担う。単一アイテムの CRUD の骨格は、Mapper を受け取る EntityStore を Repository が持つ (合成) 形にする。基底クラスを継承する形は採らない。
 
-```typescript
-// ✅ 良い例：ビジネスオブジェクト
-interface HoldingEntity {
-  UserID: string;
-  TickerID: string;
-  Quantity: number;
-  AveragePrice: number;
-  CreatedAt: number;
-  UpdatedAt: number;
-}
+**理由**:
+- Repository の多くは、単一アイテムの CRUD に加えて GSI のクエリ・トランザクション・バッチなどの独自の操作を持つ。継承だと基底クラスの都合と独自の操作がぶつかり、上書きが増える。
+- 同じ Mapper を DynamoDB 版と InMemory 版で共有でき、変換のずれが起きない。
+- 各 Repository に同じ骨格 (キーの組み立て → 書き込み → 条件失敗の変換 → Entity への変換) を書き写さずに済む。
 
-// ❌ 悪い例：DynamoDBの実装詳細が漏れている
-interface HoldingEntity {
-  PK: string;           // DynamoDB固有
-  SK: string;           // DynamoDB固有
-  UserID: string;
-  TickerID: string;
-  Quantity: number;
-}
-```
+### 2. キーは DynamoDB の `Key` にそのまま渡せる形で組み立てる
 
-#### Mapper（マッパー）
+**決定**: Mapper のキー組み立ては、DynamoDB の `Key` にそのまま渡せる属性名と値の組を返す。Single Table なら `PK` / `SK`、単一キーのテーブルならそのキー属性 (例: `userId`) になる。先頭の属性をパーティションキーとして扱い、条件付き書き込みの存在判定に使う。
 
-**目的**: Entity と DynamoDBItem の相互変換を担当
+**理由**: PK/SK を前提にすると、単一キーのテーブル (auth のユーザー、codec-converter のジョブ) が標準から外れる。テーブル設計の違いを Mapper の中に閉じ込めれば、EntityStore はキーの形を知らずに済む。
 
-**設計方針**:
-- PK/SK の構築ロジックを一元管理
-- Type属性を自動付与（Entity には含めない）
-- DynamoDB実装とInMemory実装で同じMapperを使用
+### 3. 保存する属性名は PascalCase、Entity は camelCase
 
-**なぜMapperを独立させるのか**:
-- PK/SK構築ロジックの重複を防ぐ
-- バリデーションロジックを集約できる
-- テストで変換ロジックを独立して検証できる
+**決定**: DynamoDB に保存する属性名は PascalCase にする (`UserID`、`CreatedAt` など)。頭字語 (ID・URL など) は大文字のまま書く。Entity と API は TypeScript の慣習どおり camelCase にし、頭字語も先頭だけ大文字にする (`userId`)。名前の対応づけは Mapper が担う。
 
-```typescript
-class HoldingMapper implements EntityMapper<HoldingEntity, HoldingKey> {
-  toItem(entity: HoldingEntity): DynamoDBItem {
-    const { pk, sk } = this.buildKeys({
-      userId: entity.UserID,
-      tickerId: entity.TickerID,
-    });
-    
-    return {
-      PK: pk,
-      SK: sk,
-      Type: 'Holding',        // Mapperが自動付与
-      UserID: entity.UserID,
-      TickerID: entity.TickerID,
-      Quantity: entity.Quantity,
-      // ...
-    };
-  }
-  
-  buildKeys(key: HoldingKey): { pk: string; sk: string } {
-    return {
-      pk: `USER#${key.userId}`,
-      sk: `HOLDING#${key.tickerId}`,
-    };
-  }
-}
-```
+**例外**: テーブルや GSI のキーになっている属性 (auth の `userId`・`googleId`、codec-converter の `jobId`) は camelCase のまま据え置く。キー属性の名前はテーブルを作り直さないと変えられず、データのコピーと切り替えを伴うためである。
 
-#### Repository Interface
+**理由**: 保存側は、キー属性 (`PK` / `SK` / `GSI1PK` など) と並べたときに揃う PascalCase に統一する。頭字語を大文字のままにするのは、既に PascalCase で保存しているサービスの属性名 (`UserID` など) を変えずに済ませるためである。Entity と API は、TypeScript のコードとして自然な camelCase に統一する。どちらか一方に寄せると、もう一方で慣習から外れた名前を書き続けることになる。
 
-**目的**: データアクセスの抽象インターフェース
+### 4. 時刻は数値ミリ秒、TTL だけエポック秒
 
-**設計方針**:
-- ビジネスキーでCRUD操作を定義
-- クエリは意味のあるメソッド名を使用
-- DynamoDBの実装詳細（PK/SK）を含めない
+**決定**: 時刻の属性はすべて数値のミリ秒にする。TTL 属性だけは、DynamoDB の TTL の仕様に従ってエポック秒にし、名前を全テーブルで `TTL` に揃える。
 
-**メソッド命名規則**:
-- 基本取得: `getById()`、`getByXxx()`
-- 一覧取得: `getByXxx()` + PaginationOptions
-- 作成: `create()`
-- 更新: `update()`
-- 削除: `delete()`
+**理由**:
+- 楽観ロックは `UpdatedAt` の一致で競合を検知するため、秒の精度では同じ秒の中の 2 回の書き込みを区別できない。メッセージの並びのように、同じ秒の中の順序が意味を持つデータもある。
+- ISO 文字列は数値と比べて比較・計算に変換が要り、形式のゆれ (タイムゾーンの有無など) も起きる。
+- TTL は DynamoDB がエポック秒でしか解釈しないため、ここだけは例外にする。名前を揃えるのは、テーブルごとに TTL 属性名を覚える必要をなくすためである。
 
-```typescript
-interface HoldingRepository {
-  // ビジネスキーでアクセス（PK/SKは使わない）
-  getById(userId: string, tickerId: string): Promise<HoldingEntity | null>;
-  
-  // 意味のあるメソッド名
-  getByUserId(userId: string, options?: PaginationOptions): Promise<PaginatedResult<HoldingEntity>>;
-  
-  create(input: CreateHoldingInput): Promise<HoldingEntity>;
-  update(userId: string, tickerId: string, updates: UpdateHoldingInput): Promise<HoldingEntity>;
-  delete(userId: string, tickerId: string): Promise<void>;
-}
-```
+キーの中に埋め込まれた時刻や日付 (SK の一部になっている ISO 文字列や `DATE#2026-10-12` など) は対象外とする。キーの値はアイテムを作り直さないと変えられず、日付はソートキーとしての並びに意味がある。
 
-#### InMemorySingleTableStore
+### 5. 旧形式のデータは、次に書き込まれたときに置き換える
 
-**目的**: DynamoDBのSingle Table Designをインメモリで再現
+**決定**: 保存形式を変えても、既存データを一括で移行しない。Mapper は読むときに旧形式 (旧属性名・ISO 文字列・エポック秒) も受け付け、書くときは必ず新形式で書く。update で属性を書くときは、その属性の旧名を削除して二重に残さない。
 
-**設計方針**:
-- 全リポジトリで共有する共通ストア
-- PK/SKでデータを管理
-- クエリ操作は全件スキャン+フィルタで実装（テストデータは少量）
+**理由**: 一括移行はデータ量に比例して時間と事故のリスクが増え、環境ごとの実行と検証が要る。読み取りの互換処理を共通部品に置けば、旧形式は書き込みのたびに自然に置き換わる。
 
-**なぜ共通ストアなのか**:
-- 実際のDynamoDBは1テーブルに複数エンティティが混在
-- リポジトリ間のデータ整合性を保てる
-- GSIのシミュレーションが可能
+**帰結**:
+- 書き込まれないアイテムは旧形式のまま残るため、読み取りの互換処理は残し続ける。
+- Query や Scan の絞り込み (FilterExpression) で属性を条件にするときは、新名と旧名の両方を条件に入れる。Mapper の読み取りの互換は取り出したあとの変換にしか効かず、絞り込みは保存されている属性名に対して行われる。新名だけを条件にすると、旧形式のまま残ったアイテムが結果から漏れる。
+- TTL 属性の名前を変えた場合だけは、この方式で済まない。TTL は 1 テーブルに 1 属性しか指定できず、旧名のまま残ったアイテムは期限が来ても削除されない。名前を変えたときは、旧名の値を `TTL` に写す作業を一度だけ行う。
+- 新形式で書いたデータは、旧形式しか読めない古いコードでは読めない。形式を変える変更を本番へ出したあとは、前の版へ戻さずに前へ直す。
 
-#### Repository実装（DynamoDB / InMemory）
+### 6. 操作の振る舞いは操作の名前で固定する
 
-**目的**: Repository Interfaceの具体的な実装
+**決定**: EntityStore の操作は、名前ごとに振る舞いを 1 つに固定する。
 
-**設計方針**:
-- 同じインターフェースを実装
-- 同じMapperを使用
-- 同じエラーを投げる（テストの一貫性）
+| 操作 | 振る舞い |
+|---|---|
+| get | なければ null。読めないデータは `InvalidEntityDataError` |
+| create | 既にあれば `EntityAlreadyExistsError` |
+| put | なければ作り、あれば置き換える (upsert) |
+| update | なければ `EntityNotFoundError`。更新後の Entity を返す。変更が空なら `UpdatedAt` だけを更新する |
+| delete | なければ `EntityNotFoundError` |
+| deleteIfExists | なくても成功する (冪等) |
 
-**なぜ同じエラーを投げるのか**:
-- テストで本番と同じエラーハンドリングを検証できる
-- InMemoryでもConditionalCheckFailedException相当のエラーが発生
+**理由**: 「削除対象がないとき」「更新対象がないとき」の扱いがリポジトリごとに違うと、呼び出し側 (API のステータスコードなど) の書き方も揃わない。存在を確かめたい削除と、冪等にしたい削除 (片付け・アカウント削除など) は用途が違うため、どちらかに寄せるのではなく操作を分け、呼び出し側が用途で選ぶ。
 
-```typescript
-// DynamoDB実装
-class DynamoDBHoldingRepository implements HoldingRepository {
-  async create(input: CreateHoldingInput): Promise<HoldingEntity> {
-    const item = this.mapper.toItem(entity);
-    try {
-      await this.docClient.send(new PutCommand({
-        TableName: this.tableName,
-        Item: item,
-        ConditionExpression: 'attribute_not_exists(PK)',
-      }));
-    } catch (error) {
-      if (error.name === 'ConditionalCheckFailedException') {
-        throw new EntityAlreadyExistsError('Holding', `${userId}#${tickerId}`);
-      }
-      throw error;
-    }
-  }
-}
+エラーはすべて共通のリポジトリエラー (`RepositoryError` の派生) で表す。素の `Error` や、メッセージ文字列で判定させる形は使わない。
 
-// InMemory実装
-class InMemoryHoldingRepository implements HoldingRepository {
-  async create(input: CreateHoldingInput): Promise<HoldingEntity> {
-    const item = this.mapper.toItem(entity);
-    // 同じエラーを投げる
-    this.store.put(item, { attributeNotExists: true });
-  }
-}
-```
+**update の読み戻し**: update は書き込んだあと、更新後のアイテムを Mapper で Entity に変換して返す。そのため、読めないアイテムに対する update は、書き込みが成功したあとで `InvalidEntityDataError` になる。呼び出し側はこのエラーを握りつぶさず、エラーとして扱う (壊れたアイテムの無効化などで、書き込みは済んでいても、読めないデータが残っていることを知らせるため)。
+
+### 7. `UpdatedAt` は EntityStore が書く
+
+**決定**: create / put / update のいずれでも、`UpdatedAt` は EntityStore が現在時刻で設定する。`CreatedAt` は Entity の値を使う。
+
+**理由**: 呼び出し側が `UpdatedAt` を進め忘れると、楽観ロックの比較値が変わらず、並行する書き込みが両方通って更新が失われる。書き込みのたびに必ず変わる値は、書き込む側が管理する。
+
+### 8. 楽観ロックは `UpdatedAt` の一致で判定する
+
+**決定**: put / update に「期待する `UpdatedAt`」を渡すと、保存済みの `UpdatedAt` がその値と一致する場合だけ書き込む。一致しなければ `OptimisticLockError`、アイテムがなければ `EntityNotFoundError` にする。
+
+**制約**: 比較は保存されている値そのものに対して行うため、旧形式 (旧属性名・ISO 文字列) のまま残っているアイテムには楽観ロック付きの書き込みが通らない。楽観ロックを使うデータは、新形式で書かれていることを前提にする。
+
+### 9. update は Entity の形で変更を受け取る
+
+**決定**: update には、保存用の属性名ではなく Entity の部分 (camelCase) を渡す。値が `undefined` の項目は変更せず、`null` の項目は属性を削除する。保存用の属性名・形式への変換は Mapper が担う。キー属性は update で変えられない。
+
+**理由**: 呼び出し側に保存用の属性名を書かせると、属性名の打ち間違いが黙って新しい属性を作り、ミリ秒と秒の取り違えも防げない。変換を Mapper に集約するという 1 の方針を update にも通す。
+
+update の変更の扱いは、次の 3 点を全 Mapper で揃える。
+
+- **必須項目に `null` を渡すと `InvalidEntityDataError` にする**: 黙って消すと、読み出しで検証に落ちる (読めない) アイテムが残る。任意項目の `null` だけを属性の削除として扱う。
+- **作成後に変えられない項目を patch に含めると `InvalidEntityDataError` にする**: 対象は、キーの値を写した属性や `createdAt` など。キー属性の更新を拒否するのと同じ理由で、キーと食い違うアイテムを作らないため。値が同じでも拒否する (変わらないことの判定を呼び出し側に持ち込まない)。
+- **キーから作る属性 (GSI のキーなど) は、`toUpdateAttributes` が受け取るキーから組み立てる**: patch に識別子を混ぜて渡させない。patch に混ぜると、呼び出し側が更新対象とは別の値を渡せてしまい、GSI がキーと食い違う。ただし、キー属性そのものは返さない (store が拒否する)。
+
+### 10. InMemory 実装は DynamoDB 実装と同じ振る舞い・同じエラーにする
+
+**決定**: EntityStore の InMemory 版は、DynamoDB 版と同じ条件で同じエラーを投げる。DynamoDB が拒否する書き込み (Item にキー属性がない、キー属性を更新するなど) も、InMemory 版で同じように拒否する。
+
+**理由**: テストで本番と同じエラーハンドリングを検証するためである。InMemory 版だけが通してしまう書き込みがあると、Mapper のバグがテストをすり抜ける。
 
 ## 技術的決定事項
 
-本アーキテクチャにおける重要な技術的決定と、その理由を記録する。
+### Entity から DynamoDB 固有の属性を除外する
 
-### 1. エンティティからPK/SKを除外
+**決定**: Entity は PK/SK・Type・GSI 属性を持たない。
 
-**決定**: EntityはPK/SKを持たない
+**理由**: ストレージの実装詳細からビジネスロジックを分離し、テストコードが DynamoDB の知識を必要としないようにする。
 
-**理由**:
-- ストレージ実装の詳細からビジネスロジックを分離
-- 将来的なデータストア変更への柔軟性
-- テストコードのシンプル化
+**トレードオフ**: Mapper が必要になる。
 
-**トレードオフ**: Mapper層が必要になる
+### 共通の InMemorySingleTableStore を使う
 
-### 2. Mapperパターンの採用
+**決定**: 各リポジトリは独立したストアを持たず、共通の InMemorySingleTableStore を共有する。単一キーのテーブルも同じストアで扱う。
 
-**決定**: Entity ↔ DynamoDBItem の変換を専用クラスで実施
+**理由**: 実際の DynamoDB は 1 テーブルに複数のエンティティが混在する。共有すれば、リポジトリ間のデータの整合性を保て、GSI もシミュレートできる。
 
-**理由**:
-- PK/SK構築ロジックの一元化
-- DynamoDB実装とInMemory実装でコード共有
-- 変換ロジックの独立したテストが可能
+**トレードオフ**: ストアの初期化を共通化する必要がある。
 
-**トレードオフ**: コンポーネント数が増える
+### ページネーションは不透明トークンにする
 
-### 3. Type属性の自動付与
+**決定**: ページネーションのカーソルは、JSON 文字列を Base64 エンコードした不透明トークンにする。
 
-**決定**: Type属性はMapperが自動付与（Entityには含めない）
+**理由**: 実装の詳細 (LastEvaluatedKey の形式) を隠し、DynamoDB と InMemory で異なる形式を使えるようにする。
 
-**理由**:
-- TypeはDynamoDBの実装詳細（Single Table用）
-- ビジネスロジックでTypeを意識する必要がない
-- Entity定義がシンプルになる
+**トレードオフ**: トークンのサイズが少し大きくなる。
 
-**トレードオフ**: Mapperの実装が必須
+**隠すのはトークンの形式だけ**: 「どういうときにトークンが付くか」は実 DynamoDB の意味論に揃える。近似実装のほうが直感的な意味論 (次ページに要素があるときだけ付ける) を持てる場面でも、実 DynamoDB 側を近似実装に寄せることはしない。呼び出し側が両実装で同じ終端判定を書けることを、トークンのわかりやすさより優先する。具体的な付与条件と、呼び出し側が依存してよい判定・依存してはいけない判定は、型定義のドキュメントコメントに記す。
 
-### 4. 共通SingleTableStoreの採用
+### GSI は全件スキャンとフィルタで近似する
 
-**決定**: 各リポジトリは独立したストアではなく、共通のInMemorySingleTableStoreを共有
+**決定**: InMemory 実装では、全件スキャンとフィルタで GSI を近似する。
 
-**理由**:
-- 実際のDynamoDBは1テーブルに複数エンティティが混在
-- リポジトリ間のデータ整合性を保証
-- GSIのシミュレーションが可能
+**理由**: テストデータは少量なので性能は問題にならず、実装も簡潔になる。
 
-**トレードオフ**: ストアの初期化を共通化する必要がある
+**制約 (重要)**: これは**近似であり、実 DynamoDB と完全には等価でない**。全件スキャンとフィルタは GSI の存在・射影を前提としないため、実 DynamoDB では index 不在のエラーや射影の欠落になるケースでも、InMemory は結果を返しうる。ソート順 (挿入順とソートキー順) も異なりうる。これらは性能ではなく**振る舞いの乖離**である。
 
-### 5. ページネーションの不透明トークン
+**等価性の担保**: InMemory と実 DynamoDB の等価性はコード構造では保証できないため、DynamoDB Local を使った契約テストで担保する (実装に依存しない振る舞いの仕様を両実装で回し、差分を検知する)。方針は [testing.md](./testing.md) の「データアクセス層と等価性の担保」を参照。
 
-**決定**: ページネーションのカーソルはJSON文字列をBase64エンコードした不透明トークン
+### DI は手動から始める
 
-**理由**:
-- 実装の詳細（LastEvaluatedKey形式）を完全に隠蔽
-- DynamoDBとInMemoryで異なるlastKey形式を使える
-- クライアントがトークンの内部構造を知る必要がない
+**決定**: 手動の DI から始める (必要になれば Factory パターンなどへ移る)。
 
-**トレードオフ**: トークンのサイズが若干大きくなる
+**理由**: 簡潔に始められ、テストでの切り替えが明示的になる。
 
-**隠蔽するのはトークンの形式だけ**: **「どういうときにトークンが付くか」は実 DynamoDB の意味論に揃える**。近似実装のほうが直感的な意味論（次ページに要素があるときだけ付ける）を持てる場面でも、実 DynamoDB 側を近似実装に寄せることはしない。呼び出し側が両実装で同じ終端判定を書けることのほうが、トークンの直感的わかりやすさより優先する。具体的な付与条件と、呼び出し側が依存してよい判定・依存してはいけない判定は型定義のドキュメントコメントに記す。
-
-### 6. GSIのシミュレーション方法
-
-**決定**: InMemory実装では全件スキャン+フィルタでGSIを近似する
-
-**理由**:
-- テストデータは少量なのでパフォーマンスは問題ない
-- 実装がシンプル
-
-**制約（重要）**: これは**近似であり、実 DynamoDB と完全には等価でない**。全件スキャン+フィルタは GSI の存在・射影を前提としないため、実 DynamoDB では index 不在エラーや射影欠落になるケースでも InMemory は結果を返しうる。ソート順（挿入順 vs ソートキー順）も異なりうる。これらは性能ではなく**振る舞いの乖離**である。
-
-**等価性の担保**: InMemory と実 DynamoDB の等価性はコード構造では保証されないため、DynamoDB Local を用いた契約テストで担保する（実装非依存の振る舞い仕様を両実装で回して差分を検知する）。方針は [testing.md](./testing.md) の「データアクセス層と等価性の担保」を参照。
-
-### 7. DIの実装方針
-
-**決定**: 手動DIからスタート（将来的にFactoryパターンやNestJS DI導入も検討）
-
-**理由**:
-- シンプルに始められる
-- テストでの切り替えが明示的
-- 必要に応じて段階的に高度なDIに移行可能
-
-**トレードオフ**: テストコードで明示的にリポジトリを初期化する必要がある
-
-## 設計の利点
-
-### テスト容易性
-
-- 実DynamoDBなしでE2Eテストが実行可能
-- テストデータが外部環境に影響されない
-- 複数リポジトリが同じストアを共有してテスト可能
-
-### 保守性
-
-- PK/SK構築ロジックが一箇所に集約
-- エンティティ定義がビジネスロジックに集中
-- 変換ロジックが独立してテスト可能
-
-### 拡張性
-
-- 新しいエンティティの追加が容易
-- 他のデータストアへの移行が視野に入れられる
-- GSIの追加がMapperの変更のみで対応可能
-
-### 一貫性
-
-- 全エンティティが同じパターンに従う
-- エラーハンドリングが統一される
-- テスト戦略が共通化される
+**トレードオフ**: テストコードで明示的にリポジトリを初期化する必要がある。
 
 ## 非推奨パターン
 
-本アーキテクチャでは、以下のパターンは推奨しない：
-
-### EntityにPK/SKを含める
-
-```typescript
-// ❌ 非推奨
-interface HoldingEntity {
-  PK: string;
-  SK: string;
-  UserID: string;
-  TickerID: string;
-}
-```
-
-**理由**: ストレージ実装の詳細がビジネスロジックに漏れる
-
-### 低レベルなメソッド名
-
-```typescript
-// ❌ 非推奨
-interface HoldingRepository {
-  get(pk: string, sk: string): Promise<HoldingEntity | null>;
-  query(gsi1pk: string, gsi1sk?: string): Promise<HoldingEntity[]>;
-}
-```
-
-**理由**: DynamoDBの実装詳細が抽象化されていない
-
-### Mapperを使わない直接変換
-
-```typescript
-// ❌ 非推奨
-class DynamoDBHoldingRepository {
-  async getById(userId: string, tickerId: string) {
-    const result = await this.docClient.send(new GetCommand({
-      Key: {
-        PK: `USER#${userId}`,        // PK構築ロジックが分散
-        SK: `HOLDING#${tickerId}`,   // PK構築ロジックが分散
-      }
-    }));
-    
-    return {
-      UserID: result.Item.UserID,
-      TickerID: result.Item.TickerID,
-      // ... 変換ロジックが分散
-    };
-  }
-}
-```
-
-**理由**: PK/SK構築と変換ロジックが分散し、保守性が低下
-
-### 独立したインメモリストア
-
-```typescript
-// ❌ 非推奨
-class InMemoryHoldingRepository {
-  private store = new Map<string, HoldingEntity>();  // 独立したストア
-}
-
-class InMemoryTickerRepository {
-  private store = new Map<string, TickerEntity>();   // 独立したストア
-}
-```
-
-**理由**: Single Table Designが再現できず、リポジトリ間の整合性が保証されない
+- **Entity に PK/SK を含める**: ストレージの実装詳細がビジネスロジックに漏れる。
+- **低レベルなメソッド名** (`get(pk, sk)`、`query(gsi1pk)` など): DynamoDB の実装詳細が抽象化されない。
+- **Mapper を使わない直接変換**: キーの組み立てと変換が分散し、保存形式を変えたときに直し漏れが出る。web・batch・lambda から DynamoDB を直接呼ぶ場合も、Repository を経由する。
+- **単一アイテムの CRUD の手書き**: 条件付き書き込み・エラー変換・`UpdatedAt` の管理が Repository ごとにずれる。EntityStore を使う。
+- **条件式の直書き** (`attribute_not_exists(PK)` など): キー属性名が PK でないテーブルで誤る。存在判定は EntityStore に任せる。
+- **独立したインメモリストア** (Repository ごとの `Map` など): Single Table Design が再現できず、リポジトリ間の整合性が保証されない。
 
 ## 実装ガイドライン
 
 ### 新規エンティティの実装順序
 
-新しいエンティティを実装する際は、以下の順序で進めることを推奨：
+1. **Entity**: DynamoDB 固有の属性を含まない、camelCase のビジネスオブジェクト。`createdAt` / `updatedAt` を数値ミリ秒で持つ
+2. **Mapper**: キーの組み立て、保存形式への変換 (PascalCase・ミリ秒・TTL の秒)、読み出し時の検証。保存形式を変えた場合は旧属性名も宣言する。`toUpdateAttributes` の patch の値は、`requiredPatchValue` (必須項目)・`optionalPatchValue` (任意項目)・`immutablePatchValue` (作成後に変えられない項目) で変換し、9 の扱いを Mapper ごとに書き写さない
+3. **Repository Interface**: ビジネスキーでの CRUD と、意味のある名前のクエリ
+4. **DynamoDB 実装と InMemory 実装**: 単一アイテムの CRUD は EntityStore に任せ、独自のクエリだけを書く
+5. **テスト**: Mapper の変換 (旧形式の読み取りを含む)、Repository、E2E の各層
 
-1. **Entity定義**: PK/SKを含まない純粋なビジネスオブジェクト
-2. **Mapper実装**: `EntityMapper<TEntity, TKey>` インターフェースを実装し、PK/SK構築ロジックを一元化
-3. **Repository Interface**: ビジネスキーでCRUD操作を定義
-4. **DynamoDB実装**: 実際のDynamoDBを使用した実装
-5. **InMemory実装**: テスト用実装（DynamoDB実装と同じエラーを投げる）
-6. **テスト**: Mapper、Repository、E2Eの各層でテスト
+### 保存形式を変えるとき
 
-### 実装の基本原則
-
-**Entity設計**:
-- PK/SK等のストレージ固有属性を含めない
-- ビジネス的に意味のある属性のみを持つ
-- CreatedAt/UpdatedAtを含める
-
-**Mapper実装**:
-- PK/SK構築ロジックを`buildKeys()`に集約
-- Type属性を自動付与（Entityには含めない）
-- バリデーション関数（`validateStringField`等）を使用
-
-**Repository設計**:
-- ビジネスキーでアクセス（PK/SKを使わない）
-- 意味のあるメソッド名（`getByUserId`等）
-- DynamoDB実装とInMemory実装で同じエラーを投げる
-
-### 既存サービスへの適用
-
-既存サービスへのマイグレーションは**必須ではない**：
-
-- 新規開発では本パターンを採用
-- 既存サービスは動作している限り変更不要
-- テスト独立性や保守性向上が必要な場合に段階的に移行
-
-移行する場合は、既存実装を残したまま新パターンを併存させ、テストから段階的に切り替えることでリスクを最小化できる。
+- Mapper の読み取りは旧形式も受け付けるように残し、書き込みは新形式にする。
+- TTL 属性の名前を変える場合は、旧名の値を新しい TTL 属性へ写す作業を計画に含める。
+- TTL 属性の名前は、テーブル定義の書き換え 1 回では変えられない。次の制約があるため、2 段階で切り替える。
+    - CloudFormation は、TTL が有効なまま属性名を変える更新を拒否する。テーブルを手で無効化しても通らない (CloudFormation は実際の状態ではなく、前回のテンプレートと比べて判定する)。
+    - DynamoDB は、TTL の変更を約 1 時間に 1 回しか受け付けない。
+    - 手順: 1 段目でテーブル定義から TTL の指定を外して無効化し、無効化が終わって 1 時間たってから、2 段目で新しい名前を指定して有効化する。
+    - 本番には、2 つの段階を別のリリースで、1 時間以上あけて出す。本番の TTL は手で触らない。
+- キー属性の名前や、キーに埋め込まれた値の形式は変えない (変えるにはアイテムやテーブルの作り直しが要る)。
 
 ## 参考資料
-
-### 関連ドキュメント
 
 - [アーキテクチャ方針](./architecture.md) - Repository パターンの基本
 - [テスト戦略](./testing.md) - テスト方針とカバレッジ要件
 - [共通ライブラリ設計](./shared-libraries.md) - @nagiyu/aws ライブラリの詳細
-
-### 実装例
-
-実際の実装は、本プラットフォームの Stock-Tracker サービスに含まれている。Entity、Mapper、Repository Interface、DynamoDB実装、InMemory実装の全てが実装済みであり、参考にできる。
-
-### 共通ライブラリ
-
-基盤コンポーネントは `@nagiyu/aws` ライブラリに含まれる：
-
-- `EntityMapper<TEntity, TKey>` - Mapperインターフェース
-- `InMemorySingleTableStore` - インメモリストア
-- `PaginationOptions`、`PaginatedResult` - ページネーション型
-- エラークラス（`EntityNotFoundError`、`EntityAlreadyExistsError` 等）
-
-## まとめ
-
-本データアクセス層アーキテクチャは、以下の原則に基づいて設計されている：
-
-1. **ビジネスロジックの独立性**: ストレージ実装の詳細から分離
-2. **テスト容易性**: 実DynamoDBなしで完全なテストが可能
-3. **保守性**: ロジックの一元化と責務の明確化
-4. **拡張性**: 新エンティティ追加や他DBへの移行を視野
-5. **一貫性**: 全エンティティで統一されたパターン
-
-これらの原則に従うことで、高品質で保守しやすいデータアクセス層を実現できる。

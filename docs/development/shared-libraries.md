@@ -39,9 +39,9 @@
 固有パッケージは共通パッケージに依存することができるが、共通パッケージは固有パッケージに依存してはならない。
 
 ```
-services/{service}/web   → libs/ui, libs/browser, libs/common
-services/{service}/core  → libs/common のみ
-services/{service}/batch → libs/common のみ
+services/{service}/web   → 同サービスの core, libs すべて
+services/{service}/core  → libs/common, libs/aws
+services/{service}/batch → 同サービスの core, libs/common, libs/aws
 ```
 
 詳細は「依存関係ルール」セクションを参照。
@@ -66,7 +66,7 @@ libs/
 
 ```
 ui → browser → common
-react → common
+react → browser, common
 nextjs → common
 aws → common
 ```
@@ -79,11 +79,13 @@ aws → common
 
 固有パッケージは、その責務に応じて特定の共通ライブラリのみに依存可能。
 
-| 固有パッケージ     | 依存可能な共通ライブラリ                 | 理由                                   |
-| ------------------ | ---------------------------------------- | -------------------------------------- |
-| `services/*/core`  | `libs/common` のみ                       | ビジネスロジックはフレームワーク非依存 |
-| `services/*/web`   | `libs/common`, `libs/browser`, `libs/ui` | UI実装にフレームワーク機能が必要       |
-| `services/*/batch` | `libs/common` のみ                       | バッチ処理はフレームワーク非依存       |
+| 固有パッケージ     | 依存可能な共通ライブラリ  | 理由                                                                                          |
+| ------------------ | ------------------------- | --------------------------------------------------------------------------------------------- |
+| `services/*/core`  | `libs/common`, `libs/aws` | 永続化 (DynamoDB 等) を持つため `libs/aws` を使う。Next.js / React / next-auth には依存しない |
+| `services/*/web`   | `libs/` のすべて          | UI 実装にフレームワーク機能が必要                                                             |
+| `services/*/batch` | `libs/common`, `libs/aws` | バッチ処理はフレームワーク非依存。永続化や AWS 連携に `libs/aws` を使う                       |
+
+`services/*/core` と `services/*/batch` は、`libs/browser`・`libs/ui`・`libs/react`・`libs/nextjs` に依存しない。認証まわりなど Next.js に依存する処理は `web` に置く。
 
 #### 依存関係の図
 
@@ -97,30 +99,41 @@ flowchart TB
 
     subgraph libs["共通パッケージ (libs/)"]
         ui["ui<br/>(React UI)"]
+        react["react<br/>(React hooks)"]
+        nextjs["nextjs<br/>(Next.js ヘルパー)"]
         browser["browser<br/>(Browser API)"]
+        aws["aws<br/>(AWS SDK)"]
         common["common<br/>(完全非依存)"]
     end
 
     web --> core
     web --> ui
+    web --> react
+    web --> nextjs
     web --> browser
+    web --> aws
     web --> common
 
     batch --> core
+    batch --> aws
     batch --> common
 
+    core --> aws
     core --> common
 
     ui --> browser
+    react --> browser
     browser --> common
+    nextjs --> common
+    aws --> common
 ```
 
 #### 禁止パターン
 
 ```
 ❌ libs/common → services/*/core          # 共通から固有への依存
-❌ services/*/core → libs/ui              # core から UI ライブラリへの依存
-❌ services/*/batch → libs/ui             # batch から UI ライブラリへの依存
+❌ services/*/core → libs/ui, libs/react, libs/nextjs, libs/browser  # core からフレームワーク依存ライブラリへの依存
+❌ services/*/batch → libs/ui, libs/react, libs/nextjs, libs/browser # batch からフレームワーク依存ライブラリへの依存
 ❌ services/{serviceA}/* → services/{serviceB}/*  # サービス間の直接依存
 ```
 
@@ -138,10 +151,10 @@ Next.jsとMaterial-UIに依存するUIコンポーネント。
 - AppThemeProvider（`AppRouterCacheProvider + ThemeProvider + CssBaseline` の軽量プロバイダー。`ServiceLayout` を採用しないサービス向け）
 - theme.ts（カラーパレット、タイポグラフィ）
 - グローバルCSS
-- ServiceWorkerRegistration
 - ErrorBoundary（React エラーキャッチ用クラスコンポーネント）
 - ErrorAlert（MUI Alert ラッパー。アクセシビリティ対応済みのエラー表示）
 - LoadingState（MUI CircularProgress ラッパー。ローディング表示）
+- NotFoundView / ErrorView（404 ページ・エラーページの表示。後述の「404・エラー画面」を参照）
 - ConfirmDialog（汎用確認ダイアログ。削除系操作の確認に利用。Props: `open / title / description / confirmLabel / cancelLabel / loading / onConfirm / onCancel`）
 
 ### パッケージ名
@@ -162,6 +175,18 @@ Next.jsとMaterial-UIに依存するUIコンポーネント。
 
 各コンポーネントのインポート元は `@nagiyu/ui`（ルートインデックス）。
 
+### 404・エラー画面
+
+存在しない URL を開いたときや、画面の表示中に例外が起きたときに、Next.js 既定の英語の画面を出さない。既定の画面にはサービスのヘッダーもナビゲーションも無く、利用者が戻る手段を失うためである。
+
+- 各サービスは、ルートの app ディレクトリ直下に `not-found.tsx` と `error.tsx` を置き、`NotFoundView` / `ErrorView` を描く。新しいサービスを足すときも置く
+    - ルート直下に置くと、ルートレイアウト (ヘッダー・フッター・テーマ) の内側に描かれ、全ルートの未一致 URL と、レイアウト配下の例外を受けられる
+- `ErrorView` には、Next.js が `error.tsx` に渡す再試行の関数を渡す
+- 例外の内容 (message / digest) は画面に出さない。本番では Next.js が詳細を伏せるうえ、利用者に見せる情報ではないためである
+- 例外のログ出力は、部品ではなく各サービスの `error.tsx` で行う。サーバーへ例外を報告する仕組みを持つサービスは、そこにも送る。エラーバウンダリが捕捉した例外は window のエラーイベントにならず、window を監視する報告の仕組みでは拾えないためである
+- 両部品は main ランドマークを持たない。各サービスのレイアウトが main を持ち、その内側に描かれるため、持たせると二重になる
+- ルートレイアウト自身の例外を受ける `global-error.tsx` は置いていない
+
 ## libs/react/
 
 ### 責務
@@ -173,7 +198,7 @@ React依存のユーティリティ。
 - React hooks（`useAPIRequest` 等）
 - React コンポーネント
 - React固有の抽象化
-- Web Push 購読 Hook（`usePushSubscription`）
+- Web Push の React からの入口 (hook の `usePushSubscription`、layout 用の `ServiceWorkerRegistration`)
 
 ### パッケージ名
 
@@ -185,29 +210,20 @@ React依存のユーティリティ。
 - フレームワーク固有機能の提供
 - テスト容易性（モック化しやすい設計）
 
-### Web Push 購読 Hook（`usePushSubscription`）
+### Web Push の置き場所と React からの入口
 
-`@nagiyu/browser` の `subscribePush` を React Hook としてラップしたもの。状態管理（`supported` / `permission` / `subscribed` / `loading` / `error`）と `subscribe()` / `unsubscribe()` メソッドを提供する。
+Web Push の購読まわりは、手続きを `@nagiyu/browser`、React からの入口を `@nagiyu/react` に置く。`@nagiyu/ui` は Push を持たない。
 
-```tsx
-import { usePushSubscription } from '@nagiyu/react';
+- **置き場所の分け方**: `libs/browser` は React を使わない手続きすべて (対応判定・Service Worker の登録・購読・解除・再購読・サーバーへの送信)、`libs/react` はそれを React から呼ぶ入口 (hook と layout 用コンポーネント) だけを持つ。
+- **分ける理由**: 呼び出し側が公開鍵の取得とサーバー送信を毎回つなぐと、サービスごとに同じ処理が重複する。また、ユーザー操作での購読と、許可済みユーザーの再購読が別の層に分かれていると、「初回はここ、再購読はあそこ」という暗黙の役割分担が層をまたいで生まれ、片方の修正がもう片方に伝わらなくなる。
 
-function NotifyButton() {
-  const { supported, subscribed, loading, error, subscribe, unsubscribe } = usePushSubscription({
-    vapidPublicKey: () => fetchVapidPublicKey(),
-    onSubscribed: async (subscription) => {
-      await fetch('/api/push/subscribe', {
-        method: 'POST',
-        body: JSON.stringify(subscription),
-      });
-    },
-  });
-  // ...
-}
-```
+サービスの側は次のように使う。
 
-- 初期化時に既存 subscription をチェックして `subscribed` を反映する。
-- 取得した `subscription` を後続の API 呼び出しで利用する必要がある場合（例: stock-tracker の `/api/alerts`）は、Hook ではなく `subscribePush` を直接呼ぶ方が自然。
+- **購読は hook 経由で行う**: `usePushSubscription` の `subscribe()` が、公開鍵の取得からサーバー送信までを済ませる。呼び出し側で鍵取得や送信をつながない。エンドポイントや body の形が既定と違うサービスは、hook のオプションで指定する。購読した `PushSubscription` を後続の API 呼び出しに使う場合も、`subscribe()` の戻り値を使う。
+- **layout には `@nagiyu/react` の `ServiceWorkerRegistration` を置く**: Service Worker の登録に加え、`resubscribe` を指定すると、許可済みユーザーの購読を作り直してサーバーへ送り直す。許可済みユーザーの再購読はここが担い、各画面の購読 UI は初回の許可に専念する。Push を持たない Service Worker のサービスは、`resubscribe` を付けずに登録だけを行う。
+- **再購読で送信が 401 のときは、未ログインとして黙って終える**: layout は全ページで動き、未ログインのユーザーにも実行されるため、失敗として扱うとログイン前のたびにエラーが出る。
+
+hook の `supported` / `permission` / `subscribed` は、ハイドレーション不一致を避けるためマウント後に確定する。確定前の値で表示を切り替えないよう、`ready` を見る。
 
 ## libs/nextjs/
 
@@ -221,6 +237,8 @@ Next.js に依存するユーティリティ。
 - リポジトリ初期化ヘルパー
 - ページネーション
 - APIエラーレスポンス生成（`handleApiError`・`createErrorResponse`）
+- API ルートのエラー報告ラッパー (`createApiErrorReporting`)
+- リクエストボディの読み取り（`readJsonObjectBody`）
 - NextAuth 設定ファクトリ（`createAuthConfig`・`createServiceAuthConfig`）
 - Health ルートファクトリ（`createHealthRoute`）
 - NextAuth 型定義（`types/next-auth.d.ts`）
@@ -238,6 +256,37 @@ Next.js に依存するユーティリティ。
 - `@nagiyu/common` のみに依存
 - テスト容易性（モック化しやすい設計）
 
+### API ルートのエラー報告
+
+`createApiErrorReporting` は、ルートハンドラを包んで、500 以上になる例外だけを Admin へ報告するラッパー (`withApiErrorReporting`) を作る。報告をどの層で行うかの規約は [コーディング規約](./rules.md) の「3.3 エラーハンドリング」に従う。
+
+- **報告関数は注入する**: `@nagiyu/nextjs` は `@nagiyu/aws` に依存しないため、`reportErrorEvent` は各サービスが渡す。
+- **組み立ては 1 回だけ**: サービスの `lib/` で `serviceId` と報告関数を渡して作り、各ルートで使い回す。
+- **レスポンスの形を保つ**: 既定は `handleApiError`。サービス固有のエラー形式があるときは `toErrorResponse` で差し替える。報告するかどうかは、変換後の status で決まる。
+- **AWS SDK の例外は包んでから投げる**: `handleApiError` は例外の名前に `NotFound` / `Invalid` / `AlreadyExists` を含むと 404 / 400 を返すので、報告されない。SDK の `ResourceNotFoundException` (テーブルが無いなどの設定ミス) や `InvalidSignatureException` (認証情報の異常) を素のまま投げると、障害が利用者の誤りとして扱われて埋もれる。リポジトリ等でサービスのエラーに包んでから投げる。
+- **ハンドラ自身が返したレスポンスは報告しない**: 4xx / 5xx を返り値で返した場合は想定内として扱う。
+- **`withAuth` と合成するときはラッパーを外側に置く**: `withApiErrorReporting(title, withAuth(...))`。`withAuth` は認証エラー (401 / 403) だけを返し、例外は握らず投げ直す。内側で 500 に変換すると、ラッパーに届かず報告されないため。
+- **Push 系ファクトリは `onError` で報告を渡す**: `createVapidPublicKeyRoute` と `createPushSubscribeRoute` は内部で例外を握って 500 を返すので、ラッパーでは包めない。500 を返すときに呼ばれる `onError` に報告を渡す。`onError` の失敗はレスポンスに影響しない。
+
+```typescript
+// lib/api-error-reporting.ts
+import { reportErrorEvent } from '@nagiyu/aws';
+import { createApiErrorReporting } from '@nagiyu/nextjs';
+
+export const withApiErrorReporting = createApiErrorReporting({
+  serviceId: 'my-service',
+  report: reportErrorEvent,
+});
+
+// app/api/items/[id]/route.ts
+export const GET = withApiErrorReporting(
+  'GET /api/items/[id]',
+  async (request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+    // 例外は握らずに throw する
+  }
+);
+```
+
 ### NextAuth 設定の共通化
 
 プラットフォーム内の NextAuth 設定（Cookie オプション・セッション設定・コールバック）は、`@nagiyu/nextjs` が提供するファクトリ関数を利用して統一する。
@@ -249,7 +298,7 @@ Next.js に依存するユーティリティ。
 
 ### NextAuth 型定義の集約
 
-プラットフォーム全体で共通の NextAuth 型定義（`Session`, `User`, `JWT`）は `libs/nextjs/src/types/next-auth.d.ts` に集約する。各サービスに `types/next-auth.d.ts` を個別配置しない。
+プラットフォーム全体で共通の NextAuth 型定義（`Session`, `User`, `JWT`）は `libs/nextjs/src/types/next-auth.d.ts` に集約する。`Session['user']` は `@nagiyu/common` の `SessionUser` を参照し、型を二重に定義しない。各サービスに `types/next-auth.d.ts` を個別配置しない。
 
 ### Health ルートの共通化
 
@@ -261,9 +310,9 @@ Consumer サービスのミドルウェアは `createAuthMiddleware()` を利用
 
 ### セッション取得の共通化
 
-Consumer サービスのセッション取得は `createSessionGetter()` を利用して統一する。オプションとして `auth`（サービスの auth 関数）、`createTestSession`（`SKIP_AUTH_CHECK` 有効時に返すモックセッション生成関数）、`mapSession`（NextAuth セッションをサービス固有のセッション型に変換する関数、**省略可**）を受け取る。`mapSession` を省略した場合は NextAuth セッションをそのままパススルーする。`createAuthCallbacks` 等でセッション形状が既に正規化されている場合は `mapSession` を省略してよい。
+Consumer サービスのセッション取得は `createSessionGetter({ auth, defaultRoles })` で統一する。戻り値は全サービスで `@nagiyu/common` の `Session | null` であり、サービス固有のセッション型への変換は行わない。`defaultRoles` は `SKIP_AUTH_CHECK` 有効時のテストセッションでロールが未指定の場合に使う既定ロールで、省略できる。
 
-`SKIP_AUTH_CHECK` 時のテストセッションは `resolveTestUser`（ロールはヘッダ `x-test-user-roles` → `TEST_USER_ROLES` → 既定ロールの順）と `createTestSessionExpires`（有効期限 30 日）で組み立て、`createTestSession` は受け取った `overrides` を `resolveTestUser` に渡す。クライアントの `/api/auth/session` は `createClientSessionGetHandler` で同じ規則に揃える。
+`SKIP_AUTH_CHECK` 時のテストセッションはライブラリが `resolveTestUser` (ロールはヘッダ `x-test-user-roles` → `TEST_USER_ROLES` → `defaultRoles` の順) と `createTestSessionExpires` (有効期限 30 日) で組み立てる。クライアントの `/api/auth/session` は `createClientSessionGetHandler` で同じ規則に揃える。
 
 ### Web Push ルートの共通化
 
@@ -279,16 +328,9 @@ Push 通知機能を持つサービスの API ルートは `@nagiyu/nextjs` が�
 
 既存の API の形 (body で購読を包まない等) がファクトリと合わず、クライアントへの影響を避けたい場合に限り、ファクトリを使わずに検証だけ `validatePushSubscription` に揃えてよい。
 
-### next.config.ts の transpilePackages 標準設定
+### next.config.ts の transpilePackages
 
-全 web サービスの `next.config.ts` で共通して指定すべきベースリスト:
-
-- `@nagiyu/ui`
-- `@nagiyu/browser`
-- `@nagiyu/common`
-- `@nagiyu/nextjs`
-
-サービス固有の追加パッケージ（必要に応じて追加）: `@nagiyu/aws`, `@nagiyu/react`, `@nagiyu/{service}-core` など
+`configs/next.config.base.ts` の `createNextConfig` が、サービスの package.json の dependencies / devDependencies のうち `@nagiyu/` で始まるものから `transpilePackages` を導く。サービス側で手書きしない。共通 lib を使うには package.json に依存を足せばよい。
 
 ## libs/browser/
 
@@ -300,9 +342,7 @@ Push 通知機能を持つサービスの API ルートは `@nagiyu/nextjs` が�
 
 - Clipboard APIラッパー
 - localStorage/sessionStorageラッパー
-- Web Push 用 Base64 URL デコード（`urlBase64ToUint8Array`）
-- Web Push 購読フロー（`subscribePush`）
-- Web Push 対応判定 (`isPushSupported`)・購読のサーバー送信 (`postPushSubscription`)
+- Web Push の手続き (対応判定・Service Worker の登録・購読・解除・再購読)
 - その他ブラウザ固有APIの抽象化
 
 ### パッケージ名
@@ -315,37 +355,14 @@ Push 通知機能を持つサービスの API ルートは `@nagiyu/nextjs` が�
 - SSR対応（ブラウザ環境チェック）
 - テスト容易性（モック化しやすい設計）
 
-### Web Push 購読フロー（`subscribePush`）
+### Web Push の手続き
 
-Web Push の購読フローを 1 関数に集約する。サービス側の重複（permission 取得 → SW 登録 → vapid 取得 → `pushManager.subscribe` → サーバへの POST）を解消する。
+Web Push の手続きを、React を使わないものとしてここに集約する。React からの入口と置き場所の分け方は、`libs/react` の節を参照。
 
-```ts
-import { subscribePush } from '@nagiyu/browser';
-
-const subscription = await subscribePush({
-  vapidPublicKey: () => fetchVapidPublicKey(),
-  swPath: '/service-worker.js',
-  onSubscribed: async (subscription) => {
-    await fetch('/api/push/subscribe', {
-      method: 'POST',
-      body: JSON.stringify(subscription),
-    });
-  },
-});
-```
-
-- `vapidPublicKey` は `string` または `() => Promise<string>` を受け付ける。関数形式の場合、許可チェック後にのみ呼ばれる（許可拒否時に不要な fetch を避ける）。
-- `swPath` 省略時は `/service-worker.js` を使用する。
-- `onSubscribed` は購読成功時に呼ばれるコールバック。サーバへの POST ボディ形式の差異を呼び出し側で吸収する。
-- 既存 subscription がある場合は再利用する（重複登録を避ける）。
-- 非対応ブラウザ・許可拒否時は `PUSH_ERROR_MESSAGES` 由来のエラーをスローする。
-
-Hook として状態管理込みで利用したい場合は `@nagiyu/react` の `usePushSubscription` を併用する。
-
-Push 対応判定と購読のサーバー送信も、サービス側で書かずに `@nagiyu/browser` のものを使う。
-
+- **公開鍵の取得とサーバー送信は購読の中で済ませ、個別には公開しない**: 呼び出し側がつなぐ口を残すと、サービスごとの重複と、層をまたぐ暗黙の分担が再発する。サービスごとに違うのは、API のパス・body の形・Service Worker のパスだけなので、オプションで指定する。
 - **対応判定の条件は購読フローと揃える**: 対応判定は、購読フローが実際に呼ぶ API (通知の許可要求・Service Worker の登録・PushManager) がすべて揃っているかで判断する。判定が購読フローより緩いと、「対応」と表示したのに購読で失敗する画面になるためである。
 - **送信する body の形はオプションで選ぶ**: 購読を `{ subscription }` で包むか、そのまま送るかはサーバー側 API の形に合わせて指定する。形の違いを理由に送信処理をコピーしない。
+- **既存の購読の確認に `navigator.serviceWorker.ready` を使わない**: Service Worker が未登録だと永久に解決しないため、登録の有無を先に確かめる。PushManager が無いブラウザでは、その時点で「購読なし」とする。
 
 ## libs/common/
 
@@ -378,7 +395,7 @@ Push 対応判定と購読のサーバー送信も、サービス側で書かず
 
 ### User 型定義
 
-プラットフォーム全体で使用するユーザー情報の型は `@nagiyu/common` の `User` インターフェースを利用する。各サービスが独自の `User` 型を定義してはならない。
+プラットフォーム全体で使用する DB 上のユーザー情報の型は `@nagiyu/common` の `User` インターフェースを利用する。各サービスが独自の `User` 型を定義してはならない。セッション上のユーザーは別の型 `SessionUser` で、`User` とは区別する。
 
 - **主要フィールド**: `userId`・`googleId`・`email`・`name`・`roles`・`createdAt`・`updatedAt`
 - **`picture?: string`**: OAuth プロバイダーから取得したプロフィール画像 URL（省略可能）。UI で表示する際は XSS 対策を遵守すること（`dangerouslySetInnerHTML` 禁止）
@@ -441,7 +458,7 @@ AWS SDK 補助・拡張ライブラリ。DynamoDB Repository パターン実装�
 ### 含まれるもの
 
 - **エラークラス**: 階層的なエラー設計（`RepositoryError`基底、`EntityNotFoundError`等）
-- **抽象基底クラス**: CRUD操作の共通実装（`AbstractDynamoDBRepository`）
+- **Mapper と EntityStore**: Entity と Item の変換の型 (`EntityMapper`) と、単一アイテムの CRUD の骨格 (`EntityStore` の DynamoDB 版・InMemory 版)
 - **バリデーション関数**: 型安全なマッピング（文字列、数値、列挙型、タイムスタンプ等）
 - **ヘルパー関数**: 条件付き操作、UpdateExpression生成
 - **型定義**: Single Table Design対応（`DynamoDBItem`、`PaginatedResult`等）
@@ -449,12 +466,9 @@ AWS SDK 補助・拡張ライブラリ。DynamoDB Repository パターン実装�
 - **Batch クライアントファクトリ**: `getBatchClient()`、`clearBatchClientCache()`
 - **リポジトリファクトリー共通化ヘルパー**: InMemory/DynamoDB の切り替えを含む初期化処理を共通化
 
-### AbstractDynamoDBRepository 適用方針
+### リポジトリの標準の書き方
 
-新規追加する DynamoDB リポジトリには `AbstractDynamoDBRepository<TEntity, TKey>` を継承する。
-
-- **新規リポジトリへの適用**: `getById`・`create`・`update`・`delete` の共通 CRUD 実装を活用し、サービス固有のロジックのみを追加する。
-- **既存リポジトリの移行は段階的**: 複数パラメータのキー・非標準 CRUD インターフェース・GSI 更新ロジックなど基底クラスと非互換のリポジトリが存在するため、既存リポジトリへの適用は大きな変更が発生したタイミングで対応する。
+DynamoDB リポジトリは、`EntityMapper` で変換を担い、単一アイテムの CRUD を `EntityStore` に任せる (継承ではなく合成)。GSI を使う一覧などの独自のクエリだけを各リポジトリに書く。キー・属性名・時刻の形式・操作の振る舞いの標準と、その理由は [データアクセス層](./data-access-layer.md) を参照。
 
 ### DynamoDB クライアントファクトリ
 
@@ -665,15 +679,12 @@ DynamoDB・S3・Batch・Lambda を含むすべての AWS クライアントの�
 **モノレポ全体をビルドする場合:**
 
 ```bash
-npm run build --workspace @nagiyu/common
-npm run build --workspace @nagiyu/aws
-npm run build --workspace @nagiyu/react
-npm run build --workspace @nagiyu/browser
-npm run build --workspace @nagiyu/nextjs
-npm run build --workspace @nagiyu/ui
+npm run build:libs
 ```
 
-**重要**: `npm run build --workspaces` は並列実行されるため、依存関係の順序が保証されず、ビルドエラーが発生する可能性があります。
+`build:libs`（ルートの `package.json`）は、依存を満たす順に `--workspace` を並べて 1 つずつ実行する。npm は複数の `--workspace` を指定順に実行するため、並びがそのままビルド順になる。lib を追加したり依存を変えたりしたら、この並びを直す。
+
+**重要**: `npm run build --workspaces` は依存関係ではなくワークスペースの定義順で実行するため、ビルドエラーが発生する可能性があります。
 
 ### CI/CDでのビルド
 
@@ -681,13 +692,7 @@ GitHub Actions などの CI/CD 環境でも、同じ順序でビルドを実行�
 
 ```yaml
 - name: Build shared libraries
-    run: |
-        npm run build --workspace @nagiyu/common
-        npm run build --workspace @nagiyu/aws
-        npm run build --workspace @nagiyu/react
-        npm run build --workspace @nagiyu/browser
-        npm run build --workspace @nagiyu/nextjs
-        npm run build --workspace @nagiyu/ui
+    run: npm run build:libs
 ```
 
 詳細は [testing.md](./testing.md) の「GitHub Actions ワークフロー設計パターン」を参照してください。

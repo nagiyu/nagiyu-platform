@@ -1,27 +1,28 @@
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { spawn } from 'child_process';
 import { createWriteStream, createReadStream, promises as fs } from 'fs';
 import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
-import type { CodecType } from '@nagiyu/codec-converter-core';
+import {
+  DynamoDBJobRepository,
+  readBatchJobInput,
+  type CodecType,
+} from '@nagiyu/codec-converter-core';
 import {
   reportErrorEvent,
   withErrorReporting,
   getDynamoDBDocumentClient,
   getS3Client,
-  buildUpdateExpression,
 } from '@nagiyu/aws';
 import { requireEnv, toErrorMessage } from '@nagiyu/common';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
   INVALID_JOB_ID: 'ジョブIDが不正です',
-  INVALID_OUTPUT_CODEC: '出力コーデックが不正です',
   S3_DOWNLOAD_FAILED: 'S3からのダウンロードに失敗しました',
   S3_UPLOAD_FAILED: 'S3へのアップロードに失敗しました',
   DYNAMODB_UPDATE_FAILED: 'DynamoDBの更新に失敗しました',
-  UPDATE_EXPRESSION_EMPTY: '更新式を生成できませんでした',
   FFMPEG_EXECUTION_FAILED: 'FFmpegの実行に失敗しました',
   CLEANUP_FAILED: '一時ファイルのクリーンアップに失敗しました',
 } as const;
@@ -29,7 +30,7 @@ const ERROR_MESSAGES = {
 // 環境変数の型定義
 interface EnvironmentVariables {
   S3_BUCKET: string;
-  DYNAMODB_TABLE: string;
+  DYNAMODB_TABLE_NAME: string;
   AWS_REGION: string;
   JOB_ID: string;
   OUTPUT_CODEC: CodecType;
@@ -72,20 +73,19 @@ const CODEC_PARAMS: Record<
 
 /**
  * 環境変数を検証して取得する
+ *
+ * 起動ごとの入力 (JOB_ID / OUTPUT_CODEC) は web と共有する定義で読み、
+ * テーブル名などジョブ定義が持つ値は別に必須チェックする。
  */
 export function validateEnvironment(): EnvironmentVariables {
-  const env = requireEnv(['S3_BUCKET', 'DYNAMODB_TABLE', 'AWS_REGION', 'JOB_ID', 'OUTPUT_CODEC']);
-
-  const outputCodec = env.OUTPUT_CODEC as CodecType;
-  if (!['h264', 'vp9', 'av1'].includes(outputCodec)) {
-    throw new Error(ERROR_MESSAGES.INVALID_OUTPUT_CODEC);
-  }
+  const { jobId, outputCodec } = readBatchJobInput(process.env);
+  const env = requireEnv(['S3_BUCKET', 'DYNAMODB_TABLE_NAME', 'AWS_REGION']);
 
   return {
     S3_BUCKET: env.S3_BUCKET,
-    DYNAMODB_TABLE: env.DYNAMODB_TABLE,
+    DYNAMODB_TABLE_NAME: env.DYNAMODB_TABLE_NAME,
     AWS_REGION: env.AWS_REGION,
-    JOB_ID: env.JOB_ID,
+    JOB_ID: jobId,
     OUTPUT_CODEC: outputCodec,
     JOB_DEFINITION_NAME: process.env.JOB_DEFINITION_NAME,
   };
@@ -172,25 +172,11 @@ export async function updateJobStatus(
 ): Promise<void> {
   try {
     // 空文字は未指定として扱い、保存しない
-    const updateParts = buildUpdateExpression(
-      {
-        status,
-        outputFile: outputFile || undefined,
-        errorMessage: errorMessage || undefined,
-      },
-      { timestamp: { attributeName: 'updatedAt', value: Math.floor(Date.now() / 1000) } }
-    );
-    if (!updateParts) {
-      throw new Error(ERROR_MESSAGES.UPDATE_EXPRESSION_EMPTY);
-    }
-
-    const command = new UpdateCommand({
-      TableName: tableName,
-      Key: { jobId },
-      ...updateParts,
+    await new DynamoDBJobRepository(dynamodbClient, tableName).updateStatus(jobId, {
+      status,
+      outputFile: outputFile || undefined,
+      errorMessage: errorMessage || undefined,
     });
-
-    await dynamodbClient.send(command);
   } catch (error) {
     const message = toErrorMessage(error);
     throw new Error(`${ERROR_MESSAGES.DYNAMODB_UPDATE_FAILED}: ${message}`, { cause: error });
@@ -296,7 +282,7 @@ export async function processJob(
 
   try {
     // ステータスをPROCESSINGに更新
-    await updateJobStatus(dynamodbClient, env.DYNAMODB_TABLE, env.JOB_ID, 'PROCESSING');
+    await updateJobStatus(dynamodbClient, env.DYNAMODB_TABLE_NAME, env.JOB_ID, 'PROCESSING');
 
     // S3から入力ファイルをダウンロード
     await downloadFromS3(s3Client, env.S3_BUCKET, inputKey, inputPath);
@@ -308,7 +294,13 @@ export async function processJob(
     await uploadToS3(s3Client, env.S3_BUCKET, outputKey, outputPath);
 
     // ステータスをCOMPLETEDに更新
-    await updateJobStatus(dynamodbClient, env.DYNAMODB_TABLE, env.JOB_ID, 'COMPLETED', outputKey);
+    await updateJobStatus(
+      dynamodbClient,
+      env.DYNAMODB_TABLE_NAME,
+      env.JOB_ID,
+      'COMPLETED',
+      outputKey
+    );
 
     // 一時ファイルをクリーンアップ
     await cleanup([inputPath, outputPath]);
@@ -331,7 +323,7 @@ export async function processJob(
     try {
       await updateJobStatus(
         dynamodbClient,
-        env.DYNAMODB_TABLE,
+        env.DYNAMODB_TABLE_NAME,
         env.JOB_ID,
         'FAILED',
         undefined,

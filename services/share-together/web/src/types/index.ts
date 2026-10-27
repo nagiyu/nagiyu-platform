@@ -6,7 +6,6 @@ import type {
   GroupList,
   TodoItem,
 } from '@nagiyu/share-together-core';
-import type { DefaultSession } from 'next-auth';
 import type {
   ApiSuccessResponse,
   ApiResponse,
@@ -33,19 +32,8 @@ export type InvitationSummary = {
   groupName: string;
   inviterUserId: string;
   inviterName: string;
-  createdAt: string;
+  /** 招待日時 (エポックミリ秒) */
+  createdAt: number;
 };
 
 export type InvitationsResponse = ApiSuccessResponse<{ invitations: InvitationSummary[] }>;
-
-export type SessionUser = NonNullable<DefaultSession['user']> & { id: string };
-
-declare module 'next-auth' {
-  interface Session {
-    user: SessionUser;
-  }
-
-  interface User {
-    id: string;
-  }
-}

@@ -1,11 +1,20 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { useSession } from 'next-auth/react';
-import { Header, buildSignOutUrl } from '@nagiyu/ui';
-import { hasPermission } from '@nagiyu/common';
+import { SessionHeader } from '@nagiyu/ui/session-provider';
+import type { NavigationItem } from '@nagiyu/ui';
 import AccountDeletionModal from '@/components/AccountDeletionModal';
 import { useAccountDeletion } from '@/lib/account/useAccountDeletion';
+
+/**
+ * ナビゲーション項目。
+ * 権限による出し分けは Header が requiredPermission を見て行うため、ここでは静的に持つ。
+ */
+const NAVIGATION_ITEMS: NavigationItem[] = [
+  { label: '私が覚えていること', href: '/memory' },
+  { label: 'ノート', href: '/notes' },
+  { label: 'ステータス', href: '/status', requiredPermission: 'livetalk:admin' },
+];
 
 export interface LiveTalkHeaderProps {
   /**
@@ -19,49 +28,12 @@ export interface LiveTalkHeaderProps {
 }
 
 /**
- * リブトーク専用の Header ラッパーコンポーネント。
+ * リブトーク専用のヘッダー。SessionHeader に退会モーダルを組み合わせる。
  *
- * - ナビゲーション項目（私が覚えていること・ノート・ステータス）を Header に渡す
- * - ステータスは livetalk:admin ロールを持つユーザーにのみ表示する
- * - サインアウト・退会モーダルをアカウントメニューに集約する
- * - AccountDeletionModal の開閉 state をここで管理する
+ * - ステータスは livetalk:admin 権限を持つユーザーにのみ表示される
+ * - 退会はリブトーク固有の導線のため、モーダルの開閉 state をここで管理する
  */
 export default function LiveTalkHeader({ authUrl }: LiveTalkHeaderProps) {
-  const { data: session } = useSession();
-
-  // ロール判定（HomePageClient の既存ロジックを踏襲）
-  const isAdmin =
-    !!session?.user &&
-    'roles' in session.user &&
-    Array.isArray(session.user.roles) &&
-    hasPermission(session.user.roles, 'livetalk:admin');
-
-  // ナビゲーション項目の構築
-  const navigationItems = [
-    { label: '私が覚えていること', href: '/memory' },
-    { label: 'ノート', href: '/notes' },
-    ...(isAdmin ? [{ label: 'ステータス', href: '/status' }] : []),
-  ];
-
-  // ユーザー情報（セッションから取得）
-  const user = session?.user
-    ? {
-        name: session.user.name ?? '',
-        email: session.user.email ?? undefined,
-        avatar: session.user.image ?? undefined,
-      }
-    : undefined;
-
-  // サインアウト処理は Cookie 発行元の auth サービスに集約する方針のため、
-  // 自サービスの NextAuth signout POST ではなく auth サービスへリダイレクトする。
-  // callbackUrl に自サービスの origin を渡し、サインアウト後に戻れるようにする。
-  // authUrl はサーバーコンポーネント（layout.tsx）でランタイム env から解決して prop で受け取る。
-  // client component 内で process.env.NEXT_PUBLIC_AUTH_URL を参照すると
-  // ビルド時インライン化により空文字になるため、この方式で正しい絶対 URL を保証する。
-  const handleLogout = useCallback(() => {
-    window.location.assign(buildSignOutUrl(authUrl, window.location.origin));
-  }, [authUrl]);
-
   // 退会・データ削除 hook
   const {
     loading: deletionLoading,
@@ -79,12 +51,11 @@ export default function LiveTalkHeader({ authUrl }: LiveTalkHeaderProps) {
 
   return (
     <>
-      <Header
+      <SessionHeader
         title="リブトーク"
         ariaLabel="リブトーク ホームに戻る"
-        navigationItems={navigationItems}
-        user={user}
-        onLogout={handleLogout}
+        navigationItems={NAVIGATION_ITEMS}
+        authUrl={authUrl}
         onDeleteAccount={openDeletionModal}
       />
       <AccountDeletionModal

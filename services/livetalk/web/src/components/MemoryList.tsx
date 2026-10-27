@@ -1,12 +1,15 @@
 'use client';
 
-import { Box, CircularProgress, Stack, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
+import { LoadingState } from '@nagiyu/ui';
 import type { SelfFactListItem } from '@/lib/memory/types';
 import MemoryItem from './MemoryItem';
 
 export interface MemoryListProps {
   items: SelfFactListItem[];
   loading: boolean;
+  /** 取得失敗時は true。空状態の文言を出さない(エラーは呼び出し側が表示する)。 */
+  hasError?: boolean;
   onDelete: (item: SelfFactListItem) => void;
 }
 
@@ -41,16 +44,18 @@ function groupBySubject(items: SelfFactListItem[]): TopicGroup[] {
  * SELF fact 一覧表示（リブトーク知識再設計 P2 / #3698）。
  * Topic（subject）ごとにグルーピングして表示する。ローディング・空状態を内包する。
  */
-export default function MemoryList({ items, loading, onDelete }: MemoryListProps) {
+export default function MemoryList({
+  items,
+  loading,
+  hasError = false,
+  onDelete,
+}: MemoryListProps) {
   if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }} data-testid="memory-loading">
-        <CircularProgress />
-      </Box>
-    );
+    return <LoadingState variant="inline" data-testid="memory-loading" />;
   }
 
   if (items.length === 0) {
+    if (hasError) return null;
     return (
       <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }} data-testid="memory-empty">
         <Typography variant="body2">まだここに覚えていることはないみたい。</Typography>

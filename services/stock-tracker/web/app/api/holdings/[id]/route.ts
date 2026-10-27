@@ -9,13 +9,15 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
-import { withAuth, handleApiError } from '@nagiyu/nextjs';
+import { EntityNotFoundError } from '@nagiyu/aws';
+import { withAuth, readJsonObjectBody } from '@nagiyu/nextjs';
 import {
   createHoldingRepository,
   createTickerRepository,
 } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
-import type { Holding } from '@nagiyu/stock-tracker-core';
+import { withApiErrorReporting } from '../../../../lib/api-error-reporting';
+import type { HoldingEntity, UpdateHoldingInput } from '@nagiyu/stock-tracker-core';
 
 /**
  * エラーメッセージ定数
@@ -51,26 +53,41 @@ interface DeleteResponse {
 }
 
 /**
+ * 項目の型が不正なときの 400 レスポンス
+ *
+ * 型違いの値を DB の更新へ渡さないために、保存前に弾く。
+ */
+function invalidFieldTypeResponse(): NextResponse {
+  return NextResponse.json(
+    {
+      error: 'INVALID_REQUEST',
+      message: ERROR_MESSAGES.VALIDATION_ERROR,
+    },
+    { status: 400 }
+  );
+}
+
+/**
  * Holding エンティティをレスポンス形式に変換
  */
 function mapHoldingToResponse(
-  holding: Holding,
+  holding: HoldingEntity,
   tickerSymbol: string,
   tickerName: string
 ): HoldingResponse {
   // HoldingID は UserID と TickerID の組み合わせ
-  const holdingId = `${holding.UserID}#${holding.TickerID}`;
+  const holdingId = `${holding.userId}#${holding.tickerId}`;
 
   return {
     holdingId,
-    tickerId: holding.TickerID,
+    tickerId: holding.tickerId,
     symbol: tickerSymbol,
     name: tickerName,
-    quantity: holding.Quantity,
-    averagePrice: holding.AveragePrice,
-    currency: holding.Currency,
-    createdAt: new Date(holding.CreatedAt).toISOString(),
-    updatedAt: new Date(holding.UpdatedAt).toISOString(),
+    quantity: holding.quantity,
+    averagePrice: holding.averagePrice,
+    currency: holding.currency,
+    createdAt: new Date(holding.createdAt).toISOString(),
+    updatedAt: new Date(holding.updatedAt).toISOString(),
   };
 }
 
@@ -95,11 +112,12 @@ function parseHoldingId(holdingId: string): { userId: string; tickerId: string }
  * PUT /api/holdings/[id]
  * 保有株式更新
  */
-export const PUT = withAuth(
-  getSession,
-  'stocks:write-own',
-  async (session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-    try {
+export const PUT = withApiErrorReporting(
+  'Web API: 保有株式更新エラー',
+  withAuth(
+    getSession,
+    'stocks:write-own',
+    async (session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
       // paramsを await で取得 (Next.js 15+)
       const resolvedParams = await params;
 
@@ -119,7 +137,7 @@ export const PUT = withAuth(
       const { userId: targetUserId, tickerId } = parsedId;
 
       // 他ユーザーのデータへのアクセスを拒否
-      const currentUserId = session.user.userId;
+      const currentUserId = session.user.id;
       if (targetUserId !== currentUserId) {
         return NextResponse.json(
           {
@@ -131,10 +149,8 @@ export const PUT = withAuth(
       }
 
       // リクエストボディの取得
-      let body;
-      try {
-        body = await request.json();
-      } catch {
+      const bodyResult = await readJsonObjectBody(request);
+      if (!bodyResult.ok) {
         return NextResponse.json(
           {
             error: 'INVALID_REQUEST',
@@ -143,20 +159,30 @@ export const PUT = withAuth(
           { status: 400 }
         );
       }
+      const { quantity, averagePrice, currency } = bodyResult.body;
 
       // 更新可能なフィールドのみ抽出
-      const updates: Partial<Pick<Holding, 'Quantity' | 'AveragePrice' | 'Currency'>> = {};
+      const updates: UpdateHoldingInput = {};
 
-      if (body.quantity !== undefined) {
-        updates.Quantity = body.quantity;
+      if (quantity !== undefined) {
+        if (typeof quantity !== 'number') {
+          return invalidFieldTypeResponse();
+        }
+        updates.quantity = quantity;
       }
 
-      if (body.averagePrice !== undefined) {
-        updates.AveragePrice = body.averagePrice;
+      if (averagePrice !== undefined) {
+        if (typeof averagePrice !== 'number') {
+          return invalidFieldTypeResponse();
+        }
+        updates.averagePrice = averagePrice;
       }
 
-      if (body.currency !== undefined) {
-        updates.Currency = body.currency;
+      if (currency !== undefined) {
+        if (typeof currency !== 'string') {
+          return invalidFieldTypeResponse();
+        }
+        updates.currency = currency;
       }
 
       // 更新するフィールドがない場合はエラー
@@ -174,12 +200,12 @@ export const PUT = withAuth(
       const holdingRepo = createHoldingRepository();
 
       // 保有株式を更新
-      let updatedHolding: Holding;
+      let updatedHolding: HoldingEntity;
       try {
         updatedHolding = await holdingRepo.update(currentUserId, tickerId, updates);
       } catch (error) {
-        // HoldingNotFoundError のチェック
-        if (error instanceof Error && error.name === 'HoldingNotFoundError') {
+        // 保有株式が見つからない場合
+        if (error instanceof EntityNotFoundError) {
           return NextResponse.json(
             {
               error: 'NOT_FOUND',
@@ -193,31 +219,30 @@ export const PUT = withAuth(
 
       // TickerリポジトリでSymbolとNameを取得
       const tickerRepo = createTickerRepository();
-      const ticker = await tickerRepo.getById(updatedHolding.TickerID);
+      const ticker = await tickerRepo.getById(updatedHolding.tickerId);
 
       // レスポンス形式に変換
       const response = mapHoldingToResponse(
         updatedHolding,
-        ticker?.Symbol || updatedHolding.TickerID.split(':')[1] || '',
-        ticker?.Name || ''
+        ticker?.symbol || updatedHolding.tickerId.split(':')[1] || '',
+        ticker?.name || ''
       );
 
       return NextResponse.json(response, { status: 200 });
-    } catch (error) {
-      return handleApiError(error);
     }
-  }
+  )
 );
 
 /**
  * DELETE /api/holdings/[id]
  * 保有株式削除
  */
-export const DELETE = withAuth(
-  getSession,
-  'stocks:write-own',
-  async (session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-    try {
+export const DELETE = withApiErrorReporting(
+  'Web API: 保有株式削除エラー',
+  withAuth(
+    getSession,
+    'stocks:write-own',
+    async (session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
       // paramsを await で取得 (Next.js 15+)
       const resolvedParams = await params;
 
@@ -237,7 +262,7 @@ export const DELETE = withAuth(
       const { userId: targetUserId, tickerId } = parsedId;
 
       // 他ユーザーのデータへのアクセスを拒否
-      const currentUserId = session.user.userId;
+      const currentUserId = session.user.id;
       if (targetUserId !== currentUserId) {
         return NextResponse.json(
           {
@@ -255,8 +280,8 @@ export const DELETE = withAuth(
       try {
         await holdingRepo.delete(currentUserId, tickerId);
       } catch (error) {
-        // HoldingNotFoundError のチェック
-        if (error instanceof Error && error.name === 'HoldingNotFoundError') {
+        // 保有株式が見つからない場合
+        if (error instanceof EntityNotFoundError) {
           return NextResponse.json(
             {
               error: 'NOT_FOUND',
@@ -275,8 +300,6 @@ export const DELETE = withAuth(
       };
 
       return NextResponse.json(response, { status: 200 });
-    } catch (error) {
-      return handleApiError(error);
     }
-  }
+  )
 );

@@ -18,11 +18,12 @@ import {
   DialogContent,
   DialogActions,
   Alert,
-  CircularProgress,
 } from '@mui/material';
-import { Button, ErrorAlert, Select, TextField } from '@nagiyu/ui';
+import { Button, ConfirmDialog, ErrorAlert, LoadingState, Select, TextField } from '@nagiyu/ui';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { useEnterSubmit } from '@nagiyu/react';
+import { hasUserPermission } from '@nagiyu/common';
+import { useSession } from 'next-auth/react';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -33,6 +34,7 @@ const ERROR_MESSAGES = {
   DELETE_TICKER_ERROR: 'ティッカーの削除に失敗しました',
   UNAUTHORIZED: 'この操作を実行する権限がありません',
   FORBIDDEN: 'アクセスが拒否されました',
+  NO_MANAGE_PERMISSION: 'ティッカーを管理する権限がありません。',
 } as const;
 
 // 成功メッセージ定数
@@ -62,7 +64,7 @@ interface TickerFormData {
   exchangeId: string;
 }
 
-export default function TickersPage() {
+function TickersPageContent() {
   // データ状態
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const [filteredTickers, setFilteredTickers] = useState<Ticker[]>([]);
@@ -82,6 +84,7 @@ export default function TickersPage() {
   const [createModalOpen, setCreateModalOpen] = useState<boolean>(false);
   const [editModalOpen, setEditModalOpen] = useState<boolean>(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
+  const [deleting, setDeleting] = useState<boolean>(false);
 
   // フォームデータ
   const [formData, setFormData] = useState<TickerFormData>({
@@ -292,6 +295,7 @@ export default function TickersPage() {
 
   // ティッカー削除
   const handleDelete = async () => {
+    setDeleting(true);
     setError('');
     setSuccess('');
 
@@ -312,6 +316,8 @@ export default function TickersPage() {
     } catch (err) {
       console.error('Error deleting ticker:', err);
       setError(ERROR_MESSAGES.DELETE_TICKER_ERROR);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -372,8 +378,8 @@ export default function TickersPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
-                  <CircularProgress />
+                <TableCell colSpan={5} align="center">
+                  <LoadingState variant="inline" />
                 </TableCell>
               </TableRow>
             ) : filteredTickers.length === 0 ? (
@@ -519,26 +525,42 @@ export default function TickersPage() {
       </Dialog>
 
       {/* 削除確認ダイアログ */}
-      <Dialog open={deleteDialogOpen} onClose={closeModals}>
-        <DialogTitle>ティッカー削除</DialogTitle>
-        <DialogContent>
-          <Typography>本当にこのティッカーを削除しますか？</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            ティッカーID: {deletingTickerId}
-          </Typography>
-          <Alert severity="warning" sx={{ mt: 2 }}>
-            この操作は取り消せません
-          </Alert>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeModals} variant="ghost">
-            キャンセル
-          </Button>
-          <Button onClick={handleDelete} variant="solid" color="danger">
-            削除
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title="ティッカー削除"
+        loading={deleting}
+        onConfirm={handleDelete}
+        onCancel={closeModals}
+      >
+        <Typography>本当にこのティッカーを削除しますか？</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          ティッカーID: {deletingTickerId}
+        </Typography>
+        <Alert severity="warning" sx={{ mt: 2 }}>
+          この操作は取り消せません
+        </Alert>
+      </ConfirmDialog>
     </Container>
   );
+}
+
+/**
+ * 権限が確認できるまで一覧取得を始めないため、権限判定は内容コンポーネントの外で行う。
+ */
+export default function TickersPage() {
+  const { data: session, status } = useSession();
+
+  if (status === 'loading') {
+    return <LoadingState message="セッション情報を確認中..." />;
+  }
+
+  if (!hasUserPermission(session?.user, 'stocks:manage-data')) {
+    return (
+      <Container maxWidth="md" sx={{ py: 4 }} role="main">
+        <ErrorAlert message={ERROR_MESSAGES.NO_MANAGE_PERMISSION} title="権限エラー" />
+      </Container>
+    );
+  }
+
+  return <TickersPageContent />;
 }

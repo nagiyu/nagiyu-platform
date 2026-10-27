@@ -1,21 +1,9 @@
-import type { NextConfig } from 'next';
-import path from 'path';
+import { createNextConfig } from '../../../configs/next.config.base';
 
-const nextConfig: NextConfig = {
-  output: 'standalone',
-  outputFileTracingRoot: path.join(__dirname, '../../../'), // モノレポルート
-  transpilePackages: [
-    '@nagiyu/ui',
-    '@nagiyu/browser',
-    '@nagiyu/common',
-    '@nagiyu/nextjs',
-    '@nagiyu/auth-core',
-  ],
+export default createNextConfig(__dirname, {
   experimental: {
     serverActions: {
       allowedOrigins: ['auth.dev.nagiyu.com', 'auth.nagiyu.com', '*.lambda-url.us-east-1.on.aws'],
     },
   },
-};
-
-export default nextConfig;
+});

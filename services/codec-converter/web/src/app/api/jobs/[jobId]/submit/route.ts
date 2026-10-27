@@ -1,18 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
 import { getAwsClients, reportErrorEvent } from '@nagiyu/aws';
-import { type Job, type JobStatus, selectJobDefinition } from '@nagiyu/codec-converter-core';
-import { toErrorMessage, type ErrorResponse } from '@nagiyu/common';
+import {
+  DynamoDBJobRepository,
+  type JobStatus,
+  selectJobDefinition,
+  toBatchEnvironment,
+} from '@nagiyu/codec-converter-core';
+import { toErrorMessage } from '@nagiyu/common';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 
 /**
  * 環境変数を取得
  */
 function getEnvVars() {
   return {
-    DYNAMODB_TABLE: process.env.DYNAMODB_TABLE || '',
+    DYNAMODB_TABLE_NAME: process.env.DYNAMODB_TABLE_NAME || '',
     S3_BUCKET: process.env.S3_BUCKET || '',
     BATCH_JOB_QUEUE: process.env.BATCH_JOB_QUEUE || '',
     BATCH_JOB_DEFINITION_PREFIX: process.env.BATCH_JOB_DEFINITION_PREFIX || '',
@@ -32,29 +37,26 @@ interface SubmitJobResponse {
  * POST /api/jobs/{jobId}/submit
  * アップロード完了後にAWS Batchジョブを投入
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ jobId: string }> }
-): Promise<NextResponse<SubmitJobResponse | ErrorResponse>> {
-  let jobId: string | undefined;
-  try {
+export const POST = withApiErrorReporting(
+  'Batchジョブの投入に失敗しました',
+  async (request: NextRequest, { params }: { params: Promise<{ jobId: string }> }) => {
     // パスパラメータの取得
-    ({ jobId } = await params);
+    const { jobId } = await params;
 
     // AWS クライアントと環境変数の取得
-    const { DYNAMODB_TABLE, S3_BUCKET, BATCH_JOB_QUEUE, BATCH_JOB_DEFINITION_PREFIX, AWS_REGION } =
-      getEnvVars();
+    const {
+      DYNAMODB_TABLE_NAME,
+      S3_BUCKET,
+      BATCH_JOB_QUEUE,
+      BATCH_JOB_DEFINITION_PREFIX,
+      AWS_REGION,
+    } = getEnvVars();
     const { docClient, s3Client, batchClient } = getAwsClients(AWS_REGION);
 
-    // 1. DynamoDBでジョブの存在確認
-    const getResult = await docClient.send(
-      new GetCommand({
-        TableName: DYNAMODB_TABLE,
-        Key: { jobId },
-      })
-    );
+    // 1. ジョブの存在確認
+    const job = await new DynamoDBJobRepository(docClient, DYNAMODB_TABLE_NAME).getById(jobId);
 
-    if (!getResult.Item) {
+    if (!job) {
       return NextResponse.json(
         {
           error: 'JOB_NOT_FOUND',
@@ -63,8 +65,6 @@ export async function POST(
         { status: 404 }
       );
     }
-
-    const job = getResult.Item as Job;
 
     // 2. ジョブステータスの確認（PENDINGのみ許可）
     if (job.status !== 'PENDING') {
@@ -116,7 +116,20 @@ export async function POST(
     try {
       jobDefinitionSize = selectJobDefinition(job.fileSize, job.outputCodec);
     } catch (error) {
+      // 続行できるので例外は上に届かない。ここで報告しないと不具合に気づけない
       console.error('Failed to select job definition, falling back to medium:', error);
+      await reportErrorEvent({
+        serviceId: 'codec-converter',
+        severity: 'error',
+        title: 'ジョブ定義の選択に失敗したため medium で続行します',
+        message: toErrorMessage(error),
+        context: {
+          jobId,
+          fileSize: job.fileSize,
+          outputCodec: job.outputCodec,
+          errorStack: error instanceof Error ? error.stack : undefined,
+        },
+      });
       jobDefinitionSize = 'medium';
     }
 
@@ -125,6 +138,12 @@ export async function POST(
       `Submitting job ${jobId} with definition ${jobDefinitionName} (fileSize: ${job.fileSize}, codec: ${job.outputCodec})`
     );
 
+    // テーブル名などジョブ定義が持つ値は渡さず、起動ごとの値だけを渡す
+    const batchEnvironment = toBatchEnvironment({
+      jobId,
+      outputCodec: job.outputCodec,
+    });
+
     try {
       await batchClient.send(
         new SubmitJobCommand({
@@ -132,13 +151,7 @@ export async function POST(
           jobQueue: BATCH_JOB_QUEUE,
           jobDefinition: jobDefinitionName,
           containerOverrides: {
-            environment: [
-              { name: 'JOB_ID', value: jobId },
-              { name: 'OUTPUT_CODEC', value: job.outputCodec },
-              { name: 'DYNAMODB_TABLE', value: DYNAMODB_TABLE },
-              { name: 'S3_BUCKET', value: S3_BUCKET },
-              { name: 'AWS_REGION', value: AWS_REGION },
-            ],
+            environment: batchEnvironment,
           },
         })
       );
@@ -150,6 +163,18 @@ export async function POST(
           `Failed to submit job with definition ${jobDefinitionName}, falling back to medium:`,
           error
         );
+        // フォールバックで続行できるので例外は上に届かない。ここで報告しないと不具合に気づけない
+        await reportErrorEvent({
+          serviceId: 'codec-converter',
+          severity: 'error',
+          title: 'ジョブ定義でのBatchジョブ投入に失敗したため medium で再投入します',
+          message: errorMessage,
+          context: {
+            jobId,
+            jobDefinitionName,
+            errorStack: error instanceof Error ? error.stack : undefined,
+          },
+        });
         const fallbackJobDefinitionName = `${BATCH_JOB_DEFINITION_PREFIX}-medium`;
         await batchClient.send(
           new SubmitJobCommand({
@@ -157,13 +182,7 @@ export async function POST(
             jobQueue: BATCH_JOB_QUEUE,
             jobDefinition: fallbackJobDefinitionName,
             containerOverrides: {
-              environment: [
-                { name: 'JOB_ID', value: jobId },
-                { name: 'OUTPUT_CODEC', value: job.outputCodec },
-                { name: 'DYNAMODB_TABLE', value: DYNAMODB_TABLE },
-                { name: 'S3_BUCKET', value: S3_BUCKET },
-                { name: 'AWS_REGION', value: AWS_REGION },
-              ],
+              environment: batchEnvironment,
             },
           })
         );
@@ -174,32 +193,11 @@ export async function POST(
 
     // レスポンスを返却
     // 注: ステータスはPENDINGのまま。Batch Workerが起動時にPROCESSINGに更新する
-    return NextResponse.json(
-      {
-        jobId,
-        status: 'PENDING' as JobStatus,
-      },
-      { status: 200 }
-    );
-  } catch (error) {
-    const errorMessage = toErrorMessage(error);
-    console.error('Error submitting job:', error);
-    await reportErrorEvent({
-      serviceId: 'codec-converter',
-      severity: 'error',
-      title: 'Batchジョブの投入に失敗しました',
-      message: errorMessage,
-      context: {
-        jobId,
-        errorStack: error instanceof Error ? error.stack : undefined,
-      },
-    });
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_SERVER_ERROR',
-        message: ERROR_MESSAGES.JOB_SUBMISSION_FAILED,
-      },
-      { status: 500 }
-    );
-  }
-}
+    const response: SubmitJobResponse = {
+      jobId,
+      status: 'PENDING',
+    };
+    return NextResponse.json(response, { status: 200 });
+  },
+  ERROR_MESSAGES.JOB_SUBMISSION_FAILED
+);

@@ -111,6 +111,89 @@ describe('ConfirmDialog', () => {
     });
   });
 
+  describe('拡張props', () => {
+    it('childrenがdescriptionと並んで表示される', () => {
+      render(
+        <ConfirmDialog {...defaultProps}>
+          <div>削除対象の詳細</div>
+        </ConfirmDialog>
+      );
+
+      expect(screen.getByText('この操作は取り消せません。')).toBeInTheDocument();
+      expect(screen.getByText('削除対象の詳細')).toBeInTheDocument();
+    });
+
+    it('descriptionを省略してもchildrenが表示される', () => {
+      render(
+        <ConfirmDialog open title="確認" onConfirm={jest.fn()} onCancel={jest.fn()}>
+          <div>本文のみ</div>
+        </ConfirmDialog>
+      );
+
+      expect(screen.getByText('本文のみ')).toBeInTheDocument();
+    });
+
+    it('ダイアログがタイトルで名前付けされる', () => {
+      render(<ConfirmDialog {...defaultProps} />);
+
+      expect(screen.getByRole('dialog', { name: '削除の確認' })).toBeInTheDocument();
+    });
+
+    it('confirmDisabledで確定ボタンだけが無効になる', async () => {
+      const user = userEvent.setup();
+      render(<ConfirmDialog {...defaultProps} confirmDisabled />);
+
+      const confirm = screen.getByRole('button', { name: '削除' });
+      expect(confirm).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'キャンセル' })).not.toBeDisabled();
+      await user.click(confirm);
+      expect(defaultProps.onConfirm).not.toHaveBeenCalled();
+    });
+
+    it('confirmColorがボタンに反映される', () => {
+      const { rerender } = render(<ConfirmDialog {...defaultProps} />);
+      expect(screen.getByRole('button', { name: '削除' }).className).toMatch(/color-danger/);
+
+      rerender(<ConfirmDialog {...defaultProps} confirmColor="primary" />);
+      expect(screen.getByRole('button', { name: '削除' }).className).toMatch(/color-primary/);
+    });
+
+    it('confirmTestIdが確定ボタンのdata-testidになる', () => {
+      render(<ConfirmDialog {...defaultProps} confirmTestId="confirm-btn" />);
+
+      expect(screen.getByTestId('confirm-btn')).toHaveTextContent('削除');
+    });
+  });
+
+  describe('処理中の閉じる操作', () => {
+    it('loading中はEscapeでonCancelが呼ばれない', async () => {
+      const user = userEvent.setup();
+      render(<ConfirmDialog {...defaultProps} loading />);
+
+      await user.keyboard('{Escape}');
+
+      expect(defaultProps.onCancel).not.toHaveBeenCalled();
+    });
+
+    it('loading中は背景クリックでonCancelが呼ばれない', async () => {
+      const user = userEvent.setup();
+      render(<ConfirmDialog {...defaultProps} loading />);
+
+      await user.click(document.querySelector('.MuiBackdrop-root') as HTMLElement);
+
+      expect(defaultProps.onCancel).not.toHaveBeenCalled();
+    });
+
+    it('loadingでない時はEscapeでonCancelが呼ばれる', async () => {
+      const user = userEvent.setup();
+      render(<ConfirmDialog {...defaultProps} />);
+
+      await user.keyboard('{Escape}');
+
+      expect(defaultProps.onCancel).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('アクセシビリティ', () => {
     it('ダイアログにrole="dialog"が設定されている', () => {
       render(<ConfirmDialog {...defaultProps} />);

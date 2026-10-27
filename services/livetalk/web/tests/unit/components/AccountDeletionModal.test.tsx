@@ -139,7 +139,7 @@ describe('AccountDeletionModal', () => {
           onCancel={onCancel}
         />
       );
-      fireEvent.click(screen.getByTestId('deletion-cancel'));
+      fireEvent.click(screen.getByRole('button', { name: 'キャンセル' }));
       expect(onCancel).toHaveBeenCalled();
     });
 
@@ -159,7 +159,7 @@ describe('AccountDeletionModal', () => {
       expect(screen.getByTestId('deletion-confirm')).not.toBeDisabled();
 
       // キャンセルする
-      fireEvent.click(screen.getByTestId('deletion-cancel'));
+      fireEvent.click(screen.getByRole('button', { name: 'キャンセル' }));
       expect(onCancel).toHaveBeenCalled();
     });
   });
@@ -203,7 +203,7 @@ describe('AccountDeletionModal', () => {
           onCancel={jest.fn()}
         />
       );
-      expect(screen.getByTestId('deletion-cancel')).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'キャンセル' })).toBeDisabled();
     });
   });
 
@@ -235,6 +235,23 @@ describe('AccountDeletionModal', () => {
         />
       );
       expect(screen.queryByTestId('deletion-error')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('処理中の閉じる操作', () => {
+    it('loading=true のとき Escape で onCancel が呼ばれない', () => {
+      const onCancel = jest.fn();
+      render(
+        <AccountDeletionModal
+          open={true}
+          loading={true}
+          error={null}
+          onConfirm={jest.fn()}
+          onCancel={onCancel}
+        />
+      );
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+      expect(onCancel).not.toHaveBeenCalled();
     });
   });
 });

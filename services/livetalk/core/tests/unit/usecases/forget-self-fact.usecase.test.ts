@@ -1,7 +1,6 @@
-import { InMemorySingleTableStore } from '@nagiyu/aws';
+import { EntityNotFoundError, InMemorySingleTableStore, OptimisticLockError } from '@nagiyu/aws';
 import { forgetSelfFact } from '../../../src/usecases/forget-self-fact.usecase.js';
 import { InMemoryTopicRepository } from '../../../src/repositories/in-memory-topic.repository.js';
-import { OptimisticLockError } from '../../../src/repositories/optimistic-lock.error.js';
 import type { ILLMClient } from '../../../src/llm-client/types.js';
 import type { SelfFactEntity } from '../../../src/entities/self-fact.entity.js';
 
@@ -34,28 +33,28 @@ describe('forgetSelfFact', () => {
 
   async function seedTopic() {
     const topic = await repo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'TOPIC-1',
-      Subject: 'コーヒー',
-      CanonicalSummary: '元の要約',
-      Category: '飲み物',
-      Care: 3,
-      Embedding: [0.1, 0.2, 0.3],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'TOPIC-1',
+      subject: 'コーヒー',
+      canonicalSummary: '元の要約',
+      category: '飲み物',
+      care: 3,
+      embedding: [0.1, 0.2, 0.3],
     });
     const fact1 = await repo.putSelfFact({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'TOPIC-1',
-      Text: '朝コーヒーを飲む',
-      Provenance: 'msg-1',
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'TOPIC-1',
+      text: '朝コーヒーを飲む',
+      provenance: 'msg-1',
     });
     const fact2 = await repo.putSelfFact({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'TOPIC-1',
-      Text: 'ブラックが好き',
-      Provenance: 'msg-2',
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'TOPIC-1',
+      text: 'ブラックが好き',
+      provenance: 'msg-2',
     });
     return { topic, fact1, fact2 };
   }
@@ -65,12 +64,12 @@ describe('forgetSelfFact', () => {
     const llmClient = makeLLMClient();
 
     await forgetSelfFact(
-      { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-1', factId: fact1.FactID },
+      { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-1', factId: fact1.factId },
       { topicRepository: repo, llmClient }
     );
 
     const remaining = await repo.listSelfFacts('u1', 'hiyori', 'TOPIC-1');
-    expect(remaining.map((f: SelfFactEntity) => f.FactID)).not.toContain(fact1.FactID);
+    expect(remaining.map((f: SelfFactEntity) => f.factId)).not.toContain(fact1.factId);
   });
 
   it('残 fact から要約が再生成され putTopic で更新される', async () => {
@@ -78,7 +77,7 @@ describe('forgetSelfFact', () => {
     const llmClient = makeLLMClient('新しい要約：ブラックが好き');
 
     await forgetSelfFact(
-      { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-1', factId: fact1.FactID },
+      { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-1', factId: fact1.factId },
       { topicRepository: repo, llmClient }
     );
 
@@ -87,7 +86,7 @@ describe('forgetSelfFact', () => {
       characterId: 'hiyori',
       topicId: 'TOPIC-1',
     });
-    expect(updated?.CanonicalSummary).toBe('新しい要約：ブラックが好き');
+    expect(updated?.canonicalSummary).toBe('新しい要約：ブラックが好き');
     expect(llmClient.chatStructured).toHaveBeenCalledTimes(1);
     const promptMessages = (llmClient.chatStructured as jest.Mock).mock.calls[0][0];
     const promptText = JSON.stringify(promptMessages);
@@ -95,12 +94,12 @@ describe('forgetSelfFact', () => {
     expect(promptText).not.toContain('朝コーヒーを飲む');
   });
 
-  it('Embedding/Care/Category/Subject は不変', async () => {
+  it('embedding/care/category/subject は不変', async () => {
     const { fact1 } = await seedTopic();
     const llmClient = makeLLMClient();
 
     await forgetSelfFact(
-      { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-1', factId: fact1.FactID },
+      { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-1', factId: fact1.factId },
       { topicRepository: repo, llmClient }
     );
 
@@ -109,10 +108,10 @@ describe('forgetSelfFact', () => {
       characterId: 'hiyori',
       topicId: 'TOPIC-1',
     });
-    expect(updated?.Embedding).toEqual([0.1, 0.2, 0.3]);
-    expect(updated?.Care).toBe(3);
-    expect(updated?.Category).toBe('飲み物');
-    expect(updated?.Subject).toBe('コーヒー');
+    expect(updated?.embedding).toEqual([0.1, 0.2, 0.3]);
+    expect(updated?.care).toBe(3);
+    expect(updated?.category).toBe('飲み物');
+    expect(updated?.subject).toBe('コーヒー');
   });
 
   it('OptimisticLockError で 1 回リトライして成功する', async () => {
@@ -130,7 +129,7 @@ describe('forgetSelfFact', () => {
     });
 
     await forgetSelfFact(
-      { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-1', factId: fact1.FactID },
+      { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-1', factId: fact1.factId },
       { topicRepository: repo, llmClient }
     );
 
@@ -140,7 +139,7 @@ describe('forgetSelfFact', () => {
       characterId: 'hiyori',
       topicId: 'TOPIC-1',
     });
-    expect(updated?.CanonicalSummary).toBe('リトライ後の要約');
+    expect(updated?.canonicalSummary).toBe('リトライ後の要約');
   });
 
   it('リトライが尽きたら最後のエラーを throw する', async () => {
@@ -153,7 +152,7 @@ describe('forgetSelfFact', () => {
 
     await expect(
       forgetSelfFact(
-        { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-1', factId: fact1.FactID },
+        { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-1', factId: fact1.factId },
         { topicRepository: repo, llmClient, maxRetries: 2 }
       )
     ).rejects.toBeInstanceOf(OptimisticLockError);
@@ -169,10 +168,85 @@ describe('forgetSelfFact', () => {
 
     await expect(
       forgetSelfFact(
-        { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-1', factId: fact1.FactID },
+        { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-1', factId: fact1.factId },
         { topicRepository: repo, llmClient }
       )
     ).rejects.toThrow('別のエラー');
+  });
+
+  it('SELF fact が既に消えていても Topic があれば要約を作り直して成功する', async () => {
+    const { fact1 } = await seedTopic();
+    const llmClient = makeLLMClient('押し直しで作り直した要約');
+    const key = { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-1', factId: fact1.factId };
+    // 1 回目は要約の保存で失敗し、SELF fact だけが消えた状態を作る
+    jest.spyOn(repo, 'putTopic').mockRejectedValueOnce(new Error('LLM 後の保存に失敗'));
+    await expect(forgetSelfFact(key, { topicRepository: repo, llmClient })).rejects.toThrow(
+      'LLM 後の保存に失敗'
+    );
+
+    await expect(
+      forgetSelfFact(key, { topicRepository: repo, llmClient })
+    ).resolves.toBeUndefined();
+
+    const bundle = await repo.getTopicBundle({
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'TOPIC-1',
+    });
+    expect(bundle.topic?.canonicalSummary).toBe('押し直しで作り直した要約');
+    expect(bundle.selfFacts.map((f) => f.factId)).not.toContain(fact1.factId);
+  });
+
+  it('SELF fact も Topic もなければ EntityNotFoundError を投げ、要約を再生成しない', async () => {
+    const llmClient = makeLLMClient();
+
+    await expect(
+      forgetSelfFact(
+        { userId: 'u1', characterId: 'hiyori', topicId: 'MISSING-TOPIC', factId: 'missing' },
+        { topicRepository: repo, llmClient }
+      )
+    ).rejects.toBeInstanceOf(EntityNotFoundError);
+    expect(llmClient.chatStructured).not.toHaveBeenCalled();
+  });
+
+  it('SELF fact の削除で EntityNotFoundError 以外が起きたらそのまま投げる', async () => {
+    const { fact1 } = await seedTopic();
+    jest.spyOn(repo, 'deleteSelfFact').mockRejectedValueOnce(new Error('DB 障害'));
+    const llmClient = makeLLMClient();
+
+    await expect(
+      forgetSelfFact(
+        { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-1', factId: fact1.factId },
+        { topicRepository: repo, llmClient }
+      )
+    ).rejects.toThrow('DB 障害');
+    expect(llmClient.chatStructured).not.toHaveBeenCalled();
+  });
+
+  it('書き込み時に Topic が消えていたら再読込して、再生成せず成功で終える', async () => {
+    const { fact1 } = await seedTopic();
+    const llmClient = makeLLMClient();
+    const originalGetBundle = repo.getTopicBundle.bind(repo);
+    let bundleCallCount = 0;
+    jest.spyOn(repo, 'getTopicBundle').mockImplementation(async (key) => {
+      bundleCallCount++;
+      // 2 回目の読み取りでは Topic が消えている
+      return bundleCallCount === 1
+        ? originalGetBundle(key)
+        : { topic: null, selfFacts: [], webFacts: [] };
+    });
+    jest.spyOn(repo, 'putTopic').mockImplementation(async () => {
+      throw new EntityNotFoundError('Topic', 'u1#hiyori#TOPIC-1');
+    });
+
+    await expect(
+      forgetSelfFact(
+        { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-1', factId: fact1.factId },
+        { topicRepository: repo, llmClient }
+      )
+    ).resolves.toBeUndefined();
+    expect(bundleCallCount).toBe(2);
+    expect(llmClient.chatStructured).toHaveBeenCalledTimes(1);
   });
 
   it('Topic が既に存在しなければ LLM を呼ばず return する', async () => {
@@ -185,7 +259,7 @@ describe('forgetSelfFact', () => {
     const llmClient = makeLLMClient();
 
     await forgetSelfFact(
-      { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-1', factId: fact1.FactID },
+      { userId: 'u1', characterId: 'hiyori', topicId: 'TOPIC-1', factId: fact1.factId },
       { topicRepository: repo, llmClient }
     );
 
@@ -194,26 +268,26 @@ describe('forgetSelfFact', () => {
 
   it('残 fact が 0 件なら LLM を呼ばず空要約で putTopic する', async () => {
     const topic = await repo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'TOPIC-EMPTY',
-      Subject: '空の話題',
-      CanonicalSummary: '元の要約',
-      Category: 'その他',
-      Care: 1,
-      Embedding: [0.5, 0.5],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'TOPIC-EMPTY',
+      subject: '空の話題',
+      canonicalSummary: '元の要約',
+      category: 'その他',
+      care: 1,
+      embedding: [0.5, 0.5],
     });
     const fact = await repo.putSelfFact({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: topic.TopicID,
-      Text: '唯一の fact',
-      Provenance: '',
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: topic.topicId,
+      text: '唯一の fact',
+      provenance: '',
     });
     const llmClient = makeLLMClient();
 
     await forgetSelfFact(
-      { userId: 'u1', characterId: 'hiyori', topicId: topic.TopicID, factId: fact.FactID },
+      { userId: 'u1', characterId: 'hiyori', topicId: topic.topicId, factId: fact.factId },
       { topicRepository: repo, llmClient }
     );
 
@@ -221,8 +295,8 @@ describe('forgetSelfFact', () => {
     const updated = await repo.getTopic({
       userId: 'u1',
       characterId: 'hiyori',
-      topicId: topic.TopicID,
+      topicId: topic.topicId,
     });
-    expect(updated?.CanonicalSummary).toBe('');
+    expect(updated?.canonicalSummary).toBe('');
   });
 });

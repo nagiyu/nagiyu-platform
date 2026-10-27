@@ -1,15 +1,17 @@
 import { NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
-import {
-  validateExchange,
-  PRICE_SOURCES,
-  type PriceSource,
-  EXCHANGE_MARKETS,
-  type ExchangeMarket,
-} from '@nagiyu/stock-tracker-core';
-import { withAuth, handleApiError } from '@nagiyu/nextjs';
+import { EntityNotFoundError } from '@nagiyu/aws';
+import { validateExchange, type UpdateExchangeInput } from '@nagiyu/stock-tracker-core';
+import { withAuth, readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
+import { withApiErrorReporting } from '../../../../lib/api-error-reporting';
 import { createExchangeRepository } from '../../../../lib/repository-factory';
+import {
+  isExchangeMarket,
+  isOptionalString,
+  isPriceSource,
+  isRecord,
+} from '../../../../lib/request-guards';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -17,11 +19,21 @@ const ERROR_MESSAGES = {
   UPDATE_ERROR: '取引所の更新に失敗しました',
   DELETE_ERROR: '取引所の削除に失敗しました',
   INVALID_REQUEST: COMMON_ERROR_MESSAGES.BAD_REQUEST,
-  RELATED_TICKERS_EXIST: '関連するティッカーが存在するため削除できません',
+  INVALID_REQUEST_BODY: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
   INVALID_PRICE_SOURCE:
     'データソースは "tradingview" または "finnhub" のいずれかを指定してください',
   INVALID_MARKET: '市場は "JP" または "US" のいずれかを指定してください',
 } as const;
+
+/**
+ * リクエストボディが不正なときの 400 レスポンス
+ */
+function invalidRequestBodyResponse(): NextResponse {
+  return NextResponse.json(
+    { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.INVALID_REQUEST_BODY },
+    { status: 400 }
+  );
+}
 
 /**
  * GET /api/exchanges/{id} - 取引所取得
@@ -38,11 +50,12 @@ const ERROR_MESSAGES = {
  * @returns 取引所が見つからない (404 Not Found)
  * @returns サーバーエラー (500 Internal Server Error)
  */
-export const GET = withAuth(
-  getSession,
-  'stocks:read',
-  async (_session, _request: Request, { params }: { params: Promise<{ id: string }> }) => {
-    try {
+export const GET = withApiErrorReporting(
+  'Web API: 取引所取得エラー',
+  withAuth(
+    getSession,
+    'stocks:read',
+    async (_session, _request: Request, { params }: { params: Promise<{ id: string }> }) => {
       const { id: exchangeId } = await params;
 
       // Exchange リポジトリを初期化
@@ -63,23 +76,21 @@ export const GET = withAuth(
 
       // レスポンスを返す (API仕様に従った形式)
       return NextResponse.json({
-        exchangeId: exchange.ExchangeID,
-        name: exchange.Name,
-        key: exchange.Key,
-        timezone: exchange.Timezone,
+        exchangeId: exchange.exchangeId,
+        name: exchange.name,
+        key: exchange.key,
+        timezone: exchange.timezone,
         tradingHours: {
-          start: exchange.Start,
-          end: exchange.End,
+          start: exchange.start,
+          end: exchange.end,
         },
-        priceSource: exchange.PriceSource,
-        market: exchange.Market,
-        createdAt: new Date(exchange.CreatedAt).toISOString(),
-        updatedAt: new Date(exchange.UpdatedAt).toISOString(),
+        priceSource: exchange.priceSource,
+        market: exchange.market,
+        createdAt: new Date(exchange.createdAt).toISOString(),
+        updatedAt: new Date(exchange.updatedAt).toISOString(),
       });
-    } catch (error) {
-      return handleApiError(error);
     }
-  }
+  )
 );
 
 /**
@@ -98,11 +109,12 @@ export const GET = withAuth(
  * @returns リクエスト不正 (400 Bad Request)
  * @returns サーバーエラー (500 Internal Server Error)
  */
-export const PUT = withAuth(
-  getSession,
-  'stocks:manage-data',
-  async (_session, request: Request, { params }: { params: Promise<{ id: string }> }) => {
-    try {
+export const PUT = withApiErrorReporting(
+  'Web API: 取引所更新エラー',
+  withAuth(
+    getSession,
+    'stocks:manage-data',
+    async (_session, request: Request, { params }: { params: Promise<{ id: string }> }) => {
       const { id: exchangeId } = await params;
 
       // Exchange リポジトリを初期化
@@ -121,13 +133,14 @@ export const PUT = withAuth(
       }
 
       // リクエストボディをパース
-      const body = await request.json();
+      const bodyResult = await readJsonObjectBody(request);
+      if (!bodyResult.ok) {
+        return invalidRequestBodyResponse();
+      }
+      const { name, timezone, tradingHours, priceSource, market } = bodyResult.body;
 
       // priceSource のバリデーション（指定された場合のみ）
-      if (
-        body.priceSource !== undefined &&
-        !(PRICE_SOURCES as readonly string[]).includes(body.priceSource)
-      ) {
+      if (priceSource !== undefined && !isPriceSource(priceSource)) {
         return NextResponse.json(
           { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.INVALID_PRICE_SOURCE },
           { status: 400 }
@@ -135,50 +148,54 @@ export const PUT = withAuth(
       }
 
       // market のバリデーション（指定された場合のみ。null は未設定に戻す指定として許容する）
-      if (
-        body.market !== undefined &&
-        body.market !== null &&
-        !(EXCHANGE_MARKETS as readonly string[]).includes(body.market)
-      ) {
+      if (market !== undefined && market !== null && !isExchangeMarket(market)) {
         return NextResponse.json(
           { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.INVALID_MARKET },
           { status: 400 }
         );
       }
 
+      // 各項目の型チェック
+      const hours = tradingHours === undefined ? {} : tradingHours;
+      if (!isRecord(hours)) {
+        return invalidRequestBodyResponse();
+      }
+      const { start, end } = hours;
+      if (
+        !isOptionalString(name) ||
+        !isOptionalString(timezone) ||
+        !isOptionalString(start) ||
+        !isOptionalString(end)
+      ) {
+        return invalidRequestBodyResponse();
+      }
+
       // 更新可能なフィールドのみ抽出
-      const updates: {
-        Name?: string;
-        Timezone?: string;
-        Start?: string;
-        End?: string;
-        PriceSource?: PriceSource;
-        Market?: ExchangeMarket | null;
-      } = {};
+      const updates: UpdateExchangeInput = {};
 
-      if (body.name !== undefined) {
-        updates.Name = body.name;
+      if (name !== undefined) {
+        updates.name = name;
       }
 
-      if (body.timezone !== undefined) {
-        updates.Timezone = body.timezone;
+      if (timezone !== undefined) {
+        updates.timezone = timezone;
       }
 
-      if (body.tradingHours?.start !== undefined) {
-        updates.Start = body.tradingHours.start;
+      if (start !== undefined) {
+        updates.start = start;
       }
 
-      if (body.tradingHours?.end !== undefined) {
-        updates.End = body.tradingHours.end;
+      if (end !== undefined) {
+        updates.end = end;
       }
 
-      if (body.priceSource !== undefined) {
-        updates.PriceSource = body.priceSource as PriceSource;
+      if (priceSource !== undefined) {
+        updates.priceSource = priceSource;
       }
 
       // market は undefined（更新しない）・null（未設定に戻す）・値（設定）の3値を区別する
-      if (body.market !== undefined) {
-        updates.Market = body.market === null ? null : (body.market as ExchangeMarket);
+      if (market !== undefined) {
+        updates.market = market;
       }
 
       // 更新フィールドが空の場合はエラー
@@ -216,22 +233,20 @@ export const PUT = withAuth(
 
       // レスポンスを返す (API仕様に従った形式)
       return NextResponse.json({
-        exchangeId: updatedExchange.ExchangeID,
-        name: updatedExchange.Name,
-        key: updatedExchange.Key,
-        timezone: updatedExchange.Timezone,
+        exchangeId: updatedExchange.exchangeId,
+        name: updatedExchange.name,
+        key: updatedExchange.key,
+        timezone: updatedExchange.timezone,
         tradingHours: {
-          start: updatedExchange.Start,
-          end: updatedExchange.End,
+          start: updatedExchange.start,
+          end: updatedExchange.end,
         },
-        priceSource: updatedExchange.PriceSource,
-        market: updatedExchange.Market,
-        updatedAt: new Date(updatedExchange.UpdatedAt).toISOString(),
+        priceSource: updatedExchange.priceSource,
+        market: updatedExchange.market,
+        updatedAt: new Date(updatedExchange.updatedAt).toISOString(),
       });
-    } catch (error) {
-      return handleApiError(error);
     }
-  }
+  )
 );
 
 /**
@@ -247,29 +262,41 @@ export const PUT = withAuth(
  * @returns 認証エラー (401 Unauthorized)
  * @returns 権限エラー (403 Forbidden)
  * @returns 取引所が見つからない (404 Not Found)
- * @returns 関連ティッカーあり (400 Bad Request)
  * @returns サーバーエラー (500 Internal Server Error)
  */
-export const DELETE = withAuth(
-  getSession,
-  'stocks:manage-data',
-  async (_session, _request: Request, { params }: { params: Promise<{ id: string }> }) => {
-    try {
+export const DELETE = withApiErrorReporting(
+  'Web API: 取引所削除エラー',
+  withAuth(
+    getSession,
+    'stocks:manage-data',
+    async (_session, _request: Request, { params }: { params: Promise<{ id: string }> }) => {
       const { id: exchangeId } = await params;
 
       // Exchange リポジトリを初期化
       const exchangeRepo = createExchangeRepository();
 
       // 取引所を削除
-      await exchangeRepo.delete(exchangeId);
+      try {
+        await exchangeRepo.delete(exchangeId);
+      } catch (error) {
+        // 削除対象が存在しない場合
+        if (error instanceof EntityNotFoundError) {
+          return NextResponse.json(
+            {
+              error: 'NOT_FOUND',
+              message: ERROR_MESSAGES.EXCHANGE_NOT_FOUND,
+            },
+            { status: 404 }
+          );
+        }
+        throw error;
+      }
 
       // レスポンスを返す (API仕様に従った形式)
       return NextResponse.json({
         success: true,
         deletedExchangeId: exchangeId,
       });
-    } catch (error) {
-      return handleApiError(error);
     }
-  }
+  )
 );

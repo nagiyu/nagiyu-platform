@@ -45,6 +45,12 @@ const mockDynamoDBListRepository = DynamoDBListRepository as jest.MockedClass<
 const mockListService = ListService as jest.MockedClass<typeof ListService>;
 type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 
+import {
+  createRequestWithJson,
+  MALFORMED_BODY_CASES,
+  type InvalidBodyCase,
+} from '../invalidBodyCases';
+
 describe('/api/lists route handlers', () => {
   const mockGetPersonalListsByUserId = jest.fn();
   const mockCreatePersonalList = jest.fn();
@@ -104,8 +110,8 @@ describe('/api/lists route handlers', () => {
         userId: 'user-1',
         name: 'デフォルトリスト',
         isDefault: true,
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       },
     ]);
 
@@ -121,8 +127,8 @@ describe('/api/lists route handlers', () => {
             userId: 'user-1',
             name: 'デフォルトリスト',
             isDefault: true,
-            createdAt: '2026-01-01T00:00:00.000Z',
-            updatedAt: '2026-01-01T00:00:00.000Z',
+            createdAt: 1767225600000,
+            updatedAt: 1767225600000,
           },
         ],
       },
@@ -140,8 +146,8 @@ describe('/api/lists route handlers', () => {
       userId: 'user-1',
       name: '買い物',
       isDefault: false,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     const response = await POST(createRequest({ name: '買い物' }));
@@ -154,8 +160,8 @@ describe('/api/lists route handlers', () => {
         userId: 'user-1',
         name: '買い物',
         isDefault: false,
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       },
     });
   });
@@ -204,4 +210,18 @@ describe('/api/lists route handlers', () => {
       message: ERROR_MESSAGES.PERSONAL_LIST_LIMIT_EXCEEDED,
     });
   });
+
+  it.each<InvalidBodyCase>([...MALFORMED_BODY_CASES, ['name が数値', async () => ({ name: 123 })]])(
+    'POST: リクエストボディが不正な場合 (%s) は400を返す',
+    async (_label, json) => {
+      mockGetSessionOrUnauthorized.mockResolvedValue({
+        user: { id: 'user-1' },
+      } as SessionOrUnauthorized);
+
+      const response = await POST(createRequestWithJson(json));
+
+      expect(response.status).toBe(400);
+      expect(mockCreatePersonalList).not.toHaveBeenCalled();
+    }
+  );
 });

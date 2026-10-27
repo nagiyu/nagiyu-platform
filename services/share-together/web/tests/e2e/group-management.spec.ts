@@ -82,8 +82,48 @@ test.describe('グループ管理', () => {
     await dialog.getByRole('textbox', { name: 'グループ名' }).fill(createdGroupName);
     await dialog.getByRole('button', { name: '作成' }).click();
 
-    await expect(page.getByRole('heading', { level: 2, name: createdGroupName })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 2, name: createdGroupName }).first()
+    ).toBeVisible();
     await expect(page.getByText(`グループ「${createdGroupName}」を作成しました。`)).toBeVisible();
+  });
+
+  test('選択中のグループのカードが強調され、詳細にグループ名が出る', async ({ page, request }) => {
+    await resetTestData(request, {
+      users: [OWNER_USER],
+      groups: [
+        { groupId: 'group-select-a', name: '選択検証グループA', ownerUserId: OWNER_USER.userId },
+        { groupId: 'group-select-b', name: '選択検証グループB', ownerUserId: OWNER_USER.userId },
+      ],
+      memberships: ['group-select-a', 'group-select-b'].map((groupId) => ({
+        groupId,
+        userId: OWNER_USER.userId,
+        role: 'OWNER' as const,
+        status: 'ACCEPTED' as const,
+        respondedAt: Date.now(),
+      })),
+    });
+
+    await page.goto('/groups');
+    const cardB = page.getByRole('button', { name: /選択検証グループB/ });
+    await cardB.click();
+
+    await expect(cardB).toHaveAttribute('aria-current', 'true');
+    await expect(page.getByRole('button', { name: /選択検証グループA/ })).not.toHaveAttribute(
+      'aria-current'
+    );
+    await expect(page.getByRole('heading', { level: 2, name: '選択検証グループB' })).toHaveCount(2);
+    await expect(page.getByText('group-select-b')).toHaveCount(0);
+  });
+
+  test('グループが 0 件のときは案内を表示する', async ({ page, request }) => {
+    await resetTestData(request, { users: [OWNER_USER] });
+
+    await page.goto('/groups');
+
+    await expect(
+      page.getByText('グループはまだありません。「グループを作成」から追加できます。')
+    ).toBeVisible();
   });
 
   test('オーナーがメンバー招待を送信できる', async ({ page, request }) => {
@@ -96,13 +136,13 @@ test.describe('グループ管理', () => {
           userId: OWNER_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
       ],
     });
 
     await page.goto('/groups');
-    await page.getByRole('heading', { level: 2, name: 'E2E グループ' }).click();
+    await page.getByRole('heading', { level: 2, name: 'E2E グループ' }).first().click();
     await expect(page.getByRole('textbox', { name: 'メールアドレス' })).toBeVisible();
     await page.getByRole('textbox', { name: 'メールアドレス' }).fill('invitee@example.com');
     await page.getByRole('button', { name: '招待を送信' }).click();
@@ -120,13 +160,13 @@ test.describe('グループ管理', () => {
           userId: OWNER_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
       ],
     });
 
     await page.goto('/groups');
-    await page.getByRole('heading', { level: 2, name: '重複招待テストグループ' }).click();
+    await page.getByRole('heading', { level: 2, name: '重複招待テストグループ' }).first().click();
     const emailField = page.getByRole('textbox', { name: 'メールアドレス' });
     const submitButton = page.getByRole('button', { name: '招待を送信' });
 
@@ -144,7 +184,7 @@ test.describe('グループ管理', () => {
     request,
   }) => {
     const groupId = 'group-member-limit-disabled';
-    const now = new Date().toISOString();
+    const now = Date.now();
     await resetTestData(request, {
       users: [OWNER_USER, ...LIMIT_MEMBER_USERS],
       groups: [{ groupId, name: 'メンバー上限グループ', ownerUserId: OWNER_USER.userId }],
@@ -169,7 +209,7 @@ test.describe('グループ管理', () => {
     });
 
     await page.goto('/groups');
-    await page.getByRole('heading', { level: 2, name: 'メンバー上限グループ' }).click();
+    await page.getByRole('heading', { level: 2, name: 'メンバー上限グループ' }).first().click();
     await expect(page.getByRole('button', { name: '招待を送信' })).toBeDisabled();
     await expect(page.getByText('グループメンバーは最大5名です')).toBeVisible();
   });
@@ -188,15 +228,15 @@ test.describe('グループ管理', () => {
           userId: OWNER_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
       ],
     });
 
     await page.goto('/groups');
-    await page.getByRole('heading', { level: 2, name: 'メンバー上限APIグループ' }).click();
+    await page.getByRole('heading', { level: 2, name: 'メンバー上限APIグループ' }).first().click();
 
-    const now = new Date().toISOString();
+    const now = Date.now();
     await resetTestData(request, {
       users: [OWNER_USER, INVITEE_USER, ...LIMIT_MEMBER_USERS],
       groups: [{ groupId, name: 'メンバー上限APIグループ', ownerUserId: OWNER_USER.userId }],
@@ -248,7 +288,7 @@ test.describe('グループ管理', () => {
           userId: OTHER_OWNER_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
         {
           groupId: 'group-accept',
@@ -256,7 +296,7 @@ test.describe('グループ管理', () => {
           role: 'MEMBER',
           status: 'PENDING',
           invitedBy: OTHER_OWNER_USER.userId,
-          invitedAt: new Date().toISOString(),
+          invitedAt: Date.now(),
         },
       ],
     });
@@ -282,7 +322,7 @@ test.describe('グループ管理', () => {
           userId: OTHER_OWNER_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
         {
           groupId: 'group-reject',
@@ -290,7 +330,7 @@ test.describe('グループ管理', () => {
           role: 'MEMBER',
           status: 'PENDING',
           invitedBy: OTHER_OWNER_USER.userId,
-          invitedAt: new Date().toISOString(),
+          invitedAt: Date.now(),
         },
       ],
     });
@@ -317,7 +357,7 @@ test.describe('グループ管理', () => {
           userId: OTHER_OWNER_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
         {
           groupId: 'group-member',
@@ -325,14 +365,14 @@ test.describe('グループ管理', () => {
           role: 'MEMBER',
           status: 'ACCEPTED',
           invitedBy: OTHER_OWNER_USER.userId,
-          invitedAt: new Date().toISOString(),
-          respondedAt: new Date().toISOString(),
+          invitedAt: Date.now(),
+          respondedAt: Date.now(),
         },
       ],
     });
 
     await page.goto('/groups');
-    await page.getByRole('heading', { level: 2, name: '参加中グループ' }).click();
+    await page.getByRole('heading', { level: 2, name: '参加中グループ' }).first().click();
     await expect(page.getByRole('button', { name: 'グループを脱退' })).toBeVisible();
     await page.getByRole('button', { name: 'グループを脱退' }).click();
     await page.getByRole('dialog').getByRole('button', { name: '脱退' }).click();
@@ -353,7 +393,7 @@ test.describe('グループ管理', () => {
           userId: OWNER_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
         {
           groupId,
@@ -361,8 +401,8 @@ test.describe('グループ管理', () => {
           role: 'MEMBER',
           status: 'ACCEPTED',
           invitedBy: OWNER_USER.userId,
-          invitedAt: new Date().toISOString(),
-          respondedAt: new Date().toISOString(),
+          invitedAt: Date.now(),
+          respondedAt: Date.now(),
         },
       ],
       groupLists: [
@@ -380,7 +420,7 @@ test.describe('グループ管理', () => {
     });
 
     await page.goto('/groups');
-    await page.getByRole('heading', { level: 2, name: '削除対象グループ' }).click();
+    await page.getByRole('heading', { level: 2, name: '削除対象グループ' }).first().click();
     await page.getByRole('button', { name: 'グループを削除' }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await expect(
@@ -413,7 +453,7 @@ test.describe('グループ管理', () => {
           userId: OWNER_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
       ],
     });
@@ -428,7 +468,8 @@ test.describe('グループ管理', () => {
     expect(ownerUpdateData.data.name).toBe('更新後グループ名');
 
     await page.goto('/groups');
-    await expect(page.getByText('更新後グループ名')).toBeVisible();
+    // 選択中のグループ名は一覧のカードと詳細の見出しの両方に出るため、一覧のカードで確かめる。
+    await expect(page.getByRole('button', { name: /更新後グループ名/ })).toBeVisible();
     await expect(page.getByText('更新前グループ名')).toHaveCount(0);
   });
 
@@ -449,7 +490,7 @@ test.describe('グループ管理', () => {
           userId: OTHER_OWNER_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
         {
           groupId: nonOwnerGroupId,
@@ -457,8 +498,8 @@ test.describe('グループ管理', () => {
           role: 'MEMBER',
           status: 'ACCEPTED',
           invitedBy: OTHER_OWNER_USER.userId,
-          invitedAt: new Date().toISOString(),
-          respondedAt: new Date().toISOString(),
+          invitedAt: Date.now(),
+          respondedAt: Date.now(),
         },
       ],
     });
@@ -469,7 +510,7 @@ test.describe('グループ管理', () => {
     expect(nonOwnerUpdateResponse.status()).toBe(403);
 
     await page.goto('/groups');
-    await page.getByRole('heading', { level: 2, name: '非オーナー閲覧グループ' }).click();
+    await page.getByRole('heading', { level: 2, name: '非オーナー閲覧グループ' }).first().click();
     await expect(page.getByRole('button', { name: 'グループを脱退' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'グループを削除' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'グループ名を変更' })).toHaveCount(0);
@@ -492,13 +533,13 @@ test.describe('グループ管理', () => {
           userId: OWNER_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
       ],
     });
 
     await page.goto('/groups');
-    await page.getByRole('heading', { level: 2, name: 'オーナーグループ' }).click();
+    await page.getByRole('heading', { level: 2, name: 'オーナーグループ' }).first().click();
     await expect(page.getByRole('button', { name: 'グループを脱退' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'グループを削除' })).toBeVisible();
   });
@@ -513,7 +554,7 @@ test.describe('グループ管理', () => {
           userId: OWNER_USER.userId,
           role: 'OWNER',
           status: 'ACCEPTED',
-          respondedAt: new Date().toISOString(),
+          respondedAt: Date.now(),
         },
         {
           groupId: 'group-owner',
@@ -521,14 +562,14 @@ test.describe('グループ管理', () => {
           role: 'MEMBER',
           status: 'ACCEPTED',
           invitedBy: OWNER_USER.userId,
-          invitedAt: new Date().toISOString(),
-          respondedAt: new Date().toISOString(),
+          invitedAt: Date.now(),
+          respondedAt: Date.now(),
         },
       ],
     });
 
     await page.goto('/groups');
-    await page.getByRole('heading', { level: 2, name: '管理グループ' }).click();
+    await page.getByRole('heading', { level: 2, name: '管理グループ' }).first().click();
     await expect(page.getByRole('button', { name: 'テストメンバーを削除' })).toBeVisible();
     await page.getByRole('button', { name: 'テストメンバーを削除' }).click();
     await page.getByRole('dialog').getByRole('button', { name: '削除' }).click();

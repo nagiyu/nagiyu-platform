@@ -12,16 +12,17 @@ import HomeIcon from '@mui/icons-material/Home';
 import ArticleIcon from '@mui/icons-material/Article';
 import InfoIcon from '@mui/icons-material/Info';
 import '@nagiyu/ui/tokens.css';
-import './globals.css';
+import '@nagiyu/ui/base.css';
 import { shouldLoadAdsense } from '@/lib/adsense';
+import { SITE } from '@/lib/author';
+import { OG_DEFAULTS } from '@/lib/pageMetadata';
 
 export const metadata: Metadata = {
   title: {
     default: 'nagiyu - AWS と個人開発の実運用ノート',
     template: '%s - nagiyu',
   },
-  description:
-    '個人で複数の Web サービスを AWS 上で開発・運用する中で、実際に踏んだ失敗と、その場で下した判断を記録している技術メディアです。',
+  description: SITE.description,
   keywords: ['nagiyu', '技術記事', 'AWS', '個人開発', '実運用', 'CI/CD', 'テスト', 'AI 開発'],
   authors: [{ name: 'nagiyu' }],
   creator: 'nagiyu',
@@ -29,17 +30,17 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://nagiyu.com'),
   openGraph: {
     type: 'website',
-    locale: 'ja_JP',
-    url: 'https://nagiyu.com',
+    locale: OG_DEFAULTS.locale,
+    url: SITE.url,
     title: 'nagiyu - AWS と個人開発の実運用ノート',
     description:
       '個人で複数の Web サービスを AWS 上で運用する中で踏んだ失敗と、その場で下した判断の記録。',
-    siteName: 'nagiyu',
+    siteName: SITE.name,
     images: [
       {
-        url: '/og-default.png',
-        width: 1200,
-        height: 630,
+        url: OG_DEFAULTS.imagePath,
+        width: OG_DEFAULTS.imageWidth,
+        height: OG_DEFAULTS.imageHeight,
         alt: 'nagiyu - AWS と個人開発の実運用ノート',
       },
     ],
@@ -49,7 +50,7 @@ export const metadata: Metadata = {
     title: 'nagiyu - AWS と個人開発の実運用ノート',
     description:
       '個人で複数の Web サービスを AWS 上で運用する中で踏んだ失敗と、その場で下した判断の記録。',
-    images: ['/og-default.png'],
+    images: [OG_DEFAULTS.imagePath],
   },
 };
 

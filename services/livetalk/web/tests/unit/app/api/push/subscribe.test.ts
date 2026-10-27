@@ -5,10 +5,13 @@ import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/push/subscribe/route';
 import { getSession } from '@/lib/server/session';
 import { getPushSubscriptionRepository } from '@/lib/server/repositories';
+import { reportErrorEvent } from '@nagiyu/aws';
 
 jest.mock('@/lib/server/session', () => ({
   getSession: jest.fn(),
 }));
+
+jest.mock('@nagiyu/aws', () => ({ reportErrorEvent: jest.fn().mockResolvedValue(null) }));
 
 jest.mock('@/lib/server/repositories', () => ({
   getPushSubscriptionRepository: jest.fn(),
@@ -39,7 +42,7 @@ describe('POST /api/push/subscribe', () => {
     process.env.VAPID_PUBLIC_KEY = 'public';
     process.env.VAPID_PRIVATE_KEY = 'private';
     mockGetSession.mockResolvedValue({
-      user: { userId: 'u1', googleId: 'google-1', roles: ['livetalk-user'] },
+      user: { id: 'u1', roles: ['livetalk-user'] },
     } as never);
     mockGetRepo.mockReturnValue({ put } as never);
   });
@@ -65,18 +68,40 @@ describe('POST /api/push/subscribe', () => {
     expect(put).not.toHaveBeenCalled();
   });
 
-  it('有効な購読を googleId をキーに保存して 201 を返す', async () => {
+  it('有効な購読を セッションのユーザー ID をキーに保存して 201 を返す', async () => {
     const response = await POST(createRequest({ subscription: validSubscription }));
     const body = await response.json();
 
     expect(response.status).toBe(201);
     expect(body.subscriptionId).toMatch(/^sub_[a-f0-9]{32}$/);
     expect(put).toHaveBeenCalledWith({
-      UserID: 'google-1',
-      SubscriptionID: body.subscriptionId,
-      Endpoint: validSubscription.endpoint,
-      P256dhKey: 'p256dh-key',
-      AuthKey: 'auth-key',
+      userId: 'u1',
+      subscriptionId: body.subscriptionId,
+      endpoint: validSubscription.endpoint,
+      p256dhKey: 'p256dh-key',
+      authKey: 'auth-key',
     });
+  });
+
+  it('保存に失敗した場合は 500 を返し、Push 購読登録エラーとして報告する', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockGetSession.mockResolvedValue({
+      user: { id: 'u1', email: 'u@example.com', name: 'U', roles: ['livetalk-user'] },
+      expires: new Date(Date.now() + 60_000).toISOString(),
+    });
+    put.mockRejectedValueOnce(new Error('db down'));
+    mockGetRepo.mockReturnValue({ put } as never);
+
+    const res = await POST(createRequest({ subscription: validSubscription }));
+
+    expect(res.status).toBe(500);
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'livetalk',
+        title: 'Web API: Push 購読登録エラー',
+        message: 'db down',
+      })
+    );
+    jest.restoreAllMocks();
   });
 });

@@ -31,6 +31,8 @@ export class DynamoDBStack extends cdk.Stack {
         pointInTimeRecoveryEnabled: true,
       },
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      // バッチジョブは作成から 7 日後に失効させるため、mapper が書く TTL 属性を有効にする
+      timeToLiveAttribute: 'TTL',
       removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
 

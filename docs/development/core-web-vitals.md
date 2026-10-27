@@ -48,10 +48,7 @@ Portal サイトの Core Web Vitals を Lighthouse / PageSpeed Insights で測�
 ### shared libs のビルド（必須）
 
 ```bash
-npm run build --workspace=@nagiyu/common
-npm run build --workspace=@nagiyu/browser
-npm run build --workspace=@nagiyu/ui
-npm run build --workspace=@nagiyu/nextjs
+npm run build:libs
 ```
 
 ### dev サーバー起動

@@ -1,4 +1,6 @@
+import { EntityNotFoundError, InMemorySingleTableStore } from '@nagiyu/aws';
 import { ListService } from '../../../src/libs/list.js';
+import { InMemoryListRepository } from '../../../src/repositories/list/in-memory-list-repository.js';
 import type { ListRepository } from '../../../src/repositories/list/list-repository.interface.js';
 import type { TodoRepository } from '../../../src/repositories/todo/todo-repository.interface.js';
 import type { PersonalList } from '../../../src/types/index.js';
@@ -37,8 +39,8 @@ describe('ListService', () => {
     listRepository.createPersonalList.mockImplementation(async (input) => {
       return {
         ...input,
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       };
     });
 
@@ -75,8 +77,8 @@ describe('ListService', () => {
         userId: 'user-1',
         name: `リスト${index + 1}`,
         isDefault: index === 0,
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       }))
     );
 
@@ -93,8 +95,8 @@ describe('ListService', () => {
         userId: 'user-1',
         name: 'デフォルト',
         isDefault: true,
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       },
     ];
     listRepository.getPersonalListsByUserId.mockResolvedValue(lists);
@@ -115,8 +117,8 @@ describe('ListService', () => {
       userId: 'user-1',
       name: 'デフォルト',
       isDefault: true,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     };
     listRepository.getPersonalListById.mockResolvedValue(list);
 
@@ -137,8 +139,8 @@ describe('ListService', () => {
       userId: 'user-1',
       name: 'デフォルト',
       isDefault: true,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     await expect(listService.deletePersonalList('user-1', 'list-1')).rejects.toThrow(
@@ -150,7 +152,7 @@ describe('ListService', () => {
 
   it('存在しないリスト更新エラーを統一メッセージに変換する', async () => {
     listRepository.updatePersonalList.mockRejectedValue(
-      new Error('指定された個人リストは存在しません')
+      new EntityNotFoundError('PersonalList', 'user-1/list-404')
     );
 
     await expect(listService.updatePersonalList('user-1', 'list-404', '更新名')).rejects.toThrow(
@@ -164,11 +166,11 @@ describe('ListService', () => {
       userId: 'user-1',
       name: '買い物',
       isDefault: false,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     listRepository.deletePersonalList.mockRejectedValue(
-      new Error('指定された個人リストは存在しません')
+      new EntityNotFoundError('PersonalList', 'user-1/list-404')
     );
 
     await expect(listService.deletePersonalList('user-1', 'list-1')).rejects.toThrow(
@@ -182,8 +184,8 @@ describe('ListService', () => {
       userId: 'user-1',
       name: '買い物',
       isDefault: false,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     listRepository.deletePersonalList.mockRejectedValue(new Error('DBエラー'));
 
@@ -204,8 +206,8 @@ describe('ListService', () => {
       userId: 'user-1',
       name: '買い物',
       isDefault: false,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     await expect(listService.deletePersonalList('user-1', 'list-1')).resolves.toBeUndefined();
@@ -218,8 +220,8 @@ describe('ListService', () => {
       userId: 'user-1',
       name: '買い物',
       isDefault: false,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     await listService.deletePersonalList('user-1', 'list-1');
@@ -237,8 +239,8 @@ describe('ListService', () => {
       userId: 'user-1',
       name: '買い物',
       isDefault: false,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     todoRepository.deleteByListId.mockRejectedValue(new Error('DBエラー'));
 
@@ -262,5 +264,57 @@ describe('ListService', () => {
       '個人リストが見つかりません'
     );
     expect(todoRepository.deleteByListId).not.toHaveBeenCalled();
+  });
+
+  it('メッセージだけが同じ素のエラーは不在として扱わない', async () => {
+    listRepository.updatePersonalList.mockRejectedValue(new Error('個人リストが見つかりません'));
+
+    await expect(listService.updatePersonalList('user-1', 'list-1', '更新名')).rejects.toThrow(
+      '個人リストが見つかりません'
+    );
+    await expect(
+      listService.updatePersonalList('user-1', 'list-1', '更新名')
+    ).rejects.not.toBeInstanceOf(EntityNotFoundError);
+  });
+
+  describe('InMemory リポジトリ経由', () => {
+    let realService: ListService;
+    let realListRepository: InMemoryListRepository;
+
+    beforeEach(() => {
+      realListRepository = new InMemoryListRepository(new InMemorySingleTableStore());
+      realService = new ListService(realListRepository, todoRepository);
+    });
+
+    it('デフォルトリストは、リポジトリが検査しなくても ListService 経由では削除できない', async () => {
+      await realListRepository.createPersonalList({
+        listId: 'list-default',
+        userId: 'user-1',
+        name: 'デフォルト',
+        isDefault: true,
+      });
+
+      await expect(realService.deletePersonalList('user-1', 'list-default')).rejects.toThrow(
+        'デフォルトリストは削除できません'
+      );
+      await expect(
+        realListRepository.getPersonalListById('user-1', 'list-default')
+      ).resolves.not.toBeNull();
+      expect(todoRepository.deleteByListId).not.toHaveBeenCalled();
+    });
+
+    it('存在しない個人リストの更新を業務エラーに変換する', async () => {
+      await expect(realService.updatePersonalList('user-1', 'list-404', '更新名')).rejects.toThrow(
+        '個人リストが見つかりません'
+      );
+    });
+
+    it('通常の個人リストを削除できる', async () => {
+      const created = await realService.createPersonalList('user-1', '買い物');
+
+      await realService.deletePersonalList('user-1', created.listId);
+
+      await expect(realService.getPersonalListsByUserId('user-1')).resolves.toEqual([]);
+    });
   });
 });

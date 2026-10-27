@@ -1,10 +1,4 @@
-import {
-  REMOVE_ATTRIBUTE,
-  buildUpdateExpression,
-  conditionalPut,
-  conditionalUpdate,
-  conditionalDelete,
-} from '../../../src/dynamodb/helpers.js';
+import { REMOVE_ATTRIBUTE, buildUpdateExpression } from '../../../src/dynamodb/helpers.js';
 
 describe('helpers', () => {
   describe('buildUpdateExpression', () => {
@@ -109,105 +103,6 @@ describe('helpers', () => {
     it('配列やオブジェクトの値もそのまま渡す', () => {
       const result = buildUpdateExpression({ Arr: [1, 2], Obj: { x: 1 } });
       expect(result?.ExpressionAttributeValues).toEqual({ ':v0': [1, 2], ':v1': { x: 1 } });
-    });
-  });
-
-  describe('conditionalPut', () => {
-    it('should add attribute_not_exists condition', () => {
-      const input = {
-        TableName: 'MyTable',
-        Item: { PK: 'USER#123', SK: 'PROFILE', Name: 'John' },
-      };
-
-      const result = conditionalPut(input);
-
-      expect(result).toEqual({
-        TableName: 'MyTable',
-        Item: { PK: 'USER#123', SK: 'PROFILE', Name: 'John' },
-        ConditionExpression: 'attribute_not_exists(PK)',
-      });
-    });
-
-    it('should preserve existing properties', () => {
-      const input = {
-        TableName: 'MyTable',
-        Item: { PK: 'USER#123', SK: 'PROFILE' },
-        ReturnValues: 'ALL_OLD' as const,
-      };
-
-      const result = conditionalPut(input);
-
-      expect(result.ReturnValues).toBe('ALL_OLD');
-      expect(result.ConditionExpression).toBe('attribute_not_exists(PK)');
-    });
-  });
-
-  describe('conditionalUpdate', () => {
-    it('should add attribute_exists condition', () => {
-      const input = {
-        TableName: 'MyTable',
-        Key: { PK: 'USER#123', SK: 'PROFILE' },
-        UpdateExpression: 'SET #name = :name',
-        ExpressionAttributeNames: { '#name': 'Name' },
-        ExpressionAttributeValues: { ':name': 'John' },
-      };
-
-      const result = conditionalUpdate(input);
-
-      expect(result).toEqual({
-        TableName: 'MyTable',
-        Key: { PK: 'USER#123', SK: 'PROFILE' },
-        UpdateExpression: 'SET #name = :name',
-        ExpressionAttributeNames: { '#name': 'Name' },
-        ExpressionAttributeValues: { ':name': 'John' },
-        ConditionExpression: 'attribute_exists(PK)',
-      });
-    });
-
-    it('should preserve existing properties', () => {
-      const input = {
-        TableName: 'MyTable',
-        Key: { PK: 'USER#123', SK: 'PROFILE' },
-        UpdateExpression: 'SET #name = :name',
-        ExpressionAttributeNames: { '#name': 'Name' },
-        ExpressionAttributeValues: { ':name': 'John' },
-        ReturnValues: 'ALL_NEW' as const,
-      };
-
-      const result = conditionalUpdate(input);
-
-      expect(result.ReturnValues).toBe('ALL_NEW');
-      expect(result.ConditionExpression).toBe('attribute_exists(PK)');
-    });
-  });
-
-  describe('conditionalDelete', () => {
-    it('should add attribute_exists condition', () => {
-      const input = {
-        TableName: 'MyTable',
-        Key: { PK: 'USER#123', SK: 'PROFILE' },
-      };
-
-      const result = conditionalDelete(input);
-
-      expect(result).toEqual({
-        TableName: 'MyTable',
-        Key: { PK: 'USER#123', SK: 'PROFILE' },
-        ConditionExpression: 'attribute_exists(PK)',
-      });
-    });
-
-    it('should preserve existing properties', () => {
-      const input = {
-        TableName: 'MyTable',
-        Key: { PK: 'USER#123', SK: 'PROFILE' },
-        ReturnValues: 'ALL_OLD' as const,
-      };
-
-      const result = conditionalDelete(input);
-
-      expect(result.ReturnValues).toBe('ALL_OLD');
-      expect(result.ConditionExpression).toBe('attribute_exists(PK)');
     });
   });
 });

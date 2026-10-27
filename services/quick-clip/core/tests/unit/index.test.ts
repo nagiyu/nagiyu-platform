@@ -1,4 +1,10 @@
 import {
+  BATCH_JOB_ENV_NAMES,
+  DEFAULT_EMOTION_FILTER,
+  EMOTION_FILTERS,
+  readBatchJobInput,
+  toBatchJobEnvironment,
+  type QuickClipBatchJobInput,
   HighlightAggregationService,
   HighlightService,
   JobService,
@@ -28,6 +34,19 @@ import {
 } from '../../src/index.js';
 
 describe('quick-clip core exports', () => {
+  it('Batch ジョブ入力の定義がエクスポートされている', () => {
+    const input: QuickClipBatchJobInput = {
+      command: 'extract',
+      jobId: 'job-1',
+      emotionFilter: DEFAULT_EMOTION_FILTER,
+    };
+
+    expect(BATCH_JOB_ENV_NAMES.JOB_ID).toBe('JOB_ID');
+    expect(EMOTION_FILTERS).toContain(input.emotionFilter);
+    expect(toBatchJobEnvironment(input)).toHaveLength(3);
+    expect(readBatchJobInput({ BATCH_COMMAND: 'extract', JOB_ID: 'job-1' })).toEqual(input);
+  });
+
   it('主要なサービスがエクスポートされている', () => {
     expect(JobService).toBeDefined();
     expect(HighlightService).toBeDefined();

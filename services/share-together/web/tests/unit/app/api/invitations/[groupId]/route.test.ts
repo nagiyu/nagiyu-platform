@@ -31,6 +31,7 @@ jest.mock('@nagiyu/share-together-core', () => {
     ERROR_MESSAGES: {
       INVITATION_NOT_FOUND: actualCore.ERROR_MESSAGES.INVITATION_NOT_FOUND,
       INVITATION_ALREADY_RESPONDED: actualCore.ERROR_MESSAGES.INVITATION_ALREADY_RESPONDED,
+      MEMBER_LIMIT_EXCEEDED: actualCore.ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED,
     },
   };
 });
@@ -72,6 +73,12 @@ const mockRespondToInvitation = respondToInvitation as jest.MockedFunction<
   typeof respondToInvitation
 >;
 type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
+
+import {
+  createRequestWithJson,
+  MALFORMED_BODY_CASES,
+  type InvalidBodyCase,
+} from '../../invalidBodyCases';
 
 describe('PUT /api/invitations/[groupId]', () => {
   beforeEach(() => {
@@ -134,10 +141,10 @@ describe('PUT /api/invitations/[groupId]', () => {
       role: 'MEMBER',
       status: 'ACCEPTED',
       invitedBy: 'owner-1',
-      invitedAt: '2026-03-01T00:00:00.000Z',
-      respondedAt: '2026-03-02T00:00:00.000Z',
-      createdAt: '2026-03-01T00:00:00.000Z',
-      updatedAt: '2026-03-02T00:00:00.000Z',
+      invitedAt: 1772323200000,
+      respondedAt: 1772409600000,
+      createdAt: 1772323200000,
+      updatedAt: 1772409600000,
     });
 
     const request = {
@@ -151,6 +158,8 @@ describe('PUT /api/invitations/[groupId]', () => {
         groupId: 'group-1',
         userId: 'user-1',
         response: 'ACCEPT',
+        // 応答日時は ISO 文字列ではなくエポックミリ秒で渡す
+        respondedAt: expect.any(Number),
       }),
       expect.any(Object)
     );
@@ -158,7 +167,7 @@ describe('PUT /api/invitations/[groupId]', () => {
       data: {
         groupId: 'group-1',
         status: 'ACCEPTED',
-        updatedAt: '2026-03-02T00:00:00.000Z',
+        updatedAt: 1772409600000,
       },
     });
   });
@@ -193,10 +202,10 @@ describe('PUT /api/invitations/[groupId]', () => {
       role: 'MEMBER',
       status: 'REJECTED',
       invitedBy: 'owner-1',
-      invitedAt: '2026-03-01T00:00:00.000Z',
-      respondedAt: '2026-03-02T00:00:00.000Z',
-      createdAt: '2026-03-01T00:00:00.000Z',
-      updatedAt: '2026-03-02T00:00:00.000Z',
+      invitedAt: 1772323200000,
+      respondedAt: 1772409600000,
+      createdAt: 1772323200000,
+      updatedAt: 1772409600000,
     });
 
     const request = {
@@ -209,7 +218,7 @@ describe('PUT /api/invitations/[groupId]', () => {
       data: {
         groupId: 'group-1',
         status: 'REJECTED',
-        updatedAt: '2026-03-02T00:00:00.000Z',
+        updatedAt: 1772409600000,
       },
     });
   });
@@ -234,6 +243,27 @@ describe('PUT /api/invitations/[groupId]', () => {
     });
   });
 
+  it('グループが上限人数に達している場合は409レスポンスを返す', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrUnauthorized);
+    mockRespondToInvitation.mockRejectedValue(
+      new Error(GROUP_CORE_ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED)
+    );
+
+    const request = {
+      json: jest.fn().mockResolvedValue({ action: 'ACCEPT' }),
+    } as unknown as Request;
+    const response = await PUT(request, { params: Promise.resolve({ groupId: 'group-1' }) });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: 'MEMBER_LIMIT_EXCEEDED',
+      message: 'グループメンバーは最大5名です',
+    });
+    expect(mockReportErrorEvent).not.toHaveBeenCalled();
+  });
+
   it('予期しない例外発生時は500レスポンスを返し reportErrorEvent を呼ぶ', async () => {
     mockGetSessionOrUnauthorized.mockResolvedValue({
       user: { id: 'user-1' },
@@ -249,5 +279,21 @@ describe('PUT /api/invitations/[groupId]', () => {
     expect(mockReportErrorEvent).toHaveBeenCalledWith(
       expect.objectContaining({ serviceId: 'share-together', severity: 'error' })
     );
+  });
+
+  it.each<InvalidBodyCase>([
+    ...MALFORMED_BODY_CASES,
+    ['action が数値', async () => ({ action: 123 })],
+  ])('PUT: リクエストボディが不正な場合 (%s) は400を返す', async (_label, json) => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrUnauthorized);
+
+    const response = await PUT(createRequestWithJson(json), {
+      params: Promise.resolve({ groupId: 'group-1' }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(mockReportErrorEvent).not.toHaveBeenCalled();
   });
 });

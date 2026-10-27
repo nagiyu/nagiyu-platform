@@ -1,19 +1,3 @@
-import type { NextConfig } from 'next';
-import path from 'path';
+import { createNextConfig } from '../../../configs/next.config.base';
 
-const nextConfig: NextConfig = {
-  output: 'standalone', // Lambda デプロイ用
-  outputFileTracingRoot: path.join(__dirname, '../../'), // モノレポルート
-  // Silence Turbopack warning when using webpack config
-  turbopack: {},
-  // Transpile workspace packages
-  transpilePackages: [
-    '@nagiyu/ui',
-    '@nagiyu/browser',
-    '@nagiyu/common',
-    '@nagiyu/nextjs',
-    '@nagiyu/codec-converter-core',
-  ],
-};
-
-export default nextConfig;
+export default createNextConfig(__dirname);

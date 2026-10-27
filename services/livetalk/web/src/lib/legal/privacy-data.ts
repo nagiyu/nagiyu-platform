@@ -5,25 +5,11 @@
  * 施行日: 2026年5月26日
  */
 
-export interface SubContent {
-  subContent: string;
-  subItems?: string[];
-}
-
-export interface PolicyContent {
-  mainContent: string;
-  subContents?: SubContent[];
-  link?: string;
-}
-
-export interface PolicySection {
-  title: string;
-  contents: PolicyContent[];
-}
+import type { LegalSection } from '@nagiyu/ui';
 
 export const LIVETALK_PRIVACY_VERSION = '1.0.0';
 
-export const liveTalkPrivacySections: PolicySection[] = [
+export const liveTalkPrivacySections: LegalSection[] = [
   {
     title: '収集する情報の種類',
     contents: [

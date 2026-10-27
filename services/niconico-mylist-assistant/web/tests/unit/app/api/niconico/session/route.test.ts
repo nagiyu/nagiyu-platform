@@ -56,7 +56,7 @@ const mockDeleteNiconicoSession = deleteNiconicoSession as jest.MockedFunction<
 
 /** 認証済みセッションのモック */
 const MOCK_SESSION = {
-  user: { userId: 'user123', email: 'test@example.com', name: 'テストユーザー', roles: [] },
+  user: { id: 'user123', email: 'test@example.com', name: 'テストユーザー', roles: [] },
   expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
 };
 
@@ -299,5 +299,44 @@ describe('DELETE /api/niconico/session', () => {
 
     const json = await response.json();
     expect(json.error).toBe('SESSION_DELETE_ERROR');
+  });
+});
+
+describe('POST /api/niconico/session の不正なリクエストボディ', () => {
+  it.each([
+    ['空の本文', ''],
+    ['null', 'null'],
+    ['配列', '["some-session"]'],
+    ['文字列', '"some-session"'],
+  ])('本文が %s の場合は 400 を返し、保存しない', async (_label, rawBody) => {
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+
+    const request = new NextRequest('http://localhost/api/niconico/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: rawBody,
+    });
+    const response = await POST(request);
+    expect(response.status).toBe(400);
+
+    const json = await response.json();
+    expect(json.error).toBe('INVALID_REQUEST_BODY');
+    expect(json.message).toBe('リクエストボディが不正です');
+    expect(mockSaveNiconicoSession).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['配列', ['a']],
+    ['オブジェクト', { a: 1 }],
+    ['真偽値', true],
+  ])('userSession が %s の場合は 400 を返し、保存しない', async (_label, userSession) => {
+    mockGetSession.mockResolvedValue(MOCK_SESSION);
+
+    const response = await POST(makePostRequest({ userSession }));
+    expect(response.status).toBe(400);
+
+    const json = await response.json();
+    expect(json.error).toBe('INVALID_REQUEST');
+    expect(mockSaveNiconicoSession).not.toHaveBeenCalled();
   });
 });

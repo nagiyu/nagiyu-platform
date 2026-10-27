@@ -18,8 +18,8 @@ export function isConsentValid(
   requirements: ConsentRequirements
 ): boolean {
   if (!consents) return false;
-  if (consents.TermsAgreed?.Version !== requirements.termsVersion) return false;
-  if (consents.PrivacyAgreed?.Version !== requirements.privacyVersion) return false;
-  if (consents.AgeVerified?.Value !== true) return false;
+  if (consents.termsAgreed?.version !== requirements.termsVersion) return false;
+  if (consents.privacyAgreed?.version !== requirements.privacyVersion) return false;
+  if (consents.ageVerified?.value !== true) return false;
   return true;
 }

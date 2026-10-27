@@ -7,12 +7,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuth, handleApiError } from '@nagiyu/nextjs';
+import { withAuth } from '@nagiyu/nextjs';
 import {
   createAlertRepository,
   createTickerRepository,
 } from '../../../../../lib/repository-factory';
 import { getSession } from '../../../../../lib/auth';
+import { withApiErrorReporting } from '../../../../../lib/api-error-reporting';
 import { MAX_ALERTS_PER_USER } from '../../../../../lib/constants';
 import type { AlertEntity } from '@nagiyu/stock-tracker-core';
 
@@ -50,39 +51,40 @@ function mapAlertToResponse(
   tickerName: string
 ): AlertResponse {
   const response: AlertResponse = {
-    alertId: alert.AlertID,
-    tickerId: alert.TickerID,
+    alertId: alert.alertId,
+    tickerId: alert.tickerId,
     symbol: tickerSymbol,
     name: tickerName,
-    mode: alert.Mode,
-    frequency: alert.Frequency,
-    conditions: alert.ConditionList,
-    enabled: alert.Enabled,
-    temporary: alert.Temporary,
-    temporaryExpireDate: alert.TemporaryExpireDate,
-    createdAt: new Date(alert.CreatedAt).toISOString(),
-    updatedAt: new Date(alert.UpdatedAt).toISOString(),
+    mode: alert.mode,
+    frequency: alert.frequency,
+    conditions: alert.conditionList,
+    enabled: alert.enabled,
+    temporary: alert.temporary,
+    temporaryExpireDate: alert.temporaryExpireDate,
+    createdAt: new Date(alert.createdAt).toISOString(),
+    updatedAt: new Date(alert.updatedAt).toISOString(),
   };
 
-  if (alert.LogicalOperator) {
-    response.logicalOperator = alert.LogicalOperator;
+  if (alert.logicalOperator) {
+    response.logicalOperator = alert.logicalOperator;
   }
-  if (alert.CustomMessage) {
-    response.customMessage = alert.CustomMessage;
+  if (alert.customMessage) {
+    response.customMessage = alert.customMessage;
   }
 
   return response;
 }
 
-export const GET = withAuth(
-  getSession,
-  'stocks:read',
-  async (
-    session,
-    _request: NextRequest,
-    { params }: { params: Promise<{ tickerId: string }> }
-  ): Promise<NextResponse> => {
-    try {
+export const GET = withApiErrorReporting(
+  'Web API: ティッカー単位のアラート一覧取得エラー',
+  withAuth(
+    getSession,
+    'stocks:read',
+    async (
+      session,
+      _request: NextRequest,
+      { params }: { params: Promise<{ tickerId: string }> }
+    ): Promise<NextResponse> => {
       const { tickerId } = await params;
       if (!tickerId || !tickerId.includes(':')) {
         return NextResponse.json(
@@ -96,13 +98,13 @@ export const GET = withAuth(
 
       const alertRepo = createAlertRepository();
       const tickerRepo = createTickerRepository();
-      const userId = session.user.userId;
+      const userId = session.user.id;
 
       const result = await alertRepo.getByUserId(userId, { limit: MAX_ALERTS_PER_USER });
-      const targetAlerts = result.items.filter((alert) => alert.TickerID === tickerId);
+      const targetAlerts = result.items.filter((alert) => alert.tickerId === tickerId);
       const ticker = await tickerRepo.getById(tickerId);
-      const tickerSymbol = ticker?.Symbol || tickerId.split(':')[1] || '';
-      const tickerName = ticker?.Name || '';
+      const tickerSymbol = ticker?.symbol || tickerId.split(':')[1] || '';
+      const tickerName = ticker?.name || '';
 
       const alerts = targetAlerts.map((alert) =>
         mapAlertToResponse(alert, tickerSymbol, tickerName)
@@ -117,8 +119,6 @@ export const GET = withAuth(
         },
         { status: 200 }
       );
-    } catch (error) {
-      return handleApiError(error);
     }
-  }
+  )
 );

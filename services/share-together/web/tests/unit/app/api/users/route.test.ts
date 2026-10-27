@@ -8,6 +8,7 @@ jest.mock('next/server', () => ({
 }));
 
 jest.mock('@nagiyu/nextjs', () => ({
+  ...jest.requireActual('@nagiyu/nextjs'),
   withAuth:
     (
       authFn: () => Promise<Session | null>,
@@ -27,21 +28,12 @@ jest.mock('@nagiyu/nextjs', () => ({
         };
       };
       const session = await authFn();
-      if (!session || !session.user?.id) {
+      if (!session) {
         return NextResponse.json(
           {
             error: { code: 'UNAUTHORIZED', message: '認証が必要です' },
           },
           { status: 401 }
-        );
-      }
-
-      if (!Array.isArray((session.user as { roles?: unknown }).roles)) {
-        return NextResponse.json(
-          {
-            error: { code: 'INTERNAL_SERVER_ERROR', message: '認証処理に失敗しました' },
-          },
-          { status: 500 }
         );
       }
       return handler(session);
@@ -54,6 +46,7 @@ jest.mock('@/lib/auth/session', () => ({
 
 jest.mock('@nagiyu/aws', () => ({
   getDynamoDBDocumentClient: jest.fn(),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock('@nagiyu/share-together-core', () => ({
@@ -64,7 +57,7 @@ jest.mock('@nagiyu/share-together-core', () => ({
 import { POST } from '@/app/api/users/route';
 import type { Session } from 'next-auth';
 import { getSession } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
 import { createListRepository, createUserRepository } from '@nagiyu/share-together-core';
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
@@ -117,6 +110,20 @@ describe('POST /api/users', () => {
     expect(mockSend).not.toHaveBeenCalled();
   });
 
+  it('セッションのユーザー情報が不足している場合は400レスポンスを返す', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-1', email: 'user@example.com', name: '', roles: [] },
+    } as Awaited<ReturnType<typeof getSession>>);
+
+    const response = await POST();
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual(
+      expect.objectContaining({ error: 'VALIDATION_ERROR' })
+    );
+    expect(mockCreateUserRepository).not.toHaveBeenCalled();
+  });
+
   it('既存ユーザーの場合はプロフィールを更新して返す', async () => {
     mockGetSession.mockResolvedValue({
       user: {
@@ -124,6 +131,7 @@ describe('POST /api/users', () => {
         email: 'updated@example.com',
         name: '更新ユーザー',
         image: 'https://example.com/new.png',
+        roles: [],
       },
     } as Awaited<ReturnType<typeof getSession>>);
     mockGetById.mockResolvedValue({
@@ -132,8 +140,8 @@ describe('POST /api/users', () => {
       name: '更新前ユーザー',
       image: 'https://example.com/old.png',
       defaultListId: 'list-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockUpdateUser.mockResolvedValue({
       userId: 'user-1',
@@ -141,8 +149,8 @@ describe('POST /api/users', () => {
       name: '更新ユーザー',
       image: 'https://example.com/new.png',
       defaultListId: 'list-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-02T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767312000000,
     });
 
     const response = await POST();
@@ -171,6 +179,7 @@ describe('POST /api/users', () => {
         email: 'new@example.com',
         name: '新規ユーザー',
         image: null,
+        roles: [],
       },
     } as Awaited<ReturnType<typeof getSession>>);
     mockGetById.mockResolvedValue(null);
@@ -180,16 +189,16 @@ describe('POST /api/users', () => {
       name: '新規ユーザー',
       image: undefined,
       defaultListId: 'list-99',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockCreatePersonalList.mockResolvedValue({
       listId: 'list-99',
       userId: 'user-new',
       name: 'デフォルトリスト',
       isDefault: true,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     const response = await POST();
@@ -214,5 +223,29 @@ describe('POST /api/users', () => {
         defaultListId: 'list-99',
       }),
     });
+  });
+
+  it('想定外の例外は500レスポンスを返し reportErrorEvent を呼ぶ', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-1', email: 'user@example.com', name: 'ユーザー', roles: [] },
+    } as Awaited<ReturnType<typeof getSession>>);
+    mockGetById.mockRejectedValue(new Error('DB 障害'));
+
+    const response = await POST();
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'INTERNAL_SERVER_ERROR',
+      message: 'サーバーエラーが発生しました',
+    });
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'share-together',
+        severity: 'error',
+        title: 'Web API: ユーザー登録エラー',
+        message: 'DB 障害',
+      })
+    );
   });
 });

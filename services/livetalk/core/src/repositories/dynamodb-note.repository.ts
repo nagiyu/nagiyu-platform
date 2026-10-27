@@ -1,27 +1,24 @@
-import {
-  GetCommand,
-  PutCommand,
-  UpdateCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
+import { type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { logger } from '@nagiyu/common';
 import {
-  isConditionalCheckFailed,
+  DynamoDBEntityStore,
   queryAllItems,
   queryPages,
   toDatabaseError,
-  type DynamoDBItem,
+  type DynamoDBAttributes,
+  type EntityStore,
 } from '@nagiyu/aws';
 import type { CreateNoteInput, NoteEntity, NoteKey } from '../entities/note.entity.js';
 import { NoteMapper } from '../mappers/note.mapper.js';
-import { buildNoteSK, buildNoteSKPrefix, buildUserPK } from '../mappers/keys.js';
+import { buildNoteSKPrefix, buildUserPK } from '../mappers/keys.js';
 import type { NoteRepository } from './note.repository.interface.js';
 
 export class DynamoDBNoteRepository implements NoteRepository {
-  private readonly mapper: NoteMapper;
+  private readonly mapper = new NoteMapper();
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
   private readonly nowMs: () => number;
+  private readonly entityStore: EntityStore<NoteEntity, NoteKey>;
 
   constructor(
     docClient: DynamoDBDocumentClient,
@@ -31,20 +28,12 @@ export class DynamoDBNoteRepository implements NoteRepository {
     this.docClient = docClient;
     this.tableName = tableName;
     this.nowMs = nowMs;
-    this.mapper = new NoteMapper();
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper, { now: nowMs });
   }
 
   public async put(input: CreateNoteInput): Promise<NoteEntity> {
     const now = this.nowMs();
-    const entity: NoteEntity = { ...input, CreatedAt: now, UpdatedAt: now };
-    try {
-      await this.docClient.send(
-        new PutCommand({ TableName: this.tableName, Item: this.mapper.toItem(entity) })
-      );
-      return entity;
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.put({ ...input, createdAt: now, updatedAt: now });
   }
 
   public async list(userId: string, characterId: string, limit = 100): Promise<NoteEntity[]> {
@@ -61,11 +50,12 @@ export class DynamoDBNoteRepository implements NoteRepository {
         ScanIndexForward: false,
         Limit: limit,
       })) {
+        // Limit はページ単位の上限にすぎず、1MB 上限や不正 item のスキップで 1 ページ目が
+        // limit 未満になると次ページへ進むため、件数はアイテム単位で打ち切る。
         for (const raw of page) {
           this.pushMappedEntity(results, raw, userId, characterId);
+          if (results.length >= limit) return results;
         }
-
-        if (results.length >= limit) break;
       }
     } catch (error) {
       throw toDatabaseError(error);
@@ -105,7 +95,7 @@ export class DynamoDBNoteRepository implements NoteRepository {
    */
   private pushMappedEntity(
     results: NoteEntity[],
-    raw: DynamoDBItem,
+    raw: DynamoDBAttributes,
     userId: string,
     characterId: string
   ): void {
@@ -122,17 +112,7 @@ export class DynamoDBNoteRepository implements NoteRepository {
   }
 
   public async get(key: NoteKey): Promise<NoteEntity | null> {
-    const pk = buildUserPK(key.userId);
-    const sk = buildNoteSK(key.characterId, key.noteId);
-    try {
-      const result = await this.docClient.send(
-        new GetCommand({ TableName: this.tableName, Key: { PK: pk, SK: sk } })
-      );
-      if (!result.Item) return null;
-      return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.get(key);
   }
 
   public async listRecent(
@@ -143,30 +123,10 @@ export class DynamoDBNoteRepository implements NoteRepository {
     const { days, limit = 100 } = options;
     const threshold = this.nowMs() - days * 24 * 60 * 60 * 1000;
     const all = await this.list(userId, characterId, limit);
-    return all.filter((note) => note.CreatedAt >= threshold);
+    return all.filter((note) => note.createdAt >= threshold);
   }
 
   public async updateReaction(key: NoteKey, reaction: string): Promise<void> {
-    const pk = buildUserPK(key.userId);
-    const sk = buildNoteSK(key.characterId, key.noteId);
-    const now = this.nowMs();
-
-    try {
-      await this.docClient.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-          ConditionExpression: 'attribute_exists(PK)',
-          UpdateExpression: 'SET Reaction = :reaction, UpdatedAt = :updatedAt',
-          ExpressionAttributeValues: { ':reaction': reaction, ':updatedAt': now },
-        })
-      );
-    } catch (error) {
-      if (isConditionalCheckFailed(error)) {
-        logger.warn('[DynamoDBNoteRepository] updateReaction: 対象ノートが存在しません', { key });
-        return;
-      }
-      throw toDatabaseError(error);
-    }
+    await this.entityStore.update(key, { reaction });
   }
 }

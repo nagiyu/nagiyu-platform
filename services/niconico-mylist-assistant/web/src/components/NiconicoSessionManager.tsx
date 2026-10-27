@@ -11,7 +11,7 @@ import {
   DialogActions,
   Divider,
 } from '@mui/material';
-import { Button, TextField, ErrorAlert, Chip } from '@nagiyu/ui';
+import { Button, TextField, ErrorAlert, Chip, ConfirmDialog } from '@nagiyu/ui';
 import { extractErrorMessage } from '@nagiyu/common';
 import type { NiconicoSessionStatus } from '@/types/mylist';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
@@ -19,7 +19,13 @@ import { ERROR_MESSAGES } from '@/lib/constants/errors';
 interface NiconicoSessionManagerProps {
   /** セッション状態変更時に呼ばれるコールバック */
   onStatusChange?: (status: NiconicoSessionStatus) => void;
+  /** セッション状態の取得に失敗したときに呼ばれるコールバック */
+  onStatusFetchError?: () => void;
 }
+
+/** 削除確認ダイアログの本文。削除すると登録できなくなることを確定前に伝える */
+const DELETE_CONFIRM_DESCRIPTION =
+  'セッションを削除すると、マイリスト登録ができなくなります。再度登録するには、新しい user_session の設定が必要です。';
 
 /**
  * セッションの有効性を Chip / Alert の色と日本語ラベルに変換する。
@@ -88,7 +94,10 @@ function formatDate(epochMs: number | undefined): string {
  * user_session の設定/更新・削除を行う（取得手順は入力欄の注記で案内）。
  * 登録ページ上の独立コンポーネントとして配置する。
  */
-export default function NiconicoSessionManager({ onStatusChange }: NiconicoSessionManagerProps) {
+export default function NiconicoSessionManager({
+  onStatusChange,
+  onStatusFetchError,
+}: NiconicoSessionManagerProps) {
   const [status, setStatus] = useState<NiconicoSessionStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -103,6 +112,8 @@ export default function NiconicoSessionManager({ onStatusChange }: NiconicoSessi
 
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  /** 削除確認ダイアログの開閉状態 */
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   /**
    * セッション状態を取得する
@@ -129,10 +140,12 @@ export default function NiconicoSessionManager({ onStatusChange }: NiconicoSessi
       onStatusChange?.(data);
     } catch (err) {
       setStatusError(err instanceof Error ? err.message : ERROR_MESSAGES.GENERIC_ERROR);
+      // 親が取得失敗を未登録と取り違えないよう、失敗を別経路で通知する
+      onStatusFetchError?.();
     } finally {
       setStatusLoading(false);
     }
-  }, [onStatusChange]);
+  }, [onStatusChange, onStatusFetchError]);
 
   useEffect(() => {
     void fetchStatus();
@@ -147,6 +160,7 @@ export default function NiconicoSessionManager({ onStatusChange }: NiconicoSessi
     setSaveError(null);
     setSaveSuccess(false);
     setDeleteError(null);
+    setDeleteConfirmOpen(false);
     setDialogOpen(true);
   };
 
@@ -160,6 +174,7 @@ export default function NiconicoSessionManager({ onStatusChange }: NiconicoSessi
     setSaveError(null);
     setSaveSuccess(false);
     setDeleteError(null);
+    setDeleteConfirmOpen(false);
   };
 
   /**
@@ -235,6 +250,8 @@ export default function NiconicoSessionManager({ onStatusChange }: NiconicoSessi
       setDeleteError(err instanceof Error ? err.message : ERROR_MESSAGES.GENERIC_ERROR);
     } finally {
       setDeleteLoading(false);
+      // 失敗時のエラーは背後の管理ダイアログに表示するため、確認ダイアログは常に閉じる
+      setDeleteConfirmOpen(false);
     }
   };
 
@@ -313,17 +330,20 @@ export default function NiconicoSessionManager({ onStatusChange }: NiconicoSessi
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 <Alert severity={validityInfo.alertSeverity} sx={{ py: 0.5 }}>
                   {validityInfo.label}
-                  {status.hasSession && status.estimatedExpiresAt != null && (
-                    <Typography component="span" variant="body2" sx={{ ml: 1 }}>
-                      （有効期限の目安：{formatRemainingDays(status.estimatedExpiresAt)}）
-                    </Typography>
-                  )}
+                  {status.hasSession &&
+                    status.validity !== 'invalid' &&
+                    status.estimatedExpiresAt != null && (
+                      <Typography component="span" variant="body2" sx={{ ml: 1 }}>
+                        （有効期限の目安：{formatRemainingDays(status.estimatedExpiresAt)}）
+                      </Typography>
+                    )}
                 </Alert>
 
                 {status.hasSession && status.acquiredAt != null && (
                   <Typography variant="caption" color="text.secondary">
-                    取得日時：{formatDate(status.acquiredAt)} 推定有効期限：
-                    {formatDate(status.estimatedExpiresAt)}
+                    取得日時：{formatDate(status.acquiredAt)}
+                    {status.validity !== 'invalid' &&
+                      ` 推定有効期限：${formatDate(status.estimatedExpiresAt)}`}
                   </Typography>
                 )}
               </Box>
@@ -382,10 +402,9 @@ export default function NiconicoSessionManager({ onStatusChange }: NiconicoSessi
                 <Button
                   variant="outline"
                   color="secondary"
-                  onClick={handleDelete}
-                  loading={deleteLoading}
+                  onClick={() => setDeleteConfirmOpen(true)}
                 >
-                  {deleteLoading ? '削除中...' : 'セッションを削除'}
+                  セッションを削除
                 </Button>
               </Box>
             </>
@@ -407,6 +426,16 @@ export default function NiconicoSessionManager({ onStatusChange }: NiconicoSessi
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        title="セッションを削除しますか？"
+        description={DELETE_CONFIRM_DESCRIPTION}
+        confirmTestId="session-delete-confirm"
+        loading={deleteLoading}
+        onConfirm={() => void handleDelete()}
+        onCancel={() => setDeleteConfirmOpen(false)}
+      />
     </>
   );
 }

@@ -10,7 +10,7 @@
 
 | 環境        | 用途                     | デプロイ元ブランチ          | URL                          |
 | ----------- | ------------------------ | --------------------------- | ---------------------------- |
-| dev (開発)  | 開発・動作確認           | `develop`, `integration/**` | `https://admin-dev.nagiyu.com` |
+| dev (開発)  | 開発・動作確認           | `develop`, `integration/**` | `https://admin.dev.nagiyu.com` |
 | prod (本番) | 本番環境                 | `master`                    | `https://admin.nagiyu.com`   |
 
 ### 1.2 リソース構成
@@ -32,7 +32,7 @@
 | ------------------ | --------------------------------- | ---------------------------------- |
 | Lambda 関数        | `admin-dev`                       | `admin-prod`                       |
 | ECR リポジトリ     | `admin-dev`                       | `admin-prod`                       |
-| CloudFront         | `admin-dev.nagiyu.com`            | `admin.nagiyu.com`                 |
+| CloudFront         | `admin.dev.nagiyu.com`            | `admin.nagiyu.com`                 |
 | CloudWatch Logs    | `/aws/lambda/admin-dev`           | `/aws/lambda/admin-prod`           |
 
 ---
@@ -124,7 +124,7 @@ aws lambda get-function \
     --region us-east-1
 
 # ヘルスチェック
-curl https://admin-dev.nagiyu.com/api/health
+curl https://admin.dev.nagiyu.com/api/health
 ```
 
 **期待される応答**:
@@ -317,7 +317,7 @@ aws lambda update-function-code \
 
 | 環境変数                | 説明                                          | 例                             | 必須 |
 | ----------------------- | --------------------------------------------- | ------------------------------ | ---- |
-| `NEXT_PUBLIC_AUTH_URL`  | Auth サービスの URL                           | `https://auth-dev.nagiyu.com`  | ✅   |
+| `NEXT_PUBLIC_AUTH_URL`  | Auth サービスの URL                           | `https://auth.dev.nagiyu.com`  | ✅   |
 | `JWT_SECRET_KEY`        | JWT 検証用の秘密鍵                            | `<secret-key>`                 | ✅   |
 | `NODE_ENV`              | 実行環境                                      | `production`                   | ✅   |
 | `SKIP_AUTH_CHECK`       | 認証チェックをスキップ（テスト環境のみ）      | `true`                         | ❌   |
@@ -342,7 +342,7 @@ environment: {
 ```bash
 aws lambda update-function-configuration \
     --function-name admin-dev \
-    --environment Variables="{NEXT_PUBLIC_AUTH_URL=https://auth-dev.nagiyu.com}" \
+    --environment Variables="{NEXT_PUBLIC_AUTH_URL=https://auth.dev.nagiyu.com}" \
     --region us-east-1
 ```
 

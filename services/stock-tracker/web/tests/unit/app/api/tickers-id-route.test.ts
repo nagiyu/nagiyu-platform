@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { PUT, DELETE } from '../../../../app/api/tickers/[id]/route';
 import { createTickerRepository } from '../../../../lib/repository-factory';
 import * as awsModule from '@nagiyu/aws';
+import { MALFORMED_BODY_CASES } from './invalidBodyCases';
 
 jest.mock('../../../../lib/repository-factory', () => ({
   createTickerRepository: jest.fn(),
@@ -12,11 +13,10 @@ jest.mock('../../../../lib/auth', () => ({
 }));
 
 jest.mock('@nagiyu/nextjs', () => ({
+  createApiErrorReporting: jest.requireActual('@nagiyu/nextjs').createApiErrorReporting,
+  readJsonObjectBody: jest.requireActual('@nagiyu/nextjs').readJsonObjectBody,
   withAuth: jest.fn((_auth, _permission, handler) => {
-    return async (...args: unknown[]) => handler({ user: { userId: 'test-user' } }, ...args);
-  }),
-  handleApiError: jest.fn((error) => {
-    throw error;
+    return async (...args: unknown[]) => handler({ user: { id: 'test-user' } }, ...args);
   }),
 }));
 
@@ -44,10 +44,107 @@ describe('PUT /api/tickers/[id]', () => {
       headers: { 'content-type': 'application/json' },
     });
 
-    await expect(PUT(undefined as never, request, makeParams('NSDQ:AAPL'))).rejects.toThrow();
+    const response = await PUT(request, makeParams('NSDQ:AAPL'));
+
+    expect(response.status).toBe(500);
     expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ serviceId: 'stock-tracker', severity: 'error' })
+      expect.objectContaining({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: ティッカー更新エラー',
+        message: expect.stringContaining('DynamoDB'),
+      })
     );
+    expect(awsModule.reportErrorEvent).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('PUT /api/tickers/[id] の対象なし', () => {
+  const mockUpdate = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (createTickerRepository as jest.Mock).mockReturnValue({ update: mockUpdate });
+  });
+
+  it('対象のティッカーが存在しない場合は 404 を返し、通報しない', async () => {
+    mockUpdate.mockRejectedValue(new awsModule.EntityNotFoundError('Ticker', 'NSDQ:NOTFOUND'));
+
+    const request = new NextRequest('http://localhost/api/tickers/NSDQ:NOTFOUND', {
+      method: 'PUT',
+      body: JSON.stringify({ name: 'Apple Inc.' }),
+      headers: { 'content-type': 'application/json' },
+    });
+
+    const response = await PUT(request, makeParams('NSDQ:NOTFOUND'));
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body.error).toBe('NOT_FOUND');
+    expect(body.message).toBe('ティッカーが見つかりません');
+    expect(awsModule.reportErrorEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe('PUT /api/tickers/[id] のリクエストボディ検証', () => {
+  const mockUpdate = jest.fn();
+
+  const createRequest = (rawBody: string) =>
+    new NextRequest('http://localhost/api/tickers/NSDQ:AAPL', {
+      method: 'PUT',
+      body: rawBody,
+      headers: { 'content-type': 'application/json' },
+    });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (createTickerRepository as jest.Mock).mockReturnValue({ update: mockUpdate });
+  });
+
+  it('name だけをリポジトリへ渡して更新する', async () => {
+    mockUpdate.mockResolvedValue({
+      tickerId: 'NSDQ:AAPL',
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      exchangeId: 'NASDAQ',
+      updatedAt: 1704067200000,
+    });
+
+    const response = await PUT(
+      createRequest(JSON.stringify({ name: 'Apple Inc.', exchangeId: 'OTHER', symbol: 'X' })),
+      makeParams('NSDQ:AAPL')
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledWith('NSDQ:AAPL', { name: 'Apple Inc.' });
+  });
+
+  it('更新内容がない場合はバリデーションの指摘を 400 で返す', async () => {
+    const response = await PUT(createRequest('{}'), makeParams('NSDQ:AAPL'));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.message).toBe('更新する内容を指定してください');
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ...MALFORMED_BODY_CASES,
+    ['name が数値', JSON.stringify({ name: 1 })],
+    ['name が null', JSON.stringify({ name: null })],
+  ])('異常系: %s の場合は 400 を返し、下流を呼ばず通報もしない', async (_label, rawBody) => {
+    const response = await PUT(createRequest(rawBody), makeParams('NSDQ:AAPL'));
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe('INVALID_REQUEST');
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(awsModule.reportErrorEvent).not.toHaveBeenCalled();
+  });
+
+  it('壊れた JSON の場合は専用のメッセージを返す', async () => {
+    const response = await PUT(createRequest('{"name":'), makeParams('NSDQ:AAPL'));
+
+    expect((await response.json()).message).toBe('リクエストボディが不正です');
   });
 });
 
@@ -66,9 +163,48 @@ describe('DELETE /api/tickers/[id]', () => {
       method: 'DELETE',
     });
 
-    await expect(DELETE(undefined as never, request, makeParams('NSDQ:AAPL'))).rejects.toThrow();
+    const response = await DELETE(request, makeParams('NSDQ:AAPL'));
+
+    expect(response.status).toBe(500);
     expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ serviceId: 'stock-tracker', severity: 'error' })
+      expect.objectContaining({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: ティッカー削除エラー',
+        message: expect.stringContaining('DynamoDB'),
+      })
     );
+    expect(awsModule.reportErrorEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it('ティッカーを削除できる', async () => {
+    mockDelete.mockResolvedValue(undefined);
+
+    const request = new NextRequest('http://localhost/api/tickers/NSDQ:AAPL', {
+      method: 'DELETE',
+    });
+
+    const response = await DELETE(request, makeParams('NSDQ:AAPL'));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ success: true, deletedTickerId: 'NSDQ:AAPL' });
+    expect(mockDelete).toHaveBeenCalledWith('NSDQ:AAPL');
+  });
+
+  it('対象のティッカーが存在しない場合は 404 を返し、通報しない', async () => {
+    mockDelete.mockRejectedValue(new awsModule.EntityNotFoundError('Ticker', 'NSDQ:NOTFOUND'));
+
+    const request = new NextRequest('http://localhost/api/tickers/NSDQ:NOTFOUND', {
+      method: 'DELETE',
+    });
+
+    const response = await DELETE(request, makeParams('NSDQ:NOTFOUND'));
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body.error).toBe('NOT_FOUND');
+    expect(body.message).toBe('ティッカーが見つかりません');
+    expect(awsModule.reportErrorEvent).not.toHaveBeenCalled();
   });
 });

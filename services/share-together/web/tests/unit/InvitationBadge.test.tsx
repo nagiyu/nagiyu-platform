@@ -1,6 +1,8 @@
 import '@testing-library/jest-dom';
 import { render, screen, waitFor } from '@testing-library/react';
+import { act } from '@testing-library/react';
 import { InvitationBadge } from '@/components/InvitationBadge';
+import { INVITATIONS_CHANGED_EVENT, notifyInvitationsChanged } from '@/lib/invitation-events';
 
 describe('InvitationBadge', () => {
   let consoleErrorSpy: jest.SpyInstance;
@@ -33,6 +35,41 @@ describe('InvitationBadge', () => {
       expect(screen.getByText('2')).toBeInTheDocument();
     });
     expect(global.fetch).toHaveBeenCalledWith('/api/invitations');
+  });
+
+  it('招待数の変更通知を受けると招待一覧を取り直してバッジを更新する', async () => {
+    render(<InvitationBadge />);
+    await waitFor(() => {
+      expect(screen.getByText('2')).toBeInTheDocument();
+    });
+
+    global.fetch = jest.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: async () => ({ data: { invitations: [{ groupId: 'group-2' }] } }),
+      } as Response)
+    ) as jest.Mock;
+    act(() => {
+      notifyInvitationsChanged();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('1')).toBeInTheDocument();
+    });
+    expect(global.fetch).toHaveBeenCalledWith('/api/invitations');
+  });
+
+  it('アンマウント後は変更通知を受けても取得しない', async () => {
+    const { unmount } = render(<InvitationBadge />);
+    await waitFor(() => {
+      expect(screen.getByText('2')).toBeInTheDocument();
+    });
+    unmount();
+    (global.fetch as jest.Mock).mockClear();
+
+    window.dispatchEvent(new Event(INVITATIONS_CHANGED_EVENT));
+
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it('API取得に失敗した場合はエラーログを出力する', async () => {

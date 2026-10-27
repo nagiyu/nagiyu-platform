@@ -1,4 +1,5 @@
-import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { EntityNotFoundError } from '@nagiyu/aws';
 import { DynamoDBStudyTopicRepository } from '../../../src/repositories/dynamodb-study-topic.repository.js';
 
 const TABLE = 'nagiyu-livetalk-test';
@@ -36,37 +37,40 @@ describe('DynamoDBStudyTopicRepository', () => {
       const repo = makeRepo(mockSend);
 
       const entity = await repo.put({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'tp1',
-        Topic: 'モンスターハンター',
-        Priority: 10,
-        Status: 'pending',
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'tp1',
+        topic: 'モンスターハンター',
+        priority: 10,
+        status: 'pending',
       });
 
       expect(mockSend).toHaveBeenCalledTimes(1);
-      expect(entity.UserID).toBe('u1');
-      expect(entity.TopicID).toBe('tp1');
-      expect(entity.Status).toBe('pending');
-      expect(entity.CreatedAt).toBe(FIXED_NOW);
+      expect(entity.userId).toBe('u1');
+      expect(entity.topicId).toBe('tp1');
+      expect(entity.status).toBe('pending');
+      expect(entity.createdAt).toBe(FIXED_NOW);
     });
 
-    it('TTL 付きで保存できる', async () => {
+    it('expiresAt を TTL 属性のエポック秒で保存できる', async () => {
       const mockSend = jest.fn().mockResolvedValue({});
       const repo = makeRepo(mockSend);
-      const ttl = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
+      const expiresAt = FIXED_NOW + 30 * 24 * 60 * 60 * 1000;
 
       const entity = await repo.put({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'tp1',
-        Topic: 'テスト',
-        Priority: 5,
-        Status: 'pending',
-        Ttl: ttl,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'tp1',
+        topic: 'テスト',
+        priority: 5,
+        status: 'pending',
+        expiresAt,
       });
 
-      expect(entity.Ttl).toBe(ttl);
+      expect(entity.expiresAt).toBe(expiresAt);
+      const item = (mockSend.mock.calls[0][0] as PutCommand).input.Item;
+      expect(item?.TTL).toBe(Math.floor(expiresAt / 1000));
+      expect(item).not.toHaveProperty('Ttl');
     });
 
     it('DynamoDB エラー → DatabaseError', async () => {
@@ -75,18 +79,28 @@ describe('DynamoDBStudyTopicRepository', () => {
 
       await expect(
         repo.put({
-          UserID: 'u1',
-          CharacterID: 'hiyori',
-          TopicID: 'tp1',
-          Topic: 'テスト',
-          Priority: 1,
-          Status: 'pending',
+          userId: 'u1',
+          characterId: 'hiyori',
+          topicId: 'tp1',
+          topic: 'テスト',
+          priority: 1,
+          status: 'pending',
         })
       ).rejects.toMatchObject({ name: 'DatabaseError' });
     });
   });
 
   describe('listByStatus()', () => {
+    it('旧属性名 Ttl だけで保存された Item も読める', async () => {
+      const mockSend = jest
+        .fn()
+        .mockResolvedValue({ Items: [makeItemRaw({ Ttl: 1_700_086_400 })] });
+      const repo = makeRepo(mockSend);
+
+      const items = await repo.listByStatus('u1', 'hiyori');
+      expect(items[0].expiresAt).toBe(1_700_086_400_000);
+    });
+
     it('全件取得（status 未指定）', async () => {
       const mockSend = jest.fn().mockResolvedValue({
         Items: [
@@ -111,7 +125,7 @@ describe('DynamoDBStudyTopicRepository', () => {
 
       const items = await repo.listByStatus('u1', 'hiyori', 'pending');
       expect(items).toHaveLength(1);
-      expect(items[0].Status).toBe('pending');
+      expect(items[0].status).toBe('pending');
     });
 
     it('Priority 降順でソートされる', async () => {
@@ -124,7 +138,7 @@ describe('DynamoDBStudyTopicRepository', () => {
       const repo = makeRepo(mockSend);
 
       const items = await repo.listByStatus('u1', 'hiyori');
-      expect(items[0].Priority).toBe(10);
+      expect(items[0].priority).toBe(10);
     });
 
     it('ページネーション（LastEvaluatedKey）を処理する', async () => {
@@ -169,33 +183,76 @@ describe('DynamoDBStudyTopicRepository', () => {
       const repo = makeRepo(mockSend);
 
       const result = await repo.updateStatus({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'tp1',
-        Status: 'done',
-        Priority: 10,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'tp1',
+        status: 'done',
+        priority: 10,
       });
 
       expect(mockSend).toHaveBeenCalledTimes(1);
-      expect(result.Status).toBe('done');
+      expect(result.status).toBe('done');
     });
 
-    it('TTL 付きで更新できる', async () => {
-      const ttl = Math.floor(Date.now() / 1000) + 86400;
-      const updatedRaw = makeItemRaw({ Status: 'done', Ttl: ttl });
+    it('expiresAt を渡すと TTL 属性のエポック秒で更新し、旧属性名 Ttl を削除する', async () => {
+      const expiresAt = FIXED_NOW + 86_400_000;
+      const updatedRaw = makeItemRaw({ Status: 'done', TTL: Math.floor(expiresAt / 1000) });
       const mockSend = jest.fn().mockResolvedValue({ Attributes: updatedRaw });
       const repo = makeRepo(mockSend);
 
       const result = await repo.updateStatus({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'tp1',
-        Status: 'done',
-        Priority: 10,
-        Ttl: ttl,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'tp1',
+        status: 'done',
+        priority: 10,
+        expiresAt,
       });
 
-      expect(result.Ttl).toBe(ttl);
+      expect(result.expiresAt).toBe(Math.floor(expiresAt / 1000) * 1000);
+      const input = (mockSend.mock.calls[0][0] as UpdateCommand).input;
+      expect(input.UpdateExpression).toMatch(/SET .*REMOVE /);
+      expect(Object.values(input.ExpressionAttributeNames ?? {})).toEqual(
+        expect.arrayContaining(['TTL', 'Ttl'])
+      );
+      expect(Object.values(input.ExpressionAttributeValues ?? {})).toContain(
+        Math.floor(expiresAt / 1000)
+      );
+    });
+
+    it('expiresAt を渡さなければ TTL 属性に触れない', async () => {
+      const mockSend = jest.fn().mockResolvedValue({ Attributes: makeItemRaw({ Status: 'done' }) });
+      const repo = makeRepo(mockSend);
+
+      await repo.updateStatus({
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'tp1',
+        status: 'done',
+        priority: 10,
+      });
+
+      const input = (mockSend.mock.calls[0][0] as UpdateCommand).input;
+      expect(Object.values(input.ExpressionAttributeNames ?? {})).not.toContain('TTL');
+    });
+
+    it('対象が存在しない場合は EntityNotFoundError を投げる', async () => {
+      const mockSend = jest.fn().mockRejectedValue(
+        Object.assign(new Error('conditional check failed'), {
+          name: 'ConditionalCheckFailedException',
+        })
+      );
+      const repo = makeRepo(mockSend);
+
+      await expect(
+        repo.updateStatus({
+          userId: 'u1',
+          characterId: 'hiyori',
+          topicId: 'missing',
+          status: 'done',
+          priority: 1,
+        })
+      ).rejects.toBeInstanceOf(EntityNotFoundError);
     });
 
     it('DynamoDB エラー → DatabaseError', async () => {
@@ -204,11 +261,11 @@ describe('DynamoDBStudyTopicRepository', () => {
 
       await expect(
         repo.updateStatus({
-          UserID: 'u1',
-          CharacterID: 'hiyori',
-          TopicID: 'tp1',
-          Status: 'done',
-          Priority: 1,
+          userId: 'u1',
+          characterId: 'hiyori',
+          topicId: 'tp1',
+          status: 'done',
+          priority: 1,
         })
       ).rejects.toMatchObject({ name: 'DatabaseError' });
     });
@@ -221,7 +278,7 @@ describe('DynamoDBStudyTopicRepository', () => {
 
       const found = await repo.findPendingByTopic('u1', 'hiyori', 'モンスターハンター');
       expect(found).not.toBeNull();
-      expect(found!.TopicID).toBe('tp1');
+      expect(found!.topicId).toBe('tp1');
     });
 
     it('in_progress のトピックも見つかる（重複防止対象）', async () => {

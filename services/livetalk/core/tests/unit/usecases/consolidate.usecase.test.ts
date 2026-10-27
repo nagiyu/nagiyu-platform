@@ -148,10 +148,10 @@ describe('consolidate', () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
     tick = fixedNow;
     await messageRepo.create({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Role: 'user',
-      Text: 'コーヒーが好き',
+      userId: 'u1',
+      characterId: 'hiyori',
+      role: 'user',
+      text: 'コーヒーが好き',
     });
 
     const llmClient = makeLLMClient([makeTopicResult()]);
@@ -170,29 +170,29 @@ describe('consolidate', () => {
 
     const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
     expect(headers).toHaveLength(1);
-    expect(headers[0].Care).toBe(1);
-    expect(headers[0].Subject).toBe('コーヒー');
-    expect(headers[0].Embedding).toEqual([0.5, 0.5]);
+    expect(headers[0].care).toBe(1);
+    expect(headers[0].subject).toBe('コーヒー');
+    expect(headers[0].embedding).toEqual([0.5, 0.5]);
 
-    const selfFacts = await topicRepo.listSelfFacts('u1', 'hiyori', headers[0].TopicID);
+    const selfFacts = await topicRepo.listSelfFacts('u1', 'hiyori', headers[0].topicId);
     expect(selfFacts).toHaveLength(1);
-    expect(selfFacts[0].Text).toBe('ユーザーは猫を飼っている');
+    expect(selfFacts[0].text).toBe('ユーザーは猫を飼っている');
 
-    const webFacts = await topicRepo.listWebFacts('u1', 'hiyori', headers[0].TopicID);
+    const webFacts = await topicRepo.listWebFacts('u1', 'hiyori', headers[0].topicId);
     expect(webFacts).toHaveLength(1);
-    expect(webFacts[0].Text).toBe('コーヒーには覚醒作用がある');
+    expect(webFacts[0].text).toBe('コーヒーには覚醒作用がある');
   });
 
   it('新規 Topic で WEB fact only（SELF なし）の fold は care=0 になる（自発リサーチ由来では上げない）', async () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
     tick = fixedNow;
     await webRawRepo.put({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Query: 'コーヒー 効能',
-      RawText: 'コーヒーには覚醒作用がある',
-      SourceUrls: ['https://example.com'],
-      Origin: 'auto',
+      userId: 'u1',
+      characterId: 'hiyori',
+      query: 'コーヒー 効能',
+      rawText: 'コーヒーには覚醒作用がある',
+      sourceUrls: ['https://example.com'],
+      origin: 'auto',
     });
 
     const llmClient = makeLLMClient([makeTopicResult({ selfFacts: [] })]);
@@ -211,11 +211,11 @@ describe('consolidate', () => {
 
     const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
     expect(headers).toHaveLength(1);
-    expect(headers[0].Care).toBe(0);
+    expect(headers[0].care).toBe(0);
 
-    const selfFacts = await topicRepo.listSelfFacts('u1', 'hiyori', headers[0].TopicID);
+    const selfFacts = await topicRepo.listSelfFacts('u1', 'hiyori', headers[0].topicId);
     expect(selfFacts).toHaveLength(0);
-    const webFacts = await topicRepo.listWebFacts('u1', 'hiyori', headers[0].TopicID);
+    const webFacts = await topicRepo.listWebFacts('u1', 'hiyori', headers[0].topicId);
     expect(webFacts).toHaveLength(1);
   });
 
@@ -224,22 +224,22 @@ describe('consolidate', () => {
 
     // 候補となる既存 Topic を投入（Embedding は routing 用の固定ベクトルと同じにして必ず候補入りさせる）
     const existing = await topicRepo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'TOPIC-EXISTING',
-      Subject: 'コーヒー',
-      CanonicalSummary: '以前の要約',
-      Category: '飲み物',
-      Care: 3,
-      Embedding: [1, 0],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'TOPIC-EXISTING',
+      subject: 'コーヒー',
+      canonicalSummary: '以前の要約',
+      category: '飲み物',
+      care: 3,
+      embedding: [1, 0],
     });
 
     tick = fixedNow;
     await messageRepo.create({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Role: 'user',
-      Text: '今日もコーヒーを飲んだ',
+      userId: 'u1',
+      characterId: 'hiyori',
+      role: 'user',
+      text: '今日もコーヒーを飲んだ',
     });
 
     const llmClient = makeLLMClient([
@@ -261,34 +261,34 @@ describe('consolidate', () => {
 
     const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
     expect(headers).toHaveLength(1);
-    expect(headers[0].TopicID).toBe('TOPIC-EXISTING');
-    expect(headers[0].Care).toBe(4);
-    expect(headers[0].CanonicalSummary).toBe('更新された要約');
-    expect(headers[0].CreatedAt).toBe(existing.CreatedAt);
+    expect(headers[0].topicId).toBe('TOPIC-EXISTING');
+    expect(headers[0].care).toBe(4);
+    expect(headers[0].canonicalSummary).toBe('更新された要約');
+    expect(headers[0].createdAt).toBe(existing.createdAt);
   });
 
   it('既存 Topic への merge で WEB fact only（SELF なし）の fold は care が据え置きになる', async () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
 
     const existing = await topicRepo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'TOPIC-EXISTING',
-      Subject: 'コーヒー',
-      CanonicalSummary: '以前の要約',
-      Category: '飲み物',
-      Care: 3,
-      Embedding: [1, 0],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'TOPIC-EXISTING',
+      subject: 'コーヒー',
+      canonicalSummary: '以前の要約',
+      category: '飲み物',
+      care: 3,
+      embedding: [1, 0],
     });
 
     tick = fixedNow;
     await webRawRepo.put({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Query: 'コーヒー 効能',
-      RawText: 'コーヒーには覚醒作用がある',
-      SourceUrls: ['https://example.com'],
-      Origin: 'auto',
+      userId: 'u1',
+      characterId: 'hiyori',
+      query: 'コーヒー 効能',
+      rawText: 'コーヒーには覚醒作用がある',
+      sourceUrls: ['https://example.com'],
+      origin: 'auto',
     });
 
     const putTopicSpy = jest.spyOn(topicRepo, 'putTopic');
@@ -316,43 +316,43 @@ describe('consolidate', () => {
 
     const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
     expect(headers).toHaveLength(1);
-    expect(headers[0].TopicID).toBe('TOPIC-EXISTING');
+    expect(headers[0].topicId).toBe('TOPIC-EXISTING');
     // SELF fact を伴わない fold のため care は据え置き（3 のまま）
-    expect(headers[0].Care).toBe(existing.Care);
-    expect(headers[0].CanonicalSummary).toBe('更新された要約（自発リサーチ由来）');
+    expect(headers[0].care).toBe(existing.care);
+    expect(headers[0].canonicalSummary).toBe('更新された要約（自発リサーチ由来）');
 
-    const putCall = putTopicSpy.mock.calls.find((call) => call[0].TopicID === 'TOPIC-EXISTING');
-    expect(putCall?.[0].Care).toBe(existing.Care);
+    const putCall = putTopicSpy.mock.calls.find((call) => call[0].topicId === 'TOPIC-EXISTING');
+    expect(putCall?.[0].care).toBe(existing.care);
   });
 
   it('既存 Topic への merge で複数エントリのうち一部だけ SELF fact を含む fold は care が +1 される（グループ合算判定）', async () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
 
     const existing = await topicRepo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'TOPIC-EXISTING',
-      Subject: 'コーヒー',
-      CanonicalSummary: '以前の要約',
-      Category: '飲み物',
-      Care: 2,
-      Embedding: [1, 0],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'TOPIC-EXISTING',
+      subject: 'コーヒー',
+      canonicalSummary: '以前の要約',
+      category: '飲み物',
+      care: 2,
+      embedding: [1, 0],
     });
 
     tick = fixedNow;
     await messageRepo.create({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Role: 'user',
-      Text: 'コーヒー好きなんだ',
+      userId: 'u1',
+      characterId: 'hiyori',
+      role: 'user',
+      text: 'コーヒー好きなんだ',
     });
     await webRawRepo.put({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Query: 'コーヒー 効能',
-      RawText: 'コーヒーには覚醒作用がある',
-      SourceUrls: ['https://example.com'],
-      Origin: 'auto',
+      userId: 'u1',
+      characterId: 'hiyori',
+      query: 'コーヒー 効能',
+      rawText: 'コーヒーには覚醒作用がある',
+      sourceUrls: ['https://example.com'],
+      origin: 'auto',
     });
 
     const putTopicSpy = jest.spyOn(topicRepo, 'putTopic');
@@ -388,36 +388,36 @@ describe('consolidate', () => {
 
     const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
     expect(headers).toHaveLength(1);
-    expect(headers[0].TopicID).toBe('TOPIC-EXISTING');
+    expect(headers[0].topicId).toBe('TOPIC-EXISTING');
     // グループ合算で SELF fact ありのため care は +1（2 → 3）
-    expect(headers[0].Care).toBe(existing.Care + 1);
+    expect(headers[0].care).toBe(existing.care + 1);
 
     // META の put は 1 グループにつき 1 回（dedup 済み）で、その Care が +1 であること
-    const putCalls = putTopicSpy.mock.calls.filter((call) => call[0].TopicID === 'TOPIC-EXISTING');
+    const putCalls = putTopicSpy.mock.calls.filter((call) => call[0].topicId === 'TOPIC-EXISTING');
     expect(putCalls).toHaveLength(1);
-    expect(putCalls[0][0].Care).toBe(existing.Care + 1);
+    expect(putCalls[0][0].care).toBe(existing.care + 1);
   });
 
   it('同一の既存 targetTopicId を LLM が複数返しても OptimisticLockError にならない（dedup）', async () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
 
     const existing = await topicRepo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'TOPIC-EXISTING',
-      Subject: 'コーヒー',
-      CanonicalSummary: '以前の要約',
-      Category: '飲み物',
-      Care: 3,
-      Embedding: [1, 0],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'TOPIC-EXISTING',
+      subject: 'コーヒー',
+      canonicalSummary: '以前の要約',
+      category: '飲み物',
+      care: 3,
+      embedding: [1, 0],
     });
 
     tick = fixedNow;
     await messageRepo.create({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Role: 'user',
-      Text: '今日もコーヒーを飲んだ。あと豆も買った',
+      userId: 'u1',
+      characterId: 'hiyori',
+      role: 'user',
+      text: '今日もコーヒーを飲んだ。あと豆も買った',
     });
 
     const putTopicSpy = jest.spyOn(topicRepo, 'putTopic');
@@ -455,51 +455,51 @@ describe('consolidate', () => {
     // putTopic は既存 Topic に対して 1 回だけ呼ばれる（2 回目呼び出しで
     // candidateMap 由来の古い UpdatedAt を使ってしまうと OptimisticLockError になる）
     const existingTopicPutCalls = putTopicSpy.mock.calls.filter(
-      (call) => call[0].TopicID === 'TOPIC-EXISTING'
+      (call) => call[0].topicId === 'TOPIC-EXISTING'
     );
     expect(existingTopicPutCalls).toHaveLength(1);
 
     const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
     expect(headers).toHaveLength(1);
-    expect(headers[0].TopicID).toBe('TOPIC-EXISTING');
+    expect(headers[0].topicId).toBe('TOPIC-EXISTING');
     // Care は +1 のみ（2 件分を二重加算しない）
-    expect(headers[0].Care).toBe(existing.Care + 1);
+    expect(headers[0].care).toBe(existing.care + 1);
     // グループ内で最後に出現したエントリの要約が採用される
-    expect(headers[0].CanonicalSummary).toBe('2件目（最終）の要約');
+    expect(headers[0].canonicalSummary).toBe('2件目（最終）の要約');
 
     // 両エントリの selfFacts/webFacts が両方追記される（取りこぼしなし）
     const selfFacts = await topicRepo.listSelfFacts('u1', 'hiyori', 'TOPIC-EXISTING');
     const webFacts = await topicRepo.listWebFacts('u1', 'hiyori', 'TOPIC-EXISTING');
-    expect(selfFacts.map((f) => f.Text).sort()).toEqual(
+    expect(selfFacts.map((f) => f.text).sort()).toEqual(
       ['1件目の自己事実', '2件目の自己事実'].sort()
     );
-    expect(webFacts.map((f) => f.Text).sort()).toEqual(['1件目のWeb事実', '2件目のWeb事実'].sort());
+    expect(webFacts.map((f) => f.text).sort()).toEqual(['1件目のWeb事実', '2件目のWeb事実'].sort());
 
     // カーソルが前進する
     const cursor = await cursorRepo.get('u1', 'hiyori');
-    expect(cursor?.MsgCursor).toBeGreaterThan(0);
+    expect(cursor?.msgCursor).toBeGreaterThan(0);
   });
 
   it('merge 時の expectedUpdatedAt は candidateMap ではなくベーステーブル（getTopic）の現在値を使う', async () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
 
     await topicRepo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'TOPIC-EXISTING',
-      Subject: 'コーヒー',
-      CanonicalSummary: '以前の要約',
-      Category: '飲み物',
-      Care: 3,
-      Embedding: [1, 0],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'TOPIC-EXISTING',
+      subject: 'コーヒー',
+      canonicalSummary: '以前の要約',
+      category: '飲み物',
+      care: 3,
+      embedding: [1, 0],
     });
 
     tick = fixedNow;
     await messageRepo.create({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Role: 'user',
-      Text: '今日もコーヒーを飲んだ',
+      userId: 'u1',
+      characterId: 'hiyori',
+      role: 'user',
+      text: '今日もコーヒーを飲んだ',
     });
 
     const getTopicSpy = jest.spyOn(topicRepo, 'getTopic');
@@ -531,30 +531,30 @@ describe('consolidate', () => {
 
     // getTopic が返した現在値の UpdatedAt が expectedUpdatedAt として使われている
     const getTopicResult = await getTopicSpy.mock.results[0].value;
-    const putCall = putTopicSpy.mock.calls.find((call) => call[0].TopicID === 'TOPIC-EXISTING');
-    expect(putCall?.[1]).toEqual({ expectedUpdatedAt: getTopicResult?.UpdatedAt });
+    const putCall = putTopicSpy.mock.calls.find((call) => call[0].topicId === 'TOPIC-EXISTING');
+    expect(putCall?.[1]).toEqual({ expectedUpdatedAt: getTopicResult?.updatedAt });
   });
 
   it('候補に無い targetTopicId を LLM が返したら新規扱いになる（hallucination 保険）', async () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
 
     await topicRepo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'TOPIC-EXISTING',
-      Subject: 'コーヒー',
-      CanonicalSummary: '以前の要約',
-      Category: '飲み物',
-      Care: 3,
-      Embedding: [1, 0],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'TOPIC-EXISTING',
+      subject: 'コーヒー',
+      canonicalSummary: '以前の要約',
+      category: '飲み物',
+      care: 3,
+      embedding: [1, 0],
     });
 
     tick = fixedNow;
     await messageRepo.create({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Role: 'user',
-      Text: '新しい話題',
+      userId: 'u1',
+      characterId: 'hiyori',
+      role: 'user',
+      text: '新しい話題',
     });
 
     const llmClient = makeLLMClient([
@@ -577,34 +577,34 @@ describe('consolidate', () => {
     const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
     // 既存 1 件 + 新規 1 件 = 2 件（既存はそのまま care=3、新規は care=1）
     expect(headers).toHaveLength(2);
-    const existingHeader = headers.find((h) => h.TopicID === 'TOPIC-EXISTING');
-    expect(existingHeader?.Care).toBe(3);
-    const newHeader = headers.find((h) => h.TopicID !== 'TOPIC-EXISTING');
-    expect(newHeader?.Care).toBe(1);
+    const existingHeader = headers.find((h) => h.topicId === 'TOPIC-EXISTING');
+    expect(existingHeader?.care).toBe(3);
+    const newHeader = headers.find((h) => h.topicId !== 'TOPIC-EXISTING');
+    expect(newHeader?.care).toBe(1);
   });
 
   it('防御的フォールバック（getTopic が null）: WEB fact only の fold は新規 Topic の care=0 になる', async () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
 
     await topicRepo.putTopic({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'TOPIC-EXISTING',
-      Subject: 'コーヒー',
-      CanonicalSummary: '以前の要約',
-      Category: '飲み物',
-      Care: 3,
-      Embedding: [1, 0],
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'TOPIC-EXISTING',
+      subject: 'コーヒー',
+      canonicalSummary: '以前の要約',
+      category: '飲み物',
+      care: 3,
+      embedding: [1, 0],
     });
 
     tick = fixedNow;
     await webRawRepo.put({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Query: 'コーヒー 効能',
-      RawText: 'コーヒーには覚醒作用がある',
-      SourceUrls: ['https://example.com'],
-      Origin: 'auto',
+      userId: 'u1',
+      characterId: 'hiyori',
+      query: 'コーヒー 効能',
+      rawText: 'コーヒーには覚醒作用がある',
+      sourceUrls: ['https://example.com'],
+      origin: 'auto',
     });
 
     // getTopic だけ null を返す（候補一覧には出るがベーステーブルからは消えていた想定）
@@ -634,19 +634,19 @@ describe('consolidate', () => {
 
     // フォールバックで新規 Topic として put される（TOPIC-EXISTING とは別 ID）
     const fallbackPutCall = putTopicSpy.mock.calls.find(
-      (call) => call[0].TopicID !== 'TOPIC-EXISTING'
+      (call) => call[0].topicId !== 'TOPIC-EXISTING'
     );
-    expect(fallbackPutCall?.[0].Care).toBe(0);
+    expect(fallbackPutCall?.[0].care).toBe(0);
   });
 
   it('カーソルはストリーム別に消費分の最大 CreatedAt まで前進する（空ストリームは据え置き）', async () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
 
     tick = fixedNow;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: '1件目' });
+    await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: '1件目' });
     const firstMsgCreatedAt = tick - 1;
     tick += 100;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: '2件目' });
+    await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: '2件目' });
     const secondMsgCreatedAt = tick - 1;
     expect(secondMsgCreatedAt).toBeGreaterThan(firstMsgCreatedAt);
 
@@ -663,9 +663,9 @@ describe('consolidate', () => {
     });
 
     const cursor = await cursorRepo.get('u1', 'hiyori');
-    expect(cursor?.MsgCursor).toBe(secondMsgCreatedAt);
+    expect(cursor?.msgCursor).toBe(secondMsgCreatedAt);
     // WebRaw は 0 件のまま（据え置き。now() へは飛ばない）
-    expect(cursor?.WebrawCursor).toBe(0);
+    expect(cursor?.webrawCursor).toBe(0);
   });
 
   it('WebRaw のみ新着がある場合は WebrawCursor のみ前進し MsgCursor は据え置き', async () => {
@@ -673,12 +673,12 @@ describe('consolidate', () => {
 
     tick = fixedNow;
     await webRawRepo.put({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Query: 'コーヒー 効能',
-      RawText: 'コーヒーには覚醒作用がある',
-      SourceUrls: ['https://example.com'],
-      Origin: 'auto',
+      userId: 'u1',
+      characterId: 'hiyori',
+      query: 'コーヒー 効能',
+      rawText: 'コーヒーには覚醒作用がある',
+      sourceUrls: ['https://example.com'],
+      origin: 'auto',
     });
     const rawCreatedAt = tick - 1;
 
@@ -695,14 +695,14 @@ describe('consolidate', () => {
     });
 
     const cursor = await cursorRepo.get('u1', 'hiyori');
-    expect(cursor?.WebrawCursor).toBe(rawCreatedAt);
-    expect(cursor?.MsgCursor).toBe(0);
+    expect(cursor?.webrawCursor).toBe(rawCreatedAt);
+    expect(cursor?.msgCursor).toBe(0);
   });
 
   it('webFact の NextReview が volatility 別に設定される（stable は undefined）', async () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
     tick = fixedNow;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'テスト' });
+    await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: 'テスト' });
 
     const readAt = fixedNow + 5_000;
     const llmClient = makeLLMClient([
@@ -728,20 +728,20 @@ describe('consolidate', () => {
     });
 
     const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
-    const webFacts = await topicRepo.listWebFacts('u1', 'hiyori', headers[0].TopicID);
-    const byText = new Map(webFacts.map((f) => [f.Text, f]));
+    const webFacts = await topicRepo.listWebFacts('u1', 'hiyori', headers[0].topicId);
+    const byText = new Map(webFacts.map((f) => [f.text, f]));
 
-    expect(byText.get('stable fact')?.NextReview).toBeUndefined();
-    expect(byText.get('low fact')?.NextReview).toBe(readAt + 30 * 24 * 60 * 60 * 1000);
-    expect(byText.get('medium fact')?.NextReview).toBe(readAt + 7 * 24 * 60 * 60 * 1000);
-    expect(byText.get('high fact')?.NextReview).toBe(readAt + 1 * 24 * 60 * 60 * 1000);
-    expect(byText.get('stable fact')?.ObservedAt).toBe(readAt);
+    expect(byText.get('stable fact')?.nextReview).toBeUndefined();
+    expect(byText.get('low fact')?.nextReview).toBe(readAt + 30 * 24 * 60 * 60 * 1000);
+    expect(byText.get('medium fact')?.nextReview).toBe(readAt + 7 * 24 * 60 * 60 * 1000);
+    expect(byText.get('high fact')?.nextReview).toBe(readAt + 1 * 24 * 60 * 60 * 1000);
+    expect(byText.get('stable fact')?.observedAt).toBe(readAt);
   });
 
   it('at-least-once: putSelfFact が失敗すると例外が伝播し、カーソルは前進しない', async () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
     tick = fixedNow;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'テスト' });
+    await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: 'テスト' });
 
     const llmClient = makeLLMClient([makeTopicResult()]);
     const failingTopicRepo = withFailingPutSelfFact(topicRepo);
@@ -767,7 +767,7 @@ describe('consolidate', () => {
     const putSpy = jest.spyOn(cursorRepo, 'put');
 
     tick = fixedNow;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: '1回目' });
+    await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: '1回目' });
 
     const llmClient1 = makeLLMClient([makeTopicResult()]);
     await consolidate('u1', 'hiyori', {
@@ -784,14 +784,14 @@ describe('consolidate', () => {
     // 初回は cursor が存在しないので expectedUpdatedAt: undefined
     expect(putSpy).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({ UserID: 'u1', CharacterID: 'hiyori' }),
+      expect.objectContaining({ userId: 'u1', characterId: 'hiyori' }),
       { expectedUpdatedAt: undefined }
     );
 
     const firstCursor = await cursorRepo.get('u1', 'hiyori');
 
     tick += 1000;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: '2回目' });
+    await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: '2回目' });
 
     const llmClient2 = makeLLMClient([makeTopicResult()]);
     await consolidate('u1', 'hiyori', {
@@ -808,15 +808,15 @@ describe('consolidate', () => {
     // 2 回目は前回の UpdatedAt を expectedUpdatedAt として渡す（楽観ロック）
     expect(putSpy).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ UserID: 'u1', CharacterID: 'hiyori' }),
-      { expectedUpdatedAt: firstCursor?.UpdatedAt }
+      expect.objectContaining({ userId: 'u1', characterId: 'hiyori' }),
+      { expectedUpdatedAt: firstCursor?.updatedAt }
     );
   });
 
   it('完全成功後の再実行は "skipped" になり重複集約しない', async () => {
     const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
     tick = fixedNow;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'テスト' });
+    await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: 'テスト' });
 
     const llmClient1 = makeLLMClient([makeTopicResult()]);
     const outcome1 = await consolidate('u1', 'hiyori', {
@@ -854,10 +854,10 @@ describe('consolidate', () => {
     const longText = 'あ'.repeat(3000) + '末尾マーカー';
     tick = fixedNow;
     await messageRepo.create({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Role: 'user',
-      Text: longText,
+      userId: 'u1',
+      characterId: 'hiyori',
+      role: 'user',
+      text: longText,
     });
 
     const embedCalls: string[] = [];
@@ -890,19 +890,19 @@ describe('consolidate', () => {
     // 上限を超える件数の既存 Topic を、いずれも閾値を超える類似度になるよう投入する
     for (let i = 0; i < TOPIC_ROUTING_MAX_CANDIDATES + 2; i++) {
       await topicRepo.putTopic({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: `TOPIC-${i}`,
-        Subject: `話題${i}`,
-        CanonicalSummary: `要約${i}`,
-        Category: 'その他',
-        Care: 1,
-        Embedding: [1, 0],
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: `TOPIC-${i}`,
+        subject: `話題${i}`,
+        canonicalSummary: `要約${i}`,
+        category: 'その他',
+        care: 1,
+        embedding: [1, 0],
       });
     }
 
     tick = fixedNow;
-    await messageRepo.create({ UserID: 'u1', CharacterID: 'hiyori', Role: 'user', Text: 'テスト' });
+    await messageRepo.create({ userId: 'u1', characterId: 'hiyori', role: 'user', text: 'テスト' });
 
     let capturedUserContent = '';
     const llmClient: ILLMClient = {
@@ -939,14 +939,14 @@ describe('consolidate', () => {
       tick = fixedNow;
       const requestedAt = fixedNow - 3_600_000;
       await webRawRepo.put({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Query: '最新アニメ情報',
-        RawText: '今期は〇〇が人気です',
-        SourceUrls: ['https://example.com'],
-        Origin: 'request',
-        RequestText: '最新アニメ情報を調べて',
-        RequestedAt: requestedAt,
+        userId: 'u1',
+        characterId: 'hiyori',
+        query: '最新アニメ情報',
+        rawText: '今期は〇〇が人気です',
+        sourceUrls: ['https://example.com'],
+        origin: 'request',
+        requestText: '最新アニメ情報を調べて',
+        requestedAt: requestedAt,
       });
 
       // LLM は依頼文をエコーせず、番号（index）だけを返す
@@ -968,26 +968,26 @@ describe('consolidate', () => {
       expect(headers).toHaveLength(1);
       // RequestText/RequestedAt は GSI3 の射影に含まれないため getTopic（ベーステーブル読み）で確認する
       const topic = await topicRepo.getTopic({
-        userId: headers[0].UserID,
-        characterId: headers[0].CharacterID,
-        topicId: headers[0].TopicID,
+        userId: headers[0].userId,
+        characterId: headers[0].characterId,
+        topicId: headers[0].topicId,
       });
-      expect(topic?.RequestText).toBe('最新アニメ情報を調べて');
-      expect(topic?.RequestedAt).toBe(requestedAt);
+      expect(topic?.requestText).toBe('最新アニメ情報を調べて');
+      expect(topic?.requestedAt).toBe(requestedAt);
     });
 
     it('範囲外 index（requestWebRaws は 1 件しかないのに [5] を指す）は無視して依頼フックを付けない', async () => {
       const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
       tick = fixedNow;
       await webRawRepo.put({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Query: '最新アニメ情報',
-        RawText: '今期は〇〇が人気です',
-        SourceUrls: ['https://example.com'],
-        Origin: 'request',
-        RequestText: '最新アニメ情報を調べて',
-        RequestedAt: fixedNow - 3_600_000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        query: '最新アニメ情報',
+        rawText: '今期は〇〇が人気です',
+        sourceUrls: ['https://example.com'],
+        origin: 'request',
+        requestText: '最新アニメ情報を調べて',
+        requestedAt: fixedNow - 3_600_000,
       });
 
       // LLM の捏造・取り違えを想定した範囲外 index
@@ -1007,18 +1007,18 @@ describe('consolidate', () => {
       expect(outcome).toBe('consolidated');
       const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
       expect(headers).toHaveLength(1);
-      expect(headers[0].RequestText).toBeUndefined();
-      expect(headers[0].RequestedAt).toBeUndefined();
+      expect(headers[0].requestText).toBeUndefined();
+      expect(headers[0].requestedAt).toBeUndefined();
     });
 
     it('sourceRequestIndices が空配列なら依頼フックを付けない', async () => {
       const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
       tick = fixedNow;
       await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: 'コーヒーが好き',
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'user',
+        text: 'コーヒーが好き',
       });
 
       const llmClient = makeLLMClient([makeTopicResult({ sourceRequestIndices: [] })]);
@@ -1037,32 +1037,32 @@ describe('consolidate', () => {
       expect(outcome).toBe('consolidated');
       const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
       expect(headers).toHaveLength(1);
-      expect(headers[0].RequestText).toBeUndefined();
-      expect(headers[0].RequestedAt).toBeUndefined();
+      expect(headers[0].requestText).toBeUndefined();
+      expect(headers[0].requestedAt).toBeUndefined();
     });
 
     it('既存 Topic への merge で今回 indices が空の場合、既存の依頼フックを引き継ぐ', async () => {
       const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
 
       const existing = await topicRepo.putTopic({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'TOPIC-EXISTING',
-        Subject: 'コーヒー',
-        CanonicalSummary: '以前の要約',
-        Category: '飲み物',
-        Care: 3,
-        Embedding: [1, 0],
-        RequestText: '前回の依頼文',
-        RequestedAt: fixedNow - 100_000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'TOPIC-EXISTING',
+        subject: 'コーヒー',
+        canonicalSummary: '以前の要約',
+        category: '飲み物',
+        care: 3,
+        embedding: [1, 0],
+        requestText: '前回の依頼文',
+        requestedAt: fixedNow - 100_000,
       });
 
       tick = fixedNow;
       await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: '今日もコーヒーを飲んだ',
+        userId: 'u1',
+        characterId: 'hiyori',
+        role: 'user',
+        text: '今日もコーヒーを飲んだ',
       });
 
       const llmClient = makeLLMClient([
@@ -1085,39 +1085,39 @@ describe('consolidate', () => {
       expect(headers).toHaveLength(1);
       // RequestText/RequestedAt は GSI3 の射影に含まれないため getTopic（ベーステーブル読み）で確認する
       const topic = await topicRepo.getTopic({
-        userId: headers[0].UserID,
-        characterId: headers[0].CharacterID,
-        topicId: headers[0].TopicID,
+        userId: headers[0].userId,
+        characterId: headers[0].characterId,
+        topicId: headers[0].topicId,
       });
-      expect(topic?.RequestText).toBe('前回の依頼文');
-      expect(topic?.RequestedAt).toBe(existing.RequestedAt);
+      expect(topic?.requestText).toBe('前回の依頼文');
+      expect(topic?.requestedAt).toBe(existing.requestedAt);
     });
 
     it('既存 Topic への merge で group の複数エントリのうち片方だけ index を持つ場合でも依頼フックが解決される（fresh-eyes レビュー軽微#7 相当）', async () => {
       const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
 
       await topicRepo.putTopic({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'TOPIC-EXISTING',
-        Subject: 'コーヒー',
-        CanonicalSummary: '以前の要約',
-        Category: '飲み物',
-        Care: 3,
-        Embedding: [1, 0],
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'TOPIC-EXISTING',
+        subject: 'コーヒー',
+        canonicalSummary: '以前の要約',
+        category: '飲み物',
+        care: 3,
+        embedding: [1, 0],
       });
 
       tick = fixedNow;
       const requestedAt = fixedNow - 1_000;
       await webRawRepo.put({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Query: 'コーヒー 最新情報',
-        RawText: '新しい調査結果',
-        SourceUrls: [],
-        Origin: 'request',
-        RequestText: 'コーヒーの新情報を調べて',
-        RequestedAt: requestedAt,
+        userId: 'u1',
+        characterId: 'hiyori',
+        query: 'コーヒー 最新情報',
+        rawText: '新しい調査結果',
+        sourceUrls: [],
+        origin: 'request',
+        requestText: 'コーヒーの新情報を調べて',
+        requestedAt: requestedAt,
       });
 
       // group 先頭エントリ（1件目）は index を持つが、group 内で採用される最終エントリ
@@ -1154,15 +1154,15 @@ describe('consolidate', () => {
       const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
       expect(headers).toHaveLength(1);
       // META は last（2件目）の要約を採用しつつ、依頼フックは 1 件目の index から解決される
-      expect(headers[0].CanonicalSummary).toBe('2件目（最終）の要約');
+      expect(headers[0].canonicalSummary).toBe('2件目（最終）の要約');
       // RequestText/RequestedAt は GSI3 の射影に含まれないため getTopic（ベーステーブル読み）で確認する
       const topic = await topicRepo.getTopic({
-        userId: headers[0].UserID,
-        characterId: headers[0].CharacterID,
-        topicId: headers[0].TopicID,
+        userId: headers[0].userId,
+        characterId: headers[0].characterId,
+        topicId: headers[0].topicId,
       });
-      expect(topic?.RequestText).toBe('コーヒーの新情報を調べて');
-      expect(topic?.RequestedAt).toBe(requestedAt);
+      expect(topic?.requestText).toBe('コーヒーの新情報を調べて');
+      expect(topic?.requestedAt).toBe(requestedAt);
     });
 
     it('複数 index が指定された場合、最新の RequestedAt を持つ依頼が採用される', async () => {
@@ -1171,24 +1171,24 @@ describe('consolidate', () => {
       const olderRequestedAt = fixedNow - 100_000;
       const newerRequestedAt = fixedNow - 500;
       await webRawRepo.put({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Query: 'コーヒー 過去の依頼',
-        RawText: '過去の調査結果',
-        SourceUrls: [],
-        Origin: 'request',
-        RequestText: '古い依頼文',
-        RequestedAt: olderRequestedAt,
+        userId: 'u1',
+        characterId: 'hiyori',
+        query: 'コーヒー 過去の依頼',
+        rawText: '過去の調査結果',
+        sourceUrls: [],
+        origin: 'request',
+        requestText: '古い依頼文',
+        requestedAt: olderRequestedAt,
       });
       await webRawRepo.put({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Query: 'コーヒー 最新情報',
-        RawText: '新しい調査結果',
-        SourceUrls: [],
-        Origin: 'request',
-        RequestText: '新しい依頼文',
-        RequestedAt: newerRequestedAt,
+        userId: 'u1',
+        characterId: 'hiyori',
+        query: 'コーヒー 最新情報',
+        rawText: '新しい調査結果',
+        sourceUrls: [],
+        origin: 'request',
+        requestText: '新しい依頼文',
+        requestedAt: newerRequestedAt,
       });
 
       // 両方の index（0, 1）を指定する
@@ -1210,41 +1210,41 @@ describe('consolidate', () => {
       expect(headers).toHaveLength(1);
       // RequestText/RequestedAt は GSI3 の射影に含まれないため getTopic（ベーステーブル読み）で確認する
       const topic = await topicRepo.getTopic({
-        userId: headers[0].UserID,
-        characterId: headers[0].CharacterID,
-        topicId: headers[0].TopicID,
+        userId: headers[0].userId,
+        characterId: headers[0].characterId,
+        topicId: headers[0].topicId,
       });
-      expect(topic?.RequestText).toBe('新しい依頼文');
-      expect(topic?.RequestedAt).toBe(newerRequestedAt);
+      expect(topic?.requestText).toBe('新しい依頼文');
+      expect(topic?.requestedAt).toBe(newerRequestedAt);
     });
 
     it('既存 Topic への merge で今回 index ありの場合、新しい依頼フックで上書きする', async () => {
       const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
 
       await topicRepo.putTopic({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'TOPIC-EXISTING',
-        Subject: 'コーヒー',
-        CanonicalSummary: '以前の要約',
-        Category: '飲み物',
-        Care: 3,
-        Embedding: [1, 0],
-        RequestText: '前回の依頼文',
-        RequestedAt: fixedNow - 100_000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'TOPIC-EXISTING',
+        subject: 'コーヒー',
+        canonicalSummary: '以前の要約',
+        category: '飲み物',
+        care: 3,
+        embedding: [1, 0],
+        requestText: '前回の依頼文',
+        requestedAt: fixedNow - 100_000,
       });
 
       tick = fixedNow;
       const newRequestedAt = fixedNow - 500;
       await webRawRepo.put({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Query: 'コーヒー 最新情報',
-        RawText: '新しい調査結果',
-        SourceUrls: [],
-        Origin: 'request',
-        RequestText: '今度はコーヒーの新情報を調べて',
-        RequestedAt: newRequestedAt,
+        userId: 'u1',
+        characterId: 'hiyori',
+        query: 'コーヒー 最新情報',
+        rawText: '新しい調査結果',
+        sourceUrls: [],
+        origin: 'request',
+        requestText: '今度はコーヒーの新情報を調べて',
+        requestedAt: newRequestedAt,
       });
 
       const llmClient = makeLLMClient([
@@ -1270,102 +1270,12 @@ describe('consolidate', () => {
       const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
       // RequestText/RequestedAt は GSI3 の射影に含まれないため getTopic（ベーステーブル読み）で確認する
       const topic = await topicRepo.getTopic({
-        userId: headers[0].UserID,
-        characterId: headers[0].CharacterID,
-        topicId: headers[0].TopicID,
+        userId: headers[0].userId,
+        characterId: headers[0].characterId,
+        topicId: headers[0].topicId,
       });
-      expect(topic?.RequestText).toBe('今度はコーヒーの新情報を調べて');
-      expect(topic?.RequestedAt).toBe(newRequestedAt);
-    });
-  });
-  describe('selfFactProvenanceSuffix（一回性マイグレーション用の provenance 付与）', () => {
-    it('未指定（既定 undefined）では既存の Provenance をそのまま保存する', async () => {
-      const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
-      tick = fixedNow;
-      await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: 'テスト',
-      });
-
-      const llmClient = makeLLMClient([
-        makeTopicResult({ selfFacts: [makeSelfFact({ provenance: '元の出所' })] }),
-      ]);
-      await consolidate('u1', 'hiyori', {
-        topicRepo,
-        messageRepo,
-        webRawRepo,
-        cursorRepo,
-        llmClient,
-        embeddingClient: makeEmbeddingClient(),
-        characterName: 'ひより',
-        now: () => fixedNow,
-      });
-
-      const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
-      const selfFacts = await topicRepo.listSelfFacts('u1', 'hiyori', headers[0].TopicID);
-      expect(selfFacts[0].Provenance).toBe('元の出所');
-    });
-
-    it('指定時、既存 Provenance が非空なら「｜出所: <suffix>」を付与する', async () => {
-      const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
-      tick = fixedNow;
-      await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: 'テスト',
-      });
-
-      const llmClient = makeLLMClient([
-        makeTopicResult({ selfFacts: [makeSelfFact({ provenance: '元の出所' })] }),
-      ]);
-      await consolidate('u1', 'hiyori', {
-        topicRepo,
-        messageRepo,
-        webRawRepo,
-        cursorRepo,
-        llmClient,
-        embeddingClient: makeEmbeddingClient(),
-        characterName: 'ひより',
-        now: () => fixedNow,
-        selfFactProvenanceSuffix: '旧Memory移行',
-      });
-
-      const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
-      const selfFacts = await topicRepo.listSelfFacts('u1', 'hiyori', headers[0].TopicID);
-      expect(selfFacts[0].Provenance).toBe('元の出所｜出所: 旧Memory移行');
-    });
-
-    it('指定時、既存 Provenance が空文字なら suffix のみを Provenance にする', async () => {
-      const { topicRepo, messageRepo, webRawRepo, cursorRepo } = makeRepos();
-      tick = fixedNow;
-      await messageRepo.create({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: 'テスト',
-      });
-
-      const llmClient = makeLLMClient([
-        makeTopicResult({ selfFacts: [makeSelfFact({ provenance: '' })] }),
-      ]);
-      await consolidate('u1', 'hiyori', {
-        topicRepo,
-        messageRepo,
-        webRawRepo,
-        cursorRepo,
-        llmClient,
-        embeddingClient: makeEmbeddingClient(),
-        characterName: 'ひより',
-        now: () => fixedNow,
-        selfFactProvenanceSuffix: '旧Memory移行',
-      });
-
-      const headers = await topicRepo.listTopicHeaders('u1', 'hiyori');
-      const selfFacts = await topicRepo.listSelfFacts('u1', 'hiyori', headers[0].TopicID);
-      expect(selfFacts[0].Provenance).toBe('旧Memory移行');
+      expect(topic?.requestText).toBe('今度はコーヒーの新情報を調べて');
+      expect(topic?.requestedAt).toBe(newRequestedAt);
     });
   });
 });

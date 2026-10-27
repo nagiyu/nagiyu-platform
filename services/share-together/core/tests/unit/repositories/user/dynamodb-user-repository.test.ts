@@ -1,4 +1,12 @@
+/**
+ * DynamoDBUserRepository のユニットテスト
+ *
+ * 単一アイテムの CRUD の振る舞い (エラー変換など) は EntityStore の責務のため、
+ * ここでは正しいキーと保存形式で委譲していることと、独自のクエリだけを検証する。
+ */
+
 import {
+  BatchGetCommand,
   DeleteCommand,
   GetCommand,
   PutCommand,
@@ -6,24 +14,43 @@ import {
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
+import {
+  DatabaseError,
+  EntityAlreadyExistsError,
+  EntityNotFoundError,
+  InvalidEntityDataError,
+} from '@nagiyu/aws';
 import { DynamoDBUserRepository } from '../../../../src/repositories/user/dynamodb-user-repository.js';
 import { parseUpdateExpression } from '../../../helpers/update-expression.js';
 
-import { DatabaseError } from '@nagiyu/aws';
+const TABLE_NAME = 'test-share-together-table';
+const NOW = 1704067300000;
+const CREATED_AT = 1704067200000;
 
-const createSdkError = (): Error =>
-  Object.assign(new Error('スループット超過'), { name: 'ProvisionedThroughputExceededException' });
+function buildItem(userId: string, overrides: Record<string, unknown> = {}) {
+  return {
+    PK: `USER#${userId}`,
+    SK: '#META#',
+    Type: 'User',
+    GSI2PK: `EMAIL#${userId}@example.com`,
+    UserID: userId,
+    Email: `${userId}@example.com`,
+    Name: `名前-${userId}`,
+    DefaultListID: `list-${userId}`,
+    CreatedAt: CREATED_AT,
+    UpdatedAt: CREATED_AT,
+    ...overrides,
+  };
+}
 
 describe('DynamoDBUserRepository', () => {
-  const TABLE_NAME = 'test-share-together-main';
   let repository: DynamoDBUserRepository;
   let mockDocClient: { send: jest.Mock };
 
   beforeEach(() => {
-    mockDocClient = {
-      send: jest.fn(),
-    };
-
+    // UpdatedAt は EntityStore が現在時刻で書くため、時刻を固定して検証する
+    jest.useFakeTimers().setSystemTime(NOW);
+    mockDocClient = { send: jest.fn() };
     repository = new DynamoDBUserRepository(
       mockDocClient as unknown as DynamoDBDocumentClient,
       TABLE_NAME
@@ -31,357 +58,274 @@ describe('DynamoDBUserRepository', () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     jest.clearAllMocks();
   });
 
   describe('getById', () => {
-    it('ユーザーIDでユーザーを取得できる', async () => {
-      mockDocClient.send.mockResolvedValueOnce({
-        Item: {
-          PK: 'USER#user-1',
-          SK: '#META#',
-          GSI2PK: 'EMAIL#test@example.com',
-          userId: 'user-1',
-          email: 'test@example.com',
-          name: 'テストユーザー',
-          image: 'https://example.com/image.png',
-          defaultListId: 'list-1',
-          createdAt: '2026-01-01T00:00:00.000Z',
-          updatedAt: '2026-01-01T00:00:00.000Z',
-        },
-      });
+    it('PK/SK で取得し Entity に変換する', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Item: buildItem('u1') });
 
-      const result = await repository.getById('user-1');
-      const command = mockDocClient.send.mock.calls[0]?.[0] as GetCommand;
+      const result = await repository.getById('u1');
 
       expect(result).toEqual({
-        userId: 'user-1',
-        email: 'test@example.com',
-        name: 'テストユーザー',
-        image: 'https://example.com/image.png',
-        defaultListId: 'list-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        userId: 'u1',
+        email: 'u1@example.com',
+        name: '名前-u1',
+        image: undefined,
+        defaultListId: 'list-u1',
+        createdAt: CREATED_AT,
+        updatedAt: CREATED_AT,
       });
-      expect(command.input).toEqual({
-        TableName: TABLE_NAME,
-        Key: {
-          PK: 'USER#user-1',
-          SK: '#META#',
-        },
-      });
+      const command = mockDocClient.send.mock.calls[0][0] as GetCommand;
+      expect(command).toBeInstanceOf(GetCommand);
+      expect(command.input.Key).toEqual({ PK: 'USER#u1', SK: '#META#' });
     });
 
-    it('ユーザーが存在しない場合はnullを返す', async () => {
-      mockDocClient.send.mockResolvedValueOnce({ Item: undefined });
+    it('存在しない場合は null を返す', async () => {
+      mockDocClient.send.mockResolvedValueOnce({});
+      await expect(repository.getById('u1')).resolves.toBeNull();
+    });
 
-      const result = await repository.getById('user-404');
+    it('旧形式のデータも読める', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Item: {
+          PK: 'USER#u1',
+          SK: '#META#',
+          userId: 'u1',
+          email: 'u1@example.com',
+          name: '旧',
+          defaultListId: 'list-u1',
+          createdAt: '2024-01-01T00:00:00.000Z',
+          updatedAt: '2024-01-01T00:00:00.000Z',
+        },
+      });
 
-      expect(result).toBeNull();
+      const result = await repository.getById('u1');
+
+      expect(result?.name).toBe('旧');
+      expect(result?.createdAt).toBe(CREATED_AT);
+    });
+
+    it('読めないデータは InvalidEntityDataError をスローする', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Item: buildItem('u1', { Email: undefined }) });
+      await expect(repository.getById('u1')).rejects.toThrow(InvalidEntityDataError);
     });
   });
 
   describe('getByEmail', () => {
-    it('メールアドレスでユーザーを取得できる（GSI2）', async () => {
-      mockDocClient.send.mockResolvedValueOnce({
-        Items: [
-          {
-            PK: 'USER#user-1',
-            SK: '#META#',
-            GSI2PK: 'EMAIL#test@example.com',
-            userId: 'user-1',
-            email: 'test@example.com',
-            name: 'テストユーザー',
-            defaultListId: 'list-1',
-            createdAt: '2026-01-01T00:00:00.000Z',
-            updatedAt: '2026-01-01T00:00:00.000Z',
-          },
-        ],
-      });
+    it('GSI2 を Query して Entity に変換する', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Items: [buildItem('u1')] });
 
-      const result = await repository.getByEmail('test@example.com');
-      const command = mockDocClient.send.mock.calls[0]?.[0] as QueryCommand;
+      const result = await repository.getByEmail('u1@example.com');
 
-      expect(result).toEqual({
-        userId: 'user-1',
-        email: 'test@example.com',
-        name: 'テストユーザー',
-        image: undefined,
-        defaultListId: 'list-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      });
-      expect(command.input).toEqual({
+      expect(result?.userId).toBe('u1');
+      const command = mockDocClient.send.mock.calls[0][0] as QueryCommand;
+      expect(command).toBeInstanceOf(QueryCommand);
+      expect(command.input).toMatchObject({
         TableName: TABLE_NAME,
         IndexName: 'GSI2',
         KeyConditionExpression: '#gsi2pk = :gsi2pk',
-        ExpressionAttributeNames: {
-          '#gsi2pk': 'GSI2PK',
-        },
-        ExpressionAttributeValues: {
-          ':gsi2pk': 'EMAIL#test@example.com',
-        },
+        ExpressionAttributeNames: { '#gsi2pk': 'GSI2PK' },
+        ExpressionAttributeValues: { ':gsi2pk': 'EMAIL#u1@example.com' },
         Limit: 1,
       });
     });
 
-    it('該当ユーザーがない場合はnullを返す', async () => {
+    it('大文字を含むメールアドレスは小文字の GSI2PK で Query する', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Items: [buildItem('u1')] });
+
+      await repository.getByEmail('U1@Example.COM');
+
+      const command = mockDocClient.send.mock.calls[0][0] as QueryCommand;
+      expect(command.input.ExpressionAttributeValues).toEqual({
+        ':gsi2pk': 'EMAIL#u1@example.com',
+      });
+    });
+
+    it('該当がなければ null を返す', async () => {
       mockDocClient.send.mockResolvedValueOnce({ Items: [] });
+      await expect(repository.getByEmail('none@example.com')).resolves.toBeNull();
+    });
 
-      const result = await repository.getByEmail('notfound@example.com');
+    it('Items が未定義でも null を返す', async () => {
+      mockDocClient.send.mockResolvedValueOnce({});
+      await expect(repository.getByEmail('none@example.com')).resolves.toBeNull();
+    });
 
-      expect(result).toBeNull();
+    it('SDK の例外は DatabaseError に包む', async () => {
+      mockDocClient.send.mockRejectedValueOnce(new Error('接続失敗'));
+      await expect(repository.getByEmail('a@example.com')).rejects.toThrow(DatabaseError);
+    });
+  });
+
+  describe('batchGetByIds', () => {
+    it('空配列なら DynamoDB を呼ばず空を返す', async () => {
+      await expect(repository.batchGetByIds([])).resolves.toEqual([]);
+      expect(mockDocClient.send).not.toHaveBeenCalled();
+    });
+
+    it('重複した ID は 1 回だけ引き、Entity に変換して返す', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Responses: { [TABLE_NAME]: [buildItem('u1'), buildItem('u2')] },
+      });
+
+      const result = await repository.batchGetByIds(['u1', 'u2', 'u1']);
+
+      expect(result.map((user) => user.userId)).toEqual(['u1', 'u2']);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(1);
+      const command = mockDocClient.send.mock.calls[0][0] as BatchGetCommand;
+      expect(command).toBeInstanceOf(BatchGetCommand);
+      expect(command.input.RequestItems?.[TABLE_NAME].Keys).toEqual([
+        { PK: 'USER#u1', SK: '#META#' },
+        { PK: 'USER#u2', SK: '#META#' },
+      ]);
+    });
+
+    it('未処理キーは再送して全件を返す', async () => {
+      jest.useRealTimers();
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Responses: { [TABLE_NAME]: [buildItem('u1')] },
+          UnprocessedKeys: { [TABLE_NAME]: { Keys: [{ PK: 'USER#u2', SK: '#META#' }] } },
+        })
+        .mockResolvedValueOnce({ Responses: { [TABLE_NAME]: [buildItem('u2')] } });
+
+      const result = await repository.batchGetByIds(['u1', 'u2']);
+
+      expect(result.map((user) => user.userId)).toEqual(['u1', 'u2']);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
+    });
+
+    it('SDK の例外は DatabaseError に包む', async () => {
+      mockDocClient.send.mockRejectedValueOnce(new Error('接続失敗'));
+      await expect(repository.batchGetByIds(['u1'])).rejects.toThrow(DatabaseError);
     });
   });
 
   describe('create', () => {
-    it('新規ユーザーを作成できる', async () => {
-      mockDocClient.send.mockResolvedValueOnce({});
+    it('保存形式の Item を条件付きで書き込み、Entity を返す', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ $metadata: {} });
 
-      const input = {
-        userId: 'user-new',
-        email: 'new@example.com',
-        name: '新規ユーザー',
-        image: 'https://example.com/new.png',
-        defaultListId: 'list-new',
-      };
-
-      const result = await repository.create(input);
-      const command = mockDocClient.send.mock.calls[0]?.[0] as PutCommand;
-
-      expect(result).toMatchObject({
-        userId: 'user-new',
-        email: 'new@example.com',
-        name: '新規ユーザー',
-        image: 'https://example.com/new.png',
-        defaultListId: 'list-new',
+      const result = await repository.create({
+        userId: 'u1',
+        email: 'u1@example.com',
+        name: '名前',
+        image: 'https://example.com/a.png',
+        defaultListId: 'list-1',
       });
-      expect(typeof result.createdAt).toBe('string');
-      expect(typeof result.updatedAt).toBe('string');
 
-      expect(command.input).toMatchObject({
-        TableName: TABLE_NAME,
-        Item: {
-          PK: 'USER#user-new',
-          SK: '#META#',
-          GSI2PK: 'EMAIL#new@example.com',
-          userId: 'user-new',
-          email: 'new@example.com',
-          name: '新規ユーザー',
-          image: 'https://example.com/new.png',
-          defaultListId: 'list-new',
-        },
-        ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+      expect(result).toEqual({
+        userId: 'u1',
+        email: 'u1@example.com',
+        name: '名前',
+        image: 'https://example.com/a.png',
+        defaultListId: 'list-1',
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
+      const command = mockDocClient.send.mock.calls[0][0] as PutCommand;
+      expect(command).toBeInstanceOf(PutCommand);
+      expect(command.input.Item).toEqual({
+        PK: 'USER#u1',
+        SK: '#META#',
+        Type: 'User',
+        GSI2PK: 'EMAIL#u1@example.com',
+        UserID: 'u1',
+        Email: 'u1@example.com',
+        Name: '名前',
+        Image: 'https://example.com/a.png',
+        DefaultListID: 'list-1',
+        CreatedAt: NOW,
+        UpdatedAt: NOW,
       });
     });
 
-    it('imageなしでユーザーを作成できる', async () => {
-      mockDocClient.send.mockResolvedValueOnce({});
-
-      const input = {
-        userId: 'user-no-image',
-        email: 'noimage@example.com',
-        name: '画像なしユーザー',
-        defaultListId: 'list-no-image',
-      };
-
-      const result = await repository.create(input);
-
-      expect(result).toMatchObject({
-        userId: 'user-no-image',
-        email: 'noimage@example.com',
-        name: '画像なしユーザー',
-        defaultListId: 'list-no-image',
-        image: undefined,
-      });
-    });
-
-    it('ユーザーが既に存在する場合はエラーを投げる', async () => {
-      const conditionalError = new Error('ConditionalCheckFailedException');
-      conditionalError.name = 'ConditionalCheckFailedException';
-      mockDocClient.send.mockRejectedValueOnce(conditionalError);
+    it('既に存在する場合は EntityAlreadyExistsError をスローする', async () => {
+      mockDocClient.send.mockRejectedValueOnce(
+        Object.assign(new Error('exists'), { name: 'ConditionalCheckFailedException' })
+      );
 
       await expect(
-        repository.create({
-          userId: 'user-dup',
-          email: 'dup@example.com',
-          name: '重複ユーザー',
-          defaultListId: 'list-dup',
-        })
-      ).rejects.toThrow('ユーザーは既に存在します');
-    });
-
-    it('DynamoDBエラーはそのまま再スローされる', async () => {
-      const dbError = new Error('DynamoDB接続エラー');
-      mockDocClient.send.mockRejectedValueOnce(dbError);
-
-      await expect(
-        repository.create({
-          userId: 'user-err',
-          email: 'err@example.com',
-          name: 'エラーユーザー',
-          defaultListId: 'list-err',
-        })
-      ).rejects.toThrow('DynamoDB接続エラー');
+        repository.create({ userId: 'u1', email: 'a@example.com', name: 'n', defaultListId: 'l' })
+      ).rejects.toThrow(EntityAlreadyExistsError);
     });
   });
 
   describe('update', () => {
-    const updatedAttributes = {
-      PK: 'USER#user-1',
-      SK: '#META#',
-      GSI2PK: 'EMAIL#updated@example.com',
-      userId: 'user-1',
-      email: 'updated@example.com',
-      name: '更新後ユーザー',
-      image: 'https://example.com/updated.png',
-      defaultListId: 'list-updated',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-02-01T00:00:00.000Z',
-    };
-
-    it('ユーザー情報を更新できる（全フィールド）', async () => {
-      mockDocClient.send.mockResolvedValueOnce({ Attributes: updatedAttributes });
-
-      const result = await repository.update('user-1', {
-        email: 'updated@example.com',
-        name: '更新後ユーザー',
-        image: 'https://example.com/updated.png',
-        defaultListId: 'list-updated',
-      });
-      const command = mockDocClient.send.mock.calls[0]?.[0] as UpdateCommand;
-
-      expect(result).toEqual({
-        userId: 'user-1',
-        email: 'updated@example.com',
-        name: '更新後ユーザー',
-        image: 'https://example.com/updated.png',
-        defaultListId: 'list-updated',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-02-01T00:00:00.000Z',
-      });
-      expect(command.input.TableName).toBe(TABLE_NAME);
-      expect(command.input.Key).toEqual({ PK: 'USER#user-1', SK: '#META#' });
-      expect(command.input.ConditionExpression).toBe(
-        'attribute_exists(PK) AND attribute_exists(SK)'
-      );
-      expect(command.input.ReturnValues).toBe('ALL_NEW');
-    });
-
-    it('メール更新時にGSI2PKも更新される', async () => {
-      mockDocClient.send.mockResolvedValueOnce({ Attributes: updatedAttributes });
-
-      await repository.update('user-1', { email: 'updated@example.com' });
-      const command = mockDocClient.send.mock.calls[0]?.[0] as UpdateCommand;
-
-      expect(parseUpdateExpression(command.input).set).toMatchObject({
-        email: 'updated@example.com',
-        GSI2PK: 'EMAIL#updated@example.com',
-      });
-    });
-
-    it('nameのみ更新できる', async () => {
+    it('保存用の属性名で更新し、email 変更時は GSI2PK を付け直す', async () => {
       mockDocClient.send.mockResolvedValueOnce({
-        Attributes: {
-          ...updatedAttributes,
-          name: '名前だけ変更',
-        },
+        Attributes: buildItem('u1', { Email: 'new@example.com', UpdatedAt: NOW }),
       });
 
-      const result = await repository.update('user-1', { name: '名前だけ変更' });
-      const command = mockDocClient.send.mock.calls[0]?.[0] as UpdateCommand;
+      const result = await repository.update('u1', { email: 'new@example.com' });
 
-      expect(result.name).toBe('名前だけ変更');
+      expect(result.email).toBe('new@example.com');
+      const command = mockDocClient.send.mock.calls[0][0] as UpdateCommand;
+      expect(command).toBeInstanceOf(UpdateCommand);
+      expect(command.input.Key).toEqual({ PK: 'USER#u1', SK: '#META#' });
       const parsed = parseUpdateExpression(command.input);
-      expect(parsed.set).not.toHaveProperty('email');
-      expect(parsed.set).not.toHaveProperty('GSI2PK');
-      expect(parsed.set).toMatchObject({ name: '名前だけ変更', updatedAt: expect.any(String) });
+      expect(parsed.set).toEqual({
+        Email: 'new@example.com',
+        GSI2PK: 'EMAIL#new@example.com',
+        UpdatedAt: NOW,
+      });
+      expect(parsed.remove).toEqual(expect.arrayContaining(['email', 'updatedAt']));
     });
 
-    it('ユーザーが存在しない場合はエラーを投げる', async () => {
-      const conditionalError = new Error('ConditionalCheckFailedException');
-      conditionalError.name = 'ConditionalCheckFailedException';
-      mockDocClient.send.mockRejectedValueOnce(conditionalError);
+    it('大文字を含む email への変更でも GSI2PK は小文字にし、Email は元の表記で保存する', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Attributes: buildItem('u1', { Email: 'New@Example.com', UpdatedAt: NOW }),
+      });
 
-      await expect(repository.update('user-404', { name: '存在しない' })).rejects.toThrow(
-        'ユーザーが見つかりません'
+      await repository.update('u1', { email: 'New@Example.com' });
+
+      const command = mockDocClient.send.mock.calls[0][0] as UpdateCommand;
+      const parsed = parseUpdateExpression(command.input);
+      expect(parsed.set).toMatchObject({
+        Email: 'New@Example.com',
+        GSI2PK: 'EMAIL#new@example.com',
+      });
+    });
+
+    it('image が null のときは Image と旧名 image を削除する', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Attributes: buildItem('u1') });
+
+      await repository.update('u1', { image: null as unknown as undefined });
+
+      const command = mockDocClient.send.mock.calls[0][0] as UpdateCommand;
+      expect(parseUpdateExpression(command.input).remove).toEqual(
+        expect.arrayContaining(['Image', 'image'])
       );
     });
 
-    it('DynamoDBエラーはそのまま再スローされる', async () => {
-      const dbError = new Error('DynamoDB接続エラー');
-      mockDocClient.send.mockRejectedValueOnce(dbError);
-
-      await expect(repository.update('user-err', { name: 'エラー' })).rejects.toThrow(
-        'DynamoDB接続エラー'
+    it('存在しない場合は EntityNotFoundError をスローする', async () => {
+      mockDocClient.send.mockRejectedValueOnce(
+        Object.assign(new Error('missing'), { name: 'ConditionalCheckFailedException' })
       );
+
+      await expect(repository.update('u1', { name: 'n' })).rejects.toThrow(EntityNotFoundError);
     });
   });
 
   describe('delete', () => {
-    it('ユーザーを削除できる', async () => {
-      mockDocClient.send.mockResolvedValueOnce({});
+    it('組み立てたキーで条件付き削除する', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ $metadata: {} });
 
-      await repository.delete('user-1');
-      const command = mockDocClient.send.mock.calls[0]?.[0] as DeleteCommand;
+      await repository.delete('u1');
 
-      expect(command.input).toEqual({
-        TableName: TABLE_NAME,
-        Key: {
-          PK: 'USER#user-1',
-          SK: '#META#',
-        },
-      });
+      const command = mockDocClient.send.mock.calls[0][0] as DeleteCommand;
+      expect(command).toBeInstanceOf(DeleteCommand);
+      expect(command.input.Key).toEqual({ PK: 'USER#u1', SK: '#META#' });
+      expect(command.input.ConditionExpression).toBeDefined();
     });
 
-    it('存在しないユーザーを削除してもエラーにならない', async () => {
-      mockDocClient.send.mockResolvedValueOnce({});
+    it('存在しない場合は EntityNotFoundError をスローする', async () => {
+      mockDocClient.send.mockRejectedValueOnce(
+        Object.assign(new Error('missing'), { name: 'ConditionalCheckFailedException' })
+      );
 
-      await expect(repository.delete('user-404')).resolves.toBeUndefined();
-    });
-  });
-
-  describe('SDK例外のDatabaseError化', () => {
-    it('取得時のSDK例外はDatabaseErrorに包まれる', async () => {
-      mockDocClient.send.mockRejectedValueOnce(createSdkError());
-
-      const promise = repository.getById('user-1');
-
-      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
-      await expect(promise).rejects.toMatchObject({
-        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
-      });
-    });
-
-    it('削除時のSDK例外はDatabaseErrorに包まれる', async () => {
-      mockDocClient.send.mockRejectedValueOnce(createSdkError());
-
-      const promise = repository.delete('user-1');
-
-      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
-      await expect(promise).rejects.toMatchObject({
-        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
-      });
-    });
-
-    it('更新時の条件違反以外のSDK例外はDatabaseErrorに包まれる', async () => {
-      mockDocClient.send.mockRejectedValueOnce(createSdkError());
-
-      const promise = repository.update('user-1', { name: '更新後' });
-
-      await expect(promise).rejects.toBeInstanceOf(DatabaseError);
-      await expect(promise).rejects.toMatchObject({
-        cause: expect.objectContaining({ name: 'ProvisionedThroughputExceededException' }),
-      });
-    });
-
-    it('更新対象がない場合は素のErrorのまま日本語メッセージで投げる', async () => {
-      mockDocClient.send.mockRejectedValueOnce({ name: 'ConditionalCheckFailedException' });
-
-      const promise = repository.update('user-404', { name: '更新後' });
-
-      await expect(promise).rejects.toThrow('ユーザーが見つかりません');
-      await expect(promise).rejects.not.toBeInstanceOf(DatabaseError);
+      await expect(repository.delete('u1')).rejects.toThrow(EntityNotFoundError);
     });
   });
 });

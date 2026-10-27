@@ -1,5 +1,5 @@
 export type { SnsMessage, SnsMessageType } from './notify/sns-validator.js';
-export { validateSnsMessage } from './notify/sns-validator.js';
+export { isSnsSubscribeUrl, validateSnsMessage } from './notify/sns-validator.js';
 
 export type {
   PushSubscriptionRecord,
@@ -10,6 +10,7 @@ export {
   createPushSubscriptionRepository,
   resetPushSubscriptionRepository,
   DynamoDBPushSubscriptionRepository,
+  InMemoryPushSubscriptionRepository,
 } from './notify/subscription-repository.js';
 
 export type { PushNotificationPayload, SendAllResult } from './notify/web-push-sender.js';

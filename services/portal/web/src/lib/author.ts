@@ -8,6 +8,6 @@ export const SITE = {
   name: 'nagiyu',
   url: 'https://nagiyu.com',
   description:
-    '個人開発者による実運用ベースの技術メディア。AWS・Next.js を中心としたフルスタック開発で実際に直面した設計判断・実装の詳細・運用知見を記録しています。',
+    '個人で複数の Web サービスを AWS 上で開発・運用する中で、実際に踏んだ失敗と、その場で下した判断を記録している技術メディアです。',
   logo: 'https://nagiyu.com/og-default.png',
 } as const;

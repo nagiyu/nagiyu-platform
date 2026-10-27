@@ -29,7 +29,7 @@ function buildAxisBreakdown(
 ): AxisBreakdown {
   const definition = getAxisDefinition(axisId);
   const kind = definition?.kind ?? 'NUMERIC';
-  const value = forecast.AxisValues[axisId];
+  const value = forecast.axisValues[axisId];
   const stats = snapshot?.axisStats[axisId];
 
   const performance: AxisBreakdown['performance'] = {
@@ -72,7 +72,7 @@ function buildQuestionDetail(
   forecast: ForecastEntity,
   snapshot: ModelSnapshotItem | null
 ): QuestionDetail | null {
-  const record = forecast.Probabilities[question];
+  const record = forecast.probabilities[question];
   if (!record) {
     return null;
   }
@@ -95,8 +95,8 @@ export function buildForecastDetail(
   snapshots: Record<DetailQuestion, ModelSnapshotItem | null>
 ): ForecastDetailResponse {
   return {
-    tickerId: forecast.TickerID,
-    date: forecast.Date,
+    tickerId: forecast.tickerId,
+    date: forecast.date,
     questions: {
       DIR: buildQuestionDetail('DIR', forecast, snapshots.DIR),
       VOL: buildQuestionDetail('VOL', forecast, snapshots.VOL),

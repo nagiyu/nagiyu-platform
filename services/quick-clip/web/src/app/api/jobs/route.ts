@@ -1,28 +1,31 @@
-import { DynamoDBJobRepository, selectJobDefinition } from '@nagiyu/quick-clip-core';
+import { DynamoDBJobRepository } from '@nagiyu/quick-clip-core';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import type { EmotionFilter } from '@nagiyu/quick-clip-core';
 import { CreateMultipartUploadCommand, UploadPartCommand } from '@aws-sdk/client-s3';
-import { SubmitJobCommand } from '@aws-sdk/client-batch';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createPresignedUploadUrl } from '@nagiyu/aws';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { NextResponse } from 'next/server';
 import {
-  getAwsRegion,
-  getBatchClient,
-  getBatchJobDefinitionPrefix,
-  getBatchJobQueueArn,
   getBucketName,
   getDynamoDBDocumentClient,
   getS3Client,
   getTableName,
 } from '@/lib/server/aws';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { VALID_EMOTION_FILTERS } from '@/lib/server/emotion-filter';
 import { JobDomainService } from '@/lib/server/domain-services';
+import { submitExtractJob } from '@/lib/server/submit-extract-job';
+import {
+  UPLOAD_VALIDATION_ERROR_MESSAGES,
+  isValidFileSize,
+  isValidMp4File,
+} from '@/lib/upload-validation';
 
 const ERROR_MESSAGES = {
   INVALID_REQUEST: COMMON_ERROR_MESSAGES.BAD_REQUEST,
-  INVALID_FILE_TYPE: 'MP4 形式の動画ファイルのみアップロードできます',
-  INVALID_FILE_SIZE: 'ファイルサイズが不正です',
+  INVALID_FILE_TYPE: UPLOAD_VALIDATION_ERROR_MESSAGES.INVALID_FILE_TYPE,
+  INVALID_FILE_SIZE: UPLOAD_VALIDATION_ERROR_MESSAGES.INVALID_FILE_SIZE,
   INVALID_DURATION: '動画の再生時間が不正です',
   MULTIPART_UPLOAD_ID_NOT_FOUND: 'マルチパートアップロード ID の取得に失敗しました',
   INTERNAL_SERVER_ERROR: 'ジョブの作成に失敗しました',
@@ -38,36 +41,35 @@ type CreateJobRequest = {
 
 const UPLOAD_URL_EXPIRES_IN = 3600;
 const MULTIPART_UPLOAD_URL_EXPIRES_IN = 24 * 60 * 60;
-const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024 * 1024;
 const MULTIPART_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
 const MULTIPART_CHUNK_SIZE_BYTES = 50 * 1024 * 1024;
 const MAX_DURATION_SEC = 24 * 60 * 60;
 
-const isCreateJobRequest = (body: unknown): body is CreateJobRequest => {
-  if (typeof body !== 'object' || body === null) {
+const isCreateJobRequest = (body: Record<string, unknown>): body is CreateJobRequest => {
+  if (typeof body.fileName !== 'string' || typeof body.fileSize !== 'number') {
     return false;
   }
-
-  const request = body as Partial<CreateJobRequest>;
-  if (typeof request.fileName !== 'string' || typeof request.fileSize !== 'number') {
+  if (body.contentType !== undefined && typeof body.contentType !== 'string') {
     return false;
   }
   if (
-    request.emotionFilter !== undefined &&
-    !VALID_EMOTION_FILTERS.has(request.emotionFilter as string)
+    body.emotionFilter !== undefined &&
+    (typeof body.emotionFilter !== 'string' || !VALID_EMOTION_FILTERS.has(body.emotionFilter))
   ) {
     return false;
   }
-  if (request.durationSec !== undefined && typeof request.durationSec !== 'number') {
+  if (body.durationSec !== undefined && typeof body.durationSec !== 'number') {
     return false;
   }
   return true;
 };
 
-export async function POST(request: Request): Promise<NextResponse> {
-  try {
-    const body = await request.json();
-    if (!isCreateJobRequest(body)) {
+export const POST = withApiErrorReporting(
+  'Web API: ジョブ作成エラー',
+  ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+  async (request: Request): Promise<NextResponse> => {
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok || !isCreateJobRequest(bodyResult.body)) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -76,12 +78,10 @@ export async function POST(request: Request): Promise<NextResponse> {
         { status: 400 }
       );
     }
+    const body = bodyResult.body;
 
     const normalizedFileName = body.fileName.trim();
-    if (
-      !normalizedFileName.toLowerCase().endsWith('.mp4') ||
-      (typeof body.contentType === 'string' && body.contentType !== 'video/mp4')
-    ) {
+    if (!isValidMp4File(normalizedFileName, body.contentType)) {
       return NextResponse.json(
         {
           error: 'INVALID_FILE_TYPE',
@@ -91,11 +91,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
-    if (
-      !Number.isFinite(body.fileSize) ||
-      body.fileSize <= 0 ||
-      body.fileSize > MAX_FILE_SIZE_BYTES
-    ) {
+    if (!isValidFileSize(body.fileSize)) {
       return NextResponse.json(
         {
           error: 'INVALID_FILE_SIZE',
@@ -193,25 +189,14 @@ export async function POST(request: Request): Promise<NextResponse> {
       getS3Client()
     );
 
-    const submitResponse = await getBatchClient().send(
-      new SubmitJobCommand({
-        jobName: `quick-clip-extract-${job.jobId}`.slice(0, 128),
-        jobQueue: getBatchJobQueueArn(),
-        jobDefinition: `${getBatchJobDefinitionPrefix()}-${selectJobDefinition(body.fileSize, body.durationSec)}`,
-        containerOverrides: {
-          environment: [
-            { name: 'BATCH_COMMAND', value: 'extract' },
-            { name: 'JOB_ID', value: job.jobId },
-            { name: 'DYNAMODB_TABLE_NAME', value: getTableName() },
-            { name: 'S3_BUCKET', value: bucketName },
-            { name: 'AWS_REGION', value: getAwsRegion() },
-            { name: 'EMOTION_FILTER', value: body.emotionFilter ?? 'any' },
-          ],
-        },
-      })
-    );
+    const batchJobId = await submitExtractJob({
+      jobId: job.jobId,
+      fileSize: body.fileSize,
+      durationSec: body.durationSec,
+      emotionFilter: body.emotionFilter,
+    });
 
-    await jobService.updateBatchJobId(job.jobId, submitResponse.jobId!);
+    await jobService.updateBatchJobId(job.jobId, batchJobId);
 
     return NextResponse.json(
       {
@@ -221,14 +206,5 @@ export async function POST(request: Request): Promise<NextResponse> {
       },
       { status: 201 }
     );
-  } catch (error) {
-    console.error('[POST /api/jobs] ジョブの作成に失敗しました', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_SERVER_ERROR',
-        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-      },
-      { status: 500 }
-    );
   }
-}
+);

@@ -13,9 +13,17 @@ export function createValidationErrorResponse(
   return createErrorResponse(400, 'VALIDATION_ERROR', message);
 }
 
-/** 404 NOT_FOUND レスポンスを生成する。 */
-export function createNotFoundErrorResponse(): NextResponse {
-  return createErrorResponse(404, 'NOT_FOUND', ERROR_MESSAGES.NOT_FOUND);
+/**
+ * 404 レスポンスを生成する。
+ *
+ * @param code - USER_NOT_FOUND など NOT_FOUND 以外のコードを返したい場合のみ指定する
+ * @param message - code に対応する文言
+ */
+export function createNotFoundErrorResponse(
+  code: string = 'NOT_FOUND',
+  message: string = ERROR_MESSAGES.NOT_FOUND
+): NextResponse {
+  return createErrorResponse(404, code, message);
 }
 
 /**

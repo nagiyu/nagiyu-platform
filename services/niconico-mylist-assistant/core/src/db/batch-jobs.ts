@@ -54,8 +54,8 @@ export async function updateBatchJob(
 }
 
 /**
- * バッチジョブを削除
+ * バッチジョブを削除する。対象がなくても成功する
  */
 export async function deleteBatchJob(jobId: string, userId: string): Promise<void> {
-  return await getBatchJobRepository().delete(jobId, userId);
+  return await getBatchJobRepository().deleteIfExists(jobId, userId);
 }

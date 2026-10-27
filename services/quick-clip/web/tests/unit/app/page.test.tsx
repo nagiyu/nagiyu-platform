@@ -526,4 +526,161 @@ describe('Home', () => {
       expect(mockPush).toHaveBeenCalledWith('/jobs/job-1');
     });
   });
+  describe('ジョブ作成の失敗理由の表示', () => {
+    it('サーバーが message を返した場合はその文言を表示する', async () => {
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({
+          error: 'INVALID_FILE_TYPE',
+          message: 'MP4 形式の動画ファイルのみアップロードできます',
+        }),
+      }) as jest.Mock;
+
+      render(<Home />);
+      selectFile();
+      fireEvent.click(screen.getByRole('button', { name: 'アップロードして処理開始' }));
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('MP4 形式の動画ファイルのみアップロードできます')
+        ).toBeInTheDocument();
+      });
+      expect(screen.getByRole('button', { name: 'アップロードして処理開始' })).not.toBeDisabled();
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['本文が JSON として読めない', () => Promise.reject(new SyntaxError('invalid json'))],
+      ['message が無い', () => Promise.resolve({ error: 'X' })],
+      ['message が空文字', () => Promise.resolve({ message: '' })],
+      ['message が文字列でない', () => Promise.resolve({ message: 123 })],
+      ['本文が null', () => Promise.resolve(null)],
+    ])('%s場合は固定文言を表示する', async (_label, json) => {
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json,
+      }) as jest.Mock;
+
+      render(<Home />);
+      selectFile();
+      fireEvent.click(screen.getByRole('button', { name: 'アップロードして処理開始' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('アップロード処理の開始に失敗しました')).toBeInTheDocument();
+      });
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('ファイル選択時の検証', () => {
+    const selectCustomFile = (file: File) => {
+      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      fireEvent.change(fileInput, { target: { files: [file] } });
+    };
+
+    it('MP4 以外を選択するとエラーを表示しアップロードボタンを無効化する', () => {
+      render(<Home />);
+
+      selectCustomFile(new File(['dummy'], 'input.mov', { type: 'video/quicktime' }));
+
+      expect(
+        screen.getByText('MP4 形式の動画ファイルのみアップロードできます')
+      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'アップロードして処理開始' })).toBeDisabled();
+    });
+
+    it('Content-Type が video/mp4 以外なら拡張子が .mp4 でも不正として扱う', () => {
+      render(<Home />);
+
+      selectCustomFile(new File(['dummy'], 'input.mp4', { type: 'video/quicktime' }));
+
+      expect(
+        screen.getByText('MP4 形式の動画ファイルのみアップロードできます')
+      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'アップロードして処理開始' })).toBeDisabled();
+    });
+
+    it('サイズが 0 のファイルを選択するとサイズのエラーを表示しボタンを無効化する', () => {
+      render(<Home />);
+
+      selectCustomFile(new File([], 'input.mp4', { type: 'video/mp4' }));
+
+      expect(screen.getByText('ファイルサイズが不正です')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'アップロードして処理開始' })).toBeDisabled();
+    });
+
+    it('上限を超えるサイズのファイルを選択するとサイズのエラーを表示しボタンを無効化する', () => {
+      render(<Home />);
+
+      const file = new File(['dummy'], 'input.mp4', { type: 'video/mp4' });
+      Object.defineProperty(file, 'size', { value: 20 * 1024 * 1024 * 1024 + 1 });
+      selectCustomFile(file);
+
+      expect(screen.getByText('ファイルサイズが不正です')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'アップロードして処理開始' })).toBeDisabled();
+    });
+
+    it('ドロップした不正なファイルでもエラーを表示しボタンを無効化する', () => {
+      render(<Home />);
+
+      const dropZone = screen.getByRole('button', { name: '動画ファイルを選択' });
+      fireEvent.drop(dropZone, {
+        dataTransfer: { files: [new File(['dummy'], 'input.avi', { type: 'video/x-msvideo' })] },
+      });
+
+      expect(
+        screen.getByText('MP4 形式の動画ファイルのみアップロードできます')
+      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'アップロードして処理開始' })).toBeDisabled();
+    });
+
+    it('不正なファイルは送信されない', () => {
+      const mockFetch = jest.fn();
+      global.fetch = mockFetch as jest.Mock;
+      render(<Home />);
+
+      selectCustomFile(new File(['dummy'], 'input.mov', { type: 'video/quicktime' }));
+      fireEvent.submit(document.querySelector('form') as HTMLFormElement);
+
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(
+        screen.getByText('MP4 形式の動画ファイルのみアップロードできます')
+      ).toBeInTheDocument();
+    });
+
+    it('正しいファイルを選び直すとエラーが消えボタンが有効になる', () => {
+      render(<Home />);
+
+      selectCustomFile(new File(['dummy'], 'input.mov', { type: 'video/quicktime' }));
+      expect(screen.getByRole('button', { name: 'アップロードして処理開始' })).toBeDisabled();
+
+      selectFile();
+
+      expect(
+        screen.queryByText('MP4 形式の動画ファイルのみアップロードできます')
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'アップロードして処理開始' })).not.toBeDisabled();
+    });
+
+    it('ブラウザが type を空にする .mp4 は有効とし、contentType を送らない', async () => {
+      const mockFetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ jobId: 'job-1', uploadUrl: 'https://example.com/upload' }),
+      });
+      global.fetch = mockFetch as jest.Mock;
+      render(<Home />);
+
+      selectCustomFile(new File(['dummy'], 'input.mp4', { type: '' }));
+      expect(screen.getByRole('button', { name: 'アップロードして処理開始' })).not.toBeDisabled();
+      fireEvent.click(screen.getByRole('button', { name: 'アップロードして処理開始' }));
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalled();
+      });
+      const requestInit = mockFetch.mock.calls[0]?.[1] as { body: string };
+      expect(JSON.parse(requestInit.body)).not.toHaveProperty('contentType');
+    });
+  });
 });

@@ -16,6 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import { hasPermission } from '@nagiyu/common';
+import { AccessDeniedView } from '@nagiyu/ui';
 import type { ErrorEvent, ErrorSeverity } from '@nagiyu/common';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { createErrorEventReader, type ListErrorEventsQuery } from '@nagiyu/admin-core';
@@ -89,8 +90,8 @@ function buildQueryFromSearchParams(searchParams: {
   return query;
 }
 
-function formatJst(iso: string): string {
-  const date = new Date(iso);
+function formatJst(millis: number): string {
+  const date = new Date(millis);
   return new Intl.DateTimeFormat('ja-JP', {
     timeZone: 'Asia/Tokyo',
     year: 'numeric',
@@ -102,6 +103,13 @@ function formatJst(iso: string): string {
   }).format(date);
 }
 
+// 空白の無い長い概要で表が広がって操作列が押し出されないよう、概要の列だけ折り返す。
+// 最小幅が無いと他の列に幅を取られて極端に潰れる
+const SUMMARY_CELL_SX = { minWidth: 240, overflowWrap: 'anywhere' } as const;
+
+// 日時や操作ボタンは、列が狭いときに途中で改行されると読みにくい
+const NO_WRAP_CELL_SX = { whiteSpace: 'nowrap' } as const;
+
 function truncateMessage(message: string): string {
   const max = 80;
   if (message.length <= max) {
@@ -112,7 +120,7 @@ function truncateMessage(message: string): string {
 
 function buildDetailHref(event: ErrorEvent): string {
   const params = new URLSearchParams({
-    at: event.occurredAt,
+    at: String(event.occurredAt),
     serviceId: event.serviceId,
   });
   return `/errors/${encodeURIComponent(event.eventId)}?${params.toString()}`;
@@ -137,12 +145,9 @@ export default async function ErrorsListPage({
 
   if (!hasPermission(session.user.roles, 'errors:read')) {
     return (
-      <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          エラー履歴
-        </Typography>
-        <Typography color="error">この画面を表示する権限がありません</Typography>
-      </Box>
+      <AccessDeniedView
+        authUrl={process.env.NEXT_PUBLIC_AUTH_URL || process.env.NEXTAUTH_URL || ''}
+      />
     );
   }
 
@@ -211,17 +216,19 @@ export default async function ErrorsListPage({
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>発生時刻 (JST)</TableCell>
-                <TableCell>サービス</TableCell>
-                <TableCell>重大度</TableCell>
-                <TableCell>タイトル / 概要</TableCell>
-                <TableCell></TableCell>
+                <TableCell sx={NO_WRAP_CELL_SX}>発生時刻 (JST)</TableCell>
+                <TableCell sx={NO_WRAP_CELL_SX}>サービス</TableCell>
+                <TableCell sx={NO_WRAP_CELL_SX}>重大度</TableCell>
+                <TableCell sx={{ ...NO_WRAP_CELL_SX, ...SUMMARY_CELL_SX }}>
+                  タイトル / 概要
+                </TableCell>
+                <TableCell sx={NO_WRAP_CELL_SX}></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {items.map((event) => (
                 <TableRow key={`${event.serviceId}#${event.occurredAt}#${event.eventId}`} hover>
-                  <TableCell>{formatJst(event.occurredAt)}</TableCell>
+                  <TableCell sx={NO_WRAP_CELL_SX}>{formatJst(event.occurredAt)}</TableCell>
                   <TableCell>
                     <Chip label={event.serviceId} size="small" />
                   </TableCell>
@@ -232,7 +239,7 @@ export default async function ErrorsListPage({
                       color={SEVERITY_COLORS[event.severity]}
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={SUMMARY_CELL_SX}>
                     <Typography variant="body2" component="div" sx={{ fontWeight: 'bold' }}>
                       {event.title}
                     </Typography>
@@ -240,7 +247,7 @@ export default async function ErrorsListPage({
                       {truncateMessage(event.message)}
                     </Typography>
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={NO_WRAP_CELL_SX}>
                     <Button href={buildDetailHref(event)} size="small" variant="text">
                       詳細
                     </Button>

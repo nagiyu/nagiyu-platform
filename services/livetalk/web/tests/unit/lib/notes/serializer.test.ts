@@ -3,14 +3,14 @@ import { sortNotes, toNoteDetail, toNoteListItem } from '@/lib/notes/serializer'
 import { decodeNoteId } from '@/lib/notes/note-id';
 
 const baseEntity: NoteEntity = {
-  UserID: 'user-1',
-  CharacterID: 'hiyori',
-  NoteID: 'note-001',
-  TopicID: 'topic-001',
-  Subject: 'コーヒーの効能',
-  Headline: 'この前の話、気になって調べてみたよ。覚醒効果があるみたい！',
-  CreatedAt: 1_750_000_000_000,
-  UpdatedAt: 1_750_000_000_000,
+  userId: 'user-1',
+  characterId: 'hiyori',
+  noteId: 'note-001',
+  topicId: 'topic-001',
+  subject: 'コーヒーの効能',
+  headline: 'この前の話、気になって調べてみたよ。覚醒効果があるみたい！',
+  createdAt: 1_750_000_000_000,
+  updatedAt: 1_750_000_000_000,
 };
 
 const makeBundle = (overrides: Partial<TopicBundle> = {}): TopicBundle => ({
@@ -18,15 +18,15 @@ const makeBundle = (overrides: Partial<TopicBundle> = {}): TopicBundle => ({
   selfFacts: [],
   webFacts: [
     {
-      UserID: 'user-1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-001',
-      FactID: 'fact-1',
-      Text: 'コーヒーには覚醒作用がある',
-      SourceUrls: ['https://example.com/a'],
-      Volatility: 'stable',
-      ObservedAt: 1_750_000_000_000,
-      CreatedAt: 1_750_000_000_000,
+      userId: 'user-1',
+      characterId: 'hiyori',
+      topicId: 'topic-001',
+      factId: 'fact-1',
+      text: 'コーヒーには覚醒作用がある',
+      sourceUrls: ['https://example.com/a'],
+      volatility: 'stable',
+      observedAt: 1_750_000_000_000,
+      createdAt: 1_750_000_000_000,
     },
   ],
   ...overrides,
@@ -48,7 +48,7 @@ describe('toNoteListItem', () => {
 describe('toNoteDetail', () => {
   it('bundle ありなら headline / webFacts / sources を含む', () => {
     const item = toNoteDetail(baseEntity, makeBundle());
-    expect(item.headline).toBe(baseEntity.Headline);
+    expect(item.headline).toBe(baseEntity.headline);
     expect(item.webFacts).toEqual(['コーヒーには覚醒作用がある']);
     expect(item.sources).toEqual(['https://example.com/a']);
   });
@@ -57,26 +57,26 @@ describe('toNoteDetail', () => {
     const bundle = makeBundle({
       webFacts: [
         {
-          UserID: 'user-1',
-          CharacterID: 'hiyori',
-          TopicID: 'topic-001',
-          FactID: 'fact-1',
-          Text: 'fact1',
-          SourceUrls: ['https://example.com/a', 'https://example.com/b'],
-          Volatility: 'stable',
-          ObservedAt: 1,
-          CreatedAt: 1,
+          userId: 'user-1',
+          characterId: 'hiyori',
+          topicId: 'topic-001',
+          factId: 'fact-1',
+          text: 'fact1',
+          sourceUrls: ['https://example.com/a', 'https://example.com/b'],
+          volatility: 'stable',
+          observedAt: 1,
+          createdAt: 1,
         },
         {
-          UserID: 'user-1',
-          CharacterID: 'hiyori',
-          TopicID: 'topic-001',
-          FactID: 'fact-2',
-          Text: 'fact2',
-          SourceUrls: ['https://example.com/a'],
-          Volatility: 'stable',
-          ObservedAt: 1,
-          CreatedAt: 1,
+          userId: 'user-1',
+          characterId: 'hiyori',
+          topicId: 'topic-001',
+          factId: 'fact-2',
+          text: 'fact2',
+          sourceUrls: ['https://example.com/a'],
+          volatility: 'stable',
+          observedAt: 1,
+          createdAt: 1,
         },
       ],
     });
@@ -89,15 +89,15 @@ describe('toNoteDetail', () => {
     const bundle = makeBundle({
       webFacts: [
         {
-          UserID: 'user-1',
-          CharacterID: 'hiyori',
-          TopicID: 'topic-001',
-          FactID: 'fact-1',
-          Text: 'fact1',
-          SourceUrls: ['https://example.com/a', 'javascript:alert(1)', 'http://example.org/b'],
-          Volatility: 'stable',
-          ObservedAt: 1,
-          CreatedAt: 1,
+          userId: 'user-1',
+          characterId: 'hiyori',
+          topicId: 'topic-001',
+          factId: 'fact-1',
+          text: 'fact1',
+          sourceUrls: ['https://example.com/a', 'javascript:alert(1)', 'http://example.org/b'],
+          volatility: 'stable',
+          observedAt: 1,
+          createdAt: 1,
         },
       ],
     });
@@ -107,14 +107,14 @@ describe('toNoteDetail', () => {
 
   it('bundle が null（Topic 取得失敗等）でも headline のみ返す（fail-soft）', () => {
     const item = toNoteDetail(baseEntity, null);
-    expect(item.headline).toBe(baseEntity.Headline);
+    expect(item.headline).toBe(baseEntity.headline);
     expect(item.webFacts).toBeUndefined();
     expect(item.sources).toBeUndefined();
   });
 
   it('bundle の webFacts が空でも headline は返す', () => {
     const item = toNoteDetail(baseEntity, makeBundle({ webFacts: [] }));
-    expect(item.headline).toBe(baseEntity.Headline);
+    expect(item.headline).toBe(baseEntity.headline);
     expect(item.webFacts).toEqual([]);
     expect(item.sources).toEqual([]);
   });

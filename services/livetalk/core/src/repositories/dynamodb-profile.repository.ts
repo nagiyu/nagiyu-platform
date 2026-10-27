@@ -1,5 +1,5 @@
-import { GetCommand, PutCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { queryAllItems, toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBEntityStore, queryAllItems, toDatabaseError, type EntityStore } from '@nagiyu/aws';
 import type {
   CreateProfileInput,
   ProfileEntity,
@@ -13,14 +13,14 @@ import type { ProfileRepository } from './profile.repository.interface.js';
 /**
  * DynamoDB Profile Repository。
  *
- * upsert は Put 1 回で十分なため、conditional 系は使わずに最新値で上書きする。
- * 既存値の `CreatedAt` は維持するため Get → Put の 2 段書きとする。
+ * upsert は条件なしの置き換えで足りる。`createdAt` を保つため、書く前に既存を読む。
+ * 単一アイテムの CRUD は EntityStore に任せ、GSI1 の列挙だけを自前で持つ。
  */
 export class DynamoDBProfileRepository implements ProfileRepository {
-  private readonly mapper: ProfileMapper;
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
   private readonly nowMs: () => number;
+  private readonly entityStore: EntityStore<ProfileEntity, ProfileKey>;
 
   constructor(
     docClient: DynamoDBDocumentClient,
@@ -30,23 +30,13 @@ export class DynamoDBProfileRepository implements ProfileRepository {
     this.docClient = docClient;
     this.tableName = tableName;
     this.nowMs = nowMs;
-    this.mapper = new ProfileMapper();
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, new ProfileMapper(), {
+      now: nowMs,
+    });
   }
 
   public async getById(key: ProfileKey): Promise<ProfileEntity | null> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys(key);
-      const result = await this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-        })
-      );
-      if (!result.Item) return null;
-      return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.get(key);
   }
 
   public async listAllUserIds(): Promise<string[]> {
@@ -61,7 +51,7 @@ export class DynamoDBProfileRepository implements ProfileRepository {
         ExpressionAttributeValues: { ':pk': buildProfileGSI1PK() },
       });
       for (const item of items) {
-        // KEYS_ONLY 射影のため GSI1SK（生の UserID）から読み取る
+        // KEYS_ONLY 射影のため GSI1SK (生の UserID) から読み取る
         if (typeof item.GSI1SK === 'string' && item.GSI1SK) {
           userIds.push(item.GSI1SK);
         }
@@ -78,30 +68,19 @@ export class DynamoDBProfileRepository implements ProfileRepository {
     updates: UpdateProfileInput = {}
   ): Promise<ProfileEntity> {
     const now = this.nowMs();
-    const existing = await this.getById({ userId: input.UserID });
+    const existing = await this.getById({ userId: input.userId });
 
     const merged: ProfileEntity = {
-      UserID: input.UserID,
-      LastActiveAt: updates.LastActiveAt ?? input.LastActiveAt ?? now,
-      CreatedAt: existing?.CreatedAt ?? now,
-      UpdatedAt: now,
-      ...(updates.Consents !== undefined
-        ? { Consents: { ...existing?.Consents, ...updates.Consents } }
-        : existing?.Consents !== undefined
-          ? { Consents: existing.Consents }
+      userId: input.userId,
+      lastActiveAt: updates.lastActiveAt ?? input.lastActiveAt ?? now,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+      ...(updates.consents !== undefined
+        ? { consents: { ...existing?.consents, ...updates.consents } }
+        : existing?.consents !== undefined
+          ? { consents: existing.consents }
           : {}),
     };
-
-    try {
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: this.mapper.toItem(merged),
-        })
-      );
-      return merged;
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.put(merged);
   }
 }

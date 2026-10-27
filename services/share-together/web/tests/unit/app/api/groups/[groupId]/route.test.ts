@@ -26,6 +26,7 @@ jest.mock('@/lib/auth/session', () => ({
 }));
 
 jest.mock('@nagiyu/aws', () => ({
+  EntityNotFoundError: jest.requireActual('@nagiyu/aws').EntityNotFoundError,
   getDynamoDBDocumentClient: jest.fn(),
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
@@ -40,7 +41,7 @@ jest.mock('@nagiyu/share-together-core', () => ({
 import { DELETE, PUT } from '@/app/api/groups/[groupId]/route';
 import { DynamoDBGroupRepository, DynamoDBMembershipRepository } from '@nagiyu/share-together-core';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
+import { EntityNotFoundError, getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
 
 const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunction<
   typeof getSessionOrUnauthorized
@@ -66,6 +67,12 @@ const mockDynamoDBMembershipRepository = DynamoDBMembershipRepository as jest.Mo
   mockDynamoDBMembershipRepository(...args)
 );
 type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
+
+import {
+  createRequestWithJson,
+  MALFORMED_BODY_CASES,
+  type InvalidBodyCase,
+} from '../../invalidBodyCases';
 
 describe('/api/groups/[groupId] route handlers', () => {
   const mockGetById = jest.fn();
@@ -108,15 +115,15 @@ describe('/api/groups/[groupId] route handlers', () => {
       groupId: 'group-1',
       name: '更新前',
       ownerUserId: 'owner-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockUpdate.mockResolvedValue({
       groupId: 'group-1',
       name: '更新後',
       ownerUserId: 'owner-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-02T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767312000000,
     });
 
     const response = await PUT(
@@ -144,8 +151,8 @@ describe('/api/groups/[groupId] route handlers', () => {
       groupId: 'group-1',
       name: 'グループ',
       ownerUserId: 'owner-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     const response = await PUT(
@@ -170,8 +177,8 @@ describe('/api/groups/[groupId] route handlers', () => {
       groupId: 'group-1',
       name: 'グループ',
       ownerUserId: 'owner-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
     mockDeleteByGroupId.mockResolvedValue(undefined);
     mockDelete.mockResolvedValue(undefined);
@@ -193,8 +200,8 @@ describe('/api/groups/[groupId] route handlers', () => {
       groupId: 'group-1',
       name: 'グループ',
       ownerUserId: 'owner-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     const response = await DELETE({} as Request, {
@@ -218,8 +225,8 @@ describe('/api/groups/[groupId] route handlers', () => {
       groupId: 'group-1',
       name: 'グループ',
       ownerUserId: 'owner-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     const response = await PUT(
@@ -234,6 +241,49 @@ describe('/api/groups/[groupId] route handlers', () => {
       error: 'VALIDATION_ERROR',
       message: '入力内容が不正です',
     });
+  });
+
+  it('PUT: 更新時にグループが消えていた場合は404を返す', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'owner-1' },
+    } as SessionOrUnauthorized);
+    mockGetById.mockResolvedValue({
+      groupId: 'group-1',
+      name: '更新前',
+      ownerUserId: 'owner-1',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
+    });
+    mockUpdate.mockRejectedValue(new EntityNotFoundError('Group', 'group-1'));
+
+    const response = await PUT({ json: async () => ({ name: '更新後' }) } as Request, {
+      params: Promise.resolve({ groupId: 'group-1' }),
+    });
+
+    expect(response.status).toBe(404);
+    expect(mockReportErrorEvent).not.toHaveBeenCalled();
+  });
+
+  it('DELETE: 削除時にグループが消えていた場合は404を返す', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'owner-1' },
+    } as SessionOrUnauthorized);
+    mockGetById.mockResolvedValue({
+      groupId: 'group-1',
+      name: 'グループ',
+      ownerUserId: 'owner-1',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
+    });
+    mockDeleteByGroupId.mockResolvedValue(undefined);
+    mockDelete.mockRejectedValue(new EntityNotFoundError('Group', 'group-1'));
+
+    const response = await DELETE({} as Request, {
+      params: Promise.resolve({ groupId: 'group-1' }),
+    });
+
+    expect(response.status).toBe(404);
+    expect(mockReportErrorEvent).not.toHaveBeenCalled();
   });
 
   it('PUT: 例外発生時は500レスポンスを返し reportErrorEvent を呼ぶ', async () => {
@@ -267,4 +317,71 @@ describe('/api/groups/[groupId] route handlers', () => {
       expect.objectContaining({ serviceId: 'share-together', severity: 'error' })
     );
   });
+
+  it('PUT: 空白で囲まれた100文字の名前は trim 後の値で保存する', async () => {
+    const trimmedName = 'あ'.repeat(100);
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'owner-1' },
+    } as SessionOrUnauthorized);
+    mockGetById.mockResolvedValue({
+      groupId: 'group-1',
+      name: 'グループ',
+      ownerUserId: 'owner-1',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
+    });
+    mockUpdate.mockResolvedValue({ groupId: 'group-1', name: trimmedName });
+
+    const response = await PUT({ json: async () => ({ name: `  ${trimmedName}  ` }) } as Request, {
+      params: Promise.resolve({ groupId: 'group-1' }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledWith('group-1', { name: trimmedName });
+  });
+
+  it('PUT: trim 後に101文字になる名前は400を返す', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'owner-1' },
+    } as SessionOrUnauthorized);
+    mockGetById.mockResolvedValue({
+      groupId: 'group-1',
+      name: 'グループ',
+      ownerUserId: 'owner-1',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
+    });
+
+    const response = await PUT(
+      { json: async () => ({ name: ` ${'あ'.repeat(101)} ` }) } as Request,
+      { params: Promise.resolve({ groupId: 'group-1' }) }
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it.each<InvalidBodyCase>([...MALFORMED_BODY_CASES, ['name が数値', async () => ({ name: 123 })]])(
+    'PUT: リクエストボディが不正な場合 (%s) は400を返す',
+    async (_label, json) => {
+      mockGetSessionOrUnauthorized.mockResolvedValue({
+        user: { id: 'owner-1' },
+      } as SessionOrUnauthorized);
+      mockGetById.mockResolvedValue({
+        groupId: 'group-1',
+        name: 'グループ',
+        ownerUserId: 'owner-1',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
+      });
+
+      const response = await PUT(createRequestWithJson(json), {
+        params: Promise.resolve({ groupId: 'group-1' }),
+      });
+
+      expect(response.status).toBe(400);
+      expect(mockUpdate).not.toHaveBeenCalled();
+      expect(mockReportErrorEvent).not.toHaveBeenCalled();
+    }
+  );
 });

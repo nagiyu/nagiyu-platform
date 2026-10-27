@@ -10,10 +10,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthError, validatePushSubscription } from '@nagiyu/nextjs';
+import { getAuthError, validatePushSubscription, readJsonObjectBody } from '@nagiyu/nextjs';
 import { createAlertRepository } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
-import type { ErrorResponse } from '@nagiyu/common';
+import { createInternalErrorReporting } from '../../../../lib/api-error-reporting';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 
 /**
@@ -25,6 +25,11 @@ const ERROR_MESSAGES = {
   INVALID_SUBSCRIPTION: 'サブスクリプション情報が不正です',
   INTERNAL_ERROR: 'サブスクリプションの更新に失敗しました',
 } as const;
+
+const withInternalErrorReporting = createInternalErrorReporting(
+  ERROR_MESSAGES.INTERNAL_ERROR,
+  'Error refreshing push subscriptions:'
+);
 
 /**
  * レスポンス型定義
@@ -38,10 +43,9 @@ interface RefreshResponse {
  * POST /api/push/refresh
  * ユーザーの全アラートのサブスクリプション情報を更新
  */
-export async function POST(
-  request: NextRequest
-): Promise<NextResponse<RefreshResponse | ErrorResponse>> {
-  try {
+export const POST = withInternalErrorReporting(
+  'Web API: サブスクリプション更新エラー',
+  async (request: NextRequest) => {
     // 認証・権限チェック
     const session = await getSession();
     const authError = getAuthError(session, 'stocks:write-own');
@@ -57,10 +61,8 @@ export async function POST(
     }
 
     // リクエストボディの取得
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -71,7 +73,7 @@ export async function POST(
     }
 
     // subscription フィールドのチェック
-    if (!body || typeof body !== 'object' || !('subscription' in body)) {
+    if (!('subscription' in bodyResult.body)) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -81,7 +83,7 @@ export async function POST(
       );
     }
 
-    const { subscription } = body as { subscription: unknown };
+    const { subscription } = bodyResult.body;
 
     // サブスクリプション情報のバリデーション
     if (!validatePushSubscription(subscription)) {
@@ -95,7 +97,7 @@ export async function POST(
     }
 
     // ユーザーIDを取得
-    const userId = session!.user.userId;
+    const userId = session!.user.id;
 
     // リポジトリの初期化
     const alertRepo = createAlertRepository();
@@ -113,7 +115,7 @@ export async function POST(
         alert.subscription.keys.p256dh !== subscription.keys.p256dh ||
         alert.subscription.keys.auth !== subscription.keys.auth
       ) {
-        await alertRepo.update(userId, alert.AlertID, {
+        await alertRepo.update(userId, alert.alertId, {
           subscription: {
             endpoint: subscription.endpoint,
             keys: {
@@ -132,14 +134,5 @@ export async function POST(
     };
 
     return NextResponse.json(response, { status: 200 });
-  } catch (error) {
-    console.error('Error refreshing push subscriptions:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_ERROR',
-        message: ERROR_MESSAGES.INTERNAL_ERROR,
-      },
-      { status: 500 }
-    );
   }
-}
+);

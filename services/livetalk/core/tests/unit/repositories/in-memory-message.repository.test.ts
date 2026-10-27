@@ -33,10 +33,10 @@ describe('InMemoryMessageRepository', () => {
   const createMessage = async (role: 'user' | 'assistant', text: string) => {
     currentTime += 1;
     return repo.create({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Role: role,
-      Text: text,
+      userId: 'u1',
+      characterId: 'hiyori',
+      role: role,
+      text: text,
     });
   };
 
@@ -45,21 +45,21 @@ describe('InMemoryMessageRepository', () => {
     const repo = new InMemoryMessageRepository(localStore);
     const before = Date.now();
     const result = await repo.create({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      Role: 'user',
-      Text: 'x',
+      userId: 'u1',
+      characterId: 'hiyori',
+      role: 'user',
+      text: 'x',
     });
-    expect(result.CreatedAt).toBeGreaterThanOrEqual(before);
-    expect(result.MessageID).toMatch(/^[0-9A-Z]{26}$/);
+    expect(result.createdAt).toBeGreaterThanOrEqual(before);
+    expect(result.messageId).toMatch(/^[0-9A-Z]{26}$/);
   });
 
   it('create はメッセージを保存し ULID と CreatedAt を付与する', async () => {
     const msg = await createMessage('user', 'hello');
-    expect(msg.MessageID).toMatch(/^ULID-/);
-    expect(msg.CreatedAt).toBe(currentTime);
-    expect(msg.Role).toBe('user');
-    expect(msg.Text).toBe('hello');
+    expect(msg.messageId).toMatch(/^ULID-/);
+    expect(msg.createdAt).toBe(currentTime);
+    expect(msg.role).toBe('user');
+    expect(msg.text).toBe('hello');
   });
 
   it('create は TTL を 90 日後の Unix 秒として書き込む', async () => {
@@ -78,10 +78,10 @@ describe('InMemoryMessageRepository', () => {
     const found = await repo.getById({
       userId: 'u1',
       characterId: 'hiyori',
-      messageId: saved.MessageID,
+      messageId: saved.messageId,
     });
     expect(found).not.toBeNull();
-    expect(found?.Text).toBe('こんにちは');
+    expect(found?.text).toBe('こんにちは');
   });
 
   it('存在しない MessageID なら null', async () => {
@@ -116,10 +116,10 @@ describe('InMemoryMessageRepository', () => {
         tokenLimit: 100,
       });
 
-      expect(result.messages.map((m) => m.MessageID)).toEqual([
-        a.MessageID,
-        b.MessageID,
-        c.MessageID,
+      expect(result.messages.map((m) => m.messageId)).toEqual([
+        a.messageId,
+        b.messageId,
+        c.messageId,
       ]);
       expect(result.totalTokens).toBe(4 + 2 + 2);
       expect(result.truncated).toBe(false);
@@ -139,11 +139,11 @@ describe('InMemoryMessageRepository', () => {
         tokenLimit: 5,
       });
 
-      expect(result.messages.map((m) => m.MessageID)).toEqual([c.MessageID, d.MessageID]);
+      expect(result.messages.map((m) => m.messageId)).toEqual([c.messageId, d.messageId]);
       expect(result.totalTokens).toBe(3);
       expect(result.truncated).toBe(true);
       // a は明示的に含まれない
-      expect(result.messages.find((m) => m.MessageID === a.MessageID)).toBeUndefined();
+      expect(result.messages.find((m) => m.messageId === a.messageId)).toBeUndefined();
     });
 
     it('上限が極端に小さくても最初の 1 件は必ず含める（コンテキスト皆無回避）', async () => {
@@ -158,7 +158,7 @@ describe('InMemoryMessageRepository', () => {
       });
 
       expect(result.messages).toHaveLength(1);
-      expect(result.messages[0].Text).toBe('bb');
+      expect(result.messages[0].text).toBe('bb');
       expect(result.truncated).toBe(true);
     });
 
@@ -167,10 +167,10 @@ describe('InMemoryMessageRepository', () => {
       // hiyori 以外を 1 件挿入
       currentTime += 1;
       await repo.create({
-        UserID: 'u1',
-        CharacterID: 'other',
-        Role: 'user',
-        Text: 'other-char',
+        userId: 'u1',
+        characterId: 'other',
+        role: 'user',
+        text: 'other-char',
       });
 
       const result = await repo.getRecentByTokenBudget({
@@ -179,17 +179,17 @@ describe('InMemoryMessageRepository', () => {
         tokenCounter: fixedCounter,
       });
       expect(result.messages).toHaveLength(1);
-      expect(result.messages[0].Text).toBe('hi');
+      expect(result.messages[0].text).toBe('hi');
     });
 
     it('別ユーザーのメッセージは混入しない', async () => {
       await createMessage('user', 'mine');
       currentTime += 1;
       await repo.create({
-        UserID: 'u2',
-        CharacterID: 'hiyori',
-        Role: 'user',
-        Text: 'other-user',
+        userId: 'u2',
+        characterId: 'hiyori',
+        role: 'user',
+        text: 'other-user',
       });
 
       const result = await repo.getRecentByTokenBudget({
@@ -198,7 +198,7 @@ describe('InMemoryMessageRepository', () => {
         tokenCounter: fixedCounter,
       });
       expect(result.messages).toHaveLength(1);
-      expect(result.messages[0].Text).toBe('mine');
+      expect(result.messages[0].text).toBe('mine');
     });
 
     it('hardLimit 以上のメッセージがあると truncated=true で打ち切る', async () => {
@@ -227,7 +227,7 @@ describe('InMemoryMessageRepository', () => {
       const a = await createMessage('user', 'first');
       const b = await createMessage('assistant', 'second');
       const result = await repo.listSince('u1', 'hiyori', 0);
-      expect(result.map((m) => m.MessageID)).toEqual([a.MessageID, b.MessageID]);
+      expect(result.map((m) => m.messageId)).toEqual([a.messageId, b.messageId]);
     });
 
     it('sinceMs 以降のメッセージのみ返す（boundary exclusive）', async () => {
@@ -236,8 +236,8 @@ describe('InMemoryMessageRepository', () => {
       const b = await createMessage('assistant', 'after');
 
       const result = await repo.listSince('u1', 'hiyori', boundary);
-      expect(result.map((m) => m.MessageID)).toEqual([b.MessageID]);
-      expect(result.find((m) => m.MessageID === a.MessageID)).toBeUndefined();
+      expect(result.map((m) => m.messageId)).toEqual([b.messageId]);
+      expect(result.find((m) => m.messageId === a.messageId)).toBeUndefined();
     });
 
     it('全件が sinceMs より古い場合は空配列', async () => {
@@ -249,10 +249,10 @@ describe('InMemoryMessageRepository', () => {
     it('別キャラのメッセージは混入しない', async () => {
       await createMessage('user', 'hiyori msg');
       currentTime += 1;
-      await repo.create({ UserID: 'u1', CharacterID: 'other', Role: 'user', Text: 'other' });
+      await repo.create({ userId: 'u1', characterId: 'other', role: 'user', text: 'other' });
       const result = await repo.listSince('u1', 'hiyori', 0);
       expect(result).toHaveLength(1);
-      expect(result[0].Text).toBe('hiyori msg');
+      expect(result[0].text).toBe('hiyori msg');
     });
   });
 });

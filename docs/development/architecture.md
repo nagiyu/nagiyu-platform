@@ -32,15 +32,28 @@
 ### 依存関係の原則
 
 ```
-web   → core → libs/common
-      → libs/ui → libs/browser → libs/common
+web   → core → libs/aws → libs/common
+      → libs/ui, libs/react → libs/browser → libs/common
+      → libs/nextjs → libs/common
 
-batch → core → libs/common
+batch → core → libs/aws, libs/common
+      → libs/aws, libs/common
 ```
 
 - **web** と **batch** は **core** に依存可能
-- **core** は UI に依存しない（web, libs/ui への依存禁止）
+- **core** と **batch** が依存してよい libs は `libs/common` と `libs/aws` のみ。永続化 (DynamoDB 等) を core が持つため `libs/aws` は許容し、Next.js / React / next-auth には依存させない (web, libs/ui, libs/react, libs/nextjs への依存禁止)
+- **web** は libs すべてに依存可能
 - **core** は相対パスで import（path alias 不使用）
+
+### web から batch へ渡すジョブの入力
+
+web が AWS Batch のジョブを起動し、batch がその入力を環境変数として読むサービスでは、次のように決めている。
+
+- **入力の定義は core に置く**: 変数名と値の形 (型、web 側で環境変数の配列にする変換、batch 側で読んで検証する処理) を、web と batch が依存する core に 1 つだけ置く。どちらかを直書きにすると、変数名を変えたときに片側だけが変わり、型でもテストでも気付けない。入力の形はサービスごとに違うため、サービスに依存しない部品を置く libs ではなく、サービスの core に置く。
+- **起動ごとに変わらない値はジョブ定義に任せる**: テーブル名・バケット名・リージョンなどは、infra のジョブ定義の環境変数で渡す。web が起動時に渡すのは、ジョブ ID など起動ごとに変わる値だけにする。両方で同じ値を渡すと、どちらが効いているのかが読み手に分からなくなり、片方だけ直すずれも起きる。
+- **変数名はサービス間で揃える**: 同じ意味の値には同じ名前を使う (テーブル名なら `DYNAMODB_TABLE_NAME`)。
+
+ジョブ定義の環境変数の名前を変えると、デプロイ中に数分、新しい batch と古いジョブ定義が組み合わさる時間ができる。batch のイメージを push してから、ジョブ定義を更新する順に進むためである。この間に投入したジョブは、変数が見つからずに失敗しうる。
 
 ### 分離の利点
 

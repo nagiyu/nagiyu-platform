@@ -164,7 +164,7 @@ libs/{library-name}/
 
 - ロール文字列は `,` で分割し、trim と空要素の除去を行う。結果が空なら未設定扱いとなり、`TEST_USER_ROLES=""` も既定ロールに戻る（`parseTestUserRoles`）。
 - クライアント向けの経路は、`[...nextauth]/route.ts` の GET を `createClientSessionGetHandler` で包んで有効にする。サーバー側と同じユーザー・ロール・有効期限（30 日）を返すため、画面上の出し分けがクライアントのセッションに依存していても、`role` の宣言だけで検証したい状態になる。
-- 新しいサービスでこの経路を使うときは、`createTestSession` が受け取った `overrides` を `resolveTestUser` へそのまま渡すこと。これを怠ると、サーバー側だけロールが既定値のままになる。
+- 新しいサービスでこの経路を使うときは、`createSessionGetter` と `createClientSessionGetHandler` に同じ `defaultRoles` を渡すこと。これを怠ると、サーバー側とクライアント側でロールの既定値が食い違う。
 
 **「ボタンが表示されないこと」のような否定的な assert は、クライアントセッションの取得完了前だと無条件に通る**点には引き続き注意する。これは「壊れても落ちない」状態であり、実際に一部環境でのみ失敗する不安定なテストの原因になった。否定を assert する前に、`/api/auth/session` のレスポンスが期待ロールであることを `page.waitForResponse`（`goto` より前に待ち受ける）で確認し、さらにセッションに依存して描画される肯定的な要素（例: ヘッダのアカウントメニュー）が見えるまで待つこと。レスポンスを受け取っただけでは React への反映完了を保証しないため、時間待ちでは代替しない。
 
@@ -306,10 +306,7 @@ on:
 4. **ビルド順序の考慮**: 依存関係に従って順序を守る
     ```yaml
     - name: Build shared libraries
-        run: |
-            npm run build --workspace @nagiyu/common
-            npm run build --workspace @nagiyu/browser
-            npm run build --workspace @nagiyu/ui
+        run: npm run build:libs
 
     - name: Build application
         run: npm run build --workspace @nagiyu/hoge

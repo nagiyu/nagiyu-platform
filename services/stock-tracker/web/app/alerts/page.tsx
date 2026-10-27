@@ -13,15 +13,16 @@ import {
   TableRow,
   Paper,
   Alert,
-  CircularProgress,
 } from '@mui/material';
-import { Button, Chip, ErrorAlert, Select } from '@nagiyu/ui';
+import { Button, Chip, ErrorAlert, LoadingState, Select } from '@nagiyu/ui';
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { hasUserPermission } from '@nagiyu/common';
 import AlertSettingsModal from '../../components/AlertSettingsModal';
 import AlertDeleteConfirmDialog from '../../components/AlertDeleteConfirmDialog';
 import type { AlertResponse } from '../../types/alert';
@@ -65,6 +66,9 @@ const MODE_LABELS: Record<string, string> = {
 
 // メインコンテンツコンポーネント（useSearchParams を使用）
 function AlertsPageContent() {
+  const { data: session } = useSession();
+  // 権限が確認できたときだけ操作を出す。読み込み中は session が無く false になる
+  const canWrite = hasUserPermission(session?.user, 'stocks:write-own');
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -337,42 +341,53 @@ function AlertsPageContent() {
 
       {/* ローディング表示 */}
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
+        <LoadingState />
       ) : (
         // アラート一覧テーブル
-        <TableContainer component={Paper} elevation={2}>
-          <Table sx={{ minWidth: 650 }} aria-label="アラート一覧">
-            <TableHead sx={{ backgroundColor: 'primary.main' }}>
-              <TableRow>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>モード</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>取引所</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>ティッカー</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>条件</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>頻度</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">
-                  状態
-                </TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">
-                  一時通知
-                </TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">
-                  操作
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredAlerts.length === 0 ? (
+        <Paper elevation={2}>
+          <TableContainer>
+            <Table sx={{ minWidth: 650 }} aria-label="アラート一覧">
+              <TableHead sx={{ backgroundColor: 'primary.main' }}>
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 8, color: 'text.secondary' }}>
-                    {alerts.length === 0
-                      ? 'アラートがありません'
-                      : 'フィルタ条件に一致するアラートがありません'}
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    モード
                   </TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    取引所
+                  </TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    ティッカー
+                  </TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    条件
+                  </TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    頻度
+                  </TableCell>
+                  <TableCell
+                    sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}
+                    align="center"
+                  >
+                    状態
+                  </TableCell>
+                  <TableCell
+                    sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}
+                    align="center"
+                  >
+                    一時通知
+                  </TableCell>
+                  {canWrite && (
+                    <TableCell
+                      sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}
+                      align="center"
+                    >
+                      操作
+                    </TableCell>
+                  )}
                 </TableRow>
-              ) : (
-                filteredAlerts.map((alert) => {
+              </TableHead>
+              <TableBody>
+                {filteredAlerts.map((alert) => {
                   // 条件テキストを生成
                   let conditionText = '-';
                   if (alert.conditions.length === 1) {
@@ -404,7 +419,7 @@ function AlertsPageContent() {
                         </Chip>
                       </TableCell>
                       <TableCell>{exchangeName}</TableCell>
-                      <TableCell>
+                      <TableCell sx={{ minWidth: '10em', overflowWrap: 'anywhere' }}>
                         <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                           {alert.symbol}
                         </Typography>
@@ -424,35 +439,52 @@ function AlertsPageContent() {
                           {alert.temporary ? '一時' : '常設'}
                         </Chip>
                       </TableCell>
-                      <TableCell align="center">
-                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                          <Button
-                            variant="solid"
-                            color="warning"
-                            size="sm"
-                            startIcon={<EditIcon />}
-                            onClick={() => handleOpenEditModal(alert)}
+                      {canWrite && (
+                        <TableCell align="center">
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              flexWrap: 'nowrap',
+                              gap: 1,
+                              justifyContent: 'center',
+                            }}
                           >
-                            編集
-                          </Button>
-                          <Button
-                            variant="solid"
-                            color="danger"
-                            size="sm"
-                            startIcon={<DeleteIcon />}
-                            onClick={() => handleOpenDeleteDialog(alert)}
-                          >
-                            削除
-                          </Button>
-                        </Box>
-                      </TableCell>
+                            <Button
+                              variant="solid"
+                              color="warning"
+                              size="sm"
+                              startIcon={<EditIcon />}
+                              onClick={() => handleOpenEditModal(alert)}
+                            >
+                              編集
+                            </Button>
+                            <Button
+                              variant="solid"
+                              color="danger"
+                              size="sm"
+                              startIcon={<DeleteIcon />}
+                              onClick={() => handleOpenDeleteDialog(alert)}
+                            >
+                              削除
+                            </Button>
+                          </Box>
+                        </TableCell>
+                      )}
                     </TableRow>
                   );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          {/* 0 件の表示を表の中に置くと表の幅の中央（狭い画面では画面外）に置かれて切れるため、表の外に置く */}
+          {filteredAlerts.length === 0 && (
+            <Box sx={{ py: 8, textAlign: 'center', color: 'text.secondary' }}>
+              {alerts.length === 0
+                ? 'アラートがありません'
+                : 'フィルタ条件に一致するアラートがありません'}
+            </Box>
+          )}
+        </Paper>
       )}
 
       {selectedAlert && (
@@ -487,9 +519,7 @@ export default function AlertsPage() {
     <Suspense
       fallback={
         <Container maxWidth="xl" sx={{ py: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-            <CircularProgress />
-          </Box>
+          <LoadingState />
         </Container>
       }
     >

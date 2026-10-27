@@ -7,6 +7,18 @@ import TickerAlertListCard from '../../../components/TickerAlertListCard';
 import type { TickerSummary } from '../../../types/stock';
 import type { AlertResponse } from '../../../types/alert';
 
+// 権限は useSession のロールから判定されるため、ロールごとに差し替えられるようにする
+const mockUseSession = jest.fn();
+jest.mock('next-auth/react', () => ({
+  useSession: () => mockUseSession(),
+}));
+
+const sessionWithRoles = (roles: string[]) => ({
+  data: { user: { name: 'u', roles }, expires: '2099-01-01' },
+  status: 'authenticated',
+  update: jest.fn(),
+});
+
 jest.mock('../../../components/StockChart', () => ({
   __esModule: true,
   default: () => React.createElement('div', null, 'StockChartMock'),
@@ -52,6 +64,7 @@ describe('チャート画面カードコンポーネント', () => {
     );
 
   beforeEach(() => {
+    mockUseSession.mockReturnValue(sessionWithRoles(['stock-user']));
     // 詳細ダイアログを開くと確度を取得しにいくため、404 を返して「確度なし」の経路に倒す
     global.fetch = jest.fn(async () => ({ ok: false, status: 404 }) as Response);
   });
@@ -118,6 +131,7 @@ describe('チャート画面カードコンポーネント', () => {
         tickerId: 'NASDAQ:NVDA',
         symbol: 'NVDA',
         exchangeId: 'NASDAQ',
+        defaultCurrency: 'USD',
         loading: false,
         error: '',
         onChanged: jest.fn(async () => undefined),
@@ -163,5 +177,78 @@ describe('チャート画面カードコンポーネント', () => {
     expect(screen.getByRole('button', { name: '売り追加' })).toBeTruthy();
     expect(screen.getAllByRole('button', { name: '編集' }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: '削除' }).length).toBeGreaterThan(0);
+  });
+  describe('stocks:write-own が無いとき', () => {
+    const alert: AlertResponse = {
+      alertId: 'alert-1',
+      tickerId: 'NASDAQ:NVDA',
+      symbol: 'NVDA',
+      name: 'NVIDIA',
+      mode: 'Buy',
+      frequency: 'MINUTE_LEVEL',
+      conditions: [{ field: 'price', operator: 'gte', value: 120 }],
+      enabled: true,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    const holding = {
+      holdingId: 'h-1',
+      tickerId: 'NASDAQ:NVDA',
+      symbol: 'NVDA',
+      name: 'NVIDIA',
+      quantity: 3,
+      averagePrice: 99,
+      currency: 'USD',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    it.each([
+      ['stock-viewer のセッション', sessionWithRoles(['stock-viewer'])],
+      ['読み込み中のセッション', { data: undefined, status: 'loading', update: jest.fn() }],
+    ])('HoldingCard: %s では追加・編集・削除ボタンを出さない', (_label, session) => {
+      mockUseSession.mockReturnValue(session);
+      render(
+        React.createElement(HoldingCard, {
+          holding,
+          tickerId: 'NASDAQ:NVDA',
+          symbol: 'NVDA',
+          exchangeId: 'NASDAQ',
+          defaultCurrency: 'USD',
+          loading: false,
+          error: '',
+          onChanged: jest.fn(async () => undefined),
+        })
+      );
+
+      expect(screen.getByText('保有数量: 3')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: '追加' })).toBeNull();
+      expect(screen.queryByRole('button', { name: '編集' })).toBeNull();
+      expect(screen.queryByRole('button', { name: '削除' })).toBeNull();
+    });
+
+    it.each([
+      ['stock-viewer のセッション', sessionWithRoles(['stock-viewer'])],
+      ['読み込み中のセッション', { data: undefined, status: 'loading', update: jest.fn() }],
+    ])('TickerAlertListCard: %s では追加・編集・削除ボタンを出さない', (_label, session) => {
+      mockUseSession.mockReturnValue(session);
+      render(
+        React.createElement(TickerAlertListCard, {
+          alerts: [alert],
+          tickerId: 'NASDAQ:NVDA',
+          symbol: 'NVDA',
+          exchangeId: 'NASDAQ',
+          loading: false,
+          error: '',
+          onChanged: jest.fn(async () => undefined),
+        })
+      );
+
+      expect(screen.getByText('以上 120')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: '買い追加' })).toBeNull();
+      expect(screen.queryByRole('button', { name: '売り追加' })).toBeNull();
+      expect(screen.queryByRole('button', { name: '編集' })).toBeNull();
+      expect(screen.queryByRole('button', { name: '削除' })).toBeNull();
+    });
   });
 });

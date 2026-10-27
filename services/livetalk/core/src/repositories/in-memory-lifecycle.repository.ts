@@ -1,4 +1,4 @@
-import { InMemorySingleTableStore } from '@nagiyu/aws';
+import { InMemoryEntityStore, type EntityStore, type InMemorySingleTableStore } from '@nagiyu/aws';
 import type {
   CreateLifecycleInput,
   LifecycleEntity,
@@ -11,21 +11,16 @@ import { LifecycleMapper } from '../mappers/lifecycle.mapper.js';
 import type { LifecycleRepository } from './lifecycle.repository.interface.js';
 
 export class InMemoryLifecycleRepository implements LifecycleRepository {
-  private readonly mapper: LifecycleMapper;
-  private readonly store: InMemorySingleTableStore;
   private readonly nowMs: () => number;
+  private readonly entityStore: EntityStore<LifecycleEntity, LifecycleKey>;
 
   constructor(store: InMemorySingleTableStore, nowMs: () => number = () => Date.now()) {
-    this.store = store;
     this.nowMs = nowMs;
-    this.mapper = new LifecycleMapper();
+    this.entityStore = new InMemoryEntityStore(store, new LifecycleMapper(), { now: nowMs });
   }
 
   public async get(key: LifecycleKey): Promise<LifecycleEntity | null> {
-    const { pk, sk } = this.mapper.buildKeys(key);
-    const item = this.store.get(pk, sk);
-    if (!item) return null;
-    return this.mapper.toEntity(item);
+    return this.entityStore.get(key);
   }
 
   public async upsert(
@@ -33,20 +28,18 @@ export class InMemoryLifecycleRepository implements LifecycleRepository {
     updates: UpdateLifecycleInput = {}
   ): Promise<LifecycleEntity> {
     const now = this.nowMs();
-    const existing = await this.get({ userId: input.UserID, characterId: input.CharacterID });
-    const entity: LifecycleEntity = {
-      UserID: input.UserID,
-      CharacterID: input.CharacterID,
-      Bedtime: updates.Bedtime ?? input.Bedtime,
-      WakeUpTime: updates.WakeUpTime ?? input.WakeUpTime,
-      ...(existing?.UserActivityProfile !== undefined && {
-        UserActivityProfile: existing.UserActivityProfile,
+    const existing = await this.get({ userId: input.userId, characterId: input.characterId });
+    return this.entityStore.put({
+      userId: input.userId,
+      characterId: input.characterId,
+      bedtime: updates.bedtime ?? input.bedtime,
+      wakeUpTime: updates.wakeUpTime ?? input.wakeUpTime,
+      ...(existing?.userActivityProfile !== undefined && {
+        userActivityProfile: existing.userActivityProfile,
       }),
-      CreatedAt: existing?.CreatedAt ?? now,
-      UpdatedAt: now,
-    };
-    this.store.put(this.mapper.toItem(entity));
-    return entity;
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    });
   }
 
   public async updateUserActivityProfile(
@@ -55,17 +48,15 @@ export class InMemoryLifecycleRepository implements LifecycleRepository {
   ): Promise<LifecycleEntity> {
     const now = this.nowMs();
     const existing = await this.get(key);
-    const entity: LifecycleEntity = {
-      UserID: key.userId,
-      CharacterID: key.characterId,
-      Bedtime: existing?.Bedtime ?? LIFECYCLE_DEFAULT_BEDTIME,
-      WakeUpTime: existing?.WakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME,
-      UserActivityProfile: profile,
-      CreatedAt: existing?.CreatedAt ?? now,
-      UpdatedAt: now,
-    };
-    this.store.put(this.mapper.toItem(entity));
-    return entity;
+    return this.entityStore.put({
+      userId: key.userId,
+      characterId: key.characterId,
+      bedtime: existing?.bedtime ?? LIFECYCLE_DEFAULT_BEDTIME,
+      wakeUpTime: existing?.wakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME,
+      userActivityProfile: profile,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    });
   }
 
   public async updateSchedule(
@@ -74,18 +65,16 @@ export class InMemoryLifecycleRepository implements LifecycleRepository {
   ): Promise<LifecycleEntity> {
     const now = this.nowMs();
     const existing = await this.get(key);
-    const entity: LifecycleEntity = {
-      UserID: key.userId,
-      CharacterID: key.characterId,
-      Bedtime: schedule.bedtime,
-      WakeUpTime: schedule.wakeUpTime,
-      ...(existing?.UserActivityProfile !== undefined && {
-        UserActivityProfile: existing.UserActivityProfile,
+    return this.entityStore.put({
+      userId: key.userId,
+      characterId: key.characterId,
+      bedtime: schedule.bedtime,
+      wakeUpTime: schedule.wakeUpTime,
+      ...(existing?.userActivityProfile !== undefined && {
+        userActivityProfile: existing.userActivityProfile,
       }),
-      CreatedAt: existing?.CreatedAt ?? now,
-      UpdatedAt: now,
-    };
-    this.store.put(this.mapper.toItem(entity));
-    return entity;
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    });
   }
 }

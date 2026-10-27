@@ -1,4 +1,9 @@
-import { InMemorySingleTableStore, type DynamoDBItem } from '@nagiyu/aws';
+import {
+  InMemoryEntityStore,
+  type DynamoDBAttributes,
+  type EntityStore,
+  type InMemorySingleTableStore,
+} from '@nagiyu/aws';
 import type {
   CreateSafetyEventInput,
   SafetyEventEntity,
@@ -11,10 +16,11 @@ import { SafetyEventMapper } from '../mappers/safety-event.mapper.js';
 import type { SafetyEventRepository } from './safety-event.repository.interface.js';
 
 export class InMemorySafetyEventRepository implements SafetyEventRepository {
-  private readonly mapper: SafetyEventMapper;
+  private readonly mapper = new SafetyEventMapper();
   private readonly store: InMemorySingleTableStore;
   private readonly ulidFactory: UlidFactory;
   private readonly nowMs: () => number;
+  private readonly entityStore: EntityStore<SafetyEventEntity, SafetyEventKey>;
 
   constructor(
     store: InMemorySingleTableStore,
@@ -24,42 +30,28 @@ export class InMemorySafetyEventRepository implements SafetyEventRepository {
     this.store = store;
     this.ulidFactory = ulidFactory;
     this.nowMs = nowMs;
-    this.mapper = new SafetyEventMapper();
+    this.entityStore = new InMemoryEntityStore(store, this.mapper, { now: nowMs });
   }
 
   public async create(input: CreateSafetyEventInput): Promise<SafetyEventEntity> {
     const now = this.nowMs();
-    const eventId = input.EventID ?? this.ulidFactory(now);
-
-    const entity: SafetyEventEntity = {
+    return this.entityStore.create({
       ...input,
-      EventID: eventId,
-      CreatedAt: now,
-      UpdatedAt: now,
-    };
-
-    // 実DynamoDB実装（dynamodb-safety-event.repository.ts）は
-    // ConditionExpression: 'attribute_not_exists(PK)' で重複作成を防ぎ、
-    // ConditionalCheckFailedException を EntityAlreadyExistsError に変換して投げる。
-    // InMemory側もキー重複時に同じ name のエラーを投げるよう、
-    // attributeNotExists 条件付きで put する（stock-tracker の
-    // InMemoryHoldingRepository.create と同じ流儀：ストアが投げるエラーをそのまま伝播する）。
-    this.store.put(this.mapper.toItem(entity), { attributeNotExists: true });
-    return entity;
+      eventId: input.eventId ?? this.ulidFactory(now),
+      createdAt: now,
+      updatedAt: now,
+    });
   }
 
   public async getById(key: SafetyEventKey): Promise<SafetyEventEntity | null> {
-    const { pk, sk } = this.mapper.buildKeys(key);
-    const item = this.store.get(pk, sk);
-    if (!item) return null;
-    return this.mapper.toEntity(item);
+    return this.entityStore.get(key);
   }
 
   public async listRecent(limit: number): Promise<SafetyEventSummary[]> {
     // GSI2PK='SAFETY' のアイテムを全件取得してから GSI2SK（EventID / ULID）の降順でソートし、
     // limit 件返す。queryByAttribute は既定 limit=100 でページングするため、cursor ループで
     // 全件集約しないと「最近の検出」を取り落とす（in-memory-profile.repository の listAllUserIds と同パターン）。
-    const items: DynamoDBItem[] = [];
+    const items: DynamoDBAttributes[] = [];
     let cursor: string | undefined;
     do {
       const result = this.store.queryByAttribute(

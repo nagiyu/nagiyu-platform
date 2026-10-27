@@ -7,13 +7,23 @@ import {
 } from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { createWithApiErrorReportingBody } from '@/lib/api-error-reporting';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
+const withGetErrorReporting = createWithApiErrorReportingBody('Get video error:', {
+  error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+});
+
+const withDeleteErrorReporting = createWithApiErrorReportingBody('Delete video error:', {
+  error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+});
+
+export const GET = withGetErrorReporting(
+  'Web API: 動画取得エラー',
+  async (request: NextRequest, { params }: RouteParams) => {
     const { id } = await params;
 
     // 認証チェック
@@ -25,7 +35,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // 動画基本情報とユーザー設定を並行取得
     const [basicInfo, setting] = await Promise.all([
       getVideoBasicInfo(id),
-      getUserVideoSetting(session.user.userId, id),
+      getUserVideoSetting(session.user.id, id),
     ]);
 
     if (!basicInfo) {
@@ -38,28 +48,26 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       title: basicInfo.title,
       thumbnailUrl: basicInfo.thumbnailUrl,
       length: basicInfo.length,
-      createdAt: setting?.CreatedAt ?? basicInfo.CreatedAt,
+      createdAt: setting?.createdAt ?? basicInfo.createdAt,
       userSetting: setting
         ? {
             videoId: setting.videoId,
             isFavorite: setting.isFavorite,
             isSkip: setting.isSkip,
             memo: setting.memo,
-            createdAt: setting.CreatedAt,
-            updatedAt: setting.UpdatedAt,
+            createdAt: setting.createdAt,
+            updatedAt: setting.updatedAt,
           }
         : undefined,
     };
 
     return NextResponse.json({ video });
-  } catch (error) {
-    console.error('Get video error:', error);
-    return NextResponse.json({ error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR }, { status: 500 });
   }
-}
+);
 
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  try {
+export const DELETE = withDeleteErrorReporting(
+  'Web API: 動画削除エラー',
+  async (request: NextRequest, { params }: RouteParams) => {
     const { id } = await params;
 
     // 認証チェック
@@ -73,7 +81,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // 確実に掃除するため、両方を取得してから片方ずつ削除する
     const [basicInfo, setting] = await Promise.all([
       getVideoBasicInfo(id),
-      getUserVideoSetting(session.user.userId, id),
+      getUserVideoSetting(session.user.id, id),
     ]);
 
     if (!basicInfo && !setting) {
@@ -82,12 +90,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     await Promise.all([
       basicInfo ? deleteVideoBasicInfo(id) : Promise.resolve(),
-      setting ? deleteUserVideoSetting(session.user.userId, id) : Promise.resolve(),
+      setting ? deleteUserVideoSetting(session.user.id, id) : Promise.resolve(),
     ]);
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Delete video error:', error);
-    return NextResponse.json({ error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR }, { status: 500 });
   }
-}
+);

@@ -39,12 +39,12 @@ function buildTopicsSection(retrievedTopics: RetrievedTopic[]): string {
   const topicBlocks = retrievedTopics
     .filter((rt) => rt.selfFacts.length > 0 || rt.webFacts.length > 0)
     .map((rt) => {
-      const lines: string[] = [`■ ${rt.topic.Subject}`];
+      const lines: string[] = [`■ ${rt.topic.subject}`];
       for (const selfFact of rt.selfFacts) {
-        lines.push(`- （あなたが聞いたこと）${selfFact.Text}`);
+        lines.push(`- （あなたが聞いたこと）${selfFact.text}`);
       }
       for (const webFact of rt.webFacts) {
-        lines.push(`- （あなたが調べたこと）${webFact.Text}`);
+        lines.push(`- （あなたが調べたこと）${webFact.text}`);
       }
       return lines.join('\n');
     });
@@ -106,7 +106,7 @@ export function buildSystemPrompt(
   }
 
   if (hasRecentNotes) {
-    const notesSection = recentNotes!.map((n) => `- ${n.Subject}`).join('\n');
+    const notesSection = recentNotes!.map((n) => `- ${n.subject}`).join('\n');
     sections.push(
       `あなたが最近ユーザーに渡したノート：\n${notesSection}\n\nこれらはあなたがユーザーのために調べてまとめてプレゼントしたノートです。ユーザーがノートの感想（「あのノート良かった」「読んだよ」など）を言ったら、どのノートのことか理解して嬉しそうに反応してください。ユーザーが触れていないのに無理に話題にする必要はありません。`
     );
@@ -142,8 +142,8 @@ export function buildChatMessages(
   const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }];
 
   for (const msg of history) {
-    if (msg.Role === 'user' || msg.Role === 'assistant') {
-      messages.push({ role: msg.Role, content: msg.Text });
+    if (msg.role === 'user' || msg.role === 'assistant') {
+      messages.push({ role: msg.role, content: msg.text });
     }
   }
 

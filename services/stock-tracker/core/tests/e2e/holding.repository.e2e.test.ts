@@ -23,18 +23,18 @@ describe('Holding Repository E2E Tests with InMemory Store', () => {
     it('保有株式を作成、取得、更新、削除する一連のフローが動作する', async () => {
       // 1. 作成
       const createInput: CreateHoldingInput = {
-        UserID: 'user-001',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Quantity: 100,
-        AveragePrice: 150.0,
-        Currency: 'USD',
+        userId: 'user-001',
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        quantity: 100,
+        averagePrice: 150.0,
+        currency: 'USD',
       };
 
       const created = await repository.create(createInput);
       expect(created).toMatchObject(createInput);
-      expect(created.CreatedAt).toBeDefined();
-      expect(created.UpdatedAt).toBeDefined();
+      expect(created.createdAt).toBeDefined();
+      expect(created.updatedAt).toBeDefined();
 
       // 2. 取得
       const retrieved = await repository.getById('user-001', 'NSDQ:AAPL');
@@ -42,12 +42,12 @@ describe('Holding Repository E2E Tests with InMemory Store', () => {
 
       // 3. 更新
       const updated = await repository.update('user-001', 'NSDQ:AAPL', {
-        Quantity: 150,
-        AveragePrice: 145.0,
+        quantity: 150,
+        averagePrice: 145.0,
       });
-      expect(updated.Quantity).toBe(150);
-      expect(updated.AveragePrice).toBe(145.0);
-      expect(updated.UpdatedAt).toBeGreaterThanOrEqual(created.UpdatedAt);
+      expect(updated.quantity).toBe(150);
+      expect(updated.averagePrice).toBe(145.0);
+      expect(updated.updatedAt).toBeGreaterThanOrEqual(created.updatedAt);
 
       // 4. 削除
       await repository.delete('user-001', 'NSDQ:AAPL');
@@ -58,44 +58,44 @@ describe('Holding Repository E2E Tests with InMemory Store', () => {
     it('複数の保有株式を作成し、ユーザーごとに取得できる', async () => {
       // User1の保有株式を作成
       await repository.create({
-        UserID: 'user-001',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Quantity: 100,
-        AveragePrice: 150.0,
-        Currency: 'USD',
+        userId: 'user-001',
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        quantity: 100,
+        averagePrice: 150.0,
+        currency: 'USD',
       });
 
       await repository.create({
-        UserID: 'user-001',
-        TickerID: 'NSDQ:NVDA',
-        ExchangeID: 'NASDAQ',
-        Quantity: 50,
-        AveragePrice: 450.0,
-        Currency: 'USD',
+        userId: 'user-001',
+        tickerId: 'NSDQ:NVDA',
+        exchangeId: 'NASDAQ',
+        quantity: 50,
+        averagePrice: 450.0,
+        currency: 'USD',
       });
 
       // User2の保有株式を作成
       await repository.create({
-        UserID: 'user-002',
-        TickerID: 'NSDQ:TSLA',
-        ExchangeID: 'NASDAQ',
-        Quantity: 30,
-        AveragePrice: 700.0,
-        Currency: 'USD',
+        userId: 'user-002',
+        tickerId: 'NSDQ:TSLA',
+        exchangeId: 'NASDAQ',
+        quantity: 30,
+        averagePrice: 700.0,
+        currency: 'USD',
       });
 
       // User1の保有株式を取得
       const user1Holdings = await repository.getByUserId('user-001');
       expect(user1Holdings.items).toHaveLength(2);
-      expect(user1Holdings.items.map((h) => h.TickerID)).toEqual(
+      expect(user1Holdings.items.map((h) => h.tickerId)).toEqual(
         expect.arrayContaining(['NSDQ:AAPL', 'NSDQ:NVDA'])
       );
 
       // User2の保有株式を取得
       const user2Holdings = await repository.getByUserId('user-002');
       expect(user2Holdings.items).toHaveLength(1);
-      expect(user2Holdings.items[0].TickerID).toBe('NSDQ:TSLA');
+      expect(user2Holdings.items[0].tickerId).toBe('NSDQ:TSLA');
     });
   });
 
@@ -104,12 +104,12 @@ describe('Holding Repository E2E Tests with InMemory Store', () => {
       // テストデータを作成（5件）
       for (let i = 1; i <= 5; i++) {
         await repository.create({
-          UserID: 'user-001',
-          TickerID: `TICKER-${i.toString().padStart(3, '0')}`,
-          ExchangeID: 'NASDAQ',
-          Quantity: i * 10,
-          AveragePrice: i * 100,
-          Currency: 'USD',
+          userId: 'user-001',
+          tickerId: `TICKER-${i.toString().padStart(3, '0')}`,
+          exchangeId: 'NASDAQ',
+          quantity: i * 10,
+          averagePrice: i * 100,
+          currency: 'USD',
         });
       }
     });
@@ -161,25 +161,25 @@ describe('Holding Repository E2E Tests with InMemory Store', () => {
 
       // repo1でデータを作成
       await repo1.create({
-        UserID: 'user-001',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Quantity: 100,
-        AveragePrice: 150.0,
-        Currency: 'USD',
+        userId: 'user-001',
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        quantity: 100,
+        averagePrice: 150.0,
+        currency: 'USD',
       });
 
       // repo2で同じデータを取得できる
       const retrieved = await repo2.getById('user-001', 'NSDQ:AAPL');
       expect(retrieved).not.toBeNull();
-      expect(retrieved?.Quantity).toBe(100);
+      expect(retrieved?.quantity).toBe(100);
 
       // repo2でデータを更新
-      await repo2.update('user-001', 'NSDQ:AAPL', { Quantity: 150 });
+      await repo2.update('user-001', 'NSDQ:AAPL', { quantity: 150 });
 
       // repo1で更新後のデータを取得できる
       const updated = await repo1.getById('user-001', 'NSDQ:AAPL');
-      expect(updated?.Quantity).toBe(150);
+      expect(updated?.quantity).toBe(150);
     });
 
     it('複数のリポジトリが同じストアにデータを追加し、全体で取得できる', async () => {
@@ -189,30 +189,30 @@ describe('Holding Repository E2E Tests with InMemory Store', () => {
 
       // 各リポジトリからデータを作成
       await repo1.create({
-        UserID: 'user-001',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Quantity: 100,
-        AveragePrice: 150.0,
-        Currency: 'USD',
+        userId: 'user-001',
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        quantity: 100,
+        averagePrice: 150.0,
+        currency: 'USD',
       });
 
       await repo2.create({
-        UserID: 'user-001',
-        TickerID: 'NSDQ:NVDA',
-        ExchangeID: 'NASDAQ',
-        Quantity: 50,
-        AveragePrice: 450.0,
-        Currency: 'USD',
+        userId: 'user-001',
+        tickerId: 'NSDQ:NVDA',
+        exchangeId: 'NASDAQ',
+        quantity: 50,
+        averagePrice: 450.0,
+        currency: 'USD',
       });
 
       await repo3.create({
-        UserID: 'user-001',
-        TickerID: 'NSDQ:TSLA',
-        ExchangeID: 'NASDAQ',
-        Quantity: 30,
-        AveragePrice: 700.0,
-        Currency: 'USD',
+        userId: 'user-001',
+        tickerId: 'NSDQ:TSLA',
+        exchangeId: 'NASDAQ',
+        quantity: 30,
+        averagePrice: 700.0,
+        currency: 'USD',
       });
 
       // どのリポジトリからも全体のデータを取得できる
@@ -238,12 +238,12 @@ describe('Holding Repository E2E Tests with InMemory Store', () => {
 
     it('重複作成時にEntityAlreadyExistsErrorをスローする', async () => {
       const input: CreateHoldingInput = {
-        UserID: 'user-001',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Quantity: 100,
-        AveragePrice: 150.0,
-        Currency: 'USD',
+        userId: 'user-001',
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        quantity: 100,
+        averagePrice: 150.0,
+        currency: 'USD',
       };
 
       await repository.create(input);
@@ -258,7 +258,7 @@ describe('Holding Repository E2E Tests with InMemory Store', () => {
 
     it('存在しないデータの更新時にEntityNotFoundErrorをスローする', async () => {
       await expect(
-        repository.update('non-existent-user', 'non-existent-ticker', { Quantity: 100 })
+        repository.update('non-existent-user', 'non-existent-ticker', { quantity: 100 })
       ).rejects.toThrow(
         expect.objectContaining({
           name: 'EntityNotFoundError',
@@ -279,56 +279,56 @@ describe('Holding Repository E2E Tests with InMemory Store', () => {
     it('複数ユーザーの保有株式を管理し、ユーザーごとにクエリできる', async () => {
       // User1: 3銘柄
       await repository.create({
-        UserID: 'user-001',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Quantity: 100,
-        AveragePrice: 150.0,
-        Currency: 'USD',
+        userId: 'user-001',
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        quantity: 100,
+        averagePrice: 150.0,
+        currency: 'USD',
       });
       await repository.create({
-        UserID: 'user-001',
-        TickerID: 'NSDQ:NVDA',
-        ExchangeID: 'NASDAQ',
-        Quantity: 50,
-        AveragePrice: 450.0,
-        Currency: 'USD',
+        userId: 'user-001',
+        tickerId: 'NSDQ:NVDA',
+        exchangeId: 'NASDAQ',
+        quantity: 50,
+        averagePrice: 450.0,
+        currency: 'USD',
       });
       await repository.create({
-        UserID: 'user-001',
-        TickerID: 'NSDQ:TSLA',
-        ExchangeID: 'NASDAQ',
-        Quantity: 30,
-        AveragePrice: 700.0,
-        Currency: 'USD',
+        userId: 'user-001',
+        tickerId: 'NSDQ:TSLA',
+        exchangeId: 'NASDAQ',
+        quantity: 30,
+        averagePrice: 700.0,
+        currency: 'USD',
       });
 
       // User2: 2銘柄
       await repository.create({
-        UserID: 'user-002',
-        TickerID: 'NSDQ:GOOGL',
-        ExchangeID: 'NASDAQ',
-        Quantity: 20,
-        AveragePrice: 2800.0,
-        Currency: 'USD',
+        userId: 'user-002',
+        tickerId: 'NSDQ:GOOGL',
+        exchangeId: 'NASDAQ',
+        quantity: 20,
+        averagePrice: 2800.0,
+        currency: 'USD',
       });
       await repository.create({
-        UserID: 'user-002',
-        TickerID: 'NSDQ:AMZN',
-        ExchangeID: 'NASDAQ',
-        Quantity: 40,
-        AveragePrice: 3200.0,
-        Currency: 'USD',
+        userId: 'user-002',
+        tickerId: 'NSDQ:AMZN',
+        exchangeId: 'NASDAQ',
+        quantity: 40,
+        averagePrice: 3200.0,
+        currency: 'USD',
       });
 
       // User3: 1銘柄
       await repository.create({
-        UserID: 'user-003',
-        TickerID: 'NSDQ:MSFT',
-        ExchangeID: 'NASDAQ',
-        Quantity: 60,
-        AveragePrice: 350.0,
-        Currency: 'USD',
+        userId: 'user-003',
+        tickerId: 'NSDQ:MSFT',
+        exchangeId: 'NASDAQ',
+        quantity: 60,
+        averagePrice: 350.0,
+        currency: 'USD',
       });
 
       // 各ユーザーのデータを取得
@@ -341,30 +341,30 @@ describe('Holding Repository E2E Tests with InMemory Store', () => {
       expect(user3Holdings.items).toHaveLength(1);
 
       // 各ユーザーのデータが混ざっていないことを確認
-      expect(user1Holdings.items.every((h) => h.UserID === 'user-001')).toBe(true);
-      expect(user2Holdings.items.every((h) => h.UserID === 'user-002')).toBe(true);
-      expect(user3Holdings.items.every((h) => h.UserID === 'user-003')).toBe(true);
+      expect(user1Holdings.items.every((h) => h.userId === 'user-001')).toBe(true);
+      expect(user2Holdings.items.every((h) => h.userId === 'user-002')).toBe(true);
+      expect(user3Holdings.items.every((h) => h.userId === 'user-003')).toBe(true);
     });
 
     it('保有株式を追加、更新、削除する複合的なフロー', async () => {
       // 初期データ作成
       await repository.create({
-        UserID: 'user-001',
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Quantity: 100,
-        AveragePrice: 150.0,
-        Currency: 'USD',
+        userId: 'user-001',
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        quantity: 100,
+        averagePrice: 150.0,
+        currency: 'USD',
       });
 
       // 追加
       await repository.create({
-        UserID: 'user-001',
-        TickerID: 'NSDQ:NVDA',
-        ExchangeID: 'NASDAQ',
-        Quantity: 50,
-        AveragePrice: 450.0,
-        Currency: 'USD',
+        userId: 'user-001',
+        tickerId: 'NSDQ:NVDA',
+        exchangeId: 'NASDAQ',
+        quantity: 50,
+        averagePrice: 450.0,
+        currency: 'USD',
       });
 
       // 確認: 2件
@@ -372,11 +372,11 @@ describe('Holding Repository E2E Tests with InMemory Store', () => {
       expect(holdings.items).toHaveLength(2);
 
       // 1つ目を更新
-      await repository.update('user-001', 'NSDQ:AAPL', { Quantity: 150 });
+      await repository.update('user-001', 'NSDQ:AAPL', { quantity: 150 });
 
       // 確認: 更新が反映されている
       const updated = await repository.getById('user-001', 'NSDQ:AAPL');
-      expect(updated?.Quantity).toBe(150);
+      expect(updated?.quantity).toBe(150);
 
       // 1つ削除
       await repository.delete('user-001', 'NSDQ:AAPL');
@@ -384,7 +384,7 @@ describe('Holding Repository E2E Tests with InMemory Store', () => {
       // 確認: 1件になった
       holdings = await repository.getByUserId('user-001');
       expect(holdings.items).toHaveLength(1);
-      expect(holdings.items[0].TickerID).toBe('NSDQ:NVDA');
+      expect(holdings.items[0].tickerId).toBe('NSDQ:NVDA');
     });
   });
 
@@ -392,12 +392,12 @@ describe('Holding Repository E2E Tests with InMemory Store', () => {
     it('各テストケースでストアをリセットすることで独立性が保たれる', async () => {
       // 1つ目のテストでデータを作成
       await repository.create({
-        UserID: 'user-test',
-        TickerID: 'NSDQ:TEST1',
-        ExchangeID: 'NASDAQ',
-        Quantity: 100,
-        AveragePrice: 100.0,
-        Currency: 'USD',
+        userId: 'user-test',
+        tickerId: 'NSDQ:TEST1',
+        exchangeId: 'NASDAQ',
+        quantity: 100,
+        averagePrice: 100.0,
+        currency: 'USD',
       });
 
       const result1 = await repository.getByUserId('user-test');

@@ -37,6 +37,12 @@ describe('MemoryList', () => {
     expect(screen.getByTestId('memory-empty')).toBeInTheDocument();
   });
 
+  it('取得失敗(hasError)のときは空状態メッセージを出さない', () => {
+    render(<MemoryList items={[]} loading={false} hasError onDelete={jest.fn()} />);
+    expect(screen.queryByTestId('memory-empty')).not.toBeInTheDocument();
+    expect(screen.queryByText('まだここに覚えていることはないみたい。')).not.toBeInTheDocument();
+  });
+
   it('記憶があれば一覧表示', () => {
     render(<MemoryList items={[item]} loading={false} onDelete={jest.fn()} />);
     expect(screen.getByTestId('memory-list')).toBeInTheDocument();

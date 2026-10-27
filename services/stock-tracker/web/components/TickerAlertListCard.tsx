@@ -14,6 +14,8 @@ import {
 } from '@mui/material';
 import { Button, Chip, ErrorAlert } from '@nagiyu/ui';
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
+import { useSession } from 'next-auth/react';
+import { hasUserPermission } from '@nagiyu/common';
 import type { AlertResponse } from '@/types/alert';
 import AlertSettingsModal from './AlertSettingsModal';
 import AlertDeleteConfirmDialog from './AlertDeleteConfirmDialog';
@@ -42,6 +44,9 @@ export default function TickerAlertListCard({
   error,
   onChanged,
 }: TickerAlertListCardProps) {
+  const { data: session } = useSession();
+  // 権限が確認できたときだけ操作を出す。読み込み中は session が無く false になる
+  const canWrite = hasUserPermission(session?.user, 'stocks:write-own');
   const [createTradeMode, setCreateTradeMode] = useState<'Buy' | 'Sell' | null>(null);
   const [selectedAlert, setSelectedAlert] = useState<AlertResponse | null>(null);
   const [editModalOpen, setEditModalOpen] = useState<boolean>(false);
@@ -115,28 +120,30 @@ export default function TickerAlertListCard({
           <Typography variant="h6" component="h2">
             アラート
           </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button
-              variant="solid"
-              size="sm"
-              color="success"
-              startIcon={<AddIcon />}
-              onClick={() => setCreateTradeMode('Buy')}
-              disabled={loading}
-            >
-              買い追加
-            </Button>
-            <Button
-              variant="solid"
-              size="sm"
-              color="warning"
-              startIcon={<AddIcon />}
-              onClick={() => setCreateTradeMode('Sell')}
-              disabled={loading}
-            >
-              売り追加
-            </Button>
-          </Box>
+          {canWrite && (
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                variant="solid"
+                size="sm"
+                color="success"
+                startIcon={<AddIcon />}
+                onClick={() => setCreateTradeMode('Buy')}
+                disabled={loading}
+              >
+                買い追加
+              </Button>
+              <Button
+                variant="solid"
+                size="sm"
+                color="warning"
+                startIcon={<AddIcon />}
+                onClick={() => setCreateTradeMode('Sell')}
+                disabled={loading}
+              >
+                売り追加
+              </Button>
+            </Box>
+          )}
         </Stack>
         {localError && <ErrorAlert message={localError} onClose={() => setLocalError('')} />}
         {localSuccess && (
@@ -181,34 +188,38 @@ export default function TickerAlertListCard({
                 <Chip size="sm" color={alert.temporary ? 'warning' : 'neutral'}>
                   {alert.temporary ? '一時' : '常設'}
                 </Chip>
-                <Tooltip title="編集">
-                  <IconButton
-                    size="small"
-                    color="warning"
-                    aria-label="編集"
-                    sx={{ border: (theme) => `1px solid ${theme.palette.warning.main}` }}
-                    onClick={() => {
-                      setSelectedAlert(alert);
-                      setEditModalOpen(true);
-                    }}
-                  >
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="削除">
-                  <IconButton
-                    size="small"
-                    color="error"
-                    aria-label="削除"
-                    sx={{ border: (theme) => `1px solid ${theme.palette.error.main}` }}
-                    onClick={() => {
-                      setSelectedAlert(alert);
-                      setDeleteDialogOpen(true);
-                    }}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
+                {canWrite && (
+                  <>
+                    <Tooltip title="編集">
+                      <IconButton
+                        size="small"
+                        color="warning"
+                        aria-label="編集"
+                        sx={{ border: (theme) => `1px solid ${theme.palette.warning.main}` }}
+                        onClick={() => {
+                          setSelectedAlert(alert);
+                          setEditModalOpen(true);
+                        }}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="削除">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        aria-label="削除"
+                        sx={{ border: (theme) => `1px solid ${theme.palette.error.main}` }}
+                        onClick={() => {
+                          setSelectedAlert(alert);
+                          setDeleteDialogOpen(true);
+                        }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </>
+                )}
               </Stack>
             ))}
           </Stack>

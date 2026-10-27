@@ -6,15 +6,27 @@ import {
   upsertUserVideoSetting,
   BulkImportResponse,
 } from '@nagiyu/niconico-mylist-assistant-core';
+import { EntityAlreadyExistsError, reportErrorEvent } from '@nagiyu/aws';
+import { toErrorMessage } from '@nagiyu/common';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { createWithApiErrorReportingBody } from '@/lib/api-error-reporting';
 
-interface BulkImportRequest {
-  videoIds: string[];
-}
+/**
+ * 動画 ID (英字接頭辞 + 数字) の形式かを判定する
+ *
+ * 正規表現は引数を文字列へ変換して判定するため、文字列以外 (例: ['sm1']) を通さないよう型を先に確かめる。
+ */
+const isVideoId = (id: unknown): id is string => typeof id === 'string' && /^[a-z]+\d+$/.test(id);
 
-export async function POST(request: NextRequest) {
-  try {
+const withApiErrorReporting = createWithApiErrorReportingBody('Bulk import error:', {
+  error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+});
+
+export const POST = withApiErrorReporting(
+  'Web API: 動画一括登録エラー',
+  async (request: NextRequest) => {
     // 認証チェック
     const session = await getSession();
     if (!session?.user) {
@@ -22,22 +34,27 @@ export async function POST(request: NextRequest) {
     }
 
     // リクエストボディのバリデーション
-    const body: BulkImportRequest = await request.json();
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return NextResponse.json({ error: ERROR_MESSAGES.INVALID_REQUEST_BODY }, { status: 400 });
+    }
 
-    if (!Array.isArray(body.videoIds)) {
+    const { videoIds } = bodyResult.body;
+
+    if (!Array.isArray(videoIds)) {
       return NextResponse.json({ error: ERROR_MESSAGES.VIDEO_IDS_MUST_BE_ARRAY }, { status: 400 });
     }
 
-    if (body.videoIds.length === 0) {
+    if (videoIds.length === 0) {
       return NextResponse.json({ error: ERROR_MESSAGES.VIDEO_IDS_EMPTY }, { status: 400 });
     }
 
-    if (body.videoIds.length > 100) {
+    if (videoIds.length > 100) {
       return NextResponse.json({ error: ERROR_MESSAGES.VIDEO_IDS_TOO_MANY }, { status: 400 });
     }
 
     // 動画 ID のバリデーション（英字接頭辞 + 数字 形式）
-    const invalidIds = body.videoIds.filter((id) => !/^[a-z]+\d+$/.test(id));
+    const invalidIds = videoIds.filter((id) => !isVideoId(id));
 
     if (invalidIds.length > 0) {
       return NextResponse.json(
@@ -49,15 +66,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 同じ ID が複数あっても 1 本しか追加されないため、件数と API 呼び出しが実態からずれないよう
+    // 元の順序を保ったまま重複を除く。上限・形式の検証は入力そのものに対して済んでいる
+    const validVideoIds = Array.from(new Set(videoIds.filter(isVideoId)));
+
     // 重複チェック（ユーザー設定の存在を確認）
     const existingSettings = await Promise.all(
-      body.videoIds.map((id) => getUserVideoSetting(session.user.userId, id))
+      validVideoIds.map((id) => getUserVideoSetting(session.user.id, id))
     );
 
     let skippedCount = 0;
     const videoIdsToImport: string[] = [];
 
-    body.videoIds.forEach((id, index) => {
+    validVideoIds.forEach((id, index) => {
       if (existingSettings[index]) {
         skippedCount++;
       } else {
@@ -85,16 +106,16 @@ export async function POST(request: NextRequest) {
               : '0:00',
           });
         } catch (error) {
-          // ConditionalCheckFailedException の場合は既に存在するのでOK
+          // 既に存在する場合はOK
           // その他のエラーは throw
-          if (error instanceof Error && !error.message.includes('ConditionalCheckFailed')) {
+          if (!(error instanceof EntityAlreadyExistsError)) {
             throw error;
           }
         }
 
         // 2. ユーザー設定を作成
         await upsertUserVideoSetting({
-          userId: session.user.userId,
+          userId: session.user.id,
           videoId: info.videoId,
           isFavorite: false,
           isSkip: false,
@@ -105,25 +126,41 @@ export async function POST(request: NextRequest) {
     );
 
     // 保存結果の処理
-    saveResults.forEach((result) => {
+    // 失敗件数に数えてレスポンスを返すため、例外は上に届かない。ここで報告する
+    const saveFailures: Array<{ videoId: string; reason: unknown }> = [];
+    saveResults.forEach((result, index) => {
       if (result.status === 'fulfilled') {
         successCount++;
       } else {
         dbFailedCount++;
+        saveFailures.push({ videoId: videoInfos[index].videoId, reason: result.reason });
       }
     });
+    await Promise.all(
+      saveFailures.map(({ videoId, reason }) =>
+        reportErrorEvent({
+          serviceId: 'niconico-mylist-assistant',
+          severity: 'error',
+          title: 'Web API: 動画一括登録の保存エラー',
+          message: toErrorMessage(reason),
+          context: {
+            userId: session.user.id,
+            videoId,
+            errorName: reason instanceof Error ? reason.name : typeof reason,
+            errorStack: reason instanceof Error ? reason.stack : undefined,
+          },
+        })
+      )
+    );
 
     const response: BulkImportResponse = {
       success: successCount,
       failed: apiFailed.length + dbFailedCount,
       skipped: skippedCount,
-      total: body.videoIds.length,
+      total: validVideoIds.length,
       failedDetails: apiFailed.length > 0 ? apiFailed : undefined,
     };
 
     return NextResponse.json(response);
-  } catch (error) {
-    console.error('Bulk import error:', error);
-    return NextResponse.json({ error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR }, { status: 500 });
   }
-}
+);

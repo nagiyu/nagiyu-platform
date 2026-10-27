@@ -7,6 +7,7 @@ import {
   requirePermission,
   hasAnyPermission,
   hasAllPermissions,
+  hasUserPermission,
 } from '../../../src/auth/permissions';
 
 describe('Permission Functions', () => {
@@ -52,6 +53,41 @@ describe('Permission Functions', () => {
 
     it('should return false for non-existent permission', () => {
       expect(hasPermission(['admin'], 'logs:read')).toBe(false);
+    });
+  });
+
+  describe('hasUserPermission', () => {
+    it('should return true when user roles grant the permission', () => {
+      expect(hasUserPermission({ roles: ['admin'] }, 'users:read')).toBe(true);
+    });
+
+    it('should return false when user roles do not grant the permission', () => {
+      expect(hasUserPermission({ roles: ['user-manager'] }, 'roles:assign')).toBe(false);
+    });
+
+    it('should return false for empty roles', () => {
+      expect(hasUserPermission({ roles: [] }, 'users:read')).toBe(false);
+    });
+
+    it('should return false when user is null or undefined', () => {
+      expect(hasUserPermission(null, 'users:read')).toBe(false);
+      expect(hasUserPermission(undefined, 'users:read')).toBe(false);
+    });
+
+    it('should return false when roles is missing', () => {
+      expect(hasUserPermission({}, 'users:read')).toBe(false);
+    });
+
+    it('should return false when roles is not an array', () => {
+      expect(hasUserPermission({ roles: 'admin' }, 'users:read')).toBe(false);
+      expect(hasUserPermission({ roles: { 0: 'admin' } }, 'users:read')).toBe(false);
+      expect(hasUserPermission({ roles: null }, 'users:read')).toBe(false);
+    });
+
+    it('should accept a session-like user with extra properties', () => {
+      const user = { name: 'test', roles: ['livetalk-user'] };
+      expect(hasUserPermission(user, 'livetalk:chat')).toBe(true);
+      expect(hasUserPermission(user, 'livetalk:admin')).toBe(false);
     });
   });
 

@@ -3,14 +3,18 @@
  */
 
 import { QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import type { ErrorEvent, ErrorSeverity, ErrorSource } from '@nagiyu/common';
+import type { ErrorEvent } from '@nagiyu/common';
 import {
-  buildErrorEventPK,
-  buildErrorEventSK,
+  DynamoDBEntityStore,
+  ErrorEventMapper,
   ERROR_EVENT_GSI1_PK,
   ERROR_EVENT_SK_PREFIX,
+  buildErrorEventPK,
+  type EntityStore,
+  type ErrorEventKey,
 } from '@nagiyu/aws';
 import {
+  assertValidRange,
   decodeCursor,
   encodeCursor,
   normalizeLimit,
@@ -19,25 +23,24 @@ import {
   type ListErrorEventsResult,
 } from './reader.js';
 
-const ERROR_MESSAGES = {
-  INVALID_RANGE: 'from は to よりも前の時刻である必要があります',
-} as const;
-
 const ALL_BY_OCCURRED_AT_INDEX = 'AllByOccurredAt';
+
+/**
+ * SK の上限比較で、同じ時刻の SK (`{ISO}#{eventId}`) をすべて含めるための最大文字。
+ */
+const SORT_KEY_UPPER_BOUND_SUFFIX = '￿';
 
 type ItemRecord = Record<string, unknown>;
 
-function toErrorEvent(item: ItemRecord): ErrorEvent {
-  return {
-    eventId: item.eventId as string,
-    serviceId: item.serviceId as string,
-    source: item.source as ErrorSource,
-    severity: item.severity as ErrorSeverity,
-    title: item.title as string,
-    message: item.message as string,
-    context: item.context as string,
-    occurredAt: item.occurredAt as string,
-  };
+/**
+ * 範囲指定の時刻を、SK に埋め込まれた固定長の ISO 文字列 (`.000Z` まで) に揃える。
+ *
+ * `2026-05-06T00:00:00Z` のような桁違いの表記のまま SK と文字列比較すると、
+ * `.` と `Z` の大小で同じ時刻の境界が外れるため。
+ */
+function toSortKeyTime(time: string): string {
+  const millis = Date.parse(time);
+  return Number.isNaN(millis) ? time : new Date(millis).toISOString();
 }
 
 /**
@@ -46,16 +49,17 @@ function toErrorEvent(item: ItemRecord): ErrorEvent {
 export class DynamoDBErrorEventReader implements ErrorEventReader {
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
+  private readonly mapper = new ErrorEventMapper();
+  private readonly entityStore: EntityStore<ErrorEvent, ErrorEventKey>;
 
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
     this.docClient = docClient;
     this.tableName = tableName;
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper);
   }
 
   public async list(query: ListErrorEventsQuery): Promise<ListErrorEventsResult> {
-    if (query.from && query.to && Date.parse(query.from) > Date.parse(query.to)) {
-      throw new Error(ERROR_MESSAGES.INVALID_RANGE);
-    }
+    assertValidRange(query);
 
     const limit = normalizeLimit(query.limit);
     const exclusiveStartKey = query.cursor ? decodeCursor(query.cursor) : undefined;
@@ -73,23 +77,24 @@ export class DynamoDBErrorEventReader implements ErrorEventReader {
     };
 
     const conditions: string[] = ['#pk = :pk'];
+    const fromKey = query.from ? `${ERROR_EVENT_SK_PREFIX}${toSortKeyTime(query.from)}` : undefined;
+    const toKey = query.to
+      ? `${ERROR_EVENT_SK_PREFIX}${toSortKeyTime(query.to)}${SORT_KEY_UPPER_BOUND_SUFFIX}`
+      : undefined;
 
-    if (query.from && query.to) {
+    expressionAttributeNames['#sk'] = sortKeyName;
+    if (fromKey && toKey) {
       conditions.push('#sk BETWEEN :from AND :to');
-      expressionAttributeNames['#sk'] = sortKeyName;
-      expressionAttributeValues[':from'] = `${ERROR_EVENT_SK_PREFIX}${query.from}`;
-      expressionAttributeValues[':to'] = `${ERROR_EVENT_SK_PREFIX}${query.to}￿`;
-    } else if (query.from) {
+      expressionAttributeValues[':from'] = fromKey;
+      expressionAttributeValues[':to'] = toKey;
+    } else if (fromKey) {
       conditions.push('#sk >= :from');
-      expressionAttributeNames['#sk'] = sortKeyName;
-      expressionAttributeValues[':from'] = `${ERROR_EVENT_SK_PREFIX}${query.from}`;
-    } else if (query.to) {
+      expressionAttributeValues[':from'] = fromKey;
+    } else if (toKey) {
       conditions.push('#sk <= :to');
-      expressionAttributeNames['#sk'] = sortKeyName;
-      expressionAttributeValues[':to'] = `${ERROR_EVENT_SK_PREFIX}${query.to}￿`;
+      expressionAttributeValues[':to'] = toKey;
     } else {
       conditions.push('begins_with(#sk, :prefix)');
-      expressionAttributeNames['#sk'] = sortKeyName;
       expressionAttributeValues[':prefix'] = ERROR_EVENT_SK_PREFIX;
     }
 
@@ -110,33 +115,16 @@ export class DynamoDBErrorEventReader implements ErrorEventReader {
     const nextCursor = result.LastEvaluatedKey ? encodeCursor(result.LastEvaluatedKey) : null;
 
     return {
-      items: items.map(toErrorEvent),
+      items: items.map((item) => this.mapper.toEntity(item)),
       nextCursor,
     };
   }
 
   public async findById(
     eventId: string,
-    occurredAt: string,
+    occurredAt: number,
     serviceId: string
   ): Promise<ErrorEvent | null> {
-    const result = await this.docClient.send(
-      new QueryCommand({
-        TableName: this.tableName,
-        KeyConditionExpression: '#pk = :pk AND #sk = :sk',
-        ExpressionAttributeNames: {
-          '#pk': 'PK',
-          '#sk': 'SK',
-        },
-        ExpressionAttributeValues: {
-          ':pk': buildErrorEventPK(serviceId),
-          ':sk': buildErrorEventSK(occurredAt, eventId),
-        },
-        Limit: 1,
-      })
-    );
-
-    const item = result.Items?.[0] as ItemRecord | undefined;
-    return item ? toErrorEvent(item) : null;
+    return this.entityStore.get({ serviceId, occurredAt, eventId });
   }
 }

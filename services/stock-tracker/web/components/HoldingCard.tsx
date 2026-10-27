@@ -7,10 +7,6 @@ import {
   Card,
   CardContent,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   IconButton,
   Stack,
   // eslint-disable-next-line no-restricted-imports -- 数値入力の HTML 制約 step/min/max（slotProps.htmlInput）が必要なため、@nagiyu/ui ではなく MUI の TextField をそのまま利用する
@@ -18,10 +14,14 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { Button, ErrorAlert, Select } from '@nagiyu/ui';
+import { Button, ErrorAlert } from '@nagiyu/ui';
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
+import { useSession } from 'next-auth/react';
+import { hasUserPermission } from '@nagiyu/common';
 import type { HoldingResponse } from '@/types/holding';
 import type { AlertResponse } from '@/types/alert';
+import HoldingDeleteDialog from './HoldingDeleteDialog';
+import HoldingFormDialog from './HoldingFormDialog';
 
 const ERROR_MESSAGES = {
   CREATE_HOLDING_ERROR: '保有株式の登録に失敗しました',
@@ -43,13 +43,13 @@ type HoldingFormData = {
   currency: string;
 };
 
-const CURRENCIES = ['USD', 'JPY', 'EUR', 'GBP'] as const;
-
 interface HoldingCardProps {
   holding: HoldingResponse | null;
   tickerId: string;
   symbol: string;
   exchangeId: string;
+  /** 新規登録時の通貨の初期値。取引所の市場が決められないときは空文字 */
+  defaultCurrency: string;
   loading: boolean;
   error: string;
   onChanged: () => Promise<void>;
@@ -60,6 +60,7 @@ export default function HoldingCard({
   tickerId,
   symbol,
   exchangeId,
+  defaultCurrency,
   loading,
   error,
   onChanged,
@@ -77,9 +78,12 @@ export default function HoldingCard({
   const [formData, setFormData] = useState<HoldingFormData>({
     quantity: '',
     averagePrice: '',
-    currency: 'USD',
+    currency: defaultCurrency,
   });
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof HoldingFormData, string>>>({});
+  const { data: session } = useSession();
+  // 権限が確認できたときだけ操作を出す。読み込み中は session が無く false になる
+  const canWrite = hasUserPermission(session?.user, 'stocks:write-own');
   const canAddHolding = !loading && !holding;
   const displaySymbol = symbol || tickerId;
 
@@ -119,7 +123,7 @@ export default function HoldingCard({
     setFormData({
       quantity: '',
       averagePrice: '',
-      currency: 'USD',
+      currency: defaultCurrency,
     });
     setCreateModalOpen(true);
   };
@@ -253,16 +257,6 @@ export default function HoldingCard({
     }
   };
 
-  const getOperatorLabel = (operator: string): string => {
-    if (operator === 'gte') {
-      return '以上';
-    }
-    if (operator === 'lte') {
-      return '以下';
-    }
-    return operator;
-  };
-
   const handleOpenDeleteDialog = async () => {
     if (!holding) {
       return;
@@ -315,15 +309,17 @@ export default function HoldingCard({
           <Typography variant="h6" component="h2">
             保有株式
           </Typography>
-          <Button
-            variant="solid"
-            size="sm"
-            startIcon={<AddIcon />}
-            onClick={handleOpenCreateModal}
-            disabled={!canAddHolding}
-          >
-            追加
-          </Button>
+          {canWrite && (
+            <Button
+              variant="solid"
+              size="sm"
+              startIcon={<AddIcon />}
+              onClick={handleOpenCreateModal}
+              disabled={!canAddHolding}
+            >
+              追加
+            </Button>
+          )}
         </Stack>
         {localError && <ErrorAlert message={localError} onClose={() => setLocalError('')} />}
         {localSuccess && (
@@ -349,192 +345,73 @@ export default function HoldingCard({
               平均取得価格: {holding.averagePrice.toLocaleString()}
             </Typography>
             <Typography variant="body2">通貨: {holding.currency}</Typography>
-            <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
-              <Tooltip title="編集">
-                <IconButton
-                  size="small"
-                  color="warning"
-                  aria-label="編集"
-                  sx={{ border: (theme) => `1px solid ${theme.palette.warning.main}` }}
-                  onClick={handleOpenEditModal}
-                >
-                  <EditIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="削除">
-                <IconButton
-                  size="small"
-                  color="error"
-                  aria-label="削除"
-                  sx={{ border: (theme) => `1px solid ${theme.palette.error.main}` }}
-                  onClick={() => void handleOpenDeleteDialog()}
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </Box>
+            {canWrite && (
+              <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                <Tooltip title="編集">
+                  <IconButton
+                    size="small"
+                    color="warning"
+                    aria-label="編集"
+                    sx={{ border: (theme) => `1px solid ${theme.palette.warning.main}` }}
+                    onClick={handleOpenEditModal}
+                  >
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="削除">
+                  <IconButton
+                    size="small"
+                    color="error"
+                    aria-label="削除"
+                    sx={{ border: (theme) => `1px solid ${theme.palette.error.main}` }}
+                    onClick={() => void handleOpenDeleteDialog()}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            )}
           </>
         )}
       </CardContent>
 
-      <Dialog
+      <HoldingFormDialog
         open={createModalOpen}
+        title="保有株式の登録"
+        values={formData}
+        errors={formErrors}
+        submitting={submitting}
+        exchangeField={<TextField fullWidth label="取引所" value={exchangeId} disabled />}
+        tickerField={<TextField fullWidth label="ティッカー" value={displaySymbol} disabled />}
+        currencyEditable
+        onChange={handleFormChange}
+        onSubmit={() => void handleCreate()}
         onClose={() => setCreateModalOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>保有株式の登録</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField fullWidth label="取引所" value={exchangeId} disabled />
-            <TextField fullWidth label="ティッカー" value={displaySymbol} disabled />
-            <TextField
-              fullWidth
-              label="保有数"
-              type="number"
-              value={formData.quantity}
-              onChange={(e) => handleFormChange('quantity', e.target.value)}
-              error={!!formErrors.quantity}
-              helperText={formErrors.quantity}
-              slotProps={{ htmlInput: { step: '0.0001', min: '0.0001', max: '1000000000' } }}
-            />
-            <TextField
-              fullWidth
-              label="平均取得価格"
-              type="number"
-              value={formData.averagePrice}
-              onChange={(e) => handleFormChange('averagePrice', e.target.value)}
-              error={!!formErrors.averagePrice}
-              helperText={formErrors.averagePrice}
-              slotProps={{ htmlInput: { step: '0.01', min: '0.01', max: '1000000' } }}
-            />
-            <Select
-              fullWidth
-              label="通貨"
-              value={formData.currency}
-              onChange={(value) => handleFormChange('currency', value)}
-              error={!!formErrors.currency}
-              helperText={formErrors.currency}
-              options={CURRENCIES.map((currency) => ({ value: currency, label: currency }))}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateModalOpen(false)} disabled={submitting} variant="ghost">
-            キャンセル
-          </Button>
-          <Button onClick={() => void handleCreate()} variant="solid" loading={submitting}>
-            保存
-          </Button>
-        </DialogActions>
-      </Dialog>
+      />
 
-      <Dialog open={editModalOpen} onClose={() => setEditModalOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>保有株式の編集</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField fullWidth label="取引所" value={exchangeId} disabled />
-            <TextField fullWidth label="ティッカー" value={displaySymbol} disabled />
-            <TextField
-              fullWidth
-              label="保有数"
-              type="number"
-              value={formData.quantity}
-              onChange={(e) => handleFormChange('quantity', e.target.value)}
-              error={!!formErrors.quantity}
-              helperText={formErrors.quantity}
-              slotProps={{ htmlInput: { step: '0.0001', min: '0.0001', max: '1000000000' } }}
-            />
-            <TextField
-              fullWidth
-              label="平均取得価格"
-              type="number"
-              value={formData.averagePrice}
-              onChange={(e) => handleFormChange('averagePrice', e.target.value)}
-              error={!!formErrors.averagePrice}
-              helperText={formErrors.averagePrice}
-              slotProps={{ htmlInput: { step: '0.01', min: '0.01', max: '1000000' } }}
-            />
-            <TextField fullWidth label="通貨" value={formData.currency} disabled />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEditModalOpen(false)} disabled={submitting} variant="ghost">
-            キャンセル
-          </Button>
-          <Button onClick={() => void handleUpdate()} variant="solid" loading={submitting}>
-            保存
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <HoldingFormDialog
+        open={editModalOpen}
+        title="保有株式の編集"
+        values={formData}
+        errors={formErrors}
+        submitting={submitting}
+        exchangeField={<TextField fullWidth label="取引所" value={exchangeId} disabled />}
+        tickerField={<TextField fullWidth label="ティッカー" value={displaySymbol} disabled />}
+        currencyEditable={false}
+        onChange={handleFormChange}
+        onSubmit={() => void handleUpdate()}
+        onClose={() => setEditModalOpen(false)}
+      />
 
-      <Dialog
+      <HoldingDeleteDialog
         open={deleteDialogOpen}
+        holding={holding}
+        sellAlerts={pendingSellAlerts}
+        submitting={submitting}
+        confirmDisabled={deleteDialogLoading}
+        onConfirm={() => void handleDelete()}
         onClose={() => setDeleteDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>保有株式の削除</DialogTitle>
-        <DialogContent>
-          <Typography>
-            以下の保有株式を削除してもよろしいですか？
-            <br />
-            この操作は取り消せません。
-          </Typography>
-          {holding && (
-            <Box sx={{ mt: 2, p: 2, backgroundColor: 'grey.100', borderRadius: 1 }}>
-              <Typography variant="body2">
-                <strong>ティッカー:</strong> {holding.symbol}
-              </Typography>
-              <Typography variant="body2">
-                <strong>銘柄名:</strong> {holding.name}
-              </Typography>
-              <Typography variant="body2">
-                <strong>保有数:</strong> {holding.quantity.toLocaleString()}
-              </Typography>
-              <Typography variant="body2">
-                <strong>平均取得価格:</strong> {holding.averagePrice.toLocaleString()}{' '}
-                {holding.currency}
-              </Typography>
-            </Box>
-          )}
-          {pendingSellAlerts.length > 0 && (
-            <Box sx={{ mt: 2 }}>
-              <Alert severity="warning" sx={{ mb: 1 }}>
-                以下の売りアラートも合わせて削除されます。
-              </Alert>
-              <Box sx={{ p: 2, backgroundColor: 'warning.light', borderRadius: 1 }}>
-                {pendingSellAlerts.map((sellAlert, index) => {
-                  const conditionLabels = sellAlert.conditions.map((condition) => {
-                    const operatorLabel = getOperatorLabel(condition.operator);
-                    return `価格 ${condition.value.toLocaleString()} ${operatorLabel}`;
-                  });
-
-                  return (
-                    <Typography key={sellAlert.alertId} variant="body2">
-                      {index + 1}. {holding?.symbol}（{conditionLabels.join(' / ')}）
-                    </Typography>
-                  );
-                })}
-              </Box>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)} disabled={submitting} variant="ghost">
-            キャンセル
-          </Button>
-          <Button
-            onClick={() => void handleDelete()}
-            variant="solid"
-            color="danger"
-            loading={submitting}
-            disabled={deleteDialogLoading}
-          >
-            削除
-          </Button>
-        </DialogActions>
-      </Dialog>
+      />
     </Card>
   );
 }

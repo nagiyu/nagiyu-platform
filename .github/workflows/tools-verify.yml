@@ -43,7 +43,6 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/tools'
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui'
 
   docker-build:
     name: Docker Build Verification
@@ -136,10 +135,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
+        run: npm run build:libs
 
       - name: Build web application
         run: npm run build --workspace @nagiyu/tools
@@ -211,10 +207,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
+        run: npm run build:libs
 
       - name: Build web application
         run: npm run build --workspace @nagiyu/tools
@@ -286,10 +279,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
+        run: npm run build:libs
 
       - name: Build web application
         run: npm run build --workspace @nagiyu/tools

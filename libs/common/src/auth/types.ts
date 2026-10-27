@@ -8,7 +8,9 @@
 import type { ROLES } from './roles.js';
 
 /**
- * User information stored in DynamoDB and included in JWT
+ * DynamoDB に保存されるユーザー情報
+ *
+ * セッション上のユーザー ({@link SessionUser}) とは別物で、JWT からは復元できない値を含む。
  */
 export interface User {
   /** Platform-wide unique user ID (UUID v4) */
@@ -21,23 +23,45 @@ export interface User {
   name: string;
   /** Array of role IDs assigned to the user */
   roles: string[];
-  /** ISO 8601 timestamp of user creation */
-  createdAt: string;
-  /** ISO 8601 timestamp of last update */
-  updatedAt: string;
-  /** ISO 8601 timestamp of last login (optional) */
-  lastLoginAt?: string;
+  /** Unix timestamp (milliseconds) of user creation */
+  createdAt: number;
+  /** Unix timestamp (milliseconds) of last update */
+  updatedAt: number;
+  /** Unix timestamp (milliseconds) of last login (optional) */
+  lastLoginAt?: number;
   /** Profile picture URL (optional, from OAuth provider) */
   picture?: string;
 }
 
 /**
- * Session information returned by NextAuth.js
+ * セッションのユーザー
+ *
+ * JWT から復元される、リクエスト時点の認証済みユーザー。DB 上のユーザー ({@link User}) とは
+ * 別物で、googleId や作成日時など JWT に載らない値は持たない。
+ * next-auth の `Session['user']` の型拡張もこの型を参照する。
+ */
+export interface SessionUser {
+  /** プラットフォーム共通のユーザー ID (UUID v4) */
+  id: string;
+  /** メールアドレス */
+  email: string;
+  /** 表示名 */
+  name: string;
+  /** プロフィール画像の URL (OAuth プロバイダー由来、任意) */
+  image?: string;
+  /** ユーザーに割り当てられたロール ID の一覧 */
+  roles: string[];
+}
+
+/**
+ * セッション
+ *
+ * サーバー側の getSession と next-auth の `Session` が共通で持つ形。
  */
 export interface Session {
-  /** Authenticated user information */
-  user: User;
-  /** ISO 8601 timestamp when the session expires */
+  /** 認証済みユーザー */
+  user: SessionUser;
+  /** セッションの有効期限 (ISO 8601) */
   expires: string;
 }
 

@@ -7,6 +7,7 @@ import {
   resolveLifecycleState,
 } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
+import { reportSwallowedError, withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import { getLifecycleRepository } from '@/lib/server/repositories';
 import { hasCharacter } from '@/lib/characters/registry';
 
@@ -27,26 +28,30 @@ import { hasCharacter } from '@/lib/characters/registry';
  * 演出のための情報なので、取得失敗時も 500 を返さず fail-safe で `awake` を返し、
  * UI を止めない。
  */
-export const GET = withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
-  const userId = session.user.googleId;
-  const url = new URL(request.url);
-  const queriedId = url.searchParams.get('characterId');
-  const characterId = queriedId && hasCharacter(queriedId) ? queriedId : DEFAULT_CHARACTER_ID;
+export const GET = withApiErrorReporting(
+  'Web API: 生活サイクル状態取得エラー',
+  withAuth(getSession, 'livetalk:chat', async (session, request: Request) => {
+    const userId = session.user.id;
+    const url = new URL(request.url);
+    const queriedId = url.searchParams.get('characterId');
+    const characterId = queriedId && hasCharacter(queriedId) ? queriedId : DEFAULT_CHARACTER_ID;
 
-  try {
-    const lifecycle = await getLifecycleRepository().get({
-      userId,
-      characterId,
-    });
-    const state = resolveLifecycleState(
-      new Date(),
-      lifecycle?.Bedtime ?? LIFECYCLE_DEFAULT_BEDTIME,
-      lifecycle?.WakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME
-    );
-    return NextResponse.json({ state });
-  } catch (error) {
-    // fail-safe: 演出のための情報なので UI を止めず awake を返す
-    console.error('[GET /api/lifecycle] 生活サイクル状態の取得に失敗しました', error);
-    return NextResponse.json({ state: 'awake' });
-  }
-});
+    try {
+      const lifecycle = await getLifecycleRepository().get({
+        userId,
+        characterId,
+      });
+      const state = resolveLifecycleState(
+        new Date(),
+        lifecycle?.bedtime ?? LIFECYCLE_DEFAULT_BEDTIME,
+        lifecycle?.wakeUpTime ?? LIFECYCLE_DEFAULT_WAKE_UP_TIME
+      );
+      return NextResponse.json({ state });
+    } catch (error) {
+      // fail-safe: 演出のための情報なので UI を止めず awake を返す
+      console.error('[GET /api/lifecycle] 生活サイクル状態の取得に失敗しました', error);
+      await reportSwallowedError('Web API: 生活サイクル状態取得エラー', error, { characterId });
+      return NextResponse.json({ state: 'awake' });
+    }
+  })
+);

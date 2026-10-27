@@ -20,6 +20,12 @@ export interface UseOnboardingResult {
   onboardingText: string | null;
   /** handleSubmit からオンボーディングテキストをクリアするための関数 */
   clearOnboardingText: () => void;
+  /**
+   * その場の案内表示だけを閉じる (スヌーズは記録しない)。
+   * 応答が届いたあとも案内が会話の領域の末尾に残ると、末尾までのスクロールで応答が押し出される。
+   * 次回訪問では、これまでどおり案内を出す。
+   */
+  dismissOnboarding: () => void;
   /** ホーム画面追加ガイドをスキップするハンドラ */
   handleInstallSkip: () => void;
   /** 通知許可が完了したときのハンドラ（4 秒後に自動クリア） */
@@ -59,6 +65,11 @@ export function useOnboarding(consentPhase: ConsentPhase): UseOnboardingResult {
     setOnboardingText(null);
   }, []);
 
+  const dismissOnboarding = useCallback(() => {
+    setOnboardingPhase(null);
+    setOnboardingText(null);
+  }, []);
+
   const handleInstallSkip = useCallback(() => {
     setOnboardingPhase(null);
     setOnboardingText(null);
@@ -83,6 +94,7 @@ export function useOnboarding(consentPhase: ConsentPhase): UseOnboardingResult {
     onboardingPhase,
     onboardingText,
     clearOnboardingText,
+    dismissOnboarding,
     handleInstallSkip,
     handleNotificationGranted,
     handleNotificationSkip,

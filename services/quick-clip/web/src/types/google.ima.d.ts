@@ -6,21 +6,21 @@ declare namespace google {
   namespace ima {
     class AdDisplayContainer {
       constructor(adContainer: HTMLElement, videoContent?: HTMLVideoElement);
-      initialize(): void;
-      destroy(): void;
+      public initialize(): void;
+      public destroy(): void;
     }
 
     class AdsLoader {
       constructor(adDisplayContainer: AdDisplayContainer);
-      requestAds(adsRequest: AdsRequest): void;
-      contentComplete(): void;
-      destroy(): void;
-      addEventListener(
+      public requestAds(adsRequest: AdsRequest): void;
+      public contentComplete(): void;
+      public destroy(): void;
+      public addEventListener(
         event: typeof AdsManagerLoadedEvent.Type.ADS_MANAGER_LOADED,
         handler: (event: AdsManagerLoadedEvent) => void,
         useCapture?: boolean
       ): void;
-      addEventListener(
+      public addEventListener(
         event: typeof AdErrorEvent.Type.AD_ERROR,
         handler: (event: AdErrorEvent) => void,
         useCapture?: boolean
@@ -28,10 +28,10 @@ declare namespace google {
     }
 
     class AdsManager {
-      init(width: number, height: number, viewMode: ViewMode): void;
-      start(): void;
-      destroy(): void;
-      addEventListener(
+      public init(width: number, height: number, viewMode: ViewMode): void;
+      public start(): void;
+      public destroy(): void;
+      public addEventListener(
         event: string,
         handler: (event: AdEvent | AdErrorEvent) => void,
         useCapture?: boolean
@@ -39,25 +39,25 @@ declare namespace google {
     }
 
     class AdsRequest {
-      adTagUrl: string;
-      linearAdSlotWidth: number;
-      linearAdSlotHeight: number;
-      nonLinearAdSlotWidth: number;
-      nonLinearAdSlotHeight: number;
+      public adTagUrl: string;
+      public linearAdSlotWidth: number;
+      public linearAdSlotHeight: number;
+      public nonLinearAdSlotWidth: number;
+      public nonLinearAdSlotHeight: number;
     }
 
     class AdsManagerLoadedEvent {
-      static Type: {
+      public static Type: {
         readonly ADS_MANAGER_LOADED: string;
       };
-      getAdsManager(
+      public getAdsManager(
         content: HTMLVideoElement,
         adsRenderingSettings?: AdsRenderingSettings
       ): AdsManager;
     }
 
     class AdEvent {
-      static Type: {
+      public static Type: {
         readonly COMPLETE: string;
         readonly SKIPPED: string;
         readonly ALL_ADS_COMPLETED: string;
@@ -65,14 +65,14 @@ declare namespace google {
     }
 
     class AdErrorEvent {
-      static Type: {
+      public static Type: {
         readonly AD_ERROR: string;
       };
-      getError(): AdError;
+      public getError(): AdError;
     }
 
     class AdError {
-      getMessage(): string;
+      public getMessage(): string;
     }
 
     class AdsRenderingSettings {}

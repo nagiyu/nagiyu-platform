@@ -3,15 +3,13 @@ import Link from 'next/link';
 import { Container, Typography, Grid, Box, Card, CardContent, CardActions } from '@mui/material';
 import { Button, Chip } from '@nagiyu/ui';
 import { getAllArticles, getCategoryLabel } from '@/lib/content';
+import { buildPageMetadata } from '@/lib/pageMetadata';
 
-export const metadata: Metadata = {
-  title: '技術記事',
-  description:
-    'nagiyu の技術記事一覧です。AWS の運用コストと監視・CI とテストの設計・AI と組んだ開発など、個人でサービスを回す中で実際に踏んだ経験を公開しています。',
-  alternates: {
-    canonical: 'https://nagiyu.com/tech',
-  },
-};
+export const metadata: Metadata = buildPageMetadata(
+  '技術記事',
+  'nagiyu の技術記事一覧です。AWS の運用コストと監視・CI とテストの設計・AI と組んだ開発など、個人でサービスを回す中で実際に踏んだ経験を公開しています。',
+  '/tech'
+);
 
 export default function TechPage() {
   const articles = getAllArticles();

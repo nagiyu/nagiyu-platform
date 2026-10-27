@@ -51,6 +51,12 @@ const mockDynamoDBMembershipRepository = DynamoDBMembershipRepository as jest.Mo
 );
 type SessionOrErrorResponse = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 
+import {
+  createRequestWithJson,
+  MALFORMED_BODY_CASES,
+  type InvalidBodyCase,
+} from '../../../invalidBodyCases';
+
 describe('/api/groups/[groupId]/lists route', () => {
   const mockGetMembershipById = jest.fn();
   const mockGetGroupListsByGroupId = jest.fn();
@@ -138,8 +144,8 @@ describe('/api/groups/[groupId]/lists route', () => {
         groupId: 'group-1',
         name: '共有リスト',
         createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       },
     ]);
 
@@ -155,8 +161,8 @@ describe('/api/groups/[groupId]/lists route', () => {
             groupId: 'group-1',
             name: '共有リスト',
             createdBy: 'user-1',
-            createdAt: '2026-01-01T00:00:00.000Z',
-            updatedAt: '2026-01-01T00:00:00.000Z',
+            createdAt: 1767225600000,
+            updatedAt: 1767225600000,
           },
         ],
       },
@@ -214,8 +220,8 @@ describe('/api/groups/[groupId]/lists route', () => {
       groupId: 'group-1',
       name: '新しい共有リスト',
       createdBy: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: 1767225600000,
+      updatedAt: 1767225600000,
     });
 
     const response = await POST(
@@ -236,9 +242,30 @@ describe('/api/groups/[groupId]/lists route', () => {
         groupId: 'group-1',
         name: '新しい共有リスト',
         createdBy: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       },
     });
   });
+
+  it.each<InvalidBodyCase>([...MALFORMED_BODY_CASES, ['name が数値', async () => ({ name: 123 })]])(
+    'POST: リクエストボディが不正な場合 (%s) は400を返す',
+    async (_label, json) => {
+      mockGetSessionOrUnauthorized.mockResolvedValue({
+        user: { id: 'user-1' },
+      } as SessionOrErrorResponse);
+      mockGetMembershipById.mockResolvedValue({
+        groupId: 'group-1',
+        userId: 'user-1',
+        status: 'ACCEPTED',
+      });
+
+      const response = await POST(createRequestWithJson(json), {
+        params: Promise.resolve({ groupId: 'group-1' }),
+      });
+
+      expect(response.status).toBe(400);
+      expect(mockCreateGroupList).not.toHaveBeenCalled();
+    }
+  );
 });

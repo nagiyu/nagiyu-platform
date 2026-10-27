@@ -12,58 +12,58 @@ import type { PatternResults } from '../types.js';
  */
 export interface DailySummaryEntity {
   /** ティッカーID */
-  TickerID: string;
+  tickerId: string;
   /** 取引所ID */
-  ExchangeID: string;
+  exchangeId: string;
   /** 取引日 (YYYY-MM-DD 形式) */
-  Date: string;
+  date: string;
   /** 始値 */
-  Open: number;
+  open: number;
   /** 高値 */
-  High: number;
+  high: number;
   /** 安値 */
-  Low: number;
+  low: number;
   /** 終値 */
-  Close: number;
+  close: number;
   /** 出来高 */
-  Volume?: number;
+  volume?: number;
   /** パターン判定結果マップ */
-  PatternResults?: PatternResults;
+  patternResults?: PatternResults;
   /** 買いシグナル合致数 */
-  BuyPatternCount?: number;
+  buyPatternCount?: number;
   /** 売りシグナル合致数 */
-  SellPatternCount?: number;
+  sellPatternCount?: number;
   /** 作成日時 (Unix timestamp ms) */
-  CreatedAt: number;
+  createdAt: number;
   /** 更新日時 (Unix timestamp ms) */
-  UpdatedAt: number;
+  updatedAt: number;
 }
 
 /**
- * DailySummary作成時の入力データ（CreatedAt/UpdatedAtを含まない）
+ * DailySummary作成時の入力データ (createdAt/updatedAtを含まない)
  */
-export type CreateDailySummaryInput = Omit<DailySummaryEntity, 'CreatedAt' | 'UpdatedAt'>;
+export type CreateDailySummaryInput = Omit<DailySummaryEntity, 'createdAt' | 'updatedAt'>;
 
 /**
  * 確度算出バッチが読む属性だけに絞った DailySummary の射影。
  *
  * 大量の日付・銘柄を読む確度算出バッチの読み出し量を抑えるため、確度算出に使わない
- * 属性（UpdatedAt 等）は持たせない。
+ * 属性 (updatedAt 等) は持たせない。
  */
 export type DailySummaryForecastFields = Pick<
   DailySummaryEntity,
-  | 'TickerID'
-  | 'ExchangeID'
-  | 'Date'
-  | 'Open'
-  | 'High'
-  | 'Low'
-  | 'Close'
-  | 'Volume'
-  | 'PatternResults'
-  | 'BuyPatternCount'
-  | 'SellPatternCount'
-  | 'CreatedAt'
+  | 'tickerId'
+  | 'exchangeId'
+  | 'date'
+  | 'open'
+  | 'high'
+  | 'low'
+  | 'close'
+  | 'volume'
+  | 'patternResults'
+  | 'buyPatternCount'
+  | 'sellPatternCount'
+  | 'createdAt'
 >;
 
 /**

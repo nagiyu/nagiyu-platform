@@ -11,11 +11,12 @@
  */
 
 import { NextResponse } from 'next/server';
-import { withAuth } from '@nagiyu/nextjs';
+import { readJsonObjectBody, withAuth } from '@nagiyu/nextjs';
 import { logger, toErrorMessage } from '@nagiyu/common';
 import { sendWebPushNotifications, getVapidConfig } from '@nagiyu/common/push';
 import { defaultUlidFactory, NOTIFICATION_EVENT_TTL_SECONDS } from '@nagiyu/livetalk-core';
 import { getSession } from '@/lib/server/session';
+import { reportSwallowedError, withApiErrorReporting } from '@/lib/server/api-error-reporting';
 import {
   getPushSubscriptionRepository,
   getNotificationEventRepository,
@@ -35,45 +36,37 @@ const TEST_PUSH_ERROR_MESSAGES = {
   SEND_FAILED: 'テスト通知の送信に失敗しました',
 } as const;
 
-export const POST = withAuth(getSession, 'livetalk:admin', async (session, request: Request) => {
-  const userId = session.user.googleId;
+export const POST = withApiErrorReporting(
+  'Web API: テスト通知送信エラー',
+  withAuth(getSession, 'livetalk:admin', async (session, request: Request) => {
+    const userId = session.user.id;
 
-  // リクエストボディを解析する
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(
-      { error: 'INVALID_REQUEST', message: TEST_PUSH_ERROR_MESSAGES.INVALID_REQUEST_BODY },
-      { status: 400 }
-    );
-  }
+    // リクエストボディを解析する
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return NextResponse.json(
+        { error: 'INVALID_REQUEST', message: TEST_PUSH_ERROR_MESSAGES.INVALID_REQUEST_BODY },
+        { status: 400 }
+      );
+    }
 
-  // characterId バリデーション
-  if (!body || typeof body !== 'object' || !('characterId' in body)) {
-    return NextResponse.json(
-      { error: 'INVALID_REQUEST', message: TEST_PUSH_ERROR_MESSAGES.MISSING_CHARACTER_ID },
-      { status: 400 }
-    );
-  }
+    // characterId バリデーション
+    const { characterId } = bodyResult.body;
 
-  const { characterId } = body as { characterId: unknown };
+    if (typeof characterId !== 'string' || characterId.trim() === '') {
+      return NextResponse.json(
+        { error: 'INVALID_REQUEST', message: TEST_PUSH_ERROR_MESSAGES.MISSING_CHARACTER_ID },
+        { status: 400 }
+      );
+    }
 
-  if (typeof characterId !== 'string' || characterId.trim() === '') {
-    return NextResponse.json(
-      { error: 'INVALID_REQUEST', message: TEST_PUSH_ERROR_MESSAGES.MISSING_CHARACTER_ID },
-      { status: 400 }
-    );
-  }
+    if (!hasCharacter(characterId)) {
+      return NextResponse.json(
+        { error: 'UNKNOWN_CHARACTER', message: TEST_PUSH_ERROR_MESSAGES.UNKNOWN_CHARACTER },
+        { status: 400 }
+      );
+    }
 
-  if (!hasCharacter(characterId)) {
-    return NextResponse.json(
-      { error: 'UNKNOWN_CHARACTER', message: TEST_PUSH_ERROR_MESSAGES.UNKNOWN_CHARACTER },
-      { status: 400 }
-    );
-  }
-
-  try {
     // キャラクター定義からテスト通知の文面を生成する（テストと明確に分かる内容にする）
     const def = getCharacterDefinition(characterId);
     const title = `${def.notificationName}より`;
@@ -102,7 +95,7 @@ export const POST = withAuth(getSession, 'livetalk:admin', async (session, reque
     const pushSubscriptionRepo = getPushSubscriptionRepository();
     const result = await sendWebPushNotifications(
       subscriptions,
-      (sub) => ({ endpoint: sub.Endpoint, keys: { p256dh: sub.P256dhKey, auth: sub.AuthKey } }),
+      (sub) => ({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dhKey, auth: sub.authKey } }),
       payload,
       vapidConfig
     );
@@ -112,15 +105,21 @@ export const POST = withAuth(getSession, 'livetalk:admin', async (session, reque
       try {
         await pushSubscriptionRepo.delete({
           userId,
-          subscriptionId: sub.SubscriptionID,
+          subscriptionId: sub.subscriptionId,
         });
       } catch (error) {
         logger.warn('[POST /api/push/test] 無効なサブスクリプションの削除失敗（継続）', {
           userId,
           characterId,
-          subscriptionId: sub.SubscriptionID,
+          subscriptionId: sub.subscriptionId,
           error: toErrorMessage(error),
         });
+        await reportSwallowedError(
+          'Web API: 無効なサブスクリプションの削除エラー',
+          error,
+          { characterId, subscriptionId: sub.subscriptionId },
+          'warning'
+        );
       }
     }
 
@@ -128,7 +127,7 @@ export const POST = withAuth(getSession, 'livetalk:admin', async (session, reque
       logger.warn('[POST /api/push/test] Push 送信失敗（継続）', {
         userId,
         characterId,
-        subscriptionId: target.SubscriptionID,
+        subscriptionId: target.subscriptionId,
         error: toErrorMessage(error),
       });
     }
@@ -137,15 +136,14 @@ export const POST = withAuth(getSession, 'livetalk:admin', async (session, reque
 
     // 1 件以上送信成功した場合、NotificationEvent を記録する（first-word/pending 検証のため）
     if (sentCount > 0) {
-      const ttl = Math.floor(Date.now() / 1000) + NOTIFICATION_EVENT_TTL_SECONDS;
       await getNotificationEventRepository().put({
-        UserID: userId,
-        NotifID: defaultUlidFactory(),
-        CharacterID: characterId,
-        Kind: 'normal',
-        Title: title,
-        Body: bodyText,
-        Ttl: ttl,
+        userId,
+        notifId: defaultUlidFactory(),
+        characterId,
+        kind: 'normal',
+        title,
+        body: bodyText,
+        expiresAt: Date.now() + NOTIFICATION_EVENT_TTL_SECONDS * 1000,
       });
 
       logger.info('[POST /api/push/test] テスト通知送信完了', {
@@ -161,15 +159,6 @@ export const POST = withAuth(getSession, 'livetalk:admin', async (session, reque
     }
 
     return NextResponse.json({ sent: sentCount, characterId }, { status: 200 });
-  } catch (error) {
-    logger.error('[POST /api/push/test] テスト通知送信に失敗しました', {
-      userId,
-      characterId,
-      error: toErrorMessage(error),
-    });
-    return NextResponse.json(
-      { error: 'SEND_FAILED', message: TEST_PUSH_ERROR_MESSAGES.SEND_FAILED },
-      { status: 500 }
-    );
-  }
-});
+  }),
+  { error: 'SEND_FAILED', message: TEST_PUSH_ERROR_MESSAGES.SEND_FAILED }
+);

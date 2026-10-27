@@ -1,15 +1,5 @@
-import {
-  GetCommand,
-  PutCommand,
-  QueryCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
-import {
-  EntityAlreadyExistsError,
-  isConditionalCheckFailed,
-  toDatabaseError,
-  type DynamoDBItem,
-} from '@nagiyu/aws';
+import { QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBEntityStore, toDatabaseError, type EntityStore } from '@nagiyu/aws';
 import type {
   CreateSafetyEventInput,
   SafetyEventEntity,
@@ -22,11 +12,12 @@ import { SafetyEventMapper } from '../mappers/safety-event.mapper.js';
 import type { SafetyEventRepository } from './safety-event.repository.interface.js';
 
 export class DynamoDBSafetyEventRepository implements SafetyEventRepository {
-  private readonly mapper: SafetyEventMapper;
+  private readonly mapper = new SafetyEventMapper();
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
   private readonly ulidFactory: UlidFactory;
   private readonly nowMs: () => number;
+  private readonly entityStore: EntityStore<SafetyEventEntity, SafetyEventKey>;
 
   constructor(
     docClient: DynamoDBDocumentClient,
@@ -38,54 +29,21 @@ export class DynamoDBSafetyEventRepository implements SafetyEventRepository {
     this.tableName = tableName;
     this.ulidFactory = ulidFactory;
     this.nowMs = nowMs;
-    this.mapper = new SafetyEventMapper();
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper, { now: nowMs });
   }
 
   public async create(input: CreateSafetyEventInput): Promise<SafetyEventEntity> {
     const now = this.nowMs();
-    const eventId = input.EventID ?? this.ulidFactory(now);
-
-    const entity: SafetyEventEntity = {
+    return this.entityStore.create({
       ...input,
-      EventID: eventId,
-      CreatedAt: now,
-      UpdatedAt: now,
-    };
-
-    try {
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: this.mapper.toItem(entity),
-          ConditionExpression: 'attribute_not_exists(PK)',
-        })
-      );
-      return entity;
-    } catch (error) {
-      if (isConditionalCheckFailed(error)) {
-        throw new EntityAlreadyExistsError(
-          this.mapper.entityType,
-          `${entity.UserID}#${entity.EventID}`
-        );
-      }
-      throw toDatabaseError(error);
-    }
+      eventId: input.eventId ?? this.ulidFactory(now),
+      createdAt: now,
+      updatedAt: now,
+    });
   }
 
   public async getById(key: SafetyEventKey): Promise<SafetyEventEntity | null> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys(key);
-      const result = await this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-        })
-      );
-      if (!result.Item) return null;
-      return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.get(key);
   }
 
   public async listRecent(limit: number): Promise<SafetyEventSummary[]> {
@@ -101,9 +59,7 @@ export class DynamoDBSafetyEventRepository implements SafetyEventRepository {
           Limit: limit,
         })
       );
-      return (result.Items ?? []).map((item) =>
-        this.mapper.toSummary(item as unknown as DynamoDBItem)
-      );
+      return (result.Items ?? []).map((item) => this.mapper.toSummary(item));
     } catch (error) {
       throw toDatabaseError(error);
     }

@@ -21,6 +21,8 @@ import {
 } from '@/lib/niconico-session';
 import type { ErrorResponse } from '@nagiyu/common';
 import { toErrorMessage } from '@nagiyu/common';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
+import { createWithApiErrorReportingBody } from '@/lib/api-error-reporting';
 
 /**
  * セッション状態レスポンスの型定義
@@ -63,136 +65,142 @@ function getCryptoConfig(): CryptoConfig {
   };
 }
 
+// 復号エラーなどはクッキー値を含みうるため、ログにはメッセージだけを出す
+const withStatusErrorReporting = createWithApiErrorReportingBody(
+  'ニコニコセッション状態取得エラー:',
+  {
+    error: 'SESSION_STATUS_ERROR',
+    message: ERROR_MESSAGES.NICONICO_SESSION_STATUS_FETCH_FAILED,
+  },
+  toErrorMessage
+);
+
+const withSaveErrorReporting = createWithApiErrorReportingBody(
+  'ニコニコセッション保存エラー:',
+  { error: 'SESSION_SAVE_ERROR', message: ERROR_MESSAGES.NICONICO_SESSION_SAVE_FAILED },
+  toErrorMessage
+);
+
+const withDeleteErrorReporting = createWithApiErrorReportingBody(
+  'ニコニコセッション削除エラー:',
+  { error: 'SESSION_DELETE_ERROR', message: ERROR_MESSAGES.NICONICO_SESSION_DELETE_FAILED },
+  toErrorMessage
+);
+
 /**
  * GET /api/niconico/session
  * 保存済みセッションの状態を取得
  */
-export async function GET(): Promise<NextResponse<SessionStatusResponse | ErrorResponse>> {
-  const session = await getSession();
-  if (!session?.user) {
-    return NextResponse.json(
-      { error: 'UNAUTHORIZED', message: ERROR_MESSAGES.UNAUTHORIZED },
-      { status: 401 }
-    );
-  }
+export const GET = withStatusErrorReporting(
+  'Web API: ニコニコセッション状態取得エラー',
+  async (): Promise<NextResponse<SessionStatusResponse | ErrorResponse>> => {
+    const session = await getSession();
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'UNAUTHORIZED', message: ERROR_MESSAGES.UNAUTHORIZED },
+        { status: 401 }
+      );
+    }
 
-  try {
     const cryptoConfig = getCryptoConfig();
-    const status = await getNiconicoSessionStatus(session.user.userId, cryptoConfig);
+    const status = await getNiconicoSessionStatus(session.user.id, cryptoConfig);
     return NextResponse.json(status);
-  } catch (error) {
-    // 復号エラーはクッキー値を含まないメッセージのみログ出力
-    console.error('ニコニコセッション状態取得エラー:', toErrorMessage(error));
-    return NextResponse.json(
-      {
-        error: 'SESSION_STATUS_ERROR',
-        message: ERROR_MESSAGES.NICONICO_SESSION_STATUS_FETCH_FAILED,
-      },
-      { status: 500 }
-    );
   }
-}
+);
 
 /**
  * POST /api/niconico/session
  * セッションを検証して保存/更新
  */
-export async function POST(
-  request: NextRequest
-): Promise<NextResponse<SessionSaveResponse | ErrorResponse>> {
-  const session = await getSession();
-  if (!session?.user) {
-    return NextResponse.json(
-      { error: 'UNAUTHORIZED', message: ERROR_MESSAGES.UNAUTHORIZED },
-      { status: 401 }
-    );
-  }
+export const POST = withSaveErrorReporting(
+  'Web API: ニコニコセッション保存エラー',
+  async (request: NextRequest): Promise<NextResponse<SessionSaveResponse | ErrorResponse>> => {
+    const session = await getSession();
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'UNAUTHORIZED', message: ERROR_MESSAGES.UNAUTHORIZED },
+        { status: 401 }
+      );
+    }
 
-  try {
-    // リクエストボディのパース（不正 JSON は 400 で返す）
-    let body: { userSession?: unknown };
     try {
-      body = (await request.json()) as { userSession?: unknown };
-    } catch {
-      return NextResponse.json(
-        { error: 'INVALID_REQUEST_BODY', message: ERROR_MESSAGES.INVALID_REQUEST_BODY },
-        { status: 400 }
+      // リクエストボディのパース（不正な本文は 400 で返す）
+      const bodyResult = await readJsonObjectBody(request);
+      if (!bodyResult.ok) {
+        return NextResponse.json(
+          { error: 'INVALID_REQUEST_BODY', message: ERROR_MESSAGES.INVALID_REQUEST_BODY },
+          { status: 400 }
+        );
+      }
+
+      const { userSession } = bodyResult.body;
+
+      if (!userSession) {
+        return NextResponse.json(
+          { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.USER_SESSION_REQUIRED },
+          { status: 400 }
+        );
+      }
+
+      if (typeof userSession !== 'string') {
+        return NextResponse.json(
+          { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.USER_SESSION_MUST_BE_STRING },
+          { status: 400 }
+        );
+      }
+
+      const cryptoConfig = getCryptoConfig();
+      const { acquiredAt, estimatedExpiresAt } = await saveNiconicoSession(
+        session.user.id,
+        userSession,
+        cryptoConfig
       );
+
+      return NextResponse.json({
+        message: SUCCESS_MESSAGES.SESSION_SAVED,
+        acquiredAt,
+        estimatedExpiresAt,
+      });
+    } catch (error) {
+      if (error instanceof InvalidSessionError) {
+        return NextResponse.json(
+          { error: 'INVALID_SESSION', message: ERROR_MESSAGES.NICONICO_SESSION_INVALID },
+          { status: 400 }
+        );
+      }
+
+      if (error instanceof IndeterminateSessionError) {
+        return NextResponse.json(
+          {
+            error: 'INDETERMINATE_SESSION',
+            message: ERROR_MESSAGES.NICONICO_SESSION_VALIDATION_INDETERMINATE,
+          },
+          { status: 400 }
+        );
+      }
+
+      // 想定外の例外はラッパーが 500 に変換して報告する
+      throw error;
     }
-
-    if (!body.userSession) {
-      return NextResponse.json(
-        { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.USER_SESSION_REQUIRED },
-        { status: 400 }
-      );
-    }
-
-    if (typeof body.userSession !== 'string') {
-      return NextResponse.json(
-        { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.USER_SESSION_MUST_BE_STRING },
-        { status: 400 }
-      );
-    }
-
-    const cryptoConfig = getCryptoConfig();
-    const { acquiredAt, estimatedExpiresAt } = await saveNiconicoSession(
-      session.user.userId,
-      body.userSession,
-      cryptoConfig
-    );
-
-    return NextResponse.json({
-      message: SUCCESS_MESSAGES.SESSION_SAVED,
-      acquiredAt,
-      estimatedExpiresAt,
-    });
-  } catch (error) {
-    if (error instanceof InvalidSessionError) {
-      return NextResponse.json(
-        { error: 'INVALID_SESSION', message: ERROR_MESSAGES.NICONICO_SESSION_INVALID },
-        { status: 400 }
-      );
-    }
-
-    if (error instanceof IndeterminateSessionError) {
-      return NextResponse.json(
-        {
-          error: 'INDETERMINATE_SESSION',
-          message: ERROR_MESSAGES.NICONICO_SESSION_VALIDATION_INDETERMINATE,
-        },
-        { status: 400 }
-      );
-    }
-
-    console.error('ニコニコセッション保存エラー:', toErrorMessage(error));
-    return NextResponse.json(
-      { error: 'SESSION_SAVE_ERROR', message: ERROR_MESSAGES.NICONICO_SESSION_SAVE_FAILED },
-      { status: 500 }
-    );
   }
-}
+);
 
 /**
  * DELETE /api/niconico/session
  * 保存済みセッションを削除
  */
-export async function DELETE(): Promise<NextResponse<SessionDeleteResponse | ErrorResponse>> {
-  const session = await getSession();
-  if (!session?.user) {
-    return NextResponse.json(
-      { error: 'UNAUTHORIZED', message: ERROR_MESSAGES.UNAUTHORIZED },
-      { status: 401 }
-    );
-  }
+export const DELETE = withDeleteErrorReporting(
+  'Web API: ニコニコセッション削除エラー',
+  async (): Promise<NextResponse<SessionDeleteResponse | ErrorResponse>> => {
+    const session = await getSession();
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'UNAUTHORIZED', message: ERROR_MESSAGES.UNAUTHORIZED },
+        { status: 401 }
+      );
+    }
 
-  try {
-    await deleteNiconicoSession(session.user.userId);
+    await deleteNiconicoSession(session.user.id);
     return NextResponse.json({ message: SUCCESS_MESSAGES.SESSION_DELETED });
-  } catch (error) {
-    console.error('ニコニコセッション削除エラー:', toErrorMessage(error));
-    return NextResponse.json(
-      { error: 'SESSION_DELETE_ERROR', message: ERROR_MESSAGES.NICONICO_SESSION_DELETE_FAILED },
-      { status: 500 }
-    );
   }
-}
+);

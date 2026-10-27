@@ -5,14 +5,14 @@
  *
  * Phase 1 仕様:
  * - タイムゾーン変換 (date-fns-tz 使用)
- * - 取引時間帯チェック (Start/End)
+ * - 取引時間帯チェック (start/end)
  * - 曜日チェック (土日は通知抑制)
  * - 祝日は Phase 1 では考慮しない
  */
 
 import { toZonedTime } from 'date-fns-tz';
 import { formatLocalDate } from '@nagiyu/common';
-import type { Exchange } from '../types.js';
+import type { ExchangeEntity } from '../entities/exchange.entity.js';
 
 /**
  * エラーメッセージ定数
@@ -79,17 +79,17 @@ export function formatDateInTimezone(timestampMs: number, timezone: string): str
  * 取引所のタイムゾーンと取引終了時刻をもとに、指定時刻時点での
  * 直近の取引完了日 (YYYY-MM-DD) を算出する。
  *
- * - 平日かつ取引終了後 (>= End) → 今日
- * - 平日かつ取引開始前 (< End)  → 前日の平日
+ * - 平日かつ取引終了後 (>= end) → 今日
+ * - 平日かつ取引開始前 (< end)  → 前日の平日
  * - 土日                         → 直前の金曜
  *
- * @param exchange - 取引所情報 (Timezone, End)
+ * @param exchange - 取引所情報 (timezone, end)
  * @param now - 現在時刻 (Unix timestamp ms)
  * @returns 最新取引日 (YYYY-MM-DD、取引所タイムゾーン基準)
  */
-export function getLastTradingDate(exchange: Exchange, now: number): string {
-  const zonedNow = toZonedTime(new Date(now), exchange.Timezone);
-  const endTime = parseTime(exchange.End);
+export function getLastTradingDate(exchange: ExchangeEntity, now: number): string {
+  const zonedNow = toZonedTime(new Date(now), exchange.timezone);
+  const endTime = parseTime(exchange.end);
   const endTotalMinutes = endTime.hours * 60 + endTime.minutes;
   const currentTotalMinutes = zonedNow.getHours() * 60 + zonedNow.getMinutes();
   const dayOfWeek = zonedNow.getDay();
@@ -102,7 +102,7 @@ export function getLastTradingDate(exchange: Exchange, now: number): string {
   // それ以外: 1日ずつ遡り最初の平日を返す (最大3回でFridayに到達)
   let candidateMs = now - 24 * 60 * 60 * 1000;
   while (true) {
-    const candidate = toZonedTime(new Date(candidateMs), exchange.Timezone);
+    const candidate = toZonedTime(new Date(candidateMs), exchange.timezone);
     const dow = candidate.getDay();
     if (dow !== 0 && dow !== 6) {
       return formatLocalDate(candidate);
@@ -117,9 +117,9 @@ export function getLastTradingDate(exchange: Exchange, now: number): string {
  * - 取引時間内: 当日を期限にする
  * - 取引時間外: 最新取引日の翌平日を期限にする
  */
-export function calculateTemporaryExpireDate(exchange: Exchange, now: number): string {
+export function calculateTemporaryExpireDate(exchange: ExchangeEntity, now: number): string {
   if (isTradingHours(exchange, now)) {
-    return formatLocalDate(toZonedTime(new Date(now), exchange.Timezone));
+    return formatLocalDate(toZonedTime(new Date(now), exchange.timezone));
   }
   const lastTradingDate = getLastTradingDate(exchange, now);
   return getNextWeekday(lastTradingDate);
@@ -128,22 +128,23 @@ export function calculateTemporaryExpireDate(exchange: Exchange, now: number): s
 /**
  * 取引時間内かどうかをチェック
  *
- * @param exchange - 取引所情報 (Timezone, Start, End)
+ * @param exchange - 取引所情報 (timezone, start, end)
  * @param currentTime - 現在時刻 (Unix timestamp またはDateオブジェクト)
  * @returns 取引時間内の場合は true、取引時間外の場合は false
  * @throws Error - 無効なタイムゾーン、時刻形式、現在時刻の場合
  *
  * @example
  * // NASDAQ (America/New_York, 04:00-20:00) での例
- * const nasdaq: Exchange = {
- *   ExchangeID: 'NASDAQ',
- *   Name: 'NASDAQ',
- *   Key: 'NSDQ',
- *   Timezone: 'America/New_York',
- *   Start: '04:00',
- *   End: '20:00',
- *   CreatedAt: Date.now(),
- *   UpdatedAt: Date.now(),
+ * const nasdaq: ExchangeEntity = {
+ *   exchangeId: 'NASDAQ',
+ *   name: 'NASDAQ',
+ *   key: 'NSDQ',
+ *   timezone: 'America/New_York',
+ *   start: '04:00',
+ *   end: '20:00',
+ *   priceSource: 'tradingview',
+ *   createdAt: Date.now(),
+ *   updatedAt: Date.now(),
  * };
  *
  * // 平日の取引時間内
@@ -158,7 +159,7 @@ export function calculateTemporaryExpireDate(exchange: Exchange, now: number): s
  * const weekend = new Date('2024-01-14T14:00:00Z'); // 日曜日
  * isTradingHours(nasdaq, weekend) // => false
  */
-export function isTradingHours(exchange: Exchange, currentTime: number | Date): boolean {
+export function isTradingHours(exchange: ExchangeEntity, currentTime: number | Date): boolean {
   // 現在時刻の妥当性チェック
   let currentDate: Date;
   if (typeof currentTime === 'number') {
@@ -176,17 +177,17 @@ export function isTradingHours(exchange: Exchange, currentTime: number | Date): 
   }
 
   // 時刻形式のバリデーション
-  if (!isValidTimeFormat(exchange.Start)) {
+  if (!isValidTimeFormat(exchange.start)) {
     throw new Error(TRADING_HOURS_ERROR_MESSAGES.INVALID_TIME_FORMAT);
   }
-  if (!isValidTimeFormat(exchange.End)) {
+  if (!isValidTimeFormat(exchange.end)) {
     throw new Error(TRADING_HOURS_ERROR_MESSAGES.INVALID_TIME_FORMAT);
   }
 
   // タイムゾーン変換
   let zonedDate: Date;
   try {
-    zonedDate = toZonedTime(currentDate, exchange.Timezone);
+    zonedDate = toZonedTime(currentDate, exchange.timezone);
     // date-fns-tz は無効なタイムゾーンでエラーをスローせず、Invalid Date を返す
     if (isNaN(zonedDate.getTime())) {
       throw new Error(TRADING_HOURS_ERROR_MESSAGES.INVALID_TIMEZONE);
@@ -208,12 +209,12 @@ export function isTradingHours(exchange: Exchange, currentTime: number | Date): 
   const currentTotalMinutes = currentHours * 60 + currentMinutes;
 
   // 取引開始・終了時刻をパース
-  const startTime = parseTime(exchange.Start);
-  const endTime = parseTime(exchange.End);
+  const startTime = parseTime(exchange.start);
+  const endTime = parseTime(exchange.end);
   const startTotalMinutes = startTime.hours * 60 + startTime.minutes;
   const endTotalMinutes = endTime.hours * 60 + endTime.minutes;
 
   // 取引時間帯チェック
-  // Start <= Current < End
+  // start <= current < end
   return currentTotalMinutes >= startTotalMinutes && currentTotalMinutes < endTotalMinutes;
 }

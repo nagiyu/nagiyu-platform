@@ -2,11 +2,13 @@
   "extends": "../../../configs/tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2020", "ES2022.Error"],
+    "composite": true,
     "declaration": true,
     "outDir": "./dist/src",
     "rootDir": "./src",
     "types": ["node"]
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "tests"]
+  "exclude": ["node_modules", "dist", "tests"],
+  "references": [{ "path": "../../../libs/aws" }, { "path": "../../../libs/common" }]
 }

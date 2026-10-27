@@ -12,13 +12,12 @@
     "test:integration": "playwright test",
     "test:integration:headed": "HEADLESS=false playwright test",
     "test:integration:debug": "PWDEBUG=1 playwright test",
-    "lint": "eslint src/**/*.ts",
+    "lint": "eslint 'src/**/*.ts'",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
   "dependencies": {
     "@nagiyu/aws": "*",
-    "@nagiyu/browser": "*",
     "@nagiyu/common": "*",
     "@nagiyu/niconico-mylist-assistant-core": "*",
     "dotenv": "^17.4.1",

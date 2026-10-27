@@ -42,7 +42,7 @@ import type { Page } from '@playwright/test';
  * あったが、中身は `Notification.permission` の値域チェック（恒真）と「grantPermissions の
  * 前後で値が変わらない」というブラウザ挙動の確認だけで、アプリのコードを一行も通らず
  * 「壊れても落ちない」テストだったため削除した（testing.md「形骸化テストの禁止」）。
- * 購読フローの担保は libs/browser・libs/ui の単体テストの責務とする。
+ * 購読フローの担保は libs/browser・libs/react の単体テストの責務とする。
  */
 test.describe.configure({ mode: 'serial' });
 
@@ -81,21 +81,21 @@ function baseSeed(): ResetSeedData {
   return {
     exchanges: [
       {
-        ExchangeID: EXCHANGE_ID,
-        Name: EXCHANGE_NAME,
-        Key: EXCHANGE_KEY,
-        Timezone: 'America/New_York',
-        Start: '09:30',
-        End: '16:00',
-        PriceSource: 'tradingview',
+        exchangeId: EXCHANGE_ID,
+        name: EXCHANGE_NAME,
+        key: EXCHANGE_KEY,
+        timezone: 'America/New_York',
+        start: '09:30',
+        end: '16:00',
+        priceSource: 'tradingview',
       },
     ],
     tickers: [
       {
-        TickerID: TICKER_ID,
-        Symbol: TICKER_SYMBOL,
-        Name: TICKER_NAME,
-        ExchangeID: EXCHANGE_ID,
+        tickerId: TICKER_ID,
+        symbol: TICKER_SYMBOL,
+        name: TICKER_NAME,
+        exchangeId: EXCHANGE_ID,
       },
     ],
   };
@@ -104,12 +104,12 @@ function baseSeed(): ResetSeedData {
 /** 保有株式 seed データ（basePrice = averagePrice はパーセンテージ選択機能の前提条件） */
 function holdingSeed(averagePrice: number) {
   return {
-    UserID: TEST_USER_ID,
-    TickerID: TICKER_ID,
-    ExchangeID: EXCHANGE_ID,
-    Quantity: 100,
-    AveragePrice: averagePrice,
-    Currency: 'USD',
+    userId: TEST_USER_ID,
+    tickerId: TICKER_ID,
+    exchangeId: EXCHANGE_ID,
+    quantity: 100,
+    averagePrice,
+    currency: 'USD',
   };
 }
 

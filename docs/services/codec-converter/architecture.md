@@ -177,7 +177,7 @@ sequenceDiagram
 **ステップ**:
 
 1. Batch Worker起動
-2. 環境変数から取得: JOB_ID, OUTPUT_CODEC, S3_BUCKET, DYNAMODB_TABLE
+2. 環境変数から取得: JOB_ID, OUTPUT_CODEC, S3_BUCKET, DYNAMODB_TABLE_NAME
 3. DynamoDBのステータスをPENDING → PROCESSINGに更新
    - Batch Workerが実際に処理を開始したことを保証
 4. S3から入力ファイルダウンロード (`uploads/{jobId}/input.mp4`)
@@ -247,25 +247,14 @@ API仕様の詳細については、[api-spec.md](./api-spec.md) を参照して
 
 **主キー**: `jobId` (String)
 
-**属性**:
+保存形式はプラットフォームのデータアクセス層の標準に従う。
 
-```typescript
-{
-    jobId: string;              // UUID v4
-    status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
-    inputFile: string;          // S3キー: uploads/{jobId}/input.mp4
-    outputFile?: string;        // S3キー: outputs/{jobId}/output.{ext}
-    outputCodec: "h264" | "vp9" | "av1";
-    fileName: string;           // 元ファイル名
-    fileSize: number;           // バイト
-    createdAt: number;          // Unix timestamp (秒)
-    updatedAt: number;          // Unix timestamp (秒)
-    expiresAt: number;          // Unix timestamp (秒), TTL用
-    errorMessage?: string;      // FAILED時のエラー内容
-}
-```
+- 主キーの `jobId` だけは camelCase のまま据え置く。キー属性の名前は、テーブルを作り直さないと変えられないため。
+- ほかの属性は PascalCase で保存する (`Status`、`InputFile`、`CreatedAt` など)。
+- 時刻は数値のミリ秒で保存する。TTL だけは DynamoDB の仕様に従い、エポック秒で `TTL` 属性に保存する。
+- 以前の形式 (camelCase の属性名・エポック秒の時刻・TTL 属性 `expiresAt`) のアイテムも読める。書き込むたびに、書いた項目から新しい形式に置き換わる。
 
-**TTL設定**: `expiresAt` フィールド（ジョブ作成時に `createdAt + 86400` をセット）
+**TTL設定**: `TTL` 属性 (ジョブ作成から 24 時間後)
 
 ### S3バケット: `codec-converter-storage-{env}`
 
@@ -317,7 +306,7 @@ Phase 1（MVP）では単一のジョブ定義を使用します:
 - イメージ: `{account}.dkr.ecr.{region}.amazonaws.com/codec-converter-ffmpeg-{env}:latest`
 - 環境変数（静的）:
   - `S3_BUCKET`: `codec-converter-storage-{env}`
-  - `DYNAMODB_TABLE`: `codec-converter-jobs-{env}`
+  - `DYNAMODB_TABLE_NAME`: `codec-converter-jobs-{env}`
   - `AWS_REGION`: リージョン
 - 環境変数（動的、containerOverridesで渡す）:
   - `JOB_ID`: ジョブID
@@ -378,7 +367,7 @@ Phase 1（MVP）では単一のジョブ定義を使用します:
 
 **処理フロー**:
 
-1. **環境変数検証**: 必須変数（`S3_BUCKET`, `DYNAMODB_TABLE`, `JOB_ID`, `OUTPUT_CODEC`）の存在確認
+1. **環境変数検証**: 必須変数（`S3_BUCKET`, `DYNAMODB_TABLE_NAME`, `JOB_ID`, `OUTPUT_CODEC`）の存在確認
 2. **DynamoDBステータス更新**: PENDING → `PROCESSING` に変更
 3. **S3ダウンロード**: `uploads/{JOB_ID}/input.mp4` → `/tmp/input-{JOB_ID}.mp4`
 4. **FFmpeg変換**: 指定コーデックで変換、進捗情報をログ出力（stderr）
@@ -418,7 +407,7 @@ Phase 1（MVP）では単一のジョブ定義を使用します:
 - メモリ: 1024 MB
 - タイムアウト: 30秒
 - 環境変数:
-  - `DYNAMODB_TABLE`: `codec-converter-jobs-{env}`
+  - `DYNAMODB_TABLE_NAME`: `codec-converter-jobs-{env}`
   - `S3_BUCKET`: `codec-converter-storage-{env}`
   - `BATCH_JOB_QUEUE`: Batch Job Queue名
   - `BATCH_JOB_DEFINITION_PREFIX`: Batch Job Definition名のプレフィックス（動的リソース配分用）
@@ -708,7 +697,7 @@ Codec Converterは**PCターゲット**のため、以下のデバイス構成�
 
 | 環境変数                      | 説明                              | 例                            |
 | ----------------------------- | --------------------------------- | ----------------------------- |
-| `DYNAMODB_TABLE`              | DynamoDBテーブル名                | `codec-converter-jobs-dev`    |
+| `DYNAMODB_TABLE_NAME`         | DynamoDBテーブル名                | `codec-converter-jobs-dev`    |
 | `S3_BUCKET`                   | S3バケット名                      | `codec-converter-storage-dev` |
 | `BATCH_JOB_QUEUE`             | Batchジョブキュー名               | `codec-converter-queue-dev`   |
 | `BATCH_JOB_DEFINITION_PREFIX` | Batchジョブ定義名のプレフィックス | `codec-converter-dev`         |
@@ -716,15 +705,17 @@ Codec Converterは**PCターゲット**のため、以下のデバイス構成�
 
 **注**: Phase 2 で `BATCH_JOB_DEFINITION_PREFIX` に変更。アプリケーションはこのプレフィックスに `-small`, `-medium`, `-large`, `-xlarge` を付加してジョブ定義を選択します。
 
-#### Batch Worker環境変数（動的、containerOverridesで渡す）
+#### Batch Worker環境変数
 
-| 環境変数         | 説明                | 例                                     |
-| ---------------- | ------------------- | -------------------------------------- |
-| `JOB_ID`         | ジョブID（UUID v4） | `550e8400-e29b-41d4-a716-446655440000` |
-| `OUTPUT_CODEC`   | 出力コーデック      | `h264` / `vp9` / `av1`                 |
-| `DYNAMODB_TABLE` | DynamoDBテーブル名  | `codec-converter-jobs-dev`             |
-| `S3_BUCKET`      | S3バケット名        | `codec-converter-storage-dev`          |
-| `AWS_REGION`     | AWSリージョン       | `us-east-1`                            |
+起動ごとに変わる値だけを `containerOverrides` で渡す。名前と検証は `core` の `batch-job-input` を web と batch で共有する。テーブル名・バケット名・リージョンはジョブ定義の environment が持ち、起動時には渡さない。
+
+| 環境変数              | 渡し方                   | 説明                | 例                                     |
+| --------------------- | ------------------------ | ------------------- | -------------------------------------- |
+| `JOB_ID`              | `containerOverrides`     | ジョブID（UUID v4） | `550e8400-e29b-41d4-a716-446655440000` |
+| `OUTPUT_CODEC`        | `containerOverrides`     | 出力コーデック      | `h264` / `vp9` / `av1`                 |
+| `DYNAMODB_TABLE_NAME` | ジョブ定義の environment | DynamoDBテーブル名  | `codec-converter-jobs-dev`             |
+| `S3_BUCKET`           | ジョブ定義の environment | S3バケット名        | `codec-converter-storage-dev`          |
+| `AWS_REGION`          | ジョブ定義の environment | AWSリージョン       | `us-east-1`                            |
 
 ### デプロイ手順とロールバック
 
@@ -912,7 +903,7 @@ Lambda関数は以前のバージョンへ即座にロールバック可能:
 
 **削除タイミングの詳細**:
 
-- ジョブ作成時に `expiresAt = createdAt + 86400` を設定
+- ジョブ作成時に、作成から 24 時間後を `TTL` 属性に設定
 - DynamoDB TTLは遅延する可能性があるが、ユーザー影響は軽微（ダウンロード期限は別途Presigned URLの有効期限で制御）
 
 ### コスト管理

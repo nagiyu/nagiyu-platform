@@ -1,14 +1,34 @@
 /** @jest-environment jsdom */
 import React from 'react';
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, fireEvent, act } from '@testing-library/react';
 import HomePageClient from '../../../components/HomePageClient';
 import type { StockChartProps } from '../../../components/StockChart';
 
+// 権限は useSession のロールから判定されるため、ロールごとに差し替えられるようにする
+const mockUseSession = jest.fn();
+jest.mock('next-auth/react', () => ({
+  useSession: () => mockUseSession(),
+}));
+
+const sessionWithRoles = (roles: string[]) => ({
+  data: { user: { name: 'u', roles }, expires: '2099-01-01' },
+  status: 'authenticated',
+  update: jest.fn(),
+});
+
 let currentSearchParams = new URLSearchParams();
+// jsdom では history.replaceState が useSearchParams に同期されないため、書き戻し先の URL だけを記録する。
+// 実ブラウザでの同期は E2E で確かめる
+const replaceMock = jest.fn();
+let replaceStateSpy: jest.SpyInstance | null = null;
 
 jest.mock('next/navigation', () => ({
   useSearchParams: () => currentSearchParams,
+  usePathname: () => '/',
 }));
+
+// ティッカー一覧の応答を差し替える (保留・失敗の再現用)。null なら既定の応答を返す
+let tickersOverride: (() => Promise<Response>) | null = null;
 
 jest.mock('../../../components/StockChart', () => ({
   __esModule: true,
@@ -28,6 +48,7 @@ jest.mock('@nagiyu/ui', () => ({
   __esModule: true,
   ErrorAlert: ({ message }: { message: string }) =>
     React.createElement('div', { role: 'alert' }, message),
+  ConfirmDialog: () => null,
   Button: ({
     children,
     onClick,
@@ -144,6 +165,12 @@ describe('HomePageClient クエリ初期選択', () => {
   const fetchMock = jest.fn() as jest.MockedFunction<typeof fetch>;
 
   beforeEach(() => {
+    mockUseSession.mockReturnValue(sessionWithRoles(['stock-user']));
+    replaceStateSpy = jest
+      .spyOn(window.history, 'replaceState')
+      .mockImplementation((_data, _unused, url) => {
+        replaceMock(url);
+      });
     fetchMock.mockImplementation(async (input) => {
       const url = String(input);
 
@@ -159,12 +186,31 @@ describe('HomePageClient クエリ初期選択', () => {
                 timezone: 'America/New_York',
                 tradingHours: { start: '09:30', end: '16:00' },
               },
+              {
+                exchangeId: 'NYSE',
+                name: 'NYSE',
+                key: 'NYSE',
+                timezone: 'America/New_York',
+                tradingHours: { start: '09:30', end: '16:00' },
+              },
             ],
           }),
         } as Response;
       }
 
+      if (url === '/api/tickers?exchangeId=NYSE') {
+        return {
+          ok: true,
+          json: async () => ({
+            tickers: [{ tickerId: 'NYSE:IBM', symbol: 'IBM', name: 'IBM', exchangeId: 'NYSE' }],
+          }),
+        } as Response;
+      }
+
       if (url === '/api/tickers?exchangeId=NASDAQ') {
+        if (tickersOverride) {
+          return tickersOverride();
+        }
         return {
           ok: true,
           json: async () => ({
@@ -253,9 +299,11 @@ describe('HomePageClient クエリ初期選択', () => {
   });
 
   afterEach(() => {
+    replaceStateSpy?.mockRestore();
     cleanup();
     jest.clearAllMocks();
     currentSearchParams = new URLSearchParams();
+    tickersOverride = null;
   });
 
   it('exchangeId/tickerId クエリが有効なとき初期選択される', async () => {
@@ -286,5 +334,298 @@ describe('HomePageClient クエリ初期選択', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('stock-chart')).toBeNull();
     expect(screen.getByTestId('empty-state').textContent).toContain('チャート表示エリア');
+  });
+
+  describe('URL への書き戻し', () => {
+    const selectValue = (container: HTMLElement, id: string, value: string) => {
+      const element = container.querySelector(`#${id}`) as HTMLSelectElement;
+      fireEvent.change(element, { target: { value } });
+    };
+
+    // 非同期の取得と反映が落ち着くのを待つ。何も起きないことの確認に使う
+    const flush = async () => {
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+    };
+
+    const getValue = (container: HTMLElement, id: string) =>
+      (container.querySelector(`#${id}`) as HTMLSelectElement).value;
+
+    it('取引所・銘柄・時間枠の選択が URL に書き戻される', async () => {
+      const { container } = render(React.createElement(HomePageClient));
+      await waitFor(() =>
+        expect(container.querySelectorAll('#exchange-select option')).toHaveLength(3)
+      );
+
+      selectValue(container, 'exchange-select', 'NASDAQ');
+      await waitFor(() => expect(replaceMock).toHaveBeenLastCalledWith('/?exchangeId=NASDAQ'));
+
+      await waitFor(() =>
+        expect((container.querySelector('#ticker-select') as HTMLSelectElement).disabled).toBe(
+          false
+        )
+      );
+      await waitFor(() =>
+        expect(container.querySelectorAll('#ticker-select option')).toHaveLength(2)
+      );
+      selectValue(container, 'ticker-select', 'NASDAQ:AAPL');
+      await waitFor(() =>
+        expect(replaceMock).toHaveBeenLastCalledWith('/?exchangeId=NASDAQ&tickerId=NASDAQ%3AAAPL')
+      );
+
+      selectValue(container, 'timeframe-select', 'D');
+      await waitFor(() =>
+        expect(replaceMock).toHaveBeenLastCalledWith(
+          '/?exchangeId=NASDAQ&tickerId=NASDAQ%3AAAPL&timeframe=D'
+        )
+      );
+
+      // 既定値に戻すと時間枠は URL から消える
+      selectValue(container, 'timeframe-select', '60');
+      await waitFor(() =>
+        expect(replaceMock).toHaveBeenLastCalledWith('/?exchangeId=NASDAQ&tickerId=NASDAQ%3AAAPL')
+      );
+    });
+
+    it('取引所を変えると銘柄が URL から消える', async () => {
+      currentSearchParams = new URLSearchParams('exchangeId=NASDAQ&tickerId=NASDAQ%3AAAPL');
+      const { container } = render(React.createElement(HomePageClient));
+      await waitFor(() => expect(getValue(container, 'ticker-select')).toBe('NASDAQ:AAPL'));
+
+      selectValue(container, 'exchange-select', 'NYSE');
+
+      await waitFor(() => expect(replaceMock).toHaveBeenLastCalledWith('/?exchangeId=NYSE'));
+    });
+
+    it('時間枠クエリが初期選択に反映され、有効なクエリは消されない', async () => {
+      currentSearchParams = new URLSearchParams(
+        'exchangeId=NASDAQ&tickerId=NASDAQ%3AAAPL&timeframe=D'
+      );
+      const { container } = render(React.createElement(HomePageClient));
+
+      await waitFor(() => expect(getValue(container, 'ticker-select')).toBe('NASDAQ:AAPL'));
+      expect(getValue(container, 'exchange-select')).toBe('NASDAQ');
+      expect(getValue(container, 'timeframe-select')).toBe('D');
+      expect(replaceMock).not.toHaveBeenCalled();
+    });
+
+    it('不正な時間枠クエリは画面では既定値になり、人が操作するまで URL は書き換わらない', async () => {
+      currentSearchParams = new URLSearchParams('timeframe=bogus');
+      const { container } = render(React.createElement(HomePageClient));
+
+      expect(getValue(container, 'timeframe-select')).toBe('60');
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/exchanges'));
+      await flush();
+      expect(replaceMock).not.toHaveBeenCalled();
+
+      selectValue(container, 'timeframe-select', '5');
+      await waitFor(() => expect(replaceMock).toHaveBeenLastCalledWith('/?timeframe=5'));
+    });
+
+    it('初回の反映が終わるまでクエリを消さない', async () => {
+      currentSearchParams = new URLSearchParams(
+        'exchangeId=NASDAQ&tickerId=NASDAQ%3AAAPL&timeframe=5'
+      );
+      let resolveTickers: (response: Response) => void = () => {};
+      tickersOverride = () =>
+        new Promise<Response>((resolve) => {
+          resolveTickers = resolve;
+        });
+
+      const { container } = render(React.createElement(HomePageClient));
+
+      // 取引所は反映されたが、ティッカー一覧が未取得の状態
+      await waitFor(() => expect(getValue(container, 'exchange-select')).toBe('NASDAQ'));
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/tickers?exchangeId=NASDAQ'));
+      expect(getValue(container, 'ticker-select')).toBe('');
+      expect(replaceMock).not.toHaveBeenCalled();
+
+      await act(async () => {
+        resolveTickers({
+          ok: true,
+          json: async () => ({
+            tickers: [
+              { tickerId: 'NASDAQ:AAPL', symbol: 'AAPL', name: 'Apple', exchangeId: 'NASDAQ' },
+            ],
+          }),
+        } as Response);
+      });
+
+      await waitFor(() => expect(getValue(container, 'ticker-select')).toBe('NASDAQ:AAPL'));
+      // 反映後の選択はクエリと一致するので、書き戻しは発生しない
+      expect(replaceMock).not.toHaveBeenCalled();
+    });
+
+    it('取引所一覧が未取得の間はクエリを消さない', async () => {
+      currentSearchParams = new URLSearchParams('exchangeId=NASDAQ');
+      let resolveExchanges: (response: Response) => void = () => {};
+      const defaultImplementation = fetchMock.getMockImplementation();
+      fetchMock.mockImplementation(async (input, init) => {
+        if (String(input) === '/api/exchanges') {
+          return new Promise<Response>((resolve) => {
+            resolveExchanges = resolve;
+          });
+        }
+        return defaultImplementation!(input, init);
+      });
+
+      const { container } = render(React.createElement(HomePageClient));
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/exchanges'));
+      expect(replaceMock).not.toHaveBeenCalled();
+
+      await act(async () => {
+        resolveExchanges({
+          ok: true,
+          json: async () => ({
+            exchanges: [
+              {
+                exchangeId: 'NASDAQ',
+                name: 'NASDAQ',
+                key: 'NASDAQ',
+                timezone: 'America/New_York',
+                tradingHours: { start: '09:30', end: '16:00' },
+              },
+            ],
+          }),
+        } as Response);
+      });
+
+      await waitFor(() => expect(getValue(container, 'exchange-select')).toBe('NASDAQ'));
+      expect(replaceMock).not.toHaveBeenCalled();
+    });
+
+    it('クエリの銘柄が一覧に無いときは反映を諦めるが、人が操作するまで URL は書き換えない', async () => {
+      currentSearchParams = new URLSearchParams('exchangeId=NASDAQ&tickerId=NASDAQ%3AUNKNOWN');
+      const { container } = render(React.createElement(HomePageClient));
+
+      await waitFor(() =>
+        expect(container.querySelectorAll('#ticker-select option')).toHaveLength(2)
+      );
+      await flush();
+      expect(getValue(container, 'exchange-select')).toBe('NASDAQ');
+      expect(getValue(container, 'ticker-select')).toBe('');
+      expect(replaceMock).not.toHaveBeenCalled();
+
+      selectValue(container, 'ticker-select', 'NASDAQ:AAPL');
+      await waitFor(() =>
+        expect(replaceMock).toHaveBeenLastCalledWith('/?exchangeId=NASDAQ&tickerId=NASDAQ%3AAAPL')
+      );
+    });
+
+    it('初回反映の待機中に時間枠を変えても、反映が済むまでは書き戻さず、済んだら最新の時間枠ごと書き戻す', async () => {
+      currentSearchParams = new URLSearchParams(
+        'exchangeId=NASDAQ&tickerId=NASDAQ%3AAAPL&timeframe=5'
+      );
+      let resolveTickers: (response: Response) => void = () => {};
+      tickersOverride = () =>
+        new Promise<Response>((resolve) => {
+          resolveTickers = resolve;
+        });
+
+      const { container } = render(React.createElement(HomePageClient));
+      await waitFor(() => expect(getValue(container, 'exchange-select')).toBe('NASDAQ'));
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/tickers?exchangeId=NASDAQ'));
+
+      selectValue(container, 'timeframe-select', 'D');
+      await flush();
+      // 取引所・銘柄の反映前に書き戻すと、クエリを消してしまう
+      expect(replaceMock).not.toHaveBeenCalled();
+
+      await act(async () => {
+        resolveTickers({
+          ok: true,
+          json: async () => ({
+            tickers: [
+              { tickerId: 'NASDAQ:AAPL', symbol: 'AAPL', name: 'Apple', exchangeId: 'NASDAQ' },
+            ],
+          }),
+        } as Response);
+      });
+
+      await waitFor(() => expect(getValue(container, 'ticker-select')).toBe('NASDAQ:AAPL'));
+      await waitFor(() =>
+        expect(replaceMock).toHaveBeenLastCalledWith(
+          '/?exchangeId=NASDAQ&tickerId=NASDAQ%3AAAPL&timeframe=D'
+        )
+      );
+      // 書き戻しは反映後の 1 回だけで、途中の空の状態では書かれない
+      expect(replaceMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('クエリが取引所だけのときは、取引所の反映後に書き戻しが有効になる', async () => {
+      currentSearchParams = new URLSearchParams('exchangeId=NASDAQ');
+      const { container } = render(React.createElement(HomePageClient));
+
+      await waitFor(() => expect(getValue(container, 'exchange-select')).toBe('NASDAQ'));
+      expect(replaceMock).not.toHaveBeenCalled();
+
+      await waitFor(() =>
+        expect(container.querySelectorAll('#ticker-select option')).toHaveLength(2)
+      );
+      selectValue(container, 'ticker-select', 'NASDAQ:AAPL');
+      await waitFor(() =>
+        expect(replaceMock).toHaveBeenLastCalledWith('/?exchangeId=NASDAQ&tickerId=NASDAQ%3AAAPL')
+      );
+    });
+
+    it('取引所なしの銘柄クエリは反映できないが、人が操作するまで URL は書き換えない', async () => {
+      currentSearchParams = new URLSearchParams('tickerId=NASDAQ%3AAAPL');
+      const { container } = render(React.createElement(HomePageClient));
+
+      await waitFor(() =>
+        expect(container.querySelectorAll('#exchange-select option')).toHaveLength(3)
+      );
+      await flush();
+      expect(replaceMock).not.toHaveBeenCalled();
+    });
+
+    it('取引所一覧の取得に失敗しても、共有 URL のクエリは消さない', async () => {
+      currentSearchParams = new URLSearchParams('exchangeId=NASDAQ&tickerId=NASDAQ%3AAAPL');
+      const defaultImplementation = fetchMock.getMockImplementation();
+      fetchMock.mockImplementation(async (input, init) => {
+        if (String(input) === '/api/exchanges') {
+          return { ok: false, json: async () => ({}) } as Response;
+        }
+        return defaultImplementation!(input, init);
+      });
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      render(React.createElement(HomePageClient));
+
+      await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+      await flush();
+      expect(replaceMock).not.toHaveBeenCalled();
+      errorSpy.mockRestore();
+    });
+
+    it('ティッカー一覧の取得に失敗してもクエリは消さず、その後の手動選択は URL に書き戻される', async () => {
+      currentSearchParams = new URLSearchParams('exchangeId=NASDAQ&tickerId=NASDAQ%3AAAPL');
+      tickersOverride = async () => ({ ok: false, json: async () => ({}) }) as Response;
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      const { container } = render(React.createElement(HomePageClient));
+
+      await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+      await flush();
+      expect(replaceMock).not.toHaveBeenCalled();
+
+      selectValue(container, 'exchange-select', 'NYSE');
+      await waitFor(() => expect(replaceMock).toHaveBeenLastCalledWith('/?exchangeId=NYSE'));
+      errorSpy.mockRestore();
+    });
+
+    it('反映待ちの間に人が取引所を選んだら、その選択を優先する', async () => {
+      currentSearchParams = new URLSearchParams('exchangeId=NASDAQ&tickerId=NASDAQ%3AAAPL');
+      tickersOverride = () => new Promise<Response>(() => {});
+
+      const { container } = render(React.createElement(HomePageClient));
+      await waitFor(() => expect(getValue(container, 'exchange-select')).toBe('NASDAQ'));
+      expect(replaceMock).not.toHaveBeenCalled();
+
+      selectValue(container, 'exchange-select', 'NYSE');
+
+      await waitFor(() => expect(replaceMock).toHaveBeenLastCalledWith('/?exchangeId=NYSE'));
+    });
   });
 });

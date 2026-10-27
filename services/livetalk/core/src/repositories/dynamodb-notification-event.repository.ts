@@ -1,17 +1,12 @@
-import {
-  GetCommand,
-  PutCommand,
-  UpdateCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
-import { queryPages, toDatabaseError, type DynamoDBItem } from '@nagiyu/aws';
+import { type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBEntityStore, queryPages, toDatabaseError, type EntityStore } from '@nagiyu/aws';
 import type {
   CreateNotificationEventInput,
   NotificationEventEntity,
   NotificationEventKey,
 } from '../entities/notification-event.entity.js';
 import { NotificationEventMapper } from '../mappers/notification-event.mapper.js';
-import { buildNotifSK, buildNotifSKPrefix, buildUserPK } from '../mappers/keys.js';
+import { buildNotifSKPrefix, buildUserPK } from '../mappers/keys.js';
 import type { NotificationEventRepository } from './notification-event.repository.interface.js';
 
 export class DynamoDBNotificationEventRepository implements NotificationEventRepository {
@@ -19,6 +14,7 @@ export class DynamoDBNotificationEventRepository implements NotificationEventRep
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
   private readonly nowMs: () => number;
+  private readonly entityStore: EntityStore<NotificationEventEntity, NotificationEventKey>;
 
   constructor(
     docClient: DynamoDBDocumentClient,
@@ -29,18 +25,12 @@ export class DynamoDBNotificationEventRepository implements NotificationEventRep
     this.tableName = tableName;
     this.nowMs = nowMs;
     this.mapper = new NotificationEventMapper();
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper, { now: nowMs });
   }
 
   public async put(input: CreateNotificationEventInput): Promise<NotificationEventEntity> {
-    const entity: NotificationEventEntity = { ...input, CreatedAt: this.nowMs() };
-    try {
-      await this.docClient.send(
-        new PutCommand({ TableName: this.tableName, Item: this.mapper.toItem(entity) })
-      );
-      return entity;
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    const now = this.nowMs();
+    return this.entityStore.put({ ...input, createdAt: now, updatedAt: now });
   }
 
   public async listByUser(userId: string, limit = 100): Promise<NotificationEventEntity[]> {
@@ -57,11 +47,12 @@ export class DynamoDBNotificationEventRepository implements NotificationEventRep
         ScanIndexForward: false,
         Limit: limit,
       })) {
+        // Limit はページ単位の上限にすぎず、1MB 上限で 1 ページ目が limit 未満になると
+        // 次ページへ進むため、件数はアイテム単位で打ち切る。
         for (const raw of page) {
           results.push(this.mapper.toEntity(raw));
+          if (results.length >= limit) return results;
         }
-
-        if (results.length >= limit) break;
       }
     } catch (error) {
       throw toDatabaseError(error);
@@ -93,11 +84,11 @@ export class DynamoDBNotificationEventRepository implements NotificationEventRep
         for (const raw of page) {
           const entity = this.mapper.toEntity(raw);
           if (
-            target.has(entity.CharacterID) &&
-            entity.ConsumedAt === undefined &&
-            !map.has(entity.CharacterID)
+            target.has(entity.characterId) &&
+            entity.consumedAt === undefined &&
+            !map.has(entity.characterId)
           ) {
-            map.set(entity.CharacterID, entity);
+            map.set(entity.characterId, entity);
           }
         }
 
@@ -111,33 +102,10 @@ export class DynamoDBNotificationEventRepository implements NotificationEventRep
   }
 
   public async get(key: NotificationEventKey): Promise<NotificationEventEntity | null> {
-    const pk = buildUserPK(key.userId);
-    const sk = buildNotifSK(key.notifId);
-    try {
-      const result = await this.docClient.send(
-        new GetCommand({ TableName: this.tableName, Key: { PK: pk, SK: sk } })
-      );
-      if (!result.Item) return null;
-      return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.get(key);
   }
 
   public async markConsumed(key: NotificationEventKey, consumedAt: number): Promise<void> {
-    const pk = buildUserPK(key.userId);
-    const sk = buildNotifSK(key.notifId);
-    try {
-      await this.docClient.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-          UpdateExpression: 'SET ConsumedAt = :consumedAt',
-          ExpressionAttributeValues: { ':consumedAt': consumedAt },
-        })
-      );
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    await this.entityStore.update(key, { consumedAt });
   }
 }

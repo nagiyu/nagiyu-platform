@@ -47,6 +47,21 @@ test.describe('個人 ToDo 管理', () => {
     await expect(page.getByText('ToDoを追加しました。')).toBeVisible();
   });
 
+  test('未完了 ToDo のチェックボックスが既定の大きさで描画される', async ({ page }) => {
+    const checkbox = page
+      .getByRole('listitem')
+      .filter({ hasText: 'E2E 未完了 ToDo' })
+      .getByRole('checkbox');
+    // native input は透明で、見た目は aria-hidden の兄弟要素が描く。
+    // input は外枠いっぱいに広がるため、崩れを検知するには見た目側の要素を測る必要がある。
+    const visualBox = checkbox.locator('xpath=following-sibling::span[@aria-hidden="true"]');
+
+    const rect = await visualBox.boundingBox();
+    expect(rect).not.toBeNull();
+    expect(rect!.width).toBeCloseTo(20, 0);
+    expect(rect!.height).toBeCloseTo(20, 0);
+  });
+
   test('ToDo を完了にできる', async ({ page }) => {
     const checkbox = page
       .getByRole('listitem')
@@ -71,6 +86,31 @@ test.describe('個人 ToDo 管理', () => {
     await expect(page.getByText('ToDoを更新しました。')).toBeVisible();
   });
 
+  test('編集中に Escape キーで編集をキャンセルできる', async ({ page }) => {
+    const currentTitle = 'E2E 未完了 ToDo';
+    const todoRow = page.getByRole('listitem').filter({ hasText: currentTitle });
+    await todoRow.getByRole('button', { name: '編集' }).click();
+    const input = page.getByRole('textbox', { name: 'タイトルを編集' });
+    await input.fill('書きかけのタイトル');
+
+    await input.press('Escape');
+
+    await expect(input).toHaveCount(0);
+    await expect(page.getByText(currentTitle)).toBeVisible();
+    await expect(page.getByText('書きかけのタイトル')).toHaveCount(0);
+  });
+
+  test('タイトルを変えずに保存しても更新通知を出さずに編集を閉じる', async ({ page }) => {
+    const currentTitle = 'E2E 未完了 ToDo';
+    const todoRow = page.getByRole('listitem').filter({ hasText: currentTitle });
+    await todoRow.getByRole('button', { name: '編集' }).click();
+
+    await page.getByRole('button', { name: '保存' }).click();
+
+    await expect(page.getByRole('textbox', { name: 'タイトルを編集' })).toHaveCount(0);
+    await expect(page.getByText('ToDoを更新しました。')).toHaveCount(0);
+  });
+
   test('ToDo を削除できる', async ({ page }) => {
     const todoTitle = `E2E 削除テスト ${Date.now()}`;
 
@@ -83,5 +123,64 @@ test.describe('個人 ToDo 管理', () => {
     await page.getByRole('dialog').getByRole('button', { name: '削除' }).click();
 
     await expect(page.getByText(todoTitle)).not.toBeVisible();
+  });
+
+  test.describe('API エラー時の通知', () => {
+    // Service Worker 経由の fetch は page.route で捕捉できず、モックが素通りする。
+    // chromium-mobile 以外のプロジェクトは Service Worker を止めていないため、ここで止める。
+    test.use({ serviceWorkers: 'block' });
+
+    test.beforeEach(async ({ page }) => {
+      // GET (一覧取得) は通し、更新 (PUT)・削除 (DELETE) だけを失敗させる
+      await page.route('**/api/lists/list-default/todos/*', async (route) => {
+        const method = route.request().method();
+        if (method === 'PUT' || method === 'DELETE') {
+          await route.fulfill({ status: 500, json: { error: 'テスト用の失敗' } });
+          return;
+        }
+        await route.fallback();
+      });
+    });
+
+    test('完了切り替えに失敗すると通知を表示し、チェックは元のまま', async ({ page }) => {
+      const checkbox = page
+        .getByRole('listitem')
+        .filter({ hasText: 'E2E 未完了 ToDo' })
+        .getByRole('checkbox');
+      await checkbox.click();
+
+      await expect(page.getByText('ToDoの更新に失敗しました。')).toBeVisible();
+      await expect(checkbox).not.toBeChecked();
+    });
+
+    test('編集に失敗すると通知を表示し、編集欄と入力を残す', async ({ page }) => {
+      const failingTitle = `E2E 失敗する編集 ${Date.now()}`;
+
+      const todoRow = page.getByRole('listitem').filter({ hasText: 'E2E 未完了 ToDo' });
+      await todoRow.getByRole('button', { name: '編集' }).click();
+      await page.getByRole('textbox', { name: 'タイトルを編集' }).fill(failingTitle);
+      await page.getByRole('button', { name: '保存' }).click();
+
+      await expect(page.getByText('ToDoの更新に失敗しました。')).toBeVisible();
+      await expect(page.getByRole('textbox', { name: 'タイトルを編集' })).toHaveValue(failingTitle);
+    });
+
+    test('削除に失敗すると通知を表示し、ToDo は一覧に残る', async ({ page }) => {
+      const todoRow = page.getByRole('listitem').filter({ hasText: 'E2E 未完了 ToDo' });
+      await todoRow.getByRole('button', { name: '削除' }).click();
+      await page.getByRole('dialog').getByRole('button', { name: '削除' }).click();
+
+      await expect(page.getByText('ToDoの削除に失敗しました。')).toBeVisible();
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+      await expect(page.getByText('E2E 未完了 ToDo')).toBeVisible();
+    });
+  });
+
+  test('タイトル入力欄は 200 文字までしか入力できない', async ({ page }) => {
+    const input = page.getByRole('textbox', { name: 'タイトル' });
+    await input.pressSequentially('あ'.repeat(10));
+    await expect(input).toHaveAttribute('maxlength', '200');
+    await input.fill('い'.repeat(250));
+    await expect(input).toHaveValue('い'.repeat(200));
   });
 });

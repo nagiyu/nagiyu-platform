@@ -14,6 +14,9 @@ import {
 } from '@mui/material';
 import { Button, Chip } from '@nagiyu/ui';
 import type { InvitationSummary, InvitationsResponse } from '@/types';
+import { formatDateTimeJst } from '@/lib/format-date-time';
+import { notifyInvitationsChanged } from '@/lib/invitation-events';
+import { ACCEPT_FAILURE_MESSAGE, resolveAcceptFailureMessage } from '@/lib/invitation-errors';
 
 export default function InvitationsPage() {
   const [invitations, setInvitations] = useState<InvitationSummary[]>([]);
@@ -22,6 +25,11 @@ export default function InvitationsPage() {
     null
   );
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
+  // 応答待ちの間に同じ招待へ承認と拒否が重ねて送られないよう、処理中のグループを持つ
+  const [processing, setProcessing] = useState<{
+    groupId: string;
+    action: 'ACCEPT' | 'REJECT';
+  } | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -43,6 +51,9 @@ export default function InvitationsPage() {
   }, []);
 
   const handleAccept = (groupId: string, groupName: string) => {
+    if (processing?.groupId === groupId) return;
+    setProcessing({ groupId, action: 'ACCEPT' });
+
     void (async () => {
       try {
         const response = await fetch(`/api/invitations/${groupId}`, {
@@ -51,14 +62,19 @@ export default function InvitationsPage() {
           body: JSON.stringify({ action: 'ACCEPT' }),
         });
         if (!response.ok) {
-          throw new Error(`status: ${response.status}`);
+          console.error('招待の承認に失敗しました', { groupId, status: response.status });
+          setSnackbarMessage(await resolveAcceptFailureMessage(response));
+          return;
         }
 
         setInvitations((prev) => prev.filter((inv) => inv.groupId !== groupId));
         setSnackbarMessage(`「${groupName}」への参加を承認しました。`);
+        notifyInvitationsChanged();
       } catch (error: unknown) {
         console.error('招待の承認に失敗しました', { groupId, error });
-        setSnackbarMessage('招待の承認に失敗しました。');
+        setSnackbarMessage(ACCEPT_FAILURE_MESSAGE);
+      } finally {
+        setProcessing(null);
       }
     })();
   };
@@ -69,6 +85,7 @@ export default function InvitationsPage() {
 
   const handleRejectConfirm = () => {
     if (!rejectTarget) return;
+    setProcessing({ groupId: rejectTarget.groupId, action: 'REJECT' });
 
     void (async () => {
       try {
@@ -83,11 +100,13 @@ export default function InvitationsPage() {
 
         setInvitations((prev) => prev.filter((inv) => inv.groupId !== rejectTarget.groupId));
         setSnackbarMessage(`「${rejectTarget.groupName}」への招待を拒否しました。`);
+        notifyInvitationsChanged();
       } catch (error: unknown) {
         console.error('招待の拒否に失敗しました', { groupId: rejectTarget.groupId, error });
         setSnackbarMessage('招待の拒否に失敗しました。');
       } finally {
         setRejectTarget(null);
+        setProcessing(null);
       }
     })();
   };
@@ -108,47 +127,55 @@ export default function InvitationsPage() {
           <Typography color="text.secondary">招待はありません。</Typography>
         ) : (
           <Stack spacing={2}>
-            {invitations.map((invitation) => (
-              <Card key={invitation.groupId}>
-                <CardContent>
-                  <Stack
-                    direction="row"
-                    sx={{ alignItems: 'center', mb: 1, justifyContent: 'space-between' }}
-                  >
-                    <Typography component="h2" variant="h6">
-                      {invitation.groupName}
+            {invitations.map((invitation) => {
+              const isProcessing = processing?.groupId === invitation.groupId;
+              return (
+                <Card key={invitation.groupId}>
+                  <CardContent>
+                    <Stack
+                      direction="row"
+                      sx={{ alignItems: 'center', mb: 1, justifyContent: 'space-between' }}
+                    >
+                      <Typography component="h2" variant="h6">
+                        {invitation.groupName}
+                      </Typography>
+                      <Chip color="primary" size="sm">
+                        招待中
+                      </Chip>
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                      招待者: {invitation.inviterName}
                     </Typography>
-                    <Chip color="primary" size="sm">
-                      招待中
-                    </Chip>
-                  </Stack>
-                  <Typography variant="body2" color="text.secondary">
-                    招待者: {invitation.inviterName}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    招待日時: {invitation.createdAt}
-                  </Typography>
-                </CardContent>
-                <CardActions sx={{ px: 2, pb: 2 }}>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button
-                      variant="solid"
-                      color="primary"
-                      onClick={() => handleAccept(invitation.groupId, invitation.groupName)}
-                    >
-                      承認
-                    </Button>
-                    <Button
-                      variant="outline"
-                      color="neutral"
-                      onClick={() => handleRejectRequest(invitation.groupId, invitation.groupName)}
-                    >
-                      拒否
-                    </Button>
-                  </Box>
-                </CardActions>
-              </Card>
-            ))}
+                    <Typography variant="body2" color="text.secondary">
+                      招待日時: {formatDateTimeJst(invitation.createdAt)}
+                    </Typography>
+                  </CardContent>
+                  <CardActions sx={{ px: 2, pb: 2 }}>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button
+                        variant="solid"
+                        color="primary"
+                        loading={isProcessing && processing.action === 'ACCEPT'}
+                        disabled={isProcessing}
+                        onClick={() => handleAccept(invitation.groupId, invitation.groupName)}
+                      >
+                        承認
+                      </Button>
+                      <Button
+                        variant="outline"
+                        color="neutral"
+                        disabled={isProcessing}
+                        onClick={() =>
+                          handleRejectRequest(invitation.groupId, invitation.groupName)
+                        }
+                      >
+                        拒否
+                      </Button>
+                    </Box>
+                  </CardActions>
+                </Card>
+              );
+            })}
           </Stack>
         )}
       </Container>

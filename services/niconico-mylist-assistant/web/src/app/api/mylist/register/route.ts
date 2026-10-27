@@ -1,25 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
-import { selectRandomVideos, createBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
+import {
+  selectRandomVideos,
+  createBatchJob,
+  toJobEnvironment,
+} from '@nagiyu/niconico-mylist-assistant-core';
 import { getBatchClient, reportErrorEvent } from '@nagiyu/aws';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { getEncryptedUserSessionBlob } from '@/lib/niconico-session';
-import { toErrorMessage, type ErrorResponse, type PushSubscription } from '@nagiyu/common';
-import { validatePushSubscription } from '@nagiyu/nextjs';
-
-/**
- * リクエストボディの型定義
- *
- * user_session はボディから受け取らず、サーバー保存済みのものを使用する（Phase 2）。
- */
-interface RegisterMylistRequest {
-  maxCount: number;
-  favoriteOnly?: boolean;
-  excludeSkip?: boolean;
-  mylistName: string;
-  pushSubscription?: PushSubscription;
-}
+import { toErrorMessage, type ErrorResponse } from '@nagiyu/common';
+import { createWithApiErrorReportingBody } from '@/lib/api-error-reporting';
+import { readJsonObjectBody, validatePushSubscription } from '@nagiyu/nextjs';
 
 /**
  * レスポンスの型定義
@@ -59,7 +51,6 @@ function getEnvVars() {
   return {
     BATCH_JOB_QUEUE: process.env.BATCH_JOB_QUEUE || '',
     BATCH_JOB_DEFINITION: process.env.BATCH_JOB_DEFINITION || '',
-    DYNAMODB_TABLE_NAME: process.env.DYNAMODB_TABLE_NAME || '',
     AWS_REGION: process.env.AWS_REGION || 'us-east-1',
     AWS_REGION_FOR_SDK: process.env.AWS_REGION_FOR_SDK || process.env.AWS_REGION || 'us-east-1',
   };
@@ -78,10 +69,14 @@ const SUCCESS_MESSAGES = {
  *
  * Phase 2: user_session をリクエストボディから受け取らず、サーバー保存済みのものを使用する。
  */
-export async function POST(
-  request: NextRequest
-): Promise<NextResponse<RegisterMylistResponse | ErrorResponse>> {
-  try {
+const withApiErrorReporting = createWithApiErrorReportingBody('バッチジョブ投入エラー:', {
+  error: 'BATCH_ERROR',
+  message: ERROR_MESSAGES.BATCH_JOB_SUBMISSION_FAILED,
+});
+
+export const POST = withApiErrorReporting(
+  'Batch ジョブ投入エラー',
+  async (request: NextRequest): Promise<NextResponse<RegisterMylistResponse | ErrorResponse>> => {
     // 認証チェック
     const session = await getSession();
     if (!session?.user) {
@@ -95,10 +90,21 @@ export async function POST(
     }
 
     // リクエストボディのパース
-    const body = (await request.json()) as RegisterMylistRequest;
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
+        },
+        { status: 400 }
+      );
+    }
+
+    const { maxCount, favoriteOnly, excludeSkip, mylistName, pushSubscription } = bodyResult.body;
 
     // バリデーション: maxCount
-    if (typeof body.maxCount !== 'number') {
+    if (typeof maxCount !== 'number') {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -108,7 +114,7 @@ export async function POST(
       );
     }
 
-    if (!Number.isInteger(body.maxCount)) {
+    if (!Number.isInteger(maxCount)) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -118,7 +124,7 @@ export async function POST(
       );
     }
 
-    if (body.maxCount < 1 || body.maxCount > 100) {
+    if (maxCount < 1 || maxCount > 100) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -129,7 +135,7 @@ export async function POST(
     }
 
     // バリデーション: mylistName
-    if (!body.mylistName) {
+    if (!mylistName) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -139,7 +145,7 @@ export async function POST(
       );
     }
 
-    if (typeof body.mylistName !== 'string') {
+    if (typeof mylistName !== 'string') {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -149,8 +155,29 @@ export async function POST(
       );
     }
 
+    // バリデーション: favoriteOnly・excludeSkip（任意。指定時は真偽値のみ受け付ける）
+    if (favoriteOnly !== undefined && typeof favoriteOnly !== 'boolean') {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.FAVORITE_ONLY_MUST_BE_BOOLEAN,
+        },
+        { status: 400 }
+      );
+    }
+
+    if (excludeSkip !== undefined && typeof excludeSkip !== 'boolean') {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.EXCLUDE_SKIP_MUST_BE_BOOLEAN,
+        },
+        { status: 400 }
+      );
+    }
+
     // バリデーション: pushSubscription（任意。指定時のみ検証する）
-    if (body.pushSubscription !== undefined && !validatePushSubscription(body.pushSubscription)) {
+    if (pushSubscription !== undefined && !validatePushSubscription(pushSubscription)) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -161,7 +188,7 @@ export async function POST(
     }
 
     // 保存済みニコニコセッションの取得（Phase 2: リクエストボディの userSession は使用しない）
-    const encryptedUserSessionBlob = await getEncryptedUserSessionBlob(session.user.userId);
+    const encryptedUserSessionBlob = await getEncryptedUserSessionBlob(session.user.id);
     if (!encryptedUserSessionBlob) {
       return NextResponse.json(
         {
@@ -177,13 +204,25 @@ export async function POST(
     let selectedVideos: Awaited<ReturnType<typeof selectRandomVideos>>;
     try {
       selectedVideos = await selectRandomVideos({
-        userId: session.user.userId,
-        maxCount: body.maxCount,
-        favoriteOnly: body.favoriteOnly,
-        skipExclude: body.excludeSkip,
+        userId: session.user.id,
+        maxCount,
+        favoriteOnly,
+        skipExclude: excludeSkip,
       });
     } catch (error) {
       if (isDynamoDbError(error)) {
+        // 例外を握って 500 を返すため、この場で報告する
+        await reportErrorEvent({
+          serviceId: 'niconico-mylist-assistant',
+          severity: 'error',
+          title: 'DynamoDB 動画取得失敗',
+          message: toErrorMessage(error),
+          context: {
+            userId: session.user.id,
+            errorName: error.name,
+            errorStack: error.stack,
+          },
+        });
         return NextResponse.json(
           {
             error: 'DATABASE_ERROR',
@@ -207,10 +246,10 @@ export async function POST(
     }
 
     // AWS Batch ジョブを投入
-    const { BATCH_JOB_QUEUE, BATCH_JOB_DEFINITION, DYNAMODB_TABLE_NAME, AWS_REGION } = getEnvVars();
+    const { BATCH_JOB_QUEUE, BATCH_JOB_DEFINITION, AWS_REGION } = getEnvVars();
     const batchClient = getBatchClient(AWS_REGION);
 
-    const jobName = `niconico-mylist-${session.user.userId}-${Date.now()}`;
+    const jobName = `niconico-mylist-${session.user.id}-${Date.now()}`;
     const videoIds = selectedVideos.map((video) => video.videoId);
 
     // 保存済みブロブをそのまま ENCRYPTED_USER_SESSION として渡す（再暗号化不要）
@@ -220,14 +259,13 @@ export async function POST(
         jobQueue: BATCH_JOB_QUEUE,
         jobDefinition: BATCH_JOB_DEFINITION,
         containerOverrides: {
-          environment: [
-            { name: 'USER_ID', value: session.user.userId },
-            { name: 'VIDEO_IDS', value: JSON.stringify(videoIds) },
-            { name: 'MYLIST_NAME', value: body.mylistName },
-            { name: 'ENCRYPTED_USER_SESSION', value: encryptedUserSessionBlob },
-            { name: 'DYNAMODB_TABLE_NAME', value: DYNAMODB_TABLE_NAME },
-            { name: 'AWS_REGION', value: AWS_REGION },
-          ],
+          // テーブル名・リージョンはジョブ定義で設定済みのため、起動ごとの入力だけを渡す
+          environment: toJobEnvironment({
+            userId: session.user.id,
+            videoIds,
+            mylistName,
+            encryptedUserSession: encryptedUserSessionBlob,
+          }),
         },
       })
     );
@@ -241,7 +279,7 @@ export async function POST(
         title: 'Batch ジョブ ID 未取得',
         message: 'SubmitJob のレスポンスにジョブ ID が含まれていませんでした',
         context: {
-          userId: session.user.userId,
+          userId: session.user.id,
           jobName,
         },
       });
@@ -260,9 +298,9 @@ export async function POST(
     try {
       await createBatchJob({
         jobId: submitResult.jobId,
-        userId: session.user.userId,
+        userId: session.user.id,
         status: 'SUBMITTED',
-        pushSubscription: body.pushSubscription,
+        pushSubscription,
       });
       console.log(`バッチジョブレコードを作成しました: ${submitResult.jobId}`);
     } catch (error) {
@@ -273,7 +311,7 @@ export async function POST(
         title: 'DynamoDB バッチジョブレコード作成失敗',
         message: toErrorMessage(error),
         context: {
-          userId: session.user.userId,
+          userId: session.user.id,
           jobId: submitResult.jobId,
           error: toErrorMessage(error),
         },
@@ -301,26 +339,5 @@ export async function POST(
       },
       { status: 200 }
     );
-  } catch (error) {
-    console.error('バッチジョブ投入エラー:', error);
-    await reportErrorEvent({
-      serviceId: 'niconico-mylist-assistant',
-      severity: 'error',
-      title: 'Batch ジョブ投入エラー',
-      message: toErrorMessage(error),
-      context: {
-        error: toErrorMessage(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      },
-    });
-
-    // AWS Batch エラー
-    return NextResponse.json(
-      {
-        error: 'BATCH_ERROR',
-        message: ERROR_MESSAGES.BATCH_JOB_SUBMISSION_FAILED,
-      },
-      { status: 500 }
-    );
   }
-}
+);

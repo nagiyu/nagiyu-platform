@@ -8,11 +8,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { COMMON_ERROR_MESSAGES, toErrorMessage } from '@nagiyu/common';
-import { TickerNotFoundError, validateTickerUpdateData } from '@nagiyu/stock-tracker-core';
-import { withAuth, handleApiError } from '@nagiyu/nextjs';
-import { reportErrorEvent } from '@nagiyu/aws';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { EntityNotFoundError } from '@nagiyu/aws';
+import { validateTickerUpdateData } from '@nagiyu/stock-tracker-core';
+import { withAuth, readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
+import { withApiErrorReporting } from '../../../../lib/api-error-reporting';
 import { createTickerRepository } from '../../../../lib/repository-factory';
 
 /**
@@ -25,13 +26,6 @@ const ERROR_MESSAGES = {
   RELATED_DATA_EXISTS: '関連するデータが存在するため削除できません',
   INVALID_REQUEST_BODY: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
 } as const;
-
-/**
- * PUT リクエストボディ型定義
- */
-interface UpdateTickerRequest {
-  name?: string;
-}
 
 /**
  * PUT レスポンス型定義
@@ -56,19 +50,18 @@ interface DeleteTickerResponse {
  * PUT /api/tickers/{id}
  * ティッカー更新（stock-admin のみ）
  */
-export const PUT = withAuth(
-  getSession,
-  'stocks:manage-data',
-  async (_session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-    try {
+export const PUT = withApiErrorReporting(
+  'Web API: ティッカー更新エラー',
+  withAuth(
+    getSession,
+    'stocks:manage-data',
+    async (_session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
       // パスパラメータの取得
       const { id: tickerId } = await params;
 
       // リクエストボディの取得
-      let body: UpdateTickerRequest;
-      try {
-        body = await request.json();
-      } catch {
+      const bodyResult = await readJsonObjectBody(request);
+      if (!bodyResult.ok) {
         return NextResponse.json(
           {
             error: 'INVALID_REQUEST',
@@ -77,10 +70,12 @@ export const PUT = withAuth(
           { status: 400 }
         );
       }
+      const { name } = bodyResult.body;
 
       // バリデーション
-      const validationResult = validateTickerUpdateData(body);
-      if (!validationResult.valid) {
+      // 型の絞り込みも兼ねる (検証を通った値は文字列だが、型システムには伝わらないため)
+      const validationResult = validateTickerUpdateData(bodyResult.body);
+      if (!validationResult.valid || typeof name !== 'string') {
         return NextResponse.json(
           {
             error: 'INVALID_REQUEST',
@@ -96,22 +91,22 @@ export const PUT = withAuth(
       // ティッカー更新
       try {
         const updatedTicker = await tickerRepo.update(tickerId, {
-          Name: body.name,
+          name,
         });
 
         // レスポンス形式に変換
         const response: UpdateTickerResponse = {
-          tickerId: updatedTicker.TickerID,
-          symbol: updatedTicker.Symbol,
-          name: updatedTicker.Name,
-          exchangeId: updatedTicker.ExchangeID,
-          updatedAt: new Date(updatedTicker.UpdatedAt).toISOString(),
+          tickerId: updatedTicker.tickerId,
+          symbol: updatedTicker.symbol,
+          name: updatedTicker.name,
+          exchangeId: updatedTicker.exchangeId,
+          updatedAt: new Date(updatedTicker.updatedAt).toISOString(),
         };
 
         return NextResponse.json(response, { status: 200 });
       } catch (error) {
         // ティッカーが見つからない場合
-        if (error instanceof TickerNotFoundError) {
+        if (error instanceof EntityNotFoundError) {
           return NextResponse.json(
             {
               error: 'NOT_FOUND',
@@ -122,29 +117,20 @@ export const PUT = withAuth(
         }
         throw error;
       }
-    } catch (error) {
-      const errorMessage = toErrorMessage(error);
-      await reportErrorEvent({
-        serviceId: 'stock-tracker',
-        severity: 'error',
-        title: 'Web API: ティッカー更新エラー',
-        message: errorMessage,
-        context: { errorStack: error instanceof Error ? error.stack : undefined },
-      });
-      return handleApiError(error);
     }
-  }
+  )
 );
 
 /**
  * DELETE /api/tickers/{id}
  * ティッカー削除（stock-admin のみ）
  */
-export const DELETE = withAuth(
-  getSession,
-  'stocks:manage-data',
-  async (_session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-    try {
+export const DELETE = withApiErrorReporting(
+  'Web API: ティッカー削除エラー',
+  withAuth(
+    getSession,
+    'stocks:manage-data',
+    async (_session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
       // パスパラメータの取得
       const { id: tickerId } = await params;
 
@@ -164,7 +150,7 @@ export const DELETE = withAuth(
         return NextResponse.json(response, { status: 200 });
       } catch (error) {
         // ティッカーが見つからない場合
-        if (error instanceof TickerNotFoundError) {
+        if (error instanceof EntityNotFoundError) {
           return NextResponse.json(
             {
               error: 'NOT_FOUND',
@@ -175,16 +161,6 @@ export const DELETE = withAuth(
         }
         throw error;
       }
-    } catch (error) {
-      const errorMessage = toErrorMessage(error);
-      await reportErrorEvent({
-        serviceId: 'stock-tracker',
-        severity: 'error',
-        title: 'Web API: ティッカー削除エラー',
-        message: errorMessage,
-        context: { errorStack: error instanceof Error ? error.stack : undefined },
-      });
-      return handleApiError(error);
     }
-  }
+  )
 );

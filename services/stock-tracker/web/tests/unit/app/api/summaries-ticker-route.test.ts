@@ -1,4 +1,5 @@
 import { GET } from '../../../../app/api/summaries/[tickerId]/route';
+import * as awsModule from '@nagiyu/aws';
 import {
   createAlertRepository,
   createDailySummaryRepository,
@@ -6,6 +7,11 @@ import {
   createHoldingRepository,
   createTickerRepository,
 } from '../../../../lib/repository-factory';
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
 
 jest.mock('../../../../lib/repository-factory', () => ({
   createDailySummaryRepository: jest.fn(),
@@ -20,9 +26,10 @@ jest.mock('../../../../lib/auth', () => ({
 }));
 
 jest.mock('@nagiyu/nextjs', () => ({
+  createApiErrorReporting: jest.requireActual('@nagiyu/nextjs').createApiErrorReporting,
   withAuth: jest.fn((_auth, _permission, handler) => {
     return async (...args: unknown[]) =>
-      handler({ user: { userId: 'test-user', roles: ['stock-user'] } }, ...args);
+      handler({ user: { id: 'test-user', roles: ['stock-user'] } }, ...args);
   }),
 }));
 
@@ -56,22 +63,22 @@ describe('GET /api/summaries/[tickerId]', () => {
   it('正常系: 指定ティッカーのサマリーを返す', async () => {
     mockGetByExchange.mockResolvedValue([
       {
-        TickerID: 'NASDAQ:NVDA',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-01-01',
-        Open: 100,
-        High: 120,
-        Low: 90,
-        Close: 110,
-        Volume: 1000,
-        CreatedAt: 1,
-        UpdatedAt: 1000,
+        tickerId: 'NASDAQ:NVDA',
+        exchangeId: 'NASDAQ',
+        date: '2026-01-01',
+        open: 100,
+        high: 120,
+        low: 90,
+        close: 110,
+        volume: 1000,
+        createdAt: 1,
+        updatedAt: 1000,
       },
     ]);
-    mockGetById.mockResolvedValue({ TickerID: 'NASDAQ:NVDA', Symbol: 'NVDA', Name: 'NVIDIA' });
-    mockGetHoldingById.mockResolvedValue({ Quantity: 5, AveragePrice: 98 });
+    mockGetById.mockResolvedValue({ tickerId: 'NASDAQ:NVDA', symbol: 'NVDA', name: 'NVIDIA' });
+    mockGetHoldingById.mockResolvedValue({ quantity: 5, averagePrice: 98 });
     mockGetAlertsByUserId.mockResolvedValue({
-      items: [{ TickerID: 'NASDAQ:NVDA', Mode: 'Buy', Enabled: true }],
+      items: [{ tickerId: 'NASDAQ:NVDA', mode: 'Buy', enabled: true }],
     });
 
     const response = await GET(new Request('http://localhost/api/summaries/NASDAQ:NVDA'), {
@@ -90,24 +97,24 @@ describe('GET /api/summaries/[tickerId]', () => {
   it('正常系: Forecast があれば forecast に要約を含める', async () => {
     mockGetByExchange.mockResolvedValue([
       {
-        TickerID: 'NASDAQ:NVDA',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-01-01',
-        Open: 100,
-        High: 120,
-        Low: 90,
-        Close: 110,
-        CreatedAt: 1,
-        UpdatedAt: 1000,
+        tickerId: 'NASDAQ:NVDA',
+        exchangeId: 'NASDAQ',
+        date: '2026-01-01',
+        open: 100,
+        high: 120,
+        low: 90,
+        close: 110,
+        createdAt: 1,
+        updatedAt: 1000,
       },
     ]);
-    mockGetById.mockResolvedValue({ TickerID: 'NASDAQ:NVDA', Symbol: 'NVDA', Name: 'NVIDIA' });
+    mockGetById.mockResolvedValue({ tickerId: 'NASDAQ:NVDA', symbol: 'NVDA', name: 'NVIDIA' });
     mockGetHoldingById.mockResolvedValue(null);
     mockGetAlertsByUserId.mockResolvedValue({ items: [] });
     mockGetForecast.mockResolvedValue({
-      TickerID: 'NASDAQ:NVDA',
-      AxisValues: { 'morning-star': true },
-      Probabilities: {
+      tickerId: 'NASDAQ:NVDA',
+      axisValues: { 'morning-star': true },
+      probabilities: {
         VOL: {
           probability: 0.6,
           baseline: 0.4,
@@ -136,15 +143,15 @@ describe('GET /api/summaries/[tickerId]', () => {
   it('正常系: Forecast の取得に失敗してもサマリーを返す', async () => {
     mockGetByExchange.mockResolvedValue([
       {
-        TickerID: 'NASDAQ:NVDA',
-        ExchangeID: 'NASDAQ',
-        Date: '2026-01-01',
-        Open: 100,
-        High: 120,
-        Low: 90,
-        Close: 110,
-        CreatedAt: 1,
-        UpdatedAt: 1000,
+        tickerId: 'NASDAQ:NVDA',
+        exchangeId: 'NASDAQ',
+        date: '2026-01-01',
+        open: 100,
+        high: 120,
+        low: 90,
+        close: 110,
+        createdAt: 1,
+        updatedAt: 1000,
       },
     ]);
     mockGetById.mockResolvedValue(null);
@@ -160,6 +167,40 @@ describe('GET /api/summaries/[tickerId]', () => {
 
     expect(response.status).toBe(200);
     expect(body.forecast).toBeNull();
+    expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: サマリーの確度取得エラー',
+        message: 'forecast db error',
+      })
+    );
+  });
+
+  it('異常系: リポジトリが失敗したら 500 を返して報告する', async () => {
+    mockGetByExchange.mockRejectedValue(new Error('db error'));
+    mockGetById.mockResolvedValue(null);
+    mockGetHoldingById.mockResolvedValue(null);
+    mockGetAlertsByUserId.mockResolvedValue({ items: [] });
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const response = await GET(new Request('http://localhost/api/summaries/NASDAQ:NVDA'), {
+      params: Promise.resolve({ tickerId: 'NASDAQ:NVDA' }),
+    });
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: 'INTERNAL_ERROR',
+      message: 'サマリーの取得に失敗しました',
+    });
+    expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: サマリー取得エラー',
+        message: 'db error',
+      })
+    );
   });
 
   it('異常系: tickerId が不正な場合は 400 を返す', async () => {
@@ -168,6 +209,7 @@ describe('GET /api/summaries/[tickerId]', () => {
     });
 
     expect(response.status).toBe(400);
+    expect(awsModule.reportErrorEvent).not.toHaveBeenCalled();
   });
 
   it('異常系: サマリーが存在しない場合は 404 を返す', async () => {

@@ -11,6 +11,7 @@ on:
       - 'infra/quick-clip/**'
       - 'infra/common/**'
       - 'libs/**'
+      - 'configs/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/quick-clip-deploy.yml'
@@ -109,9 +110,7 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/quick-clip-web'
-          shared-workspaces: >
-            @nagiyu/common,@nagiyu/aws,@nagiyu/browser,@nagiyu/react,
-            @nagiyu/nextjs,@nagiyu/ui,@nagiyu/quick-clip-core
+          shared-workspaces: '@nagiyu/quick-clip-core'
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { Container, Box, Paper, IconButton, Tooltip } from '@mui/material';
 import PauseIcon from '@mui/icons-material/Pause';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -16,6 +16,9 @@ import {
   DEFAULT_CHART_BAR_COUNT,
 } from '@/types/stock';
 import { computeAlertLines } from '@/lib/chart-overlay-lines';
+import { buildHomeUrl, parseTimeframe } from '@/lib/home-query';
+import { resolveInitialCurrency } from '@/lib/holding-currency';
+import type { ExchangeMarket } from '@nagiyu/stock-tracker-core';
 import StockChart from './StockChart';
 import EmptyState from './EmptyState';
 import TickerSummaryCard from './TickerSummaryCard';
@@ -33,6 +36,8 @@ interface Exchange {
     start: string;
     end: string;
   };
+  /** 市場。未設定の取引所では省略される */
+  market?: ExchangeMarket | null;
 }
 
 interface Ticker {
@@ -57,6 +62,7 @@ interface HomePageClientProps {
 
 export default function HomePageClient({ children }: HomePageClientProps) {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const initialSelectionAppliedRef = useRef<{ exchange: boolean; ticker: boolean }>({
     exchange: false,
     ticker: false,
@@ -68,13 +74,24 @@ export default function HomePageClient({ children }: HomePageClientProps) {
   // 選択状態の管理
   const [exchange, setExchange] = useState<string>('');
   const [ticker, setTicker] = useState<string>('');
-  const [timeframe, setTimeframe] = useState<Timeframe>('60');
+  const [timeframe, setTimeframe] = useState<Timeframe>(() =>
+    parseTimeframe(searchParams.get('timeframe'))
+  );
+  // 初回のクエリ反映が終わるまで URL への書き戻しを止める。
+  // 取引所・ティッカーは非同期に取得されるため、反映前は state が空で、書き戻すとクエリを消してしまう
+  const [initialSyncDone, setInitialSyncDone] = useState<boolean>(!queryExchangeId);
+  // 人が選択を変えたかどうか。読み込みや補正だけで URL を書き換えると、API の一時的な失敗で
+  // 共有 URL のクエリを消してしまうため、書き戻しは人の操作に限る
+  const [selectionChangedByUser, setSelectionChangedByUser] = useState<boolean>(false);
   const [barCount, setBarCount] = useState<ChartBarCount>(DEFAULT_CHART_BAR_COUNT);
   const [autoRefresh, setAutoRefresh] = useState<boolean>(false);
 
   // データ状態の管理
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const [tickers, setTickers] = useState<Ticker[]>([]);
+  // 取得の成否によらず完了を示す。失敗や 0 件でも初回反映を諦める判断に使う
+  const [exchangesFetched, setExchangesFetched] = useState<boolean>(false);
+  const [tickersFetchedFor, setTickersFetchedFor] = useState<string>('');
   const [summary, setSummary] = useState<TickerSummary | null>(null);
   const [holding, setHolding] = useState<HoldingResponse | null>(null);
   const [alerts, setAlerts] = useState<AlertResponse[]>([]);
@@ -172,6 +189,7 @@ export default function HomePageClient({ children }: HomePageClientProps) {
         setExchangesError(ERROR_MESSAGES.FETCH_EXCHANGES_ERROR);
       } finally {
         setExchangesLoading(false);
+        setExchangesFetched(true);
       }
     };
 
@@ -204,6 +222,7 @@ export default function HomePageClient({ children }: HomePageClientProps) {
         setTickersError(ERROR_MESSAGES.FETCH_TICKERS_ERROR);
       } finally {
         setTickersLoading(false);
+        setTickersFetchedFor(exchange);
       }
     };
 
@@ -278,46 +297,92 @@ export default function HomePageClient({ children }: HomePageClientProps) {
     if (initialSelectionAppliedRef.current.exchange) {
       return;
     }
-    if (!queryExchangeId || exchanges.length === 0) {
+    // 取得失敗でも exchangesFetched は立つ。一覧が空なら該当なしとして反映を諦める
+    if (!queryExchangeId || !exchangesFetched) {
       return;
     }
 
+    initialSelectionAppliedRef.current.exchange = true;
     const exists = exchanges.some((ex) => ex.exchangeId === queryExchangeId);
     if (exists) {
       setExchange(queryExchangeId);
     }
-    initialSelectionAppliedRef.current.exchange = true;
-  }, [exchanges, queryExchangeId]);
+    if (!exists || !queryTickerId) {
+      // 続くティッカーの反映が無いので、ここで初回反映が終わる
+      initialSelectionAppliedRef.current.ticker = true;
+      setInitialSyncDone(true);
+    }
+  }, [exchanges, exchangesFetched, queryExchangeId, queryTickerId]);
 
   // URL クエリの tickerId を初期選択に反映
   useEffect(() => {
     if (initialSelectionAppliedRef.current.ticker) {
       return;
     }
-    if (!queryTickerId || !exchange || tickers.length === 0) {
+    // 別の取引所の一覧では判定できないので、選択中の取引所の取得完了を待つ
+    if (!queryTickerId || !exchange || tickersFetchedFor !== exchange) {
       return;
     }
 
+    initialSelectionAppliedRef.current.ticker = true;
     const exists = tickers.some((t) => t.tickerId === queryTickerId);
     if (exists) {
       setTicker(queryTickerId);
     }
-    initialSelectionAppliedRef.current.ticker = true;
-  }, [exchange, tickers, queryTickerId]);
+    setInitialSyncDone(true);
+  }, [exchange, tickers, tickersFetchedFor, queryTickerId]);
+
+  // 人が選択を変えたあと、初回反映が済んでいれば選択状態を URL に書き戻す。
+  // 反映の待機中に変えた分は、反映が済んだ時点で最新の状態ごと書き戻される。
+  // 履歴を積まないよう replace 相当で更新する。
+  // router.replace は動的レンダリングのレイアウトごとサーバーへ RSC を取りに行くため、
+  // 選択のたびに往復が発生する。history API なら往復なしで useSearchParams に同期される
+  useEffect(() => {
+    if (!initialSyncDone || !selectionChangedByUser) {
+      return;
+    }
+
+    const nextUrl = buildHomeUrl(pathname, searchParams.toString(), {
+      exchangeId: exchange,
+      tickerId: ticker,
+      timeframe,
+    });
+    if (nextUrl !== null) {
+      window.history.replaceState(null, '', nextUrl);
+    }
+  }, [
+    initialSyncDone,
+    selectionChangedByUser,
+    exchange,
+    ticker,
+    timeframe,
+    pathname,
+    searchParams,
+  ]);
 
   // イベントハンドラー
+  // 初回反映の待機中に人が選んだ場合は、その選択を優先してクエリの反映を取りやめる
+  const abandonInitialSelection = () => {
+    initialSelectionAppliedRef.current = { exchange: true, ticker: true };
+    setInitialSyncDone(true);
+    setSelectionChangedByUser(true);
+  };
+
   const handleExchangeChange = (value: string) => {
+    abandonInitialSelection();
     setExchange(value);
     // 取引所変更時はティッカーをリセット
     setTicker('');
   };
 
   const handleTickerChange = (value: string) => {
+    abandonInitialSelection();
     setTicker(value);
   };
 
   const handleTimeframeChange = (value: string) => {
     setTimeframe(value as Timeframe);
+    setSelectionChangedByUser(true);
   };
 
   const handleBarCountChange = (value: string) => {
@@ -476,6 +541,7 @@ export default function HomePageClient({ children }: HomePageClientProps) {
             tickerId={ticker}
             symbol={selectedTickerSymbol}
             exchangeId={exchange}
+            defaultCurrency={resolveInitialCurrency(exchanges, exchange)}
             loading={holdingLoading}
             error={holdingError}
             onChanged={refreshHoldingAndAlerts}

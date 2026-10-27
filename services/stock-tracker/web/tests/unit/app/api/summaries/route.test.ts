@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import * as awsModule from '@nagiyu/aws';
 import { GET } from '../../../../../app/api/summaries/route';
 import {
   createAlertRepository,
@@ -10,6 +11,11 @@ import {
   createPerformanceDailyRepository,
   createTickerRepository,
 } from '../../../../../lib/repository-factory';
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
 
 jest.mock('../../../../../lib/repository-factory', () => ({
   createDailySummaryRepository: jest.fn(),
@@ -27,6 +33,7 @@ jest.mock('../../../../../lib/auth', () => ({
 }));
 
 jest.mock('@nagiyu/nextjs', () => ({
+  createApiErrorReporting: jest.requireActual('@nagiyu/nextjs').createApiErrorReporting,
   withAuth: jest.fn((_auth, _permission, handler) => {
     return async (...args: unknown[]) => handler({ user: { roles: ['stock-user'] } }, ...args);
   }),
@@ -50,9 +57,9 @@ describe('GET /api/summaries', () => {
   const mockGetTickersByExchange = jest.fn();
   const mockGetAllTickers = jest.fn();
   // 取引所ごとの getByExchange が、その取引所の銘柄だけを返す挙動に揃える
-  const setTickers = (tickers: Array<{ ExchangeID: string }>): void => {
+  const setTickers = (tickers: Array<{ exchangeId: string }>): void => {
     mockGetTickersByExchange.mockImplementation(async (exchangeId: string) =>
-      tickers.filter((ticker) => ticker.ExchangeID === exchangeId)
+      tickers.filter((ticker) => ticker.exchangeId === exchangeId)
     );
   };
   const mockGetByExchange = jest.fn();
@@ -105,39 +112,39 @@ describe('GET /api/summaries', () => {
   it('正常系: 取引所ごとにサマリーを返す', async () => {
     mockGetAllExchanges.mockResolvedValue([
       {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
       },
       {
-        ExchangeID: 'NYSE',
-        Name: 'NYSE',
+        exchangeId: 'NYSE',
+        name: 'NYSE',
       },
     ]);
 
     setTickers([
       {
-        TickerID: 'NSDQ:AAPL',
-        Symbol: 'AAPL',
-        Name: 'Apple Inc.',
-        ExchangeID: 'NASDAQ',
-        CreatedAt: 1,
-        UpdatedAt: 1,
+        tickerId: 'NSDQ:AAPL',
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        exchangeId: 'NASDAQ',
+        createdAt: 1,
+        updatedAt: 1,
       },
     ]);
 
     mockGetByExchange
       .mockResolvedValueOnce([
         {
-          TickerID: 'NSDQ:AAPL',
-          ExchangeID: 'NASDAQ',
-          Date: '2024-01-15',
-          Open: 182.15,
-          High: 183.92,
-          Low: 181.44,
-          Close: 183.31,
-          Volume: 1234567,
-          CreatedAt: 1705276800000,
-          UpdatedAt: 1705352400000,
+          tickerId: 'NSDQ:AAPL',
+          exchangeId: 'NASDAQ',
+          date: '2024-01-15',
+          open: 182.15,
+          high: 183.92,
+          low: 181.44,
+          close: 183.31,
+          volume: 1234567,
+          createdAt: 1705276800000,
+          updatedAt: 1705352400000,
         },
       ])
       .mockResolvedValueOnce([]);
@@ -200,42 +207,42 @@ describe('GET /api/summaries', () => {
     });
   });
 
-  it('正常系: PatternResults がある場合はパターン情報を返す', async () => {
+  it('正常系: patternResults がある場合はパターン情報を返す', async () => {
     mockGetAllExchanges.mockResolvedValue([
       {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
       },
     ]);
 
     setTickers([
       {
-        TickerID: 'NSDQ:AAPL',
-        Symbol: 'AAPL',
-        Name: 'Apple Inc.',
-        ExchangeID: 'NASDAQ',
-        CreatedAt: 1,
-        UpdatedAt: 1,
+        tickerId: 'NSDQ:AAPL',
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        exchangeId: 'NASDAQ',
+        createdAt: 1,
+        updatedAt: 1,
       },
     ]);
 
     mockGetByExchange.mockResolvedValue([
       {
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2024-01-15',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        PatternResults: {
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        date: '2024-01-15',
+        open: 182.15,
+        high: 183.92,
+        low: 181.44,
+        close: 183.31,
+        patternResults: {
           'morning-star': 'MATCHED',
           'evening-star': 'NOT_MATCHED',
         },
-        BuyPatternCount: 1,
-        SellPatternCount: 0,
-        CreatedAt: 1705276800000,
-        UpdatedAt: 1705352400000,
+        buyPatternCount: 1,
+        sellPatternCount: 0,
+        createdAt: 1705276800000,
+        updatedAt: 1705352400000,
       },
     ]);
     mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
@@ -262,30 +269,30 @@ describe('GET /api/summaries', () => {
   });
 
   it('正常系: 銘柄ごとの買い/売りアラート件数を返す', async () => {
-    mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
+    mockGetAllExchanges.mockResolvedValue([{ exchangeId: 'NASDAQ', name: 'NASDAQ' }]);
     setTickers([
-      { TickerID: 'NSDQ:AAPL', Symbol: 'AAPL', Name: 'Apple Inc.', ExchangeID: 'NASDAQ' },
+      { tickerId: 'NSDQ:AAPL', symbol: 'AAPL', name: 'Apple Inc.', exchangeId: 'NASDAQ' },
     ]);
     mockGetByExchange.mockResolvedValue([
       {
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2024-01-15',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        CreatedAt: 1705276800000,
-        UpdatedAt: 1705352400000,
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        date: '2024-01-15',
+        open: 182.15,
+        high: 183.92,
+        low: 181.44,
+        close: 183.31,
+        createdAt: 1705276800000,
+        updatedAt: 1705352400000,
       },
     ]);
     mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
     mockGetAlertsByUserId.mockResolvedValue({
       items: [
-        { TickerID: 'NSDQ:AAPL', Mode: 'Buy', Enabled: true },
-        { TickerID: 'NSDQ:AAPL', Mode: 'Buy', Enabled: false },
-        { TickerID: 'NSDQ:AAPL', Mode: 'Sell', Enabled: true },
-        { TickerID: 'NSDQ:MSFT', Mode: 'Buy', Enabled: true },
+        { tickerId: 'NSDQ:AAPL', mode: 'Buy', enabled: true },
+        { tickerId: 'NSDQ:AAPL', mode: 'Buy', enabled: false },
+        { tickerId: 'NSDQ:AAPL', mode: 'Sell', enabled: true },
+        { tickerId: 'NSDQ:MSFT', mode: 'Buy', enabled: true },
       ],
     });
 
@@ -301,36 +308,36 @@ describe('GET /api/summaries', () => {
     );
   });
 
-  it('正常系: PatternResults がない場合はパターン情報のデフォルト値を返す', async () => {
+  it('正常系: patternResults がない場合はパターン情報のデフォルト値を返す', async () => {
     mockGetAllExchanges.mockResolvedValue([
       {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
       },
     ]);
 
     setTickers([
       {
-        TickerID: 'NSDQ:MSFT',
-        Symbol: 'MSFT',
-        Name: 'Microsoft Corporation',
-        ExchangeID: 'NASDAQ',
-        CreatedAt: 1,
-        UpdatedAt: 1,
+        tickerId: 'NSDQ:MSFT',
+        symbol: 'MSFT',
+        name: 'Microsoft Corporation',
+        exchangeId: 'NASDAQ',
+        createdAt: 1,
+        updatedAt: 1,
       },
     ]);
 
     mockGetByExchange.mockResolvedValue([
       {
-        TickerID: 'NSDQ:MSFT',
-        ExchangeID: 'NASDAQ',
-        Date: '2024-01-15',
-        Open: 401.01,
-        High: 406.25,
-        Low: 399.1,
-        Close: 404.88,
-        CreatedAt: 1705276800000,
-        UpdatedAt: 1705352400000,
+        tickerId: 'NSDQ:MSFT',
+        exchangeId: 'NASDAQ',
+        date: '2024-01-15',
+        open: 401.01,
+        high: 406.25,
+        low: 399.1,
+        close: 404.88,
+        createdAt: 1705276800000,
+        updatedAt: 1705352400000,
       },
     ]);
     mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
@@ -348,23 +355,23 @@ describe('GET /api/summaries', () => {
   });
 
   it('正常系: パターン詳細は返さない', async () => {
-    mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
+    mockGetAllExchanges.mockResolvedValue([{ exchangeId: 'NASDAQ', name: 'NASDAQ' }]);
     setTickers([]);
     mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
     mockGetByExchange.mockResolvedValue([
       {
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2024-01-15',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        CreatedAt: 1705276800000,
-        UpdatedAt: 1705352400000,
-        PatternResults: { 'morning-star': 'MATCHED' },
-        BuyPatternCount: 1,
-        SellPatternCount: 0,
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        date: '2024-01-15',
+        open: 182.15,
+        high: 183.92,
+        low: 181.44,
+        close: 183.31,
+        createdAt: 1705276800000,
+        updatedAt: 1705352400000,
+        patternResults: { 'morning-star': 'MATCHED' },
+        buyPatternCount: 1,
+        sellPatternCount: 0,
       },
     ]);
 
@@ -404,12 +411,12 @@ describe('GET /api/summaries', () => {
   it('正常系: date パラメータ指定時は全取引所に同じ日付で問い合わせる', async () => {
     mockGetAllExchanges.mockResolvedValue([
       {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ',
+        exchangeId: 'NASDAQ',
+        name: 'NASDAQ',
       },
       {
-        ExchangeID: 'NYSE',
-        Name: 'NYSE',
+        exchangeId: 'NYSE',
+        name: 'NYSE',
       },
     ]);
     setTickers([]);
@@ -455,35 +462,43 @@ describe('GET /api/summaries', () => {
       error: 'INTERNAL_ERROR',
       message: 'サマリーの取得に失敗しました',
     });
+    expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: サマリー一覧取得エラー',
+        message: 'db error',
+      })
+    );
   });
 
   it('正常系: 保有株式情報がある場合は summaries に holding を含める', async () => {
-    mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
+    mockGetAllExchanges.mockResolvedValue([{ exchangeId: 'NASDAQ', name: 'NASDAQ' }]);
     setTickers([]);
     mockGetByExchange.mockResolvedValue([
       {
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2024-01-15',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        CreatedAt: 1705276800000,
-        UpdatedAt: 1705352400000,
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        date: '2024-01-15',
+        open: 182.15,
+        high: 183.92,
+        low: 181.44,
+        close: 183.31,
+        createdAt: 1705276800000,
+        updatedAt: 1705352400000,
       },
     ]);
     mockGetHoldingsByUserId.mockResolvedValue({
       items: [
         {
-          UserID: 'test-user-id',
-          TickerID: 'NSDQ:AAPL',
-          ExchangeID: 'NASDAQ',
-          Quantity: 100,
-          AveragePrice: 170.5,
-          Currency: 'USD',
-          CreatedAt: 1705276800000,
-          UpdatedAt: 1705352400000,
+          userId: 'test-user-id',
+          tickerId: 'NSDQ:AAPL',
+          exchangeId: 'NASDAQ',
+          quantity: 100,
+          averagePrice: 170.5,
+          currency: 'USD',
+          createdAt: 1705276800000,
+          updatedAt: 1705352400000,
         },
       ],
     });
@@ -503,19 +518,19 @@ describe('GET /api/summaries', () => {
   });
 
   it('正常系: 保有株式情報の取得に失敗してもサマリー取得を継続する', async () => {
-    mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
+    mockGetAllExchanges.mockResolvedValue([{ exchangeId: 'NASDAQ', name: 'NASDAQ' }]);
     setTickers([]);
     mockGetByExchange.mockResolvedValue([
       {
-        TickerID: 'NSDQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Date: '2024-01-15',
-        Open: 182.15,
-        High: 183.92,
-        Low: 181.44,
-        Close: 183.31,
-        CreatedAt: 1705276800000,
-        UpdatedAt: 1705352400000,
+        tickerId: 'NSDQ:AAPL',
+        exchangeId: 'NASDAQ',
+        date: '2024-01-15',
+        open: 182.15,
+        high: 183.92,
+        low: 181.44,
+        close: 183.31,
+        createdAt: 1705276800000,
+        updatedAt: 1705352400000,
       },
     ]);
     mockGetHoldingsByUserId.mockRejectedValue(new Error('holding db error'));
@@ -524,6 +539,14 @@ describe('GET /api/summaries', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: サマリーの保有株式取得エラー',
+        message: 'holding db error',
+      })
+    );
     expect(body.exchanges[0].summaries[0]).toEqual(
       expect.objectContaining({
         holding: null,
@@ -533,21 +556,21 @@ describe('GET /api/summaries', () => {
 
   describe('確度の結合', () => {
     const summary = (tickerId: string, exchangeId: string, date: string) => ({
-      TickerID: tickerId,
-      ExchangeID: exchangeId,
-      Date: date,
-      Open: 1,
-      High: 2,
-      Low: 1,
-      Close: 2,
-      CreatedAt: 1,
-      UpdatedAt: 1,
+      tickerId: tickerId,
+      exchangeId: exchangeId,
+      date: date,
+      open: 1,
+      high: 2,
+      low: 1,
+      close: 2,
+      createdAt: 1,
+      updatedAt: 1,
     });
 
     it('正常系: 取引所ごとに 1 回だけ Forecast を引いて銘柄へ結合する', async () => {
       mockGetAllExchanges.mockResolvedValue([
-        { ExchangeID: 'NASDAQ', Name: 'NASDAQ', Market: 'US' },
-        { ExchangeID: 'TSE', Name: 'TSE', Market: 'JP' },
+        { exchangeId: 'NASDAQ', name: 'NASDAQ', market: 'US' },
+        { exchangeId: 'TSE', name: 'TSE', market: 'JP' },
       ]);
       setTickers([]);
       mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
@@ -561,9 +584,9 @@ describe('GET /api/summaries', () => {
         exchangeId === 'NASDAQ'
           ? [
               {
-                TickerID: 'NSDQ:AAPL',
-                AxisValues: { 'morning-star': true, 'bearish-engulfing': 1 },
-                Probabilities: {
+                tickerId: 'NSDQ:AAPL',
+                axisValues: { 'morning-star': true, 'bearish-engulfing': 1 },
+                probabilities: {
                   DIR: {
                     probability: 0.56,
                     baseline: 0.5,
@@ -581,7 +604,7 @@ describe('GET /api/summaries', () => {
       mockGetMarketForecast.mockImplementation(async (market: string) =>
         market === 'JP'
           ? {
-              Probabilities: {
+              probabilities: {
                 MKT: {
                   probability: 0.4,
                   baseline: 0.3,
@@ -628,7 +651,7 @@ describe('GET /api/summaries', () => {
 
     it('正常系: Forecast の取得に失敗しても一覧を返す', async () => {
       mockGetAllExchanges.mockResolvedValue([
-        { ExchangeID: 'NASDAQ', Name: 'NASDAQ', Market: 'US' },
+        { exchangeId: 'NASDAQ', name: 'NASDAQ', market: 'US' },
       ]);
       setTickers([]);
       mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
@@ -641,11 +664,19 @@ describe('GET /api/summaries', () => {
 
       expect(response.status).toBe(200);
       expect(body.exchanges[0].summaries[0].forecast).toBeNull();
+      expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          serviceId: 'stock-tracker',
+          severity: 'error',
+          title: 'Web API: サマリーの確度取得エラー',
+          message: 'forecast db error',
+        })
+      );
     });
 
     it('正常系: 市場の荒れ予報の取得に失敗しても一覧を返し、JP・US を null で返す', async () => {
       mockGetAllExchanges.mockResolvedValue([
-        { ExchangeID: 'NASDAQ', Name: 'NASDAQ', Market: 'US' },
+        { exchangeId: 'NASDAQ', name: 'NASDAQ', market: 'US' },
       ]);
       setTickers([]);
       mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
@@ -661,6 +692,14 @@ describe('GET /api/summaries', () => {
         { market: 'JP', date: null, forecast: null },
         { market: 'US', date: null, forecast: null },
       ]);
+      expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          serviceId: 'stock-tracker',
+          severity: 'error',
+          title: 'Web API: サマリーの市場の荒れ予報取得エラー',
+          message: 'market db error',
+        })
+      );
     });
   });
 });

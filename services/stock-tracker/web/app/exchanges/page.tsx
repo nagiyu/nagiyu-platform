@@ -12,7 +12,6 @@ import {
   TableHead,
   TableRow,
   Typography,
-  CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -21,8 +20,9 @@ import {
   TextField,
   Snackbar,
 } from '@mui/material';
-import { Button, ErrorAlert, Select } from '@nagiyu/ui';
-import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { Button, ConfirmDialog, ErrorAlert, LoadingState, Select } from '@nagiyu/ui';
+import { COMMON_ERROR_MESSAGES, hasUserPermission } from '@nagiyu/common';
+import { useSession } from 'next-auth/react';
 import { useEnterSubmit } from '@nagiyu/react';
 import {
   Add as AddIcon,
@@ -73,6 +73,7 @@ const ERROR_MESSAGES = {
   UNAUTHORIZED: COMMON_ERROR_MESSAGES.UNAUTHORIZED,
   FORBIDDEN: COMMON_ERROR_MESSAGES.FORBIDDEN,
   VALIDATION_ERROR: '入力内容を確認してください',
+  NO_MANAGE_PERMISSION: '取引所を管理する権限がありません。',
 } as const;
 
 // 成功メッセージ定数
@@ -101,18 +102,10 @@ const MARKET_LABELS: Record<ExchangeMarket, string> = {
   US: '米国',
 };
 
-// タイムゾーンオプション（主要な取引所のタイムゾーン）
+// タイムゾーンオプション（サポート対象の日本・米国のみ。core の検証と一致させる）
 const TIMEZONE_OPTIONS = [
   { value: 'America/New_York', label: 'America/New_York (NYSE, NASDAQ)' },
-  { value: 'America/Chicago', label: 'America/Chicago (CME)' },
-  { value: 'Europe/London', label: 'Europe/London (LSE)' },
-  { value: 'Europe/Paris', label: 'Europe/Paris (Euronext)' },
-  { value: 'Europe/Frankfurt', label: 'Europe/Frankfurt (FWB)' },
   { value: 'Asia/Tokyo', label: 'Asia/Tokyo (TSE)' },
-  { value: 'Asia/Hong_Kong', label: 'Asia/Hong_Kong (HKEX)' },
-  { value: 'Asia/Shanghai', label: 'Asia/Shanghai (SSE)' },
-  { value: 'Asia/Singapore', label: 'Asia/Singapore (SGX)' },
-  { value: 'Australia/Sydney', label: 'Australia/Sydney (ASX)' },
 ] as const;
 
 // 時間と分の選択肢を生成
@@ -133,7 +126,7 @@ const formatTime = (hour: string, minute: string): string => {
   return `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
 };
 
-export default function ExchangesPage() {
+function ExchangesPageContent() {
   const router = useRouter();
 
   // データ状態の管理
@@ -463,44 +456,53 @@ export default function ExchangesPage() {
       </Typography>
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
-          <CircularProgress />
-        </Box>
+        <LoadingState variant="inline" />
       ) : (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ backgroundColor: '#f57c00' }}>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>取引所ID</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>取引所名</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>APIキー</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>タイムゾーン</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>取引時間</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>データソース</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>市場</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">
-                  操作
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {exchanges.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 5 }}>
-                    <Typography variant="body1" color="text.secondary">
-                      取引所が登録されていません
-                    </Typography>
+        <Paper>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ backgroundColor: '#f57c00' }}>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    取引所ID
+                  </TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    取引所名
+                  </TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    APIキー
+                  </TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    タイムゾーン
+                  </TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    取引時間
+                  </TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    データソース
+                  </TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    市場
+                  </TableCell>
+                  <TableCell
+                    sx={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap' }}
+                    align="center"
+                  >
+                    操作
                   </TableCell>
                 </TableRow>
-              ) : (
-                exchanges.map((exchange) => (
+              </TableHead>
+              <TableBody>
+                {exchanges.map((exchange) => (
                   <TableRow key={exchange.exchangeId} hover>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                         {exchange.exchangeId}
                       </Typography>
                     </TableCell>
-                    <TableCell>{exchange.name}</TableCell>
+                    <TableCell sx={{ minWidth: '12em', overflowWrap: 'anywhere' }}>
+                      {exchange.name}
+                    </TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                         {exchange.key}
@@ -517,13 +519,20 @@ export default function ExchangesPage() {
                         {exchange.priceSource ?? 'tradingview'}
                       </Typography>
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
                       <Typography variant="body2">
                         {exchange.market ? MARKET_LABELS[exchange.market] : '未設定'}
                       </Typography>
                     </TableCell>
                     <TableCell align="center">
-                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          flexWrap: 'nowrap',
+                          gap: 1,
+                          justifyContent: 'center',
+                        }}
+                      >
                         <Button
                           variant="solid"
                           color="warning"
@@ -545,11 +554,19 @@ export default function ExchangesPage() {
                       </Box>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          {/* 0 件の表示を表の中に置くと表の幅の中央（狭い画面では画面外）に置かれて切れるため、表の外に置く */}
+          {exchanges.length === 0 && (
+            <Box sx={{ py: 5, textAlign: 'center' }}>
+              <Typography variant="body1" color="text.secondary">
+                取引所が登録されていません
+              </Typography>
+            </Box>
+          )}
+        </Paper>
       )}
 
       {/* 新規作成モーダル */}
@@ -619,7 +636,7 @@ export default function ExchangesPage() {
                 options={TIMEZONE_OPTIONS.map((tz) => ({ value: tz.value, label: tz.label }))}
               />
               <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                ※ 主要な取引所のタイムゾーン
+                ※ 日本（Asia/Tokyo）と米国（America/New_York）のタイムゾーンのみ選択できます
               </Typography>
             </Box>
 
@@ -794,7 +811,7 @@ export default function ExchangesPage() {
                 options={TIMEZONE_OPTIONS.map((tz) => ({ value: tz.value, label: tz.label }))}
               />
               <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                ※ 主要な取引所のタイムゾーン
+                ※ 日本（Asia/Tokyo）と米国（America/New_York）のタイムゾーンのみ選択できます
               </Typography>
             </Box>
 
@@ -913,23 +930,18 @@ export default function ExchangesPage() {
       </Dialog>
 
       {/* 削除確認ダイアログ */}
-      <Dialog open={deleteDialogOpen} onClose={handleCloseModals} maxWidth="xs" fullWidth>
-        <DialogTitle>取引所削除</DialogTitle>
-        <DialogContent>
-          <Typography>取引所「{selectedExchange?.name}」を削除してもよろしいですか？</Typography>
-          <Typography variant="body2" color="error" sx={{ mt: 2 }}>
-            ※ この操作は取り消せません
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button onClick={handleCloseModals} disabled={submitting} variant="ghost">
-            キャンセル
-          </Button>
-          <Button variant="solid" color="danger" onClick={handleDelete} loading={submitting}>
-            削除
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title="取引所削除"
+        loading={submitting}
+        onConfirm={handleDelete}
+        onCancel={handleCloseModals}
+      >
+        <Typography>取引所「{selectedExchange?.name}」を削除してもよろしいですか？</Typography>
+        <Typography variant="body2" color="error" sx={{ mt: 2 }}>
+          ※ この操作は取り消せません
+        </Typography>
+      </ConfirmDialog>
 
       {/* 成功メッセージ（スナックバー） */}
       <Snackbar
@@ -941,4 +953,25 @@ export default function ExchangesPage() {
       />
     </Container>
   );
+}
+
+/**
+ * 権限が確認できるまで一覧取得を始めないため、権限判定は内容コンポーネントの外で行う。
+ */
+export default function ExchangesPage() {
+  const { data: session, status } = useSession();
+
+  if (status === 'loading') {
+    return <LoadingState message="セッション情報を確認中..." />;
+  }
+
+  if (!hasUserPermission(session?.user, 'stocks:manage-data')) {
+    return (
+      <Container maxWidth="md" sx={{ py: 4 }} role="main">
+        <ErrorAlert message={ERROR_MESSAGES.NO_MANAGE_PERMISSION} title="権限エラー" />
+      </Container>
+    );
+  }
+
+  return <ExchangesPageContent />;
 }

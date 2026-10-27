@@ -1,85 +1,62 @@
-import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { InMemoryEntityStore, InMemorySingleTableStore, type EntityStore } from '@nagiyu/aws';
 import type { CreateUserInput, UpdateUserInput, User } from '../../types/index.js';
 import type { UserRepository } from './user-repository.interface.js';
+import { UserMapper, buildUserEmailGsi2Pk, type UserKey } from './user-mapper.js';
 
-const ERROR_MESSAGES = {
-  USER_NOT_FOUND: COMMON_ERROR_MESSAGES.USER_NOT_FOUND,
-  USER_ALREADY_EXISTS: 'ユーザーは既に存在します',
-  EMAIL_ALREADY_EXISTS: 'メールアドレスは既に存在します',
-} as const;
-
+/**
+ * InMemory User Repository
+ *
+ * 単一アイテムの CRUD は EntityStore に任せ、GSI の近似クエリとバッチ取得だけを自前で持つ。
+ * テスト環境で使用する。
+ */
 export class InMemoryUserRepository implements UserRepository {
-  private readonly users = new Map<string, User>();
-  private readonly userIdByEmail = new Map<string, string>();
+  private readonly store: InMemorySingleTableStore;
+  private readonly mapper = new UserMapper();
+  private readonly entityStore: EntityStore<User, UserKey>;
+
+  constructor(store: InMemorySingleTableStore = new InMemorySingleTableStore()) {
+    this.store = store;
+    this.entityStore = new InMemoryEntityStore(store, this.mapper);
+  }
 
   public async getById(userId: string): Promise<User | null> {
-    const user = this.users.get(userId);
-    return user ? { ...user } : null;
+    return this.entityStore.get({ userId });
   }
 
   public async getByEmail(email: string): Promise<User | null> {
-    const userId = this.userIdByEmail.get(email);
-    if (!userId) {
-      return null;
-    }
+    const result = this.store.queryByAttribute(
+      {
+        attributeName: 'GSI2PK',
+        attributeValue: buildUserEmailGsi2Pk(email),
+      },
+      { limit: 1 }
+    );
 
-    const user = this.users.get(userId);
-    return user ? { ...user } : null;
+    return result.items.length === 0 ? null : this.mapper.toEntity(result.items[0]);
+  }
+
+  public async batchGetByIds(userIds: string[]): Promise<User[]> {
+    const users: User[] = [];
+    for (const userId of new Set(userIds)) {
+      const item = this.store.getByKey(this.mapper.buildKeys({ userId }));
+      if (item) {
+        users.push(this.mapper.toEntity(item));
+      }
+    }
+    return users;
   }
 
   public async create(input: CreateUserInput): Promise<User> {
-    if (this.users.has(input.userId)) {
-      throw new Error(ERROR_MESSAGES.USER_ALREADY_EXISTS);
-    }
-    if (this.userIdByEmail.has(input.email)) {
-      throw new Error(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
-    }
-
-    const now = new Date().toISOString();
-    const user: User = {
-      ...input,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    this.users.set(user.userId, user);
-    this.userIdByEmail.set(user.email, user.userId);
-    return { ...user };
+    const now = Date.now();
+    // updatedAt は store が書き込み時に現在時刻で上書きする。Entity 型上は必須のため値だけ渡す。
+    return this.entityStore.create({ ...input, createdAt: now, updatedAt: now });
   }
 
   public async update(userId: string, updates: UpdateUserInput): Promise<User> {
-    const existingUser = this.users.get(userId);
-    if (!existingUser) {
-      throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
-    }
-
-    if (updates.email && updates.email !== existingUser.email) {
-      const existingUserIdWithEmail = this.userIdByEmail.get(updates.email);
-      if (existingUserIdWithEmail && existingUserIdWithEmail !== userId) {
-        throw new Error(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
-      }
-
-      this.userIdByEmail.delete(existingUser.email);
-      this.userIdByEmail.set(updates.email, userId);
-    }
-
-    const updatedUser: User = {
-      ...existingUser,
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    };
-
-    this.users.set(userId, updatedUser);
-    return { ...updatedUser };
+    return this.entityStore.update({ userId }, updates);
   }
 
   public async delete(userId: string): Promise<void> {
-    const existingUser = this.users.get(userId);
-    if (!existingUser) {
-      return;
-    }
-
-    this.users.delete(userId);
-    this.userIdByEmail.delete(existingUser.email);
+    await this.entityStore.delete({ userId });
   }
 }

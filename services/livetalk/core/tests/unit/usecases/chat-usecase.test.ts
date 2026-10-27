@@ -23,13 +23,13 @@ import type { CharacterStateEntity } from '../../../src/entities/character-state
 
 function makeMessage(role: 'user' | 'assistant', text: string, id = 'm1'): MessageEntity {
   return {
-    UserID: 'u1',
-    CharacterID: 'hiyori',
-    MessageID: id,
-    Role: role,
-    Text: text,
-    CreatedAt: 1_700_000_000_000,
-    UpdatedAt: 1_700_000_000_000,
+    userId: 'u1',
+    characterId: 'hiyori',
+    messageId: id,
+    role: role,
+    text: text,
+    createdAt: 1_700_000_000_000,
+    updatedAt: 1_700_000_000_000,
   };
 }
 
@@ -65,13 +65,13 @@ function makeRepo(
 ): MessageRepository {
   return {
     create: jest.fn(async (input) => ({
-      UserID: input.UserID,
-      CharacterID: input.CharacterID,
-      MessageID: 'gen-id',
-      Role: input.Role,
-      Text: input.Text,
-      CreatedAt: Date.now(),
-      UpdatedAt: Date.now(),
+      userId: input.userId,
+      characterId: input.characterId,
+      messageId: 'gen-id',
+      role: input.role,
+      text: input.text,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     })),
     getById: jest.fn(async () => null),
     getRecentByTokenBudget: jest.fn(async () => ({
@@ -90,7 +90,7 @@ function makeConsolidationCursorRepo(
 ): ConsolidationCursorRepository {
   return {
     get: jest.fn(async () => cursor),
-    put: jest.fn(async (input) => ({ ...input, UpdatedAt: Date.now() })),
+    put: jest.fn(async (input) => ({ ...input, updatedAt: Date.now() })),
     ...overrides,
   };
 }
@@ -110,14 +110,14 @@ function makeSafetyEventRepo(
     create: jest.fn(
       async (input) =>
         ({
-          UserID: input.UserID,
-          EventID: 'safety-event-id',
-          Trigger: input.Trigger,
-          DetectedPattern: input.DetectedPattern,
-          InputText: input.InputText,
-          ResponseText: input.ResponseText,
-          CreatedAt: Date.now(),
-          UpdatedAt: Date.now(),
+          userId: input.userId,
+          eventId: 'safety-event-id',
+          trigger: input.trigger,
+          detectedPattern: input.detectedPattern,
+          inputText: input.inputText,
+          responseText: input.responseText,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
         }) as SafetyEventEntity
     ),
     getById: jest.fn(async () => null),
@@ -151,38 +151,38 @@ function makeRetrievedTopic(
   webFactTexts: string[] = []
 ): RetrievedTopic {
   const topic: TopicEntity = {
-    UserID: 'u1',
-    CharacterID: 'hiyori',
-    TopicID: 'topic-1',
-    Subject: subject,
-    CanonicalSummary: `${subject} の要約`,
-    Category: 'カテゴリ',
-    Care: 1,
-    Embedding: [0.1, 0.2],
-    CreatedAt: 1_700_000_000_000,
-    UpdatedAt: 1_700_000_000_000,
+    userId: 'u1',
+    characterId: 'hiyori',
+    topicId: 'topic-1',
+    subject: subject,
+    canonicalSummary: `${subject} の要約`,
+    category: 'カテゴリ',
+    care: 1,
+    embedding: [0.1, 0.2],
+    createdAt: 1_700_000_000_000,
+    updatedAt: 1_700_000_000_000,
   };
   const webFacts: WebFactEntity[] = webFactTexts.map((text, i) => ({
-    UserID: 'u1',
-    CharacterID: 'hiyori',
-    TopicID: 'topic-1',
-    FactID: `web-fact-${i}`,
-    Text: text,
-    SourceUrls: [],
-    Volatility: 'stable',
-    ObservedAt: 1_700_000_000_000,
-    CreatedAt: 1_700_000_000_000,
+    userId: 'u1',
+    characterId: 'hiyori',
+    topicId: 'topic-1',
+    factId: `web-fact-${i}`,
+    text: text,
+    sourceUrls: [],
+    volatility: 'stable',
+    observedAt: 1_700_000_000_000,
+    createdAt: 1_700_000_000_000,
   }));
   return {
     topic,
     selfFacts: selfFactTexts.map((text, i) => ({
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      TopicID: 'topic-1',
-      FactID: `fact-${i}`,
-      Text: text,
-      Provenance: '',
-      CreatedAt: 1_700_000_000_000,
+      userId: 'u1',
+      characterId: 'hiyori',
+      topicId: 'topic-1',
+      factId: `fact-${i}`,
+      text: text,
+      provenance: '',
+      createdAt: 1_700_000_000_000,
     })),
     webFacts,
     similarity: 0.9,
@@ -367,7 +367,7 @@ describe('runChatUseCase', () => {
 
       expect(repo.create).toHaveBeenNthCalledWith(
         1,
-        expect.objectContaining({ Role: 'user', Text: 'テスト' })
+        expect.objectContaining({ role: 'user', text: 'テスト' })
       );
     });
 
@@ -388,7 +388,7 @@ describe('runChatUseCase', () => {
       expect(repo.create).toHaveBeenCalledTimes(2);
       expect(repo.create).toHaveBeenNthCalledWith(
         2,
-        expect.objectContaining({ Role: 'assistant', Text: 'hello' })
+        expect.objectContaining({ role: 'assistant', text: 'hello' })
       );
     });
 
@@ -428,15 +428,15 @@ describe('runChatUseCase', () => {
           return [];
         }),
         create: jest.fn(async (input) => {
-          callOrder.push(`create:${input.Role}`);
+          callOrder.push(`create:${input.role}`);
           return {
-            UserID: input.UserID,
-            CharacterID: input.CharacterID,
-            MessageID: 'x',
-            Role: input.Role,
-            Text: input.Text,
-            CreatedAt: 0,
-            UpdatedAt: 0,
+            userId: input.userId,
+            characterId: input.characterId,
+            messageId: 'x',
+            role: input.role,
+            text: input.text,
+            createdAt: 0,
+            updatedAt: 0,
           };
         }),
       });
@@ -465,13 +465,13 @@ describe('runChatUseCase', () => {
           callCount++;
           if (callCount === 2) throw new Error('db error');
           return {
-            UserID: input.UserID,
-            CharacterID: input.CharacterID,
-            MessageID: 'x',
-            Role: input.Role,
-            Text: input.Text,
-            CreatedAt: 0,
-            UpdatedAt: 0,
+            userId: input.userId,
+            characterId: input.characterId,
+            messageId: 'x',
+            role: input.role,
+            text: input.text,
+            createdAt: 0,
+            updatedAt: 0,
           };
         }),
       });
@@ -662,9 +662,9 @@ describe('runChatUseCase', () => {
 
       expect(safetyRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          UserID: 'u1',
-          Trigger: 'input_keyword',
-          InputText: safetyText,
+          userId: 'u1',
+          trigger: 'input_keyword',
+          inputText: safetyText,
         })
       );
     });
@@ -778,8 +778,8 @@ describe('runChatUseCase', () => {
 
       expect(safetyRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          Trigger: 'output_moderation',
-          UserID: 'u1',
+          trigger: 'output_moderation',
+          userId: 'u1',
         })
       );
     });
@@ -936,10 +936,10 @@ describe('runChatUseCase', () => {
       const createCalls = (repo.create as jest.Mock).mock.calls;
       // assistant ロールの保存呼び出しを探す
       const assistantCall = createCalls.find(
-        (args: Array<{ Role: string; Text: string }>) => args[0]?.Role === 'assistant'
+        (args: Array<{ role: string; text: string }>) => args[0]?.role === 'assistant'
       );
       expect(assistantCall).toBeDefined();
-      const savedText: string = assistantCall[0].Text;
+      const savedText: string = assistantCall[0].text;
       // 元返答ではなく置換文が保存されていること
       expect(savedText).not.toBe(originalText.trim());
       // 置換文は MODERATION_REPLACEMENT_MESSAGES のいずれかに一致すること
@@ -977,10 +977,10 @@ describe('runChatUseCase', () => {
       // assistant message に元返答が保存されていること
       const createCalls = (repo.create as jest.Mock).mock.calls;
       const assistantCall = createCalls.find(
-        (args: Array<{ Role: string; Text: string }>) => args[0]?.Role === 'assistant'
+        (args: Array<{ role: string; text: string }>) => args[0]?.role === 'assistant'
       );
       expect(assistantCall).toBeDefined();
-      expect(assistantCall[0].Text).toBe(originalText.trim());
+      expect(assistantCall[0].text).toBe(originalText.trim());
     });
 
     it('フラグ時、元返答テキストで合成された音声の sentence イベントが emit されない（音声すり抜け防止の直接検証）', async () => {
@@ -1030,12 +1030,12 @@ describe('runChatUseCase', () => {
   describe('知識ゲート（classifyTopic）', () => {
     function makeStudyTopicRepo(): StudyTopicRepository {
       return {
-        put: jest.fn(async (input) => ({ ...input, CreatedAt: Date.now(), UpdatedAt: Date.now() })),
+        put: jest.fn(async (input) => ({ ...input, createdAt: Date.now(), updatedAt: Date.now() })),
         listByStatus: jest.fn(async () => []),
         updateStatus: jest.fn(async (input) => ({
           ...input,
-          CreatedAt: Date.now(),
-          UpdatedAt: Date.now(),
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
         })),
         findPendingByTopic: jest.fn(async () => null),
       } as unknown as StudyTopicRepository;
@@ -1050,6 +1050,7 @@ describe('runChatUseCase', () => {
       });
       const voice = makeVoiceClient();
       const repo = makeRepo();
+      const startedAt = Date.now();
 
       const events = await collectEvents(
         runChatUseCase({
@@ -1071,21 +1072,27 @@ describe('runChatUseCase', () => {
       expect(events[events.length - 1]).toEqual({ type: 'done' });
       // STUDY_TOPIC が登録される
       expect(studyTopicRepo.put).toHaveBeenCalledWith(
-        expect.objectContaining({ Topic: '最新アニメ', Status: 'pending' })
+        expect.objectContaining({ topic: '最新アニメ', status: 'pending' })
       );
+      // 30 日後に期限切れになる時刻 (ミリ秒) を渡す
+      const putArg = (studyTopicRepo.put as jest.Mock).mock.calls[0][0] as {
+        expiresAt: number;
+      };
+      expect(putArg.expiresAt).toBeGreaterThanOrEqual(startedAt + 30 * 24 * 60 * 60 * 1000);
+      expect(putArg.expiresAt).toBeLessThanOrEqual(Date.now() + 30 * 24 * 60 * 60 * 1000);
     });
 
     it('needsStudy=true + 既存 pending → 重複登録しない', async () => {
       const studyTopicRepo = makeStudyTopicRepo();
       (studyTopicRepo.findPendingByTopic as jest.Mock).mockResolvedValue({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        TopicID: 'tp-existing',
-        Topic: '最新アニメ',
-        Priority: 10,
-        Status: 'pending',
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
+        userId: 'u1',
+        characterId: 'hiyori',
+        topicId: 'tp-existing',
+        topic: '最新アニメ',
+        priority: 10,
+        status: 'pending',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       });
       const llm = makeLLMClient(['応答']);
       (llm.chatStructured as jest.Mock).mockResolvedValue({
@@ -1199,11 +1206,11 @@ describe('runChatUseCase', () => {
 
       const createCalls = (repo.create as jest.Mock).mock.calls;
       const assistantCall = createCalls.find(
-        (args: unknown[]) => (args[0] as { Role: string }).Role === 'assistant'
+        (args: unknown[]) => (args[0] as { role: string }).role === 'assistant'
       );
       expect(assistantCall).toBeDefined();
       // テンプレ応答文（「知らない」系メッセージ）が保存される
-      const savedText = (assistantCall![0] as { Text: string }).Text;
+      const savedText = (assistantCall![0] as { text: string }).text;
       expect(
         savedText.includes('勉強') || savedText.includes('調べ') || savedText.includes('わからない')
       ).toBe(true);
@@ -1241,10 +1248,10 @@ describe('runChatUseCase', () => {
       // 「調べとく」系テンプレ文が保存されない（通常応答が保存される）
       const createCalls = (repo.create as jest.Mock).mock.calls;
       const assistantCall = createCalls.find(
-        (args: unknown[]) => (args[0] as { Role: string }).Role === 'assistant'
+        (args: unknown[]) => (args[0] as { role: string }).role === 'assistant'
       );
       expect(assistantCall).toBeDefined();
-      const savedText = (assistantCall![0] as { Text: string }).Text;
+      const savedText = (assistantCall![0] as { text: string }).text;
       expect(savedText).toBe('もう知ってるよ！');
     });
 
@@ -1299,7 +1306,7 @@ describe('runChatUseCase', () => {
       // 通常 LLM（chatStream）は呼ばれず、study 分岐でテンプレ応答になる
       expect(llm.chatStream).not.toHaveBeenCalled();
       expect(studyTopicRepo.put).toHaveBeenCalledWith(
-        expect.objectContaining({ Topic: 'コーヒー', Status: 'pending' })
+        expect.objectContaining({ topic: 'コーヒー', status: 'pending' })
       );
       expect(events[events.length - 1]).toEqual({ type: 'done' });
     });
@@ -1318,14 +1325,14 @@ describe('runChatUseCase', () => {
     }
 
     const sampleNote: NoteEntity = {
-      UserID: 'u1',
-      CharacterID: 'hiyori',
-      NoteID: 'note-1',
-      TopicID: 'topic-1',
-      Subject: 'コーヒーの淹れ方',
-      Headline: '本文。\n\nコメント。',
-      CreatedAt: 1_700_000_000_000,
-      UpdatedAt: 1_700_000_000_000,
+      userId: 'u1',
+      characterId: 'hiyori',
+      noteId: 'note-1',
+      topicId: 'topic-1',
+      subject: 'コーヒーの淹れ方',
+      headline: '本文。\n\nコメント。',
+      createdAt: 1_700_000_000_000,
+      updatedAt: 1_700_000_000_000,
     };
 
     it('noteRepository 指定時は直近ノートを system prompt に注入する', async () => {
@@ -1489,11 +1496,11 @@ describe('runChatUseCase', () => {
       const voice = makeVoiceClient();
       const repo = makeRepo();
       const cursorRepo = makeConsolidationCursorRepo({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        MsgCursor: 1_700_000_500_000,
-        WebrawCursor: 0,
-        UpdatedAt: 1_700_000_500_000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        msgCursor: 1_700_000_500_000,
+        webrawCursor: 0,
+        updatedAt: 1_700_000_500_000,
       });
 
       await collectEvents(
@@ -1576,15 +1583,15 @@ describe('runChatUseCase', () => {
       const oldMessage = makeMessage('user', '集約済みの古い話', 'old-1');
       const recentMessage = makeMessage('assistant', '未集約の最近の話', 'recent-1');
       const cursor: ConsolidationCursorEntity = {
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        MsgCursor: 1_700_000_500_000,
-        WebrawCursor: 0,
-        UpdatedAt: 1_700_000_500_000,
+        userId: 'u1',
+        characterId: 'hiyori',
+        msgCursor: 1_700_000_500_000,
+        webrawCursor: 0,
+        updatedAt: 1_700_000_500_000,
       };
       const repo = makeRepo([], {
         listSince: jest.fn(async (_userId, _characterId, sinceMs) =>
-          sinceMs >= cursor.MsgCursor ? [recentMessage] : [oldMessage, recentMessage]
+          sinceMs >= cursor.msgCursor ? [recentMessage] : [oldMessage, recentMessage]
         ),
       });
       const llm = makeLLMClient(['うん']);
@@ -1623,17 +1630,17 @@ describe('runChatUseCase', () => {
         getById: jest.fn(async () => prev),
         upsert: jest.fn(async (input) => ({
           ...input,
-          AffectionLevel: 0,
-          CreatedAt: 0,
-          UpdatedAt: 0,
+          affectionLevel: 0,
+          createdAt: 0,
+          updatedAt: 0,
         })) as unknown as CharacterStateRepository['upsert'],
         updateAffection: jest.fn(async (userId, characterId, delta) => ({
-          UserID: userId,
-          CharacterID: characterId,
-          LastInteractionAt: 0,
-          AffectionLevel: delta,
-          CreatedAt: 0,
-          UpdatedAt: 0,
+          userId,
+          characterId,
+          lastInteractionAt: 0,
+          affectionLevel: delta,
+          createdAt: 0,
+          updatedAt: 0,
         })),
       };
     }
@@ -1665,12 +1672,12 @@ describe('runChatUseCase', () => {
       const repo = makeRepo();
       const now = Date.now();
       const characterStateRepository = makeCharacterStateRepo({
-        UserID: 'u1',
-        CharacterID: 'hiyori',
-        AffectionLevel: 5,
-        LastInteractionAt: now,
-        CreatedAt: 0,
-        UpdatedAt: 0,
+        userId: 'u1',
+        characterId: 'hiyori',
+        affectionLevel: 5,
+        lastInteractionAt: now,
+        createdAt: 0,
+        updatedAt: 0,
       });
 
       await collectEvents(

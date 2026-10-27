@@ -8,6 +8,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { LifecycleState } from '@nagiyu/livetalk-core';
 import { useChatStream, type UseChatStreamDeps } from '@/lib/home/useChatStream';
 import type { ChatPhase } from '@/lib/home/types';
+import { CHAT_ERROR_MESSAGES } from '@/lib/home/chat-error-messages';
 
 // reportClientError をモック化（fetch 呼び出しを排除）
 jest.mock('@/lib/client-logger', () => ({
@@ -44,6 +45,7 @@ function makeDeps(overrides: Partial<UseChatStreamDeps> = {}): UseChatStreamDeps
     advanceOnError: jest.fn() as () => void,
     clearFirstWordText: jest.fn() as () => void,
     clearOnboardingText: jest.fn() as () => void,
+    dismissOnboarding: jest.fn() as () => void,
     setLifecycleState: jest.fn() as unknown as Dispatch<SetStateAction<LifecycleState>>,
     ...overrides,
   };
@@ -136,6 +138,116 @@ describe('useChatStream', () => {
       expect(deps.clearOnboardingText).toHaveBeenCalled();
     });
 
+    it('応答の最初の text を受けた時点で、オンボーディングの案内を 1 回だけ閉じる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        body: makeNdjsonStream([
+          { type: 'text', delta: 'こん' },
+          { type: 'text', delta: 'にちは' },
+          { type: 'done' },
+        ]),
+        status: 200,
+      });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(deps.dismissOnboarding).toHaveBeenCalledTimes(1);
+    });
+
+    it('HTTP エラーでエラーを表示するとき、オンボーディングの案内を閉じる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, body: null, status: 500 });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(result.current.errorMessage).not.toBeNull();
+      expect(deps.dismissOnboarding).toHaveBeenCalledTimes(1);
+    });
+
+    it('error イベントでエラーを表示するとき、オンボーディングの案内を閉じる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        body: makeNdjsonStream([{ type: 'error', message: '失敗' }]),
+        status: 200,
+      });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(result.current.errorMessage).toBe(CHAT_ERROR_MESSAGES.GENERIC);
+      expect(deps.dismissOnboarding).toHaveBeenCalledTimes(1);
+    });
+
+    it('text のあとに error イベントが来ても、案内を閉じるのは 1 回だけ', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        body: makeNdjsonStream([
+          { type: 'text', delta: 'こん' },
+          { type: 'error', message: '失敗' },
+        ]),
+        status: 200,
+      });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(deps.dismissOnboarding).toHaveBeenCalledTimes(1);
+    });
+
+    it('fetch 自体が失敗してエラーを表示するとき、オンボーディングの案内を閉じる', async () => {
+      jest.spyOn(console, 'error').mockImplementation(() => {});
+      global.fetch = jest.fn().mockRejectedValue(new Error('network'));
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(result.current.errorMessage).toBe(CHAT_ERROR_MESSAGES.GENERIC);
+      expect(deps.dismissOnboarding).toHaveBeenCalledTimes(1);
+      (console.error as jest.Mock).mockRestore();
+    });
+
+    it('次の送信でも、最初の text でオンボーディングの案内を閉じる呼び出しが走る', async () => {
+      global.fetch = jest
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          body: makeNdjsonStream([{ type: 'text', delta: 'a' }, { type: 'done' }]),
+          status: 200,
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          body: makeNdjsonStream([{ type: 'text', delta: 'b' }, { type: 'done' }]),
+          status: 200,
+        });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('1');
+      });
+      await act(async () => {
+        await result.current.handleSubmit('2');
+      });
+
+      expect(deps.dismissOnboarding).toHaveBeenCalledTimes(2);
+    });
+
     it('送信時に resetAudioQueue が呼ばれる', async () => {
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
@@ -209,9 +321,77 @@ describe('useChatStream', () => {
       });
 
       expect(result.current.errorMessage).toBe(
-        '応答の取得に失敗しました。時間を置いて再度お試しください。'
+        'ちょっとごめんね、今うまく話せないみたい。少ししてからもう一度話しかけてね'
       );
       expect(deps.setPhase).toHaveBeenCalledWith('idle');
+    });
+
+    it('HTTP エラーは false を返す', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, body: null, status: 500 });
+      const { result } = renderHook(() => useChatStream(makeDeps()));
+
+      let ok: boolean | undefined;
+      await act(async () => {
+        ok = await result.current.handleSubmit('テスト');
+      });
+
+      expect(ok).toBe(false);
+    });
+
+    it('RATE_LIMIT_EXCEEDED のコードは休憩を促す文言になる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        body: null,
+        status: 429,
+        json: async () => ({ error: 'RATE_LIMIT_EXCEEDED', message: 'x' }),
+      });
+      const { result } = renderHook(() => useChatStream(makeDeps()));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(result.current.errorMessage).toBe(CHAT_ERROR_MESSAGES.RATE_LIMIT_EXCEEDED);
+      expect(mockReportClientError).toHaveBeenCalledWith(
+        'error',
+        'チャット fetch 失敗',
+        'HTTP 429',
+        expect.objectContaining({ errorCode: 'RATE_LIMIT_EXCEEDED' })
+      );
+    });
+
+    it('CONCURRENT_REQUEST のコードは待つよう促す文言になる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        body: null,
+        status: 409,
+        json: async () => ({ error: 'CONCURRENT_REQUEST', message: 'x' }),
+      });
+      const { result } = renderHook(() => useChatStream(makeDeps()));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(result.current.errorMessage).toBe(CHAT_ERROR_MESSAGES.CONCURRENT_REQUEST);
+    });
+
+    it('JSON が読めないレスポンスでも落ちず汎用文言になる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        body: null,
+        status: 502,
+        json: async () => {
+          throw new SyntaxError('invalid');
+        },
+      });
+      const { result } = renderHook(() => useChatStream(makeDeps()));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(result.current.errorMessage).toBe(CHAT_ERROR_MESSAGES.GENERIC);
     });
 
     it('HTTP エラー時に reportClientError が呼ばれる', async () => {
@@ -476,6 +656,94 @@ describe('useChatStream', () => {
     });
   });
 
+  describe('handleSubmit: done / error を受けずにストリームが終わる場合', () => {
+    it('done イベント無しで読み取りが終わると markStreamDone が 1 回呼ばれる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        body: makeNdjsonStream([{ type: 'text', delta: 'こんにちは' }]),
+        status: 200,
+      });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(deps.markStreamDone).toHaveBeenCalledTimes(1);
+    });
+
+    it('イベントが 1 件も無いストリームでも markStreamDone が 1 回呼ばれる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        body: makeNdjsonStream([]),
+        status: 200,
+      });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(deps.markStreamDone).toHaveBeenCalledTimes(1);
+    });
+
+    it('done が改行無しの残余行で届いても markStreamDone は 1 回だけ呼ばれる', async () => {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' })));
+          controller.close();
+        },
+      });
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, body: stream, status: 200 });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(deps.markStreamDone).toHaveBeenCalledTimes(1);
+    });
+
+    it('error イベントを受けた場合は markStreamDone が 1 回だけ呼ばれる', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        body: makeNdjsonStream([{ type: 'error', message: 'サーバーエラーです' }]),
+        status: 200,
+      });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(deps.markStreamDone).toHaveBeenCalledTimes(1);
+    });
+
+    it('読み取り中に AbortError で抜けた場合は markStreamDone を呼ばない', async () => {
+      const abortError = new Error('AbortError');
+      abortError.name = 'AbortError';
+      const stream = new ReadableStream({
+        pull(controller) {
+          controller.error(abortError);
+        },
+      });
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, body: stream, status: 200 });
+      const deps = makeDeps();
+      const { result } = renderHook(() => useChatStream(deps));
+
+      await act(async () => {
+        await result.current.handleSubmit('テスト');
+      });
+
+      expect(deps.markStreamDone).not.toHaveBeenCalled();
+    });
+  });
+
   describe('handleSubmit: error イベント', () => {
     it('error イベントで errorMessage が設定され markStreamDone と reportClientError が呼ばれる', async () => {
       global.fetch = jest.fn().mockResolvedValue({
@@ -490,14 +758,77 @@ describe('useChatStream', () => {
         await result.current.handleSubmit('テスト');
       });
 
-      expect(result.current.errorMessage).toBe('サーバーエラーです');
-      expect(deps.markStreamDone).toHaveBeenCalled();
+      // サーバーの固定文言は出さず共通文言にする
+      expect(result.current.errorMessage).toBe(CHAT_ERROR_MESSAGES.GENERIC);
+      expect(deps.markStreamDone).toHaveBeenCalledTimes(1);
       expect(mockReportClientError).toHaveBeenCalledWith(
         'error',
         'チャット stream エラー',
         'サーバーエラーです',
         expect.objectContaining({ screen: 'chat', streamDone: true })
       );
+    });
+  });
+
+  describe('handleSubmit: 戻り値', () => {
+    it('正常終了は true を返す', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        body: makeNdjsonStream([{ type: 'done' }]),
+        status: 200,
+      });
+      const { result } = renderHook(() => useChatStream(makeDeps()));
+
+      let ok: boolean | undefined;
+      await act(async () => {
+        ok = await result.current.handleSubmit('テスト');
+      });
+
+      expect(ok).toBe(true);
+    });
+
+    it('ストリーム中の error イベントは false を返す', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        body: makeNdjsonStream([{ type: 'error', message: 'x' }]),
+        status: 200,
+      });
+      const { result } = renderHook(() => useChatStream(makeDeps()));
+
+      let ok: boolean | undefined;
+      await act(async () => {
+        ok = await result.current.handleSubmit('テスト');
+      });
+
+      expect(ok).toBe(false);
+    });
+
+    it('通信エラーは false を返す', async () => {
+      global.fetch = jest.fn().mockRejectedValue(new Error('net'));
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const { result } = renderHook(() => useChatStream(makeDeps()));
+
+      let ok: boolean | undefined;
+      await act(async () => {
+        ok = await result.current.handleSubmit('テスト');
+      });
+
+      expect(ok).toBe(false);
+      consoleSpy.mockRestore();
+    });
+
+    it('AbortError は false を返す', async () => {
+      const abortError = new Error('aborted');
+      abortError.name = 'AbortError';
+      global.fetch = jest.fn().mockRejectedValue(abortError);
+      const { result } = renderHook(() => useChatStream(makeDeps()));
+
+      let ok: boolean | undefined;
+      await act(async () => {
+        ok = await result.current.handleSubmit('テスト');
+      });
+
+      expect(ok).toBe(false);
     });
   });
 
@@ -579,9 +910,7 @@ describe('useChatStream', () => {
         await result.current.handleSubmit('テスト');
       });
 
-      expect(result.current.errorMessage).toBe(
-        'エラーが発生しました。時間を置いて再度お試しください。'
-      );
+      expect(result.current.errorMessage).toBe(CHAT_ERROR_MESSAGES.GENERIC);
       expect(deps.setPhase).toHaveBeenCalledWith('idle');
       expect(mockReportClientError).toHaveBeenCalledWith(
         'error',

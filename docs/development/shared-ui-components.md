@@ -48,11 +48,11 @@
 
 - `Header` / `Footer` / `AppLayout` / `ServiceLayout`
 - `AppThemeProvider`
-- `SessionProviderWrapper`（`next-auth` の `SessionProvider` ラッパー。barrel ではなく subpath `@nagiyu/ui/session-provider` で提供 → 後述）
+- `SessionProviderWrapper` / `SessionHeader`（`next-auth` に依存するため、barrel ではなく subpath `@nagiyu/ui/session-provider` で提供 → 後述）
 - `ErrorBoundary` / `ErrorAlert`
 - `LoadingState`
 - `PrivacyPolicyDialog` / `TermsOfServiceDialog` / `ConfirmDialog`
-- `ServiceWorkerRegistration`
+- `LegalSections`
 
 #### `ServiceLayout` と `AppThemeProvider` の使い分け
 
@@ -67,9 +67,9 @@
 - `ServiceLayout` を採用しないサービスは `AppThemeProvider` を利用し、`AppRouterCacheProvider + ThemeProvider + CssBaseline` の定型を独自実装しない。
 - サービス固有の追加要素（tools の `MigrationDialog` 等）は `AppThemeProvider` の `children` として合成する。
 
-#### `SessionProviderWrapper` は subpath export で提供する
+#### next-auth に依存するコンポーネントは subpath export で提供する
 
-`next-auth`（ESM 配布）に依存する `SessionProviderWrapper` は、`@nagiyu/ui` の barrel（`src/index.ts`）からではなく、専用 subpath `@nagiyu/ui/session-provider` から named export で提供する。実際に next-auth を使うサービス（現状 `auth-web` / `livetalk-web`）だけがここから import する。
+`next-auth`（ESM 配布）に依存する `SessionProviderWrapper` / `SessionHeader` は、`@nagiyu/ui` の barrel（`src/index.ts`）からではなく、専用 subpath `@nagiyu/ui/session-provider` から named export で提供する。実際に next-auth を使うサービスだけがここから import する。
 
 - **なぜ barrel に載せないか**: barrel から re-export すると、`Button` など無関係なコンポーネントを import しただけで `@nagiyu/ui` の**全利用サービス**（現状 9 サービス）が `next-auth` を推移的に読み込む（barrel は先頭から評価されるため）。結果、各サービスの Jest が ESM の `next-auth` を変換対象に含める設定（`transformIgnorePatterns`）を持たないと `Cannot use import statement outside a module` で落ち、`next build` にも不要なコストが乗る。subpath に隔離することで、この負担を実利用サービスだけに閉じ込める。
 - **依存の持たせ方**: `next-auth` は `@nagiyu/ui` の `peerDependency`（実利用サービスが供給）とする。利用サービス側の `jest.config.ts` は `transformIgnorePatterns` で `next-auth` 系を変換対象に含める（`services/portal/web` の既存パターンと同型）。
@@ -77,9 +77,11 @@
 
 #### Navigation の集約
 
-`Header` は `navigationItems: NavigationItem[]` プロパティを受け取り、デスクトップでは横並びメニュー、モバイルではハンバーガー Drawer に切り替える。サービスは独自 `Navigation` コンポーネントを実装せず、`ServiceLayout` の `headerProps.navigationItems` に項目を渡す。
+`Header` は `navigationItems: NavigationItem[]` プロパティを受け取り、デスクトップでは横並びメニュー、モバイルではハンバーガー Drawer に切り替える。サービスは独自 `Navigation` コンポーネントを実装せず、ナビ項目を `Header` に渡す。
 
-- **例外**: 動的バッジ等のカスタム要素を必要とするサービス（share-together の招待数バッジ等）は、`NavigationItem` の `label: string` 制約では再現できないため、当面サービスローカルな `Navigation` を維持してよい。`NavigationItem` 側にカスタム要素 slot が追加された段階で統合を再検討する。
+- **権限による出し分けは `Header` が行う**: 項目に `requiredPermission` を付け、`Header` にユーザーのロール (`roles`) を渡すと、権限を満たさない項目は表示されない。子をすべて除かれた親項目も表示しない。サービスは項目を静的に宣言し、権限の判定を自前で書かない。
+- `roles` 未指定は「権限なし」として扱う。読み込み中や未ログインで、権限の要る項目が一瞬見えることを防ぐため。
+- **バッジなどのカスタム要素は `actions` スロットに置く**: `NavigationItem` の `label: string` では表せない要素 (share-together の招待件数バッジ等) は、ツールバー右側の `actions` に渡す。`Header` を作り直したり、`headerSlot` で丸ごと置き換えたりしない。`actions` はモバイルでも Drawer に隠さずツールバーに残す。通知のように常に目に入るべき要素を想定しているため。
 
 #### アカウントメニューの集約
 
@@ -88,6 +90,22 @@
 - `onDeleteAccount` は**任意コールバック**。`Header` は退会フロー自体を持たず（サービス固有を知らず generic なまま）、退会モーダル等の実体は各サービスが保持してコールバックで注入する。退会を提供するサービスだけが opt-in する。
 - 後方互換: `user` 未指定時はアカウントメニューを描画しない。`user` 無しで `onLogout` のみ渡した場合は、従来どおり単独のログアウトボタンを表示する。
 - サインアウトは Cookie 発行元の auth サービスへ集約する方針のため、`onLogout` は `buildSignOutUrl` で生成した URL へ遷移させる（`authUrl` はビルド時インライン化を避けるためサーバーでランタイム env から解決して渡す）。
+
+#### ログインのあるサービスは `SessionHeader` を使う
+
+`SessionHeader` は、next-auth のセッションから `Header` の `user` / `roles` / `onLogout` を組み立てる。ログインのあるサービスは、ルートレイアウトで `SessionProviderWrapper` の内側に置き、`ServiceLayout` の `headerSlot` に渡す。ユーザー表示とサインアウトはすべてのログインのあるサービスでこの部品から提供し、セッションからヘッダーを組み立てる処理を各サービスで書かない。
+
+- `Header` 自体は next-auth に依存させない。セッションを持たないサービスでも、`roles` や `actions` を含めてそのまま使えるようにするため。
+- クライアントの `useSession()` は自サービスの `/api/auth/session` を取得する。サービスには NextAuth の route を置き、GET だけを公開する (サインアウトは auth サービスに集約しているため、POST は受けない)。
+- `authUrl` をランタイム env から読むため、`SessionHeader` を置くルートレイアウトは動的レンダリングにする。静的にプリレンダされると、ビルド時の空文字が HTML に固定され、サインアウト先が壊れる。
+- 退会のようにサービス固有のフローを持つ場合は、`SessionHeader` に `onDeleteAccount` を渡し、モーダル等の実体はサービス側の薄いコンポーネントで持つ。
+
+#### 利用規約・プライバシーポリシーは `LegalSections` で描画する
+
+利用規約とプライバシーポリシーは、ダイアログでもページでも `LegalSections` で描画する。サービスが独自の規約・ポリシーを持つ場合も、`@nagiyu/ui` のデータ形式で文面を定義して渡し、描画ループや型を自前で書かない。
+
+- **データ形式は規約とポリシーで 1 つにする**: 規約の形式 (本文 + 番号付きリスト) は、ポリシーの形式 (本文 + 入れ子の番号付きリスト + リンク) の一部として表せる。形式を分けておく理由がないため、ポリシーの形式に揃えている。
+- **見た目はサービス間で揃え、描画部品にオプションを持たせない**: 余白・改行・リンク色をサービスごとに変えられるようにすると、同じ描画が再び分かれていく。本文の改行は常に表示する (文面の `\n` をそのまま改行にする)。
 
 ---
 
@@ -220,11 +238,31 @@ type Props = {
 
 ### サービス側での読み込み
 
-サービスのルートレイアウト（`app/layout.tsx`）で `@nagiyu/ui/tokens.css` を import すること。これによりトークンが `:root` レベルで利用可能になる。
+サービスのルートレイアウト（`app/layout.tsx`）で `@nagiyu/ui/tokens.css` と `@nagiyu/ui/base.css` をこの順に import すること。tokens はトークンを `:root` レベルで利用可能にし、base はプラットフォーム共通のリセット (全要素の box-sizing・margin・padding と、リンクの色・下線) を当てる。
 
 ```tsx
 import '@nagiyu/ui/tokens.css';
+import '@nagiyu/ui/base.css';
 ```
+
+### グローバル CSS の置き場所
+
+- 全サービスに当てるグローバル CSS は libs/ui の base に置き、サービス側でリセットを書き直さない。サービスごとにリセットがばらばらだと、同じ部品でも余白やリンクの見た目がサービスによって変わるためである。
+- フォント・背景色・文字色・ダークモードの切り替えは、グローバル CSS では扱わず、MUI テーマと `CssBaseline` に任せる。body への指定はグローバル CSS より `CssBaseline` が後から当たって上書きするので、グローバル CSS に書いても効かない。
+- サービス側のグローバル CSS には、そのサービス固有の指定だけを置き、base の後に import する。
+- CSS フレームワーク (Tailwind 等) のグローバルなリセットは持ち込まない。base と二重にリセットが当たり、フォーム部品の見た目などがサービスごとに食い違う。
+
+### 長い文字列と表の幅
+
+空白の無い長い文字列 (URL・ファイル名・メールアドレス・ID など) と、列の多い表は、狭い画面で要素を画面の外へ押し出しやすい。次のように扱う。
+
+- **`html` / `body` に `overflow-x: hidden` を置かない**。はみ出した部分を横スクロールさせずに切り落とすので、読めなくなるうえに、ページの `scrollWidth` を見る E2E でも検知できなくなる。はみ出しは、はみ出す要素の側で直す。
+- **長い文字列には `overflow-wrap: anywhere` を付ける**。`break-word` は表示上の折り返ししか変えず、要素の最小幅は長い 1 語の幅のまま残る。flex の子や表のセルは既定でこの最小幅より縮まないので、`break-word` では隣のボタンが押し出されたままになる。`anywhere` は最小幅の計算にも効くため、親に `min-width: 0` を足さなくても縮む。
+    - 全体にかける共通の指定 (base など) にはしない。表の列の幅の配り方まで変わり、意図しない列が潰れるためである。
+- **表のセルに `anywhere` を付けるときは、最小幅も一緒に付ける**。表は空いた幅を列に配るときに、最小幅の小さい列から削る。`anywhere` で最小幅がほぼ 0 になった列は細く潰され、短い値まで途中で割れる。
+- **列の多い表は、表の中で横スクロールさせる**。ページ全体は広げない。見出しと操作ボタンの列は折り返さない指定にする。日本語の見出しはどこでも折り返せるため、指定が無いと 1 文字ずつ縦に並ぶまで潰れる。
+    - 空状態の文言は表の外に置く。表の行に置くと、横スクロールする表の幅の中央に置かれ、狭い画面では見えない位置に出る。
+- **和文のラベルと値を 1 行に並べるときは、ラベルを折り返さない**。値に `anywhere` を付けても、ブラウザは先にラベルの途中 (和文の文字間) で改行する。
 
 ### テーマ切替
 
@@ -246,6 +284,7 @@ libs/ui/
 │   │       └── index.ts                  # 再エクスポート
 │   ├── styles/
 │   │   ├── tokens.css                    # CSS 変数定義
+│   │   ├── base.css                      # プラットフォーム共通のリセット
 │   │   ├── tokens.ts                     # TS 参照ヘルパー・型
 │   │   └── theme.ts                      # MUI Theme（CSS 変数参照）
 │   └── index.ts

@@ -1,9 +1,10 @@
 import { DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
-import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
-import { createPresignedDownloadUrl } from '@nagiyu/aws';
+import { COMMON_ERROR_MESSAGES, toErrorMessage } from '@nagiyu/common';
+import { createPresignedDownloadUrl, reportErrorEvent } from '@nagiyu/aws';
 import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
 import { NextResponse } from 'next/server';
 import { InvokeCommand } from '@aws-sdk/client-lambda';
+import { SERVICE_ID, withApiErrorReporting } from '@/lib/api-error-reporting';
 import { DOMAIN_ERROR_MESSAGES, HighlightDomainService } from '@/lib/server/domain-services';
 import {
   getZipGeneratorFunctionName,
@@ -30,8 +31,10 @@ type RouteParams = {
   }>;
 };
 
-export async function GET(_request: Request, { params }: RouteParams): Promise<NextResponse> {
-  try {
+export const GET = withApiErrorReporting(
+  'Web API: ZIP 確認エラー',
+  ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+  async (_request: Request, { params }: RouteParams): Promise<NextResponse> => {
     const { jobId } = await params;
     const bucketName = getBucketName();
     const s3Client = getS3Client();
@@ -64,113 +67,116 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
       fileName: `${jobId}-clips.zip`,
       downloadUrl,
     });
-  } catch (error) {
-    console.error('[GET /api/jobs/[jobId]/download] ZIP 確認に失敗しました', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_SERVER_ERROR',
-        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-      },
-      { status: 500 }
-    );
   }
-}
+);
 
-export async function POST(_request: Request, { params }: RouteParams): Promise<NextResponse> {
-  try {
-    const { jobId } = await params;
-    const highlightService = new HighlightDomainService(
-      new DynamoDBHighlightRepository(getDynamoDBDocumentClient(), getTableName())
-    );
-    const highlights = await highlightService.getHighlights(jobId);
-    if (highlights.length === 0) {
-      return NextResponse.json(
-        {
-          error: 'JOB_NOT_FOUND',
-          message: ERROR_MESSAGES.JOB_NOT_FOUND,
-        },
-        { status: 404 }
-      );
-    }
-
-    const acceptedHighlights = highlights.filter((highlight) => highlight.status === 'accepted');
-    if (acceptedHighlights.length === 0) {
-      return NextResponse.json(
-        {
-          error: 'DOWNLOAD_NOT_AVAILABLE',
-          message: ERROR_MESSAGES.NO_ACCEPTED_HIGHLIGHTS,
-        },
-        { status: 400 }
-      );
-    }
-    const hasIncompleteAcceptedHighlights = acceptedHighlights.some(
-      (highlight) => highlight.clipStatus === 'PENDING' || highlight.clipStatus === 'GENERATING'
-    );
-    if (hasIncompleteAcceptedHighlights) {
-      return NextResponse.json(
-        {
-          error: 'CLIP_GENERATION_INCOMPLETE',
-          message: ERROR_MESSAGES.CLIP_GENERATION_INCOMPLETE,
-        },
-        { status: 409 }
-      );
-    }
-
-    const bucketName = getBucketName();
-    const s3Client = getS3Client();
+export const POST = withApiErrorReporting(
+  'Web API: ダウンロード準備エラー',
+  ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+  async (_request: Request, { params }: RouteParams): Promise<NextResponse> => {
     try {
-      await s3Client.send(
-        new DeleteObjectCommand({
-          Bucket: bucketName,
-          Key: ZIP_KEY(jobId),
+      const { jobId } = await params;
+      const highlightService = new HighlightDomainService(
+        new DynamoDBHighlightRepository(getDynamoDBDocumentClient(), getTableName())
+      );
+      const highlights = await highlightService.getHighlights(jobId);
+      if (highlights.length === 0) {
+        return NextResponse.json(
+          {
+            error: 'JOB_NOT_FOUND',
+            message: ERROR_MESSAGES.JOB_NOT_FOUND,
+          },
+          { status: 404 }
+        );
+      }
+
+      const acceptedHighlights = highlights.filter((highlight) => highlight.status === 'accepted');
+      if (acceptedHighlights.length === 0) {
+        return NextResponse.json(
+          {
+            error: 'DOWNLOAD_NOT_AVAILABLE',
+            message: ERROR_MESSAGES.NO_ACCEPTED_HIGHLIGHTS,
+          },
+          { status: 400 }
+        );
+      }
+      const hasIncompleteAcceptedHighlights = acceptedHighlights.some(
+        (highlight) => highlight.clipStatus === 'PENDING' || highlight.clipStatus === 'GENERATING'
+      );
+      if (hasIncompleteAcceptedHighlights) {
+        return NextResponse.json(
+          {
+            error: 'CLIP_GENERATION_INCOMPLETE',
+            message: ERROR_MESSAGES.CLIP_GENERATION_INCOMPLETE,
+          },
+          { status: 409 }
+        );
+      }
+
+      const bucketName = getBucketName();
+      const s3Client = getS3Client();
+      try {
+        await s3Client.send(
+          new DeleteObjectCommand({
+            Bucket: bucketName,
+            Key: ZIP_KEY(jobId),
+          })
+        );
+      } catch (deleteError) {
+        const isExpectedError =
+          deleteError instanceof Error &&
+          (deleteError.name === 'NoSuchKey' || deleteError.name === 'NotFound');
+        if (!isExpectedError) {
+          console.warn(
+            '[POST /api/jobs/[jobId]/download] 旧 ZIP の削除に失敗しました',
+            deleteError
+          );
+          // 失敗しても ZIP の再生成を続けるため、例外が上に届かない。ここで報告する
+          await reportErrorEvent({
+            serviceId: SERVICE_ID,
+            severity: 'warning',
+            title: 'Web API: 旧 ZIP 削除エラー',
+            message: toErrorMessage(deleteError),
+            context: {
+              jobId,
+              errorName: deleteError instanceof Error ? deleteError.name : typeof deleteError,
+              errorStack: deleteError instanceof Error ? deleteError.stack : undefined,
+            },
+          });
+        }
+      }
+
+      await getLambdaClient().send(
+        new InvokeCommand({
+          FunctionName: getZipGeneratorFunctionName(),
+          InvocationType: 'Event',
+          Payload: Buffer.from(
+            JSON.stringify({
+              jobId,
+              clips: acceptedHighlights.map((highlight) => ({
+                highlightId: highlight.highlightId,
+                order: highlight.order,
+                startSec: highlight.startSec,
+                endSec: highlight.endSec,
+              })),
+            })
+          ),
         })
       );
-    } catch (deleteError) {
-      const isExpectedError =
-        deleteError instanceof Error &&
-        (deleteError.name === 'NoSuchKey' || deleteError.name === 'NotFound');
-      if (!isExpectedError) {
-        console.warn('[POST /api/jobs/[jobId]/download] 旧 ZIP の削除に失敗しました', deleteError);
+
+      return NextResponse.json({ status: 'PROCESSING' }, { status: 202 });
+    } catch (error) {
+      if (error instanceof Error && error.message === DOMAIN_ERROR_MESSAGES.JOB_ID_REQUIRED) {
+        return NextResponse.json(
+          {
+            error: 'JOB_NOT_FOUND',
+            message: ERROR_MESSAGES.JOB_NOT_FOUND,
+          },
+          { status: 404 }
+        );
       }
+
+      throw error;
     }
-
-    await getLambdaClient().send(
-      new InvokeCommand({
-        FunctionName: getZipGeneratorFunctionName(),
-        InvocationType: 'Event',
-        Payload: Buffer.from(
-          JSON.stringify({
-            jobId,
-            clips: acceptedHighlights.map((highlight) => ({
-              highlightId: highlight.highlightId,
-              order: highlight.order,
-              startSec: highlight.startSec,
-              endSec: highlight.endSec,
-            })),
-          })
-        ),
-      })
-    );
-
-    return NextResponse.json({ status: 'PROCESSING' }, { status: 202 });
-  } catch (error) {
-    if (error instanceof Error && error.message === DOMAIN_ERROR_MESSAGES.JOB_ID_REQUIRED) {
-      return NextResponse.json(
-        {
-          error: 'JOB_NOT_FOUND',
-          message: ERROR_MESSAGES.JOB_NOT_FOUND,
-        },
-        { status: 404 }
-      );
-    }
-
-    console.error('[POST /api/jobs/[jobId]/download] ダウンロード準備に失敗しました', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_SERVER_ERROR',
-        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-      },
-      { status: 500 }
-    );
   }
-}
+);

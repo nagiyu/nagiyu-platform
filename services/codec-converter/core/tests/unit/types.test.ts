@@ -30,9 +30,9 @@ describe('Types', () => {
         outputCodec: 'h264',
         fileName: 'sample.mp4',
         fileSize: 52428800,
-        createdAt: 1704067200,
-        updatedAt: 1704067200,
-        expiresAt: 1704153600,
+        createdAt: 1704067200000,
+        updatedAt: 1704067200000,
+        expiresAt: 1704153600000,
       };
 
       expect(job.jobId).toBe('550e8400-e29b-41d4-a716-446655440000');
@@ -49,9 +49,9 @@ describe('Types', () => {
         outputCodec: 'h264',
         fileName: 'sample.mp4',
         fileSize: 52428800,
-        createdAt: 1704067200,
-        updatedAt: 1704067800,
-        expiresAt: 1704153600,
+        createdAt: 1704067200000,
+        updatedAt: 1704067800000,
+        expiresAt: 1704153600000,
       };
 
       expect(job.outputFile).toBeDefined();
@@ -66,9 +66,9 @@ describe('Types', () => {
         outputCodec: 'h264',
         fileName: 'sample.mp4',
         fileSize: 52428800,
-        createdAt: 1704067200,
-        updatedAt: 1704067800,
-        expiresAt: 1704153600,
+        createdAt: 1704067200000,
+        updatedAt: 1704067800000,
+        expiresAt: 1704153600000,
         errorMessage: '変換処理に失敗しました',
       };
 

@@ -1,9 +1,9 @@
 import { formatDateTime, formatJobId } from '../../src/format';
 
 describe('formatDateTime', () => {
-  it('Unix timestamp（秒）を日本語ロケールの日時文字列にフォーマット', () => {
+  it('Unix timestamp（ミリ秒）を日本語ロケールの日時文字列にフォーマット', () => {
     // 2024-01-01 12:00:00 JST
-    const timestamp = 1704070800;
+    const timestamp = 1704070800000;
     const formatted = formatDateTime(timestamp);
 
     // ロケールによって表示が異なる可能性があるため、含まれるべき要素をチェック
@@ -15,7 +15,7 @@ describe('formatDateTime', () => {
 
   it('異なるタイムスタンプでフォーマット', () => {
     // 2023-12-31 23:59:59 JST
-    const timestamp = 1704034799;
+    const timestamp = 1704034799000;
     const formatted = formatDateTime(timestamp);
 
     expect(formatted).toContain('2023');

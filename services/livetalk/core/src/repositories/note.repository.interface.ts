@@ -2,14 +2,14 @@ import type { CreateNoteInput, NoteEntity, NoteKey } from '../entities/note.enti
 
 export interface NoteRepository {
   put(input: CreateNoteInput): Promise<NoteEntity>;
-  /** キャラ単位のノートを CreatedAt 降順で返す。 */
+  /** キャラ単位のノートを createdAt 降順で返す。 */
   list(userId: string, characterId: string, limit?: number): Promise<NoteEntity[]>;
-  /** キャラ単位の全ノートを CreatedAt 降順で返す（固定件数で打ち切らない）。 */
+  /** キャラ単位の全ノートを createdAt 降順で返す（固定件数で打ち切らない）。 */
   listAll(userId: string, characterId: string): Promise<NoteEntity[]>;
   /** 単一ノートを返す。なければ null。 */
   get(key: NoteKey): Promise<NoteEntity | null>;
   /**
-   * 直近 days 日に作成されたノートを CreatedAt 降順で返す（チャットの感想連携用）。
+   * 直近 days 日に作成されたノートを createdAt 降順で返す（チャットの感想連携用）。
    * 「あのノート良かった」にキャラが反応できるよう、直近提示分を context に注入する。
    */
   listRecent(
@@ -18,8 +18,9 @@ export interface NoteRepository {
     options: { days: number; limit?: number }
   ): Promise<NoteEntity[]>;
   /**
-   * ノートに感想（Reaction）を設定し UpdatedAt を bump する（感想連携のデータモデル支援）。
-   * 対象ノートが存在しなければ no-op。
+   * ノートに感想（reaction）を設定し updatedAt を更新する（感想連携のデータモデル支援）。
+   *
+   * @throws {EntityNotFoundError} 対象ノートが存在しない場合
    */
   updateReaction(key: NoteKey, reaction: string): Promise<void>;
 }

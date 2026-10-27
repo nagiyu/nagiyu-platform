@@ -1,0 +1,14 @@
+/*
+ * プラットフォーム共通のリセット。
+ * フォント・背景色・ダークモードは CssBaseline と MUI テーマが持つため、ここでは扱わない。
+ */
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}

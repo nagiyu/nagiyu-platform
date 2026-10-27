@@ -1,21 +1,19 @@
-import { DynamoDBJobRepository, selectJobDefinition } from '@nagiyu/quick-clip-core';
+import { DynamoDBJobRepository } from '@nagiyu/quick-clip-core';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import type { EmotionFilter } from '@nagiyu/quick-clip-core';
-import { SubmitJobCommand } from '@aws-sdk/client-batch';
 import { CompleteMultipartUploadCommand } from '@aws-sdk/client-s3';
 import { NextResponse } from 'next/server';
 import {
-  getAwsRegion,
-  getBatchClient,
-  getBatchJobDefinitionPrefix,
-  getBatchJobQueueArn,
   getBucketName,
   getDynamoDBDocumentClient,
   getS3Client,
   getTableName,
 } from '@/lib/server/aws';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { VALID_EMOTION_FILTERS } from '@/lib/server/emotion-filter';
 import { JobDomainService } from '@/lib/server/domain-services';
+import { submitExtractJob } from '@/lib/server/submit-extract-job';
 
 const ERROR_MESSAGES = {
   INVALID_REQUEST: COMMON_ERROR_MESSAGES.BAD_REQUEST,
@@ -41,52 +39,40 @@ type CompleteUploadRequest = {
   emotionFilter?: EmotionFilter;
 };
 
-const isCompletedPart = (part: unknown): part is CompletedPart =>
-  typeof part === 'object' &&
-  part !== null &&
-  (() => {
-    const candidate = part as { PartNumber?: unknown; ETag?: unknown };
-    return (
-      Number.isInteger(candidate.PartNumber) &&
-      (candidate.PartNumber as number) > 0 &&
-      typeof candidate.ETag === 'string' &&
-      candidate.ETag.trim().length > 0
-    );
-  })();
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
 
-const isCompleteUploadRequest = (body: unknown): body is CompleteUploadRequest => {
-  if (typeof body !== 'object' || body === null) {
+const isCompletedPart = (part: unknown): part is CompletedPart =>
+  isRecord(part) &&
+  typeof part.PartNumber === 'number' &&
+  Number.isInteger(part.PartNumber) &&
+  part.PartNumber > 0 &&
+  typeof part.ETag === 'string' &&
+  part.ETag.trim().length > 0;
+
+const isCompleteUploadRequest = (body: Record<string, unknown>): body is CompleteUploadRequest => {
+  if (typeof body.uploadId !== 'string' || body.uploadId.trim().length === 0) {
     return false;
   }
-  const candidate = body as {
-    uploadId?: unknown;
-    parts?: unknown;
-    emotionFilter?: unknown;
-  };
-  if (typeof candidate.uploadId !== 'string' || candidate.uploadId.trim().length === 0) {
-    return false;
-  }
-  if (
-    !Array.isArray(candidate.parts) ||
-    candidate.parts.length === 0 ||
-    !candidate.parts.every(isCompletedPart)
-  ) {
+  if (!Array.isArray(body.parts) || body.parts.length === 0 || !body.parts.every(isCompletedPart)) {
     return false;
   }
   if (
-    candidate.emotionFilter !== undefined &&
-    !VALID_EMOTION_FILTERS.has(candidate.emotionFilter as string)
+    body.emotionFilter !== undefined &&
+    (typeof body.emotionFilter !== 'string' || !VALID_EMOTION_FILTERS.has(body.emotionFilter))
   ) {
     return false;
   }
   return true;
 };
 
-export async function POST(request: Request, { params }: RouteParams): Promise<NextResponse> {
-  try {
+export const POST = withApiErrorReporting(
+  'Web API: アップロード完了処理エラー',
+  ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+  async (request: Request, { params }: RouteParams): Promise<NextResponse> => {
     const { jobId } = await params;
-    const body = await request.json();
-    if (!isCompleteUploadRequest(body)) {
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok || !isCompleteUploadRequest(bodyResult.body)) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -95,6 +81,8 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
         { status: 400 }
       );
     }
+
+    const body = bodyResult.body;
 
     const jobService = new JobDomainService(
       new DynamoDBJobRepository(getDynamoDBDocumentClient(), getTableName())
@@ -132,38 +120,15 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
       })
     );
 
-    const submitResponse = await getBatchClient().send(
-      new SubmitJobCommand({
-        jobName: `quick-clip-extract-${job.jobId}`.slice(0, 128),
-        jobQueue: getBatchJobQueueArn(),
-        jobDefinition: `${getBatchJobDefinitionPrefix()}-${selectJobDefinition(job.fileSize, job.durationSec)}`,
-        containerOverrides: {
-          environment: [
-            { name: 'BATCH_COMMAND', value: 'extract' },
-            { name: 'JOB_ID', value: job.jobId },
-            { name: 'DYNAMODB_TABLE_NAME', value: getTableName() },
-            { name: 'S3_BUCKET', value: bucketName },
-            { name: 'AWS_REGION', value: getAwsRegion() },
-            { name: 'EMOTION_FILTER', value: body.emotionFilter ?? 'any' },
-          ],
-        },
-      })
-    );
+    const batchJobId = await submitExtractJob({
+      jobId: job.jobId,
+      fileSize: job.fileSize,
+      durationSec: job.durationSec,
+      emotionFilter: body.emotionFilter,
+    });
 
-    await jobService.updateBatchJobId(job.jobId, submitResponse.jobId!);
+    await jobService.updateBatchJobId(job.jobId, batchJobId);
 
     return NextResponse.json({}, { status: 200 });
-  } catch (error) {
-    console.error(
-      '[POST /api/jobs/[jobId]/complete-upload] アップロード完了処理に失敗しました',
-      error
-    );
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_SERVER_ERROR',
-        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-      },
-      { status: 500 }
-    );
   }
-}
+);

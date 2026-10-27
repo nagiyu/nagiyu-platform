@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { headers } from 'next/headers';
+import type { Session } from '@nagiyu/common';
 import {
   createClientSessionGetHandler,
   createSessionGetter,
@@ -23,15 +24,6 @@ function createHeadersStub(value?: string): Awaited<ReturnType<typeof headers>> 
   return {
     get: (name: string) => (name === TEST_USER_ROLES_HEADER ? (value ?? null) : null),
   } as unknown as Awaited<ReturnType<typeof headers>>;
-}
-
-interface MockAuthSession {
-  user?: {
-    id?: string;
-    email?: string;
-    roles?: string[];
-  };
-  expires?: string;
 }
 
 describe('resolveTestUser', () => {
@@ -134,183 +126,115 @@ describe('resolveTestUser', () => {
 });
 
 describe('createSessionGetter', () => {
+  const ENV_KEYS = ['SKIP_AUTH_CHECK', 'TEST_USER_ROLES'] as const;
+  const saved: Partial<Record<(typeof ENV_KEYS)[number], string>> = {};
+
   beforeEach(() => {
-    delete process.env.SKIP_AUTH_CHECK;
+    ENV_KEYS.forEach((key) => {
+      saved[key] = process.env[key];
+      delete process.env[key];
+    });
     mockedHeaders.mockReset();
     mockedHeaders.mockResolvedValue(createHeadersStub());
   });
 
-  it('SKIP_AUTH_CHECK=true の場合はテストセッションを返す', async () => {
+  afterEach(() => {
+    ENV_KEYS.forEach((key) => {
+      if (saved[key] !== undefined) {
+        process.env[key] = saved[key];
+      } else {
+        delete process.env[key];
+      }
+    });
+  });
+
+  const createAuth = () => jest.fn<() => Promise<Session | null>>();
+
+  it('SKIP_AUTH_CHECK=true の場合は auth を呼ばず既定ロールのテストセッションを返す', async () => {
     process.env.SKIP_AUTH_CHECK = 'true';
-    const auth = jest.fn<() => Promise<MockAuthSession | null>>();
-    const getSession = createSessionGetter<MockAuthSession, { userId: string }>({
-      auth,
-      createTestSession: () => ({ userId: 'test-user-id' }),
-      mapSession: (session) => ({ userId: session.user.id ?? '' }),
-    });
+    const auth = createAuth();
+    const getSession = createSessionGetter({ auth, defaultRoles: ['stock-user'] });
 
     const session = await getSession();
 
-    expect(session).toEqual({ userId: 'test-user-id' });
-    expect(auth).not.toHaveBeenCalled();
-  });
-
-  it('認証セッションが null の場合は null を返す', async () => {
-    const auth = jest.fn<() => Promise<MockAuthSession | null>>().mockResolvedValue(null);
-    const getSession = createSessionGetter<MockAuthSession, { userId: string }>({
-      auth,
-      createTestSession: () => ({ userId: 'test-user-id' }),
-      mapSession: (session) => ({ userId: session.user.id ?? '' }),
-    });
-
-    const session = await getSession();
-
-    expect(session).toBeNull();
-  });
-
-  it('認証セッションに user がない場合は null を返す', async () => {
-    const auth = jest
-      .fn<() => Promise<MockAuthSession | null>>()
-      .mockResolvedValue({ expires: new Date().toISOString() });
-    const getSession = createSessionGetter<MockAuthSession, { userId: string }>({
-      auth,
-      createTestSession: () => ({ userId: 'test-user-id' }),
-      mapSession: (session) => ({ userId: session.user.id ?? '' }),
-    });
-
-    const session = await getSession();
-
-    expect(session).toBeNull();
-  });
-
-  it('認証済みセッションをサービス向け形式に変換する', async () => {
-    const auth = jest.fn<() => Promise<MockAuthSession | null>>().mockResolvedValue({
-      user: {
-        id: 'user-1',
-        email: 'test@example.com',
-        roles: ['admin'],
-      },
-      expires: '2026-01-01T00:00:00Z',
-    });
-    const getSession = createSessionGetter<MockAuthSession, { userId: string; email: string }>({
-      auth,
-      createTestSession: () => ({ userId: 'test-user-id', email: 'test@example.com' }),
-      mapSession: (session) => ({
-        userId: session.user.id ?? '',
-        email: session.user.email ?? '',
-      }),
-    });
-
-    const session = await getSession();
-
-    expect(session).toEqual({
-      userId: 'user-1',
+    expect(session?.user).toEqual({
+      id: 'test-user-id',
       email: 'test@example.com',
+      name: 'Test User',
+      image: undefined,
+      roles: ['stock-user'],
     });
-  });
-
-  it('mapSession 省略時は認証済みセッションをそのまま返す', async () => {
-    const mockSession: MockAuthSession = {
-      user: { id: 'user-2', email: 'passthrough@example.com', roles: ['viewer'] },
-      expires: '2026-06-01T00:00:00Z',
-    };
-    const auth = jest.fn<() => Promise<MockAuthSession | null>>().mockResolvedValue(mockSession);
-    const getSession = createSessionGetter<MockAuthSession>({
-      auth,
-      createTestSession: () => ({ user: { id: 'test', email: 'test@example.com' }, expires: '' }),
-    });
-
-    const session = await getSession();
-
-    expect(session).toEqual(mockSession);
-  });
-
-  it('mapSession 省略・SKIP_AUTH_CHECK=true の場合はテストセッションを返す', async () => {
-    process.env.SKIP_AUTH_CHECK = 'true';
-    const auth = jest.fn<() => Promise<MockAuthSession | null>>();
-    const testSession = { user: { id: 'test-id', email: 'test@example.com' }, expires: '' };
-    const getSession = createSessionGetter<MockAuthSession>({
-      auth,
-      createTestSession: () => testSession,
-    });
-
-    const session = await getSession();
-
-    expect(session).toEqual(testSession);
+    expect(typeof session?.expires).toBe('string');
     expect(auth).not.toHaveBeenCalled();
   });
 
-  it('ヘッダにロールが設定されている場合は createTestSession に overrides を渡す', async () => {
+  it('defaultRoles 省略時のテストセッションのロールは空配列', async () => {
     process.env.SKIP_AUTH_CHECK = 'true';
+    const getSession = createSessionGetter({ auth: createAuth() });
+
+    expect((await getSession())?.user.roles).toEqual([]);
+  });
+
+  it('TEST_USER_ROLES は既定ロールより優先される', async () => {
+    process.env.SKIP_AUTH_CHECK = 'true';
+    process.env.TEST_USER_ROLES = 'env-role';
+    const getSession = createSessionGetter({ auth: createAuth(), defaultRoles: ['stock-user'] });
+
+    expect((await getSession())?.user.roles).toEqual(['env-role']);
+  });
+
+  it('ヘッダのロールは TEST_USER_ROLES と既定ロールより優先される', async () => {
+    process.env.SKIP_AUTH_CHECK = 'true';
+    process.env.TEST_USER_ROLES = 'env-role';
     mockedHeaders.mockResolvedValue(createHeadersStub('stock-viewer'));
-    const auth = jest.fn<() => Promise<MockAuthSession | null>>();
-    const createTestSession = jest.fn((overrides?: { roles?: string[] }) => ({
-      userId: 'test-user-id',
-      roles: overrides?.roles ?? ['stock-user'],
-    }));
-    const getSession = createSessionGetter<MockAuthSession, { userId: string; roles: string[] }>({
-      auth,
-      createTestSession,
-      mapSession: (session) => ({ userId: session.user.id ?? '', roles: session.user.roles ?? [] }),
-    });
+    const getSession = createSessionGetter({ auth: createAuth(), defaultRoles: ['stock-user'] });
 
-    const session = await getSession();
-
-    expect(createTestSession).toHaveBeenCalledWith({ roles: ['stock-viewer'] });
-    expect(session).toEqual({ userId: 'test-user-id', roles: ['stock-viewer'] });
+    expect((await getSession())?.user.roles).toEqual(['stock-viewer']);
   });
 
-  it('ヘッダが未設定の場合は createTestSession を引数なしで呼び出す（後方互換）', async () => {
-    process.env.SKIP_AUTH_CHECK = 'true';
-    mockedHeaders.mockResolvedValue(createHeadersStub());
-    const auth = jest.fn<() => Promise<MockAuthSession | null>>();
-    const createTestSession = jest.fn(() => ({ userId: 'test-user-id' }));
-    const getSession = createSessionGetter<MockAuthSession, { userId: string }>({
-      auth,
-      createTestSession,
-      mapSession: (session) => ({ userId: session.user.id ?? '' }),
-    });
-
-    const session = await getSession();
-
-    expect(createTestSession).toHaveBeenCalledWith();
-    expect(session).toEqual({ userId: 'test-user-id' });
-  });
-
-  it('ヘッダの値が空白・カンマのみの場合は overrides を渡さない（フォールバック）', async () => {
+  it('ヘッダの値が空白・カンマのみの場合は無視される', async () => {
     process.env.SKIP_AUTH_CHECK = 'true';
     mockedHeaders.mockResolvedValue(createHeadersStub(' , ,'));
-    const auth = jest.fn<() => Promise<MockAuthSession | null>>();
-    const createTestSession = jest.fn(() => ({ userId: 'test-user-id' }));
-    const getSession = createSessionGetter<MockAuthSession, { userId: string }>({
-      auth,
-      createTestSession,
-      mapSession: (session) => ({ userId: session.user.id ?? '' }),
-    });
+    const getSession = createSessionGetter({ auth: createAuth(), defaultRoles: ['stock-user'] });
 
-    const session = await getSession();
-
-    expect(createTestSession).toHaveBeenCalledWith();
-    expect(session).toEqual({ userId: 'test-user-id' });
+    expect((await getSession())?.user.roles).toEqual(['stock-user']);
   });
 
-  it('headers() が例外を投げた場合は overrides を渡さない（リクエストスコープ外フォールバック）', async () => {
+  it('headers() が例外を投げた場合は既定ロールにフォールバックする', async () => {
     process.env.SKIP_AUTH_CHECK = 'true';
     mockedHeaders.mockImplementation(() => {
       throw new Error('リクエストスコープ外での呼び出し');
     });
-    const auth = jest.fn<() => Promise<MockAuthSession | null>>();
-    const createTestSession = jest.fn(() => ({ userId: 'test-user-id' }));
-    const getSession = createSessionGetter<MockAuthSession, { userId: string }>({
-      auth,
-      createTestSession,
-      mapSession: (session) => ({ userId: session.user.id ?? '' }),
-    });
+    const getSession = createSessionGetter({ auth: createAuth(), defaultRoles: ['stock-user'] });
 
-    const session = await getSession();
+    expect((await getSession())?.user.roles).toEqual(['stock-user']);
+  });
 
-    expect(createTestSession).toHaveBeenCalledWith();
-    expect(session).toEqual({ userId: 'test-user-id' });
+  it('認証セッションが null の場合は null を返す', async () => {
+    const auth = createAuth().mockResolvedValue(null);
+    const getSession = createSessionGetter({ auth });
+
+    expect(await getSession()).toBeNull();
+  });
+
+  it('認証セッションに user がない場合は null を返す', async () => {
+    const auth = createAuth().mockResolvedValue({
+      expires: new Date().toISOString(),
+    } as unknown as Session);
+    const getSession = createSessionGetter({ auth });
+
+    expect(await getSession()).toBeNull();
+  });
+
+  it('認証済みセッションを変換せずそのまま返す', async () => {
+    const mockSession: Session = {
+      user: { id: 'user-2', email: 'a@example.com', name: 'A', roles: ['viewer'] },
+      expires: '2026-06-01T00:00:00Z',
+    };
+    const auth = createAuth().mockResolvedValue(mockSession);
+    const getSession = createSessionGetter({ auth, defaultRoles: ['admin'] });
+
+    expect(await getSession()).toEqual(mockSession);
   });
 });
 

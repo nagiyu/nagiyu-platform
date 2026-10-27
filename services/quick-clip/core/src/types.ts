@@ -27,7 +27,9 @@ export type Job = {
   fileSize: number;
   // 動画の再生時間(秒)。Job Definition 選択の尺軸に使用する。取得できなかった場合は未設定
   durationSec?: number;
+  // 作成時刻 (ミリ秒)
   createdAt: number;
+  // 削除予定時刻 (ミリ秒)。保存時に TTL 属性 (エポック秒) へ変換される
   expiresAt: number;
   errorMessage?: string;
   analysisProgress?: AnalysisProgress;
@@ -42,8 +44,21 @@ export type Highlight = {
   source: HighlightSource;
   status: HighlightStatus;
   clipStatus: ClipStatus;
+  // clipStatus を GENERATING にした時刻 (ミリ秒)。Lambda が強制終了されて GENERATING のまま
+  // 残った見どころを、経過時間で見分けるために使う。この項目の導入前のデータには無い
+  clipGeneratingStartedAt?: number;
   dominantEmotion?: EmotionLabel;
+  // 削除予定時刻 (ミリ秒)。保存時に TTL 属性 (エポック秒) へ変換される
   expiresAt: number;
+};
+
+export type JobKey = {
+  jobId: string;
+};
+
+export type HighlightKey = {
+  jobId: string;
+  highlightId: string;
 };
 
 export type CreateJobInput = {
@@ -57,4 +72,5 @@ export type UpdateHighlightInput = {
   endSec?: number;
   status?: HighlightStatus;
   clipStatus?: ClipStatus;
+  clipGeneratingStartedAt?: number;
 };

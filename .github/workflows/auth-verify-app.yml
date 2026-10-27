@@ -83,18 +83,52 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/nextjs
+        run: npm run build:libs
 
       - name: Run unit tests (auth-core)
         run: npm run test --workspace @nagiyu/auth-core
 
       - name: Run unit tests (auth-web)
         run: npm run test --workspace @nagiyu/auth-web
+
+  contract-test:
+    name: Run Contract Tests (DynamoDB Local)
+    runs-on: ubuntu-latest
+    needs: [build]
+
+    services:
+      dynamodb-local:
+        image: amazon/dynamodb-local
+        ports:
+          - 8000:8000
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Build shared libraries
+        run: npm run build:libs
+
+      - name: Wait for DynamoDB Local
+        run: |
+          for i in $(seq 1 30); do
+            curl -s http://localhost:8000 >/dev/null 2>&1 && break
+            sleep 1
+          done
+
+      - name: Run contract tests
+        env:
+          DYNAMODB_ENDPOINT: http://localhost:8000
+          AWS_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+        run: npm run test:contract --workspace @nagiyu/auth-core
 
   # TODO: Uncomment when coverage check is implemented
   # coverage:
@@ -154,12 +188,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/nextjs
+        run: npm run build:libs
 
       - name: Build auth-core
         run: npm run build --workspace @nagiyu/auth-core
@@ -233,12 +262,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/nextjs
+        run: npm run build:libs
 
       - name: Build auth-core
         run: npm run build --workspace @nagiyu/auth-core
@@ -312,12 +336,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/nextjs
+        run: npm run build:libs
 
       - name: Build auth-core
         run: npm run build --workspace @nagiyu/auth-core
@@ -382,7 +401,7 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/auth-web'
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/aws,@nagiyu/nextjs,@nagiyu/auth-core'
+          shared-workspaces: '@nagiyu/auth-core'
 
   docker-build:
     name: Docker Build Verification
@@ -426,6 +445,7 @@ jobs:
         lint,
         format-check,
         unit-test,
+        contract-test,
         e2e-test-chromium-mobile,
         e2e-test-chromium-desktop,
         e2e-test-webkit-mobile,
@@ -449,6 +469,7 @@ jobs:
               'Lint': '${{ needs.lint.result }}',
               'Format Check': '${{ needs.format-check.result }}',
               'Unit Tests': '${{ needs.unit-test.result }}',
+              'Contract Tests': '${{ needs.contract-test.result }}',
               // TODO: Uncomment when coverage check is implemented
               // 'Coverage Check': '${{ needs.coverage.result }}',
               'E2E Tests (chromium-mobile)': '${{ needs.e2e-test-chromium-mobile.result }}',

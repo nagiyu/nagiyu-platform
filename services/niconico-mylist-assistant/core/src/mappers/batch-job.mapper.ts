@@ -1,172 +1,208 @@
 /**
  * NiconicoMylistAssistant Core - BatchJob Mapper
  *
- * BatchJobEntity ↔ DynamoDBItem の変換を担当
+ * BatchJobEntity ↔ DynamoDB Item の変換を担当
  */
 
-import type { DynamoDBItem, EntityMapper } from '@nagiyu/aws';
-import { validateStringField, validateTimestampField } from '@nagiyu/aws';
-import type {
-  BatchJobEntity,
-  BatchJobKey,
-  UpdateBatchJobInput,
-} from '../entities/batch-job.entity.js';
-import type { BatchStatus, BatchResult } from '../types/index.js';
+import {
+  InvalidEntityDataError,
+  TTL_ATTRIBUTE_NAME,
+  immutablePatchValue,
+  optionalPatchValue,
+  readAttribute,
+  readOptionalTimestamp,
+  readTimestamp,
+  requiredPatchValue,
+  toTtlSeconds,
+  validateEnumField,
+  validateStringField,
+  type DynamoDBAttributes,
+  type DynamoDBKey,
+  type EntityMapper,
+  type EntityPatch,
+} from '@nagiyu/aws';
+import type { PushSubscription } from '@nagiyu/common';
+import type { BatchJobEntity, BatchJobKey } from '../entities/batch-job.entity.js';
+import type { BatchResult, BatchStatus } from '../types/index.js';
+
+const ERROR_MESSAGES = {
+  RESULT_NOT_OBJECT: 'フィールド "Result" が不正です: オブジェクトである必要があります',
+  PUSH_SUBSCRIPTION_NOT_OBJECT:
+    'フィールド "PushSubscription" が不正です: オブジェクトである必要があります',
+  PUSH_SUBSCRIPTION_KEYS_NOT_OBJECT:
+    'フィールド "PushSubscription.keys" が不正です: オブジェクトである必要があります',
+} as const;
+
+const BATCH_STATUSES = [
+  'SUBMITTED',
+  'RUNNING',
+  'WAITING_FOR_2FA',
+  'SUCCEEDED',
+  'FAILED',
+] as const satisfies readonly BatchStatus[];
+
+/** ジョブの保存期間。完了後の結果を Web が照会できる猶予として 7 日残す */
+const BATCH_JOB_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 /**
  * BatchJob Mapper
  *
- * BatchJobEntity と DynamoDB Item 間の変換を行う
+ * BatchJobEntity と DynamoDB Item 間の変換を行う。
+ * 保存する属性名は PascalCase (頭字語は大文字のまま) で、旧データの camelCase の属性名も読める。
  */
 export class BatchJobMapper implements EntityMapper<BatchJobEntity, BatchJobKey> {
-  private readonly entityType = 'BATCH_JOB';
+  public readonly entityType = 'BATCH_JOB';
 
-  /**
-   * Entity を DynamoDB Item に変換
-   *
-   * @param entity - BatchJob Entity
-   * @returns DynamoDB Item
-   */
-  public toItem(entity: BatchJobEntity): DynamoDBItem {
-    const { pk, sk } = this.buildKeys({
-      jobId: entity.jobId,
-      userId: entity.userId,
-    });
-
-    const item: DynamoDBItem = {
-      PK: pk,
-      SK: sk,
-      Type: this.entityType,
-      jobId: entity.jobId,
-      userId: entity.userId,
-      status: entity.status,
-      CreatedAt: entity.CreatedAt,
-      UpdatedAt: entity.UpdatedAt,
-    };
-
-    if (entity.result !== undefined) {
-      item.result = entity.result;
-    }
-
-    if (entity.CompletedAt !== undefined) {
-      item.CompletedAt = entity.CompletedAt;
-    }
-
-    if (entity.twoFactorAuthCode !== undefined) {
-      item.twoFactorAuthCode = entity.twoFactorAuthCode;
-    }
-
-    if (entity.pushSubscription !== undefined) {
-      item.pushSubscription = entity.pushSubscription;
-    }
-
-    // TTL を設定（7日後）
-    const ttl = Math.floor(entity.CreatedAt / 1000) + 7 * 24 * 60 * 60;
-    item.TTL = ttl;
-
-    return item;
-  }
-
-  /**
-   * DynamoDB Item を Entity に変換
-   *
-   * @param item - DynamoDB Item
-   * @returns BatchJob Entity
-   */
-  public toEntity(item: DynamoDBItem): BatchJobEntity {
-    const entity: BatchJobEntity = {
-      jobId: validateStringField(item.jobId, 'jobId'),
-      userId: validateStringField(item.userId, 'userId'),
-      status: validateStringField(item.status, 'status') as BatchStatus,
-      CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
-      UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
-    };
-
-    if (item.result !== undefined) {
-      entity.result = item.result as BatchResult;
-    }
-
-    if (item.CompletedAt !== undefined) {
-      entity.CompletedAt = validateTimestampField(item.CompletedAt, 'CompletedAt');
-    }
-
-    if (item.twoFactorAuthCode !== undefined) {
-      entity.twoFactorAuthCode = validateStringField(item.twoFactorAuthCode, 'twoFactorAuthCode');
-    }
-
-    if (item.pushSubscription !== undefined) {
-      // pushSubscription の型と構造をバリデーション
-      if (
-        typeof item.pushSubscription !== 'object' ||
-        item.pushSubscription === null ||
-        Array.isArray(item.pushSubscription)
-      ) {
-        throw new Error('pushSubscription must be an object');
-      }
-
-      const subscription = item.pushSubscription as Record<string, unknown>;
-
-      // keys オブジェクトの検証
-      if (
-        typeof subscription.keys !== 'object' ||
-        subscription.keys === null ||
-        Array.isArray(subscription.keys)
-      ) {
-        throw new Error('pushSubscription.keys must be an object');
-      }
-
-      const keys = subscription.keys as Record<string, unknown>;
-
-      entity.pushSubscription = {
-        endpoint: validateStringField(subscription.endpoint, 'pushSubscription.endpoint'),
-        keys: {
-          p256dh: validateStringField(keys.p256dh, 'pushSubscription.keys.p256dh'),
-          auth: validateStringField(keys.auth, 'pushSubscription.keys.auth'),
-        },
-      };
-    }
-
-    return entity;
-  }
+  public readonly legacyAttributeNames = {
+    JobID: ['jobId'],
+    UserID: ['userId'],
+    Status: ['status'],
+    Result: ['result'],
+    TwoFactorAuthCode: ['twoFactorAuthCode'],
+    PushSubscription: ['pushSubscription'],
+  } as const;
 
   /**
    * ビジネスキーから PK/SK を構築
    *
    * @param key - BatchJob Key
-   * @returns PK と SK
+   * @returns DynamoDB の Key
    */
-  public buildKeys(key: BatchJobKey): { pk: string; sk: string } {
+  public buildKeys(key: BatchJobKey): DynamoDBKey {
     return {
-      pk: `USER#${key.userId}`,
-      sk: `BATCH_JOB#${key.jobId}`,
+      PK: `USER#${key.userId}`,
+      SK: `BATCH_JOB#${key.jobId}`,
+    };
+  }
+
+  public getKey(entity: BatchJobEntity): BatchJobKey {
+    return { jobId: entity.jobId, userId: entity.userId };
+  }
+
+  /**
+   * Entity を DynamoDB Item に変換
+   *
+   * TTL は作成日時から求める。作成日時は変更できないため、更新では書き換えない。
+   *
+   * @param entity - BatchJob Entity
+   * @returns DynamoDB Item
+   */
+  public toItem(entity: BatchJobEntity): DynamoDBAttributes {
+    const item: DynamoDBAttributes = {
+      ...this.buildKeys(this.getKey(entity)),
+      Type: this.entityType,
+      JobID: entity.jobId,
+      UserID: entity.userId,
+      Status: entity.status,
+      CreatedAt: entity.createdAt,
+      UpdatedAt: entity.updatedAt,
+      [TTL_ATTRIBUTE_NAME]: toTtlSeconds(entity.createdAt + BATCH_JOB_TTL_MS),
+    };
+
+    if (entity.result !== undefined) {
+      item.Result = entity.result;
+    }
+    if (entity.completedAt !== undefined) {
+      item.CompletedAt = entity.completedAt;
+    }
+    if (entity.twoFactorAuthCode !== undefined) {
+      item.TwoFactorAuthCode = entity.twoFactorAuthCode;
+    }
+    if (entity.pushSubscription !== undefined) {
+      item.PushSubscription = entity.pushSubscription;
+    }
+
+    return item;
+  }
+
+  /**
+   * Entity の部分を保存用の属性に変換
+   *
+   * jobId・userId・createdAt は作成後に変えられないため、含めると拒否する。
+   *
+   * @param changes - 変更する項目 (undefined は変更なし、null は属性削除)
+   * @returns 保存用の属性
+   * @throws InvalidEntityDataError 必須項目が null のとき、または変更不可の項目を含むとき
+   */
+  public toUpdateAttributes(changes: EntityPatch<BatchJobEntity>): DynamoDBAttributes {
+    return {
+      JobID: immutablePatchValue(changes.jobId, 'JobID'),
+      UserID: immutablePatchValue(changes.userId, 'UserID'),
+      CreatedAt: immutablePatchValue(changes.createdAt, 'CreatedAt'),
+      Status: requiredPatchValue(changes.status, 'Status'),
+      Result: optionalPatchValue(changes.result),
+      CompletedAt: optionalPatchValue(changes.completedAt),
+      TwoFactorAuthCode: optionalPatchValue(changes.twoFactorAuthCode),
+      PushSubscription: optionalPatchValue(changes.pushSubscription),
     };
   }
 
   /**
-   * UpdateInput から更新用の属性値を構築
+   * DynamoDB Item を Entity に変換
    *
-   * @param input - 更新入力
-   * @returns 更新属性値のマップ
+   * 新しい属性名を優先し、なければ旧名を読む。
+   *
+   * @param item - DynamoDB Item
+   * @returns BatchJob Entity
    */
-  public buildUpdateAttributes(input: UpdateBatchJobInput): Record<string, unknown> {
-    const now = Date.now();
-    const attributes: Record<string, unknown> = {
-      status: input.status,
-      UpdatedAt: now,
+  public toEntity(item: DynamoDBAttributes): BatchJobEntity {
+    const legacy = this.legacyAttributeNames;
+    const entity: BatchJobEntity = {
+      jobId: validateStringField(readAttribute(item, 'JobID', legacy.JobID), 'JobID'),
+      userId: validateStringField(readAttribute(item, 'UserID', legacy.UserID), 'UserID'),
+      status: validateEnumField(
+        readAttribute(item, 'Status', legacy.Status),
+        'Status',
+        BATCH_STATUSES
+      ),
+      createdAt: readTimestamp(item, 'CreatedAt'),
+      updatedAt: readTimestamp(item, 'UpdatedAt'),
     };
 
-    if (input.result !== undefined) {
-      attributes.result = input.result;
+    const result = readAttribute(item, 'Result', legacy.Result);
+    if (result !== undefined) {
+      if (!isRecord(result)) {
+        throw new InvalidEntityDataError(ERROR_MESSAGES.RESULT_NOT_OBJECT);
+      }
+      entity.result = result as unknown as BatchResult;
     }
 
-    if (input.completedAt !== undefined) {
-      attributes.CompletedAt = input.completedAt;
+    const completedAt = readOptionalTimestamp(item, 'CompletedAt');
+    if (completedAt !== undefined) {
+      entity.completedAt = completedAt;
     }
 
-    if (input.twoFactorAuthCode !== undefined) {
-      attributes.twoFactorAuthCode = input.twoFactorAuthCode;
+    const twoFactorAuthCode = readAttribute(item, 'TwoFactorAuthCode', legacy.TwoFactorAuthCode);
+    if (twoFactorAuthCode !== undefined) {
+      entity.twoFactorAuthCode = validateStringField(twoFactorAuthCode, 'TwoFactorAuthCode');
     }
 
-    return attributes;
+    const pushSubscription = readAttribute(item, 'PushSubscription', legacy.PushSubscription);
+    if (pushSubscription !== undefined) {
+      entity.pushSubscription = this.toPushSubscription(pushSubscription);
+    }
+
+    return entity;
+  }
+
+  private toPushSubscription(value: unknown): PushSubscription {
+    if (!isRecord(value)) {
+      throw new InvalidEntityDataError(ERROR_MESSAGES.PUSH_SUBSCRIPTION_NOT_OBJECT);
+    }
+    if (!isRecord(value.keys)) {
+      throw new InvalidEntityDataError(ERROR_MESSAGES.PUSH_SUBSCRIPTION_KEYS_NOT_OBJECT);
+    }
+
+    return {
+      endpoint: validateStringField(value.endpoint, 'PushSubscription.endpoint'),
+      keys: {
+        p256dh: validateStringField(value.keys.p256dh, 'PushSubscription.keys.p256dh'),
+        auth: validateStringField(value.keys.auth, 'PushSubscription.keys.auth'),
+      },
+    };
   }
 }

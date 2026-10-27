@@ -14,6 +14,7 @@
  * - 永続化はしない。Push のみ送信する（自己監視は履歴を残す対象ではない）
  * - 本流の CloudWatch Alarm は届かない（Topic が分離されているため）
  * - 署名が正しくても送信元 Topic は任意のため、`SNS_ALLOWED_TOPIC_ARN` 以外の Topic からのメッセージは 403 で拒否する
+ * - SubscriptionConfirmation の SubscribeURL は AWS SNS の確認用 URL (https かつ sns.{region}.amazonaws.com) のときだけ取得し、それ以外は 400 で拒否する
  * - 関連設計: `tasks/persist-error-notifications/design.md` セクション 4
  */
 
@@ -21,12 +22,13 @@ import { NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import {
   createPushSubscriptionRepository,
+  isSnsSubscribeUrl,
   validateSnsMessage,
   WebPushSender,
   type PushNotificationPayload,
 } from '@nagiyu/admin-core';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
-import { createErrorResponse } from '@nagiyu/nextjs';
+import { createErrorResponse, readJsonObjectBody } from '@nagiyu/nextjs';
 
 const ERROR_MESSAGES = {
   INVALID_REQUEST: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
@@ -34,6 +36,7 @@ const ERROR_MESSAGES = {
   TOPIC_NOT_ALLOWED: '許可されていない SNS トピックからのメッセージです',
   ALLOWED_TOPIC_NOT_CONFIGURED:
     'SNS_ALLOWED_TOPIC_ARN が設定されていないため、メッセージを拒否しました',
+  INVALID_SUBSCRIBE_URL: 'SubscribeURL が AWS SNS の確認用 URL ではないため、取得を拒否しました',
   INTERNAL_ERROR: 'SNS 通知処理に失敗しました',
   DYNAMODB_TABLE_NAME_REQUIRED: 'DYNAMODB_TABLE_NAME が設定されていません',
 } as const;
@@ -43,6 +46,18 @@ type SnsNotificationMessage = {
   NewStateValue?: string;
   NewStateReason?: string;
 };
+
+function getUrlHost(url: unknown): string | undefined {
+  if (typeof url !== 'string') {
+    return undefined;
+  }
+
+  try {
+    return new URL(url).host;
+  } catch {
+    return undefined;
+  }
+}
 
 function getRepository() {
   const docClient =
@@ -96,13 +111,20 @@ function createNotificationPayload(subject?: string, rawMessage?: string): PushN
   };
 }
 
+/**
+ * 自己監視の経路であり、error-events テーブルや stream-handler の障害を、それらを通らずに通知するために使う。
+ * ここから reportErrorEvent で報告すると監視対象に依存し、SNS の再送で重複もするため報告しない。
+ */
 export async function POST(request: Request): Promise<NextResponse> {
   try {
-    const body = await request.json();
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
+    }
 
     let message;
     try {
-      message = await validateSnsMessage(body);
+      message = await validateSnsMessage(bodyResult.body);
     } catch {
       return createErrorResponse(401, 'UNAUTHORIZED', ERROR_MESSAGES.INVALID_SIGNATURE);
     }
@@ -126,9 +148,17 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     if (message.Type === 'SubscriptionConfirmation') {
-      if (typeof message.SubscribeURL === 'string') {
-        await fetch(message.SubscribeURL);
+      if (!isSnsSubscribeUrl(message.SubscribeURL)) {
+        // URL 全体には確認用 Token が含まれるため、ログにはホストのみを載せる
+        console.warn(ERROR_MESSAGES.INVALID_SUBSCRIBE_URL, {
+          topicArn: message.TopicArn,
+          host: getUrlHost(message.SubscribeURL),
+        });
+        return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_SUBSCRIBE_URL);
       }
+
+      // リダイレクトで AWS SNS 以外の宛先へ飛ばされないようにする
+      await fetch(message.SubscribeURL, { redirect: 'error' });
 
       return NextResponse.json({ success: true }, { status: 200 });
     }
@@ -145,10 +175,6 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     return NextResponse.json({ success: true, ...sendResult }, { status: 200 });
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
-    }
-
     console.error('SNS 通知受信 API の実行に失敗しました', { error });
     return createErrorResponse(500, 'INTERNAL_ERROR', ERROR_MESSAGES.INTERNAL_ERROR);
   }

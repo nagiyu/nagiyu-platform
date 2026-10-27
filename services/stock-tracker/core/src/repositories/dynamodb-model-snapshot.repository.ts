@@ -3,68 +3,61 @@
  *
  * DynamoDBを使用したModelSnapshotRepositoryの実装
  */
-import {
-  GetCommand,
-  PutCommand,
-  QueryCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
+import { QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
   DatabaseError,
-  isConditionalCheckFailed,
+  DynamoDBEntityStore,
+  EntityAlreadyExistsError,
   toDatabaseError,
-  type DynamoDBItem,
+  type EntityStore,
 } from '@nagiyu/aws';
 import type {
   CreateModelSnapshotResult,
   ModelSnapshotRepository,
 } from './model-snapshot.repository.interface.js';
+import type { ModelSnapshotKey } from '../entities/model-snapshot.entity.js';
 import type { Market, ModelSnapshotItem, Question } from '../forecast/index.js';
-import { ModelSnapshotMapper } from '../mappers/model-snapshot.mapper.js';
+import {
+  ModelSnapshotMapper,
+  buildModelSnapshotPk,
+  buildModelSnapshotSk,
+} from '../mappers/model-snapshot.mapper.js';
 
 /**
  * DynamoDB ModelSnapshot Repository
  *
- * DynamoDBを使用したモデルスナップショットリポジトリの実装
+ * 単一アイテムの作成・取得は EntityStore に任せ、直前のスナップショットを探す Query だけを自前で持つ
  */
 export class DynamoDBModelSnapshotRepository implements ModelSnapshotRepository {
-  private readonly mapper: ModelSnapshotMapper;
   private readonly docClient: DynamoDBDocumentClient;
   private readonly tableName: string;
+  private readonly mapper = new ModelSnapshotMapper();
+  private readonly entityStore: EntityStore<ModelSnapshotItem, ModelSnapshotKey>;
 
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
     this.docClient = docClient;
     this.tableName = tableName;
-    this.mapper = new ModelSnapshotMapper();
+    this.entityStore = new DynamoDBEntityStore(docClient, tableName, this.mapper);
   }
 
   /**
-   * ModelSnapshot を条件付きで新規作成する（`attribute_not_exists(PK)`）
+   * ModelSnapshot を新規作成する。既に存在する場合は書き込まず、既存のアイテムを返す
    */
   public async createIfAbsent(item: ModelSnapshotItem): Promise<CreateModelSnapshotResult> {
     try {
-      const dbItem = this.mapper.toItem(item);
-
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: dbItem,
-          ConditionExpression: 'attribute_not_exists(PK)',
-        })
-      );
-
-      return { item: this.mapper.toEntity(dbItem), created: true };
+      return { item: await this.entityStore.create(item), created: true };
     } catch (error) {
-      if (isConditionalCheckFailed(error)) {
-        const existing = await this.getByDate(item.question, item.market, item.date);
+      if (error instanceof EntityAlreadyExistsError) {
+        const existing = await this.entityStore.get(this.mapper.getKey(item));
         if (!existing) {
           throw new DatabaseError(
-            'ModelSnapshot の作成に失敗しましたが、既存アイテムが見つかりません'
+            'ModelSnapshot の作成に失敗しましたが、既存アイテムが見つかりません',
+            error
           );
         }
         return { item: existing, created: false };
       }
-      throw toDatabaseError(error);
+      throw error;
     }
   }
 
@@ -76,30 +69,13 @@ export class DynamoDBModelSnapshotRepository implements ModelSnapshotRepository 
     market: Market,
     date: string
   ): Promise<ModelSnapshotItem | null> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys({ question, market, date });
-
-      const result = await this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-        })
-      );
-
-      if (!result.Item) {
-        return null;
-      }
-
-      return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
-    } catch (error) {
-      throw toDatabaseError(error);
-    }
+    return this.entityStore.get({ question, market, date });
   }
 
   /**
    * 問い・市場について、指定日より前の最新の ModelSnapshot を取得する
    *
-   * SK（`DATE#{Date}`）降順・Limit 1 の Query で最新 1 件だけを取得する。
+   * SK 降順・Limit 1 の Query で最新 1 件だけを取得する。
    */
   public async getLatestBefore(
     question: Question,
@@ -107,20 +83,21 @@ export class DynamoDBModelSnapshotRepository implements ModelSnapshotRepository 
     date: string
   ): Promise<ModelSnapshotItem | null> {
     try {
-      const { pk } = this.mapper.buildKeys({ question, market, date });
-
       const result = await this.docClient.send(
         new QueryCommand({
           TableName: this.tableName,
           KeyConditionExpression: '#pk = :pk AND #sk < :date',
           ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
-          ExpressionAttributeValues: { ':pk': pk, ':date': `DATE#${date}` },
+          ExpressionAttributeValues: {
+            ':pk': buildModelSnapshotPk(question, market),
+            ':date': buildModelSnapshotSk(date),
+          },
           ScanIndexForward: false,
           Limit: 1,
         })
       );
 
-      const items = (result.Items as DynamoDBItem[] | undefined) ?? [];
+      const items = result.Items ?? [];
       if (items.length === 0) {
         return null;
       }

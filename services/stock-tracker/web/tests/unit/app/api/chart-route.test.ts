@@ -1,5 +1,11 @@
 import { NextRequest } from 'next/server';
+import * as awsModule from '@nagiyu/aws';
 import { GET } from '../../../../app/api/chart/[tickerId]/route';
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
 
 jest.mock('@nagiyu/stock-tracker-core', () => ({
   getChartData: jest.fn(),
@@ -12,6 +18,7 @@ jest.mock('@nagiyu/stock-tracker-core', () => ({
 }));
 
 jest.mock('@nagiyu/nextjs', () => ({
+  createApiErrorReporting: jest.requireActual('@nagiyu/nextjs').createApiErrorReporting,
   getAuthError: jest.fn(),
 }));
 
@@ -40,13 +47,10 @@ describe('/api/chart/[tickerId] GET', () => {
     jest.clearAllMocks();
     mockedGetSession.mockResolvedValue({
       user: {
-        userId: 'test-user',
-        googleId: 'g',
+        id: 'test-user',
         email: 'test@example.com',
         name: 'Test',
         roles: ['stock-user'],
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
       },
       expires: '2026-12-31T00:00:00.000Z',
     });
@@ -58,7 +62,7 @@ describe('/api/chart/[tickerId] GET', () => {
 
   it('保有がある場合は holdingAveragePrice を返す', async () => {
     mockedCreateHoldingRepository.mockReturnValue({
-      getById: jest.fn().mockResolvedValue({ Quantity: 10, AveragePrice: 200 }),
+      getById: jest.fn().mockResolvedValue({ quantity: 10, averagePrice: 200 }),
     } as never);
 
     const response = await GET(
@@ -108,6 +112,55 @@ describe('/api/chart/[tickerId] GET', () => {
     expect(body.data).toHaveLength(1);
     expect(body.holdingAveragePrice).toBeUndefined();
     expect(consoleErrorSpy).toHaveBeenCalled();
+    expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: チャートの保有情報取得エラー',
+        message: 'holding failed',
+      })
+    );
     consoleErrorSpy.mockRestore();
+  });
+
+  it('想定外のエラーは 500 を返して報告する', async () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockedGetChartData.mockRejectedValue(new Error('unexpected failure'));
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/chart/NSDQ:NVDA?timeframe=60'),
+      {
+        params: Promise.resolve({ tickerId: 'NSDQ:NVDA' }),
+      }
+    );
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: 'INTERNAL_ERROR',
+      message: 'チャートデータの取得に失敗しました',
+    });
+    expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: チャートデータ取得エラー',
+        message: 'unexpected failure',
+      })
+    );
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('TradingView のタイムアウトは 504 を返し、報告しない', async () => {
+    mockedGetChartData.mockRejectedValue(new Error('timeout'));
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/chart/NSDQ:NVDA?timeframe=60'),
+      {
+        params: Promise.resolve({ tickerId: 'NSDQ:NVDA' }),
+      }
+    );
+
+    expect(response.status).toBe(504);
+    expect(awsModule.reportErrorEvent).not.toHaveBeenCalled();
   });
 });

@@ -59,12 +59,12 @@ describe('acquireAllUsers', () => {
         const key = `${userId}:${characterId}`;
         if (key in overrides) return Promise.resolve(overrides[key]);
         return Promise.resolve({
-          Bedtime: '01:30',
-          WakeUpTime: '09:30',
-          UserID: userId,
-          CharacterID: characterId,
-          CreatedAt: 0,
-          UpdatedAt: 0,
+          bedtime: '01:30',
+          wakeUpTime: '09:30',
+          userId,
+          characterId,
+          createdAt: 0,
+          updatedAt: 0,
         });
       }),
   });

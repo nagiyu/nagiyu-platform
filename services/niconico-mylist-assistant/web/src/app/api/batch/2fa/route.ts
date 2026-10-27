@@ -4,16 +4,10 @@ import {
   getBatchJob,
   TWO_FACTOR_AUTH_CODE_REGEX,
 } from '@nagiyu/niconico-mylist-assistant-core';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
-
-/**
- * 二段階認証コード登録リクエスト
- */
-interface TwoFactorAuthRequest {
-  jobId: string;
-  code: string;
-}
+import { createWithApiErrorReportingBody } from '@/lib/api-error-reporting';
 
 /**
  * 二段階認証コード登録 API
@@ -24,8 +18,16 @@ interface TwoFactorAuthRequest {
  * @param request - Next.js リクエストオブジェクト
  * @returns 成功レスポンスまたはエラーレスポンス
  */
-export async function POST(request: NextRequest) {
-  try {
+const withApiErrorReporting = createWithApiErrorReportingBody('二段階認証コード登録エラー:', {
+  error: {
+    code: 'DATABASE_ERROR',
+    message: 'データベースへのアクセスに失敗しました',
+  },
+});
+
+export const POST = withApiErrorReporting(
+  'Web API: 二段階認証コード登録エラー',
+  async (request: NextRequest) => {
     // 認証チェック
     const session = await getSession();
     if (!session?.user) {
@@ -41,8 +43,20 @@ export async function POST(request: NextRequest) {
     }
 
     // リクエストボディを取得
-    const body: TwoFactorAuthRequest = await request.json();
-    const { jobId, code } = body;
+    const bodyResult = await readJsonObjectBody(request);
+    if (!bodyResult.ok) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    const { jobId, code } = bodyResult.body;
 
     // バリデーション
     if (!jobId || !code) {
@@ -57,8 +71,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (typeof jobId !== 'string') {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.JOB_ID_MUST_BE_STRING,
+          },
+        },
+        { status: 400 }
+      );
+    }
+
     // 二段階認証コードの形式チェック（6桁の数字）
-    if (!TWO_FACTOR_AUTH_CODE_REGEX.test(code)) {
+    // 正規表現は引数を文字列へ変換して判定するため、文字列以外 (例: 数値 123456) を通さないよう型も確かめる
+    if (typeof code !== 'string' || !TWO_FACTOR_AUTH_CODE_REGEX.test(code)) {
       return NextResponse.json(
         {
           error: {
@@ -71,7 +98,7 @@ export async function POST(request: NextRequest) {
     }
 
     // バッチジョブの存在確認
-    const batchJob = await getBatchJob(jobId, session.user.userId);
+    const batchJob = await getBatchJob(jobId, session.user.id);
 
     if (!batchJob) {
       return NextResponse.json(
@@ -99,7 +126,7 @@ export async function POST(request: NextRequest) {
     }
 
     // バッチジョブに二段階認証コードを登録
-    await updateBatchJob(jobId, session.user.userId, {
+    await updateBatchJob(jobId, session.user.id, {
       status: 'WAITING_FOR_2FA', // ステータスは変更しない
       twoFactorAuthCode: code,
     });
@@ -108,16 +135,5 @@ export async function POST(request: NextRequest) {
       success: true,
       message: '二段階認証コードを登録しました',
     });
-  } catch (error) {
-    console.error('二段階認証コード登録エラー:', error);
-    return NextResponse.json(
-      {
-        error: {
-          code: 'DATABASE_ERROR',
-          message: 'データベースへのアクセスに失敗しました',
-        },
-      },
-      { status: 500 }
-    );
   }
-}
+);

@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { getAwsClients, createPresignedDownloadUrl } from '@nagiyu/aws';
-import { type Job } from '@nagiyu/codec-converter-core';
-import type { ErrorResponse } from '@nagiyu/common';
+import { DynamoDBJobRepository, type Job } from '@nagiyu/codec-converter-core';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 
 // Presigned URLの有効期限（24時間 = 86400秒）
 const PRESIGNED_URL_EXPIRES_IN = 86400;
@@ -13,7 +12,7 @@ const PRESIGNED_URL_EXPIRES_IN = 86400;
  */
 function getEnvVars() {
   return {
-    DYNAMODB_TABLE: process.env.DYNAMODB_TABLE || '',
+    DYNAMODB_TABLE_NAME: process.env.DYNAMODB_TABLE_NAME || '',
     S3_BUCKET: process.env.S3_BUCKET || '',
     AWS_REGION: process.env.AWS_REGION || 'us-east-1',
   };
@@ -30,27 +29,19 @@ interface GetJobResponse extends Job {
  * GET /api/jobs/{jobId}
  * ジョブステータスとダウンロードURL（COMPLETED時のみ）を取得
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ jobId: string }> }
-): Promise<NextResponse<GetJobResponse | ErrorResponse>> {
-  try {
+export const GET = withApiErrorReporting(
+  'Web API: ジョブ取得エラー',
+  async (request: NextRequest, { params }: { params: Promise<{ jobId: string }> }) => {
     // パスパラメータの取得
     const { jobId } = await params;
 
     // AWS クライアントと環境変数の取得
-    const { DYNAMODB_TABLE, S3_BUCKET, AWS_REGION } = getEnvVars();
+    const { DYNAMODB_TABLE_NAME, S3_BUCKET, AWS_REGION } = getEnvVars();
     const { docClient, s3Client } = getAwsClients(AWS_REGION);
 
-    // DynamoDBでジョブを取得
-    const getResult = await docClient.send(
-      new GetCommand({
-        TableName: DYNAMODB_TABLE,
-        Key: { jobId },
-      })
-    );
+    const job = await new DynamoDBJobRepository(docClient, DYNAMODB_TABLE_NAME).getById(jobId);
 
-    if (!getResult.Item) {
+    if (!job) {
       return NextResponse.json(
         {
           error: 'JOB_NOT_FOUND',
@@ -59,8 +50,6 @@ export async function GET(
         { status: 404 }
       );
     }
-
-    const job = getResult.Item as Job;
 
     // ジョブステータスがCOMPLETEDの場合、ダウンロード用Presigned URLを生成
     let downloadUrl: string | undefined;
@@ -76,21 +65,11 @@ export async function GET(
     }
 
     // レスポンスを返却
-    return NextResponse.json(
-      {
-        ...job,
-        ...(downloadUrl && { downloadUrl }),
-      },
-      { status: 200 }
-    );
-  } catch (error) {
-    console.error('Error getting job:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_SERVER_ERROR',
-        message: ERROR_MESSAGES.JOB_FETCH_FAILED,
-      },
-      { status: 500 }
-    );
-  }
-}
+    const response: GetJobResponse = {
+      ...job,
+      ...(downloadUrl && { downloadUrl }),
+    };
+    return NextResponse.json(response, { status: 200 });
+  },
+  ERROR_MESSAGES.JOB_FETCH_FAILED
+);

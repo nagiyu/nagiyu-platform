@@ -2,7 +2,6 @@
  * Pagination Helper for Next.js API Routes
  *
  * Provides pagination utilities for Next.js API Routes.
- * Based on Stock Tracker's pagination implementation.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -13,7 +12,8 @@ import type { PaginatedResponse } from '@nagiyu/common';
  */
 export interface PaginationParams {
   limit: number;
-  lastKey?: Record<string, unknown>;
+  /** クエリ `lastKey` の生の文字列。リポジトリの `PaginationOptions.cursor` にそのまま渡せる */
+  cursor?: string;
 }
 
 /**
@@ -43,17 +43,18 @@ export class PaginationValidationError extends Error {
 /**
  * ページネーションパラメータをパース
  *
- * Stock Tracker の実装を標準化
+ * cursor はデコードせず生の文字列で返す。エンコード形式はリポジトリ側が持つため、
+ * ここで解釈すると二重に変換することになる。
  *
  * @param request - Next.js リクエストオブジェクト
- * @returns ページネーションパラメータ
+ * @returns ページネーションパラメータ (リポジトリの `PaginationOptions` としてそのまま渡せる)
  * @throws limit が無効な場合（1-100の範囲外）
  *
  * @example
  * ```typescript
  * export async function GET(request: NextRequest) {
- *   const { limit, lastKey } = parsePagination(request);
- *   const result = await repository.list({ limit, cursor: lastKey });
+ *   const pagination = parsePagination(request);
+ *   const result = await repository.getByUserId(userId, pagination);
  *   return createPaginatedResponse(result.items, result.nextCursor);
  * }
  * ```
@@ -72,46 +73,31 @@ export function parsePagination(request: NextRequest): PaginationParams {
     );
   }
 
-  // lastKey のデコード (base64)
-  let lastKey: Record<string, unknown> | undefined;
-  if (lastKeyParam) {
-    try {
-      lastKey = JSON.parse(Buffer.from(lastKeyParam, 'base64').toString('utf-8'));
-    } catch {
-      // 無効な lastKey は無視
-      lastKey = undefined;
-    }
-  }
-
-  return { limit, lastKey };
+  return { limit, cursor: lastKeyParam || undefined };
 }
 
 /**
  * ページネーション付きレスポンスを作成
  *
  * @param items - レスポンスアイテムの配列
- * @param lastKey - 次のページのキー（オプション）
+ * @param lastKey - 次のページのキー (リポジトリが返すエンコード済みの文字列をそのまま渡す)
  * @returns ページネーション情報を含むレスポンス
  *
  * @example
  * ```typescript
- * const result = await repository.list({ limit: 50 });
+ * const result = await repository.getByUserId(userId, { limit: 50 });
  * return createPaginatedResponse(result.items, result.nextCursor);
  * ```
  */
 export function createPaginatedResponse<T>(
   items: T[],
-  lastKey?: Record<string, unknown>
+  lastKey?: string
 ): NextResponse<PaginatedResponse<T>> {
-  const encodedLastKey = lastKey
-    ? Buffer.from(JSON.stringify(lastKey)).toString('base64')
-    : undefined;
-
   return NextResponse.json({
     items,
     pagination: {
       count: items.length,
-      ...(encodedLastKey && { lastKey: encodedLastKey }),
+      ...(lastKey && { lastKey }),
     },
   });
 }

@@ -10,11 +10,13 @@ import {
   Typography,
 } from '@mui/material';
 import { hasPermission } from '@nagiyu/common';
+import { AccessDeniedView } from '@nagiyu/ui';
 import type { ErrorSeverity } from '@nagiyu/common';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { createErrorEventReader } from '@nagiyu/admin-core';
 import { notFound, redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth/session';
+import { parseOccurredAtParam } from '@/lib/errors/occurred-at';
 
 const ERROR_MESSAGES = {
   ERROR_EVENTS_TABLE_NAME_REQUIRED: 'ERROR_EVENTS_TABLE_NAME が設定されていません',
@@ -43,8 +45,8 @@ function getReader() {
   return createErrorEventReader(docClient, tableName);
 }
 
-function formatJst(iso: string): string {
-  const date = new Date(iso);
+function formatJst(millis: number): string {
+  const date = new Date(millis);
   return new Intl.DateTimeFormat('ja-JP', {
     timeZone: 'Asia/Tokyo',
     year: 'numeric',
@@ -84,21 +86,18 @@ export default async function ErrorDetailPage({
 
   if (!hasPermission(session.user.roles, 'errors:read')) {
     return (
-      <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          エラー詳細
-        </Typography>
-        <Typography color="error">この画面を表示する権限がありません</Typography>
-      </Box>
+      <AccessDeniedView
+        authUrl={process.env.NEXT_PUBLIC_AUTH_URL || process.env.NEXTAUTH_URL || ''}
+      />
     );
   }
 
   const { eventId } = await params;
   const sp = (await searchParams) ?? {};
-  const occurredAt = sp.at;
+  const occurredAt = parseOccurredAtParam(sp.at);
   const serviceId = sp.serviceId;
 
-  if (!occurredAt || !serviceId) {
+  if (occurredAt === null || !serviceId) {
     notFound();
   }
 
@@ -119,7 +118,7 @@ export default async function ErrorDetailPage({
 
       <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 2, mb: 2 }}>
         <Chip label={event.severity} size="small" color={SEVERITY_COLORS[event.severity]} />
-        <Typography variant="h5" component="h1">
+        <Typography variant="h5" component="h1" sx={{ minWidth: 0, overflowWrap: 'anywhere' }}>
           {event.title}
         </Typography>
       </Box>
@@ -142,13 +141,17 @@ export default async function ErrorDetailPage({
               <Typography variant="body2" color="text.secondary" sx={{ minWidth: 120 }}>
                 serviceId
               </Typography>
-              <Typography variant="body2">{event.serviceId}</Typography>
+              <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+                {event.serviceId}
+              </Typography>
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'row', gap: 2 }}>
               <Typography variant="body2" color="text.secondary" sx={{ minWidth: 120 }}>
                 source
               </Typography>
-              <Typography variant="body2">{event.source}</Typography>
+              <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+                {event.source}
+              </Typography>
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'row', gap: 2 }}>
               <Typography variant="body2" color="text.secondary" sx={{ minWidth: 120 }}>
@@ -160,7 +163,7 @@ export default async function ErrorDetailPage({
               <Typography variant="body2" color="text.secondary" sx={{ minWidth: 120 }}>
                 発生時刻 (UTC)
               </Typography>
-              <Typography variant="body2">{event.occurredAt}</Typography>
+              <Typography variant="body2">{new Date(event.occurredAt).toISOString()}</Typography>
             </Box>
           </Box>
         </CardContent>
@@ -174,7 +177,7 @@ export default async function ErrorDetailPage({
           <Typography
             variant="body2"
             component="pre"
-            sx={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', m: 0 }}
+            sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontFamily: 'inherit', m: 0 }}
           >
             {event.message}
           </Typography>

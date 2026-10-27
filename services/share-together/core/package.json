@@ -10,12 +10,17 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "lint": "eslint src/**/*.ts",
+    "test:contract": "jest --config jest.contract.config.ts",
+    "lint": "eslint 'src/**/*.ts'",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
   "dependencies": {
     "@nagiyu/aws": "*",
     "@nagiyu/common": "*"
+  },
+  "devDependencies": {
+    "aws-cdk-lib": "^2.273.0",
+    "constructs": "^10.6.0"
   }
 }

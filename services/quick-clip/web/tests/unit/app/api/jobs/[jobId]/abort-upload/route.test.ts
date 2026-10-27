@@ -1,5 +1,11 @@
+import { reportErrorEvent } from '@nagiyu/aws';
 import { getS3Client } from '@/lib/server/aws';
 import { POST } from '@/app/api/jobs/[jobId]/abort-upload/route';
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
 
 jest.mock('@/lib/server/aws', () => ({
   getBucketName: jest.fn(() => 'test-bucket'),
@@ -90,9 +96,42 @@ describe('POST /api/jobs/[jobId]/abort-upload', () => {
       error: 'INTERNAL_SERVER_ERROR',
       message: 'アップロード中断処理に失敗しました',
     });
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '[POST /api/jobs/[jobId]/abort-upload] アップロード中断処理に失敗しました',
-      abortError
+    expect(consoleErrorSpy).toHaveBeenCalledWith('[Web API: アップロード中断エラー]', abortError);
+    expect(reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'quick-clip',
+        severity: 'error',
+        title: 'Web API: アップロード中断エラー',
+      })
     );
+  });
+
+  const createBrokenJsonRequest = (): Request =>
+    ({
+      json: async () => {
+        throw new SyntaxError('Unexpected token');
+      },
+    }) as unknown as Request;
+
+  it.each([
+    ['壊れた JSON', () => createBrokenJsonRequest()],
+    ['null', () => createRequest(null)],
+    ['配列', () => createRequest([{ uploadId: 'upload-1' }])],
+    ['文字列', () => createRequest('upload-1')],
+    ['uploadId が数値', () => createRequest({ uploadId: 1 })],
+    ['uploadId が null', () => createRequest({ uploadId: null })],
+  ])('異常系: %s の場合は 400 を返し、S3 を呼ばない', async (_label, buildRequest) => {
+    const response = await POST(buildRequest(), {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      error: 'INVALID_REQUEST',
+      message: 'リクエストが不正です',
+    });
+    expect(s3Send).not.toHaveBeenCalled();
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
   });
 });

@@ -86,9 +86,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        uses: ./.github/actions/build-shared-workspaces
-        with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/aws'
+        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/share-together-core
@@ -106,7 +104,7 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/share-together-web'
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/aws,@nagiyu/share-together-core'
+          shared-workspaces: '@nagiyu/share-together-core'
 
   docker-build:
     name: Docker Build Web
@@ -157,15 +155,55 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        uses: ./.github/actions/build-shared-workspaces
-        with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/aws'
+        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/share-together-core
 
       - name: Run core tests
         run: npm run test --workspace=@nagiyu/share-together-core
+
+  contract-test:
+    name: Run Contract Tests (DynamoDB Local)
+    runs-on: ubuntu-latest
+    needs: [build-core]
+
+    services:
+      dynamodb-local:
+        image: amazon/dynamodb-local
+        ports:
+          - 8000:8000
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Build shared libraries
+        run: npm run build:libs
+
+      - name: Build core package
+        run: npm run build --workspace=@nagiyu/share-together-core
+
+      - name: Wait for DynamoDB Local
+        run: |
+          for i in $(seq 1 30); do
+            curl -s http://localhost:8000 >/dev/null 2>&1 && break
+            sleep 1
+          done
+
+      - name: Run contract tests
+        env:
+          DYNAMODB_ENDPOINT: http://localhost:8000
+          AWS_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+        run: npm run test:contract --workspace=@nagiyu/share-together-core
 
   test-web:
     name: Web Unit Tests
@@ -183,9 +221,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        uses: ./.github/actions/build-shared-workspaces
-        with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/aws'
+        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/share-together-core
@@ -210,9 +246,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        uses: ./.github/actions/build-shared-workspaces
-        with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/aws'
+        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/share-together-core
@@ -241,9 +275,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        uses: ./.github/actions/build-shared-workspaces
-        with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/aws'
+        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/share-together-core
@@ -315,9 +347,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        uses: ./.github/actions/build-shared-workspaces
-        with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/aws'
+        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/share-together-core
@@ -389,9 +419,7 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        uses: ./.github/actions/build-shared-workspaces
-        with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/aws'
+        run: npm run build:libs
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/share-together-core
@@ -478,6 +506,7 @@ jobs:
         docker-build,
         test-core,
         test-web,
+        contract-test,
         coverage,
         e2e-test-web-chromium-mobile,
         e2e-test-web-chromium-desktop,
@@ -503,6 +532,7 @@ jobs:
               'Docker Build': '${{ needs.docker-build.result }}',
               'Core Unit Tests': '${{ needs.test-core.result }}',
               'Web Unit Tests': '${{ needs.test-web.result }}',
+              'Contract Tests (DynamoDB Local)': '${{ needs.contract-test.result }}',
               'Coverage (80%)': '${{ needs.coverage.result }}',
               'E2E Tests (chromium-mobile)': '${{ needs.e2e-test-web-chromium-mobile.result }}',
               'E2E Tests (chromium-desktop)': '${{ needs.e2e-test-web-chromium-desktop.result }}',

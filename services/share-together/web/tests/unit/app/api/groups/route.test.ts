@@ -59,6 +59,12 @@ const mockDynamoDBMembershipRepository = DynamoDBMembershipRepository as jest.Mo
 const mockCreateGroup = createGroup as jest.MockedFunction<typeof createGroup>;
 type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 
+import {
+  createRequestWithJson,
+  MALFORMED_BODY_CASES,
+  type InvalidBodyCase,
+} from '../invalidBodyCases';
+
 describe('/api/groups route', () => {
   const mockSend = jest.fn();
   const mockBatchGetByIds = jest.fn();
@@ -120,15 +126,15 @@ describe('/api/groups route', () => {
         groupId: 'group-1',
         name: 'オーナーグループ',
         ownerUserId: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       },
       {
         groupId: 'group-2',
         name: '参加中グループ',
         ownerUserId: 'user-2',
-        createdAt: '2026-01-02T00:00:00.000Z',
-        updatedAt: '2026-01-02T00:00:00.000Z',
+        createdAt: 1767312000000,
+        updatedAt: 1767312000000,
       },
     ]);
 
@@ -157,16 +163,16 @@ describe('/api/groups route', () => {
         groupId: 'group-99',
         name: '新規グループ',
         ownerUserId: 'owner-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       },
       ownerMembership: {
         groupId: 'group-99',
         userId: 'owner-1',
         role: 'OWNER',
         status: 'ACCEPTED',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
+        createdAt: 1767225600000,
+        updatedAt: 1767225600000,
       },
     });
 
@@ -233,4 +239,19 @@ describe('/api/groups route', () => {
       expect.objectContaining({ serviceId: 'share-together', severity: 'error' })
     );
   });
+
+  it.each<InvalidBodyCase>([...MALFORMED_BODY_CASES, ['name が数値', async () => ({ name: 123 })]])(
+    'POST: リクエストボディが不正な場合 (%s) は400を返す',
+    async (_label, json) => {
+      mockGetSessionOrUnauthorized.mockResolvedValue({
+        user: { id: 'owner-1' },
+      } as SessionOrUnauthorized);
+
+      const response = await POST(createRequestWithJson(json));
+
+      expect(response.status).toBe(400);
+      expect(mockCreateGroup).not.toHaveBeenCalled();
+      expect(mockReportErrorEvent).not.toHaveBeenCalled();
+    }
+  );
 });

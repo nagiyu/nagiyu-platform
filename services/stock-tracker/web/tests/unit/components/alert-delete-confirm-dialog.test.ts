@@ -16,6 +16,7 @@ jest.mock('@mui/material', () => {
     DialogTitle: createComponent('h2'),
     DialogContent: createComponent('div'),
     DialogActions: createComponent('div'),
+    DialogContentText: createComponent('p'),
     Button: createComponent('button'),
     Typography: createComponent('span'),
     Box: createComponent('div'),

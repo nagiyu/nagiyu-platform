@@ -15,39 +15,36 @@ const mockGetTopicRepository = getTopicRepository as jest.MockedFunction<typeof 
 
 const session = {
   user: {
-    userId: 'u1',
-    googleId: 'g1',
+    id: 'u1',
     email: 'u@example.com',
     name: 'U',
     roles: ['livetalk-user'],
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
   },
   expires: new Date(Date.now() + 60_000).toISOString(),
 };
 
 const makeTopic = (over: Partial<TopicEntity> = {}): TopicEntity => ({
-  UserID: 'g1',
-  CharacterID: 'hiyori',
-  TopicID: 't1',
-  Subject: '好きな食べ物',
-  CanonicalSummary: '',
-  Category: 'preference',
-  Care: 1,
-  Embedding: [],
-  CreatedAt: 1,
-  UpdatedAt: 1,
+  userId: 'u1',
+  characterId: 'hiyori',
+  topicId: 't1',
+  subject: '好きな食べ物',
+  canonicalSummary: '',
+  category: 'preference',
+  care: 1,
+  embedding: [],
+  createdAt: 1,
+  updatedAt: 1,
   ...over,
 });
 
 const makeFact = (over: Partial<SelfFactEntity> = {}): SelfFactEntity => ({
-  UserID: 'g1',
-  CharacterID: 'hiyori',
-  TopicID: 't1',
-  FactID: 'f1',
-  Text: 'カレーが好き',
-  Provenance: '',
-  CreatedAt: 1,
+  userId: 'u1',
+  characterId: 'hiyori',
+  topicId: 't1',
+  factId: 'f1',
+  text: 'カレーが好き',
+  provenance: '',
+  createdAt: 1,
   ...over,
 });
 
@@ -80,12 +77,12 @@ describe('GET /api/memory', () => {
   it('Topic ヘッダを列挙し各 Topic の SELF fact を集約してソートして返す', async () => {
     mockGetSession.mockResolvedValue(session);
     const listTopicHeaders = jest.fn(async () => [
-      makeTopic({ TopicID: 't1', Subject: '好きな食べ物' }),
-      makeTopic({ TopicID: 't2', Subject: '仕事' }),
+      makeTopic({ topicId: 't1', subject: '好きな食べ物' }),
+      makeTopic({ topicId: 't2', subject: '仕事' }),
     ]);
     const listSelfFacts = jest.fn(async (_u: string, _c: string, topicId: string) => {
-      if (topicId === 't1') return [makeFact({ TopicID: 't1', FactID: 'a', CreatedAt: 100 })];
-      if (topicId === 't2') return [makeFact({ TopicID: 't2', FactID: 'b', CreatedAt: 200 })];
+      if (topicId === 't1') return [makeFact({ topicId: 't1', factId: 'a', createdAt: 100 })];
+      if (topicId === 't2') return [makeFact({ topicId: 't2', factId: 'b', createdAt: 200 })];
       return [];
     });
     mockGetTopicRepository.mockReturnValue(makeRepo({ listTopicHeaders, listSelfFacts }));
@@ -98,7 +95,7 @@ describe('GET /api/memory', () => {
     expect(json.selfFacts[0].topicId).toBe('t2');
     expect(listSelfFacts).toHaveBeenCalledTimes(2);
     // id は decode 可能
-    expect(decodeSelfFactId(json.selfFacts[0].id, 'g1')?.factId).toBe('b');
+    expect(decodeSelfFactId(json.selfFacts[0].id, 'u1')?.factId).toBe('b');
   });
 
   it('Topic が 0 件なら空配列', async () => {
@@ -117,7 +114,7 @@ describe('GET /api/memory', () => {
 
     const res = await GET(req('http://localhost/api/memory?characterId=ageha'));
     expect(res.status).toBe(200);
-    expect(listTopicHeaders).toHaveBeenCalledWith('g1', 'ageha');
+    expect(listTopicHeaders).toHaveBeenCalledWith('u1', 'ageha');
   });
 
   it('不正な characterId は 400', async () => {

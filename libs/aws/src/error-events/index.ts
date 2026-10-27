@@ -6,6 +6,7 @@
 
 export type { ErrorEventWriter, ErrorEventKey } from './writer.js';
 export {
+  ErrorEventMapper,
   ERROR_EVENT_ENTITY_TYPE,
   ERROR_EVENT_GSI1_PK,
   ERROR_EVENT_TTL_DAYS,
@@ -13,8 +14,7 @@ export {
   ERROR_EVENT_SK_PREFIX,
   buildErrorEventPK,
   buildErrorEventSK,
-  computeErrorEventTtl,
-} from './writer.js';
+} from './mapper.js';
 export { DynamoDBErrorEventWriter } from './dynamodb-writer.js';
 export { InMemoryErrorEventWriter } from './in-memory-writer.js';
 export { createErrorEventWriter, resetErrorEventWriter } from './factory.js';

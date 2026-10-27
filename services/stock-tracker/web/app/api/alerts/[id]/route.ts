@@ -9,14 +9,18 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { validateAlert, calculateTemporaryExpireDate } from '@nagiyu/stock-tracker-core';
-import { withAuth, handleApiError } from '@nagiyu/nextjs';
+import { EntityNotFoundError } from '@nagiyu/aws';
+import { withAuth, readJsonObjectBody } from '@nagiyu/nextjs';
 import {
   createAlertRepository,
   createTickerRepository,
   createExchangeRepository,
 } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
-import type { AlertEntity, AlertCondition } from '@nagiyu/stock-tracker-core';
+import { withApiErrorReporting } from '../../../../lib/api-error-reporting';
+import { parseAlertConditionList } from '../../../../lib/alert-condition';
+import { isRecord } from '../../../../lib/request-guards';
+import type { AlertEntity, UpdateAlertInput } from '@nagiyu/stock-tracker-core';
 import type { ErrorResponse } from '@nagiyu/common';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 
@@ -65,19 +69,38 @@ interface DeleteResponse {
   deletedAlertId: string;
 }
 
-interface UpdateAlertRequest {
-  conditions?: Array<{
-    field?: AlertCondition['field'];
-    operator?: AlertCondition['operator'];
-    value?: number;
-    isPercentage?: boolean;
-    percentageValue?: number;
-    basePrice?: number;
-  }>;
-  enabled?: boolean;
-  temporary?: boolean;
-  logicalOperator?: AlertEntity['LogicalOperator'];
-  customMessage?: string;
+/**
+ * リクエストボディが不正なときの 400 レスポンス
+ */
+function invalidRequestBodyResponse(): NextResponse<ErrorResponse> {
+  return NextResponse.json(
+    {
+      error: 'INVALID_REQUEST',
+      message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
+    },
+    { status: 400 }
+  );
+}
+
+/**
+ * 更新内容を反映した後のアラートを組み立てる
+ *
+ * `null` は属性の削除を表すため、反映後は未設定になる。
+ * 保存前のバリデーションを、実際に保存される内容に対して行うために使う。
+ */
+function applyAlertUpdates(existing: AlertEntity, updates: UpdateAlertInput): AlertEntity {
+  const merged: Record<string, unknown> = { ...existing };
+  for (const [key, value] of Object.entries(updates)) {
+    if (value === undefined) {
+      continue;
+    }
+    if (value === null) {
+      delete merged[key];
+    } else {
+      merged[key] = value;
+    }
+  }
+  return merged as unknown as AlertEntity;
 }
 
 /**
@@ -89,26 +112,26 @@ function mapAlertToResponse(
   tickerName: string
 ): AlertResponse {
   const response: AlertResponse = {
-    alertId: alert.AlertID,
-    tickerId: alert.TickerID,
+    alertId: alert.alertId,
+    tickerId: alert.tickerId,
     symbol: tickerSymbol,
     name: tickerName,
-    mode: alert.Mode,
-    frequency: alert.Frequency,
-    conditions: alert.ConditionList,
-    enabled: alert.Enabled,
-    temporary: alert.Temporary,
-    temporaryExpireDate: alert.TemporaryExpireDate,
-    createdAt: new Date(alert.CreatedAt).toISOString(),
-    updatedAt: new Date(alert.UpdatedAt).toISOString(),
+    mode: alert.mode,
+    frequency: alert.frequency,
+    conditions: alert.conditionList,
+    enabled: alert.enabled,
+    temporary: alert.temporary,
+    temporaryExpireDate: alert.temporaryExpireDate,
+    createdAt: new Date(alert.createdAt).toISOString(),
+    updatedAt: new Date(alert.updatedAt).toISOString(),
   };
 
-  // LogicalOperator が存在する場合のみ追加
-  if (alert.LogicalOperator) {
-    response.logicalOperator = alert.LogicalOperator;
+  // logicalOperator が存在する場合のみ追加
+  if (alert.logicalOperator) {
+    response.logicalOperator = alert.logicalOperator;
   }
-  if (alert.CustomMessage) {
-    response.customMessage = alert.CustomMessage;
+  if (alert.customMessage) {
+    response.customMessage = alert.customMessage;
   }
 
   return response;
@@ -118,31 +141,43 @@ function mapAlertToResponse(
  * PUT /api/alerts/{id}
  * アラート更新
  */
-export const PUT = withAuth(
-  getSession,
-  'stocks:write-own',
-  async (
-    session,
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-  ): Promise<NextResponse<AlertResponse | ErrorResponse>> => {
-    try {
+export const PUT = withApiErrorReporting(
+  'Web API: アラート更新エラー',
+  withAuth(
+    getSession,
+    'stocks:write-own',
+    async (
+      session,
+      request: NextRequest,
+      { params }: { params: Promise<{ id: string }> }
+    ): Promise<NextResponse<AlertResponse | ErrorResponse>> => {
       // パラメータの取得
       const { id: alertId } = await params;
-      const userId = session.user.userId;
+      const userId = session.user.id;
 
       // リクエストボディの取得
-      let body: UpdateAlertRequest;
-      try {
-        body = await request.json();
-      } catch {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
-          },
-          { status: 400 }
-        );
+      const bodyResult = await readJsonObjectBody(request);
+      if (!bodyResult.ok) {
+        return invalidRequestBodyResponse();
+      }
+      const { conditions, enabled, temporary, logicalOperator, customMessage } = bodyResult.body;
+
+      // 項目の型チェック
+      // 条件の要素は null (その位置は更新しない) かオブジェクトのみ許容する
+      if (conditions !== undefined && !Array.isArray(conditions)) {
+        return invalidRequestBodyResponse();
+      }
+      if (conditions !== undefined && !conditions.every((c) => c === null || isRecord(c))) {
+        return invalidRequestBodyResponse();
+      }
+      if (enabled !== undefined && typeof enabled !== 'boolean') {
+        return invalidRequestBodyResponse();
+      }
+      if (temporary !== undefined && typeof temporary !== 'boolean') {
+        return invalidRequestBodyResponse();
+      }
+      if (customMessage !== undefined && typeof customMessage !== 'string') {
+        return invalidRequestBodyResponse();
       }
 
       // リポジトリの初期化
@@ -163,19 +198,18 @@ export const PUT = withAuth(
       }
 
       // 更新可能なフィールドを抽出
-      const updates: Partial<AlertEntity> = {};
+      const updates: UpdateAlertInput = {};
 
-      if (body.conditions !== undefined) {
-        const updateConditions = body.conditions;
-
+      if (conditions !== undefined) {
         // 条件の部分更新をサポート
         // 既存条件とインデックス対応でマージ（単一・範囲指定の両方に対応）
-        const updatedConditions: AlertCondition[] = existingAlert.ConditionList.map(
+        // 更新値の型は未検証のため、マージ結果は取り出し (parseAlertConditionList) で絞り込む
+        const mergedConditions: Array<Record<string, unknown>> = existingAlert.conditionList.map(
           (existingCondition, index) => {
-            const updateCondition = updateConditions[index];
-            if (!updateCondition) return existingCondition;
+            const updateCondition: unknown = conditions[index];
+            if (!isRecord(updateCondition)) return { ...existingCondition };
 
-            const mergedCondition: AlertCondition = {
+            const mergedCondition: Record<string, unknown> = {
               field: updateCondition.field ?? existingCondition.field,
               operator: updateCondition.operator ?? existingCondition.operator,
               value: updateCondition.value ?? existingCondition.value,
@@ -198,16 +232,37 @@ export const PUT = withAuth(
           }
         );
 
-        updates.ConditionList = updatedConditions;
+        const updatedConditions = parseAlertConditionList(mergedConditions);
+        if (updatedConditions === null) {
+          // 取り出せない条件でも、どこが不正かはバリデーションの指摘で返す
+          const conditionValidation = validateAlert({
+            ...existingAlert,
+            conditionList: mergedConditions,
+            updatedAt: Date.now(),
+          });
+          return NextResponse.json(
+            {
+              error: 'INVALID_REQUEST',
+              message: ERROR_MESSAGES.VALIDATION_ERROR,
+              details: conditionValidation.errors,
+            },
+            { status: 400 }
+          );
+        }
+
+        updates.conditionList = updatedConditions;
       }
 
-      if (body.enabled !== undefined) {
-        updates.Enabled = body.enabled;
+      if (enabled !== undefined) {
+        updates.enabled = enabled;
       }
-      if (body.temporary !== undefined) {
-        updates.Temporary = body.temporary === true;
-        if (body.temporary === true) {
-          const exchange = await exchangeRepo.getById(existingAlert.ExchangeID);
+      if (temporary !== undefined) {
+        updates.temporary = temporary;
+        if (!temporary) {
+          // 一時通知を解除したら期限も不要になる。残すと一時通知でないアラートに期限が付いたままになる
+          updates.temporaryExpireDate = null;
+        } else {
+          const exchange = await exchangeRepo.getById(existingAlert.exchangeId);
           if (!exchange) {
             return NextResponse.json(
               {
@@ -217,17 +272,33 @@ export const PUT = withAuth(
               { status: 400 }
             );
           }
-          updates.TemporaryExpireDate = calculateTemporaryExpireDate(exchange, Date.now());
+          updates.temporaryExpireDate = calculateTemporaryExpireDate(exchange, Date.now());
         }
       }
 
-      // LogicalOperator は 'AND' | 'OR' のみ許容（null は除外）
-      if (body.logicalOperator !== undefined && body.logicalOperator !== null) {
-        updates.LogicalOperator = body.logicalOperator;
+      // logicalOperator は 'AND' | 'OR' のみ許容（null は除外）
+      if (logicalOperator !== undefined && logicalOperator !== null) {
+        if (logicalOperator !== 'AND' && logicalOperator !== 'OR') {
+          // 値が不正な場合も、バリデーションの指摘を返す
+          const operatorValidation = validateAlert({
+            ...existingAlert,
+            logicalOperator,
+            updatedAt: Date.now(),
+          });
+          return NextResponse.json(
+            {
+              error: 'INVALID_REQUEST',
+              message: ERROR_MESSAGES.VALIDATION_ERROR,
+              details: operatorValidation.errors,
+            },
+            { status: 400 }
+          );
+        }
+        updates.logicalOperator = logicalOperator;
       }
-      if (body.customMessage !== undefined) {
-        updates.CustomMessage =
-          body.customMessage.trim().length > 0 ? body.customMessage.trim() : undefined;
+      if (customMessage !== undefined) {
+        // 空文字は「消す」の意図なので、undefined (変更なし) ではなく null (属性削除) を渡す
+        updates.customMessage = customMessage.trim().length > 0 ? customMessage.trim() : null;
       }
 
       // 更新フィールドが存在しない場合
@@ -243,9 +314,8 @@ export const PUT = withAuth(
 
       // 更新後のデータを構築してバリデーション
       const updatedAlertData = {
-        ...existingAlert,
-        ...updates,
-        UpdatedAt: Date.now(),
+        ...applyAlertUpdates(existingAlert, updates),
+        updatedAt: Date.now(),
       };
 
       const validationResult = validateAlert(updatedAlertData);
@@ -261,47 +331,74 @@ export const PUT = withAuth(
       }
 
       // アラートを更新
-      const updatedAlert = await alertRepo.update(userId, alertId, updates);
+      let updatedAlert: AlertEntity;
+      try {
+        updatedAlert = await alertRepo.update(userId, alertId, updates);
+      } catch (error) {
+        // 取得から更新までの間に削除された場合
+        if (error instanceof EntityNotFoundError) {
+          return NextResponse.json(
+            {
+              error: 'NOT_FOUND',
+              message: ERROR_MESSAGES.ALERT_NOT_FOUND,
+            },
+            { status: 404 }
+          );
+        }
+        throw error;
+      }
 
       // TickerリポジトリでSymbolとNameを取得
-      const ticker = await tickerRepo.getById(updatedAlert.TickerID);
+      const ticker = await tickerRepo.getById(updatedAlert.tickerId);
 
       // レスポンス形式に変換
       const response = mapAlertToResponse(
         updatedAlert,
-        ticker?.Symbol || updatedAlert.TickerID.split(':')[1] || '',
-        ticker?.Name || ''
+        ticker?.symbol || updatedAlert.tickerId.split(':')[1] || '',
+        ticker?.name || ''
       );
 
       return NextResponse.json(response, { status: 200 });
-    } catch (error) {
-      return handleApiError(error);
     }
-  }
+  )
 );
 
 /**
  * DELETE /api/alerts/{id}
  * アラート削除
  */
-export const DELETE = withAuth(
-  getSession,
-  'stocks:write-own',
-  async (
-    session,
-    _request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-  ): Promise<NextResponse<DeleteResponse | ErrorResponse>> => {
-    try {
+export const DELETE = withApiErrorReporting(
+  'Web API: アラート削除エラー',
+  withAuth(
+    getSession,
+    'stocks:write-own',
+    async (
+      session,
+      _request: NextRequest,
+      { params }: { params: Promise<{ id: string }> }
+    ): Promise<NextResponse<DeleteResponse | ErrorResponse>> => {
       // パラメータの取得
       const { id: alertId } = await params;
-      const userId = session.user.userId;
+      const userId = session.user.id;
 
       // リポジトリの初期化
       const alertRepo = createAlertRepository();
 
       // アラートを削除
-      await alertRepo.delete(userId, alertId);
+      try {
+        await alertRepo.delete(userId, alertId);
+      } catch (error) {
+        if (error instanceof EntityNotFoundError) {
+          return NextResponse.json(
+            {
+              error: 'NOT_FOUND',
+              message: ERROR_MESSAGES.ALERT_NOT_FOUND,
+            },
+            { status: 404 }
+          );
+        }
+        throw error;
+      }
 
       // レスポンス
       const response: DeleteResponse = {
@@ -310,8 +407,6 @@ export const DELETE = withAuth(
       };
 
       return NextResponse.json(response, { status: 200 });
-    } catch (error) {
-      return handleApiError(error);
     }
-  }
+  )
 );

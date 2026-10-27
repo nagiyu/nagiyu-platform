@@ -5,7 +5,7 @@ import { clickNavigationItem, expectNavigationItemVisible } from './helpers/navi
 /**
  * webkit-mobile 対応: 実 Service Worker（/sw.js）を無効化する。
  *
- * 本サービスは libs/ui の ServiceWorkerRegistration を layout.tsx で使っており、
+ * 本サービスは libs/react の ServiceWorkerRegistration を layout.tsx で使っており、
  * 全ページで /sw.js を登録する。webkit ではこの SW がページを制御して API 応答を
  * 仲介・キャッシュするため、Playwright の既知制約
  * 「Service Worker 経由のリクエストは Chromium 以外では page.route で捕捉できない」
@@ -204,6 +204,45 @@ test.describe('Video List Page', () => {
     // お気に入りのみがフィルターされていることを確認
     expect(filterBody.total).toBe(2); // 2個のお気に入りのみ
     expect(filterBody.videos.length).toBe(2);
+  });
+
+  test('should keep favorite-only list when opened with favorite=true even if an unfiltered response is slow', async ({
+    page,
+    request,
+  }) => {
+    await seedTestVideos(request, { count: 5, startId: 40000000, favoriteCount: 2 });
+
+    // 絞り込み無しの取得が (もし飛べば) 遅れて届く状況を作る。
+    // 遅れた古い応答が後から表示を上書きする不具合の再現条件。
+    let unfilteredRequestCount = 0;
+    let unfilteredDelivered: Promise<void> = Promise.resolve();
+    await page.route('**/api/videos?*', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.has('isFavorite')) {
+        await route.continue();
+        return;
+      }
+      unfilteredRequestCount += 1;
+      unfilteredDelivered = (async () => {
+        const response = await route.fetch();
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await route.fulfill({ response });
+      })();
+      await unfilteredDelivered;
+    });
+
+    await page.goto('/mylist?favorite=true');
+
+    // MuiCard* クラスは 1 カードに複数の要素が持つため、タイトル (h3) で件数を数える
+    const videoCards = page.locator('[class*="MuiCard"] h3');
+    await expect(videoCards).toHaveCount(2);
+    await expect(page.locator('#favorite-filter')).toHaveValue('true');
+
+    // 遅れた応答が届いた後も表示が変わらないこと
+    await unfilteredDelivered;
+    await page.waitForLoadState('networkidle');
+    await expect(videoCards).toHaveCount(2);
+    expect(unfilteredRequestCount).toBe(0);
   });
 
   test('should filter videos by skip', async ({ page, request }) => {

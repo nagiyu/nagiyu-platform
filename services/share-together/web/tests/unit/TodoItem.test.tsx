@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { TodoItem } from '@/components/TodoItem';
 
 describe('TodoItem', () => {
@@ -57,7 +57,7 @@ describe('TodoItem', () => {
     expect(screen.getByText('議事録を確認する')).toHaveStyle({ textDecoration: 'line-through' });
   });
 
-  it('コールバック未指定でも操作時にエラーにならずタイトルは変更されない', () => {
+  it('コールバック未指定でも操作時にエラーにならずタイトルは変更されない', async () => {
     render(
       <TodoItem
         todo={{
@@ -77,11 +77,14 @@ describe('TodoItem', () => {
       fireEvent.click(screen.getByRole('checkbox', { name: '掃除をするの完了チェック' }));
       fireEvent.click(screen.getByRole('button', { name: '削除' }));
     }).not.toThrow();
+    await waitFor(() => {
+      expect(screen.queryByRole('textbox', { name: 'タイトルを編集' })).not.toBeInTheDocument();
+    });
     expect(screen.getByText('掃除をする')).toBeInTheDocument();
   });
 
-  it('編集して保存すると更新コールバックを呼び出す', () => {
-    const onUpdate = jest.fn();
+  it('編集して保存すると更新コールバックを呼び出す', async () => {
+    const onUpdate = jest.fn().mockResolvedValue(true);
 
     render(
       <TodoItem
@@ -101,10 +104,13 @@ describe('TodoItem', () => {
     fireEvent.click(screen.getByRole('button', { name: '保存' }));
 
     expect(onUpdate).toHaveBeenCalledWith('todo-5', '更新後タイトル');
+    await waitFor(() => {
+      expect(screen.queryByRole('textbox', { name: 'タイトルを編集' })).not.toBeInTheDocument();
+    });
   });
 
-  it('編集モードでタイトルを変更してエンターキーを押すと onUpdate が trim 済みタイトルで呼ばれる', () => {
-    const onUpdate = jest.fn();
+  it('編集モードでタイトルを変更してエンターキーを押すと onUpdate が trim 済みタイトルで呼ばれる', async () => {
+    const onUpdate = jest.fn().mockResolvedValue(true);
 
     render(
       <TodoItem
@@ -123,10 +129,13 @@ describe('TodoItem', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
 
     expect(onUpdate).toHaveBeenCalledWith('todo-6', 'エンターで更新');
+    await waitFor(() => {
+      expect(screen.queryByRole('textbox', { name: 'タイトルを編集' })).not.toBeInTheDocument();
+    });
   });
 
   it('編集モードでタイトルを空にしてエンターキーを押しても onUpdate を呼ばない', () => {
-    const onUpdate = jest.fn();
+    const onUpdate = jest.fn().mockResolvedValue(true);
 
     render(
       <TodoItem
@@ -145,5 +154,137 @@ describe('TodoItem', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
 
     expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it('onUpdate が失敗を返した場合は編集欄を開いたまま入力を残す', async () => {
+    const onUpdate = jest.fn().mockResolvedValue(false);
+
+    render(
+      <TodoItem
+        todo={{
+          todoId: 'todo-8',
+          title: '元タイトル',
+          isCompleted: false,
+        }}
+        onUpdate={onUpdate}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '編集' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'タイトルを編集' }), {
+      target: { value: '失敗する更新' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalledWith('todo-8', '失敗する更新');
+    });
+    // 失敗の反映を待ってから、編集欄と入力が残っていることを確かめる
+    await Promise.resolve();
+    expect(screen.getByRole('textbox', { name: 'タイトルを編集' })).toHaveValue('失敗する更新');
+    expect(screen.getByRole('button', { name: '保存' })).toBeInTheDocument();
+  });
+
+  it('onUpdate が同期的に true を返した場合は編集欄を閉じる', async () => {
+    const onUpdate = jest.fn().mockReturnValue(true);
+
+    render(
+      <TodoItem
+        todo={{
+          todoId: 'todo-9',
+          title: '元タイトル',
+          isCompleted: false,
+        }}
+        onUpdate={onUpdate}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '編集' }));
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('textbox', { name: 'タイトルを編集' })).not.toBeInTheDocument();
+    });
+  });
+
+  it('編集欄に 200 文字の上限 (maxlength) を設定する', () => {
+    render(
+      <TodoItem
+        todo={{
+          todoId: 'todo-10',
+          title: '元タイトル',
+          isCompleted: false,
+        }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '編集' }));
+
+    expect(screen.getByRole('textbox', { name: 'タイトルを編集' })).toHaveAttribute(
+      'maxlength',
+      '200'
+    );
+  });
+
+  describe('編集のキャンセルと変更なしの保存', () => {
+    const renderEditing = (onUpdate: jest.Mock = jest.fn().mockResolvedValue(true)) => {
+      render(
+        <TodoItem
+          todo={{ todoId: 'todo-11', title: '元タイトル', isCompleted: false }}
+          onUpdate={onUpdate}
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: '編集' }));
+      return screen.getByRole('textbox', { name: 'タイトルを編集' });
+    };
+
+    it('Escape キーで編集をキャンセルし、入力途中の内容を捨てる', () => {
+      const onUpdate = jest.fn().mockResolvedValue(true);
+      const input = renderEditing(onUpdate);
+      fireEvent.change(input, { target: { value: '書きかけ' } });
+
+      fireEvent.keyDown(input, { key: 'Escape' });
+
+      expect(screen.queryByRole('textbox', { name: 'タイトルを編集' })).not.toBeInTheDocument();
+      expect(screen.getByText('元タイトル')).toBeInTheDocument();
+      expect(onUpdate).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole('button', { name: '編集' }));
+      expect(screen.getByRole('textbox', { name: 'タイトルを編集' })).toHaveValue('元タイトル');
+    });
+
+    it('IME の変換中の Escape では編集を閉じない', () => {
+      const input = renderEditing();
+
+      fireEvent.keyDown(input, { key: 'Escape', isComposing: true });
+      fireEvent.keyDown(input, { key: 'Escape', keyCode: 229 });
+
+      expect(screen.getByRole('textbox', { name: 'タイトルを編集' })).toBeInTheDocument();
+    });
+
+    it('タイトルが元と同じなら onUpdate を呼ばずに編集を閉じる', async () => {
+      const onUpdate = jest.fn().mockResolvedValue(true);
+      renderEditing(onUpdate);
+
+      fireEvent.click(screen.getByRole('button', { name: '保存' }));
+
+      await waitFor(() => {
+        expect(screen.queryByRole('textbox', { name: 'タイトルを編集' })).not.toBeInTheDocument();
+      });
+      expect(onUpdate).not.toHaveBeenCalled();
+    });
+
+    it('前後の空白を除いて元と同じなら、エンターキーでも onUpdate を呼ばずに閉じる', async () => {
+      const onUpdate = jest.fn().mockResolvedValue(true);
+      const input = renderEditing(onUpdate);
+      fireEvent.change(input, { target: { value: '  元タイトル  ' } });
+
+      fireEvent.keyDown(input, { key: 'Enter' });
+
+      await waitFor(() => {
+        expect(screen.queryByRole('textbox', { name: 'タイトルを編集' })).not.toBeInTheDocument();
+      });
+      expect(onUpdate).not.toHaveBeenCalled();
+    });
   });
 });

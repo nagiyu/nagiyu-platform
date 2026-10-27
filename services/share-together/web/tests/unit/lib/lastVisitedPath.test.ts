@@ -1,6 +1,7 @@
 import {
   LAST_VISITED_PATH_STORAGE_KEY,
   SESSION_BOOTSTRAP_STORAGE_KEY,
+  buildVisitedPath,
   clearLastVisitedPath,
   isRecordablePath,
   loadLastVisitedPath,
@@ -24,6 +25,18 @@ describe('lastVisitedPath', () => {
       expect(isRecordablePath('lists')).toBe(false);
       expect(isRecordablePath('https://example.com/lists')).toBe(false);
       expect(isRecordablePath('')).toBe(false);
+    });
+  });
+
+  describe('buildVisitedPath', () => {
+    it('クエリが無ければパスだけを返す', () => {
+      expect(buildVisitedPath('/lists', '')).toBe('/lists');
+    });
+
+    it('クエリがあればパスの後ろに ? で連結する', () => {
+      expect(buildVisitedPath('/lists', 'scope=shared&groupId=g1&listId=l1')).toBe(
+        '/lists?scope=shared&groupId=g1&listId=l1'
+      );
     });
   });
 

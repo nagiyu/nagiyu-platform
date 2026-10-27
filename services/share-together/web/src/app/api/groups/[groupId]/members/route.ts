@@ -1,5 +1,7 @@
 import { ERROR_MESSAGES as GROUP_ERROR_MESSAGES, inviteMember } from '@nagiyu/share-together-core';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { NextResponse } from 'next/server';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
@@ -13,25 +15,23 @@ import {
   createNotFoundErrorResponse,
   createForbiddenErrorResponse,
   createConflictErrorResponse,
-  createInternalServerErrorResponse,
 } from '@/lib/api/responses';
 
 type RouteParams = {
   params: Promise<{ groupId: string }>;
 };
 
-type InviteRequestBody = {
-  email?: unknown;
-  userId?: unknown;
-};
+function isOptionalString(value: unknown): value is string | undefined {
+  return value === undefined || typeof value === 'string';
+}
 
 function resolveGroupId(groupId: string): string | null {
   return groupId.length > 0 ? groupId : null;
 }
 
-export async function GET(_request: Request, { params }: RouteParams): Promise<NextResponse> {
-  let requestedGroupId: string | undefined;
-  try {
+export const GET = withApiErrorReporting(
+  'Web API: グループメンバー一覧取得エラー',
+  async (_request: Request, { params }: RouteParams): Promise<NextResponse> => {
     const sessionOrUnauthorized = await getSessionOrUnauthorized();
     if ('status' in sessionOrUnauthorized) {
       return sessionOrUnauthorized;
@@ -42,7 +42,6 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
     if (!resolvedGroupId) {
       return createValidationErrorResponse();
     }
-    requestedGroupId = resolvedGroupId;
 
     const userId = sessionOrUnauthorized.user.id;
     if (typeof userId !== 'string' || userId.length === 0) {
@@ -91,122 +90,123 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
       .filter((member): member is NonNullable<typeof member> => member !== null);
 
     return NextResponse.json({ data: { members } });
-  } catch (error) {
-    console.error('グループメンバー一覧取得 API の実行に失敗しました', {
-      groupId: requestedGroupId,
-      error,
-    });
-    return createInternalServerErrorResponse();
   }
-}
+);
 
-export async function POST(request: Request, { params }: RouteParams): Promise<NextResponse> {
-  let requestedGroupId: string | undefined;
-  let inviterUserId: string | undefined;
-  try {
-    const sessionOrUnauthorized = await getSessionOrUnauthorized();
-    if ('status' in sessionOrUnauthorized) {
-      return sessionOrUnauthorized;
-    }
-
-    const { groupId } = await params;
-    const resolvedGroupId = resolveGroupId(groupId);
-    if (!resolvedGroupId) {
-      return createValidationErrorResponse();
-    }
-    requestedGroupId = resolvedGroupId;
-
-    const userId = sessionOrUnauthorized.user.id;
-    if (typeof userId !== 'string' || userId.length === 0) {
-      return createValidationErrorResponse();
-    }
-    inviterUserId = userId;
-
-    const body = (await request.json()) as InviteRequestBody;
-    const userIdInput = typeof body.userId === 'string' ? body.userId.trim() : '';
-    const emailInput = typeof body.email === 'string' ? body.email.trim() : '';
-    const hasUserId = userIdInput.length > 0;
-    const hasEmail = emailInput.length > 0;
-    if ((!hasUserId && !hasEmail) || (hasUserId && hasEmail)) {
-      return createValidationErrorResponse();
-    }
-
-    const tableName = process.env.DYNAMODB_TABLE_NAME;
-    if (!tableName) {
-      throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
-    }
-
-    const docClient =
-      process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
-    const groupRepository = createGroupRepository(docClient, tableName);
-    const membershipRepository = createMembershipRepository(docClient, tableName);
-    const userRepository = createUserRepository(docClient, tableName);
-
-    const group = await groupRepository.getById(resolvedGroupId);
-    if (!group) {
-      return createNotFoundErrorResponse();
-    }
-
-    const requesterMembership = await membershipRepository.getById(resolvedGroupId, userId);
-    if (!requesterMembership || requesterMembership.status !== 'ACCEPTED') {
-      return createForbiddenErrorResponse();
-    }
-
-    if (group.ownerUserId !== userId) {
-      return createForbiddenErrorResponse('OWNER_ONLY', ERROR_MESSAGES.OWNER_ONLY);
-    }
-
-    const invitee = userIdInput
-      ? await userRepository.getById(userIdInput)
-      : await userRepository.getByEmail(emailInput);
-    if (!invitee) {
-      return createNotFoundErrorResponse();
-    }
-
-    const now = new Date().toISOString();
-    const membership = await inviteMember(
-      {
-        groupId: resolvedGroupId,
-        userId: invitee.userId,
-        invitedBy: userId,
-        invitedAt: now,
-      },
-      { groupRepository, membershipRepository }
-    );
-
-    return NextResponse.json(
-      {
-        data: {
-          groupId: membership.groupId,
-          inviteeUserId: membership.userId,
-          inviteeName: invitee.name,
-          status: membership.status,
-          createdAt: membership.createdAt,
-        },
-      },
-      { status: 201 }
-    );
-  } catch (error) {
-    if (error instanceof Error) {
-      if (error.message === GROUP_ERROR_MESSAGES.DUPLICATE_INVITATION) {
-        return createConflictErrorResponse('ALREADY_INVITED', ERROR_MESSAGES.ALREADY_INVITED);
+export const POST = withApiErrorReporting(
+  'Web API: グループメンバー招待エラー',
+  async (request: Request, { params }: RouteParams): Promise<NextResponse> => {
+    try {
+      const sessionOrUnauthorized = await getSessionOrUnauthorized();
+      if ('status' in sessionOrUnauthorized) {
+        return sessionOrUnauthorized;
       }
-      if (error.message === GROUP_ERROR_MESSAGES.ALREADY_GROUP_MEMBER) {
-        return createConflictErrorResponse('ALREADY_MEMBER', ERROR_MESSAGES.ALREADY_MEMBER);
+
+      const { groupId } = await params;
+      const resolvedGroupId = resolveGroupId(groupId);
+      if (!resolvedGroupId) {
+        return createValidationErrorResponse();
       }
-      if (error.message === GROUP_ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED) {
-        return createConflictErrorResponse(
-          'MEMBER_LIMIT_EXCEEDED',
-          ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED
+
+      const userId = sessionOrUnauthorized.user.id;
+      if (typeof userId !== 'string' || userId.length === 0) {
+        return createValidationErrorResponse();
+      }
+
+      const bodyResult = await readJsonObjectBody(request);
+      if (!bodyResult.ok) {
+        return createValidationErrorResponse();
+      }
+      const { body } = bodyResult;
+      if (!isOptionalString(body.userId) || !isOptionalString(body.email)) {
+        return createValidationErrorResponse();
+      }
+      const userIdInput = body.userId?.trim() ?? '';
+      const emailInput = body.email?.trim() ?? '';
+      const hasUserId = userIdInput.length > 0;
+      const hasEmail = emailInput.length > 0;
+      if ((!hasUserId && !hasEmail) || (hasUserId && hasEmail)) {
+        return createValidationErrorResponse();
+      }
+
+      const tableName = process.env.DYNAMODB_TABLE_NAME;
+      if (!tableName) {
+        throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
+      }
+
+      const docClient =
+        process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
+      const groupRepository = createGroupRepository(docClient, tableName);
+      const membershipRepository = createMembershipRepository(docClient, tableName);
+      const userRepository = createUserRepository(docClient, tableName);
+
+      const group = await groupRepository.getById(resolvedGroupId);
+      if (!group) {
+        return createNotFoundErrorResponse();
+      }
+
+      const requesterMembership = await membershipRepository.getById(resolvedGroupId, userId);
+      if (!requesterMembership || requesterMembership.status !== 'ACCEPTED') {
+        return createForbiddenErrorResponse();
+      }
+
+      if (group.ownerUserId !== userId) {
+        return createForbiddenErrorResponse('OWNER_ONLY', ERROR_MESSAGES.OWNER_ONLY);
+      }
+
+      const invitee = userIdInput
+        ? await userRepository.getById(userIdInput)
+        : await userRepository.getByEmail(emailInput);
+      if (!invitee) {
+        // グループの不存在と区別し、入力した招待先が原因だと利用者に伝える
+        return createNotFoundErrorResponse(
+          'USER_NOT_FOUND',
+          hasEmail
+            ? ERROR_MESSAGES.INVITEE_EMAIL_NOT_REGISTERED
+            : ERROR_MESSAGES.INVITEE_USER_NOT_FOUND
         );
       }
-    }
 
-    console.error('グループメンバー招待 API の実行に失敗しました', {
-      groupId: requestedGroupId,
-      inviterUserId,
-      error,
-    });
-    return createInternalServerErrorResponse();
+      const now = Date.now();
+      const membership = await inviteMember(
+        {
+          groupId: resolvedGroupId,
+          userId: invitee.userId,
+          invitedBy: userId,
+          invitedAt: now,
+        },
+        { groupRepository, membershipRepository }
+      );
+
+      return NextResponse.json(
+        {
+          data: {
+            groupId: membership.groupId,
+            inviteeUserId: membership.userId,
+            inviteeName: invitee.name,
+            status: membership.status,
+            createdAt: membership.createdAt,
+          },
+        },
+        { status: 201 }
+      );
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === GROUP_ERROR_MESSAGES.DUPLICATE_INVITATION) {
+          return createConflictErrorResponse('ALREADY_INVITED', ERROR_MESSAGES.ALREADY_INVITED);
+        }
+        if (error.message === GROUP_ERROR_MESSAGES.ALREADY_GROUP_MEMBER) {
+          return createConflictErrorResponse('ALREADY_MEMBER', ERROR_MESSAGES.ALREADY_MEMBER);
+        }
+        if (error.message === GROUP_ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED) {
+          return createConflictErrorResponse(
+            'MEMBER_LIMIT_EXCEEDED',
+            ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED
+          );
+        }
+      }
+
+      throw error;
+    }
   }
-}
+);

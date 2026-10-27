@@ -256,16 +256,16 @@ Cookie: nagiyu-session=...
             "email": "user@example.com",
             "name": "山田太郎",
             "roles": ["admin"],
-            "createdAt": "2024-01-01T00:00:00.000Z",
-            "lastLoginAt": "2024-01-15T10:00:00.000Z"
+            "createdAt": 1704067200000,
+            "lastLoginAt": 1705312800000
         },
         {
             "userId": "user_fedcba0987654321",
             "email": "test@example.com",
             "name": "テストユーザー",
             "roles": ["log-viewer"],
-            "createdAt": "2024-01-10T00:00:00.000Z",
-            "lastLoginAt": "2024-01-14T15:30:00.000Z"
+            "createdAt": 1704844800000,
+            "lastLoginAt": 1705246200000
         }
     ],
     "pagination": {
@@ -335,9 +335,9 @@ Cookie: nagiyu-session=...
     "email": "user@example.com",
     "name": "山田太郎",
     "roles": ["admin"],
-    "createdAt": "2024-01-01T00:00:00.000Z",
-    "updatedAt": "2024-01-10T00:00:00.000Z",
-    "lastLoginAt": "2024-01-15T10:00:00.000Z"
+    "createdAt": 1704067200000,
+    "updatedAt": 1704844800000,
+    "lastLoginAt": 1705312800000
 }
 ```
 
@@ -414,7 +414,7 @@ Content-Type: application/json
     "email": "user@example.com",
     "name": "山田花子",
     "roles": ["user-manager"],
-    "updatedAt": "2024-01-15T12:00:00.000Z"
+    "updatedAt": 1705320000000
 }
 ```
 
@@ -499,6 +499,14 @@ Cookie: nagiyu-session=...
         "message": "最後の管理者を削除することはできません"
     }
 }
+
+// 404 Not Found (対象のユーザーがいない)
+{
+    "error": {
+        "code": "NOT_FOUND",
+        "message": "ユーザーが見つかりません"
+    }
+}
 ```
 
 ---
@@ -571,9 +579,9 @@ interface User {
     email: string;            // メールアドレス
     name: string;             // 表示名
     roles: string[];          // ロールID配列
-    createdAt: string;        // 作成日時 (ISO 8601)
-    updatedAt: string;        // 更新日時 (ISO 8601)
-    lastLoginAt?: string;     // 最終ログイン日時 (ISO 8601)
+    createdAt: number;        // 作成日時 (エポックミリ秒)
+    updatedAt: number;        // 更新日時 (エポックミリ秒)
+    lastLoginAt?: number;     // 最終ログイン日時 (エポックミリ秒)
 }
 ```
 
@@ -586,9 +594,9 @@ interface User {
     "email": "user@example.com",
     "name": "山田太郎",
     "roles": ["admin"],
-    "createdAt": "2024-01-01T00:00:00.000Z",
-    "updatedAt": "2024-01-10T00:00:00.000Z",
-    "lastLoginAt": "2024-01-15T10:00:00.000Z"
+    "createdAt": 1704067200000,
+    "updatedAt": 1704844800000,
+    "lastLoginAt": 1705312800000
 }
 ```
 

@@ -3,13 +3,12 @@
  *
  * アラート条件を評価するビジネスロジック
  *
- * Phase 1 仕様:
- * - ConditionList[0] のみ評価（複数条件は Phase 2）
- * - operator は `gte` (>=) と `lte` (<=) のみ対応
- * - field は `price` 固定
+ * 対応する条件:
+ * - operator は `gte` (>=) と `lte` (<=) のみ
+ * - field は `price` のみ
  */
 
-import type { Alert, AlertCondition } from '../types.js';
+import type { AlertCondition, AlertEntity } from '../entities/alert.entity.js';
 
 /**
  * エラーメッセージ定数
@@ -45,7 +44,7 @@ export function evaluateCondition(condition: AlertCondition, currentPrice: numbe
     throw new Error(ERROR_MESSAGES.INVALID_PRICE);
   }
 
-  // フィールドのチェック（Phase 1 は price 固定）
+  // フィールドのチェック (price のみ対応)
   if (condition.field !== 'price') {
     throw new Error(ERROR_MESSAGES.INVALID_FIELD);
   }
@@ -73,24 +72,22 @@ export function evaluateCondition(condition: AlertCondition, currentPrice: numbe
  * @param alert - 評価するアラート設定
  * @param currentPrice - 現在の株価
  * @returns 条件を満たす場合は true、満たさない場合は false
- * @throws Error - ConditionList が空の場合
+ * @throws Error - conditionList が空の場合
  *
  * @example
  * // 単一条件
- * const alert: Alert = {
- *   AlertID: 'alert-1',
- *   UserID: 'user-123',
- *   TickerID: 'NSDQ:AAPL',
- *   ExchangeID: 'NASDAQ',
- *   Mode: 'Sell',
- *   Frequency: 'MINUTE_LEVEL',
- *   Enabled: true,
- *   ConditionList: [{ field: 'price', operator: 'gte', value: 200.00 }],
- *   SubscriptionEndpoint: 'https://example.com/push',
- *   SubscriptionKeysP256dh: 'key',
- *   SubscriptionKeysAuth: 'auth',
- *   CreatedAt: Date.now(),
- *   UpdatedAt: Date.now(),
+ * const alert: AlertEntity = {
+ *   alertId: 'alert-1',
+ *   userId: 'user-123',
+ *   tickerId: 'NSDQ:AAPL',
+ *   exchangeId: 'NASDAQ',
+ *   mode: 'Sell',
+ *   frequency: 'MINUTE_LEVEL',
+ *   enabled: true,
+ *   conditionList: [{ field: 'price', operator: 'gte', value: 200.00 }],
+ *   subscription: { endpoint: 'https://example.com/push', keys: { p256dh: 'key', auth: 'auth' } },
+ *   createdAt: Date.now(),
+ *   updatedAt: Date.now(),
  * };
  *
  * evaluateAlert(alert, 205.00) // => true
@@ -98,13 +95,13 @@ export function evaluateCondition(condition: AlertCondition, currentPrice: numbe
  *
  * @example
  * // 複数条件（AND - 範囲内）
- * const alertAnd: Alert = {
+ * const alertAnd: AlertEntity = {
  *   ...alert,
- *   ConditionList: [
+ *   conditionList: [
  *     { field: 'price', operator: 'gte', value: 100.00 },
  *     { field: 'price', operator: 'lte', value: 200.00 }
  *   ],
- *   LogicalOperator: 'AND',
+ *   logicalOperator: 'AND',
  * };
  *
  * evaluateAlert(alertAnd, 150.00) // => true (100 <= 150 <= 200)
@@ -112,39 +109,39 @@ export function evaluateCondition(condition: AlertCondition, currentPrice: numbe
  *
  * @example
  * // 複数条件（OR - 範囲外）
- * const alertOr: Alert = {
+ * const alertOr: AlertEntity = {
  *   ...alert,
- *   ConditionList: [
+ *   conditionList: [
  *     { field: 'price', operator: 'lte', value: 90.00 },
  *     { field: 'price', operator: 'gte', value: 120.00 }
  *   ],
- *   LogicalOperator: 'OR',
+ *   logicalOperator: 'OR',
  * };
  *
  * evaluateAlert(alertOr, 85.00) // => true (85 <= 90)
  * evaluateAlert(alertOr, 125.00) // => true (125 >= 120)
  * evaluateAlert(alertOr, 100.00) // => false (90 < 100 < 120)
  */
-export function evaluateAlert(alert: Alert, currentPrice: number): boolean {
-  // ConditionList の存在チェック
-  if (!alert.ConditionList || alert.ConditionList.length === 0) {
+export function evaluateAlert(alert: AlertEntity, currentPrice: number): boolean {
+  // conditionList の存在チェック
+  if (!alert.conditionList || alert.conditionList.length === 0) {
     throw new Error(ERROR_MESSAGES.EMPTY_CONDITION_LIST);
   }
 
   // 単一条件の場合
-  if (alert.ConditionList.length === 1) {
-    return evaluateCondition(alert.ConditionList[0], currentPrice);
+  if (alert.conditionList.length === 1) {
+    return evaluateCondition(alert.conditionList[0], currentPrice);
   }
 
   // 複数条件の場合
-  const logicalOp = alert.LogicalOperator || 'AND';
+  const logicalOp = alert.logicalOperator || 'AND';
 
   if (logicalOp === 'AND') {
     // 範囲内: すべての条件を満たす必要がある
-    return alert.ConditionList.every((condition) => evaluateCondition(condition, currentPrice));
+    return alert.conditionList.every((condition) => evaluateCondition(condition, currentPrice));
   } else if (logicalOp === 'OR') {
     // 範囲外: いずれかの条件を満たせば発火
-    return alert.ConditionList.some((condition) => evaluateCondition(condition, currentPrice));
+    return alert.conditionList.some((condition) => evaluateCondition(condition, currentPrice));
   } else {
     throw new Error(ERROR_MESSAGES.INVALID_LOGICAL_OPERATOR);
   }

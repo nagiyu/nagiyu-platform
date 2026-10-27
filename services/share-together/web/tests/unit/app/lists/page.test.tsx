@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom';
-import { render, screen, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import ListsPage from '@/app/lists/page';
 
 const mockUseSearchParams = jest.fn(() => new URLSearchParams());
@@ -107,5 +108,152 @@ describe('ListsPage', () => {
       expect(screen.getByText('ListWorkspace: group-list-2:shared:group-2')).toBeInTheDocument();
     });
     expect(fetchMock).not.toHaveBeenCalledWith('/api/lists', expect.anything());
+  });
+
+  it('表示後にクエリが書き換わっても、初回のクエリを ListWorkspace の初期値に使い続け API も再取得しない', async () => {
+    const fetchMock = jest.fn();
+    Object.defineProperty(globalThis, 'fetch', {
+      writable: true,
+      value: fetchMock,
+    });
+    mockUseSearchParams.mockReturnValue(
+      new URLSearchParams('scope=shared&groupId=group-2&listId=group-list-2')
+    );
+    const { rerender } = render(<ListsPage />);
+    await screen.findByText('ListWorkspace: group-list-2:shared:group-2');
+
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('listId=personal-list'));
+    rerender(<ListsPage />);
+
+    expect(screen.getByText('ListWorkspace: group-list-2:shared:group-2')).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('開発時の Strict Mode で取得が中断されても、再取得が終わるまでエラー文言を出さず読み込み中のままにする', async () => {
+    // 1 回目の取得は effect の後始末で中断され (AbortError)、2 回目が少し遅れて解決する状況を作る。
+    const resolvers: Array<() => void> = [];
+    const fetchMock = jest.fn().mockImplementation(
+      (_url: string, init: { signal: AbortSignal }) =>
+        new Promise<Response>((resolve, reject) => {
+          init.signal.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError'))
+          );
+          resolvers.push(() =>
+            resolve({
+              ok: true,
+              status: 200,
+              json: async () => ({
+                data: { lists: [{ listId: 'default-list', name: 'デフォルト', isDefault: true }] },
+              }),
+            } as Response)
+          );
+        })
+    );
+    Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+
+    render(
+      <StrictMode>
+        <ListsPage />
+      </StrictMode>
+    );
+    // 中断された 1 回目の finally が走り終わるまで待つ。
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('リストを読み込み中です...')).toBeInTheDocument();
+    expect(
+      screen.queryByText('デフォルト個人リストの取得に失敗しました。')
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolvers[1]();
+    });
+
+    expect(await screen.findByText('ListWorkspace: default-list:personal:')).toBeInTheDocument();
+  });
+
+  describe('個人リストの listId が指定されたとき', () => {
+    const mockPersonalLists = () => {
+      const fetchMock = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          data: {
+            lists: [
+              { listId: 'work-list', name: '仕事', isDefault: false },
+              { listId: 'default-list', name: 'デフォルトリスト', isDefault: true },
+            ],
+          },
+        }),
+      } as Response);
+      Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+      return fetchMock;
+    };
+
+    it('一覧に存在するならその listId を開く', async () => {
+      mockPersonalLists();
+      mockUseSearchParams.mockReturnValue(new URLSearchParams('listId=work-list'));
+
+      render(<ListsPage />);
+
+      expect(await screen.findByText('ListWorkspace: work-list:personal:')).toBeInTheDocument();
+    });
+
+    it('一覧に無い (別の端末で削除された) ならデフォルトの個人リストを開く', async () => {
+      mockPersonalLists();
+      mockUseSearchParams.mockReturnValue(new URLSearchParams('listId=deleted-list'));
+
+      render(<ListsPage />);
+
+      expect(await screen.findByText('ListWorkspace: default-list:personal:')).toBeInTheDocument();
+    });
+
+    it('一覧の取得に失敗したときは、指定された listId をそのまま開く', async () => {
+      const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const fetchMock = jest.fn().mockResolvedValue({ ok: false, status: 500 } as Response);
+      Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+      mockUseSearchParams.mockReturnValue(new URLSearchParams('listId=work-list'));
+
+      render(<ListsPage />);
+
+      expect(await screen.findByText('ListWorkspace: work-list:personal:')).toBeInTheDocument();
+      consoleError.mockRestore();
+    });
+  });
+
+  it('listId の無い共有スコープ (リストが 0 件のグループなど) は、デフォルト個人リストを解決して groupId を引き継ぐ', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: { lists: [{ listId: 'default-list', name: 'デフォルトリスト', isDefault: true }] },
+      }),
+    } as Response);
+    Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('scope=shared&groupId=group-3'));
+
+    render(<ListsPage />);
+
+    expect(
+      await screen.findByText('ListWorkspace: default-list:shared:group-3')
+    ).toBeInTheDocument();
+  });
+
+  it('グループも無い scope=shared だけのクエリでも開ける', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: { lists: [{ listId: 'default-list', name: 'デフォルトリスト', isDefault: true }] },
+      }),
+    } as Response);
+    Object.defineProperty(globalThis, 'fetch', { writable: true, value: fetchMock });
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('scope=shared'));
+
+    render(<ListsPage />);
+
+    expect(await screen.findByText('ListWorkspace: default-list:shared:')).toBeInTheDocument();
   });
 });

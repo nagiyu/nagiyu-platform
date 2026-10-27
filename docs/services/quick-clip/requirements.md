@@ -127,7 +127,7 @@
 | F-003 | 見どころ一覧表示 | 抽出された見どころを開始時間昇順で一覧表示する。各行に抽出根拠（モーション・音量・両方）をオプション列で表示する（デフォルト OFF） | 高 |
 | F-004 | クリッププレビュー | 見どころをクリックして切り出し済みクリップをWeb上でプレビューする | 高 |
 | F-005 | 採否チェック | 見どころに「未確認 / 使える / 使えない」の3状態でステータスを設定する。初期値は「未確認」。時間調整確定時に status が accepted/rejected の場合は unconfirmed にリセットする | 高 |
-| F-006 | 時間調整 | 見どころの開始・終了時刻を前後に調整する。調整確定（onBlur）時にクリップ再生成が自動で開始される（clipStatus が GENERATING に遷移）。status が accepted/rejected の場合は unconfirmed にリセットされる | 高 |
+| F-006 | 時間調整 | 見どころの開始・終了時刻を前後に調整する。調整確定（onBlur）時にクリップ再生成が自動で開始される（clipStatus が GENERATING に遷移）。status が accepted/rejected の場合は unconfirmed にリセットされる。作り直しが終わる (GENERATED か FAILED になる) までは、その見どころの時刻を変更できない | 高 |
 | F-010 | クリップ自動生成 | クリップ生成は以下の場合に自動で実行される: (1) 初回生成は Batch の `clipping` ステージで全ハイライト分を完了させ、見どころ画面を開いた時点で全クリップが `GENERATED` 状態になっている (2) 時間調整確定時（onBlur）に対象クリップを clip-regenerate Lambda で再生成する。FAILED クリップのみリトライボタンを左パネルに表示し、押下で再生成する。通常フローの再生成ボタンは廃止する | 高 |
 | F-007 | ZIPダウンロード | 採用した見どころの切り出し済みクリップをZIPでダウンロードする（採用クリップが全件生成済みの場合のみ実行可能）。ZIP 内のファイル名は見どころ番号（No.）連動の `clip-NN`（ゼロ埋め2桁）とし、クリップに重なる文字起こしテキストがある場合は同名の `.txt` を同梱する | 高 |
 | F-008 | ジョブステータス確認 | 処理中のジョブのステータスを確認する | 中 |
@@ -155,6 +155,8 @@
 - **初回生成（Batch 内）**: 見どころ抽出バッチは `analyzing` の後の `clipping` ステージで全ハイライトを FFmpeg（`-c copy` 無エンコード）で並列に切り出し、S3 にアップロードしてから DynamoDB に `clipStatus: GENERATED` で保存する。見どころ画面を開いた時点で全クリップが再生可能な状態となる
 - **時間調整時の自動再生成**: 開始・終了時刻を調整して確定（onBlur）すると PATCH API が clip-regenerate Lambda を非同期 Invoke し clipStatus を `GENERATING` に遷移させる。status が `accepted` または `rejected` の場合は `unconfirmed` にリセットする
 - フロントは clipStatus が `GENERATING` の行をローディング表示し、`GENERATED` になるまでポーリングで状態を追跡する
+- **作り直しを重ねない**: 同じ見どころのクリップの作り直しは、同時に 1 件までとする。`GENERATING` の間は画面がその見どころの時刻の入力とリトライを止め、サーバーも時刻の変更と作り直しの要求を受け付けない (409)
+- **止まった作り直しのリカバリー**: 作り直しの Lambda が強制終了すると、`GENERATING` のまま残る。見どころの一覧を取るときに、`GENERATING` にしてから 360 秒を過ぎた見どころを `FAILED` にし、リトライで再開できるようにする
 - クリップの S3 パスは `outputs/{jobId}/clips/{highlightId}.mp4` として導出する（DynamoDB には保存しない）
 - **FAILED 時の再試行**: clipStatus が `FAILED` のクリップに対してのみ左パネルにリトライボタンを表示する。押下で `POST /api/jobs/{jobId}/highlights/{highlightId}/regenerate` を呼び出し clip-regenerate Lambda で再生成する
 - 通常フローの再生成ボタンは廃止する
@@ -195,7 +197,7 @@ AWS サービスの可用性に依存する。個別の稼働率・RTO・RPO 目
 
 ### 3.5 その他の非機能要件
 
-- **ファイル保持期間**: アップロードファイル・生成クリップともに1日（S3 Lifecycle Policy および DynamoDB TTL で自動削除）。Highlight レコードにも Job の `expiresAt` と同値の TTL を設定し、Job と同じタイミングで自動削除される
+- **ファイル保持期間**: アップロードファイル・生成クリップともに1日（S3 Lifecycle Policy および DynamoDB TTL で自動削除）。Highlight レコードにも Job と同じ期限の TTL を設定し、Job と同じタイミングで自動削除される
 - **文字起こしデータの保持**: 文字起こしを実施したジョブでは、結果を `outputs/{jobId}/transcript.json` として S3 に保存し、見どころ画面表示・ZIP 同梱に再利用する。保持期間は生成クリップと同じ1日
 - **対応ブラウザ**: Chrome・Edge（最新版）
 - **対応デバイス**: PC（デスクトップ）のみ。スマートフォン対応・PWA 対応は行わない（codec-converter と同方針）

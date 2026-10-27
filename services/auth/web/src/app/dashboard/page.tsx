@@ -4,6 +4,7 @@ import { Box, Container, Paper, Typography, Card, CardContent } from '@mui/mater
 import { Button, Chip } from '@nagiyu/ui';
 import Link from 'next/link';
 import { getSession } from '@/lib/auth/session';
+import { getRoleName } from '@/lib/role-display';
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -41,7 +42,7 @@ export default async function DashboardPage() {
                 {session.user.roles.length > 0 ? (
                   session.user.roles.map((role: string) => (
                     <Chip key={role} size="sm">
-                      {role}
+                      {getRoleName(role)}
                     </Chip>
                   ))
                 ) : (

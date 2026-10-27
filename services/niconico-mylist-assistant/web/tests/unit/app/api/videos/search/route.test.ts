@@ -35,7 +35,7 @@ const mockBatchGetVideoBasicInfo = batchGetVideoBasicInfo as jest.MockedFunction
 
 /** 認証済みセッションのモック */
 const MOCK_SESSION = {
-  user: { userId: 'user123', email: 'test@example.com', name: 'テストユーザー', roles: [] },
+  user: { id: 'user123', email: 'test@example.com', name: 'テストユーザー', roles: [] },
   expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
 };
 
@@ -83,7 +83,7 @@ describe('GET /api/videos/search', () => {
         title: 'レッツゴー!陰陽師',
         thumbnailUrl: 'https://example.com/thumb.jpg',
         length: '2:00',
-        CreatedAt: 1700000000000,
+        createdAt: 1700000000000,
       },
     ]);
 

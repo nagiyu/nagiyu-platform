@@ -8,6 +8,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import VideoSearchModal from '../../../src/components/VideoSearchModal';
+import { ERROR_MESSAGES } from '../../../src/lib/constants/errors';
 
 // @nagiyu/ui をスタブ化（MUI 依存を最小化）
 jest.mock('@nagiyu/ui', () => ({
@@ -464,7 +465,7 @@ describe('VideoSearchModal - 動画追加', () => {
       Promise.resolve({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ added: 1, skipped: 0 }),
+        json: () => Promise.resolve({ success: 1, failed: 0, skipped: 0, total: 1 }),
       })
     );
 
@@ -493,7 +494,7 @@ describe('VideoSearchModal - 動画追加', () => {
       Promise.resolve({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ added: 1, skipped: 0 }),
+        json: () => Promise.resolve({ success: 1, failed: 0, skipped: 0, total: 1 }),
       })
     );
 
@@ -539,6 +540,116 @@ describe('VideoSearchModal - 動画追加', () => {
     });
   });
 
+  it('failed > 0 のときエラーが表示され、ボタンは「追加」のまま有効で再試行できる', async () => {
+    mockFetch.mockReturnValueOnce(mockSearchResponse(singleVideo));
+    mockFetch.mockReturnValueOnce(
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            success: 0,
+            failed: 1,
+            skipped: 0,
+            total: 1,
+            failedDetails: [{ videoId: 'sm9', error: '動画情報の取得に失敗しました' }],
+          }),
+      })
+    );
+
+    render(<VideoSearchModal open={true} onClose={jest.fn()} />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'テスト' } });
+    fireEvent.click(screen.getByText('検索'));
+
+    await waitFor(() => {
+      expect(screen.getByText('追加')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('追加'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('error-alert')).toHaveTextContent(ERROR_MESSAGES.VIDEO_ADD_FAILED);
+    });
+    expect(screen.queryByText('追加済み')).not.toBeInTheDocument();
+    expect(screen.queryByText('追加済み（登録済）')).not.toBeInTheDocument();
+    expect(screen.getByText('追加')).toBeEnabled();
+  });
+
+  it('失敗後に再度追加して成功すると「追加済み」になりエラーが消える', async () => {
+    mockFetch.mockReturnValueOnce(mockSearchResponse(singleVideo));
+    mockFetch.mockReturnValueOnce(
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ success: 0, failed: 1, skipped: 0, total: 1 }),
+      })
+    );
+    mockFetch.mockReturnValueOnce(
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ success: 1, failed: 0, skipped: 0, total: 1 }),
+      })
+    );
+
+    render(<VideoSearchModal open={true} onClose={jest.fn()} />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'テスト' } });
+    fireEvent.click(screen.getByText('検索'));
+    await waitFor(() => {
+      expect(screen.getByText('追加')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('追加'));
+    await waitFor(() => {
+      expect(screen.getByTestId('error-alert')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('追加'));
+    await waitFor(() => {
+      expect(screen.getByText('追加済み')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('error-alert')).not.toBeInTheDocument();
+  });
+
+  it('追加処理中は該当動画のボタンが無効になり、完了後に「追加済み」へ変わる', async () => {
+    let resolveAdd: (value: unknown) => void = () => undefined;
+    mockFetch.mockReturnValueOnce(mockSearchResponse(singleVideo));
+    mockFetch.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveAdd = resolve;
+      })
+    );
+
+    render(<VideoSearchModal open={true} onClose={jest.fn()} />);
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'テスト' } });
+    fireEvent.click(screen.getByText('検索'));
+    await waitFor(() => {
+      expect(screen.getByText('追加')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('追加'));
+
+    await waitFor(() => {
+      expect(screen.getByText('追加')).toBeDisabled();
+    });
+    // 処理中に再度押しても追加リクエストは 1 回しか送られない
+    fireEvent.click(screen.getByText('追加'));
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    resolveAdd({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ success: 1, failed: 0, skipped: 0, total: 1 }),
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('追加済み')).toBeInTheDocument();
+    });
+  });
+
   it('既に登録済みの動画は「追加済み（登録済）」と表示される', async () => {
     const registeredVideo = [{ ...singleVideo[0], isRegistered: true }];
     mockFetch.mockReturnValueOnce(mockSearchResponse(registeredVideo));
@@ -559,7 +670,7 @@ describe('VideoSearchModal - 動画追加', () => {
       Promise.resolve({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ added: 0, skipped: 1 }),
+        json: () => Promise.resolve({ success: 0, failed: 0, skipped: 1, total: 1 }),
       })
     );
 

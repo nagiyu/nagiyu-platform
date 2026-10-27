@@ -41,20 +41,20 @@ export interface TickerRepositoryContractHooks {
 
 function buildTickerInput(overrides: Partial<CreateTickerInput> = {}): CreateTickerInput {
   return {
-    TickerID: 'NSDQ:AAPL',
-    Symbol: 'AAPL',
-    Name: 'Apple Inc.',
-    ExchangeID: 'NASDAQ',
+    tickerId: 'NSDQ:AAPL',
+    symbol: 'AAPL',
+    name: 'Apple Inc.',
+    exchangeId: 'NASDAQ',
     ...overrides,
   };
 }
 
-function sortByTickerId<T extends { TickerID: string }>(items: T[]): T[] {
+function sortByTickerId<T extends { tickerId: string }>(items: T[]): T[] {
   // localeCompareはロケール依存で、異なる文字列に対して0（等価）を返しうるため使わない
   // （例: ロケールによっては大文字小文字や記号の違いを同一視することがある）。
   // ソート順の安定性・決定性を保つため、素のコードユニット比較にする。
   return [...items].sort((a, b) =>
-    a.TickerID < b.TickerID ? -1 : a.TickerID > b.TickerID ? 1 : 0
+    a.tickerId < b.tickerId ? -1 : a.tickerId > b.tickerId ? 1 : 0
   );
 }
 
@@ -88,15 +88,26 @@ export function defineTickerRepositoryContract(
       const created = await repository.create(input);
       expect(created).toMatchObject(input);
 
-      const fetched = await repository.getById(input.TickerID);
+      const fetched = await repository.getById(input.tickerId);
       expect(fetched).toEqual(created);
 
-      const updated = await repository.update(input.TickerID, { Name: 'Apple Inc. (Updated)' });
-      expect(updated.Name).toBe('Apple Inc. (Updated)');
+      const updated = await repository.update(input.tickerId, { name: 'Apple Inc. (Updated)' });
+      expect(updated.name).toBe('Apple Inc. (Updated)');
 
-      await repository.delete(input.TickerID);
-      const afterDelete = await repository.getById(input.TickerID);
+      await repository.delete(input.tickerId);
+      const afterDelete = await repository.getById(input.tickerId);
       expect(afterDelete).toBeNull();
+    });
+
+    it('空の変更で update しても成功し、更新日時だけが進む', async () => {
+      const created = await repository.create(buildTickerInput());
+      // 同じミリ秒内に収まらないよう、更新日時が進む時間だけ待つ
+      await new Promise((resolve) => setTimeout(resolve, 5));
+
+      const updated = await repository.update(created.tickerId, {});
+
+      expect(updated).toEqual({ ...created, updatedAt: updated.updatedAt });
+      expect(updated.updatedAt).toBeGreaterThan(created.updatedAt);
     });
 
     it('getById は未登録のティッカーに対してnullを返す', async () => {
@@ -104,75 +115,75 @@ export function defineTickerRepositoryContract(
     });
 
     it('getByExchange は指定取引所のティッカーだけを返す（GSI3パーティション分離）', async () => {
-      await repository.create(buildTickerInput({ TickerID: 'NSDQ:AAPL', ExchangeID: 'NASDAQ' }));
-      await repository.create(buildTickerInput({ TickerID: 'NSDQ:NVDA', ExchangeID: 'NASDAQ' }));
-      await repository.create(buildTickerInput({ TickerID: 'NYSE:BA', ExchangeID: 'NYSE' }));
+      await repository.create(buildTickerInput({ tickerId: 'NSDQ:AAPL', exchangeId: 'NASDAQ' }));
+      await repository.create(buildTickerInput({ tickerId: 'NSDQ:NVDA', exchangeId: 'NASDAQ' }));
+      await repository.create(buildTickerInput({ tickerId: 'NYSE:BA', exchangeId: 'NYSE' }));
 
       const result = await repository.getByExchange('NASDAQ');
 
       expect(result).toHaveLength(2);
-      expect(result.every((item) => item.ExchangeID === 'NASDAQ')).toBe(true);
+      expect(result.every((item) => item.exchangeId === 'NASDAQ')).toBe(true);
     });
 
     it('getByExchange は挿入順ではなくソートキー（GSI3SK=TICKER#TickerID）の昇順で返す', async () => {
       // 意図的に非ソート順（TSLA→AAPL→NVDA）で作成する
-      await repository.create(buildTickerInput({ TickerID: 'TSLA', ExchangeID: 'NASDAQ' }));
-      await repository.create(buildTickerInput({ TickerID: 'AAPL', ExchangeID: 'NASDAQ' }));
-      await repository.create(buildTickerInput({ TickerID: 'NVDA', ExchangeID: 'NASDAQ' }));
+      await repository.create(buildTickerInput({ tickerId: 'TSLA', exchangeId: 'NASDAQ' }));
+      await repository.create(buildTickerInput({ tickerId: 'AAPL', exchangeId: 'NASDAQ' }));
+      await repository.create(buildTickerInput({ tickerId: 'NVDA', exchangeId: 'NASDAQ' }));
 
       const result = await repository.getByExchange('NASDAQ');
 
-      expect(result.map((item) => item.TickerID)).toEqual(['AAPL', 'NVDA', 'TSLA']);
+      expect(result.map((item) => item.tickerId)).toEqual(['AAPL', 'NVDA', 'TSLA']);
     });
 
     it('getByExchangeはちょうど50件（旧既定limitの境界）でも打ち切られず全件返る', async () => {
       const total = 50;
       for (let i = 0; i < total; i += 1) {
         await repository.create(
-          buildTickerInput({ TickerID: `T${String(i).padStart(4, '0')}`, ExchangeID: 'NASDAQ' })
+          buildTickerInput({ tickerId: `T${String(i).padStart(4, '0')}`, exchangeId: 'NASDAQ' })
         );
       }
 
       const result = await repository.getByExchange('NASDAQ');
 
       const expected = Array.from({ length: total }, (_, i) => `T${String(i).padStart(4, '0')}`);
-      expect(result.map((item) => item.TickerID)).toEqual(expected);
+      expect(result.map((item) => item.tickerId)).toEqual(expected);
     });
 
     it('getByExchangeは51件（旧既定limitの境界+1）でも打ち切られず全件返る（Issue #3788の主眼）', async () => {
       const total = 51;
       for (let i = 0; i < total; i += 1) {
         await repository.create(
-          buildTickerInput({ TickerID: `T${String(i).padStart(4, '0')}`, ExchangeID: 'NASDAQ' })
+          buildTickerInput({ tickerId: `T${String(i).padStart(4, '0')}`, exchangeId: 'NASDAQ' })
         );
       }
 
       const result = await repository.getByExchange('NASDAQ');
 
       const expected = Array.from({ length: total }, (_, i) => `T${String(i).padStart(4, '0')}`);
-      expect(result.map((item) => item.TickerID)).toEqual(expected);
+      expect(result.map((item) => item.tickerId)).toEqual(expected);
     });
 
     it('getByExchangeは100件超（130件）でも打ち切られず、ソートキー昇順のまま全件返る', async () => {
       const total = 130;
       for (let i = 0; i < total; i += 1) {
         await repository.create(
-          buildTickerInput({ TickerID: `T${String(i).padStart(4, '0')}`, ExchangeID: 'NASDAQ' })
+          buildTickerInput({ tickerId: `T${String(i).padStart(4, '0')}`, exchangeId: 'NASDAQ' })
         );
       }
 
       const result = await repository.getByExchange('NASDAQ');
 
       const expected = Array.from({ length: total }, (_, i) => `T${String(i).padStart(4, '0')}`);
-      expect(result.map((item) => item.TickerID)).toEqual(expected);
+      expect(result.map((item) => item.tickerId)).toEqual(expected);
     });
 
     it('getAll（オプション未指定）は登録済みの全Tickerを集合として返す（順序は保証しないためソートして比較する）', async () => {
       // 意図的に非ソート順（TSLA→AAPL→NVDA）で作成する
       const created = [
-        await repository.create(buildTickerInput({ TickerID: 'TSLA', ExchangeID: 'NASDAQ' })),
-        await repository.create(buildTickerInput({ TickerID: 'AAPL', ExchangeID: 'NASDAQ' })),
-        await repository.create(buildTickerInput({ TickerID: 'NVDA', ExchangeID: 'NASDAQ' })),
+        await repository.create(buildTickerInput({ tickerId: 'TSLA', exchangeId: 'NASDAQ' })),
+        await repository.create(buildTickerInput({ tickerId: 'AAPL', exchangeId: 'NASDAQ' })),
+        await repository.create(buildTickerInput({ tickerId: 'NVDA', exchangeId: 'NASDAQ' })),
       ];
 
       const result = await repository.getAll();
@@ -185,9 +196,7 @@ export function defineTickerRepositoryContract(
       const tickerIds = ['E', 'C', 'A', 'D', 'B'];
       const created = [];
       for (const tickerId of tickerIds) {
-        created.push(
-          await repository.create(buildTickerInput({ TickerID: tickerId, ExchangeID: 'NASDAQ' }))
-        );
+        created.push(await repository.create(buildTickerInput({ tickerId, exchangeId: 'NASDAQ' })));
       }
 
       const collected: typeof created = [];
@@ -209,7 +218,7 @@ export function defineTickerRepositoryContract(
       for (let i = 0; i < total; i += 1) {
         created.push(
           await repository.create(
-            buildTickerInput({ TickerID: `T${String(i).padStart(4, '0')}`, ExchangeID: 'NASDAQ' })
+            buildTickerInput({ tickerId: `T${String(i).padStart(4, '0')}`, exchangeId: 'NASDAQ' })
           )
         );
       }
@@ -224,13 +233,13 @@ export function defineTickerRepositoryContract(
       const ticker = await repository.create(buildTickerInput());
       const exchangeRepository = await hooks.makeExchangeRepository();
       await exchangeRepository.create({
-        ExchangeID: ticker.ExchangeID,
-        Name: 'NASDAQ',
-        Key: 'NASDAQ',
-        Timezone: 'America/New_York',
-        Start: '09:30',
-        End: '16:00',
-        PriceSource: 'finnhub',
+        exchangeId: ticker.exchangeId,
+        name: 'NASDAQ',
+        key: 'NASDAQ',
+        timezone: 'America/New_York',
+        start: '09:30',
+        end: '16:00',
+        priceSource: 'finnhub',
       });
 
       const result = await repository.getAll();
@@ -249,7 +258,7 @@ export function defineTickerRepositoryContract(
     });
 
     it('存在しない対象へのupdateはEntityNotFoundErrorをスローする', async () => {
-      await expect(repository.update('NO-SUCH-TICKER', { Name: 'X' })).rejects.toThrow(
+      await expect(repository.update('NO-SUCH-TICKER', { name: 'X' })).rejects.toThrow(
         expect.objectContaining({ name: 'EntityNotFoundError' })
       );
     });

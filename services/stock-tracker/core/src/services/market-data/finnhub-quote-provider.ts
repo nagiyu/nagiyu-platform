@@ -89,7 +89,10 @@ export class FinnhubQuoteProvider implements QuoteProvider {
    * @returns 現在価格
    * @throws {Error} API キー未設定、無効ティッカー、レート制限、タイムアウト、データなし等
    */
-  async getCurrentPrice(tickerId: string, options: GetCurrentPriceOptions = {}): Promise<number> {
+  public async getCurrentPrice(
+    tickerId: string,
+    options: GetCurrentPriceOptions = {}
+  ): Promise<number> {
     // API キーの検証
     if (!this.apiKey) {
       throw new Error(FINNHUB_ERROR_MESSAGES.NO_API_KEY);
@@ -120,7 +123,7 @@ export class FinnhubQuoteProvider implements QuoteProvider {
     } catch (error) {
       // AbortError はタイムアウトエラーとして扱う
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error(FINNHUB_ERROR_MESSAGES.TIMEOUT);
+        throw new Error(FINNHUB_ERROR_MESSAGES.TIMEOUT, { cause: error });
       }
       throw error;
     } finally {

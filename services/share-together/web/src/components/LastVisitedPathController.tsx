@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   SESSION_BOOTSTRAP_STORAGE_KEY,
+  buildVisitedPath,
   isRecordablePath,
   loadLastVisitedPath,
   saveLastVisitedPath,
@@ -14,6 +15,7 @@ const ROOT_PATH = '/';
 export default function LastVisitedPathController() {
   const router = useRouter();
   const pathname = usePathname();
+  const search = useSearchParams()?.toString() ?? '';
 
   useEffect(() => {
     if (!pathname || !isRecordablePath(pathname)) {
@@ -38,8 +40,8 @@ export default function LastVisitedPathController() {
       }
     }
 
-    saveLastVisitedPath(pathname);
-  }, [pathname, router]);
+    saveLastVisitedPath(buildVisitedPath(pathname, search));
+  }, [pathname, search, router]);
 
   return null;
 }

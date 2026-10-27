@@ -11,8 +11,11 @@ import type { TodoItem as TodoItemType } from '@/types';
 const ERROR_MESSAGES = {
   TODOS_FETCH_FAILED: 'ToDo 一覧取得 API の実行に失敗しました',
   TODO_CREATE_FAILED: 'ToDo 作成 API の実行に失敗しました',
+  TODO_CREATE_FAILED_NOTICE: 'ToDoの追加に失敗しました。',
   TODO_UPDATE_FAILED: 'ToDo 更新 API の実行に失敗しました',
+  TODO_UPDATE_FAILED_NOTICE: 'ToDoの更新に失敗しました。',
   TODO_DELETE_FAILED: 'ToDo 削除 API の実行に失敗しました',
+  TODO_DELETE_FAILED_NOTICE: 'ToDoの削除に失敗しました。',
   TODOS_FETCH_FAILED_NOTICE: 'ToDo一覧の取得に失敗しました。',
   GROUP_ID_REQUIRED: 'グループIDが必要です',
 } as const;
@@ -60,6 +63,8 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
   const [todos, setTodos] = useState<Array<Pick<TodoItemType, 'todoId' | 'title' | 'isCompleted'>>>(
     []
   );
+  // 取得前や取得失敗時に「ToDoはまだありません」と出すと誤解を招くため、取得に成功したかを持つ。
+  const [isTodosLoaded, setIsTodosLoaded] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
   const fetchControllerRef = useRef<AbortController | null>(null);
@@ -84,6 +89,7 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
           return;
         }
         setTodos(result.data.todos.map(toDisplayTodo));
+        setIsTodosLoaded(true);
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) {
@@ -110,6 +116,7 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
       return;
     }
 
+    setIsTodosLoaded(false);
     fetchTodos(listId);
     return () => {
       fetchControllerRef.current?.abort();
@@ -145,6 +152,7 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
       })
       .catch((error: unknown) => {
         console.error(ERROR_MESSAGES.TODO_UPDATE_FAILED, { error, listId, todoId });
+        setSnackbarMessage(ERROR_MESSAGES.TODO_UPDATE_FAILED_NOTICE);
       });
   };
 
@@ -152,31 +160,32 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
     setPendingDeleteId(todoId);
   };
 
-  const handleUpdate = (todoId: string, title: string) => {
+  const handleUpdate = async (todoId: string, title: string): Promise<boolean> => {
     if (!listId || (scope === 'group' && !groupId)) {
-      return;
+      return false;
     }
 
     fetchControllerRef.current?.abort();
-    void globalThis
-      .fetch(createTodosApiPath(scope, listId, groupId, todoId), {
+    try {
+      const response = await globalThis.fetch(createTodosApiPath(scope, listId, groupId, todoId), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title }),
-      })
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(`status: ${response.status}`);
-        }
-        const result = (await response.json()) as TodoResponse;
-        setTodos((prev) =>
-          prev.map((todo) => (todo.todoId === todoId ? toDisplayTodo(result.data) : todo))
-        );
-        setSnackbarMessage('ToDoを更新しました。');
-      })
-      .catch((error: unknown) => {
-        console.error(ERROR_MESSAGES.TODO_UPDATE_FAILED, { error, listId, todoId });
       });
+      if (!response.ok) {
+        throw new Error(`status: ${response.status}`);
+      }
+      const result = (await response.json()) as TodoResponse;
+      setTodos((prev) =>
+        prev.map((todo) => (todo.todoId === todoId ? toDisplayTodo(result.data) : todo))
+      );
+      setSnackbarMessage('ToDoを更新しました。');
+      return true;
+    } catch (error: unknown) {
+      console.error(ERROR_MESSAGES.TODO_UPDATE_FAILED, { error, listId, todoId });
+      setSnackbarMessage(ERROR_MESSAGES.TODO_UPDATE_FAILED_NOTICE);
+      return false;
+    }
   };
 
   const handleDeleteConfirm = () => {
@@ -203,6 +212,7 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
           listId,
           todoId: deleteTargetId,
         });
+        setSnackbarMessage(ERROR_MESSAGES.TODO_DELETE_FAILED_NOTICE);
       })
       .finally(() => {
         setPendingDeleteId(null);
@@ -213,28 +223,29 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
     setPendingDeleteId(null);
   };
 
-  const handleAdd = (title: string) => {
+  const handleAdd = async (title: string): Promise<boolean> => {
     if (!listId || (scope === 'group' && !groupId)) {
-      return;
+      return false;
     }
 
-    void globalThis
-      .fetch(createTodosApiPath(scope, listId, groupId), {
+    try {
+      const response = await globalThis.fetch(createTodosApiPath(scope, listId, groupId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title }),
-      })
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(`status: ${response.status}`);
-        }
-        const result = (await response.json()) as TodoResponse;
-        setTodos((prev) => [...prev, toDisplayTodo(result.data)]);
-        setSnackbarMessage('ToDoを追加しました。');
-      })
-      .catch((error: unknown) => {
-        console.error(ERROR_MESSAGES.TODO_CREATE_FAILED, { error, listId });
       });
+      if (!response.ok) {
+        throw new Error(`status: ${response.status}`);
+      }
+      const result = (await response.json()) as TodoResponse;
+      setTodos((prev) => [...prev, toDisplayTodo(result.data)]);
+      setSnackbarMessage('ToDoを追加しました。');
+      return true;
+    } catch (error: unknown) {
+      console.error(ERROR_MESSAGES.TODO_CREATE_FAILED, { error, listId });
+      setSnackbarMessage(ERROR_MESSAGES.TODO_CREATE_FAILED_NOTICE);
+      return false;
+    }
   };
 
   return (
@@ -244,6 +255,9 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
           ToDo
         </Typography>
         <TodoForm onAdd={handleAdd} />
+        {isTodosLoaded && todos.length === 0 ? (
+          <Typography color="text.secondary">ToDoはまだありません。</Typography>
+        ) : null}
         <List disablePadding>
           {todos.map((todo) => (
             <TodoItem

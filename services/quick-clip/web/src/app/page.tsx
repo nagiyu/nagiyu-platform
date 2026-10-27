@@ -7,6 +7,7 @@ import { Alert, Box, Container, LinearProgress, Paper, Typography } from '@mui/m
 import { Button, ErrorAlert } from '@nagiyu/ui';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { getVideoDurationSec } from '@/lib/get-video-duration';
+import { validateUploadFile } from '@/lib/upload-validation';
 
 const ERROR_MESSAGES = {
   SELECT_FILE: '動画ファイルを選択してください',
@@ -44,6 +45,25 @@ type CreateJobResponse = {
   };
 };
 
+/**
+ * ジョブ作成の失敗応答からサーバーが返した理由を取り出す。
+ * 本文が JSON でない・message が無い場合も例外にせず固定文言へ戻す。
+ */
+const readErrorMessage = async (response: Response): Promise<string> => {
+  try {
+    const body: unknown = await response.json();
+    if (typeof body === 'object' && body !== null && 'message' in body) {
+      const { message } = body as { message: unknown };
+      if (typeof message === 'string' && message.trim() !== '') {
+        return message;
+      }
+    }
+  } catch {
+    // 本文が読めない場合は固定文言を使う
+  }
+  return ERROR_MESSAGES.CREATE_JOB_FAILED;
+};
+
 export default function Home() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -52,10 +72,13 @@ export default function Home() {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // 選択中ファイルが不正なら送信させない。エラー表示は他の失敗でも使うため別に導出する
+  const isFileInvalid = file !== null && validateUploadFile(file) !== null;
 
   const setSelectedFile = (selected: File | null) => {
     setFile(selected);
-    setErrorMessage(null);
+    // 不正なファイルは選択時点で知らせ、送信してからサーバーに拒否されるのを待たせない
+    setErrorMessage(selected ? validateUploadFile(selected) : null);
   };
 
   const onSelectFile = (event: ChangeEvent<HTMLInputElement>) => {
@@ -115,6 +138,12 @@ export default function Home() {
       return;
     }
 
+    const validationError = validateUploadFile(file);
+    if (validationError) {
+      setErrorMessage(validationError);
+      return;
+    }
+
     setIsSubmitting(true);
     setUploadProgress(0);
     setErrorMessage(null);
@@ -130,13 +159,14 @@ export default function Home() {
         body: JSON.stringify({
           fileName: file.name,
           fileSize: file.size,
-          contentType: file.type,
+          // 空文字はサーバーで不正扱いになるため、判別できない場合は送らない
+          ...(file.type ? { contentType: file.type } : {}),
           ...(durationSec !== undefined ? { durationSec } : {}),
         }),
       });
 
       if (!response.ok) {
-        setErrorMessage(ERROR_MESSAGES.CREATE_JOB_FAILED);
+        setErrorMessage(await readErrorMessage(response));
         resetSubmitting();
         return;
       }
@@ -340,7 +370,12 @@ export default function Home() {
             </Box>
           )}
 
-          <Button type="submit" variant="solid" loading={isSubmitting} disabled={!file}>
+          <Button
+            type="submit"
+            variant="solid"
+            loading={isSubmitting}
+            disabled={!file || isFileInvalid}
+          >
             {!isSubmitting
               ? 'アップロードして処理開始'
               : (uploadProgress ?? 0) < 100

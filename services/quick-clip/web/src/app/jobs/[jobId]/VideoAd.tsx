@@ -12,6 +12,12 @@ const IMA_SDK_URL = 'https://imasdk.googleapis.com/js/sdkloader/ima3.js';
 const AD_WIDTH = 640;
 const AD_HEIGHT = 360;
 const NON_LINEAR_AD_HEIGHT = 150;
+// SDK の配信元が応答しないと onload / onerror のどちらも来ず、広告完了が永遠に通知されない
+const IMA_SDK_LOAD_TIMEOUT_MS = 10_000;
+
+const ERROR_MESSAGES = {
+  IMA_SDK_LOAD_TIMEOUT: 'IMA SDK の読み込みがタイムアウトしました',
+} as const;
 
 const loadImaSdk = (): Promise<typeof google.ima> =>
   new Promise((resolve, reject) => {
@@ -22,8 +28,19 @@ const loadImaSdk = (): Promise<typeof google.ima> =>
     const script = document.createElement('script');
     script.src = IMA_SDK_URL;
     script.async = true;
-    script.onload = () => resolve(window.google.ima);
-    script.onerror = reject;
+    const timeoutId = setTimeout(() => {
+      script.onload = null;
+      script.onerror = null;
+      reject(new Error(ERROR_MESSAGES.IMA_SDK_LOAD_TIMEOUT));
+    }, IMA_SDK_LOAD_TIMEOUT_MS);
+    script.onload = () => {
+      clearTimeout(timeoutId);
+      resolve(window.google.ima);
+    };
+    script.onerror = (error) => {
+      clearTimeout(timeoutId);
+      reject(error);
+    };
     document.body.appendChild(script);
   });
 
@@ -89,12 +106,7 @@ export function VideoAd({ onAdFinished }: VideoAdProps) {
           }
         );
 
-        adsLoader.addEventListener(
-          ima.AdErrorEvent.Type.AD_ERROR,
-          (_event: google.ima.AdErrorEvent) => {
-            finish();
-          }
-        );
+        adsLoader.addEventListener(ima.AdErrorEvent.Type.AD_ERROR, finish);
 
         const adsRequest = new ima.AdsRequest();
         adsRequest.adTagUrl = vastTagUrl;

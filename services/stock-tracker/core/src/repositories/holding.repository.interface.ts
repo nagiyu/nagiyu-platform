@@ -42,13 +42,15 @@ export interface HoldingRepository {
    * 新しい保有株式を作成
    *
    * @param input - 保有株式データ
-   * @returns 作成された保有株式（CreatedAt, UpdatedAtを含む）
-   * @throws {EntityAlreadyExistsError} 既に同じUserID/TickerIDの保有株式が存在する場合
+   * @returns 作成された保有株式 (createdAt, updatedAtを含む)
+   * @throws {EntityAlreadyExistsError} 既に同じuserId/tickerIdの保有株式が存在する場合
    */
   create(input: CreateHoldingInput): Promise<HoldingEntity>;
 
   /**
    * 保有株式を更新
+   *
+   * `updates` が空でも成功し、更新日時だけが更新される。
    *
    * @param userId - ユーザーID
    * @param tickerId - ティッカーID

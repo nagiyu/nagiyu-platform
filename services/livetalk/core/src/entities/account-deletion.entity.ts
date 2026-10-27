@@ -1,7 +1,7 @@
 /**
  * アカウント削除結果型（退会・データ削除 / Issue #3579）。
  *
- * ADR-2.21 に従い、`PK = USER#<googleId>` 配下の全アイテムを削除するが、
+ * ADR-2.21 に従い、`PK = USER#<userId>` 配下の全アイテムを削除するが、
  * SafetyEvent（SK が `SAFETY#` で始まる）のみは匿名化して残す。
  *
  * @see docs/services/livetalk/architecture.md §2.21（ADR-2.21）

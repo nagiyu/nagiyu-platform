@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "test": "jest",
-    "lint": "eslint bin/**/*.ts lib/**/*.ts libs/**/*.ts",
+    "lint": "eslint 'bin/**/*.ts' 'lib/**/*.ts' 'libs/**/*.ts'",
     "watch": "tsc -w",
     "cdk": "cdk",
     "bootstrap": "cdk bootstrap",
@@ -16,6 +16,6 @@
     "destroy": "cdk destroy"
   },
   "dependencies": {
-    "aws-cdk-lib": "^2.271.0"
+    "aws-cdk-lib": "^2.273.0"
   }
 }

@@ -113,6 +113,9 @@ export default function Live2DCanvas({
   const modelRef = useRef<Live2DModelInstance | null>(null);
   const loadedRef = useRef(false);
   const [modelReady, setModelReady] = useState(false);
+  // モデルが読めないとき、再生 effect が音声を待たせ続けると呼び出し元の再生キューが
+  // 空かずに「話している」状態から戻れなくなる。失敗を state で持ち、モデル無しの再生に切り替える。
+  const [modelFailed, setModelFailed] = useState(false);
 
   // コールバックは ref 経由で参照することで、speak の useEffect が
   // 親側のコールバック識別子変更で再走するのを避ける
@@ -136,13 +139,30 @@ export default function Live2DCanvas({
     let cancelled = false;
 
     (async () => {
-      // メイン entry (pixi-live2d-display-lipsyncpatch) は Cubism 2 + 4 両対応で
-      // ブラウザ実行時に Cubism 2 ランタイム (live2d.min.js) を要求する。
-      // 桃瀬ひよりは Cubism 4 モデル (model3.json) なので cubism4 サブモジュールから import する。
-      const [{ Application, utils }, { Live2DModel }] = await Promise.all([
-        import('pixi.js'),
-        import('pixi-live2d-display-lipsyncpatch/cubism4'),
-      ]);
+      // 読み込み失敗は cleanup 済み（cancelled）なら通知しない。破棄後の state 更新を避けるため。
+      const markFailed = () => {
+        if (!cancelled) setModelFailed(true);
+      };
+
+      let Application: typeof import('pixi.js').Application;
+      let utils: typeof import('pixi.js').utils;
+      let Live2DModel: typeof import('pixi-live2d-display-lipsyncpatch/cubism4').Live2DModel;
+      try {
+        // メイン entry (pixi-live2d-display-lipsyncpatch) は Cubism 2 + 4 両対応で
+        // ブラウザ実行時に Cubism 2 ランタイム (live2d.min.js) を要求する。
+        // 桃瀬ひよりは Cubism 4 モデル (model3.json) なので cubism4 サブモジュールから import する。
+        const [pixi, live2d] = await Promise.all([
+          import('pixi.js'),
+          import('pixi-live2d-display-lipsyncpatch/cubism4'),
+        ]);
+        Application = pixi.Application;
+        utils = pixi.utils;
+        Live2DModel = live2d.Live2DModel;
+      } catch (err) {
+        console.error('[Live2DCanvas] ライブラリのロードに失敗しました', err);
+        markFailed();
+        return;
+      }
 
       if (cancelled || !containerRef.current) return;
 
@@ -151,6 +171,7 @@ export default function Live2DCanvas({
         await waitForCubismCore();
       } catch (err) {
         console.error('[Live2DCanvas]', err);
+        markFailed();
         return;
       }
       if (cancelled || !containerRef.current) return;
@@ -162,22 +183,23 @@ export default function Live2DCanvas({
       const w = container.clientWidth || 360;
       const h = container.clientHeight || 480;
 
-      const app = new Application({
-        width: w,
-        height: h,
-        backgroundAlpha: 0,
-        antialias: true,
-        resolution: window.devicePixelRatio || 1,
-        autoDensity: true,
-      });
-      appRef.current = app;
-      container.appendChild(app.view as HTMLCanvasElement);
-
       try {
+        const app = new Application({
+          width: w,
+          height: h,
+          backgroundAlpha: 0,
+          antialias: true,
+          resolution: window.devicePixelRatio || 1,
+          autoDensity: true,
+        });
+        appRef.current = app;
+        container.appendChild(app.view as HTMLCanvasElement);
+
         const renderProfile = getCharacterRenderProfile(characterId);
         // Live2DCanvas は live2d キャラにのみマウントされる前提だが、型の健全性のためにガードする
         if (renderProfile.renderer !== 'live2d') {
           console.warn('[Live2DCanvas] renderer が live2d ではないため描画をスキップします');
+          markFailed();
           return;
         }
         const model = await Live2DModel.from(renderProfile.modelPath, {
@@ -196,6 +218,7 @@ export default function Live2DCanvas({
         setModelReady(true);
       } catch (err) {
         console.error('[Live2DCanvas] モデルのロードに失敗しました', err);
+        markFailed();
       }
     })();
 
@@ -223,18 +246,22 @@ export default function Live2DCanvas({
       appRef.current = null;
       loadedRef.current = false;
       setModelReady(false);
+      setModelFailed(false);
     };
     // characterId が変更されると cleanup（旧モデル破棄）→ 再実行（新モデルロード）でリロードされる。
     // loadedRef ガードは cleanup で false にリセットされるため、React StrictMode の
     // 二重実行対策として温存する。
   }, [characterId]);
 
-  // audioBuffer + audioContext を受け取ったら Web Audio で再生し、AnalyserNode を
-  // モデルの motionManager に差し込むことで、ライブラリ既存のリップシンク駆動ループ
-  // （毎フレーム ParamMouthOpenY を更新）をそのまま活用する。
+  // audioBuffer + audioContext を受け取ったら Web Audio で再生する。
+  // モデルが準備済みなら AnalyserNode をモデルの motionManager に差し込み、ライブラリ既存の
+  // リップシンク駆動ループ（毎フレーム ParamMouthOpenY を更新）をそのまま活用する。
+  // モデルの読み込みに失敗した場合は口パク無しで再生だけ行い、再生完了を呼び出し元に必ず返す。
+  // 読み込み中（準備済みでも失敗でもない）は、口パク付きで再生するため待つ。
   useEffect(() => {
-    const model = modelRef.current;
-    if (!model || !modelReady || !audioBuffer || !audioContext) return;
+    if (!audioBuffer || !audioContext) return;
+    const model = modelReady ? modelRef.current : null;
+    if (!model && !modelFailed) return;
 
     let cancelled = false;
     let source: AudioBufferSourceNode | null = null;
@@ -242,38 +269,44 @@ export default function Live2DCanvas({
 
     // Cubism4 の公開型でアクセスする（ライブラリの MotionManager が
     // currentAudio / currentAnalyzer / currentContext を型として公開している）
-    const internalModel = model.internalModel as Cubism4InternalModelType;
-    const motionManager = internalModel.motionManager;
+    const motionManager = model
+      ? (model.internalModel as Cubism4InternalModelType).motionManager
+      : null;
 
     try {
       source = audioContext.createBufferSource();
       source.buffer = audioBuffer;
 
-      analyser = audioContext.createAnalyser();
-      // SoundManager.addAnalyzer と同じ設定（ライブラリの analyze 関数が前提とする値）
-      analyser.fftSize = 256;
-      analyser.minDecibels = -90;
-      analyser.maxDecibels = -10;
-      analyser.smoothingTimeConstant = 0.85;
+      if (motionManager) {
+        analyser = audioContext.createAnalyser();
+        // SoundManager.addAnalyzer と同じ設定（ライブラリの analyze 関数が前提とする値）
+        analyser.fftSize = 256;
+        analyser.minDecibels = -90;
+        analyser.maxDecibels = -10;
+        analyser.smoothingTimeConstant = 0.85;
 
-      source.connect(analyser);
-      analyser.connect(audioContext.destination);
+        source.connect(analyser);
+        analyser.connect(audioContext.destination);
 
-      // ライブラリ内部のリップシンク駆動ループに自前 AnalyserNode を hijack 注入。
-      // updateParameters 内で `if (this.lipSync && motionManager.currentAudio)` を
-      // 通過させるため、currentAudio には truthy なオブジェクトを置く。
-      // ライブラリは currentAudio が truthy のときだけリップシンク（ParamMouthOpenY 更新）を
-      // 駆動する。実際の HTMLAudioElement は使わず Web Audio 経由で再生するため、
-      // truthy なダミーを注入する（意図的な hijack）。
-      motionManager.currentAudio = { ended: false } as unknown as HTMLAudioElement;
-      motionManager.currentAnalyzer = analyser;
-      motionManager.currentContext = audioContext;
+        // ライブラリ内部のリップシンク駆動ループに自前 AnalyserNode を hijack 注入。
+        // ライブラリは currentAudio が truthy のときだけリップシンク（ParamMouthOpenY 更新）を
+        // 駆動する（updateParameters 内の `if (this.lipSync && motionManager.currentAudio)`）。
+        // 実際の HTMLAudioElement は使わず Web Audio 経由で再生するため、
+        // truthy なダミーを注入する（意図的な hijack）。
+        motionManager.currentAudio = { ended: false } as unknown as HTMLAudioElement;
+        motionManager.currentAnalyzer = analyser;
+        motionManager.currentContext = audioContext;
+      } else {
+        source.connect(audioContext.destination);
+      }
 
       source.onended = () => {
         if (cancelled) return;
-        motionManager.currentAudio = undefined;
-        motionManager.currentAnalyzer = undefined;
-        motionManager.currentContext = undefined;
+        if (motionManager) {
+          motionManager.currentAudio = undefined;
+          motionManager.currentAnalyzer = undefined;
+          motionManager.currentContext = undefined;
+        }
         onPlaybackEndRef.current?.();
       };
 
@@ -294,13 +327,13 @@ export default function Live2DCanvas({
       analyser?.disconnect();
       // 自前で差し込んだ analyser だった場合のみクリア（並走更新で別 useEffect 由来の
       // analyser に置き換わっていたら触らない）
-      if (motionManager.currentAnalyzer === analyser) {
+      if (motionManager && analyser && motionManager.currentAnalyzer === analyser) {
         motionManager.currentAudio = undefined;
         motionManager.currentAnalyzer = undefined;
         motionManager.currentContext = undefined;
       }
     };
-  }, [audioBuffer, audioContext, modelReady]);
+  }, [audioBuffer, audioContext, modelReady, modelFailed]);
 
   // sleeping 状態のとき、目を半開き（0.3）にしつつ、たまにゆっくり瞬きさせる。
   //

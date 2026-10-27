@@ -1,4 +1,4 @@
-import { InMemorySingleTableStore } from '@nagiyu/aws';
+import { InMemoryEntityStore, type EntityStore, type InMemorySingleTableStore } from '@nagiyu/aws';
 import type {
   CreateProfileInput,
   ProfileEntity,
@@ -10,21 +10,18 @@ import { ProfileMapper } from '../mappers/profile.mapper.js';
 import type { ProfileRepository } from './profile.repository.interface.js';
 
 export class InMemoryProfileRepository implements ProfileRepository {
-  private readonly mapper: ProfileMapper;
   private readonly store: InMemorySingleTableStore;
   private readonly nowMs: () => number;
+  private readonly entityStore: EntityStore<ProfileEntity, ProfileKey>;
 
   constructor(store: InMemorySingleTableStore, nowMs: () => number = () => Date.now()) {
     this.store = store;
     this.nowMs = nowMs;
-    this.mapper = new ProfileMapper();
+    this.entityStore = new InMemoryEntityStore(store, new ProfileMapper(), { now: nowMs });
   }
 
   public async getById(key: ProfileKey): Promise<ProfileEntity | null> {
-    const { pk, sk } = this.mapper.buildKeys(key);
-    const item = this.store.get(pk, sk);
-    if (!item) return null;
-    return this.mapper.toEntity(item);
+    return this.entityStore.get(key);
   }
 
   public async listAllUserIds(): Promise<string[]> {
@@ -37,8 +34,8 @@ export class InMemoryProfileRepository implements ProfileRepository {
           attributeName: 'GSI1PK',
           attributeValue: buildProfileGSI1PK(),
           projection: PROFILE_GSI_PROJECTION,
-          // sk条件を指定しないため、実DynamoDBのGSI1 Queryと同様にGSI1SK昇順で返すよう明示する
-          // （listAllUserIdsは順序を約束しないため呼び出し側の挙動には影響しない）
+          // sk 条件を指定しないため、実 DynamoDB の GSI1 Query と同様に GSI1SK 昇順で返すよう明示する
+          // (listAllUserIds は順序を約束しないため呼び出し側の挙動には影響しない)
           gsiSortKeyAttributeName: 'GSI1SK',
         },
         cursor ? { cursor } : undefined
@@ -59,19 +56,19 @@ export class InMemoryProfileRepository implements ProfileRepository {
     updates: UpdateProfileInput = {}
   ): Promise<ProfileEntity> {
     const now = this.nowMs();
-    const existing = await this.getById({ userId: input.UserID });
+    const existing = await this.getById({ userId: input.userId });
+
     const merged: ProfileEntity = {
-      UserID: input.UserID,
-      LastActiveAt: updates.LastActiveAt ?? input.LastActiveAt ?? now,
-      CreatedAt: existing?.CreatedAt ?? now,
-      UpdatedAt: now,
-      ...(updates.Consents !== undefined
-        ? { Consents: { ...existing?.Consents, ...updates.Consents } }
-        : existing?.Consents !== undefined
-          ? { Consents: existing.Consents }
+      userId: input.userId,
+      lastActiveAt: updates.lastActiveAt ?? input.lastActiveAt ?? now,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+      ...(updates.consents !== undefined
+        ? { consents: { ...existing?.consents, ...updates.consents } }
+        : existing?.consents !== undefined
+          ? { consents: existing.consents }
           : {}),
     };
-    this.store.put(this.mapper.toItem(merged));
-    return merged;
+    return this.entityStore.put(merged);
   }
 }

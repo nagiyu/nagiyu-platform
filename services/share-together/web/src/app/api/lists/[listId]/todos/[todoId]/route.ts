@@ -1,5 +1,7 @@
 import { type ListRepository, TodoService } from '@nagiyu/share-together-core';
+import { withApiErrorReporting } from '@/lib/api-error-reporting';
 import { NextResponse } from 'next/server';
+import { readJsonObjectBody } from '@nagiyu/nextjs';
 import type { TodoResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
@@ -9,7 +11,6 @@ import {
   createValidationErrorResponse,
   createNotFoundErrorResponse,
   createForbiddenErrorResponse,
-  createInternalServerErrorResponse,
 } from '@/lib/api/responses';
 import { isNonEmptyString, isValidationError, isNotFoundError } from '@/lib/api/validation';
 
@@ -26,11 +27,6 @@ const NOT_FOUND_ERROR_MESSAGES: Set<string> = new Set([ERROR_MESSAGES.TODO_NOT_F
 interface TodoRouteParams {
   listId: string;
   todoId: string;
-}
-
-interface UpdateTodoRequestBody {
-  title?: unknown;
-  isCompleted?: unknown;
 }
 
 function createServices(): { listRepository: ListRepository; todoService: TodoService } {
@@ -50,7 +46,7 @@ function createServices(): { listRepository: ListRepository; todoService: TodoSe
 }
 
 function parseUpdateBody(
-  body: UpdateTodoRequestBody
+  body: Record<string, unknown>
 ): { title?: string; isCompleted?: boolean } | null {
   const updates: { title?: string; isCompleted?: boolean } = {};
 
@@ -71,112 +67,88 @@ function parseUpdateBody(
   return updates;
 }
 
-export async function PUT(
-  request: Request,
-  context: { params: Promise<TodoRouteParams> }
-): Promise<Response> {
-  let requestedUserId: string | undefined;
-  let requestedListId: string | undefined;
-  let requestedTodoId: string | undefined;
+export const PUT = withApiErrorReporting(
+  'Web API: ToDo 更新エラー',
+  async (request: Request, context: { params: Promise<TodoRouteParams> }): Promise<Response> => {
+    try {
+      const sessionOrUnauthorized = await getSessionOrUnauthorized();
+      if ('status' in sessionOrUnauthorized) {
+        return sessionOrUnauthorized;
+      }
 
-  try {
-    const sessionOrUnauthorized = await getSessionOrUnauthorized();
-    if ('status' in sessionOrUnauthorized) {
-      return sessionOrUnauthorized;
+      const userId = sessionOrUnauthorized.user.id;
+      const { listId, todoId } = await context.params;
+
+      if (!isNonEmptyString(userId) || !isNonEmptyString(listId) || !isNonEmptyString(todoId)) {
+        return createValidationErrorResponse();
+      }
+
+      const bodyResult = await readJsonObjectBody(request);
+      if (!bodyResult.ok) {
+        return createValidationErrorResponse();
+      }
+      const { body } = bodyResult;
+      const updates = parseUpdateBody(body);
+      if (!updates) {
+        return createValidationErrorResponse();
+      }
+
+      const { listRepository, todoService } = createServices();
+      const existingList = await listRepository.getPersonalListById(userId, listId);
+      if (!existingList) {
+        return createForbiddenErrorResponse();
+      }
+      const todo = await todoService.updateTodo(listId, todoId, updates, userId);
+      const response: TodoResponse = {
+        data: todo,
+      };
+
+      return NextResponse.json(response);
+    } catch (error) {
+      if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
+        return createValidationErrorResponse();
+      }
+      if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
+        return createNotFoundErrorResponse();
+      }
+
+      throw error;
     }
-
-    const userId = sessionOrUnauthorized.user.id;
-    const { listId, todoId } = await context.params;
-
-    if (!isNonEmptyString(userId) || !isNonEmptyString(listId) || !isNonEmptyString(todoId)) {
-      return createValidationErrorResponse();
-    }
-
-    requestedUserId = userId;
-    requestedListId = listId;
-    requestedTodoId = todoId;
-
-    const body = (await request.json()) as UpdateTodoRequestBody;
-    const updates = parseUpdateBody(body);
-    if (!updates) {
-      return createValidationErrorResponse();
-    }
-
-    const { listRepository, todoService } = createServices();
-    const existingList = await listRepository.getPersonalListById(userId, listId);
-    if (!existingList) {
-      return createForbiddenErrorResponse();
-    }
-    const todo = await todoService.updateTodo(listId, todoId, updates, userId);
-    const response: TodoResponse = {
-      data: todo,
-    };
-
-    return NextResponse.json(response);
-  } catch (error) {
-    if (isValidationError(error, VALIDATION_ERROR_MESSAGES) || error instanceof SyntaxError) {
-      return createValidationErrorResponse();
-    }
-    if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
-      return createNotFoundErrorResponse();
-    }
-
-    console.error('ToDo 更新 API の実行に失敗しました', {
-      userId: requestedUserId,
-      listId: requestedListId,
-      todoId: requestedTodoId,
-      error,
-    });
-    return createInternalServerErrorResponse();
   }
-}
+);
 
-export async function DELETE(
-  _request: Request,
-  context: { params: Promise<TodoRouteParams> }
-): Promise<Response> {
-  let requestedUserId: string | undefined;
-  let requestedListId: string | undefined;
-  let requestedTodoId: string | undefined;
+export const DELETE = withApiErrorReporting(
+  'Web API: ToDo 削除エラー',
+  async (_request: Request, context: { params: Promise<TodoRouteParams> }): Promise<Response> => {
+    try {
+      const sessionOrUnauthorized = await getSessionOrUnauthorized();
+      if ('status' in sessionOrUnauthorized) {
+        return sessionOrUnauthorized;
+      }
 
-  try {
-    const sessionOrUnauthorized = await getSessionOrUnauthorized();
-    if ('status' in sessionOrUnauthorized) {
-      return sessionOrUnauthorized;
+      const userId = sessionOrUnauthorized.user.id;
+      const { listId, todoId } = await context.params;
+
+      if (!isNonEmptyString(userId) || !isNonEmptyString(listId) || !isNonEmptyString(todoId)) {
+        return createValidationErrorResponse();
+      }
+
+      const { listRepository, todoService } = createServices();
+      const existingList = await listRepository.getPersonalListById(userId, listId);
+      if (!existingList) {
+        return createForbiddenErrorResponse();
+      }
+      await todoService.deleteTodo(listId, todoId);
+      return new NextResponse(null, { status: 204 });
+    } catch (error) {
+      if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
+        return createValidationErrorResponse();
+      }
+      if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
+        return createNotFoundErrorResponse();
+      }
+
+      throw error;
     }
-
-    const userId = sessionOrUnauthorized.user.id;
-    const { listId, todoId } = await context.params;
-
-    if (!isNonEmptyString(userId) || !isNonEmptyString(listId) || !isNonEmptyString(todoId)) {
-      return createValidationErrorResponse();
-    }
-
-    requestedUserId = userId;
-    requestedListId = listId;
-    requestedTodoId = todoId;
-
-    const { listRepository, todoService } = createServices();
-    const existingList = await listRepository.getPersonalListById(userId, listId);
-    if (!existingList) {
-      return createForbiddenErrorResponse();
-    }
-    await todoService.deleteTodo(listId, todoId);
-    return new NextResponse(null, { status: 204 });
-  } catch (error) {
-    if (isValidationError(error, VALIDATION_ERROR_MESSAGES)) {
-      return createValidationErrorResponse();
-    }
-    if (isNotFoundError(error, NOT_FOUND_ERROR_MESSAGES)) {
-      return createNotFoundErrorResponse();
-    }
-
-    console.error('ToDo 削除 API の実行に失敗しました', {
-      userId: requestedUserId,
-      listId: requestedListId,
-      todoId: requestedTodoId,
-      error,
-    });
-    return createInternalServerErrorResponse();
   }
-}
+);

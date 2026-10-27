@@ -16,11 +16,11 @@ function makeSub(
   overrides: Partial<CreatePushSubscriptionInput> = {}
 ): CreatePushSubscriptionInput {
   return {
-    UserID: 'u1',
-    SubscriptionID: 'sub_abc123',
-    Endpoint: 'https://push.example.com/sub1',
-    P256dhKey: 'p256-key',
-    AuthKey: 'auth-key',
+    userId: 'u1',
+    subscriptionId: 'sub_abc123',
+    endpoint: 'https://push.example.com/sub1',
+    p256dhKey: 'p256-key',
+    authKey: 'auth-key',
     ...overrides,
   };
 }
@@ -32,10 +32,10 @@ describe('InMemoryPushSubscriptionRepository', () => {
       const repo = makeRepo(store);
       const entity = await repo.put(makeSub());
 
-      expect(entity.UserID).toBe('u1');
-      expect(entity.SubscriptionID).toBe('sub_abc123');
-      expect(entity.CreatedAt).toBe(BASE_NOW);
-      expect(entity.UpdatedAt).toBe(BASE_NOW);
+      expect(entity.userId).toBe('u1');
+      expect(entity.subscriptionId).toBe('sub_abc123');
+      expect(entity.createdAt).toBe(BASE_NOW);
+      expect(entity.updatedAt).toBe(BASE_NOW);
     });
 
     it('同じ SubscriptionID で上書き保存できる', async () => {
@@ -43,12 +43,12 @@ describe('InMemoryPushSubscriptionRepository', () => {
       let now = BASE_NOW;
       const repo = makeRepo(store, () => now);
 
-      await repo.put(makeSub({ Endpoint: 'https://push.example.com/v1' }));
+      await repo.put(makeSub({ endpoint: 'https://push.example.com/v1' }));
       now += 1000;
-      const updated = await repo.put(makeSub({ Endpoint: 'https://push.example.com/v2' }));
+      const updated = await repo.put(makeSub({ endpoint: 'https://push.example.com/v2' }));
 
-      expect(updated.Endpoint).toBe('https://push.example.com/v2');
-      expect(updated.UpdatedAt).toBe(now);
+      expect(updated.endpoint).toBe('https://push.example.com/v2');
+      expect(updated.updatedAt).toBe(now);
     });
   });
 
@@ -60,7 +60,7 @@ describe('InMemoryPushSubscriptionRepository', () => {
 
       const found = await repo.get({ userId: 'u1', subscriptionId: 'sub_abc123' });
       expect(found).not.toBeNull();
-      expect(found?.Endpoint).toBe('https://push.example.com/sub1');
+      expect(found?.endpoint).toBe('https://push.example.com/sub1');
     });
 
     it('存在しない場合は null を返す', async () => {
@@ -74,7 +74,7 @@ describe('InMemoryPushSubscriptionRepository', () => {
     it('別ユーザーのサブスクリプションは取得できない', async () => {
       const store = makeStore();
       const repo = makeRepo(store);
-      await repo.put(makeSub({ UserID: 'u2' }));
+      await repo.put(makeSub({ userId: 'u2' }));
 
       const found = await repo.get({ userId: 'u1', subscriptionId: 'sub_abc123' });
       expect(found).toBeNull();
@@ -85,8 +85,8 @@ describe('InMemoryPushSubscriptionRepository', () => {
     it('ユーザーの全サブスクリプションを返す', async () => {
       const store = makeStore();
       const repo = makeRepo(store);
-      await repo.put(makeSub({ SubscriptionID: 'sub_1', Endpoint: 'https://push.example.com/1' }));
-      await repo.put(makeSub({ SubscriptionID: 'sub_2', Endpoint: 'https://push.example.com/2' }));
+      await repo.put(makeSub({ subscriptionId: 'sub_1', endpoint: 'https://push.example.com/1' }));
+      await repo.put(makeSub({ subscriptionId: 'sub_2', endpoint: 'https://push.example.com/2' }));
 
       const list = await repo.listByUser('u1');
       expect(list).toHaveLength(2);
@@ -103,7 +103,7 @@ describe('InMemoryPushSubscriptionRepository', () => {
     it('別ユーザーのサブスクリプションは混入しない', async () => {
       const store = makeStore();
       const repo = makeRepo(store);
-      await repo.put(makeSub({ UserID: 'u2', SubscriptionID: 'sub_other' }));
+      await repo.put(makeSub({ userId: 'u2', subscriptionId: 'sub_other' }));
 
       const list = await repo.listByUser('u1');
       expect(list).toEqual([]);
@@ -133,13 +133,13 @@ describe('InMemoryPushSubscriptionRepository', () => {
     it('削除後も他のサブスクリプションは残る', async () => {
       const store = makeStore();
       const repo = makeRepo(store);
-      await repo.put(makeSub({ SubscriptionID: 'sub_1', Endpoint: 'https://push.example.com/1' }));
-      await repo.put(makeSub({ SubscriptionID: 'sub_2', Endpoint: 'https://push.example.com/2' }));
+      await repo.put(makeSub({ subscriptionId: 'sub_1', endpoint: 'https://push.example.com/1' }));
+      await repo.put(makeSub({ subscriptionId: 'sub_2', endpoint: 'https://push.example.com/2' }));
 
       await repo.delete({ userId: 'u1', subscriptionId: 'sub_1' });
       const list = await repo.listByUser('u1');
       expect(list).toHaveLength(1);
-      expect(list[0].SubscriptionID).toBe('sub_2');
+      expect(list[0].subscriptionId).toBe('sub_2');
     });
   });
 
@@ -149,7 +149,7 @@ describe('InMemoryPushSubscriptionRepository', () => {
       const repo = new InMemoryPushSubscriptionRepository(store);
       const before = Date.now();
       const entity = await repo.put(makeSub());
-      expect(entity.CreatedAt).toBeGreaterThanOrEqual(before);
+      expect(entity.createdAt).toBeGreaterThanOrEqual(before);
     });
   });
 });

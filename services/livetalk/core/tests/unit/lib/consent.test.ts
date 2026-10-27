@@ -11,8 +11,8 @@ describe('isConsentValid', () => {
     expect(
       isConsentValid(
         {
-          PrivacyAgreed: { Version: '1.0.0', AgreedAt: 1 },
-          AgeVerified: { Value: true, VerifiedAt: 1 },
+          privacyAgreed: { version: '1.0.0', agreedAt: 1 },
+          ageVerified: { value: true, verifiedAt: 1 },
         },
         requirements
       )
@@ -23,8 +23,8 @@ describe('isConsentValid', () => {
     expect(
       isConsentValid(
         {
-          TermsAgreed: { Version: '1.0.0', AgreedAt: 1 },
-          AgeVerified: { Value: true, VerifiedAt: 1 },
+          termsAgreed: { version: '1.0.0', agreedAt: 1 },
+          ageVerified: { value: true, verifiedAt: 1 },
         },
         requirements
       )
@@ -35,9 +35,9 @@ describe('isConsentValid', () => {
     expect(
       isConsentValid(
         {
-          TermsAgreed: { Version: '1.0.0', AgreedAt: 1 },
-          PrivacyAgreed: { Version: '1.0.0', AgreedAt: 1 },
-          AgeVerified: { Value: false, VerifiedAt: 1 },
+          termsAgreed: { version: '1.0.0', agreedAt: 1 },
+          privacyAgreed: { version: '1.0.0', agreedAt: 1 },
+          ageVerified: { value: false, verifiedAt: 1 },
         },
         requirements
       )
@@ -48,9 +48,9 @@ describe('isConsentValid', () => {
     expect(
       isConsentValid(
         {
-          TermsAgreed: { Version: '0.9.0', AgreedAt: 1 },
-          PrivacyAgreed: { Version: '1.0.0', AgreedAt: 1 },
-          AgeVerified: { Value: true, VerifiedAt: 1 },
+          termsAgreed: { version: '0.9.0', agreedAt: 1 },
+          privacyAgreed: { version: '1.0.0', agreedAt: 1 },
+          ageVerified: { value: true, verifiedAt: 1 },
         },
         requirements
       )
@@ -61,9 +61,9 @@ describe('isConsentValid', () => {
     expect(
       isConsentValid(
         {
-          TermsAgreed: { Version: '1.0.0', AgreedAt: 1 },
-          PrivacyAgreed: { Version: '1.0.0', AgreedAt: 1 },
-          AgeVerified: { Value: true, VerifiedAt: 1 },
+          termsAgreed: { version: '1.0.0', agreedAt: 1 },
+          privacyAgreed: { version: '1.0.0', agreedAt: 1 },
+          ageVerified: { value: true, verifiedAt: 1 },
         },
         requirements
       )

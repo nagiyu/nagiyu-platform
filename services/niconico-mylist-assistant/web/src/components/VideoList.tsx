@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Grid, Box, Typography, CircularProgress } from '@mui/material';
-import { ErrorAlert } from '@nagiyu/ui';
+import { Grid, Box, Typography } from '@mui/material';
+import { ErrorAlert, LoadingState } from '@nagiyu/ui';
 import type { VideosListResponse } from '@nagiyu/niconico-mylist-assistant-core';
 import VideoCard from './VideoCard';
 import VideoListFilters from './VideoListFilters';
@@ -13,6 +13,8 @@ import VideoDetailModal from './VideoDetailModal';
 
 const ERROR_MESSAGES = {
   FETCH_FAILED: '動画一覧の取得に失敗しました',
+  FAVORITE_UPDATE_FAILED: 'お気に入りの更新に失敗しました',
+  SKIP_UPDATE_FAILED: 'スキップの更新に失敗しました',
   NETWORK_ERROR: COMMON_ERROR_MESSAGES.NETWORK_ERROR_OCCURRED,
 } as const;
 
@@ -30,13 +32,18 @@ export default function VideoList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // フィルター状態
-  const [favoriteFilter, setFavoriteFilter] = useState<string>('all');
-  const [skipFilter, setSkipFilter] = useState<string>('all');
-  const [searchKeyword, setSearchKeyword] = useState<string>('');
-
-  // ページネーション状態
-  const [offset, setOffset] = useState(0);
+  // フィルター・ページネーション状態
+  // 既定値で始めると、URL 同期の前に絞り込み無しの取得が一度走り、
+  // その応答が正しい取得の結果より遅れて届くと表示が食い違う。
+  // 初回から URL の値で始めて、その取得を無くす。
+  const [favoriteFilter, setFavoriteFilter] = useState<string>(
+    () => searchParams.get('favorite') || 'all'
+  );
+  const [skipFilter, setSkipFilter] = useState<string>(() => searchParams.get('skip') || 'all');
+  const [searchKeyword, setSearchKeyword] = useState<string>(
+    () => searchParams.get('search') || ''
+  );
+  const [offset, setOffset] = useState(() => parseInt(searchParams.get('offset') || '0', 10));
   const limit = 20;
 
   // モーダル状態
@@ -44,7 +51,7 @@ export default function VideoList() {
   const [modalOpen, setModalOpen] = useState(false);
 
   // 現在の状態を追跡するref（stale closureを回避）
-  // 初期値は state のデフォルト値で、URL同期 useEffect が実行されると自動的に更新される
+  // 初期値は URL から決めた state の初期値と同じ
   const stateRef = useRef({ favoriteFilter, skipFilter, searchKeyword, offset });
   useEffect(() => {
     stateRef.current = { favoriteFilter, skipFilter, searchKeyword, offset };
@@ -85,8 +92,21 @@ export default function VideoList() {
     [router]
   );
 
+  // 実行中の取得を中止するための AbortController
+  // 取得が重なると応答の到着順で表示が決まってしまうため、最新の取得の結果だけを反映する。
+  const abortControllerRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
   // 動画一覧を取得
   const fetchVideos = useCallback(async () => {
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     setError(null);
 
@@ -108,19 +128,32 @@ export default function VideoList() {
         params.append('search', searchKeyword.trim());
       }
 
-      const response = await fetch(`/api/videos?${params.toString()}`);
+      const response = await fetch(`/api/videos?${params.toString()}`, {
+        signal: controller.signal,
+      });
 
       if (!response.ok) {
         throw new Error(ERROR_MESSAGES.FETCH_FAILED);
       }
 
       const data: VideosListResponse = await response.json();
+      // signal を無視する経路 (応答の読み取り中など) でも古い結果を反映しない
+      if (controller.signal.aborted) {
+        return;
+      }
       setVideos(data);
     } catch (err) {
+      // 中止された取得は新しい取得に置き換わったもので、エラーではない
+      if (controller.signal.aborted) {
+        return;
+      }
       console.error('動画一覧取得エラー:', err);
       setError(err instanceof Error ? err.message : ERROR_MESSAGES.NETWORK_ERROR);
     } finally {
-      setLoading(false);
+      // 中止後に loading を戻すと、後続の取得中の表示が消える
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
     }
   }, [offset, favoriteFilter, skipFilter, searchKeyword]);
 
@@ -152,51 +185,105 @@ export default function VideoList() {
     fetchVideos();
   }, [fetchVideos]);
 
-  // お気に入り切り替え
-  const handleToggleFavorite = async (videoId: string, isFavorite: boolean) => {
+  // 設定の更新中の動画
+  // 同じ動画の設定更新が重なると、同じ値の更新が何度も送られて切り替えが戻らなくなる。
+  // 連続クリックは再描画より先に届くことがあるため、判定は ref で行い、ボタンの無効化用に state にも持つ。
+  const pendingVideoIdsRef = useRef<Set<string>>(new Set());
+  const [pendingVideoIds, setPendingVideoIds] = useState<ReadonlySet<string>>(new Set());
+
+  // 一覧の該当動画の設定だけを書き換える
+  const patchVideoSetting = useCallback(
+    (videoId: string, patch: { isFavorite?: boolean; isSkip?: boolean }) => {
+      setVideos((prev) => {
+        if (!prev) {
+          return prev;
+        }
+        return {
+          ...prev,
+          videos: prev.videos.map((video) => {
+            if (video.videoId !== videoId) {
+              return video;
+            }
+            const now = Date.now();
+            return {
+              ...video,
+              userSetting: {
+                videoId,
+                isFavorite: false,
+                isSkip: false,
+                createdAt: now,
+                updatedAt: now,
+                ...video.userSetting,
+                ...patch,
+              },
+            };
+          }),
+        };
+      });
+    },
+    []
+  );
+
+  // 動画の設定を更新する
+  // 再取得を待つと古い値のまま表示され続けるため、送信前に一覧へ反映し、失敗したら戻す。
+  const updateVideoSetting = async (
+    videoId: string,
+    patch: { isFavorite: boolean } | { isSkip: boolean },
+    revertPatch: { isFavorite: boolean } | { isSkip: boolean },
+    errorMessage: string,
+    logLabel: string
+  ) => {
+    if (pendingVideoIdsRef.current.has(videoId)) {
+      return;
+    }
+    pendingVideoIdsRef.current.add(videoId);
+    setPendingVideoIds(new Set(pendingVideoIdsRef.current));
+    patchVideoSetting(videoId, patch);
+
     try {
       const response = await fetch(`/api/videos/${videoId}/settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ isFavorite }),
+        body: JSON.stringify(patch),
       });
 
       if (!response.ok) {
-        throw new Error('お気に入りの更新に失敗しました');
+        throw new Error(errorMessage);
       }
 
-      // 成功したら動画一覧を再取得
+      // 絞り込み中は設定の変更で一覧から外れる動画があるため、成功したら再取得する
       await fetchVideos();
     } catch (err) {
-      console.error('お気に入り更新エラー:', err);
-      setError(err instanceof Error ? err.message : 'お気に入りの更新に失敗しました');
+      console.error(logLabel, err);
+      patchVideoSetting(videoId, revertPatch);
+      setError(err instanceof Error ? err.message : errorMessage);
+    } finally {
+      pendingVideoIdsRef.current.delete(videoId);
+      setPendingVideoIds(new Set(pendingVideoIdsRef.current));
     }
   };
+
+  // お気に入り切り替え
+  const handleToggleFavorite = (videoId: string, isFavorite: boolean) =>
+    updateVideoSetting(
+      videoId,
+      { isFavorite },
+      { isFavorite: !isFavorite },
+      ERROR_MESSAGES.FAVORITE_UPDATE_FAILED,
+      'お気に入り更新エラー:'
+    );
 
   // スキップ切り替え
-  const handleToggleSkip = async (videoId: string, isSkip: boolean) => {
-    try {
-      const response = await fetch(`/api/videos/${videoId}/settings`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ isSkip }),
-      });
-
-      if (!response.ok) {
-        throw new Error('スキップの更新に失敗しました');
-      }
-
-      // 成功したら動画一覧を再取得
-      await fetchVideos();
-    } catch (err) {
-      console.error('スキップ更新エラー:', err);
-      setError(err instanceof Error ? err.message : 'スキップの更新に失敗しました');
-    }
-  };
+  const handleToggleSkip = (videoId: string, isSkip: boolean) =>
+    updateVideoSetting(
+      videoId,
+      { isSkip },
+      { isSkip: !isSkip },
+      ERROR_MESSAGES.SKIP_UPDATE_FAILED,
+      'スキップ更新エラー:'
+    );
 
   // フィルター変更時はページをリセットしてURLを更新
   // URLが更新されると useEffect が状態を同期するため、setState は不要
@@ -249,11 +336,7 @@ export default function VideoList() {
   };
 
   if (loading && !videos) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <LoadingState />;
   }
 
   return (
@@ -292,6 +375,7 @@ export default function VideoList() {
                   onToggleFavorite={handleToggleFavorite}
                   onToggleSkip={handleToggleSkip}
                   onClick={handleVideoClick}
+                  disabled={pendingVideoIds.has(video.videoId)}
                 />
               </Grid>
             ))}

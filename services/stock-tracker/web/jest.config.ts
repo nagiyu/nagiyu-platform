@@ -15,6 +15,7 @@ const config: Config = {
     '^@nagiyu/nextjs$': '<rootDir>/../../../libs/nextjs/src/index.ts',
     '^@nagiyu/nextjs/(.*)$': '<rootDir>/../../../libs/nextjs/src/$1.ts',
     '^@nagiyu/browser$': '<rootDir>/../../../libs/browser/src/index.ts',
+    '^@nagiyu/ui/session-provider$': '<rootDir>/../../../libs/ui/src/session-provider.ts',
     '^@nagiyu/ui$': '<rootDir>/../../../libs/ui/src/index.ts',
     '^@nagiyu/react$': '<rootDir>/../../../libs/react/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1', // Remove .js extension for ts-jest
@@ -23,7 +24,10 @@ const config: Config = {
   coverageDirectory: 'coverage',
   collectCoverageFrom: [
     'lib/repository-factory.ts',
+    'lib/api-error-reporting.ts',
     'lib/percentage-helper.ts',
+    'lib/home-query.ts',
+    'lib/holding-currency.ts',
     'lib/axis-performance-view/**/*.ts',
     'lib/forecast/**/*.ts',
     'lib/forecast-view/**/*.ts',

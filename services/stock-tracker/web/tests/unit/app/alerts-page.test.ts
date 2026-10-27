@@ -2,6 +2,18 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import AlertsPage from '../../../app/alerts/page';
 
+// 権限は useSession のロールから判定されるため、ロールごとに差し替えられるようにする
+const mockUseSession = jest.fn();
+jest.mock('next-auth/react', () => ({
+  useSession: () => mockUseSession(),
+}));
+
+const sessionWithRoles = (roles: string[]) => ({
+  data: { user: { name: 'u', roles }, expires: '2099-01-01' },
+  status: 'authenticated',
+  update: jest.fn(),
+});
+
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(() => ({ back: jest.fn(), push: jest.fn() })),
   useSearchParams: jest.fn(() => ({ get: jest.fn(() => null) })),
@@ -21,6 +33,7 @@ jest.mock('@nagiyu/ui', () => ({
   Button: ({ children }: Record<string, unknown>) => React.createElement('button', null, children),
   Chip: ({ children }: Record<string, unknown>) => React.createElement('span', null, children),
   ErrorAlert: () => React.createElement('div', null, 'ErrorAlertMock'),
+  LoadingState: () => React.createElement('span', null, '読み込み中...'),
   Select: ({ label }: Record<string, unknown>) => React.createElement('select', null, label),
 }));
 
@@ -31,8 +44,6 @@ jest.mock('@mui/material', () => {
     MockComponent.displayName = `Mock${tag}`;
     return MockComponent;
   };
-  const CircularProgress = () => React.createElement('span', null, '読み込み中...');
-  CircularProgress.displayName = 'MockCircularProgress';
   return {
     Container: create('div'),
     Box: create('div'),
@@ -45,7 +56,6 @@ jest.mock('@mui/material', () => {
     TableRow: create('tr'),
     Paper: create('div'),
     Alert: create('div'),
-    CircularProgress,
   };
 });
 
@@ -59,6 +69,7 @@ describe('AlertsPage', () => {
   let html: string;
 
   beforeAll(() => {
+    mockUseSession.mockReturnValue(sessionWithRoles(['stock-admin']));
     html = renderToStaticMarkup(React.createElement(AlertsPage));
   });
 

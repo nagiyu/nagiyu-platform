@@ -1,4 +1,5 @@
 import type { DynamoDBItem, PaginationOptions, PaginatedResult } from '../types.js';
+import type { DynamoDBKey } from '../mapper/entity-mapper.interface.js';
 import { EntityNotFoundError, EntityAlreadyExistsError } from '../errors.js';
 
 /**
@@ -96,7 +97,7 @@ export class InMemorySingleTableStore {
    * @param sk - ソートキー
    * @returns DynamoDB Item または undefined
    */
-  get(pk: string, sk: string): DynamoDBItem | undefined {
+  public get(pk: string, sk: string): DynamoDBItem | undefined {
     const key = this.buildKey(pk, sk);
     return this.store.get(key);
   }
@@ -108,7 +109,7 @@ export class InMemorySingleTableStore {
    * @param condition - 条件（オプション）
    * @throws {EntityAlreadyExistsError} 条件付き保存で既存アイテムが存在する場合
    */
-  put(item: DynamoDBItem, condition?: { attributeNotExists: boolean }): void {
+  public put(item: DynamoDBItem, condition?: { attributeNotExists: boolean }): void {
     const key = this.buildKey(item.PK, item.SK);
 
     // 条件付き保存の処理
@@ -129,7 +130,7 @@ export class InMemorySingleTableStore {
    * @param condition - 条件（オプション）
    * @throws {EntityNotFoundError} 条件付き削除で既存アイテムが存在しない場合
    */
-  delete(pk: string, sk: string, condition?: { attributeExists: boolean }): void {
+  public delete(pk: string, sk: string, condition?: { attributeExists: boolean }): void {
     const key = this.buildKey(pk, sk);
 
     // 条件付き削除の処理
@@ -149,7 +150,10 @@ export class InMemorySingleTableStore {
    * @param options - ページネーションオプション
    * @returns ページネーション結果
    */
-  query(condition: QueryCondition, options?: PaginationOptions): PaginatedResult<DynamoDBItem> {
+  public query(
+    condition: QueryCondition,
+    options?: PaginationOptions
+  ): PaginatedResult<DynamoDBItem> {
     const { pk, sk } = condition;
     const limit = options?.limit || 100;
 
@@ -198,7 +202,7 @@ export class InMemorySingleTableStore {
    * @param options - ページネーションオプション
    * @returns ページネーション結果
    */
-  queryByAttribute(
+  public queryByAttribute(
     condition: AttributeQueryCondition,
     options?: PaginationOptions
   ): PaginatedResult<DynamoDBItem> {
@@ -249,7 +253,7 @@ export class InMemorySingleTableStore {
    * @param options - ページネーションオプション
    * @returns ページネーション結果
    */
-  scan(options?: PaginationOptions): PaginatedResult<DynamoDBItem> {
+  public scan(options?: PaginationOptions): PaginatedResult<DynamoDBItem> {
     const limit = options?.limit || 100;
     const items = Array.from(this.store.values());
 
@@ -275,16 +279,55 @@ export class InMemorySingleTableStore {
   }
 
   /**
+   * キーオブジェクトでアイテムを取得する。
+   * `{ PK, SK }` 以外の単一キー (例: `{ userId }`) のテーブルを扱うために使う。
+   *
+   * @param key - DynamoDB の `Key` と同じ形のキーオブジェクト
+   */
+  public getByKey(key: DynamoDBKey): Record<string, unknown> | undefined {
+    return this.store.get(this.buildKeyFromObject(key));
+  }
+
+  /**
+   * キーオブジェクトを指定してアイテムを保存する (上書き)。
+   *
+   * `put` は item.PK / item.SK からキーを作るため、PK/SK を持たないテーブルには使えない。
+   * undefined の属性は実際の DynamoDB クライアントと同様に落とす。
+   *
+   * @param key - 保存先のキー
+   * @param item - 保存する Item
+   */
+  public putByKey(key: DynamoDBKey, item: Record<string, unknown>): void {
+    const stored: Record<string, unknown> = {};
+    for (const [name, value] of Object.entries(item)) {
+      if (value !== undefined) {
+        stored[name] = value;
+      }
+    }
+    // stored は新しいオブジェクトなので、呼び出し側が渡した参照を後から書き換えてもストアの中身は変わらない
+    this.store.set(this.buildKeyFromObject(key), stored as DynamoDBItem);
+  }
+
+  /**
+   * キーオブジェクトでアイテムを削除する (なくても成功)。
+   *
+   * @param key - 削除対象のキー
+   */
+  public deleteByKey(key: DynamoDBKey): void {
+    this.store.delete(this.buildKeyFromObject(key));
+  }
+
+  /**
    * ストアをクリア（テスト用）
    */
-  clear(): void {
+  public clear(): void {
     this.store.clear();
   }
 
   /**
    * ストア内のアイテム数を取得（テスト用）
    */
-  size(): number {
+  public size(): number {
     return this.store.size;
   }
 
@@ -293,6 +336,23 @@ export class InMemorySingleTableStore {
    */
   private buildKey(pk: string, sk: string): string {
     return `${pk}#${sk}`;
+  }
+
+  /**
+   * キーオブジェクトから内部キーを構築する。
+   *
+   * キー属性の並び順 (パーティションキー先頭) に従って `#` で連結する。
+   * 値がすべて文字列なら `{ PK, SK }` は `get(pk, sk)` / `put` の内部キーと同じ文字列になるため、
+   * 両方の経路で同じアイテムを指せる。
+   * 数値を含むキーは `{ id: 1 }` と `{ id: '1' }` を区別するため、型を保つ JSON 形式にし、
+   * 文字列キーと衝突しないよう先頭に制御文字を付ける。
+   */
+  private buildKeyFromObject(key: DynamoDBKey): string {
+    const values = Object.values(key);
+    if (values.every((value) => typeof value === 'string')) {
+      return values.join('#');
+    }
+    return `\u0000${JSON.stringify(values)}`;
   }
 
   /**
