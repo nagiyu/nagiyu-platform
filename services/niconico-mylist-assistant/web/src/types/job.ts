@@ -11,12 +11,14 @@ export interface JobStatusDisplayProps {
 
 /**
  * ジョブステータスの内部状態
+ *
+ * status と日時は、一度も取得に成功していない間は持たない。
  */
 export interface JobStatusState {
-  status: BatchStatus;
+  status?: BatchStatus;
   result?: BatchResult;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
   completedAt?: string;
   error?: string;
   isLoading: boolean;
