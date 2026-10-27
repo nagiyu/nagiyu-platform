@@ -13,6 +13,8 @@ import VideoDetailModal from './VideoDetailModal';
 
 const ERROR_MESSAGES = {
   FETCH_FAILED: '動画一覧の取得に失敗しました',
+  FAVORITE_UPDATE_FAILED: 'お気に入りの更新に失敗しました',
+  SKIP_UPDATE_FAILED: 'スキップの更新に失敗しました',
   NETWORK_ERROR: COMMON_ERROR_MESSAGES.NETWORK_ERROR_OCCURRED,
 } as const;
 
@@ -183,51 +185,105 @@ export default function VideoList() {
     fetchVideos();
   }, [fetchVideos]);
 
-  // お気に入り切り替え
-  const handleToggleFavorite = async (videoId: string, isFavorite: boolean) => {
+  // 設定の更新中の動画
+  // 同じ動画の設定更新が重なると、同じ値の更新が何度も送られて切り替えが戻らなくなる。
+  // 連続クリックは再描画より先に届くことがあるため、判定は ref で行い、ボタンの無効化用に state にも持つ。
+  const pendingVideoIdsRef = useRef<Set<string>>(new Set());
+  const [pendingVideoIds, setPendingVideoIds] = useState<ReadonlySet<string>>(new Set());
+
+  // 一覧の該当動画の設定だけを書き換える
+  const patchVideoSetting = useCallback(
+    (videoId: string, patch: { isFavorite?: boolean; isSkip?: boolean }) => {
+      setVideos((prev) => {
+        if (!prev) {
+          return prev;
+        }
+        return {
+          ...prev,
+          videos: prev.videos.map((video) => {
+            if (video.videoId !== videoId) {
+              return video;
+            }
+            const now = Date.now();
+            return {
+              ...video,
+              userSetting: {
+                videoId,
+                isFavorite: false,
+                isSkip: false,
+                createdAt: now,
+                updatedAt: now,
+                ...video.userSetting,
+                ...patch,
+              },
+            };
+          }),
+        };
+      });
+    },
+    []
+  );
+
+  // 動画の設定を更新する
+  // 再取得を待つと古い値のまま表示され続けるため、送信前に一覧へ反映し、失敗したら戻す。
+  const updateVideoSetting = async (
+    videoId: string,
+    patch: { isFavorite: boolean } | { isSkip: boolean },
+    revertPatch: { isFavorite: boolean } | { isSkip: boolean },
+    errorMessage: string,
+    logLabel: string
+  ) => {
+    if (pendingVideoIdsRef.current.has(videoId)) {
+      return;
+    }
+    pendingVideoIdsRef.current.add(videoId);
+    setPendingVideoIds(new Set(pendingVideoIdsRef.current));
+    patchVideoSetting(videoId, patch);
+
     try {
       const response = await fetch(`/api/videos/${videoId}/settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ isFavorite }),
+        body: JSON.stringify(patch),
       });
 
       if (!response.ok) {
-        throw new Error('お気に入りの更新に失敗しました');
+        throw new Error(errorMessage);
       }
 
-      // 成功したら動画一覧を再取得
+      // 絞り込み中は設定の変更で一覧から外れる動画があるため、成功したら再取得する
       await fetchVideos();
     } catch (err) {
-      console.error('お気に入り更新エラー:', err);
-      setError(err instanceof Error ? err.message : 'お気に入りの更新に失敗しました');
+      console.error(logLabel, err);
+      patchVideoSetting(videoId, revertPatch);
+      setError(err instanceof Error ? err.message : errorMessage);
+    } finally {
+      pendingVideoIdsRef.current.delete(videoId);
+      setPendingVideoIds(new Set(pendingVideoIdsRef.current));
     }
   };
+
+  // お気に入り切り替え
+  const handleToggleFavorite = (videoId: string, isFavorite: boolean) =>
+    updateVideoSetting(
+      videoId,
+      { isFavorite },
+      { isFavorite: !isFavorite },
+      ERROR_MESSAGES.FAVORITE_UPDATE_FAILED,
+      'お気に入り更新エラー:'
+    );
 
   // スキップ切り替え
-  const handleToggleSkip = async (videoId: string, isSkip: boolean) => {
-    try {
-      const response = await fetch(`/api/videos/${videoId}/settings`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ isSkip }),
-      });
-
-      if (!response.ok) {
-        throw new Error('スキップの更新に失敗しました');
-      }
-
-      // 成功したら動画一覧を再取得
-      await fetchVideos();
-    } catch (err) {
-      console.error('スキップ更新エラー:', err);
-      setError(err instanceof Error ? err.message : 'スキップの更新に失敗しました');
-    }
-  };
+  const handleToggleSkip = (videoId: string, isSkip: boolean) =>
+    updateVideoSetting(
+      videoId,
+      { isSkip },
+      { isSkip: !isSkip },
+      ERROR_MESSAGES.SKIP_UPDATE_FAILED,
+      'スキップ更新エラー:'
+    );
 
   // フィルター変更時はページをリセットしてURLを更新
   // URLが更新されると useEffect が状態を同期するため、setState は不要
@@ -319,6 +375,7 @@ export default function VideoList() {
                   onToggleFavorite={handleToggleFavorite}
                   onToggleSkip={handleToggleSkip}
                   onClick={handleVideoClick}
+                  disabled={pendingVideoIds.has(video.videoId)}
                 />
               </Grid>
             ))}

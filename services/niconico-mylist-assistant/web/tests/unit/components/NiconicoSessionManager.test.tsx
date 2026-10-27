@@ -62,6 +62,31 @@ jest.mock('@nagiyu/ui', () => ({
       {message}
     </div>
   ),
+  ConfirmDialog: ({
+    open,
+    title,
+    description,
+    confirmLabel = '削除',
+    cancelLabel = 'キャンセル',
+    onConfirm,
+    onCancel,
+  }: {
+    open: boolean;
+    title: string;
+    description?: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+  }) =>
+    open ? (
+      <div role="alertdialog" data-testid="confirm-dialog">
+        <div>{title}</div>
+        <div>{description}</div>
+        <button onClick={onCancel}>{cancelLabel}</button>
+        <button onClick={onConfirm}>{confirmLabel}</button>
+      </div>
+    ) : null,
   Chip: ({
     children,
     color,
@@ -282,6 +307,44 @@ describe('NiconicoSessionManager - ダイアログ開閉', () => {
   });
 });
 
+describe('NiconicoSessionManager - 有効期限の目安の表示', () => {
+  const estimatedExpiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
+
+  async function openDialogWith(validity: 'valid' | 'invalid' | 'unknown') {
+    mockFetch.mockReturnValueOnce(
+      mockSessionResponse({
+        hasSession: true,
+        validity,
+        acquiredAt: 1700000000000,
+        estimatedExpiresAt,
+      })
+    );
+    render(<NiconicoSessionManager />);
+    await waitFor(() => {
+      expect(screen.getByTestId('session-chip')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('セッション管理'));
+  }
+
+  it.each(['valid', 'unknown'] as const)(
+    'セッションが %s のときはダイアログに有効期限の目安を表示する',
+    async (validity) => {
+      await openDialogWith(validity);
+
+      expect(screen.getByText(/有効期限の目安：あと 30 日/)).toBeInTheDocument();
+      expect(screen.getByText(/推定有効期限：/)).toBeInTheDocument();
+    }
+  );
+
+  it('セッションが無効のときはダイアログに有効期限の目安を表示しない', async () => {
+    await openDialogWith('invalid');
+
+    expect(screen.getByRole('dialog')).toHaveTextContent('無効');
+    expect(screen.queryByText(/有効期限の目安/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/推定有効期限/)).not.toBeInTheDocument();
+  });
+});
+
 describe('NiconicoSessionManager - ダイアログ内のセッション状態表示', () => {
   it('ダイアログ内で現在の状態が表示される', async () => {
     mockFetch.mockReturnValueOnce(mockSessionResponse({ hasSession: false }));
@@ -479,7 +542,58 @@ describe('NiconicoSessionManager - セッション削除', () => {
     });
   });
 
-  it('削除ボタンクリックで DELETE /api/niconico/session が呼ばれる', async () => {
+  it('削除ボタンを押しただけでは DELETE は呼ばれず、確認ダイアログが表示される', async () => {
+    mockFetch.mockReturnValueOnce(
+      mockSessionResponse({
+        hasSession: true,
+        validity: 'valid',
+        estimatedExpiresAt: 1702592000000,
+      })
+    );
+
+    render(<NiconicoSessionManager />);
+    fireEvent.click(screen.getByText('セッション管理'));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'セッションを削除' })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'セッションを削除' }));
+
+    expect(screen.getByTestId('confirm-dialog')).toHaveTextContent('セッションを削除しますか？');
+    expect(screen.getByTestId('confirm-dialog')).toHaveTextContent(
+      'マイリスト登録ができなくなります'
+    );
+    const deleteCall = mockFetch.mock.calls.find(
+      (call: Parameters<typeof fetch>) => call[1]?.method === 'DELETE'
+    );
+    expect(deleteCall).toBeUndefined();
+  });
+
+  it('確認ダイアログでキャンセルすると DELETE は呼ばれず、確認ダイアログが閉じる', async () => {
+    mockFetch.mockReturnValueOnce(
+      mockSessionResponse({
+        hasSession: true,
+        validity: 'valid',
+        estimatedExpiresAt: 1702592000000,
+      })
+    );
+
+    render(<NiconicoSessionManager />);
+    fireEvent.click(screen.getByText('セッション管理'));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'セッションを削除' })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'セッションを削除' }));
+    fireEvent.click(screen.getByRole('button', { name: 'キャンセル' }));
+
+    expect(screen.queryByTestId('confirm-dialog')).not.toBeInTheDocument();
+    // 管理ダイアログは開いたまま
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('確認ダイアログで削除を確定すると DELETE /api/niconico/session が呼ばれる', async () => {
     // 初回: GET でセッション状態（保存済み）
     mockFetch.mockReturnValueOnce(
       mockSessionResponse({
@@ -511,6 +625,7 @@ describe('NiconicoSessionManager - セッション削除', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'セッションを削除' }));
+    fireEvent.click(screen.getByRole('button', { name: '削除' }));
 
     await waitFor(() => {
       const deleteCall = mockFetch.mock.calls.find(
@@ -548,6 +663,7 @@ describe('NiconicoSessionManager - セッション削除', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'セッションを削除' }));
+    fireEvent.click(screen.getByRole('button', { name: '削除' }));
 
     // 削除成功後にダイアログが閉じることを確認
     await waitFor(() => {
@@ -581,10 +697,49 @@ describe('NiconicoSessionManager - セッション削除', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'セッションを削除' }));
+    fireEvent.click(screen.getByRole('button', { name: '削除' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('error-alert')).toBeInTheDocument();
     });
+  });
+});
+
+describe('NiconicoSessionManager - onStatusFetchError コールバック', () => {
+  it('状態の取得に失敗したときに onStatusFetchError が呼ばれ、onStatusChange は呼ばれない', async () => {
+    const onStatusChange = jest.fn();
+    const onStatusFetchError = jest.fn();
+    mockFetch.mockReturnValueOnce(
+      Promise.resolve({
+        ok: false,
+        json: () => Promise.resolve({ message: 'セッション状態の取得に失敗しました' }),
+        headers: { get: () => 'application/json' },
+      })
+    );
+
+    render(
+      <NiconicoSessionManager
+        onStatusChange={onStatusChange}
+        onStatusFetchError={onStatusFetchError}
+      />
+    );
+
+    await waitFor(() => {
+      expect(onStatusFetchError).toHaveBeenCalledTimes(1);
+    });
+    expect(onStatusChange).not.toHaveBeenCalled();
+  });
+
+  it('取得に成功したときは onStatusFetchError が呼ばれない', async () => {
+    const onStatusFetchError = jest.fn();
+    mockFetch.mockReturnValueOnce(mockSessionResponse({ hasSession: false }));
+
+    render(<NiconicoSessionManager onStatusFetchError={onStatusFetchError} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('session-chip')).toBeInTheDocument();
+    });
+    expect(onStatusFetchError).not.toHaveBeenCalled();
   });
 });
 

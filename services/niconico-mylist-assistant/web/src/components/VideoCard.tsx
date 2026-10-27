@@ -10,6 +10,8 @@ interface VideoCardProps {
   onToggleFavorite?: (videoId: string, isFavorite: boolean) => void;
   onToggleSkip?: (videoId: string, isSkip: boolean) => void;
   onClick?: (videoId: string) => void;
+  /** お気に入り・スキップの更新中は切り替えボタンを押せなくする */
+  disabled?: boolean;
 }
 
 const ERROR_MESSAGES = {
@@ -27,6 +29,7 @@ export default function VideoCard({
   onToggleFavorite,
   onToggleSkip,
   onClick,
+  disabled = false,
 }: VideoCardProps) {
   const isFavorite = video.userSetting?.isFavorite ?? false;
   const isSkip = video.userSetting?.isSkip ?? false;
@@ -120,25 +123,32 @@ export default function VideoCard({
         </Box>
 
         <Box sx={{ display: 'flex', gap: 0.5, mt: 'auto' }}>
+          {/* 無効なボタンは Tooltip が直接の子にできないため span で包む */}
           <Tooltip title={isFavorite ? 'お気に入り解除' : 'お気に入りに追加'}>
-            <IconButton
-              size="small"
-              onClick={handleFavoriteClick}
-              color={isFavorite ? 'error' : 'default'}
-              aria-label={isFavorite ? 'お気に入り解除' : 'お気に入りに追加'}
-            >
-              {isFavorite ? <Favorite /> : <FavoriteBorder />}
-            </IconButton>
+            <span>
+              <IconButton
+                size="small"
+                onClick={handleFavoriteClick}
+                disabled={disabled}
+                color={isFavorite ? 'error' : 'default'}
+                aria-label={isFavorite ? 'お気に入り解除' : 'お気に入りに追加'}
+              >
+                {isFavorite ? <Favorite /> : <FavoriteBorder />}
+              </IconButton>
+            </span>
           </Tooltip>
           <Tooltip title={isSkip ? 'スキップ解除' : 'スキップに設定'}>
-            <IconButton
-              size="small"
-              onClick={handleSkipClick}
-              color={isSkip ? 'warning' : 'default'}
-              aria-label={isSkip ? 'スキップ解除' : 'スキップに設定'}
-            >
-              {isSkip ? <RemoveCircle /> : <RemoveCircleOutlined />}
-            </IconButton>
+            <span>
+              <IconButton
+                size="small"
+                onClick={handleSkipClick}
+                disabled={disabled}
+                color={isSkip ? 'warning' : 'default'}
+                aria-label={isSkip ? 'スキップ解除' : 'スキップに設定'}
+              >
+                {isSkip ? <RemoveCircle /> : <RemoveCircleOutlined />}
+              </IconButton>
+            </span>
           </Tooltip>
         </Box>
       </CardContent>

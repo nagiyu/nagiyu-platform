@@ -31,18 +31,29 @@ const ERROR_MESSAGES = {
 } as const;
 
 /**
+ * ジョブが存在しないことを示すエラー
+ *
+ * 再試行しても回復しないため、一時的な失敗と区別してポーリングを止める。
+ */
+class JobNotFoundError extends Error {
+  constructor() {
+    super(ERROR_MESSAGES.NOT_FOUND);
+    this.name = 'JobNotFoundError';
+  }
+}
+
+/**
  * ジョブステータス表示コンポーネント
  *
  * バッチジョブのステータスをリアルタイムで表示し、進捗を追跡します。
  * - 定期的にポーリングしてステータスを更新
+ * - 一時的な取得失敗ではエラーを表示したままポーリングを続け、次の成功で復帰する
  * - 完了時にコールバックを実行
  * - ステータスに応じたUIを表示
  */
 export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStatusDisplayProps) {
+  // 一度も取得できていない間は状態・日時を持たない (ダミー値を表示しないため)
   const [state, setState] = useState<JobStatusState>({
-    status: 'SUBMITTED',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
     isLoading: true,
   });
 
@@ -103,7 +114,7 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
 
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error(ERROR_MESSAGES.NOT_FOUND);
+          throw new JobNotFoundError();
         }
         throw new Error(ERROR_MESSAGES.FETCH_FAILED);
       }
@@ -149,7 +160,13 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
         isLoading: false,
       }));
 
-      // ポーリングを停止
+      // 一時的な失敗はポーリングを続け、次の取得で復帰できるようにする。
+      // onError を呼ぶと呼び出し元がジョブ終了と誤解するため呼ばない
+      if (!(error instanceof JobNotFoundError)) {
+        return;
+      }
+
+      // 回復しないエラーはポーリングを停止
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
@@ -268,7 +285,9 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
             <Typography variant="h6" component="h2">
               ジョブステータス
             </Typography>
-            <Chip color={getStatusColor(state.status)}>{getStatusLabel(state.status)}</Chip>
+            {state.status && (
+              <Chip color={getStatusColor(state.status)}>{getStatusLabel(state.status)}</Chip>
+            )}
           </Box>
 
           {/* エラー表示 */}
@@ -281,7 +300,11 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
 
           {/* ステータス表示 */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            {state.isLoading ? <CircularProgress size={40} /> : getStatusIcon(state.status)}
+            {state.isLoading ? (
+              <CircularProgress size={40} />
+            ) : (
+              state.status && getStatusIcon(state.status)
+            )}
             <Box sx={{ flexGrow: 1 }}>
               <Typography variant="body1" gutterBottom>
                 ジョブID: {jobId}
@@ -298,9 +321,10 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
           </Box>
 
           {/* プログレスバー（実行中のみ） */}
-          {(state.status === 'SUBMITTED' ||
-            state.status === 'RUNNING' ||
-            state.status === 'WAITING_FOR_2FA') && <LinearProgress />}
+          {state.status &&
+            (state.status === 'SUBMITTED' ||
+              state.status === 'RUNNING' ||
+              state.status === 'WAITING_FOR_2FA') && <LinearProgress />}
 
           {/* 二段階認証コード入力フォーム */}
           {state.status === 'WAITING_FOR_2FA' && (
@@ -371,19 +395,21 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
           )}
 
           {/* タイムスタンプ */}
-          <Box sx={{ pt: 1, borderTop: 1, borderColor: 'divider' }}>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-              作成日時: {new Date(state.createdAt).toLocaleString('ja-JP')}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-              更新日時: {new Date(state.updatedAt).toLocaleString('ja-JP')}
-            </Typography>
-            {state.completedAt && (
+          {state.createdAt && state.updatedAt && (
+            <Box sx={{ pt: 1, borderTop: 1, borderColor: 'divider' }}>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                完了日時: {new Date(state.completedAt).toLocaleString('ja-JP')}
+                作成日時: {new Date(state.createdAt).toLocaleString('ja-JP')}
               </Typography>
-            )}
-          </Box>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                更新日時: {new Date(state.updatedAt).toLocaleString('ja-JP')}
+              </Typography>
+              {state.completedAt && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                  完了日時: {new Date(state.completedAt).toLocaleString('ja-JP')}
+                </Typography>
+              )}
+            </Box>
+          )}
         </Stack>
       </CardContent>
     </Card>

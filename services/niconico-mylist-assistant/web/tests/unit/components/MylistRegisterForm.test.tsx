@@ -58,15 +58,18 @@ jest.mock('@nagiyu/browser', () => ({
   getPushSubscription: jest.fn(),
 }));
 
-// セッション管理は別テストで検証済みのため、登録可能な状態を通知するだけのスタブにする
+// セッション管理は別テストで検証済みのため、登録可能な状態を通知するだけのスタブにする。
+// テストから状態通知を再現できるよう、通知を起こすボタンも置く
 jest.mock('../../../src/components/NiconicoSessionManager', () => {
   const { useEffect } = jest.requireActual('react') as typeof import('react');
   return {
     __esModule: true,
     default: function SessionManagerStub({
       onStatusChange,
+      onStatusFetchError,
     }: {
       onStatusChange?: (s: unknown) => void;
+      onStatusFetchError?: () => void;
     }) {
       useEffect(() => {
         onStatusChange?.({
@@ -76,7 +79,22 @@ jest.mock('../../../src/components/NiconicoSessionManager', () => {
           estimatedExpiresAt: undefined,
         });
       }, [onStatusChange]);
-      return null;
+      return (
+        <>
+          <button type="button" onClick={() => onStatusFetchError?.()}>
+            stub-fetch-error
+          </button>
+          <button
+            type="button"
+            onClick={() => onStatusChange?.({ hasSession: true, validity: 'valid' })}
+          >
+            stub-fetch-success
+          </button>
+          <button type="button" onClick={() => onStatusChange?.({ hasSession: false })}>
+            stub-unregistered
+          </button>
+        </>
+      );
     },
   };
 });
@@ -198,5 +216,41 @@ describe('MylistRegisterForm - Push サブスクリプション', () => {
       endpoint: 'https://push.example/1',
       keys: { p256dh: 'p', auth: 'a' },
     });
+  });
+});
+
+describe('MylistRegisterForm - セッション状態の警告', () => {
+  const FETCH_FAILED_WARNING = ERROR_MESSAGES.NICONICO_SESSION_STATUS_UNAVAILABLE_WARNING;
+
+  it('状態の取得に失敗したときは未登録ではなく取得失敗の警告を出し、登録ボタンを無効にする', async () => {
+    render(<MylistRegisterForm />);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'マイリストに登録' })).not.toBeDisabled()
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'stub-fetch-error' }));
+
+    expect(await screen.findByText(FETCH_FAILED_WARNING)).toBeInTheDocument();
+    expect(screen.queryByText(/ニコニコセッションが未登録です/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'マイリストに登録' })).toBeDisabled();
+  });
+
+  it('取得失敗のあとに再取得が成功したら警告が消え、登録ボタンが有効に戻る', async () => {
+    render(<MylistRegisterForm />);
+    fireEvent.click(screen.getByRole('button', { name: 'stub-fetch-error' }));
+    await screen.findByText(FETCH_FAILED_WARNING);
+
+    fireEvent.click(screen.getByRole('button', { name: 'stub-fetch-success' }));
+
+    await waitFor(() => expect(screen.queryByText(FETCH_FAILED_WARNING)).not.toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'マイリストに登録' })).not.toBeDisabled();
+  });
+
+  it('取得に成功した未登録状態では従来どおり未登録の警告を出す', async () => {
+    render(<MylistRegisterForm />);
+    fireEvent.click(screen.getByRole('button', { name: 'stub-unregistered' }));
+
+    expect(await screen.findByText(/ニコニコセッションが未登録です/)).toBeInTheDocument();
+    expect(screen.queryByText(FETCH_FAILED_WARNING)).not.toBeInTheDocument();
   });
 });
