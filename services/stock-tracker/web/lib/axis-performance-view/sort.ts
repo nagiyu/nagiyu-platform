@@ -1,13 +1,7 @@
 import type { AxisPerformanceAxis } from '../../types/forecast';
 
 export type AxisSortKey =
-  | 'name'
-  | 'kind'
-  | 'count'
-  | 'hitRate'
-  | 'diffFromBaseline'
-  | 'meanExcessReturn'
-  | 'currentWeight';
+  'name' | 'kind' | 'count' | 'hitRate' | 'diffFromBaseline' | 'meanExcessReturn' | 'currentWeight';
 
 export type SortDirection = 'asc' | 'desc';
 

@@ -6,8 +6,7 @@ export const MAX_COUNT_MIN = 1;
 export const MAX_COUNT_MAX = 100;
 
 export type MaxCountValidationResult =
-  | { valid: true; value: number }
-  | { valid: false; message: string };
+  { valid: true; value: number } | { valid: false; message: string };
 
 /**
  * フォームの最大動画数入力（文字列）を検証する。
